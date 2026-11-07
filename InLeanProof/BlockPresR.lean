@@ -7,16 +7,15 @@ public import InLeanProof.StepPres
 import all Lean.Declaration
 
 /-!
-# `BlockPresObl`'s recognised branch (task #451, lane P3r)
+# `BlockPresObl` and the block's step (task #451, lanes P3r and follow-master)
 
-An accepted recognised block (`checkIndDeclC`'s second branch: no pinned
-name, `blockShape? = some p`, `genEntriesAgree` and `checkBlockKS` accepted)
+An accepted block (`checkIndDeclC`: `blockShape? = some p`, `genEntriesAgree`
+and `checkBlockKS` accepted; a pinned basis block takes the same route)
 installs, on con-leche's side, `blockConstants (trShape p)` and
 `blockTables (trShape p)`; InLean adds the generated constants.  This file
 relates the two at every generated constant's name, which is what
-`presI_group` needs (`recognisedBlockPresObl`), and assembles the block's
-step with the pinned branch left as a named hypothesis
-(`indGroupPresBP_of`).
+`presI_group` needs (`blockPresOblP`), and assembles the block's step
+(`indGroupPresBP`).
 
 **The statements are `BlockPresObl`/`IndGroupPresB` with three more
 premises** (findings of this lane, see DESIGN.md "Lane P3r"):
@@ -761,10 +760,9 @@ theorem projStepsAll_of_ok {consts : Array Lean.ConstantInfo}
   · omega
   · exact projStepsOk_mono (by omega) h2
 
-/-- **`BlockPresObl` for one branch** (`pinned`: whether InLean's pinned
-dispatch hits), with the block mark empty, the generated constants seen and
-`ProjStepsAll`. -/
-@[expose] def BlockPresOblB (pinned : Bool) : Prop :=
+/-- **`BlockPresObl`** with the block mark empty, the generated constants seen
+and `ProjStepsAll`. -/
+@[expose] def BlockPresOblP : Prop :=
   EnvLaws → ∀ (fe : InLean.FEnv) (L : ConLeche.Env) (consts : Array Lean.ConstantInfo) (nP : Nat)
     (s s' : InLean.CState) (d : ConLeche.Declaration),
     EnvPresI fe L → fe.pending = [] →
@@ -772,7 +770,6 @@ dispatch hits), with the block mark empty, the generated constants seen and
     (∀ ci ∈ consts.toList, fe.env.find? ci.name = none) → (consts.toList.map (·.name)).Nodup →
     (∀ ci ∈ consts.toList, fe.sees ci.name ci = true) →
     consts.all InLean.constInRange = true → ProjStepsAll consts →
-    (InLean.basisNameHit (InLean.storedBlock consts)).isSome = pinned →
     (InLean.checkIndDeclC .verified fe (InLean.storedBlock consts) nP).run s = .ok ((), s') →
     toDecl (InLean.storedBlock consts) = some d →
     let E' := consts.toList.foldl InLean.addConst fe.env
@@ -813,12 +810,10 @@ finding 1): `toDecl` reads the record's count off the first former, and
 theorem toDecl_recognised {μ : CheckMode} {fe : InLean.FEnv} {block : List Lean.ConstantInfo}
     {nP : Nat} {s s' : InLean.CState} {d : ConLeche.Declaration}
     (hndB : (block.map (·.name)).Nodup) (hR : ∀ ci ∈ block, CIRange ci)
-    (hhit : InLean.basisNameHit block = none)
     (hrun : (InLean.checkIndDeclC μ fe block nP).run s = .ok ((), s'))
     (hd : toDecl block = some d) :
     ∃ cb, toBlock block = some cb ∧ d = .indDecl cb nP := by
-  rcases checkIndDeclC_ok hrun with ⟨kind, hk, -⟩ | ⟨-, -, p, hp, s₁, hgen, hks⟩
-  · rw [hhit] at hk; cases hk
+  obtain ⟨-, p, hp, s₁, hgen, hks⟩ := checkIndDeclC_ok hrun
   obtain ⟨cvT0, tl, cs0, rs0, nI0, hsp', -, -, -, -⟩ := blockShape?_spec hp
   obtain ⟨v0, rest, hblock, -⟩ := blockSplit_head hsp'
   have hd' := hd
@@ -834,22 +829,21 @@ theorem toDecl_recognised {μ : CheckMode} {fe : InLean.FEnv} {block : List Lean
   cases this
   exact ⟨cb, htb, by rw [hnP, C.pnP]⟩
 
-/-- **`BlockPresObl`'s recognised branch.** -/
-theorem blockPresOblB_recognised : BlockPresOblB false := by
-  intro hlaws fe L consts nP s s' d hP hpend hblk hfresh hnd hsees hrange hsteps hhit hrun hd
+/-- **`BlockPresObl`**, for every accepted block (a pinned basis block takes
+the same route). -/
+theorem blockPresOblP : BlockPresOblP := by
+  intro hlaws fe L consts nP s s' d hP hpend hblk hfresh hnd hsees hrange hsteps hrun hd
   intro E' L'
   have hperm := storedBlock_perm hnd hblk
   have hmemB : ∀ ci, ci ∈ storedBlock consts ↔ ci ∈ consts.toList := fun ci => hperm.mem_iff
   have hndB : ((storedBlock consts).map (·.name)).Nodup := (hperm.map _).nodup_iff.2 hnd
-  have hhit' : InLean.basisNameHit (storedBlock consts) = none := by simpa using hhit
-  rcases checkIndDeclC_ok hrun with ⟨kind, hk, -⟩ | ⟨-, -, p, hp, s₁, hgen, hks⟩
-  · rw [hhit'] at hk; cases hk
+  obtain ⟨-, p, hp, s₁, hgen, hks⟩ := checkIndDeclC_ok hrun
   have hR : ∀ ci ∈ storedBlock consts, CIRange ci := by
     intro ci h
     rw [Array.all_eq_true_iff_forall_mem] at hrange
     exact CIRange_of_constInRange (hrange ci (Array.mem_toList_iff.1 ((hmemB ci).1 h)))
   -- the record, at the declaration's parameter count
-  obtain ⟨cb, htb, rfl⟩ := toDecl_recognised hndB hR hhit' hrun hd
+  obtain ⟨cb, htb, rfl⟩ := toDecl_recognised hndB hR hrun hd
   obtain ⟨cvTs, cs, rs, C⟩ := recogCtx_of hndB hR cb htb hp hgen hks
   -- con-leche's install of the record
   have hcb : cb = (storedBlock consts).map trCI := (toBlock_eq htb hR).1
@@ -857,10 +851,10 @@ theorem blockPresOblB_recognised : BlockPresOblB false := by
     rw [hcb, blockShape?_tr nP _ C.okT, hp]; rfl
   have hdc : ConLeche.declConstants (.indDecl cb nP) =
       ConLeche.blockConstants (trShape p) := by
-    simp only [ConLeche.declConstants, basisNameHit_toBlock htb, hhit', Option.map_none, hsh]
+    simp only [ConLeche.declConstants, hsh]
   have hdt : ConLeche.declTables (.indDecl cb nP) =
       ConLeche.blockTables (trShape p) (trShape p).members := by
-    simp only [ConLeche.declTables, basisNameHit_toBlock htb, hhit', Option.map_none, hsh]
+    simp only [ConLeche.declTables, hsh]
   simp only [L', hdc, hdt]
   -- InLean's lookups after the group
   have hfind : ∀ ci ∈ storedBlock consts,
@@ -929,17 +923,12 @@ theorem blockPresOblB_recognised : BlockPresOblB false := by
     obtain ⟨cci, hcf, -⟩ := hEntry ci hci
     rw [hn, hcf]; rfl
 
-/-- **An inductive block keeps the relation**, the pinned branch left as a
-named hypothesis (`BlockPresOblB true`; task #493 removes that branch). -/
-theorem indGroupPresBP_of (hPin : BlockPresOblB true) : IndGroupPresBP := by
+/-- **An inductive block keeps the relation** (`IndGroupPresB` with the block
+mark empty and InLean's `projStepsAllOk`). -/
+theorem indGroupPresBP : IndGroupPresBP := by
   intro hlaws fe L consts nP s s' d hP hpend hblk hfresh hnd hsees hrange hsteps hrun hd
-  have hb : ∀ b, (InLean.basisNameHit (storedBlock consts)).isSome = b → BlockPresOblB b →
-      _ := fun b hb h => h hlaws fe L consts nP s s' d hP hpend hblk hfresh hnd hsees hrange
-        (projStepsAll_of_ok hsteps) hb hrun hd
-  obtain ⟨h1, h2, h3, h4, h5⟩ := by
-    cases hk : (InLean.basisNameHit (storedBlock consts)).isSome
-    · exact hb false hk blockPresOblB_recognised
-    · exact hb true hk hPin
+  obtain ⟨h1, h2, h3, h4, h5⟩ := blockPresOblP hlaws fe L consts nP s s' d hP hpend hblk hfresh
+    hnd hsees hrange (projStepsAll_of_ok hsteps) hrun hd
   rw [← Array.foldl_toList]
   exact presI_group hlaws hP hfresh hnd hsees h1 h2 h3 h4 h5
 

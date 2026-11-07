@@ -9,16 +9,17 @@ import all Lean.Level
 import all InLean.Push
 
 /-!
-# O7: a pinned basis block against master's (task #451, lane O7)
+# The reserved names' check against master's (task #451, lanes O7 and follow-master)
 
-`basisBlockSimI : BasisBlockSimI`.  A block at a pinned block's names
-(`basisNameHit`) is compared with the pin (`pinListOk`) and its constants are
-added if fresh.
+A pinned basis block is generated and checked like any other block; the
+reserved names' check after the declaration's own checks
+(`InLean.basisNamesOk`, twin of `ConLeche.basisNamesOk`) compares a block at a
+pinned block's names (`basisNameHit`) with the pin (`pinListOk`) and keeps
+every other declaration off the reserved names.
 
 * The pins: InLean's (`InLean/Inductives/Basis.lean`, Lean entries) translate
-  to master's (`ConLeche/Kernel/Basis/*`) up to an inductive's capabilities,
-  which master's `pinAgrees` does not read (`pins_tr`, by evaluation), and
-  their terms have closed readings (`pins_ok`).
+  to master's (`ConLeche/Kernel/Basis/*`) exactly (`pins_tr`, by evaluation),
+  and their terms have closed readings (`pins_ok`).
 * `pinCopyOk_tr`: InLean's comparison (`pinAgrees` up to `mdata` and binder
   data, at `ciAtLps`) implies master's on the translation: `Expr.clEq` gives
   equal readings (`toExpr_of_clEq`), level instantiation reads as master's
@@ -26,9 +27,9 @@ added if fresh.
   record has a reading).
 * `blockLinksOk_tr`: the links (`pinLinkOk` through
   `Level.instantiateParams` at a parameter, master's `Level.subst`).
-* The fold: InLean's freshness checks against its growing environment give
-  distinct names, fresh in `fe` (`EnvLaws`), hence in `L` (`EnvPresI.none`);
-  master's `installBasisDecl` fold then succeeds.
+* `basisNamesOk_ind_tr`: an inductive declaration's check, on the generated
+  block's record; `basisNamesOk_toDecl`: a one-constant record's;
+  `checkDecl_of_kind`: master's step from its kind's checks and the names'.
 -/
 
 public section
@@ -39,13 +40,8 @@ open Lean InLean
 
 /-! ## The pins -/
 
-/-- Master's constant with an inductive's capabilities dropped. -/
-@[expose] def capsFree : ConLeche.ConstantInfo → ConLeche.ConstantInfo
-  | .indInfo cv _ => .indInfo cv {}
-  | c => c
-
-/-- **InLean's pins translate to master's**, up to capabilities. -/
-theorem pins_tr (k : InLean.BasisKind) : k.decls.map trCI = (trKind k).decls.map capsFree := by
+/-- **InLean's pins translate to master's.** -/
+theorem pins_tr (k : InLean.BasisKind) : k.decls.map trCI = (trKind k).decls := by
   cases k <;> decide
 
 /-- A pin's terms have closed readings (Boolean, for evaluation). -/
@@ -134,10 +130,6 @@ theorem trC_of_clEq_inst {a e : Lean.Expr} (ha : okC a = true) (he : okC e = tru
 
 /-! ## One constant against its pin -/
 
-theorem pinAgrees_capsFree (x P : ConLeche.ConstantInfo) (qs : List ConLeche.Name) :
-    ConLeche.pinAgrees x (P.atLps qs) = ConLeche.pinAgrees x ((capsFree P).atLps qs) := by
-  cases P <;> cases x <;> rfl
-
 theorem beqP_of_eq {a b : ConLeche.ConstantVal} (h : a = b) : a.beqP b = true := by
   subst h; simp [ConLeche.ConstantVal.beqP]
 
@@ -150,7 +142,7 @@ theorem pinAgrees_tr {ci pin : Lean.ConstantInfo} (hci : CIOk ci) (hpin : CIOk p
     cases pin with
     | inductInfo vp =>
       simp only [ciAtLps, InLean.pinAgrees, Bool.and_eq_true, beq_iff_eq] at h
-      obtain ⟨⟨⟨⟨⟨⟨hn, ht⟩, -⟩, -⟩, -⟩, -⟩, -⟩ := h
+      obtain ⟨hn, ht⟩ := h
       simp only [trCI, ConLeche.pinAgrees, ConLeche.ConstantInfo.atLps,
         ConLeche.ConstantVal.atLps]
       apply beqP_of_eq
@@ -162,7 +154,7 @@ theorem pinAgrees_tr {ci pin : Lean.ConstantInfo} (hci : CIOk ci) (hpin : CIOk p
     cases pin with
     | ctorInfo vp =>
       simp only [ciAtLps, InLean.pinAgrees, Bool.and_eq_true, beq_iff_eq] at h
-      obtain ⟨⟨⟨⟨hn, ht⟩, -⟩, hp⟩, hf⟩ := h
+      obtain ⟨⟨⟨hn, ht⟩, hp⟩, hf⟩ := h
       simp only [trCI, ConLeche.pinAgrees, ConLeche.ConstantInfo.atLps,
         ConLeche.ConstantVal.atLps, ConLeche.ConstantInfo.beqP, Bool.and_eq_true, beq_iff_eq]
       refine ⟨⟨beqP_of_eq ?_, hp⟩, hf⟩
@@ -175,7 +167,7 @@ theorem pinAgrees_tr {ci pin : Lean.ConstantInfo} (hci : CIOk ci) (hpin : CIOk p
       obtain ⟨hct, hcr⟩ := hci
       obtain ⟨hpt, hpr⟩ := hpin
       simp only [ciAtLps, InLean.pinAgrees, Bool.and_eq_true, beq_iff_eq, List.all_eq_true] at h
-      obtain ⟨⟨⟨⟨⟨⟨⟨hn, ht⟩, -⟩, hmI⟩, hrP⟩, hk⟩, hlen⟩, hrules⟩ := h
+      obtain ⟨⟨⟨⟨⟨⟨hn, ht⟩, hmI⟩, hrP⟩, hk⟩, hlen⟩, hrules⟩ := h
       simp only [trCI, ConLeche.pinAgrees, ConLeche.ConstantInfo.atLps,
         ConLeche.ConstantVal.atLps, ConLeche.ConstantInfo.beqP, Bool.and_eq_true, beq_iff_eq]
       refine ⟨⟨⟨⟨beqP_of_eq ?_, hmI⟩, hrP⟩, hk⟩, ?_⟩
@@ -213,48 +205,35 @@ theorem trCI_levelParams (ci : Lean.ConstantInfo) :
     (trCI ci).toConstantVal.levelParams = ci.levelParams.map toName := by
   cases ci <;> rfl
 
-theorem capsFree_toConstantVal (P : ConLeche.ConstantInfo) :
-    (capsFree P).toConstantVal = P.toConstantVal := by
-  cases P <;> rfl
-
-theorem capsFree_name (P : ConLeche.ConstantInfo) : (capsFree P).name = P.name := by
-  cases P <;> rfl
-
 theorem nodup_tr : ∀ (l : List Lean.Name), ConLeche.Name.nodup (l.map toName) = InLean.namesNodup l
   | [] => rfl
   | n :: l => by
     simp only [List.map_cons, ConLeche.Name.nodup, InLean.namesNodup, contains_map_toName, nodup_tr l]
 
 /-- **One constant against its pin**, master's at the translation. -/
-theorem pinCopyOk_tr {ci pin : Lean.ConstantInfo} {P : ConLeche.ConstantInfo}
-    (hci : CIOk ci) (hpin : CIOk pin) (hP : capsFree P = trCI pin)
-    (h : InLean.pinCopyOk ci pin = true) : ConLeche.pinCopyOk (trCI ci) P = true := by
+theorem pinCopyOk_tr {ci pin : Lean.ConstantInfo}
+    (hci : CIOk ci) (hpin : CIOk pin)
+    (h : InLean.pinCopyOk ci pin = true) : ConLeche.pinCopyOk (trCI ci) (trCI pin) = true := by
   simp only [InLean.pinCopyOk, Bool.and_eq_true, beq_iff_eq] at h
   obtain ⟨⟨hnd, hlen⟩, hag⟩ := h
-  have hPl : P.toConstantVal.levelParams = pin.levelParams.map toName := by
-    rw [← capsFree_toConstantVal, hP, trCI_levelParams]
-  simp only [ConLeche.pinCopyOk, trCI_levelParams, nodup_tr, hnd, hPl, List.length_map, hlen,
+  simp only [ConLeche.pinCopyOk, trCI_levelParams, nodup_tr, hnd, List.length_map, hlen,
     beq_self_eq_true, Bool.true_and]
-  rw [pinAgrees_capsFree, hP]
   exact pinAgrees_tr hci hpin hag
 
 /-- The lists, pairwise. -/
-theorem listBeqBy_tr : ∀ {block pins : List Lean.ConstantInfo} {Ps : List ConLeche.ConstantInfo},
-    Ps.map capsFree = pins.map trCI → (∀ ci ∈ block, CIOk ci) → (∀ p ∈ pins, CIOk p) →
+theorem listBeqBy_tr : ∀ {block pins : List Lean.ConstantInfo},
+    (∀ ci ∈ block, CIOk ci) → (∀ p ∈ pins, CIOk p) →
     InLean.listBeqBy InLean.pinCopyOk block pins = true →
-    ConLeche.listBeqBy ConLeche.pinCopyOk (block.map trCI) Ps = true
-  | [], [], [], _, _, _, _ => rfl
-  | c :: cs, p :: ps, P :: Ps, hPs, hb, hp, h => by
-    simp only [List.map_cons, List.cons.injEq] at hPs
+    ConLeche.listBeqBy ConLeche.pinCopyOk (block.map trCI) (pins.map trCI) = true
+  | [], [], _, _, _ => rfl
+  | c :: cs, p :: ps, hb, hp, h => by
     simp only [InLean.listBeqBy, Bool.and_eq_true] at h
     simp only [List.map_cons, ConLeche.listBeqBy, Bool.and_eq_true]
-    exact ⟨pinCopyOk_tr (hb c List.mem_cons_self) (hp p List.mem_cons_self) hPs.1 h.1,
-      listBeqBy_tr hPs.2 (fun x hx => hb x (List.mem_cons_of_mem _ hx))
+    exact ⟨pinCopyOk_tr (hb c List.mem_cons_self) (hp p List.mem_cons_self) h.1,
+      listBeqBy_tr (fun x hx => hb x (List.mem_cons_of_mem _ hx))
         (fun x hx => hp x (List.mem_cons_of_mem _ hx)) h.2⟩
-  | [], [], _ :: _, hPs, _, _, _ => by simp at hPs
-  | [], _ :: _, _, _, _, _, h => by simp [InLean.listBeqBy] at h
-  | _ :: _, [], _, _, _, _, h => by simp [InLean.listBeqBy] at h
-  | _ :: _, _ :: _, [], hPs, _, _, _ => by simp at hPs
+  | [], _ :: _, _, _, h => by simp [InLean.listBeqBy] at h
+  | _ :: _, [], _, _, h => by simp [InLean.listBeqBy] at h
 
 /-! ## The links -/
 
@@ -307,29 +286,9 @@ theorem constNamed?_tr (n : Lean.Name) (l : List Lean.ConstantInfo) :
   funext c
   simp only [Function.comp_apply, trCI_name, toName_beq]
 
-theorem constNamed?_caps (n : Lean.Name) : ∀ (Ps : List ConLeche.ConstantInfo) (l : List Lean.ConstantInfo),
-    Ps.map capsFree = l.map trCI →
-    (ConLeche.constNamed? Ps (toName n)).map capsFree = (InLean.constNamed? l n).map trCI
-  | [], [], _ => rfl
-  | P :: Ps, c :: l, h => by
-    simp only [List.map_cons, List.cons.injEq] at h
-    have hn : P.name = toName c.name := by rw [← capsFree_name, h.1, trCI_name]
-    simp only [ConLeche.constNamed?, InLean.constNamed?, List.find?_cons, hn, toName_beq]
-    split
-    · simp [h.1]
-    · exact constNamed?_caps n Ps l h.2
-  | [], _ :: _, h | _ :: _, [], h => by simp at h
-
-theorem levelParams_capsFree_some {o : Option ConLeche.ConstantInfo} {o' : Option Lean.ConstantInfo}
-    (h : o.map capsFree = o'.map trCI) :
-    o.map (·.toConstantVal.levelParams) = o'.map (fun c => c.levelParams.map toName) := by
-  cases o <;> cases o' <;> simp_all
-  rename_i P c
-  rw [← capsFree_toConstantVal, h, trCI_levelParams]
-
 /-- **The links**, master's at the translation. -/
 theorem blockLinksOk_tr {block pins : List Lean.ConstantInfo} {Ps : List ConLeche.ConstantInfo}
-    (hPs : Ps.map capsFree = pins.map trCI) (h : InLean.blockLinksOk block pins = true) :
+    (hPs : Ps = pins.map trCI) (h : InLean.blockLinksOk block pins = true) :
     ConLeche.blockLinksOk (block.map trCI) Ps = true := by
   unfold InLean.blockLinksOk at h
   unfold ConLeche.blockLinksOk
@@ -340,7 +299,7 @@ theorem blockLinksOk_tr {block pins : List Lean.ConstantInfo} {Ps : List ConLech
   generalize (block.head?.map (·.levelParams)).getD [] = F at h ⊢
   -- pairwise, keeping the whole lists for `constNamed?`
   have key : ∀ (bs : List Lean.ConstantInfo) (qs : List Lean.ConstantInfo)
-      (Qs : List ConLeche.ConstantInfo), Qs.map capsFree = qs.map trCI →
+      (Qs : List ConLeche.ConstantInfo), Qs = qs.map trCI →
       ((bs.zip qs).all fun (cp : Lean.ConstantInfo × Lean.ConstantInfo) =>
         match cp.1, cp.2 with
         | .ctorInfo v, _ => v.levelParams == F
@@ -390,19 +349,18 @@ theorem blockLinksOk_tr {block pins : List Lean.ConstantInfo} {Ps : List ConLech
             cases q with
             | recInfo vp =>
               have hQ' : Q = .recInfo (trCV vp.toConstantVal) (majorIdxOf vp) (rulePrefixOf vp) vp.k
-                  (vp.rules.map trRule) := by
-                have hq1 := hQ.1
-                cases Q with
-                | recInfo cv mI rP k rules => exact hq1
-                | indInfo _ _ => simp [capsFree, trCI] at hq1
-                | _ => simp [capsFree, trCI] at hq1
+                  (vp.rules.map trRule) := hQ.1
               subst hQ'
               simp only [trCI, List.all_map, List.all_eq_true, Function.comp_apply] at h1 ⊢
               intro rl hrl
               have h2 := h1 rl hrl
               simp only [trRule]
               rw [constNamed?_tr]
-              have hc := levelParams_capsFree_some (constNamed?_caps rl.ctor Ps pins hPs)
+              have hc : (ConLeche.constNamed? Ps (toName rl.ctor)).map
+                  (·.toConstantVal.levelParams) =
+                  (InLean.constNamed? pins rl.ctor).map (fun c => c.levelParams.map toName) := by
+                rw [hPs, constNamed?_tr]
+                cases InLean.constNamed? pins rl.ctor <;> simp [trCI_levelParams]
               generalize InLean.constNamed? block rl.ctor = A at h2 ⊢
               generalize InLean.constNamed? pins rl.ctor = B at h2 hc
               generalize ConLeche.constNamed? Ps (toName rl.ctor) = Cc at hc ⊢
@@ -421,59 +379,17 @@ theorem blockLinksOk_tr {block pins : List Lean.ConstantInfo} {Ps : List ConLech
             | _ =>
               have hq1 := hQ.1
               cases Q with
-              | recInfo cv mI rP k rules => simp [capsFree, trCI] at hq1
+              | recInfo cv mI rP k rules => simp [trCI] at hq1
               | _ => rfl
           | _ => cases Q <;> rfl
   exact key block pins Ps hPs h
 
-/-! ## The fold -/
+/-! ## Lookups -/
 
 /-- A name the environment does not hold, no check sees. -/
 theorem FEnv_find_none {fe : InLean.FEnv} {n : Lean.Name} (h : fe.env.find? n = none) :
     fe.find? n = none := by
   simp only [FEnv.find?_eq_filter, h, Option.filter_none]
-
-/-- **InLean's freshness fold**: its names are distinct and fresh in the
-starting environment. -/
-theorem basisFold_fresh (hlaws : EnvLaws) :
-    ∀ (cs : List Lean.ConstantInfo) (fe fe' : InLean.FEnv) (s s' : InLean.CState),
-      cs.foldlM (m := InLean.CheckCM) (fun (fe : InLean.FEnv) ci => do
-        unless (fe.env.find? ci.name).isNone do
-          throw (InLean.CheckError.invalid s!"duplicate declaration {ci.name}")
-        pure (fe.push ci)) fe s = .ok (fe', s') →
-      (cs.map (·.name)).Nodup ∧ ∀ c ∈ cs, fe.env.find? c.name = none
-  | [], _, _, _, _, _ => by simp
-  | c :: cs, fe, fe', s, s', h => by
-    rw [List.foldlM_cons] at h
-    obtain ⟨fe₁, s₁, h1, h2⟩ := bindI_ok h
-    have hc : fe.env.find? c.name = none := by
-      cases hf : fe.env.find? c.name with
-      | none => rfl
-      | some x =>
-        simp only [hf, Option.isNone_some, Bool.false_eq_true, ↓reduceIte] at h1
-        obtain ⟨_, _, h3, _⟩ := bindI_ok h1
-        exact (throwI_ok h3).elim
-    simp only [hc, Option.isNone_none, ↓reduceIte] at h1
-    obtain ⟨rfl, rfl⟩ := pureI_ok h1
-    obtain ⟨hnd, hfr⟩ := basisFold_fresh hlaws cs _ fe' _ s' h2
-    have hpush : ∀ x ∈ cs, x.name ≠ c.name ∧ fe.env.find? x.name = none := by
-      intro x hx
-      have := hfr x hx
-      simp only [InLean.FEnv.push] at this
-      rw [find_addConst hlaws hc] at this
-      by_cases he : x.name = c.name
-      · simp [he] at this
-      · simp only [he, ↓reduceIte] at this
-        exact ⟨he, this⟩
-    refine ⟨?_, ?_⟩
-    · simp only [List.map_cons, List.nodup_cons]
-      refine ⟨fun hm => ?_, hnd⟩
-      obtain ⟨x, hx, he⟩ := List.mem_map.1 hm
-      exact (hpush x hx).1 he
-    · intro x hx
-      rcases List.mem_cons.1 hx with rfl | hx
-      · exact hc
-      · exact (hpush x hx).2
 
 theorem env_find_cons (env : ConLeche.Env) (d : ConLeche.ConstantInfo) (n : ConLeche.Name) :
     (⟨d :: env.consts, env.tables⟩ : ConLeche.Env).find? n =
@@ -484,89 +400,53 @@ theorem env_find_cons (env : ConLeche.Env) (d : ConLeche.ConstantInfo) (n : ConL
   · have : (d.name == n) = false := by simpa using h
     simp [this, h]
 
-/-- **Master's install fold succeeds** on distinct names fresh in `L`. -/
-theorem installFold_ok : ∀ (ds : List ConLeche.ConstantInfo) (env : ConLeche.Env),
-    (ds.map (·.name)).Nodup → (∀ d ∈ ds, env.find? d.name = none) →
-    ∃ env', (ds.foldlM ConLeche.installBasisDecl env : ConLeche.CheckM ConLeche.Env) = .ok env'
-  | [], env, _, _ => ⟨env, rfl⟩
-  | d :: ds, env, hnd, hfr => by
-    simp only [List.map_cons, List.nodup_cons] at hnd
-    have hd := hfr d List.mem_cons_self
-    obtain ⟨env', h⟩ := installFold_ok ds ⟨d :: env.consts, env.tables⟩ hnd.2 (by
-      intro x hx
-      rw [env_find_cons]
-      have hne : d.name ≠ x.name := fun he => hnd.1 (he ▸ List.mem_map_of_mem hx)
-      simp only [hne, ↓reduceIte]
-      exact hfr x (List.mem_cons_of_mem _ hx))
-    refine ⟨env', ?_⟩
-    rw [List.foldlM_cons]
-    simp only [ConLeche.installBasisDecl, hd, Option.isNone_none, ↓reduceIte]
+/-! ## The reserved names' check -/
+
+/-- **The block's comparison with its pin**, master's at the translation. -/
+theorem pinListOk_tr {block : List Lean.ConstantInfo} {kind : InLean.BasisKind}
+    (hok : ∀ ci ∈ block, CIOk ci) (h : InLean.pinListOk block kind.decls = true) :
+    ConLeche.pinListOk (block.map trCI) (trKind kind).decls = true := by
+  simp only [InLean.pinListOk, Bool.and_eq_true] at h
+  simp only [ConLeche.pinListOk, Bool.and_eq_true]
+  rw [← pins_tr kind]
+  exact ⟨listBeqBy_tr hok (pins_ok kind) h.1, blockLinksOk_tr rfl h.2⟩
+
+/-- **An inductive declaration's reserved names**: InLean's check on the
+generated block is master's on its record, at any parameter count. -/
+theorem basisNamesOk_ind_tr {lps : List Name} {nP : Nat} {types : List InductiveType}
+    {isUnsafe : Bool} {a : InLean.Added} {cb : List ConLeche.ConstantInfo} {n : Nat}
+    (hb : toBlock (storedBlock a.consts) = some cb)
+    (hr : ∀ ci ∈ storedBlock a.consts, CIRange ci)
+    (h : InLean.basisNamesOk (.inductDecl lps nP types isUnsafe) a = true) :
+    ConLeche.basisNamesOk (.indDecl cb n) = true := by
+  have hok := toBlock_CIOk hb hr
+  obtain ⟨rfl, -⟩ := toBlock_eq hb hr
+  simp only [InLean.basisNamesOk] at h
+  simp only [ConLeche.basisNamesOk, basisNameHit_tr]
+  cases hk : InLean.basisNameHit (storedBlock a.consts) with
+  | some kind =>
+    rw [hk] at h
+    simp only [Bool.and_eq_true] at h
+    exact pinListOk_tr hok h.2
+  | none =>
+    rw [hk] at h
+    simp only [Option.map_none, List.all_map, Function.comp_def, trCI_name, reserved_tr]
     exact h
 
-theorem atLps_name (P : ConLeche.ConstantInfo) (ps : List ConLeche.Name) :
-    (P.atLps ps).name = P.name := by
-  cases P <;> rfl
-
-theorem atBlock_names {kind : ConLeche.BasisKind} {block : List ConLeche.ConstantInfo}
-    (h : kind.decls.length = block.length) :
-    (kind.atBlock block).map (·.name) = kind.decls.map (·.name) := by
-  unfold ConLeche.BasisKind.atBlock
-  generalize kind.decls = ds at h ⊢
-  induction ds generalizing block with
-  | nil => rfl
-  | cons d ds ih =>
-    cases block with
-    | nil => simp at h
-    | cons b bs =>
-      simp only [List.zipWith_cons_cons, List.map_cons, atLps_name, List.cons.injEq, true_and]
-      exact ih (by simpa using h)
-
-/-- **`BasisBlockSimI` discharged.** -/
-theorem basisBlockSimI : BasisBlockSimI := by
-  intro fe L kind block s₀ s' hJ hok hkind hbn h
-  have hnames : kind.decls.map (·.name) = block.map (·.name) := by
-    unfold InLean.basisNameHit at hbn
-    have := List.find?_some hbn
-    simpa using this
-  unfold InLean.checkBasisBlockC at h
-  by_cases hp : InLean.pinListOk block kind.decls = true
-  · simp only [hp, ↓reduceIte] at h
-    obtain ⟨fe', s₁, h1, -⟩ := bindI_ok h
-    obtain ⟨hnd, hfr⟩ := basisFold_fresh hJ.laws block fe fe' s₀ s₁ h1
-    have hPs := pins_tr kind
-    have hp' : ConLeche.pinListOk (block.map trCI) (trKind kind).decls = true := by
-      simp only [InLean.pinListOk, Bool.and_eq_true] at hp
-      simp only [ConLeche.pinListOk, Bool.and_eq_true]
-      exact ⟨listBeqBy_tr hPs.symm hok (pins_ok kind) hp.1, blockLinksOk_tr hPs.symm hp.2⟩
-    have hlen : (trKind kind).decls.length = (block.map trCI).length := by
-      have := congrArg List.length hnames
-      have h2 := congrArg List.length (decls_names_tr kind)
-      simp only [List.length_map] at this h2 ⊢
-      omega
-    have hdn : ((trKind kind).atBlock (block.map trCI)).map (·.name) =
-        (block.map (·.name)).map toName := by
-      rw [atBlock_names hlen, decls_names_tr, hnames]
-    obtain ⟨L', hL'⟩ := installFold_ok ((trKind kind).atBlock (block.map trCI)) L
-      (by rw [hdn]; exact List.Pairwise.map toName (fun _ _ hab he => hab (toName_inj he)) hnd)
-      (by
-        intro d hd
-        have hm : d.name ∈ (block.map (·.name)).map toName := hdn ▸ List.mem_map_of_mem hd
-        obtain ⟨n, hn, he⟩ := List.mem_map.1 hm
-        obtain ⟨c, hc, rfl⟩ := List.mem_map.1 hn
-        rw [← he]
-        exact hJ.pres.none _ (FEnv_find_none (hfr c hc)))
-    refine ⟨L', ?_⟩
-    simp only [ConLeche.checkBasisBlock, hp', ↓reduceIte]
-    exact hL'
-  · simp only [Bool.not_eq_true] at hp
-    simp only [hp, Bool.false_eq_true, ↓reduceIte] at h
-    obtain ⟨_, _, h1, _⟩ := bindI_ok h
-    exact (throwI_ok h1).elim
+/-- **Master's step from its two parts**: the kind's checks, then the
+reserved names'. -/
+theorem checkDecl_of_kind {pins : List ConLeche.NatOpPinSet} {F : Nat} {L L' : ConLeche.Env}
+    {d : ConLeche.Declaration}
+    (h : ConLeche.checkDeclKind (ConLeche.fueledOps .verified F) pins L d = .ok L')
+    (hn : ConLeche.basisNamesOk d = true) :
+    ConLeche.checkDecl .verified (ConLeche.fueledOps .verified F) pins L d = .ok L' := by
+  simp only [ConLeche.checkDecl, h, hn]
+  rfl
 
 variable {pins : List ConLeche.NatOpPinSet}
 
-/-- **O7's top with the pinned blocks and the reduct discharged**: what remains
-is the former's constant check (O6's guards) and the pass and the tail. -/
+/-- **O7's top with the reduct discharged**: what remains is the former's
+constant check (O6's guards) and the pass and the tail. -/
 theorem checkIndDeclC_sim_rest (hC : CheckConstantValFSimI)
     {R : InLean.CState → InLean.BlockPass → ConLeche.BlockPass ConLeche.Env → Prop}
     (hP : PassSimI R) (hT : TailSimI R)
@@ -576,8 +456,8 @@ theorem checkIndDeclC_sim_rest (hC : CheckConstantValFSimI)
     {s₀ s' : InLean.CState} (hs : CSOKIF s₀) (hr : ∀ ci ∈ block, CIRange ci)
     (hb : toBlock block = some cb)
     (h : InLean.checkIndDeclC .verified fe block nP s₀ = .ok ((), s')) :
-    CSOKIF s' ∧ ∃ F L', ConLeche.checkDecl .verified (ConLeche.fueledOps .verified F) pins L
+    CSOKIF s' ∧ ∃ F L', ConLeche.checkDeclKind (ConLeche.fueledOps .verified F) pins L
       (.indDecl cb nP) = .ok L' :=
-  checkIndDeclC_sim_stages basisBlockSimI hC reducedFormerSimI hP hT hJ hso hs hr hb h
+  checkIndDeclC_sim_stages hC reducedFormerSimI hP hT hJ hso hs hr hb h
 
 end InLeanProof

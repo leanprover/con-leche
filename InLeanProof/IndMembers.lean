@@ -222,12 +222,12 @@ theorem passTailSimI_of {R : InLean.CState → InLean.BlockPass → ConLeche.Blo
 
 variable {pins : List ConLeche.NatOpPinSet}
 
-/-- **InLean's inductive declaration simulates master's pure declaration step**
-on the translated block, from the remaining named stages: the pinned block
-(`BasisBlockSimI`), the former's constant check (`CheckConstantValFSimI`), its
-reduct (`ReducedFormerSimI`), the pass and the tail at a relation of the
-prover's choice (`PassSimI R`, `TailSimI R`). -/
-theorem checkIndDeclC_sim_stages (hB : BasisBlockSimI) (hC : CheckConstantValFSimI)
+/-- **InLean's inductive declaration simulates master's pure declaration kind
+check** on the translated block, from the remaining named stages: the
+former's constant check (`CheckConstantValFSimI`), its reduct
+(`ReducedFormerSimI`), the pass and the tail at a relation of the prover's
+choice (`PassSimI R`, `TailSimI R`). -/
+theorem checkIndDeclC_sim_stages (hC : CheckConstantValFSimI)
     (hRF : ReducedFormerSimI)
     {R : InLean.CState → InLean.BlockPass → ConLeche.BlockPass ConLeche.Env → Prop}
     (hP : PassSimI R) (hT : TailSimI R)
@@ -237,8 +237,8 @@ theorem checkIndDeclC_sim_stages (hB : BasisBlockSimI) (hC : CheckConstantValFSi
     {s₀ s' : InLean.CState} (hs : CSOKIF s₀) (hr : ∀ ci ∈ block, CIRange ci)
     (hb : toBlock block = some cb)
     (h : InLean.checkIndDeclC .verified fe block nP s₀ = .ok ((), s')) :
-    CSOKIF s' ∧ ∃ F L', ConLeche.checkDecl .verified (ConLeche.fueledOps .verified F) pins L
+    CSOKIF s' ∧ ∃ F L', ConLeche.checkDeclKind (ConLeche.fueledOps .verified F) pins L
       (.indDecl cb nP) = .ok L' :=
-  checkIndDeclC_sim hB (blockKSSimI_of_stages hC hRF (passTailSimI_of hP hT)) hJ hso hs hr hb h
+  checkIndDeclC_sim (blockKSSimI_of_stages hC hRF (passTailSimI_of hP hT)) hJ hso hs hr hb h
 
 end InLeanProof

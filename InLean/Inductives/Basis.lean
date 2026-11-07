@@ -7,15 +7,17 @@ public import InLean.Pins
 # InLean's inductive check: the pinned basis blocks and `And`
 
 Twin of `ConLeche.Kernel.Basis` (with the pins of `ConLeche.Kernel.Basis.Eq`,
-`.Nat`, `.Empty`, `.False` and `.And`): a block at the basis names is the pin, up to its level
-parameters' names.  The pins are Lean entries, and a block is compared with one
-by `pinCopyOk`: names, level-parameter count, type and rules up to `mdata`
-and binder names and infos (con-leche's terms carry neither), and the fields
-InLean reads at use (`InLean.FEnv`: an inductive's parameter and index
-counts, `all`, constructors and `isRec`; a constructor's type former and
-counts; a recursor's `all`, major index, rule prefix, K flag and rules).
-con-leche installs the pin and ignores the record's capabilities; InLean
-installs the block, so those fields are part of the pin.
+`.Nat`, `.Empty`, `.False` and `.And`).  A pinned block is generated and
+checked like any other block; the reserved names' check after it
+(`InLean.basisNamesOk`) compares it with the pin, up to its level parameters'
+names.  The pins are Lean entries, and a block is compared with one by
+`pinCopyOk`: names, level-parameter count, type and rules up to `mdata` and
+binder names and infos (con-leche's terms carry neither), and what
+con-leche's records carry besides (a constructor's counts; a recursor's
+major index, rule prefix, K flag and rules' constructors and field counts).
+An inductive's other fields are the block's (`InLean.genEntriesAgree`
+checks them against its shape), as con-leche's capabilities are its
+install's.
 -/
 
 @[expose] public section
@@ -205,17 +207,15 @@ def ciAtLps (ci : ConstantInfo) (ps : List Name) : ConstantInfo :=
   | ci => ci
 
 /-- Twin of `pinAgrees`: names and types (up to `mdata` and binder names and
-infos), and the fields InLean reads at use. -/
+infos), and the counts con-leche's records carry; an inductive has no
+capabilities to compare. -/
 def pinAgrees : ConstantInfo → ConstantInfo → Bool
-  | .inductInfo v, .inductInfo v' =>
-    v.name == v'.name && Expr.clEq v.type v'.type && v.numParams == v'.numParams &&
-      v.numIndices == v'.numIndices && v.all == v'.all && v.ctors == v'.ctors &&
-      v.isRec == v'.isRec
+  | .inductInfo v, .inductInfo v' => v.name == v'.name && Expr.clEq v.type v'.type
   | .ctorInfo v, .ctorInfo v' =>
-    v.name == v'.name && Expr.clEq v.type v'.type && v.induct == v'.induct &&
+    v.name == v'.name && Expr.clEq v.type v'.type &&
       v.numParams == v'.numParams && v.numFields == v'.numFields
   | .recInfo v, .recInfo v' =>
-    v.name == v'.name && Expr.clEq v.type v'.type && v.all == v'.all &&
+    v.name == v'.name && Expr.clEq v.type v'.type &&
       majorIdxOf v == majorIdxOf v' && rulePrefixOf v == rulePrefixOf v' && v.k == v'.k &&
       v.rules.length == v'.rules.length &&
       (v.rules.zip v'.rules).all fun (r, r') =>

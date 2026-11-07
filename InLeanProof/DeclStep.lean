@@ -78,10 +78,6 @@ theorem checkConstantValC_sim {fe : InLean.FEnv} {L : ConLeche.Env} (hJ : JobEnv
   try dsimp only at h
   split at h
   · exact (throw_bindI_ok h).elim
-  rename_i h2
-  try dsimp only at h
-  split at h
-  · exact (throw_bindI_ok h).elim
   rename_i h3
   try dsimp only at h
   split at h
@@ -112,16 +108,14 @@ theorem checkConstantValC_sim {fe : InLean.FEnv} {L : ConLeche.Env} (hJ : JobEnv
   -- master's guards, read off InLean's
   have g1 : (L.find? (toName n)).isSome = false := by
     rw [hJ.pres.none n (FEnv_find_none (by simpa using h1))]; rfl
-  have g2 : ConLeche.reservedBasisNames.contains (toName n) = false := by
-    rw [reserved_tr]; simpa using h2
   have g3 : (ConLeche.natOpName (toName n) && !a) = false := by
     rw [natOpName_tr]; simpa using h3
-  have g4 := litShapeOk_tr (by simpa using h2) hok h4
+  have g4 := litShapeOk_tr hok h4
   have g5 : ConLeche.Name.nodup (lps.map toName) = true := by rw [nodup_tr]; exact h5
   obtain ⟨F, hF⟩ := runs_atF hRI
   have g6 : (trC ty).constsResolve L = true := constsResolve_of_infer hfv hF
   unfold ConLeche.checkConstantVal
-  simp only [trCVn, g1, g2, g3, g4, g5, hlbb, hfv, hlp, g6, Bool.false_eq_true, ↓reduceIte]
+  simp only [trCVn, g1, g3, g4, g5, hlbb, hfv, hlp, g6, Bool.false_eq_true, ↓reduceIte]
   exact Runs.bind hRI (Runs.bind hRS (Runs.pure _))
 
 /-- **O7's former constant check, discharged** (`CheckConstantValFSimI`): the
@@ -202,16 +196,17 @@ theorem toCV_of_okC {v : Lean.ConstantVal} (h : okC v.type = true) :
     toCV v = some (trCVn v.name v.levelParams v.type) := by
   simp [toCV, toExprC_of_okC h, trCVn]
 
-/-- Master's pure declaration step at the fueled family accepts `d` at `L`. -/
-@[expose] def StepRuns (pins : List ConLeche.NatOpPinSet) (L : ConLeche.Env) (d : ConLeche.Declaration) :
+/-- Master's pure declaration kind check (`checkDeclKind`, the step without
+the reserved names' check) at the fueled family accepts `d` at `L`. -/
+@[expose] def KindRuns (pins : List ConLeche.NatOpPinSet) (L : ConLeche.Env) (d : ConLeche.Declaration) :
     Prop :=
-  ∃ L', Runs (ConLeche.checkDecl .verified (ConLeche.fueledOpsM .verified) pins L d) L'
+  ∃ L', Runs (ConLeche.checkDeclKind (ConLeche.fueledOpsM .verified) pins L d) L'
 
-theorem StepRuns.fueled {pins : List ConLeche.NatOpPinSet} {L : ConLeche.Env} {d : ConLeche.Declaration}
-    (h : StepRuns pins L d) :
-    ∃ F L', ConLeche.checkDecl .verified (ConLeche.fueledOps .verified F) pins L d = .ok L' := by
+theorem KindRuns.fueled {pins : List ConLeche.NatOpPinSet} {L : ConLeche.Env} {d : ConLeche.Declaration}
+    (h : KindRuns pins L d) :
+    ∃ F L', ConLeche.checkDeclKind (ConLeche.fueledOps .verified F) pins L d = .ok L' := by
   obtain ⟨L', F, hF⟩ := h
-  exact ⟨F, L', by rw [← ConLeche.checkDecl_datF]; exact hF⟩
+  exact ⟨F, L', by rw [← ConLeche.checkDeclKind_datF]; exact hF⟩
 
 /-! ## A theorem -/
 
@@ -227,7 +222,7 @@ theorem checkThmC_sim {fe : InLean.FEnv} {L : ConLeche.Env} (hJ : JobEnvI fe L)
     (hs : CSOKI .verified false L s₀) (hr : Expr.RangeOk v.type) (hrv : Expr.RangeOk v.value)
     (h : InLean.checkThmC .verified fe v s₀ = .ok (a, s')) :
     CSOKI .verified false L s' ∧ TabLe s₀ s' ∧ a.consts = #[.thmInfo v] ∧ a.quot = false ∧
-      ∃ d, toDecl [.thmInfo v] = some d ∧ StepRuns pins L d := by
+      ∃ d, toDecl [.thmInfo v] = some d ∧ KindRuns pins L d := by
   unfold InLean.checkThmC at h
   obtain ⟨_, s₁, hC, h⟩ := bindI_ok h
   obtain ⟨hs₁, ht₁, hok, hlbb, hRC⟩ := checkConstantValC_sim hJ hs hr hC
@@ -288,7 +283,7 @@ theorem checkDefnC_sim {fe : InLean.FEnv} {L : ConLeche.Env} (hJ : JobEnvI fe L)
     (hnc : (InLean.natOpNames.contains v.name || InLean.natDivModNames.contains v.name) = false)
     (h : InLean.checkDefnC .verified cfg fe v s₀ = .ok (a, s')) :
     CSOKI .verified false L s' ∧ TabLe s₀ s' ∧ a.consts = #[.defnInfo v] ∧ a.quot = false ∧
-      ∃ d, toDecl [.defnInfo v] = some d ∧ StepRuns pins L d := by
+      ∃ d, toDecl [.defnInfo v] = some d ∧ KindRuns pins L d := by
   unfold InLean.checkDefnC at h
   simp only [hsafe, show (DefinitionSafety.safe == DefinitionSafety.unsafe) = false from rfl,
     Bool.false_eq_true, ↓reduceIte, hnc] at h
@@ -314,7 +309,7 @@ theorem checkOpaqueC_sim {fe : InLean.FEnv} {L : ConLeche.Env} (hJ : JobEnvI fe 
     (hnc : InLean.reduceOpNames.contains v.name = false)
     (h : InLean.checkOpaqueC .verified fe v s₀ = .ok (a, s')) :
     CSOKI .verified false L s' ∧ TabLe s₀ s' ∧ a.consts = #[.opaqueInfo v] ∧ a.quot = false ∧
-      ∃ d, toDecl [.opaqueInfo v] = some d ∧ StepRuns pins L d := by
+      ∃ d, toDecl [.opaqueInfo v] = some d ∧ KindRuns pins L d := by
   unfold InLean.checkOpaqueC at h
   obtain ⟨_, s₁, hC, h⟩ := bindI_ok h
   obtain ⟨hs₁, ht₁, hok, hlbb, hRC⟩ := checkConstantValC_sim hJ hs hr hC
@@ -357,7 +352,7 @@ theorem checkAxiomC_quotSound_sim {fe : InLean.FEnv} {L : ConLeche.Env} (hP : En
     {s₀ s' : InLean.CState} (hr : Expr.RangeOk v.type) (hn : v.name = InLean.quotSoundName)
     (h : InLean.checkAxiomC .verified cfg fe v s₀ = .ok (a, s')) :
     s' = s₀ ∧ a.consts = #[.axiomInfo v] ∧ a.quot = false ∧
-      ∃ d, toDecl [.axiomInfo v] = some d ∧ StepRuns pins L d := by
+      ∃ d, toDecl [.axiomInfo v] = some d ∧ KindRuns pins L d := by
   obtain ⟨c1, c2, -, -, -, -, -, c8, c9, c10⟩ := cl_axNames
   unfold InLean.checkAxiomC at h
   simp only [hn, beq_self_eq_true, ↓reduceIte] at h
@@ -414,7 +409,7 @@ theorem checkAxiomC_quotSound_sim {fe : InLean.FEnv} {L : ConLeche.Env} (hP : En
   have g3 : L.find? ConLeche.quotSoundName = none := by
     rw [← c2, ← hn]; exact hP.none _ (FEnv_find_none (by rw [hn]; simpa using hfr))
   refine ⟨⟨ConLeche.quotAt .sound (trCVn v.name v.levelParams v.type) :: L.consts, L.tables⟩, ?_⟩
-  unfold ConLeche.checkDecl
+  unfold ConLeche.checkDeclKind
   simp only [trCVn, hname, ↓reduceIte]
   unfold ConLeche.checkQuotRecord
   simp only [show ConLeche.quotPinHit .sound ⟨ConLeche.quotSoundName, v.levelParams.map toName,
@@ -438,7 +433,7 @@ theorem checkAxiomC_sorry_sim {fe : InLean.FEnv} {L : ConLeche.Env} (hJ : JobEnv
     (hn : v.name = InLean.sorryAxName)
     (h : InLean.checkAxiomC .verified InLeanProof.theoremConfig fe v s₀ = .ok (a, s')) :
     CSOKI .verified false L s' ∧ TabLe s₀ s' ∧ a.consts = #[.axiomInfo v] ∧ a.quot = false ∧
-      ∃ d, toDecl [.axiomInfo v] = some d ∧ StepRuns pins L d := by
+      ∃ d, toDecl [.axiomInfo v] = some d ∧ KindRuns pins L d := by
   obtain ⟨c1, c2, c3, c4, c5, c6, c7, -, -, -⟩ := cl_axNames
   have nq : InLean.sorryAxName ≠ InLean.quotSoundName := ne_of_toName (by rw [c1, c2]; decide)
   have np : InLean.sorryAxName ≠ InLean.propextName := ne_of_toName (by rw [c1, c3]; decide)
@@ -469,7 +464,7 @@ theorem checkAxiomC_sorry_sim {fe : InLean.FEnv} {L : ConLeche.Env} (hJ : JobEnv
   have hstdC : ConLeche.stdAxiomOk L (trCVn v.name v.levelParams v.type) = false := by
     simp only [ConLeche.stdAxiomOk, trCVn, hname]
     simp +decide
-  unfold ConLeche.checkDecl
+  unfold ConLeche.checkDeclKind
   simp only [trCVn, hname] at hRC hstdC ⊢
   simp +decide only [↓reduceIte]
   refine Runs.bind hRC ?_
@@ -520,8 +515,9 @@ theorem quotFold_ok {pins : List ConLeche.NatOpPinSet} {F : Nat} {L : ConLeche.E
   have p2 : ConLeche.quotPinHit .ctor ConLeche.quotMkA.toConstantVal = true := by decide
   have p3 : ConLeche.quotPinHit .lift ConLeche.quotLiftA.toConstantVal = true := by decide
   have p4 : ConLeche.quotPinHit .ind ConLeche.quotIndA.toConstantVal = true := by decide
-  simp only [quotRecords, List.foldlM, ConLeche.checkDecl, ConLeche.checkQuotRecord,
-    ConLeche.installBasisDecl, p1, p2, p3, p4, ↓reduceIte]
+  simp only [quotRecords, List.foldlM, ConLeche.checkDecl, ConLeche.checkDeclKind,
+    ConLeche.basisNamesOk, ConLeche.checkQuotRecord, ConLeche.installBasisDecl, p1, p2, p3, p4,
+    ↓reduceIte]
   simp only [ConLeche.Env.find?] at hEq h1 h2 h3 h4
   simp +decide [ConLeche.quotPredsOk, ConLeche.Env.find?, n1, n2, n3, n4, hEq, h1,
     h2, h3, h4, bind, Except.bind, pure, Except.pure]
@@ -562,11 +558,35 @@ opaque) and the pinned axioms' names (an axiom: only `sorryAx` and
   | .inductDecl .. => False
 
 theorem single_fold {pins : List ConLeche.NatOpPinSet} {L : ConLeche.Env} {d : ConLeche.Declaration}
-    (h : StepRuns pins L d) :
+    (h : KindRuns pins L d) (hn : ConLeche.basisNamesOk d = true) :
     ∃ F L', [d].foldlM (ConLeche.checkDecl .verified (ConLeche.fueledOps .verified F) pins) L =
       .ok L' := by
   obtain ⟨F, L', hF⟩ := h.fueled
-  exact ⟨F, L', by simp [List.foldlM, hF, bind, Except.bind, pure, Except.pure]⟩
+  exact ⟨F, L', by simp [List.foldlM, checkDecl_of_kind hF hn, bind, Except.bind, pure,
+    Except.pure]⟩
+
+/-- **A one-constant record's reserved names** are InLean's on the constant:
+an axiom may be `Quot.sound`, a quotient record passes, any other constant is
+off the reserved names. -/
+theorem basisNamesOk_toDecl {ci : Lean.ConstantInfo} {d : ConLeche.Declaration}
+    (hi : ∀ v, ci ≠ .inductInfo v) (h : toDecl [ci] = some d) :
+    ConLeche.basisNamesOk d =
+      match ci with
+      | .axiomInfo v =>
+        (v.name == InLean.quotSoundName || !InLean.reservedBasisNames.contains v.name)
+      | .quotInfo _ => true
+      | ci => !InLean.reservedBasisNames.contains ci.name := by
+  obtain ⟨-, c2, -⟩ := cl_axNames
+  cases ci
+  case inductInfo v => exact (hi v rfl).elim
+  all_goals simp only [toDecl, toCV, Option.bind_eq_bind, Option.bind_eq_some_iff,
+    Option.pure_def, Option.some.injEq, reduceCtorEq] at h
+  all_goals first
+    | (obtain ⟨cv, ⟨t, -, rfl⟩, rfl⟩ := h)
+    | (obtain ⟨cv, ⟨t, -, rfl⟩, v, -, rfl⟩ := h)
+  all_goals simp only [ConLeche.basisNamesOk, reserved_tr,
+    Lean.ConstantInfo.name, Lean.ConstantInfo.toConstantVal]
+  rw [← c2, toName_beq]
 
 theorem single_mapM {ci : Lean.ConstantInfo} {d : ConLeche.Declaration} (h : toDecl [ci] = some d) :
     (#[ci] : Array Lean.ConstantInfo).toList.mapM (fun ci => toDecl [ci]) = some [d] := by
@@ -580,7 +600,7 @@ theorem checkDeclKindC_sim {fe : InLean.FEnv} {L : ConLeche.Env} (hJ : JobEnvI f
     {s₀ s' : InLean.CState}
     (hfs : fe.safety = .safe) (hfc : fe.coreAxioms = false)
     (hs : CSOKI .verified false L s₀) (hd : SafeDecl decl) (hr : DeclRangeOk decl)
-    (harm : ProvedArm decl)
+    (harm : ProvedArm decl) (hbn : InLean.basisNamesOk decl a = true)
     (h : InLean.checkDeclKindC .verified InLeanProof.theoremConfig fe decl s₀ = .ok (a, s')) :
     CSOKI .verified false L s' ∧ TabLe s₀ s' ∧
       ∃ ds, a.consts.toList.mapM (fun ci => toDecl [ci]) = some ds ∧
@@ -592,18 +612,23 @@ theorem checkDeclKindC_sim {fe : InLean.FEnv} {L : ConLeche.Env} (hJ : JobEnvI f
     rcases harm with hn | hn
     · obtain ⟨h1, h2, h3, -, d, hd, hR⟩ := checkAxiomC_sorry_sim (pins := pins) hJ hfs hfc hs hr hsafe
         hn h
-      exact ⟨h1, h2, [d], by rw [h3]; exact single_mapM hd, single_fold hR⟩
+      exact ⟨h1, h2, [d], by rw [h3]; exact single_mapM hd,
+      single_fold hR (by rw [basisNamesOk_toDecl (fun _ h => by cases h) hd]; exact hbn)⟩
     · obtain ⟨rfl, h3, -, d, hd, hR⟩ := checkAxiomC_quotSound_sim (pins := pins) hJ.pres hr hn h
-      exact ⟨hs, TabLe.refl _, [d], by rw [h3]; exact single_mapM hd, single_fold hR⟩
+      exact ⟨hs, TabLe.refl _, [d], by rw [h3]; exact single_mapM hd,
+      single_fold hR (by rw [basisNamesOk_toDecl (fun _ h => by cases h) hd]; exact hbn)⟩
   | defnDecl v =>
     obtain ⟨h1, h2, h3, -, d, hd', hR⟩ := checkDefnC_sim (pins := pins) hJ hs hr.1 hr.2 hd harm h
-    exact ⟨h1, h2, [d], by rw [h3]; exact single_mapM hd', single_fold hR⟩
+    exact ⟨h1, h2, [d], by rw [h3]; exact single_mapM hd',
+      single_fold hR (by rw [basisNamesOk_toDecl (fun _ h => by cases h) hd']; exact hbn)⟩
   | thmDecl v =>
     obtain ⟨h1, h2, h3, -, d, hd', hR⟩ := checkThmC_sim (pins := pins) hJ hs hr.1 hr.2 h
-    exact ⟨h1, h2, [d], by rw [h3]; exact single_mapM hd', single_fold hR⟩
+    exact ⟨h1, h2, [d], by rw [h3]; exact single_mapM hd',
+      single_fold hR (by rw [basisNamesOk_toDecl (fun _ h => by cases h) hd']; exact hbn)⟩
   | opaqueDecl v =>
     obtain ⟨h1, h2, h3, -, d, hd', hR⟩ := checkOpaqueC_sim (pins := pins) hJ hs hr.1 hr.2 harm h
-    exact ⟨h1, h2, [d], by rw [h3]; exact single_mapM hd', single_fold hR⟩
+    exact ⟨h1, h2, [d], by rw [h3]; exact single_mapM hd',
+      single_fold hR (by rw [basisNamesOk_toDecl (fun _ h => by cases h) hd']; exact hbn)⟩
   | quotDecl =>
     obtain ⟨rfl, rfl, hm, hF⟩ := checkQuotC_sim (pins := pins) hJ.pres h
     obtain ⟨L', hL'⟩ := hF 0
@@ -628,7 +653,7 @@ the statement is about the `pins` P4 relates to InLean's). -/
     (InLean.natOpNames.contains v.name || InLean.natDivModNames.contains v.name) = true →
     InLean.checkDefnC .verified InLeanProof.theoremConfig fe v s₀ = .ok (a, s') →
     CSOKI .verified false L s' ∧ TabLe s₀ s' ∧ a.consts = #[.defnInfo v] ∧
-      ∃ d, toDecl [.defnInfo v] = some d ∧ StepRuns pins L d
+      ∃ d, toDecl [.defnInfo v] = some d ∧ KindRuns pins L d
 
 /-- The arms proved here and the certified operations' arm. -/
 @[expose] def ProvedOrCertArm (decl : Declaration) : Prop :=
@@ -641,18 +666,19 @@ theorem checkDeclKindC_sim_cert {pins : List ConLeche.NatOpPinSet} (hC : CertArm
     {a : InLean.Added} {s₀ s' : InLean.CState}
     (hfs : fe.safety = .safe) (hfc : fe.coreAxioms = false)
     (hs : CSOKI .verified false L s₀) (hd : SafeDecl decl) (hr : DeclRangeOk decl)
-    (harm : ProvedOrCertArm decl)
+    (harm : ProvedOrCertArm decl) (hbn : InLean.basisNamesOk decl a = true)
     (h : InLean.checkDeclKindC .verified InLeanProof.theoremConfig fe decl s₀ = .ok (a, s')) :
     CSOKI .verified false L s' ∧ TabLe s₀ s' ∧
       ∃ ds, a.consts.toList.mapM (fun ci => toDecl [ci]) = some ds ∧
         ∃ F L', ds.foldlM (ConLeche.checkDecl .verified (ConLeche.fueledOps .verified F) pins) L =
           .ok L' := by
   rcases harm with harm | ⟨v, rfl⟩
-  · exact checkDeclKindC_sim hJ hfs hfc hs hd hr harm h
+  · exact checkDeclKindC_sim hJ hfs hfc hs hd hr harm hbn h
   · cases hn : (InLean.natOpNames.contains v.name || InLean.natDivModNames.contains v.name)
-    · exact checkDeclKindC_sim hJ hfs hfc hs hd hr hn h
+    · exact checkDeclKindC_sim hJ hfs hfc hs hd hr hn hbn h
     · obtain ⟨h1, h2, h3, d, hd', hR⟩ := hC fe L v a s₀ s' hJ hfs hfc hs hr.1 hr.2 hd hn h
-      exact ⟨h1, h2, [d], by rw [h3]; exact single_mapM hd', single_fold hR⟩
+      exact ⟨h1, h2, [d], by rw [h3]; exact single_mapM hd',
+      single_fold hR (by rw [basisNamesOk_toDecl (fun _ h => by cases h) hd']; exact hbn)⟩
 
 /-! ## The entry point -/
 
@@ -666,12 +692,13 @@ theorem CSOKI_empty (L : ConLeche.Env) : CSOKI .verified false L ({} : InLean.CS
   flushI_csoki CSOKIF_empty .verified false L
 
 /-- The entry point from the kinds' simulation at the fresh state: the
-`sorryAxSquat` decline read as "no constant but an axiom at `sorryAx`". -/
+reserved names' check passed to it, the `sorryAxSquat` decline read as "no
+constant but an axiom at `sorryAx`". -/
 theorem checkDecl_sim_of {E : Kernel.Environment} {L : ConLeche.Env}
     {pins : List ConLeche.NatOpPinSet} {decl : Declaration} {a : InLean.Added}
     (hK : ∀ {a : InLean.Added} {s' : InLean.CState},
       InLean.checkDeclKindC .verified InLeanProof.theoremConfig { env := E, coreAxioms := false } decl
-        {} = .ok (a, s') →
+        {} = .ok (a, s') → InLean.basisNamesOk decl a = true →
       ∃ ds, a.consts.toList.mapM (fun ci => toDecl [ci]) = some ds ∧
         ∃ F L', ds.foldlM (ConLeche.checkDecl .verified (ConLeche.fueledOps .verified F) pins) L =
           .ok L')
@@ -689,6 +716,12 @@ theorem checkDecl_sim_of {E : Kernel.Environment} {L : ConLeche.Env}
   · rename_i a' s' hrun
     cases h
     obtain ⟨b, s₁, hKr, hT⟩ := bindI_ok hrun
+    have hnb : InLean.basisNamesOk decl b = true := by
+      cases hc : InLean.basisNamesOk decl b
+      · simp only [hc, Bool.false_eq_true, ↓reduceIte] at hT
+        exact (throw_bindI_ok hT).elim
+      · rfl
+    simp only [hnb, ↓reduceIte] at hT
     have hab : b = a ∧ b.consts.any InLean.sorryAxSquat = false := by
       split at hT
       · exact (throw_bindI_ok hT).elim
@@ -696,7 +729,7 @@ theorem checkDecl_sim_of {E : Kernel.Environment} {L : ConLeche.Env}
         obtain ⟨rfl, -⟩ := pureI_ok hT
         exact ⟨rfl, by simpa [show theoremConfig.coreAxioms = false from rfl] using hc⟩
     obtain ⟨rfl, hsq'⟩ := hab
-    obtain ⟨ds, hds, F, L', hF⟩ := hK hKr
+    obtain ⟨ds, hds, F, L', hF⟩ := hK hKr hnb
     refine ⟨fun ci hci hn => ?_, ds, hds, F, L', hF⟩
     simp only [← Array.any_toList, List.any_eq_false] at hsq'
     have := hsq' ci hci
@@ -721,7 +754,7 @@ theorem checkDecl_sim {E : Kernel.Environment} {L : ConLeche.Env}
       ∃ ds, a.consts.toList.mapM (fun ci => toDecl [ci]) = some ds ∧
         ∃ F L', ds.foldlM (ConLeche.checkDecl .verified (ConLeche.fueledOps .verified F) pins) L =
           .ok L' :=
-  checkDecl_sim_of (fun hK =>
-    (checkDeclKindC_sim (pins := pins) hJ rfl rfl (CSOKI_empty L) hd hr harm hK).2.2) h
+  checkDecl_sim_of (fun hK hbn =>
+    (checkDeclKindC_sim (pins := pins) hJ rfl rfl (CSOKI_empty L) hd hr harm hbn hK).2.2) h
 
 end InLeanProof

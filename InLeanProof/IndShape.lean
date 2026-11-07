@@ -638,16 +638,11 @@ theorem blockShape?_tr (nPd : Nat) (block : List Lean.ConstantInfo)
         cases InLean.blockMemberCounts? nPd L.length cs.length (L.map (·.name)) (r0 :: R) 0 L with
         | none => rfl
         | some nIdxs =>
-          simp only [List.all_map, List.all_cons, Function.comp_def, trCV_name, trCV_levelParams,
-            reserved_tr, map_toName_beq, trCtorParts, trParts, List.map_map, trCV_type]
+          simp only [List.all_map, Function.comp_def, trCV_levelParams,
+            map_toName_beq, trCtorParts, trParts, List.map_map, trCV_type]
           have hsort := hok0
-          by_cases hc : (((L.all fun x => InLean.reservedBasisNames.contains x.name == false) &&
-                (InLean.reservedBasisNames.contains r0.1.name == false &&
-                  R.all fun x => InLean.reservedBasisNames.contains x.1.name == false) &&
-              L.all fun x => x.levelParams == cvT0.levelParams) &&
-            cs.all fun x =>
-              x.2.1 == nPd && x.1.levelParams == cvT0.levelParams &&
-                InLean.reservedBasisNames.contains x.1.name == false) = true
+          by_cases hc : ((L.all fun x => x.levelParams == cvT0.levelParams) &&
+            cs.all fun x => x.2.1 == nPd && x.1.levelParams == cvT0.levelParams) = true
           · simp only [hc, ↓reduceIte, recTargetOf_tr']
             cases hlp : r0.1.levelParams with
             | nil =>

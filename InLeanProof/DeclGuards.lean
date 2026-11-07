@@ -841,30 +841,48 @@ theorem cl_litNames :
 theorem okC_shape_param (p : Name) : okLv (.succ (.param p)) = true := by
   simp [okLv, okL, depthS, maxLevelDepth]
 
-/-- **InLean's literal-name shapes are master's**, off the reserved names (where
-both refuse first), on a type with a closed reading. -/
+/-- **InLean's literal-name shapes are master's**, on a type with a closed
+reading. -/
 theorem litShapeOk_tr {n : Name} {lps : List Name} {ty : Expr}
-    (hres : InLean.reservedBasisNames.contains n = false) (hok : okC ty = true)
+    (hok : okC ty = true)
     (h : InLean.litShapeOk n lps ty = true) :
     ConLeche.litShapeOk (.axiomInfo ⟨toName n, lps.map toName, trC ty⟩) = true := by
   obtain ⟨c1, c2, c3, c4, c5, c6, c7, c8, c9, c10⟩ := cl_litNames
-  rw [← reserved_tr] at hres
-  have tN : toName n ≠ ConLeche.natName := by intro e; rw [e] at hres; exact absurd hres (by decide)
-  have tZ : toName n ≠ ConLeche.natZeroName := by
-    intro e; rw [e] at hres; exact absurd hres (by decide)
-  have tS : toName n ≠ ConLeche.natSuccName := by
-    intro e; rw [e] at hres; exact absurd hres (by decide)
-  have hN : n ≠ InLean.natName := by rintro rfl; exact tN c1
-  have hZ : n ≠ InLean.natZeroName := by rintro rfl; exact tZ c2
-  have hS : n ≠ InLean.natSuccName := by rintro rfl; exact tS c3
+  have tr : ∀ {X : Name}, n ≠ X → toName n ≠ toName X := fun hx e => hx (toName_inj e)
   have hn : (ConLeche.ConstantInfo.axiomInfo ⟨toName n, lps.map toName, trC ty⟩).name = toName n :=
     rfl
   unfold InLean.litShapeOk at h
   unfold ConLeche.litShapeOk
   rw [hn]
-  simp only [tN, tZ, tS, ↓reduceIte]
-  simp only [beq_iff_eq, hN, hZ, hS, ↓reduceIte] at h
-  have tr : ∀ {X : Name}, n ≠ X → toName n ≠ toName X := fun hx e => hx (toName_inj e)
+  by_cases hN : n = InLean.natName
+  · subst hN
+    simp only [beq_self_eq_true, ↓reduceIte, Bool.and_eq_true, List.isEmpty_iff, InLean.tyIs] at h
+    obtain ⟨hl, ht⟩ := h
+    rw [c1, trC_of_clEq hok (by decide) ht]
+    simp [ConLeche.natIndOk, hl, ConLeche.ConstantInfo.toConstantVal, trC, trE, trL]
+  have tN : toName n ≠ ConLeche.natName := c1 ▸ tr hN
+  simp only [tN, ↓reduceIte]
+  simp only [beq_iff_eq, hN, ↓reduceIte] at h
+  by_cases hZ : n = InLean.natZeroName
+  · subst hZ
+    simp only [↓reduceIte, Bool.and_eq_true, List.isEmpty_iff, InLean.tyIs] at h
+    obtain ⟨hl, ht⟩ := h
+    rw [c2, trC_of_clEq hok (by decide) ht]
+    simp +decide [ConLeche.natZeroOk, hl, ConLeche.ConstantInfo.toConstantVal, trC, trE,
+      InLean.natTy, c1]
+  have tZ : toName n ≠ ConLeche.natZeroName := c2 ▸ tr hZ
+  simp only [tZ, ↓reduceIte]
+  simp only [hZ, ↓reduceIte] at h
+  by_cases hS : n = InLean.natSuccName
+  · subst hS
+    simp only [↓reduceIte, Bool.and_eq_true, List.isEmpty_iff, InLean.tyIs] at h
+    obtain ⟨hl, ht⟩ := h
+    rw [c3, trC_of_clEq hok (by decide) ht]
+    simp +decide [ConLeche.natSuccOk, hl, ConLeche.ConstantInfo.toConstantVal, trC, trE,
+      InLean.natTy, c1]
+  have tS : toName n ≠ ConLeche.natSuccName := c3 ▸ tr hS
+  simp only [tS, ↓reduceIte]
+  simp only [hS, ↓reduceIte] at h
   by_cases h4 : n = InLean.stringName
   · rw [h4, c4]
     rw [h4] at h

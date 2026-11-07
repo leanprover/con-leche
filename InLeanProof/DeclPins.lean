@@ -196,12 +196,6 @@ open Lean InLean ConLeche.Cached
 
 /-! ## The compiler-trust family -/
 
-/-- **`Nat` is the pinned basis wherever it is stored** (master's
-`reduceElemOk` compares the stored entry with `natA` itself): a premise on `L`,
-what P4 reads off `NatFacts`. -/
-@[expose] def NatPinned (L : ConLeche.Env) : Prop :=
-  (L.find? ConLeche.natName).isSome = true → L.find? ConLeche.natName = some ConLeche.natA
-
 theorem trust_beqs :
     (InLean.reduceBoolName == InLean.reduceNatName) = false ∧
     (InLean.ofReduceBoolName == InLean.ofReduceNatName) = false := by
@@ -263,22 +257,24 @@ theorem trustCompilerOk_tr {fe : InLean.FEnv} {L : ConLeche.Env} (hP : EnvPresI 
   unfold ConLeche.trustCompilerOk
   simp only [trCVn, e2, hm2, hc3, hm3, e5, Bool.and_self]
 
-/-- **The element inductive's guard is master's**, `Nat` through `NatPinned`. -/
+/-- **The element inductive's guard is master's.** -/
 theorem reduceElemOk_tr {fe : InLean.FEnv} {L : ConLeche.Env} (hP : EnvPresI fe L)
-    (hnat : NatPinned L) {c : Name} (h : InLean.reduceElemOk fe c = true) :
+    {c : Name} (h : InLean.reduceElemOk fe c = true) :
     ConLeche.reduceElemOk L (toName c) = true := by
   obtain ⟨-, -, -, t4, -⟩ := pins_trust
   obtain ⟨-, -, -, o4, -⟩ := pins_trust_ok
   obtain ⟨-, -, -, n4, n5, n6, -⟩ := names_trust
+  have tN : trPin InLean.natPin = ConLeche.natA.toConstantVal := by decide
+  have oN : okC InLean.natPin.type = true := by decide
   unfold InLean.reduceElemOk at h
   unfold ConLeche.reduceElemOk
   by_cases hc : c = InLean.reduceNatName
   · subst hc
-    simp only [beq_self_eq_true, ↓reduceIte, Bool.and_eq_true] at h
-    have e := find_isSome_of_pres hP (n := InLean.natName) (by
-      simp only [natLitStoredF, Bool.and_eq_true] at h; exact h.1.1.1)
-    rw [n5] at e
-    simp [n6, hnat e]
+    simp only [beq_self_eq_true, ↓reduceIte] at h
+    obtain ⟨c2, k2, e2, hm2⟩ := pinFoundInd_tr hP oN h
+    rw [show InLean.natPin.name = InLean.natName from rfl, n5] at e2
+    rw [tN] at hm2
+    simp only [n6, ↓reduceIte, e2, hm2]
   · have hc' : (c == InLean.reduceNatName) = false := by simpa using hc
     have tc : toName c ≠ ConLeche.reduceNatName := by rw [← n6]; exact fun e => hc (toName_inj e)
     simp only [hc', Bool.false_eq_true, ↓reduceIte] at h
@@ -335,7 +331,7 @@ theorem ofReduceOp_cases (n : Name) :
 
 /-- **The `ofReduce*` axioms' guard is master's.** -/
 theorem ofReduceAxOk_tr {fe : InLean.FEnv} {L : ConLeche.Env} (hP : EnvPresI fe L)
-    (hnat : NatPinned L) {n : Name} {lps : List Name} {ty : Expr} (hok : okC ty = true)
+    {n : Name} {lps : List Name} {ty : Expr} (hok : okC ty = true)
     (hn : n = InLean.ofReduceNatName ∨ n = InLean.ofReduceBoolName)
     (h : InLean.ofReduceAxOk fe n lps ty = true) :
     ConLeche.ofReduceAxOk L (trCVn n lps ty) = true := by
@@ -352,7 +348,7 @@ theorem ofReduceAxOk_tr {fe : InLean.FEnv} {L : ConLeche.Env} (hP : EnvPresI fe 
   obtain ⟨⟨⟨hEq, hE⟩, hS⟩, hm⟩ := h
   have e1 := find_isSome_of_pres hP hEq
   rw [show toName InLean.eqName = ConLeche.eqName from rfl] at e1
-  have e2 := reduceElemOk_tr hP hnat hE
+  have e2 := reduceElemOk_tr hP hE
   have e3 := reduceStoredOk_tr hP (ofReduceOp_cases n) hS
   have e4 := matchesPin_tr (toExprC_of_okC hok) hpin.2 hm
   rw [hpin.1] at e4
@@ -371,14 +367,13 @@ open Lean InLean ConLeche.Cached
 standard axioms, `Lean.trustCompiler`, the `ofReduce*` pair; any other declines
 at con-leche's policy). -/
 theorem checkAxiomC_pinned_sim {fe : InLean.FEnv} {L : ConLeche.Env} (hJ : JobEnvI fe L)
-    (hnat : NatPinned L)
     {pins : List ConLeche.NatOpPinSet} {v : AxiomVal} {a : InLean.Added} {s₀ s' : InLean.CState}
     (hfs : fe.safety = .safe) (hfc : fe.coreAxioms = false)
     (hs : CSOKI .verified false L s₀) (hr : Expr.RangeOk v.type) (hsafe : v.isUnsafe = false)
     (hq : v.name ≠ InLean.quotSoundName) (hso : v.name ≠ InLean.sorryAxName)
     (h : InLean.checkAxiomC .verified InLeanProof.theoremConfig fe v s₀ = .ok (a, s')) :
     CSOKI .verified false L s' ∧ TabLe s₀ s' ∧ a.consts = #[.axiomInfo v] ∧ a.quot = false ∧
-      ∃ d, toDecl [.axiomInfo v] = some d ∧ StepRuns pins L d := by
+      ∃ d, toDecl [.axiomInfo v] = some d ∧ KindRuns pins L d := by
   obtain ⟨c1, c2, -, -, c5, c6, c7, -, -, -⟩ := cl_axNames
   have hfe : ({ fe with safety := .safe } : InLean.FEnv) = fe := by cases fe; simp_all
   have bq : (v.name == InLean.quotSoundName) = false := by simpa using hq
@@ -421,7 +416,7 @@ theorem checkAxiomC_pinned_sim {fe : InLean.FEnv} {L : ConLeche.Env} (hJ : JobEn
     ⟨.axiomInfo (trCVn v.name v.levelParams v.type) :: L.consts, L.tables⟩, ?_⟩
   have tq : toName v.name ≠ ConLeche.quotSoundName := by
     rw [← c2]; exact fun e => hq (toName_inj e)
-  unfold ConLeche.checkDecl
+  unfold ConLeche.checkDeclKind
   simp only [trCVn, tq, ↓reduceIte] at hRC ⊢
   refine Runs.bind hRC ?_
   by_cases hm : ConLeche.stdAxiomOk L ⟨toName v.name, v.levelParams.map toName, trC v.type⟩ = true
@@ -437,7 +432,7 @@ theorem checkAxiomC_pinned_sim {fe : InLean.FEnv} {L : ConLeche.Env} (hJ : JobEn
       simp only [trCVn, hn, c5] at this
       simp only [hn, c5, ↓reduceIte, this]
       exact Runs.pure _
-    · have := ofReduceAxOk_tr hJ.pres hnat hok hn k
+    · have := ofReduceAxOk_tr hJ.pres hok hn k
       simp only [trCVn] at this
       have tt : toName v.name ≠ ConLeche.trustCompilerName := by
         rcases hn with hn | hn <;> rw [hn] <;> decide
@@ -470,11 +465,14 @@ theorem reducePinGuard_of_elem {L : ConLeche.Env} {c : Name}
     ConLeche.reducePinGuard L (toName c) = true := by
   rcases hc with rfl | rfl
   · simp only [ConLeche.reduceElemOk, show toName InLean.reduceNatName = ConLeche.reduceNatName from rfl,
-      ↓reduceIte, decide_eq_true_eq] at h
-    have hn : ConLeche.BasisDSL.bn "Nat" = ConLeche.natName := rfl
-    simp +decide [ConLeche.reducePinGuard, ConLeche.reduceDeclPin, ConLeche.reduceNatDeclPin,
-      ConLeche.Expr.constsResolve, h, ConLeche.BasisDSL.lm, ConLeche.BasisDSL.cnst, hn,
-      ConLeche.BasisDSL.bv]
+      ↓reduceIte] at h
+    split at h
+    · rename_i hb
+      have hn : ConLeche.BasisDSL.bn "Nat" = ConLeche.natName := rfl
+      simp +decide [ConLeche.reducePinGuard, ConLeche.reduceDeclPin, ConLeche.reduceNatDeclPin,
+        ConLeche.Expr.constsResolve, hb, ConLeche.BasisDSL.lm, ConLeche.BasisDSL.cnst, hn,
+        ConLeche.BasisDSL.bv]
+    · exact nomatch h
   · simp only [ConLeche.reduceElemOk, show toName InLean.reduceBoolName = ConLeche.reduceBoolName from rfl,
       show ConLeche.reduceBoolName ≠ ConLeche.reduceNatName by decide, ↓reduceIte] at h
     split at h
@@ -493,7 +491,7 @@ open Lean InLean Std.WP ConLeche.Cached
 /-- **The compiler-trust pin** (`checkReducePin`, master's): the guards, the
 value against the pin, the identity certificate over an interned variable. -/
 theorem checkReducePin_sim {fe fe2 : InLean.FEnv} {L env2 : ConLeche.Env} (hJ : JobEnvI fe L)
-    (hnat : NatPinned L) {c : Name} (hc : c = InLean.reduceNatName ∨ c = InLean.reduceBoolName)
+    {c : Name} (hc : c = InLean.reduceNatName ∨ c = InLean.reduceBoolName)
     (hS : InLean.reduceStoredOk fe2 c = true → ConLeche.reduceStoredOk env2 (toName c) = true)
     {value : Expr} (hokv : okC value = true) (hlbbv : (trC value).looseBVarsBounded 0 = true)
     {s₀ s' : InLean.CState} (hs : CSOKI .verified false L s₀)
@@ -552,7 +550,7 @@ theorem checkReducePin_sim {fe fe2 : InLean.FEnv} {L env2 : ConLeche.Env} (hJ : 
   rw [hTv, hTp, trP] at hRD
   rw [hTa, hTx'] at hRD2
   have e1 := hS h1.1
-  have e2 := reduceElemOk_tr hJ.pres hnat h1.2
+  have e2 := reduceElemOk_tr hJ.pres h1.2
   unfold ConLeche.checkReducePin
   simp only [e1, e2, reducePinGuard_of_elem hc e2, Bool.and_self, ↓reduceIte]
   refine Runs.bind hRD ?_
@@ -575,13 +573,12 @@ theorem checkConstantValC_fresh {fe : InLean.FEnv} {n : Name} {lps : List Name} 
 /-- **A safe opaque at a compiler-trust name** (`checkOpaqueC` with
 `checkReducePin`, master's `.opaqueDecl` arm with its pin). -/
 theorem checkOpaqueC_reduce_sim {fe : InLean.FEnv} {L : ConLeche.Env} (hJ : JobEnvI fe L)
-    (hnat : NatPinned L)
     {pins : List ConLeche.NatOpPinSet} {v : OpaqueVal} {a : InLean.Added} {s₀ s' : InLean.CState}
     (hs : CSOKI .verified false L s₀) (hr : Expr.RangeOk v.type) (hrv : Expr.RangeOk v.value)
     (hnc : InLean.reduceOpNames.contains v.name = true)
     (h : InLean.checkOpaqueC .verified fe v s₀ = .ok (a, s')) :
     CSOKI .verified false L s' ∧ TabLe s₀ s' ∧ a.consts = #[.opaqueInfo v] ∧ a.quot = false ∧
-      ∃ d, toDecl [.opaqueInfo v] = some d ∧ StepRuns pins L d := by
+      ∃ d, toDecl [.opaqueInfo v] = some d ∧ KindRuns pins L d := by
   have hc : v.name = InLean.reduceNatName ∨ v.name = InLean.reduceBoolName := by
     simpa [InLean.reduceOpNames] using hnc
   obtain ⟨-, -, -, -, t5, t6, -⟩ := pins_trust
@@ -620,7 +617,7 @@ theorem checkOpaqueC_reduce_sim {fe : InLean.FEnv} {L : ConLeche.Env} (hJ : JobE
       toName v.name from rfl, ↓reduceIte]
     rw [← hpin.1]
     exact matchesPin_tr (toExprC_of_okC hok) hpin.2 hm
-  obtain ⟨hs₃, ht₃, hRP⟩ := checkReducePin_sim hJ hnat hc hS hokv hVR.1 hs₂ hPin
+  obtain ⟨hs₃, ht₃, hRP⟩ := checkReducePin_sim hJ hc hS hokv hVR.1 hs₂ hPin
   refine ⟨hs₃, ht₁.trans (ht₂.trans ht₃), rfl, rfl,
     .opaqueDecl (trCVn v.name v.levelParams v.type) (trC v.value),
     by simp [toDecl, toCV_of_okC (v := v.toConstantVal) hok, toExprC_of_okC hokv],
@@ -634,13 +631,14 @@ theorem checkOpaqueC_reduce_sim {fe : InLean.FEnv} {L : ConLeche.Env} (hJ : JobE
 /-! ## Every non-inductive kind -/
 
 /-- **The declaration step for every non-inductive kind**, from the certified
-operations' arm (`CertArmSimI`) and `NatPinned L`. -/
+operations' arm (`CertArmSimI`). -/
 theorem checkDeclKindC_sim_full {pins : List ConLeche.NatOpPinSet} (hC : CertArmSimI pins)
-    {fe : InLean.FEnv} {L : ConLeche.Env} (hJ : JobEnvI fe L) (hnat : NatPinned L)
+    {fe : InLean.FEnv} {L : ConLeche.Env} (hJ : JobEnvI fe L)
     {decl : Declaration} {a : InLean.Added} {s₀ s' : InLean.CState}
     (hfs : fe.safety = .safe) (hfc : fe.coreAxioms = false)
     (hs : CSOKI .verified false L s₀) (hd : SafeDecl decl) (hr : DeclRangeOk decl)
     (hnI : ∀ lps nP ts u, decl ≠ .inductDecl lps nP ts u)
+    (hbn : InLean.basisNamesOk decl a = true)
     (h : InLean.checkDeclKindC .verified InLeanProof.theoremConfig fe decl s₀ = .ok (a, s')) :
     CSOKI .verified false L s' ∧ TabLe s₀ s' ∧
       ∃ ds, a.consts.toList.mapM (fun ci => toDecl [ci]) = some ds ∧
@@ -649,29 +647,31 @@ theorem checkDeclKindC_sim_full {pins : List ConLeche.NatOpPinSet} (hC : CertArm
   cases decl with
   | axiomDecl v =>
     by_cases hq : v.name = InLean.quotSoundName
-    · exact checkDeclKindC_sim hJ hfs hfc hs hd hr (.inr hq) h
+    · exact checkDeclKindC_sim hJ hfs hfc hs hd hr (.inr hq) hbn h
     by_cases hso : v.name = InLean.sorryAxName
-    · exact checkDeclKindC_sim hJ hfs hfc hs hd hr (.inl hso) h
+    · exact checkDeclKindC_sim hJ hfs hfc hs hd hr (.inl hso) hbn h
     obtain ⟨h1, h2, h3, -, d, hd', hR⟩ :=
-      checkAxiomC_pinned_sim (pins := pins) hJ hnat hfs hfc hs hr hd.1 hq hso h
-    exact ⟨h1, h2, [d], by rw [h3]; exact single_mapM hd', single_fold hR⟩
-  | defnDecl v => exact checkDeclKindC_sim_cert hC hJ hfs hfc hs hd hr (.inr ⟨v, rfl⟩) h
+      checkAxiomC_pinned_sim (pins := pins) hJ hfs hfc hs hr hd.1 hq hso h
+    exact ⟨h1, h2, [d], by rw [h3]; exact single_mapM hd',
+      single_fold hR (by rw [basisNamesOk_toDecl (fun _ h => by cases h) hd']; exact hbn)⟩
+  | defnDecl v => exact checkDeclKindC_sim_cert hC hJ hfs hfc hs hd hr (.inr ⟨v, rfl⟩) hbn h
   | opaqueDecl v =>
     cases hn : InLean.reduceOpNames.contains v.name
-    · exact checkDeclKindC_sim hJ hfs hfc hs hd hr hn h
+    · exact checkDeclKindC_sim hJ hfs hfc hs hd hr hn hbn h
     · obtain ⟨h1, h2, h3, -, d, hd', hR⟩ :=
-        checkOpaqueC_reduce_sim (pins := pins) hJ hnat hs hr.1 hr.2 hn h
-      exact ⟨h1, h2, [d], by rw [h3]; exact single_mapM hd', single_fold hR⟩
-  | thmDecl v => exact checkDeclKindC_sim hJ hfs hfc hs hd hr trivial h
-  | quotDecl => exact checkDeclKindC_sim hJ hfs hfc hs hd hr trivial h
+        checkOpaqueC_reduce_sim (pins := pins) hJ hs hr.1 hr.2 hn h
+      exact ⟨h1, h2, [d], by rw [h3]; exact single_mapM hd',
+      single_fold hR (by rw [basisNamesOk_toDecl (fun _ h => by cases h) hd']; exact hbn)⟩
+  | thmDecl v => exact checkDeclKindC_sim hJ hfs hfc hs hd hr trivial hbn h
+  | quotDecl => exact checkDeclKindC_sim hJ hfs hfc hs hd hr trivial hbn h
   | mutualDefnDecl vs => exact hd.elim
   | inductDecl lps nP ts u => exact (hnI lps nP ts u rfl).elim
 
 /-- **O6 at the entry point, every non-inductive kind**: `checkDecl_sim` from
-`CertArmSimI pins` and `NatPinned L`. -/
+`CertArmSimI pins`. -/
 theorem checkDecl_sim_full {pins : List ConLeche.NatOpPinSet} (hC : CertArmSimI pins)
     {E : Kernel.Environment} {L : ConLeche.Env}
-    (hJ : JobEnvI { env := E, coreAxioms := false } L) (hnat : NatPinned L)
+    (hJ : JobEnvI { env := E, coreAxioms := false } L)
     {decl : Declaration} {a : InLean.Added}
     (hd : SafeDecl decl) (hr : DeclRangeOk decl) (hnI : ∀ lps nP ts u, decl ≠ .inductDecl lps nP ts u)
     (h : InLean.checkDecl InLeanProof.theoremConfig E decl = .ok a) :
@@ -679,7 +679,7 @@ theorem checkDecl_sim_full {pins : List ConLeche.NatOpPinSet} (hC : CertArmSimI 
       ∃ ds, a.consts.toList.mapM (fun ci => toDecl [ci]) = some ds ∧
         ∃ F L', ds.foldlM (ConLeche.checkDecl .verified (ConLeche.fueledOps .verified F) pins) L =
           .ok L' :=
-  checkDecl_sim_of (fun hK =>
-    (checkDeclKindC_sim_full hC hJ hnat rfl rfl (CSOKI_empty L) hd hr hnI hK).2.2) h
+  checkDecl_sim_of (fun hK hbn =>
+    (checkDeclKindC_sim_full hC hJ rfl rfl (CSOKI_empty L) hd hr hnI hbn hK).2.2) h
 
 end InLeanProof

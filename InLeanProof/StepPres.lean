@@ -29,12 +29,11 @@ import all Lean.Declaration
   (`quotSoundHit`, twin of `quotPinHit .sound`), which is what con-leche
   installs (`quotAt .sound`); `checkAxiomC_quotSound` reads it, the name's
   freshness and the added constant off an accepted run.
-* **The inductive check's branches** (`BlockPresOblB`'s case split):
-  `checkIndDeclC_ok` (an accepted check is a pinned block equal to its pin,
-  or a recognised one whose generated entries agree and whose block check
-  passed; the shapeless branch and a parameter mismatch throw), and
-  `basisNameHit_toBlock` (con-leche's pinned dispatch on the translated block is
-  InLean's).
+* **The inductive check** (`BlockPresObl`'s premise): `checkIndDeclC_ok` (an
+  accepted check is a recognised block whose generated entries agree and whose
+  block check passed; the shapeless branch and a parameter mismatch throw),
+  and `basisNameHit_toBlock` (con-leche's pinned-name test on the translated
+  block is InLean's, which the reserved names' check reads).
 -/
 
 public section
@@ -397,48 +396,35 @@ theorem checkShapelessS_run_ne {μ : CheckMode} {block : List Lean.ConstantInfo}
   unfold checkShapelessS
   exact run_bind_throw _ _ (fun _ => rfl)
 
-/-- **What an accepted inductive check says**: a pinned block equal to its pin,
-or a recognised block whose generated entries agree with its shape and whose
-block check passed.  The shapeless branch and a parameter mismatch throw. -/
+/-- **What an accepted inductive check says**: a recognised block whose
+generated entries agree with its shape and whose block check passed (a pinned
+basis block included).  The shapeless branch and a parameter mismatch throw. -/
 theorem checkIndDeclC_ok {μ : CheckMode} {block : List Lean.ConstantInfo} {nP : Nat}
     {s s' : CState} (h : (checkIndDeclC μ fe block nP).run s = .ok ((), s')) :
-    (∃ kind, InLean.basisNameHit block = some kind ∧ pinListOk block kind.decls = true) ∨
-    (InLean.basisNameHit block = none ∧ indParamsOk nP block = true ∧
+    indParamsOk nP block = true ∧
       ∃ p, InLean.blockShape? nP block = some p ∧ ∃ s₁,
         (genEntriesAgree p block).run s = .ok ((), s₁) ∧
-        (checkBlockKS μ fe block p).run s₁ = .ok ((), s')) := by
+        (checkBlockKS μ fe block p).run s₁ = .ok ((), s') := by
   unfold checkIndDeclC at h
-  cases hk : InLean.basisNameHit block with
-  | some kind =>
-    rw [hk] at h
-    refine .inl ⟨kind, rfl, ?_⟩
-    unfold checkBasisBlockC at h
-    cases hp : pinListOk block kind.decls
-    · simp [hp, StateT.run, bind, StateT.bind, Except.bind, throw, throwThe,
-        MonadExceptOf.throw, StateT.lift] at h
-    · rfl
-  | none =>
-    rw [hk] at h
-    refine .inr ⟨rfl, ?_⟩
-    cases hpo : indParamsOk nP block
-    · simp [hpo, StateT.run, throw, throwThe, MonadExceptOf.throw, StateT.lift, Functor.map, Except.map] at h
-    · simp only [hpo, ↓reduceIte] at h
-      refine ⟨rfl, ?_⟩
-      cases hs : InLean.blockShape? nP block with
-      | none => rw [hs] at h; exact absurd h checkShapelessS_run_ne
-      | some p =>
-        rw [hs] at h
-        simp only at h
-        rw [StateT.run_bind] at h
-        refine ⟨p, rfl, ?_⟩
-        cases hg : (genEntriesAgree p block).run s with
-        | error e => rw [hg, except_error_bind] at h; cases h
-        | ok q =>
-          obtain ⟨⟨⟩, s₁⟩ := q
-          rw [hg, except_ok_bind] at h
-          exact ⟨s₁, rfl, h⟩
+  cases hpo : indParamsOk nP block
+  · simp [hpo, StateT.run, throw, throwThe, MonadExceptOf.throw, StateT.lift, Functor.map, Except.map] at h
+  · simp only [hpo, ↓reduceIte] at h
+    refine ⟨rfl, ?_⟩
+    cases hs : InLean.blockShape? nP block with
+    | none => rw [hs] at h; exact absurd h checkShapelessS_run_ne
+    | some p =>
+      rw [hs] at h
+      simp only at h
+      rw [StateT.run_bind] at h
+      refine ⟨p, rfl, ?_⟩
+      cases hg : (genEntriesAgree p block).run s with
+      | error e => rw [hg, except_error_bind] at h; cases h
+      | ok q =>
+        obtain ⟨⟨⟩, s₁⟩ := q
+        rw [hg, except_ok_bind] at h
+        exact ⟨s₁, rfl, h⟩
 
-/-! ## The pinned dispatch through the translation -/
+/-! ## The pinned names through the translation -/
 
 /-- InLean's pinned kinds as con-leche's. -/
 theorem toBlockRecord_name {c : Lean.ConstantInfo} {r : ConLeche.ConstantInfo}
@@ -458,7 +444,7 @@ theorem toBlock_names : ∀ {block : List Lean.ConstantInfo} {cb : List ConLeche
     obtain ⟨r, hr, rs, hrs, rfl⟩ := h
     simp only [List.map_cons, toBlockRecord_name hr, toBlock_names hrs]
 
-/-- **The pinned dispatch agrees**: con-leche's `basisNameHit` on the
+/-- **The pinned names agree**: con-leche's `basisNameHit` on the
 translated block is InLean's, kind by kind. -/
 theorem basisNameHit_toBlock {block : List Lean.ConstantInfo} {cb : List ConLeche.ConstantInfo}
     (h : toBlock block = some cb) :

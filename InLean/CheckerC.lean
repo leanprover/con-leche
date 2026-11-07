@@ -136,7 +136,6 @@ variable (mode : CheckMode)
 def checkConstantValC (fe : FEnv) (n : Name) (lps : List Name) (ty : Expr)
     (allowOp : Bool := false) : CheckCM Unit := do
   if (fe.env.find? n).isSome then throw (.invalid s!"duplicate declaration {n}")
-  if reservedBasisNames.contains n then throw (.invalid s!"reserved basis name {n}")
   if natOpName n && !allowOp then
     throw (.invalid s!"a certified Nat operation's name, not a definition: {n}")
   unless litShapeOk n lps ty do
@@ -295,11 +294,6 @@ def checkDivModPin (fe fe2 : FEnv) (c : Name) (value' : Expr) : CheckCM Unit := 
 
 /-! ## The compiler-trust opaques and axioms -/
 
-def pinFound (fe : FEnv) (p : Pin) : Bool :=
-  match fe.find? p.name with
-  | some ci => p.matches ci
-  | none => false
-
 /-- A pinned family's inductive type, as master's guards read it: stored as
 an inductive (`some (.indInfo cv _)`) matching the pin. -/
 def pinFoundInd (fe : FEnv) (p : Pin) : Bool :=
@@ -325,9 +319,10 @@ def pinFoundRec (fe : FEnv) (p : Pin) (mI rP : Nat) : Bool :=
       v.numParams + v.numMotives + v.numMinors == rP && p.matchesExact ci
   | _ => false
 
-/-- Twin of `reduceElemOkF` (`Bool` stored as an inductive). -/
+/-- Twin of `reduceElemOkF`: `Nat` resp. `Bool` stored as an inductive
+matching its pin. -/
 def reduceElemOk (fe : FEnv) (c : Name) : Bool :=
-  if c == reduceNatName then natLitStoredF fe && pinFound fe natPin
+  if c == reduceNatName then pinFoundInd fe natPin
   else pinFoundInd fe boolPin
 
 /-- Twin of `reduceStoredOkF` (Lean stores the opaque as an opaque). -/

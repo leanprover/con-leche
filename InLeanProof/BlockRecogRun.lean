@@ -339,7 +339,7 @@ theorem blockShape?_spec {nPd : Nat} {block : List Lean.ConstantInfo} {p : InLea
           split at h
           · rename_i hcond
             simp only [Bool.and_eq_true, List.all_eq_true, beq_iff_eq] at hcond
-            have hlps : ∀ c ∈ cvT0 :: tl, c.levelParams = cvT0.levelParams := hcond.1.2
+            have hlps : ∀ c ∈ cvT0 :: tl, c.levelParams = cvT0.levelParams := hcond.1
             refine ⟨cvT0, tl, cs, (cvR0, r0b) :: rtl, nIdxs, rfl, ?_⟩
             revert h
             repeat' split

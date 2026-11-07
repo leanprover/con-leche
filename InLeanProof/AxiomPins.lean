@@ -1769,12 +1769,6 @@ info: 'InLeanProof.genEntriesAgree_noSt' depends on axioms: [propext, Classical.
 #print axioms InLeanProof.genEntriesAgree_noSt
 
 /--
-info: 'InLeanProof.checkBasisBlockC_noSt' depends on axioms: [propext, Classical.choice, Quot.sound]
--/
-#guard_msgs in
-#print axioms InLeanProof.checkBasisBlockC_noSt
-
-/--
 info: 'InLeanProof.checkShapelessS_not_ok' depends on axioms: [propext, Classical.choice, Quot.sound]
 -/
 #guard_msgs in
@@ -1940,27 +1934,6 @@ info: 'InLeanProof.listBeqBy_tr' depends on axioms: [propext,
 /-- info: 'InLeanProof.blockLinksOk_tr' depends on axioms: [propext, Quot.sound] -/
 #guard_msgs in
 #print axioms InLeanProof.blockLinksOk_tr
-
-/--
-info: 'InLeanProof.basisFold_fresh' depends on axioms: [propext, Classical.choice, Quot.sound]
--/
-#guard_msgs in
-#print axioms InLeanProof.basisFold_fresh
-
-/-- info: 'InLeanProof.installFold_ok' depends on axioms: [propext, Classical.choice, Quot.sound] -/
-#guard_msgs in
-#print axioms InLeanProof.installFold_ok
-
-/--
-info: 'InLeanProof.basisBlockSimI' depends on axioms: [propext,
- Classical.choice,
- Quot.sound,
- InLeanProof.Expr.mkAppData_fields,
- InLeanProof.Expr.mkData_eq,
- InLeanProof.Level.mkData_eq]
--/
-#guard_msgs in
-#print axioms InLeanProof.basisBlockSimI
 
 /--
 info: 'InLeanProof.checkIndDeclC_sim_rest' depends on axioms: [propext,
@@ -2213,7 +2186,7 @@ info: 'InLeanProof.RecogCtx.table' depends on axioms: [propext,
 #print axioms InLeanProof.RecogCtx.table
 
 /--
-info: 'InLeanProof.blockPresOblB_recognised' depends on axioms: [propext,
+info: 'InLeanProof.blockPresOblP' depends on axioms: [propext,
  Classical.choice,
  Quot.sound,
  InLeanProof.Expr.mkAppData_fields,
@@ -2221,10 +2194,10 @@ info: 'InLeanProof.blockPresOblB_recognised' depends on axioms: [propext,
  InLeanProof.Level.mkData_eq]
 -/
 #guard_msgs in
-#print axioms InLeanProof.blockPresOblB_recognised
+#print axioms InLeanProof.blockPresOblP
 
 /--
-info: 'InLeanProof.indGroupPresBP_of' depends on axioms: [propext,
+info: 'InLeanProof.indGroupPresBP' depends on axioms: [propext,
  Classical.choice,
  Quot.sound,
  InLeanProof.Expr.mkAppData_fields,
@@ -2232,7 +2205,7 @@ info: 'InLeanProof.indGroupPresBP_of' depends on axioms: [propext,
  InLeanProof.Level.mkData_eq]
 -/
 #guard_msgs in
-#print axioms InLeanProof.indGroupPresBP_of
+#print axioms InLeanProof.indGroupPresBP
 
 /-- info: 'InLeanProof.toDecl_recognised' depends on axioms: [propext, Classical.choice, Quot.sound] -/
 #guard_msgs in
@@ -2623,3 +2596,33 @@ info: 'InLeanProof.checkDecl_sim_full' depends on axioms: [propext,
 -/
 #guard_msgs in
 #print axioms InLeanProof.checkDecl_sim_full
+
+/--
+info: 'InLeanProof.pinListOk_tr' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound,
+ InLeanProof.Expr.mkAppData_fields,
+ InLeanProof.Expr.mkData_eq,
+ InLeanProof.Level.mkData_eq]
+-/
+#guard_msgs in
+#print axioms InLeanProof.pinListOk_tr
+
+/--
+info: 'InLeanProof.basisNamesOk_ind_tr' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound,
+ InLeanProof.Expr.mkAppData_fields,
+ InLeanProof.Expr.mkData_eq,
+ InLeanProof.Level.mkData_eq]
+-/
+#guard_msgs in
+#print axioms InLeanProof.basisNamesOk_ind_tr
+
+/-- info: 'InLeanProof.checkDecl_of_kind' depends on axioms: [propext, Classical.choice, Quot.sound] -/
+#guard_msgs in
+#print axioms InLeanProof.checkDecl_of_kind
+
+/-- info: 'InLeanProof.basisNamesOk_toDecl' depends on axioms: [propext, Quot.sound] -/
+#guard_msgs in
+#print axioms InLeanProof.basisNamesOk_toDecl

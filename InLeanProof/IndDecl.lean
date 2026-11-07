@@ -7,27 +7,22 @@ public import InLeanProof.IndOps
 
 **The top of O7**, `checkIndDeclC_sim`: InLean's `checkIndDeclC .verified fe
 block nP` accepting from a state with the residue (`CSOKIF`) means master's
-pure fueled declaration step accepts the translated block
-(`ConLeche.checkDecl .verified (fueledOps .verified F) pins L (.indDecl cb nP)`
+pure fueled declaration kind check accepts the translated block
+(`ConLeche.checkDeclKind (fueledOps .verified F) pins L (.indDecl cb nP)`
 with `toBlock block = some cb`): `checkModeledOrNativeSF_run`'s and
-`checkDeclStepC_run`'s `.indDecl` arm, for InLean.  P4 composes it with
-master's fold theorem; P3r's `IndGroupPresBP` gives the environment relation
-after the step.
+`checkDeclStepC_run`'s `.indDecl` arm, for InLean.  The reserved names' check
+after it is `InLeanProof.basisNamesOk_tr`'s (`IndBasis.lean`).  P4 composes
+them with master's fold theorem; P3r's `IndGroupPresBP` gives the environment
+relation after the step.
 
-The dispatch is proved here: the pinned blocks by name (`basisNameHit_tr`),
-the declared parameter count (`indParamsOk_tr`), the recogniser
-(`blockShape?_tr`), the generated entries' agreement (`genEntriesAgree`
-changes no state, `genEntriesAgree_noSt`) and the shapeless decline (it
-never accepts, `checkShapelessS_not_ok`).  The two job runs are named
-hypotheses, each stated as the cached driver's `_run` lemma it twins:
-
-* `BasisBlockSimI` (`checkBasisBlockC_spec`'s twin): a pinned block accepted by
-  InLean is accepted by master's `checkBasisBlock` on the translation.  What
-  it needs: `pinListOk` (InLean's pins, compared up to `mdata` and binder
-  data, `pinAgrees`) against master's on the translated block, and the
-  freshness of the names through `EnvPresI`.
-* `BlockKSSimI` (`checkBlockKS_run`'s twin): the recognised block's job
-  (`InLeanProof/IndBlockKS.lean` reduces it to the job's stages).
+The dispatch is proved here: the declared parameter count
+(`indParamsOk_tr`), the recogniser (`blockShape?_tr`), the generated entries'
+agreement (`genEntriesAgree` changes no state, `genEntriesAgree_noSt`) and the
+shapeless decline (it never accepts, `checkShapelessS_not_ok`).  A pinned
+basis block takes the same route.  The job run is a named hypothesis, stated
+as the cached driver's `_run` lemma it twins: `BlockKSSimI`
+(`checkBlockKS_run`'s twin), the recognised block's job
+(`InLeanProof/IndBlockKS.lean` reduces it to the job's stages).
 -/
 
 set_option experimental.vcgen true
@@ -102,18 +97,6 @@ theorem NoSt.foldlM {α β : Type} (l : List α) (b : β)
     rw [List.foldlM_cons]
     exact NoSt.bind (hf b a) fun b' => ih b'
 
-/-- **A pinned block's check changes no state.** -/
-theorem checkBasisBlockC_noSt (fe : InLean.FEnv) (kind : InLean.BasisKind)
-    (block : List Lean.ConstantInfo) : NoSt (InLean.checkBasisBlockC fe kind block) := by
-  unfold InLean.checkBasisBlockC
-  repeat' (first
-    | exact NoSt.pure _
-    | exact NoSt.throw _
-    | (apply NoSt.bind <;> intros)
-    | (apply NoSt.foldlM; intros)
-    | apply NoSt.ite
-    | split)
-
 /-- **The generated entries' check changes no state.** -/
 theorem genEntriesAgree_noSt (p : InLean.BlockShape) (block : List Lean.ConstantInfo) :
     NoSt (genEntriesAgree p block) := by
@@ -145,20 +128,7 @@ theorem CIRange_of_constInRange {ci : Lean.ConstantInfo} (h : InLean.constInRang
     exact ⟨(RangeOk_of_inRange h.1).1, fun r hr => (RangeOk_of_inRange (h.2 r hr)).1⟩
   | _ => exact (RangeOk_of_inRange h).1
 
-/-! ## The two job runs, named -/
-
-/-- **A pinned block** (`checkBasisBlockC_spec`'s twin): accepted by InLean,
-accepted by master's `checkBasisBlock` on the translated block.  Open: InLean's
-`pinListOk` (its own pins, compared by `pinAgrees` up to `mdata` and binder
-data) against master's on the translation, and the names' freshness in `L`
-read through `EnvPresI`. -/
-@[expose] def BasisBlockSimI : Prop :=
-  ∀ (fe : InLean.FEnv) (L : ConLeche.Env) (kind : InLean.BasisKind)
-    (block : List Lean.ConstantInfo) (s₀ s' : InLean.CState),
-    JobEnvI fe L → (∀ ci ∈ block, CIOk ci) → (∀ ci ∈ block, isBlockKind ci = true) →
-    InLean.basisNameHit block = some kind →
-    InLean.checkBasisBlockC fe kind block s₀ = .ok ((), s') →
-    ∃ L', ConLeche.checkBasisBlock (m := ConLeche.CheckM) L (trKind kind) (block.map trCI) = .ok L'
+/-! ## The job run, named -/
 
 /-- **A recognised block's job** (`checkBlockKS_run`'s twin): accepted by
 InLean from a state with the residue, accepted by master's pure fueled
@@ -178,51 +148,39 @@ InLean from a state with the residue, accepted by master's pure fueled
 variable {pins : List ConLeche.NatOpPinSet}
 
 /-- **O7's top: InLean's inductive declaration simulates master's pure
-declaration step** on the translated block (`checkDeclStepC_run`'s `.indDecl`
-arm and `checkModeledOrNativeSF_run`, for InLean), from the two job runs. -/
-theorem checkIndDeclC_sim (hB : BasisBlockSimI) (hK : BlockKSSimI)
+declaration kind check** on the translated block (`checkDeclStepC_run`'s
+`.indDecl` arm and `checkModeledOrNativeSF_run`, for InLean), from the job
+run. -/
+theorem checkIndDeclC_sim (hK : BlockKSSimI)
     {fe : InLean.FEnv} {L : ConLeche.Env} (hJ : JobEnvI fe L)
     {block : List Lean.ConstantInfo} {cb : List ConLeche.ConstantInfo} {nP : Nat}
     (hso : ∀ ci ∈ block, ci.name = InLean.sorryAxName → fe.coreAxioms = true)
     {s₀ s' : InLean.CState} (hs : CSOKIF s₀) (hr : ∀ ci ∈ block, CIRange ci)
     (hb : toBlock block = some cb)
     (h : InLean.checkIndDeclC .verified fe block nP s₀ = .ok ((), s')) :
-    CSOKIF s' ∧ ∃ F L', ConLeche.checkDecl .verified (ConLeche.fueledOps .verified F) pins L
+    CSOKIF s' ∧ ∃ F L', ConLeche.checkDeclKind (ConLeche.fueledOps .verified F) pins L
       (.indDecl cb nP) = .ok L' := by
-  have hok := toBlock_CIOk hb hr
   obtain ⟨rfl, hk⟩ := toBlock_eq hb hr
   unfold InLean.checkIndDeclC at h
-  cases hbn : InLean.basisNameHit block with
-  | some kind =>
-    rw [hbn] at h
-    simp only at h
-    have hst : s' = s₀ := checkBasisBlockC_noSt fe kind block s₀ () s' h
-    obtain ⟨L', hL'⟩ := hB fe L kind block s₀ s' hJ hok (fun ci h => (hk ci h).1) hbn h
-    refine ⟨hst ▸ hs, 0, L', ?_⟩
-    simp only [ConLeche.checkDecl, basisNameHit_tr, hbn, Option.map_some]
-    exact hL'
-  | none =>
-    rw [hbn] at h
-    simp only at h
-    by_cases hok : InLean.indParamsOk nP block = true
-    · rw [ite_eq_left hok] at h
-      cases hsh : InLean.blockShape? nP block with
-      | none =>
-        rw [hsh] at h
-        exact (checkShapelessS_not_ok h).elim
-      | some p =>
-        rw [hsh] at h
-        obtain ⟨u, s₁, h1, h2⟩ := bindI_ok h
-        have hs1 : s₁ = s₀ := genEntriesAgree_noSt p block s₀ u s₁ h1
-        subst hs1
-        obtain ⟨hs', F, L', hF⟩ := hK fe L block nP p s₁ s' hJ hso hs hr hk hsh h2
-        refine ⟨hs', F, L', ?_⟩
-        have hok' : ConLeche.indParamsOk nP (block.map trCI) = true := by
-          rw [indParamsOk_tr]; exact hok
-        simp only [ConLeche.checkDecl, basisNameHit_tr, hbn, Option.map_none, hok', ↓reduceIte,
-          blockShape?_tr nP block (fun ci h => (hk ci h).2), hsh, Option.map_some]
-        exact hF
-    · rw [ite_eq_right hok] at h
-      exact (throwI_ok h).elim
+  by_cases hok : InLean.indParamsOk nP block = true
+  · rw [ite_eq_left hok] at h
+    cases hsh : InLean.blockShape? nP block with
+    | none =>
+      rw [hsh] at h
+      exact (checkShapelessS_not_ok h).elim
+    | some p =>
+      rw [hsh] at h
+      obtain ⟨u, s₁, h1, h2⟩ := bindI_ok h
+      have hs1 : s₁ = s₀ := genEntriesAgree_noSt p block s₀ u s₁ h1
+      subst hs1
+      obtain ⟨hs', F, L', hF⟩ := hK fe L block nP p s₁ s' hJ hso hs hr hk hsh h2
+      refine ⟨hs', F, L', ?_⟩
+      have hok' : ConLeche.indParamsOk nP (block.map trCI) = true := by
+        rw [indParamsOk_tr]; exact hok
+      simp only [ConLeche.checkDeclKind, hok', ↓reduceIte,
+        blockShape?_tr nP block (fun ci h => (hk ci h).2), hsh, Option.map_some]
+      exact hF
+  · rw [ite_eq_right hok] at h
+    exact (throwI_ok h).elim
 
 end InLeanProof

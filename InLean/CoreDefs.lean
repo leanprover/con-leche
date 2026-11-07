@@ -289,19 +289,22 @@ def structUsedLater (cty : Expr) (nP j : Nat) : Bool :=
   | some rest => rest.hasLooseBVarI 0
   | none => false
 
-/-- Twin of `projGuardRowsAt`: the variables' types from the state. -/
-def projGuardRowsAtM (cty : Expr) (nP idx : Nat) (fvs : List Expr) :
-    CheckCM (List (Nat × Expr)) := do
-  let mut rows : Array (Nat × Expr) := #[]
-  for j in List.range (idx + 1) do
-    if j == idx || structUsedLater cty nP j then
-      match fvs[nP + j]? with
-      | some (.fvar id) =>
-        match ← fvarTypeM? id with
-        | some ty => rows := rows.push (nP + j, ty)
-        | none => pure ()
-      | _ => pure ()
-  return rows.toList
+/-- Twin of `projGuardRowsGo`: the field loop of the official `infer_proj`.
+`r` is the constructor telescope with its parameters and every field before
+the current one opened, the current field's variable at depth `d`; `k`
+fields remain before the projected one.  A field the rest uses is a row and
+is opened at its variable, one it does not use is stepped over. -/
+def projGuardRowsGoM : Nat → Nat → Expr → CheckCM (Option (List (Nat × Expr)))
+  | k, d, .mdata _ e => projGuardRowsGoM k d e
+  | 0, d, .forallE _ dom _ _ => pure (some [(d, dom)])
+  | k + 1, d, .forallE _ dom body _ =>
+    if body.hasLooseBVarI 0 then do
+      let fv ← mkFVarM d dom
+      match ← projGuardRowsGoM k (d + 1) (body.inst1I fv) with
+      | some rows => pure (some ((d, dom) :: rows))
+      | none => pure none
+    else projGuardRowsGoM k (d + 1) body
+  | _, _, _ => pure none
 
 /-- Twin of `Expr.leafGuard fab base`: the free variables of `fab` are among
 `base`'s, hereditarily through their types (con-leche's variable carries its

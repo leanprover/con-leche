@@ -206,7 +206,7 @@ def litGuardNames : List Name :=
 
 /-- Twin of `reservedRecName`. -/
 def reservedRecName (n : Name) : Bool :=
-  reservedBasisNames.contains n || litGuardNames.contains n ||
+  litGuardNames.contains n ||
     natOpNames.contains n || natDivModNames.contains n ||
     n == boolName || n == boolTrueName || n == boolFalseName
 
@@ -385,11 +385,8 @@ def blockShape? (nPd : Nat) (block : List ConstantInfo) : Option BlockShape :=
       | none => none
       | some nIdxs =>
         let nP := nPd
-        if (cvTs.all fun c => reservedBasisNames.contains c.name == false) &&
-            (rs.all fun r => reservedBasisNames.contains r.1.name == false) &&
-            (cvTs.all fun c => c.levelParams == lps) &&
-            cs.all (fun c => c.2.1 == nP && c.1.levelParams == lps &&
-              reservedBasisNames.contains c.1.name == false) then
+        if (cvTs.all fun c => c.levelParams == lps) &&
+            cs.all (fun c => c.2.1 == nP && c.1.levelParams == lps) then
           let s : Level := match (stripPis (nP + nIdxs.headD 0) cvT0.type).map
               (fun (p : List Expr × Expr) => EO.stripTop p.2) with
             | some (.sort s) => s
