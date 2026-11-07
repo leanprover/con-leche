@@ -130,18 +130,15 @@ counts and their GROUP of constructors, and the RECURSORS as the
 stream exports them, each with the member its MAJOR names
 (`recTargetOf`).  The conjuncts before it are the consequences every
 consumer reads: the parameter count, the `isProp` pin, the block's
-level parameters on every member and every constructor, the
-reserved-name exclusions, and the elimination level parameter, which is
+level parameters on every member and every constructor, and the
+elimination level parameter, which is
 fresh at the large eliminator and `.anonymous` at the small one. -/
 abbrev BlockShapeOk (nPd : Nat) (block : List ConstantInfo) (p : BlockShape) : Prop :=
   p.nP = nPd ∧
   p.isProp = (Level.isEquiv p.resSort .zero == some true) ∧
   p.members ≠ [] ∧
-  (∀ ms ∈ p.members, ms.cvT.levelParams = p.lps ∧
-    reservedBasisNames.contains ms.cvT.name = false) ∧
-  (∀ rc ∈ p.recs, reservedBasisNames.contains rc.cvR.name = false) ∧
-  (∀ c ∈ p.allCtors, c.1.levelParams = p.lps ∧
-    reservedBasisNames.contains c.1.name = false) ∧
+  (∀ ms ∈ p.members, ms.cvT.levelParams = p.lps) ∧
+  (∀ c ∈ p.allCtors, c.1.levelParams = p.lps) ∧
   (p.large = true → p.lps.contains p.elim = false) ∧
   (p.large = false → p.elim = Name.anonymous) ∧
   ∃ (cvTs : List ConstantVal) (cs : List (ConstantVal × Nat × Nat))
@@ -168,11 +165,8 @@ private theorem blockShape?_inv_aux {nPd : Nat} {block : List ConstantInfo}
     (hsp : blockSplit block = some (cvT0 :: cvTs', cs, rs))
     (hmc : blockMemberCounts? nPd (cvT0 :: cvTs').length cs.length
       ((cvT0 :: cvTs').map (·.name)) rs 0 (cvT0 :: cvTs') = some nIdxs)
-    (hresT : ∀ c ∈ cvT0 :: cvTs', reservedBasisNames.contains c.name = false)
-    (hresR : ∀ r ∈ rs, reservedBasisNames.contains (Prod.fst r).name = false)
     (hlpsAll : ∀ c ∈ cvT0 :: cvTs', c.levelParams = cvT0.levelParams)
-    (hcs : ∀ c ∈ cs, (c.2.1 = nPd ∧ c.1.levelParams = cvT0.levelParams) ∧
-      reservedBasisNames.contains c.1.name = false)
+    (hcs : ∀ c ∈ cs, c.2.1 = nPd ∧ c.1.levelParams = cvT0.levelParams)
     (hnP : p.nP = nPd)
     (hisProp : p.isProp = (Level.isEquiv p.resSort .zero == some true))
     (hlargeT : p.large = true → cvT0.levelParams.contains p.elim = false)
@@ -214,25 +208,21 @@ private theorem blockShape?_inv_aux {nPd : Nat} {block : List ConstantInfo}
     rw [BlockShape.memberNames, ← e1, List.map_map]
     rfl
   have hlenR : rs.length = p.recs.length := by rw [hrecs, List.length_map]
-  refine ⟨hnP, hisProp, hne, ?_, ?_, ?_, ?_, hlargeF, cvT0 :: cvTs', cs, rs, nIdxs, hsp,
+  refine ⟨hnP, hisProp, hne, ?_, ?_, ?_, hlargeF, cvT0 :: cvTs', cs, rs, nIdxs, hsp,
     hk.symm, hlenR, hlenN.trans hk.symm, ?_, ?_, ?_, ?_⟩
-  · -- every member carries the block's level parameters and is not a basis name
+  · -- every member carries the block's level parameters
     intro ms hms
     obtain ⟨hT, -⟩ := blockMembers_mem (hmembers ▸ hms)
-    exact ⟨(hlpsAll _ hT).trans hlpsP.symm, hresT _ hT⟩
-  · -- no recursor is a basis name either
-    intro rc hrc
-    obtain ⟨r, hr, rfl⟩ := List.mem_map.mp (hrecs ▸ hrc)
-    exact hresR r hr
+    exact (hlpsAll _ hT).trans hlpsP.symm
   · -- every constructor carries them too
     intro c hc
     obtain ⟨g, hg, hcg⟩ := List.mem_flatten.mp hc
     rw [e3] at hg
     obtain ⟨c', hc', rfl⟩ := List.mem_map.mp (mem_blockGroups hg hcg)
-    exact ⟨((hcs c' hc').1.2).trans hlpsP.symm, (hcs c' hc').2⟩
+    exact ((hcs c' hc').2).trans hlpsP.symm
   · intro hl; rw [hlpsP]; exact hlargeT hl
   · rw [hk, hnames]; exact hmc
-  · intro c hc; rw [hnP]; exact (hcs c hc).1.1
+  · intro c hc; rw [hnP]; exact (hcs c hc).1
   · rw [hnames, hlpsP, hnP, hk]; exact hmembers
   · rw [hnames]; exact hrecs
 
@@ -266,11 +256,11 @@ theorem blockShape?_inv {nPd : Nat} {block : List ConstantInfo} {p : BlockShape}
   case isFalse => exact nomatch h
   case isTrue hif =>
   simp only [Bool.and_eq_true, List.all_eq_true, beq_iff_eq] at hif
-  obtain ⟨⟨⟨hresT, hresR⟩, hlpsAll⟩, hcs⟩ := hif
+  obtain ⟨hlpsAll, hcs⟩ := hif
   split at h
   · next elim helim =>
     have hp := Option.some.inj h
-    refine blockShape?_inv_aux hsp hmc hresT hresR hlpsAll hcs ?_ ?_ ?_ ?_ ?_ ?_
+    refine blockShape?_inv_aux hsp hmc hlpsAll hcs ?_ ?_ ?_ ?_ ?_ ?_
     · rw [← hp]
     · rw [← hp]
     · -- the large eliminator's level parameter is fresh
@@ -296,7 +286,7 @@ theorem blockShape?_inv {nPd : Nat} {block : List ConstantInfo} {p : BlockShape}
     · rw [← hp]
   · next helim =>
     have hp := Option.some.inj h
-    refine blockShape?_inv_aux hsp hmc hresT hresR hlpsAll hcs ?_ ?_ ?_ ?_ ?_ ?_
+    refine blockShape?_inv_aux hsp hmc hlpsAll hcs ?_ ?_ ?_ ?_ ?_ ?_
     · rw [← hp]
     · rw [← hp]
     · rw [← hp]; intro hh; exact nomatch hh
@@ -307,11 +297,105 @@ theorem blockShape?_inv {nPd : Nat} {block : List ConstantInfo} {p : BlockShape}
 /-- The recogniser's members stand at their declared formers. -/
 theorem blockShape?_declared {nPd : Nat} {block : List ConstantInfo} {p : BlockShape}
     (h : blockShape? nPd block = some p) : ∀ ms ∈ p.members, ms.declared = ms.cvT := by
-  obtain ⟨-, -, -, -, -, -, -, -, _, _, _, _, -, -, -, -, -, -, hmem, -⟩ :=
+  obtain ⟨-, -, -, -, -, -, -, _, _, _, _, -, -, -, -, -, -, hmem, -⟩ :=
     blockShape?_inv h
   intro ms hms
   rw [show p.members = _ from hmem] at hms
   obtain ⟨a, -, rfl⟩ := List.mem_map.mp hms
   rfl
+
+/-! ## The recogniser's names -/
+
+theorem blockSplitRecs_names :
+    ∀ {block : List ConstantInfo} {rs : List (ConstantVal × Nat × Nat × Bool × List RecRule)},
+      blockSplitRecs block = some rs → ∀ r ∈ rs, ∃ b ∈ block, b.name = r.1.name
+  | [], rs, h, r, hr => by
+    simp only [blockSplitRecs, Option.some.injEq] at h
+    subst h; exact nomatch hr
+  | .recInfo cvR mI rP isK rules :: rest, rs, h, r, hr => by
+    simp only [blockSplitRecs, Option.map_eq_some_iff] at h
+    obtain ⟨rs', h', rfl⟩ := h
+    rcases List.mem_cons.mp hr with rfl | hr
+    · exact ⟨_, List.mem_cons_self, rfl⟩
+    · obtain ⟨b, hb, hn⟩ := blockSplitRecs_names h' r hr
+      exact ⟨b, List.mem_cons_of_mem _ hb, hn⟩
+  | .axiomInfo .. :: _, _, h, _, _ | .defnInfo .. :: _, _, h, _, _ | .thmInfo .. :: _, _, h, _, _
+  | .indInfo .. :: _, _, h, _, _ | .ctorInfo .. :: _, _, h, _, _ => nomatch h
+
+theorem blockSplitCtors_names :
+    ∀ {block : List ConstantInfo} {cs : List (ConstantVal × Nat × Nat)}
+      {rs : List (ConstantVal × Nat × Nat × Bool × List RecRule)},
+      blockSplitCtors block = some (cs, rs) →
+      (∀ c ∈ cs, ∃ b ∈ block, b.name = c.1.name) ∧ (∀ r ∈ rs, ∃ b ∈ block, b.name = r.1.name)
+  | .ctorInfo cvC nP nF :: rest, cs, rs, h => by
+    simp only [blockSplitCtors, Option.map_eq_some_iff] at h
+    obtain ⟨⟨cs', rs'⟩, h', he⟩ := h
+    simp only [Prod.mk.injEq] at he
+    obtain ⟨rfl, rfl⟩ := he
+    obtain ⟨hc, hr⟩ := blockSplitCtors_names h'
+    refine ⟨fun c hc' => ?_, fun r hr' => ?_⟩
+    · rcases List.mem_cons.mp hc' with rfl | hc'
+      · exact ⟨_, List.mem_cons_self, rfl⟩
+      · obtain ⟨b, hb, hn⟩ := hc c hc'
+        exact ⟨b, List.mem_cons_of_mem _ hb, hn⟩
+    · obtain ⟨b, hb, hn⟩ := hr r hr'
+      exact ⟨b, List.mem_cons_of_mem _ hb, hn⟩
+  | [], cs, rs, h | .recInfo .. :: _, cs, rs, h | .axiomInfo .. :: _, cs, rs, h
+  | .defnInfo .. :: _, cs, rs, h | .thmInfo .. :: _, cs, rs, h | .indInfo .. :: _, cs, rs, h => by
+    simp only [blockSplitCtors] at h
+    obtain ⟨rs', h', he⟩ := Option.map_eq_some_iff.mp h
+    cases he
+    exact ⟨fun c hc => (nomatch hc), blockSplitRecs_names h'⟩
+
+theorem blockSplit_names :
+    ∀ {block : List ConstantInfo} {cvTs : List ConstantVal} {cs : List (ConstantVal × Nat × Nat)}
+      {rs : List (ConstantVal × Nat × Nat × Bool × List RecRule)},
+      blockSplit block = some (cvTs, cs, rs) →
+      (∀ cv ∈ cvTs, ∃ b ∈ block, b.name = cv.name) ∧
+      (∀ c ∈ cs, ∃ b ∈ block, b.name = c.1.name) ∧ (∀ r ∈ rs, ∃ b ∈ block, b.name = r.1.name)
+  | .indInfo cvT caps :: rest, cvTs, cs, rs, h => by
+    simp only [blockSplit, Option.map_eq_some_iff] at h
+    obtain ⟨⟨cvTs', cs', rs'⟩, h', he⟩ := h
+    simp only [Prod.mk.injEq] at he
+    obtain ⟨rfl, rfl, rfl⟩ := he
+    obtain ⟨hT, hc, hr⟩ := blockSplit_names h'
+    have lift : ∀ {n : Name}, (∃ b ∈ rest, b.name = n) →
+        ∃ b ∈ ConstantInfo.indInfo cvT caps :: rest, b.name = n := fun ⟨b, hb, hn⟩ =>
+      ⟨b, List.mem_cons_of_mem _ hb, hn⟩
+    refine ⟨fun cv hcv => ?_, fun c hc' => lift (hc c hc'), fun r hr' => lift (hr r hr')⟩
+    rcases List.mem_cons.mp hcv with rfl | hcv
+    · exact ⟨_, List.mem_cons_self, rfl⟩
+    · exact lift (hT cv hcv)
+  | [], cvTs, cs, rs, h | .recInfo .. :: _, cvTs, cs, rs, h | .axiomInfo .. :: _, cvTs, cs, rs, h
+  | .defnInfo .. :: _, cvTs, cs, rs, h | .thmInfo .. :: _, cvTs, cs, rs, h
+  | .ctorInfo .. :: _, cvTs, cs, rs, h => by
+    simp only [blockSplit] at h
+    obtain ⟨⟨cs', rs'⟩, h', he⟩ := Option.map_eq_some_iff.mp h
+    cases he
+    exact ⟨fun cv hcv => (nomatch hcv), blockSplitCtors_names h'⟩
+
+/-- **The recogniser's names are the block's**: every member, constructor and recursor it reads is
+a record of the block, by name. -/
+theorem blockShape?_names {nPd : Nat} {block : List ConstantInfo} {p : BlockShape}
+    (h : blockShape? nPd block = some p) :
+    (∀ ms ∈ p.members, ∃ b ∈ block, b.name = ms.declared.name) ∧
+    (∀ c ∈ p.allCtors, ∃ b ∈ block, b.name = c.1.name) ∧
+    (∀ rc ∈ p.recs, ∃ b ∈ block, b.name = rc.cvR.name) := by
+  have hd := blockShape?_declared h
+  obtain ⟨-, -, -, -, -, -, -, cvTs, cs, rs, nIdxs, hsp, -, -, -, -, -, hmem, hrecs⟩ :=
+    blockShape?_inv h
+  obtain ⟨hT, hc, hr⟩ := blockSplit_names hsp
+  refine ⟨fun ms hms => ?_, fun c hc' => ?_, fun rc hrc => ?_⟩
+  · rw [hd ms hms]
+    rw [hmem] at hms
+    exact hT _ (blockMembers_mem hms).1
+  · obtain ⟨g, hg, hcg⟩ := List.mem_flatten.mp hc'
+    obtain ⟨ms, hms, rfl⟩ := List.mem_map.mp hg
+    rw [hmem] at hms
+    obtain ⟨c', hc'', rfl⟩ := List.mem_map.mp (mem_blockGroups (blockMembers_mem hms).2 hcg)
+    exact hc c' hc''
+  · rw [hrecs] at hrc
+    obtain ⟨r, hr', rfl⟩ := List.mem_map.mp hrc
+    exact hr r hr'
 
 end ConLeche

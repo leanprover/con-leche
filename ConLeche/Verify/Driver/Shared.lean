@@ -1,6 +1,8 @@
 module
 
 public import ConLeche.Driver.Reach
+public import ConLeche.Verify.Frontend.ModelIO
+import ConLeche.Verify.Frontend.Olean.Files
 
 /-!
 # Reads answered from tables, in the model
@@ -10,7 +12,11 @@ module's imports, a view's files, a part's name positions.  The worker reads the
 path (`OleanReads.ofPath sp`); the one-process mode (`ConLeche/Driver/Modular.lean`) answers them
 from tables it read once up front, and where a table has nothing, by the same read.
 
-**Refinement** (`ModelIO.Within fs a b`): every outcome of `a` on the snapshot `fs` is one of `b`.
+**Refinement** (`ModelIO.Within fs a b`): every outcome of `a` on the snapshot `fs`, from any open
+handles, is one of `b` from every open handles; the handles are not compared, since a table
+answers a read without opening a file.  The reads of the files have the same outcomes from any
+open handles (`findModule_within`, `moduleImports_within`, `readFiles_within`,
+`readPartNames_within`): locating a module opens no file, and the header read is determined.
 The reads `rd` refine the search path's (`OleanReads.Within fs rd sp`) when each of their three
 operations does.  Then every phase of the worker written over `rd` refines the same phase over
 the search path (`headerFixpoint_within`, `workerReads_within`, `readHome_within`,
@@ -24,27 +30,49 @@ public section
 
 namespace ConLeche
 
-/-- **`a` refines `b` on the snapshot `fs`**: every outcome of `a` there is one of `b`. -/
-@[expose] def ModelIO.Within {α : Type} (fs : FS) (a b : ModelIO α) : Prop := ∀ o, a fs o → b fs o
+/-- **`a` refines `b` on the snapshot `fs`**: every outcome of `a` there, from any open handles,
+is one of `b` from every open handles.  The handles are not compared: the tables answer a read
+without opening a file, the files' read opens one. -/
+@[expose] def ModelIO.Within {α : Type} (fs : FS) (a b : ModelIO α) : Prop :=
+  ∀ hs o hs', a fs hs o hs' → ∀ hs₀, ∃ hs₁, b fs hs₀ o hs₁
 
 namespace ModelIO.Within
 
 variable {fs : FS}
 
-theorem refl {α : Type} (a : ModelIO α) : Within fs a a := fun _ h => h
+/-- An action whose outcomes are the same from any open handles refines itself: one that uses
+no handle, or a determined one. -/
+theorem of_noHandles {α : Type} {a : ModelIO α} (h : ModelIO.NoHandles a) : Within fs a a :=
+  fun hs o hs' ha hs₀ => ⟨hs₀, (h fs hs₀ o hs₀).2 ⟨((h fs hs o hs').1 ha).1, rfl⟩⟩
+
+theorem of_det {α : Type} {a : ModelIO α} (h : ModelIO.Det a fs) : Within fs a a := by
+  intro hs o hs' ha hs₀
+  obtain ⟨x, hx⟩ := h
+  obtain ⟨hs₁, h1⟩ := hx hs
+  obtain ⟨hs₂, h2⟩ := hx hs₀
+  rw [h1] at ha
+  exact ⟨hs₂, by rw [h2]; exact ⟨ha.1, rfl⟩⟩
+
+theorem pure {α : Type} (v : α) : Within fs (Pure.pure v) (Pure.pure v) :=
+  of_noHandles (ModelIO.noHandles_pure v)
+
+theorem liftIO {α : Type} (a : IO α) : Within fs (CheckerIO.liftIO a) (CheckerIO.liftIO a) :=
+  of_noHandles (ModelIO.noHandles_liftIO a)
 
 theorem trans {α : Type} {a b c : ModelIO α} (h₁ : Within fs a b) (h₂ : Within fs b c) :
-    Within fs a c := fun o h => h₂ o (h₁ o h)
+    Within fs a c := fun hs o hs' h hs₀ =>
+  let ⟨hs₁, hb⟩ := h₁ hs o hs' h hs₀
+  h₂ hs₀ o hs₁ hb hs₀
 
 theorem bind {α β : Type} {a b : ModelIO α} {f g : α → ModelIO β} (ha : Within fs a b)
     (hf : ∀ x, Within fs (f x) (g x)) : Within fs (a >>= f) (b >>= g) := by
-  intro o h
-  rcases h with ⟨x, hx, h⟩ | ⟨e, rfl, he⟩
-  · exact Or.inl ⟨x, ha _ hx, hf x _ h⟩
-  · exact Or.inr ⟨e, rfl, ha _ he⟩
-
-theorem bind_left {α β : Type} {a b : ModelIO α} (f : α → ModelIO β) (ha : Within fs a b) :
-    Within fs (a >>= f) (b >>= f) := bind ha fun _ => refl _
+  intro hs o hs' h hs₀
+  rcases h with ⟨x, hs₁, hx, h⟩ | ⟨e, rfl, he⟩
+  · obtain ⟨hs₂, hb⟩ := ha hs _ hs₁ hx hs₀
+    obtain ⟨hs₃, hg⟩ := hf x hs₁ o hs' h hs₂
+    exact ⟨hs₃, Or.inl ⟨x, hs₂, hb, hg⟩⟩
+  · obtain ⟨hs₂, hb⟩ := ha hs _ hs' he hs₀
+    exact ⟨hs₂, Or.inr ⟨e, rfl, hb⟩⟩
 
 theorem ite {α : Type} {c : Prop} [Decidable c] {a a' b b' : ModelIO α}
     (h₁ : c → Within fs a a') (h₂ : ¬c → Within fs b b') :
@@ -53,8 +81,35 @@ theorem ite {α : Type} {c : Prop} [Decidable c] {a a' b b' : ModelIO α}
   · simp only [hc, ↓reduceIte]; exact h₁ hc
   · simp only [hc, ↓reduceIte]; exact h₂ hc
 
-theorem ok_of {α : Type} {a b : ModelIO α} (h : Within fs a b) {v : α} (hv : a fs (.ok v)) :
-    b fs (.ok v) := h _ hv
+/-- A value `a` can give is one `b` can give, from any open handles. -/
+theorem ok_of {α : Type} {a b : ModelIO α} (h : Within fs a b) {hs hs' : HS} {v : α}
+    (hv : a fs hs (.ok v) hs') (hs₀ : HS) : ∃ hs₁, b fs hs₀ (.ok v) hs₁ := h _ _ _ hv hs₀
+
+theorem canGive {α : Type} {a b : ModelIO α} (h : Within fs a b) {v : α}
+    (hv : ModelIO.CanGive a fs v) : ModelIO.CanGive b fs v :=
+  let ⟨_, _, hv⟩ := hv
+  let ⟨hs₁, hb⟩ := h.ok_of hv #[]
+  ⟨#[], hs₁, hb⟩
+
+theorem throw {α : Type} (e : IO.Error) :
+    Within fs (throwThe IO.Error e : ModelIO α) (throwThe IO.Error e) :=
+  fun _ _ _ h hs₀ => ⟨hs₀, ⟨h.1, rfl⟩⟩
+
+theorem map {α β : Type} {a b : ModelIO α} (g : α → β) (h : Within fs a b) :
+    Within fs (g <$> a) (g <$> b) := by
+  rw [map_eq_pure_bind, map_eq_pure_bind]
+  exact bind h fun _ => pure _
+
+theorem tryCatch {α : Type} {a b : ModelIO α} {f g : IO.Error → ModelIO α} (ha : Within fs a b)
+    (hf : ∀ e, Within fs (f e) (g e)) :
+    Within fs (tryCatchThe IO.Error a f) (tryCatchThe IO.Error b g) := by
+  intro hs o hs' h hs₀
+  rcases h with ⟨v, rfl, hv⟩ | ⟨e, hs₁, he, h⟩
+  · obtain ⟨hs₁, hb⟩ := ha hs _ hs' hv hs₀
+    exact ⟨hs₁, Or.inl ⟨v, rfl, hb⟩⟩
+  · obtain ⟨hs₂, hb⟩ := ha hs _ hs₁ he hs₀
+    obtain ⟨hs₃, hg⟩ := hf e hs₁ o hs' h hs₂
+    exact ⟨hs₃, Or.inr ⟨e, hs₂, hb, hg⟩⟩
 
 end ModelIO.Within
 
@@ -62,19 +117,33 @@ end ModelIO.Within
 theorem mapExcept_within {fs : FS} {α β ε : Type} {f g : α → ModelIO (Except ε β)}
     (h : ∀ x, ModelIO.Within fs (f x) (g x)) :
     ∀ xs, ModelIO.Within fs (mapExcept f xs) (mapExcept g xs)
-  | [] => ModelIO.Within.refl _
+  | [] => ModelIO.Within.pure _
   | x :: xs => by
     simp only [mapExcept]
     refine ModelIO.Within.bind (h x) fun r => ?_
     rcases r with e | b
-    · exact ModelIO.Within.refl _
-    · exact ModelIO.Within.bind (mapExcept_within h xs) fun r => ModelIO.Within.refl _
+    · exact ModelIO.Within.pure _
+    · refine ModelIO.Within.bind (mapExcept_within h xs) fun r => ?_
+      rcases r with e | bs <;> exact ModelIO.Within.pure _
 
 /-- The parallel map with a stop keeps refinement (in the model it is the sequential map). -/
 theorem parMapExcept_within {fs : FS} {α β ε : Type} {f g : α → ModelIO (Except ε β)}
     (h : ∀ x, ModelIO.Within fs (f x) (g x)) (jobs jobs' : Nat) (xs : List α) :
     ModelIO.Within fs (CheckerIO.parMapExcept jobs f xs) (CheckerIO.parMapExcept jobs' g xs) :=
   mapExcept_within h xs
+
+/-- Peel a phase written over the reads: a callee's refinement (the terms given), the same
+`pure`, `throw` or `liftIO` on both sides, a bind, a match or an `if` on one value. -/
+local syntax "within_tac" "[" term,* "]" : tactic
+macro_rules
+  | `(tactic| within_tac [$ts,*]) => `(tactic| repeat' (first
+      $[| apply $ts:term]*
+      | exact ModelIO.Within.pure _
+      | exact ModelIO.Within.throw _
+      | exact ModelIO.Within.liftIO _
+      | (refine ModelIO.Within.bind ?_ fun _ => ?_)
+      | (refine ModelIO.Within.ite (fun _ => ?_) (fun _ => ?_))
+      | split))
 
 namespace Frontend.Olean
 
@@ -85,11 +154,52 @@ structure OleanReads.Within (fs : FS) (rd : OleanReads ModelIO) (sp : SearchPath
   files : ∀ m level, ModelIO.Within fs (rd.files m level) (readFiles sp m level)
   names : ∀ x, ModelIO.Within fs (rd.names x) (readPartNames sp x)
 
+/-! ## The reads of the files: the same outcomes from any open handles -/
+
+theorem findModule_within (fs : FS) (sp : SearchPath) (m : Name) :
+    ModelIO.Within fs (findModule sp m) (findModule sp m) := by
+  simp only [findModule]
+  refine ModelIO.Within.bind (ModelIO.Within.tryCatch
+    (ModelIO.Within.map _ (ModelIO.Within.of_det (locateHits_det sp m fs)))
+    fun _ => ModelIO.Within.pure _) fun _ => ?_
+  within_tac []
+
+theorem readPart_within (fs : FS) (p : System.FilePath) :
+    ModelIO.Within fs (readPart p) (readPart p) := by
+  simp only [readPart]
+  exact ModelIO.Within.bind (ModelIO.Within.of_det ⟨fs.file p, fun hs => ⟨hs, rfl⟩⟩)
+    fun _ => ModelIO.Within.pure _
+
+theorem readImportsAt_within (fs : FS) (loc : Located) (m : Name) :
+    ModelIO.Within fs (readImportsAt loc m) (readImportsAt loc m) := by
+  simp only [readImportsAt]
+  refine ModelIO.Within.bind (ModelIO.Within.of_det (foldChunks_isDet _ _ _ _ _ fs)) fun _ => ?_
+  within_tac []
+
+theorem moduleImports_within (fs : FS) (sp : SearchPath) (m : Name) :
+    ModelIO.Within fs (moduleImports sp m) (moduleImports sp m) := by
+  simp only [moduleImports]
+  within_tac [findModule_within fs sp m, readImportsAt_within fs _ m]
+
+theorem readFilesAt_within (fs : FS) (loc : Located) (m : Name) (level : OLeanLevel) :
+    ModelIO.Within fs (readFilesAt loc m level) (readFilesAt loc m level) := by
+  simp only [readFilesAt]
+  within_tac [readPart_within fs _]
+
+theorem readFiles_within (fs : FS) (sp : SearchPath) (m : Name) (level : OLeanLevel) :
+    ModelIO.Within fs (readFiles sp m level) (readFiles sp m level) := by
+  simp only [readFiles]
+  within_tac [findModule_within fs sp m, readFilesAt_within fs _ m level]
+
+theorem readPartNames_within (fs : FS) (sp : SearchPath) (x : Name × OLeanLevel) :
+    ModelIO.Within fs (readPartNames sp x) (readPartNames sp x) := by
+  simp only [readPartNames, readPartNamesAt]
+  within_tac [findModule_within fs sp x.1, readFilesAt_within fs _ x.1 x.2]
+
 /-- The search path's reads refine themselves. -/
 theorem OleanReads.Within.ofPath (fs : FS) (sp : SearchPath) :
     OleanReads.Within fs (OleanReads.ofPath sp) sp :=
-  ⟨fun _ => ModelIO.Within.refl _, fun _ _ => ModelIO.Within.refl _,
-    fun _ => ModelIO.Within.refl _⟩
+  ⟨moduleImports_within fs sp, readFiles_within fs sp, readPartNames_within fs sp⟩
 
 /-! ## The header fixpoint -/
 
@@ -97,8 +207,8 @@ theorem levelsGo_within {fs : FS} {imps imps' : Name → ModelIO (Except CheckEr
     (h : ∀ m, ModelIO.Within fs (imps m) (imps' m)) (gPriv : Bool) :
     ∀ fuel ws st, ModelIO.Within fs (levelsGo imps gPriv fuel ws st)
       (levelsGo imps' gPriv fuel ws st)
-  | _, [], st => by simp only [levelsGo]; exact ModelIO.Within.refl _
-  | 0, _ :: _, _ => by simp only [levelsGo]; exact ModelIO.Within.refl _
+  | _, [], st => by simp only [levelsGo]; exact ModelIO.Within.pure _
+  | 0, _ :: _, _ => by simp only [levelsGo]; exact ModelIO.Within.pure _
   | fuel + 1, .done m fl :: rest, st => by
     simp only [levelsGo]
     exact levelsGo_within h gPriv fuel _ _
@@ -111,10 +221,10 @@ theorem levelsGo_within {fs : FS} {imps imps' : Name → ModelIO (Except CheckEr
         · exact levelsGo_within h gPriv fuel _ _
         · exact levelsGo_within h gPriv fuel _ _
       · split
-        · exact ModelIO.Within.refl _
+        · exact ModelIO.Within.pure _
         · refine ModelIO.Within.bind (h _) fun r => ?_
           rcases r with e | is
-          · exact ModelIO.Within.refl _
+          · exact ModelIO.Within.pure _
           · exact levelsGo_within h gPriv fuel _ _
 
 theorem headerFixpoint_within {fs : FS}
@@ -123,7 +233,8 @@ theorem headerFixpoint_within {fs : FS}
     ModelIO.Within fs (headerFixpoint imps isModule imports)
       (headerFixpoint imps' isModule imports) := by
   simp only [headerFixpoint]
-  exact ModelIO.Within.bind_left _ (levelsGo_within h _ _ _ _)
+  refine ModelIO.Within.bind (levelsGo_within h _ _ _ _) fun _ => ?_
+  within_tac []
 
 /-! ## The worker's reads and its home -/
 
@@ -131,13 +242,15 @@ theorem readInfosOf_within {fs : FS} {rd : OleanReads ModelIO} {sp : SearchPath}
     (h : OleanReads.Within fs rd sp) (ld : Loads) (ix : NameIndex) (x : Nat × Array Copy) :
     ModelIO.Within fs (readInfosOf rd ld ix x) (readInfosOf (.ofPath sp) ld ix x) := by
   simp only [readInfosOf]
-  exact ModelIO.Within.bind_left _ (h.files _ _)
+  refine ModelIO.Within.bind (h.files _ _) fun _ => ?_
+  within_tac []
 
 theorem readInfos_within {fs : FS} {rd : OleanReads ModelIO} {sp : SearchPath}
     (h : OleanReads.Within fs rd sp) (ld : Loads) (ix : NameIndex) (jobs : Nat) (cs : Array Copy) :
     ModelIO.Within fs (readInfos rd ld ix jobs cs) (readInfos (.ofPath sp) ld ix jobs cs) := by
   simp only [readInfos]
-  exact ModelIO.Within.bind_left _ (parMapExcept_within (readInfosOf_within h ld ix) _ _ _)
+  refine ModelIO.Within.bind (parMapExcept_within (readInfosOf_within h ld ix) _ _ _) fun _ => ?_
+  within_tac []
 
 theorem workerReads_within {fs : FS} {rd : OleanReads ModelIO} {sp : SearchPath}
     (h : OleanReads.Within fs rd sp) (m : Name) (jobs : Nat) :
@@ -145,26 +258,28 @@ theorem workerReads_within {fs : FS} {rd : OleanReads ModelIO} {sp : SearchPath}
   simp only [workerReads]
   refine ModelIO.Within.bind (h.names _) fun r => ?_
   rcases r with e | own
-  · exact ModelIO.Within.refl _
+  · exact ModelIO.Within.pure _
   refine ModelIO.Within.bind (headerFixpoint_within h.imports _ _) fun r => ?_
   rcases r with e | ld
-  · exact ModelIO.Within.refl _
+  · exact ModelIO.Within.pure _
   refine ModelIO.Within.bind (parMapExcept_within h.names _ _ _) fun r => ?_
   rcases r with e | parts
-  · exact ModelIO.Within.refl _
+  · exact ModelIO.Within.pure _
   simp only
   split
-  · exact ModelIO.Within.refl _
+  · exact ModelIO.Within.pure _
   refine ModelIO.Within.bind (readInfos_within h _ _ _ _) fun r => ?_
   rcases r with e | infos
-  · exact ModelIO.Within.refl _
-  exact ModelIO.Within.bind (readInfos_within h _ _ _ _) fun r => ModelIO.Within.refl _
+  · exact ModelIO.Within.pure _
+  refine ModelIO.Within.bind (readInfos_within h _ _ _ _) fun _ => ?_
+  within_tac []
 
 theorem readHome_within {fs : FS} {rd : OleanReads ModelIO} {sp : SearchPath}
     (h : OleanReads.Within fs rd sp) (m : Name) (i : Nat) :
     ModelIO.Within fs (readHome rd m i) (readHome (.ofPath sp) m i) := by
   simp only [readHome]
-  exact ModelIO.Within.bind_left _ (h.files _ _)
+  refine ModelIO.Within.bind (h.files _ _) fun _ => ?_
+  within_tac []
 
 end Frontend.Olean
 
@@ -176,17 +291,6 @@ open Frontend.Olean
 /-- The reach's environment with its reads on the search path. -/
 @[expose] def ReachEnv.onPath (env : ReachEnv ModelIO) (sp : SearchPath) : ReachEnv ModelIO :=
   { env with rd := .ofPath sp }
-
-/-- Peel a phase written over the reads: a callee's refinement (the terms given), the same
-action on both sides, a bind, a match or an `if` on one value. -/
-local syntax "within_tac" "[" term,* "]" : tactic
-macro_rules
-  | `(tactic| within_tac [$ts,*]) => `(tactic| repeat' (first
-      $[| apply $ts:term]*
-      | exact ModelIO.Within.refl _
-      | (refine ModelIO.Within.bind ?_ fun _ => ?_)
-      | (refine ModelIO.Within.ite (fun _ => ?_) (fun _ => ?_))
-      | split))
 
 section
 variable {fs : FS} {env : ReachEnv ModelIO} {sp : SearchPath}
@@ -220,7 +324,7 @@ theorem privSpot_within (h : OleanReads.Within fs env.rd sp) (c : ReachCache) (s
 theorem viewAdd_within (h : OleanReads.Within fs env.rd sp) :
     ∀ (c : ReachCache) (v : Std.HashMap Name Spot) (ks : List PartKey),
       ModelIO.Within fs (viewAdd env c v ks) (viewAdd (env.onPath sp) c v ks)
-  | c, v, [] => by simp only [viewAdd]; exact ModelIO.Within.refl _
+  | c, v, [] => by simp only [viewAdd]; exact ModelIO.Within.pure _
   | c, v, k :: ks => by
     simp only [viewAdd]
     within_tac [tableOf_within h, viewAdd_within h]
@@ -251,7 +355,7 @@ theorem statuses_within (h : OleanReads.Within fs env.rd sp) :
     ∀ (c : ReachCache) (xs : List (Spot × ConstantVal × CKindF Name Unit)) (acc : List ProofStatus),
       ModelIO.Within fs (clashAgree.statuses env c xs acc)
         (clashAgree.statuses (env.onPath sp) c xs acc)
-  | c, [], acc => by simp only [clashAgree.statuses]; exact ModelIO.Within.refl _
+  | c, [], acc => by simp only [clashAgree.statuses]; exact ModelIO.Within.pure _
   | c, x :: xs, acc => by
     simp only [clashAgree.statuses]
     within_tac [proofStatus_within h, statuses_within h]
@@ -259,7 +363,7 @@ theorem statuses_within (h : OleanReads.Within fs env.rd sp) :
 theorem clashAgree_within (h : OleanReads.Within fs env.rd sp) :
     ∀ (c : ReachCache) (cls : List Clash) (acc : Array Name),
       ModelIO.Within fs (clashAgree env c cls acc) (clashAgree (env.onPath sp) c cls acc)
-  | c, [], acc => by simp only [clashAgree]; exact ModelIO.Within.refl _
+  | c, [], acc => by simp only [clashAgree]; exact ModelIO.Within.pure _
   | c, cl :: cls, acc => by
     simp only [clashAgree]
     simp only [ReachEnv.onPath]
@@ -284,7 +388,7 @@ theorem captureOne_within (h : OleanReads.Within fs env.rd sp) (c : ReachCache) 
 theorem captureAll_within (h : OleanReads.Within fs env.rd sp) (m : Name) :
     ∀ (c : ReachCache) (ys : List Name),
       ModelIO.Within fs (captureAll env m c ys) (captureAll (env.onPath sp) m c ys)
-  | c, [] => by simp only [captureAll]; exact ModelIO.Within.refl _
+  | c, [] => by simp only [captureAll]; exact ModelIO.Within.pure _
   | c, y :: ys => by
     simp only [captureAll]
     within_tac [captureOne_within h, captureAll_within h]
@@ -302,7 +406,7 @@ theorem storedNamesOk_within (h : OleanReads.Within fs env.rd sp) (m : Name) :
 theorem capturePairs_within (h : OleanReads.Within fs env.rd sp) :
     ∀ (c : ReachCache) (ps : List (Name × Name)),
       ModelIO.Within fs (capturePairs env c ps) (capturePairs (env.onPath sp) c ps)
-  | c, [] => by simp only [capturePairs]; exact ModelIO.Within.refl _
+  | c, [] => by simp only [capturePairs]; exact ModelIO.Within.pure _
   | c, (m, y) :: ps => by
     simp only [capturePairs]
     within_tac [captureOne_within h, capturePairs_within h]

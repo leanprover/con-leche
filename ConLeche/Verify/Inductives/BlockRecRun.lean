@@ -46,7 +46,6 @@ structure ConstChecked (mode : CheckMode) (F : Nat) (env : Env) (cv0 cv : Consta
   name : cv.name = cv0.name
   lps : cv.levelParams = cv0.levelParams
   fresh : env.find? cv0.name = none
-  unreserved : reservedBasisNames.contains cv0.name = false
   nodup : Name.nodup cv0.levelParams = true
   bounded : cv.type.looseBVarsBounded 0 = true
   noFvar : cv.type.hasFvar = false

@@ -1,0 +1,196 @@
+name = "con-leche"
+defaultTargets = ["ConLecheBase", "ConLecheModel", "ConLecheCaps", "ConLecheComplete",
+                  "con-leche"]
+testDriver = "ConLecheTests"
+
+# NO DEPENDENCIES (task #207).  The package requires nothing: the
+# `lean_inductive_models` preprocessor — its `require`, the
+# `con-leche-preprocess` executable that wrapped it and the process
+# spawn in `Main.lean` — is gone, and every inductive block is
+# installed by the checker's own uniform fixpoint route.  A fresh clone
+# resolves with an empty `packages` array and needs the network only
+# for elan.
+
+# THE SEPARATION (task #161) — the ruled lib layout, as it stands after
+# the SetR removal (user ruling 2026-09-05, "do remove the SetR tier,
+# for more focus").
+#
+#             ConLecheBase
+#   Kernel/* · model-free Verify/* · SetTheory/* · Term/*
+#   SetModel/* (pure set constructions) · Semantics/* (Expr-facing
+#   denotation and claims; the two halves of the former SetBase/*)
+#                               ↑
+#                           ConLecheModel
+#                   de-based EnvModel · Env · Reading
+#                   carriers · Interp rows ·
+#                   self-standing fold · P capstone
+#                               ↑
+#             ConLecheCaps (exe/capstones)
+#
+# HISTORY.  The layout was a FOUR-lib one until 2026-09-05: `ConLecheR`
+# rooted `ConLeche.SetR` — the collapsed-model consistency proof for the
+# R core (`EnvS`, `Sound/*`, `Install/*`, the `R`/`R2`/`R2M` capstones).
+# The B4 measurement had shown a ZERO acceptance delta between the two
+# verified configurations (225 fixtures + init-full byte-identical), so
+# the graded lane's `no_proof_of_Empty_cached` covers the shipped path
+# alone and the collapsed lane was retired whole.  The separation
+# campaign (task #161) had left the two trees genuinely disjoint — zero
+# edges in either direction — which is why the cut was clean: only
+# `Verify/Cached/MainC` and `tests/ProofDeps` (the proof-term pin, itself
+# retired at task #305) had to change at all.
+#
+# HONESTY NOTE about "cross-import = build error" (S1 finding).  Lake
+# does NOT give an import barrier between `lean_lib`s of the SAME
+# package: import resolution is per-package, so a module in one lib may
+# import a module rooted in another (today `ConLeche.Model.*` imports
+# `ConLeche.Kernel.*` across exactly such a boundary).  The lib split is
+# therefore the layout, not the fence; `tests/layering.sh` is the fence.
+# A hard build error would need the lanes to become separate Lake
+# *packages* (`require ... from "..."`), which is a lakefile-level
+# decision left to the campaign's succession (see DESIGN.md S1 seal).
+#
+# S8's RULING on that succession item, now that the whitelist is empty:
+# **it stays a named follow-up, not this batch's work.**  Package
+# separation is no longer a de-basing question (there is nothing left
+# to de-base) but a build-system one: three packages sharing one
+# toolchain and one `.lake`, with `require` edges, changes how every
+# target, the test driver and the two executables are named and built,
+# and it buys a *stronger form of a property the tree already has*
+# rather than a property it lacks.  The honest trade: `tests/layering.sh`
+# enforces the fence at zero cost inside the standard battery and
+# cannot be bypassed by adding an import, while the package split would
+# make the fence structural at the cost of a lakefile rewrite whose
+# failure modes (stale inter-package oleans, a split `.lake`) are new
+# and would land on top of a green tree.  Recorded; not attempted.
+
+# The pin-generator's certificate theorems (ConLeche/PinGen/Certs.lean) are
+# a classic (non-`module`) library: the proofs unfold core definition
+# bodies, which the module system hides.
+#
+# SUPERSEDED (task #176, 2026-09-06) — the paragraph that stood here
+# said `ConLeche/Kernel/NatOpPins.lean` "loads the built olean into the
+# generator's full-view environment at elaboration time, so it must be
+# built first — hence the `extraDepTargets`".  That ordering was not an
+# import edge and Lake did not honour it through the executable's
+# import graph: on a cold tree `lake build con-leche` failed with "object
+# file '…/ConLeche/PinGen/Certs.olean' of module ConLeche.PinGen.Certs does
+# not exist".  Per the user's ruling the pins are now a COMMITTED file
+# (`pins/<toolchain>.json`, see `pins/README.md`), written by the
+# `natop-pins-export` executable below, whose root *imports*
+# `ConLeche.PinGen.Certs` — a real edge Lake orders.  The certificates
+# stay kernel-checked theorems in this library (that is where their
+# trust comes from), but nothing in the checker's build depends on it:
+# its only in-tree consumers are the generator and `ConLeche.Model.NatWf`,
+# both by ordinary import.
+[[lean_lib]]
+name = "ConLechePinCerts"
+roots = ["ConLeche.PinGen.Certs"]
+
+# The shared base: the checker itself (`ConLeche.Kernel.*`), the model-free
+# verification tier (`ConLeche.Verify.*`), the `SetTheory` interface, the
+# erased term language (`ConLeche.Term.*`, task #74 — its own module
+# hierarchy, importing nothing from the checker; it was `ConLeche.TT.*`
+# until task #209 removed the declarative lane above it), `ConLeche.SetModel.*`
+# (the pure set constructions) and `ConLeche.Semantics.*` (the Expr-facing
+# denotation and claims) — the two halves the former `ConLeche.SetBase.*`
+# (task #161 S1) was split into on 2026-09-06.  The model lane stands on
+# this and nothing here may import it.
+[[lean_lib]]
+name = "ConLecheBase"
+roots = ["ConLeche", "ConLeche.Term", "ConLeche.SetModel", "ConLeche.Semantics"]
+
+# The graded-model lane (task #161 S2): the `WellDenoted` bit carriers, the
+# de-basing's `EnvModel`/`EnvModelM`, the per-rule `…P` quarters and rows,
+# the basis/inductive/projection install `…P` families, `FoldP` and
+# `CapstoneP`.  Stands on `ConLecheBase`; since the SetR removal it is the
+# ONLY model lane.  Only the file paths ever moved — the Lean namespaces
+# are `ConLeche.SetR.{Interp, Annot}` still, so no frozen statement
+# changed name.
+[[lean_lib]]
+name = "ConLecheModel"
+roots = ["ConLeche.Model"]
+
+# The capstone assembly (task #163): the cached checker variant's
+# verification tier — the `ExprC` erasure/field-exactness seam, the `SimC`
+# simulation, and the consistency corollaries for the cached core.
+# `Verify/Cached/MainC.lean` carries the shipped driver's capstone; it
+# was the two-lane assembly until the SetR removal left one lane.
+# `ConLeche.Verify.Frontend.Prepare` (task #293) is rooted here and not
+# under `ConLecheBase`: it is a proof ABOUT a frontend function — what
+# `preparePrelude` does to the file's records — and the capstone lib is
+# where the statements that compose with the main theorem's input live.
+# It is the one theory module that imports `ConLeche.Frontend.*`.
+[[lean_lib]]
+name = "ConLecheCaps"
+roots = ["ConLeche.Verify.Cached", "ConLeche.MainTheorem",
+         "ConLeche.Verify.Frontend.Prepare"]
+
+# The PARKED completeness work (`ConLeche/Complete/*`): official's nested
+# elimination/positivity as a spec and the positivity walk's completeness
+# against it.  Results, not lemmas: no capstone consumes them.  Their own
+# lib keeps them out of the Base library (and its dead-code census) while
+# a default target keeps them built — `lake build`, hence CI, so they do
+# not rot.  Nothing outside the directory may import it
+# (`tests/layering.sh`).
+[[lean_lib]]
+name = "ConLecheComplete"
+roots = ["ConLeche.Complete"]
+
+# THE PALOMAR CHALLENGE MODULE (task #183).  `ConLeche/Challenge.lean` is
+# the small readable statement of `ConLeche.no_proof_of_False` with
+# `sorry` for a proof — the *challenge* half of the pair the Comparator
+# tool (leanprover/comparator) compares against `ConLeche.MainTheorem`,
+# the *solution* half.  See `comparator.json`.
+#
+# It gets its own `lean_lib` because Comparator builds the module by
+# name (`lake build ConLeche.Challenge`), which needs the module to be
+# reachable from *some* library root; and it is deliberately NOT in
+# `defaultTargets`, so `lake build` — the sorry-free, warning-free
+# gate — never builds it.  Nothing in the tree imports it.
+#
+# Which is why it can rot unseen, and did (task #281: the module's
+# import went stale when `checkDecls` moved to another module
+# and no gate noticed).  `tests/challenge.sh`, in the standard battery,
+# is now the one thing that builds this library — and it diffs the
+# `#check` of every `comparator.json` name against `ConLeche.MainTheorem`.
+[[lean_lib]]
+name = "ConLecheChallenge"
+roots = ["ConLeche.Challenge"]
+
+[[lean_lib]]
+name = "ConLecheTests"
+srcDir = "tests"
+
+[[lean_exe]]
+name = "con-leche"
+root = "Main"
+
+# The olean reader against lean4export, record for record
+# (`tests/olean-compare.sh`).
+[[lean_exe]]
+name = "olean-compare"
+root = "OleanCompare"
+
+# The pin dump generator (task #176).  Lives in the certificate
+# library's world — its root imports `ConLeche.PinGen.Certs`, so the
+# proof bodies are visible to `importModules` at `OLeanLevel.private`
+# and Lake builds that olean first.  Writes
+# `pins/<toolchain>.json`; `tests/pindump.sh` checks
+# the committed file against a fresh regeneration.
+[[lean_exe]]
+name = "natop-pins-export"
+root = "PinDump"
+
+# THE WHITEPAPER FRAGMENT (task #324).  `whitepaper/Fragment/*.lean` is
+# the self-contained Lean verification of the fragment the whitepaper
+# presents — its own definitions, its own library class, its own
+# soundness proof, importing NOTHING from `ConLeche.*`.  It follows the
+# `ConLecheChallenge` pattern: a library of its own so that
+# `lake build WhitepaperFragment` builds it, and NOT a default target,
+# so `lake build` never does.  `whitepaper/fragment-gate.sh` (from
+# `tests/arena.sh` and the whitepaper CI) is what builds it, warning-free,
+# and checks its axioms.
+[[lean_lib]]
+name = "WhitepaperFragment"
+srcDir = "whitepaper"
+roots = ["Fragment"]

@@ -539,35 +539,35 @@ theorem ReachInv.push {rs : List Name} {L : ReachLog} (hi : ReachInv rs L) (hs :
 /-- **The worklist's closure**: at every accepting outcome, on any snapshot, the invariant
 holds with nothing left to read. -/
 theorem reachGo_inv (env : ReachEnv ModelIO) (fs : FS) (rs : List Name) :
-    ∀ (fuel : Nat) (L : ReachLog) (c : ReachCache) {L' : ReachLog} {c' : ReachCache},
-      ReachInv rs L → (reachGo env fuel L c : ModelIO _) fs (.ok (.ok (L', c'))) →
+    ∀ (fuel : Nat) (L : ReachLog) (c : ReachCache) {L' : ReachLog} {c' : ReachCache} {ho ho' : HS},
+      ReachInv rs L → (reachGo env fuel L c : ModelIO _) fs ho (.ok (.ok (L', c'))) ho' →
         ReachInv rs L' ∧ L'.stack = [] := by
   intro fuel
   induction fuel with
   | zero =>
-    intro L c L' c' hi h
+    intro L c L' c' ho ho' hi h
     rw [reachGo] at h
     cases hs : L.stack with
     | nil =>
       simp only [hs] at h
       split at h
       · simp only [ModelIO.pure_iff, Except.ok.injEq, Prod.mk.injEq] at h
-        obtain ⟨rfl, -⟩ := h
+        obtain ⟨⟨rfl, -⟩, -⟩ := h
         exact ⟨hi, hs⟩
       · simp at h
     | cons x rest => simp [hs] at h
   | succ fuel ih =>
-    intro L c L' c' hi h
+    intro L c L' c' ho ho' hi h
     rw [reachGo] at h
     cases hs : L.stack with
     | nil =>
       simp only [hs] at h
       split at h
       · simp only [ModelIO.pure_iff, Except.ok.injEq, Prod.mk.injEq] at h
-        obtain ⟨rfl, -⟩ := h
+        obtain ⟨⟨rfl, -⟩, -⟩ := h
         exact ⟨hi, hs⟩
       · simp only [ModelIO.bind_ok] at h
-        obtain ⟨⟨c₁, r⟩, -, h⟩ := h
+        obtain ⟨⟨c₁, r⟩, _, -, h⟩ := h
         rcases r with e | u
         · simp at h
         · simp only at h
@@ -578,7 +578,7 @@ theorem reachGo_inv (env : ReachEnv ModelIO) (fs : FS) (rs : List Name) :
       · rename_i hx
         exact ih _ _ (hi.skip hs hx) h
       · simp only [ModelIO.bind_ok] at h
-        obtain ⟨⟨c₁, r⟩, -, h⟩ := h
+        obtain ⟨⟨c₁, r⟩, _, -, h⟩ := h
         rcases r with e | ⟨d, hm⟩
         · simp at h
         · simp only at h
@@ -588,7 +588,7 @@ theorem reachGo_inv (env : ReachEnv ModelIO) (fs : FS) (rs : List Name) :
             split at h
             · simp at h
             · simp only [ModelIO.bind_ok] at h
-              obtain ⟨⟨c₂, r⟩, -, h⟩ := h
+              obtain ⟨⟨c₂, r⟩, _, -, h⟩ := h
               rcases r with e | u
               · simp at h
               · simp only [ModelIO.bind_ok] at h
@@ -656,7 +656,7 @@ a state satisfying the invariant, every name a context record reads is stored in
 context, and every context record is `RecordScoped` there. -/
 theorem reachGo_closed (env : ReachEnv ModelIO) (fs : FS) {rs : List Name} {fuel : Nat}
     {L L' : ReachLog} {c c' : ReachCache} (hi : ReachInv rs L)
-    (h : (reachGo env fuel L c : ModelIO _) fs (.ok (.ok (L', c')))) :
+    {ho ho' : HS} (h : (reachGo env fuel L c : ModelIO _) fs ho (.ok (.ok (L', c'))) ho') :
     ∀ d ∈ L'.ctx.toList, (∀ y ∈ recordReads d, ((streamEnv L'.ctx.toList).find? y).isSome = true) ∧
       RecordScoped (streamEnv L'.ctx.toList) d := by
   obtain ⟨⟨i1, i2, i3, -, -⟩, hs⟩ := reachGo_inv env fs rs fuel L c hi h
@@ -673,7 +673,7 @@ theorem reachGo_closed (env : ReachEnv ModelIO) (fs : FS) {rs : List Name} {fuel
 satisfying the invariant from the roots `rs`, every root is stored in the context. -/
 theorem reachGo_roots (env : ReachEnv ModelIO) (fs : FS) {rs : List Name} {fuel : Nat}
     {L L' : ReachLog} {c c' : ReachCache} (hi : ReachInv rs L)
-    (h : (reachGo env fuel L c : ModelIO _) fs (.ok (.ok (L', c')))) :
+    {ho ho' : HS} (h : (reachGo env fuel L c : ModelIO _) fs ho (.ok (.ok (L', c'))) ho') :
     ∀ y ∈ rs, ((streamEnv L'.ctx.toList).find? y).isSome = true := by
   obtain ⟨⟨-, i2, i3, i4, -⟩, hs⟩ := reachGo_inv env fs rs fuel L c hi h
   intro y hy
@@ -1107,8 +1107,8 @@ outcome of `reach`, on any snapshot, every context record is `RecordScoped` in t
 context ending with it (`ImportOk.ordered`), so in the context, every name it reads is stored
 there, the context is `EnvWF`, and every root that is not an own name is stored there. -/
 theorem reach_ok {rd : OleanReads ModelIO} {m : Name} {wr : WorkerReads} {own : Std.HashSet Name}
-    {roots : Array Name} {fs : FS} {r : Reach}
-    (h : (reach rd m wr own roots : ModelIO _) fs (.ok (.ok r))) :
+    {roots : Array Name} {fs : FS} {r : Reach} {hs hs' : HS}
+    (h : (reach rd m wr own roots : ModelIO _) fs hs (.ok (.ok r)) hs') :
     (∀ k (hk : k < r.ctx.toList.length),
       RecordScoped (streamEnv (r.ctx.toList.take (k + 1))) r.ctx.toList[k]) ∧
     (∀ d ∈ r.ctx.toList, RecordScoped (streamEnv r.ctx.toList) d) ∧
@@ -1117,7 +1117,7 @@ theorem reach_ok {rd : OleanReads ModelIO} {m : Name} {wr : WorkerReads} {own : 
     (∀ x ∈ roots, own.contains x = false → ((streamEnv r.ctx.toList).find? x).isSome = true) := by
   unfold reach at h
   simp only [ModelIO.bind_ok] at h
-  obtain ⟨⟨c, x⟩, -, h⟩ := h
+  obtain ⟨⟨c, x⟩, _, -, h⟩ := h
   rcases x with e | extra
   · simp at h
   simp only at h
@@ -1126,7 +1126,7 @@ theorem reach_ok {rd : OleanReads ModelIO} {m : Name} {wr : WorkerReads} {own : 
   | some x => simp at h
   | none =>
     simp only [ModelIO.bind_ok] at h
-    obtain ⟨y, hy, h⟩ := h
+    obtain ⟨y, _, hy, h⟩ := h
     rcases y with e | ⟨L, c'⟩
     · simp at h
     simp only at h
@@ -1142,6 +1142,7 @@ theorem reach_ok {rd : OleanReads ModelIO} {m : Name} {wr : WorkerReads} {own : 
     | error e => rw [hv] at h; simp only at h; rw [hf] at h; simp at h
     | ok u' =>
     simp only [hv, hf, ModelIO.pure_iff, Except.ok.injEq] at h
+    obtain ⟨h, -⟩ := h
     subst h
     simp only
     have hreads := (reachGo_inv _ fs _ _ _ _ (reachInv_init _) hy).1.2.2.2.2

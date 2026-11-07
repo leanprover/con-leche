@@ -497,8 +497,8 @@ def targetRecPins (p : BlockShape) (block : List ConstantInfo) : m Unit := do
   unless blockRecLpsOk p do
     throw (.invalid "target rec: the recursor's level parameters are not the generated ones")
   unless blockRecNamesUnreserved p do
-    throw (.invalid "target rec: a recursor is named for a pinned basis constant, a literal \
-      guard's slot or a certified Nat operation")
+    throw (.invalid "target rec: a recursor is named for a literal guard's slot or a certified \
+      Nat operation")
   let own := p.recs.filter fun rc => rc.tgt < p.k
   let aux := p.recs.filter fun rc => !(rc.tgt < p.k)
   unless blockRecNameSetOk { p with recs := own } do

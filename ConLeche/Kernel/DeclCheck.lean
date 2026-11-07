@@ -280,7 +280,10 @@ def reduceStoredOkF (fe : FEnv) (c : Name) : Bool :=
 
 /-- `reduceElemOk` through the index. -/
 def reduceElemOkF (fe : FEnv) (c : Name) : Bool :=
-  if c = reduceNatName then decide (fe.find? natName = some natA)
+  if c = reduceNatName then
+    match fe.find? natName with
+    | some (.indInfo cvN _) => ConstantVal.matchesPin cvN natA.toConstantVal
+    | _ => false
   else
     match fe.find? boolName with
     | some (.indInfo cvB _) => ConstantVal.matchesPin cvB boolCvA
@@ -363,8 +366,6 @@ def checkConstantValF (ops : CheckerOps m) (fe : FEnv)
     (cv : ConstantVal) (allowOp : Bool := false) : m Unit := do
   if (fe.find? cv.name).isSome then
     throw (.invalid s!"duplicate declaration {cv.name}")
-  if reservedBasisNames.contains cv.name then
-    throw (.invalid s!"reserved basis name {cv.name}")
   if natOpName cv.name && !allowOp then
     throw (.invalid s!"a certified Nat operation's name, not a definition: {cv.name}")
   unless litShapeOk (.axiomInfo cv) do

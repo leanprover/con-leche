@@ -66,6 +66,8 @@ theorem blockCtorsLoop
     (hnd : (ctorList.map (·.1.name)).Nodup)
     (hlpsT : cvTa.levelParams = lps)
     (hlpsA : ∀ ctor ∈ ctorList, ctor.1.levelParams = lps)
+    -- the reserved names' check (`basisNamesOk`)
+    (hresA : ∀ ctor ∈ ctorList, ConLeche.reservedBasisNames.contains ctor.1.name = false)
     {ppsAll : (Name → Nat) → List Term}
     {idxF : Nat → List Expr} {dsF : Nat → (Name → Nat) → List Term}
     {esF : Nat → (Name → Nat) → List Term} {srcsF : Nat → List (Option Nat)}
@@ -133,7 +135,7 @@ theorem blockCtorsLoop
           idxF dsF esF srcsF ctorList ctorList.length ∧
         Inv mp'.base2 :=
   ctorsLoopEta (p := memberShapeI T lps nP nIdx resSort isProp large)
-    hCtors hnd hlpsT hlpsA hFssParams hFssBelow hiff hFssOkP hIdx Inv hInv
+    hCtors hnd hlpsT hlpsA hresA hFssParams hFssBelow hiff hFssOkP hIdx Inv hInv
     caps leafT hTlawsOf (fun e => ConLeche.BlockEtaInv e names ctorsOf)
     (fun _ _ _ hfresh hE => hE.cons hfresh)
     (fun _ ctor hctor hfresh hE _ _ _ hf hne hres hcape _ =>

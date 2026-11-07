@@ -19,9 +19,9 @@ files.  Here the snapshot of a few committed fixtures (`tests/e2e`), a
 directory and a path that names nothing is taken with the runtime's
 calls, and every operation of the binary's instance is compared with
 the model's answer on it — the instance's definitions restated as data
-(`modelAnswer_*`, each the model by `rfl`): the positional read inside,
-across and past the end of each file and at huge offsets and lengths,
-the size, the bytes, existence and the real path.  The folds over a
+(`model*`, each the model by `rfl`): a handle's reads in sequence, of
+sizes that end inside, at and past the end of each file and read on
+after it, the size, the bytes, existence and the real path.  The folds over a
 file's reads are compared with what the model's folds are
 (`foldChunks_model`, `foldWindows_model`): the reads `readsFrom` and the
 windows `windowsOf` of the snapshot's bytes.  The binary's exit codes
@@ -54,21 +54,33 @@ def snapshot (paths : List System.FilePath) : IO FS := do
 def modelPathExists (fs : FS) (p : System.FilePath) : Option Bool := some (fs.real p).isSome
 def modelRealPath (fs : FS) (p : System.FilePath) : Option System.FilePath := fs.real p
 def modelReadBinFile (fs : FS) (p : System.FilePath) : Option ByteArray := fs.file p
-def modelReadRange (fs : FS) (p : System.FilePath) (off len : Nat) : Option ByteArray :=
-  (fs.file p).map fun b => b.extract off (min (off + len) b.size)
 def modelFileSize (fs : FS) (p : System.FilePath) : Option Nat := (fs.file p).map (·.size)
+/-- The reads of a handle from the position `pos`, of the sizes `ns` in turn. -/
+def modelReadsFrom (b : ByteArray) : Nat → List USize → List ByteArray
+  | _, [] => []
+  | pos, n :: ns =>
+    b.extract pos (min (pos + n.toNat) b.size) :: modelReadsFrom b (min (pos + n.toNat) b.size) ns
+/-- A file opened and read, `ns` bytes at a time. -/
+def modelReads (fs : FS) (p : System.FilePath) (ns : List USize) : Option (List ByteArray) :=
+  (fs.file p).map fun b => modelReadsFrom b 0 ns
 
-example (fs : FS) (p : System.FilePath) :
-    (CheckerIO.pathExists p : ModelIO _) fs = ModelIO.answer (modelPathExists fs p) := rfl
-example (fs : FS) (p : System.FilePath) :
-    (CheckerIO.realPath p : ModelIO _) fs = ModelIO.answer (modelRealPath fs p) := rfl
-example (fs : FS) (p : System.FilePath) :
-    (CheckerIO.readBinFile p : ModelIO _) fs = ModelIO.answer (modelReadBinFile fs p) := rfl
-example (fs : FS) (p : System.FilePath) (off len : Nat) :
-    (CheckerIO.readRange p off len : ModelIO _) fs =
-      ModelIO.answer (modelReadRange fs p off len) := rfl
-example (fs : FS) (p : System.FilePath) :
-    (CheckerIO.fileSize p : ModelIO _) fs = ModelIO.answer (modelFileSize fs p) := rfl
+example (fs : FS) (hs : HS) (p : System.FilePath) :
+    (CheckerIO.pathExists p : ModelIO _) fs hs = ModelIO.ret (modelPathExists fs p) hs := rfl
+example (fs : FS) (hs : HS) (p : System.FilePath) :
+    (CheckerIO.realPath p : ModelIO _) fs hs = ModelIO.ret (modelRealPath fs p) hs := rfl
+example (fs : FS) (hs : HS) (p : System.FilePath) :
+    (CheckerIO.readBinFile p : ModelIO _) fs hs = ModelIO.ret (modelReadBinFile fs p) hs := rfl
+example (fs : FS) (hs : HS) (p : System.FilePath) :
+    (CheckerIO.fileSize p : ModelIO _) fs hs = ModelIO.ret (modelFileSize fs p) hs := rfl
+example (fs : FS) (hs : HS) (p : System.FilePath) (b : ByteArray) (hb : fs.file p = some b) :
+    (CheckerIO.openRead p : ModelIO _) fs hs = ModelIO.ret (some hs.size) (hs.push (b, 0)) :=
+  ModelIO.openRead_at hb hs
+example (fs : FS) (hs : HS) (h pos : Nat) (b : ByteArray) (hh : hs[h]? = some (b, pos))
+    (n : USize) :
+    (CheckerIO.read (m := ModelIO) h n) fs hs =
+      ModelIO.ret ((modelReadsFrom b pos [n]).head?)
+        (hs.set! h (b, min (pos + n.toNat) b.size)) :=
+  ModelIO.read_at hh n fs
 
 /-- A model's answer, rendered: the value, or an exception (its value is
 not compared, as the trust assumption has it). -/
@@ -113,17 +125,16 @@ def fixtures : List String :=
       (render (toString ·.toList) (modelReadBinFile fs p))
     same s!"fileSize {p}" (← renderIO toString (CheckerIO.fileSize p))
       (render toString (modelFileSize fs p))
-    -- the positional read: inside, across and past the end, and huge
-    -- offsets and lengths (below `2^64`: the runtime's `ByteArray.extract`,
-    -- which the model's read is, runs out of memory at a start that is
-    -- not a machine word)
+    -- a handle's reads in sequence: ending inside, at and past the end,
+    -- and on after it (a read buffer is the size asked for: the folds
+    -- ask for at most 4 MiB)
     let size := (modelFileSize fs p).getD 0
-    for (off, len) in [(0, 0), (0, 1), (0, 100), (5, 7), (100, 4096), (0, 1 <<< 40),
-        (size - 3, 10), (size, 1), (size + 1, 5), (size - 1, 1),
-        (1 <<< 20, 10), (1 <<< 62, 10), (1 <<< 63, 10), (1 <<< 63, 1 <<< 70)] do
-      same s!"readRange {p} {off} {len}"
-        (← renderIO (toString ·.toList) (CheckerIO.readRange p off len))
-        (render (toString ·.toList) (modelReadRange fs p off len))
+    for ns in [[], [0, 0], [1, 1, 1], [5, 7, 100, 4096], [65536, 1], [size.toUSize - 3, 10, 10],
+        [size.toUSize, 1], [size.toUSize + 1, 5], [size.toUSize - 1, 1, 1]] do
+      same s!"reads {p} {ns}"
+        (← renderIO (fun (a : Array ByteArray) => toString (a.toList.map (·.toList)))
+          (do let h ← CheckerIO.openRead (m := IO) p; ns.toArray.mapM (CheckerIO.read h)))
+        (render (fun (l : List ByteArray) => toString (l.map (·.toList))) (modelReads fs p ns))
   -- the folds over a file's reads: every read in order (`readsFrom`),
   -- and every window with the one handed to it as the next (`windowsOf`)
   let chunkStep (acc : List (List UInt8)) (c : ByteArray) :

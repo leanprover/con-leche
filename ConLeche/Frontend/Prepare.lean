@@ -64,12 +64,11 @@ with the pass-through corollary `pd ∈ ds → pd ∈ preparePrelude ds`.
 the fold folds; `toList` appears in the PROOFS, where it costs
 nothing.)
 
-**What is NOT here.**  Recognising a block as one of the four pinned
-inductive basis blocks, and a quotient record as the pinned package's, is the
-FOLD's (`checkDecl`, `ConLeche/Kernel/Checker.lean`): it compares the
-record with the pin up to `ConstantInfo.canon` and installs the pinned
-block, rejects a differing block through the reserved-name check and
-declines a differing quotient record.  Nothing in this file looks at a
+**What is NOT here.**  Comparing a block with one of the four pinned
+inductive basis blocks, and a quotient record with the pinned package's, is the
+FOLD's (`checkDecl`, `ConLeche/Kernel/CheckDecl.lean`): a pinned block is installed and
+checked like any other block and then compared with its pin (`basisNamesOk`), a differing
+one rejected; a differing quotient record declines.  Nothing in this file looks at a
 record's contents; it reads names, and only to find the stream's copy
 of a prelude declaration.
 -/
