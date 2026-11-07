@@ -5,14 +5,14 @@ public import InLean.CheckerC
 /-!
 # InLean's inductive check: the vocabulary and the recogniser
 
-Twins of `ConLeche/Kernel/Inductives/BlockShape.lean` (the block's
-recogniser and its records), the parts of `FieldTele.lean`,
-`Positivity.lean` and `ConLeche/Kernel/ExprOps.lean` the block check reads
+Twins of `ConLeche.Kernel.Inductives.BlockShape` (the block's
+recogniser and its records), the parts of `ConLeche.Kernel.Inductives.FieldTele`,
+`ConLeche.Kernel.Inductives.Positivity` and `ConLeche.Kernel.ExprOps` the block check reads
 (telescopes, the free-variable walks), and `CheckerOps`.
 
 A block is a list of Lean constants (`inductInfo`, `ctorInfo`, `recInfo`, in
 that order), the twin of the stream's records: the inductive generator's
-output (`InLean/IndGen.lean`).
+output (`InLean.IndGen`).
 
 **Free variables.**  con-leche builds `.fvar i ty` purely; here building one
 interns it (`mkFVarM`), so a function that opens a telescope is in `CheckCM`.
@@ -216,7 +216,7 @@ def memberIdxAt? (names : List Name) (lvls : List Level) : Expr → Option Nat
   | .const n us => if us == lvls then names.findIdx? (· == n) else none
   | _ => none
 
-/-! ## The record (twin of `BlockShape.lean`) -/
+/-! ## The record (twin of `ConLeche.Kernel.Inductives.BlockShape`) -/
 
 /-- Twin of `MemberShape`. -/
 structure MemberShape where

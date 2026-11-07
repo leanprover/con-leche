@@ -12,7 +12,7 @@
 #                    `#print axioms` guards pin the consistency
 #                    capstones at exactly
 #                    [propext, Classical.choice, Quot.sound].
-#   tests/arena.sh   the standard battery, which is itself nine gates
+#   tests/arena.sh   the standard battery, which is itself ten gates
 #                    plus four suites:
 #                      * tests/layering.sh       import fence
 #                      * tests/pindump.sh        committed-generator
@@ -36,6 +36,13 @@
 #                                                caller, no build
 #                      * tests/no-local-paths.sh no absolute home paths
 #                                                in tracked files
+#                      * tests/inlean-sync.sh    the generated in-core
+#                                                copy of InLean:
+#                                                deterministic, every
+#                                                file mapped, no
+#                                                con-leche import or
+#                                                path — no build, no
+#                                                lean4 checkout
 #                      * tests/shake.sh          `lake shake`'s import
 #                                                proposals against
 #                                                tests/shake-allowlist.txt,

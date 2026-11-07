@@ -6,10 +6,10 @@ public import InLean.Push
 /-!
 # InLean's inductive check: the formers, the constructors, the tables
 
-Twins of the executed stages of `ConLeche/Kernel/Inductives/SumInstall.lean`,
-`SumInstallF.lean`, `StructParts.lean`, `StructInstallF.lean`,
-`BlockInstall.lean` and `BlockInstallF.lean`, and of
-`ConLeche/Kernel/DeclCheck.lean`'s `checkConstantValF`.
+Twins of the executed stages of `ConLeche.Kernel.Inductives.SumInstall`,
+`ConLeche.Kernel.Inductives.SumInstallF`, `ConLeche.Kernel.Inductives.StructParts`, `ConLeche.Kernel.Inductives.StructInstallF`,
+`ConLeche.Kernel.Inductives.BlockInstall` and `ConLeche.Kernel.Inductives.BlockInstallF`, and of
+`ConLeche.Kernel.DeclCheck`'s `checkConstantValF`.
 
 An environment push records a Lean entry: a former as an `InductiveVal`
 whose `all`, counts, constructors and `isRec` are the block's (what
@@ -41,7 +41,7 @@ def checkConstantValF (ops : CheckerOps) (fe : FEnv) (cv : ConstantVal) (allowOp
   let stype ← ops.inferType fe 0 cv.type
   let _u ← ops.ensureSort fe 0 stype
 
-/-! ## Structure parts (twin of `StructParts.lean`) -/
+/-! ## Structure parts (twin of `ConLeche.Kernel.Inductives.StructParts`) -/
 
 /-- Twin of `structPsAt`. -/
 def structPsAt (o nP : Nat) : List Expr :=
@@ -60,7 +60,7 @@ def structCtorResidOk (T : Name) (lps : List Name) (nP o nIdx : Nat) (cbody : Ex
 /-- Twin of `Expr.mentionsConst`. -/
 def mentionsConst (T : Name) (e : Expr) : CheckCM Bool := mentionsAnyConst [T] e
 
-/-! ## Sums (twins of `SumInstall.lean`, `SumInstallF.lean`) -/
+/-! ## Sums (twins of `ConLeche.Kernel.Inductives.SumInstall`, `ConLeche.Kernel.Inductives.SumInstallF`) -/
 
 /-- Twin of `checkSumTele`. -/
 def checkSumTele (n : Nat) (cvTa₀ : ConstantVal) : CheckCM (ConstantVal × Level) :=
@@ -141,7 +141,7 @@ def consSumCtorsF (T : Name) (nP : Nat) : Nat → List (ConstantVal × Nat) → 
       (fe.push (.ctorInfo { toConstantVal := c.1, induct := T, cidx := i, numParams := nP,
                             numFields := c.2, isUnsafe := false }))
 
-/-! ## Structures (twin of `StructInstallF.lean`) -/
+/-! ## Structures (twin of `ConLeche.Kernel.Inductives.StructInstallF`) -/
 
 /-- Twin of `StructWalkers`. -/
 structure StructWalkers where
@@ -165,7 +165,7 @@ def checkStructProjTableF (w : StructWalkers) (T : Name) (lps : List Name) (nP n
   unless (fe.find? T).isSome do
     throw (.internal "direct structure: projection table before its structure")
 
-/-! ## The block (twins of `BlockInstall.lean`, `BlockInstallF.lean`) -/
+/-! ## The block (twins of `ConLeche.Kernel.Inductives.BlockInstall`, `ConLeche.Kernel.Inductives.BlockInstallF`) -/
 
 /-- Twin of `Expr.piDomsMentionAny`. -/
 def piDomsMentionAny (names : List Name) : Expr → Bool

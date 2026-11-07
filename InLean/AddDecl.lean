@@ -6,10 +6,10 @@ public import InLean.Inductives.Decl
 # InLean: the entry points
 
 `addDecl`, the twin of `Lean.Kernel.Environment.addDeclCore`: check a
-`Lean.Declaration` with con-leche's checker (`InLean/CheckerC.lean`) and add
+`Lean.Declaration` with con-leche's checker (`InLean.CheckerC`) and add
 the constants it declares, as con-leche's fold step checks a record at the
 view below it and then pushes what the record declares
-(`ConLeche/Cached/Decls.lean`, `declStep`).  `kernelWhnf` and
+(`ConLeche.Cached.Decls`, `declStep`).  `kernelWhnf` and
 `kernelIsDefEq` are the twins of `Kernel.whnf`/`Kernel.isDefEq`.
 -/
 

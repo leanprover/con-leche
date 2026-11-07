@@ -6,9 +6,9 @@ public import InLean.FEnv
 # InLean: the core's helpers
 
 Twins of the fuel-free helpers the cached core calls, from
-`ConLeche/Kernel/CoreDefs.lean`, `ConLeche/Kernel/Core.lean` (the error
+`ConLeche.Kernel.CoreDefs`, `ConLeche.Kernel.Core` (the error
 choices, the small expression predicates) and
-`ConLeche/Kernel/PropRead.lean` (the head-symbol readers).
+`ConLeche.Kernel.PropRead` (the head-symbol readers).
 
 Two shapes differ from con-leche's because a `Lean.Expr` free variable is
 an id: where con-leche reads a variable's type off the node, the readers
@@ -339,7 +339,7 @@ def fvarClosureM (e : Expr) : CheckCM (Std.HashSet FVarId) := do
   let tys := (← get).fvTys
   return leafGuardM.closure tys tys.size (EO.fvarIds e).toList {} {}
 
-/-! ## The head-symbol readers (twin of `ConLeche/Kernel/PropRead.lean`) -/
+/-! ## The head-symbol readers (twin of `ConLeche.Kernel.PropRead`) -/
 
 /-- Twin of `residualPW`. -/
 def residualPW : Option Expr → Option PropWhen

@@ -6,10 +6,9 @@ public import InLean.Push
 /-!
 # InLean: the inductive generator (unverified)
 
-Task #451, lane B′ (maintainer's ruling 2026-11-03: inductives are
-checked by con-leche's installer, not by Lean's algorithm; Lean code
-mimicking the official kernel *generates* the constants as an unverified
-step before it).  From a raw `Declaration.inductDecl` this file produces
+Inductives are checked by con-leche's installer, not by Lean's algorithm;
+Lean code mimicking the official kernel *generates* the constants as an
+unverified step before it.  From a raw `Declaration.inductDecl` this file produces
 the block's constants exactly as the official kernel does — the
 `InductiveVal`s (`numNested`, `isRec`, `isReflexive` included), the
 `ConstructorVal`s and the `RecursorVal`s, nested blocks' auxiliary
@@ -17,7 +16,7 @@ recursors `rec_1`, `rec_2`, … included, binder names and infos included
 (the elaborator reads a recursor's binder names).  It checks nothing
 beyond what generation needs to proceed; a declaration it cannot generate
 is an error, never an acceptance.  The checks are con-leche's
-(`InLean/Inductives/*`), on these constants.
+(`InLean.Inductives.*`), on these constants.
 
 It is a port of `src/kernel/inductive.cpp` (v4.35.0) with every validity
 check removed: `elim_nested_inductive_fn`, the generating half of
