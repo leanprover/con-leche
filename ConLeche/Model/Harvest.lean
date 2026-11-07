@@ -144,6 +144,15 @@ theorem natHeads_cons_fresh (mp : EnvModelM V env)
   have := mp.nat_heads φ hgold ρ
   simpa only [e1, e2, e3] using this
 
+/-- **A type that reads as a truth value** under the leaves `acval`, at every level assignment:
+where the step gives a constant the canonical proof (`DeclProofLeaf`), and what every model of an
+environment then keeps (`ProofLeaves`).  The checker's prop test implies it
+(`semPropType_of_run`); it is a fact about the reading, so it carries between two models that
+read the type alike. -/
+@[expose] def SemPropType (V : Type w) [SetTheory V] (acval : Name → (Name → Nat) → Term)
+    (env : Env) (ty : Expr) : Prop :=
+  ∀ ψ Ta, denote acval env ψ 0 ty = some Ta → ∀ ρ : Nat → V, interp V ρ Ta ∈ˢ (univZero : V)
+
 /-- **A type the checker finds to be a proposition reads as a truth
 value** (`PropTypeRun`): the sort fact at the run's fuel, at level zero. -/
 theorem propTypeRun_mem_univZero (mp : EnvModelM V env)
@@ -159,6 +168,13 @@ theorem propTypeRun_mem_univZero (mp : EnvModelM V env)
   rw [Level.isEquiv_sound hiso ψ] at h
   simpa [Level.eval, univ_zero] using h
 
+/-- **The checker's prop test reads as a truth value.** -/
+theorem semPropType_of_run (mp : EnvModelM V env)
+    {ty : Expr} (hwt : Expr.WScoped 0 ty) (hbt : ty.looseBVarsBounded 0 = true)
+    (hLt : Expr.LeavesBounded ty) (hnlt : ty.fvarLeaves = [])
+    (hrun : PropTypeRun env ty) : SemPropType V mp.base2.acval env ty :=
+  fun ψ _ hTa ρ => propTypeRun_mem_univZero mp hwt hbt hLt hnlt hrun ψ hTa ρ
+
 /-- **The `defn` harvest** (see the module docstring). -/
 theorem harvestDefn
     (mp : EnvModelM V env)
@@ -166,7 +182,7 @@ theorem harvestDefn
     {env₂ : Env}
     (hR : DeclDefnRun F env cv value hint env₂) :
     CoverStepLeaf mp env₂ cv.name ((ConLeche.natOpNames.contains cv.name ||
-      ConLeche.natDivModNames.contains cv.name) = false ∧ PropTypeRun env cv.type) := by
+      ConLeche.natDivModNames.contains cv.name) = false ∧ SemPropType V mp.base2.acval env cv.type) := by
   obtain ⟨type', value', hcv, hvfr, rfl, hnatc, hdmc⟩ := hR
   obtain ⟨hfind, hnres, hnd, hlbt, hitf, hann, htp, htr,
     hrunT, hcvShape⟩ := hcv
@@ -309,14 +325,13 @@ theorem harvestDefn
   -- the value's reading otherwise
   classical
   let cond : Prop := (ConLeche.natOpNames.contains cv.name ||
-      ConLeche.natDivModNames.contains cv.name) = false ∧ PropTypeRun env cv.type
+      ConLeche.natDivModNames.contains cv.name) = false ∧ SemPropType V mp.base2.acval env cv.type
   obtain ⟨L, hLdef⟩ : ∃ L : (Name → Nat) → Term, L = if cond then (fun _ => .prf) else A :=
     ⟨_, rfl⟩
   have hLA : ¬ cond → L = A := fun h => by simp only [hLdef, h, ↓reduceIte]
   have hLP : cond → L = fun _ => .prf := fun h => by simp only [hLdef, h, ↓reduceIte]
   have hApt : cond → ∀ ψ ρ, interp V ρ (A ψ) = pt := fun hc ψ ρ =>
-    eq_pt_of_mem_univZero (propTypeRun_mem_univZero mp hwt hbt' hLt hnlt
-      (by rw [hann]; exact hc.2) ψ (hTa ψ) ρ) (hmemA ψ ρ)
+    eq_pt_of_mem_univZero (hc.2 ψ (Ta ψ) (hann ▸ hTa ψ) ρ) (hmemA ψ ρ)
   have hLparams : ∀ ψ₁ ψ₂ : Name → Nat,
       (∀ p ∈ cv.levelParams, ψ₁ p = ψ₂ p) → L ψ₁ = L ψ₂ := by
     intro ψ₁ ψ₂ hψ
@@ -876,7 +891,7 @@ theorem harvestAxiom
     (hnotreduce : cv.name ∉ ConLeche.reduceOpNames) :
     CoverStepLeaf mp
       ⟨.axiomInfo ⟨cv.name, cv.levelParams, type'⟩ :: env.consts, env.tables⟩ cv.name
-      (PropTypeRun env cv.type) := by
+      (SemPropType V mp.base2.acval env cv.type) := by
   obtain ⟨hfind, hnres, hnd, hlbt, hitf, hann, htp, htr,
     hrunT, hcvShape⟩ := hcv
   obtain ⟨htf', hbt'⟩ := stored_syntax hann hitf hlbt
@@ -926,31 +941,31 @@ theorem harvestAxiom
   -- every member of a truth value), the branch's `A` otherwise
   classical
   obtain ⟨L, hLdef⟩ : ∃ L : (Name → Nat) → Term,
-      L = if PropTypeRun env cv.type then (fun _ => .prf) else A := ⟨_, rfl⟩
-  have hLA : ¬ PropTypeRun env cv.type → L = A := fun h => by simp only [hLdef, h, ↓reduceIte]
-  have hLP : PropTypeRun env cv.type → L = fun _ => .prf := fun h => by
+      L = if SemPropType V mp.base2.acval env cv.type then (fun _ => .prf) else A := ⟨_, rfl⟩
+  have hLA : ¬ SemPropType V mp.base2.acval env cv.type → L = A := fun h => by simp only [hLdef, h, ↓reduceIte]
+  have hLP : SemPropType V mp.base2.acval env cv.type → L = fun _ => .prf := fun h => by
     simp only [hLdef, h, ↓reduceIte]
   have hLparams : ∀ ψ₁ ψ₂ : Name → Nat,
       (∀ p ∈ cv.levelParams, ψ₁ p = ψ₂ p) → L ψ₁ = L ψ₂ := by
     intro ψ₁ ψ₂ hψ
-    by_cases hc : PropTypeRun env cv.type
+    by_cases hc : SemPropType V mp.base2.acval env cv.type
     · rw [hLP hc]
     · rw [hLA hc]; exact hAparams ψ₁ ψ₂ hψ
   have hLok : ∀ (ψ : Name → Nat) (ρ : Nat → V), WellDenoted V ρ (L ψ) := by
     intro ψ ρ
-    by_cases hc : PropTypeRun env cv.type
+    by_cases hc : SemPropType V mp.base2.acval env cv.type
     · rw [hLP hc]; simp
     · rw [hLA hc]; exact hAok ψ ρ
   have hLclosed : ∀ ψ : Name → Nat, Term.Closed (L ψ) := by
     intro ψ
-    by_cases hc : PropTypeRun env cv.type
+    by_cases hc : SemPropType V mp.base2.acval env cv.type
     · rw [hLP hc]; simp [Term.Closed, Term.bvarsBelow]
     · rw [hLA hc]; exact hAvclosed ψ
   have hmemL : ∀ (ψ : Name → Nat) (ρ : Nat → V), interp V ρ (L ψ) ∈ˢ interp V ρ (Ta ψ) := by
     intro ψ ρ
-    by_cases hc : PropTypeRun env cv.type
-    · rw [hLP hc, interp_prf, ← eq_pt_of_mem_univZero (propTypeRun_mem_univZero mp hwt hbt' hLt
-        hnlt (by rw [hann]; exact hc) ψ (hTa ψ) ρ) (hmemA ψ (Ta ψ) (hTa ψ) ρ)]
+    by_cases hc : SemPropType V mp.base2.acval env cv.type
+    · rw [hLP hc, interp_prf, ← eq_pt_of_mem_univZero (hc ψ (Ta ψ) (hann ▸ hTa ψ) ρ)
+        (hmemA ψ (Ta ψ) (hTa ψ) ρ)]
       exact hmemA ψ (Ta ψ) (hTa ψ) ρ
     · rw [hLA hc]; exact hmemA ψ (Ta ψ) (hTa ψ) ρ
   -- the transfer to the extension
@@ -1068,7 +1083,7 @@ theorem harvestOpaque
     {cv : ConstantVal} {value : Expr} {env₂ : Env}
     (hR : DeclOpaqueRun F env cv value env₂) :
     CoverStepLeaf mp env₂ cv.name
-      (ConLeche.reduceOpNames.contains cv.name = false ∧ PropTypeRun env cv.type) := by
+      (ConLeche.reduceOpNames.contains cv.name = false ∧ SemPropType V mp.base2.acval env cv.type) := by
   obtain ⟨hopn, type', value', hcv, hvfr, rfl, hred⟩ := hR
   obtain ⟨hfind, hnres, hnd, hlbt, hitf, hann, htp, htr,
     hrunT, hcvShape⟩ := hcv
@@ -1208,14 +1223,13 @@ theorem harvestOpaque
   -- that is not a `reduce*` opaque),
   -- the value's reading otherwise
   classical
-  let cond : Prop := ConLeche.reduceOpNames.contains cv.name = false ∧ PropTypeRun env cv.type
+  let cond : Prop := ConLeche.reduceOpNames.contains cv.name = false ∧ SemPropType V mp.base2.acval env cv.type
   obtain ⟨L, hLdef⟩ : ∃ L : (Name → Nat) → Term, L = if cond then (fun _ => .prf) else A :=
     ⟨_, rfl⟩
   have hLA : ¬ cond → L = A := fun h => by simp only [hLdef, h, ↓reduceIte]
   have hLP : cond → L = fun _ => .prf := fun h => by simp only [hLdef, h, ↓reduceIte]
   have hApt : cond → ∀ ψ ρ, interp V ρ (A ψ) = pt := fun hc ψ ρ =>
-    eq_pt_of_mem_univZero (propTypeRun_mem_univZero mp hwt hbt' hLt hnlt
-      (by rw [hann]; exact hc.2) ψ (hTa ψ) ρ) (hmemA ψ ρ)
+    eq_pt_of_mem_univZero (hc.2 ψ (Ta ψ) (hann ▸ hTa ψ) ρ) (hmemA ψ ρ)
   have hLparams : ∀ ψ₁ ψ₂ : Name → Nat,
       (∀ p ∈ cv.levelParams, ψ₁ p = ψ₂ p) → L ψ₁ = L ψ₂ := by
     intro ψ₁ ψ₂ hψ

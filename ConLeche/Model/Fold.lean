@@ -1,6 +1,7 @@
 module
 
 import ConLeche.Model.AxiomReduce
+public import ConLeche.Model.Harvest
 import ConLeche.Model.Inductives.StructEntryKit
 public import ConLeche.Semantics.Bridge.Sound
 import ConLeche.Model.Cover
@@ -62,7 +63,7 @@ def AxiomStepPB (V : Type w) [SetTheory V] : Prop :=
   ∀ {F : Nat} {env : Env} (mp : EnvModelM V env)
     {cv : ConstantVal} {env₂ : Env},
     DeclAxiomRun F env cv env₂ →
-    CoverStepLeaf mp env₂ cv.name (cv.name ≠ ConLeche.sorryAxName ∧ PropTypeRun env cv.type)
+    CoverStepLeaf mp env₂ cv.name (cv.name ≠ ConLeche.sorryAxName ∧ SemPropType V mp.base2.acval env cv.type)
 
 /-- **`AxiomStepPB`, discharged.**  All four `DeclAxiomRun` branches:
 the two standard axioms (`axiomStd`), `Lean.trustCompiler`
@@ -253,17 +254,17 @@ theorem natFacts_basis {env env₂ : Env} {kind : ConLeche.BasisKind} {block : L
 /-- **What a step says of its proof's leaf**: a theorem's leaf is the canonical proof, and so is
 a definition's or opaque constant's whose type the checker finds to be a proposition, at a name
 with no fast path, and a stored axiom's whose type it finds to be one. -/
-@[expose] def DeclProofLeaf (env : Env) :
-    Declaration → (Name → (Name → Nat) → Term) → Prop
+@[expose] def DeclProofLeaf (V : Type w) [SetTheory V] (acval₀ : Name → (Name → Nat) → Term)
+    (env : Env) : Declaration → (Name → (Name → Nat) → Term) → Prop
   | .thmDecl cv _, acval => acval cv.name = fun _ => .prf
   | .defnDecl cv _ _, acval =>
     (ConLeche.natOpNames.contains cv.name || ConLeche.natDivModNames.contains cv.name) = false ∧
-      PropTypeRun env cv.type → acval cv.name = fun _ => .prf
+      SemPropType V acval₀ env cv.type → acval cv.name = fun _ => .prf
   | .opaqueDecl cv _, acval =>
-    ConLeche.reduceOpNames.contains cv.name = false ∧ PropTypeRun env cv.type →
+    ConLeche.reduceOpNames.contains cv.name = false ∧ SemPropType V acval₀ env cv.type →
       acval cv.name = fun _ => .prf
   | .axiomDecl cv, acval =>
-    cv.name ≠ ConLeche.sorryAxName ∧ PropTypeRun env cv.type → acval cv.name = fun _ => .prf
+    cv.name ≠ ConLeche.sorryAxName ∧ SemPropType V acval₀ env cv.type → acval cv.name = fun _ => .prf
   | _, _ => True
 
 /-- **The per-declaration P step, by dispatch, against the input's carrier.**  The premise is the
@@ -277,7 +278,7 @@ theorem declStep_agrees
     (hE : EtaFamiliesClosed env) (hN : NatFacts env)
     (hrun : DeclRun F (ConLeche.Semantics.DeclIndRunDispatchK F env)
       env d env₂) :
-    CoveredRel mp env₂ (DeclProofLeaf env d) ∧ EtaFamiliesClosed env₂ ∧ NatFacts env₂ := by
+    CoveredRel mp env₂ (DeclProofLeaf V mp.base2.acval env d) ∧ EtaFamiliesClosed env₂ ∧ NatFacts env₂ := by
   -- the η half: `declEtaStepRun`, model-free at every kind; at `.indDecl`
   -- through the dispatch's own case split
   have hEta : EtaFamiliesClosed env₂ := ConLeche.Semantics.declEtaStepRun (fun h' => by
@@ -285,7 +286,7 @@ theorem declStep_agrees
     split at h'
     · exact ConLeche.Semantics.blockRun_etaClosed hE h'
     · exact h'.elim) hE hrun
-  suffices h : CoveredRel mp env₂ (DeclProofLeaf env d) ∧ NatFacts env₂ from
+  suffices h : CoveredRel mp env₂ (DeclProofLeaf V mp.base2.acval env d) ∧ NatFacts env₂ from
     ⟨h.1, hEta, h.2⟩
   have triv : ∀ {P : (Name → (Name → Nat) → Term) → Prop}, (∀ a, P a) →
       CoveredRel mp env₂ (fun _ => True) ∧ NatFacts env₂ → CoveredRel mp env₂ P ∧ NatFacts env₂ :=

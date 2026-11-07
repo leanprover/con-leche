@@ -30,7 +30,8 @@ until there is such a proof to connect it to.
   name of the assembled environment that two of them store.
 
 Declarations are definitions only: no axioms, no inductive types, and
-none is flagged a proof.  An axiom has no realised value, and the step
+no copy is a proof (`ProofIn` and `IsThm` hold of nothing), so copies
+agree only by being read from one module.  An axiom has no realised value, and the step
 must extend every realisation, so axioms are not conservative here
 either.
 -/
@@ -165,6 +166,17 @@ theorem Accepts.step {Γ Γ' : SEnv T} {D : List (N × T.Tm × T.Tm)} (h : Accep
       simpa [addDef, this] using hd'
     rw [hm' d hs, hm₁ d hd']
 
+/-- **Acceptance keeps every stored name.** -/
+theorem Accepts.stores {Γ Γ' : SEnv T} {D : List (N × T.Tm × T.Tm)} (h : Accepts Γ D Γ') :
+    ∀ d, (Γ.1 d).isSome → (Γ'.1 d).isSome := by
+  induction h with
+  | nil => exact fun _ h => h
+  | @cons Γ Γ' c A t D hc hd _ ih =>
+    intro d hd'
+    refine ih d ?_
+    have : d ≠ c := fun h => by rw [h, hc] at hd'; cases hd'
+    simpa [addDef, this] using hd'
+
 /-! ## Assembly and amalgamation -/
 
 /-- **`C` is assembled from the family `E`**: every entry of `C` is, at
@@ -226,11 +238,14 @@ noncomputable def syntacticSemantics : ModularSemantics.{u, u} where
   amalgamate h m hc := by
     obtain ⟨mC, hmC⟩ := amalgamate h m fun c i i' => hc i i' c
     exact ⟨mC, fun i c hc _ hs => hmC c i hc hs⟩
+  ProofIn _ _ _ := False
+  proof_val h := h.elim
+  IsThm _ _ := False
+  thm_val h := h.elim
   Decls := List (N × T.Tm × T.Tm)
-  Flagged _ _ := False
   Accepts := Accepts
   step h m := by
     obtain ⟨m', hm'⟩ := h.step m
-    exact ⟨m', fun c hc => by rw [hm' c hc], fun _ h => h.elim⟩
+    exact ⟨m', fun c hc => ⟨h.stores c hc, by rw [hm' c hc]⟩⟩
 
 end Fragment.Syntactic

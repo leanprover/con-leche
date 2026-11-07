@@ -27,7 +27,8 @@ establishes on a snapshot, for the module `m`:
   records, the theorems' values in place (`fillOf`), from `mkFEnv (streamEnv ctx)` at position
   `ctx.length`, ending at the own environment (`checkDecls_of_jobs_from`): the specification's
   `ImportOk.accepted`;
-* `worker_ctx` — **the context**: every context record `RecordScoped` in the context, every name
+* `worker_ctx` — **the context**: every context record `RecordScoped` in the prefix of the
+  context ending with it (`ImportOk.ordered`) and in the context, every name
   it reads stored there, the context `EnvWF`, its names distinct (`ImportOk.nodup`), and each name
   read from one record of one home (`ctxHome`, `ImportOk.one_src`);
 * `worker_thm` — **the own records are the module's**: every theorem of `m`'s private view by the
@@ -228,17 +229,19 @@ theorem checkModuleG_accept {rd : OleanReads ModelIO} {sp : SearchPath} {m : Nam
 /-! ## The context -/
 
 /-- **The context of an accepted worker**: every context record `RecordScoped` in the
-context and every name it reads stored there, the context `EnvWF`, its names distinct
-(`ImportOk.nodup`). -/
+prefix of the context ending with it (`ImportOk.ordered`) and in the context, every name it reads
+stored there, the context `EnvWF`, its names distinct (`ImportOk.nodup`). -/
 theorem worker_ctx {sp : SearchPath} {fs : FS} {m : Name} {jobs : Nat} {w : WorkerRead}
     (hw : WorkerFacts sp fs m jobs w) :
+    (∀ k (hk : k < w.reach.ctx.toList.length),
+      RecordScoped (streamEnv (w.reach.ctx.toList.take (k + 1))) w.reach.ctx.toList[k]) ∧
     (∀ d ∈ w.reach.ctx.toList, RecordScoped (streamEnv w.reach.ctx.toList) d) ∧
     (∀ d ∈ w.reach.ctx.toList, ∀ y ∈ recordReads d,
       ((streamEnv w.reach.ctx.toList).find? y).isSome = true) ∧
     EnvWF (streamEnv w.reach.ctx.toList) ∧
     ((streamEnv w.reach.ctx.toList).consts.map (·.toConstantVal.name)).Nodup := by
-  obtain ⟨a, b, c, -⟩ := reach_ok hw.reach
-  exact ⟨a, b, c, nodupNames_streamEnv hw.nodup⟩
+  obtain ⟨o, a, b, c, -⟩ := reach_ok hw.reach
+  exact ⟨o, a, b, c, nodupNames_streamEnv hw.nodup⟩
 
 theorem mem_foldl_append_if {α β : Type} (p : α → Bool) (f : α → Array β) (y : β) :
     ∀ (xs : List α) (acc : Array β),
@@ -258,7 +261,7 @@ theorem worker_ground {sp : SearchPath} {fs : FS} {m : Name} {jobs : Nat} {w : W
     (hsk : c.skipped = false) {g : Name} (hg : g ∈ pinGround natOpPinSets c.name)
     (hix : w.reads.index.first.contains g = true) (ho : (ownNames w.home).contains g = false) :
     ((streamEnv w.reach.ctx.toList).find? g).isSome = true := by
-  refine (reach_ok hw.reach).2.2.2 g ?_ ho
+  refine (reach_ok hw.reach).2.2.2.2 g ?_ ho
   unfold ownRoots
   refine Array.mem_append.2 (.inr (Array.mem_filter.2 ⟨?_, hix⟩))
   rw [← Array.foldl_toList]
@@ -464,9 +467,10 @@ worker's context records as its `ctx` and its own records, the theorems' values 
 `decls`, and reads each context name from a module that is a function of the record storing it
 (`srcOf`; well defined by `worker_one_record`), the context's names are distinct (`nodup`), a
 record's names have one source (`one_src`), the own records are accepted from the context
-(`accepted`), and every context record is closed in the context, which is well formed.  What
+(`accepted`), every context record reads only itself and earlier records (`ordered`), and every
+context record is closed in the context, which is well formed.  What
 is left of `ImportOk` relates `i` to other modules (`below`, `src_lt`, `presented`, `reads`,
-`flags`, the keys): the composition's (task #467). -/
+the agreement): the composition's (task #467). -/
 theorem worker_local {mode : CheckMode} {sp : SearchPath} {fs : FS} {m : Name} {jobs : Nat}
     {w : WorkerRead} (hw : WorkerFacts sp fs m jobs w)
     (hrun : DeclsRun mode natOpPinSets
@@ -481,11 +485,14 @@ theorem worker_local {mode : CheckMode} {sp : SearchPath} {fs : FS} {m : Name} {
     ((dev i).context.consts.map (·.toConstantVal.name)).Nodup ∧
     (∀ d ∈ (dev i).ctx, ∀ n ∈ declNames d, ∀ n' ∈ declNames d, (dev i).src n = (dev i).src n') ∧
     (∃ q, DeclsRun mode natOpPinSets (dev i).decls ((dev i).ctx.length, mkFEnv (dev i).context) q) ∧
+    (∀ k (hk : k < (dev i).ctx.length),
+      RecordScoped (streamEnv ((dev i).ctx.take (k + 1))) (dev i).ctx[k]) ∧
     (∀ d ∈ (dev i).ctx, RecordScoped (dev i).context d) ∧ EnvWF (dev i).context := by
-  obtain ⟨h1, -, h3, h4⟩ := worker_ctx hw
+  obtain ⟨h0, h1, -, h3, h4⟩ := worker_ctx hw
   have hc : (dev i).context = streamEnv w.reach.ctx.toList := by rw [Module.context, hctx]
   refine ⟨by rw [hc]; exact h4, fun d hd n hn n' hn' => by rw [hsrc d hd n hn, hsrc d hd n' hn'],
     ⟨_, by rw [hdecls, hctx, hc, Array.length_toList]; exact hrun⟩,
+    fun k hk => by simp only [hctx] at hk ⊢; exact h0 k hk,
     fun d hd => by rw [hc]; exact h1 d (hctx ▸ hd), by rw [hc]; exact h3⟩
 
 end ConLeche.Driver

@@ -1,9 +1,8 @@
 module
 
-public import ConLeche.Model.DeclsRun
-public import ConLeche.Modular
+import ConLeche.Model.DeclsRun
+public import ConLeche.Model.Modular.Proofs
 import ConLeche.Verify.Cached.BridgeC
-import ConLeche.Verify.Cached.DeclPushes
 import ConLeche.Verify.PinRen
 
 public section
@@ -13,13 +12,11 @@ public section
 
 The step of the modular theorem (`ConLeche/Modular.lean`): a module's own records, accepted from
 its context one after another by the fold's step (`DeclsRun`), carry a covered model of the
-context to one of the module's own environment that keeps every context leaf, and whose leaf at
-every name the module flags as a proof (`FlagsOk`) is the canonical proof `.prf`.  Each step is a
-pure `checkDecl` run (`checkDeclStepC_run`), and `declStep_agrees` installs it.  A flagged
-definition or opaque record passed the theorem record's check (`ProofDecl`), and a flagged axiom
-record's type is inferred to be a proposition, so either type is one the checker finds to be a
-proposition (`PropTypeRun`), which is where its install gives it the canonical proof
-(`DeclProofLeaf`).
+context to one of the module's own environment that keeps every context leaf and every proof's
+leaf the canonical proof (`ProofLeaves`).  Each step is a pure `checkDecl` run
+(`checkDeclStepC_run`), and `declStep_agrees` installs it: an earlier name keeps its leaf and its
+type's reading, and a new theorem, or definition, opaque constant or axiom whose type reads as a
+truth value, gets the canonical proof (`DeclProofLeaf`, `new_proof_leaf`).
 -/
 
 namespace ConLeche.Model.Modular
@@ -42,103 +39,158 @@ theorem find?_pushDelta_isSome {E : Env} {L : List ConstantInfo} {Q : List ProjT
   · obtain ⟨c, hc, rfl⟩ := List.mem_map.mp h
     exact ⟨c, .inl hc, rfl⟩
 
-/-- **A flagged proof's record is a proof**: a theorem, a definition or opaque record whose type
-the theorem record's check finds to be a proposition, at a name with no fast path, or an axiom
-record whose type is one.  Its one name gets the canonical proof from its install
-(`DeclProofLeaf`). -/
-theorem proofDecl_leaf {E : Env} (henv : EnvWF E) {d : Declaration}
-    (hpd : ProofDecl .verified pins E d) {acval : Name → (Name → Nat) → Term}
-    (h : DeclProofLeaf E d acval) :
-    ∀ n ∈ declNames d, acval n = fun _ => .prf := by
-  -- the theorem record's check, as a run: its type is a proposition
-  have hthm : ∀ {cv : ConstantVal} {v : Expr} {r : FEnv × CState},
-      checkDeclStepC .verified pins (mkFEnv E) (.thmDecl cv v) {} = .ok r →
-      natOpName cv.name = false ∧ PropTypeRun E cv.type := by
-    intro cv v r hr
-    obtain ⟨-, -, F, hF⟩ := checkDeclStepC_run henv CSOKF.empty hr
-    have hrun : DeclThmRun F E cv v _ := checkDeclRun_ofEnvFactsK hF
-    obtain ⟨hopn, type', value', hcv, ⟨stype, u, h1, h2, h3⟩, -, -⟩ := hrun
-    have hann : type' = cv.type := hcv.2.2.2.2.2.1
-    subst hann
-    exact ⟨hopn, F, stype, u, h1, h2, h3⟩
+/-- A new constant at the front of an environment is the one a lookup of a fresh name finds. -/
+theorem find?_cons_fresh {c ci : ConstantInfo} {env : Env} {n : Name}
+    (h : (⟨c :: env.consts, env.tables⟩ : Env).find? n = some ci) (hnew : env.find? n = none) :
+    ci = c ∧ c.name = n := by
+  unfold Env.find? at h hnew
+  rw [List.find?_cons] at h
+  split at h
+  · next heq =>
+    obtain rfl := Option.some.inj h
+    exact ⟨rfl, by simpa using heq⟩
+  · rw [hnew] at h
+    exact nomatch h
+
+/-- **A new proof's leaf is the canonical proof**: a stored constant a record adds, a theorem or
+of a type that reads as a truth value at a name with no pinned leaf, gets it from its install. -/
+theorem new_proof_leaf {F : Nat} {env env₂ : Env} {d : Declaration}
+    (hrun : DeclRun F (ConLeche.Semantics.DeclIndRunDispatchK F env) env d env₂) {fe : FEnv}
+    (hch : PushChain env fe) (he : fe.env = env₂)
+    (hmem : ∀ c ∈ env₂.consts, c ∉ env.consts → c ∈ declConstants d)
+    {a a' : Name → (Name → Nat) → Term}
+    (hleaf : ∀ n, (env.find? n).isSome = true → a' n = a n)
+    (hpl : DeclProofLeaf V a env d a') {n : Name} {ci : ConstantInfo}
+    (hf : env₂.find? n = some ci) (hnew : env.find? n = none) (hk : ci.isStmtKind = true)
+    (hpin : pinnedLeafName n = false) (hqs : n ≠ quotSoundName)
+    (hc : (∃ cv, ci = .thmInfo cv) ∨ SemPropType V a' env₂ ci.toConstantVal.type) :
+    a' n = fun _ => .prf := by
+  obtain ⟨hop, hred, hsy⟩ := pinnedLeafName_false hpin
+  subst he
+  -- the constant is the record's
+  have hname := ConLeche.Env.find?_name hf
+  have hmem_ci : ci ∈ declConstants d := by
+    refine hmem ci (ConLeche.Env.find?_mem hf) fun h => ?_
+    have : (env.find? ci.name).isSome = true := by
+      unfold Env.find?; rw [List.find?_isSome]; exact ⟨ci, h, by simp⟩
+    rw [hname, hnew] at this; exact nomatch this
+  have hrec := stmt_of_record hmem_ci hk (by rw [hname]; exact hqs)
+  -- a type resolving before the record reads the same after it
+  have hsem : ∀ {ty : Expr}, ty.constsResolve env = true →
+      SemPropType V a' fe.env ty → SemPropType V a env ty := fun hr hs =>
+    SemPropType.of_denote (fun ψ => (pushChain_denote_old hch hleaf hr ψ).symm) hs
   cases d with
-  | thmDecl cv v =>
-    intro n hn
-    obtain rfl : n = cv.name := List.mem_singleton.mp hn
-    exact h
   | defnDecl cv v hint =>
-    intro n hn
-    obtain rfl : n = cv.name := List.mem_singleton.mp hn
-    obtain ⟨r, hr⟩ := hpd
-    obtain ⟨hop, hprop⟩ := hthm hr
-    exact h ⟨hop, hprop⟩
+    obtain ⟨type', value', hcv, -, henv2, -, -⟩ := hrun
+    rw [henv2] at hf
+    obtain ⟨rfl, rfl⟩ := find?_cons_fresh hf hnew
+    have htr : type'.constsResolve env = true := hcv.2.2.2.2.2.2.2.1
+    have hann : type' = cv.type := hcv.2.2.2.2.2.1
+    rcases hc with ⟨_, h⟩ | hc
+    · exact nomatch h
+    · exact hpl ⟨hop, hann ▸ hsem htr hc⟩
+  | thmDecl cv v =>
+    obtain ⟨-, type', value', hcv, -, -, henv2⟩ := hrun
+    rw [henv2] at hf
+    obtain ⟨rfl, rfl⟩ := find?_cons_fresh hf hnew
+    exact hpl
   | opaqueDecl cv v =>
-    intro n hn
-    obtain rfl : n = cv.name := List.mem_singleton.mp hn
-    obtain ⟨hred, r, hr⟩ := hpd
-    exact h ⟨hred, (hthm hr).2⟩
+    obtain ⟨-, type', value', hcv, -, henv2, -⟩ := hrun
+    rw [henv2] at hf
+    obtain ⟨rfl, rfl⟩ := find?_cons_fresh hf hnew
+    have htr : type'.constsResolve env = true := hcv.2.2.2.2.2.2.2.1
+    have hann : type' = cv.type := hcv.2.2.2.2.2.1
+    rcases hc with ⟨_, h⟩ | hc
+    · exact nomatch h
+    · exact hpl ⟨hred, hann ▸ hsem htr hc⟩
   | axiomDecl cv =>
-    -- the name it stores, if any: `Quot.sound`'s pin at its name, no name for `sorryAx`
-    intro n hn
-    simp only [declNames, declConstants] at hn
-    by_cases hq : cv.name = quotSoundName
-    · simp only [hq, ↓reduceIte, List.map_cons, List.map_nil, List.mem_singleton] at hn
-      have hn' : n = cv.name := by rw [hn, hq]; exact ConLeche.Verify.atLps_name _ _
-      subst hn'
-      exact h ⟨by rw [hq]; decide, hpd⟩
-    · by_cases hs : cv.name = sorryAxName
-      · have hsq : sorryAxName ≠ quotSoundName := by decide
-        simp [hs, hsq] at hn
-      · simp only [hq, hs, ↓reduceIte, List.map_cons, List.map_nil, List.mem_singleton] at hn
-        subst hn
-        exact h ⟨hs, hpd⟩
-  | quotDecl _ _ => exact hpd.elim
-  | indDecl _ _ => exact hpd.elim
+    rcases hrun with ⟨hq, -, -, -, henv2⟩ | ⟨type', -, hcv, hbr⟩
+    · rw [henv2] at hf
+      obtain ⟨-, hname⟩ := find?_cons_fresh hf hnew
+      rw [show (quotAt .sound cv).name = (quotPin .sound).name from
+        ConLeche.Verify.atLps_name _ _] at hname
+      exact absurd hname.symm (by rw [show (quotPin .sound).name = quotSoundName from rfl]; exact hqs)
+    · have htr : type'.constsResolve env = true := hcv.2.2.2.2.2.2.2.1
+      have hann : type' = cv.type := hcv.2.2.2.2.2.1
+      have hax : fe.env = ⟨.axiomInfo ⟨cv.name, cv.levelParams, type'⟩ :: env.consts, env.tables⟩ ∨
+          fe.env = env := by
+        rcases hbr with ⟨-, h⟩ | ⟨-, -, h⟩ | ⟨-, -, h⟩ | ⟨-, -, -, -, -, -, -, h⟩
+        · exact .inl h
+        · exact .inl h
+        · exact .inl h
+        · exact .inr h
+      rcases hax with h | h
+      · rw [h] at hf
+        obtain ⟨rfl, rfl⟩ := find?_cons_fresh hf hnew
+        rcases hc with ⟨_, h⟩ | hc
+        · exact nomatch h
+        · exact hpl ⟨hsy, hann ▸ hsem htr hc⟩
+      · rw [h, hnew] at hf; exact nomatch hf
+  | quotDecl k cv =>
+    rcases hrec with ⟨_, _, _, h, -⟩ | ⟨_, _, h, -⟩ | ⟨_, _, h, -⟩ | ⟨_, h, -⟩ <;> cases h
+  | indDecl block nP =>
+    rcases hrec with ⟨_, _, _, h, -⟩ | ⟨_, _, h, -⟩ | ⟨_, _, h, -⟩ | ⟨_, h, -⟩ <;> cases h
 
 /-- **A module's own records, installed on its context's model** (see the module docstring): a
-covered carrier at the context, with the η-family closure and the `Nat` facts, carries to one at
-the own environment that keeps every context leaf, and whose leaf at every flagged name a record
-installs is the canonical proof. -/
-theorem declsRun_flags {proofs : Name → Bool} :
+covered carrier at the context, with the η-family closure, the `Nat` facts and every proof's leaf
+the canonical proof, carries to one at the own environment that keeps every context leaf. -/
+theorem declsRun_proofs :
     ∀ {ds : List Declaration} {p q : Nat × FEnv}, DeclsRun .verified pins ds p q →
-    ∀ {E : Env}, p.2 = mkFEnv E → FlagsOk .verified pins proofs E ds →
+    ∀ {E : Env}, p.2 = mkFEnv E →
     ∀ mp : EnvModelM V E, LfpCover mp [] → EtaFamiliesClosed E → NatFacts E →
+      ProofLeaves V E mp.base2.acval →
     ∃ mp' : EnvModelM V q.2.env,
       (∀ n, (E.find? n).isSome = true → mp'.base2.acval n = mp.base2.acval n) ∧
       LfpCover mp' [] ∧ EtaFamiliesClosed q.2.env ∧ NatFacts q.2.env ∧
-      ∀ d ∈ ds, ∀ n ∈ declNames d, proofs n = true → mp'.base2.acval n = fun _ => .prf := by
+      ProofLeaves V q.2.env mp'.base2.acval := by
   intro ds p q hrun
   induction hrun with
   | nil p =>
-    intro E hp _ mp hcov hE hN
+    intro E hp mp hcov hE hN hPL
     rw [hp]
-    exact ⟨mp, fun _ _ => rfl, hcov, hE, hN, fun _ h => nomatch h⟩
+    exact ⟨mp, fun _ _ => rfl, hcov, hE, hN, hPL⟩
   | @cons pd ds p p₁ q hstep rest ih =>
-    intro E hp hfl mp hcov hE hN
+    intro E hp mp hcov hE hN hPL
     obtain ⟨fe₁, s₁, rfl, hstepC⟩ := declStep_ok hstep
     rw [hp] at hstepC
     have henv : EnvWF E := mp.base2.wf
     obtain ⟨-, hcanon, F, hF⟩ := checkDeclStepC_run henv CSOKF.empty hstepC
-    obtain ⟨⟨mp₁, hleaf₁, hcov₁, hPL⟩, hE₁, hN₁⟩ :=
-      declStep_agrees mp hcov hE hN (checkDeclRun_ofEnvFactsK hF)
-    have hfe₁ : fe₁.env = streamEnv [pd] E := by
-      have h₁ := checkDeclStepC_pushes (pins := pins) .verified (mkFEnv E) pd {} fe₁ s₁ hstepC
-      simp only at h₁
-      rw [h₁, pushDelta_env]
-      rfl
-    cases hfl with
-    | cons hflag hrest =>
-    rw [← hfe₁] at hrest
-    obtain ⟨mp', hleaf', hcov', hE', hN', hfl'⟩ :=
-      ih (E := fe₁.env) hcanon hrest mp₁ hcov₁ hE₁ hN₁
-    have hst : ∀ n, (E.find? n).isSome = true ∨ n ∈ declNames pd →
-        (fe₁.env.find? n).isSome = true := fun n h => by
-      rw [hfe₁]; exact find?_pushDelta_isSome h
-    refine ⟨mp', fun n hn => (hleaf' n (hst n (.inl hn))).trans (hleaf₁ n hn), hcov', hE',
-      hN', fun d hd n hn hp => ?_⟩
-    rcases List.mem_cons.mp hd with rfl | hd
-    · rw [hleaf' n (hst n (.inr hn))]
-      exact proofDecl_leaf henv (hflag n hn hp) hPL n hn
-    · exact hfl' d hd n hn hp
+    have hrunD := checkDeclRun_ofEnvFactsK hF
+    obtain ⟨⟨mp₁, hleaf₁, hcov₁, hPL₁⟩, hE₁, hN₁⟩ := declStep_agrees mp hcov hE hN hrunD
+    have hch : PushChain E fe₁ :=
+      checkDeclStepC_push (pins := pins) .verified (PushChain.refl E) pd {} fe₁ s₁ hstepC
+    -- every proof's leaf, after the record
+    have hPLn : ProofLeaves V fe₁.env mp₁.base2.acval := by
+      intro n ci hf hk hpin hc
+      by_cases hold : (E.find? n).isSome = true
+      · have hf' : E.find? n = some ci := (pushChain_find_old hch hold) ▸ hf
+        rw [hleaf₁ n hold]
+        refine hPL n ci hf' hk hpin ?_
+        rcases hc with h | h
+        · exact .inl h
+        · have hr : ci.toConstantVal.type.constsResolve E = true :=
+            (henv.consts ci (ConLeche.Env.find?_mem hf')).2.2.1
+          exact .inr (SemPropType.of_denote
+            (fun ψ => (pushChain_denote_old hch hleaf₁ hr ψ).symm) h)
+      · have hnew : E.find? n = none := by
+          cases h : E.find? n with
+          | none => rfl
+          | some _ => rw [h] at hold; exact absurd rfl hold
+        have hfe₁ : fe₁.env = streamEnv [pd] E := by
+          have h₁ := checkDeclStepC_pushes (pins := pins) .verified (mkFEnv E) pd {} fe₁ s₁ hstepC
+          simp only at h₁
+          rw [h₁, pushDelta_env]
+          rfl
+        by_cases hqs : n = quotSoundName
+        · subst hqs; exact quotSound_leaf mp₁ hf
+        refine new_proof_leaf hrunD hch rfl (fun c hc hnc => ?_) hleaf₁ hPL₁ hf hnew hk hpin hqs hc
+        rw [hfe₁] at hc
+        simp only [streamEnv, List.foldl, Env.pushDelta, List.mem_append, List.mem_reverse] at hc
+        exact hc.resolve_right hnc
+    obtain ⟨mp', hleaf', hcov', hE', hN', hPL'⟩ :=
+      ih (E := fe₁.env) hcanon mp₁ hcov₁ hE₁ hN₁ hPLn
+    have hst : ∀ n, (E.find? n).isSome = true → (fe₁.env.find? n).isSome = true := fun n h => by
+      rw [pushChain_find_old hch h]; exact h
+    exact ⟨mp', fun n hn => (hleaf' n (hst n hn)).trans (hleaf₁ n hn), hcov', hE', hN', hPL'⟩
 
 end ConLeche.Model.Modular

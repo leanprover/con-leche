@@ -168,10 +168,9 @@ theorem modular_model_exists (V : Type w) [SetTheory V]
     (pins : List NatOpPinSet) (dev : Nat → Modular.Module) (i : Nat)
     (hok : ∀ j ≤ i, Modular.LocalOk .verified pins dev j) :
     ∃ m : ∀ j ≤ i, Model V (dev j).own,
-      (∀ j hj j' hj' n, ((dev j).own.find? n).isSome = true →
-        ((dev j').own.find? n).isSome = true → (dev j).key n = (dev j').key n →
-        (m j hj).cval n = (m j' hj').cval n) ∧
-      ∀ j hj n s, ((dev j).own.find? n).isSome = true → (dev j).key n = .proof s →
+      (∀ j hj n, ((dev j).context.find? n).isSome = true →
+        ∃ h : (dev j).src n ≤ i, (m j hj).cval n = (m ((dev j).src n) h).cval n) ∧
+      ∀ j hj n cv, (dev j).own.find? n = some (.thmInfo cv) → pinnedLeafName n = false →
         (m j hj).cval n = fun _ => pt :=
   sorry
 

@@ -134,8 +134,9 @@ definitional equality that the fragment drops, η for structures and
 unit-likeness, follow from the extensionality of the model, with one
 proof case each. §7 checks a development module by module, each
 module against an environment built from what its imports present,
-and shows that every module's environment has a model, the models of
-different modules agreeing on the constants they share. A module may
+and shows that every module's environment has a model, each module's
+model giving every name it reads the value it has in the model of the
+module it is read from. A module may
 also be validated by comparison with another, as a challenge is with
 its solution. §8 lists what
 was left out, and how the real proof

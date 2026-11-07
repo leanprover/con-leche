@@ -19,7 +19,10 @@ What `ConLeche/Driver/Reach.lean` gives, proved:
   context (`streamEnv` of the records);
 * `constOk_wf`, `tableOk_wf`, `ctx_envWF` — **the context is well formed**: a closed list of
   validated records (`recordOk`) installs an `EnvWF` environment;
-* `reach_ok` — the three at every accepting outcome of `reach`.
+* `readOrder_spec`, `readOrder_perm`, `readOrder_ordered` — **the read order**: the sorted
+  records are the reach's, permuted, and every one is `RecordScoped` in the prefix ending with it
+  (`ImportOk.ordered`);
+* `reach_ok` — all of these at every accepting outcome of `reach`.
 
 That a copy read is the specification's constant at its position is
 `ConLeche/Verify/Frontend/Olean/Present.lean`'s (`entryWith_of_view`, `stmtWith_of_view`).
@@ -422,12 +425,13 @@ open ConLeche ConLeche.Modular ConLeche.Frontend.Olean
 
 /-- **The worklist's invariant** from the roots `rs`: every name a record read so far reads
 has been pushed; every pushed name is stored or still to read; every stored name is a record's;
-every root has been pushed. -/
+every root has been pushed; the reads recorded are the records'. -/
 @[expose] def ReachInv (rs : List Name) (L : ReachLog) : Prop :=
   (∀ d ∈ L.ctx, ∀ y ∈ recordReads d, L.seen.contains y = true) ∧
   (∀ y, L.seen.contains y = true → L.stored.contains y = true ∨ y ∈ L.stack) ∧
   (∀ y, L.stored.contains y = true → ∃ d ∈ L.ctx, y ∈ declNames d) ∧
-  ∀ y ∈ rs, L.seen.contains y = true
+  (∀ y ∈ rs, L.seen.contains y = true) ∧
+  L.reads = L.ctx.map fun d => (recordReads d).toList
 
 theorem pushNames_spec :
     ∀ (ys : List Name) (seen : Std.HashSet Name) (stack : List Name),
@@ -485,10 +489,11 @@ theorem foldl_insert_contains :
 theorem ReachInv.add {rs : List Name} {L : ReachLog} {x : Name} {rest : List Name}
     (hi : ReachInv rs L) (hs : L.stack = x :: rest) {d : Declaration} (hx : x ∈ declNames d)
     (h : Name) : ReachInv rs (L.add d h (recordReads d).toList rest) := by
-  obtain ⟨i1, i2, i3, i4⟩ := hi
+  obtain ⟨i1, i2, i3, i4, i5⟩ := hi
   obtain ⟨p1, p2, p3, p4⟩ := pushNames_spec (recordReads d).toList L.seen rest
   simp only [ReachLog.add]
-  refine ⟨fun d' hd' y hy => ?_, fun y hy => ?_, fun y hy => ?_, fun y hy => p4 y (i4 y hy)⟩
+  refine ⟨fun d' hd' y hy => ?_, fun y hy => ?_, fun y hy => ?_, fun y hy => p4 y (i4 y hy),
+    by rw [i5, Array.map_push]⟩
   · rcases Array.mem_push.1 hd' with hd' | rfl
     · exact p4 y (i1 d' hd' y hy)
     · exact p1 y (Array.mem_toList_iff.2 hy)
@@ -509,14 +514,27 @@ theorem ReachInv.add {rs : List Name} {L : ReachLog} {x : Name} {rest : List Nam
 theorem ReachInv.skip {rs : List Name} {L : ReachLog} {x : Name} {rest : List Name}
     (hi : ReachInv rs L) (hs : L.stack = x :: rest) (hx : L.stored.contains x = true) :
     ReachInv rs { L with stack := rest } := by
-  obtain ⟨i1, i2, i3, i4⟩ := hi
-  refine ⟨i1, fun y hy => ?_, i3, i4⟩
+  obtain ⟨i1, i2, i3, i4, i5⟩ := hi
+  refine ⟨i1, fun y hy => ?_, i3, i4, i5⟩
   rcases i2 y hy with h | h
   · exact .inl h
   · rw [hs] at h
     rcases List.mem_cons.1 h with rfl | h
     · exact .inl hx
     · exact .inr h
+
+/-- Names pushed where the stack is empty: the invariant kept. -/
+theorem ReachInv.push {rs : List Name} {L : ReachLog} (hi : ReachInv rs L) (hs : L.stack = [])
+    (ns : List Name) :
+    ReachInv rs { L with seen := (pushNames L.seen [] ns).1, stack := (pushNames L.seen [] ns).2 } := by
+  obtain ⟨i1, i2, i3, i4, i5⟩ := hi
+  obtain ⟨-, p2, -, p4⟩ := pushNames_spec ns L.seen []
+  refine ⟨fun d hd y hy => p4 y (i1 d hd y hy), fun y hy => ?_, i3, fun y hy => p4 y (i4 y hy), i5⟩
+  rcases p2 y hy with h | h
+  · rcases i2 y h with h' | h'
+    · exact .inl h'
+    · rw [hs] at h'; cases h'
+  · exact .inr h
 
 /-- **The worklist's closure**: at every accepting outcome, on any snapshot, the invariant
 holds with nothing left to read. -/
@@ -531,18 +549,29 @@ theorem reachGo_inv (env : ReachEnv ModelIO) (fs : FS) (rs : List Name) :
     rw [reachGo] at h
     cases hs : L.stack with
     | nil =>
-      simp only [hs, ModelIO.pure_iff, Except.ok.injEq, Prod.mk.injEq] at h
-      obtain ⟨rfl, -⟩ := h
-      exact ⟨hi, hs⟩
+      simp only [hs] at h
+      split at h
+      · simp only [ModelIO.pure_iff, Except.ok.injEq, Prod.mk.injEq] at h
+        obtain ⟨rfl, -⟩ := h
+        exact ⟨hi, hs⟩
+      · simp at h
     | cons x rest => simp [hs] at h
   | succ fuel ih =>
     intro L c L' c' hi h
     rw [reachGo] at h
     cases hs : L.stack with
     | nil =>
-      simp only [hs, ModelIO.pure_iff, Except.ok.injEq, Prod.mk.injEq] at h
-      obtain ⟨rfl, -⟩ := h
-      exact ⟨hi, hs⟩
+      simp only [hs] at h
+      split at h
+      · simp only [ModelIO.pure_iff, Except.ok.injEq, Prod.mk.injEq] at h
+        obtain ⟨rfl, -⟩ := h
+        exact ⟨hi, hs⟩
+      · simp only [ModelIO.bind_ok] at h
+        obtain ⟨⟨c₁, r⟩, -, h⟩ := h
+        rcases r with e | u
+        · simp at h
+        · simp only at h
+          exact ih _ _ (hi.push hs _) h
     | cons x rest =>
       simp only [hs] at h
       split at h
@@ -626,7 +655,7 @@ theorem reachGo_closed (env : ReachEnv ModelIO) (fs : FS) {rs : List Name} {fuel
     (h : (reachGo env fuel L c : ModelIO _) fs (.ok (.ok (L', c')))) :
     ∀ d ∈ L'.ctx.toList, (∀ y ∈ recordReads d, ((streamEnv L'.ctx.toList).find? y).isSome = true) ∧
       RecordScoped (streamEnv L'.ctx.toList) d := by
-  obtain ⟨⟨i1, i2, i3, -⟩, hs⟩ := reachGo_inv env fs rs fuel L c hi h
+  obtain ⟨⟨i1, i2, i3, -, -⟩, hs⟩ := reachGo_inv env fs rs fuel L c hi h
   have hr : ∀ d ∈ L'.ctx.toList, ∀ y ∈ recordReads d,
       ((streamEnv L'.ctx.toList).find? y).isSome = true := by
     intro d hd y hy
@@ -642,7 +671,7 @@ theorem reachGo_roots (env : ReachEnv ModelIO) (fs : FS) {rs : List Name} {fuel 
     {L L' : ReachLog} {c c' : ReachCache} (hi : ReachInv rs L)
     (h : (reachGo env fuel L c : ModelIO _) fs (.ok (.ok (L', c')))) :
     ∀ y ∈ rs, ((streamEnv L'.ctx.toList).find? y).isSome = true := by
-  obtain ⟨⟨-, i2, i3, i4⟩, hs⟩ := reachGo_inv env fs rs fuel L c hi h
+  obtain ⟨⟨-, i2, i3, i4, -⟩, hs⟩ := reachGo_inv env fs rs fuel L c hi h
   intro y hy
   rcases i2 y (i4 y hy) with h' | h'
   · obtain ⟨d', hd', hy'⟩ := i3 y h'
@@ -771,21 +800,313 @@ theorem validateCtx_ok {ds : Array Declaration} {hs : Array Name}
     exact (Array.all_eq_true_iff_forall_mem.1 ha) d (Array.mem_toList_iff.1 hd)
   · split at h <;> simp at h
 
+/-! ## The read order -/
+
+/-- **Positions in read order**: every record's reads are stored by itself or by an earlier
+record. -/
+@[expose] def OrderedBy (ds : Array Declaration) (rds : Array (List Name)) (o : List Nat) : Prop :=
+  ∀ k (h : k < o.length), ∀ y ∈ rds.getD o[k] [],
+    ∃ j ∈ o.take (k + 1), y ∈ declNames (ds.getD j default)
+
+/-- **The read order's invariant**: the placed set is the order's, its positions in range and
+distinct, in read order. -/
+structure SortInv (ds : Array Declaration) (rds : Array (List Name)) (st : SortSt) : Prop where
+  placed : ∀ j, st.placed.contains j = true ↔ j ∈ st.order.toList
+  lt : ∀ j ∈ st.order.toList, j < ds.size
+  nodup : st.order.toList.Nodup
+  ordered : OrderedBy ds rds st.order.toList
+
+/-- **`ownerMap` names a record storing the name.** -/
+theorem ownerMap_spec {ds : Array Declaration} {y : Name} {j : Nat}
+    (h : (ownerMap ds)[y]? = some j) : j < ds.size ∧ y ∈ declNames (ds.getD j default) := by
+  let P : Std.HashMap Name Nat → Prop := fun m =>
+    ∀ y j, m[y]? = some j → j < ds.size ∧ y ∈ declNames (ds.getD j default)
+  have inner : ∀ (j : Nat), j < ds.size → ∀ (ns : List Name) (m : Std.HashMap Name Nat), P m →
+      (∀ y ∈ ns, y ∈ declNames (ds.getD j default)) → P (ns.foldl (fun m y => m.insert y j) m) := by
+    intro j hj ns
+    induction ns with
+    | nil => intro m hm _; exact hm
+    | cons n ns ih =>
+      intro m hm hns
+      refine ih _ (fun y k hk => ?_) (fun y hy => hns y (List.mem_cons_of_mem _ hy))
+      rw [Std.HashMap.getElem?_insert] at hk
+      split at hk
+      · rename_i he
+        cases hk
+        exact ⟨hj, (beq_iff_eq.1 he) ▸ hns n List.mem_cons_self⟩
+      · exact hm y k hk
+  have outer : ∀ (l : List Nat) (m : Std.HashMap Name Nat), P m → (∀ j ∈ l, j < ds.size) →
+      P (l.foldl (fun m j => (declNames (ds.getD j default)).foldl
+        (fun m y => m.insert y j) m) m) := by
+    intro l
+    induction l with
+    | nil => intro m hm _; exact hm
+    | cons j l ih =>
+      intro m hm hl
+      exact ih _ (inner j (hl j List.mem_cons_self) _ m hm (fun _ h => h))
+        (fun k hk => hl k (List.mem_cons_of_mem _ hk))
+  exact outer _ {} (fun y j h => by simp at h) (fun j hj => List.mem_range.1 hj) y j h
+
+/-- A position placed at the end keeps the order, where every read of its record is stored by
+a placed record or by itself. -/
+theorem OrderedBy.push {ds : Array Declaration} {rds : Array (List Name)} {o : List Nat} {i : Nat}
+    (h : OrderedBy ds rds o)
+    (hc : ∀ y ∈ rds.getD i [],
+      (∃ j ∈ o, y ∈ declNames (ds.getD j default)) ∨ y ∈ declNames (ds.getD i default)) :
+    OrderedBy ds rds (o ++ [i]) := by
+  intro k hk y hy
+  rw [List.length_append, List.length_singleton] at hk
+  by_cases hko : k < o.length
+  · rw [List.getElem_append_left hko] at hy
+    obtain ⟨j, hj, hyj⟩ := h k hko y hy
+    exact ⟨j, by rw [List.take_append_of_le_length (by omega)]; exact hj, hyj⟩
+  · have hk' : k = o.length := by omega
+    subst hk'
+    rw [List.getElem_append_right (by omega)] at hy
+    simp only [Nat.sub_self, List.getElem_singleton] at hy
+    rw [List.take_of_length_le (by simp)]
+    rcases hc y hy with ⟨j, hj, hyj⟩ | hyi
+    · exact ⟨j, List.mem_append_left _ hj, hyj⟩
+    · exact ⟨i, List.mem_append_right _ (List.mem_singleton_self i), hyi⟩
+
+/-- **A record placed at the end keeps the invariant**, where it is not placed yet and every
+read of it is stored by a placed record or by itself. -/
+theorem SortInv.push {ds : Array Declaration} {rds : Array (List Name)} {st : SortSt} {i : Nat}
+    (hi : SortInv ds rds st) (hio : i ∉ st.order.toList) (hlt : i < ds.size)
+    (hc : ∀ y ∈ rds.getD i [],
+      (∃ j ∈ st.order.toList, y ∈ declNames (ds.getD j default)) ∨
+        y ∈ declNames (ds.getD i default)) :
+    SortInv ds rds { order := st.order.push i, placed := st.placed.insert i } := by
+  constructor
+  · intro j
+    show (st.placed.insert i).contains j = true ↔ j ∈ (st.order.push i).toList
+    simp only [Std.HashSet.contains_insert, Bool.or_eq_true, beq_iff_eq, hi.placed j,
+      Array.toList_push, List.mem_append, List.mem_singleton]
+    exact ⟨fun h => h.elim (fun h => Or.inr h.symm) Or.inl,
+      fun h => h.elim Or.inr (fun h => Or.inl h.symm)⟩
+  · intro j hj
+    change j ∈ (st.order.push i).toList at hj
+    rw [Array.toList_push] at hj
+    rcases List.mem_append.1 hj with hj | hj
+    · exact hi.lt j hj
+    · rw [List.mem_singleton.1 hj]; exact hlt
+  · show (st.order.push i).toList.Nodup
+    rw [Array.toList_push]
+    exact List.nodup_append.2 ⟨hi.nodup, by simp,
+      fun a ha b hb => by rw [List.mem_singleton.1 hb]; rintro rfl; exact hio ha⟩
+  · show OrderedBy ds rds (st.order.push i).toList
+    rw [Array.toList_push]
+    exact hi.ordered.push hc
+
+/-- **The walk from one record** (`sortVisit`): the invariant kept, the order extended by the
+record and records off the path, the record placed. -/
+theorem sortVisit_spec {ds : Array Declaration} {rds : Array (List Name)}
+    {owner : Std.HashMap Name Nat}
+    (howner : ∀ y j, owner[y]? = some j → j < ds.size ∧ y ∈ declNames (ds.getD j default)) :
+    ∀ (fuel i : Nat) (path : Std.HashSet Nat) (ys : List Name) (st st' : SortSt),
+      sortVisit ds rds owner fuel i path ys st = .ok st' → SortInv ds rds st →
+      path.contains i = true → (∀ p, path.contains p = true → p ∉ st.order.toList) →
+      i < ds.size →
+      (∀ y ∈ rds.getD i [], y ∉ ys →
+        (∃ j ∈ st.order.toList, y ∈ declNames (ds.getD j default)) ∨
+          y ∈ declNames (ds.getD i default)) →
+      SortInv ds rds st' ∧ st.order.toList <+: st'.order.toList ∧
+      (∀ x ∈ st'.order.toList, x ∈ st.order.toList ∨ x = i ∨ path.contains x = false) ∧
+      i ∈ st'.order.toList := by
+  intro fuel
+  induction fuel with
+  | zero => intro i path ys st st' h; rw [sortVisit] at h; simp at h
+  | succ fuel ihf =>
+    intro i path ys
+    induction ys with
+    | nil =>
+      intro st st' h hi hpi hpath hlt hc
+      rw [sortVisit] at h
+      simp only [Except.ok.injEq] at h
+      subst h
+      have hio : i ∉ st.order.toList := hpath i hpi
+      refine ⟨hi.push hio hlt fun y hy => hc y hy (by simp), ?_, fun x hx => ?_, ?_⟩
+      · show st.order.toList <+: (st.order.push i).toList
+        rw [Array.toList_push]; exact List.prefix_append _ _
+      · change x ∈ (st.order.push i).toList at hx
+        rw [Array.toList_push] at hx
+        rcases List.mem_append.1 hx with hx | hx
+        · exact .inl hx
+        · exact .inr (.inl (List.mem_singleton.1 hx))
+      · show i ∈ (st.order.push i).toList
+        rw [Array.toList_push]; exact List.mem_append_right _ (List.mem_singleton_self i)
+    | cons y ys ihy =>
+      intro st st' h hi hpi hpath hlt hc
+      rw [sortVisit] at h
+      split at h
+      · simp at h
+      · rename_i j hj
+        obtain ⟨hjlt, hyj⟩ := howner y j hj
+        split at h
+        · rename_i hskip
+          refine ihy st st' h hi hpi hpath hlt fun z hz hzn => ?_
+          by_cases hzy : z = y
+          · subst hzy
+            rcases Bool.or_eq_true _ _ ▸ hskip with he | hp
+            · exact .inr (beq_iff_eq.1 he ▸ hyj)
+            · exact .inl ⟨j, (hi.placed j).1 hp, hyj⟩
+          · exact hc z hz (by simp [hzy, hzn])
+        · rename_i hskip
+          simp only [Bool.or_eq_true, beq_iff_eq, not_or, Bool.not_eq_true] at hskip
+          split at h
+          · simp at h
+          · rename_i hnp
+            simp only [Bool.not_eq_true] at hnp
+            split at h
+            · simp at h
+            · rename_i st₁ h₁
+              have hjo : j ∉ st.order.toList := fun hm => by
+                rw [← hi.placed] at hm; rw [hm] at hskip; exact absurd hskip.2 (by simp)
+              obtain ⟨i₁, p₁, x₁, m₁⟩ := ihf j (path.insert j) _ st st₁ h₁ hi
+                (by simp [Std.HashSet.contains_insert])
+                (fun p hp => by
+                  simp only [Std.HashSet.contains_insert, Bool.or_eq_true, beq_iff_eq] at hp
+                  rcases hp with rfl | hp
+                  · exact hjo
+                  · exact hpath p hp)
+                hjlt (fun z hz hzn => absurd hz hzn)
+              have hpath₁ : ∀ p, path.contains p = true → p ∉ st₁.order.toList := fun p hp hm => by
+                rcases x₁ p hm with h' | rfl | h'
+                · exact hpath p hp h'
+                · rw [hp] at hnp; cases hnp
+                · simp only [Std.HashSet.contains_insert, Bool.or_eq_false_iff] at h'
+                  rw [hp] at h'; cases h'.2
+              obtain ⟨i₂, p₂, x₂, m₂⟩ := ihy st₁ st' h i₁ hpi hpath₁ hlt fun z hz hzn => by
+                by_cases hzy : z = y
+                · subst hzy; exact .inl ⟨j, m₁, hyj⟩
+                · rcases hc z hz (by simp [hzy, hzn]) with ⟨k, hk, hzk⟩ | h'
+                  · exact .inl ⟨k, p₁.subset hk, hzk⟩
+                  · exact .inr h'
+              refine ⟨i₂, p₁.trans p₂, fun x hx => ?_, m₂⟩
+              rcases x₂ x hx with h' | h' | h'
+              · rcases x₁ x h' with h'' | rfl | h''
+                · exact .inl h''
+                · exact .inr (.inr hnp)
+                · simp only [Std.HashSet.contains_insert, Bool.or_eq_false_iff] at h''
+                  exact .inr (.inr h''.2)
+              · exact .inr (.inl h')
+              · exact .inr (.inr h')
+
+/-- **The walk over positions** (`sortFrom`): the invariant kept, every position of `l` placed. -/
+theorem sortFrom_spec {ds : Array Declaration} {rds : Array (List Name)}
+    {owner : Std.HashMap Name Nat}
+    (howner : ∀ y j, owner[y]? = some j → j < ds.size ∧ y ∈ declNames (ds.getD j default))
+    (fuel : Nat) :
+    ∀ (l : List Nat) (st st' : SortSt), sortFrom ds rds owner fuel l st = .ok st' →
+      SortInv ds rds st →
+      (∀ i ∈ l, i < ds.size) →
+      SortInv ds rds st' ∧ st.order.toList <+: st'.order.toList ∧ ∀ i ∈ l, i ∈ st'.order.toList
+  | [], st, st', h, hi, _ => by
+    simp only [sortFrom, Except.ok.injEq] at h; subst h
+    exact ⟨hi, List.prefix_refl _, by simp⟩
+  | i :: l, st, st', h, hi, hl => by
+    simp only [sortFrom] at h
+    split at h
+    · rename_i hp
+      obtain ⟨a, b, c⟩ := sortFrom_spec howner fuel l st st' h hi
+        (fun k hk => hl k (List.mem_cons_of_mem _ hk))
+      refine ⟨a, b, fun k hk => ?_⟩
+      rcases List.mem_cons.1 hk with rfl | hk
+      · exact b.subset ((hi.placed _).1 hp)
+      · exact c k hk
+    · rename_i hp
+      split at h
+      · simp at h
+      · rename_i st₁ h₁
+        obtain ⟨i₁, p₁, -, m₁⟩ := sortVisit_spec howner fuel i _ _ st st₁ h₁ hi
+          (by simp [Std.HashSet.contains_insert])
+          (fun p hp hm => by
+            simp only [Std.HashSet.contains_insert, Bool.or_eq_true, beq_iff_eq,
+              Std.HashSet.contains_empty, Bool.false_eq_true, or_false] at hp
+            subst hp
+            exact hp ((hi.placed _).2 hm))
+          (hl i List.mem_cons_self) (fun z hz hzn => absurd hz hzn)
+        obtain ⟨a, b, c⟩ := sortFrom_spec howner fuel l st₁ st' h i₁
+          (fun k hk => hl k (List.mem_cons_of_mem _ hk))
+        refine ⟨a, p₁.trans b, fun k hk => ?_⟩
+        rcases List.mem_cons.1 hk with rfl | hk
+        · exact b.subset m₁
+        · exact c k hk
+
+/-- **The read order** (`readOrder`): its positions are those of the records, each once, in
+read order. -/
+theorem readOrder_spec {ds : Array Declaration} {rds : Array (List Name)} {o : Array Nat}
+    (h : readOrder ds rds = .ok o) :
+    o.toList.Perm (List.range ds.size) ∧ OrderedBy ds rds o.toList := by
+  unfold readOrder at h
+  cases hs : sortFrom ds rds (ownerMap ds) (ds.size + 1) (List.range ds.size) {} with
+  | error e => simp [hs, Except.map] at h
+  | ok st =>
+    simp only [hs, Except.map, Except.ok.injEq] at h
+    subst h
+    obtain ⟨hi, -, hall⟩ := sortFrom_spec (fun _ _ h => ownerMap_spec h) _ _ {} st hs
+      ⟨fun j => by simp, fun j hj => by simp at hj, by simp, fun k hk => by simp at hk⟩
+      (fun j hj => List.mem_range.1 hj)
+    refine ⟨(List.perm_ext_iff_of_nodup hi.nodup List.nodup_range).2 fun j =>
+      ⟨fun hj => List.mem_range.2 (hi.lt j hj), hall j⟩, hi.ordered⟩
+
+/-- **The records in read order** are the records, permuted. -/
+theorem readOrder_perm {ds : Array Declaration} {rds : Array (List Name)} {o : Array Nat}
+    (h : readOrder ds rds = .ok o) :
+    (o.map (ds.getD · default)).toList.Perm ds.toList := by
+  rw [Array.toList_map]
+  have hr : (List.range ds.size).map (ds.getD · default) = ds.toList :=
+    List.ext_getElem (by simp) fun k h₁ h₂ => by
+      simp [Array.getElem?_eq_getElem (by simpa using h₂ : k < ds.size)]
+  exact hr ▸ (readOrder_spec h).1.map _
+
+/-- **The records in read order read only themselves and earlier records**: every one is
+`RecordScoped` in the prefix of the list ending with it, where `rds` lists what each reads. -/
+theorem readOrder_ordered {ds : Array Declaration} {rds : Array (List Name)} {o : Array Nat}
+    (h : readOrder ds rds = .ok o)
+    (hr : ∀ j < ds.size, rds.getD j [] = (recordReads (ds.getD j default)).toList) :
+    ∀ k (hk : k < (o.map (ds.getD · default)).toList.length),
+      RecordScoped (streamEnv ((o.map (ds.getD · default)).toList.take (k + 1)))
+        (o.map (ds.getD · default)).toList[k] := by
+  intro k hk
+  have hko : k < o.toList.length := by simpa using hk
+  refine recordReads_scoped fun y hy => ?_
+  simp only [Array.toList_map, List.getElem_map] at hy ⊢
+  have hlt : o.toList[k] < ds.size :=
+    List.mem_range.1 ((readOrder_spec h).1.mem_iff.1 (List.getElem_mem hko))
+  obtain ⟨j, hj, hyj⟩ := (readOrder_spec h).2 k hko y
+    (by rw [hr _ hlt]; exact Array.mem_toList_iff.2 hy)
+  rw [← List.map_take]
+  exact streamEnv_find_of_mem (List.mem_map_of_mem hj) hyj
+
 /-- The worklist starts in its invariant. -/
 theorem reachInv_init (rs : List Name) : ReachInv rs (ReachLog.init rs) := by
   refine ⟨fun d hd => by simp [ReachLog.init] at hd, fun z hz => ?_,
-    fun z hz => by simp [ReachLog.init] at hz, fun z hz => (pushNames_spec rs {} []).1 z hz⟩
+    fun z hz => by simp [ReachLog.init] at hz, fun z hz => (pushNames_spec rs {} []).1 z hz,
+    by simp [ReachLog.init]⟩
   rcases (pushNames_spec rs {} []).2.1 z hz with h' | h'
   · simp at h'
   · exact .inr h'
 
-/-- **The reach's context is closed and well formed**: at every accepting outcome of
-`reach`, on any snapshot, every context record is `RecordScoped` in the context, every
-name it reads is stored there, the context is `EnvWF`, and every root that is not an own name
-is stored there. -/
+/-- A name stored in a list's environment is a record's. -/
+theorem streamEnv_find_mem {ds : List Declaration} {y : Name}
+    (h : ((streamEnv ds).find? y).isSome = true) : ∃ d ∈ ds, y ∈ declNames d := by
+  simp only [Env.find?, List.find?_isSome] at h
+  obtain ⟨ci, hci, hy⟩ := h
+  rcases (mem_streamEnv_consts ds _).1 hci with ⟨d, hd, hcd⟩ | h'
+  · refine ⟨d, hd, List.mem_map.2 ⟨ci, hcd, ?_⟩⟩
+    simpa [ConstantInfo.name] using (beq_iff_eq.1 hy)
+  · simp [Env.empty] at h'
+
+/-- **The reach's context is closed, well formed and in read order**: at every accepting
+outcome of `reach`, on any snapshot, every context record is `RecordScoped` in the prefix of the
+context ending with it (`ImportOk.ordered`), so in the context, every name it reads is stored
+there, the context is `EnvWF`, and every root that is not an own name is stored there. -/
 theorem reach_ok {rd : OleanReads ModelIO} {m : Name} {wr : WorkerReads} {own : Std.HashSet Name}
     {roots : Array Name} {fs : FS} {r : Reach}
     (h : (reach rd m wr own roots : ModelIO _) fs (.ok (.ok r))) :
+    (∀ k (hk : k < r.ctx.toList.length),
+      RecordScoped (streamEnv (r.ctx.toList.take (k + 1))) r.ctx.toList[k]) ∧
     (∀ d ∈ r.ctx.toList, RecordScoped (streamEnv r.ctx.toList) d) ∧
     (∀ d ∈ r.ctx.toList, ∀ y ∈ recordReads d, ((streamEnv r.ctx.toList).find? y).isSome = true) ∧
     EnvWF (streamEnv r.ctx.toList) ∧
@@ -805,19 +1126,44 @@ theorem reach_ok {rd : OleanReads ModelIO} {m : Name} {wr : WorkerReads} {own : 
     rcases y with e | ⟨L, c'⟩
     · simp at h
     simp only at h
-    cases hv : validateCtx L.ctx L.homes with
-    | error e => simp [hv] at h
+    cases ho : readOrder L.ctx L.reads with
+    | error e => simp [ho] at h
+    | ok o =>
+    simp only [ho] at h
+    cases hv : validateCtx (o.map (L.ctx.getD · default)) (o.map (L.homes.getD · default)) with
+    | error e => rw [hv] at h; simp at h
     | ok u =>
-    cases hf : inferFlags (mkFEnv (streamEnv L.ctx.toList)) c'.pending.toList with
-    | error e => simp [hv, hf] at h
+    cases hf : inferFlags (mkFEnv (streamEnv (o.map (L.ctx.getD · default)).toList))
+      c'.pending.toList with
+    | error e => rw [hv] at h; simp only at h; rw [hf] at h; simp at h
     | ok u' =>
     simp only [hv, hf, ModelIO.pure_iff, Except.ok.injEq] at h
     subst h
-    have hc := reachGo_closed _ fs (reachInv_init _) hy
-    have hcl := fun d hd => (hc d hd).1
-    refine ⟨fun d hd => (hc d hd).2, hcl, ctx_envWF (validateCtx_ok hv) hcl, fun x hx ho => ?_⟩
-    exact reachGo_roots _ fs (reachInv_init _) hy x
-      (List.mem_filter.2 ⟨by simp [hx], by simp [ho]⟩)
+    simp only
+    have hreads := (reachGo_inv _ fs _ _ _ _ (reachInv_init _) hy).1.2.2.2.2
+    have hr : ∀ j < L.ctx.size,
+        L.reads.getD j [] = (recordReads (L.ctx.getD j default)).toList := by
+      intro j hj
+      rw [hreads]
+      simp [Array.getElem?_eq_getElem hj]
+    have hperm := readOrder_perm ho
+    have hord := readOrder_ordered ho hr
+    have hcl : ∀ d ∈ (o.map (L.ctx.getD · default)).toList, ∀ y ∈ recordReads d,
+        ((streamEnv (o.map (L.ctx.getD · default)).toList).find? y).isSome = true := by
+      intro d hd y hy
+      rw [Array.toList_map] at hd ⊢
+      obtain ⟨j₀, hj₀, rfl⟩ := List.mem_map.1 hd
+      obtain ⟨k, hk, rfl⟩ := List.getElem_of_mem hj₀
+      have hlt : o.toList[k] < L.ctx.size :=
+        List.mem_range.1 ((readOrder_spec ho).1.mem_iff.1 (List.getElem_mem hk))
+      obtain ⟨j, hj, hyj⟩ := (readOrder_spec ho).2 k hk y
+        (by rw [hr _ hlt]; exact Array.mem_toList_iff.2 hy)
+      exact streamEnv_find_of_mem (List.mem_map_of_mem (List.mem_of_mem_take hj)) hyj
+    refine ⟨hord, fun d hd => recordReads_scoped (hcl d hd), hcl,
+      ctx_envWF (validateCtx_ok hv) hcl, fun x hx hown => ?_⟩
+    obtain ⟨d, hd, hxd⟩ := streamEnv_find_mem (reachGo_roots _ fs (reachInv_init _) hy x
+      (List.mem_filter.2 ⟨by simp [hx], by simp [hown]⟩))
+    exact streamEnv_find_of_mem (hperm.mem_iff.2 hd) hxd
 
 end ConLeche.Driver
 

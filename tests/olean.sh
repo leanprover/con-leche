@@ -627,7 +627,7 @@ for m in Tiny TinyUse TinyClassic LazyVal PrivUnused HidA HidAll HidUse RbH RbM 
     HiLamA HiLamB HiInhD HiInhL HiInhT HiInhX HiInhM HiInhM2 \
     TeqH TeqP1 TeqP2 TeqQ2 TeqX TeqM TeqBoth NsC NsH NsM NsN \
     LdgQ LdgA LdgM LdgN LdvQ LdvA LdvM LdvN GrN LvA LvB LvC LvM LvN \
-    PdA PdB WvA WvB ClashA ClashB ClashX FrX FrY MoX NlB NlX NlY RtA; do
+    PdA PdB WvA WvB ClashA ClashB ClashX FrX FrY MoX NlB NlX NlY RtA PpA PpB; do
   work_ "the worker at $m" 0 "accepted" "$MSP" $m
 done
 # RtA's theorem at the compiler-trust name Lean.reduceBool, read by RtM: its statement as an
@@ -651,6 +651,12 @@ work_ "two statements under one name, neither reached" 0 "accepted" "$MSP" TeqDM
 work_ "an exported value reading a private-only constant" 0 "1 completed" "$MSP" WvM --progress
 # PdA's definition of `id True` meets PdB's theorem: the flag inferred, as Lean merges
 work_ "a definition of a proposition meets a theorem" 0 "1 flags inferred" "$MSP" PdM --progress
+# PpA's and PpB's definitions of `2 + 2 = 4`, with different bodies, meet: Lean merges them,
+# and the copies agree in every model because the statement is a proposition (task #500)
+work_ "two definitions of one proposition with different bodies" 0 "1 flags inferred" "$MSP" PpM --progress
+# the merged read compares the private parts, two different definitions: rejected (Lean,
+# importing the exported parts, merges the two statements)
+case_ "two definitions of one proposition, merged" 1 --olean --search-path=$MSP PpM
 # Lean proves False with no axiom here (H's bar.eq_1 reads Q's foo, M holds Q2's):
 # rejected, the target verdict
 work_ "a captured name" 1 "name capture at foo, read by module DgCapH" "$MSP" DgCapM

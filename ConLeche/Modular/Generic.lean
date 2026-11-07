@@ -17,12 +17,13 @@ interface and theorem of the proof-idea paper's fragment
 models are its instance (task #463).
 
 There is no global environment and no renaming.  Each module's
-environments use the module's own names.  Two modules' occurrences of a
-name are **interchangeable** (`Development.Interchangeable`) when both
-were declared by one module, or both are proofs of one statement; each
-module records, for every name it uses, the module that declared it or
-the proof's statement (`Key`, an internal representation of the
-relation).
+environments use the module's own names.  Two modules may hold copies
+of one name; what the theory asks is that the copies a module reads
+**agree**: get one value in the models.  The importer proves that
+locally, for each copy a source holds, in one of three ways: the source
+is the module the name is read from; the source and the importer both
+read it from one earlier module (one record, loaded through two paths);
+or both copies are proofs, which every model gives the proofs' value.
 
 **The interface.**  Environments, with the names they store
 (`Stores`; `c ∈ E` below).  Then:
@@ -37,10 +38,14 @@ relation).
    **agree on `C`** (`ModelsAgree`: equal values at every name of `C` both
    members store) give one model of `C` that agrees on `C` with every
    member;
-4. **the conservative step** (`step`): if the checker accepts
+4. **proofs**: `ProofIn C E n` (`C` proves `E`'s `n` a proof: in
+   con-leche, its type is inferred at `C` to be a proposition) gives `n`
+   the proofs' value in every model of `E` that agrees on `C` with a
+   model of `C` (`proof_val`); `IsThm E n` (`E` stores `n` as a theorem)
+   gives it the proofs' value in every model of `E` (`thm_val`);
+5. **the conservative step** (`step`): if the checker accepts
    declarations `D` over `Γ`, giving `Γ'`, every model of `Γ` extends
-   to one of `Γ'` with the same values on `Γ`, and every declaration
-   `D` flags as a proof gets the proofs' value.
+   to one of `Γ'`, keeping every name of `Γ` and its value.
 
 **Refinement** (`Refines Γ E`: every constant of `Γ` is, at the same
 name, one of `E` or an assumption of its type) is assembly from one
@@ -58,39 +63,34 @@ amalgamated from `W`'s, where `c` is `5`.
 **The theorem** (`Development.modular`).  A development has, per
 module, its context, declarations, own environment, its **sources**
 (the views of earlier modules it reads, each with the module that
-presents it), and what declared each of its names.  A module is
-**valid** (`Development.Valid`) if each source's view refines its
-module's own environment and comes from an earlier module, and either
-it is **checked** — its context is assembled from its sources, every
-copy of a context name in a source is interchangeable with the
-module's (`OneCopy`), its declarations are accepted over the context,
-and every new name is declared by the module itself or is a flagged
-proof — or it is **compared** — its own environment is assembled from
-its sources, with one copy in the same sense.  If every module is
-valid, there is a **compatible family** of models, one of each
-module's own environment: interchangeable occurrences of a name get one
-value, and every proof gets the proofs' value.  The proof goes module
-by module: the earlier modules' models, restricted to the sources'
-views, are compatible for the context (the copies a source stores are
-interchangeable with the module's), so they amalgamate to a model of
-the context; the step extends it over the declarations; and the
-module's new constants are declared by it or are proofs, so the family
-stays compatible.  Each module's model is built from its sources'
-models alone.
+presents it), for each context name the module it is **read from**
+(`src`), an order among its context names (`rank`), and per context
+name the **part below it** (`part`).  A module is **valid**
+(`Development.Valid`) if each source's view refines its module's own
+environment and comes from an earlier module, its context is assembled
+from its sources, every context name is stored by the source of the
+module it is read from, its part is assembled from the sources and
+holds only context names of smaller rank, and every source that stores
+it **agrees** (`Agrees`): it is that module, or it and the module both
+read the name from one earlier module, or it and that module's copy are
+proofs (`ProofIn` over the part,
+or a theorem where the copy comes from); and the module's declarations
+are accepted over its context, or the module is **compared** (its own
+environment is its context).  If every module is valid, there is a
+**compatible family** of models, one of each module's own environment:
+each module gives every context name the value the module it is read
+from gives it.  The proof goes module by module: the earlier modules'
+models, restricted to the sources' views, give every context name its
+read value, name by name in rank order (a proof's copies by the part's
+model, which the names below already make an amalgam), so they
+amalgamate to a model of the context, and the step extends it over the
+declarations.  Each module's model is built from its sources' models
+alone.
 -/
 
 namespace ConLeche.Modular
 
-universe u w v
-
-/-- **What declared a name**, as a module records it: the module that
-declared it (its **home**), or, for a proof, its statement.  The
-internal representation of interchangeability
-(`Development.Interchangeable`). -/
-inductive Key (Stmt : Type v) where
-  | home (module : Nat)
-  | proof (stmt : Stmt)
-  deriving DecidableEq, Repr
+universe u w
 
 /-- **Agreement on `C`** (`m ≍_C m'` in the paper): models `m` of `E`
 and `m'` of `E'` give the same value to every name of `C` that `E` and
@@ -128,16 +128,23 @@ structure ModularSemantics where
     Assembled C E → ∀ m : (i : ι) → Mod (E i),
     (∀ i i', ModelsAgree Stores @val C (m i) (m i')) →
     ∃ mC : Mod C, ∀ i, ModelsAgree Stores @val C mC (m i)
+  /-- **`C` proves `E`'s `n` a proof** -/
+  ProofIn : Env → Env → Name → Prop
+  /-- a proof by `C` gets the proofs' value in every model agreeing on
+  `C` with one of `C` -/
+  proof_val : ∀ {C E : Env} {n : Name}, ProofIn C E n → ∀ (mC : Mod C) (m : Mod E),
+    ModelsAgree Stores @val C mC m → val m n = proofVal
+  /-- **`E` stores `n` as a theorem** -/
+  IsThm : Env → Name → Prop
+  /-- a theorem gets the proofs' value in every model -/
+  thm_val : ∀ {E : Env} {n : Name}, IsThm E n → ∀ m : Mod E, val m n = proofVal
   /-- declarations -/
   Decls : Type u
-  /-- the names declarations flag as proofs -/
-  Flagged : Decls → Name → Prop
   /-- **acceptance**: the checker accepts `D` over `Γ`, giving `Γ'` -/
   Accepts : Env → Decls → Env → Prop
   /-- **the conservative step** -/
   step : ∀ {Γ Γ' : Env} {D : Decls}, Accepts Γ D Γ' → ∀ m : Mod Γ,
-    ∃ m' : Mod Γ', (∀ n, Stores Γ n → val m' n = val m n) ∧
-      ∀ n, Flagged D n → val m' n = proofVal
+    ∃ m' : Mod Γ', ∀ n, Stores Γ n → Stores Γ' n ∧ val m' n = val m n
 
 namespace ModularSemantics
 
@@ -162,56 +169,25 @@ theorem restrict {Γ E : S.Env} (h : S.Refines Γ E) (m : S.Mod E) :
 
 end ModularSemantics
 
-variable {S : ModularSemantics.{u, w}} {Stmt : Type v}
+variable {S : ModularSemantics.{u, w}}
 
 /-- **A development** over `S`: per module its context, declarations,
 own environment, its sources (the views it reads, each with the module
-that presents it), and what declared each name it uses. -/
-structure Development (S : ModularSemantics.{u, w}) (Stmt : Type v) where
+that presents it), for each context name the module it is read from,
+the order among its context names, and the part of its context below
+each name. -/
+structure Development (S : ModularSemantics.{u, w}) where
   ctx : Nat → S.Env
   decls : Nat → S.Decls
   own : Nat → S.Env
   sources : Nat → List (Nat × S.Env)
-  key : Nat → S.Name → Key Stmt
+  src : Nat → S.Name → Nat
+  rank : Nat → S.Name → Nat
+  part : Nat → S.Name → S.Env
 
 namespace Development
 
-variable (dev : Development S Stmt)
-
-/-- Module `i`'s `n` was **declared by** module `h`. -/
-def DeclaredBy (i : Nat) (n : S.Name) (h : Nat) : Prop := dev.key i n = .home h
-
-/-- Module `i`'s `n` is **a proof of** the statement `s`. -/
-def ProofOf (i : Nat) (n : S.Name) (s : Stmt) : Prop := dev.key i n = .proof s
-
-/-- **Interchangeable occurrences**: modules `i` and `j`'s occurrences
-of `n` were both declared by one module, or both are proofs of one
-statement. -/
-def Interchangeable (i j : Nat) (n : S.Name) : Prop :=
-  (∃ h, dev.DeclaredBy i n h ∧ dev.DeclaredBy j n h) ∨
-    ∃ s, dev.ProofOf i n s ∧ dev.ProofOf j n s
-
-variable {dev}
-
-theorem interchangeable_iff {i j : Nat} {n : S.Name} :
-    dev.Interchangeable i j n ↔ dev.key i n = dev.key j n := by
-  unfold Interchangeable DeclaredBy ProofOf
-  constructor
-  · rintro (⟨h, h1, h2⟩ | ⟨s, h1, h2⟩) <;> rw [h1, h2]
-  · intro he
-    cases hk : dev.key i n with
-    | home h => exact .inl ⟨h, rfl, he ▸ hk⟩
-    | proof s => exact .inr ⟨s, rfl, he ▸ hk⟩
-
-/-- **Interchangeability is an equivalence** (for each name). -/
-theorem interchangeable_equivalence (n : S.Name) :
-    Equivalence fun i j => dev.Interchangeable i j n :=
-  ⟨fun _ => interchangeable_iff.mpr rfl,
-    fun h => interchangeable_iff.mpr (interchangeable_iff.mp h).symm,
-    fun h h' => interchangeable_iff.mpr ((interchangeable_iff.mp h).trans
-      (interchangeable_iff.mp h'))⟩
-
-variable (dev)
+variable (dev : Development S)
 
 /-- The sources module `i` reads. -/
 def Src (i : Nat) : Type u := {x : Nat × S.Env // x ∈ dev.sources i}
@@ -219,73 +195,62 @@ def Src (i : Nat) : Type u := {x : Nat × S.Env // x ∈ dev.sources i}
 /-- **Assembled from the sources.** -/
 def Assembled (i : Nat) (E : S.Env) : Prop := S.Assembled E fun x : dev.Src i => x.1.2
 
-/-- **One copy**: every copy of a name of `E` in a source of module `i`
-is interchangeable with module `i`'s occurrence. -/
-def OneCopy (i : Nat) (E : S.Env) : Prop :=
-  ∀ n, S.Stores E n → ∀ x ∈ dev.sources i, S.Stores x.2 n → dev.Interchangeable i x.1 n
+/-- **A theorem where the copy comes from**: source `x`'s module stores
+`n` as a theorem, or reads it from a module that does. -/
+def ThmAt (x : Nat × S.Env) (n : S.Name) : Prop :=
+  S.IsThm (dev.own x.1) n ∨ S.Stores (dev.ctx x.1) n ∧ S.IsThm (dev.own (dev.src x.1 n)) n
 
-/-- **The new names are declared by the module, or flagged proofs.** -/
-def NewNames (i : Nat) : Prop :=
-  ∀ n, S.Stores (dev.own i) n → ¬ S.Stores (dev.ctx i) n →
-    dev.DeclaredBy i n i ∨ (∃ s, dev.ProofOf i n s) ∧ S.Flagged (dev.decls i) n
+/-- **Source `x`'s copy of `n` is a proof** for module `i`: proved one
+over the part below `n`, or a theorem where it comes from. -/
+def ProofSide (i : Nat) (n : S.Name) (x : Nat × S.Env) : Prop :=
+  S.ProofIn (dev.part i n) x.2 n ∨ dev.ThmAt x n
 
-/-- **A checked module**: its context assembled from its sources, with
-one copy of each name, its declarations accepted over it, its new
-names declared by it or flagged proofs. -/
-def Checked (i : Nat) : Prop :=
-  dev.Assembled i (dev.ctx i) ∧ dev.OneCopy i (dev.ctx i) ∧
-    S.Accepts (dev.ctx i) (dev.decls i) (dev.own i) ∧ dev.NewNames i
+/-- **Source `x` agrees with the module `n` is read from** (see the
+module docstring): it is that module; or it reads `n` with a source
+of some module among its own, and module `i` has a source of that same,
+earlier module storing `n` (one record, loaded through two paths); or it
+and every source of the read module are proofs at `n`. -/
+def Agrees (i : Nat) (n : S.Name) (x : Nat × S.Env) : Prop :=
+  x.1 = dev.src i n ∨
+    (S.Stores (dev.ctx x.1) n ∧ ∃ z ∈ dev.sources x.1, S.Stores z.2 n ∧
+      ∃ w ∈ dev.sources i, w.1 = z.1 ∧ S.Stores w.2 n ∧ w.1 < x.1) ∨
+    dev.ProofSide i n x ∧
+      ∀ y ∈ dev.sources i, y.1 = dev.src i n → S.Stores y.2 n → dev.ProofSide i n y
 
-/-- **A compared module**: its own environment assembled from its
-sources, with one copy of each name. -/
-def Compared (i : Nat) : Prop := dev.Assembled i (dev.own i) ∧ dev.OneCopy i (dev.own i)
+/-- **How module `i` reads a context name `n`**: from a source of the
+module it is read from, with an assembled part below it, every source
+storing it agreeing. -/
+structure Reads (i : Nat) (n : S.Name) : Prop where
+  read : ∃ x ∈ dev.sources i, x.1 = dev.src i n ∧ S.Stores x.2 n
+  part : dev.Assembled i (dev.part i n)
+  below : ∀ c, S.Stores (dev.part i n) c → S.Stores (dev.ctx i) c ∧ dev.rank i c < dev.rank i n
+  agree : ∀ x ∈ dev.sources i, S.Stores x.2 n → dev.Agrees i n x
+
+/-- **A checked module**: its declarations accepted over its context. -/
+def Checked (i : Nat) : Prop := S.Accepts (dev.ctx i) (dev.decls i) (dev.own i)
+
+/-- **A compared module**: its own environment is its context. -/
+def Compared (i : Nat) : Prop := dev.own i = dev.ctx i
 
 /-- **A valid module**: each source is a view of an earlier module that
-refines its own environment, and the module is checked or compared. -/
+refines its own environment, its context is assembled from the sources
+and read from them, and the module is checked or compared. -/
 structure Valid (i : Nat) : Prop where
   sources : ∀ x ∈ dev.sources i, x.1 < i ∧ S.Refines x.2 (dev.own x.1)
+  assembled : dev.Assembled i (dev.ctx i)
+  reads : ∀ n, S.Stores (dev.ctx i) n → dev.Reads i n
   checked_or_compared : dev.Checked i ∨ dev.Compared i
 
-/-- **A compatible family** of models below `k`: interchangeable
-occurrences of a name get one value, and a proof gets the proofs'
-value. -/
+/-- **A compatible family** of models below `k`: each module gives every
+context name the value the module it is read from gives it, and so does
+every source of the module storing it. -/
 def Compatible (k : Nat) (m : (i : Nat) → i < k → S.Mod (dev.own i)) : Prop :=
-  (∀ i i' (hi : i < k) (hi' : i' < k) n, S.Stores (dev.own i) n → S.Stores (dev.own i') n →
-    dev.Interchangeable i i' n → S.val (m i hi) n = S.val (m i' hi') n) ∧
-  ∀ i (hi : i < k) n s, S.Stores (dev.own i) n → dev.ProofOf i n s →
-    S.val (m i hi) n = S.proofVal
+  ∀ j (hj : j < k) n, S.Stores (dev.ctx j) n →
+    ∃ h : dev.src j n < k, S.val (m j hj) n = S.val (m (dev.src j n) h) n ∧
+      ∀ y ∈ dev.sources j, ∀ hy : y.1 < k, S.Stores y.2 n →
+        S.val (m y.1 hy) n = S.val (m (dev.src j n) h) n
 
 variable {dev}
-
-/-- **What a valid module stores**: a constant of one of its sources,
-interchangeable with the source module's, or a new one. -/
-theorem Valid.src {i : Nat} (hv : dev.Valid i) {n : S.Name} (hn : S.Stores (dev.own i) n) :
-    (∃ x : dev.Src i, dev.key i n = dev.key x.1.1 n ∧ S.Stores x.1.2 n ∧
-      (dev.Compared i ∨ dev.Checked i ∧ S.Stores (dev.ctx i) n)) ∨
-    dev.Checked i ∧ ¬ S.Stores (dev.ctx i) n := by
-  rcases hv.checked_or_compared with hc | hc
-  · by_cases hC : S.Stores (dev.ctx i) n
-    · obtain ⟨x, hs⟩ := S.assembled_src hc.1 n hC
-      exact .inl ⟨x, interchangeable_iff.mp (hc.2.1 n hC x.1 x.2 hs), hs, .inr ⟨hc, hC⟩⟩
-    · exact .inr ⟨hc, hC⟩
-  · obtain ⟨x, hs⟩ := S.assembled_src hc.1 n hn
-    exact .inl ⟨x, interchangeable_iff.mp (hc.2 n hn x.1 x.2 hs), hs, .inl hc⟩
-
-/-- **A module's names are declared by itself or earlier modules.** -/
-theorem home_le : ∀ i, (∀ j ≤ i, dev.Valid j) →
-    ∀ n h, S.Stores (dev.own i) n → dev.key i n = .home h → h ≤ i := by
-  intro i
-  induction i using Nat.strongRecOn with
-  | _ i ih =>
-  intro hv n h hn hk
-  have hvi := hv i (Nat.le_refl i)
-  rcases hvi.src hn with ⟨⟨⟨j, E⟩, hjE⟩, hx, hs, -⟩ | ⟨⟨-, -, -, hnew⟩, hC⟩
-  · obtain ⟨hji, hr⟩ := hvi.sources _ hjE
-    have := ih j hji (fun j' hj' => hv j' (by omega)) n h (hr.stores hs) (hx.symm.trans hk)
-    omega
-  · rcases hnew n hn hC with he | ⟨⟨s, hs⟩, -⟩
-    · unfold DeclaredBy at he; rw [hk] at he; cases he; exact Nat.le_refl i
-    · unfold ProofOf at hs; rw [hk] at hs; cases hs
 
 /-- A family below `k` extended by one member at `k`. -/
 def extendFam {P : Nat → Sort w} {k : Nat} (m : (i : Nat) → i < k → P i) (x : P k) :
@@ -299,19 +264,19 @@ theorem extendFam_lt {P : Nat → Sort w} {k : Nat} (m : (i : Nat) → i < k →
 theorem extendFam_self {P : Nat → Sort w} {k : Nat} (m : (i : Nat) → i < k → P i) (x : P k)
     (hk : k < k + 1) : extendFam m x k hk = x := dite_eq_right (Nat.lt_irrefl k)
 
-/-- **The modular theorem, over the interface**: if every module
-below `k` is valid, there is a compatible family of models, one of each
+/-- One module's value, whatever proof of its bound. -/
+theorem val_congr {k : Nat} (m : (i : Nat) → i < k → S.Mod (dev.own i)) {a b : Nat} (h : a = b)
+    (ha : a < k) (hb : b < k) (n : S.Name) : S.val (m a ha) n = S.val (m b hb) n := by
+  subst h; rfl
+
+/-- **The modular theorem, over the interface**: if every module below
+`k` is valid, there is a compatible family of models, one of each
 module's own environment. -/
 theorem modular : ∀ k, (∀ i < k, dev.Valid i) →
     ∃ m : (i : Nat) → i < k → S.Mod (dev.own i), dev.Compatible k m
-  | 0, _ => ⟨fun _ h => absurd h (Nat.not_lt_zero _),
-      fun _ _ h => absurd h (Nat.not_lt_zero _), fun _ h => absurd h (Nat.not_lt_zero _)⟩
+  | 0, _ => ⟨fun _ h => absurd h (Nat.not_lt_zero _), fun _ h => absurd h (Nat.not_lt_zero _)⟩
   | k + 1, hv => by
-    obtain ⟨m, hc, hp⟩ := modular k fun i hi => hv i (Nat.lt_succ_of_lt hi)
-    have hc : ∀ i i' (hi : i < k) (hi' : i' < k) n, S.Stores (dev.own i) n →
-        S.Stores (dev.own i') n → dev.key i n = dev.key i' n →
-        S.val (m i hi) n = S.val (m i' hi') n :=
-      fun i i' hi hi' n hn hn' he => hc i i' hi hi' n hn hn' (interchangeable_iff.mpr he)
+    obtain ⟨m, hc⟩ := modular k fun i hi => hv i (Nat.lt_succ_of_lt hi)
     have hk := hv k (Nat.lt_succ_self k)
     have hlt : ∀ x : dev.Src k, x.1.1 < k := fun x => (hk.sources _ x.2).1
     -- the earlier modules' models, restricted to the sources' views
@@ -322,75 +287,96 @@ theorem modular : ∀ k, (∀ i < k, dev.Valid i) →
       obtain ⟨mv, hmv⟩ := ModularSemantics.restrict hr (m x.1.1 (hlt x))
       exact ⟨mv, fun n hn => ⟨hr.stores hn, hmv n hn⟩⟩
     obtain ⟨fam, hfam⟩ := Classical.axiomOfChoice hview
-    -- with one copy of each name, they agree on `C`, so they amalgamate
-    have hcomp : ∀ (C : S.Env), dev.OneCopy k C → ∀ x x' : dev.Src k,
-        ModelsAgree S.Stores @S.val C (fam x) (fam x') := by
-      intro C h1 x x' n hn hs hs'
-      obtain ⟨ho, he⟩ := hfam x n hs
-      obtain ⟨ho', he'⟩ := hfam x' n hs'
-      rw [he, he']
-      exact hc _ _ _ _ n ho ho' ((interchangeable_iff.mp (h1 n hn x.1 x.2 hs)).symm.trans
-        (interchangeable_iff.mp (h1 n hn x'.1 x'.2 hs')))
-    -- the model of the module's own environment, and where its values come from
-    obtain ⟨mk, hmk⟩ : ∃ mk : S.Mod (dev.own k), ∀ n, S.Stores (dev.own k) n →
-        (∃ x : dev.Src k, dev.key k n = dev.key x.1.1 n ∧ S.Stores x.1.2 n ∧
-          S.val mk n = S.val (fam x) n) ∨
-        (dev.key k n = .home k ∨ (∃ s, dev.key k n = .proof s) ∧ S.val mk n = S.proofVal) := by
-      rcases hk.checked_or_compared with ⟨hA, h1, hacc, hnew⟩ | ⟨hA, h1⟩
-      · obtain ⟨mC, hmC⟩ := S.amalgamate hA fam (hcomp _ h1)
-        obtain ⟨mk, hag, hfl⟩ := S.step hacc mC
-        refine ⟨mk, fun n hn => ?_⟩
-        by_cases hC : S.Stores (dev.ctx k) n
-        · obtain ⟨x, hs⟩ := S.assembled_src hA n hC
-          exact .inl ⟨x, interchangeable_iff.mp (h1 n hC x.1 x.2 hs), hs,
-            (hag n hC).trans (hmC x n hC hC hs)⟩
-        · rcases hnew n hn hC with h | ⟨hs, hf⟩
-          · exact .inr (.inl h)
-          · exact .inr (.inr ⟨hs, hfl n hf⟩)
-      · obtain ⟨mk, hmk⟩ := S.amalgamate hA fam (hcomp _ h1)
-        refine ⟨mk, fun n hn => ?_⟩
-        obtain ⟨x, hs⟩ := S.assembled_src hA n hn
-        exact .inl ⟨x, interchangeable_iff.mp (h1 n hn x.1 x.2 hs), hs, hmk x n hn hn hs⟩
-    have hhome := home_le (dev := dev)
-    -- the new module against an earlier one
-    have hnew : ∀ i' (hi' : i' < k) n, S.Stores (dev.own k) n → S.Stores (dev.own i') n →
-        dev.key k n = dev.key i' n → S.val mk n = S.val (m i' hi') n := by
-      intro i' hi' n hn hn' hkey
-      rcases hmk n hn with ⟨x, hx, hs, he⟩ | h | ⟨⟨s, hs⟩, he⟩
-      · obtain ⟨ho, he'⟩ := hfam x n hs
-        rw [he, he']
-        exact hc _ _ _ _ n ho hn' (hx.symm.trans hkey)
-      · exfalso
-        have := hhome i' (fun j hj => hv j (by omega)) n k hn' (hkey.symm.trans h)
-        omega
-      · rw [he, hp i' hi' n s hn' (hkey.symm.trans hs)]
-    refine ⟨extendFam m mk, fun i i' hi hi' n hn hn' hkey => ?_, fun i hi n s hn hs => ?_⟩
-    · have hkey := interchangeable_iff.mp hkey
-      by_cases h : i < k
-      · by_cases h' : i' < k
-        · rw [extendFam_lt m mk hi h, extendFam_lt m mk hi' h']
-          exact hc i i' h h' n hn hn' hkey
-        · obtain rfl : k = i' := by omega
-          rw [extendFam_lt m mk hi h, extendFam_self m mk hi']
-          exact (hnew i h n hn' hn hkey.symm).symm
-      · obtain rfl : k = i := by omega
-        by_cases h' : i' < k
-        · rw [extendFam_self m mk hi, extendFam_lt m mk hi' h']
-          exact hnew i' h' n hn hn' hkey
-        · obtain rfl : k = i' := by omega
-          rfl
-    · have hs : dev.key i n = .proof s := hs
-      by_cases h : i < k
-      · rw [extendFam_lt m mk hi h]
-        exact hp i h n s hn hs
-      · obtain rfl : k = i := by omega
-        rw [extendFam_self m mk hi]
-        rcases hmk n hn with ⟨x, hx, hs', he⟩ | h | ⟨-, he⟩
-        · obtain ⟨ho, he'⟩ := hfam x n hs'
-          rw [he, he']
-          exact hp _ _ n s ho (hx.symm.trans hs)
-        · rw [hs] at h; cases h
-        · exact he
+    have hsrc : ∀ n, S.Stores (dev.ctx k) n → dev.src k n < k := fun n hn => by
+      obtain ⟨x, hx, hx1, -⟩ := (hk.reads n hn).read
+      exact hx1 ▸ hlt ⟨x, hx⟩
+    -- a theorem where a copy comes from gets the proofs' value
+    have hthm : ∀ (x : dev.Src k) n, S.Stores x.1.2 n → dev.ThmAt x.1 n →
+        S.val (fam x) n = S.proofVal := by
+      intro x n hs ht
+      rw [(hfam x n hs).2]
+      rcases ht with ht | ⟨hctx, ht⟩
+      · exact S.thm_val ht _
+      · obtain ⟨h, he, -⟩ := hc x.1.1 (hlt x) n hctx
+        rw [he]
+        exact S.thm_val ht _
+    -- every source storing a context name gives it the value of the
+    -- module it is read from, in rank order
+    have hread : ∀ r, ∀ n (hn : S.Stores (dev.ctx k) n), dev.rank k n = r →
+        ∀ x : dev.Src k, S.Stores x.1.2 n →
+          S.val (fam x) n = S.val (m (dev.src k n) (hsrc n hn)) n := by
+      intro r
+      induction r using Nat.strongRecOn with
+      | _ r ih =>
+      intro n hn hr x hs
+      have hR := hk.reads n hn
+      -- a proof's copy, by the model of the part below it
+      have hside : ∀ z : dev.Src k, S.Stores z.1.2 n → dev.ProofSide k n z.1 →
+          S.val (fam z) n = S.proofVal := by
+        intro z hz hp
+        rcases hp with hp | ht
+        · have hag : ∀ y y' : dev.Src k,
+              ModelsAgree S.Stores @S.val (dev.part k n) (fam y) (fam y') := by
+            intro y y' c hc' hy hy'
+            obtain ⟨hcC, hlt'⟩ := hR.below c hc'
+            rw [ih _ (hr ▸ hlt') c hcC rfl y hy, ih _ (hr ▸ hlt') c hcC rfl y' hy']
+          obtain ⟨mP, hmP⟩ := S.amalgamate hR.part fam hag
+          exact S.proof_val hp mP (fam z) (hmP z)
+        · exact hthm z n hz ht
+      -- source by source, an earlier source's module first
+      suffices h : ∀ t, ∀ x : dev.Src k, x.1.1 = t → S.Stores x.1.2 n →
+          S.val (fam x) n = S.val (m (dev.src k n) (hsrc n hn)) n from h _ x rfl hs
+      intro t
+      induction t using Nat.strongRecOn with
+      | _ t iht =>
+      intro x hxt hs
+      rcases hR.agree x.1 x.2 hs with he | ⟨hctx, z, hz, hzs, w, hw, hwz, hws, hwlt⟩ | ⟨hpx, hall⟩
+      · rw [(hfam x n hs).2]
+        exact val_congr m he _ _ n
+      · -- `x.1`'s copy is the one its source `z` gives, which `i`'s source `w` gives too
+        rw [(hfam x n hs).2]
+        have hzk : z.1 < k :=
+          Nat.lt_trans ((hv x.1.1 (Nat.lt_succ_of_lt (hlt x))).sources z hz).1 (hlt x)
+        obtain ⟨h, he', hsrcs⟩ := hc x.1.1 (hlt x) n hctx
+        rw [he', ← hsrcs z hz hzk hzs, ← iht w.1 (hxt ▸ hwlt) ⟨w, hw⟩ rfl hws, (hfam ⟨w, hw⟩ n hws).2]
+        exact val_congr m hwz.symm _ _ n
+      · obtain ⟨y, hy, hy1, hys⟩ := hR.read
+        rw [hside x hs hpx, ← hside ⟨y, hy⟩ hys (hall y hy hy1 hys), (hfam ⟨y, hy⟩ n hys).2]
+        exact val_congr m hy1 _ _ n
+    -- so they agree on the context and amalgamate
+    obtain ⟨mC, hmC⟩ := S.amalgamate hk.assembled fam fun x x' n hn hs hs' => by
+      rw [hread _ n hn rfl x hs, hread _ n hn rfl x' hs']
+    obtain ⟨mk, hmk⟩ : ∃ mk : S.Mod (dev.own k), ∀ n, S.Stores (dev.ctx k) n →
+        S.val mk n = S.val mC n := by
+      rcases hk.checked_or_compared with hacc | hcmp
+      · obtain ⟨mk, hmk⟩ := S.step hacc mC
+        exact ⟨mk, fun n hn => (hmk n hn).2⟩
+      · unfold Compared at hcmp
+        rw [hcmp]
+        exact ⟨mC, fun _ _ => rfl⟩
+    -- the new module's context values are its sources'
+    have hnew : ∀ n (hn : S.Stores (dev.ctx k) n),
+        S.val mk n = S.val (m (dev.src k n) (hsrc n hn)) n := by
+      intro n hn
+      obtain ⟨y, hy, hy1, hys⟩ := (hk.reads n hn).read
+      rw [hmk n hn, hmC ⟨y, hy⟩ n hn hn hys]
+      exact hread _ n hn rfl ⟨y, hy⟩ hys
+    refine ⟨extendFam m mk, fun j hj n hn => ?_⟩
+    by_cases h : j < k
+    · obtain ⟨h', he, hsrcs⟩ := hc j h n hn
+      refine ⟨Nat.lt_succ_of_lt h', ?_, fun y hy hyk hys => ?_⟩
+      · rw [extendFam_lt m mk hj h, extendFam_lt m mk _ h']
+        exact he
+      · have hyj : y.1 < k := Nat.lt_trans ((hv j hj).sources y hy).1 h
+        rw [extendFam_lt m mk hyk hyj, extendFam_lt m mk _ h']
+        exact hsrcs y hy hyj hys
+    · obtain rfl : k = j := by omega
+      refine ⟨Nat.lt_succ_of_lt (hsrc n hn), ?_, fun y hy hyk hys => ?_⟩
+      · rw [extendFam_self m mk hj, extendFam_lt m mk _ (hsrc n hn)]
+        exact hnew n hn
+      · have hyj : y.1 < k := hlt ⟨y, hy⟩
+        rw [extendFam_lt m mk hyk hyj, extendFam_lt m mk _ (hsrc n hn), ← (hfam ⟨y, hy⟩ n hys).2]
+        exact hread _ n hn rfl ⟨y, hy⟩ hys
 
 /-- **Every valid module's own environment has a model.** -/
 theorem own_model (k : Nat) (hv : ∀ i < k, dev.Valid i) :

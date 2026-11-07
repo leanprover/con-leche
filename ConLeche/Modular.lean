@@ -6,7 +6,7 @@ public import ConLeche.Modular.Generic
 @[expose] public section
 
 /-!
-# Modular checking: modules, keys, the local checks
+# Modular checking: modules, agreement, the local checks
 
 The statement half of modular checking, in the style of `ConLeche/Denotes.lean`: definitions only,
 importing the checker and nothing of the proof tiers.  The abstract argument is
@@ -18,29 +18,30 @@ adds is what a module is for con-leche and what its checks are.
   against, each one a record an earlier module presents (`iface`).  The context's environment is
   what those records install (`Module.context`, `streamEnv`), its own environment the context with its
   own records installed (`Module.own`).  For every name the context stores, `src` is the module it is
-  read from, and `key` says what identifies the name across modules.
-* A **key** (`Key Stmt`) is the module that declared a constant (its **home**), or, for a proof, its
-  statement: two proofs of one name and statement are one constant (the model gives every proof the
-  point), whatever their bodies or homes.  No name is ever renamed, and there is no merged
-  environment: two modules may declare one name and never be loaded together.
+  read from.  No name is ever renamed, and there is no merged environment: two modules may declare
+  one name and never be loaded together.
 * A **presentation** (`Presents`) of an own record is a record that installs the same constants (in
   any order) and tables, or the record's statement (`stmtOf`): a definition, theorem or opaque constant as an axiom
   of its name, level parameters and type.  An inductive group is presented as its record, so it
   reaches an importer whole.
-* A **proof** (`ProofDecl`) is a theorem record, a definition or opaque record whose value passes
-  the theorem record's check at the environment it is installed at, or an axiom record whose type
-  is inferred to be a proposition there (`TypeIsProp`): the copies Lean's own merge rule identifies
-  (`subsumesInfo`, whose `isPropCheap` is a sufficient test of the same).
+* **Agreement** (`Agree dev i b n`): module `b`'s copy of a name of `i`'s context stands for the
+  copy `i` reads, because `b` is the module `i` reads it from, or `b` reads it and an earlier
+  module's copy agrees both with `b`'s and with `i`'s (one record, loaded through two paths), or
+  both copies are proofs of one
+  statement whose names agree: theorems where they come from, or a statement `i` infers to be a
+  proposition over the part of its context below the name (`Module.part`, the records before the
+  name's).  Every model gives agreeing copies one value; no module records anything about its
+  names for others to read.
 
 **The local checks** split by who runs them:
 1. at the home, once (`InterfaceOk`): every presentation the module offers presents one of its own
    records;
 2. at the importer (`ImportOk`): the imports and sources come earlier; the context stores each name
    once; every context record is read from one module and is a presentation of it; what a context
-   record's constants read is stored in the context and read as that module reads it, under one key
-   (`RecordScoped` over `readsAlike`); the own records are accepted from the context, one after
-   another, each by the fold's own step (`DeclsRun`); a name flagged a proof is declared by a proof;
-   and the keys are the sources' for context names and the module's own for its own names.
+   record's constants read is stored in the context and agrees with that module's copy
+   (`RecordScoped` over `readsAlike`); every context record reads only itself and earlier records
+   (`ordered`); and the own records are accepted from the context, one after another, each by the
+   fold's own step (`DeclsRun`).
 
 The context need not be everything the module loads: any part of it closed under what its records
 read is a context in this sense, which is why a worker may check a module over the reach of its own
@@ -53,24 +54,20 @@ theorem modular_model_exists (V : Type w) [SetTheory V]
     (pins : List NatOpPinSet) (dev : Nat → Modular.Module) (i : Nat)
     (hok : ∀ j ≤ i, Modular.LocalOk .verified pins dev j) :
     ∃ m : ∀ j ≤ i, Model V (dev j).own,
-      (∀ j hj j' hj' n, ((dev j).own.find? n).isSome = true →
-        ((dev j').own.find? n).isSome = true → (dev j).key n = (dev j').key n →
-        (m j hj).cval n = (m j' hj').cval n) ∧
-      ∀ j hj n s, ((dev j).own.find? n).isSome = true → (dev j).key n = .proof s →
+      (∀ j hj n, ((dev j).context.find? n).isSome = true →
+        ∃ h : (dev j).src n ≤ i, (m j hj).cval n = (m ((dev j).src n) h).cval n) ∧
+      ∀ j hj n cv, (dev j).own.find? n = some (.thmInfo cv) → pinnedLeafName n = false →
         (m j hj).cval n = fun _ => pt
 ```
 
-a compatible family of models of the own environments: two modules that store a name under one key
-give it one value, and every proof the point.  Its corollary is that no own environment stores a
-constant of type `False`.
+a compatible family of models of the own environments: every module gives each name of its
+context the value the module it is read from gives it, and every theorem the point.  Its corollary is that no own environment
+stores a constant of type `False`.
 -/
 
 namespace ConLeche.Modular
 
 open ConLeche.Cached
-
-/-- **A proof's statement**: its level parameters and type. -/
-abbrev Stmt := List Name × Expr
 
 /-! ## Records and their presentations -/
 
@@ -140,28 +137,32 @@ def TypeIsProp (mode : CheckMode) (E : Env) (ty : Expr) : Prop :=
   ∃ F stype u, inferTypeCore mode false E F 0 ty = .ok stype ∧
     ensureSortCore mode false E F 0 stype = .ok u ∧ Level.isEquiv u .zero = some true
 
-/-- **A proof**: a theorem record, a definition or opaque record whose value passes the theorem
-record's check at `E`, the environment it is installed at (its type a proposition, its value of
-that type), or an axiom record whose type is a proposition at `E`.  An opaque record at a
-`reduce*` name is never one: its install pins it to the identity on `Nat` or `Bool`, and its leaf
-is that function. -/
-def ProofDecl (mode : CheckMode) (pins : List NatOpPinSet) (E : Env) : Declaration → Prop
-  | .thmDecl .. => True
-  | .defnDecl cv v _ => ∃ r, checkDeclStepC mode pins (mkFEnv E) (.thmDecl cv v) {} = .ok r
-  | .opaqueDecl cv v => reduceOpNames.contains cv.name = false ∧
-    ∃ r, checkDeclStepC mode pins (mkFEnv E) (.thmDecl cv v) {} = .ok r
-  | .axiomDecl cv => TypeIsProp mode E cv.type
-  | _ => False
+/-- A definition, theorem or axiom: the kinds whose copies may differ by a value. -/
+def _root_.ConLeche.ConstantInfo.isStmtKind : ConstantInfo → Bool
+  | .defnInfo .. | .thmInfo .. | .axiomInfo .. => true
+  | _ => false
 
-/-- **The proof flags of a list of records installed from `E`**: every name a record installs that
-is flagged is installed by a proof, at the environment before that record. -/
-inductive FlagsOk (mode : CheckMode) (pins : List NatOpPinSet) (proofs : Name → Bool) :
-    Env → List Declaration → Prop where
-  | nil (E : Env) : FlagsOk mode pins proofs E []
-  | cons {E : Env} {d : Declaration} {ds : List Declaration}
-      (hflag : ∀ n ∈ declNames d, proofs n = true → ProofDecl mode pins E d)
-      (rest : FlagsOk mode pins proofs (streamEnv [d] E) ds) :
-      FlagsOk mode pins proofs E (d :: ds)
+/-- **A name whose constant's leaf is pinned to something else than a proof**: a certified
+operation's, a compiler-trust name's, or `sorryAx`'s (which stores nothing); never a proof's
+copy.  (`Quot.sound`'s pinned leaf is the canonical proof.) -/
+def pinnedLeafName (n : Name) : Bool :=
+  natOpNames.contains n || natDivModNames.contains n || reduceOpNames.contains n ||
+    n == sorryAxName
+
+/-- **The names an expression reads**: its constants, a literal's support names and a
+projection's structure (the names `Expr.constsResolve` asks stored). -/
+def _root_.ConLeche.Expr.readNames : Expr → List Name
+  | .bvar _ | .sort _ => []
+  | .lit (.natVal _) => [natName, natZeroName, natSuccName]
+  | .lit (.strVal _) =>
+    [natName, natZeroName, natSuccName, stringName, stringOfListName, listName, listNilName,
+      listConsName, charName, charOfNatName]
+  | .const n _ => [n]
+  | .fvar _ ty => ty.readNames
+  | .app f a => f.readNames ++ a.readNames
+  | .lam ty body | .forallE ty body => ty.readNames ++ body.readNames
+  | .letE ty val body => ty.readNames ++ val.readNames ++ body.readNames
+  | .proj s _ e => s :: e.readNames
 
 /-! ## Modules -/
 
@@ -174,10 +175,6 @@ structure Module where
   decls : List Declaration
   /-- for each name the context stores, the module it is read from -/
   src : Name → Nat
-  /-- what identifies each name it stores across modules -/
-  key : Name → Key Stmt
-  /-- which of its own names it records as proofs -/
-  proofs : Name → Bool
   /-- the records it presents to its importers -/
   iface : List Declaration
 
@@ -187,17 +184,48 @@ def Module.context (m : Module) : Env := streamEnv m.ctx
 /-- **A module's own environment**: its context with its own records installed. -/
 def Module.own (m : Module) : Env := streamEnv m.decls m.context
 
-/-- The key of a new own constant of module `i`: its statement if it is flagged a proof, the module
-otherwise. -/
-def Module.ownKey (m : Module) (i : Nat) (n : Name) (ci : ConstantInfo) : Key Stmt :=
-  if m.proofs n then .proof (ci.toConstantVal.levelParams, ci.toConstantVal.type) else .home i
+/-- **A context name's rank**: the position of the context record installing it. -/
+def Module.rank (m : Module) (n : Name) : Nat := m.ctx.findIdx fun d => (declNames d).contains n
 
+/-- **The part of the context below a name**: the records before the one installing it. -/
+def Module.part (m : Module) (n : Name) : Env := streamEnv (m.ctx.take (m.rank n))
+
+/-- **Module `b`'s `n` is a theorem where it comes from**: `b` stores it as a theorem, or reads
+it from a module that does. -/
+def ThmAt (dev : Nat → Module) (b : Nat) (n : Name) : Prop :=
+  (∃ cv, (dev b).own.find? n = some (.thmInfo cv)) ∨
+    ((dev b).context.find? n).isSome = true ∧
+      ∃ cv, (dev ((dev b).src n)).own.find? n = some (.thmInfo cv)
+
+/-- **Module `b`'s copy of `n`, of type `ty`, is a proof for module `i`**: `i` infers `ty` to be a
+proposition over the part of its context below `n`, or it is a theorem where it comes from. -/
+def ProofSide (dev : Nat → Module) (i b : Nat) (n : Name) (ty : Expr) : Prop :=
+  (ty.constsResolve ((dev i).part n) = true ∧ TypeIsProp .verified ((dev i).part n) ty) ∨
+    ThmAt dev b n
+
+/-- **Module `b`'s copy of `n` agrees with the one module `i` reads** (see the module docstring). -/
+inductive Agree (dev : Nat → Module) : Nat → Nat → Name → Prop
+  /-- `b` is the module `i` reads `n` from -/
+  | same {i b : Nat} {n : Name} : b = (dev i).src n → Agree dev i b n
+  /-- `b` reads `n`, and an earlier module's copy agrees both with `b`'s and with `i`'s: one
+  record, loaded through two paths -/
+  | via {i b t : Nat} {n : Name} : ((dev b).context.find? n).isSome = true → t < b →
+      Agree dev b t n → Agree dev i t n → Agree dev i b n
+  /-- two proofs of one statement, whose names agree -/
+  | proof {i b : Nat} {n : Name} {ci ci' : ConstantInfo} :
+      (dev i).context.find? n = some ci → (dev b).own.find? n = some ci' →
+      ci'.toConstantVal = ci.toConstantVal → ci.isStmtKind = true → ci'.isStmtKind = true →
+      pinnedLeafName n = false → (∀ c ∈ ci.toConstantVal.type.readNames, Agree dev i b c) →
+      ProofSide dev i b n ci.toConstantVal.type →
+      ProofSide dev i ((dev i).src n) n ci.toConstantVal.type → Agree dev i b n
+
+open Classical in
 /-- **The part of module `b`'s own environment that module `i` reads as `b` does**: its constants
-whose names `i`'s context stores and `i` and `b` give one key. -/
-def readsAlike (dev : Nat → Module) (i b : Nat) : Env :=
+whose names `i`'s context stores and whose copies agree with `i`'s. -/
+noncomputable def readsAlike (dev : Nat → Module) (i b : Nat) : Env :=
   ⟨(dev b).own.consts.filter fun c =>
-    ((dev i).context.find? c.toConstantVal.name).isSome &&
-      (dev i).key c.toConstantVal.name == (dev b).key c.toConstantVal.name, []⟩
+    decide (((dev i).context.find? c.toConstantVal.name).isSome = true ∧
+      Agree dev i b c.toConstantVal.name), []⟩
 
 /-! ## The local checks -/
 
@@ -217,15 +245,13 @@ structure ImportOk (mode : CheckMode) (pins : List NatOpPinSet) (dev : Nat → M
   /-- a context record is read from one module: its names have one source -/
   one_src : ∀ d ∈ (dev i).ctx, ∀ n ∈ declNames d, ∀ n' ∈ declNames d,
     (dev i).src n = (dev i).src n'
-  /-- what a context record reads is stored in the context, read as its source reads it -/
+  /-- what a context record reads is stored in the context, and agrees with its source's copy -/
   reads : ∀ d ∈ (dev i).ctx, ∀ n ∈ declNames d, RecordScoped (readsAlike dev i ((dev i).src n)) d
+  /-- a context record reads only itself and the records before it -/
+  ordered : ∀ k (h : k < (dev i).ctx.length),
+    RecordScoped (streamEnv ((dev i).ctx.take (k + 1))) (dev i).ctx[k]
   /-- the own records, accepted from the context by the fold's step -/
   accepted : ∃ q, DeclsRun mode pins (dev i).decls ((dev i).ctx.length, mkFEnv (dev i).context) q
-  flags : FlagsOk mode pins (dev i).proofs (dev i).context (dev i).decls
-  key_context : ∀ n, ((dev i).context.find? n).isSome = true →
-    (dev i).key n = (dev ((dev i).src n)).key n
-  key_own : ∀ n ci, (dev i).own.find? n = some ci → (dev i).context.find? n = none →
-    (dev i).key n = (dev i).ownKey i n ci
 
 /-- **The local checks at module `i`**: its own interface's, and its checks as an importer.  A
 development every module of which passes them is the hypothesis of the modular theorem. -/

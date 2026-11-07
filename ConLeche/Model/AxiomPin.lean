@@ -84,7 +84,7 @@ theorem axiomTrustCompiler
       = true) :
     CoverStepLeaf mp
       ⟨.axiomInfo ⟨cv.name, cv.levelParams, type'⟩ :: env.consts, env.tables⟩ cv.name
-      (PropTypeRun env cv.type) := by
+      (SemPropType V mp.base2.acval env cv.type) := by
   have hcv' := hcv
   obtain ⟨hfind, hnres, hnd, hlbt, hitf, hann, htp, htr,
     -⟩ := hcv'
@@ -167,7 +167,7 @@ theorem axiomStd
       = true) :
     CoverStepLeaf mp
       ⟨.axiomInfo ⟨cv.name, cv.levelParams, type'⟩ :: env.consts, env.tables⟩ cv.name
-      (PropTypeRun env cv.type) := by
+      (SemPropType V mp.base2.acval env cv.type) := by
   have hcv' := hcv
   obtain ⟨hfind, hnres, hnd, hlbt, hitf, hann, htp, htr,
     -, hcvShape⟩ := hcv'

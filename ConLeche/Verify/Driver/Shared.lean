@@ -241,29 +241,29 @@ theorem proofStatus_within (h : OleanReads.Within fs env.rd sp) (c : ReachCache)
   simp only [proofStatus]
   within_tac [privSpot_within h]
 
-theorem keyCheck_within (h : OleanReads.Within fs env.rd sp) (c : ReachCache) (m y : Name)
+theorem agreeCheck_within (h : OleanReads.Within fs env.rd sp) (c : ReachCache) (m y : Name)
     (s₁ s₂ : Spot) :
-    ModelIO.Within fs (keyCheck env c m y s₁ s₂) (keyCheck (env.onPath sp) c m y s₁ s₂) := by
-  simp only [keyCheck]
+    ModelIO.Within fs (agreeCheck env c m y s₁ s₂) (agreeCheck (env.onPath sp) c m y s₁ s₂) := by
+  simp only [agreeCheck]
   within_tac [stmtAt_within h, proofStatus_within h]
 
 theorem statuses_within (h : OleanReads.Within fs env.rd sp) :
     ∀ (c : ReachCache) (xs : List (Spot × ConstantVal × CKindF Name Unit)) (acc : List ProofStatus),
-      ModelIO.Within fs (clashKeys.statuses env c xs acc)
-        (clashKeys.statuses (env.onPath sp) c xs acc)
-  | c, [], acc => by simp only [clashKeys.statuses]; exact ModelIO.Within.refl _
+      ModelIO.Within fs (clashAgree.statuses env c xs acc)
+        (clashAgree.statuses (env.onPath sp) c xs acc)
+  | c, [], acc => by simp only [clashAgree.statuses]; exact ModelIO.Within.refl _
   | c, x :: xs, acc => by
-    simp only [clashKeys.statuses]
+    simp only [clashAgree.statuses]
     within_tac [proofStatus_within h, statuses_within h]
 
-theorem clashKeys_within (h : OleanReads.Within fs env.rd sp) :
+theorem clashAgree_within (h : OleanReads.Within fs env.rd sp) :
     ∀ (c : ReachCache) (cls : List Clash) (acc : Array Name),
-      ModelIO.Within fs (clashKeys env c cls acc) (clashKeys (env.onPath sp) c cls acc)
-  | c, [], acc => by simp only [clashKeys]; exact ModelIO.Within.refl _
+      ModelIO.Within fs (clashAgree env c cls acc) (clashAgree (env.onPath sp) c cls acc)
+  | c, [], acc => by simp only [clashAgree]; exact ModelIO.Within.refl _
   | c, cl :: cls, acc => by
-    simp only [clashKeys]
+    simp only [clashAgree]
     simp only [ReachEnv.onPath]
-    within_tac [statuses_within h, clashKeys_within h]
+    within_tac [statuses_within h, clashAgree_within h]
 
 theorem inExported_within (h : OleanReads.Within fs env.rd sp) (c : ReachCache) (m : Name)
     (level : OLeanLevel) (y : Name) :
@@ -279,7 +279,7 @@ theorem captureOne_within (h : OleanReads.Within fs env.rd sp) (c : ReachCache) 
   have ho : (env.onPath sp).own = env.own := rfl
   have hm : (env.onPath sp).mod = env.mod := rfl
   rw [he, hw, ho, hm]
-  within_tac [inExported_within h, locate_within h, keyCheck_within h, privSpot_within h]
+  within_tac [inExported_within h, locate_within h, agreeCheck_within h, privSpot_within h]
 
 theorem captureAll_within (h : OleanReads.Within fs env.rd sp) (m : Name) :
     ∀ (c : ReachCache) (ys : List Name),
@@ -288,6 +288,14 @@ theorem captureAll_within (h : OleanReads.Within fs env.rd sp) (m : Name) :
   | c, y :: ys => by
     simp only [captureAll]
     within_tac [captureOne_within h, captureAll_within h]
+
+theorem capturePairs_within (h : OleanReads.Within fs env.rd sp) :
+    ∀ (c : ReachCache) (ps : List (Name × Name)),
+      ModelIO.Within fs (capturePairs env c ps) (capturePairs (env.onPath sp) c ps)
+  | c, [] => by simp only [capturePairs]; exact ModelIO.Within.refl _
+  | c, (m, y) :: ps => by
+    simp only [capturePairs]
+    within_tac [captureOne_within h, capturePairs_within h]
 
 theorem recBlocksOf_within (h : OleanReads.Within fs env.rd sp) (c : ReachCache) (k : PartKey) :
     ModelIO.Within fs (recBlocksOf env c k) (recBlocksOf (env.onPath sp) c k) := by
@@ -320,7 +328,7 @@ theorem reachGo_within (h : OleanReads.Within fs env.rd sp) :
   induction fuel with
   | zero => intro L c; rw [reachGo, reachGo]; within_tac []
   | succ fuel ih => intro L c; rw [reachGo, reachGo]; within_tac [readRecord_within h,
-      captureAll_within h, ih]
+      captureAll_within h, capturePairs_within h, ih]
 
 end
 
@@ -329,7 +337,7 @@ theorem reach_within {fs : FS} {rd : OleanReads ModelIO} {sp : SearchPath}
     (roots : Array Name) :
     ModelIO.Within fs (reach rd m wr own roots) (reach (.ofPath sp) m wr own roots) := by
   simp only [reach]
-  have hc := clashKeys_within (env := { rd, mod := m, wr, own }) (sp := sp) h {} wr.clashes.toList #[]
+  have hc := clashAgree_within (env := { rd, mod := m, wr, own }) (sp := sp) h {} wr.clashes.toList #[]
   have hg := reachGo_within (env := { rd, mod := m, wr, own }) (sp := sp) h
   simp only [ReachEnv.onPath] at hc hg
   within_tac [hc, hg]
