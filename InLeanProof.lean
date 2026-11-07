@@ -36,5 +36,6 @@ public import InLeanProof.IndTele
 public import InLeanProof.IndBasis
 public import InLeanProof.DeclGuards
 public import InLeanProof.DeclStep
+public import InLeanProof.DeclPins
 public import InLeanProof.SquarePilot
 public import InLeanProof.AxiomPins

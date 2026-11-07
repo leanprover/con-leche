@@ -301,16 +301,41 @@ def pinFound (fe : FEnv) (p : Pin) : Bool :=
   | some ci => p.matches ci
   | none => false
 
-/-- Twin of `reduceElemOkF`. -/
+/-- A pinned family's inductive type, as master's guards read it: stored as
+an inductive (`some (.indInfo cv _)`) matching the pin. -/
+def pinFoundInd (fe : FEnv) (p : Pin) : Bool :=
+  match fe.find? p.name with
+  | some ci@(.inductInfo _) => p.matchesExact ci
+  | _ => false
+
+/-- A pinned family's constructor, as master's guards read it: stored as a
+constructor with the pinned counts (`some (.ctorInfo cv nP nF)`) matching the
+pin. -/
+def pinFoundCtor (fe : FEnv) (p : Pin) (nP nF : Nat) : Bool :=
+  match fe.find? p.name with
+  | some ci@(.ctorInfo v) => v.numParams == nP && v.numFields == nF && p.matchesExact ci
+  | _ => false
+
+/-- A pinned family's recursor, as master's guards read it: stored as a
+recursor with the pinned major index and rule prefix (`some (.recInfo cv mI rP _ _)`,
+the counts con-leche's record carries) matching the pin. -/
+def pinFoundRec (fe : FEnv) (p : Pin) (mI rP : Nat) : Bool :=
+  match fe.find? p.name with
+  | some ci@(.recInfo v) =>
+    v.numParams + v.numMotives + v.numMinors + v.numIndices == mI &&
+      v.numParams + v.numMotives + v.numMinors == rP && p.matchesExact ci
+  | _ => false
+
+/-- Twin of `reduceElemOkF` (`Bool` stored as an inductive). -/
 def reduceElemOk (fe : FEnv) (c : Name) : Bool :=
   if c == reduceNatName then natLitStoredF fe && pinFound fe natPin
-  else pinFound fe boolPin
+  else pinFoundInd fe boolPin
 
 /-- Twin of `reduceStoredOkF` (Lean stores the opaque as an opaque). -/
 def reduceStoredOk (fe : FEnv) (c : Name) : Bool :=
   match fe.find? c with
-  | some ci@(.opaqueInfo _) => (reduceOpPin c).matches ci
-  | some ci@(.axiomInfo _) => (reduceOpPin c).matches ci
+  | some ci@(.opaqueInfo _) => (reduceOpPin c).matchesExact ci
+  | some ci@(.axiomInfo _) => (reduceOpPin c).matchesExact ci
   | _ => false
 
 /-- Twin of `checkReducePinF`. -/
@@ -326,26 +351,28 @@ def checkReducePin (fe fe2 : FEnv) (c : Name) (value : Expr) : CheckCM Unit := d
   unless ← opDefeq mode fe 1 (.app value x) x do
     throw (.internal s!"pinned compiler-trust opaque is not the identity ({c})")
 
-/-- Twin of `stdAxiomOkF`. -/
+/-- Twin of `stdAxiomOkF`: the families' kinds and counts read as master's. -/
 def stdAxiomOk (fe : FEnv) (n : Name) (lps : List Name) (ty : Expr) : Bool :=
-  let me : Pin → Bool := fun p => p.matchesDecl n lps ty
+  let me : Pin → Bool := fun p => p.matchesDeclExact n lps ty
   if n == propextName then
-    (fe.find? eqName).isSome && pinFound fe iffPin && pinFound fe iffIntroPin &&
-      pinFound fe iffRecPin && me propextPin
+    (fe.find? eqName).isSome && pinFoundInd fe iffPin && pinFoundCtor fe iffIntroPin 2 2 &&
+      pinFoundRec fe iffRecPin 4 4 && me propextPin
   else if n == choiceName then
-    pinFound fe nonemptyPin && pinFound fe nonemptyIntroPin && pinFound fe nonemptyRecPin &&
-      me choicePin
+    pinFoundInd fe nonemptyPin && pinFoundCtor fe nonemptyIntroPin 1 1 &&
+      pinFoundRec fe nonemptyRecPin 3 3 && me choicePin
   else false
 
-/-- Twin of `trustCompilerOkF`. -/
+/-- Twin of `trustCompilerOkF`: `True` an inductive, `True.intro` a constructor
+with no parameter and no field. -/
 def trustCompilerOk (fe : FEnv) (n : Name) (lps : List Name) (ty : Expr) : Bool :=
-  pinFound fe truePin && pinFound fe trueIntroPin && trustCompilerPin.matchesDecl n lps ty
+  pinFoundInd fe truePin && pinFoundCtor fe trueIntroPin 0 0 &&
+    trustCompilerPin.matchesDeclExact n lps ty
 
 /-- Twin of `ofReduceAxOkF`. -/
 def ofReduceAxOk (fe : FEnv) (n : Name) (lps : List Name) (ty : Expr) : Bool :=
   let c := ofReduceOp n
   (fe.find? eqName).isSome && reduceElemOk fe c && reduceStoredOk fe c &&
-    (ofReducePin n).matchesDecl n lps ty
+    (ofReducePin n).matchesDeclExact n lps ty
 
 /-! ## The quotient package -/
 

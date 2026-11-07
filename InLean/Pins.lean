@@ -76,6 +76,16 @@ def Pin.matches (p : Pin) (ci : ConstantInfo) : Bool :=
 def Pin.matchesDecl (p : Pin) (n : Name) (lps : List Name) (ty : Expr) : Bool :=
   n == p.name && lps.length == p.lps.length && Expr.clEq (canonAt lps p.lps ty) p.type
 
+/-- Twin of `ConstantVal.matchesPin` itself (the standard axioms' and the
+compiler-trust family's guards): the name, the level parameters *as named*, and
+the type (up to `mdata` and binder data, which con-leche's reading drops). -/
+def Pin.matchesDeclExact (p : Pin) (n : Name) (lps : List Name) (ty : Expr) : Bool :=
+  n == p.name && lps == p.lps && Expr.clEq ty p.type
+
+/-- `Pin.matchesDeclExact` on a stored constant. -/
+def Pin.matchesExact (p : Pin) (ci : ConstantInfo) : Bool :=
+  p.matchesDeclExact ci.name ci.levelParams ci.type
+
 /-! ## The `Nat` and `Bool` types the guards look up (the basis blocks are
 `InLean/Inductives/Basis.lean`'s) -/
 
