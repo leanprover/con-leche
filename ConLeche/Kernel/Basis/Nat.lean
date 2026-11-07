@@ -23,8 +23,7 @@ def natT : Expr := cnst natName
 
 /-- `Nat : Type`. -/
 def natA : ConstantInfo :=
-  .indInfo ⟨natName, [], type1⟩
-    { all := [natName], ctors := [natZeroName, natSuccName] }
+  .indInfo ⟨natName, [], type1⟩ {}
 
 /-- `Nat.zero : Nat`. -/
 def natZeroA : ConstantInfo :=

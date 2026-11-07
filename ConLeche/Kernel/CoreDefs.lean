@@ -486,8 +486,8 @@ def natOpName (n : Name) : Bool :=
 `natLitStored` and `strLitStored` decide whether a literal may be READ,
 by looking ten fixed names up in the store; `litShapeOk` says what a
 declaration at one of them is.  Three of them (`Nat`, `Nat.zero`,
-`Nat.succ`) are reserved basis names, so no stream declaration can ever
-fill or change them; the other seven — `String`, `String.ofList`, `List`,
+`Nat.succ`) are reserved basis names, so only the pinned `Nat` block can
+fill them (`basisNamesOk`); the other seven — `String`, `String.ofList`, `List`,
 `List.nil`, `List.cons`, `Char`, `Char.ofNat` — are ORDINARY stream
 declarations, and a stream is free to install them (it must: that is how
 a stream earns string literals).
@@ -504,9 +504,8 @@ def litGuardNames : List Name :=
    stringName, stringOfListName, listName, listNilName, listConsName,
    charName, charOfNatName]
 
-/-- **A name no block RECURSOR may take**: one the pinned basis blocks
-reserve, one a literal guard looks up, one of the certified `Nat`
-operations (whose presence in the store IS their certificate, so a
+/-- **A name no block RECURSOR may take**: one a literal guard looks
+up, one of the certified `Nat` operations (whose presence in the store IS their certificate, so a
 recursor stored under such a name would claim a capability nothing
 certified), or `Bool` and its two constructors, whose stored entries the
 certified operations' guards read (`natOpTyPinned`, `natOpGuard`; task
@@ -514,9 +513,10 @@ certified operations' guards read (`natOpTyPinned`, `natOpGuard`; task
 must not move a guard).  Type formers and constructors are NOT held to this — a
 stream must be able to declare `List`, `List.cons` and `Nat.add` —
 which is why the block install spends this predicate on the recursors
-alone and keeps `reservedBasisNames` for every declaration. -/
+alone.  The basis names are `basisNamesOk`'s: a pinned block's own
+recursor carries one, and no other declaration may. -/
 def reservedRecName (n : Name) : Bool :=
-  reservedBasisNames.contains n || litGuardNames.contains n ||
+  litGuardNames.contains n ||
     natOpNames.contains n || natDivModNames.contains n ||
     n == boolName || n == boolTrueName || n == boolFalseName
 

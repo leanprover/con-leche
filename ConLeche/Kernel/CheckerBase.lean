@@ -106,8 +106,6 @@ def checkConstantVal (ops : CheckerOps m) (env : Env) (cv : ConstantVal)
     (allowOp : Bool := false) : m Unit := do
   if (env.find? cv.name).isSome then
     throw (.invalid s!"duplicate declaration {cv.name}")
-  if reservedBasisNames.contains cv.name then
-    throw (.invalid s!"reserved basis name {cv.name}")
   if natOpName cv.name && !allowOp then
     throw (.invalid s!"a certified Nat operation's name, not a definition: {cv.name}")
   unless litShapeOk (.axiomInfo cv) do

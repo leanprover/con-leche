@@ -77,9 +77,8 @@ def blockConstants (p : BlockShape) : List ConstantInfo :=
   blockFormers p (blockIsRec p) ++ blockCtors p ++
     blockRecs p p.recs
 
-/-- **The constants a declaration installs**, in push order.  A block with a pinned block's names
-installs the pin at the names the record declares, a block the recogniser does not read nothing
-(it declines), and `sorryAx` nothing (any use of it declines). -/
+/-- **The constants a declaration installs**, in push order.  A block the recogniser does not read
+installs nothing (it declines), and `sorryAx` nothing (any use of it declines). -/
 def declConstants : Declaration → List ConstantInfo
   | .defnDecl cv value hint => [.defnInfo cv value hint]
   | .thmDecl cv _ => [.thmInfo cv]
@@ -90,22 +89,16 @@ def declConstants : Declaration → List ConstantInfo
     else [.axiomInfo cv]
   | .quotDecl k cv => [quotAt k cv]
   | .indDecl block nP =>
-    match basisNameHit block with
-    | some kind => kind.atBlock block
-    | none =>
-      match blockShape? nP block with
-      | some p => blockConstants p
-      | none => []
+    match blockShape? nP block with
+    | some p => blockConstants p
+    | none => []
 
 /-- **The projection tables a declaration installs**: those of a recognised inductive block. -/
 def declTables : Declaration → List ProjTable
   | .indDecl block nP =>
-    match basisNameHit block with
-    | some _ => []
-    | none =>
-      match blockShape? nP block with
-      | some p => blockTables p p.members
-      | none => []
+    match blockShape? nP block with
+    | some p => blockTables p p.members
+    | none => []
   | _ => []
 
 end ConLeche

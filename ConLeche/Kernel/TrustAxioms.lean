@@ -162,7 +162,10 @@ def reduceStoredOk (env : Env) (c : Name) : Bool :=
 /-- The element-inductive shape an `ofReduce*` axiom needs: the pinned
 `Nat` basis resp. a standardly-shaped stored `Bool`. -/
 def reduceElemOk (env : Env) (c : Name) : Bool :=
-  if c = reduceNatName then decide (env.find? natName = some natA)
+  if c = reduceNatName then
+    match env.find? natName with
+    | some (.indInfo cvN _) => ConstantVal.matchesPin cvN natA.toConstantVal
+    | _ => false
   else
     match env.find? boolName with
     | some (.indInfo cvB _) => ConstantVal.matchesPin cvB boolCvA

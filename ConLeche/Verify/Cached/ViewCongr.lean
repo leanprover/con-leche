@@ -1255,14 +1255,6 @@ theorem RelRun.foldlM_push {α : Type} {f : FEnv → α → CheckCM FEnv}
     exact RelRun.mono (RelRun.foldlM_push hf l htL) fun _ _ h =>
       PushedFrom.trans ⟨L, Q, rfl, rfl⟩ h
 
-theorem checkBasisBlockC_twin {fe₁ fe₂ : FEnv} (ht : Twin fe₁ fe₂) (kind : BasisKind)
-    (block : List ConstantInfo) :
-    RelRun (PushedFrom fe₁ fe₂) (checkBasisBlockC fe₁ kind block)
-      (checkBasisBlockC fe₂ kind block) := by
-  unfold checkBasisBlockC
-  relrun
-  all_goals exact RelRun.foldlM_push (fun _ _ ht' ci => installBasisDeclF_twin ht'.find ci) _ ht
-
 theorem checkQuotRecordC_twin {fe₁ fe₂ : FEnv} (ht : Twin fe₁ fe₂) (k : QuotKind)
     (cv : ConstantVal) :
     RelRun (PushedFrom fe₁ fe₂) (checkQuotRecordC fe₁ k cv) (checkQuotRecordC fe₂ k cv) := by
@@ -1286,21 +1278,20 @@ theorem checkIndDeclC_twin {fe₁ fe₂ : FEnv} (ht : Twin fe₁ fe₂)
   unfold checkIndDeclC
   relrun
   all_goals first
-    | exact checkBasisBlockC_twin ht _ block
     | exact checkBlockKS_twin ht block _
     | exact checkShapelessS_twin ht.find ht.findTable block
 
-/-- **Every declaration step at twin indices pushes the same constants
-onto each, or fails alike.** -/
-theorem checkDeclC_twin (pins : List NatOpPinSet) {fe₁ fe₂ : FEnv} (ht : Twin fe₁ fe₂)
-   
+/-- **A declaration's own checks at twin indices push the same constants onto each, or fail
+alike.** -/
+theorem checkDeclKindC_twin (pins : List NatOpPinSet) {fe₁ fe₂ : FEnv} (ht : Twin fe₁ fe₂)
     (pd : Declaration) :
-    RelRun (PushedFrom fe₁ fe₂) (checkDeclC mode pins fe₁ pd) (checkDeclC mode pins fe₂ pd) := by
+    RelRun (PushedFrom fe₁ fe₂) (checkDeclKindC mode pins fe₁ pd)
+      (checkDeclKindC mode pins fe₂ pd) := by
   have hfe := ht.find
   have htb := ht.findTable
   cases pd with
   | defnDecl cv value hint =>
-    unfold checkDeclC
+    unfold checkDeclKindC
     simp only [checkConstantValC_congr hfe htb]
     refine RelRun.bind_same fun _ => ?_
     -- the same record on both sides, certified against overlays that answer as the twin pushes
@@ -1317,12 +1308,12 @@ theorem checkDeclC_twin (pins : List NatOpPinSet) {fe₁ fe₂ : FEnv} (ht : Twi
     relrun
     all_goals exact RelRun.pure (PushedFrom.push _ _ _)
   | thmDecl cv value =>
-    unfold checkDeclC
+    unfold checkDeclKindC
     simp only [checkConstantValC_congr hfe htb, checkThmValCI_congr hfe htb]
     refine RelRun.bind_same fun _ => RelRun.bind_same fun ci => ?_
     exact RelRun.pure (PushedFrom.push _ _ _)
   | opaqueDecl cv value =>
-    unfold checkDeclC
+    unfold checkDeclKindC
     simp only [checkConstantValC_congr hfe htb]
     refine RelRun.bind_same fun _ => ?_
     rw [checkOpaqueValCI_congr hfe htb]
@@ -1335,7 +1326,7 @@ theorem checkDeclC_twin (pins : List NatOpPinSet) {fe₁ fe₂ : FEnv} (ht : Twi
     relrun
     all_goals exact RelRun.pure (PushedFrom.push _ _ _)
   | axiomDecl cv =>
-    unfold checkDeclC
+    unfold checkDeclKindC
     simp only [checkConstantValC_congr hfe htb, stdAxiomOkF_congr hfe, trustCompilerOkF_congr hfe,
       ofReduceAxOkF_congr hfe]
     relrun
@@ -1344,11 +1335,21 @@ theorem checkDeclC_twin (pins : List NatOpPinSet) {fe₁ fe₂ : FEnv} (ht : Twi
       | exact RelRun.pure (PushedFrom.refl _ _)
       | exact RelRun.pure (PushedFrom.push _ _ _)
   | indDecl block nP =>
-    unfold checkDeclC
+    unfold checkDeclKindC
     exact checkIndDeclC_twin ht block nP
   | quotDecl k cv =>
-    unfold checkDeclC
+    unfold checkDeclKindC
     exact checkQuotRecordC_twin ht k cv
+
+/-- **Every declaration step at twin indices pushes the same constants
+onto each, or fails alike.** -/
+theorem checkDeclC_twin (pins : List NatOpPinSet) {fe₁ fe₂ : FEnv} (ht : Twin fe₁ fe₂)
+    (pd : Declaration) :
+    RelRun (PushedFrom fe₁ fe₂) (checkDeclC mode pins fe₁ pd) (checkDeclC mode pins fe₂ pd) := by
+  unfold checkDeclC
+  refine RelRun.bind (checkDeclKindC_twin pins ht pd) fun a₁ a₂ h => ?_
+  relrun
+  all_goals exact RelRun.pure h
 
 theorem checkDeclStepC_twin (pins : List NatOpPinSet) {fe₁ fe₂ : FEnv} (ht : Twin fe₁ fe₂)
    

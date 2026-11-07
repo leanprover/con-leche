@@ -625,26 +625,6 @@ theorem pushDelta_mkFEnv (L : List ConstantInfo) (Q : List ProjTable) (env : Env
   unfold FEnv.pushDelta Env.pushDelta
   rw [hA, hQ]
 
-theorem installBasisDecls_pushes :
-    ∀ (l : List ConstantInfo) (fe : FEnv),
-      Yields (l.foldlM (installBasisDeclF (m := CheckCM)) fe) (· = FEnv.pushAll l fe)
-  | [], _ => Yields.pure rfl
-  | ci :: l, fe => by
-    simp only [List.foldlM_cons]
-    refine Yields.bind' (Q := (· = fe.push ci)) ?_ fun fe' h => ?_
-    · unfold installBasisDeclF
-      yields
-      all_goals exact Yields.pure rfl
-    · subst h
-      exact installBasisDecls_pushes l _
-
-theorem checkBasisBlockC_pushes (fe : FEnv) (kind : BasisKind) (block : List ConstantInfo) :
-    Yields (checkBasisBlockC fe kind block)
-      (· = FEnv.pushDelta (kind.atBlock block) [] fe) := by
-  unfold checkBasisBlockC
-  yields
-  all_goals exact installBasisDecls_pushes _ fe
-
 theorem checkQuotRecordC_pushes (fe : FEnv) (k : QuotKind) (cv : ConstantVal) :
     Yields (checkQuotRecordC fe k cv) (· = fe.push (quotAt k cv)) := by
   unfold checkQuotRecordC installBasisDeclF
@@ -659,10 +639,11 @@ theorem checkBlockKS_pushes (mode : CheckMode) (fe : FEnv) (block : List Constan
   yields
   all_goals exact Yields.pure rfl
 
-/-- **An accepting step pushes what the declaration installs**, at every mode. -/
-theorem checkDeclC_pushes (mode : CheckMode) (fe : FEnv) (pd : Declaration) :
-    Yields (checkDeclC mode pins fe pd) (· = FEnv.pushDelta (declConstants pd) (declTables pd) fe) := by
-  unfold checkDeclC
+/-- **A declaration's own checks push what it installs**, at every mode. -/
+theorem checkDeclKindC_pushes (mode : CheckMode) (fe : FEnv) (pd : Declaration) :
+    Yields (checkDeclKindC mode pins fe pd)
+      (· = FEnv.pushDelta (declConstants pd) (declTables pd) fe) := by
+  unfold checkDeclKindC
   cases pd with
   | defnDecl cv value hint =>
     simp only []
@@ -709,16 +690,19 @@ theorem checkDeclC_pushes (mode : CheckMode) (fe : FEnv) (pd : Declaration) :
     simp only [declConstants, declTables]
     unfold checkIndDeclC
     split
-    next kind hk =>
-      rw [hk]
-      exact checkBasisBlockC_pushes fe kind block
-    next hk =>
-      rw [hk]
-      split
-      · cases hbp : blockShape? nP block with
-        | none => exact Yields.bind fun _ => Yields.ofThrow
-        | some p => exact checkBlockKS_pushes mode fe block p
-      · exact Yields.ofThrow
+    · cases hbp : blockShape? nP block with
+      | none => exact Yields.bind fun _ => Yields.ofThrow
+      | some p => exact checkBlockKS_pushes mode fe block p
+    · exact Yields.ofThrow
+
+/-- **An accepting step pushes what the declaration installs**, at every mode. -/
+theorem checkDeclC_pushes (mode : CheckMode) (fe : FEnv) (pd : Declaration) :
+    Yields (checkDeclC mode pins fe pd) (· = FEnv.pushDelta (declConstants pd) (declTables pd) fe) := by
+  unfold checkDeclC
+  refine Yields.bind' (checkDeclKindC_pushes mode fe pd) fun fe₂ h => ?_
+  subst h
+  yields
+  all_goals exact Yields.pure rfl
 
 theorem checkDeclStepC_pushes (mode : CheckMode) (fe : FEnv) (pd : Declaration) :
     Yields (checkDeclStepC mode pins fe pd)

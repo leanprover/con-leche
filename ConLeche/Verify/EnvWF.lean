@@ -228,7 +228,7 @@ theorem litShapeAt_of_reservedRec {cv : ConstantVal} (h : reservedRecName cv.nam
   subst hc
   refine litShapeOk_of_not_lit ?_
   simp only [reservedRecName, Bool.or_eq_false_iff] at h
-  exact h.1.1.1.1.1.2
+  exact h.1.1.1.1.1
 
 /-- `find?` on a cons. -/
 theorem Env.find?_cons {c : ConstantInfo} {cs : List ConstantInfo} {ts : List ProjTable}

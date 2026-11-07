@@ -364,8 +364,6 @@ it like any other declared type. -/
 def classConstOk (ops : CheckerOps m) (fe : FEnv) (cv : ConstantVal) : m Unit := do
   if (fe.find? cv.name).isSome then
     throw (.invalid s!"duplicate declaration {cv.name}")
-  if reservedBasisNames.contains cv.name then
-    throw (.invalid s!"reserved basis name {cv.name}")
   unless litShapeOk (.axiomInfo cv) do
     throw (.notImplemented s!"a declaration at a literal's name with another shape ({cv.name})")
   unless Name.nodup cv.levelParams do
