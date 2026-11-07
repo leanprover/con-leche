@@ -38,11 +38,6 @@ statement. -/
   | .indInfo .. | .ctorInfo .. | .recInfo .. => true
   | _ => false
 
-/-- A definition, theorem or axiom: the kinds whose copies may differ by a value. -/
-@[expose] def _root_.ConLeche.ConstantInfo.isStmtKind : ConstantInfo → Bool
-  | .defnInfo .. | .thmInfo .. | .axiomInfo .. => true
-  | _ => false
-
 /-- **A context copy refines its source's**: the same constant, or the statement (an axiom of
 the same name, level parameters and type) of a definition or theorem. -/
 @[expose] def Refines (ci ci' : ConstantInfo) : Prop :=
