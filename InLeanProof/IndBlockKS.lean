@@ -2,6 +2,7 @@ module
 
 public import InLeanProof.IndDecl
 public import ConLeche.Verify.Cached.BridgeCS4
+public import ConLeche.Verify.Inductives.BlockWF
 import all Lean.Declaration
 
 /-!
@@ -175,8 +176,21 @@ translation. -/
     (s₀ s' : InLean.CState),
     JobEnvI fe L → CSOKI .verified false L s₀ → MemberOk ms →
     InLean.reduceMemberS .verified fe ms nP s₀ = .ok (ms', s') →
-    CSOKI .verified false L s' ∧ MemberOk ms' ∧
+    CSOKI .verified false L s' ∧ MemberOk ms' ∧ ms'.declared = ms.declared ∧
       Runs (ConLeche.reduceMember (ConLeche.fueledOpsM .verified) L (trMember ms) nP) (trMember ms')
+
+/-- **What the pass reads off the members' reduction and the block** (finding 1
+of lane O7-stages): the declared formers well-formed at `L` (master's
+`MemberDeclaredWF`, from `reduceMembers_inv`), a reduced former named as
+declared, the declared names distinct (`checkBlockKS`'s guard), not `sorryAx`
+unless `coreAxioms` (P4's, from `checkDecl`'s `sorryAxSquat`), and the
+declared types in range (the block's `CIRange`). -/
+structure PassPremI (fe : InLean.FEnv) (L : ConLeche.Env) (p₀ : InLean.BlockShape) : Prop where
+  decl : ∀ ms ∈ p₀.members, ConLeche.MemberDeclaredWF L (trMember ms)
+  name : ∀ ms ∈ p₀.members, ms.cvT.name = ms.declared.name
+  nodup : (p₀.members.map (·.declared.name)).Nodup
+  sorry_ : ∀ ms ∈ p₀.members, ms.declared.name = InLean.sorryAxName → fe.coreAxioms = true
+  range : ∀ ms ∈ p₀.members, Expr.RangeOk ms.declared.type
 
 /-- **The pass and the stages after it** (`checkBlockPassS_run` and
 `checkBlockTailS_run` together, see the module docstring): from the residue,
@@ -187,7 +201,7 @@ InLean's pass at `fe` followed by its tail on the block is master's pure pass at
     (isRec : Bool) (s₀ s' : InLean.CState),
     JobEnvI fe L → CSOKI .verified false L s₀ → (∀ ci ∈ block, CIRange ci) →
     (∀ ci ∈ block, isBlockKind ci = true ∧ okC ci.toConstantVal.type = true) →
-    (∀ ms ∈ p₀.members, MemberOk ms) →
+    (∀ ms ∈ p₀.members, MemberOk ms) → PassPremI fe L p₀ →
     (do let q ← InLean.checkBlockPassS .verified fe p₀ isRec; InLean.checkBlockTailS .verified block q)
       s₀ = .ok ((), s') →
     CSOKIF s' ∧ ∃ F q, ConLeche.checkBlockPass (ConLeche.fueledOps .verified F) L (trShape p₀) isRec
@@ -199,12 +213,12 @@ theorem reduceMembersSimI_of (hR : ReduceMemberSimI) {fe : InLean.FEnv} {L : Con
     ∀ {l l' : List InLean.MemberShape} {s₀ s' : InLean.CState}, CSOKIF s₀ →
       (∀ ms ∈ l, MemberOk ms) →
       InLean.reduceMembersS .verified fe nP l s₀ = .ok (l', s') →
-      CSOKIF s' ∧ (∀ ms ∈ l', MemberOk ms) ∧
+      CSOKIF s' ∧ (∀ ms ∈ l', MemberOk ms) ∧ l'.map (·.declared) = l.map (·.declared) ∧
         ∃ F, ConLeche.reduceMembers (ConLeche.fueledOps .verified F) L nP (l.map trMember) =
           .ok (l'.map trMember)
   | [], l', s₀, s', hs, _, h => by
     obtain ⟨rfl, rfl⟩ := pureI_ok h
-    exact ⟨hs, by simp, 0, rfl⟩
+    exact ⟨hs, by simp, rfl, 0, rfl⟩
   | ms :: rest, l', s₀, s', hs, hok, h => by
     unfold InLean.reduceMembersS at h
     obtain ⟨u0, sA, hfl0, h⟩ := bindI_ok h
@@ -212,13 +226,13 @@ theorem reduceMembersSimI_of (hR : ReduceMemberSimI) {fe : InLean.FEnv} {L : Con
     injection hfl0 with hfl0
     obtain rfl : s₀.flushed = sA := congrArg Prod.snd hfl0
     obtain ⟨m', s₁, hm, h⟩ := bindI_ok h
-    obtain ⟨hs₁, hok₁, F₁, hF₁⟩ := hR fe L nP ms m' s₀.flushed s₁ hJ
+    obtain ⟨hs₁, hok₁, hd₁, F₁, hF₁⟩ := hR fe L nP ms m' s₀.flushed s₁ hJ
       (flushI_csoki hs .verified false L) (hok ms List.mem_cons_self) hm
     obtain ⟨r', s₂, hr, h⟩ := bindI_ok h
-    obtain ⟨hs₂, hokr, F₂, hF₂⟩ := reduceMembersSimI_of hR hJ hs₁.residue
+    obtain ⟨hs₂, hokr, hd₂, F₂, hF₂⟩ := reduceMembersSimI_of hR hJ hs₁.residue
       (fun m hm => hok m (List.mem_cons_of_mem _ hm)) hr
     obtain ⟨rfl, rfl⟩ := pureI_ok h
-    refine ⟨hs₂, ?_, max F₁ F₂, ?_⟩
+    refine ⟨hs₂, ?_, by simp only [List.map_cons, hd₁, hd₂], max F₁ F₂, ?_⟩
     · intro m hm
       rcases List.mem_cons.1 hm with rfl | hm
       · exact hok₁
@@ -373,13 +387,59 @@ theorem blockShape?_memberOk {nP : Nat} {block : List Lean.ConstantInfo} {p : In
               | (simp only [Option.some.injEq] at h; subst h; exact members_ok hT (hG _ _ _))
           · cases h
 
+theorem members_from {cvTs : List Lean.ConstantVal} {nIdxs : List Nat}
+    {groups : List (List (Lean.ConstantVal × Nat))} {block : List Lean.ConstantInfo}
+    (hT : ∀ c ∈ cvTs, ∃ ci ∈ block, ci.toConstantVal = c) :
+    ∀ ms ∈ ((cvTs.zip nIdxs).zip groups).map
+      (fun a => ({ cvT := a.1.1, declared := a.1.1, nIdx := a.1.2, ctors := a.2 } :
+        InLean.MemberShape)), ms.declared = ms.cvT ∧ ∃ ci ∈ block, ci.toConstantVal = ms.declared := by
+  intro ms hms
+  obtain ⟨⟨⟨c, n⟩, g⟩, ha, rfl⟩ := List.mem_map.1 hms
+  exact ⟨rfl, hT c (List.of_mem_zip (List.of_mem_zip ha).1).1⟩
+
+/-- **A recognised shape's members are the block's formers**, declared as
+read. -/
+theorem blockShape?_members {nP : Nat} {block : List Lean.ConstantInfo} {p : InLean.BlockShape}
+    (h : InLean.blockShape? nP block = some p) :
+    ∀ ms ∈ p.members, ms.declared = ms.cvT ∧ ∃ ci ∈ block, ci.toConstantVal = ms.declared := by
+  cases hsp : InLean.blockSplit block with
+  | none =>
+    unfold InLean.blockShape? at h; rw [hsp] at h; cases h
+  | some q =>
+    obtain ⟨cvTs, cs, rs⟩ := q
+    have h1 := (blockSplit_sub hsp).1
+    unfold InLean.blockShape? at h
+    rw [hsp] at h
+    cases cvTs with
+    | nil => cases h
+    | cons cvT0 tl =>
+      cases rs with
+      | nil => cases h
+      | cons r0 rtl =>
+        obtain ⟨cvR0, r0b⟩ := r0
+        simp only at h
+        cases hc : InLean.blockMemberCounts? nP (cvT0 :: tl).length cs.length
+            ((cvT0 :: tl).map (·.name)) ((cvR0, r0b) :: rtl) 0 (cvT0 :: tl) with
+        | none => rw [hc] at h; cases h
+        | some nIdxs =>
+          rw [hc] at h
+          simp only at h
+          split at h
+          · revert h
+            repeat' split
+            all_goals intro h
+            all_goals first
+              | (cases h; done)
+              | (simp only [Option.some.injEq] at h; subst h; exact members_from h1)
+          · cases h
+
 /-- **The recognised block's job** (`checkBlockKS_run`'s twin) from the
 members' reduction and the pass with its tail, given that a recognised
 shape's members have a closed reading (`hMO`). -/
 theorem blockKSSimI_of (hR : ReduceMemberSimI) (hPT : PassTailSimI)
     (hMO : ∀ nP block p, (∀ ci ∈ block, isBlockKind ci = true ∧ okC ci.toConstantVal.type = true) →
       InLean.blockShape? nP block = some p → ∀ ms ∈ p.members, MemberOk ms) : BlockKSSimI := by
-  intro fe L block nP p s₀ s' hJ hs hr hk hsh h
+  intro fe L block nP p s₀ s' hJ hso hs hr hk hsh h
   unfold InLean.checkBlockKS at h
   by_cases hnd : (InLean.namesNodup (p.allCtors.map (·.1.name)) &&
       InLean.namesNodup p.memberNames) = true
@@ -398,13 +458,41 @@ theorem blockKSSimI_of (hR : ReduceMemberSimI) (hPT : PassTailSimI)
   rw [ite_eq_left (by simpa using hbool)] at h
   try simp only at h
   obtain ⟨ms, s₁, hms, h⟩ := bindI_ok h
-  obtain ⟨hs₁, hokms, F₁, hF₁⟩ := reduceMembersSimI_of hR hJ hs (hMO nP block p hk hsh) hms
+  obtain ⟨hs₁, hokms, hdms, F₁, hF₁⟩ := reduceMembersSimI_of hR hJ hs (hMO nP block p hk hsh) hms
   obtain ⟨u0, sC, hfl, h⟩ := bindI_ok h
   rw [flushI_run] at hfl
   injection hfl with hfl
   obtain rfl : s₁.flushed = sC := congrArg Prod.snd hfl
+  have hMF := blockShape?_members hsh
+  obtain ⟨hAt, -⟩ := ConLeche.reduceMembers_inv (fun m hm => by
+    obtain ⟨m0, hm0, rfl⟩ := List.mem_map.1 hm
+    show trCV m0.declared = trCV m0.cvT
+    rw [(hMF m0 hm0).1]) hF₁
+  have hfrom : ∀ m ∈ ms, ∃ ci ∈ block, ci.toConstantVal = m.declared := by
+    intro m hm
+    have : m.declared ∈ p.members.map (·.declared) := hdms ▸ List.mem_map_of_mem hm
+    obtain ⟨m0, hm0, he⟩ := List.mem_map.1 this
+    rw [← he]; exact (hMF m0 hm0).2
+  have hpre : PassPremI fe L { p with members := ms } := by
+    refine ⟨fun m hm => (hAt _ (List.mem_map_of_mem hm)).declaredWF, fun m hm => ?_, ?_,
+      fun m hm hn => ?_, fun m hm => ?_⟩
+    · have := (hAt _ (List.mem_map_of_mem (f := trMember) hm)).name
+      exact toName_inj this
+    · have e : ms.map (·.declared.name) = p.memberNames := by
+        have e1 : ms.map (·.declared.name) = (ms.map (·.declared)).map (·.name) := by simp
+        rw [e1, hdms, InLean.BlockShape.memberNames]
+        simp only [List.map_map]
+        exact List.map_congr_left fun m hm => by simp [(hMF m hm).1]
+      show (ms.map (·.declared.name)).Nodup
+      rw [e]
+      simp only [Bool.and_eq_true] at hnd
+      exact List.Pairwise.of_map toName (fun _ _ h e => h (e ▸ rfl)) ((namesNodup_iff _).1 hnd.2)
+    · obtain ⟨ci, hci, he⟩ := hfrom m hm
+      exact hso ci hci (by rw [ci_cv_name, he]; exact hn)
+    · obtain ⟨ci, hci, he⟩ := hfrom m hm
+      rw [← he]; exact (hr ci hci).type
   obtain ⟨hs', F₂, q, hP, hT⟩ := hPT fe L block { p with members := ms } (InLean.blockIsRec p)
-    s₁.flushed s' hJ (flushI_csoki hs₁ .verified false L) hr hk hokms h
+    s₁.flushed s' hJ (flushI_csoki hs₁ .verified false L) hr hk hokms hpre h
   refine ⟨hs', max F₁ F₂,
     L.pushDelta (ConLeche.blockConstants (trShape p)) (ConLeche.blockTables (trShape p) (trShape p).members),
     ?_⟩

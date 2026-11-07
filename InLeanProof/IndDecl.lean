@@ -167,7 +167,8 @@ InLean from a state with the residue, accepted by master's pure fueled
 @[expose] def BlockKSSimI : Prop :=
   ∀ (fe : InLean.FEnv) (L : ConLeche.Env) (block : List Lean.ConstantInfo) (nP : Nat)
     (p : InLean.BlockShape) (s₀ s' : InLean.CState),
-    JobEnvI fe L → CSOKIF s₀ → (∀ ci ∈ block, CIRange ci) →
+    JobEnvI fe L → (∀ ci ∈ block, ci.name = InLean.sorryAxName → fe.coreAxioms = true) →
+    CSOKIF s₀ → (∀ ci ∈ block, CIRange ci) →
     (∀ ci ∈ block, isBlockKind ci = true ∧ okC ci.toConstantVal.type = true) →
     InLean.blockShape? nP block = some p →
     InLean.checkBlockKS .verified fe block p s₀ = .ok ((), s') →
@@ -182,6 +183,7 @@ arm and `checkModeledOrNativeSF_run`, for InLean), from the two job runs. -/
 theorem checkIndDeclC_sim (hB : BasisBlockSimI) (hK : BlockKSSimI)
     {fe : InLean.FEnv} {L : ConLeche.Env} (hJ : JobEnvI fe L)
     {block : List Lean.ConstantInfo} {cb : List ConLeche.ConstantInfo} {nP : Nat}
+    (hso : ∀ ci ∈ block, ci.name = InLean.sorryAxName → fe.coreAxioms = true)
     {s₀ s' : InLean.CState} (hs : CSOKIF s₀) (hr : ∀ ci ∈ block, CIRange ci)
     (hb : toBlock block = some cb)
     (h : InLean.checkIndDeclC .verified fe block nP s₀ = .ok ((), s')) :
@@ -213,7 +215,7 @@ theorem checkIndDeclC_sim (hB : BasisBlockSimI) (hK : BlockKSSimI)
         obtain ⟨u, s₁, h1, h2⟩ := bindI_ok h
         have hs1 : s₁ = s₀ := genEntriesAgree_noSt p block s₀ u s₁ h1
         subst hs1
-        obtain ⟨hs', F, L', hF⟩ := hK fe L block nP p s₁ s' hJ hs hr hk hsh h2
+        obtain ⟨hs', F, L', hF⟩ := hK fe L block nP p s₁ s' hJ hso hs hr hk hsh h2
         refine ⟨hs', F, L', ?_⟩
         have hok' : ConLeche.indParamsOk nP (block.map trCI) = true := by
           rw [indParamsOk_tr]; exact hok

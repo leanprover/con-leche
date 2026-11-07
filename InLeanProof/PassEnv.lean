@@ -305,4 +305,214 @@ theorem presI_formers (hlaws : EnvLaws) (hP : EnvPresI fe L) {p : InLean.BlockSh
       exact pendingGo_marks hnd ms hms)
     hst
 
+/-! ## Freshness, read off the formers' run
+
+`checkBlockTeleF` runs `checkConstantValF` on each member's former, whose
+first guard is the name's freshness in Lean's environment. -/
+
+theorem checkConstantValF_fresh {ops : InLean.CheckerOps} {fe : InLean.FEnv} {cv : Lean.ConstantVal}
+    {b : Bool} {s₀ s' : InLean.CState} {r : Unit}
+    (h : InLean.checkConstantValF ops fe cv b s₀ = .ok (r, s')) : fe.env.find? cv.name = none := by
+  unfold InLean.checkConstantValF at h
+  cases hf : fe.env.find? cv.name with
+  | none => rfl
+  | some ci =>
+    rw [hf] at h
+    obtain ⟨_, _, h1, _⟩ := bindI_ok h
+    exact (throwI_ok h1).elim
+
+theorem checkBlockTeleF_fresh {ops : InLean.CheckerOps} {fe : InLean.FEnv} {nP : Nat}
+    {ms : InLean.MemberShape} {s₀ s' : InLean.CState} {r : Lean.ConstantVal × Lean.Level}
+    (h : InLean.checkBlockTeleF ops fe nP ms s₀ = .ok (r, s')) : fe.env.find? ms.cvT.name = none := by
+  unfold InLean.checkBlockTeleF at h
+  obtain ⟨_, _, h1, _⟩ := bindI_ok h
+  exact checkConstantValF_fresh h1
+
+theorem checkBlockTelesF_fresh {ops : InLean.CheckerOps} {fe : InLean.FEnv} {nP : Nat} :
+    ∀ {l : List InLean.MemberShape} {s₀ s' : InLean.CState} {r : List (Lean.ConstantVal × Lean.Level)},
+      InLean.checkBlockTelesF ops fe nP l s₀ = .ok (r, s') → ∀ ms ∈ l, fe.env.find? ms.cvT.name = none
+  | [], _, _, _, _ => by simp
+  | ms :: rest, s₀, s', r, h => by
+    unfold InLean.checkBlockTelesF at h
+    obtain ⟨_, _, h1, h⟩ := bindI_ok h
+    obtain ⟨_, _, h2, _⟩ := bindI_ok h
+    intro m hm
+    rcases List.mem_cons.1 hm with rfl | hm
+    · exact checkBlockTeleF_fresh h1
+    · exact checkBlockTelesF_fresh h2 m hm
+
+/-- **The formers' names are fresh in Lean's environment**, read off an
+accepted formers' stage. -/
+theorem checkBlockIndsF_fresh {ops : InLean.CheckerOps} {fe : InLean.FEnv} {p : InLean.BlockShape}
+    {isRec : Bool} {s₀ s' : InLean.CState} {r : InLean.FEnv × InLean.BlockShape}
+    (h : InLean.checkBlockIndsF ops fe p isRec s₀ = .ok (r, s')) :
+    ∀ ms ∈ p.members, fe.env.find? ms.cvT.name = none := by
+  unfold InLean.checkBlockIndsF at h
+  generalize hm : p.members = mems at h
+  cases mems with
+  | nil => exact (throwI_ok h).elim
+  | cons ms0 rest =>
+    simp only at h
+    obtain ⟨_, _, h1, h⟩ := bindI_ok h
+    obtain ⟨_, _, h2, _⟩ := bindI_ok h
+    intro m hm'
+    rcases List.mem_cons.1 hm' with rfl | hm'
+    · exact checkBlockTeleF_fresh h1
+    · exact checkBlockTelesF_fresh h2 m hm'
+
+/-! ## Marked extensions: no projection table appears -/
+
+/-- **`fe'` extends `fe` by marked formers**: the same policy, the mark only
+grown, and every lookup either `fe`'s or a marked former. -/
+structure MarkedExt (fe fe' : InLean.FEnv) : Prop where
+  core : fe'.coreAxioms = fe.coreAxioms
+  safety : fe'.safety = fe.safety
+  pend : ∀ n, fe.isPending n = true → fe'.isPending n = true
+  find : ∀ n, fe'.env.find? n = fe.env.find? n ∨
+    ∃ v, fe'.env.find? n = some (.inductInfo v) ∧ fe'.isPending v.name = true
+
+theorem MarkedExt.refl (fe : InLean.FEnv) : MarkedExt fe fe :=
+  ⟨rfl, rfl, fun _ h => h, fun _ => .inl rfl⟩
+
+theorem MarkedExt.trans {fe fe' fe'' : InLean.FEnv} (h₁ : MarkedExt fe fe') (h₂ : MarkedExt fe' fe'') :
+    MarkedExt fe fe'' := by
+  refine ⟨h₂.core.trans h₁.core, h₂.safety.trans h₁.safety, fun n h => h₂.pend n (h₁.pend n h),
+    fun n => ?_⟩
+  rcases h₂.find n with e | ⟨v, hv, hp⟩
+  · rcases h₁.find n with e' | ⟨v, hv, hp⟩
+    · exact .inl (e.trans e')
+    · exact .inr ⟨v, e.trans hv, h₂.pend _ hp⟩
+  · exact .inr ⟨v, hv, hp⟩
+
+theorem MarkedExt.find? {fe fe' : InLean.FEnv} (hE : MarkedExt fe fe') {n : Name}
+    {ci : Lean.ConstantInfo} (h : fe'.find? n = some ci) :
+    fe.find? n = some ci ∨ ∃ v, ci = .inductInfo v ∧ fe'.isPending v.name = true := by
+  rcases hE.find n with e | ⟨v, hv, hp⟩
+  · exact .inl (by rw [← FEnv.find?_congr hE.core hE.safety e]; exact h)
+  · have := FEnv.env_of_find h
+    rw [hv] at this
+    cases this
+    exact .inr ⟨v, rfl, hp⟩
+
+/-- **A marked extension adds no projection.** -/
+theorem MarkedExt.findProj? {fe fe' : InLean.FEnv} (hE : MarkedExt fe fe') {T : Name} {i : Nat}
+    {e : InLean.ProjEntry} (h : fe'.findProj? T i = some e) : fe.findProj? T i = some e := by
+  unfold InLean.FEnv.findProj? at h ⊢
+  split at h
+  next v hv =>
+    split at h
+    · cases h
+    next hnp =>
+      rcases hE.find? hv with hv' | ⟨w, hw, hp⟩
+      · rw [hv']
+        simp only
+        rw [ite_eq_right (fun hq => hnp (hE.pend _ hq))]
+        split at h
+        next c hc =>
+          split at h
+          next hi =>
+            rw [ite_eq_left hi]
+            split at h
+            next cv hcv =>
+              rcases hE.find? hcv with hcv' | ⟨w, hw, _⟩
+              · rw [hcv']; exact h
+              · cases hw
+            next => cases h
+          next => cases h
+        next => cases h
+      · cases hw
+        exact (hnp hp).elim
+  next => cases h
+
+theorem MarkedExt.projBodies {fe fe' : InLean.FEnv} (hE : MarkedExt fe fe')
+    (h : ProjBodiesInRange fe) : ProjBodiesInRange fe' :=
+  fun T i e he => h T i e (hE.findProj? he)
+
+theorem markedExt_mark (fe : InLean.FEnv) (marks : List (Name × Nat)) :
+    MarkedExt fe { fe with pending := marks ++ fe.pending } := by
+  refine ⟨rfl, rfl, fun n h => ?_, fun _ => .inl rfl⟩
+  simp only [InLean.FEnv.isPending] at h ⊢
+  show (InLean.FEnv.pendingFields?.go n (marks ++ fe.pending)).isSome = true
+  rw [pendingGo_append]
+  cases InLean.FEnv.pendingFields?.go n marks with
+  | some _ => rfl
+  | none => exact h
+
+theorem markedExt_push (hlaws : EnvLaws) {fe : InLean.FEnv} {v : InductiveVal}
+    (hfresh : fe.env.find? v.name = none) (hpend : fe.isPending v.name = true) :
+    MarkedExt fe (fe.push (.inductInfo v)) := by
+  refine ⟨rfl, rfl, fun _ h => h, fun n => ?_⟩
+  rw [push_find, find_addConst hlaws (ci := .inductInfo v) hfresh]
+  by_cases hn : n = (ConstantInfo.inductInfo v).name
+  · rw [ite_eq_left hn]; exact .inr ⟨v, rfl, hpend⟩
+  · rw [ite_eq_right hn]; exact .inl rfl
+
+/-- **The formers' fold is a marked extension.** -/
+theorem markedExt_consBlockIndsF (hlaws : EnvLaws) {p : InLean.BlockShape} {isRec : Bool} :
+    ∀ (l : List Lean.ConstantVal) (k : Nat) {fe : InLean.FEnv},
+      (∀ cv ∈ l, fe.env.find? cv.name = none) → (l.map (·.name)).Nodup →
+      (∀ cv ∈ l, fe.isPending cv.name = true) →
+      MarkedExt fe (InLean.consBlockIndsF p isRec l k fe)
+  | [], _, fe, _, _, _ => MarkedExt.refl fe
+  | cv :: rest, k, fe, hfr, hnd, hpd => by
+    simp only [List.map_cons, List.nodup_cons, List.mem_map] at hnd
+    simp only [InLean.consBlockIndsF]
+    generalize hv : InductiveVal.mk cv p.nP (p.members.getD k default).nIdx p.memberNames
+      ((p.members.getD k default).ctors.map (·.1.name)) 0 isRec false false = v
+    have hvn : v.name = cv.name := by rw [← hv]
+    have h1 := markedExt_push hlaws (v := v) (fe := fe) (by rw [hvn]; exact hfr cv List.mem_cons_self)
+      (by rw [hvn]; exact hpd cv List.mem_cons_self)
+    refine h1.trans (markedExt_consBlockIndsF hlaws rest (k + 1) (fun c hc => ?_) hnd.2
+      (fun c hc => hpd c (List.mem_cons_of_mem _ hc)))
+    rw [push_find, find_addConst hlaws (ci := .inductInfo v)
+      (by rw [show (ConstantInfo.inductInfo v).name = v.name by rfl, hvn];
+          exact hfr cv List.mem_cons_self)]
+    rw [ite_eq_right (by
+      rw [show (ConstantInfo.inductInfo v).name = v.name by rfl, hvn]
+      exact fun h => hnd.1 ⟨c, hc, h⟩)]
+    exact hfr c (List.mem_cons_of_mem _ hc)
+
+/-! ## The job's premises at the formers' environment -/
+
+/-- **`JobEnvI` at the formers' push** (finding 1 of lane O7-stages): from
+the job's premises at `fe`/`L`, what the members' reduction and the block
+give (`PassPremI`), the names' freshness read off the formers' run
+(`checkBlockIndsF_fresh`), master's formers' stage, and task #492's guard
+(`ProjGuardI`). -/
+theorem jobEnvI_formers (hG : ProjGuardI) (hJ : JobEnvI fe L) {p : InLean.BlockShape} {isRec : Bool}
+    (hpre : PassPremI fe L p) (hok : ∀ ms ∈ p.members, MemberOk ms)
+    (hfr : ∀ ms ∈ p.members, fe.env.find? ms.cvT.name = none) {s0 : Lean.Level}
+    {p₁c : ConLeche.BlockShape}
+    (hR : ConLeche.Cached.Runs (ConLeche.checkBlockInds (ConLeche.fueledOpsM .verified) L (trShape p) isRec)
+      (ConLeche.consBlockInds (trShape (p.withSort s0)) isRec ((trShape p).members.map (·.declared)) 0 L,
+        p₁c)) :
+    JobEnvI (InLean.consBlockIndsF (p.withSort s0) isRec (p.members.map (·.declared)) 0
+        { fe with pending := InLean.blockMarks (p.withSort s0) ++ fe.pending })
+      (ConLeche.consBlockInds (trShape (p.withSort s0)) isRec ((trShape p).members.map (·.declared)) 0 L) := by
+  have hfr' : ∀ ms ∈ p.members, fe.env.find? ms.declared.name = none := fun ms hms => by
+    rw [← hpre.name ms hms]; exact hfr ms hms
+  have hpres := presI_formers hJ.laws hJ.pres (p := p.withSort s0) (isRec := isRec) hfr' hpre.nodup
+    hpre.sorry_ (fun ms hms => StoredT_of (hpre.range ms hms) (toExprC_of_okC (hok ms hms).2.1))
+  have hwf : ConLeche.EnvWF (ConLeche.consBlockInds (trShape (p.withSort s0)) isRec
+      ((trShape p).members.map (·.declared)) 0 L) := by
+    obtain ⟨F, hF⟩ := hR
+    rw [ConLeche.checkBlockInds_datF] at hF
+    refine (ConLeche.direct_block_inds_wf hJ.wf (fun ms hms => ?_) hF).1
+    obtain ⟨m, hm, rfl⟩ := List.mem_map.1 hms
+    exact hpre.decl m hm
+  have hE := (markedExt_mark fe (InLean.blockMarks (p.withSort s0))).trans
+    (markedExt_consBlockIndsF hJ.laws (p := p.withSort s0) (isRec := isRec) (p.members.map (·.declared)) 0
+      (fun cv hcv => by
+        obtain ⟨m, hm, rfl⟩ := List.mem_map.1 hcv
+        exact hfr' m hm)
+      (by rw [List.map_map]; exact hpre.nodup)
+      (fun cv hcv => by
+        obtain ⟨m, hm, rfl⟩ := List.mem_map.1 hcv
+        simp only [InLean.FEnv.isPending]
+        show (InLean.FEnv.pendingFields?.go _ (InLean.blockMarks (p.withSort s0) ++ fe.pending)).isSome = true
+        rw [blockMarks_eq]
+        exact congrArg Option.isSome (pendingGo_marks (rest := fe.pending) hpre.nodup m hm)))
+  have hproj := hE.projBodies hJ.proj
+  exact ⟨hJ.laws, hpres, hwf, hproj, hG _ _ hJ.laws hpres hwf hproj⟩
+
 end InLeanProof

@@ -2058,3 +2058,23 @@ info: 'InLeanProof.checkBlockIndsFI_run' depends on axioms: [propext,
 /-- info: 'InLeanProof.presI_formers' depends on axioms: [propext, Classical.choice, Quot.sound] -/
 #guard_msgs in
 #print axioms InLeanProof.presI_formers
+
+/-- info: 'InLeanProof.blockShape?_members' depends on axioms: [propext, Quot.sound] -/
+#guard_msgs in
+#print axioms InLeanProof.blockShape?_members
+
+/-- info: 'InLeanProof.checkBlockIndsF_fresh' depends on axioms: [propext, Classical.choice, Quot.sound] -/
+#guard_msgs in
+#print axioms InLeanProof.checkBlockIndsF_fresh
+
+/-- info: 'InLeanProof.MarkedExt.findProj?' depends on axioms: [propext, Classical.choice, Quot.sound] -/
+#guard_msgs in
+#print axioms InLeanProof.MarkedExt.findProj?
+
+/-- info: 'InLeanProof.markedExt_consBlockIndsF' depends on axioms: [propext, Classical.choice, Quot.sound] -/
+#guard_msgs in
+#print axioms InLeanProof.markedExt_consBlockIndsF
+
+/-- info: 'InLeanProof.jobEnvI_formers' depends on axioms: [propext, Classical.choice, Quot.sound] -/
+#guard_msgs in
+#print axioms InLeanProof.jobEnvI_formers

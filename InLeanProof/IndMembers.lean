@@ -105,7 +105,7 @@ theorem reduceMemberSimI_of (hC : CheckConstantValFSimI) (hRF : ReducedFormerSim
   case neg =>
     rw [ite_eq_right hd] at h
     obtain ⟨rfl, rfl⟩ := pureI_ok h
-    refine ⟨hs, hok, ?_⟩
+    refine ⟨hs, hok, rfl, ?_⟩
     unfold ConLeche.reduceMember
     rw [show (trMember ms).cvT = trCV ms.cvT from rfl, formerDefHeaded_tr, ite_eq_right hd]
     exact Runs.pure _
@@ -133,7 +133,7 @@ theorem reduceMemberSimI_of (hC : CheckConstantValFSimI) (hRF : ReducedFormerSim
     exact (throwI_ok h4).elim
   simp only [↓reduceIte] at h
   obtain ⟨rfl, rfl⟩ := pureI_ok h
-  refine ⟨hs₃, ⟨hokR, hok.2.1, hok.2.2⟩, ?_⟩
+  refine ⟨hs₃, ⟨hokR, hok.2.1, hok.2.2⟩, rfl, ?_⟩
   unfold ConLeche.reduceMember
   have hdec' : ConLeche.declinedAtDefinition.contains (toName ms.cvT.name) = false := by
     rw [declinedAtDefinition_tr, contains_map_toName, hdec]
@@ -168,6 +168,7 @@ invariant at `L` (after the job's flush) and ends in it at the formers' environm
   ∀ (fe : InLean.FEnv) (L : ConLeche.Env) (p₀ : InLean.BlockShape) (isRec : Bool)
     (q : InLean.BlockPass) (s₀ s' : InLean.CState),
     JobEnvI fe L → CSOKI .verified false L s₀ → (∀ ms ∈ p₀.members, MemberOk ms) →
+    PassPremI fe L p₀ →
     InLean.checkBlockPassS .verified fe p₀ isRec s₀ = .ok (q, s') →
     ∃ F cq, ConLeche.checkBlockPass (ConLeche.fueledOps .verified F) L (trShape p₀) isRec
       = .ok cq ∧ CSOKI .verified false cq.env₁ s' ∧ R s' q cq
@@ -207,9 +208,9 @@ stages): the environment and shape by `PassEnvRelI`, the parameters by `TrS`. -/
 /-- **The pass and the tail together** from the two, at any relation. -/
 theorem passTailSimI_of {R : InLean.CState → InLean.BlockPass → ConLeche.BlockPass ConLeche.Env → Prop}
     (hP : PassSimI R) (hT : TailSimI R) : PassTailSimI := by
-  intro fe L block p₀ isRec s₀ s' hJ hs hr hk hms h
+  intro fe L block p₀ isRec s₀ s' hJ hs hr hk hms hpre h
   obtain ⟨q, s₁, h1, h2⟩ := bindI_ok h
-  obtain ⟨F₁, cq, hF₁, hs₁, hR⟩ := hP fe L p₀ isRec q s₀ s₁ hJ hs hms h1
+  obtain ⟨F₁, cq, hF₁, hs₁, hR⟩ := hP fe L p₀ isRec q s₀ s₁ hJ hs hms hpre h1
   obtain ⟨hs', F₂, hF₂⟩ := hT block q cq s₁ s' hR hs₁ hr hk h2
   refine ⟨hs', max F₁ F₂, cq, ?_, ?_⟩
   · rw [← ConLeche.checkBlockPass_datF]
@@ -232,11 +233,12 @@ theorem checkIndDeclC_sim_stages (hB : BasisBlockSimI) (hC : CheckConstantValFSi
     (hP : PassSimI R) (hT : TailSimI R)
     {fe : InLean.FEnv} {L : ConLeche.Env} (hJ : JobEnvI fe L)
     {block : List Lean.ConstantInfo} {cb : List ConLeche.ConstantInfo} {nP : Nat}
+    (hso : ∀ ci ∈ block, ci.name = InLean.sorryAxName → fe.coreAxioms = true)
     {s₀ s' : InLean.CState} (hs : CSOKIF s₀) (hr : ∀ ci ∈ block, CIRange ci)
     (hb : toBlock block = some cb)
     (h : InLean.checkIndDeclC .verified fe block nP s₀ = .ok ((), s')) :
     CSOKIF s' ∧ ∃ F L', ConLeche.checkDecl .verified (ConLeche.fueledOps .verified F) pins L
       (.indDecl cb nP) = .ok L' :=
-  checkIndDeclC_sim hB (blockKSSimI_of_stages hC hRF (passTailSimI_of hP hT)) hJ hs hr hb h
+  checkIndDeclC_sim hB (blockKSSimI_of_stages hC hRF (passTailSimI_of hP hT)) hJ hso hs hr hb h
 
 end InLeanProof

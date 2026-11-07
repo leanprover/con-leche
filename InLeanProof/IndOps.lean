@@ -132,6 +132,14 @@ structure JobEnvI (fe : InLean.FEnv) (L : ConLeche.Env) : Prop where
   proj : ProjBodiesInRange fe
   guard : ∀ b f, SSimI b L fe f → ProjGuardSpecI b L (coreKnotI .verified b fe f) fe
 
+/-- **The projection guard's spec from the job's other premises** (task
+#492's, named): what `JobEnvI.guard` asks, at every environment the job's
+other premises hold at.  The job builds its own environments (the formers',
+the constructors'), so the stages need it beyond the declaration's `fe`. -/
+@[expose] def ProjGuardI : Prop :=
+  ∀ (fe : InLean.FEnv) (L : ConLeche.Env), EnvLaws → EnvPresI fe L → ConLeche.EnvWF L →
+    ProjBodiesInRange fe → ∀ b f, SSimI b L fe f → ProjGuardSpecI b L (coreKnotI .verified b fe f) fe
+
 theorem JobEnvI.ops {fe : InLean.FEnv} {L : ConLeche.Env} (h : JobEnvI fe L) : OpsSimI fe L :=
   opsSimI_of (ssimI_of_pres h.pres h.wf h.proj h.guard _)
 

@@ -572,11 +572,12 @@ theorem checkIndDeclC_sim_rest (hC : CheckConstantValFSimI)
     (hP : PassSimI R) (hT : TailSimI R)
     {fe : InLean.FEnv} {L : ConLeche.Env} (hJ : JobEnvI fe L)
     {block : List Lean.ConstantInfo} {cb : List ConLeche.ConstantInfo} {nP : Nat}
+    (hso : ∀ ci ∈ block, ci.name = InLean.sorryAxName → fe.coreAxioms = true)
     {s₀ s' : InLean.CState} (hs : CSOKIF s₀) (hr : ∀ ci ∈ block, CIRange ci)
     (hb : toBlock block = some cb)
     (h : InLean.checkIndDeclC .verified fe block nP s₀ = .ok ((), s')) :
     CSOKIF s' ∧ ∃ F L', ConLeche.checkDecl .verified (ConLeche.fueledOps .verified F) pins L
       (.indDecl cb nP) = .ok L' :=
-  checkIndDeclC_sim_stages basisBlockSimI hC reducedFormerSimI hP hT hJ hs hr hb h
+  checkIndDeclC_sim_stages basisBlockSimI hC reducedFormerSimI hP hT hJ hso hs hr hb h
 
 end InLeanProof
