@@ -28,6 +28,12 @@ import all Lean.Declaration
   (`quotSoundHit`, twin of `quotPinHit .sound`), which is what con-leche
   installs (`quotAt .sound`); `checkAxiomC_quotSound` reads it, the name's
   freshness and the added constant off an accepted run.
+* **The inductive check's branches** (`BlockPresObl`'s case split):
+  `checkIndDeclC_ok` (an accepted check is a pinned block equal to its pin,
+  or a recognised one whose generated entries agree and whose block check
+  passed; the shapeless branch and a parameter mismatch throw), and
+  `basisNameHit_tr` (con-leche's pinned dispatch on the translated block is
+  InLean's).
 -/
 
 public section
@@ -318,5 +324,115 @@ theorem presI_quotSound (hlaws : EnvLaws) (hP : EnvPresI fe L) {v : AxiomVal}
   · intro hs
     have : v.name = InLean.sorryAxName := hs
     rw [hn] at this; exact absurd (congrArg toName this) (by decide)
+
+/-! ## The inductive check's branches -/
+
+/-- A program ending in a throw is never accepted. -/
+theorem run_bind_throw {β α : Type} {x : CheckCM β} {s : CState} {r : α × CState} (e : CheckError)
+    (f : β → CheckCM α) (hf : ∀ b, f b = throw e) : (x >>= f).run s ≠ .ok r := by
+  intro h
+  rw [StateT.run_bind] at h
+  cases hx : x.run s with
+  | error e' => rw [hx, except_error_bind] at h; cases h
+  | ok q =>
+    rw [hx, except_ok_bind, hf] at h
+    simp only [throw, throwThe, MonadExceptOf.throw, StateT.run_lift, Function.comp,
+      except_error_bind, reduceCtorEq] at h
+
+/-- A shapeless block is never accepted (`checkShapelessS` ends in a throw). -/
+theorem checkShapelessS_not_ok {μ : CheckMode} {block : List Lean.ConstantInfo} {s s' : CState} :
+    (checkShapelessS μ fe block).run s ≠ .ok ((), s') := by
+  unfold checkShapelessS
+  exact run_bind_throw _ _ (fun _ => rfl)
+
+/-- **What an accepted inductive check says**: a pinned block equal to its pin,
+or a recognised block whose generated entries agree with its shape and whose
+block check passed.  The shapeless branch and a parameter mismatch throw. -/
+theorem checkIndDeclC_ok {μ : CheckMode} {block : List Lean.ConstantInfo} {nP : Nat}
+    {s s' : CState} (h : (checkIndDeclC μ fe block nP).run s = .ok ((), s')) :
+    (∃ kind, InLean.basisNameHit block = some kind ∧ pinListOk block kind.decls = true) ∨
+    (InLean.basisNameHit block = none ∧ indParamsOk nP block = true ∧
+      ∃ p, InLean.blockShape? nP block = some p ∧ ∃ s₁,
+        (genEntriesAgree p block).run s = .ok ((), s₁) ∧
+        (checkBlockKS μ fe block p).run s₁ = .ok ((), s')) := by
+  unfold checkIndDeclC at h
+  cases hk : InLean.basisNameHit block with
+  | some kind =>
+    rw [hk] at h
+    refine .inl ⟨kind, rfl, ?_⟩
+    unfold checkBasisBlockC at h
+    cases hp : pinListOk block kind.decls
+    · simp [hp, StateT.run, bind, StateT.bind, Except.bind, throw, throwThe,
+        MonadExceptOf.throw, StateT.lift] at h
+    · rfl
+  | none =>
+    rw [hk] at h
+    refine .inr ⟨rfl, ?_⟩
+    cases hpo : indParamsOk nP block
+    · simp [hpo, StateT.run, throw, throwThe, MonadExceptOf.throw, StateT.lift, Functor.map, Except.map] at h
+    · simp only [hpo, ↓reduceIte] at h
+      refine ⟨rfl, ?_⟩
+      cases hs : InLean.blockShape? nP block with
+      | none => rw [hs] at h; exact absurd h checkShapelessS_not_ok
+      | some p =>
+        rw [hs] at h
+        simp only at h
+        rw [StateT.run_bind] at h
+        refine ⟨p, rfl, ?_⟩
+        cases hg : (genEntriesAgree p block).run s with
+        | error e => rw [hg, except_error_bind] at h; cases h
+        | ok q =>
+          obtain ⟨⟨⟩, s₁⟩ := q
+          rw [hg, except_ok_bind] at h
+          exact ⟨s₁, rfl, h⟩
+
+/-! ## The pinned dispatch through the translation -/
+
+/-- InLean's pinned kinds as con-leche's. -/
+@[expose] def trKind : InLean.BasisKind → ConLeche.BasisKind
+  | .eqK => .eqK
+  | .natK => .natK
+  | .emptyK => .emptyK
+  | .falseK => .falseK
+
+theorem toBlockRecord_name {c : Lean.ConstantInfo} {r : ConLeche.ConstantInfo}
+    (h : toBlockRecord c = some r) : r.name = toName c.name := by
+  cases c <;> simp only [toBlockRecord, toCV, Option.bind_eq_bind, Option.bind_eq_some_iff,
+    Option.pure_def, Option.some.injEq, reduceCtorEq] at h
+  all_goals first
+    | (obtain ⟨cv, ⟨t, -, rfl⟩, rfl⟩ := h; rfl)
+    | (obtain ⟨cv, ⟨t, -, rfl⟩, rs, -, rfl⟩ := h; rfl)
+
+theorem toBlock_names : ∀ {block : List Lean.ConstantInfo} {cb : List ConLeche.ConstantInfo},
+    toBlock block = some cb → cb.map (·.name) = (block.map (·.name)).map toName
+  | [], cb, h => by simp only [toBlock, Option.some.injEq] at h; subst h; rfl
+  | c :: cs, cb, h => by
+    simp only [toBlock, Option.bind_eq_bind, Option.bind_eq_some_iff, Option.pure_def,
+      Option.some.injEq] at h
+    obtain ⟨r, hr, rs, hrs, rfl⟩ := h
+    simp only [List.map_cons, toBlockRecord_name hr, toBlock_names hrs]
+
+theorem kindNames_tr (k : InLean.BasisKind) :
+    (ConLeche.BasisKind.decls (trKind k)).map (·.name) = (k.decls.map (·.name)).map toName := by
+  cases k <;> decide
+
+/-- **The pinned dispatch agrees**: con-leche's `basisNameHit` on the
+translated block is InLean's, kind by kind. -/
+theorem basisNameHit_tr {block : List Lean.ConstantInfo} {cb : List ConLeche.ConstantInfo}
+    (h : toBlock block = some cb) :
+    ConLeche.basisNameHit cb = (InLean.basisNameHit block).map trKind := by
+  have hn := toBlock_names h
+  have key : ∀ k, ((ConLeche.BasisKind.decls (trKind k)).map (·.name) == cb.map (·.name)) =
+      (k.decls.map (·.name) == block.map (·.name)) := by
+    intro k; rw [kindNames_tr, hn, map_toName_beq]
+  unfold ConLeche.basisNameHit InLean.basisNameHit
+  have e := key .eqK; have n := key .natK; have em := key .emptyK; have f := key .falseK
+  simp only [trKind] at e n em f
+  simp only [List.find?_cons, List.find?_nil, e, n, em, f]
+  generalize (InLean.BasisKind.eqK.decls.map (·.name) == block.map (·.name)) = b1
+  generalize (InLean.BasisKind.natK.decls.map (·.name) == block.map (·.name)) = b2
+  generalize (InLean.BasisKind.emptyK.decls.map (·.name) == block.map (·.name)) = b3
+  generalize (InLean.BasisKind.falseK.decls.map (·.name) == block.map (·.name)) = b4
+  cases b1 <;> cases b2 <;> cases b3 <;> cases b4 <;> rfl
 
 end InLeanProof

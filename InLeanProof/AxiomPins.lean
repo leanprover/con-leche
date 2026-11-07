@@ -1694,3 +1694,27 @@ info: 'InLeanProof.presI_quotSound' depends on axioms: [propext,
 -/
 #guard_msgs in
 #print axioms InLeanProof.presI_quotSound
+
+/--
+info: 'InLeanProof.checkShapelessS_not_ok' depends on axioms: [propext, Classical.choice, Quot.sound]
+-/
+#guard_msgs in
+#print axioms InLeanProof.checkShapelessS_not_ok
+
+/--
+info: 'InLeanProof.checkIndDeclC_ok' depends on axioms: [propext, Classical.choice, Quot.sound]
+-/
+#guard_msgs in
+#print axioms InLeanProof.checkIndDeclC_ok
+
+/--
+info: 'InLeanProof.toBlock_names' depends on axioms: [propext, Quot.sound]
+-/
+#guard_msgs in
+#print axioms InLeanProof.toBlock_names
+
+/--
+info: 'InLeanProof.basisNameHit_tr' depends on axioms: [propext, Quot.sound]
+-/
+#guard_msgs in
+#print axioms InLeanProof.basisNameHit_tr
