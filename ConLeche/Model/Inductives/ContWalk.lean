@@ -12,7 +12,6 @@ import ConLeche.Verify.Inductives.NestScope
 import ConLeche.Model.Rules.Inputs
 import ConLeche.Model.Inductives.StructFrameKit
 import ConLeche.Model.Inductives.SumKit
-import ConLeche.Verify.Inductives.NestContInv
 public import ConLeche.Verify.Inductives.PosDerivInv
 import ConLeche.Semantics.Tower.BlockTower
 import ConLeche.Verify.Inductives.NestNfScope

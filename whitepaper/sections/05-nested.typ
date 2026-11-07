@@ -340,7 +340,7 @@ operator of two arguments, the approximant and the container's own
 family, the container's operator at the instantiation is accessible
 by
 #src("ConLeche/Semantics/Inductives/HoleAcc.lean", 50, 55)[the same case-by-case argument as §4's],
-#src("ConLeche/Model/Inductives/ContAcc.lean", 15, 34)[run on the frame]\;
+#src("ConLeche/Model/Inductives/ContAcc.lean", 14, 33)[run on the frame]\;
 and
 #src("ConLeche/SetModel/Access.lean", 530, 540)[the least fixed point of such an operator is accessible in its first argument],
 the supports of an element's sub-values collected along paths into

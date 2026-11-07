@@ -5,7 +5,6 @@ import ConLeche.Verify.Inductives.BlockShapeInv
 public import ConLeche.Model.Inductives.RunEnv
 public import ConLeche.Semantics.Inductives.DeclBlock
 import ConLeche.Model.Inductives.BlockCover
-import ConLeche.Verify.Cached.PushChain
 import ConLeche.Verify.Cached.GenRecC
 
 public section

@@ -1,6 +1,5 @@
 module
 
-public import ConLeche.Model.Env.CanonCrest
 public import ConLeche.Model.Inductives.ContWalk
 import ConLeche.Verify.Inductives.NestContInv
 import ConLeche.Model.Inductives.ContFrame

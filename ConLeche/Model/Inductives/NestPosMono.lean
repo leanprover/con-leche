@@ -4,7 +4,7 @@ public import ConLeche.Model.Rules.Inputs
 import ConLeche.Semantics.Inductives.HoleMono
 import ConLeche.Kernel.Inductives.Positivity
 import ConLeche.Model.Rules.Sound
-public import ConLeche.Model.CtxOkP
+import ConLeche.Model.CtxOkP
 import ConLeche.Verify.Rules.Bridge
 import ConLeche.Model.Rules.InferSoundKit
 import ConLeche.Verify.Denote.Lemmas

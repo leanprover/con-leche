@@ -25,7 +25,6 @@ import ConLeche.Model.Inductives.StructEntryKit
 import ConLeche.Model.Inductives.ContInst
 import ConLeche.Model.Inductives.ContInstRule
 import ConLeche.Model.Inductives.TargetOutRows
-import ConLeche.Model.Inductives.TargetOutIdx
 import ConLeche.Model.Inductives.TargetClasses
 import ConLeche.Model.Inductives.TargetGraph
 import ConLeche.Model.Inductives.NestedRecPins

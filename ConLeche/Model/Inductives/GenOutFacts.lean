@@ -2,7 +2,9 @@ module
 
 public import ConLeche.Model.Inductives.TargetClass
 import ConLeche.Verify.Inductives.RecCheckRun
-public import ConLeche.Model.Inductives.TargetOutIdx
+import ConLeche.Model.Inductives.TargetOutIdx
+public import ConLeche.Model.Inductives.FamilyRun
+public import ConLeche.Verify.Inductives.NestContInv
 import ConLeche.Model.Inductives.TargetOutRows
 
 public section

@@ -2822,31 +2822,31 @@
    316        WellDenoted M φ ρ (v.instL ci.lparams ls) ∧
    317        interp M φ ρ (v.instL ci.lparams ls) = M c (ls.map (Level.eval φ))
 
-== ConLeche/Model/Env/EnvModelM.lean#L245-L268
-   245  structure EnvModelM (env : Env) where
-   246    /-- the environment carrier, contained -/
-   247    base2 : EnvModel V env
-   248    /-- every stored type reads, at every ground assignment -/
-   249    type_reads : ∀ c ∈ env.consts, ∀ ψ : Name → Nat,
-   250      ∃ ta : Term,
-   251        denote base2.acval env ψ 0 c.toConstantVal.type = some ta
-   252    /-- the stored types' readings are graded types -/
-   253    type_wellDenotedTy : ∀ c ∈ env.consts, ∀ (ψ : Name → Nat) (ta : Term),
-   254      denote base2.acval env ψ 0 c.toConstantVal.type = some ta →
-   255      ∀ ρ : Nat → V, WellDenotedTy V ρ ta
-   256    /-- stored constants inhabit their types' readings (a projection
-   257    table's constant type is the closed dummy `Sort 1` and its leaf is
-   258    `Sort 0`, so the row holds of tables too; that a table is not a term
-   259    is `inferTypeCore`'s own rejection of a `.const` naming one) -/
-   260    mem_type : ∀ c ∈ env.consts,
-   261      ∀ (ψ : Name → Nat) (ta : Term),
-   262      denote base2.acval env ψ 0 c.toConstantVal.type = some ta →
-   263      ∀ ρ : Nat → V,
-   264        interp V ρ (base2.acval c.name ψ) ∈ˢ interp V ρ ta
-   265    /-- stored definition and theorem values read, to the constant's own
-   266    leaf (existence) -/
-   267    defn_reads : AcvalDefnInst base2
-   268    /-- the two `Nat`-literal head facts, at every assignment -/
+== ConLeche/Model/Env/EnvModelM.lean#L229-L252
+   229  structure EnvModelM (env : Env) where
+   230    /-- the environment carrier, contained -/
+   231    base2 : EnvModel V env
+   232    /-- every stored type reads, at every ground assignment -/
+   233    type_reads : ∀ c ∈ env.consts, ∀ ψ : Name → Nat,
+   234      ∃ ta : Term,
+   235        denote base2.acval env ψ 0 c.toConstantVal.type = some ta
+   236    /-- the stored types' readings are graded types -/
+   237    type_wellDenotedTy : ∀ c ∈ env.consts, ∀ (ψ : Name → Nat) (ta : Term),
+   238      denote base2.acval env ψ 0 c.toConstantVal.type = some ta →
+   239      ∀ ρ : Nat → V, WellDenotedTy V ρ ta
+   240    /-- stored constants inhabit their types' readings (a projection
+   241    table's constant type is the closed dummy `Sort 1` and its leaf is
+   242    `Sort 0`, so the row holds of tables too; that a table is not a term
+   243    is `inferTypeCore`'s own rejection of a `.const` naming one) -/
+   244    mem_type : ∀ c ∈ env.consts,
+   245      ∀ (ψ : Name → Nat) (ta : Term),
+   246      denote base2.acval env ψ 0 c.toConstantVal.type = some ta →
+   247      ∀ ρ : Nat → V,
+   248        interp V ρ (base2.acval c.name ψ) ∈ˢ interp V ρ ta
+   249    /-- stored definition and theorem values read, to the constant's own
+   250    leaf (existence) -/
+   251    defn_reads : AcvalDefnInst base2
+   252    /-- the two `Nat`-literal head facts, at every assignment -/
 
 == whitepaper/Fragment/EnvModel.lean#L364-L373
    364  /-- The empty environment has a model: any assignment, vacuous laws. -/
@@ -4021,21 +4021,21 @@
     62        ∀ X', InTupleSpace w kI IsI X' → (∀ a, a ∈ˢ B → InTup kI IsI X' (g a)) →
     63          x ∈ˢ app (Φ X' m) i
 
-== ConLeche/Model/Env/BlockLfp.lean#L517-L521
-   517  /-- **The operator is monotone**, from its accessibility (`AccW.mono`). -/
-   518  theorem mono (h : LfpClause acval D) {ψ : Name → Nat} {ρp : Nat → V}
-   519      (hsat : Sat V (D.params ψ).reverse ρp) :
-   520      MonoTuple (D.w ψ) D.N (D.idx ψ ρp) (D.Φ ψ ρp) :=
-   521    (h.acc ψ ρp hsat).mono
+== ConLeche/Model/Env/BlockLfp.lean#L527-L531
+   527  /-- **The operator is monotone**, from its accessibility (`AccW.mono`). -/
+   528  theorem mono (h : LfpClause acval D) {ψ : Name → Nat} {ρp : Nat → V}
+   529      (hsat : Sat V (D.params ψ).reverse ρp) :
+   530      MonoTuple (D.w ψ) D.N (D.idx ψ ρp) (D.Φ ψ ρp) :=
+   531    (h.acc ψ ρp hsat).mono
 
-== ConLeche/Model/Env/BlockLfp.lean#L456-L462
-   456    /-- **the constructors' fields are small** at a `Type`-valued block, at
-   457    every hole frame of the tuple space (the frame walk of a container reads its constructors' fields along the
-   458    accessibility relation, which supports small elements only — the
-   459    install's own `FieldsOkB`, recorded) -/
-   460    fieldsOk : ∀ (ψ : Name → Nat) (ρp : Nat → V), Sat V (D.params ψ).reverse ρp → D.w ψ ≠ 0 →
-   461      ∀ X, InTupleSpace (D.w ψ) D.N (D.idx ψ ρp) X → ∀ c, c < D.N → ∀ j, j < D.nctors c →
-   462        FieldsOkB (D.w ψ) (D.frame ψ ρp X) (D.fields ψ c j)
+== ConLeche/Model/Env/BlockLfp.lean#L466-L472
+   466    /-- **the constructors' fields are small** at a `Type`-valued block, at
+   467    every hole frame of the tuple space (the frame walk of a container reads its constructors' fields along the
+   468    accessibility relation, which supports small elements only — the
+   469    install's own `FieldsOkB`, recorded) -/
+   470    fieldsOk : ∀ (ψ : Name → Nat) (ρp : Nat → V), Sat V (D.params ψ).reverse ρp → D.w ψ ≠ 0 →
+   471      ∀ X, InTupleSpace (D.w ψ) D.N (D.idx ψ ρp) X → ∀ c, c < D.N → ∀ j, j < D.nctors c →
+   472        FieldsOkB (D.w ψ) (D.frame ψ ρp X) (D.fields ψ c j)
 
 == whitepaper/Fragment/LfpSet.lean#L64-L67
     64  /-- A **closed family** of `Φ`: in the universe, and a pre-fixed point.
@@ -4303,15 +4303,15 @@
     86          (fun x => ∀ X, IsClosedTuple w k Is Φ X → x ∈ˢ app (X m) i))) (Is m)
     87      else famOf (fun _ => empty) (Is m)
 
-== ConLeche/Model/Env/BlockLfp.lean#L394-L401
-   394    /-- **`Φ` maps the tuple space into itself** -/
-   395    maps : ∀ (ψ : Name → Nat) (ρp : Nat → V), Sat V (D.params ψ).reverse ρp →
-   396      MapsTuple (D.w ψ) D.N (D.idx ψ ρp) (D.Φ ψ ρp)
-   397    /-- **the hole fit is accessible**, with a bound of the level at a
-   398    `Type`-valued block (task #327): the operator's accessibility, (W) and
-   399    monotonicity, and the fit's growth follow at every level -/
-   400    fitAcc : ∀ (ψ : Name → Nat) (ρp : Nat → V), Sat V (D.params ψ).reverse ρp →
-   401      ∃ A, (D.w ψ ≠ 0 → A ∈ˢ (tg (D.w ψ) : V)) ∧ D.FitAcc ψ ρp A
+== ConLeche/Model/Env/BlockLfp.lean#L404-L411
+   404    /-- **`Φ` maps the tuple space into itself** -/
+   405    maps : ∀ (ψ : Name → Nat) (ρp : Nat → V), Sat V (D.params ψ).reverse ρp →
+   406      MapsTuple (D.w ψ) D.N (D.idx ψ ρp) (D.Φ ψ ρp)
+   407    /-- **the hole fit is accessible**, with a bound of the level at a
+   408    `Type`-valued block (task #327): the operator's accessibility, (W) and
+   409    monotonicity, and the fit's growth follow at every level -/
+   410    fitAcc : ∀ (ψ : Name → Nat) (ρp : Nat → V), Sat V (D.params ψ).reverse ρp →
+   411      ∃ A, (D.w ψ ≠ 0 → A ∈ˢ (tg (D.w ψ) : V)) ∧ D.FitAcc ψ ρp A
 
 == ConLeche/SetModel/Access.lean#L298-L303
    298  theorem AccW.closed {w k : Nat} {Is : Nat → V} {Φ : (Nat → V) → Nat → V}
@@ -4321,31 +4321,31 @@
    302    · obtain ⟨A, hA, hacc⟩ := h
    303      exact closed_of_acc hw (hA hw) hmaps hacc
 
-== ConLeche/Model/Env/BlockLfp.lean#L517-L521
-   517  /-- **The operator is monotone**, from its accessibility (`AccW.mono`). -/
-   518  theorem mono (h : LfpClause acval D) {ψ : Name → Nat} {ρp : Nat → V}
-   519      (hsat : Sat V (D.params ψ).reverse ρp) :
-   520      MonoTuple (D.w ψ) D.N (D.idx ψ ρp) (D.Φ ψ ρp) :=
-   521    (h.acc ψ ρp hsat).mono
+== ConLeche/Model/Env/BlockLfp.lean#L527-L531
+   527  /-- **The operator is monotone**, from its accessibility (`AccW.mono`). -/
+   528  theorem mono (h : LfpClause acval D) {ψ : Name → Nat} {ρp : Nat → V}
+   529      (hsat : Sat V (D.params ψ).reverse ρp) :
+   530      MonoTuple (D.w ψ) D.N (D.idx ψ ρp) (D.Φ ψ ρp) :=
+   531    (h.acc ψ ρp hsat).mono
 
-== ConLeche/Model/Env/BlockLfp.lean#L402-L407
-   402    /-- **what `Φ` is**: component `c`'s fibre at `(X, t)` is the set of
-   403    injections of the spines fitting one of `c`'s constructors -/
-   404    fibre : ∀ (ψ : Name → Nat) (ρp : Nat → V), Sat V (D.params ψ).reverse ρp →
-   405      ∀ X, InTupleSpace (D.w ψ) D.N (D.idx ψ ρp) X → ∀ c, c < D.N →
-   406      ∀ t, t ∈ˢ D.idx ψ ρp c → ∀ x,
-   407        x ∈ˢ app (D.Φ ψ ρp X c) t ↔ ∃ j fs, D.HFits ψ ρp X t c j fs ∧ x = D.inj ψ c j fs
+== ConLeche/Model/Env/BlockLfp.lean#L412-L417
+   412    /-- **what `Φ` is**: component `c`'s fibre at `(X, t)` is the set of
+   413    injections of the spines fitting one of `c`'s constructors -/
+   414    fibre : ∀ (ψ : Name → Nat) (ρp : Nat → V), Sat V (D.params ψ).reverse ρp →
+   415      ∀ X, InTupleSpace (D.w ψ) D.N (D.idx ψ ρp) X → ∀ c, c < D.N →
+   416      ∀ t, t ∈ˢ D.idx ψ ρp c → ∀ x,
+   417        x ∈ˢ app (D.Φ ψ ρp X c) t ↔ ∃ j fs, D.HFits ψ ρp X t c j fs ∧ x = D.inj ψ c j fs
 
-== ConLeche/Model/Env/BlockLfp.lean#L187-L189
-   187  /-- **The carrier**: the least pre-fixed tuple of the operator. -/
-   188  @[expose] noncomputable def carrier (ψ : Name → Nat) (ρp : Nat → V) : Nat → V :=
-   189    lfpTuple (D.w ψ) D.N (D.idx ψ ρp) (D.Φ ψ ρp)
+== ConLeche/Model/Env/BlockLfp.lean#L188-L190
+   188  /-- **The carrier**: the least pre-fixed tuple of the operator. -/
+   189  @[expose] noncomputable def carrier (ψ : Name → Nat) (ρp : Nat → V) : Nat → V :=
+   190    lfpTuple (D.w ψ) D.N (D.idx ψ ρp) (D.Φ ψ ρp)
 
-== ConLeche/Model/Env/BlockLfp.lean#L523-L526
-   523  /-- **The carrier is a fixed point**, componentwise. -/
-   524  theorem carrier_eq (h : LfpClause acval D) {ψ : Name → Nat} {ρp : Nat → V}
-   525      (hsat : Sat V (D.params ψ).reverse ρp) {c : Nat} (hc : c < D.N) :
-   526      D.Φ ψ ρp (D.carrier ψ ρp) c = D.carrier ψ ρp c :=
+== ConLeche/Model/Env/BlockLfp.lean#L533-L536
+   533  /-- **The carrier is a fixed point**, componentwise. -/
+   534  theorem carrier_eq (h : LfpClause acval D) {ψ : Name → Nat} {ρp : Nat → V}
+   535      (hsat : Sat V (D.params ψ).reverse ρp) {c : Nat} (hc : c < D.N) :
+   536      D.Φ ψ ρp (D.carrier ψ ρp) c = D.carrier ψ ρp c :=
 
 == ConLeche/SetModel/TaggedSum.lean#L65
     65  noncomputable def inj (i : Nat) (a : V) : V := spair (vnat i) a
@@ -5276,20 +5276,20 @@
    158    no_empty_inductive_inhabitant V hacc (S := IndSpec.falseSpec name recName elim) rfl rfl rfl rfl
    159      hrec e
 
-== ConLeche/Model/Fold.lean#L436-L443
-   436  theorem no_proof_of_False_pure (V : Type w) [SetTheory V]
-   437      {F : Nat}
-   438      {ds : List Declaration} {env' : Env}
-   439      (h : checkDeclsPure .verified (fueledOps .verified F) pins ds = .ok env') :
-   440      ∀ c ∈ env'.consts,
-   441        c.toConstantVal.type = .const falseName [] → False := by
-   442    obtain ⟨mp⟩ := checkDeclsPure_sound_of (V := V) h
-   443    exact fun c hc hty => no_constant_of_False mp c hc hty
+== ConLeche/Model/Fold.lean#L433-L440
+   433  theorem no_proof_of_False_pure (V : Type w) [SetTheory V]
+   434      {F : Nat}
+   435      {ds : List Declaration} {env' : Env}
+   436      (h : checkDeclsPure .verified (fueledOps .verified F) pins ds = .ok env') :
+   437      ∀ c ∈ env'.consts,
+   438        c.toConstantVal.type = .const falseName [] → False := by
+   439    obtain ⟨mp⟩ := checkDeclsPure_sound_of (V := V) h
+   440    exact fun c hc hty => no_constant_of_False mp c hc hty
 
-== ConLeche/Model/Fold.lean#L365-L367
-   365  theorem foldPM {F : Nat} :
-   366      ∀ (ds : List Declaration) (env : Env) {env' : Env},
-   367        EnvModelOk V env →
+== ConLeche/Model/Fold.lean#L362-L364
+   362  theorem foldPM {F : Nat} :
+   363      ∀ (ds : List Declaration) (env : Env) {env' : Env},
+   364        EnvModelOk V env →
 
 >>> whitepaper/sections/05-nested.typ
 
@@ -5863,27 +5863,27 @@
     54  | Π, hole-free domain | `AccOn.pi` | `piBound` | `PtOn.pi` |
     55  | a hole at hole-free arguments | `AccOn.holeApp` | `{pt}` | `PtOn.holeApp` |
 
-== ConLeche/Model/Inductives/ContAcc.lean#L15-L34
-    15  /-!
-    16  # A container instance is accessible
-    17  
-    18  The container pieces of the accessibility induction on the positivity
-    19  derivation (`posD_acc`, `PosDerivAcc.lean`):
-    20  
-    21  * the leaf (`accConcl_of_frameAccOut`, over `keyLeaf`): a frame's
-    22    accessibility at the key frames makes the container instance
-    23    accessible along the enclosing relation;
-    24  * a frame's accessibility at EMPTY enclosing frames, read back at the
-    25    frameless relation (`frameAccOut_unextend`, with
-    26    `HoleRelA.extendEmpty`);
-    27  * a key accessible at the block's own depth (`KeyAcc`) makes a cache
-    28    hit's instance accessible (`contHit_acc`, at the enclosing relation
-    29    seen at that depth, `HoleRelA.dropBase`).
-    30  
-    31  The TYPE REGIME of a container instance: the container lives at the
-    32  block's level (`n2_sort`, the kernel's N3), so a truth-valued fibre of a
-    33  container is empty (`LfpClause.injNePt`).
-    34  -/
+== ConLeche/Model/Inductives/ContAcc.lean#L14-L33
+    14  /-!
+    15  # A container instance is accessible
+    16  
+    17  The container pieces of the accessibility induction on the positivity
+    18  derivation (`posD_acc`, `PosDerivAcc.lean`):
+    19  
+    20  * the leaf (`accConcl_of_frameAccOut`, over `keyLeaf`): a frame's
+    21    accessibility at the key frames makes the container instance
+    22    accessible along the enclosing relation;
+    23  * a frame's accessibility at EMPTY enclosing frames, read back at the
+    24    frameless relation (`frameAccOut_unextend`, with
+    25    `HoleRelA.extendEmpty`);
+    26  * a key accessible at the block's own depth (`KeyAcc`) makes a cache
+    27    hit's instance accessible (`contHit_acc`, at the enclosing relation
+    28    seen at that depth, `HoleRelA.dropBase`).
+    29  
+    30  The TYPE REGIME of a container instance: the container lives at the
+    31  block's level at every pair fitting it (`grp_sort`, the kernel's N3), so a truth-valued fibre of a
+    32  container is empty (`LfpClause.injNePt`).
+    33  -/
 
 == ConLeche/SetModel/Access.lean#L530-L540
    530  /-- **THE NESTED CASE: the least tuple is accessible in its parameter.**
@@ -6840,16 +6840,16 @@
    233      obtain ⟨m', hm'⟩ := h.step m
    234      exact ⟨m', fun c hc => by rw [hm' c hc], fun _ h => h.elim⟩
 
-== ConLeche/Modular.lean#L255-L258
-   255  structure LocalOk (mode : CheckMode) (pins : List NatOpPinSet) (dev : Nat → Module) (i : Nat) :
-   256      Prop where
-   257    iface : InterfaceOk dev i
-   258    importOk : ImportOk mode pins dev i
+== ConLeche/Modular.lean#L232-L235
+   232  structure LocalOk (mode : CheckMode) (pins : List NatOpPinSet) (dev : Nat → Module) (i : Nat) :
+   233      Prop where
+   234    iface : InterfaceOk dev i
+   235    importOk : ImportOk mode pins dev i
 
-== ConLeche/Modular.lean#L95-L97
-    95  def Presents (e p : Declaration) : Prop :=
-    96    ((declConstants e).Perm (declConstants p) ∧ declTables e = declTables p) ∨
-    97      (e = stmtOf p ∧ ∀ n ∈ (declConstants p).map (·.toConstantVal.name), n ∉ reduceOpNames)
+== ConLeche/Modular.lean#L93-L95
+    93  def Presents (e p : Declaration) : Prop :=
+    94    ((declConstants e).Perm (declConstants p) ∧ declTables e = declTables p) ∨
+    95      (e = stmtOf p ∧ ∀ n ∈ (declConstants p).map (·.toConstantVal.name), n ∉ reduceOpNames)
 
 == ConLeche/Modular/Generic.lean#L305-L306
    305  theorem modular : ∀ k, (∀ i < k, dev.Valid i) →
@@ -7287,27 +7287,26 @@
     34  theorem checkDecls_sound
     35      {ds : Array Declaration} {env' : Env}
 
-== ConLeche/Modular.lean#L255-L258
-   255  structure LocalOk (mode : CheckMode) (pins : List NatOpPinSet) (dev : Nat → Module) (i : Nat) :
-   256      Prop where
-   257    iface : InterfaceOk dev i
-   258    importOk : ImportOk mode pins dev i
+== ConLeche/Modular.lean#L232-L235
+   232  structure LocalOk (mode : CheckMode) (pins : List NatOpPinSet) (dev : Nat → Module) (i : Nat) :
+   233      Prop where
+   234    iface : InterfaceOk dev i
+   235    importOk : ImportOk mode pins dev i
 
 == ConLeche/Modular/Generic.lean#L305-L306
    305  theorem modular : ∀ k, (∀ i < k, dev.Valid i) →
    306      ∃ m : (i : Nat) → i < k → S.Mod (dev.own i), dev.Compatible k m
 
-== ConLeche/MainTheorem.lean#L192-L201
-   192  theorem modular_model_exists (V : Type w) [SetTheory V]
-   193      (pins : List NatOpPinSet) (dev : Nat → Modular.Module) (i : Nat)
-   194      (hok : ∀ j ≤ i, Modular.LocalOk .verified pins dev j)
-   195      (hruns : ∀ j ≤ i, Modular.FormerRuns dev j) :
-   196      ∃ m : ∀ j ≤ i, Model V (dev j).own,
-   197        (∀ j hj j' hj' n, ((dev j).own.find? n).isSome = true →
-   198          ((dev j').own.find? n).isSome = true → (dev j).key n = (dev j').key n →
-   199          (m j hj).cval n = (m j' hj').cval n) ∧
-   200        ∀ j hj n s, ((dev j).own.find? n).isSome = true → (dev j).key n = .proof s →
-   201          (m j hj).cval n = fun _ => pt := by
+== ConLeche/MainTheorem.lean#L190-L198
+   190  theorem modular_model_exists (V : Type w) [SetTheory V]
+   191      (pins : List NatOpPinSet) (dev : Nat → Modular.Module) (i : Nat)
+   192      (hok : ∀ j ≤ i, Modular.LocalOk .verified pins dev j) :
+   193      ∃ m : ∀ j ≤ i, Model V (dev j).own,
+   194        (∀ j hj j' hj' n, ((dev j).own.find? n).isSome = true →
+   195          ((dev j').own.find? n).isSome = true → (dev j).key n = (dev j').key n →
+   196          (m j hj).cval n = (m j' hj').cval n) ∧
+   197        ∀ j hj n s, ((dev j).own.find? n).isSome = true → (dev j).key n = .proof s →
+   198          (m j hj).cval n = fun _ => pt := by
 
 == ConLeche/Frontend/Prepare.lean#L174-L175
    174  def preparePrelude (pre : PreludeIx) (ds : Array Declaration) : Array Declaration :=

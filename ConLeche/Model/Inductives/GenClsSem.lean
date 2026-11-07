@@ -1,6 +1,5 @@
 module
 
-import ConLeche.Model.Env.CanonCrest
 import ConLeche.Verify.Inductives.NestContInv
 import ConLeche.Model.OpenedCtx
 import ConLeche.Verify.Denote.IndFrame
