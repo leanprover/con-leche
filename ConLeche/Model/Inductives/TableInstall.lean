@@ -158,7 +158,6 @@ theorem declStep_preserves_of_pushTable (mp : EnvModelM V env) {t : ProjTable}
         exact towerEntryLaw_ext mp hx φ hf
     lfpBlocks := mp.lfpBlocks
     lfp_ok := mp.lfp_ok_transport (fun _ _ hf _ => hf) (fun _ _ _ _ => rfl)
-      (fun ψ d _ _ hb hta => hx.denote hb hta)
-      (fun _ => ConstsBound.of_isSome (env₀ := env) (env₁ := ⟨env.consts, t :: env.tables⟩) fun _ h => h) }, rfl⟩
+      (fun ψ d _ _ hb hta => hx.denote hb hta) }, rfl⟩
 
 end ConLeche.Model

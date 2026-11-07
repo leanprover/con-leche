@@ -22,8 +22,7 @@ con-leche's graded models (`conlecheSemantics`), so that the modular theorem is 
   covered model (`EnvModelM`, with the η-family run and closure and the `Nat` facts) reading its
   leaves; a name's **value** is its leaf, and every proof's is the canonical proof `.prf`.
 * **Assembly** (`AssembledX`): the environment is a member's, exposing no more names, or every name
-  of it is exposed and read from a member exposing what it reads (`CtxRead`, `Read.lean`), the
-  definition-headed formers reducing as at their sources (`FormerRunsX`).
+  of it is exposed and read from a member exposing what it reads (`CtxRead`, `Read.lean`).
 * **Amalgamation** gives each name the leaf of the member it is read from, and `ctxModel` builds
   the model (`Restrict.lean`).
 * **Acceptance** is the fold's run from the context, with the proof flags; **the step** is
@@ -50,7 +49,7 @@ variable (V : Type w) [SetTheory V]
 @[expose] def MMod (E : XEnv) : Type :=
   { a : Name → (Name → Nat) → Term // (∀ n ψ, Term.Closed (a n ψ)) ∧
     (∀ n ψ (ρ : Nat → V), WellDenoted V ρ (a n ψ)) ∧
-    ∃ mp : EnvModelM V E.1, LfpCover mp [] ∧ FamilyRan mp ∧ EtaFamiliesClosed E.1 ∧ NatFacts E.1 ∧
+    ∃ mp : EnvModelM V E.1, LfpCover mp [] ∧ EtaFamiliesClosed E.1 ∧ NatFacts E.1 ∧
       ∀ n, (E.1.find? n).isSome = true → mp.base2.acval n = a n }
 
 variable {V}
@@ -61,15 +60,6 @@ variable {V}
   | some i => (E i).1
   | none => Env.empty
 
-/-- **The definition-headed formers reduce as at their sources** (`ctxModel`'s `hdh`; see
-`ConLeche.Modular.FormerRuns`, which task #469 is to discharge). -/
-@[expose] def FormerRunsX (C : Env) (E R : Name → Env) : Prop :=
-  ∀ n T cv caps, (C.find? n).isSome = true → ((R n).find? T).isSome = true →
-    C.find? T = some (.indInfo cv caps) → formerDefHeaded cv = true →
-    ∀ F f, reducedFormer (fueledOps .verified F) (E n) cv (caps.nparams + caps.nIdx) = .ok f →
-      f.type.constsResolve (R n) = true ∧
-      ∃ F', reducedFormer (fueledOps .verified F') C cv (caps.nparams + caps.nIdx) = .ok f
-
 /-- **Assembly** (see the module docstring). -/
 inductive AssembledX (C : XEnv) {ι : Type} (E : ι → XEnv) : Prop
   /-- `C` is a member's environment, exposing no more names -/
@@ -78,7 +68,7 @@ inductive AssembledX (C : XEnv) {ι : Type} (E : ι → XEnv) : Prop
   | reads (src : Name → Option ι) (R : Name → Env) (hall : ∀ n, C.2 n)
       (hsrc : ∀ n, (C.1.find? n).isSome = true → (src n).isSome = true)
       (hexp : ∀ n i, src n = some i → ∀ d, ((R n).find? d).isSome = true → (E i).2 d)
-      (hread : CtxRead C.1 (srcEnv E src) R) (hruns : FormerRunsX C.1 (srcEnv E src) R)
+      (hread : CtxRead C.1 (srcEnv E src) R)
 
 theorem srcEnv_of {ι : Type} {E : ι → XEnv} {src : Name → Option ι} {n : Name} {i : ι}
     (h : src n = some i) : srcEnv E src n = (E i).1 := by
@@ -88,7 +78,7 @@ theorem AssembledX.src {C : XEnv} {ι : Type} {E : ι → XEnv} (h : AssembledX 
     (hn : StoresX C n) : ∃ i, StoresX (E i) n := by
   cases h with
   | self i hC hs => exact ⟨i, by rw [← hC]; exact hn.1, hs n hn.1 hn.2⟩
-  | reads src R hall hsrc hexp hread _ =>
+  | reads src R hall hsrc hexp hread =>
     obtain ⟨i, hi⟩ := Option.isSome_iff_exists.mp (hsrc n hn.1)
     have hself := hread.self n hn.1
     obtain ⟨ci, hci⟩ := Option.isSome_iff_exists.mp hself
@@ -106,9 +96,9 @@ theorem amalgamateX {C : XEnv} {ι : Type} {E : ι → XEnv} (h : AssembledX C E
   | self i hC hs =>
     refine ⟨⟨(m i).1, by rw [hC]; exact (m i).2⟩, fun n i' hn hs' => ?_⟩
     exact hc n i i' hn ⟨by rw [← hC]; exact hn.1, hs n hn.1 hn.2⟩ hs'
-  | reads src R hall hsrc hexp hread hruns =>
+  | reads src R hall hsrc hexp hread =>
     -- each name's source model
-    have hex : ∀ n, ∃ mp : EnvModelM V (srcEnv E src n), LfpCover mp [] ∧ FamilyRan mp ∧
+    have hex : ∀ n, ∃ mp : EnvModelM V (srcEnv E src n), LfpCover mp [] ∧
         EtaFamiliesClosed (srcEnv E src n) ∧ NatFacts (srcEnv E src n) ∧
         ∀ i, src n = some i → ∀ d, ((E i).1.find? d).isSome = true →
           mp.base2.acval d = (m i).1 d := by
@@ -116,12 +106,12 @@ theorem amalgamateX {C : XEnv} {ι : Type} {E : ι → XEnv} (h : AssembledX C E
       cases hs : src n with
       | none =>
         rw [show srcEnv E src n = Env.empty by simp only [srcEnv, hs]]
-        obtain ⟨⟨mp, hcov, hran⟩, heta, hnat⟩ := EnvModelOk.empty (V := V)
-        exact ⟨mp, hcov, hran, heta, hnat, fun _ h => nomatch h⟩
+        obtain ⟨⟨mp, hcov⟩, heta, hnat⟩ := EnvModelOk.empty (V := V)
+        exact ⟨mp, hcov, heta, hnat, fun _ h => nomatch h⟩
       | some i =>
         rw [show srcEnv E src n = (E i).1 by simp only [srcEnv, hs]]
-        obtain ⟨mp, hcov, hran, heta, hnat, hag⟩ := (m i).2.2.2
-        exact ⟨mp, hcov, hran, heta, hnat, fun i' hi' d hd => by
+        obtain ⟨mp, hcov, heta, hnat, hag⟩ := (m i).2.2.2
+        exact ⟨mp, hcov, heta, hnat, fun i' hi' d hd => by
           obtain rfl := Option.some.inj hi'
           exact hag d hd⟩
     let mm := fun n => Classical.choose (hex n)
@@ -159,12 +149,11 @@ theorem amalgamateX {C : XEnv} {ι : Type} {E : ι → XEnv} (h : AssembledX C E
       obtain ⟨hEd, hCd⟩ := hread.R_sub n d ci hci
       rw [srcEnv_of hi] at hEd
       obtain ⟨i', hi', hs'⟩ := hown d hCd
-      rw [(hmm n).2.2.2.2 i hi d (by rw [hEd]; rfl), haC d i' hi']
+      rw [(hmm n).2.2.2 i hi d (by rw [hEd]; rfl), haC d i' hi']
       exact hc d i' i ⟨hCd, hall d⟩ hs' ⟨by rw [hEd]; rfl, hexp n i hi d hd⟩
-    obtain ⟨mp, hcov, hran, heta, hnat, hac⟩ := ctxModel hread mm (fun n => (hmm n).1)
-      (fun n => (hmm n).2.2.1) (fun n => (hmm n).2.2.2.1) (fun n => (hmm n).2.1) hruns hleaf
-      hclosed hwd
-    refine ⟨⟨aC, hclosed, hwd, mp, hcov, hran, heta, hnat, hac⟩, fun n i hn hs => ?_⟩
+    obtain ⟨mp, hcov, heta, hnat, hac⟩ := ctxModel hread mm (fun n => (hmm n).1)
+      (fun n => (hmm n).2.1) (fun n => (hmm n).2.2.1) hleaf hclosed hwd
+    refine ⟨⟨aC, hclosed, hwd, mp, hcov, heta, hnat, hac⟩, fun n i hn hs => ?_⟩
     obtain ⟨i', hi', hs'⟩ := hown n hn.1
     show aC n = _
     rw [haC n i' hi']
@@ -189,12 +178,12 @@ theorem AcceptsX.step {pins : List NatOpPinSet} {Γ Γ' : XEnv} {D : List Declar
     ∃ m' : MMod V Γ', (∀ n, StoresX Γ n → m'.1 n = m.1 n) ∧
       ∀ n, FlaggedX D n → m'.1 n = fun _ => Term.prf := by
   obtain ⟨hΓ', ⟨k, q, hrun⟩, hfl⟩ := h
-  obtain ⟨-, -, mp, hcov, hran, heta, hnat, hag⟩ := m.2
-  have key := declsRun_flags (V := V) hrun rfl hfl mp hcov hran heta hnat
+  obtain ⟨-, -, mp, hcov, heta, hnat, hag⟩ := m.2
+  have key := declsRun_flags (V := V) hrun rfl hfl mp hcov heta hnat
   have henv : q.2.env = Γ'.1 := by rw [declsRun_env .verified hrun, hΓ']; rfl
   rw [henv] at key
-  obtain ⟨mp', hleaf, hcov', hran', heta', hnat', hflag⟩ := key
-  refine ⟨⟨mp'.base2.acval, mp'.base2.cval_closed, mp'.base2.acval_wellDenoted, mp', hcov', hran',
+  obtain ⟨mp', hleaf, hcov', heta', hnat', hflag⟩ := key
+  refine ⟨⟨mp'.base2.acval, mp'.base2.cval_closed, mp'.base2.acval_wellDenoted, mp', hcov',
     heta', hnat', fun _ _ => rfl⟩, fun n hn => (hleaf n hn.1).trans (hag n hn.1), fun n ⟨hp, d, hd, hnd⟩ =>
     hflag d hd n hnd hp⟩
 

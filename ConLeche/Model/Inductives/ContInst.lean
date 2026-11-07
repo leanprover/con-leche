@@ -198,13 +198,9 @@ theorem instCtor_read {c j : Nat} (hc : c < D.k) (hj : j < D.nctors c) {cv : Con
     {nF : Nat} (hfc : env.find? (D.ctorName c j) = some (.ctorInfo cv ds.length nF)) :
     cv.levelParams = lps ∧ ∃ crest ab,
       ConLeche.instPisWith ds (cv.type.instantiateLevelParams cv.levelParams us) = some crest ∧
-      (∃ Tys : List Term, Tys.length = D.k ∧
-        (∀ mm, mm < D.k → ∃ cvm caps ty, env.find? (D.member mm) = some (.indInfo cvm caps) ∧
-          ConLeche.instPisWith (canonParams ds.length) (D.formerAt mm cvm).type = some ty ∧
-          denote mp.base2.acval env (Level.substFn φ lps us) (ds.length + mm) ty
-            = some (Tys.getD mm default)) ∧
-        FieldsEqOn V (D.params (Level.substFn φ lps us) ++ Tys).reverse (ab)
-          (D.fields (Level.substFn φ lps us) c j)) ∧ ab.length = nF ∧
+      FieldsEqOn V (D.params (Level.substFn φ lps us)
+        ++ D.holeTys (Level.substFn φ lps us)).reverse (ab)
+          (D.fields (Level.substFn φ lps us) c j) ∧ ab.length = nF ∧
       denote mp.base2.acval env φ hi crest
         = some (mkPisAV (Term.substTele (instTau mp φ D us hi ds) 0 ab)
             (Term.substAV (instTau mp φ D us hi ds)
@@ -224,8 +220,8 @@ theorem instCtor_read {c j : Nat} (hc : c < D.k) (hj : j < D.nctors c) {cv : Con
     rw [← hlm, hlm']
   refine ⟨hlp, ?_⟩
   subst hlp
-  obtain ⟨-, -, ab, Tys, hab, hlab, hlT, hTys, hEqF⟩ := hread (Level.substFn φ cv.levelParams us)
-  generalize hn : ds.length = n at hA hab hTys hEqF
+  obtain ⟨-, -, ab, hab, hlab, hEqF⟩ := hread (Level.substFn φ cv.levelParams us)
+  generalize hn : ds.length = n at hA hab hEqF
   have hdl := hn
   -- the recorded abstraction, unfolded
   unfold ConLeche.nestCanonCrest at hA
@@ -290,7 +286,7 @@ theorem instCtor_read {c j : Nat} (hc : c < D.k) (hj : j < D.nctors c) {cv : Con
       rw [ite_eq_left (by omega), ite_eq_right (by omega), show n + m - ds.length = m by omega]
       rfl
   rw [hfill] at hsub
-  refine ⟨_, ab, hsub, ⟨Tys, hlT, hTys, hEqF⟩, hlab, ?_⟩
+  refine ⟨_, ab, hsub, hEqF, hlab, ?_⟩
   have h := denote_substFvars (φ := φ) mp.base2 (b := n + D.k) (D := hi) (s := instS D us ds)
     (x := fun q => (denote mp.base2.acval env φ hi (instS D us ds q)).getD .prf)
     (fun i hi' => by
@@ -352,12 +348,9 @@ parameter telescope, a spine fits the instantiated constructor's fields
 as read exactly when it fits the recorded fields at the carrier's hole
 frame; and the recorded result indices read alike at the two. -/
 theorem instCtor_fit {c j : Nat} (_hc : c < D.k) (_hj : j < D.nctors c) {nF : Nat}
-    {ab : List Term} {Tys : List Term} (hlT : Tys.length = D.k)
-    (hTys : ∀ mm, mm < D.k → ∃ cvm caps ty, env.find? (D.member mm) = some (.indInfo cvm caps) ∧
-      ConLeche.instPisWith (canonParams ds.length) (D.formerAt mm cvm).type = some ty ∧
-      denote mp.base2.acval env (Level.substFn φ lps us) (ds.length + mm) ty
-        = some (Tys.getD mm default))
-    (hEq : FieldsEqOn V (D.params (Level.substFn φ lps us) ++ Tys).reverse (ab)
+    {ab : List Term}
+    (hEq : FieldsEqOn V (D.params (Level.substFn φ lps us)
+      ++ D.holeTys (Level.substFn φ lps us)).reverse (ab)
       (D.fields (Level.substFn φ lps us) c j)) (hlen : ab.length = nF)
     {ρ : Nat → V} (hs : Sat V (D.params (Level.substFn φ lps us)).reverse (keyFrame dsa hi ρ)) :
     (∀ fs : List V,
@@ -372,7 +365,7 @@ theorem instCtor_fit {c j : Nat} (_hc : c < D.k) (_hj : j < D.nctors c) {nF : Na
           = interp V (consList fs (D.frame (Level.substFn φ lps us) (keyFrame dsa hi ρ)
               (D.carrier (Level.substFn φ lps us) (keyFrame dsa hi ρ)))) e := by
   have hS := instTau_frame mp hD hlps hul hds hdsa hlenP ρ hs
-  have hsat := frameVals_sat mp hD hs hlenP hlT hTys
+  have hsat := frameVals_sat mp hD hs
     (D.carrier (Level.substFn φ lps us) (keyFrame dsa hi ρ)) (lfpTuple_mem _ _ _ _)
   have hfit : ∀ fs : List V,
       SpineFit ρ ((Term.substTele (instTau mp φ D us hi ds) 0 ab)) fs ↔
@@ -398,12 +391,9 @@ the carrier at that tuple, and the constructor's leaf applied to the
 parameters and the spine is the clause's injection. -/
 theorem instCtor_decode {c j : Nat} (hc : c < D.k)
     (hj : j < D.nctors c) {nF : Nat}
-    {ab : List Term} {Tys : List Term} (hlT : Tys.length = D.k)
-    (hTys : ∀ mm, mm < D.k → ∃ cvm caps ty, env.find? (D.member mm) = some (.indInfo cvm caps) ∧
-      ConLeche.instPisWith (canonParams ds.length) (D.formerAt mm cvm).type = some ty ∧
-      denote mp.base2.acval env (Level.substFn φ lps us) (ds.length + mm) ty
-        = some (Tys.getD mm default))
-    (hEq : FieldsEqOn V (D.params (Level.substFn φ lps us) ++ Tys).reverse (ab)
+    {ab : List Term}
+    (hEq : FieldsEqOn V (D.params (Level.substFn φ lps us)
+      ++ D.holeTys (Level.substFn φ lps us)).reverse (ab)
       (D.fields (Level.substFn φ lps us) c j)) (hlen : ab.length = nF)
     {ρ : Nat → V} (hs : Sat V (D.params (Level.substFn φ lps us)).reverse (keyFrame dsa hi ρ))
     {fs : List V}
@@ -422,7 +412,7 @@ theorem instCtor_decode {c j : Nat} (hc : c < D.k)
         = D.inj (Level.substFn φ lps us) c j fs := by
   obtain ⟨h, -, -, -⟩ := mp.lfp_ok D hD
   have hcN : c < D.N := Nat.lt_of_lt_of_le hc h.kN
-  obtain ⟨hF, hI⟩ := instCtor_fit mp hD hlps hul hds hdsa hlenP hc hj hlT hTys hEq hlen hs
+  obtain ⟨hF, hI⟩ := instCtor_fit mp hD hlps hul hds hdsa hlenP hc hj hEq hlen hs
   have hI' := hI fs hfit
   generalize hψ : Level.substFn φ lps us = ψ at hs hlenP hF hI' ⊢
   have hfC := (hF fs).mp hfit

@@ -102,25 +102,25 @@ installs is the canonical proof. -/
 theorem declsRun_flags {proofs : Name → Bool} :
     ∀ {ds : List Declaration} {p q : Nat × FEnv}, DeclsRun .verified pins ds p q →
     ∀ {E : Env}, p.2 = mkFEnv E → FlagsOk .verified pins proofs E ds →
-    ∀ mp : EnvModelM V E, LfpCover mp [] → FamilyRan mp → EtaFamiliesClosed E → NatFacts E →
+    ∀ mp : EnvModelM V E, LfpCover mp [] → EtaFamiliesClosed E → NatFacts E →
     ∃ mp' : EnvModelM V q.2.env,
       (∀ n, (E.find? n).isSome = true → mp'.base2.acval n = mp.base2.acval n) ∧
-      LfpCover mp' [] ∧ FamilyRan mp' ∧ EtaFamiliesClosed q.2.env ∧ NatFacts q.2.env ∧
+      LfpCover mp' [] ∧ EtaFamiliesClosed q.2.env ∧ NatFacts q.2.env ∧
       ∀ d ∈ ds, ∀ n ∈ declNames d, proofs n = true → mp'.base2.acval n = fun _ => .prf := by
   intro ds p q hrun
   induction hrun with
   | nil p =>
-    intro E hp _ mp hcov hS hE hN
+    intro E hp _ mp hcov hE hN
     rw [hp]
-    exact ⟨mp, fun _ _ => rfl, hcov, hS, hE, hN, fun _ h => nomatch h⟩
+    exact ⟨mp, fun _ _ => rfl, hcov, hE, hN, fun _ h => nomatch h⟩
   | @cons pd ds p p₁ q hstep rest ih =>
-    intro E hp hfl mp hcov hS hE hN
+    intro E hp hfl mp hcov hE hN
     obtain ⟨fe₁, s₁, rfl, hstepC⟩ := declStep_ok hstep
     rw [hp] at hstepC
     have henv : EnvWF E := mp.base2.wf
     obtain ⟨-, hcanon, F, hF⟩ := checkDeclStepC_run henv CSOKF.empty hstepC
-    obtain ⟨⟨mp₁, hleaf₁, hcov₁, hS₁, hPL⟩, hE₁, hN₁⟩ :=
-      declStep_agrees mp hcov hS hE hN (checkDeclRun_ofEnvFactsK hF)
+    obtain ⟨⟨mp₁, hleaf₁, hcov₁, hPL⟩, hE₁, hN₁⟩ :=
+      declStep_agrees mp hcov hE hN (checkDeclRun_ofEnvFactsK hF)
     have hfe₁ : fe₁.env = streamEnv [pd] E := by
       have h₁ := checkDeclStepC_pushes (pins := pins) .verified (mkFEnv E) pd {} fe₁ s₁ hstepC
       simp only at h₁
@@ -129,12 +129,12 @@ theorem declsRun_flags {proofs : Name → Bool} :
     cases hfl with
     | cons hflag hrest =>
     rw [← hfe₁] at hrest
-    obtain ⟨mp', hleaf', hcov', hS', hE', hN', hfl'⟩ :=
-      ih (E := fe₁.env) hcanon hrest mp₁ hcov₁ hS₁ hE₁ hN₁
+    obtain ⟨mp', hleaf', hcov', hE', hN', hfl'⟩ :=
+      ih (E := fe₁.env) hcanon hrest mp₁ hcov₁ hE₁ hN₁
     have hst : ∀ n, (E.find? n).isSome = true ∨ n ∈ declNames pd →
         (fe₁.env.find? n).isSome = true := fun n h => by
       rw [hfe₁]; exact find?_pushDelta_isSome h
-    refine ⟨mp', fun n hn => (hleaf' n (hst n (.inl hn))).trans (hleaf₁ n hn), hcov', hS', hE',
+    refine ⟨mp', fun n hn => (hleaf' n (hst n (.inl hn))).trans (hleaf₁ n hn), hcov', hE',
       hN', fun d hd n hn hp => ?_⟩
     rcases List.mem_cons.mp hd with rfl | hd
     · rw [hleaf' n (hst n (.inr hn))]

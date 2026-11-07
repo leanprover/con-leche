@@ -89,7 +89,7 @@ theorem keyFit_of_wd (mp : EnvModelM V env) {D : LfpDatum V}
   dsimp only [ConLeche.ConstantInfo.toConstantVal] at hul ⊢
   refine ⟨hul, vs, hsp, rfl, fun ρ hwd σ => ?_⟩
   generalize hψ : Level.substFn φ cv.levelParams us = ψ at hlen hwd ⊢
-  obtain ⟨cv', caps', hf', -, hval⟩ := mp.lfpReadsV hD mm hmm
+  obtain ⟨cv', caps', hf', -, hval, -⟩ := mp.lfpReads hD mm hmm
   rw [hf] at hf'
   obtain ⟨rfl, rfl⟩ : cv = cv' ∧ caps = caps' := by simpa using hf'
   obtain ⟨ta₀, hta₀, hv⟩ := hval ψ
@@ -101,7 +101,7 @@ theorem keyFit_of_wd (mp : EnvModelM V env) {D : LfpDatum V}
       (ConLeche.Expr.WScoped.of_not_hasFvar hwf.1) hwf.2.2.2.1 hta₀
   have hin : interp V ρ (mp.base2.acval (D.member mm) ψ)
       ∈ˢ interp V σ (mkPisAV (D.pars mm ψ ++ D.ids mm ψ) (.sort (D.w ψ))) := by
-    rw [← (hv σ).1, interp_closed V hcl σ ρ]
+    rw [← hv σ, interp_closed V hcl σ ρ]
     have := mp.mem_type _ hmem ψ _ hta₀ ρ
     rwa [ConLeche.Env.find?_name hf] at this
   -- "not pt" source (1): the family instance is a type
@@ -384,45 +384,5 @@ theorem keyRunFit (mp : EnvModelM V env) (hin : Rules.RulesInputs V mp.base2 φ)
   rw [hsplit] at hcl'
   exact spineFit_congr_below (ρ' := fun j => ρ (j + d))
     (bvarsBelow_mkPisAV_inv hcl').1 (fun i hi => absurd hi (Nat.not_lt_zero i)) hsp
-
-/-- **The key's parameters fit the container's parameter telescope**, at
-every valuation of the key's context (`keyRunFit` at the former as its block read it). -/
-theorem keyParamsFit (mp : EnvModelM V env)
-    (hin : Rules.RulesInputs V mp.base2 φ) {D : LfpDatum V}
-    (hD : D ∈ mp.lfpBlocks) {mm : Nat} (hmm : mm < D.k) {cv : ConstantVal} {caps : IndCaps}
-    (hf : env.find? (D.member mm) = some (.indInfo cv caps)) {us : List Level} {d : Nat}
-    {ds : List Expr}
-    (hcerts : ConLeche.Rules.CertsF env d
-      ((D.formerAt mm cv).type.instantiateLevelParams cv.levelParams us) ds)
-    (hlenP : ds.length = (D.params (Level.substFn φ cv.levelParams us)).length)
-    {Δa : List Term} (hΔ : Δa.length = d)
-    (hfr : ∀ x ∈ ds, Rules.Frame d x ∧ CtxOkS mp.base2 φ d Δa x) {dsa : List Term}
-    (hdsa : DenoteSpine mp.base2.acval env φ d ds dsa) :
-    ∀ ρ : Nat → V, Sat V Δa ρ → (∀ x ∈ ds, LeavesGr mp.base2 φ d x ρ) →
-      Sat V (D.params (Level.substFn φ cv.levelParams us)).reverse (keyFrame dsa d ρ) ∧
-      ∀ a ∈ dsa, WellDenoted V ρ a := by
-  intro ρ hρ hL
-  obtain ⟨hwf₁, hwf₂, -⟩ := mp.formerAt_wf hD hmm hf
-  generalize hψ : Level.substFn φ cv.levelParams us = ψ at hlenP ⊢
-  obtain ⟨h, -, hrd, -⟩ := mp.lfp_ok D hD
-  obtain ⟨cv', caps', hf', -, hab⟩ := hrd mm hmm
-  rw [hf] at hf'
-  obtain ⟨rfl, rfl⟩ : cv = cv' ∧ caps = caps' := by simpa using hf'
-  obtain ⟨ab, hta, hmap⟩ := hab ψ
-  have hpl := h.parsLen mm hmm ψ
-  have hlab : ds.length ≤ ab.length := by
-    have := congrArg List.length hmap
-    simp only [List.length_append] at this
-    omega
-  obtain ⟨hsp, hwdV⟩ := keyRunFit mp hin hwf₁ hwf₂ hcerts (hψ ▸ hta)
-    (fun ρ => (mp.formerAt_wellDenotedTy hD hmm hf hta ρ).1) hlab hΔ hfr hdsa ρ hρ hL
-  refine ⟨?_, hwdV⟩
-  have hmap₁ : (ab.take ds.length) = D.pars mm ψ := by
-    rw [hmap, hlenP, ← hpl, List.take_left' rfl]
-  rw [hmap₁] at hsp
-  have hsatP : Sat V (D.pars mm ψ).reverse (keyFrame dsa d ρ) := by
-    have := sat_of_spineFit (Sat_nil V (fun j => ρ (j + d))) hsp
-    simpa [keyFrame] using this
-  exact h.parsSatInv mm hmm ψ _ hsatP
 
 end ConLeche.Model

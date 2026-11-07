@@ -260,7 +260,7 @@ theorem dyn_ctorFit {F : Nat} {envI envC : Env} {mk : EnvModelM V envI}
   have hfc := hfL j hjL
   rw [hnP'] at hfc
   obtain ⟨crest, ks, nds, cur, ts', ty, sv, hcr, hty, hsort, htele, hsub⟩ := hallc _ hxmem
-  obtain ⟨-, crest', ab, hcr', ⟨Tys, hlT, hTys, hEqF⟩, hlen, hrd⟩ :=
+  obtain ⟨-, crest', ab, hcr', hEqF, hlen, hrd⟩ :=
     crest_read mk hD hnN hkN H.hcov.find hlps hndl hul hds hdsa (hlenP _) hg hG.1 hj hfc
   rw [hcr] at hcr'
   obtain rfl := Option.some.inj hcr'
@@ -294,7 +294,7 @@ theorem dyn_ctorFit {F : Nat} {envI envC : Env} {mk : EnvModelM V envI}
   have hS := substE_grp mk hD hnN hkN H.hcov.find hlps hndl hul hds hdsa (hlenP _) hg Y σ
   rw [hρ'] at hS
   obtain ⟨-, hsp, -⟩ := hf
-  have hsatS := frameVals_sat mk hD hs (hlenP _) hlT hTys Y hY
+  have hsatS := frameVals_sat mk hD hs Y hY
   have hsp' := (hEqF.spineFit_iff hsatS fs).mpr hsp
   have hW := (spineFit_substTele V _ ab 0 _ fs).mpr (by rw [hS]; exact hsp')
   -- the frame's context is satisfied

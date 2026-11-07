@@ -74,7 +74,6 @@ theorem blockCtorReads_of {env : Env} {m : EnvModel V env} {d : BlockData V} {lp
     {A : Nat → (Name → Nat) → Term}
     (hN : BlockNamesOk (V := V) d formers) (hcore : BlockCtorsCore m d lps formers p₁ isRec A d.k)
     (hk : d.k = d.memberNames.length)
-    (htelescope : ∀ (c : Nat) (cvTb : ConstantVal), formers[c]? = some cvTb → d.telescope c = some cvTb)
     (hlpsT : ∀ (c : Nat) (cvTb : ConstantVal), c < d.k → formers[c]? = some cvTb →
       cvTb.levelParams = lps)
     (hclosed : ∀ (c j : Nat) (ctor : ConstantVal × Nat), (d.ctorsM c)[j]? = some ctor →
@@ -135,27 +134,6 @@ theorem blockCtorReads_of {env : Env} {m : EnvModel V env} {d : BlockData V} {lp
       simp only [BlockData.params, List.length_take, hlenP0]; omega
     have habLen : (d.absF ψ c j).length = ctor.2 := by
       rw [← habN, hlabN]
-    refine ⟨hlenParams, habLen, ab, (List.range d.k).map fun t =>
-      (mkPisAV ((d.ppsM t ψ).drop d.nP) (.sort (d.w ψ))).liftN t 0, hca, hlab,
-      by simp [BlockData.toLfp], fun mm hmm => ?_, hEq⟩
-    obtain ⟨cvTb, hcvb⟩ : ∃ cvTb, formers[mm]? = some cvTb :=
-      ⟨_, List.getElem?_eq_getElem (by rw [hN.2.2]; exact hmm)⟩
-    obtain ⟨⟨cvS, hfb, hDb⟩, -, -, hFDt⟩ := hcore.1 mm cvTb hcvb
-    have hmm' : mm < d.k := hmm
-    have hcvbCl : cvTb.type.hasFvar = false := hDb.readFvar
-    obtain ⟨bs, s, hsyn⟩ := hFDt.syn
-    obtain ⟨ty, hty, -, hread⟩ := formerHoleTy_read m.acval_closed (ψ := ψ) hcvbCl
-      (stripPis_isSome_of_le (Nat.le_add_right d.nP _) (by rw [hsyn]; rfl))
-      (by rw [hFDt.len ψ]; omega) (hFDt.read ψ)
-    refine ⟨cvS, ConLeche.blockCapsAt p₁ mm isRec, ty, ?_, ?_, ?_⟩
-    · show env.find? (d.memberNames.getD mm .anonymous) = _
-      rw [show d.memberNames.getD mm .anonymous = cvTb.name from hN.1 mm cvTb hcvb]
-      exact hfb
-    · show ConLeche.instPisWith _ ((d.telescope mm).getD cvS).type = some ty
-      rw [htelescope mm cvTb hcvb]
-      exact hty
-    · rw [hread (d.nP + mm) (Nat.le_add_right _ _), List.getD_eq_getElem?_getD, List.getElem?_map,
-        List.getElem?_range hmm', show d.nP + mm - d.nP = mm by omega]
-      rfl
+    exact ⟨hlenParams, habLen, ab, hca, hlab, hEq⟩
 
 end ConLeche.Model

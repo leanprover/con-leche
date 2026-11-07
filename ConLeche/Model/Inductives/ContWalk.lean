@@ -311,13 +311,13 @@ theorem grp_typeT {p : Name × Expr} (hp : p ∈ grp) :
       obtain ⟨rfl, rfl⟩ : ab = ab' ∧ u = u' := by
         have := Option.some.inj hta'
         exact mkPisAV_sort_inj this
-      obtain ⟨cv'', caps'', hf'', -, hval''⟩ := mp.lfpReadsV hD mm hmm
+      obtain ⟨cv'', caps'', hf'', -, hval'', -⟩ := mp.lfpReads hD mm hmm
       rw [hf] at hf''
       obtain ⟨rfl, rfl⟩ : cv = cv'' ∧ caps = caps'' := by simpa using hf''
       obtain ⟨ta, hta'', hv''⟩ := hval'' (Level.substFn φ cv.levelParams us)
       have hm := mp.mem_type _ (ConLeche.Env.find?_mem hf) _ ta hta'' ρ
       rw [ConLeche.Env.find?_name hf, ← hpm] at hm
-      rw [(hv' ρ).1, ← (hv'' ρ).1]
+      rw [(hv' ρ).1, ← hv'' ρ]
       exact hm
     refine ⟨mm, hmm, hpm, ab, u, hl, hwd, hrd, fun hin Δa hΔ hCds hLds ρ hρ => ?_, hval, hmem⟩
     exact keyRunFit mp hin hR.1 hR.2.1 hcerts hta (fun ρ => (hwd ρ).1)
@@ -462,13 +462,9 @@ theorem crest_readT {c j : Nat} (hc : c < D.k) (hj : j < D.nctors c) {cv : Const
     cv.levelParams = lps ∧ ∃ crest ab,
       ConLeche.nestCrest (grp.map (·.1)) us ds (grpHoles hi grp)
         (cv.type.instantiateLevelParams cv.levelParams us) = some crest ∧
-      (∃ Tys : List Term, Tys.length = D.k ∧
-        (∀ mm, mm < D.k → ∃ cvm caps ty, env.find? (D.member mm) = some (.indInfo cvm caps) ∧
-          instPisWith (canonParams ds.length) (D.formerAt mm cvm).type = some ty ∧
-          denote mp.base2.acval env (Level.substFn φ lps us) (ds.length + mm) ty
-            = some (Tys.getD mm default)) ∧
-        FieldsEqOn V (D.params (Level.substFn φ lps us) ++ Tys).reverse (ab)
-          (D.fields (Level.substFn φ lps us) c j)) ∧ ab.length = nF ∧
+      FieldsEqOn V (D.params (Level.substFn φ lps us)
+        ++ D.holeTys (Level.substFn φ lps us)).reverse (ab)
+          (D.fields (Level.substFn φ lps us) c j) ∧ ab.length = nF ∧
       denote mp.base2.acval env φ (hi + grp.length) crest
         = some (mkPisAV (Term.substTele (substTau (ds.length + D.k) (hi + grp.length)
               (grpX mp.base2 φ D hi grp ds (hi + grp.length))) 0 ab)
@@ -489,7 +485,7 @@ theorem crest_readT {c j : Nat} (hc : c < D.k) (hj : j < D.nctors c) {cv : Const
     obtain ⟨rfl, rfl⟩ : cvm = cvm' ∧ capsm = capsm' := by simpa using hfm'
     rw [← hlm, hlm']
   refine ⟨hlp, ?_⟩
-  obtain ⟨-, -, ab, Tys, hab, hlab, hlT, hTys, hEqF⟩ := hread (Level.substFn φ lps us)
+  obtain ⟨-, -, ab, hab, hlab, hEqF⟩ := hread (Level.substFn φ lps us)
   have hk : D.names.length = D.k := hkN
   obtain ⟨crest, hcr, hcrd⟩ := frameCrest_read mp.base2 (φ := φ) (names := D.names)
     (gnames := grp.map (·.1)) (lps := cv.levelParams) (n := ds.length) (us := us) (ds := ds)
@@ -508,7 +504,7 @@ theorem crest_readT {c j : Nat} (hc : c < D.k) (hj : j < D.nctors c) {cv : Const
     (fun i hi' => grpS_readT mp hD hkN hlps hnd hul hds hdsa hlenP hgT i (by omega))
     hcl hocc hA (by rw [hk, hlp]; exact hab)
   rw [hk] at hcrd
-  exact ⟨crest, ab, hcr, ⟨Tys, hlT, hTys, hEqF⟩, hlab, hcrd⟩
+  exact ⟨crest, ab, hcr, hEqF, hlab, hcrd⟩
 
 omit hnN hkN in
 /-- **A frame constructor's type is framed and its leaves are in the
@@ -579,32 +575,23 @@ end FrameT
 
 /-- **The hole frame's hole values satisfy the recorded reading's hole
 context**: the parameters at the key frame, then each member's hole value
-in its canonical hole type (`canonHoleTy_read`, `LfpDatum.holeVal_mem`). -/
+in its hole type (`LfpDatum.holeTys`, `LfpDatum.holeVal_mem`). -/
 theorem frameVals_sat (mp : EnvModelM V env) {D : LfpDatum V}
     (hD : D ∈ mp.lfpBlocks) {ψ : Name → Nat} {ρp : Nat → V} (hs : Sat V (D.params ψ).reverse ρp)
-    {nPc : Nat} (hnP : (D.params ψ).length = nPc) {Tys : List Term} (hlT : Tys.length = D.k)
-    (hTys : ∀ mm, mm < D.k → ∃ cvm caps ty, env.find? (D.member mm) = some (.indInfo cvm caps) ∧
-      instPisWith (canonParams nPc) (D.formerAt mm cvm).type = some ty ∧
-      denote mp.base2.acval env ψ (nPc + mm) ty = some (Tys.getD mm default))
     (X : Nat → V) (hX : InTupleSpace (D.w ψ) D.N (D.idx ψ ρp) X) :
-    Sat V (D.params ψ ++ Tys).reverse (D.frame ψ ρp X) := by
+    Sat V (D.params ψ ++ D.holeTys ψ).reverse (D.frame ψ ρp X) := by
   obtain ⟨h, -, -, -⟩ := mp.lfp_ok D hD
   rw [List.reverse_append]
   unfold LfpDatum.frame
   refine sat_of_spineFit hs ?_
-  have := spineFit_of_lifted Tys ((List.range D.k).map (D.holeVal ψ ρp X)) [] ρp (by simp [hlT])
+  have := spineFit_of_lifted (D.holeTys ψ) ((List.range D.k).map (D.holeVal ψ ρp X)) [] ρp
+    (by simp [LfpDatum.holeTys])
     fun i hi hi' => by
-      have hik : i < D.k := by rw [← hlT]; exact hi
-      obtain ⟨cvm, caps, ty, hfm, hty, hrd⟩ := hTys i hik
-      obtain ⟨abF, -, -, hmap, hw, hrd0⟩ :=
-        canonHoleTy_read mp hD hik hfm ((h.parsLen i hik ψ).trans hnP) hty
-      refine ⟨mkPisAV (abF.drop nPc) (.sort (D.w ψ)), ?_, ?_⟩
-      · rw [denote_lift mp.base2.acval_closed hw _ (by omega), hrd0, Option.map_some] at hrd
-        have e := Option.some.inj hrd
-        rw [List.getD_eq_getElem?_getD, List.getElem?_eq_getElem hi, Option.getD_some] at e
-        rw [← e, List.length_nil, Nat.zero_add, show nPc + i - nPc = i by omega]
+      have hik : i < D.k := by rw [D.holeTys_length] at hi; exact hi
+      refine ⟨mkPisAV (D.ids i ψ) (.sort (D.w ψ)), ?_, ?_⟩
+      · simp [LfpDatum.holeTys]
       · simp only [List.getElem_map, List.getElem_range]
-        exact LfpDatum.holeVal_mem h.kN hX.toU hik hmap
+        exact LfpDatum.holeVal_mem h.kN hX.toU hik rfl
   simpa using this
 
 section Frame
@@ -1010,13 +997,9 @@ theorem crest_read {c j : Nat} (hc : c < D.k) (hj : j < D.nctors c) {cv : Consta
     cv.levelParams = lps ∧ ∃ crest ab,
       ConLeche.nestCrest (grp.map (·.1)) us ds (grpHoles hi grp)
         (cv.type.instantiateLevelParams cv.levelParams us) = some crest ∧
-      (∃ Tys : List Term, Tys.length = D.k ∧
-        (∀ mm, mm < D.k → ∃ cvm caps ty, env.find? (D.member mm) = some (.indInfo cvm caps) ∧
-          instPisWith (canonParams ds.length) (D.formerAt mm cvm).type = some ty ∧
-          denote mp.base2.acval env (Level.substFn φ lps us) (ds.length + mm) ty
-            = some (Tys.getD mm default)) ∧
-        FieldsEqOn V (D.params (Level.substFn φ lps us) ++ Tys).reverse (ab)
-          (D.fields (Level.substFn φ lps us) c j)) ∧ ab.length = nF ∧
+      FieldsEqOn V (D.params (Level.substFn φ lps us)
+        ++ D.holeTys (Level.substFn φ lps us)).reverse (ab)
+          (D.fields (Level.substFn φ lps us) c j) ∧ ab.length = nF ∧
       denote mp.base2.acval env φ (hi + grp.length) crest
         = some (mkPisAV (Term.substTele (substTau (ds.length + D.k) (hi + grp.length)
               (grpX mp.base2 φ D hi grp ds (hi + grp.length))) 0 ab)
@@ -1121,7 +1104,7 @@ theorem frameIter (hin : RulesInputs V mp.base2 φ) {F : Nat}
     -- the constructor `(g, j)`
     obtain ⟨x, hxmem, hfc⟩ := grpCtor_found hcov hgc hG hj
     obtain ⟨-, crest, ca, cur, hcr, hca, hres, hidx, hpos⟩ := hw _ hxmem
-    obtain ⟨-, crest', ab, hcr', ⟨Tys, hlT, hTys, hEqF⟩, hlen, hrd⟩ :=
+    obtain ⟨-, crest', ab, hcr', hEqF, hlen, hrd⟩ :=
       crest_read mp hD hnN hkN hfind hlps hnd hul hds hdsa hlenP hg hG.1 hj hfc
     rw [hcr] at hcr'
     obtain rfl := Option.some.inj hcr'
@@ -1147,10 +1130,10 @@ theorem frameIter (hin : RulesInputs V mp.base2 φ) {F : Nat}
       (grpTuple D (Level.substFn φ lps us) grp (keyFrame dsa hi ρ) (keyFrame dsa hi ρ')) ρ
     have hLv := substE_grp mp hD hnN hkN hfind hlps hnd hul hds hdsa hlenP hg
       (D.carrier (Level.substFn φ lps us) (keyFrame dsa hi ρ')) ρ'
-    have hsatS := frameVals_sat mp hD hs hlenP hlT hTys _
+    have hsatS := frameVals_sat mp hD hs _
       (grpTuple_mem mp hD hnN hkN hfind hlps hds hdsa hlenP hg hin hΔ hCds hLds hag hd hd'
         hk hk')
-    have hsatL := frameVals_sat mp hD hs' hlenP hlT hTys
+    have hsatL := frameVals_sat mp hD hs'
       (D.carrier (Level.substFn φ lps us) (keyFrame dsa hi ρ')) (lfpTuple_mem _ _ _ _)
     exact ctor_transfer hEqF hlen hp hpos hres hidx ⟨ρ, ρ', ⟨hr, hk, hk'⟩, rfl, rfl⟩ hS hLv hsatS
       hsatL t fs hf

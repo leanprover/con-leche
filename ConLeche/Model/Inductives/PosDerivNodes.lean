@@ -1,6 +1,6 @@
 module
 
-public import ConLeche.Model.Inductives.FamilyRan
+public import ConLeche.Model.Inductives.RunEnv
 public import ConLeche.Model.Inductives.ContSem
 import ConLeche.Verify.InferLeaves
 import ConLeche.Model.Inductives.PosDerivMono

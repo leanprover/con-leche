@@ -205,7 +205,7 @@ theorem familyRead (mp : EnvModelM V env) {D : LfpDatum V} (hD : D ∈ mp.lfpBlo
     (hf : env.find? (D.member mm) = some (.indInfo cv caps)) {F : Nat} {ty : Expr}
     (hrun : ConLeche.familyTelescope (fueledOps .verified F) env cv caps = .ok ty) :
     FormerRead mp D mm ty := by
-  obtain ⟨cv', caps', hf', hflat, hval⟩ := mp.lfpReadsV hD mm hmm
+  obtain ⟨cv', caps', hf', hflat, hval, -⟩ := mp.lfpReads hD mm hmm
   rw [hf] at hf'
   obtain ⟨rfl, rfl⟩ : cv = cv' ∧ caps = caps' := by simpa using hf'
   obtain ⟨-, -, -, -, ⟨hcp, -⟩⟩ := mp.lfp_ok D hD
@@ -237,6 +237,6 @@ theorem familyRead (mp : EnvModelM V env) {D : LfpDatum V} (hD : D ∈ mp.lfpBlo
   obtain ⟨ta₀', hta₀', hv'⟩ := hval ψ
   rw [hta₀] at hta₀'
   obtain rfl := Option.some.inj hta₀'
-  exact ⟨ab, u, hty, by rw [hl, hlen], fun ρ => ⟨((hv ρ).1.symm.trans (hv' ρ).1), (hv ρ).2⟩⟩
+  exact ⟨ab, u, hty, by rw [hl, hlen], fun ρ => ⟨((hv ρ).1.symm.trans (hv' ρ)), (hv ρ).2⟩⟩
 
 end ConLeche.Model

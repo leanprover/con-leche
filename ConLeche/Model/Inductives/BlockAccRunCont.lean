@@ -328,17 +328,16 @@ theorem blockAcc_of_run {F : Nat}
     (hnfs : ∀ (c j : Nat) (ctor : ConstantVal × Nat), (d.ctorsM c)[j]? = some ctor →
       d.nfFF c j = (posKs.2.1.getD c []).getD j default)
     -- coverage at the walk's carrier (the containers' clauses are recorded)
-    (hcov : ∃ mk : EnvModelM V env, mk.base2 = mp.base2 ∧ LfpCover mk p.memberNames ∧
-      ∀ F, FamilyRead mk F)
+    (hcov : ∃ mk : EnvModelM V env, mk.base2 = mp.base2 ∧ LfpCover mk p.memberNames)
     (ψ : Name → Nat) (ρp : Nat → V) (hs : Sat V (d.params ψ).reverse ρp)
     (hG : ∀ c, c < d.N → ∀ j, j < (d.ctorsM c).length →
       ∀ X, InTupleSpace (d.toLfp.w ψ) d.toLfp.N (d.toLfp.idx ψ ρp) X →
       FieldsOkB (d.w ψ) (d.toLfp.frame ψ ρp X) (d.absF ψ c j)) :
     ∃ A, (d.toLfp.w ψ ≠ 0 → A ∈ˢ (tg (d.toLfp.w ψ) : V)) ∧ d.toLfp.FitAcc ψ ρp A := by
-  obtain ⟨mk, hbk, hcovk, hreads⟩ := hcov
+  obtain ⟨mk, hbk, hcovk⟩ := hcov
   have hcore' : BlockHoleCtxFacts mk.base2 d lps p.formers p₁ isRec := by rw [hbk]; exact hcore
   exact blockAccTuple_of_run mk hN hcore' hrun hnames hlps hread hnP hnIdxs hk hinst hlenCA hmemberCtors
-    hclosed hnfs ψ ρp hs (fun fvsP => ⟨contCover_of hcovk (fun _ => rfl) hreads,
+    hclosed hnfs ψ ρp hs (fun fvsP => ⟨contCover_of hcovk (fun _ => rfl),
       nestCtx_sort_eval hresS fvsP env.find? ψ⟩) hG
 
 end ConLeche.Model

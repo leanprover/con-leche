@@ -138,8 +138,7 @@ theorem EnvModelM.swapTyP {env₀ env₃ : Env}
             lfp_ok := mp.lfp_ok_transport
               (fun n ci hf hnr => (hsame n ci hnr).mpr hf)
               (fun _ _ _ _ => rfl)
-              (fun ψ d _ _ _ hta => by rw [← denote_swap hcg ψ d]; exact hta)
-              (fun _ => ConstsBound.of_isSome fun n h => by rw [← hcg.isSomeEq]; exact h) },
+              (fun ψ d _ _ _ hta => by rw [← denote_swap hcg ψ d]; exact hta) },
           rfl, rfl⟩
   · -- `type_reads`
     intro c hc ψ

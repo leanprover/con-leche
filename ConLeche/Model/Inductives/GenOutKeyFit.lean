@@ -80,7 +80,7 @@ theorem genOut_runFit {F : Nat} {envC envI : Env} {pp : BlockShape} {mpC : EnvMo
         SpineFit ρ (ab.take (tgtMajor out c).ds.length)
           (dsa.map (interp V (consList xs ρ))) := by
   obtain ⟨-, henvC, -, -, hN, hS, hcore, -, hdR, -, hcovC,
-    ⟨mk, -, hreads, -, -, -, hsubC, hcoreK, htr⟩, -, -⟩ := hctx
+    ⟨mk, -, -, -, hsubC, hcoreK, htr⟩, -, -⟩ := hctx
   obtain ⟨pk, uOfD, ppsOf, rfl⟩ := hdR
   have hmr := blockMembersRun_seam hN hS hcore
   have hnPq : (blockDataOf V pp pk uOfD ppsOf).nP = pp.nP := rfl

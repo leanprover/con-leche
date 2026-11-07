@@ -92,7 +92,7 @@ theorem former_app_eq (mp : EnvModelM V env) {D : LfpDatum V} (hD : D ∈ mp.lfp
   -- the former inhabits the member's type, read at `ρ₀`
   have hfm : interp V ρ₀ (mp.base2.acval (D.member mm) ψ) ∈ˢ
       interp V ρ₀ (mkPisAV ab (.sort (D.w ψ))) := by
-    rw [hmap]; exact mp.member_mem_tower hD hmm ψ ρ₀
+    rw [hmap]; exact mp.member_mem_tower hD hmm ψ ρ₀ ρ₀
   -- split the tower at the parameters
   have hsplit : ab = ab.take (D.pars mm ψ).length ++ ab.drop (D.pars mm ψ).length :=
     (List.take_append_drop _ _).symm

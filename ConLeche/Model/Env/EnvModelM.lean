@@ -67,53 +67,24 @@ clause, whose `leaf` and `ctor` read the leaf valuation at those names
   ∀ c, c < D.N → ∀ j, j < D.nctors c →
     ∃ cv nP nF, env.find? (D.ctorName c j) = some (.ctorInfo cv nP nF)
 
-/-- A member's former where the stored one does not show its telescope: closed, resolving, and
-inhabited by the member. -/
-@[expose] def LfpTelescope {V : Type w} [SetTheory V] (acval : Name → (Name → Nat) → Term)
-    (env : Env) (D : LfpDatum V) (mm : Nat) (cv : ConstantVal) : Prop :=
-  (ConLeche.formerDefHeaded cv = false → D.formerAt mm cv = cv) ∧
-  ((D.telescope mm = none ∧ ConLeche.formerDefHeaded cv = false) ∨ ∃ f, D.telescope mm = some f ∧
-    f.name = cv.name ∧ f.levelParams = cv.levelParams ∧
-    f.type.hasFvar = false ∧ f.type.looseBVarsBounded 0 = true ∧ ConstsBound env f.type ∧
-    f.type.allLevelParamsDefined f.levelParams = true ∧
-    ∀ ψ : Name → Nat, ∃ ta ta₀ : Term, denote acval env ψ 0 f.type = some ta ∧
-      denote acval env ψ 0 cv.type = some ta₀ ∧
-      ∀ ρ : Nat → V, interp V ρ ta₀ = interp V ρ ta ∧
-        interp V ρ (acval (D.member mm) ψ) ∈ˢ interp V ρ ta ∧ WellDenotedTy V ρ ta)
-
-/-- **A recorded block's formers read as its hole telescopes** (M4):
-member `mm`'s stored type reads, at every level
-assignment, as the Π-tower over its own parameters and indices (the
-binders of its hole value, `LfpDatum.holeVal`) ending in the block's
-sort.  What makes a container's frame
-hole — the hole value at the container's instantiation — inhabit the
-container's type (the walk's context), and a group-mate's former agree
-with its hole value applied to the frame's parameters. -/
-@[expose] def LfpReads {V : Type w} [SetTheory V] (acval : Name → (Name → Nat) → Term)
-    (env : Env) (D : LfpDatum V) : Prop :=
-  ∀ mm, mm < D.k → ∃ cv caps, env.find? (D.member mm) = some (.indInfo cv caps) ∧
-    LfpTelescope acval env D mm cv ∧
-    ∀ ψ : Name → Nat, ∃ ab : List Term,
-      denote acval env ψ 0 (D.formerAt mm cv).type = some (mkPisAV ab (.sort (D.w ψ))) ∧
-      ab = D.pars mm ψ ++ D.ids mm ψ
-
 /-- **A recorded block's formers have its telescope's value** (M4, by value): member `mm`'s
 stored type reads, at every level assignment, as a type of the value of the Π-tower over its
 own parameters and indices (the binders of its hole value, `LfpDatum.holeVal`) ending in the
-block's sort, and that tower is graded.  A former that shows its telescope reads as a Π-tower of
-the family's length over a sort.  Nothing of a run is recorded: a run's result, read in a model,
-has the stored type's value (`familyTelescope_read`), and is compared with the block's telescope
-along fits (`spineFit_iff_of_mkPisAV_eq`, `mkPisAV_tail_eq`). -/
-@[expose] def LfpReadsV {V : Type w} [SetTheory V] (acval : Name → (Name → Nat) → Term)
+block's sort.  A former that shows its telescope reads as a Π-tower of
+the family's length over a sort, and the block's sort is read off the member's level parameters.
+Nothing of a run is recorded: a run's result, read in a model, has the stored type's value
+(`familyTelescope_read`), and is compared with the block's telescope along fits
+(`spineFit_iff_of_mkPisAV_eq`, `mkPisAV_tail_eq`). -/
+@[expose] def LfpReads {V : Type w} [SetTheory V] (acval : Name → (Name → Nat) → Term)
     (env : Env) (D : LfpDatum V) : Prop :=
   ∀ mm, mm < D.k → ∃ cv caps, env.find? (D.member mm) = some (.indInfo cv caps) ∧
     (ConLeche.formerDefHeaded cv = false → ∀ ψ : Name → Nat, ∃ (ab : List Term) (u : Nat),
       denote acval env ψ 0 cv.type = some (mkPisAV ab (.sort u)) ∧
       ab.length = caps.nparams + caps.nIdx) ∧
-    ∀ ψ : Name → Nat, ∃ ta : Term, denote acval env ψ 0 cv.type = some ta ∧
+    (∀ ψ : Name → Nat, ∃ ta : Term, denote acval env ψ 0 cv.type = some ta ∧
       ∀ ρ : Nat → V,
-        interp V ρ ta = interp V ρ (mkPisAV (D.pars mm ψ ++ D.ids mm ψ) (.sort (D.w ψ))) ∧
-        WellDenotedTy V ρ (mkPisAV (D.pars mm ψ ++ D.ids mm ψ) (.sort (D.w ψ)))
+        interp V ρ ta = interp V ρ (mkPisAV (D.pars mm ψ ++ D.ids mm ψ) (.sort (D.w ψ)))) ∧
+    ∀ ψ₁ ψ₂ : Name → Nat, (∀ q ∈ cv.levelParams, ψ₁ q = ψ₂ q) → D.w ψ₁ = D.w ψ₂
 
 /-! ### The recorded constructor readings (M2)
 
@@ -131,11 +102,9 @@ holes; the container substitution law (`frameCrest_read`,
 @[expose] def canonParams (nP : Nat) : List Expr := ConLeche.nestPhs nP
 
 /-- **A term the records read off a stored type**: its canonical
-abstraction (`nestCanonCrest`), or its instantiation at the canonical
-parameters (a member hole's type). -/
+abstraction (`nestCanonCrest`). -/
 @[expose] def CanonOf (ty A : Expr) : Prop :=
-  (∃ names us n, ConLeche.nestCanonCrest names us n ty = some A) ∨
-    ∃ n, ConLeche.instPisWith (canonParams n) ty = some A
+  ∃ names us n, ConLeche.nestCanonCrest names us n ty = some A
 
 /-- **A recorded block's constructors read as their hole telescopes**
 (M2): member `c`'s constructor
@@ -146,7 +115,7 @@ parameters) mentions no member constant (from the kernel's
 as a Π-tower ending in member `c`'s hole applied to the result index
 readings, whose fields read like the clause's fields with holes at every
 frame satisfying the hole context (the parameters, then each member's
-hole type — its former at the canonical parameters, `Tys`).  The stored
+hole type — its index telescope over the block's sort, `LfpDatum.holeTys`).  The stored
 type is the DECLARED one; the fields with holes are the positivity walk's
 normal form's, which reads like it there.
 
@@ -175,15 +144,12 @@ parameter binders. -/
     ∃ A, ConLeche.nestCanonCrest D.names (cv.levelParams.map .param) nPc cv.type = some A ∧
       A.nestOcc D.names 0 0 = false ∧
       ∀ ψ : Name → Nat, (D.params ψ).length = nPc ∧ (D.fields ψ c j).length = nF ∧
-        ∃ (ab : List Term) (Tys : List Term),
+        ∃ ab : List Term,
           denote acval env ψ (nPc + D.k) A
             = some (mkPisAV ab (Term.mkAppN (.bvar (nF + (D.k - 1 - c)))
                 (D.resIdx ψ c j))) ∧
-          ab.length = nF ∧ Tys.length = D.k ∧
-          (∀ mm, mm < D.k → ∃ cvm caps ty, env.find? (D.member mm) = some (.indInfo cvm caps) ∧
-            ConLeche.instPisWith (canonParams nPc) (D.formerAt mm cvm).type = some ty ∧
-            denote acval env ψ (nPc + mm) ty = some (Tys.getD mm default)) ∧
-          FieldsEqOn V (D.params ψ ++ Tys).reverse ab (D.fields ψ c j)
+          ab.length = nF ∧
+          FieldsEqOn V (D.params ψ ++ D.holeTys ψ).reverse ab (D.fields ψ c j)
 
 /-- **A recorded block's capability records and constructor shapes**
 (task #342 L10): each member's stored capabilities are sound for the

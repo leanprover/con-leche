@@ -412,57 +412,6 @@ theorem stripPis_isSome_of_instPisWith_fvars :
       | none => rw [hs] at hb; exact nomatch hb
       | some _ => rfl
 
-/-- **A member's CANONICAL hole type, read**: member `mm`'s former
-instantiated at the canonical parameters (`instPisWith (canonParams n)`,
-the hole type `LfpCtorReads` records) reads at depth `n` as the recorded
-index telescope ending in the block's sort. -/
-theorem canonHoleTy_read (mp : EnvModelM V env) {D : LfpDatum V}
-    (hD : D ∈ mp.lfpBlocks) {mm : Nat} (hmm : mm < D.k) {cvm : ConstantVal} {caps : IndCaps}
-    (hf : env.find? (D.member mm) = some (.indInfo cvm caps)) {ψ : Name → Nat} {n : Nat}
-    (hn : (D.pars mm ψ).length = n) {ty : Expr}
-    (hty : ConLeche.instPisWith (canonParams n) (D.formerAt mm cvm).type = some ty) :
-    ∃ abF : List Term,
-      denote mp.base2.acval env ψ 0 (D.formerAt mm cvm).type = some (mkPisAV abF (.sort (D.w ψ))) ∧
-      abF = D.pars mm ψ ++ D.ids mm ψ ∧
-      abF.drop n = D.ids mm ψ ∧ Expr.WScoped n ty ∧
-      denote mp.base2.acval env ψ n ty = some (mkPisAV (abF.drop n) (.sort (D.w ψ))) := by
-  obtain ⟨-, -, hrd, -⟩ := mp.lfp_ok D hD
-  obtain ⟨cv₂, caps₂, hf₂, -, hab⟩ := hrd mm hmm
-  rw [hf] at hf₂
-  obtain ⟨rfl, rfl⟩ : cvm = cv₂ ∧ caps = caps₂ := by simpa using hf₂
-  obtain ⟨ab, hta, hmap⟩ := hab ψ
-  have hcl : (D.formerAt mm cvm).type.hasFvar = false := (mp.formerAt_wf hD hmm hf).1
-  have habl : ab.length = n + (D.ids mm ψ).length := by
-    have := congrArg List.length hmap
-    simpa [hn] using this
-  have hphs : ∀ x ∈ canonParams n, ∃ i ty, x = .fvar i ty := fun x hx => by
-    obtain ⟨i, hi'⟩ := List.getElem?_of_mem hx
-    exact ⟨_, _, canonParams_getElem? hi'⟩
-  have hstrip := stripPis_isSome_of_instPisWith_fvars hphs hty
-  rw [canonParams_length] at hstrip
-  obtain ⟨fvs, o, hop⟩ := openPisAtFvars_of_stripPis_isSome n 0 hstrip
-  have hio := instPisWith_of_openPis n hop
-  have hEq : Expr.ErasedEqL fvs (canonParams n) :=
-    erasedEqL_of_fvarIdx _ _ 0 (fun i x hx => ConLeche.openPisAtFvars_index _ _ _ hop i x hx)
-      (fun i x hx => ⟨.sort .zero, by rw [canonParams_getElem? hx, Nat.zero_add]⟩)
-      (by rw [openPisAtFvars_length _ hop, canonParams_length])
-  obtain ⟨A, hA, hoA⟩ := instPisWith_erasedEq hEq (Expr.ErasedEq.rfl _) hio
-  rw [hty] at hA
-  rw [← Option.some.inj hA] at hoA
-  obtain ⟨pps, b, hst, hb, -, -⟩ := denote_openPis n hop hta
-  rw [stripPisAV_mkPisAV_take _ _ _ (by omega)] at hst
-  obtain ⟨-, rfl⟩ := Prod.mk.inj (Option.some.inj hst)
-  have hAw : Expr.WScoped n ty := by
-    refine ConLeche.wscoped_instPisWith (fun x hx => ?_) (Expr.WScoped.of_not_hasFvar hcl) hty
-    obtain ⟨i, hi'⟩ := List.getElem?_of_mem hx
-    have hlt : i < n := by
-      have := (List.getElem?_eq_some_iff.mp hi').1; rwa [canonParams_length] at this
-    rw [canonParams_getElem? hi']
-    simp [Expr.WScoped, hlt]
-  refine ⟨ab, hta, hmap, ?_, hAw, ?_⟩
-  · rw [hmap, ← hn, List.drop_left' rfl]
-  · rw [← denote_erasedEq hoA]; simpa using hb
-
 /-- **A closed telescope, instantiated, read** (the canonical opening, substituted at the key's
 parameters — one `Expr.substFvars`, read by `denote_substFvars`): a closed type reading at the
 levels `us` as a Π-tower over a sort, with its first binders instantiated at `ds` (depth `hi`),
@@ -542,41 +491,6 @@ theorem instTele_read (mp : EnvModelM V env) {ty : Expr} (hcl : ty.hasFvar = fal
   rw [h, Option.map_some, Term.substAV_mkPisAV, Nat.zero_add]
   rfl
 
-/-- **An instantiated container FORMER, read** (`instTele_read` at the recorded reading, M4):
-the type of `D`'s member `mm` at the levels `us` with its parameters instantiated at `ds`
-(depth `hi`) reads at `hi` as the recorded index telescope, substituted at the parameters'
-readings, ending in the recorded sort. -/
-theorem instFormer_readB (mp : EnvModelM V env) {D : LfpDatum V}
-    (hD : D ∈ mp.lfpBlocks) {mm : Nat} (hmm : mm < D.k) {hi : Nat} {us : List Level}
-    {ds : List Expr} {cvC : ConstantVal} {caps : IndCaps}
-    (hf : env.find? (D.member mm) = some (.indInfo cvC caps))
-    (_hnd : cvC.levelParams.Nodup) (_hul : us.length = cvC.levelParams.length)
-    (hlenP : (D.params (Level.substFn φ cvC.levelParams us)).length = ds.length)
-    (hds : ∀ x ∈ ds, Expr.WScoped hi x ∧ x.looseBVarsBounded 0 = true)
-    {dsa : List Term} (hdsa : DenoteSpine mp.base2.acval env φ hi ds dsa)
-    (hstrip : ((D.formerAt mm cvC).type.stripPis ds.length).isSome = true) {ty : Expr}
-    (hty : ConLeche.instPisWith ds ((D.formerAt mm cvC).type.instantiateLevelParams cvC.levelParams us) = some ty) :
-    ∃ abF : List Term,
-      denote mp.base2.acval env (Level.substFn φ cvC.levelParams us) 0 (D.formerAt mm cvC).type
-        = some (mkPisAV abF (.sort (D.w (Level.substFn φ cvC.levelParams us)))) ∧
-      abF = D.pars mm (Level.substFn φ cvC.levelParams us)
-        ++ D.ids mm (Level.substFn φ cvC.levelParams us) ∧
-      abF.drop ds.length = D.ids mm (Level.substFn φ cvC.levelParams us) ∧
-      denote mp.base2.acval env φ hi ty
-        = some (mkPisAV (Term.substTele (substTau ds.length hi fun i => dsa.getD i default) 0
-            (abF.drop ds.length)) (.sort (D.w (Level.substFn φ cvC.levelParams us)))) := by
-  obtain ⟨h, -, hrd, -⟩ := mp.lfp_ok D hD
-  obtain ⟨cv₂, caps₂, hf₂, -, hab⟩ := hrd mm hmm
-  rw [hf] at hf₂
-  obtain ⟨rfl, rfl⟩ : cvC = cv₂ ∧ caps = caps₂ := by simpa using hf₂
-  obtain ⟨ab, hta, hmap⟩ := hab (Level.substFn φ cvC.levelParams us)
-  have hcl : (D.formerAt mm cvC).type.hasFvar = false := (mp.formerAt_wf hD hmm hf).1
-  have hpl : (D.pars mm (Level.substFn φ cvC.levelParams us)).length = ds.length :=
-    (h.parsLen mm hmm _).trans hlenP
-  refine ⟨ab, hta, hmap, ?_, instTele_read mp hcl hds hdsa hta ?_ hstrip hty⟩
-  · rw [hmap, ← hpl, List.drop_left' rfl]
-  · rw [hmap, List.length_append, hpl]; omega
-
 /-- **A tower substituted at a key's parameters, read**: its value at a valuation is the
 tower's at the key frame. -/
 theorem interp_substTele_key {dsa : List Term} {hi : Nat} (X : List Term) (u : Nat)
@@ -627,27 +541,6 @@ theorem runHoleTy_read (mp : EnvModelM V env) {D : LfpDatum V} {mm : Nat} {ty : 
   rw [← List.take_append_drop ds.length ab] at e
   exact mkPisAV_tail_eq htl (by simp only [List.length_drop, hl, List.length_append, hpl]; omega)
     e.1 hfR hfD
-
-/-- **An instantiated container FORMER, read**: `instFormer_readB`'s
-index telescope. -/
-theorem instFormer_read (mp : EnvModelM V env) {D : LfpDatum V}
-    (hD : D ∈ mp.lfpBlocks) {mm : Nat} (hmm : mm < D.k) {hi : Nat} {us : List Level}
-    {ds : List Expr} {cvC : ConstantVal} {caps : IndCaps}
-    (hf : env.find? (D.member mm) = some (.indInfo cvC caps))
-    (hnd : cvC.levelParams.Nodup) (hul : us.length = cvC.levelParams.length)
-    (hlenP : (D.params (Level.substFn φ cvC.levelParams us)).length = ds.length)
-    (hds : ∀ x ∈ ds, Expr.WScoped hi x ∧ x.looseBVarsBounded 0 = true)
-    {dsa : List Term} (hdsa : DenoteSpine mp.base2.acval env φ hi ds dsa)
-    (hstrip : ((D.formerAt mm cvC).type.stripPis ds.length).isSome = true) {ty : Expr}
-    (hty : ConLeche.instPisWith ds ((D.formerAt mm cvC).type.instantiateLevelParams cvC.levelParams us) = some ty) :
-    ∃ ab : List Term,
-      ab = D.ids mm (Level.substFn φ cvC.levelParams us) ∧
-      denote mp.base2.acval env φ hi ty
-        = some (mkPisAV (Term.substTele (substTau ds.length hi fun i => dsa.getD i default) 0 ab)
-            (.sort (D.w (Level.substFn φ cvC.levelParams us)))) := by
-  obtain ⟨abF, -, -, hmap, hrd⟩ :=
-    instFormer_readB mp hD hmm hf hnd hul hlenP hds hdsa hstrip hty
-  exact ⟨_, hmap, hrd⟩
 
 /-- **A run's hole type at a key, by value, across the holes** (N2): `runHoleTy_read`'s rest of
 the run's tower, read at the key frames of two walk valuations agreeing off the holes, has one

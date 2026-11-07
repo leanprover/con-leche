@@ -267,7 +267,6 @@ theorem genNodeCalls {F : Nat}
       denote mk.base2.acval envI ψ dd e = some ea →
         denote mpC.base2.acval envC ψ dd e = some ea)
     (hcoreK : BlockHoleCtxFacts mk.base2 dR pp.lps pp.formers pp isRecR)
-    (hreads : ∀ F, FamilyRead mk F)
     {fvsP : List Expr} {ns : List PosTree}
     (hok : ∀ t ∈ ns, PosNodeOk (fueledOps .verified F) envI (pp.nestCtx fvsP envI.find?) t)
     (hkids : ∀ t ∈ ns, ∀ k ∈ t.kids, k ∈ ns)
@@ -318,7 +317,7 @@ theorem genNodeCalls {F : Nat}
   obtain ⟨hPos, henvC, hnames, hndM, hN, hS, hcore, hmemberCtors, hdR, hlfp, hcov, -, -, -⟩ := hctx'
   obtain ⟨hparF, hparS⟩ := canonPars_of_forests hctx hmemF
   obtain ⟨cvTa0, rest0, holes0, hcv0, hop0, hholes0, hMF⟩ := hmemF
-  have H := dynCtx_of hctx hmkC hmk hag hsubC htr hcoreK hreads hok hkids hpar hsem hF hparF hparS
+  have H := dynCtx_of hctx hmkC hmk hag hsubC htr hcoreK hok hkids hpar hsem hF hparF hparS
   have hmr : BlockMembersRun mpC.base2 dR pp := by
     obtain ⟨pk, uOfD, ppsOf, rfl⟩ := hdR; exact blockMembersRun_seam hN hS hcore
   have hreadP : pp.members.map (·.cvT) = pp.formers := by

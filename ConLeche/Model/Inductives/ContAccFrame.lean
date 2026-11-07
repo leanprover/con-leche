@@ -499,7 +499,7 @@ theorem frameCtor_acc (hin : RulesInputs V mp.base2 φ) {w : Nat}
   have hkNN := h.kN
   obtain ⟨-, crest, ca, ks, nds, cur, hcr, -, hca, hnl, hcurcl, hU4, hres, hidx, hPi, hO⟩ :=
     hwk
-  obtain ⟨-, crest', ab, hcr', ⟨Tys, hlT, hTys, hEqF⟩, hlen, hrd⟩ :=
+  obtain ⟨-, crest', ab, hcr', hEqF, hlen, hrd⟩ :=
     crest_read mp hD hnN hkN hfind hlps hnd hul hds hdsa hlenP hg hG.1 hj hfc
   rw [hcr] at hcr'
   obtain rfl := Option.some.inj hcr'
@@ -519,10 +519,10 @@ theorem frameCtor_acc (hin : RulesInputs V mp.base2 φ) {w : Nat}
           (grpX mp.base2 φ D hi grp ds (hi + grp.length))) 0
           (frameVal D (Level.substFn φ lps us) grp dsa hi ρ Y)
         = D.frame (Level.substFn φ lps us) (keyFrame dsa hi ρ) Y ∧
-      Sat V (D.params (Level.substFn φ lps us) ++ Tys).reverse
+      Sat V (D.params (Level.substFn φ lps us) ++ D.holeTys (Level.substFn φ lps us)).reverse
         (D.frame (Level.substFn φ lps us) (keyFrame dsa hi ρ) Y) := fun ρ Y hs hY =>
     ⟨substE_grp mp hD hnN hkN hfind hlps hnd hul hds hdsa hlenP hg Y ρ,
-      frameVals_sat mp hD hs hlenP hlT hTys Y hY⟩
+      frameVals_sat mp hD hs Y hY⟩
   -- the walked fields are small at every related frame
   have hbd : ∀ σ σ₀, frameRelA R₀ D (Level.substFn φ lps us) grp dsa hi σ σ₀ → w ≠ 0 →
       FieldsBound w σ ((Term.substTele (substTau (ds.length + D.k) (hi + grp.length)
@@ -983,7 +983,7 @@ theorem frameIterAcc (hin : RulesInputs V mp.base2 φ) {w : Nat}
         rw [Expr.looseBVarsBounded_instantiateLevelParams]; exact hwf.2.2.2.1
       obtain ⟨hfr, hC⟩ := crest_frame mp hD hnN hkN hfind hlps hnd hul hds hdsa hlenP hg hin hΔ
         hCds hLds hcl hbb hcr
-      obtain ⟨-, crest', ab, hcr', ⟨Tys, hlT, hTys, hEqF⟩, hlen, hrd⟩ :=
+      obtain ⟨-, crest', ab, hcr', hEqF, hlen, hrd⟩ :=
         crest_read mp hD hnN hkN hfind hlps hnd hul hds hdsa hlenP hg hGc.1 hj hfc
       rw [hcr] at hcr'
       obtain rfl := Option.some.inj hcr'

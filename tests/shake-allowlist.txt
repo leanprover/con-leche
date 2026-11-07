@@ -704,7 +704,7 @@ ConLeche/Verify/Cached/GrindAttr.lean	public import Std.Tactic.Do.Syntax	# synta
 ConLeche/Verify/EnvExt/Reads.lean	import ConLeche.Verify.InferLemmas	# REVERTED BY THE BUILD (task #480): the module's statements or proofs name what it carries
 ConLeche/Model/Fold.lean	public import ConLeche.Model.Inductives.BlockRunFacts	# REVERTED BY THE BUILD: its public statements name this module's declarations
 ConLeche/Model/Inductives/BlockAssembly.lean	public import ConLeche.Model.Inductives.BlockStageFormer	# REVERTED BY THE BUILD: its public statements name this module's declarations
-ConLeche/Model/Inductives/FamilyRan.lean	public import ConLeche.Verify.EnvExt	# REVERTED BY THE BUILD: its public statements name this module's declarations
+ConLeche/Model/Inductives/RunEnv.lean	public import ConLeche.Verify.EnvExt	# REVERTED BY THE BUILD: its public statements name this module's declarations
 ConLeche/Model/Inductives/GenOutKeyFit.lean	public import ConLeche.Model.Inductives.TargetOutRow	# REVERTED BY THE BUILD: its public statements name this module's declarations
 ConLeche/Verify/Cached/BlockPushes.lean	public import ConLeche.Verify.Cached.GenRecC	# REVERTED BY THE BUILD: its public statements name this module's declarations
 ConLeche/Verify/EnvExt.lean	public import ConLeche.Kernel.Inductives.BlockTail	# REVERTED BY THE BUILD: its public statements name this module's declarations

@@ -328,10 +328,7 @@ own records are accepted from that context by the fold's step), then
 the modules' own environments have a compatible family of models: two
 modules that store a name under one key give it one value, and every
 proof the point. Hence no module's own environment stores a constant
-of type `False` (`modular_no_False`). The statement carries one
-hypothesis beyond the local checks, named in it, `FormerRuns`: a type
-former whose declared type is headed by a definition reduces at an
-importer's context to the telescope it reduces to at its source. An
+of type `False` (`modular_no_False`). An
 exit 0 of the binary at one module (`--olean --module`) establishes that
 module's part of the local checks (§2, one module alone); that the
 runs at every module of a closure compose into the local checks of a

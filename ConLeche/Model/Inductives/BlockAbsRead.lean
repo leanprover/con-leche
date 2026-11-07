@@ -230,7 +230,7 @@ theorem BlockAbsRead.cross {env : Env} {m : EnvModel V env} {d : BlockData V} {l
   obtain ⟨abD, abN, hab, habN, hl, hlN, habF, hEq⟩ := hr ψ
   refine ⟨abD, abN, ?_, ?_, hl, hlN, habF, hEq⟩
   · rw [hac]
-    exact denote_cons_mono hfresh ψ _ (canonOf_constsBound hcb (.inl ⟨_, _, _, hA⟩)) hab
+    exact denote_cons_mono hfresh ψ _ (canonOf_constsBound hcb ⟨_, _, _, hA⟩) hab
   · rw [hac]
     exact denote_cons_mono hfresh ψ _ hnb habN
 

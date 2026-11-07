@@ -745,16 +745,11 @@ theorem genCls_open
     {c j : Nat} (hc : c < (tgtRs out).length) (hj : j < blockRecNCt (tgtRs out) c)
     {cvI : ConstantVal} (Rd : GenClsRd mpC d Dc mc cvc pp out c cvI)
     (hnP : pp.nP ≤ pp.rulePrefixAt c) (ψ : Name → Nat) :
-    ∃ (ctor : ConstantVal × Nat) (ab : List Term) (Tys : List Term),
+    ∃ (ctor : ConstantVal × Nat) (ab : List Term),
       (tgtMajor out c).ctors[j]? = some ctor ∧ tgtCtorOf out c j = ctor ∧
       j < (tgtClsD d Dc out c).nctors (tgtClsM mc pp out c) ∧
-      Tys.length = (tgtClsD d Dc out c).k ∧
-      (∀ mm, mm < (tgtClsD d Dc out c).k → ∃ cvm caps ty,
-        envC.find? ((tgtClsD d Dc out c).member mm) = some (.indInfo cvm caps) ∧
-        ConLeche.instPisWith (canonParams (tgtMajor out c).ds.length) ((tgtClsD d Dc out c).formerAt mm cvm).type = some ty ∧
-        denote mpC.base2.acval envC (tgtClsψ cvc out ψ c) ((tgtMajor out c).ds.length + mm) ty
-          = some (Tys.getD mm default)) ∧
-      FieldsEqOn V ((tgtClsD d Dc out c).params (tgtClsψ cvc out ψ c) ++ Tys).reverse
+      FieldsEqOn V ((tgtClsD d Dc out c).params (tgtClsψ cvc out ψ c)
+          ++ (tgtClsD d Dc out c).holeTys (tgtClsψ cvc out ψ c)).reverse
         ab
         ((tgtClsD d Dc out c).fields (tgtClsψ cvc out ψ c) (tgtClsM mc pp out c) j) ∧
       ab.length = ctor.2 ∧
@@ -785,7 +780,7 @@ theorem genCls_open
   have hlenP' := Rd.hlenP ψ
   rw [Rd.hψ] at hlenP' ⊢
   rw [← hRP] at hop
-  obtain ⟨-, ab, ⟨Tys, hlT, hTys, hEq⟩, hlab, hrdF, hrdL, hrdC, -⟩ :=
+  obtain ⟨-, ab, hEq, hlab, hrdF, hrdL, hrdC, -⟩ :=
     instCtor_open mpC Rd.hD hlpsR Rd.hnd Rd.hul hds' (Rd.hdsa ψ) hlenP' Rd.hmm hjD
       hfc hcrD hop
   have hB : tgtB pp out c j = tgtRP pp c + ctor.2 := by
@@ -846,7 +841,7 @@ theorem genCls_open
     rw [List.map_drop, ← hvsM, hvsE, List.drop_left'
       (by rw [List.length_map, ← DenoteSpine.length_eq (Rd.hdsa ψ), Rd.hnpc]), tgtOutEs,
       List.getD_eq_getElem?_getD, hctor, Option.getD_some]
-  refine ⟨ctor, ab, Tys, hctor, hctO, hjD, hlT, hTys, hEq, hlab, hfdoms, hes, hB, ?_, ?_, ?_⟩
+  refine ⟨ctor, ab, hctor, hctO, hjD, hEq, hlab, hfdoms, hes, hB, ?_, ?_, ?_⟩
   · rw [tgtMkAV, hctO, hB]
   · rw [hFF]; exact ConLeche.openPisAtFvars_index _ _ _ hop
   · rw [hFF]; exact ConLeche.Verify.openPisAtFvars_length _ hop
@@ -895,7 +890,7 @@ theorem genCls_dec
   obtain ⟨rfl, rfl⟩ := List.append_inj heq.symm hl₁
   have hlenPd := blockRulePdomsAV_length (V := V) mpC h (List.getElem?_eq_getElem hc) ψ
   have hxlR : as₁.length = tgtRP pp c := by rw [hxl, hlenPd]; rfl
-  obtain ⟨ctor, ab, Tys, hctor, hctO, hjD, hlT, hTys, hEq, hlab, hfdoms, hes, hB, hmkE, hFvs, hFl⟩ :=
+  obtain ⟨ctor, ab, hctor, hctO, hjD, hEq, hlab, hfdoms, hes, hB, hmkE, hFvs, hFl⟩ :=
     genCls_open R hg hcov hc hj Rd hnP ψ
   obtain ⟨-, hfc, hlpC, hlpsR⟩ := Rd.hctor j ctor hctor
   have hsat := Rd.hsat ψ ρ as₁ hpref hlive
@@ -904,10 +899,10 @@ theorem genCls_dec
     fun x hx => ⟨(Rd.hds x hx).1.mono hnP, (Rd.hds x hx).2⟩
   have hlenP' := Rd.hlenP ψ
   have hψc := Rd.hψ ψ
-  rw [hψc] at hlenP' hsat hTys hEq
+  rw [hψc] at hlenP' hsat hEq
   rw [hfdoms] at hfF
   obtain ⟨hIdsF, hHF, hleaf⟩ := instCtor_decode mpC Rd.hD hlpsR Rd.hul
-    hds' (Rd.hdsa ψ) hlenP' Rd.hmm hjD hlT hTys hEq hlab hsat hfF
+    hds' (Rd.hdsa ψ) hlenP' Rd.hmm hjD hEq hlab hsat hfF
   have hfl : as₂.length = ctor.2 := by
     rw [hfF.length_eq, substTele_length, hlab]
   -- the index expressions' values
@@ -1016,7 +1011,7 @@ theorem genCls_decInv
   have hlive := (tgtClsIs_guard hi).2
   rw [genCls_Is_eq Rd ψ ρ hxlR hpref hlive] at hi
   rw [tgtClsFit, Rd.hfr ψ ρ xs hxlR] at hf
-  obtain ⟨ctor, ab, Tys, hctor, hctO, hjD, hlT, hTys, hEq, hlab, hfdoms, hes, -, -, -, -⟩ :=
+  obtain ⟨ctor, ab, hctor, hctO, hjD, hEq, hlab, hfdoms, hes, -, -, -, -⟩ :=
     genCls_open R hg hcov hc hj Rd hnP ψ
   obtain ⟨-, -, -, hlpsR⟩ := Rd.hctor j ctor hctor
   have hsat := Rd.hsat ψ ρ xs hpref hlive
@@ -1026,9 +1021,9 @@ theorem genCls_decInv
   have hlenP' := Rd.hlenP ψ
   have hψc := Rd.hψ ψ
   have hsat' := hsat
-  rw [hψc] at hlenP' hsat' hTys hEq
+  rw [hψc] at hlenP' hsat' hEq
   obtain ⟨hF, hI⟩ := instCtor_fit mpC Rd.hD hlpsR Rd.hul hds' (Rd.hdsa ψ)
-    hlenP' Rd.hmm hjD hlT hTys hEq hlab hsat'
+    hlenP' Rd.hmm hjD hEq hlab hsat'
   rw [← hψc] at hF hI
   have hfit : SpineFit (consList xs ρ)
       (Term.substTele (instTau mpC ψ (tgtClsD d Dc out c) (tgtMajor out c).lvls
@@ -1036,7 +1031,7 @@ theorem genCls_decInv
     (hF fs).mpr hf.2.1
   refine ⟨by rw [hfdoms]; exact hfit, ?_⟩
   obtain ⟨hIdsF, -, -⟩ := instCtor_decode mpC Rd.hD hlpsR Rd.hul hds'
-    (Rd.hdsa ψ) hlenP' Rd.hmm hjD hlT hTys hEq hlab hsat' hfit
+    (Rd.hdsa ψ) hlenP' Rd.hmm hjD hEq hlab hsat' hfit
   rw [← hψc] at hIdsF
   obtain ⟨is0, his0, rfl⟩ := mem_idxSet_elim hi
   obtain ⟨hC, -, -, -⟩ := mpC.lfp_ok _ Rd.hD

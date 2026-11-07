@@ -157,14 +157,14 @@ theorem genClassNodes {F : Nat}
   have hbase := hctx.base
   have hbase' := hbase
   obtain ⟨-, -, -, hndM, hN, hS, hcore, -, hdR, hlfp, hcov,
-    ⟨mk, hmkC, hreads, -, hmk, hag, hsubC, hcoreK, htr⟩, -⟩ := hbase'
+    ⟨mk, hmkC, hmk, hag, hsubC, hcoreK, htr⟩, -⟩ := hbase'
   have h := recStage_of_gen R hg
   have hmr : BlockMembersRun mpC.base2 dR pp := by
     obtain ⟨pk, uOfD, ppsOf, rfl⟩ := hdR; exact blockMembersRun_seam hN hS hcore
   have hparG := genParams_fit_run mpC R hg h hmr
   -- the node list
   obtain ⟨fvsP, ns, hctxR, hok, hkids, hpar, hsem, hfrec, hmemF, ⟨par, hPP⟩, hcovN⟩ :=
-    genRecCtx_nodes hbase R mk hmkC hcoreK hreads
+    genRecCtx_nodes hbase R mk hmkC hcoreK
   have hsp : ∀ t ∈ ns, ∀ ψ : Name → Nat, ∃ dsa, DenoteSpine mpC.base2.acval envC ψ
       ((pp.nestCtx fvsP envI.find?).hiAt t.occ.length) t.key.ds dsa := by
     intro t ht ψ
@@ -176,7 +176,7 @@ theorem genClassNodes {F : Nat}
       tgtClsG dR mpC.base2.acval envC pp out ψ ρ xs c
   case neg => exact ⟨TgtNodePres.empty, fun c hc hg => absurd ⟨c, hc, hg⟩ hgd⟩
   -- the dynamic part: the admissible frames and the calls
-  have H := dynCtx_of hbase hmkC hmk hag hsubC htr hcoreK hreads hok hkids hpar hsem hF hparF hparS
+  have H := dynCtx_of hbase hmkC hmk hag hsubC htr hcoreK hok hkids hpar hsem hF hparF hparS
   have hparams : SpineFit ρ (dR.params ψ) (xs.take dR.nP) := by
     obtain ⟨c0, hc0, hg0⟩ := hgd
     refine hparG c0 hc0 ψ ρ xs ?_
@@ -209,7 +209,7 @@ theorem genClassNodes {F : Nat}
     hAdm := dyn_hAdm H ψ ρ xs hparams hxs par
     top := dyn_top H ψ ρ xs hparams hxs hPP
     trans := dyn_trans H ψ ρ xs hparams hxs par
-    hcall := genNodeCalls hbase R h hg hTbl hmkC hmk hag hsubC htr hcoreK hreads hok
+    hcall := genNodeCalls hbase R h hg hTbl hmkC hmk hag hsubC htr hcoreK hok
       hkids hpar hsem hctxR hfrec hmemF hPP hF hcls hsel hparams hxs hfrT }
   have hrs : ∀ c (hc : c < (tgtRs out).length),
       (tgtRs out)[c]? = some ((tgtRs out)[c]'hc) := fun c hc => List.getElem?_eq_getElem hc
