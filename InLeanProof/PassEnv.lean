@@ -182,4 +182,85 @@ theorem presI_marked_former (hlaws : EnvLaws) (hP : EnvPresI fe L) {v : Inductiv
     exact ite_eq_left (show (fe.push (.inductInfo v)).isPending v.name = true from hpend)
   · intro t ht; cases ht
 
+/-! ## The formers' fold -/
+
+/-- The field count a member is marked with (`blockMarks`). -/
+@[expose] def markOf (ms : InLean.MemberShape) : Nat :=
+  match ms.ctors with
+  | [c] => c.2
+  | _ => 0
+
+theorem blockMarks_eq (p : InLean.BlockShape) :
+    InLean.blockMarks p = p.members.map fun ms => (ms.declared.name, markOf ms) := rfl
+
+theorem getD_of_drop {α : Type} [Inhabited α] {l rest : List α} {k : Nat} {a : α}
+    (h : l.drop k = a :: rest) : l.getD k default = a ∧ l.drop (k + 1) = rest := by
+  have hk : l[k]? = some a := by
+    have := congrArg (·[0]?) h
+    simpa [List.getElem?_drop] using this
+  refine ⟨by simp [List.getD_eq_getElem?_getD, hk], ?_⟩
+  rw [← List.drop_drop, h]; rfl
+
+/-- **The formers pushed, marked**, against master's `consBlockInds`. -/
+theorem presI_consBlockIndsF (hlaws : EnvLaws) {p : InLean.BlockShape} {isRec : Bool} :
+    ∀ (l : List InLean.MemberShape) (k : Nat) {fe : InLean.FEnv} {L : ConLeche.Env},
+      p.members.drop k = l → EnvPresI fe L →
+      (∀ ms ∈ l, fe.env.find? ms.declared.name = none) → (l.map (·.declared.name)).Nodup →
+      (∀ ms ∈ l, ms.declared.name = InLean.sorryAxName → fe.coreAxioms = true) →
+      (∀ ms ∈ l, fe.pendingFields? ms.declared.name = some (markOf ms)) →
+      (∀ ms ∈ l, StoredT ms.declared.type (trC ms.declared.type)) →
+      EnvPresI (InLean.consBlockIndsF p isRec (l.map (·.declared)) k fe)
+        (ConLeche.consBlockInds (trShape p) isRec (l.map (trCV ·.declared)) k L)
+  | [], _, _, _, _, hP, _, _, _, _, _ => hP
+  | ms :: rest, k, fe, L, hd, hP, hfr, hnd, hso, hpf, hst => by
+    obtain ⟨hgk, hdr⟩ := getD_of_drop hd
+    have hgkC : (trShape p).members.getD k default = trMember ms := by
+      have hk : p.members[k]? = some ms := by
+        have := congrArg (·[0]?) hd
+        simpa [List.getElem?_drop] using this
+      simp [trShape, List.getD_eq_getElem?_getD, hk]
+    simp only [List.map_cons, List.mem_cons, forall_eq_or_imp, List.nodup_cons, List.mem_map] at *
+    simp only [InLean.consBlockIndsF, ConLeche.consBlockInds, hgk]
+    -- the former, its visibility, its mark, its capabilities
+    generalize hv : InductiveVal.mk ms.declared p.nP ms.nIdx p.memberNames
+      (ms.ctors.map (·.1.name)) 0 isRec false false = v
+    have hvn : v.name = ms.declared.name := by rw [← hv]
+    have hvis : fe.sees v.name (.inductInfo v) = true :=
+      sees_safe (by rw [← hv]; rfl) (fun h => hso.1 (hvn ▸ h))
+    have hpend : fe.isPending v.name = true := by
+      simp only [InLean.FEnv.isPending, hvn, hpf.1, Option.isSome_some]
+    have hcv : CVRel v.toConstantVal (trCV ms.declared) := by
+      rw [← hv]; exact ⟨rfl, rfl, hst.1⟩
+    have hcaps : toCaps (capsOf fe v) = ConLeche.blockCapsAt (trShape p) k isRec := by
+      apply toCaps_capsOf (mi := k)
+      · rw [hgkC, ← hv]; simp [trMember, trCtor]
+      · rw [hgkC, ← hv]; rfl
+      · rw [← hv]; rfl
+      · rw [← hv, trShape_memberNames]
+      · rw [← hv]
+      · intro c cc hc hcc
+        rw [hgkC] at hcc
+        unfold InLean.FEnv.fieldsOf
+        rw [hvn, hpf.1]
+        simp only [trMember, List.map_eq_cons_iff, List.map_eq_nil_iff] at hcc
+        obtain ⟨c', w, hms, rfl, rfl⟩ := hcc
+        simp [markOf, hms, trCtor]
+    have hstep := presI_marked_former hlaws hP (by rw [hvn]; exact hfr.1) hvis hpend hcv
+    rw [hcaps] at hstep
+    have hL : ({ consts := .indInfo (trCV ms.declared) (ConLeche.blockCapsAt (trShape p) k isRec)
+        :: L.consts, tables := L.tables } : ConLeche.Env) =
+        L.pushDelta [.indInfo (trCV ms.declared) (ConLeche.blockCapsAt (trShape p) k isRec)] [] := by
+      simp [ConLeche.Env.pushDelta]
+    rw [hL]
+    have hfeq : ∀ n, n ≠ ms.declared.name → (fe.push (.inductInfo v)).env.find? n = fe.env.find? n := by
+      intro n hn
+      rw [push_find, find_addConst hlaws (ci := .inductInfo v) (by rw [show (ConstantInfo.inductInfo v).name = v.name by rfl, hvn]; exact hfr.1)]
+      exact ite_eq_right (by rw [show (ConstantInfo.inductInfo v).name = v.name by rfl, hvn]; exact hn)
+    refine presI_consBlockIndsF hlaws rest (k + 1) hdr hstep ?_ hnd.2 ?_ ?_ hst.2
+    · intro m hm
+      rw [hfeq _ (fun h => hnd.1 ⟨m, hm, h⟩)]
+      exact hfr.2 m hm
+    · exact hso.2
+    · exact hpf.2
+
 end InLeanProof
