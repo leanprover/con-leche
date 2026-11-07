@@ -19,8 +19,11 @@ checked against, as a list of records, and its validation.
   other definition, theorem and opaque constant as the axiom of its statement (the
   **opaque cut**: an imported theorem's value and a hidden definition's are never read),
   an axiom and a quotient constant as they are, an inductive group whole (`groupAt`,
-  `groupRecord`; read from the home's private part where the loaded part lacks a member or
-  a constructor).  What the record reads (`recordReads`) is pushed.
+  `groupRecord`), always read from its home's private part, so that it is its home's own
+  record: an exported part lists a group's recursors sorted by name and need not hold them
+  all.  A compiler-trust name is presented as its statement only where its home declares an
+  opaque constant or an axiom there (`stmtRecord`).  What the record reads (`recordReads`)
+  is pushed.
 * **The completion**: a name the index lacks, read by a record of home `h`, is located in
   `h`'s view (`viewOf`: `h`'s own private part first, then the parts `h`'s header fixpoint
   loads, the first copy found; never by a name's `_private` spelling) and read from its
@@ -532,6 +535,15 @@ def captureAll (env : ReachEnv μ) (h : Name) :
 
 /-! ## A record read -/
 
+/-- **A part's recursors' locations by their block's first member**, in the part's order:
+`t` its name table, `r` its region. -/
+def recBlocksAt (r : Region) (t : NamePositions) : Option (Std.HashMap Name (Array Nat)) :=
+  let locs := (t.consts.filter (·.tag == 7)).toList.map (·.loc)
+  (locs.mapM fun l => (kindNamesAt r l).map (l, ·)).map fun ks =>
+    ks.foldl (fun (m : Std.HashMap Name (Array Nat)) (l, k) => match k with
+      | .recur (a :: _) .. => m.alter a fun | none => some #[l] | some xs => some (xs.push l)
+      | _ => m) {}
+
 /-- A part's recursors' locations by their block's first member, read once. -/
 def recBlocksOf (env : ReachEnv μ) (c : ReachCache) (k : PartKey) :
     μ (ReachCache × Except CheckError (Std.HashMap Name (Array Nat))) := do
@@ -541,15 +553,28 @@ def recBlocksOf (env : ReachEnv μ) (c : ReachCache) (k : PartKey) :
     match ← tableOf env c k with
     | (c, .error e) => pure (c, .error e)
     | (c, .ok t) =>
-      let locs := (t.consts.filter (·.tag == 7)).toList.map (·.loc)
-      match ← withPart env c k (fun r st =>
-          (locs.mapM fun l => (kindNamesAt r l).map (l, ·)).map (st, ·)) with
+      match ← withPart env c k (fun r st => (recBlocksAt r t).map (st, ·)) with
       | (c, .error e) => pure (c, .error e)
-      | (c, .ok ks) =>
-        let m := ks.foldl (fun (m : Std.HashMap Name (Array Nat)) (l, k) => match k with
-          | .recur (a :: _) .. => m.alter a fun | none => some #[l] | some xs => some (xs.push l)
-          | _ => m) {}
-        pure ({ c with recBlocks := c.recBlocks.insert k m }, .ok m)
+      | (c, .ok m) => pure ({ c with recBlocks := c.recBlocks.insert k m }, .ok m)
+
+/-- The constructors a group's types list. -/
+def groupCtorNames (tys : List (CEntryF Name Expr)) : List Name :=
+  tys.flatMap fun t => match t.kind with
+    | .induct _ _ _ cs .. => cs
+    | _ => []
+
+/-- The locations of a group's recursors in a part, by its first member. -/
+def groupRecLocs (rb : Std.HashMap Name (Array Nat)) (all : List Name) : List Nat :=
+  ((all.head?.bind (rb[·]?)).getD #[]).toList
+
+/-- A group's constants as a merge: `n`'s type, the types, the constructors and the
+recursors of the block `all` among `rest`. -/
+def groupMerged (t : CEntryF Name Expr) (tys rest : List (CEntryF Name Expr)) (all : List Name) :
+    Merged :=
+  let recs := rest.filter fun e => match e.kind with
+    | .recur all' .. => all' == all
+    | _ => true
+  mergedOfList ((t :: tys ++ recs).map CEntry.ofF)
 
 /-- **Type `n`'s group, read from one part**: `none` where the part lacks one of its
 members or constructors. -/
@@ -572,28 +597,44 @@ def groupAt (env : ReachEnv μ) (c : ReachCache) (k : PartKey) (n : Name) :
             match ← withPart env c k fun r st => entriesWith r st (mqs.map (·.loc)) with
             | (c, .error e) => pure (c, .error e)
             | (c, .ok tys) =>
-              let ctorNames := tys.flatMap fun t => match t.kind with
-                | .induct _ _ _ cs .. => cs
-                | _ => []
-              match ctorNames.mapM (look[·]?) with
+              match (groupCtorNames tys).mapM (look[·]?) with
               | none => pure (c, .ok none)
               | some cqs =>
                 match ← recBlocksOf env c k with
                 | (c, .error e) => pure (c, .error e)
                 | (c, .ok rb) =>
-                  let rls := ((all.head?.bind (rb[·]?)).getD #[]).toList
                   match ← withPart env c k fun r st =>
-                      entriesWith r st (cqs.map (·.loc) ++ rls) with
+                      entriesWith r st (cqs.map (·.loc) ++ groupRecLocs rb all) with
                   | (c, .error e) => pure (c, .error e)
                   | (c, .ok rest) =>
-                    let recs := rest.filter fun e => match e.kind with
-                      | .recur all' .. => all' == all
-                      | _ => true
-                    let mg := mergedOfList ((t :: tys ++ recs).map CEntry.ofF)
-                    match groupRecord mg n with
+                    match groupRecord (groupMerged t tys rest all) n with
                     | .ok d => pure (c, .ok (some d))
                     | .error e => pure (c, .error e)
         | _ => pure (c, .error (.invalid s!"module {k.mod}: {n} is not an inductive type"))
+
+/-- The type whose group presents a copy of `x` of kind `k`: `x` itself, a constructor's type, a
+recursor's block's first member (`x` itself for a recursor of no block, which `groupAt` then
+refuses); none for any other kind. -/
+def groupOfKind (x : Name) : CKindF Name Unit → Option Name
+  | .induct .. => some x
+  | .ctor ind .. => some ind
+  | .recur all .. => some (all.headD x)
+  | _ => none
+
+/-- **A copy presented as its statement** (`.axiomDecl cv`).  At a compiler-trust name
+(`reduceOpNames`) only where its home's private part declares an opaque constant or an axiom
+there: the statement of a theorem or definition at such a name presents nothing its home
+declares (`Presents`), since a record at that name is presented as itself. -/
+def stmtRecord (env : ReachEnv μ) (c : ReachCache) (s : Spot) (cv : ConstantVal) :
+    μ (ReachCache × Except CheckError (Declaration × Name)) := do
+  let h := s.part.mod
+  if !reduceOpNames.contains cv.name then return (c, .ok (.axiomDecl cv, h))
+  match ← privSpot env c s with
+  | (c, .error e) => pure (c, .error e)
+  | (c, .ok p) =>
+    if p.pos.tag == 0 || p.pos.tag == 3 then pure (c, .ok (.axiomDecl cv, h))
+    else pure (c, .error (.invalid s!"module {h} declares {cv.name}, a compiler-trust name, \
+      as neither an opaque constant nor an axiom"))
 
 /-- **The record presenting `x`, and its home** (see the module docstring): read at the
 importer's copy, or at a completion's located copy as a statement. -/
@@ -609,31 +650,18 @@ def readRecord (env : ReachEnv μ) (c : ReachCache) (x : Name) :
   match ← stmtAt env c s with
   | (c, .error e) => pure (c, .error e)
   | (c, .ok (cv, k)) =>
-    let grp : Option Name := match k with
-      | .induct .. => some x
-      | .ctor ind .. => some ind
-      | .recur (a :: _) .. => some a
-      | _ => none
-    match grp with
+    match groupOfKind x k with
     | some n =>
-      match ← groupAt env c s.part n with
+      match ← groupAt env c ⟨h, .private⟩ n with
       | (c, .error e) => pure (c, .error e)
       | (c, .ok (some d)) => pure (c, .ok (d, h))
       | (c, .ok none) =>
-        let pk : PartKey := ⟨h, .private⟩
-        if s.part.level == .private then
-          return (c, .error (.invalid s!"module {h}: the group of {n} lacks a member or a \
-            constructor"))
-        match ← groupAt env c pk n with
-        | (c, .error e) => pure (c, .error e)
-        | (c, .ok (some d)) => pure (c, .ok (d, h))
-        | (c, .ok none) =>
-          pure (c, .error (.invalid s!"module {h}: the group of {n} lacks a member or a \
-            constructor"))
+        pure (c, .error (.invalid s!"module {h}: the group of {n} lacks a member or a \
+          constructor"))
     | none =>
       match k with
       | .defn .. =>
-        if completed then return (c, .ok (.axiomDecl cv, h))
+        if completed then return ← stmtRecord env c s cv
         match ← withPart env c s.part fun r st => entryWith r st s.pos.loc with
         | (c, .error e) => pure (c, .error e)
         | (c, .ok e) =>
@@ -644,7 +672,7 @@ def readRecord (env : ReachEnv μ) (c : ReachCache) (x : Name) :
         match recordOfEntry ⟨cv.name, cv.levelParams, cv.type, .quot q⟩ with
         | .ok d => pure (c, .ok (d, h))
         | .error e => pure (c, .error e)
-      | _ => pure (c, .ok (.axiomDecl cv, h))
+      | _ => stmtRecord env c s cv
 
 end
 

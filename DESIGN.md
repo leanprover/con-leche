@@ -112443,8 +112443,8 @@ the capstones.  The tree does not build from `TargetNodeDynOf` on (8 errors ther
 
 ### #443: the recursor stage along fits; the swap begun (#443 cont. 6, 2026-11-07)
 
-**Merged.**  Nothing: `modular` has #448 past the lane (`2b1a48601`); merge it at the start of
-the next session (expect DESIGN.md and possibly `Model/Modular/*` conflicts).
+**Merged.**  `modular` (#448, `2b1a48601`) into the lane after the commits below; the only
+conflict was DESIGN.md (both sides appended records; both kept, the lane's first).
 
 **Step 2 done: the recursor stage reads the nodes along fits** (`fb23d81a9`; the whole tree builds
 warning-free, `lake test` green, axiom pins unchanged).  As planned in cont. 5, with one change:
@@ -112514,3 +112514,92 @@ and tests warning-free; `FormerRuns` is still in the capstones.  Not landed (a p
 
 **Gates.**  `lake build`, `lake test` warning-free (axiom pins unchanged); nothing executed changed
 since cont. 3's full gates.
+
+## TASK #448 — a context record presents its source's own record (2026-11-07, agent/448-provenance)
+
+#467's stage 2, part "provenance", on `modular` (off 353acba5c, #446 included).  For every context
+record `d` of an accepted worker at `M`, read from module `h` (`homes`), and the worker at `h`
+accepted on the same snapshot (the trust assumption for several runs): one of `h`'s own records `p`
+(its emission, theorems' values in place: `h`'s `decls`) with `Presents d p`.  Proved for every
+record but inductive groups, whose last step is open (below).
+
+**1. Two changes to the reach's reads** (`ConLeche/Driver/Reach.lean`, `readRecord`), both needed for
+the statement to be true, not only provable:
+* **A group is always read from its home's private part.**  An exported part lists a group's
+  recursors sorted by name (`mkModuleData`), its home's record in declaration order, and `Presents`
+  compares constants up to permutation (#466) — but `declConstants` of an `indDecl` goes through the
+  recogniser, which reads the *first* recursor's level parameters (`large?`) and, per member, the
+  first recursor whose major names it (`blockMemberCounts?`): a permuted block need not install a
+  permutation of the constants.  And `checkViews` refines what an exported part holds without ever
+  asking it complete: a group read there may lack a recursor.  Read from the private part, a group is
+  its home's constants in its home's order.
+* **A compiler-trust name** (`reduceOpNames`) is presented as its statement only where its home's
+  private part declares an opaque constant or an axiom there (`stmtRecord`).  `Presents`' second arm
+  excludes those names, so the statement of a theorem or definition at `Lean.reduceBool` presents
+  nothing its home declares; it was accepted.  Fixture `RtA`/`RtM` (a `prelude` module's theorem
+  `Lean.reduceBool`, read by its importer): 1, Lean accepts it.
+* `groupOfKind` sends a recursor of no block to `groupAt` (which refuses it) instead of presenting it
+  as a statement (a malformed file its home rejects).  `recBlocksAt`, `groupCtorNames`,
+  `groupRecLocs`, `groupMerged` name `groupAt`'s pieces for the statements; no behaviour change.
+
+Cost (`perf stat -e instructions:u`, `--jobs=8`, one run each, the `modular` binary at 353acba5c as
+base): `Init.Data.Nat.Lemmas` +1.6 %, `Init.Data.BitVec.Lemmas` +1.1 %, `Std.Data.HashMap.Lemmas`
++1.8 %, `Mathlib.GroupTheory.Coxeter.Basic` +2.9 %, `Mathlib.Analysis.SpecialFunctions.Gamma.Basic`
++6.3 % (the private name table and files of every home a reached group lives in).  Tried and
+reverted: reading *every* record's content from its home's private part (the exported part deciding
+only value or statement), which makes `checkViews` unnecessary for the proof: +1.5 % to +12.6 %
+instructions and Gamma's peak RSS 0.41 → 0.78 GiB (every reached module's three files held in the
+reach's cache); the exported reads are linked to `checkViews` instead (3. below).
+
+**2. Where each record was read** (`ConLeche/Verify/Driver/ReachFrom.lean`).  `CacheOk`: every table,
+lookup, region with its memo (good), recursor map, view's copy and located copy in the reach's caches
+is the snapshot's; every phase keeps it (`tableOf_ok` … `captureAll_ok`, `readRecord_ok`, as
+`ModelIO.AllOk` triples).  `RecordFrom sp fs d h`: `d` is a copy's statement (`StmtSkel`: the
+skeleton's statement and kind, a definition only at a private part, a compiler-trust name only where
+the private part declares an opaque constant or axiom), a definition whole (`recordOfEntry`), a
+quotient constant, or a group read from `h`'s private part (`GroupRead`, `groupAt`'s reads
+transcribed); the copy a name position `h`'s part's table holds (`CopyAt`), the importer's (the
+name index's first copy) or a completion's located one.  **`reach_from`**: at every accepting outcome
+of `reach` whose name index holds the snapshot's tables, every context record and its home are
+`RecordFrom`.  The extension is a separate invariant beside `ReachInv` (`FromInv`), which needs no
+snapshot; `reach_ok` is unchanged.
+
+**3. The link to the home** (`ConLeche/Verify/Driver/Provenance.lean`).
+* `home_records`: the home's files, its load, its check of its views, the merge of its own
+  constants and its emission; every non-filtered skeleton of its private part is a constant of the
+  merge (`skels_name_inj`).  `declsOf_entry` (a constant no part of a block is emitted as its
+  `entryDecl`), `recordOfEntry_eq`, `declOfF_recOf`.
+* **`copy_behind`** — the `checkViews` link: for a copy at a part of `h` (exported or private) there
+  is a skeleton of `h`'s private part it stands for (`Behind`): the same (statement and kind
+  constructor, a quotient's kind, the whole constant where it decodes) or its value hidden (an axiom
+  of the private skeleton's statement, a definition, theorem or opaque constant), filtered alike.
+  A classic module's views are one; for a module of the module system, `checkViews_expo` and
+  `expoOfParts_ok` (the check's loop, constant by constant: the private part points at it, the
+  pointers of the hidden statement agree, or `expoOf` on the decoded pair, `entrySame_eq`), with the
+  exported region the first bytes of the three files' (`Region.Sub`) and the load aligned with the
+  private skeleton (`loadAt_aligned`, new in `Verify/Frontend/Olean/Lazy.lean`).
+* `stmt_presents`, `whole_presents`, `recordFrom_presents_nongroup`: a statement presents the home's
+  axiom (equal), definition or theorem (its statement, the name no compiler-trust name by
+  `private_tag`), opaque constant (equal at a compiler-trust name, else its statement); a whole
+  definition and a quotient constant are the home's record.
+* **`worker_presented`**: in an accepted worker at `M`, the context record at position `i`, read
+  from `h`, presents one of `h`'s own records with their theorems' values in place, given
+  `WorkerFacts` at `h` and `GroupsPresent` at `h`.  `workerReads_index`: the worker's name index and
+  load order are the snapshot's (`reach_from`'s hypotheses).
+* **`interfaceOk_of_workers`** (`InterfaceOk` at `b`, its `decls` the worker at `hb`'s, its `iface`
+  context records workers read from `hb`) and **`presented_of_worker`** (`ImportOk.presented` at
+  `i`, each context name's source the module its record's home is, every module presenting what
+  workers read from it).  All pinned at the three standard axioms.
+
+**Open: `GroupsPresent`** — that a group read from `h`'s private part presents `h`'s emitted record of
+that group.  The reach builds it with `groupRecord` (`declsOf` of `Emit.block` on a fresh emitter),
+the home inside `emitAll` on its emission's emitter.  What is missing is that the stream reader's
+builder gives one `Declaration` for the record `Emit.block` pushes whatever the emitter's tables held
+before (indices shift; `declOfF` reads them only through `nm`/`ex`, but `validateIndF` carries the raw
+constructor records through its loops into `indBlockOfF`), with the bookkeeping on each side: the
+home's emission emits each block from `blockTys`/`blockCtors`/`blockRecs` of its merge (a strengthened
+`emitLoop_spec`), and those lists are, constant by constant, the ones `groupAt` read (the private
+name table's order is the private part's; `recMapOf` keeps it).  Estimated 600–800 lines; not
+started.  `GroupsPresent` is a hypothesis of `worker_presented` and its corollaries, nowhere assumed.
+
+**Gates** on the final tree: below, with the commit.

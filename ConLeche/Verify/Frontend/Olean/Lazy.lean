@@ -223,6 +223,75 @@ theorem loadAt_spec {i : Nat} {m : Name} {f : ModFiles} {l : Loaded} (h : loadAt
     · exact h1 x (by simp only [List.mem_append, List.mem_flatMap]; exact Or.inl (Or.inr ⟨s, hs, hx⟩))
     · exact h2 x (List.mem_flatMap.mpr ⟨s, hs, hx⟩)
 
+/-- **The load's constants are the skeletons', in order**: `lazyEntries` is a pointwise
+read. -/
+theorem lazyEntries_forall₂ {nm : UInt64 → Option Name} {ex : UInt64 → Option Expr}
+    {r : Region} {i : Nat} {flat : Array Name} {ends : Array Nat} :
+    ∀ {ss : List (CEntryF UInt64 UInt64)} {k : Nat} {es : List CEntry},
+      (∀ s ∈ ss, (∀ x ∈ s.names, nm x = nameP r x) ∧ ∀ x ∈ lazyRoots s, ex x = exprP r x) →
+      lazyEntries nm ex r i flat ends k ss = some es →
+      ∃ hl : es.length = ss.length, ∀ (j : Nat) (hj : j < ss.length),
+        lazyEntry (nameP r) (exprP r) r i ss[j] = some (es[j]'(hl ▸ hj)).toCEntryF
+  | [], k, es, _, h => by
+    simp only [lazyEntries, Option.some.injEq] at h
+    subst h
+    exact ⟨rfl, fun j hj => by simp at hj⟩
+  | s :: ss, k, es, hall, h => by
+    unfold lazyEntries at h
+    split at h
+    · cases h
+    · rename_i e he
+      split at h
+      · cases h
+      · rename_i es' hes
+        simp only [Option.some.injEq] at h
+        subst h
+        have h1 := hall s (by simp)
+        have hE : lazyEntry (nameP r) (exprP r) r i s = some e := by
+          rw [← lazyEntry_congr s h1.1 h1.2]
+          exact he
+        obtain ⟨hl, hj⟩ := lazyEntries_forall₂ (fun s' hs' => hall s' (by simp [hs'])) hes
+        refine ⟨by simp [hl], fun j hj' => ?_⟩
+        cases j with
+        | zero => exact hE
+        | succ j => exact hj j (by simpa using hj')
+
+/-- **The load is the skeletons', constant by constant, in the part's order.** -/
+theorem loadAt_aligned {i : Nat} {m : Name} {f : ModFiles} {l : Loaded} (h : loadAt i m f = some l) :
+    ∃ r a sk skels, f.viewRegion .private = some (r, a) ∧ moduleSkel r a = some sk ∧
+      sk.consts.mapM (constSkel r) = some skels ∧
+      ∃ hl : l.constants.size = skels.length, ∀ (j : Nat) (hj : j < skels.length),
+        lazyEntry (nameP r) (exprP r) r i skels[j] = some (l.constants[j]'(hl ▸ hj)).toCEntryF := by
+  unfold loadAt at h
+  obtain ⟨⟨r, a⟩, hv, h⟩ := bind_some_left h
+  simp only at h
+  split at h
+  rotate_left
+  · cases h
+  obtain ⟨sk, hsk, h⟩ := bind_some_left h
+  obtain ⟨skels, hskels, h⟩ := bind_some_left h
+  obtain ⟨outs, -, h⟩ := bind_some_left h
+  obtain ⟨⟨nm, ms, st⟩, hrun, h⟩ := bind_some_left h
+  simp only at h
+  obtain ⟨imports, -, h⟩ := bind_some_left h
+  split at h
+  rotate_left
+  · cases h
+  generalize usesFlat _ _ = u at h
+  obtain ⟨flat, ends⟩ := u
+  obtain ⟨cs, hcs, h⟩ := bind_some_left h
+  simp only [pure, Option.some.injEq] at h
+  subst h
+  have hs := runMarked_spec r (sk.imports.map (·.module) ++ skels.flatMap CEntryF.names ++
+    usesNames outs) (skels.flatMap lazyRoots)
+  rw [hrun] at hs
+  obtain ⟨h1, h2, -⟩ := hs
+  refine ⟨r, a, sk, skels, hv, hsk, hskels, ?_⟩
+  obtain ⟨hl, hj⟩ := lazyEntries_forall₂ (fun s hs => ⟨fun x hx =>
+    h1 x (by simp only [List.mem_append, List.mem_flatMap]; exact Or.inl (Or.inr ⟨s, hs, hx⟩)),
+    fun x hx => h2 x (List.mem_flatMap.mpr ⟨s, hs, hx⟩)⟩) hcs
+  exact ⟨by simpa using hl, fun j hj' => by simpa using hj j hj'⟩
+
 /-! ## A constant against the specification's -/
 
 /-- **`lazyEntry` is the specification's constant**, up to a theorem's value, which is a
