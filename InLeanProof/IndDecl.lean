@@ -135,6 +135,16 @@ theorem checkShapelessS_not_ok {mode : InLean.CheckMode} {fe : InLean.FEnv}
   obtain ⟨_, _, _, h⟩ := bindI_ok h
   exact throwI_ok h
 
+/-- What the declaration step checks of the generator's output (`constInRange`)
+is the range premise here. -/
+theorem CIRange_of_constInRange {ci : Lean.ConstantInfo} (h : InLean.constInRange ci = true) :
+    CIRange ci := by
+  cases ci with
+  | recInfo v =>
+    simp only [InLean.constInRange, Bool.and_eq_true, List.all_eq_true] at h
+    exact ⟨(RangeOk_of_inRange h.1).1, fun r hr => (RangeOk_of_inRange (h.2 r hr)).1⟩
+  | _ => exact (RangeOk_of_inRange h).1
+
 /-! ## The two job runs, named -/
 
 /-- **A pinned block** (`checkBasisBlockC_spec`'s twin): accepted by InLean,
