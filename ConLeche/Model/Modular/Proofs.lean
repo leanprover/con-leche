@@ -33,11 +33,18 @@ variable (V) in
 /-- **Every proof's leaf is the canonical proof** (see the module docstring). -/
 @[expose] def ProofLeaves (E : Env) (a : Name → (Name → Nat) → Term) : Prop :=
   ∀ n ci, E.find? n = some ci → ci.isStmtKind = true → pinnedLeafName n = false →
-    n ≠ quotSoundName → ((∃ cv, ci = .thmInfo cv) ∨ SemPropType V a E ci.toConstantVal.type) →
+    ((∃ cv, ci = .thmInfo cv) ∨ SemPropType V a E ci.toConstantVal.type) →
     a n = fun _ => .prf
 
 theorem ProofLeaves.empty (a : Name → (Name → Nat) → Term) : ProofLeaves V Env.empty a :=
   fun _ _ h => nomatch h
+
+/-- The pinned names, unfolded. -/
+theorem pinnedLeafName_false {n : Name} (h : pinnedLeafName n = false) :
+    (natOpNames.contains n || natDivModNames.contains n) = false ∧
+      reduceOpNames.contains n = false ∧ n ≠ quotSoundName ∧ n ≠ sorryAxName := by
+  simp only [pinnedLeafName, Bool.or_eq_false_iff, beq_eq_false_iff_ne] at h
+  exact ⟨by rw [h.1.1.1.1, h.1.1.1.2]; rfl, h.1.1.2, h.1.2, h.2⟩
 
 /-- **A truth value read alike is a truth value.** -/
 theorem SemPropType.of_denote {a₁ a₂ : Name → (Name → Nat) → Term} {E₁ E₂ : Env} {ty : Expr}
