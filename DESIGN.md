@@ -112115,3 +112115,98 @@ generic proof.
 
 Gates: `lake build InLean InLeanProof inlean-replay` warning-free;
 `tests/layering.sh`, `tests/trust-surface.sh`, `tests/no-local-paths.sh` pass.
+
+### Lane O7-stages, round 2: `JobEnvI` at the formers' push, the constructors' stage (2026-11-08)
+
+Scope was the previous round's "what remains" list, in order.  Items 1 and 2
+are done; items 3 to 6 are not started.  No `InLean/*` change; no `sorry`; no
+new axiom (the constructor stage's two theorems use the stop-gap `mkData`
+axioms through the opener, as `checkBlockIndsFI_run`); 13 new pins.
+
+**Finding 1's facts and `JobEnvI fe₁ env₁`** (`PassEnv.lean`).
+* `PassPremI fe L p₀` (`IndBlockKS.lean`): what the pass reads off the
+  members' reduction and the block: `MemberDeclaredWF L` of every reduced
+  member (master's `reduceMembers_inv` on the translated run, with the
+  recognised shape's `declared = cvT`, `blockShape?_members`), a reduced
+  former named as declared (`MemberAt.name`), the declared names distinct
+  (`checkBlockKS`'s `namesNodup` on `memberNames`, carried through the
+  reduction: `ReduceMemberSimI` now also keeps `declared`), not `sorryAx`
+  unless `coreAxioms`, the declared types in range (the block's `CIRange`).
+  `blockKSSimI_of` supplies it; `PassSimI` and `PassTailSimI` take it.
+* Not-`sorryAx` is a new premise `∀ ci ∈ block, ci.name = sorryAxName →
+  fe.coreAxioms = true` of `BlockKSSimI`, `checkIndDeclC_sim`,
+  `checkIndDeclC_sim_stages` and `checkIndDeclC_sim_rest` (P4: from
+  `checkDecl`'s `sorryAxSquat`, an `inductInfo` is not an axiom).
+* Freshness is read off the formers' run (`checkBlockIndsF_fresh`:
+  `checkBlockTeleF` runs `checkConstantValF` on every member, whose first
+  guard is `fe.env.find? cv.name = none`); `CheckConstantValFSimI` is
+  unchanged (nothing for O6 to add).
+* `ProjBodiesInRange fe₁` from `fe`'s: `MarkedExt fe fe'` (same policy, the
+  mark only grown, every lookup `fe`'s or a marked former) is kept by marking
+  and by pushing a fresh marked former, and a marked extension adds no
+  projection (`MarkedExt.findProj?`).
+* `EnvWF env₁`: master's `direct_block_inds_wf` from `PassPremI.decl` and the
+  formers' run.
+* `JobEnvI.guard` at `fe₁`: named as `ProjGuardI` (`IndOps.lean`), #492's
+  guard spec at every environment the job's other premises hold at (the job
+  builds its own environments, so the declaration's `fe` alone is not
+  enough).  **`jobEnvI_formers`** assembles `JobEnvI fe₁ env₁` from it.
+
+**The constructors' stage** (`PassCtors.lean`, `checkBlockCtorsFI_run`):
+InLean's `checkBlockCtorsF` at the formers' environment answers master's pure
+`checkBlockCtors` there, constructor by constructor (`checkSumCtorFI_run` from
+`CheckConstantValFSimI` and `OpsSimI`).  The declared result
+(`structCtorResidOk_TrS`) and the opened residual are InLean's checker
+equality, which gives equal readings (`TrS_of_clEq`, from `toExpr_of_clEq`;
+the right-hand side needs only a reading, so `structPsAt`'s bound variables
+need no range); the parameter domains (`checkStructDomsAtFI_run`) and the
+fields' sorts (`checkStructFieldSortsIFI_run`, with `leq_trL`) are
+`checkBlockDomsAtFI_run`'s script.  **The resolution guards are not
+simulated**: InLean's `constsResolveF` (usedConstants, the annotation
+closure) would need `EO.collect`'s completeness, which is O6's; but master's
+guards hold whatever InLean answered, at `env₀ = env` (the pass's
+`checkBlockCtors env₁ env₁`), because the constructor's constant check
+resolved its type (`checkConstantVal_typeWF`) and opening a telescope keeps
+resolution (`openPisAtFvars_resolve`); InLean's guards read no state
+(`constsResolveF_noSt`, `NoSt.get`, `NoSt.allM`).
+
+**Theorems** (all pinned).  `IndBlockKS.lean`: `PassPremI`,
+`blockShape?_members`; `IndOps.lean`: `ProjGuardI`; `PassEnv.lean`:
+`checkBlockIndsF_fresh`, `MarkedExt`, `MarkedExt.findProj?`,
+`markedExt_consBlockIndsF`, `jobEnvI_formers`; `PassCtors.lean`:
+`openPisAtFvars_resolve`, `constsResolveF_noSt`, `TrS_of_clEq`,
+`structCtorResidOk_TrS`, `checkStructDomsAtFI_run`,
+`checkStructFieldSortsIFI_run`, `checkSumCtorFI_run`, `checkSumCtorsFI_run`,
+`checkBlockCtorsFI_run`.
+
+**Findings.**
+1. No statement turned out false for the code.
+2. *A guard InLean evaluates differently need not be simulated when master's
+   side is implied by master's earlier facts.*  The constructor stage's two
+   resolution guards are the first instance; the same may serve elsewhere in
+   the tail (`constsResolveF`, `mentionsAnyConst` through annotations).
+3. *For `D`* (not chosen): the positivity context has a direct twin
+   (`InLean.NestCtx` = master's with `fe : FEnv` for `find?`); the natural
+   relation is names/lps by `toName`, `nP`/`nIdxs` equal, `params` by `TrSL s`,
+   `sort` by `trL`, `formers` by `trCV`, `fe`/`find?` by `EnvPresI` at the
+   formers' environment (`jobEnvI_formers`).  `NestKey`, `NestCtorNf`,
+   `NestFieldKind` and the class reading follow the walks'
+   (`nestRoot`/`nestSeeds`) proofs.
+
+**What remains** (bottom-up): `blockNestCtx` (`openClosedI_run` and
+`nestHoles` at a `NestCtx` relation), `checkBlockClasses`,
+`checkBlockPositivity` (`nestUniform`, `nestRoot`, `checkAbsCtorSortsAll`),
+`nestSeeds` (with `classSeeds`), choosing `D`; `checkBlockIdxSortsF`,
+`genRecCheck` with `shadowOpsC`, `streamKCheck`, `streamRecsCheck`,
+`checkBlockTablesF`; the constructors' and generated recursors' pushes
+(`presI_push`, the mark kept; `MarkedExt` covers the constructors' push for
+the projection range only if extended to constructor entries); then
+`PassSimI (PassRelI D)` (its first two stages: `checkBlockIndsFI_run`,
+`checkBlockIndsF_fresh`, `jobEnvI_formers`, the flush, `checkBlockCtorsFI_run`
+at `fe₁ = fe₀`, with `okL p₁.resSort` and the formers' closedness from
+`checkBlockIndsFI_run`), `TailSimI (PassRelI D)`, and
+`checkIndDeclC_sim_rest` without them (it will take `ProjGuardI` and the
+not-`sorryAx` premise).
+
+Gates: `lake build InLean InLeanProof inlean-replay` warning-free;
+`tests/layering.sh`, `tests/trust-surface.sh`, `tests/no-local-paths.sh` pass.
