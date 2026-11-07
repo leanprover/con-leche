@@ -113149,3 +113149,102 @@ Lean merges them.  `lake build` of `MainTheorem`/`Challenge`: pass.
 5. The composition `main_modular_no_False`.
 
 The session ran low here.
+
+### #500 cont. 4 (the read order, the partner's statement, the fragment; 2026-11-07)
+
+**The read order** (`ConLeche/Driver/Reach.lean`, `readOrder`).  The worklist records what each
+record reads (`ReachLog.reads`, the `recordReads` it pushes); after it, the records are sorted by a
+post-order walk (`sortVisit`, `sortFrom`): a record is placed after the records storing its reads
+(`ownerMap`: each context name's record), a read stored by itself or a placed record needing
+nothing; a read whose record is on the walk's path is a cycle among the records' reads, exit 1
+("the context records … read each other"), malformed input: Lean's output has none.  A read no
+context record stores, and running out of depth (the fuel is the record count plus one, the path
+being distinct records), are internal errors (exit 3) that the reach's closure excludes.  Proved
+(`ConLeche/Verify/Driver/Reach.lean`): `ownerMap_spec`, `sortVisit_spec`/`sortFrom_spec` (the
+invariant `SortInv`: the placed set is the order's, positions in range and distinct, `OrderedBy`),
+`readOrder_spec` (the order is a permutation of the positions, in read order), `readOrder_perm`
+(the sorted records are the reach's, permuted), `readOrder_ordered` (each sorted record
+`RecordScoped` in the prefix ending with it, `ImportOk.ordered`'s statement).  `ReachInv` gained
+"the recorded reads are the records'"; `reach_ok` states the order first and derives the closure
+from it, the roots through the permutation (`streamEnv_find_mem`); `worker_ctx` and `worker_local`
+carry it, so the worker gives `ordered` of `ImportOk`; `reach_from` reads the sorted records'
+provenance through the permutation's positions.  Recomputing `recordReads` in the sort cost
++2.1 % to +4.4 %; reusing the worklist's is the version landed.
+
+**The partner's statement** (cont. item 4's gap).  `keyCheck` is `agreeCheck`: at a proof pair
+(the context's copy `s₁`, home `h`'s view's copy `s₂`, one statement, both proofs) every name the
+statement reads is capture-checked as a read of `h` (`partnerReads`, collected in
+`ReachCache.partners`, checked by `capturePairs` when the worklist's stack is empty, the names
+pushed again, which are seen already: each is the context's, read by the context copy's own
+record).  This is `Agree.proof`'s `∀ c ∈ readNames, Agree dev i h c` with `b = h`, the home whose
+`readsAlike` the read is (`ImportOk.reads` at `src n = h`).  `clashKeys` is `clashAgree`, Lean's
+merge rule as before: tried with partner reads at every clash (each copy's statement against its
+module) and every clash's name reached, it cost +6.7 % to +11.7 % (Mathlib's theorem clashes
+reached: Coxeter's context 2 268 → 2 752 records) for nothing the theory asks: a clash no record
+reads is in no context, and one a record reads meets `agreeCheck` there.  Proofs: `CacheOk.partners`,
+`capturePairs_ok`, `capturePairs_within`, `reachGo_inv`/`reachGo_from`/`reachGo_within` at the new
+branch, `ReachInv.push`.  No fixture: the statement-capture pair cannot be built by Lean (cont. 2).
+
+**Cost** (`perf stat -e instructions:u`, `--jobs=8`, one run each, under the guard, base the lane
+at ac94468b1; Mathlib v4.35.0): worker `Init.Data.Nat.Lemmas` 9.1847 G → 9.1908 G (+0.07 %),
+`Mathlib.GroupTheory.Coxeter.Basic` 8.9458 G → 8.9851 G (+0.44 %),
+`Mathlib.Analysis.SpecialFunctions.Gamma.Basic` 15.6455 G → 15.7574 G (+0.72 %),
+`Mathlib.RingTheory.WittVector.MulP` 9.0320 G → 9.0667 G (+0.38 %); records unchanged (898,
+2 268, 6 326, 2 078), exit 0 each.  `tests/olean.sh`: 304/304.
+
+**The fragment and §7** (merged from `agent/500-frag`).  `whitepaper/Fragment/ModularSemantics.lean`
+is the new `Generic.lean` in `namespace Fragment`.  `ModularModel.lean`: keys, `Stmt`, `ownKey`,
+`proofs`, `FlagsOk`, `Decl.IsProof` out; `Module` has `src`, `rank`, `part`; `FromViews` is
+"assembled from the views, every name read with every copy agreeing" (`Agrees`, `ReadsOk`, the
+importer's check); `Compared` is "own environment = context"; `Checks.blockModel` without flags
+keeps every context name's set and keeps proofs the point.  `ProofIn C E n` is the fragment's
+inference over `C`, `IsThm E n := ProofIn E E n` (the fragment's models have no theorem kind).
+**One choice made there, as in the model**: a fragment model pins a constant's set only at level
+lists of the right length, so "a proof is the point in every model" does not follow from typing;
+the fragment's models carry `ProofsPt` (a definition or assumption whose type reads as a truth
+value has the point), con-leche's `ProofLeaves`.  To keep it through amalgamation, `Assembled`
+gained `stmt`: where an assembled environment holds a name as an assumption, every member's copy
+is a definition or an assumption, so a type former or constructor is no longer read as an
+assumption of its type (con-leche reads a group whole; the paper's sentence allowing it is
+gone).  `ModularSyntactic.lean` recognises no proofs.  `Axioms.lean` pins `Assembled.proofsPt`,
+`ProofIn.eq_dflt`, `toDev_valid` (three standard axioms).  §7: the interface's four laws,
+`src`/rank/part, the three routes of agreement, why the proof route is not circular, the
+compatible family, the capture example by values; §1's summary and §8's modular paragraph
+follow.  Gates: fragment gate, links gate, `build.sh` (PDF and HTML): pass.
+
+**The composition `main_modular_no_False`: what it needs** (left to lane #501; it does not fit
+here).  The development: `dev j` for the closure's modules numbered by `--check-graph`'s ranks
+(`checkGraphG_ok`), `ctx` the worker's sorted context, `decls` its own records with the
+theorems' values in place, `src n` the rank of the home of the record storing `n`
+(`worker_one_record` makes it a function of the record), `iface` the presentations its importers'
+workers read; modules outside the closure empty.  Of `LocalOk`:
+* given today: `InterfaceOk` (`interfaceOk_of_workers`, #448/#440), `presented`
+  (`presented_of_worker`), `nodup`, `one_src`, `accepted`, `ordered` (`worker_local`);
+* `below`, `src_lt`: from the ranks, once every loaded module and every completion's module is
+  shown to lie on an import path from the module (the header fixpoint's modules, and a home's
+  view's for a completion), each edge decreasing in rank;
+* `reads` (the capture check's soundness, the bulk): for a record `d` of home `h` and every name
+  `y` it reads, `Agree dev i h y`: `same` where the context's copy is `h`'s module's; `via` at the
+  public-import shortcut (the context's copy's module `M1` is in `h`'s public closure and exports
+  `y`: `h`'s context holds `y` because `d` presents `h`'s own record, whose reads are `h`'s
+  reach's roots, `Agree dev h M1 y` by `h`'s worker's clash rule and capture check, `Agree dev i
+  M1 y` by `same`, `M1 < h` by the ranks); `proof` at `agreeCheck`'s pairs: equal statements,
+  statement kinds, the statement's names by the partner reads (an induction on the context's
+  order, since a partner name's agreement is again one of these routes), `ThmAt` for a theorem
+  copy, and `TypeIsProp` at `(dev i).part y` from the inference at the full context (`knot_ext`:
+  the prefix before `y`'s record, closed by `ordered`, extends to the context and holds
+  `StoredFacts`, so the verdict there is the prefix's), at the pinned names excluded
+  (`pinnedLeafName`: the worker's `proofStatus` says `.infer` at such a name, and its type is no
+  proposition, so the inference fails there; #501 states that, or makes `proofStatus` say `.no`
+  at a pinned name, which rejects nothing Lean merges).
+Then `main_modular_no_False` is `modular_no_False` at that development, for the module whose
+private view holds the theorem of type `False` (`worker_thm`), under the assumption for several
+runs.
+
+**Gates on the final tree**: `lake build`, `lake test` warning-free; `tests/arena.sh` in full under
+the guard: exit 0 (whitepaper links 526 OK, fragment gate OK, challenge OK, shake 679/679
+allowlisted and no public import demotable, olean gate 304/304, e2e 555/555, arena tutorial 90/92
+as expected, trusted and `--jobs` sweeps unchanged, axioms pinned).  The shake gate asked for the
+modular model's imports (`Model/Modular/{Instance,Proofs,Step,Valid}.lean`) by its criterion: two
+demotions and a removal applied, three compensated removals allowlisted.  Landed on `modular`
+with `--no-ff`; the composition is lane #501.
