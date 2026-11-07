@@ -5,6 +5,7 @@ public import ConLeche.Model.Inductives.NestPosAcc
 public import ConLeche.Model.Env.LfpAcc
 public import ConLeche.Model.Inductives.BlockPosRun
 import ConLeche.Model.Inductives.StructEntryKit
+import ConLeche.Verify.LooseBVar
 
 public section
 

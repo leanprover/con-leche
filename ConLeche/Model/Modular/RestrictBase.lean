@@ -301,6 +301,7 @@ theorem nat_heads (φ : Name → Nat) : NatHeads S.base φ := by
   have hsE : natLitSupported (E natName) = true :=
     natLitSupported_of_shapes
       (fun _ c hc => (S.m natName).base2.wf.shapes _ (Env.find?_mem hc))
+      (S.m natName).base2.basis_pinned.natKinds
       (by simp only [natLitStored, Bool.and_eq_true]; exact ⟨⟨htrio.1, htrio.2.1⟩, htrio.2.2⟩)
   have h := (S.m natName).nat_heads φ hsE ρ
   obtain ⟨ciZ, hEZ⟩ := Option.isSome_iff_exists.mp htrio.2.1
@@ -366,7 +367,7 @@ theorem caps_ok : CapsOk S.base := by
     exact hlaw ρ ts x y hlen hfit hx hy
 
 omit [SetTheory V] S in
-theorem pinnedInfo_nat : pinnedInfo natName = natA := by simp (decide := true)
+theorem pinnedInfo_nat : pinnedInfo natName = natI := by simp (decide := true)
 
 /-- **The context stores `Nat`'s three names together**: a constructor of the trio is at its
 literal shape, whose type reads `Nat`; and `Nat` is at its pin, whose constructors are read alike
@@ -381,11 +382,9 @@ theorem natFacts : NatFacts C := by
       have hty := (S.scopeR hci).1
       unfold litShapeOk at hs
       rw [Env.find?_name hci] at hs
-      simp (decide := true) only [↓reduceIte] at hs
-      cases ci <;> simp only [natZeroOk, Bool.false_eq_true] at hs
-      rename_i cv _ _
-      simp only [Bool.and_eq_true, beq_iff_eq] at hs
-      have : Expr.constsAll (fun d => ((R natZeroName).find? d).isSome = true) cv.type := hty
+      simp (decide := true) only [↓reduceIte, natZeroOk, Bool.and_eq_true, beq_iff_eq] at hs
+      have : Expr.constsAll (fun d => ((R natZeroName).find? d).isSome = true)
+          ci.toConstantVal.type := hty
       rw [hs.2] at this
       exact S.storedC this
     · obtain ⟨ci, hci⟩ := Option.isSome_iff_exists.mp h
@@ -393,15 +392,13 @@ theorem natFacts : NatFacts C := by
       have hty := (S.scopeR hci).1
       unfold litShapeOk at hs
       rw [Env.find?_name hci] at hs
-      simp (decide := true) only [↓reduceIte] at hs
-      cases ci <;> simp only [natSuccOk, Bool.false_eq_true] at hs
-      rename_i cv _ _
-      simp only [Bool.and_eq_true] at hs
+      simp (decide := true) only [↓reduceIte, natSuccOk, Bool.and_eq_true] at hs
       obtain ⟨-, hm⟩ := hs
       split at hm
       · next c1 c2 heq =>
         simp only [Bool.and_eq_true, beq_iff_eq] at hm
-        have : Expr.constsAll (fun d => ((R natSuccName).find? d).isSome = true) cv.type := hty
+        have : Expr.constsAll (fun d => ((R natSuccName).find? d).isSome = true)
+            ci.toConstantVal.type := hty
         rw [heq] at this
         simp only [Expr.constsAll] at this
         rw [← hm.1]; exact S.storedC this.1

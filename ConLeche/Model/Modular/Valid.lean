@@ -193,12 +193,21 @@ theorem streamEnv_findTable? {L : List Declaration} (h : NodupNames (streamEnv L
 
 /-! ## What an accepting run says of its records -/
 
-theorem checkConstantValC_unreserved (mode : CheckMode) (fe : FEnv) (cv : ConstantVal) {a : Bool} :
-    Yields (checkConstantValC mode fe cv a)
-      (fun _ => reservedBasisNames.contains cv.name = false) := by
-  unfold checkConstantValC
-  yields
-  all_goals exact Yields.pure (Bool.eq_false_iff.mpr (by assumption))
+/-- **An accepted record passed the reserved names' check** (`basisNamesOk`, after the
+record's own checks). -/
+theorem checkDeclStepC_basisNamesOk {mode : CheckMode} {pins : List NatOpPinSet} {fe : FEnv}
+    {d : Declaration} {s : CState} {r : FEnv × CState}
+    (h : checkDeclStepC mode pins fe d s = .ok r) : basisNamesOk d = true := by
+  have hY : Yields (checkDeclStepC mode pins fe d) (fun _ => basisNamesOk d = true) := by
+    unfold checkDeclStepC
+    ybind
+    unfold checkDeclC
+    ybind
+    by_cases hb : basisNamesOk d = true
+    · exact Yields.const hb
+    · simp only [hb, Bool.false_eq_true, ↓reduceIte]
+      exact Yields.ofThrowBind
+  exact hY s r.1 r.2 h
 
 /-- **An accepted value-kind record is at an unreserved name.** -/
 theorem checkDeclStepC_unreserved {mode : CheckMode} {pins : List NatOpPinSet} {fe : FEnv}
@@ -207,15 +216,8 @@ theorem checkDeclStepC_unreserved {mode : CheckMode} {pins : List NatOpPinSet} {
     ∀ cv, ((∃ v hint, d = .defnDecl cv v hint) ∨ (∃ v, d = .thmDecl cv v) ∨
       (∃ v, d = .opaqueDecl cv v)) → reservedBasisNames.contains cv.name = false := by
   intro cv hd
-  have hY : Yields (checkDeclStepC mode pins fe d)
-      (fun _ => reservedBasisNames.contains cv.name = false) := by
-    unfold checkDeclStepC
-    ybind
-    unfold checkDeclC
-    rcases hd with ⟨v, hint, rfl⟩ | ⟨v, rfl⟩ | ⟨v, rfl⟩ <;>
-    · simp only []
-      exact Yields.bind' (checkConstantValC_unreserved mode fe cv) fun _ h => Yields.const h
-  exact hY s r.1 r.2 h
+  have hb := checkDeclStepC_basisNamesOk h
+  rcases hd with ⟨v, hint, rfl⟩ | ⟨v, rfl⟩ | ⟨v, rfl⟩ <;> simpa [basisNamesOk] using hb
 
 /-- **Every record of an accepting run passed its check.** -/
 theorem declsRun_checked {mode : CheckMode} {pins : List NatOpPinSet} {ds : List Declaration}
@@ -397,15 +399,6 @@ theorem refines_alike {ci ci' ciO : ConstantInfo} (h : Refines ci ciO) (h' : Ref
 
 /-! ## What a record's constants say of its names -/
 
-/-- A pinned block's formers list only the block's names as constructors (checked per kind). -/
-@[expose] def pinCtorsOk (pins : List ConstantInfo) : Bool :=
-  pins.all fun pin => match pin with
-    | .indInfo _ caps => caps.ctors.all fun x => (pins.map (·.name)).contains x
-    | _ => true
-
-theorem pinCtorsOk_basis : ∀ kind ∈ [BasisKind.eqK, .natK, .emptyK, .falseK],
-    pinCtorsOk kind.decls = true := by decide
-
 theorem atLps_indInfo {pin : ConstantInfo} {ps : List Name} {cv : ConstantVal} {caps : IndCaps}
     (h : pin.atLps ps = .indInfo cv caps) : ∃ cv', pin = .indInfo cv' caps := by
   cases pin <;> simp [ConstantInfo.atLps] at h
@@ -444,53 +437,35 @@ theorem declConstants_ctors {e : Declaration} {cv : ConstantVal} {caps : IndCaps
   | indDecl block nP =>
     simp only [declConstants] at h ⊢
     split at h
-    · next kind hk =>
-      have hn := List.find?_some hk
-      simp only [beq_iff_eq] at hn
-      have hmem : kind ∈ [BasisKind.eqK, .natK, .emptyK, .falseK] := List.mem_of_find?_eq_some hk
-      have hnames := atBlock_names kind.decls block hn
-      show x ∈ (kind.atBlock block).map (·.name)
-      unfold BasisKind.atBlock
-      rw [hnames]
-      obtain ⟨j, hj⟩ := List.getElem?_of_mem h
-      obtain ⟨pin, c, hpin, -, hpe⟩ := List.getElem?_zipWith_eq_some.mp hj
-      obtain ⟨cv', rfl⟩ := atLps_indInfo hpe
-      have hpin : ConstantInfo.indInfo cv' caps ∈ kind.decls := List.mem_of_getElem? hpin
-      have hok := pinCtorsOk_basis kind hmem
-      unfold pinCtorsOk at hok
-      have := List.all_eq_true.mp hok _ hpin
-      simp only [List.all_eq_true, List.contains_iff_mem] at this
-      exact this x hx
-    · split at h
-      · next p hp =>
-        simp only [blockConstants, List.mem_append] at h
-        rcases h with (h | h) | h
-        · unfold blockFormers at h
-          obtain ⟨⟨cvm, i⟩, hi, he⟩ := List.mem_map.mp h
-          simp only [ConstantInfo.indInfo.injEq] at he
-          obtain ⟨rfl, rfl⟩ := he
-          have hlt : i < p.members.length := by
-            have := List.mem_zipIdx hi
-            simp at this
-            omega
-          rw [blockConstants_names]
-          refine List.mem_append_left _ (List.mem_append_right _ ?_)
-          have hsub : ∀ ms ∈ p.members, ∀ c ∈ ms.ctors, c ∈ p.allCtors := fun ms hms c hc =>
-            List.mem_flatten.mpr ⟨ms.ctors, List.mem_map.mpr ⟨ms, hms, rfl⟩, hc⟩
-          have hm : p.members.getD i default ∈ p.members := by
-            rw [List.getD_eq_getElem?_getD, List.getElem?_eq_getElem hlt]
-            exact List.getElem_mem _
-          have hcs : ∀ x ∈ (blockCapsAt p i (blockIsRec p)).ctors,
-              x ∈ (p.members.getD i default).ctors.map (·.1.name) := by
-            unfold blockCapsAt
-            split <;> simp_all
-          obtain ⟨c, hc, rfl⟩ := List.mem_map.mp (hcs x hx)
-          exact List.mem_map.mpr ⟨c, hsub _ hm c hc, rfl⟩
-        · unfold blockCtors at h
-          obtain ⟨c, -, he⟩ := List.mem_map.mp h
-          exact nomatch he
-        · exact absurd h (blockRecs_not_ind p p.recs)
-      · exact absurd h (List.not_mem_nil)
+    · next p hp =>
+      simp only [blockConstants, List.mem_append] at h
+      rcases h with (h | h) | h
+      · unfold blockFormers at h
+        obtain ⟨⟨cvm, i⟩, hi, he⟩ := List.mem_map.mp h
+        simp only [ConstantInfo.indInfo.injEq] at he
+        obtain ⟨rfl, rfl⟩ := he
+        have hlt : i < p.members.length := by
+          have := List.mem_zipIdx hi
+          simp at this
+          omega
+        rw [blockConstants_names]
+        refine List.mem_append_left _ (List.mem_append_right _ ?_)
+        have hsub : ∀ ms ∈ p.members, ∀ c ∈ ms.ctors, c ∈ p.allCtors := fun ms hms c hc =>
+          List.mem_flatten.mpr ⟨ms.ctors, List.mem_map.mpr ⟨ms, hms, rfl⟩, hc⟩
+        have hm : p.members.getD i default ∈ p.members := by
+          rw [List.getD_eq_getElem?_getD, List.getElem?_eq_getElem hlt]
+          exact List.getElem_mem _
+        have hcs : ∀ x ∈ (blockCapsAt p i (blockIsRec p)).ctors,
+            x ∈ (p.members.getD i default).ctors.map (·.1.name) := by
+          unfold blockCapsAt
+          split <;> simp_all
+        obtain ⟨c, hc, rfl⟩ := List.mem_map.mp (hcs x hx)
+        exact List.mem_map.mpr ⟨c, hsub _ hm c hc, rfl⟩
+      · unfold blockCtors at h
+        obtain ⟨c, -, he⟩ := List.mem_map.mp h
+        exact nomatch he
+      · exact absurd h (blockRecs_not_ind p p.recs)
+    · exact absurd h (List.not_mem_nil)
   | quotDecl k cv' =>
     simp only [declConstants, List.mem_singleton] at h
     rw [quotAt_ctors h.symm] at hx
@@ -529,18 +504,16 @@ theorem declTables_former {e : Declaration} {t : ProjTable} (ht : t ∈ declTabl
   | indDecl block nP =>
     simp only [declTables, declConstants] at ht ⊢
     split at ht
+    · next p hp =>
+      obtain ⟨ms, hms, he⟩ := blockTables_member p p.members ht
+      obtain ⟨i, hi⟩ := List.getElem_of_mem hms
+      refine ⟨ms.declared, blockCapsAt p i (blockIsRec p), ?_, he.symm⟩
+      simp only [blockConstants, blockFormers, List.mem_append]
+      refine .inl (.inl (List.mem_map.mpr ⟨(ms.declared, i), ?_, rfl⟩))
+      rw [List.mem_zipIdx_iff_getElem?]
+      obtain ⟨hlt, rfl⟩ := hi
+      simp [List.getElem?_eq_getElem hlt]
     · exact absurd ht (List.not_mem_nil)
-    · split at ht
-      · next p hp =>
-        obtain ⟨ms, hms, he⟩ := blockTables_member p p.members ht
-        obtain ⟨i, hi⟩ := List.getElem_of_mem hms
-        refine ⟨ms.declared, blockCapsAt p i (blockIsRec p), ?_, he.symm⟩
-        simp only [blockConstants, blockFormers, List.mem_append]
-        refine .inl (.inl (List.mem_map.mpr ⟨(ms.declared, i), ?_, rfl⟩))
-        rw [List.mem_zipIdx_iff_getElem?]
-        obtain ⟨hlt, rfl⟩ := hi
-        simp [List.getElem?_eq_getElem hlt]
-      · exact absurd ht (List.not_mem_nil)
   | _ => simp [declTables] at ht
 
 theorem find?_of_mem_nodupKey {α : Type} (f : α → Name) {L : List α} (hnd : (L.map f).Nodup)

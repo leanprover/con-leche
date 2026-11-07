@@ -119,31 +119,31 @@ every outcome that is an exit 0 read records off the snapshot's `.olean`
 files of the roots the arguments name, along the search path they name, and
 `checkDecls` at the arguments' mode accepts them prepared with the built-in
 prelude and with the theorems' values in place. -/
-theorem runArgs_oleans_accept {args : List String} {fs : FS}
+theorem runArgs_oleans_accept {args : List String} {fs : FS} {hs hs' : HS}
     (hh : helpWanted args = false) (hb : (parseArgs args {}).bad = none)
     (ho : (parseArgs args {}).olean = true) (hcg : (parseArgs args {}).checkGraph = false)
     (hm : (parseArgs args {}).module = false) (hmd : (parseArgs args {}).modular = false)
-    (hs : (parseArgs args {}).scheduled = false)
-    (h : (runArgs args : ModelIO _) fs (.ok 0)) :
+    (hsc : (parseArgs args {}).scheduled = false)
+    (h : (runArgs args : ModelIO _) fs hs (.ok 0) hs') :
     ∃ pre rd env, builtinPreludeE = .ok pre ∧
-      (Olean.readOleans (parseArgs args {}).searchPath
-        ((parseArgs args {}).files.filterMap Olean.parseModName) (parseArgs args {}).rootConstants :
-          ModelIO _) fs (.ok (.ok rd)) ∧
+      ModelIO.CanGive (Olean.readOleans (parseArgs args {}).searchPath
+        ((parseArgs args {}).files.filterMap Olean.parseModName) (parseArgs args {}).rootConstants)
+          fs (.ok rd) ∧
       Cached.checkDecls (parseArgs args {}).mode natOpPinSets
         ((prepareD pre rd.decls (usedOf (some ((parseArgs args {}).searchPath, rd)))).decls.map
           (Cached.fillDecl (fillOf (parseArgs args {}).searchPath fs rd.values))) = .ok env := by
-  suffices H : ModelIO.AllOk (runArgs args) fs
+  suffices H : ModelIO.AllOk (runArgs args) fs hs
       (fun c => c = 0 → ∃ pre rd env, builtinPreludeE = .ok pre ∧
-        (Olean.readOleans (parseArgs args {}).searchPath
-          ((parseArgs args {}).files.filterMap Olean.parseModName) (parseArgs args {}).rootConstants :
-          ModelIO _) fs (.ok (.ok rd)) ∧
+        ModelIO.CanGive (Olean.readOleans (parseArgs args {}).searchPath
+          ((parseArgs args {}).files.filterMap Olean.parseModName) (parseArgs args {}).rootConstants)
+          fs (.ok rd) ∧
         Cached.checkDecls (parseArgs args {}).mode natOpPinSets
           ((prepareD pre rd.decls (usedOf (some ((parseArgs args {}).searchPath, rd)))).decls.map
             (Cached.fillDecl (fillOf (parseArgs args {}).searchPath fs rd.values))) = .ok env) from
-    H 0 h rfl
-  refine ModelIO.allOk_tryCatch ?_ fun _ _ => ?_
-  · simp only [hh, hb, ho, hcg, hm, hmd, hs, Bool.false_eq_true, ite_false, ite_true]
-    intro c hc h0
+    H 0 hs' h rfl
+  refine ModelIO.allOk_tryCatch ?_ fun _ _ _ => ?_
+  · simp only [hh, hb, ho, hcg, hm, hmd, hsc, Bool.false_eq_true, ite_false, ite_true]
+    intro c _ hc h0
     subst h0
     split at hc
     · simp [eprintln] at hc
@@ -168,11 +168,11 @@ theorem helpWanted_olean (dirs root : String) :
 /-- **`runArgs` on `--olean --search-path=<dirs> -- <root>`, in the model**: every outcome that
 is an exit 0 read records of that root's closure, every constant of it, that `checkDecls
 .verified` accepts prepared with the built-in prelude and with the theorems' values in place. -/
-theorem runArgs_olean_accept {dirs root : String} {fs : FS}
-    (h : (runArgs ["--olean", "--search-path=" ++ dirs, "--", root] : ModelIO _) fs (.ok 0)) :
+theorem runArgs_olean_accept {dirs root : String} {fs : FS} {hs hs' : HS}
+    (h : (runArgs ["--olean", "--search-path=" ++ dirs, "--", root] : ModelIO _) fs hs (.ok 0) hs') :
     ∃ pre rd env, builtinPreludeE = .ok pre ∧
-      (Olean.readOleans (searchPathOf dirs) (#[root].filterMap Olean.parseModName) none : ModelIO _)
-        fs (.ok (.ok rd)) ∧
+      ModelIO.CanGive (Olean.readOleans (searchPathOf dirs) (#[root].filterMap Olean.parseModName)
+        none) fs (.ok rd) ∧
       Cached.checkDecls .verified natOpPinSets
         ((prepareD pre rd.decls (usedOf (some (searchPathOf dirs, rd)))).decls.map
           (Cached.fillDecl (fillOf (searchPathOf dirs) fs rd.values))) = .ok env := by
@@ -212,16 +212,17 @@ theorem helpWanted_graph (dirs root : String) :
 /-- **`runArgs` on `--check-graph --search-path=<dirs> -- <root>`, in the model** (task #467):
 every outcome that is an exit 0 is an exit 0 of the graph check of that root's closure, at some
 worker count (`Graph.checkGraphG_ok` says what that means). -/
-theorem runArgs_graph_accept {dirs root : String} {r : Name} {fs : FS}
+theorem runArgs_graph_accept {dirs root : String} {r : Name} {fs : FS} {hs hs' : HS}
     (hr : Frontend.Olean.parseModName root = some r)
-    (h : (runArgs ["--check-graph", "--search-path=" ++ dirs, "--", root] : ModelIO _) fs (.ok 0)) :
-    ∃ jobs, (Graph.checkGraphG (searchPathOf dirs) [r] jobs : ModelIO _) fs (.ok 0) := by
+    (h : (runArgs ["--check-graph", "--search-path=" ++ dirs, "--", root] : ModelIO _) fs hs
+      (.ok 0) hs') :
+    ∃ jobs, ModelIO.CanGive (Graph.checkGraphG (searchPathOf dirs) [r] jobs) fs 0 := by
   suffices H : ModelIO.AllOk (runArgs ["--check-graph", "--search-path=" ++ dirs, "--", root]) fs
-      (fun c => c = 0 → ∃ jobs, (Graph.checkGraphG (searchPathOf dirs) [r] jobs : ModelIO _)
-        fs (.ok 0)) from H 0 h rfl
-  refine ModelIO.allOk_tryCatch ?_ fun _ _ => ?_
+      hs (fun c => c = 0 → ∃ jobs, ModelIO.CanGive (Graph.checkGraphG (searchPathOf dirs) [r] jobs)
+        fs 0) from H 0 hs' h rfl
+  refine ModelIO.allOk_tryCatch ?_ fun _ _ _ => ?_
   · simp only [helpWanted_graph, parseArgs_graph, Bool.false_eq_true, ite_false, ite_true]
-    intro c hc h0
+    intro c _ hc h0
     subst h0
     have hf : (#[root].find? fun f => (Frontend.Olean.parseModName f).isNone) = none := by
       simp [hr]
@@ -231,25 +232,26 @@ theorem runArgs_graph_accept {dirs root : String} {r : Name} {fs : FS}
       ite_false] at hc
     split at hc
     · simp [eprintln] at hc
-    · exact ⟨_, hc⟩
+    · exact ⟨_, _, _, hc⟩
   · simp
 
 /-- **`runArgs`, in the model** (task #450). -/
-theorem runArgs_accept {file : String} {fs : FS}
-    (h : (runArgs ["--", file] : ModelIO _) fs (.ok 0)) :
+theorem runArgs_accept {file : String} {fs : FS} {hs hs' : HS}
+    (h : (runArgs ["--", file] : ModelIO _) fs hs (.ok 0) hs') :
     ∃ pre b r env, builtinPreludeE = .ok pre ∧ fs.file file = some b ∧
       parseChunks [b] = .ok r ∧
       Cached.checkDecls .verified natOpPinSets (preparePrelude pre r.decls) = .ok env := by
   -- every value outcome `c` of the run: `c = 0` gives the chain
-  suffices H : ModelIO.AllOk (runArgs ["--", file]) fs
+  suffices H : ModelIO.AllOk (runArgs ["--", file]) fs hs
       (fun c => c = 0 → ∃ pre b r env, builtinPreludeE = .ok pre ∧ fs.file file = some b ∧
         parseChunks [b] = .ok r ∧
         Cached.checkDecls .verified natOpPinSets (preparePrelude pre r.decls) = .ok env) from
-    H 0 h rfl
+    H 0 hs' h rfl
   -- the code is the request's, or the handler's 3
-  refine ModelIO.allOk_tryCatch ?_ fun _ _ => ?_
+  refine ModelIO.allOk_tryCatch ?_ fun _ _ _ => ?_
   · simp only [helpWanted_file, parseArgs_file]
-    exact fun c hc _ => checkMainG_ndjson_accept (by subst_vars; exact hc)
+    exact fun c hs₁ hc _ =>
+      checkMainG_ndjson_accept (hs := hs) (hs' := hs₁) (by subst_vars; exact hc)
   · simp
 
 /-- The arguments `--olean --module --search-path=<dirs> -- <root>`: that one module, those
@@ -283,17 +285,17 @@ theorem helpWanted_module (dirs root : String) :
 outcome that is an exit 0 names a module `m` and is an accepted worker at `m`
 (`WorkerAccepted`, `ConLeche/Verify/Driver/Worker.lean`) at the mode `.verified`, on that
 search path, at some worker count. -/
-theorem runArgs_module_accept {dirs root : String} {fs : FS}
-    (h : (runArgs ["--olean", "--module", "--search-path=" ++ dirs, "--", root] : ModelIO _) fs
-      (.ok 0)) :
+theorem runArgs_module_accept {dirs root : String} {fs : FS} {hs hs' : HS}
+    (h : (runArgs ["--olean", "--module", "--search-path=" ++ dirs, "--", root] : ModelIO _) fs hs
+      (.ok 0) hs') :
     ∃ m jobs, Olean.parseModName root = some m ∧
       WorkerAccepted .verified (searchPathOf dirs) fs m jobs := by
   suffices H : ModelIO.AllOk (runArgs ["--olean", "--module", "--search-path=" ++ dirs, "--", root])
-      fs (fun c => c = 0 → ∃ m jobs, Olean.parseModName root = some m ∧
-        WorkerAccepted .verified (searchPathOf dirs) fs m jobs) from H 0 h rfl
-  refine ModelIO.allOk_tryCatch ?_ fun _ _ => ?_
+      fs hs (fun c => c = 0 → ∃ m jobs, Olean.parseModName root = some m ∧
+        WorkerAccepted .verified (searchPathOf dirs) fs m jobs) from H 0 hs' h rfl
+  refine ModelIO.allOk_tryCatch ?_ fun _ _ _ => ?_
   · simp only [helpWanted_module, parseArgs_module, Bool.false_eq_true, ite_false, ite_true]
-    intro c hc h0
+    intro c _ hc h0
     subst h0
     split at hc
     · simp [eprintln] at hc
@@ -341,26 +343,26 @@ outcome that is an exit 0 names a module `m`, and gives what an exit 0 of `--che
 gives (`checkGraphG_ok`'s facts: the closure `C`, each module's imports its header's, closed
 under imports, a rank decreasing along every import, one-to-one), and, at every module of `C`,
 what an exit 0 of `--module` at that module gives (`WorkerAccepted` at the mode `.verified`). -/
-theorem runArgs_modular_accept {dirs root : String} {fs : FS}
-    (h : (runArgs ["--olean", "--modular", "--search-path=" ++ dirs, "--", root] : ModelIO _) fs
-      (.ok 0)) :
+theorem runArgs_modular_accept {dirs root : String} {fs : FS} {hs hs' : HS}
+    (h : (runArgs ["--olean", "--modular", "--search-path=" ++ dirs, "--", root] : ModelIO _) fs hs
+      (.ok 0) hs') :
     ∃ m, Olean.parseModName root = some m ∧ ∃ C : List Graph.Node, ∃ rk : Name → Nat,
-      (∀ e ∈ C, (Olean.moduleImports (searchPathOf dirs) e.1 : ModelIO _) fs (.ok (.ok e.2))) ∧
+      (∀ e ∈ C, ModelIO.CanGive (Olean.moduleImports (searchPathOf dirs) e.1) fs (.ok e.2)) ∧
       m ∈ C.map (·.1) ∧
       (∀ e ∈ C, ∀ i ∈ e.2, i.module ∈ C.map (·.1) ∧ rk i.module < rk e.1) ∧
       (C.map fun e => rk e.1).Nodup ∧
       ∀ e ∈ C, WorkerAccepted .verified (searchPathOf dirs) fs e.1 1 := by
   suffices H : ModelIO.AllOk (runArgs ["--olean", "--modular", "--search-path=" ++ dirs, "--", root])
-      fs (fun c => c = 0 → ∃ m, Olean.parseModName root = some m ∧ ∃ C : List Graph.Node,
+      fs hs (fun c => c = 0 → ∃ m, Olean.parseModName root = some m ∧ ∃ C : List Graph.Node,
         ∃ rk : Name → Nat,
-        (∀ e ∈ C, (Olean.moduleImports (searchPathOf dirs) e.1 : ModelIO _) fs (.ok (.ok e.2))) ∧
+        (∀ e ∈ C, ModelIO.CanGive (Olean.moduleImports (searchPathOf dirs) e.1) fs (.ok e.2)) ∧
         m ∈ C.map (·.1) ∧
         (∀ e ∈ C, ∀ i ∈ e.2, i.module ∈ C.map (·.1) ∧ rk i.module < rk e.1) ∧
         (C.map fun e => rk e.1).Nodup ∧
-        ∀ e ∈ C, WorkerAccepted .verified (searchPathOf dirs) fs e.1 1) from H 0 h rfl
-  refine ModelIO.allOk_tryCatch ?_ fun _ _ => ?_
+        ∀ e ∈ C, WorkerAccepted .verified (searchPathOf dirs) fs e.1 1) from H 0 hs' h rfl
+  refine ModelIO.allOk_tryCatch ?_ fun _ _ _ => ?_
   · simp only [helpWanted_modular, parseArgs_modular, Bool.false_eq_true, ite_false, ite_true]
-    intro c hc h0
+    intro c _ hc h0
     subst h0
     split at hc
     · simp [eprintln] at hc
@@ -375,7 +377,7 @@ theorem runArgs_modular_accept {dirs root : String} {fs : FS}
             Array.isEmpty_empty] at hc
           generalize (none : Option Nat).getD _ = j at hc
           simp only [runReq] at hc
-          obtain ⟨C, hC, hall⟩ := checkModularG_accept hc
+          obtain ⟨C, ⟨_, _, hC⟩, hall⟩ := checkModularG_accept hc
           obtain ⟨rk, h1, h2, h3, h4⟩ := Graph.graphOf_ok hC
           exact ⟨m, rfl, C.toList, rk, h1, h2 m (by simp), h3, h4, hall⟩
   · simp

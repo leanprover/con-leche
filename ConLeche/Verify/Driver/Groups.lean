@@ -172,7 +172,7 @@ theorem here_unique {r : Region} {a : UInt64} {t : NamePositions} (ht : namePosi
 
 /-- The home's private name table is its private view's. -/
 theorem home_table {sp : SearchPath} {fs : FS} {h : Name} {f : ModFiles} {r : Region} {a : UInt64}
-    (hf : (readFiles sp h .private : ModelIO _) fs (.ok (.ok f))) (hreg : f.viewRegion .private = some (r, a))
+    (hf : ModelIO.CanGive (readFiles sp h .private) fs (.ok f)) (hreg : f.viewRegion .private = some (r, a))
     {t : NamePositions} (ht : PartNames sp fs ⟨h, .private⟩ t) : namePositionsAt r a = some t := by
   have hnt := readPartNames_of_all hf ht
   simpa only [ModFiles.upTo, readNamePositions, hreg, Option.bind_eq_bind, Option.bind_some] using hnt
@@ -772,8 +772,10 @@ theorem worker_presented {sp : SearchPath} {fs : FS} {m : Name} {jobs : Nat} {w 
     (hd : w.reach.ctx[i]? = some d) (hh : w.reach.homes[i]? = some h)
     {jobs' : Nat} {w' : WorkerRead} (hw' : WorkerFacts sp fs h jobs' w') :
     ∃ p ∈ w'.own.toList.map (fillDecl (fillOf sp fs #[⟨h, w'.home.frontier⟩])), Presents d p := by
-  obtain ⟨hparts, hindex⟩ := workerReads_index hw.reads
-  obtain ⟨-, hfrom⟩ := reach_from hparts hindex hw.reach
+  obtain ⟨_, _, hrd⟩ := hw.reads
+  obtain ⟨_, _, hre⟩ := hw.reach
+  obtain ⟨hparts, hindex⟩ := workerReads_index hrd
+  obtain ⟨-, hfrom⟩ := reach_from hparts hindex hre
   obtain ⟨p, hp, hpr⟩ := recordFrom_presents (hfrom i d h hd hh) hw'
   refine ⟨_, List.mem_map.2 ⟨p, ?_, rfl⟩, Presents.fill _ hpr⟩
   rw [hw'.own]
@@ -783,8 +785,10 @@ theorem worker_presented {sp : SearchPath} {fs : FS} {m : Name} {jobs : Nat} {w 
 theorem worker_home {sp : SearchPath} {fs : FS} {m : Name} {jobs : Nat} {w : WorkerRead}
     (hw : WorkerFacts sp fs m jobs w) {d : Declaration} (hd : d ∈ w.reach.ctx.toList) :
     ∃ (i : Nat) (h : Name), w.reach.ctx[i]? = some d ∧ w.reach.homes[i]? = some h := by
-  obtain ⟨hparts, hindex⟩ := workerReads_index hw.reads
-  obtain ⟨hsz, -⟩ := reach_from hparts hindex hw.reach
+  obtain ⟨_, _, hrd⟩ := hw.reads
+  obtain ⟨_, _, hre⟩ := hw.reach
+  obtain ⟨hparts, hindex⟩ := workerReads_index hrd
+  obtain ⟨hsz, -⟩ := reach_from hparts hindex hre
   obtain ⟨i, hi, rfl⟩ := List.getElem_of_mem hd
   have hi' : i < w.reach.homes.size := by rw [← hsz]; simpa using hi
   exact ⟨i, w.reach.homes[i], by simp, by simp⟩

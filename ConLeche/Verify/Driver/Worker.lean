@@ -76,14 +76,15 @@ theorem streamEnv_fill (F : Expr → Expr) :
 structure WorkerFacts (sp : SearchPath) (fs : FS) (m : Name) (jobs : Nat) (w : WorkerRead) :
     Prop where
   /-- the home: the private view loaded, its three parts checked against each other -/
-  home : (readHome (.ofPath sp) m : ModelIO _) fs (.ok (.ok (w.home, w.expo)))
+  home : ModelIO.CanGive (readHome (.ofPath sp) m) fs (.ok (w.home, w.expo))
   /-- the header fixpoint, the name index, Lean's clash rule over every loaded name, freshness -/
-  reads : (workerReads (.ofPath sp) m jobs : ModelIO _) fs (.ok (.ok w.reads))
+  reads : ModelIO.CanGive (workerReads (.ofPath sp) m jobs) fs (.ok w.reads)
   /-- the own records: the emission of the loaded constants -/
   emitted : ownRecords w.home = .ok w.emitted
   /-- the context: the reach from the own records' reads -/
-  reach : (reach (.ofPath sp) m w.reads (ownNames w.home) (ownRoots w.reads.index w.home w.emitted) :
-    ModelIO _) fs (.ok (.ok w.reach))
+  reach : ModelIO.CanGive
+    (reach (.ofPath sp) m w.reads (ownNames w.home) (ownRoots w.reads.index w.home w.emitted))
+    fs (.ok w.reach)
   /-- the context's names, distinct -/
   nodup : (w.reach.ctx.toList.flatMap declNames).Nodup
   /-- the own records, in the hoist's order -/
@@ -91,25 +92,25 @@ structure WorkerFacts (sp : SearchPath) (fs : FS) (m : Name) (jobs : Nat) (w : W
 
 /-- **`workerRead`'s accept** is `WorkerFacts`, whatever the heartbeat answered. -/
 theorem workerRead_ok {rd : OleanReads ModelIO} {sp : SearchPath} {m : Name} {pace : Pace}
-    {t0 jobs : Nat} {fs : FS} {w : WorkerRead} (hrd : OleanReads.Within fs rd sp)
-    (h : (workerRead rd m pace t0 jobs : ModelIO _) fs (.ok (.ok w))) :
+    {t0 jobs : Nat} {fs : FS} {w : WorkerRead} (hrd : OleanReads.Within fs rd sp) {hs hs' : HS}
+    (h : (workerRead rd m pace t0 jobs : ModelIO _) fs hs (.ok (.ok w)) hs') :
     WorkerFacts sp fs m jobs w := by
   unfold workerRead at h
   simp only [ModelIO.bind_ok] at h
-  obtain ⟨x, hx, h⟩ := h
+  obtain ⟨x, _, hx, h⟩ := h
   rcases x with e | ⟨l, expo⟩
   · simp at h
-  simp only [workerSay, ModelIO.bind_ok, ModelIO.liftIO_iff, true_and] at h
-  obtain ⟨_, y, hy, h⟩ := h
+  simp only [workerSay, ModelIO.bind_ok, ModelIO.liftIO_iff, exists_eq_left] at h
+  obtain ⟨_, y, _, hy, h⟩ := h
   rcases y with e | wr
   · simp at h
-  simp only [ModelIO.bind_ok, ModelIO.liftIO_iff, true_and] at h
+  simp only [ModelIO.bind_ok, ModelIO.liftIO_iff, exists_eq_left] at h
   obtain ⟨_, h⟩ := h
   cases hds : ownRecords l with
   | error e => simp [hds] at h
   | ok ds =>
   simp only [hds, ModelIO.bind_ok] at h
-  obtain ⟨z, hz, h⟩ := h
+  obtain ⟨z, _, hz, h⟩ := h
   rcases z with e | r
   · simp at h
   simp only at h
@@ -117,12 +118,13 @@ theorem workerRead_ok {rd : OleanReads ModelIO} {sp : SearchPath} {m : Name} {pa
   | false => simp [hn] at h
   | true =>
   simp only [hn, Bool.not_true, Bool.false_eq_true, ↓reduceIte, ModelIO.bind_ok,
-    ModelIO.liftIO_iff, true_and] at h
+    ModelIO.liftIO_iff, exists_eq_left] at h
   obtain ⟨_, h⟩ := h
   simp only [ModelIO.pure_iff, Except.ok.injEq] at h
+  obtain ⟨h, -⟩ := h
   subst h
-  exact ⟨(readHome_within hrd m 0).ok_of hx, (workerReads_within hrd m jobs).ok_of hy, hds,
-    (reach_within hrd m _ _ _).ok_of hz, (namesNodupGo_spec hn).1, rfl⟩
+  exact ⟨(readHome_within hrd m 0).canGive ⟨_, _, hx⟩, (workerReads_within hrd m jobs).canGive ⟨_, _, hy⟩,
+    hds, (reach_within hrd m _ _ _).canGive ⟨_, _, hz⟩, (namesNodupGo_spec hn).1, rfl⟩
 
 /-! ## The own records accepted from the context -/
 
@@ -130,14 +132,14 @@ theorem workerRead_ok {rd : OleanReads ModelIO} {sp : SearchPath} {m : Name} {pa
 theorem workerFacts_good {sp : SearchPath} {fs : FS} {m : Name} {jobs : Nat} {w : WorkerRead}
     (hw : WorkerFacts sp fs m jobs w) :
     ∀ md ∈ (#[⟨m, w.home.frontier⟩] : Array ModRef), ∃ f r a,
-      (readFiles sp md.name .private : ModelIO _) fs (.ok (.ok f)) ∧
+      ModelIO.CanGive (readFiles sp md.name .private) fs (.ok f) ∧
       f.viewRegion .private = some (r, a) ∧ md.frontier.Good r := by
   intro md hmd
   simp only [List.mem_toArray, List.mem_singleton] at hmd
   subst hmd
-  have h := hw.home
+  obtain ⟨hs, _, h⟩ := hw.home
   simp only [readHome, OleanReads.ofPath, ModelIO.bind_ok] at h
-  obtain ⟨x, hx, h⟩ := h
+  obtain ⟨x, hs₁, hx, h⟩ := h
   rcases x with e | f
   · simp at h
   simp only at h
@@ -149,13 +151,13 @@ theorem workerFacts_good {sp : SearchPath} {fs : FS} {m : Name} {jobs : Nat} {w 
   | error e => simp [hc] at h
   | ok expo =>
   simp only [hc, ModelIO.pure_iff, Except.ok.injEq, Prod.mk.injEq] at h
-  obtain ⟨rfl, -⟩ := h
+  obtain ⟨⟨rfl, -⟩, -⟩ := h
   simp only [loadView] at hl
   split at hl
   · rename_i l' hl'
     cases hl
     obtain ⟨r, a, -, -, hreg, -, -, -, -, hgood, -⟩ := loadAt_spec hl'
-    exact ⟨f, r, a, hx, hreg, hgood⟩
+    exact ⟨f, r, a, ⟨hs, hs₁, hx⟩, hreg, hgood⟩
   · cases hl
 
 /-- **What an accepted worker at `m` establishes**: what it read and checked, and its own
@@ -176,11 +178,11 @@ environment (`ImportOk.accepted`). -/
 theorem worker_tail {sp : SearchPath} {m : Name} {mode : CheckMode} {pace : Pace}
     {jobs : Nat} {fs : FS} {w : WorkerRead} (hw : WorkerFacts sp fs m jobs w) (tag who : String)
     (alone : Bool) (t0 tIndex tParse : Nat) (J : Jobs (w.reach.ctx ++ w.own)) :
-    ∀ v, (checkOleansG mode pace t0 tIndex tParse jobs sp #[⟨m, w.home.frontier⟩] J
-        w.reach.ctx.size alone : ModelIO _) fs (.ok v) →
-      ModelIO.AllOk (verdictG tag w.own.size t0 (w.reach.ctx ++ w.own) v who) fs
+    ∀ v hs hs', (checkOleansG mode pace t0 tIndex tParse jobs sp #[⟨m, w.home.frontier⟩] J
+        w.reach.ctx.size alone : ModelIO _) fs hs (.ok v) hs' →
+      ModelIO.AllOk (verdictG tag w.own.size t0 (w.reach.ctx ++ w.own) v who) fs hs'
         (fun c => c = 0 → WorkerAccepted mode sp fs m jobs) := by
-  intro v hv c hc h0
+  intro v _ _ hv c _ hc h0
   obtain rfl := verdictG_ok hc h0
   have hjobs := checkOleansG_jobs (workerFacts_good hw) hv
   refine ⟨w, hw, ?_⟩
@@ -204,27 +206,29 @@ the `liftIO` actions answered, for any reads `rd` that refine the search path's 
 path's own, `OleanReads.Within.ofPath`, or the one-process mode's tables). -/
 theorem checkModuleG_accept {rd : OleanReads ModelIO} {sp : SearchPath} {m : Name}
     {mode : CheckMode} {pace : Pace} {jobs : Nat} {alone : Bool} {fs : FS}
-    (hrd : OleanReads.Within fs rd sp)
-    (h : (checkModuleG rd sp m mode pace jobs alone : ModelIO _) fs (.ok 0)) :
+    (hrd : OleanReads.Within fs rd sp) {hs hs' : HS}
+    (h : (checkModuleG rd sp m mode pace jobs alone : ModelIO _) fs hs (.ok 0) hs') :
     WorkerAccepted mode sp fs m jobs := by
-  suffices H : ModelIO.AllOk (checkModuleG rd sp m mode pace jobs alone) fs
-      (fun c => c = 0 → WorkerAccepted mode sp fs m jobs) from H 0 h rfl
-  simp only [checkModuleG, clockMs, diagLine, ModelIO.allOk_bind, ModelIO.liftIO_iff,
-    forall_const]
-  intro t0 x hx
+  suffices H : ModelIO.AllOk (checkModuleG rd sp m mode pace jobs alone) fs hs
+      (fun c => c = 0 → WorkerAccepted mode sp fs m jobs) from H 0 hs' h rfl
+  simp only [checkModuleG, clockMs, diagLine, ModelIO.allOk_bind, ModelIO.liftIO_iff]
+  rintro t0 _ rfl - _ rfl x _ hx
   rcases x with ⟨e, _⟩ | w
-  · simp only [ModelIO.allOk_bind, ModelIO.liftIO_iff, forall_const, ModelIO.allOk_pure]
-    intro h0
+  · simp only [ModelIO.allOk_bind, ModelIO.liftIO_iff, ModelIO.allOk_pure]
+    rintro - _ rfl h0
     exact absurd h0 (CheckError.exitCode_ne_zero _)
   have hw := workerRead_ok hrd hx
+  -- with or without the diagnostic lines (a `Unit` step), the clock and the jobs' index, then
+  -- the check phase and the verdict
   simp only
   by_cases hh : w.hoisted.size > 0 <;>
-    simp only [hh, ↓reduceIte, ModelIO.allOk_bind, ModelIO.liftIO_iff, forall_const] <;>
-    intro tIndex J tParse <;>
+    simp only [hh, ↓reduceIte, ModelIO.allOk_bind, ModelIO.liftIO_iff] <;>
+    (first | rintro (_ : Unit) _ rfl | skip) <;>
+    rintro tIndex _ rfl J _ rfl tParse _ rfl <;>
     by_cases hp : pace.on = true <;>
-    simp only [hp, Bool.false_eq_true, ↓reduceIte, ModelIO.allOk_bind, ModelIO.liftIO_iff,
-      forall_const] <;>
-    exact worker_tail hw _ _ _ t0 tIndex tParse J
+    simp only [hp, Bool.false_eq_true, ↓reduceIte, ModelIO.allOk_bind, ModelIO.liftIO_iff] <;>
+    (first | rintro (_ : Unit) _ rfl | skip) <;>
+    exact fun v hs₁ hv => worker_tail hw _ _ _ t0 tIndex tParse J v _ hs₁ hv
 
 /-! ## The context -/
 
@@ -240,7 +244,8 @@ theorem worker_ctx {sp : SearchPath} {fs : FS} {m : Name} {jobs : Nat} {w : Work
       ((streamEnv w.reach.ctx.toList).find? y).isSome = true) ∧
     EnvWF (streamEnv w.reach.ctx.toList) ∧
     ((streamEnv w.reach.ctx.toList).consts.map (·.toConstantVal.name)).Nodup := by
-  obtain ⟨o, a, b, c, -⟩ := reach_ok hw.reach
+  obtain ⟨_, _, hr⟩ := hw.reach
+  obtain ⟨o, a, b, c, -⟩ := reach_ok hr
   exact ⟨o, a, b, c, nodupNames_streamEnv hw.nodup⟩
 
 theorem mem_foldl_append_if {α β : Type} (p : α → Bool) (f : α → Array β) (y : β) :
@@ -261,7 +266,8 @@ theorem worker_ground {sp : SearchPath} {fs : FS} {m : Name} {jobs : Nat} {w : W
     (hsk : c.skipped = false) {g : Name} (hg : g ∈ pinGround natOpPinSets c.name)
     (hix : w.reads.index.first.contains g = true) (ho : (ownNames w.home).contains g = false) :
     ((streamEnv w.reach.ctx.toList).find? g).isSome = true := by
-  refine (reach_ok hw.reach).2.2.2.2 g ?_ ho
+  obtain ⟨_, _, hr⟩ := hw.reach
+  refine (reach_ok hr).2.2.2.2 g ?_ ho
   unfold ownRoots
   refine Array.mem_append.2 (.inr (Array.mem_filter.2 ⟨?_, hix⟩))
   rw [← Array.foldl_toList]
@@ -301,10 +307,10 @@ theorem worker_one_record {sp : SearchPath} {fs : FS} {m : Name} {jobs : Nat} {w
 /-- The home of an accepted worker: its files, loaded. -/
 theorem workerFacts_load {sp : SearchPath} {fs : FS} {m : Name} {jobs : Nat} {w : WorkerRead}
     (hw : WorkerFacts sp fs m jobs w) :
-    ∃ f, (readFiles sp m .private : ModelIO _) fs (.ok (.ok f)) ∧ loadAt 0 m f = some w.home := by
-  have h := hw.home
+    ∃ f, ModelIO.CanGive (readFiles sp m .private) fs (.ok f) ∧ loadAt 0 m f = some w.home := by
+  obtain ⟨hs, _, h⟩ := hw.home
   simp only [readHome, OleanReads.ofPath, ModelIO.bind_ok] at h
-  obtain ⟨x, hx, h⟩ := h
+  obtain ⟨x, hs₁, hx, h⟩ := h
   rcases x with e | f
   · simp at h
   simp only at h
@@ -316,12 +322,12 @@ theorem workerFacts_load {sp : SearchPath} {fs : FS} {m : Name} {jobs : Nat} {w 
   | error e => simp [hc] at h
   | ok expo =>
   simp only [hc, ModelIO.pure_iff, Except.ok.injEq, Prod.mk.injEq] at h
-  obtain ⟨rfl, -⟩ := h
+  obtain ⟨⟨rfl, -⟩, -⟩ := h
   simp only [loadView] at hl
   split at hl
   · rename_i l' hl'
     cases hl
-    exact ⟨f, hx, hl'⟩
+    exact ⟨f, ⟨hs, hs₁, hx⟩, hl'⟩
   · cases hl
 
 /-- A constant's entry names it as its skeleton does. -/

@@ -45,18 +45,6 @@ theorem installBasisDeclF_pushC (env : Env) (ci : ConstantInfo) :
   unfold installBasisDeclF installBasisDecl
   simp only [mkFEnv_find?, push_mkFEnv, pure_bind, ite_bindC] <;> rfl
 
-theorem installBasisFoldF_pushC :
-    ∀ (l : List ConstantInfo) (env : Env),
-      (l.foldlM installBasisDeclF (mkFEnv env) : CheckCM FEnv)
-        = l.foldlM installBasisDecl env >>= fun e => pure (mkFEnv e)
-  | [], env => by
-    simp only [List.foldlM_nil, pure_bind]
-  | ci :: l, env => by
-    rw [List.foldlM_cons, List.foldlM_cons, installBasisDeclF_pushC,
-      bind_assoc, bind_assoc]
-    refine bindC_congr fun e => ?_
-    rw [pure_bind, installBasisFoldF_pushC l e]
-
 /-! ### The direct simple-structure path's extending stages (task #175) -/
 
 /-- The projection table's checks through the index. -/

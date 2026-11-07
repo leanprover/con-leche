@@ -53,11 +53,11 @@ instance : LawfulBEq PartKey where
 
 /-- **A part's files** on the snapshot. -/
 @[expose] def PartFiles (sp : SearchPath) (fs : FS) (k : PartKey) (f : ModFiles) : Prop :=
-  (readFiles sp k.mod k.level : ModelIO _) fs (.ok (.ok f))
+  ModelIO.CanGive (readFiles sp k.mod k.level) fs (.ok f)
 
 /-- **A part's name table** on the snapshot. -/
 @[expose] def PartNames (sp : SearchPath) (fs : FS) (k : PartKey) (t : NamePositions) : Prop :=
-  (readPartNames sp (k.mod, k.level) : ModelIO _) fs (.ok (.ok t))
+  ModelIO.CanGive (readPartNames sp (k.mod, k.level)) fs (.ok t)
 
 /-- **A copy of a name**: a name position its part's name table holds on the snapshot. -/
 @[expose] def CopyAt (sp : SearchPath) (fs : FS) (s : Spot) : Prop :=
@@ -214,7 +214,7 @@ theorem lookTable_spec (t : NamePositions) {n : Name} {q : NamePosition}
 /-! ## The parts -/
 
 section
-variable {sp : SearchPath} {fs : FS} {env : ReachEnv ModelIO}
+variable {sp : SearchPath} {fs : FS} {env : ReachEnv ModelIO} {ho : HS}
 
 theorem CacheOk.insert_tables {c : ReachCache} (hc : CacheOk sp fs c) {k : PartKey}
     {t : NamePositions} (ht : PartNames sp fs k t) :
@@ -227,7 +227,7 @@ theorem CacheOk.insert_tables {c : ReachCache} (hc : CacheOk sp fs c) {k : PartK
 
 /-- **A part's name table** is the snapshot's. -/
 theorem tableOf_ok (he : EnvOk sp fs env) {c : ReachCache} (hc : CacheOk sp fs c) (k : PartKey) :
-    ModelIO.AllOk (tableOf env c k) fs fun p =>
+    ModelIO.AllOk (tableOf env c k) fs ho fun p =>
       CacheOk sp fs p.1 ∧ ∀ t, p.2 = .ok t → PartNames sp fs k t := by
   unfold tableOf
   split
@@ -235,15 +235,15 @@ theorem tableOf_ok (he : EnvOk sp fs env) {c : ReachCache} (hc : CacheOk sp fs c
     simp only [ModelIO.allOk_pure]
     exact ⟨hc, fun t' h => by cases h; exact hc.tables k t ht⟩
   · simp only []
-    have jp : ∀ (x : Except CheckError NamePositions),
-        (readPartNames sp (k.mod, k.level) : ModelIO _) fs (.ok x) →
+    have jp : ∀ (x : Except CheckError NamePositions) {hs₁ hs₂ : HS},
+        (readPartNames sp (k.mod, k.level) : ModelIO _) fs hs₁ (.ok x) hs₂ →
         CacheOk sp fs (match x with
           | .error _ => c | .ok t => { c with tables := c.tables.insert k t }) ∧
         ∀ t, x = .ok t → PartNames sp fs k t := by
-      intro x hx
+      intro x _ _ hx
       cases x with
       | error e => exact ⟨hc, fun t h => by cases h⟩
-      | ok t => exact ⟨hc.insert_tables hx, fun t' h => by cases h; exact hx⟩
+      | ok t => exact ⟨hc.insert_tables ⟨_, _, hx⟩, fun t' h => by cases h; exact ⟨_, _, hx⟩⟩
     split
     · rename_i i hi
       split
@@ -256,9 +256,9 @@ theorem tableOf_ok (he : EnvOk sp fs env) {c : ReachCache} (hc : CacheOk sp fs c
           have h1 := he.parts i t ht
           rw [he.index _ _ hi, eq_of_beq hl] at h1
           exact h1
-        all_goals (simp only [ModelIO.allOk_bind]; intro x hx; rw [he.rd] at hx; obtain ⟨h1, h2⟩ := jp x hx; cases x <;> simp only [ModelIO.allOk_pure] <;> exact ⟨h1, h2⟩)
-      all_goals (simp only [ModelIO.allOk_bind]; intro x hx; rw [he.rd] at hx; obtain ⟨h1, h2⟩ := jp x hx; cases x <;> simp only [ModelIO.allOk_pure] <;> exact ⟨h1, h2⟩)
-    all_goals (simp only [ModelIO.allOk_bind]; intro x hx; rw [he.rd] at hx; obtain ⟨h1, h2⟩ := jp x hx; cases x <;> simp only [ModelIO.allOk_pure] <;> exact ⟨h1, h2⟩)
+        all_goals (simp only [ModelIO.allOk_bind]; intro x _ hx; rw [he.rd] at hx; obtain ⟨h1, h2⟩ := jp x hx; cases x <;> simp only [ModelIO.allOk_pure] <;> exact ⟨h1, h2⟩)
+      all_goals (simp only [ModelIO.allOk_bind]; intro x _ hx; rw [he.rd] at hx; obtain ⟨h1, h2⟩ := jp x hx; cases x <;> simp only [ModelIO.allOk_pure] <;> exact ⟨h1, h2⟩)
+    all_goals (simp only [ModelIO.allOk_bind]; intro x _ hx; rw [he.rd] at hx; obtain ⟨h1, h2⟩ := jp x hx; cases x <;> simp only [ModelIO.allOk_pure] <;> exact ⟨h1, h2⟩)
 
 
 theorem CacheOk.insert_looks {c : ReachCache} (hc : CacheOk sp fs c) {k : PartKey}
@@ -272,7 +272,7 @@ theorem CacheOk.insert_looks {c : ReachCache} (hc : CacheOk sp fs c) {k : PartKe
 
 /-- **A part's name lookup** is its snapshot table's. -/
 theorem lookOf_ok (he : EnvOk sp fs env) {c : ReachCache} (hc : CacheOk sp fs c) (k : PartKey) :
-    ModelIO.AllOk (lookOf env c k) fs fun p =>
+    ModelIO.AllOk (lookOf env c k) fs ho fun p =>
       CacheOk sp fs p.1 ∧ ∀ l, p.2 = .ok l → ∃ t, PartNames sp fs k t ∧ l = lookTable t := by
   unfold lookOf
   split
@@ -280,8 +280,8 @@ theorem lookOf_ok (he : EnvOk sp fs env) {c : ReachCache} (hc : CacheOk sp fs c)
     simp only [ModelIO.allOk_pure]
     exact ⟨hc, fun l' h => by cases h; exact hc.looks k l hl⟩
   · simp only [ModelIO.allOk_bind]
-    intro x hx
-    obtain ⟨h1, h2⟩ := tableOf_ok he hc k x hx
+    intro x _ hx
+    obtain ⟨h1, h2⟩ := tableOf_ok he hc k x _ hx
     obtain ⟨c', r⟩ := x
     cases r with
     | error e =>
@@ -310,7 +310,7 @@ what it reads, its value is read in the part's region on the snapshot. -/
 theorem withPart_ok {α : Type} (he : EnvOk sp fs env) {c : ReachCache} (hc : CacheOk sp fs c)
     (k : PartKey) {f : Region → SM → Option (SM × α)} {Q : Region → α → Prop}
     (hf : ∀ r st st' a, st.Good r → f r st = some (st', a) → st'.Good r ∧ Q r a) :
-    ModelIO.AllOk (withPart env c k f) fs fun p =>
+    ModelIO.AllOk (withPart env c k f) fs ho fun p =>
       CacheOk sp fs p.1 ∧ ∀ a, p.2 = .ok a → ∃ r, PartRegion sp fs k r ∧ Q r a := by
   unfold withPart
   split
@@ -326,7 +326,7 @@ theorem withPart_ok {α : Type} (he : EnvOk sp fs env) {c : ReachCache} (hc : Ca
     · simp only [ModelIO.allOk_pure]
       exact ⟨hc.insert_parts hr hst, fun a' h => by cases h⟩
   · simp only [ModelIO.allOk_bind]
-    intro y hy
+    intro y _ hy
     rw [he.rd] at hy
     split
     · simp only [pure_bind, ModelIO.allOk_pure]
@@ -334,7 +334,7 @@ theorem withPart_ok {α : Type} (he : EnvOk sp fs env) {c : ReachCache} (hc : Ca
     · rename_i fl
       split
       · rename_i r a' hra
-        have hr : PartRegion sp fs k r := ⟨fl, a', hy, hra⟩
+        have hr : PartRegion sp fs k r := ⟨fl, a', ⟨_, _, hy⟩, hra⟩
         simp only [pure_bind]
         split
         · rename_i st' a hfa
@@ -365,22 +365,22 @@ theorem stmtWith_skel {r : Region} {st st' : SM} {c : Nat} {cv : ConstantVal}
 
 /-- **A copy's statement and kind** are its skeleton's on the snapshot. -/
 theorem stmtAt_ok (he : EnvOk sp fs env) {c : ReachCache} (hc : CacheOk sp fs c) (s : Spot) :
-    ModelIO.AllOk (stmtAt env c s) fs fun p =>
+    ModelIO.AllOk (stmtAt env c s) fs ho fun p =>
       CacheOk sp fs p.1 ∧ ∀ cv k, p.2 = .ok (cv, k) →
         ∃ r, PartRegion sp fs s.part r ∧ StmtSkel r s.pos.loc cv k := by
   unfold stmtAt
-  intro p hp
+  intro p _ hp
   obtain ⟨h1, h2⟩ := withPart_ok (Q := fun r (x : ConstantVal × CKindF Name Unit) =>
     StmtSkel r s.pos.loc x.1 x.2) he hc s.part
     (fun r st st' a hG hf => by
       obtain ⟨cv, k⟩ := a
-      exact stmtWith_skel hG hf) p hp
+      exact stmtWith_skel hG hf) p _ hp
   exact ⟨h1, fun cv k h => h2 (cv, k) h⟩
 
 /-- **A copy in its module's private part**: of its part's module and name, at the private
 level, and a copy where the given one is. -/
 theorem privSpot_ok (he : EnvOk sp fs env) {c : ReachCache} (hc : CacheOk sp fs c) (s : Spot) :
-    ModelIO.AllOk (privSpot env c s) fs fun p =>
+    ModelIO.AllOk (privSpot env c s) fs ho fun p =>
       CacheOk sp fs p.1 ∧ ∀ q, p.2 = .ok q →
         q.part = ⟨s.part.mod, .private⟩ ∧ q.pos.name = s.pos.name ∧
         (CopyAt sp fs s → CopyAt sp fs q) ∧ (s.part.level = .private → q = s) := by
@@ -395,8 +395,8 @@ theorem privSpot_ok (he : EnvOk sp fs env) {c : ReachCache} (hc : CacheOk sp fs 
     rw [← hl']
   · rename_i hl
     simp only [ModelIO.allOk_bind]
-    intro x hx
-    obtain ⟨h1, h2⟩ := lookOf_ok he hc ⟨s.part.mod, .private⟩ x hx
+    intro x _ hx
+    obtain ⟨h1, h2⟩ := lookOf_ok he hc ⟨s.part.mod, .private⟩ x _ hx
     obtain ⟨c', r⟩ := x
     cases r with
     | error e =>
@@ -446,16 +446,16 @@ theorem viewAdd_fold (k : PartKey) (t : NamePositions) :
 
 theorem viewAdd_ok (he : EnvOk sp fs env) :
     ∀ (c : ReachCache) (v : Std.HashMap Name Spot) (ks : List PartKey), CacheOk sp fs c →
-      (∀ (y : Name) (s : Spot), v[y]? = some s → CopyAt sp fs s) →
-      ModelIO.AllOk (viewAdd env c v ks) fs fun p =>
+      (∀ (y : Name) (s : Spot), v[y]? = some s → CopyAt sp fs s) → ∀ {hs₀ : HS},
+      ModelIO.AllOk (viewAdd env c v ks) fs hs₀ fun p =>
         CacheOk sp fs p.1 ∧ ∀ v', p.2 = .ok v' → ∀ (y : Name) (s : Spot), v'[y]? = some s → CopyAt sp fs s
   | c, v, [], hc, hv => by
     simp only [viewAdd, ModelIO.allOk_pure]
     exact ⟨hc, fun v' h => by cases h; exact hv⟩
   | c, v, k :: ks, hc, hv => by
     simp only [viewAdd, ModelIO.allOk_bind]
-    intro x hx
-    obtain ⟨h1, h2⟩ := tableOf_ok he hc k x hx
+    intro x _ hx
+    obtain ⟨h1, h2⟩ := tableOf_ok he hc k x _ hx
     obtain ⟨c', r⟩ := x
     cases r with
     | error e =>
@@ -468,7 +468,7 @@ theorem viewAdd_ok (he : EnvOk sp fs env) :
       exact viewAdd_fold k t _ v hv (h2 t rfl) (fun q hq => Array.mem_toList_iff.1 hq)
 
 theorem viewOf_ok (he : EnvOk sp fs env) {c : ReachCache} (hc : CacheOk sp fs c) (h : Name) :
-    ModelIO.AllOk (viewOf env c h) fs fun p =>
+    ModelIO.AllOk (viewOf env c h) fs ho fun p =>
       CacheOk sp fs p.1 ∧ ∀ v, p.2 = .ok v → ∀ (y : Name) (s : Spot), v[y]? = some s → CopyAt sp fs s := by
   unfold viewOf
   split
@@ -476,8 +476,8 @@ theorem viewOf_ok (he : EnvOk sp fs env) {c : ReachCache} (hc : CacheOk sp fs c)
     simp only [ModelIO.allOk_pure]
     exact ⟨hc, fun v' h' => by cases h'; exact hc.views h v hv⟩
   · simp only [ModelIO.allOk_bind]
-    intro x hx
-    obtain ⟨h1, -⟩ := tableOf_ok he hc _ x hx
+    intro x _ hx
+    obtain ⟨h1, -⟩ := tableOf_ok he hc _ x _ hx
     obtain ⟨c', r⟩ := x
     cases r with
     | error e =>
@@ -485,15 +485,15 @@ theorem viewOf_ok (he : EnvOk sp fs env) {c : ReachCache} (hc : CacheOk sp fs c)
       exact ⟨h1, fun v' h => by cases h⟩
     | ok t =>
       simp only [ModelIO.allOk_bind]
-      intro y _
+      intro y _ _
       cases y with
       | error e =>
         simp only [ModelIO.allOk_pure]
         exact ⟨h1, fun v' h => by cases h⟩
       | ok ld =>
         simp only [ModelIO.allOk_bind]
-        intro z hz
-        obtain ⟨h3, h4⟩ := viewAdd_ok he c' {} _ h1 (by simp) z hz
+        intro z _ hz
+        obtain ⟨h3, h4⟩ := viewAdd_ok he c' {} _ h1 (by simp) z _ hz
         obtain ⟨c'', r⟩ := z
         cases r with
         | error e =>
@@ -504,12 +504,12 @@ theorem viewOf_ok (he : EnvOk sp fs env) {c : ReachCache} (hc : CacheOk sp fs c)
           exact ⟨h3.insert_views (h4 v rfl), fun v' h => by cases h; exact h4 v rfl⟩
 
 theorem locate_ok (he : EnvOk sp fs env) {c : ReachCache} (hc : CacheOk sp fs c) (h y : Name) :
-    ModelIO.AllOk (locate env c h y) fs fun p =>
+    ModelIO.AllOk (locate env c h y) fs ho fun p =>
       CacheOk sp fs p.1 ∧ ∀ s, p.2 = .ok (some s) → CopyAt sp fs s := by
   unfold locate
   simp only [ModelIO.allOk_bind]
-  intro x hx
-  obtain ⟨h1, h2⟩ := viewOf_ok he hc h x hx
+  intro x _ hx
+  obtain ⟨h1, h2⟩ := viewOf_ok he hc h x _ hx
   obtain ⟨c', r⟩ := x
   cases r with
   | error e =>
@@ -524,7 +524,7 @@ theorem locate_ok (he : EnvOk sp fs env) {c : ReachCache} (hc : CacheOk sp fs c)
 
 theorem proofStatus_ok (he : EnvOk sp fs env) {c : ReachCache} (hc : CacheOk sp fs c) (s : Spot)
     (k : CKindF Name Unit) :
-    ModelIO.AllOk (proofStatus env c s k) fs fun p => CacheOk sp fs p.1 := by
+    ModelIO.AllOk (proofStatus env c s k) fs ho fun p => CacheOk sp fs p.1 := by
   unfold proofStatus
   split
   · simpa using hc
@@ -533,29 +533,29 @@ theorem proofStatus_ok (he : EnvOk sp fs env) {c : ReachCache} (hc : CacheOk sp 
   · split
     · simpa using hc
     · simp only [ModelIO.allOk_bind]
-      intro x hx
-      obtain ⟨h1, -⟩ := privSpot_ok he hc s x hx
+      intro x _ hx
+      obtain ⟨h1, -⟩ := privSpot_ok he hc s x _ hx
       obtain ⟨c', r⟩ := x
       cases r <;> simpa using h1
   · simpa using hc
 
 theorem agreeCheck_ok (he : EnvOk sp fs env) {c : ReachCache} (hc : CacheOk sp fs c) (h y : Name)
     (s₁ s₂ : Spot) :
-    ModelIO.AllOk (agreeCheck env c h y s₁ s₂) fs fun p => CacheOk sp fs p.1 := by
+    ModelIO.AllOk (agreeCheck env c h y s₁ s₂) fs ho fun p => CacheOk sp fs p.1 := by
   unfold agreeCheck
   split
   · simpa using hc
   simp only [ModelIO.allOk_bind]
-  intro x hx
-  obtain ⟨h1, -⟩ := stmtAt_ok he hc s₁ x hx
+  intro x _ hx
+  obtain ⟨h1, -⟩ := stmtAt_ok he hc s₁ x _ hx
   obtain ⟨c₁, r₁⟩ := x
   cases r₁ with
   | error e => simpa using h1
   | ok p₁ =>
   obtain ⟨cv₁, k₁⟩ := p₁
   simp only [ModelIO.allOk_bind]
-  intro x hx
-  obtain ⟨h2, -⟩ := stmtAt_ok he h1 s₂ x hx
+  intro x _ hx
+  obtain ⟨h2, -⟩ := stmtAt_ok he h1 s₂ x _ hx
   obtain ⟨c₂, r₂⟩ := x
   cases r₂ with
   | error e => simpa using h2
@@ -565,15 +565,15 @@ theorem agreeCheck_ok (he : EnvOk sp fs env) {c : ReachCache} (hc : CacheOk sp f
   split
   · simpa using h2
   simp only [ModelIO.allOk_bind]
-  intro x hx
-  have h3 := proofStatus_ok he h2 s₁ k₁ x hx
+  intro x _ hx
+  have h3 := proofStatus_ok he h2 s₁ k₁ x _ hx
   obtain ⟨c₃, r₃⟩ := x
   cases r₃ with
   | error e => simpa using h3
   | ok q₁ =>
   simp only [ModelIO.allOk_bind]
-  intro x hx
-  have h4 := proofStatus_ok he h3 s₂ k₂ x hx
+  intro x _ hx
+  have h4 := proofStatus_ok he h3 s₂ k₂ x _ hx
   obtain ⟨c₄, r₄⟩ := x
   cases r₄ with
   | error e => simpa using h4
@@ -587,25 +587,26 @@ theorem agreeCheck_ok (he : EnvOk sp fs env) {c : ReachCache} (hc : CacheOk sp f
 
 theorem statuses_ok (he : EnvOk sp fs env) :
     ∀ (c : ReachCache) (xs : List (Spot × ConstantVal × CKindF Name Unit)) (acc : List ProofStatus),
-      CacheOk sp fs c → ModelIO.AllOk (clashAgree.statuses env c xs acc) fs fun p => CacheOk sp fs p.1
+      CacheOk sp fs c → ∀ {hs₀ : HS},
+        ModelIO.AllOk (clashAgree.statuses env c xs acc) fs hs₀ fun p => CacheOk sp fs p.1
   | c, [], acc, hc => by simpa [clashAgree.statuses] using hc
   | c, (s, _, k) :: rest, acc, hc => by
     simp only [clashAgree.statuses, ModelIO.allOk_bind]
-    intro x hx
-    have h1 := proofStatus_ok he hc s k x hx
+    intro x _ hx
+    have h1 := proofStatus_ok he hc s k x _ hx
     obtain ⟨c', r⟩ := x
     cases r with
     | error e => simpa using h1
     | ok p => exact statuses_ok he c' rest _ h1
 
 theorem clashAgree_ok (he : EnvOk sp fs env) :
-    ∀ (c : ReachCache) (cls : List Clash) (acc : Array Name), CacheOk sp fs c →
-      ModelIO.AllOk (clashAgree env c cls acc) fs fun p => CacheOk sp fs p.1
+    ∀ (c : ReachCache) (cls : List Clash) (acc : Array Name), CacheOk sp fs c → ∀ {hs₀ : HS},
+      ModelIO.AllOk (clashAgree env c cls acc) fs hs₀ fun p => CacheOk sp fs p.1
   | c, [], acc, hc => by simpa [clashAgree] using hc
   | c, cl :: cls, acc, hc => by
     simp only [clashAgree, ModelIO.allOk_bind]
-    intro x hx
-    have h1 := statuses_ok he c _ [] hc x hx
+    intro x _ hx
+    have h1 := statuses_ok he c _ [] hc x _ hx
     obtain ⟨c', r⟩ := x
     cases r with
     | error e => simpa using h1
@@ -621,13 +622,13 @@ theorem clashAgree_ok (he : EnvOk sp fs env) :
 
 theorem inExported_ok (he : EnvOk sp fs env) {c : ReachCache} (hc : CacheOk sp fs c) (m : Name)
     (level : OLeanLevel) (y : Name) :
-    ModelIO.AllOk (inExported env c m level y) fs fun p => CacheOk sp fs p.1 := by
+    ModelIO.AllOk (inExported env c m level y) fs ho fun p => CacheOk sp fs p.1 := by
   unfold inExported
   split
   · simpa using hc
   · simp only [ModelIO.allOk_bind]
-    intro x hx
-    obtain ⟨h1, -⟩ := lookOf_ok he hc _ x hx
+    intro x _ hx
+    obtain ⟨h1, -⟩ := lookOf_ok he hc _ x _ hx
     obtain ⟨c', r⟩ := x
     cases r <;> simpa using h1
 
@@ -648,11 +649,11 @@ theorem locate_agreeCheck_ok (he : EnvOk sp fs env) {c : ReachCache} (hc : Cache
       | (c, .error e) => pure (c, .error e)
       | (c, .ok none) => pure (c, .error (.invalid s!"module {h} reads {y}, which its view \
           does not hold"))
-      | (c, .ok (some s₂)) => agreeCheck env c h y s₁ s₂ : ModelIO _) fs
+      | (c, .ok (some s₂)) => agreeCheck env c h y s₁ s₂ : ModelIO _) fs ho
       fun p => CacheOk sp fs p.1 := by
   simp only [ModelIO.allOk_bind]
-  intro x hx
-  obtain ⟨h1, -⟩ := locate_ok he hc h y x hx
+  intro x _ hx
+  obtain ⟨h1, -⟩ := locate_ok he hc h y x _ hx
   obtain ⟨c', r⟩ := x
   cases r with
   | error e => simpa using h1
@@ -662,7 +663,7 @@ theorem locate_agreeCheck_ok (he : EnvOk sp fs env) {c : ReachCache} (hc : Cache
     | some s₂ => exact agreeCheck_ok he h1 h y s₁ s₂
 
 theorem captureOne_ok (he : EnvOk sp fs env) {c : ReachCache} (hc : CacheOk sp fs c) (h y : Name) :
-    ModelIO.AllOk (captureOne env c h y) fs fun p => CacheOk sp fs p.1 := by
+    ModelIO.AllOk (captureOne env c h y) fs ho fun p => CacheOk sp fs p.1 := by
   unfold captureOne
   split
   · simpa using hc
@@ -670,7 +671,7 @@ theorem captureOne_ok (he : EnvOk sp fs env) {c : ReachCache} (hc : CacheOk sp f
   · rename_i i s₁ _
     split
     · simpa using hc
-    have tail : ∀ x : ReachCache × Except CheckError Bool, CacheOk sp fs x.1 →
+    have tail : ∀ (x : ReachCache × Except CheckError Bool) {hs₀ : HS}, CacheOk sp fs x.1 →
         ModelIO.AllOk (match x with
           | (c, Except.error e) => pure (c, Except.error e)
           | (c, Except.ok true) => pure (c, Except.ok ())
@@ -682,9 +683,9 @@ theorem captureOne_ok (he : EnvOk sp fs env) {c : ReachCache} (hc : CacheOk sp f
                 pure (c, Except.error (CheckError.invalid
                   (toString "module " ++ toString h ++ toString " reads " ++ toString y ++
                     toString ", which its view does not hold")))
-              | (c, Except.ok (some s₂)) => agreeCheck env c h y s₁ s₂ : ModelIO _) fs
+              | (c, Except.ok (some s₂)) => agreeCheck env c h y s₁ s₂ : ModelIO _) fs hs₀
           fun p => CacheOk sp fs p.1 := by
-      intro x h1
+      intro x _ h1
       obtain ⟨c', r⟩ := x
       cases r with
       | error e => simpa using h1
@@ -696,17 +697,17 @@ theorem captureOne_ok (he : EnvOk sp fs env) {c : ReachCache} (hc : CacheOk sp f
     split <;> split
     all_goals
       simp only [ModelIO.allOk_bind]
-      intro x hx
+      intro x _ hx
       first
-        | exact tail x (inExported_ok he hc _ _ y x hx)
-        | (simp only [ModelIO.pure_iff, Except.ok.injEq] at hx; subst hx; exact tail (c, .ok false) hc)
+        | exact tail x (inExported_ok he hc _ _ y x _ hx)
+        | (simp only [ModelIO.pure_iff, Except.ok.injEq] at hx; obtain ⟨rfl, rfl⟩ := hx; exact tail (c, .ok false) hc)
   · split
     · split
       · simpa using hc
       · exact locate_agreeCheck_ok he hc h y _
     · simp only [ModelIO.allOk_bind]
-      intro x hx
-      obtain ⟨h1, h2⟩ := locate_ok he hc h y x hx
+      intro x _ hx
+      obtain ⟨h1, h2⟩ := locate_ok he hc h y x _ hx
       obtain ⟨c', r⟩ := x
       cases r with
       | error e => simpa using h1
@@ -715,8 +716,8 @@ theorem captureOne_ok (he : EnvOk sp fs env) {c : ReachCache} (hc : CacheOk sp f
         | none => simpa using h1
         | some s =>
           simp only [ModelIO.allOk_bind]
-          intro z hz
-          obtain ⟨h3, h4⟩ := privSpot_ok he h1 s z hz
+          intro z _ hz
+          obtain ⟨h3, h4⟩ := privSpot_ok he h1 s z _ hz
           obtain ⟨c'', r⟩ := z
           cases r with
           | error e => simpa using h3
@@ -726,26 +727,26 @@ theorem captureOne_ok (he : EnvOk sp fs env) {c : ReachCache} (hc : CacheOk sp f
             exact h3.insert_located (by rw [hq1]) (hq3 (h2 s rfl)) _
 
 theorem captureAll_ok (he : EnvOk sp fs env) (h : Name) :
-    ∀ (c : ReachCache) (ys : List Name), CacheOk sp fs c →
-      ModelIO.AllOk (captureAll env h c ys) fs fun p => CacheOk sp fs p.1
+    ∀ (c : ReachCache) (ys : List Name), CacheOk sp fs c → ∀ {hs₀ : HS},
+      ModelIO.AllOk (captureAll env h c ys) fs hs₀ fun p => CacheOk sp fs p.1
   | c, [], hc => by simpa [captureAll] using hc
   | c, y :: ys, hc => by
     simp only [captureAll, ModelIO.allOk_bind]
-    intro x hx
-    have h1 := captureOne_ok he hc h y x hx
+    intro x _ hx
+    have h1 := captureOne_ok he hc h y x _ hx
     obtain ⟨c', r⟩ := x
     cases r with
     | error e => simpa using h1
     | ok u => exact captureAll_ok he h c' ys h1
 
 theorem capturePairs_ok (he : EnvOk sp fs env) :
-    ∀ (c : ReachCache) (ps : List (Name × Name)), CacheOk sp fs c →
-      ModelIO.AllOk (capturePairs env c ps) fs fun p => CacheOk sp fs p.1
+    ∀ (c : ReachCache) (ps : List (Name × Name)), CacheOk sp fs c → ∀ {hs₀ : HS},
+      ModelIO.AllOk (capturePairs env c ps) fs hs₀ fun p => CacheOk sp fs p.1
   | c, [], hc => by simpa [capturePairs] using hc
   | c, (h, y) :: ps, hc => by
     simp only [capturePairs, ModelIO.allOk_bind]
-    intro x hx
-    have h1 := captureOne_ok he hc h y x hx
+    intro x _ hx
+    have h1 := captureOne_ok he hc h y x _ hx
     obtain ⟨c', r⟩ := x
     cases r with
     | error e => simpa using h1
@@ -785,7 +786,7 @@ theorem CacheOk.insert_recBlocks {c : ReachCache} (hc : CacheOk sp fs c) {k : Pa
 
 theorem recBlocksOf_ok (he : EnvOk sp fs env) {c : ReachCache} (hc : CacheOk sp fs c)
     (k : PartKey) :
-    ModelIO.AllOk (recBlocksOf env c k) fs fun p =>
+    ModelIO.AllOk (recBlocksOf env c k) fs ho fun p =>
       CacheOk sp fs p.1 ∧ ∀ m, p.2 = .ok m →
         ∃ t r, PartNames sp fs k t ∧ PartRegion sp fs k r ∧ recBlocksAt r t = some m := by
   unfold recBlocksOf
@@ -794,14 +795,14 @@ theorem recBlocksOf_ok (he : EnvOk sp fs env) {c : ReachCache} (hc : CacheOk sp 
     simp only [ModelIO.allOk_pure]
     exact ⟨hc, fun m' h => by cases h; exact hc.recBlocks k m hm⟩
   · simp only [ModelIO.allOk_bind]
-    intro x hx
-    obtain ⟨h1, h2⟩ := tableOf_ok he hc k x hx
+    intro x _ hx
+    obtain ⟨h1, h2⟩ := tableOf_ok he hc k x _ hx
     obtain ⟨c', r⟩ := x
     cases r with
     | error e => simpa using h1
     | ok t =>
       simp only [ModelIO.allOk_bind]
-      intro z hz
+      intro z _ hz
       obtain ⟨h3, h4⟩ := withPart_ok (Q := fun r m => recBlocksAt r t = some m) he h1 k
         (fun r st st' a hG hf => by
           cases hm : recBlocksAt r t with
@@ -809,7 +810,7 @@ theorem recBlocksOf_ok (he : EnvOk sp fs env) {c : ReachCache} (hc : CacheOk sp 
           | some m =>
             simp only [hm, Option.map_some, Option.some.injEq, Prod.mk.injEq] at hf
             obtain ⟨rfl, rfl⟩ := hf
-            exact ⟨hG, rfl⟩) z hz
+            exact ⟨hG, rfl⟩) z _ hz
       obtain ⟨c'', r⟩ := z
       cases r with
       | error e => simpa using h3
@@ -823,7 +824,7 @@ theorem recBlocksOf_ok (he : EnvOk sp fs env) {c : ReachCache} (hc : CacheOk sp 
 /-- `withPart` of `entryWith`: the constant at the location, in the part's region. -/
 theorem withPart_entry (he : EnvOk sp fs env) {c : ReachCache} (hc : CacheOk sp fs c)
     (k : PartKey) (l : Nat) :
-    ModelIO.AllOk (withPart env c k fun r st => entryWith r st l) fs fun p =>
+    ModelIO.AllOk (withPart env c k fun r st => entryWith r st l) fs ho fun p =>
       CacheOk sp fs p.1 ∧ ∀ e, p.2 = .ok e → ∃ r, PartRegion sp fs k r ∧ entryAt r l = some e :=
   withPart_ok (Q := fun r e => entryAt r l = some e) he hc k
     (fun _ _ _ _ hG hf => entryWith_spec hG hf)
@@ -831,7 +832,7 @@ theorem withPart_entry (he : EnvOk sp fs env) {c : ReachCache} (hc : CacheOk sp 
 /-- `withPart` of `entriesWith`: the constants at the locations, in the part's region. -/
 theorem withPart_entries (he : EnvOk sp fs env) {c : ReachCache} (hc : CacheOk sp fs c)
     (k : PartKey) (ls : List Nat) :
-    ModelIO.AllOk (withPart env c k fun r st => entriesWith r st ls) fs fun p =>
+    ModelIO.AllOk (withPart env c k fun r st => entriesWith r st ls) fs ho fun p =>
       CacheOk sp fs p.1 ∧ ∀ es, p.2 = .ok es →
         ∃ r, PartRegion sp fs k r ∧ ls.mapM (entryAt r) = some es :=
   withPart_ok (Q := fun r es => ls.mapM (entryAt r) = some es) he hc k
@@ -840,12 +841,12 @@ theorem withPart_entries (he : EnvOk sp fs env) {c : ReachCache} (hc : CacheOk s
 /-- **A group read from a part** is `GroupRead`. -/
 theorem groupAt_ok (he : EnvOk sp fs env) {c : ReachCache} (hc : CacheOk sp fs c) (k : PartKey)
     (n : Name) :
-    ModelIO.AllOk (groupAt env c k n) fs fun p =>
+    ModelIO.AllOk (groupAt env c k n) fs ho fun p =>
       CacheOk sp fs p.1 ∧ ∀ d, p.2 = .ok (some d) → GroupRead sp fs k n d := by
   unfold groupAt
   simp only [ModelIO.allOk_bind]
-  intro x hx
-  obtain ⟨h1, h2⟩ := lookOf_ok he hc k x hx
+  intro x _ hx
+  obtain ⟨h1, h2⟩ := lookOf_ok he hc k x _ hx
   obtain ⟨c₁, r⟩ := x
   cases r with
   | error e => simpa using h1
@@ -856,8 +857,8 @@ theorem groupAt_ok (he : EnvOk sp fs env) {c : ReachCache} (hc : CacheOk sp fs c
   · simpa using h1
   rename_i q hq
   simp only [ModelIO.allOk_bind]
-  intro x hx
-  obtain ⟨h3, h4⟩ := withPart_entry he h1 k q.loc x hx
+  intro x _ hx
+  obtain ⟨h3, h4⟩ := withPart_entry he h1 k q.loc x _ hx
   obtain ⟨c₂, r⟩ := x
   cases r with
   | error e => simpa using h3
@@ -870,8 +871,8 @@ theorem groupAt_ok (he : EnvOk sp fs env) {c : ReachCache} (hc : CacheOk sp fs c
     · simpa using h3
     rename_i mqs hmqs
     simp only [ModelIO.allOk_bind]
-    intro x hx
-    obtain ⟨h5, h6⟩ := withPart_entries he h3 k _ x hx
+    intro x _ hx
+    obtain ⟨h5, h6⟩ := withPart_entries he h3 k _ x _ hx
     obtain ⟨c₃, r⟩ := x
     cases r with
     | error e => simpa using h5
@@ -882,16 +883,16 @@ theorem groupAt_ok (he : EnvOk sp fs env) {c : ReachCache} (hc : CacheOk sp fs c
     · simpa using h5
     rename_i cqs hcqs
     simp only [ModelIO.allOk_bind]
-    intro x hx
-    obtain ⟨h7, h8⟩ := recBlocksOf_ok he h5 k x hx
+    intro x _ hx
+    obtain ⟨h7, h8⟩ := recBlocksOf_ok he h5 k x _ hx
     obtain ⟨c₄, r⟩ := x
     cases r with
     | error e => simpa using h7
     | ok rb =>
     obtain ⟨t', r₃, ht', hr₃, hrb⟩ := h8 rb rfl
     simp only [ModelIO.allOk_bind]
-    intro x hx
-    obtain ⟨h9, h10⟩ := withPart_entries he h7 k _ x hx
+    intro x _ hx
+    obtain ⟨h9, h10⟩ := withPart_entries he h7 k _ x _ hx
     obtain ⟨c₅, r⟩ := x
     cases r with
     | error e => simpa using h9
@@ -911,7 +912,7 @@ theorem groupAt_ok (he : EnvOk sp fs env) {c : ReachCache} (hc : CacheOk sp fs c
 
 theorem stmtRecord_ok (he : EnvOk sp fs env) {c : ReachCache} (hc : CacheOk sp fs c) (s : Spot)
     (cv : ConstantVal) (hs : CopyAt sp fs s) :
-    ModelIO.AllOk (stmtRecord env c s cv) fs fun p =>
+    ModelIO.AllOk (stmtRecord env c s cv) fs ho fun p =>
       CacheOk sp fs p.1 ∧ ∀ d h, p.2 = .ok (d, h) → d = .axiomDecl cv ∧ h = s.part.mod ∧
         (reduceOpNames.contains cv.name = true → ∃ q : Spot, CopyAt sp fs q ∧
           q.part = ⟨s.part.mod, .private⟩ ∧ q.pos.name = s.pos.name ∧
@@ -924,8 +925,8 @@ theorem stmtRecord_ok (he : EnvOk sp fs env) {c : ReachCache} (hc : CacheOk sp f
     cases e
     exact ⟨rfl, rfl, fun hr => absurd (by simpa using hr) (by simpa using hn)⟩
   · simp only [ModelIO.allOk_bind]
-    intro x hx
-    obtain ⟨h1, h2⟩ := privSpot_ok he hc s x hx
+    intro x _ hx
+    obtain ⟨h1, h2⟩ := privSpot_ok he hc s x _ hx
     obtain ⟨c', r⟩ := x
     cases r with
     | error e => simpa using h1
@@ -956,7 +957,7 @@ theorem importerSpot_copy (he : EnvOk sp fs env) {x : Name} {i : Nat} {s : Spot}
 
 /-- **A record read** is `RecordFrom`, and the caches stay the snapshot's. -/
 theorem readRecord_ok (he : EnvOk sp fs env) {c : ReachCache} (hc : CacheOk sp fs c) (x : Name) :
-    ModelIO.AllOk (readRecord env c x) fs fun p =>
+    ModelIO.AllOk (readRecord env c x) fs ho fun p =>
       CacheOk sp fs p.1 ∧ ∀ d h, p.2 = .ok (d, h) → RecordFrom sp fs d h := by
   unfold readRecord
   split
@@ -984,8 +985,8 @@ theorem readRecord_ok (he : EnvOk sp fs env) {c : ReachCache} (hc : CacheOk sp f
   rename_i hskip
   have hsk : s.pos.skipped = false := by simpa using hskip
   simp only [ModelIO.allOk_bind]
-  intro z hz
-  obtain ⟨h1, h2⟩ := stmtAt_ok he hc s z hz
+  intro z _ hz
+  obtain ⟨h1, h2⟩ := stmtAt_ok he hc s z _ hz
   obtain ⟨c₁, r⟩ := z
   cases r with
   | error e => simpa using h1
@@ -996,8 +997,8 @@ theorem readRecord_ok (he : EnvOk sp fs env) {c : ReachCache} (hc : CacheOk sp f
   split
   · rename_i n hn
     simp only [ModelIO.allOk_bind]
-    intro z hz
-    obtain ⟨h3, h4⟩ := groupAt_ok he h1 _ n z hz
+    intro z _ hz
+    obtain ⟨h3, h4⟩ := groupAt_ok he h1 _ n z _ hz
     obtain ⟨c₂, r⟩ := z
     cases r with
     | error e => simpa using h3
@@ -1011,10 +1012,10 @@ theorem readRecord_ok (he : EnvOk sp fs env) {c : ReachCache} (hc : CacheOk sp f
         exact .group (h4 d rfl)
   · rename_i hn
     have stmtCase : k.tag ≠ 4 → (k.tag = 1 → s.part.level = .private) →
-        ModelIO.AllOk (stmtRecord env c₁ s cv) fs fun p =>
+        ∀ {hs₁ : HS}, ModelIO.AllOk (stmtRecord env c₁ s cv) fs hs₁ fun p =>
           CacheOk sp fs p.1 ∧ ∀ d h, p.2 = .ok (d, h) → RecordFrom sp fs d h := by
-      intro hq hd p hp
-      obtain ⟨h5, h6⟩ := stmtRecord_ok he h1 s cv hs p hp
+      intro hq hd _ p _ hp
+      obtain ⟨h5, h6⟩ := stmtRecord_ok he h1 s cv hs p _ hp
       refine ⟨h5, fun d h e => ?_⟩
       obtain ⟨rfl, rfl, hred⟩ := h6 d h e
       exact .stmt hs hls hr hst hsk hn hq hd hred
@@ -1024,8 +1025,8 @@ theorem readRecord_ok (he : EnvOk sp fs env) {c : ReachCache} (hc : CacheOk sp f
       · rename_i hcomp'
         exact stmtCase (by simp [CKindF.tag]) (fun _ => hcomp hcomp')
       · simp only [ModelIO.allOk_bind]
-        intro z hz
-        obtain ⟨h5, h6⟩ := withPart_entry he h1 s.part s.pos.loc z hz
+        intro z _ hz
+        obtain ⟨h5, h6⟩ := withPart_entry he h1 s.part s.pos.loc z _ hz
         obtain ⟨c₂, r⟩ := z
         cases r with
         | error e => simpa using h5
@@ -1080,12 +1081,12 @@ theorem FromInv.add {L : ReachLog} (hL : FromInv sp fs L) {d : Declaration} {h :
 /-- **The worklist reads every record from its home**, keeping the caches the snapshot's. -/
 theorem reachGo_from (he : EnvOk sp fs env) :
     ∀ (fuel : Nat) (L : ReachLog) (c : ReachCache), CacheOk sp fs c → FromInv sp fs L →
-      ModelIO.AllOk (reachGo env fuel L c) fs fun r =>
+      ∀ {hs₀ : HS}, ModelIO.AllOk (reachGo env fuel L c) fs hs₀ fun r =>
         ∀ L' c', r = .ok (L', c') → FromInv sp fs L' := by
   intro fuel
   induction fuel with
   | zero =>
-    intro L c hc hL
+    intro L c hc hL _
     rw [reachGo]
     split
     · split
@@ -1094,26 +1095,26 @@ theorem reachGo_from (he : EnvOk sp fs env) :
       · simp
     · simp
   | succ fuel ih =>
-    intro L c hc hL
+    intro L c hc hL _
     rw [reachGo]
     split
     · split
       · simp only [ModelIO.allOk_pure]
         intro L' c' h; cases h; exact hL
       · simp only [ModelIO.allOk_bind]
-        intro z hz
-        have h1 := capturePairs_ok he _ _ (hc.partners #[]) z hz
+        intro z _ hz
+        have h1 := capturePairs_ok he _ _ (hc.partners #[]) z _ hz
         obtain ⟨c₁, r⟩ := z
         cases r with
         | error e => simp
-        | ok u => exact ih _ c₁ h1 hL
+        | ok u => apply ih _ c₁ h1; exact hL
     · rename_i x rest hs
       simp only []
       split
-      · exact ih _ c hc ⟨hL.1, hL.2⟩
+      · apply ih _ c hc; exact ⟨hL.1, hL.2⟩
       · simp only [ModelIO.allOk_bind]
-        intro z hz
-        obtain ⟨h1, h2⟩ := readRecord_ok he hc x z hz
+        intro z _ hz
+        obtain ⟨h1, h2⟩ := readRecord_ok he hc x z _ hz
         obtain ⟨c₁, r⟩ := z
         cases r with
         | error e => simp
@@ -1126,8 +1127,8 @@ theorem reachGo_from (he : EnvOk sp fs env) :
           · split
             · simp
             · simp only [ModelIO.allOk_bind]
-              intro z hz
-              have h3 := captureAll_ok he h c₁ _ h1 z hz
+              intro z _ hz
+              have h3 := captureAll_ok he h c₁ _ h1 z _ hz
               obtain ⟨c₂, r⟩ := z
               cases r with
               | error e => simp
@@ -1141,15 +1142,15 @@ theorem reach_from {sp : SearchPath} {fs : FS} {m : Name} {wr : WorkerReads}
     (hparts : ∀ i t, wr.index.parts[i]? = some t →
       PartNames sp fs ⟨wr.loads.nameAt i, ((wr.loads.flags[i]?).getD default).level⟩ t)
     (hindex : ∀ m i, wr.loads.index[m]? = some i → wr.loads.nameAt i = m)
-    (h : (reach (.ofPath sp) m wr own roots : ModelIO _) fs (.ok (.ok r))) :
+    {hs hs' : HS} (h : (reach (.ofPath sp) m wr own roots : ModelIO _) fs hs (.ok (.ok r)) hs') :
     r.ctx.size = r.homes.size ∧
       ∀ (i : Nat) (d : Declaration) (hm : Name), r.ctx[i]? = some d → r.homes[i]? = some hm →
         RecordFrom sp fs d hm := by
   have he : EnvOk sp fs { rd := .ofPath sp, mod := m, wr, own } := ⟨rfl, hparts, hindex⟩
   unfold reach at h
   simp only [ModelIO.bind_ok] at h
-  obtain ⟨⟨c, x⟩, hx, h⟩ := h
-  have hc := clashAgree_ok he {} _ #[] (CacheOk.empty sp fs) _ hx
+  obtain ⟨⟨c, x⟩, _, hx, h⟩ := h
+  have hc := clashAgree_ok he {} _ #[] (CacheOk.empty sp fs) _ _ hx
   rcases x with e | extra
   · simp at h
   simp only at h
@@ -1158,10 +1159,10 @@ theorem reach_from {sp : SearchPath} {fs : FS} {m : Name} {wr : WorkerReads}
   | some x => simp at h
   | none =>
     simp only [ModelIO.bind_ok] at h
-    obtain ⟨y, hy, h⟩ := h
+    obtain ⟨y, _, hy, h⟩ := h
     have hL := reachGo_from he _ _ c hc (by
       refine ⟨by simp [ReachLog.init], fun i d h' h1 _ => ?_⟩
-      simp [ReachLog.init] at h1) y hy
+      simp [ReachLog.init] at h1) y _ hy
     rcases y with e | ⟨L, c'⟩
     · simp at h
     simp only at h
@@ -1177,6 +1178,7 @@ theorem reach_from {sp : SearchPath} {fs : FS} {m : Name} {wr : WorkerReads}
     | error e => rw [hv] at h; simp only at h; rw [hf] at h; simp at h
     | ok u' =>
     simp only [hv, hf, ModelIO.pure_iff, Except.ok.injEq] at h
+    obtain ⟨h, -⟩ := h
     subst h
     obtain ⟨hsz, hfrom⟩ := hL L c' rfl
     refine ⟨by simp, fun i d hm h1 h2 => ?_⟩

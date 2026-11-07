@@ -75,6 +75,12 @@ FALLBACK = {
     ('ConLeche.Model.Modular.RestrictNat', 'ConLeche.Verify.NatOpFrag'),
     # (`Main.lean:29`, unknown identifier `SetTheory` in its `variable`s, when demoted alone)
     ('ConLeche.Model.Modular.Main', 'ConLeche.Model.Modular.Instance'),
+    # task #492: the guard-row lemmas' public statements name `projGuardRowsGo`,
+    # `GuardRowsWS`'s `WScoped`; the census attributes them to the private imports
+    # (`LooseBVar`, `Subst`).  Measured: demoting either breaks the file (unknown
+    # identifier `projGuardRowsGo`, `ProjGuard.lean:45`; `Expr.WScoped`, `ProjGuard.lean:30`).
+    ('ConLeche.Verify.ProjGuard', 'ConLeche.Kernel.CoreDefs'),
+    ('ConLeche.Verify.ProjGuard', 'ConLeche.Verify.Shift'),
     # task #480 (the merge of #481): `readOleans_filled` and its neighbours state `OleanRead`,
     # `readOleans`, `Merged`, `mergeAll`, `blocksOk`, `declsOf`.  Measured: demoting either
     # breaks the file (unknown identifier `OleanRead`, `Files.lean:544`).
@@ -855,11 +861,10 @@ FALLBACK = {
 
 # `whitepaper/` (task #324) is its own lake library — the paper's Lean
 # fragment, which imports nothing from `ConLeche.*` — outside the census
-# roots of `tests/shake.sh` and outside this plan.  `lakefile.lean` is the
-# package's build script, not a module.
+# roots of `tests/shake.sh` and outside this plan.
 files=[f for f in subprocess.check_output(['git','ls-files','*.lean']).decode().split()
        if not f.startswith(('tests/e2e/src/','tests/trust-surface/','bridge/','scripts/',
-                            'whitepaper/')) and f != 'lakefile.lean']
+                            'whitepaper/'))]
 mod=lambda f: f[:-5].replace('/','.')
 fileof={mod(f):f for f in files}
 UMBRELLA={'ConLeche.lean','ConLeche/Frontend/Olean.lean','ConLeche/Term.lean','ConLeche/SetModel.lean','ConLeche/Semantics.lean',

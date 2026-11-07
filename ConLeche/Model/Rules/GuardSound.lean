@@ -2,6 +2,7 @@ module
 
 import ConLeche.Verify.PropWhen
 import ConLeche.Verify.Denote.IndFrame
+import ConLeche.Verify.ProjGuard
 import ConLeche.Model.OpenedCtx
 import ConLeche.Model.CtxOkKit
 public import ConLeche.Model.Rules.Inputs
@@ -74,22 +75,16 @@ theorem rowsAt_of_rows (hin : RulesInputs V m φ) {entry : ProjEntry} {us : List
   simp only [ConstantInfo.toConstantVal] at hrows
   split at hrows
   case h_2 => exact nomatch hrows
-  rename_i fvs o hop
-  obtain rfl := Option.some.inj hrows
+  rename_i fvsP r hp
+  -- the row, at the telescope opened through the projected field
+  obtain ⟨fvs, o, hop, hcomplete⟩ := ConLeche.projGuardRows_complete hbd hp hrows
+  obtain ⟨x, hx, hmem⟩ := hcomplete j hj hrow
   -- the opening, read
   have hk : entry.numParams + entry.idx + 1 ≤ ds.length := hlt
   obtain ⟨pps, b', hst, -, hlenp, hbind⟩ := denote_openPis _ hop hread
   rw [stripPisAV_mkPisAV_take _ ds b hk] at hst
   obtain ⟨rfl, rfl⟩ := Prod.mk.inj (Option.some.inj hst).symm
   have hlenF : fvs.length = entry.numParams + entry.idx + 1 := openPisAtFvars_length _ hop
-  obtain ⟨x, hx⟩ : ∃ x, fvs[entry.numParams + j]? = some x :=
-    ⟨fvs[entry.numParams + j]'(by omega), List.getElem?_eq_getElem (by omega)⟩
-  -- the row
-  have hmem : (entry.numParams + j, x.fvarTypeD) ∈
-      ConLeche.projGuardRowsAt cvC.type entry.numParams entry.idx fvs := by
-    refine List.mem_filterMap.mpr ⟨j, List.mem_range.mpr (by omega), ?_⟩
-    rw [ite_eq_left hrow, hx]
-    rfl
   obtain ⟨t, u, hsem, hred, hrr, hz⟩ := hg _ hmem
   -- the telescope's grading
   obtain ⟨ta, hta, hokT, -⟩ := hin.const_ty 0 entry.ctor _ us hfC hus

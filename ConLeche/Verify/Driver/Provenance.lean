@@ -32,39 +32,37 @@ open ConLeche ConLeche.Modular ConLeche.Frontend ConLeche.Frontend.Olean ConLech
 reads. -/
 theorem readPartNames_of_all {sp : SearchPath} {m : Name} {fs : FS} {f : ModFiles}
     {level : OLeanLevel} {t : NamePositions}
-    (hf : (readFiles sp m .private : ModelIO _) fs (.ok (.ok f)))
-    (h : (readPartNames sp (m, level) : ModelIO _) fs (.ok (.ok t))) :
+    (hf : ModelIO.CanGive (readFiles sp m .private) fs (.ok f))
+    (h : ModelIO.CanGive (readPartNames sp (m, level)) fs (.ok t)) :
     readNamePositions (f.upTo level) level = some t := by
-  obtain ⟨loc, -, -, hfm, -⟩ := readFiles_ok hf
+  obtain ⟨_, _, hf⟩ := hf
+  obtain ⟨hs₀, _, h⟩ := h
   have hall := readFiles_of_all level hf
-  simp only [readFiles] at hall
-  rw [ModelIO.bind_det hfm] at hall
   simp only [readPartNames, ModelIO.bind_ok] at h
-  obtain ⟨y, hy, h⟩ := h
-  rw [hfm] at hy
-  simp only [ModelIO.answer_ok, Option.some.injEq] at hy
-  subst hy
+  obtain ⟨y, hs₁, hy, h⟩ := h
+  rcases y with e | loc
+  · simp at h
   simp only [readPartNamesAt, ModelIO.bind_ok] at h
-  obtain ⟨z, hz, h⟩ := h
-  simp only at hall
-  rw [hall] at hz
-  simp only [ModelIO.answer_ok, Option.some.injEq] at hz
-  subst hz
+  obtain ⟨z, hs₂, hz, h⟩ := h
+  have hz' : (readFiles sp m level : ModelIO _) fs hs₀ (.ok z) hs₂ := by
+    simp only [readFiles, ModelIO.bind_ok]
+    exact ⟨.ok loc, hs₁, hy, hz⟩
+  obtain rfl := hall.ok hz'
   simp only at h
   cases hr : readNamePositions (f.upTo level) level with
   | none => simp [hr] at h
   | some ps =>
     simp only [hr, ModelIO.pure_iff, Except.ok.injEq] at h
-    rw [h]
+    rw [h.1]
 
 /-- **A part's files, from a home's**: determined. -/
 theorem partFiles_of_all {sp : SearchPath} {m : Name} {fs : FS} {f f' : ModFiles}
     {level : OLeanLevel}
-    (hf : (readFiles sp m .private : ModelIO _) fs (.ok (.ok f)))
-    (h : (readFiles sp m level : ModelIO _) fs (.ok (.ok f'))) : f' = f.upTo level := by
-  have hall := readFiles_of_all level hf
-  rw [hall] at h
-  exact (by simpa using h : f.upTo level = f').symm
+    (hf : ModelIO.CanGive (readFiles sp m .private) fs (.ok f))
+    (h : ModelIO.CanGive (readFiles sp m level) fs (.ok f')) : f' = f.upTo level := by
+  obtain ⟨_, _, hf⟩ := hf
+  have := (readFiles_of_all level hf).eq h
+  simpa using this
 
 /-- **The name positions of a part**: each at a constant of the part's skeleton, its name, kind
 tag and filter the skeleton's; the names distinct. -/
@@ -98,28 +96,30 @@ theorem namePositionsAt_mem {r : Region} {root : UInt64} {t : NamePositions}
 /-! ## The worker's name index is the snapshot's -/
 
 theorem mapExcept_getElem {α β ε : Type} {f : α → ModelIO (Except ε β)} {fs : FS} :
-    ∀ {xs : List α} {ys : List β}, (mapExcept f xs : ModelIO _) fs (.ok (.ok ys)) →
+    ∀ {xs : List α} {ys : List β} {hs hs' : HS}, (mapExcept f xs : ModelIO _) fs hs (.ok (.ok ys)) hs' →
       ys.length = xs.length ∧ ∀ (i : Nat) (y : β), ys[i]? = some y →
-        ∃ x, xs[i]? = some x ∧ f x fs (.ok (.ok y))
-  | [], ys, h => by
+        ∃ x, xs[i]? = some x ∧ ModelIO.CanGive (f x) fs (.ok y)
+  | [], ys, _, _, h => by
     simp only [mapExcept, ModelIO.pure_iff, Except.ok.injEq] at h
+    obtain ⟨h, -⟩ := h
     cases h
     simp
-  | x :: xs, ys, h => by
+  | x :: xs, ys, _, _, h => by
     simp only [mapExcept, ModelIO.bind_ok] at h
-    obtain ⟨a, ha, h⟩ := h
+    obtain ⟨a, _, ha, h⟩ := h
     rcases a with e | b
     · simp at h
     · simp only [ModelIO.bind_ok] at h
-      obtain ⟨c, hc, h⟩ := h
+      obtain ⟨c, _, hc, h⟩ := h
       rcases c with e | bs
       · simp at h
       · simp only [ModelIO.pure_iff, Except.ok.injEq] at h
+        obtain ⟨h, -⟩ := h
         cases h
         obtain ⟨h1, h2⟩ := mapExcept_getElem hc
         refine ⟨by simp [h1], fun i y hy => ?_⟩
         cases i with
-        | zero => simp at hy; subst hy; exact ⟨x, rfl, ha⟩
+        | zero => simp at hy; subst hy; exact ⟨x, rfl, _, _, ha⟩
         | succ i => exact h2 i y (by simpa using hy)
 
 theorem loadsIndex_spec (order : List Name) {m : Name} {i : Nat}
@@ -153,20 +153,20 @@ theorem loadsIndex_spec (order : List Name) {m : Name} {i : Nat}
 /-- **The worker's name index and load order are the snapshot's**: each loaded part's table is
 its module's at its level, and the order names each module where the index says. -/
 theorem workerReads_index {sp : SearchPath} {fs : FS} {m : Name} {jobs : Nat} {wr : WorkerReads}
-    (h : (workerReads (.ofPath sp) m jobs : ModelIO _) fs (.ok (.ok wr))) :
+    {hs hs' : HS} (h : (workerReads (.ofPath sp) m jobs : ModelIO _) fs hs (.ok (.ok wr)) hs') :
     (∀ i t, wr.index.parts[i]? = some t →
       PartNames sp fs ⟨wr.loads.nameAt i, ((wr.loads.flags[i]?).getD default).level⟩ t) ∧
     (∀ n i, wr.loads.index[n]? = some i → wr.loads.nameAt i = n) := by
   simp only [workerReads, ModelIO.bind_ok] at h
-  obtain ⟨a, -, h⟩ := h
+  obtain ⟨a, _, -, h⟩ := h
   rcases a with e | own
   · simp at h
   simp only [ModelIO.bind_ok] at h
-  obtain ⟨b, hb, h⟩ := h
+  obtain ⟨b, _, hb, h⟩ := h
   rcases b with e | ld
   · simp at h
   simp only [ModelIO.bind_ok] at h
-  obtain ⟨c, hc, h⟩ := h
+  obtain ⟨c, _, hc, h⟩ := h
   rcases c with e | parts
   · simp at h
   simp only at h
@@ -174,11 +174,11 @@ theorem workerReads_index {sp : SearchPath} {fs : FS} {m : Name} {jobs : Nat} {w
   rcases z with e | u
   · simp at h
   simp only [ModelIO.bind_ok] at h
-  obtain ⟨d, -, h⟩ := h
+  obtain ⟨d, _, -, h⟩ := h
   rcases d with e | infos
   · simp at h
   simp only [ModelIO.bind_ok] at h
-  obtain ⟨d, -, h⟩ := h
+  obtain ⟨d, _, -, h⟩ := h
   rcases d with e | hinfos
   · simp at h
   simp only at h
@@ -190,15 +190,17 @@ theorem workerReads_index {sp : SearchPath} {fs : FS} {m : Name} {jobs : Nat} {w
   rcases z with e | u
   · simp at h
   simp only [ModelIO.pure_iff, Except.ok.injEq] at h
+  obtain ⟨h, -⟩ := h
   subst h
   -- the load order and its index
   have hidx : ∀ n i, ld.index[n]? = some i → ld.nameAt i = n := by
     intro n i hi
     simp only [headerFixpoint, OleanReads.ofPath, ModelIO.bind_ok] at hb
-    obtain ⟨st, -, hb⟩ := hb
+    obtain ⟨st, _, -, hb⟩ := hb
     rcases st with e | st
     · simp at hb
     simp only [ModelIO.pure_iff, Except.ok.injEq] at hb
+    obtain ⟨hb, -⟩ := hb
     subst hb
     simp only [Loads.nameAt]
     rw [← Array.foldl_toList] at hi
@@ -207,7 +209,7 @@ theorem workerReads_index {sp : SearchPath} {fs : FS} {m : Name} {jobs : Nat} {w
   refine ⟨fun i t ht => ?_, hidx⟩
   simp only [nameIndexOf] at ht
   have hc' : (mapExcept (readPartNames sp) ((ld.order.zip ld.flags).toList.map
-      fun (n, fl) => (n, fl.level)) : ModelIO _) fs (.ok (.ok parts)) := hc
+      fun (n, fl) => (n, fl.level)) : ModelIO _) fs _ (.ok (.ok parts)) _ := hc
   obtain ⟨-, hget⟩ := mapExcept_getElem hc'
   obtain ⟨x, hx, hxr⟩ := hget i t (by simpa using ht)
   simp only [List.getElem?_map, Array.toList_zip] at hx
@@ -329,7 +331,7 @@ skeleton of its private part not filtered out, the constant the load read there,
 merge holds under its name. -/
 theorem home_records {sp : SearchPath} {fs : FS} {h : Name} {jobs : Nat} {w : WorkerRead}
     (hw : WorkerFacts sp fs h jobs w) :
-    ∃ f r a sk skels, (readFiles sp h .private : ModelIO _) fs (.ok (.ok f)) ∧
+    ∃ f r a sk skels, ModelIO.CanGive (readFiles sp h .private) fs (.ok f) ∧
       f.viewRegion .private = some (r, a) ∧ moduleSkel r a = some sk ∧
       sk.consts.mapM (constSkel r) = some skels ∧ constNamesOk r a = true ∧
       checkViews h f w.home = .ok w.expo ∧ loadAt 0 h f = some w.home ∧
@@ -340,9 +342,9 @@ theorem home_records {sp : SearchPath} {fs : FS} {h : Name} {jobs : Nat} {w : Wo
       ∀ loc s, loc ∈ sk.consts → constSkel r loc = some s → s.kind.skipped = false →
         ∃ E e₁, lazyEntry (nameP r) (exprP r) r 0 s = some E ∧
           (homeMerged w).map[E.name]? = some e₁ ∧ e₁.toCEntryF = E := by
-  have hh := hw.home
+  obtain ⟨hs, _, hh⟩ := hw.home
   simp only [readHome, OleanReads.ofPath, ModelIO.bind_ok] at hh
-  obtain ⟨x, hx, hh⟩ := hh
+  obtain ⟨x, hs₁, hx, hh⟩ := hh
   rcases x with e | f
   · simp at hh
   simp only at hh
@@ -354,7 +356,7 @@ theorem home_records {sp : SearchPath} {fs : FS} {h : Name} {jobs : Nat} {w : Wo
   | error e => simp [hc] at hh
   | ok expo =>
   simp only [hc, ModelIO.pure_iff, Except.ok.injEq, Prod.mk.injEq] at hh
-  obtain ⟨rfl, rfl⟩ := hh
+  obtain ⟨⟨rfl, rfl⟩, -⟩ := hh
   have hload : loadAt 0 h f = some w.home := by
     simp only [loadView] at hl
     split at hl
@@ -368,7 +370,7 @@ theorem home_records {sp : SearchPath} {fs : FS} {h : Name} {jobs : Nat} {w : Wo
   | error e => simp [ownRecords, hb] at hown
   | ok u =>
   simp only [ownRecords, hb] at hown
-  refine ⟨f, r, a, sk, skels, hx, hreg, hsk, hskels, hcn, hc, hload, hN, hO, hb, hown,
+  refine ⟨f, r, a, sk, skels, ⟨hs, hs₁, hx⟩, hreg, hsk, hskels, hcn, hc, hload, hN, hO, hb, hown,
     fun loc s hloc hs hskp => ?_⟩
   obtain ⟨s', hs'mem, hs'⟩ := mapM_mem hskels hloc
   rw [hs] at hs'
@@ -1061,7 +1063,7 @@ theorem expoOf_cases {pc e : CEntryF Name Expr} {x : Expo} (h : expoOf pc e = so
 the copy's stands for (`Behind`), by the home's check of its views where the copy is exported. -/
 theorem copy_behind {sp : SearchPath} {fs : FS} {h : Name} {f : ModFiles} {r : Region}
     {a : UInt64} {sk : ModSkel} {l : Loaded} {expo : Array Expo}
-    (hf : (readFiles sp h .private : ModelIO _) fs (.ok (.ok f)))
+    (hf : ModelIO.CanGive (readFiles sp h .private) fs (.ok f))
     (hreg : f.viewRegion .private = some (r, a)) (hsk : moduleSkel r a = some sk)
     (hload : loadAt 0 h f = some l) (hcv : checkViews h f l = .ok expo)
     {s : Spot} (hmod : s.part.mod = h) (hs : CopyAt sp fs s) (hl : s.part.level ≠ .server)
@@ -1109,7 +1111,8 @@ theorem copy_behind {sp : SearchPath} {fs : FS} {h : Name} {f : ModFiles} {r : R
       cases hskE
       exact ⟨q.loc, s1, s1, hloc, hs1, hs1, hn1, hsk1, rfl, Behind.refl _ _ _⟩
     | true =>
-      obtain ⟨loc0, b, ex, -, -, -, hex, hpriv, -⟩ := readFiles_ok hf
+      obtain ⟨_, _, hf'⟩ := hf
+      obtain ⟨loc0, b, ex, -, -, -, hex, hpriv, -⟩ := readFiles_ok hf'
       have hm' : ModFiles.isModule { exported := ex } = true := by rw [← hex]; exact hm
       obtain ⟨bs, bp, sv, p, -, -, -, -, -, -, hfeq⟩ := hpriv rfl hm'
       subst hfeq
@@ -1287,7 +1290,7 @@ theorem copy_behind {sp : SearchPath} {fs : FS} {h : Name} {f : ModFiles} {r : R
 
 /-- A part's region on the snapshot is one. -/
 theorem partRegion_unique {sp : SearchPath} {fs : FS} {h : Name} {f : ModFiles}
-    (hf : (readFiles sp h .private : ModelIO _) fs (.ok (.ok f))) {L : OLeanLevel} {r r' : Region}
+    (hf : ModelIO.CanGive (readFiles sp h .private) fs (.ok f)) {L : OLeanLevel} {r r' : Region}
     (h1 : PartRegion sp fs ⟨h, L⟩ r) (h2 : PartRegion sp fs ⟨h, L⟩ r') : r = r' := by
   obtain ⟨f1, a1, hf1, hr1⟩ := h1
   obtain ⟨f2, a2, hf2, hr2⟩ := h2
@@ -1300,7 +1303,7 @@ theorem partRegion_unique {sp : SearchPath} {fs : FS} {h : Name} {f : ModFiles}
 /-- **A private copy's kind is that of the private skeleton of its name.** -/
 theorem private_tag {sp : SearchPath} {fs : FS} {h : Name} {f : ModFiles} {r : Region} {a : UInt64}
     {sk : ModSkel} {skels : List (CEntryF UInt64 UInt64)}
-    (hf : (readFiles sp h .private : ModelIO _) fs (.ok (.ok f)))
+    (hf : ModelIO.CanGive (readFiles sp h .private) fs (.ok f))
     (hreg : f.viewRegion .private = some (r, a)) (hsk : moduleSkel r a = some sk)
     (hskels : sk.consts.mapM (constSkel r) = some skels) (hcn : constNamesOk r a = true)
     {q : Spot} (hq : CopyAt sp fs q) (hqp : q.part = ⟨h, .private⟩)

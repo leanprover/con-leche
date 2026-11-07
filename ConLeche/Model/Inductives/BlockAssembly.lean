@@ -123,7 +123,9 @@ theorem blockFormerFacts_of {F : Nat} {env envI : Env}
     (h : ConLeche.checkBlockInds (m := ConLeche.CheckM) (ConLeche.fueledOps .verified F) env p₀ isRec
       = .ok (envI, q))
     (hlps : ∀ ms ∈ p₀.members, ms.cvT.levelParams = p₀.lps)
-    (hAt : ∀ ms ∈ p₀.members, ConLeche.MemberAt F env p₀.nP ms) :
+    (hAt : ∀ ms ∈ p₀.members, ConLeche.MemberAt F env p₀.nP ms)
+    -- the reserved names' check (`basisNamesOk`)
+    (hresM : ∀ ms ∈ p₀.members, ConLeche.reservedBasisNames.contains ms.cvT.name = false) :
     ∃ (ppsOf : Nat → (Name → Nat) → List Term) (sOf : Nat → Level),
       BlockFormerFacts mp q (p₀.members.map (·.declared)) q.formers ppsOf sOf := by
   obtain ⟨ms0, rest, cvTa0, s0, cvs, hmem0, rfl, -, htele0, hteles, hagree⟩ :=
@@ -236,9 +238,12 @@ theorem blockFormerFacts_of {F : Nat} {env envI : Env}
     intro m cvTa hm
     obtain ⟨ms, hms, hrun⟩ := hpair m cvTa hm
     obtain ⟨cvT, hn, hl, heq, hccv, bs, hst⟩ := ConLeche.checkBlockTele_shape hrun
-    obtain ⟨hfind, hnres, -, hlbt, hitf, -, -, hlpd, htr, -, -⟩ :=
+    obtain ⟨hfind, -, hlbt, hitf, -, -, hlpd, htr, -, -⟩ :=
       ConLeche.checkConstantVal_inv hccv
-    rw [← heq] at hfind hnres hlbt hitf hlpd htr hn hl
+    rw [← heq] at hfind hlbt hitf hlpd htr hn hl
+    have hnres : ConLeche.reservedBasisNames.contains cvTa.name = false := by
+      rw [hn]
+      exact hresM ms (List.mem_of_getElem? hms)
     have htf' := hitf
     have hbt' := hlbt
     obtain ⟨pps, hFD⟩ := formerData_of mp ⟨heq, hccv⟩ hst
