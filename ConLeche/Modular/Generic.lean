@@ -21,9 +21,9 @@ environments use the module's own names.  Two modules may hold copies
 of one name; what the theory asks is that the copies a module reads
 **agree**: get one value in the models.  The importer proves that
 locally, for each copy a source holds, in one of three ways: the source
-is the module the name is read from; the source reads it from that
-module too (one record, loaded through two paths); or both copies are
-proofs, which every model gives the proofs' value.
+is the module the name is read from; the source and the importer both
+read it from one earlier module (one record, loaded through two paths);
+or both copies are proofs, which every model gives the proofs' value.
 
 **The interface.**  Environments, with the names they store
 (`Stores`; `c ∈ E` below).  Then:
@@ -71,8 +71,9 @@ environment and comes from an earlier module, its context is assembled
 from its sources, every context name is stored by the source of the
 module it is read from, its part is assembled from the sources and
 holds only context names of smaller rank, and every source that stores
-it **agrees** (`Agrees`): it is that module, or reads the name from it
-too, or it and that module's copy are proofs (`ProofIn` over the part,
+it **agrees** (`Agrees`): it is that module, or it and the module both
+read the name from one earlier module, or it and that module's copy are
+proofs (`ProofIn` over the part,
 or a theorem where the copy comes from); and the module's declarations
 are accepted over its context, or the module is **compared** (its own
 environment is its context).  If every module is valid, there is a
