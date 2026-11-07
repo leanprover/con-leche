@@ -665,7 +665,7 @@ info: 'InLeanProof.closedBV_of_lbb' depends on axioms: [propext,
 #print axioms InLeanProof.closedBV_of_lbb
 
 /--
-info: 'InLeanProof.leafGuardM_specI_of' depends on axioms: [propext,
+info: 'InLeanProof.leafGuardSpecI' depends on axioms: [propext,
  Classical.choice,
  Quot.sound,
  InLeanProof.Expr.mkAppData_fields,
@@ -673,7 +673,7 @@ info: 'InLeanProof.leafGuardM_specI_of' depends on axioms: [propext,
  InLeanProof.Level.mkData_eq]
 -/
 #guard_msgs in
-#print axioms InLeanProof.leafGuardM_specI_of
+#print axioms InLeanProof.leafGuardSpecI
 
 /--
 info: 'InLeanProof.majorToCtorI_specI' depends on axioms: [propext,

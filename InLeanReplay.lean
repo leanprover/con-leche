@@ -13,7 +13,8 @@ constant the kernel added with the imported one.  Adapted from core's
 `Lean.Kernel.Environment.replay`, with the kernel as a parameter and with
 unsafe/partial constants included.
 
-Exit codes: 0 all accepted, 1 a reject or a compare mismatch, 3 internal error.
+Exit codes (con-leche's): 0 all accepted, 1 a reject or a compare mismatch, 2 a
+decline (InLean's `(InLean) declined: …`) and no reject, 3 internal error.
 -/
 
 open Lean
@@ -100,6 +101,7 @@ structure St where
   sent : Nat := 0
   accepted : Nat := 0
   rejected : Nat := 0
+  declined : Nat := 0
   skipped : Nat := 0
   dups : Nat := 0
   compareCount : Nat := 0
@@ -159,6 +161,11 @@ def blockNames (all : List Name) : M (Array Name) := do
       i := i + 1
   return r
 
+/-- An InLean decline: a positively detected unsupported feature, not a reject. -/
+def isDecline : Kernel.Exception → Bool
+  | .other msg => msg.startsWith "(InLean) declined:"
+  | _ => false
+
 def sendDecl (d : Declaration) (group : List Name) (produced : Array Name) : M Unit := do
   modify fun s => { s with sent := s.sent + 1 }
   match addWith (← read).cfg.kernel (← read).cfg.inlean (← get).env d with
@@ -168,10 +175,15 @@ def sendDecl (d : Declaration) (group : List Name) (produced : Array Name) : M U
       for n in produced do compareConst n
   | .error ex =>
     let msg ← (ex.toMessageData {}).toString
-    IO.println s!"REJECT {group}: {msg}"
     let keep := (← read).cfg.keepGoing
-    modify fun s => { s with rejected := s.rejected + 1, bad := group.foldl (·.insert ·) s.bad,
-                             stop := !keep }
+    if isDecline ex then
+      IO.println s!"DECLINE {group}: {msg}"
+      modify fun s => { s with declined := s.declined + 1, bad := group.foldl (·.insert ·) s.bad,
+                               stop := !keep }
+    else
+      IO.println s!"REJECT {group}: {msg}"
+      modify fun s => { s with rejected := s.rejected + 1, bad := group.foldl (·.insert ·) s.bad,
+                               stop := !keep }
 
 mutual
 partial def replayConstant (name : Name) : M Unit := do
@@ -300,10 +312,10 @@ public def main (args : List String) : IO UInt32 := do
     let remaining : Std.HashSet Name := consts.fold (fun acc n _ => acc.insert n) {}
     let ((), s) ← (InLeanReplay.run.run { cfg, consts }).run { env := kenv, remaining }
     IO.println s!"constants {consts.size}; declarations sent {s.sent}, accepted {s.accepted}, \
-      rejected {s.rejected}, skipped {s.skipped}, duplicate theorems {s.dups}"
+      rejected {s.rejected}, declined {s.declined}, skipped {s.skipped}, duplicate theorems {s.dups}"
     if cfg.compare then
       IO.println s!"compared {s.compareCount}; mismatches exact {s.exact}, cosmetic {s.cosmetic}"
-    return if s.rejected > 0 || s.exact > 0 then 1 else 0
+    return if s.rejected > 0 || s.exact > 0 then 1 else if s.declined > 0 then 2 else 0
   catch e =>
     IO.eprintln s!"internal error: {e}"
     return 3

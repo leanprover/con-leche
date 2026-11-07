@@ -21,9 +21,9 @@ as its cached twin names it (`mtcKIL`, `mtcEtaIL`, `mtcAndIL`, `mtcBodyIL`,
 branches) against master's pure blocks (`mtcKCont`, `mtcEtaCont`,
 `mtcAndCont`, `mtcBodyP`, `iotaCertP`, `iotaRecK`).
 
-Two callees are named hypotheses: P2-defeq's `proofIrrelI`
-(`ProofIrrelSpecI`), and the leaf guard (`LeafGuardSpecI`,
-`LeafGuardI.lean`).
+One callee is a named hypothesis, P2-defeq's `proofIrrelI`
+(`ProofIrrelSpecI`); the leaf guard's spec is `leafGuardSpecI`
+(`LeafGuardI.lean`).
 -/
 
 public section
@@ -223,7 +223,7 @@ section Walks
 variable {r : InLean.CoreFnsI} {fe : InLean.FEnv}
 
 theorem fabTailIL_specI (ih : KnotSpecI .verified eager env r) (hpi : ProofIrrelSpecI eager env r)
-    (hlg : LeafGuardSpecI .verified eager env) {d : Nat}
+    {d : Nat}
     {tmaj fab major : Expr} {s₀ : InLean.CState} (hs : CSOKI .verified eager env s₀)
     (hokt : OkS s₀ tmaj = true) (hwt : ConLeche.Expr.WScoped d (TrS s₀ tmaj))
     (hct : (TrS s₀ tmaj).looseBVarsBounded 0 = true)
@@ -239,7 +239,7 @@ theorem fabTailIL_specI (ih : KnotSpecI .verified eager env r) (hpi : ProofIrrel
   refine tripleI_iff_run.2 fun m s' hr => ?_
   unfold fabTailIL at hr
   obtain ⟨g, s₁, hg, hr⟩ := bind_run hr
-  obtain ⟨rfl, rfl⟩ := tripleI_iff_run.1 (hlg hs hokf hokm) g s₁ hg
+  obtain ⟨rfl, rfl⟩ := tripleI_iff_run.1 (leafGuardSpecI hs hokf hokm) g s₁ hg
   unfold fabTailP
   rw [wscopedBC_of_WScoped hokf hwf, closedBV_of_lbb hokf hcf, Bool.true_and, Bool.true_and] at hr
   rw [hwf.to_wscopedB, hcf, Bool.true_and, Bool.true_and]
@@ -306,7 +306,7 @@ theorem fab_facts {s : InLean.CState} {d : Nat} {c : Name} {us : List Level} {xs
   exact ⟨rfl, rfl, wscoped_mkAppN_const hw, lbb_mkAppN_closed rfl hcl⟩
 
 theorem mtcKIL_specI (ih : KnotSpecI .verified eager env r) (hpi : ProofIrrelSpecI eager env r)
-    (hlg : LeafGuardSpecI .verified eager env) {d : Nat} {major : Expr}
+    {d : Nat} {major : Expr}
     {rl : RecursorRule} {cvj : Lean.ConstantVal} {cnP : Nat} {T : Name} {crl : ConLeche.RecRule}
     {ccvj : ConLeche.ConstantVal} (hrl : crl.ctor = toName rl.ctor) (hcvj : CVRel cvj ccvj)
     {s₀ : InLean.CState} (hs : CSOKI .verified eager env s₀) (hok : OkS s₀ major = true)
@@ -360,7 +360,7 @@ theorem mtcKIL_specI (ih : KnotSpecI .verified eager env r) (hpi : ProofIrrelSpe
         have hokm := okS_of_tabLe ht02 hok
         have htm := TrS_of_tabLe ht02 hok
         obtain ⟨hs', ht', hokm', hrun', hw', hc'⟩ := tripleI_iff_run.1
-          (fabTailIL_specI ih hpi hlg hs₂ hok₂ hw₂ hc₂ hokf hwf hcf hokm (htm ▸ hw) (htm ▸ hc))
+          (fabTailIL_specI ih hpi hs₂ hok₂ hw₂ hc₂ hokf hwf hcf hokm (htm ▸ hw) (htm ▸ hc))
           m s' hr'
         refine ⟨hs', ht02.trans ht', hokm', ?_, hw', hc'⟩
         rw [htrf, hTx, htm] at hrun'
@@ -410,7 +410,7 @@ theorem projNodesI_facts (s : InLean.CState) (T : Name) {b : Expr} {d : Nat} (hb
       · exact h3 x hx
     · rw [InLean.projNodesI, TrSL_cons, AllClosed_cons, h4, TrS_proj, lbb_proj, hc]; rfl
 
-theorem mtcEtaIL_specI (ih : KnotSpecI .verified eager env r) (hlg : LeafGuardSpecI .verified eager env) (hv : EnvViewI fe env) {d : Nat} {major : Expr} {T : Name}
+theorem mtcEtaIL_specI (ih : KnotSpecI .verified eager env r) (hv : EnvViewI fe env) {d : Nat} {major : Expr} {T : Name}
     {cvT : Lean.ConstantVal} {ccvT : ConLeche.ConstantVal} (hcvT : CVRel cvT ccvT)
     (hcl : ccvT.type.hasFvar = false) (hlbb : ccvT.type.looseBVarsBounded 0 = true)
     {caps : InLean.IndCaps}
@@ -497,7 +497,7 @@ theorem mtcEtaIL_specI (ih : KnotSpecI .verified eager env r) (hlg : LeafGuardSp
           (by rw [TrSL_append]; exact AllWS.append hws1 hp3)
           (by rw [TrSL_append]; exact AllClosed_append hcl1 hp4)
         obtain ⟨g, s₅, h5, hr⟩ := bind_run hr
-        obtain ⟨hst, rfl⟩ := tripleI_iff_run.1 (hlg hs₃ hokf hokm) g s₅ h5
+        obtain ⟨hst, rfl⟩ := tripleI_iff_run.1 (leafGuardSpecI hs₃ hokf hokm) g s₅ h5
         rw [hst] at hr
         rw [wscopedBC_of_WScoped hokf hwf, closedBV_of_lbb hokf hcf, Bool.true_and, Bool.true_and] at hr
         have hwf' := hwf
@@ -535,7 +535,7 @@ theorem mtcEtaIL_specI (ih : KnotSpecI .verified eager env r) (hlg : LeafGuardSp
     · exact post_of hs₂ ht02 hok hw hc (Runs.pure _)
 
 theorem mtcAndIL_specI (ih : KnotSpecI .verified eager env r) (hpi : ProofIrrelSpecI eager env r)
-    (hlg : LeafGuardSpecI .verified eager env) (hv : EnvViewI fe env) {d : Nat} {major : Expr}
+    (hv : EnvViewI fe env) {d : Nat} {major : Expr}
     {rl : RecursorRule} {cvj : Lean.ConstantVal} {cnP : Nat} {T : Name} {crl : ConLeche.RecRule}
     {ccvj : ConLeche.ConstantVal} (hrl : crl.ctor = toName rl.ctor) (hcvj : CVRel cvj ccvj)
     {s₀ : InLean.CState} (hs : CSOKI .verified eager env s₀) (hok : OkS s₀ major = true)
@@ -601,7 +601,7 @@ theorem mtcAndIL_specI (ih : KnotSpecI .verified eager env r) (hpi : ProofIrrelS
           (mkAppN (.const rl.ctor ust) (appArgs tmaj ++ InLean.projNodesI T major [0, 1]).toArray)
           major s₂ = .ok (m, s') := hr
       obtain ⟨hs', ht', hokm', hrun', hw', hc'⟩ := tripleI_iff_run.1
-        (fabTailIL_specI ih hpi hlg hs₂ hok₂ hw₂ hc₂ hokf hwf hcf hokm (htm ▸ hw) (htm ▸ hc))
+        (fabTailIL_specI ih hpi hs₂ hok₂ hw₂ hc₂ hokf hwf hcf hokm (htm ▸ hw) (htm ▸ hc))
         m s' hr'
       refine ⟨hs', ht02.trans ht', hokm', ?_, hw', hc'⟩
       rw [htrf, hTx, htm] at hrun'
@@ -631,7 +631,7 @@ theorem stored_closed (henv : ConLeche.EnvWF env) {n : ConLeche.Name} {ci : ConL
   exact ⟨hw.1, hw.2.2.2.1⟩
 
 theorem mtcBodyIL_specI (ih : KnotSpecI .verified eager env r) (hpi : ProofIrrelSpecI eager env r)
-    (hlg : LeafGuardSpecI .verified eager env) (henv : ConLeche.EnvWF env) (hv : EnvViewI fe env)
+    (henv : ConLeche.EnvWF env) (hv : EnvViewI fe env)
     {d : Nat} {major : Expr} {isK : Bool} {rl : RecursorRule} {cvj : Lean.ConstantVal} {cnP : Nat}
     {T : Name} {cvT : Lean.ConstantVal} {caps : InLean.IndCaps} {crl : ConLeche.RecRule}
     {ccvj ccvT : ConLeche.ConstantVal} (hrl : crl.ctor = toName rl.ctor) (hcvj : CVRel cvj ccvj)
@@ -646,14 +646,14 @@ theorem mtcBodyIL_specI (ih : KnotSpecI .verified eager env r) (hpi : ProofIrrel
       ConLeche.Expr.WScoped d (TrS s' m) ∧ (TrS s' m).looseBVarsBounded 0 = true; ⊤⦄ := by
   unfold mtcBodyIL mtcBodyP
   cases isK with
-  | true => exact mtcKIL_specI ih hpi hlg hrl hcvj hs hok hw hc
+  | true => exact mtcKIL_specI ih hpi hrl hcvj hs hok hw hc
   | false =>
     simp only [Bool.false_eq_true, ↓reduceIte]
     rw [hrl, etaRescueOk_CV hcvj hcvT]
     by_cases he : InLean.etaRescueOk rl.ctor cvj cvT caps = true
     · simp only [he, ↓reduceIte]
       obtain ⟨hcl, hlbb⟩ := stored_closed henv hfT
-      exact mtcEtaIL_specI ih hlg hv hcvT hcl hlbb hs hok hw hc
+      exact mtcEtaIL_specI ih hv hcvT hcl hlbb hs hok hw hc
     · simp only [he, Bool.false_eq_true, ↓reduceIte]
       have hand : (toName T = ConLeche.andName) ↔ (T == InLean.andName) = true := by
         rw [cl_andName, toName_eq_iff, beq_iff_eq]
@@ -661,7 +661,7 @@ theorem mtcBodyIL_specI (ih : KnotSpecI .verified eager env r) (hpi : ProofIrrel
       · have hT := hand.2 ha
         simp only [ha, hT, ↓reduceIte]
         rw [← hT]
-        exact mtcAndIL_specI ih hpi hlg hv hrl hcvj hs hok hw hc
+        exact mtcAndIL_specI ih hpi hv hrl hcvj hs hok hw hc
       · simp only [ha, mt hand.1 ha, Bool.false_eq_true, ↓reduceIte]
         refine tripleI_iff_run.2 fun m s' hr => ?_
         obtain ⟨rfl, rfl⟩ := pure_run hr
@@ -669,7 +669,7 @@ theorem mtcBodyIL_specI (ih : KnotSpecI .verified eager env r) (hpi : ProofIrrel
 
 /-- **The stuck-major rescue** (`majorToCtorC_spec`'s twin). -/
 theorem majorToCtorI_specI (ih : KnotSpecI .verified eager env r) (hpi : ProofIrrelSpecI eager env r)
-    (hlg : LeafGuardSpecI .verified eager env) (henv : ConLeche.EnvWF env) (hv : EnvViewI fe env)
+    (henv : ConLeche.EnvWF env) (hv : EnvViewI fe env)
     {d : Nat} {recName : ConLeche.Name} {isK : Bool} {fire : InLean.RecRuleFire}
     {rules : List RecursorRule} {crules : List ConLeche.RecRule}
     (hrules : LRel (RuleRel fire) rules crules)
@@ -732,7 +732,7 @@ theorem majorToCtorI_specI (ih : KnotSpecI .verified eager env r) (hpi : ProofIr
               obtain ⟨ccvT, hcvT, hfT⟩ := hv.ind T cvT caps hind
               dsimp only
               rw [mtc_body hct' rfl hfj hhead hfT]
-              exact mtcBodyIL_specI ih hpi hlg henv hv hrl.1 hcvj hcvT hfT hs hok hw hc
+              exact mtcBodyIL_specI ih hpi henv hv hrl.1 hcvj hcvT hfT hs hok hw hc
           | fvar id =>
             have hnc : ∀ T lus, (ccvj.type.piResult).getAppFn ≠ .const T lus := by
               intro T lus h
@@ -765,7 +765,7 @@ theorem isStrLitI_TrS (s : InLean.CState) : ∀ e : Expr,
 
 /-- The preparation off K past the first rescue. -/
 theorem prepTailI_specI (ih : KnotSpecI .verified eager env r)
-    (hpi : ProofIrrelSpecI eager env r) (hlg : LeafGuardSpecI .verified eager env)
+    (hpi : ProofIrrelSpecI eager env r)
     (henv : ConLeche.EnvWF env) (hv : EnvViewI fe env) (hdom : EnvDomI fe env)
     {d : Nat} {recName : ConLeche.Name} {fire : InLean.RecRuleFire}
     {rules : List RecursorRule} {crules : List ConLeche.RecRule}
@@ -799,12 +799,12 @@ theorem prepTailI_specI (ih : KnotSpecI .verified eager env r)
       tripleI_iff_run.1 (litMajorToCtorI_specI ih hdom hs₂ hok₂ hw₂ hc₂) m₁ s₃ h3
     rw [Runs.bind_eq _ hrun₃]
     obtain ⟨hs₄, ht₄, hok₄, hrun₄, hw₄, hc₄⟩ := tripleI_iff_run.1
-      (majorToCtorI_specI (recName := recName) ih hpi hlg henv hv hrules hs₃ hok₃ hw₃ hc₃) m s' hr
+      (majorToCtorI_specI (recName := recName) ih hpi henv hv hrules hs₃ hok₃ hw₃ hc₃) m s' hr
     exact ⟨hs₄, ht₂.trans (ht₃.trans ht₄), hok₄, hrun₄, hw₄, hc₄⟩
 
 /-- **The major's preparation** (`prepareMajorC_spec`'s twin). -/
 theorem prepareMajorI_specI (ih : KnotSpecI .verified eager env r)
-    (hpi : ProofIrrelSpecI eager env r) (hlg : LeafGuardSpecI .verified eager env)
+    (hpi : ProofIrrelSpecI eager env r)
     (henv : ConLeche.EnvWF env) (hv : EnvViewI fe env) (hdom : EnvDomI fe env)
     {d : Nat} {recName : ConLeche.Name} {isK : Bool} {fire : InLean.RecRuleFire}
     {rules : List RecursorRule} {crules : List ConLeche.RecRule}
@@ -824,7 +824,7 @@ theorem prepareMajorI_specI (ih : KnotSpecI .verified eager env r)
     simp only [↓reduceIte] at hr ⊢
     obtain ⟨mk, s₁, h1, hr⟩ := bind_run hr
     obtain ⟨hs₁, ht₁, hok₁, hrun₁, hw₁, hc₁⟩ := tripleI_iff_run.1
-      (majorToCtorI_specI (recName := recName) ih hpi hlg henv hv hrules hs hok hw hc) mk s₁ h1
+      (majorToCtorI_specI (recName := recName) ih hpi henv hv hrules hs hok hw hc) mk s₁ h1
     rw [Runs.bind_eq _ hrun₁]
     rw [isCtorAppC_TrS hv s₁] at hr
     by_cases hct : ConLeche.isCtorApp env (TrS s₁ mk) = true
@@ -844,14 +844,14 @@ theorem prepareMajorI_specI (ih : KnotSpecI .verified eager env r)
       obtain ⟨rfl, rfl⟩ := pure_run h1
       rw [Runs.pure_bind_eq]
       exact tripleI_iff_run.1
-        (prepTailI_specI (recName := recName) ih hpi hlg henv hv hdom hrules hs hok hw hc) m s' hr
+        (prepTailI_specI (recName := recName) ih hpi henv hv hdom hrules hs hok hw hc) m s' hr
     · simp only [hsl, Bool.false_eq_true, ↓reduceIte] at hr ⊢
       obtain ⟨me, s₁, h1, hr⟩ := bind_run hr
       obtain ⟨hs₁, ht₁, hok₁, hrun₁, hw₁, hc₁⟩ := tripleI_iff_run.1
-        (majorToCtorI_specI (recName := recName) ih hpi hlg henv hv hrules hs hok hw hc) me s₁ h1
+        (majorToCtorI_specI (recName := recName) ih hpi henv hv hrules hs hok hw hc) me s₁ h1
       rw [Runs.bind_eq _ hrun₁]
       obtain ⟨hs₂, ht₂, hok₂, hrun₂, hw₂, hc₂⟩ := tripleI_iff_run.1
-        (prepTailI_specI (recName := recName) ih hpi hlg henv hv hdom hrules hs₁ hok₁ hw₁ hc₁) m s' hr
+        (prepTailI_specI (recName := recName) ih hpi henv hv hdom hrules hs₁ hok₁ hw₁ hc₁) m s' hr
       exact ⟨hs₂, ht₁.trans ht₂, hok₂, hrun₂, hw₂, hc₂⟩
 
 /-! ## The case-3 certificate block -/
@@ -1263,7 +1263,7 @@ theorem rules_facts (henv : ConLeche.EnvWF env) {n : ConLeche.Name} {ccv : ConLe
 
 /-- **The ι step** (`iotaRecC_spec`'s twin): it discharges `IotaRecSpecI`. -/
 theorem iotaRecI_specI (ih : KnotSpecI .verified eager env r) (hpi : ProofIrrelSpecI eager env r)
-    (hlg : LeafGuardSpecI .verified eager env) (henv : ConLeche.EnvWF env)
+    (henv : ConLeche.EnvWF env)
     (hv : EnvViewI fe env) (hrec : EnvRecI fe env) (hfe : EnvRelI fe env)
     (hdom : EnvDomI fe env) : IotaRecSpecI eager env r fe := by
   intro d i s₀ hs hok hw hc
@@ -1309,7 +1309,7 @@ theorem iotaRecI_specI (ih : KnotSpecI .verified eager env r) (hpi : ProofIrrelS
           (by rw [hcond.1]; omega) hargsOk hwa hca
         rw [hargsT] at htrA
         obtain ⟨hs₁, ht₁, hok₁, hrun₁, hw₁, hc₁⟩ := tripleI_iff_run.1
-          (prepareMajorI_specI (recName := toName c) ih hpi hlg henv hv hdom hrules hs hokA hwA
+          (prepareMajorI_specI (recName := toName c) ih hpi henv hv hdom hrules hs hokA hwA
             hcA) maj s₁ h1
         rw [htrA] at hrun₁
         rw [Runs.bind_eq _ hrun₁]
@@ -1456,9 +1456,9 @@ namespace InLeanProof
 `IotaRecSpecI` discharged). -/
 theorem whnfAppI_specI_of {eager : Bool} {env : ConLeche.Env} {r : InLean.CoreFnsI}
     {fe : InLean.FEnv} (ih : KnotSpecI .verified eager env r) (hpi : ProofIrrelSpecI eager env r)
-    (hlg : LeafGuardSpecI .verified eager env) (henv : ConLeche.EnvWF env)
+    (henv : ConLeche.EnvWF env)
     (hv : EnvViewI fe env) (hrec : EnvRecI fe env) (hfe : EnvRelI fe env)
     (hdom : EnvDomI fe env) : WhnfAppSpecI eager env r fe :=
-  whnfAppI_specI (iotaRecI_specI ih hpi hlg henv hv hrec hfe hdom)
+  whnfAppI_specI (iotaRecI_specI ih hpi henv hv hrec hfe hdom)
 
 end InLeanProof

@@ -309,27 +309,35 @@ type, so its leaves include the annotations'). -/
 def leafGuardM (fab base : Expr) : CheckCM Bool := do
   if !fab.hasFVar then return true
   let tys := (← get).fvTys
-  let seen := closure tys (2 ^ 62) (EO.fvarIds base).toList {}
+  let seen := closure tys tys.size (EO.fvarIds base).toList {} {}
   return (EO.fvarIds fab).all seen.contains
 where
-  /-- The worklist, structural on a fuel of one step per item. -/
-  closure (tys : Array Expr) : Nat → List FVarId → Std.HashSet FVarId → Std.HashSet FVarId
-    | 0, _, seen => seen
-    | _, [], seen => seen
-    | fuel + 1, id :: todo, seen =>
-      if seen.contains id then closure tys fuel todo seen
-      else
-        let more : List FVarId := match fvParts? id with
-          | some (_, n) => match tys[n]? with
-            | some ty => (EO.fvarIds ty).toList
-            | none => []
-          | none => []
-        closure tys fuel (more ++ todo) (seen.insert id)
+  /-- The worklist: every id met goes into `seen`; a table number's type is
+  expanded once (`done`), and only an expansion spends fuel.  An expanded
+  number is a fresh index of `tys`, so the fuel `tys.size` never runs out. -/
+  closure (tys : Array Expr) (fuel : Nat) (todo : List FVarId) (seen : Std.HashSet FVarId)
+      (done : Std.HashSet Nat) : Std.HashSet FVarId :=
+    match todo with
+    | [] => seen
+    | id :: todo =>
+      let seen := seen.insert id
+      match fvParts? id with
+      | some (_, n) =>
+        match tys[n]? with
+        | some ty =>
+          if done.contains n then closure tys fuel todo seen done
+          else match fuel with
+            | 0 => seen
+            | fuel + 1 => closure tys fuel ((EO.fvarIds ty).toList ++ todo) seen (done.insert n)
+        | none => closure tys fuel todo seen done
+      | none => closure tys fuel todo seen done
+  termination_by (fuel, todo.length)
 
 /-- The free variables reachable from `e`, hereditarily through their types. -/
 def fvarClosureM (e : Expr) : CheckCM (Std.HashSet FVarId) := do
   if !e.hasFVar then return {}
-  return leafGuardM.closure (← get).fvTys (2 ^ 62) (EO.fvarIds e).toList {}
+  let tys := (← get).fvTys
+  return leafGuardM.closure tys tys.size (EO.fvarIds e).toList {} {}
 
 /-! ## The head-symbol readers (twin of `ConLeche/Kernel/PropRead.lean`) -/
 

@@ -256,6 +256,12 @@ def maxDepthOf (us : List Level) : Nat := us.foldr (fun u m => max u.data.depth.
 by `u`'s cached depth: the substitution adds at most `md`. -/
 @[inline] def depthFits (md : Nat) (u : Level) : Bool := u.data.depth.toNat + md ≤ maxLevelDepth
 
+/-- The `imax` chain `inferPisOutI stk v` builds stays within C's depth
+bound, by cached depths: each `imax` adds at most one to the deepest level.
+(`.succ u` is `depthFits 1 u`, one `imax u v` is `imaxChainFits [u] v`.) -/
+def imaxChainFits (stk : List Level) (v : Level) : Bool :=
+  maxDepthOf (v :: stk) + stk.length ≤ maxLevelDepth
+
 /-- Twin of `instLevelParams`: the level parameters `ps` to `us` in every
 `sort` and `const`, by con-leche's non-simplifying `Lvl.subst` (lane F:
 core's `Level.instantiateParams` compares by the opaque `Level.beq`).  A

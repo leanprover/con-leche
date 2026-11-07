@@ -595,13 +595,16 @@ def inferPisOutI : List Level → Level → Level
   | [], v => v
   | u :: rest, v => inferPisOutI rest (.imax u v)
 
-/-- Twin of `inferPisLeafI`. -/
+/-- Twin of `inferPisLeafI`; an `imax` chain past C's depth bound is an
+internal error (C's `Level.mkData` would abort). -/
 def inferPisLeafI (r : CoreFnsI) (d : Nat) (t : Expr) (k : Nat)
     (fvs : Array Expr) (stk : List Level) : CheckCM Expr := do
   let ob ← instListRevM t fvs
   let bt ← r.infer (d + k) ob
   match EO.stripTop (← r.whnf (d + k) bt) with
-  | .sort v => pure (.sort (inferPisOutI stk v))
+  | .sort v =>
+    if EO.imaxChainFits stk v then pure (.sort (inferPisOutI stk v))
+    else throw (.internal "universe level too deep")
   | _ => throw (.invalid "expected a sort")
 
 /-- Twin of `inferPisI`. -/
@@ -950,11 +953,14 @@ def checkConstSafety (fe : FEnv) (n : Name) (ci : ConstantInfo) : CheckCM Unit :
     if v.safety == .partial && fe.safety == .safe then
       throw (.invalid s!"invalid declaration, safe declaration must not contain partial declaration '{n}'")
 
-/-- Twin of `inferBodyI`. -/
+/-- Twin of `inferBodyI`; a sort's successor past C's depth bound is an
+internal error. -/
 def inferBodyI (r : CoreFnsI) (fe : FEnv) : Nat → Expr → CheckCM Expr :=
   fun depth e => do
     match EO.stripTop (e) with
-    | .sort u => pure (.sort (.succ u))
+    | .sort u =>
+      if EO.depthFits 1 u then pure (.sort (.succ u))
+      else throw (.internal "universe level too deep")
     | .fvar id =>
       match fvarDepth? id with
       | some i =>
@@ -1027,7 +1033,8 @@ def inferBodyI (r : CoreFnsI) (fe : FEnv) : Nat → Expr → CheckCM Expr :=
     | .bvar _ | .mvar _ =>
       throw (.notImplemented "inferType beyond the supported fragment")
 
-/-- Twin of `inferBodyIOI`. -/
+/-- Twin of `inferBodyIOI`; an `imax` past C's depth bound is an internal
+error. -/
 def inferBodyIOI (r : CoreFnsI) (fe : FEnv) : Nat → Expr → CheckCM Expr :=
   fun depth e => do
     match EO.stripTop (e) with
@@ -1041,7 +1048,8 @@ def inferBodyIOI (r : CoreFnsI) (fe : FEnv) : Nat → Expr → CheckCM Expr :=
         let fv ← mkFVarM depth ty
         let bt ← r.infer (depth + 1) (body.inst1I fv)
         let v ← ensureSortI r (depth + 1) bt
-        pure (.sort (.imax u v))
+        if EO.imaxChainFits [u] v then pure (.sort (.imax u v))
+        else throw (.internal "universe level too deep")
       | _ => throw (.invalid "expected a sort")
     | .lam _ ty body _ => do
       let fv ← mkFVarM depth ty

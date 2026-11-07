@@ -583,7 +583,8 @@ theorem FVarTable.push_inner {t : FVarTable} {d : Nat} {h : UInt64} {ty : Expr} 
 keeps the table's invariant, only extends the translation, and touches no
 field but the table's. -/
 theorem mkFVarM_ok {s : InLean.CState} (hs : FVTableOK s) {d : Nat} {ty : Expr}
-    {cty : ConLeche.Expr} (hty : TransS s ty = some cty) {r : Expr} {s' : InLean.CState}
+    {cty : ConLeche.Expr} (hty : TransS s ty = some cty) (hrty : Expr.RangeOk ty) {r : Expr}
+    {s' : InLean.CState}
     (hrun : mkFVarM d ty s = .ok (r, s')) :
     FVTableOK s' ∧ TransS s' r = some (.fvar d cty) ∧
       FvLe (tableOf s).trans (tableOf s').trans ∧
@@ -626,7 +627,7 @@ theorem mkFVarM_ok {s : InLean.CState} (hs : FVTableOK s) {d : Nat} {ty : Expr}
         simp only [FVarTable.live, tableOf, htc, hhash]
         exact List.contains_iff_mem.2 hmem
       refine ⟨?_, ?_, fun _ _ h => h, _, s.fvCls, s.fvTys, rfl⟩
-      · refine { cls := hs.cls, distinct := hs.distinct, ty := hs.ty, seen := ?_ }
+      · refine { cls := hs.cls, distinct := hs.distinct, ty := hs.ty, range := hs.range, seen := ?_ }
         intro d' k n hk
         rw [Std.HashMap.getElem?_insert] at hk
         split at hk
@@ -673,7 +674,7 @@ theorem mkFVarM_ok {s : InLean.CState} (hs : FVTableOK s) {d : Nat} {ty : Expr}
         rw [FVarTable.push_inner (Nat.le_of_eq hsize.symm)]
         exact toExpr_mono ((tableOf s).trans_le_inner (Nat.le_of_eq hsize)) ty cty hty
       refine ⟨?_, ?_, ?_, _, _, _, rfl⟩
-      · refine { cls := ?_, distinct := ?_, ty := ?_, seen := ?_ }
+      · refine { cls := ?_, distinct := ?_, ty := ?_, seen := ?_, range := ?_ }
         · intro d' h' m hm
           simp only [Std.HashMap.getD_insert] at hm
           split at hm
@@ -740,6 +741,17 @@ theorem mkFVarM_ok {s : InLean.CState} (hs : FVTableOK s) {d : Nat} {ty : Expr}
             refine ⟨?_, tn, ?_, he⟩
             · rw [FVarTable.push_live hn]; exact hl
             · exact (getElem?_push_of_lt hn).trans htn
+        · intro n tn htn
+          by_cases hn : n < s.fvTys.size
+          · rw [getElem?_push_of_lt hn] at htn
+            exact hs.range n tn htn
+          · have : n = s.fvTys.size := by
+              have := (Array.getElem?_eq_some_iff.1 htn).1
+              simp at this; omega
+            subst this
+            rw [Array.getElem?_push_size, Option.some.injEq] at htn
+            subst htn
+            exact hrty
       · unfold TransS
         rw [htab]
         simp only [toExpr, FVarTable.trans, fvParts_fvId, FVarTable.transNum_eq, hlnew, ↓reduceIte]

@@ -14,19 +14,18 @@ against con-leche's: the scope guard `Expr.wscopedBC` (ids' depths) holds on a
 scoped translation (`wscopedBC_of_WScoped`), the closedness guard
 `Expr.closedBV` (the cached range) on a closed one (`closedBV_of_lbb`), and the
 leaf guard `leafGuardM` (a worklist closure of ids through the interned types)
-answers `leafGuardP` at the translations (`leafGuardM_specI_of`).
+answers `leafGuardP` at the translations (`leafGuardSpecI`).
 
 The free variables `EO.fvarIds` collects are exactly the term's
 (`mem_fvarIds`: its `seen` skip and `hasFVar` cut, under `Expr.RangeOk`);
 the leaves of a translation are the translations of the ids its variables
 reach through the interned types (`term_leaves`, `idLeaves`).
 
-**The leaf guard holds under two preconditions** (`leafGuardM_specI_of`):
-the closure's worklist empties within its fuel `2^62` (`ClosureEnds`; no
-array or term size is bounded in the logic, so the fuel is not provably
-enough), and the interned types are in range (`TysRangeOk`, which the
-cached `hasFVar` cut of `EO.fvarIds` needs; `mkFVarM`'s callers intern
-in-range types, but `FVTableOK` does not record it).
+**The leaf guard** (`leafGuardSpecI`): the closure spends fuel only on
+expanding a table number not expanded before, so its fuel `tys.size` never
+runs out (`ClosureInv`, a counting argument, `hashSetNat_size_le`); the
+cached `hasFVar` cut of `EO.fvarIds` on the interned types reads
+`FVTableOK.range`.
 -/
 
 public section
@@ -514,121 +513,185 @@ theorem RReach.mono {tys : Array Expr} {P Q : FVarId → Prop} (h : ∀ x, P x �
   | base hp => exact .base (h _ hp)
   | step _ hs ih => exact .step ih hs
 
-/-- **The closure runs to its end within its fuel**: the worklist empties
-before the fuel does.  `leafGuardM`'s fuel `2^62` is not provably enough
-(no array or term size is bounded in the logic); this is the precondition
-under which the closure is the reachable set. -/
-@[expose] def ClosureEnds (tys : Array Expr) : Nat → List FVarId → Std.HashSet FVarId → Prop
-  | 0, todo, _ => todo = []
-  | _ + 1, [], _ => True
-  | fuel + 1, id :: todo, seen =>
-    if seen.contains id = true then ClosureEnds tys fuel todo seen
-    else ClosureEnds tys fuel (succIds tys id ++ todo) (seen.insert id)
-
-theorem RReach.cons_of_succ {tys : Array Expr} {id : FVarId} {todo : List FVarId} {x : FVarId}
-    (h : RReach tys (· ∈ succIds tys id ++ todo) x) : RReach tys (· ∈ id :: todo) x := by
+theorem RReach.cons_of_succ {tys : Array Expr} {id : FVarId} {todo more : List FVarId}
+    {x : FVarId} (hmore : ∀ y ∈ more, y ∈ succIds tys id)
+    (h : RReach tys (· ∈ more ++ todo) x) : RReach tys (· ∈ id :: todo) x := by
   induction h with
   | base hp =>
     rcases List.mem_append.1 hp with hp | hp
-    · exact .step (.base List.mem_cons_self) hp
+    · exact .step (.base List.mem_cons_self) (hmore _ hp)
     · exact .base (List.mem_cons_of_mem _ hp)
   | step _ hs ih => exact .step ih hs
 
-theorem closure_seen {tys : Array Expr} {fuel : Nat} {id : FVarId} {todo : List FVarId}
-    {seen : Std.HashSet FVarId} (h : seen.contains id = true) :
-    leafGuardM.closure tys (fuel + 1) (id :: todo) seen = leafGuardM.closure tys fuel todo seen := by
-  simp only [leafGuardM.closure, h, ↓reduceIte]
+/-- A set of numbers below `N` has at most `N` elements. -/
+theorem hashSetNat_size_le {S : Std.HashSet Nat} {N : Nat}
+    (h : ∀ m, S.contains m = true → m < N) : S.size ≤ N := by
+  rw [← Std.HashSet.length_toList]
+  have hnd : S.toList.Nodup :=
+    Std.HashSet.distinct_toList.imp fun {a b} hab he => by subst he; simp at hab
+  have := hnd.length_le_of_subset (l₂ := List.range N) fun x hx => by
+    rw [List.mem_range]
+    apply h x
+    rw [← Std.HashSet.contains_toList]
+    exact List.contains_iff_mem.2 hx
+  simpa using this
 
-theorem closure_unseen {tys : Array Expr} {fuel : Nat} {id : FVarId} {todo : List FVarId}
-    {seen : Std.HashSet FVarId} (h : ¬ seen.contains id = true) :
-    leafGuardM.closure tys (fuel + 1) (id :: todo) seen =
-      leafGuardM.closure tys fuel (succIds tys id ++ todo) (seen.insert id) := by
-  simp only [leafGuardM.closure, h]; rfl
+/-- **The closure's invariant**: an expanded number's successors are seen or
+pending, a seen id with an interned type has its number expanded, the
+expanded numbers index the table, and the fuel covers the numbers not yet
+expanded. -/
+structure ClosureInv (tys : Array Expr) (fuel : Nat) (todo : List FVarId)
+    (seen : Std.HashSet FVarId) (done : Std.HashSet Nat) : Prop where
+  succ : ∀ n ty, done.contains n = true → tys[n]? = some ty → ∀ y ∈ (EO.fvarIds ty).toList,
+    seen.contains y = true ∨ y ∈ todo
+  exp : ∀ x d n ty, seen.contains x = true → fvParts? x = some (d, n) → tys[n]? = some ty →
+    done.contains n = true
+  lt : ∀ n, done.contains n = true → n < tys.size
+  fuel : tys.size ≤ done.size + fuel
 
-/-- **The closure, run to its end, is the reachable set** (with what was
+/-- What the closure answers, at its start's worklist and seen set. -/
+@[expose] def ClosureOut (tys : Array Expr) (todo : List FVarId) (seen r : Std.HashSet FVarId) :
+    Prop :=
+  (∀ x, seen.contains x = true → r.contains x = true) ∧ (∀ x ∈ todo, r.contains x = true) ∧
+  (∀ x, r.contains x = true → ∀ y ∈ succIds tys x, r.contains y = true) ∧
+  (∀ x, r.contains x = true → seen.contains x = true ∨ RReach tys (· ∈ todo) x)
+
+theorem contains_insert_self {seen : Std.HashSet FVarId} {id : FVarId} :
+    (seen.insert id).contains id = true := by
+  rw [Std.HashSet.contains_insert, beq_self_eq_true, Bool.true_or]
+
+theorem contains_insert_of {seen : Std.HashSet FVarId} {id x : FVarId}
+    (h : seen.contains x = true) : (seen.insert id).contains x = true := by
+  rw [Std.HashSet.contains_insert, h, Bool.or_true]
+
+/-- An id taken off the worklist into the seen set, its successors pushed
+(`more`, a sublist of what it reaches in one step). -/
+theorem ClosureOut.pop {tys : Array Expr} {id : FVarId} {todo more : List FVarId}
+    {seen r : Std.HashSet FVarId} (hmore : ∀ y ∈ more, y ∈ succIds tys id)
+    (h : ClosureOut tys (more ++ todo) (seen.insert id) r) : ClosureOut tys (id :: todo) seen r := by
+  obtain ⟨h1, h2, h3, h4⟩ := h
+  refine ⟨fun x hx => h1 x (contains_insert_of hx), fun x hx => ?_, h3, fun x hx => ?_⟩
+  · rcases List.mem_cons.1 hx with h | h
+    · subst h; exact h1 _ contains_insert_self
+    · exact h2 x (List.mem_append_right _ h)
+  · rcases h4 x hx with h | h
+    · rw [Std.HashSet.contains_insert, Bool.or_eq_true, beq_iff_eq] at h
+      rcases h with h | h
+      · subst h; exact .inr (.base List.mem_cons_self)
+      · exact .inl h
+    · exact .inr (h.cons_of_succ hmore)
+
+/-- An id taken off the worklist whose number is expanded already, or that
+has no interned type: the invariant at the rest. -/
+theorem ClosureInv.skip {tys : Array Expr} {fuel : Nat} {id : FVarId} {todo : List FVarId}
+    {seen : Std.HashSet FVarId} {done : Std.HashSet Nat} (h : ClosureInv tys fuel (id :: todo) seen done)
+    (hid : ∀ d n ty, fvParts? id = some (d, n) → tys[n]? = some ty → done.contains n = true) :
+    ClosureInv tys fuel todo (seen.insert id) done where
+  succ n ty hn hty y hy := by
+    rcases h.succ n ty hn hty y hy with h | h
+    · exact .inl (contains_insert_of h)
+    · rcases List.mem_cons.1 h with h | h
+      · subst h; exact .inl contains_insert_self
+      · exact .inr h
+  exp x d n ty hx hp hty := by
+    rw [Std.HashSet.contains_insert, Bool.or_eq_true, beq_iff_eq] at hx
+    rcases hx with hx | hx
+    · subst hx; exact hid d n ty hp hty
+    · exact h.exp x d n ty hx hp hty
+  lt := h.lt
+  fuel := h.fuel
+
+/-- **The closure, from its invariant, is the reachable set** (with what was
 seen). -/
-theorem closure_spec (tys : Array Expr) : ∀ (fuel : Nat) (todo : List FVarId)
-    (seen : Std.HashSet FVarId), ClosureEnds tys fuel todo seen →
-    (∀ x, seen.contains x = true → ∀ y ∈ succIds tys x, seen.contains y = true ∨ y ∈ todo) →
-    let r := leafGuardM.closure tys fuel todo seen
-    (∀ x, seen.contains x = true → r.contains x = true) ∧ (∀ x ∈ todo, r.contains x = true) ∧
-    (∀ x, r.contains x = true → ∀ y ∈ succIds tys x, r.contains y = true) ∧
-    (∀ x, r.contains x = true → seen.contains x = true ∨ RReach tys (· ∈ todo) x) := by
-  intro fuel
-  induction fuel with
-  | zero =>
-    intro todo seen hend hinv
-    simp only [ClosureEnds] at hend; subst hend
-    simp only [leafGuardM.closure]
+theorem closure_spec (tys : Array Expr) (fuel : Nat) (todo : List FVarId)
+    (seen : Std.HashSet FVarId) (done : Std.HashSet Nat) (hinv : ClosureInv tys fuel todo seen done) :
+    ClosureOut tys todo seen (leafGuardM.closure tys fuel todo seen done) := by
+  induction fuel, todo, seen, done using leafGuardM.closure.induct tys with
+  | case1 fuel seen done =>
+    rw [leafGuardM.closure.eq_1]
     refine ⟨fun _ h => h, fun _ h => absurd h List.not_mem_nil, fun x hx y hy => ?_,
       fun _ h => .inl h⟩
-    rcases hinv x hx y hy with h | h
-    · exact h
-    · exact absurd h List.not_mem_nil
-  | succ fuel ih =>
-    intro todo seen hend hinv
-    cases todo with
-    | nil =>
-      simp only [leafGuardM.closure]
-      refine ⟨fun _ h => h, fun _ h => absurd h List.not_mem_nil, fun x hx y hy => ?_,
-        fun _ h => .inl h⟩
-      rcases hinv x hx y hy with h | h
-      · exact h
-      · exact absurd h List.not_mem_nil
-    | cons id todo =>
-      simp only [ClosureEnds] at hend
-      by_cases hc : seen.contains id = true
-      · rw [closure_seen hc]
-        simp only [hc, ↓reduceIte] at hend
-        have hinv' : ∀ x, seen.contains x = true → ∀ y ∈ succIds tys x,
-            seen.contains y = true ∨ y ∈ todo := by
-          intro x hx y hy
-          rcases hinv x hx y hy with h | h
-          · exact .inl h
-          · rcases List.mem_cons.1 h with h | h
-            · subst h; exact .inl hc
-            · exact .inr h
-        obtain ⟨h1, h2, h3, h4⟩ := ih todo seen hend hinv'
-        refine ⟨h1, fun x hx => ?_, h3, fun x hx => ?_⟩
-        · rcases List.mem_cons.1 hx with h | h
-          · subst h; exact h1 _ hc
-          · exact h2 x h
-        · rcases h4 x hx with h | h
-          · exact .inl h
-          · exact .inr (h.mono fun _ h => List.mem_cons_of_mem _ h)
-      · rw [closure_unseen hc]
-        simp only [hc, Bool.false_eq_true, ↓reduceIte] at hend
-        have hinv' : ∀ x, (seen.insert id).contains x = true → ∀ y ∈ succIds tys x,
-            (seen.insert id).contains y = true ∨ y ∈ succIds tys id ++ todo := by
-          intro x hx y hy
-          rw [Std.HashSet.contains_insert, Bool.or_eq_true, beq_iff_eq] at hx
-          rcases hx with hx | hx
-          · subst hx; exact .inr (List.mem_append_left _ hy)
-          · rcases hinv x hx y hy with h | h
-            · rw [Std.HashSet.contains_insert, h, Bool.or_true]; exact .inl rfl
-            · rcases List.mem_cons.1 h with h | h
-              · subst h; rw [Std.HashSet.contains_insert, beq_self_eq_true, Bool.true_or]
-                exact .inl rfl
-              · exact .inr (List.mem_append_right _ h)
-        obtain ⟨h1, h2, h3, h4⟩ := ih _ _ hend hinv'
-        refine ⟨fun x hx => h1 x (by rw [Std.HashSet.contains_insert, hx, Bool.or_true]),
-          fun x hx => ?_, h3, fun x hx => ?_⟩
-        · rcases List.mem_cons.1 hx with h | h
-          · subst h; exact h1 _ (by rw [Std.HashSet.contains_insert, beq_self_eq_true, Bool.true_or])
-          · exact h2 x (List.mem_append_right _ h)
-        · rcases h4 x hx with h | h
-          · rw [Std.HashSet.contains_insert, Bool.or_eq_true, beq_iff_eq] at h
-            rcases h with h | h
-            · subst h; exact .inr (.base List.mem_cons_self)
-            · exact .inl h
-          · exact .inr h.cons_of_succ
+    unfold succIds at hy
+    split at hy
+    · rename_i d n hp
+      split at hy
+      · rename_i ty hty
+        rcases hinv.succ n ty (hinv.exp x d n ty hx hp hty) hty y hy with h | h
+        · exact h
+        · exact absurd h List.not_mem_nil
+      · exact absurd hy List.not_mem_nil
+    · exact absurd hy List.not_mem_nil
+  | case2 fuel seen done id todo _ fst n hp rest hty hdone ih =>
+    rw [leafGuardM.closure.eq_2]
+    simp only [hp, hty, hdone, ↓reduceIte]
+    refine ClosureOut.pop (more := []) (fun _ h => absurd h List.not_mem_nil) ?_
+    exact ih (hinv.skip fun d n' ty hp' hty' => by
+      rw [hp] at hp'; cases hp'; exact hdone)
+  | case3 seen done id todo fst n hp rest hty hdone =>
+    exfalso
+    have hlt : n < tys.size := (Array.getElem?_eq_some_iff.1 hty).1
+    have hle := hashSetNat_size_le (S := done.insert n) (N := tys.size) fun m hm => by
+      rw [Std.HashSet.contains_insert, Bool.or_eq_true, beq_iff_eq] at hm
+      rcases hm with rfl | hm
+      · exact hlt
+      · exact hinv.lt m hm
+    have hnm : n ∉ done := by rw [Std.HashSet.mem_iff_contains]; exact hdone
+    simp only [Std.HashSet.size_insert, hnm, ↓reduceIte] at hle
+    have := hinv.fuel
+    omega
+  | case4 seen done id todo _ fst n hp rest hty hdone k ih =>
+    rw [leafGuardM.closure.eq_2]
+    simp only [hp, hty, hdone, Bool.false_eq_true, ↓reduceIte]
+    have hsucc : succIds tys id = (EO.fvarIds rest).toList := by
+      simp only [succIds, hp, hty]
+    refine ClosureOut.pop (fun y hy => by rw [hsucc]; exact hy) (ih ?_)
+    refine { succ := ?_, exp := ?_, lt := ?_, fuel := ?_ }
+    · intro n' ty hn' hty' y hy
+      rw [Std.HashSet.contains_insert, Bool.or_eq_true, beq_iff_eq] at hn'
+      rcases hn' with rfl | hn'
+      · rw [hty] at hty'; cases hty'; exact .inr (List.mem_append_left _ hy)
+      · rcases hinv.succ n' ty hn' hty' y hy with h | h
+        · exact .inl (contains_insert_of h)
+        · rcases List.mem_cons.1 h with h | h
+          · subst h; exact .inl contains_insert_self
+          · exact .inr (List.mem_append_right _ h)
+    · intro x d n' ty hx hp' hty'
+      rw [Std.HashSet.contains_insert, Bool.or_eq_true, beq_iff_eq]
+      rw [Std.HashSet.contains_insert, Bool.or_eq_true, beq_iff_eq] at hx
+      rcases hx with rfl | hx
+      · rw [hp] at hp'; cases hp'; exact .inl rfl
+      · exact .inr (hinv.exp x d n' ty hx hp' hty')
+    · intro m hm
+      rw [Std.HashSet.contains_insert, Bool.or_eq_true, beq_iff_eq] at hm
+      rcases hm with rfl | hm
+      · exact (Array.getElem?_eq_some_iff.1 hty).1
+      · exact hinv.lt m hm
+    · have hnm : n ∉ done := by rw [Std.HashSet.mem_iff_contains]; exact hdone
+      simp only [Std.HashSet.size_insert, hnm, ↓reduceIte]
+      have := hinv.fuel
+      omega
+  | case5 fuel seen done id todo _ fst n hp hty ih =>
+    rw [leafGuardM.closure.eq_2]
+    simp only [hp, hty]
+    refine ClosureOut.pop (more := []) (fun _ h => absurd h List.not_mem_nil) ?_
+    exact ih (hinv.skip fun d n' ty hp' hty' => by
+      rw [hp] at hp'; cases hp'; rw [hty] at hty'; cases hty')
+  | case6 fuel seen done id todo _ hp ih =>
+    rw [leafGuardM.closure.eq_2]
+    simp only [hp]
+    refine ClosureOut.pop (more := []) (fun _ h => absurd h List.not_mem_nil) ?_
+    exact ih (hinv.skip fun d n' ty hp' _ => by rw [hp] at hp'; cases hp')
 
-/-- From nothing seen, the closure run to its end holds exactly the
-reachable ids. -/
-theorem closure_contains_iff {tys : Array Expr} {fuel : Nat} {init : List FVarId}
-    (hend : ClosureEnds tys fuel init ∅) (x : FVarId) :
-    (leafGuardM.closure tys fuel init ∅).contains x = true ↔ RReach tys (· ∈ init) x := by
-  obtain ⟨-, h2, h3, h4⟩ := closure_spec tys fuel init ∅ hend (fun x hx => by simp at hx)
+/-- From nothing seen or expanded, at the fuel `tys.size`, the closure holds
+exactly the reachable ids. -/
+theorem closure_contains_iff {tys : Array Expr} {init : List FVarId} (x : FVarId) :
+    (leafGuardM.closure tys tys.size init ∅ ∅).contains x = true ↔ RReach tys (· ∈ init) x := by
+  have hinv : ClosureInv tys tys.size init ∅ ∅ :=
+    { succ := fun n _ h => by simp at h
+      exp := fun x _ _ _ h => by simp at h
+      lt := fun n h => by simp at h
+      fuel := by simp }
+  obtain ⟨-, h2, h3, h4⟩ := closure_spec tys tys.size init ∅ ∅ hinv
   refine ⟨fun h => ?_, fun h => ?_⟩
   · rcases h4 x h with h | h
     · simp at h
@@ -838,13 +901,8 @@ theorem term_leaves {s : InLean.CState} {g : FVarId → Option ConLeche.Expr} (h
     simp only [toExpr, Option.some.injEq] at h; subst h
     exact hnone (fun _ h => by simp only [OccF] at h) (by simp [ConLeche.Expr.fvarLeaves])
 
-/-- Every interned type is in range (what `mkFVarM`'s callers intern; not
-yet a clause of `FVTableOK`). -/
-@[expose] def TysRangeOk (s : InLean.CState) : Prop :=
-  ∀ (n : Nat) ty, s.fvTys[n]? = some ty → Expr.RangeOk ty
-
 /-- **Every id's leaves are the translations of what it reaches.** -/
-theorem idLeaves {s : InLean.CState} (hty : TysRangeOk s) : ∀ x, IdLeaves s x := by
+theorem idLeaves {s : InLean.CState} (hfv : FVTableOK s) : ∀ x, IdLeaves s x := by
   have key : ∀ n d, IdLeaves s (fvId d n) := by
     intro n
     induction n using Nat.strongRecOn with
@@ -863,7 +921,7 @@ theorem idLeaves {s : InLean.CState} (hty : TysRangeOk s) : ∀ x, IdLeaves s x 
         simp only [succIds, fvParts_fvId]
         simp only [tableOf] at hty'
         rw [hty']
-      have hr : Expr.RangeOk ty := hty n ty (by simpa [tableOf] using hty')
+      have hr : Expr.RangeOk ty := hfv.range n ty (by simpa [tableOf] using hty')
       rw [ConLeche.Expr.fvarLeaves, List.mem_cons, hT p]
       simp only [RReach.single_iff, hsucc]
       constructor
@@ -882,25 +940,24 @@ theorem idLeaves {s : InLean.CState} (hty : TysRangeOk s) : ∀ x, IdLeaves s x 
 
 /-! ## The leaf guard -/
 
-/-- **The leaf guard's answer** is the pure one at the translations, when the
-closure runs to its end and the interned types are in range. -/
-theorem leafGuard_value {s : InLean.CState} (hfv : FVTableOK s) (hty : TysRangeOk s)
-    {fab base : Expr} (hf : OkS s fab = true) (hb : OkS s base = true)
-    (hfuel : ClosureEnds s.fvTys (2 ^ 62) (EO.fvarIds base).toList ∅) :
+/-- **The leaf guard's answer** is the pure one at the translations. -/
+theorem leafGuard_value {s : InLean.CState} (hfv : FVTableOK s)
+    {fab base : Expr} (hf : OkS s fab = true) (hb : OkS s base = true) :
     (if (!fab.hasFVar) = true then true else
-      (EO.fvarIds fab).all (leafGuardM.closure s.fvTys (2 ^ 62) (EO.fvarIds base).toList ∅).contains)
+      (EO.fvarIds fab).all
+        (leafGuardM.closure s.fvTys s.fvTys.size (EO.fvarIds base).toList ∅ ∅).contains)
       = ConLeche.Cached.leafGuardP (TrS s fab) (TrS s base) := by
-  have hid := idLeaves hty
+  have hid := idLeaves hfv
   have htf : toExpr (fvT s) fab = some (TrS s fab) := TransS_of_ok hf
   have htb : toExpr (fvT s) base = some (TrS s base) := TransS_of_ok hb
   have hLf := term_leaves (s := s) (fun _ _ h => h) htf (fun x _ => hid x)
   have hLb := term_leaves (s := s) (fun _ _ h => h) htb (fun x _ => hid x)
   have hrf := RangeOk_of_OkS hf
   have hrb := RangeOk_of_OkS hb
-  have hcl : ∀ x, (leafGuardM.closure s.fvTys (2 ^ 62) (EO.fvarIds base).toList ∅).contains x = true
-      ↔ RReach s.fvTys (fun z => OccF z base) x := by
+  have hcl : ∀ x, (leafGuardM.closure s.fvTys s.fvTys.size (EO.fvarIds base).toList ∅ ∅).contains x
+      = true ↔ RReach s.fvTys (fun z => OccF z base) x := by
     intro x
-    rw [closure_contains_iff hfuel]
+    rw [closure_contains_iff]
     constructor
     · exact fun h => h.mono fun z hz => by rw [Array.mem_toList_iff, mem_fvarIds hrb] at hz; exact hz
     · exact fun h => h.mono fun z hz => by rw [Array.mem_toList_iff, mem_fvarIds hrb]; exact hz
@@ -939,24 +996,19 @@ theorem leafGuard_value {s : InLean.CState} (hfv : FVTableOK s) (hty : TysRangeO
       obtain ⟨rfl, rfl⟩ := hfv.transNum_inj (max n n' + 1) d n d' n' _ (by omega) (by omega) hn hn'
       exact (hcl _).2 hy
 
-/-- `leafGuardM`'s spec as a named hypothesis. -/
+/-- `leafGuardM`'s spec, the form the ι step's rescues consume. -/
 abbrev LeafGuardSpecI (mode : ConLeche.CheckMode) (eager : Bool) (env : ConLeche.Env) : Prop :=
   ∀ {s₀ : InLean.CState} {fab base : Expr}, CSOKI mode eager env s₀ → OkS s₀ fab = true →
     OkS s₀ base = true →
     ⦃fun s => s = s₀⦄ InLean.leafGuardM fab base
     ⦃fun v s' => s' = s₀ ∧ v = ConLeche.Cached.leafGuardP (TrS s₀ fab) (TrS s₀ base); ⊤⦄
 
-variable {mode : ConLeche.CheckMode} {eager : Bool} {env : ConLeche.Env}
-
-/-- **The leaf guard simulates the pure one**, given that its closure runs to
-its end within the fuel and the interned types are in range. -/
-theorem leafGuardM_specI_of {s₀ : InLean.CState} {fab base : Expr} (hs : CSOKI mode eager env s₀)
-    (hf : OkS s₀ fab = true) (hb : OkS s₀ base = true) (hty : TysRangeOk s₀)
-    (hfuel : ClosureEnds s₀.fvTys (2 ^ 62) (EO.fvarIds base).toList ∅) :
-    ⦃fun s => s = s₀⦄ InLean.leafGuardM fab base
-    ⦃fun v s' => s' = s₀ ∧ v = ConLeche.Cached.leafGuardP (TrS s₀ fab) (TrS s₀ base); ⊤⦄ := by
+/-- **The leaf guard simulates the pure one.** -/
+theorem leafGuardSpecI {mode : ConLeche.CheckMode} {eager : Bool} {env : ConLeche.Env} :
+    LeafGuardSpecI mode eager env := by
+  intro s₀ fab base hs hf hb
   refine tripleI_iff_run.2 fun v s' hr => ?_
-  rw [← leafGuard_value hs.fv hty hf hb hfuel]
+  rw [← leafGuard_value hs.fv hf hb]
   unfold InLean.leafGuardM at hr
   split at hr
   · rename_i h
@@ -969,15 +1021,5 @@ theorem leafGuardM_specI_of {s₀ : InLean.CState} {fab base : Expr} (hs : CSOKI
     obtain ⟨rfl, rfl⟩ := hg
     obtain ⟨rfl, rfl⟩ := pure_run hr
     exact ⟨rfl, by simp only [h, Bool.false_eq_true, ↓reduceIte]⟩
-
-/-- `LeafGuardSpecI` from the fuel's and the interned types' adequacy at every
-state the invariant holds of. -/
-theorem leafGuardSpecI_of
-    (h : ∀ {s₀ : InLean.CState} {base : Expr}, CSOKI mode eager env s₀ → OkS s₀ base = true →
-      TysRangeOk s₀ ∧ ClosureEnds s₀.fvTys (2 ^ 62) (EO.fvarIds base).toList ∅) :
-    LeafGuardSpecI mode eager env := by
-  intro s₀ fab base hs hf hb
-  obtain ⟨hty, hfuel⟩ := h hs hb
-  exact leafGuardM_specI_of hs hf hb hty hfuel
 
 end InLeanProof
