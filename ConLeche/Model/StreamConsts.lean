@@ -165,7 +165,7 @@ theorem checkDecl_declares {env env₂ : Env} {F : Nat}
     -- the `Quot.sound` arm (task #293) is excluded by `Declares`
     rcases hrun with ⟨hq, -⟩ | hrun
     · exact absurd hq hqs
-    obtain ⟨type', -, hcvr, hdisj⟩ := hrun
+    obtain ⟨-, type', -, hcvr, hdisj⟩ := hrun
     obtain ⟨-, -, -, -, -, hann, -, -, -⟩ := hcvr
     have henv₂ : env₂ = ⟨.axiomInfo ⟨cv.name, cv.levelParams, type'⟩ :: env.consts, env.tables⟩ := by
       rcases hdisj with ⟨-, he⟩ | ⟨-, -, he⟩ | ⟨-, -, he⟩ |

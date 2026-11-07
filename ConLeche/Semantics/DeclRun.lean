@@ -172,7 +172,7 @@ def DeclAxiomRun (F : Nat) (env : Env)
   -- with the pin BEFORE the common checks (its name is a reserved basis
   -- name).  No `ConstantValRun`: the pin is what is stored.
   (cv.name = quotSoundName ∧ DeclQuotRun env .sound cv env₂) ∨
-  ∃ type',
+  cv.name ≠ quotSoundName ∧ ∃ type',
     natOpName cv.name = false ∧
     ConstantValRun F env cv type' ∧
     (let cv : ConstantVal := ⟨cv.name, cv.levelParams, type'⟩

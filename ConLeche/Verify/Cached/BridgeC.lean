@@ -198,16 +198,6 @@ theorem checkOpaqueValCI_spec (henv : EnvWF env)
 
 /-! ## The converted declaration -/
 
-/-- A pinned block's install simulates its generic twin. -/
-theorem checkBasisBlockC_spec (hs : CSOK mode false env s₀) (kind : BasisKind)
-    (block : List ConstantInfo) :
-    ⦃fun s => s = s₀⦄ checkBasisBlockC (mkFEnv env) kind block
-    ⦃fun v s' => CSOK mode false env s' ∧
-      Runs (checkBasisBlock (m := FueledM) env kind block) v.env ∧
-      v = mkFEnv v.env; ⊤⦄ := by
-  sym only [conleche_grind, checkBasisBlock.eq_1, mkFEnv_env] =>
-    vcgen [checkBasisBlockC, installBasisFoldF_pushC, installBasisFoldS_spec (mode := mode) (env := env)] <;> finish
-
 /-- A quotient record's install simulates its generic twin: operation-free,
 the state is unchanged and the environment is the generic twin's. -/
 theorem checkQuotRecordC_spec (hs : CSOK mode false env s₀) (k : QuotKind) (cv : ConstantVal) :
@@ -238,38 +228,36 @@ theorem checkQuotRecordC_spec (hs : CSOK mode false env s₀) (k : QuotKind) (cv
   · rw [ite_eq_right h1] at h
     exact nomatch h
 
-/-- The non-inductive branches of the converted-declaration driver
-`checkDeclC` simulate the generic `checkDecl` at the fueled families
-on the same declaration.  (There is no bracket in the cached driver:
-`checkDeclC` *is* the plain path.) -/
-theorem checkDeclC_spec (henv : EnvWF env)
+/-- The non-inductive branches of a declaration's own checks, `checkDeclKindC`, simulate the
+generic `checkDeclKind` at the fueled families on the same declaration. -/
+theorem checkDeclKindC_spec (henv : EnvWF env)
     (hs : CSOK .verified false env s₀) {pd : Declaration}
     (hnotind : ∀ block nP, pd ≠ .indDecl block nP) :
-    ⦃fun s => s = s₀⦄ checkDeclC .verified pins (mkFEnv env) pd
-    ⦃fun v s' => CSOK .verified false env s' ∧ Runs (checkDecl .verified (fueledOpsM .verified) pins env pd) v.env
-        ∧
+    ⦃fun s => s = s₀⦄ checkDeclKindC .verified pins (mkFEnv env) pd
+    ⦃fun v s' => CSOK .verified false env s' ∧
+        Runs (checkDeclKind (fueledOpsM .verified) pins env pd) v.env ∧
       v = mkFEnv v.env; ⊤⦄ := by
   cases pd with
   | indDecl block nP => exact absurd rfl (hnotind _ _)
   | quotDecl k cv =>
-    sym only [conleche_grind, checkDecl, mkFEnv_env] =>
-      vcgen [checkDeclC, checkQuotRecordC_spec hs] <;> finish
+    sym only [conleche_grind, checkDeclKind, mkFEnv_env] =>
+      vcgen [checkDeclKindC, checkQuotRecordC_spec hs] <;> finish
   | axiomDecl cv =>
-    sym only [conleche_grind, checkDecl, stdAxiomOkF_eq, trustCompilerOkF_eq, ofReduceAxOkF_eq,
+    sym only [conleche_grind, checkDeclKind, stdAxiomOkF_eq, trustCompilerOkF_eq, ofReduceAxOkF_eq,
         push_mkFEnv, mkFEnv_env] =>
-      vcgen [checkDeclC, checkConstantValC_spec henv hs, checkQuotRecordC_spec hs] <;> finish
+      vcgen [checkDeclKindC, checkConstantValC_spec henv hs, checkQuotRecordC_spec hs] <;> finish
   | thmDecl cv value =>
-    sym only [conleche_grind, checkDecl, push_mkFEnv, mkFEnv_env] =>
-      vcgen [checkDeclC, checkConstantValC_spec henv hs, checkThmValCI_spec henv] <;> finish
+    sym only [conleche_grind, checkDeclKind, push_mkFEnv, mkFEnv_env] =>
+      vcgen [checkDeclKindC, checkConstantValC_spec henv hs, checkThmValCI_spec henv] <;> finish
   | opaqueDecl cv value =>
-    sym only [conleche_grind, checkDecl, push_mkFEnv, mkFEnv_env] =>
-      vcgen [checkDeclC, checkConstantValC_spec henv hs, checkOpaqueValCI_spec henv,
+    sym only [conleche_grind, checkDeclKind, push_mkFEnv, mkFEnv_env] =>
+      vcgen [checkDeclKindC, checkConstantValC_spec henv hs, checkOpaqueValCI_spec henv,
         checkReducePinF_overlay, checkReducePinS_spec henv] <;> finish
   | defnDecl cv value hint =>
-    sym only [conleche_grind, checkDecl, push_mkFEnv, mkFEnv_env, natOpGuardF_overlay,
+    sym only [conleche_grind, checkDeclKind, push_mkFEnv, mkFEnv_env, natOpGuardF_overlay,
         natOpStoredOkF_overlay, find?_overlay_mkFEnv, Env.find?_cons, ConstantInfo.name,
         ConstantInfo.toConstantVal] =>
-      vcgen [checkDeclC, checkConstantValC_spec henv hs, checkDefnValCI_spec henv,
+      vcgen [checkDeclKindC, checkConstantValC_spec henv hs, checkDefnValCI_spec henv,
         checkDivModPinF_overlay, certifyNatOpEqsS_spec henv,
         checkDivModPinConsS_spec henv (cv := cv) (value := value) (hint := hint)] <;> finish
 
@@ -277,7 +265,7 @@ theorem checkDeclC_spec (henv : EnvWF env)
 residue state is reproduced by the pure fueled checker on the same
 declaration, and the residue threads to the next step.  The cached
 driver has no bracket and no index-range check, so the step is `flushC`
-followed by `checkDeclC`. -/
+followed by `checkDeclC`: the declaration's own checks, then the reserved names'. -/
 theorem checkDeclStepC_run {env : Env} (henv : EnvWF env) {pd : Declaration}
     {s₀ : CState} (hres : CSOKF s₀) {fe' : FEnv} {s' : CState}
     (h : checkDeclStepC .verified pins (mkFEnv env) pd s₀ = .ok (fe', s')) :
@@ -289,52 +277,41 @@ theorem checkDeclStepC_run {env : Env} (henv : EnvWF env) {pd : Declaration}
   injection hflush with hflush
   obtain rfl : s₀.flushed = s₁ := congrArg Prod.snd hflush
   have hcsok : CSOK .verified false env s₀.flushed := flushC_csok hres
-  have main : (∀ block nP, pd ≠ .indDecl block nP) →
-      CSOKF s' ∧ fe' = mkFEnv fe'.env ∧
-      ∃ F, checkDecl .verified (fueledOps .verified F) pins env pd = .ok fe'.env := by
-    intro hind
-    obtain ⟨hs', ⟨F, hF⟩, hmk⟩ := triple_iff_run.mp (checkDeclC_spec henv hcsok hind) fe' s' h
-    refine ⟨hs'.residue, hmk, F, ?_⟩
-    rw [← checkDecl_datF]
-    exact hF
+  unfold checkDeclC at h
+  obtain ⟨fe₂, s₂, hk, h⟩ := bindC_ok h
+  have hb : basisNamesOk pd = true := by
+    by_cases hb : basisNamesOk pd = true
+    · exact hb
+    · simp [hb, throw, throwThe, MonadExceptOf.throw, StateT.bind, bind] at h
+      exact nomatch h
+  simp only [hb, ↓reduceIte] at h
+  obtain ⟨hfe, hst⟩ := pureC_ok h
+  rw [← hfe, ← hst]
+  suffices hkind : CSOKF s₂ ∧ fe₂ = mkFEnv fe₂.env ∧
+      ∃ F, checkDeclKind (fueledOps .verified F) pins env pd = .ok fe₂.env by
+    obtain ⟨h1, h2, F, hF⟩ := hkind
+    exact ⟨h1, h2, F, checkDecl_of_kind hF hb⟩
   cases pd with
   | indDecl block nP =>
-    -- a block with a pinned block's names is that block's, on both sides;
-    -- the declared parameter count (task #228) below it is a guard whose
-    -- `false` throws on both sides, so only the passing branch reaches
-    -- the bridge
-    have hd : (match basisNameHit block with
-        | some kind => checkBasisBlockC (mkFEnv env) kind block
-        | none =>
-          if indParamsOk nP block = true then
-            (match blockShape? nP block with
-              | some p => checkBlockKS .verified (mkFEnv env) block p
-              | none => checkShapelessS .verified (mkFEnv env) block)
-          else throw (CheckError.invalid "number of parameters mismatch"))
-        s₀.flushed = .ok (fe', s') := h
-    cases hpin : basisNameHit block with
-    | some kind =>
-      rw [hpin] at hd
-      obtain ⟨hs', ⟨F, hF⟩, hmk⟩ := triple_iff_run.mp (checkBasisBlockC_spec hcsok kind block) fe' s' hd
-      refine ⟨hs'.residue, hmk, F, ?_⟩
-      show checkDecl .verified (fueledOps .verified F) pins env (.indDecl block nP) = _
-      simp only [checkDecl, hpin]
-      rw [← checkBasisBlock_datF]
-      exact hF
-    | none =>
-      rw [hpin] at hd
-      by_cases hok : indParamsOk nP block = true
-      · rw [ite_eq_left hok] at hd
-        obtain ⟨hres', hfe, F, hF⟩ :=
-          checkModeledOrNativeSF_run henv hpin hok hres.flushed hd
-        exact ⟨hres', hfe, F, hF⟩
-      · rw [ite_eq_right hok] at hd
-        exact nomatch hd
-  | defnDecl cv value hint => exact main (fun _ _ h => Declaration.noConfusion h)
-  | thmDecl cv value => exact main (fun _ _ h => Declaration.noConfusion h)
-  | opaqueDecl cv value => exact main (fun _ _ h => Declaration.noConfusion h)
-  | axiomDecl cv => exact main (fun _ _ h => Declaration.noConfusion h)
-  | quotDecl k cv => exact main (fun _ _ h => Declaration.noConfusion h)
+    -- the declared parameter count (task #228) is a guard whose `false`
+    -- throws on both sides, so only the passing branch reaches the bridge
+    have hd : (if indParamsOk nP block = true then
+          (match blockShape? nP block with
+            | some p => checkBlockKS .verified (mkFEnv env) block p
+            | none => checkShapelessS .verified (mkFEnv env) block)
+        else throw (CheckError.invalid "number of parameters mismatch"))
+        s₀.flushed = .ok (fe₂, s₂) := hk
+    by_cases hok : indParamsOk nP block = true
+    · rw [ite_eq_left hok] at hd
+      exact checkModeledOrNativeSF_run henv hok hres.flushed hd
+    · rw [ite_eq_right hok] at hd
+      exact nomatch hd
+  | _ =>
+    obtain ⟨hs', ⟨F, hF⟩, hmk⟩ := triple_iff_run.mp
+      (checkDeclKindC_spec henv hcsok (fun _ _ h => Declaration.noConfusion h)) fe₂ s₂ hk
+    refine ⟨hs'.residue, hmk, F, ?_⟩
+    rw [← checkDeclKind_datF]
+    exact hF
 
 end WalksP
 

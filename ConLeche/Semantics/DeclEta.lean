@@ -53,7 +53,7 @@ theorem declEtaStepRun {F : Nat}
     rcases h with ⟨-, -, -, hf, rfl⟩ | h
     · exact EtaFamiliesClosed.cons_nonind hE (Option.isNone_iff_eq_none.mp hf)
         (fun _ _ heq => nomatch heq)
-    obtain ⟨type', -, hcv, harm⟩ := h
+    obtain ⟨-, type', -, hcv, harm⟩ := h
     have hfresh : env.find? cv.name = none :=
       Option.isNone_iff_eq_none.mp hcv.1
     rcases harm with ⟨-, rfl⟩ | ⟨-, -, rfl⟩ | ⟨-, -, rfl⟩ |

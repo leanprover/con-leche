@@ -3,6 +3,7 @@ module
 public import ConLeche.Semantics.DeclRun
 public import ConLeche.Kernel.CheckDecl
 import ConLeche.Semantics.Bridge.Decl
+import ConLeche.Verify.BridgeDecl
 import ConLeche.Verify.ReducePinInv
 import ConLeche.Verify.DivModInv
 
@@ -174,7 +175,7 @@ theorem declAxiomRun_of {env env₂ : Env} {F : Nat}
   · rw [ite_eq_left hqs] at h
     exact Or.inl ⟨hqs, declQuotRunOf h⟩
   rw [ite_eq_right hqs] at h
-  refine Or.inr ?_
+  refine Or.inr ⟨hqs, ?_⟩
   cases hccv : checkConstantVal (fueledOps .verified F) env cv with
   | error e => rw [hccv] at h; exact nomatch h
   | ok _ =>
@@ -427,22 +428,6 @@ theorem declDefnRun_of {env env₂ : Env} {F : Nat}
       (by rw [Env.find?_cons]; exact ite_eq_left rfl) (hdmK hc)⟩
 
 /-! ## The assembly -/
-
-/-- **A declaration's check, inverted**: its own checks, then the reserved names'. -/
-theorem checkDecl_inv {ops : CheckerOps CheckM} {pins : List NatOpPinSet} {env env₂ : Env}
-    {d : Declaration} (h : checkDecl .verified ops pins env d = .ok env₂) :
-    checkDeclKind ops pins env d = .ok env₂ ∧ basisNamesOk d = true := by
-  simp only [checkDecl, Bind.bind, Except.bind] at h
-  cases hk : checkDeclKind ops pins env d with
-  | error e => rw [hk] at h; exact nomatch h
-  | ok env₁ =>
-    rw [hk] at h
-    by_cases hb : basisNamesOk d = true
-    · simp only [hb, ↓reduceIte, Pure.pure, Except.pure,
-        Except.ok.injEq] at h
-      exact ⟨by rw [h], hb⟩
-    · simp [hb, throw, throwThe, MonadExceptOf.throw] at h
-
 
 /-- **The run dispatch** (task #161 S11a).
 

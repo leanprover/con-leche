@@ -270,6 +270,19 @@ theorem recStageG_recNames (h : RecStageG mode F env p rs) :
   obtain ⟨rc, u, hrc, -, ⟨E⟩⟩ := R.tyGenAt hr
   exact ⟨rc, _, hrc, hr, E.name_eq, ⟨E.cv0, E.hcv0.1, E.hcv0.2, E.hcv⟩, E.nP_le, _, E.mI_eq⟩
 
+/-- **The stage's recursors are the block's**, by name. -/
+theorem recStage_names (h : RecStageG mode F env p rs) :
+    ∀ r ∈ rs, ∃ rc ∈ p.recs, r.1.name = rc.cvR.name := by
+  obtain ⟨-, hlenR, hall⟩ := recStageG_recNames h
+  intro r hr
+  obtain ⟨i, hi⟩ := List.getElem?_of_mem hr
+  have hil : i < p.recs.length := by
+    have := (List.getElem?_eq_some_iff.mp hi).1
+    omega
+  obtain ⟨rc, r', hrc, hr', hname, -⟩ := hall i hil
+  obtain rfl := Option.some.inj (hi.symm.trans hr')
+  exact ⟨rc, List.mem_of_getElem? hrc, hname⟩
+
 /-- **The stored recursors are fresh** at the constructors' environment, from the per-recursor
 check (`ConstChecked`). -/
 theorem recStage_cvFacts (h : RecStageG mode F env p rs) :

@@ -308,6 +308,8 @@ theorem ctorsLoopEta
     (hnd : (ctorList.map (·.1.name)).Nodup)
     (hlpsT : cvTa.levelParams = p.cvT.levelParams)
     (hlpsA : ∀ ctor ∈ ctorList, ctor.1.levelParams = p.cvT.levelParams)
+    -- the reserved names' check (`basisNamesOk`)
+    (hresA : ∀ ctor ∈ ctorList, ConLeche.reservedBasisNames.contains ctor.1.name = false)
     {ppsAll : (Name → Nat) → List Term}
     {idxF : Nat → List Expr} {dsF : Nat → (Name → Nat) → List Term}
     {esF : Nat → (Name → Nat) → List Term} {srcsF : Nat → List (Option Nat)}
@@ -424,7 +426,8 @@ theorem ctorsLoopEta
       exact hfold k ctor hcAk ψ ρ hρ bs hsp
     have hcbT : ConstsBound env cvTa.type := constsBound_of_constsResolve _ hrT
     obtain ⟨mpC, hacC⟩ := stageCtorGen (j := k)
-      (hEtaOther env ctor (List.mem_of_getElem? hcAk) hfresh hE) mp hCtor hfresh htr hfT hlpsT hlpsC
+      (hEtaOther env ctor (List.mem_of_getElem? hcAk) hfresh hE) mp hCtor hfresh
+      (hresA ctor (List.mem_of_getElem? hcAk)) htr hfT hlpsT hlpsC
       (fun m₂ hag hleafC₂ => by
         have hac : m₂.acval = acvalWith mp.base2.acval ctor.1.name
             (fun ψ => m₂.acval ctor.1.name ψ) := by
@@ -505,7 +508,7 @@ theorem ctorsLoopEta
       rwa [show k + (i + 1) = k + 1 + i from by omega] at this
     have hinv' : Inv mpC.base2 :=
       hInv mp.base2 ctor _ mpC.base2 (List.mem_of_getElem? hcAk) hfresh hacC hinv
-    exact ctorsLoopEta hCtors hnd hlpsT hlpsA hFssParams hFssBelow hiff hFssOkP hIdx Inv hInv
+    exact ctorsLoopEta hCtors hnd hlpsT hlpsA hresA hFssParams hFssBelow hiff hFssOkP hIdx Inv hInv
       caps leafT hTlawsOf EtaInv hEtaCons hEtaOther hfold rest (k + 1) _ mpC hrest'
       (by simp at hk; omega) hE' hfT' (Expr.constsResolve_mono hrT) hFD' hleafT' hcons' hpend' hinv'
 

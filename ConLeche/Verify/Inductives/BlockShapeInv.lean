@@ -304,4 +304,98 @@ theorem blockShape?_declared {nPd : Nat} {block : List ConstantInfo} {p : BlockS
   obtain ⟨a, -, rfl⟩ := List.mem_map.mp hms
   rfl
 
+/-! ## The recogniser's names -/
+
+theorem blockSplitRecs_names :
+    ∀ {block : List ConstantInfo} {rs : List (ConstantVal × Nat × Nat × Bool × List RecRule)},
+      blockSplitRecs block = some rs → ∀ r ∈ rs, ∃ b ∈ block, b.name = r.1.name
+  | [], rs, h, r, hr => by
+    simp only [blockSplitRecs, Option.some.injEq] at h
+    subst h; exact nomatch hr
+  | .recInfo cvR mI rP isK rules :: rest, rs, h, r, hr => by
+    simp only [blockSplitRecs, Option.map_eq_some_iff] at h
+    obtain ⟨rs', h', rfl⟩ := h
+    rcases List.mem_cons.mp hr with rfl | hr
+    · exact ⟨_, List.mem_cons_self, rfl⟩
+    · obtain ⟨b, hb, hn⟩ := blockSplitRecs_names h' r hr
+      exact ⟨b, List.mem_cons_of_mem _ hb, hn⟩
+  | .axiomInfo .. :: _, _, h, _, _ | .defnInfo .. :: _, _, h, _, _ | .thmInfo .. :: _, _, h, _, _
+  | .indInfo .. :: _, _, h, _, _ | .ctorInfo .. :: _, _, h, _, _ => nomatch h
+
+theorem blockSplitCtors_names :
+    ∀ {block : List ConstantInfo} {cs : List (ConstantVal × Nat × Nat)}
+      {rs : List (ConstantVal × Nat × Nat × Bool × List RecRule)},
+      blockSplitCtors block = some (cs, rs) →
+      (∀ c ∈ cs, ∃ b ∈ block, b.name = c.1.name) ∧ (∀ r ∈ rs, ∃ b ∈ block, b.name = r.1.name)
+  | .ctorInfo cvC nP nF :: rest, cs, rs, h => by
+    simp only [blockSplitCtors, Option.map_eq_some_iff] at h
+    obtain ⟨⟨cs', rs'⟩, h', he⟩ := h
+    simp only [Prod.mk.injEq] at he
+    obtain ⟨rfl, rfl⟩ := he
+    obtain ⟨hc, hr⟩ := blockSplitCtors_names h'
+    refine ⟨fun c hc' => ?_, fun r hr' => ?_⟩
+    · rcases List.mem_cons.mp hc' with rfl | hc'
+      · exact ⟨_, List.mem_cons_self, rfl⟩
+      · obtain ⟨b, hb, hn⟩ := hc c hc'
+        exact ⟨b, List.mem_cons_of_mem _ hb, hn⟩
+    · obtain ⟨b, hb, hn⟩ := hr r hr'
+      exact ⟨b, List.mem_cons_of_mem _ hb, hn⟩
+  | [], cs, rs, h | .recInfo .. :: _, cs, rs, h | .axiomInfo .. :: _, cs, rs, h
+  | .defnInfo .. :: _, cs, rs, h | .thmInfo .. :: _, cs, rs, h | .indInfo .. :: _, cs, rs, h => by
+    simp only [blockSplitCtors] at h
+    obtain ⟨rs', h', he⟩ := Option.map_eq_some_iff.mp h
+    cases he
+    exact ⟨fun c hc => (nomatch hc), blockSplitRecs_names h'⟩
+
+theorem blockSplit_names :
+    ∀ {block : List ConstantInfo} {cvTs : List ConstantVal} {cs : List (ConstantVal × Nat × Nat)}
+      {rs : List (ConstantVal × Nat × Nat × Bool × List RecRule)},
+      blockSplit block = some (cvTs, cs, rs) →
+      (∀ cv ∈ cvTs, ∃ b ∈ block, b.name = cv.name) ∧
+      (∀ c ∈ cs, ∃ b ∈ block, b.name = c.1.name) ∧ (∀ r ∈ rs, ∃ b ∈ block, b.name = r.1.name)
+  | .indInfo cvT caps :: rest, cvTs, cs, rs, h => by
+    simp only [blockSplit, Option.map_eq_some_iff] at h
+    obtain ⟨⟨cvTs', cs', rs'⟩, h', he⟩ := h
+    simp only [Prod.mk.injEq] at he
+    obtain ⟨rfl, rfl, rfl⟩ := he
+    obtain ⟨hT, hc, hr⟩ := blockSplit_names h'
+    have lift : ∀ {n : Name}, (∃ b ∈ rest, b.name = n) →
+        ∃ b ∈ ConstantInfo.indInfo cvT caps :: rest, b.name = n := fun ⟨b, hb, hn⟩ =>
+      ⟨b, List.mem_cons_of_mem _ hb, hn⟩
+    refine ⟨fun cv hcv => ?_, fun c hc' => lift (hc c hc'), fun r hr' => lift (hr r hr')⟩
+    rcases List.mem_cons.mp hcv with rfl | hcv
+    · exact ⟨_, List.mem_cons_self, rfl⟩
+    · exact lift (hT cv hcv)
+  | [], cvTs, cs, rs, h | .recInfo .. :: _, cvTs, cs, rs, h | .axiomInfo .. :: _, cvTs, cs, rs, h
+  | .defnInfo .. :: _, cvTs, cs, rs, h | .thmInfo .. :: _, cvTs, cs, rs, h
+  | .ctorInfo .. :: _, cvTs, cs, rs, h => by
+    simp only [blockSplit] at h
+    obtain ⟨⟨cs', rs'⟩, h', he⟩ := Option.map_eq_some_iff.mp h
+    cases he
+    exact ⟨fun cv hcv => (nomatch hcv), blockSplitCtors_names h'⟩
+
+/-- **The recogniser's names are the block's**: every member, constructor and recursor it reads is
+a record of the block, by name. -/
+theorem blockShape?_names {nPd : Nat} {block : List ConstantInfo} {p : BlockShape}
+    (h : blockShape? nPd block = some p) :
+    (∀ ms ∈ p.members, ∃ b ∈ block, b.name = ms.declared.name) ∧
+    (∀ c ∈ p.allCtors, ∃ b ∈ block, b.name = c.1.name) ∧
+    (∀ rc ∈ p.recs, ∃ b ∈ block, b.name = rc.cvR.name) := by
+  have hd := blockShape?_declared h
+  obtain ⟨-, -, -, -, -, -, -, cvTs, cs, rs, nIdxs, hsp, -, -, -, -, -, hmem, hrecs⟩ :=
+    blockShape?_inv h
+  obtain ⟨hT, hc, hr⟩ := blockSplit_names hsp
+  refine ⟨fun ms hms => ?_, fun c hc' => ?_, fun rc hrc => ?_⟩
+  · rw [hd ms hms]
+    rw [hmem] at hms
+    exact hT _ (blockMembers_mem hms).1
+  · obtain ⟨g, hg, hcg⟩ := List.mem_flatten.mp hc'
+    obtain ⟨ms, hms, rfl⟩ := List.mem_map.mp hg
+    rw [hmem] at hms
+    obtain ⟨c', hc'', rfl⟩ := List.mem_map.mp (mem_blockGroups (blockMembers_mem hms).2 hcg)
+    exact hc c' hc''
+  · rw [hrecs] at hrc
+    obtain ⟨r, hr', rfl⟩ := List.mem_map.mp hrc
+    exact hr r hr'
+
 end ConLeche

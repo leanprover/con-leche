@@ -179,4 +179,29 @@ theorem blockRun_of {F : Nat} {env env₂ : Env}
     exact ConLeche.blockInstall_of_checks (Q := blockTables p₀ p₀.members)
       hInd' hcls hRec hK hS
 
+/-- **What a block's run installs**: the block's constants and tables, read off the group
+(`blockConstants`, `blockTables`). -/
+theorem blockRun_env {F : Nat} {env env₂ : Env} {block : List ConstantInfo} {p₀ : BlockShape}
+    (hd : ∀ m ∈ p₀.members, m.declared = m.cvT) (h : BlockRun F env block p₀ env₂) :
+    env₂ = env.pushDelta (blockConstants p₀) (blockTables p₀ p₀.members) := by
+  obtain ⟨ms, hms, -, -, hR⟩ := h
+  obtain ⟨-, -, -, isRec, env₁, p₁, sortsss, ctx, holes, rd, Ms, kinds, nfs, pos, st, isorts, out,
+    hInd, -, -, hcls, -, -, hraw, -, hRec, hK, hS, -, hfin⟩ := hR
+  subst hraw
+  obtain ⟨e₁, e₂⟩ := ConLeche.blockInstall_reduced hd hms
+  obtain ⟨hmem⟩ : PLift (p₁.members = ms) := ⟨ConLeche.checkBlockInds_members hInd⟩
+  have hlps : p₁.lps = ({ p₀ with members := ms } : BlockShape).lps := by
+    obtain ⟨_, _, _, _, _, -, hq, -⟩ := ConLeche.checkBlockInds_shape hInd
+    rw [hq]
+    rfl
+  have hnP : p₁.nP = ({ p₀ with members := ms } : BlockShape).nP := by
+    obtain ⟨_, _, _, _, _, -, hq, -⟩ := ConLeche.checkBlockInds_shape hInd
+    rw [hq]
+    rfl
+  have hQ : blockTables p₁ p₁.members = blockTables p₀ p₀.members := by
+    rw [← e₂, hmem]
+    exact ConLeche.blockTables_congr hnP hlps rfl rfl rfl
+  rw [hfin, ← hQ, ← e₁]
+  exact (ConLeche.blockInstall_of_checks (Q := blockTables p₁ p₁.members) hInd hcls hRec hK hS).symm
+
 end ConLeche.Semantics

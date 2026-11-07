@@ -1924,6 +1924,8 @@ theorem genRecHdataS
     (R : GenRecRun .verified F fe₁ env₁ (ConLeche.mkFEnv envC) pp nb pos block out)
     (hg : ClassGenScoped R.g)
     (h : ConLeche.RecStageG .verified F envC pp (tgtRs out))
+    -- the reserved names' check (`basisNamesOk`), at the block's recursors
+    (hresR : ∀ rc ∈ pp.recs, ConLeche.reservedBasisNames.contains rc.cvR.name = false)
     (hndM : pp.memberNames.Nodup)
     {s : (Name → Nat) → Nat}
     (heqB : ∀ (ψ : Name → Nat), ∀ e ∈ (blockRecEqs (blockRecNCt (tgtRs out)) (tgtRs out)
@@ -1998,7 +2000,7 @@ theorem genRecHdataS
   intro m₃ hac φ j r hr i ctor rhs hctor hrhs
   have hnd := ConLeche.recStageG_nodup h hndM
   have hleaf := blockRecLeafOk_of mpC h heqB heqP hpre
-  obtain ⟨hreadR, hokR⟩ := blockRuleRhs_read_run mpC h hnd hleaf m₃ hac r
+  obtain ⟨hreadR, hokR⟩ := blockRuleRhs_read_run mpC h hresR hnd hleaf m₃ hac r
     (List.mem_of_getElem? hr) rhs (List.mem_of_getElem? hrhs)
   intro us hus hℓ usj ρ xs ys restR restC hxl hyl husjl hψ hyWD hidx hfitR hfitC
   obtain ⟨h1, h2, h3⟩ := hrow3 φ j r hr i ctor rhs hctor hrhs us hus hℓ usj ρ xs ys restR restC
