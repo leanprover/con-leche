@@ -1,7 +1,7 @@
 module
 
 public import ConLeche.Model.Modular.Read
-public import ConLeche.Model.Modular.Proofs
+import ConLeche.Model.Modular.Proofs
 public import ConLeche.Verify.Cached.PushChain
 import ConLeche.Verify.Cached.StreamIndex
 import ConLeche.Verify.Cached.DeclPushes

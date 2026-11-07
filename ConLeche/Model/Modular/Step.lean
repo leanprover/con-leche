@@ -1,9 +1,8 @@
 module
 
-public import ConLeche.Model.DeclsRun
+import ConLeche.Model.DeclsRun
 public import ConLeche.Model.Modular.Proofs
 import ConLeche.Verify.Cached.BridgeC
-import ConLeche.Verify.Cached.DeclPushes
 import ConLeche.Verify.PinRen
 
 public section

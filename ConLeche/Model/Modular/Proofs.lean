@@ -1,7 +1,7 @@
 module
 
 public import ConLeche.Model.Modular.RestrictAgree
-public import ConLeche.Model.Harvest
+import ConLeche.Model.Harvest
 public import ConLeche.Verify.Cached.PushChain
 import ConLeche.Verify.PinRen
 

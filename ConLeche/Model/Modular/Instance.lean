@@ -1,6 +1,6 @@
 module
 
-public import ConLeche.Model.Modular.Restrict
+import ConLeche.Model.Modular.Restrict
 public import ConLeche.Model.Modular.Step
 import ConLeche.Modular.Generic
 import ConLeche.Verify.Cached.DeclPushes
