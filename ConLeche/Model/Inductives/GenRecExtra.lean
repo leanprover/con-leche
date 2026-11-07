@@ -284,31 +284,24 @@ theorem famNZ_lfp_ne_zero {env : Env} (mp : EnvModelM V env) {D : LfpDatum V}
     (h : FamNZ (V := V) mp.base2.acval env φ cvj us) : D.w ψ ≠ 0 := by
   obtain ⟨cvT, caps, hf, -, hc⟩ := h
   obtain ⟨hfm, hlv⟩ := hfam cvT caps hf
-  obtain ⟨hcl, -, hrd, -, hcK, -⟩ := mp.lfp_ok D hD
+  obtain ⟨hcl, -, -, -, hcK, -⟩ := mp.lfp_ok D hD
   rcases hc with hnz | ⟨-, w', hw', ht⟩
   · have hfalse := holds_false_of_isNever hnz φ
     obtain ⟨cv, caps', hf', hz, -⟩ := hcK mm hmm
     rw [hfm] at hf'
     obtain ⟨rfl, -⟩ : cvT = cv ∧ caps = caps' := by
       injection hf' with h'; injection h' with a b; exact ⟨a, b⟩
-    -- a former whose sort is not read is zero at every valuation, so the rescue did not pass
-    have hflat : ConLeche.formerDefHeaded cvT = false := by
-      cases hrs : ConLeche.formerResSort cvT.type with
-      | none =>
-        simp [ConLeche.formerZ, hrs, ConLeche.PropWhen.holds] at hfalse
-      | some s => simp [ConLeche.formerDefHeaded, hrs]
-    rw [mp.formerAt_flat hD hmm hfm hflat] at hz
     have hne : D.w (Level.substFn φ cvT.levelParams us) ≠ 0 :=
       fun h0 => by rw [hz _ h0] at hfalse; exact nomatch hfalse
     rwa [lfpW_congr mp hD hmm hfm hlv] at hne
   · obtain ⟨cv, caps', hf', -, hlen⟩ := hcK mm hmm
-    obtain ⟨cv₂, caps₂, hf₂, -, hab⟩ := hrd mm hmm
+    obtain ⟨cv₂, caps₂, hf₂, -, hval⟩ := mp.lfpReadsV hD mm hmm
     rw [hfm] at hf' hf₂
     obtain ⟨rfl, rfl⟩ : cvT = cv ∧ caps = caps' := by
       injection hf' with h'; injection h' with a b; exact ⟨a, b⟩
     obtain rfl : cvT = cv₂ := by
       injection hf₂ with h'; injection h' with a b
-    obtain ⟨ab, hta, hmap⟩ := hab ψ
+    obtain ⟨ta₁, hta₁, hv⟩ := hval ψ
     have hwf := mp.base2.wf.consts _ (ConLeche.Env.find?_mem hfm)
     obtain ⟨ta₀, hta₀⟩ := mp.type_reads _ (ConLeche.Env.find?_mem hfm) ψ
     change denote mp.base2.acval env ψ 0 cvT.type = some ta₀ at hta₀
@@ -317,10 +310,11 @@ theorem famNZ_lfp_ne_zero {env : Env} (mp : EnvModelM V env) {D : LfpDatum V}
       rw [denote_instLevels mp.base2.acval_params φ,
         denote_params_ext mp.base2 hlv 0 cvT.type hwf.2.1]
       exact hta₀
+    rw [hta₀] at hta₁
+    obtain rfl := Option.some.inj hta₁
     have hend := fun ρ' => by
       have h := ht _ hread ρ'
-      rwa [mp.formerAt_interp hD hmm hfm hta₀ hta ρ'] at h
-    subst hmap
+      rwa [(hv ρ').1] at h
     -- the parameters, then the indices
     have hpl := (hcl.parsLen mm hmm ψ)
     have hsP := hcl.parsSat mm hmm ψ ρp hs
@@ -1539,7 +1533,7 @@ theorem genOut_caps {j : Nat} {cvI : ConstantVal} (Rd : GenClsRd mpC d Dc mc cvc
   rw [hfc0] at hf'
   obtain ⟨rfl, rfl, rfl⟩ : ctor.1 = cv' ∧ (tgtMajor out j).ds.length = nPc ∧ ctor.2 = nF := by
     injection hf' with h'; injection h' with a b c; exact ⟨a, b, c⟩
-  refine ⟨caps₀, hf₀, mpC.formerZ_holds Rd.hD Rd.hmm (by rw [Rd.hmem]; exact hf₀) hz.1, bs, es, ?_⟩
+  refine ⟨caps₀, hf₀, hz.1, bs, es, ?_⟩
   rw [Rd.hnpc, hst, Rd.hmem]
 
 /-- **(S) at an outside class**: the case split reads the container's

@@ -235,20 +235,6 @@ theorem EnvModelM.formerAt_wf {V : Type w} [SetTheory V] {env : Env} (mp : EnvMo
     ConLeche.familyTelescope (ConLeche.fueledOps .verified F) env cv caps = .ok ty →
     ty = (D.formerAt mm cv).type
 
-/-- A recorded member's stored sort datum, where its block's sort is zero. -/
-theorem EnvModelM.formerZ_holds {V : Type w} [SetTheory V] {env : Env} (mp : EnvModelM V env)
-    {D : LfpDatum V} (hD : D ∈ mp.lfpBlocks) {mm : Nat} (hmm : mm < D.k) {cv : ConstantVal}
-    {caps : ConLeche.IndCaps} (hf : env.find? (D.member mm) = some (.indInfo cv caps))
-    (hz : ∀ ψ : Name → Nat, D.w ψ = 0 → (ConLeche.formerZ (D.formerAt mm cv)).holds ψ = true) :
-    ∀ ψ : Name → Nat, D.w ψ = 0 → (ConLeche.formerZ cv).holds ψ = true := by
-  cases hrs : ConLeche.formerResSort cv.type with
-  | none =>
-    intro ψ _
-    simp [ConLeche.formerZ, hrs, ConLeche.PropWhen.holds]
-  | some s =>
-    rw [mp.formerAt_flat hD hmm hf (by simp [ConLeche.formerDefHeaded, hrs])] at hz
-    exact hz
-
 open SetTheory ConLeche.Term in
 /-- **A recorded member inhabits its former as read.** -/
 theorem EnvModelM.formerAt_mem {V : Type w} [SetTheory V] {env : Env} (mp : EnvModelM V env)
@@ -335,5 +321,19 @@ theorem EnvModelM.lfpReadsV {V : Type w} [SetTheory V] {env : Env} (mp : EnvMode
     obtain ⟨ab, hta, rfl⟩ := hab ψ
     exact ⟨ta₀, hta₀, fun ρ => ⟨mp.formerAt_interp hD hmm hf hta₀ hta ρ,
       mp.formerAt_wellDenotedTy hD hmm hf hta ρ⟩⟩
+
+open SetTheory ConLeche.Term in
+/-- **A recorded member inhabits its block's telescope** by value: it inhabits its stored type,
+whose value is the telescope's (`LfpReadsV`). -/
+theorem EnvModelM.member_mem_tower {V : Type w} [SetTheory V] {env : Env} (mp : EnvModelM V env)
+    {D : LfpDatum V} (hD : D ∈ mp.lfpBlocks) {mm : Nat} (hmm : mm < D.k) (ψ : Name → Nat)
+    (ρ : Nat → V) :
+    interp V ρ (mp.base2.acval (D.member mm) ψ)
+      ∈ˢ interp V ρ (mkPisAV (D.pars mm ψ ++ D.ids mm ψ) (.sort (D.w ψ))) := by
+  obtain ⟨cv, caps, hf, -, hval⟩ := mp.lfpReadsV hD mm hmm
+  obtain ⟨ta, hta, hv⟩ := hval ψ
+  have hm := mp.mem_type _ (ConLeche.Env.find?_mem hf) ψ ta hta ρ
+  rw [ConLeche.Env.find?_name hf, (hv ρ).1] at hm
+  exact hm
 
 end ConLeche.Model

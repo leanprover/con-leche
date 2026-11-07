@@ -83,15 +83,16 @@ theorem former_app_eq (mp : EnvModelM V env) {D : LfpDatum V} (hD : D ∈ mp.lfp
     (hs : Sat V (D.params ψ).reverse ρp) (ρ : Nat → V) :
     (frameIdx (D.params ψ).length ρp).foldl app (interp V ρ (mp.base2.acval (D.member mm) ψ))
       = D.holeVal ψ ρp (D.carrier ψ ρp) mm := by
-  obtain ⟨h, -, hrd, -⟩ := mp.lfp_ok D hD
-  obtain ⟨cv, caps, hf, -, hab⟩ := hrd mm hmm
-  obtain ⟨ab, hta, hmap⟩ := hab ψ
+  obtain ⟨h, -, -, -⟩ := mp.lfp_ok D hD
+  generalize hab : D.pars mm ψ ++ D.ids mm ψ = ab
+  have hmap : ab = D.pars mm ψ ++ D.ids mm ψ := hab.symm
   have hpl := h.parsLen mm hmm ψ
   have hsP := h.parsSat mm hmm ψ ρp hs
   generalize hρ₀ : shiftE (D.pars mm ψ).length 0 ρp = ρ₀
   -- the former inhabits the member's type, read at `ρ₀`
   have hfm : interp V ρ₀ (mp.base2.acval (D.member mm) ψ) ∈ˢ
-      interp V ρ₀ (mkPisAV ab (.sort (D.w ψ))) := mp.formerAt_mem hD hmm hf hta ρ₀
+      interp V ρ₀ (mkPisAV ab (.sort (D.w ψ))) := by
+    rw [hmap]; exact mp.member_mem_tower hD hmm ψ ρ₀
   -- split the tower at the parameters
   have hsplit : ab = ab.take (D.pars mm ψ).length ++ ab.drop (D.pars mm ψ).length :=
     (List.take_append_drop _ _).symm

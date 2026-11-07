@@ -452,19 +452,23 @@ theorem declBlockAt {F : Nat} {env env₂ : Env}
     · obtain ⟨cvTb, hcv⟩ : ∃ cvTb, p₁.formers[mm]? = some cvTb :=
         ⟨_, List.getElem?_eq_getElem (by rw [hN.2.2]; exact hmm)⟩
       have hname := hN.1 mm cvTb hcv
-      obtain ⟨⟨cvS, hfS, -⟩, -⟩ := hcoreC.1 mm cvTb hcv
-      have hat : (blockDataOf V p₁ pk uOf ppsOf).toLfp.formerAt mm cvS = cvTb := by
-        show ((blockDataOf V p₁ pk uOf ppsOf).telescope mm).getD cvS = cvTb
-        rw [hS.toBlockCtorsStage.telescopeAt mm cvTb hcv]; rfl
+      obtain ⟨⟨cvS, hfS, hDS⟩, -⟩ := hcoreC.1 mm cvTb hcv
       refine ⟨cvS, ConLeche.blockCapsAt p₁ mm isRec, by
         show (ConLeche.consBlockCtors p₁.nP p₁.memberCtors env₁).find?
           ((blockDataOf V p₁ pk uOf ppsOf).memberName mm) = _
         rw [hname]; exact hfS, fun ψ hw => ?_, fun ψ => ?_⟩
-      · obtain ⟨bs, hst⟩ := hF.stripOf mm cvTb hcv
-        rw [hat]
-        rw [ConLeche.formerZ_of_stripPis hst, ConLeche.PropWhen.zeronessOf_sound, hF.sEval]
-        have hw' : Level.eval ψ p₁.resSort = 0 := hw
-        rw [hw']; rfl
+      · -- a definition-headed stored former's datum holds everywhere; a flat one is the run's
+        rcases hDS.shows with ⟨hdh, -⟩ | heq
+        · have hrs : ConLeche.formerResSort cvS.type = none := by
+            cases hrs : ConLeche.formerResSort cvS.type with
+            | none => rfl
+            | some _ => simp [ConLeche.formerDefHeaded, hrs] at hdh
+          simp [ConLeche.formerZ, hrs, ConLeche.PropWhen.holds]
+        · obtain ⟨bs, hst⟩ := hF.stripOf mm cvTb hcv
+          rw [heq]
+          rw [ConLeche.formerZ_of_stripPis hst, ConLeche.PropWhen.zeronessOf_sound, hF.sEval]
+          have hw' : Level.eval ψ p₁.resSort = 0 := hw
+          rw [hw']; rfl
       · have hlen := (hcoreC.1 mm cvTb hcv).2.2.2.len ψ
         have hlen' : (ppsOf mm ψ).length
             = p₁.nP + (blockDataOf V p₁ pk uOf ppsOf).nIdxAt mm := hlen
