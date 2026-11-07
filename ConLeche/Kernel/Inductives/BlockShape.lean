@@ -13,16 +13,16 @@ at ANY number `k` of mutually recursive members: the members with
 their own index counts, constructors and recursors, the shared
 parameter count, the shared elimination level and result sort.
 
-**The route takes every block `blockShape?` reads**, at any number
-of members, nested blocks included; a block it does not read is refused
-at the dispatch with the reason (`blockDefect`, `refuseBlock`).
+**The route takes every block `readBlock` reads**, at any number
+of members, nested blocks included; a block it cannot read is an invalid
+input, rejected with the reason `readBlock` gives.
 
 The three pieces:
 
 * **the record** (`MemberShape`/`BlockShape`/`BlockShape`) with the
   `complete`/`withSort` projections the proofs' `generalize` dance
   needs;
-* **the recogniser** (`blockSplit`, `blockCounts?`, `blockShape?`) — official's `add_inductive` reads the type formers,
+* **the reader** (`blockSplit`, `blockCounts`, `readBlock`) — official's `add_inductive` reads the type formers,
   the constructors and the parameter count and GENERATES the recursors,
   so nothing the recursor records claim is a condition of recognition:
   the recursor stage pins them (`targetRecPins`) and stores the
@@ -274,19 +274,28 @@ also carries one motive per auxiliary recursor and the auxiliary
 constructors' minors, whose number the block does not record — there
 the prefix is only bounded below (the former's own
 telescope is checked by the check's whnf loop at the count read
-here, so a wrong claim is rejected there). -/
-def blockCounts? (nPd k nC nR : Nat) (cvT : ConstantVal) (r : Option (Nat × Nat)) :
-    Option (Nat × Nat) :=
+here, so a wrong claim is rejected there).  `r` carries the recursor's
+name for the error. -/
+def blockCounts (nPd k nC nR : Nat) (cvT : ConstantVal) (r : Option (Name × Nat × Nat)) :
+    Except CheckError (Nat × Nat) :=
   match cvT.type.piBinders with
-  | (bs, .sort _) => if nPd ≤ bs.length then some (nPd, bs.length - nPd) else none
+  | (bs, .sort _) =>
+    if nPd ≤ bs.length then .ok (nPd, bs.length - nPd)
+    else .error (.invalid s!"inductive type {cvT.name} declares {nPd} parameters, \
+      but its type has {bs.length} binders")
   | _ =>
     match r with
-    | none => none
-    | some (mI, rP) =>
-      if rP < nC + k || mI < rP then none
-      else if rP - (nC + k) == nPd then some (nPd, mI - rP)
-      else if k < nR && nPd + nR + nC ≤ rP then some (nPd, mI - rP)
-      else none
+    | none => .error (.invalid s!"no recursor of the block eliminates {cvT.name}")
+    | some (rn, mI, rP) =>
+      if rP < nC + k || mI < rP then .error (recCountsError rn cvT.name k nC nPd)
+      else if rP - (nC + k) == nPd then .ok (nPd, mI - rP)
+      else if k < nR && nPd + nR + nC ≤ rP then .ok (nPd, mI - rP)
+      else .error (recCountsError rn cvT.name k nC nPd)
+where
+  /-- A recursor whose argument counts do not fit the block. -/
+  recCountsError (rn T : Name) (k nC nPd : Nat) : CheckError :=
+    .invalid s!"the argument counts of recursor {rn} do not fit the block of {T} \
+      ({k} inductive types, {nC} constructors, {nPd} parameters)"
 
 /-- The member a constructor belongs to: the one its RESULT names
 (official's own reading — `check_constructors` checks each constructor
@@ -357,30 +366,35 @@ depend on the conformance check's exact shape. -/
 def blockRecNamesUnreserved (p : BlockShape) : Bool :=
   p.recs.all fun rc => reservedRecName rc.cvR.name == false
 
-/-- **The members' index counts**, one `blockCounts?` per member off
+/-- **The members' index counts**, one `blockCounts` per member off
 the member's OWN former telescope — and, at a def-headed former (task
 #195) where there is no telescope to read, off the argument sums of a
-recursor whose MAJOR names that member. -/
-def blockMemberCounts? (nPd k nC : Nat) (names : List Name)
+recursor whose MAJOR names that member.  The first member that cannot be
+counted gives the error. -/
+def blockMemberCounts (nPd k nC : Nat) (names : List Name)
     (rs : List (ConstantVal × Nat × Nat × Bool × List RecRule)) :
-    Nat → List ConstantVal → Option (List Nat)
-  | _, [] => some []
+    Nat → List ConstantVal → Except CheckError (List Nat)
+  | _, [] => .ok []
   | m, cvT :: ts =>
     let r := (rs.find? fun q => recTargetOf names q.2.1 q.1.type == m).map
-      fun q => (q.2.1, q.2.2.1)
-    match blockCounts? nPd k nC rs.length cvT r with
-    | some c => (blockMemberCounts? nPd k nC names rs (m + 1) ts).map fun ns => c.2 :: ns
-    | none => none
+      fun q => (q.1.name, q.2.1, q.2.2.1)
+    match blockCounts nPd k nC rs.length cvT r with
+    | .ok c => (blockMemberCounts nPd k nC names rs (m + 1) ts).map fun ns => c.2 :: ns
+    | .error e => .error e
 
-/-- The block's shape: the members with their counts, the shared
+/-- **Read a declared inductive block**: the members with their counts, the shared
 parameter count, the result sort read off member 0 (or the placeholder
 the install replaces, task #195) and which eliminator the recursor
 records claim.  Nothing of the recursor records is pinned here (the
 recursor check and the conformance check throw on them) — the
 arrangement of task #220, so that a block whose
-recursor record is a stub is REJECTED by its own type and constructors
-rather than declined. -/
-def blockShape? (nPd : Nat) (block : List ConstantInfo) : Option BlockShape :=
+recursor record is a stub is REJECTED by its own type and constructors.
+A block that cannot be read is an invalid input, and the error says why:
+records out of order, no inductive type, no recursor record, a member
+whose counts cannot be read (`blockMemberCounts`), or types and
+constructors whose universe or parameter declarations disagree. -/
+def readBlock (nPd : Nat) (block : List ConstantInfo) : Except CheckError BlockShape :=
+  let head := (block.head?.map (·.name)).getD .anonymous
   match blockSplit block with
   | some (cvTs, cs, rs) =>
     match cvTs, rs with
@@ -388,12 +402,25 @@ def blockShape? (nPd : Nat) (block : List ConstantInfo) : Option BlockShape :=
       let lps := cvT0.levelParams
       let names := cvTs.map (·.name)
       let k := cvTs.length
-      match blockMemberCounts? nPd k cs.length names rs 0 cvTs with
-      | none => none
-      | some nIdxs =>
+      match blockMemberCounts nPd k cs.length names rs 0 cvTs with
+      | .error e => .error e
+      | .ok nIdxs =>
         let nP := nPd
-        if (cvTs.all fun c => c.levelParams == lps) &&
-            cs.all (fun c => c.2.1 == nP && c.1.levelParams == lps) then
+        match cvTs.find? (fun c => c.levelParams != lps) with
+        | some c => .error (.invalid s!"inductive type {c.name} declares universe parameters \
+            {c.levelParams}, but {cvT0.name} declares {lps}")
+        | none =>
+        match cs.find? (fun c => c.2.1 != nP) with
+        | some c => .error (.invalid s!"constructor {c.1.name} declares {c.2.1} parameters, \
+            but the block declares {nP}")
+        | none =>
+        match cs.find? (fun c => c.1.levelParams != lps) with
+        | some c =>
+          let owner := if k == 1 then s!"its type {cvT0.name} declares"
+            else "the block's inductive types declare"
+          .error (.invalid s!"constructor {c.1.name} declares universe parameters \
+            {c.1.levelParams}, but {owner} {lps}")
+        | none =>
           -- the result sort: member 0's, read off its declared type when
           -- that is a syntactic telescope ending in a sort; otherwise
           -- (task #195) a PLACEHOLDER the check's whnf loop replaces
@@ -422,65 +449,12 @@ def blockShape? (nPd : Nat) (block : List ConstantInfo) : Option BlockShape :=
             | elim :: relps => if relps == lps && !lps.contains elim then some elim else none
             | [] => none
           match large? with
-          | some elim => some ⟨members, recsL, nP, elim, s, true, isProp⟩
-          | none => some ⟨members, recsL, nP, .anonymous, s, false, isProp⟩
-        else none
-    | _, _ => none
-  | none => none
-
-/-- **Which member's counts cannot be read**, and why: `blockMemberCounts?`'s walk, stopping at
-the first member `blockCounts?` refuses. -/
-def countsDefect (nPd k nC : Nat) (names : List Name)
-    (rs : List (ConstantVal × Nat × Nat × Bool × List RecRule)) :
-    Nat → List ConstantVal → Option CheckError
-  | _, [] => none
-  | m, cvT :: ts =>
-    let r := rs.find? fun q => recTargetOf names q.2.1 q.1.type == m
-    match blockCounts? nPd k nC rs.length cvT (r.map fun q => (q.2.1, q.2.2.1)) with
-    | some _ => countsDefect nPd k nC names rs (m + 1) ts
-    | none => some <| match cvT.type.piBinders, r with
-      | (bs, .sort _), _ =>
-        .invalid s!"inductive type {cvT.name} declares {nPd} parameters, \
-          but its type has {bs.length} binders"
-      | _, none => .invalid s!"no recursor of the block eliminates {cvT.name}"
-      | _, some q =>
-        .invalid s!"the argument counts of recursor {q.1.name} do not fit the block of \
-          {cvT.name} ({k} inductive types, {nC} constructors, {nPd} parameters)"
-
-/-- **Why `blockShape?` cannot read a block**, as the error its check throws.  Each reason is
-one the official kernel rejects as well, so each is a reject, with one exception: a block
-without recursor records, which the official kernel accepts (it generates the recursors) and
-this checker does not support, is a decline.  The tests run in `blockShape?`'s order. -/
-def blockDefect (nPd : Nat) (block : List ConstantInfo) : CheckError :=
-  let head := (block.head?.map (·.name)).getD .anonymous
-  match blockSplit block with
-  | none => .invalid s!"inductive block {head}: its records are not the inductive types, \
-      then the constructors, then the recursors"
-  | some (cvTs, cs, rs) =>
-    match cvTs, rs with
-    | [], _ => .invalid s!"inductive block {head} declares no inductive type"
-    | _ :: _, [] => .notImplemented s!"inductive block {head} declares no recursor: \
-        the recursors an inductive block is checked against must be in the input"
-    | cvT0 :: _, _ :: _ =>
-      let lps := cvT0.levelParams
-      let k := cvTs.length
-      match countsDefect nPd k cs.length (cvTs.map (·.name)) rs 0 cvTs with
-      | some e => e
-      | none =>
-        match cvTs.find? (fun c => c.levelParams != lps) with
-        | some c => .invalid s!"inductive type {c.name} declares universe parameters \
-            {c.levelParams}, but {cvT0.name} declares {lps}"
-        | none =>
-          match cs.find? (fun c => c.2.1 != nPd) with
-          | some c => .invalid s!"constructor {c.1.name} declares {c.2.1} parameters, \
-              but the block declares {nPd}"
-          | none =>
-            match cs.find? (fun c => c.1.levelParams != lps) with
-            | some c =>
-              let owner := if k == 1 then s!"its type {cvT0.name} declares"
-                else "the block's inductive types declare"
-              .invalid s!"constructor {c.1.name} declares universe parameters \
-                {c.1.levelParams}, but {owner} {lps}"
-            | none => .internal s!"inductive block {head}: no reason found why it cannot be read"
+          | some elim => .ok ⟨members, recsL, nP, elim, s, true, isProp⟩
+          | none => .ok ⟨members, recsL, nP, .anonymous, s, false, isProp⟩
+    | [], _ => .error (.invalid s!"inductive block {head} declares no inductive type")
+    | _ :: _, [] => .error (.invalid s!"inductive block {head} carries no recursor records; \
+        the input must carry the recursors of every inductive block")
+  | none => .error (.invalid s!"inductive block {head}: its records are not the inductive \
+      types, then the constructors, then the recursors")
 
 end ConLeche

@@ -77,8 +77,8 @@ def blockConstants (p : BlockShape) : List ConstantInfo :=
   blockFormers p (blockIsRec p) ++ blockCtors p ++
     blockRecs p p.recs
 
-/-- **The constants a declaration installs**, in push order.  A block `blockShape?` cannot read
-installs nothing (its job refuses it), and `sorryAx` nothing (any use of it declines). -/
+/-- **The constants a declaration installs**, in push order.  A block `readBlock` cannot read
+installs nothing (its job rejects it), and `sorryAx` nothing (any use of it declines). -/
 def declConstants : Declaration → List ConstantInfo
   | .defnDecl cv value hint => [.defnInfo cv value hint]
   | .thmDecl cv _ => [.thmInfo cv]
@@ -89,16 +89,16 @@ def declConstants : Declaration → List ConstantInfo
     else [.axiomInfo cv]
   | .quotDecl k cv => [quotAt k cv]
   | .indDecl block nP =>
-    match blockShape? nP block with
-    | some p => blockConstants p
-    | none => []
+    match readBlock nP block with
+    | .ok p => blockConstants p
+    | .error _ => []
 
 /-- **The projection tables a declaration installs**: those of a recognised inductive block. -/
 def declTables : Declaration → List ProjTable
   | .indDecl block nP =>
-    match blockShape? nP block with
-    | some p => blockTables p p.members
-    | none => []
+    match readBlock nP block with
+    | .ok p => blockTables p p.members
+    | .error _ => []
   | _ => []
 
 end ConLeche

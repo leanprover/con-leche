@@ -4,8 +4,10 @@ tests/e2e/corner_fuseloop_order_base.ndjson, whose one inductive block
 `W.{u} (α : Sort u)` with constructor `W.mk` and recursor `W.rec` is
 accepted.  Each variant changes one thing of that block, so that the
 block can no longer be read as an inductive block, and pins the reason
-the checker reports.  The official kernel rejects every one of them
-except the last, which it accepts (it generates the recursor itself):
+the checker reports (a reject for each).  The official kernel rejects
+every one of them except the last, which it accepts because it generates
+the recursor itself; con-leche's input format carries each block's
+recursors, so a block without them is invalid input here:
 
   block_no_type        — the block declares no inductive type.
   block_params_exceed  — `W` declares more parameters than its type

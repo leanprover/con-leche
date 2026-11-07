@@ -13,8 +13,8 @@ over a list of declarations, starting from the empty environment.  The
 stages it dispatches to live in `ConLeche/Kernel/Checker.lean` (values,
 basis, `Nat` operations), `ConLeche/Kernel/Inductives/BlockTail.lean`
 (the inductive installer, which takes every inductive block
-`blockShape?` reads; any other block is refused with the reason,
-`refuseBlock`).  Its own
+`readBlock` reads; any other block is rejected with the reason
+`readBlock` gives).  Its own
 module because the installer's recursor check is written over the
 index (`FEnv`).
 -/
@@ -23,17 +23,6 @@ namespace ConLeche
 
 variable {m : Type -> Type} [Monad m] [MonadExceptOf CheckError m]
 variable (mode : CheckMode)
-
-/-- **An inductive block `blockShape?` cannot read**: its type formers are checked as
-constants (a duplicate name or a malformed type is reported as such), then the block is refused
-with the reason it cannot be read (`blockDefect`), a reject except for a block without recursor
-records.  It never returns an environment. -/
-def refuseBlock (ops : CheckerOps m) (env : Env) (nPd : Nat) (block : List ConstantInfo) :
-    m Env := do
-  block.foldlM (fun (_ : Unit) ci => match ci with
-    | .indInfo cv _ => discard <| checkConstantVal ops env cv
-    | _ => pure ()) ()
-  throw (blockDefect nPd block)
 
 /-- **A declaration's own checks**, by its kind, extending the environment on success.  A block
 under a pinned basis block's names takes the same route as every other block. -/
@@ -161,17 +150,16 @@ def checkDeclKind (ops : CheckerOps m) (pins : List NatOpPinSet) (env : Env)
     -- one-sided, so a `false` is official's own reject.  It runs
     -- BEFORE the dispatch because it is a property of the DECLARATION:
     -- a block with no constructor and no recursor record is rejected
-    -- here, before `blockDefect` sees it (arena 047).
+    -- here, before `readBlock` reads it (arena 047).
     if indParamsOk nP block then
       -- ONE ROUTE (task #210): the installer takes every block it
       -- RECOGNISES, at any number of members, nested ones included; the
       -- dispatch is the RECOGNISER alone
-      -- (task #219).  A block it does not read is refused with the
-      -- reason, once its formers have been checked as constants
-      -- (`refuseBlock`).
-      match blockShape? nP block with
-      | some p => checkBlock ops env block p
-      | none => refuseBlock ops env nP block
+      -- (task #219).  A block it cannot read is rejected with the
+      -- reason `readBlock` gives.
+      match readBlock nP block with
+      | .ok p => checkBlock ops env block p
+      | .error e => throw e
     else throw (.invalid "number of parameters mismatch")
   | .quotDecl k cv => checkQuotRecord env k cv
 

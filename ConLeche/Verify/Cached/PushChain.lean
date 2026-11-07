@@ -586,9 +586,9 @@ theorem checkDeclKindC_push (mode : CheckMode) {env : Env} {fe : FEnv}
     simp only []
     unfold checkIndDeclC
     split
-    · cases hbp : blockShape? nP block with
-      | none => exact Yields.bind fun _ => Yields.ofThrow
-      | some p => exact checkBlockKS_push mode h block p (ConLeche.blockShape?_declared (by assumption))
+    · cases hbp : readBlock nP block with
+      | error e => exact Yields.ofThrow
+      | ok p => exact checkBlockKS_push mode h block p (ConLeche.readBlock_declared (by assumption))
     · exact Yields.ofThrow
 
 theorem checkDeclC_push (mode : CheckMode) {env : Env} {fe : FEnv}

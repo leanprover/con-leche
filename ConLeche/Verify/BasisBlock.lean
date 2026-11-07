@@ -15,7 +15,7 @@ the pin up to its level-parameter names (`pinListOk`), and it is installed like 
 firing `.plain`) and no projection table (`blockInstall_pinned`).
 
 The comparison ignores a former's capabilities and so does the recogniser, so the block is read as
-the pins at its names (`blockShape?_dropCaps`); the rest is the recogniser's computation at those
+the pins at its names (`readBlock_dropCaps`); the rest is the recogniser's computation at those
 pins, at any level-parameter names.
 -/
 
@@ -75,10 +75,14 @@ theorem blockSplit_dropCaps :
   | .axiomInfo .. :: _ | .defnInfo .. :: _ | .thmInfo .. :: _ => rfl
 
 /-- **The recogniser reads no former's capabilities.** -/
-theorem blockShape?_dropCaps (nP : Nat) (block : List ConstantInfo) :
-    blockShape? nP (block.map (·.dropCaps)) = blockShape? nP block := by
-  unfold blockShape?
-  rw [blockSplit_dropCaps]
+theorem readBlock_dropCaps (nP : Nat) (block : List ConstantInfo) :
+    readBlock nP (block.map (·.dropCaps)) = readBlock nP block := by
+  have hh : (block.map (·.dropCaps)).head?.map (·.name) = block.head?.map (·.name) := by
+    cases block with
+    | nil => rfl
+    | cons c _ => cases c <;> rfl
+  unfold readBlock
+  rw [blockSplit_dropCaps, hh]
 
 /-- **A record the comparison passes is its pin at its names**, up to an inductive's capabilities
 (a pin carries none). -/
@@ -124,12 +128,12 @@ theorem listBeqBy_pinCopyOk_dropCaps :
 /-! ## The four pinned blocks -/
 
 theorem emptyBlock_install {nP : Nat} {block : List ConstantInfo} {p : BlockShape}
-    (hok : listBeqBy pinCopyOk block emptyBasis = true) (hp : blockShape? nP block = some p) :
+    (hok : listBeqBy pinCopyOk block emptyBasis = true) (hp : readBlock nP block = .ok p) :
     blockConstants p = BasisKind.emptyK.storedAt block ∧ blockTables p p.members = [] := by
   have hd := listBeqBy_pinCopyOk_dropCaps hok fun pin hpin => by
     simp only [emptyBasis, List.mem_cons, List.not_mem_nil, or_false] at hpin
     rcases hpin with rfl | rfl <;> rfl
-  rw [← blockShape?_dropCaps, hd] at hp
+  rw [← readBlock_dropCaps, hd] at hp
   match block, hok with
   | [b1, b2], hok =>
     simp only [emptyBasis, listBeqBy, pinCopyOk, Bool.and_true, Bool.and_eq_true, beq_iff_eq] at hok
@@ -143,8 +147,8 @@ theorem emptyBlock_install {nP : Nat} {block : List ConstantInfo} {p : BlockShap
     simp [emptyRecA, ConstantInfo.toConstantVal] at hl2
     match ps2, hl2 with
     | [q], _ =>
-    simp [blockShape?, blockSplit, blockSplitCtors, blockSplitRecs, emptyA, emptyRecA, ConstantInfo.atLps,
-      ConstantVal.atLps, Expr.instantiateLevelParams, blockMemberCounts?, blockCounts?, BasisDSL.type1,
+    simp [readBlock, blockSplit, blockSplitCtors, blockSplitRecs, emptyA, emptyRecA, ConstantInfo.atLps,
+      ConstantVal.atLps, Expr.instantiateLevelParams, blockMemberCounts, blockCounts, Except.map, BasisDSL.type1,
       BasisDSL.pi, BasisDSL.cnst, BasisDSL.srt, BasisDSL.bv, BasisDSL.u, Level.subst, Level.subst.go,
       Expr.piBinders, recTargetOf, Expr.stripPis, Expr.getAppFn, blockGroups] at hp
     by_cases h0 : nP = 0
@@ -161,12 +165,12 @@ theorem emptyBlock_install {nP : Nat} {block : List ConstantInfo} {p : BlockShap
   | [], h | [_], h | _ :: _ :: _ :: _, h => simp [emptyBasis, listBeqBy] at h
 
 theorem falseBlock_install {nP : Nat} {block : List ConstantInfo} {p : BlockShape}
-    (hok : listBeqBy pinCopyOk block falseBasis = true) (hp : blockShape? nP block = some p) :
+    (hok : listBeqBy pinCopyOk block falseBasis = true) (hp : readBlock nP block = .ok p) :
     blockConstants p = BasisKind.falseK.storedAt block ∧ blockTables p p.members = [] := by
   have hd := listBeqBy_pinCopyOk_dropCaps hok fun pin hpin => by
     simp only [falseBasis, List.mem_cons, List.not_mem_nil, or_false] at hpin
     rcases hpin with rfl | rfl <;> rfl
-  rw [← blockShape?_dropCaps, hd] at hp
+  rw [← readBlock_dropCaps, hd] at hp
   match block, hok with
   | [b1, b2], hok =>
     simp only [falseBasis, listBeqBy, pinCopyOk, Bool.and_true, Bool.and_eq_true, beq_iff_eq] at hok
@@ -180,8 +184,8 @@ theorem falseBlock_install {nP : Nat} {block : List ConstantInfo} {p : BlockShap
     simp [falseRecA, ConstantInfo.toConstantVal] at hl2
     match ps2, hl2 with
     | [q], _ =>
-    simp [blockShape?, blockSplit, blockSplitCtors, blockSplitRecs, falseA, falseRecA, ConstantInfo.atLps,
-      ConstantVal.atLps, Expr.instantiateLevelParams, blockMemberCounts?, blockCounts?, BasisDSL.prop,
+    simp [readBlock, blockSplit, blockSplitCtors, blockSplitRecs, falseA, falseRecA, ConstantInfo.atLps,
+      ConstantVal.atLps, Expr.instantiateLevelParams, blockMemberCounts, blockCounts, Except.map, BasisDSL.prop,
       BasisDSL.pi, BasisDSL.cnst, BasisDSL.srt, BasisDSL.bv, BasisDSL.u, Level.subst, Level.subst.go,
       Expr.piBinders, recTargetOf, Expr.stripPis, Expr.getAppFn, blockGroups] at hp
     by_cases h0 : nP = 0
@@ -198,12 +202,12 @@ theorem falseBlock_install {nP : Nat} {block : List ConstantInfo} {p : BlockShap
   | [], h | [_], h | _ :: _ :: _ :: _, h => simp [falseBasis, listBeqBy] at h
 
 theorem eqBlock_install {nP : Nat} {block : List ConstantInfo} {p : BlockShape}
-    (hok : listBeqBy pinCopyOk block eqBasis = true) (hp : blockShape? nP block = some p) :
+    (hok : listBeqBy pinCopyOk block eqBasis = true) (hp : readBlock nP block = .ok p) :
     blockConstants p = BasisKind.eqK.storedAt block ∧ blockTables p p.members = [] := by
   have hd := listBeqBy_pinCopyOk_dropCaps hok fun pin hpin => by
     simp only [eqBasis, List.mem_cons, List.not_mem_nil, or_false] at hpin
     rcases hpin with rfl | rfl | rfl <;> rfl
-  rw [← blockShape?_dropCaps, hd] at hp
+  rw [← readBlock_dropCaps, hd] at hp
   match block, hok with
   | [b1, b2, b3], hok =>
     simp only [eqBasis, listBeqBy, pinCopyOk, Bool.and_true, Bool.and_eq_true, beq_iff_eq] at hok
@@ -218,8 +222,8 @@ theorem eqBlock_install {nP : Nat} {block : List ConstantInfo} {p : BlockShape}
     simp [eqRecA, ConstantInfo.toConstantVal] at hl3
     match ps1, hl1, ps2, hl2, ps3, hl3 with
     | [a], _, [b], _, [c, d], _ =>
-    simp [blockShape?, blockSplit, blockSplitCtors, blockSplitRecs, eqA, eqReflA, eqRecA, ConstantInfo.atLps,
-      ConstantVal.atLps, Expr.instantiateLevelParams, blockMemberCounts?, blockCounts?, BasisDSL.prop,
+    simp [readBlock, blockSplit, blockSplitCtors, blockSplitRecs, eqA, eqReflA, eqRecA, ConstantInfo.atLps,
+      ConstantVal.atLps, Expr.instantiateLevelParams, blockMemberCounts, blockCounts, Except.map, BasisDSL.prop,
       BasisDSL.pi, BasisDSL.piI, BasisDSL.cnst, BasisDSL.srt, BasisDSL.bv, BasisDSL.u, BasisDSL.u1,
       BasisDSL.ap2, BasisDSL.ap3, BasisDSL.rule, BasisDSL.lm, BasisDSL.lmI, eqRecMotive, Level.subst,
       Level.subst.go, Expr.piBinders, recTargetOf, Expr.stripPis, Expr.getAppFn, blockGroups,
@@ -230,7 +234,7 @@ theorem eqBlock_install {nP : Nat} {block : List ConstantInfo} {p : BlockShape}
       · subst hb
         simp at hp
         split at hp <;>
-        · simp only [Option.some.injEq] at hp
+        · simp only [Except.ok.injEq] at hp
           subst hp
           refine ⟨?_, rfl⟩
           simp [blockConstants, blockFormers, blockCtors, blockRecs, blockCapsAt, blockIsRec, recFire,
@@ -250,12 +254,12 @@ theorem eqBlock_install {nP : Nat} {block : List ConstantInfo} {p : BlockShape}
   | [], h | [_], h | [_, _], h | _ :: _ :: _ :: _ :: _, h => simp [eqBasis, listBeqBy] at h
 
 theorem natBlock_install {nP : Nat} {block : List ConstantInfo} {p : BlockShape}
-    (hok : listBeqBy pinCopyOk block natBasis = true) (hp : blockShape? nP block = some p) :
+    (hok : listBeqBy pinCopyOk block natBasis = true) (hp : readBlock nP block = .ok p) :
     blockConstants p = BasisKind.natK.storedAt block ∧ blockTables p p.members = [] := by
   have hd := listBeqBy_pinCopyOk_dropCaps hok fun pin hpin => by
     simp only [natBasis, List.mem_cons, List.not_mem_nil, or_false] at hpin
     rcases hpin with rfl | rfl | rfl | rfl <;> rfl
-  rw [← blockShape?_dropCaps, hd] at hp
+  rw [← readBlock_dropCaps, hd] at hp
   match block, hok with
   | [b1, b2, b3, b4], hok =>
     simp only [natBasis, listBeqBy, pinCopyOk, Bool.and_true, Bool.and_eq_true, beq_iff_eq] at hok
@@ -273,9 +277,9 @@ theorem natBlock_install {nP : Nat} {block : List ConstantInfo} {p : BlockShape}
     subst hl1 hl2 hl3
     match ps4, hl4 with
     | [q], _ =>
-    simp [blockShape?, blockSplit, blockSplitCtors, blockSplitRecs, natA, natZeroA, natSuccA, natRecA,
-      ConstantInfo.atLps, ConstantVal.atLps, Expr.instantiateLevelParams, blockMemberCounts?,
-      blockCounts?, BasisDSL.type1, BasisDSL.pi, BasisDSL.piI, BasisDSL.cnst, BasisDSL.srt, BasisDSL.bv,
+    simp [readBlock, blockSplit, blockSplitCtors, blockSplitRecs, natA, natZeroA, natSuccA, natRecA,
+      ConstantInfo.atLps, ConstantVal.atLps, Expr.instantiateLevelParams, blockMemberCounts, Except.map,
+      blockCounts, BasisDSL.type1, BasisDSL.pi, BasisDSL.piI, BasisDSL.cnst, BasisDSL.srt, BasisDSL.bv,
       BasisDSL.u, BasisDSL.ap2, BasisDSL.ap4, BasisDSL.rule, BasisDSL.lm, natT, natRecMotive, natRecSucc,
       Level.subst, Level.subst.go, Expr.piBinders, recTargetOf, Expr.stripPis, Expr.getAppFn,
       blockGroups] at hp
@@ -299,7 +303,7 @@ theorem natBlock_install {nP : Nat} {block : List ConstantInfo} {p : BlockShape}
 table. -/
 theorem blockInstall_pinned {nP : Nat} {block : List ConstantInfo} {kind : BasisKind}
     {p : BlockShape} (hk : basisNameHit block = some kind) (hok : pinListOk block kind.decls = true)
-    (hp : blockShape? nP block = some p) :
+    (hp : readBlock nP block = .ok p) :
     blockConstants p = kind.storedAt block ∧ blockTables p p.members = [] := by
   simp only [pinListOk, Bool.and_eq_true] at hok
   cases kind with

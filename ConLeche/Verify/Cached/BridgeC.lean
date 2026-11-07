@@ -296,9 +296,9 @@ theorem checkDeclStepC_run {env : Env} (henv : EnvWF env) {pd : Declaration}
     -- the declared parameter count (task #228) is a guard whose `false`
     -- throws on both sides, so only the passing branch reaches the bridge
     have hd : (if indParamsOk nP block = true then
-          (match blockShape? nP block with
-            | some p => checkBlockKS .verified (mkFEnv env) block p
-            | none => refuseBlockS .verified (mkFEnv env) nP block)
+          (match readBlock nP block with
+            | .ok p => checkBlockKS .verified (mkFEnv env) block p
+            | .error e => throw e)
         else throw (CheckError.invalid "number of parameters mismatch"))
         s₀.flushed = .ok (fe₂, s₂) := hk
     by_cases hok : indParamsOk nP block = true

@@ -1669,16 +1669,16 @@ variable {pins : List NatOpPinSet}
 
 /-- The inductive-block dispatch of the cached driver: a RECOGNISED
 block goes to `checkBlockKS`, every other one
-is refused (`refuseBlockS`), and the pure fueled `checkDeclKind`
+is rejected with `readBlock`'s error, and the pure fueled `checkDeclKind`
 reproduces the run. -/
 theorem checkModeledOrNativeSF_run {env : Env} (henv : EnvWF env)
     {block : List ConstantInfo} {nP : Nat}
     (hok : indParamsOk nP block = true)
     {s₀ : CState} (hwf : CSOKF s₀)
     {feOut : FEnv} {s' : CState}
-    (h : (match blockShape? nP block with
-          | some p => checkBlockKS .verified (mkFEnv env) block p
-          | none => refuseBlockS .verified (mkFEnv env) nP block) s₀ =
+    (h : (match readBlock nP block with
+          | .ok p => checkBlockKS .verified (mkFEnv env) block p
+          | .error e => throw e) s₀ =
       .ok (feOut, s')) :
     CSOKF s' ∧ feOut = mkFEnv feOut.env ∧
     ∃ F, checkDeclKind (fueledOps .verified F) pins env (.indDecl block nP) =
@@ -1687,24 +1687,21 @@ theorem checkModeledOrNativeSF_run {env : Env} (henv : EnvWF env)
   -- the two drivers: `hok` is the branch both take
   show CSOKF s' ∧ feOut = mkFEnv feOut.env ∧
     ∃ F, (if indParamsOk nP block = true then
-          (match blockShape? nP block with
-            | some p => checkBlock (fueledOps .verified F) env block p
-            | none => refuseBlock (fueledOps .verified F) env nP block)
+          (match readBlock nP block with
+            | .ok p => checkBlock (fueledOps .verified F) env block p
+            | .error e => throw e)
         else throw (CheckError.invalid "number of parameters mismatch")) = .ok feOut.env
   simp only [ite_eq_left hok]
-  cases hfp : blockShape? nP block with
-  | some p =>
+  cases hfp : readBlock nP block with
+  | ok p =>
     rw [hfp] at h
     simp only at h
     -- the block install, at any number of members, nested included
-    obtain ⟨hres, hfe, F, hF⟩ := checkBlockKS_run henv (ConLeche.blockShape?_declared hfp) hwf h
+    obtain ⟨hres, hfe, F, hF⟩ := checkBlockKS_run henv (ConLeche.readBlock_declared hfp) hwf h
     exact ⟨hres, hfe, F, hF⟩
-  | none =>
+  | error e =>
     rw [hfp] at h
-    -- the refusal never returns an index
-    exfalso
-    unfold refuseBlockS at h
-    obtain ⟨_, _, _, h⟩ := bindC_ok h
+    -- the reader's error never returns an index
     exact nomatch h
 
 end ConLeche.Cached

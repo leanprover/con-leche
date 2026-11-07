@@ -464,7 +464,7 @@ Read from the outside in:
    that record. Every check reads its index through the lookups alone (the
    constants' and the projection tables'), so at two indices with the same
    lookups it fails alike or pushes the same constants
-   ([theorem `checkDeclStepC_twin` in `ConLeche/Verify/Cached/ViewCongr.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Verify/Cached/ViewCongr.lean#L1344-L1348)).
+   ([theorem `checkDeclStepC_twin` in `ConLeche/Verify/Cached/ViewCongr.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Verify/Cached/ViewCongr.lean#L1336-L1340)).
    The view of a position answers as the fold's index there as long as the
    names so far are distinct, which every passing job before it ensures,
    so every job passing is an accept of the fold
@@ -939,7 +939,7 @@ declaration may take one of the reserved names. A block that fails it is
 rejected. A block that passes stores the pin at the names its records
 declare, each type former with the capabilities its block gives it, and
 no projection table
-([theorem `blockInstall_pinned` in `ConLeche/Verify/BasisBlock.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Verify/BasisBlock.lean#L300-L303)),
+([theorem `blockInstall_pinned` in `ConLeche/Verify/BasisBlock.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Verify/BasisBlock.lean#L304-L307)),
 so the model's account of the pin at its own names carries over.
 
 The quotient `Quot` with its soundness axiom, a kernel primitive rather than an
@@ -995,8 +995,8 @@ the `Nat` comparisons. It needs no pin; §6 says why.
 
 ### The installer
 
-The recogniser reads the block's shape
-([function `blockShape?` in `ConLeche/Kernel/Inductives/BlockShape.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/Inductives/BlockShape.lean#L383)):
+The installer first reads the block's shape
+([function `readBlock` in `ConLeche/Kernel/Inductives/BlockShape.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/Inductives/BlockShape.lean#L396)):
 its parameter count as the stream declares it, checked against the
 type formers' telescopes and against every constructor record before
 anything else runs
@@ -1095,16 +1095,15 @@ it needs is the kernel's own large-elimination guard. The model-tier
 theorem for the whole install is
 [theorem `declBlock` in `ConLeche/Model/Inductives/BlockRunFacts.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Model/Inductives/BlockRunFacts.lean#L160-L167).
 
-A block the installer cannot read is never accepted. Its type formers
-are checked as constants, and the block is then refused with the reason
-([function `refuseBlock` in `ConLeche/Kernel/CheckDecl.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/CheckDecl.lean#L31-L32)):
-records out of order, no inductive type, more parameters than a type's
+A block that cannot be read this way is an invalid input and is
+rejected, with the reason the reading gives: records out of order, no
+inductive type, no recursor record, more parameters than a type's
 binders, recursor argument counts that do not fit the block, or types and
-constructors whose universe or parameter declarations disagree. Each is a
-reject, as in the official kernel, with one exception: a block whose input
-carries no recursor records is declined, since the official kernel
-generates the recursors itself and accepts it
-([function `blockDefect` in `ConLeche/Kernel/Inductives/BlockShape.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/Inductives/BlockShape.lean#L454-L454)).
+constructors whose universe or parameter declarations disagree. The
+official kernel rejects each of these too, except a block without
+recursor records, which it accepts because it generates the recursors
+itself; the input format here carries every block's recursors, so such a
+block is invalid input.
 
 ### A former stored at a definition
 

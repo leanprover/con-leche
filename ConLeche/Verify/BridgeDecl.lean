@@ -1029,19 +1029,6 @@ theorem checkBlock_datF (env : Env) (block : List ConstantInfo) (p : BlockShape)
   simp only [FueledM.atF_bind, FueledM.atF_pure, FueledM.atF_throw, FueledM.atF_ite,
     checkBlockPass_datF, checkBlockTail_datF, reduceMembers_datF]
 
-theorem refuseBlock_datF (env : Env) (nPd : Nat) (block : List ConstantInfo) (F : Nat) :
-    (refuseBlock (fueledOpsM mode) env nPd block).val F =
-      refuseBlock (fueledOps mode F) env nPd block := by
-  unfold refuseBlock
-  rw [FueledM.atF_bind, foldlM_atF]
-  congr 1
-  · congr 1
-    funext _ ci
-    cases ci with
-    | indInfo cv _ =>
-      simp only [discard, Functor.discard, FueledM.atF_mapConst, checkConstantVal_datF]
-    | _ => rfl
-
 theorem checkDefnVal_datF (env : Env) (cv : ConstantVal) (value : Expr)
     (hint : ReducibilityHint) (F : Nat) :
     (checkDefnVal (fueledOpsM mode) env cv value hint).val F =
@@ -1249,7 +1236,7 @@ theorem checkDeclKind_datF (env : Env) (d : Declaration) (F : Nat) :
     split
     · split
       · exact checkBlock_datF env block _ F
-      · exact refuseBlock_datF env _ block F
+      · rfl
     · rfl
 
 theorem checkDecl_datF (env : Env) (d : Declaration) (F : Nat) :
