@@ -180,8 +180,8 @@ theorem main_oleans_no_False (V : Type w) [SetTheory V] {dirs root : String} {r 
 /-! ## Modular checking (task #463)
 
 A development of modules (`ConLeche/Modular.lean`) every module of which passes the local checks
-has a compatible family of models of the modules' own environments: two modules that store a name
-under one key give it one value, and every proof the point.  Each module's model is built from its
+has a compatible family of models of the modules' own environments: every module gives each name
+of its context the value the module it reads it from gives it, and every theorem the point.  Each module's model is built from its
 sources' models alone (`ConLeche/Modular/Generic.lean`'s `Development.modular`, at con-leche's
 models: `ConLeche/Model/Modular/Instance.lean`). -/
 
@@ -191,26 +191,30 @@ theorem modular_model_exists (V : Type w) [SetTheory V]
     (pins : List NatOpPinSet) (dev : Nat → Modular.Module) (i : Nat)
     (hok : ∀ j ≤ i, Modular.LocalOk .verified pins dev j) :
     ∃ m : ∀ j ≤ i, Model V (dev j).own,
-      (∀ j hj j' hj' n, ((dev j).own.find? n).isSome = true →
-        ((dev j').own.find? n).isSome = true → (dev j).key n = (dev j').key n →
-        (m j hj).cval n = (m j' hj').cval n) ∧
-      ∀ j hj n s, ((dev j).own.find? n).isSome = true → (dev j).key n = .proof s →
+      (∀ j hj n, ((dev j).context.find? n).isSome = true →
+        ∃ h : (dev j).src n ≤ i, (m j hj).cval n = (m ((dev j).src n) h).cval n) ∧
+      ∀ j hj n cv, (dev j).own.find? n = some (.thmInfo cv) → pinnedLeafName n = false →
         (m j hj).cval n = fun _ => pt := by
-  obtain ⟨mm, hc, hp⟩ := Model.Modular.modularModels (V := V) (pins := pins) hok
+  obtain ⟨mm, hc⟩ := Model.Modular.modularModels (V := V) (pins := pins) hok
   have hex : ∀ j (hj : j ≤ i), ∃ mp : Model.EnvModelM V (dev j).own,
       ∀ n, ((dev j).own.find? n).isSome = true → mp.base2.acval n = (mm j (by omega)).1 n :=
-    fun j hj => (mm j (by omega)).2.2.2.elim fun mp h => ⟨mp, h.2.2.2⟩
+    fun j hj => (mm j (by omega)).2.2.2.2.elim fun mp h => ⟨mp, h.2.2.2⟩
   refine ⟨fun j hj => Model.Model.ofEnvModelM (Classical.choose (hex j hj)), ?_, ?_⟩
-  · intro j hj j' hj' n hn hn' hk
+  · intro j hj n hn
+    obtain ⟨hs, he, -⟩ := hc j (by omega) n ⟨hn, trivial⟩
+    have hs' : (dev j).src n < i + 1 := hs
+    have hsi : (dev j).src n ≤ i := by omega
+    refine ⟨hsi, ?_⟩
     rw [Model.Model.ofEnvModelM_cval, Model.Model.ofEnvModelM_cval]
     apply Model.cvalOf_congr
-    rw [Classical.choose_spec (hex j hj) n hn, Classical.choose_spec (hex j' hj') n hn']
-    exact hc j j' _ _ n ⟨hn, trivial⟩ ⟨hn', trivial⟩ (Development.interchangeable_iff.mpr hk)
-  · intro j hj n s hn hk
+    rw [Classical.choose_spec (hex j hj) n (Model.Modular.own_stored_of_context hok hj hn),
+      Classical.choose_spec (hex _ hsi) n (Model.Modular.src_stored hok hj hn)]
+    exact he
+  · intro j hj n cv hn hpin
     rw [Model.Model.ofEnvModelM_cval]
     apply Model.cvalOf_prf
-    rw [Classical.choose_spec (hex j hj) n hn]
-    exact hp j _ n s ⟨hn, trivial⟩ hk
+    rw [Classical.choose_spec (hex j hj) n (by rw [hn]; rfl)]
+    exact (mm j (by omega)).2.2.2.1 n _ hn rfl hpin (.inl ⟨cv, rfl⟩)
 
 /-- **The modular corollary**: no module's own environment stores a constant of type `False`. -/
 theorem modular_no_False (V : Type w) [SetTheory V]
@@ -219,7 +223,7 @@ theorem modular_no_False (V : Type w) [SetTheory V]
     ∀ j ≤ i, ∀ c ∈ (dev j).own.consts, c.toConstantVal.type = .const falseName [] → False := by
   intro j hj c hc hty
   obtain ⟨mm, -⟩ := Model.Modular.modularModels (V := V) (pins := pins) hok
-  obtain ⟨mp, -⟩ := (mm j (by omega)).2.2.2
+  obtain ⟨mp, -⟩ := (mm j (by omega)).2.2.2.2
   exact Model.no_constant_of_False mp c hc hty
 
 end ConLeche

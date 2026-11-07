@@ -194,6 +194,23 @@ theorem toDev_valid {dev : Nat → Module} {i : Nat} (hok : ∀ j ≤ i, LocalOk
           · next h => exact h.2
           · exact nomatch hcR
 
+/-- A context name is stored in the module's own environment. -/
+theorem own_stored_of_context {dev : Nat → Module} {i j : Nat}
+    (hok : ∀ j ≤ i, LocalOk .verified pins dev j) (hj : j ≤ i) {n : Name}
+    (hn : ((dev j).context.find? n).isSome = true) : ((dev j).own.find? n).isSome = true := by
+  obtain ⟨c, hc⟩ := Option.isSome_iff_exists.mp hn
+  rw [own_find?_of_context (ImportOk.chain (hok j hj).importOk).1 hc]; rfl
+
+/-- A context name is stored by the module it is read from. -/
+theorem src_stored {dev : Nat → Module} {i j : Nat}
+    (hok : ∀ j ≤ i, LocalOk .verified pins dev j) (hj : j ≤ i) {n : Name}
+    (hn : ((dev j).context.find? n).isSome = true) :
+    ((dev ((dev j).src n)).own.find? n).isSome = true := by
+  obtain ⟨c, hc⟩ := Option.isSome_iff_exists.mp hn
+  have hlt := (hok j hj).importOk.src_lt n hn
+  obtain ⟨cb, hcb, -⟩ := agree_alike hok (Agree.same rfl) hj (by omega) hc
+  rw [hcb]; rfl
+
 /-- **The compatible family of models**, over the instance. -/
 theorem modularModels {dev : Nat → Module} {i : Nat}
     (hok : ∀ j ≤ i, LocalOk .verified pins dev j) :
