@@ -112409,9 +112409,12 @@ junk (where the block's parameters are unsatisfied, the index telescope reads ar
 its domains; e.g. run `(p : Bool) → B' p → Type`, datum `(p : Nat) → B p → Type` with no full fit
 on either side and `B true` read nonempty), so the kit's majors `U` would contain elements of a
 class that is no clause there.  Plan for step 2, within ruling (e):
-1. `NestKit` (`SetModel/NestRec.lean`, a pure set construction): `top`/`okT` only for classes with
-   an index (`∃ c t, t ∈ˢ Is c`), or a liveness predicate; `lfpNestKit` pins a dead node's class
-   empty (or `N := 0`), so `U` has no element of it.
+1. `NestKit` (`SetModel/NestRec.lean`, a pure set construction): `top` and `okT` only for a class
+   with an index (`∃ c < N, ∃ t, t ∈ˢ Is c`; every use of `okT` in `claim_step` and of `top` in
+   `top_good` already has one in hand); `lfpNestKit`/`TgtNodePres.cl` pin a node's index sets at
+   `if KeyFit (frb b) then idx (frb b) else ∅`, so `U` has no element of a dead node and a dead
+   node needs no admissible frame (`nodeAdm` asks `KeyFit` of the frame; at a live node every
+   admissible frame fits, `keyFit_agree`).
 2. `nodeAdm b`: admissible frames of live nodes; `hAdm` from `KeyFit` at the true frame and
    `keyFit_agree` (`Sat params`), `grp_idx_eq` (index sets).  Liveness of a node holding a call's
    target: the target field's grading (`keyLeaf`).
@@ -112424,9 +112427,12 @@ class that is no clause there.  Plan for step 2, within ruling (e):
    (`KeyFit` at `σ`), `keyFit_agree` at the true valuation, then `FrameMono`'s conclusion.
 5. The outside classes (`TgtOutCls`, `GenOutKeyFit`'s `genOut_keyFit`, `GenRecPreRun`,
    `GenClsSem`, `GenFrameTie`, `GenRecExtra`, `TargetOutRows`): "at every fitting prefix, the
-   class's parameters satisfy the family's telescope" holds by value only at a full fit; the major
-   (graded, `keyLeaf`) supplies it at every use; the classes' index sets at a non-fitting class
-   frame need the same guard as dead nodes (the recursor's majors range only over fitting frames).
+   class's parameters satisfy the family's telescope" holds by value only at a full fit.  The class
+   guard `tgtClsG` (`TargetClasses.lean`, today the prefix's fit) gets, for an outside class, the
+   class frame's `KeyFit`, so a non-fitting class's index set is `∅` (`tgtClsIs`); a related node
+   (`nlRel` carries `tgtClsG`, `hfr` equates the frames) is then live.  Where the recursor's
+   semantics needs a major of an outside class, the major's type is graded there, and `keyLeaf`
+   gives the guard.
 Then steps 3 (the swap) and 4 of cont. 4, unchanged.
 
 **State.**  Branch `agent/443-semantic-former`, worktree `_tmp/443/wt`.  `FormerRuns` is still in
