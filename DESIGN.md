@@ -113248,3 +113248,80 @@ as expected, trusted and `--jobs` sweeps unchanged, axioms pinned).  The shake g
 modular model's imports (`Model/Modular/{Instance,Proofs,Step,Valid}.lean`) by its criterion: two
 demotions and a removal applied, three compensated removals allowlisted.  Landed on `modular`
 with `--no-ff`; the composition is lane #501.
+
+## TASK #501 — the composition `main_modular_no_False`: two gaps in the capture check (2026-11-07, agent/501-compose)
+
+On `modular` (off 4687e7ea8).  Before any proof: the plan of #500 cont. 4 for `ImportOk.reads`
+(the capture check's soundness, route by route) was read against `ConLeche/Driver/Reach.lean`.
+Two of its routes do not follow from what the workers check, so the composition cannot be proved
+on the current code.  **Stopped for a ruling; nothing else changed on the branch.**
+
+**Gap A: the public-import shortcut through a copy that is not the reader's home's.**
+`captureOne` at importer `i`, a record `d` of home `h` reading `y`, the context's copy of `y` from
+module `M1`: if `M1` is in `h`'s public-import closure and `y` is in `M1`'s exported part, the
+read passes.  The plan derives `Agree dev i h y` by `via` at `t = M1`, which needs
+`Agree dev h M1 y`.  That holds by `same` when `h`'s own context reads `y` from `M1`.  It fails when
+`h` loads another copy of `y` first (from `M2`): then `y` is a clash at `h`, and `h`'s
+`clashAgree` checks only the copies' statuses and (through the index's `subsumesF`) equal
+statements.  It records no partner reads, so `Agree dev h M1 y` by `proof` lacks its
+`∀ c ∈ readNames, Agree dev h M1 c`.  Where `M1`'s copy is inferred (an exported axiom whose
+private constant is a definition or an axiom), it also lacks a `ProofSide` for `M1`: `i` infers
+nothing at the shortcut, and `h` inferred the statement under its own reading of the names, not
+`M1`'s.  The other route, `via` at `t = M2`, needs `Agree dev i M2 y`, which has the same gaps.
+Cont. 4's argument for not doing partner reads at clashes ("one a record reads meets `agreeCheck`
+there") does not hold at the shortcut, which skips `agreeCheck`.  The semantic gap is real only
+in the inferred case.  Two theorems are proofs whatever their statements' names mean (the
+generic theorem's `IsThm` needs nothing more), so in the theorem case only the specification asks
+too much.
+
+**Gap B: a group's other names are not checked against the importer's copies.**  `readRecord x`
+reads `x`'s group from the private part of the module of `x`'s copy, `G`, and the group stores
+all its members, constructors and recursors.  Nothing checks the importer's copy of those other
+names (`importerSpot n`), or that they have no copy.  So if `G`'s exported part holds the type but
+not a constructor `n`, and a loaded `G2` exports an `n`, a later read of `n` by a record of home
+`G2` passes `captureOne` (the importer copy's module is the reader's home).  Yet the context's `n`
+is `G`'s constructor, and `src i n = G`: no `Agree` route holds.  Likewise `captureOne`'s last
+branch (no importer copy, nothing located) completes `y` from the reader's view without asking
+whether a context record already stores `y` from another module.  Lean's output never has this
+shape (a constructor is exported with its type, or is private and mangled), but the files are
+untrusted.
+
+**Proposed fixes** (each a check of untrusted input; neither rejects what Lean accepts):
+* B: when a record of home `h` is added, every name it stores has no importer copy or one in
+  module `h`, else exit 1 ("the group of `x` of `G` stores `n`, which the importer loads from
+  `G2`").  Every such name without an importer copy goes into `located` at `h`'s private part,
+  so a later read compares with it (`same` or `agreeCheck`) instead of completing it again.
+* A, in two parts:
+  1. **Specification**: move `Agree.proof`'s names hypothesis into `ProofSide`'s inference arm,
+     `(constsResolve ∧ TypeIsProp ∧ ∀ c ∈ ty.readNames, Agree dev i b c) ∨ ThmAt dev b n`.  Only
+     `Model/Modular/Main.lean`'s `side` uses the names, and only on that arm.  Then a theorem
+     pair needs nothing about names, and `agreeCheck` need not record partner reads when both
+     copies are `.yes` (a small saving).
+  2. **Worker**: at a clash in `h`'s context with an inferred copy, every non-first copy's
+     statement names are capture-checked as reads of that copy's module, like `agreeCheck`'s
+     partners.  With `h`'s inference (`pending`, at `h`'s part by `knot_ext`), this gives
+     `Agree dev h M1 y` by `proof`.  Cont. 4 measured +6.7 % to +11.7 % for partner reads at every
+     clash, with every clash name reached; this asks only inferred clashes the context already
+     reads, which should be rare (to be measured).
+  The alternative to A.2 is to drop the shortcut and always locate the read in `h`'s view.  That
+  is sound with no theory change, but it builds a view per reader home, which the shortcut exists
+  to avoid.
+* Pinned names: `proofStatus` says `.no` at `pinnedLeafName` (the brief's second option).  This
+  is simpler than proving that a type checked at a pinned name is no proposition, since crafted
+  files could put a theorem copy there.
+
+**What else the composition needs** (no gap found; plumbing, several sessions):
+* `below`/`src_lt`: every module of a home's header fixpoint is reached from it by imports, so it
+  is in the graph's closure with a smaller rank.  A completion's module is in its reader home's
+  view.  `reach_from` must say where each home came from: an importer copy, or a located copy in
+  a reader home's view.
+* a semantic invariant of the worklist, recording for each record of home `h` and each read `y`
+  which branch of `captureOne` passed;
+* `h`'s view's first copy is `h`'s index's first copy (one header fixpoint and the same tables
+  on one snapshot);
+* an accepted own record's reads are stored in the own environment (from `DeclsRun`);
+* a statement's type does not read its own name (its home's check of it), so `TypeIsProp` at
+  the full context gives it at the part (`ordered`, `knot_ext`);
+* `Agree` by induction on the context order, for the partner names.
+
+Recommended: B, A.1 + A.2, pinned `.no`, then the composition.
