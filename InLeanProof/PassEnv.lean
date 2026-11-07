@@ -128,4 +128,58 @@ theorem presI_mark (hP : EnvPresI fe L) {marks : List (Name × Nat)}
         rw [show v.name = T from presI_key hP h1, FEnv.env_of_find h1]; exact Option.some_ne_none _)]
       exact h2
 
+/-! ## A marked former -/
+
+theorem push_find {fe : InLean.FEnv} {ci : Lean.ConstantInfo} :
+    (fe.push ci).env = InLean.addConst fe.env ci := by rfl
+
+/-- **A marked former pushed** keeps the relation: it reads, at its marked
+field count, as con-leche's former at `toCaps (capsOf …)`, with no table on
+either side. -/
+theorem presI_marked_former (hlaws : EnvLaws) (hP : EnvPresI fe L) {v : InductiveVal}
+    (hfresh : fe.env.find? v.name = none) (hvis : fe.sees v.name (.inductInfo v) = true)
+    (hpend : fe.isPending v.name = true)
+    {ccv : ConLeche.ConstantVal} (hcv : CVRel v.toConstantVal ccv) :
+    EnvPresI (fe.push (.inductInfo v)) (L.pushDelta [.indInfo ccv (toCaps (capsOf fe v))] []) := by
+  have hfeNone : fe.find? v.name = none := by
+    simp only [FEnv.find?_eq_filter, hfresh, Option.filter_none]
+  have hfe' : (fe.push (.inductInfo v)).find? v.name = some (.inductInfo v) := by
+    rw [FEnv.find?_eq_filter, push_find, find_addConst hlaws (ci := .inductInfo v) hfresh]
+    have hs' : (fe.push (.inductInfo v)).sees = fe.sees := by rfl
+    simp only [show (ConstantInfo.inductInfo v).name = v.name by rfl, ↓reduceIte,
+      Option.filter_some, hs', hvis]
+  have hcaps : capsOf (fe.push (.inductInfo v)) v = capsOf fe v :=
+    capsOf_congr rfl (fun h => by rw [hpend] at h; cases h)
+  apply presI_push (fe' := fe.push (.inductInfo v)) (names := [v.name]) hP rfl rfl rfl
+  · intro n hn; simp only [List.mem_singleton] at hn; subst hn; exact hfresh
+  · intro n hn
+    simp only [List.mem_singleton] at hn
+    rw [push_find, find_addConst hlaws (ci := .inductInfo v) hfresh]
+    exact ite_eq_right hn
+  · intro c hc
+    simp only [List.mem_singleton] at hc; subst hc
+    exact ⟨v.name, by simp, hcv.1⟩
+  · intro t ht; cases ht
+  · intro n hn ci' hf
+    simp only [List.mem_singleton] at hn; subst hn
+    rw [hfe'] at hf
+    cases hf
+    refine ⟨.indInfo ccv (toCaps (capsOf fe v)), ?_, ?_⟩
+    · rw [pushDelta_find]
+      simp [show (ConLeche.ConstantInfo.indInfo ccv (toCaps (capsOf fe v))).name = ccv.name from rfl,
+        hcv.1]
+    · exact ⟨hcv, by rw [hcaps], Or.inl hpend⟩
+  · intro n hn hf
+    simp only [List.mem_singleton] at hn; subst hn
+    rw [hfe'] at hf; cases hf
+  · intro T hT
+    simp only [List.mem_singleton] at hT; subst hT
+    rw [findTable_fresh hP hfeNone]
+    simp only [TableRelI]
+    unfold InLean.FEnv.tableFields?
+    rw [hfe']
+    simp only
+    exact ite_eq_left (show (fe.push (.inductInfo v)).isPending v.name = true from hpend)
+  · intro t ht; cases ht
+
 end InLeanProof
