@@ -113013,3 +113013,60 @@ order is a construction proved ordered; a cycle is malformed input), no new reje
 (the worker's decisions are today's), and the gain is the composition becoming possible.  One
 choice made here, not ruled: the theorem route (c)'s `IsThm` arm, kept so that theorem pairs need
 no inference, as today.  Proceeding.
+
+### #500 cont. (state of the lane branch `agent/500-agree`, not landed)
+
+**Done and building** (`lake build` of each module named; no `sorry`):
+* `ConLeche/Modular/Generic.lean`: the generic theorem by agreement, proved (`Development.modular`,
+  `own_model`).  Route (b) is "the source reads `n` with a source of the read module among its
+  own sources, storing it" (one record, two paths, through any number of importers), and
+  `Compatible` keeps, besides each context name's value, that every source storing it agrees: what
+  route (b) at a later importer reads.  `Compared` is "own environment = context".
+* `ConLeche/Modular.lean`: the specification without keys, flags, `ProofDecl`, `FlagsOk`;
+  `Module.rank`/`Module.part` (the records before a name's), `ThmAt`, `ProofSide`, the inductive
+  `Agree` (`same`, `path`, `proof`; `proof` asks the statement's names to agree too: without it a
+  capture inside the partner's statement would pass, see below), `readsAlike` by `Agree`,
+  `ImportOk.ordered`; `pinnedLeafName` (certified operations, `reduce*`, `Quot.sound`, `sorryAx`),
+  `Expr.readNames`, `ConstantInfo.isStmtKind` moved here from `Read.lean`.
+* The step's leaf choice by the type's reading (`SemPropType`, `Harvest.lean`; `DeclProofLeaf V
+  acval₀ env`; `AxiomPin`, `AxiomReduce`, `Fold` through); `semPropType_of_run`.
+* `Model/Modular/Proofs.lean`: `ProofLeaves`, `SemPropType.of_denote`, the push-chain lookups,
+  `stmt_of_record`, `find?_filter_name` (moved from `Valid.lean`), `constsResolve_of_readNames`.
+  `RestrictAgree.lean`: `denote_alike` (the general reading agreement; `CtxSrc.denote_eq` is its
+  instance).
+* `Model/Modular/Step.lean`: `new_proof_leaf`, `declsRun_proofs` (the step keeps `ProofLeaves`).
+* `Model/Modular/Instance.lean`: `MMod` carries `ProofLeaves`, amalgamation reads it off the
+  sources, `AcceptsX` without flags, `ProofInX`/`proofInX_val`, `IsThmX`/`isThmX_val`, the instance.
+
+**Next, in order:**
+1. `Model/Modular/Valid.lean`: keys out.  Define `homeOf dev j x` (`src j x` for a context name,
+   else `j`); `copies_alike` becomes `agree_alike` (by induction on `Agree`, with `Alike.trans`;
+   the proof arm by statement kinds and no table at a statement kind, `stream_tables_mem`);
+   `indRecord`/`indReadAlike` read `homeOf … = t` where they read `key … = .home t` (`Agree` at an
+   inductive kind is `same`/`path`, so it gives one home; one home gives `Agree` by `same`/`path`);
+   `readsAlike_find?` over `decide (… ∧ Agree …)`; `flagsOk_mem`, `ProofDecl.kinds`,
+   `not_flagged_of_ind`, `key_of_own` go.
+2. The part's assembly: `CtxRead` of `streamEnv (ctx.take r)` from `ImportOk.ordered` (the sources'
+   reads restricted to the prefix), so `Reads.part`; `Reads.below` from `nodup` and `findIdx`.
+3. `Model/Modular/Main.lean`: `toDev` with `src`, `rank`, `part`; `Reads.read` (the source of
+   `src`), `Reads.agree` (by exposure, as `OneCopy` was), `ProofIn` at the part from
+   `Agree.proof`'s `TypeIsProp` (the names' agreement gives exposure and `LookAlike`/tables by
+   `agree_alike`), `IsThm` from `ThmAt`; `MainTheorem.lean`'s `modular_model_exists` restated as in
+   `Modular.lean`'s header, `modular_no_False` unchanged; `Challenge`, `Axioms.lean` pins.
+4. The worker (`Driver/Reach.lean`): the context in the reads' topological order (a cycle exit 1);
+   at a proof pair, the partner's statement's names capture-checked against the partner's home
+   view (**a gap in today's worker**: `keyCheck`/`clashKeys` infer the statement at the importer's
+   context without checking that the partner home reads the statement's names as the importer
+   does; e.g. `B`'s `foo : c` with `c` from a module the importer does not load, merged with
+   `A`'s `foo : c` of another `c`, passes today when no reached record reads `c`); names
+   `agreeCheck`/`clashAgree`.
+5. Fixtures: the motivating case (two `def foo : 2 + 2 = 4`, an importer reaching both: accept),
+   `DgCapM` (reject, unchanged), the statement-capture pair of item 4 (reject).
+6. Fragment (`ModularSemantics.lean` = `Generic.lean` renamed, `ModularModel.lean`,
+   `ModularInstance.lean`, `Axioms.lean`), §7, OVERVIEW; gates; land on `modular`.
+Then the composition (`main_modular_no_False`).
+
+Known accepted edge (to rule on): `pinnedLeafName` excludes `Quot.sound` from the proof route, so
+two modules each declaring a pinned `Quot.sound` outside `Init`'s closure, loaded together, are
+merged by Lean (axiom/axiom, `isPropCheap`) and would be rejected here.  The alternative is a lemma
+that the quotient step leaves `Quot.sound` at `.prf` (#444 says its pin's leaf is).
