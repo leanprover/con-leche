@@ -112440,3 +112440,77 @@ the capstones.  The tree does not build from `TargetNodeDynOf` on (8 errors ther
 `GenNodeCalls`, … downstream unchecked); everything else builds warning-free.
 
 **Gates.**  None run beyond the module builds above (a partial lane).
+
+### #443: the recursor stage along fits; the swap begun (#443 cont. 6, 2026-11-07)
+
+**Merged.**  Nothing: `modular` has #448 past the lane (`2b1a48601`); merge it at the start of
+the next session (expect DESIGN.md and possibly `Model/Modular/*` conflicts).
+
+**Step 2 done: the recursor stage reads the nodes along fits** (`fb23d81a9`; the whole tree builds
+warning-free, `lake test` green, axiom pins unchanged).  As planned in cont. 5, with one change:
+* `NestKit` (`SetModel/NestRec.lean`): `top`, `okT` take an index of the class (`claim_step`,
+  `top_good`, `toNodeInd` have one).
+* `pinIdx` (`TargetNestKit.lean`): a class's index sets are its clause's at the true frame where
+  it is LIVE, empty otherwise; `lfpNestKit` and `TgtNodePres` carry `live`, `hAdm` gives it,
+  `top` asks it, `hlive` (related pair ⇒ live node).
+* Liveness: `LfpDatum.FrFit` (`BlockLfp.lean`; `KeyFit` is now `FrFit` at the key frame); a
+  listed node is live where its true frame fits (`nlLive`), node `0` always; an outside class is
+  live where its key frame fits (`tgtClsLive`); **the liveness is in `tgtClsIs`'s condition, not
+  in `tgtClsG`** (`tgtClsG` has no `Dc`/`cvc`; `tgtClsIs_of`, `tgtClsIs_guard`); the node relation
+  is `nlRel ∧ tgtClsLive`, and `nlRel_live` (the tie's frame equality) makes the node live.
+* `nodeAdm` needs a live node; `AdmVal.frame`'s conditions are "the owner live and the spine
+  fits"; `dyn_hAdm` (live, `keyFit_agree` from the true frame), `dyn_keyFitAdm`, `dyn_top` (at a
+  live node), `dyn_holeRel`/`dyn_trans` (`FrameMono` at `KeyFit` pairs), `admVal_kid`,
+  `admVal_frameLand` (at a live owner), `dyn_ctorFit` (at a fitting `σ`).
+* **The true valuation satisfies every node's stack context, live or not**
+  (`dyn_trueVal_sat`): a frame hole holds its container applied to the key
+  (`trueVal_frameApp`), which inhabits the hole's type — the container's run at the key — by
+  `grpRun_fit` (`ContWalk`: the member's value is in its run's tower, `grp_typeT`'s new last
+  conjunct, and the key fits the run's parameter binders); `trueVal_frameVal` (the hole value)
+  only at a satisfied owner frame.
+* **The frame tie (`genNodeFrameTie`) compares the class's and the node's keys against the
+  family's RUN**, not the datum: both check the key against the same `familyTelescope` result
+  (one environment, one fuel), `genOut_runFit` (`GenOutKeyFit`) and `dyn_nodeRunFit`
+  (`GenClassNodes`) give both spines' fits of the run's parameter binders; `hnodeSat` is gone
+  (it was false at a dead node).  `nodeKeyFit` and `posD_frame_kty` deleted.
+
+**Step 3 begun** (`de64602ce`): `LfpCaps`' zero-ness datum is on the stored former
+(`formerZ_holds` deleted; the producer `DeclBlockStep` splits flat/definition-headed);
+`EnvModelM.member_mem_tower` (a member inhabits its block's telescope, by `LfpReadsV`) replaces
+`formerAt_mem` in `former_app_eq`; `famNZ_lfp_ne_zero` reads the stored type's value.
+
+**What remains of step 3** (every use of `formerAt`, `FamilyRead`, the old `LfpReads`; each move
+keeps the tree building, then the clauses are swapped):
+1. `genOut_keyFit` (`GenOutKeyFit`; uses `FamilyRead` to read the run as `formerAt`) feeds
+   `GenClsRd.hsat` (`genClsRd_out`, `GenRecFinal` l.120): "at every fitting prefix the class's
+   key satisfies the parameters" is by value only at a full fit.  Replace `hsat` by what each use
+   has: at a member of `tgtClsIs`, `tgtClsIs_guard`'s liveness (`FrFit` ⇒ `Sat`); where a major is
+   produced (`genCls_split`, `genCls_core`), `keyLeaf` at the graded major domain; check
+   `genCls_decInv` (l.~930, `Rd.hsat ψ ρ xs hpref` with a membership in hand) and
+   `GenRecExtra` (`hsatK := Rd.hsat …` at l.~1497, 2270: memberships in hand).
+2. `TargetClass.TgtOutCls.read` / `familyRun_former` (`ty = (D.formerAt mm cvI).type`),
+   `GenRecClasses` (4 uses of `FamilyRead mpC`), `GenOutFacts` (`TailOk (formerAt).type`, the
+   run's tail), `TargetOutRows` l.105, `GenClsSem` l.377–1428 (`hformer : formerTys … = formerAt`,
+   `hstrip`, `hsh`): restate over the RUN's result (the generated stage's `formerTys` entry is
+   the run's result, `tgtFormer`), its reading by `familyRead` and values along fits.
+3. The container walk's leftovers: `ContSem.ContCover.reads` (`FamilyRead`), `ContSem` l.85/144
+   (`NestInstFacts`/certs at `formerAt`), `ContLeaf.keyParamsFit` (delete once unused),
+   `ContN2.instFormer_read*` (l.423–642, `formerAt_wf`, Term-equal readings), `ContInst*`,
+   `ContInstRule`, `ContWalk` l.467/587/1015 (`Tys` via `instPisWith (canonParams n)
+   (formerAt).type`, i.e. `LfpCtorReads`' `Tys`).
+4. The swap of the clauses: `LfpReads := LfpReadsV` plus `D.w` read off the level parameters
+   (`lfpW_congr`'s use); `LfpCtorReads`' `Tys` := the datum's own index towers
+   (`(mkPisAV (D.ids mm ψ) (.sort (D.w ψ))).liftN mm 0`-shaped at depth `nPc + mm`); producers
+   (`DeclBlockStep` l.398 `hrdC`, l.407 `hat`; `BlockDatum`, `BlockCtorReads`, `BlockStageCtors`,
+   `BlockAssembly`, `BlockStageTables`, `BasisAtBlock`, `BasisLfp`, `BasisRename`, `Cover`,
+   `CanonCrest.lfp_ok_transport`, `RestrictLfp` l.282–326); then delete `LfpDatum.telescope`,
+   `formerAt`, `LfpTelescope`, `CanonCrest`'s `formerAt_*`/`FamilyRead`, `FamilyRan` (+ `Fold`,
+   `BlockRunFacts`, `DeclBlock*`, `Modular/*` threading, `PosDerivNodes`' `readTelescope` use),
+   `readTelescope`, `FormerRunsX`, `ctxModel`'s `hdh`; `RestrictLfp` transports by `denote_eq`.
+5. Step 4 of cont. 4 (FormerRuns out of the capstones and documents), then the full gates.
+
+**State.**  Branch `agent/443-semantic-former` at `de64602ce` (worktree `_tmp/443/wt`), builds
+and tests warning-free; `FormerRuns` is still in the capstones.  Not landed (a partial lane).
+
+**Gates.**  `lake build`, `lake test` warning-free (axiom pins unchanged); nothing executed changed
+since cont. 3's full gates.
