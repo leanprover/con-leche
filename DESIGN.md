@@ -113874,3 +113874,66 @@ layering, the trust surface, no-local-paths and the whitepaper's links gate.  No
    `Agree dev h M1 y` at `h` by `same` (one copy) or by `proof` from `h`'s `clashPartners` and
    clash statuses; `proof` at `agreeCheck`.
 3. The gates in full, then land on `modular` with `--no-ff`.
+
+### #501 cont. 4 (the pinned names: the ruling's premise does not hold in the model; stopped)
+
+`modular` is still at 0118b6ce8, so there was nothing to merge.  Before writing the pinned-names
+lemma, the ruling's argument was checked against the model.  **Stopped for a ruling; the code is
+unchanged.**
+
+**Where the composition needs it.**  In `ImportOk.reads`, a read `y` at a `pinnedLeafName` passes
+`captureOne` with two copies from different modules only through `agreeCheck` or `clashAgree`
+(also through the public-import route at a clash in the home's context).  Both copies then have a
+proof status other than `.no`, and an `.infer` copy had its statement inferred to be a proposition
+at the context (`inferFlags`).  `Agree.proof` is closed to such a `y` (`pinnedLeafName y = false`),
+so a route is owed.
+
+**The premise that fails: "the model value is fixed by name".**  That holds of the reserved basis
+names (`pinnedStructT`, `EnvModel.acval_pinned_free`: `Nat`, `Eq`, `Empty`, `False`, the quotient,
+and `Quot.sound`, already used by `quotSound_leaf`).  None of them is a `pinnedLeafName`.  At the
+names that are:
+* a certified operation (`natOpNames`, `natDivModNames`): `harvestDefn`'s leaf is the reading of
+  the home's own value (`L = A`, "no fast-path name has the canonical leaf").  `defn_reads`'s
+  `LeafReads` is term equality away from `.prf`.  `NatOps`/`DivMod` constrain the leaf only by
+  recurrences under interpretation.  Two homes' definitions of `Nat.add` only have to be defeq to
+  the pin (certified by runs, not compared syntactically), so their leaves are different terms;
+* a compiler-trust opaque (`reduceOpNames`): `harvestOpaque`'s `cond` excludes the name, and the
+  leaf is the reading of the home's value, which `ReduceOps` constrains only by `op x = x` under
+  interpretation;
+* `sorryAx`: no record installs it, so it stores nothing (vacuous).
+The generic theorem compares values as terms (`val m n = m.1 n : (Name → Nat) → Term`).  So two
+copies at such a name do not get one value "by fiat", and an `Agree` route on that ground cannot
+be proved.
+
+**What does hold, in the ruling's spirit: such a pair never passes on an accepted snapshot.**
+* `.yes` (a theorem at the copy's home, or an exported axiom whose private part declares one): a
+  home declaring a theorem at a certified-operation or compiler-trust name fails its own check
+  (`checkConstantVal`, `reservedRecName`; `stmtRecord`'s opaque-or-axiom requirement).  With
+  `worker_thm` (every theorem of a module's private view is an own record of its accepted worker)
+  this is cheap.
+* `.infer`: the context's copy has its home's pinned type (`natOpTyPinned`, `reduceOpCvA`, from the
+  home's acceptance), `X → … → Y` over `Nat` (pinned) or `Bool` (the element type `reduceElem_sort`
+  fixes at the home at `Sort 1`).  Its inferred sort at the importer's context is `imax 1 …`, never
+  `0`, if the importer's copies of those names have the homes' types.  `Nat`'s copy has its
+  home's type through `presented`, `InterfaceOk` and the home's accepted run (#493's pin-shape
+  check).  `Bool`'s copy has it through the statement's partner reads (`Agree` on the type's names,
+  `agree_alike`).  This needs a computation lemma for `inferTypeCore` on such a telescope at an
+  environment where the domain constants have type `Sort 1`, and the transfer just described.  No
+  code change.
+
+**Options:**
+1. **`proofStatus` says `.no` at a `pinnedLeafName`** (the ruling of #501's first record,
+   superseded on 2026-11-07).  One line in `proofStatus`, and `agreeCheck_ok`/`clashAgree_ok` read
+   it.  The pinned case then never reaches `Agree.proof`.  It rejects nothing Lean accepts: Lean
+   merges two copies only as theorems or by `isPropCheap`, and no home accepts a theorem or a
+   proposition-typed copy at such a name.  Cheapest.
+2. **The unreachability lemma above, with no code change.**  About one session, mostly the
+   inference computation and the type transfer, inside the `reads` proof, which needs that
+   transfer machinery anyway.
+3. **Leaves fixed by name in the model**: a certified operation's and a compiler-trust opaque's
+   leaf becomes the reading of the vendored pin, with `defn_reads` met because the home's value is
+   certified equal to it under interpretation.  `LeafReads` would have to be relaxed from term
+   equality, which reaches every consumer of `defn_reads`.  Large; not recommended.
+
+Recommended: 1, or 2 if no code change is to stay the rule.  The rest of cont. 3's plan for the
+composition is unchanged.
