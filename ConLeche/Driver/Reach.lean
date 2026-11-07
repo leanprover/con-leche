@@ -535,6 +535,15 @@ def captureAll (env : ReachEnv μ) (h : Name) :
 
 /-! ## A record read -/
 
+/-- **A part's recursors' locations by their block's first member**, in the part's order:
+`t` its name table, `r` its region. -/
+def recBlocksAt (r : Region) (t : NamePositions) : Option (Std.HashMap Name (Array Nat)) :=
+  let locs := (t.consts.filter (·.tag == 7)).toList.map (·.loc)
+  (locs.mapM fun l => (kindNamesAt r l).map (l, ·)).map fun ks =>
+    ks.foldl (fun (m : Std.HashMap Name (Array Nat)) (l, k) => match k with
+      | .recur (a :: _) .. => m.alter a fun | none => some #[l] | some xs => some (xs.push l)
+      | _ => m) {}
+
 /-- A part's recursors' locations by their block's first member, read once. -/
 def recBlocksOf (env : ReachEnv μ) (c : ReachCache) (k : PartKey) :
     μ (ReachCache × Except CheckError (Std.HashMap Name (Array Nat))) := do
@@ -544,15 +553,28 @@ def recBlocksOf (env : ReachEnv μ) (c : ReachCache) (k : PartKey) :
     match ← tableOf env c k with
     | (c, .error e) => pure (c, .error e)
     | (c, .ok t) =>
-      let locs := (t.consts.filter (·.tag == 7)).toList.map (·.loc)
-      match ← withPart env c k (fun r st =>
-          (locs.mapM fun l => (kindNamesAt r l).map (l, ·)).map (st, ·)) with
+      match ← withPart env c k (fun r st => (recBlocksAt r t).map (st, ·)) with
       | (c, .error e) => pure (c, .error e)
-      | (c, .ok ks) =>
-        let m := ks.foldl (fun (m : Std.HashMap Name (Array Nat)) (l, k) => match k with
-          | .recur (a :: _) .. => m.alter a fun | none => some #[l] | some xs => some (xs.push l)
-          | _ => m) {}
-        pure ({ c with recBlocks := c.recBlocks.insert k m }, .ok m)
+      | (c, .ok m) => pure ({ c with recBlocks := c.recBlocks.insert k m }, .ok m)
+
+/-- The constructors a group's types list. -/
+def groupCtorNames (tys : List (CEntryF Name Expr)) : List Name :=
+  tys.flatMap fun t => match t.kind with
+    | .induct _ _ _ cs .. => cs
+    | _ => []
+
+/-- The locations of a group's recursors in a part, by its first member. -/
+def groupRecLocs (rb : Std.HashMap Name (Array Nat)) (all : List Name) : List Nat :=
+  ((all.head?.bind (rb[·]?)).getD #[]).toList
+
+/-- A group's constants as a merge: `n`'s type, the types, the constructors and the
+recursors of the block `all` among `rest`. -/
+def groupMerged (t : CEntryF Name Expr) (tys rest : List (CEntryF Name Expr)) (all : List Name) :
+    Merged :=
+  let recs := rest.filter fun e => match e.kind with
+    | .recur all' .. => all' == all
+    | _ => true
+  mergedOfList ((t :: tys ++ recs).map CEntry.ofF)
 
 /-- **Type `n`'s group, read from one part**: `none` where the part lacks one of its
 members or constructors. -/
@@ -575,28 +597,28 @@ def groupAt (env : ReachEnv μ) (c : ReachCache) (k : PartKey) (n : Name) :
             match ← withPart env c k fun r st => entriesWith r st (mqs.map (·.loc)) with
             | (c, .error e) => pure (c, .error e)
             | (c, .ok tys) =>
-              let ctorNames := tys.flatMap fun t => match t.kind with
-                | .induct _ _ _ cs .. => cs
-                | _ => []
-              match ctorNames.mapM (look[·]?) with
+              match (groupCtorNames tys).mapM (look[·]?) with
               | none => pure (c, .ok none)
               | some cqs =>
                 match ← recBlocksOf env c k with
                 | (c, .error e) => pure (c, .error e)
                 | (c, .ok rb) =>
-                  let rls := ((all.head?.bind (rb[·]?)).getD #[]).toList
                   match ← withPart env c k fun r st =>
-                      entriesWith r st (cqs.map (·.loc) ++ rls) with
+                      entriesWith r st (cqs.map (·.loc) ++ groupRecLocs rb all) with
                   | (c, .error e) => pure (c, .error e)
                   | (c, .ok rest) =>
-                    let recs := rest.filter fun e => match e.kind with
-                      | .recur all' .. => all' == all
-                      | _ => true
-                    let mg := mergedOfList ((t :: tys ++ recs).map CEntry.ofF)
-                    match groupRecord mg n with
+                    match groupRecord (groupMerged t tys rest all) n with
                     | .ok d => pure (c, .ok (some d))
                     | .error e => pure (c, .error e)
         | _ => pure (c, .error (.invalid s!"module {k.mod}: {n} is not an inductive type"))
+
+/-- The type whose group presents a copy of `x` of kind `k`: `x` itself, a constructor's type, a
+recursor's block's first member; none for any other kind. -/
+def groupOfKind (x : Name) : CKindF Name Unit → Option Name
+  | .induct .. => some x
+  | .ctor ind .. => some ind
+  | .recur (a :: _) .. => some a
+  | _ => none
 
 /-- **A copy presented as its statement** (`.axiomDecl cv`).  At a compiler-trust name
 (`reduceOpNames`) only where its home's private part declares an opaque constant or an axiom
@@ -627,12 +649,7 @@ def readRecord (env : ReachEnv μ) (c : ReachCache) (x : Name) :
   match ← stmtAt env c s with
   | (c, .error e) => pure (c, .error e)
   | (c, .ok (cv, k)) =>
-    let grp : Option Name := match k with
-      | .induct .. => some x
-      | .ctor ind .. => some ind
-      | .recur (a :: _) .. => some a
-      | _ => none
-    match grp with
+    match groupOfKind x k with
     | some n =>
       match ← groupAt env c ⟨h, .private⟩ n with
       | (c, .error e) => pure (c, .error e)
