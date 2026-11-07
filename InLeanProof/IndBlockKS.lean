@@ -185,7 +185,7 @@ InLean's pass at `fe` followed by its tail on the block is master's pure pass at
 @[expose] def PassTailSimI : Prop :=
   ∀ (fe : InLean.FEnv) (L : ConLeche.Env) (block : List Lean.ConstantInfo) (p₀ : InLean.BlockShape)
     (isRec : Bool) (s₀ s' : InLean.CState),
-    JobEnvI fe L → CSOKIF s₀ → (∀ ci ∈ block, CIRange ci) →
+    JobEnvI fe L → CSOKI .verified false L s₀ → (∀ ci ∈ block, CIRange ci) →
     (∀ ci ∈ block, isBlockKind ci = true ∧ okC ci.toConstantVal.type = true) →
     (∀ ms ∈ p₀.members, MemberOk ms) →
     (do let q ← InLean.checkBlockPassS .verified fe p₀ isRec; InLean.checkBlockTailS .verified block q)
@@ -404,7 +404,7 @@ theorem blockKSSimI_of (hR : ReduceMemberSimI) (hPT : PassTailSimI)
   injection hfl with hfl
   obtain rfl : s₁.flushed = sC := congrArg Prod.snd hfl
   obtain ⟨hs', F₂, q, hP, hT⟩ := hPT fe L block { p with members := ms } (InLean.blockIsRec p)
-    s₁.flushed s' hJ hs₁.flushed hr hk hokms h
+    s₁.flushed s' hJ (flushI_csoki hs₁ .verified false L) hr hk hokms h
   refine ⟨hs', max F₁ F₂,
     L.pushDelta (ConLeche.blockConstants (trShape p)) (ConLeche.blockTables (trShape p) (trShape p).members),
     ?_⟩

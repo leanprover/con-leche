@@ -26,6 +26,7 @@ public import InLeanProof.IndPres
 public import InLeanProof.StepPres
 public import InLeanProof.IndMembers
 public import InLeanProof.IndBasis
+public import InLeanProof.PassEnv
 
 /-!
 # The axiom pins of the InLean proof tier (task #451, lane G)
@@ -2000,3 +2001,60 @@ info: 'InLeanProof.checkIndDeclC_sim_rest' depends on axioms: [propext,
 /-- info: 'InLeanProof.quot_safe' depends on axioms: [propext] -/
 #guard_msgs in
 #print axioms InLeanProof.quot_safe
+
+/--
+info: 'InLeanProof.openPisAtFvarsI_run' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound,
+ InLeanProof.Expr.mkAppData_fields,
+ InLeanProof.Expr.mkData_eq,
+ InLeanProof.Level.mkData_eq]
+-/
+#guard_msgs in
+#print axioms InLeanProof.openPisAtFvarsI_run
+
+/-- info: 'InLeanProof.checkBlockTeleFI_run' depends on axioms: [propext, Classical.choice, Quot.sound] -/
+#guard_msgs in
+#print axioms InLeanProof.checkBlockTeleFI_run
+
+/-- info: 'InLeanProof.checkBlockDomsAtFI_run' depends on axioms: [propext, Classical.choice, Quot.sound] -/
+#guard_msgs in
+#print axioms InLeanProof.checkBlockDomsAtFI_run
+
+/--
+info: 'InLeanProof.checkBlockAgreeFI_run' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound,
+ InLeanProof.Expr.mkAppData_fields,
+ InLeanProof.Expr.mkData_eq,
+ InLeanProof.Level.mkData_eq]
+-/
+#guard_msgs in
+#print axioms InLeanProof.checkBlockAgreeFI_run
+
+/--
+info: 'InLeanProof.checkBlockIndsFI_run' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound,
+ InLeanProof.Expr.mkAppData_fields,
+ InLeanProof.Expr.mkData_eq,
+ InLeanProof.Level.mkData_eq]
+-/
+#guard_msgs in
+#print axioms InLeanProof.checkBlockIndsFI_run
+
+/-- info: 'InLeanProof.presI_mark' depends on axioms: [propext, Classical.choice, Quot.sound] -/
+#guard_msgs in
+#print axioms InLeanProof.presI_mark
+
+/-- info: 'InLeanProof.presI_marked_former' depends on axioms: [propext, Classical.choice, Quot.sound] -/
+#guard_msgs in
+#print axioms InLeanProof.presI_marked_former
+
+/-- info: 'InLeanProof.presI_consBlockIndsF' depends on axioms: [propext, Classical.choice, Quot.sound] -/
+#guard_msgs in
+#print axioms InLeanProof.presI_consBlockIndsF
+
+/-- info: 'InLeanProof.presI_formers' depends on axioms: [propext, Classical.choice, Quot.sound] -/
+#guard_msgs in
+#print axioms InLeanProof.presI_formers

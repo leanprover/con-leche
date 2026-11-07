@@ -161,22 +161,23 @@ and the positivity and class data by their translations (`D`, left to the
 lane that proves the stages).  The job's freshness tests read Lean's
 environment itself, so the pushes are read by `EnvLaws` from the run alone. -/
 
-/-- **The pass** (`checkBlockPassS_run`'s twin), into a relation `R`. -/
+/-- **The pass** (`checkBlockPassS_run`'s twin), into a relation `R`; it starts from the
+invariant at `L` (after the job's flush) and ends in it at the formers' environment. -/
 @[expose] def PassSimI (R : InLean.CState → InLean.BlockPass → ConLeche.BlockPass ConLeche.Env → Prop) :
     Prop :=
   ∀ (fe : InLean.FEnv) (L : ConLeche.Env) (p₀ : InLean.BlockShape) (isRec : Bool)
     (q : InLean.BlockPass) (s₀ s' : InLean.CState),
-    JobEnvI fe L → CSOKIF s₀ → (∀ ms ∈ p₀.members, MemberOk ms) →
+    JobEnvI fe L → CSOKI .verified false L s₀ → (∀ ms ∈ p₀.members, MemberOk ms) →
     InLean.checkBlockPassS .verified fe p₀ isRec s₀ = .ok (q, s') →
-    CSOKIF s' ∧ ∃ F cq, ConLeche.checkBlockPass (ConLeche.fueledOps .verified F) L (trShape p₀) isRec
-      = .ok cq ∧ R s' q cq
+    ∃ F cq, ConLeche.checkBlockPass (ConLeche.fueledOps .verified F) L (trShape p₀) isRec
+      = .ok cq ∧ CSOKI .verified false cq.env₁ s' ∧ R s' q cq
 
 /-- **The stages after the pass** (`checkBlockTailS_run`'s twin), from `R`. -/
 @[expose] def TailSimI (R : InLean.CState → InLean.BlockPass → ConLeche.BlockPass ConLeche.Env → Prop) :
     Prop :=
   ∀ (block : List Lean.ConstantInfo) (q : InLean.BlockPass) (cq : ConLeche.BlockPass ConLeche.Env)
     (s₀ s' : InLean.CState),
-    R s₀ q cq → CSOKIF s₀ → (∀ ci ∈ block, CIRange ci) →
+    R s₀ q cq → CSOKI .verified false cq.env₁ s₀ → (∀ ci ∈ block, CIRange ci) →
     (∀ ci ∈ block, isBlockKind ci = true ∧ okC ci.toConstantVal.type = true) →
     InLean.checkBlockTailS .verified block q s₀ = .ok ((), s') →
     CSOKIF s' ∧ ∃ F, ConLeche.checkBlockTail (ConLeche.fueledOps .verified F) (block.map trCI) cq = .ok ()
@@ -208,7 +209,7 @@ theorem passTailSimI_of {R : InLean.CState → InLean.BlockPass → ConLeche.Blo
     (hP : PassSimI R) (hT : TailSimI R) : PassTailSimI := by
   intro fe L block p₀ isRec s₀ s' hJ hs hr hk hms h
   obtain ⟨q, s₁, h1, h2⟩ := bindI_ok h
-  obtain ⟨hs₁, F₁, cq, hF₁, hR⟩ := hP fe L p₀ isRec q s₀ s₁ hJ hs hms h1
+  obtain ⟨F₁, cq, hF₁, hs₁, hR⟩ := hP fe L p₀ isRec q s₀ s₁ hJ hs hms h1
   obtain ⟨hs', F₂, hF₂⟩ := hT block q cq s₁ s' hR hs₁ hr hk h2
   refine ⟨hs', max F₁ F₂, cq, ?_, ?_⟩
   · rw [← ConLeche.checkBlockPass_datF]

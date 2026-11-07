@@ -34,5 +34,7 @@ public import InLeanProof.IndBlockKS
 public import InLeanProof.IndMembers
 public import InLeanProof.IndTele
 public import InLeanProof.IndBasis
+public import InLeanProof.PassInds
+public import InLeanProof.PassEnv
 public import InLeanProof.SquarePilot
 public import InLeanProof.AxiomPins

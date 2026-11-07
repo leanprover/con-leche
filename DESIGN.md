@@ -112038,3 +112038,80 @@ rejected, 0 declined, 0 exact and 0 cosmetic mismatches.
 `scripts/inlean_negtest.lean` 11/11 agree.  `lake build InLean InLeanProof
 inlean-replay` warning-free; `tests/layering.sh`, `tests/trust-surface.sh`,
 `tests/no-local-paths.sh` pass.
+
+### Lane O7-stages: the formers' stage and its environment (2026-11-08)
+
+Scope was `PassSimI`/`TailSimI` at `PassRelI D` and `checkIndDeclC_sim_rest`
+with only O6's, #492's and `JobEnvI.guard`'s hypotheses left.  This round
+proves the pass's first stage and the environment relation at the formers'
+push (Lane R's ruling 4 made true); the later stages are not started.  No
+`InLean/*` change; no `sorry`; no new axiom (the three opener-based theorems
+use the stop-gap `mkData` axioms of `MkDataAxioms.lean`, like every
+`TrS`/instantiate lemma); 9 new pins.
+
+**Proved** (functional proofs, `bindI_ok`/`pureI_ok`, as O7's).
+* `InLeanProof/PassInds.lean`: `openPisAtFvarsI_run` (InLean's opener at
+  interned variables reads, at the final state, as master's pure
+  `openPisAtFvars` at the translation; master's `openPisAtFvars_index`,
+  `_typeWScoped`, `ConLeche.Verify.openPisAtFvars_bounded` then give the
+  variables' shape, scope and closedness: `openClosedI_run`),
+  `fvarTypeDI_run`, `mapM_fvarTypeDI_run`, `checkBlockTeleFI_run` (from
+  `CheckConstantValFSimI`), `checkBlockTelesFI_run`,
+  `checkBlockDomsAtFI_run` and `checkBlockAgreeFI_run` (from `OpsSimI`),
+  **`checkBlockIndsFI_run`**: InLean's `checkBlockIndsF` at `fe` answers
+  master's `checkBlockInds` at `L` on `trShape p`, with `p₁ = p.withSort s0`
+  (`trShape_withSort`) and `fe₁` = `consBlockIndsF … { fe with pending :=
+  blockMarks p₁ ++ fe.pending }`.
+* `InLeanProof/PassEnv.lean`: `presI_key` (under `EnvPresI` a found entry's
+  name is its key: master's lookup finds by name and `CVRel` relates the
+  names; so the mark, keyed by `v.name`, needs no name invariant on Lean's
+  map), `EntryRelI.congr`, `presI_mark` (marking names fresh in `fe.env`
+  keeps the relation), `presI_marked_former` (a marked former pushed:
+  `EntryRelI` by the mark, `TableRelI` `none` on both sides),
+  `presI_consBlockIndsF` (the fold, capabilities by `toCaps_capsOf` at the
+  marked count), **`presI_formers`**: `EnvPresI fe₁ env₁` for master's
+  `consBlockInds (trShape p₁) isRec … 0 L`, from `EnvPresI fe L`, `EnvLaws`,
+  the declared names fresh in `fe.env` and distinct, not `sorryAx` unless
+  `coreAxioms`, and the declared types `StoredT`.
+
+**Statement repairs** (proof side only).  `PassTailSimI`/`PassSimI` took
+`CSOKIF s₀`, which does not reach the first stage (it runs the job's
+operations before any flush and needs the invariant at `L`): both now take
+`CSOKI .verified false L s₀`, which `blockKSSimI_of` supplies after the
+job's flush (`flushI_csoki`).  `PassSimI` now ends in `CSOKI .verified false
+cq.env₁ s'` and `TailSimI` starts from it (the tail's first stage runs at
+`env₁` before its flush); `passTailSimI_of` re-threaded.
+
+**Findings.**
+1. *`PassSimI`'s premises are short of what `env₁` needs.*  `JobEnvI fe₁
+   env₁` needs, beyond `presI_formers`'s premises: `EnvWF env₁` (master's
+   `direct_block_inds_wf`, which takes `MemberDeclaredWF L` of every member:
+   master gets it from `reduceMembers_inv`, so `blockKSSimI_of` must pass it
+   on, from the recognised shape's `declared = cvT`), the declared types
+   `StoredT` (range from the block's `CIRange`: the members' declared values
+   must be tied to the block's entries), the declared names distinct (from
+   `checkBlockKS`'s `namesNodup` over `cvT.name` and the reduct keeping the
+   name), fresh in `fe.env` (read off the first guard of `checkConstantValF`
+   in the run, not from `CheckConstantValFSimI`, whose post does not carry
+   it), not `sorryAx` (P4's, from `checkDecl`'s `sorryAxSquat`), and
+   `ProjBodiesInRange fe₁` (a marked former has no projection, so it should
+   follow from `fe`'s).  `JobEnvI.guard` at `fe₁` stays #492's.
+2. *`D`* is not chosen yet: the field kinds, the class reading, the classes
+   and the table need translations at the state (`TrS`) whose shape the
+   positivity and class stages' proofs will dictate; nothing in this round
+   constrains it.
+
+**What remains** (bottom-up): the facts of finding 1 and `JobEnvI fe₁ env₁`;
+`checkBlockCtorsF` (`checkSumCtorF`: `openPisAtFvars` twice, the domains,
+`constsResolveF`, the field sorts), `blockNestCtx`, `checkBlockClasses`,
+`checkBlockPositivity`, `nestSeeds`, `checkBlockIdxSortsF`, `genRecCheck`
+with `shadowOpsC`, `streamKCheck`, `streamRecsCheck`, `checkBlockTablesF`,
+the constructors' and the generated recursors' pushes (`presI_push`, mark
+kept), then `PassSimI (PassRelI D)`, `TailSimI (PassRelI D)` and
+`checkIndDeclC_sim_rest` without them.  Each of the positivity, class and
+recursor stages is a separate twin (InLean's code on `Lean.Expr`, its own
+state), so each needs its own simulation, not an instance of master's
+generic proof.
+
+Gates: `lake build InLean InLeanProof inlean-replay` warning-free;
+`tests/layering.sh`, `tests/trust-surface.sh`, `tests/no-local-paths.sh` pass.
