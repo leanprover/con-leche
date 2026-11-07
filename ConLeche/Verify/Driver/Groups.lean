@@ -9,7 +9,7 @@ import ConLeche.Verify.Frontend.Olean.Group
 
 public section
 namespace ConLeche.Driver
-open ConLeche ConLeche.Modular ConLeche.Frontend ConLeche.Frontend.Olean ConLeche.Cached
+open ConLeche ConLeche.Modular ConLeche.Frontend ConLeche.Frontend.Olean
 
 theorem lookTable_mem {t : NamePositions} {x : Name} {q : NamePosition}
     (h : (lookTable t)[x]? = some q) : q ∈ t.consts ∧ q.name = x := by
@@ -332,3 +332,429 @@ theorem recs_same {r : Region} {a : UInt64} {t : NamePositions} (ht : namePositi
       · rename_i hke; rw [hke] at hek; exact absurd rfl hek
       · rfl
     simp [this]
+
+/-- **The home's load is its private name table, position by position.** -/
+theorem home_rows {h : Name} {f : ModFiles} {l : Loaded} (hload : loadAt 0 h f = some l)
+    {r : Region} {a : UInt64} (hreg : f.viewRegion .private = some (r, a)) {t : NamePositions}
+    (ht : namePositionsAt r a = some t) : Forall₂ (RowOK r) t.consts.toList l.constants.toList := by
+  obtain ⟨r', a', sk, skels, hv', hsk, hskels, hl, hj⟩ := loadAt_aligned hload
+  rw [hreg] at hv'
+  obtain ⟨rfl, rfl⟩ := Prod.mk.inj (Option.some.inj hv')
+  have h1 : Forall₂ (fun s (e : CEntry) => lazyEntry (nameP r) (exprP r) r 0 s = some e.toCEntryF)
+      skels l.constants.toList :=
+    forall₂_of_getElem (by simpa using hl) (fun j hj' => by simpa using hj j hj')
+  have h2 := mapM_forall₂' hskels
+  simp only [namePositionsAt] at ht
+  obtain ⟨sk', hsk', ht⟩ := bind_some_left ht
+  rw [hsk] at hsk'; cases hsk'
+  obtain ⟨imps, -, ht⟩ := bind_some_left ht
+  obtain ⟨cs, hcs, ht⟩ := bind_some_left ht
+  split at ht
+  rotate_left
+  · cases ht
+  simp only [pure, Option.some.injEq] at ht
+  subst ht
+  have h3 := mapM_forall₂' hcs
+  refine Forall₂.imp (fun q e ⟨s, ⟨loc, hq, hs⟩, hE⟩ => ?_) (forall₂_comp (forall₂_meet_left h3 h2) h1)
+  simp only [namePosition] at hq
+  obtain ⟨s', hs', hq⟩ := bind_some_left hq
+  rw [hs] at hs'; cases hs'
+  obtain ⟨nm, hnm, hq⟩ := bind_some_left hq
+  simp only [pure, Option.some.injEq] at hq
+  subst hq
+  exact ⟨s, hs, hnm, rfl, rfl, hE⟩
+
+theorem firstsGo_prefix : ∀ (L acc : List CEntry), ∃ rest, firstsGo acc L = acc ++ rest
+  | [], acc => ⟨[], by simp [firstsGo]⟩
+  | c :: L, acc => by
+    simp only [firstsGo]
+    split
+    · exact firstsGo_prefix L acc
+    · obtain ⟨rest, h⟩ := firstsGo_prefix L (acc ++ [c])
+      exact ⟨c :: rest, by simp [h]⟩
+
+/-- A merged list's first constant is held under its name. -/
+theorem mergedOfList_head (c : CEntry) (L : List CEntry) :
+    (mergedOfList (c :: L)).map[c.name]? = some c := by
+  obtain ⟨-, hm⟩ := mergedOfList_firsts (c :: L) {} [] (by simp) (by simp)
+  have : (mergedOfList (c :: L)).map[c.name]? = (firstsGo [] (c :: L)).find? (·.name == c.name) :=
+    hm c.name
+  rw [this]
+  simp only [firstsGo, List.any_nil, Bool.false_eq_true, ↓reduceIte, List.nil_append]
+  obtain ⟨rest, hr⟩ := firstsGo_prefix L [c]
+  rw [hr]
+  simp
+
+theorem filterMap_toF {l : List Name} {A B : Std.HashMap Name CEntry}
+    (h : ∀ x ∈ l, (A[x]?).map (·.toCEntryF) = (B[x]?).map (·.toCEntryF)) :
+    (l.filterMap (A[·]?)).map (·.toCEntryF) = (l.filterMap (B[·]?)).map (·.toCEntryF) := by
+  induction l with
+  | nil => rfl
+  | cons x l ih =>
+    have hx := h x List.mem_cons_self
+    have ih' := ih (fun y hy => h y (List.mem_cons_of_mem _ hy))
+    simp only [List.filterMap_cons]
+    cases ha : A[x]? <;> cases hb : B[x]? <;> rw [ha, hb] at hx <;> simp at hx
+    · exact ih'
+    · simp only [List.map_cons, ih', hx]
+
+theorem blockCtors_toF {A B : Merged} :
+    ∀ {tA tB : List CEntry}, tA.map (·.toCEntryF) = tB.map (·.toCEntryF) →
+      (∀ b ∈ tB, ∀ y np ni all cs nn ir iu irf, b.kind = .induct np ni all cs nn ir iu irf → y ∈ cs →
+        (A.map[y]?).map (·.toCEntryF) = (B.map[y]?).map (·.toCEntryF)) →
+      (Olean.blockCtors A tA).map (·.toCEntryF) = (Olean.blockCtors B tB).map (·.toCEntryF)
+  | [], [], _, _ => rfl
+  | x :: tA, y :: tB, he, hc => by
+    simp only [List.map_cons, List.cons.injEq] at he
+    have ih := blockCtors_toF (A := A) (B := B) he.2
+      (fun b hb => hc b (List.mem_cons_of_mem _ hb))
+    simp only [Olean.blockCtors, List.flatMap_cons, List.map_append] at ih ⊢
+    have hk : x.kind = y.kind := by rw [show x.kind = x.toCEntryF.kind from rfl, he.1]
+    rw [ih, hk]
+    congr 1
+    cases hyk : y.kind with
+    | induct np ni all cs nn ir iu irf =>
+      exact filterMap_toF (fun z hz => hc y List.mem_cons_self z np ni all cs nn ir iu irf hyk hz)
+    | _ => rfl
+  | [], _ :: _, he, _ => by simp at he
+  | _ :: _, [], he, _ => by simp at he
+
+theorem recAt_loc {x : Name} {l l' : Nat} {k : CKindF Name Unit} (h : recAt x l k = some l') : l' = l := by
+  unfold recAt at h
+  split at h
+  · split at h
+    · exact (Option.some.inj h).symm
+    · cases h
+  · cases h
+
+/-- A location `groupRecLocs` gives is a recursor position of the part. -/
+theorem groupRecLocs_pos {r : Region} {t : NamePositions} {rb : Std.HashMap Name (Array Nat)}
+    (hrb : recBlocksAt r t = some rb) {all : List Name} {l : Nat} (hl : l ∈ groupRecLocs rb all) :
+    ∃ q ∈ t.consts, q.tag = 7 ∧ q.loc = l := by
+  simp only [groupRecLocs] at hl
+  cases hh : all.head? with
+  | none => simp [hh] at hl
+  | some a0 =>
+    simp only [hh, Option.bind_some] at hl
+    rw [(recBlocksAt_spec hrb a0).2] at hl
+    obtain ⟨l', hl', hsel⟩ := List.mem_filterMap.1 hl
+    obtain ⟨k, -, hk⟩ := Option.bind_eq_some_iff.1 hsel
+    obtain rfl := recAt_loc hk
+    obtain ⟨q', hq', rfl⟩ := List.mem_map.1 hl'
+    obtain ⟨hq'', h7⟩ := Array.mem_filter.1 (Array.mem_toList_iff.1 hq')
+    exact ⟨q', hq'', by simpa using h7, rfl⟩
+
+/-- **Every group read from module `h`'s private part presents one of `h`'s own records**: it
+is, constant by constant and in the block's order, the record `h`'s emission built of that
+group. -/
+theorem groups_present {sp : SearchPath} {fs : FS} {h : Name} {jobs : Nat} {w : WorkerRead}
+    (hw : WorkerFacts sp fs h jobs w) : GroupsPresent sp fs h w := by
+  intro n d hgr
+  obtain ⟨t, q, tE, np, ni, nn, all, cs, ir, iu, irf, mqs, cqs, tys, rest, t', rb, r₁, r₂, r₃, r₄,
+    ht, hq, hr₁, htE, hk, hmqs, hr₂, htys, hcqs, ht', hr₃, hrb, hr₄, hrest, hd⟩ := hgr
+  obtain ⟨f, r, a, sk, skels, hf, hreg, hsk, hskels, hcn, hcv, hload, hN, hO, hb, hem, hown⟩ :=
+    home_records hw
+  have hR : PartRegion sp fs ⟨h, .private⟩ r := ⟨f, a, hf, hreg⟩
+  obtain rfl := partRegion_unique hf hR hr₁
+  obtain rfl := partRegion_unique hf hR hr₂
+  obtain rfl := partRegion_unique hf hR hr₃
+  obtain rfl := partRegion_unique hf hR hr₄
+  have hT := home_table hf hreg ht
+  obtain rfl : t = t' := by
+    have := home_table hf hreg ht'
+    rw [hT] at this
+    exact Option.some.inj this
+  -- the positions read
+  obtain ⟨hqt, hqn⟩ := lookTable_mem hq
+  have hEn : tE.name = n := by rw [(entry_at_pos hT hqt htE).1, hqn]
+  have hereLook : ∀ {l : List Name} {qs : List NamePosition}, l.mapM ((lookTable t)[·]?) = some qs →
+      ∀ q' ∈ qs, q' ∈ t.consts ∧ q'.name ∈ l := by
+    intro l qs h q' hq'
+    obtain ⟨y, hy, hyq⟩ := mapM_mem_inv h hq'
+    obtain ⟨h1, h2⟩ := lookTable_mem hyq
+    exact ⟨h1, h2 ▸ hy⟩
+  have hereTys : ∀ e ∈ tys, Here r t e ∧ e.name ∈ all := by
+    intro e he
+    obtain ⟨l, hl, hle⟩ := mapM_mem_inv htys he
+    obtain ⟨q', hq', rfl⟩ := List.mem_map.1 hl
+    obtain ⟨h1, h2⟩ := hereLook hmqs q' hq'
+    exact ⟨⟨q', h1, hle⟩, (entry_at_pos hT h1 hle).1 ▸ h2⟩
+  obtain ⟨restC, restR, hrestC, hrestR, rfl⟩ := mapM_append_inv hrest
+  have hereC : ∀ e ∈ restC, Here r t e ∧ e.name ∈ groupCtorNames tys := by
+    intro e he
+    obtain ⟨l, hl, hle⟩ := mapM_mem_inv hrestC he
+    obtain ⟨q', hq', rfl⟩ := List.mem_map.1 hl
+    obtain ⟨h1, h2⟩ := hereLook hcqs q' hq'
+    exact ⟨⟨q', h1, hle⟩, (entry_at_pos hT h1 hle).1 ▸ h2⟩
+  have hereR : ∀ e ∈ restR, Here r t e ∧ e.kind.tag = 7 := by
+    intro e he
+    obtain ⟨l, hl, hle⟩ := mapM_mem_inv hrestR he
+    obtain ⟨q', hq', h7, rfl⟩ := groupRecLocs_pos hrb hl
+    exact ⟨⟨q', hq', hle⟩, by rw [(entry_at_pos hT hq' hle).2.1, h7]⟩
+  -- the reach's merge
+  obtain ⟨P, hgm, hP⟩ : ∃ P : CEntryF Name Expr → Bool,
+      groupMerged tE tys (restC ++ restR) all =
+        mergedOfList ((tE :: tys ++ (restC ++ restR).filter P).map CEntry.ofF) ∧
+      ∀ e : CEntryF Name Expr, ∀ all' np ni nmo nmi rules k iu,
+        e.kind = .recur all' np ni nmo nmi rules k iu → P e = (all' == all) :=
+    ⟨_, rfl, fun e all' np ni nmo nmi rules k iu hk => by simp only [hk]⟩
+  rw [hgm] at hd
+  generalize hLR : (tE :: tys ++ (restC ++ restR).filter P).map CEntry.ofF = LR at hd
+  have hLRmem : ∀ e ∈ LR, e = CEntry.ofF e.toCEntryF ∧ (e.toCEntryF = tE ∨ e.toCEntryF ∈ tys ∨
+      (e.toCEntryF ∈ restC ∧ P e.toCEntryF = true) ∨ (e.toCEntryF ∈ restR ∧ P e.toCEntryF = true)) := by
+    intro e he
+    rw [← hLR] at he
+    obtain ⟨e0, he0, rfl⟩ := List.mem_map.1 he
+    refine ⟨rfl, ?_⟩
+    simp only [List.cons_append, List.mem_cons, List.mem_append, List.filter_append,
+      List.mem_filter] at he0
+    rcases he0 with rfl | he0 | ⟨he0, hp⟩ | ⟨he0, hp⟩
+    · exact .inl rfl
+    · exact .inr (.inl he0)
+    · exact .inr (.inr (.inl ⟨he0, hp⟩))
+    · exact .inr (.inr (.inr ⟨he0, hp⟩))
+  have hereLR : ∀ e ∈ LR, Here r t e.toCEntryF := by
+    intro e he
+    rcases (hLRmem e he).2 with h0 | h0 | ⟨h0, -⟩ | ⟨h0, -⟩
+    · rw [h0]; exact ⟨q, hqt, htE⟩
+    · exact (hereTys _ h0).1
+    · exact (hereC _ h0).1
+    · exact (hereR _ h0).1
+  have uniqLR : ∀ a ∈ LR, ∀ b ∈ LR, a.name = b.name → a = b := by
+    intro a ha b hb hab
+    rw [(hLRmem a ha).1, (hLRmem b hb).1, here_unique hT (hereLR a ha) (hereLR b hb) hab]
+  have hmapR : ∀ {x : Name} {m : CEntry}, (mergedOfList LR).map[x]? = some m → m ∈ LR ∧ m.name = x :=
+    fun {x m} h => ⟨(mergedOfList_spec LR).2.1 x m h, mergedOfList_names LR x m h⟩
+  have hstoreR : ∀ e ∈ LR, (mergedOfList LR).map[e.name]? = some e := by
+    intro e he
+    have hc := (mergedOfList_spec LR).2.2 e he
+    rw [Std.HashMap.contains_eq_isSome_getElem?] at hc
+    obtain ⟨m, hm⟩ := Option.isSome_iff_exists.1 hc
+    obtain ⟨hm1, hm2⟩ := hmapR hm
+    rw [hm, uniqLR m hm1 e he hm2]
+  have hheadR : (mergedOfList LR).map[n]? = some (CEntry.ofF tE) := by
+    rw [← hEn, ← hLR]
+    exact mergedOfList_head _ _
+  -- the reach's record, and what its validation says
+  obtain ⟨tysR, ctorsR, recsR, ts, cts, rcs, hparts, hdR, g1, g2, g3⟩ := groupRecord_res hd
+  obtain ⟨tysR', ctorsR', recsR', hparts', hval⟩ := groupRecord_valid hd
+  rw [hparts] at hparts'
+  obtain ⟨rfl, rfl, rfl⟩ : tysR = tysR' ∧ ctorsR = ctorsR' ∧ recsR = recsR' := by
+    simpa using hparts'
+  have hkE : (CEntry.ofF tE).kind = .induct np ni all cs nn ir iu irf := hk
+  obtain ⟨rfl, rfl, rfl⟩ : tysR = blockTys (mergedOfList LR) all ∧
+      ctorsR = Olean.blockCtors (mergedOfList LR) (blockTys (mergedOfList LR) all) ∧
+      recsR = Olean.blockRecs (mergedOfList LR) (recMapOf (mergedOfList LR)) n := by
+    simp only [groupParts, hheadR, hkE, Option.some.injEq, Prod.mk.injEq] at hparts
+    exact ⟨hparts.1.symm, hparts.2.1.symm, hparts.2.2.symm⟩
+  have hvalN := hval n List.mem_cons_self
+  have hval' : ∀ e ∈ blockTys (mergedOfList LR) all ++
+      Olean.blockCtors (mergedOfList LR) (blockTys (mergedOfList LR) all) ++
+      Olean.blockRecs (mergedOfList LR) (recMapOf (mergedOfList LR)) n,
+      blockStep (mergedOfList LR) e.name = .ok () :=
+    fun e he => hval e.name (List.mem_cons_of_mem _ (List.mem_map_of_mem he))
+  obtain ⟨hnall, hmem, -⟩ := blockStep_ind hheadR ⟨_, _, _, _, _, _, hkE⟩ hvalN
+  -- no unsafe type
+  have hsafe : (CEntry.ofF tE).skipped = false := by
+    have hin : CEntry.ofF tE ∈ (blockTys (mergedOfList LR) all).filter (·.kind.tag == 5) :=
+      List.mem_filter.2 ⟨List.mem_filterMap.2 ⟨n, hnall, hheadR⟩, by simp [hkE, CKindF.tag]⟩
+    obtain ⟨t0, ht0, ⟨-, ni', all', cs', nn', ir', irf', hk0, -⟩⟩ := Forall₂.mem_right g1 _ hin
+    have hu : t0.isUnsafe = false := by
+      have := declOfF_ind_safe hdR
+      rw [List.any_eq_false] at this
+      simpa using this t0 ht0
+    rw [hkE] at hk0
+    obtain ⟨-, -, -, -, -, -, rfl, -⟩ := CKindF.induct.inj hk0
+    simp [CEntry.skipped, hkE, CKindF.skipped, hu]
+  -- the members, and their constructors
+  have hmemb : ∀ x ∈ all, ∃ m cs', (mergedOfList LR).map[x]? = some m ∧ IsInd m all cs' ∧
+      m.skipped = false ∧ ∀ y ∈ cs', ∃ m', (mergedOfList LR).map[y]? = some m' ∧ IsCtor m' x ∧
+        m'.skipped = false := by
+    intro x hx
+    obtain ⟨m, cs', hm, him, hms⟩ := hmem x hx
+    have hmx := (hmapR hm).2
+    have hs := hval' m (List.mem_append_left _ (List.mem_append_left _
+      (List.mem_filterMap.2 ⟨x, hx, hm⟩)))
+    rw [hmx] at hs
+    obtain ⟨-, -, hc⟩ := blockStep_ind hm him hs
+    refine ⟨m, cs', hm, him, hms.trans hsafe, fun y hy => ?_⟩
+    obtain ⟨m', hm', hic, hs'⟩ := hc y hy
+    exact ⟨m', hm', hic, hs'.trans (hms.trans hsafe)⟩
+  have hndR : (mergedOfList LR).order.toList.Nodup := by
+    obtain ⟨hoR, -⟩ := mergedOfList_firsts LR {} [] (by simp) (by simp)
+    have hoR' : (mergedOfList LR).order.toList = (firstsGo [] LR).map (·.name) := hoR
+    rw [hoR']
+    exact firstsGo_nodup LR [] (by simp)
+  -- the home's merge
+  have hG := blocksOk_good hb hO
+  have hrow := home_rows hload hreg hT
+  have hcnames : t.consts.toList.map (·.name) = w.home.constants.toList.map (·.name) :=
+    map_forall₂ (fun q e ⟨s, _, hsn, _, _, hE⟩ => by
+      have := (lazyEntry_stmt hE).1
+      rw [hsn] at this
+      exact Option.some.inj this) hrow
+  have hndC : (w.home.constants.toList.map (·.name)).Nodup := by
+    obtain ⟨-, -, hnd, -⟩ := namePositionsAt_mem hT
+    rw [← hcnames]; exact hnd
+  have hndH : ((w.home.constants.toList.filter (!·.skipped)).map (·.name)).Nodup :=
+    hndC.sublist ((List.filter_sublist).map _)
+  have hfirstsH : firstsGo [] (w.home.constants.toList.filter (!·.skipped)) =
+      w.home.constants.toList.filter (!·.skipped) := firstsGo_nodup_eq _ [] (by simpa using hndH)
+  obtain ⟨hoH, hmH⟩ := mergedOfList_firsts (w.home.constants.toList.filter (!·.skipped)) {} []
+    (by simp) (by simp)
+  have hndO : (homeMerged w).order.toList.Nodup := by
+    have : (homeMerged w).order.toList =
+        (firstsGo [] (w.home.constants.toList.filter (!·.skipped))).map (·.name) := hoH
+    rw [this, hfirstsH]; exact hndH
+  have hstoreH : ∀ e ∈ w.home.constants.toList.filter (!·.skipped),
+      (homeMerged w).map[e.name]? = some e := by
+    intro e he
+    have : (homeMerged w).map[e.name]? =
+        (firstsGo [] (w.home.constants.toList.filter (!·.skipped))).find? (·.name == e.name) := hmH _
+    rw [this, hfirstsH]
+    exact find?_self hndH he
+  have hlook : ∀ e ∈ LR, e.skipped = false → e.kind.tag ≠ 2 →
+      ∃ eH, (homeMerged w).map[e.name]? = some eH ∧ eH.toCEntryF = e.toCEntryF :=
+    fun e he hs ht2 => home_lookup hsk hT hown (hereLR e he) hs ht2
+  obtain ⟨cH, hcH, hcHE⟩ := hlook _ (hmapR hheadR).1 hsafe (by simp [hkE, CKindF.tag])
+  have hcHn : (homeMerged w).map[n]? = some cH := by rw [← (hmapR hheadR).2]; exact hcH
+  have hcHk : cH.kind = .induct np ni all cs nn ir iu irf := by
+    rw [show cH.kind = cH.toCEntryF.kind from rfl, hcHE]; exact hkE
+  have hcHs : cH.skipped = false := by
+    rw [show cH.skipped = cH.toCEntryF.kind.skipped from rfl, hcHE]; exact hsafe
+  obtain ⟨p, hpmem, tsH, ctsH, rsH, hpd, h1, h2, h3⟩ :=
+    home_group hG hN hO hndO hem hcHn ⟨_, _, _, _, _, _, hcHk⟩ hcHs
+  -- the members and constructors, constant by constant
+  have e1 : (blockTys (homeMerged w) all).map (·.toCEntryF) =
+      (blockTys (mergedOfList LR) all).map (·.toCEntryF) := by
+    refine filterMap_toF (fun x hx => ?_)
+    obtain ⟨m, cs', hm, ⟨_, _, _, _, _, _, hmk⟩, hms, -⟩ := hmemb x hx
+    obtain ⟨eH, heH, heHm⟩ := hlook m (hmapR hm).1 hms (by simp [hmk, CKindF.tag])
+    rw [(hmapR hm).2] at heH
+    rw [heH, hm]
+    simp [heHm]
+  have e2 : (Olean.blockCtors (homeMerged w) (blockTys (homeMerged w) all)).map (·.toCEntryF) =
+      (Olean.blockCtors (mergedOfList LR) (blockTys (mergedOfList LR) all)).map (·.toCEntryF) := by
+    refine blockCtors_toF e1 (fun b hb y np' ni' all' cs' nn' ir' iu' irf' hbk hy => ?_)
+    obtain ⟨x, hx, hxb⟩ := List.mem_filterMap.1 hb
+    obtain ⟨m, csm, hm, him, -, hctor⟩ := hmemb x hx
+    rw [hxb] at hm; cases hm
+    obtain ⟨-, rfl⟩ := IsInd.unique him ⟨_, _, _, _, _, _, hbk⟩
+    obtain ⟨m', hm', ⟨_, _, _, _, hm'k⟩, hm's⟩ := hctor y hy
+    obtain ⟨eH, heH, heHm⟩ := hlook m' (hmapR hm').1 hm's (by simp [hm'k, CKindF.tag])
+    rw [(hmapR hm').2] at heH
+    rw [heH, hm']
+    simp [heHm]
+  -- the recursors
+  have hrecR : ∀ e ∈ restR.filter P, ∃ all' np ni nmo nmi rules k iu,
+      e.kind = .recur all' np ni nmo nmi rules k iu ∧ all' = all := by
+    intro e he
+    obtain ⟨he, hp⟩ := List.mem_filter.1 he
+    have h7 := (hereR e he).2
+    rcases hke : e.kind with _ | _ | _ | _ | _ | _ | _ | ⟨all', np', ni', nmo, nmi, rules, kk, iu'⟩
+    all_goals try (rw [hke] at h7; simp [CKindF.tag] at h7)
+    refine ⟨all', np', ni', nmo, nmi, rules, kk, iu', rfl, ?_⟩
+    rw [hP e _ _ _ _ _ _ _ _ hke] at hp
+    simpa using hp
+  have hvalR : ∀ e ∈ restR.filter P, e.kind.skipped = false := by
+    intro e he
+    obtain ⟨all', np', ni', nmo, nmi, rules, kk, iu', hke, hall'⟩ := hrecR e he
+    rw [hall'] at hke
+    have hLRe : CEntry.ofF e ∈ LR := by
+      rw [← hLR]
+      exact List.mem_map_of_mem (by simp [List.filter_append, he])
+    have hst := hstoreR _ hLRe
+    have hinR : CEntry.ofF e ∈ Olean.blockRecs (mergedOfList LR) (recMapOf (mergedOfList LR)) n := by
+      rw [blockRecs_order _ hndR]
+      refine List.mem_filterMap.2 ⟨e.name, List.mem_filter.2 ⟨?_, ?_⟩, hst⟩
+      · exact Array.mem_toList_iff.2 (((mergedOfList_spec LR).1 _).2 ((mergedOfList_spec LR).2.2 _ hLRe))
+      · have hk2 : (CEntry.ofF e).kind = .recur all np' ni' nmo nmi rules kk iu' := hke
+        rw [show e.name = (CEntry.ofF e).name from rfl, hst]
+        simp only [Option.any_some, recUnder, hk2]
+        simpa using hnall
+    have hs := hval' _ (List.mem_append_right _ hinR)
+    obtain ⟨t0, rest0, m, csm, hall, hm, -, hms⟩ :=
+      blockStep_recur hst ⟨_, _, _, _, _, _, _, hke⟩ hs
+    obtain ⟨m', cs', hm', -, hm's, -⟩ := hmemb t0 (by rw [hall]; exact List.mem_cons_self)
+    rw [hm] at hm'; cases hm'
+    have : (CEntry.ofF e).skipped = false := hms ▸ hm's
+    exact this
+  have hhome : ∀ e ∈ w.home.constants.toList, e.skipped = false → ∀ all' np ni nmo nmi rules k iu,
+      e.kind = .recur all' np ni nmo nmi rules k iu → n ∈ all' → all' = all := by
+    intro e he hes all' np' ni' nmo nmi rules kk iu' hke hn
+    have hst := hstoreH e (List.mem_filter.2 ⟨he, by simp [hes]⟩)
+    obtain ⟨t0, rest0, m, csm, rfl, hm, him, -⟩ := hG.recur hst ⟨_, _, _, _, _, _, _, hke⟩
+    obtain ⟨m', cs', hm', him', -⟩ := (hG.ind hm him).2.1 n hn
+    rw [hcHn] at hm'; cases hm'
+    exact (IsInd.unique him' ⟨_, _, _, _, _, _, hcHk⟩).1
+  have hsame := recs_same hT hrow hnall hrb hrestR P hP hvalR hhome
+  -- the reach's merge lists the recursors it read, in their order
+  have hnotRec : ∀ y ∈ tE :: tys ++ restC.filter P, recUnder n (CEntry.ofF y) = false := by
+    have ofInd : ∀ y : CEntryF Name Expr, ∀ np ni all cs nn ir iu irf,
+        y.kind = .induct np ni all cs nn ir iu irf → recUnder n (CEntry.ofF y) = false := by
+      intro y _ _ _ _ _ _ _ _ hy
+      have : (CEntry.ofF y).kind = _ := hy
+      simp only [recUnder, this]
+    intro y hy
+    simp only [List.cons_append, List.mem_cons, List.mem_append, List.mem_filter] at hy
+    rcases hy with rfl | hy | ⟨hy, hp⟩
+    · exact ofInd _ _ _ _ _ _ _ _ _ hk
+    · obtain ⟨-, hya⟩ := hereTys y hy
+      obtain ⟨m, csm, hm, ⟨_, _, _, _, _, _, hmk⟩, -, -⟩ := hmemb y.name hya
+      have hLRy : CEntry.ofF y ∈ LR := by rw [← hLR]; exact List.mem_map_of_mem (by simp [hy])
+      rw [show y.name = (CEntry.ofF y).name from rfl, hstoreR _ hLRy] at hm
+      cases hm
+      exact ofInd _ _ _ _ _ _ _ _ _ hmk
+    · obtain ⟨-, hyc⟩ := hereC y hy
+      obtain ⟨ty, hty, hyty⟩ := List.mem_flatMap.1 hyc
+      split at hyty
+      · rename_i np' ni' all' cst nn' ir' iu' irf' htyk
+        obtain ⟨-, htya⟩ := hereTys ty hty
+        obtain ⟨m, csm, hm, him, -, hctor⟩ := hmemb ty.name htya
+        have hLRt : CEntry.ofF ty ∈ LR := by rw [← hLR]; exact List.mem_map_of_mem (by simp [hty])
+        rw [show ty.name = (CEntry.ofF ty).name from rfl, hstoreR _ hLRt] at hm
+        cases hm
+        obtain ⟨-, rfl⟩ := IsInd.unique him ⟨_, _, _, _, _, _, htyk⟩
+        obtain ⟨m', hm', ⟨_, _, _, _, hm'k⟩, -⟩ := hctor y.name hyty
+        have hLRy : CEntry.ofF y ∈ LR := by
+          rw [← hLR]; exact List.mem_map_of_mem (by simp [List.filter_append, hy, hp])
+        rw [show y.name = (CEntry.ofF y).name from rfl, hstoreR _ hLRy] at hm'
+        cases hm'
+        simp only [recUnder, hm'k]
+      · cases hyty
+  have hLRrec : LR.filter (recUnder n) = (restR.filter P).map CEntry.ofF := by
+    have hLRl : LR = ((tE :: tys ++ restC.filter P) ++ restR.filter P).map CEntry.ofF := by
+      rw [← hLR, List.filter_append]; simp
+    rw [hLRl, List.filter_map, List.filter_append, List.map_append]
+    rw [List.filter_eq_nil_iff.2 (fun y hy => by simpa using hnotRec y hy), List.map_nil,
+      List.nil_append, List.filter_eq_self.2 (fun y hy => by
+        obtain ⟨all', np', ni', nmo, nmi, rules, kk, iu', hke, hall'⟩ := hrecR y hy
+        have hk2 : (CEntry.ofF y).kind = .recur all' np' ni' nmo nmi rules kk iu' := hke
+        simp only [Function.comp, recUnder, hk2, hall']
+        simpa using hnall)]
+  have hndHR : ((((w.home.constants.toList.filter (!·.skipped)).filter (recUnder n)).map
+      (·.toCEntryF)).map (·.name)).Nodup := by
+    rw [List.map_map]
+    exact hndH.sublist ((List.filter_sublist).map _)
+  have hRR : Olean.blockRecs (mergedOfList LR) (recMapOf (mergedOfList LR)) n =
+      (restR.filter P).map CEntry.ofF := by
+    rw [blockRecs_mergedOfList, firstsGo_filter _ LR [] (by simpa using uniqLR), List.filter_nil,
+      hLRrec]
+    refine firstsGo_nodup_eq _ [] ?_
+    rw [List.nil_append, List.map_map]
+    have : (restR.filter P).map ((·.name) ∘ CEntry.ofF) = (restR.filter P).map (·.name) := rfl
+    rw [this, ← hsame]
+    exact hndHR
+  have hRH : Olean.blockRecs (homeMerged w) (recMapOf (homeMerged w)) n =
+      (w.home.constants.toList.filter (!·.skipped)).filter (recUnder n) := by
+    rw [show homeMerged w = mergedOfList _ from rfl, blockRecs_mergedOfList, hfirstsH]
+  have e3 : (Olean.blockRecs (homeMerged w) (recMapOf (homeMerged w)) n).map (·.toCEntryF) =
+      (Olean.blockRecs (mergedOfList LR) (recMapOf (mergedOfList LR)) n).map (·.toCEntryF) := by
+    have hof : ∀ l : List (CEntryF Name Expr), (l.map CEntry.ofF).map (·.toCEntryF) = l := by
+      intro l; induction l with
+      | nil => rfl
+      | cons x l ih => simp only [List.map_cons, ih]; rfl
+    rw [hRH, hRR, hof, hsame]
+  refine ⟨p, hpmem, ?_⟩
+  rw [← block_same hpd h1 h2 h3 hdR g1 g2 g3 e1 e2 e3]
+  exact Presents.refl _
