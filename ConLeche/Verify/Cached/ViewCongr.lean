@@ -1244,17 +1244,6 @@ section Decls
 
 variable {mode : CheckMode}
 
-theorem RelRun.foldlM_push {α : Type} {f : FEnv → α → CheckCM FEnv}
-    (hf : ∀ fe₁ fe₂, Twin fe₁ fe₂ → ∀ a, RelRun (PushedFrom fe₁ fe₂) (f fe₁ a) (f fe₂ a)) :
-    ∀ (l : List α) {fe₁ fe₂ : FEnv}, Twin fe₁ fe₂ →
-      RelRun (PushedFrom fe₁ fe₂) (l.foldlM f fe₁) (l.foldlM f fe₂)
-  | [], _, _, _ => RelRun.pure (PushedFrom.refl _ _)
-  | a :: l, fe₁, fe₂, ht => by
-    simp only [List.foldlM_cons]
-    refine RelRun.bind_push ht (hf fe₁ fe₂ ht a) fun L Q htL => ?_
-    exact RelRun.mono (RelRun.foldlM_push hf l htL) fun _ _ h =>
-      PushedFrom.trans ⟨L, Q, rfl, rfl⟩ h
-
 theorem checkQuotRecordC_twin {fe₁ fe₂ : FEnv} (ht : Twin fe₁ fe₂) (k : QuotKind)
     (cv : ConstantVal) :
     RelRun (PushedFrom fe₁ fe₂) (checkQuotRecordC fe₁ k cv) (checkQuotRecordC fe₂ k cv) := by

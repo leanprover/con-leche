@@ -46,8 +46,8 @@ theorem RecCtorsStored.empty : RecCtorsStored Env.empty := by
 W5): the facts the direct install establishes syntactically for every
 entry of the table it stores, and which the readings' consumers need
 with no environment record beyond `ProjOkT` — the former, its
-recursor and the constructor are unreserved names (the recogniser's
-own guards, so a tower entry never sits at a pinned basis family);
+recursor and the constructor are unreserved names (the reserved names'
+check, so a tower entry never sits at a pinned basis family);
 the index is in range; the former is stored as an inductive and the
 constructor as a constructor at the entry's own arities and level
 parameters.  (Task #175 S1: the entry carries a *body*, not a type;

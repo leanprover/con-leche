@@ -1265,10 +1265,10 @@ theorem listConsTyOk_piResult {ci : ConstantInfo} (h : listConsTyOk (some ci) = 
 the block's formers (members `names`, stored as `indInfo`s whose types
 are syntactic telescopes ending in a sort) consed onto a pre-block
 `env`: fresh there, and `envI` agrees with `env` off the members and in
-its tables.  One
-fact about the pre-block environment is needed beyond `EnvWF`, an
-block invariant of the checker's environments: `hBool`: no member is
-named as a `Bool` constructor (`checkBlock`), which the comparisons' fast path produces by name. -/
+its tables.  Beyond `EnvWF`: `hBool`, no member is named as a `Bool` constructor (`checkBlock`),
+which the comparisons' fast path produces by name; `hkN`, the pre-block environment's `Nat` names
+hold their kinds (`NatKinds`); `hresN`, no member takes a reserved name (the reserved names'
+check, `basisNamesOk`), so the `Nat` names are the pre-block environment's. -/
 theorem whnfNamesFree_formers {env envI : Env} (hwf : EnvWF env)
     {formers : List ConstantVal} {names : List Name}
     (hnames : ∀ n, n ∈ names ↔ ∃ cvTb ∈ formers, cvTb.name = n)

@@ -20,8 +20,8 @@ The basis tier's fourth block, and the only one that
   crosses that gap with **`EqLaw`** — the `EnvModelM` field whose
   *supplier* is the `Eq` block, and whose grading half is exactly what
   the reading's `htyOk` row needs.  The field is
-  available at the `Quot` cons because `DeclBasisRun`'s first conjunct
-  puts `Eq` in the prefix.
+  available at the `Quot` cons because `DeclQuotRun`'s slot guard
+  (`quotPredsOk`) puts `Eq` in the prefix.
 
 Everything else is the `BasisBlocks.lean` recipe: five pinned
 towers, five type readings, two `.plain` `RecRuleLaw` rows.  Both
