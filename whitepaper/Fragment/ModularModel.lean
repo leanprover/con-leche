@@ -11,40 +11,48 @@ public import Fragment.ModularSemantics
 
 A development is a graph of modules (`Module`).  Each module checks
 its own declarations against its **context**, an environment it
-assembles from the **views** its imports present, and records for every
-name it uses what declared it (`key`, `Key`, `ModularSemantics.lean`):
-the module that declared it, or, for a proof, its statement; two
-occurrences are **interchangeable** when these agree.  There is no global
-environment and no renaming: every module uses its own names.
+assembles from the **views** its imports present, and says for every
+context name the module it reads it from (`src`).  Two modules may hold
+copies of one name; what the theory asks is that the copies a module
+reads **agree** (`Agrees`): get one set in the models.  There is no
+global environment and no renaming: every module uses its own names.
 
 This file holds what the fragment's instance of the modular interface
 (`ModularInstance.lean`) is made of:
 
+* **proofs are the point** (`ProofsPt`): in the models the argument
+  builds, a definition or an assumption whose type reads as a truth
+  value has the point as its set; a definition's set is its value's,
+  which lies in its type (`defVal_eq_pt`);
+* **the step**: the module's declarations are installed on the
+  context's model (`Checks.blockModel`, the theorems of
+  `Install.lean`), keeping every set of the context and proofs the point;
 * **assembly** (`Assembled C E`): every constant of `C` is, at the
   same name, a constant of a member of the family `E`, or an
   assumption of its type, and lies within the part of that member that
   `C` stores too (`common`);
-* **amalgamation** (`Assembled.model`): models of the family that agree
-  on every name of `C` two members store give a model of `C` — the
-  laws of each constant are those of the member's constant it refines,
-  at names `C` and the member both store;
-* **the step**: the module's declarations are installed on the
-  context's model (`Checks.blockModel`, the theorems of
-  `Install.lean`), every proof its point (`defVal_eq_pt`);
+* **amalgamation** (`Assembled.model`, `Assembled.proofsPt`): models of
+  the family that agree on every name of `C` two members store give a
+  model of `C` — the laws of each constant are those of the member's
+  constant it refines, at names `C` and the member both store;
 * **a closed part of a context** (`Assembled.restrict`, `FromViews.restrict`): a context need not be
   everything a module loads; any part closed under what its constants' laws read is assembled from
   the same views, which is why a module may be checked over the reach of its own declarations;
+* **proofs among copies** (`ProofIn`): the checker's inference, over a
+  part of the context, that a copy's type is a proposition; every model
+  that keeps proofs the point gives such a copy the point
+  (`ProofIn.eq_dflt`), which is how two proofs of one statement agree;
 * **the local checks**, split by who runs them: per home
   (`InterfaceOk`: each view refines the module's own environment), per
   importer (`ImportOk`: the context is assembled from the imports'
-  views, every copy of a context name in a view interchangeable with
-  the module's), and the module's own (`LocalOk`: acceptance, proof
-  flags, what declared its own constants).
+  views, and every copy of a context name in a view agrees with the
+  one the module reads, `ReadsOk`), and the module's own (`LocalOk`:
+  acceptance).
 
 **A module may instead be validated by comparison** (`Compared`): its
-whole own environment is assembled from its imports' views — every
-constant is an import's constant, or an assumption of its type (a
-hole), with one copy of each name.  A challenge compared with its solution is such a module.
+whole own environment is its context, assembled from its imports'
+views — every constant is an import's constant, or an assumption of its
+type (a hole).  A challenge compared with its solution is such a module.
 -/
 
 namespace Fragment
@@ -56,43 +64,64 @@ variable {V : Type u} [IndLib V] [LevelOracle]
 
 /-! ## Proofs denote the point -/
 
-/-- **A declaration of a proposition**: a theorem, or a definition
-whose type the checker finds to be a proposition. -/
-def Decl.IsProof (E : Env) : Decl → Prop
-  | .thm .. => True
-  | .defn _ ci => ∃ s u, Infer E [] ci.type s ∧ Red E [] s (.sort u) ∧ LevelOracle.eq u .zero = true
-  | .ind _ => False
+/-- A proof's set, and the value off the family: the point. -/
+def dflt : List Nat → V := fun _ => pt
 
-/-- **A proof's set is the point**, at every list of levels: the value
-lies in the type, and the type is a truth value. -/
+/-- **A type read as a truth value** under `M`, at every list of levels. -/
+def PropType (M : Name → List Nat → V) (ci : ConstInfo) : Prop :=
+  ∀ ls, interp M (valOf ci.lparams ls) base ci.type ∈ˢ univ 0
+
+/-- **A statement kind**: a definition or an assumption (a theorem's
+statement among them), the kinds two copies of one statement may
+differ in. -/
+def ConstInfo.IsStmt (ci : ConstInfo) : Prop := ci.kind = .assumed ∨ ∃ v, ci.kind = .defn v
+
+/-- **Proofs denote the point**: every constant of a statement kind
+whose type reads as a truth value has the point as its set.  The models
+the modular argument builds keep it. -/
+def ProofsPt (E : Env) (M : Name → List Nat → V) : Prop :=
+  ∀ n ci, E.find? n = some ci → ci.IsStmt → PropType M ci → M n = dflt
+
+/-- **A type inferred to be a proposition reads as a truth value** in
+every model. -/
+theorem PropType.of_infer {E : Env} (m : EnvModel V E) {ci : ConstInfo} {s : Expr} {u : Level}
+    (hT : Infer E [] ci.type s) (hr : Red E [] s (.sort u)) (hu : LevelOracle.eq u .zero = true) :
+    PropType m.M ci := by
+  intro ls
+  obtain ⟨-, hU⟩ := Infer.mem_typeU_of (m := m) (φ := valOf ci.lparams ls)
+    (infer_sound hT) (red_sound hr) (Sat_nil _ _ base)
+  rwa [eval_eq_of_oracle hu, Level.eval, mem_typeU_zero] at hU
+
+omit [LevelOracle] in
+/-- Two assignments agreeing on the constants of a type in scope read
+it alike. -/
+theorem PropType.congr {D : Env} {M M' : Name → List Nat → V} {ci : ConstInfo}
+    (hs : Expr.Scoped D ci.lparams 0 ci.type) (h : AgreeOn D M M') :
+    PropType M ci ↔ PropType M' ci := by
+  have hc : ∀ c ∈ ci.type.consts, ∀ ls, M c ls = M' c ls := fun c hc => h c (hs.2.1 c hc)
+  unfold PropType
+  constructor
+  · intro hp ls; rw [← interp_consts hc]; exact hp ls
+  · intro hp ls; rw [interp_consts hc]; exact hp ls
+
+/-- **A definition's set is the point** where its type reads as a truth
+value: the value lies in the type. -/
 theorem defVal_eq_pt {env : Env} (m : EnvModel V env) {c : Name} {ci : ConstInfo} {v : Expr}
-    (hok : DefOk env c ci) (hk : ci.kind = .defn v)
-    (hp : ∃ s u, Infer env [] ci.type s ∧ Red env [] s (.sort u) ∧ LevelOracle.eq u .zero = true)
+    (hok : DefOk env c ci) (hk : ci.kind = .defn v) (hp : PropType m.M ci)
     (ls : List Nat) : defVal m.M ci v ls = pt := by
   obtain ⟨-, ⟨s₀, u₀, hT, hsu⟩, ⟨v', T, hk', hv, hd, -⟩, -⟩ := hok
   rw [hk] at hk'; cases hk'
-  obtain ⟨s, u, hs, hsr, hu⟩ := hp
   let φ := valOf ci.lparams ls
   have hvsem := infer_sound (m := m) (φ := φ) hv base (Sat_nil _ _ _)
   obtain ⟨hTw, hTmem⟩ := Infer.mem_typeU_of (m := m) (φ := φ)
     (infer_sound hT) (red_sound hsu) (Sat_nil _ _ base)
   have heq := defeq_sound (m := m) (φ := φ) hd base (Sat_nil _ _ _)
     hvsem.2.1 hTw hvsem.2.2.1.ne_pt (IsTy_of_mem_typeU hTmem).ne_pt
-  obtain ⟨-, hU⟩ := Infer.mem_typeU_of (m := m) (φ := φ)
-    (infer_sound hs) (red_sound hsr) (Sat_nil _ _ base)
-  rw [eval_eq_of_oracle hu, Level.eval, mem_typeU_zero] at hU
   have hmem := hvsem.2.2.2
   rw [heq] at hmem
-  exact eq_pt_of_mem_univ_zero hU hmem
+  exact eq_pt_of_mem_univ_zero (hp ls) hmem
 
 /-! ## Installing a checked list -/
-
-/-- **The proof flags of a list**: a flagged name belongs to a
-declaration of a proposition, at the point it is checked. -/
-inductive FlagsOk (p : Name → Bool) : Env → List Decl → Prop
-  | nil {E : Env} : FlagsOk p E []
-  | cons {E : Env} {d : Decl} {ds : List Decl} :
-      (∀ n ∈ d.names, p n = true → d.IsProof E) → FlagsOk p (d.apply E) ds → FlagsOk p E (d :: ds)
 
 omit [IndLib V] [LevelOracle] in
 theorem isSome_find?_apply {E : Env} {n : Name} (h : (E.find? n).isSome) (d : Decl) :
@@ -102,68 +131,112 @@ theorem isSome_find?_apply {E : Env} {n : Name} (h : (E.find? n).isSome) (d : De
   | some e => simp [Env.find?, lookup_append_of_some hl]
   | none => simp only [Env.find?, lookup_append_of_none hl]; exact h
 
+omit [IndLib V] [LevelOracle] in
+theorem isSome_find?_applyAll {E : Env} {n : Name} (h : (E.find? n).isSome) :
+    ∀ ds : List Decl, ((applyAll ds E).find? n).isSome
+  | [] => h
+  | d :: ds => isSome_find?_applyAll (isSome_find?_apply h d) ds
+
+omit [IndLib V] [LevelOracle] in
+/-- A block stores no constant of a statement kind. -/
+theorem ind_stores_not_stmt {S : IndSpec} {n : Name} {e : ConstInfo}
+    (h : (Decl.ind S).stores.lookup n = some e) : ¬ e.IsStmt := by
+  have hm := key_of_lookup h
+  have hC : (S.envCtors Env.empty).consts =
+      (S.ctors.map fun c => (c.name, S.ctorInfo c)).reverse ++ [(S.name, S.indInfo)] :=
+    IndSpec.foldl_add_empty S S.ctors [(S.name, S.indInfo)]
+  simp only [Decl.stores, Decl.apply, IndSpec.install, IndSpec.installN] at hm
+  intro hs
+  cases hn : S.nest <;> simp only [hn, Env.add, hC] at hm <;>
+    simp only [List.mem_cons, List.mem_append, List.mem_reverse, List.mem_map, Prod.mk.injEq] at hm <;>
+    rcases hs with hs | ⟨v, hs⟩ <;>
+    grind [IndSpec.indInfo, IndSpec.ctorInfo, IndSpec.recInfo, IndSpec.recInfoN, IndSpec.rec1Info]
+
 /-- **Installing a checked list preserves having a model**: every
-stored constant keeps its set, and every flagged constant's set is the
-point. -/
+stored constant keeps its set, and proofs stay the point. -/
 theorem Checks.blockModel {E : Env} {ds : List Decl} (hc : Checks E ds) :
-    ∀ (p : Name → Bool), FlagsOk p E ds → Env.Scoped E → ∀ m : BlockModel V E,
+    Env.Scoped E → ∀ m : BlockModel V E, ProofsPt E m.M →
       ∃ m' : BlockModel V (applyAll ds E),
         (∀ n, (E.find? n).isSome → ∀ ls, m'.M n ls = m.M n ls) ∧
-        (∀ d ∈ ds, ∀ n ∈ d.names, p n = true → ∀ ls, m'.M n ls = pt) := by
+        ProofsPt (applyAll ds E) m'.M := by
   induction hc with
-  | nil => intro p _ _ m; exact ⟨m, fun _ _ _ => rfl, fun _ hd => by cases hd⟩
+  | nil => intro _ m hp; exact ⟨m, fun _ _ _ => rfl, hp⟩
   | @cons E d ds hd _ ih =>
-    intro p hp hs m
-    cases hp with
-    | cons hflag hrest =>
-    -- install `d`, with the value of a proof the point
-    obtain ⟨m₁, hag₁, hpt₁⟩ : ∃ m₁ : BlockModel V (d.apply E),
+    intro hs m hp
+    -- an old name keeps its set, and its type its reading
+    have hold : ∀ m₁ : BlockModel V (d.apply E),
+        (∀ n, (E.find? n).isSome → ∀ ls, m₁.M n ls = m.M n ls) →
+        ∀ n ci, d.stores.lookup n = none → (d.apply E).find? n = some ci → ci.IsStmt →
+          PropType m₁.M ci → m₁.M n = dflt := by
+      intro m₁ hag n ci hl hf hk hpt
+      have hE : E.find? n = some ci := by
+        rw [Decl.apply_eq] at hf
+        simpa only [Env.find?, lookup_append_of_none hl] using hf
+      rw [show m₁.M n = m.M n from funext (hag n (by rw [hE]; rfl))]
+      exact hp n ci hE hk ((PropType.congr (hs n ci hE).1 fun c hc ls => hag c hc ls).1 hpt)
+    -- the new name of a definition or a theorem: its set is its value's
+    have hnew : ∀ (m₁ : BlockModel V (d.apply E)) (c : Name) (ci : ConstInfo) (v : Expr),
+        (∀ n, (E.find? n).isSome → ∀ ls, m₁.M n ls = m.M n ls) →
+        d.stores = [(c, ci)] → DefOk E c { ci with kind := .defn v } →
+        (∀ ls, m₁.M c ls = defVal m.M { ci with kind := .defn v } v ls) → ProofsPt (d.apply E) m₁.M := by
+      intro m₁ c ci v hag hst hok hval n ci' hf hk hpt
+      cases hl : d.stores.lookup n with
+      | none => exact hold m₁ hag n ci' hl hf hk hpt
+      | some e =>
+        rw [hst] at hl
+        simp only [List.lookup] at hl
+        split at hl
+        · rename_i hnc
+          cases hl
+          have hnc' : n = c := beq_iff_eq.mp hnc
+          subst hnc'
+          have he : ci' = ci := by
+            rw [Decl.apply_eq, hst] at hf
+            simpa [Env.find?, List.lookup] using hf.symm
+          subst he
+          have hsc := hok.type_scoped
+          have hpt' : PropType m.M { ci' with kind := .defn v } :=
+            (PropType.congr (ci := { ci' with kind := .defn v }) hsc
+              fun c hc ls => hag c hc ls).1 hpt
+          funext ls
+          rw [hval ls]
+          exact defVal_eq_pt m.toEnvModel hok rfl hpt' ls
+        · cases hl
+    obtain ⟨m₁, hag₁, hp₁⟩ : ∃ m₁ : BlockModel V (d.apply E),
         (∀ n, (E.find? n).isSome → ∀ ls, m₁.M n ls = m.M n ls) ∧
-        (∀ n ∈ d.names, p n = true → ∀ ls, m₁.M n ls = pt) := by
+        ProofsPt (d.apply E) m₁.M := by
       cases d with
       | defn c ci =>
         obtain ⟨m₁, hag, hval⟩ := install_def' hs m hd
-        refine ⟨m₁, hag, fun n hn hpn ls => ?_⟩
-        simp only [Decl.names, List.mem_singleton] at hn
-        subst hn
         obtain ⟨v, -, hk, -⟩ := hd.2.2.1
-        rw [hval v hk ls]
-        exact defVal_eq_pt m.toEnvModel hd hk (hflag _ (by simp [Decl.names]) hpn) ls
+        have hci : { ci with kind := .defn v } = ci := by
+          obtain ⟨l, t, k⟩ := ci; simp only at hk; rw [hk]
+        refine ⟨m₁, hag, hnew m₁ c ci v hag rfl (hci ▸ hd) fun ls => ?_⟩
+        rw [hval v hk ls, hci]
       | thm c ci v =>
         obtain ⟨m₁, hag, hval⟩ := install_thm hs m hd
-        refine ⟨m₁, hag, fun n hn _ ls => ?_⟩
-        simp only [Decl.names, List.mem_singleton] at hn
-        subst hn
-        rw [hval ls]
-        exact defVal_eq_pt m.toEnvModel hd.2.1 rfl hd.2.2 ls
+        exact ⟨m₁, hag, hnew m₁ c ci v hag rfl hd.2.1 hval⟩
       | ind S =>
         obtain ⟨m₁, hag⟩ := install_ind_any hs m hd
-        exact ⟨m₁, hag, fun n hn hpn => absurd (hflag n hn hpn) (by simp [Decl.IsProof])⟩
+        refine ⟨m₁, hag, fun n ci hf hk hpt => ?_⟩
+        cases hl : (Decl.ind S).stores.lookup n with
+        | none => exact hold m₁ hag n ci hl hf hk hpt
+        | some e =>
+          have he : ci = e := by
+            rw [Decl.apply_eq] at hf
+            have := lookup_append_of_some (cs := E.consts) hl
+            exact Option.some.inj (hf.symm.trans this)
+          subst he
+          exact absurd hk (ind_stores_not_stmt hl)
     have hs₁ : Env.Scoped (d.apply E) := by
       cases d with
       | defn c ci => exact hs.add_def hd
       | thm c ci v => exact hs.add_thm hd
       | ind S => exact hs.install_any hd
-    obtain ⟨m', hag', hpt'⟩ := ih p hrest hs₁ m₁
-    refine ⟨m', fun n hn ls => (hag' n (isSome_find?_apply hn d) ls).trans (hag₁ n hn ls),
-      fun d' hd' n hn hpn ls => ?_⟩
-    rcases List.mem_cons.mp hd' with rfl | hd'
-    · have hstored : ((d'.apply E).find? n).isSome := by
-        rw [Decl.apply_eq]
-        obtain ⟨e, he⟩ := (d'.mem_names_iff n).mp hn
-        have := lookup_ne_none_of_mem he
-        cases hl : d'.stores.lookup n with
-        | none => exact absurd hl this
-        | some e' => simp [Env.find?, lookup_append_of_some hl]
-      rw [hag' n hstored ls]
-      exact hpt₁ n hn hpn ls
-    · exact hpt' d' hd' n hn hpn ls
+    obtain ⟨m', hag', hp'⟩ := ih hs₁ m₁ hp₁
+    exact ⟨m', fun n hn ls => (hag' n (isSome_find?_apply hn d) ls).trans (hag₁ n hn ls), hp'⟩
 
 /-! ## Assembling an environment from others -/
-
-/-- **A constant's statement**: its level parameters and its type, what
-what a proof records. -/
-abbrev Stmt := List Name × Expr
 
 omit [IndLib V] [LevelOracle] in
 /-- An environment filtered by names: a kept name is looked up as
@@ -228,22 +301,21 @@ def EntryScoped (C E' : Env) (ci : ConstInfo) : Prop :=
 /-- **`C` is assembled from the family `E`**: every constant of `C` is,
 at the same name, the constant of a member or an assumption of its
 type, and lies within the part of that member that `C` stores too; a
-type former stored as such comes with its constructors.  A type former
-may be read as an assumption of its type, and then brings no
-constructors. -/
+type former stored as such comes with its constructors.  An assumption
+stands for statements only: every member's copy of its name is a
+definition or an assumption (`ConstInfo.IsStmt`). -/
 structure Assembled (C : Env) {ι : Type} (E : ι → Env) : Prop where
   le : ∀ n ci, C.find? n = some ci → ∃ i,
     ∃ ci', (E i).find? n = some ci' ∧ ci.Le ci' ∧ EntryScoped (common C (E i)) C ci
   blocks : ∀ n ci nP nI cs S, C.find? n = some ci → ci.kind = .induct nP nI cs S →
     S.nest = none → C.find? S.name = some S.indInfo ∧
       ∀ (j : Nat) (c : CtorSpec), S.ctors[j]? = some c → C.find? c.name = some (S.ctorInfo c)
+  stmt : ∀ n ci, C.find? n = some ci → ci.kind = .assumed → ∀ i ci', (E i).find? n = some ci' →
+    ci'.IsStmt
 
 /-- **Refinement**: `Γ` assembled from `E` alone — every constant of
 `Γ` is `E`'s or an assumption of its type. -/
 def Refines (Γ E : Env) : Prop := Assembled Γ fun _ : Unit => E
-
-/-- A proof's set, and the value off the family: the point. -/
-def dflt : List Nat → V := fun _ => pt
 
 open Classical in
 /-- **The amalgamated assignment**: at a name some member stores, that
@@ -373,6 +445,31 @@ theorem Assembled.model {C : Env} {ι : Type} {E : ι → Env}
         (hdoms ls ps ((S.FitsVals_params_congr hSC hAg ls ps).mpr hp))
 
 
+omit [LevelOracle] in
+/-- **The amalgam keeps proofs the point**: a constant of a statement kind
+of `C` is one of a member's, of the same type, read alike. -/
+theorem Assembled.proofsPt {C : Env} {ι : Type} {E : ι → Env} (h : Assembled C E)
+    (m : (i : ι) → BlockModel V (E i)) (hp : ∀ i, ProofsPt (E i) (m i).M) (MC : Name → List Nat → V)
+    (hmC : ∀ n i, (C.find? n).isSome → ((E i).find? n).isSome → MC n = (m i).M n) :
+    ProofsPt C MC := by
+  intro n ci hf hk hpt
+  obtain ⟨q, ci', hf', hle, hsc⟩ := h.le n ci hf
+  have hk' : ci'.IsStmt := by
+    rcases hle with rfl | ⟨ha, -⟩
+    · exact hk
+    · exact h.stmt n ci hf ha q ci' hf'
+  have hag : AgreeOn (common C (E q)) MC (m q).M := by
+    intro c hc ls
+    obtain ⟨e, he⟩ := Option.isSome_iff_exists.mp hc
+    obtain ⟨h1, h2⟩ := find?_common he
+    rw [hmC c q h2 (by rw [h1]; rfl)]
+  have hpt' : PropType (m q).M ci' := by
+    have := (PropType.congr hsc.1 hag).1 hpt
+    unfold PropType at this ⊢
+    rwa [hle.lparams_eq, hle.type_eq]
+  rw [hmC n q (by rw [hf]; rfl) (by rw [hf']; rfl)]
+  exact hp q n ci' hf' hk' hpt'
+
 /-! ## A closed part of an assembled context
 
 The reach's lemma: a module may be checked over any part of its context that is closed under what
@@ -465,6 +562,8 @@ theorem Assembled.restrict {C C' : Env} {ι : Type} {E : ι → Env} (h : Assemb
       obtain ⟨y, hy⟩ := Option.isSome_iff_exists.mp hs
       rw [hy, ← hx, hsub d y hy]
     exact ⟨hstore _ _ hname' hname, fun j c hc => hstore _ _ (hctors' j c hc) (hctors j c hc)⟩
+  · intro n ci hf hk i ci' hf'
+    exact h.stmt n ci (hsub n ci hf) hk i ci' hf'
 
 omit [IndLib V] [LevelOracle] in
 /-- **An assembled environment is closed.** -/
@@ -481,28 +580,49 @@ theorem Assembled.scoped {C : Env} {ι : Type} {E : ι → Env}
   · obtain ⟨hrhs, cij, -, hE, -⟩ := hsc.2.2.1 nP nM nMin nI rules hk rl hrl
     exact ⟨hrhs.mono (hsub _), by rw [hE]; rfl⟩
 
+/-! ## Proofs among copies -/
+
+/-- **`C` proves `E`'s `n` a proof**: `E` stores `n` as a statement kind,
+of a type in scope of `C` and of `E` that the checker infers at `C` to
+be a proposition. -/
+def ProofIn (C E : Env) (n : Name) : Prop :=
+  ∃ ci, E.find? n = some ci ∧ ci.IsStmt ∧ Expr.Scoped C ci.lparams 0 ci.type ∧
+    Expr.Scoped E ci.lparams 0 ci.type ∧
+    ∃ s u, Infer C [] ci.type s ∧ Red C [] s (.sort u) ∧ LevelOracle.eq u .zero = true
+
+/-- **A proof by `C` is the point** in every model of `E` that keeps
+proofs the point and agrees with a model of `C` on the constants both
+store. -/
+theorem ProofIn.eq_dflt {C E : Env} {n : Name} (h : ProofIn C E n) (mC : EnvModel V C)
+    (M : Name → List Nat → V) (hp : ProofsPt E M)
+    (hag : ∀ c, (C.find? c).isSome → (E.find? c).isSome → mC.M c = M c) : M n = dflt := by
+  obtain ⟨ci, hf, hk, hsC, hsE, s, u, hT, hr, hu⟩ := h
+  have hc : ∀ c ∈ ci.type.consts, ∀ ls, mC.M c ls = M c ls := fun c hc ls => by
+    rw [hag c (hsC.2.1 c hc) (hsE.2.1 c hc)]
+  have hpt : PropType M ci := by
+    intro ls
+    rw [← interp_consts hc]
+    exact PropType.of_infer mC hT hr hu ls
+  exact hp n ci hf hk hpt
+
 /-! ## Modules and their local checks -/
 
 /-- **A module**: its declarations; its **context**, the environment
 they are checked against; the modules it imports; the **views** it
-presents to its importers; what declared each name it uses (`key`: the
-module that declared it, or a proof's statement); and which of its own
-constants it flags as proofs. -/
+presents to its importers; for each context name, the module it is
+read from (`src`); and the order among its context names (`rank`) with,
+per name, the part of the context below it (`part`). -/
 structure Module where
   decls : List Decl
   context : Env
   imports : List Nat
   views : List Env
-  key : Name → Key Stmt
-  proofs : Name → Bool
+  src : Name → Nat
+  rank : Name → Nat
+  part : Name → Env
 
 /-- **A module's own environment**: its context with its declarations. -/
 def Module.own (m : Module) : Env := applyAll m.decls m.context
-
-/-- What declared an own constant of module `i`: its statement for a
-proof, the module itself otherwise. -/
-def Module.ownKey (m : Module) (i : Nat) (n : Name) (ci : ConstInfo) : Key Stmt :=
-  if m.proofs n then .proof (ci.lparams, ci.type) else .home i
 
 /-- **The sources module `i` reads**: every view of each of its
 imports, with the import. -/
@@ -518,14 +638,47 @@ theorem mem_sources {dev : Nat → Module} {i : Nat} {x : Nat × Env} :
   · rintro ⟨j', hj', E', hE', rfl, rfl⟩; exact ⟨hj', hE'⟩
   · rintro ⟨hj, hE⟩; exact ⟨j, hj, E, hE, rfl, rfl⟩
 
-/-- **Assembled from the imports' views, with one copy of each name**:
-`E` is assembled from the views, and every copy of a name of `E` in a
-view is interchangeable with module `i`'s — declared by the same
-module, or a proof of the same statement. -/
+/-- **A proof where the copy comes from**: source `x`'s module proves
+its own `n` a proof, or reads `n` from a module that does. -/
+def ThmAt (dev : Nat → Module) (x : Nat × Env) (n : Name) : Prop :=
+  ProofIn (dev x.1).own (dev x.1).own n ∨
+    ((dev x.1).context.find? n).isSome = true ∧
+      ProofIn (dev ((dev x.1).src n)).own (dev ((dev x.1).src n)).own n
+
+/-- **Source `x`'s copy of `n` is a proof** for module `i`: proved one
+over the part below `n`, or where it comes from. -/
+def ProofSide (dev : Nat → Module) (i : Nat) (n : Name) (x : Nat × Env) : Prop :=
+  ProofIn ((dev i).part n) x.2 n ∨ ThmAt dev x n
+
+/-- **Source `x`'s copy of `n` agrees with the one module `i` reads**:
+`x` is the module `n` is read from; or `x`'s module reads `n` from a
+source of an earlier module that `i` reads too (one copy, through two
+paths); or it and every copy of the module `n` is read from are proofs. -/
+def Agrees (dev : Nat → Module) (i : Nat) (n : Name) (x : Nat × Env) : Prop :=
+  x.1 = (dev i).src n ∨
+    (((dev x.1).context.find? n).isSome = true ∧ ∃ z ∈ sources dev x.1,
+      (z.2.find? n).isSome = true ∧
+      ∃ w ∈ sources dev i, w.1 = z.1 ∧ (w.2.find? n).isSome = true ∧ w.1 < x.1) ∨
+    ProofSide dev i n x ∧
+      ∀ y ∈ sources dev i, y.1 = (dev i).src n → (y.2.find? n).isSome = true →
+        ProofSide dev i n y
+
+/-- **How module `i` reads a context name `n`**: from a source of the
+module it is read from, with an assembled part below it, every source
+storing it agreeing. -/
+structure ReadsOk (dev : Nat → Module) (i : Nat) (n : Name) : Prop where
+  read : ∃ x ∈ sources dev i, x.1 = (dev i).src n ∧ (x.2.find? n).isSome = true
+  part : Assembled ((dev i).part n) (fun x : {x // x ∈ sources dev i} => x.1.2)
+  below : ∀ c, (((dev i).part n).find? c).isSome = true →
+    ((dev i).context.find? c).isSome = true ∧ (dev i).rank c < (dev i).rank n
+  agree : ∀ x ∈ sources dev i, (x.2.find? n).isSome = true → Agrees dev i n x
+
+/-- **Assembled from the imports' views, by agreement**: `E` is
+assembled from the views, and module `i` reads each of its names from
+them, every copy agreeing. -/
 def FromViews (dev : Nat → Module) (i : Nat) (E : Env) : Prop :=
   Assembled E (fun x : {x // x ∈ sources dev i} => x.1.2) ∧
-    ∀ n, (E.find? n).isSome → ∀ x ∈ sources dev i, (x.2.find? n).isSome →
-      (dev i).key n = (dev x.1).key n
+    ∀ n, (E.find? n).isSome = true → ReadsOk dev i n
 
 /-- **The check per home**: every view a module presents refines its
 own environment.  It reads the module alone, and runs once, however
@@ -533,48 +686,40 @@ many modules import it. -/
 def InterfaceOk (dev : Nat → Module) (j : Nat) : Prop := ∀ E ∈ (dev j).views, Refines E (dev j).own
 
 /-- **The check per importer**: the module imports earlier modules, and
-its context is assembled from their views, with one copy of each
-name.  It reads the module and its
-imports' views, never an import's own environment. -/
+its context is assembled from their views, by agreement.  It reads the
+module, its imports' views and how they read their own names, never an
+import's own environment. -/
 structure ImportOk (dev : Nat → Module) (i : Nat) : Prop where
   imports : ∀ j ∈ (dev i).imports, j < i
   reads : FromViews dev i (dev i).context
 
-/-- **The local checks at module `i`**: its interface, its imports, its
-declarations accepted against its context, a constant flagged a proof
-a declaration of a proposition, and every own constant declared by the
-module (or recorded by its statement, if a proof). -/
+/-- **The local checks at module `i`**: its interface, its imports, and
+its declarations accepted against its context. -/
 structure LocalOk (dev : Nat → Module) (i : Nat) : Prop where
   iface : InterfaceOk dev i
   importOk : ImportOk dev i
   checks : Checks (dev i).context (dev i).decls
-  flags : FlagsOk (dev i).proofs (dev i).context (dev i).decls
-  key_own : ∀ d ∈ (dev i).decls, ∀ n ∈ d.names, ∀ ci, (dev i).own.find? n = some ci →
-    (dev i).key n = (dev i).ownKey i n ci
 
-/-- **Validation by comparison**: module `i`'s whole own environment,
-its declarations included, is assembled from its imports' views —
-every constant is an import's, or an assumption of its type — with one
-copy of each name. -/
+/-- **Validation by comparison**: module `i`'s whole own environment is
+its context, assembled from its imports' views by agreement — every
+constant is an import's, or an assumption of its type. -/
 structure Compared (dev : Nat → Module) (i : Nat) : Prop where
   iface : InterfaceOk dev i
-  imports : ∀ j ∈ (dev i).imports, j < i
-  reads : FromViews dev i (dev i).own
+  importOk : ImportOk dev i
+  own : (dev i).own = (dev i).context
 
 /-- **A validated module**: checked, or compared. -/
 def Valid (dev : Nat → Module) (i : Nat) : Prop := LocalOk dev i ∨ Compared dev i
 
 /-! ## Checking over a closed part of the context -/
 
-omit [LevelOracle] in
 /-- **The reach's lemma for a module**: a closed part of a context assembled from the imports'
-views, each constant as the context has it, is assembled from them too, with one copy of each
-name. -/
+views, each constant as the context has it, is assembled from them too, by agreement. -/
 theorem FromViews.restrict {dev : Nat → Module} {i : Nat} {C C' : Env} (h : FromViews dev i C)
     (hsub : ∀ n ci, C'.find? n = some ci → C.find? n = some ci)
     (hcl : ∀ n ci, C'.find? n = some ci → EntryScoped C' C' ci) :
     FromViews dev i C' := by
-  refine ⟨h.1.restrict hsub hcl, fun n hn x hx hxn => h.2 n ?_ x hx hxn⟩
+  refine ⟨h.1.restrict hsub hcl, fun n hn => h.2 n ?_⟩
   obtain ⟨ci, hci⟩ := Option.isSome_iff_exists.mp hn
   rw [hsub n ci hci]; rfl
 

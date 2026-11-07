@@ -592,3 +592,18 @@ info: 'Fragment.modular_statements_hold' depends on axioms: [propext, Classical.
 info: 'Fragment.FromViews.restrict' depends on axioms: [propext, Classical.choice, Quot.sound]
 -/
 #guard_msgs in #print axioms Fragment.FromViews.restrict
+
+/--
+info: 'Fragment.Assembled.proofsPt' depends on axioms: [propext, Classical.choice, Quot.sound]
+-/
+#guard_msgs in #print axioms Fragment.Assembled.proofsPt
+
+/--
+info: 'Fragment.ProofIn.eq_dflt' depends on axioms: [propext, Classical.choice, Quot.sound]
+-/
+#guard_msgs in #print axioms Fragment.ProofIn.eq_dflt
+
+/--
+info: 'Fragment.toDev_valid' depends on axioms: [propext, Classical.choice, Quot.sound]
+-/
+#guard_msgs in #print axioms Fragment.toDev_valid
