@@ -9,6 +9,8 @@ import ConLeche.Verify.Frontend.Olean.Equiv
 import ConLeche.Verify.Frontend.Olean.Lazy
 public import ConLeche.Verify.Frontend.Olean.Emit
 public import ConLeche.Verify.Frontend.Olean.Prefix
+import ConLeche.Verify.Frontend.Prepare
+import ConLeche.Verify.Cached.Fill
 import ConLeche.Verify.Frontend.Olean.Group
 
 /-!
@@ -95,6 +97,132 @@ theorem namePositionsAt_mem {r : Region} {root : UInt64} {t : NamePositions}
     subst hql
     exact ⟨hl, s, hs, hn, rfl, rfl⟩
 
+/-! ## The worker's name index is the snapshot's -/
+
+theorem mapExcept_getElem {α β ε : Type} {f : α → ModelIO (Except ε β)} {fs : FS} :
+    ∀ {xs : List α} {ys : List β}, (mapExcept f xs : ModelIO _) fs (.ok (.ok ys)) →
+      ys.length = xs.length ∧ ∀ (i : Nat) (y : β), ys[i]? = some y →
+        ∃ x, xs[i]? = some x ∧ f x fs (.ok (.ok y))
+  | [], ys, h => by
+    simp only [mapExcept, ModelIO.pure_iff, Except.ok.injEq] at h
+    cases h
+    simp
+  | x :: xs, ys, h => by
+    simp only [mapExcept, ModelIO.bind_ok] at h
+    obtain ⟨a, ha, h⟩ := h
+    rcases a with e | b
+    · simp at h
+    · simp only [ModelIO.bind_ok] at h
+      obtain ⟨c, hc, h⟩ := h
+      rcases c with e | bs
+      · simp at h
+      · simp only [ModelIO.pure_iff, Except.ok.injEq] at h
+        cases h
+        obtain ⟨h1, h2⟩ := mapExcept_getElem hc
+        refine ⟨by simp [h1], fun i y hy => ?_⟩
+        cases i with
+        | zero => simp at hy; subst hy; exact ⟨x, rfl, ha⟩
+        | succ i => exact h2 i y (by simpa using hy)
+
+theorem loadsIndex_spec (order : List Name) {m : Name} {i : Nat}
+    (h : (order.foldl (fun (acc : Std.HashMap Name Nat × Nat) m => (acc.1.insert m acc.2, acc.2 + 1))
+      ({}, 0)).1[m]? = some i) : order[i]? = some m := by
+  suffices H : ∀ (l : List Name) (acc : Std.HashMap Name Nat) (k : Nat),
+      (∀ n j, acc[n]? = some j → order[j]? = some n) → (∀ j (hj : j < l.length), order[k + j]? = some l[j]) →
+      ∀ n j, (l.foldl (fun (acc : Std.HashMap Name Nat × Nat) m => (acc.1.insert m acc.2, acc.2 + 1))
+        (acc, k)).1[n]? = some j → order[j]? = some n from
+    H order ∅ 0 (fun n j h => by rw [Std.HashMap.getElem?_empty] at h; cases h)
+      (fun j hj => by rw [Nat.zero_add]; exact List.getElem?_eq_getElem hj) m i h
+  intro l
+  induction l with
+  | nil => intro acc k h1 _; exact h1
+  | cons x l ih =>
+    intro acc k h1 h2
+    simp only [List.foldl_cons]
+    refine ih _ (k + 1) (fun n j hn => ?_) (fun j hj => ?_)
+    · rw [Std.HashMap.getElem?_insert] at hn
+      split at hn
+      · rename_i he
+        cases hn
+        have := h2 0 (by simp)
+        simp only [Nat.add_zero, List.getElem_cons_zero] at this
+        rw [this, eq_of_beq he]
+      · exact h1 n j hn
+    · have := h2 (j + 1) (by simp; omega)
+      rw [show k + 1 + j = k + (j + 1) by omega, this]
+      simp
+
+/-- **The worker's name index and load order are the snapshot's**: each loaded part's table is
+its module's at its level, and the order names each module where the index says. -/
+theorem workerReads_index {sp : SearchPath} {fs : FS} {m : Name} {jobs : Nat} {wr : WorkerReads}
+    (h : (workerReads (.ofPath sp) m jobs : ModelIO _) fs (.ok (.ok wr))) :
+    (∀ i t, wr.index.parts[i]? = some t →
+      PartNames sp fs ⟨wr.loads.nameAt i, ((wr.loads.flags[i]?).getD default).level⟩ t) ∧
+    (∀ n i, wr.loads.index[n]? = some i → wr.loads.nameAt i = n) := by
+  simp only [workerReads, ModelIO.bind_ok] at h
+  obtain ⟨a, -, h⟩ := h
+  rcases a with e | own
+  · simp at h
+  simp only [ModelIO.bind_ok] at h
+  obtain ⟨b, hb, h⟩ := h
+  rcases b with e | ld
+  · simp at h
+  simp only [ModelIO.bind_ok] at h
+  obtain ⟨c, hc, h⟩ := h
+  rcases c with e | parts
+  · simp at h
+  simp only at h
+  generalize importsModulesOk _ _ _ _ _ = z at h
+  rcases z with e | u
+  · simp at h
+  simp only [ModelIO.bind_ok] at h
+  obtain ⟨d, -, h⟩ := h
+  rcases d with e | infos
+  · simp at h
+  simp only [ModelIO.bind_ok] at h
+  obtain ⟨d, -, h⟩ := h
+  rcases d with e | hinfos
+  · simp at h
+  simp only at h
+  generalize (List.forM _ _ : Except CheckError Unit) = z at h
+  rcases z with e | u
+  · simp at h
+  simp only at h
+  generalize freshOk _ _ _ _ = z at h
+  rcases z with e | u
+  · simp at h
+  simp only [ModelIO.pure_iff, Except.ok.injEq] at h
+  subst h
+  -- the load order and its index
+  have hidx : ∀ n i, ld.index[n]? = some i → ld.nameAt i = n := by
+    intro n i hi
+    simp only [headerFixpoint, OleanReads.ofPath, ModelIO.bind_ok] at hb
+    obtain ⟨st, -, hb⟩ := hb
+    rcases st with e | st
+    · simp at hb
+    simp only [ModelIO.pure_iff, Except.ok.injEq] at hb
+    subst hb
+    simp only [Loads.nameAt]
+    rw [← Array.foldl_toList] at hi
+    rw [← Array.getElem?_toList, loadsIndex_spec st.order.toList hi]
+    rfl
+  refine ⟨fun i t ht => ?_, hidx⟩
+  simp only [nameIndexOf] at ht
+  have hc' : (mapExcept (readPartNames sp) ((ld.order.zip ld.flags).toList.map
+      fun (n, fl) => (n, fl.level)) : ModelIO _) fs (.ok (.ok parts)) := hc
+  obtain ⟨-, hget⟩ := mapExcept_getElem hc'
+  obtain ⟨x, hx, hxr⟩ := hget i t (by simpa using ht)
+  simp only [List.getElem?_map, Array.toList_zip] at hx
+  obtain ⟨⟨n, fl⟩, hz, rfl⟩ := Option.map_eq_some_iff.1 hx
+  rw [List.getElem?_zip_eq_some] at hz
+  obtain ⟨h1, h2⟩ := hz
+  have hn : ld.nameAt i = n := by
+    simp only [Loads.nameAt]; rw [← Array.getElem?_toList, h1]; rfl
+  have hf : ((ld.flags[i]?).getD default) = fl := by
+    rw [← Array.getElem?_toList, h2]; rfl
+  simp only
+  rw [hn, hf]
+  exact hxr
 /-! ## The home's own records -/
 
 /-- **A constant of the merge, no part of a block and not filtered out, is emitted**: among the
@@ -1301,5 +1429,101 @@ theorem recordFrom_presents_nongroup {sp : SearchPath} {fs : FS} {h : Name}
         (by simp [CKindF.tag]) hd
     · obtain ⟨⟨u, hu⟩, -⟩ := hhid cv _ hst
       cases hu
+
+/-! ## Every context record of a worker -/
+
+/-- **Every group read from module `h`'s private part presents one of `h`'s own records**: the
+step of the provenance that task #448 leaves open.  A group record is built by the stream
+reader's builder from the group's constants on a fresh emitter (`groupRecord`), its home's from
+the same constants inside the home's emission; that the builder's verdict does not depend on
+the emitter's tables (`declOfF` of the record `Emit.block` pushes) is not proved. -/
+@[expose] def GroupsPresent (sp : SearchPath) (fs : FS) (h : Name) (w : WorkerRead) : Prop :=
+  ∀ n d, GroupRead sp fs ⟨h, .private⟩ n d → ∃ p ∈ w.emitted, Presents d p
+
+/-- **A record read from module `h` presents one of `h`'s own records**, as the worker at `h`
+emitted them on the same snapshot. -/
+theorem recordFrom_presents {sp : SearchPath} {fs : FS} {d : Declaration} {h : Name} {jobs : Nat}
+    {w : WorkerRead} (hd : RecordFrom sp fs d h) (hw : WorkerFacts sp fs h jobs w)
+    (hg : GroupsPresent sp fs h w) : ∃ p ∈ w.emitted, Presents d p := by
+  obtain ⟨hs, he, hq⟩ := recordFrom_presents_nongroup hw
+  cases hd with
+  | stmt hs' hl hr hst hsk hgk hqk _ hred => exact hs rfl hs' hl hr hst hsk hgk hqk hred
+  | entry hs' hl hr he' hr₀ hst hk hsk hd' => exact he rfl hs' hl hr he' hr₀ hst hk hsk hd'
+  | quot hs' hl hr hst hd' => exact hq rfl hs' hl hr hst hd'
+  | group hgr => exact hg _ _ hgr
+
+theorem Presents.fill {d p : Declaration} (F : Expr → Expr) (h : Presents d p) :
+    Presents d (fillDecl F p) := by
+  rcases h with ⟨h1, h2⟩ | ⟨h1, h2⟩
+  · exact .inl ⟨by rw [declConstants_fillDecl]; exact h1, by rw [declTables_fillDecl]; exact h2⟩
+  · refine .inr ⟨?_, by rw [declConstants_fillDecl]; exact h2⟩
+    rw [h1]
+    cases p <;> rfl
+
+/-- **Every context record of an accepted worker at `M` presents one of its home's own records**:
+the record at position `i` of the context, read from module `h` (`homes[i]`), and, where the worker
+at `h` accepted on the same snapshot, one of `h`'s own records with its theorems' values in place
+(`h`'s `decls` in the development), presented by it (`Presents`).  What `h`'s check of its views
+says of the copy read is `copy_behind`'s. -/
+theorem worker_presented {sp : SearchPath} {fs : FS} {m : Name} {jobs : Nat} {w : WorkerRead}
+    (hw : WorkerFacts sp fs m jobs w) {i : Nat} {d : Declaration} {h : Name}
+    (hd : w.reach.ctx[i]? = some d) (hh : w.reach.homes[i]? = some h)
+    {jobs' : Nat} {w' : WorkerRead} (hw' : WorkerFacts sp fs h jobs' w')
+    (hg : GroupsPresent sp fs h w') :
+    ∃ p ∈ w'.own.toList.map (fillDecl (fillOf sp fs #[⟨h, w'.home.frontier⟩])), Presents d p := by
+  obtain ⟨hparts, hindex⟩ := workerReads_index hw.reads
+  obtain ⟨-, hfrom⟩ := reach_from hparts hindex hw.reach
+  obtain ⟨p, hp, hpr⟩ := recordFrom_presents (hfrom i d h hd hh) hw' hg
+  refine ⟨_, List.mem_map.2 ⟨p, ?_, rfl⟩, Presents.fill _ hpr⟩
+  rw [hw'.own]
+  exact (Frontend.hoistNatOpGround_perm _ _).mem_iff.2 (Array.mem_toList_iff.2 hp)
+
+/-- Every context record has its home. -/
+theorem worker_home {sp : SearchPath} {fs : FS} {m : Name} {jobs : Nat} {w : WorkerRead}
+    (hw : WorkerFacts sp fs m jobs w) {d : Declaration} (hd : d ∈ w.reach.ctx.toList) :
+    ∃ (i : Nat) (h : Name), w.reach.ctx[i]? = some d ∧ w.reach.homes[i]? = some h := by
+  obtain ⟨hparts, hindex⟩ := workerReads_index hw.reads
+  obtain ⟨hsz, -⟩ := reach_from hparts hindex hw.reach
+  obtain ⟨i, hi, rfl⟩ := List.getElem_of_mem hd
+  have hi' : i < w.reach.homes.size := by rw [← hsz]; simpa using hi
+  exact ⟨i, w.reach.homes[i], by simp, by simp⟩
+
+/-! ## The local checks they give -/
+
+/-- **`InterfaceOk` at a module**: in a development whose module `b` has the worker at `hb`'s own
+records, theorems' values in place, as its `decls`, and presents only context records that
+workers on the same snapshot read from `hb`, every presentation presents one of `b`'s own
+records, given that `hb`'s groups do (`GroupsPresent`). -/
+theorem interfaceOk_of_workers {sp : SearchPath} {fs : FS} {hb : Name} {jobs : Nat}
+    {w : WorkerRead} (hw : WorkerFacts sp fs hb jobs w) (hg : GroupsPresent sp fs hb w)
+    (dev : Nat → Module) (b : Nat)
+    (hdecls : (dev b).decls = w.own.toList.map (fillDecl (fillOf sp fs #[⟨hb, w.home.frontier⟩])))
+    (hiface : ∀ e ∈ (dev b).iface, ∃ (M : Name) (jM : Nat) (wM : WorkerRead) (i : Nat),
+      WorkerFacts sp fs M jM wM ∧ wM.reach.ctx[i]? = some e ∧ wM.reach.homes[i]? = some hb) :
+    InterfaceOk dev b := by
+  refine ⟨fun e he => ?_⟩
+  obtain ⟨M, jM, wM, i, hwM, hc, hh⟩ := hiface e he
+  rw [hdecls]
+  exact worker_presented hwM hc hh hw hg
+
+/-- **`ImportOk.presented` at a module**: in a development whose module `i` has the worker at `M`'s
+context as its `ctx`, each context name read from the module its record's home is (`srcOf`,
+`nameOf`), and whose modules present the context records workers read from them, every context
+record is a presentation of the module its names are read from. -/
+theorem presented_of_worker {sp : SearchPath} {fs : FS} {M : Name} {jobs : Nat} {w : WorkerRead}
+    (hw : WorkerFacts sp fs M jobs w) (dev : Nat → Module) (i : Nat)
+    (hctx : (dev i).ctx = w.reach.ctx.toList) (nameOf : Nat → Name)
+    (hsrc : ∀ (j : Nat) (d : Declaration) (h : Name), w.reach.ctx[j]? = some d →
+      w.reach.homes[j]? = some h → ∀ n ∈ declNames d, nameOf ((dev i).src n) = h)
+    (hiface : ∀ (b : Nat) (e : Declaration), (∃ (M' : Name) (j' : Nat) (w' : WorkerRead) (k : Nat),
+      WorkerFacts sp fs M' j' w' ∧ w'.reach.ctx[k]? = some e ∧ w'.reach.homes[k]? = some (nameOf b)) →
+      e ∈ (dev b).iface) :
+    ∀ d ∈ (dev i).ctx, ∀ n ∈ declNames d, d ∈ (dev ((dev i).src n)).iface := by
+  intro d hd n hn
+  rw [hctx] at hd
+  obtain ⟨j, h, hj, hh⟩ := worker_home hw hd
+  refine hiface _ d ⟨M, jobs, w, j, hw, hj, ?_⟩
+  rw [hsrc j d h hj hh n hn]
+  exact hh
 
 end ConLeche.Driver
