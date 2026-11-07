@@ -3,7 +3,6 @@ module
 import ConLeche.Kernel.Level
 import ConLeche.Kernel.ExprOps
 public import ConLeche.Kernel.CoreDefs
-public import ConLeche.Kernel.Error
 
 @[expose] public section
 

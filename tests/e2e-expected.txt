@@ -3207,9 +3207,12 @@
 # `Eq.refl`'s parameter is the motive's.  Rejected, by official as well ("Invalid
 # recursor Eq.rec").
 1 basis_eq_rec_swapped_names_bad.ndjson
-# `Eq.refl.{v}` under `Eq.{w}`.  Rejected, by official as well ("invalid reference
-# to undefined universe level parameter 'v'").
-1 basis_eq_refl_other_name_bad.ndjson
+# `Eq.refl.{v}` under `Eq.{w}`.  Official rejects ("invalid reference to undefined
+# universe level parameter 'v'").  Since task #493 the block takes the uniform route,
+# whose recogniser does not read a constructor at other level parameters than its
+# former: DECLINE (shape not recognised), as for any block with that defect; the
+# reserved names' check never runs.  Target verdict: 1 (official's reject).
+2 basis_eq_refl_other_name_bad.ndjson
 # `Nat.rec`'s `Nat.zero` rule at the wrong right-hand side, from the job, at the
 # block's fold position.  Rejected, by official as well ("Invalid recursor Nat.rec").
 1 basis_nat_rule_bad.ndjson
@@ -3217,6 +3220,14 @@
 # installed before the block's job can report, and the verdict is the job's, in
 # fold order.  Rejected, by official as well.
 1 basis_nat_rule_used_bad.ndjson
+# -- task #493: a pinned block is installed and checked like any other block;
+# the reserved names' check (`basisNamesOk`) runs after.  `basis_eq_mixed_block`
+# (source in tests/e2e/src): a mutual block declaring `Eq`, with the toolchain's
+# shape, next to a twin type.  Its names are not the pinned block's, so `Eq` sits
+# in another block: REJECT at the reserved names' check (it was rejected before
+# #493 too, by the constant check).  Official accepts it (nothing reserves `Eq`
+# in a `prelude` file); target verdict: 1, the reserved names are this checker's.
+1 basis_eq_mixed_block.ndjson
 # -- quotient records at the stream's names (ruling 2026-11-05).  Official's kernel
 # makes the package itself and reads no record: it accepts all of these (run).
 # `Quot.lift`'s and `Quot.ind`'s reductions at a universe-polymorphic `α`.

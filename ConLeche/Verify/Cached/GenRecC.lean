@@ -1669,10 +1669,10 @@ variable {pins : List NatOpPinSet}
 
 /-- The inductive-block dispatch of the cached driver: a RECOGNISED
 block goes to `checkBlockKS`, every other one
-declines (`checkShapelessS`), and the pure fueled `checkDecl`
+declines (`checkShapelessS`), and the pure fueled `checkDeclKind`
 reproduces the run. -/
 theorem checkModeledOrNativeSF_run {env : Env} (henv : EnvWF env)
-    {block : List ConstantInfo} {nP : Nat} (hpin : basisNameHit block = none)
+    {block : List ConstantInfo} {nP : Nat}
     (hok : indParamsOk nP block = true)
     {s₀ : CState} (hwf : CSOKF s₀)
     {feOut : FEnv} {s' : CState}
@@ -1681,22 +1681,17 @@ theorem checkModeledOrNativeSF_run {env : Env} (henv : EnvWF env)
           | none => checkShapelessS .verified (mkFEnv env) block) s₀ =
       .ok (feOut, s')) :
     CSOKF s' ∧ feOut = mkFEnv feOut.env ∧
-    ∃ F, checkDecl .verified (fueledOps .verified F) pins env (.indDecl block nP) =
+    ∃ F, checkDeclKind (fueledOps .verified F) pins env (.indDecl block nP) =
       .ok feOut.env := by
   -- the declared parameter count (task #228) is a pure guard shared by
   -- the two drivers: `hok` is the branch both take
   show CSOKF s' ∧ feOut = mkFEnv feOut.env ∧
-    ∃ F, (match basisNameHit block with
-      | some kind => checkBasisBlock (m := CheckM) env kind block
-      | none =>
-        if indParamsOk nP block = true then
+    ∃ F, (if indParamsOk nP block = true then
           (match blockShape? nP block with
             | some p => checkBlock (fueledOps .verified F) env block p
             | none => checkShapeless (fueledOps .verified F) env block)
         else throw (CheckError.invalid "number of parameters mismatch")) = .ok feOut.env
-  -- task #293: this block is not one of the five pinned ones (the
-  -- recognition happened before the dispatch, on both sides)
-  simp only [hpin, ite_eq_left hok]
+  simp only [ite_eq_left hok]
   cases hfp : blockShape? nP block with
   | some p =>
     rw [hfp] at h

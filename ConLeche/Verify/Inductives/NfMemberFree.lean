@@ -1265,10 +1265,10 @@ theorem listConsTyOk_piResult {ci : ConstantInfo} (h : listConsTyOk (some ci) = 
 the block's formers (members `names`, stored as `indInfo`s whose types
 are syntactic telescopes ending in a sort) consed onto a pre-block
 `env`: fresh there, and `envI` agrees with `env` off the members and in
-its tables.  One
-fact about the pre-block environment is needed beyond `EnvWF`, an
-block invariant of the checker's environments: `hBool`: no member is
-named as a `Bool` constructor (`checkBlock`), which the comparisons' fast path produces by name. -/
+its tables.  Beyond `EnvWF`: `hBool`, no member is named as a `Bool` constructor (`checkBlock`),
+which the comparisons' fast path produces by name; `hkN`, the pre-block environment's `Nat` names
+hold their kinds (`NatKinds`); `hresN`, no member takes a reserved name (the reserved names'
+check, `basisNamesOk`), so the `Nat` names are the pre-block environment's. -/
 theorem whnfNamesFree_formers {env envI : Env} (hwf : EnvWF env)
     {formers : List ConstantVal} {names : List Name}
     (hnames : ∀ n, n ∈ names ↔ ∃ cvTb ∈ formers, cvTb.name = n)
@@ -1278,7 +1278,8 @@ theorem whnfNamesFree_formers {env envI : Env} (hwf : EnvWF env)
     (hI : ∀ n, (∀ cvTb ∈ formers, cvTb.name ≠ n) → envI.find? n = env.find? n)
     (hT : envI.tables = env.tables)
     (hBool : boolTrueName ∉ names ∧ boolFalseName ∉ names)
-    (hsh : ∀ n c, envI.find? n = some c → litShapeOk c = true) :
+    (hsh : ∀ n c, envI.find? n = some c → litShapeOk c = true)
+    (hkN : NatKinds env) (hresN : ∀ n ∈ names, reservedBasisNames.contains n = false) :
     WhnfNamesFree envI names := by
   -- a member: an `indInfo` of `envI`, fresh in `env`, whose type ends in a sort at a guarded name
   have hmem : ∀ n ∈ names, ∃ cvS caps, envI.find? n = some (.indInfo cvS caps) ∧
@@ -1317,6 +1318,15 @@ theorem whnfNamesFree_formers {env envI : Env} (hwf : EnvWF env)
     exact hs _ _ (Option.some.inj hf')
   have hres : ∀ e : Expr, e.constsResolve env = true → e.occDeep names = false :=
     Expr.occDeep_of_constsResolve hmemE
+  -- the three are reserved names, so no member's: `envI` holds `env`'s at them
+  have hz : natZeroName ∉ names := fun h => absurd (hresN _ h) (by decide)
+  have hsu : natSuccName ∉ names := fun h => absurd (hresN _ h) (by decide)
+  have hn : natName ∉ names := fun h => absurd (hresN _ h) (by decide)
+  have hkI : NatKinds envI := by
+    refine ⟨fun c hc => ?_, fun c hc => ?_, fun c hc => ?_⟩
+    · rw [hnon _ hn] at hc; exact hkN.1 c hc
+    · rw [hnon _ hz] at hc; exact hkN.2.1 c hc
+    · rw [hnon _ hsu] at hc; exact hkN.2.2 c hc
   refine ⟨?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_⟩
   · -- stored types
     intro n ci hf hn
@@ -1347,10 +1357,8 @@ theorem whnfNamesFree_formers {env envI : Env} (hwf : EnvWF env)
     exact hnotInd c _ hf (fun cv' caps h => nomatch h)
   · -- `Nat`
     intro hs
-    obtain ⟨-, -, cv0, i0, j0, cv1, i1, j1, -, h0, hsc, -, -, -, -, hty0, -⟩ :=
-      natLitSupported_inv (natLitSupported_of_shapes hsh hs)
-    have hz : natZeroName ∉ names := hnotInd _ _ h0 (fun cv caps h => nomatch h)
-    have hsu : natSuccName ∉ names := hnotInd _ _ hsc (fun cv caps h => nomatch h)
+    obtain ⟨-, -, cv0, i0, j0, cv1, i1, j1, -, h0, -, -, -, -, -, hty0, -⟩ :=
+      natLitSupported_inv (natLitSupported_of_shapes hsh hkI hs)
     rw [hnon _ hz] at h0
     have hr := (hwf.consts _ (Env.find?_mem h0)).2.2.1
     change cv0.type.constsResolve env = true at hr
@@ -1358,7 +1366,7 @@ theorem whnfNamesFree_formers {env envI : Env} (hwf : EnvWF env)
     exact ⟨hold _ (by simpa [Expr.constsResolve] using hr), hz, hsu⟩
   · -- the string-support names
     intro hs
-    have hs := strLitSupported_of_shapes hsh hs
+    have hs := strLitSupported_of_shapes hsh hkI hs
     simp only [strLitSupported, Bool.and_eq_true] at hs
     obtain ⟨⟨⟨⟨⟨⟨⟨-, -⟩, hO⟩, -⟩, hNil⟩, hCons⟩, -⟩, hCO⟩ := hs
     obtain ⟨ciO, hfO⟩ : ∃ ci, envI.find? stringOfListName = some ci := by

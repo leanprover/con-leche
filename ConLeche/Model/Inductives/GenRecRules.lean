@@ -1233,7 +1233,7 @@ theorem genHcallee
     simp only [tgtRs, List.getElem?_map, ho]; rfl
   have hcv := ConLeche.recStage_cvFacts h
   have hfind := find?_consBlockRecsR_at (R := Rr) (q := pp) (m := 0) hnd
-    (fun r₀ hr₀ => (hcv r₀ hr₀).1) hr'
+    (fun r₀ hr₀ => hcv r₀ hr₀) hr'
   have hlps : R.cvGs[r0].levelParams = r.1.levelParams := recStage_lps h hr' hr
   have hname : (R.cvGs.getD r0 default).name = R.cvGs[r0].name := by
     rw [List.getD_eq_getElem?_getD, List.getElem?_eq_getElem hr0]; rfl
@@ -1643,7 +1643,7 @@ theorem genIhFree_run
   rw [hopI] at hop2
   obtain ⟨rfl, rfl⟩ := Prod.mk.inj (Option.some.inj hop2)
   -- the stored type: its constants resolve at the constructors' environment
-  obtain ⟨-, -, -, -, -, -, hres, -, -, -, -⟩ := ConLeche.classConstOk_inv TR.hcv
+  obtain ⟨-, -, -, -, -, hres, -, -, -, -⟩ := ConLeche.classConstOk_inv TR.hcv
   rw [TR.type_eq] at hres
   have hgtyC : CBNF envC TR.gty :=
     constsBound_eraseFVars _ (constsBound_of_constsResolve _ hres)
@@ -1924,6 +1924,8 @@ theorem genRecHdataS
     (R : GenRecRun .verified F fe₁ env₁ (ConLeche.mkFEnv envC) pp nb pos block out)
     (hg : ClassGenScoped R.g)
     (h : ConLeche.RecStageG .verified F envC pp (tgtRs out))
+    -- the reserved names' check (`basisNamesOk`), at the block's recursors
+    (hresR : ∀ rc ∈ pp.recs, ConLeche.reservedBasisNames.contains rc.cvR.name = false)
     (hndM : pp.memberNames.Nodup)
     {s : (Name → Nat) → Nat}
     (heqB : ∀ (ψ : Name → Nat), ∀ e ∈ (blockRecEqs (blockRecNCt (tgtRs out)) (tgtRs out)
@@ -1998,7 +2000,7 @@ theorem genRecHdataS
   intro m₃ hac φ j r hr i ctor rhs hctor hrhs
   have hnd := ConLeche.recStageG_nodup h hndM
   have hleaf := blockRecLeafOk_of mpC h heqB heqP hpre
-  obtain ⟨hreadR, hokR⟩ := blockRuleRhs_read_run mpC h hnd hleaf m₃ hac r
+  obtain ⟨hreadR, hokR⟩ := blockRuleRhs_read_run mpC h hresR hnd hleaf m₃ hac r
     (List.mem_of_getElem? hr) rhs (List.mem_of_getElem? hrhs)
   intro us hus hℓ usj ρ xs ys restR restC hxl hyl husjl hψ hyWD hidx hfitR hfitC
   obtain ⟨h1, h2, h3⟩ := hrow3 φ j r hr i ctor rhs hctor hrhs us hus hℓ usj ρ xs ys restR restC

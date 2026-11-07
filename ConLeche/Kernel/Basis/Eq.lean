@@ -23,8 +23,7 @@ def eqA : ConstantInfo :=
   .indInfo ⟨eqName, [uN],
     piI "α" (srt u) <|
     pi "a" (bv 0) <|
-    pi "b" (bv 1) prop⟩
-    { all := [eqName], nparams := 2, nIdx := 1, ctors := [eqReflName] }
+    pi "b" (bv 1) prop⟩ {}
 
 /-- `Eq.refl.{u} {α : Sort u} (a : α) : Eq α a a`. -/
 def eqReflA : ConstantInfo :=

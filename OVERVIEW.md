@@ -444,13 +444,12 @@ Read from the outside in:
    theorem by its statement alone (the stored constant carrying
    no value: a theorem is opaque to reduction), an axiom or a
    pinned `Nat` operation or `reduce*` opaque as its own constant, a
-   basis block as its pins at the records' names, a quotient record as its
-   slot's pin, and every inductive
-   block as the block says: every constant and table read off the block's
+   quotient record as its slot's pin, and every inductive block, the
+   pinned basis blocks among them, as the block says: every constant and table read off the block's
    records, nothing generated
-   ([function `declConstants` in `ConLeche/Kernel/Install.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/Install.lean#L83-L97)).
+   ([function `declConstants` in `ConLeche/Kernel/Install.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/Install.lean#L82-L94)).
    What a check pushes is what its record says, at any index and any mode
-   ([theorem `checkDeclC_pushes` in `ConLeche/Verify/Cached/DeclPushes.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Verify/Cached/DeclPushes.lean#L663-L664)).
+   ([theorem `checkDeclC_pushes` in `ConLeche/Verify/Cached/DeclPushes.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Verify/Cached/DeclPushes.lean#L699-L700)).
 
    The driver runs those checks in any order. Before any of them it builds
    one index of the whole stream from the records alone
@@ -465,11 +464,11 @@ Read from the outside in:
    that record. Every check reads its index through the lookups alone (the
    constants' and the projection tables'), so at two indices with the same
    lookups it fails alike or pushes the same constants
-   ([theorem `checkDeclStepC_twin` in `ConLeche/Verify/Cached/ViewCongr.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Verify/Cached/ViewCongr.lean#L1353-L1357)).
+   ([theorem `checkDeclStepC_twin` in `ConLeche/Verify/Cached/ViewCongr.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Verify/Cached/ViewCongr.lean#L1343-L1347)).
    The view of a position answers as the fold's index there as long as the
    names so far are distinct, which every passing job before it ensures,
    so every job passing is an accept of the fold
-   ([theorem `checkDecls_of_jobs` in `ConLeche/Verify/Cached/StreamIndex.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Verify/Cached/StreamIndex.lean#L488-L490)).
+   ([theorem `checkDecls_of_jobs` in `ConLeche/Verify/Cached/StreamIndex.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Verify/Cached/StreamIndex.lean#L484-L486)).
    A later job may read an earlier constant before that constant's job has
    run: a declaration may read a pinned operation, and fire its literal
    fast path, before the operation's certificates have been checked. The
@@ -527,13 +526,13 @@ Read from the outside in:
    recursion on a fuel parameter
    ([the entry points in `ConLeche/Kernel/TypeChecker.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/TypeChecker.lean#L29-L54));
    on exhaustion every operation throws
-   ([the fuel recursion's base case in `ConLeche/Kernel/Core.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/Core.lean#L1778-L1783)).
+   ([the fuel recursion's base case in `ConLeche/Kernel/Core.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/Core.lean#L1777-L1782)).
    Its declaration fold is what the model tier proves things about
-   ([theorem `no_proof_of_False_pure` in `ConLeche/Model/Fold.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Model/Fold.lean#L354-L361)).
+   ([theorem `no_proof_of_False_pure` in `ConLeche/Model/Fold.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Model/Fold.lean#L431-L438)).
 5. **The model tier** (`ConLeche/Model/*`, the set model of the checker)
    shows that each declaration step preserves an invariant on the
    environment
-   ([theorem `declStep_preserves` in `ConLeche/Model/Fold.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Model/Fold.lean#L225)),
+   ([theorem `declStep_preserves` in `ConLeche/Model/Fold.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Model/Fold.lean#L289)),
    and that the invariant forbids a constant of type `False`, whose
    pinned denotation is the empty set
    ([theorem `no_constant_of_False` in `ConLeche/Model/Capstone.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Model/Capstone.lean#L137-L143)).
@@ -654,13 +653,13 @@ reduced by `whnfCore` itself rather than by `whnf`),
 reduction: its value is never unfolded, so whether a declaration
 type-checks never depends on a theorem's value — and the literal fast
 paths
-([function `whnfBody` in `ConLeche/Kernel/Core.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/Core.lean#L1061)),
+([function `whnfBody` in `ConLeche/Kernel/Core.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/Core.lean#L1060)),
 `inferType` computes a type, and `isDefEq` decides conversion in the
 order of the official `is_def_eq_core` (cheap head normalization, the
 easy cases, the lazy-delta loop — which compares two applications of
 the same definition argument by argument before unfolding them, last
 argument first as the official `is_def_eq_args` does
-([function `defeqSpine` in `ConLeche/Kernel/Core.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/Core.lean#L1350)) —, the
+([function `defeqSpine` in `ConLeche/Kernel/Core.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/Core.lean#L1349)) —, the
 projection-against-projection comparison by scrutinees, the full head
 normalization and a restart, then the stuck comparisons) with one
 deliberate exception: the easy cases and proof irrelevance are tried on
@@ -701,10 +700,10 @@ presentation and matter for the proof:
   domains and `let` values checked) and at the official kernel's
   infer-only grade on the terms reduction and definitional equality
   build on their way
-  ([function `inferBodyIO` in `ConLeche/Kernel/Core.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/Core.lean#L1245)).
+  ([function `inferBodyIO` in `ConLeche/Kernel/Core.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/Core.lean#L1244)).
   Beyond the official kernel, the verified mode compares the opened
   bodies' full-grade types at the innermost level of a λ/λ comparison
-  ([function `defeqLams` in `ConLeche/Kernel/Core.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/Core.lean#L1388))
+  ([function `defeqLams` in `ConLeche/Kernel/Core.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/Core.lean#L1387))
   and at η; the proof consumes them. Three cheap guards are the proof's
   too and never change a verdict on well-typed input: η is tried only
   against a term whose head is no λ and no `let` (a weak-head normal
@@ -723,7 +722,7 @@ presentation and matter for the proof:
 * **Fuel and memos.** The pure checker is fueled; the cached checker is
   not, but its memos are proved to agree with the pure functions at
   every fuel large enough to succeed
-  ([theorem `checkDeclStepC_run` in `ConLeche/Verify/Cached/BridgeC.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Verify/Cached/BridgeC.lean#L281)).
+  ([theorem `checkDeclStepC_run` in `ConLeche/Verify/Cached/BridgeC.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Verify/Cached/BridgeC.lean#L269)).
   Nesting (a head, a scrutinee, a subterm's type) is bounded by the
   shared fuel, an error when exhausted; the fuel is effectively
   unbounded (2^62), since it exists for the proofs' induction. Each
@@ -732,7 +731,7 @@ presentation and matter for the proof:
   runtime's 1 GiB stack, a level costs at most about 1.2 KB of it, and
   a recursion of about a million levels or more aborts with a stack
   overflow, an error
-  ([definition `checkFuel` in `ConLeche/Kernel/Core.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/Core.lean#L1825)).
+  ([definition `checkFuel` in `ConLeche/Kernel/Core.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/Core.lean#L1824)).
   Reduction *chains* are not bounded by it: the
   `whnf` loop's δ steps, the `whnfCore` loop's β, ι and projection steps
   and the lazy-delta loop each iterate in constant native stack, a
@@ -790,7 +789,7 @@ the other reduction steps
 ([the preservation lemmas in `ConLeche/Semantics/WellDenoted.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Semantics/WellDenoted.lean#L137-L313)).
 An environment carries the invariant for every stored constant, plus
 closedness and the pins of the basis constants
-([structure `EnvModel` in `ConLeche/Model/Env/EnvModel.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Model/Env/EnvModel.lean#L36-L64)).
+([structure `EnvModel` in `ConLeche/Model/Env/EnvModel.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Model/Env/EnvModel.lean#L35-L63)).
 
 **The statement's reading.** The main theorem is not stated over the
 `Term` and `interp` but over `Denotes` (§1), a
@@ -918,23 +917,30 @@ operations of §6.
 
 ## 5. Inductive types
 
-Inductive blocks are not trusted from the stream. Five inductive types
-are pinned: four the checker installs from its own copy, and `And`,
-which must agree with its pin and is then installed like any other
-block. Every other block — one type or several mutually inductive ones, nested or not —
-goes through one installer, which checks the block the way the official
-kernel does and generates the block's recursors itself.
+Inductive blocks are not trusted from the stream. Every block — one type
+or several mutually inductive ones, nested or not, the pinned ones
+included — goes through one installer, which checks the block the way
+the official kernel does and generates the block's recursors itself.
+Five inductive types are pinned besides: `Eq`, `Nat`, `Empty` and
+`False`, whose meanings the model fixes, and `And`, which the checker
+has code for. A pinned block must agree with its pin.
 
 ### The pinned basis types
 
 `Eq`, `Nat`, `Empty` and `False` have built-in pins
 ([the `False` pin in `ConLeche/Kernel/Basis/False.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/Basis/False.lean#L51)).
-The fold recognises a block by its members' names
-([the recogniser `basisNameHit` in `ConLeche/Kernel/Basis.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/Basis.lean#L134-L136)),
-and what it stores is each pin at the level-parameter names the block's
-records declare. The comparison with the pin, up to those names, is the
-block's check, a job of the checking phase, and a block under one of those
-names that does not agree is rejected (the names are reserved).
+A block under one of these names is installed and checked like any other
+block, from the stream's own records. After a declaration's own checks
+comes one more, the only place the checker sets the basis names apart
+([function `basisNamesOk` in `ConLeche/Kernel/Basis.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/Basis.lean#L144-L151)):
+a block whose members' names are a pinned block's must agree with the pin
+up to the level-parameter names its records declare, and no other
+declaration may take one of the reserved names. A block that fails it is
+rejected. A block that passes stores the pin at the names its records
+declare, each type former with the capabilities its block gives it, and
+no projection table
+([theorem `blockInstall_pinned` in `ConLeche/Verify/BasisBlock.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Verify/BasisBlock.lean#L300-L303)),
+so the model's account of the pin at its own names carries over.
 
 The quotient `Quot` with its soundness axiom, a kernel primitive rather than an
 inductive type, comes as five records: each stores its slot's pin at the
@@ -1087,7 +1093,7 @@ the block's induction makes that relation a function at every sort
 (`ConLeche/SetModel/GraphRec.lean`), and the only sort-dependent fact
 it needs is the kernel's own large-elimination guard. The model-tier
 theorem for the whole install is
-[theorem `declBlock` in `ConLeche/Model/Inductives/BlockRunFacts.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Model/Inductives/BlockRunFacts.lean#L205-L208).
+[theorem `declBlock` in `ConLeche/Model/Inductives/BlockRunFacts.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Model/Inductives/BlockRunFacts.lean#L160-L167).
 
 A block the recogniser does not read has its type formers checked as
 constants, so that the official kernel's rejects stay rejects, and is
@@ -1126,7 +1132,7 @@ Three limits are verdicts. A declaration at a name a literal's meaning reads (`N
 `Nat.succ`, `String`, `String.ofList`, `List`, `List.nil`, `List.cons`, `Char`, `Char.ofNat`) has the
 shape that meaning reads or is declined at the declaration, whether or not the stream uses a
 literal; what is checked there is read at a literal's use only as the names being stored
-([function `litShapeOk` in `ConLeche/Kernel/CoreDefs.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/CoreDefs.lean#L375)).
+([function `litShapeOk` in `ConLeche/Kernel/CoreDefs.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/CoreDefs.lean#L378)).
 A `Bool` stored at a definition is declined, since the frontend puts a stream's `Bool` first.
 A nested occurrence whose container, or a member of
 the container's block, is def-headed and is not among the families the block's
@@ -1330,14 +1336,14 @@ instead of trusting the operation's name.
 
 * **Structural operations** (`Nat.add`, `sub`, `mul`, `pow`, `beq`,
   `ble`, and `pred` as a dependency;
-  [the list `natOpNames` in `ConLeche/Kernel/CoreDefs.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/CoreDefs.lean#L447-L455)):
+  [the list `natOpNames` in `ConLeche/Kernel/CoreDefs.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/CoreDefs.lean#L450-L458)):
   when a definition under one of these names arrives, its checked
   step certifies its defining recurrence equations by definitional
   equality, in the environment *before* the operation is stored, with
   the operation's self-references replaced by its definition value, so
   the not-yet-enabled fast path cannot discharge its own equations
   vacuously
-  ([the account of the certified fast path in `ConLeche/Kernel/CoreDefs.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/CoreDefs.lean#L382-L399),
+  ([the account of the certified fast path in `ConLeche/Kernel/CoreDefs.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/CoreDefs.lean#L385-L402),
   [function `certifyNatEqs` in `ConLeche/Kernel/Checker.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/Checker.lean#L105-L112)).
   A nonstandard definition is rejected; presence in the store is the
   certificate, and `whnf` folds literals for stored operations only.
@@ -1347,7 +1353,7 @@ instead of trusting the operation's name.
   ([theorem `natOps_install` in `ConLeche/Model/NatEqs.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Model/NatEqs.lean#L1078)).
 * **Well-founded operations** (`Nat.div`, `mod`, `gcd`, `land`, `lor`,
   `xor`, `shiftLeft`, `shiftRight`;
-  [the list `natDivModNames` in `ConLeche/Kernel/CoreDefs.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/CoreDefs.lean#L474))
+  [the list `natDivModNames` in `ConLeche/Kernel/CoreDefs.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/CoreDefs.lean#L477))
   are defined by well-founded recursion and have no recurrence the
   kernel can check directly. The binary embeds *pinned* copies of
   several supported toolchains' own definitions of each operation,
@@ -1378,8 +1384,8 @@ instead of trusting the operation's name.
   guarded by `Nat.ble`, so these operations install only once `Bool`
   and its two constructors are stored, with no universe parameters,
   the constructors at the type `Bool` itself, and with `Bool : Type`
-  ([function `natOpGuard` in `ConLeche/Kernel/CoreDefs.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/CoreDefs.lean#L602-L616),
-  [function `natOpCod` in the same file](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/CoreDefs.lean#L659-L666)).
+  ([function `natOpGuard` in `ConLeche/Kernel/CoreDefs.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/CoreDefs.lean#L605-L619),
+  [function `natOpCod` in the same file](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/CoreDefs.lean#L662-L669)).
   That is the only reason the checker knows the name. `Bool` is not
   pinned: it is the stream's own block, installed like any other, and
   nothing depends on what it denotes — the fast path's result is the
@@ -1680,7 +1686,7 @@ projection's type from the constructor's type when it meets one
 (`infer_proj`). What `infer_proj` requires of a `Prop` structure, that the
 field and every earlier field a later one uses are propositions, is checked
 at the use here too
-([function `checkProjGuard` in `ConLeche/Kernel/Core.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/Core.lean#L1109-L1110)),
+([function `checkProjGuard` in `ConLeche/Kernel/Core.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/Core.lean#L1108-L1109)),
 from the stored constructor type at the environment of the use; nothing
 about it is stored.
 

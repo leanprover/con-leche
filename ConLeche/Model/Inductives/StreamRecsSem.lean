@@ -299,7 +299,7 @@ theorem storedFormer_sem {env : Env} (mp : EnvModelM V env) {F : Nat} {a b : Con
       c.type.fvarLeaves = [] ∧ ∃ T, denote mp.base2.acval env φ 0 c.type = some T ∧
         ∀ ρ : Nat → V, WellDenotedTy V ρ T := by
     intro c hc
-    obtain ⟨-, -, -, hb, hf, st, u, -, -, hinf, hens⟩ := ConLeche.checkConstantVal_inv hc
+    obtain ⟨-, -, hb, hf, st, u, -, -, hinf, hens⟩ := ConLeche.checkConstantVal_inv hc
     have hw : Expr.WScoped 0 c.type := Expr.WScoped.of_not_hasFvar hf
     have hnl : c.type.fvarLeaves = [] := Expr.fvarLeaves_eq_nil_of_not_hasFvar hf
     have hL : Expr.LeavesBounded c.type := fun l hl => by

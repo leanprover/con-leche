@@ -532,22 +532,6 @@ theorem installBasisDeclF_push {env : Env} {fe : FEnv} (h : PushChain env fe)
   yields
   all_goals exact Yields.pure (h.push (Option.isNone_iff_eq_none.mp (by assumption)))
 
-/-- A pinned block's install pushes onto the chain. -/
-theorem checkBasisBlockC_push {env : Env} {fe : FEnv}
-    (h : PushChain env fe) (kind : BasisKind) (block : List ConstantInfo) :
-    Yields (checkBasisBlockC fe kind block) (fun fe' => PushChain env fe') := by
-  have hfold : ∀ (fe' : FEnv), PushChain env fe' →
-      Yields ((kind.atBlock block).foldlM installBasisDeclF fe')
-        (fun x => PushChain env x) :=
-    fun fe' h' =>
-      Yields.foldlM_rel (R := fun fe (_ : Unit) => PushChain env fe)
-        (g := fun u _ => u)
-        (fun acc ci _ hacc => installBasisDeclF_push hacc ci)
-        (kind.atBlock block) fe' () h'
-  unfold checkBasisBlockC
-  yields
-  all_goals exact hfold fe h
-
 /-- A quotient record's install pushes onto the chain. -/
 theorem checkQuotRecordC_push {env : Env} {fe : FEnv}
     (h : PushChain env fe) (k : QuotKind) (cv : ConstantVal) :
@@ -556,10 +540,10 @@ theorem checkQuotRecordC_push {env : Env} {fe : FEnv}
   yields
   all_goals exact installBasisDeclF_push h _
 
-theorem checkDeclC_push (mode : CheckMode) {env : Env} {fe : FEnv}
+theorem checkDeclKindC_push (mode : CheckMode) {env : Env} {fe : FEnv}
     (h : PushChain env fe) (pd : Declaration) :
-    Yields (checkDeclC mode pins fe pd) (fun fe' => PushChain env fe') := by
-  unfold checkDeclC
+    Yields (checkDeclKindC mode pins fe pd) (fun fe' => PushChain env fe') := by
+  unfold checkDeclKindC
   cases pd with
   | defnDecl cv value hint =>
     simp only []
@@ -602,12 +586,18 @@ theorem checkDeclC_push (mode : CheckMode) {env : Env} {fe : FEnv}
     simp only []
     unfold checkIndDeclC
     split
-    · exact checkBasisBlockC_push h _ _
-    · split
-      · cases hbp : blockShape? nP block with
-        | none => exact Yields.bind fun _ => Yields.ofThrow
-        | some p => exact checkBlockKS_push mode h block p (ConLeche.blockShape?_declared (by assumption))
-      · exact Yields.ofThrow
+    · cases hbp : blockShape? nP block with
+      | none => exact Yields.bind fun _ => Yields.ofThrow
+      | some p => exact checkBlockKS_push mode h block p (ConLeche.blockShape?_declared (by assumption))
+    · exact Yields.ofThrow
+
+theorem checkDeclC_push (mode : CheckMode) {env : Env} {fe : FEnv}
+    (h : PushChain env fe) (pd : Declaration) :
+    Yields (checkDeclC mode pins fe pd) (fun fe' => PushChain env fe') := by
+  unfold checkDeclC
+  refine Yields.bind' (checkDeclKindC_push mode h pd) fun fe₂ h₂ => ?_
+  yields
+  all_goals exact Yields.pure h₂
 
 theorem checkDeclStepC_push (mode : CheckMode) {env : Env} {fe : FEnv}
     (h : PushChain env fe) (pd : Declaration) :

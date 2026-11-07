@@ -10,27 +10,28 @@ public import ConLeche.Kernel.Basis.Quot
 public import ConLeche.Kernel.Basis.And
 public import ConLeche.Kernel.Canon
 public import ConLeche.Kernel.Level
+public import ConLeche.Kernel.Error
 
 @[expose] public section
 
 /-!
 # The pinned basis inductives
 
-The checker pins `Eq`, `Nat`, `Quot`, `Empty` and `False`
-natively (hand-written set models), and pins `And` by recognition
-alone (below).  The pinned declarations are the toolchain's own — a
-block's check compares its records against these (a differing block under
-a pinned name is rejected, a differing quotient record declined).  One
-module per pinned type under `ConLeche/Kernel/Basis/`, hand-written
-against the toolchain's `Init.Prelude` through the small builder in
+The model reads `Eq`, `Nat`, `Empty`, `False` and the quotient
+package by fixed meanings (hand-written set models), and the checker's
+rescue for `And` needs the toolchain's `And` (below).  The pins are the
+toolchain's own declarations, as an export writes them: one module per
+pinned type under `ConLeche/Kernel/Basis/`, hand-written against the
+toolchain's `Init.Prelude` through the small builder in
 `Basis/Builder.lean`.
 
-**The stream's constants are what the environment holds**: a pinned block
-is installed at the level-parameter names its records declare
-(`ConstantInfo.atLps`), and the comparison with the pin (up to those
-names) is the block's check, in the check phase.  A quotient record is
-compared the same way with its slot's pin and stores that pin at its names
-(`quotPinHit`, `quotAt`).
+**A pinned inductive block is installed like any other block** and goes
+through the same checks; what sets it apart is one more check after them
+(`basisNamesOk`): a block under a pinned block's names must agree with the
+pin up to its level-parameter names, and no other declaration may take a
+reserved name.  The quotient package is a primitive with no inductive
+declaration to install: each of its records is compared with its slot's
+pin and stores that pin at its names (`quotPinHit`, `quotAt`).
 -/
 
 namespace ConLeche
@@ -121,24 +122,43 @@ def blockLinksOk (block pins : List ConstantInfo) : Bool :=
 def pinListOk (block pins : List ConstantInfo) : Bool :=
   listBeqBy pinCopyOk block pins && blockLinksOk block pins
 
-/-! ## Recognising a pinned block in a stream record
+/-! ## The reserved names
 
-The decoder emits the file's records and nothing else, so a stream's
-`Nat` block reaches the fold as an ordinary `indDecl`.  The NAMES decide
-that it is the pinned block's record (a function of the group);
-comparing it with the pin is the block's check.  A block with a pinned
-block's names that is not the pin is invalid input; a quotient record
-that does not match its pin is a decline. -/
+A stream's `Nat` block reaches the fold as an ordinary `indDecl` and is
+installed and checked as one.  Its members' NAMES say that it is the
+pinned block's record, and its last check compares it with the pin.  A
+block with a pinned block's names that is not the pin is invalid input; a
+quotient record that does not match its pin is a decline. -/
 
 /-- **The pinned block a record declares**, by its members' names. -/
 def basisNameHit (block : List ConstantInfo) : Option BasisKind :=
   [BasisKind.eqK, .natK, .emptyK, .falseK].find? fun k =>
     k.decls.map (·.name) == block.map (·.name)
 
-/-- **What a pinned block's check installs**: each pin at the names its
-record declares. -/
-def BasisKind.atBlock (kind : BasisKind) (block : List ConstantInfo) : List ConstantInfo :=
-  List.zipWith (fun pin c => pin.atLps c.toConstantVal.levelParams) kind.decls block
+/-- **The reserved names' check**, the one place the checker sets the basis names apart.  It
+runs after a declaration's own checks, which treat a basis block as any other block.  The model
+reads `Eq`, `Nat`, `Empty` and `False` by fixed meanings, and that is justified here: a block under
+one of the pinned blocks' names must be that block, up to its level-parameter names, and no other
+declaration may take a reserved name.  The quotient package's records are compared with their own
+pins (`quotPinHit`), so `Quot.sound` passes here. -/
+def basisNamesOk : Declaration → Bool
+  | .indDecl block _ =>
+    match basisNameHit block with
+    | some kind => pinListOk block kind.decls
+    | none => block.all fun c => !reservedBasisNames.contains c.name
+  | .axiomDecl cv => cv.name == quotSoundName || !reservedBasisNames.contains cv.name
+  | .quotDecl _ _ => true
+  | .defnDecl cv .. | .thmDecl cv .. | .opaqueDecl cv .. => !reservedBasisNames.contains cv.name
+
+/-- What a failed `basisNamesOk` reports. -/
+def basisNamesError : Declaration → CheckError
+  | .indDecl block _ =>
+    match basisNameHit block with
+    | some _ => .invalid "reserved basis name: the block is not the pinned one"
+    | none => .invalid s!"reserved basis name in the block of \
+        {(block.head?.map (·.name)).getD .anonymous}"
+  | .axiomDecl cv | .quotDecl _ cv | .defnDecl cv .. | .thmDecl cv .. | .opaqueDecl cv .. =>
+    .invalid s!"reserved basis name {cv.name}"
 
 /-- The pinned quotient package's constant at a slot. -/
 def quotPin (k : QuotKind) : ConstantInfo :=

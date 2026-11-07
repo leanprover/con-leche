@@ -174,6 +174,8 @@ structure BlockCtorsStage (F : Nat) (d : BlockData V) (lps : List Name)
   lpsT : ∀ (m : Nat) (cvTa : ConstantVal), m < d.k → formersAll[m]? = some cvTa →
     cvTa.levelParams = lps
   lpsA : ∀ m, m < d.k → ∀ ctor ∈ d.ctorsM m, ctor.1.levelParams = lps
+  /-- the reserved names' check (`basisNamesOk`) -/
+  resA : ∀ m, m < d.k → ∀ ctor ∈ d.ctorsM m, ConLeche.reservedBasisNames.contains ctor.1.name = false
   ndBlock : ∀ m, m < d.k → ∀ (c : Nat), c ≠ m → ∀ (j : Nat) (cB : ConstantVal × Nat),
     (d.ctorsM c)[j]? = some cB → cB.1.name ∉ (d.ctorsM m).map (·.1.name)
   paramsOf : ∀ m, m < d.k → ∀ (ψ : Name → Nat) (ρp : Nat → V),
@@ -278,6 +280,7 @@ theorem stageBlockCtorsAt {F : Nat}
   obtain ⟨ctors, sortss, hCtors⟩ := hS.ctors m cvTa hm hcvTa
   have hframes := hS.frames m hm
   have hlpsA := hS.lpsA m hm
+  have hresA := hS.resA m hm
   obtain ⟨hnameOf, hctorLt, hlenCv⟩ := hN
   obtain ⟨hform, hdata, hconsed⟩ := hinv
   have hTname : d.memberName m = cvTa.name := hnameOf m cvTa hcvTa
@@ -400,7 +403,7 @@ theorem stageBlockCtorsAt {F : Nat}
       (resSort := d.resSort) (isProp := d.isProp) (large := d.large)
       (names := d.memberNames) (ctorsOf := ctorsOf) (ppsAll := d.ppsM m)
       (idxF := d.idxF m) (dsF := d.dsF m) (esF := d.esF m) (srcsF := d.srcsF m)
-      hout' hCtors' (hS.nodup m hm) (hS.lpsT m cvTa hm hcvTa) hlpsA hFssParams hFssBelow
+      hout' hCtors' (hS.nodup m hm) (hS.lpsT m cvTa hm hcvTa) hlpsA hresA hFssParams hFssBelow
       (fun j ctor hj => (hframes j ctor hj).1) hFssOkP
       (fun j ctor hj ψ ρ hρ bs hsp => ((hframes j ctor hj).2 ψ ρ hρ).2 bs hsp)
       (fun {env'} m' => BlockCtorsCore m' d lps formersAll p₁ isRec A m ∧

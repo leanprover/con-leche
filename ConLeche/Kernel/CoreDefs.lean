@@ -371,11 +371,14 @@ def strLitStored (env : Env) : Bool :=
     (env.find? charOfNatName).isSome
 
 /-- **The shape a declaration at a literal's name must have**: what a literal's meaning reads off
-it.  Checked at the declaration, once; nothing at a literal's use compares a stored type. -/
+it, its level parameters and type.  Checked at the declaration, once; nothing at a literal's use
+compares a stored type.  A declaration check cannot show a kind, so the three `Nat` names are read
+at the kinds their guards ask for; what they are beyond their types is the pinned `Nat` block's
+(`basisNamesOk`). -/
 def litShapeOk (c : ConstantInfo) : Bool :=
-  if c.name = natName then natIndOk (some c)
-  else if c.name = natZeroName then natZeroOk (some c)
-  else if c.name = natSuccName then natSuccOk (some c)
+  if c.name = natName then natIndOk (some (.indInfo c.toConstantVal {}))
+  else if c.name = natZeroName then natZeroOk (some (.ctorInfo c.toConstantVal 0 0))
+  else if c.name = natSuccName then natSuccOk (some (.ctorInfo c.toConstantVal 0 1))
   else if c.name = stringName then stringTyOk (some c)
   else if c.name = stringOfListName then stringOfListTyOk (some c)
   else if c.name = listName then listTyOk (some c)
@@ -486,8 +489,8 @@ def natOpName (n : Name) : Bool :=
 `natLitStored` and `strLitStored` decide whether a literal may be READ,
 by looking ten fixed names up in the store; `litShapeOk` says what a
 declaration at one of them is.  Three of them (`Nat`, `Nat.zero`,
-`Nat.succ`) are reserved basis names, so no stream declaration can ever
-fill or change them; the other seven — `String`, `String.ofList`, `List`,
+`Nat.succ`) are reserved basis names, so only the pinned `Nat` block can
+fill them (`basisNamesOk`); the other seven — `String`, `String.ofList`, `List`,
 `List.nil`, `List.cons`, `Char`, `Char.ofNat` — are ORDINARY stream
 declarations, and a stream is free to install them (it must: that is how
 a stream earns string literals).
@@ -504,9 +507,8 @@ def litGuardNames : List Name :=
    stringName, stringOfListName, listName, listNilName, listConsName,
    charName, charOfNatName]
 
-/-- **A name no block RECURSOR may take**: one the pinned basis blocks
-reserve, one a literal guard looks up, one of the certified `Nat`
-operations (whose presence in the store IS their certificate, so a
+/-- **A name no block RECURSOR may take**: one a literal guard looks
+up, one of the certified `Nat` operations (whose presence in the store IS their certificate, so a
 recursor stored under such a name would claim a capability nothing
 certified), or `Bool` and its two constructors, whose stored entries the
 certified operations' guards read (`natOpTyPinned`, `natOpGuard`; task
@@ -514,9 +516,10 @@ certified operations' guards read (`natOpTyPinned`, `natOpGuard`; task
 must not move a guard).  Type formers and constructors are NOT held to this — a
 stream must be able to declare `List`, `List.cons` and `Nat.add` —
 which is why the block install spends this predicate on the recursors
-alone and keeps `reservedBasisNames` for every declaration. -/
+alone.  The basis names are `basisNamesOk`'s: a pinned block's own
+recursor carries one, and no other declaration may. -/
 def reservedRecName (n : Name) : Bool :=
-  reservedBasisNames.contains n || litGuardNames.contains n ||
+  litGuardNames.contains n ||
     natOpNames.contains n || natDivModNames.contains n ||
     n == boolName || n == boolTrueName || n == boolFalseName
 

@@ -129,7 +129,7 @@ theorem checkConstantVal_typeWF {env : Env} {cv : ConstantVal}
     cv.type.allLevelParamsDefined cv.levelParams = true ∧
     cv.type.constsResolve env = true ∧
     cv.type.looseBVarsBounded 0 = true := by
-  obtain ⟨-, -, -, hlb, hif, -, -, htp, htr, -, -⟩ := checkConstantVal_inv h
+  obtain ⟨-, -, hlb, hif, -, -, htp, htr, -, -⟩ := checkConstantVal_inv h
   exact ⟨hif, htp, htr, hlb⟩
 
 end ConLeche

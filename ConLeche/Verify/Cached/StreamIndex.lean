@@ -324,16 +324,12 @@ theorem declTables_sublist (pd : Declaration) :
   cases pd with
   | indDecl block nP =>
     simp only [declTables, declConstants]
-    cases basisNameHit block with
-    | some _ => simp
-    | none =>
+    cases blockShape? nP block with
+    | none => simp
+    | some p =>
       simp only
-      cases blockShape? nP block with
-      | none => simp
-      | some p =>
-        simp only
-        rw [blockConstants_names, List.append_assoc]
-        exact (blockTables_sublist p p.members).trans (List.sublist_append_left _ _)
+      rw [blockConstants_names, List.append_assoc]
+      exact (blockTables_sublist p p.members).trans (List.sublist_append_left _ _)
   | _ => simp [declTables]
 
 theorem recsTables_sublist :

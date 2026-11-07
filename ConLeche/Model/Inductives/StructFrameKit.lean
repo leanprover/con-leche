@@ -1381,7 +1381,7 @@ theorem formerData_of (mp : EnvModelM V env)
     ∃ pps : (Name → Nat) → List Term,
       FormerData mp.base2 cvTa nP resSort pps := by
   obtain ⟨rfl, hccv⟩ := hccv
-  obtain ⟨-, -, -, hlbt, hitf, stype, u, htp', htr', hst, hens⟩ :=
+  obtain ⟨-, -, hlbt, hitf, stype, u, htp', htr', hst, hens⟩ :=
     ConLeche.checkConstantVal_inv hccv
   have hw : Expr.WScoped 0 cvTa.type := Expr.WScoped.of_not_hasFvar hitf
   have hL : Expr.LeavesBounded cvTa.type := Expr.LeavesBounded.of_not_hasFvar hitf

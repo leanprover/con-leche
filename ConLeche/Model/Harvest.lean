@@ -142,10 +142,12 @@ theorem harvestDefn
     (mp : EnvModelM V env)
     {cv : ConstantVal} {value : Expr} {hint : ReducibilityHint}
     {env₂ : Env}
-    (hR : DeclDefnRun F env cv value hint env₂) :
+    (hR : DeclDefnRun F env cv value hint env₂)
+    -- the reserved names' check (`basisNamesOk`)
+    (hnres : ConLeche.reservedBasisNames.contains cv.name = false) :
     CoverStep mp env₂ := by
   obtain ⟨type', value', hcv, hvfr, rfl, hnatc, hdmc⟩ := hR
-  obtain ⟨hfind, hnres, hnd, hlbt, hitf, hann, htp, htr,
+  obtain ⟨hfind, hnd, hlbt, hitf, hann, htp, htr,
     hrunT, hcvShape⟩ := hcv
   obtain ⟨hvlb, hvhf, hannv, hvp, hvr, ⟨vtype, hvrun, hvde⟩⟩ := hvfr
   obtain ⟨htf', hbt'⟩ := stored_syntax hann hitf hlbt
@@ -518,10 +520,12 @@ stores no is-a-proposition field); they are destructured away with `-`. -/
 theorem harvestThm
     (mp : EnvModelM V env)
     {cv : ConstantVal} {value : Expr} {env₂ : Env}
-    (hR : DeclThmRun F env cv value env₂) :
+    (hR : DeclThmRun F env cv value env₂)
+    -- the reserved names' check (`basisNamesOk`)
+    (hnres : ConLeche.reservedBasisNames.contains cv.name = false) :
     CoverStep mp env₂ := by
   obtain ⟨hopn, type', value', hcv, -, hvfr, rfl⟩ := hR
-  obtain ⟨hfind, hnres, hnd, hlbt, hitf, hann, htp, htr,
+  obtain ⟨hfind, hnd, hlbt, hitf, hann, htp, htr,
     hrunT, hcvShape⟩ := hcv
   obtain ⟨hvlb, hvhf, hannv, hvp, hvr, ⟨vtype, hvrun, hvde⟩⟩ := hvfr
   obtain ⟨htf', hbt'⟩ := stored_syntax hann hitf hlbt
@@ -777,6 +781,8 @@ theorem harvestAxiom
     {cv : ConstantVal} {type' : Expr} {A : (Name → Nat) → Term}
     (hopn : natOpName cv.name = false)
     (hcv : ConstantValRun F env cv type')
+    -- the reserved names' check (`basisNamesOk`)
+    (hnres : ConLeche.reservedBasisNames.contains cv.name = false)
     (hAvclosed : ∀ ψ : Name → Nat, Term.Closed (A ψ))
     (hAparams : ∀ ψ₁ ψ₂ : Name → Nat,
       (∀ p ∈ cv.levelParams, ψ₁ p = ψ₂ p) → A ψ₁ = A ψ₂)
@@ -792,7 +798,7 @@ theorem harvestAxiom
     (hnotreduce : cv.name ∉ ConLeche.reduceOpNames) :
     CoverStep mp
       ⟨.axiomInfo ⟨cv.name, cv.levelParams, type'⟩ :: env.consts, env.tables⟩ := by
-  obtain ⟨hfind, hnres, hnd, hlbt, hitf, hann, htp, htr,
+  obtain ⟨hfind, hnd, hlbt, hitf, hann, htp, htr,
     hrunT, hcvShape⟩ := hcv
   obtain ⟨htf', hbt'⟩ := stored_syntax hann hitf hlbt
   have hfresh : env.find? cv.name = none :=
@@ -948,10 +954,12 @@ leaf equation (no `defn_eq` detour). -/
 theorem harvestOpaque
     (mp : EnvModelM V env)
     {cv : ConstantVal} {value : Expr} {env₂ : Env}
-    (hR : DeclOpaqueRun F env cv value env₂) :
+    (hR : DeclOpaqueRun F env cv value env₂)
+    -- the reserved names' check (`basisNamesOk`)
+    (hnres : ConLeche.reservedBasisNames.contains cv.name = false) :
     CoverStep mp env₂ := by
   obtain ⟨hopn, type', value', hcv, hvfr, rfl, hred⟩ := hR
-  obtain ⟨hfind, hnres, hnd, hlbt, hitf, hann, htp, htr,
+  obtain ⟨hfind, hnd, hlbt, hitf, hann, htp, htr,
     hrunT, hcvShape⟩ := hcv
   obtain ⟨hvlb, hvhf, hannv, hvp, hvr, ⟨vtype, hvrun, hvde⟩⟩ := hvfr
   obtain ⟨htf', hbt'⟩ := stored_syntax hann hitf hlbt

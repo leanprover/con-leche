@@ -20,8 +20,8 @@ The basis tier's fourth block, and the only one that
   crosses that gap with **`EqLaw`** — the `EnvModelM` field whose
   *supplier* is the `Eq` block, and whose grading half is exactly what
   the reading's `htyOk` row needs.  The field is
-  available at the `Quot` cons because `DeclBasisRun`'s first conjunct
-  puts `Eq` in the prefix.
+  available at the `Quot` cons because `DeclQuotRun`'s slot guard
+  (`quotPredsOk`) puts `Eq` in the prefix.
 
 Everything else is the `BasisBlocks.lean` recipe: five pinned
 towers, five type readings, two `.plain` `RecRuleLaw` rows.  Both
@@ -55,7 +55,7 @@ attribute [local simp] ConLeche.BasisDSL.bv ConLeche.BasisDSL.srt ConLeche.Basis
   ConLeche.quotRel ConLeche.quotLiftF ConLeche.quotLiftH ConLeche.quotIndMotive ConLeche.quotIndMk
 
 open ConLeche (quotA quotMkA quotLiftA quotIndA quotSoundA quotName
-  quotMkName quotLiftName quotIndName quotSoundName eqA eqName)
+  quotMkName quotLiftName quotIndName quotSoundName eqI eqName)
 
 variable {m : EnvModel V env} {A : (Name → Nat) → Term}
 

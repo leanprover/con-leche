@@ -50,9 +50,22 @@ theorem reduceElem_sort {env : Env} {c : Name}
       ci.toConstantVal.type = .sort (.succ .zero) := by
   by_cases hc : c = reduceNatName
   · rw [reduceElemOk, ite_eq_left hc] at h
-    refine ⟨natA, ?_, rfl, rfl⟩
     rw [reduceElemName, ite_eq_left hc]
-    simpa using h
+    cases hf : env.find? natName with
+    | none => rw [hf] at h; exact nomatch h
+    | some ci =>
+      rw [hf] at h
+      cases ci with
+      | indInfo cvN caps =>
+        refine ⟨.indInfo cvN caps, rfl, ?_, ?_⟩
+        · simp only [ConstantVal.matchesPin, Bool.and_eq_true,
+            decide_eq_true_eq] at h
+          exact h.1.2
+        · simp only [ConstantVal.matchesPin, Bool.and_eq_true,
+            beq_iff_eq] at h
+          show cvN.type = _
+          simpa [natA, ConstantInfo.toConstantVal, BasisDSL.type1] using h.2
+      | _ => exact nomatch h
   · rw [reduceElemOk, ite_eq_right hc] at h
     rw [reduceElemName, ite_eq_right hc]
     cases hf : env.find? boolName with
