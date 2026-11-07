@@ -279,6 +279,29 @@ structure RecogCtx (block : List Lean.ConstantInfo) (p : InLean.BlockShape) (nP 
   recs : p.recs = rs.map (mkRec (cvTs.map (·.name)))
   lps : ∀ ms ∈ p.members, ms.cvT.levelParams = p.lps
 
+theorem blockSplit_formers : ∀ {block : List Lean.ConstantInfo} {cvTs cs rs},
+    InLean.blockSplit block = some (cvTs, cs, rs) →
+    ∀ c ∈ cvTs, ∃ v, Lean.ConstantInfo.inductInfo v ∈ block ∧ v.toConstantVal = c
+  | .inductInfo v :: rest, cvTs, cs, rs, h => by
+    simp only [InLean.blockSplit, Option.map_eq_some_iff] at h
+    obtain ⟨q, h1, h2⟩ := h
+    obtain ⟨q1, q2, q3⟩ := q
+    simp only [Prod.mk.injEq] at h2
+    obtain ⟨rfl, rfl, rfl⟩ := h2
+    intro c hc
+    rcases List.mem_cons.1 hc with rfl | hc
+    · exact ⟨v, List.mem_cons_self, rfl⟩
+    · obtain ⟨w, hw, he⟩ := blockSplit_formers h1 c hc
+      exact ⟨w, List.mem_cons_of_mem _ hw, he⟩
+  | [], cvTs, cs, rs, h | .recInfo _ :: _, cvTs, cs, rs, h | .ctorInfo _ :: _, cvTs, cs, rs, h
+  | .axiomInfo _ :: _, cvTs, cs, rs, h | .defnInfo _ :: _, cvTs, cs, rs, h
+  | .thmInfo _ :: _, cvTs, cs, rs, h | .opaqueInfo _ :: _, cvTs, cs, rs, h
+  | .quotInfo _ :: _, cvTs, cs, rs, h => by
+    unfold InLean.blockSplit at h
+    simp only [Option.map_eq_some_iff, Prod.mk.injEq] at h
+    obtain ⟨q, h1, rfl, rfl, rfl⟩ := h
+    simp
+
 theorem recogCtx_of {μ : CheckMode} {fe : InLean.FEnv} {block : List Lean.ConstantInfo}
     {p : InLean.BlockShape} {nP : Nat} {s s₁ s' : InLean.CState}
     (hndB : (block.map (·.name)).Nodup) (hR : ∀ ci ∈ block, CIRange ci) (cb : List ConLeche.ConstantInfo)
@@ -569,6 +592,143 @@ theorem RecogCtx.entry (C : RecogCtx block p nP cvTs cs rs) (hpend : fe'.pending
       exact recFire_tr (P := trShape p) (rc := mkRec (cvTs.map (·.name))
           (v.toConstantVal, majorIdxOf v, rulePrefixOf v, v.k, v.rules)) hok.1 (hall.trans C.memberNames)
         (by simp [ConLeche.BlockShape.k, trShape, ← C.cvT]) rfl rfl rfl rfl
+
+/-- **Every generated constant's table is related**: con-leche's table at its
+name (`blockTables`, found by name) against what InLean reads off the former
+and its constructor. -/
+theorem RecogCtx.table (C : RecogCtx block p nP cvTs cs rs) (hpend : fe'.pending = [])
+    (hfind : ∀ ci ∈ block, fe'.find? ci.name = some ci)
+    (hsteps : ∀ v cv, Lean.ConstantInfo.inductInfo v ∈ block → v.ctors = [cv.name] →
+      Lean.ConstantInfo.ctorInfo cv ∈ block →
+      ∀ i < cv.numFields, projStepsOk v.name v.numParams i cv.type = true) :
+    ∀ ci ∈ block, TableRelI fe' ci.name
+      ((ConLeche.blockTables (trShape p) (trShape p).members).find?
+        (·.structName == toName ci.name)) := by
+  obtain ⟨htn, htnd⟩ := C.tab_names
+  have hnotab : ∀ ci ∈ block, (∀ v, ci ≠ .inductInfo v) →
+      (ConLeche.blockTables (trShape p) (trShape p).members).find?
+        (·.structName == toName ci.name) = none := by
+    intro ci hci hk
+    apply find?_key_none
+    intro hm
+    have hm' := (blockTables_names _ _).subset hm
+    rw [htn] at hm'
+    obtain ⟨n, hn, hne⟩ := List.mem_map.1 hm'
+    obtain ⟨cvT, hcvT, rfl⟩ := List.mem_map.1 hn
+    obtain ⟨w, hwb, he⟩ := blockSplit_formers C.split _ hcvT
+    have : Lean.ConstantInfo.inductInfo w = ci :=
+      C.uniq hwb hci (by show w.toConstantVal.name = _; rw [he]; exact toName_inj hne)
+    exact hk w this.symm
+  intro ci hci
+  rcases blockSplit_mem C.split ci hci with ⟨v, rfl, -⟩ | ⟨v, rfl, -⟩ | ⟨v, rfl, -⟩
+  · -- a former
+    obtain ⟨i, hi, hiv⟩ := C.ofFormer hci
+    have hmsm := List.getElem_mem hi
+    obtain ⟨v', hv'b, hv'cv, -, hnP, hidx, hctors, -⟩ := C.former hmsm
+    have : Lean.ConstantInfo.inductInfo v' = .inductInfo v :=
+      C.uniq hv'b hci (by show v'.toConstantVal.name = v.toConstantVal.name; rw [hv'cv, hiv])
+    cases this
+    have hiP : i < (trShape p).members.length := by simpa [trShape] using hi
+    have hname : toName (Lean.ConstantInfo.inductInfo v).name =
+        ((trShape p).members[i]'hiP).declared.name := by
+      rw [trShape_members_getElem p hi]
+      simp [trMember, C.decl _ hmsm, hiv]; rfl
+    rw [hname, blockTables_find _ htnd (List.getElem_mem hiP), trShape_members_getElem p hi]
+    have hfv := hfind _ hci
+    unfold blockTableOf
+    rw [structCtor_tr]
+    generalize hms : p.members[i] = ms at hiv hnP hidx hctors hmsm
+    cases hsc : ms.structCtor? with
+    | none =>
+      simp only [Option.map_none, TableRelI, InLean.FEnv.tableFields?]
+      rw [show (Lean.ConstantInfo.inductInfo v).name = v.name from rfl] at hfv ⊢
+      rw [hfv]
+      simp only [isPending_nopend hpend, Bool.false_eq_true, ↓reduceIte]
+      unfold InLean.MemberShape.structCtor? at hsc
+      rw [hctors]
+      cases hc : ms.ctors with
+      | nil => rfl
+      | cons c0 rest =>
+        cases rest with
+        | cons _ _ => rfl
+        | nil =>
+          rw [hc] at hsc
+          simp only at hsc
+          have h0 : (ms.nIdx == 0) = false := by
+            cases h : (ms.nIdx == 0)
+            · rfl
+            · rw [h] at hsc; cases hsc
+          simp [hidx, h0]
+    | some c0 =>
+      have hc0 : ms.ctors = [c0] ∧ ms.nIdx = 0 := by
+        unfold InLean.MemberShape.structCtor? at hsc
+        cases hc : ms.ctors with
+        | nil => rw [hc] at hsc; cases hsc
+        | cons c1 rest =>
+          cases rest with
+          | cons _ _ => rw [hc] at hsc; cases hsc
+          | nil =>
+            rw [hc] at hsc
+            simp only at hsc
+            cases h : (ms.nIdx == 0)
+            · rw [h] at hsc; cases hsc
+            · rw [h] at hsc
+              simp only [↓reduceIte, Option.some.injEq] at hsc
+              exact ⟨by rw [hsc], by simpa using h⟩
+      obtain ⟨w, hwb, hw1, hw2, hw3⟩ := C.ctorW hmsm (show c0 ∈ ms.ctors by rw [hc0.1]; simp)
+      have hwname : w.name = c0.1.name := by rw [← hw1]
+      have hfw := hfind _ hwb
+      rw [show (Lean.ConstantInfo.ctorInfo w).name = c0.1.name from hwname] at hfw
+      have hvc : v.ctors = [c0.1.name] := by rw [hctors, hc0.1]; rfl
+      have hvi : v.numIndices = 0 := by rw [hidx, hc0.2]
+      have hokw : okC w.type = true := C.okT _ hwb
+      have hpis := hasPis_iff_structProjBodies (S := toName ms.cvT.name) (nP := p.nP) (nF := c0.2)
+        (toExpr_of_okE _ hokw)
+      have hwt : trC w.type = trC c0.1.type := by
+        rw [show w.type = w.toConstantVal.type from rfl, hw1]
+      have hdn : (trMember ms).declared.name = toName ms.cvT.name := by
+        simp [trMember, C.decl _ hmsm]
+      simp only [Option.map_some, trCtor, trCV_type, hdn]
+      rw [← hwt]
+      cases hb : ConLeche.structProjBodies (toName ms.cvT.name) (trShape p).nP c0.2 (trC w.type) with
+      | none =>
+        simp only [Option.map_none, TableRelI, InLean.FEnv.tableFields?]
+        rw [show (Lean.ConstantInfo.inductInfo v).name = v.name from rfl] at hfv ⊢
+        rw [hfv]
+        simp only [isPending_nopend hpend, Bool.false_eq_true, ↓reduceIte, hvc, hvi]
+        simp only [beq_self_eq_true, ↓reduceIte, hfw]
+        rw [hnP, hw3]
+        have : (trShape p).nP = p.nP := rfl
+        rw [this] at hb
+        rw [hpis, show trE (fun _ => none) w.type = trC w.type from rfl, hb]; rfl
+      | some bodies =>
+        simp only [Option.map_some, TableRelI]
+        refine ⟨v, c0.1.name, w, hfv, isPending_nopend hpend _, hvc, hvi, hfw, ?_, ?_, ?_, ?_, ?_,
+          ?_, ?_⟩
+        · rw [hnP, hw3, hpis, show trE (fun _ => none) w.type = trC w.type from rfl]
+          rw [show (trShape p).nP = p.nP from rfl] at hb; rw [hb]; rfl
+        · show toName ms.cvT.name = toName v.name
+          rw [hiv]
+        · show (trShape p).lps = v.levelParams.map toName
+          rw [show v.levelParams = ms.cvT.levelParams by rw [hiv], C.lps _ hmsm]
+          unfold ConLeche.BlockShape.lps InLean.BlockShape.lps
+          cases hm : p.members with
+          | nil => simp [trShape, hm]
+          | cons m _ => simp [trShape, hm, trMember]
+        · show p.nP = v.numParams; rw [hnP]
+        · rfl
+        · show c0.2 = w.numFields; rw [hw3]
+        · intro j hj
+          have hsv := hsteps v w hci (by rw [hvc, hwname]) hwb j hj
+          rw [show v.name = ms.cvT.name by rw [hiv]] at hsv
+          rw [show (Lean.ConstantInfo.inductInfo v).name = ms.cvT.name by
+            show v.toConstantVal.name = _; rw [hiv]]
+          rw [show (trShape p).nP = v.numParams by rw [hnP]; rfl] at hb
+          exact projBodyAt_tr hsv (toExpr_of_okE _ hokw) hb (by rw [← hw3]; exact hj)
+  · rw [hnotab _ hci (fun w h => by cases h)]
+    simp only [TableRelI, InLean.FEnv.tableFields?, hfind _ hci]
+  · rw [hnotab _ hci (fun w h => by cases h)]
+    simp only [TableRelI, InLean.FEnv.tableFields?, hfind _ hci]
 
 end Entries
 
