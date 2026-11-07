@@ -13,9 +13,10 @@ public import InLeanProof.EnvPresI
   `consts` holding one more fresh, in-range constant of another kind (an
   axiom `foo`) passes every premise, and InLean then finds `foo` where
   con-leche's install has nothing, so `EnvPresI`'s `entry` fails.  The
-  generator produces only block constants; `IndGroupPresB` adds that as a
-  premise (`∀ ci ∈ consts, ci ∈ storedBlock consts`), which `checkInductiveC`
-  checks (`isBlockConst`; `storedBlock_of_checkInductiveC`, `StepPres.lean`).
+  generator produces only block constants; the statement in `BlockPresR.lean`
+  (`IndGroupPresBP`) adds that as a premise (`∀ ci ∈ consts, ci ∈ storedBlock
+  consts`), which `checkInductiveC` checks (`isBlockConst`;
+  `storedBlock_of_checkInductiveC`, `StepPres.lean`).
 * *The projection bodies' range.*  `TableRelI` relates `projBodyAt`'s body
   through its reading, and InLean's instantiation is read only on terms in
   range (`toExpr_instantiate`).  `projBodyAt` instantiates by `bvar`s,
@@ -30,8 +31,7 @@ public import InLeanProof.EnvPresI
   installed constants and tables at the group's names, Lean's entries
   related to the installed ones, the tables related.  It discharges
   `presI_push`'s bookkeeping (the lookups after the fold, `sorryAx`'s
-  visibility); `indGroupPresB_of` reduces `IndGroupPresB` to
-  `BlockPresObl`, what remains to prove of the block's install.
+  visibility); `BlockPresR.lean` assembles the block's step from it.
 * `toCaps_capsOf`: a former's capabilities as InLean reads them
   (`capsOf`) are con-leche's `blockCapsAt`, given what `genEntriesAgree`
   checks of the generated entry against InLean's shape and that shape's
@@ -126,54 +126,6 @@ theorem presI_group (hlaws : EnvLaws) (hP : EnvPresI fe L) {cs : List Lean.Const
     obtain ⟨ci, hci, rfl⟩ := List.mem_map.1 hT
     exact htab ci hci
   · exact htabFound
-
-/-! ## The inductive group, restated -/
-
-/-- **An inductive block keeps the relation**: `IndGroupPres` with the
-premise that the generator's constants are the stored block's (without it
-the statement is false, see the module docstring). -/
-@[expose] def IndGroupPresB : Prop :=
-  EnvLaws → ∀ (fe : InLean.FEnv) (L : ConLeche.Env) (consts : Array Lean.ConstantInfo) (nP : Nat)
-    (s s' : InLean.CState) (d : ConLeche.Declaration),
-    EnvPresI fe L →
-    (∀ ci ∈ consts.toList, ci ∈ InLean.storedBlock consts) →
-    (∀ ci ∈ consts.toList, fe.env.find? ci.name = none) → (consts.toList.map (·.name)).Nodup →
-    (∀ ci ∈ consts.toList, fe.sees ci.name ci = true) →
-    consts.all InLean.constInRange = true →
-    (InLean.checkIndDeclC .verified fe (InLean.storedBlock consts) nP).run s = .ok ((), s') →
-    toDecl (InLean.storedBlock consts) = some d →
-    EnvPresI { fe with env := consts.foldl InLean.addConst fe.env }
-      (L.pushDelta (ConLeche.declConstants d) (ConLeche.declTables d))
-
-/-- **What remains of an inductive block**: con-leche's install of the
-record, against the generated constants, at their names only — the
-installed constants and tables named after the block's constants, each
-generated constant related to the installed one at its name, each name's
-table related, each installed table at an installed constant. -/
-@[expose] def BlockPresObl : Prop :=
-  EnvLaws → ∀ (fe : InLean.FEnv) (L : ConLeche.Env) (consts : Array Lean.ConstantInfo) (nP : Nat)
-    (s s' : InLean.CState) (d : ConLeche.Declaration),
-    EnvPresI fe L →
-    (∀ ci ∈ consts.toList, ci ∈ InLean.storedBlock consts) →
-    (∀ ci ∈ consts.toList, fe.env.find? ci.name = none) → (consts.toList.map (·.name)).Nodup →
-    consts.all InLean.constInRange = true →
-    (InLean.checkIndDeclC .verified fe (InLean.storedBlock consts) nP).run s = .ok ((), s') →
-    toDecl (InLean.storedBlock consts) = some d →
-    let E' := consts.toList.foldl InLean.addConst fe.env
-    let L' := L.pushDelta (ConLeche.declConstants d) (ConLeche.declTables d)
-    (∀ c ∈ ConLeche.declConstants d, ∃ ci ∈ consts.toList, c.name = toName ci.name) ∧
-    (∀ t ∈ ConLeche.declTables d, ∃ ci ∈ consts.toList, t.structName = toName ci.name) ∧
-    (∀ ci ∈ consts.toList, ∃ cci, L'.find? (toName ci.name) = some cci ∧
-      EntryRelI { fe with env := E' } ci cci) ∧
-    (∀ ci ∈ consts.toList, TableRelI { fe with env := E' } ci.name (L'.findTable? (toName ci.name))) ∧
-    (∀ t ∈ ConLeche.declTables d, (L'.find? t.structName).isSome)
-
-/-- **The block's step from what remains of it** (`presI_group`). -/
-theorem indGroupPresB_of (h : BlockPresObl) : IndGroupPresB := by
-  intro hlaws fe L consts nP s s' d hP hblk hfresh hnd hsees hrange hrun hd
-  obtain ⟨h1, h2, h3, h4, h5⟩ := h hlaws fe L consts nP s s' d hP hblk hfresh hnd hrange hrun hd
-  rw [← Array.foldl_toList]
-  exact presI_group hlaws hP hfresh hnd hsees h1 h2 h3 h4 h5
 
 /-! ## A former's capabilities -/
 

@@ -28,6 +28,7 @@ public import InLeanProof.IndMembers
 public import InLeanProof.IndBasis
 public import InLeanProof.PassEnv
 public import InLeanProof.PassCtors
+public import InLeanProof.BlockPresR
 
 /-!
 # The axiom pins of the InLean proof tier (task #451, lane G)
@@ -1605,12 +1606,6 @@ info: 'InLeanProof.presI_group' depends on axioms: [propext, Classical.choice, Q
 #print axioms InLeanProof.presI_group
 
 /--
-info: 'InLeanProof.indGroupPresB_of' depends on axioms: [propext, Classical.choice, Quot.sound]
--/
-#guard_msgs in
-#print axioms InLeanProof.indGroupPresB_of
-
-/--
 info: 'InLeanProof.toCaps_capsOf' depends on axioms: [propext, Classical.choice, Quot.sound]
 -/
 #guard_msgs in
@@ -2125,3 +2120,117 @@ info: 'InLeanProof.checkBlockCtorsFI_run' depends on axioms: [propext,
 -/
 #guard_msgs in
 #print axioms InLeanProof.checkBlockCtorsFI_run
+
+/-! Lane P3r: `BlockPresObl`'s recognised branch (`BlockPresR.lean`). -/
+
+/--
+info: 'InLeanProof.toExpr_instantiate1L' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound,
+ InLeanProof.Expr.mkAppData_fields,
+ InLeanProof.Expr.mkData_eq,
+ InLeanProof.Level.mkData_eq]
+-/
+#guard_msgs in
+#print axioms InLeanProof.toExpr_instantiate1L
+
+/--
+info: 'InLeanProof.projBodyAt_tr' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound,
+ InLeanProof.Expr.mkAppData_fields,
+ InLeanProof.Expr.mkData_eq,
+ InLeanProof.Level.mkData_eq]
+-/
+#guard_msgs in
+#print axioms InLeanProof.projBodyAt_tr
+
+/-- info: 'InLeanProof.hasPis_iff_structProjBodies' depends on axioms: [propext, Quot.sound] -/
+#guard_msgs in
+#print axioms InLeanProof.hasPis_iff_structProjBodies
+
+/-- info: 'InLeanProof.genEntriesAgree_facts' depends on axioms: [propext, Classical.choice, Quot.sound] -/
+#guard_msgs in
+#print axioms InLeanProof.genEntriesAgree_facts
+
+/-- info: 'InLeanProof.checkBlockKS_cover' depends on axioms: [propext, Classical.choice, Quot.sound] -/
+#guard_msgs in
+#print axioms InLeanProof.checkBlockKS_cover
+
+/-- info: 'InLeanProof.blockShape?_spec' depends on axioms: [propext, Quot.sound] -/
+#guard_msgs in
+#print axioms InLeanProof.blockShape?_spec
+
+/--
+info: 'InLeanProof.dropVars_tr' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound,
+ InLeanProof.Expr.mkAppData_fields,
+ InLeanProof.Expr.mkData_eq,
+ InLeanProof.Level.mkData_eq]
+-/
+#guard_msgs in
+#print axioms InLeanProof.dropVars_tr
+
+/--
+info: 'InLeanProof.recFire_tr' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound,
+ InLeanProof.Expr.mkAppData_fields,
+ InLeanProof.Expr.mkData_eq,
+ InLeanProof.Level.mkData_eq]
+-/
+#guard_msgs in
+#print axioms InLeanProof.recFire_tr
+
+/-- info: 'InLeanProof.recogCtx_of' depends on axioms: [propext, Classical.choice, Quot.sound] -/
+#guard_msgs in
+#print axioms InLeanProof.recogCtx_of
+
+/--
+info: 'InLeanProof.RecogCtx.entry' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound,
+ InLeanProof.Expr.mkAppData_fields,
+ InLeanProof.Expr.mkData_eq,
+ InLeanProof.Level.mkData_eq]
+-/
+#guard_msgs in
+#print axioms InLeanProof.RecogCtx.entry
+
+/--
+info: 'InLeanProof.RecogCtx.table' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound,
+ InLeanProof.Expr.mkAppData_fields,
+ InLeanProof.Expr.mkData_eq,
+ InLeanProof.Level.mkData_eq]
+-/
+#guard_msgs in
+#print axioms InLeanProof.RecogCtx.table
+
+/--
+info: 'InLeanProof.blockPresOblB_recognised' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound,
+ InLeanProof.Expr.mkAppData_fields,
+ InLeanProof.Expr.mkData_eq,
+ InLeanProof.Level.mkData_eq]
+-/
+#guard_msgs in
+#print axioms InLeanProof.blockPresOblB_recognised
+
+/--
+info: 'InLeanProof.indGroupPresBP_of' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound,
+ InLeanProof.Expr.mkAppData_fields,
+ InLeanProof.Expr.mkData_eq,
+ InLeanProof.Level.mkData_eq]
+-/
+#guard_msgs in
+#print axioms InLeanProof.indGroupPresBP_of
+
+/-- info: 'InLeanProof.toDecl_recognised' depends on axioms: [propext, Classical.choice, Quot.sound] -/
+#guard_msgs in
+#print axioms InLeanProof.toDecl_recognised

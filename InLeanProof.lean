@@ -38,4 +38,8 @@ public import InLeanProof.PassInds
 public import InLeanProof.PassEnv
 public import InLeanProof.PassCtors
 public import InLeanProof.SquarePilot
+public import InLeanProof.ProjBodiesTr
+public import InLeanProof.BlockRecogRun
+public import InLeanProof.RecFireTr
+public import InLeanProof.BlockPresR
 public import InLeanProof.AxiomPins

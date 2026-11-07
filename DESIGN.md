@@ -112210,3 +112210,83 @@ not-`sorryAx` premise).
 
 Gates: `lake build InLean InLeanProof inlean-replay` warning-free;
 `tests/layering.sh`, `tests/trust-surface.sh`, `tests/no-local-paths.sh` pass.
+
+### Lane P3r: `BlockPresObl`'s recognised branch, and the block's step (2026-11-08)
+
+Four new files, no `sorry`, no new axiom; no executable code and no existing
+proof file changed (the root's imports and 14 pins in `AxiomPins.lean` added).
+
+**What is proved.**
+* `blockPresOblB_recognised : BlockPresOblB false` (`BlockPresR.lean`):
+  `BlockPresObl`'s five conclusions for an accepted recognised block (InLean's
+  pinned dispatch misses), at three more premises (findings 1-3 below).
+* `indGroupPresBP_of : BlockPresOblB true → IndGroupPresBP`: the block's step
+  (`IndGroupPresB` at the same premises, through `presI_group`), the pinned
+  branch left as the named hypothesis `BlockPresOblB true` (task #493 removes
+  that branch).
+* `toDecl_recognised`: O7's finding 1 settled on the recognised branch: the
+  record `toDecl` builds is at the declaration's `nP` (`genEntriesAgree`
+  checks the first former's `numParams` against the shape's, which
+  `blockShape?` sets to `nPd`).
+
+**How.**  The run is read functionally (`bindI_ok`), not by the walks'
+simulation.  `BlockRecogRun.lean`: `genEntriesAgree_facts` (the checks as
+`GenAgree`, through a `for`-loop lemma `forIn_facts`); `checkBlockKS_cover` (the
+block check's recursor-name stage `targetRecPins`, the first step of
+`genRecCheck`, compares the shape's constructor grouping with the block's
+split, so every generated constructor is in exactly one member's group, and the
+member and recursor counts are the split's: without it a constructor no member
+claims would be added by InLean and installed by nobody); `blockShape?_spec`
+(the record spelled out).  `BlockPresR.lean` gathers these as `RecogCtx` and
+reads each generated constant against con-leche's install by name: the block's
+names are distinct, `blockConstants (trShape p)` has them in the same order
+(`RecogCtx.news_names`), so both lookups find the constant of the split.
+Formers by `toCaps_capsOf` (the field count the stored constructor's, read
+through `FEnv.fieldsOf` at an empty mark); constructors from `GenAgree`;
+recursors by `recFire_tr` (`RecFireTr.lean`: the major's domain at `mI`
+through `piBody?_eq`/`stripPis_tr`, the head's membership in `rv.all` against
+`tgt < k`, the index variables dropped by instantiation at the closed `Sort 0`,
+`dropVars_tr`); tables by `RecogCtx.table` (`blockTables` found by name,
+`hasPis_iff_structProjBodies` for the test, `projBodyAt_tr` for the bodies).
+`ProjBodiesTr.lean` has the lifted-`bvar` instantiation the bodies need:
+`toExpr_instantiate1L`, InLean's `instantiate1` at an open value in range as
+con-leche's `instantiate1Lift`.
+
+**Findings.**
+1. *`IndGroupPresB` is false at a stale block mark.*  Its `fe` is any
+   environment; with `fe.pending = [(S, 7)]` and a block declaring a structure
+   `S` with one field, every premise holds (the mark is at a fresh name, and
+   the job puts its own mark in front), but after the step InLean reads `S`'s
+   capabilities at 7 fields (`capsOf` through `fieldsOf`) and no table
+   (`tableFields?` asks the former unmarked), con-leche at 1 field with a
+   table.  `IndGroupPresBP` adds `fe.pending = []`; the checker's
+   environments outside a job have no mark (`checkDecl` builds `fe` without
+   one), so P4 has it.
+2. *`BlockPresObl` lacks `fe.sees` of the generated constants* (`IndGroupPresB`
+   has it): an unsafe-marked constructor in a safe check is hidden, and the
+   former's clause asks it found.  `BlockPresOblB` takes it.
+3. *Projection bodies: the intermediate terms' range is unproved, and not
+   checked.*  `projBodyAt` instantiates step by step; P3c's test
+   (`FEnv.projBodiesInRange`) reads only the final bodies.  A parameter
+   reference at depth `d` in a later field's domain is `bvar (nP - k + d)`
+   after its parameter's step and is lowered by each field step after it, so
+   an intermediate term can pass `maxRange` while the final body does not
+   (e.g. `nP = 1`, two fields before it, `d + 1 = maxRange`).  C aborts there;
+   in the logic the cached range of such a node is unknown, and the next
+   instantiation step reads it, so the body is not read.  The premise
+   `ProjStepsAll consts` states the fix as a `Bool` (`projStepsOk`: every
+   step's input `EO.inRange`, `nP < maxRange`).  Proposed executable change
+   (outside this lane): `checkInductiveC` runs `projStepsOk` beside
+   `projBodiesInRange` (or replaces it: the final body is a subterm of the
+   last step's input) and refuses as the same internal error; the premise is
+   then read off the accepted run as `checkInductiveC_ok` reads P3c's.
+
+**What remains.**
+* The pinned branch, `BlockPresOblB true` (after task #493, nothing).
+* `ProjStepsAll`: the executable check of finding 3.
+* P4: `fe.pending = []` at the fold's environments (by construction).
+* `BlockPresObl`, `IndGroupPresB`, `indGroupPresB_of` (`IndPres.lean`) are
+  left as they are; `IndGroupPresBP` is the statement P4 should use.
+
+Gates: `lake build InLean InLeanProof` warning-free; `tests/layering.sh`,
+`tests/trust-surface.sh`, `tests/no-local-paths.sh` pass.

@@ -22,14 +22,14 @@ import all Lean.Declaration
   it of no environment the theorem reaches.
 * **The generator's constants are the stored block's** (`mem_storedBlock`):
   `checkInductiveC` refuses a generated constant that is no former,
-  constructor or recursor (`isBlockConst`), so `IndGroupPresB`'s premise
+  constructor or recursor (`isBlockConst`), so `IndGroupPresBP`'s premise
   holds of what an accepted run adds.
 * **`Quot.sound`'s step** (`presI_quotSound`): `checkAxiomC` matches the
   axiom against the pin instantiated at the axiom's own level name
   (`quotSoundHit`, twin of `quotPinHit .sound`), which is what con-leche
   installs (`quotAt .sound`); `checkAxiomC_quotSound` reads it, the name's
   freshness and the added constant off an accepted run.
-* **The inductive check's branches** (`BlockPresObl`'s case split):
+* **The inductive check's branches** (`BlockPresOblB`'s case split):
   `checkIndDeclC_ok` (an accepted check is a pinned block equal to its pin,
   or a recognised one whose generated entries agree and whose block check
   passed; the shapeless branch and a parameter mismatch throw), and
@@ -193,7 +193,7 @@ theorem mem_storedBlock {consts : Array Lean.ConstantInfo} {ci : Lean.ConstantIn
   rw [Array.mem_toList_iff] at hci
   cases ci <;> simp_all [isBlockConst, Lean.ConstantInfo.isInductive, Lean.ConstantInfo.isCtor]
 
-/-- `IndGroupPresB`'s premise from the check. -/
+/-- `IndGroupPresBP`'s premise from the check. -/
 theorem storedBlock_all {consts : Array Lean.ConstantInfo} (h : consts.all isBlockConst = true) :
     ∀ ci ∈ consts.toList, ci ∈ storedBlock consts := by
   intro ci hci
@@ -271,14 +271,14 @@ theorem projBodiesInRange_ind (hlaws : EnvLaws) (hR : ProjBodiesInRange fe) (hcs
   rw [Array.all_eq_true_iff_forall_mem] at h3
   exact h3 ci (Array.mem_toList_iff.1 hci)
 
-/-- **`IndGroupPresB`'s block premise from an accepted inductive declaration.** -/
+/-- **`IndGroupPresBP`'s block premise from an accepted inductive declaration.** -/
 theorem storedBlock_of_checkInductiveC {μ : CheckMode} {lps : List Name} {nP : Nat}
     {types : List InductiveType} {u : Bool} {s s' : CState} {a : Added}
     (h : (checkInductiveC μ fe lps nP types u).run s = .ok (a, s')) :
     ∀ ci ∈ a.consts.toList, ci ∈ storedBlock a.consts :=
   storedBlock_all (checkInductiveC_ok h).1
 
-/-- **`IndGroupPresB`'s freshness premise from an accepted inductive
+/-- **`IndGroupPresBP`'s freshness premise from an accepted inductive
 declaration**: its constants' names are fresh in Lean's environment. -/
 theorem fresh_of_checkInductiveC {μ : CheckMode} {lps : List Name} {nP : Nat}
     {types : List InductiveType} {u : Bool} {s s' : CState} {a : Added}
@@ -289,7 +289,7 @@ theorem fresh_of_checkInductiveC {μ : CheckMode} {lps : List Name} {nP : Nat}
   rw [Array.all_eq_true_iff_forall_mem] at h3
   simpa using h3 ci (Array.mem_toList_iff.1 hci)
 
-/-- **`IndGroupPresB`'s visibility premise from an accepted safe inductive
+/-- **`IndGroupPresBP`'s visibility premise from an accepted safe inductive
 declaration**: its constants are safe, so a check sees each one whose name
 is not `sorryAx` (which `InLean.checkDecl` refuses at con-leche's policy,
 `sorryAxSquat`). -/

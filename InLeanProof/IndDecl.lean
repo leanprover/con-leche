@@ -11,7 +11,7 @@ pure fueled declaration step accepts the translated block
 (`ConLeche.checkDecl .verified (fueledOps .verified F) pins L (.indDecl cb nP)`
 with `toBlock block = some cb`): `checkModeledOrNativeSF_run`'s and
 `checkDeclStepC_run`'s `.indDecl` arm, for InLean.  P4 composes it with
-master's fold theorem; P3's `IndGroupPresB` gives the environment relation
+master's fold theorem; P3r's `IndGroupPresBP` gives the environment relation
 after the step.
 
 The dispatch is proved here: the pinned blocks by name (`basisNameHit_tr`),
