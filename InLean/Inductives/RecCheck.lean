@@ -5,9 +5,9 @@ public import InLean.Inductives.ClassRead
 /-!
 # InLean's inductive check: the recursors' targets
 
-Twin of `ConLeche/Kernel/Inductives/RecCheck.lean` (each class's major, the
+Twin of `ConLeche.Kernel.Inductives.RecCheck` (each class's major, the
 recursor records' pins, the generated rules and K flag) and of
-`BlockRec.lean`'s `blockLargeElimAllowed`.
+`ConLeche.Kernel.Inductives.BlockRec`'s `blockLargeElimAllowed`.
 -/
 
 @[expose] public section
@@ -272,7 +272,7 @@ def isNeverZero : Level → Bool
   | .imax _ b => isNeverZero b
   | .param _ | .mvar _ => false
 
-/-- Twin of `blockLargeElimAllowed` (`BlockRec.lean`). -/
+/-- Twin of `blockLargeElimAllowed` (`ConLeche.Kernel.Inductives.BlockRec`). -/
 def blockLargeElimAllowed (p : BlockShape) (nested : Bool) : Bool :=
   isNeverZero p.resSort ||
     (p.large && p.k == 1 && !nested && (p.numCtors == 0 || p.numCtors == 1))

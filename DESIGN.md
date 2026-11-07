@@ -112533,3 +112533,56 @@ operations: the structural ones' `certifyNatEqs` over two interned variables
 with `natOpGuard`/`natOpStoredOk` at the pushed environment, and the WF ones'
 `checkDivModPin` with master's `pins` related to InLean's run-time
 `loadPinSets ()` through a `PinSet` translation).  Gates as before.
+### Lane sync: the in-core copy generated from InLean (2026-11-07, agent/451-sync)
+
+The lean4 branch carries a copy of InLean at `src/Lean/Kernel/InLean/`
+(synced by hand from be4ce0079 in round 3: header, `prelude`, renamed
+imports and namespace, the pin include path, docstrings hand-edited to drop
+narrative and repository paths, the core glue in `AddDecl.lean`).  The
+maintainer's goal: the copy is literally InLean up to a mechanical
+renaming, and that is checkable.
+
+**The scrub (comments only).**  InLean's docstrings and comments lose the
+task numbers, lane names and ruling dates; every technical statement stays.
+A comment cites a module by its name, never by a path: an InLean module as
+`InLean.CoreC` (the renaming rule turns it into `Lean.Kernel.InLean.CoreC`),
+a con-leche counterpart as `ConLeche.Kernel.Level` (relative citations such
+as `Basis/Quot.lean` spelled out as full module names).  Two stale citations
+fixed on the way (`InLean.abstractChecked`, `State.lean` → `abstractRangeM`,
+`InLean.StateC`); the `mkData` cutoff paragraph no longer names the proof
+tier's stop-gap axioms file, and `Push.lean`'s `import all` comment is
+phrased to be true in both places.  The code is unchanged (checked:
+comment-stripped trees of 59eafec9b and the scrub are identical).
+
+**`scripts/inlean-sync.py`.**  `generate <out>` applies, per file: (1) the
+copyright block (year fixed at 2026, the year every file was created; Lean
+FRO, LLC; Authors: Joachim Breitner); (2) `module`, blank, `prelude`, the
+file's explicit Init imports (data: `INIT_IMPORTS`, today only
+`ExprEq.lean` → `public import Init`), blank; (3) `InLean` as a module or
+namespace prefix (followed by `.` and an identifier character, or the
+operand of `namespace`/`end`/`open`) → `Lean.Kernel.InLean`; (4)
+`include_str "../pins/` → `include_str "pins/`.  Nothing else.  `check
+<dir>` regenerates and diffs against a lean4 copy, ignoring `CORE_ONLY`
+(`Core.lean`, where the glue is to move) and `pins/`; exit 1 on any
+difference.  `tests/inlean-sync.sh` (in `arena.sh`) checks what needs no
+lean4: determinism, every InLean file mapped and nothing else, header and
+`prelude`, no `ConLeche`/unrenamed `InLean` import or namespace, the
+included dumps present, no repository path or task number in the output.
+
+**Validation against round 3's copy.**  Generated from be4ce0079 (with
+these rules), the copy's comment-stripped code is identical except
+`AddDecl.lean`'s glue: the rules reproduce every code difference.
+Generated from the scrubbed head, `check` reports: (i) 179 code hunks in
+19 files, exactly the code hunks between be4ce0079 and 59eafec9b, and their
+comments; (ii) the `AddDecl.lean` glue (the `import all Lean.Environment`,
+`public section` for `@[expose] public section`, the `@[export]` entry
+points, `coreConfig`, `openLCtx`/`withLCtx`), which moves to `Core.lean`;
+the comment differences that are neither are the copy's hand edits, each
+superseded by the scrub (the copy's `Lean/Kernel/InLean/X.lean` paths and
+`ConLeche/…` paths become module names).  Besides: the copy's empty
+`IndCheck/` directory, which `check` reports and the next sync deletes.
+Nothing unexplained.
+
+Gates: `lake build InLean InLeanProof inlean-replay` warning-free;
+`tests/layering.sh`, `tests/trust-surface.sh`, `tests/no-local-paths.sh`,
+`tests/inlean-sync.sh` pass.

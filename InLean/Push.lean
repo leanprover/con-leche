@@ -2,9 +2,9 @@ module
 
 public import InLean.FEnv
 /- `Lean.Kernel.Environment.add` and `markQuotInit` are private to
-`Lean.Environment`: inside core, the kernel calls them directly; here
-`import all` stands in for being part of that module.  The bodies that use
-them are therefore not exposed (`public section`, not `@[expose]`). -/
+`Lean.Environment`, so that nothing else adds a constant past the kernel;
+`import all` makes them visible here.  The bodies that use them are
+therefore not exposed (`public section`, not `@[expose]`). -/
 import all Lean.Environment
 
 /-!

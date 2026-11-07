@@ -3,17 +3,17 @@ module
 public import Lean.Expr
 /- `withPtrEq`/`withPtrAddr`/`withPtrEqDecEq` are public but not exposed;
 `Expr.beq_eq_beqMemo` needs their bodies (`k ()`, `k 0`), as con-leche's
-`ConLeche/Kernel/Expr.lean` does. -/
+`ConLeche.Kernel.Expr` does. -/
 import all Init.Util
 
 /-!
 # InLean: decidable equality of `Lean.Expr`, executed pointer-first
 
-Task #451, lane E (maintainer's ruling: InLean is to be provable by a
-simulation onto con-leche's cached checker; core's opaque externs go).
+InLean is to be provable by a simulation onto con-leche's cached checker, so it
+does not use core's opaque externs.
 Core's `BEq Expr` is `Expr.eqv`, an `@[extern] opaque` (alpha-equivalence
 in C++).  InLean's executed equality is con-leche's design
-(`ConLeche/Kernel/Expr.lean`, `Expr.beq`/`beqMemo`): **the specification
+(`ConLeche.Kernel.Expr`, `Expr.beq`/`beqMemo`): **the specification
 is decidable equality**, `Expr.beqI a b = decide (a = b)`, so `LawfulBEq`
 holds by construction, and the executed function is the memoised,
 pointer-first descent `Expr.beqMemo`, proved equal to it
@@ -30,7 +30,7 @@ with its two lemmas.
 
 **Deviation from con-leche.**  con-leche probes and records only pairs
 whose two nodes are shared (`withExclusive`, its one `unsafe`-implemented
-primitive, `ConLeche/Kernel/Exclusive.lean`); InLean may add no
+primitive, `ConLeche.Kernel.Exclusive`); InLean may add no
 `unsafe` code, so every recursive pair is probed and recorded.
 
 The instance is `scoped` in `InLean`: every InLean module (all inside the
@@ -270,7 +270,7 @@ def Expr.beqI (a b : Expr) : Bool := decide (a = b)
   congr 1
 
 /-- **Exact equality** as an instance, for the walks' memos and the
-generator (`InLean/ExprOps.lean`, `InLean/IndGen.lean`), whose results
+generator (`InLean.ExprOps`, `InLean.IndGen`), whose results
 keep binder names. -/
 @[reducible] def instBEqExprExact : BEq Expr := ⟨Expr.beqI⟩
 

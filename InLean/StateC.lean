@@ -6,7 +6,7 @@ public import InLean.ExprEq
 /-!
 # InLean: the per-declaration state and its operation wrappers
 
-Twin of `ConLeche/Cached/StateC.lean`: the memo caches of the five entry
+Twin of `ConLeche.Cached.StateC`: the memo caches of the five entry
 points (the plain tower's in their own fields, the eager tower's in
 `eagerMemos`), the stored-constant caches, the level-operation memos and
 the bulk-instantiation memo, each written in the linear-update discipline

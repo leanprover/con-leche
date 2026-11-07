@@ -5,9 +5,9 @@ public import InLean.Inductives.Install
 /-!
 # InLean's inductive check: positivity
 
-Twin of `ConLeche/Kernel/Inductives/Positivity.lean` (nested positivity, its
+Twin of `ConLeche.Kernel.Inductives.Positivity` (nested positivity, its
 container frames and seeds, the family telescopes) and of the positivity
-entry of `BlockInstall.lean` (`blockNestCtx`, `checkBlockPositivity`).
+entry of `ConLeche.Kernel.Inductives.BlockInstall` (`blockNestCtx`, `checkBlockPositivity`).
 Placeholder variables (`nestPhs`, the canonical substitution's) are interned
 before the pure walks that place them.
 -/
@@ -525,7 +525,7 @@ def nestSeeds (ops : CheckerOps) (env : FEnv) (ctx : NestCtx) :
       nPc cty st
     nestSeeds ops env ctx ks st
 
-/-! ## The block's positivity (twins of `BlockInstall.lean`'s) -/
+/-! ## The block's positivity (twins of `ConLeche.Kernel.Inductives.BlockInstall`'s) -/
 
 /-- Twin of `BlockShape.nestCtx`. -/
 def BlockShape.nestCtx (p : BlockShape) (fvsP : List Expr) (fe : FEnv) : NestCtx :=

@@ -5,9 +5,9 @@ public import InLean.StateC
 /-!
 # InLean: the environment, read at use
 
-Twin of `ConLeche/Kernel/FEnv.lean` over `Lean.Kernel.Environment`.  What
+Twin of `ConLeche.Kernel.FEnv` over `Lean.Kernel.Environment`.  What
 con-leche's install computes from a declaration group and stores beside
-the constants (`ConLeche/Kernel/Install.lean`: `IndCaps`, a recursor's
+the constants (`ConLeche.Kernel.Install`: `IndCaps`, a recursor's
 counts and the firing mode of its rules, the projection tables) is read
 here off Lean's own entry, when a check asks for it.  Nothing is stored
 and nothing is memoised:
@@ -30,7 +30,7 @@ and nothing is memoised:
   with no substitution, since substituting never makes or removes a
   binder.  The entry carries no body: only inference reads one, and builds
   just that field's (`projBodyAt`).
-* **What a check sees** (`FEnv.sees`, rulings of 2026-11-08): not `sorryAx`
+* **What a check sees** (`FEnv.sees`): not `sorryAx`
   at con-leche's axiom policy, and in the check of a safe declaration no
   `unsafe` or `partial` constant.  Freshness is read off Lean's environment
   itself, as official's `check_name`.
@@ -40,7 +40,7 @@ and nothing is memoised:
 * **The quotient package** (`Quot`, `Quot.mk`, `Quot.lift`, `Quot.ind`):
   con-leche stores its pins at the record's level names (`quotAt`); here
   Lean's own types, which the quotient's check compares with the pins, and
-  the pins' rules (`quotRuleRhs`, `InLean/Pins.lean`'s twins).
+  the pins' rules (`quotRuleRhs`, `InLean.Pins`'s twins).
 -/
 
 @[expose] public section

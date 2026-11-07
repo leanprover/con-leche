@@ -6,20 +6,20 @@ public import InLean.Pins
 /-!
 # InLean: the checker core
 
-Twin of `ConLeche/Cached/CoreC.lean` on `Lean.Expr`, function by function
+Twin of `ConLeche.Cached.CoreC` on `Lean.Expr`, function by function
 and in its shape: the bodies are templates over the mode and the knot of
 closures at the end (`coreKnotI`) ties them at a fuel; `whnfCore`, `whnf`,
 `infer`, `inferIO` and `defeq` are each memoised in `CState`.  Each
 function's docstring names the con-leche function it is the twin of.
 
 What differs, and why:
-* A free variable is an interned id (`InLean/StateC.lean`): building one
+* A free variable is an interned id (`InLean.StateC`): building one
   is `mkFVarM`, its type is read from the state, and two are compared by
   depth, as con-leche compares its levels (`defeqStuckI`).
 * `mdata` is looked through (`whnfCoreStepI`, `inferBodyI`, the readers),
   as the official kernel does; a metavariable is not supported.
 * What con-leche's install stores is read off Lean's entry at use
-  (`InLean/FEnv.lean`): the capabilities, a recursor's counts and its
+  (`InLean.FEnv`): the capabilities, a recursor's counts and its
   rules' firing mode (only in ι's case-3 certificate), a constructor's
   counts, a projection's table entry and, in inference, its body.
 * Inference of a constant checks the declaration's safety against the

@@ -5,7 +5,7 @@ public import InLean.Inductives.RecCheck
 /-!
 # InLean's inductive check: the generated recursors
 
-Twin of `ConLeche/Kernel/Inductives/GenRec.lean`: every recursor of the block
+Twin of `ConLeche.Kernel.Inductives.GenRec`: every recursor of the block
 regenerated from its classes (its type and its rules) and checked.  What
 con-leche writes in `Option` (a shape that may not be there) is in
 `OptionT CheckCM` here, because its variables are interned.

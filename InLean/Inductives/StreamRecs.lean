@@ -5,7 +5,7 @@ public import InLean.Inductives.GenRec
 /-!
 # InLean's inductive check: the stream's recursors against the generated ones
 
-Twin of `ConLeche/Kernel/Inductives/StreamRecs.lean`: each recursor the block
+Twin of `ConLeche.Kernel.Inductives.StreamRecs`: each recursor the block
 declares compared with the one generated from its classes (type, rules, firing
 data and K flag).
 -/

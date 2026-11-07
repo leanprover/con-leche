@@ -200,6 +200,10 @@ if tests/quote-gate.sh; then :; else fail=1; fi
 # Repo content must not reference local (absolute home) paths.
 if tests/no-local-paths.sh; then :; else fail=1; fi
 
+# The in-core copy of InLean (`scripts/inlean-sync.py generate`): the
+# invariants that need no lean4 checkout.  No build, milliseconds.
+if tests/inlean-sync.sh; then :; else fail=1; fi
+
 # THE COMPARATOR PAIR GATE (task #281).  `ConLeche/Challenge.lean` is a
 # deliberate dead end — not in `defaultTargets`, imported by nothing — so
 # `lake build` and `lake test` never look at it and it rotted silently when

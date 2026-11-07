@@ -7,13 +7,12 @@ import all Init.Util
 /-!
 # InLean: the expression operations, in Lean
 
-Task #451, lane E (ruling 4 of the #451 record reversed): core's opaque
-C++ operations — `instantiate`, `instantiate1`, `instantiateRev(Range)`,
+Core's opaque C++ operations — `instantiate`, `instantiate1`, `instantiateRev(Range)`,
 `abstract(Range)`, `lift`/`lowerLooseBVars`, `hasLooseBVar`, and the
 `implemented_by` traversals (`Expr.replace`, `Expr.find?`,
 `collectFVars`, `getUsedConstants`, the level-parameter collector) — are
 replaced by Lean-defined, memoised structural walks: twins of
-`ConLeche/Cached/ExprOpsC.lean`'s substitutions (`instantiate1C`,
+`ConLeche.Cached.ExprOpsC`'s substitutions (`instantiate1C`,
 `instantiateListC`, `instantiateRev`, `abstract1C`, `abstractRangeC`,
 `instLevelParams`) over `Lean.Expr`'s six binder-bearing constructors.
 
@@ -21,18 +20,17 @@ replaced by Lean-defined, memoised structural walks: twins of
 reports shared (`withExclusive`, its one `unsafe`-implemented primitive);
 InLean may add no `unsafe` code, so every compound node is memoised, keyed
 by the node and the binder offset under the lawful pointer-first equality
-(`InLean/ExprEq.lean`) — a structural recursion, no fuel needed.
+(`InLean.ExprEq`) — a structural recursion, no fuel needed.
 
 **The cutoffs** read Lean's cached fields (`looseBVarRange`, `hasFVar`,
 `hasLevelParam`), as con-leche's read its computed `data` word.  Lean
-computes them in C (`Expr.mkData`, `@[extern] opaque`); the proof tier
-relates them to the term by the stop-gap axioms of
-`InLeanProof/MkDataAxioms.lean` (lane G), on terms in range.  Lean does not
+computes them in C (`Expr.mkData`, `Expr.mkAppData`, `Level.mkData`); the
+proof relates them to the term by what C computes, on terms in range.  Lean does not
 saturate the range: a node above `2^20 - 1` loose variables aborts the
 process ("too many bound variables").  So the one walk here that can grow
 indices past a term's own, `abstract`, writes `rangePoison` instead of an
 out-of-range `bvar`, and its checker call sites error on it in O(1)
-(`InLean.abstractChecked`, `State.lean`).
+(`abstractRangeM`, `InLean.StateC`).
 -/
 
 @[expose] public section
@@ -215,7 +213,7 @@ def abstract (e : Expr) (xs : Array Expr) : Expr :=
 @[inline] def abstractRange (e : Expr) (n : Nat) (xs : Array Expr) : Expr :=
   abstract e (xs.extract 0 n)
 
-/-- The root of an interned free variable's name (`InLean/StateC.lean`):
+/-- The root of an interned free variable's name (`InLean.StateC`):
 the variable at depth `d` numbered `n` is named `fvRoot.d.n`. -/
 def fvRoot : Name := `_inlean_fv
 
@@ -263,8 +261,7 @@ def imaxChainFits (stk : List Level) (v : Level) : Bool :=
   maxDepthOf (v :: stk) + stk.length ≤ maxLevelDepth
 
 /-- Twin of `instLevelParams`: the level parameters `ps` to `us` in every
-`sort` and `const`, by con-leche's non-simplifying `Lvl.subst` (lane F:
-core's `Level.instantiateParams` compares by the opaque `Level.beq`).  A
+`sort` and `const`, by con-leche's non-simplifying `Lvl.subst` (core's `Level.instantiateParams` compares by the opaque `Level.beq`).  A
 node whose substituted level could pass C's depth bound becomes
 `rangePoison`, which the checker's call sites report (`instLevelParamsChecked?`). -/
 def instantiateLevelParams (e : Expr) (ps : List Name) (us : List Level) : Expr :=
@@ -293,7 +290,7 @@ def substLevelsChecked? (ps : List Name) (us : List Level) (ls : List Level) : O
   let md := maxDepthOf us
   if ls.all (depthFits md) then some (ls.map (Lvl.subst ps us)) else none
 
-/-- The GENERATOR's level instantiation (unverified, `InLean/IndGen.lean`):
+/-- The GENERATOR's level instantiation (unverified, `InLean.IndGen`):
 Lean's simplifying `Level.instantiateParams`, whose shapes the official
 constants carry. -/
 def instantiateLevelParamsGen (e : Expr) (ps : List Name) (us : List Level) : Expr :=
@@ -349,7 +346,7 @@ def hasLooseBVar (e : Expr) (i : Nat) : Bool :=
 def any (p : Expr → Bool) (e : Expr) : Bool :=
   (anyNode (fun x _ => if p x then some true else none) e 0 (freshFor e)).1
 
-/-- **In range, by the term alone** (lane G): every `bvar` index and level
+/-- **In range, by the term alone**: every `bvar` index and level
 depth below what C's `mkData` accepts, and no metavariable (so no
 `rangePoison`).  It reads no cached field: it is the one check the proof takes
 as the fact that an unverified term is in range. -/

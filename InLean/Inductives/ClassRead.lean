@@ -5,7 +5,7 @@ public import InLean.Inductives.Positivity
 /-!
 # InLean's inductive check: the classes the recursors eliminate
 
-Twin of `ConLeche/Kernel/Inductives/ClassRead.lean`: the recursor family's
+Twin of `ConLeche.Kernel.Inductives.ClassRead`: the recursor family's
 prefix read syntactically (motives, minor premises and their inductive
 hypotheses), without checking it.
 -/

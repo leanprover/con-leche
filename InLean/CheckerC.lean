@@ -7,17 +7,17 @@ public import InLean.Push
 /-!
 # InLean: the declaration step
 
-Twin of `ConLeche/Cached/ParsedC.lean`'s `checkDeclC` over
+Twin of `ConLeche.Cached.ParsedC`'s `checkDeclC` over
 `Lean.Declaration`, with the shared checks it runs
-(`ConLeche/Kernel/CheckerBase.lean`'s `checkConstantVal`,
-`ConLeche/Kernel/DeclCheck.lean`'s guards and pins): the constant checks,
+(`ConLeche.Kernel.CheckerBase`'s `checkConstantVal`,
+`ConLeche.Kernel.DeclCheck`'s guards and pins): the constant checks,
 the value checks, the certified `Nat` operations (`certifyNatEqs`,
 `checkDivModPinF`), the compiler-trust opaques (`checkReducePinF`), the
 pinned axioms (`stdAxiomOkF`, `trustCompilerOkF`, `ofReduceAxOkF`) and the
 quotient package (`checkQuotRecordC`).
 
 What a declaration adds is returned, not pushed (`Added`); the caller adds
-it (`InLean/AddDecl.lean`).  A value is checked in the environment before
+it (`InLean.AddDecl`).  A value is checked in the environment before
 its declaration's constants, as con-leche's fold checks a record at the
 view below it.
 
@@ -40,11 +40,10 @@ structure Config where
   pinned axioms; `sorryAx` is no constant), `true` the official kernel's. -/
   coreAxioms : Bool := false
   /-- **A pinned `Nat` operation whose certification declines is accepted**,
-  and the fast path, which fires by name, then fires on it.  For this
-  experiment the prelude is assumed good (the maintainer's ruling of
-  2026-11-04): the official kernel fires by name with no certificate, and
-  under `inlean-replay`'s dependency order an operation can arrive before
-  what its certificates read.  `false` is con-leche's policy. -/
+  and the fast path, which fires by name, then fires on it.  The prelude
+  is assumed good: the official kernel fires by name with no certificate,
+  and in a replay in dependency order an operation can arrive before what
+  its certificates read.  `false` is con-leche's policy. -/
   uncertifiedNatOps : Bool := true
 
 /-- What a declaration adds: its constants, in order, and whether it is the

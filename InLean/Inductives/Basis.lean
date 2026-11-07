@@ -6,12 +6,12 @@ public import InLean.Pins
 /-!
 # InLean's inductive check: the pinned basis blocks and `And`
 
-Twin of `ConLeche/Kernel/Basis.lean` (with the pins of `Basis/{Eq,Nat,Empty,
-False,And}.lean`): a block at the basis names is the pin, up to its level
+Twin of `ConLeche.Kernel.Basis` (with the pins of `ConLeche.Kernel.Basis.Eq`,
+`.Nat`, `.Empty`, `.False` and `.And`): a block at the basis names is the pin, up to its level
 parameters' names.  The pins are Lean entries, and a block is compared with one
 by `pinCopyOk`: names, level-parameter count, type and rules up to `mdata`
 and binder names and infos (con-leche's terms carry neither), and the fields
-InLean reads at use (`InLean/FEnv.lean`: an inductive's parameter and index
+InLean reads at use (`InLean.FEnv`: an inductive's parameter and index
 counts, `all`, constructors and `isRec`; a constructor's type former and
 counts; a recursor's `all`, major index, rule prefix, K flag and rules).
 con-leche installs the pin and ignores the record's capabilities; InLean
@@ -44,7 +44,7 @@ def recPin (n : Name) (lps : List Name) (ty : Expr) (T : Name) (mI rP : Nat) (is
              numIndices := mI - rP, numMotives := 0, numMinors := 0, rules, k := isK,
              isUnsafe := false }
 
-/-- Twin of `rule` (`Basis/Builder.lean`). -/
+/-- Twin of `rule` (`ConLeche.Kernel.Basis.Builder`). -/
 def rule (ctor : Name) (nfields : Nat) (rhs : Expr) : RecursorRule := ⟨ctor, nfields, rhs⟩
 
 /-! ## The pins -/
