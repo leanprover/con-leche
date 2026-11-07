@@ -112652,7 +112652,38 @@ the old proof goes through: `keyLeaf`'s satisfaction replaces `hsat`), and `genR
 
 Items 3–5 of cont. 6 unchanged.
 
-**State.**  Branch `agent/443-semantic-former` at `8875b800f` + this record; builds and tests
+**Done this session** (each commit builds; `lake build`, `lake test` warning-free, pins unchanged):
+* `genCls_core` (I) by `keyLeaf` alone (stored index fit ⇒ parameters at the key, index fit,
+  carrier); (II) still through `hformer` (to be moved to the run as above); `genCls_split` no
+  longer reads `hsat`.
+* The rows take a TYPED candidate: `graphRecPre_coreR`'s (`ClassRecKit`) and `genRecPre_hCand`'s
+  `hrule`/`hdec`, and `genRow_hrule`/`genRow_hdec`, quantify over `a` with
+  `∀ c < K, a c ∈ interp ρ (RecTy c)` (supplied by `famCandG_mem`; `genRecEqs_wd` passes its
+  `ht`).  Unused yet: it is what `genRule_live` needs.
+
+**Next, in order.**
+1. `genRule_live` (new, next to `GenClsCall`/`GenClsMinor`): at a fit `xs ++ fs` of rule
+   `(c, j)` at the base frame, with a typed candidate, some `is` fits the stored index binders at
+   `xs`.  By contradiction: no such fit ⇒ `genMotRds`' `pds` (= the stored index and major
+   domains, lifted) have no fit at the motive's frame ⇒ the motive is `pt`
+   (`mkPisAV_sort_eq_unitSet`, `unitSet = sing pt`) ⇒ the minor's innermost fibre (the motive
+   at `es ++ [mk]`, `app_pt`) is `pt`; but at a full fit of the minor's binders it `IsTy`
+   (`genMinor_pt`'s reading of the minor's tower and its grading, "not pt" source (1)), and the
+   binders past the fields — the ih domains — are inhabited: the ih values of `genRow_hstep`
+   (the candidate's application at each call's spine lies in the callee's conclusion, which is
+   the motive applied: `hcallTy`, `hconclMot`, the typing of `a`), so `IsTy.ne_pt` contradicts.
+2. `GenClsDec` takes `tgtClsLive … ψ ρ xs c`; `genRow_hrule`/`genRow_hdec` supply it from
+   `genRule_live` and `genCls_core` (I) (+ `genCls_live`); `genCls_dec` reads the parameters'
+   satisfaction from the liveness.
+3. `GenClsRd.hsat` restated as "a LIVE class's key satisfies its parameters" (outside: `FrFit`'s
+   first half; member: today's proof), used by `genCls_back`, `genCls_decInv`, `genCls_dec`;
+   `GenRecExtra`'s two uses and `genOutCtorFit`'s callers take it from their majors (via
+   `GenClsSplit`'s membership ⇒ liveness); `genOut_keyFit` and `GenRecFinal`'s `hkf` deleted.
+4. Item 2 of cont. 6 (`hformer` → the run; `genCls_core` (II) by the run as above,
+   `TgtOutCls.read`, `GenRecClasses`, `GenOutFacts`, `TargetOutRows`), then items 3–5.
+
+**State.**  Branch `agent/443-semantic-former` (worktree `_tmp/443/wt`), builds and tests
 warning-free; `FormerRuns` is still in the capstones.  Not landed (a partial lane).
 
-**Gates.**  `lake build` (no-op, warning-free); nothing executed changed since cont. 3's full gates.
+**Gates.**  `lake build`, `lake test` warning-free (axiom pins unchanged); nothing executed changed
+since cont. 3's full gates.

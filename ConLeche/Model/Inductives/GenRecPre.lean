@@ -212,7 +212,9 @@ theorem genRecPre_hCand
         v = v')
     (hind : GenClassInd mpC.base2.acval envC pp out d Dc mc cvc
       (fun c j => genIhdAV mpC.base2.acval envC g rd ψ c j) ψ ρ)
-    (hrule : ∀ a : Nat → V, ∀ c, c < (tgtRs out).length → ∀ j, j < blockRecNCt (tgtRs out) c →
+    (hrule : ∀ a : Nat → V, (∀ c, c < (tgtRs out).length →
+        a c ∈ˢ interp V ρ (blockRecTyAV mpC.base2.acval envC (tgtRs out) ψ c)) →
+      ∀ c, c < (tgtRs out).length → ∀ j, j < blockRecNCt (tgtRs out) c →
       ∀ xs fs : List V,
       xs.length = (blockRulePdomsAV mpC.base2.acval envC pp (tgtRs out) ψ c).length →
       SpineFit (chainFrame (tgtRs out).length a ρ)
@@ -226,7 +228,9 @@ theorem genRecPre_hCand
             (interp V (consList (xs ++ fs) (chainFrame (tgtRs out).length a ρ)))
           ++ [interp V (consList (xs ++ fs) (chainFrame (tgtRs out).length a ρ))
             (tgtMkK (tgtRs out).length mpC.base2.acval envC pp out ψ c j)])))
-    (hdec : ∀ a : Nat → V, ∀ c, c < (tgtRs out).length → ∀ j, j < blockRecNCt (tgtRs out) c →
+    (hdec : ∀ a : Nat → V, (∀ c, c < (tgtRs out).length →
+        a c ∈ˢ interp V ρ (blockRecTyAV mpC.base2.acval envC (tgtRs out) ψ c)) →
+      ∀ c, c < (tgtRs out).length → ∀ j, j < blockRecNCt (tgtRs out) c →
       ∀ xs fs : List V,
       xs.length = (blockRulePdomsAV mpC.base2.acval envC pp (tgtRs out) ψ c).length →
       SpineFit (chainFrame (tgtRs out).length a ρ)
@@ -881,7 +885,9 @@ theorem genRec_chainBase
 theorem genRow_hdec
     (h : ConLeche.RecStageG .verified F envC pp (tgtRs out)) (ψ : Name → Nat)
     (ρ : Nat → V) (hD : GenClsDec pp out mpC d Dc mc cvc ψ ρ) :
-    ∀ a : Nat → V, ∀ c, c < (tgtRs out).length → ∀ j, j < blockRecNCt (tgtRs out) c →
+    ∀ a : Nat → V, (∀ c, c < (tgtRs out).length →
+        a c ∈ˢ interp V ρ (blockRecTyAV mpC.base2.acval envC (tgtRs out) ψ c)) →
+      ∀ c, c < (tgtRs out).length → ∀ j, j < blockRecNCt (tgtRs out) c →
       ∀ xs fs : List V,
       xs.length = (blockRulePdomsAV mpC.base2.acval envC pp (tgtRs out) ψ c).length →
       SpineFit (chainFrame (tgtRs out).length a ρ)
@@ -897,7 +903,7 @@ theorem genRow_hdec
         interp V (consList (xs ++ fs) (chainFrame (tgtRs out).length a ρ))
             (tgtMkK (tgtRs out).length mpC.base2.acval envC pp out ψ c j)
           = tgtClsInj d Dc mc cvc pp out ψ c j fs := by
-  intro a c hc j hj xs fs hxl hsp
+  intro a _ c hc j hj xs fs hxl hsp
   obtain ⟨hbase, hes, hmk⟩ := genRec_chainBase h ψ ρ a hc hxl hsp
   obtain ⟨hfit, -, -, hmkE, -⟩ := hD c hc j hj xs fs hxl hbase
   rw [hes, hmk]
@@ -909,7 +915,9 @@ theorem genRow_hrule
     (h : ConLeche.RecStageG .verified F envC pp (tgtRs out)) (ψ : Name → Nat)
     (ρ : Nat → V) (hB : GenClsBack pp out mpC d Dc mc cvc ψ ρ)
     (hD : GenClsDec pp out mpC d Dc mc cvc ψ ρ) :
-    ∀ a : Nat → V, ∀ c, c < (tgtRs out).length → ∀ j, j < blockRecNCt (tgtRs out) c →
+    ∀ a : Nat → V, (∀ c, c < (tgtRs out).length →
+        a c ∈ˢ interp V ρ (blockRecTyAV mpC.base2.acval envC (tgtRs out) ψ c)) →
+      ∀ c, c < (tgtRs out).length → ∀ j, j < blockRecNCt (tgtRs out) c →
       ∀ xs fs : List V,
       xs.length = (blockRulePdomsAV mpC.base2.acval envC pp (tgtRs out) ψ c).length →
       SpineFit (chainFrame (tgtRs out).length a ρ)
@@ -923,7 +931,7 @@ theorem genRow_hrule
             (interp V (consList (xs ++ fs) (chainFrame (tgtRs out).length a ρ)))
           ++ [interp V (consList (xs ++ fs) (chainFrame (tgtRs out).length a ρ))
             (tgtMkK (tgtRs out).length mpC.base2.acval envC pp out ψ c j)])) := by
-  intro a c hc j hj xs fs hxl hsp
+  intro a _ c hc j hj xs fs hxl hsp
   obtain ⟨hbase, hes, hmk⟩ := genRec_chainBase h ψ ρ a hc hxl hsp
   obtain ⟨-, hI, hret, hmkE, hC⟩ := hD c hc j hj xs fs hxl hbase
   have hfit := hB c hc xs _ _ hI hC
@@ -1328,7 +1336,7 @@ theorem genRecEqs_wd
   obtain ⟨hE, hMk⟩ := hargs c hc j hj (xs ++ fs) hbase
   refine ⟨?_, ?_⟩
   · -- the left-hand side: an application chain along the recursor's type
-    have hfit := genRow_hrule h ψ ρ hB hD (fun c => as.getD c pt) c hc j hj xs fs hxl hsp
+    have hfit := genRow_hrule h ψ ρ hB hD (fun c => as.getD c pt) (fun c hc => ht c hc) c hc j hj xs fs hxl hsp
     have hflK : (tgtFdomsK (tgtRs out).length mpC.base2.acval envC pp out ψ c j).length
         = fs.length := by rw [hfdK, hfl]
     have hpv : (prefVarsAV
