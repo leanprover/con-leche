@@ -37,6 +37,7 @@ public import InLeanProof.IndBasis
 public import InLeanProof.PassInds
 public import InLeanProof.PassEnv
 public import InLeanProof.PassCtors
+public import InLeanProof.PassNest
 public import InLeanProof.SquarePilot
 public import InLeanProof.ProjBodiesTr
 public import InLeanProof.BlockRecogRun

@@ -29,6 +29,7 @@ public import InLeanProof.IndBasis
 public import InLeanProof.PassEnv
 public import InLeanProof.PassCtors
 public import InLeanProof.BlockPresR
+public import InLeanProof.PassNest
 
 /-!
 # The axiom pins of the InLean proof tier (task #451, lane G)
@@ -2250,3 +2251,55 @@ info: 'InLeanProof.indGroupPresBP_of' depends on axioms: [propext,
 /-- info: 'InLeanProof.projStepsAllOk_of_checkInductiveC' depends on axioms: [propext, Classical.choice, Quot.sound] -/
 #guard_msgs in
 #print axioms InLeanProof.projStepsAllOk_of_checkInductiveC
+
+/--
+info: 'InLeanProof.instPisWithI_tr' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound,
+ InLeanProof.Expr.mkAppData_fields,
+ InLeanProof.Expr.mkData_eq,
+ InLeanProof.Level.mkData_eq]
+-/
+#guard_msgs in
+#print axioms InLeanProof.instPisWithI_tr
+
+/-- info: 'InLeanProof.cNestHoles_eq' depends on axioms: [propext] -/
+#guard_msgs in
+#print axioms InLeanProof.cNestHoles_eq
+
+/--
+info: 'InLeanProof.nestHolesLoopI_run' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound,
+ InLeanProof.Expr.mkAppData_fields,
+ InLeanProof.Expr.mkData_eq,
+ InLeanProof.Level.mkData_eq]
+-/
+#guard_msgs in
+#print axioms InLeanProof.nestHolesLoopI_run
+
+/--
+info: 'InLeanProof.nestHolesI_run' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound,
+ InLeanProof.Expr.mkAppData_fields,
+ InLeanProof.Expr.mkData_eq,
+ InLeanProof.Level.mkData_eq]
+-/
+#guard_msgs in
+#print axioms InLeanProof.nestHolesI_run
+
+/-- info: 'InLeanProof.trShape_formers' depends on axioms: [propext, Quot.sound] -/
+#guard_msgs in
+#print axioms InLeanProof.trShape_formers
+
+/--
+info: 'InLeanProof.blockNestCtxI_run' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound,
+ InLeanProof.Expr.mkAppData_fields,
+ InLeanProof.Expr.mkData_eq,
+ InLeanProof.Level.mkData_eq]
+-/
+#guard_msgs in
+#print axioms InLeanProof.blockNestCtxI_run
