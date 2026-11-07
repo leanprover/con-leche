@@ -865,69 +865,84 @@ theorem blockCtorOk_ok {mg : Merged} {n x : Name} {sk : Bool} (h : blockCtorOk m
       · cases h
     · cases h
 
+/-- **What `blockStep` says of an inductive type**: its block lists it, every member is an
+inductive type of that block, every constructor one of its own, all filtered alike. -/
+theorem blockStep_ind {mg : Merged} {n : Name} {c : CEntry} {all cs : List Name}
+    (hc : mg.map[n]? = some c) (hk : IsInd c all cs) (hs : blockStep mg n = .ok ()) : n ∈ all ∧
+    (∀ x ∈ all, ∃ m cs', mg.map[x]? = some m ∧ IsInd m all cs' ∧ m.skipped = c.skipped) ∧
+    (∀ x ∈ cs, ∃ m, mg.map[x]? = some m ∧ IsCtor m n ∧ m.skipped = c.skipped) := by
+  obtain ⟨_, _, _, _, _, _, hk⟩ := hk
+  simp only [blockStep, hc, hk] at hs
+  split at hs
+  · rename_i h1
+    split at hs
+    · cases hs
+    · rename_i h2
+      exact ⟨by simpa using h1, fun x hx => blockMemberOk_ok (forM_ok h2 x hx),
+        fun x hx => blockCtorOk_ok (forM_ok hs x hx)⟩
+  · cases hs
+
+/-- **What `blockStep` says of a constructor**: its type is an inductive type listing it. -/
+theorem blockStep_ctor {mg : Merged} {n : Name} {c : CEntry} {ind : Name}
+    (hc : mg.map[n]? = some c) (hk : IsCtor c ind) (hs : blockStep mg n = .ok ()) :
+    ∃ m all cs, mg.map[ind]? = some m ∧ IsInd m all cs ∧ n ∈ cs := by
+  obtain ⟨_, _, _, _, hk⟩ := hk
+  simp only [blockStep, hc, hk] at hs
+  split at hs
+  · cases hs
+  · rename_i t ht
+    split at hs
+    · rename_i all cs _ _ _ _ hk'
+      split at hs
+      · rename_i h1
+        exact ⟨t, all, cs, ht, ⟨_, _, _, _, _, _, hk'⟩, by simpa using h1⟩
+      · cases hs
+    · cases hs
+
+/-- **What `blockStep` says of a recursor**: its block's first member is an inductive type of
+that block, filtered alike. -/
+theorem blockStep_recur {mg : Merged} {n : Name} {c : CEntry} {all : List Name}
+    (hc : mg.map[n]? = some c) (hk : IsRec c all) (hs : blockStep mg n = .ok ()) :
+    ∃ t rest m cs, all = t :: rest ∧ mg.map[t]? = some m ∧ IsInd m all cs ∧ m.skipped = c.skipped := by
+  obtain ⟨_, _, _, _, _, _, _, hk⟩ := hk
+  simp only [blockStep, hc, hk] at hs
+  split at hs
+  · cases hs
+  · rename_i t rest
+    split at hs
+    · cases hs
+    · rename_i m hm
+      split at hs
+      · rename_i all' cs _ _ _ _ hk'
+        split at hs
+        · rename_i h1
+          split at hs
+          · rename_i h2
+            obtain rfl : all' = t :: rest := by simpa using h1
+            exact ⟨t, rest, m, cs, rfl, hm, ⟨_, _, _, _, _, _, hk'⟩, by simpa using h2⟩
+          · cases hs
+        · cases hs
+      · cases hs
+
 /-- **`blocksOk` says the blocks agree.** -/
 theorem blocksOk_good {mg : Merged} (h : blocksOk mg = .ok ())
     (hO : ∀ n, n ∈ mg.order ↔ mg.map.contains n = true) : BlocksGood mg := by
   have step : ∀ {n c}, mg.map[n]? = some c → blockStep mg n = .ok () := by
     intro n c hc
     refine forM_ok h n (by simpa using (hO n).2 (contains_of_getElem hc))
-  refine ⟨fun {n c all cs} hc hk => ?_, fun {n c ind} hc hk => ?_, fun {n c all} hc hk => ?_,
-    fun {n c k} hc hk => ?_⟩
-  · have hs := step hc
-    obtain ⟨_, _, _, _, _, _, hk⟩ := hk
-    simp only [blockStep, hc, hk] at hs
+  refine ⟨fun hc hk => blockStep_ind hc hk (step hc), fun hc hk => blockStep_ctor hc hk (step hc),
+    fun hc hk => blockStep_recur hc hk (step hc), fun {n c k} hc hk => ?_⟩
+  have hs := step hc
+  simp only [blockStep, hc, hk] at hs
+  split at hs
+  · rename_i h1
     split at hs
-    · rename_i h1
-      split at hs
-      · cases hs
-      · rename_i h2
-        exact ⟨by simpa using h1, fun x hx => blockMemberOk_ok (forM_ok h2 x hx),
-          fun x hx => blockCtorOk_ok (forM_ok hs x hx)⟩
+    · rename_i h2
+      refine ⟨?_, fun q hq => by simpa using List.all_eq_true.mp h2 q hq⟩
+      have hn : n ∈ quotNames := by simpa using h1
+      exact List.mem_filterMap.mpr ⟨n, hn, hc⟩
     · cases hs
-  · have hs := step hc
-    obtain ⟨_, _, _, _, hk⟩ := hk
-    simp only [blockStep, hc, hk] at hs
-    split at hs
-    · cases hs
-    · rename_i t ht
-      split at hs
-      · rename_i all cs _ _ _ _ hk'
-        split at hs
-        · rename_i h1
-          exact ⟨t, all, cs, ht, ⟨_, _, _, _, _, _, hk'⟩, by simpa using h1⟩
-        · cases hs
-      · cases hs
-  · have hs := step hc
-    obtain ⟨_, _, _, _, _, _, _, hk⟩ := hk
-    simp only [blockStep, hc, hk] at hs
-    split at hs
-    · cases hs
-    · rename_i t rest
-      split at hs
-      · cases hs
-      · rename_i m hm
-        split at hs
-        · rename_i all' cs _ _ _ _ hk'
-          split at hs
-          · rename_i h1
-            split at hs
-            · rename_i h2
-              obtain rfl : all' = t :: rest := by simpa using h1
-              exact ⟨t, rest, m, cs, rfl, hm, ⟨_, _, _, _, _, _, hk'⟩, by simpa using h2⟩
-            · cases hs
-          · cases hs
-        · cases hs
-  · have hs := step hc
-    simp only [blockStep, hc, hk] at hs
-    split at hs
-    · rename_i h1
-      split at hs
-      · rename_i h2
-        refine ⟨?_, fun q hq => by simpa using List.all_eq_true.mp h2 q hq⟩
-        have hn : n ∈ quotNames := by simpa using h1
-        exact List.mem_filterMap.mpr ⟨n, hn, hc⟩
-      · cases hs
-    · cases hs
+  · cases hs
 
 /-! ## The recursors of a block -/
 
