@@ -42,9 +42,15 @@ theorem ProofLeaves.empty (a : Name → (Name → Nat) → Term) : ProofLeaves V
 /-- The pinned names, unfolded. -/
 theorem pinnedLeafName_false {n : Name} (h : pinnedLeafName n = false) :
     (natOpNames.contains n || natDivModNames.contains n) = false ∧
-      reduceOpNames.contains n = false ∧ n ≠ quotSoundName ∧ n ≠ sorryAxName := by
+      reduceOpNames.contains n = false ∧ n ≠ sorryAxName := by
   simp only [pinnedLeafName, Bool.or_eq_false_iff, beq_eq_false_iff_ne] at h
-  exact ⟨by rw [h.1.1.1.1, h.1.1.1.2]; rfl, h.1.1.2, h.1.2, h.2⟩
+  exact ⟨by rw [h.1.1.1, h.1.1.2]; rfl, h.1.2, h.2⟩
+
+/-- **`Quot.sound`'s leaf is the canonical proof**, in every model storing it: its pin's. -/
+theorem quotSound_leaf {E : Env} (mp : EnvModelM V E) {ci : ConstantInfo}
+    (hf : E.find? quotSoundName = some ci) : mp.base2.acval quotSoundName = fun _ => .prf :=
+  funext fun _ => mp.base2.acval_pinned_free hf (by decide)
+    (fun _ => by simp (decide := true) [ConLeche.Verify.pinnedStructT])
 
 /-- **A truth value read alike is a truth value.** -/
 theorem SemPropType.of_denote {a₁ a₂ : Name → (Name → Nat) → Term} {E₁ E₂ : Env} {ty : Expr}

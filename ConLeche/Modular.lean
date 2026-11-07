@@ -142,11 +142,12 @@ def _root_.ConLeche.ConstantInfo.isStmtKind : ConstantInfo → Bool
   | .defnInfo .. | .thmInfo .. | .axiomInfo .. => true
   | _ => false
 
-/-- **A name whose constant's leaf is pinned**: a certified operation's, a compiler-trust
-name's, `Quot.sound`'s (its pin's) or `sorryAx`'s (which stores nothing); never a proof's copy. -/
+/-- **A name whose constant's leaf is pinned to something else than a proof**: a certified
+operation's, a compiler-trust name's, or `sorryAx`'s (which stores nothing); never a proof's
+copy.  (`Quot.sound`'s pinned leaf is the canonical proof.) -/
 def pinnedLeafName (n : Name) : Bool :=
   natOpNames.contains n || natDivModNames.contains n || reduceOpNames.contains n ||
-    n == quotSoundName || n == sorryAxName
+    n == sorryAxName
 
 /-- **The names an expression reads**: its constants, a literal's support names and a
 projection's structure (the names `Expr.constsResolve` asks stored). -/

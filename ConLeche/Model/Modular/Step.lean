@@ -63,10 +63,10 @@ theorem new_proof_leaf {F : Nat} {env env₂ : Env} {d : Declaration}
     (hleaf : ∀ n, (env.find? n).isSome = true → a' n = a n)
     (hpl : DeclProofLeaf V a env d a') {n : Name} {ci : ConstantInfo}
     (hf : env₂.find? n = some ci) (hnew : env.find? n = none) (hk : ci.isStmtKind = true)
-    (hpin : pinnedLeafName n = false)
+    (hpin : pinnedLeafName n = false) (hqs : n ≠ quotSoundName)
     (hc : (∃ cv, ci = .thmInfo cv) ∨ SemPropType V a' env₂ ci.toConstantVal.type) :
     a' n = fun _ => .prf := by
-  obtain ⟨hop, hred, hqs, hsy⟩ := pinnedLeafName_false hpin
+  obtain ⟨hop, hred, hsy⟩ := pinnedLeafName_false hpin
   subst he
   -- the constant is the record's
   have hname := ConLeche.Env.find?_name hf
@@ -182,7 +182,9 @@ theorem declsRun_proofs :
           simp only at h₁
           rw [h₁, pushDelta_env]
           rfl
-        refine new_proof_leaf hrunD hch rfl (fun c hc hnc => ?_) hleaf₁ hPL₁ hf hnew hk hpin hc
+        by_cases hqs : n = quotSoundName
+        · subst hqs; exact quotSound_leaf mp₁ hf
+        refine new_proof_leaf hrunD hch rfl (fun c hc hnc => ?_) hleaf₁ hPL₁ hf hnew hk hpin hqs hc
         rw [hfe₁] at hc
         simp only [streamEnv, List.foldl, Env.pushDelta, List.mem_append, List.mem_reverse] at hc
         exact hc.resolve_right hnc

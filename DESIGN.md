@@ -113111,3 +113111,41 @@ its records' read order, `ImportOk.ordered`; the partner's statement capture-che
 argument, values being sets) and §7's prose and `#real` citations, then `links-gate.sh --update`;
 the full arena under the guard, shake, challenge; land on `modular` with `--no-ff`.  Then the
 composition.  Also to rule on: `Quot.sound` among `pinnedLeafName` (cont.).
+
+### #500 cont. 3 (the coordinator's rulings of 2026-11-07, and the state)
+
+**Rulings.**  (1) Theorem pairs pass without inference (a theorem is a proof by kind where it comes
+from): kept (`ThmAt`, `IsThm`).  (2) `Quot.sound`: try the lemma, else keep the exclusion with a
+fixture.
+
+**`Quot.sound` done by the lemma, no exclusion.**  Every model's leaf at `Quot.sound`, whatever
+constant stores it, is its pin's, the canonical proof (`quotSound_leaf`, `Proofs.lean`, from
+`EnvModel.acval_pinned_free` and `pinnedStructT`), so `pinnedLeafName` no longer lists it and
+`ProofLeaves` covers it; the step takes the new name `Quot.sound` there (`declsRun_proofs`),
+`new_proof_leaf` the others.  Two pinned `Quot.sound` copies outside `Init`'s closure merge as
+Lean merges them.  `lake build` of `MainTheorem`/`Challenge`: pass.
+
+**State.**  Everything of cont. 2 holds, plus the above.  Still left, in order:
+1. **The worker's read order** (`ImportOk.ordered`).  Plan: `reach` returns its records sorted by
+   a post-order walk of their reads (`recordReads` already computed per record; a name-to-record
+   map from the reach's log), a read met while its record is on the walk's path is a cycle,
+   exit 1 ("records that read each other"); theorems: the sort's output is a permutation of its
+   input and ordered (`∀ k, RecordScoped (streamEnv (take (k+1))) ctx[k]`); and the facts
+   `reach_ok` gives (`RecordScoped` in the context, `EnvWF`, distinct names) carry along a
+   permutation of a name-distinct list (`find?` and `findTable?` are equal; a lemma
+   `streamEnv_perm_find?`).  `worker_ctx`/`worker_local` then hold of the sorted context
+   unchanged in statement.
+2. **The partner's statement** at a proof pair (`keyCheck`'s and `clashKeys`'s pending
+   inferences): every name of the partner copy's statement capture-checked against the partner's
+   home, as a read of that home (pushed through the reach's worklist as reads of a record of that
+   home, so `captureOne` needs no recursion); renamed `agreeCheck`/`clashAgree`.
+3. The fragment (`ModularSemantics.lean` := the new `Generic.lean` in the `Fragment` namespace;
+   `ModularModel.lean`/`ModularInstance.lean` by agreement: `FromViews` with `Agree`, `proof_val`
+   by `defVal_eq_pt`'s argument, `Decl.IsProof`/`FlagsOk`/`Module.key` out; `Axioms.lean` pins),
+   §7's prose ("Developments, agreement, validity"; the capture example by values; the proof
+   route) and `#real` citations, `whitepaper/links-gate.sh --update`.
+4. Gates: `tests/arena.sh` in full under the guard, `tests/shake.sh`, `tests/challenge.sh`,
+   whitepaper links, fragment gate, build.  Land on `modular` (`--no-ff`), remove the worktree.
+5. The composition `main_modular_no_False`.
+
+The session ran low here.
