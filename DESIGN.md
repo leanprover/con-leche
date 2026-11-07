@@ -112757,3 +112757,44 @@ landed (a partial lane).
 
 **Gates.**  `lake build`, `lake test` warning-free (axiom pins unchanged); nothing executed
 changed since cont. 3's full gates.
+
+### #443: the swap; `FormerRuns` leaves the capstones (#443 cont. 9, 2026-11-07)
+
+**Done** (cont. 8's steps 1–3; the whole tree builds warning-free).
+* **`genCls_coreII` by value** (`b58f23ea9`).  The generated former entry is a run's result `ty`
+  with `FormerRead` at the class's levels (outside: `familyRead` of the class check's family
+  run, `genClsRd_out`; member: its stored former's `FormerData`, `genClsRd_mem` — `IdsM` is the
+  `drop nP` of `d.ppsM t`, so `pars ++ ids` is `ppsM` and `w` is `resSort.eval`).  Its index
+  binders at the key read as the run's rest substituted at the key (`instTele_read`); the key's
+  parameters (`parsSat`) and an index fit are a full fit of the datum's telescope, hence of the
+  run's tower (`spineFit_iff_of_mkPisAV_eq`), whose split is the stored index binders' fit.
+* **An outside class through its run** (`2697c02f0`).  `TgtOutCls` has no `hread`;
+  `TgtOutCls.outsideInst` gives the class check's run and its `FormerRead`.  Counts from the
+  run's tower length (`genOutIdxLen`; `nestInstType_count` takes the walk's own run, at the
+  walk's model); the sort along a fit (`FormerRead.sort_eq`): `genRun_outW` holds under a full
+  fit of the member's telescope, which a live class's index gives (`tgtClsIs_outFit`,
+  `lfp_frameFullFit`); `genOutW` merged into it.  The `FamilyRead` threading left
+  `GenRecClasses`, `TargetClass`, `GenRecFinal`.
+* **The swap** (this commit).  `LfpReads` is the value clause: each member's stored type has the
+  value of the block's telescope over its sort, a flat former reads as a Π-tower of the family's
+  length, and the sort is read off the member's level parameters (what `lfpW_congr` needs; the
+  producers have it from `FormerData.params`, the pinned blocks trivially).  The grading of the
+  tower is not recorded: no consumer read it.  `LfpCtorReads`' hole types are the datum's own
+  towers, `LfpDatum.holeTys` (`(mkPisAV (ids m) (.sort w)).liftN m 0`, what the block's producer
+  already built); `frameVals_sat` reads them directly.  `CanonOf` is the crest alone.
+  Deleted: `LfpDatum.telescope`, `formerAt`, `LfpTelescope`, `LfpReadsV`, `FamilyRead`,
+  `FamilyRan` with its threading (`EnvModelOk`, `CoveredRel`, `declBlock`, `declBlockAt`,
+  `BlockDatum`, `FormersModelAt`, the modular `MMod`/`CtxModel`/`declsRun_flags`),
+  `CoverRel.blocks`, `declBlockRun_tables`/`_findTable`, `envExt_trans`, the container walk's
+  `formerAt` lemmas (`canonHoleTy_read`, `instFormer_read*`, `ContLeaf.keyParamsFit`,
+  `ContCover.reads`/`instFacts`/`keyCerts`), the `EnvModelM.formerAt_*` lemmas, `CtxSrc.ran` and
+  `.defh` (`defhRun`, `telR`), `FormerRunsX` and `Modular.FormerRuns`.  `RestrictLfp` transports
+  the value clause by `denote_eq`.  `genOut_pin` compares the container's towers at the
+  constructor's and the class's levels by value (`EnvModelM.tower_congr`) instead of Term
+  equality of the datum's index readings; `member_mem_tower` reads at any valuation (the stored
+  type is closed), so `genOut_typed`'s fit is at every valuation.  `FamilyRan.lean`, holding the
+  run facts that stay (`familyTelescope_unique`/`_ext`, `readTelescope` — the stack context's hole
+  types, a kernel run, not a record — `NatFacts`), is `RunEnv.lean`.
+* **`modular_model_exists` and `modular_no_False` have the local checks as their only
+  hypothesis**; `Challenge.lean`, `Modular.lean`'s statement, `Axioms.lean`'s table, OVERVIEW §1
+  and whitepaper §7 say so.
