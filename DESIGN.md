@@ -111515,7 +111515,7 @@ Gates: `lake build InLean InLeanProof` warning-free; `tests/layering.sh`,
 
 ### Lane P3b: `EnvBodiesI` from the relation, the quotient group, the inductive group's assembly (2026-11-07)
 
-Three new files, no `sorry`, no new axiom; 16 theorems pinned in
+Three new files, no `sorry`, no new axiom; 12 theorems pinned in
 `AxiomPins.lean` (`quotGroupPres`, `ssimI_of_pres` and
 `emvarS_instantiateLevelParams` carry the stop-gap `mkData` axioms, the rest
 the standard three).  No executable code changed; no existing proof file
