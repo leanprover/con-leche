@@ -121,10 +121,12 @@ theorem opsSimI_of {fe : InLean.FEnv} {L : ConLeche.Env}
     rw [ConLeche.ensureSort_atF, ConLeche.ensureSort_def] at h4
     exact h4
 
-/-- **The job's environment premises** at `fe` against `L`: the relation,
+/-- **The job's environment premises** at `fe` against `L`: core's
+environment laws (`EnvLaws`, what a push reads), the relation,
 con-leche's well-formedness, the projection bodies' range (P3b's three) and
 the projection guard's spec (task #492's, a hypothesis of the knot). -/
 structure JobEnvI (fe : InLean.FEnv) (L : ConLeche.Env) : Prop where
+  laws : EnvLaws
   pres : EnvPresI fe L
   wf : ConLeche.EnvWF L
   proj : ProjBodiesInRange fe
