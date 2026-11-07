@@ -7,16 +7,18 @@
 #let Val = $op("Val")$
 #let Asm = $op("Asm")$
 #let Acc = $op("Acc")$
-#let Fl = $op("Fl")$
 #let Cmp = $op("Cmp")$
 #let Valid = $op("Valid")$
 #let Checked = $op("Checked")$
 #let Compared = $op("Compared")$
 #let Pass = $op("Pass")$
-#let New = $op("New")$
-#let Decl = $op("Decl")$
 #let Prf = $op("Prf")$
-#let One = $op("One")$
+#let Thm = $op("Thm")$
+#let Side = $op("Pf")$
+#let Ag = $op("Ag")$
+#let Rd = $op("Rd")$
+#let From = $op("src")$
+#let rk = $op("rk")$
 #let refines = sym.prec.eq
 #let agr = $scripts(asymp)$
 
@@ -26,9 +28,9 @@ A module is checked against the views its imports present. These may
 hide definition values or theorem proofs, so the environment used to
 check an imported declaration can differ from the environment in
 which it is used. We show how local checks nevertheless give each
-module a model, with agreement on shared constants. The argument
-first uses an abstract interface; we then supply it from the
-set-theoretic models of §3 and §4.
+module a model, in which every name a module reads has the value it has
+where it is read from. The argument first uses an abstract interface;
+we then supply it from the set-theoretic models of §3 and §4.
 
 == Environment models in the abstract <sec:mod-iface>
 
@@ -36,18 +38,15 @@ Let $C$ be the context of the module we are checking, built from a
 family of imported views $(E_x)_(x in X)$. To check the declarations,
 we need a model of $C$ that preserves the values already assigned by
 the imports' models. This requires agreement wherever two imported
-views store a name of $C$. We state the laws below for an arbitrary
-environment $C$ assembled from a family $(E_x)_(x in X)$, because they
-are used twice: for a checked module's context, called $Gamma_i$ in
-@sec:mod-env, and for the whole environment $E_i$ of a compared module.
+views store a name of $C$.
 
 In general, write
-#src("whitepaper/Fragment/ModularSemantics.lean", 104, 120)[$c in E$]
+#src("whitepaper/Fragment/ModularSemantics.lean", 110, 111)[$c in E$]
 when an environment $E$ stores a name $c$, and $Mod(E)$ for its models.
 A model $m in Mod(E)$ assigns each name $c in E$ a value $m(c) in Val$;
 all proofs will receive one distinguished value $pi in Val$.
 Models $m in Mod(E)$ and $m' in Mod(E')$
-#src("whitepaper/Fragment/ModularSemantics.lean", 94, 100)[_agree on_]
+#src("whitepaper/Fragment/ModularSemantics.lean", 95, 101)[_agree on_]
 an environment $C$ when they give the same value to every name of $C$
 that both $E$ and $E'$ store:
 $
@@ -59,7 +58,7 @@ $C$_ when $m_x agr_C m_y$ for all $x,y in X$.
 
 #definition(name: "The model interface")[
   A consistency proof must provide
-  #src("whitepaper/Fragment/ModularSemantics.lean", 121, 139)[three laws].
+  #src("whitepaper/Fragment/ModularSemantics.lean", 120, 148)[four laws].
   An _assembly_ relation identifies contexts built from a family of
   environments, with every stored name supplied by a member:
   $
@@ -71,15 +70,23 @@ $C$_ when $m_x agr_C m_y$ for all $x,y in X$.
     Asm(C,(E_x)) and (forall x,y in X. thin m_x agr_C m_y) ==>
     exists m_C in Mod(C). thin forall x in X. thin m_C agr_C m_x.
   $
+  _Proofs_ are recognised in two ways. $Prf(C,E,c)$ says that $C$
+  proves $E$'s $c$ a proof (in the instance: its type is inferred over
+  $C$ to be a proposition), and a model of $E$ agreeing on $C$ with a
+  model of $C$ gives it $pi$; $Thm(E,c)$ says that $E$ stores $c$ as a
+  theorem, and every model of $E$ gives it $pi$:
+  $
+    Prf(C,E,c) and m_C agr_C m ==> m(c) = pi, quad quad
+    Thm(E,c) ==> m(c) = pi,
+  $
+  for all $m_C in Mod(C)$ and $m in Mod(E)$.
   Finally, for environments $Gamma$, $Gamma'$ and declaration data $D$,
   acceptance of $D$ over $Gamma$, producing $Gamma'$, must give a
-  _conservative step_. If $Fl(D)$ is the set of names $D$ flags as
-  proofs, then
+  _conservative step_:
   $
     Acc(Gamma,D,Gamma') ==> forall m in Mod(Gamma). thin
-      exists m' in Mod(Gamma'). \
-    (forall c in Gamma. thin m'(c) = m(c)) and
-    (forall c in Fl(D). thin m'(c) = pi).
+      exists m' in Mod(Gamma'). thin
+    forall c in Gamma. thin c in Gamma' and m'(c) = m(c).
   $
 ] <def:mod-iface>
 
@@ -89,10 +96,10 @@ Adding an axiom $c = 0$ would leave some model, but none preserving
 that imported value. The conservative step excludes this extension.
 
 An environment $V$
-#src("whitepaper/Fragment/ModularSemantics.lean", 145, 146)[_refines_]
+#src("whitepaper/Fragment/ModularSemantics.lean", 154, 155)[_refines_]
 an environment $E$, written $V refines E$, when it is assembled from $E$ alone.
 Amalgamation of the one-member family then
-#src("whitepaper/Fragment/ModularSemantics.lean", 150, 160)[restricts]
+#src("whitepaper/Fragment/ModularSemantics.lean", 164, 169)[restricts]
 any model $m in Mod(E)$ to a model of $V$, preserving the value $m(c)$
 at every $c in V$
 (and assembly ensures $c in E$).
@@ -102,7 +109,7 @@ assembled from no environments.
 == Developments <sec:mod-env>
 
 Number modules by natural numbers. For
-#src("whitepaper/Fragment/ModularSemantics.lean", 166, 174)[module $i in NN$],
+#src("whitepaper/Fragment/ModularSemantics.lean", 175, 187)[module $i in NN$],
 write $Gamma_i$ for its context, $D_i$ for its declarations and $E_i$
 for its own environment, which is to be validated.
 Module $i$ reads a list $X_i$ of _imported views_: pairs $(j,V)$ of
@@ -117,76 +124,78 @@ environment of the module presenting it, so that the model can be restricted to
 what the importer reads.
 Module numbers will place imports before importers.
 
-Module $i$ records each occurrence of a name $c$ as either
-#src("whitepaper/Fragment/ModularSemantics.lean", 180, 181)[_declared by_]
-one module $h in NN$, written $Decl_i (c,h)$, or a
-#src("whitepaper/Fragment/ModularSemantics.lean", 183, 184)[_proof of_]
-one statement $s$, written $Prf_i (c,s)$. The two possibilities are disjoint.
-Modules $i$ and $j$ use $c$
-#src("whitepaper/Fragment/ModularSemantics.lean", 186, 191)[_interchangeably_],
-written $i scripts(approx)_c j$, when these records agree, that is,
-when they mean the same constant by $c$:
-$
-  i scripts(approx)_c j quad :<==> quad
-    (exists h. thin Decl_i (c,h) and Decl_j (c,h)) or
-    (exists s. thin Prf_i (c,s) and Prf_j (c,s)).
-$
-For each name this is an
-#src("whitepaper/Fragment/ModularSemantics.lean", 206, 211)[equivalence relation].
-Statements need no structure yet; the set-theoretic instance uses the
-level parameters and type, compared syntactically. Comparisons always
-use the same name in both environments.
+For each name $c in Gamma_i$, module $i$ names the module
+$From_i (c)$ it _reads $c$ from_, orders its context names by a rank
+$rk_i (c)$, and gives the _part below_ $c$: an environment
+$P_i (c)$ of context names of smaller rank. Two modules may hold
+copies of one name, and nothing relates copies no module reads
+together. What the theory asks is that the copies a module reads
+_agree_: get one value in the models.
 
-== Validity
+== Agreement and validity
 
-To amalgamate the imported views' models for module $i$, their copies of a
-context name must be interchangeable with $i$'s occurrence. For an
-environment $E$, abbreviate assembly of $E$ from the views in $X_i$ by
-$Asm_i (E)$, and write
-#src("whitepaper/Fragment/ModularSemantics.lean", 219, 225)[$One_i (E)$]
-for this _one-copy condition_:
+Module $i$ checks, for each name $c in Gamma_i$ and each imported view
+$(j,V) in X_i$ that stores $c$, that $j$'s copy agrees with the one
+$i$ reads. A copy is a proof for $i$,
+#src("whitepaper/Fragment/ModularSemantics.lean", 199, 207)[$Side_i (c,(j,V))$],
+when $i$ proves it one over the part below $c$, or it is a theorem where
+it comes from:
 $
-  One_i (E) quad :<==> quad forall c in E. thin forall (j,V) in X_i. thin
-    c in V ==> i scripts(approx)_c j.
+  Side_i (c,(j,V)) quad :<==> quad Prf(P_i (c), V, c) or Thm(E_j, c)
+    or (c in Gamma_j and Thm(E_(From_j (c)), c)).
 $
+The copy
+#src("whitepaper/Fragment/ModularSemantics.lean", 209, 219)[_agrees_],
+written $Ag_i (c,(j,V))$, when one of three cases holds:
++ $j = From_i (c)$: it is the module $c$ is read from;
++ $c in Gamma_j$, some $(h,W) in X_j$ stores $c$, and some
+  $(h,W') in X_i$ with $h < j$ stores it too: one copy of an earlier
+  module $h$, loaded through two paths;
++ $Side_i (c,(j,V))$, and $Side_i (c,(h,W))$ for every
+  $(h,W) in X_i$ with $h = From_i (c)$ and $c in W$: two proofs.
+Module $i$
+#src("whitepaper/Fragment/ModularSemantics.lean", 221, 228)[_reads_ $c$]
+when some view of $From_i (c)$ in $X_i$ stores $c$, the part
+$P_i (c)$ is assembled from the views in $X_i$, its names are
+names of $Gamma_i$ of smaller rank, and every view in $X_i$ storing
+$c$ agrees; write $Rd_i (c)$. For an environment $E$, abbreviate
+assembly of $E$ from the views in $X_i$ by $Asm_i (E)$.
 A module may either check its declarations over the assembled context,
-or obtain its whole own environment by comparison with its imported views.
+or have its context as its whole own environment.
 The latter case will serve challenge–solution comparison.
 
 #definition(name: "Valid module")[
-  The #src("whitepaper/Fragment/ModularSemantics.lean", 227, 246)[validity conditions]
+  The #src("whitepaper/Fragment/ModularSemantics.lean", 236, 243)[validity conditions]
   are
   $
-    New_i & :<==> forall c in E_i without Gamma_i. thin
-      Decl_i (c,i) or (c in Fl(D_i) and exists s. thin Prf_i (c,s)), \
-    Checked_i & :<==> Asm_i (Gamma_i) and One_i (Gamma_i)
-      and Acc(Gamma_i,D_i,E_i) and New_i, \
-    Compared_i & :<==> Asm_i (E_i) and One_i (E_i), \
-    Valid_i & :<==> (forall (j,V) in X_i. thin j < i and V refines E_j) \
-      & quad and (Checked_i or Compared_i).
+    Valid_i & :<==> (forall (j,V) in X_i. thin j < i and V refines E_j)
+      and Asm_i (Gamma_i) and (forall c in Gamma_i. thin Rd_i (c)) \
+      & quad and (Acc(Gamma_i,D_i,E_i) or E_i = Gamma_i).
   $
 ] <def:valid>
 
-The condition on imported views makes induction and restriction possible. The
-condition $New_i$ ensures that a checked module introduces only its
-own declarations or proofs whose value the step fixes to $pi$.
+The condition on imported views makes induction and restriction possible.
+The proof case is not circular. Whether a copy's type is a proposition
+is inferred over the part below the name, which holds only the names
+the type reads, of smaller rank. Before the copies of $c$ are
+compared, the views already agree on that part, so it has a model
+amalgamated from theirs, and the proof law applies to every copy.
 
 == Compatible models and the theorem <sec:mod-thm>
 
 The induction must construct models together with their agreement.
 For $k in NN$, a family $m_i in Mod(E_i)$, for $i < k$, is
-#src("whitepaper/Fragment/ModularSemantics.lean", 251, 255)[_compatible_]
-when interchangeable occurrences have equal values and every proof
-has value $pi$:
+#src("whitepaper/Fragment/ModularSemantics.lean", 245, 252)[_compatible_]
+when every module gives each name of its context the value the module
+it is read from gives it, and so does every imported view storing it:
 $
   Cmp_k ((m_i)) quad :<==> quad
-  & (forall i,j < k. thin forall c in E_i. thin c in E_j and
-    i scripts(approx)_c j ==> m_i (c) = m_j (c)) \
-  & and (forall i < k. thin forall c in E_i. thin forall s. thin
-    Prf_i (c,s) ==> m_i (c) = pi).
+  & forall i < k. thin forall c in Gamma_i. thin From_i (c) < k
+    and m_i (c) = m_(From_i (c)) (c) \
+  & quad and forall (j,V) in X_i. thin c in V ==> m_j (c) = m_(From_i (c)) (c).
 $
-The proof clause permits independent proofs of the same statement
-under the same name, without comparing their bodies.
+Two proofs of one statement under one name agree without comparing
+their bodies, since both get $pi$.
 
 Compatibility concerns values because hidden bodies can refer to
 names that have a different meaning in the importer. Let module $j$
@@ -194,15 +203,19 @@ define names $d := 0$ and $c := d$, presenting only $c : sans("Nat")$ as
 an assumption. Module $k$ reads all of $j$, proves $e : c = 0$ by
 unfolding, and presents $c$ and $e$ as assumptions. Independently,
 module $l$ defines $d := 1$. A module $i$ importing $k$ and $l$ sees
-$c : sans("Nat")$, $e : c = 0$ and $d := 1$. The two definitions of
-$d$ never meet in a context. Restoring $c := d$ in $i$ would make it
+$c : sans("Nat")$, $e : c = 0$ and $d := 1$. The two copies of $d$
+have different values, $0$ and $1$, and never meet in a context, so
+nothing asks them to agree. Restoring $c := d$ in $i$ would make it
 unfold to $1$, contradicting $e$; a model instead takes $c$'s value
-from $j$ and $d$'s from $l$. There is no combined environment of
-bodies and no renaming of names.
+from $j$ and $d$'s from $l$. A module that did read both copies of $d$
+would have to show that they agree: they come from different modules,
+are not one copy loaded twice, and are not proofs, so the check
+rejects it. There is no combined environment of bodies and no renaming
+of names.
 
 #theorem(name: "Modular checking")[
   For every $k in NN$, if the modules $i < k$ are valid, they have a
-  #src("whitepaper/Fragment/ModularSemantics.lean", 301, 305)[compatible family of models]:
+  #src("whitepaper/Fragment/ModularSemantics.lean", 273, 280)[compatible family of models]:
   $
     (forall i < k. thin Valid_i) ==> \
       exists (m_i in Mod(E_i))_(i < k). thin Cmp_k ((m_i)).
@@ -211,34 +224,29 @@ bodies and no renaming of names.
 
 #proof[
   Induct on $k$, starting with the empty family. For each imported
-  view $(j,V) in X_k$, restrict the earlier model $m_j$ to $V$. Whenever
-  two imported views store a name $c$ of the target, the one-copy condition
-  makes their occurrences interchangeable through $(k,c)$.
-  Compatibility of the earlier family therefore makes the restricted
-  models compatible for that target.
+  view $(j,V) in X_k$, restrict the earlier model $m_j$ to $V$. By
+  induction on the rank, every view storing a name $c in Gamma_k$
+  gives it the value of $m_(From_k (c))$. In the first case of
+  agreement this is the restriction. In the second, $j$'s copy is the
+  value $m_j$ gives $c$, which by compatibility of the earlier family is
+  the value of the view $(h,W)$ that $j$ reads, and so of $(h,W')$, by
+  an inner induction on the view's module. In the third, the names of
+  the part below $c$ have smaller rank, so the restricted models agree
+  there and amalgamate to a model of $P_k (c)$; the proof law gives
+  $pi$ to $j$'s copy and to the copies of $From_k (c)$.
 
-  If $k$ is checked, amalgamate to obtain a model of $Gamma_k$, then
-  extend it by the conservative step. If $k$ is compared, amalgamate
-  directly to obtain a model of $E_k$.
-
-  It remains to preserve compatibility. A name inherited from an
-  imported view keeps that view's value, hence agrees with all earlier
-  interchangeable occurrences. A new proof gets $pi$, as earlier
-  proofs do. A name declared by $k$ has no earlier interchangeable
-  occurrence: validity
-  #src("whitepaper/Fragment/ModularSemantics.lean", 273, 287)[bounds declaring modules]
-  by the module storing the name. This bound follows by strong
-  induction, tracing an inherited name to an earlier module's view; a new
-  non-proof name is declared by the current module itself.
-  These cases also show that every proof in $E_k$ has value $pi$,
-  giving both clauses of $Cmp_(k+1)$.
+  The restricted models are thus compatible for $Gamma_k$, and
+  amalgamate to a model of $Gamma_k$. If $k$ is checked, extend it by
+  the conservative step; otherwise $E_k = Gamma_k$. Either way every
+  name of $Gamma_k$ keeps the value of the module it is read from,
+  giving $Cmp_(k+1)$.
 ]
 
 Forgetting compatibility gives the statement one usually needs.
 
 #corollary(name: "Every module has a model")[
   For every $i in NN$,
-  #src("whitepaper/Fragment/ModularSemantics.lean", 395, 399)[validity of the modules up to $i$ gives a model of $E_i$]:
+  #src("whitepaper/Fragment/ModularSemantics.lean", 382, 386)[validity of the modules up to $i$ gives a model of $E_i$]:
   $
     (forall j <= i. thin Valid_j) ==> exists m in Mod(E_i).
   $
@@ -257,21 +265,41 @@ $arrow(p)$, a type $T$ and a kind. An
 #src("whitepaper/Fragment/Env.lean", 83, 86)[_assumption_]
 retains just the parameters and type. Its model obligation is the
 typing law of @def:model, with no unfolding law.
-The instance's #src("whitepaper/Fragment/ModularInstance.lean", 61, 82)[value $m(c)$]
+The instance's #src("whitepaper/Fragment/ModularInstance.lean", 60, 86)[value $m(c)$]
 of a model $m$ at a name $c$ is the function assigning $c$ its set at every list of concrete levels;
 $pi$ is the constant function with value $pt$.
 
+*Models.* A model of $E$ is a model in the sense of §3 and §4 in
+which
+#src("whitepaper/Fragment/ModularModel.lean", 79, 83)[proofs are the point]:
+every definition or assumption of $E$ whose type
+#src("whitepaper/Fragment/ModularModel.lean", 70, 72)[reads as a truth value],
+at every list of levels, has the point as its set, at every list of
+levels.
+
+*Proofs.* $Prf(C,E,c)$
+#src("whitepaper/Fragment/ModularModel.lean", 585, 591)[holds] when
+$E$ stores $c$ as a definition or an assumption whose type, in scope in
+both $C$ and $E$, has $tack T => S red Sort u$ over $C$ with
+$u eq.dot 0$. In a model of $C$, soundness makes the type a truth
+value; a model of $E$ agreeing on $C$ reads the type alike, since
+interpretation depends only on the mentioned constants; so the copy
+#src("whitepaper/Fragment/ModularModel.lean", 593, 606)[gets $pi$].
+$Thm(E,c)$ is $Prf(E,E,c)$.
+
 *Assembly.* An entry's laws transfer when everything they read is
 read alike. Accordingly,
-#src("whitepaper/Fragment/ModularModel.lean", 228, 239)[assembly]
+#src("whitepaper/Fragment/ModularModel.lean", 301, 314)[assembly]
 requires each $C(c)$, for $c in C$, to come from some member $E_x$ of the family at the same name,
 either unchanged or as an assumption of the same parameters and type
 (#src("whitepaper/Fragment/Modular.lean", 23, 26)[entry refinement]).
-The #src("whitepaper/Fragment/ModularModel.lean", 195, 198)[common part]
+An assumption stands for statements only: every member's copy of its
+name is a definition or an assumption.
+The #src("whitepaper/Fragment/ModularModel.lean", 267, 271)[common part]
 $E_x^C$ consists of $E_x$'s entries at names also stored by $C$.
 
 The retained entry must be
-#src("whitepaper/Fragment/ModularModel.lean", 213, 226)[in scope in this common part]:
+#src("whitepaper/Fragment/ModularModel.lean", 286, 299)[in scope in this common part]:
 its type and any retained value or rule body are closed, mention only
 constants in the common part and use only the entry's declared level
 parameters, as in §3 and §4. A recursor's rules must also read the same constructor
@@ -284,8 +312,7 @@ requires the block's
 #src("whitepaper/Fragment/Decl.lean", 699, 710)[specification scope]
 from @sec:ind-checks in the common part, with the type former
 and its constructors present there, and their exact generated entries
-in $C$. These conditions do not apply when the type
-former is hidden as an assumption. The models
+in $C$. The models
 #src("whitepaper/Fragment/BlockModel.lean", 46, 66)[retain the block facts]
 from @sec:ind-model: scope, generated entries, the constructed family
 and constructor sets, and the
@@ -301,8 +328,11 @@ this assignment agree with every such member. Interpretation
 so scope in the common part transfers the typing, unfolding and
 recursor laws. The block facts transfer for the same reason, with
 assembly supplying the generated entries in $C$. This
-#src("whitepaper/Fragment/ModularModel.lean", 256, 263)[proves amalgamation].
-Assembly also #src("whitepaper/Fragment/ModularModel.lean", 470, 472)[makes $C$ closed]:
+#src("whitepaper/Fragment/ModularModel.lean", 327, 334)[proves amalgamation].
+Proofs stay the point: a definition or an assumption of $C$ is a
+definition or an assumption of a member, of the same type, read alike
+(#src("whitepaper/Fragment/ModularModel.lean", 448, 452)[the amalgam keeps proofs the point]).
+Assembly also #src("whitepaper/Fragment/ModularModel.lean", 568, 570)[makes $C$ closed]:
 its stored terms are in scope and its rules name stored constructors,
 because each common part is contained in $C$.
 
@@ -314,68 +344,69 @@ $tack T => S red Sort u$ for some type $S$ and level $u$ with $u eq.dot 0$. It i
 assumption of $T$. Installing the checked definition and then
 forgetting its value
 #src("whitepaper/Fragment/InstallThm.lean", 249, 255)[extends every model],
-assigning the theorem the point.
+assigning the theorem the set of its proof.
 
-Declaration data consist of a sequential list and proof flags.
-#src("whitepaper/Fragment/ModularInstance.lean", 45, 48)[Acceptance]
-requires a closed context, the checks of §3 and §4 (or the theorem
-check) at each successive declaration, and
-#src("whitepaper/Fragment/ModularModel.lean", 90, 95)[justified flags]:
-a flagged declaration is a theorem or a definition whose type is
-inferred to be a proposition. A flag need not mark every theorem.
-The chosen installation assigns such a definition the point
-#src("whitepaper/Fragment/ModularModel.lean", 66, 71)[at every list of levels],
+Declaration data are a sequential list.
+#src("whitepaper/Fragment/ModularInstance.lean", 46, 48)[Acceptance]
+requires a closed context and the checks of §3 and §4 (or the theorem
+check) at each successive declaration. A definition's or theorem's
+set is its value's,
+#src("whitepaper/Fragment/ModularModel.lean", 107, 110)[at every list of levels],
 even those of the wrong length; the typing law alone constrains only
-correctly sized lists. Sequential installation therefore gives
-#src("whitepaper/Fragment/ModularModel.lean", 105, 112)[the conservative step],
-preserving old values and assigning flagged names $pi$.
+correctly sized lists. Where its type reads as a truth value, the
+value lies in it, so the set is the point. Sequential installation
+therefore gives
+#src("whitepaper/Fragment/ModularModel.lean", 155, 160)[the conservative step],
+preserving old values and keeping proofs the point.
 
 == The local checks <sec:mod-local>
 
 For this instance,
-#src("whitepaper/Fragment/ModularModel.lean", 499, 500)[$E_i = Gamma_i + D_i$],
+#src("whitepaper/Fragment/ModularModel.lean", 624, 625)[$E_i = Gamma_i + D_i$],
 the context extended by the declaration list. Each module $i$ presents
-a set of views $cal(V)_i$ and imports earlier modules; its imported views are
-#src("whitepaper/Fragment/ModularModel.lean", 507, 510)[every view of every import],
+a set of views $cal(V)_i$, imports earlier modules, and names for each
+context name the module it is read from, its rank and the part below it;
+its imported views are
+#src("whitepaper/Fragment/ModularModel.lean", 627, 630)[every view of every import],
 paired with the module presenting it. The
-#src("whitepaper/Fragment/ModularModel.lean", 521, 553)[checks divide by who runs them]:
+#src("whitepaper/Fragment/ModularModel.lean", 683, 712)[checks divide by who runs them]:
 
 - At the presenting module, check that each view refines its own
   environment. This runs once, however many modules import it.
-- At the importer, check that imports are earlier and the context is
-  assembled from their views, with the one-copy condition. This uses
-  the context, the views and the records of declaring modules or
-  proof statements; it needs no import's own environment.
-- For the declarations, check sequential acceptance and proof flags.
-  Record each newly declared name as declared by $i$, or, if flagged,
-  as a proof of its actual statement $(arrow(p),T)$, its level
-  parameters $arrow(p)$ and type $T$.
+- At the importer, check that imports are earlier, that the context is
+  assembled from their views, and that every context name is
+  #src("whitepaper/Fragment/ModularModel.lean", 666, 674)[read],
+  with every copy agreeing. This uses the context, the views and how
+  the imports read their own context names; it needs no import's own
+  environment.
+- For the declarations, check sequential acceptance.
 
 Alternatively, a module passes by
-#src("whitepaper/Fragment/ModularModel.lean", 555, 562)[comparison]:
-check its views as above, require earlier imports, and assemble
-$E_i$ itself from their views with the one-copy condition.
+#src("whitepaper/Fragment/ModularModel.lean", 703, 709)[comparison]:
+check its views and its context as above, with its own environment
+its context.
 Write $Pass_i$ for acceptance by either alternative. These concrete
-checks #src("whitepaper/Fragment/ModularInstance.lean", 100, 125)[imply abstract validity]:
+checks #src("whitepaper/Fragment/ModularInstance.lean", 111, 124)[imply abstract validity]:
 $
   (forall j <= i. thin Pass_j) ==> Valid_i.
 $
-The imports' view checks supply the refinement of imported views. For a checked
-module, context assembly supplies closure, while the records of new
-declarations give $New_i$. Thus @def:valid applies, and
-@thm:mod #src("whitepaper/Fragment/ModularInstance.lean", 130, 144)[gives compatible models].
+The imports' view checks supply the refinement of imported views, and
+context assembly supplies closure. Thus @def:valid applies, and
+@thm:mod #src("whitepaper/Fragment/ModularInstance.lean", 128, 146)[gives compatible models]:
+every module gives each context name the set of the module it is read
+from, and every proof the point.
 
 #corollary(name: "Consequences of the local checks")[
   Assume $Pass_j$ for every $j <= i$. Then
-  #src("whitepaper/Fragment/ModularInstance.lean", 147, 151)[$exists m in Mod(E_i)$],
-  and #src("whitepaper/Fragment/ModularInstance.lean", 166, 174)[every stored type is inhabited]
+  #src("whitepaper/Fragment/ModularInstance.lean", 148, 153)[$exists m in Mod(E_i)$],
+  and #src("whitepaper/Fragment/ModularInstance.lean", 167, 176)[every stored type is inhabited]
   in such a model, at every correctly sized level instantiation.
 
   Let $B$ be the empty Prop block of @cor:consistency, with no level
   parameters, parameters, indices or constructors, and with large
   elimination. If $E_i$ stores its generated recursor entry
   $a_B^(sans("rec"))$ under a name $r_B$, then
-  #src("whitepaper/Fragment/ModularInstance.lean", 155, 163)[no closed term inhabits its type former $I_B$]:
+  #src("whitepaper/Fragment/ModularInstance.lean", 157, 165)[no closed term inhabits its type former $I_B$]:
   $
     E_i (r_B) = a_B^(sans("rec")) ==> forall e. thin
       not (tack e => I_B) "over" E_i.
@@ -385,10 +416,9 @@ declarations give $New_i$. Thus @def:valid applies, and
 A context need not be everything a module loads. Let $Gamma'$ store
 some of $Gamma_i$'s entries, each as $Gamma_i$ does, and let what the
 laws of each read lie in $Gamma'$ itself. Then $Gamma'$
-#src("whitepaper/Fragment/ModularModel.lean", 430, 433)[is assembled from the same views],
-and the one-copy condition holds for it because it holds for
-$Gamma_i$; so
-#src("whitepaper/Fragment/ModularModel.lean", 573, 576)[a closed part of the context]
+#src("whitepaper/Fragment/ModularModel.lean", 523, 526)[is assembled from the same views],
+and its names are read as $Gamma_i$'s are; so
+#src("whitepaper/Fragment/ModularModel.lean", 716, 719)[a closed part of the context]
 may stand for the context in $Pass_i$. A checker may therefore check a
 module over the part of its context its own declarations reach,
 following types, the values a view retains and the rules of reached
@@ -400,10 +430,11 @@ typing law. The last claim is the recursor argument of
 
 == What runs in parallel
 
-The local checks read a module and its imports' views, so modules can
-be checked together once those data are available. Acceptance still
-requires every relevant module to pass. The
-#src("whitepaper/Fragment/ModularSemantics.lean", 316, 352)[model construction]
+The local checks read a module, its imports' views and how they read
+their context names, so modules can be checked together once those
+data are available. Acceptance still requires every relevant module to
+pass. The
+#src("whitepaper/Fragment/ModularSemantics.lean", 281, 359)[model construction]
 has the same dependencies: restrict the imports' models, amalgamate,
 and extend for checked declarations. Its compatibility proof uses
 the earlier family too, but the numbering adds no inputs to the
@@ -414,32 +445,34 @@ construction of a module's model.
 A _challenge_ specifies required constants; its assumptions are
 _holes_, fixing level parameters and types. A solution supplies
 entries at the same names. Represent it by an earlier module offering
-the needed views, and record the challenge's occurrences as the
-solution does. The comparison alternative checks assembly of the
-challenge's whole own environment, including specified values and
-rules. An assumption may be filled by any kind of entry with the
-required type; a retained non-assumption must agree exactly.
+the needed views, from which the challenge reads its names. The
+comparison alternative checks assembly of the challenge's whole own
+environment, including specified values and rules. An assumption may
+be filled by a definition or an assumption with the required type; a
+retained non-assumption must agree exactly.
 
 Assembly checks dependencies and block conditions as above, and supplies
 a model directly, so the challenge's declarations need no separate
-type check. If the relevant modules pass, @thm:mod gives models
-agreeing on interchangeable occurrences, and @cor:mod makes every
-hole's type inhabited in the challenge's model. A challenge storing
-the empty Prop block's recursor therefore cannot also have a hole of
-that proposition's type and pass with an accepted solution.
+type check. If the relevant modules pass, @thm:mod gives models in
+which the challenge's names have the solution's values, and @cor:mod
+makes every hole's type inhabited in the challenge's model. A
+challenge storing the empty Prop block's recursor therefore cannot
+also have a hole of that proposition's type and pass with an accepted
+solution.
 
 #remark(name: "A syntactic illustration")[
-  The #src("whitepaper/Fragment/ModularSyntactic.lean", 83, 91)[models]
+  The #src("whitepaper/Fragment/ModularSyntactic.lean", 89, 92)[models]
   may instead be realisations by terms of a fixed ground theory:
   each constant is assigned a term of its realised type, equal to
   its realised value when a definition. Compatible realisations
-  #src("whitepaper/Fragment/ModularSyntactic.lean", 176, 183)[amalgamate]
+  #src("whitepaper/Fragment/ModularSyntactic.lean", 188, 195)[amalgamate]
   by choosing, for each name, the term of a member storing it. The
-  #src("whitepaper/Fragment/ModularSyntactic.lean", 130, 135)[step]
+  #src("whitepaper/Fragment/ModularSyntactic.lean", 131, 134)[step]
   realises a fresh definition by its value under the old realisation;
   a substitution lemma gives its typing. This
-  #src("whitepaper/Fragment/ModularSyntactic.lean", 212, 234)[instance]
-  handles definitions only, with no flagged proofs. It illustrates
+  #src("whitepaper/Fragment/ModularSyntactic.lean", 223, 249)[instance]
+  handles definitions only, and recognises no proofs, so copies agree
+  only by being read from one module. It illustrates
   the interface; connecting a syntactic consistency proof of Lean
   would require a separate argument, including the shared proof value.
 ]
@@ -466,13 +499,14 @@ satisfy the scope conditions.
   [The modules supplying the imported views],
   [The environment built from the loaded levels], [The context $Gamma_i$],
   [An unavailable theorem proof or hidden definition value],
-  [An assumption of the same type; a theorem may carry a proof flag],
+  [An assumption of the same type],
+  [A module loaded through two imports], [One copy, read through two paths],
   [Copies merged on import, allowed for theorems of the same statement],
-  [Interchangeable occurrences of the same name],
+  [Copies that agree as proofs of one statement],
   [Declarations of one name never loaded together],
-  [Different declaring modules; compatibility imposes no equality],
-  [A private name `_private.…`], [An ordinary name with its declaring module
-    or proof statement],
+  [Copies no module reads together; nothing asks them to agree],
+  [A private name `_private.…`], [An ordinary name, read from the module
+    that declares it],
   [An exported entry mentioning a constant the importer does not load],
   [The importer reads, in addition, the declaring module's view holding
     that constant as an assumption (an inductive type with its block),
@@ -483,17 +517,20 @@ satisfy the scope conditions.
 
 #real[
   Con-leche states these checks over its own records
-  (#src("ConLeche/Modular.lean", 232, 235)[the local checks]): a context is a
+  (#src("ConLeche/Modular.lean", 237, 254)[the local checks]): a context is a
   list of records each of which an earlier module
-  #src("ConLeche/Modular.lean", 93, 95)[presents], as itself or as its
+  #src("ConLeche/Modular.lean", 82, 92)[presents], as itself or as its
   statement, so an inductive type reaches an importer with its whole block;
-  what a context record reads is stored under the key its source gives it;
-  the module's own records are accepted from the context by the
-  declaration fold's own step; and a flagged declaration is a theorem, a
-  definition whose value passes the theorem check, its type inferred to be
-  a proposition, or an assumption whose type is inferred to be a
-  proposition, so that every two copies Lean's import merges have one key.
+  every context name is read from one module; what a context record reads
+  is stored in the context, and the source's copy of each such name
+  #src("ConLeche/Modular.lean", 206, 220)[agrees] with the context's: it is
+  that module's, or one record loaded through two paths, or both are proofs
+  of one statement whose names agree, a proof being a theorem where it comes
+  from or a statement whose type is inferred to be a proposition over the
+  records before the name's; every record reads only itself and earlier
+  records; and the module's own records are accepted from the context by the
+  declaration fold's own step.
   The theorem over the interface,
-  #src("ConLeche/Modular/Generic.lean", 305, 306)[for any instance], is
+  #src("ConLeche/Modular/Generic.lean", 275, 276)[for any instance], is
   @thm:mod.
 ]
