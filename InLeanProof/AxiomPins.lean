@@ -20,6 +20,8 @@ public import InLeanProof.WalksIotaRec
 public import InLeanProof.WalksInferBody
 public import InLeanProof.BodiesI
 public import InLeanProof.EnvPresI
+public import InLeanProof.EnvBodiesPres
+public import InLeanProof.QuotPres
 
 /-!
 # The axiom pins of the InLean proof tier (task #451, lane G)
@@ -1520,3 +1522,66 @@ info: 'InLeanProof.presI_empty' depends on axioms: [propext, Classical.choice, Q
 -/
 #guard_msgs in
 #print axioms InLeanProof.presI_empty
+
+-- Lane P3b: `EnvBodiesI` from the relation, the quotient group.
+
+/--
+info: 'InLeanProof.envProjI_of' depends on axioms: [propext, Classical.choice, Quot.sound]
+-/
+#guard_msgs in
+#print axioms InLeanProof.envProjI_of
+
+/--
+info: 'InLeanProof.envBodiesI_of' depends on axioms: [propext, Classical.choice, Quot.sound]
+-/
+#guard_msgs in
+#print axioms InLeanProof.envBodiesI_of
+
+/--
+info: 'InLeanProof.ssimI_of_pres' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound,
+ InLeanProof.Expr.mkAppData_fields,
+ InLeanProof.Expr.mkData_eq,
+ InLeanProof.Level.mkData_eq]
+-/
+#guard_msgs in
+#print axioms InLeanProof.ssimI_of_pres
+
+/--
+info: 'InLeanProof.envWF_of_modelOk' depends on axioms: [propext, Classical.choice, Quot.sound]
+-/
+#guard_msgs in
+#print axioms InLeanProof.envWF_of_modelOk
+
+/--
+info: 'InLeanProof.emvarS_instantiateLevelParams' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound,
+ InLeanProof.Level.mkData_eq]
+-/
+#guard_msgs in
+#print axioms InLeanProof.emvarS_instantiateLevelParams
+
+/--
+info: 'InLeanProof.presI_congr' depends on axioms: [propext, Classical.choice, Quot.sound]
+-/
+#guard_msgs in
+#print axioms InLeanProof.presI_congr
+
+/--
+info: 'InLeanProof.checkQuotC_ok' depends on axioms: [propext, Classical.choice, Quot.sound]
+-/
+#guard_msgs in
+#print axioms InLeanProof.checkQuotC_ok
+
+/--
+info: 'InLeanProof.quotGroupPres' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound,
+ InLeanProof.Expr.mkAppData_fields,
+ InLeanProof.Expr.mkData_eq,
+ InLeanProof.Level.mkData_eq]
+-/
+#guard_msgs in
+#print axioms InLeanProof.quotGroupPres
