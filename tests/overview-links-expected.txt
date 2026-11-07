@@ -190,26 +190,24 @@
     46  def declStep (pins : List NatOpPinSet) (p : Nat × FEnv) (pd : Declaration) :
     47      Except (CheckError × Nat) (Nat × FEnv) :=
 
-== ConLeche/Kernel/Install.lean#L83-L97
-    83  def declConstants : Declaration → List ConstantInfo
-    84    | .defnDecl cv value hint => [.defnInfo cv value hint]
-    85    | .thmDecl cv _ => [.thmInfo cv]
-    86    | .opaqueDecl cv _ => [.axiomInfo cv]
-    87    | .axiomDecl cv =>
-    88      if cv.name = quotSoundName then [quotAt .sound cv]
-    89      else if cv.name = sorryAxName then []
-    90      else [.axiomInfo cv]
-    91    | .quotDecl k cv => [quotAt k cv]
-    92    | .indDecl block nP =>
-    93      match basisNameHit block with
-    94      | some kind => kind.atBlock block
-    95      | none =>
-    96        match blockShape? nP block with
-    97        | some p => blockConstants p
+== ConLeche/Kernel/Install.lean#L82-L94
+    82  def declConstants : Declaration → List ConstantInfo
+    83    | .defnDecl cv value hint => [.defnInfo cv value hint]
+    84    | .thmDecl cv _ => [.thmInfo cv]
+    85    | .opaqueDecl cv _ => [.axiomInfo cv]
+    86    | .axiomDecl cv =>
+    87      if cv.name = quotSoundName then [quotAt .sound cv]
+    88      else if cv.name = sorryAxName then []
+    89      else [.axiomInfo cv]
+    90    | .quotDecl k cv => [quotAt k cv]
+    91    | .indDecl block nP =>
+    92      match blockShape? nP block with
+    93      | some p => blockConstants p
+    94      | none => []
 
-== ConLeche/Verify/Cached/DeclPushes.lean#L663-L664
-   663  theorem checkDeclC_pushes (mode : CheckMode) (fe : FEnv) (pd : Declaration) :
-   664      Yields (checkDeclC mode pins fe pd) (· = FEnv.pushDelta (declConstants pd) (declTables pd) fe) := by
+== ConLeche/Verify/Cached/DeclPushes.lean#L699-L700
+   699  theorem checkDeclC_pushes (mode : CheckMode) (fe : FEnv) (pd : Declaration) :
+   700      Yields (checkDeclC mode pins fe pd) (· = FEnv.pushDelta (declConstants pd) (declTables pd) fe) := by
 
 == ConLeche/Cached/StreamIndex.lean#L65
     65  def buildIndex (ds : Array Declaration) : StreamIndex :=
@@ -219,16 +217,16 @@
     76      (pd : Declaration) : Except CheckError Unit :=
 
 == ConLeche/Verify/Cached/ViewCongr.lean#L1353-L1357
-  1353  theorem checkDeclStepC_twin (pins : List NatOpPinSet) {fe₁ fe₂ : FEnv} (ht : Twin fe₁ fe₂)
-  1354     
-  1355      (pd : Declaration) :
-  1356      RelRun (PushedFrom fe₁ fe₂) (checkDeclStepC mode pins fe₁ pd)
-  1357        (checkDeclStepC mode pins fe₂ pd) := by
+  1353  
+  1354  theorem checkDeclStepC_twin (pins : List NatOpPinSet) {fe₁ fe₂ : FEnv} (ht : Twin fe₁ fe₂)
+  1355     
+  1356      (pd : Declaration) :
+  1357      RelRun (PushedFrom fe₁ fe₂) (checkDeclStepC mode pins fe₁ pd)
 
-== ConLeche/Verify/Cached/StreamIndex.lean#L488-L490
-   488  theorem checkDecls_of_jobs {ds : Array Declaration}
-   489      (h : ∀ k (hk : k < ds.size), recordJob mode pins (buildIndex ds) k ds[k] = .ok ()) :
-   490      checkDecls mode pins ds = .ok (streamEnv ds.toList) := by
+== ConLeche/Verify/Cached/StreamIndex.lean#L484-L486
+   484  theorem checkDecls_of_jobs {ds : Array Declaration}
+   485      (h : ∀ k (hk : k < ds.size), recordJob mode pins (buildIndex ds) k ds[k] = .ok ()) :
+   486      checkDecls mode pins ds = .ok (streamEnv ds.toList) := by
 
 == ConLeche/Driver/CheckPool.lean#L66
     66  def Jobs.build (ds : Array Declaration) : IO (Jobs ds) := do
@@ -854,31 +852,36 @@
 == ConLeche/Kernel/Basis/False.lean#L51
     51  def falseBasis : List ConstantInfo := [falseA, falseRecA]
 
-== ConLeche/Kernel/Basis.lean#L134-L136
-   134  def basisNameHit (block : List ConstantInfo) : Option BasisKind :=
-   135    [BasisKind.eqK, .natK, .emptyK, .falseK].find? fun k =>
-   136      k.decls.map (·.name) == block.map (·.name)
+== ConLeche/Kernel/Basis.lean#L144-L151
+   144  def basisNamesOk : Declaration → Bool
+   145    | .indDecl block _ =>
+   146      match basisNameHit block with
+   147      | some kind => pinListOk block kind.decls
+   148      | none => block.all fun c => !reservedBasisNames.contains c.name
+   149    | .axiomDecl cv => cv.name == quotSoundName || !reservedBasisNames.contains cv.name
+   150    | .quotDecl _ _ => true
+   151    | .defnDecl cv .. | .thmDecl cv .. | .opaqueDecl cv .. => !reservedBasisNames.contains cv.name
 
 == ConLeche/Kernel/Basis.lean#L189-L194
-   189  def andPinOk : Declaration → Bool
-   190    | .indDecl block nP =>
-   191      !(block.any fun c => andPinNames.contains c.name) ||
-   192        (nP == 2 && canonEqList block andPin)
-   193    | .axiomDecl cv | .defnDecl cv .. | .thmDecl cv .. | .opaqueDecl cv ..
-   194    | .quotDecl _ cv => !andPinNames.contains cv.name
+   189    | .ctor => hasQ
+   190    | .lift => hasEq && hasQ && hasM
+   191    | .ind => hasQ && hasM
+   192    | .sound => hasEq && hasQ && hasM
+   193  
+   194  /-! ## The pinned `And`
 
 == ConLeche/Kernel/Inductives/BlockShape.lean#L383
    383  def blockShape? (nPd : Nat) (block : List ConstantInfo) : Option BlockShape :=
 
 == ConLeche/Kernel/Env.lean#L416-L423
-   416  def indParamsOk (nP : Nat) (block : List ConstantInfo) : Bool :=
-   417    block.all fun ci => match ci with
-   418      | .indInfo cvT _ =>
-   419        match cvT.type.piSortTeleLen? with
-   420        | some n => decide (nP ≤ n)
-   421        | none => true
-   422      | .ctorInfo _ nPc _ => nPc == nP
-   423      | _ => true
+   416    block.all fun ci => match ci with
+   417      | .indInfo cvT _ =>
+   418        match cvT.type.piSortTeleLen? with
+   419        | some n => decide (nP ≤ n)
+   420        | none => true
+   421      | .ctorInfo _ nPc _ => nPc == nP
+   422      | _ => true
+   423  
 
 == ConLeche/Kernel/Inductives/BlockTail.lean#L152
    152  formers, the constructors and the classes at official's `is_rec` (`blockIsRec`), and the checks
@@ -896,13 +899,13 @@
   1649  def nestRoot (ops : CheckerOps m) (env : Env) (ctx : NestCtx) (holes : List Expr) :
 
 == ConLeche/Kernel/Inductives/GenRec.lean#L497
-   497  /-- The seeds: every OUTSIDE class in the positivity check's
+   497  def classSeeds (ctx : NestCtx) (holes : List Expr) (Ms : List TargetMajor) :
 
 == ConLeche/Kernel/Inductives/BlockInstall.lean#L282
    282  def checkBlockPositivity (ops : CheckerOps m) (env₁ : Env) (find? : Name → Option ConstantInfo)
 
 == ConLeche/Kernel/Inductives/GenRec.lean#L551
-   551  every outside class adds.  Returns every recursor, generated, with its
+   551  def genRecCheck (so : ShadowOps m) (fe : FEnv) (p : BlockShape) (nestedBit : Bool)
 
 == ConLeche/Kernel/Inductives/StreamRecs.lean#L182
    182  def streamRecsCheck (ops : CheckerOps m) (w : StructWalkers)
@@ -961,10 +964,10 @@
     76  def checkSumCtor (ops : CheckerOps m) (env₀ env : Env) (T : Name)
 
 == ConLeche/Kernel/Inductives/GenRec.lean#L521
-   521  parameters `params` (`classMajors`), exactly one class per member.
+   521  def checkBlockClasses (ops : CheckerOps m) (fe₁ : FEnv) (p : BlockShape)
 
 == ConLeche/Kernel/Inductives/GenRec.lean#L507
-   507  (no loose bound variable, no free variable past the parameters — the
+   507  def classKeyOf (nP : Nat) (params : List Expr)
 
 == ConLeche/Kernel/Inductives/Positivity.lean#L1512
   1512  def nestPos (ops : CheckerOps m) (env : Env) (ctx : NestCtx) :
@@ -994,10 +997,10 @@
    188  def classGenRule (g : ClassGen) (recOf : Nat → Option Name) (rlvls : List Level) (c : Nat)
 
 == ConLeche/Kernel/Inductives/GenRec.lean#L385
-   385  only output a verdict): checked as a constant (`classConstOk`) and
+   385  def classRecTyCheck (ops : CheckerOps m) (fe : FEnv) (cvRi cvG : ConstantVal) : m Unit := do
 
 == ConLeche/Kernel/Inductives/GenRec.lean#L425
-   425  λ-telescope over the prefix and the fields `n` long, its λ-domains
+   425  def classRuleCheck (ops : CheckerOps m) (w : StructWalkers) (feT feR : FEnv)
 
 == ConLeche/Kernel/CoreDefs.lean#L447-L455
    447  `is_constant(e, Bool.true)` (`type_checker.cpp:1097`): the name, no
@@ -1109,14 +1112,14 @@
    666    | e => e
 
 == ConLeche/Frontend/Prepare.lean#L168-L175
-   168  /-- **`preparePrelude`**: the parsed stream, prepared for the fold —
-   169  the prelude's declarations first (the stream's own copies where it has
-   170  them), the rest of the stream after them, every pinned `Nat`
-   171  operation's stream-certified ground ahead of it.  Total, pure, and the
-   172  fold's input — an array in and an array out, the shape the parse
-   173  returns and the fold consumes. -/
-   174  def preparePrelude (pre : PreludeIx) (ds : Array Declaration) : Array Declaration :=
-   175    (prepareD pre ds).decls
+   168  the prelude's declarations first (the stream's own copies where it has
+   169  them), the rest of the stream after them, every pinned `Nat`
+   170  operation's stream-certified ground ahead of it.  Total, pure, and the
+   171  fold's input — an array in and an array out, the shape the parse
+   172  returns and the fold consumes. -/
+   173  def preparePrelude (pre : PreludeIx) (ds : Array Declaration) : Array Declaration :=
+   174    (prepareD pre ds).decls
+   175  
 
 == ConLeche/Frontend/NatOpGround.lean#L8-L25
      8  /-!
@@ -1264,8 +1267,8 @@
 >>> README.md
 
 == ConLeche/Cached/ParsedC.lean#L238-L239
-   238          else throw (.notImplemented
-   239            s!"unsupported compiler-trust axiom environment ({cv.name})")
+   238    let fe₂ ← checkDeclKindC mode pins fe pd
+   239    unless basisNamesOk pd do
 
 == ConLeche/Driver/Cli.lean#L122
    122    "  --jobs=N            Worker threads (default: one per hardware thread)",
@@ -1316,14 +1319,14 @@
     84      Except (CheckError × Nat) Env := do
 
 == ConLeche/Frontend/Prepare.lean#L168-L175
-   168  /-- **`preparePrelude`**: the parsed stream, prepared for the fold —
-   169  the prelude's declarations first (the stream's own copies where it has
-   170  them), the rest of the stream after them, every pinned `Nat`
-   171  operation's stream-certified ground ahead of it.  Total, pure, and the
-   172  fold's input — an array in and an array out, the shape the parse
-   173  returns and the fold consumes. -/
-   174  def preparePrelude (pre : PreludeIx) (ds : Array Declaration) : Array Declaration :=
-   175    (prepareD pre ds).decls
+   168  the prelude's declarations first (the stream's own copies where it has
+   169  them), the rest of the stream after them, every pinned `Nat`
+   170  operation's stream-certified ground ahead of it.  Total, pure, and the
+   171  fold's input — an array in and an array out, the shape the parse
+   172  returns and the fold consumes. -/
+   173  def preparePrelude (pre : PreludeIx) (ds : Array Declaration) : Array Declaration :=
+   174    (prepareD pre ds).decls
+   175  
 
 == ConLeche/Verify/Frontend/Prepare.lean#L171-L176
    171  /-- **THE SPEC** (maintainer, task #293): *"it is a permutation of the

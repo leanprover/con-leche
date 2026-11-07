@@ -163,30 +163,30 @@ def natLitToConstructor (n : Nat) : Expr :=
   | 0 => .const natZeroName []
   | k + 1 => .app (.const natSuccName []) (.lit (.natVal k))
 
-/-- The stored `Nat` declaration has the expected shape. -/
+/-- The stored `Nat` declaration has the expected level parameters and type. -/
 def natIndOk : Option ConstantInfo → Bool
-  | some (.indInfo cv _) =>
-    cv.levelParams.isEmpty && cv.type == .sort (.succ .zero)
-  | _ => false
+  | some ci =>
+    ci.toConstantVal.levelParams.isEmpty && ci.toConstantVal.type == .sort (.succ .zero)
+  | none => false
 
-/-- The stored `Nat.zero` declaration has the expected shape. -/
+/-- The stored `Nat.zero` declaration has the expected level parameters and type. -/
 def natZeroOk : Option ConstantInfo → Bool
-  | some (.ctorInfo cv _ _) =>
-    cv.levelParams.isEmpty && cv.type == .const natName []
-  | _ => false
+  | some ci =>
+    ci.toConstantVal.levelParams.isEmpty && ci.toConstantVal.type == .const natName []
+  | none => false
 
-/-- The stored `Nat.succ` declaration has the expected shape. -/
+/-- The stored `Nat.succ` declaration has the expected level parameters and type. -/
 def natSuccOk : Option ConstantInfo → Bool
-  | some (.ctorInfo cv _ _) =>
-    cv.levelParams.isEmpty &&
-    (match cv.type with
+  | some ci =>
+    ci.toConstantVal.levelParams.isEmpty &&
+    (match ci.toConstantVal.type with
      | .forallE (.const c1 []) (.const c2 []) =>
        c1 == natName && c2 == natName
      | _ => false)
-  | _ => false
+  | none => false
 
-/-- `Nat`, `Nat.zero` and `Nat.succ` are stored with exactly the expected kinds, level parameters and
-types.  The model interprets a literal by iterating the `Nat.succ` value on the `Nat.zero` value and
+/-- `Nat`, `Nat.zero` and `Nat.succ` are stored with exactly the expected level parameters and
+types (what they are beyond that is the pinned `Nat` block's, `basisNamesOk`).  The model interprets a literal by iterating the `Nat.succ` value on the `Nat.zero` value and
 reads those shapes off this; a certified operation's check asks it of the environment it runs at. -/
 def natLitSupported (env : Env) : Bool :=
   natIndOk (env.find? natName) && natZeroOk (env.find? natZeroName) &&

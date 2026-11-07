@@ -444,13 +444,12 @@ Read from the outside in:
    theorem by its statement alone (the stored constant carrying
    no value: a theorem is opaque to reduction), an axiom or a
    pinned `Nat` operation or `reduce*` opaque as its own constant, a
-   basis block as its pins at the records' names, a quotient record as its
-   slot's pin, and every inductive
-   block as the block says: every constant and table read off the block's
+   quotient record as its slot's pin, and every inductive block, the
+   pinned basis blocks among them, as the block says: every constant and table read off the block's
    records, nothing generated
-   ([function `declConstants` in `ConLeche/Kernel/Install.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/Install.lean#L83-L97)).
+   ([function `declConstants` in `ConLeche/Kernel/Install.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/Install.lean#L82-L94)).
    What a check pushes is what its record says, at any index and any mode
-   ([theorem `checkDeclC_pushes` in `ConLeche/Verify/Cached/DeclPushes.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Verify/Cached/DeclPushes.lean#L663-L664)).
+   ([theorem `checkDeclC_pushes` in `ConLeche/Verify/Cached/DeclPushes.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Verify/Cached/DeclPushes.lean#L699-L700)).
 
    The driver runs those checks in any order. Before any of them it builds
    one index of the whole stream from the records alone
@@ -469,7 +468,7 @@ Read from the outside in:
    The view of a position answers as the fold's index there as long as the
    names so far are distinct, which every passing job before it ensures,
    so every job passing is an accept of the fold
-   ([theorem `checkDecls_of_jobs` in `ConLeche/Verify/Cached/StreamIndex.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Verify/Cached/StreamIndex.lean#L488-L490)).
+   ([theorem `checkDecls_of_jobs` in `ConLeche/Verify/Cached/StreamIndex.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Verify/Cached/StreamIndex.lean#L484-L486)).
    A later job may read an earlier constant before that constant's job has
    run: a declaration may read a pinned operation, and fire its literal
    fast path, before the operation's certificates have been checked. The
@@ -918,23 +917,26 @@ operations of §6.
 
 ## 5. Inductive types
 
-Inductive blocks are not trusted from the stream. Five inductive types
-are pinned: four the checker installs from its own copy, and `And`,
-which must agree with its pin and is then installed like any other
-block. Every other block — one type or several mutually inductive ones, nested or not —
-goes through one installer, which checks the block the way the official
-kernel does and generates the block's recursors itself.
+Inductive blocks are not trusted from the stream. Every block — one type
+or several mutually inductive ones, nested or not, the pinned ones
+included — goes through one installer, which checks the block the way
+the official kernel does and generates the block's recursors itself.
+Five inductive types are pinned besides: `Eq`, `Nat`, `Empty` and
+`False`, whose meanings the model fixes, and `And`, which the checker
+has code for. A pinned block must agree with its pin.
 
 ### The pinned basis types
 
 `Eq`, `Nat`, `Empty` and `False` have built-in pins
 ([the `False` pin in `ConLeche/Kernel/Basis/False.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/Basis/False.lean#L51)).
-The fold recognises a block by its members' names
-([the recogniser `basisNameHit` in `ConLeche/Kernel/Basis.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/Basis.lean#L134-L136)),
-and what it stores is each pin at the level-parameter names the block's
-records declare. The comparison with the pin, up to those names, is the
-block's check, a job of the checking phase, and a block under one of those
-names that does not agree is rejected (the names are reserved).
+A block under one of these names is installed and checked like any other
+block, from the stream's own records. After a declaration's own checks
+comes one more, the only place the checker sets the basis names apart
+([function `basisNamesOk` in `ConLeche/Kernel/Basis.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/Basis.lean#L144-L151)):
+a block whose members' names are a pinned block's must agree with the pin
+up to the level-parameter names its records declare, and no other
+declaration may take one of the reserved names. A block that fails it is
+rejected.
 
 The quotient `Quot` with its soundness axiom, a kernel primitive rather than an
 inductive type, comes as five records: each stores its slot's pin at the

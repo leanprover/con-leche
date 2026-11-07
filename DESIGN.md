@@ -110489,3 +110489,83 @@ not taken).
 The same verdicts everywhere (63 937 declarations of the `Init` closure, 57 977 declarations of init-full).
 
 **Gates**: `lake build` and `lake test` warning-free; `tests/arena.sh` green (e2e 551/551, olean gate 122/122, axioms pinned, the sweeps without divergence), and on its own each of the gates it runs.
+
+## TASK #493 — the basis blocks installed like any other block (2026-11-08, agent/493-basis-uniform)
+
+**Ruling (maintainer, 2026-11-08).** "The checker should stop treating Eq special during
+installation, and only, after doing all the 'normal' checks, do the necessary checks to justify
+our special interpretation. This should move the special handling to a very narrow place in the
+code." Model side: option (A), the model keeps its fixed meanings of `Eq`, `Nat`, `Empty`, `False`
+(`pinnedStructT`, `EqLaw`); the narrow check justifies them. Scope: `Eq`, `Nat`, `Empty`, `False`.
+`Quot` stays a primitive (no inductive declaration to install); `And` already works this way. The
+built-in prelude stays (preprocessing below the fold).
+
+**The checker (done).**
+
+* `declConstants`/`declTables` (`Kernel/Install.lean`) no longer consult `basisNameHit`: every
+  `.indDecl` is `blockShape?` → `blockConstants`/`blockTables`. A pinned block stores the
+  stream's constants with the uniform install data (`blockCapsAt`, `recFire`).
+* The scattered reserved-name refusals are gone: `blockShape?`'s three, `checkConstantVal`,
+  `checkConstantValF`, `checkConstantValC`, `classConstOk`, and the basis names in
+  `reservedRecName` (a pinned block's own recursor carries one).
+* **The one narrow place**: `basisNamesOk` (`Kernel/Basis.lean`), run by `checkDecl` and
+  `checkDeclC` after the declaration's own checks (`checkDeclKind`/`checkDeclKindC`, the former
+  dispatch). A block whose names hit a pinned block must pass `pinListOk` (the comparison with
+  the pin up to level-parameter names, as before); any other block, definition, theorem, opaque
+  or axiom may not take a reserved name (`Quot.sound` and the quotient records are compared with
+  their own pins). Failure is a reject (`basisNamesError`), as the reserved-name refusals were.
+* `checkBasisBlock`/`checkBasisBlockC` and `BasisKind.atBlock` are deleted.
+* The pinned formers carry no capabilities (`eqA`, `natA`, `emptyA`, `falseA` at `{}`): the pins
+  are what an export writes, and the install computes the rest.
+* `natIndOk`/`natZeroOk`/`natSuccOk` read a constant's level parameters and type only, as the
+  seven other literal-shape tests do. They used to demand `.indInfo`/`.ctorInfo`, which a
+  declaration check cannot show (`litShapeOk (.axiomInfo cv)`), so the `Nat` block's former would
+  have declined on the uniform route. What `Nat` is beyond its type is `basisNamesOk`'s.
+* `reduceElemOk(F)` compares the stored `Nat` former's `ConstantVal` with the pin's
+  (`matchesPin`, as `Bool` already was) instead of the whole stored entry with `natA`.
+
+**Verdicts.** init-full accepts the same 57,977 declarations. The e2e and arena verdicts: see
+below. New fixture `basis_eq_mixed_block` (a mutual block declaring `Eq` beside a twin type):
+reject, at the reserved names' check (rejected before too, by the constant check).
+
+**The proofs (NOT done; this lane stops here).** Repaired so far: `BlockShapeOk` lost its three
+reservedness conjuncts (`Verify/Inductives/BlockShapeInv.lean`); `EnvWF`'s `reservedRecName`
+projections; the cached step's pushes and twins (`Verify/Cached/DeclPushes.lean`,
+`ViewCongr.lean`, `PushChain.lean`, `StreamIndex.lean`: `checkDeclKindC_*` lemmas plus one for the
+wrapper). That is enough for the executable to build. What remains, in dependency order:
+
+1. **Constant-check inversions.** `checkConstantVal_inv` (`Verify/Extend/Inversions.lean`) states
+   `reservedBasisNames.contains cv.name = false`; it is no longer the check's. 27 uses in 20 files
+   (`Model/Inductives/*`, `Semantics/Bridge/DeclRun.lean`, `Verify/Inductives/*`, `BridgeWfImp`)
+   read it, mostly for "a stored ordinary-block constant is not a reserved name" (the
+   `BasisPinnedTT` and `CapsOk` preservation). That fact now comes from `basisNamesOk` (a block that
+   does not hit a pinned block has no reserved name). Plan: drop the conjunct, thread
+   `basisNamesOk d = true` (via the run relation, item 3) to the consumers.
+   `litShapeAt_of_check` no longer needs its `hres` premise (the `Nat` tests are kind-agnostic).
+2. **The `Nat` shape tests.** 46 proof references to `natIndOk`/`natZeroOk`/`natSuccOk` in 11
+   files (`EnvGuards`, `NatOpFrag`, `Denote/Install`, `Extend/Recs`, `Model/BasisBlocks`,
+   `Model/Levels`, `Model/Harvest`, `Model/Inductives/DeclaredShapes`, `Model/Reading/Levels`,
+   `Semantics/LitParams`, `Model/Rules/RedSoundKit`): where one read the KIND off `natIndOk`, the kind
+   now comes from `BasisPinnedTT` (a stored `Nat` is a pin copy).
+3. **The run relation.** `DeclRun` (`Semantics/Decl.lean`) gets the reserved names' check as one
+   more conjunct; its `.indDecl` case loses the basis arm (`DeclBasisRun` with `atBlock`) and is the
+   block route at every name. `checkDeclRun_ofEnvFactsK` and `Verify/BridgeDecl.lean` follow the
+   split `checkDecl` = `checkDeclKind` + `basisNamesOk`.
+4. **The key lemma.** For `basisNameHit block = some kind`, `pinListOk block kind.decls`,
+   `blockShape? nP block = some p`: `blockConstants p` and `kind.decls` agree position by
+   position as pin copies UP TO THE FORMERS' CAPABILITIES (the pins' formers carry `{}`, the
+   install `blockCapsAt`), every `recFire` is `.plain` (the major's head is the block's own
+   member), and `blockTables p p.members = []` (no basis member is structure-like). Plan:
+   weaken `PinCopy` (`Verify/Denote/Pinned.lean`) to compare up to an inductive's capabilities.
+   That is cheap where it is read: the renaming layer's `PinCopy.ind` returns `caps' = caps`, and
+   its one use (`Model/BasisRename.lean`:515) discards it; `CapsOk` is keyed on unreserved
+   names only (`capsOk_cons_basis`). Then `declBasisPB_at` (`Model/BasisAtBlock.lean`) takes the
+   uniform install of a pinned block (`BasisInstallRun` of `blockConstants p`) through the same
+   renaming chain (`ConstRen` holds between a pin copy at `{}` and one at the formula's caps).
+5. **The fold's basis arm** (`Model/Fold.lean`, `natFacts_basis`, `atBlock_names`;
+   `Model/BasisStep.lean`, `Model/BasisCons.lean`, `Semantics/DeclEta.lean`'s `basisIndOk_atBlock`)
+   moves from `atBlock` to `blockConstants p`, and the ordinary arm (`declBlock`) takes the
+   not-reserved facts from `basisNamesOk` (item 1).
+6. `Verify/OfReducePin.lean`'s `reduceElem_sort` reads the new `reduceElemOk`.
+7. Dead after the change: `installBasisDeclF_twin`, `RelRun.foldlM_push` (`ViewCongr`), if
+   nothing else uses them once the proofs build.
