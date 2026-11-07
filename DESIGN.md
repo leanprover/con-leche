@@ -111895,3 +111895,29 @@ next step once `R` is fixed), and the inherited `ProjBodiesInRange`,
 
 Gates: `lake build InLean InLeanProof` warning-free; `tests/layering.sh`,
 `tests/trust-surface.sh`, `tests/no-local-paths.sh` pass.
+
+### Lane ReductInRange: the reduct's range checked (2026-11-07)
+
+Closes O7's executable gap.  InLean's `reducedFormer`
+(`InLean/Inductives/Positivity.lean`) closes the telescope by depth
+(`EO.abstractDepthsFrom`), which writes `EO.rangePoison` where a bound index
+would pass `maxBVarIdx`; it now refuses a reduct `EO.inRange` refuses
+(`.internal "too many bound variables"`, `abstractRangeM`'s error and class).
+One walk of the reduct per definition-headed former; no real input reaches the
+error.
+
+The named fact `ReductInRange` is gone: `reducedFormer_emvar` (`IndTele.lean`,
+any `ops`, from `RangeOk_of_inRange`) proves it, `reducedFormerSimI_of hRR`
+became `reducedFormerSimI` (no hypothesis), and `checkIndDeclC_sim_rest`
+(`IndBasis.lean`) lost its `hRR` premise.  Pins updated (`reducedFormer_emvar`
+new: `propext`, `Classical.choice`, `Quot.sound`; the other two unchanged).
+
+**Validation** (`inlean-replay --kernel=inlean --compare --quiet`): Init
+64,530, Std 110,064 declarations accepted, 0 rejected, 0 declined, 0 exact and
+0 cosmetic mismatches.  `scripts/inlean_negtest.lean` 9/9 agree.
+`lake build InLean InLeanProof inlean-replay` warning-free; `tests/layering.sh`,
+`tests/trust-surface.sh`, `tests/no-local-paths.sh` pass.
+
+What remains of O7: `CheckConstantValFSimI` (O6), `PassSimI R`/`TailSimI R`
+(blocked on the ruling in "Lane O7, continued"), `ProjBodiesInRange`,
+`ProjGuardSpecI`.

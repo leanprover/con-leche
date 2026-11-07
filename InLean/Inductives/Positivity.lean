@@ -35,11 +35,16 @@ def whnfTelescope (ops : CheckerOps) (env : FEnv) : Nat → Nat → Expr → Che
     | _ => throw (.invalid "direct sum: type former does not reduce to a telescope \
         of its parameters and indices")
 
-/-- Twin of `reducedFormer`. -/
+/-- Twin of `reducedFormer`.  The closing abstracts by depth
+(`EO.abstractDepthsFrom`), which writes `EO.rangePoison` where a bound index
+would pass C's bound: a reduct `EO.inRange` refuses is an error (as
+`abstractRangeM` reports the marker). -/
 def reducedFormer (ops : CheckerOps) (env : FEnv) (cv : ConstantVal) (n : Nat) :
     CheckCM ConstantVal := do
   let (bs, s) ← whnfTelescope ops env 0 n cv.type
-  pure { cv with type := closeTelescope bs 0 (.sort s) }
+  let ty := closeTelescope bs 0 (.sort s)
+  if EO.inRange ty then pure { cv with type := ty }
+  else throw (.internal "too many bound variables")
 
 /-- Twin of `familyTelescope`. -/
 def familyTelescope (ops : CheckerOps) (env : FEnv) (cv : ConstantVal) (caps : IndCaps) :

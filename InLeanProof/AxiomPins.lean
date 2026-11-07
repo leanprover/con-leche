@@ -1873,8 +1873,12 @@ info: 'InLeanProof.closeTelescope_tr' depends on axioms: [propext,
 #guard_msgs in
 #print axioms InLeanProof.closeTelescope_tr
 
+/-- info: 'InLeanProof.reducedFormer_emvar' depends on axioms: [propext, Classical.choice, Quot.sound] -/
+#guard_msgs in
+#print axioms InLeanProof.reducedFormer_emvar
+
 /--
-info: 'InLeanProof.reducedFormerSimI_of' depends on axioms: [propext,
+info: 'InLeanProof.reducedFormerSimI' depends on axioms: [propext,
  Classical.choice,
  Quot.sound,
  InLeanProof.Expr.mkAppData_fields,
@@ -1882,7 +1886,7 @@ info: 'InLeanProof.reducedFormerSimI_of' depends on axioms: [propext,
  InLeanProof.Level.mkData_eq]
 -/
 #guard_msgs in
-#print axioms InLeanProof.reducedFormerSimI_of
+#print axioms InLeanProof.reducedFormerSimI
 
 /-- info: 'InLeanProof.toBlock_CIOk' depends on axioms: [propext, Quot.sound] -/
 #guard_msgs in

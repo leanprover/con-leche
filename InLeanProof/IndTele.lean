@@ -10,9 +10,8 @@ public import ConLeche.Verify.Cached.NestPosC
 the job's operations answers master's fueled loop at the translation, the
 domains read at the final state.  `closeTelescope_tr`: InLean's closing (by
 depth, `EO.abstractDepthsFrom`) reads as master's `closeTelescope` when it
-wrote no out-of-range marker.  `reducedFormerSimI_of` discharges
-`ReducedFormerSimI` from that one fact about the reduct (`ReductInRange`, see
-there).
+wrote no out-of-range marker, which `reducedFormer` checks
+(`reducedFormer_emvar`).  `reducedFormerSimI` discharges `ReducedFormerSimI`.
 -/
 
 set_option experimental.vcgen true
@@ -216,18 +215,21 @@ theorem closeTelescope_tr (s : InLean.CState) :
 
 /-! ## The reduct -/
 
-/-- **The reduct is marker-free** (an executable gap, not a proof gap).
-InLean's `closeTelescope` abstracts by depth through `EO.abstractDepthsFrom`,
-which writes `EO.rangePoison` where the bound index would pass C's bound
-(`maxBVarIdx`), and nothing reports it: a domain with a binder nest deeper than
-`maxBVarIdx` around an occurrence of an earlier telescope variable makes one.
-Not reachable by real input; the fix is executable (`reducedFormer` throws when
-`EO.inRange` refuses the reduct, as `abstractRangeM` reports the marker), after
-which this is a lemma. -/
-@[expose] def ReductInRange : Prop :=
-  ∀ (fe : InLean.FEnv) (cv cvR : Lean.ConstantVal) (n : Nat) (s₀ s' : InLean.CState),
-    InLean.reducedFormer (sharedOpsC .verified fe) fe cv n s₀ = .ok (cvR, s') →
-    emvarS cvR.type = false
+/-- **The reduct is marker-free**: InLean's `closeTelescope` abstracts by depth
+through `EO.abstractDepthsFrom`, which writes `EO.rangePoison` where the bound
+index would pass C's bound (`maxBVarIdx`); `reducedFormer` refuses a reduct
+`EO.inRange` refuses. -/
+theorem reducedFormer_emvar {ops : InLean.CheckerOps} {fe : InLean.FEnv}
+    {cv cvR : Lean.ConstantVal} {n : Nat} {s₀ s' : InLean.CState}
+    (h : InLean.reducedFormer ops fe cv n s₀ = .ok (cvR, s')) :
+    emvarS cvR.type = false := by
+  unfold InLean.reducedFormer at h
+  obtain ⟨⟨bs, u⟩, s₁, _, h⟩ := bindI_ok h
+  dsimp only at h
+  split at h
+  · obtain ⟨rfl, -⟩ := pureI_ok h
+    exact (RangeOk_of_inRange ‹_›).2
+  · exact (throwI_ok h).elim
 
 theorem lbb_closeTelescope : ∀ (bs : List ConLeche.Expr) (i : Nat) (body : ConLeche.Expr),
     AllClosed bs = true → body.looseBVarsBounded 0 = true →
@@ -288,13 +290,16 @@ theorem okC_of_OkS {s : InLean.CState} :
     exact ⟨h1, by rw [h2]; rfl⟩
   | bvar _ | mvar _ | sort _ | const _ _ | lit _ => intro h _; exact ⟨h, rfl⟩
 
-/-- **`ReducedFormerSimI` discharged**, given the reduct is marker-free. -/
-theorem reducedFormerSimI_of (hRR : ReductInRange) : ReducedFormerSimI := by
+/-- **`ReducedFormerSimI` discharged.** -/
+theorem reducedFormerSimI : ReducedFormerSimI := by
   intro fe L cv cvR n s₀ s' hJ hs hok hcl h
-  have hpoison := hRR fe cv cvR n s₀ s' h
+  have hpoison := reducedFormer_emvar h
   unfold InLean.reducedFormer at h
   obtain ⟨r, s₁, h1, h⟩ := bindI_ok h
   obtain ⟨bs, u⟩ := r
+  dsimp only at h
+  split at h
+  case isFalse => exact (throwI_ok h).elim
   obtain ⟨rfl, rfl⟩ := pureI_ok h
   obtain ⟨hs₁, ht₁, hokbs, hoku, hclbs, hR⟩ := whnfTelescopeI_run hJ.ops n 0 hs (OkS_of_okC _ hok)
     (by rw [TrS_of_okC _ hok]; exact trC_wscoped 0 _) (by rw [TrS_of_okC _ hok]; exact hcl) h1
