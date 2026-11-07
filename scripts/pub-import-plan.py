@@ -54,6 +54,12 @@ DIR   = os.environ.get('PUBPLAN_DIR', '_tmp/m3')
 # a tree whose `rfl`s stop closing, so they stay public and the gate must not
 # ask for them again.
 FALLBACK = {
+    # task #492: the guard-row lemmas' public statements name `projGuardRowsGo`,
+    # `GuardRowsWS`'s `WScoped`; the census attributes them to the private imports
+    # (`LooseBVar`, `Subst`).  Measured: demoting either breaks the file (unknown
+    # identifier `projGuardRowsGo`, `ProjGuard.lean:45`; `Expr.WScoped`, `ProjGuard.lean:30`).
+    ('ConLeche.Verify.ProjGuard', 'ConLeche.Kernel.CoreDefs'),
+    ('ConLeche.Verify.ProjGuard', 'ConLeche.Verify.Shift'),
     # task #480 (the merge of #481): `readOleans_filled` and its neighbours state `OleanRead`,
     # `readOleans`, `Merged`, `mergeAll`, `blocksOk`, `declsOf`.  Measured: demoting either
     # breaks the file (unknown identifier `OleanRead`, `Files.lean:544`).

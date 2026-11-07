@@ -23,6 +23,7 @@ public import ConLeche.Verify.Inductives.NestScope
 import ConLeche.Verify.Inductives.DirectGen
 import ConLeche.Verify.Denote.TeleOpen
 import ConLeche.Verify.Inductives.NfMemberFree
+import ConLeche.Verify.LooseBVar
 
 public section
 

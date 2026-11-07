@@ -12,6 +12,7 @@ import ConLeche.Model.Reading.Levels
 import ConLeche.Kernel.PropWhen
 import ConLeche.Verify.Denote.Inst
 import ConLeche.Semantics.Frame
+import ConLeche.Verify.LooseBVar
 
 public section
 

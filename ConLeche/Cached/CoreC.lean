@@ -979,20 +979,23 @@ def projGuardSortI (wh : Nat → Expr → CheckCM Expr) (cvT : ConstantVal) (cap
 def checkProjRowsI (inf wh : Nat → Expr → CheckCM Expr) (fe : FEnv) (entry : ProjEntry)
     (us : List Level) (guardSort : Level) : CheckCM Unit :=
   match fe.find? entry.ctor with
-  | some ci => do
-    let cv := ci.toConstantVal
+  | some _ => do
     let cty ← constTyAtM fe entry.ctor entry.ctor us
-    match openPisAtFvarsF (entry.numParams + entry.idx + 1) cty 0 with
-    | some (fvs, _) =>
-      checkGuardRowsI inf wh guardSort (projGuardRowsAt cv.type entry.numParams entry.idx fvs)
+    match openPisAtFvarsF entry.numParams cty 0 with
+    | some (_, r) =>
+      match projGuardRowsGo entry.idx entry.numParams r with
+      | some rows => checkGuardRowsI inf wh guardSort rows
+      | none =>
+        throw (.invalid "projection from a propositional structure must be a proposition")
     | none =>
       throw (.invalid "projection from a propositional structure must be a proposition")
   | none =>
     throw (.invalid "projection from a propositional structure must be a proposition")
 
 /-- Twin of `checkProjGuard`: the constructor's type at the use's levels
-through the per-declaration memo (`constTyAtM`), opened in one pass
-(`openPisAtFvarsF`). -/
+through the per-declaration memo (`constTyAtM`), its parameters opened in
+one pass (`openPisAtFvarsF`), then its fields stepped
+(`projGuardRowsGo`). -/
 def checkProjGuardI (inf wh : Nat → Expr → CheckCM Expr) (fe : FEnv) (entry : ProjEntry)
     (us : List Level) : CheckCM Unit := do
   match fe.find? entry.structName with
