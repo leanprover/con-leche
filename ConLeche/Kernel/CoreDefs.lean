@@ -163,30 +163,30 @@ def natLitToConstructor (n : Nat) : Expr :=
   | 0 => .const natZeroName []
   | k + 1 => .app (.const natSuccName []) (.lit (.natVal k))
 
-/-- The stored `Nat` declaration has the expected level parameters and type. -/
+/-- The stored `Nat` declaration has the expected shape. -/
 def natIndOk : Option ConstantInfo → Bool
-  | some ci =>
-    ci.toConstantVal.levelParams.isEmpty && ci.toConstantVal.type == .sort (.succ .zero)
-  | none => false
+  | some (.indInfo cv _) =>
+    cv.levelParams.isEmpty && cv.type == .sort (.succ .zero)
+  | _ => false
 
-/-- The stored `Nat.zero` declaration has the expected level parameters and type. -/
+/-- The stored `Nat.zero` declaration has the expected shape. -/
 def natZeroOk : Option ConstantInfo → Bool
-  | some ci =>
-    ci.toConstantVal.levelParams.isEmpty && ci.toConstantVal.type == .const natName []
-  | none => false
+  | some (.ctorInfo cv _ _) =>
+    cv.levelParams.isEmpty && cv.type == .const natName []
+  | _ => false
 
-/-- The stored `Nat.succ` declaration has the expected level parameters and type. -/
+/-- The stored `Nat.succ` declaration has the expected shape. -/
 def natSuccOk : Option ConstantInfo → Bool
-  | some ci =>
-    ci.toConstantVal.levelParams.isEmpty &&
-    (match ci.toConstantVal.type with
+  | some (.ctorInfo cv _ _) =>
+    cv.levelParams.isEmpty &&
+    (match cv.type with
      | .forallE (.const c1 []) (.const c2 []) =>
        c1 == natName && c2 == natName
      | _ => false)
-  | none => false
+  | _ => false
 
-/-- `Nat`, `Nat.zero` and `Nat.succ` are stored with exactly the expected level parameters and
-types (what they are beyond that is the pinned `Nat` block's, `basisNamesOk`).  The model interprets a literal by iterating the `Nat.succ` value on the `Nat.zero` value and
+/-- `Nat`, `Nat.zero` and `Nat.succ` are stored with exactly the expected kinds, level parameters and
+types.  The model interprets a literal by iterating the `Nat.succ` value on the `Nat.zero` value and
 reads those shapes off this; a certified operation's check asks it of the environment it runs at. -/
 def natLitSupported (env : Env) : Bool :=
   natIndOk (env.find? natName) && natZeroOk (env.find? natZeroName) &&
@@ -371,11 +371,14 @@ def strLitStored (env : Env) : Bool :=
     (env.find? charOfNatName).isSome
 
 /-- **The shape a declaration at a literal's name must have**: what a literal's meaning reads off
-it.  Checked at the declaration, once; nothing at a literal's use compares a stored type. -/
+it, its level parameters and type.  Checked at the declaration, once; nothing at a literal's use
+compares a stored type.  A declaration check cannot show a kind, so the three `Nat` names are read
+at the kinds their guards ask for; what they are beyond their types is the pinned `Nat` block's
+(`basisNamesOk`). -/
 def litShapeOk (c : ConstantInfo) : Bool :=
-  if c.name = natName then natIndOk (some c)
-  else if c.name = natZeroName then natZeroOk (some c)
-  else if c.name = natSuccName then natSuccOk (some c)
+  if c.name = natName then natIndOk (some (.indInfo c.toConstantVal {}))
+  else if c.name = natZeroName then natZeroOk (some (.ctorInfo c.toConstantVal 0 0))
+  else if c.name = natSuccName then natSuccOk (some (.ctorInfo c.toConstantVal 0 1))
   else if c.name = stringName then stringTyOk (some c)
   else if c.name = stringOfListName then stringOfListTyOk (some c)
   else if c.name = listName then listTyOk (some c)

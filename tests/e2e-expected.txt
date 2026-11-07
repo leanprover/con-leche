@@ -3207,9 +3207,12 @@
 # `Eq.refl`'s parameter is the motive's.  Rejected, by official as well ("Invalid
 # recursor Eq.rec").
 1 basis_eq_rec_swapped_names_bad.ndjson
-# `Eq.refl.{v}` under `Eq.{w}`.  Rejected, by official as well ("invalid reference
-# to undefined universe level parameter 'v'").
-1 basis_eq_refl_other_name_bad.ndjson
+# `Eq.refl.{v}` under `Eq.{w}`.  Official rejects ("invalid reference to undefined
+# universe level parameter 'v'").  Since task #493 the block takes the uniform route,
+# whose recogniser does not read a constructor at other level parameters than its
+# former: DECLINE (shape not recognised), as for any block with that defect; the
+# reserved names' check never runs.  Target verdict: 1 (official's reject).
+2 basis_eq_refl_other_name_bad.ndjson
 # `Nat.rec`'s `Nat.zero` rule at the wrong right-hand side, from the job, at the
 # block's fold position.  Rejected, by official as well ("Invalid recursor Nat.rec").
 1 basis_nat_rule_bad.ndjson

@@ -110517,16 +110517,26 @@ built-in prelude stays (preprocessing below the fold).
 * `checkBasisBlock`/`checkBasisBlockC` and `BasisKind.atBlock` are deleted.
 * The pinned formers carry no capabilities (`eqA`, `natA`, `emptyA`, `falseA` at `{}`): the pins
   are what an export writes, and the install computes the rest.
-* `natIndOk`/`natZeroOk`/`natSuccOk` read a constant's level parameters and type only, as the
-  seven other literal-shape tests do. They used to demand `.indInfo`/`.ctorInfo`, which a
-  declaration check cannot show (`litShapeOk (.axiomInfo cv)`), so the `Nat` block's former would
-  have declined on the uniform route. What `Nat` is beyond its type is `basisNamesOk`'s.
+* `litShapeOk`'s three `Nat` clauses read a constant's level parameters and type only (at the
+  kinds `natIndOk`/`natZeroOk`/`natSuccOk` ask for), as the seven other literal-shape tests do. A
+  declaration check cannot show a kind (`litShapeOk (.axiomInfo cv)`), so on the uniform route the
+  `Nat` block's former would otherwise have declined. The literal guard at use
+  (`natLitSupported`) still asks the stored entries' kinds; what `Nat` is beyond its type is
+  `basisNamesOk`'s.
 * `reduceElemOk(F)` compares the stored `Nat` former's `ConstantVal` with the pin's
   (`matchesPin`, as `Bool` already was) instead of the whole stored entry with `natA`.
 
-**Verdicts.** init-full accepts the same 57,977 declarations. The e2e and arena verdicts: see
-below. New fixture `basis_eq_mixed_block` (a mutual block declaring `Eq` beside a twin type):
-reject, at the reserved names' check (rejected before too, by the constant check).
+**Verdicts.** init-full accepts the same 57,977 declarations; the arena tutorial 90/92, as
+before. One e2e verdict moved: `basis_eq_refl_other_name_bad` (`Eq.refl.{v}` under `Eq.{w}`) from
+reject to DECLINE. The uniform recogniser does not read a constructor at other level parameters
+than its former and declines the block as shapeless before the reserved names' check runs, as it
+does any block with that defect; official rejects, so the target stays 1. New fixture
+`basis_eq_mixed_block` (a mutual block declaring `Eq` beside a twin type): reject, at the reserved
+names' check (rejected before too, by the constant check).
+
+**Cost** (`instructions:u`, one run each, before → after): init-full 390.54 G → 390.15 G
+(−0.10 %), grind-ring-5 15.897 G → 15.887 G (−0.06 %), magma-list-deep-n36 200.96 G → 201.05 G
+(+0.04 %).
 
 **The proofs (NOT done; this lane stops here).** Repaired so far: `BlockShapeOk` lost its three
 reservedness conjuncts (`Verify/Inductives/BlockShapeInv.lean`); `EnvWF`'s `reservedRecName`
@@ -110542,11 +110552,12 @@ wrapper). That is enough for the executable to build. What remains, in dependenc
    does not hit a pinned block has no reserved name). Plan: drop the conjunct, thread
    `basisNamesOk d = true` (via the run relation, item 3) to the consumers.
    `litShapeAt_of_check` no longer needs its `hres` premise (the `Nat` tests are kind-agnostic).
-2. **The `Nat` shape tests.** 46 proof references to `natIndOk`/`natZeroOk`/`natSuccOk` in 11
-   files (`EnvGuards`, `NatOpFrag`, `Denote/Install`, `Extend/Recs`, `Model/BasisBlocks`,
-   `Model/Levels`, `Model/Harvest`, `Model/Inductives/DeclaredShapes`, `Model/Reading/Levels`,
-   `Semantics/LitParams`, `Model/Rules/RedSoundKit`): where one read the KIND off `natIndOk`, the kind
-   now comes from `BasisPinnedTT` (a stored `Nat` is a pin copy).
+2. **The `Nat` shape at declarations.** `litShapeOk` no longer says the stored `Nat` constants'
+   kinds, so `natLitSupported_of_shapes` (`Verify/EnvGuards.lean`, the first error) needs them from
+   elsewhere: from `BasisPinnedTT` (a stored `Nat`, `Nat.zero`, `Nat.succ` is a pin copy) through
+   the environment invariant. `natLitSupported` and its inversion are unchanged.
+   `Verify/OfReducePin.lean`'s `reduceElem_sort` is repaired for the new `reduceElemOk` but sits
+   behind `EnvGuards`.
 3. **The run relation.** `DeclRun` (`Semantics/Decl.lean`) gets the reserved names' check as one
    more conjunct; its `.indDecl` case loses the basis arm (`DeclBasisRun` with `atBlock`) and is the
    block route at every name. `checkDeclRun_ofEnvFactsK` and `Verify/BridgeDecl.lean` follow the
@@ -110566,6 +110577,8 @@ wrapper). That is enough for the executable to build. What remains, in dependenc
    `Model/BasisStep.lean`, `Model/BasisCons.lean`, `Semantics/DeclEta.lean`'s `basisIndOk_atBlock`)
    moves from `atBlock` to `blockConstants p`, and the ordinary arm (`declBlock`) takes the
    not-reserved facts from `basisNamesOk` (item 1).
-6. `Verify/OfReducePin.lean`'s `reduceElem_sort` reads the new `reduceElemOk`.
+6. **Documents.** The whitepaper cites `BasisKind.atBlock` (deleted) and the old basis install
+   (`whitepaper/links-gate.sh` fails): its prose needs updating to the uniform install, under its
+   own writing rules (PLAN.md), not just its line numbers.
 7. Dead after the change: `installBasisDeclF_twin`, `RelRun.foldlM_push` (`ViewCongr`), if
    nothing else uses them once the proofs build.
