@@ -574,4 +574,21 @@ theorem basisBlockSimI : BasisBlockSimI := by
     obtain ⟨_, _, h1, _⟩ := bindI_ok h
     exact (throwI_ok h1).elim
 
+variable {pins : List ConLeche.NatOpPinSet}
+
+/-- **O7's top with the pinned blocks and the reduct discharged**: what remains
+is the former's constant check (O6's guards), the reduct's range
+(`ReductInRange`, an executable gap) and the pass and the tail. -/
+theorem checkIndDeclC_sim_rest (hC : CheckConstantValFSimI) (hRR : ReductInRange)
+    {R : InLean.CState → InLean.BlockPass → ConLeche.BlockPass ConLeche.Env → Prop}
+    (hP : PassSimI R) (hT : TailSimI R)
+    {fe : InLean.FEnv} {L : ConLeche.Env} (hJ : JobEnvI fe L)
+    {block : List Lean.ConstantInfo} {cb : List ConLeche.ConstantInfo} {nP : Nat}
+    {s₀ s' : InLean.CState} (hs : CSOKIF s₀) (hr : ∀ ci ∈ block, CIRange ci)
+    (hb : toBlock block = some cb)
+    (h : InLean.checkIndDeclC .verified fe block nP s₀ = .ok ((), s')) :
+    CSOKIF s' ∧ ∃ F L', ConLeche.checkDecl .verified (ConLeche.fueledOps .verified F) pins L
+      (.indDecl cb nP) = .ok L' :=
+  checkIndDeclC_sim_stages basisBlockSimI hC (reducedFormerSimI_of hRR) hP hT hJ hs hr hb h
+
 end InLeanProof

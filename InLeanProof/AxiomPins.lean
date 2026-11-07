@@ -24,6 +24,7 @@ public import InLeanProof.EnvBodiesPres
 public import InLeanProof.QuotPres
 public import InLeanProof.IndPres
 public import InLeanProof.IndMembers
+public import InLeanProof.IndBasis
 
 /-!
 # The axiom pins of the InLean proof tier (task #451, lane G)
@@ -1739,3 +1740,123 @@ info: 'InLeanProof.CIRange_of_constInRange' depends on axioms: [propext, Classic
 -/
 #guard_msgs in
 #print axioms InLeanProof.CIRange_of_constInRange
+
+/-! ## O7, continued: the reduct and the pinned blocks -/
+
+/--
+info: 'InLeanProof.whnfTelescopeI_run' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound,
+ InLeanProof.Expr.mkAppData_fields,
+ InLeanProof.Expr.mkData_eq,
+ InLeanProof.Level.mkData_eq]
+-/
+#guard_msgs in
+#print axioms InLeanProof.whnfTelescopeI_run
+
+/--
+info: 'InLeanProof.closeTelescope_tr' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound,
+ InLeanProof.Expr.mkAppData_fields,
+ InLeanProof.Expr.mkData_eq,
+ InLeanProof.Level.mkData_eq]
+-/
+#guard_msgs in
+#print axioms InLeanProof.closeTelescope_tr
+
+/--
+info: 'InLeanProof.reducedFormerSimI_of' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound,
+ InLeanProof.Expr.mkAppData_fields,
+ InLeanProof.Expr.mkData_eq,
+ InLeanProof.Level.mkData_eq]
+-/
+#guard_msgs in
+#print axioms InLeanProof.reducedFormerSimI_of
+
+/-- info: 'InLeanProof.toBlock_CIOk' depends on axioms: [propext, Quot.sound] -/
+#guard_msgs in
+#print axioms InLeanProof.toBlock_CIOk
+
+/-- info: 'InLeanProof.pins_tr' depends on axioms: [propext] -/
+#guard_msgs in
+#print axioms InLeanProof.pins_tr
+
+/-- info: 'InLeanProof.pins_ok' depends on axioms: [propext, Quot.sound] -/
+#guard_msgs in
+#print axioms InLeanProof.pins_ok
+
+/--
+info: 'InLeanProof.pinAgrees_tr' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound,
+ InLeanProof.Expr.mkAppData_fields,
+ InLeanProof.Expr.mkData_eq,
+ InLeanProof.Level.mkData_eq]
+-/
+#guard_msgs in
+#print axioms InLeanProof.pinAgrees_tr
+
+/--
+info: 'InLeanProof.pinCopyOk_tr' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound,
+ InLeanProof.Expr.mkAppData_fields,
+ InLeanProof.Expr.mkData_eq,
+ InLeanProof.Level.mkData_eq]
+-/
+#guard_msgs in
+#print axioms InLeanProof.pinCopyOk_tr
+
+/--
+info: 'InLeanProof.listBeqBy_tr' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound,
+ InLeanProof.Expr.mkAppData_fields,
+ InLeanProof.Expr.mkData_eq,
+ InLeanProof.Level.mkData_eq]
+-/
+#guard_msgs in
+#print axioms InLeanProof.listBeqBy_tr
+
+/-- info: 'InLeanProof.pinLinkOk_tr' depends on axioms: [propext, Quot.sound] -/
+#guard_msgs in
+#print axioms InLeanProof.pinLinkOk_tr
+
+/-- info: 'InLeanProof.blockLinksOk_tr' depends on axioms: [propext, Quot.sound] -/
+#guard_msgs in
+#print axioms InLeanProof.blockLinksOk_tr
+
+/--
+info: 'InLeanProof.basisFold_fresh' depends on axioms: [propext, Classical.choice, Quot.sound]
+-/
+#guard_msgs in
+#print axioms InLeanProof.basisFold_fresh
+
+/-- info: 'InLeanProof.installFold_ok' depends on axioms: [propext, Classical.choice, Quot.sound] -/
+#guard_msgs in
+#print axioms InLeanProof.installFold_ok
+
+/--
+info: 'InLeanProof.basisBlockSimI' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound,
+ InLeanProof.Expr.mkAppData_fields,
+ InLeanProof.Expr.mkData_eq,
+ InLeanProof.Level.mkData_eq]
+-/
+#guard_msgs in
+#print axioms InLeanProof.basisBlockSimI
+
+/--
+info: 'InLeanProof.checkIndDeclC_sim_rest' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound,
+ InLeanProof.Expr.mkAppData_fields,
+ InLeanProof.Expr.mkData_eq,
+ InLeanProof.Level.mkData_eq]
+-/
+#guard_msgs in
+#print axioms InLeanProof.checkIndDeclC_sim_rest

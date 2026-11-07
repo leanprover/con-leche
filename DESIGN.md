@@ -111669,3 +111669,96 @@ lemma it twins):
 
 Gates: `lake build InLean InLeanProof` warning-free; `tests/layering.sh`,
 `tests/trust-surface.sh`, `tests/no-local-paths.sh` pass.
+
+### Lane O7, continued: the reduct, the pinned blocks, and two divergences in the pass (2026-11-07)
+
+Coordinator's order: `ReducedFormerSimI`, then `BasisBlockSimI`, then the pass
+and the tail at a concrete relation; `CheckConstantValFSimI` (O6) and
+`ProjBodiesInRange`/`ProjGuardSpecI` (P3c, #492) stay named.
+
+**Discharged.**
+* `ReducedFormerSimI` (`IndTele.lean`, `reducedFormerSimI_of`) from one
+  named fact, `ReductInRange`.  `whnfTelescopeI_run` is
+  `whnfTelescopeS_spec`'s twin (the domains read at the final state, closed);
+  `closeTelescope_tr` reads InLean's closing (by depth, `abstractDepthsFrom`)
+  as master's `closeTelescope` where it wrote no marker
+  (`emvarS_of_abstract1`: abstraction writes metavariables only as its
+  marker); the reduct's closed reading comes from master's
+  `Runs.reducedFormer_hasFvar` (`okC_of_OkS`).
+  **`ReductInRange` is an executable gap**: InLean's `closeTelescope`
+  abstracts through `EO.abstractDepthsFrom`, which writes `EO.rangePoison`
+  where the bound index would pass `maxBVarIdx`, and nothing reports it (a
+  telescope domain with a binder nest deeper than `maxBVarIdx` around an
+  earlier telescope variable).  Not reachable by real input; fix: the reduct
+  is refused when `EO.inRange` refuses it (as `abstractRangeM` reports the
+  marker), after which `ReductInRange` is a lemma.  Same class as P3b's
+  finding 2.
+* `BasisBlockSimI` (`IndBasis.lean`, `basisBlockSimI`), no hypothesis left.
+  InLean's pins translate to master's up to an inductive's capabilities
+  (`pins_tr`, by `decide`), which master's `pinAgrees` does not read
+  (`pinAgrees_capsFree`); `pinAgrees_tr`/`pinCopyOk_tr`/`listBeqBy_tr`:
+  `Expr.clEq` gives equal readings and the level instantiation reads as
+  master's, its marker excluded because the compared record has a reading;
+  `blockLinksOk_tr` through `pinLinkOk_tr` (`Level.instantiateParams` at a
+  parameter is master's `Level.subst.go`); the freshness fold
+  (`basisFold_fresh`: distinct names fresh in `fe`, by `EnvLaws`, then in `L`
+  by `EnvPresI.none`) and master's install fold (`installFold_ok`).
+  `JobEnvI` gained `laws : EnvLaws` for it (P4 has it, `IndGroupPresB` takes
+  it); `BasisBlockSimI` now takes `JobEnvI` and `CIOk` (closed readings of a
+  block's types and rules, `toBlock_CIOk`).
+* `checkIndDeclC_sim_rest` (`IndBasis.lean`): O7's top from
+  `CheckConstantValFSimI`, `ReductInRange`, `PassSimI R`, `TailSimI R`.
+
+**Not done: the pass and the tail.  Two divergences, found while choosing `R`.**
+Master's job runs its stages at environments built from the shape
+(`consBlockInds` with `blockCapsAt`, `consBlockCtors`, no projection table
+until the block's install); InLean reads the same data off the Lean entries it
+pushes, at use.  Inside the block's own job the two differ:
+
+1. *Capabilities at the formers' push* (`fe₁` against `env₁`).  After
+   `consBlockIndsF` the constructors are not yet in `fe₁`, so `capsOf` reads a
+   single-constructor, index-free, non-recursive member's field count as `0`:
+   `etaFields := 0`, `unitlike := true`.  Master's `env₁` has `blockCapsAt`:
+   the real field count, `unitlike` only at zero fields.  So `EnvPresI fe₁
+   env₁` is false (`EntryRelI` wants `toCaps (capsOf …)` equal and the
+   constructors stored), the knot's specs (`ssimI_of_pres`) do not reach the
+   stages at `fe₁` (`checkBlockCtorsF`, `blockNestCtx`, `checkBlockClasses`,
+   `checkBlockPositivity`, `nestSeeds`, `checkBlockIdxSortsF`), and InLean's
+   operations there are not master's: InLean's defeq treats any two terms of
+   a structure member's type with fields as equal (unit-like).  Whether a
+   verdict can differ is open: in a non-recursive block no constructor domain
+   mentions a member, so the pass may never compare two terms of a member's
+   type; not proved.
+2. *Projection tables in the tail* (`fe₂`/`feG` against `env₂` and the
+   rule-less recursors' environment).  InLean reads a structure member's
+   projections off its former and constructor (`FEnv.findProj?`) as soon as
+   both are pushed; master's environments have no table until the install
+   (`findTable?` on `env.tables`).  **Counterexample to the O7 statement**
+   (`checkIndDeclC_sim`, hence `BlockKSSimI` and `PassTailSimI`, for every `R`
+   through `TailSimI`), on a block the unverified generator could emit: a
+   structure `S` whose stored recursor's rule right-hand side has
+   `.proj S 0 x` where the generated one has `x`.  InLean's `ruleAgree`
+   infers it (the entry read at use), and finds the types and the terms
+   definitionally equal (a projection of the constructor reduces); master's
+   `ruleAgree` infers it at an environment without `S`'s table and declines
+   ("projection without a native entry").  InLean accepts, master does not.
+   The same holds for a stored recursor type (`recTyCheck`).  The official
+   generator never emits such a term, so InLean's real runs are unaffected;
+   the theorem, which treats the generator as unverified, is.
+   Fixes (a ruling): (a) InLean's job hides a pending block's projections
+   until the block is added (`FEnv` marks the block being checked;
+   `findProj?` and `capsOf` read that), which also settles 1 if the mark
+   carries the field counts; (b) InLean checks that the stored recursors'
+   types and rules mention no `.proj` of a block member (cheap, syntactic);
+   (c) master installs the tables before the stored recursors' check.
+   Without one of them the tail cannot be proved, and P4's use of O7 needs
+   the generator's output restricted (a premise P4 cannot discharge).
+
+**What remains** after this lane: `CheckConstantValFSimI` (O6),
+`ReductInRange` (executable fix), `PassSimI R`/`TailSimI R` (blocked on the
+ruling above; stage 1, `checkBlockIndsF` at `fe`, is not blocked and is the
+next step once `R` is fixed), and the inherited `ProjBodiesInRange`,
+`ProjGuardSpecI`.  P4's `nP` (finding 1 above) stands.
+
+Gates: `lake build InLean InLeanProof` warning-free; `tests/layering.sh`,
+`tests/trust-surface.sh`, `tests/no-local-paths.sh` pass.
