@@ -110650,3 +110650,11 @@ departs from the plan above (item 4).
 
 Size: 62 files under `ConLeche/`, +1322 −872 against the checker commit (98f92792f);
 `Verify/BasisBlock.lean` is 314 of the additions.
+
+Imports the change left unneeded (shake): `Kernel/Core.lean`'s `Kernel.Error`, `EnvModel`'s
+`Verify.EnvWF`; `Semantics/Bridge/Decl.lean`'s `Verify.Extend.Inversions` is private (its allowlist
+line gone). Gates, on the final tree: `lake build` and `lake test` warning-free; `tests/arena.sh`
+exit 0 (layering, shake, trust surface, overview links, whitepaper links, fragment, quote gate,
+pindump, no-local-paths, challenge, olean gate 122/122, selfcheck, axioms pinned (30 theorems,
+`tests/ConLecheTests/Axioms.lean` unchanged), arena tutorial 90/92 as before, e2e 552/552, the
+trusted and `--jobs` sweeps without divergence). No `sorry`, no new axiom.
