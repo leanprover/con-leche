@@ -216,12 +216,12 @@
     75  def recordJob (mode : CheckMode) (pins : List NatOpPinSet) (I : StreamIndex) (k : Nat)
     76      (pd : Declaration) : Except CheckError Unit :=
 
-== ConLeche/Verify/Cached/ViewCongr.lean#L1343-L1347
-  1343  theorem checkDeclStepC_twin (pins : List NatOpPinSet) {fe₁ fe₂ : FEnv} (ht : Twin fe₁ fe₂)
-  1344     
-  1345      (pd : Declaration) :
-  1346      RelRun (PushedFrom fe₁ fe₂) (checkDeclStepC mode pins fe₁ pd)
-  1347        (checkDeclStepC mode pins fe₂ pd) := by
+== ConLeche/Verify/Cached/ViewCongr.lean#L1344-L1348
+  1344  theorem checkDeclStepC_twin (pins : List NatOpPinSet) {fe₁ fe₂ : FEnv} (ht : Twin fe₁ fe₂)
+  1345     
+  1346      (pd : Declaration) :
+  1347      RelRun (PushedFrom fe₁ fe₂) (checkDeclStepC mode pins fe₁ pd)
+  1348        (checkDeclStepC mode pins fe₂ pd) := by
 
 == ConLeche/Verify/Cached/StreamIndex.lean#L484-L486
    484  theorem checkDecls_of_jobs {ds : Array Declaration}
@@ -939,9 +939,12 @@
    166      (hRan : FamilyRan mp) (hNat : NatFacts env) :
    167      (∃ mp' : EnvModelM V env₂, LfpCover mp' [] ∧ FamilyRan mp') ∧ NatFacts env₂ := by
 
-== ConLeche/Kernel/CheckDecl.lean#L32-L33
-    32  def checkShapeless (ops : CheckerOps m) (env : Env) (block : List ConstantInfo) :
-    33      m Env := do
+== ConLeche/Kernel/CheckDecl.lean#L31-L32
+    31  def refuseBlock (ops : CheckerOps m) (env : Env) (nPd : Nat) (block : List ConstantInfo) :
+    32      m Env := do
+
+== ConLeche/Kernel/Inductives/BlockShape.lean#L454
+   454  def blockDefect (nPd : Nat) (block : List ConstantInfo) : CheckError :=
 
 == ConLeche/Kernel/Inductives/Positivity.lean#L259
    259  def familyTelescope (ops : CheckerOps m) (env : Env) (cv : ConstantVal) (caps : IndCaps) : m Expr :=
