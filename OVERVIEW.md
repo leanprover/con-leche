@@ -678,13 +678,16 @@ private part as its statement; a name located nowhere is a reject. Every read of
 checked against its reader's home: the context's copy stands for the home's when the home's
 public-import closure holds its module and the name is in that module's exported part, otherwise
 the copy the home's view locates must agree with it (one module, or two proofs of one
-statement), else the module is rejected (name capture). A copy is a proof if it is a theorem,
+statement whose every name is checked so too, as a read of that home), else the module is
+rejected (name capture). A copy is a proof if it is a theorem,
 its home declares a theorem at an exported axiom, or it is a definition, opaque constant or axiom
 whose type the kernel infers to be a proposition at the context; every name two loaded modules hold
-must agree so, which merges every pair Lean's import merges. The context's records are validated as untrusted input (`recordOk`). At
-every accepting outcome of `reach` in the IO model, every name a context record reads is a
-context record's, so each is `RecordScoped` in the context, and the context is `EnvWF`
-(`reach_ok`, `ConLeche/Verify/Driver/Reach.lean`); a copy read is the full parse's constant at
+must agree so, which merges every pair Lean's import merges. The context's records are sorted in
+read order (`readOrder`: each after the records storing what it reads; records that read each
+other are a reject, which Lean's output never has) and validated as untrusted input (`recordOk`).
+At every accepting outcome of `reach` in the IO model, every context record is `RecordScoped` in
+the prefix of the context ending with it, so every name it reads is a context record's, and the
+context is `EnvWF` (`reach_ok`, `ConLeche/Verify/Driver/Reach.lean`); a copy read is the full parse's constant at
 its position (`entryWith_of_view`, `stmtWith_of_view`). Every context record is read at a name
 position its source's name table holds on the snapshot (`reach_from`,
 `ConLeche/Verify/Driver/ReachFrom.lean`), and where the worker at the source accepted on the same
@@ -711,9 +714,9 @@ record's check passing is an accepting run of the own records from the context's
 `runArgs_module_accept`): what the run read and checked, and that run, with the theorems' values
 in place, which is `ImportOk.accepted`; with it `worker_local` gives the context's distinct
 names, one source per record, its closure and `EnvWF`, and `worker_thm` that every theorem of the
-module's private view by the specification is an own record with its value. What relates the
-module to the others (that the copies its context reads agree with its sources', and that its
-context is listed in its records' read order) is not part of one run's theorem;
+module's private view by the specification is an own record with its value; `worker_local`
+gives the read order too (`ImportOk.ordered`). What relates the module to the others (that the
+copies its context reads agree with its sources') is not part of one run's theorem;
 the presentations are two runs' (`worker_presented`, above). The reach's roots are, beside what the own records read, the constants of
 the pins and certificates of every certified `Nat` operation the module declares that a loaded
 module holds (`pinGround`): its install check reads them and no record does; each is stored in
