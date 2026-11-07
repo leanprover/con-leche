@@ -7,7 +7,6 @@ import ConLeche.Verify.Frontend.Olean.Equiv
 import ConLeche.Verify.Frontend.Olean.Lazy
 public import ConLeche.Verify.Frontend.Olean.Emit
 public import ConLeche.Verify.Frontend.Olean.Prefix
-import ConLeche.Verify.Frontend.Prepare
 import ConLeche.Verify.Frontend.Olean.Group
 
 /-!
@@ -16,7 +15,9 @@ import ConLeche.Verify.Frontend.Olean.Group
 Task #448 (#467's stage 2, "provenance").  Where the reach read a context record of a
 worker at `M` (`RecordFrom`, `ConLeche/Verify/Driver/ReachFrom.lean`) from a module `h`, and the
 worker at `h` accepted on the same snapshot (the trust assumption for several runs), the record
-is a presentation (`Presents`) of one of `h`'s own records as `h`'s worker emitted them.
+is a presentation (`Presents`) of one of `h`'s own records as `h`'s worker emitted them: here
+for every record but an inductive group (`recordFrom_presents_nongroup`); the group and the
+assembled statements are `ConLeche/Verify/Driver/Groups.lean`'s.
 -/
 
 public section

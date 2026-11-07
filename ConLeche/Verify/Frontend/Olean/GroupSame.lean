@@ -1,9 +1,7 @@
 module
 
-public import ConLeche.Frontend.Olean.Records
 public import ConLeche.Frontend.Olean.Group
 public import ConLeche.Verify.Frontend.Olean.Emit
-public import ConLeche.Verify.Frontend.Olean.Group
 
 /-!
 # One inductive group's record, the same on any emitter
