@@ -1215,12 +1215,12 @@ theorem forall₂_comp {α β γ : Type} {R : α → β → Prop} {S : β → γ
     | cons hb t2 => exact .cons ⟨_, ha, hb⟩ (ih t2)
 
 theorem filterMap_forall₂ {α β γ : Type} {R : α → β → Prop} {f : α → Option γ} {g : β → Option γ} :
-    ∀ {xs : List α} {ys : List β}, Forall₂ R xs ys → (∀ x y, x ∈ xs → R x y → f x = g y) →
+    ∀ {xs : List α} {ys : List β}, Forall₂ R xs ys → (∀ x y, x ∈ xs → y ∈ ys → R x y → f x = g y) →
       xs.filterMap f = ys.filterMap g
   | [], [], .nil, _ => rfl
   | x :: xs, y :: ys, .cons hr t, h => by
-    simp only [List.filterMap_cons, h x y List.mem_cons_self hr,
-      filterMap_forall₂ t (fun a b ha hb => h a b (List.mem_cons_of_mem _ ha) hb)]
+    simp only [List.filterMap_cons, h x y List.mem_cons_self List.mem_cons_self hr,
+      filterMap_forall₂ t (fun a b ha hb => h a b (List.mem_cons_of_mem _ ha) (List.mem_cons_of_mem _ hb))]
 
 theorem mapM_filterMap {α β γ : Type} {f : α → Option β} (g : β → Option γ) :
     ∀ {xs : List α} {ys : List β}, xs.mapM f = some ys →
