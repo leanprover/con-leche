@@ -2303,3 +2303,39 @@ info: 'InLeanProof.blockNestCtxI_run' depends on axioms: [propext,
 -/
 #guard_msgs in
 #print axioms InLeanProof.blockNestCtxI_run
+
+/-- info: 'InLeanProof.anySpec_nestOcc' depends on axioms: [propext, Classical.choice, Quot.sound] -/
+#guard_msgs in
+#print axioms InLeanProof.anySpec_nestOcc
+
+/-- info: 'InLeanProof.nestOccI_tr' depends on axioms: [propext, Classical.choice, Quot.sound] -/
+#guard_msgs in
+#print axioms InLeanProof.nestOccI_tr
+
+/-- info: 'InLeanProof.piDomsOccI_tr' depends on axioms: [propext, Classical.choice, Quot.sound] -/
+#guard_msgs in
+#print axioms InLeanProof.piDomsOccI_tr
+
+/-- info: 'InLeanProof.TrS_not_fvar' depends on axioms: [propext, Classical.choice, Quot.sound] -/
+#guard_msgs in
+#print axioms InLeanProof.TrS_not_fvar
+
+/-- info: 'InLeanProof.TrS_stripTop_fvar' depends on axioms: [propext, Classical.choice, Quot.sound] -/
+#guard_msgs in
+#print axioms InLeanProof.TrS_stripTop_fvar
+
+/-- info: 'InLeanProof.phAppI_tr' depends on axioms: [propext, Classical.choice, Quot.sound] -/
+#guard_msgs in
+#print axioms InLeanProof.phAppI_tr
+
+/-- info: 'InLeanProof.replaceApps_eq' depends on axioms: [propext, Classical.choice, Quot.sound] -/
+#guard_msgs in
+#print axioms InLeanProof.replaceApps_eq
+
+/-- info: 'InLeanProof.raF_hole' depends on axioms: [propext, Classical.choice, Quot.sound] -/
+#guard_msgs in
+#print axioms InLeanProof.raF_hole
+
+/-- info: 'InLeanProof.replaceAppsI_tr' depends on axioms: [propext, Classical.choice, Quot.sound] -/
+#guard_msgs in
+#print axioms InLeanProof.replaceAppsI_tr

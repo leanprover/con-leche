@@ -17,6 +17,12 @@ reads neither, so the lookup is any.
   the reading drops).
 * `nestHolesI_run`: the holes loop (`for` with an early `return none`) reads
   as master's `mapM` over the member indices.
+* `nestOccI_tr`, `piDomsOccI_tr`: the occurrence tests (`EO.any`) are
+  master's on the reading (a variable through its interned depth).
+* `replaceAppsI_tr`: InLean's whole-application replacement (`EO.replace`
+  with `phApp?`) is master's `replaceApps` on the reading, given related
+  substitutions (`SubRel`); the building block of the canonical crest
+  (`nestCanonCrest`), which the uniformity check and the walk read.
 
 The proofs are functional (`bindI_ok`, `pureI_ok`), as O7's.
 -/
@@ -66,6 +72,304 @@ theorem instPisWithI_tr {s : InLean.CState} :
   | _ :: _, .lam _ _ _ _, _, _, _, _, h | _ :: _, .letE _ _ _ _ _, _, _, _, _, h
   | _ :: _, .lit _, _, _, _, _, h | _ :: _, .proj _ _ _, _, _, _, _, h => by
     simp [InLean.instPisWith] at h
+
+/-! ## Occurrences of a member or a hole -/
+
+/-- `EO.any` at a predicate that picks a member's constant or a variable of
+depth in `lo ..< hi` is master's `nestOcc` on the reading. -/
+theorem anySpec_nestOcc (s : InLean.CState) (names : List Lean.Name) (lo hi : Nat)
+    (p : Lean.Expr → Bool)
+    (hc : ∀ n us, p (.const n us) = names.contains n)
+    (hf : ∀ id, p (.fvar id) = match EO.fvDepth? id with
+      | some i => lo ≤ i && i < hi
+      | none => false)
+    (ho : ∀ x, (∀ n us, x ≠ .const n us) → (∀ id, x ≠ .fvar id) → p x = false) :
+    ∀ (e : Lean.Expr) (k : Nat), OkS s e = true →
+      anySpec (fun x _ => if p x then some true else none) e k =
+        ConLeche.Expr.nestOcc (names.map toName) lo hi (TrS s e) := by
+  intro e
+  induction e with
+  | const n us =>
+    intro k _
+    simp only [anySpec, hc, TrS_const, ConLeche.Expr.nestOcc, contains_map_toName]
+    cases names.contains n <;> rfl
+  | fvar id =>
+    intro k hok
+    have hok' := hok
+    simp only [OkS, okE, Option.isSome_iff_exists] at hok'
+    obtain ⟨c, hcid⟩ := hok'
+    obtain ⟨d, ty, rfl, hd⟩ := FVarTable.trans_depthOK _ id c hcid
+    have hT : TrS s (.fvar id) = .fvar d ty := by
+      simp only [TrS, trE, hcid, Option.getD_some]
+    simp only [anySpec, hf, hd, hT, ConLeche.Expr.nestOcc]
+    by_cases h1 : lo ≤ d <;> by_cases h2 : d < hi <;> simp [h1, h2]
+  | proj sn i x ih =>
+    intro k hok
+    rw [OkS_proj] at hok
+    simp only [anySpec, ho (.proj sn i x) (by simp) (by simp), Bool.false_eq_true, ↓reduceIte,
+      Option.getD_none, ih k hok, TrS_proj, ConLeche.Expr.nestOcc]
+  | app f a ihf iha =>
+    intro k hok
+    simp only [OkS_app, Bool.and_eq_true] at hok
+    simp only [anySpec, ho (.app f a) (by simp) (by simp), Bool.false_eq_true, ↓reduceIte,
+      Option.getD_none, ihf k hok.1, iha k hok.2, TrS_app, ConLeche.Expr.nestOcc]
+  | lam _ t b _ iht ihb =>
+    intro k hok
+    simp only [OkS_lam, Bool.and_eq_true] at hok
+    simp only [anySpec, ho (.lam _ t b _) (by simp) (by simp), Bool.false_eq_true, ↓reduceIte,
+      Option.getD_none, iht k hok.1, ihb (k + 1) hok.2, TrS_lam, ConLeche.Expr.nestOcc]
+  | forallE _ t b _ iht ihb =>
+    intro k hok
+    simp only [OkS_forallE, Bool.and_eq_true] at hok
+    simp only [anySpec, ho (.forallE _ t b _) (by simp) (by simp), Bool.false_eq_true, ↓reduceIte,
+      Option.getD_none, iht k hok.1, ihb (k + 1) hok.2, TrS_forallE, ConLeche.Expr.nestOcc]
+  | letE _ t v b _ iht ihv ihb =>
+    intro k hok
+    simp only [OkS_letE, Bool.and_eq_true] at hok
+    simp only [anySpec, ho (.letE _ t v b _) (by simp) (by simp), Bool.false_eq_true, ↓reduceIte,
+      Option.getD_none, iht k hok.1.1, ihv k hok.1.2, ihb (k + 1) hok.2, TrS_letE,
+      ConLeche.Expr.nestOcc]
+  | mdata m x ih =>
+    intro k hok
+    rw [OkS_mdata] at hok
+    simp only [anySpec, ho (.mdata m x) (by simp) (by simp), Bool.false_eq_true, ↓reduceIte,
+      Option.getD_none, ih k hok, TrS_mdata]
+  | bvar i => intro k _; simp [anySpec, ho (.bvar i), TrS_bvar, ConLeche.Expr.nestOcc]
+  | mvar i => intro k hok; simp [OkS, okE] at hok
+  | sort u => intro k _; simp [anySpec, ho (.sort u), TrS_sort, ConLeche.Expr.nestOcc]
+  | lit l => intro k _; simp [anySpec, ho (.lit l), TrS_lit, ConLeche.Expr.nestOcc]
+
+/-- **InLean's `nestOcc`, read**: master's on the reading. -/
+theorem nestOccI_tr {s : InLean.CState} (names : List Lean.Name) (lo hi : Nat) {e : Lean.Expr}
+    (h : OkS s e = true) :
+    InLean.nestOcc names lo hi e = ConLeche.Expr.nestOcc (names.map toName) lo hi (TrS s e) := by
+  simp only [InLean.nestOcc, EO.any, anyNode_fresh]
+  exact anySpec_nestOcc s names lo hi _ (fun _ _ => rfl) (fun _ => rfl)
+    (fun x h1 h2 => by cases x <;> simp_all) e 0 h
+
+/-- **InLean's `piDomsOcc`, read.** -/
+theorem piDomsOccI_tr {s : InLean.CState} (names : List Lean.Name) (lo hi : Nat) :
+    ∀ (n : Nat) (e : Lean.Expr), OkS s e = true →
+      InLean.piDomsOcc names lo hi n e =
+        ConLeche.Expr.piDomsOcc (names.map toName) lo hi n (TrS s e)
+  | 0, _, _ => by simp [InLean.piDomsOcc, ConLeche.Expr.piDomsOcc]
+  | n + 1, .forallE _ d b _, h => by
+    simp only [OkS_forallE, Bool.and_eq_true] at h
+    simp only [InLean.piDomsOcc, TrS_forallE, ConLeche.Expr.piDomsOcc, nestOccI_tr names lo hi h.1,
+      piDomsOccI_tr names lo hi n b h.2]
+  | n + 1, .mdata _ e, h => by
+    rw [OkS_mdata] at h
+    simp only [InLean.piDomsOcc, TrS_mdata]
+    exact piDomsOccI_tr names lo hi (n + 1) e h
+  | _ + 1, .fvar _, h => by
+    rw [TrS_fvar h]; simp only [InLean.piDomsOcc]; rfl
+  | _ + 1, .bvar _, _ | _ + 1, .mvar _, _ | _ + 1, .sort _, _
+  | _ + 1, .const _ _, _ | _ + 1, .app _ _, _ | _ + 1, .lam _ _ _ _, _
+  | _ + 1, .letE _ _ _ _ _, _ | _ + 1, .lit _, _ | _ + 1, .proj _ _ _, _ => by
+    simp only [InLean.piDomsOcc]; rfl
+
+/-! ## Whole-application replacement -/
+
+/-- A term whose top is not a variable does not read as one. -/
+theorem TrS_not_fvar {s : InLean.CState} :
+    ∀ {x : Lean.Expr}, OkS s x = true → (∀ id, EO.stripTop x ≠ .fvar id) →
+      ∀ j ty, TrS s x ≠ .fvar j ty
+  | .mdata m x, h, hn => by
+    rw [OkS_mdata] at h
+    rw [TrS_mdata]
+    exact TrS_not_fvar h (fun id hid => hn id (by simpa [EO.stripTop] using hid))
+  | .fvar id, _, hn => absurd rfl (hn id)
+  | .mvar _, h, _ => by simp [OkS, okE] at h
+  | .bvar _, _, _ | .sort _, _, _ | .const _ _, _, _ | .app _ _, _, _ | .lam _ _ _ _, _, _
+  | .forallE _ _ _ _, _, _ | .letE _ _ _ _ _, _, _ | .lit _, _, _ | .proj _ _ _, _, _ => by
+    intro j ty h; simp [TrS, trE] at h
+
+/-- A term whose top is a variable reads as one at the variable's depth. -/
+theorem TrS_stripTop_fvar {s : InLean.CState} {x : Lean.Expr} {id : FVarId} (h : OkS s x = true)
+    (hst : EO.stripTop x = .fvar id) :
+    ∃ d ty, TrS s x = .fvar d ty ∧ EO.fvDepth? id = some d := by
+  have h' : OkS s (.fvar id) = true := by rw [← hst, OkS_stripTop]; exact h
+  simp only [OkS, okE, Option.isSome_iff_exists] at h'
+  obtain ⟨c, hc⟩ := h'
+  obtain ⟨d, ty, rfl, hd⟩ := FVarTable.trans_depthOK _ id c hc
+  refine ⟨d, ty, ?_, hd⟩
+  rw [← TrS_stripTop, hst]
+  simp only [TrS, trE, hc, Option.getD_some]
+
+/-- The placeholder application's head, translated. -/
+@[expose] def phTr (p : Lean.Name × List Lean.Level) : ConLeche.Name × List ConLeche.Level :=
+  (toName p.1, p.2.map trL)
+
+/-- **InLean's `phApp?`, read**: master's on the reading, its levels with a
+reading. -/
+theorem phAppI_tr {s : InLean.CState} (b : Nat) :
+    ∀ (e : Lean.Expr) (n : Nat), OkS s e = true →
+      (InLean.phApp? b e n).map phTr = ConLeche.Expr.phApp? b (TrS s e) n ∧
+        ∀ p, InLean.phApp? b e n = some p → p.2.all okLv = true
+  | .const c us, 0, h => by
+    rw [OkS_const] at h
+    refine ⟨rfl, ?_⟩
+    intro p hp; simp only [InLean.phApp?, Option.some.injEq] at hp; subst hp; exact h
+  | .const c us, _ + 1, _ => by simp [InLean.phApp?, TrS_const, ConLeche.Expr.phApp?]
+  | .mdata m e, n, h => by
+    rw [OkS_mdata] at h
+    simp only [InLean.phApp?, TrS_mdata]
+    exact phAppI_tr b e n h
+  | .app f x, 0, _ => by simp [InLean.phApp?, TrS_app, ConLeche.Expr.phApp?]
+  | .app f x, n + 1, h => by
+    simp only [OkS_app, Bool.and_eq_true] at h
+    obtain ⟨ih1, ih2⟩ := phAppI_tr b f n h.1
+    simp only [InLean.phApp?, TrS_app]
+    cases hst : EO.stripTop x with
+    | fvar id =>
+      obtain ⟨d, ty, hT, hd⟩ := TrS_stripTop_fvar h.2 hst
+      simp only [hT, hd, ConLeche.Expr.phApp?]
+      by_cases hj : d = b + n
+      · simp only [hj, beq_self_eq_true, ↓reduceIte]; exact ⟨ih1, ih2⟩
+      · have : (some d == some (b + n)) = false := by simp [hj]
+        simp only [this, hj, Bool.false_eq_true, ↓reduceIte]
+        exact ⟨rfl, fun _ h => nomatch h⟩
+    | _ =>
+      have hn : ∀ id, EO.stripTop x ≠ .fvar id := by intro id; rw [hst]; simp
+      have hnf := TrS_not_fvar h.2 hn
+      refine ⟨?_, fun _ h => nomatch h⟩
+      simp only [Option.map_none]
+      generalize TrS s x = tx at hnf
+      cases tx <;> first | rfl | exact (hnf _ _ rfl).elim
+  | .bvar _, _, _ | .sort _, _, _ | .lam _ _ _ _, _, _ | .forallE _ _ _ _, _, _
+  | .letE _ _ _ _ _, _, _ | .lit _, _, _ | .proj _ _ _, _, _ => by
+    simp [InLean.phApp?, TrS, trE, ConLeche.Expr.phApp?]
+  | .fvar id, _, h => by
+    rw [TrS_fvar h]; simp [InLean.phApp?, ConLeche.Expr.phApp?]
+  | .mvar _, _, h => by simp [OkS, okE] at h
+
+/-- What the replacement needs of a pair of substitutions: InLean's images
+have a reading, which is master's image at the translated head. -/
+@[expose] def SubRel (s : InLean.CState) (fI : Lean.Name → List Lean.Level → Option Lean.Expr)
+    (fC : ConLeche.Name → List ConLeche.Level → Option ConLeche.Expr) : Prop :=
+  ∀ c us, us.all okLv = true →
+    (fI c us).map (TrS s) = fC (toName c) (us.map trL) ∧ ∀ y, fI c us = some y → OkS s y = true
+
+/-- The callback of InLean's `replaceApps`. -/
+@[expose] def raF (fI : Lean.Name → List Lean.Level → Option Lean.Expr) (b n : Nat)
+    (x : Lean.Expr) : Option Lean.Expr :=
+  match EO.stripTop x with
+  | .app .. | .const .. => (InLean.phApp? b x n).bind fun p => fI p.1 p.2
+  | _ => none
+
+theorem replaceApps_eq (fI : Lean.Name → List Lean.Level → Option Lean.Expr) (b n : Nat)
+    (e : Lean.Expr) : InLean.replaceApps fI b n e = mapSpec (fun x _ => raF fI b n x) e 0 := by
+  unfold InLean.replaceApps EO.replace
+  rw [mapOff_fresh]; rfl
+
+theorem raF_hole {s : InLean.CState} {fI fC} (hR : SubRel s fI fC) (b n : Nat) {x : Lean.Expr}
+    (h : OkS s x = true) :
+    Option.map (TrS s) ((InLean.phApp? b x n).bind fun p => fI p.1 p.2) =
+      ConLeche.Expr.appHole? fC b n (TrS s x) ∧
+      ∀ y, (InLean.phApp? b x n).bind (fun p => fI p.1 p.2) = some y → OkS s y = true := by
+  obtain ⟨h1, h2⟩ := phAppI_tr (s := s) b x n h
+  unfold ConLeche.Expr.appHole?
+  rw [← h1]
+  cases hp : InLean.phApp? b x n with
+  | none => exact ⟨rfl, fun _ h => nomatch h⟩
+  | some p =>
+    obtain ⟨r1, r2⟩ := hR p.1 p.2 (h2 p hp)
+    simp only [Option.bind_some, Option.map_some, phTr]
+    exact ⟨r1, r2⟩
+
+/-- **InLean's `replaceApps`, read**: master's on the reading, given related
+substitutions. -/
+theorem replaceAppsI_tr {s : InLean.CState} {fI fC} (hR : SubRel s fI fC) (b n : Nat) :
+    ∀ (e : Lean.Expr) (k : Nat), OkS s e = true →
+      OkS s (mapSpec (fun x _ => raF fI b n x) e k) = true ∧
+        TrS s (mapSpec (fun x _ => raF fI b n x) e k) = ConLeche.Expr.replaceApps fC b n (TrS s e) := by
+  intro e
+  induction e with
+  | app f a ihf iha =>
+    intro k h
+    have h' := h
+    simp only [OkS_app, Bool.and_eq_true] at h'
+    obtain ⟨hm, hok⟩ := raF_hole hR b n (x := .app f a) h
+    have hF : raF fI b n (.app f a) = (InLean.phApp? b (.app f a) n).bind (fun p => fI p.1 p.2) := rfl
+    simp only [mapSpec, hF, TrS_app, ConLeche.Expr.replaceApps]
+    rw [TrS_app] at hm
+    cases hb : (InLean.phApp? b (.app f a) n).bind (fun p => fI p.1 p.2) with
+    | none =>
+      rw [hb, Option.map_none] at hm
+      rw [← hm]
+      simp only [Option.getD_none, OkS_app, TrS_app, (ihf k h'.1).1, (iha k h'.2).1,
+        (ihf k h'.1).2, (iha k h'.2).2, Bool.and_self, true_and]
+    | some y =>
+      rw [hb, Option.map_some] at hm
+      rw [← hm]
+      exact ⟨hok y hb, rfl⟩
+  | const c us =>
+    intro k h
+    obtain ⟨hm, hok⟩ := raF_hole hR b n (x := .const c us) h
+    have hF : raF fI b n (.const c us) = (InLean.phApp? b (.const c us) n).bind (fun p => fI p.1 p.2) := rfl
+    rw [TrS_const] at hm ⊢
+    simp only [mapSpec, hF, ConLeche.Expr.replaceApps]
+    cases hb : (InLean.phApp? b (.const c us) n).bind (fun p => fI p.1 p.2) with
+    | none =>
+      rw [hb, Option.map_none] at hm
+      rw [← hm]
+      exact ⟨h, rfl⟩
+    | some y =>
+      rw [hb, Option.map_some] at hm
+      rw [← hm]
+      exact ⟨hok y hb, rfl⟩
+  | lam nm t bd bi iht ihb =>
+    intro k h
+    simp only [OkS_lam, Bool.and_eq_true] at h
+    have hF : raF fI b n (.lam nm t bd bi) = none := rfl
+    simp only [mapSpec, hF, Option.getD_none, OkS_lam, TrS_lam,
+      ConLeche.Expr.replaceApps, (iht k h.1).1, (ihb (k + 1) h.2).1, (iht k h.1).2,
+      (ihb (k + 1) h.2).2, Bool.and_self, true_and]
+  | forallE nm t bd bi iht ihb =>
+    intro k h
+    simp only [OkS_forallE, Bool.and_eq_true] at h
+    have hF : raF fI b n (.forallE nm t bd bi) = none := rfl
+    simp only [mapSpec, hF, Option.getD_none, OkS_forallE, TrS_forallE,
+      ConLeche.Expr.replaceApps, (iht k h.1).1, (ihb (k + 1) h.2).1, (iht k h.1).2,
+      (ihb (k + 1) h.2).2, Bool.and_self, true_and]
+  | letE nm t v bd nd iht ihv ihb =>
+    intro k h
+    simp only [OkS_letE, Bool.and_eq_true] at h
+    have hF : raF fI b n (.letE nm t v bd nd) = none := rfl
+    simp only [mapSpec, hF, Option.getD_none, OkS_letE, TrS_letE,
+      ConLeche.Expr.replaceApps, (iht k h.1.1).1, (ihv k h.1.2).1, (ihb (k + 1) h.2).1,
+      (iht k h.1.1).2, (ihv k h.1.2).2, (ihb (k + 1) h.2).2, Bool.and_self, true_and]
+  | proj sn i x ih =>
+    intro k h
+    rw [OkS_proj] at h
+    have hF : raF fI b n (.proj sn i x) = none := rfl
+    simp only [mapSpec, hF, Option.getD_none, OkS_proj, TrS_proj,
+      ConLeche.Expr.replaceApps, (ih k h).1, (ih k h).2, true_and]
+  | mdata m x ih =>
+    intro k h
+    rw [OkS_mdata] at h
+    have hF : raF fI b n (.mdata m x) = raF fI b n x := by
+      simp only [raF, EO.stripTop]
+      split <;> simp_all [InLean.phApp?]
+    simp only [mapSpec, hF, TrS_mdata]
+    cases hx : raF fI b n x with
+    | none =>
+      simp only [Option.getD_none, OkS_mdata, TrS_mdata]
+      exact ih k h
+    | some y =>
+      have := mapSpec_eq_of_some (f := fun x _ => raF fI b n x) (k := k) hx
+      rw [← this]
+      exact ih k h
+  | fvar id =>
+    intro k h
+    have hF : raF fI b n (.fvar id) = none := rfl
+    simp only [mapSpec, hF, Option.getD_none]
+    refine ⟨h, ?_⟩
+    rw [TrS_fvar h]; rfl
+  | bvar i => intro k h; exact ⟨h, rfl⟩
+  | sort u => intro k h; exact ⟨h, rfl⟩
+  | lit l => intro k h; exact ⟨h, rfl⟩
+  | mvar i => intro k h; simp [OkS, okE] at h
 
 /-! ## The holes -/
 
