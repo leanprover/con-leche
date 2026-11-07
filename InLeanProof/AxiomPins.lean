@@ -2339,3 +2339,7 @@ info: 'InLeanProof.blockNestCtxI_run' depends on axioms: [propext,
 /-- info: 'InLeanProof.replaceAppsI_tr' depends on axioms: [propext, Classical.choice, Quot.sound] -/
 #guard_msgs in
 #print axioms InLeanProof.replaceAppsI_tr
+
+/-- info: 'InLeanProof.trShape_nP' does not depend on any axioms -/
+#guard_msgs in
+#print axioms InLeanProof.trShape_nP

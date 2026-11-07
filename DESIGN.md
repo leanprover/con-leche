@@ -112290,3 +112290,106 @@ con-leche's `instantiate1Lift`.
 
 Gates: `lake build InLean InLeanProof` warning-free; `tests/layering.sh`,
 `tests/trust-surface.sh`, `tests/no-local-paths.sh` pass.
+
+### Lane O7-stages, round 3: the projection steps checked, the positivity context (2026-11-08)
+
+Scope was step 0 (P3r's finding 3 as an executable check) and then round 2's
+"what remains", bottom-up.  Step 0 is done; of the stages, the positivity
+context (`blockNestCtx`) is done and the uniformity check's building blocks
+(occurrence tests, whole-application replacement) are proved; nothing later
+is started.  No `sorry`; no new axiom (the opener- and instantiation-based
+theorems use the stop-gap `mkData` axioms, as every `TrS`/instantiate lemma);
+20 new pins.
+
+**Step 0: every projection step's range is checked** (`InLean/*`, the
+maintainer-approved class of range checks).  `paramsOkB`, `fieldsOkB` and
+`projStepsOk` move from `ProjBodiesTr.lean` into `InLean/FEnv.lean`
+(`projStepsOk` now tests `nP ≤ EO.maxBVarIdx`, the same bound), with
+`projStepsAllOk consts`: for each one-constructor former of the generated
+block and its constructor in the block, `projStepsOk` at the *last* field.
+`checkInductiveC` runs it right after `projBodiesInRange`, refusing with the
+same internal error ("too many bound variables in a projection body").  One
+test per structure suffices because the steps towards field `i` are a prefix
+of those towards any later field (`projStepsOk_mono`, from `fieldsOkB_mono`),
+so the check costs one `projBodyAt` pass per structure, less than
+`projBodiesInRange`'s one per field.  On the proof side, `IndGroupPresBP`
+takes `projStepsAllOk consts = true` instead of the premise `ProjStepsAll`;
+`projStepsAll_of_ok` derives `ProjStepsAll` from it inside
+`indGroupPresBP_of`, and `checkInductiveC_ok` gains the conjunct
+(`projStepsAllOk_of_checkInductiveC` reads it off the accepted run, as P4
+reads the other premises).
+
+**The positivity context** (`InLeanProof/PassNest.lean`).
+* `instPisWithI_tr`: InLean's `instPisWith` at arguments with a closed
+  reading is master's at the readings (InLean's also passes `mdata`).
+* `nestHolesLoopI_run`, `nestHolesI_run`: the holes loop (a `for` with an
+  early `return none`, state `Option (Option _) × Array Expr`) reads as
+  master's `mapM` over the member indices (`cHoleAt`); the loop never ends in
+  `some (some _)`, which the lemma records so the caller's match is total.
+* **`blockNestCtxI_run`**: InLean's `blockNestCtx p fe` builds
+  `p.nestCtx fvs fe` and holes whose readings at the final state are master's
+  `blockNestCtx (trShape p) find?` (any `find?`: neither side reads it there),
+  `Runs` at the fueled monad; the parameters are interned variables, closed.
+  This settles the shape of `D`'s context part: InLean's context is
+  `p.nestCtx fvs fe`, master's `(trShape p).nestCtx (TrSL s fvs) L.find?`,
+  so no separate context relation is needed, only the state and `fvs`.
+* `anySpec_nestOcc`, `nestOccI_tr`, `piDomsOccI_tr`: the occurrence tests
+  (`EO.any`) are master's `nestOcc`/`piDomsOcc` on the reading, a variable
+  through its interned depth (`FVarTable.trans_depthOK`).
+* `phAppI_tr`, `replaceAppsI_tr` (with `SubRel`, `raF`, `replaceApps_eq`,
+  `raF_hole`, `TrS_not_fvar`, `TrS_stripTop_fvar`): InLean's
+  whole-application replacement (`EO.replace` with `phApp?`, `mdata` read
+  through) is master's `replaceApps` on the reading, given substitutions
+  whose images have readings equal to master's at the translated head.
+
+**Theorems** (all pinned).  `ProjBodiesTr.lean`: `fieldsOkB_mono`,
+`projStepsOk_mono`; `BlockPresR.lean`: `projStepsAll_of_ok`; `StepPres.lean`:
+`projStepsAllOk_of_checkInductiveC` (and `checkInductiveC_ok`'s new
+conjunct); `PassNest.lean`: `instPisWithI_tr`, `anySpec_nestOcc`,
+`nestOccI_tr`, `piDomsOccI_tr`, `TrS_not_fvar`, `TrS_stripTop_fvar`,
+`phAppI_tr`, `replaceApps_eq`, `raF_hole`, `replaceAppsI_tr`, `cNestHoles_eq`,
+`nestHolesLoopI_run`, `nestHolesI_run`, `trShape_formers`, `trShape_nP`,
+`blockNestCtxI_run`.
+
+**Findings.**
+1. No statement turned out false for the code.
+2. *Level instantiation on stored types needs a packaged lemma.*
+   `nestRootCanon` instantiates a constructor's levels at the block's own
+   parameters (`instLvlParamsI`, unchecked); `toExpr_instantiateLevelParams`
+   needs the result free of level metavariables and in range, which holds for
+   a parameters-by-parameters substitution but is not proved as a lemma yet
+   (`typeAtI_TrS` gets it from the checked variant).  The uniformity stage
+   needs it first.
+3. *The remaining stages are walks over interned variables*: `nestCanonCrest`
+   (`nestPhs`/`nestCanonVars` are `mapM mkFVarM`, then `instPisWithI_tr` and
+   `replaceAppsI_tr` with `nestCanonSub`'s `SubRel`, from
+   `levels_beq_params` and `findIdx?_map_toName`), `classRead`
+   (`headDepth?` through the interned depth, two `for` loops), the
+   positivity walk (`nestPos`, fuel-indexed, its own state).  Each is its own
+   simulation, as round 1 said.
+
+**What remains** (bottom-up): `nestCanonCrest` and `nestRootCanon` (finding 2),
+`nestUniformOk`/`nestUniform` (master's `findSome?` against InLean's nested
+`for`s); `nestRoot` (`nestCtors`, `nestPos`, `nestFrame`, `nestCont*`,
+`nestInstType`, the `NestState` relation), `checkAbsCtorSortsAll`, so
+`checkBlockPositivity`; `checkBlockClasses` (`classRead`, `classReadSlots`,
+`classReadMinor`, `classKeyOf`, `classMajors` with `targetMajorOf` and
+`targetMajorPins`, translations of `ClassRead`/`ClassKey`/`TargetMajor`);
+`nestSeeds` with `classSeeds`/`nestSeedOf`; `checkBlockIdxSortsF`,
+`genRecCheck` with `shadowOpsC`, `streamKCheck`, `streamRecsCheck`,
+`checkBlockTablesF`; the constructors' and generated recursors' pushes
+(`MarkedExt` extended to constructor entries); `PassSimI (PassRelI D)`,
+`TailSimI (PassRelI D)`, `checkIndDeclC_sim_rest` without them.  `D`'s
+context part is settled (`blockNestCtxI_run`); the class reading, the
+classes, the kinds and the table still need their translations.
+
+**Validation** (`inlean-replay --kernel=inlean --compare --quiet`, step 0's
+binary): Init 64,530, Std 110,064, Lean 199,645 declarations accepted, 0
+rejected, 0 declined, 0 exact and 0 cosmetic mismatches.
+`scripts/inlean_negtest.lean` 11/11 agree.  `instructions:u` on Init
+869.6 G (868.6 G at lane R's `FEnv` change: +0.11 %, one run).  No negative
+test for the new check: a structure whose intermediate projection terms pass
+`maxRange` needs a binder nest about 10^6 deep.
+
+Gates: `lake build InLean InLeanProof inlean-replay` warning-free;
+`tests/layering.sh`, `tests/trust-surface.sh`, `tests/no-local-paths.sh` pass.
