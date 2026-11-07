@@ -734,4 +734,181 @@ end Entries
 
 end Ctx
 
+/-! ## The statements -/
+
+/-- **Every intermediate term of every projection body InLean builds for the
+generated structures is in range** (`projStepsOk`; see `ProjBodiesTr.lean`).
+Not read off any check InLean makes today. -/
+@[expose] def ProjStepsAll (consts : Array Lean.ConstantInfo) : Prop :=
+  ∀ v cv, Lean.ConstantInfo.inductInfo v ∈ consts.toList → v.ctors = [cv.name] →
+    Lean.ConstantInfo.ctorInfo cv ∈ consts.toList →
+    ∀ i < cv.numFields, projStepsOk v.name v.numParams i cv.type = true
+
+/-- **`BlockPresObl` for one branch** (`pinned`: whether InLean's pinned
+dispatch hits), with the block mark empty, the generated constants seen and
+`ProjStepsAll`. -/
+@[expose] def BlockPresOblB (pinned : Bool) : Prop :=
+  EnvLaws → ∀ (fe : InLean.FEnv) (L : ConLeche.Env) (consts : Array Lean.ConstantInfo) (nP : Nat)
+    (s s' : InLean.CState) (d : ConLeche.Declaration),
+    EnvPresI fe L → fe.pending = [] →
+    (∀ ci ∈ consts.toList, ci ∈ InLean.storedBlock consts) →
+    (∀ ci ∈ consts.toList, fe.env.find? ci.name = none) → (consts.toList.map (·.name)).Nodup →
+    (∀ ci ∈ consts.toList, fe.sees ci.name ci = true) →
+    consts.all InLean.constInRange = true → ProjStepsAll consts →
+    (InLean.basisNameHit (InLean.storedBlock consts)).isSome = pinned →
+    (InLean.checkIndDeclC .verified fe (InLean.storedBlock consts) nP).run s = .ok ((), s') →
+    toDecl (InLean.storedBlock consts) = some d →
+    let E' := consts.toList.foldl InLean.addConst fe.env
+    let L' := L.pushDelta (ConLeche.declConstants d) (ConLeche.declTables d)
+    (∀ c ∈ ConLeche.declConstants d, ∃ ci ∈ consts.toList, c.name = toName ci.name) ∧
+    (∀ t ∈ ConLeche.declTables d, ∃ ci ∈ consts.toList, t.structName = toName ci.name) ∧
+    (∀ ci ∈ consts.toList, ∃ cci, L'.find? (toName ci.name) = some cci ∧
+      EntryRelI { fe with env := E' } ci cci) ∧
+    (∀ ci ∈ consts.toList, TableRelI { fe with env := E' } ci.name (L'.findTable? (toName ci.name))) ∧
+    (∀ t ∈ ConLeche.declTables d, (L'.find? t.structName).isSome)
+
+/-- **An inductive block keeps the relation** (`IndGroupPresB` with the block
+mark empty and `ProjStepsAll`). -/
+@[expose] def IndGroupPresBP : Prop :=
+  EnvLaws → ∀ (fe : InLean.FEnv) (L : ConLeche.Env) (consts : Array Lean.ConstantInfo) (nP : Nat)
+    (s s' : InLean.CState) (d : ConLeche.Declaration),
+    EnvPresI fe L → fe.pending = [] →
+    (∀ ci ∈ consts.toList, ci ∈ InLean.storedBlock consts) →
+    (∀ ci ∈ consts.toList, fe.env.find? ci.name = none) → (consts.toList.map (·.name)).Nodup →
+    (∀ ci ∈ consts.toList, fe.sees ci.name ci = true) →
+    consts.all InLean.constInRange = true → ProjStepsAll consts →
+    (InLean.checkIndDeclC .verified fe (InLean.storedBlock consts) nP).run s = .ok ((), s') →
+    toDecl (InLean.storedBlock consts) = some d →
+    EnvPresI { fe with env := consts.foldl InLean.addConst fe.env }
+      (L.pushDelta (ConLeche.declConstants d) (ConLeche.declTables d))
+
+theorem find?_name_news {news : List ConLeche.ConstantInfo} (hnd : (news.map (·.name)).Nodup)
+    {c : ConLeche.ConstantInfo} (hc : c ∈ news) :
+    news.reverse.find? (·.name == c.name) = some c := by
+  have h1 := find?_reverse_key (fun c : ConLeche.ConstantInfo => c.name) hnd c.name
+  have h2 := find?_key (fun c : ConLeche.ConstantInfo => c.name) hnd hc
+  rw [h1, h2]
+
+/-- **`BlockPresObl`'s recognised branch.** -/
+theorem blockPresOblB_recognised : BlockPresOblB false := by
+  intro hlaws fe L consts nP s s' d hP hpend hblk hfresh hnd hsees hrange hsteps hhit hrun hd
+  intro E' L'
+  have hperm := storedBlock_perm hnd hblk
+  have hmemB : ∀ ci, ci ∈ storedBlock consts ↔ ci ∈ consts.toList := fun ci => hperm.mem_iff
+  have hndB : ((storedBlock consts).map (·.name)).Nodup := (hperm.map _).nodup_iff.2 hnd
+  have hhit' : InLean.basisNameHit (storedBlock consts) = none := by simpa using hhit
+  rcases checkIndDeclC_ok hrun with ⟨kind, hk, -⟩ | ⟨-, -, p, hp, s₁, hgen, hks⟩
+  · rw [hhit'] at hk; cases hk
+  have hR : ∀ ci ∈ storedBlock consts, CIRange ci := by
+    intro ci h
+    rw [Array.all_eq_true_iff_forall_mem] at hrange
+    exact CIRange_of_constInRange (hrange ci (Array.mem_toList_iff.1 ((hmemB ci).1 h)))
+  obtain ⟨cvT0, tl, cs0, rs0, nI0, hsp', -, -, -, -⟩ := blockShape?_spec hp
+  obtain ⟨v0, rest, hblock, -⟩ := blockSplit_head hsp'
+  have hd' := hd
+  rw [hblock] at hd'
+  obtain ⟨cb, htb, rfl⟩ := toDecl_ind hd'
+  rw [← hblock] at htb
+  obtain ⟨cvTs, cs, rs, C⟩ := recogCtx_of hndB hR cb htb hp hgen hks
+  -- the declared parameter count is the first former's
+  have hv0nP : v0.numParams = nP := by
+    have hv0b : Lean.ConstantInfo.inductInfo v0 ∈ storedBlock consts := hblock ▸ List.mem_cons_self
+    obtain ⟨i, hi, hiv⟩ := C.ofFormer hv0b
+    obtain ⟨v', hv'b, hv'cv, -, hnP, -⟩ := C.former (List.getElem_mem hi)
+    have : Lean.ConstantInfo.inductInfo v' = .inductInfo v0 :=
+      C.uniq hv'b hv0b (by show v'.toConstantVal.name = v0.toConstantVal.name; rw [hv'cv, hiv])
+    cases this
+    rw [hnP, C.pnP]
+  -- con-leche's install of the record
+  have hcb : cb = (storedBlock consts).map trCI := (toBlock_eq htb hR).1
+  have hsh : ConLeche.blockShape? v0.numParams cb = some (trShape p) := by
+    rw [hcb, hv0nP, blockShape?_tr nP _ C.okT, hp]; rfl
+  have hdc : ConLeche.declConstants (.indDecl cb v0.numParams) =
+      ConLeche.blockConstants (trShape p) := by
+    simp only [ConLeche.declConstants, basisNameHit_toBlock htb, hhit', Option.map_none, hsh]
+  have hdt : ConLeche.declTables (.indDecl cb v0.numParams) =
+      ConLeche.blockTables (trShape p) (trShape p).members := by
+    simp only [ConLeche.declTables, basisNameHit_toBlock htb, hhit', Option.map_none, hsh]
+  simp only [L', hdc, hdt]
+  -- InLean's lookups after the group
+  have hfind : ∀ ci ∈ storedBlock consts,
+      ({ fe with env := E' } : InLean.FEnv).find? ci.name = some ci := by
+    intro ci hci
+    have hc := (hmemB ci).1 hci
+    have hE := (find_foldl_addConst hlaws consts.toList fe.env hfresh hnd).1 ci hc
+    rw [FEnv.find?_eq_filter]
+    show (E'.find? ci.name).filter (fe.sees ci.name) = some ci
+    rw [hE, Option.filter_some]; simp only [hsees ci hc, ↓reduceIte]
+  -- con-leche's lookups after the group
+  have hndN : ((ConLeche.blockConstants (trShape p)).map (·.name)).Nodup := by
+    rw [C.news_names]
+    exact List.Pairwise.map _ (fun a b hab he => hab (toName_inj he)) hndB
+  have hLfind : ∀ c ∈ ConLeche.blockConstants (trShape p),
+      (L.pushDelta (ConLeche.blockConstants (trShape p))
+        (ConLeche.blockTables (trShape p) (trShape p).members)).find? c.name = some c := by
+    intro c hc
+    rw [pushDelta_find, find?_name_news hndN hc]
+  have hentry := C.entry (fe' := { fe with env := E' }) hpend hfind
+  have hEntry : ∀ ci ∈ consts.toList, ∃ cci,
+      (L.pushDelta (ConLeche.blockConstants (trShape p))
+        (ConLeche.blockTables (trShape p) (trShape p).members)).find? (toName ci.name) = some cci ∧
+      EntryRelI { fe with env := E' } ci cci := by
+    intro ci hci
+    obtain ⟨cci, hcc, hn, hrel⟩ := hentry ci ((hmemB ci).2 hci)
+    exact ⟨cci, hn ▸ hLfind cci hcc, hrel⟩
+  obtain ⟨htn, htnd⟩ := C.tab_names
+  have htabName : ∀ t ∈ ConLeche.blockTables (trShape p) (trShape p).members,
+      ∃ ci ∈ consts.toList, t.structName = toName ci.name := by
+    intro t ht
+    have hm := (blockTables_names _ _).subset (List.mem_map_of_mem (f := (·.structName)) ht)
+    rw [htn] at hm
+    obtain ⟨n, hn, hne⟩ := List.mem_map.1 hm
+    obtain ⟨cvT, hcvT, rfl⟩ := List.mem_map.1 hn
+    obtain ⟨w, hwb, he⟩ := blockSplit_formers C.split _ hcvT
+    exact ⟨_, (hmemB _).1 hwb, by rw [← hne, ← he]; rfl⟩
+  refine ⟨?_, htabName, hEntry, ?_, ?_⟩
+  · intro c hc
+    have hm := List.mem_map_of_mem (f := (·.name)) hc
+    rw [C.news_names] at hm
+    obtain ⟨n, hn, hne⟩ := List.mem_map.1 hm
+    obtain ⟨ci, hci, rfl⟩ := List.mem_map.1 hn
+    exact ⟨ci, (hmemB ci).1 hci, hne.symm⟩
+  · intro ci hci
+    obtain ⟨cci, hcf, -⟩ := hEntry ci hci
+    unfold ConLeche.Env.findTable?
+    rw [hcf]
+    simp only [Option.isSome_some, ↓reduceIte, ConLeche.Env.pushDelta, List.find?_append]
+    have hLnone : L.tables.find? (·.structName == toName ci.name) = none := by
+      apply find_none_of_forall
+      intro tbl ht
+      cases hb : tbl.structName == toName ci.name
+      · rfl
+      · have h := hP.tabNames tbl ht
+        rw [eq_of_beq hb, hP.none _ (by simp only [FEnv.find?_eq_filter, hfresh ci hci, Option.filter_none])] at h
+        cases h
+    have htnd' : ((ConLeche.blockTables (trShape p) (trShape p).members).map (·.structName)).Nodup :=
+      htnd.sublist (blockTables_names _ _)
+    have hrev := find?_reverse_key (fun t : ConLeche.ProjTable => t.structName) htnd' (toName ci.name)
+    rw [hLnone, hrev, Option.or_none]
+    exact C.table (fe' := { fe with env := E' }) hpend hfind (fun v cv h1 h2 h3 => hsteps v cv ((hmemB _).1 h1) h2 ((hmemB _).1 h3))
+      ci ((hmemB ci).2 hci)
+  · intro t ht
+    obtain ⟨ci, hci, hn⟩ := htabName t ht
+    obtain ⟨cci, hcf, -⟩ := hEntry ci hci
+    rw [hn, hcf]; rfl
+
+/-- **An inductive block keeps the relation**, the pinned branch left as a
+named hypothesis (`BlockPresOblB true`; task #493 removes that branch). -/
+theorem indGroupPresBP_of (hPin : BlockPresOblB true) : IndGroupPresBP := by
+  intro hlaws fe L consts nP s s' d hP hpend hblk hfresh hnd hsees hrange hsteps hrun hd
+  have hb : ∀ b, (InLean.basisNameHit (storedBlock consts)).isSome = b → BlockPresOblB b →
+      _ := fun b hb h => h hlaws fe L consts nP s s' d hP hpend hblk hfresh hnd hsees hrange hsteps
+        hb hrun hd
+  obtain ⟨h1, h2, h3, h4, h5⟩ := by
+    cases hk : (InLean.basisNameHit (storedBlock consts)).isSome
+    · exact hb false hk blockPresOblB_recognised
+    · exact hb true hk hPin
+  rw [← Array.foldl_toList]
+  exact presI_group hlaws hP hfresh hnd hsees h1 h2 h3 h4 h5
+
 end InLeanProof

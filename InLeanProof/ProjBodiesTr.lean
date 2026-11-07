@@ -418,18 +418,6 @@ theorem cPis_instantiate1Lift {v : ConLeche.Expr} (hv : NoPiLift v) :
       · split <;> rfl
     | _ => simp [ConLeche.Expr.instantiate1Lift, cPis]
 
-theorem cPis_le : ∀ (a b : Nat) (e : ConLeche.Expr), cPis (a + b) e = true → cPis a e = true
-  | 0, _, _, _ => by simp [cPis]
-  | a + 1, b, e, h => by
-    cases e with
-    | forallE x y =>
-      rw [show a + 1 + b = (a + b) + 1 by omega] at h
-      simp only [cPis] at h ⊢
-      exact cPis_le a b y h
-    | _ =>
-      rw [show a + 1 + b = (a + b) + 1 by omega] at h
-      simp [cPis] at h
-
 theorem instPisAtLift_cPis : ∀ (as : List ConLeche.Expr), (∀ a ∈ as, NoPiLift a) →
     ∀ (ce : ConLeche.Expr) (n : Nat),
       match ConLeche.Expr.instPisAtLift as ce with

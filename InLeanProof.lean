@@ -35,4 +35,8 @@ public import InLeanProof.IndMembers
 public import InLeanProof.IndTele
 public import InLeanProof.IndBasis
 public import InLeanProof.SquarePilot
+public import InLeanProof.ProjBodiesTr
+public import InLeanProof.BlockRecogRun
+public import InLeanProof.RecFireTr
+public import InLeanProof.BlockPresR
 public import InLeanProof.AxiomPins
