@@ -530,7 +530,8 @@ theorem posD_acc (mp : EnvModelM V env)
     rw [List.take_append_drop] at hc
     exact ⟨⟨hc.1, hc.2.1, hc.2.2.trans hlw⟩, hfrw.2.1, hfrw.1, nofun, wa, hwa0, fun _ _ => rfl⟩
   | @frame prog us ds grp ctors ts hne hhd hhdC hnd hinst hblk hgrp hctors hkty hwalk ih =>
-    exact frame_accD mp hin hne hnd hinst hgrp hctors hkty hwalk ih
+    exact frame_accD mp hin hne hnd hinst hgrp hctors
+      (hkty _ (ConLeche.headD_mem_of_ne_nil hne)) hwalk ih
   | ctorsNil =>
     intro _ _ Δ R _ Q _ _ x hx
     exact nomatch hx

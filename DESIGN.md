@@ -112142,3 +112142,84 @@ holding `Init` passes the one-process mode or the scheduler today (every Mathlib
 555/555, tutorial 90/92 as pinned, selfcheck 54 918 declarations, 57 theorems pinned at the three
 axioms, the trusted and `--jobs` sweeps, layering, trust surface with the process fence, shake,
 overview links, quote gate, whitepaper links and fragment, challenge, no-local-paths).
+
+### #443: the vacuity route fails; every group member typed at the key (#443 cont. 3, 2026-11-07)
+
+**Merged.**  `modular` (#444, #466–#468) into the lane (`3e285614a`); the only conflict was
+DESIGN.md (both sides appended records; both kept, the lane's first).
+
+**The maintainer's direction**: (f) is out (the model has no injectivity); try the semantic
+route along fits — where a mate `B`'s telescope has no fit at the key, the obligations for `B`'s
+hole should be vacuous — and only if that fails, type every group member at the key (g),
+uniformly, measured, with the full arena.
+
+**Why the vacuity route fails.**  The frame's obligation for `B`'s hole is not a statement about
+values *in* the hole (those would be vacuous: the datum's index tower at the key has no fit, so
+it is `unitSet`, `mkPisAV_sort_eq_unitSet`, and its full applications are empty).  It is that the
+hole's value *itself* inhabits its context entry: the reading of `B`'s own run instantiated at
+the key (`grpTys` over `nestInstType`'s `instPisWith ds (familyTelescope B)`).  Every fact the
+walk gives about the head's constructors comes from `infer_sound`/`defeq_sound`/`red_sound` at a
+valuation satisfying the frame's WHOLE context (`CtxOkP`, `Sat` is a conjunction over the
+entries, `B`'s among them), and `substE_grpT` then names that valuation `D.frame` at the key, `B`'s
+slot being the datum's hole value `u` (the unique element of `unitSet`).  In the no-fit case the
+run's binders are undetermined from the first parameter stage `k` at which the datum's rest has
+no full fit (both rests are `unitSet` whatever their binders), so the key's `d_k` need not lie in
+the run's `k`-th domain, and the run's later and index binders, read at an argument outside their
+domain, form a tower whose value is unconstrained: it may have fits (read as, say,
+`Nat → Sort w`), and then `u` is not in it.  So no valuation satisfying the frame's context gives
+`B`'s slot its value, and none of the head's readings is obtained at `D.frame`.
+
+Re-choosing `B`'s slot (any inhabitant `f` of the run's tower, e.g. the constant empty family)
+makes the context satisfiable, but the head's readings are then at `D.frame` with `B`'s slot
+changed, and carrying them back needs them insensitive to that slot.  They are at `B`'s full
+applications (both read the empty set), but not in general: a constructor of the head may pass
+`B`'s hole to a definition the walk unfolds (`F B` with `F : (… → Sort) → Sort`), whose reading
+depends on whether the slot lies in `F`'s domain; insensitivity then holds only through the
+frame's typing of that occurrence against the run's tower, a per-occurrence typing fact of the
+convertibility kind the value does not give and the readings do not carry.  Nor is "full
+application" defined against the datum: towers of one value over no fit have any lengths, so the
+run's index count need not be the datum's.  The obligations are vacuous only for values in the
+hole; the one the frame needs is about the hole.
+
+**(g), landed on the lane.**  `familyKeyChecks` (`Kernel/Inductives/Positivity.lean`): every family
+of a list at a key, each against its own telescope; `nestFrame` runs it on the WHOLE group
+(`grp.map (·.1)`), the head and every mate, at every container frame (imported or local alike).
+`PosD.frame`'s `hkty` is now `∀ p ∈ grp, familyKeyCheck … p.1 us ds = .ok ()`
+(`familyKeyChecks_ok`, `headD_mem_of_ne_nil` in `Verify/Inductives/PosDeriv.lean`); the head's
+consumers (`frame_nodes`, `frame_accD`, `frame_mono`, `posD_frame_kty`, `familyKey_reads`) take
+its head instance; `familyKeyChecksS_spec` (cached simulation, by induction, one
+`sym … => vcgen … <;> finish` per case), `familyKeyChecks_env`, `familyKeyChecks_datF`, and
+`PosDR.frame` (`Complete/`) likewise.  Verdicts: a block's members share their parameter
+telescope (checked when the container block was added), so a mate's check fails only where the
+head's does; no fixture can reach a mate-only failure with an accepted container, so none was
+added; all pinned verdicts unchanged (arena below).
+
+**RecCheck's `familyKeyCheck` at `M.ind`** (`targetMajorPins`): it types each outside major's
+OWN family at that major's key, and every recursor of the block has its own major, so every
+member reached as a major is typed at its key; the pattern of the frame (a family read at a key
+checked only for another family) does not occur there.  Whether a recursor-stage consumer reads
+another member's telescope at a major's key is to be confirmed in step 3.
+
+**Measured** (`instructions:u`, `--verified`, one run each, under the guard; base = the merge
+`3e285614a`; workers `--jobs=8 --olean --module`, Init from the v4.35.0 toolchain, Mathlib at
+`_tmp/ref/mathlib4-v4.35.0`):
+
+| stream | base | (g) |
+|---|---|---|
+| init-full `--jobs=1` | 382.279 G | 382.239 G (−0.01 %) |
+| grind-ring-5 `--jobs=1` | 15.3501 G | 15.3489 G (−0.01 %) |
+| worker `Init.Prelude` | 2.49548 G | 2.49566 G (+0.01 %) |
+| worker `Init.Data.List.Lemmas` | 5.41624 G | 5.41576 G (−0.01 %) |
+| worker `Mathlib.GroupTheory.Coxeter.Basic` | 8.89370 G | 8.89419 G (+0.01 %) |
+
+Noise: nested occurrences in a mutual container are rare.
+
+**State for the next session.**  Steps 2–4 of the plan (#443 cont.) not started; `FormerRuns` is
+still in the capstones.  With (g) every hole's key fits its own run's binders (`familyKeyCheck`'s
+certificates, `keyParamsFit`), so step 3 reads every hole type by value through
+`mkPisAV_tail_eq` at each mate, and the end sort through `spineFit_iff_of_mkPisAV_eq` along fits.
+
+**Gates.**  `lake build`, `lake test` warning-free (axiom pins unchanged); `tests/arena.sh` in full
+under the guard: all as pinned (arena 90/92, e2e 555/555, sweeps, selfcheck 54 954, shake, quote,
+fragment, challenge, layering, trust surface); the overview and whitepaper links repointed by the
+kernel lines moved (only the cited `nestFrame` block changed text).

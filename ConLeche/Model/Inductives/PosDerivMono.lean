@@ -797,7 +797,8 @@ theorem posD_mono (mp : EnvModelM V env)
     exact contHit_mono mp hcov hhid hwa hCw hgw hR hisC hdsw (fun x hx => (hds x hx).2) hLds hnI
       hisl (ConLeche.ProgScoped.nil (ctx := ctx)) hmem hfrD ihf
   | @frame prog us ds grp ctors ts hne hhd hhdC hnd hinst hblk hgrp hctors hkty hwalk ih =>
-    exact frame_mono mp hin hne hnd hinst hgrp hctors hkty hwalk ih
+    exact frame_mono mp hin hne hnd hinst hgrp hctors
+      (hkty _ (ConLeche.headD_mem_of_ne_nil hne)) hwalk ih
   | ctorsNil =>
     intro _ _ Δ R _ Q _ _ x hx
     exact nomatch hx

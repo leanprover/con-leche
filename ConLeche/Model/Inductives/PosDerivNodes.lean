@@ -465,7 +465,8 @@ theorem posD_nodeSem (mp : EnvModelM V env)
     exact NodesSem.cons_node ⟨⟨dsa, hdsa⟩, hCds, hLds⟩
       (frameNodes_of mp hcov hfrD ihf hdsw hdsa hCds hLds) NodesSem.nil
   | @frame prog us ds grp ctors ts hne hhd hhdC hnd hinst hblk hgrp hctors hkty hwalk ih =>
-    exact frame_nodes mp hin hcov hΔ0 hne hnd hinst hgrp hctors hkty hwalk ih
+    exact frame_nodes mp hin hcov hΔ0 hne hnd hinst hgrp hctors
+      (hkty _ (ConLeche.headD_mem_of_ne_nil hne)) hwalk ih
   | ctorsNil => intro _ _ _ _; exact NodesSem.nil
   | @ctorsCons prog hi us ds names holes cv nF cs crest ty sv ks nds cur ts ts' hnd hcrest hty
       hsort htele hu4 hres hidx hrest ihtele ihrest =>
@@ -505,8 +506,9 @@ theorem posD_nodeSem (mp : EnvModelM V env)
     -- the key's parameters are read: each is typed at the root (K.52)
     obtain ⟨dsa, hdsa⟩ : ∃ dsa, DenoteSpine mp.base2.acval env φ (ctx.hiAt 0) ds dsa := by
       cases hfr with
-      | frame _ _ _ _ _ _ _ _ hkty _ =>
-        exact familyKey_reads mp.base2 φ hkty (fun x hx => hdsw x hx)
+      | frame hne _ _ _ _ _ _ _ hkty _ =>
+        exact familyKey_reads mp.base2 φ (hkty _ (ConLeche.headD_mem_of_ne_nil hne))
+          (fun x hx => hdsw x hx)
           (fun x hx => (hdsw' x hx).2) hLds
     exact NodesSem.cons_node ⟨⟨dsa, hdsa⟩, hCds, hLds⟩
       (frameNodes_of mp hcov hfr ihf hdsw' hdsa hCds hLds) NodesSem.nil

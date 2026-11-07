@@ -493,6 +493,15 @@ theorem familyKeyCheck_env (h : EnvFree ops) (env : Env) (find? : Name → Optio
   unfold familyKeyCheck
   simp only [familyTelescope_env h env, checkSpineAt_env h env]
 
+theorem familyKeyChecks_env (h : EnvFree ops) (env : Env) (find? : Name → Option ConstantInfo)
+    (d : Nat) (us : List Level) (ds : List Expr) :
+    ∀ cs : List Name,
+      familyKeyChecks ops env find? d us ds cs = familyKeyChecks ops Env.empty find? d us ds cs
+  | [] => rfl
+  | c :: cs => by
+    unfold familyKeyChecks
+    simp only [familyKeyCheck_env h env, familyKeyChecks_env h env find? d us ds cs]
+
 theorem nestFrame_env (h : EnvFree ops) (ctx : NestCtx) (env : Env)
     (rec : List NestHole → Nat → Nat → Expr → NestState → m (NestFieldKind × Expr × NestState))
     (prog : List NestHole) (hi : Nat) (us : List Level) (ds : List Expr) (nPc : Nat)
@@ -500,7 +509,7 @@ theorem nestFrame_env (h : EnvFree ops) (ctx : NestCtx) (env : Env)
     nestFrame ctx ops env rec prog hi us ds nPc grp st =
       nestFrame ctx ops Env.empty rec prog hi us ds nPc grp st := by
   unfold nestFrame
-  simp only [familyKeyCheck_env h env, nestCtors_env h ctx env]
+  simp only [familyKeyChecks_env h env, nestCtors_env h ctx env]
 
 theorem nestInstType_env (h : EnvFree ops) (ctx : NestCtx) (env : Env) (hi : Nat) (key : NestKey) :
     nestInstType ctx ops env hi key = nestInstType ctx ops Env.empty hi key := by

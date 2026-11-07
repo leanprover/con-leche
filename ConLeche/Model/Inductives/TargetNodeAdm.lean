@@ -53,7 +53,7 @@ theorem posD_frame_kty {ops : ConLeche.CheckerOps CheckM} {env : Env} {ctx : Nes
     ConLeche.familyKeyCheck ops env ctx.find? (ctx.hiAt prog.length) (grp.headD default).1 us ds
       = .ok () := by
   cases h with
-  | frame _ _ _ _ _ _ _ _ hkty _ => exact hkty
+  | frame hne _ _ _ _ _ _ _ hkty _ => exact hkty _ (ConLeche.headD_mem_of_ne_nil hne)
 
 /-- A node's key parameters are scoped, and closed, at the depth of the
 frames its frame is derived under. -/
