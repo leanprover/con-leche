@@ -1157,4 +1157,149 @@ theorem copy_behind {sp : SearchPath} {fs : FS} {h : Name} {f : ModFiles} {r : R
             · rw [hl1', hcv, ← hst]; rfl
             · rw [ht1', hcv, ← hst]; rfl
 
+/-! ## A record presents its source's own record -/
+
+/-- A part's region on the snapshot is one. -/
+theorem partRegion_unique {sp : SearchPath} {fs : FS} {h : Name} {f : ModFiles}
+    (hf : (readFiles sp h .private : ModelIO _) fs (.ok (.ok f))) {L : OLeanLevel} {r r' : Region}
+    (h1 : PartRegion sp fs ⟨h, L⟩ r) (h2 : PartRegion sp fs ⟨h, L⟩ r') : r = r' := by
+  obtain ⟨f1, a1, hf1, hr1⟩ := h1
+  obtain ⟨f2, a2, hf2, hr2⟩ := h2
+  have e1 := partFiles_of_all hf hf1
+  have e2 := partFiles_of_all hf hf2
+  subst e1; subst e2
+  rw [hr1] at hr2
+  exact (Prod.mk.inj (Option.some.inj hr2)).1
+
+/-- **A private copy's kind is that of the private skeleton of its name.** -/
+theorem private_tag {sp : SearchPath} {fs : FS} {h : Name} {f : ModFiles} {r : Region} {a : UInt64}
+    {sk : ModSkel} {skels : List (CEntryF UInt64 UInt64)}
+    (hf : (readFiles sp h .private : ModelIO _) fs (.ok (.ok f)))
+    (hreg : f.viewRegion .private = some (r, a)) (hsk : moduleSkel r a = some sk)
+    (hskels : sk.consts.mapM (constSkel r) = some skels) (hcn : constNamesOk r a = true)
+    {q : Spot} (hq : CopyAt sp fs q) (hqp : q.part = ⟨h, .private⟩)
+    {loc : Nat} {sP : CEntryF UInt64 UInt64} (hloc : loc ∈ sk.consts)
+    (hsP : constSkel r loc = some sP) (hn : nameP r sP.name = some q.pos.name) :
+    q.pos.tag = sP.kind.tag := by
+  obtain ⟨⟨m, L⟩, pos⟩ := q
+  simp only [PartKey.mk.injEq] at hqp
+  obtain ⟨rfl, rfl⟩ := hqp
+  obtain ⟨t, ht, hpos⟩ := hq
+  have hnt := readPartNames_of_all hf ht
+  simp only [ModFiles.upTo, readNamePositions, hreg, Option.bind_eq_bind, Option.bind_some] at hnt
+  obtain ⟨sk', hsk', -, hall⟩ := namePositionsAt_mem hnt
+  rw [hsk] at hsk'
+  cases hsk'
+  obtain ⟨hl', sq, hsq, hnq, htq, -⟩ := hall pos hpos
+  obtain ⟨sP', hm1, h1⟩ := mapM_mem hskels hloc
+  obtain ⟨sq', hm2, h2⟩ := mapM_mem hskels hl'
+  rw [hsP] at h1; rw [hsq] at h2
+  cases h1; cases h2
+  rw [skels_name_inj hcn hsk hskels hm2 hm1 hnq hn] at htq
+  exact htq
+
+/-- A quotient constant's skeleton, as the load reads it. -/
+theorem lazyEntry_quot {r : Region} {loc : Nat} {s : CEntryF UInt64 UInt64} {cv : ConstantVal}
+    {q : String} {E : CEntryF Name Expr} (hs : constSkel r loc = some s)
+    (hst : StmtSkel r loc cv (.quot q)) (hE : lazyEntry (nameP r) (exprP r) r 0 s = some E) :
+    E = ⟨cv.name, cv.levelParams, cv.type, .quot q⟩ := by
+  obtain ⟨s', hs', hn, hl, ht, hk⟩ := hst
+  rw [hs] at hs'
+  cases hs'
+  rcases s with ⟨sn, sl, st, sk0⟩
+  cases sk0 with
+  | quot q' =>
+    simp only [CKindF.mapM, pure, Option.some.injEq, CKindF.quot.injEq] at hk
+    subst hk
+    simp only [lazyEntry, CEntryF.mapM, CKindF.mapM] at hE
+    simp only at hn hl ht
+    simp [hn, hl, ht, bind, Option.bind, pure] at hE
+    rw [← hE]
+  | _ =>
+    have := (CKindF.mapM_tag hk).1
+    simp [CKindF.tag] at this
+
+theorem groupOfKind_tag {x : Name} {k : CKindF Name Unit} (hg : groupOfKind x k = none)
+    (hq : k.tag ≠ 4) : k.tag < 4 := by
+  cases k <;> simp_all [groupOfKind, CKindF.tag]
+
+/-- **The statement, whole-constant and quotient cases.** -/
+theorem recordFrom_presents_nongroup {sp : SearchPath} {fs : FS} {h : Name}
+    {jobs : Nat} {w : WorkerRead} (hw : WorkerFacts sp fs h jobs w) :
+    (∀ {x : Name} {s : Spot} {r : Region} {cv : ConstantVal} {k : CKindF Name Unit},
+      s.part.mod = h → CopyAt sp fs s → s.part.level ≠ .server → PartRegion sp fs s.part r →
+      StmtSkel r s.pos.loc cv k → s.pos.skipped = false → groupOfKind x k = none → k.tag ≠ 4 →
+      (reduceOpNames.contains cv.name = true → ∃ q : Spot, CopyAt sp fs q ∧
+        q.part = ⟨s.part.mod, .private⟩ ∧ q.pos.name = s.pos.name ∧
+        (q.pos.tag = 0 ∨ q.pos.tag = 3)) →
+      ∃ p ∈ w.emitted, Presents (.axiomDecl cv) p) ∧
+    (∀ {s : Spot} {r r₀ : Region} {e : CEntryF Name Expr} {d : Declaration} {cv : ConstantVal}
+      {k : CKindF Name Unit}, s.part.mod = h → CopyAt sp fs s → s.part.level ≠ .server →
+      PartRegion sp fs s.part r → entryAt r s.pos.loc = some e → PartRegion sp fs s.part r₀ →
+      StmtSkel r₀ s.pos.loc cv k → k.tag = 1 → s.pos.skipped = false → recordOfEntry e = .ok d →
+      ∃ p ∈ w.emitted, Presents d p) ∧
+    (∀ {s : Spot} {r : Region} {cv : ConstantVal} {q : String} {d : Declaration},
+      s.part.mod = h → CopyAt sp fs s → s.part.level ≠ .server → PartRegion sp fs s.part r →
+      StmtSkel r s.pos.loc cv (.quot q) →
+      recordOfEntry ⟨cv.name, cv.levelParams, cv.type, .quot q⟩ = .ok d →
+      ∃ p ∈ w.emitted, Presents d p) := by
+  obtain ⟨f, r, a, sk, skels, hf, hreg, hsk, hskels, hcn, hcv, hload, hN, hO, hb, hem, hown⟩ :=
+    home_records hw
+  refine ⟨fun {x s r1 cv k} hmod hs hl hr hst hsk0 hg hq hred => ?_,
+    fun {s r1 r₀ e d cv k} hmod hs hl hr he hr₀ hst hk1 hsk0 hd => ?_,
+    fun {s r1 cv q d} hmod hs hl hr hst hd => ?_⟩
+  · obtain ⟨loc, sP, s1, hloc, hsP, hs1, hn1, hskq, hskP, hbeh⟩ :=
+      copy_behind hf hreg hsk hload hcv hmod hs hl hr
+    have hskp : sP.kind.skipped = false := by rw [hskP, ← hskq, hsk0]
+    have hpos : s.pos.name = cv.name := by
+      obtain ⟨s', hs', hn', -⟩ := hst
+      rw [hs1] at hs'
+      cases hs'
+      rw [hn1] at hn'
+      exact Option.some.inj hn'
+    have hred' : ∀ {sP' : CEntryF UInt64 UInt64}, constSkel r loc = some sP' →
+        nameP r sP'.name = some cv.name → reduceOpNames.contains cv.name = true →
+        sP'.kind.tag = 0 ∨ sP'.kind.tag = 3 := by
+      intro sP' hsP' hn' hr'
+      obtain ⟨q', hq', hqp, hqn, hqt⟩ := hred hr'
+      rw [hmod] at hqp
+      have := private_tag hf hreg hsk hskels hcn hq' hqp hloc hsP' (by rw [hqn, hpos]; exact hn')
+      rw [← this]; exact hqt
+    rcases hbeh with ⟨hsame, -⟩ | hhid
+    · obtain ⟨k', ⟨sP', hsP', hn, hl', ht, hkm⟩, htk, -⟩ := hsame cv k hst
+      rw [hsP] at hsP'
+      cases hsP'
+      have htag : sP.kind.tag < 4 := by
+        rw [(CKindF.mapM_tag hkm).1, htk]; exact groupOfKind_tag hg hq
+      exact stmt_presents hN hO hb hem hown hloc hsP hskp hn hl' ht htag (hred' hsP hn)
+    · obtain ⟨-, hn, hl', ht, htag⟩ := hhid cv k hst
+      exact stmt_presents hN hO hb hem hown hloc hsP hskp hn hl' ht (by omega) (hred' hsP hn)
+  · obtain ⟨rfl⟩ : r₀ = r1 := by
+      rw [← hmod] at hf
+      exact partRegion_unique hf hr₀ hr
+    obtain ⟨loc, sP, s1, hloc, hsP, hs1, hn1, hskq, hskP, hbeh⟩ :=
+      copy_behind hf hreg hsk hload hcv hmod hs hl hr
+    have hskp : sP.kind.skipped = false := by rw [hskP, ← hskq, hsk0]
+    have het : e.kind.tag = 1 := by rw [(StmtSkel.entry hst he).2, hk1]
+    rcases hbeh with ⟨-, hent⟩ | hhid
+    · exact whole_presents hN hO hb hem hown hloc hsP hskp
+        (fun E hE => lazyEntry_entryAt hsP hE (hent e he) (by omega)) (by omega) hd
+    · obtain ⟨⟨u, rfl⟩, -⟩ := hhid cv k hst
+      simp [CKindF.tag] at hk1
+  · obtain ⟨loc, sP, s1, hloc, hsP, hs1, hn1, hskq, hskP, hbeh⟩ :=
+      copy_behind hf hreg hsk hload hcv hmod hs hl hr
+    rcases hbeh with ⟨hsame, -⟩ | hhid
+    · obtain ⟨k', hk', -, hq'⟩ := hsame cv _ hst
+      obtain rfl := hq' q rfl
+      have hskp : sP.kind.skipped = false := by
+        obtain ⟨s', hs', -, -, -, hkm⟩ := hk'
+        rw [hsP] at hs'
+        cases hs'
+        cases hk0 : sP.kind <;> rw [hk0] at hkm <;>
+          first | rfl | (have := (CKindF.mapM_tag hkm).1; simp [CKindF.tag] at this)
+      exact whole_presents hN hO hb hem hown hloc hsP hskp (fun E hE => lazyEntry_quot hsP hk' hE)
+        (by simp [CKindF.tag]) hd
+    · obtain ⟨⟨u, hu⟩, -⟩ := hhid cv _ hst
+      cases hu
+
 end ConLeche.Driver

@@ -613,11 +613,12 @@ def groupAt (env : ReachEnv μ) (c : ReachCache) (k : PartKey) (n : Name) :
         | _ => pure (c, .error (.invalid s!"module {k.mod}: {n} is not an inductive type"))
 
 /-- The type whose group presents a copy of `x` of kind `k`: `x` itself, a constructor's type, a
-recursor's block's first member; none for any other kind. -/
+recursor's block's first member (`x` itself for a recursor of no block, which `groupAt` then
+refuses); none for any other kind. -/
 def groupOfKind (x : Name) : CKindF Name Unit → Option Name
   | .induct .. => some x
   | .ctor ind .. => some ind
-  | .recur (a :: _) .. => some a
+  | .recur all .. => some (all.headD x)
   | _ => none
 
 /-- **A copy presented as its statement** (`.axiomDecl cv`).  At a compiler-trust name
