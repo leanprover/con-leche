@@ -111651,7 +111651,7 @@ theorems pinned, `presI_quotSound` with the stop-gap `mkData` axioms as
 * `BlockPresObl`'s case split: `checkIndDeclC_ok` (pinned and `pinListOk`, or
   recognised: `indParamsOk`, `blockShape? = some p`, `genEntriesAgree` and
   `checkBlockKS` accepted; the shapeless branch and a parameter mismatch
-  throw, `checkShapelessS_not_ok`), and `basisNameHit_tr` (con-leche's
+  throw, `checkShapelessS_run_ne`), and `basisNameHit_toBlock` (con-leche's
   `basisNameHit` on `toBlock block` is InLean's through `trKind`;
   `toBlock_names`).
 
@@ -111686,3 +111686,77 @@ rejected, 0 declined, 0 exact and 0 cosmetic mismatches.  `instructions:u` on
 Init 864.3 G (863.9 G at P2-close: +0.05 %).  `scripts/inlean_negtest.lean` 9/9
 agree.  `lake build InLean InLeanProof inlean-replay` warning-free;
 `tests/layering.sh`, `tests/trust-surface.sh`, `tests/no-local-paths.sh` pass.
+
+### Lane O7: the inductive job against master's, the top and the first stages (2026-11-07)
+
+**Target.**  InLean's `checkIndDeclC .verified fe block nP` accepting means
+master's pure fueled declaration step accepts the translated block
+(`ConLeche.checkDecl .verified (fueledOps .verified F) pins L (.indDecl cb nP)`,
+`toBlock block = some cb`): the shape P4 composes with master's fold theorem,
+beside P3's `IndGroupPresB`.  It is `checkDeclStepC_run`'s `.indDecl` arm and
+`checkBlockKS_run` (`Verify/Cached/BridgeC.lean`, `GenRecC.lean`) for InLean.
+No executable code and no existing proof file changed (the root and
+`AxiomPins.lean` gained imports and 21 pins); no `sorry`, no new axiom.
+
+**File plan** (bottom-up, one layer per file):
+
+| file | contents |
+|---|---|
+| `IndShape.lean` | the closed total translation (`trC`, `trCV`, `trCI`, `trShape`); the recogniser at the translation: `toBlock_eq`, `blockSplit_tr`, `blockShape?_tr`, `indParamsOk_tr`, `basisNameHit_tr` (with `stripPis_tr`, `piBinders_tr`, `recTargetOf_tr`, `blockCounts?_tr`, `ctorMember?_tr`, `blockGroups_tr`, `blockMemberCounts?_tr`, `isEquiv_trL`) |
+| `IndOps.lean` | `CSOKIF` (`CSOKF`'s twin) and `flushI_csoki`; `OpsSimI fe L` (the job's four operations against `fueledOpsM`), `opsSimI_of` from `SSimI`; `JobEnvI` (P3b's premises of `ssimI_of_pres`) and `JobEnvI.ops` |
+| `IndDecl.lean` | `NoSt` (programs that touch no state) for `genEntriesAgree` and `checkBasisBlockC`; `checkShapelessS_not_ok`; **`checkIndDeclC_sim`** from `BasisBlockSimI` and `BlockKSSimI` |
+| `IndBlockKS.lean` | `blockIsRec_tr` (through `EO.any`'s `anySpec`), the name guards, `blockShape?_memberOk`; `reduceMembersSimI_of`, **`blockKSSimI_of`** from `ReduceMemberSimI` and `PassTailSimI` |
+| `IndMembers.lean` | `formerDefHeaded_tr`; **`reduceMemberSimI_of`** from `CheckConstantValFSimI` and `ReducedFormerSimI`; `passTailSimI_of` (the pass and the tail split at any relation `R`); **`checkIndDeclC_sim_stages`**, O7's top from the named stages |
+
+The proofs are functional (`bindI_ok`, `pureI_ok`, master's `_datF` lemmas and
+`FueledM.up` to merge fuels), as master's `checkBlockKS_run` and
+`reduceMembersS_run` are; the walk-level triples (`OpsSimI`) are read through
+`tripleI_iff_run`.  Not the `vcgen` convention (the maintainer's "clean up
+later").
+
+**What remains, named** (each a `Prop` in the files above, stated as the cached
+lemma it twins):
+* `BasisBlockSimI` (`IndDecl.lean`, `checkBasisBlockC_spec`): InLean's
+  `pinListOk` against master's on the translated block (InLean's own pins,
+  `pinAgrees` up to `mdata` and binder data, `ciAtLps`), and the names'
+  freshness in `L` read through `EnvPresI` (`FEnv.find?` hides `sorryAx`).
+* `CheckConstantValFSimI` (`IndMembers.lean`, `checkConstantValS_spec`): the
+  former's constant check; its guards are `checkConstantValC`'s (O6's), its
+  operations `OpsSimI`.
+* `ReducedFormerSimI` (`IndMembers.lean`, `reducedFormerWS_spec`): the whnf
+  telescope (`whnfTelescope`, interned variables) and its closing.
+* `PassSimI R` and `TailSimI R` (`IndMembers.lean`, `checkBlockPassS_run`,
+  `checkBlockTailS_run`) at a relation `R` between InLean's `BlockPass` (at
+  the state the pass ends in) and master's `BlockPass Env`, the prover's
+  choice: the formers' environment (`JobEnvI` at `consBlockIndsF`'s push
+  against `checkBlockInds`'), the shape by `trShape`, the parameters by `TrS`,
+  and translations of `ClassRead`, `TargetMajor`, `NestCtorNf`,
+  `NestFieldKind`.  Below them: `checkBlockIndsF`, `checkBlockCtorsF`,
+  `blockNestCtx`, `checkBlockClasses`, `checkBlockPositivity`, `nestSeeds`,
+  `checkBlockIdxSortsF`, `genRecCheck` (with `shadowOpsC`), `streamKCheck`,
+  `streamRecsCheck`, `checkBlockTablesF`, and the environment relation across
+  the job's own pushes (`presI_push` at the formers, the constructors, the
+  generated recursors).
+
+**Findings.**
+1. *The declared parameter count.*  `toDecl` reads the block's `nP` off the
+   first former's `numParams`; `checkIndDeclC` takes the declaration's
+   `nparams`, and `indParamsOk` reads the formers' telescopes and the
+   constructors' counts only.  `checkIndDeclC_sim` is stated at InLean's `nP`;
+   P4 must equate the two: on the recognised branch `genEntriesAgree` gives it
+   (every former entry's `numParams == p.nP`), on the pinned branch the pin
+   comparison (`pinAgrees` compares `numParams`).
+2. *Matchers.*  `blockShape?`'s nested `match`es (result sort, `large?`) cannot
+   be named by a lemma (each `match` elaborates to its own matcher); the
+   result sort's two readings are closed by a local macro (`sort_tac`, three
+   uses) and the members' readings by `split` after the discriminants are
+   made concrete.  A pure recogniser written with named helpers (a
+   `resultSortOf` function) would make these one-line rewrites; not changed
+   (InLean is outside this lane).
+3. *`blockIsRec`* reads `EO.any` with an anonymous-`match` predicate; it
+   relates to master's `mentionsAnyConst` through `anyNode_fresh` and a
+   characterisation of the predicate (`anySpec_mentions`), no `okC` needed.
+4. No statement turned out false for the code.
+
+Gates: `lake build InLean InLeanProof` warning-free; `tests/layering.sh`,
+`tests/trust-surface.sh`, `tests/no-local-paths.sh` pass.

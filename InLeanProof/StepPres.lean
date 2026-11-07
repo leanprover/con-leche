@@ -2,6 +2,7 @@ module
 
 public import InLeanProof.EnvBodiesPres
 public import InLeanProof.IndPres
+public import InLeanProof.IndShape
 public import InLeanProof.QuotPres
 /- `ConstantInfo.isInductive`/`isCtor` (read by `storedBlock`) are not exposed. -/
 import all Lean.Declaration
@@ -32,7 +33,7 @@ import all Lean.Declaration
   `checkIndDeclC_ok` (an accepted check is a pinned block equal to its pin,
   or a recognised one whose generated entries agree and whose block check
   passed; the shapeless branch and a parameter mismatch throw), and
-  `basisNameHit_tr` (con-leche's pinned dispatch on the translated block is
+  `basisNameHit_toBlock` (con-leche's pinned dispatch on the translated block is
   InLean's).
 -/
 
@@ -340,7 +341,7 @@ theorem run_bind_throw {β α : Type} {x : CheckCM β} {s : CState} {r : α × C
       except_error_bind, reduceCtorEq] at h
 
 /-- A shapeless block is never accepted (`checkShapelessS` ends in a throw). -/
-theorem checkShapelessS_not_ok {μ : CheckMode} {block : List Lean.ConstantInfo} {s s' : CState} :
+theorem checkShapelessS_run_ne {μ : CheckMode} {block : List Lean.ConstantInfo} {s s' : CState} :
     (checkShapelessS μ fe block).run s ≠ .ok ((), s') := by
   unfold checkShapelessS
   exact run_bind_throw _ _ (fun _ => rfl)
@@ -373,7 +374,7 @@ theorem checkIndDeclC_ok {μ : CheckMode} {block : List Lean.ConstantInfo} {nP :
     · simp only [hpo, ↓reduceIte] at h
       refine ⟨rfl, ?_⟩
       cases hs : InLean.blockShape? nP block with
-      | none => rw [hs] at h; exact absurd h checkShapelessS_not_ok
+      | none => rw [hs] at h; exact absurd h checkShapelessS_run_ne
       | some p =>
         rw [hs] at h
         simp only at h
@@ -389,12 +390,6 @@ theorem checkIndDeclC_ok {μ : CheckMode} {block : List Lean.ConstantInfo} {nP :
 /-! ## The pinned dispatch through the translation -/
 
 /-- InLean's pinned kinds as con-leche's. -/
-@[expose] def trKind : InLean.BasisKind → ConLeche.BasisKind
-  | .eqK => .eqK
-  | .natK => .natK
-  | .emptyK => .emptyK
-  | .falseK => .falseK
-
 theorem toBlockRecord_name {c : Lean.ConstantInfo} {r : ConLeche.ConstantInfo}
     (h : toBlockRecord c = some r) : r.name = toName c.name := by
   cases c <;> simp only [toBlockRecord, toCV, Option.bind_eq_bind, Option.bind_eq_some_iff,
@@ -412,19 +407,15 @@ theorem toBlock_names : ∀ {block : List Lean.ConstantInfo} {cb : List ConLeche
     obtain ⟨r, hr, rs, hrs, rfl⟩ := h
     simp only [List.map_cons, toBlockRecord_name hr, toBlock_names hrs]
 
-theorem kindNames_tr (k : InLean.BasisKind) :
-    (ConLeche.BasisKind.decls (trKind k)).map (·.name) = (k.decls.map (·.name)).map toName := by
-  cases k <;> decide
-
 /-- **The pinned dispatch agrees**: con-leche's `basisNameHit` on the
 translated block is InLean's, kind by kind. -/
-theorem basisNameHit_tr {block : List Lean.ConstantInfo} {cb : List ConLeche.ConstantInfo}
+theorem basisNameHit_toBlock {block : List Lean.ConstantInfo} {cb : List ConLeche.ConstantInfo}
     (h : toBlock block = some cb) :
     ConLeche.basisNameHit cb = (InLean.basisNameHit block).map trKind := by
   have hn := toBlock_names h
   have key : ∀ k, ((ConLeche.BasisKind.decls (trKind k)).map (·.name) == cb.map (·.name)) =
       (k.decls.map (·.name) == block.map (·.name)) := by
-    intro k; rw [kindNames_tr, hn, map_toName_beq]
+    intro k; rw [decls_names_tr, hn, map_toName_beq]
   unfold ConLeche.basisNameHit InLean.basisNameHit
   have e := key .eqK; have n := key .natK; have em := key .emptyK; have f := key .falseK
   simp only [trKind] at e n em f
