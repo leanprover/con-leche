@@ -113325,3 +113325,57 @@ untrusted.
 * `Agree` by induction on the context order, for the partner names.
 
 Recommended: B, A.1 + A.2, pinned `.no`, then the composition.
+
+### #501 cont. (the ruling on gap A, and the cost of completing every export; 2026-11-07)
+
+**The ruling (maintainer).**  Gap A is closed by completing each loaded module's exports where
+they were made, not by A.1/A.2.  A name a record of `M`'s loaded part reads is **dangling** in
+`M`'s export iff neither `M`'s part nor the exported part of a module of `M`'s public-import
+closure holds it.  It is completed from `M`'s view (its private part first, then its header
+fixpoint, first copy), as a statement or a whole group.  Its own reads are dangling or not relative
+to the module it was read from.  The completed copies join the loaded ones under the clash rule.
+Then a read of a record of home `h` passes when the context's copy is `h`'s own, or comes from a
+module of `h`'s public-import closure that exports it: that is the check, not a shortcut.
+Locating the read in `h`'s view and `agreeCheck` is the fallback, which on Lean's output means
+completed names and clashing copies.  Gap B: every name a read group stores is completed or
+compared like any read.  Pinned names: `proofStatus` says `.no` at `pinnedLeafName`.
+Efficiency is the lane's problem; a restricted version must keep the verdict and the proof of
+"complete every loaded export".  Stop if the cost is more than a few percent.
+
+**The measurement: the scan alone is too dear.**  A probe (not landed; `_tmp/501/probe.patch`)
+does the part every version of "complete every loaded export" needs before it completes
+anything.  For every loaded part, after the worker's reads, it walks every constant's expressions
+once (`usesRoots` over `lazyRoots`, one stamp per part, so a shared subterm is walked once), reads
+the names met, and counts those no copy in the part or in its public-import closure holds.
+`perf stat -e instructions:u`, `--jobs=8`, one run each, under the guard, against `modular`'s tip
+4687e7ea8 (Mathlib v4.35.0; search path its build, its packages' and the toolchain's `lib/lean`):
+
+| worker | base | with the scan | | names met | dangling |
+|---|---|---|---|---|---|
+| `Init.Data.Nat.Lemmas` | 9.192 G | 9.481 G | +3.1 % | 9 848 | 29 |
+| `Mathlib.GroupTheory.Coxeter.Basic` | 8.989 G | 16.637 G | +85 % | 316 093 | 1 460 |
+| `Mathlib.Analysis.SpecialFunctions.Gamma.Basic` | 15.757 G | 31.135 G | +98 % | 718 725 | 1 567 |
+| `Mathlib.RingTheory.WittVector.MulP` | 9.070 G | 20.412 G | +125 % | 514 781 | 1 539 |
+
+All exit 0; the records reached are unchanged (898, 2 268, 6 326, 2 078).  A worker today reads
+only its loaded parts' name tables.  Walking their expressions is the merged run's decode, once
+per worker.  The dangling names are real on Lean's output: an exposed definition's value
+mentions its home's private auxiliaries (`_private.….match_1`, `._proof_1`, `isClassApp?`, ...),
+about 1 500 per Mathlib worker.  Each of them would then be completed, with its group and its own
+reads, which adds to these numbers.
+
+**Stopped for a ruling: the cost.**  The restrictions the ruling allows do not reach the verdict
+of "complete every loaded export": a clash between two completed copies of an unreached export
+is that version's exit 1.  Finding it needs the scan above, since only the expressions say
+what an export reads.  The options as they stand:
+* **R1, restricted to the context.**  Complete what the context's records read, and every copy of
+  every clash name the context reads, recursively.  Every read the check meets has its export's
+  copy, and the clash rule covers every copy a home might choose there: what gap A needs.  Its
+  verdict differs from the plain version's only by clashes among completions that no context
+  record reads, which it accepts.  The cost is in reads already walked, plus the clash names'
+  statements (rare).  It is close to A.2: a non-first copy's statement completed and clash-ruled
+  is a partner read.
+* **R2, the plain version in the one-process mode only.**  The scan is done once per module with
+  the shared tables, so its total is one decode of the closure (the merged run's).  `--module`
+  and `--schedule` workers keep R1.  Two semantics, so not recommended.
+* **R3, the plain version everywhere**, at the cost above (×1.9 to ×2.3 on Mathlib workers).
