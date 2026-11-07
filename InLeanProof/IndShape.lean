@@ -134,6 +134,46 @@ theorem toBlock_eq : ∀ {block : List Lean.ConstantInfo} {cb : List ConLeche.Co
     · exact key.2
     · exact ih2 c' hc'
 
+/-- A block constant's terms have a closed reading: its type, and a recursor's
+rules. -/
+@[expose] def CIOk : Lean.ConstantInfo → Prop
+  | .recInfo v => okC v.type = true ∧ ∀ r ∈ v.rules, okC r.rhs = true
+  | ci => okC ci.toConstantVal.type = true
+
+theorem toRules_okC : ∀ {rs : List Lean.RecursorRule} {crs : List ConLeche.RecRule},
+    toRules rs = some crs → (∀ r ∈ rs, Expr.RangeOk r.rhs) → ∀ r ∈ rs, okC r.rhs = true
+  | [], _, _, _ => by simp
+  | r :: rs, crs, h, hr => by
+    simp only [toRules, toRule, Option.bind_eq_bind, Option.bind_eq_some_iff, Option.pure_def,
+      Option.some.injEq] at h
+    obtain ⟨cr, ⟨c, hc, rfl⟩, crs', hrs, rfl⟩ := h
+    intro x hx
+    rcases List.mem_cons.1 hx with rfl | hx
+    · exact (trC_of_toExprC hc (hr _ List.mem_cons_self)).1
+    · exact toRules_okC hrs (fun r h => hr r (List.mem_cons_of_mem _ h)) x hx
+
+/-- **A block with a record has closed readings throughout.** -/
+theorem toBlock_CIOk : ∀ {block : List Lean.ConstantInfo} {cb : List ConLeche.ConstantInfo},
+    toBlock block = some cb → (∀ ci ∈ block, CIRange ci) → ∀ ci ∈ block, CIOk ci
+  | [], _, _, _ => by simp
+  | ci :: cs, cb, h, hr => by
+    simp only [toBlock, Option.bind_eq_bind, Option.bind_eq_some_iff, Option.pure_def,
+      Option.some.injEq] at h
+    obtain ⟨c, hc, cs', hcs, rfl⟩ := h
+    intro x hx
+    rcases List.mem_cons.1 hx with rfl | hx
+    · have hk := (toBlock_eq (block := [x]) (cb := [c]) (by simp [toBlock, hc])
+        (by simpa using hr x List.mem_cons_self)).2 x List.mem_cons_self
+      cases x with
+      | recInfo v =>
+        simp only [toBlockRecord, Option.bind_eq_bind, Option.bind_eq_some_iff, Option.pure_def,
+          Option.some.injEq] at hc
+        obtain ⟨_, _, crs, hrs, rfl⟩ := hc
+        exact ⟨hk.2, toRules_okC hrs (hr _ List.mem_cons_self).2⟩
+      | inductInfo _ | ctorInfo _ | axiomInfo _ | defnInfo _ | thmInfo _ | opaqueInfo _
+      | quotInfo _ => exact hk.2
+    · exact toBlock_CIOk hcs (fun c h => hr c (List.mem_cons_of_mem _ h)) x hx
+
 /-! ## Names and levels -/
 
 theorem findIdx?_map_toName (l : List Lean.Name) (n : Lean.Name) :

@@ -155,7 +155,7 @@ read through `EnvPresI`. -/
 @[expose] def BasisBlockSimI : Prop :=
   ∀ (fe : InLean.FEnv) (L : ConLeche.Env) (kind : InLean.BasisKind)
     (block : List Lean.ConstantInfo) (s₀ s' : InLean.CState),
-    EnvPresI fe L → (∀ ci ∈ block, CIRange ci) → (∀ ci ∈ block, isBlockKind ci = true) →
+    JobEnvI fe L → (∀ ci ∈ block, CIOk ci) → (∀ ci ∈ block, isBlockKind ci = true) →
     InLean.basisNameHit block = some kind →
     InLean.checkBasisBlockC fe kind block s₀ = .ok ((), s') →
     ∃ L', ConLeche.checkBasisBlock (m := ConLeche.CheckM) L (trKind kind) (block.map trCI) = .ok L'
@@ -187,6 +187,7 @@ theorem checkIndDeclC_sim (hB : BasisBlockSimI) (hK : BlockKSSimI)
     (h : InLean.checkIndDeclC .verified fe block nP s₀ = .ok ((), s')) :
     CSOKIF s' ∧ ∃ F L', ConLeche.checkDecl .verified (ConLeche.fueledOps .verified F) pins L
       (.indDecl cb nP) = .ok L' := by
+  have hok := toBlock_CIOk hb hr
   obtain ⟨rfl, hk⟩ := toBlock_eq hb hr
   unfold InLean.checkIndDeclC at h
   cases hbn : InLean.basisNameHit block with
@@ -194,7 +195,7 @@ theorem checkIndDeclC_sim (hB : BasisBlockSimI) (hK : BlockKSSimI)
     rw [hbn] at h
     simp only at h
     have hst : s' = s₀ := checkBasisBlockC_noSt fe kind block s₀ () s' h
-    obtain ⟨L', hL'⟩ := hB fe L kind block s₀ s' hJ.pres hr (fun ci h => (hk ci h).1) hbn h
+    obtain ⟨L', hL'⟩ := hB fe L kind block s₀ s' hJ hok (fun ci h => (hk ci h).1) hbn h
     refine ⟨hst ▸ hs, 0, L', ?_⟩
     simp only [ConLeche.checkDecl, basisNameHit_tr, hbn, Option.map_some]
     exact hL'
