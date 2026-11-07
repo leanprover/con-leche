@@ -112798,3 +112798,58 @@ changed since cont. 3's full gates.
 * **`modular_model_exists` and `modular_no_False` have the local checks as their only
   hypothesis**; `Challenge.lean`, `Modular.lean`'s statement, `Axioms.lean`'s table, OVERVIEW §1
   and whitepaper §7 say so.
+
+## TASK #440 — a group read from its home is its home's record (2026-11-07, agent/440-groups-present)
+
+#448's open step, on `modular` (off 2b1a48601).  **`group_presents`**
+(`ConLeche/Verify/Driver/Groups.lean`): where the worker at `h` accepted on the snapshot, a group the
+reach read from `h`'s private part (`GroupRead`) is one of `h`'s own records — not only a
+presentation: the same `Declaration`.  `GroupsPresent` is gone; `recordFrom_presents`,
+`worker_presented`, `interfaceOk_of_workers` and `presented_of_worker` (moved from `Provenance.lean`
+to `Groups.lean`, which imports it) hold without it.  All pinned at the three standard axioms.  No
+executed code changed; about 2 100 lines of proof.
+
+**1. The builder on any emitter** (`ConLeche/Verify/Frontend/Olean/GroupSame.lean`).  The obstacle #448
+named — `validateIndF` carries the raw constructor records through its loops into `indBlockOfF` — is
+taken by characterising the builder's acceptance instead of relating two runs of its loops:
+`validateIndF_inr` (one-sided, `forIn_char` for a loop with an early exit): an accepted block has no
+unsafe type, the first type's parameter count, and as constructors the records the types list,
+looked up by name in the types' order (`ctorAt`).  Then **`declOfF_ind_same`**: two block records whose
+types, constructors and recursors resolve (`TyRes`, `CtorRes`, `RecRes`: each index's `nm`/`ex` is the
+constant's field) to the same constants, under any two `nm`/`ex`, build the same record where both
+build one.  No statement about index shifts is needed.
+* `Emit.block_res`: the record `Emit.block` pushes resolves on the emitter's tables to the block's
+  constants of each kind in order (`IndTyOf`, `IndCtorOf`, `IndRecOf`, monotone in `Emit.Sub`).
+* `emitLoop_inds`: every `inductive` record of the walk is a block of the merge (`BlockOf`: at an
+  inductive type `n0`, `blockTys`/`blockCtors`/`blockRecs` of its merge) — a separate invariant beside
+  `emitLoop_spec`, not a strengthening of it.
+* `recMapOf_list`, `blockRecs_mergedOfList`: under `x`, a merged list lists the recursors whose
+  block lists `x`, among its first constants of each name (`firstsGo`), in the list's order;
+  `blockRecs_member`: where the blocks agree, every member of a block lists the same recursors.
+* `home_group` (an inductive type of a merge whose blocks agree, not filtered out, has its block's
+  record among the emission's declarations, from the lists at that type), `groupRecord_res`,
+  `block_same`.
+* `blockStep_ind`, `blockStep_ctor`, `blockStep_recur` (`Verify/Frontend/Olean/Emit.lean`):
+  `blocksOk_good`'s three arms as lemmas of one `blockStep`, which the reach's validation of one
+  group (`groupRecord_valid`) gives; `blocksOk_good` is built from them.
+
+**2. The reach's reads against the home's merge** (`Groups.lean`).  Every constant `groupAt` read is
+the constant at one of the private name table's positions (`Here`, `entry_at_pos`); constants of one
+name there are one (`here_unique`); such a constant, not filtered out and no theorem, is the one the
+home's merge holds under its name (`home_lookup`).  The reach's validation (`blockStep` of each of the
+group's names) and its builder's (no unsafe type) make every member, constructor and recursor read
+unfiltered, so members and constructors agree constant by constant (`filterMap_toF`,
+`blockCtors_toF`).  The recursors, the one place order matters: the home's load is its private name
+table position by position (`home_rows`, from `loadAt_aligned`); `recBlocksAt_spec` (the part's
+recursor positions whose block's first member is `x`, in the table's order) and **`recs_same`**: the
+recursors the reach kept (`groupRecLocs`, then `groupMerged`'s filter) are the home's constants not
+filtered out that are recursors of a block listing `n`, in the home's order — the home's block
+agreement (`BlocksGood`) excludes a recursor listing `n` of another block, the reach's validation an
+unsafe one.  The statement #448 asked for is true as stated; no weaker form was needed.
+
+**Gates** on the final tree: `lake build` and `lake test` warning-free (the new pin
+`group_presents` at the three standard axioms), `tests/shake.sh` (the import plan: none
+demotable), `tests/layering.sh`, `tests/overview-links.sh`, `tests/quote-gate.sh`,
+`tests/trust-surface.sh`, `tests/no-local-paths.sh`, `whitepaper/links-gate.sh`.  No executed code
+changed, so no arena run and no measurement.
+
