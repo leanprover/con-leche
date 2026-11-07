@@ -113070,3 +113070,44 @@ Known accepted edge (to rule on): `pinnedLeafName` excludes `Quot.sound` from th
 two modules each declaring a pinned `Quot.sound` outside `Init`'s closure, loaded together, are
 merged by Lean (axiom/axiom, `isPropCheap`) and would be rejected here.  The alternative is a lemma
 that the quotient step leaves `Quot.sound` at `.prf` (#444 says its pin's leaf is).
+
+### #500 cont. 2 (state at the end of the session; the lane is not landed)
+
+**The theory is done and proved**, `lake build` and `lake test` warning-free (the axiom pins of
+`modular_model_exists` and `modular_no_False` unchanged: the three standard axioms):
+* route (b) of the generic `Agrees` became "the source reads `n` with a source of some earlier
+  module among its own, and the importer has a source of that same module storing `n`", the
+  inner induction on the source's module; the spec's `Agree.path` became `Agree.via` (`b` reads
+  `n`, and an earlier module `t`'s copy agrees with `b`'s and with `i`'s).  `via` is what the
+  instance needs for a group read alike through a source (`reading_deep`: the source's record and
+  the importer's are the owner's), where keys composed by equality;
+* the spec's `ProofSide` asks the statement to resolve in the part (so its names are below the
+  proof's record);
+* `Valid.lean`: `agree_alike`, `homeOf`, `agree_home`, `agree_of_home` in place of the keys;
+  `reading_part` (a closed prefix of the context, read from its sources: the instance's #461
+  lemma); `Main.lean`: `toDev` with `src`, `rank`, `part`; `toDev_valid` route by route;
+  `src_stored`, `own_stored_of_context`;
+* `modular_model_exists` (`MainTheorem.lean`, `Challenge.lean`, the header of `Modular.lean`):
+  every module gives each context name the value of the module it is read from, and every
+  theorem (at a name with no pinned leaf) the point.
+
+**Fixtures**: `PpA`/`PpB`/`PpM` (two `def pp : 2 + 2 = 4` with different bodies; the worker at
+`PpM`: 0, "1 flags inferred"; the merged read: 1, the private parts' two definitions); olean
+gate 304/304 under the guard.  The statement-capture shape of cont. item 4 cannot be built by
+Lean within the module system (an exported statement may not read a privately imported name, and
+a public import loads the other `c`, a clash Lean refuses), so it has no fixture; the worker's
+check is still owed as validation of untrusted input.
+
+**Gates on the branch**: `lake build`, `lake test`, `tests/olean.sh`, overview links (two anchors
+repointed, `--update`), quote gate, layering, trust surface, no-local-paths: pass.
+`whitepaper/links-gate.sh`: FAIL, as expected: §7 cites the old `Modular.lean`/`Generic.lean`
+lines and says "keys".  Not run: `tests/arena.sh` in full, shake, challenge, whitepaper build and
+fragment gate.
+
+**Left, in order** (unchanged from cont. but for items 1–3, done): 4. the worker (the context in
+its records' read order, `ImportOk.ordered`; the partner's statement capture-checked; names
+`agreeCheck`/`clashAgree`); 6. the fragment (`ModularSemantics.lean` := the new `Generic.lean`,
+`ModularModel.lean`/`ModularInstance.lean` by agreement; there `proof_val` is `defVal_eq_pt`'s
+argument, values being sets) and §7's prose and `#real` citations, then `links-gate.sh --update`;
+the full arena under the guard, shake, challenge; land on `modular` with `--no-ff`.  Then the
+composition.  Also to rule on: `Quot.sound` among `pinnedLeafName` (cont.).
