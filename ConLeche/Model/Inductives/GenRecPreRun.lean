@@ -828,13 +828,21 @@ variable {F : Nat} {envI envC : Env} {pp : BlockShape} {nestedBit : Bool} {posR 
 variable (pp out mpC d Dc mc cvc) in
 /-- **The class-side facts `GenPreHyps` still asks** once the run's fields
 are discharged: the class split both ways, the decoding both ways, the
-elimination guard, the generated `ih` calls' typing, the minor
+classes' liveness at a typed tuple's rule frames, the elimination guard, the generated `ih` calls' typing, the minor
 premise's typing at the rule frame, and the class induction. -/
 structure GenPreSem (g : ClassGen) (rd : ClassRead) (ψ : Name → Nat) (ρ : Nat → V) : Prop where
   split : GenClsSplit pp out mpC d Dc mc cvc ψ ρ
   back : GenClsBack pp out mpC d Dc mc cvc ψ ρ
   dec : GenClsDec pp out mpC d Dc mc cvc ψ ρ
   decInv : GenClsDecInv pp out mpC d Dc mc cvc ψ ρ
+  live : ∀ a : Nat → V, (∀ c, c < (tgtRs out).length →
+      a c ∈ˢ interp V ρ (blockRecTyAV mpC.base2.acval envC (tgtRs out) ψ c)) →
+    ∀ c, c < (tgtRs out).length → ∀ j, j < blockRecNCt (tgtRs out) c →
+    ∀ xs fs : List V,
+    xs.length = (blockRulePdomsAV mpC.base2.acval envC pp (tgtRs out) ψ c).length →
+    SpineFit ρ (blockRulePdomsAV mpC.base2.acval envC pp (tgtRs out) ψ c
+      ++ tgtFdomsAV pp out mpC.base2.acval envC ψ c j) (xs ++ fs) →
+    tgtClsLive d Dc cvc mpC.base2.acval envC pp out ψ ρ xs c
   callTy : ∀ c, c < (tgtRs out).length → ∀ j, j < blockRecNCt (tgtRs out) c →
     ∀ xs fs : List V,
     xs.length = (blockRulePdomsAV mpC.base2.acval envC pp (tgtRs out) ψ c).length →
@@ -891,6 +899,7 @@ theorem genPreHyps_of_run
   back := S.back
   dec := S.dec
   decInv := S.decInv
+  live := S.live
   nIdx := genRun_nIdx R hd
   din := genRun_din mpC hlfp hcls
   mN := genRun_mN mpC R hd hcls
@@ -975,7 +984,7 @@ theorem genRecPre_run
           (fun _ => genRbAV R.g R.rd) ψ)
         ρ :=
   genRecPre h hTy
-    (fun ψ ρ rs hl ht => genRecEqs_wd h ψ ρ (hsem ψ ρ).back (hsem ψ ρ).dec
+    (fun ψ ρ rs hl ht => genRecEqs_wd h ψ ρ (hsem ψ ρ).back (hsem ψ ρ).dec (hsem ψ ρ).live
       (genRun_fdomsBelow R hg h mpC ψ) (hframe ψ) (hargs ψ ρ) (hrhs ψ ρ) rs hl ht)
     (fun ψ ρ => genPreHyps_of_run R hg h hd hlfp hN hS hcore hnames hcls ψ ρ (hsem ψ ρ))
 

@@ -1336,6 +1336,11 @@ theorem genOut_pins
     (hxl : xs.length = pp.majorIdxAt j)
     (hfitR : TeleFitPA V ρ (blockRecTyAV mpC.base2.acval envC (tgtRs out)
       (Level.substFn φ r.1.levelParams us) j) (xs ++ [maj]) restR)
+    (hsat : Sat V ((tgtClsD d Dc out j).params
+        (tgtClsψ cvc out (Level.substFn φ r.1.levelParams us) j)).reverse
+      (keyFrame (tgtOutDsa mpC.base2.acval envC pp out (Level.substFn φ r.1.levelParams us) j)
+        (tgtRP pp j)
+        (consList ((xs.take (pp.rulePrefixAt j)).map (interp V ρ)) ρ)))
     (hfitC : TeleFitPA V ρ (blockRecCtorTy mpC.base2.acval envC (tgtRs out) j i
       (Level.substFn φ ctor.1.levelParams usj)) ys restC)
     (hyl : ys.length = (tgtMajor out j).nPc + ctor.2)
@@ -1360,10 +1365,10 @@ theorem genOut_pins
   have hrPle : pp.rulePrefixAt j ≤ pp.majorIdxAt j :=
     blockRecHrPle (p := pp) h hj
   obtain ⟨-, hpinV⟩ := genOutPinVal R h hr Rd hf φ us
-  generalize hψe : Level.substFn φ r.1.levelParams us = ψ at hfitR hlv hpinV
+  generalize hψe : Level.substFn φ r.1.levelParams us = ψ at hfitR hlv hpinV hsat
   obtain ⟨hpref, -, hxvl, -⟩ := genRow3_frame h hr ψ hxl hfitR
   obtain ⟨T0, pps, b0, hcons, hlpsI, hT0, hT0E, hplen, hT0wd, hT0cl, -, hTFall⟩ :=
-    genOutCtorFit R hg hcov hj hi Rd hMo hnP ψ ρ hpref hcAM
+    genOutCtorFit R hg hcov hj hi Rd hMo hnP ψ ρ hsat hcAM
   obtain ⟨ab, body, -, -, hcrR⟩ := genCls_openCrest R hg hj hi Rd hnP ψ hcAM
   have hTF := hTFall _ hcrR
   have hwfC := mpC.base2.wf.consts _ hcons
@@ -1475,8 +1480,8 @@ theorem genOut_major
             ((xs.take (pp.rulePrefixAt j)).map (interp V ρ)) j)
           (tgtClsM mc pp out j) :=
     tgtClsIs_of hG (tgtClsIs_guard hTin).2
+  have hsatK := Rd.hsat ψ ρ _ hpref (tgtClsIs_guard hTin).2
   rw [hIs, hFr] at hTin
-  have hsatK := Rd.hsat ψ ρ _ hpref
   obtain ⟨hC, -⟩ := mpC.lfp_ok _ Rd.hD
   have hmN : tgtClsM mc pp out j < (tgtClsD d Dc out j).N :=
     Nat.lt_of_lt_of_le Rd.hmm hC.kN
@@ -2064,7 +2069,7 @@ theorem genOut_T
   obtain ⟨hpref, hsat, hsp, hmaj⟩ := genOut_major h hS hr Rd ψ hxl hfitR
   obtain ⟨-, -, hxvl, -⟩ := genRow3_frame h hr ψ hxl hfitR
   obtain ⟨T0, pps, b0, hcons, -, hT0, -, -, -, hT0cl, hpc, -⟩ :=
-    genOutCtorFit R hg hcov hj hi Rd hMo hnP ψ ρ hpref hcAM
+    genOutCtorFit R hg hcov hj hi Rd hMo hnP ψ ρ hsat hcAM
   have hwfC := mpC.base2.wf.consts _ hcons
   have hCf : ctor.1.type.hasFvar = false := hwfC.1
   have hCb : ctor.1.type.looseBVarsBounded 0 = true := hwfC.2.2.2.1
@@ -2229,9 +2234,12 @@ theorem genRows3_out
     at hpref hws hxvl ⊢
   generalize hiV : (xs.drop (pp.rulePrefixAt j)).map (interp V ρ) = isV
     at hws hisl ⊢
+  -- the class is live: the major is one of it
+  obtain ⟨hTin, hmajIn, -⟩ := hS ψ ρ j hj xsV isV _ hxvl hisl hws
+  have hsatK := Rd.hsat ψ ρ xsV hpref (tgtClsIs_guard hTin).2
   -- the instantiated constructor, fitted
   obtain ⟨T0, -, -, hcons, -, hT0, -, -, -, hT0cl, hpc, -⟩ :=
-    genOutCtorFit R hg hcov hj hi Rd hMo hnP ψ ρ hpref hcAM
+    genOutCtorFit R hg hcov hj hi Rd hMo hnP ψ ρ hsatK hcAM
   have hwfC := mpC.base2.wf.consts _ hcons
   have hctorTy : blockRecCtorTy mpC.base2.acval envC (tgtRs out) j i
       (Level.substFn φ ctor.1.levelParams usj) = T0 := by
@@ -2256,7 +2264,6 @@ theorem genRows3_out
     Nat.lt_of_lt_of_le Rd.hmm hC.kN
   have hG := (Rd.hG ψ ρ xsV).mpr hpref
   have hFr := Rd.hfr ψ ρ xsV hxvl
-  have hsatK := Rd.hsat ψ ρ xsV hpref
   have hval3 : interp V ρ (Term.mkAppN
       (mpC.base2.acval ctor.1.name (Level.substFn φ ctor.1.levelParams usj)) ys)
       = tgtClsInj d Dc mc cvc pp out ψ j i fsY := by
@@ -2270,7 +2277,6 @@ theorem genRows3_out
     rw [e1, e2, genOutW R hj hMo hcl ψ]
     exact ConLeche.Level.isNeverZero_sound _ _ (genOutNZ R hj hMo hℓ)
   -- the carrier's decomposition at the recursor's index tuple
-  obtain ⟨hTin, hmajIn, -⟩ := hS ψ ρ j hj xsV isV _ hxvl hisl hws
   rw [tgtClsIs_of hG (tgtClsIs_guard hTin).2] at hTin
   have hsatF : Sat V ((tgtClsD d Dc out j).params (tgtClsψ cvc out ψ j)).reverse
       (tgtClsFr d mpC.base2.acval envC pp out ψ ρ xsV j) := by
@@ -2651,7 +2657,8 @@ theorem genOutExtra
       have hlv' : ∀ p ∈ ctor.1.levelParams, Level.substFn φ ctor.1.levelParams usj p
           = Level.substFn (Level.substFn φ r.1.levelParams us) cvI.levelParams
               (tgtMajor out j).lvls p := fun p hp => by rw [hlv p hp, Rd.hψ]
-      have hpins := genOut_pins R hg hcov h hr hMo hctor Rd hnP hf hlv' hxl hfitR hfitC hyl
+      obtain ⟨-, hsatR, -, -⟩ := genOut_major h hS hr Rd _ hxl hfitR
+      have hpins := genOut_pins R hg hcov h hr hMo hctor Rd hnP hf hlv' hxl hfitR hsatR hfitC hyl
         (fun q hq vpa hvpa => hcN lvls pins hfire hpt q hq vpa
           (hpinCross us q vpa hvpa))
       refine genOut_pin hcov h hS hr Rd hcAM _ hlv (hctorRead _) hxl hyl hfitR hfitC hWDy

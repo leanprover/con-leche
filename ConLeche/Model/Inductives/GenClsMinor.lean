@@ -522,7 +522,8 @@ binder types, lands in the motive at the declared result's indices and
 the constructor applied.  The prefix's entry is the minor premise's type
 built at the slot, which IS the one built at the rule prefix
 (`genMinorSetup`); read at the rule prefix it is the Π-tower of exactly
-the rule frame's pieces. -/
+the rule frame's pieces.  That motive application is a type: the minor
+premise's type is graded ("not pt" source (1)). -/
 theorem genCls_minor
     (R : GenRecRun .verified F (mkFEnv env₁) env₁ (mkFEnv envC) pp nestedBit pos
       block out) (hg : ClassGenScoped R.g)
@@ -546,7 +547,12 @@ theorem genCls_minor
             (interp V (consList (xs ++ fs) ρ))
           ++ [interp V (consList (xs ++ fs) ρ)
             (tgtMkAV pp out mpC.base2.acval envC ψ c j)]).foldl SetTheory.app
-          (xs.getD (classMotPos R.g (genClsOf R.rd c)) pt) := by
+          (xs.getD (classMotPos R.g (genClsOf R.rd c)) pt) ∧
+    IsTy (((tgtEsAV pp out mpC.base2.acval envC ψ c j).map
+            (interp V (consList (xs ++ fs) ρ))
+          ++ [interp V (consList (xs ++ fs) ρ)
+            (tgtMkAV pp out mpC.base2.acval envC ψ c j)]).foldl SetTheory.app
+          (xs.getD (classMotPos R.g (genClsOf R.rd c)) pt)) := by
   intro c hc j hj xs hxs fs hfs hs hhl hhs
   obtain ⟨cls, s, x, T, res, ws, ihs, hgc, hgx, hms, hxmem, hMaj, ⟨ihs0, hsS⟩, hpreT, hTs, hrP,
     hopR, hCB, hnF, hcv, hwsR, hihl, hih, ⟨sc, hmc, hscl⟩, hTE⟩ := genMinorSetup R hg h hfind hc hj
@@ -715,6 +721,13 @@ theorem genCls_minor
         shiftE_zero_consList (by simp; omega), ← consList_append]
       exact hmI
   have happ := foldl_app_mem_mkPisAV hfit hmemB
+  -- the minor's domain is a graded type, so its innermost fibre is a type
+  have hgr := blockRulePdomsAV_graded (V := V) mpC h hr ψ (R.g.nP + s) (by omega) ρ
+    (xs.take (R.g.nP + s)) (spineFit_take hxs (i := R.g.nP + s) (by omega))
+  rw [hPdget] at hgr
+  have hwdB : WellDenotedTy V (consList xs ρ) (mkPisAV bs b) := by
+    rw [← hBE, WellDenotedTy_liftN, hsh]; exact hgr
+  have hty := isTy_of_wdTy_mkPisAV hwdB hfit
   -- the conclusion: the motive at the declared result's indices and the constructor
   have hbl' : ((tgtFieldFvs pp out c j).map R.g.binder ++ ihs).length
       = x.nF + x.recs.length := by simp [hfl, hihl]
@@ -751,7 +764,8 @@ theorem genCls_minor
             ((R.g.cls.getD cls default).ds ++ tgtFieldFvs pp out c j))).getD default := by
     rw [tgtMkAV, hB, hcv, hMaj]
   rw [interp_liftN, consList_append, shiftE_zero_consList hhsl, interp_mkAppN,
-    ← List.foldl_map (f := interp V (consList fs (consList xs ρ))) (g := SetTheory.app)] at happ
+    ← List.foldl_map (f := interp V (consList fs (consList xs ρ))) (g := SetTheory.app)]
+    at happ hty
   have hhd : interp V (consList fs (consList xs ρ))
       (.bvar (R.g.pre.length + x.nF - 1 - (R.g.nP + sc))) = xs.getD (classMotPos R.g cls) pt := by
     show consList fs (consList xs ρ) _ = _
@@ -759,10 +773,12 @@ theorem genCls_minor
       = fs.length + xs.length - 1 - (R.g.nP + sc) by omega,
       consList_prefix_getD (by omega)]
     simp [classMotPos, hmc]
-  rw [hhd, hvsE] at happ
+  rw [hhd, hvsE] at happ hty
   rw [hEs, hMk, consList_append]
-  simpa only [List.map_append, List.map_map, List.map_cons, List.map_nil, Function.comp_def]
-    using happ
+  exact ⟨by simpa only [List.map_append, List.map_map, List.map_cons, List.map_nil,
+      Function.comp_def] using happ,
+    by simpa only [List.map_append, List.map_map, List.map_cons, List.map_nil,
+      Function.comp_def] using hty⟩
 
 
 set_option maxHeartbeats 8000000 in
@@ -785,6 +801,7 @@ theorem genMinor_pt
     ∀ c, c < (tgtRs out).length → ∀ j, j < blockRecNCt (tgtRs out) c → ∀ xs,
     SpineFit ρ (blockRulePdomsAV mpC.base2.acval envC pp (tgtRs out) ψ c) xs →
     (∀ fs, SpineFit (consList xs ρ) (tgtFdomsAV pp out mpC.base2.acval envC ψ c j) fs →
+      xs.getD (classMotPos R.g (genClsOf R.rd c)) pt ≠ pt →
       (tgtEsAV pp out mpC.base2.acval envC ψ c j).length = (tgtMajor out c).nIdx) →
     xs.getD (R.g.nP + genMinorSlot R.g R.rd c j) pt = pt := by
   intro c hc j hj xs hxs hlenEs
@@ -970,8 +987,6 @@ theorem genMinor_pt
   have hfs : SpineFit (consList xs ρ) (tgtFdomsAV pp out mpC.base2.acval envC ψ c j)
       (zs.take x.nF) := by
     rw [← hfdT]; exact spineFit_take hzs (by simp [hbsl])
-  have hesl := hlenEs (zs.take x.nF) hfs
-  rw [hEs, List.length_map, hMaj] at hesl
   have hty := isTy_of_wdTy_mkPisAV hwdB hzs
   have hhd : interp V (consList (zs.take x.nF) (consList xs ρ))
       (.bvar (R.g.pre.length + x.nF - 1 - (R.g.nP + sc))) = xs.getD (R.g.nP + sc) pt := by
@@ -988,6 +1003,14 @@ theorem genMinor_pt
       shiftE_zero_consList (by simp [hzl]), List.take_append_drop, interp_mkAppN,
       ← List.foldl_map, hhd]
   rw [hval] at hty ⊢
+  -- the motive is no point: its application is a type
+  have hne : xs.getD (classMotPos R.g (genClsOf R.rd c)) pt ≠ pt := by
+    rw [hgc, show classMotPos R.g cls = R.g.nP + sc by simp [classMotPos, hmc]]
+    intro h0
+    rw [h0, foldl_app_pt'] at hty
+    exact hty.ne_pt rfl
+  have hesl := hlenEs (zs.take x.nF) hfs hne
+  rw [hEs, List.length_map, hMaj] at hesl
   exact mem_univZero_of_endsInSort hℓ _ hEnds hrdm hmemM _
     (by rw [List.length_map, ← hvsl, List.length_append, hesl]; rfl) hty
 

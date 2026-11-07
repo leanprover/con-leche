@@ -1553,6 +1553,7 @@ theorem genRuleRaZ
       ∀ j, j < blockRecNCt (tgtRs out) c → ∀ xs fs : List V,
       SpineFit ρ (blockRulePdomsAV mpC.base2.acval envC pp (tgtRs out) ψ c) xs →
       SpineFit (consList xs ρ) (tgtFdomsAV pp out mpC.base2.acval envC ψ c j) fs →
+      xs.getD (classMotPos R.g (genClsOf R.rd c)) pt ≠ pt →
       (tgtEsAV pp out mpC.base2.acval envC ψ c j).length = (tgtMajor out c).nIdx)
     {Rr : Nat → ConstantVal × List Expr × Nat × List (ConstantVal × Nat) → Bool × List ConLeche.RecRule}
     {sf : (Name → Nat) → Nat} {eqs : (Name → Nat) → List Term}
@@ -1632,7 +1633,7 @@ theorem genRuleRaZ
       congr 1
     rw [h1, hslot]; rfl
   have hmin := genMinor_pt R hg h mpC hfind ψ ρ hℓ j hj i hi pref hpref
-    (fun fs hfs => hlenEs ψ ρ j hj i hi pref fs hpref hfs)
+    (fun fs hfs hne => hlenEs ψ ρ j hj i hi pref fs hpref hfs hne)
   rw [hms] at hmin
   rw [interp_mkAppN, ← List.foldl_map, hhead, hmin]
   exact foldl_app_pt' _
