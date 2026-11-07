@@ -279,7 +279,7 @@ level parameters and parameters
 (#src("ConLeche/Kernel/Inductives/RecCheck.lean", 600, 611)[the stored rules at a container class]).
 In the certified case of $iota$ (@sec:iota-cases), the
 constructor application's levels and parameters are compared with
-#src("ConLeche/Kernel/CoreDefs.lean", 1138, 1150)[the stored ones, instantiated at the recursor's levels and parameter arguments]
+#src("ConLeche/Kernel/CoreDefs.lean", 1141, 1153)[the stored ones, instantiated at the recursor's levels and parameter arguments]
 (#src("ConLeche/Rules/Rel.lean", 212, 223)[the levels by the level oracle, the parameters definitionally]),
 and the index comparison is as before. In the other cases the rule
 fires comparing nothing, as for a simple block. The constructor's fields
@@ -287,7 +287,7 @@ are what follows its own parameters.
 
 *Large elimination.* A nested block may eliminate into every sort only
 if #src("ConLeche/Kernel/Inductives/BlockRec.lean", 82, 84)[its sort is never zero]
-(#src("ConLeche/Kernel/Inductives/GenRec.lean", 560, 564)[where the checker enforces it]),
+(#src("ConLeche/Kernel/Inductives/GenRec.lean", 558, 562)[where the checker enforces it]),
 as in the official kernel. A nested proposition eliminates only into
 $sans("Prop")$, and the subsingleton criterion is never asked of a
 nested block.
@@ -302,7 +302,7 @@ nested block.
   #src("ConLeche/Kernel/Inductives/Positivity.lean", 1703, 1711)[Every class other than the type being defined is walked]
   as a container met at the root, so every class is an instantiation
   the walk visited. A field landing at a class for which the stream
-  gives #src("ConLeche/Kernel/Inductives/GenRec.lean", 453, 456)[no recursor]
+  gives #src("ConLeche/Kernel/Inductives/GenRec.lean", 451, 454)[no recursor]
   is rejected. One class may be visited at several places. In
   #src("tests/e2e/src/corner_nestind_f13_listrose.lean", 12, 15)[a block with a field of type $List thick (sans("RL") thick sans("TL"))$],
   with $sans("RL") thick alpha$ a rose tree over lists, that
