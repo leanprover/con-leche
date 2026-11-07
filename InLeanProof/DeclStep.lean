@@ -611,6 +611,49 @@ theorem checkDeclKindC_sim {fe : InLean.FEnv} {L : ConLeche.Env} (hJ : JobEnvI f
   | mutualDefnDecl vs => exact hd.elim
   | inductDecl => exact harm.elim
 
+/-! ## The certified `Nat` operations, named
+
+A definition at a certified operation's name adds master's certification to
+the definition arm: the recurrence equations over two interned `Nat`
+variables (`certifyNatEqs`), resp. the pin variants (`checkDivModPin`, whose
+variants InLean loads at run time, `loadPinSets`; `pins` is master's list, so
+the statement is about the `pins` P4 relates to InLean's). -/
+
+/-- **The certified operations' arm** (named, not proved here). -/
+@[expose] def CertArmSimI (pins : List ConLeche.NatOpPinSet) : Prop :=
+  ∀ (fe : InLean.FEnv) (L : ConLeche.Env) (v : DefinitionVal) (a : InLean.Added)
+    (s₀ s' : InLean.CState),
+    JobEnvI fe L → fe.safety = .safe → fe.coreAxioms = false → CSOKI .verified false L s₀ →
+    Expr.RangeOk v.type → Expr.RangeOk v.value → v.safety = .safe →
+    (InLean.natOpNames.contains v.name || InLean.natDivModNames.contains v.name) = true →
+    InLean.checkDefnC .verified InLeanProof.theoremConfig fe v s₀ = .ok (a, s') →
+    CSOKI .verified false L s' ∧ TabLe s₀ s' ∧ a.consts = #[.defnInfo v] ∧
+      ∃ d, toDecl [.defnInfo v] = some d ∧ StepRuns pins L d
+
+/-- The arms proved here and the certified operations' arm. -/
+@[expose] def ProvedOrCertArm (decl : Declaration) : Prop :=
+  ProvedArm decl ∨ ∃ v, decl = .defnDecl v
+
+/-- **`checkDeclKindC_sim` with the certified operations' arm** (from
+`CertArmSimI`). -/
+theorem checkDeclKindC_sim_cert {pins : List ConLeche.NatOpPinSet} (hC : CertArmSimI pins)
+    {fe : InLean.FEnv} {L : ConLeche.Env} (hJ : JobEnvI fe L) {decl : Declaration}
+    {a : InLean.Added} {s₀ s' : InLean.CState}
+    (hfs : fe.safety = .safe) (hfc : fe.coreAxioms = false)
+    (hs : CSOKI .verified false L s₀) (hd : SafeDecl decl) (hr : DeclRangeOk decl)
+    (harm : ProvedOrCertArm decl)
+    (h : InLean.checkDeclKindC .verified InLeanProof.theoremConfig fe decl s₀ = .ok (a, s')) :
+    CSOKI .verified false L s' ∧ TabLe s₀ s' ∧
+      ∃ ds, a.consts.toList.mapM (fun ci => toDecl [ci]) = some ds ∧
+        ∃ F L', ds.foldlM (ConLeche.checkDecl .verified (ConLeche.fueledOps .verified F) pins) L =
+          .ok L' := by
+  rcases harm with harm | ⟨v, rfl⟩
+  · exact checkDeclKindC_sim hJ hfs hfc hs hd hr harm h
+  · cases hn : (InLean.natOpNames.contains v.name || InLean.natDivModNames.contains v.name)
+    · exact checkDeclKindC_sim hJ hfs hfc hs hd hr hn h
+    · obtain ⟨h1, h2, h3, d, hd', hR⟩ := hC fe L v a s₀ s' hJ hfs hfc hs hr.1 hr.2 hd hn h
+      exact ⟨h1, h2, [d], by rw [h3]; exact single_mapM hd', single_fold hR⟩
+
 /-! ## The entry point -/
 
 theorem CSOKIF_empty : CSOKIF ({} : InLean.CState) where

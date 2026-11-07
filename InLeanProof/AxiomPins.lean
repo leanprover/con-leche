@@ -2171,3 +2171,14 @@ info: 'InLeanProof.checkDecl_sim' depends on axioms: [propext,
 -/
 #guard_msgs in
 #print axioms InLeanProof.checkDecl_sim
+
+/--
+info: 'InLeanProof.checkDeclKindC_sim_cert' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound,
+ InLeanProof.Expr.mkAppData_fields,
+ InLeanProof.Expr.mkData_eq,
+ InLeanProof.Level.mkData_eq]
+-/
+#guard_msgs in
+#print axioms InLeanProof.checkDeclKindC_sim_cert
