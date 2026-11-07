@@ -216,12 +216,12 @@
     75  def recordJob (mode : CheckMode) (pins : List NatOpPinSet) (I : StreamIndex) (k : Nat)
     76      (pd : Declaration) : Except CheckError Unit :=
 
-== ConLeche/Verify/Cached/ViewCongr.lean#L1353-L1357
-  1353  
-  1354  theorem checkDeclStepC_twin (pins : List NatOpPinSet) {fe₁ fe₂ : FEnv} (ht : Twin fe₁ fe₂)
-  1355     
-  1356      (pd : Declaration) :
-  1357      RelRun (PushedFrom fe₁ fe₂) (checkDeclStepC mode pins fe₁ pd)
+== ConLeche/Verify/Cached/ViewCongr.lean#L1343-L1347
+  1343  theorem checkDeclStepC_twin (pins : List NatOpPinSet) {fe₁ fe₂ : FEnv} (ht : Twin fe₁ fe₂)
+  1344     
+  1345      (pd : Declaration) :
+  1346      RelRun (PushedFrom fe₁ fe₂) (checkDeclStepC mode pins fe₁ pd)
+  1347        (checkDeclStepC mode pins fe₂ pd) := by
 
 == ConLeche/Verify/Cached/StreamIndex.lean#L484-L486
    484  theorem checkDecls_of_jobs {ds : Array Declaration}
@@ -319,18 +319,18 @@
   1782        defeq := fun _ _ _ => throw (.internal "fuel exhausted: defeq")
   1783        defeqE := fun _ _ _ => throw (.internal "fuel exhausted: defeq")
 
-== ConLeche/Model/Fold.lean#L354-L361
-   354  theorem no_proof_of_False_pure (V : Type w) [SetTheory V]
-   355      {F : Nat}
-   356      {ds : List Declaration} {env' : Env}
-   357      (h : checkDeclsPure .verified (fueledOps .verified F) pins ds = .ok env') :
-   358      ∀ c ∈ env'.consts,
-   359        c.toConstantVal.type = .const falseName [] → False := by
-   360    obtain ⟨mp⟩ := checkDeclsPure_sound_of (V := V) h
-   361    exact fun c hc hty => no_constant_of_False mp c hc hty
+== ConLeche/Model/Fold.lean#L431-L438
+   431  theorem no_proof_of_False_pure (V : Type w) [SetTheory V]
+   432      {F : Nat}
+   433      {ds : List Declaration} {env' : Env}
+   434      (h : checkDeclsPure .verified (fueledOps .verified F) pins ds = .ok env') :
+   435      ∀ c ∈ env'.consts,
+   436        c.toConstantVal.type = .const falseName [] → False := by
+   437    obtain ⟨mp⟩ := checkDeclsPure_sound_of (V := V) h
+   438    exact fun c hc hty => no_constant_of_False mp c hc hty
 
-== ConLeche/Model/Fold.lean#L225
-   225      (hE : EtaFamiliesClosed env) (hN : NatFacts env)
+== ConLeche/Model/Fold.lean#L289
+   289  theorem declStep_preserves
 
 == ConLeche/Model/Capstone.lean#L137-L143
    137  theorem no_constant_of_False (mp : EnvModelM V env)
@@ -372,8 +372,8 @@
 == ConLeche/Kernel/Core.lean#L1388
   1388  def defeqLams (r : CoreFns m) :
 
-== ConLeche/Verify/Cached/BridgeC.lean#L281
-   281  theorem checkDeclStepC_run {env : Env} (henv : EnvWF env) {pd : Declaration}
+== ConLeche/Verify/Cached/BridgeC.lean#L269
+   269  theorem checkDeclStepC_run {env : Env} (henv : EnvWF env) {pd : Declaration}
 
 == ConLeche/Kernel/Core.lean#L1825
   1825  @[irreducible, noinline] def checkFuel : Nat := 4611686018427387904  -- 2^62
@@ -862,6 +862,12 @@
    150    | .quotDecl _ _ => true
    151    | .defnDecl cv .. | .thmDecl cv .. | .opaqueDecl cv .. => !reservedBasisNames.contains cv.name
 
+== ConLeche/Verify/BasisBlock.lean#L300-L303
+   300  theorem blockInstall_pinned {nP : Nat} {block : List ConstantInfo} {kind : BasisKind}
+   301      {p : BlockShape} (hk : basisNameHit block = some kind) (hok : pinListOk block kind.decls = true)
+   302      (hp : blockShape? nP block = some p) :
+   303      blockConstants p = kind.storedAt block ∧ blockTables p p.members = [] := by
+
 == ConLeche/Kernel/Basis.lean#L189-L194
    189    | .ctor => hasQ
    190    | .lift => hasEq && hasQ && hasM
@@ -923,11 +929,15 @@
 == ConLeche/SetModel/Access.lean#L243
    243  theorem closed_of_acc (hw : w ≠ 0) (hA : A ∈ˢ (tg w : V)) (hmaps : MapsTuple w k Is Φ)
 
-== ConLeche/Model/Inductives/BlockRunFacts.lean#L205-L208
-   205      (hdp : ConLeche.blockShape? nPd block = some p₀)
-   206      (hrun : ConLeche.Semantics.BlockRun F env block p₀ env₂) (hcov : LfpCover mp [])
-   207      (hRan : FamilyRan mp) (hNat : NatFacts env) :
-   208      (∃ mp' : EnvModelM V env₂, LfpCover mp' [] ∧ FamilyRan mp') ∧ NatFacts env₂ := by
+== ConLeche/Model/Inductives/BlockRunFacts.lean#L160-L167
+   160  theorem declBlock {F : Nat} {env env₂ : Env} {block : List ConstantInfo} {nPd : Nat} {p₀ : BlockShape}
+   161      (mp : EnvModelM V env) (hE : ConLeche.EtaFamiliesClosed env)
+   162      (hdp : ConLeche.blockShape? nPd block = some p₀)
+   163      -- the reserved names' check (`basisNamesOk`), at a block no pinned one's
+   164      (hres : ∀ c ∈ block, ConLeche.reservedBasisNames.contains c.name = false)
+   165      (hrun : ConLeche.Semantics.BlockRun F env block p₀ env₂) (hcov : LfpCover mp [])
+   166      (hRan : FamilyRan mp) (hNat : NatFacts env) :
+   167      (∃ mp' : EnvModelM V env₂, LfpCover mp' [] ∧ FamilyRan mp') ∧ NatFacts env₂ := by
 
 == ConLeche/Kernel/CheckDecl.lean#L32-L33
     32  def checkShapeless (ops : CheckerOps m) (env : Env) (block : List ConstantInfo) :
