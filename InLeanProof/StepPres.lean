@@ -208,7 +208,7 @@ theorem except_ok_bind {ε α β : Type} (x : α) (f : α → Except ε β) : (E
 /-- **What an accepted inductive declaration says of its constants**: block
 constants only, in range, fresh in the environment, safe when the block is,
 every projection body the extended environment reads at their names in
-range. -/
+range, every intermediate term building those bodies in range. -/
 theorem checkInductiveC_ok {μ : CheckMode} {fe : InLean.FEnv} {lps : List Name} {nP : Nat}
     {types : List InductiveType} {u : Bool} {s s' : CState} {a : Added}
     (h : (checkInductiveC μ fe lps nP types u).run s = .ok (a, s')) :
@@ -217,7 +217,7 @@ theorem checkInductiveC_ok {μ : CheckMode} {fe : InLean.FEnv} {lps : List Name}
     (u || a.consts.all safeConst) = true ∧
     a.consts.all (fun ci =>
       ({ fe with env := a.consts.foldl InLean.addConst fe.env } : InLean.FEnv).projBodiesInRange ci.name) =
-      true := by
+      true ∧ projStepsAllOk a.consts = true := by
   unfold checkInductiveC at h
   generalize ((Ind.genInductive μ lps nP types u).run
     { env := fe.env, coreAxioms := fe.coreAxioms }).run' {} = g at h
@@ -235,11 +235,12 @@ theorem checkInductiveC_ok {μ : CheckMode} {fe : InLean.FEnv} {lps : List Name}
     cases h3 : gen.consts.all (fun ci =>
       ({ fe with env := gen.consts.foldl InLean.addConst fe.env } : InLean.FEnv).projBodiesInRange
         ci.name) <;>
-    simp only [h1, h2, h3, h4, h5, Bool.or_false, Bool.or_true, ↓reduceIte,
+    cases h6 : projStepsAllOk gen.consts <;>
+    simp only [h1, h2, h3, h4, h5, h6, Bool.or_false, Bool.or_true, ↓reduceIte,
       Bool.false_eq_true, throw, throwThe, MonadExceptOf.throw,
       StateT.run_bind, StateT.run_lift, Function.comp, except_error_bind, reduceCtorEq] at h
     all_goals
-      suffices hag : a = gen by subst hag; exact ⟨h1, h2, h4, by simp [h5], h3⟩
+      suffices hag : a = gen by subst hag; exact ⟨h1, h2, h4, by simp [h5], h3, h6⟩
       rw [show StateT.run flushC s1 = Except.ok ((), s1.flushed) from rfl, except_ok_bind] at h
     · split at h
       · rw [StateT.run_bind] at h
@@ -264,12 +265,20 @@ theorem projBodiesInRange_ind (hlaws : EnvLaws) (hR : ProjBodiesInRange fe) (hcs
     (hfresh : ∀ ci ∈ a.consts.toList, fe.env.find? ci.name = none)
     (hnd : (a.consts.toList.map (·.name)).Nodup) :
     ProjBodiesInRange { fe with env := a.consts.foldl InLean.addConst fe.env } := by
-  obtain ⟨-, -, -, -, h3⟩ := checkInductiveC_ok h
+  obtain ⟨-, -, -, -, h3, -⟩ := checkInductiveC_ok h
   rw [← Array.foldl_toList] at h3 ⊢
   refine projBodiesInRange_group hlaws hR hcs hfresh hnd ?_
   intro ci hci
   rw [Array.all_eq_true_iff_forall_mem] at h3
   exact h3 ci (Array.mem_toList_iff.1 hci)
+
+/-- **`IndGroupPresBP`'s projection-steps premise from an accepted inductive
+declaration.** -/
+theorem projStepsAllOk_of_checkInductiveC {μ : CheckMode} {lps : List Name} {nP : Nat}
+    {types : List InductiveType} {u : Bool} {s s' : CState} {a : Added}
+    (h : (checkInductiveC μ fe lps nP types u).run s = .ok (a, s')) :
+    projStepsAllOk a.consts = true :=
+  (checkInductiveC_ok h).2.2.2.2.2
 
 /-- **`IndGroupPresBP`'s block premise from an accepted inductive declaration.** -/
 theorem storedBlock_of_checkInductiveC {μ : CheckMode} {lps : List Name} {nP : Nat}

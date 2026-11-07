@@ -30,9 +30,9 @@ premises** (findings of this lane, see DESIGN.md "Lane P3r"):
   `IndGroupPresB` has it): a hidden constructor is not found where the
   former's clause asks for it.
 * `ProjStepsAll`: every intermediate term of every projection body InLean
-  builds is in range (`projStepsOk`, `ProjBodiesTr.lean`).  Not implied by
-  any check InLean makes; proposed as an executable check beside
-  `FEnv.projBodiesInRange`.
+  builds is in range (`projStepsOk`, `ProjBodiesTr.lean`).  InLean checks it
+  beside `FEnv.projBodiesInRange` (`projStepsAllOk`), so `IndGroupPresBP`
+  takes that `Bool` and `projStepsAll_of_ok` reads the premise off it.
 
 **How the entries are read.**  The recogniser's record is the block's split
 (`blockShape?_spec`); the block check's recursor-name stage gives the split's
@@ -744,6 +744,23 @@ Not read off any check InLean makes today. -/
     Lean.ConstantInfo.ctorInfo cv ∈ consts.toList →
     ∀ i < cv.numFields, projStepsOk v.name v.numParams i cv.type = true
 
+/-- **`ProjStepsAll` from InLean's check** (`projStepsAllOk`, which
+`checkInductiveC` runs on the generated constants): the last field's steps
+cover the earlier ones (`projStepsOk_mono`). -/
+theorem projStepsAll_of_ok {consts : Array Lean.ConstantInfo}
+    (h : InLean.projStepsAllOk consts = true) : ProjStepsAll consts := by
+  intro v cv hv hc hcv i hi
+  unfold InLean.projStepsAllOk at h
+  rw [Array.all_eq_true_iff_forall_mem] at h
+  have h1 := h _ (Array.mem_toList_iff.1 hv)
+  simp only [hc] at h1
+  rw [Array.all_eq_true_iff_forall_mem] at h1
+  have h2 := h1 _ (Array.mem_toList_iff.1 hcv)
+  simp only [bne_self_eq_false, Bool.false_or, Bool.or_eq_true, beq_iff_eq] at h2
+  rcases h2 with h2 | h2
+  · omega
+  · exact projStepsOk_mono (by omega) h2
+
 /-- **`BlockPresObl` for one branch** (`pinned`: whether InLean's pinned
 dispatch hits), with the block mark empty, the generated constants seen and
 `ProjStepsAll`. -/
@@ -768,7 +785,7 @@ dispatch hits), with the block mark empty, the generated constants seen and
     (∀ t ∈ ConLeche.declTables d, (L'.find? t.structName).isSome)
 
 /-- **An inductive block keeps the relation** (`IndGroupPresB` with the block
-mark empty and `ProjStepsAll`). -/
+mark empty and InLean's `projStepsAllOk`, which `checkInductiveC` runs). -/
 @[expose] def IndGroupPresBP : Prop :=
   EnvLaws → ∀ (fe : InLean.FEnv) (L : ConLeche.Env) (consts : Array Lean.ConstantInfo) (nP : Nat)
     (s s' : InLean.CState) (d : ConLeche.Declaration),
@@ -776,7 +793,7 @@ mark empty and `ProjStepsAll`). -/
     (∀ ci ∈ consts.toList, ci ∈ InLean.storedBlock consts) →
     (∀ ci ∈ consts.toList, fe.env.find? ci.name = none) → (consts.toList.map (·.name)).Nodup →
     (∀ ci ∈ consts.toList, fe.sees ci.name ci = true) →
-    consts.all InLean.constInRange = true → ProjStepsAll consts →
+    consts.all InLean.constInRange = true → InLean.projStepsAllOk consts = true →
     (InLean.checkIndDeclC .verified fe (InLean.storedBlock consts) nP).run s = .ok ((), s') →
     toDecl (InLean.storedBlock consts) = some d →
     EnvPresI { fe with env := consts.foldl InLean.addConst fe.env }
@@ -917,8 +934,8 @@ named hypothesis (`BlockPresOblB true`; task #493 removes that branch). -/
 theorem indGroupPresBP_of (hPin : BlockPresOblB true) : IndGroupPresBP := by
   intro hlaws fe L consts nP s s' d hP hpend hblk hfresh hnd hsees hrange hsteps hrun hd
   have hb : ∀ b, (InLean.basisNameHit (storedBlock consts)).isSome = b → BlockPresOblB b →
-      _ := fun b hb h => h hlaws fe L consts nP s s' d hP hpend hblk hfresh hnd hsees hrange hsteps
-        hb hrun hd
+      _ := fun b hb h => h hlaws fe L consts nP s s' d hP hpend hblk hfresh hnd hsees hrange
+        (projStepsAll_of_ok hsteps) hb hrun hd
   obtain ⟨h1, h2, h3, h4, h5⟩ := by
     cases hk : (InLean.basisNameHit (storedBlock consts)).isSome
     · exact hb false hk blockPresOblB_recognised

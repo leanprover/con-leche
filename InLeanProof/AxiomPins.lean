@@ -2234,3 +2234,19 @@ info: 'InLeanProof.indGroupPresBP_of' depends on axioms: [propext,
 /-- info: 'InLeanProof.toDecl_recognised' depends on axioms: [propext, Classical.choice, Quot.sound] -/
 #guard_msgs in
 #print axioms InLeanProof.toDecl_recognised
+
+/-- info: 'InLeanProof.fieldsOkB_mono' depends on axioms: [propext, Classical.choice, Quot.sound] -/
+#guard_msgs in
+#print axioms InLeanProof.fieldsOkB_mono
+
+/-- info: 'InLeanProof.projStepsOk_mono' depends on axioms: [propext, Classical.choice, Quot.sound] -/
+#guard_msgs in
+#print axioms InLeanProof.projStepsOk_mono
+
+/-- info: 'InLeanProof.projStepsAll_of_ok' depends on axioms: [propext, Classical.choice, Quot.sound] -/
+#guard_msgs in
+#print axioms InLeanProof.projStepsAll_of_ok
+
+/-- info: 'InLeanProof.projStepsAllOk_of_checkInductiveC' depends on axioms: [propext, Classical.choice, Quot.sound] -/
+#guard_msgs in
+#print axioms InLeanProof.projStepsAllOk_of_checkInductiveC

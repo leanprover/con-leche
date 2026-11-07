@@ -422,6 +422,55 @@ def FEnv.projBodiesInRange (fe : FEnv) (T : Name) : Bool :=
     | _ => true
   | _ => true
 
+/-- Every input of `projBodyAt`'s parameter loop is in range (`EO.inRange`). -/
+def paramsOkB (nP : Nat) (k : Nat) (e : Expr) : Bool :=
+  EO.inRange e && (if k < nP then
+    match EO.stripTop e with
+    | .forallE _ _ b _ => paramsOkB nP (k + 1) (b.inst1I (.bvar (nP - k)))
+    | _ => true
+  else true)
+termination_by nP - k
+
+/-- Every input of `projBodyAt`'s field loop (towards field `i`) is in range. -/
+def fieldsOkB (T : Name) (i : Nat) (j : Nat) (e : Expr) : Bool :=
+  EO.inRange e && (match EO.stripTop e with
+    | .forallE _ _ b _ => if j < i then fieldsOkB T i (j + 1) (b.inst1I (.proj T j (.bvar 0)))
+      else true
+    | _ => true)
+termination_by i - j
+
+/-- **Every intermediate term of `projBodyAt T nP i cty` is in range**, and so
+is the largest parameter variable.  `projBodiesInRange` reads the final
+bodies only; an intermediate term can leave C's range while the final body
+is back in it (a parameter reference under `d` binders is `bvar (nP - k + d)`
+after its parameter's step and is lowered by each field step after it), and
+`mkData` aborts there.  The steps towards field `i` are a prefix of those
+towards any later field, so the last field's test covers them all. -/
+def projStepsOk (T : Name) (nP i : Nat) (cty : Expr) : Bool :=
+  decide (nP ≤ EO.maxBVarIdx) && paramsOkB nP 0 cty &&
+    match projBodyAt.params nP 0 cty with
+    | some r => fieldsOkB T i 0 r
+    | none => true
+
+/-- **`projStepsOk` for every structure of a generated block**: for each
+one-constructor former of `consts` and its constructor in `consts`, the
+steps towards the last field.  The inductive check refuses a block failing
+it as an internal error (`checkInductiveC`), beside `projBodiesInRange`. -/
+def projStepsAllOk (consts : Array ConstantInfo) : Bool :=
+  consts.all fun ci =>
+    match ci with
+    | .inductInfo v =>
+      match v.ctors with
+      | [c] =>
+        consts.all fun cj =>
+          match cj with
+          | .ctorInfo cv =>
+            cv.name != c || cv.numFields == 0 ||
+              projStepsOk v.name v.numParams (cv.numFields - 1) cv.type
+          | _ => true
+      | _ => true
+    | _ => true
+
 /-- Twin of `ProjEntry.typeAtI`: the body at the levels, the subject type's
 arguments and the subject. -/
 def ProjEntry.typeAtI (entry : ProjEntry) (us : List Level) (targs : List Expr) (pe : Expr) :

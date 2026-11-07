@@ -140,6 +140,9 @@ def checkInductiveC (fe : FEnv) (lps : List Name) (nparams : Nat) (types : List 
   let feN : FEnv := { fe with env := gen.consts.foldl addConst fe.env }
   unless gen.consts.all fun ci => feN.projBodiesInRange ci.name do
     throw (.internal "too many bound variables in a projection body")
+  -- and so is every intermediate term building them
+  unless projStepsAllOk gen.consts do
+    throw (.internal "too many bound variables in a projection body")
   -- the generator's environment is not `fe`'s
   flushC
   if isUnsafe then

@@ -25,7 +25,7 @@ domain read off.  con-leche's install computes every body once
 * `hasPis_iff_structProjBodies`: InLean's table test (`hasPis (nP + nF)`) is
   con-leche's `structProjBodies` succeeding.
 
-**`projStepsOk` is not implied by anything InLean checks.**  The test
+**`projStepsOk` is checked by InLean (`InLean.projStepsAllOk`).**  The test
 `FEnv.projBodiesInRange` (P3c) reads the *final* bodies; an intermediate
 term can be out of range while the final body is not: a parameter reference
 at depth `d` in a later field's domain becomes `bvar (nP - k + d)` after the
@@ -34,10 +34,8 @@ fields before it, a reference with `d + 1 = maxRange` past the parameter
 binder is at `maxRange` after the step and at `maxRange - i` at the end.
 Lean's `Expr.mkData` panics there (C aborts), and the proof cannot say what
 the cached range of such a node is, so an instantiation step after it is not
-read.  `projStepsOk` is the check that closes it (a pass of `EO.inRange`
-over each step's input and `nP < maxRange`); it is stated here as a
-`Bool` so that InLean can run it verbatim (the next executable change), at
-which point the premise is read off the accepted run as P3c's test is.
+read.  `checkInductiveC` runs `projStepsOk` at each structure's last field
+(`projStepsOk_mono` gives the earlier ones) beside `projBodiesInRange`.
 -/
 
 public section
@@ -202,31 +200,47 @@ theorem stripTop_forallE (hfv : FVarsOnly fv) : ∀ {e : Expr} {a b : ConLeche.E
 
 /-! ## The intermediate terms' range -/
 
-/-- Every input of `projBodyAt`'s parameter loop is in range (`EO.inRange`). -/
-@[expose] def paramsOkB (nP : Nat) (k : Nat) (e : Expr) : Bool :=
-  EO.inRange e && (if k < nP then
-    match EO.stripTop e with
-    | .forallE _ _ b _ => paramsOkB nP (k + 1) (b.inst1I (.bvar (nP - k)))
-    | _ => true
-  else true)
-termination_by nP - k
+/-- The field steps towards field `i` are a prefix of those towards a later
+field. -/
+theorem fieldsOkB_mono (T : Name) (i : Nat) : ∀ (m j : Nat) (e : Expr) (i' : Nat),
+    i - j = m → i' ≤ i → fieldsOkB T i j e = true → fieldsOkB T i' j e = true := by
+  intro m
+  induction m with
+  | zero =>
+    intro j e i' hm hi h
+    rw [fieldsOkB] at h ⊢
+    simp only [Bool.and_eq_true] at h ⊢
+    refine ⟨h.1, ?_⟩
+    split
+    · simp only [show ¬ j < i' by omega, ↓reduceIte]
+    · rfl
+  | succ m ih =>
+    intro j e i' hm hi h
+    rw [fieldsOkB] at h ⊢
+    simp only [Bool.and_eq_true] at h ⊢
+    obtain ⟨h1, h2⟩ := h
+    refine ⟨h1, ?_⟩
+    split
+    · next b _ hst =>
+      rw [hst] at h2
+      simp only [show j < i by omega, ↓reduceIte] at h2
+      split
+      · exact ih (j + 1) _ i' (by omega) hi h2
+      · rfl
+    · rfl
 
-/-- Every input of `projBodyAt`'s field loop (towards field `i`) is in range. -/
-@[expose] def fieldsOkB (T : Name) (i : Nat) (j : Nat) (e : Expr) : Bool :=
-  EO.inRange e && (match EO.stripTop e with
-    | .forallE _ _ b _ => if j < i then fieldsOkB T i (j + 1) (b.inst1I (.proj T j (.bvar 0)))
-      else true
-    | _ => true)
-termination_by i - j
-
-/-- **Every intermediate term of `projBodyAt T nP i cty` is in range**, and so is
-the largest parameter variable.  What `projBodyAt_tr` needs beyond the
-constructor type's own range: see the module docstring. -/
-@[expose] def projStepsOk (T : Name) (nP i : Nat) (cty : Expr) : Bool :=
-  decide (nP < maxRange) && paramsOkB nP 0 cty &&
-    match projBodyAt.params nP 0 cty with
-    | some r => fieldsOkB T i 0 r
-    | none => true
+/-- **`projStepsOk` at a later field gives it at an earlier one.** -/
+theorem projStepsOk_mono {T : Name} {nP i i' : Nat} {cty : Expr} (hi : i' ≤ i)
+    (h : projStepsOk T nP i cty = true) : projStepsOk T nP i' cty = true := by
+  unfold projStepsOk at h ⊢
+  simp only [Bool.and_eq_true] at h ⊢
+  refine ⟨h.1, ?_⟩
+  obtain ⟨-, h2⟩ := h
+  split
+  · next r hr =>
+    rw [hr] at h2
+    exact fieldsOkB_mono T i _ 0 r i' rfl hi h2
+  · rfl
 
 theorem structProjPs_drop {nP k : Nat} (hk : k < nP) :
     (ConLeche.structProjPs nP).drop k =
@@ -342,6 +356,10 @@ theorem projBodyAt_tr {T : Name} {nP nF i : Nat} {cty : Expr} {ccty : ConLeche.E
   unfold projStepsOk at hok
   simp only [Bool.and_eq_true, decide_eq_true_eq] at hok
   obtain ⟨⟨hnP, hpar⟩, hfld⟩ := hok
+  replace hnP : nP < maxRange := by
+    have : EO.maxBVarIdx = 1048574 := rfl
+    have : maxRange = 1048575 := rfl
+    omega
   unfold ConLeche.structProjBodies at hs
   cases hr : ConLeche.Expr.instPisAtLift (ConLeche.structProjPs nP) ccty with
   | none => rw [hr] at hs; cases hs
