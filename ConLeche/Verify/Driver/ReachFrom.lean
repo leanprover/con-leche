@@ -4,7 +4,6 @@ public import ConLeche.Driver.Reach
 public import ConLeche.Verify.Frontend.ModelIO
 import ConLeche.Verify.Frontend.Olean.Present
 import ConLeche.Verify.Frontend.Olean.Reads
-import ConLeche.Verify.Frontend.Olean.Files
 import ConLeche.Verify.Frontend.Olean.Equiv
 public import ConLeche.Verify.Frontend.Olean.Sparse
 

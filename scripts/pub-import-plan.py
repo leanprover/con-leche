@@ -54,6 +54,13 @@ DIR   = os.environ.get('PUBPLAN_DIR', '_tmp/m3')
 # a tree whose `rfl`s stop closing, so they stay public and the gate must not
 # ask for them again.
 FALLBACK = {
+    # task #448: `ReachFrom.lean`'s statements name `PartKey`, `ModelIO.AllOk` and `SM.Good`
+    # (the last by dot-notation) through these.  Each measured by demoting it alone (unknown
+    # identifier `PartKey`, `ReachFrom.lean:42`; unknown constant `ModelIO.AllOk`, `:225`;
+    # invalid field `Good`, `:149`).
+    ('ConLeche.Verify.Driver.ReachFrom', 'ConLeche.Driver.Reach'),
+    ('ConLeche.Verify.Driver.ReachFrom', 'ConLeche.Verify.Frontend.ModelIO'),
+    ('ConLeche.Verify.Driver.ReachFrom', 'ConLeche.Verify.Frontend.Olean.Sparse'),
     # task #469 (measured in #463's merge): `Verify/Rules/Refine.lean`'s statements name
     # `inferTypeCoreIO`, `whnfTelescope`, `EnvRefines` through these (unknown identifier at
     # `Refine.lean:43`, `:68`, `:30` when each is demoted alone).

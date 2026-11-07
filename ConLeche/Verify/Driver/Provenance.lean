@@ -2,15 +2,12 @@ module
 
 public import ConLeche.Verify.Driver.ReachFrom
 public import ConLeche.Verify.Driver.Worker
-import ConLeche.Verify.Frontend.Olean.Present
 import ConLeche.Verify.Frontend.Olean.Reads
-import ConLeche.Verify.Frontend.Olean.Files
 import ConLeche.Verify.Frontend.Olean.Equiv
 import ConLeche.Verify.Frontend.Olean.Lazy
 public import ConLeche.Verify.Frontend.Olean.Emit
 public import ConLeche.Verify.Frontend.Olean.Prefix
 import ConLeche.Verify.Frontend.Prepare
-import ConLeche.Verify.Cached.Fill
 import ConLeche.Verify.Frontend.Olean.Group
 
 /-!
