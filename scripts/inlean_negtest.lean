@@ -28,7 +28,11 @@ def main : IO UInt32 := do
   initSearchPath (← findSysroot)
   let env := (← importModules #[{module := `Init}] {} (loadExts := false) (level := .private)).toKernelEnv
   let mut bad := 0
-  for (label, d) in cases do
+  -- `Quot.sound` again, at its own type: the pin matches, the name is taken
+  let dupSound := (env.find? ``Quot.sound).map fun ci =>
+    ("duplicate Quot.sound", Declaration.axiomDecl
+      { name := ci.name, levelParams := ci.levelParams, type := ci.type, isUnsafe := false })
+  for (label, d) in cases ++ dupSound.toList do
     let off := (env.addDeclCore 0 0 d none).isOk
     let mine ← match InLean.addDecl env d with
       | .ok _ => pure "accept"

@@ -111595,3 +111595,94 @@ pushed one by one (`presI_one`); `markQuot` changes no lookup
 Gates: `lake build InLean InLeanProof inlean-replay` warning-free;
 `tests/layering.sh`, `tests/trust-surface.sh`, `tests/no-local-paths.sh`
 pass.
+
+### Lane P3c: the steps' side conditions — projection range, block constants, `Quot.sound` (2026-11-07)
+
+**Executable changes** (`InLean/*`; no verdict changes on Init, Std, Lean).
+* *Projection bodies in range* (P3b's finding 2).  `checkInductiveC` builds
+  the extended environment and refuses, as an internal error ("too many bound
+  variables in a projection body", the class of abstraction's range poison),
+  a generated structure one of whose bodies (`projBodyAt`, read as
+  `findProj?` reads the table) is not `EO.inRange`
+  (`FEnv.projBodiesInRange`).  The test sits in `checkInductiveC`, before the
+  unsafe branch, not in the block check's `checkStructProjTableF`: an unsafe
+  block's tables are read as a safe one's, and the proof reads the test off
+  the accepted run without walking the block check.
+* *Block constants only* (P3b's finding 1).  The generator's output is
+  checked to hold only formers, constructors and recursors (`isBlockConst`,
+  internal error otherwise).  Proving it of `Ind.genInductive` would mean
+  reading its nested-restoration loop; the check is one pass.
+* *`Quot.sound`* (P3b's finding 3), now the twin of `checkQuotRecordC fe
+  .sound`.  **FINDING, fixed:** InLean matched the axiom by `quotSoundPin.matches`
+  — the axiom's type at the pin's level name (`canonAt`), which is not
+  injective: `axiom Quot.sound.{w}` whose type mixes `w` with an undeclared
+  `u` was accepted, and InLean then stored a type con-leche's install
+  (`quotAt .sound`, the pin at `w`) does not have; and the arm had **no
+  freshness check**, so a second `Quot.sound` was accepted (official:
+  already declared).  Now: `quotSoundHit` (one level parameter, the type
+  `clEq` the pin instantiated at the axiom's level name, as `quotPinHit`), then
+  `Eq`, `Quot`, `Quot.mk` stored, then the name fresh — con-leche's order and
+  verdict classes.  `scripts/inlean_negtest.lean` gains "duplicate Quot.sound"
+  (9/9 agree).
+
+**Proofs** (`InLeanProof/StepPres.lean`, new; no `sorry`, no new axiom; 17
+theorems pinned, `presI_quotSound` with the stop-gap `mkData` axioms as
+`quotGroupPres`).
+* `ProjBodiesInRange` is kept by every step: `projBodiesInRange_group` (fresh,
+  distinct constants added, the check at their names on the extended
+  environment), `projBodiesInRange_one` (one fresh non-former: every
+  non-inductive step), `projBodiesInRange_ind` (from an accepted
+  `checkInductiveC`).  A stored structure's table reads as before because its
+  constructor is stored (`CtorsStored`, `ctorsStored_of_pres` from
+  `EnvPresI`'s former clause; `findProj_foldl_old`).  **How P4 gets it at the
+  start**: `projBodiesInRange_of_none` — any environment where `findProj?`
+  finds nothing, the empty one included (`presI_empty`'s); so
+  `ssimI_of_pres`'s premise is carried by the fold from the first step on.
+  (An unsafe block keeps it too; it has no `EnvPresI`, so P4 must take
+  `CtorsStored` there from wherever it takes the relation, or the ruling on
+  hiding unsafe constants.)
+* `checkInductiveC_ok`: an accepted run returns constants that are block
+  constants, in range, and pass the projection test;
+  `storedBlock_of_checkInductiveC` gives `IndGroupPresB`'s block premise.
+* `checkAxiomC_quotSound` (an accepted `Quot.sound`: the hit, the name fresh,
+  the axiom added) and **`presI_quotSound`**: the step keeps `EnvPresI`
+  (`toExpr_of_clEq` from the hit, `storedT_instantiateLevelParams` at the
+  axiom's level name, `presI_one`).
+* `BlockPresObl`'s case split: `checkIndDeclC_ok` (pinned and `pinListOk`, or
+  recognised: `indParamsOk`, `blockShape? = some p`, `genEntriesAgree` and
+  `checkBlockKS` accepted; the shapeless branch and a parameter mismatch
+  throw, `checkShapelessS_not_ok`), and `basisNameHit_tr` (con-leche's
+  `basisNameHit` on `toBlock block` is InLean's through `trKind`;
+  `toBlock_names`).
+
+**What remains of `BlockPresObl`** (not started beyond the split):
+* *Pinned branch*: con-leche installs `(trKind k).atBlock cb`, no table.
+  Needed: InLean's pins translate to con-leche's (closed, `decide` per kind);
+  `ciAtLps` against `ConstantInfo.atLps` at a variable level list
+  (`storedT_instantiateLevelParams` generalised from closed `us` to
+  `ps.map .param`); the `clEq` of every type and rule (`toExpr_of_clEq`); a
+  former's `capsOf` on the extended environment against the pin's stored
+  caps; each recursor's `recFireAt rv false` against the pin's rule firing
+  modes and `majorIdxOf`/`rulePrefixOf`/`k` (from `pinAgrees`);
+  `TableRelI … none` (no pinned member has a table).
+* *Recognised branch*: InLean's `blockShape?` against con-leche's on `cb`
+  (`blockSplit`, `blockMemberCounts?`, the reserved names, `stripPis` against
+  `piBody?` for the sort, `Level.isEquiv`, `blockGroups`, the recursors'
+  order); then the former entries by `toCaps_capsOf` (its premises from
+  `genEntriesAgree`'s run, still to be read), the constructor entries, the
+  recursor entries (`recFireAt` against `recFire`: the major's domain at
+  `mI`, `dropVars`, the subterm range, the head's membership), and the tables
+  (`projBodyAt` against `structProjBodies`: instantiation at the `bvar`
+  values `bvar (nP - k)` read through the translation — `toExpr_instantiate`
+  covers closed values only, a lifted-`bvar` variant is needed; the range is
+  now `ProjBodiesInRange`'s).
+* Unchanged: `ProjGuardSpecI` (after task #492), and the pending rulings
+  (unsafe/`partial` constants in safe checks; `sorryAx` under
+  `theoremConfig`), which no statement here depends on.
+
+**Validation** (`inlean-replay --kernel=inlean --compare --quiet`, final
+binary): Init 64,530, Std 110,064, Lean 199,645 declarations accepted, 0
+rejected, 0 declined, 0 exact and 0 cosmetic mismatches.  `instructions:u` on
+Init 864.3 G (863.9 G at P2-close: +0.05 %).  `scripts/inlean_negtest.lean` 9/9
+agree.  `lake build InLean InLeanProof inlean-replay` warning-free;
+`tests/layering.sh`, `tests/trust-surface.sh`, `tests/no-local-paths.sh` pass.
