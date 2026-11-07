@@ -113778,3 +113778,99 @@ what an export reads.  The options as they stand:
   the shared tables, so its total is one decode of the closure (the merged run's).  `--module`
   and `--schedule` workers keep R1.  Two semantics, so not recommended.
 * **R3, the plain version everywhere**, at the cost above (×1.9 to ×2.3 on Mathlib workers).
+
+### #501 cont. 2 (R1: the exports completed on demand; gap B; fixtures; cost; 2026-11-07)
+
+**Rulings.**  R1 (maintainer): the exports are completed on demand.  Completion repairs each
+export where it was made (dangling relative to the exporting module and its public-import
+closure, completed from that module's view, the clash rule on completed copies), for the names
+reached from the context's records and every copy of every clashing name the context reads,
+recursively.  That is the check as designed, not a restriction of a fuller one.  Loaded copies
+stay clash-checked eagerly through the name tables.  The public-import route of `captureOne` is
+the check, not a shortcut: locating a read in the home's view and `agreeCheck` is the fallback
+(on Lean's output: completed names and clashing copies).  Pinned names: no code change (ruling
+of 2026-11-07, superseding the earlier `.no`); two copies at a `pinnedLeafName` agree because
+the model gives both the pinned value, to be proved in the composition from the home workers'
+acceptance and the pin check at install.
+
+**The code** (`ConLeche/Driver/Reach.lean`).  The capture check already completed a dangling read
+from its home's view, and it already took a read from the home's public-import closure as the
+home's copy.  What R1 adds is two pieces:
+* `clashPartners`: when a record storing a clashing name is added, every copy of that name
+  (`ReachEnv.copies`, `clashCopiesOf` over `WorkerReads.clashes`: each copy's module and
+  statement) has its statement's names capture-checked as reads of the copy's module
+  (`ReachCache.partners`).  This closes gap A: at a home `h` whose context reads `y` from `M2`,
+  the copy of `M1`, which an importer reaches through `h`'s public-import closure, reads its
+  statement as `h` does, so `Agree dev h M1 y` holds by `proof`.
+* `agreeCheck`'s partner reads are reads of the partner copy's module (`s₂.part.mod`), not of the
+  reader's home: the copy's statement means what its own module's export means.
+
+**Gap B** (`storedNamesOk`).  Every name a record stores has no importer copy or one of the
+record's home, and no located copy or one of the home; one with neither is located at the
+home's private part, so that a later read compares with it.  Does the per-export completion
+already cover it?  Partly.  A constructor or block member is read by its own group record (the
+recursor's rules, the type former's `all`), so its capture check already compares the
+importer's copy with the home's view.  A recursor is read by nothing in its group, and an
+exported part need not hold every recursor, so the stored-names check is needed for it.
+
+**Proofs.**  `storedNamesOk_ok`, `storedNamesOk_within`, `CacheOk.insert_located'`; `reachGo_inv`,
+`reachGo_from`, `reachGo_within`, `reach_within`, `reach_from` repaired for the new step.
+
+**Fixtures** (`tests/olean.sh`, 304 → 311; `tests/olean/build.sh`).  `DnM1`/`DnM2`/`DnH`: each `DnM`
+exports a theorem `y` whose type the gate patches to `foo = foo`, `foo` dangling in each export
+(DgCapQ's in `DnM1`, DgCapQ2's in `DnM2`).  Lean writes no such exported statement, and
+Lean-made dangling statements carry module-mangled names, so two modules never share one.  The
+gate's `xpatch` appends the new objects to each part, each after what it points to, up to a new
+`ModuleData`.  `DnH` loads both `y`: rejected, "name capture at foo, read by module DnM2".
+Lean, importing the files, completes nothing and merges the two `y` (it then refuses `DnH`'s own
+`z`, elaborated against `y : True`); a completing Lean refuses the two `foo`.  `GbG`/`GbG2`/`GbH`:
+`GbG`'s exported part without `S.rec` (dropped by the gate), and `GbG2`'s definition named `S.rec`,
+which `GbG2`'s exposed `w` reads.  `GbH` is compiled against a stand-in `GbG2` (no `S.rec`).
+`GbH` reaches `S`'s group first, then `w`: rejected, "a record read from module GbG stores S.rec,
+which the context reads from module GbG2".  The binary of `modular`'s tip accepts it.  Lean,
+which loads no `S.rec` of `GbG` at `GbH`, accepts it, but the shape is one Lean never writes.
+
+**Cost** (`perf stat -e instructions:u`, `--jobs=8`, one run each, under the guard, against
+`modular`'s tip 4687e7ea8; Mathlib v4.35.0):
+
+| worker | base | R1 |
+|---|---|---|
+| `Init.Data.Nat.Lemmas` | 9.192 G | 9.194 G (+0.02 %) |
+| `Mathlib.GroupTheory.Coxeter.Basic` | 8.989 G | 8.987 G (−0.01 %) |
+| `Mathlib.Analysis.SpecialFunctions.Gamma.Basic` | 15.757 G | 15.768 G (+0.07 %) |
+| `Mathlib.RingTheory.WittVector.MulP` | 9.070 G | 9.070 G (+0.00 %) |
+
+All exit 0, and the records reached are unchanged.
+
+**Documents.**  The reach's module docstring, OVERVIEW's paragraph on a module's context and
+§7's table row and con-leche paragraph state the completion on demand and the check.
+
+**Merged** `modular` at 0118b6ce8 (#491–#493).  `lake build`, `lake test`; the olean gate after it.
+
+### #501 cont. 3 (the state at the end of the session; not landed)
+
+**On the branch** `agent/501-compose` (at the commit carrying this record): R1, gap B, the fixtures,
+the documents (cont. 2), `modular` at 0118b6ce8 merged in and the reach's proofs adapted to it
+(`ModelIO.Within.pure`, the handle argument of `AllOk`).  `lake build` and `lake test` pass
+warning-free, as do the olean gate (311/311 under the guard), overview links, the quote gate,
+layering, the trust surface, no-local-paths and the whitepaper's links gate.  Not run yet:
+`tests/arena.sh` in full, shake, challenge, the fragment gate and the whitepaper build.
+
+**Left, in order:**
+1. **The pinned names' agreement** (ruling of 2026-11-07): a lemma that two copies at a
+   `pinnedLeafName` agree.  The model gives both the pinned value, valid for every copy, since
+   each copy's home accepted it under the install's pin check (#493's uniform one).  This is the
+   maintainer's argument: a crafted `theorem Nat.add : True` fails its home's own checks.  Then
+   `Agree` (or `agree_alike`) gets a pinned route.
+2. **The composition** `main_modular_no_False` and its one-process twin, as #501's first record
+   lists.  The development is built from `checkGraphG_ok`'s closure and ranks, and each worker's
+   context, own records and homes; `LocalOk` follows from `worker_local`, `interfaceOk_of_workers`
+   and `presented_of_worker`.  Still to prove: `below`/`src_lt`, a home's view's first copy being
+   its index's first copy, and an accepted own record's reads being stored.  The bulk is `reads`:
+   a worklist invariant recording which branch of `captureOne` passed for every read and every
+   partner read (now including `clashPartners`' reads, each as a read of the copy's module), the
+   stored-names facts of `storedNamesOk`, and `Agree` by induction on the context order.  Its
+   routes: `same` at the home's own copy; `via` at the public-import route, with
+   `Agree dev h M1 y` at `h` by `same` (one copy) or by `proof` from `h`'s `clashPartners` and
+   clash statuses; `proof` at `agreeCheck`.
+3. The gates in full, then land on `modular` with `--no-ff`.

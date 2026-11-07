@@ -759,8 +759,8 @@ theorem CacheOk.insert_located' {c : ReachCache} (hc : CacheOk sp fs c) {y : Nam
   hc.insert_located hl hs c.completed
 
 theorem storedNamesOk_ok (he : EnvOk sp fs env) (h : Name) :
-    ∀ (c : ReachCache) (ns : List Name), CacheOk sp fs c →
-      ModelIO.AllOk (storedNamesOk env c h ns) fs fun p => CacheOk sp fs p.1
+    ∀ (c : ReachCache) (ns : List Name), CacheOk sp fs c → ∀ {hs₀ : HS},
+      ModelIO.AllOk (storedNamesOk env c h ns) fs hs₀ fun p => CacheOk sp fs p.1
   | c, [], hc => by simpa [storedNamesOk] using hc
   | c, n :: ns, hc => by
     unfold storedNamesOk
@@ -773,18 +773,20 @@ theorem storedNamesOk_ok (he : EnvOk sp fs env) (h : Name) :
         · exact storedNamesOk_ok he h c ns hc
         · simpa using hc
       · simp only [ModelIO.allOk_bind]
-        intro x hx
-        obtain ⟨h1, h2⟩ := lookOf_ok he hc _ x hx
+        intro x _ hx
+        obtain ⟨h1, h2⟩ := lookOf_ok he hc _ x _ hx
         obtain ⟨c', r⟩ := x
         cases r with
         | error e => simpa using h1
         | ok l =>
-          obtain ⟨t, ht, rfl⟩ := h2 l rfl
+          obtain ⟨t, ht, hl⟩ := h2 l rfl
           simp only []
           split
           · rename_i q hq
-            exact storedNamesOk_ok he h _ ns
-              (h1.insert_located' rfl ⟨t, ht, (lookTable_spec t hq).1⟩)
+            have hq' : (lookTable t)[n]? = some q := hl ▸ hq
+            have hc' : CacheOk sp fs { c' with located := c'.located.insert n ⟨⟨h, .private⟩, q⟩ } :=
+              h1.insert_located' rfl ⟨t, ht, (lookTable_spec t hq').1⟩
+            exact storedNamesOk_ok he h _ ns hc'
           · simpa using h1
 
 /-! ## A record read -/
@@ -1168,8 +1170,8 @@ theorem reachGo_from (he : EnvOk sp fs env) :
               | error e => simp
               | ok u =>
                 simp only [ModelIO.allOk_bind]
-                intro z hz
-                have h4 := storedNamesOk_ok he h c₂ _ h3 z hz
+                intro z _ hz
+                have h4 := storedNamesOk_ok he h c₂ _ h3 z _ hz
                 obtain ⟨c₃, r⟩ := z
                 cases r with
                 | error e => simp

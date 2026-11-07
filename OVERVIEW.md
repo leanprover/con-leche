@@ -674,14 +674,19 @@ definition's are never read), an inductive group is presented whole, always read
 home's private part (an exported part lists a group's recursors sorted by name and need not hold
 them all), and a compiler-trust name (`Lean.reduceBool`, `Lean.reduceNat`) is presented as its
 statement only where its home declares an opaque constant or an axiom there. What a record reads
-(`recordReads`: its constants' and tables' names, `RecordScoped`'s) is pushed. A name the index
-lacks is located in its reader's home's view by headers and name tables (the home's own private
-part, then the parts its header fixpoint loads, the first copy) and read from its module's
-private part as its statement; a name located nowhere is a reject. Every read of a record is
-checked against its reader's home: the context's copy stands for the home's when the home's
-public-import closure holds its module and the name is in that module's exported part, otherwise
-the copy the home's view locates must agree with it (one module, or two proofs of one
-statement whose every name is checked so too, as a read of that home), else the module is
+(`recordReads`: its constants' and tables' names, `RecordScoped`'s) is pushed. A record of home `h` means by a name it reads the copy `h`'s export
+holds: `h`'s own, or the copy of a module of `h`'s public-import closure that exports it. A name neither holds is
+dangling in `h`'s export and is completed where the export was made: located in `h`'s view by
+headers and name tables (`h`'s own private part, then the parts its header fixpoint loads, the
+first copy) and read from its module's private part as its statement, its own reads dangling or
+not relative to that module; a name located nowhere is a reject. Exports are completed on
+demand: for the names the context's records read, and for every copy of every clashing name the
+context stores. The capture check is the same rule: a read passes when the context's copy is
+the home's own or comes from a module of the home's public-import closure that exports it;
+otherwise the copy the home's view locates (on Lean's output, a completed name or a clashing
+copy) must agree with the context's: one module, or two proofs of one statement whose every
+name is checked so too, as a read of that copy's module. Every name a group stores has no
+importer copy or one of the group's home. Else the module is
 rejected (name capture). A copy is a proof if it is a theorem,
 its home declares a theorem at an exported axiom, or it is a definition, opaque constant or axiom
 whose type the kernel infers to be a proposition at the context; every name two loaded modules hold

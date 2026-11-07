@@ -592,7 +592,7 @@ theorem reachGo_inv (env : ReachEnv ModelIO) (fs : FS) (rs : List Name) :
               rcases r with e | u
               · simp at h
               · simp only [ModelIO.bind_ok] at h
-                obtain ⟨⟨c₃, r⟩, -, h⟩ := h
+                obtain ⟨⟨c₃, r⟩, _, -, h⟩ := h
                 rcases r with e | u
                 · simp at h
                 · simp only at h

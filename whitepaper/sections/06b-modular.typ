@@ -507,10 +507,11 @@ satisfy the scope conditions.
   [Copies no module reads together; nothing asks them to agree],
   [A private name `_private.…`], [An ordinary name, read from the module
     that declares it],
-  [An exported entry mentioning a constant the importer does not load],
-  [The importer reads, in addition, the declaring module's view holding
-    that constant as an assumption (an inductive type with its block),
-    found through the declaring module's imports],
+  [An exported entry mentioning a constant that neither its module's exported level nor a
+    module of that module's `public import` closure holds],
+  [The export completed where it was made: the importer reads, in addition, the view of
+    the module the exporting module loads first holding that constant, as an assumption (an
+    inductive type with its block), and that copy is read like a loaded one],
   [`backward.privateInPublic`, which exports private constants with their values],
   [Entries like any other],
 )
@@ -522,7 +523,13 @@ satisfy the scope conditions.
   #src("ConLeche/Modular.lean", 82, 92)[presents], as itself or as its
   statement, so an inductive type reaches an importer with its whole block;
   every context name is read from one module; what a context record reads
-  is stored in the context, and the source's copy of each such name
+  is stored in the context. A record of module $h$ means by a name it reads
+  the copy $h$'s export holds: $h$'s own, or that of a module of $h$'s
+  `public import` closure exporting it; a name neither holds is completed
+  from $h$'s view, on demand, for the names the context reads and every copy
+  of every clashing name it stores. The importer's check is that rule: a read
+  passes when the context's copy is that one, and otherwise the copy $h$'s
+  view locates must agree with the context's. So the source's copy of each such name
   #src("ConLeche/Modular.lean", 206, 220)[agrees] with the context's: it is
   that module's, or one record loaded through two paths, or both are proofs
   of one statement whose names agree, a proof being a theorem where it comes

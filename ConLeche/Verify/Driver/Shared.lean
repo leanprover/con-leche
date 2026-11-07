@@ -396,7 +396,7 @@ theorem captureAll_within (h : OleanReads.Within fs env.rd sp) (m : Name) :
 theorem storedNamesOk_within (h : OleanReads.Within fs env.rd sp) (m : Name) :
     ∀ (c : ReachCache) (ns : List Name),
       ModelIO.Within fs (storedNamesOk env c m ns) (storedNamesOk (env.onPath sp) c m ns)
-  | c, [] => by simp only [storedNamesOk]; exact ModelIO.Within.refl _
+  | c, [] => by simp only [storedNamesOk]; exact ModelIO.Within.pure _
   | c, n :: ns => by
     simp only [storedNamesOk]
     have he : importerSpot (env.onPath sp) n = importerSpot env n := rfl
