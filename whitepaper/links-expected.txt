@@ -1285,18 +1285,18 @@
    795        Infer env Γ (b.inst v) B →
    796        Infer env Γ (letE T v b) B
 
-== ConLeche/Kernel/Core.lean#L988-L990
-   988      | .letE _ v b =>
-   989        -- Task #342 S0: ζ
-   990        r.whnfCore cheap depth (b.instantiate1 v)
+== ConLeche/Kernel/Core.lean#L987-L989
+   987      | .letE _ v b =>
+   988        -- Task #342 S0: ζ
+   989        r.whnfCore cheap depth (b.instantiate1 v)
 
-== ConLeche/Kernel/Core.lean#L1222-L1227
-  1222      | .letE ty v b => do
-  1223        -- Task #342 S0: official `infer_let`
-  1224        let _ ← ensureSort r env depth (← r.infer depth ty)
-  1225        unless ← r.defeq depth (← r.infer depth v) ty do
-  1226          throw (.invalid "let value type mismatch")
-  1227        r.infer depth (b.instantiate1 v)
+== ConLeche/Kernel/Core.lean#L1221-L1226
+  1221      | .letE ty v b => do
+  1222        -- Task #342 S0: official `infer_let`
+  1223        let _ ← ensureSort r env depth (← r.infer depth ty)
+  1224        unless ← r.defeq depth (← r.infer depth v) ty do
+  1225          throw (.invalid "let value type mismatch")
+  1226        r.infer depth (b.instantiate1 v)
 
 >>> whitepaper/sections/02b-model-proof.typ
 
@@ -2250,39 +2250,39 @@
    545  "reduce, then continue": `redL`.
    546  -/
 
-== ConLeche/Kernel/Core.lean#L1370-L1376
-  1370  /-- The innermost level of `defeqLams`: the opened bodies, and at the
-  1371  verified mode their FULL-grade types. -/
-  1372  def defeqLamsInner (r : CoreFns m) (depth : Nat) (b₁ b₂ : Expr) : m Bool := do
-  1373    unless ← r.defeq (depth + 1) b₁ b₂ do return false
-  1374    if mode.verifiedChecks then
-  1375      unless ← r.defeq (depth + 1) (← r.infer (depth + 1) b₁)
-  1376          (← r.infer (depth + 1) b₂) do return false
+== ConLeche/Kernel/Core.lean#L1369-L1375
+  1369  /-- The innermost level of `defeqLams`: the opened bodies, and at the
+  1370  verified mode their FULL-grade types. -/
+  1371  def defeqLamsInner (r : CoreFns m) (depth : Nat) (b₁ b₂ : Expr) : m Bool := do
+  1372    unless ← r.defeq (depth + 1) b₁ b₂ do return false
+  1373    if mode.verifiedChecks then
+  1374      unless ← r.defeq (depth + 1) (← r.infer (depth + 1) b₁)
+  1375          (← r.infer (depth + 1) b₂) do return false
 
-== ConLeche/Kernel/Core.lean#L443-L448
-   443        -- Task #342 S0: the λ/η tax (T2)
-   444        if mode.verifiedChecks then
-   445          unless ← r.defeq (depth + 1)
-   446              (← r.infer (depth + 1)
-   447                (body₁.instantiate1 (.fvar depth ty₁)))
-   448              (cod₂.instantiate1 (.fvar depth ty₁)) do return false
+== ConLeche/Kernel/Core.lean#L442-L447
+   442        -- Task #342 S0: the λ/η tax (T2)
+   443        if mode.verifiedChecks then
+   444          unless ← r.defeq (depth + 1)
+   445              (← r.infer (depth + 1)
+   446                (body₁.instantiate1 (.fvar depth ty₁)))
+   447              (cod₂.instantiate1 (.fvar depth ty₁)) do return false
 
-== ConLeche/Kernel/Core.lean#L811-L825
-   811      | some (.recInfo cv mI rP isK rules) =>
-   812        let args := e.getAppArgs
-   813        -- checker change #9: the recursor's level arity, guarded as
-   814        -- `unfoldDefinition` guards it (`Core.lean:174`).  The official
-   815        -- kernel tests this immediately before instantiating the rule's
-   816        -- RHS (`src/kernel/inductive.h:105`, present since v4.0.0);
-   817        -- lean4lean does the same (`Inductive/Reduce.lean:98`) and
-   818        -- nanoda's `subst_expr_levels` asserts it.  Without it
-   819        -- `rl.rhs.instantiateLevelParams cv.levelParams us` can leak a
-   820        -- level parameter the subject never had.  Ungated: the reference has it
-   821        -- unconditionally, so a mode gate would break parity.
-   822        -- task #342 L18: the stored type's syntactic arity, which the
-   823        -- uncertified recursor spine is read against
-   824        if args.length = mI + 1 ∧ us.length = cv.levelParams.length ∧
-   825            (Expr.peelPis (mI + 1) cv.type).isSome = true then
+== ConLeche/Kernel/Core.lean#L810-L824
+   810      | some (.recInfo cv mI rP isK rules) =>
+   811        let args := e.getAppArgs
+   812        -- checker change #9: the recursor's level arity, guarded as
+   813        -- `unfoldDefinition` guards it (`Core.lean:174`).  The official
+   814        -- kernel tests this immediately before instantiating the rule's
+   815        -- RHS (`src/kernel/inductive.h:105`, present since v4.0.0);
+   816        -- lean4lean does the same (`Inductive/Reduce.lean:98`) and
+   817        -- nanoda's `subst_expr_levels` asserts it.  Without it
+   818        -- `rl.rhs.instantiateLevelParams cv.levelParams us` can leak a
+   819        -- level parameter the subject never had.  Ungated: the reference has it
+   820        -- unconditionally, so a mode gate would break parity.
+   821        -- task #342 L18: the stored type's syntactic arity, which the
+   822        -- uncertified recursor spine is read against
+   823        if args.length = mI + 1 ∧ us.length = cv.levelParams.length ∧
+   824            (Expr.peelPis (mI + 1) cv.type).isSome = true then
 
 == whitepaper/Fragment/ValueReading.lean#L177-L184
    177  /-- **Untyped lambda congruence is unsound** in the value-driven model: the
@@ -2463,13 +2463,13 @@
    481      (hA : DefEqSem m φ Γ A₂ A₁)
    482      (hbody : DefEqSem m φ (A₁ :: Γ) b₁ (.app (b.liftN 1) (.bvar 0)))
 
-== ConLeche/Kernel/Core.lean#L1231-L1236
-  1231  /-- **The io inference body** (tasks #161, #170, #346): official's
-  1232  `infer_type_core` with `infer_only = true`.  It differs from
-  1233  `inferBody` at three clauses: an application's argument is not
-  1234  checked against the domain, a λ's domain is not checked to be a type,
-  1235  and a `let`'s type and value are not checked (the body is inferred at
-  1236  the value).  The computed types and the "function expected" rejection
+== ConLeche/Kernel/Core.lean#L1230-L1235
+  1230  /-- **The io inference body** (tasks #161, #170, #346): official's
+  1231  `infer_type_core` with `infer_only = true`.  It differs from
+  1232  `inferBody` at three clauses: an application's argument is not
+  1233  checked against the domain, a λ's domain is not checked to be a type,
+  1234  and a `let`'s type and value are not checked (the body is inferred at
+  1235  the value).  The computed types and the "function expected" rejection
 
 >>> whitepaper/sections/03-definitions.typ
 

@@ -311,13 +311,13 @@
     53  def ensureSortCore (env : Env) (fuel depth : Nat) (e : Expr) : CheckM Level :=
     54    ensureSort (pureFns mode eager env fuel) env depth e
 
-== ConLeche/Kernel/Core.lean#L1778-L1783
-  1778    | 0 =>
-  1779      { whnfCore := fun _ _ _ => throw (.internal "fuel exhausted: whnfCore")
-  1780        whnf := fun _ _ => throw (.internal "fuel exhausted: whnf")
-  1781        infer := fun _ _ => throw (.internal "fuel exhausted: infer")
-  1782        defeq := fun _ _ _ => throw (.internal "fuel exhausted: defeq")
-  1783        defeqE := fun _ _ _ => throw (.internal "fuel exhausted: defeq")
+== ConLeche/Kernel/Core.lean#L1777-L1782
+  1777    | 0 =>
+  1778      { whnfCore := fun _ _ _ => throw (.internal "fuel exhausted: whnfCore")
+  1779        whnf := fun _ _ => throw (.internal "fuel exhausted: whnf")
+  1780        infer := fun _ _ => throw (.internal "fuel exhausted: infer")
+  1781        defeq := fun _ _ _ => throw (.internal "fuel exhausted: defeq")
+  1782        defeqE := fun _ _ _ => throw (.internal "fuel exhausted: defeq")
 
 == ConLeche/Model/Fold.lean#L431-L438
    431  theorem no_proof_of_False_pure (V : Type w) [SetTheory V]
@@ -360,23 +360,23 @@
 == ConLeche/Kernel/Env.lean#L55
     55  inductive CheckMode where
 
-== ConLeche/Kernel/Core.lean#L1061
-  1061  def whnfBody (r : CoreFns m) (env : Env) : Nat → Expr → m Expr :=
+== ConLeche/Kernel/Core.lean#L1060
+  1060  def whnfBody (r : CoreFns m) (env : Env) : Nat → Expr → m Expr :=
 
-== ConLeche/Kernel/Core.lean#L1350
-  1350  def defeqSpine (r : CoreFns m) (env : Env) (depth : Nat) (a b : Expr) :
+== ConLeche/Kernel/Core.lean#L1349
+  1349  def defeqSpine (r : CoreFns m) (env : Env) (depth : Nat) (a b : Expr) :
 
-== ConLeche/Kernel/Core.lean#L1245
-  1245  def inferBodyIO (r : CoreFns m) (env : Env) : Nat → Expr → m Expr :=
+== ConLeche/Kernel/Core.lean#L1244
+  1244  def inferBodyIO (r : CoreFns m) (env : Env) : Nat → Expr → m Expr :=
 
-== ConLeche/Kernel/Core.lean#L1388
-  1388  def defeqLams (r : CoreFns m) :
+== ConLeche/Kernel/Core.lean#L1387
+  1387  def defeqLams (r : CoreFns m) :
 
 == ConLeche/Verify/Cached/BridgeC.lean#L269
    269  theorem checkDeclStepC_run {env : Env} (henv : EnvWF env) {pd : Declaration}
 
-== ConLeche/Kernel/Core.lean#L1825
-  1825  @[irreducible, noinline] def checkFuel : Nat := 4611686018427387904  -- 2^62
+== ConLeche/Kernel/Core.lean#L1824
+  1824  @[irreducible, noinline] def checkFuel : Nat := 4611686018427387904  -- 2^62
 
 == ConLeche/Kernel/Exclusive.lean#L6-L42
      6  # `withExclusive`: the reference-count read behind the walk memo
@@ -677,36 +677,36 @@
    312    refine ⟨haA, ?_, (WellDenoted_inst0 V ha).mpr (hbody _ haA)⟩
    313    rw [interp_app, interp_lam, app_lamV haA, interp_inst0]
 
-== ConLeche/Model/Env/EnvModel.lean#L36-L64
-    36  structure EnvModel (env : Env) where
-    37    /-- the shared, model-free environment well-formedness -/
-    38    wf : EnvWF env
-    39    /-- the leaf valuation: each constant's reading at a level assignment -/
-    40    acval : Name → (Name → Nat) → Term
-    41    /-- every leaf is closed -/
-    42    cval_closed : ∀ (n : Name) (ψ : Name → Nat),
-    43      Term.Closed (acval n ψ)
-    44    /-- the reserved basis constants are the pinned declarations, valued
-    45    by their direct pins (V-free) -/
-    46    basis_pinned : BasisPinnedTT env acval
-    47    /-- every stored native projection-table entry is a pinned pair
-    48    entry with its block stored (V-free, shared) -/
-    49    proj_ok : ProjOkT env
-    50    /-- every stored recursor rule's constructor is stored (V-free,
-    51    shared) -/
-    52    rec_ctors : RecCtorsStored env
-    53    /-- a leaf reads only its own level parameters -/
-    54    acval_params : ∀ (n : Name) (ci : ConstantInfo),
-    55      env.find? n = some ci →
-    56      ∀ ψ₁ ψ₂ : Name → Nat,
-    57        (∀ p ∈ ci.toConstantVal.levelParams, ψ₁ p = ψ₂ p) →
-    58        acval n ψ₁ = acval n ψ₂
-    59    /-- every leaf is truthful -/
-    60    acval_wellDenoted : ∀ (n : Name) (ψ : Name → Nat) (ρ : Nat → V),
-    61      WellDenoted V ρ (acval n ψ)
-    62  
-    63  variable {V}
-    64  
+== ConLeche/Model/Env/EnvModel.lean#L35-L63
+    35  structure EnvModel (env : Env) where
+    36    /-- the shared, model-free environment well-formedness -/
+    37    wf : EnvWF env
+    38    /-- the leaf valuation: each constant's reading at a level assignment -/
+    39    acval : Name → (Name → Nat) → Term
+    40    /-- every leaf is closed -/
+    41    cval_closed : ∀ (n : Name) (ψ : Name → Nat),
+    42      Term.Closed (acval n ψ)
+    43    /-- the reserved basis constants are the pinned declarations, valued
+    44    by their direct pins (V-free) -/
+    45    basis_pinned : BasisPinnedTT env acval
+    46    /-- every stored native projection-table entry is a pinned pair
+    47    entry with its block stored (V-free, shared) -/
+    48    proj_ok : ProjOkT env
+    49    /-- every stored recursor rule's constructor is stored (V-free,
+    50    shared) -/
+    51    rec_ctors : RecCtorsStored env
+    52    /-- a leaf reads only its own level parameters -/
+    53    acval_params : ∀ (n : Name) (ci : ConstantInfo),
+    54      env.find? n = some ci →
+    55      ∀ ψ₁ ψ₂ : Name → Nat,
+    56        (∀ p ∈ ci.toConstantVal.levelParams, ψ₁ p = ψ₂ p) →
+    57        acval n ψ₁ = acval n ψ₂
+    58    /-- every leaf is truthful -/
+    59    acval_wellDenoted : ∀ (n : Name) (ψ : Name → Nat) (ρ : Nat → V),
+    60      WellDenoted V ρ (acval n ψ)
+    61  
+    62  variable {V}
+    63  
 
 == ConLeche/Model/Denotes.lean#L192-L198
    192  theorem Denotes_of_denote {acval : Name → (Name → Nat) → Term}
@@ -1270,9 +1270,9 @@
     37  record installs nothing and any use of it declines
     38  (`sorryAxName`, `ConLeche/Kernel/Basis/Names.lean`).
 
-== ConLeche/Kernel/Core.lean#L1109-L1110
-  1109  def checkProjGuard (inf wh : Nat → Expr → m Expr) (env : Env) (entry : ProjEntry)
-  1110      (us : List Level) : m Unit :=
+== ConLeche/Kernel/Core.lean#L1108-L1109
+  1108  def checkProjGuard (inf wh : Nat → Expr → m Expr) (env : Env) (entry : ProjEntry)
+  1109      (us : List Level) : m Unit :=
 
 >>> README.md
 
