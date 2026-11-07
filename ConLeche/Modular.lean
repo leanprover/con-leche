@@ -25,8 +25,9 @@ adds is what a module is for con-leche and what its checks are.
   of its name, level parameters and type.  An inductive group is presented as its record, so it
   reaches an importer whole.
 * **Agreement** (`Agree dev i b n`): module `b`'s copy of a name of `i`'s context stands for the
-  copy `i` reads, because `b` is the module `i` reads it from, or `b` reads it from a module that
-  agrees with that one (one record, loaded through two paths), or both copies are proofs of one
+  copy `i` reads, because `b` is the module `i` reads it from, or `b` reads it and an earlier
+  module's copy agrees both with `b`'s and with `i`'s (one record, loaded through two paths), or
+  both copies are proofs of one
   statement whose names agree: theorems where they come from, or a statement `i` infers to be a
   proposition over the part of its context below the name (`Module.part`, the records before the
   name's).  Every model gives agreeing copies one value; no module records anything about its
@@ -202,9 +203,10 @@ def ProofSide (dev : Nat → Module) (i b : Nat) (n : Name) (ty : Expr) : Prop :
 inductive Agree (dev : Nat → Module) : Nat → Nat → Name → Prop
   /-- `b` is the module `i` reads `n` from -/
   | same {i b : Nat} {n : Name} : b = (dev i).src n → Agree dev i b n
-  /-- `b` reads `n`, and that module's copy agrees with `b`'s: one record, two paths -/
-  | path {i b : Nat} {n : Name} : ((dev b).context.find? n).isSome = true → (dev i).src n < b →
-      Agree dev b ((dev i).src n) n → Agree dev i b n
+  /-- `b` reads `n`, and an earlier module's copy agrees both with `b`'s and with `i`'s: one
+  record, loaded through two paths -/
+  | via {i b t : Nat} {n : Name} : ((dev b).context.find? n).isSome = true → t < b →
+      Agree dev b t n → Agree dev i t n → Agree dev i b n
   /-- two proofs of one statement, whose names agree -/
   | proof {i b : Nat} {n : Name} {ci ci' : ConstantInfo} :
       (dev i).context.find? n = some ci → (dev b).own.find? n = some ci' →

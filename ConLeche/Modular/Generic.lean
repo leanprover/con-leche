@@ -205,12 +205,14 @@ def ProofSide (i : Nat) (n : S.Name) (x : Nat × S.Env) : Prop :=
   S.ProofIn (dev.part i n) x.2 n ∨ dev.ThmAt x n
 
 /-- **Source `x` agrees with the module `n` is read from** (see the
-module docstring): it is that module, or reads `n` with a source of that
-module among its own (one record, loaded through two paths), or it and
-every source of that module are proofs at `n`. -/
+module docstring): it is that module; or it reads `n` with a source
+of some module among its own, and module `i` has a source of that same,
+earlier module storing `n` (one record, loaded through two paths); or it
+and every source of the read module are proofs at `n`. -/
 def Agrees (i : Nat) (n : S.Name) (x : Nat × S.Env) : Prop :=
   x.1 = dev.src i n ∨
-    (S.Stores (dev.ctx x.1) n ∧ ∃ y ∈ dev.sources x.1, y.1 = dev.src i n ∧ S.Stores y.2 n) ∨
+    (S.Stores (dev.ctx x.1) n ∧ ∃ z ∈ dev.sources x.1, S.Stores z.2 n ∧
+      ∃ w ∈ dev.sources i, w.1 = z.1 ∧ S.Stores w.2 n ∧ w.1 < x.1) ∨
     dev.ProofSide i n x ∧
       ∀ y ∈ dev.sources i, y.1 = dev.src i n → S.Stores y.2 n → dev.ProofSide i n y
 
@@ -320,16 +322,23 @@ theorem modular : ∀ k, (∀ i < k, dev.Valid i) →
           obtain ⟨mP, hmP⟩ := S.amalgamate hR.part fam hag
           exact S.proof_val hp mP (fam z) (hmP z)
         · exact hthm z n hz ht
-      rcases hR.agree x.1 x.2 hs with he | ⟨hctx, he⟩ | ⟨hpx, hall⟩
+      -- source by source, an earlier source's module first
+      suffices h : ∀ t, ∀ x : dev.Src k, x.1.1 = t → S.Stores x.1.2 n →
+          S.val (fam x) n = S.val (m (dev.src k n) (hsrc n hn)) n from h _ x rfl hs
+      intro t
+      induction t using Nat.strongRecOn with
+      | _ t iht =>
+      intro x hxt hs
+      rcases hR.agree x.1 x.2 hs with he | ⟨hctx, z, hz, hzs, w, hw, hwz, hws, hwlt⟩ | ⟨hpx, hall⟩
       · rw [(hfam x n hs).2]
         exact val_congr m he _ _ n
-      · rw [(hfam x n hs).2]
-        obtain ⟨y, hy, hy1, hys⟩ := he
-        have hyk : y.1 < k :=
-          Nat.lt_trans ((hv x.1.1 (Nat.lt_succ_of_lt (hlt x))).sources y hy).1 (hlt x)
+      · -- `x.1`'s copy is the one its source `z` gives, which `i`'s source `w` gives too
+        rw [(hfam x n hs).2]
+        have hzk : z.1 < k :=
+          Nat.lt_trans ((hv x.1.1 (Nat.lt_succ_of_lt (hlt x))).sources z hz).1 (hlt x)
         obtain ⟨h, he', hsrcs⟩ := hc x.1.1 (hlt x) n hctx
-        rw [he', ← hsrcs y hy hyk hys]
-        exact val_congr m hy1 _ _ n
+        rw [he', ← hsrcs z hz hzk hzs, ← iht w.1 (hxt ▸ hwlt) ⟨w, hw⟩ rfl hws, (hfam ⟨w, hw⟩ n hws).2]
+        exact val_congr m hwz.symm _ _ n
       · obtain ⟨y, hy, hy1, hys⟩ := hR.read
         rw [hside x hs hpx, ← hside ⟨y, hy⟩ hys (hall y hy hy1 hys), (hfam ⟨y, hy⟩ n hys).2]
         exact val_congr m hy1 _ _ n
