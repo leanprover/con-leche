@@ -69,6 +69,10 @@ def Jobs.build (ds : Array Declaration) : IO (Jobs ds) := do
   let _ ← unsafe Runtime.markPersistent J
   return J
 
+/-- **The index of the records, not marked**: for a check phase that is one of many in the
+process (a module of the one-process mode), whose records and index are freed with it. -/
+def Jobs.plain (ds : Array Declaration) : Jobs ds := ⟨ConLeche.Cached.buildIndex ds, rfl⟩
+
 /-- What every worker reads besides the records and the index (an `--olean` run's references to
 the values still in their files), marked persistent as they are (`Jobs.build` says why). -/
 def markShared {α : Type} (x : α) : IO Unit := do
@@ -98,10 +102,11 @@ job `t` the one just completed, one line, naming it if every check gets one (`Pa
 counter is the number of COMPLETED checks, so in the pool it is monotone whichever worker finished,
 and the line is printed after the check rather than before it: a check that is running is not on any
 line, the gap between two lines is where it sits.  In the pool (`live`), the line ends with the
-number of busy workers and the oldest check in flight with its age (`Live.report`). -/
+number of busy workers and the oldest check in flight with its age (`Live.report`).  `total` is
+the number of the phase's jobs: every record's, or a module's own records' (`checkModuleG`). -/
 def checkHeartbeat (err : IO.FS.Stream) (pace : Pace) (t0 : Nat) (ds : Array Declaration)
-    (last : IO.Ref Nat) (live : Option Live) (n t : Nat) : IO Unit := do
-  if ← pace.due last n ds.size then
+    (total : Nat) (last : IO.Ref Nat) (live : Option Live) (n t : Nat) : IO Unit := do
+  if ← pace.due last n total then
     let now ← IO.monoMsNow
     let extra ← match live with
       | some lv => lv.report (jobLabel ds) (if pace.trace then 0 else oldestAge)
@@ -109,7 +114,7 @@ def checkHeartbeat (err : IO.FS.Stream) (pace : Pace) (t0 : Nat) (ds : Array Dec
     let l := if !pace.trace then "" else match ds[t]? with
       | some d => s!" {ConLeche.Cached.declCLabel d}"
       | none => s!" record {t}"
-    err.putStr s!"con-leche: check {n} ({n * 100 / max 1 ds.size}%){l} \
+    err.putStr s!"con-leche: check {n} ({n * 100 / max 1 total}%){l} \
       t={ConLeche.Cached.msSecs (now - t0)}s{extra}\n"
     err.flush
 
@@ -148,19 +153,20 @@ def collect (mode : ConLeche.CheckMode) {ds : Array Declaration} (J : Jobs ds)
 /-! ### The pool -/
 
 /-- What a pool shares, for its heartbeat: the completed-count and the workers' current
-jobs. -/
+jobs, and how many jobs the phase has. -/
 structure PoolLive where
   done : Std.Mutex Nat
+  total : Nat
   live : Option Live
   /-- when the last line was -/
   last : IO.Ref Nat
 
-/-- The heartbeat's lane, for `workers` workers. -/
-def PoolLive.new (pace : Pace) (workers : Nat) : IO PoolLive := do
+/-- The heartbeat's lane, for `workers` workers and `total` jobs. -/
+def PoolLive.new (pace : Pace) (workers total : Nat) : IO PoolLive := do
   let done ← Std.Mutex.new 0
   let live ← if workers > 1 then some <$> Live.new (if pace.on then workers else 0)
     else pure none
-  return ⟨done, live, ← Pace.clock⟩
+  return ⟨done, total, live, ← Pace.clock⟩
 
 /-- A job starts on worker `w`: the clock, and on the heartbeat lane the job it is on. -/
 def jobBegin (pl : PoolLive) (pace : Pace) (w t : Nat) : IO Nat := do
@@ -179,7 +185,7 @@ def jobEnd (err : IO.FS.Stream) (pace : Pace) (t0 : Nat) (ds : Array Declaration
     if let some lv := pl.live then lv.idle w
     pl.done.atomically do
       let n ← modifyGet fun d => (d + 1, d + 1)
-      checkHeartbeat err pace t0 ds pl.last pl.live n t
+      checkHeartbeat err pace t0 ds pl.total pl.last pl.live n t
   return st.add t ts te
 
 /-- One job of the pool, on worker `s.1`: run and timed (the job is forced before the clock, by
@@ -210,7 +216,7 @@ def checkPool (mode : ConLeche.CheckMode) (err : IO.FS.Stream) (pace : Pace) (t0
     IO (PoolRep × Except (ConLeche.CheckError × Nat) (PLift (JAll mode J))) := do
   let m := ds.size
   let workers := max 1 (min jobs m)
-  let pl ← PoolLive.new pace workers
+  let pl ← PoolLive.new pace workers m
   let tStart ← IO.monoNanosNow
   try
     let (ss, res) ← parMapWorkersIO jobs (fun w => (w, ({} : WStats)))

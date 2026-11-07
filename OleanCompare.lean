@@ -163,7 +163,7 @@ open Frontend.Olean in
 /-- `--home`: each module's home read. -/
 def runHome (sp : List System.FilePath) (mods : Array Name) : IO UInt32 := do
   for m in mods do
-    match ← (readHome sp m : IO _) with
+    match ← (readHome (.ofPath sp) m : IO _) with
     | .ok (l, expo) =>
       let n (x : Expo) := (expo.filter (· == x)).size
       IO.println s!"{m}: {l.constants.size} constants, exported {n .same} same, {n .hidden} hidden, \
@@ -179,13 +179,13 @@ def runReads (sp : List System.FilePath) (m : Name) (jobs : Nat) (dump levelsOnl
     match ← (readPartNames sp (m, .private) : IO _) with
     | .error e => IO.eprintln s!"{e}"; return e.exitCode.toUInt32
     | .ok own =>
-      match ← (headerFixpoint sp own.header.isModule own.header.imports : IO _) with
+      match ← (headerFixpoint (moduleImports sp) own.header.isModule own.header.imports : IO _) with
       | .error e => IO.eprintln s!"{e}"; return e.exitCode.toUInt32
       | .ok ld =>
         let pub := pubClosures ld
         IO.println s!"{m}: loads {ld.order.size} modules; {pub.size} public-import closures"
         return 0
-  match ← (workerReads sp m jobs : IO _) with
+  match ← (workerReads (.ofPath sp) m jobs : IO _) with
   | .error e => IO.eprintln s!"{e}"; return e.exitCode.toUInt32
   | .ok w =>
     let ld := w.loads
@@ -207,7 +207,7 @@ open Frontend.Olean Driver in
 /-- `--reach`: a worker's context at one module. -/
 def runReach (sp : List System.FilePath) (m : Name) (jobs : Nat) (list : Bool) : IO UInt32 := do
   let fail (e : CheckError) : IO UInt32 := do IO.eprintln s!"{e}"; return e.exitCode.toUInt32
-  match ← (workerReads sp m jobs : IO _) with
+  match ← (workerReads (.ofPath sp) m jobs : IO _) with
   | .error e => fail e
   | .ok w =>
     match ← (readFiles sp m .private : IO _) with
@@ -224,7 +224,7 @@ def runReach (sp : List System.FilePath) (m : Name) (jobs : Nat) (list : Bool) :
         | .ok ds =>
           let roots := ds.foldl (fun acc d => acc ++ recordReads d) #[] ++
             cs.foldl (fun acc c => acc ++ c.uses.toArray) #[]
-          match ← (reach sp m w own roots : IO _) with
+          match ← (reach (.ofPath sp) m w own roots : IO _) with
           | .error e => fail e
           | .ok r =>
             let consts := r.ctx.foldl (fun n d => n + (declConstants d).length) 0

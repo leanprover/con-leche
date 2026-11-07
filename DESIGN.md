@@ -111176,8 +111176,7 @@ Not optimised in this lane.
 
 **Not done / for the next lanes.**  No theorem about the fixpoint or the index (none needed, #460
 §3).  `readKinds` has no `_of_view` theorem (it feeds only the clash rule and `readGroup`'s
-selection of recursors, which `groupRecord` validates).  The recursor-order point of 3.  The
-order's IR case of 1.
+selection of recursors, which `groupRecord` validates).  The recursor-order point of 3.
 
 ## TASK #465 — the reach of a module, its completion, the capture check, proof flags by inference (2026-11-06, agent/465-reach)
 
@@ -111684,3 +111683,462 @@ through one lemma), then step 3 with the hole types by value (`mkPisAV_tail_eq` 
 `spineFit_iff_of_mkPisAV_eq` for the sort along fits).
 
 **Gates.**  `lake build` of the touched modules and the capstone; nothing executed changed.
+
+## TASK #444 — axioms merged as Lean merges them (2026-11-06, agent/444-axiom-merge)
+
+On `modular` (off d3adce1ca).  **The maintainer's ruling:** two modules holding an axiom of one
+name are merged where Lean's `subsumesInfo`/`isPropCheap` merges them, not rejected: a copy that
+is an axiom at its home is a proof (one key `.proof stmt`) when its type is a proposition, decided
+by inference as for definitions.  Also ruled: the module order does not matter; its open point
+(#464's "the order's IR case of 1") is dropped from #464's list.
+
+**Lean's rule** (v4.35.0, `Environment.lean`, `subsumesInfo` in `finalizeImport`'s fold): equal
+names, types and level parameters, and a theorem against a theorem (equal `all`), a theorem
+against a safe axiom (no test of the type), or an axiom against an axiom (equal `isUnsafe` and
+`isPropCheap` of the type: `∀ xs, c as` with `c`'s type, after as many binders as `as` has
+arguments, syntactically `Prop`).  Con-leche's clash rule (`clashOk`, `subsumesF`) is this rule
+already, and so is the merged `--olean` read's (`mergeEntry`, `subsumes`): **neither changes**.
+The new reject #465 noted was the key decision after the clash rule: `proofStatus` gave an axiom
+at its home `.no`, so `clashKeys` (and `keyCheck`, at a capture) rejected any pair holding one.
+
+**The worker** (`Driver/Reach.lean`, `proofStatus`): an axiom copy is a proof by inference, an
+exported axiom whose home's private part declares a theorem there still a proof outright (the
+private part's kind tag 2; 0, 1, 3 now inferred).  The inference is `typeIsPropC` at the
+context, as for definitions, recorded with the statement and run after the context's validation;
+the clash's name joins the roots.  **It accepts at least what `isPropCheap` accepts**, on
+well-typed types: `isPropCheap` asks `c`'s type to be `∀ b₁…bₖ, Prop` with `k` arguments applied;
+inferring `c a₁…aₖ` instantiates that telescope's `Prop` (no loose variable) and gives `Sort 0`,
+each enclosing `∀` a sort `imax uᵢ 0`, which `Level.isEquiv` equates with `0`.  The head's type is
+the context's copy, the index's first copy that `isPropCheap` reads too.  So every pair Lean's
+fold merges has one key here (Lean's theorem/axiom arm has no test at all; there the theorem's
+own statement is a proposition, checked at its home, and inference sees the same type).
+
+**The specification** (`ConLeche/Modular.lean`): `TypeIsProp mode E ty` (the theorem record's prop
+row: `inferTypeCore`, `ensureSortCore`, `Level.isEquiv u .zero`, at some fuel), and `ProofDecl`'s
+new arm `.axiomDecl cv => TypeIsProp mode E cv.type`.  `TypeIsProp .verified` is `PropTypeRun`
+(`Semantics/DeclRun.lean`) by definition, so the model reads it as it is.
+
+**The model** (the proofs' route).  An axiom's installed leaf becomes the canonical proof `.prf`
+wherever the checker finds its type to be a proposition, as #463 did for definitions and
+opaque constants:
+* `harvestAxiom` (`Model/Harvest.lean`) installs `L = if PropTypeRun env cv.type then .prf else A`
+  for the branch's leaf `A`, and concludes `CoverStepLeaf … cv.name (PropTypeRun env cv.type)`;
+  the membership at `.prf` is `A`'s, since `A` lies in a truth value and is the point
+  (`propTypeRun_mem_univZero`, `eq_pt_of_mem_univZero`).  `axiomStd`, `axiomTrustCompiler`,
+  `axiomOfReduce` (`Model/AxiomPin.lean`, `Model/AxiomReduce.lean`) pass it through unchanged.
+* `Quot.sound`'s leaf is its pin's (`pinnedStructT`, `Verify/Denote/Pinned.lean`): now `.prf`, in
+  place of the built-in `.const .quotSound`; `extendQuotSound` repaired, and `axiomStepPB_of`
+  reads the leaf off the result's `basis_pinned` (`acval_pinned_free`).
+* `AxiomStepPB` concludes `CoverStepLeaf … (cv.name ≠ sorryAxName ∧ PropTypeRun env cv.type)`
+  (`sorryAx` stores nothing, so no leaf is claimed for it); `DeclProofLeaf`'s new axiom arm says
+  so, and `declStep_agrees` carries it.  **The step keeps every other leaf**: `CoveredRel`'s
+  "every stored name keeps its leaf" is untouched; only the new name's leaf moved.
+* `proofDecl_leaf` (`Model/Modular/Step.lean`) gains the axiom arm (the record's one name, or
+  `Quot.sound`'s pin at its name, or none for `sorryAx`); `ProofDecl.kinds`
+  (`Model/Modular/Valid.lean`) likewise (an axiom record's constants are statement kinds, no
+  table).  Nothing else of `Model/Modular/` moved: `modular_model_exists` is unchanged in its
+  statement and axioms.
+`BConst.quotSound` is now no constant's leaf (it stays as model vocabulary, with its membership
+`bval_mem_quotSound`); `propext`'s branch leaf `.const .propext []` is installed only where the
+checker does not find its pinned type a proposition, which never happens.  Either could go in a
+clean-up.
+
+**Which inputs reach the new case.**  At their homes con-leche accepts only `propext`,
+`Classical.choice`, `Quot.sound` (the quotient record), `Lean.trustCompiler`, `Lean.ofReduceBool`,
+`Lean.ofReduceNat` (pinned statements) and `sorryAx` (stores nothing); any other axiom declines at
+its home's record.  Of those, all but `Classical.choice` are propositions.  A development every
+module of which passes therefore reaches the new case only where two modules each declare one of
+them (outside a closure already holding it, by freshness: `propext` is `Init.Core`'s, `Quot.sound`
+`Init.Prelude`'s; `Lean.trustCompiler` and the `ofReduce*` axioms are in no `.olean` file of
+v4.35.0's library), or one declares it and another proves a theorem of its name and statement.  A worker's
+verdict for one module reaches it with any axioms of its imports, whose own homes then decline.
+
+**Fixtures** (`tests/olean/src`, built by `tests/olean/build.sh`; `tests/olean.sh`, 159 → 164):
+* `AxA`, `AxB`: `axiom Lean.trustCompiler : True` each; `AxM` loads both.  Lean compiles `AxM`
+  (its import merges the pair).  `olean-compare --reach AxM`: 0, "1 flags inferred" (before this lane: 1, "store
+  Lean.trustCompiler, not as one constant").  `con-leche --olean AxA AxB AxM`: 0 (each home
+  accepts its pinned axiom, the merged read the closure).
+* `AxI` (`axiom axi : id True`), `AxIT` (`theorem axi : id True`), `AxIM` (`public import AxI`,
+  `import all AxIT`): Lean merges them by the theorem/axiom arm, which `isPropCheap` does not
+  guard (it fails on `id True`).  `--reach AxIM`: 0, "1 flags inferred" (before: 1).  `--olean
+  AxI`: 2 (a non-standard axiom at its home).  `--olean AxIM`: 0 (the merge keeps the theorem).
+* `AxNA`, `AxNB` (`axiom axn : Nat` each), `AxNX` a stand-in, `AxNM` (`AxNA` and `AxNX`; the gate
+  swaps `AxNB`'s files in as `AxNX`'s, a pair Lean refuses: "environment already contains 'axn'
+  from AxNA").  `--reach AxNM`: 1, "AxNA and AxNX store different constants named axn", by the
+  clash rule, as by Lean; the merged `--olean AxNM`: 1.
+
+**Gates.**  `lake build`, `lake test` warning-free; overview links (two `Fold.lean` anchors
+moved), whitepaper links (`Fold.lean`, `Modular.lean` anchors moved; §7's "a flagged declaration
+is …" now names assumptions; the fragment has no assumption declarations, so it is unchanged),
+quote gate, layering, trust surface, shake, challenge; `tests/arena.sh` in full under the guard
+(`guard.sh 8000000`): exit 0 (olean gate 164/164, e2e 555/555, tutorial 90/92 as pinned, the
+trusted and `--jobs` sweeps without divergence; peak VmHWM 4.4 GB).  lean4export (Lean's own
+`importModules`) exports `AxM` and `AxIM`, and `olean-compare` finds 0 differences against the
+reader's records of both closures.
+
+**Sizes.**  Checker: one function's match (`proofStatus`), no new code path.  Model and spec:
++~90 lines over 9 files.
+
+## TASK #466 — the worker: one module checked against its context (2026-11-06, agent/466-worker)
+
+#460's lane #466, on `modular` (off d3adce1ca).  Phases 3, 5 and 7 of #460 §3 and the CLI; the
+worker's theorem in the IO model; the modular fixtures as workers; `MulP` against an unpatched
+`WittVector.Basic`.
+
+**1. The worker** (`ConLeche/Driver/Worker.lean`, `checkModuleG`, generic in the IO class).
+`workerRead`: `readHome` (`loadAt` of the private view, `checkViews` of the three parts, a mismatch
+exit 1); `workerReads`; `ownRecords` — the loaded constants, unsafe and partial ones left out,
+`mergedOfList`, `blocksOk`, then `declsOf (emitAll mg mg.order)`: every own constant a root, and
+a name the emission meets that is not in `mg` is skipped (a context read); `reach` from
+`ownRoots` (each own record's `recordReads` and each own constant's load `uses`, so a theorem's
+value's names are in); the context's names checked distinct (`namesNodupGo`, one hash set over
+`flatMap declNames`: the reach rejects a name stored by two records but not a record declaring a
+name twice, which a malformed group could; the check keeps `Driver/Reach.lean` untouched); the
+ground hoist (`hoistNatOpGround` over the own records, what an own theorem mentions read off its
+load).  Then `Jobs.build (ctx ++ own)` and `checkOleansG … J ctx.size`: the own records' jobs only,
+a theorem's value read in its job over the home's frontier (`values = #[⟨M, frontier⟩]`, the load
+at index 0).  `checkOleansG` took a first job (`start`, 0 for a closure); the heartbeat's
+percentages and the summary count the phase's jobs (`PoolLive.total`, `checkDone`'s `n`).
+* *The prelude.*  No built-in prelude record is put in front: at `Init.Prelude` the own records
+  are its own copies of the basis, checked against the pins by their own jobs (#480 rulings 4,
+  5), and the emission's order already puts what a pinned operation's certificate is spelled over
+  before it (`Init.Prelude` accepted, 2 002 records).  Elsewhere the basis is context.
+* *A pinned own constant's footprint.*  `ownRoots` leaves out a name of an own constant's
+  `pinFootprint` that no loaded module holds: the constant's own check asks it stored
+  (`natOpGuard`) and gives the stream path's verdict.  Without that, `NpAx` (an axiom `Nat.div`
+  in a `prelude` module without `Nat.pred`) was rejected for "reads Nat.pred, which no module it
+  loads holds" instead of at its record, and a definition at a certified name over an absent
+  dependency would be 1 here where the stream path declines (2, #462's `natop_dep_absent`).
+
+**2. The cutoff** (`Verify/Cached/StreamIndex.lean`).  `jobs_run` became `jobs_run_from`: from
+position `s` on, given `NodupNames (streamEnv (take s))`, every job passing is a `DeclsRun` from
+`(s, mkFEnv (streamEnv (take s)))`, a `PushChain` from that environment, ending at the prefix's
+environment; `checkDecls_of_jobs` is its `s = 0`, and **`checkDecls_of_jobs_from`**: where the
+context's names are distinct and every job at a position `≥ ctx.size` of `buildIndex (ctx ++ own)`
+passes, `DeclsRun own (ctx.size, mkFEnv (streamEnv ctx)) (ctx.size + own.size, mkFEnv (streamEnv
+own (streamEnv ctx)))` — the specification's `ImportOk.accepted`, ending at `Module.own`.
+`nodupNames_streamEnv` (distinct record names give distinct environment names).
+
+**3. The CLI.**  `con-leche --olean --module --search-path=DIRS [--] M` (`Args.module`,
+`Req.module`, `runReq`).  `--module` takes exactly one module and no `--constant` (exit 3), and
+`--olean` (exit 3 otherwise).  `--progress` prints `read:` lines for the home, the loads and the
+reach (with completions and inferred flags), then the existing phase lines (`parse done`,
+`checking`, `check n (p%)`, `done`) over the own records.  The verdict line is the closed run's
+(`accepted N declarations`, N the own records); a failure before the jobs is `con-leche: module M:
+<error>`, its exit the error's.
+
+**4. The theorem** (`ConLeche/Verify/Driver/Worker.lean`; pinned at the three axioms).
+* `WorkerFacts sp fs m jobs w`: the outcomes, on the snapshot, of `readHome` (so `checkViews`
+  passed: the exported and server parts refine the private constants), `workerReads` (the header
+  fixpoint, the name index, **the clash rule over every loaded name** and freshness passed),
+  `ownRecords = .ok w.emitted`, `reach … = .ok w.reach`, the context's names distinct, `w.own` the
+  hoist of `w.emitted`.  `workerRead_ok`: `workerRead`'s accept is that, whatever the heartbeat
+  answered.
+* `WorkerAccepted mode sp fs m jobs := ∃ w, WorkerFacts … w ∧ DeclsRun mode natOpPinSets (own
+  filled) (ctx.size, mkFEnv (streamEnv ctx)) (ctx.size + own.size, mkFEnv (streamEnv (own filled)
+  (streamEnv ctx)))`, filled = `fillDecl (fillOf sp fs #[⟨m, w.home.frontier⟩])`.
+  **`checkModuleG_accept`**: every exit 0 of `checkModuleG` is `WorkerAccepted`, at any jobs and
+  pace; **`runArgs_module_accept`**: every exit 0 of `runArgs ["--olean", "--module",
+  "--search-path=" ++ dirs, "--", root]` names a module `m` (`parseModName root = some m`) and is
+  `WorkerAccepted .verified (searchPathOf dirs) fs m jobs` for some `jobs`.
+* `worker_ctx`: every context record `RecordScoped` in `streamEnv ctx`, every name it reads
+  stored, `EnvWF (streamEnv ctx)`, the context's names distinct (`ImportOk.nodup`).
+  `worker_one_record`: two context records storing one name are one, so a module's `src` may be
+  defined as a function of the record storing a name; then `one_src` holds.
+* `worker_local`: for any development whose module `i` has `ctx = w.reach.ctx`, `decls` the filled
+  own records and `src n = srcOf d` for `n ∈ declNames d`: `nodup`, `one_src`, `accepted`, every
+  context record `RecordScoped` in the context, `EnvWF`.
+* `worker_thm`: for `ViewOf sp fs m d`, every `c ∈ d.constants` of kind `.thm v all` is an own
+  record `.thmDecl ⟨c.name, c.levelParams, c.type⟩ (.bvar code)` with `ValueAt … code v`: the own
+  records hold the module's theorems as the specification reads them (`mergedOfList_spec`, new in
+  `Verify/Frontend/Olean/Group.lean`; `skels_name_inj`: two skeletons of a private part with one
+  name are one, by `constNamesOk`; `declsOf_thm`).
+* The ground hoist is a permutation, so the own records are the emission's in another order.
+
+**What the theorem covers and what is left to #467.**  One run's theorem is about one module's
+files and what the run computed from them.  The clauses of `ImportOk` it gives outright: `nodup`,
+`one_src` (with `src` read off the record), `accepted`.  It gives as evidence, for the
+composition: `InterfaceOk`'s file side (`checkViews` passed at `m`: every exported and server
+constant is `.same` or `.hidden` of a private constant, in `WorkerFacts.home`), the clash rule's
+pass over `m`'s loaded view (the `oneKey` of #460 §2, in `WorkerFacts.reads`), the reach's
+outcome (every context record was read at the index's first copy or a completion's located copy,
+the capture check passed for every read), and `worker_thm`.  Left to #467: `presented` (that a
+context record read at a copy is a presentation of its home's own record: `entryWith_of_view` and
+`stmtWith_of_view` read the copy as the specification's constant at its position, the home's
+`checkViews` relates the exported constant to the private one, and the home's own records are the
+emission of its private view — a theorem about `readRecord`'s branches and `groupAt`, not done
+here), `reads` and the keys (`key_context`, `key_own`: which key each name has is a definition of
+the development, which needs the numbering of `--check-graph` and every worker's clash and capture
+outcomes), `below`, `src_lt` (the numbering), and `flags` beyond theorem records (below).
+`main_modular_no_False` then composes `runArgs_module_accept` at every module of the closure with
+`checkGraphG_ok`.
+
+**Presents, up to recursor order** (decided here).  A group read from its home's exported part
+lists its recursors sorted by name (`mkModuleData`), the home's own record in declaration order
+(#464's note), so `Presents`' first arm now asks `(declConstants e).Perm (declConstants p) ∧
+declTables e = declTables p`.  Why the specification and not the worker: a record installs its
+constants as a set, its names distinct, so the order carries no meaning; making the worker
+re-sort a group into its home's order would need the home's private name table per reached group
+(Gamma reaches 581 modules), and making the home present in sorted order changes nothing about the
+mismatch (its own record is still in declaration order).  The model's use is membership only:
+`Model/Modular/Valid.lean`'s `indRecord` and `indReadAlike` now carry the permutation, their
+users read membership through it (a dozen lines).  Types and constructors follow `all` and `ctors`,
+the same at both levels, and the tables `all`'s order.
+
+**Proof flags beyond theorem records: open, needs a ruling or #467's lemma.**  `FlagsOk` asks, of
+a module's flagged names, a `ProofDecl` at its home: a theorem record, a definition/opaque whose
+value passes the theorem record's check, or (since #444) an axiom record whose type is a
+proposition there (`TypeIsProp`).  At an importer (`PdM`) the reach accepts a clash of
+`PdA`'s definition of `id True` (exported as an axiom) and `PdB`'s theorem by inferring the type a
+proposition, so `PdA`'s key for `pd` must be `.proof`, so `PdA.proofs pd`, so `ProofDecl` of `pd`'s
+record at `PdA`.  The worker at `PdA` does not establish that: its job checks the definition
+(`value : type`, the type a sort), not the theorem record.  Two ways: (a) the home's job of a
+definition or opaque whose type it infers to be a proposition also runs the theorem record's
+check (ruling 3's +0.3 % on Mathlib; a second result per job), or (b) a lemma that a definition's
+passing check at a type that is a proposition gives the theorem record's check.  The same holds of
+an axiom flagged by #444's rule: the worker at its home infers nothing about its own axioms'
+types, so `TypeIsProp` at the home is either a home-side inference (cheap: an axiom's type, once)
+or derived from the importer's `typeIsPropC` at a context where the statement is read alike (a
+lemma: inference is stable under extension, `knot_ext`).  This lane's theorem fixes no `proofs`;
+with `proofs` = the theorem records, `FlagsOk` is immediate.
+
+**5. Fixtures** (`tests/olean.sh`, the gate 264/264 after the merge).  Every fixture module of `tests/olean/src`
+but the `Up*` ones runs as a worker on `tests/olean/lib` plus the toolchain's `Init`: 0 (Lean
+compiled each, so Lean accepts each), including `NlM` (NlX's and NlY's `nl` never loaded
+together; the merged read rejects the pair, 1), `DgColM` and `TeqDM` (merged: 1), `WvM` (0, "1
+completed", **no override**), `PdM` (0, "1 flags inferred"), `GrN`, `Ns*`, `Hi*`, `Dg*`,
+`Teq*`, `Ldg*`, `Ldv*`, `Lv*`, `Clash*`, `Fr*`, `Mo*`.  Not 0: `DgCapM` 1 (capture; Lean accepts
+and proves `False` there: the target verdict), `NpAx` 1 (at its record, "a certified Nat
+operation's name, not a definition", as on the merged read; Lean accepts it; ruling of #397).  The
+modules Lean refuses, files swapped in as for `--reads`: `ClashM`, `TeqBad`, `FrM`, `MoM` 1.  #444's `Ax*` (after
+merging `modular`): `AxM`, `AxIM` 0 "1 flags inferred", `AxA`, `AxB`, `AxIT`, `AxNM` 0, and the
+homes of user axioms `AxI`, `AxNA`, `AxNB`, `AxNX` 2 at their records ("non-standard axiom", as on
+the merged read; Lean accepts them).  The
+patched headers of `LdgN`/`LdvN`: private 0 "1 completed", dropped 1.  `home_rejects` runs the
+worker on every corrupted home (1).  Usage: two modules, `--constant`, no `--olean`: 3.
+
+**6. Real modules** (`perf stat -e instructions:u`, `--jobs=8`, one run each, under the guard;
+peak RSS the run's own `stats` line; v4.35.0 Mathlib at `_tmp/ref/mathlib4-v4.35.0`):
+
+| module | own records | loaded modules / names | context records (from modules) | completed | instructions | peak RSS |
+|---|---|---|---|---|---|---|
+| Init.Prelude | 2 002 | 0 / 0 | 0 | 0 | 2.50 G | 0.13 GiB |
+| Init.Core | 1 025 | 5 / 3 213 | 569 (3) | 0 | 1.60 G | 0.08 GiB |
+| Init.Data.Nat.Lemmas | 765 | 76 / 11 103 | 898 (36) | 0 | 9.04 G | 0.17 GiB |
+| Init.Data.List.Lemmas | 1 154 | 82 / 11 105 | 927 (29) | 0 | 5.42 G | 0.17 GiB |
+| Init.Data.BitVec.Lemmas | 2 091 | 136 / 18 090 | 1 503 (60) | 0 | 53.89 G | 0.35 GiB |
+| Std.Data.HashMap.Lemmas | 726 | 143 / 22 844 | 1 466 (47) | 0 | 4.54 G | 0.14 GiB |
+| Mathlib.GroupTheory.Coxeter.Basic | 159 | 2 479 / 196 897 | 2 268 (151) | 0 | 8.90 G | 0.28 GiB |
+| Mathlib.Analysis.SpecialFunctions.Gamma.Basic | 92 | 4 092 / 317 101 | 6 326 (581) | 1 | 15.09 G | 0.40 GiB |
+| Mathlib.RingTheory.WittVector.MulP, unpatched `Basic` | 17 | 3 239 / 248 859 | 1 896 (136) | 1 | 10.80 G | 0.29 GiB |
+| Mathlib.RingTheory.WittVector.MulP, the checkout's `Basic` | 17 | 3 239 / 248 873 | 2 078 (145) | 0 | 9.12 G | 0.25 GiB |
+
+All accepted.  For comparison, the merged `--olean` run of `Init.Data.Nat.Lemmas`' closure (12 502
+records) is 30.96 G at `--jobs=1`, the worker 8.93 G; the slowest checks agree (0.051 s worker,
+0.063 s merged, the same theorem).  On the two Mathlib modules most of a worker is its reads
+(#465's `--reach`: 7.23 G and 13.89 G at `--jobs=4`); the own checks are about 1–2 G.
+
+**`MulP` without the patch.**  In a scratch copy (`_tmp/466/wv/`, `_tmp/ref/` untouched):
+`WittVector.Basic` at upstream `56a0058` (without `65b513c`'s `set_option
+backward.privateInPublic true in` on `comm_ring_aux₁`), `WittVector.IsPoly` and `WittVector.MulP`
+(the only modules between them; nothing else `MulP` loads imports `Basic`) compiled with the
+toolchain's `lean` and lake's own `setup.json`s with those three modules' artifacts repointed;
+the search path a symlinked copy of the checkout's `lib/lean` with those three modules' files
+replaced (the search path must hold each module once).  The unpatched exported `Basic` lacks
+`comm_ring_aux₁` (582 008 bytes against 608 752).  The worker accepts `MulP`, completing
+`_private.Mathlib.RingTheory.WittVector.Basic.0.WittVector.comm_ring_aux₁` as its statement in
+`Basic`'s view: #460's prediction holds, no override.  The unpatched run is the dearer (+18 %):
+the completion builds `Basic`'s view from the name tables of its whole fixpoint (#465's noted
+per-home cost).
+
+**Gates** on the final tree: below, with the commit.
+
+## TASK #467 — the import graph check, and the trust assumption for several runs (2026-11-06, agent/467-graph)
+
+#460's lane #467, on `modular` (off c11a3a86f).  Stage 1: `--check-graph` and the assumption.
+Stage 2 (`main_modular_no_False`) composes #466's worker theorem and waits for #466 to land.
+
+**The check** (`ConLeche/Driver/Graph.lean`).  `con-leche [--jobs=N] --check-graph
+--search-path=DIRS -- ROOT…`: the roots' closure read level by level (`closureLevels`, the
+headers of a level on `CheckerIO.parMapExcept`), each module's imports by `moduleImports` (the
+header read every reader of the module makes, master's `readImportsAt`), over imports of every
+kind (public, private, `import all`, `meta`: #460 §1, a completion's copy may come from a module
+only a private import reaches).  The order is Kahn's worklist over positions (`kahn`; an import
+listed twice is two edges), the ranks the order's positions, and the validation `verdict`:
+every root in the closure, every module ranked, the ranks distinct (`distinctGo`), every import
+to a module of the closure of a smaller rank.  A cycle is printed (`cycleOf`: from the first
+module outside the order, an import outside it, until one repeats): "import cycle: HidUse →
+HidA → HidUse".  Exit codes: 0 acyclic; 1 a cycle, or a module on no directory of the search
+path (`missingOn`, consulted only after `moduleImports` fails, so the accepting path is
+`moduleImports` itself); 3 an unreadable header or a layout `findModule` refuses.  Note: the
+merged `--olean` read keeps exit 3 for a missing module (`findModule`'s `.internal`); the graph
+check says 1, as the brief asks.  Ported from `cfsg`'s #425/#426 in idea; no `--import-all` or
+`--compare` edges (both out of scope by #460's rulings 9).
+
+**The theorems** (`ConLeche/Verify/Driver/Graph.lean`, at the three standard axioms, pinned in
+`Axioms.lean`):
+* `checkGraphG_ok`: at every outcome of `checkGraphG` in `ModelIO` that is exit 0, `∃ C rk`:
+  each `e ∈ C` has `moduleImports sp e.1` answering `e.2` on the snapshot, every root and every
+  import of a module of `C` is in `C`, every edge decreases in `rk`, `rk` one-to-one on `C`.
+  From `verdict_none`/`verdict_rank` and `closureLevels_good`; Kahn's algorithm has no theorem.
+* `checkGraphG_closure`: every module of `InClosure sp fs roots` (the specification's closure,
+  over the private views' imports) is in `C`, by `moduleImports_of_view`: a view's imports are
+  its header read's answer.
+* `runArgs_graph_accept` (`Verify/Driver/Main.lean`): an exit 0 of `runArgs ["--check-graph",
+  "--search-path=" ++ dirs, "--", root]` is an exit 0 of `checkGraphG (searchPathOf dirs) [r]
+  jobs` for some `jobs`.  `parseArgs_flag` gained the literal `--check-graph`'s hypothesis and
+  `runArgs_oleans_accept` the hypothesis that the arguments do not ask for the graph check.
+
+**The assumption for several runs** (ruling 11 of #460), stated in `CheckerIO.lean`'s header,
+the Challenge and OVERVIEW §10: a statement about several runs (the graph check and the
+per-module workers) assumes (1)–(3) of every run on one snapshot for all of them; nothing is
+assumed of the scheduler, the statement is a composition of the runs' exit-0 facts.
+
+**Fixtures** (`tests/olean.sh`, 164 → 177): a DAG (HidUse: 3 modules, 3 edges), at one job, a
+part of the closure, two roots, `Init`'s closure of TeqBoth (656 modules, 3 410 edges); a missing
+import (1) and a missing root (1); usage errors with `--olean` and without a search path (3);
+a direct cycle by HidA's header's import renamed to HidUse (1, from both roots, the cycle
+pinned); a header cut to 40 bytes (3); a root whose imports field disagrees with its header
+prefix (0: the graph check reads the prefix only; the merged read says 3).
+
+**Numbers** (`perf stat -e instructions:u`, one run each; the v4.35.0 Mathlib checkout, search
+path its build, its eight packages' builds and the toolchain's `lib/lean`): `--check-graph --
+Mathlib`: 10 976 modules, 59 642 import edges; 6.46 G instructions at `--jobs=4`, 6.26 G at
+`--jobs=1`; peak VmHWM 56 MB.  About 590 k instructions per module, nearly all locating the
+module (`findModule`: three files on each of ten directories, real paths) and the header read.
+
+## TASK #468 — every module of a closure: the one-process mode and the scheduler (2026-11-06, agent/468-one-process)
+
+#460's lane #468, on `modular` (off 47fbf1321, `modular` at cecd1ad62 merged in: #467's
+`--check-graph`).  The one-process mode `--olean --modular` and its theorem; the scheduler
+`--olean --schedule`; the measurements.
+
+**1. The worker's reads, made a parameter** (`OleanReads`, `ConLeche/Frontend/Olean/Files.lean`).
+Every read of the files a worker makes goes through three operations: a module's imports
+(`moduleImports`), a view's files (`readFiles`), a part's name positions (`readPartNames`).
+`OleanReads.ofPath sp` is the search path's; `headerFixpoint` takes the imports operation,
+`readHome`, `workerReads`, `reach` (its `ReachEnv` now carries the reads instead of the search
+path) and `workerRead` the reads.  `readFiles` is `findModule` then `readFilesAt loc` and
+`readPartNames` `findModule` then `readPartNamesAt loc`, so a location found once serves every
+later read.  `checkModuleG rd sp m mode pace jobs alone`: `sp` stays for the theorems' values
+(`readValue`); `alone := false` (a module of the one-process mode) marks nothing persistent
+(`Jobs.plain`, `OleanRun.alone`: the module's records, index and frontier are freed with it; a
+mark per module would keep every module's data to the end), prints no statistics and names the
+module in its verdict line (`verdictG … who`).
+
+**Refinement** (`ConLeche/Verify/Driver/Shared.lean`).  `ModelIO.Within fs a b`: every outcome of
+`a` on the snapshot is one of `b`; `OleanReads.Within fs rd sp`: each of the three operations
+refines the search path's.  Binds, matches, `if`s and the parallel map keep refinement
+(`Within.bind`, `Within.ite`, `mapExcept_within`), so each phase written over `rd` refines the
+same phase over `.ofPath sp`: `headerFixpoint_within`, `workerReads_within`, `readHome_within`,
+and the reach's twenty functions up to `reach_within` (one local tactic, `within_tac`, peeling a
+phase with its callees' lemmas; the reach's own lemmas needed `importerSpot`, `wr`, `own` of the
+environment restated over the search path's, three `rfl`s).  `WorkerFacts` is unchanged (still
+the search path's outcomes); `workerRead_ok` and **`checkModuleG_accept`** take any reads with
+`OleanReads.Within fs rd sp` and give the same `WorkerAccepted mode sp fs m jobs`.
+
+**2. The one-process mode** (`ConLeche/Driver/Modular.lean`, `checkModularG`).
+1. The closure by the graph check: `graphOf` (factored out of #467's `checkGraphG`, which is now
+   `graphOf` and its message; `graphOf_ok` is `checkGraphG_ok`'s facts for the closure `graphOf`
+   returns): no second acyclicity check.
+2. The tables, read once (`readModTable` on the parallel map): every module located
+   (`findModule`) and its private and exported parts' name positions read at that location; its
+   imports the graph's.  Marked persistent (`markShared`) before the worker map starts.
+3. Every module's worker steps (`modularStep`: `checkModuleG (T.reads sp) sp m mode .off 1
+   false`) on `CheckerIO.parMapWorkers` (one module claimed at a time), its reads answered from
+   the tables (`ModTables.reads`: imports and name positions from them, a view's files by
+   `readFilesAt` at the location found once; a read the tables lack goes to the search path).
+   Each module's own checks on one thread (jobs 1 inside, the modules in parallel outside).
+4. The verdict: a line per module (the worker's, `con-leche: module M: accepted N declarations`),
+   then exit 0 iff every module's step is 0; else the first failing module in the graph's order
+   is named and its code returned.
+
+**The theorem** (`ConLeche/Verify/Driver/Modular.lean`).  `TablesOk` (every table read off the
+snapshot), `tables_ok`, **`modTables_within`** (the tables' reads refine the search path's),
+**`checkModularG_accept`**: at every outcome that is exit 0, the graph check's closure `C`
+(`graphOf … = .ok C`) and `WorkerAccepted mode sp fs e.1 1` at every module of it.
+**`runArgs_modular_accept`** (`Verify/Driver/Main.lean`): an exit 0 of `runArgs ["--olean",
+"--modular", "--search-path=" ++ dirs, "--", root]` names `m` and gives `checkGraphG_ok`'s facts
+for a closure `C` holding `m` and `WorkerAccepted .verified` at every module of `C`: exactly what
+`runArgs_graph_accept` and `runArgs_module_accept` at every module give, so #467's composition
+applies to it.  All at the three standard axioms (pinned).
+
+**What the mode still reads after the start**: each module's own files (its home, once, in its
+step), the files of the parts its reach reads records from (its `ReachCache` reads each part's
+files once per module), the clash rule's statements (`readInfos`) and the theorems' values
+(`readValue`); all at the locations found once.  The reach's decoded records are not shared
+between modules: sharing them needs the decoded parts as tables (the merged run's memory plus
+the exported parts') and a refinement of `withPart`'s memo reads, a simulation over the memo
+state (`entryWith_spec` gives each read's value; the cache's memos differ between the two runs).
+Not done here.
+
+**3. A fix in the worker** (#466's): `ownRoots` took the load's `uses` of every own constant,
+unsafe and partial ones too, which are no records; their reads reached imported unsafe constants
+and the module was rejected ("a context record reads … which is unsafe or partial"): 121 of the
+2 850 modules of `Mathlib.GroupTheory.Coxeter.Basic`'s closure (`Lean.*`, `Aesop`, `Batteries`,
+`Mathlib.Data.Quot`, `Mathlib.Tactic.*`).  Now skipped; fixture `UsA`/`UsM` (accepted, as by
+Lean).
+
+**4. The scheduler** (`ConLeche/Driver/Schedule.lean`, `scheduleG`; the processes in
+`ConLeche/Driver/ScheduleIO.lean`, through `liftIO`, outside every theorem).
+`con-leche --olean --schedule[-OPT=V]… --search-path=DIRS -- ROOT`: the closure by `graphOf`,
+then one `--olean --module --jobs=1` process of the binary (`IO.appPath`) per module, any order,
+at most `--jobs` at once; staggered starts (`--schedule-stagger=MS`, default 200); a memory budget
+over the running workers' `VmRSS` (`--schedule-memory=MIB`: above it the largest is killed by its
+own `Child` handle, queued to run again alone, killed again its verdict `memory`); a time limit
+per worker (`--schedule-timeout=S`, verdict `timeout`); an append-only log
+(`--schedule-log=FILE`, one `<verdict>\t<module>` line per finished module, flushed; a restart
+skips every logged module).  Exit 0 iff every module's verdict is 0, else the first failing
+module in the graph's order with its code (`timeout`, `memory`, `signal`: 3).  The options are
+one flag family (`--schedule` and `--schedule-…`, one `flagValue` branch, `Args.scheduled`), so
+the CLI's proofs gained one branch.  The trust surface: the **process fence** (new, in
+`tests/trust-surface.sh`: `Process.spawn/output/run`, `kill`, `tryWait`, `Handle.mk`,
+`writeFile`, `appPath` only in `ScheduleIO.lean`); the CheckerIO fence now covers
+`Modular.lean`, `Schedule.lean`, `Graph.lean`; the IO class's assumption (2) names the
+scheduler's action (it writes its log and starts processes; no theorem is about it).
+
+**Fixtures** (`tests/olean.sh`, 295/295): `--modular` at TinyUse, NlM, PdM, WvM, LvN (0), a
+module's verdict line, NpAx (1, named first), one job, the usage (3), a missing import (1);
+`--schedule` at NlM with a log (0) and resumed ("5 modules logged, 0 to run"), NpAx (1), an
+unknown option and `--modular` beside it (3).  The kills and the timeout were exercised by hand
+(below); they depend on timing and memory, not fixtures.
+
+**5. Numbers** (`perf stat -e instructions:u`, one run each, under the 8 GB guard, `--jobs=8`;
+v4.35.0 Mathlib, search path its build, its packages' builds and the toolchain's `lib/lean`):
+
+| run | modules | instructions:u | peak (guard: anon / VmHWM) | verdict |
+|---|---|---|---|---|
+| `--modular -- Mathlib.GroupTheory.Coxeter.Basic` | 2 850 | 2 992 G | 0.96 / 0.96 GiB | 2 (the two `Init` declines below) |
+| merged `--olean -- Mathlib.GroupTheory.Coxeter.Basic` | (one closure) | 1 100 G | 0.94 GiB (stats line) | 0 |
+| `--modular -- Mathlib` | 10 976 | 23 832 G | 2.36 / 2.37 GiB | 2 (the same two) |
+| merged `--olean -- Mathlib` (master's, #489) | | 7 931 G | 3.13 GiB | 0 |
+| `--schedule --schedule-memory=6000 -- Std.Data.HashMap.Lemmas` (216 workers) | 216 | 306 G (with the children) | 0.21 / 0.18 GiB | 2 (the same two) |
+| `--modular -- Std.Data.HashMap.Lemmas` | 216 | 275 G | 0.55 / 0.56 GiB | 2 (the same two) |
+
+The whole of Mathlib fits the 8 GB guard in the one-process mode (2.4 GiB; the tables of 10 976
+modules, 798 311 private names, read in 2.4 s), at 3.0 times the merged run's instructions
+(Coxeter's closure: 2.7 times).  The extra is per module: each module's name index built again
+from the shared tables (its loaded parts' names, about 150 k on Mathlib), its reach (the parts'
+files read and their records decoded and validated again for every module that reaches them),
+its clash rule's statements; the own checks are the merged run's.  Sharing the reach's decoded
+records is the next step (above).  The scheduler on a 216-module closure costs 11 % more
+instructions than the one-process mode there (every worker reads its loaded parts' name tables
+itself), at a third of its peak.  Its kills and limits, by hand on `Init.Data.Nat.Lemmas`' 84
+modules: at `--schedule-memory=60` (MiB, below most workers' peak) 24 kills: 12 modules killed beside
+others, run again alone and killed again, their verdict `memory`, the other 70 as without a
+budget; at `--schedule-timeout=2`
+`Init.Data.BitVec.Lemmas` is `timeout`, the run exit 3 naming it; the log resumed after a full
+run starts nothing ("5 modules logged, 0 to run").
+
+**Verdicts on real closures (premises for #467's corollary on Mathlib).**  Two modules of `Init`
+decline at their homes (exit 2): `Init.Data.Nat.Gcd` and `Init.Data.Nat.Bitwise.Basic`,
+"unsupported Nat.div/mod spelling (Nat.gcd / Nat.shiftRight: no pin variant matched … pin or
+certificate ground constants absent)": a certified operation's ground at its home is not in the
+worker's context.  The same with `--module`; a #462/#466 matter, not this lane's.  So no closure
+holding `Init` passes the one-process mode or the scheduler today (every Mathlib run exits 2).
+
+**Gates** on the final tree (fe5ea2649): `lake build`, `lake test` warning-free;
+`tests/arena.sh` in full under the guard (`guard.sh 8000000`): exit 0 (olean gate 295/295, e2e
+555/555, tutorial 90/92 as pinned, selfcheck 54 918 declarations, 57 theorems pinned at the three
+axioms, the trusted and `--jobs` sweeps, layering, trust surface with the process fence, shake,
+overview links, quote gate, whitepaper links and fragment, challenge, no-local-paths).

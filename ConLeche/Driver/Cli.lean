@@ -105,7 +105,11 @@ def jobsCount (v : String) : Except String Nat :=
 def synopsis : String := String.intercalate "\n" [
   "Usage:",
   "  con-leche [OPTIONS] [--] FILE.ndjson",
-  "  con-leche [OPTIONS] --olean --search-path=DIRS [--] MODULE..."]
+  "  con-leche [OPTIONS] --olean --search-path=DIRS [--] MODULE...",
+  "  con-leche [OPTIONS] --check-graph --search-path=DIRS [--] MODULE...",
+  "  con-leche [OPTIONS] --olean --module --search-path=DIRS [--] MODULE",
+  "  con-leche [OPTIONS] --olean --modular --search-path=DIRS [--] MODULE",
+  "  con-leche [OPTIONS] --olean --schedule[-OPT=V] --search-path=DIRS [--] MODULE"]
 
 /-- The line after a usage error. -/
 def tryHelp : String := "Try 'con-leche --help' for more information."
@@ -129,6 +133,19 @@ def helpText : String := String.intercalate "\n" [
   "  --olean             Read modules and their import closure from .olean files",
   "  --search-path=DIRS  Colon-separated .olean directories; repeatable",
   "  --constant=NAME     Check only NAME and what it mentions; repeatable",
+  "  --check-graph       Check only that the modules' import graph is acyclic",
+  "                      and that every import is on the search path",
+  "  --module            Check MODULE's own declarations alone, against what",
+  "                      they read of the modules it loads",
+  "  --modular           Check every module of MODULE's closure as --module",
+  "                      does, in this one process",
+  "  --schedule          Check every module of MODULE's closure by a --module",
+  "                      process each, --jobs at once; with",
+  "  --schedule-log=FILE      an append-only log, resumed from on a restart",
+  "  --schedule-memory=MIB    a budget: the largest worker killed above it, run",
+  "                           again alone once",
+  "  --schedule-timeout=S     a time limit per worker",
+  "  --schedule-stagger=MS    the least time between two starts (default 200)",
   "",
   "Exit status:",
   "  0  accepted",
@@ -155,6 +172,20 @@ structure Args where
   searchPath : List System.FilePath := []
   /-- `--constant=NAME`: with `--olean`, the constants to start from. -/
   constants : Array String := #[]
+  /-- `--check-graph`: the positional arguments are root module names, and the run checks
+  their closure's import graph alone (`Graph.checkGraphG`). -/
+  checkGraph : Bool := false
+  /-- `--module`: with `--olean`, the one module named is checked alone, against the records
+  of the modules it loads that its own records read (`checkModuleG`). -/
+  module : Bool := false
+  /-- `--modular`: with `--olean`, every module of the one root's closure checked as `--module`
+  checks it, in one process (`checkModularG`). -/
+  modular : Bool := false
+  /-- `--schedule[-OPT=VALUE]`: with `--olean`, every module of the one root's closure by a
+  worker process each (`scheduleG`); the values after `--schedule`, `""` for the bare flag. -/
+  schedule : Array String := #[]
+  /-- some `--schedule` flag was given -/
+  scheduled : Bool := false
   files : Array String := #[]
   bad : Option String := none
 
@@ -188,6 +219,9 @@ def parseArgs : List String → Args → Args
   -- `=`-carrying spellings).
   | "--progress" :: rest, a => parseArgs rest { a with progress := .every 1 }
   | "--olean" :: rest, a => parseArgs rest { a with olean := true }
+  | "--check-graph" :: rest, a => parseArgs rest { a with checkGraph := true }
+  | "--module" :: rest, a => parseArgs rest { a with module := true }
+  | "--modular" :: rest, a => parseArgs rest { a with modular := true }
   | s :: rest, a =>
     if let some v := flagValue "--progress=" s then
       match progressPace v with
@@ -204,6 +238,8 @@ def parseArgs : List String → Args → Args
       parseArgs rest { a with constants := a.constants.push v }
     else if let some v := flagValue "--search-path=" s then
       parseArgs rest { a with searchPath := a.searchPath ++ searchPathOf v }
+    else if let some v := flagValue "--schedule" s then
+      parseArgs rest { a with schedule := a.schedule.push v, scheduled := true }
     else if s.startsWith "-" then
       { a with bad := some s!"unknown option {Display.str s}" }
     else parseArgs rest { a with files := a.files.push s }
@@ -252,6 +288,27 @@ def runArgs {m : Type → Type} [CheckerIO m] (args : List String) : m UInt8 :=
         eprintln s!"con-leche: {msg}"
         eprintln tryHelp
         return 3
+      if a.checkGraph then
+        -- `--check-graph`: the arguments are root modules; only their closure's import graph
+        -- is read and checked (`Graph.checkGraphG`)
+        if a.olean || a.module || !a.constants.isEmpty then
+          eprintln "con-leche: --check-graph takes none of --olean, --module and --constant"
+          eprintln tryHelp
+          return 3
+        if a.files.isEmpty || a.searchPath.isEmpty then
+          eprintln "con-leche: --check-graph takes one or more module names and a \
+            --search-path=DIRS"
+          eprintln tryHelp
+          return 3
+        if let some m := a.files.find? (fun f => (Frontend.Olean.parseModName f).isNone) then
+          eprintln s!"con-leche: not a module name: {Display.str m}"
+          eprintln tryHelp
+          return 3
+        let jobs := a.jobs.getD
+          (let hw := (System.Platform.Internal.getHardwareConcurrency ()).toNat
+           if hw = 0 then 1 else hw)
+        return ← runReq (.graph a.searchPath
+          (a.files.filterMap Frontend.Olean.parseModName).toList jobs)
       if a.olean then
         -- `--olean`: the arguments are root modules (`Init`, `Mathlib`),
         -- read with their import closure along the search path, module
@@ -272,10 +329,41 @@ def runArgs {m : Type → Type} [CheckerIO m] (args : List String) : m UInt8 :=
         let jobs := a.jobs.getD
           (let hw := (System.Platform.Internal.getHardwareConcurrency ()).toNat
            if hw = 0 then 1 else hw)
+        if a.scheduled then
+          -- `--schedule`: one worker process per module of one root's closure
+          match a.files.toList.filterMap Frontend.Olean.parseModName, a.constants.isEmpty,
+              a.module || a.modular with
+          | [m], true, false =>
+            return ← runReq (.schedule a.searchPath m a.schedule.toList a.mode jobs)
+          | _, _, _ =>
+            eprintln "con-leche: --schedule takes one module name, and none of --constant, \
+              --module and --modular"
+            eprintln tryHelp
+            return 3
+        if a.modular then
+          -- `--modular`: every module of one root's closure, each as its worker checks it
+          match a.files.toList.filterMap Frontend.Olean.parseModName, a.constants.isEmpty,
+              a.module with
+          | [m], true, false => return ← runReq (.modular a.searchPath m a.mode a.progress jobs)
+          | _, _, _ =>
+            eprintln "con-leche: --modular takes one module name, and neither --constant nor \
+              --module"
+            eprintln tryHelp
+            return 3
+        if a.module then
+          -- `--module`: one module, checked alone (`checkModuleG`)
+          match a.files.toList.filterMap Frontend.Olean.parseModName, a.constants.isEmpty with
+          | [m], true => return ← runReq (.module a.searchPath m a.mode a.progress jobs)
+          | _, _ =>
+            eprintln "con-leche: --module takes one module name and no --constant"
+            eprintln tryHelp
+            return 3
         return ← runReq (.oleans a.searchPath (a.files.filterMap Frontend.Olean.parseModName)
           a.rootConstants a.mode a.progress jobs)
-      if !a.searchPath.isEmpty || !a.constants.isEmpty then
-        eprintln "con-leche: --search-path and --constant take --olean"
+      if !a.searchPath.isEmpty || !a.constants.isEmpty || a.module || a.modular ||
+          a.scheduled then
+        eprintln "con-leche: --search-path, --constant, --module, --modular and --schedule take \
+          --olean"
         eprintln tryHelp
         return 3
       match a.files.toList with

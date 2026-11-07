@@ -282,7 +282,7 @@ theorem readFiles_ok {sp : SearchPath} {m : Name} {level : OLeanLevel} {fs : FS}
   obtain ⟨y, hy, h⟩ := h
   rcases y with e | loc
   · simp at h
-  simp only [ModelIO.bind_ok] at h
+  simp only [readFilesAt, ModelIO.bind_ok] at h
   obtain ⟨x, hx, h⟩ := h
   obtain ⟨b, hb, rfl⟩ := readPart_ok hx
   cases hp : Part.ofBytes (modFile loc.dir m "olean").toString b with
@@ -369,7 +369,7 @@ theorem readFiles_of_all {sp : SearchPath} {m : Name} {fs : FS} {f : ModFiles} (
   obtain ⟨loc, b, ex, hf, hb, hp, rfl, hmod, hcl⟩ := readFiles_ok h
   simp only [readFiles]
   rw [ModelIO.bind_det hf]
-  simp only
+  simp only [readFilesAt]
   rw [ModelIO.bind_det (readPart_det hb), hp]
   simp only
   cases level with

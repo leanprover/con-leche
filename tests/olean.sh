@@ -256,6 +256,7 @@ home_rejects() { # <description> <pattern> <search path> <module> <exit of --vie
   case_ "$1 [--olean, the private view]" 0 --olean --search-path=$3 "$4"
   views_ "$1 [all views parsed]" "$5" "$2" "$3" "$4"
   cmp_ --home "$1 [a home's read]" 1 "$2" "$3" "$4"
+  case_grep "$1 [the worker]" 1 "$2" --olean --module --search-path=$3 -- "$4"
 }
 d="$TMPDIR/con-leche-olean-home"
 rm -rf "$d"; cp -r "$LIB" "$d"; patch "$d/Tiny.olean" "$cswap"
@@ -465,6 +466,50 @@ base, b = parts['olean']
 root = struct.unpack_from('<Q', b, 88)[0]
 setfld(root, 0, fld(root, 2))"
 case_grep "a root that disagrees with the header prefix" 3 "malformed .olean data" --olean --search-path=$g/root TinyClassic
+# the graph check reads the prefix alone, and accepts it (every reader of the whole file
+# finds the two different, above)
+case_ "graph: a root that disagrees with the header prefix" 0 \
+  --check-graph --search-path=$g/root TinyClassic
+rm -rf "$g"
+
+# --- the import graph of a closure (task #467) -----------------------------
+# `--check-graph`: the closure's import graph, over edges of every kind, acyclic and every
+# import on the search path, read off the start of each exported file
+case_grep "graph: a DAG" 0 "graph: acyclic: 3 modules, 3 import edges" \
+  --check-graph --search-path=$LIB:$INIT HidUse
+case_ "graph: …at one job" 0 --check-graph --jobs=1 --search-path=$LIB:$INIT HidUse
+case_ "graph: …of a part of the closure" 0 --check-graph --search-path=$LIB:$INIT HidA
+case_ "graph: two roots" 0 --check-graph --search-path=$LIB:$INIT HidUse TeqBoth
+case_grep "graph: Init's closure, private and meta imports included" 0 "graph: acyclic" \
+  --check-graph --search-path=$MSP TeqBoth
+case_grep "graph: a missing import" 1 "Init.Prelude: no .olean on the search path" \
+  --check-graph --search-path=$LIB HidUse
+case_grep "graph: a missing root" 1 "NoSuchModule: no .olean on the search path" \
+  --check-graph --search-path=$LIB NoSuchModule
+case_ "graph: with --olean, a usage error" 3 --check-graph --olean --search-path=$LIB HidUse
+case_ "graph: without a search path, a usage error" 3 --check-graph HidUse
+# an import cycle: HidA's import of Init.Prelude renamed to HidUse, which imports HidA
+# (Lean's import refuses a cycle); no numbering is topological
+g="$TMPDIR/con-leche-olean-graph"
+rm -rf "$g"; mkdir -p "$g"
+cp -r "$LIB" "$g/cyc"
+xpatch "$g/cyc" HidA "
+base, b = parts['olean']
+root = struct.unpack_from('<Q', b, 88)[0]
+imp0 = struct.unpack_from('<Q', b, fld(root, 0) - base + 24)[0]
+n = fld(imp0, 0)
+setfld(n, 0, 1)
+sb, so = at(fld(n, 1))
+struct.pack_into('<QQQ', sb, so + 8, 7, struct.unpack_from('<Q', sb, so + 16)[0], 6)
+sb[so + 32:so + 39] = b'HidUse\\0'"
+case_grep "graph: an import cycle" 1 "import cycle: HidUse → HidA → HidUse" \
+  --check-graph --search-path=$g/cyc:$INIT HidUse
+case_grep "graph: an import cycle, from the other root" 1 "import cycle: HidA → HidUse → HidA" \
+  --check-graph --search-path=$g/cyc:$INIT HidA
+# an unreadable header: HidA's exported file cut short
+cp -r "$LIB" "$g/cut"
+head -c 40 "$LIB/HidA.olean" > "$g/cut/HidA.olean"
+case_ "graph: a header cut short" 3 --check-graph --search-path=$g/cut:$INIT HidUse
 rm -rf "$g"
 
 # --- a worker's reads: the header fixpoint, the name index, the clash rule, freshness ---
@@ -518,6 +563,22 @@ reach_ "a captured name" 1 "name capture at foo, read by module DgCapH" "$MSP" D
 # the definition's type is inferred to be a proposition, so one key (Lean merges
 # them)
 reach_ "a definition of a proposition meets a theorem: the flag inferred" 0 "1 flags inferred" "$MSP" PdM
+# AxA's and AxB's `axiom Lean.trustCompiler : True` meet, both axioms at their homes: Lean
+# merges them (`isPropCheap`), so must the reach (task #444): the flag inferred, one key.
+# Every home accepts its own axiom (the pinned statement), and the merged read the closure
+reach_ "two axioms of one propositional statement meet: the flag inferred" 0 "1 flags inferred" "$MSP" AxM
+case_ "…the homes and the merged read" 0 --olean --search-path=$MSP AxA AxB AxM
+# AxI's `axiom axi : id True` meets AxIT's theorem (Lean's theorem/axiom arm, no isPropCheap):
+# the axiom's type inferred to be a proposition (the home's check declines the axiom)
+reach_ "an axiom of a proposition meets a theorem: the flag inferred" 0 "1 flags inferred" "$MSP" AxIM
+case_ "…the axiom's home declines it" 2 --olean --search-path=$MSP AxI
+# AxNA's `axiom axn : Nat` and AxNB's (as AxNX's files; Lean's import refuses the pair):
+# not a proposition, rejected by the clash rule, as by Lean
+d="$TMPDIR/con-leche-olean-axn"
+rm -rf "$d"; cp -r "$LIB" "$d"
+swap_ "$d" AxNX AxNB
+reach_ "two axioms of one type that is not a proposition meet" 1 "AxNA and AxNX store different constants named axn" "$d:$INIT" AxNM
+rm -rf "$d"
 # LdgA's and LdvA's import of their Q made private (a header Lean does not
 # write for a public statement reading Q): the group's constructor reads a name
 # N's view lacks, completed in LdgA's (LdvA's) view as its statement; with the
@@ -551,6 +612,115 @@ for a in Ldg Ldv; do
   patch_import "$d/${a}A.olean" drop
   reach_ "a group's read located nowhere ($a)" 1 "which no module of its view holds" "$d:$INIT" ${a}N
 done
+rm -rf "$d"
+
+# --- the worker: one module checked against its context ---------------------
+# (task #466, `con-leche --olean --module`: the home's read and check, the reads,
+# the own records, the reach, the own records' jobs over the context.  Lean
+# compiled every module below, so Lean accepts each one; a verdict that is not
+# 0 names why.)
+work_() { # <description> <expected-exit> <pattern> <search path> <module> [flag]
+  case_grep "$1" "$2" "$3" --olean --module ${6:-} --search-path=$4 -- "$5"
+}
+for m in Tiny TinyUse TinyClassic LazyVal PrivUnused HidA HidAll HidUse RbH RbM \
+    DgFlagA DgFlagB DgLiftA DgLiftB DgInferA DgInferB DgCapQ DgCapQ2 DgCapH DgColQ DgColH \
+    HiLamA HiLamB HiInhD HiInhL HiInhT HiInhX HiInhM HiInhM2 \
+    TeqH TeqP1 TeqP2 TeqQ2 TeqX TeqM TeqBoth NsC NsH NsM NsN \
+    LdgQ LdgA LdgM LdgN LdvQ LdvA LdvM LdvN GrN LvA LvB LvC LvM LvN \
+    PdA PdB WvA WvB ClashA ClashB ClashX FrX FrY MoX NlB NlX NlY; do
+  work_ "the worker at $m" 0 "accepted" "$MSP" $m
+done
+# an own unsafe definition is no record, and what it reads is no root of the reach: UsM's
+# usUse reads UsA's unsafe usPeek, and the module is accepted, as by Lean (task #468)
+work_ "an own unsafe definition reading an imported unsafe one" 0 "accepted 1 declarations" "$MSP" UsM
+# NlX's nl and NlY's nl, behind a private import of an import, are never loaded
+# together: accepted, as by Lean (the merged read of the closure rejects the pair)
+work_ "two modules of one name never loaded together" 0 "accepted" "$MSP" NlM
+# M's own foo and the foo H's exported records read: no record of M's context
+# reads it: accepted, as by Lean (the merged read rejects the pair)
+work_ "the importer declares a name an unreached record reads" 0 "accepted" "$MSP" DgColM
+# H's teqN is not exposed, so the teq it reads is not reached: accepted, as by
+# Lean (the merged read rejects the two teq)
+work_ "two statements under one name, neither reached" 0 "accepted" "$MSP" TeqDM
+# WvA's wv_secret, read by exported values, is completed as its statement: no
+# override flag
+work_ "an exported value reading a private-only constant" 0 "1 completed" "$MSP" WvM --progress
+# PdA's definition of `id True` meets PdB's theorem: the flag inferred, as Lean merges
+work_ "a definition of a proposition meets a theorem" 0 "1 flags inferred" "$MSP" PdM --progress
+# Lean proves False with no axiom here (H's bar.eq_1 reads Q's foo, M holds Q2's):
+# rejected, the target verdict
+work_ "a captured name" 1 "name capture at foo, read by module DgCapH" "$MSP" DgCapM
+# an axiom at a certified Nat operation's name (Lean accepts the module): its own
+# record is rejected, as on the merged read (the fast path's names it reads are
+# left to that record's check)
+work_ "an axiom at a certified Nat operation's name" 1 "not a definition: Nat.div" "$LIB" NpAx
+# two axioms of one propositional statement, and an axiom of a proposition and a
+# theorem, meet: the flag inferred, as Lean merges them
+work_ "two axioms of one propositional statement meet" 0 "1 flags inferred" "$MSP" AxM --progress
+work_ "an axiom of a proposition meets a theorem" 0 "1 flags inferred" "$MSP" AxIM --progress
+for m in AxA AxB AxIT AxNM; do work_ "the worker at $m" 0 "accepted" "$MSP" $m; done
+# a module declaring a user axiom: declined at its record, as on the merged read
+# (Lean accepts it)
+for m in AxI AxNA AxNB AxNX; do
+  work_ "a user axiom at its home ($m)" 2 "non-standard axiom" "$MSP" $m
+done
+# the modules Lean refuses to compile, their files swapped in (as for --reads)
+d="$TMPDIR/con-leche-olean-worker"
+rm -rf "$d"; cp -r "$LIB" "$d"
+swap_ "$d" ClashX ClashB
+work_ "two different constants of one name loaded together" 1 "store different constants named clash" "$d" ClashM
+swap_ "$d" TeqX TeqQ2
+work_ "two theorems of one name and two statements loaded together" 1 "store different constants named teq" "$d:$INIT" TeqBad
+swap_ "$d" FrX FrY
+work_ "a module declaring a loaded name" 1 "declares fresh, which the module FrX" "$d" FrM
+swap_ "$d" MoX TinyClassic
+work_ "a module importing one outside the module system" 1 "imports MoX, which is not" "$d" MoM
+rm -rf "$d"
+# a group's constructor reading a name N's view lacks (the import made private):
+# completed; with the import dropped, located nowhere
+for a in Ldg Ldv; do
+  rm -rf "$d"; cp -r "$LIB" "$d"
+  patch_import "$d/${a}A.olean" private
+  work_ "a group's read completed ($a)" 0 "1 completed" "$d:$INIT" ${a}N --progress
+  rm -rf "$d"; cp -r "$LIB" "$d"
+  patch_import "$d/${a}A.olean" drop
+  work_ "a group's read located nowhere ($a)" 1 "which no module of its view holds" "$d:$INIT" ${a}N
+done
+rm -rf "$d"
+# the usage: one module, no --constant, under --olean
+case_ "--module takes one module" 3 --olean --module --search-path=$LIB Tiny TinyUse
+case_ "--module takes no --constant" 3 --olean --module --constant=two --search-path=$LIB Tiny
+case_ "--module takes --olean" 3 --module --search-path=$LIB Tiny
+
+# --- every module of a closure: in one process, and one worker process each ---
+# (task #468: `--modular` runs each module's worker steps over tables read once; the
+# scheduler `--schedule` runs one `--module` process per module.  Same verdicts as the
+# workers': exit 0 iff every module's is 0, else the first failing module in the graph's
+# order is named, with its code)
+for m in TinyUse NlM PdM WvM LvN; do
+  case_grep "--modular at $m" 0 "accepted .* modules" --olean --modular --search-path=$MSP -- $m
+done
+case_grep "--modular: a module's verdict named" 0 "module NlX: accepted" --olean --modular \
+  --search-path=$MSP -- NlM
+case_grep "--modular: the first failing module, its code" 1 "the first in the graph's order: NpAx" \
+  --olean --modular --search-path=$LIB -- NpAx
+case_grep "--modular at one job" 0 "accepted 4 modules" --jobs=1 --olean --modular \
+  --search-path=$MSP -- PdM
+case_ "--modular takes one module" 3 --olean --modular --search-path=$LIB Tiny TinyUse
+case_ "--modular takes no --module" 3 --olean --modular --module --search-path=$LIB Tiny
+case_ "--modular takes --olean" 3 --modular --search-path=$LIB Tiny
+case_grep "--modular: a missing import" 1 "no .olean on the search path" --olean --modular \
+  --search-path=$LIB -- NlM
+d="$TMPDIR/olean-sched"
+rm -rf "$d"; mkdir -p "$d"
+case_grep "--schedule: one worker per module" 0 "accepted 5 modules, one worker each" --olean \
+  --schedule --schedule-log="$d/log" --jobs=2 --search-path=$MSP -- NlM
+case_grep "--schedule: the log resumed" 0 "5 modules logged, 0 to run" --olean \
+  --schedule --schedule-log="$d/log" --jobs=2 --search-path=$MSP -- NlM
+case_grep "--schedule: the first failing module, its code" 1 "the first in the graph's order: NpAx (1)" \
+  --olean --schedule --search-path=$LIB -- NpAx
+case_ "--schedule: an unknown option" 3 --olean --schedule-frobnicate --search-path=$LIB -- Tiny
+case_ "--schedule takes no --modular" 3 --olean --schedule --modular --search-path=$LIB -- Tiny
 rm -rf "$d"
 
 rm -f "$TMPDIR/olean-case.out"

@@ -1,7 +1,9 @@
 module
 
 public import ConLeche.Driver.Cli
-public import ConLeche.Verify.Driver.Oleans
+public import ConLeche.Verify.Driver.Worker
+import ConLeche.Verify.Driver.Modular
+import ConLeche.Verify.Driver.Graph
 
 /-!
 # `runArgs`, in the model
@@ -21,7 +23,7 @@ arguments nothing is said about `--help` or other flags.
 (`Olean.readOleans`, whose values `Olean.readOleans_ok` unfolds) that `checkDecls .verified`
 accepts prepared with the built-in prelude and with the theorems' values in place (`fillOf`,
 `Olean.readOleans_filled`).  `runArgs_oleans_accept` is the step at any arguments
-that ask for no help, parse without a usage error and ask for `--olean`.
+that ask for no help, parse without a usage error and ask for `--olean` without `--module`.
 
 The corollaries are in `ConLeche/MainTheorem.lean`.
 -/
@@ -61,7 +63,8 @@ theorem append_ne {other l : String} (d : String) (h : other.toList.isPrefixOf l
 
 /-- `parseArgs` past the literal flags. -/
 theorem parseArgs_flag {s : String} (rest : List String) (a : Args) (h1 : s ≠ "--")
-    (h2 : s ≠ "--verified") (h3 : s ≠ "--trusted") (h4 : s ≠ "--progress") (h5 : s ≠ "--olean") :
+    (h2 : s ≠ "--verified") (h3 : s ≠ "--trusted") (h4 : s ≠ "--progress") (h5 : s ≠ "--olean")
+    (h6 : s ≠ "--check-graph") (h7 : s ≠ "--module") (h8 : s ≠ "--modular") :
     parseArgs (s :: rest) a =
       if let some v := flagValue "--progress=" s then
         match progressPace v with
@@ -78,6 +81,8 @@ theorem parseArgs_flag {s : String} (rest : List String) (a : Args) (h1 : s ≠ 
         parseArgs rest { a with constants := a.constants.push v }
       else if let some v := flagValue "--search-path=" s then
         parseArgs rest { a with searchPath := a.searchPath ++ searchPathOf v }
+      else if let some v := flagValue "--schedule" s then
+        parseArgs rest { a with schedule := a.schedule.push v, scheduled := true }
       else if s.startsWith "-" then
         { a with bad := some s!"unknown option {Display.str s}" }
       else parseArgs rest { a with files := a.files.push s } := by
@@ -94,6 +99,7 @@ theorem parseArgs_olean (dirs root : String) :
     rw [parseArgs.eq_def]
     rfl
   rw [hfst, parseArgs_flag _ _ (append_ne _ (by decide)) (append_ne _ (by decide))
+      (append_ne _ (by decide)) (append_ne _ (by decide)) (append_ne _ (by decide))
       (append_ne _ (by decide)) (append_ne _ (by decide)) (append_ne _ (by decide)),
     flagValue_other dirs (by decide) (by decide), flagValue_other dirs (by decide) (by decide),
     flagValue_other dirs (by decide) (by decide), flagValue_append]
@@ -108,14 +114,16 @@ theorem helpWanted_file (file : String) : helpWanted ["--", file] = false := by
   simp [helpWanted]
 
 /-- **`runArgs` on `--olean` arguments, in the model**: at any arguments
-that ask for no help, parse without a usage error and ask for `--olean`,
+that ask for no help, parse without a usage error and ask for `--olean` (not `--module`),
 every outcome that is an exit 0 read records off the snapshot's `.olean`
 files of the roots the arguments name, along the search path they name, and
 `checkDecls` at the arguments' mode accepts them prepared with the built-in
 prelude and with the theorems' values in place. -/
 theorem runArgs_oleans_accept {args : List String} {fs : FS}
     (hh : helpWanted args = false) (hb : (parseArgs args {}).bad = none)
-    (ho : (parseArgs args {}).olean = true)
+    (ho : (parseArgs args {}).olean = true) (hcg : (parseArgs args {}).checkGraph = false)
+    (hm : (parseArgs args {}).module = false) (hmd : (parseArgs args {}).modular = false)
+    (hs : (parseArgs args {}).scheduled = false)
     (h : (runArgs args : ModelIO _) fs (.ok 0)) :
     ∃ pre rd env, builtinPreludeE = .ok pre ∧
       (Olean.readOleans (parseArgs args {}).searchPath
@@ -134,7 +142,7 @@ theorem runArgs_oleans_accept {args : List String} {fs : FS}
             (Cached.fillDecl (fillOf (parseArgs args {}).searchPath fs rd.values))) = .ok env) from
     H 0 h rfl
   refine ModelIO.allOk_tryCatch ?_ fun _ _ => ?_
-  · simp only [hh, hb, ho, Bool.false_eq_true, ite_false, ite_true]
+  · simp only [hh, hb, ho, hcg, hm, hmd, hs, Bool.false_eq_true, ite_false, ite_true]
     intro c hc h0
     subst h0
     split at hc
@@ -170,9 +178,61 @@ theorem runArgs_olean_accept {dirs root : String} {fs : FS}
           (Cached.fillDecl (fillOf (searchPathOf dirs) fs rd.values))) = .ok env := by
   have hp := parseArgs_olean dirs root
   obtain ⟨pre, rd, env, h1, h2, h3⟩ := runArgs_oleans_accept (helpWanted_olean dirs root)
-    (by rw [hp]) (by rw [hp]) h
+    (by rw [hp]) (by rw [hp]) (by rw [hp]) (by rw [hp]) (by rw [hp]) (by rw [hp]) h
   rw [hp] at h2 h3
   exact ⟨pre, rd, env, h1, h2, h3⟩
+
+/-- The arguments `--check-graph --search-path=<dirs> -- <root>`: that one root, those
+directories, and every other setting at its default. -/
+theorem parseArgs_graph (dirs root : String) :
+    parseArgs ["--check-graph", "--search-path=" ++ dirs, "--", root] {} =
+      { checkGraph := true, searchPath := searchPathOf dirs, files := #[root] } := by
+  have hfst : parseArgs ["--check-graph", "--search-path=" ++ dirs, "--", root] {} =
+      parseArgs ["--search-path=" ++ dirs, "--", root] { checkGraph := true } := by
+    rw [parseArgs.eq_def]
+    rfl
+  rw [hfst, parseArgs_flag _ _ (append_ne _ (by decide)) (append_ne _ (by decide))
+      (append_ne _ (by decide)) (append_ne _ (by decide)) (append_ne _ (by decide))
+      (append_ne _ (by decide)) (append_ne _ (by decide)) (append_ne _ (by decide)),
+    flagValue_other dirs (by decide) (by decide), flagValue_other dirs (by decide) (by decide),
+    flagValue_other dirs (by decide) (by decide), flagValue_append]
+  have hj : (("--search-path=" ++ dirs) == "--jobs") = false := by
+    simp only [beq_eq_false_iff_ne]
+    exact append_ne _ (by decide)
+  simp only [hj, Bool.false_eq_true, ↓reduceIte]
+  simp [parseArgs]
+
+/-- The flags of `--check-graph --search-path=<dirs> -- <root>` ask for no help. -/
+theorem helpWanted_graph (dirs root : String) :
+    helpWanted ["--check-graph", "--search-path=" ++ dirs, "--", root] = false := by
+  have h1 : "--search-path=" ++ dirs ≠ "--" := append_ne _ (by decide)
+  have h2 : "--search-path=" ++ dirs ≠ "--help" := append_ne _ (by decide)
+  simp [helpWanted, h1, h2.symm]
+
+/-- **`runArgs` on `--check-graph --search-path=<dirs> -- <root>`, in the model** (task #467):
+every outcome that is an exit 0 is an exit 0 of the graph check of that root's closure, at some
+worker count (`Graph.checkGraphG_ok` says what that means). -/
+theorem runArgs_graph_accept {dirs root : String} {r : Name} {fs : FS}
+    (hr : Frontend.Olean.parseModName root = some r)
+    (h : (runArgs ["--check-graph", "--search-path=" ++ dirs, "--", root] : ModelIO _) fs (.ok 0)) :
+    ∃ jobs, (Graph.checkGraphG (searchPathOf dirs) [r] jobs : ModelIO _) fs (.ok 0) := by
+  suffices H : ModelIO.AllOk (runArgs ["--check-graph", "--search-path=" ++ dirs, "--", root]) fs
+      (fun c => c = 0 → ∃ jobs, (Graph.checkGraphG (searchPathOf dirs) [r] jobs : ModelIO _)
+        fs (.ok 0)) from H 0 h rfl
+  refine ModelIO.allOk_tryCatch ?_ fun _ _ => ?_
+  · simp only [helpWanted_graph, parseArgs_graph, Bool.false_eq_true, ite_false, ite_true]
+    intro c hc h0
+    subst h0
+    have hf : (#[root].find? fun f => (Frontend.Olean.parseModName f).isNone) = none := by
+      simp [hr]
+    simp only [hf] at hc
+    have hm : (#[root].filterMap Frontend.Olean.parseModName).toList = [r] := by simp [hr]
+    simp only [hm, Bool.false_or, Array.isEmpty_empty, Bool.not_true, Bool.false_eq_true,
+      ite_false] at hc
+    split at hc
+    · simp [eprintln] at hc
+    · exact ⟨_, hc⟩
+  · simp
 
 /-- **`runArgs`, in the model** (task #450). -/
 theorem runArgs_accept {file : String} {fs : FS}
@@ -190,6 +250,134 @@ theorem runArgs_accept {file : String} {fs : FS}
   refine ModelIO.allOk_tryCatch ?_ fun _ _ => ?_
   · simp only [helpWanted_file, parseArgs_file]
     exact fun c hc _ => checkMainG_ndjson_accept (by subst_vars; exact hc)
+  · simp
+
+/-- The arguments `--olean --module --search-path=<dirs> -- <root>`: that one module, those
+directories, every other setting at its default (the mode `.verified`). -/
+theorem parseArgs_module (dirs root : String) :
+    parseArgs ["--olean", "--module", "--search-path=" ++ dirs, "--", root] {} =
+      { olean := true, module := true, searchPath := searchPathOf dirs, files := #[root] } := by
+  have hfst : parseArgs ["--olean", "--module", "--search-path=" ++ dirs, "--", root] {} =
+      parseArgs ["--search-path=" ++ dirs, "--", root] { olean := true, module := true } := by
+    rw [parseArgs.eq_def]
+    rfl
+  rw [hfst, parseArgs_flag _ _ (append_ne _ (by decide)) (append_ne _ (by decide))
+      (append_ne _ (by decide)) (append_ne _ (by decide)) (append_ne _ (by decide))
+      (append_ne _ (by decide)) (append_ne _ (by decide)) (append_ne _ (by decide)),
+    flagValue_other dirs (by decide) (by decide), flagValue_other dirs (by decide) (by decide),
+    flagValue_other dirs (by decide) (by decide), flagValue_append]
+  have hj : (("--search-path=" ++ dirs) == "--jobs") = false := by
+    simp only [beq_eq_false_iff_ne]
+    exact append_ne _ (by decide)
+  simp only [hj, Bool.false_eq_true, ↓reduceIte]
+  simp [parseArgs]
+
+/-- The flags of `--olean --module --search-path=<dirs> -- <root>` ask for no help. -/
+theorem helpWanted_module (dirs root : String) :
+    helpWanted ["--olean", "--module", "--search-path=" ++ dirs, "--", root] = false := by
+  have h1 : "--search-path=" ++ dirs ≠ "--" := append_ne _ (by decide)
+  have h2 : "--search-path=" ++ dirs ≠ "--help" := append_ne _ (by decide)
+  simp [helpWanted, h1, h2.symm]
+
+/-- **`runArgs` on `--olean --module --search-path=<dirs> -- <root>`, in the model**: every
+outcome that is an exit 0 names a module `m` and is an accepted worker at `m`
+(`WorkerAccepted`, `ConLeche/Verify/Driver/Worker.lean`) at the mode `.verified`, on that
+search path, at some worker count. -/
+theorem runArgs_module_accept {dirs root : String} {fs : FS}
+    (h : (runArgs ["--olean", "--module", "--search-path=" ++ dirs, "--", root] : ModelIO _) fs
+      (.ok 0)) :
+    ∃ m jobs, Olean.parseModName root = some m ∧
+      WorkerAccepted .verified (searchPathOf dirs) fs m jobs := by
+  suffices H : ModelIO.AllOk (runArgs ["--olean", "--module", "--search-path=" ++ dirs, "--", root])
+      fs (fun c => c = 0 → ∃ m jobs, Olean.parseModName root = some m ∧
+        WorkerAccepted .verified (searchPathOf dirs) fs m jobs) from H 0 h rfl
+  refine ModelIO.allOk_tryCatch ?_ fun _ _ => ?_
+  · simp only [helpWanted_module, parseArgs_module, Bool.false_eq_true, ite_false, ite_true]
+    intro c hc h0
+    subst h0
+    split at hc
+    · simp [eprintln] at hc
+    · cases hf : (#[root] : Array String).find? (fun f => (Olean.parseModName f).isNone) with
+      | some m => simp [hf, eprintln] at hc
+      | none =>
+        simp only [hf] at hc
+        cases hr : Olean.parseModName root with
+        | none => simp [hr] at hf
+        | some m =>
+          simp only [Array.find?_empty, List.filterMap_cons, hr, List.filterMap_nil,
+            Array.isEmpty_empty] at hc
+          exact ⟨m, _, rfl, checkModuleG_accept (Frontend.Olean.OleanReads.Within.ofPath fs _) hc⟩
+  · simp
+
+/-- The arguments `--olean --modular --search-path=<dirs> -- <root>`: that one root, those
+directories, every other setting at its default (the mode `.verified`). -/
+theorem parseArgs_modular (dirs root : String) :
+    parseArgs ["--olean", "--modular", "--search-path=" ++ dirs, "--", root] {} =
+      { olean := true, modular := true, searchPath := searchPathOf dirs, files := #[root] } := by
+  have hfst : parseArgs ["--olean", "--modular", "--search-path=" ++ dirs, "--", root] {} =
+      parseArgs ["--search-path=" ++ dirs, "--", root] { olean := true, modular := true } := by
+    rw [parseArgs.eq_def]
+    rfl
+  rw [hfst, parseArgs_flag _ _ (append_ne _ (by decide)) (append_ne _ (by decide))
+      (append_ne _ (by decide)) (append_ne _ (by decide)) (append_ne _ (by decide))
+      (append_ne _ (by decide)) (append_ne _ (by decide)) (append_ne _ (by decide)),
+    flagValue_other dirs (by decide) (by decide), flagValue_other dirs (by decide) (by decide),
+    flagValue_other dirs (by decide) (by decide), flagValue_append]
+  have hj : (("--search-path=" ++ dirs) == "--jobs") = false := by
+    simp only [beq_eq_false_iff_ne]
+    exact append_ne _ (by decide)
+  simp only [hj, Bool.false_eq_true, ↓reduceIte]
+  simp [parseArgs]
+
+/-- The flags of `--olean --modular --search-path=<dirs> -- <root>` ask for no help. -/
+theorem helpWanted_modular (dirs root : String) :
+    helpWanted ["--olean", "--modular", "--search-path=" ++ dirs, "--", root] = false := by
+  have h1 : "--search-path=" ++ dirs ≠ "--" := append_ne _ (by decide)
+  have h2 : "--search-path=" ++ dirs ≠ "--help" := append_ne _ (by decide)
+  simp [helpWanted, h1, h2.symm]
+
+/-- **`runArgs` on `--olean --modular --search-path=<dirs> -- <root>`, in the model**: every
+outcome that is an exit 0 names a module `m`, and gives what an exit 0 of `--check-graph` at `m`
+gives (`checkGraphG_ok`'s facts: the closure `C`, each module's imports its header's, closed
+under imports, a rank decreasing along every import, one-to-one), and, at every module of `C`,
+what an exit 0 of `--module` at that module gives (`WorkerAccepted` at the mode `.verified`). -/
+theorem runArgs_modular_accept {dirs root : String} {fs : FS}
+    (h : (runArgs ["--olean", "--modular", "--search-path=" ++ dirs, "--", root] : ModelIO _) fs
+      (.ok 0)) :
+    ∃ m, Olean.parseModName root = some m ∧ ∃ C : List Graph.Node, ∃ rk : Name → Nat,
+      (∀ e ∈ C, (Olean.moduleImports (searchPathOf dirs) e.1 : ModelIO _) fs (.ok (.ok e.2))) ∧
+      m ∈ C.map (·.1) ∧
+      (∀ e ∈ C, ∀ i ∈ e.2, i.module ∈ C.map (·.1) ∧ rk i.module < rk e.1) ∧
+      (C.map fun e => rk e.1).Nodup ∧
+      ∀ e ∈ C, WorkerAccepted .verified (searchPathOf dirs) fs e.1 1 := by
+  suffices H : ModelIO.AllOk (runArgs ["--olean", "--modular", "--search-path=" ++ dirs, "--", root])
+      fs (fun c => c = 0 → ∃ m, Olean.parseModName root = some m ∧ ∃ C : List Graph.Node,
+        ∃ rk : Name → Nat,
+        (∀ e ∈ C, (Olean.moduleImports (searchPathOf dirs) e.1 : ModelIO _) fs (.ok (.ok e.2))) ∧
+        m ∈ C.map (·.1) ∧
+        (∀ e ∈ C, ∀ i ∈ e.2, i.module ∈ C.map (·.1) ∧ rk i.module < rk e.1) ∧
+        (C.map fun e => rk e.1).Nodup ∧
+        ∀ e ∈ C, WorkerAccepted .verified (searchPathOf dirs) fs e.1 1) from H 0 h rfl
+  refine ModelIO.allOk_tryCatch ?_ fun _ _ => ?_
+  · simp only [helpWanted_modular, parseArgs_modular, Bool.false_eq_true, ite_false, ite_true]
+    intro c hc h0
+    subst h0
+    split at hc
+    · simp [eprintln] at hc
+    · cases hf : (#[root] : Array String).find? (fun f => (Olean.parseModName f).isNone) with
+      | some m => simp [hf, eprintln] at hc
+      | none =>
+        simp only [hf] at hc
+        cases hr : Olean.parseModName root with
+        | none => simp [hr] at hf
+        | some m =>
+          simp only [Array.find?_empty, List.filterMap_cons, hr, List.filterMap_nil,
+            Array.isEmpty_empty] at hc
+          generalize (none : Option Nat).getD _ = j at hc
+          simp only [runReq] at hc
+          obtain ⟨C, hC, hall⟩ := checkModularG_accept hc
+          obtain ⟨rk, h1, h2, h3, h4⟩ := Graph.graphOf_ok hC
+          exact ⟨m, rfl, C.toList, rk, h1, h2 m (by simp), h3, h4, hall⟩
   · simp
 
 end ConLeche.Driver

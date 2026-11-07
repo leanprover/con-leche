@@ -34,13 +34,15 @@ checked against, as a list of records, and its validation.
   key); otherwise `y` is located in `h`'s view and the two copies must have one key
   (`keyCheck`): one module, or both proofs of one statement.  Else the module is rejected
   ("name capture").  A context record reading one of `M`'s own names is rejected so too.
-* **Proof flags by inference** (`proofStatus`, ruling 3 of #460): a copy is a proof if it
-  is a theorem, or (an exported axiom) its home's private part declares a theorem there, or
-  it is a definition or opaque constant (exported or not) whose type the kernel infers to
-  be a proposition at the context (`typeIsPropC`, after the context is built and
-  validated).  Every name two loaded modules hold (`WorkerReads.clashes`) must have one key
-  so (`clashKeys`); a clash whose flag is inferred has its name reached, so that its
-  statement's names are in the context.
+* **Proof flags by inference** (`proofStatus`, ruling 3 of #460; axioms by #444's): a copy
+  is a proof if it is a theorem, or (an exported axiom) its home's private part declares a
+  theorem there, or it is a definition, opaque constant or axiom (exported or not, at its
+  home) whose type the kernel infers to be a proposition at the context (`typeIsPropC`,
+  after the context is built and validated).  The inference accepts every well-typed type
+  Lean's `isPropCheap` accepts, so every pair Lean's merge identifies has one key.  Every
+  name two loaded modules hold (`WorkerReads.clashes`) must have one key so (`clashKeys`);
+  a clash whose flag is inferred has its name reached, so that its statement's names are in
+  the context.
 * **What a record reads** (`recordReads`): the names its constants' laws and its tables
   ask stored, `RecordScoped`'s (`ConLeche/Modular.lean`): every constant of a type, of a
   definition's value, of a recursor's rules and nested pins, a literal's and a
@@ -208,8 +210,9 @@ structure Spot where
   pos : NamePosition
 
 /-- What the reach reads its records with, fixed for the run. -/
-structure ReachEnv where
-  sp : SearchPath
+structure ReachEnv (μ : Type → Type) where
+  /-- its reads of the files -/
+  rd : OleanReads μ
   /-- the module whose context it is -/
   mod : Name
   wr : WorkerReads
@@ -245,7 +248,7 @@ variable {μ : Type → Type} [CheckerIO μ]
 
 /-- **A part's name table**: the index's where the module is loaded at that level, else
 read once. -/
-def tableOf (env : ReachEnv) (c : ReachCache) (k : PartKey) :
+def tableOf (env : ReachEnv μ) (c : ReachCache) (k : PartKey) :
     μ (ReachCache × Except CheckError NamePositions) := do
   match c.tables[k]? with
   | some t => pure (c, .ok t)
@@ -259,12 +262,12 @@ def tableOf (env : ReachEnv) (c : ReachCache) (k : PartKey) :
         | none => pure ()
       else pure ()
     | none => pure ()
-    match ← readPartNames env.sp (k.mod, k.level) with
+    match ← env.rd.names (k.mod, k.level) with
     | .error e => pure (c, .error e)
     | .ok t => pure ({ c with tables := c.tables.insert k t }, .ok t)
 
 /-- **A part's name lookup**, built once. -/
-def lookOf (env : ReachEnv) (c : ReachCache) (k : PartKey) :
+def lookOf (env : ReachEnv μ) (c : ReachCache) (k : PartKey) :
     μ (ReachCache × Except CheckError (Std.HashMap Name NamePosition)) := do
   match c.looks[k]? with
   | some l => pure (c, .ok l)
@@ -278,12 +281,12 @@ def lookOf (env : ReachEnv) (c : ReachCache) (k : PartKey) :
 
 /-- **A pure read of a part with its memo** (`entryWith`, `stmtWith`): the part's files read
 once, its memo taken out while it is extended. -/
-def withPart {α : Type} (env : ReachEnv) (c : ReachCache) (k : PartKey)
+def withPart {α : Type} (env : ReachEnv μ) (c : ReachCache) (k : PartKey)
     (f : Region → SM → Option (SM × α)) : μ (ReachCache × Except CheckError (α)) := do
   let got : Except CheckError (Region × SM) ← match c.parts[k]? with
     | some p => pure (.ok p)
     | none =>
-      match ← readFiles env.sp k.mod k.level with
+      match ← env.rd.files k.mod k.level with
       | .error e => pure (.error e)
       | .ok fs =>
         match fs.viewRegion k.level with
@@ -306,13 +309,13 @@ def entriesWith (r : Region) (st : SM) : List Nat → Option (SM × List (CEntry
     pure (st, e :: es)
 
 /-- **A copy's statement and kind** (the kind's expressions left out). -/
-def stmtAt (env : ReachEnv) (c : ReachCache) (s : Spot) :
+def stmtAt (env : ReachEnv μ) (c : ReachCache) (s : Spot) :
     μ (ReachCache × Except CheckError (ConstantVal × CKindF Name Unit)) :=
   withPart env c s.part fun r st => stmtWith r st s.pos.loc
 
 /-- **A copy in a module's private part**: itself, or the private part's constant of its
 name. -/
-def privSpot (env : ReachEnv) (c : ReachCache) (s : Spot) :
+def privSpot (env : ReachEnv μ) (c : ReachCache) (s : Spot) :
     μ (ReachCache × Except CheckError Spot) := do
   if s.part.level == .private then return (c, .ok s)
   let k : PartKey := ⟨s.part.mod, .private⟩
@@ -327,7 +330,7 @@ def privSpot (env : ReachEnv) (c : ReachCache) (s : Spot) :
 /-! ## A home's view, and a search in it -/
 
 /-- The names of some parts into a view, the first copy kept. -/
-def viewAdd (env : ReachEnv) :
+def viewAdd (env : ReachEnv μ) :
     ReachCache → Std.HashMap Name Spot → List PartKey →
       μ (ReachCache × Except CheckError (Std.HashMap Name Spot))
   | c, v, [] => pure (c, .ok v)
@@ -341,7 +344,7 @@ def viewAdd (env : ReachEnv) :
 
 /-- **Module `h`'s view, by name**: `h`'s own private part, then the parts `h`'s header
 fixpoint loads, in its order, the first copy of each name.  Built once per home. -/
-def viewOf (env : ReachEnv) (c : ReachCache) (h : Name) :
+def viewOf (env : ReachEnv μ) (c : ReachCache) (h : Name) :
     μ (ReachCache × Except CheckError (Std.HashMap Name Spot)) := do
   match c.views[h]? with
   | some v => pure (c, .ok v)
@@ -349,7 +352,7 @@ def viewOf (env : ReachEnv) (c : ReachCache) (h : Name) :
     match ← tableOf env c ⟨h, .private⟩ with
     | (c, .error e) => pure (c, .error e)
     | (c, .ok own) =>
-      match ← headerFixpoint env.sp own.header.isModule own.header.imports with
+      match ← headerFixpoint env.rd.imports own.header.isModule own.header.imports with
       | .error e => pure (c, .error e)
       | .ok ld =>
         let ks : List PartKey := ⟨h, .private⟩ ::
@@ -359,7 +362,7 @@ def viewOf (env : ReachEnv) (c : ReachCache) (h : Name) :
         | (c, .ok v) => pure ({ c with views := c.views.insert h v }, .ok v)
 
 /-- **`y` located in `h`'s view.** -/
-def locate (env : ReachEnv) (c : ReachCache) (h y : Name) :
+def locate (env : ReachEnv μ) (c : ReachCache) (h y : Name) :
     μ (ReachCache × Except CheckError (Option Spot)) := do
   match ← viewOf env c h with
   | (c, .error e) => pure (c, .error e)
@@ -367,7 +370,7 @@ def locate (env : ReachEnv) (c : ReachCache) (h y : Name) :
 
 /-- **The importer's copy of a loaded name**: its module's position in the load order and
 the copy. -/
-def importerSpot (env : ReachEnv) (y : Name) : Option (Nat × Spot) := do
+def importerSpot (env : ReachEnv μ) (y : Name) : Option (Nat × Spot) := do
   let cp ← env.wr.index.first[y]?
   let q ← env.wr.index.at cp
   let ld := env.wr.loads
@@ -383,28 +386,29 @@ inductive ProofStatus where
   | infer
   deriving BEq, Inhabited
 
-/-- **A copy's proof flag** (ruling 3 of #460): a theorem is a proof; a definition or opaque
-constant is one if its type is a proposition; an exported axiom is what its home's private
-part declares there; an axiom of a private part is none. -/
-def proofStatus (env : ReachEnv) (c : ReachCache) (s : Spot) (k : CKindF Name Unit) :
+/-- **A copy's proof flag** (ruling 3 of #460, and #444's: axioms as Lean merges them): a
+theorem is a proof; a definition, opaque constant or axiom is one if its type is a proposition;
+an exported axiom is what its home's private part declares there (a theorem a proof, a
+definition, opaque constant or axiom by its type). -/
+def proofStatus (env : ReachEnv μ) (c : ReachCache) (s : Spot) (k : CKindF Name Unit) :
     μ (ReachCache × Except CheckError ProofStatus) := do
   match k with
   | .thm .. => pure (c, .ok .yes)
   | .defn .. | .opaq .. => pure (c, .ok .infer)
   | .ax _ =>
-    if s.part.level == .private then return (c, .ok .no)
+    if s.part.level == .private then return (c, .ok .infer)
     match ← privSpot env c s with
     | (c, .error e) => pure (c, .error e)
     | (c, .ok p) =>
       pure (c, .ok (match p.pos.tag with
         | 2 => .yes
-        | 1 | 3 => .infer
+        | 0 | 1 | 3 => .infer
         | _ => .no))
   | _ => pure (c, .ok .no)
 
 /-- **Two copies of `y` have one key**: one module, or both proofs of one statement (a
 flag to be inferred is recorded with its statement). -/
-def keyCheck (env : ReachEnv) (c : ReachCache) (h y : Name) (s₁ s₂ : Spot) :
+def keyCheck (env : ReachEnv μ) (c : ReachCache) (h y : Name) (s₁ s₂ : Spot) :
     μ (ReachCache × Except CheckError Unit) := do
   if s₁.part.mod == s₂.part.mod then return (c, .ok ())
   let what := s!"name capture at {y}, read by module {h}"
@@ -431,7 +435,7 @@ def keyCheck (env : ReachEnv) (c : ReachCache) (h y : Name) (s₁ s₂ : Spot) :
 
 /-- **The clash rule's keys** (ruling 3 of #460): every name two loaded modules hold must
 have one key; the names whose flags are inferred, to be reached. -/
-def clashKeys (env : ReachEnv) :
+def clashKeys (env : ReachEnv μ) :
     ReachCache → List Clash → Array Name → μ (ReachCache × Except CheckError (Array Name))
   | c, [], acc => pure (c, .ok acc)
   | c, cl :: cls, acc => do
@@ -465,7 +469,7 @@ where
 /-! ## The capture check -/
 
 /-- **Is `y` in module `m`'s exported part** (`m` loaded at `level`). -/
-def inExported (env : ReachEnv) (c : ReachCache) (m : Name) (level : OLeanLevel) (y : Name) :
+def inExported (env : ReachEnv μ) (c : ReachCache) (m : Name) (level : OLeanLevel) (y : Name) :
     μ (ReachCache × Except CheckError Bool) := do
   if level == .exported then return (c, .ok true)
   match ← lookOf env c ⟨m, .exported⟩ with
@@ -474,7 +478,7 @@ def inExported (env : ReachEnv) (c : ReachCache) (m : Name) (level : OLeanLevel)
 
 /-- **The capture check of one read** `y` of a record of home `h`, and the completion of a
 name the index lacks (see the module docstring). -/
-def captureOne (env : ReachEnv) (c : ReachCache) (h y : Name) :
+def captureOne (env : ReachEnv μ) (c : ReachCache) (h y : Name) :
     μ (ReachCache × Except CheckError Unit) := do
   if env.own.contains y then
     return (c, .error (.invalid s!"name capture: module {h} reads {y}, which {env.mod} declares"))
@@ -518,7 +522,7 @@ def captureOne (env : ReachEnv) (c : ReachCache) (h y : Name) :
                          completed := c.completed.push (y, h) }, .ok ())
 
 /-- The capture check of every read of a record. -/
-def captureAll (env : ReachEnv) (h : Name) :
+def captureAll (env : ReachEnv μ) (h : Name) :
     ReachCache → List Name → μ (ReachCache × Except CheckError Unit)
   | c, [] => pure (c, .ok ())
   | c, y :: ys => do
@@ -529,7 +533,7 @@ def captureAll (env : ReachEnv) (h : Name) :
 /-! ## A record read -/
 
 /-- A part's recursors' locations by their block's first member, read once. -/
-def recBlocksOf (env : ReachEnv) (c : ReachCache) (k : PartKey) :
+def recBlocksOf (env : ReachEnv μ) (c : ReachCache) (k : PartKey) :
     μ (ReachCache × Except CheckError (Std.HashMap Name (Array Nat))) := do
   match c.recBlocks[k]? with
   | some m => pure (c, .ok m)
@@ -549,7 +553,7 @@ def recBlocksOf (env : ReachEnv) (c : ReachCache) (k : PartKey) :
 
 /-- **Type `n`'s group, read from one part**: `none` where the part lacks one of its
 members or constructors. -/
-def groupAt (env : ReachEnv) (c : ReachCache) (k : PartKey) (n : Name) :
+def groupAt (env : ReachEnv μ) (c : ReachCache) (k : PartKey) (n : Name) :
     μ (ReachCache × Except CheckError (Option Declaration)) := do
   match ← lookOf env c k with
   | (c, .error e) => pure (c, .error e)
@@ -593,7 +597,7 @@ def groupAt (env : ReachEnv) (c : ReachCache) (k : PartKey) (n : Name) :
 
 /-- **The record presenting `x`, and its home** (see the module docstring): read at the
 importer's copy, or at a completion's located copy as a statement. -/
-def readRecord (env : ReachEnv) (c : ReachCache) (x : Name) :
+def readRecord (env : ReachEnv μ) (c : ReachCache) (x : Name) :
     μ (ReachCache × Except CheckError (Declaration × Name)) := do
   let some (s, completed) := (match importerSpot env x with
       | some (_, s) => some (s, false)
@@ -688,7 +692,7 @@ def missingError (d : Declaration) (x h : Name) : CheckError :=
   | _ => .invalid s!"the record read for {x} from {h} does not declare it"
 
 /-- **The reach's worklist** (see the module docstring). -/
-def reachGo {μ : Type → Type} [CheckerIO μ] (env : ReachEnv) :
+def reachGo {μ : Type → Type} [CheckerIO μ] (env : ReachEnv μ) :
     Nat → ReachLog → ReachCache → μ (Except CheckError (ReachLog × ReachCache))
   | fuel, L, c =>
     match L.stack with
@@ -754,9 +758,9 @@ structure Reach where
 
 /-- **The reach of module `m`** from the names its own records read (`roots`): the clash
 rule's keys, the worklist, the context's validation, the inferred flags. -/
-def reach {μ : Type → Type} [CheckerIO μ] (sp : SearchPath) (m : Name) (wr : WorkerReads)
+def reach {μ : Type → Type} [CheckerIO μ] (rd : OleanReads μ) (m : Name) (wr : WorkerReads)
     (own : Std.HashSet Name) (roots : Array Name) : μ (Except CheckError Reach) := do
-  let env : ReachEnv := { sp, mod := m, wr, own }
+  let env : ReachEnv μ := { rd, mod := m, wr, own }
   match ← clashKeys env {} wr.clashes.toList #[] with
   | (_, .error e) => pure (.error e)
   | (c, .ok extra) =>

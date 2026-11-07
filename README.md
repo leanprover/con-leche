@@ -28,7 +28,7 @@ There is an AI-written overview of the project in [OVERVIEW.md](./OVERVIEW.md).
   For practicality reasons, it silently *ignores* the [`sorryAx`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Cached/ParsedC.lean#L237-L238) axiom declarations from the standard library, but will complain it is actually used. The (deprecated) `trustCompiler`, `ofReduceBool` and `ofReduceNat` axioms are replaced with simple definitions of the same type.
 
   The checker (at the moment) will reject any other axiom.
-* The checker processes files in two phases: *parsing* the input stream and *checking*. Both stages can use parallelism with [`--jobs`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Driver/Cli.lean#L122).
+* The checker processes files in two phases: *parsing* the input stream and *checking*. Both stages can use parallelism with [`--jobs`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Driver/Cli.lean#L126).
 * The JSON and olean parsers are fast agentic-hand-written parsers over the input bytes (verified with respect to naive ones, see below).
 
 ## Design of the checker proof
@@ -82,13 +82,13 @@ This theorem only talks about [`checkDecls`](https://github.com/leanprover/con-l
 
 The theorems above talk about the pure checker code. That pure code is embedded in a driver: parsing arguments, reading files, parallelism, all in the `IO` monad. This is out of reach for a rigorous verification, but we can still do something that helps to rule out more implementation bugs.
 
-To that end the driver function [`runArgs`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Driver/Cli.lean#L241) runs in a generic monad with a [`CheckerIO`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Frontend/CheckerIO.lean#L121) type class modelling three kinds of operations:
+To that end the driver function [`runArgs`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Driver/Cli.lean#L277) runs in a generic monad with a [`CheckerIO`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Frontend/CheckerIO.lean#L135) type class modelling three kinds of operations:
 
 * File access (existence, reading)
-* A [`parMapExcept`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Frontend/CheckerIO.lean#L143) operator for parallelism
-* Running other `IO` with [`liftIO`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Frontend/CheckerIO.lean#L159)
+* A [`parMapExcept`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Frontend/CheckerIO.lean#L157) operator for parallelism
+* Running other `IO` with [`liftIO`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Frontend/CheckerIO.lean#L173)
 
-We can then prove something about such generic code in an idealized (pure, nondeterministic) model, [`ModelIO`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Frontend/CheckerIO.lean#L271). These proofs are meaningful under some assumptions, which are not enforced:
+We can then prove something about such generic code in an idealized (pure, nondeterministic) model, [`ModelIO`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Frontend/CheckerIO.lean#L285). These proofs are meaningful under some assumptions, which are not enforced:
 
 * The files accessed are not changing under our nose. Later reads during the process see the same state of the file system.
 * The code run by `liftIO` has no side effects affecting the file reading operations and does not exit with code 0. We use this method for (otherwise pure) concurrency, diagnostic output and measuring time.
@@ -104,7 +104,7 @@ theorem main_no_False (V : Type w) [SetTheory V] {file : String} {fs : FS} {b : 
     ¬ (Driver.runArgs ["--", file] : ModelIO _) fs (.ok 0)
 ```
 
-The real [`main`](https://github.com/leanprover/con-leche/blob/master/Main.lean#L95) calls the generic [`runArgs`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Driver/Cli.lean#L241) at the `IO` instance, and additionally takes care of [enabling the linearity protection](https://github.com/leanprover/con-leche/blob/master/Main.lean#L28), flushing the output and exiting the process.
+The real [`main`](https://github.com/leanprover/con-leche/blob/master/Main.lean#L95) calls the generic [`runArgs`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Driver/Cli.lean#L277) at the `IO` instance, and additionally takes care of [enabling the linearity protection](https://github.com/leanprover/con-leche/blob/master/Main.lean#L28), flushing the output and exiting the process.
 
 ### Set theory assumption
 
@@ -124,7 +124,7 @@ Unfortunately, this rule can make a function type look like it is a proposition:
 
 A consequence of this is we have a bit less structure in the semantic value of a function type than we would like to. In particular, we may not be able to read the domain off a value in `[∀ (x : Empty), B x]`. The proof still goes through if we do some extra calls to `infer` and `defeq`. For example when comparing two `.lambda` expressions we additionally check whether their bodies have the same type.
 
-We call this extra work the *certification tax* of our proof: Work we only do because our proof is not better. The checker can be run in [`--trusted`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Driver/Cli.lean#L121) mode where these checks are omitted to quantify the cost.
+We call this extra work the *certification tax* of our proof: Work we only do because our proof is not better. The checker can be run in [`--trusted`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Driver/Cli.lean#L125) mode where these checks are omitted to quantify the cost.
 
 ### Nat operations
 

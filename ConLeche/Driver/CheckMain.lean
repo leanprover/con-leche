@@ -149,28 +149,32 @@ def oleanStep {μ : Type → Type} [CheckerIO μ] (mode : CheckMode) (run : Olea
   let st ← CheckerIO.liftIO (jobEnd run.err run.pace run.t0 ds pl s.w t ts (r matches .ok _) s.st)
   pure ({ s with st, cache := c }, r)
 
-/-- **The check phase of an `--olean` run**: the jobs on the worker map, in fold order; the
-first failure in that order is the result, whatever the workers' timing. -/
+/-- **The check phase of an `--olean` run**: the jobs from position `start` on, on the worker
+map, in fold order; the first failure in that order is the result, whatever the workers'
+timing.  A run of a closure checks every record (`start = 0`); a module's worker its own
+records, after its context's (`checkModuleG`). -/
 def checkOleansG {μ : Type → Type} [CheckerIO μ] (mode : CheckMode)
     (pace : Pace) (t0 tIndex tParse jobs : Nat) (sp : List System.FilePath)
-    (values : Array Frontend.Olean.ModRef) {ds : Array Declaration} (J : Jobs ds) :
-    μ (Except (CheckError × Nat) Unit) := do
-  let run ← CheckerIO.liftIO (OleanRun.new pace t0 tIndex tParse jobs)
-  let workers := max 1 (min jobs ds.size)
-  let (pl, tStart) ← CheckerIO.liftIO (run.pool ds.size workers values)
+    (values : Array Frontend.Olean.ModRef) {ds : Array Declaration} (J : Jobs ds)
+    (start : Nat := 0) (alone : Bool := true) : μ (Except (CheckError × Nat) Unit) := do
+  let run ← CheckerIO.liftIO (OleanRun.new pace t0 tIndex tParse jobs alone)
+  let n := ds.size - start
+  let workers := max 1 (min jobs n)
+  let (pl, tStart) ← CheckerIO.liftIO (run.pool n workers values)
   let (ss, res) ← CheckerIO.parMapWorkers jobs (fun w => ({ w } : OleanWorker))
-    (oleanStep mode run pl J sp values) (List.range ds.size)
+    (oleanStep mode run pl J sp values) (List.range' start n)
   let failure := match res with
     | .error e => some e
     | .ok _ => none
-  CheckerIO.liftIO (run.done ds tStart workers (ss.map (·.st)) failure)
+  CheckerIO.liftIO (run.done ds n tStart workers (ss.map (·.st)) failure)
   pure (match res with
     | .error e => .error e
     | .ok _ => .ok ())
 
 /-- **The verdict of a run**: the line and the exit code, from the fold's result. -/
 def verdictG {μ : Type → Type} [CheckerIO μ] (modeTag : String) (size t0 : Nat)
-    (decls : Array Declaration) (r : Except (CheckError × Nat) Unit) : μ UInt8 := do
+    (decls : Array Declaration) (r : Except (CheckError × Nat) Unit) (who : String := "") :
+    μ UInt8 := do
   match r with
   | .ok _ =>
     -- **The headline number is the FILE's declaration-record
@@ -198,7 +202,7 @@ def verdictG {μ : Type → Type} [CheckerIO μ] (modeTag : String) (size t0 : N
     -- `scripts/stream-census.py` derives BOTH numbers from a
     -- stream and is checked against both checkers' actual output,
     -- which is where a run's constant count is read off.
-    outLine s!"con-leche: accepted {size} \
+    outLine s!"con-leche: {who}accepted {size} \
       declarations ({modeTag})"
     return 0
   | .error (e, i) =>
@@ -217,7 +221,7 @@ def verdictG {μ : Type → Type} [CheckerIO μ] (modeTag : String) (size t0 : N
         s!" [at {declCName decls[i]}, fold position {i}]"
       else s!" [at fold position {i}]"
     let now ← clockMs
-    diagLine s!"con-leche: {e}{loc} ({modeTag}) \
+    diagLine s!"con-leche: {who}{e}{loc} ({modeTag}) \
       t={ConLeche.Cached.msSecs (now - t0)}s"
     return e.exitCode
 
@@ -376,10 +380,12 @@ def checkMainG {μ : Type → Type} [CheckerIO μ] (input : Input) (mode : Check
           (← checkOleansG mode pace t0 tIndex tParse jobs sp rd.values J)
 
 /-- **An exit 0 is the fold's accept**: the verdict's code is 0 only on an `.ok`. -/
-theorem verdictG_ok {modeTag : String} {size t0 : Nat} {decls : Array Declaration}
+theorem verdictG_ok {modeTag : String} {size t0 : Nat} {decls : Array Declaration} {who : String}
     {r : Except (CheckError × Nat) Unit} {fs : FS} {c : UInt8}
-    (h : (verdictG modeTag size t0 decls r : ModelIO _) fs (.ok c)) (h0 : c = 0) : r = .ok () := by
-  suffices H : ModelIO.AllOk (verdictG modeTag size t0 decls r) fs (fun c => c = 0 → r = .ok ()) from
+    (h : (verdictG modeTag size t0 decls r who : ModelIO _) fs (.ok c)) (h0 : c = 0) :
+    r = .ok () := by
+  suffices H : ModelIO.AllOk (verdictG modeTag size t0 decls r who) fs
+      (fun c => c = 0 → r = .ok ()) from
     H c h h0
   cases r with
   | ok u => exact fun _ _ _ => rfl

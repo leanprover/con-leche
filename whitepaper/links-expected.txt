@@ -5276,20 +5276,20 @@
    158    no_empty_inductive_inhabitant V hacc (S := IndSpec.falseSpec name recName elim) rfl rfl rfl rfl
    159      hrec e
 
-== ConLeche/Model/Fold.lean#L419-L426
-   419  theorem no_proof_of_False_pure (V : Type w) [SetTheory V]
-   420      {F : Nat}
-   421      {ds : List Declaration} {env' : Env}
-   422      (h : checkDeclsPure .verified (fueledOps .verified F) pins ds = .ok env') :
-   423      ∀ c ∈ env'.consts,
-   424        c.toConstantVal.type = .const falseName [] → False := by
-   425    obtain ⟨mp⟩ := checkDeclsPure_sound_of (V := V) h
-   426    exact fun c hc hty => no_constant_of_False mp c hc hty
+== ConLeche/Model/Fold.lean#L436-L443
+   436  theorem no_proof_of_False_pure (V : Type w) [SetTheory V]
+   437      {F : Nat}
+   438      {ds : List Declaration} {env' : Env}
+   439      (h : checkDeclsPure .verified (fueledOps .verified F) pins ds = .ok env') :
+   440      ∀ c ∈ env'.consts,
+   441        c.toConstantVal.type = .const falseName [] → False := by
+   442    obtain ⟨mp⟩ := checkDeclsPure_sound_of (V := V) h
+   443    exact fun c hc hty => no_constant_of_False mp c hc hty
 
-== ConLeche/Model/Fold.lean#L348-L350
-   348  theorem foldPM {F : Nat} :
-   349      ∀ (ds : List Declaration) (env : Env) {env' : Env},
-   350        EnvModelOk V env →
+== ConLeche/Model/Fold.lean#L365-L367
+   365  theorem foldPM {F : Nat} :
+   366      ∀ (ds : List Declaration) (env : Env) {env' : Env},
+   367        EnvModelOk V env →
 
 >>> whitepaper/sections/05-nested.typ
 
@@ -6839,16 +6839,16 @@
    233      obtain ⟨m', hm'⟩ := h.step m
    234      exact ⟨m', fun c hc => by rw [hm' c hc], fun _ h => h.elim⟩
 
-== ConLeche/Modular.lean#L243-L246
-   243  structure LocalOk (mode : CheckMode) (pins : List NatOpPinSet) (dev : Nat → Module) (i : Nat) :
-   244      Prop where
-   245    iface : InterfaceOk dev i
-   246    importOk : ImportOk mode pins dev i
+== ConLeche/Modular.lean#L255-L258
+   255  structure LocalOk (mode : CheckMode) (pins : List NatOpPinSet) (dev : Nat → Module) (i : Nat) :
+   256      Prop where
+   257    iface : InterfaceOk dev i
+   258    importOk : ImportOk mode pins dev i
 
-== ConLeche/Modular.lean#L91-L93
-    91  def Presents (e p : Declaration) : Prop :=
-    92    (declConstants e = declConstants p ∧ declTables e = declTables p) ∨
-    93      (e = stmtOf p ∧ ∀ n ∈ (declConstants p).map (·.toConstantVal.name), n ∉ reduceOpNames)
+== ConLeche/Modular.lean#L95-L97
+    95  def Presents (e p : Declaration) : Prop :=
+    96    ((declConstants e).Perm (declConstants p) ∧ declTables e = declTables p) ∨
+    97      (e = stmtOf p ∧ ∀ n ∈ (declConstants p).map (·.toConstantVal.name), n ∉ reduceOpNames)
 
 == ConLeche/Modular/Generic.lean#L305-L306
    305  theorem modular : ∀ k, (∀ i < k, dev.Valid i) →
@@ -6979,13 +6979,13 @@
     67    if u = 0 then image (fun _ => pt) A else image (fun a => kpair empty (qclass A R a)) A
 
 == ConLeche/Model/BasisQuot.lean#L2504-L2510
-  2504  theorem extendQuotLift (mp : EnvModelM V env)
-  2505      (hQ : env.find? quotName = some (quotA.atLps [q]))
-  2506      (hM : env.find? quotMkName = some (quotMkA.atLps [x]))
-  2507      (hE : EqStored env)
-  2508      (hfresh : env.find? quotLiftA.name = none)
-  2509      (hwf : EnvWF ⟨quotLiftA :: env.consts, env.tables⟩) {ex : List Name} :
-  2510      CoverTo mp ex ⟨quotLiftA :: env.consts, env.tables⟩ ex := by
+  2504  /-- **`Quot.lift`, installed at the P tier.** -/
+  2505  theorem extendQuotLift (mp : EnvModelM V env)
+  2506      (hQ : env.find? quotName = some (quotA.atLps [q]))
+  2507      (hM : env.find? quotMkName = some (quotMkA.atLps [x]))
+  2508      (hE : EqStored env)
+  2509      (hfresh : env.find? quotLiftA.name = none)
+  2510      (hwf : EnvWF ⟨quotLiftA :: env.consts, env.tables⟩) {ex : List Name} :
 
 == ConLeche/Kernel/Basis/False.lean#L37-L39
     37  /-- `False : Prop`. -/
@@ -7082,10 +7082,10 @@
 == ConLeche/Cached/StreamIndex.lean#L65
     65  def buildIndex (ds : Array Declaration) : StreamIndex :=
 
-== ConLeche/Verify/Cached/StreamIndex.lean#L488-L490
-   488  theorem checkDecls_of_jobs {ds : Array Declaration}
-   489      (h : ∀ k (hk : k < ds.size), recordJob mode pins (buildIndex ds) k ds[k] = .ok ()) :
-   490      checkDecls mode pins ds = .ok (streamEnv ds.toList) := by
+== ConLeche/Verify/Cached/StreamIndex.lean#L514-L516
+   514  theorem checkDecls_of_jobs {ds : Array Declaration}
+   515      (h : ∀ k (hk : k < ds.size), recordJob mode pins (buildIndex ds) k ds[k] = .ok ()) :
+   516      checkDecls mode pins ds = .ok (streamEnv ds.toList) := by
 
 == ConLeche/Kernel/Expr.lean#L315-L317
    315  inductive Expr where
@@ -7286,11 +7286,11 @@
     34  theorem checkDecls_sound
     35      {ds : Array Declaration} {env' : Env}
 
-== ConLeche/Modular.lean#L243-L246
-   243  structure LocalOk (mode : CheckMode) (pins : List NatOpPinSet) (dev : Nat → Module) (i : Nat) :
-   244      Prop where
-   245    iface : InterfaceOk dev i
-   246    importOk : ImportOk mode pins dev i
+== ConLeche/Modular.lean#L255-L258
+   255  structure LocalOk (mode : CheckMode) (pins : List NatOpPinSet) (dev : Nat → Module) (i : Nat) :
+   256      Prop where
+   257    iface : InterfaceOk dev i
+   258    importOk : ImportOk mode pins dev i
 
 == ConLeche/Modular/Generic.lean#L305-L306
    305  theorem modular : ∀ k, (∀ i < k, dev.Valid i) →
