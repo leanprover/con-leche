@@ -11,7 +11,8 @@ import ConLeche.Semantics.Bridge.DeclRun
 # The assembly (#148): the RUN bridge
 
 `checkDecl` → `DeclRun` by dispatch, off no invariant at all.  The
-inductive arm, at k members, is recorded as `DeclBlockRun`
+inductive arm, at k members and at every name (a pinned basis block included), is recorded as
+`DeclBlockRun`
 (`DeclIndRunDispatchK`), the dispatch the fold (`Model/Fold.lean`)
 takes.
 -/
@@ -51,10 +52,8 @@ theorem checkDeclRun_ofEnvFactsK
     (h : checkDecl .verified (fueledOps .verified F) pins env d = .ok env₂) :
     DeclRun F (DeclIndRunDispatchK F env) env d env₂ :=
   checkDeclRun_of
-    (fun {block nP} hpin hh => by
-      -- task #293: the pinned-block recognition came first, and this
-      -- block is not one of the five
-      simp only [checkDecl, hpin] at hh
+    (fun {block nP} hh => by
+      simp only [checkDeclKind] at hh
       rw [DeclIndRunDispatchK]
       -- the declared parameter count (task #228): a run that reached
       -- the dispatch passed the guard

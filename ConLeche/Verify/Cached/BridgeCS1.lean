@@ -242,23 +242,6 @@ theorem checkDivModPinS_spec (henv : EnvWF env) {env2 : Env}
   sym only [conleche_grind, checkDivModPin.eq_1] =>
     vcgen [checkDivModPin, checkDivModPinLoopS_spec henv hc] <;> finish
 
-/-- The basis-install fold (operation-free). -/
-theorem installBasisFoldS_spec :
-    ∀ (cis : List ConstantInfo) (env' : Env) {s₀ : CState},
-      CSOK mode false env s₀ →
-      ⦃fun s => s = s₀⦄ (cis.foldlM installBasisDecl env' : CheckCM Env)
-      ⦃fun v s' => CSOK mode false env s' ∧
-        Runs (cis.foldlM installBasisDecl env' : FueledM Env) v; ⊤⦄ := by
-  intro cis
-  induction cis with
-  | nil =>
-    intro _ _ _
-    sym only [conleche_grind, List.foldlM_nil] => vcgen [List.foldlM_nil] <;> finish
-  | cons _ cis ih =>
-    intro _ _ _
-    sym only [conleche_grind, List.foldlM_cons, installBasisDecl.eq_1] =>
-      vcgen [List.foldlM_cons, installBasisDecl, ih] <;> finish
-
 end Walks1
 
 end ConLeche.Cached

@@ -79,13 +79,14 @@ theorem new_proof_leaf {F : Nat} {env env₂ : Env} {d : Declaration}
   have hsem : ∀ {ty : Expr}, ty.constsResolve env = true →
       SemPropType V a' fe.env ty → SemPropType V a env ty := fun hr hs =>
     SemPropType.of_denote (fun ψ => (pushChain_denote_old hch hleaf hr ψ).symm) hs
+  obtain ⟨-, hrun⟩ := hrun
   cases d with
   | defnDecl cv v hint =>
     obtain ⟨type', value', hcv, -, henv2, -, -⟩ := hrun
     rw [henv2] at hf
     obtain ⟨rfl, rfl⟩ := find?_cons_fresh hf hnew
-    have htr : type'.constsResolve env = true := hcv.2.2.2.2.2.2.2.1
-    have hann : type' = cv.type := hcv.2.2.2.2.2.1
+    have htr : type'.constsResolve env = true := hcv.2.2.2.2.2.2.1
+    have hann : type' = cv.type := hcv.2.2.2.2.1
     rcases hc with ⟨_, h⟩ | hc
     · exact nomatch h
     · exact hpl ⟨hop, hann ▸ hsem htr hc⟩
@@ -98,20 +99,20 @@ theorem new_proof_leaf {F : Nat} {env env₂ : Env} {d : Declaration}
     obtain ⟨-, type', value', hcv, -, henv2, -⟩ := hrun
     rw [henv2] at hf
     obtain ⟨rfl, rfl⟩ := find?_cons_fresh hf hnew
-    have htr : type'.constsResolve env = true := hcv.2.2.2.2.2.2.2.1
-    have hann : type' = cv.type := hcv.2.2.2.2.2.1
+    have htr : type'.constsResolve env = true := hcv.2.2.2.2.2.2.1
+    have hann : type' = cv.type := hcv.2.2.2.2.1
     rcases hc with ⟨_, h⟩ | hc
     · exact nomatch h
     · exact hpl ⟨hred, hann ▸ hsem htr hc⟩
   | axiomDecl cv =>
-    rcases hrun with ⟨hq, -, -, -, henv2⟩ | ⟨type', -, hcv, hbr⟩
+    rcases hrun with ⟨hq, -, -, -, henv2⟩ | ⟨-, type', -, hcv, hbr⟩
     · rw [henv2] at hf
       obtain ⟨-, hname⟩ := find?_cons_fresh hf hnew
       rw [show (quotAt .sound cv).name = (quotPin .sound).name from
         ConLeche.Verify.atLps_name _ _] at hname
       exact absurd hname.symm (by rw [show (quotPin .sound).name = quotSoundName from rfl]; exact hqs)
-    · have htr : type'.constsResolve env = true := hcv.2.2.2.2.2.2.2.1
-      have hann : type' = cv.type := hcv.2.2.2.2.2.1
+    · have htr : type'.constsResolve env = true := hcv.2.2.2.2.2.2.1
+      have hann : type' = cv.type := hcv.2.2.2.2.1
       have hax : fe.env = ⟨.axiomInfo ⟨cv.name, cv.levelParams, type'⟩ :: env.consts, env.tables⟩ ∨
           fe.env = env := by
         rcases hbr with ⟨-, h⟩ | ⟨-, -, h⟩ | ⟨-, -, h⟩ | ⟨-, -, -, -, -, -, -, h⟩

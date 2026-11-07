@@ -148,26 +148,9 @@ theorem pushChain_denote_old {env : Env} {fe : FEnv} (h : PushChain env fe)
       exact ⟨c, c, by rw [pushChain_find_old h hx, hc], hc, .inl rfl⟩)
     hleaf (fun hx => pushChain_table_old h hx) ψ 0 e he
 
-theorem mem_zipWith {α β γ : Type} {f : α → β → γ} :
-    ∀ {l₁ : List α} {l₂ : List β} {c : γ}, c ∈ List.zipWith f l₁ l₂ →
-      ∃ a ∈ l₁, ∃ b ∈ l₂, c = f a b
-  | [], _, _, h => by simp at h
-  | _ :: _, [], _, h => by simp at h
-  | a :: l₁, b :: l₂, c, h => by
-    simp only [List.zipWith_cons_cons, List.mem_cons] at h
-    rcases h with rfl | h
-    · exact ⟨a, .head _, b, .head _, rfl⟩
-    · obtain ⟨a', ha, b', hb, rfl⟩ := mem_zipWith h
-      exact ⟨a', .tail _ ha, b', .tail _ hb, rfl⟩
-
 theorem atLps_stmtKind (ci : ConstantInfo) (ps : List Name) :
     (ci.atLps ps).isStmtKind = ci.isStmtKind := by
   cases ci <;> rfl
-
-/-- The pinned blocks are inductive kinds, but for `Quot.sound`. -/
-theorem basis_pins_not_stmt (kind : BasisKind) :
-    ∀ pin ∈ kind.decls, pin.isStmtKind = true → pin.name ≠ quotSoundName → False := by
-  cases kind <;> decide
 
 /-- An inductive or quotient record installs no definition, theorem or axiom off the quotient's
 `Quot.sound`. -/
@@ -205,29 +188,22 @@ theorem stmt_of_record {d : Declaration} {ci : ConstantInfo} (hci : ci ∈ declC
     exfalso
     simp only [declConstants] at hci
     split at hci
-    · next kind _ =>
-      unfold BasisKind.atBlock at hci
-      obtain ⟨pin, hpin, c, -, rfl⟩ := mem_zipWith hci
-      rw [atLps_stmtKind] at hk
-      rw [atLps_name] at hq
-      exact basis_pins_not_stmt kind pin hpin hk hq
-    · split at hci
-      · next p _ =>
-        unfold blockConstants blockFormers blockCtors at hci
-        simp only [List.mem_append, List.mem_map] at hci
-        rcases hci with (⟨_, -, rfl⟩ | ⟨_, -, rfl⟩) | hr
-        · exact nomatch hk
-        · exact nomatch hk
-        · have : ∀ rs, ∀ c ∈ blockRecs p rs, c.isStmtKind = false := by
-            intro rs
-            induction rs with
-            | nil => exact fun _ h => nomatch h
-            | cons r rs ih =>
-              intro c hc
-              rcases List.mem_cons.mp hc with rfl | hc
-              · rfl
-              · exact ih c hc
-          rw [this _ _ hr] at hk; exact nomatch hk
-      · exact absurd hci List.not_mem_nil
+    · next p _ =>
+      unfold blockConstants blockFormers blockCtors at hci
+      simp only [List.mem_append, List.mem_map] at hci
+      rcases hci with (⟨_, -, rfl⟩ | ⟨_, -, rfl⟩) | hr
+      · exact nomatch hk
+      · exact nomatch hk
+      · have : ∀ rs, ∀ c ∈ blockRecs p rs, c.isStmtKind = false := by
+          intro rs
+          induction rs with
+          | nil => exact fun _ h => nomatch h
+          | cons r rs ih =>
+            intro c hc
+            rcases List.mem_cons.mp hc with rfl | hc
+            · rfl
+            · exact ih c hc
+        rw [this _ _ hr] at hk; exact nomatch hk
+    · exact absurd hci List.not_mem_nil
 
 end ConLeche.Model.Modular

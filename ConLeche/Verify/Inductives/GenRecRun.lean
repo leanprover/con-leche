@@ -402,7 +402,6 @@ facts: the guards, and the inference of the type AS STORED. -/
 theorem classConstOk_inv {env : Env} {cv : ConstantVal} {F : Nat}
     (h : classConstOk (fueledOps mode F) (mkFEnv env) cv = .ok ()) :
     env.find? cv.name = none ∧
-    reservedBasisNames.contains cv.name = false ∧
     Name.nodup cv.levelParams = true ∧
     cv.type.looseBVarsBounded 0 = true ∧
     cv.type.hasFvar = false ∧
@@ -416,9 +415,6 @@ theorem classConstOk_inv {env : Env} {cv : ConstantVal} {F : Nat}
   by_cases hfind : (env.find? cv.name).isSome = true
   case pos => rw [ite_eq_left hfind] at h; close_throw h
   rw [ite_eq_right hfind] at h
-  by_cases hres : reservedBasisNames.contains cv.name = true
-  case pos => rw [ite_eq_left hres] at h; close_throw h
-  rw [ite_eq_right hres] at h
   by_cases hshape : litShapeOk (.axiomInfo cv) = true
   case neg => rw [ite_eq_right (by simpa using hshape)] at h; close_throw h
   rw [ite_eq_left (by simpa using hshape)] at h
@@ -439,7 +435,7 @@ theorem classConstOk_inv {env : Env} {cv : ConstantVal} {F : Nat}
   rw [ite_eq_left (by simpa using hcr)] at h
   obtain ⟨stype, hst, h⟩ := exceptBind_ok h
   obtain ⟨u, hu, -⟩ := exceptBind_ok h
-  refine ⟨?_, by simpa using hres, hnd, hlb, by simpa using hfv, hlp, hcr,
+  refine ⟨?_, hnd, hlb, by simpa using hfv, hlp, hcr,
     stype, u, hst, hu⟩
   revert hfind; cases env.find? cv.name <;> simp
 
@@ -451,13 +447,13 @@ theorem classConstOk_typeWF {env : Env} {cv : ConstantVal} {F : Nat}
     cv.type.allLevelParamsDefined cv.levelParams = true ∧
     cv.type.constsResolve env = true ∧
     cv.type.looseBVarsBounded 0 = true := by
-  obtain ⟨-, -, -, hlb, hfv, hlp, hcr, -, -, -, -⟩ := classConstOk_inv h
+  obtain ⟨-, -, hlb, hfv, hlp, hcr, -, -, -, -⟩ := classConstOk_inv h
   exact ⟨hfv, hlp, hcr, hlb⟩
 
 /-- A constant's check says its shape at a literal's name. -/
 theorem classConstOk_litShapeAt {env : Env} {cv : ConstantVal} {F : Nat}
     (h : classConstOk (fueledOps mode F) (mkFEnv env) cv = .ok ()) : LitShapeAt cv := by
-  refine litShapeAt_of_check (classConstOk_inv h).2.1 ?_
+  refine litShapeAt_of_check ?_
   by_cases hs : litShapeOk (.axiomInfo cv) = true
   · exact hs
   exfalso
@@ -466,9 +462,6 @@ theorem classConstOk_litShapeAt {env : Env} {cv : ConstantVal} {F : Nat}
   by_cases hfind : (env.find? cv.name).isSome = true
   · rw [ite_eq_left hfind] at h; close_throw h
   rw [ite_eq_right hfind] at h
-  by_cases hres : reservedBasisNames.contains cv.name = true
-  · rw [ite_eq_left hres] at h; close_throw h
-  rw [ite_eq_right hres] at h
   rw [ite_eq_right (by simpa using hs)] at h
   close_throw h
 
@@ -477,10 +470,10 @@ inference are the run's; the stored type is the checked one. -/
 theorem classConstOk_checked {env : Env} {cv : ConstantVal} {F : Nat}
     (h : classConstOk (fueledOps mode F) (mkFEnv env) cv = .ok ()) :
     ConstChecked mode F env cv cv := by
-  obtain ⟨hfr, hres, hnd, hlb, hfv, hlp, hcr, stype, u, hinf, hsort⟩ :=
+  obtain ⟨hfr, hnd, hlb, hfv, hlp, hcr, stype, u, hinf, hsort⟩ :=
     classConstOk_inv h
   exact {
-    name := rfl, lps := rfl, fresh := hfr, unreserved := hres,
+    name := rfl, lps := rfl, fresh := hfr,
     nodup := hnd, bounded := hlb, noFvar := hfv, lpsDef := hlp, resolves := hcr,
     sorted := ⟨stype, u, hinf, hsort⟩ }
 
@@ -919,7 +912,7 @@ theorem genRecCheck_out_fresh {env : Env} {p : BlockShape} {nestedBit : Bool}
   obtain ⟨rhss, hoi', -⟩ := hallO i cvG c hG hc
   rw [hoi] at hoi'
   obtain rfl := Option.some.inj hoi'
-  obtain ⟨hfr, -, -, -, -, -, -, -, -, -, -⟩ := classConstOk_inv T.hcv
+  obtain ⟨hfr, -, -, -, -, -, -, -, -, -⟩ := classConstOk_inv T.hcv
   show env.find? cvG.name = none
   exact hfr
 
