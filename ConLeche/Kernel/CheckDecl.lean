@@ -12,8 +12,9 @@ on success, returns the extended environment.  `checkDeclsPure` folds it
 over a list of declarations, starting from the empty environment.  The
 stages it dispatches to live in `ConLeche/Kernel/Checker.lean` (values,
 basis, `Nat` operations), `ConLeche/Kernel/Inductives/BlockTail.lean`
-(the inductive installer, which takes every inductive block the
-recogniser reads; any other block declines, `checkShapeless`).  Its own
+(the inductive installer, which takes every inductive block
+`blockShape?` reads; any other block is refused with the reason,
+`refuseBlock`).  Its own
 module because the installer's recursor check is written over the
 index (`FEnv`).
 -/
@@ -23,19 +24,16 @@ namespace ConLeche
 variable {m : Type -> Type} [Monad m] [MonadExceptOf CheckError m]
 variable (mode : CheckMode)
 
-/-- **An inductive block the recogniser does not read** (`blockShape? =
-none`): its type formers are checked as constants — a duplicate, a
-malformed type are official's rejects and stay rejects —
-and what survives that is a POSITIVE decline, since the installer
-takes every block it recognises and there is no other route.  It never
-returns an environment. -/
-def checkShapeless (ops : CheckerOps m) (env : Env) (block : List ConstantInfo) :
+/-- **An inductive block `blockShape?` cannot read**: its type formers are checked as
+constants (a duplicate name or a malformed type is reported as such), then the block is refused
+with the reason it cannot be read (`blockDefect`), a reject except for a block without recursor
+records.  It never returns an environment. -/
+def refuseBlock (ops : CheckerOps m) (env : Env) (nPd : Nat) (block : List ConstantInfo) :
     m Env := do
   block.foldlM (fun (_ : Unit) ci => match ci with
     | .indInfo cv _ => discard <| checkConstantVal ops env cv
     | _ => pure ()) ()
-  throw (.notImplemented s!"inductive block \
-    {(block.head?.map (·.name)).getD .anonymous}: shape not recognised")
+  throw (blockDefect nPd block)
 
 /-- **A declaration's own checks**, by its kind, extending the environment on success.  A block
 under a pinned basis block's names takes the same route as every other block. -/
@@ -162,18 +160,18 @@ def checkDeclKind (ops : CheckerOps m) (pins : List NatOpPinSet) (env : Env)
     -- record with the generated one); `indParamsOk` is that check,
     -- one-sided, so a `false` is official's own reject.  It runs
     -- BEFORE the dispatch because it is a property of the DECLARATION:
-    -- a block with no constructor and no recursor record — a shape the
-    -- recogniser does not read — is rejected rather than declined
-    -- (arena 047).
+    -- a block with no constructor and no recursor record is rejected
+    -- here, before `blockDefect` sees it (arena 047).
     if indParamsOk nP block then
       -- ONE ROUTE (task #210): the installer takes every block it
       -- RECOGNISES, at any number of members, nested ones included; the
       -- dispatch is the RECOGNISER alone
-      -- (task #219).  A block it does not read declines, once its
-      -- formers have been checked as constants (`checkShapeless`).
+      -- (task #219).  A block it does not read is refused with the
+      -- reason, once its formers have been checked as constants
+      -- (`refuseBlock`).
       match blockShape? nP block with
       | some p => checkBlock ops env block p
-      | none => checkShapeless ops env block
+      | none => refuseBlock ops env nP block
     else throw (.invalid "number of parameters mismatch")
   | .quotDecl k cv => checkQuotRecord env k cv
 

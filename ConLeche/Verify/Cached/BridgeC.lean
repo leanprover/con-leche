@@ -298,7 +298,7 @@ theorem checkDeclStepC_run {env : Env} (henv : EnvWF env) {pd : Declaration}
     have hd : (if indParamsOk nP block = true then
           (match blockShape? nP block with
             | some p => checkBlockKS .verified (mkFEnv env) block p
-            | none => checkShapelessS .verified (mkFEnv env) block)
+            | none => refuseBlockS .verified (mkFEnv env) nP block)
         else throw (CheckError.invalid "number of parameters mismatch"))
         s₀.flushed = .ok (fe₂, s₂) := hk
     by_cases hok : indParamsOk nP block = true

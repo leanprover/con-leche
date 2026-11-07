@@ -88,8 +88,8 @@ theorem axiomStepPB_of : AxiomStepPB V := by
 Every step concludes `CoverStep` (`Model/Cover.lean`): a carrier at its
 result to which coverage (`LfpCover mp []`) carries.  The inductive
 step is the uniform install (`declBlock`, every recognised block, nested
-ones included); a block the recogniser does not read never
-installs (`checkShapeless` declines), so there is no other inductive
+ones included); a block `blockShape?` cannot read never installs
+(`refuseBlock` refuses it), so there is no other inductive
 step and coverage is unconditional. -/
 
 /-- A step's carrier, covered, from a covered input. -/
@@ -334,7 +334,7 @@ theorem declStep_preserves
     unfold ConLeche.Semantics.DeclIndRunDispatchK at hrun'
     cases hdf : ConLeche.blockShape? nP block with
     | none =>
-      -- a block the recogniser does not read never installs
+      -- a block `blockShape?` cannot read never installs
       rw [hdf] at hrun'
       exact hrun'.elim
     | some p =>

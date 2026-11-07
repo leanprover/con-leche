@@ -63,15 +63,14 @@ def checkConstantValC (fe : FEnv) (cv : ConstantVal) (allowOp : Bool := false) :
   let jsty ← (coreKnotI mode false fe checkFuel).infer 0 cv.type
   let _u ← opSIxC mode fe 0 jsty
 
-/-- `checkShapeless` (`ConLeche/Kernel/CheckDecl.lean`) through the index:
-a block the recogniser does not read has its type formers checked as
-constants, then declines.  It never returns an index. -/
-def checkShapelessS (fe : FEnv) (block : List ConstantInfo) : CheckCM FEnv := do
+/-- `refuseBlock` (`ConLeche/Kernel/CheckDecl.lean`) through the index: a block `blockShape?`
+cannot read has its type formers checked as constants, then is refused with the reason
+(`blockDefect`).  It never returns an index. -/
+def refuseBlockS (fe : FEnv) (nPd : Nat) (block : List ConstantInfo) : CheckCM FEnv := do
   block.foldlM (fun (_ : Unit) ci => match ci with
     | .indInfo cv _ => discard <| checkConstantValC mode fe cv
     | _ => pure ()) ()
-  throw (.notImplemented s!"inductive block \
-    {(block.head?.map (·.name)).getD .anonymous}: shape not recognised")
+  throw (blockDefect nPd block)
 
 /-- Check a definition's value against its declared type, returning the
 record to install, unpushed: the pinned `Nat`-operation arm of
@@ -149,13 +148,14 @@ twin).
   dispatch.
 * ONE ROUTE (task #210), dispatched by the RECOGNISER alone (task
   #219): a recognised block is the installer's, nested ones and the
-  pinned basis blocks included; any other declines (`checkShapelessS`). -/
+  pinned basis blocks included; any other is refused with the reason
+  (`refuseBlockS`). -/
 def checkIndDeclC (fe : FEnv) (block : List ConstantInfo) (nP : Nat) :
     CheckCM FEnv :=
   if indParamsOk nP block then
     match blockShape? nP block with
     | some p => checkBlockKS mode fe block p
-    | none => checkShapelessS mode fe block
+    | none => refuseBlockS mode fe nP block
   else throw (.invalid "number of parameters mismatch")
 
 /-- **A declaration's own checks** (`checkDeclKind`'s twin), every kind (inductive blocks reuse

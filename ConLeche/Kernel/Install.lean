@@ -77,8 +77,8 @@ def blockConstants (p : BlockShape) : List ConstantInfo :=
   blockFormers p (blockIsRec p) ++ blockCtors p ++
     blockRecs p p.recs
 
-/-- **The constants a declaration installs**, in push order.  A block the recogniser does not read
-installs nothing (it declines), and `sorryAx` nothing (any use of it declines). -/
+/-- **The constants a declaration installs**, in push order.  A block `blockShape?` cannot read
+installs nothing (its job refuses it), and `sorryAx` nothing (any use of it declines). -/
 def declConstants : Declaration → List ConstantInfo
   | .defnDecl cv value hint => [.defnInfo cv value hint]
   | .thmDecl cv _ => [.thmInfo cv]

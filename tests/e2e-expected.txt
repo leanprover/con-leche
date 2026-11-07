@@ -1140,14 +1140,14 @@
 # --- official 0.  The twins of ind_defhead_fix by
 # --- scripts/mk_stored_install_fixtures.py, each followed by a record
 # --- that uses the block: ind_defhead_opaque_bad (`MyType` an opaque, so
-# --- the former does not reduce; official 1) and ind_shapeless_use (a
-# --- constructor with a level parameter the block lacks, so the
-# --- recogniser does not read it and nothing is pushed; TODO official 1,
-# --- con-leche declines, "shape not recognised").  The verdict is the
-# --- block's job's at every `--jobs`.
+# --- the former does not reduce; official 1) and ind_ctor_levels_use (a
+# --- constructor with a level parameter the block lacks, so nothing is
+# --- pushed; official 1, rejected for the constructor's universe
+# --- parameters, task #494).  The verdict is the block's job's at every
+# --- `--jobs`.
 0 ind_defhead_nested.ndjson
 1 ind_defhead_opaque_bad.ndjson
-2 ind_shapeless_use.ndjson
+1 ind_ctor_levels_use.ndjson
 0 ind_former_redex.ndjson
 #
 # --- A4 / crack C4: mutual members whose parameter telescopes (…param…)
@@ -3208,11 +3208,9 @@
 # recursor Eq.rec").
 1 basis_eq_rec_swapped_names_bad.ndjson
 # `Eq.refl.{v}` under `Eq.{w}`.  Official rejects ("invalid reference to undefined
-# universe level parameter 'v'").  Since task #493 the block takes the uniform route,
-# whose recogniser does not read a constructor at other level parameters than its
-# former: DECLINE (shape not recognised), as for any block with that defect; the
-# reserved names' check never runs.  Target verdict: 1 (official's reject).
-2 basis_eq_refl_other_name_bad.ndjson
+# universe level parameter 'v'").  Rejected here as well, for the constructor's
+# universe parameters, before the reserved names' check (task #494).
+1 basis_eq_refl_other_name_bad.ndjson
 # `Nat.rec`'s `Nat.zero` rule at the wrong right-hand side, from the job, at the
 # block's fold position.  Rejected, by official as well ("Invalid recursor Nat.rec").
 1 basis_nat_rule_bad.ndjson
@@ -3288,3 +3286,20 @@
 # official `infer_proj` does (`projGuardRowsGo`), each answer a packed-bound read.  Accepted
 # before and after; official 0 (run); target 0.
 0 prop_struct_proj_wide.ndjson
+# --- Task #494: an inductive block whose records cannot be read as one is
+# --- refused with the reason, a reject wherever official rejects.  Derived
+# --- from corner_fuseloop_order_base (its block `W.{u} (α : Sort u)`, accepted)
+# --- by scripts/mk_block_defect_fixtures.py, one change each:
+# --- block_no_type (no inductive type; official 1), block_params_exceed (more
+# --- parameters than the type's binders; official 1), block_ctor_params (the
+# --- constructor's parameter count differs from the block's; official 1) and
+# --- block_ctor_levels (the constructor declares no universe parameter, `W`
+# --- declares `u`; official 1) are rejects.  block_no_rec (no recursor record)
+# --- is the one decline: official accepts it, generating the recursor, and
+# --- con-leche checks a block against the recursors its input carries;
+# --- target 0.
+1 block_no_type.ndjson
+1 block_params_exceed.ndjson
+1 block_ctor_params.ndjson
+1 block_ctor_levels.ndjson
+2 block_no_rec.ndjson

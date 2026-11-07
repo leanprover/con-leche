@@ -474,7 +474,7 @@ Read from the outside in:
    fast path, before the operation's certificates have been checked. The
    accept needs every job, and a rejection is reported in fold order, so
    the operation's failure, earlier in the fold, is the verdict. A block
-   the recogniser does not read pushes nothing, and its job declines it; a
+   the installer cannot read pushes nothing, and its job refuses it; a
    block the checks reject may read as anything, and never reaches an
    accepted environment.
 
@@ -1095,11 +1095,16 @@ it needs is the kernel's own large-elimination guard. The model-tier
 theorem for the whole install is
 [theorem `declBlock` in `ConLeche/Model/Inductives/BlockRunFacts.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Model/Inductives/BlockRunFacts.lean#L160-L167).
 
-A block the recogniser does not read has its type formers checked as
-constants, so that the official kernel's rejects stay rejects, and is
-then positively declined
-([function `checkShapeless` in `ConLeche/Kernel/CheckDecl.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/CheckDecl.lean#L32-L33)),
-never accepted.
+A block the installer cannot read is never accepted. Its type formers
+are checked as constants, and the block is then refused with the reason
+([function `refuseBlock` in `ConLeche/Kernel/CheckDecl.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/CheckDecl.lean#L31-L32)):
+records out of order, no inductive type, more parameters than a type's
+binders, recursor argument counts that do not fit the block, or types and
+constructors whose universe or parameter declarations disagree. Each is a
+reject, as in the official kernel, with one exception: a block whose input
+carries no recursor records is declined, since the official kernel
+generates the recursors itself and accepts it
+([function `blockDefect` in `ConLeche/Kernel/Inductives/BlockShape.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/Inductives/BlockShape.lean#L454-L454)).
 
 ### A former stored at a definition
 

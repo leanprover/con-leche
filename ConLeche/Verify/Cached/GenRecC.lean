@@ -1669,7 +1669,7 @@ variable {pins : List NatOpPinSet}
 
 /-- The inductive-block dispatch of the cached driver: a RECOGNISED
 block goes to `checkBlockKS`, every other one
-declines (`checkShapelessS`), and the pure fueled `checkDeclKind`
+is refused (`refuseBlockS`), and the pure fueled `checkDeclKind`
 reproduces the run. -/
 theorem checkModeledOrNativeSF_run {env : Env} (henv : EnvWF env)
     {block : List ConstantInfo} {nP : Nat}
@@ -1678,7 +1678,7 @@ theorem checkModeledOrNativeSF_run {env : Env} (henv : EnvWF env)
     {feOut : FEnv} {s' : CState}
     (h : (match blockShape? nP block with
           | some p => checkBlockKS .verified (mkFEnv env) block p
-          | none => checkShapelessS .verified (mkFEnv env) block) s₀ =
+          | none => refuseBlockS .verified (mkFEnv env) nP block) s₀ =
       .ok (feOut, s')) :
     CSOKF s' ∧ feOut = mkFEnv feOut.env ∧
     ∃ F, checkDeclKind (fueledOps .verified F) pins env (.indDecl block nP) =
@@ -1689,7 +1689,7 @@ theorem checkModeledOrNativeSF_run {env : Env} (henv : EnvWF env)
     ∃ F, (if indParamsOk nP block = true then
           (match blockShape? nP block with
             | some p => checkBlock (fueledOps .verified F) env block p
-            | none => checkShapeless (fueledOps .verified F) env block)
+            | none => refuseBlock (fueledOps .verified F) env nP block)
         else throw (CheckError.invalid "number of parameters mismatch")) = .ok feOut.env
   simp only [ite_eq_left hok]
   cases hfp : blockShape? nP block with
@@ -1701,9 +1701,9 @@ theorem checkModeledOrNativeSF_run {env : Env} (henv : EnvWF env)
     exact ⟨hres, hfe, F, hF⟩
   | none =>
     rw [hfp] at h
-    -- the decline never returns an index
+    -- the refusal never returns an index
     exfalso
-    unfold checkShapelessS at h
+    unfold refuseBlockS at h
     obtain ⟨_, _, _, h⟩ := bindC_ok h
     exact nomatch h
 

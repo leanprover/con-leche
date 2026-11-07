@@ -25,20 +25,20 @@ variable {pins : List NatOpPinSet}
 /-- **The `.indDecl` dispatch at the run level, at k members**: the
 kernel's own case split (`blockShape?`), with the uniform arm recorded
 as the k-ary run `DeclBlockRun` (`Semantics/Inductives/DeclBlock.lean`)
-at any number of members, nested blocks included.  A block the
-recogniser does not read never installs (`checkShapeless` declines), so
-its arm is `False`. -/
+at any number of members, nested blocks included.  A block `blockShape?`
+cannot read never installs (`refuseBlock` refuses it), so its arm is
+`False`. -/
 def DeclIndRunDispatchK (F : Nat) (env : Env)
     (block : List ConstantInfo) (nP : Nat) (env₂ : Env) : Prop :=
   match ConLeche.blockShape? nP block with
   | some p => BlockRun F env block p env₂
   | none => False
 
-/-- **A block the recogniser does not read never installs**:
-`checkShapeless` ends in a decline whatever its formers' checks do. -/
-theorem checkShapeless_ne_ok {ops : CheckerOps CheckM} {env env₂ : Env}
-    {block : List ConstantInfo} : checkShapeless ops env block ≠ .ok env₂ := by
-  unfold checkShapeless
+/-- **A block `blockShape?` cannot read never installs**: `refuseBlock`
+ends in an error whatever its formers' checks do. -/
+theorem refuseBlock_ne_ok {ops : CheckerOps CheckM} {env env₂ : Env} {nPd : Nat}
+    {block : List ConstantInfo} : refuseBlock ops env nPd block ≠ .ok env₂ := by
+  unfold refuseBlock
   simp only [bind, Except.bind]
   split <;> simp [throw, throwThe, MonadExceptOf.throw]
 
@@ -66,7 +66,7 @@ theorem checkDeclRun_ofEnvFactsK
           exact blockRun_of (ConLeche.blockShape?_declared hdf) hh
         | none =>
           intro hh
-          exact checkShapeless_ne_ok hh
+          exact refuseBlock_ne_ok hh
       · rw [ite_eq_right hok] at hh
         exact nomatch hh) h
 
