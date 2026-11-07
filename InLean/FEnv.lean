@@ -331,6 +331,31 @@ def structProjBodies (T : Name) (nP nF : Nat) (cty : Expr) : Option (Array Expr)
     (List.range nF).toArray.mapM fun i => projBodyAt T nP i cty
   else none
 
+/-- **Every projection body of `T`'s table is in range** (`EO.inRange`), the
+table read as `findProj?` reads it.  Not a twin: `projBodyAt` instantiates
+the parameters by `bvar`s, lifted unchecked, so a constructor type in range
+can yield a body past C's bound (a binder nest about 10^6 deep); the
+inductive check refuses that as an internal error (`checkInductiveC`), as
+abstraction's range poison is one. -/
+def FEnv.projBodiesInRange (fe : FEnv) (T : Name) : Bool :=
+  match fe.find? T with
+  | some (.inductInfo v) =>
+    match v.ctors with
+    | [c] =>
+      if v.numIndices == 0 then
+        match fe.find? c with
+        | some (.ctorInfo cv) =>
+          if hasPis (v.numParams + cv.numFields) cv.type then
+            (List.range cv.numFields).all fun i =>
+              match projBodyAt T v.numParams i cv.type with
+              | some b => EO.inRange b
+              | none => true
+          else true
+        | _ => true
+      else true
+    | _ => true
+  | _ => true
+
 /-- Twin of `ProjEntry.typeAtI`: the body at the levels, the subject type's
 arguments and the subject. -/
 def ProjEntry.typeAtI (entry : ProjEntry) (us : List Level) (targs : List Expr) (pe : Expr) :

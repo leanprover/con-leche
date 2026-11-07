@@ -18,10 +18,12 @@ closed reading only.  The range does not follow from the constructor type's:
 `projBodyAt` instantiates the parameters by `bvar (nP - k)`, lifted under
 binders, so a parameter's index in field `0`'s domain grows by one, and a
 constructor type in range (indices up to `maxBVarIdx`) can yield a body that
-is not (`EO.liftLooseBVars` writes `bvar (i + d)` unchecked).  InLean's block
-check computes the bodies (`structProjBodies`) without checking their range,
-so the premise is not preserved by any group step today; closing it needs an
-executable check (DESIGN, lane P3b).
+is not (`EO.liftLooseBVars` writes `bvar (i + d)` unchecked).  InLean's
+inductive check tests the bodies' range on the extended environment
+(`FEnv.projBodiesInRange`, an internal error otherwise), so every step keeps
+the premise (`StepPres.lean`: `projBodiesInRange_group`, `projBodiesInRange_one`,
+`projBodiesInRange_ind`), and it holds of an environment without structures
+(`projBodiesInRange_of_none`).
 
 `EnvWF L` comes from the theorem's own premise, con-leche's fold invariant
 (`envWF_of_modelOk`).

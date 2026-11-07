@@ -26,5 +26,6 @@ public import InLeanProof.EnvPresI
 public import InLeanProof.EnvBodiesPres
 public import InLeanProof.QuotPres
 public import InLeanProof.IndPres
+public import InLeanProof.StepPres
 public import InLeanProof.SquarePilot
 public import InLeanProof.AxiomPins

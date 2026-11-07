@@ -31,6 +31,12 @@ def storedBlock (consts : Array ConstantInfo) : List ConstantInfo :=
   (consts.filter (·.isInductive) ++ consts.filter (·.isCtor) ++
     consts.filter fun | .recInfo _ => true | _ => false).toList
 
+/-- A block constant: a former, a constructor or a recursor (what the
+generator returns; `storedBlock` keeps exactly these). -/
+def isBlockConst : ConstantInfo → Bool
+  | .inductInfo _ | .ctorInfo _ | .recInfo _ => true
+  | _ => false
+
 /-- A generated constant's terms are in range (`EO.inRange`): the generator
 is unverified, and the proof reads a term's cached fields. -/
 def constInRange : ConstantInfo → Bool
@@ -116,8 +122,15 @@ def checkInductiveC (fe : FEnv) (lps : List Name) (nparams : Nat) (types : List 
     (isUnsafe : Bool) : CheckCM Added := do
   let gen ← (Ind.genInductive mode lps nparams types isUnsafe).run
     { env := fe.env, coreAxioms := fe.coreAxioms } |>.run' {}
+  unless gen.consts.all isBlockConst do
+    throw (.internal "inductive generator: a constant outside the block")
   unless gen.consts.all constInRange do
     throw (.internal "too many bound variables in a generated constant")
+  -- every projection body the extended environment reads is in range (an
+  -- unsafe block's tables are read as a safe one's)
+  let feN : FEnv := { fe with env := gen.consts.foldl addConst fe.env }
+  unless gen.consts.all fun ci => feN.projBodiesInRange ci.name do
+    throw (.internal "too many bound variables in a projection body")
   -- the generator's environment is not `fe`'s
   flushC
   if isUnsafe then

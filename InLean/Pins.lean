@@ -129,6 +129,14 @@ def quotSoundPin : Pin := ⟨quotSoundName, [uN],
     (ap3 (cnst quotMkName [u]) (bv 4) (bv 3) (bv 2))
     (ap3 (cnst quotMkName [u]) (bv 4) (bv 3) (bv 1))⟩
 
+/-- Twin of `quotPinHit .sound`: one level parameter, and the type the pin's
+at that name (the pin instantiated at the declaration's levels, not the
+declaration's type at the pin's: that reading would accept a type mentioning
+an undeclared `u` beside its own parameter). -/
+def quotSoundHit (n : Name) (lps : List Name) (ty : Expr) : Bool :=
+  n == quotSoundName && lps.length == 1 &&
+    Expr.clEq ty (quotSoundPin.type.instLvlParamsI quotSoundPin.lps (lps.map .param))
+
 /-! ## The standard axioms (twin of `StdAxioms.lean`) -/
 
 def propextName : Name := `propext

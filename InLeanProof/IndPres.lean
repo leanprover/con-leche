@@ -14,13 +14,15 @@ public import InLeanProof.EnvPresI
   axiom `foo`) passes every premise, and InLean then finds `foo` where
   con-leche's install has nothing, so `EnvPresI`'s `entry` fails.  The
   generator produces only block constants; `IndGroupPresB` adds that as a
-  premise (`∀ ci ∈ consts, ci ∈ storedBlock consts`).
+  premise (`∀ ci ∈ consts, ci ∈ storedBlock consts`), which `checkInductiveC`
+  checks (`isBlockConst`; `storedBlock_of_checkInductiveC`, `StepPres.lean`).
 * *The projection bodies' range.*  `TableRelI` relates `projBodyAt`'s body
   through its reading, and InLean's instantiation is read only on terms in
   range (`toExpr_instantiate`).  `projBodyAt` instantiates by `bvar`s,
   which `EO.liftLooseBVars` lifts unchecked: a constructor type in range can
   yield a body that is not (`EnvBodiesPres.lean`), so the table clause needs
-  the bodies in range, which the block check does not test today.
+  the bodies in range, which `checkInductiveC` tests
+  (`FEnv.projBodiesInRange`).
 
 **Proved here.**
 * `presI_group`: the step for a group of fresh, distinct constants added in

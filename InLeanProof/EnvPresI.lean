@@ -1518,7 +1518,8 @@ theorem presI_one (hlaws : EnvLaws) (hP : EnvPresI fe L) {ci : Lean.ConstantInfo
 
 /-- **An axiom** (`sorryAx` included: con-leche installs nothing for it, and
 InLean hides it unless `coreAxioms`, so the relation needs `coreAxioms` off
-there).  The `Quot.sound` record is the quotient group's (`QuotGroupPres`). -/
+there).  `Quot.sound` is installed as the quotient pin's slot; its step is
+`presI_quotSound` (`StepPres.lean`). -/
 theorem presI_axiom (hlaws : EnvLaws) (hP : EnvPresI fe L) {v : AxiomVal}
     {d : ConLeche.Declaration} (hd : toDecl [.axiomInfo v] = some d)
     (hfresh : fe.env.find? v.name = none) (hr : Expr.RangeOk v.type)

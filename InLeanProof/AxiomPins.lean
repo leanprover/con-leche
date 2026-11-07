@@ -23,6 +23,7 @@ public import InLeanProof.EnvPresI
 public import InLeanProof.EnvBodiesPres
 public import InLeanProof.QuotPres
 public import InLeanProof.IndPres
+public import InLeanProof.StepPres
 
 /-!
 # The axiom pins of the InLean proof tier (task #451, lane G)
@@ -1610,3 +1611,86 @@ info: 'InLeanProof.toCaps_capsOf' depends on axioms: [propext, Classical.choice,
 -/
 #guard_msgs in
 #print axioms InLeanProof.toCaps_capsOf
+
+/--
+info: 'InLeanProof.ctorsStored_of_pres' depends on axioms: [propext, Classical.choice, Quot.sound]
+-/
+#guard_msgs in
+#print axioms InLeanProof.ctorsStored_of_pres
+
+/--
+info: 'InLeanProof.inRange_of_projBodiesInRange' depends on axioms: [propext, Classical.choice, Quot.sound]
+-/
+#guard_msgs in
+#print axioms InLeanProof.inRange_of_projBodiesInRange
+
+/--
+info: 'InLeanProof.projBodiesInRange_of_none' depends on axioms: [propext, Classical.choice, Quot.sound]
+-/
+#guard_msgs in
+#print axioms InLeanProof.projBodiesInRange_of_none
+
+/--
+info: 'InLeanProof.findProj_foldl_old' depends on axioms: [propext, Classical.choice, Quot.sound]
+-/
+#guard_msgs in
+#print axioms InLeanProof.findProj_foldl_old
+
+/--
+info: 'InLeanProof.projBodiesInRange_group' depends on axioms: [propext, Classical.choice, Quot.sound]
+-/
+#guard_msgs in
+#print axioms InLeanProof.projBodiesInRange_group
+
+/--
+info: 'InLeanProof.projBodiesInRange_one' depends on axioms: [propext, Classical.choice, Quot.sound]
+-/
+#guard_msgs in
+#print axioms InLeanProof.projBodiesInRange_one
+
+/--
+info: 'InLeanProof.mem_storedBlock' depends on axioms: [propext, Quot.sound]
+-/
+#guard_msgs in
+#print axioms InLeanProof.mem_storedBlock
+
+/--
+info: 'InLeanProof.storedBlock_all' depends on axioms: [propext, Quot.sound]
+-/
+#guard_msgs in
+#print axioms InLeanProof.storedBlock_all
+
+/--
+info: 'InLeanProof.checkInductiveC_ok' depends on axioms: [propext, Classical.choice, Quot.sound]
+-/
+#guard_msgs in
+#print axioms InLeanProof.checkInductiveC_ok
+
+/--
+info: 'InLeanProof.projBodiesInRange_ind' depends on axioms: [propext, Classical.choice, Quot.sound]
+-/
+#guard_msgs in
+#print axioms InLeanProof.projBodiesInRange_ind
+
+/--
+info: 'InLeanProof.storedBlock_of_checkInductiveC' depends on axioms: [propext, Classical.choice, Quot.sound]
+-/
+#guard_msgs in
+#print axioms InLeanProof.storedBlock_of_checkInductiveC
+
+/--
+info: 'InLeanProof.checkAxiomC_quotSound' depends on axioms: [propext, Classical.choice, Quot.sound]
+-/
+#guard_msgs in
+#print axioms InLeanProof.checkAxiomC_quotSound
+
+/--
+info: 'InLeanProof.presI_quotSound' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound,
+ InLeanProof.Expr.mkAppData_fields,
+ InLeanProof.Expr.mkData_eq,
+ InLeanProof.Level.mkData_eq]
+-/
+#guard_msgs in
+#print axioms InLeanProof.presI_quotSound

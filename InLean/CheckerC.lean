@@ -428,9 +428,14 @@ Lean's environment (the elaborator needs it), and is no constant unless
 def checkAxiomC (cfg : Config) (fe : FEnv) (v : AxiomVal) : CheckCM Added := do
   let ci := ConstantInfo.axiomInfo v
   if v.name == quotSoundName then
-    if (quotSoundPin.matches ci) && quotPredsOk fe && (fe.find? quotMkName).isSome then
-      return { consts := #[ci] }
-    else throw (.notImplemented "quotient soundness axiom mismatch")
+    -- twin of `checkQuotRecordC fe .sound`: the pin, what it needs, then
+    -- `installBasisDeclF`'s freshness (official's `check_name`)
+    unless quotSoundHit v.name v.levelParams v.type do
+      throw (.notImplemented "quotient soundness axiom mismatch")
+    unless quotPredsOk fe && (fe.find? quotName).isSome && (fe.find? quotMkName).isSome do
+      throw (.notImplemented "quotient declaration before what it needs")
+    if (fe.env.find? v.name).isSome then throw (.invalid s!"duplicate declaration {v.name}")
+    return { consts := #[ci] }
   let fe' := { fe with safety := if v.isUnsafe then .unsafe else .safe }
   -- the official policy (`coreAxioms`) admits an axiom at a certified `Nat`
   -- operation's name: the elaborator adds a recursive definition as an axiom
