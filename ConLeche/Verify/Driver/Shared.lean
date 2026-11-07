@@ -300,12 +300,18 @@ theorem groupAt_within (h : OleanReads.Within fs env.rd sp) (c : ReachCache) (k 
   simp only [groupAt]
   within_tac [lookOf_within h, withPart_within h, recBlocksOf_within h]
 
+theorem stmtRecord_within (h : OleanReads.Within fs env.rd sp) (c : ReachCache) (s : Spot)
+    (cv : ConstantVal) :
+    ModelIO.Within fs (stmtRecord env c s cv) (stmtRecord (env.onPath sp) c s cv) := by
+  simp only [stmtRecord]
+  within_tac [privSpot_within h]
+
 theorem readRecord_within (h : OleanReads.Within fs env.rd sp) (c : ReachCache) (x : Name) :
     ModelIO.Within fs (readRecord env c x) (readRecord (env.onPath sp) c x) := by
   simp only [readRecord]
   have he : importerSpot (env.onPath sp) x = importerSpot env x := rfl
   rw [he]
-  within_tac [stmtAt_within h, groupAt_within h, withPart_within h]
+  within_tac [stmtAt_within h, groupAt_within h, withPart_within h, stmtRecord_within h]
 
 theorem reachGo_within (h : OleanReads.Within fs env.rd sp) :
     ∀ (fuel : Nat) (L : ReachLog) (c : ReachCache),

@@ -11,6 +11,7 @@ public import ConLeche.Verify.Driver.Graph
 public import ConLeche.Verify.Driver.Main
 public import ConLeche.Verify.Driver.Oleans
 public import ConLeche.Verify.Driver.Worker
+public import ConLeche.Verify.Driver.Provenance
 public import ConLeche.Verify.Driver.Modular
 public import ConLeche.Verify.Driver.Main
 public import ConLeche.Verify.Cached.MainC
@@ -301,6 +302,42 @@ info: 'ConLeche.Driver.worker_ground' depends on axioms: [propext, Classical.cho
 -/
 #guard_msgs in
 #print axioms ConLeche.Driver.worker_ground
+
+/--
+info: 'ConLeche.Driver.reach_from' depends on axioms: [propext, Classical.choice, Quot.sound]
+-/
+#guard_msgs in
+#print axioms ConLeche.Driver.reach_from
+
+/--
+info: 'ConLeche.Driver.copy_behind' depends on axioms: [propext, Classical.choice, Quot.sound]
+-/
+#guard_msgs in
+#print axioms ConLeche.Driver.copy_behind
+
+/--
+info: 'ConLeche.Driver.recordFrom_presents' depends on axioms: [propext, Classical.choice, Quot.sound]
+-/
+#guard_msgs in
+#print axioms ConLeche.Driver.recordFrom_presents
+
+/--
+info: 'ConLeche.Driver.worker_presented' depends on axioms: [propext, Classical.choice, Quot.sound]
+-/
+#guard_msgs in
+#print axioms ConLeche.Driver.worker_presented
+
+/--
+info: 'ConLeche.Driver.interfaceOk_of_workers' depends on axioms: [propext, Classical.choice, Quot.sound]
+-/
+#guard_msgs in
+#print axioms ConLeche.Driver.interfaceOk_of_workers
+
+/--
+info: 'ConLeche.Driver.presented_of_worker' depends on axioms: [propext, Classical.choice, Quot.sound]
+-/
+#guard_msgs in
+#print axioms ConLeche.Driver.presented_of_worker
 
 /--
 info: 'ConLeche.Driver.ctx_envWF' depends on axioms: [propext, Classical.choice, Quot.sound]
