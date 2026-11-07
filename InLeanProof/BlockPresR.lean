@@ -257,4 +257,321 @@ theorem find?_reverse_key {α β : Type} [BEq β] [LawfulBEq β] (f : α → β)
     subst hfa
     exact find?_key f (by rw [List.map_reverse]; exact List.pairwise_reverse.2 (hnd.imp fun h he => h he.symm)) (List.mem_reverse.2 ha)
 
+/-! ## The recognised block, read off the run -/
+
+/-- **What an accepted recognised block gives**, gathered: the split, the
+record (`blockShape?_spec`), the counts and grouping (`checkBlockKS_cover`),
+the generated entries (`GenAgree`), distinct names and closed readings. -/
+structure RecogCtx (block : List Lean.ConstantInfo) (p : InLean.BlockShape) (nP : Nat)
+    (cvTs : List ConstantVal) (cs : List (ConstantVal × Nat × Nat)) (rs : List RecParts) : Prop where
+  ndB : (block.map (·.name)).Nodup
+  ok : ∀ ci ∈ block, CIOk ci
+  okT : ∀ ci ∈ block, okC ci.toConstantVal.type = true
+  hp : InLean.blockShape? nP block = some p
+  pnP : p.nP = nP
+  ga : GenAgree p block
+  split : InLean.blockSplit block = some (cvTs, cs, rs)
+  ctorsN : p.allCtors.map (·.1.name) = cs.map (·.1.name)
+  ndM : p.memberNames.Nodup
+  cvT : p.members.map (·.cvT) = cvTs
+  decl : ∀ ms ∈ p.members, ms.declared = ms.cvT
+  ctorMem : ∀ ms ∈ p.members, ∀ c ∈ ms.ctors, c ∈ cs.map fun c => (c.1, c.2.2)
+  recs : p.recs = rs.map (mkRec (cvTs.map (·.name)))
+  lps : ∀ ms ∈ p.members, ms.cvT.levelParams = p.lps
+
+theorem recogCtx_of {μ : CheckMode} {fe : InLean.FEnv} {block : List Lean.ConstantInfo}
+    {p : InLean.BlockShape} {nP : Nat} {s s₁ s' : InLean.CState}
+    (hndB : (block.map (·.name)).Nodup) (hR : ∀ ci ∈ block, CIRange ci) (cb : List ConLeche.ConstantInfo)
+    (htb : toBlock block = some cb) (hp : InLean.blockShape? nP block = some p)
+    (hgen : (genEntriesAgree p block) s = .ok ((), s₁))
+    (hks : (checkBlockKS μ fe block p) s₁ = .ok ((), s')) :
+    ∃ cvTs cs rs, RecogCtx block p nP cvTs cs rs := by
+  obtain ⟨cvTs, cs, rs, hsp, hlenT, -, hctorsN, -, hndM⟩ := checkBlockKS_cover hks
+  obtain ⟨cvT0, tl, cs', rs', nIdxs, hsp', hpnP, hmems, hrecs, hlps⟩ := blockShape?_spec hp
+  rw [hsp] at hsp'
+  simp only [Option.some.injEq, Prod.mk.injEq] at hsp'
+  obtain ⟨rfl, rfl, rfl⟩ := hsp'
+  obtain ⟨hmcvT, hmdecl⟩ := mkMembers_facts _ _ _ (by rw [← hmems]; exact hlenT.symm)
+  rw [← hmems] at hmcvT hmdecl
+  have hkinds := (toBlock_eq htb hR).2
+  refine ⟨cvT0 :: tl, cs, rs, ⟨hndB, toBlock_CIOk htb hR, fun ci h => (hkinds ci h).2, hp, hpnP,
+    genEntriesAgree_facts hgen, hsp, hctorsN, hndM, hmcvT, fun ms h => (hmdecl ms h).1, ?_, hrecs,
+    ?_⟩⟩
+  · intro ms hms c hc
+    have hg := (hmdecl ms hms).2
+    exact blockGroups_sub _ _ _ _ _ _ hg c hc
+  · intro ms hms
+    have h0 : p.lps = cvT0.levelParams := by
+      unfold InLean.BlockShape.lps
+      cases hm : p.members with
+      | nil => rw [hm] at hmcvT; cases hmcvT
+      | cons m ms' =>
+        rw [hm] at hmcvT
+        simp only [List.map_cons, List.cons.injEq] at hmcvT
+        simp [hmcvT.1]
+    rw [h0]
+    exact hlps _ (hmcvT ▸ List.mem_map_of_mem hms)
+
+section Ctx
+variable {block : List Lean.ConstantInfo} {p : InLean.BlockShape} {nP : Nat}
+  {cvTs : List ConstantVal} {cs : List (ConstantVal × Nat × Nat)} {rs : List RecParts}
+
+theorem RecogCtx.uniq (C : RecogCtx block p nP cvTs cs rs) {a b : Lean.ConstantInfo}
+    (ha : a ∈ block) (hb : b ∈ block) (h : a.name = b.name) : a = b :=
+  eq_of_map_nodup (·.name) C.ndB ha hb h
+
+/-- A member's former, the generated entry. -/
+theorem RecogCtx.former (C : RecogCtx block p nP cvTs cs rs) {ms : InLean.MemberShape}
+    (hms : ms ∈ p.members) : ∃ v, Lean.ConstantInfo.inductInfo v ∈ block ∧
+      v.toConstantVal = ms.cvT ∧ v.all = p.memberNames ∧ v.numParams = p.nP ∧
+      v.numIndices = ms.nIdx ∧ v.ctors = ms.ctors.map (·.1.name) ∧ v.isRec = blockIsRec p := by
+  obtain ⟨v, hv, h1, h2, h3, h4, h5⟩ := C.ga.former ms hms
+  obtain ⟨hvb, hvn⟩ := constNamed?_mem hv
+  have hcv : ms.cvT ∈ cvTs := C.cvT ▸ List.mem_map_of_mem hms
+  obtain ⟨ci, hci, hcicv⟩ := (blockSplit_sub C.split).1 _ hcv
+  have : ci = .inductInfo v := C.uniq hci hvb (by rw [ci_cv_name, hcicv]; exact hvn.symm)
+  subst this
+  exact ⟨v, hvb, hcicv, h1, h2, h3, h4, h5⟩
+
+/-- A member's constructor, the generated entry. -/
+theorem RecogCtx.ctorW (C : RecogCtx block p nP cvTs cs rs) {ms : InLean.MemberShape}
+    (hms : ms ∈ p.members) {c : ConstantVal × Nat} (hc : c ∈ ms.ctors) :
+    ∃ w, Lean.ConstantInfo.ctorInfo w ∈ block ∧ w.toConstantVal = c.1 ∧ w.numParams = p.nP ∧
+      w.numFields = c.2 := by
+  obtain ⟨w, hw, h1, h2, -⟩ := C.ga.ctor ms hms c hc
+  obtain ⟨hwb, hwn⟩ := constNamed?_mem hw
+  obtain ⟨x, hx, hxc⟩ := List.mem_map.1 (C.ctorMem ms hms c hc)
+  obtain ⟨ci, hci, hcicv⟩ := (blockSplit_sub C.split).2 x hx
+  have hx1 : x.1 = c.1 := by rw [← hxc]
+  have : ci = .ctorInfo w := C.uniq hci hwb (by rw [ci_cv_name, hcicv, hx1]; exact hwn.symm)
+  subst this
+  exact ⟨w, hwb, hcicv.trans hx1, h1, h2⟩
+
+/-- A block former is a member's. -/
+theorem RecogCtx.ofFormer (C : RecogCtx block p nP cvTs cs rs) {v : InductiveVal}
+    (h : Lean.ConstantInfo.inductInfo v ∈ block) :
+    ∃ i, ∃ hi : i < p.members.length, p.members[i].cvT = v.toConstantVal := by
+  rcases blockSplit_mem C.split _ h with ⟨w, hw, hm⟩ | ⟨w, hw, _⟩ | ⟨w, hw, _⟩
+  · cases hw
+    rw [← C.cvT] at hm
+    obtain ⟨ms, hms, he⟩ := List.mem_map.1 hm
+    obtain ⟨i, hi, rfl⟩ := List.mem_iff_getElem.1 hms
+    exact ⟨i, hi, he⟩
+  · cases hw
+  · cases hw
+
+/-- A block constructor is a member's. -/
+theorem RecogCtx.ofCtor (C : RecogCtx block p nP cvTs cs rs) {v : ConstructorVal}
+    (h : Lean.ConstantInfo.ctorInfo v ∈ block) :
+    ∃ ms ∈ p.members, ∃ c ∈ ms.ctors, c.1 = v.toConstantVal ∧ v.numParams = p.nP ∧
+      v.numFields = c.2 := by
+  rcases blockSplit_mem C.split _ h with ⟨w, hw, _⟩ | ⟨w, hw, hm⟩ | ⟨w, hw, _⟩
+  · cases hw
+  · cases hw
+    have hn : v.name ∈ p.allCtors.map (·.1.name) := by
+      rw [C.ctorsN]; exact List.mem_map_of_mem (f := (·.1.name)) hm
+    obtain ⟨c, hc, hcn⟩ := List.mem_map.1 hn
+    obtain ⟨g, hg, hcg⟩ := List.mem_flatten.1 hc
+    obtain ⟨ms, hms, rfl⟩ := List.mem_map.1 hg
+    obtain ⟨w, hwb, h1, h2, h3⟩ := C.ctorW hms hcg
+    have : Lean.ConstantInfo.ctorInfo w = .ctorInfo v :=
+      C.uniq hwb h (by show w.name = v.name; rw [← hcn, ← h1])
+    cases this
+    exact ⟨ms, hms, c, hcg, h1.symm, h2, h3⟩
+  · cases hw
+
+/-- A block recursor is a record's. -/
+theorem RecogCtx.ofRec (C : RecogCtx block p nP cvTs cs rs) {v : RecursorVal}
+    (h : Lean.ConstantInfo.recInfo v ∈ block) :
+    mkRec (cvTs.map (·.name)) (v.toConstantVal, majorIdxOf v, rulePrefixOf v, v.k, v.rules) ∈ p.recs ∧
+      v.all = p.memberNames := by
+  rcases blockSplit_mem C.split _ h with ⟨w, hw, _⟩ | ⟨w, hw, _⟩ | ⟨w, hw, hm⟩
+  · cases hw
+  · cases hw
+  · cases hw
+    have hrc : mkRec (cvTs.map (·.name)) (v.toConstantVal, majorIdxOf v, rulePrefixOf v, v.k, v.rules)
+        ∈ p.recs := by rw [C.recs]; exact List.mem_map_of_mem hm
+    refine ⟨hrc, ?_⟩
+    obtain ⟨w, hw, hall⟩ := C.ga.recs _ hrc
+    obtain ⟨hwb, hwn⟩ := constNamed?_mem hw
+    have : Lean.ConstantInfo.recInfo w = .recInfo v := C.uniq hwb h hwn
+    cases this
+    exact hall
+
+theorem RecogCtx.memberNames (C : RecogCtx block p nP cvTs cs rs) :
+    p.memberNames = cvTs.map (·.name) := by
+  rw [← C.cvT, List.map_map]; rfl
+
+/-! ## con-leche's install of the record, by name -/
+
+theorem trShape_members_getElem (p : InLean.BlockShape) {i : Nat} (hi : i < p.members.length) :
+    (trShape p).members[i]'(by simpa [trShape] using hi) = trMember p.members[i] := by
+  simp [trShape]
+
+theorem trShape_members_getD (p : InLean.BlockShape) {i : Nat} (hi : i < p.members.length) :
+    (trShape p).members.getD i default = trMember p.members[i] := by
+  simp [trShape, List.getD_eq_getElem?_getD, hi]
+
+theorem structCtor_tr (ms : InLean.MemberShape) :
+    (trMember ms).structCtor? = ms.structCtor?.map trCtor := by
+  unfold ConLeche.MemberShape.structCtor? InLean.MemberShape.structCtor?
+  simp only [trMember]
+  cases h : ms.ctors with
+  | nil => rfl
+  | cons c rest =>
+    cases rest with
+    | nil =>
+      simp only [List.map_cons, List.map_nil]
+      by_cases hn : (ms.nIdx == 0) = true <;> simp [hn]
+    | cons _ _ => rfl
+
+/-- **con-leche's install has the block's names, in order.** -/
+theorem RecogCtx.news_names (C : RecogCtx block p nP cvTs cs rs) :
+    (ConLeche.blockConstants (trShape p)).map (·.name) = (block.map (·.name)).map toName := by
+  have h1 : (trShape p).members.map (·.declared.name) = (cvTs.map (·.name)).map toName := by
+    simp only [trShape, List.map_map]
+    rw [← C.cvT, List.map_map]
+    apply List.map_congr_left
+    intro ms hms
+    simp [trMember, C.decl ms hms]
+  have h3 : (trShape p).recs.map (·.cvR.name) = (rs.map (·.1.name)).map toName := by
+    simp only [trShape, List.map_map, C.recs]
+    rfl
+  unfold ConLeche.blockConstants
+  rw [List.map_append, List.map_append, blockFormers_names, blockCtors_names, blockRecs_names,
+    trShape_allCtorNames, C.ctorsN, blockSplit_names C.split, h1, h3]
+  simp only [List.map_append]
+
+/-- The table names con-leche installs are member names, distinct. -/
+theorem RecogCtx.tab_names (C : RecogCtx block p nP cvTs cs rs) :
+    ((trShape p).members.map (·.declared.name)) = (cvTs.map (·.name)).map toName ∧
+      ((trShape p).members.map (·.declared.name)).Nodup := by
+  have h : ((trShape p).members.map (·.declared.name)) = (cvTs.map (·.name)).map toName := by
+    simp only [trShape, List.map_map]
+    rw [← C.cvT, List.map_map]
+    apply List.map_congr_left
+    intro ms hms
+    simp [trMember, C.decl ms hms]
+  refine ⟨h, ?_⟩
+  rw [h, ← C.memberNames]
+  exact List.Pairwise.map _ (fun a b hab he => hab (toName_inj he)) C.ndM
+
+/-! ## The entries -/
+
+section Entries
+variable {fe' : InLean.FEnv}
+
+theorem LRel_map_right {α γ : Type} {R : α → γ → Prop} {g : α → γ} :
+    ∀ (l : List α), (∀ a ∈ l, R a (g a)) → LRel R l (l.map g)
+  | [], _ => .nil
+  | a :: l, h => .cons (h a List.mem_cons_self)
+      (LRel_map_right l fun x hx => h x (List.mem_cons_of_mem _ hx))
+
+theorem CVRel_trCV {v : ConstantVal} (h : okC v.type = true) : CVRel v (trCV v) :=
+  ⟨rfl, rfl, fvarS_of_toExprC (toExpr_of_okE _ h), RangeOk_of_okE h, toExpr_of_okE _ h⟩
+
+theorem fieldsOf_nopend (hpend : fe'.pending = []) {v : InductiveVal} {c : Name} {w : ConstructorVal}
+    (h : fe'.find? c = some (.ctorInfo w)) : fe'.fieldsOf v c = w.numFields := by
+  unfold InLean.FEnv.fieldsOf InLean.FEnv.pendingFields?
+  rw [hpend]
+  simp [InLean.FEnv.pendingFields?.go, h]
+
+theorem isPending_nopend (hpend : fe'.pending = []) (n : Name) : fe'.isPending n = false := by
+  simp [InLean.FEnv.isPending, InLean.FEnv.pendingFields?, hpend, InLean.FEnv.pendingFields?.go]
+
+/-- **Every generated constant has its installed counterpart**, related. -/
+theorem RecogCtx.entry (C : RecogCtx block p nP cvTs cs rs) (hpend : fe'.pending = [])
+    (hfind : ∀ ci ∈ block, fe'.find? ci.name = some ci) :
+    ∀ ci ∈ block, ∃ cci ∈ ConLeche.blockConstants (trShape p),
+      cci.name = toName ci.name ∧ EntryRelI fe' ci cci := by
+  intro ci hci
+  have hcv : ∀ {w : ConstructorVal}, Lean.ConstantInfo.ctorInfo w ∈ block →
+      fe'.find? w.name = some (.ctorInfo w) := fun h => hfind _ h
+  rcases blockSplit_mem C.split ci hci with ⟨v, rfl, -⟩ | ⟨v, rfl, -⟩ | ⟨v, rfl, -⟩
+  · -- a former
+    obtain ⟨i, hi, hiv⟩ := C.ofFormer hci
+    obtain ⟨v', hv'b, hv'cv, hall, hnP, hidx, hctors, hrec⟩ := C.former (List.getElem_mem hi)
+    have : Lean.ConstantInfo.inductInfo v' = .inductInfo v :=
+      C.uniq hv'b hci (by show v'.toConstantVal.name = v.toConstantVal.name; rw [hv'cv, hiv])
+    cases this
+    have hokT : okC v.type = true := C.okT _ hci
+    have hiP : i < (trShape p).members.length := by simpa [trShape] using hi
+    refine ⟨_, List.mem_append_left _ (List.mem_append_left _
+      (blockFormers_mem (trShape p) (ConLeche.blockIsRec (trShape p)) hiP)), ?_, ?_⟩
+    · rw [trShape_members_getElem p hi]
+      simp [trMember, C.decl _ (List.getElem_mem hi), hiv]; rfl
+    · rw [trShape_members_getElem p hi]
+      simp only [EntryRelI]
+      have hdecl : (trMember p.members[i]).declared = trCV v.toConstantVal := by
+        simp [trMember, C.decl _ (List.getElem_mem hi), hiv]
+      rw [hdecl]
+      refine ⟨CVRel_trCV hokT, ?_, .inr ?_⟩
+      · rw [blockIsRec_tr]
+        refine (toCaps_capsOf (mi := i) ?_ ?_ ?_ ?_ hrec ?_).symm
+        · rw [trShape_members_getD p hi, hctors]
+          simp [trMember, trCtor]
+        · rw [trShape_members_getD p hi, hidx]; rfl
+        · rw [hnP]; rfl
+        · rw [trShape_memberNames, hall]
+        · intro c cc hvc hcc
+          rw [trShape_members_getD p hi] at hcc
+          simp only [trMember] at hcc
+          cases hms : p.members[i].ctors with
+          | nil => rw [hms] at hcc; cases hcc
+          | cons c0 rest =>
+            rw [hms] at hcc
+            cases rest with
+            | cons _ _ => cases hcc
+            | nil =>
+              simp only [List.map_cons, List.map_nil, List.cons.injEq, and_true] at hcc
+              subst hcc
+              rw [hctors, hms] at hvc
+              simp only [List.map_cons, List.map_nil, List.cons.injEq, and_true] at hvc
+              subst hvc
+              obtain ⟨w, hwb, hw1, -, hw3⟩ := C.ctorW (List.getElem_mem hi)
+                (show c0 ∈ p.members[i].ctors by rw [hms]; exact List.mem_cons_self)
+              have hf := hcv hwb
+              rw [show w.name = c0.1.name by rw [← hw1]] at hf
+              rw [fieldsOf_nopend hpend hf, hw3]; rfl
+      · intro c hc
+        rw [hctors] at hc
+        obtain ⟨c0, hc0, rfl⟩ := List.mem_map.1 hc
+        obtain ⟨w, hwb, hw1, -, -⟩ := C.ctorW (List.getElem_mem hi) hc0
+        have hf := hcv hwb
+        rw [show w.name = c0.1.name by rw [← hw1]] at hf
+        rw [hf]; rfl
+  · -- a constructor
+    obtain ⟨ms, hms, c, hc, hc1, hnP, hnF⟩ := C.ofCtor hci
+    have hokT : okC v.type = true := C.okT _ hci
+    have hmem : trCtor c ∈ (trShape p).allCtors := by
+      simp only [trShape, ConLeche.BlockShape.allCtors, List.map_map, List.mem_flatten, List.mem_map]
+      exact ⟨_, ⟨ms, hms, rfl⟩, by simp only [Function.comp_apply, trMember]; exact List.mem_map_of_mem hc⟩
+    refine ⟨_, List.mem_append_left _ (List.mem_append_right _ (blockCtors_mem _ hmem)), ?_, ?_⟩
+    · simp [trCtor, hc1]; rfl
+    · simp only [EntryRelI, trCtor, hc1]
+      exact ⟨CVRel_trCV hokT, by rw [hnP]; rfl, hnF.symm⟩
+  · -- a recursor
+    obtain ⟨hrc, hall⟩ := C.ofRec hci
+    have hok := C.ok _ hci
+    simp only [CIOk] at hok
+    have hmem : trRec (mkRec (cvTs.map (·.name))
+        (v.toConstantVal, majorIdxOf v, rulePrefixOf v, v.k, v.rules)) ∈ (trShape p).recs := by
+      simp only [trShape]; exact List.mem_map_of_mem hrc
+    refine ⟨_, List.mem_append_right _ (blockRecs_mem _ hmem), ?_, ?_⟩
+    · simp [trRec, mkRec]; rfl
+    · simp only [EntryRelI, RecRelI]
+      refine ⟨trCV v.toConstantVal, _, rfl, CVRel_trCV hok.1, ?_⟩
+      simp only [trRec, mkRec, List.map_map]
+      apply LRel_map_right
+      intro r hr
+      refine ⟨⟨rfl, rfl, ?_⟩, fvarS_of_toExprC (toExpr_of_okE _ (hok.2 r hr)), RangeOk_of_okE (hok.2 r hr),
+        toExpr_of_okE _ (hok.2 r hr)⟩
+      exact recFire_tr (P := trShape p) (rc := mkRec (cvTs.map (·.name))
+          (v.toConstantVal, majorIdxOf v, rulePrefixOf v, v.k, v.rules)) hok.1 (hall.trans C.memberNames)
+        (by simp [ConLeche.BlockShape.k, trShape, ← C.cvT]) rfl rfl rfl rfl
+
+end Entries
+
+end Ctx
+
 end InLeanProof
