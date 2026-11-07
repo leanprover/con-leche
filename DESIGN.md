@@ -112727,8 +112727,9 @@ unchanged).  Cont. 7's next steps 1–3:
    (tgtClsM …) ty`".  Outside: `ty` is the class's family run (`genClsRd_out`'s `hfam`, today
    turned into `formerAt` by `hcl.family_eq`), `FormerRead` by `familyRead`.  Member: `ty` is the
    stage's former `cvTa.type` (`genClsRd_mem`'s `hsh`/`hfr1`), `FormerRead` from
-   `BlockMembersRun`'s `FormerData` (the tower over `d.ppsM t`, which is `pars ++ ids` of
-   `d.toLfp`).  `genCls_coreII` then reads the instantiated entry by `runHoleTy_read` /
+   `BlockMembersRun`'s `FormerData` (the stored type reads as the tower over `d.ppsM t`;
+   `d.toLfp`'s `pars` is its `take nP` and `ids` is `IdsM`, `BlockRep` l.269 — check that
+   `IdsM` is the `drop nP`).  `genCls_coreII` then reads the instantiated entry by `runHoleTy_read` /
    `instTele_read` (the run's rest at the key, substituted) and moves the fit by value:
    `Sat params` at the key frame and an index fit give a full fit of `pars ++ ids` at the
    frame's tail, hence of the run's tower (`spineFit_iff_of_mkPisAV_eq`), whose drop is the
