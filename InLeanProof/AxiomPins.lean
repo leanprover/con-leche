@@ -26,6 +26,7 @@ public import InLeanProof.IndPres
 public import InLeanProof.StepPres
 public import InLeanProof.IndMembers
 public import InLeanProof.IndBasis
+public import InLeanProof.DeclStep
 
 /-!
 # The axiom pins of the InLean proof tier (task #451, lane G)
@@ -2000,3 +2001,173 @@ info: 'InLeanProof.checkIndDeclC_sim_rest' depends on axioms: [propext,
 /-- info: 'InLeanProof.quot_safe' depends on axioms: [propext] -/
 #guard_msgs in
 #print axioms InLeanProof.quot_safe
+
+/-! ## Lane O6: the declaration step for the non-inductive kinds -/
+
+/-- info: 'InLeanProof.crNF_of_infer' depends on axioms: [propext, Classical.choice, Quot.sound] -/
+#guard_msgs in
+#print axioms InLeanProof.crNF_of_infer
+
+/-- info: 'InLeanProof.constsResolve_of_infer' depends on axioms: [propext, Classical.choice, Quot.sound] -/
+#guard_msgs in
+#print axioms InLeanProof.constsResolve_of_infer
+
+/-- info: 'InLeanProof.okC_of_flags' depends on axioms: [propext, Quot.sound] -/
+#guard_msgs in
+#print axioms InLeanProof.okC_of_flags
+
+/-- info: 'InLeanProof.collect_complete' depends on axioms: [propext, Classical.choice, Quot.sound] -/
+#guard_msgs in
+#print axioms InLeanProof.collect_complete
+
+/-- info: 'InLeanProof.levelParams_complete' depends on axioms: [propext, Classical.choice, Quot.sound] -/
+#guard_msgs in
+#print axioms InLeanProof.levelParams_complete
+
+/--
+info: 'InLeanProof.allLevelParamsDefined_of_guard' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound,
+ InLeanProof.Expr.mkAppData_fields,
+ InLeanProof.Expr.mkData_eq,
+ InLeanProof.Level.mkData_eq]
+-/
+#guard_msgs in
+#print axioms InLeanProof.allLevelParamsDefined_of_guard
+
+/--
+info: 'InLeanProof.checkTermWF_ok' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound,
+ InLeanProof.Expr.mkAppData_fields,
+ InLeanProof.Expr.mkData_eq,
+ InLeanProof.Level.mkData_eq]
+-/
+#guard_msgs in
+#print axioms InLeanProof.checkTermWF_ok
+
+/-- info: 'InLeanProof.litShapeOk_tr' depends on axioms: [propext, Quot.sound] -/
+#guard_msgs in
+#print axioms InLeanProof.litShapeOk_tr
+
+/-- info: 'InLeanProof.natOpName_tr' depends on axioms: [propext, Quot.sound] -/
+#guard_msgs in
+#print axioms InLeanProof.natOpName_tr
+
+/--
+info: 'InLeanProof.checkConstantValC_sim' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound,
+ InLeanProof.Expr.mkAppData_fields,
+ InLeanProof.Expr.mkData_eq,
+ InLeanProof.Level.mkData_eq]
+-/
+#guard_msgs in
+#print axioms InLeanProof.checkConstantValC_sim
+
+/--
+info: 'InLeanProof.checkConstantValFSimI' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound,
+ InLeanProof.Expr.mkAppData_fields,
+ InLeanProof.Expr.mkData_eq,
+ InLeanProof.Level.mkData_eq]
+-/
+#guard_msgs in
+#print axioms InLeanProof.checkConstantValFSimI
+
+/--
+info: 'InLeanProof.checkValueC_sim' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound,
+ InLeanProof.Expr.mkAppData_fields,
+ InLeanProof.Expr.mkData_eq,
+ InLeanProof.Level.mkData_eq]
+-/
+#guard_msgs in
+#print axioms InLeanProof.checkValueC_sim
+
+/--
+info: 'InLeanProof.checkThmC_sim' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound,
+ InLeanProof.Expr.mkAppData_fields,
+ InLeanProof.Expr.mkData_eq,
+ InLeanProof.Level.mkData_eq]
+-/
+#guard_msgs in
+#print axioms InLeanProof.checkThmC_sim
+
+/--
+info: 'InLeanProof.checkDefnC_sim' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound,
+ InLeanProof.Expr.mkAppData_fields,
+ InLeanProof.Expr.mkData_eq,
+ InLeanProof.Level.mkData_eq]
+-/
+#guard_msgs in
+#print axioms InLeanProof.checkDefnC_sim
+
+/--
+info: 'InLeanProof.checkOpaqueC_sim' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound,
+ InLeanProof.Expr.mkAppData_fields,
+ InLeanProof.Expr.mkData_eq,
+ InLeanProof.Level.mkData_eq]
+-/
+#guard_msgs in
+#print axioms InLeanProof.checkOpaqueC_sim
+
+/--
+info: 'InLeanProof.checkAxiomC_quotSound_sim' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound,
+ InLeanProof.Expr.mkAppData_fields,
+ InLeanProof.Expr.mkData_eq,
+ InLeanProof.Level.mkData_eq]
+-/
+#guard_msgs in
+#print axioms InLeanProof.checkAxiomC_quotSound_sim
+
+/--
+info: 'InLeanProof.checkAxiomC_sorry_sim' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound,
+ InLeanProof.Expr.mkAppData_fields,
+ InLeanProof.Expr.mkData_eq,
+ InLeanProof.Level.mkData_eq]
+-/
+#guard_msgs in
+#print axioms InLeanProof.checkAxiomC_sorry_sim
+
+/-- info: 'InLeanProof.checkQuotC_sim' depends on axioms: [propext, Classical.choice, Quot.sound] -/
+#guard_msgs in
+#print axioms InLeanProof.checkQuotC_sim
+
+/-- info: 'InLeanProof.quotFold_ok' depends on axioms: [propext, Classical.choice, Quot.sound] -/
+#guard_msgs in
+#print axioms InLeanProof.quotFold_ok
+
+/--
+info: 'InLeanProof.checkDeclKindC_sim' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound,
+ InLeanProof.Expr.mkAppData_fields,
+ InLeanProof.Expr.mkData_eq,
+ InLeanProof.Level.mkData_eq]
+-/
+#guard_msgs in
+#print axioms InLeanProof.checkDeclKindC_sim
+
+/--
+info: 'InLeanProof.checkDecl_sim' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound,
+ InLeanProof.Expr.mkAppData_fields,
+ InLeanProof.Expr.mkData_eq,
+ InLeanProof.Level.mkData_eq]
+-/
+#guard_msgs in
+#print axioms InLeanProof.checkDecl_sim
