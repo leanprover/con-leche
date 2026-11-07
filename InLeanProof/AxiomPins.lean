@@ -2111,3 +2111,7 @@ info: 'InLeanProof.indGroupPresBP_of' depends on axioms: [propext,
 -/
 #guard_msgs in
 #print axioms InLeanProof.indGroupPresBP_of
+
+/-- info: 'InLeanProof.toDecl_recognised' depends on axioms: [propext, Classical.choice, Quot.sound] -/
+#guard_msgs in
+#print axioms InLeanProof.toDecl_recognised

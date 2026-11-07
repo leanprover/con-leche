@@ -789,6 +789,34 @@ theorem find?_name_news {news : List ConLeche.ConstantInfo} (hnd : (news.map (·
   have h2 := find?_key (fun c : ConLeche.ConstantInfo => c.name) hnd hc
   rw [h1, h2]
 
+/-- **The declared parameter count of an accepted recognised block** (O7's
+finding 1): `toDecl` reads the record's count off the first former, and
+`genEntriesAgree` checks it against the shape's, which is the declaration's
+(`blockShape?` sets `nP := nPd`).  So the record is at InLean's `nP`. -/
+theorem toDecl_recognised {μ : CheckMode} {fe : InLean.FEnv} {block : List Lean.ConstantInfo}
+    {nP : Nat} {s s' : InLean.CState} {d : ConLeche.Declaration}
+    (hndB : (block.map (·.name)).Nodup) (hR : ∀ ci ∈ block, CIRange ci)
+    (hhit : InLean.basisNameHit block = none)
+    (hrun : (InLean.checkIndDeclC μ fe block nP).run s = .ok ((), s'))
+    (hd : toDecl block = some d) :
+    ∃ cb, toBlock block = some cb ∧ d = .indDecl cb nP := by
+  rcases checkIndDeclC_ok hrun with ⟨kind, hk, -⟩ | ⟨-, -, p, hp, s₁, hgen, hks⟩
+  · rw [hhit] at hk; cases hk
+  obtain ⟨cvT0, tl, cs0, rs0, nI0, hsp', -, -, -, -⟩ := blockShape?_spec hp
+  obtain ⟨v0, rest, hblock, -⟩ := blockSplit_head hsp'
+  have hd' := hd
+  rw [hblock] at hd'
+  obtain ⟨cb, htb, rfl⟩ := toDecl_ind hd'
+  rw [← hblock] at htb
+  obtain ⟨cvTs, cs, rs, C⟩ := recogCtx_of hndB hR cb htb hp hgen hks
+  have hv0b : Lean.ConstantInfo.inductInfo v0 ∈ block := hblock ▸ List.mem_cons_self
+  obtain ⟨i, hi, hiv⟩ := C.ofFormer hv0b
+  obtain ⟨v', hv'b, hv'cv, -, hnP, -⟩ := C.former (List.getElem_mem hi)
+  have : Lean.ConstantInfo.inductInfo v' = .inductInfo v0 :=
+    C.uniq hv'b hv0b (by show v'.toConstantVal.name = v0.toConstantVal.name; rw [hv'cv, hiv])
+  cases this
+  exact ⟨cb, htb, by rw [hnP, C.pnP]⟩
+
 /-- **`BlockPresObl`'s recognised branch.** -/
 theorem blockPresOblB_recognised : BlockPresOblB false := by
   intro hlaws fe L consts nP s s' d hP hpend hblk hfresh hnd hsees hrange hsteps hhit hrun hd
@@ -803,30 +831,17 @@ theorem blockPresOblB_recognised : BlockPresOblB false := by
     intro ci h
     rw [Array.all_eq_true_iff_forall_mem] at hrange
     exact CIRange_of_constInRange (hrange ci (Array.mem_toList_iff.1 ((hmemB ci).1 h)))
-  obtain ⟨cvT0, tl, cs0, rs0, nI0, hsp', -, -, -, -⟩ := blockShape?_spec hp
-  obtain ⟨v0, rest, hblock, -⟩ := blockSplit_head hsp'
-  have hd' := hd
-  rw [hblock] at hd'
-  obtain ⟨cb, htb, rfl⟩ := toDecl_ind hd'
-  rw [← hblock] at htb
+  -- the record, at the declaration's parameter count
+  obtain ⟨cb, htb, rfl⟩ := toDecl_recognised hndB hR hhit' hrun hd
   obtain ⟨cvTs, cs, rs, C⟩ := recogCtx_of hndB hR cb htb hp hgen hks
-  -- the declared parameter count is the first former's
-  have hv0nP : v0.numParams = nP := by
-    have hv0b : Lean.ConstantInfo.inductInfo v0 ∈ storedBlock consts := hblock ▸ List.mem_cons_self
-    obtain ⟨i, hi, hiv⟩ := C.ofFormer hv0b
-    obtain ⟨v', hv'b, hv'cv, -, hnP, -⟩ := C.former (List.getElem_mem hi)
-    have : Lean.ConstantInfo.inductInfo v' = .inductInfo v0 :=
-      C.uniq hv'b hv0b (by show v'.toConstantVal.name = v0.toConstantVal.name; rw [hv'cv, hiv])
-    cases this
-    rw [hnP, C.pnP]
   -- con-leche's install of the record
   have hcb : cb = (storedBlock consts).map trCI := (toBlock_eq htb hR).1
-  have hsh : ConLeche.blockShape? v0.numParams cb = some (trShape p) := by
-    rw [hcb, hv0nP, blockShape?_tr nP _ C.okT, hp]; rfl
-  have hdc : ConLeche.declConstants (.indDecl cb v0.numParams) =
+  have hsh : ConLeche.blockShape? nP cb = some (trShape p) := by
+    rw [hcb, blockShape?_tr nP _ C.okT, hp]; rfl
+  have hdc : ConLeche.declConstants (.indDecl cb nP) =
       ConLeche.blockConstants (trShape p) := by
     simp only [ConLeche.declConstants, basisNameHit_toBlock htb, hhit', Option.map_none, hsh]
-  have hdt : ConLeche.declTables (.indDecl cb v0.numParams) =
+  have hdt : ConLeche.declTables (.indDecl cb nP) =
       ConLeche.blockTables (trShape p) (trShape p).members := by
     simp only [ConLeche.declTables, basisNameHit_toBlock htb, hhit', Option.map_none, hsh]
   simp only [L', hdc, hdt]
