@@ -627,9 +627,13 @@ for m in Tiny TinyUse TinyClassic LazyVal PrivUnused HidA HidAll HidUse RbH RbM 
     HiLamA HiLamB HiInhD HiInhL HiInhT HiInhX HiInhM HiInhM2 \
     TeqH TeqP1 TeqP2 TeqQ2 TeqX TeqM TeqBoth NsC NsH NsM NsN \
     LdgQ LdgA LdgM LdgN LdvQ LdvA LdvM LdvN GrN LvA LvB LvC LvM LvN \
-    PdA PdB WvA WvB ClashA ClashB ClashX FrX FrY MoX NlB NlX NlY; do
+    PdA PdB WvA WvB ClashA ClashB ClashX FrX FrY MoX NlB NlX NlY RtA; do
   work_ "the worker at $m" 0 "accepted" "$MSP" $m
 done
+# RtA's theorem at the compiler-trust name Lean.reduceBool, read by RtM: its statement as an
+# axiom at that name presents nothing RtA declares (a record there is presented as itself), so
+# the reach refuses it (task #448); Lean accepts the module
+work_ "a theorem at a compiler-trust name, read" 1 "Lean.reduceBool, a compiler-trust name, as neither" "$MSP" RtM
 # an own unsafe definition is no record, and what it reads is no root of the reach: UsM's
 # usUse reads UsA's unsafe usPeek, and the module is accepted, as by Lean (task #468)
 work_ "an own unsafe definition reading an imported unsafe one" 0 "accepted 1 declarations" "$MSP" UsM
