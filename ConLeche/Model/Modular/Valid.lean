@@ -1065,6 +1065,159 @@ theorem reading {i : Nat} (hok : ∀ j ≤ i, LocalOk .verified pins dev j) :
     · simp [srcOwn, hn] at ht
       exact absurd ht (List.not_mem_nil)
 
+/-! ## The part of a context below a name -/
+
+theorem nodup_take {L : List Declaration} (hnd : NodupNames (streamEnv L)) (r : Nat) :
+    NodupNames (streamEnv (L.take r)) := by
+  unfold NodupNames at hnd ⊢
+  rw [streamEnv_empty_consts] at hnd ⊢
+  refine hnd.sublist (List.Sublist.map _ (List.Sublist.reverse ?_))
+  unfold recsC
+  conv => rhs; rw [← List.take_append_drop r L]
+  rw [List.flatMap_append]
+  exact List.sublist_append_left _ _
+
+theorem take_find? {L : List Declaration} (hnd : NodupNames (streamEnv L)) {r : Nat} {n : Name}
+    {ci : ConstantInfo} (h : (streamEnv (L.take r)).find? n = some ci) :
+    (streamEnv L).find? n = some ci := by
+  obtain ⟨e, he, hce, hnm⟩ := streamEnv_find?_some h
+  rw [← hnm]; exact streamEnv_find?_of_mem hnd (List.mem_of_mem_take he) hce
+
+theorem take_isSome {L : List Declaration} (hnd : NodupNames (streamEnv L)) {r : Nat} {n : Name}
+    (h : ((streamEnv (L.take r)).find? n).isSome = true) : ((streamEnv L).find? n).isSome = true := by
+  obtain ⟨ci, hci⟩ := Option.isSome_iff_exists.mp h
+  rw [take_find? hnd hci]; rfl
+
+theorem take_findTable? {L : List Declaration} (hnd : NodupNames (streamEnv L)) {r : Nat} {n : Name}
+    (h : ((streamEnv (L.take r)).find? n).isSome = true) :
+    (streamEnv (L.take r)).findTable? n = (streamEnv L).findTable? n := by
+  obtain ⟨e, he, ci, hci, hn, -⟩ := streamEnv_isSome h
+  have hxe : n ∈ (declConstants e).map (·.name) := List.mem_map.mpr ⟨ci, hci, hn⟩
+  rw [streamEnv_findTable? (nodup_take hnd r) he hxe,
+    streamEnv_findTable? hnd (List.mem_of_mem_take he) hxe]
+
+theorem mem_take_mono {α : Type} {L : List α} {a b : Nat} (hab : a ≤ b) {x : α}
+    (h : x ∈ L.take a) : x ∈ L.take b := by
+  have : L.take a = (L.take b).take a := by rw [List.take_take, Nat.min_eq_left hab]
+  rw [this] at h
+  exact List.mem_of_mem_take h
+
+/-- A record of a prefix is stored there, whole. -/
+theorem take_mem_isSome {L : List Declaration} (hnd : NodupNames (streamEnv L)) {r : Nat}
+    {e : Declaration} (he : e ∈ L.take r) {c : ConstantInfo} (hc : c ∈ declConstants e) :
+    ((streamEnv (L.take r)).find? c.name).isSome = true := by
+  rw [streamEnv_find?_of_mem (nodup_take hnd r) he hc]; rfl
+
+/-- **An ordered list's prefix is closed**: every record of it reads only the prefix. -/
+theorem ordered_take {L : List Declaration} (hnd : NodupNames (streamEnv L))
+    (hord : ∀ k (h : k < L.length), RecordScoped (streamEnv (L.take (k + 1))) L[k]) {r : Nat}
+    {e : Declaration} (he : e ∈ L.take r) :
+    ∀ ci ∈ declConstants e, EntryScopedP (fun y => ((streamEnv (L.take r)).find? y).isSome = true)
+      (streamEnv (L.take r)) ci.name ci := by
+  intro ci hci
+  obtain ⟨k, hk, rfl⟩ := List.mem_iff_getElem.mp he
+  have hkL : k < L.length := by simp at hk; omega
+  have hkr : k < r := by simp at hk; omega
+  rw [List.getElem_take] at hci
+  have hR := hord k hkL
+  -- the prefix to `k + 1` lies in the prefix to `r`
+  have hsub : ∀ y, ((streamEnv (L.take (k + 1))).find? y).isSome = true →
+      ((streamEnv (L.take r)).find? y).isSome = true := fun y hy => by
+    obtain ⟨e', he', c', hc', hn', -⟩ := streamEnv_isSome hy
+    rw [← hn']
+    exact take_mem_isSome hnd (mem_take_mono (by omega) he') hc'
+  have hmemr : L[k] ∈ L.take r := List.mem_iff_getElem.mpr ⟨k, by simp; omega, by simp⟩
+  have hxe : ci.name ∈ (declConstants L[k]).map (·.name) := List.mem_map_of_mem hci
+  refine (recordScopedP hR hci rfl fun tb ht => ?_).mono fun y hy => hsub y hy
+  rw [streamEnv_findTable? (nodup_take hnd r) hmemr hxe] at ht
+  exact List.mem_of_find?_eq_some ht
+
+theorem EntryScopedP.congrC {p : Name → Prop} {C C' : Env} {n : Name} {ci : ConstantInfo}
+    (h : EntryScopedP p C n ci) (ht : ∀ t, C'.findTable? n = some t → C.findTable? n = some t) :
+    EntryScopedP p C' n ci := by
+  obtain ⟨h1, h2, h3, h4, h5⟩ := h
+  refine ⟨h1, h2, h3, fun cv caps he => ?_, h5⟩
+  obtain ⟨a, b, c⟩ := h4 cv caps he
+  exact ⟨a, b, fun t htt => c t (ht t htt)⟩
+
+/-- The part of a source read alike, below a prefix of the context. -/
+@[expose] noncomputable def srcReadsTake (dev : Nat → Module) (i r : Nat) (n : Name) : Env :=
+  ⟨(srcReads dev i n).consts.filter fun c =>
+    ((streamEnv ((dev i).ctx.take r)).find? c.toConstantVal.name).isSome, []⟩
+
+theorem srcReadsTake_find? {i r : Nat} {n d : Name} :
+    (srcReadsTake dev i r n).find? d =
+      if ((streamEnv ((dev i).ctx.take r)).find? d).isSome = true then (srcReads dev i n).find? d
+      else none := by
+  unfold srcReadsTake
+  exact find?_filter_name (t := (srcReads dev i n).tables)
+    (q := fun x => ((streamEnv ((dev i).ctx.take r)).find? x).isSome)
+
+theorem srcReadsTake_isSome {i r : Nat} {n d : Name} :
+    ((srcReadsTake dev i r n).find? d).isSome = true ↔
+      ((streamEnv ((dev i).ctx.take r)).find? d).isSome = true ∧
+        ((srcReads dev i n).find? d).isSome = true := by
+  rw [srcReadsTake_find?]
+  by_cases h : ((streamEnv ((dev i).ctx.take r)).find? d).isSome = true
+  · rw [ite_eq_left h]; exact ⟨fun h' => ⟨h, h'⟩, fun h' => h'.2⟩
+  · rw [ite_eq_right h]
+    constructor
+    · intro h'; exact nomatch h'
+    · intro h'; exact absurd h'.1 h
+
+/-- **A closed prefix of a context is read from its sources** (the reach's lemma, at the
+instance): the part of the context below a name, with the sources' reads restricted to it. -/
+theorem reading_part {i : Nat} (hok : ∀ j ≤ i, LocalOk .verified pins dev j) (r : Nat) :
+    CtxRead (streamEnv ((dev i).ctx.take r)) (srcOwn dev i) (srcReadsTake dev i r) := by
+  have hK := (hok i (Nat.le_refl i)).importOk
+  have hnd : NodupNames (streamEnv (dev i).ctx) := hK.nodup
+  have hR := reading hok
+  have hPC : ∀ {n ci}, (streamEnv ((dev i).ctx.take r)).find? n = some ci →
+      (dev i).context.find? n = some ci := fun h => take_find? hnd h
+  have hPCs : ∀ {n}, ((streamEnv ((dev i).ctx.take r)).find? n).isSome = true →
+      ((dev i).context.find? n).isSome = true := fun h => take_isSome hnd h
+  -- what the prefix's own records read lies in the prefix
+  have hclosed : ∀ {d ci}, (streamEnv ((dev i).ctx.take r)).find? d = some ci →
+      EntryScopedP (fun y => ((streamEnv ((dev i).ctx.take r)).find? y).isSome = true)
+        (streamEnv ((dev i).ctx.take r)) d ci := fun {d ci} h => by
+    obtain ⟨e, he, hce, hnm⟩ := streamEnv_find?_some h
+    rw [← hnm]
+    exact ordered_take hnd hK.ordered he ci hce
+  have hcomb : ∀ {n d ci}, (streamEnv ((dev i).ctx.take r)).find? d = some ci →
+      EntryScopedP (fun y => ((srcReads dev i n).find? y).isSome = true) (dev i).context d ci →
+      EntryScopedP (fun y => ((srcReadsTake dev i r n).find? y).isSome = true)
+        (streamEnv ((dev i).ctx.take r)) d ci := fun {n d ci} h hs =>
+    ((hs.congrC fun t ht => by
+        rw [Module.context_eq, ← take_findTable? hnd (by rw [h]; rfl)]; exact ht).and
+      (hclosed h)).mono fun y ⟨h1, h2⟩ => srcReadsTake_isSome.mpr ⟨h2, h1⟩
+  refine ⟨nodup_take hnd r, fun n ci h => hR.entry n ci (hPC h), fun n d ci h => ?_,
+    fun n h => srcReadsTake_isSome.mpr ⟨h, hR.self n (hPCs h)⟩, fun n d hn hd => ?_,
+    fun n d hn hd => ?_, fun n ci h => hcomb h (hR.scope n ci (hPC h)),
+    fun n d cv caps hn hd hci x hx => ?_, fun n d ci hn hd hci hk => ?_,
+    fun n ci h hr => hR.reduce n ci (hPC h) hr, fun t ht => stream_tables_mem (nodup_take hnd r) ht,
+    hR.tables_src⟩
+  · rw [srcReadsTake_find?] at h
+    by_cases hP : ((streamEnv ((dev i).ctx.take r)).find? d).isSome = true
+    · rw [ite_eq_left hP] at h
+      exact ⟨(hR.R_sub n d ci h).1, hP⟩
+    · rw [ite_eq_right hP] at h; exact nomatch h
+  · obtain ⟨hdP, hd'⟩ := srcReadsTake_isSome.mp hd
+    obtain ⟨ciC, ciE, hC, hE, ha⟩ := hR.alike n d (hPCs hn) hd'
+    obtain ⟨c', hc'⟩ := Option.isSome_iff_exists.mp hdP
+    rw [hPC hc'] at hC
+    obtain rfl := Option.some.inj hC
+    exact ⟨c', ciE, hc', hE, ha⟩
+  · obtain ⟨hdP, hd'⟩ := srcReadsTake_isSome.mp hd
+    rw [take_findTable? hnd hdP]
+    exact hR.table n d (hPCs hn) hd'
+  · obtain ⟨-, hd'⟩ := srcReadsTake_isSome.mp hd
+    refine srcReadsTake_isSome.mpr ⟨?_, hR.ctors n d cv caps (hPCs hn) hd' (hPC hci) x hx⟩
+    obtain ⟨e, he, hce, hnm⟩ := streamEnv_find?_some hci
+    obtain ⟨c, hc, rfl⟩ := List.mem_map.mp (declConstants_ctors hce x hx)
+    exact take_mem_isSome hnd he hc
+  · obtain ⟨-, hd'⟩ := srcReadsTake_isSome.mp hd
+    exact hcomb hci (hR.deep n d ci (hPCs hn) hd' (hPC hci) hk)
+
 end
 
 end ConLeche.Model.Modular

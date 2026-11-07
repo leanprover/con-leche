@@ -210,12 +210,12 @@ theorem amalgamateX {C : XEnv} {ι : Type} {E : ι → XEnv} (h : AssembledX C E
     (Γ' : XEnv) : Prop :=
   Γ'.1 = streamEnv D Γ.1 ∧ (∀ n, Γ'.2 n) ∧ ∃ k q, DeclsRun .verified pins D (k, mkFEnv Γ.1) q
 
-theorem streamEnv_isSome : ∀ (D : List Declaration) {E : Env} {n : Name},
+theorem streamEnv_isSome_base : ∀ (D : List Declaration) {E : Env} {n : Name},
     (E.find? n).isSome = true → ((streamEnv D E).find? n).isSome = true
   | [], _, _, h => h
   | d :: D, E, n, h => by
     show ((streamEnv D (E.pushDelta (declConstants d) (declTables d))).find? n).isSome = true
-    exact streamEnv_isSome D (find?_pushDelta_isSome (.inl h))
+    exact streamEnv_isSome_base D (find?_pushDelta_isSome (.inl h))
 
 /-- **The step**: every model of the context extends to one of the own environment, with the
 same leaves on the context. -/
@@ -243,7 +243,7 @@ theorem AcceptsX.step {pins : List NatOpPinSet} {Γ Γ' : XEnv} {D : List Declar
   refine ⟨⟨mp'.base2.acval, mp'.base2.cval_closed, mp'.base2.acval_wellDenoted, hPL'', mp', hcov',
     heta', hnat', fun _ _ => rfl⟩, fun n hn => ⟨⟨?_, hall n⟩, (hleaf n hn.1).trans (hag n hn.1)⟩⟩
   rw [hΓ']
-  exact streamEnv_isSome D hn.1
+  exact streamEnv_isSome_base D hn.1
 
 /-! ## Proofs -/
 
