@@ -111951,3 +111951,58 @@ holding `Init` passes the one-process mode or the scheduler today (every Mathlib
 555/555, tutorial 90/92 as pinned, selfcheck 54 918 declarations, 57 theorems pinned at the three
 axioms, the trusted and `--jobs` sweeps, layering, trust surface with the process fence, shake,
 overview links, quote gate, whitepaper links and fragment, challenge, no-local-paths).
+
+## TASK #446 — a certified operation's pin ground is a root of its home's reach (2026-11-07, agent/446-pin-ground)
+
+On `modular` (off 2b45f157a).  **The bug.**  `Init.Data.Nat.Gcd` and `Init.Data.Nat.Bitwise.Basic`
+exited 2 at their homes under `--module` and `--modular` ("no pin variant matched … pin or
+certificate ground constants absent", at `Nat.gcd` and `Nat.shiftRight`), so every closure holding
+`Init` exited 2.  **The cause, measured** (a throwaway `_tmp/446/diag`, the worker's reads and the
+pins' constants side by side): the install check's guards (`divModPinGuard`, `divModCertsGuard`)
+ask every constant of a variant's pin, certificate proofs and type pins resolved, and the reach
+started only from what the own records read.  The certificates are the check's own terms, read by
+no record, so their constants were in the index but not in the context: `Decidable.casesOn`,
+`Decidable.isTrue`/`isFalse`, `Decidable.falseTrueCases`, `Bool.noConfusion`,
+`Nat.not_succ_le_zero` for `Nat.gcd` (every variant); for the bitwise ones some forty more
+(`Nat.div_rec_lemma`, `Nat.sub_add_cancel`, `ite_eq_right`, `And.rec`, `Or.casesOn`, …).  The
+pins' own constants of the module (`Nat.gcd._unary._proof_1`, `Nat.bitwise`) precede the operation
+in the own order, so the hoist had nothing to do.
+
+**The fix** (`ConLeche/Driver/Worker.lean`).  `pinGround pins c`: at a name of `natDivModNames`,
+the constants of every variant's pinned defining expression, certificate proofs and type pins
+(names and types), of the certificate statements, and `Eq` (`divModEnvGuard`); one memoized DAG
+walk (`usedConstsGo`).  `ownRoots` adds `pinGround natOpPinSets` of every own constant that is no
+unsafe or partial one, filtered to the names the index holds (another toolchain's variant may
+name constants no loaded module has; such a name is left to the check, as an absent
+`pinFootprint` name already was).  The specification's `pinFootprint` is unchanged: at an
+importer the operation is a context record and nothing reads its certificates.
+
+**Theorems** (pinned at the three standard axioms).  `ReachInv` now takes the roots and says each
+was pushed; `ReachInv.add`/`.skip`, `reachGo_inv`, `reachGo_closed`, `reachInv_init` carry it;
+**`reachGo_roots`**: at an accepting outcome every root is stored in the context; `reach_ok`'s new
+fourth clause: every root that is not an own name is stored there; **`worker_ground`**
+(`Verify/Driver/Worker.lean`): at a worker's `WorkerFacts`, every name of an own constant's
+`pinGround natOpPinSets` that the index holds and the module does not declare is stored in the
+context.  No run-time check stands for it.
+
+**Fixtures** (`tests/olean.sh`): the workers at `Init.Data.Nat.Gcd` and
+`Init.Data.Nat.Bitwise.Basic` (0, were 2), `--modular` at `Init.Data.Nat.Gcd` (54 modules, 0).
+No small fixture: the toolchain's two homes are the class (the homes of `Nat.div` and
+`Nat.mod` already accepted).
+
+**Numbers** (`perf stat -e instructions:u`, `--jobs=8`, one run each, under the guard; base the
+`modular` binary at 2b45f157a):
+
+| run | base | #446 |
+|---|---|---|
+| `--module Init.Data.Nat.Gcd` | 0.308 G, exit 2 | 0.604 G, accepted 134 (context 253 records from 7 modules) |
+| `--module Init.Data.Nat.Bitwise.Basic` | 0.200 G, exit 2 | 6.900 G, accepted 45 (context 251 records from 6 modules) |
+| `--module Init.Data.Nat.Lemmas` | 8.971 G | −0.02 % |
+| `--module Mathlib.GroupTheory.Coxeter.Basic` | 8.683 G | −0.02 % |
+| `--module Mathlib.Analysis.SpecialFunctions.Gamma.Basic` | 14.708 G | +0.01 % |
+| `--module Mathlib.RingTheory.WittVector.MulP` | 8.843 G | +0.02 % |
+| `--modular -- Mathlib` | 23 832 G (#468), exit 2 | 23 838 G, **exit 0: 10 976 modules accepted**, peak 2.46 GiB |
+
+The homes' increase is their checks running (Bitwise's certificates are its cost); elsewhere noise.
+No non-accept remains on Mathlib's closure.  (The brief's "CompleteFlag" module is not in the
+v4.35.0 checkout; `MulP` stands in.)
