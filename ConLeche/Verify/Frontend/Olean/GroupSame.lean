@@ -1,13 +1,227 @@
 module
-public import ConLeche.Frontend.Olean.Records
-public import ConLeche.Verify.Frontend.Olean.Emit
-public import ConLeche.Frontend.Olean.Group
-public import ConLeche.Verify.Frontend.Olean.Group
-public section
-namespace ConLeche.Frontend.Olean
-open ConLeche ConLeche.Frontend
-set_option pp.proofs false
 
+public import ConLeche.Frontend.Olean.Records
+public import ConLeche.Frontend.Olean.Group
+public import ConLeche.Verify.Frontend.Olean.Emit
+public import ConLeche.Verify.Frontend.Olean.Group
+
+/-!
+# One inductive group's record, the same on any emitter
+
+Task #440.  The stream reader's builder reads a block's record (`.ind ts cts rs`) only through
+the emitter's tables (`Emit.nm`, `Emit.ex`), and what it builds of the block depends only on what
+the indices stand for: `declOfF_ind_same`, where two records resolve to the same constants
+(`TyRes`, `CtorRes`, `RecRes`), whatever indices either uses, their records are equal.  The
+builder's verdict is characterised by `validateIndF_inr` (its constructors are the block's,
+looked up by name, in the order the types list them).
+
+`Emit.block_res`: the record `Emit.block` pushes resolves, on the emitter's tables, to the block's
+constants of each kind, in order.  `emitLoop_inds`: every `inductive` record of the emission walk
+is a block of the merge (`BlockOf`: the members, constructors and recursors the walk takes at an
+inductive type).  `blockRecs_mergedOfList`: the recursors a merged list lists under `x` are its
+first constants of each name that are recursors of a block listing `x`, in the list's order.
+
+`home_group`: where the merge's blocks agree, an inductive type of the merge has its block's
+record among the emission's declarations; `groupRecord_res`: a group's record built alone
+(`groupRecord`); `block_same`: two block records built from the same constants are one record.
+-/
+
+public section
+
+namespace ConLeche.Frontend.Olean
+
+open ConLeche ConLeche.Frontend
+
+/-! ## Lists related pointwise -/
+
+/-- Two lists related pointwise. -/
+inductive Forall₂ {α β : Type} (R : α → β → Prop) : List α → List β → Prop
+  | nil : Forall₂ R [] []
+  | cons {a : α} {b : β} {as : List α} {bs : List β} : R a b → Forall₂ R as bs →
+      Forall₂ R (a :: as) (b :: bs)
+
+theorem Forall₂.imp {α β : Type} {R S : α → β → Prop} (h : ∀ a b, R a b → S a b) :
+    ∀ {xs : List α} {ys : List β}, Forall₂ R xs ys → Forall₂ S xs ys
+  | _, _, .nil => .nil
+  | _, _, .cons a t => .cons (h _ _ a) (Forall₂.imp h t)
+
+theorem Forall₂.imp_map {α β γ : Type} {R : α → β → Prop} {S : α → γ → Prop} {g : β → γ}
+    (h : ∀ a b, R a b → S a (g b)) :
+    ∀ {xs : List α} {ys : List β}, Forall₂ R xs ys → Forall₂ S xs (ys.map g)
+  | _, _, .nil => .nil
+  | _, _, .cons a t => .cons (h _ _ a) (Forall₂.imp_map h t)
+
+theorem Forall₂.append {α β : Type} {R : α → β → Prop} :
+    ∀ {xs : List α} {ys : List β} {xs' : List α} {ys' : List β}, Forall₂ R xs ys → Forall₂ R xs' ys' →
+      Forall₂ R (xs ++ xs') (ys ++ ys')
+  | _, _, _, _, .nil, h => h
+  | _, _, _, _, .cons a t, h => .cons a (Forall₂.append t h)
+
+theorem Forall₂.mem_left {α β : Type} {R : α → β → Prop} :
+    ∀ {xs : List α} {ys : List β}, Forall₂ R xs ys → ∀ x ∈ xs, ∃ y ∈ ys, R x y
+  | _, _, .nil, _, hx => by cases hx
+  | _, _, .cons h t, x, hx => by
+    rcases List.mem_cons.1 hx with rfl | hx
+    · exact ⟨_, List.mem_cons_self, h⟩
+    · obtain ⟨y, hy, hr⟩ := Forall₂.mem_left t x hx
+      exact ⟨y, List.mem_cons_of_mem _ hy, hr⟩
+
+theorem Forall₂.mem_right {α β : Type} {R : α → β → Prop} :
+    ∀ {xs : List α} {ys : List β}, Forall₂ R xs ys → ∀ y ∈ ys, ∃ x ∈ xs, R x y
+  | _, _, .nil, _, hy => by cases hy
+  | _, _, .cons h t, y, hy => by
+    rcases List.mem_cons.1 hy with rfl | hy
+    · exact ⟨_, List.mem_cons_self, h⟩
+    · obtain ⟨x, hx, hr⟩ := Forall₂.mem_right t y hy
+      exact ⟨x, List.mem_cons_of_mem _ hx, hr⟩
+
+theorem forall₂_meet {α β γ : Type} {R : α → γ → Prop} {R' : β → γ → Prop}
+    {xs : List α} {ys : List β} {L : List γ} (h1 : Forall₂ R xs L) (h2 : Forall₂ R' ys L) :
+    Forall₂ (fun x y => ∃ c, R x c ∧ R' y c) xs ys := by
+  induction h1 generalizing ys with
+  | nil => cases h2; exact .nil
+  | cons ha _ ih => cases h2 with
+    | cons hb t2 => exact .cons ⟨_, ha, hb⟩ (ih t2)
+
+theorem forall₂_meet_left {α β γ : Type} {R : γ → α → Prop} {R' : γ → β → Prop}
+    {L : List γ} {xs : List α} {ys : List β} (h1 : Forall₂ R L xs) (h2 : Forall₂ R' L ys) :
+    Forall₂ (fun x y => ∃ c, R c x ∧ R' c y) xs ys := by
+  induction h1 generalizing ys with
+  | nil => cases h2; exact .nil
+  | cons ha _ ih => cases h2 with
+    | cons hb t2 => exact .cons ⟨_, ha, hb⟩ (ih t2)
+
+theorem forall₂_comp {α β γ : Type} {R : α → β → Prop} {S : β → γ → Prop}
+    {xs : List α} {ys : List β} {zs : List γ} (h1 : Forall₂ R xs ys) (h2 : Forall₂ S ys zs) :
+    Forall₂ (fun x z => ∃ y, R x y ∧ S y z) xs zs := by
+  induction h1 generalizing zs with
+  | nil => cases h2; exact .nil
+  | cons ha _ ih => cases h2 with
+    | cons hb t2 => exact .cons ⟨_, ha, hb⟩ (ih t2)
+
+theorem forall₂_of_getElem {α β : Type} {R : α → β → Prop} :
+    ∀ {xs : List α} {ys : List β} (hl : ys.length = xs.length),
+      (∀ (j : Nat) (hj : j < xs.length), R xs[j] (ys[j]'(hl ▸ hj))) → Forall₂ R xs ys
+  | [], [], _, _ => .nil
+  | x :: xs, y :: ys, hl, h =>
+    .cons (h 0 (by simp)) (forall₂_of_getElem (by simpa using hl) (fun j hj => h (j + 1) (by simpa using hj)))
+  | [], _ :: _, hl, _ => by simp at hl
+  | _ :: _, [], hl, _ => by simp at hl
+
+theorem getElem?_forall₂ {α β : Type} {S : α → β → Prop} :
+    ∀ {xs : List α} {ys : List β}, Forall₂ S xs ys → ∀ k : Nat,
+      (xs[k]? = none ∧ ys[k]? = none) ∨ ∃ a b, xs[k]? = some a ∧ ys[k]? = some b ∧ S a b
+  | [], [], .nil, k => .inl ⟨rfl, rfl⟩
+  | x :: xs, y :: ys, .cons h t, 0 => .inr ⟨x, y, rfl, rfl, h⟩
+  | x :: xs, y :: ys, .cons h t, k + 1 => by simpa using getElem?_forall₂ t k
+
+theorem map_forall₂ {α β δ : Type} {f : α → δ} {g : β → δ} {S : α → β → Prop}
+    (hS : ∀ a b, S a b → f a = g b) :
+    ∀ {xs : List α} {ys : List β}, Forall₂ S xs ys → xs.map f = ys.map g
+  | [], [], .nil => rfl
+  | x :: xs, y :: ys, .cons h t => by rw [List.map_cons, List.map_cons, hS x y h, map_forall₂ hS t]
+
+theorem filterMap_forall₂ {α β γ : Type} {R : α → β → Prop} {f : α → Option γ} {g : β → Option γ} :
+    ∀ {xs : List α} {ys : List β}, Forall₂ R xs ys → (∀ x y, x ∈ xs → y ∈ ys → R x y → f x = g y) →
+      xs.filterMap f = ys.filterMap g
+  | [], [], .nil, _ => rfl
+  | x :: xs, y :: ys, .cons hr t, h => by
+    simp only [List.filterMap_cons, h x y List.mem_cons_self List.mem_cons_self hr,
+      filterMap_forall₂ t (fun a b ha hb => h a b (List.mem_cons_of_mem _ ha) (List.mem_cons_of_mem _ hb))]
+
+theorem mapM_forall₂ {ε α β γ : Type} {F : α → Except ε γ} {G : β → Except ε γ} {S : α → β → Prop}
+    (hS : ∀ a b, S a b → F a = G b) :
+    ∀ {xs : List α} {ys : List β}, Forall₂ S xs ys → xs.mapM F = ys.mapM G
+  | [], [], .nil => rfl
+  | x :: xs, y :: ys, .cons h t => by
+    simp only [List.mapM_cons, hS x y h, mapM_forall₂ hS t]
+
+theorem mapM_res {ε α γ δ : Type} {F : α → Except ε δ} {G : γ → δ} {R : α → γ → Prop}
+    (hR : ∀ a c, R a c → F a = .ok (G c)) :
+    ∀ {xs : List α} {L : List γ}, Forall₂ R xs L → xs.mapM F = .ok (L.map G)
+  | [], [], .nil => rfl
+  | x :: xs, c :: L, .cons h t => by
+    simp [List.mapM_cons, hR x c h, mapM_res hR t, bind, Except.bind, pure, Except.pure]
+
+theorem mapM_ok_length {ε α β : Type} {f : α → Except ε β} :
+    ∀ {xs : List α} {ys : List β}, xs.mapM f = .ok ys → ys.length = xs.length
+  | [], ys, h => by simp only [List.mapM_nil, pure, Except.pure, Except.ok.injEq] at h; subst h; rfl
+  | x :: xs, ys, h => by
+    simp only [List.mapM_cons, bind, Except.bind] at h
+    cases hx : f x with
+    | error e => rw [hx] at h; cases h
+    | ok y =>
+      rw [hx] at h
+      simp only at h
+      cases hxs : xs.mapM f with
+      | error e => rw [hxs] at h; cases h
+      | ok zs =>
+        rw [hxs] at h
+        simp only [pure, Except.pure, Except.ok.injEq] at h
+        subst h
+        simp [mapM_ok_length hxs]
+
+theorem mapM_some_forall₂ {α β : Type} {f : α → Option β} :
+    ∀ {xs : List α} {ys : List β}, xs.mapM f = some ys → Forall₂ (fun x y => f x = some y) xs ys
+  | [], ys, h => by simp only [List.mapM_nil, pure, Option.some.injEq] at h; subst h; exact .nil
+  | x :: xs, ys, h => by
+    simp only [List.mapM_cons, bind, Option.bind] at h
+    cases hx : f x with
+    | none => rw [hx] at h; cases h
+    | some y =>
+      rw [hx] at h
+      simp only at h
+      cases hxs : xs.mapM f with
+      | none => rw [hxs] at h; cases h
+      | some zs =>
+        rw [hxs] at h
+        simp only [pure, Option.some.injEq] at h
+        subst h
+        exact .cons hx (mapM_some_forall₂ hxs)
+
+theorem mapM_filterMap {α β γ : Type} {f : α → Option β} (g : β → Option γ) :
+    ∀ {xs : List α} {ys : List β}, xs.mapM f = some ys →
+      ys.filterMap g = xs.filterMap (fun x => (f x).bind g)
+  | [], ys, h => by simp only [List.mapM_nil, pure, Option.some.injEq] at h; subst h; rfl
+  | x :: xs, ys, h => by
+    have h2 := mapM_some_forall₂ h
+    cases h2 with
+    | cons hx t =>
+      rename_i y ys'
+      have hxs : xs.mapM f = some ys' := by
+        simp only [List.mapM_cons, bind, Option.bind, hx] at h
+        cases hxs : xs.mapM f with
+        | none => rw [hxs] at h; cases h
+        | some zs => rw [hxs] at h; simp only [pure, Option.some.injEq, List.cons.injEq] at h; rw [h.2]
+      simp only [List.filterMap_cons, hx, Option.bind_some, mapM_filterMap g hxs]
+
+theorem mapM_append_inv {α β : Type} {f : α → Option β} :
+    ∀ {xs xs' : List α} {ys : List β}, (xs ++ xs').mapM f = some ys →
+      ∃ y1 y2, xs.mapM f = some y1 ∧ xs'.mapM f = some y2 ∧ ys = y1 ++ y2
+  | [], xs', ys, h => ⟨[], ys, rfl, by simpa using h, rfl⟩
+  | x :: xs, xs', ys, h => by
+    have h2 := mapM_some_forall₂ h
+    cases h2 with
+    | cons hx t =>
+      rename_i y ys'
+      have hxs : (xs ++ xs').mapM f = some ys' := by
+        simp only [List.cons_append, List.mapM_cons, bind, Option.bind, hx] at h
+        cases hxs : (xs ++ xs').mapM f with
+        | none => rw [hxs] at h; cases h
+        | some zs => rw [hxs] at h; simp only [pure, Option.some.injEq, List.cons.injEq] at h; rw [h.2]
+      obtain ⟨y1, y2, h1, h2, rfl⟩ := mapM_append_inv hxs
+      refine ⟨y :: y1, y2, ?_, h2, rfl⟩
+      simp [List.mapM_cons, hx, h1, bind, Option.bind, pure]
+
+theorem bind_ok_inv {ε α β : Type} {x : Except ε α} {f : α → Except ε β} {b : β}
+    (h : (x >>= f) = .ok b) : ∃ a, x = .ok a ∧ f a = .ok b := by
+  cases x with
+  | error e => cases h
+  | ok a => exact ⟨a, rfl, h⟩
+
+/-- **A loop with an early exit, in `Except`**: where every step either goes on with the state
+`g` makes or stops with an exit value `Bad` says something of, the loop's result is the fold of
+`g`, or such an exit. -/
 theorem forIn_char {α β τ ε : Type} (Bad : β → Prop) (g : α → τ → τ)
     {f : α → Option β × τ → Except ε (ForInStep (Option β × τ))} :
     ∀ (xs : List α), (∀ x ∈ xs, ∀ t r, f x (none, t) = .ok r →
@@ -31,11 +245,37 @@ theorem forIn_char {α β τ ε : Type} (Bad : β → Prop) (g : α → τ → �
       · simp only [pure, Except.pure, Except.ok.injEq] at h
         exact .inr ⟨b, t', hb, h.symm⟩
 
-theorem bind_ok_inv {ε α β : Type} {x : Except ε α} {f : α → Except ε β} {b : β}
-    (h : (x >>= f) = .ok b) : ∃ a, x = .ok a ∧ f a = .ok b := by
-  cases x with
-  | error e => cases h
-  | ok a => exact ⟨a, rfl, h⟩
+theorem nodup_map_inj {α β : Type} {f : α → β} :
+    ∀ {l : List α}, (l.map f).Nodup → ∀ {a b : α}, a ∈ l → b ∈ l → f a = f b → a = b
+  | [], _, _, _, ha, _, _ => by cases ha
+  | x :: l, hnd, a, b, ha, hb, hab => by
+    simp only [List.map_cons, List.nodup_cons] at hnd
+    rcases List.mem_cons.1 ha with ha' | ha' <;> rcases List.mem_cons.1 hb with hb' | hb'
+    · rw [ha', hb']
+    · subst ha'; exact absurd (hab ▸ List.mem_map_of_mem hb') hnd.1
+    · subst hb'; exact absurd (hab.symm ▸ List.mem_map_of_mem ha') hnd.1
+    · exact nodup_map_inj hnd.2 ha' hb' hab
+
+theorem filter_filter_map {α β : Type} (p q : α → Bool) (f : α → β) :
+    ∀ l : List α, ((l.filter p).filter q).map f = l.filterMap (fun x => if p x && q x then some (f x) else none)
+  | [] => rfl
+  | x :: l => by
+    have ih := filter_filter_map p q f l
+    cases hp : p x <;> cases hq : q x <;>
+      simp only [List.filter_cons, hp, hq, Bool.false_eq_true, ↓reduceIte, Bool.and_self,
+        Bool.and_false, Bool.false_and, List.map_cons, List.filterMap_cons, ih]
+
+theorem filterMap_filter_map {α β γ : Type} (p : α → Bool) (g : α → β) (G : β → Option γ) :
+    ∀ l : List α, ((l.filter p).map g).filterMap G = l.filterMap (fun x => if p x then G (g x) else none)
+  | [] => rfl
+  | x :: l => by
+    simp only [List.filter_cons, List.filterMap_cons]
+    by_cases hp : p x = true
+    · simp only [hp, ↓reduceIte, List.map_cons, List.filterMap_cons, filterMap_filter_map p g G l]
+    · simp only [hp, Bool.false_eq_true, ↓reduceIte, filterMap_filter_map p g G l]
+
+
+/-! ## The builder's verdict on a block -/
 
 /-- The constructor a name stands for in a block's records. -/
 @[expose] def ctorAt (ctorNames : List Name) (cts : List IndCtorRec) (n : Name) : Option IndCtorRec :=
@@ -67,24 +307,9 @@ theorem zipFold_spec (f : Name → Option IndCtorRec) : ∀ (as : List Name) (ls
   | [], _ :: _, _, h => by simp at h
   | _ :: _, [], _, h => by simp at h
 
-theorem mapM_ok_length {ε α β : Type} {f : α → Except ε β} :
-    ∀ {xs : List α} {ys : List β}, xs.mapM f = .ok ys → ys.length = xs.length
-  | [], ys, h => by simp only [List.mapM_nil, pure, Except.pure, Except.ok.injEq] at h; subst h; rfl
-  | x :: xs, ys, h => by
-    simp only [List.mapM_cons, bind, Except.bind] at h
-    cases hx : f x with
-    | error e => rw [hx] at h; cases h
-    | ok y =>
-      rw [hx] at h
-      simp only at h
-      cases hxs : xs.mapM f with
-      | error e => rw [hxs] at h; cases h
-      | ok zs =>
-        rw [hxs] at h
-        simp only [pure, Except.pure, Except.ok.injEq] at h
-        subst h
-        simp [mapM_ok_length hxs]
-
+/-- **The builder's verdict on a block that it accepts**: no type unsafe, the parameter count the
+first type's, and the constructor records the ones the types list, looked up by name, in the
+types' order. -/
 theorem validateIndF_inr {nm : Nat → M Name} {lv : Nat → M Level} {ex : Nat → M Expr} {tys cts rcs cts1 nPd}
   (h : validateIndF nm lv ex tys cts rcs = .ok (.inr (cts1, nPd))) :
     tys.any (·.isUnsafe) = false ∧ nPd = (tys.map (·.numParams)).head?.getD 0 ∧ ∃ listed ctorNames,
@@ -178,13 +403,20 @@ theorem validateIndF_inr {nm : Nat → M Name} {lv : Nat → M Level} {ex : Nat 
   rw [zipFold_spec _ _ _ _ (by rw [mapM_ok_length h1, mapM_ok_length h3])]
   simp
 
-/-! ## What a block's records resolve to -/
+/-- A block's record that builds is of no unsafe type. -/
+theorem declOfF_ind_safe {nm : Nat → M Name} {lv : Nat → M Level} {ex : Nat → M Expr}
+    {ts : List IndTypeRec} {cts : List IndCtorRec} {rs : List IndRecRec} {d : Declaration}
+    (hd : declOfF nm lv ex (.ind ts cts rs) = .ok (.inl d)) : ts.any (·.isUnsafe) = false := by
+  simp only [declOfF, bind, Except.bind] at hd
+  cases hv : validateIndF nm lv ex ts cts rs with
+  | error e => rw [hv] at hd; cases hd
+  | ok v =>
+    rw [hv] at hd
+    rcases v with v | ⟨cts1, nPd⟩
+    · simp [pure, Except.pure] at hd
+    · exact (validateIndF_inr hv).1
 
-/-- Two lists related pointwise. -/
-inductive Forall₂ {α β : Type} (R : α → β → Prop) : List α → List β → Prop
-  | nil : Forall₂ R [] []
-  | cons {a : α} {b : β} {as : List α} {bs : List β} : R a b → Forall₂ R as bs →
-      Forall₂ R (a :: as) (b :: bs)
+/-! ## What a block's records resolve to -/
 
 /-- A record's name, level parameters and type, resolved. -/
 @[expose] def CvRes (nm : Nat → M Name) (ex : Nat → M Expr) (cv : CVRec) (c : CEntryF Name Expr) : Prop :=
@@ -214,41 +446,6 @@ theorem cvOfF_res {nm : Nat → M Name} {lv : Nat → M Level} {ex : Nat → M E
     cvOfF nm lv ex cv = .ok ⟨c.name, c.levelParams, c.type⟩ := by
   obtain ⟨h1, h2, h3⟩ := h
   simp [cvOfF, h1, h2, h3, bind, Except.bind, pure, Except.pure]
-
-theorem forall₂_meet {α β γ : Type} {R : α → γ → Prop} {R' : β → γ → Prop}
-    {xs : List α} {ys : List β} {L : List γ} (h1 : Forall₂ R xs L) (h2 : Forall₂ R' ys L) :
-    Forall₂ (fun x y => ∃ c, R x c ∧ R' y c) xs ys := by
-  induction h1 generalizing ys with
-  | nil => cases h2; exact .nil
-  | cons ha _ ih => cases h2 with
-    | cons hb t2 => exact .cons ⟨_, ha, hb⟩ (ih t2)
-
-theorem mapM_forall₂ {ε α β γ : Type} {F : α → Except ε γ} {G : β → Except ε γ} {S : α → β → Prop}
-    (hS : ∀ a b, S a b → F a = G b) :
-    ∀ {xs : List α} {ys : List β}, Forall₂ S xs ys → xs.mapM F = ys.mapM G
-  | [], [], .nil => rfl
-  | x :: xs, y :: ys, .cons h t => by
-    simp only [List.mapM_cons, hS x y h, mapM_forall₂ hS t]
-
-theorem mapM_res {ε α γ δ : Type} {F : α → Except ε δ} {G : γ → δ} {R : α → γ → Prop}
-    (hR : ∀ a c, R a c → F a = .ok (G c)) :
-    ∀ {xs : List α} {L : List γ}, Forall₂ R xs L → xs.mapM F = .ok (L.map G)
-  | [], [], .nil => rfl
-  | x :: xs, c :: L, .cons h t => by
-    simp [List.mapM_cons, hR x c h, mapM_res hR t, bind, Except.bind, pure, Except.pure]
-
-theorem map_forall₂ {α β δ : Type} {f : α → δ} {g : β → δ} {S : α → β → Prop}
-    (hS : ∀ a b, S a b → f a = g b) :
-    ∀ {xs : List α} {ys : List β}, Forall₂ S xs ys → xs.map f = ys.map g
-  | [], [], .nil => rfl
-  | x :: xs, y :: ys, .cons h t => by rw [List.map_cons, List.map_cons, hS x y h, map_forall₂ hS t]
-
-theorem getElem?_forall₂ {α β : Type} {S : α → β → Prop} :
-    ∀ {xs : List α} {ys : List β}, Forall₂ S xs ys → ∀ k : Nat,
-      (xs[k]? = none ∧ ys[k]? = none) ∨ ∃ a b, xs[k]? = some a ∧ ys[k]? = some b ∧ S a b
-  | [], [], .nil, k => .inl ⟨rfl, rfl⟩
-  | x :: xs, y :: ys, .cons h t, 0 => .inr ⟨x, y, rfl, rfl, h⟩
-  | x :: xs, y :: ys, .cons h t, k + 1 => by simpa using getElem?_forall₂ t k
 
 theorem filterMap_ctorAt {S : IndCtorRec → IndCtorRec → Prop} (ns : List Name) {cts cts' : List IndCtorRec}
     (h : Forall₂ S cts cts') :
@@ -347,23 +544,6 @@ theorem declOfF_ind_same {nm nm' : Nat → M Name} {lv lv' : Nat → M Level} {e
 
 /-! ## A block's records on an emitter's tables -/
 
-theorem Forall₂.imp {α β : Type} {R S : α → β → Prop} (h : ∀ a b, R a b → S a b) :
-    ∀ {xs : List α} {ys : List β}, Forall₂ R xs ys → Forall₂ S xs ys
-  | _, _, .nil => .nil
-  | _, _, .cons a t => .cons (h _ _ a) (Forall₂.imp h t)
-
-theorem Forall₂.imp_map {α β γ : Type} {R : α → β → Prop} {S : α → γ → Prop} {g : β → γ}
-    (h : ∀ a b, R a b → S a (g b)) :
-    ∀ {xs : List α} {ys : List β}, Forall₂ R xs ys → Forall₂ S xs (ys.map g)
-  | _, _, .nil => .nil
-  | _, _, .cons a t => .cons (h _ _ a) (Forall₂.imp_map h t)
-
-theorem Forall₂.append {α β : Type} {R : α → β → Prop} :
-    ∀ {xs : List α} {ys : List β} {xs' : List α} {ys' : List β}, Forall₂ R xs ys → Forall₂ R xs' ys' →
-      Forall₂ R (xs ++ xs') (ys ++ ys')
-  | _, _, _, _, .nil, h => h
-  | _, _, _, _, .cons a t, h => .cons a (Forall₂.append t h)
-
 /-- An inductive type's record on the tables. -/
 @[expose] def IndTyOf (em : Emit) (t : IndTypeRec) (c : CEntry) : Prop :=
   CvOf em t.cv c ∧ ∃ ni all cs nn ir irf,
@@ -428,6 +608,18 @@ theorem IndRecOf.res {em : Emit} {t : IndRecRec} {c : CEntry} (h : IndRecOf em t
     all, rules, h4, Forall₂.imp (fun ru x ⟨a1, a2, a3⟩ =>
       ⟨by simp [Emit.nm, a1, pure, Except.pure], a2, by simp [Emit.ex, a3, pure, Except.pure]⟩) h5⟩
 
+theorem tys_res {em : Emit} {ts : List IndTypeRec} {L : List CEntry} (h : Forall₂ (IndTyOf em) ts L) :
+    Forall₂ (TyRes em.nm em.ex) ts (L.map (·.toCEntryF)) :=
+  Forall₂.imp_map (R := IndTyOf em) (fun _ _ q => IndTyOf.res q) h
+
+theorem ctors_res {em : Emit} {ts : List IndCtorRec} {L : List CEntry} (h : Forall₂ (IndCtorOf em) ts L) :
+    Forall₂ (CtorRes em.nm em.ex) ts (L.map (·.toCEntryF)) :=
+  Forall₂.imp_map (R := IndCtorOf em) (fun _ _ q => IndCtorOf.res q) h
+
+theorem recs_res {em : Emit} {ts : List IndRecRec} {L : List CEntry} (h : Forall₂ (IndRecOf em) ts L) :
+    Forall₂ (RecRes em.nm em.ex) ts (L.map (·.toCEntryF)) :=
+  Forall₂.imp_map (R := IndRecOf em) (fun _ _ q => IndRecOf.res q) h
+
 /-- A fold that adds to the tables, pushing one item for each element `p` keeps. -/
 theorem fold_rel {α β : Type} {Q : Emit → α → β → Prop}
     (hQ : ∀ {a b : Emit} {x : α} {c : β}, Emit.Sub a b → Q a x c → Q b x c) (p : β → Bool)
@@ -482,6 +674,8 @@ theorem ruleStep_rel (rules : List (Name × Nat × Expr)) (st : Emit) :
   rw [hf, List.nil_append] at this
   exact this
 
+/-- **The record `Emit.block` pushes** resolves, on the emitter's tables, to the block's types,
+constructors and recursors, those of each kind in their order. -/
 theorem Emit.block_res (st : Emit) (tys ctors recs : List CEntry) :
     ∃ ts cts rs, (st.block tys ctors recs).out = st.out.push (.ind ts cts rs) ∧
       Emit.Sub st (st.block tys ctors recs) ∧
@@ -536,6 +730,35 @@ theorem Emit.block_res (st : Emit) (tys ctors recs : List CEntry) :
     Forall₂.imp (fun _ _ (q : IndTyOf _ _ _) => (q.mono (b1.trans c1)).mono p1) (by simpa using a3),
     Forall₂.imp (fun _ _ (q : IndCtorOf _ _ _) => (q.mono c1).mono p1) (by simpa using b3),
     Forall₂.imp (fun _ _ (q : IndRecOf _ _ _) => q.mono p1) (by simpa using c3)⟩
+
+theorem filter_toF (k : Nat) {l l' : List CEntry} (h : l.map (·.toCEntryF) = l'.map (·.toCEntryF)) :
+    (l.filter (·.kind.tag == k)).map (·.toCEntryF) = (l'.filter (·.kind.tag == k)).map (·.toCEntryF) := by
+  have e : ∀ m : List CEntry, (m.filter (·.kind.tag == k)).map (·.toCEntryF) =
+      (m.map (·.toCEntryF)).filter (·.kind.tag == k) := by
+    intro m; rw [List.filter_map]; rfl
+  rw [e, e, h]
+
+/-- **Two block records built from the same constants are the same record**, whatever tables
+either emitter's indices point into. -/
+theorem block_same {E G : Emit} {tysH ctorsH recsH tysR ctorsR recsR : List CEntry}
+    {ts cts rs ts' cts' rs'} {p d : Declaration}
+    (hp : declOfF E.nm E.lv E.ex (.ind ts cts rs) = .ok (.inl p))
+    (h1 : Forall₂ (IndTyOf E) ts (tysH.filter (·.kind.tag == 5)))
+    (h2 : Forall₂ (IndCtorOf E) cts (ctorsH.filter (·.kind.tag == 6)))
+    (h3 : Forall₂ (IndRecOf E) rs (recsH.filter (·.kind.tag == 7)))
+    (hd : declOfF G.nm G.lv G.ex (.ind ts' cts' rs') = .ok (.inl d))
+    (g1 : Forall₂ (IndTyOf G) ts' (tysR.filter (·.kind.tag == 5)))
+    (g2 : Forall₂ (IndCtorOf G) cts' (ctorsR.filter (·.kind.tag == 6)))
+    (g3 : Forall₂ (IndRecOf G) rs' (recsR.filter (·.kind.tag == 7)))
+    (e1 : tysH.map (·.toCEntryF) = tysR.map (·.toCEntryF))
+    (e2 : ctorsH.map (·.toCEntryF) = ctorsR.map (·.toCEntryF))
+    (e3 : recsH.map (·.toCEntryF) = recsR.map (·.toCEntryF)) : p = d := by
+  refine declOfF_ind_same (L1 := (tysH.filter (·.kind.tag == 5)).map (·.toCEntryF))
+    (L2 := (ctorsH.filter (·.kind.tag == 6)).map (·.toCEntryF))
+    (L3 := (recsH.filter (·.kind.tag == 7)).map (·.toCEntryF))
+    (tys_res h1) (by rw [filter_toF 5 e1]; exact tys_res g1)
+    (ctors_res h2) (by rw [filter_toF 6 e2]; exact ctors_res g2)
+    (recs_res h3) (by rw [filter_toF 7 e3]; exact recs_res g3) hp hd
 
 /-! ## The walk's blocks -/
 
@@ -937,27 +1160,8 @@ theorem blockRecs_mergedOfList (L : List CEntry) (x : Name) :
   have hm' : ∀ k, (mergedOfList L).map[k]? = (firstsGo [] L).find? (·.name == k) := hm
   unfold blockRecs recMapOf
   rw [← Array.foldl_toList, recMapOf_list _ x _ {} (ho' ▸ hnd) (by simp)]
-  simp only [Std.HashMap.getElem?_empty, Option.getD_none, List.nil_append, ho', hm',
-    ]
+  simp only [Std.HashMap.getElem?_empty, Option.getD_none, List.nil_append, ho', hm']
   exact filter_find? _ _ hnd
-
-theorem Forall₂.mem_left {α β : Type} {R : α → β → Prop} :
-    ∀ {xs : List α} {ys : List β}, Forall₂ R xs ys → ∀ x ∈ xs, ∃ y ∈ ys, R x y
-  | _, _, .nil, _, hx => by cases hx
-  | _, _, .cons h t, x, hx => by
-    rcases List.mem_cons.1 hx with rfl | hx
-    · exact ⟨_, List.mem_cons_self, h⟩
-    · obtain ⟨y, hy, hr⟩ := Forall₂.mem_left t x hx
-      exact ⟨y, List.mem_cons_of_mem _ hy, hr⟩
-
-theorem Forall₂.mem_right {α β : Type} {R : α → β → Prop} :
-    ∀ {xs : List α} {ys : List β}, Forall₂ R xs ys → ∀ y ∈ ys, ∃ x ∈ xs, R x y
-  | _, _, .nil, _, hy => by cases hy
-  | _, _, .cons h t, y, hy => by
-    rcases List.mem_cons.1 hy with rfl | hy
-    · exact ⟨_, List.mem_cons_self, h⟩
-    · obtain ⟨x, hx, hr⟩ := Forall₂.mem_right t y hy
-      exact ⟨x, List.mem_cons_of_mem _ hx, hr⟩
 
 /-- A merge's block recursors under `x`, by its order. -/
 theorem blockRecs_order (mg : Merged) (hnd : mg.order.toList.Nodup) (x : Name) :
@@ -999,6 +1203,30 @@ theorem blockRecs_member {mg : Merged} (hG : BlocksGood mg) (hnd : mg.order.toLi
       · intro h; rw [side hc0 hi0 h]; exact hn
       · intro h; rw [side hc hi h]; exact hn0
     | _ => rfl
+
+theorem firstsGo_prefix : ∀ (L acc : List CEntry), ∃ rest, firstsGo acc L = acc ++ rest
+  | [], acc => ⟨[], by simp [firstsGo]⟩
+  | c :: L, acc => by
+    simp only [firstsGo]
+    split
+    · exact firstsGo_prefix L acc
+    · obtain ⟨rest, h⟩ := firstsGo_prefix L (acc ++ [c])
+      exact ⟨c :: rest, by simp [h]⟩
+
+/-- A merged list's first constant is held under its name. -/
+theorem mergedOfList_head (c : CEntry) (L : List CEntry) :
+    (mergedOfList (c :: L)).map[c.name]? = some c := by
+  obtain ⟨-, hm⟩ := mergedOfList_firsts (c :: L) {} [] (by simp) (by simp)
+  have : (mergedOfList (c :: L)).map[c.name]? = (firstsGo [] (c :: L)).find? (·.name == c.name) :=
+    hm c.name
+  rw [this]
+  simp only [firstsGo, List.any_nil, Bool.false_eq_true, ↓reduceIte, List.nil_append]
+  obtain ⟨rest, hr⟩ := firstsGo_prefix L [c]
+  rw [hr]
+  simp
+
+
+/-! ## A group in its home's emission, and read alone -/
 
 /-- **The home's emission holds the record of each of its groups**: an inductive type `n` of the
 merge, not filtered out, has its block's record among the declarations, built from the block's
@@ -1081,19 +1309,6 @@ theorem home_group {mg : Merged} (hG : BlocksGood mg)
        subst this
        rw [hk] at hk'; cases hk'; done)
 
-/-- A block's record that builds is of no unsafe type. -/
-theorem declOfF_ind_safe {nm : Nat → M Name} {lv : Nat → M Level} {ex : Nat → M Expr}
-    {ts : List IndTypeRec} {cts : List IndCtorRec} {rs : List IndRecRec} {d : Declaration}
-    (hd : declOfF nm lv ex (.ind ts cts rs) = .ok (.inl d)) : ts.any (·.isUnsafe) = false := by
-  simp only [declOfF, bind, Except.bind] at hd
-  cases hv : validateIndF nm lv ex ts cts rs with
-  | error e => rw [hv] at hd; cases hd
-  | ok v =>
-    rw [hv] at hd
-    rcases v with v | ⟨cts1, nPd⟩
-    · simp [pure, Except.pure] at hd
-    · exact (validateIndF_inr hv).1
-
 /-- **One group's record, on the fresh emitter's tables**: built from the group's members,
 constructors and recursors as `groupParts` takes them. -/
 theorem groupRecord_res {mg : Merged} {n : Name} {d : Declaration} (h : groupRecord mg n = .ok d) :
@@ -1127,151 +1342,5 @@ theorem groupRecord_res {mg : Merged} {n : Name} {d : Declaration} (h : groupRec
           simpa using this
         subst hr0
         exact ⟨tys, ctors, recs, ts, cts, rs, hp, hdr, h1, h2, h3⟩
-
-theorem filter_toF (k : Nat) {l l' : List CEntry} (h : l.map (·.toCEntryF) = l'.map (·.toCEntryF)) :
-    (l.filter (·.kind.tag == k)).map (·.toCEntryF) = (l'.filter (·.kind.tag == k)).map (·.toCEntryF) := by
-  have e : ∀ m : List CEntry, (m.filter (·.kind.tag == k)).map (·.toCEntryF) =
-      (m.map (·.toCEntryF)).filter (·.kind.tag == k) := by
-    intro m; rw [List.filter_map]; rfl
-  rw [e, e, h]
-
-theorem tys_res {em : Emit} {ts : List IndTypeRec} {L : List CEntry} (h : Forall₂ (IndTyOf em) ts L) :
-    Forall₂ (TyRes em.nm em.ex) ts (L.map (·.toCEntryF)) :=
-  Forall₂.imp_map (R := IndTyOf em) (fun _ _ q => IndTyOf.res q) h
-
-theorem ctors_res {em : Emit} {ts : List IndCtorRec} {L : List CEntry} (h : Forall₂ (IndCtorOf em) ts L) :
-    Forall₂ (CtorRes em.nm em.ex) ts (L.map (·.toCEntryF)) :=
-  Forall₂.imp_map (R := IndCtorOf em) (fun _ _ q => IndCtorOf.res q) h
-
-theorem recs_res {em : Emit} {ts : List IndRecRec} {L : List CEntry} (h : Forall₂ (IndRecOf em) ts L) :
-    Forall₂ (RecRes em.nm em.ex) ts (L.map (·.toCEntryF)) :=
-  Forall₂.imp_map (R := IndRecOf em) (fun _ _ q => IndRecOf.res q) h
-
-/-- **Two block records built from the same constants are the same record**, whatever tables
-either emitter's indices point into. -/
-theorem block_same {E G : Emit} {tysH ctorsH recsH tysR ctorsR recsR : List CEntry}
-    {ts cts rs ts' cts' rs'} {p d : Declaration}
-    (hp : declOfF E.nm E.lv E.ex (.ind ts cts rs) = .ok (.inl p))
-    (h1 : Forall₂ (IndTyOf E) ts (tysH.filter (·.kind.tag == 5)))
-    (h2 : Forall₂ (IndCtorOf E) cts (ctorsH.filter (·.kind.tag == 6)))
-    (h3 : Forall₂ (IndRecOf E) rs (recsH.filter (·.kind.tag == 7)))
-    (hd : declOfF G.nm G.lv G.ex (.ind ts' cts' rs') = .ok (.inl d))
-    (g1 : Forall₂ (IndTyOf G) ts' (tysR.filter (·.kind.tag == 5)))
-    (g2 : Forall₂ (IndCtorOf G) cts' (ctorsR.filter (·.kind.tag == 6)))
-    (g3 : Forall₂ (IndRecOf G) rs' (recsR.filter (·.kind.tag == 7)))
-    (e1 : tysH.map (·.toCEntryF) = tysR.map (·.toCEntryF))
-    (e2 : ctorsH.map (·.toCEntryF) = ctorsR.map (·.toCEntryF))
-    (e3 : recsH.map (·.toCEntryF) = recsR.map (·.toCEntryF)) : p = d := by
-  refine declOfF_ind_same (L1 := (tysH.filter (·.kind.tag == 5)).map (·.toCEntryF))
-    (L2 := (ctorsH.filter (·.kind.tag == 6)).map (·.toCEntryF))
-    (L3 := (recsH.filter (·.kind.tag == 7)).map (·.toCEntryF))
-    (tys_res h1) (by rw [filter_toF 5 e1]; exact tys_res g1)
-    (ctors_res h2) (by rw [filter_toF 6 e2]; exact ctors_res g2)
-    (recs_res h3) (by rw [filter_toF 7 e3]; exact recs_res g3) hp hd
-
-/-! ## Lists read pointwise -/
-
-theorem mapM_forall₂' {α β : Type} {f : α → Option β} :
-    ∀ {xs : List α} {ys : List β}, xs.mapM f = some ys → Forall₂ (fun x y => f x = some y) xs ys
-  | [], ys, h => by simp only [List.mapM_nil, pure, Option.some.injEq] at h; subst h; exact .nil
-  | x :: xs, ys, h => by
-    simp only [List.mapM_cons, bind, Option.bind] at h
-    cases hx : f x with
-    | none => rw [hx] at h; cases h
-    | some y =>
-      rw [hx] at h
-      simp only at h
-      cases hxs : xs.mapM f with
-      | none => rw [hxs] at h; cases h
-      | some zs =>
-        rw [hxs] at h
-        simp only [pure, Option.some.injEq] at h
-        subst h
-        exact .cons hx (mapM_forall₂' hxs)
-
-theorem forall₂_of_getElem {α β : Type} {R : α → β → Prop} :
-    ∀ {xs : List α} {ys : List β} (hl : ys.length = xs.length),
-      (∀ (j : Nat) (hj : j < xs.length), R xs[j] (ys[j]'(hl ▸ hj))) → Forall₂ R xs ys
-  | [], [], _, _ => .nil
-  | x :: xs, y :: ys, hl, h =>
-    .cons (h 0 (by simp)) (forall₂_of_getElem (by simpa using hl) (fun j hj => h (j + 1) (by simpa using hj)))
-  | [], _ :: _, hl, _ => by simp at hl
-  | _ :: _, [], hl, _ => by simp at hl
-
-theorem forall₂_meet_left {α β γ : Type} {R : γ → α → Prop} {R' : γ → β → Prop}
-    {L : List γ} {xs : List α} {ys : List β} (h1 : Forall₂ R L xs) (h2 : Forall₂ R' L ys) :
-    Forall₂ (fun x y => ∃ c, R c x ∧ R' c y) xs ys := by
-  induction h1 generalizing ys with
-  | nil => cases h2; exact .nil
-  | cons ha _ ih => cases h2 with
-    | cons hb t2 => exact .cons ⟨_, ha, hb⟩ (ih t2)
-
-theorem forall₂_comp {α β γ : Type} {R : α → β → Prop} {S : β → γ → Prop}
-    {xs : List α} {ys : List β} {zs : List γ} (h1 : Forall₂ R xs ys) (h2 : Forall₂ S ys zs) :
-    Forall₂ (fun x z => ∃ y, R x y ∧ S y z) xs zs := by
-  induction h1 generalizing zs with
-  | nil => cases h2; exact .nil
-  | cons ha _ ih => cases h2 with
-    | cons hb t2 => exact .cons ⟨_, ha, hb⟩ (ih t2)
-
-theorem filterMap_forall₂ {α β γ : Type} {R : α → β → Prop} {f : α → Option γ} {g : β → Option γ} :
-    ∀ {xs : List α} {ys : List β}, Forall₂ R xs ys → (∀ x y, x ∈ xs → y ∈ ys → R x y → f x = g y) →
-      xs.filterMap f = ys.filterMap g
-  | [], [], .nil, _ => rfl
-  | x :: xs, y :: ys, .cons hr t, h => by
-    simp only [List.filterMap_cons, h x y List.mem_cons_self List.mem_cons_self hr,
-      filterMap_forall₂ t (fun a b ha hb => h a b (List.mem_cons_of_mem _ ha) (List.mem_cons_of_mem _ hb))]
-
-theorem mapM_filterMap {α β γ : Type} {f : α → Option β} (g : β → Option γ) :
-    ∀ {xs : List α} {ys : List β}, xs.mapM f = some ys →
-      ys.filterMap g = xs.filterMap (fun x => (f x).bind g)
-  | [], ys, h => by simp only [List.mapM_nil, pure, Option.some.injEq] at h; subst h; rfl
-  | x :: xs, ys, h => by
-    have h2 := mapM_forall₂' h
-    cases h2 with
-    | cons hx t =>
-      rename_i y ys'
-      have hxs : xs.mapM f = some ys' := by
-        simp only [List.mapM_cons, bind, Option.bind, hx] at h
-        cases hxs : xs.mapM f with
-        | none => rw [hxs] at h; cases h
-        | some zs => rw [hxs] at h; simp only [pure, Option.some.injEq, List.cons.injEq] at h; rw [h.2]
-      simp only [List.filterMap_cons, hx, Option.bind_some, mapM_filterMap g hxs]
-
-theorem mapM_append_inv {α β : Type} {f : α → Option β} :
-    ∀ {xs xs' : List α} {ys : List β}, (xs ++ xs').mapM f = some ys →
-      ∃ y1 y2, xs.mapM f = some y1 ∧ xs'.mapM f = some y2 ∧ ys = y1 ++ y2
-  | [], xs', ys, h => ⟨[], ys, rfl, by simpa using h, rfl⟩
-  | x :: xs, xs', ys, h => by
-    have h2 := mapM_forall₂' h
-    cases h2 with
-    | cons hx t =>
-      rename_i y ys'
-      have hxs : (xs ++ xs').mapM f = some ys' := by
-        simp only [List.cons_append, List.mapM_cons, bind, Option.bind, hx] at h
-        cases hxs : (xs ++ xs').mapM f with
-        | none => rw [hxs] at h; cases h
-        | some zs => rw [hxs] at h; simp only [pure, Option.some.injEq, List.cons.injEq] at h; rw [h.2]
-      obtain ⟨y1, y2, h1, h2, rfl⟩ := mapM_append_inv hxs
-      refine ⟨y :: y1, y2, ?_, h2, rfl⟩
-      simp [List.mapM_cons, hx, h1, bind, Option.bind, pure]
-
-theorem nodup_filterMap_name {α : Type} (nameA : α → Name) {F : α → Option (CEntryF Name Expr)} :
-    ∀ {xs : List α}, (xs.map nameA).Nodup → (∀ x e, F x = some e → e.name = nameA x) →
-      ((xs.filterMap F).map (·.name)).Nodup
-  | [], _, _ => by simp
-  | x :: xs, hnd, hF => by
-    simp only [List.map_cons, List.nodup_cons] at hnd
-    simp only [List.filterMap_cons]
-    cases hx : F x with
-    | none => exact nodup_filterMap_name nameA hnd.2 hF
-    | some e =>
-      simp only [List.map_cons, List.nodup_cons]
-      refine ⟨fun hm => ?_, nodup_filterMap_name nameA hnd.2 hF⟩
-      obtain ⟨e', he', hn⟩ := List.mem_map.1 hm
-      obtain ⟨y, hy, hye⟩ := List.mem_filterMap.1 he'
-      apply hnd.1
-      rw [← hF x e hx, ← hn, hF y e' hye]
-      exact List.mem_map_of_mem hy
 
 end ConLeche.Frontend.Olean

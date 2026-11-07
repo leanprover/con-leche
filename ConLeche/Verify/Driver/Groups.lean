@@ -1,4 +1,5 @@
 module
+
 public import ConLeche.Verify.Driver.Provenance
 public import ConLeche.Verify.Frontend.Olean.GroupSame
 import ConLeche.Verify.Frontend.Olean.Reads
@@ -6,10 +7,32 @@ import ConLeche.Verify.Frontend.Olean.Equiv
 import ConLeche.Verify.Frontend.Olean.Lazy
 import ConLeche.Verify.Frontend.Olean.Sparse
 import ConLeche.Verify.Frontend.Olean.Group
+import ConLeche.Verify.Frontend.Prepare
+
+/-!
+# An inductive group read from its home presents its home's record
+
+Task #440, the step task #448 left open.  The reach reads a group from its home's private part
+(`GroupRead`): `groupAt`'s reads, the group's members and constructors by name, its recursors
+among the part's recursor positions by their block's first member, built alone (`groupRecord`).
+Where the worker at the home accepted on the same snapshot, its emission holds the record of that
+group (`home_group`), built of the members, constructors and recursors its merge holds; those are,
+constant by constant and in order, the ones the reach read (`recs_same` for the recursors: the
+private name table's order is the load's), and the builder makes one record of both
+(`block_same`).  **`group_presents`**: the group's record is one of its home's own records.
+
+With it, every context record of an accepted worker presents one of its home's own records
+(`worker_presented`), and the local checks of the development follow (`interfaceOk_of_workers`,
+`presented_of_worker`).
+-/
 
 public section
+
 namespace ConLeche.Driver
-open ConLeche ConLeche.Modular ConLeche.Frontend ConLeche.Frontend.Olean
+
+open ConLeche ConLeche.Modular ConLeche.Frontend ConLeche.Frontend.Olean ConLeche.Cached
+
+/-! ## A part's name table and its recursors -/
 
 theorem lookTable_mem {t : NamePositions} {x : Name} {q : NamePosition}
     (h : (lookTable t)[x]? = some q) : q ∈ t.consts ∧ q.name = x := by
@@ -61,7 +84,7 @@ theorem recBlocksAt_spec {r : Region} {t : NamePositions} {rb : Std.HashMap Name
   unfold recBlocksAt at h
   simp only [Option.map_eq_some_iff] at h
   obtain ⟨ks, hks, rfl⟩ := h
-  have hf := mapM_forall₂' hks
+  have hf := mapM_some_forall₂ hks
   refine ⟨fun l hl => ?_, ?_⟩
   · obtain ⟨y, -, hy⟩ := Forall₂.mem_left hf l hl
     cases hk : kindNamesAt r l with
@@ -89,16 +112,30 @@ theorem recBlocksAt_spec {r : Region} {t : NamePositions} {rb : Std.HashMap Name
     funext l
     cases kindNamesAt r l <;> rfl
 
-theorem nodup_map_inj {α β : Type} {f : α → β} :
-    ∀ {l : List α}, (l.map f).Nodup → ∀ {a b : α}, a ∈ l → b ∈ l → f a = f b → a = b
-  | [], _, _, _, ha, _, _ => by cases ha
-  | x :: l, hnd, a, b, ha, hb, hab => by
-    simp only [List.map_cons, List.nodup_cons] at hnd
-    rcases List.mem_cons.1 ha with ha' | ha' <;> rcases List.mem_cons.1 hb with hb' | hb'
-    · rw [ha', hb']
-    · subst ha'; exact absurd (hab ▸ List.mem_map_of_mem hb') hnd.1
-    · subst hb'; exact absurd (hab.symm ▸ List.mem_map_of_mem ha') hnd.1
-    · exact nodup_map_inj hnd.2 ha' hb' hab
+theorem recAt_loc {x : Name} {l l' : Nat} {k : CKindF Name Unit} (h : recAt x l k = some l') : l' = l := by
+  unfold recAt at h
+  split at h
+  · split at h
+    · exact (Option.some.inj h).symm
+    · cases h
+  · cases h
+
+/-- A location `groupRecLocs` gives is a recursor position of the part. -/
+theorem groupRecLocs_pos {r : Region} {t : NamePositions} {rb : Std.HashMap Name (Array Nat)}
+    (hrb : recBlocksAt r t = some rb) {all : List Name} {l : Nat} (hl : l ∈ groupRecLocs rb all) :
+    ∃ q ∈ t.consts, q.tag = 7 ∧ q.loc = l := by
+  simp only [groupRecLocs] at hl
+  cases hh : all.head? with
+  | none => simp [hh] at hl
+  | some a0 =>
+    simp only [hh, Option.bind_some] at hl
+    rw [(recBlocksAt_spec hrb a0).2] at hl
+    obtain ⟨l', hl', hsel⟩ := List.mem_filterMap.1 hl
+    obtain ⟨k, -, hk⟩ := Option.bind_eq_some_iff.1 hsel
+    obtain rfl := recAt_loc hk
+    obtain ⟨q', hq', rfl⟩ := List.mem_map.1 hl'
+    obtain ⟨hq'', h7⟩ := Array.mem_filter.1 (Array.mem_toList_iff.1 hq')
+    exact ⟨q', hq'', by simpa using h7, rfl⟩
 
 /-- **The constant at a name position**: its name, kind tag and filter the position's. -/
 theorem entry_at_pos {r : Region} {a : UInt64} {t : NamePositions} (ht : namePositionsAt r a = some t)
@@ -130,6 +167,8 @@ theorem here_unique {r : Region} {a : UInt64} {t : NamePositions} (ht : namePosi
   subst hq
   rw [he₁] at he₂
   exact Option.some.inj he₂
+
+/-! ## The home's private part -/
 
 /-- The home's private name table is its private view's. -/
 theorem home_table {sp : SearchPath} {fs : FS} {h : Name} {f : ModFiles} {r : Region} {a : UInt64}
@@ -202,29 +241,44 @@ theorem recur_kindNames {r : Region} {l : Nat} {s : CEntryF UInt64 UInt64} {E : 
     rw [hk] at h4
     simp [CKindF.tag] at h4
 
-theorem filter_filter_map {α β : Type} (p q : α → Bool) (f : α → β) :
-    ∀ l : List α, ((l.filter p).filter q).map f = l.filterMap (fun x => if p x && q x then some (f x) else none)
-  | [] => rfl
-  | x :: l => by
-    have ih := filter_filter_map p q f l
-    cases hp : p x <;> cases hq : q x <;>
-      simp only [List.filter_cons, hp, hq, Bool.false_eq_true, ↓reduceIte, Bool.and_self,
-        Bool.and_false, Bool.false_and, List.map_cons, List.filterMap_cons, ih]
-
-theorem filterMap_filter_map {α β γ : Type} (p : α → Bool) (g : α → β) (G : β → Option γ) :
-    ∀ l : List α, ((l.filter p).map g).filterMap G = l.filterMap (fun x => if p x then G (g x) else none)
-  | [] => rfl
-  | x :: l => by
-    simp only [List.filter_cons, List.filterMap_cons]
-    by_cases hp : p x = true
-    · simp only [hp, ↓reduceIte, List.map_cons, List.filterMap_cons, filterMap_filter_map p g G l]
-    · simp only [hp, Bool.false_eq_true, ↓reduceIte, filterMap_filter_map p g G l]
-
 /-- **A home's private name position and its constant**: the skeleton there, its kind's tag and
 filter the position's, and the constant the load read off it. -/
 @[expose] def RowOK (r : Region) (q : NamePosition) (e : CEntry) : Prop :=
   ∃ s, constSkel r q.loc = some s ∧ nameP r s.name = some q.name ∧ q.tag = s.kind.tag ∧
     q.skipped = s.kind.skipped ∧ lazyEntry (nameP r) (exprP r) r 0 s = some e.toCEntryF
+
+/-- **The home's load is its private name table, position by position.** -/
+theorem home_rows {h : Name} {f : ModFiles} {l : Loaded} (hload : loadAt 0 h f = some l)
+    {r : Region} {a : UInt64} (hreg : f.viewRegion .private = some (r, a)) {t : NamePositions}
+    (ht : namePositionsAt r a = some t) : Forall₂ (RowOK r) t.consts.toList l.constants.toList := by
+  obtain ⟨r', a', sk, skels, hv', hsk, hskels, hl, hj⟩ := loadAt_aligned hload
+  rw [hreg] at hv'
+  obtain ⟨rfl, rfl⟩ := Prod.mk.inj (Option.some.inj hv')
+  have h1 : Forall₂ (fun s (e : CEntry) => lazyEntry (nameP r) (exprP r) r 0 s = some e.toCEntryF)
+      skels l.constants.toList :=
+    forall₂_of_getElem (by simpa using hl) (fun j hj' => by simpa using hj j hj')
+  have h2 := mapM_some_forall₂ hskels
+  simp only [namePositionsAt] at ht
+  obtain ⟨sk', hsk', ht⟩ := bind_some_left ht
+  rw [hsk] at hsk'; cases hsk'
+  obtain ⟨imps, -, ht⟩ := bind_some_left ht
+  obtain ⟨cs, hcs, ht⟩ := bind_some_left ht
+  split at ht
+  rotate_left
+  · cases ht
+  simp only [pure, Option.some.injEq] at ht
+  subst ht
+  have h3 := mapM_some_forall₂ hcs
+  refine Forall₂.imp (fun q e ⟨s, ⟨loc, hq, hs⟩, hE⟩ => ?_) (forall₂_comp (forall₂_meet_left h3 h2) h1)
+  simp only [namePosition] at hq
+  obtain ⟨s', hs', hq⟩ := bind_some_left hq
+  rw [hs] at hs'; cases hs'
+  obtain ⟨nm, hnm, hq⟩ := bind_some_left hq
+  simp only [pure, Option.some.injEq] at hq
+  subst hq
+  exact ⟨s, hs, hnm, rfl, rfl, hE⟩
+
+/-! ## A group's recursors -/
 
 /-- **A group's recursors, read from its home's private part, are its home's in its home's
 order**: the recursor positions whose block's first member is the group's, of the group's block
@@ -333,57 +387,7 @@ theorem recs_same {r : Region} {a : UInt64} {t : NamePositions} (ht : namePositi
       · rfl
     simp [this]
 
-/-- **The home's load is its private name table, position by position.** -/
-theorem home_rows {h : Name} {f : ModFiles} {l : Loaded} (hload : loadAt 0 h f = some l)
-    {r : Region} {a : UInt64} (hreg : f.viewRegion .private = some (r, a)) {t : NamePositions}
-    (ht : namePositionsAt r a = some t) : Forall₂ (RowOK r) t.consts.toList l.constants.toList := by
-  obtain ⟨r', a', sk, skels, hv', hsk, hskels, hl, hj⟩ := loadAt_aligned hload
-  rw [hreg] at hv'
-  obtain ⟨rfl, rfl⟩ := Prod.mk.inj (Option.some.inj hv')
-  have h1 : Forall₂ (fun s (e : CEntry) => lazyEntry (nameP r) (exprP r) r 0 s = some e.toCEntryF)
-      skels l.constants.toList :=
-    forall₂_of_getElem (by simpa using hl) (fun j hj' => by simpa using hj j hj')
-  have h2 := mapM_forall₂' hskels
-  simp only [namePositionsAt] at ht
-  obtain ⟨sk', hsk', ht⟩ := bind_some_left ht
-  rw [hsk] at hsk'; cases hsk'
-  obtain ⟨imps, -, ht⟩ := bind_some_left ht
-  obtain ⟨cs, hcs, ht⟩ := bind_some_left ht
-  split at ht
-  rotate_left
-  · cases ht
-  simp only [pure, Option.some.injEq] at ht
-  subst ht
-  have h3 := mapM_forall₂' hcs
-  refine Forall₂.imp (fun q e ⟨s, ⟨loc, hq, hs⟩, hE⟩ => ?_) (forall₂_comp (forall₂_meet_left h3 h2) h1)
-  simp only [namePosition] at hq
-  obtain ⟨s', hs', hq⟩ := bind_some_left hq
-  rw [hs] at hs'; cases hs'
-  obtain ⟨nm, hnm, hq⟩ := bind_some_left hq
-  simp only [pure, Option.some.injEq] at hq
-  subst hq
-  exact ⟨s, hs, hnm, rfl, rfl, hE⟩
-
-theorem firstsGo_prefix : ∀ (L acc : List CEntry), ∃ rest, firstsGo acc L = acc ++ rest
-  | [], acc => ⟨[], by simp [firstsGo]⟩
-  | c :: L, acc => by
-    simp only [firstsGo]
-    split
-    · exact firstsGo_prefix L acc
-    · obtain ⟨rest, h⟩ := firstsGo_prefix L (acc ++ [c])
-      exact ⟨c :: rest, by simp [h]⟩
-
-/-- A merged list's first constant is held under its name. -/
-theorem mergedOfList_head (c : CEntry) (L : List CEntry) :
-    (mergedOfList (c :: L)).map[c.name]? = some c := by
-  obtain ⟨-, hm⟩ := mergedOfList_firsts (c :: L) {} [] (by simp) (by simp)
-  have : (mergedOfList (c :: L)).map[c.name]? = (firstsGo [] (c :: L)).find? (·.name == c.name) :=
-    hm c.name
-  rw [this]
-  simp only [firstsGo, List.any_nil, Bool.false_eq_true, ↓reduceIte, List.nil_append]
-  obtain ⟨rest, hr⟩ := firstsGo_prefix L [c]
-  rw [hr]
-  simp
+/-! ## A group's members and constructors -/
 
 theorem filterMap_toF {l : List Name} {A B : Std.HashMap Name CEntry}
     (h : ∀ x ∈ l, (A[x]?).map (·.toCEntryF) = (B[x]?).map (·.toCEntryF)) :
@@ -419,37 +423,14 @@ theorem blockCtors_toF {A B : Merged} :
   | [], _ :: _, he, _ => by simp at he
   | _ :: _, [], he, _ => by simp at he
 
-theorem recAt_loc {x : Name} {l l' : Nat} {k : CKindF Name Unit} (h : recAt x l k = some l') : l' = l := by
-  unfold recAt at h
-  split at h
-  · split at h
-    · exact (Option.some.inj h).symm
-    · cases h
-  · cases h
-
-/-- A location `groupRecLocs` gives is a recursor position of the part. -/
-theorem groupRecLocs_pos {r : Region} {t : NamePositions} {rb : Std.HashMap Name (Array Nat)}
-    (hrb : recBlocksAt r t = some rb) {all : List Name} {l : Nat} (hl : l ∈ groupRecLocs rb all) :
-    ∃ q ∈ t.consts, q.tag = 7 ∧ q.loc = l := by
-  simp only [groupRecLocs] at hl
-  cases hh : all.head? with
-  | none => simp [hh] at hl
-  | some a0 =>
-    simp only [hh, Option.bind_some] at hl
-    rw [(recBlocksAt_spec hrb a0).2] at hl
-    obtain ⟨l', hl', hsel⟩ := List.mem_filterMap.1 hl
-    obtain ⟨k, -, hk⟩ := Option.bind_eq_some_iff.1 hsel
-    obtain rfl := recAt_loc hk
-    obtain ⟨q', hq', rfl⟩ := List.mem_map.1 hl'
-    obtain ⟨hq'', h7⟩ := Array.mem_filter.1 (Array.mem_toList_iff.1 hq')
-    exact ⟨q', hq'', by simpa using h7, rfl⟩
+/-! ## A group read from its home -/
 
 /-- **Every group read from module `h`'s private part presents one of `h`'s own records**: it
 is, constant by constant and in the block's order, the record `h`'s emission built of that
 group. -/
-theorem groups_present {sp : SearchPath} {fs : FS} {h : Name} {jobs : Nat} {w : WorkerRead}
-    (hw : WorkerFacts sp fs h jobs w) : GroupsPresent sp fs h w := by
-  intro n d hgr
+theorem group_presents {sp : SearchPath} {fs : FS} {h : Name} {jobs : Nat} {w : WorkerRead}
+    (hw : WorkerFacts sp fs h jobs w) {n : Name} {d : Declaration}
+    (hgr : GroupRead sp fs ⟨h, .private⟩ n d) : ∃ p ∈ w.emitted, Presents d p := by
   obtain ⟨t, q, tE, np, ni, nn, all, cs, ir, iu, irf, mqs, cqs, tys, rest, t', rb, r₁, r₂, r₃, r₄,
     ht, hq, hr₁, htE, hk, hmqs, hr₂, htys, hcqs, ht', hr₃, hrb, hr₄, hrest, hd⟩ := hgr
   obtain ⟨f, r, a, sk, skels, hf, hreg, hsk, hskels, hcn, hcv, hload, hN, hO, hb, hem, hown⟩ :=
@@ -758,3 +739,92 @@ theorem groups_present {sp : SearchPath} {fs : FS} {h : Name} {jobs : Nat} {w : 
   refine ⟨p, hpmem, ?_⟩
   rw [← block_same hpd h1 h2 h3 hdR g1 g2 g3 e1 e2 e3]
   exact Presents.refl _
+
+/-! ## Every context record of a worker -/
+
+/-- **A record read from module `h` presents one of `h`'s own records**, as the worker at `h`
+emitted them on the same snapshot. -/
+theorem recordFrom_presents {sp : SearchPath} {fs : FS} {d : Declaration} {h : Name} {jobs : Nat}
+    {w : WorkerRead} (hd : RecordFrom sp fs d h) (hw : WorkerFacts sp fs h jobs w) :
+    ∃ p ∈ w.emitted, Presents d p := by
+  obtain ⟨hs, he, hq⟩ := recordFrom_presents_nongroup hw
+  cases hd with
+  | stmt hs' hl hr hst hsk hgk hqk _ hred => exact hs rfl hs' hl hr hst hsk hgk hqk hred
+  | entry hs' hl hr he' hr₀ hst hk hsk hd' => exact he rfl hs' hl hr he' hr₀ hst hk hsk hd'
+  | quot hs' hl hr hst hd' => exact hq rfl hs' hl hr hst hd'
+  | group hgr => exact group_presents hw hgr
+
+theorem Presents.fill {d p : Declaration} (F : Expr → Expr) (h : Presents d p) :
+    Presents d (fillDecl F p) := by
+  rcases h with ⟨h1, h2⟩ | ⟨h1, h2⟩
+  · exact .inl ⟨by rw [declConstants_fillDecl]; exact h1, by rw [declTables_fillDecl]; exact h2⟩
+  · refine .inr ⟨?_, by rw [declConstants_fillDecl]; exact h2⟩
+    rw [h1]
+    cases p <;> rfl
+
+/-- **Every context record of an accepted worker at `M` presents one of its home's own records**:
+the record at position `i` of the context, read from module `h` (`homes[i]`), and, where the worker
+at `h` accepted on the same snapshot, one of `h`'s own records with its theorems' values in place
+(`h`'s `decls` in the development), presented by it (`Presents`).  What `h`'s check of its views
+says of the copy read is `copy_behind`'s. -/
+theorem worker_presented {sp : SearchPath} {fs : FS} {m : Name} {jobs : Nat} {w : WorkerRead}
+    (hw : WorkerFacts sp fs m jobs w) {i : Nat} {d : Declaration} {h : Name}
+    (hd : w.reach.ctx[i]? = some d) (hh : w.reach.homes[i]? = some h)
+    {jobs' : Nat} {w' : WorkerRead} (hw' : WorkerFacts sp fs h jobs' w') :
+    ∃ p ∈ w'.own.toList.map (fillDecl (fillOf sp fs #[⟨h, w'.home.frontier⟩])), Presents d p := by
+  obtain ⟨hparts, hindex⟩ := workerReads_index hw.reads
+  obtain ⟨-, hfrom⟩ := reach_from hparts hindex hw.reach
+  obtain ⟨p, hp, hpr⟩ := recordFrom_presents (hfrom i d h hd hh) hw'
+  refine ⟨_, List.mem_map.2 ⟨p, ?_, rfl⟩, Presents.fill _ hpr⟩
+  rw [hw'.own]
+  exact (Frontend.hoistNatOpGround_perm _ _).mem_iff.2 (Array.mem_toList_iff.2 hp)
+
+/-- Every context record has its home. -/
+theorem worker_home {sp : SearchPath} {fs : FS} {m : Name} {jobs : Nat} {w : WorkerRead}
+    (hw : WorkerFacts sp fs m jobs w) {d : Declaration} (hd : d ∈ w.reach.ctx.toList) :
+    ∃ (i : Nat) (h : Name), w.reach.ctx[i]? = some d ∧ w.reach.homes[i]? = some h := by
+  obtain ⟨hparts, hindex⟩ := workerReads_index hw.reads
+  obtain ⟨hsz, -⟩ := reach_from hparts hindex hw.reach
+  obtain ⟨i, hi, rfl⟩ := List.getElem_of_mem hd
+  have hi' : i < w.reach.homes.size := by rw [← hsz]; simpa using hi
+  exact ⟨i, w.reach.homes[i], by simp, by simp⟩
+
+/-! ## The local checks they give -/
+
+/-- **`InterfaceOk` at a module**: in a development whose module `b` has the worker at `hb`'s own
+records, theorems' values in place, as its `decls`, and presents only context records that
+workers on the same snapshot read from `hb`, every presentation presents one of `b`'s own
+records. -/
+theorem interfaceOk_of_workers {sp : SearchPath} {fs : FS} {hb : Name} {jobs : Nat}
+    {w : WorkerRead} (hw : WorkerFacts sp fs hb jobs w)
+    (dev : Nat → Module) (b : Nat)
+    (hdecls : (dev b).decls = w.own.toList.map (fillDecl (fillOf sp fs #[⟨hb, w.home.frontier⟩])))
+    (hiface : ∀ e ∈ (dev b).iface, ∃ (M : Name) (jM : Nat) (wM : WorkerRead) (i : Nat),
+      WorkerFacts sp fs M jM wM ∧ wM.reach.ctx[i]? = some e ∧ wM.reach.homes[i]? = some hb) :
+    InterfaceOk dev b := by
+  refine ⟨fun e he => ?_⟩
+  obtain ⟨M, jM, wM, i, hwM, hc, hh⟩ := hiface e he
+  rw [hdecls]
+  exact worker_presented hwM hc hh hw
+
+/-- **`ImportOk.presented` at a module**: in a development whose module `i` has the worker at `M`'s
+context as its `ctx`, each context name read from the module its record's home is (`srcOf`,
+`nameOf`), and whose modules present the context records workers read from them, every context
+record is a presentation of the module its names are read from. -/
+theorem presented_of_worker {sp : SearchPath} {fs : FS} {M : Name} {jobs : Nat} {w : WorkerRead}
+    (hw : WorkerFacts sp fs M jobs w) (dev : Nat → Module) (i : Nat)
+    (hctx : (dev i).ctx = w.reach.ctx.toList) (nameOf : Nat → Name)
+    (hsrc : ∀ (j : Nat) (d : Declaration) (h : Name), w.reach.ctx[j]? = some d →
+      w.reach.homes[j]? = some h → ∀ n ∈ declNames d, nameOf ((dev i).src n) = h)
+    (hiface : ∀ (b : Nat) (e : Declaration), (∃ (M' : Name) (j' : Nat) (w' : WorkerRead) (k : Nat),
+      WorkerFacts sp fs M' j' w' ∧ w'.reach.ctx[k]? = some e ∧ w'.reach.homes[k]? = some (nameOf b)) →
+      e ∈ (dev b).iface) :
+    ∀ d ∈ (dev i).ctx, ∀ n ∈ declNames d, d ∈ (dev ((dev i).src n)).iface := by
+  intro d hd n hn
+  rw [hctx] at hd
+  obtain ⟨j, h, hj, hh⟩ := worker_home hw hd
+  refine hiface _ d ⟨M, jobs, w, j, hw, hj, ?_⟩
+  rw [hsrc j d h hj hh n hn]
+  exact hh
+
+end ConLeche.Driver

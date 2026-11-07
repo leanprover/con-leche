@@ -11,7 +11,7 @@ public import ConLeche.Verify.Driver.Graph
 public import ConLeche.Verify.Driver.Main
 public import ConLeche.Verify.Driver.Oleans
 public import ConLeche.Verify.Driver.Worker
-public import ConLeche.Verify.Driver.Provenance
+public import ConLeche.Verify.Driver.Groups
 public import ConLeche.Verify.Driver.Modular
 public import ConLeche.Verify.Driver.Main
 public import ConLeche.Verify.Cached.MainC
@@ -314,6 +314,12 @@ info: 'ConLeche.Driver.copy_behind' depends on axioms: [propext, Classical.choic
 -/
 #guard_msgs in
 #print axioms ConLeche.Driver.copy_behind
+
+/--
+info: 'ConLeche.Driver.group_presents' depends on axioms: [propext, Classical.choice, Quot.sound]
+-/
+#guard_msgs in
+#print axioms ConLeche.Driver.group_presents
 
 /--
 info: 'ConLeche.Driver.recordFrom_presents' depends on axioms: [propext, Classical.choice, Quot.sound]
