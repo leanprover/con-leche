@@ -27,6 +27,7 @@ public import InLeanProof.StepPres
 public import InLeanProof.IndMembers
 public import InLeanProof.IndBasis
 public import InLeanProof.PassEnv
+public import InLeanProof.PassCtors
 
 /-!
 # The axiom pins of the InLean proof tier (task #451, lane G)
@@ -2078,3 +2079,49 @@ info: 'InLeanProof.checkBlockIndsFI_run' depends on axioms: [propext,
 /-- info: 'InLeanProof.jobEnvI_formers' depends on axioms: [propext, Classical.choice, Quot.sound] -/
 #guard_msgs in
 #print axioms InLeanProof.jobEnvI_formers
+
+/-- info: 'InLeanProof.openPisAtFvars_resolve' depends on axioms: [propext, Quot.sound] -/
+#guard_msgs in
+#print axioms InLeanProof.openPisAtFvars_resolve
+
+/-- info: 'InLeanProof.constsResolveF_noSt' depends on axioms: [propext, Classical.choice, Quot.sound] -/
+#guard_msgs in
+#print axioms InLeanProof.constsResolveF_noSt
+
+/-- info: 'InLeanProof.TrS_of_clEq' depends on axioms: [propext, Classical.choice, Quot.sound] -/
+#guard_msgs in
+#print axioms InLeanProof.TrS_of_clEq
+
+/-- info: 'InLeanProof.structCtorResidOk_TrS' depends on axioms: [propext, Classical.choice, Quot.sound] -/
+#guard_msgs in
+#print axioms InLeanProof.structCtorResidOk_TrS
+
+/-- info: 'InLeanProof.checkStructDomsAtFI_run' depends on axioms: [propext, Classical.choice, Quot.sound] -/
+#guard_msgs in
+#print axioms InLeanProof.checkStructDomsAtFI_run
+
+/-- info: 'InLeanProof.checkStructFieldSortsIFI_run' depends on axioms: [propext, Classical.choice, Quot.sound] -/
+#guard_msgs in
+#print axioms InLeanProof.checkStructFieldSortsIFI_run
+
+/--
+info: 'InLeanProof.checkSumCtorFI_run' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound,
+ InLeanProof.Expr.mkAppData_fields,
+ InLeanProof.Expr.mkData_eq,
+ InLeanProof.Level.mkData_eq]
+-/
+#guard_msgs in
+#print axioms InLeanProof.checkSumCtorFI_run
+
+/--
+info: 'InLeanProof.checkBlockCtorsFI_run' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound,
+ InLeanProof.Expr.mkAppData_fields,
+ InLeanProof.Expr.mkData_eq,
+ InLeanProof.Level.mkData_eq]
+-/
+#guard_msgs in
+#print axioms InLeanProof.checkBlockCtorsFI_run
