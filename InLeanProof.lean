@@ -22,5 +22,6 @@ public import InLeanProof.WalksInfer
 public import InLeanProof.WalksInferBody
 public import InLeanProof.KnotAssembly
 public import InLeanProof.BodiesI
+public import InLeanProof.EnvPresI
 public import InLeanProof.SquarePilot
 public import InLeanProof.AxiomPins
