@@ -212,7 +212,9 @@ theorem genRecPre_hCand
         v = v')
     (hind : GenClassInd mpC.base2.acval envC pp out d Dc mc cvc
       (fun c j => genIhdAV mpC.base2.acval envC g rd ψ c j) ψ ρ)
-    (hrule : ∀ a : Nat → V, ∀ c, c < (tgtRs out).length → ∀ j, j < blockRecNCt (tgtRs out) c →
+    (hrule : ∀ a : Nat → V, (∀ c, c < (tgtRs out).length →
+        a c ∈ˢ interp V ρ (blockRecTyAV mpC.base2.acval envC (tgtRs out) ψ c)) →
+      ∀ c, c < (tgtRs out).length → ∀ j, j < blockRecNCt (tgtRs out) c →
       ∀ xs fs : List V,
       xs.length = (blockRulePdomsAV mpC.base2.acval envC pp (tgtRs out) ψ c).length →
       SpineFit (chainFrame (tgtRs out).length a ρ)
@@ -226,7 +228,9 @@ theorem genRecPre_hCand
             (interp V (consList (xs ++ fs) (chainFrame (tgtRs out).length a ρ)))
           ++ [interp V (consList (xs ++ fs) (chainFrame (tgtRs out).length a ρ))
             (tgtMkK (tgtRs out).length mpC.base2.acval envC pp out ψ c j)])))
-    (hdec : ∀ a : Nat → V, ∀ c, c < (tgtRs out).length → ∀ j, j < blockRecNCt (tgtRs out) c →
+    (hdec : ∀ a : Nat → V, (∀ c, c < (tgtRs out).length →
+        a c ∈ˢ interp V ρ (blockRecTyAV mpC.base2.acval envC (tgtRs out) ψ c)) →
+      ∀ c, c < (tgtRs out).length → ∀ j, j < blockRecNCt (tgtRs out) c →
       ∀ xs fs : List V,
       xs.length = (blockRulePdomsAV mpC.base2.acval envC pp (tgtRs out) ψ c).length →
       SpineFit (chainFrame (tgtRs out).length a ρ)
@@ -665,15 +669,16 @@ variable (mpC d Dc mc cvc pp out) in
 
 variable (mpC d Dc mc cvc pp out) in
 /-- **The decoding at the rule frame**: a spine fitting the rule's prefix
-and declared field domains hole-fits constructor `j` of class `c` at the
-tuple of the declared index expressions' readings — a tuple of the index
-set, its spine recovered — and the constructor application reads to the
-injection, which lies in the carrier there. -/
+and declared field domains, at a live class, hole-fits constructor `j` of
+class `c` at the tuple of the declared index expressions' readings — a
+tuple of the index set, its spine recovered — and the constructor
+application reads to the injection, which lies in the carrier there. -/
 @[expose] def GenClsDec (ψ : Name → Nat) (ρ : Nat → V) : Prop :=
   ∀ c, c < (tgtRs out).length → ∀ j, j < blockRecNCt (tgtRs out) c → ∀ xs fs : List V,
     xs.length = (blockRulePdomsAV mpC.base2.acval envC pp (tgtRs out) ψ c).length →
     SpineFit ρ (blockRulePdomsAV mpC.base2.acval envC pp (tgtRs out) ψ c
       ++ tgtFdomsAV pp out mpC.base2.acval envC ψ c j) (xs ++ fs) →
+    tgtClsLive d Dc cvc mpC.base2.acval envC pp out ψ ρ xs c →
     tgtClsFit d Dc mc cvc mpC.base2.acval envC pp out ψ ρ xs c
         (tgtClsTup d Dc mc cvc pp out ψ c
           ((tgtEsAV pp out mpC.base2.acval envC ψ c j).map
@@ -714,14 +719,11 @@ the tuple is the declared index expressions' readings'. -/
 theorem tgtClsIs_prefix {ψ : Name → Nat} {ρ : Nat → V} {xs : List V} {c : Nat} {i : V}
     (hi : i ∈ˢ tgtClsIs d Dc mc cvc mpC.base2.acval envC pp out ψ ρ xs c) :
     SpineFit ρ (blockRulePdomsAV mpC.base2.acval envC pp (tgtRs out) ψ c) xs := by
-  classical
-  unfold tgtClsIs at hi
-  by_cases hg : tgtClsG d mpC.base2.acval envC pp out ψ ρ xs c
-  · unfold tgtClsG at hg
-    by_cases hm : (tgtMajor out c).member.isSome = true
-    · rw [ite_eq_left hm] at hg; exact hg.2
-    · rw [ite_eq_right hm] at hg; exact hg
-  · rw [ite_eq_right hg] at hi; exact absurd hi (not_mem_empty _)
+  have hg := (tgtClsIs_guard hi).1
+  unfold tgtClsG at hg
+  by_cases hm : (tgtMajor out c).member.isSome = true
+  · rw [ite_eq_left hm] at hg; exact hg.2
+  · rw [ite_eq_right hm] at hg; exact hg
 
 /-- An index tuple's spine has the class's index count. -/
 theorem isOfW_length (u n : Nat) (t : V) : (isOfW u n t).length = n := by
@@ -883,8 +885,18 @@ theorem genRec_chainBase
 /-- **Row `hdec`**, from the decoding at the rule frame. -/
 theorem genRow_hdec
     (h : ConLeche.RecStageG .verified F envC pp (tgtRs out)) (ψ : Name → Nat)
-    (ρ : Nat → V) (hD : GenClsDec pp out mpC d Dc mc cvc ψ ρ) :
-    ∀ a : Nat → V, ∀ c, c < (tgtRs out).length → ∀ j, j < blockRecNCt (tgtRs out) c →
+    (ρ : Nat → V) (hD : GenClsDec pp out mpC d Dc mc cvc ψ ρ)
+    (hlive : ∀ a : Nat → V, (∀ c, c < (tgtRs out).length →
+        a c ∈ˢ interp V ρ (blockRecTyAV mpC.base2.acval envC (tgtRs out) ψ c)) →
+      ∀ c, c < (tgtRs out).length → ∀ j, j < blockRecNCt (tgtRs out) c →
+      ∀ xs fs : List V,
+      xs.length = (blockRulePdomsAV mpC.base2.acval envC pp (tgtRs out) ψ c).length →
+      SpineFit ρ (blockRulePdomsAV mpC.base2.acval envC pp (tgtRs out) ψ c
+        ++ tgtFdomsAV pp out mpC.base2.acval envC ψ c j) (xs ++ fs) →
+      tgtClsLive d Dc cvc mpC.base2.acval envC pp out ψ ρ xs c) :
+    ∀ a : Nat → V, (∀ c, c < (tgtRs out).length →
+        a c ∈ˢ interp V ρ (blockRecTyAV mpC.base2.acval envC (tgtRs out) ψ c)) →
+      ∀ c, c < (tgtRs out).length → ∀ j, j < blockRecNCt (tgtRs out) c →
       ∀ xs fs : List V,
       xs.length = (blockRulePdomsAV mpC.base2.acval envC pp (tgtRs out) ψ c).length →
       SpineFit (chainFrame (tgtRs out).length a ρ)
@@ -900,9 +912,10 @@ theorem genRow_hdec
         interp V (consList (xs ++ fs) (chainFrame (tgtRs out).length a ρ))
             (tgtMkK (tgtRs out).length mpC.base2.acval envC pp out ψ c j)
           = tgtClsInj d Dc mc cvc pp out ψ c j fs := by
-  intro a c hc j hj xs fs hxl hsp
+  intro a ha c hc j hj xs fs hxl hsp
   obtain ⟨hbase, hes, hmk⟩ := genRec_chainBase h ψ ρ a hc hxl hsp
   obtain ⟨hfit, -, -, hmkE, -⟩ := hD c hc j hj xs fs hxl hbase
+    (hlive a ha c hc j hj xs fs hxl hbase)
   rw [hes, hmk]
   exact ⟨hfit, hmkE⟩
 
@@ -911,8 +924,18 @@ split. -/
 theorem genRow_hrule
     (h : ConLeche.RecStageG .verified F envC pp (tgtRs out)) (ψ : Name → Nat)
     (ρ : Nat → V) (hB : GenClsBack pp out mpC d Dc mc cvc ψ ρ)
-    (hD : GenClsDec pp out mpC d Dc mc cvc ψ ρ) :
-    ∀ a : Nat → V, ∀ c, c < (tgtRs out).length → ∀ j, j < blockRecNCt (tgtRs out) c →
+    (hD : GenClsDec pp out mpC d Dc mc cvc ψ ρ)
+    (hlive : ∀ a : Nat → V, (∀ c, c < (tgtRs out).length →
+        a c ∈ˢ interp V ρ (blockRecTyAV mpC.base2.acval envC (tgtRs out) ψ c)) →
+      ∀ c, c < (tgtRs out).length → ∀ j, j < blockRecNCt (tgtRs out) c →
+      ∀ xs fs : List V,
+      xs.length = (blockRulePdomsAV mpC.base2.acval envC pp (tgtRs out) ψ c).length →
+      SpineFit ρ (blockRulePdomsAV mpC.base2.acval envC pp (tgtRs out) ψ c
+        ++ tgtFdomsAV pp out mpC.base2.acval envC ψ c j) (xs ++ fs) →
+      tgtClsLive d Dc cvc mpC.base2.acval envC pp out ψ ρ xs c) :
+    ∀ a : Nat → V, (∀ c, c < (tgtRs out).length →
+        a c ∈ˢ interp V ρ (blockRecTyAV mpC.base2.acval envC (tgtRs out) ψ c)) →
+      ∀ c, c < (tgtRs out).length → ∀ j, j < blockRecNCt (tgtRs out) c →
       ∀ xs fs : List V,
       xs.length = (blockRulePdomsAV mpC.base2.acval envC pp (tgtRs out) ψ c).length →
       SpineFit (chainFrame (tgtRs out).length a ρ)
@@ -926,9 +949,10 @@ theorem genRow_hrule
             (interp V (consList (xs ++ fs) (chainFrame (tgtRs out).length a ρ)))
           ++ [interp V (consList (xs ++ fs) (chainFrame (tgtRs out).length a ρ))
             (tgtMkK (tgtRs out).length mpC.base2.acval envC pp out ψ c j)])) := by
-  intro a c hc j hj xs fs hxl hsp
+  intro a ha c hc j hj xs fs hxl hsp
   obtain ⟨hbase, hes, hmk⟩ := genRec_chainBase h ψ ρ a hc hxl hsp
   obtain ⟨-, hI, hret, hmkE, hC⟩ := hD c hc j hj xs fs hxl hbase
+    (hlive a ha c hc j hj xs fs hxl hbase)
   have hfit := hB c hc xs _ _ hI hC
   rw [hret, ← hmkE] at hfit
   rw [hes, hmk]
@@ -1221,6 +1245,7 @@ theorem genRow_hstep
       obtain ⟨hfs, rfl⟩ := hDI c' hc' j' hj' xs i fs hi hfit
       have hxs := tgtClsIs_prefix hi
       obtain ⟨-, -, hret, hmkE, -⟩ := hD c' hc' j' hj' xs fs hxs.length_eq (SpineFit.append hxs hfs)
+        (tgtClsIs_guard hi).2
       refine ⟨hfs, hret, ?_, hmkE⟩
       rw [← hret, isOfW_length])
     hcallTy hbelow
@@ -1261,6 +1286,14 @@ theorem genRecEqs_wd
     (h : ConLeche.RecStageG .verified F envC pp (tgtRs out)) {g : ClassGen}
     {rd : ClassRead} (ψ : Name → Nat) (ρ : Nat → V)
     (hB : GenClsBack pp out mpC d Dc mc cvc ψ ρ) (hD : GenClsDec pp out mpC d Dc mc cvc ψ ρ)
+    (hlive : ∀ a : Nat → V, (∀ c, c < (tgtRs out).length →
+        a c ∈ˢ interp V ρ (blockRecTyAV mpC.base2.acval envC (tgtRs out) ψ c)) →
+      ∀ c, c < (tgtRs out).length → ∀ j, j < blockRecNCt (tgtRs out) c →
+      ∀ xs fs : List V,
+      xs.length = (blockRulePdomsAV mpC.base2.acval envC pp (tgtRs out) ψ c).length →
+      SpineFit ρ (blockRulePdomsAV mpC.base2.acval envC pp (tgtRs out) ψ c
+        ++ tgtFdomsAV pp out mpC.base2.acval envC ψ c j) (xs ++ fs) →
+      tgtClsLive d Dc cvc mpC.base2.acval envC pp out ψ ρ xs c)
     (hfdB : ∀ c, c < (tgtRs out).length → ∀ j, j < blockRecNCt (tgtRs out) c →
       DomsBelow (blockRulePdomsAV mpC.base2.acval envC pp (tgtRs out) ψ c).length
         (tgtFdomsAV pp out mpC.base2.acval envC ψ c j))
@@ -1331,7 +1364,7 @@ theorem genRecEqs_wd
   obtain ⟨hE, hMk⟩ := hargs c hc j hj (xs ++ fs) hbase
   refine ⟨?_, ?_⟩
   · -- the left-hand side: an application chain along the recursor's type
-    have hfit := genRow_hrule h ψ ρ hB hD (fun c => as.getD c pt) c hc j hj xs fs hxl hsp
+    have hfit := genRow_hrule h ψ ρ hB hD hlive (fun c => as.getD c pt) (fun c hc => ht c hc) c hc j hj xs fs hxl hsp
     have hflK : (tgtFdomsK (tgtRs out).length mpC.base2.acval envC pp out ψ c j).length
         = fs.length := by rw [hfdK, hfl]
     have hpv : (prefVarsAV
@@ -1427,7 +1460,7 @@ variable {F : Nat} {envC : Env} {pp : BlockShape}
 variable (pp out mpC d Dc mc cvc g rd) in
 /-- **What the candidate still asks**, at one level assignment and base
 frame: the class facts (split both ways, decoding both ways), the
-classes' recorded clauses, the elimination guard, the generated `ih`s'
+classes' liveness at a typed tuple's rule frames, the classes' recorded clauses, the elimination guard, the generated `ih`s'
 data (callees, bounds, calls' typing), the stored conclusion as the
 motive applied, the minor premise's typing at the rule frame, the
 prefix positions, and the class induction (lane B2's interface). -/
@@ -1436,6 +1469,14 @@ structure GenPreHyps (ψ : Name → Nat) (ρ : Nat → V) : Prop where
   back : GenClsBack pp out mpC d Dc mc cvc ψ ρ
   dec : GenClsDec pp out mpC d Dc mc cvc ψ ρ
   decInv : GenClsDecInv pp out mpC d Dc mc cvc ψ ρ
+  live : ∀ a : Nat → V, (∀ c, c < (tgtRs out).length →
+      a c ∈ˢ interp V ρ (blockRecTyAV mpC.base2.acval envC (tgtRs out) ψ c)) →
+    ∀ c, c < (tgtRs out).length → ∀ j, j < blockRecNCt (tgtRs out) c →
+    ∀ xs fs : List V,
+    xs.length = (blockRulePdomsAV mpC.base2.acval envC pp (tgtRs out) ψ c).length →
+    SpineFit ρ (blockRulePdomsAV mpC.base2.acval envC pp (tgtRs out) ψ c
+      ++ tgtFdomsAV pp out mpC.base2.acval envC ψ c j) (xs ++ fs) →
+    tgtClsLive d Dc cvc mpC.base2.acval envC pp out ψ ρ xs c
   nIdx : ∀ c, c < (tgtRs out).length →
     tgtClsNIdx d pp out c = (tgtMajor out c).nIdx
   din : ∀ c, c < (tgtRs out).length → tgtClsD d Dc out c ∈ mpC.lfpBlocks
@@ -1518,7 +1559,7 @@ theorem genRecPre_hCandH
     (genRow_hstep h ψ ρ H.split H.dec H.decInv H.nIdx H.gpre H.nF H.mot H.min H.below
       H.callTy H.conclMot H.minor)
     (genRow_huniq h ψ ρ H.back H.din H.mN H.lic) H.ind
-    (genRow_hrule h ψ ρ H.back H.dec) (genRow_hdec h ψ ρ H.dec)
+    (genRow_hrule h ψ ρ H.back H.dec H.live) (genRow_hdec h ψ ρ H.dec H.live)
     (genRow_hchain h ψ ρ H.split H.gpre H.nF H.cal H.below H.callTy)
 
 set_option maxHeartbeats 4000000 in

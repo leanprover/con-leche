@@ -116,9 +116,13 @@ theorem genNodeFrameTie {F : Nat} {block : List ConstantInfo}
     (ns : List ConLeche.PosTree)
     (hF : NodeListFacts mpC (pp.nestCtx fvsP envI.find?) ns)
     (ψ : Name → Nat) (ρ : Nat → V) (xs : List V)
-    (hnodeSat : ∀ t ∈ ns,
-      Sat V ((lfpSel mpC dR.toLfp t.key.cname).params (nodeψ envC ψ t)).reverse
-        (nodeFr mpC.base2.acval envC (pp.nestCtx fvsP envI.find?) ψ ρ xs t)) :
+    (hnodeFit : ∀ t ∈ ns, ∀ n ∈ t.grp.map (·.1), ∀ (cv : ConstantVal) (caps : ConLeche.IndCaps)
+      (ty : Expr), envI.find? n = some (.indInfo cv caps) →
+      ConLeche.familyTelescope (fueledOps .verified F) envI cv caps = .ok ty →
+      ∀ (ab : List Term) (u : Nat),
+        denote mpC.base2.acval envC (nodeψ envC ψ t) 0 ty = some (mkPisAV ab (.sort u)) →
+        SpineFit ρ (ab.take t.key.ds.length) (frameIdx t.key.ds.length
+          (nodeFr mpC.base2.acval envC (pp.nestCtx fvsP envI.find?) ψ ρ xs t))) :
     NodeFrameTie mpC.base2.acval (pp.nestCtx fvsP envI.find?) pp out ns
       ψ ρ xs envC F (pp.formers.map (·.type)) := by
   intro c hc t ht hNM hsp
@@ -221,8 +225,7 @@ theorem genNodeFrameTie {F : Nat} {block : List ConstantInfo}
     obtain ⟨-, -, -, -, -, -, -, -, -, hRP, -⟩ := genRun_binders R hg h mpC (fun _ => 0) hc
     rw [hRP, (ConLeche.ClassGen.prefixBinders_scoped hg hg.pre).1]
     exact Nat.le_add_right _ _
-  obtain ⟨Rd, -⟩ := genClsRd_out (d := dR) R hg hcov h hc hMo hcl hnPc fun ψ' ρ' xs' hfit' _ hdsa' =>
-    genOut_keyFit hctx₀ R hg h hc hMo hcl ψ' ρ' xs' hfit' hdsa'
+  obtain ⟨Rd, -⟩ := genClsRd_out (d := dR) R hg hcov h hc hMo hcl hnPc
   have hDe : tgtClsD dR Dc out c = Dc c := by simp [tgtClsD, hMo]
   generalize hψc : Level.substFn ψ (cvc c).levelParams (tgtMajor out c).lvls = ψc
   -- the node: the same datum, at the same levels
@@ -236,22 +239,15 @@ theorem genNodeFrameTie {F : Nat} {block : List ConstantInfo}
       simp only [lpsOf, hf]; rfl
     simp only [nodeψ, hl, hF.lps t ht _ hNM.2.1]
     exact (ConLeche.Level.substFn_congr (ConLeche.Level.isEquivList_sound hlv ψ)).symm
-  -- the shared telescope: the class's own former's parameter binders, a
-  -- telescope of types (the stored type's reading is a graded Π-tower)
-  obtain ⟨hC, -, hrd, -⟩ := mpC.lfp_ok (Dc c) hcl.hD
-  obtain ⟨cvm, capsm, hfm, -, hab⟩ := hrd (mc c) hcl.hmm
-  have hcvm : cvm = cvc c := by
-    obtain ⟨caps', hf'⟩ := hcl.hfind
-    rw [hcl.hmem, hf'] at hfm
-    have h' := Option.some.inj hfm
-    simp only [ConstantInfo.indInfo.injEq] at h'
-    exact h'.1.symm
-  obtain ⟨ab, hta, hmap⟩ := hab ψc
-  have hTy : SpineTy ρ ((Dc c).pars (mc c) ψc) := by
-    have hwd := (mpC.formerAt_wellDenotedTy hcl.hD hcl.hmm hfm hta ρ).1
-    have := (spineTy_of_wellDenoted_mkPisAV hwd).take ((Dc c).pars (mc c) ψc).length
-    rwa [hmap, List.take_left] at this
-  have hparsL := hC.parsLen (mc c) hcl.hmm ψc
+  -- the shared telescope: the parameter binders of the family's run, which the class check and
+  -- the node's frame check both type the key against (the run is one: `familyTelescope` at one
+  -- environment and fuel), a telescope of types (the run's tower is graded)
+  obtain ⟨capsR, tyR, hfER, hfamR, ab, u, htaR, hwdR, hfitC⟩ :=
+    genOut_runFit hctx₀ R hg h hc hMo hcl ψ ρ xs hsp (Rd.hdsa ψ)
+  rw [hψc] at htaR
+  have hfitN := hnodeFit t ht _ hNM.2.1 (cvc c) capsR tyR hfER hfamR ab u (by rw [hψn]; exact htaR)
+  have hTy : SpineTy ρ (ab.take (tgtMajor out c).ds.length) :=
+    (spineTy_of_wellDenoted_mkPisAV (hwdR ρ).1).take _
   -- the prefix's tail
   have hkf : ∀ dsa : List Term, keyFrame dsa xs.length (consList xs ρ)
       = consList (dsa.map (interp V (consList xs ρ))) ρ := by
@@ -268,28 +264,25 @@ theorem genNodeFrameTie {F : Nat} {block : List ConstantInfo}
   have hkfN := keyFrame_readback (V := V) mpC.base2 ((hF.read t ht).hs ψ hnP') (hF.ws t ht) hspK
     (erasedEqL_refl _) (consList xs ρ)
   have hdsaC := Rd.hdsa ψ
-  have hsatC := Rd.hsat ψ ρ xs hsp
-  rw [hDe, Rd.hψ, hψc] at hsatC
-  have hsatN := hnodeSat t ht
-  rw [hDsel, hψn] at hsatN
-  unfold nodeFr at hsatN
+  have hfi : ∀ (vs : List V) (n : Nat) (ρ' : Nat → V), vs.length = n →
+      frameIdx n (consList vs ρ') = vs := by
+    intro vs n ρ' hn; subst hn; exact frameIdx_consList' vs ρ'
+  unfold nodeFr at hfitN
   rw [← denoteSpine_eq_map hspK, ← substE_nodeImgX_trueVal mpC.base2 ψ ρ hnle, hxl,
-    ← hkfN, ← hxl] at hsatN
-  unfold tgtOutDsa at hsatC hdsaC
-  rw [← hxl] at hsatC hdsaC hebs ⊢
-  rw [hkf] at hsatC hsatN
-  generalize t.key.ds.map (nodeRb (pp.nestCtx fvsP envI.find?) t.occ) = eds at hl hall hsatN hebs ⊢
-  rw [List.map_map] at hsatC hsatN
-  have hsatC' := hC.parsSat (mc c) hcl.hmm ψc _ hsatC
-  have hsatN' := hC.parsSat (mc c) hcl.hmm ψc _ hsatN
-  have hlenC : (tgtMajor out c).ds.length = ((Dc c).params ψc).length := by
-    have := Rd.hlenP ψ
-    rw [hDe, Rd.hψ, hψc] at this
-    exact this.symm
-  have hfitC := spineFit_of_sat_consList (by rw [List.length_map, hparsL, hlenC]) hsatC'
-  have hfitN := spineFit_of_sat_consList (by rw [List.length_map, hparsL, ← hl, hlenC]) hsatN'
+    ← hkfN, ← hxl, hkf, hfi _ _ _ (by simp)] at hfitN
+  have hlk : t.key.ds.length = (tgtMajor out c).ds.length := by rw [hl, List.length_map]
+  rw [hlk] at hfitN
+  unfold tgtOutDsa at hfitC hdsaC
+  rw [← hxl] at hfitC hdsaC hebs ⊢
+  generalize t.key.ds.map (nodeRb (pp.nestCtx fvsP envI.find?) t.occ) = eds at hl hall hfitN hebs ⊢
+  rw [List.map_map] at hfitC hfitN
+  have hlab : (tgtMajor out c).ds.length ≤ ab.length := by
+    have := hfitC.length_eq
+    rw [List.length_map, List.length_take] at this
+    omega
   refine spineFit_eq_of_cond_getD hTy hfitC hfitN fun i hi hxn hyn => ?_
-  have hiC : i < (tgtMajor out c).ds.length := by rw [hlenC, ← hparsL]; exact hi
+  have hiC : i < (tgtMajor out c).ds.length := by
+    rw [List.length_take] at hi; omega
   have hiN : i < eds.length := by rw [← hl]; exact hiC
   have ha : (tgtMajor out c).ds[i]? = some ((tgtMajor out c).ds[i]) := List.getElem?_eq_getElem hiC
   have hb : eds[i]? = some eds[i] := List.getElem?_eq_getElem hiN

@@ -530,6 +530,8 @@ theorem nestFrame_deriv (hctx : NestCtxOk ctx)
   · simp at h
   rename_i kty hkty
   cases kty
+  have hkty' : ∀ p ∈ grp, familyKeyCheck ops env ctx.find? hi p.1 us ds = .ok () :=
+    fun p hp => (familyKeyChecks_ok _).mp hkty p.1 (List.mem_map_of_mem hp)
   split at h
   · simp at h
   rename_i ctors hgc
@@ -565,7 +567,7 @@ theorem nestFrame_deriv (hctx : NestCtxOk ctx)
     (fun x hx => WScoped.mono (by omega) (hds x hx)) hsub (by simp [grpHoles]) ctors st os st₂
     hcl hwc' hI
   subst hhi
-  refine ⟨hI₂, ts, .frame hne hhd hhdC hnd hinst hblk hgrp hgc' hkty hw',
+  refine ⟨hI₂, ts, .frame hne hhd hhdC hnd hinst hblk hgrp hgc' hkty' hw',
     hn₂, fun ctors' hc' => ?_⟩
   rw [hgc'] at hc'
   obtain rfl := Option.some.inj hc'

@@ -93,7 +93,7 @@ FALLBACK = {
     # task #480: each MEASURED by demoting it alone (the module stops building).
     ('ConLeche.Verify.Cached.PushChain', 'ConLeche.Verify.Cached.DeclPushes'),
     ('ConLeche.Verify.Inductives.NestNfScope', 'ConLeche.Verify.Inductives.PositivityInv'),
-    ('ConLeche.Model.Inductives.BlockDatum', 'ConLeche.Model.Inductives.FamilyRan'),
+    ('ConLeche.Model.Inductives.BlockDatum', 'ConLeche.Model.Inductives.RunEnv'),
     ('ConLeche.Model.Inductives.DeclaredShapes', 'ConLeche.Verify.Inductives.NestScope'),
     ('ConLeche.Verify.Inductives.GenRecRun', 'ConLeche.Verify.EnvWF'),
     # task #470: the olean proofs' public statements name `Region`, `nameP`,
@@ -108,6 +108,16 @@ FALLBACK = {
     # (`Verify.Frontend.Olean.Emit`), one token, so that this one adds nothing.
     # Measured by demoting it (no field `Det`, `Files.lean:54`).
     ('ConLeche.Verify.Frontend.Olean.Files', 'ConLeche.Verify.Frontend.ModelIO'),
+    # task #443: `FormerRead`, `familyTelescope_read` and their neighbours state
+    # `EnvModelM`, `RulesInputs`, `TeleRed`, `CtxOkP` through these; `RunEnv`'s
+    # importers reach `EnvModelM.lfp_ok_transport` by dot-notation through it.
+    # Measured by demoting them (unknown identifier `RulesInputs`, `TeleRed`, `CtxOkP`,
+    # `FamilyRun.lean:53-55`; invalid field `lfp_ok_transport`, `StreamRecsSwap.lean:138`).
+    ('ConLeche.Model.Inductives.FamilyRun', 'ConLeche.Model.Env.EnvModelM'),
+    ('ConLeche.Model.Inductives.FamilyRun', 'ConLeche.Model.Rules.Inputs'),
+    ('ConLeche.Model.Inductives.FamilyRun', 'ConLeche.Verify.Rules.Refine'),
+    ('ConLeche.Model.Inductives.FamilyRun', 'ConLeche.Model.CtxOkP'),
+    ('ConLeche.Model.Inductives.RunEnv', 'ConLeche.Model.Env.CanonCrest'),
     # `ExportC`'s public definitions name `Declaration`, `ConstantVal`
     # (unknown identifier, `ExportC.lean:65`); the census attributes them to
     # its other imports.

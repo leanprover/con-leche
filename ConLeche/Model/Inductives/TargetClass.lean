@@ -1,6 +1,5 @@
 module
 
-public import ConLeche.Model.Env.CanonCrest
 public import ConLeche.Model.Cover
 public import ConLeche.Verify.Inductives.RecCheckRun
 import ConLeche.Verify.EnvBound
@@ -67,10 +66,6 @@ structure TgtOutCls {env : Env} (mp : EnvModelM V env) (M : TargetMajor) (D : Lf
   hmm : mm < D.k
   hmem : D.member mm = M.ind
   hfind : ∃ caps, env.find? M.ind = some (.indInfo cvI caps)
-  /-- what a run reads of the inductive's telescope is what its block read -/
-  hread : ∀ (F : Nat) (caps : IndCaps) (ty : Expr), env.find? M.ind = some (.indInfo cvI caps) →
-    ConLeche.familyTelescope (ConLeche.fueledOps .verified F) env cvI caps = .ok ty →
-    ty = (D.formerAt mm cvI).type
   /-- the inductive's level parameters are distinct (`LfpOwn.lvlNodup`) -/
   hnd : cvI.levelParams.Nodup
   hnN : D.names.Nodup
@@ -79,26 +74,6 @@ structure TgtOutCls {env : Env} (mp : EnvModelM V env) (M : TargetMajor) (D : Lf
   hctor : ∀ j (hj : j < M.ctors.length),
     env.find? (D.ctorName mm j) = some (.ctorInfo M.ctors[j].1 M.nPc M.ctors[j].2)
 
-
-/-- An outside class's telescope, as a run reads it. -/
-theorem TgtOutCls.family_eq {env : Env} {mp : EnvModelM V env} {M : TargetMajor} {D : LfpDatum V}
-    {mm : Nat} {cvI : ConstantVal} (h : TgtOutCls mp M D mm cvI) {F : Nat} {caps : IndCaps}
-    {ty : Expr} (hf : env.find? M.ind = some (.indInfo cvI caps))
-    (hfam : ConLeche.familyTelescope (ConLeche.fueledOps .verified F) env cvI caps = .ok ty) :
-    ty = (D.formerAt mm cvI).type :=
-  h.hread F caps ty hf hfam
-
-/-- An outside class's former reads as its block's telescope. -/
-theorem TgtOutCls.read {env : Env} {mp : EnvModelM V env} {M : TargetMajor} {D : LfpDatum V}
-    {mm : Nat} {cvI : ConstantVal} (h : TgtOutCls mp M D mm cvI) (ψ : Name → Nat) :
-    ∃ ab : List ConLeche.Term.Term, denote mp.base2.acval env ψ 0 (D.formerAt mm cvI).type
-        = some (mkPisAV ab (.sort (D.w ψ))) ∧ ab = D.pars mm ψ ++ D.ids mm ψ := by
-  obtain ⟨caps, hfI⟩ := h.hfind
-  obtain ⟨-, -, hrd, -⟩ := mp.lfp_ok D h.hD
-  obtain ⟨cv₂, caps₂, hf₂, -, hab⟩ := hrd mm h.hmm
-  rw [h.hmem, hfI] at hf₂
-  obtain ⟨rfl, rfl⟩ : cvI = cv₂ ∧ caps = caps₂ := by simpa using hf₂
-  exact hab ψ
 
 /-- An outside class's `i`-th constructor, read off the lfp clause: below
 `D`'s constructor count, stored at the major's parameter count, at the
@@ -234,7 +209,7 @@ run (`TargetMajorRun.outside`) and coverage: the major's inductive is
 stored and not the block's, and the block owns its constructors — the
 ones `targetMajorOf` read. -/
 theorem tgtOutCls_atR {env : Env} {mp : EnvModelM V env} (hcov : LfpCover mp [])
-    (hrd : ∀ F, FamilyRead mp F) {mode : CheckMode} {F : Nat}
+    {mode : CheckMode} {F : Nat}
     {p : BlockShape} {pfvs fvs : List Expr}
     {mty : Expr} {M : TargetMajor}
     (Rm : ConLeche.TargetMajorRun (ConLeche.fueledOps mode F) (mkFEnv env) p pfvs fvs mty M)
@@ -250,17 +225,13 @@ theorem tgtOutCls_atR {env : Env} {mp : EnvModelM V env} (hcov : LfpCover mp [])
   obtain ⟨cv', caps', hf', hnd⟩ := (hcov.own D hD).lvlNodup mm hmm
   rw [hmem, hf] at hf'
   obtain ⟨rfl, rfl⟩ : cvI = cv' ∧ caps = caps' := by simpa using hf'
-  have hread : ∀ (F : Nat) (caps : IndCaps) (ty : Expr), env.find? M.ind = some (.indInfo cvI caps) →
-      ConLeche.familyTelescope (ConLeche.fueledOps .verified F) env cvI caps = .ok ty →
-      ty = (D.formerAt mm cvI).type := fun F caps ty hg hfam =>
-    hrd F D hD mm cvI caps ty hmm (by rw [hmem]; exact hg) hfam
-  exact ⟨cvI, hD, hmm, hmem, ⟨caps, hf⟩, hread, hnd, hcov.nodup D hD, hcov.len D hD, hlen, hj⟩
+  exact ⟨cvI, hD, hmm, hmem, ⟨caps, hf⟩, hnd, hcov.nodup D hD, hcov.len D hD, hlen, hj⟩
 
 /-- **The outside class, from the major's run and coverage**: the
 carrier's coverage records the major's (stored, not the block's)
 inductive as a member of some block, which owns its constructors. -/
 theorem tgtOutCls_ofR {env : Env} {mp : EnvModelM V env} (hcov : LfpCover mp [])
-    (hrd : ∀ F, FamilyRead mp F) {mode : CheckMode} {F : Nat}
+    {mode : CheckMode} {F : Nat}
     {p : BlockShape} {pfvs fvs : List Expr}
     {mty : Expr} {M : TargetMajor}
     (Rm : ConLeche.TargetMajorRun (ConLeche.fueledOps mode F) (mkFEnv env) p pfvs fvs mty M)
@@ -270,13 +241,13 @@ theorem tgtOutCls_ofR {env : Env} {mp : EnvModelM V env} (hcov : LfpCover mp [])
   obtain ⟨cvI, caps, hf⟩ := targetOutsideInst_find hinst
   rw [mkFEnv_find?] at hf
   obtain ⟨D, hD, mm, hmm, hmem⟩ := hcov.cover M.ind cvI caps hf (by simp) hnq
-  obtain ⟨cv, h⟩ := tgtOutCls_atR hcov hrd Rm hM hD hmm hmem
+  obtain ⟨cv, h⟩ := tgtOutCls_atR hcov Rm hM hD hmm hmem
   exact ⟨D, mm, cv, h⟩
 
 /-- **The outside class at the SELECTED block** (`lfpSel`), from the
 major's run. -/
 theorem tgtOutCls_selR {env : Env} {mp : EnvModelM V env} (hcov : LfpCover mp [])
-    (hrd : ∀ F, FamilyRead mp F) {mode : CheckMode} {F : Nat} (D0 : LfpDatum V) {p : BlockShape}
+    {mode : CheckMode} {F : Nat} (D0 : LfpDatum V) {p : BlockShape}
     {pfvs fvs : List Expr} {mty : Expr} {M : TargetMajor}
     (Rm : ConLeche.TargetMajorRun (ConLeche.fueledOps mode F) (mkFEnv env) p pfvs fvs mty M)
     (hM : M.member = none) :
@@ -287,7 +258,7 @@ theorem tgtOutCls_selR {env : Env} {mp : EnvModelM V env} (hcov : LfpCover mp []
   obtain ⟨D, hD, hnD⟩ := lfp_cover_mem hcov hf (by simp) hnq
   obtain ⟨hS, -, hnS⟩ := lfpSel_spec hcov D0 hD hnD hf
   obtain ⟨mm, hmm, hmem⟩ := lfp_mem_names hcov hS hnS
-  obtain ⟨cv, h⟩ := tgtOutCls_atR hcov hrd Rm hM hS hmm hmem
+  obtain ⟨cv, h⟩ := tgtOutCls_atR hcov Rm hM hS hmm hmem
   exact ⟨mm, cv, h⟩
 
 end ConLeche.Model

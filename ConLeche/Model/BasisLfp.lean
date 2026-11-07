@@ -65,7 +65,6 @@ fibre. -/
     (flds : Nat → List Term) : LfpDatum V where
   names := [nm]
   k := 1
-  telescope := fun _ => none
   N := 1
   w := w
   params := fun _ => []
@@ -440,7 +439,6 @@ collapses to the point, where `a` and `b` are the point too. -/
 @[expose] noncomputable def eqLfp (nm cn : Name) (lv : (Name → Nat) → Nat) : LfpDatum V where
   names := [nm]
   k := 1
-  telescope := fun _ => none
   N := 1
   w := fun _ => 0
   params := fun ψ => [.sort (lv ψ), .bvar 0]
@@ -600,13 +598,13 @@ theorem eqLfp_clause {acval : Name → (Name → Nat) → Term}
 /-- `Eq`'s former reads as its hole telescope (M4). -/
 theorem eqLfp_reads {acval : Name → (Name → Nat) → Term} {env : ConLeche.Env}
     {cv : ConLeche.ConstantVal} {caps : ConLeche.IndCaps}
-    (hf : env.find? nm = some (.indInfo cv caps)) (hfl : ConLeche.formerDefHeaded cv = false)
+    (hf : env.find? nm = some (.indInfo cv caps)) (hlen : caps.nparams + caps.nIdx = 3)
     (hty : ∀ ψ, denote acval env ψ 0 cv.type = some
       (.pi (.sort (lv ψ)) (.pi (.bvar 0) (.pi (.bvar 1) (.sort 0))))) :
     LfpReads acval env (eqLfp (V := V) nm cn lv) := fun mm hmm => by
   obtain rfl : mm = 0 := Nat.lt_one_iff.mp hmm
-  exact ⟨cv, caps, hf, ⟨fun _ => rfl, .inl ⟨rfl, hfl⟩⟩, fun ψ => ⟨[.sort (lv ψ), .bvar 0, .bvar 1],
-    hty ψ, rfl⟩⟩
+  exact ⟨cv, caps, hf, fun _ ψ => ⟨[.sort (lv ψ), .bvar 0, .bvar 1], 0, hty ψ, hlen.symm⟩,
+    fun ψ => ⟨_, hty ψ, fun _ => rfl⟩, fun _ _ _ => rfl⟩
 
 /-- **`Eq`'s capability records** (`LfpCaps`): its sort is zero everywhere,
 so its zero-ness datum must hold everywhere; it has one constructor. -/
@@ -646,11 +644,13 @@ theorem lfp0_reads {acval : Name → (Name → Nat) → Term} {env : ConLeche.En
     {cv : ConLeche.ConstantVal} {caps : ConLeche.IndCaps} {nm : Name} {w : (Name → Nat) → Nat}
     {F : V → V} {inj : Nat → List V → V} {n : Nat}
     {cn : Nat → Name} {flds : Nat → List Term}
-    (hf : env.find? nm = some (.indInfo cv caps)) (hfl : ConLeche.formerDefHeaded cv = false)
+    (hf : env.find? nm = some (.indInfo cv caps)) (hlen : caps.nparams + caps.nIdx = 0)
+    (hw : ∀ ψ₁ ψ₂ : Name → Nat, (∀ q ∈ cv.levelParams, ψ₁ q = ψ₂ q) → w ψ₁ = w ψ₂)
     (hty : ∀ ψ, denote acval env ψ 0 cv.type = some (.sort (w ψ))) :
     LfpReads acval env (lfp0 nm w F inj n cn flds) := fun mm hmm => by
   obtain rfl : mm = 0 := Nat.lt_one_iff.mp hmm
-  exact ⟨cv, caps, hf, ⟨fun _ => rfl, .inl ⟨rfl, hfl⟩⟩, fun ψ => ⟨[], hty ψ, rfl⟩⟩
+  exact ⟨cv, caps, hf, fun _ ψ => ⟨[], w ψ, hty ψ, hlen.symm⟩, fun ψ => ⟨_, hty ψ, fun _ => rfl⟩,
+    hw⟩
 
 /-- **A one-member unparameterized unindexed block's constructors read as
 their hole telescopes** (M2): the canonical abstraction has no parameter,
@@ -659,9 +659,6 @@ theorem lfp0_ctorReads {acval : Name → (Name → Nat) → Term} {env : ConLech
     {nm : Name} {w : (Name → Nat) → Nat}
     {F : V → V} {inj : Nat → List V → V} {n : Nat}
     {cn : Nat → Name} {flds : Nat → List Term}
-    {cvT : ConLeche.ConstantVal} {capsT : ConLeche.IndCaps}
-    (hfT : env.find? nm = some (.indInfo cvT capsT))
-    (htyT : ∀ ψ, ∃ Ty, denote acval env ψ 0 cvT.type = some Ty)
     (h : ∀ j, j < n → ∃ cv nF, env.find? (cn j) = some (.ctorInfo cv 0 nF) ∧
       cv.type.hasFvar = false ∧
       (∃ cvm caps, env.find? nm = some (.indInfo cvm caps) ∧ cvm.levelParams = cv.levelParams) ∧
@@ -678,14 +675,10 @@ theorem lfp0_ctorReads {acval : Name → (Name → Nat) → Term} {env : ConLech
   · obtain rfl : mm = 0 := Nat.lt_one_iff.mp hmm
     exact ⟨cvm, caps, hfm, hl⟩
   · obtain ⟨hlen, ab, hab, hmap⟩ := hrd ψ
-    obtain ⟨Ty, hTy⟩ := htyT ψ
-    refine ⟨rfl, hlen, ab, [Ty], ?_, by rw [← hlen, ← hmap], rfl,
-      fun mm hmm => ?_, ?_⟩
+    refine ⟨rfl, hlen, ab, ?_, by rw [← hlen, ← hmap], ?_⟩
     · show denote acval env ψ 1 A = _
       rw [hab]
       simp [lfp0]
-    · obtain rfl : mm = 0 := Nat.lt_one_iff.mp hmm
-      exact ⟨cvT, capsT, cvT.type, hfT, rfl, hTy⟩
     · show FieldsEqOn V _ ab (flds j)
       rw [hmap]
       exact FieldsEqOn.refl _ _

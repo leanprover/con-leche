@@ -69,14 +69,11 @@ theorem tgtClsIs_pref {acval : Name → (Name → Nat) → Term} {p : BlockShape
     {ψ : Name → Nat} {ρ : Nat → V} {xs : List V} {c : Nat} {i : V}
     (hi : i ∈ˢ tgtClsIs d Dc mc cvc acval envC p out ψ ρ xs c) :
     SpineFit ρ (blockRulePdomsAV acval envC p (tgtRs out) ψ c) xs := by
-  classical
-  unfold tgtClsIs at hi
-  by_cases hG : tgtClsG d acval envC p out ψ ρ xs c
-  · unfold tgtClsG at hG
-    split at hG
-    · exact hG.2
-    · exact hG
-  · rw [ite_eq_right hG] at hi; exact absurd hi (not_mem_empty _)
+  have hG := (tgtClsIs_guard hi).1
+  unfold tgtClsG at hG
+  split at hG
+  · exact hG.2
+  · exact hG
 
 end Rows
 

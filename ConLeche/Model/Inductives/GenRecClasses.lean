@@ -180,7 +180,7 @@ theorem genRecCtor_find
     (hdR : ∃ (pk : Nat → BlockMemberPick) (uOfD : Nat → (Name → Nat) → Nat)
       (ppsOf : Nat → (Name → Nat) → List Term),
       dR = blockDataOf V pp pk uOfD ppsOf)
-    (hcov : LfpCover mpC []) (hrd : ∀ F, FamilyRead mpC F) :
+    (hcov : LfpCover mpC []) :
     ∀ (j : Nat) (r : ConstantVal × List Expr × Nat × List (ConstantVal × Nat)),
       (tgtRs out)[j]? = some r → ∀ (i : Nat) (ctor : ConstantVal × Nat), r.2.2.2[i]? = some ctor →
         envC.find? ctor.1.name
@@ -206,7 +206,7 @@ theorem genRecCtor_find
     rw [hnPc]
     exact hfind
   | none =>
-    obtain ⟨D, mm, cvI, hD⟩ := tgtOutCls_ofR hcov hrd Rc.major hm
+    obtain ⟨D, mm, cvI, hD⟩ := tgtOutCls_ofR hcov Rc.major hm
     have hi : i < M₀.ctors.length := (List.getElem?_eq_some_iff.mp hctor).1
     have hc := hD.hctor i hi
     have hctor' : M₀.ctors[i] = ctor := (List.getElem?_eq_some_iff.mp hctor).2
@@ -226,13 +226,13 @@ theorem genRecCtor_in
     (hdR : ∃ (pk : Nat → BlockMemberPick) (uOfD : Nat → (Name → Nat) → Nat)
       (ppsOf : Nat → (Name → Nat) → List Term),
       dR = blockDataOf V pp pk uOfD ppsOf)
-    (hcov : LfpCover mpC []) (hrd : ∀ F, FamilyRead mpC F) :
+    (hcov : LfpCover mpC []) :
     ∀ r ∈ tgtRs out, ∀ ctor ∈ r.2.2.2,
       ∃ cvj cnP cnF, envC.find? ctor.1.name = some (.ctorInfo cvj cnP cnF) := by
   intro r hr ctor hctor
   obtain ⟨j, hj⟩ := List.getElem?_of_mem hr
   obtain ⟨i, hi⟩ := List.getElem?_of_mem hctor
-  exact ⟨_, _, _, genRecCtor_find R hN hcore hmemberCtors hdR hcov hrd j r hj i ctor hi⟩
+  exact ⟨_, _, _, genRecCtor_find R hN hcore hmemberCtors hdR hcov j r hj i ctor hi⟩
 
 /-- **`hctor` at the generated stage**: the carried constructors, stored
 at the class's parameter count, their types bound and read. -/
@@ -244,7 +244,7 @@ theorem genRecCtor_seam
     (hdR : ∃ (pk : Nat → BlockMemberPick) (uOfD : Nat → (Name → Nat) → Nat)
       (ppsOf : Nat → (Name → Nat) → List Term),
       dR = blockDataOf V pp pk uOfD ppsOf)
-    (hcov : LfpCover mpC []) (hrd : ∀ F, FamilyRead mpC F) :
+    (hcov : LfpCover mpC []) :
     ∀ (j : Nat) (r : ConstantVal × List Expr × Nat × List (ConstantVal × Nat)),
       (tgtRs out)[j]? = some r → ∀ (i : Nat) (ctor : ConstantVal × Nat), r.2.2.2[i]? = some ctor →
         envC.find? ctor.1.name = some (.ctorInfo ctor.1 (ConLeche.tgtMajorsOf out j).nPc ctor.2) ∧
@@ -252,7 +252,7 @@ theorem genRecCtor_seam
         ∀ ψ : Name → Nat,
           denote mpC.base2.acval envC ψ 0 ctor.1.type
             = some (blockRecCtorTy mpC.base2.acval envC (tgtRs out) j i ψ) :=
-  tgtRecCtor_seam_of_find (genRecCtor_find R hN hcore hmemberCtors hdR hcov hrd)
+  tgtRecCtor_seam_of_find (genRecCtor_find R hN hcore hmemberCtors hdR hcov)
 
 end Ctors
 
@@ -264,7 +264,7 @@ update. -/
 theorem TgtOutCls.withNfs {env : Env} {mp : EnvModelM V env} {M : TargetMajor}
     {D : LfpDatum V} {mm : Nat} {cvI : ConstantVal} (h : TgtOutCls mp M D mm cvI)
     (nfs : List ConLeche.NestCtorNf) : TgtOutCls mp { M with nfs := nfs } D mm cvI :=
-  ⟨h.hD, h.hmm, h.hmem, h.hfind, h.hread, h.hnd, h.hnN, h.hkN, h.hlen, h.hctor⟩
+  ⟨h.hD, h.hmm, h.hmem, h.hfind, h.hnd, h.hnN, h.hkN, h.hlen, h.hctor⟩
 
 /-- **The outside classes' recorded blocks, canonically selected**: at
 every stored recursor whose class is outside, the class is member `mc c`
@@ -274,7 +274,7 @@ theorem genOutCls {F : Nat} {fe₁ : FEnv} {env₁ : Env} {envC : Env} {p : Bloc
     {pos : NestState} {block : List ConstantInfo} {out : List (ConstantVal × TargetMajor × List Expr)}
     {mpC : EnvModelM V envC}
     (R : GenRecRun .verified F fe₁ env₁ (ConLeche.mkFEnv envC) p nb pos block out)
-    (hcov : LfpCover mpC []) (hrd : ∀ F, FamilyRead mpC F) (D0 : LfpDatum V) :
+    (hcov : LfpCover mpC []) (D0 : LfpDatum V) :
     ∃ (Dc : Nat → LfpDatum V) (mc : Nat → Nat) (cvc : Nat → ConstantVal),
       (∀ c, c < (tgtRs out).length → (tgtMajor out c).member = none →
         TgtOutCls mpC (tgtMajor out c) (Dc c) (mc c) (cvc c)) ∧
@@ -291,7 +291,7 @@ theorem genOutCls {F : Nat} {fe₁ : FEnv} {env₁ : Env} {envC : Env} {p : Bloc
         have hMc : tgtMajor out c = { M₀ with nfs := nfs } := by
           rw [← hM]; simp [tgtMajor, List.getD_eq_getElem?_getD, ho]
         rw [hMc] at hm ⊢
-        obtain ⟨mm, cvI, hD⟩ := tgtOutCls_selR hcov hrd D0 Rc.major hm
+        obtain ⟨mm, cvI, hD⟩ := tgtOutCls_selR hcov D0 Rc.major hm
         exact ⟨(mm, cvI), fun _ _ => hD.withNfs nfs⟩
       · exact ⟨(0, default), fun _ h' => absurd h' hm⟩
     · exact ⟨(0, default), fun h' => absurd h' hc⟩

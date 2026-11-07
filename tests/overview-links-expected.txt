@@ -113,17 +113,16 @@
     83  def checkDecls (mode : CheckMode) (pins : List NatOpPinSet) (ds : Array Declaration) :
     84      Except (CheckError × Nat) Env := do
 
-== ConLeche/MainTheorem.lean#L192-L201
-   192  theorem modular_model_exists (V : Type w) [SetTheory V]
-   193      (pins : List NatOpPinSet) (dev : Nat → Modular.Module) (i : Nat)
-   194      (hok : ∀ j ≤ i, Modular.LocalOk .verified pins dev j)
-   195      (hruns : ∀ j ≤ i, Modular.FormerRuns dev j) :
-   196      ∃ m : ∀ j ≤ i, Model V (dev j).own,
-   197        (∀ j hj j' hj' n, ((dev j).own.find? n).isSome = true →
-   198          ((dev j').own.find? n).isSome = true → (dev j).key n = (dev j').key n →
-   199          (m j hj).cval n = (m j' hj').cval n) ∧
-   200        ∀ j hj n s, ((dev j).own.find? n).isSome = true → (dev j).key n = .proof s →
-   201          (m j hj).cval n = fun _ => pt := by
+== ConLeche/MainTheorem.lean#L190-L198
+   190  theorem modular_model_exists (V : Type w) [SetTheory V]
+   191      (pins : List NatOpPinSet) (dev : Nat → Modular.Module) (i : Nat)
+   192      (hok : ∀ j ≤ i, Modular.LocalOk .verified pins dev j) :
+   193      ∃ m : ∀ j ≤ i, Model V (dev j).own,
+   194        (∀ j hj j' hj' n, ((dev j).own.find? n).isSome = true →
+   195          ((dev j').own.find? n).isSome = true → (dev j).key n = (dev j').key n →
+   196          (m j hj).cval n = (m j' hj').cval n) ∧
+   197        ∀ j hj n s, ((dev j).own.find? n).isSome = true → (dev j).key n = .proof s →
+   198          (m j hj).cval n = fun _ => pt := by
 
 == tests/ConLecheTests/Axioms.lean#L106-L110
    106  /--
@@ -230,12 +229,12 @@
     75  def recordJob (mode : CheckMode) (pins : List NatOpPinSet) (I : StreamIndex) (k : Nat)
     76      (pd : Declaration) : Except CheckError Unit :=
 
-== ConLeche/Verify/Cached/ViewCongr.lean#L1353-L1357
-  1353  theorem checkDeclStepC_twin (pins : List NatOpPinSet) {fe₁ fe₂ : FEnv} (ht : Twin fe₁ fe₂)
-  1354     
-  1355      (pd : Declaration) :
-  1356      RelRun (PushedFrom fe₁ fe₂) (checkDeclStepC mode pins fe₁ pd)
-  1357        (checkDeclStepC mode pins fe₂ pd) := by
+== ConLeche/Verify/Cached/ViewCongr.lean#L1362-L1366
+  1362  theorem checkDeclStepC_twin (pins : List NatOpPinSet) {fe₁ fe₂ : FEnv} (ht : Twin fe₁ fe₂)
+  1363     
+  1364      (pd : Declaration) :
+  1365      RelRun (PushedFrom fe₁ fe₂) (checkDeclStepC mode pins fe₁ pd)
+  1366        (checkDeclStepC mode pins fe₂ pd) := by
 
 == ConLeche/Verify/Cached/StreamIndex.lean#L514-L516
    514  theorem checkDecls_of_jobs {ds : Array Declaration}
@@ -333,18 +332,18 @@
   1782        defeq := fun _ _ _ => throw (.internal "fuel exhausted: defeq")
   1783        defeqE := fun _ _ _ => throw (.internal "fuel exhausted: defeq")
 
-== ConLeche/Model/Fold.lean#L436-L443
-   436  theorem no_proof_of_False_pure (V : Type w) [SetTheory V]
-   437      {F : Nat}
-   438      {ds : List Declaration} {env' : Env}
-   439      (h : checkDeclsPure .verified (fueledOps .verified F) pins ds = .ok env') :
-   440      ∀ c ∈ env'.consts,
-   441        c.toConstantVal.type = .const falseName [] → False := by
-   442    obtain ⟨mp⟩ := checkDeclsPure_sound_of (V := V) h
-   443    exact fun c hc hty => no_constant_of_False mp c hc hty
+== ConLeche/Model/Fold.lean#L433-L440
+   433  theorem no_proof_of_False_pure (V : Type w) [SetTheory V]
+   434      {F : Nat}
+   435      {ds : List Declaration} {env' : Env}
+   436      (h : checkDeclsPure .verified (fueledOps .verified F) pins ds = .ok env') :
+   437      ∀ c ∈ env'.consts,
+   438        c.toConstantVal.type = .const falseName [] → False := by
+   439    obtain ⟨mp⟩ := checkDeclsPure_sound_of (V := V) h
+   440    exact fun c hc hty => no_constant_of_False mp c hc hty
 
-== ConLeche/Model/Fold.lean#L354
-   354  theorem declStep_preserves
+== ConLeche/Model/Fold.lean#L351
+   351  theorem declStep_preserves
 
 == ConLeche/Model/Capstone.lean#L137-L143
    137  theorem no_constant_of_False (mp : EnvModelM V env)
@@ -899,13 +898,13 @@
    395  def targetMajorOf (ops : CheckerOps m) (fe : FEnv) (p : BlockShape) (pfvs fvs : List Expr)
    396      (mty : Expr) : m TargetMajor := do
 
-== ConLeche/Kernel/Inductives/Positivity.lean#L1423-L1425
-  1423  def nestContNew (ctx : NestCtx) (ops : CheckerOps m) (env : Env)
-  1424      (rec : List NestHole → Nat → Nat → Expr → NestState → m (NestFieldKind × Expr × NestState))
-  1425      (prog : List NestHole) (kb : Nat) (n : Name) (us : List Level) (ds : List Expr) (nPc : Nat)
+== ConLeche/Kernel/Inductives/Positivity.lean#L1438-L1440
+  1438  def nestContNew (ctx : NestCtx) (ops : CheckerOps m) (env : Env)
+  1439      (rec : List NestHole → Nat → Nat → Expr → NestState → m (NestFieldKind × Expr × NestState))
+  1440      (prog : List NestHole) (kb : Nat) (n : Name) (us : List Level) (ds : List Expr) (nPc : Nat)
 
-== ConLeche/Kernel/Inductives/Positivity.lean#L1649
-  1649  def nestRoot (ops : CheckerOps m) (env : Env) (ctx : NestCtx) (holes : List Expr) :
+== ConLeche/Kernel/Inductives/Positivity.lean#L1664
+  1664  def nestRoot (ops : CheckerOps m) (env : Env) (ctx : NestCtx) (holes : List Expr) :
 
 == ConLeche/Kernel/Inductives/GenRec.lean#L497
    497  /-- The seeds: every OUTSIDE class in the positivity check's
@@ -932,15 +931,15 @@
 == ConLeche/SetModel/Access.lean#L243
    243  theorem closed_of_acc (hw : w ≠ 0) (hA : A ∈ˢ (tg w : V)) (hmaps : MapsTuple w k Is Φ)
 
-== ConLeche/Model/Inductives/BlockRunFacts.lean#L203-L210
-   203  theorem declBlock {F : Nat} {env env₂ : Env} {block : List ConstantInfo} {nPd : Nat} {p₀ : BlockShape}
-   204      (mp : EnvModelM V env) (hE : ConLeche.EtaFamiliesClosed env)
-   205      (hdp : ConLeche.blockShape? nPd block = some p₀)
-   206      (hrun : ConLeche.Semantics.BlockRun F env block p₀ env₂) (hcov : LfpCover mp [])
-   207      (hRan : FamilyRan mp) (hNat : NatFacts env) :
-   208      (∃ mp' : EnvModelM V env₂, LfpCover mp' [] ∧ FamilyRan mp' ∧
-   209        ∀ n, (env.find? n).isSome = true → mp'.base2.acval n = mp.base2.acval n) ∧
-   210        NatFacts env₂ := by
+== ConLeche/Model/Inductives/BlockRunFacts.lean#L139-L146
+   139  theorem declBlock {F : Nat} {env env₂ : Env} {block : List ConstantInfo} {nPd : Nat} {p₀ : BlockShape}
+   140      (mp : EnvModelM V env) (hE : ConLeche.EtaFamiliesClosed env)
+   141      (hdp : ConLeche.blockShape? nPd block = some p₀)
+   142      (hrun : ConLeche.Semantics.BlockRun F env block p₀ env₂) (hcov : LfpCover mp [])
+   143      (hNat : NatFacts env) :
+   144      (∃ mp' : EnvModelM V env₂, LfpCover mp' [] ∧
+   145        ∀ n, (env.find? n).isSome = true → mp'.base2.acval n = mp.base2.acval n) ∧
+   146        NatFacts env₂ := by
 
 == ConLeche/Kernel/CheckDecl.lean#L32-L33
     32  def checkShapeless (ops : CheckerOps m) (env : Env) (block : List ConstantInfo) :
@@ -982,20 +981,20 @@
 == ConLeche/Kernel/Inductives/GenRec.lean#L507
    507  (no loose bound variable, no free variable past the parameters — the
 
-== ConLeche/Kernel/Inductives/Positivity.lean#L1512
-  1512  def nestPos (ops : CheckerOps m) (env : Env) (ctx : NestCtx) :
+== ConLeche/Kernel/Inductives/Positivity.lean#L1527
+  1527  def nestPos (ops : CheckerOps m) (env : Env) (ctx : NestCtx) :
 
-== ConLeche/Kernel/Inductives/Positivity.lean#L809
-   809  def nestHoleAt (ctx : NestCtx) (prog : List NestHole) (i : Nat) : Option NestHole :=
+== ConLeche/Kernel/Inductives/Positivity.lean#L823
+   823  def nestHoleAt (ctx : NestCtx) (prog : List NestHole) (i : Nat) : Option NestHole :=
 
-== ConLeche/Kernel/Inductives/Positivity.lean#L1454
-  1454  def nestContKey (ctx : NestCtx) (ops : CheckerOps m) (env : Env)
+== ConLeche/Kernel/Inductives/Positivity.lean#L1469
+  1469  def nestContKey (ctx : NestCtx) (ops : CheckerOps m) (env : Env)
 
-== ConLeche/Kernel/Inductives/Positivity.lean#L1291
-  1291  def nestCtors (ctx : NestCtx) (ops : CheckerOps m) (env : Env)
+== ConLeche/Kernel/Inductives/Positivity.lean#L1305
+  1305  def nestCtors (ctx : NestCtx) (ops : CheckerOps m) (env : Env)
 
-== ConLeche/Kernel/Inductives/Positivity.lean#L1621
-  1621  def nestUniform (ctx : NestCtx) (ctorss : List (List (ConstantVal × Nat))) : m Unit :=
+== ConLeche/Kernel/Inductives/Positivity.lean#L1636
+  1636  def nestUniform (ctx : NestCtx) (ctorss : List (List (ConstantVal × Nat))) : m Unit :=
 
 == ConLeche/Kernel/Inductives/BlockTail.lean#L106
    106  def checkBlockTail (ops : CheckerOps m) (block : List ConstantInfo) (q : BlockPass Env) :

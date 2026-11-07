@@ -491,8 +491,6 @@ theorem declStep_preserves_of_cons (mp : EnvModelM V env)
     lfp_ok := mp.lfp_ok_transport (fun _ _ hf _ => findPreserved_cons hfresh hf)
       (fun n _ hf _ => acvalWith_ne fun h => by
         rw [h, hfresh] at hf; exact nomatch hf)
-      (fun ψ d _ _ hb hta => denote_cons_mono hfresh ψ d hb hta)
-      (fun _ => ConstsBound.of_isSome fun _ h => by
-        rw [ConLeche.Env.find?_cons]; split <;> simp_all) }, rfl⟩
+      (fun ψ d _ _ hb hta => denote_cons_mono hfresh ψ d hb hta) }, rfl⟩
 
 end ConLeche.Model

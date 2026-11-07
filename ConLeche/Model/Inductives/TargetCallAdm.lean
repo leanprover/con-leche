@@ -103,16 +103,16 @@ theorem admVal_memberLand (H : DynCtx F mk mpC ctx d ns) {ψ : Name → Nat} {ρ
         (by rw [hids]; exact his) hext
     exact hfit (holeVal_foldl_mem (by rw [hids]; exact his) hne hy').1
 
-/-- **A call landing in a frame hole of an admissible valuation**: the
-index spine fits the owner's telescope at its true frame and the target
-is an element `G` holds of at the owner (off the fit the true value, the
-owner's hole value at its true frame and carrier, is empty:
+/-- **A call landing in a frame hole of an admissible valuation, at a live
+owner**: the index spine fits the owner's telescope at its true frame and
+the target is an element `G` holds of at the owner (off the fit the true
+value, the owner's hole value at its true frame and carrier, is empty:
 `trueVal_frameVal`, `holeVal_foldl_mem`). -/
 theorem admVal_frameLand (H : DynCtx F mk mpC ctx d ns) {ψ : Name → Nat} {ρ : Nat → V}
-    {xs : List V} (hparams : SpineFit ρ (d.params ψ) (xs.take d.nP)) (hxs : d.nP ≤ xs.length)
+    {xs : List V} (hxs : d.nP ≤ xs.length)
     {own : Nat → Nat} {G : Nat → Nat → V → V → Prop} {prog : List NestHole} {σ : Nat → V}
     (hσ : AdmVal mk mpC ctx d ns ψ ρ xs own G prog σ) {i : Nat} {hk : NestHole}
-    (hi : prog.reverse[i]? = some hk)
+    (hi : prog.reverse[i]? = some hk) (hlive : nlLive mpC ctx d ns ψ ρ xs (own i))
     {is : List V} (his : is.length = hk.nIdx)
     (hext : is.length = ((nlDb mpC d ns (own i)).ids (nlComp mpC d ns (own i) hk.key.cname)
           (nlψ envC ns ψ (own i))).length →
@@ -135,21 +135,22 @@ theorem admVal_frameLand (H : DynCtx F mk mpC ctx d ns) {ψ : Name → Nat} {ρ 
   by_cases hfit : SpineFit (nlFr mpC ctx d ns ψ ρ xs (own i))
       ((nlDb mpC d ns (own i)).ids (nlComp mpC d ns (own i) hk.key.cname)
         (nlψ envC ns ψ (own i))) is
-  · exact ⟨hfit, hG hfit⟩
+  · exact ⟨hfit, hG ⟨hlive, hfit⟩⟩
   · exfalso
-    have hy' := hN hfit
+    have hy' := hN fun h => hfit h.2
     have ho : own i ≠ 0 := by omega
     have hu := getD_mem_of_lt (ns := ns) ho0 hol
     have hxs' : ctx.nP ≤ xs.length := by rw [H.hnP]; exact hxs
     have hfrU := dyn_nlFr H ho hu ψ ρ xs
     unfold nlComp at hfit hext
+    unfold nlLive at hlive
+    rw [ite_eq_right ho] at hlive
     rw [show nlDb mpC d ns (own i) = lfpSel mpC d.toLfp (ns.getD (own i - 1) default).key.cname by
         unfold nlDb; rw [ite_eq_right ho],
       show nlψ envC ns ψ (own i) = nodeψ envC ψ (ns.getD (own i - 1) default) by
-        unfold nlψ; rw [ite_eq_right ho], hfrU] at hfit hext
-    generalize ns.getD (own i - 1) default = u at hu hkm hfit hfrU hsuf hext
-    have hsat := dyn_trueVal_sat H ψ ρ xs hparams hxs _ u hu (Nat.le_refl _)
-    rw [trueVal_frameVal H ψ ρ xs hxs' hu hsat hi hsuf hkm] at hy'
+        unfold nlψ; rw [ite_eq_right ho], hfrU] at hfit hext hlive
+    generalize ns.getD (own i - 1) default = u at hu hkm hfit hfrU hsuf hext hlive
+    rw [trueVal_frameVal H ψ ρ xs hxs' hu hlive.1 hi hsuf hkm] at hy'
     -- the arity: the index count is the member's telescope's
     obtain ⟨hD, -, hnN, hkN, -, -, -, -, cv, -, -, -, hlpsOf, -, -, hlenP, -, hg⟩ :=
       dyn_nodeBlock H hu

@@ -183,26 +183,23 @@ A development of modules (`ConLeche/Modular.lean`) every module of which passes 
 has a compatible family of models of the modules' own environments: two modules that store a name
 under one key give it one value, and every proof the point.  Each module's model is built from its
 sources' models alone (`ConLeche/Modular/Generic.lean`'s `Development.modular`, at con-leche's
-models: `ConLeche/Model/Modular/Instance.lean`).  The statement has one hypothesis beyond the local
-checks, named in it: `FormerRuns`, that a definition-headed former's telescope reduces at an
-importer's context as at its source, which task #469 is to discharge. -/
+models: `ConLeche/Model/Modular/Instance.lean`). -/
 
 open Modular in
 /-- **The modular theorem.** -/
 theorem modular_model_exists (V : Type w) [SetTheory V]
     (pins : List NatOpPinSet) (dev : Nat → Modular.Module) (i : Nat)
-    (hok : ∀ j ≤ i, Modular.LocalOk .verified pins dev j)
-    (hruns : ∀ j ≤ i, Modular.FormerRuns dev j) :
+    (hok : ∀ j ≤ i, Modular.LocalOk .verified pins dev j) :
     ∃ m : ∀ j ≤ i, Model V (dev j).own,
       (∀ j hj j' hj' n, ((dev j).own.find? n).isSome = true →
         ((dev j').own.find? n).isSome = true → (dev j).key n = (dev j').key n →
         (m j hj).cval n = (m j' hj').cval n) ∧
       ∀ j hj n s, ((dev j).own.find? n).isSome = true → (dev j).key n = .proof s →
         (m j hj).cval n = fun _ => pt := by
-  obtain ⟨mm, hc, hp⟩ := Model.Modular.modularModels (V := V) (pins := pins) hok hruns
+  obtain ⟨mm, hc, hp⟩ := Model.Modular.modularModels (V := V) (pins := pins) hok
   have hex : ∀ j (hj : j ≤ i), ∃ mp : Model.EnvModelM V (dev j).own,
       ∀ n, ((dev j).own.find? n).isSome = true → mp.base2.acval n = (mm j (by omega)).1 n :=
-    fun j hj => (mm j (by omega)).2.2.2.elim fun mp h => ⟨mp, h.2.2.2.2⟩
+    fun j hj => (mm j (by omega)).2.2.2.elim fun mp h => ⟨mp, h.2.2.2⟩
   refine ⟨fun j hj => Model.Model.ofEnvModelM (Classical.choose (hex j hj)), ?_, ?_⟩
   · intro j hj j' hj' n hn hn' hk
     rw [Model.Model.ofEnvModelM_cval, Model.Model.ofEnvModelM_cval]
@@ -218,11 +215,10 @@ theorem modular_model_exists (V : Type w) [SetTheory V]
 /-- **The modular corollary**: no module's own environment stores a constant of type `False`. -/
 theorem modular_no_False (V : Type w) [SetTheory V]
     (pins : List NatOpPinSet) (dev : Nat → Modular.Module) (i : Nat)
-    (hok : ∀ j ≤ i, Modular.LocalOk .verified pins dev j)
-    (hruns : ∀ j ≤ i, Modular.FormerRuns dev j) :
+    (hok : ∀ j ≤ i, Modular.LocalOk .verified pins dev j) :
     ∀ j ≤ i, ∀ c ∈ (dev j).own.consts, c.toConstantVal.type = .const falseName [] → False := by
   intro j hj c hc hty
-  obtain ⟨mm, -⟩ := Model.Modular.modularModels (V := V) (pins := pins) hok hruns
+  obtain ⟨mm, -⟩ := Model.Modular.modularModels (V := V) (pins := pins) hok
   obtain ⟨mp, -⟩ := (mm j (by omega)).2.2.2
   exact Model.no_constant_of_False mp c hc hty
 

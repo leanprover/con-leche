@@ -88,24 +88,17 @@ variable {V : Type w} [SetTheory V]
 
 section Generic
 
-/-- **A recorded block's sort is read off its member's type**, so two
-level assignments agreeing on the member's level parameters give the
-same sort. -/
+/-- **A recorded block's sort is read off its member's level parameters**
+(`LfpReads`): two level assignments agreeing on them give the same sort. -/
 theorem lfpW_congr {envC : Env} (mpC : EnvModelM V envC) {D : LfpDatum V}
     (hD : D ∈ mpC.lfpBlocks) {mm : Nat} (hmm : mm < D.k) {cv : ConstantVal}
     {caps : ConLeche.IndCaps} (hf : envC.find? (D.member mm) = some (.indInfo cv caps))
     {ψ₁ ψ₂ : Name → Nat} (hag : ∀ q ∈ cv.levelParams, ψ₁ q = ψ₂ q) : D.w ψ₁ = D.w ψ₂ := by
-  obtain ⟨-, -, hrd, -⟩ := mpC.lfp_ok D hD
-  obtain ⟨cv', caps', hf', -, hab⟩ := hrd mm hmm
+  obtain ⟨cv', caps', hf', -, -, hw⟩ := mpC.lfpReads hD mm hmm
   rw [hf] at hf'
   obtain ⟨rfl, -⟩ : cv = cv' ∧ caps = caps' := by
     injection hf' with h'; injection h' with h1 h2; exact ⟨h1, h2⟩
-  obtain ⟨ab₁, h₁, -⟩ := hab ψ₁
-  obtain ⟨ab₂, h₂, -⟩ := hab ψ₂
-  obtain ⟨-, -, -, -, hdl⟩ := mpC.formerAt_wf hD hmm hf
-  rw [denote_params_ext mpC.base2 hag 0 _ hdl, h₂] at h₁
-  have h := (mkPisAV_sort_inj (Option.some.inj h₁)).2
-  exact h.symm
+  exact hw ψ₁ ψ₂ hag
 
 /-- An application spine over a head that is not a `∀` is its own
 `piResult`. -/
@@ -284,31 +277,24 @@ theorem famNZ_lfp_ne_zero {env : Env} (mp : EnvModelM V env) {D : LfpDatum V}
     (h : FamNZ (V := V) mp.base2.acval env φ cvj us) : D.w ψ ≠ 0 := by
   obtain ⟨cvT, caps, hf, -, hc⟩ := h
   obtain ⟨hfm, hlv⟩ := hfam cvT caps hf
-  obtain ⟨hcl, -, hrd, -, hcK, -⟩ := mp.lfp_ok D hD
+  obtain ⟨hcl, -, -, -, hcK, -⟩ := mp.lfp_ok D hD
   rcases hc with hnz | ⟨-, w', hw', ht⟩
   · have hfalse := holds_false_of_isNever hnz φ
     obtain ⟨cv, caps', hf', hz, -⟩ := hcK mm hmm
     rw [hfm] at hf'
     obtain ⟨rfl, -⟩ : cvT = cv ∧ caps = caps' := by
       injection hf' with h'; injection h' with a b; exact ⟨a, b⟩
-    -- a former whose sort is not read is zero at every valuation, so the rescue did not pass
-    have hflat : ConLeche.formerDefHeaded cvT = false := by
-      cases hrs : ConLeche.formerResSort cvT.type with
-      | none =>
-        simp [ConLeche.formerZ, hrs, ConLeche.PropWhen.holds] at hfalse
-      | some s => simp [ConLeche.formerDefHeaded, hrs]
-    rw [mp.formerAt_flat hD hmm hfm hflat] at hz
     have hne : D.w (Level.substFn φ cvT.levelParams us) ≠ 0 :=
       fun h0 => by rw [hz _ h0] at hfalse; exact nomatch hfalse
     rwa [lfpW_congr mp hD hmm hfm hlv] at hne
   · obtain ⟨cv, caps', hf', -, hlen⟩ := hcK mm hmm
-    obtain ⟨cv₂, caps₂, hf₂, -, hab⟩ := hrd mm hmm
+    obtain ⟨cv₂, caps₂, hf₂, -, hval, -⟩ := mp.lfpReads hD mm hmm
     rw [hfm] at hf' hf₂
     obtain ⟨rfl, rfl⟩ : cvT = cv ∧ caps = caps' := by
       injection hf' with h'; injection h' with a b; exact ⟨a, b⟩
     obtain rfl : cvT = cv₂ := by
       injection hf₂ with h'; injection h' with a b
-    obtain ⟨ab, hta, hmap⟩ := hab ψ
+    obtain ⟨ta₁, hta₁, hv⟩ := hval ψ
     have hwf := mp.base2.wf.consts _ (ConLeche.Env.find?_mem hfm)
     obtain ⟨ta₀, hta₀⟩ := mp.type_reads _ (ConLeche.Env.find?_mem hfm) ψ
     change denote mp.base2.acval env ψ 0 cvT.type = some ta₀ at hta₀
@@ -317,10 +303,11 @@ theorem famNZ_lfp_ne_zero {env : Env} (mp : EnvModelM V env) {D : LfpDatum V}
       rw [denote_instLevels mp.base2.acval_params φ,
         denote_params_ext mp.base2 hlv 0 cvT.type hwf.2.1]
       exact hta₀
+    rw [hta₀] at hta₁
+    obtain rfl := Option.some.inj hta₁
     have hend := fun ρ' => by
       have h := ht _ hread ρ'
-      rwa [mp.formerAt_interp hD hmm hfm hta₀ hta ρ'] at h
-    subst hmap
+      rwa [hv ρ'] at h
     -- the parameters, then the indices
     have hpl := (hcl.parsLen mm hmm ψ)
     have hsP := hcl.parsSat mm hmm ψ ρp hs
@@ -1342,6 +1329,11 @@ theorem genOut_pins
     (hxl : xs.length = pp.majorIdxAt j)
     (hfitR : TeleFitPA V ρ (blockRecTyAV mpC.base2.acval envC (tgtRs out)
       (Level.substFn φ r.1.levelParams us) j) (xs ++ [maj]) restR)
+    (hsat : Sat V ((tgtClsD d Dc out j).params
+        (tgtClsψ cvc out (Level.substFn φ r.1.levelParams us) j)).reverse
+      (keyFrame (tgtOutDsa mpC.base2.acval envC pp out (Level.substFn φ r.1.levelParams us) j)
+        (tgtRP pp j)
+        (consList ((xs.take (pp.rulePrefixAt j)).map (interp V ρ)) ρ)))
     (hfitC : TeleFitPA V ρ (blockRecCtorTy mpC.base2.acval envC (tgtRs out) j i
       (Level.substFn φ ctor.1.levelParams usj)) ys restC)
     (hyl : ys.length = (tgtMajor out j).nPc + ctor.2)
@@ -1366,10 +1358,10 @@ theorem genOut_pins
   have hrPle : pp.rulePrefixAt j ≤ pp.majorIdxAt j :=
     blockRecHrPle (p := pp) h hj
   obtain ⟨-, hpinV⟩ := genOutPinVal R h hr Rd hf φ us
-  generalize hψe : Level.substFn φ r.1.levelParams us = ψ at hfitR hlv hpinV
+  generalize hψe : Level.substFn φ r.1.levelParams us = ψ at hfitR hlv hpinV hsat
   obtain ⟨hpref, -, hxvl, -⟩ := genRow3_frame h hr ψ hxl hfitR
   obtain ⟨T0, pps, b0, hcons, hlpsI, hT0, hT0E, hplen, hT0wd, hT0cl, -, hTFall⟩ :=
-    genOutCtorFit R hg hcov hj hi Rd hMo hnP ψ ρ hpref hcAM
+    genOutCtorFit R hg hcov hj hi Rd hMo hnP ψ ρ hsat hcAM
   obtain ⟨ab, body, -, -, hcrR⟩ := genCls_openCrest R hg hj hi Rd hnP ψ hcAM
   have hTF := hTFall _ hcrR
   have hwfC := mpC.base2.wf.consts _ hcons
@@ -1479,10 +1471,10 @@ theorem genOut_major
       = (tgtClsD d Dc out j).idx (tgtClsψ cvc out ψ j)
           (tgtClsFr d mpC.base2.acval envC pp out ψ ρ
             ((xs.take (pp.rulePrefixAt j)).map (interp V ρ)) j)
-          (tgtClsM mc pp out j) := by
-    unfold tgtClsIs; rw [ite_eq_left hG]
+          (tgtClsM mc pp out j) :=
+    tgtClsIs_of hG (tgtClsIs_guard hTin).2
+  have hsatK := Rd.hsat ψ ρ _ hpref (tgtClsIs_guard hTin).2
   rw [hIs, hFr] at hTin
-  have hsatK := Rd.hsat ψ ρ _ hpref
   obtain ⟨hC, -⟩ := mpC.lfp_ok _ Rd.hD
   have hmN : tgtClsM mc pp out j < (tgtClsD d Dc out j).N :=
     Nat.lt_of_lt_of_le Rd.hmm hC.kN
@@ -1539,7 +1531,7 @@ theorem genOut_caps {j : Nat} {cvI : ConstantVal} (Rd : GenClsRd mpC d Dc mc cvc
   rw [hfc0] at hf'
   obtain ⟨rfl, rfl, rfl⟩ : ctor.1 = cv' ∧ (tgtMajor out j).ds.length = nPc ∧ ctor.2 = nF := by
     injection hf' with h'; injection h' with a b c; exact ⟨a, b, c⟩
-  refine ⟨caps₀, hf₀, mpC.formerZ_holds Rd.hD Rd.hmm (by rw [Rd.hmem]; exact hf₀) hz.1, bs, es, ?_⟩
+  refine ⟨caps₀, hf₀, hz.1, bs, es, ?_⟩
   rw [Rd.hnpc, hst, Rd.hmem]
 
 /-- **(S) at an outside class**: the case split reads the container's
@@ -1659,9 +1651,9 @@ theorem genOut_typed (hcov : LfpCover mpC []) {j : Nat} {cvI : ConstantVal}
       interp V ρ (Term.mkAppN (mpC.base2.acval ctor.1.name ψj) ys)
         ∈ˢ (args.map (interp V ρ)).foldl SetTheory.app
             (interp V ρ (mpC.base2.acval (tgtMajor out j).ind ψj)) ∧
-      SpineFit ρ ((tgtClsD d Dc out j).pars (tgtClsM mc pp out j) ψj
+      (∀ σ : Nat → V, SpineFit σ ((tgtClsD d Dc out j).pars (tgtClsM mc pp out j) ψj
           ++ (tgtClsD d Dc out j).ids (tgtClsM mc pp out j) ψj)
-        (args.map (interp V ρ)) ∧
+        (args.map (interp V ρ))) ∧
       (args.map (interp V ρ)).foldl SetTheory.app
           (interp V ρ (mpC.base2.acval (tgtMajor out j).ind ψj))
         ∈ˢ (univ ((tgtClsD d Dc out j).w ψj) : V) := by
@@ -1682,18 +1674,20 @@ theorem genOut_typed (hcov : LfpCover mpC []) {j : Nat} {cvI : ConstantVal}
   rw [interp_mkAppN_foldl ρ _ (mpC.base2.acval (tgtMajor out j).ind ψj)] at hin
   -- the container former's telescope
   obtain ⟨-, -, hrd, ⟨-, hrdC⟩, -⟩ := mpC.lfp_ok _ Rd.hD
-  obtain ⟨cv, caps, hfm, -, hab⟩ := hrd _ Rd.hmm
+  obtain ⟨cv, caps, hfm, -⟩ := hrd _ Rd.hmm
   rw [Rd.hmem] at hfm
   obtain ⟨caps₀, hf₀⟩ := Rd.hfind
   rw [hf₀] at hfm
   obtain ⟨rfl, rfl⟩ : cvI = cv ∧ caps₀ = caps := by
     injection hfm with h'; injection h' with a b; exact ⟨a, b⟩
-  obtain ⟨ab, hta, hmap⟩ := hab ψj
+  generalize hab : (tgtClsD d Dc out j).pars (tgtClsM mc pp out j) ψj
+    ++ (tgtClsD d Dc out j).ids (tgtClsM mc pp out j) ψj = ab
+  have hmap := hab.symm
   have hconsI := List.mem_of_find?_eq_some hf₀
-  have hmemI : interp V ρ (mpC.base2.acval (tgtMajor out j).ind ψj)
-      ∈ˢ interp V ρ (mkPisAV ab (.sort ((tgtClsD d Dc out j).w ψj))) := by
-    have := mpC.formerAt_mem Rd.hD Rd.hmm (by rw [Rd.hmem]; exact hf₀) hta ρ
-    rw [Rd.hmem] at this
+  have hmemI : ∀ σ : Nat → V, interp V ρ (mpC.base2.acval (tgtMajor out j).ind ψj)
+      ∈ˢ interp V σ (mkPisAV ab (.sort ((tgtClsD d Dc out j).w ψj))) := fun σ => by
+    have := mpC.member_mem_tower Rd.hD Rd.hmm ψj ρ σ
+    rw [Rd.hmem, hab] at this
     exact this
   -- the parameter count
   obtain ⟨cv', nPc, nF, hf', -, -, -, A0, -, -, hrdA⟩ := hrdC _ Rd.hmm i hiD
@@ -1716,8 +1710,7 @@ theorem genOut_typed (hcov : LfpCover mpC []) {j : Nat} {cvI : ConstantVal}
       (mpC.type_wellDenotedTy _ hcons ψj TVja hread ρ) hWD
     rw [hrest] at hty
     exact hty.ne_pt
-  have hfit := spineFit_of_wellDenoted_mkAppN_pi hne hokR hmemI hlab
-  rw [hmap] at hfit
+  have hfit := fun σ => spineFit_of_wellDenoted_mkAppN_pi hne hokR (hmemI σ) hlab
   refine ⟨_, by rw [List.length_map, hlenA], fun q hq => ?_, hrest, hin, hfit, ?_⟩
   · have hPB : (paramBvars (tgtMajor out j).nPc ctor.2).length = (tgtMajor out j).nPc := by
       simp [paramBvars]
@@ -1733,7 +1726,7 @@ theorem genOut_typed (hcov : LfpCover mpC []) {j : Nat} {cvI : ConstantVal}
       consList_getD_of_lt _ _ _ (by rw [List.length_map, hys]; omega), List.length_map, hys,
       show (tgtMajor out j).nPc + ctor.2 - 1 - ((tgtMajor out j).nPc + ctor.2 - 1 - q) = q from by
         omega, getD_map_pt (by rw [hys]; omega)]
-  · have := foldl_app_mem_mkPisAV (by rw [← hmap] at hfit; exact hfit) hmemI
+  · have := foldl_app_mem_mkPisAV (hfit ρ) (hmemI ρ)
     rw [interp_sort] at this
     exact this
 
@@ -1791,7 +1784,7 @@ theorem genOutCtorOwn (hcov : LfpCover mpC []) {j : Nat} {cvI : ConstantVal}
     genOut_typed hcov Rd hcAM hT0 (by rw [Rd.hnpc]; exact hys) hfitC hWD
   rw [Rd.hnpc] at hparA hlenA
   generalize hn : (tgtMajor out j).ds.length = n at hys hfc0 hlenP hparA hlenA hpc ⊢
-  obtain ⟨as₁, as₂, hasE, hfit1, -⟩ := spineFit_append_inv hfitA
+  obtain ⟨as₁, as₂, hasE, hfit1, -⟩ := spineFit_append_inv (hfitA ρ)
   have hparsL : ((tgtClsD d Dc out j).pars (tgtClsM mc pp out j) ψc).length = n := by
     rw [hC.parsLen _ Rd.hmm, hlenP]
   have has1L : as₁.length = n := by rw [hfit1.length_eq, hparsL]
@@ -1852,7 +1845,7 @@ theorem genOutCtorOwn (hcov : LfpCover mpC []) {j : Nat} {cvI : ConstantVal}
   have hfc' : envC.find? ((tgtClsD d Dc out j).ctorName (tgtClsM mc pp out j) i)
       = some (.ctorInfo ctor.1 (canonParams n).length ctor.2) := by
     rw [canonParams_length]; exact hfc0
-  obtain ⟨-, crest, ab, hcr, ⟨Tys, hlT, hTys, hEq⟩, hlab, hcrRead⟩ :=
+  obtain ⟨-, crest, ab, hcr, hEq, hlab, hcrRead⟩ :=
     instCtor_read mpC Rd.hD hlpsR Rd.hnd hul hds hdsa hlenP' Rd.hmm hiD hfc'
   rw [ConLeche.instPisWith_eq_instPisAt] at hcr
   obtain ⟨⟨doms, crest'⟩, hinst, hcr'⟩ := Option.map_eq_some_iff.mp hcr
@@ -1885,7 +1878,7 @@ theorem genOutCtorOwn (hcov : LfpCover mpC []) {j : Nat} {cvI : ConstantVal}
     (by rw [substTele_length, hlab, List.length_map, List.length_drop, hys]; omega) h3
   -- the application, decoded
   obtain ⟨-, hHF, hval⟩ := instCtor_decode mpC Rd.hD hlpsR hul hds hdsa hlenP' Rd.hmm hiD
-    hlT hTys hEq hlab (by rw [hkey, hself]; exact hsat) hfit
+    hEq hlab (by rw [hkey, hself]; exact hsat) hfit
   rw [hself] at hHF hval
   refine ⟨hHF.2.1.length_eq, ?_⟩
   rw [← hval, interp_mkAppN_foldl, hysv, hname,
@@ -1981,7 +1974,7 @@ theorem genOutCtorRefit {j : Nat} {cvI : ConstantVal}
   have hfc' : envC.find? ((tgtClsD d Dc out j).ctorName (tgtClsM mc pp out j) i)
       = some (.ctorInfo ctor.1 (canonParams n).length ctor.2) := by
     rw [canonParams_length]; exact hfc0
-  obtain ⟨-, crest, ab, hcr, ⟨Tys, hlT, hTys, hEq⟩, hlab, hcrRead⟩ :=
+  obtain ⟨-, crest, ab, hcr, hEq, hlab, hcrRead⟩ :=
     instCtor_read mpC Rd.hD hlpsR Rd.hnd hul hds hdsa hlenP' Rd.hmm hiD hfc'
   rw [ConLeche.instPisWith_eq_instPisAt] at hcr
   obtain ⟨⟨doms, crest'⟩, hinst, hcr'⟩ := Option.map_eq_some_iff.mp hcr
@@ -1999,7 +1992,7 @@ theorem genOutCtorRefit {j : Nat} {cvI : ConstantVal}
     hds hTy hdsa
   have hrestE := hrest.symm.trans hcrRead
   -- the fields fit the instantiated constructor's fields, the peel's residual
-  have hF := (instCtor_fit mpC Rd.hD hlpsR hul hds hdsa hlenP' Rd.hmm hiD hlT hTys hEq hlab
+  have hF := (instCtor_fit mpC Rd.hD hlpsR hul hds hdsa hlenP' Rd.hmm hiD hEq hlab
     (ρ := consList as₁ σ) (by rw [hkey, hself]; exact hsat)).1 fs
   rw [hkey, hself] at hF
   have hT1 : ∃ X, TeleFit V (consList as₁ σ) restA fs X := by
@@ -2070,7 +2063,7 @@ theorem genOut_T
   obtain ⟨hpref, hsat, hsp, hmaj⟩ := genOut_major h hS hr Rd ψ hxl hfitR
   obtain ⟨-, -, hxvl, -⟩ := genRow3_frame h hr ψ hxl hfitR
   obtain ⟨T0, pps, b0, hcons, -, hT0, -, -, -, hT0cl, hpc, -⟩ :=
-    genOutCtorFit R hg hcov hj hi Rd hMo hnP ψ ρ hpref hcAM
+    genOutCtorFit R hg hcov hj hi Rd hMo hnP ψ ρ hsat hcAM
   have hwfC := mpC.base2.wf.consts _ hcons
   have hCf : ctor.1.type.hasFvar = false := hwfC.1
   have hCb : ctor.1.type.looseBVarsBounded 0 = true := hwfC.2.2.2.1
@@ -2186,7 +2179,7 @@ fired constructor application is the class's injection of its fields,
 read at its own parameters (`genOutCtorOwn`: the step compares them
 only at case 3); the major lies in the class's carrier at the pins'
 frame and the recursor's index tuple, and the class is never `Prop`
-here (`genOutNZ`, `genOutW`), so the carrier's decomposition there is
+here (`genOutNZ`, `genRun_outW`), so the carrier's decomposition there is
 that injection (`mkInj`): the fields hole-fit at the pins' frame —
 `genRow3_core` does the rest. -/
 theorem genRows3_out
@@ -2235,9 +2228,12 @@ theorem genRows3_out
     at hpref hws hxvl ⊢
   generalize hiV : (xs.drop (pp.rulePrefixAt j)).map (interp V ρ) = isV
     at hws hisl ⊢
+  -- the class is live: the major is one of it
+  obtain ⟨hTin, hmajIn, -⟩ := hS ψ ρ j hj xsV isV _ hxvl hisl hws
+  have hsatK := Rd.hsat ψ ρ xsV hpref (tgtClsIs_guard hTin).2
   -- the instantiated constructor, fitted
   obtain ⟨T0, -, -, hcons, -, hT0, -, -, -, hT0cl, hpc, -⟩ :=
-    genOutCtorFit R hg hcov hj hi Rd hMo hnP ψ ρ hpref hcAM
+    genOutCtorFit R hg hcov hj hi Rd hMo hnP ψ ρ hsatK hcAM
   have hwfC := mpC.base2.wf.consts _ hcons
   have hctorTy : blockRecCtorTy mpC.base2.acval envC (tgtRs out) j i
       (Level.substFn φ ctor.1.levelParams usj) = T0 := by
@@ -2262,12 +2258,6 @@ theorem genRows3_out
     Nat.lt_of_lt_of_le Rd.hmm hC.kN
   have hG := (Rd.hG ψ ρ xsV).mpr hpref
   have hFr := Rd.hfr ψ ρ xsV hxvl
-  have hIs : tgtClsIs d Dc mc cvc mpC.base2.acval envC pp out ψ ρ xsV j
-      = (tgtClsD d Dc out j).idx (tgtClsψ cvc out ψ j)
-          (tgtClsFr d mpC.base2.acval envC pp out ψ ρ xsV j)
-          (tgtClsM mc pp out j) := by
-    unfold tgtClsIs; rw [ite_eq_left hG]
-  have hsatK := Rd.hsat ψ ρ xsV hpref
   have hval3 : interp V ρ (Term.mkAppN
       (mpC.base2.acval ctor.1.name (Level.substFn φ ctor.1.levelParams usj)) ys)
       = tgtClsInj d Dc mc cvc pp out ψ j i fsY := by
@@ -2278,11 +2268,12 @@ theorem genRows3_out
     have e1 : tgtClsD d Dc out j = Dc j := by simp [tgtClsD, hMo]
     have e2 : tgtClsψ cvc out ψ j
         = Level.substFn ψ (cvc j).levelParams (tgtMajor out j).lvls := by simp [tgtClsψ, hMo]
-    rw [e1, e2, genOutW R hj hMo hcl ψ]
+    obtain ⟨ρ', vs, hvs⟩ := tgtClsIs_outFit (mp := mpC) hMo hcl.hD hcl.hmm hTin
+    rw [e2] at hvs
+    rw [e1, e2, (genRun_outW mpC R hj hMo hcl ψ hvs).1]
     exact ConLeche.Level.isNeverZero_sound _ _ (genOutNZ R hj hMo hℓ)
   -- the carrier's decomposition at the recursor's index tuple
-  obtain ⟨hTin, hmajIn, -⟩ := hS ψ ρ j hj xsV isV _ hxvl hisl hws
-  rw [hIs] at hTin
+  rw [tgtClsIs_of hG (tgtClsIs_guard hTin).2] at hTin
   have hsatF : Sat V ((tgtClsD d Dc out j).params (tgtClsψ cvc out ψ j)).reverse
       (tgtClsFr d mpC.base2.acval envC pp out ψ ρ xsV j) := by
     rw [hFr]; exact hsatK
@@ -2357,33 +2348,22 @@ theorem genOut_pin (hcov : LfpCover mpC [])
   obtain ⟨-, hsat, hsp, -⟩ := genOut_major h hS hr Rd ψ hxl hfitR
   obtain ⟨args, hlenA, hparA, hrestE, -, hfitA, -⟩ :=
     genOut_typed hcov Rd hcAM hread hys hfitC hWD
-  obtain ⟨hC, -, hrd, ⟨-, hrdC⟩, -⟩ := mpC.lfp_ok _ Rd.hD
+  obtain ⟨hC, -, -, ⟨-, hrdC⟩, ⟨hcK, -⟩⟩ := mpC.lfp_ok _ Rd.hD
   have hmN : tgtClsM mc pp out j < (tgtClsD d Dc out j).N :=
     Nat.lt_of_lt_of_le Rd.hmm hC.kN
-  -- the container former's telescope, at the two level assignments
+  -- the container's telescope at the two level assignments has one value
   obtain ⟨hiD, hfc0, hlpC, -⟩ := Rd.hctor i ctor hcAM
-  obtain ⟨cv, caps, hfm, -, hab⟩ := hrd _ Rd.hmm
-  rw [Rd.hmem] at hfm
   obtain ⟨caps₀, hf₀⟩ := Rd.hfind
-  rw [hf₀] at hfm
-  obtain ⟨rfl, rfl⟩ : cvI = cv ∧ caps₀ = caps := by
-    injection hfm with h'; injection h' with a b; exact ⟨a, b⟩
-  obtain ⟨hwfF, hwfB, -, -, hwfD⟩ := mpC.formerAt_wf Rd.hD Rd.hmm (by rw [Rd.hmem]; exact hf₀)
-  obtain ⟨ab, hta, hmap⟩ := hab ψj
-  obtain ⟨ab', hta', hmap'⟩ := hab (tgtClsψ cvc out ψ j)
-  rw [denote_params_ext mpC.base2 (φ₂ := tgtClsψ cvc out ψ j)
-    (fun q hq => by
-      change q ∈ cvI.levelParams at hq
-      rw [← hlpC] at hq; exact hlv q hq) 0 _ hwfD, hta'] at hta
-  obtain ⟨habm, hwab⟩ := mkPisAV_sort_inj (Option.some.inj hta).symm
-  have hmap'' := habm.trans hmap'
-  have hcl : Term.bvarsBelow 0
-      (mkPisAV ab (.sort ((tgtClsD d Dc out j).w (tgtClsψ cvc out ψ j)))) := by
-    have heq := Option.some.inj hta
-    rw [hwab] at heq
-    rw [← heq]
-    exact bvarsBelow_of_reading (m := mpC.base2) (Expr.WScoped.of_not_hasFvar hwfF) hwfB hta'
-  have hDB := (bvarsBelow_mkPisAV_inv hcl).1
+  have hfm : envC.find? ((tgtClsD d Dc out j).member (tgtClsM mc pp out j))
+      = some (.indInfo cvI caps₀) := by rw [Rd.hmem]; exact hf₀
+  have hTow := mpC.tower_congr Rd.hD Rd.hmm hfm (ψ₁ := ψj) (ψ₂ := tgtClsψ cvc out ψ j)
+    (fun q hq => by rw [← hlpC] at hq; exact hlv q hq)
+  have hlenT : ((tgtClsD d Dc out j).pars (tgtClsM mc pp out j) ψj
+      ++ (tgtClsD d Dc out j).ids (tgtClsM mc pp out j) ψj).length
+      = ((tgtClsD d Dc out j).pars (tgtClsM mc pp out j) (tgtClsψ cvc out ψ j)
+        ++ (tgtClsD d Dc out j).ids (tgtClsM mc pp out j) (tgtClsψ cvc out ψ j)).length := by
+    obtain ⟨cvK, capsK, hfK, -, hlK⟩ := hcK _ Rd.hmm
+    rw [hlK, hlK]
   -- the parameter count
   obtain ⟨cv', nPc, nF, hf', -, -, -, A0, -, -, hrdA⟩ := hrdC _ Rd.hmm i hiD
   rw [hfc0] at hf'
@@ -2399,19 +2379,19 @@ theorem genOut_pin (hcov : LfpCover mpC [])
   -- the parameter and index halves
   have hlenPars : ∀ ψ', ((tgtClsD d Dc out j).pars (tgtClsM mc pp out j) ψ').length
       = nP := fun ψ' => by rw [hparsL, hPl, hnP]
-  have hidsE : (tgtClsD d Dc out j).ids (tgtClsM mc pp out j) ψj
-      = (tgtClsD d Dc out j).ids (tgtClsM mc pp out j) (tgtClsψ cvc out ψ j) := by
-    have := hmap.symm.trans hmap''
-    exact List.append_inj_right this (by rw [hlenPars, hlenPars])
-  have hidsAB : (tgtClsD d Dc out j).ids (tgtClsM mc pp out j) (tgtClsψ cvc out ψ j)
-      = (ab.drop nP) := by
-    rw [hmap'', List.drop_left' (hlenPars _)]
-  rw [hidsE] at hfitA hlenA
+  have hidsL : ((tgtClsD d Dc out j).ids (tgtClsM mc pp out j) ψj).length
+      = ((tgtClsD d Dc out j).ids (tgtClsM mc pp out j) (tgtClsψ cvc out ψ j)).length := by
+    simp only [List.length_append, hlenPars] at hlenT; omega
+  rw [hidsL] at hlenA
+  -- the residual's fit at the class's levels, below the key frame
+  generalize hτ : consList ((xs.take (pp.rulePrefixAt j)).map (interp V ρ)) ρ = τ
+    at hpar hsat hsp ⊢
+  have hfitA' := ((spineFit_iff_of_mkPisAV_eq hlenT (hTow fun q => τ (q + tgtRP pp j)) _).1).mp
+    (hfitA fun q => τ (q + tgtRP pp j))
   -- split the residual's fit
-  obtain ⟨as₁, as₂, hasE, hfit1, hfit2⟩ := spineFit_append_inv hfitA
+  obtain ⟨as₁, as₂, hasE, hfit1, hfit2⟩ := spineFit_append_inv hfitA'
   have has1L : as₁.length = nP := by rw [hfit1.length_eq, hlenPars]
-  have has1 : as₁ = (tgtOutDsa mpC.base2.acval envC pp out ψ j).map
-      (interp V (consList ((xs.take (pp.rulePrefixAt j)).map (interp V ρ)) ρ)) := by
+  have has1 : as₁ = (tgtOutDsa mpC.base2.acval envC pp out ψ j).map (interp V τ) := by
     refine List.ext_getElem (by rw [has1L, List.length_map, hdl]) fun q h1 h2 => ?_
     have hq : q < nP := by rw [has1L] at h1; exact h1
     have hA := congrArg (fun l => l.getD q pt) hasE
@@ -2427,15 +2407,11 @@ theorem genOut_pin (hcov : LfpCover mpC [])
     rw [List.getElem_map, e1, e2]
     exact hA.symm
   -- the indices, at the class's frame
-  have hfitI : SpineFit (keyFrame (tgtOutDsa mpC.base2.acval envC pp out ψ j)
-        (tgtRP pp j)
-        (consList ((xs.take (pp.rulePrefixAt j)).map (interp V ρ)) ρ))
+  have hfitI : SpineFit (keyFrame (tgtOutDsa mpC.base2.acval envC pp out ψ j) (tgtRP pp j) τ)
       ((tgtClsD d Dc out j).ids (tgtClsM mc pp out j) (tgtClsψ cvc out ψ j)) as₂ := by
-    rw [hidsAB] at hfit2 ⊢
-    refine spineFit_congr_below (k := 0 + nP) (by exact domsBelow_drop nP hDB) (fun q hq => ?_) hfit2
     unfold keyFrame
-    rw [has1, consList_getD_of_lt _ _ _ (by rw [List.length_map, hdl]; omega),
-      consList_getD_of_lt _ _ _ (by rw [List.length_map, hdl]; omega)]
+    rw [← has1]
+    exact hfit2
   have hTI := (hC.idxOk _ _ hsat _ hmN).1.spineTy
   have hlenI : ((tgtClsD d Dc out j).ids (tgtClsM mc pp out j)
       (tgtClsψ cvc out ψ j)).length
@@ -2662,7 +2638,8 @@ theorem genOutExtra
       have hlv' : ∀ p ∈ ctor.1.levelParams, Level.substFn φ ctor.1.levelParams usj p
           = Level.substFn (Level.substFn φ r.1.levelParams us) cvI.levelParams
               (tgtMajor out j).lvls p := fun p hp => by rw [hlv p hp, Rd.hψ]
-      have hpins := genOut_pins R hg hcov h hr hMo hctor Rd hnP hf hlv' hxl hfitR hfitC hyl
+      obtain ⟨-, hsatR, -, -⟩ := genOut_major h hS hr Rd _ hxl hfitR
+      have hpins := genOut_pins R hg hcov h hr hMo hctor Rd hnP hf hlv' hxl hfitR hsatR hfitC hyl
         (fun q hq vpa hvpa => hcN lvls pins hfire hpt q hq vpa
           (hpinCross us q vpa hvpa))
       refine genOut_pin hcov h hS hr Rd hcAM _ hlv (hctorRead _) hxl hyl hfitR hfitC hWDy

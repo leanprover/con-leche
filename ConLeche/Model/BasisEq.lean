@@ -1318,12 +1318,7 @@ theorem declBasisPB_eqK {env₁ : Env} (mp : EnvModelM V env)
           = some (.app (.fvar 2 (.sort .zero)) (.fvar 1 (.sort .zero)))),
         (by decide : Expr.nestOcc [eqName] 0 0 (.app (.fvar 2 (.sort .zero)) (.fvar 1 (.sort .zero)))
           = false),
-        fun ψ => ⟨rfl, rfl, [], [.pi (.bvar 1) (.sort 0)], ?_, rfl, rfl,
-          fun mm hmm => by
-            obtain rfl : mm = 0 := Nat.lt_one_iff.mp hmm
-            refine ⟨eqA.toConstantVal, _, .forallE (.fvar 0 (.sort .zero)) (.sort .zero), hE2, rfl, ?_⟩
-            simp [denote_forallE, denote_sort, denote_fvar, Expr.instantiate1, Level.eval],
-          trivial⟩⟩
+        fun ψ => ⟨rfl, rfl, [], ?_, rfl, trivial⟩⟩
       simp [denote_app, denote_fvar, mkPisAV, eqLfp]⟩
     (eqLfp_caps hE2
       (fun ψ => by
@@ -1375,7 +1370,7 @@ theorem declBasisPB_eqK {env₁ : Env} (mp : EnvModelM V env)
   obtain ⟨mp3, hac3, hr3, hc3⟩ := extendEqRec mp2' hE2 hR2 hEv2 hRv2 hf3 hwf3 (ex := [])
   -- coverage: `Eq`'s former opened the exemption list, its record
   -- closes it
-  refine ⟨mp3, (hr1.trans (hr2.addLfp _ (fun _ => rfl) _ _ _ _ _)).trans hr3,
+  refine ⟨mp3, (hr1.trans (hr2.addLfp _ _ _ _ _ _)).trans hr3,
     fun h0 => hc3 ((hc2 (hc1 h0)).addLfp_to _ _ _ _ _ _ (nodup_one _) rfl
     (lfpAll_one (n := eqName) (c := eqA) rfl rfl hE2
       (fun _ _ h => by injection h with _ h; subst h; rfl))

@@ -481,6 +481,62 @@ theorem genIhAV_eq_mkLamsAV {K rP D : Nat} {q : IhDatum} :
   rfl
 
 set_option maxHeartbeats 16000000 in
+/-- **A generated `ih` term at a typed tuple** is graded and inhabits its
+`ih` binder type at the rule frame: a λ-tower over `genIhUnder`. -/
+theorem genIh_mem
+    (R : GenRecRun .verified F (mkFEnv env₁) env₁ (mkFEnv envC) pp nestedBit pos
+      block out) (hg : ClassGenScoped R.g)
+    (h : ConLeche.RecStageG .verified F envC pp (tgtRs out)) (mpC : EnvModelM V envC)
+    (hfind : ∀ (j : Nat) (r : ConstantVal × List Expr × Nat × List (ConstantVal × Nat)),
+      (tgtRs out)[j]? = some r → ∀ (i : Nat) (ctor : ConstantVal × Nat), r.2.2.2[i]? = some ctor →
+        envC.find? ctor.1.name = some (.ctorInfo ctor.1 (ConLeche.tgtMajorsOf out j).nPc ctor.2))
+    (ψ : Name → Nat) (ρ : Nat → V) {rs : List V} (hrl : rs.length = (tgtRs out).length)
+    (hty : ∀ c, c < (tgtRs out).length →
+      rs.getD c pt ∈ˢ interp V ρ (blockRecTyAV mpC.base2.acval envC (tgtRs out) ψ c))
+    {c j : Nat} (hc : c < (tgtRs out).length) (hj : j < blockRecNCt (tgtRs out) c)
+    {xs fs : List V}
+    (hxs : SpineFit ρ (blockRulePdomsAV mpC.base2.acval envC pp (tgtRs out) ψ c) xs)
+    (hfs : SpineFit (consList xs ρ) (tgtFdomsAV pp out mpC.base2.acval envC ψ c j) fs)
+    {q : IhDatum} (hq : q ∈ genIhdAV mpC.base2.acval envC R.g R.rd ψ c j) :
+    WellDenoted V (consList (xs ++ fs) (consList rs ρ))
+        (genIhAV (tgtRs out).length R.g.pre.length
+          (R.g.pre.length + (genCtorAt R.g R.rd c j).nF) q) ∧
+      interp V (consList (xs ++ fs) (consList rs ρ))
+          (genIhAV (tgtRs out).length R.g.pre.length
+            (R.g.pre.length + (genCtorAt R.g R.rd c j).nF) q)
+        ∈ˢ interp V (consList (xs ++ fs) ρ)
+          (genIhDomAV ((blockRulePdomsAV mpC.base2.acval envC pp (tgtRs out) ψ c).length
+              + (tgtFdomsAV pp out mpC.base2.acval envC ψ c j).length)
+            (classMotPos R.g (genClsOf R.rd q.1)) q) := by
+  obtain ⟨hlc, -⟩ := genPdoms_read R hg h mpC ψ hc
+  have hnF := genRun_nF R hg mpC.base2.acval ψ c hc j hj
+  have hys := SpineFit.append hxs hfs
+  have hxl : xs.length = R.g.pre.length := hxs.length_eq.trans hlc
+  have hfl : fs.length = (genCtorAt R.g R.rd c j).nF := hfs.length_eq.trans hnF.symm
+  have hU := genIhUnder R hg h mpC hfind ψ ρ hrl hty hc hj hys hq
+  have hbelow := genRun_below R hg h mpC ψ c hc j hj q hq
+  rw [hlc, ← hnF] at hbelow
+  have hEq := genIhAV_eq_mkLamsAV (K := (tgtRs out).length) (rP := R.g.pre.length)
+    (D := R.g.pre.length + (genCtorAt R.g R.rd c j).nF) (q := q)
+  rw [show R.g.pre.length + (genCtorAt R.g R.rd c j).nF - R.g.pre.length
+    = (genCtorAt R.g R.rd c j).nF by omega] at hEq
+  refine ⟨?_, ?_⟩
+  · rw [hEq]
+    exact mkLamsAV_wellDenoted hU
+  · have hmem := mkLamsAV_mem hU
+    rw [← hEq] at hmem
+    have hmt : classMotPos R.g (genClsOf R.rd q.1) < R.g.pre.length := by
+      obtain ⟨l, hl⟩ := List.getElem?_of_mem hq
+      obtain ⟨t, st, -, -, hst, hstl, -, hcls, -⟩ := genIhFrame R hg h mpC hfind ψ hc hj hl
+      rw [hcls, classMotPos, hst]; exact hstl
+    have hbD := genIhDomAV_below (D := R.g.pre.length + (genCtorAt R.g R.rd c j).nF)
+      (mt := classMotPos R.g (genClsOf R.rd q.1)) hbelow (by omega)
+    rw [hlc, ← hnF, ← interp_congr_below V _ _ _ _ hbD (fun i hi =>
+      consList_congr_below (xs ++ fs) (D := 0) (fun k hk => absurd hk (Nat.not_lt_zero _)) i
+        (by simp [hxl, hfl]; omega))]
+    exact hmem
+
+set_option maxHeartbeats 16000000 in
 /-- **`hrhs` of the family premise**: at a typed tuple of recursor values
 and a spine fitting the rule frame, the generated `ih` terms are graded
 (a λ-tower over `genIhUnder`), and so is the residue at
@@ -510,38 +566,8 @@ theorem genRhs
   have hxl : xs.length = R.g.pre.length := hxs.length_eq.trans hlc
   have hfl : fs.length = (genCtorAt R.g R.rd c j).nF := hfs.length_eq.trans hnF.symm
   -- each ih term: its tower, sound
-  have hIh : ∀ q ∈ genIhdAV mpC.base2.acval envC R.g R.rd ψ c j,
-      WellDenoted V (consList (xs ++ fs) (consList rs ρ))
-        (genIhAV (tgtRs out).length R.g.pre.length (R.g.pre.length + (genCtorAt R.g R.rd c j).nF) q) ∧
-      interp V (consList (xs ++ fs) (consList rs ρ))
-          (genIhAV (tgtRs out).length R.g.pre.length (R.g.pre.length + (genCtorAt R.g R.rd c j).nF) q)
-        ∈ˢ interp V (consList (xs ++ fs) ρ)
-          (genIhDomAV ((blockRulePdomsAV mpC.base2.acval envC pp (tgtRs out) ψ c).length
-              + (tgtFdomsAV pp out mpC.base2.acval envC ψ c j).length)
-            (classMotPos R.g (genClsOf R.rd q.1)) q) := by
-    intro q hq
-    have hU := genIhUnder R hg h mpC hfind ψ ρ hrl hty hc hj hys hq
-    have hbelow := genRun_below R hg h mpC ψ c hc j hj q hq
-    rw [hlc, ← hnF] at hbelow
-    have hEq := genIhAV_eq_mkLamsAV (K := (tgtRs out).length) (rP := R.g.pre.length)
-      (D := R.g.pre.length + (genCtorAt R.g R.rd c j).nF) (q := q)
-    rw [show R.g.pre.length + (genCtorAt R.g R.rd c j).nF - R.g.pre.length
-      = (genCtorAt R.g R.rd c j).nF by omega] at hEq
-    refine ⟨?_, ?_⟩
-    · rw [hEq]
-      exact mkLamsAV_wellDenoted hU
-    · have hmem := mkLamsAV_mem hU
-      rw [← hEq] at hmem
-      have hmt : classMotPos R.g (genClsOf R.rd q.1) < R.g.pre.length := by
-        obtain ⟨l, hl⟩ := List.getElem?_of_mem hq
-        obtain ⟨t, st, -, -, hst, hstl, -, hcls, -⟩ := genIhFrame R hg h mpC hfind ψ hc hj hl
-        rw [hcls, classMotPos, hst]; exact hstl
-      have hbD := genIhDomAV_below (D := R.g.pre.length + (genCtorAt R.g R.rd c j).nF)
-        (mt := classMotPos R.g (genClsOf R.rd q.1)) hbelow (by omega)
-      rw [hlc, ← hnF, ← interp_congr_below V _ _ _ _ hbD (fun i hi =>
-        consList_congr_below (xs ++ fs) (D := 0) (fun k hk => absurd hk (Nat.not_lt_zero _)) i
-          (by simp [hxl, hfl]; omega))]
-      exact hmem
+  have hIh := fun q (hq : q ∈ genIhdAV mpC.base2.acval envC R.g R.rd ψ c j) =>
+    genIh_mem R hg h mpC hfind ψ ρ hrl hty hc hj hxs hfs hq
   refine ⟨fun v hv => ?_, ?_⟩
   · unfold genIhsAV at hv
     obtain ⟨q, hq, rfl⟩ := List.mem_map.mp hv
@@ -598,6 +624,41 @@ theorem genRhs
         simp [WellDenoted_bvar]
     · rw [List.map_append, hv1, hv2]
       exact teleFit_mkPisAV_of_spineFit hfit
+
+set_option maxHeartbeats 16000000 in
+/-- **At a fit of a rule frame, with a typed tuple of recursor values, the
+class's motive is no point**: the tuple's `ih` values inhabit the minor
+premise's `ih` binder types (`genIh_mem`), so the minor premise's type has a
+full fit there, and its fibre — the motive applied — is a type
+(`genCls_minor`). -/
+theorem genRule_motNe
+    (R : GenRecRun .verified F (mkFEnv env₁) env₁ (mkFEnv envC) pp nestedBit pos
+      block out) (hg : ClassGenScoped R.g)
+    (h : ConLeche.RecStageG .verified F envC pp (tgtRs out)) (mpC : EnvModelM V envC)
+    (hfind : ∀ (j : Nat) (r : ConstantVal × List Expr × Nat × List (ConstantVal × Nat)),
+      (tgtRs out)[j]? = some r → ∀ (i : Nat) (ctor : ConstantVal × Nat), r.2.2.2[i]? = some ctor →
+        envC.find? ctor.1.name = some (.ctorInfo ctor.1 (ConLeche.tgtMajorsOf out j).nPc ctor.2))
+    (ψ : Name → Nat) (ρ : Nat → V) {rs : List V} (hrl : rs.length = (tgtRs out).length)
+    (hty : ∀ c, c < (tgtRs out).length →
+      rs.getD c pt ∈ˢ interp V ρ (blockRecTyAV mpC.base2.acval envC (tgtRs out) ψ c))
+    {c j : Nat} (hc : c < (tgtRs out).length) (hj : j < blockRecNCt (tgtRs out) c)
+    {xs fs : List V}
+    (hxs : SpineFit ρ (blockRulePdomsAV mpC.base2.acval envC pp (tgtRs out) ψ c) xs)
+    (hfs : SpineFit (consList xs ρ) (tgtFdomsAV pp out mpC.base2.acval envC ψ c j) fs) :
+    xs.getD (classMotPos R.g (genClsOf R.rd c)) pt ≠ pt := by
+  have hT := (genCls_minor R hg h mpC hfind ψ ρ c hc j hj xs hxs fs hfs
+    ((genIhdAV mpC.base2.acval envC R.g R.rd ψ c j).map fun q =>
+      interp V (consList (xs ++ fs) (consList rs ρ))
+        (genIhAV (tgtRs out).length R.g.pre.length
+          (R.g.pre.length + (genCtorAt R.g R.rd c j).nF) q))
+    (by rw [List.length_map]) fun l q hv hql hvl => by
+      rw [List.getElem?_map, hql] at hvl
+      obtain rfl := (Option.some.inj hvl).symm
+      exact (genIh_mem R hg h mpC hfind ψ ρ hrl hty hc hj hxs hfs
+        (List.mem_of_getElem? hql)).2).2
+  intro h0
+  rw [h0, foldl_app_pt'] at hT
+  exact hT.ne_pt rfl
 
 end IhRun
 

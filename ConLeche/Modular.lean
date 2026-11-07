@@ -51,8 +51,7 @@ records.
 ```
 theorem modular_model_exists (V : Type w) [SetTheory V]
     (pins : List NatOpPinSet) (dev : Nat → Modular.Module) (i : Nat)
-    (hok : ∀ j ≤ i, Modular.LocalOk .verified pins dev j)
-    (hruns : ∀ j ≤ i, Modular.FormerRuns dev j) :
+    (hok : ∀ j ≤ i, Modular.LocalOk .verified pins dev j) :
     ∃ m : ∀ j ≤ i, Model V (dev j).own,
       (∀ j hj j' hj' n, ((dev j).own.find? n).isSome = true →
         ((dev j').own.find? n).isSome = true → (dev j).key n = (dev j').key n →
@@ -63,8 +62,7 @@ theorem modular_model_exists (V : Type w) [SetTheory V]
 
 a compatible family of models of the own environments: two modules that store a name under one key
 give it one value, and every proof the point.  Its corollary is that no own environment stores a
-constant of type `False`.  `FormerRuns` is the one hypothesis beyond the local checks (task #469
-is to discharge it).
+constant of type `False`.
 -/
 
 namespace ConLeche.Modular
@@ -200,27 +198,6 @@ def readsAlike (dev : Nat → Module) (i b : Nat) : Env :=
   ⟨(dev b).own.consts.filter fun c =>
     ((dev i).context.find? c.toConstantVal.name).isSome &&
       (dev i).key c.toConstantVal.name == (dev b).key c.toConstantVal.name, []⟩
-
-/-! ## The reduction hypothesis -/
-
-/-- **A definition-headed former's telescope reduces at the context as at its source**: for a
-context name `n` and a type former `T` read alike from `n`'s source, whose declared type does not
-show its telescope (`formerDefHeaded`), a reduction of `T`'s type that runs at the source's own
-environment runs at the context, to the same telescope, whose names are read alike.
-
-**An explicit hypothesis of the modular theorem**, not a local check: the context may hold a
-definition the reduction unfolds only as its statement.  Task #469 (refinement monotonicity of
-reduction: a run at an environment where some definitions are statements fails or gives the full
-environment's result) is to discharge it. -/
-def FormerRuns (dev : Nat → Module) (i : Nat) : Prop :=
-  ∀ n T cv caps, ((dev i).context.find? n).isSome = true →
-    ((readsAlike dev i ((dev i).src n)).find? T).isSome = true →
-    (dev i).context.find? T = some (.indInfo cv caps) → formerDefHeaded cv = true →
-    ∀ F f, reducedFormer (fueledOps .verified F) (dev ((dev i).src n)).own cv
-        (caps.nparams + caps.nIdx) = .ok f →
-      f.type.constsResolve (readsAlike dev i ((dev i).src n)) = true ∧
-      ∃ F', reducedFormer (fueledOps .verified F') (dev i).context cv
-        (caps.nparams + caps.nIdx) = .ok f
 
 /-! ## The local checks -/
 

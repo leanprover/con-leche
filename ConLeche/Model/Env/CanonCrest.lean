@@ -3,6 +3,7 @@ module
 public import ConLeche.Model.Env.EnvModelM
 public import ConLeche.Verify.Denote.ConstsBound
 import ConLeche.Verify.Inductives.ReplaceApps
+import ConLeche.Model.Reading.Levels
 
 public section
 
@@ -12,8 +13,7 @@ public section
 `LfpCtorReads` (`Model/Env/EnvModelM.lean`) records the readings of a
 stored constructor type's canonical abstraction (`nestCanonCrest`: its
 whole member applications abstracted at the canonical holes, its
-parameters instantiated at the canonical variables) and of the members'
-hole types (the formers at the canonical parameters): the terms
+parameters instantiated at the canonical variables): the terms
 `CanonOf`.  Every variable they introduce is annotated `Sort 0`, so they
 mention only the stored type's constants and projections: they are
 prefix-bound wherever the type is (`canonOf_constsBound`) — the fact the
@@ -98,13 +98,12 @@ theorem canonOf_constsBound {env₀ : Env} {ty A : Expr} (he : ConstsBound env�
   have hp : ∀ n, ∀ x ∈ canonParams n, ConstsBound env₀ x := fun _ x hx => by
     obtain ⟨i, -, rfl⟩ := mem_canonParams hx
     simp
-  rcases hA with ⟨names, us, n, hA⟩ | ⟨n, hA⟩
-  · unfold ConLeche.nestCanonCrest at hA
-    obtain ⟨t, ht, rfl⟩ := Option.map_eq_some_iff.mp hA
-    refine constsBound_replaceApps (fun c us' r hr => ?_) _ (constsBound_instPisWith (hp _) he ht)
-    obtain ⟨m, -, -, -, rfl⟩ := ConLeche.nestCanonSub_some hr
-    simp
-  · exact constsBound_instPisWith (hp _) he hA
+  obtain ⟨names, us, n, hA⟩ := hA
+  unfold ConLeche.nestCanonCrest at hA
+  obtain ⟨t, ht, rfl⟩ := Option.map_eq_some_iff.mp hA
+  refine constsBound_replaceApps (fun c us' r hr => ?_) _ (constsBound_instPisWith (hp _) he ht)
+  obtain ⟨m, -, -, -, rfl⟩ := ConLeche.nestCanonSub_some hr
+  simp
 
 theorem canonParams_getElem? {nP i : Nat} {x : Expr} (h : (canonParams nP)[i]? = some x) :
     x = .fvar i (.sort .zero) := by
@@ -127,8 +126,7 @@ theorem EnvModelM.lfp_ok_transport {V : Type w} [SetTheory V] {env : Env} (mp : 
     (hag : ∀ n ci, env.find? n = some ci → (∀ cv mI rP isK rules, ci ≠ .recInfo cv mI rP isK rules) →
       acval' n = mp.base2.acval n)
     (hread : ∀ (ψ : Name → Nat) (d : Nat) (e : Expr) (ta : ConLeche.Term.Term), ConstsBound env e →
-      denote mp.base2.acval env ψ d e = some ta → denote acval' env' ψ d e = some ta)
-    (hbound : ∀ e, ConstsBound env e → ConstsBound env' e) :
+      denote mp.base2.acval env ψ d e = some ta → denote acval' env' ψ d e = some ta) :
     ∀ D ∈ mp.lfpBlocks, LfpClause acval' D ∧ LfpStored env' D ∧ LfpReads acval' env' D ∧
       LfpCtorReads acval' env' D ∧ LfpCaps env' D := by
   intro D hD
@@ -144,25 +142,15 @@ theorem EnvModelM.lfp_ok_transport {V : Type w} [SetTheory V] {env : Env} (mp : 
     exact ⟨cv, caps, hfind _ _ hf fun _ _ _ _ _ h => ConstantInfo.noConfusion h⟩
   · obtain ⟨cv, a, b, hf⟩ := hstC c hc j hj
     exact ⟨cv, a, b, hfind _ _ hf fun _ _ _ _ _ h => ConstantInfo.noConfusion h⟩
-  · obtain ⟨cv, caps, hf, ⟨hfl, hsh⟩, hab⟩ := hrd mm hmm
+  · obtain ⟨cv, caps, hf, hfl, hval, hw⟩ := hrd mm hmm
     have hcS : ConstsBound env cv.type :=
       (ConLeche.Verify.envWF_constsBound mp.base2.wf _ (ConLeche.Env.find?_mem hf)).1
-    have hcB : ConstsBound env (D.formerAt mm cv).type := by
-      rcases hsh with hn | ⟨f, hs, -, -, -, -, hb, -⟩
-      · rw [show D.formerAt mm cv = cv by simp [LfpDatum.formerAt, hn.1]]
-        exact hcS
-      · rw [show D.formerAt mm cv = f by simp [LfpDatum.formerAt, hs]]
-        exact hb
-    refine ⟨cv, caps, hfind _ _ hf fun _ _ _ _ _ h => ConstantInfo.noConfusion h, ⟨hfl, ?_⟩,
-      fun ψ => ?_⟩
-    · refine hsh.imp id fun ⟨f, hs, h1, h2, h3, h4, hb, hdl, hm⟩ =>
-        ⟨f, hs, h1, h2, h3, h4, hbound _ hb, hdl, fun ψ => ?_⟩
-      obtain ⟨ta, ta₀, hta, hta₀, hmem⟩ := hm ψ
-      refine ⟨ta, ta₀, hread ψ _ _ _ hb hta, hread ψ _ _ _ hcS hta₀, fun ρ => ?_⟩
-      rw [hag _ _ hf fun _ _ _ _ _ h => ConstantInfo.noConfusion h]
-      exact hmem ρ
-    · obtain ⟨ab, hta, h1⟩ := hab ψ
-      exact ⟨ab, hread ψ _ _ _ hcB hta, h1⟩
+    refine ⟨cv, caps, hfind _ _ hf fun _ _ _ _ _ h => ConstantInfo.noConfusion h,
+      fun hflat ψ => ?_, fun ψ => ?_, hw⟩
+    · obtain ⟨ab, u, hta, hl⟩ := hfl hflat ψ
+      exact ⟨ab, u, hread ψ _ _ _ hcS hta, hl⟩
+    · obtain ⟨ta, hta, hv⟩ := hval ψ
+      exact ⟨ta, hread ψ _ _ _ hcS hta, hv⟩
   · obtain ⟨cv, nPc, nF, hf, hcf, hlps, hpars, A, hA, hocc, hrdA⟩ := hrdC c hc j hj
     have hcB : ConstsBound env cv.type :=
       (ConLeche.Verify.envWF_constsBound mp.base2.wf _ (ConLeche.Env.find?_mem hf)).1
@@ -177,144 +165,56 @@ theorem EnvModelM.lfp_ok_transport {V : Type w} [SetTheory V] {env : Env} (mp : 
       rw [hrd'] at hta'
       obtain rfl := Option.some.inj hta'
       exact hpars ψ dsC bodyC hta hle
-    · obtain ⟨h1, h2, ab, Tys, hta, hlab, hlT, hTys, hab⟩ := hrdA ψ
-      refine ⟨h1, h2, ab, Tys, hread ψ _ _ _ (canonOf_constsBound hcB (.inl ⟨_, _, _, hA⟩)) hta,
-        hlab, hlT, fun mm hmm => ?_, hab⟩
-      obtain ⟨cvm, caps, ty, hfm, hty, hr⟩ := hTys mm hmm
-      obtain ⟨cv', caps', hf', ⟨-, hsh⟩, -⟩ := hrd mm hmm
-      rw [hfm] at hf'
-      obtain ⟨rfl, rfl⟩ : cvm = cv' ∧ caps = caps' := by simpa using hf'
-      have hcB : ConstsBound env (D.formerAt mm cvm).type := by
-        rcases hsh with hn | ⟨f, hs, -, -, -, -, hb, -, -⟩
-        · rw [show D.formerAt mm cvm = cvm by simp [LfpDatum.formerAt, hn.1]]
-          exact (ConLeche.Verify.envWF_constsBound mp.base2.wf _ (ConLeche.Env.find?_mem hfm)).1
-        · rw [show D.formerAt mm cvm = f by simp [LfpDatum.formerAt, hs]]
-          exact hb
-      exact ⟨cvm, caps, ty, hfind _ _ hfm fun _ _ _ _ _ h => ConstantInfo.noConfusion h, hty,
-        hread ψ _ _ _ (canonOf_constsBound hcB (.inr ⟨_, hty⟩)) hr⟩
+    · obtain ⟨h1, h2, ab, hta, hlab, hab⟩ := hrdA ψ
+      exact ⟨h1, h2, ab, hread ψ _ _ _ (canonOf_constsBound hcB ⟨_, _, _, hA⟩) hta,
+        hlab, hab⟩
   · obtain ⟨cv, caps, hf, hz⟩ := hcK mm hmm
     exact ⟨cv, caps, hfind _ _ hf fun _ _ _ _ _ h => ConstantInfo.noConfusion h, hz⟩
   · obtain ⟨cv, nPc, nF, hf, hsh⟩ := hcC c hc j hj
     exact ⟨cv, nPc, nF, hfind _ _ hf fun _ _ _ _ _ h => ConstantInfo.noConfusion h, hsh⟩
 
-/-- A stored former that shows its telescope is the one read. -/
-theorem EnvModelM.formerAt_flat {V : Type w} [SetTheory V] {env : Env} (mp : EnvModelM V env)
-    {D : LfpDatum V} (hD : D ∈ mp.lfpBlocks) {mm : Nat} (hmm : mm < D.k) {cv : ConstantVal}
-    {caps : ConLeche.IndCaps} (hf : env.find? (D.member mm) = some (.indInfo cv caps))
-    (hflat : ConLeche.formerDefHeaded cv = false) : D.formerAt mm cv = cv := by
-  obtain ⟨-, -, hrd, -⟩ := mp.lfp_ok D hD
-  obtain ⟨cv', caps', hf', ⟨hfa, -⟩, -⟩ := hrd mm hmm
-  rw [hf] at hf'
-  obtain ⟨rfl, rfl⟩ : cv = cv' ∧ caps = caps' := by simpa using hf'
-  exact hfa hflat
-
-/-- A recorded member's former, as read: closed and resolving. -/
-theorem EnvModelM.formerAt_wf {V : Type w} [SetTheory V] {env : Env} (mp : EnvModelM V env)
-    {D : LfpDatum V} (hD : D ∈ mp.lfpBlocks) {mm : Nat} (hmm : mm < D.k) {cv : ConstantVal}
-    {caps : ConLeche.IndCaps} (hf : env.find? (D.member mm) = some (.indInfo cv caps)) :
-    (D.formerAt mm cv).type.hasFvar = false ∧ (D.formerAt mm cv).type.looseBVarsBounded 0 = true ∧
-      ConstsBound env (D.formerAt mm cv).type ∧ (D.formerAt mm cv).levelParams = cv.levelParams ∧
-      (D.formerAt mm cv).type.allLevelParamsDefined cv.levelParams = true := by
-  obtain ⟨-, -, hrd, -⟩ := mp.lfp_ok D hD
-  obtain ⟨cv', caps', hf', ⟨-, hsh⟩, -⟩ := hrd mm hmm
-  rw [hf] at hf'
-  obtain ⟨rfl, rfl⟩ : cv = cv' ∧ caps = caps' := by simpa using hf'
-  rcases hsh with hn | ⟨f, hs, -, h2, h3, h4, hb, hdl, -⟩
-  · rw [show D.formerAt mm cv = cv by simp [LfpDatum.formerAt, hn.1]]
-    have hwf := mp.base2.wf.consts _ (ConLeche.Env.find?_mem hf)
-    exact ⟨hwf.1, hwf.2.2.2.1, (ConLeche.Verify.envWF_constsBound mp.base2.wf _
-      (ConLeche.Env.find?_mem hf)).1, rfl, hwf.2.1⟩
-  · rw [show D.formerAt mm cv = f by simp [LfpDatum.formerAt, hs]]
-    exact ⟨h3, h4, hb, h2, h2 ▸ hdl⟩
-
-/-- **What a run reads of a recorded family's telescope is what its block read.** -/
-@[expose] def FamilyRead {V : Type w} [SetTheory V] {env : Env} (mp : EnvModelM V env) (F : Nat) :
-    Prop :=
-  ∀ D ∈ mp.lfpBlocks, ∀ (mm : Nat) (cv : ConstantVal) (caps : ConLeche.IndCaps) (ty : Expr), mm < D.k →
-    env.find? (D.member mm) = some (.indInfo cv caps) →
-    ConLeche.familyTelescope (ConLeche.fueledOps .verified F) env cv caps = .ok ty →
-    ty = (D.formerAt mm cv).type
-
-/-- A recorded member's stored sort datum, where its block's sort is zero. -/
-theorem EnvModelM.formerZ_holds {V : Type w} [SetTheory V] {env : Env} (mp : EnvModelM V env)
-    {D : LfpDatum V} (hD : D ∈ mp.lfpBlocks) {mm : Nat} (hmm : mm < D.k) {cv : ConstantVal}
-    {caps : ConLeche.IndCaps} (hf : env.find? (D.member mm) = some (.indInfo cv caps))
-    (hz : ∀ ψ : Name → Nat, D.w ψ = 0 → (ConLeche.formerZ (D.formerAt mm cv)).holds ψ = true) :
-    ∀ ψ : Name → Nat, D.w ψ = 0 → (ConLeche.formerZ cv).holds ψ = true := by
-  cases hrs : ConLeche.formerResSort cv.type with
-  | none =>
-    intro ψ _
-    simp [ConLeche.formerZ, hrs, ConLeche.PropWhen.holds]
-  | some s =>
-    rw [mp.formerAt_flat hD hmm hf (by simp [ConLeche.formerDefHeaded, hrs])] at hz
-    exact hz
+open SetTheory ConLeche.Term in
+/-- **A recorded block's formers have its telescope's value** (`LfpReads`). -/
+theorem EnvModelM.lfpReads {V : Type w} [SetTheory V] {env : Env} (mp : EnvModelM V env)
+    {D : LfpDatum V} (hD : D ∈ mp.lfpBlocks) : LfpReads mp.base2.acval env D :=
+  (mp.lfp_ok D hD).2.2.1
 
 open SetTheory ConLeche.Term in
-/-- **A recorded member inhabits its former as read.** -/
-theorem EnvModelM.formerAt_mem {V : Type w} [SetTheory V] {env : Env} (mp : EnvModelM V env)
-    {D : LfpDatum V} (hD : D ∈ mp.lfpBlocks) {mm : Nat} (hmm : mm < D.k) {cv : ConstantVal}
-    {caps : ConLeche.IndCaps} (hf : env.find? (D.member mm) = some (.indInfo cv caps))
-    {ψ : Name → Nat} {ta : ConLeche.Term.Term}
-    (hta : denote mp.base2.acval env ψ 0 (D.formerAt mm cv).type = some ta) (ρ : Nat → V) :
-    interp V ρ (mp.base2.acval (D.member mm) ψ) ∈ˢ interp V ρ ta := by
-  obtain ⟨-, -, hrd, -⟩ := mp.lfp_ok D hD
-  obtain ⟨cv', caps', hf', ⟨-, hsh⟩, -⟩ := hrd mm hmm
-  rw [hf] at hf'
-  obtain ⟨rfl, rfl⟩ : cv = cv' ∧ caps = caps' := by simpa using hf'
-  rcases hsh with hn | ⟨f, hs, -, -, -, -, -, -, hm⟩
-  · rw [show D.formerAt mm cv = cv by simp [LfpDatum.formerAt, hn.1]] at hta
-    have := mp.mem_type _ (ConLeche.Env.find?_mem hf) ψ _ hta ρ
-    rwa [ConLeche.Env.find?_name hf] at this
-  · rw [show D.formerAt mm cv = f by simp [LfpDatum.formerAt, hs]] at hta
-    obtain ⟨ta', _, hta', _, hin⟩ := hm ψ
-    rw [hta] at hta'
-    obtain rfl := Option.some.inj hta'
-    exact (hin ρ).2.1
+/-- **A recorded member inhabits its block's telescope** by value, read at any valuation: it
+inhabits its stored type, which is closed and has the telescope's value (`LfpReads`). -/
+theorem EnvModelM.member_mem_tower {V : Type w} [SetTheory V] {env : Env} (mp : EnvModelM V env)
+    {D : LfpDatum V} (hD : D ∈ mp.lfpBlocks) {mm : Nat} (hmm : mm < D.k) (ψ : Name → Nat)
+    (ρ σ : Nat → V) :
+    interp V ρ (mp.base2.acval (D.member mm) ψ)
+      ∈ˢ interp V σ (mkPisAV (D.pars mm ψ ++ D.ids mm ψ) (.sort (D.w ψ))) := by
+  obtain ⟨cv, caps, hf, -, hval, -⟩ := mp.lfpReads hD mm hmm
+  obtain ⟨ta, hta, hv⟩ := hval ψ
+  have hwf := mp.base2.wf.consts _ (ConLeche.Env.find?_mem hf)
+  have hcl : ConLeche.Term.Term.bvarsBelow 0 ta :=
+    ConLeche.Verify.denote_bvarsBelow mp.base2.cval_closed 0 _
+      (ConLeche.Expr.WScoped.of_not_hasFvar hwf.1) hwf.2.2.2.1 hta
+  have hm := mp.mem_type _ (ConLeche.Env.find?_mem hf) ψ ta hta ρ
+  rw [ConLeche.Env.find?_name hf] at hm
+  rw [← hv σ, interp_closed V hcl σ ρ]
+  exact hm
 
 open SetTheory ConLeche.Term in
-/-- **A recorded member's former reads as a type.** -/
-theorem EnvModelM.formerAt_wellDenotedTy {V : Type w} [SetTheory V] {env : Env}
-    (mp : EnvModelM V env) {D : LfpDatum V} (hD : D ∈ mp.lfpBlocks) {mm : Nat} (hmm : mm < D.k)
-    {cv : ConstantVal} {caps : ConLeche.IndCaps}
-    (hf : env.find? (D.member mm) = some (.indInfo cv caps)) {ψ : Name → Nat}
-    {ta : ConLeche.Term.Term}
-    (hta : denote mp.base2.acval env ψ 0 (D.formerAt mm cv).type = some ta) (ρ : Nat → V) :
-    WellDenotedTy V ρ ta := by
-  obtain ⟨-, -, hrd, -⟩ := mp.lfp_ok D hD
-  obtain ⟨cv', caps', hf', ⟨-, hsh⟩, -⟩ := hrd mm hmm
-  rw [hf] at hf'
-  obtain ⟨rfl, rfl⟩ : cv = cv' ∧ caps = caps' := by simpa using hf'
-  rcases hsh with hn | ⟨f, hs, -, -, -, -, -, -, hm⟩
-  · rw [show D.formerAt mm cv = cv by simp [LfpDatum.formerAt, hn.1]] at hta
-    exact mp.type_wellDenotedTy _ (ConLeche.Env.find?_mem hf) ψ _ hta ρ
-  · rw [show D.formerAt mm cv = f by simp [LfpDatum.formerAt, hs]] at hta
-    obtain ⟨ta', _, hta', _, hin⟩ := hm ψ
-    rw [hta] at hta'
-    obtain rfl := Option.some.inj hta'
-    exact (hin ρ).2.2
-
-open SetTheory ConLeche.Term in
-/-- **A stored former and the one its block read have one value.** -/
-theorem EnvModelM.formerAt_interp {V : Type w} [SetTheory V] {env : Env} (mp : EnvModelM V env)
+/-- **A recorded member's telescope has one value at two level assignments agreeing on the
+member's level parameters**: both are its stored type's (`LfpReads`), which reads alike. -/
+theorem EnvModelM.tower_congr {V : Type w} [SetTheory V] {env : Env} (mp : EnvModelM V env)
     {D : LfpDatum V} (hD : D ∈ mp.lfpBlocks) {mm : Nat} (hmm : mm < D.k) {cv : ConstantVal}
     {caps : ConLeche.IndCaps} (hf : env.find? (D.member mm) = some (.indInfo cv caps))
-    {ψ : Name → Nat} {ta₀ ta : ConLeche.Term.Term}
-    (hta₀ : denote mp.base2.acval env ψ 0 cv.type = some ta₀)
-    (hta : denote mp.base2.acval env ψ 0 (D.formerAt mm cv).type = some ta) (ρ : Nat → V) :
-    interp V ρ ta₀ = interp V ρ ta := by
-  obtain ⟨-, -, hrd, -⟩ := mp.lfp_ok D hD
-  obtain ⟨cv', caps', hf', ⟨-, hsh⟩, -⟩ := hrd mm hmm
+    {ψ₁ ψ₂ : Name → Nat} (hag : ∀ q ∈ cv.levelParams, ψ₁ q = ψ₂ q) (σ : Nat → V) :
+    interp V σ (mkPisAV (D.pars mm ψ₁ ++ D.ids mm ψ₁) (.sort (D.w ψ₁)))
+      = interp V σ (mkPisAV (D.pars mm ψ₂ ++ D.ids mm ψ₂) (.sort (D.w ψ₂))) := by
+  obtain ⟨cv', caps', hf', -, hval, -⟩ := mp.lfpReads hD mm hmm
   rw [hf] at hf'
   obtain ⟨rfl, rfl⟩ : cv = cv' ∧ caps = caps' := by simpa using hf'
-  rcases hsh with hn | ⟨f, hs, -, -, -, -, -, -, hm⟩
-  · rw [show D.formerAt mm cv = cv by simp [LfpDatum.formerAt, hn.1], hta₀] at hta
-    rw [Option.some.inj hta]
-  · rw [show D.formerAt mm cv = f by simp [LfpDatum.formerAt, hs]] at hta
-    obtain ⟨ta', ta₀', hta', hta₀', hin⟩ := hm ψ
-    rw [hta] at hta'
-    obtain rfl := Option.some.inj hta'
-    rw [hta₀] at hta₀'
-    obtain rfl := Option.some.inj hta₀'
-    exact (hin ρ).1
+  obtain ⟨t₁, h₁, hv₁⟩ := hval ψ₁
+  obtain ⟨t₂, h₂, hv₂⟩ := hval ψ₂
+  have hwf := mp.base2.wf.consts _ (ConLeche.Env.find?_mem hf)
+  rw [denote_params_ext mp.base2 hag 0 cv.type hwf.2.1, h₂] at h₁
+  obtain rfl := Option.some.inj h₁
+  rw [← hv₁, ← hv₂]
 
 end ConLeche.Model

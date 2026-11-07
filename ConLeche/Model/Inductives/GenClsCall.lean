@@ -465,6 +465,52 @@ theorem genCallTy
   rw [List.take_append_drop] at this
   simpa [List.map_append] using this
 
+set_option maxHeartbeats 4000000 in
+/-- **A motive that is not the point has a fit of its class's index
+binders**: the motive's type is the Π-tower of the class's index and
+major domains over a sort (`genMotRds`); with no fit that tower is the
+unit (`mkPisAV_sort_eq_unitSet`), whose one element is the point. -/
+theorem genMot_idxFit
+    (R : GenRecRun .verified F (mkFEnv env₁) env₁ (mkFEnv envC) pp nestedBit pos
+      block out) (hg : ClassGenScoped R.g)
+    (h : ConLeche.RecStageG .verified F envC pp (tgtRs out)) (mpC : EnvModelM V envC)
+    (ψ : Name → Nat) (ρ : Nat → V) {c : Nat} (hc : c < (tgtRs out).length) {xs : List V}
+    (hxs : SpineFit ρ (blockRulePdomsAV mpC.base2.acval envC pp (tgtRs out) ψ c) xs)
+    (hne : xs.getD (classMotPos R.g (genClsOf R.rd c)) pt ≠ pt) :
+    ∃ is : List V, SpineFit (consList xs ρ)
+      (((blockRecRdsAV mpC.base2.acval envC pp (tgtRs out) ψ c).drop
+        (pp.rulePrefixAt c)).take (tgtMajor out c).nIdx) is := by
+  obtain ⟨st, hst, -⟩ := genRun_motive R hc
+  have hst' : ConLeche.ClassRead.motiveSlot ⟨R.g.slots, []⟩ (genClsOf R.rd c) = some st := hst
+  have hsl : st < R.g.slots.length := ConLeche.ClassRead.motiveSlot_lt hst'
+  have hpl : R.g.pre.length = R.g.nP + R.g.slots.length :=
+    (ConLeche.ClassGen.prefixBinders_scoped hg hg.pre).1
+  obtain ⟨pds, R0, hPdE, hR0, hdrop⟩ := genMotRds R hg h mpC ψ hc hc rfl hst'
+  obtain ⟨hlc, -⟩ := genPdoms_read R hg h mpC ψ hc
+  have hxl : xs.length = R.g.pre.length := hxs.length_eq.trans hlc
+  have hmem := spineFit_mem_getD hxs (R.g.nP + st) (by rw [hlc]; omega)
+  rw [hPdE, hR0] at hmem
+  have hmp : classMotPos R.g (genClsOf R.rd c) = R.g.nP + st := by
+    simp [classMotPos, hst']
+  rw [hmp] at hne
+  obtain ⟨vs, hvs⟩ : ∃ vs, SpineFit (consList (xs.take (R.g.nP + st)) ρ) pds vs := by
+    refine Classical.byContradiction fun hno => hne ?_
+    rw [mkPisAV_sort_eq_unitSet fun vs hvs => hno ⟨vs, hvs⟩] at hmem
+    exact mem_unitSet_iff.mp hmem
+  -- read at the rule prefix
+  have hsplit : consList (xs.drop (R.g.nP + st)) (consList (xs.take (R.g.nP + st)) ρ)
+      = consList xs ρ := by rw [← consList_append, List.take_append_drop]
+  have hdl : (xs.drop (R.g.nP + st)).length = R.g.pre.length - (R.g.nP + st) := by
+    rw [List.length_drop, hxl]
+  have hfit := (spineFit_liftDomsK_insert (us := xs.drop (R.g.nP + st))
+    (ρ := consList (xs.take (R.g.nP + st)) ρ) pds [] vs).mpr (by simpa using hvs)
+  simp only [consList_nil, List.length_nil, hsplit, hdl] at hfit
+  rw [← hdrop] at hfit
+  obtain ⟨-, -, -, -, -, -, -, -, -, hRPc, -, hlenR, -⟩ := genRun_binders R hg h mpC ψ hc
+  rw [hRPc]
+  exact ⟨vs.take (tgtMajor out c).nIdx, spineFit_take hfit (by
+    rw [List.length_drop, hlenR, hRPc]; omega)⟩
+
 end Call
 
 end ConLeche.Model

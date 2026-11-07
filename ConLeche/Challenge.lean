@@ -125,10 +125,6 @@ the process, and `--trusted` mode is outside both.  See README.md.
   importer its context is made of presented records read as their
   homes read them, its own records are accepted from it by the fold's
   step, and its proof flags are proofs.
-* `FormerRuns dev j` is the one hypothesis beyond the local checks: a
-  type former whose declared type is headed by a definition reduces at
-  the importer's context as at its source.  It is stated so that it
-  is visible; a separate task (#469) is to prove it.
 
 The statements about the binary's runs are in `ConLeche/MainTheorem.lean`, under the assumption
 `ConLeche/Frontend/CheckerIO.lean` states: a run's file operations answer on one snapshot of the
@@ -170,8 +166,7 @@ open Modular in
 /-- **The modular theorem.** -/
 theorem modular_model_exists (V : Type w) [SetTheory V]
     (pins : List NatOpPinSet) (dev : Nat → Modular.Module) (i : Nat)
-    (hok : ∀ j ≤ i, Modular.LocalOk .verified pins dev j)
-    (hruns : ∀ j ≤ i, Modular.FormerRuns dev j) :
+    (hok : ∀ j ≤ i, Modular.LocalOk .verified pins dev j) :
     ∃ m : ∀ j ≤ i, Model V (dev j).own,
       (∀ j hj j' hj' n, ((dev j).own.find? n).isSome = true →
         ((dev j').own.find? n).isSome = true → (dev j).key n = (dev j').key n →
@@ -183,8 +178,7 @@ theorem modular_model_exists (V : Type w) [SetTheory V]
 /-- **The modular corollary**: no module's own environment stores a constant of type `False`. -/
 theorem modular_no_False (V : Type w) [SetTheory V]
     (pins : List NatOpPinSet) (dev : Nat → Modular.Module) (i : Nat)
-    (hok : ∀ j ≤ i, Modular.LocalOk .verified pins dev j)
-    (hruns : ∀ j ≤ i, Modular.FormerRuns dev j) :
+    (hok : ∀ j ≤ i, Modular.LocalOk .verified pins dev j) :
     ∀ j ≤ i, ∀ c ∈ (dev j).own.consts, c.toConstantVal.type = .const falseName [] → False :=
   sorry
 

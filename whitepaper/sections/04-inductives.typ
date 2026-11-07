@@ -62,7 +62,7 @@ nor nested; nested blocks are the subject of @sec:nested. The block is given by 
   $arrow(e)_j$ of its result $I thick arrow(x) thick arrow(e)_j$.
 
 A field is one of #src("whitepaper/Fragment/Spec.lean", 28, 42)[two kinds]
-(#src("ConLeche/Kernel/Inductives/Positivity.lean", 672, 682)[as in con-leche]):
+(#src("ConLeche/Kernel/Inductives/Positivity.lean", 686, 696)[as in con-leche]):
 
 - _ordinary_: its domain does not mention $I$;
 - _reflexive_: its domain is
@@ -78,7 +78,7 @@ mentions $I$ anywhere else; this is
 #src("whitepaper/Fragment/Decl.lean", 641, 655)[strict positivity].
 And nothing after a reflexive field
 #src("whitepaper/Fragment/Decl.lean", 658, 663)[may depend on its value]
-(#src("ConLeche/Kernel/Inductives/Positivity.lean", 1324, 1327)[as in con-leche] and the
+(#src("ConLeche/Kernel/Inductives/Positivity.lean", 1338, 1341)[as in con-leche] and the
 official kernel), so that the model can read a constructor's domains
 without knowing the values of its reflexive fields.
 
@@ -89,7 +89,7 @@ without knowing the values of its reflexive fields.
   domain after weak head normal form, with $I$ at the block's
   parameters replaced by a variable standing for the family being
   defined; @sec:nested uses the same check
-  (#src("ConLeche/Kernel/Inductives/Positivity.lean", 1512, 1513)[positivity]).
+  (#src("ConLeche/Kernel/Inductives/Positivity.lean", 1527, 1528)[positivity]).
 ]
 
 Reflexive fields with a non-empty telescope matter to the model. A
@@ -537,12 +537,12 @@ which holds in both cases, is used here only for monotonicity.
   (the recursive field). Assembled along the fields, that is
   #src("ConLeche/Model/Inductives/BlockAccRunCont.lean", 311, 316)[the fit's accessibility, for both kinds of family, with a bound in the universe for a type-valued one]
   (#src("ConLeche/SetModel/Access.lean", 56, 63)[the notion above]), and
-  #src("ConLeche/Model/Env/BlockLfp.lean", 517, 521)[the operator's monotonicity] follows from it, as in the fragment.
+  #src("ConLeche/Model/Env/BlockLfp.lean", 527, 531)[the operator's monotonicity] follows from it, as in the fragment.
   The fragment's simplification is to take the field kinds from the
   specification instead of the run. The universe bound on the fields the real proof records
   from a check made for the proof alone, the constructor type-checked
   with the holes in context
-  (#src("ConLeche/Model/Env/BlockLfp.lean", 456, 462)[the recorded bound]);
+  (#src("ConLeche/Model/Env/BlockLfp.lean", 466, 472)[the recorded bound]);
   the fragment reads it off the constructor's ordinary typing.
 ]
 
@@ -644,16 +644,16 @@ every constructor denotes the point.
   graph over an index set. What the model records of an installed
   block is one clause: the operator maps the universe to itself and
   its fit is accessible, for both kinds of family
-  (#src("ConLeche/Model/Env/BlockLfp.lean", 394, 401)[the operator]).
+  (#src("ConLeche/Model/Env/BlockLfp.lean", 404, 411)[the operator]).
   So it has a closed family
   (#src("ConLeche/SetModel/Access.lean", 298, 303)[the constant family at a proposition, and from accessibility for a type-valued family])
   and is
-  #src("ConLeche/Model/Env/BlockLfp.lean", 517, 521)[monotone]\;
+  #src("ConLeche/Model/Env/BlockLfp.lean", 527, 531)[monotone]\;
   its fibres are the tagged tuples of fitting fields
-  (#src("ConLeche/Model/Env/BlockLfp.lean", 402, 407)[the fibres]),
+  (#src("ConLeche/Model/Env/BlockLfp.lean", 412, 417)[the fibres]),
   and the type former denotes
-  #src("ConLeche/Model/Env/BlockLfp.lean", 187, 189)[the least fixed point]
-  (#src("ConLeche/Model/Env/BlockLfp.lean", 523, 526)[the fixed-point equation]).
+  #src("ConLeche/Model/Env/BlockLfp.lean", 188, 190)[the least fixed point]
+  (#src("ConLeche/Model/Env/BlockLfp.lean", 533, 536)[the fixed-point equation]).
   Its constructors are
   #src("ConLeche/SetModel/TaggedSum.lean", 65)[tagged pairs] of
   #src("ConLeche/SetModel/TupleTower.lean", 93)[nested pairs], the
@@ -1012,7 +1012,7 @@ assumed of the environment they extend.
   environment. Then #src("whitepaper/Fragment/Consistency.lean", 139, 149)[no closed term $e$ has] $tack e => I$; in
   particular no stored constant has type $I$
   (#src("whitepaper/Fragment/Consistency.lean", 155, 159)[at the block `inductive False : Prop`]\;
-  #src("ConLeche/Model/Fold.lean", 436, 443)[as in con-leche]).
+  #src("ConLeche/Model/Fold.lean", 433, 440)[as in con-leche]).
 ] <cor:consistency>
 
 #proof[
@@ -1040,7 +1040,7 @@ assumed of the environment they extend.
   name `False` and say that it denotes the empty set and `Eq` set
   equality, with no hypothesis about the stream (#overview(1)); and
   its acceptance is the run of a program,
-  #src("ConLeche/Model/Fold.lean", 365, 367)[the declaration fold],
+  #src("ConLeche/Model/Fold.lean", 362, 364)[the declaration fold],
   rather than a relation, so a bridge theorem turns each accepting
   run into the derivations §3 and §4 consume (@sec:left-out). The
   argument in between is the one above.

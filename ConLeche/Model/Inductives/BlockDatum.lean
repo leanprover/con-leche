@@ -2,7 +2,7 @@ module
 
 import ConLeche.Verify.Inductives.PositivityInv
 import ConLeche.Verify.Inductives.DirectInv
-public import ConLeche.Model.Inductives.FamilyRan
+public import ConLeche.Model.Inductives.RunEnv
 public import ConLeche.Model.Inductives.BlockAssembly
 public import ConLeche.Model.Inductives.BlockStageTables
 import ConLeche.Verify.PropWhen
@@ -461,7 +461,7 @@ theorem blockTablesStage_of {F : Nat} {env envI : Env}
     (hPos : ConLeche.PositivityRun (ConLeche.fueledOps .verified F) envI
       envI.find? q posKs.1 posKs.2.1 posKs.2.2)
     -- the input's coverage (the walk's container case reads the containers' clauses)
-    (hcovIn : LfpCover mp []) (hRan : FamilyRan mp) (hx : EnvExt env envI) :
+    (hcovIn : LfpCover mp []) :
     ∃ (pk : Nat → BlockMemberPick) (uOf : Nat → (Name → Nat) → Nat)
       (ppsOf : Nat → (Name → Nat) → List Term)
       (mpI : EnvModelM V envI),
@@ -561,7 +561,7 @@ theorem blockTablesStage_of {F : Nat} {env envI : Env}
     rw [← show cvTb.name = n from hname]
     exact hF.freshOf t cvTb hcv
   have hcovD : ∃ mk : EnvModelM V envI, mk.base2 = mpD.base2 ∧
-      LfpCover mk q.memberNames ∧ ∀ F, FamilyRead mk F :=
+      LfpCover mk q.memberNames :=
     (lfpCover_formers mp hcons mpD
       (fun cvS hS => by
         obtain ⟨cvTb, hb, hn⟩ := hofDcl cvS hS
@@ -574,7 +574,7 @@ theorem blockTablesStage_of {F : Nat} {env envI : Env}
         obtain ⟨cvTb, hb, hn⟩ := hofDcl cvS hS
         rw [hn]; exact hmemNames cvTb hb)
       hnamesFresh hcovIn).imp
-      fun _ h => ⟨h.1, h.2.2, hRan.read hx.find hx.table fun D hD => by rw [← h.2.1]; exact hD⟩
+      fun _ h => ⟨h.1, h.2.2⟩
   -- ## the members' index telescopes, at the dummy carrier
   obtain ⟨uOf, hIdxOf, hUparams⟩ :=
     blockIdxFacts_of (isRec := isRec) (ppsOf := ppsOf) mpD hsorts

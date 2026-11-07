@@ -13,8 +13,7 @@ type former it stores, the blocks its source records that list it (`CtxSrc.lfpLi
 members are its former's group (`IndCaps.all`) and their constructors (`CtxRead.ctors`), all read
 alike from that source and stored identically, and what the block's clauses read of their types
 is read alike (`CtxRead.deep`), so each clause is the source's (`CtxSrc.lfp_ok`), and so is the
-constructor ownership (`CtxSrc.lfpOwn`).  A member whose stored type does not show its telescope
-is read at the telescope its block read, which the bundle's `defh` supplies.
+constructor ownership (`CtxSrc.lfpOwn`).
 -/
 
 namespace ConLeche.Model.Modular
@@ -99,14 +98,13 @@ theorem canonParams_constsResolve {E : Env} (n : Nat) :
 
 theorem canonOf_constsResolve {E : Env} {ty A : Expr} (he : ty.constsResolve E = true)
     (hA : CanonOf ty A) : A.constsResolve E = true := by
-  rcases hA with ⟨names, us, n, hA⟩ | ⟨n, hA⟩
-  · unfold nestCanonCrest at hA
-    obtain ⟨t, ht, rfl⟩ := Option.map_eq_some_iff.mp hA
-    refine constsResolve_replaceApps (fun c us' r hr => ?_) _
-      (constsResolve_instPisWith (canonParams_constsResolve _) he ht)
-    obtain ⟨m, -, -, -, rfl⟩ := nestCanonSub_some hr
-    simp [Expr.constsResolve]
-  · exact constsResolve_instPisWith (canonParams_constsResolve _) he hA
+  obtain ⟨names, us, n, hA⟩ := hA
+  unfold nestCanonCrest at hA
+  obtain ⟨t, ht, rfl⟩ := Option.map_eq_some_iff.mp hA
+  refine constsResolve_replaceApps (fun c us' r hr => ?_) _
+    (constsResolve_instPisWith (canonParams_constsResolve _) he ht)
+  obtain ⟨m, -, -, -, rfl⟩ := nestCanonSub_some hr
+  simp [Expr.constsResolve]
 
 /-! ## A container's constructors -/
 
@@ -261,36 +259,6 @@ theorem btypeR {n d : Name} (hn : (C.find? n).isSome = true) (h : BlockName C E 
     ci.toConstantVal.type.constsResolve (R n) = true :=
   S.deepType hn h.1 (bfwd h hf) hk
 
-/-- **A recorded member whose stored type does not show its telescope**: the source reduced it at
-a part of itself (`FamilyRan`), so at itself (`reducedFormer_ext`), so the context reduces it alike
-and the reduct is read alike (the bundle's `defh`). -/
-theorem defhRun {n : Name} (hn : (C.find? n).isSome = true) {D : LfpDatum V}
-    (hD : D ∈ (S.m n).lfpBlocks) {mm : Nat} (hmm : mm < D.k) (hb : BlockName C E R n (D.member mm))
-    {f : ConstantVal} (ht : D.telescope mm = some f)
-    {cv : ConstantVal} {caps : IndCaps} (hf : (E n).find? (D.member mm) = some (.indInfo cv caps))
-    (hfl : ConLeche.formerDefHeaded cv = true) :
-    f.type.constsResolve (R n) = true ∧
-      ∃ F', reducedFormer (fueledOps .verified F') C cv (caps.nparams + caps.nIdx) = .ok f := by
-  obtain ⟨envB, F, hx, hr, hrun⟩ := S.ran n D hD mm f hmm ht cv caps hf hfl
-  exact S.defh n _ cv caps hn hb.1 (bfwd hb hf) hfl F f (reducedFormer_ext hx hr hrun)
-
-/-- **A recorded member's telescope is read alike**: its stored type where that shows its
-telescope, `defhRun` where it does not. -/
-theorem telR {n : Name} (hn : (C.find? n).isSome = true) {D : LfpDatum V}
-    (hD : D ∈ (S.m n).lfpBlocks) {mm : Nat} (hmm : mm < D.k) (hb : BlockName C E R n (D.member mm))
-    {cv : ConstantVal} {caps : IndCaps} (hf : (E n).find? (D.member mm) = some (.indInfo cv caps))
-    (hflat : ConLeche.formerDefHeaded cv = false → D.formerAt mm cv = cv) :
-    (D.formerAt mm cv).type.constsResolve (R n) = true := by
-  have hty := S.btypeR hn hb hf rfl
-  cases hfl : ConLeche.formerDefHeaded cv with
-  | false => rw [hflat hfl]; exact hty
-  | true =>
-    cases ht : D.telescope mm with
-    | none => simp only [LfpDatum.formerAt, ht, Option.getD_none]; exact hty
-    | some f =>
-      simp only [LfpDatum.formerAt, ht, Option.getD_some]
-      exact (S.defhRun hn hD hmm hb ht hf hfl).1
-
 /-- **A recorded block's clauses hold at the context.** -/
 theorem lfp_ok : ∀ D ∈ S.lfpList, LfpClause aC D ∧ LfpStored C D ∧ LfpReads aC C D ∧
     LfpCtorReads aC C D ∧ LfpCaps C D := by
@@ -301,14 +269,6 @@ theorem lfp_ok : ∀ D ∈ S.lfpList, LfpClause aC D ∧ LfpStored C D ∧ LfpRe
   have hwid := (S.cover n).wid D hD
   obtain ⟨hL, ⟨hst, hstC⟩, hrd, ⟨hnk, hrdC⟩, ⟨hcK, hcC⟩⟩ := (S.m n).lfp_ok D hD
   have hck : ∀ c, c < D.N → c < D.k := fun c hc => hwid ▸ hc
-  -- the formers as read, read alike
-  have hfat : ∀ mm, mm < D.k → ∀ cv caps, (E n).find? (D.member mm) = some (.indInfo cv caps) →
-      (D.formerAt mm cv).type.constsResolve (R n) = true := by
-    intro mm hmm cv caps hf
-    obtain ⟨cv', caps', hf', ⟨hfa, -⟩, -⟩ := hrd mm hmm
-    rw [hf] at hf'
-    obtain ⟨rfl, rfl⟩ : cv = cv' ∧ caps = caps' := by simpa using hf'
-    exact S.telR hn hD hmm (hbm mm hmm) hf hfa
   refine ⟨hL.congr (fun mm hmm => S.leaf n hn _ (hbm mm hmm).1)
       (fun c hc j hj => S.leaf n hn _ (hbc c (hck c hc) j hj).1),
     ⟨fun mm hmm => ?_, fun c hc j hj => ?_⟩, fun mm hmm => ?_, ⟨hnk, fun c hc j hj => ?_⟩,
@@ -317,41 +277,25 @@ theorem lfp_ok : ∀ D ∈ S.lfpList, LfpClause aC D ∧ LfpStored C D ∧ LfpRe
     exact ⟨cv, caps, bfwd (hbm mm hmm) hf⟩
   · obtain ⟨cv, a, b, hf⟩ := hstC c hc j hj
     exact ⟨cv, a, b, bfwd (hbc c (hck c hc) j hj) hf⟩
-  · obtain ⟨cv, caps, hf, ⟨hfl, hsh⟩, hab⟩ := hrd mm hmm
+  · obtain ⟨cv, caps, hf, hfl, hval, hw⟩ := hrd mm hmm
     have hty : cv.type.constsResolve (R n) = true := S.btypeR hn (hbm mm hmm) hf rfl
-    have hfa := hfat mm hmm cv caps hf
-    refine ⟨cv, caps, bfwd (hbm mm hmm) hf, ⟨hfl, ?_⟩, fun ψ => ?_⟩
-    · refine hsh.imp id fun ⟨f, hs, h1, h2, h3, h4, _, hdl, hm⟩ => ?_
-      have hfR : f.type.constsResolve (R n) = true := by
-        have : D.formerAt mm cv = f := by simp [LfpDatum.formerAt, hs]
-        rw [← this]; exact hfa
-      refine ⟨f, hs, h1, h2, h3, h4, constsBound_of_constsResolve _ (S.resC hfR), hdl,
-        fun ψ => ?_⟩
-      obtain ⟨ta, ta₀, hta, hta₀, hmm'⟩ := hm ψ
-      refine ⟨ta, ta₀, (S.denote_eq hn ψ 0 _ hfR).trans hta, (S.denote_eq hn ψ 0 _ hty).trans hta₀,
-        fun ρ => ?_⟩
-      rw [S.leaf n hn _ (hbm mm hmm).1]
-      exact hmm' ρ
-    · obtain ⟨ab, hta, h1⟩ := hab ψ
-      exact ⟨ab, (S.denote_eq hn ψ 0 _ hfa).trans hta, h1⟩
+    refine ⟨cv, caps, bfwd (hbm mm hmm) hf, fun hflat ψ => ?_, fun ψ => ?_, hw⟩
+    · obtain ⟨ab, u, hta, hl⟩ := hfl hflat ψ
+      exact ⟨ab, u, (S.denote_eq hn ψ 0 _ hty).trans hta, hl⟩
+    · obtain ⟨ta, hta, hv⟩ := hval ψ
+      exact ⟨ta, (S.denote_eq hn ψ 0 _ hty).trans hta, hv⟩
   · obtain ⟨cv, nPc, nF, hf, hcf, hlps, hpars, A, hA, hocc, hrdA⟩ := hrdC c hc j hj
     have hbcj := hbc c hc j hj
     have hty : cv.type.constsResolve (R n) = true := S.btypeR hn hbcj hf rfl
-    have hAR := canonOf_constsResolve hty (.inl ⟨_, _, _, hA⟩)
+    have hAR := canonOf_constsResolve hty ⟨_, _, _, hA⟩
     refine ⟨cv, nPc, nF, bfwd hbcj hf, hcf, fun mm hmm => ?_,
       fun ψ dsC bodyC hrd' hle => ?_, A, hA, hocc, fun ψ => ?_⟩
     · obtain ⟨cvm, caps, hfm, hl⟩ := hlps mm hmm
       exact ⟨cvm, caps, bfwd (hbm mm hmm) hfm, hl⟩
     · rw [S.denote_eq hn ψ 0 _ hty] at hrd'
       exact hpars ψ dsC bodyC hrd' hle
-    · obtain ⟨h1, h2, ab, Tys, hta, hlab, hlT, hTys, hab⟩ := hrdA ψ
-      refine ⟨h1, h2, ab, Tys, (S.denote_eq hn ψ _ _ hAR).trans hta, hlab, hlT,
-        fun mm hmm => ?_, hab⟩
-      obtain ⟨cvm, caps, ty, hfm, hty', hr⟩ := hTys mm hmm
-      have htyR := constsResolve_instPisWith (canonParams_constsResolve _)
-        (hfat mm hmm cvm caps hfm) hty'
-      exact ⟨cvm, caps, ty, bfwd (hbm mm hmm) hfm, hty',
-        (S.denote_eq hn ψ _ _ htyR).trans hr⟩
+    · obtain ⟨h1, h2, ab, hta, hlab, hab⟩ := hrdA ψ
+      exact ⟨h1, h2, ab, (S.denote_eq hn ψ _ _ hAR).trans hta, hlab, hab⟩
   · obtain ⟨cv, caps, hf, hz⟩ := hcK mm hmm
     exact ⟨cv, caps, bfwd (hbm mm hmm) hf, hz⟩
   · obtain ⟨cv, nPc, nF, hf, hsh⟩ := hcC c hc j hj

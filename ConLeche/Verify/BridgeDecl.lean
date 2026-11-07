@@ -214,6 +214,15 @@ theorem familyKeyCheck_datF (env : Env) (find? : Name → Option ConstantInfo) (
       familyTelescope_datF, checkSpineAt_datF]
   · rfl
 
+theorem familyKeyChecks_datF (env : Env) (find? : Name → Option ConstantInfo) (d : Nat)
+    (us : List Level) (ds : List Expr) (F : Nat) :
+    ∀ cs : List Name, (familyKeyChecks (fueledOpsM mode) env find? d us ds cs).val F =
+      familyKeyChecks (fueledOps mode F) env find? d us ds cs
+  | [] => rfl
+  | c :: cs => by
+    unfold familyKeyChecks
+    simp only [FueledM.atF_bind, familyKeyCheck_datF, familyKeyChecks_datF env find? d us ds F cs]
+
 theorem nestInstType_datF (ctx : NestCtx) (env : Env) (hi : Nat) (key : NestKey) (F : Nat) :
     (nestInstType ctx (fueledOpsM mode) env hi key).val F =
       nestInstType ctx (fueledOps mode F) env hi key := by
@@ -287,7 +296,7 @@ theorem nestFrame_datF {F : Nat} (hrec : ∀ a b c d e, (rec a b c d e).val F = 
     (nestFrame ctx (fueledOpsM mode) env rec prog hi us ds nPc grp st).val F
       = nestFrame ctx (fueledOps mode F) env rec' prog hi us ds nPc grp st := by
   unfold nestFrame
-  simp only [FueledM.atF_bind, FueledM.atF_pure, familyKeyCheck_datF, nestGroupCtors_datF]
+  simp only [FueledM.atF_bind, FueledM.atF_pure, familyKeyChecks_datF, nestGroupCtors_datF]
   congr 1
   funext _
   congr 1

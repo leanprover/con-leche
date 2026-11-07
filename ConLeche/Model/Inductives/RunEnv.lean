@@ -10,12 +10,13 @@ import ConLeche.Verify.Inductives.NestContInv
 public section
 
 /-!
-# A recorded family's telescope, run
+# What a run reads of an environment
 
-A member whose declared type does not show its telescope has it read at use: by a reduction at
-the environment of the use. The block's check ran that reduction at its own environment. A run
-does not see an extension of the environment it ran at, so every later reading finds what the
-check found (`FamilyRan.read`).
+A family's telescope walk (`familyTelescope`) gives one result at every fuel that reaches one
+(`familyTelescope_unique`), named as any run reads it (`readTelescope`), and reads alike at an
+extension of the environment it ran at (`familyTelescope_ext`).  What a run needs of an
+environment to be read at its extensions is `NatFacts`; the tables across added constants keep
+their old names' entries (`findTable_of_added`).
 -/
 
 namespace ConLeche.Model
@@ -27,20 +28,6 @@ open ConLeche (Env Expr Name ConstantVal ConstantInfo IndCaps fueledOps reducedF
 universe w
 
 variable {V : Type w} [SetTheory V]
-
-/-- An extension of an extension. -/
-theorem envExt_trans {env₁ env₂ env₃ : Env} (h₁ : EnvExt env₁ env₂)
-    (hf : ∀ n ci, env₂.find? n = some ci → env₃.find? n = some ci)
-    (ht : ∀ T, (env₂.find? T).isSome = true → env₃.findTable? T = env₂.findTable? T) :
-    EnvExt env₁ env₃ where
-  find := fun n ci h => hf n ci (h₁.find n ci h)
-  table := fun T hT => by
-    have hs : (env₂.find? T).isSome = true := by
-      cases hc : env₁.find? T with
-      | none => rw [hc] at hT; exact nomatch hT
-      | some ci => rw [h₁.find T ci hc]; rfl
-    rw [ht T hs]; exact h₁.table T hT
-  facts := h₁.facts
 
 /-- A family's telescope is one, at every fuel a run has. -/
 theorem familyTelescope_unique {env : Env} {cv : ConstantVal} {caps : IndCaps} {F₁ F₂ : Nat}
@@ -79,43 +66,6 @@ theorem readTelescope_eq {env : Env} {cv : ConstantVal} {caps : IndCaps} {F : Na
   unfold readTelescope
   rw [dite_eq_left hx]
   exact familyTelescope_unique hx.choose_spec.choose_spec h
-
-/-- **The reductions behind a carrier's recorded telescopes**: a member whose declared type does
-not show its telescope reduced to what its block read, at a prefix of the environment. -/
-@[expose] def FamilyRan {env : Env} (mp : EnvModelM V env) : Prop :=
-  ∀ D ∈ mp.lfpBlocks, ∀ (mm : Nat) (f : ConstantVal), mm < D.k → D.telescope mm = some f →
-    ∀ (cv : ConstantVal) (caps : IndCaps), env.find? (D.member mm) = some (.indInfo cv caps) →
-    ConLeche.formerDefHeaded cv = true →
-    ∃ (envB : Env) (F : Nat), EnvExt envB env ∧ cv.type.constsResolve envB = true ∧
-      reducedFormer (fueledOps .verified F) envB cv (caps.nparams + caps.nIdx) = .ok f
-
-/-- **What a run reads of a recorded family's telescope is what its block read**, at an
-environment that extends the carrier's, with the carrier's blocks. -/
-theorem FamilyRan.read {env env' : Env} {mp : EnvModelM V env} {mk : EnvModelM V env'}
-    (hS : FamilyRan mp) (hxf : ∀ n ci, env.find? n = some ci → env'.find? n = some ci)
-    (hxt : ∀ T, (env.find? T).isSome = true → env'.findTable? T = env.findTable? T)
-    (hb : ∀ D ∈ mk.lfpBlocks, D ∈ mp.lfpBlocks) (F : Nat) : FamilyRead mk F := by
-  intro D hD mm cv caps ty hmm hf hfam
-  obtain ⟨-, -, hrd, -⟩ := mk.lfp_ok D hD
-  obtain ⟨cv', caps', hf', ⟨hsame, hsh⟩, -⟩ := hrd mm hmm
-  rw [hf] at hf'
-  obtain ⟨rfl, rfl⟩ : cv = cv' ∧ caps = caps' := by simpa using hf'
-  rcases ConLeche.familyTelescope_cases hfam with ⟨hfl, rfl⟩ | ⟨hfl, cvR, hrun, rfl⟩
-  · rw [hsame hfl]
-  · rcases hsh with ⟨-, hn⟩ | ⟨f, hs, -⟩
-    · rw [hfl] at hn; exact nomatch hn
-    · obtain ⟨cv₀, caps₀, hf₀⟩ := (mp.lfp_ok D (hb D hD)).2.1.1 mm hmm
-      have hf₁ := hxf _ _ hf₀
-      rw [hf] at hf₁
-      obtain ⟨rfl, rfl⟩ : cv = cv₀ ∧ caps = caps₀ := by simpa using hf₁
-      obtain ⟨envB, F₁, hxB, hr, hrun₁⟩ := hS D (hb D hD) mm f hmm hs cv caps hf₀ hfl
-      have h₁ := reducedFormer_ext (envExt_trans hxB hxf hxt) hr hrun₁
-      have hfam₁ : ConLeche.familyTelescope (fueledOps .verified F₁) env' cv caps = .ok f.type := by
-        unfold ConLeche.familyTelescope
-        rw [ite_eq_left hfl, h₁]
-        rfl
-      rw [familyTelescope_unique hfam hfam₁]
-      simp [LfpDatum.formerAt, hs]
 
 /-- The tables on the old names across added constants and no table. -/
 theorem findTable_of_added {env env₂ : Env} {new : List ConstantInfo}
@@ -190,20 +140,5 @@ theorem NatFacts.append {env env₂ : Env} {new : List ConstantInfo} (hN : NatFa
   have h₂ := hf ConLeche.natZeroName fun c hc => (hres c hc).2.1
   have h₃ := hf ConLeche.natSuccName fun c hc => (hres c hc).2.2
   exact ⟨by rw [h₁, h₂, h₃]; exact hN.trio⟩
-
-/-- **Shown telescopes across a step that records none.** -/
-theorem FamilyRan.step {env env' : Env} {mp : EnvModelM V env} {mp' : EnvModelM V env'}
-    (hS : FamilyRan mp) (r : CoverRel mp mp')
-    (htb : ∀ T, (env.find? T).isSome = true → env'.findTable? T = env.findTable? T) :
-    FamilyRan mp' := by
-  intro D hD mm f hmm hs cv caps hf hdh
-  rcases r.blocks D hD with h₀ | h₀
-  · obtain ⟨cv₀, caps₀, hf₀⟩ := (mp.lfp_ok D h₀).2.1.1 mm hmm
-    have hf₁ := r.find _ _ hf₀
-    rw [hf] at hf₁
-    obtain ⟨rfl, rfl⟩ : cv = cv₀ ∧ caps = caps₀ := by simpa using hf₁
-    obtain ⟨envB, F, hx, hres, hrun⟩ := hS D h₀ mm f hmm hs cv caps hf₀ hdh
-    exact ⟨envB, F, envExt_trans hx r.find htb, hres, hrun⟩
-  · rw [h₀] at hs; exact nomatch hs
 
 end ConLeche.Model

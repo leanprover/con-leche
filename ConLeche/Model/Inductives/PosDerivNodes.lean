@@ -1,6 +1,6 @@
 module
 
-public import ConLeche.Model.Inductives.FamilyRan
+public import ConLeche.Model.Inductives.RunEnv
 public import ConLeche.Model.Inductives.ContSem
 import ConLeche.Verify.InferLeaves
 import ConLeche.Model.Inductives.PosDerivMono
@@ -286,8 +286,8 @@ theorem frame_nodes (mp : EnvModelM V env)
       (ctx.hiAt prog.length) ⟨p.1, us, ds⟩ = .ok (nI, p.2))
     (hgrp : grp.map (·.1) = (grp.headD default).1 :: ConLeche.nestFrameMates ctx (grp.headD default).1)
     (hctors : groupCtors ctx ds.length (grp.map (·.1)) = some ctors)
-    (hkty : ConLeche.familyKeyCheck (fueledOps .verified F) env ctx.find? (ctx.hiAt prog.length)
-      (grp.headD default).1 us ds = .ok ())
+    (hkty : ∀ p ∈ grp, ConLeche.familyKeyCheck (fueledOps .verified F) env ctx.find?
+      (ctx.hiAt prog.length) p.1 us ds = .ok ())
     {ts : List PosTree}
     (hwalkD : PosD (fueledOps .verified F) env ctx
       (.ctors ((grpNews us ds (ctx.hiAt prog.length) grp).reverse ++ prog)
@@ -301,19 +301,13 @@ theorem frame_nodes (mp : EnvModelM V env)
   intro D hD mm hmm hhead lps hlps hul hds dsa hdsa hlenP hnL hCds hLds
   have hblkD := hcov.block D hD
   have hkN := lfp_namesLen mp hD
-  have hg := frame_grpOk mp hcov hne hnd hinst hgrp hD hmm hhead hlps
+  have hg := frame_grpOk mp hcov hne hnd hinst hgrp hkty hD hmm hhead hlps
   obtain ⟨p₀, ps₀, rfl⟩ := List.exists_cons_of_ne_nil hne
-  simp only [List.headD_cons] at hhead hkty
-  obtain ⟨cv₀, caps₀, hf₀, hlp₀⟩ := hlps mm hmm
+  simp only [List.headD_cons] at hhead
   have hndl : lps.Nodup := frame_lps_nodup mp hcov hD hmm hlps (by rw [hhead]; simp) hctors
     (posD_ctors_nodup hwalkD) hnL
-  have hgT := grpWf_ty mp hD hblkD.nodup hkN hcov.find hlps hndl hul hds hdsa hlenP hg.2
   have hΔ : (stackCtx mp.base2 φ ctx prog Δ0).length = ctx.hiAt prog.length :=
     stackCtx_length_hi hΔ0 prog
-  -- the key, graded
-  have hkey := frameKey_of_check mp hin hcov hD hmm hf₀ hds hLds hΔ hCds
-    hdsa (by rw [hlp₀]; exact hlenP) (by rw [hhead]; exact hkty)
-  rw [hlp₀] at hkey
   refine ih (by simp [grpNews, ConLeche.NestCtx.hiAt]; omega)
     (fun x => ∃ c j, InGrp D (p₀ :: ps₀) c ∧ j < D.nctors c ∧
       env.find? (D.ctorName c j) = some (.ctorInfo x.1 ds.length x.2))
@@ -325,7 +319,7 @@ theorem frame_nodes (mp : EnvModelM V env)
     have hbb : (x.1.type.instantiateLevelParams x.1.levelParams us).looseBVarsBounded 0 = true := by
       rw [Expr.looseBVarsBounded_instantiateLevelParams]; exact hwf.2.2.2.1
     obtain ⟨hfr, hC⟩ := crest_frame mp hD hblkD.nodup hkN hcov.find hlps hndl hul hds hdsa hlenP
-      hg.2 hΔ hCds hLds hkey hcl hbb hcr
+      hg.2 hin hΔ hCds hLds hcl hbb hcr
     obtain ⟨-, crest', ab, hcr', -, -, hrd⟩ :=
       crest_read mp hD hblkD.nodup hkN hcov.find hlps hndl hul hds hdsa hlenP hg.2 hc hj hfc
     rw [hcr] at hcr'
@@ -505,8 +499,9 @@ theorem posD_nodeSem (mp : EnvModelM V env)
     -- the key's parameters are read: each is typed at the root (K.52)
     obtain ⟨dsa, hdsa⟩ : ∃ dsa, DenoteSpine mp.base2.acval env φ (ctx.hiAt 0) ds dsa := by
       cases hfr with
-      | frame _ _ _ _ _ _ _ _ hkty _ =>
-        exact familyKey_reads mp.base2 φ hkty (fun x hx => hdsw x hx)
+      | frame hne _ _ _ _ _ _ _ hkty _ =>
+        exact familyKey_reads mp.base2 φ (hkty _ (ConLeche.headD_mem_of_ne_nil hne))
+          (fun x hx => hdsw x hx)
           (fun x hx => (hdsw' x hx).2) hLds
     exact NodesSem.cons_node ⟨⟨dsa, hdsa⟩, hCds, hLds⟩
       (frameNodes_of mp hcov hfr ihf hdsw' hdsa hCds hLds) NodesSem.nil

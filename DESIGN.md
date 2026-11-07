@@ -111493,6 +111493,197 @@ surface (`lakefile.lean` re-pinned: `ConLeche.Modular` leaves the capstone lib's
 **Sizes.**  `Model/Modular/`: `Step` 127, `Read` ~210, `Restrict*` ~1 700, `Valid` ~1 080,
 `Instance` ~230, `Main` ~130 lines.
 
+## TASK #443 — a definition-headed former's telescope, semantically: the analysis, and where it stops (2026-11-06, agent/443-semantic-former)
+
+**The task (maintainer).**  Discharge `FormerRuns` (#463) by making the block datum's telescope
+requirements semantic: a model carries over from home to importer; at most "if the former
+reduces, it is a telescope with this and that".  Ruled out: (a) Π-injectivity in `SetTheory`,
+(c) a runtime re-run/decline, (d) `FormerRuns` explicit.  So (b): `FamilyRead`, `LfpReads`,
+`LfpCtorReads` (and `LfpCaps`) restated so that consumers need the run's result at the importer
+only **up to interpretation** (it denotes what the home's telescope denotes), proved at the
+importer from #469's transport.  First an analysis; stop with the precise obstacle if (b) cannot
+work.  **Result: it stops.**  Nothing but this record is committed.
+
+### 1. What the consumers read of a member's telescope
+
+`FamilyRead` is used only to rewrite a kernel run's result to `(D.formerAt mm cv).type`; a run is in
+hand at every use (`ContSem.instFacts`/`keyCerts`: `nestInstType`, `familyKeyCheck`;
+`TgtOutCls.outsideInst`: `targetOutsideInst`; `GenClsSem` l.1138: `classFormerTy`).  The kernel
+runs `nestInstType` on every mate of a container's group (`nestGrowGroup` over `nestFrameMates`),
+so the container walk has a run for each hole type too.  What is then read off the telescope:
+
+| consumer | reads | kind |
+|---|---|---|
+| `ContWalk.grp_typeT`/`grp_typeT_wd`, `ContN2.instFormer_readB`/`instFormer_read`, `canonHoleTy_read` | the instantiated telescope's binders **as the Terms** `D.pars`/`D.ids` (`abF = pars ++ ids`, `abF.drop n = ids`), the end **as the Term** `.sort (D.w ψ)`; `stripPis`/`instPisWith`/`piBinders` counts | Term equality of binder readings and of the sort |
+| `LfpCtorReads`' `Tys` (`crest_readT`, `frameVals_sat`, `ContInst*`, `ContAccFrame`, `TargetCallFrame`, `GenClsSem` l.678) | each member's hole type, read off `instPisWith (canonParams n) (formerAt ..).type`, Term-equal to the datum's index tower | Term equality (no run needed: the datum's own Terms would do) |
+| `TgtOutCls.read` → `GenOutFacts.genOutIdxLen`/`tailOk`, `GenRecPreRun`, `GenClsData` l.471, `GenFrameTie` | binder count, `TailOk`, the sort (`instPis_sort_of_read`), the parameter prefix (`take |pars|`) | structure, Term-level sort |
+| `GenRecExtra.lfpW_congr` and l.1695, 2371 | the sort `D.w` read off the former's reading (`mkPisAV_sort_inj`) at two valuations | Term-level sort |
+| `ContLeaf` l.70–95, 296–345 | a fit of `pars ++ ids` for a recorded member's application, the key's parameters against the telescope (`certsF_sound`) | interpretation along a fit |
+| `formerAt_mem`/`_wellDenotedTy`/`_interp`, `formerZ_holds`, `LfpCaps` | membership, graded type, zero-ness of the stored former | interpretation, or the stored `cv` |
+| `FamilyRan.read`, `RestrictLfp.telR`/`defhRun`, `CanonCrest` transports | `ConstsBound`/`constsResolve` of the telescope | names read |
+
+The weakest statements that would serve: the hole types `Tys` and the member facts can be the
+datum's own Terms (no Expr, no run: `Tys_mm` the index tower over `D.ids mm`, the member inhabiting
+`mkPisAV (pars ++ ids) (sort w)`, `LfpCaps` on the stored `cv`); the names read can be stated over
+the run's own result.  What remains is the run's result itself: its binders against `pars`/`ids`
+and its end sort against `w`, read by the container walk and the recursor stage.
+
+### 2. What the importer can prove of its run
+
+At a context `C` whose run of `reducedFormer` succeeds with `f'`, #469 gives
+`TeleRed (E n) 0 n cv.type bs s` (`reducedFormer_refine`), sound in the source's model
+(`red_sound_ty`), so `interp (denote f'.type) = interp (denote cv.type)` at every valuation: the
+**whole tower's** value.  The derived Π-injectivity (`SetModel/Tower.lean`, task #480:
+`piSet_inj`, `TowerPath.univ_eq`; a theorem from the interface, no new axiom — #463's record says
+the interface "does not have" it, which is true of the interface and not of what is derived from
+it) splits that value binder by binder **along a fit only**: at an inhabited domain point the
+domains agree and the fibres agree there.
+
+### 3. The obstacle
+
+**The interpretation does not determine a telescope past an empty domain, nor its sort.**
+`piV A B = piR (propN A B) A B`, and over an empty `A` `propN A B = 0` whatever `B`, so
+`piV ∅ B = truthVal True` (`SetModel/Ops.lean`, `piR`, `propN`).  Minimal example: the towers
+`(x : Empty) → Type` and `(x : Empty) → Type 1`, or `(x : Empty) → A → Type` and
+`(x : Empty) → B → Type`, have one interpretation at every valuation.  So "the importer's run's
+result denotes what the home's telescope denotes" is consistent with a run ending in another sort
+or other binders behind an index domain that is empty, and no statement up to interpretation gives
+what the consumers above read: the end sort as `.sort (D.w ψ)` at every level assignment
+(`grp_typeT`, `instFormer_readB`, `TgtOutCls.read`, `lfpW_congr`; the walk's universe check
+`Level.isEquiv s ctx.sort` is modelled through it) and the binders as `D.pars`/`D.ids`.
+Whether two runs of one type can actually differ there is a question about the rules
+(convertibility of two telescopes reduced from one type), which the whole-tower value does not
+decide.  #469's counterexample (`P (Nat.rec two … 0)` against `P 2`) is the other half: there
+the binders differ as Terms with one value, so Term equality is out, and only a value comparison
+along a fit is available.
+
+Re-reading the context's datum at the importer's run (the datum's `telescope`, `pars`, `ids` taken
+from `f'`, the clauses transported) does not avoid it: the datum's `w` is the carrier's universe and
+cannot follow `f'`, and `LfpReads` asks the end sort to be `w` at every level assignment.
+
+### 4. What would work, for a ruling
+
+* **(e) Everything along a fit.**  Restate every consumer's read of a run's result as holding at
+  valuations where the parameter and index telescope has a fit (the binders by a value agreement,
+  `piSet_inj` stage by stage; the sort by `TowerPath.univ_eq`), vacuous elsewhere, and check that
+  each consumer needs it nowhere else (the tuple spaces at `D.w ψ` over an empty index set, the
+  universe check, `lfpW_congr`).  It uses the derived Π-injectivity, no interface change; whether
+  that is inside ruling (a) is the maintainer's to say.  It touches the container walk
+  (`ContWalk`, `ContN2`, `ContInst*`, `ContLeaf`), the recursor stage (`GenClsSem`, `GenRecExtra`,
+  `GenOutFacts`, `GenRecPreRun`, `GenClsData`, `GenFrameTie`, `TargetOutRows`) and the datum's four
+  clauses; several sessions.
+* **(f) The derivations' telescopes, not their values.**  A rules-tier statement that two
+  `TeleRed` chains from one type at one environment end in binder-by-binder convertible telescopes
+  and one sort (`DefEq` per binder, `Level` equivalence at the end) would give, by `defeq_sound`,
+  the value agreement at every valuation, the sort included.  The rules tier has no such statement
+  today; it is a statement about the rules, not about the model.
+
+**Gates.**  Nothing executed or proved changed; no build-relevant diff.
+
+### #443: the ruling, and the state (#443 cont.)
+
+**Ruling (maintainer, 2026-11-06): option (e).**  Every consumer reads a run's result where the
+telescope has a fit, vacuously elsewhere, using the Π-injectivity derived in
+`SetModel/Tower.lean` (`piSet_inj`, `TowerPath.univ_eq`); no interface change, no axiom; uniform
+for every member where possible.  `FormerRuns` is to leave `modular_model_exists` and
+`modular_no_False`, with the axiom pins otherwise unchanged.
+
+**A correction to §4(e).**  Even the domains agree only along a *full* fit: over
+`(x : Nat) → (y : Empty) → Type` every fibre is the truth value `unitSet`, so the whole tower is
+`unitSet`, the value of `(x : Empty) → Type` too, whose first domain differs.  So the agreement to
+state is on fits of the whole telescope, not domain by domain.
+
+**Done (on the lane, not landed).**  `Semantics/Tower/TowerKit.lean`: `univ_inj`;
+**`spineFit_of_mkPisAV_eq`** and `spineFit_iff_of_mkPisAV_eq`: two Π-towers over sorts of one
+length and one value have one set of full fits, and along a fit they end in one sort.
+
+**The plan, in order.**
+1. *The run read in a model* (new, `Model/Env/` next to `CanonCrest.lean`): in `mp : EnvModelM V
+   env`, a successful `familyTelescope (fueledOps .verified F) env cv caps = .ok ty` of a stored
+   former gives `ty` closed, bvar-bounded, `ConstsBound env`, levels defined, and at every `ψ`
+   `denote ty = some (mkPisAV ab (.sort n))` with `interp ab-tower = interp (denote cv.type)` at
+   every `ρ`: from `whnfTelescope_teleRed` at `env` and `red_sound_ty` per stage (`RulesInputs`
+   from `claimsAt_of`, as `storedFormer_sem` gets it), at the fvar-opened stages.  No refinement:
+   the run at the importer's context is a derivation at that context, whose model (`CtxSrc`'s
+   fields) is the one being built; check that the rules' inputs do not read `lfpBlocks`.
+2. *The datum, semantic and run-free*: `LfpReads` asks `interp (denote cv.type) = interp
+   (mkPisAV (pars ++ ids) (.sort w))` and the member inhabits it (graded); `D.w` read off the
+   level parameters as its own clause (what `lfpW_congr` reads today off the reading); `Tys` the
+   datum's own index towers; `LfpCaps` on the stored `cv` (as `formerZ_holds` concludes).  The
+   `telescope` field, `formerAt`, `LfpTelescope`, `FamilyRead`, `FamilyRan`, `readTelescope`,
+   `FormerRunsX` and `ctxModel`'s `hdh` go.  The importer's clauses are then read off the source's
+   by `denote_eq` alone.
+3. *The consumers* read a run's result through 1 and `spineFit_iff_of_mkPisAV_eq`: the container
+   walk (`ContWalk.grp_typeT*`, `ContN2.instFormer_read*`, `canonHoleTy_read`, `ContInst*`,
+   `ContLeaf`), the recursor stage (`TargetOutRows`, `TargetClass.TgtOutCls.read`, `GenOutFacts`,
+   `GenRecPreRun`, `GenClsData`, `GenClsSem`, `GenFrameTie`, `GenRecExtra`), the producers
+   (`DeclBlockStep`, `BlockDatum`, `BlockCtorReads`, `BasisLfp`, `BasisAtBlock`, `Cover`).  The
+   sort enters every statement under a fit of the index telescope at the key.
+4. `FormerRuns` out of `Modular.lean`, `Main.lean`, `MainTheorem.lean`, `Challenge.lean`,
+   `Axioms.lean`'s table, OVERVIEW §1, whitepaper §7.
+
+### #443: step 1 done; option (e) stops at a container's group mates (#443 cont. 2, 2026-11-06)
+
+**Merged.**  `modular` had nothing past the lane's base (`d3adce1ca`); no merge commit.
+
+**Proved (on the lane, not landed).**
+* `Model/Inductives/FamilyRun.lean` — step 1.  `teleRed_read`: a `TeleRed` chain of a graded
+  type reads, stage by stage through `red_sound_ty` at the binders opened at free variables, as
+  a Π-tower of the chain's length over the sort's value, graded, of the subject's value.
+  `familyTelescope_read`: at a stored definition-headed former, a successful run's result is
+  closed, `ConstsBound`, and at every level assignment reads as such a tower of the declared
+  type's value.  It needs only `RulesInputs` at the model (`EnvModelM` projections and the three
+  literal rows): no field of it reads `lfpBlocks`, so the run at the importer's context is read in
+  the context's own model with no datum.  (`TeleRed` is now `@[expose]`.)
+* `Semantics/Tower/TowerKit.lean`: `mkPisAV_sort_eq_unitSet` (a Π-tower over a sort with no
+  fit is `unitSet`) and **`mkPisAV_tail_eq`**: two towers over sorts of one value, prefixes of one
+  length, rests of one length — past a spine that fits BOTH prefixes, the rests have one value
+  (strict along a fit of the rest, `piSet_inj` stage by stage; where the rest has no fit on one
+  side it has none on the other, and both are the unit).  This is what a hole type at a key needs
+  of a run: its value at the key is the datum's index tower's, provided the key's parameters fit
+  the run's own parameter binders as well as the block's.
+
+**The obstacle.**  The container walk types every group mate's hole by that mate's own run
+(`nestGrowGroup` → `nestInstType` → `familyTelescope`, instantiated at the key's `ds` by
+`instPisWith`, no check), and its frames must satisfy every hole (`frameVals_sat`; every
+`red_sound` under the frame needs `CtxOk`, whose entry for a hole is its annotation's reading).
+The key's parameters are checked against a run only for the group's head (`familyKeyCheck` in
+`nestFrame`); for the head, `checkSpineAt`'s certificates make the key fit the run's binders, and
+`mkPisAV_tail_eq` gives the hole type's value.  For another mate `B` the key fits the block's
+parameter telescope (`Sat params`, `parsSat`) and the run's binders only where it extends to a
+full fit of `B`'s telescope: a parameter stage is determined by the value only where the
+parameters before it extend to a full fit.  Where they do not — `B`'s index telescope empty at
+every extension of a prefix of the key, e.g. `B : (p : Bool) → Empty → Type` with a head whose
+indices are inhabited — the tower from that stage on is the unit whatever its binders, so the
+run's later parameter binders need not admit the key's arguments, and the run's hole type for `B` at that key (its later
+binders substituted at arguments outside their domains), and whether `B`'s hole value inhabits
+it, are not determined; the frame is not shown to satisfy its
+context, and the walk's claims for the OTHER mates at that key (needed: their carriers at that
+key are not empty) are lost.  No statement "along full fits" repairs it: the fit that is missing
+is `B`'s, the claims needed are the head's.  Two reducts of one type disagreeing in their
+parameter binders is excluded by the rules (convertibility), which the value does not see.
+
+**What would work, for a ruling.**
+* **(g) type every mate's instantiation**: `nestFrame` (or `nestGrowGroup`) runs
+  `familyKeyCheck` at every group member's key, not only the head's.  Then every hole's key fits
+  its run's binders and `mkPisAV_tail_eq` gives every hole type's value as the datum's, and plan
+  (e) proceeds with the hole types compared by value.  It is stricter than official (which types
+  the replaced application, the head's) only where a mate's parameter domains are not
+  definitionally the key's arguments' types, which a block whose members share their parameters
+  never is; executed code changes (arena re-run, perf of one spine check per mate per frame).
+  The recursor stage (`RecCheck`'s `familyKeyCheck` at `M.ind`) is to be checked for the same
+  pattern.
+* (f) of the first record (a rules-tier statement that two `TeleRed` chains of one type end in
+  binder-wise convertible telescopes) would also do it, without a kernel change.
+
+**State for the next session.**  Steps 2–4 not started; `FormerRuns` is still in the capstones.
+With (g): step 2 as planned (datum semantic and run-free; the flat members keep a syntactic
+"`denote cv.type` is a Π-tower of the telescope's length over a sort" so that every member reads
+through one lemma), then step 3 with the hole types by value (`mkPisAV_tail_eq` at each mate,
+`spineFit_iff_of_mkPisAV_eq` for the sort along fits).
+
+**Gates.**  `lake build` of the touched modules and the capstone; nothing executed changed.
+
 ## TASK #444 — axioms merged as Lean merges them (2026-11-06, agent/444-axiom-merge)
 
 On `modular` (off d3adce1ca).  **The maintainer's ruling:** two modules holding an axiom of one
@@ -111952,6 +112143,87 @@ holding `Init` passes the one-process mode or the scheduler today (every Mathlib
 axioms, the trusted and `--jobs` sweeps, layering, trust surface with the process fence, shake,
 overview links, quote gate, whitepaper links and fragment, challenge, no-local-paths).
 
+### #443: the vacuity route fails; every group member typed at the key (#443 cont. 3, 2026-11-07)
+
+**Merged.**  `modular` (#444, #466–#468) into the lane (`3e285614a`); the only conflict was
+DESIGN.md (both sides appended records; both kept, the lane's first).
+
+**The maintainer's direction**: (f) is out (the model has no injectivity); try the semantic
+route along fits — where a mate `B`'s telescope has no fit at the key, the obligations for `B`'s
+hole should be vacuous — and only if that fails, type every group member at the key (g),
+uniformly, measured, with the full arena.
+
+**Why the vacuity route fails.**  The frame's obligation for `B`'s hole is not a statement about
+values *in* the hole (those would be vacuous: the datum's index tower at the key has no fit, so
+it is `unitSet`, `mkPisAV_sort_eq_unitSet`, and its full applications are empty).  It is that the
+hole's value *itself* inhabits its context entry: the reading of `B`'s own run instantiated at
+the key (`grpTys` over `nestInstType`'s `instPisWith ds (familyTelescope B)`).  Every fact the
+walk gives about the head's constructors comes from `infer_sound`/`defeq_sound`/`red_sound` at a
+valuation satisfying the frame's WHOLE context (`CtxOkP`, `Sat` is a conjunction over the
+entries, `B`'s among them), and `substE_grpT` then names that valuation `D.frame` at the key, `B`'s
+slot being the datum's hole value `u` (the unique element of `unitSet`).  In the no-fit case the
+run's binders are undetermined from the first parameter stage `k` at which the datum's rest has
+no full fit (both rests are `unitSet` whatever their binders), so the key's `d_k` need not lie in
+the run's `k`-th domain, and the run's later and index binders, read at an argument outside their
+domain, form a tower whose value is unconstrained: it may have fits (read as, say,
+`Nat → Sort w`), and then `u` is not in it.  So no valuation satisfying the frame's context gives
+`B`'s slot its value, and none of the head's readings is obtained at `D.frame`.
+
+Re-choosing `B`'s slot (any inhabitant `f` of the run's tower, e.g. the constant empty family)
+makes the context satisfiable, but the head's readings are then at `D.frame` with `B`'s slot
+changed, and carrying them back needs them insensitive to that slot.  They are at `B`'s full
+applications (both read the empty set), but not in general: a constructor of the head may pass
+`B`'s hole to a definition the walk unfolds (`F B` with `F : (… → Sort) → Sort`), whose reading
+depends on whether the slot lies in `F`'s domain; insensitivity then holds only through the
+frame's typing of that occurrence against the run's tower, a per-occurrence typing fact of the
+convertibility kind the value does not give and the readings do not carry.  Nor is "full
+application" defined against the datum: towers of one value over no fit have any lengths, so the
+run's index count need not be the datum's.  The obligations are vacuous only for values in the
+hole; the one the frame needs is about the hole.
+
+**(g), landed on the lane.**  `familyKeyChecks` (`Kernel/Inductives/Positivity.lean`): every family
+of a list at a key, each against its own telescope; `nestFrame` runs it on the WHOLE group
+(`grp.map (·.1)`), the head and every mate, at every container frame (imported or local alike).
+`PosD.frame`'s `hkty` is now `∀ p ∈ grp, familyKeyCheck … p.1 us ds = .ok ()`
+(`familyKeyChecks_ok`, `headD_mem_of_ne_nil` in `Verify/Inductives/PosDeriv.lean`); the head's
+consumers (`frame_nodes`, `frame_accD`, `frame_mono`, `posD_frame_kty`, `familyKey_reads`) take
+its head instance; `familyKeyChecksS_spec` (cached simulation, by induction, one
+`sym … => vcgen … <;> finish` per case), `familyKeyChecks_env`, `familyKeyChecks_datF`, and
+`PosDR.frame` (`Complete/`) likewise.  Verdicts: a block's members share their parameter
+telescope (checked when the container block was added), so a mate's check fails only where the
+head's does; no fixture can reach a mate-only failure with an accepted container, so none was
+added; all pinned verdicts unchanged (arena below).
+
+**RecCheck's `familyKeyCheck` at `M.ind`** (`targetMajorPins`): it types each outside major's
+OWN family at that major's key, and every recursor of the block has its own major, so every
+member reached as a major is typed at its key; the pattern of the frame (a family read at a key
+checked only for another family) does not occur there.  Whether a recursor-stage consumer reads
+another member's telescope at a major's key is to be confirmed in step 3.
+
+**Measured** (`instructions:u`, `--verified`, one run each, under the guard; base = the merge
+`3e285614a`; workers `--jobs=8 --olean --module`, Init from the v4.35.0 toolchain, Mathlib at
+`_tmp/ref/mathlib4-v4.35.0`):
+
+| stream | base | (g) |
+|---|---|---|
+| init-full `--jobs=1` | 382.279 G | 382.239 G (−0.01 %) |
+| grind-ring-5 `--jobs=1` | 15.3501 G | 15.3489 G (−0.01 %) |
+| worker `Init.Prelude` | 2.49548 G | 2.49566 G (+0.01 %) |
+| worker `Init.Data.List.Lemmas` | 5.41624 G | 5.41576 G (−0.01 %) |
+| worker `Mathlib.GroupTheory.Coxeter.Basic` | 8.89370 G | 8.89419 G (+0.01 %) |
+
+Noise: nested occurrences in a mutual container are rare.
+
+**State for the next session.**  Steps 2–4 of the plan (#443 cont.) not started; `FormerRuns` is
+still in the capstones.  With (g) every hole's key fits its own run's binders (`familyKeyCheck`'s
+certificates, `keyParamsFit`), so step 3 reads every hole type by value through
+`mkPisAV_tail_eq` at each mate, and the end sort through `spineFit_iff_of_mkPisAV_eq` along fits.
+
+**Gates.**  `lake build`, `lake test` warning-free (axiom pins unchanged); `tests/arena.sh` in full
+under the guard: all as pinned (arena 90/92, e2e 555/555, sweeps, selfcheck 54 954, shake, quote,
+fragment, challenge, layering, trust surface); the overview and whitepaper links repointed by the
+kernel lines moved (only the cited `nestFrame` block changed text).
+
 ## TASK #446 — a certified operation's pin ground is a root of its home's reach (2026-11-07, agent/446-pin-ground)
 
 On `modular` (off 2b45f157a).  **The bug.**  `Init.Data.Nat.Gcd` and `Init.Data.Nat.Bitwise.Basic`
@@ -112006,6 +112278,242 @@ No small fixture: the toolchain's two homes are the class (the homes of `Nat.div
 The homes' increase is their checks running (Bitwise's certificates are its cost); elsewhere noise.
 No non-accept remains on Mathlib's closure.  (The brief's "CompleteFlag" module is not in the
 v4.35.0 checkout; `MulP` stands in.)
+
+### #443: the value kit, and the frame relation restricted to keys that fit (#443 cont. 4, 2026-11-07)
+
+**Merged.**  `modular` (#446) into the lane (`7cb7cda92`); the only conflict was DESIGN.md (both
+sides appended records; both kept, the lane's first).
+
+**Proved (on the lane, not landed; the old clauses stay until the consumers have moved; the
+first moved is `keyFit_of_wd`, which now reads the member's membership in its stored type's value).**  Staged so that every commit builds: the semantic facts are first derived
+from today's clauses, the consumers move onto them one at a time, then the clauses are swapped.
+* `LfpReadsV` (`Model/Env/EnvModelM.lean`), the datum's telescope clause by value and run-free:
+  each member's stored type reads as a type of the value of `mkPisAV (pars ++ ids) (.sort w)`,
+  that tower graded; a member whose former shows its telescope reads as a Π-tower of the family's
+  length over a sort.  `EnvModelM.lfpReadsV` (`CanonCrest.lean`) derives it from today's
+  `LfpReads`/`LfpTelescope`; at the swap it becomes the clause (and `lfpW_congr` a clause of its own).
+* `FormerRead` and **`familyRead`** (`Model/Inductives/FamilyRun.lean`): for EVERY member, flat or
+  definition-headed, a successful `familyTelescope` run's result is closed, `ConstsBound`, and at
+  every level assignment a graded Π-tower over a sort of the block's telescope's length and value.
+  A theorem from `LfpReadsV` and `familyTelescope_read` (`RulesInputs.ofSem` at every assignment:
+  the Cont*/Gen* modules may import `Capstone`), replacing the hypothesis `FamilyRead`.
+* `ContN2.lean`: `instTele_read` (any closed telescope instantiated at a key, read;
+  `instFormer_readB` is now its corollary); **`runHoleTy_read`** (a member's hole type at a key, by
+  its run: where the key's parameters fit the run's parameter binders AND the block's, the run's
+  rest has the block's index tower's value at the key frame, `mkPisAV_tail_eq`); **`n2_tower`** (N2
+  by value: under the same fits at two valuations agreeing off the holes, the block's index tower
+  has one value at both key frames); `holeFam_of_mkPisAV_eq`, `idxSet_of_mkPisAV_eq` (a hole value
+  and an index set are fixed by the tower's value: along a fit the domains and fibres agree, off
+  every fit both are the point / empty), `TeleEq.tower`, `interp_substTele_key`.  These replace
+  `TeleEq` of the block's ids, which the value does not give (domains differ off strict stages).
+* `TowerKit.lean`: `spineFit_of_mkPisAV_eq`, `spineFit_iff_of_mkPisAV_eq`, `mkPisAV_tail_eq` now
+  compare two towers each at its own valuation; `mkPisAV_cons_eq` (one first domain and one
+  fibre over it, along a fit).
+* `HoleRel.restrict`, `HoleRelA.restrict`: a hole relation restricted to pairs whose frames pass a
+  test is one (every field is per pair; `lrefl`/`symm` keep the test).
+
+**A step the plan missed: the frame relation must be restricted to keys that fit the block.**
+The plan (cont., cont. 3) assumed a frame's key satisfies the block's parameter telescope
+(`Sat (D.params ψ) (keyFrame dsa hi ρ)`).  Today `keyParamsFit` derives it from the head's key
+certificates, which are against the run's telescope, Term-equal to the datum's through
+`FamilyRead`.  By value the key fits the block's parameters only where it extends to a full fit
+(e.g. run `(p : Bool) → Empty → Type`, datum `(p : Nat) → Empty → Type`: one value, `unitSet`; the
+key `true` fits only the run).  What reads it: `frameIter`/`frameIterAcc`'s `hfit` (the clause's
+carrier facts, `frameVals_sat`, `carrier_le_on_group'`) and `frameRel_holeRel`'s `dom` (the hole
+values in the run's hole types, through `runHoleTy_read`).  What does NOT read it: the crest's
+typing (`crest_frameT`: its grading is `gradedTy_of_sort` from the kernel's inference, and the
+hole types' grading needs only the key against each member's own run, which (g) checks).  Every
+use of a frame's claims is at a graded instance `C.{us} (ds ++ is)`, where `keyLeaf` gives the
+key's full fit of the block's telescope.  So, along ruling (e): **the frame relation pairs only
+valuations whose key frames fit the block** — `frameRel` over `R₀` restricted
+(`HoleRel.restrict`) to `KeyFit ρ := Sat (D.params ψ).reverse (keyFrame dsa hi ρ) ∧ ∃ is, SpineFit
+(keyFrame dsa hi ρ) (D.ids head ψ) is`; `frameIter`'s, `FrameJ`/`FrameAccJ`'s and `KeyAcc`'s
+conclusions hold at such pairs; `hkey` keeps only the readings' grading and each member's run fit;
+the level link becomes `n2_sort` at a fit (`spineFit_of_mkPisAV_eq`'s sort), so `hwD` is
+`∀ ρ, KeyFit ρ → D.w ψ = w`, used only at related pairs.  The consumers that supply the fits:
+`contNew_*` and the cache-hit sites (`keyLeaf` at a graded instance, both sides of the relation).
+
+**The rest of the plan, in order** (unchanged otherwise):
+1. The container walk: `GrpWf`/`GrpTy` carry a run's result with `FormerRead` instead of
+   `formerAt`; `grp_typeT`/`grp_typeT_wd`/`grpVals_fit`/`frameVals_sat`/`grp_idx_eq`/
+   `frameRel_holeRel` by `runHoleTy_read`, `n2_tower`, `idxSet_of_mkPisAV_eq`,
+   `holeFam_of_mkPisAV_eq`; `keyParamsFit` gives the run's parameter fit only; `keyFit_of_wd` from
+   `LfpReadsV` (membership in the stored type's value); the restricted frame relation above through
+   `ContWalk`, `PosDerivMono`, `ContAccFrame`, `ContAccRel`, `ContAcc`, `PosDerivAcc`, `ContLeaf`,
+   `TargetCallKid`/`TargetCallPatch` (they read `grpMember`'s `TeleEq`).
+2. The recursor stage (`TargetClass.TgtOutCls.read`, `GenOutFacts`, `GenRecPreRun`, `GenClsData`,
+   `GenClsSem`, `GenFrameTie`, `GenRecExtra`, `TargetOutRows`, `GenOutKeyFit`, `TargetNodeAdm`):
+   the same, majors giving the full fit.
+3. The swap: `LfpReads := LfpReadsV` plus the `w` clause; `LfpCtorReads`' `Tys` the datum's own
+   towers (`(mkPisAV (D.ids mm ψ) (.sort (D.w ψ))).liftN mm 0` at depth `nPc + mm`); `LfpCaps` on the
+   stored former; producers (`BlockDatum`, `DeclBlockStep`, `BlockCtorReads`, `BlockStageCtors`,
+   `BlockAssembly`, `BlockStageTables`, `BasisAtBlock`, `Cover`) prove them from the home's run;
+   `telescope`, `formerAt`, `LfpTelescope`, `FamilyRead`, `FamilyRan` (+ `Fold`, `BlockRunFacts`,
+   `DeclBlock*` threading), `readTelescope`, `FormerRunsX` and `ctxModel`'s `hdh` go; `RestrictLfp`
+   transports the clauses by `denote_eq` alone.
+4. `FormerRuns` out of `Modular.lean`, `Model/Modular/Main.lean`, `MainTheorem.lean`,
+   `Challenge.lean`, `Axioms.lean`'s table, OVERVIEW §1, whitepaper §7.
+
+**Gates.**  `lake build`, `lake test` warning-free (axiom pins unchanged); nothing executed
+changed since cont. 3's full gates.
+
+### #443: the container walk along fits; the recursor stage's dead nodes (#443 cont. 5, 2026-11-07)
+
+**Merged.**  `modular` had nothing past the lane's last merge; no merge commit.
+
+**Step 1 done: the container walk reads every run by value, along fits** (committed as one WIP
+commit: everything up to and including `PosDerivAcc`/`PosDerivNodes` builds warning-free; the
+recursor stage from `TargetNodeDynOf` on does not build yet, see below).
+* `GrpWf env ctx D hi us ds grp` (and `GrpOk`) carries, per group member, a run's result `ty`
+  (`∃ F, familyTelescope … = .ok ty`), `NestInstFacts` at `ty`, and the key's certificates
+  `CertsF env hi (ty.instantiateLevelParams …) ds` (`familyKeyCheck` at EVERY member, (g));
+  `frame_grpOk` builds it from `hinst` and `hkty : ∀ p ∈ grp, …` (`ContCover.instRun`,
+  `familyKeyCheck_run`).  No `formerAt`, no `FamilyRead` in the walk.  `GrpTy mp D hi us ds grp`
+  likewise (with `FormerRead`).
+* `KeyFit D ψ dsa hi ρ` (`ContLeaf.lean`): the key frame satisfies the block's parameter telescope
+  and extends to a full fit of some member's telescope; `fitRel R D ψ dsa hi` the relation at such
+  pairs.  `keyLeaf` supplies it at every graded instance (`monoOn_of_famLe`'s and
+  `accConcl_of_frameAccOut`'s callbacks now receive it at both sides).
+* `keyRunFit` (`ContLeaf`): the key's certificates fit the RUN's parameter binders at every
+  valuation of the key's context (`keyParamsFit` is now its corollary at `formerAt`, kept only for
+  the recursor stage).  `crest_frame`/`crest_frameT` take `hin : RulesInputs` instead of `hkey`
+  (the hole types are graded from each member's own run fit); `frameKey_of_check` is gone.
+* `ContN2`: `runRest_agree` (the run's rest at a key, by value, one value across the holes, N2),
+  `n2_tower` from it, `n2_sortV` (the level link at a full fit); `n2_link`, `n2_sort` deleted.
+* `ContWalk` (`Fits` section, hypotheses `hin hΔ hCds hLds`): `grp_typeT` (a hole type by its run:
+  reading, run fit from the certificates, value at a fit), `grp_typeT_wd`, `grp_holeTy`, `grp_n2`,
+  **`keyFit_agree`** (of two valuations agreeing off the holes and satisfying the key's context,
+  the second's key frame fits where the first's does: the full fit's index spine fits the run's
+  hole-free rest, hence at the other side, where the run's parameter binders fit by the
+  certificates; one value with the block's tower), `grp_sort` (`D.w ψ = ctx.sort.eval φ` at a
+  fitting key frame), `grp_idx_eq`/`grpTuple_mem`/`grpVals_fit` at fitting pairs, `keyFit_pars`.
+  `frameRel` pairs only `KeyFit` valuations; `frameIter` concludes at `R₀ ρ ρ' → KeyFit ρ →
+  KeyFit ρ' → …`; `FrameMono`, `KeyPos` likewise.
+* Accessibility: `frameRelA_holeRelA`, `frameCtor_acc`, `frameAccOut_of` take `hkf` (pairs fit)
+  and a pairwise `hwD`; `frameIterAcc` concludes over `fitRel R₀ …` (`HoleRelA.restrict`), its
+  `hwD` from `grp_sort` and `ctx.sort.eval φ = w`; `FrameAccJ`, `KeyAcc`,
+  `frameAccOut_unextend`, `accConcl_of_frameAccOut` over `fitRel`, the level link pairwise.
+  `grp_arity` reads the run (`familyRead`).  `ContCover.idsLen` (index count by `n2_tower`)
+  replaces the `instFacts`/`n2_link` index counts.
+
+**The recursor stage: what step 2 must handle (found while starting it).**  Its node presentation
+(`TgtNodeDyn`: `hAdm`, `top`, `trans`; `TargetNestKit.lfpNestKit`; `SetModel/NestRec.lean`'s
+`NestKit.ok`/`okT`/`top`) asks every node's class to be a clause at its TRUE frame and at every
+admissible frame: `Sat params` there, and the true frame's index sets (`hAdm`, via
+`nodeKeyFit` = `keyParamsFit` at `formerAt`, i.e. `FamilyRead`).  By value this holds only where the
+node's key frame fits (`KeyFit`); by `keyFit_agree` it fits at one admissible frame iff at the true
+one (they agree off the holes and satisfy the stack context).  A node whose true frame does not fit
+is **dead**: no call lands there (a call's target is a field graded at a fitting frame, `keyLeaf`,
+`keyFit_agree` carries it to the true frame), but its datum's index sets at the true frame may be
+junk (where the block's parameters are unsatisfied, the index telescope reads arguments outside
+its domains; e.g. run `(p : Bool) → B' p → Type`, datum `(p : Nat) → B p → Type` with no full fit
+on either side and `B true` read nonempty), so the kit's majors `U` would contain elements of a
+class that is no clause there.  Plan for step 2, within ruling (e):
+1. `NestKit` (`SetModel/NestRec.lean`, a pure set construction): `top` and `okT` only for a class
+   with an index (`∃ c < N, ∃ t, t ∈ˢ Is c`; every use of `okT` in `claim_step` and of `top` in
+   `top_good` already has one in hand); `lfpNestKit`/`TgtNodePres.cl` pin a node's index sets at
+   `if KeyFit (frb b) then idx (frb b) else ∅`, so `U` has no element of a dead node and a dead
+   node needs no admissible frame (`nodeAdm` asks `KeyFit` of the frame; at a live node every
+   admissible frame fits, `keyFit_agree`).
+2. `nodeAdm b`: admissible frames of live nodes; `hAdm` from `KeyFit` at the true frame and
+   `keyFit_agree` (`Sat params`), `grp_idx_eq` (index sets).  Liveness of a node holding a call's
+   target: the target field's grading (`keyLeaf`).
+3. `dyn_trueVal_sat` (the true valuation satisfies the stack context): a frame hole's true value
+   is its container applied to the key read back, which inhabits the RUN's hole type by the
+   former's membership in its stored type (value = the run's tower, `familyRead`; the key fits the
+   run's parameter binders by the certificates) — not through `former_app_eq`/`holeVal`, which
+   need `Sat params`.
+4. `trans`: the admissible frame's `HFits` with the clause's `resIdxFit` gives the full fit there
+   (`KeyFit` at `σ`), `keyFit_agree` at the true valuation, then `FrameMono`'s conclusion.
+5. The outside classes (`TgtOutCls`, `GenOutKeyFit`'s `genOut_keyFit`, `GenRecPreRun`,
+   `GenClsSem`, `GenFrameTie`, `GenRecExtra`, `TargetOutRows`): "at every fitting prefix, the
+   class's parameters satisfy the family's telescope" holds by value only at a full fit.  The class
+   guard `tgtClsG` (`TargetClasses.lean`, today the prefix's fit) gets, for an outside class, the
+   class frame's `KeyFit`, so a non-fitting class's index set is `∅` (`tgtClsIs`); a related node
+   (`nlRel` carries `tgtClsG`, `hfr` equates the frames) is then live.  Where the recursor's
+   semantics needs a major of an outside class, the major's type is graded there, and `keyLeaf`
+   gives the guard.
+Then steps 3 (the swap) and 4 of cont. 4, unchanged.
+
+**State.**  Branch `agent/443-semantic-former`, worktree `_tmp/443/wt`.  `FormerRuns` is still in
+the capstones.  The tree does not build from `TargetNodeDynOf` on (8 errors there; `TargetCall*`,
+`GenNodeCalls`, … downstream unchecked); everything else builds warning-free.
+
+**Gates.**  None run beyond the module builds above (a partial lane).
+
+### #443: the recursor stage along fits; the swap begun (#443 cont. 6, 2026-11-07)
+
+**Merged.**  `modular` (#448, `2b1a48601`) into the lane after the commits below; the only
+conflict was DESIGN.md (both sides appended records; both kept, the lane's first).
+
+**Step 2 done: the recursor stage reads the nodes along fits** (`fb23d81a9`; the whole tree builds
+warning-free, `lake test` green, axiom pins unchanged).  As planned in cont. 5, with one change:
+* `NestKit` (`SetModel/NestRec.lean`): `top`, `okT` take an index of the class (`claim_step`,
+  `top_good`, `toNodeInd` have one).
+* `pinIdx` (`TargetNestKit.lean`): a class's index sets are its clause's at the true frame where
+  it is LIVE, empty otherwise; `lfpNestKit` and `TgtNodePres` carry `live`, `hAdm` gives it,
+  `top` asks it, `hlive` (related pair ⇒ live node).
+* Liveness: `LfpDatum.FrFit` (`BlockLfp.lean`; `KeyFit` is now `FrFit` at the key frame); a
+  listed node is live where its true frame fits (`nlLive`), node `0` always; an outside class is
+  live where its key frame fits (`tgtClsLive`); **the liveness is in `tgtClsIs`'s condition, not
+  in `tgtClsG`** (`tgtClsG` has no `Dc`/`cvc`; `tgtClsIs_of`, `tgtClsIs_guard`); the node relation
+  is `nlRel ∧ tgtClsLive`, and `nlRel_live` (the tie's frame equality) makes the node live.
+* `nodeAdm` needs a live node; `AdmVal.frame`'s conditions are "the owner live and the spine
+  fits"; `dyn_hAdm` (live, `keyFit_agree` from the true frame), `dyn_keyFitAdm`, `dyn_top` (at a
+  live node), `dyn_holeRel`/`dyn_trans` (`FrameMono` at `KeyFit` pairs), `admVal_kid`,
+  `admVal_frameLand` (at a live owner), `dyn_ctorFit` (at a fitting `σ`).
+* **The true valuation satisfies every node's stack context, live or not**
+  (`dyn_trueVal_sat`): a frame hole holds its container applied to the key
+  (`trueVal_frameApp`), which inhabits the hole's type — the container's run at the key — by
+  `grpRun_fit` (`ContWalk`: the member's value is in its run's tower, `grp_typeT`'s new last
+  conjunct, and the key fits the run's parameter binders); `trueVal_frameVal` (the hole value)
+  only at a satisfied owner frame.
+* **The frame tie (`genNodeFrameTie`) compares the class's and the node's keys against the
+  family's RUN**, not the datum: both check the key against the same `familyTelescope` result
+  (one environment, one fuel), `genOut_runFit` (`GenOutKeyFit`) and `dyn_nodeRunFit`
+  (`GenClassNodes`) give both spines' fits of the run's parameter binders; `hnodeSat` is gone
+  (it was false at a dead node).  `nodeKeyFit` and `posD_frame_kty` deleted.
+
+**Step 3 begun** (`de64602ce`): `LfpCaps`' zero-ness datum is on the stored former
+(`formerZ_holds` deleted; the producer `DeclBlockStep` splits flat/definition-headed);
+`EnvModelM.member_mem_tower` (a member inhabits its block's telescope, by `LfpReadsV`) replaces
+`formerAt_mem` in `former_app_eq`; `famNZ_lfp_ne_zero` reads the stored type's value.
+
+**What remains of step 3** (every use of `formerAt`, `FamilyRead`, the old `LfpReads`; each move
+keeps the tree building, then the clauses are swapped):
+1. `genOut_keyFit` (`GenOutKeyFit`; uses `FamilyRead` to read the run as `formerAt`) feeds
+   `GenClsRd.hsat` (`genClsRd_out`, `GenRecFinal` l.120): "at every fitting prefix the class's
+   key satisfies the parameters" is by value only at a full fit.  Replace `hsat` by what each use
+   has: at a member of `tgtClsIs`, `tgtClsIs_guard`'s liveness (`FrFit` ⇒ `Sat`); where a major is
+   produced (`genCls_split`, `genCls_core`), `keyLeaf` at the graded major domain; check
+   `genCls_decInv` (l.~930, `Rd.hsat ψ ρ xs hpref` with a membership in hand) and
+   `GenRecExtra` (`hsatK := Rd.hsat …` at l.~1497, 2270: memberships in hand).
+2. `TargetClass.TgtOutCls.read` / `familyRun_former` (`ty = (D.formerAt mm cvI).type`),
+   `GenRecClasses` (4 uses of `FamilyRead mpC`), `GenOutFacts` (`TailOk (formerAt).type`, the
+   run's tail), `TargetOutRows` l.105, `GenClsSem` l.377–1428 (`hformer : formerTys … = formerAt`,
+   `hstrip`, `hsh`): restate over the RUN's result (the generated stage's `formerTys` entry is
+   the run's result, `tgtFormer`), its reading by `familyRead` and values along fits.
+3. The container walk's leftovers: `ContSem.ContCover.reads` (`FamilyRead`), `ContSem` l.85/144
+   (`NestInstFacts`/certs at `formerAt`), `ContLeaf.keyParamsFit` (delete once unused),
+   `ContN2.instFormer_read*` (l.423–642, `formerAt_wf`, Term-equal readings), `ContInst*`,
+   `ContInstRule`, `ContWalk` l.467/587/1015 (`Tys` via `instPisWith (canonParams n)
+   (formerAt).type`, i.e. `LfpCtorReads`' `Tys`).
+4. The swap of the clauses: `LfpReads := LfpReadsV` plus `D.w` read off the level parameters
+   (`lfpW_congr`'s use); `LfpCtorReads`' `Tys` := the datum's own index towers
+   (`(mkPisAV (D.ids mm ψ) (.sort (D.w ψ))).liftN mm 0`-shaped at depth `nPc + mm`); producers
+   (`DeclBlockStep` l.398 `hrdC`, l.407 `hat`; `BlockDatum`, `BlockCtorReads`, `BlockStageCtors`,
+   `BlockAssembly`, `BlockStageTables`, `BasisAtBlock`, `BasisLfp`, `BasisRename`, `Cover`,
+   `CanonCrest.lfp_ok_transport`, `RestrictLfp` l.282–326); then delete `LfpDatum.telescope`,
+   `formerAt`, `LfpTelescope`, `CanonCrest`'s `formerAt_*`/`FamilyRead`, `FamilyRan` (+ `Fold`,
+   `BlockRunFacts`, `DeclBlock*`, `Modular/*` threading, `PosDerivNodes`' `readTelescope` use),
+   `readTelescope`, `FormerRunsX`, `ctxModel`'s `hdh`; `RestrictLfp` transports by `denote_eq`.
+5. Step 4 of cont. 4 (FormerRuns out of the capstones and documents), then the full gates.
+
+**State.**  Branch `agent/443-semantic-former` at `de64602ce` (worktree `_tmp/443/wt`), builds
+and tests warning-free; `FormerRuns` is still in the capstones.  Not landed (a partial lane).
+
+**Gates.**  `lake build`, `lake test` warning-free (axiom pins unchanged); nothing executed changed
+since cont. 3's full gates.
 
 ## TASK #448 — a context record presents its source's own record (2026-11-07, agent/448-provenance)
 
@@ -112095,6 +112603,213 @@ name table's order is the private part's; `recMapOf` keeps it).  Estimated 600�
 started.  `GroupsPresent` is a hypothesis of `worker_presented` and its corollaries, nowhere assumed.
 
 **Gates** on the final tree: below, with the commit.
+
+### #443: the rule frame of a class whose key fits only its run (#443 cont. 7, 2026-11-07)
+
+**Merged.**  `modular` had nothing past the lane's last merge; no merge commit.
+
+**What cont. 6's item 1 missed.**  `GenClsRd.hsat` ("at every fitting rule prefix the class's
+key satisfies its datum's parameters") is used in two kinds of place.  Where a major is in hand
+(`genCls_split`, `genCls_back`, `genCls_decInv`, `GenRecExtra`'s rows (U) at a graded major,
+`genOutCtorFit`'s three callers) it is replaced by the major's own facts: a fit of the stored
+index binders at the prefix makes the major domain graded (`prefixDoms_graded_of_tower`), and
+`keyLeaf` at it gives the key's satisfaction of the datum's parameters, the index fit and the
+carrier — no run, no `formerAt`.  But **`genCls_dec`** (`GenClsDec`, the decoding at the rule
+frame, consumed by `genRow_hrule`/`genRow_hdec`, i.e. by the ι equations `blockRecEqs`, which
+`genRecPre_hCand` must make hold at EVERY fit of a rule's prefix and fields) has only the prefix
+and the fields in hand.  By value a rule frame can be *dead* (the key fits the run's parameter
+binders — `familyKeyCheck` — but not the datum's; the towers agree, the stage's domain does not,
+cont. 2): there the fields, the constructor's binders at an argument outside the datum's domain,
+may fit, and `GenClsDec`'s conclusion (the index tuple in the index set) is false.
+
+**Why a dead rule frame is still impossible, by value (within ruling (e)).**  At a dead frame
+the stored index binders at the key have no fit (a fit would make the major domain graded and
+`keyLeaf` would give the datum's parameters).  The motive's domain is the stored index and major
+telescope (`genMotRds`), so it has no fit, its value is `unitSet` (`mkPisAV_sort_eq_unitSet`), the
+motive is `pt`, and the minor premise's conclusion (the motive applied) is `pt`.  The recursor's
+stored type is graded at every prefix fit (the stage's inference), so the minor's domain is: at a
+field fit, every inductive hypothesis domain inhabited ⇒ its conclusion `IsTy`, contradicting
+`IsTy.ne_pt`.  The inductive hypothesis domains are inhabited by the candidate recursor values
+(`as` with `htyp`): each call lands in its callee's stored domains (`genCallTy`), where the
+recursor value's application lies in the callee motive's value, so the ih function is in the ih
+domain (a Π-set inhabited fibre-wise).  A constructor with no inductive hypothesis needs no
+candidate.  Hence: **at every rule fit, with the candidate's values in their types, the class is
+live** (`genRule_live`, to be proved); `GenClsDec` takes the liveness as a hypothesis (with it
+the old proof goes through: `keyLeaf`'s satisfaction replaces `hsat`), and `genRecEqs_wd`/
+`genRow_hrule`/`genRow_hdec` supply it from `genRule_live` (they have `as`, `htyp`).
+
+**The rest of item 1 and item 2, in this light** (`GenClsSem`):
+* `genCls_core` restated: (I) a fit `is` of the stored index binders at a fitting prefix gives
+  the datum's parameters at the key frame, `is` fitting the datum's index telescope there and the
+  major domain the carrier's application (`keyLeaf` — no `hformer`); (II) conversely, the
+  datum's parameters and an index fit at the key frame give a fit of the stored index binders —
+  by the RUN: the generated `formerTys` entry is the run's result (`tgtFormer`), its index binders
+  at the key read as the run's rest at the key frame (`instTele_read`), the key fits the run's
+  parameter binders (`genOut_runFit`; a member: the block's own parameters), and
+  `spineFit_iff_of_mkPisAV_eq` on the two full towers (one value, `familyRead`).  `hformer` goes.
+* `GenClsRd.hsat` and `genOut_keyFit` (and `GenRecFinal`'s `hkf`) are deleted; `genCls_live`
+  takes the satisfaction from (I); `genOutCtorFit` takes it as a hypothesis.
+
+Items 3–5 of cont. 6 unchanged.
+
+**Done this session** (each commit builds; `lake build`, `lake test` warning-free, pins unchanged):
+* `genCls_core` (I) by `keyLeaf` alone (stored index fit ⇒ parameters at the key, index fit,
+  carrier); (II) still through `hformer` (to be moved to the run as above); `genCls_split` no
+  longer reads `hsat`.
+* The rows take a TYPED candidate: `graphRecPre_coreR`'s (`ClassRecKit`) and `genRecPre_hCand`'s
+  `hrule`/`hdec`, and `genRow_hrule`/`genRow_hdec`, quantify over `a` with
+  `∀ c < K, a c ∈ interp ρ (RecTy c)` (supplied by `famCandG_mem`; `genRecEqs_wd` passes its
+  `ht`).  Unused yet: it is what `genRule_live` needs.
+
+**Next, in order.**
+1. `genRule_live` (new, next to `GenClsCall`/`GenClsMinor`): at a fit `xs ++ fs` of rule
+   `(c, j)` at the base frame, with a typed candidate, some `is` fits the stored index binders at
+   `xs`.  By contradiction: no such fit ⇒ `genMotRds`' `pds` (= the stored index and major
+   domains, lifted) have no fit at the motive's frame ⇒ the motive is `pt`
+   (`mkPisAV_sort_eq_unitSet`, `unitSet = sing pt`) ⇒ the minor's innermost fibre (the motive
+   at `es ++ [mk]`, `app_pt`) is `pt`; but at a full fit of the minor's binders it `IsTy`
+   (`genMinor_pt`'s reading of the minor's tower and its grading, "not pt" source (1)), and the
+   binders past the fields — the ih domains — are inhabited: the ih values of `genRow_hstep`
+   (the candidate's application at each call's spine lies in the callee's conclusion, which is
+   the motive applied: `hcallTy`, `hconclMot`, the typing of `a`), so `IsTy.ne_pt` contradicts.
+2. `GenClsDec` takes `tgtClsLive … ψ ρ xs c`; `genRow_hrule`/`genRow_hdec` supply it from
+   `genRule_live` and `genCls_core` (I) (+ `genCls_live`); `genCls_dec` reads the parameters'
+   satisfaction from the liveness.
+3. `GenClsRd.hsat` restated as "a LIVE class's key satisfies its parameters" (outside: `FrFit`'s
+   first half; member: today's proof), used by `genCls_back`, `genCls_decInv`, `genCls_dec`;
+   `GenRecExtra`'s two uses and `genOutCtorFit`'s callers take it from their majors (via
+   `GenClsSplit`'s membership ⇒ liveness); `genOut_keyFit` and `GenRecFinal`'s `hkf` deleted.
+4. Item 2 of cont. 6 (`hformer` → the run; `genCls_core` (II) by the run as above,
+   `TgtOutCls.read`, `GenRecClasses`, `GenOutFacts`, `TargetOutRows`), then items 3–5.
+
+**State.**  Branch `agent/443-semantic-former` (worktree `_tmp/443/wt`), builds and tests
+warning-free; `FormerRuns` is still in the capstones.  Not landed (a partial lane).
+
+**Gates.**  `lake build`, `lake test` warning-free (axiom pins unchanged); nothing executed changed
+since cont. 3's full gates.
+
+### #443: a rule frame's class is live at a typed tuple (#443 cont. 8, 2026-11-07)
+
+**Merged.**  Not yet: `modular` is merged once, before landing.
+
+**Done** (`12970c595`; the whole tree builds, `lake test` green, warning-free, axiom pins
+unchanged).  Cont. 7's next steps 1–3:
+* **`genRule_motNe`** (`GenClsRhs`; cont. 7 called it `genRule_live`): at a fit of rule
+  `(c, j)`'s prefix and fields, with a typed tuple `rs`, the class's motive is no point.  The
+  tuple's `ih` values inhabit the `ih` binder types (`genIh_mem`, extracted from `genRhs`), so the
+  minor premise's graded type has a full fit, whose fibre — the motive applied to the declared
+  indices and the constructor — is a type: `genCls_minor` now concludes that `IsTy` too (the
+  minor's domain is `WellDenotedTy`, `blockRulePdomsAV_graded`), and `foldl_app_pt'` refutes a
+  point motive.
+* **`genMot_idxFit`** (`GenClsCall`): a motive that is no point has a fit of its class's stored
+  index binders at the prefix (its type is the index and major telescope over a sort,
+  `genMotRds`; with no fit that tower is `unitSet`, `mkPisAV_sort_eq_unitSet`, whose element is
+  the point).  `genCls_core` is split: **`genCls_coreI`** (a stored index fit gives the
+  parameters' satisfaction at the key, the datum's index fit and the carrier, by `keyLeaf`; no
+  former) and `genCls_coreII` (the converse, still through `hformer`).  `GenRecFinal`'s
+  `hliveM`: motive no point ⇒ `tgtClsLive` (`genMot_idxFit`, `genCls_coreI`, `genCls_live`).
+* **`GenClsDec` takes `tgtClsLive … xs c`.**  `GenPreSem`/`GenPreHyps` carry `live` (at a typed
+  candidate, every rule frame's class is live; from `genRule_motNe` + `hliveM` in
+  `GenRecFinal`) to `genRow_hrule`, `genRow_hdec`, `genRecEqs_wd`; `genRow_hstep`'s and
+  `genRow3_core`'s decodings take it from their index-set member (`tgtClsIs_guard`).
+  `genMinor_pt`'s index-count premise (and `genRuleRaZ`'s `hlenEs`) asks a motive that is no
+  point, which `genMinor_pt` derives from its own full fit.
+* **`GenClsRd.hsat` asks a live class** (outside: `FrFit`'s first half; member: its own
+  parameters, unchanged).  Its users take liveness from a major (`genCls_back`,
+  `genCls_decInv`, `genOut_major`, `genRows3_out`) or the hypothesis (`genCls_dec`);
+  `genOutCtorFit` and `genOut_pins` take the satisfaction itself.  **`genOut_keyFit` and
+  `GenRecFinal`'s `hkf` are deleted** (`genClsRd_out`, `genClsRd_all`, `genClsSem_run` lose the
+  hypothesis; `GenOutKeyFit.lean` keeps `genOut_runFit`).
+
+**Next, in order** (cont. 7's step 4 = cont. 6's items 2–5).
+1. `hformer` → the run (`GenClsSem`).  Restate it as "the generated `formerTys` entry is
+   `ty.instantiateLevelParams cvI.levelParams lvls` for a `ty` with `FormerRead mpC (tgtClsD …)
+   (tgtClsM …) ty`".  Outside: `ty` is the class's family run (`genClsRd_out`'s `hfam`, today
+   turned into `formerAt` by `hcl.family_eq`), `FormerRead` by `familyRead`.  Member: `ty` is the
+   stage's former `cvTa.type` (`genClsRd_mem`'s `hsh`/`hfr1`), `FormerRead` from
+   `BlockMembersRun`'s `FormerData` (the stored type reads as the tower over `d.ppsM t`;
+   `d.toLfp`'s `pars` is its `take nP` and `ids` is `IdsM`, `BlockRep` l.269 — check that
+   `IdsM` is the `drop nP`).  `genCls_coreII` then reads the instantiated entry by `runHoleTy_read` /
+   `instTele_read` (the run's rest at the key, substituted) and moves the fit by value:
+   `Sat params` at the key frame and an index fit give a full fit of `pars ++ ids` at the
+   frame's tail, hence of the run's tower (`spineFit_iff_of_mkPisAV_eq`), whose drop is the
+   stored index binders' reading (`spineFit_substTele`); the old `hIdxE` argument is the
+   template.
+2. Then `TgtOutCls.hread`, `.family_eq`, `.read` (users: `GenOutFacts` l.77/91, `GenClsData`
+   l.472, `GenRecPreRun` l.673, `TargetOutRows` l.111) go over the run's `FormerRead`, and the
+   `hrd : ∀ F, FamilyRead mpC F` threading leaves `tgtOutCls_*`, `GenRecClasses` (4) and
+   `GenRecFinal`; `GenOutFacts`' `TailOk (formerAt).type` becomes the run's tail;
+   `GenRecExtra`'s `formerAt_wf` (l.105, 2366) and `formerAt_mem` (l.1694) become
+   `FormerRead`'s closedness and `EnvModelM.member_mem_tower`.
+3. Cont. 6's item 3 (the container walk's leftovers: `ContSem.ContCover.reads`, `ContSem`
+   l.85/144, `ContLeaf.keyParamsFit` l.393, `ContN2.instFormer_read*` l.434–650, `ContInst*`,
+   `ContInstRule`, `ContWalk` l.467/587/1015 — the `Tys` of `LfpCtorReads` at `formerAt`), item 4
+   (the swap: `LfpReads := LfpReadsV`, `LfpCtorReads`' `Tys` := the datum's own index towers;
+   producers; delete `LfpDatum.telescope`, `formerAt`, `LfpTelescope`, `FamilyRead`,
+   `FamilyRan`, `readTelescope`, `FormerRunsX`, `hdh`), item 5 (FormerRuns out of
+   `Modular.lean`, `Model/Modular/Main.lean`, `MainTheorem.lean`, `Challenge.lean`,
+   `tests/ConLecheTests/Axioms.lean`'s table, OVERVIEW §1, whitepaper §7), the merge of
+   `modular`, the full gates and the landing.
+
+**State.**  Branch `agent/443-semantic-former` at `12970c595` (+ this record), worktree
+`_tmp/443/wt`, builds and tests warning-free; `FormerRuns` is still in the capstones.  Not
+landed (a partial lane).
+
+**Gates.**  `lake build`, `lake test` warning-free (axiom pins unchanged); nothing executed
+changed since cont. 3's full gates.
+
+### #443: the swap; `FormerRuns` leaves the capstones (#443 cont. 9, 2026-11-07)
+
+**Done** (cont. 8's steps 1–3; the whole tree builds warning-free).
+* **`genCls_coreII` by value** (`b58f23ea9`).  The generated former entry is a run's result `ty`
+  with `FormerRead` at the class's levels (outside: `familyRead` of the class check's family
+  run, `genClsRd_out`; member: its stored former's `FormerData`, `genClsRd_mem` — `IdsM` is the
+  `drop nP` of `d.ppsM t`, so `pars ++ ids` is `ppsM` and `w` is `resSort.eval`).  Its index
+  binders at the key read as the run's rest substituted at the key (`instTele_read`); the key's
+  parameters (`parsSat`) and an index fit are a full fit of the datum's telescope, hence of the
+  run's tower (`spineFit_iff_of_mkPisAV_eq`), whose split is the stored index binders' fit.
+* **An outside class through its run** (`2697c02f0`).  `TgtOutCls` has no `hread`;
+  `TgtOutCls.outsideInst` gives the class check's run and its `FormerRead`.  Counts from the
+  run's tower length (`genOutIdxLen`; `nestInstType_count` takes the walk's own run, at the
+  walk's model); the sort along a fit (`FormerRead.sort_eq`): `genRun_outW` holds under a full
+  fit of the member's telescope, which a live class's index gives (`tgtClsIs_outFit`,
+  `lfp_frameFullFit`); `genOutW` merged into it.  The `FamilyRead` threading left
+  `GenRecClasses`, `TargetClass`, `GenRecFinal`.
+* **The swap** (this commit).  `LfpReads` is the value clause: each member's stored type has the
+  value of the block's telescope over its sort, a flat former reads as a Π-tower of the family's
+  length, and the sort is read off the member's level parameters (what `lfpW_congr` needs; the
+  producers have it from `FormerData.params`, the pinned blocks trivially).  The grading of the
+  tower is not recorded: no consumer read it.  `LfpCtorReads`' hole types are the datum's own
+  towers, `LfpDatum.holeTys` (`(mkPisAV (ids m) (.sort w)).liftN m 0`, what the block's producer
+  already built); `frameVals_sat` reads them directly.  `CanonOf` is the crest alone.
+  Deleted: `LfpDatum.telescope`, `formerAt`, `LfpTelescope`, `LfpReadsV`, `FamilyRead`,
+  `FamilyRan` with its threading (`EnvModelOk`, `CoveredRel`, `declBlock`, `declBlockAt`,
+  `BlockDatum`, `FormersModelAt`, the modular `MMod`/`CtxModel`/`declsRun_flags`),
+  `CoverRel.blocks`, `declBlockRun_tables`/`_findTable`, `envExt_trans`, the container walk's
+  `formerAt` lemmas (`canonHoleTy_read`, `instFormer_read*`, `ContLeaf.keyParamsFit`,
+  `ContCover.reads`/`instFacts`/`keyCerts`), the `EnvModelM.formerAt_*` lemmas, `CtxSrc.ran` and
+  `.defh` (`defhRun`, `telR`), `FormerRunsX` and `Modular.FormerRuns`.  `RestrictLfp` transports
+  the value clause by `denote_eq`.  `genOut_pin` compares the container's towers at the
+  constructor's and the class's levels by value (`EnvModelM.tower_congr`) instead of Term
+  equality of the datum's index readings; `member_mem_tower` reads at any valuation (the stored
+  type is closed), so `genOut_typed`'s fit is at every valuation.  `FamilyRan.lean`, holding the
+  run facts that stay (`familyTelescope_unique`/`_ext`, `readTelescope` — the stack context's hole
+  types, a kernel run, not a record — `NatFacts`), is `RunEnv.lean`.
+* **`modular_model_exists` and `modular_no_False` have the local checks as their only
+  hypothesis**; `Challenge.lean`, `Modular.lean`'s statement, `Axioms.lean`'s table, OVERVIEW §1
+  and whitepaper §7 say so.
+
+**Merged** `modular` (#440, `93b77a167`); the only conflict was DESIGN.md (both appended, both
+kept).  **Imports** after the swap: the unused ones removed by shake's criterion (each `--only`
+run at the noise floor), the compensated ones allowlisted with their compensation, and
+`FamilyRun`'s statement re-exports and `RunEnv`'s dot-notation re-export
+(`EnvModelM.lfp_ok_transport`) recorded as measured fallbacks of the public-import plan.
+
+**Gates** on the final tree: `lake build`, `lake test` warning-free, axiom pins unchanged (66
+theorems at the three standard axioms; `modular_model_exists`/`modular_no_False` among them);
+`tests/arena.sh` in full under the guard (90/92 arena, e2e 555/555, olean 300/300, selfcheck,
+the trusted and `--jobs` sweeps; peak anon 2.9 GB); shake, layering, trust surface, links and
+quotes, the whitepaper's links and fragment gates and its build.  Nothing executed changed.
 
 ## TASK #440 — a group read from its home is its home's record (2026-11-07, agent/440-groups-present)
 

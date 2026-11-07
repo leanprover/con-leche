@@ -45,7 +45,7 @@ theorem inferTypeCoreIO_refine (h : EnvRefines env₁ env₂) {fuel d : Nat} {e 
 
 /-- **A telescope of reductions**: `e` at depth `i` reduces to a Π over the first domain, whose
 body opened at `i` is again such a telescope, `n` times, and then to the sort `s`. -/
-def TeleRed (env : Env) : Nat → Nat → Expr → List Expr → Level → Prop
+@[expose] def TeleRed (env : Env) : Nat → Nat → Expr → List Expr → Level → Prop
   | i, 0, e, [], s => Red env i e (.sort s)
   | i, n + 1, e, dom :: bs, s =>
     ∃ body, Red env i e (.forallE dom body) ∧

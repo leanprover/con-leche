@@ -93,16 +93,19 @@ structure TgtNodePres where
   Db : Nat → LfpDatum V
   ψb : Nat → Name → Nat
   frb : Nat → Nat → V
+  /-- the live nodes: their index sets are their clause's at the true frame
+  (`pinIdx`), the others' empty -/
+  live : Nat → Prop
   dp : Nat → Nat
   Dd : Nat
   hD : ∀ b, b < nC → dp b < Dd
   Adm : Nat → (Nat → Nat → V → V → Prop) → (Nat → V) → Prop
   hcl : ∀ b, b < nC → LfpClause acval (Db b)
-  hAdm : ∀ b, b < nC → ∀ G ρ, Adm b G ρ →
+  hAdm : ∀ b, b < nC → ∀ G ρ, Adm b G ρ → live b ∧
     Sat V ((Db b).params (ψb b)).reverse ρ ∧
       ∀ c, c < (Db b).N → (Db b).idx (ψb b) ρ c = (Db b).idx (ψb b) (frb b) c
-  top : ∀ b, b < nC → ∀ G, (∀ b' c t y, b' < nC → dp b' < dp b → c < (Db b').N →
-      t ∈ˢ (Db b').idx (ψb b') (frb b') c →
+  top : ∀ b, b < nC → live b → ∀ G, (∀ b' c t y, b' < nC → dp b' < dp b → c < (Db b').N →
+      live b' → t ∈ˢ (Db b').idx (ψb b') (frb b') c →
       y ∈ˢ app ((Db b').carrier (ψb b') (frb b') c) t → G b' c t y) →
     Adm b G (frb b)
   /-- **the tie to the true frame** (positivity at the instantiation):
@@ -110,7 +113,7 @@ structure TgtNodePres where
   fitting at holes below the true carrier fits at the true frame -/
   trans : ∀ b, b < nC → ∀ G,
     (∀ b' c t y, G b' c t y →
-      y ∈ˢ app ((lfpSClause (Db b') (ψb b') ((Db b').idx (ψb b') (frb b'))).carrier
+      y ∈ˢ app ((lfpSClause (Db b') (ψb b') (pinIdx (Db b') (ψb b') (frb b') (live b'))).carrier
         (frb b') c) t) →
     ∀ ρ, Adm b G ρ → ∀ Y,
     InTupleSpace ((Db b).w (ψb b)) (Db b).N ((Db b).idx (ψb b) (frb b)) Y →
@@ -128,7 +131,9 @@ structure TgtNodePres where
   hfr : ∀ c b, c < (tgtRs out).length → Rel c b →
     tgtClsFr d acval envC p out ψ ρ xs c = frb b
   hmc : ∀ c b, c < (tgtRs out).length → Rel c b → tgtClsM mc p out c = mOf c b
-  hG : ∀ c b, c < (tgtRs out).length → Rel c b → tgtClsG d acval envC p out ψ ρ xs c
+  hG : ∀ c b, c < (tgtRs out).length → Rel c b →
+    tgtClsG d acval envC p out ψ ρ xs c ∧ tgtClsLive d Dc cvc acval envC p out ψ ρ xs c
+  hlive : ∀ c b, c < (tgtRs out).length → Rel c b → live b
   hnCt : ∀ c b, c < (tgtRs out).length → Rel c b → ∀ t j fs,
     (Db b).HFits (ψb b) (frb b) ((Db b).carrier (ψb b) (frb b)) t (mOf c b) j fs →
       j < blockRecNCt (tgtRs out) c
@@ -161,10 +166,11 @@ variable (P : TgtNodePres envC acval p out d Dc mc cvc ψ ρ xs call)
 
 /-- The presentation's clause at node `b`. -/
 @[expose] noncomputable def cl (b : Nat) : SClause V (Nat → V) :=
-  lfpSClause (P.Db b) (P.ψb b) ((P.Db b).idx (P.ψb b) (P.frb b))
+  lfpSClause (P.Db b) (P.ψb b) (pinIdx (P.Db b) (P.ψb b) (P.frb b) (P.live b))
 
-theorem cl_carrier (b : Nat) : (P.cl b).carrier (P.frb b) = (P.Db b).carrier (P.ψb b) (P.frb b) :=
-  lfpSClause_carrier rfl
+theorem cl_carrier {b : Nat} (hl : P.live b) :
+    (P.cl b).carrier (P.frb b) = (P.Db b).carrier (P.ψb b) (P.frb b) := by
+  unfold cl; rw [pinIdx_of hl]; exact lfpSClause_carrier rfl
 
 /-- The class tie, read at the class data. -/
 theorem cls_eq {c b : Nat} (hc : c < (tgtRs out).length) (hR : P.Rel c b) :
@@ -183,7 +189,7 @@ theorem cls_eq {c b : Nat} (hc : c < (tgtRs out).length) (hR : P.Rel c b) :
   have hm := P.hmc c b hc hR
   have hg := P.hG c b hc hR
   refine ⟨?_, ?_, ?_, fun t j fs => ?_⟩
-  · simp only [tgtClsIs, ite_eq_left hg, hD, hψ, hf, hm]
+  · rw [tgtClsIs_of hg.1 hg.2, hD, hψ, hf, hm]
   · simp only [tgtClsCr, hD, hψ, hf, hm]
   · simp only [tgtClsInj, hD, hψ, hm]
   · simp only [tgtClsFit, hD, hψ, hf, hm]
@@ -191,7 +197,7 @@ theorem cls_eq {c b : Nat} (hc : c < (tgtRs out).length) (hR : P.Rel c b) :
 /-- A preliminary kit (no predecessors): its majors `U` depend only on
 the nodes. -/
 @[expose] noncomputable def kit0 : NestKit V (Nat → V) :=
-  lfpNestKit (acval := acval) P.nC P.Db P.ψb P.frb P.dp P.Dd P.hD P.Adm (fun _ => empty)
+  lfpNestKit (acval := acval) P.nC P.Db P.ψb P.frb P.live P.dp P.Dd P.hD P.Adm (fun _ => empty)
     P.hcl P.hAdm P.trans (fun _ _ _ _ _ _ _ _ _ _ _ _ _ _ u hu => absurd hu (not_mem_empty u))
     P.top
 
@@ -211,13 +217,14 @@ related classes' true decodings, each at its callee node. -/
 
 /-- **The node kit**, its predecessors `pred`. -/
 @[expose] noncomputable def kit : NestKit V (Nat → V) :=
-  lfpNestKit (acval := acval) P.nC P.Db P.ψb P.frb P.dp P.Dd P.hD P.Adm P.pred P.hcl P.hAdm
+  lfpNestKit (acval := acval) P.nC P.Db P.ψb P.frb P.live P.dp P.Dd P.hD P.Adm P.pred P.hcl P.hAdm
     P.trans (fun b _ G ρ' hρ Y hY c t j fs _ _ hf u hu => by
       obtain ⟨-, c0, -, -, hm0, -, -, c', t', y, b', hc', hR', ht', hy', -, hL, rfl⟩ :=
         mem_sep.mp hu
       have hb' := P.hb c' b' hc' hR'
       obtain ⟨hIs', -⟩ := P.cls_eq hc' hR'
-      refine ⟨b', P.mOf c' b', t', y, hb', P.hm c' b' hc' hR', by rw [← hIs']; exact ht', rfl, ?_⟩
+      refine ⟨b', P.mOf c' b', t', y, hb', P.hm c' b' hc' hR', P.hlive c' b' hc' hR',
+        by rw [← hIs']; exact ht', rfl, ?_⟩
       rcases hL G ρ' hρ Y hY hf with h | h | ⟨hlt, -, h⟩
       · exact Or.inl h
       · exact Or.inr (Or.inl h)
@@ -234,6 +241,7 @@ spine at which no class is guarded). -/
   Db := Dc
   ψb := fun _ => ψ
   frb := fun _ => ρ
+  live := fun _ => False
   dp := fun _ => 0
   Dd := 0
   hD := fun _ h => absurd h (Nat.not_lt_zero _)
@@ -251,11 +259,13 @@ spine at which no class is guarded). -/
   hfr := fun _ _ _ h => h.elim
   hmc := fun _ _ _ h => h.elim
   hG := fun _ _ _ h => h.elim
+  hlive := fun _ _ _ h => h.elim
   hnCt := fun _ _ _ h => h.elim
   hcall := fun _ _ _ h => h.elim
 
-/-- **An unguarded class has no major.** -/
-theorem tgtClsIs_unguarded {c : Nat} (hg : ¬ tgtClsG d acval envC p out ψ ρ xs c) :
+/-- **An unguarded or dead class has no major.** -/
+theorem tgtClsIs_unguarded {c : Nat}
+    (hg : ¬ (tgtClsG d acval envC p out ψ ρ xs c ∧ tgtClsLive d Dc cvc acval envC p out ψ ρ xs c)) :
     tgtClsIs d Dc mc cvc acval envC p out ψ ρ xs c = empty := by
   classical
   simp only [tgtClsIs, ite_eq_right hg]
@@ -264,36 +274,41 @@ theorem tgtClsIs_unguarded {c : Nat} (hg : ¬ tgtClsG d acval envC p out ψ ρ x
 GUARDED class at its prefix spine. -/
 theorem tgtClassInd_of_pres {call : List V → Nat → Nat → List V → V → Prop}
     (hP : ∀ xs : List V, ∃ P : TgtNodePres envC acval p out d Dc mc cvc ψ ρ xs call,
-      ∀ c, c < (tgtRs out).length → tgtClsG d acval envC p out ψ ρ xs c → ∃ b, P.Rel c b) :
+      ∀ c, c < (tgtRs out).length → tgtClsG d acval envC p out ψ ρ xs c →
+        tgtClsLive d Dc cvc acval envC p out ψ ρ xs c → ∃ b, P.Rel c b) :
     TgtClassIndG envC acval p out d Dc mc cvc ψ ρ call := by
   classical
   intro xs Q hstep u hu
   obtain ⟨c, hc, t, ht, x, hx, rfl⟩ := mem_unionSet.mp hu
-  by_cases hg : tgtClsG d acval envC p out ψ ρ xs c
+  by_cases hg : tgtClsG d acval envC p out ψ ρ xs c ∧ tgtClsLive d Dc cvc acval envC p out ψ ρ xs c
   · obtain ⟨P, hex⟩ := hP xs
     exact P.kit.toNodeInd.ind_recNodesOn (tgtRs out).length
-      (fun c => tgtClsG d acval envC p out ψ ρ xs c) P.Rel P.mOf
+      (fun c => tgtClsG d acval envC p out ψ ρ xs c ∧ tgtClsLive d Dc cvc acval envC p out ψ ρ xs c)
+      P.Rel P.mOf
       (blockRecNCt (tgtRs out)) (tgtClsIs d Dc mc cvc acval envC p out ψ ρ xs)
       (tgtClsCr d Dc mc cvc acval envC p out ψ ρ xs) (tgtClsInj d Dc mc cvc p out ψ)
       (tgtClsFit d Dc mc cvc acval envC p out ψ ρ xs)
       (graphPredG (tgtClsIs d Dc mc cvc acval envC p out ψ ρ)
         (tgtClsCr d Dc mc cvc acval envC p out ψ ρ) (tgtRs out).length call xs)
-      hex P.hb P.hm
-      (fun c b hc hR => (P.cls_eq hc hR).1)
+      (fun c hc hg => hex c hc hg.1 hg.2) P.hb P.hm
+      (fun c b hc hR => by
+        rw [(P.cls_eq hc hR).1]
+        show _ = pinIdx (P.Db b) (P.ψb b) (P.frb b) (P.live b) (P.mOf c b)
+        rw [pinIdx_of (P.hlive c b hc hR)])
       (fun c b hc hR => by
         rw [(P.cls_eq hc hR).2.1]
-        exact (P.cl_carrier b).symm ▸ rfl)
+        exact (P.cl_carrier (P.hlive c b hc hR)).symm ▸ rfl)
       (fun c b hc hR j fs => by rw [(P.cls_eq hc hR).2.2.1]; rfl)
       (fun c b hc hR t j fs hf => P.hnCt c b hc hR t j fs (by
         have := hf
         change (P.Db b).HFits (P.ψb b) (P.frb b) ((P.cl b).carrier (P.frb b)) t (P.mOf c b) j fs
           at this
-        rwa [P.cl_carrier] at this))
+        rwa [P.cl_carrier (P.hlive c b hc hR)] at this))
       (fun c b hc hR t j fs hf => ((P.cls_eq hc hR).2.2.2 t j fs).mpr (by
         have := hf
         change (P.Db b).HFits (P.ψb b) (P.frb b) ((P.cl b).carrier (P.frb b)) t (P.mOf c b) j fs
           at this
-        rwa [P.cl_carrier] at this))
+        rwa [P.cl_carrier (P.hlive c b hc hR)] at this))
       (fun c b hc hR t j fs ht hf v hv => by
         obtain ⟨hvU, hcall⟩ := mem_graphPredG.mp hv
         obtain ⟨c', hc', t', ht', y, hy, rfl⟩ := mem_unionSet.mp hvU
@@ -302,17 +317,20 @@ theorem tgtClassInd_of_pres {call : List V → Nat → Nat → List V → V → 
           have := hf
           change (P.Db b).HFits (P.ψb b) (P.frb b) ((P.cl b).carrier (P.frb b)) t (P.mOf c b) j fs
             at this
-          rwa [P.cl_carrier] at this
-        have ht0 : t ∈ˢ (P.Db b).idx (P.ψb b) (P.frb b) (P.mOf c b) := ht
+          rwa [P.cl_carrier (P.hlive c b hc hR)] at this
+        have ht0 : t ∈ˢ (P.Db b).idx (P.ψb b) (P.frb b) (P.mOf c b) := by
+          have := ht
+          change t ∈ˢ pinIdx (P.Db b) (P.ψb b) (P.frb b) (P.live b) (P.mOf c b) at this
+          rwa [pinIdx_of (P.hlive c b hc hR)] at this
         obtain ⟨b', hR', hL⟩ := P.hcall c b hc hR t j fs ht0 hf' c' t' y hc' ht' hy hcall
         refine ⟨c', t', y, hc', rfl, b', hR', mem_sep.mpr ⟨?_, c, hc, hR, rfl, ht0, hf',
           c', t', y, b', hc', hR', ht', hy, hcall, hL, rfl⟩⟩
         obtain ⟨hIs', hCr', -⟩ := P.cls_eq hc' hR'
         refine P.kit0.nenc_mem_U (P.hb c' b' hc' hR') (P.hm c' b' hc' hR') ?_ ?_
-        · show t' ∈ˢ (P.Db b').idx (P.ψb b') (P.frb b') (P.mOf c' b')
-          rw [← hIs']; exact ht'
+        · show t' ∈ˢ pinIdx (P.Db b') (P.ψb b') (P.frb b') (P.live b') (P.mOf c' b')
+          rw [pinIdx_of (P.hlive c' b' hc' hR'), ← hIs']; exact ht'
         · show y ∈ˢ app ((P.cl b').carrier (P.frb b') (P.mOf c' b')) t'
-          rw [P.cl_carrier, ← hCr']; exact hy)
+          rw [P.cl_carrier (P.hlive c' b' hc' hR'), ← hCr']; exact hy)
       Q hstep c hc hg t ht x hx
   · rw [tgtClsIs_unguarded hg] at ht
     exact absurd ht (not_mem_empty t)
@@ -331,6 +349,7 @@ the presentation. -/
     {ψ : Name → Nat} {ρ : Nat → V} {xs : List V}
     {call : List V → Nat → Nat → List V → V → Prop}
     (P : TgtNodePres envC acval p out d Dc mc cvc ψ ρ xs call) : Prop :=
-  ∀ c, c < (tgtRs out).length → tgtClsG d acval envC p out ψ ρ xs c → ∃ b, P.Rel c b
+  ∀ c, c < (tgtRs out).length → tgtClsG d acval envC p out ψ ρ xs c →
+    tgtClsLive d Dc cvc acval envC p out ψ ρ xs c → ∃ b, P.Rel c b
 
 end ConLeche.Model

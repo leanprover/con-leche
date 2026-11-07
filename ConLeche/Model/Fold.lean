@@ -109,27 +109,25 @@ of every name the input stores; `P` is what the step says of the leaves it adds.
     (P : (Name → (Name → Nat) → Term) → Prop) : Prop :=
   ∃ mp' : EnvModelM V env',
     (∀ n, (env.find? n).isSome = true → mp'.base2.acval n = mp.base2.acval n) ∧
-    LfpCover mp' [] ∧ FamilyRan mp' ∧ P mp'.base2.acval
+    LfpCover mp' [] ∧ P mp'.base2.acval
 
 /-- A step's carrier, covered, from a covered input. -/
 theorem CoverTo.covered {env env' : Env} {mp : EnvModelM V env}
-    (h : CoverStep mp env') (hcov : LfpCover mp []) (hS : FamilyRan mp)
-    (htb : ∀ T, (env.find? T).isSome = true → env'.findTable? T = env.findTable? T) :
+    (h : CoverStep mp env') (hcov : LfpCover mp []) :
     CoveredRel mp env' fun _ => True :=
-  h.elim fun mp' h' => ⟨mp', h'.1.leaf, h'.2 hcov, hS.step h'.1 htb, trivial⟩
+  h.elim fun mp' h' => ⟨mp', h'.1.leaf, h'.2 hcov, trivial⟩
 
 /-- A value-kind step's carrier, covered, with its new leaf. -/
 theorem CoverStepLeaf.covered {env env' : Env} {mp : EnvModelM V env} {n : Name} {P : Prop}
-    (h : CoverStepLeaf mp env' n P) (hcov : LfpCover mp []) (hS : FamilyRan mp)
-    (htb : ∀ T, (env.find? T).isSome = true → env'.findTable? T = env.findTable? T) :
+    (h : CoverStepLeaf mp env' n P) (hcov : LfpCover mp []) :
     CoveredRel mp env' fun acval => P → acval n = fun _ => .prf :=
-  h.elim fun mp' h' => ⟨mp', h'.1.leaf, h'.2.2 hcov, hS.step h'.1 htb, h'.2.1⟩
+  h.elim fun mp' h' => ⟨mp', h'.1.leaf, h'.2.2 hcov, h'.2.1⟩
 
 /-- **The P fold invariant**: a covered P carrier plus the η-family
 closure. -/
 @[expose] def EnvModelOk (V : Type w) [SetTheory V] (env : Env) :
     Prop :=
-  (∃ mp : EnvModelM V env, LfpCover mp [] ∧ FamilyRan mp) ∧ EtaFamiliesClosed env ∧ NatFacts env
+  (∃ mp : EnvModelM V env, LfpCover mp []) ∧ EtaFamiliesClosed env ∧ NatFacts env
 
 /-- The invariant's carrier. -/
 theorem EnvModelOk.nonempty {env : Env} (h : EnvModelOk V env) :
@@ -138,7 +136,7 @@ theorem EnvModelOk.nonempty {env : Env} (h : EnvModelOk V env) :
 
 /-- The invariant at the empty environment. -/
 theorem EnvModelOk.empty : EnvModelOk V Env.empty :=
-  ⟨⟨EnvModelM.empty V, lfpCover_empty, fun _ hD => nomatch hD⟩, EtaFamiliesClosed.empty,
+  ⟨⟨EnvModelM.empty V, lfpCover_empty⟩, EtaFamiliesClosed.empty,
     ⟨fun h => by rcases h with h | h | h <;> exact nomatch h⟩⟩
 
 /-- A step that adds constants, none of `Nat`'s block's, and no table. -/
@@ -149,18 +147,18 @@ theorem EnvModelOk.empty : EnvModelOk V Env.empty :=
 
 /-- A plain step keeps the two fold-level facts. -/
 theorem PlainStep.close {env env₂ : Env} {mp : EnvModelM V env} (h : PlainStep env env₂)
-    (hstep : CoverStep mp env₂) (hcov : LfpCover mp []) (hS : FamilyRan mp) (hN : NatFacts env) :
+    (hstep : CoverStep mp env₂) (hcov : LfpCover mp []) (hN : NatFacts env) :
     CoveredRel mp env₂ (fun _ => True) ∧ NatFacts env₂ := by
-  obtain ⟨new, hnew, htab, hres⟩ := h
-  exact ⟨hstep.covered hcov hS (findTable_of_added hnew htab), hN.append hnew hres⟩
+  obtain ⟨new, hnew, -, hres⟩ := h
+  exact ⟨hstep.covered hcov, hN.append hnew hres⟩
 
 /-- A plain value-kind step keeps the two fold-level facts, with its new leaf. -/
 theorem PlainStep.closeLeaf {env env₂ : Env} {mp : EnvModelM V env} {n : Name} {P : Prop}
     (h : PlainStep env env₂) (hstep : CoverStepLeaf mp env₂ n P) (hcov : LfpCover mp [])
-    (hS : FamilyRan mp) (hN : NatFacts env) :
+    (hN : NatFacts env) :
     CoveredRel mp env₂ (fun acval => P → acval n = fun _ => .prf) ∧ NatFacts env₂ := by
-  obtain ⟨new, hnew, htab, hres⟩ := h
-  exact ⟨hstep.covered hcov hS (findTable_of_added hnew htab), hN.append hnew hres⟩
+  obtain ⟨new, hnew, -, hres⟩ := h
+  exact ⟨hstep.covered hcov, hN.append hnew hres⟩
 
 /-- A declaration's constant, stored under an unreserved name. -/
 theorem PlainStep.cons {env : Env} {c : ConstantInfo}
@@ -275,7 +273,7 @@ leaf (`CoverRel`), and its leaf at a proof the declaration adds is the canonical
 (`DeclProofLeaf`). -/
 theorem declStep_agrees
     {F : Nat} {env env₂ : Env} {d : Declaration}
-    (mp : EnvModelM V env) (hcov : LfpCover mp []) (hS : FamilyRan mp)
+    (mp : EnvModelM V env) (hcov : LfpCover mp [])
     (hE : EtaFamiliesClosed env) (hN : NatFacts env)
     (hrun : DeclRun F (ConLeche.Semantics.DeclIndRunDispatchK F env)
       env d env₂) :
@@ -291,38 +289,38 @@ theorem declStep_agrees
     ⟨h.1, hEta, h.2⟩
   have triv : ∀ {P : (Name → (Name → Nat) → Term) → Prop}, (∀ a, P a) →
       CoveredRel mp env₂ (fun _ => True) ∧ NatFacts env₂ → CoveredRel mp env₂ P ∧ NatFacts env₂ :=
-    fun hP h => ⟨h.1.elim fun mp' h' => ⟨mp', h'.1, h'.2.1, h'.2.2.1, hP _⟩, h.2⟩
+    fun hP h => ⟨h.1.elim fun mp' h' => ⟨mp', h'.1, h'.2.1, hP _⟩, h.2⟩
   have leaf : ∀ {n : Name} {P : Prop} {Q : (Name → (Name → Nat) → Term) → Prop},
       (∀ a, (P → a n = fun _ => .prf) → Q a) →
       CoveredRel mp env₂ (fun a => P → a n = fun _ => .prf) ∧ NatFacts env₂ →
       CoveredRel mp env₂ Q ∧ NatFacts env₂ :=
-    fun hPQ h => ⟨h.1.elim fun mp' h' => ⟨mp', h'.1, h'.2.1, h'.2.2.1, hPQ _ h'.2.2.2⟩, h.2⟩
+    fun hPQ h => ⟨h.1.elim fun mp' h' => ⟨mp', h'.1, h'.2.1, hPQ _ h'.2.2⟩, h.2⟩
   cases d with
   | defnDecl cv value hint =>
     have hsh := hrun
     obtain ⟨type', value', hcv, -, henv2, -, -⟩ := hsh
     subst henv2
     exact leaf (fun _ h => h)
-      (PlainStep.closeLeaf (PlainStep.cons (by exact hcv.2.1)) (harvestDefn mp hrun) hcov hS hN)
+      (PlainStep.closeLeaf (PlainStep.cons (by exact hcv.2.1)) (harvestDefn mp hrun) hcov hN)
   | thmDecl cv value =>
     have hsh := hrun
     -- the run record has no is-a-proposition derivation row
     obtain ⟨-, type', value', hcv, -, -, henv2⟩ := hsh
     subst henv2
     exact leaf (fun _ h => h trivial)
-      (PlainStep.closeLeaf (PlainStep.cons (by exact hcv.2.1)) (harvestThm mp hrun) hcov hS hN)
+      (PlainStep.closeLeaf (PlainStep.cons (by exact hcv.2.1)) (harvestThm mp hrun) hcov hN)
   | opaqueDecl cv value =>
     have hsh := hrun
     obtain ⟨-, type', value', hcv, -, henv2, -⟩ := hsh
     subst henv2
     exact leaf (fun _ h => h)
-      (PlainStep.closeLeaf (PlainStep.cons (by exact hcv.2.1)) (harvestOpaque mp hrun) hcov hS hN)
+      (PlainStep.closeLeaf (PlainStep.cons (by exact hcv.2.1)) (harvestOpaque mp hrun) hcov hN)
   | axiomDecl cv =>
-    obtain ⟨new, hnew, htab, hres⟩ := plainStep_axiom hrun
-    exact leaf (fun _ h => h) ⟨(axiomStepPB_of mp hrun).covered hcov hS (findTable_of_added hnew htab),
+    obtain ⟨new, hnew, -, hres⟩ := plainStep_axiom hrun
+    exact leaf (fun _ h => h) ⟨(axiomStepPB_of mp hrun).covered hcov,
       hN.append hnew hres⟩
   | quotDecl k cv =>
-    exact triv (fun _ => trivial) ((plainStep_quot hrun).close (declQuotPB_at mp hrun) hcov hS hN)
+    exact triv (fun _ => trivial) ((plainStep_quot hrun).close (declQuotPB_at mp hrun) hcov hN)
   | indDecl block nP =>
     refine triv (fun _ => trivial) ?_
     -- a block with a pinned block's names installs the pin at the record's
@@ -334,8 +332,7 @@ theorem declStep_agrees
         rintro rfl
         have hm := List.mem_of_find?_eq_some hk
         simp at hm
-      obtain ⟨hc, htb⟩ := basisInstallRun_consts hrun.2
-      exact ⟨(declBasisPB_at mp hnq hrun).covered hcov hS (findTable_of_added hc htb),
+      exact ⟨(declBasisPB_at mp hnq hrun).covered hcov,
         natFacts_basis hN hk hrun.2⟩
     · have hrun' : ConLeche.Semantics.DeclIndRunDispatchK F env block nP env₂ := hrun
       unfold ConLeche.Semantics.DeclIndRunDispatchK at hrun'
@@ -343,8 +340,8 @@ theorem declStep_agrees
       | some p =>
         rw [hdf] at hrun'
         -- the uniform install, at any number of members, nested blocks included
-        obtain ⟨⟨mp', hcov', hS', hleaf⟩, hN'⟩ := declBlock mp hE hdf hrun' hcov hS hN
-        exact ⟨⟨mp', hleaf, hcov', hS', trivial⟩, hN'⟩
+        obtain ⟨⟨mp', hcov', hleaf⟩, hN'⟩ := declBlock mp hE hdf hrun' hcov hN
+        exact ⟨⟨mp', hleaf, hcov', trivial⟩, hN'⟩
       | none =>
         -- a block the recogniser does not read never installs
         rw [hdf] at hrun'
@@ -353,13 +350,13 @@ theorem declStep_agrees
 /-- **The per-declaration P step**: `declStep_agrees`, forgetting the input's carrier. -/
 theorem declStep_preserves
     {F : Nat} {env env₂ : Env} {d : Declaration}
-    (mp : EnvModelM V env) (hcov : LfpCover mp []) (hS : FamilyRan mp)
+    (mp : EnvModelM V env) (hcov : LfpCover mp [])
     (hE : EtaFamiliesClosed env) (hN : NatFacts env)
     (hrun : DeclRun F (ConLeche.Semantics.DeclIndRunDispatchK F env)
       env d env₂) :
     EnvModelOk V env₂ := by
-  obtain ⟨⟨mp', -, hcov', hS', -⟩, hE', hN'⟩ := declStep_agrees mp hcov hS hE hN hrun
-  exact ⟨⟨mp', hcov', hS'⟩, hE', hN'⟩
+  obtain ⟨⟨mp', -, hcov', -⟩, hE', hN'⟩ := declStep_agrees mp hcov hE hN hrun
+  exact ⟨⟨mp', hcov'⟩, hE', hN'⟩
 
 /-- **The P fold**: the declaration fold's recursion at the P invariant. -/
 theorem foldPM {F : Nat} :
@@ -376,9 +373,9 @@ theorem foldPM {F : Nat} :
     | error e => rw [hd] at h; exact nomatch h
     | ok env1 =>
       rw [hd] at h
-      obtain ⟨⟨mp, hcov, hS⟩, hE, hN⟩ := hm
+      obtain ⟨⟨mp, hcov⟩, hE, hN⟩ := hm
       exact foldPM ds env1
-        (declStep_preserves mp hcov hS hE hN
+        (declStep_preserves mp hcov hE hN
           -- **the RUN bridge, from the P carrier's own `EnvFacts`**
           -- (`checkDeclRun_ofEnvFactsK`; the `ind` kind through
           -- `DeclIndRunDispatchK`)

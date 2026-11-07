@@ -135,9 +135,6 @@ structure LfpDatum (V : Type w) where
   names : List Name
   /-- the number of MEMBERS -/
   k : Nat
-  /-- member `m`'s former as the block's check read it, where the stored one does not show its
-  telescope -/
-  telescope : Nat → Option ConstantVal
   /-- the operator's WIDTH (members, then instance components) -/
   N : Nat
   /-- the result sort's value, per level assignment -/
@@ -177,12 +174,16 @@ variable {V : Type w} [SetTheory V] (D : LfpDatum V)
 /-- Member `mm`'s name. -/
 @[expose] def member (mm : Nat) : Name := D.names.getD mm .anonymous
 
-/-- Member `mm`'s former, stored as `cv`, as the block read it. -/
-@[expose] def formerAt (mm : Nat) (cv : ConstantVal) : ConstantVal := (D.telescope mm).getD cv
-
 /-- The tuple of index-tuple sets at a parameter frame. -/
 @[expose] noncomputable def idx (ψ : Name → Nat) (ρp : Nat → V) : Nat → V :=
   fun c => idxSet (D.u c ψ) ρp (D.ids c ψ)
+
+/-- **A parameter frame fits the block**: it satisfies the parameter
+telescope, and some member's index telescope has a fit there (a full fit
+of that member's telescope; where a frame has none, the block's tower
+determines nothing there, task #443). -/
+@[expose] def FrFit (ψ : Name → Nat) (ρp : Nat → V) : Prop :=
+  Sat V (D.params ψ).reverse ρp ∧ ∃ mm, mm < D.k ∧ ∃ is, SpineFit ρp (D.ids mm ψ) is
 
 /-- **The carrier**: the least pre-fixed tuple of the operator. -/
 @[expose] noncomputable def carrier (ψ : Name → Nat) (ρp : Nat → V) : Nat → V :=
@@ -200,6 +201,15 @@ WHOLE application to the block's parameters, `nestCrest`). -/
 innermost). -/
 @[expose] noncomputable def frame (ψ : Name → Nat) (ρp X : Nat → V) : Nat → V :=
   consList ((List.range D.k).map (D.holeVal ψ ρp X)) ρp
+
+/-- **The hole types**: member `m`'s hole type is its index telescope over the block's sort,
+read at the variable `nP + m` (over the parameters and the earlier holes). -/
+@[expose] def holeTys (ψ : Name → Nat) : List Term :=
+  (List.range D.k).map fun m => (mkPisAV (D.ids m ψ) (.sort (D.w ψ))).liftN m 0
+
+omit [SetTheory V] in
+theorem holeTys_length (ψ : Name → Nat) : (D.holeTys ψ).length = D.k := by
+  simp [holeTys]
 
 /-- **The hole fit**: `fs` fits component `c`'s constructor `j` at the
 hole frame of `(ρp, X)` — each field in its reading with holes at the

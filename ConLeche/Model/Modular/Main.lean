@@ -12,7 +12,7 @@ A development of modules (`ConLeche.Modular.Module`) is a development over the i
 (`toDev`): a module's context and own environment expose every name, its sources are every
 earlier module's own environment exposing what the module reads alike from it
 (`ConLeche.Modular.readsAlike`), and its keys are the module's.  A module passing the local checks
-(`LocalOk`), with the reduction hypothesis (`FormerRuns`), is a valid one (`toDev_valid`): its
+(`LocalOk`) is a valid one (`toDev_valid`): its
 context is assembled from the sources (`reading`, `Valid.lean`), one copy of each name holds by the
 views' exposure, its records are accepted from the context, and a new name is its own or a flagged
 proof.  The generic theorem (`Development.modular`) then gives the compatible family of models
@@ -44,8 +44,8 @@ variable (V pins) in
   key j := (dev j).key
 
 /-- **A module passing the local checks is valid.** -/
-theorem toDev_valid {dev : Nat → Module} {i : Nat} (hok : ∀ j ≤ i, LocalOk .verified pins dev j)
-    (hruns : FormerRuns dev i) : (toDev V pins dev).Valid i := by
+theorem toDev_valid {dev : Nat → Module} {i : Nat} (hok : ∀ j ≤ i, LocalOk .verified pins dev j) :
+    (toDev V pins dev).Valid i := by
   classical
   have hK := (hok i (Nat.le_refl i)).importOk
   refine ⟨fun x hx => ?_, .inl ⟨?_, ?_, ?_, ?_⟩⟩
@@ -67,7 +67,7 @@ theorem toDev_valid {dev : Nat → Module} {i : Nat} (hok : ∀ j ≤ i, LocalOk
       (fun n h => by
         change ((dev i).context.find? n).isSome = true at h
         simp only [srcOf, dite_eq_left h]; rfl)
-      (fun n x hx d hd => ?_) (hsE ▸ reading hok) (hsE ▸ ?_)
+      (fun n x hx d hd => ?_) (hsE ▸ reading hok)
     · -- what a source exposes is what is read alike from it
       by_cases h : ((dev i).context.find? n).isSome = true
       · simp only [srcOf, dite_eq_left h] at hx
@@ -79,13 +79,6 @@ theorem toDev_valid {dev : Nat → Module} {i : Nat} (hok : ∀ j ≤ i, LocalOk
         · next hc => exact hc
         · exact nomatch hd
       · simp [srcOf, h] at hx
-    · intro n T cv caps hn hT hcT hdh F f hrun
-      change ((dev i).context.find? n).isSome = true at hn
-      have hR : srcReads dev i n = readsAlike dev i ((dev i).src n) := by simp [srcReads, hn]
-      have hE : srcOwn dev i n = (dev ((dev i).src n)).own := by simp [srcOwn, hn]
-      rw [hR] at hT ⊢
-      rw [hE] at hrun
-      exact hruns n T cv caps hn hT hcT hdh F f hrun
   · -- one copy: a source exposes only what is read alike
     intro n _ x hx hs
     obtain ⟨b, -, rfl⟩ := List.mem_map.mp hx
@@ -113,10 +106,10 @@ theorem toDev_valid {dev : Nat → Module} {i : Nat} (hok : ∀ j ≤ i, LocalOk
 
 /-- **The compatible family of models**, over the instance. -/
 theorem modularModels {dev : Nat → Module} {i : Nat}
-    (hok : ∀ j ≤ i, LocalOk .verified pins dev j) (hruns : ∀ j ≤ i, FormerRuns dev j) :
+    (hok : ∀ j ≤ i, LocalOk .verified pins dev j) :
     ∃ m : (j : Nat) → j < i + 1 → MMod V ((dev j).own, fun _ => True),
       (toDev V pins dev).Compatible (i + 1) m :=
   (toDev V pins dev).modular (i + 1) fun j hj =>
-    toDev_valid (fun k hk => hok k (by omega)) (hruns j (by omega))
+    toDev_valid fun k hk => hok k (by omega)
 
 end ConLeche.Model.Modular

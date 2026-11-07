@@ -267,7 +267,6 @@ theorem genNodeCalls {F : Nat}
       denote mk.base2.acval envI ψ dd e = some ea →
         denote mpC.base2.acval envC ψ dd e = some ea)
     (hcoreK : BlockHoleCtxFacts mk.base2 dR pp.lps pp.formers pp isRecR)
-    (hreads : ∀ F, FamilyRead mk F)
     {fvsP : List Expr} {ns : List PosTree}
     (hok : ∀ t ∈ ns, PosNodeOk (fueledOps .verified F) envI (pp.nestCtx fvsP envI.find?) t)
     (hkids : ∀ t ∈ ns, ∀ k ∈ t.kids, k ∈ ns)
@@ -291,7 +290,8 @@ theorem genNodeCalls {F : Nat}
       out ns ψ ρ xs envC F (pp.formers.map (·.type))) :
     ∀ c b, c < (tgtRs out).length →
       nlRel mpC.base2.acval (pp.nestCtx fvsP envI.find?) dR pp out ns
-        ψ ρ xs envC F (pp.formers.map (·.type)) c b → ∀ t j fs,
+        ψ ρ xs envC F (pp.formers.map (·.type)) c b →
+      tgtClsLive dR Dc cvc mpC.base2.acval envC pp out ψ ρ xs c → ∀ t j fs,
       t ∈ˢ (nlDb mpC dR ns b).idx (nlψ envC ns ψ b)
         (nlFr mpC (pp.nestCtx fvsP envI.find?) dR ns ψ ρ xs b)
         (tgtClsM mc pp out c) →
@@ -312,12 +312,12 @@ theorem genNodeCalls {F : Nat}
             (nlFr mpC (pp.nestCtx fvsP envI.find?) dR ns ψ ρ xs) (nlDp ns)
             (nodeAdm mk mpC (pp.nestCtx fvsP envI.find?) dR ns ψ ρ xs par) b
             (tgtClsM mc pp out c) t j fs b' (tgtClsM mc pp out c') t' y := by
-  intro c b hc hR t j fs ht hHF c' t' y hc' ht' hy hcall
+  intro c b hc hR hlc t j fs ht hHF c' t' y hc' ht' hy hcall
   have hctx' := hctx
   obtain ⟨hPos, henvC, hnames, hndM, hN, hS, hcore, hmemberCtors, hdR, hlfp, hcov, -, -, -⟩ := hctx'
   obtain ⟨hparF, hparS⟩ := canonPars_of_forests hctx hmemF
   obtain ⟨cvTa0, rest0, holes0, hcv0, hop0, hholes0, hMF⟩ := hmemF
-  have H := dynCtx_of hctx hmkC hmk hag hsubC htr hcoreK hreads hok hkids hpar hsem hF hparF hparS
+  have H := dynCtx_of hctx hmkC hmk hag hsubC htr hcoreK hok hkids hpar hsem hF hparF hparS
   have hmr : BlockMembersRun mpC.base2 dR pp := by
     obtain ⟨pk, uOfD, ppsOf, rfl⟩ := hdR; exact blockMembersRun_seam hN hS hcore
   have hreadP : pp.members.map (·.cvT) = pp.formers := by
@@ -336,8 +336,9 @@ theorem genNodeCalls {F : Nat}
   -- the rule side: the class's decoding, fitting the rule
   obtain ⟨hDeq, hψeq, hFreq⟩ := nlRel_tie (Dc := Dc) (mc := mc) (cvc := cvc) hcov hF hcls hsel
     hnPc hpd hfrT hc hR
+  have hlb := nlRel_live (Dc := Dc) (mc := mc) (cvc := cvc) hcov hF hcls hsel hnPc hpd hfrT hc hR hlc
   have hti : t ∈ˢ tgtClsIs dR Dc mc cvc mpC.base2.acval envC pp out ψ ρ xs c := by
-    unfold tgtClsIs; rw [ite_eq_left hR.1, hDeq, hψeq, hFreq]; exact ht
+    rw [tgtClsIs_of hR.1 hlc, hDeq, hψeq, hFreq]; exact ht
   have hxl : xs.length = R.pre.length := by
     rw [(tgtClsIs_pref hti).length_eq, blockRulePdomsAV_length mpC h (hrs c hc) ψ]
     exact (genRec_at R hg hc).2.1
@@ -676,8 +677,10 @@ theorem genNodeCalls {F : Nat}
         have hA' := hA
         unfold nodeAdm at hA'
         rw [ite_eq_right hb0, hub] at hA'
-        obtain ⟨σ, hσ, rfl⟩ := hA'
-        have hidxEq := (dyn_hAdm H ψ ρ xs hparams par b (by omega) G _ hA).2
+        obtain ⟨hlv, σ, hσ, rfl⟩ := hA'
+        have hkσ := dyn_keyFitAdm H ψ ρ xs hparams hxs hb0 hbl hlv (by rw [hub]; exact hσ)
+        rw [hub] at hkσ
+        have hidxEq := (dyn_hAdm H ψ ρ xs hparams hxs par b (by omega) G _ hA).2.2
         rw [hnlDb, hnlψ, hmc] at hH
         rw [hnlDb, hnlψ] at hidxEq
         have hY' : InTupleSpace ((lfpSel mpC dR.toLfp u.key.cname).w (nodeψ envC ψ u))
@@ -688,8 +691,8 @@ theorem genNodeCalls {F : Nat}
           rw [hidxEq m' hm']
           have := hY m' (by rw [hnlDb]; exact hm')
           rwa [hnlDb, hnlψ] at this
-        obtain ⟨hsatN, hfl, hmem⟩ := hsemU σ hσ.sat Y hY' t fs hH
-        refine ⟨_, admVal_kid H hbpos hbl hub hσ hparams hxs hY' hsatN (fun i => rfl)
+        obtain ⟨hsatN, hfl, hmem⟩ := hsemU σ hσ.sat hkσ Y hY' t fs hH
+        refine ⟨_, admVal_kid H hbpos hbl hub hσ hlv hparams hxs hY' hsatN (fun i => rfl)
           (u' := .node [] prog default [] []) hprog.symm, hfl, fun i nd hnd => ?_⟩
         obtain ⟨nda, hnda, hmemI⟩ := hmem i nd hnd
         rw [← hhiP] at hnda
@@ -736,7 +739,7 @@ theorem genNodeCalls {F : Nat}
       omega
   -- the true visit: the fields' count, and the call's telescope fits
   obtain ⟨σT, hAT, hflT, hmemT⟩ := hvisit (fun _ _ _ _ => True) _
-    (dyn_top H ψ ρ xs hparams hxs hPP b (by omega) _ (fun _ _ _ _ _ _ _ _ _ => trivial)) _
+    (dyn_top H ψ ρ xs hparams hxs hPP b (by omega) hlb _ (fun _ _ _ _ _ _ _ _ _ _ => trivial)) _
     (lfpTuple_mem _ _ _ _) hHF
   have hfsl : fs.length = ctor.2 := by rw [hflT, hnFc]
   have hlenF : fvsR.length = nds.length := by rw [hlR, hnF, hndl, hnFc]
@@ -1148,14 +1151,17 @@ theorem genNodeCalls {F : Nat}
       rw [← hMc, ← hDeq']
       simp only [tgtClsM, tgtClsD, hMo', Option.isSome_none, Bool.false_eq_true, ite_false]
       exact Nat.lt_of_lt_of_le hTO.hmm (mpC.lfpClause_of_mem hTO.hD).kN
-    have hSatO := (dyn_hAdm H ψ ρ xs hparams par o (by omega) _ _
-      (dyn_top H ψ ρ xs hparams hxs hPP o (by omega) (fun _ _ _ _ => True)
-        (fun _ _ _ _ _ _ _ _ _ => trivial))).1
+    -- the owner is live: its class is
+    have hlo := nlRel_live (Dc := Dc) (mc := mc) (cvc := cvc) hcov hF hcls hsel hnPc hpd hfrT hcal
+      hRo (tgtClsIs_guard ht').2
+    have hSatO := (dyn_hAdm H ψ ρ xs hparams hxs par o (by omega) _ _
+      (dyn_top H ψ ρ xs hparams hxs hPP o (by omega) hlo (fun _ _ _ _ => True)
+        (fun _ _ _ _ _ _ _ _ _ _ => trivial))).2.1
     have hIdx := (mpC.lfpClause_of_mem hDo).idxOk _ _ hSatO _ hcN
     have hmemO := ht'
-    unfold tgtClsIs at hmemO
-    rw [ite_eq_left (tgtClsG_of_mem ht'), hDeq', hψeq', hFreq', hMc, hTc] at hmemO
-    obtain ⟨-, hG⟩ := admVal_frameLand H hparams hxs hAdmN hvk
+    rw [tgtClsIs_of (tgtClsG_of_mem ht') (tgtClsIs_guard ht').2, hDeq', hψeq', hFreq', hMc,
+      hTc] at hmemO
+    obtain ⟨-, hG⟩ := admVal_frameLand H hxs hAdmN hvk (by rw [hog]; exact hlo)
       (by rw [List.length_map, ← hwl]; exact har) (by
         simp only
         rw [hog, ← hI, hIM]
@@ -1230,8 +1236,10 @@ theorem genNodeCalls {F : Nat}
           ((pp.nestCtx fvsP envI.find?).hiAt u''.anc.length) σK) := by
       unfold nodeAdm
       rw [ite_eq_right (by omega), hb''u]
-      exact ⟨σK, hσK, rfl⟩
-    obtain ⟨hsat'', hidx''⟩ := dyn_hAdm H ψ ρ xs hparams par b'' (by omega) _ _ hAdm''
+      -- the kid is live: its class is
+      exact ⟨nlRel_live (Dc := Dc) (mc := mc) (cvc := cvc) hcov hF hcls hsel hnPc hpd hfrT hcal hRb
+        (tgtClsIs_guard ht').2, σK, hσK, rfl⟩
+    obtain ⟨-, hsat'', hidx''⟩ := dyn_hAdm H ψ ρ xs hparams hxs par b'' (by omega) _ _ hAdm''
     refine Or.inr (Or.inr ⟨hdp, by omega, _, hAdm'', ?_⟩)
     have hmN : tgtClsM mc pp out r < (nlDb mpC dR ns b'').N := by
       rw [hDcb, show tgtClsM mc pp out r = mc r by simp [tgtClsM, hMo']]
@@ -1326,9 +1334,11 @@ theorem genNodeCalls {F : Nat}
         unfold nlDb
         rw [ite_eq_right (by omega), hb''u]
         exact (dyn_nodeBlock H hu''ns).1
-      have hFk := H.hcov.instFacts hDmk hTO'.hmm (by rw [hTO'.hmem]; exact hfE)
+      have hfEm : envI.find? ((Dc r).member (mc r)) = some (.indInfo (cvc r) caps') := by
+        rw [hTO'.hmem]; exact hfE
+      obtain ⟨tyK, hfamK, hFk⟩ := H.hcov.instRun hfEm
         (by show I = _; rw [hTO'.hmem, hIMt]) hnIW
-      refine nestInstType_count hTO' hFk hinst' ?_
+      refine nestInstType_count hTO' (familyRead mk hDmk hTO'.hmm hfEm hfamK) hFk hinst' ?_
       show (w.getAppArgs.take nPc).length = _
       rw [List.length_take, Nat.min_eq_left hnPcL, ← hPl', hPwLen]
     have hhead : (mpC.base2.acval (tgtMajor out r).ind
@@ -1346,8 +1356,7 @@ theorem genNodeCalls {F : Nat}
     rw [hDcb, show nlψ envC ns ψ b'' = tgtClsψ cvc out ψ r from hψb''.symm,
       show tgtClsM mc pp out r = mc r by simp [tgtClsM, hMo'], ← hFrb''] at hidxK
     have hmemK := ht'
-    unfold tgtClsIs at hmemK
-    rw [ite_eq_left (tgtClsG_of_mem ht'),
+    rw [tgtClsIs_of (tgtClsG_of_mem ht') (tgtClsIs_guard ht').2,
       show tgtClsD dR Dc out r = Dc r by simp [tgtClsD, hMo'],
       show tgtClsM mc pp out r = mc r by simp [tgtClsM, hMo'],
       show tgtClsTup dR Dc mc cvc pp out ψ r

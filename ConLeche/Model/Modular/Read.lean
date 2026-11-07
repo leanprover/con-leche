@@ -208,7 +208,7 @@ structure CtxRead (C : Env) (E R : Name → Env) : Prop where
 η-family closure and the `Nat` facts, whose leaf at every stored name is `aC`'s. -/
 @[expose] def CtxModel (V : Type w) [SetTheory V] (C : Env)
     (aC : Name → (Name → Nat) → Term.Term) : Prop :=
-  ∃ mp : EnvModelM V C, LfpCover mp [] ∧ FamilyRan mp ∧ EtaFamiliesClosed C ∧ NatFacts C ∧
+  ∃ mp : EnvModelM V C, LfpCover mp [] ∧ EtaFamiliesClosed C ∧ NatFacts C ∧
     ∀ n, (C.find? n).isSome = true → mp.base2.acval n = aC n
 
 end ConLeche.Model.Modular

@@ -140,13 +140,8 @@ theorem tgtClsG_of_mem {d : BlockData V} {Dc : Nat → LfpDatum V} {mc : Nat →
     {p : BlockShape} {out : List (ConstantVal × TargetMajor × List Expr)} {ψ : Name → Nat}
     {ρ : Nat → V} {xs : List V} {c : Nat} {t : V}
     (ht : t ∈ˢ tgtClsIs d Dc mc cvc acval envC p out ψ ρ xs c) :
-    tgtClsG d acval envC p out ψ ρ xs c := by
-  classical
-  by_cases hg : tgtClsG d acval envC p out ψ ρ xs c
-  · exact hg
-  · unfold tgtClsIs at ht
-    rw [ite_eq_right hg] at ht
-    exact absurd ht (not_mem_empty t)
+    tgtClsG d acval envC p out ψ ρ xs c :=
+  (tgtClsIs_guard ht).1
 
 /-! ## A key's parameters, read back at a stack's suffix -/
 

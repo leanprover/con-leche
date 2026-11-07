@@ -164,14 +164,12 @@ theorem #src("ConLeche/Verify/Cached/MainC.lean", 32, 35)[composes it with the f
 *Modular checking.* In the fragment, a module's context, views and
 what declared its names are given, and the local checks of
 @sec:mod-local say what they must satisfy. Con-leche states
-#src("ConLeche/Modular.lean", 255, 258)[the same checks] over its own
+#src("ConLeche/Modular.lean", 232, 235)[the same checks] over its own
 records, a context being a list of the records its imports present, and
 carries #src("ConLeche/Modular/Generic.lean", 305, 306)[the theorem]
 over the interface of @sec:mod-iface, and its instance for con-leche's
-models gives #src("ConLeche/MainTheorem.lean", 192, 201)[the modular
-theorem] with one hypothesis beyond the local checks: a type former
-whose declared type is headed by a definition reduces at an importer's
-context to the telescope it reduces to at its source. Con-leche
+models gives #src("ConLeche/MainTheorem.lean", 190, 198)[the modular
+theorem]. Con-leche
 computes a module's context from the `.olean` files and checks the
 module's own records against it, one module per run; that the runs at
 every module of an import closure together give the local checks is not
