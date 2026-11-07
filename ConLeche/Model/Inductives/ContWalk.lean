@@ -254,7 +254,8 @@ omit hnN hkN in
 read there as the rest of its run's tower substituted at the parameters' readings; the key's
 parameters fit the run's parameter binders wherever the key's context is satisfied (the key's
 certificates, `keyRunFit`), and where they also fit the block's, that rest has the value of the
-member's index telescope over the block's sort at the key frame (`runHoleTy_read`). -/
+member's index telescope over the block's sort at the key frame (`runHoleTy_read`); the member's
+own value inhabits the run's tower (its stored type has the tower's value). -/
 theorem grp_typeT {p : Name × Expr} (hp : p ∈ grp) :
     Expr.WScoped hi p.2 ∧ p.2.looseBVarsBounded 0 = true ∧
     (∀ l ∈ p.2.fvarLeaves, ∃ x ∈ ds, l ∈ x.fvarLeaves) ∧
@@ -270,14 +271,16 @@ theorem grp_typeT {p : Name × Expr} (hp : p ∈ grp) :
         ∀ ρ : Nat → V, Sat V Δa ρ →
           SpineFit (fun j => ρ (j + hi)) (ab.take ds.length) (dsa.map (interp V ρ)) ∧
           ∀ a ∈ dsa, WellDenoted V ρ a) ∧
-      ∀ ρ : Nat → V,
+      (∀ ρ : Nat → V,
         SpineFit (fun j => ρ (j + hi)) (ab.take ds.length) (dsa.map (interp V ρ)) →
         SpineFit (fun j => ρ (j + hi)) (D.pars mm (Level.substFn φ lps us))
           (dsa.map (interp V ρ)) →
         interp V (keyFrame dsa hi ρ) (mkPisAV (ab.drop ds.length) (.sort u))
           = interp V (keyFrame dsa hi ρ)
               (mkPisAV (D.ids mm (Level.substFn φ lps us))
-                (.sort (D.w (Level.substFn φ lps us)))) := by
+                (.sort (D.w (Level.substFn φ lps us))))) ∧
+      ∀ ρ : Nat → V, interp V ρ (mp.base2.acval p.1 (Level.substFn φ lps us))
+        ∈ˢ interp V ρ (mkPisAV ab (.sort u)) := by
   obtain ⟨mm, hmm, hpm, cv, caps, ty, hf, hR, hstrip, hp2, hcerts⟩ := hgT.2.2 p hp
   obtain ⟨cv', caps', hf', hlp⟩ := hlps mm hmm
   rw [hf] at hf'
@@ -298,7 +301,25 @@ theorem grp_typeT {p : Name × Expr} (hp : p ∈ grp) :
     · rw [ConLeche.Expr.fvarLeaves_eq_nil_of_not_hasFvar hcl] at hl'; exact nomatch hl'
     · exact hl'
   · obtain ⟨ab, u, hta, hl, hwd, hrd, hval⟩ := runHoleTy_read mp hR hds hdsa hpl hstrip hp2
-    refine ⟨mm, hmm, hpm, ab, u, hl, hwd, hrd, fun hin Δa hΔ hCds hLds ρ hρ => ?_, hval⟩
+    have hmem : ∀ ρ : Nat → V, interp V ρ (mp.base2.acval p.1 (Level.substFn φ cv.levelParams us))
+        ∈ˢ interp V ρ (mkPisAV ab (.sort u)) := by
+      -- the member's value: in its stored type, whose value is the run's tower's
+      intro ρ
+      obtain ⟨-, -, -, hrd'⟩ := hR
+      obtain ⟨ab', u', hta', -, hv'⟩ := hrd' (Level.substFn φ cv.levelParams us)
+      rw [hta] at hta'
+      obtain ⟨rfl, rfl⟩ : ab = ab' ∧ u = u' := by
+        have := Option.some.inj hta'
+        exact mkPisAV_sort_inj this
+      obtain ⟨cv'', caps'', hf'', -, hval''⟩ := mp.lfpReadsV hD mm hmm
+      rw [hf] at hf''
+      obtain ⟨rfl, rfl⟩ : cv = cv'' ∧ caps = caps'' := by simpa using hf''
+      obtain ⟨ta, hta'', hv''⟩ := hval'' (Level.substFn φ cv.levelParams us)
+      have hm := mp.mem_type _ (ConLeche.Env.find?_mem hf) _ ta hta'' ρ
+      rw [ConLeche.Env.find?_name hf, ← hpm] at hm
+      rw [(hv' ρ).1, ← (hv'' ρ).1]
+      exact hm
+    refine ⟨mm, hmm, hpm, ab, u, hl, hwd, hrd, fun hin Δa hΔ hCds hLds ρ hρ => ?_, hval, hmem⟩
     exact keyRunFit mp hin hR.1 hR.2.1 hcerts hta (fun ρ => (hwd ρ).1)
       (by rw [hl, List.length_append, hpl]; omega) hΔ
       (fun x hx => ⟨⟨(hds x hx).1, (hds x hx).2, hLds x hx⟩, CtxOk.toS (hCds x hx).toCtxOk⟩)
@@ -686,7 +707,7 @@ theorem grp_holeTy {p : Name × Expr} (hp : p ∈ grp) :
       ∀ ρ : Nat → V, Sat V Δh ρ → KeyFit D (Level.substFn φ lps us) dsa hi ρ →
         interp V ρ X = interp V (keyFrame dsa hi ρ)
           (mkPisAV (D.ids mm (Level.substFn φ lps us)) (.sort (D.w (Level.substFn φ lps us)))) := by
-  obtain ⟨-, -, -, mm, hmm, hpm, ab, u, -, -, hrd, hfit, hval⟩ :=
+  obtain ⟨-, -, -, mm, hmm, hpm, ab, u, -, -, hrd, hfit, hval, -⟩ :=
     grp_typeT mp hD hlps hnd hul hds hdsa hlenP (grpWf_ty mp hD hnN hkN hfind hlps hg) hp
   refine ⟨mm, hmm, hpm, by rw [hpm]; exact idxOf_member hnN hkN hmm, _, hrd, fun ρ hs hk => ?_⟩
   have hdl : dsa.length = ds.length := (DenoteSpine.length_eq hdsa).symm
@@ -871,6 +892,37 @@ theorem grpVals_fit (ρ X : Nat → V) (hs : Sat V Δh ρ)
       · simp only [grpVals, List.getElem_map]
         rw [hidx, hval ρ hs hk]
         exact LfpDatum.holeVal_mem h.kN hX.toU hmm rfl
+  simpa using this
+
+/-- **The group's members applied to the key inhabit their holes' context entries** at every
+valuation satisfying the key's context, whether or not its key frame fits the block: each
+member's value inhabits its run's tower, and the key fits the run's parameter binders there. -/
+theorem grpRun_fit (ρ : Nat → V) (hs : Sat V Δh ρ) :
+    SpineFit ρ (grpTys mp.base2 φ hi grp)
+      (grp.map fun p => (dsa.map (interp V ρ)).foldl app
+        (interp V ρ (mp.base2.acval p.1 (Level.substFn φ lps us)))) := by
+  have := spineFit_of_lifted (grpTys mp.base2 φ hi grp)
+    (grp.map fun p => (dsa.map (interp V ρ)).foldl app
+        (interp V ρ (mp.base2.acval p.1 (Level.substFn φ lps us)))) [] ρ
+    (by simp [grpTys]) fun i hi' hi'' => by
+      have hi3 : i < grp.length := by simpa [grpTys] using hi'
+      obtain ⟨hw, -, -, mm, -, -, ab, u, -, -, hrd, hfit, -, hmem⟩ :=
+        grp_typeT mp hD hlps hnd hul hds hdsa hlenP
+          (grpWf_ty mp hD hnN hkN hfind hlps hg) (List.getElem_mem hi3)
+      refine ⟨mkPisAV (Term.substTele (substTau ds.length hi fun i => dsa.getD i default) 0
+          (ab.drop ds.length)) (.sort u), ?_, ?_⟩
+      · simp only [grpTys, List.getElem_mapIdx, List.length_nil, Nat.zero_add]
+        rw [denote_lift mp.base2.acval_closed hw _ (by omega), hrd, Option.map_some,
+          Option.getD_some, show hi + i - hi = i by omega]
+      · simp only [List.getElem_map]
+        have hdl : dsa.length = ds.length := (DenoteSpine.length_eq hdsa).symm
+        rw [← hdl, interp_substTele_key, hdl]
+        have hF := (hfit hin hΔ hCds hLds ρ hs).1
+        have hm := hmem (fun j => ρ (j + hi))
+        rw [← List.take_append_drop ds.length ab, mkPisAV_append] at hm
+        have happ := foldl_app_mem_mkPisAV hF hm
+        rw [acval_interp_closed mp.base2 _ _ (fun j => ρ (j + hi)) ρ] at happ
+        exact happ
   simpa using this
 
 /-- **The frame relation is a hole relation** of the frame's walk: the

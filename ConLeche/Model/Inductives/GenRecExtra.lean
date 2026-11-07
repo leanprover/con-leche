@@ -1479,8 +1479,8 @@ theorem genOut_major
       = (tgtClsD d Dc out j).idx (tgtClsψ cvc out ψ j)
           (tgtClsFr d mpC.base2.acval envC pp out ψ ρ
             ((xs.take (pp.rulePrefixAt j)).map (interp V ρ)) j)
-          (tgtClsM mc pp out j) := by
-    unfold tgtClsIs; rw [ite_eq_left hG]
+          (tgtClsM mc pp out j) :=
+    tgtClsIs_of hG (tgtClsIs_guard hTin).2
   rw [hIs, hFr] at hTin
   have hsatK := Rd.hsat ψ ρ _ hpref
   obtain ⟨hC, -⟩ := mpC.lfp_ok _ Rd.hD
@@ -2262,11 +2262,6 @@ theorem genRows3_out
     Nat.lt_of_lt_of_le Rd.hmm hC.kN
   have hG := (Rd.hG ψ ρ xsV).mpr hpref
   have hFr := Rd.hfr ψ ρ xsV hxvl
-  have hIs : tgtClsIs d Dc mc cvc mpC.base2.acval envC pp out ψ ρ xsV j
-      = (tgtClsD d Dc out j).idx (tgtClsψ cvc out ψ j)
-          (tgtClsFr d mpC.base2.acval envC pp out ψ ρ xsV j)
-          (tgtClsM mc pp out j) := by
-    unfold tgtClsIs; rw [ite_eq_left hG]
   have hsatK := Rd.hsat ψ ρ xsV hpref
   have hval3 : interp V ρ (Term.mkAppN
       (mpC.base2.acval ctor.1.name (Level.substFn φ ctor.1.levelParams usj)) ys)
@@ -2282,7 +2277,7 @@ theorem genRows3_out
     exact ConLeche.Level.isNeverZero_sound _ _ (genOutNZ R hj hMo hℓ)
   -- the carrier's decomposition at the recursor's index tuple
   obtain ⟨hTin, hmajIn, -⟩ := hS ψ ρ j hj xsV isV _ hxvl hisl hws
-  rw [hIs] at hTin
+  rw [tgtClsIs_of hG (tgtClsIs_guard hTin).2] at hTin
   have hsatF : Sat V ((tgtClsD d Dc out j).params (tgtClsψ cvc out ψ j)).reverse
       (tgtClsFr d mpC.base2.acval envC pp out ψ ρ xsV j) := by
     rw [hFr]; exact hsatK

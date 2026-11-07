@@ -184,6 +184,13 @@ variable {V : Type w} [SetTheory V] (D : LfpDatum V)
 @[expose] noncomputable def idx (ψ : Name → Nat) (ρp : Nat → V) : Nat → V :=
   fun c => idxSet (D.u c ψ) ρp (D.ids c ψ)
 
+/-- **A parameter frame fits the block**: it satisfies the parameter
+telescope, and some member's index telescope has a fit there (a full fit
+of that member's telescope; where a frame has none, the block's tower
+determines nothing there, task #443). -/
+@[expose] def FrFit (ψ : Name → Nat) (ρp : Nat → V) : Prop :=
+  Sat V (D.params ψ).reverse ρp ∧ ∃ mm, mm < D.k ∧ ∃ is, SpineFit ρp (D.ids mm ψ) is
+
 /-- **The carrier**: the least pre-fixed tuple of the operator. -/
 @[expose] noncomputable def carrier (ψ : Name → Nat) (ρp : Nat → V) : Nat → V :=
   lfpTuple (D.w ψ) D.N (D.idx ψ ρp) (D.Φ ψ ρp)

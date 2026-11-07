@@ -210,6 +210,8 @@ theorem dyn_ctorFit {F : Nat} {envI envC : Env} {mk : EnvModelM V envI}
         p.looseBVarsBounded 0 = true ∧
           Expr.WScoped (ctx.hiAt u.anc.length + u.grp.length + i) p) ∧
       ∀ σ : Nat → V, Sat V (stackCtx mk.base2 ψ ctx u.anc (d.holeCtx ψ).reverse) σ →
+      KeyFit (lfpSel mpC d.toLfp u.key.cname) (nodeψ envC ψ u) (nodeDsaI mk ctx ψ u)
+        (ctx.hiAt u.anc.length) σ →
       ∀ Y, InTupleSpace ((lfpSel mpC d.toLfp u.key.cname).w (nodeψ envC ψ u))
           (lfpSel mpC d.toLfp u.key.cname).N
           ((lfpSel mpC d.toLfp u.key.cname).idx (nodeψ envC ψ u)
@@ -236,13 +238,9 @@ theorem dyn_ctorFit {F : Nat} {envI envC : Env} {mk : EnvModelM V envI}
   have hds := posNodeOk_dsAnc hok
   have hdsa := dyn_dsaI H hu ψ
   have hsem := H.hsem u hu ψ
-  have hkfit := fun σ hσ => nodeKeyFit mk (H.hΔ0 ψ) hok hsem H.hcov hD hmm hmmH hfc0 (hlenP _).symm hdsa σ hσ
   have hΔ := stackCtx_length_hi (m := mk.base2) (φ := ψ) (H.hΔ0 ψ) u.anc
   obtain ⟨-, hCds, hLds⟩ := hsem
-  have hkey := frameKey_of_check mk (Rules.RulesInputs.ofSem mk ψ) H.hcov hD hmm hfc0
-    (fun x hx => hds x hx) hLds hΔ hCds hdsa (hlenP _)
-    (by rw [hmmH]; exact posD_frame_kty hok.1)
-  generalize nodeDsaI mk ctx ψ u = dsa at hdsa hkfit hkey ⊢
+  generalize nodeDsaI mk ctx ψ u = dsa at hdsa ⊢
   generalize hDdef : lfpSel mpC d.toLfp u.key.cname = D at *
   -- the frame's constructors
   obtain ⟨ctors, hgc, hallc⟩ := posD_ctors_typed hok.1
@@ -273,8 +271,8 @@ theorem dyn_ctorFit {F : Nat} {envI envC : Env} {mk : EnvModelM V envI}
   have hbb : (L[j].1.type.instantiateLevelParams L[j].1.levelParams u.key.lvls).looseBVarsBounded 0
       = true := by
     rw [Expr.looseBVarsBounded_instantiateLevelParams]; exact hcvwf.2.2.2.1
-  obtain ⟨hfr, hCP⟩ := crest_frame mk hD hnN hkN H.hcov.find hlps hndl hul hds hdsa (hlenP _) hg hΔ
-    hCds hLds hkey hcl hbb hcr
+  obtain ⟨hfr, hCP⟩ := crest_frame mk hD hnN hkN H.hcov.find hlps hndl hul hds hdsa (hlenP _) hg
+    (Rules.RulesInputs.ofSem mk ψ) hΔ hCds hLds hcl hbb hcr
   have hty' : ConLeche.inferTypeCore .verified false envI F
       (ctx.hiAt u.anc.length + u.grp.length) crest = .ok ty := hty
   have hsort' : ConLeche.ensureSortCore .verified false envI F
@@ -287,10 +285,12 @@ theorem dyn_ctorFit {F : Nat} {envI envC : Env} {mk : EnvModelM V envI}
   obtain ⟨hresB, -, hndC⟩ := posD_tele_closed mk.base2.wf htele hhiP hfr.2.1 hfr.1
   have hnl : nds.length = L[j].2 := (ConLeche.posD_tele_open htele).2.1
   refine ⟨L[j].1, L[j].2, ctors, crest, ks, nds, cur, ts', hfc, hgc, hxmem, hcr, htele, hsub, hnl,
-    hfr.2.1, hresB, hndC, fun σ hσ Y hY t fs hf => ?_⟩
+    hfr.2.1, hresB, hndC, fun σ hσ hkσ Y hY t fs hf => ?_⟩
   -- the fit at the substituted walk valuation
-  have hs := hkfit σ hσ
-  generalize hρ' : keyFrame dsa (ctx.hiAt u.anc.length) σ = ρ' at hs hY hf
+  have hs := hkσ.1
+  have hgV := grpVals_fit mk hD hnN hkN H.hcov.find hlps hndl hul hds hdsa (hlenP _) hg
+    (Rules.RulesInputs.ofSem mk ψ) hΔ hCds hLds σ Y hσ hkσ
+  generalize hρ' : keyFrame dsa (ctx.hiAt u.anc.length) σ = ρ' at hs hY hf hgV
   have hS := substE_grp mk hD hnN hkN H.hcov.find hlps hndl hul hds hdsa (hlenP _) hg Y σ
   rw [hρ'] at hS
   obtain ⟨-, hsp, -⟩ := hf
@@ -301,10 +301,7 @@ theorem dyn_ctorFit {F : Nat} {envI envC : Env} {mk : EnvModelM V envI}
   have hsatW : Sat V ((grpTys mk.base2 ψ (ctx.hiAt u.anc.length) u.grp).reverse
       ++ stackCtx mk.base2 ψ ctx u.anc (d.holeCtx ψ).reverse)
       (consList (grpVals D (Level.substFn ψ cv0.levelParams u.key.lvls) u.grp ρ' Y) σ) :=
-    sat_of_spineFit hσ (by
-      have h := grpVals_fit mk hD hnN hkN H.hcov.find hlps hndl hul hds hdsa (hlenP _) hg
-        σ Y (by rw [hρ']; exact hY)
-      rwa [hρ'] at h)
+    sat_of_spineFit hσ (hgV hY)
   obtain ⟨hfl, -, hmem⟩ := posD_tele_fieldMem (Rules.RulesInputs.ofSem mk ψ) htele
     (fun i p hp => (hndC i p hp).1) hresB hfr hCP hrd hgr rfl
     (by rw [substTele_length, hlen]) hsatW hW

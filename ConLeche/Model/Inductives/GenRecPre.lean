@@ -714,14 +714,11 @@ the tuple is the declared index expressions' readings'. -/
 theorem tgtClsIs_prefix {ψ : Name → Nat} {ρ : Nat → V} {xs : List V} {c : Nat} {i : V}
     (hi : i ∈ˢ tgtClsIs d Dc mc cvc mpC.base2.acval envC pp out ψ ρ xs c) :
     SpineFit ρ (blockRulePdomsAV mpC.base2.acval envC pp (tgtRs out) ψ c) xs := by
-  classical
-  unfold tgtClsIs at hi
-  by_cases hg : tgtClsG d mpC.base2.acval envC pp out ψ ρ xs c
-  · unfold tgtClsG at hg
-    by_cases hm : (tgtMajor out c).member.isSome = true
-    · rw [ite_eq_left hm] at hg; exact hg.2
-    · rw [ite_eq_right hm] at hg; exact hg
-  · rw [ite_eq_right hg] at hi; exact absurd hi (not_mem_empty _)
+  have hg := (tgtClsIs_guard hi).1
+  unfold tgtClsG at hg
+  by_cases hm : (tgtMajor out c).member.isSome = true
+  · rw [ite_eq_left hm] at hg; exact hg.2
+  · rw [ite_eq_right hm] at hg; exact hg
 
 /-- An index tuple's spine has the class's index count. -/
 theorem isOfW_length (u n : Nat) (t : V) : (isOfW u n t).length = n := by

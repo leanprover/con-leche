@@ -106,8 +106,7 @@ empty domain is a truth value), so nothing is read there; a container instance g
 valuation fits at its key frame (`keyLeaf`). -/
 @[expose] def KeyFit (D : LfpDatum V) (ψ : Name → Nat) (dsa : List Term) (hi : Nat)
     (ρ : Nat → V) : Prop :=
-  Sat V (D.params ψ).reverse (keyFrame dsa hi ρ) ∧
-    ∃ mm, mm < D.k ∧ ∃ is, SpineFit (keyFrame dsa hi ρ) (D.ids mm ψ) is
+  D.FrFit ψ (keyFrame dsa hi ρ)
 
 /-- **A frame relation at the pairs whose key frames fit the block** (`KeyFit`). -/
 @[expose] def fitRel (R : FrameRel V) (D : LfpDatum V) (ψ : Name → Nat) (dsa : List Term)

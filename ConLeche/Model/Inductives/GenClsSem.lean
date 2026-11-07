@@ -520,13 +520,30 @@ theorem genCls_Is_eq {c : Nat} {cvI : ConstantVal} (Rd : GenClsRd mpC d Dc mc cv
     (ψ : Name → Nat) (ρ : Nat → V) {xs : List V}
     (hxl : xs.length = tgtRP pp c)
     (hxfit : SpineFit ρ
-      (blockRulePdomsAV mpC.base2.acval envC pp (tgtRs out) ψ c) xs) :
+      (blockRulePdomsAV mpC.base2.acval envC pp (tgtRs out) ψ c) xs)
+    (hlive : tgtClsLive d Dc cvc mpC.base2.acval envC pp out ψ ρ xs c) :
     tgtClsIs d Dc mc cvc mpC.base2.acval envC pp out ψ ρ xs c
       = (tgtClsD d Dc out c).idx (tgtClsψ cvc out ψ c)
           (keyFrame (tgtOutDsa mpC.base2.acval envC pp out ψ c)
             (tgtRP pp c) (consList xs ρ)) (tgtClsM mc pp out c) := by
-  classical
-  rw [tgtClsIs, ite_eq_left ((Rd.hG ψ ρ xs).mpr hxfit), Rd.hfr ψ ρ xs hxl]
+  rw [tgtClsIs_of ((Rd.hG ψ ρ xs).mpr hxfit) hlive, Rd.hfr ψ ρ xs hxl]
+
+/-- A class is live where its key frame satisfies its parameters and its
+own index telescope has a fit there. -/
+theorem genCls_live {c : Nat} {cvI : ConstantVal} (Rd : GenClsRd mpC d Dc mc cvc pp out c cvI)
+    (ψ : Name → Nat) (ρ : Nat → V) {xs : List V}
+    (hxl : xs.length = tgtRP pp c)
+    (hsat : Sat V ((tgtClsD d Dc out c).params (tgtClsψ cvc out ψ c)).reverse
+      (keyFrame (tgtOutDsa mpC.base2.acval envC pp out ψ c) (tgtRP pp c) (consList xs ρ)))
+    {is : List V}
+    (his : SpineFit (keyFrame (tgtOutDsa mpC.base2.acval envC pp out ψ c) (tgtRP pp c)
+      (consList xs ρ)) ((tgtClsD d Dc out c).ids (tgtClsM mc pp out c) (tgtClsψ cvc out ψ c)) is) :
+    tgtClsLive d Dc cvc mpC.base2.acval envC pp out ψ ρ xs c := by
+  unfold tgtClsLive
+  split
+  · trivial
+  · rw [Rd.hfr ψ ρ xs hxl]
+    exact ⟨hsat, _, Rd.hmm, is, his⟩
 
 /-- The class's carrier at a fitting prefix is its datum's at the key frame. -/
 theorem genCls_Cr_eq {c : Nat} {cvI : ConstantVal} (Rd : GenClsRd mpC d Dc mc cvc pp out c cvI)
@@ -542,12 +559,8 @@ theorem genCls_Cr_eq {c : Nat} {cvI : ConstantVal} (Rd : GenClsRd mpC d Dc mc cv
 theorem genCls_Is_fits {c : Nat} {cvI : ConstantVal} (Rd : GenClsRd mpC d Dc mc cvc pp out c cvI)
     {ψ : Name → Nat} {ρ : Nat → V} {xs : List V} {i : V}
     (hi : i ∈ˢ tgtClsIs d Dc mc cvc mpC.base2.acval envC pp out ψ ρ xs c) :
-    SpineFit ρ (blockRulePdomsAV mpC.base2.acval envC pp (tgtRs out) ψ c) xs := by
-  classical
-  unfold tgtClsIs at hi
-  by_cases hg : tgtClsG d mpC.base2.acval envC pp out ψ ρ xs c
-  · exact (Rd.hG ψ ρ xs).mp hg
-  · rw [ite_eq_right hg] at hi; exact absurd hi (not_mem_empty _)
+    SpineFit ρ (blockRulePdomsAV mpC.base2.acval envC pp (tgtRs out) ψ c) xs :=
+  (Rd.hG ψ ρ xs).mp (tgtClsIs_guard hi).1
 
 set_option maxHeartbeats 2000000 in
 /-- **`GenClsSplit` at one class.** -/
@@ -586,7 +599,8 @@ theorem genCls_split
   have hisK := (hI is).mp h2
   have hmaj := hM is hisK
   have hxlR : xs.length = tgtRP pp c := hxl
-  rw [genCls_Is_eq Rd ψ ρ hxlR h1, genCls_Cr_eq Rd ψ ρ hxlR]
+  rw [genCls_Is_eq Rd ψ ρ hxlR h1 (genCls_live Rd ψ ρ hxlR (Rd.hsat ψ ρ xs h1) hisK),
+    genCls_Cr_eq Rd ψ ρ hxlR]
   refine ⟨tupW_mem hisK, ?_, ?_⟩
   · rw [List.getD_eq_getElem?_getD, List.getElem?_drop, ← List.getD_eq_getElem?_getD,
       ← consList_append, hmaj] at h3
@@ -623,7 +637,7 @@ theorem genCls_back
   have hxl : xs.length = pp.rulePrefixAt c := by
     rw [hxfit.length_eq, hlenPd]
   have hxlR : xs.length = tgtRP pp c := hxl
-  rw [genCls_Is_eq Rd ψ ρ hxlR hxfit] at hi
+  rw [genCls_Is_eq Rd ψ ρ hxlR hxfit (tgtClsIs_guard hi).2] at hi
   rw [genCls_Cr_eq Rd ψ ρ hxlR] at hx
   obtain ⟨is, hisK, rfl⟩ := mem_idxSet_elim hi
   obtain ⟨hC, -, -, -⟩ := mpC.lfp_ok _ Rd.hD
@@ -879,7 +893,6 @@ theorem genCls_dec
     exact hleaf
   -- the class data at the key frame
   have hfr := Rd.hfr ψ ρ as₁ hxlR
-  have hIs := genCls_Is_eq Rd ψ ρ hxlR hpref
   have hCr := genCls_Cr_eq Rd ψ ρ hxlR
   obtain ⟨hC, -, -, -⟩ := mpC.lfp_ok _ Rd.hD
   have hmN := Nat.lt_of_lt_of_le Rd.hmm hC.kN
@@ -887,6 +900,7 @@ theorem genCls_dec
   have hsat' : Sat V ((tgtClsD d Dc out c).params (tgtClsψ cvc out ψ c)).reverse
       (keyFrame (tgtOutDsa mpC.base2.acval envC pp out ψ c)
         (tgtRP pp c) (consList as₁ ρ)) := by rw [hψc]; exact hsat
+  have hIs := genCls_Is_eq Rd ψ ρ hxlR hpref (genCls_live Rd ψ ρ hxlR hsat' hIdsF)
   have hIk := hC.idxOk _ _ hsat' _ hmN
   have hret := isOfW_tupW hIk hIdsF
   rw [Rd.hidsLen ψ] at hret
@@ -935,7 +949,7 @@ theorem genCls_decInv
   have hpref := genCls_Is_fits Rd hi
   have hlenPd := blockRulePdomsAV_length (V := V) mpC h (List.getElem?_eq_getElem hc) ψ
   have hxlR : xs.length = tgtRP pp c := by rw [hpref.length_eq, hlenPd]; rfl
-  rw [genCls_Is_eq Rd ψ ρ hxlR hpref] at hi
+  rw [genCls_Is_eq Rd ψ ρ hxlR hpref (tgtClsIs_guard hi).2] at hi
   rw [tgtClsFit, Rd.hfr ψ ρ xs hxlR] at hf
   obtain ⟨ctor, ab, Tys, hctor, hctO, hjD, hlT, hTys, hEq, hlab, hfdoms, hes, -, -, -, -⟩ :=
     genCls_open R hg hcov hc hj Rd hnP ψ
