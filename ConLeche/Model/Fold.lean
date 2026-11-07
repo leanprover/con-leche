@@ -3,7 +3,7 @@ module
 import ConLeche.Model.AxiomReduce
 import ConLeche.Model.Inductives.StructEntryKit
 public import ConLeche.Semantics.Bridge.Sound
-public import ConLeche.Verify.BasisBlock
+import ConLeche.Verify.BasisBlock
 import ConLeche.Verify.Inductives.BlockShapeInv
 import ConLeche.Model.Cover
 public import ConLeche.Model.Inductives.BlockRunFacts
@@ -201,7 +201,7 @@ theorem storedAt_names :
     rw [storedAt_names ps bs h]
 
 /-- **A pinned block keeps `Nat`'s block whole.** -/
-theorem natFacts_basis {env env₂ : Env} {kind : ConLeche.BasisKind} {block : List ConstantInfo}
+private theorem natFacts_basis {env env₂ : Env} {kind : ConLeche.BasisKind} {block : List ConstantInfo}
     (hN : NatFacts env) (hk : ConLeche.basisNameHit block = some kind)
     (h : BasisInstallRun env (kind.storedAt block) env₂) : NatFacts env₂ := by
   obtain ⟨hc, -⟩ := basisInstallRun_consts h
@@ -244,7 +244,7 @@ theorem natFacts_basis {env env₂ : Env} {kind : ConLeche.BasisKind} {block : L
 
 /-- **A pinned block's install, as the model reads it**: the installed pins at the record's names,
 each under a fresh name, and no table (`blockInstall_pinned`). -/
-theorem basisInstallRun_of_block {F : Nat} {env env₂ : Env} {block : List ConstantInfo}
+private theorem basisInstallRun_of_block {F : Nat} {env env₂ : Env} {block : List ConstantInfo}
     {nP : Nat} {kind : ConLeche.BasisKind} {p : ConLeche.BlockShape}
     (hk : ConLeche.basisNameHit block = some kind)
     (hok : ConLeche.pinListOk block kind.decls = true)

@@ -1,7 +1,7 @@
 module
 
 public import ConLeche.Semantics.Decl
-public import ConLeche.Verify.Extend.Inversions
+import ConLeche.Verify.Extend.Inversions
 import ConLeche.Kernel.Checker
 
 @[expose] public section
