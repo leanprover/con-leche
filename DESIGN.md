@@ -112603,3 +112603,56 @@ name table's order is the private part's; `recMapOf` keeps it).  Estimated 600�
 started.  `GroupsPresent` is a hypothesis of `worker_presented` and its corollaries, nowhere assumed.
 
 **Gates** on the final tree: below, with the commit.
+
+### #443: the rule frame of a class whose key fits only its run (#443 cont. 7, 2026-11-07)
+
+**Merged.**  `modular` had nothing past the lane's last merge; no merge commit.
+
+**What cont. 6's item 1 missed.**  `GenClsRd.hsat` ("at every fitting rule prefix the class's
+key satisfies its datum's parameters") is used in two kinds of place.  Where a major is in hand
+(`genCls_split`, `genCls_back`, `genCls_decInv`, `GenRecExtra`'s rows (U) at a graded major,
+`genOutCtorFit`'s three callers) it is replaced by the major's own facts: a fit of the stored
+index binders at the prefix makes the major domain graded (`prefixDoms_graded_of_tower`), and
+`keyLeaf` at it gives the key's satisfaction of the datum's parameters, the index fit and the
+carrier — no run, no `formerAt`.  But **`genCls_dec`** (`GenClsDec`, the decoding at the rule
+frame, consumed by `genRow_hrule`/`genRow_hdec`, i.e. by the ι equations `blockRecEqs`, which
+`genRecPre_hCand` must make hold at EVERY fit of a rule's prefix and fields) has only the prefix
+and the fields in hand.  By value a rule frame can be *dead* (the key fits the run's parameter
+binders — `familyKeyCheck` — but not the datum's; the towers agree, the stage's domain does not,
+cont. 2): there the fields, the constructor's binders at an argument outside the datum's domain,
+may fit, and `GenClsDec`'s conclusion (the index tuple in the index set) is false.
+
+**Why a dead rule frame is still impossible, by value (within ruling (e)).**  At a dead frame
+the stored index binders at the key have no fit (a fit would make the major domain graded and
+`keyLeaf` would give the datum's parameters).  The motive's domain is the stored index and major
+telescope (`genMotRds`), so it has no fit, its value is `unitSet` (`mkPisAV_sort_eq_unitSet`), the
+motive is `pt`, and the minor premise's conclusion (the motive applied) is `pt`.  The recursor's
+stored type is graded at every prefix fit (the stage's inference), so the minor's domain is: at a
+field fit, every inductive hypothesis domain inhabited ⇒ its conclusion `IsTy`, contradicting
+`IsTy.ne_pt`.  The inductive hypothesis domains are inhabited by the candidate recursor values
+(`as` with `htyp`): each call lands in its callee's stored domains (`genCallTy`), where the
+recursor value's application lies in the callee motive's value, so the ih function is in the ih
+domain (a Π-set inhabited fibre-wise).  A constructor with no inductive hypothesis needs no
+candidate.  Hence: **at every rule fit, with the candidate's values in their types, the class is
+live** (`genRule_live`, to be proved); `GenClsDec` takes the liveness as a hypothesis (with it
+the old proof goes through: `keyLeaf`'s satisfaction replaces `hsat`), and `genRecEqs_wd`/
+`genRow_hrule`/`genRow_hdec` supply it from `genRule_live` (they have `as`, `htyp`).
+
+**The rest of item 1 and item 2, in this light** (`GenClsSem`):
+* `genCls_core` restated: (I) a fit `is` of the stored index binders at a fitting prefix gives
+  the datum's parameters at the key frame, `is` fitting the datum's index telescope there and the
+  major domain the carrier's application (`keyLeaf` — no `hformer`); (II) conversely, the
+  datum's parameters and an index fit at the key frame give a fit of the stored index binders —
+  by the RUN: the generated `formerTys` entry is the run's result (`tgtFormer`), its index binders
+  at the key read as the run's rest at the key frame (`instTele_read`), the key fits the run's
+  parameter binders (`genOut_runFit`; a member: the block's own parameters), and
+  `spineFit_iff_of_mkPisAV_eq` on the two full towers (one value, `familyRead`).  `hformer` goes.
+* `GenClsRd.hsat` and `genOut_keyFit` (and `GenRecFinal`'s `hkf`) are deleted; `genCls_live`
+  takes the satisfaction from (I); `genOutCtorFit` takes it as a hypothesis.
+
+Items 3–5 of cont. 6 unchanged.
+
+**State.**  Branch `agent/443-semantic-former` at `8875b800f` + this record; builds and tests
+warning-free; `FormerRuns` is still in the capstones.  Not landed (a partial lane).
+
+**Gates.**  `lake build` (no-op, warning-free); nothing executed changed since cont. 3's full gates.
