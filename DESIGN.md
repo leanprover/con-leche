@@ -112799,6 +112799,18 @@ changed since cont. 3's full gates.
   hypothesis**; `Challenge.lean`, `Modular.lean`'s statement, `Axioms.lean`'s table, OVERVIEW §1
   and whitepaper §7 say so.
 
+**Merged** `modular` (#440, `93b77a167`); the only conflict was DESIGN.md (both appended, both
+kept).  **Imports** after the swap: the unused ones removed by shake's criterion (each `--only`
+run at the noise floor), the compensated ones allowlisted with their compensation, and
+`FamilyRun`'s statement re-exports and `RunEnv`'s dot-notation re-export
+(`EnvModelM.lfp_ok_transport`) recorded as measured fallbacks of the public-import plan.
+
+**Gates** on the final tree: `lake build`, `lake test` warning-free, axiom pins unchanged (66
+theorems at the three standard axioms; `modular_model_exists`/`modular_no_False` among them);
+`tests/arena.sh` in full under the guard (90/92 arena, e2e 555/555, olean 300/300, selfcheck,
+the trusted and `--jobs` sweeps; peak anon 2.9 GB); shake, layering, trust surface, links and
+quotes, the whitepaper's links and fragment gates and its build.  Nothing executed changed.
+
 ## TASK #440 — a group read from its home is its home's record (2026-11-07, agent/440-groups-present)
 
 #448's open step, on `modular` (off 2b1a48601).  **`group_presents`**
