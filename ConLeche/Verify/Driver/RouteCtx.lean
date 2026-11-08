@@ -6,6 +6,7 @@ import ConLeche.Verify.Driver.Reach
 import ConLeche.Verify.Cached.DeclPushes
 import ConLeche.Verify.Frontend.Prepare
 import ConLeche.Verify.Frontend.Olean.Equiv
+import ConLeche.Verify.Frontend.Olean.Reads
 
 /-!
 # The routes: what a module's context stores, and how
@@ -233,6 +234,23 @@ theorem entryDecl_quot {c : CEntry} {d : Declaration} (h : entryDecl c = some d)
   rw [hk] at h
   simp only at h
   split at h <;> (try (rename_i heq; cases heq)) <;> (try (cases h; exact ⟨_, _, rfl⟩)) <;> cases h
+
+/-- **A copy's position says its statement's kind**: its tag and its filter. -/
+theorem copyAt_kind {sp : SearchPath} {fs : FS} {s : Spot} {r : Region} {cv : ConstantVal}
+    {k : CKindF Name Unit} (hs : CopyAt sp fs s) (hr : PartRegion sp fs s.part r)
+    (hst : StmtSkel r s.pos.loc cv k) : s.pos.tag = k.tag ∧ s.pos.skipped = k.skipped := by
+  obtain ⟨t, ht, hq⟩ := hs
+  obtain ⟨f, a, hf, hreg⟩ := hr
+  have hn := partNames_region ht hf
+  simp only [readNamePositions, hreg] at hn
+  change namePositionsAt r a = some t at hn
+  obtain ⟨_, _, _, hall⟩ := namePositionsAt_mem hn
+  obtain ⟨_, sk, hsk, -, htg, hskp⟩ := hall _ hq
+  obtain ⟨sk', hsk', -, -, -, hkm⟩ := hst
+  rw [hsk] at hsk'
+  cases hsk'
+  obtain ⟨h1, h2⟩ := CKindF.mapM_tag hkm
+  exact ⟨htg.trans h1, hskp.trans h2⟩
 
 namespace Run
 
@@ -509,7 +527,68 @@ theorem reader_ctx {M : Name} (hM : M ∈ R.names) {h y : Name} (hP : (h, y) ∈
     · obtain ⟨ci, hfind, hcv, -, -, -⟩ := copy_own' hwh ⟨_, R.run h hhN⟩ hmod2.symm hcp hlv hrg hst
         hsk2 htag hsy
       exact R.stored_of_own_const hhN (Env.find?_mem hfind) (by rw [hcv]; exact hyn') hl
-  · sorry
+  · -- a clash partner read: a copy, at `h`, of a clash's name the context stores
+    obtain ⟨_, _, hrd⟩ := (R.facts M hM).reads
+    obtain ⟨cl, hcl, hcln, cp, kd, he, hk1⟩ := clashCopiesOf_spec hcs (k := kc.1) (cv := kc.2)
+      (Array.mem_toList_iff.2 hkc)
+    obtain ⟨q, hq, hcpq, ⟨rg, hrg, hstq⟩, hqn, hcvn⟩ := workerClash_stmt hrd hcl he
+    have hmodq : (spotOf (R.w M).reads cp q).part.mod = h := by
+      show (R.w M).reads.loads.nameAt cp.mod = h
+      rw [← hk1]; exact hz1.symm
+    obtain ⟨hgm, hwg⟩ : ∃ f, ModelIO.CanGive (readFiles sp (spotOf (R.w M).reads cp q).part.mod
+        .private) fs (.ok f) := by
+      obtain ⟨f, -, -, -, -, hf, -⟩ := home_records hwh
+      exact ⟨f, by rw [hmodq]; exact hf⟩
+    -- the context's copy of the clash's name: the index's first copy
+    have hdn : d ∈ (R.w M).reach.ctx.toList := Array.mem_toList_iff.2 (Array.mem_of_getElem? hd)
+    have hyn : ((R.dev (R.rk M)).context.find? n).isSome = true := by
+      rw [R.dev_rk hM]; exact stored_of_record hdn hn
+    obtain ⟨-, hfirst, hmore, hall, -, hcopy⟩ := workerIndex_copies hrd
+    obtain ⟨cp₀, hf₀⟩ : ∃ cp₀, (R.w M).reads.index.first[n]? = some cp₀ := by
+      rcases hall cp q hq with h1 | h1
+      · rw [hqn, hcln] at h1; exact ⟨_, h1⟩
+      · obtain ⟨-, cp₀, hf, -⟩ := hmore _ _ h1
+        rw [hqn, hcln] at hf; exact ⟨_, hf⟩
+    obtain ⟨q₀, hq₀, hq₀n⟩ := hfirst n cp₀ hf₀
+    have hs₀ : copyOf (R.envOf M) (R.cap M).1 n = some (spotOf (R.w M).reads cp₀ q₀) := by
+      unfold copyOf
+      have : importerSpot (R.envOf M) n = some (cp₀.mod, spotOf (R.w M).reads cp₀ q₀) := by
+        unfold importerSpot
+        have e1 : (R.envOf M).wr.index.first[n]? = some cp₀ := hf₀
+        have e2 : (R.envOf M).wr.index.at cp₀ = some q₀ := hq₀
+        simp only [e1, e2, Option.bind_eq_bind, Option.bind_some, pure]
+        rfl
+      rw [this]
+    -- its kind: one of a clash with the copy at `cp`
+    obtain ⟨cl', hcl', -, ⟨cv', kd', he'⟩, cv₀, kd₀, he₀⟩ : ∃ cl' ∈ (R.w M).reads.clashes.toList,
+        cl'.name = n ∧ (∃ cv kd, (cp, cv, kd) ∈ cl'.copies.toList) ∧
+          ∃ cv kd, (cp₀, cv, kd) ∈ cl'.copies.toList := by
+      by_cases hc : cp = cp₀
+      · subst hc
+        exact ⟨cl, hcl, hcln, ⟨_, _, he⟩, _, _, he⟩
+      · exact workerClash_complete hrd hc hq hq₀ (hqn.trans hcln) hq₀n
+    obtain ⟨q', hq', -, ⟨rg', hrg', hstq'⟩, -⟩ := workerClash_stmt hrd hcl' he'
+    rw [hq] at hq'; cases hq'
+    obtain ⟨rfl, rfl⟩ := stmtSkel_unique hstq (partRegion_unique hwg hrg' hrg ▸ hstq')
+    obtain ⟨q₀', hq₀', hcp₀, ⟨rg₀, hrg₀, hst₀⟩, -⟩ := workerClash_stmt hrd hcl' he₀
+    rw [hq₀] at hq₀'; cases hq₀'
+    obtain ⟨-, ht₀⟩ := workerClash_kinds hrd hcl' he₀ he₀
+    obtain ⟨hsk, ht⟩ := workerClash_kinds hrd hcl' he' he₀
+    obtain ⟨-, -, -, -, -, -, hsk₀, -, hnsy, -⟩ :=
+      R.ctx_stmt hM hyn hs₀ hrg₀ hst₀ (by rcases ht₀ with h0 | h0 <;> rw [h0] <;> decide)
+    have hskq : (spotOf (R.w M).reads cp q).pos.skipped = false := by
+      rw [(copyAt_kind hcpq hrg hstq).2]
+      change kd.skipped = false
+      rw [show kd.skipped = kd₀.skipped from hsk, ← (copyAt_kind hcp₀ hrg₀ hst₀).2]
+      exact hsk₀
+    obtain ⟨ci, hfind, hcv, -, -, -⟩ := copy_own' hwh ⟨_, R.run h hhN⟩ hmodq hcpq
+      (spotOf_level _ _ _) hrg hstq hskq (by rcases ht with h0 | h0 <;> rw [h0] <;> decide)
+      (by rw [hcvn, hcln]; exact hnsy)
+    have hyn' : y ∈ kc.2.type.needs := by
+      rcases needsGo_sound _ _ _ _ hz2 with h0 | h0
+      · simp at h0
+      · exact h0
+    exact R.stored_of_own_const hhN (Env.find?_mem hfind) (by rw [hcv]; exact hyn') hl
 
 end Run
 
