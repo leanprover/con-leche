@@ -48,6 +48,8 @@ def runReq {μ : Type → Type} [CheckerIO μ] : Req → μ UInt8
   | .graph sp roots jobs => Graph.checkGraphG sp roots jobs
   | .modular sp root mode pace jobs => checkModularG sp root mode pace jobs
   | .schedule sp root opts mode pace jobs => scheduleG sp root opts mode pace jobs
-  | .module sp m mode pace jobs => checkModuleG (.ofPath sp) sp m mode pace jobs
+  | .module sp m mode pace jobs => do
+    let T ← workerTables sp m
+    checkModuleG (T.reads sp) sp m mode pace jobs
 
 end ConLeche.Driver

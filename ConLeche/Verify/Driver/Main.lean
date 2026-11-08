@@ -308,7 +308,9 @@ theorem runArgs_module_accept {dirs root : String} {fs : FS} {hs hs' : HS}
         | some m =>
           simp only [Array.find?_empty, List.filterMap_cons, hr, List.filterMap_nil,
             Array.isEmpty_empty] at hc
-          exact ⟨m, _, rfl, checkModuleG_accept (Frontend.Olean.OleanReads.Within.ofPath fs _) hc⟩
+          simp only [runReq, ModelIO.bind_ok] at hc
+          obtain ⟨T, _, hT, hc⟩ := hc
+          exact ⟨m, _, rfl, checkModuleG_accept (modTables_within (workerTables_ok hT)) hc⟩
   · simp
 
 /-- The arguments `--olean --modular --search-path=<dirs> -- <root>`: that one root, those

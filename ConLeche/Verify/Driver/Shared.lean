@@ -160,7 +160,7 @@ theorem findModule_within (fs : FS) (sp : SearchPath) (m : Name) :
     ModelIO.Within fs (findModule sp m) (findModule sp m) := by
   simp only [findModule]
   refine ModelIO.Within.bind (ModelIO.Within.tryCatch
-    (ModelIO.Within.map _ (ModelIO.Within.of_det (locateHits_det sp m fs)))
+    (ModelIO.Within.map _ (ModelIO.Within.of_det (locateFiles_det sp m fs)))
     fun _ => ModelIO.Within.pure _) fun _ => ?_
   within_tac []
 
