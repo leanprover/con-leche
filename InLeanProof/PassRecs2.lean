@@ -52,7 +52,7 @@ theorem tpdGuard_tr {s : InLean.CState} {a b : Lean.Expr} (ha : OkS s a = true)
         decide (InLean.fvarB b ≤ n)) =
       ((TrS s a).bvarB == 0 && (TrS s b).bvarB == 0 && decide ((TrS s a).fvarB ≤ n) &&
         decide ((TrS s b).fvarB ≤ n)) := by
-  rw [hasLooseBVars_TrS ha, hasLooseBVars_TrS hb, fvarB_tr ha, fvarB_tr hb,
+  rw [hasLooseBVars_TrS ha, hasLooseBVars_TrS hb, fvarB_trR ha, fvarB_trR hb,
     ConLeche.Expr.fvarB_eq, ConLeche.Expr.fvarB_eq]
 
 /-- **The per-component parameter match** (`targetParamsDefEq`): InLean's

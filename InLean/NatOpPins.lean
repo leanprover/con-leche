@@ -2,6 +2,7 @@ module
 
 public import Lean.Data.Json
 public import InLean.Basic
+public import InLean.ExprOps
 
 /-!
 # InLean: the Nat-operation pin variants
@@ -38,6 +39,13 @@ structure PinSet where
 
 def PinSet.op? (ps : PinSet) (c : Name) : Option PinOp :=
   ps.ops.find? (·.op == c)
+
+/-- Every term of one operation's pin data is in range (`EO.inRange`). -/
+def PinOp.inRange (op : PinOp) : Bool :=
+  EO.inRange op.pin && op.proofs.all EO.inRange && op.typePins.all (EO.inRange ·.2)
+
+/-- Every term of a variant is in range. -/
+def PinSet.inRange (ps : PinSet) : Bool := ps.ops.all PinOp.inRange
 
 namespace PinDecode
 
@@ -134,7 +142,9 @@ def pinDumpTexts : Array String := #[
 
 /-- Decode the pin variants (at use: a function, so nothing runs at
 process start). -/
-def loadPinSets (_ : Unit) : Except String (Array PinSet) :=
-  pinDumpTexts.mapM PinDecode.pinSet
+def loadPinSets (_ : Unit) : Except String (Array PinSet) := do
+  let sets ← pinDumpTexts.mapM PinDecode.pinSet
+  unless sets.all PinSet.inRange do throw "a pin dump term is out of range"
+  return sets
 
 end InLean

@@ -2,6 +2,7 @@ module
 
 public import InLeanProof.PassCtors
 import ConLeche.Verify.Inductives.NestScope
+import ConLeche.Verify.Denote.IndFrame
 
 /-!
 # O7-stages: the positivity context against master's (task #451, lane O7-stages)
@@ -520,6 +521,8 @@ theorem blockNestCtxI_run {p : InLean.BlockShape} {fe : InLean.FEnv} {s₀ s' : 
     CSOKI mode eager env s' ∧ TabLe s₀ s' ∧ ∃ fvs, ctx = p.nestCtx fvs fe ∧
       OkSL s' fvs = true ∧ OkSL s' holes = true ∧
       (∀ a ∈ fvs, (TrS s' a).looseBVarsBounded 0 = true) ∧
+      (∀ a ∈ fvs, ConLeche.Expr.WScoped p.nP (TrS s' a)) ∧
+      ConLeche.nestHoles ((trShape p).nestCtx (TrSL s' fvs) find?) = some (TrSL s' holes) ∧
       Runs (ConLeche.blockNestCtx (m := ConLeche.FueledM) (trShape p) find?)
         ((trShape p).nestCtx (TrSL s' fvs) find?, TrSL s' holes) := by
   unfold InLean.blockNestCtx at h
@@ -574,10 +577,16 @@ theorem blockNestCtxI_run {p : InLean.BlockShape} {fe : InLean.FEnv} {s₀ s' : 
       exact hok ms hms
   obtain ⟨hs₄, ht₄, hokh, hholes⟩ := nestHolesI_run hP
     (by simp [ConLeche.BlockShape.nestCtx, InLean.BlockShape.nestCtx, trShape_memberNames]) hs₂ h4
-  refine ⟨hs₄, ht₂.trans ht₄, fvs, rfl, okSL_of_tabLe ht₄ hokf, hokh, ?_, ?_⟩
+  refine ⟨hs₄, ht₂.trans ht₄, fvs, rfl, okSL_of_tabLe ht₄ hokf, hokh, ?_, ?_, ?_, ?_⟩
   · intro a ha
     rw [TrS_of_tabLe ht₄ (by simp only [OkSL, List.all_eq_true] at hokf; exact hokf a ha)]
     exact hclf a ha
+  · intro a ha
+    rw [TrS_of_tabLe ht₄ (by simp only [OkSL, List.all_eq_true] at hokf; exact hokf a ha)]
+    have := (ConLeche.openPisAtFvars_WScoped p.nP _ 0 hop (trC_wscoped 0 _)).1 (TrS s₂ a)
+      (List.mem_map_of_mem ha)
+    rwa [Nat.zero_add] at this
+  · rw [TrSL_of_tabLe ht₄ hokf]; exact hholes
   · rw [TrSL_of_tabLe ht₄ hokf]
     have hc0 : (trShape p).formers.head? = some (trCV cv0) := by
       rw [trShape_formers, List.head?_map, h0]; rfl

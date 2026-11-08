@@ -779,7 +779,7 @@ theorem classRecTyOk_pre_emvar {ops : InLean.CheckerOps} {fe : InLean.FEnv} {g :
   obtain ⟨_, s₃, h3, -⟩ := bindI_ok hA
   have hem := classRecTyCheck_emvar h3
   obtain ⟨rest, body, rfl⟩ := classGenRecTy_shape h1
-  exact fun b hb => (emvarS_closeTelescope _ 0 body hem).1 b (List.mem_append_left _ hb)
+  exact fun b hb => (emvarS_closeTelescope_all _ 0 body hem).1 b (List.mem_append_left _ hb)
 
 /-- The same, at the first recursor of a non-empty family (`classRecTysOk`). -/
 theorem classRecTysOk_pre_emvar {ops : InLean.CheckerOps} {fe : InLean.FEnv} {g : InLean.ClassGen}

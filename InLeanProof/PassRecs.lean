@@ -8,7 +8,7 @@ import InLeanProof.DeclGuards
 
 The generated recursor stage (`genRecCheck`) against master's, bottom-up:
 
-* `fvarB_tr`: InLean's variable bound is master's range of the reading
+* `fvarB_trR`: InLean's variable bound is master's range of the reading
   (the converse of `fvarB_le_tr`: the stage's range tests decide branches).
 * `targetAbsI_tr`: the member abstraction (`targetAbs`, `EO.replace`) is
   master's on the reading.
@@ -74,7 +74,7 @@ theorem occF_le_fvarRange {s : InLean.CState} {id : FVarId} : ∀ {e : Lean.Expr
   | bvar _ | sort _ | const _ _ | lit _ | mvar _ => intro _ ho; simp only [OccF] at ho
 
 /-- **InLean's variable bound is the reading's range.** -/
-theorem fvarB_tr {s : InLean.CState} {e : Lean.Expr} (h : OkS s e = true) :
+theorem fvarB_trR {s : InLean.CState} {e : Lean.Expr} (h : OkS s e = true) :
     InLean.fvarB e = (TrS s e).fvarRange := by
   have hr := RangeOk_of_OkS h
   unfold InLean.fvarB
@@ -90,7 +90,7 @@ theorem fvarB_tr {s : InLean.CState} {e : Lean.Expr} (h : OkS s e = true) :
     · refine fvbFold_le _ 0 (Nat.zero_le _) fun id hid d hd => ?_
       have ho := (mem_fvarIds hr id).1 (Array.mem_toList_iff.1 hid)
       exact occF_le_fvarRange h ho d hd
-    · refine fvarRange_TrS_le h fun id ho d hd => ?_
+    · refine fvarRange_TrS_le_of h fun id ho d hd => ?_
       have hmem : id ∈ (EO.fvarIds e).toList :=
         Array.mem_toList_iff.2 ((mem_fvarIds hr id).2 ho)
       exact (fvbFold_ge _ 0).2 id hmem d hd

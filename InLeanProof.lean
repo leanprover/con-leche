@@ -41,6 +41,12 @@ public import InLeanProof.PassCtors
 public import InLeanProof.PassNest
 public import InLeanProof.PassUniform
 public import InLeanProof.PassNestKey
+public import InLeanProof.PassNestPos0
+public import InLeanProof.PassNestPos
+public import InLeanProof.NestDepth
+public import InLeanProof.PassNestWalk
+public import InLeanProof.PassPositivity
+public import InLeanProof.PassNestSeeds
 public import InLeanProof.PassClasses
 public import InLeanProof.PassTail
 public import InLeanProof.PassRecs
@@ -58,4 +64,7 @@ public import InLeanProof.ProjBodiesTr
 public import InLeanProof.BlockRecogRun
 public import InLeanProof.RecFireTr
 public import InLeanProof.BlockPresR
+public import InLeanProof.CertArm
+public import InLeanProof.CertDivMod
+public import InLeanProof.DivModArm
 public import InLeanProof.AxiomPins

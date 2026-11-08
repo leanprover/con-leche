@@ -271,11 +271,11 @@ theorem sortOf_TrS {s : InLean.CState} {x : Lean.Expr} (h : OkS s x = true)
 @[expose] def trKey (s : InLean.CState) (k : InLean.NestKey) : ConLeche.NestKey :=
   ⟨toName k.cname, k.lvls.map trL, TrSL s k.ds⟩
 
-/-- A bind on the pure side, under four facts. -/
-theorem runs4_bind {A B C D : Prop} {α β : Type} {x : ConLeche.FueledM α} {f : α → ConLeche.FueledM β}
-    {a : α} {b : β} (hx : Runs x a) (h : A ∧ B ∧ C ∧ D ∧ Runs (f a) b) :
-    A ∧ B ∧ C ∧ D ∧ Runs (x >>= f) b :=
-  ⟨h.1, h.2.1, h.2.2.1, h.2.2.2.1, Runs.bind hx h.2.2.2.2⟩
+/-- A bind on the pure side, under five facts. -/
+theorem runs5_bind {A B C D E : Prop} {α β : Type} {x : ConLeche.FueledM α}
+    {f : α → ConLeche.FueledM β} {a : α} {b : β} (hx : Runs x a)
+    (h : A ∧ B ∧ C ∧ D ∧ E ∧ Runs (f a) b) : A ∧ B ∧ C ∧ D ∧ E ∧ Runs (x >>= f) b :=
+  ⟨h.1, h.2.1, h.2.2.1, h.2.2.2.1, h.2.2.2.2.1, Runs.bind hx h.2.2.2.2.2⟩
 
 /-- **A container instantiation's type** (`nestInstType`): InLean's answer
 reads, at the final state, as master's at the translated key and the
@@ -290,6 +290,8 @@ theorem nestInstTypeI_run {fe : InLean.FEnv} {L : ConLeche.Env} (hJ : JobEnvI fe
     (h : InLean.nestInstType ctx (sharedOpsC .verified fe) fe hi key s₀ = .ok ((k, ty), s')) :
     CSOKI .verified false L s' ∧ TabLe s₀ s' ∧ OkS s' ty = true ∧
       (TrS s' ty).looseBVarsBounded 0 = true ∧
+      (∀ d, (∀ a ∈ key.ds, ConLeche.Expr.WScoped d (TrS s₀ a)) →
+        ConLeche.Expr.WScoped d (TrS s' ty)) ∧
       Runs (ConLeche.nestInstType cctx (ConLeche.fueledOpsM .verified) L hi (trKey s₀ key))
         (k, TrS s' ty) := by
   unfold InLean.nestInstType at h
@@ -305,13 +307,13 @@ theorem nestInstTypeI_run {fe : InLean.FEnv} {L : ConLeche.Env} (hJ : JobEnvI fe
   simp only at h
   unfold ConLeche.nestInstType
   simp only [trKey, hfind, hL, ConLeche.unwrapOr]
-  refine runs4_bind (Runs.pure _) ?_
+  refine runs5_bind (Runs.pure _) ?_
   by_cases hlen : key.lvls.length = cv.levelParams.length
   · simp only [hlen, ↓reduceIte] at h
     simp only [List.length_map, trCV, hlen, ↓reduceIte]
     obtain ⟨tyC, s₂, h2, h⟩ := bind_run h
     obtain ⟨hs₂, ht₂, hokC, hclC, hRC⟩ := familyTelescopeI_run hJ hRF hok hcl hs h2
-    refine runs4_bind hRC ?_
+    refine runs5_bind hRC ?_
     have hsp : (ConLeche.Expr.stripPis (TrSL s₀ key.ds).length (trC tyC)).isSome =
         (InLean.stripPis key.ds.length tyC).isSome := by
       rw [stripPis_tr]; simp [TrSL]
@@ -337,8 +339,18 @@ theorem nestInstTypeI_run {fe : InLean.FEnv} {L : ConLeche.Env} (hJ : JobEnvI fe
       rw [hi'] at h4
       obtain ⟨rfl, rfl⟩ := pure_run h4
       rw [hi', Option.map_some] at hmap
+      have hws : ∀ d, (∀ a ∈ key.ds, ConLeche.Expr.WScoped d (TrS s₀ a)) →
+          ConLeche.Expr.WScoped d (TrS s₃ ty0) := by
+        intro d hd
+        refine ConLeche.wscoped_instPisWith (as := TrSL s₀ key.ds) ?_ ?_ hmap.symm
+        · intro a ha
+          obtain ⟨b, hb, rfl⟩ := List.mem_map.1 ha
+          exact hd b hb
+        · refine ConLeche.Expr.WScoped.of_not_hasFvar ?_
+          rw [ConLeche.Expr.hasFvar_instantiateLevelParams]
+          exact trC_hasFvar tyC
       rw [← hmap]
-      refine runs4_bind (Runs.pure _) ?_
+      refine runs5_bind (Runs.pure _) ?_
       obtain ⟨hokty, -⟩ := instPisWithI_tr key.ds r hokr hokds₃ hcds₃ hi'
       have hclty : (TrS s₃ ty0).looseBVarsBounded 0 = true := by
         refine ConLeche.looseBVarsBounded_instPisWith (as := TrSL s₃ key.ds) (e := TrS s₃ r)
@@ -359,7 +371,7 @@ theorem nestInstTypeI_run {fe : InLean.FEnv} {L : ConLeche.Env} (hJ : JobEnvI fe
       obtain ⟨rfl, rfl⟩ := pure_run h5
       rw [TrS_sort]
       simp only
-      refine runs4_bind (Runs.pure _) ?_
+      refine runs5_bind (Runs.pure _) ?_
       have hu0 : okL u0 = true := by
         simp only [OkS_sort, okLv, Bool.and_eq_true] at hokend
         exact hokend.1
@@ -384,7 +396,7 @@ theorem nestInstTypeI_run {fe : InLean.FEnv} {L : ConLeche.Env} (hJ : JobEnvI fe
         obtain ⟨b, s₆, h6, h⟩ := bind_run h
         obtain ⟨hs₆, ht₆, hb⟩ := tripleI_iff_run.1 (liftFueled_specI hs₃ "level comparison" _) b s₆ h6
         rw [hsort, ← isEquiv_trL hu0 hsok, hb]
-        refine runs4_bind (Runs.pure _) ?_
+        refine runs5_bind (Runs.pure _) ?_
         cases b with
         | false =>
           simp only [Bool.false_eq_true, ↓reduceIte] at h
@@ -395,8 +407,9 @@ theorem nestInstTypeI_run {fe : InLean.FEnv} {L : ConLeche.Env} (hJ : JobEnvI fe
           obtain ⟨hkt, rfl⟩ := pure_run h
           simp only [Prod.mk.injEq] at hkt
           obtain ⟨rfl, rfl⟩ := hkt
-          refine ⟨hs₆, ht13.trans ht₆, okS_of_tabLe ht₆ hokty, ?_, ?_⟩
+          refine ⟨hs₆, ht13.trans ht₆, okS_of_tabLe ht₆ hokty, ?_, ?_, ?_⟩
           · rw [TrS_of_tabLe ht₆ hokty]; exact hclty
+          · intro d hd; rw [TrS_of_tabLe ht₆ hokty]; exact hws d hd
           · rw [TrS_of_tabLe ht₆ hokty, List.length_map]
             first | exact Runs.pure _ | exact Runs.bind (Runs.pure _) (Runs.pure _)
       | mdata m b => exact (hnm m b rfl).elim

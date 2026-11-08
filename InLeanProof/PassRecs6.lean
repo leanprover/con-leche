@@ -187,7 +187,7 @@ theorem presI_consBlockCtorsF_go (hlaws : EnvLaws) {nP : Nat} :
     rw [hold _ hnot]
     exact hfr m' (List.mem_cons_of_mem _ hm') c hc
 
-theorem trShape_memberCtors (p : InLean.BlockShape) :
+theorem trShape_memberCtors_trCtor (p : InLean.BlockShape) :
     (trShape p).memberCtors = p.members.map fun m => m.ctors.map trCtor := by
   simp [ConLeche.BlockShape.memberCtors, trShape, trMember]
 
@@ -204,7 +204,7 @@ theorem jobEnvI_ctors (hJ : JobEnvI fe L) (p : InLean.BlockShape)
     (hwf : ConLeche.EnvWF (ConLeche.consBlockCtors (trShape p).nP (trShape p).memberCtors L)) :
     JobEnvI (InLean.consBlockCtorsF p fe)
       (ConLeche.consBlockCtors (trShape p).nP (trShape p).memberCtors L) := by
-  rw [trShape_memberCtors] at hwf ⊢
+  rw [trShape_memberCtors_trCtor] at hwf ⊢
   obtain ⟨hP, hR⟩ := presI_consBlockCtorsF_go hJ.laws (nP := p.nP) p.members hJ.pres hJ.proj hfr hnd
     hso hok
   exact ⟨hJ.laws, hP, hwf, hR⟩

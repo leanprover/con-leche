@@ -1,6 +1,6 @@
 module
 
-public import InLeanProof.PassNestKey
+public import InLeanProof.PassNestPos0
 import ConLeche.Verify.Denote.IndFrame
 import InLeanProof.DeclGuards
 import ConLeche.Verify.Inductives.RecCheckScope
@@ -695,19 +695,6 @@ theorem cReplaceFVars_noFvar (f : Nat → Option ConLeche.Expr) :
   intro e
   induction e <;> simp_all [ConLeche.Expr.hasFvar, ConLeche.Expr.replaceFVars]
 
-/-- The callback of InLean's `replaceFVars`. -/
-@[expose] def rfF (fI : Nat → Option Lean.Expr) (x : Lean.Expr) : Option Lean.Expr :=
-  match x with
-  | .fvar id => match EO.fvDepth? id with
-    | some i => fI i
-    | none => none
-  | x => if x.hasFVar then none else some x
-
-theorem replaceFVars_eq (fI : Nat → Option Lean.Expr) (e : Lean.Expr) :
-    InLean.replaceFVars fI e = if !e.hasFVar then e else mapSpec (fun x _ => rfF fI x) e 0 := by
-  unfold InLean.replaceFVars EO.replace
-  rw [mapOff_fresh]; rfl
-
 /-- A substitution of variables, related: InLean's images have readings,
 master's are their readings. -/
 @[expose] def FvSubRel (s : InLean.CState) (fI : Nat → Option Lean.Expr)
@@ -842,7 +829,7 @@ theorem mapSpec_rfF_tr {s : InLean.CState} {fI fC} (hR : FvSubRel s fI fC) :
 
 /-- **InLean's `replaceFVars`, read**: master's on the reading, at related
 substitutions. -/
-theorem replaceFVarsI_tr {s : InLean.CState} {fI fC} (hR : FvSubRel s fI fC) {e : Lean.Expr}
+theorem replaceFVarsI_trR {s : InLean.CState} {fI fC} (hR : FvSubRel s fI fC) {e : Lean.Expr}
     (h : OkS s e = true) :
     OkS s (InLean.replaceFVars fI e) = true ∧
       TrS s (InLean.replaceFVars fI e) = ConLeche.Expr.replaceFVars fC (TrS s e) := by
@@ -867,7 +854,7 @@ theorem targetCanonParamsI_tr {s : InLean.CState} {pfvs : List Lean.Expr} (hp : 
     {e : Lean.Expr} (h : OkS s e = true) :
     OkS s (InLean.targetCanonParams pfvs e) = true ∧
       TrS s (InLean.targetCanonParams pfvs e) = ConLeche.targetCanonParams (TrSL s pfvs) (TrS s e) :=
-  replaceFVarsI_tr (fvSubRel_getElem? hp) h
+  replaceFVarsI_trR (fvSubRel_getElem? hp) h
 
 /-- The loose-bvar bound of a reading is the cached range's spec. -/
 theorem bvarBound_TrS {s : InLean.CState} : ∀ {e : Lean.Expr}, OkS s e = true →
@@ -935,7 +922,7 @@ theorem fvbFold_ge : ∀ (l : List FVarId) (acc : Nat), acc ≤ l.foldl fvbStep 
     · exact h2 x hx d hd
 
 /-- A reading's variable range is at most `M` when every variable's depth is below. -/
-theorem fvarRange_TrS_le {s : InLean.CState} {M : Nat} : ∀ {e : Lean.Expr}, OkS s e = true →
+theorem fvarRange_TrS_le_of {s : InLean.CState} {M : Nat} : ∀ {e : Lean.Expr}, OkS s e = true →
     (∀ id, OccF id e → ∀ d, EO.fvDepth? id = some d → d + 1 ≤ M) → (TrS s e).fvarRange ≤ M := by
   intro e
   induction e with
@@ -979,7 +966,7 @@ theorem fvarB_le_tr {s : InLean.CState} {e : Lean.Expr} (h : OkS s e = true) {M 
     exact Nat.zero_le _
   | true =>
     simp only [hf, Bool.not_true, Bool.false_eq_true, ↓reduceIte] at hb
-    refine fvarRange_TrS_le h fun id ho d hd => ?_
+    refine fvarRange_TrS_le_of h fun id ho d hd => ?_
     have hmem : id ∈ (EO.fvarIds e).toList :=
       Array.mem_toList_iff.2 ((mem_fvarIds (RangeOk_of_OkS h) id).2 ho)
     rw [← Array.foldl_toList] at hb
@@ -1019,10 +1006,6 @@ theorem runs_mapM {α β : Type} {f : α → ConLeche.FueledM β} {l : List α} 
   exact this
 
 /-! ## The class keys -/
-
-/-- A recorded constructor normal form, read at a state. -/
-@[expose] def trNf (s : InLean.CState) (e : InLean.NestCtorNf) : ConLeche.NestCtorNf :=
-  ⟨toName e.ctor, e.lvls.map trL, TrSL s e.ds, TrS s e.ty⟩
 
 /-- A resolved major, read at a state. -/
 @[expose] def trTM (s : InLean.CState) (M : InLean.TargetMajor) : ConLeche.TargetMajor :=
@@ -1155,7 +1138,7 @@ theorem mapM_classKeyOfI_run {nP : Nat} {params : List Lean.Expr} {s₀ : InLean
 @[expose] def trCE (c : Lean.ConstantVal × Nat × Nat) : ConLeche.ConstantVal × Nat × Nat :=
   (trCV c.1, c.2.1, c.2.2)
 
-theorem nestCtorEntry_tr (C : Lean.Name) (cv : Lean.ConstantVal) (nPc nF : Nat) :
+theorem nestCtorEntry_trCE (C : Lean.Name) (cv : Lean.ConstantVal) (nPc nF : Nat) :
     ConLeche.nestCtorEntry (toName C) (.ctorInfo (trCV cv) nPc nF) =
       (InLean.nestCtorEntry C cv nPc nF).map trCE := by
   unfold ConLeche.nestCtorEntry InLean.nestCtorEntry
@@ -1188,7 +1171,7 @@ theorem ctorEntry_tr {fe : InLean.FEnv} {L : ConLeche.Env} (hJ : JobEnvI fe L) (
     obtain ⟨ccv, hcv, hL⟩ := ctorView_rel hJ.pres hv
     rw [hL, hcv.eq_trCV]
     simp only [Option.bind_some]
-    exact nestCtorEntry_tr C cv nPc nF
+    exact nestCtorEntry_trCE C cv nPc nF
   | none =>
     have hn := ctorView_none hJ.pres hv
     simp only [Option.bind_none, Option.map_none]
@@ -1322,12 +1305,6 @@ theorem OkTM.mono {s₀ s₁ : InLean.CState} (h : TabLe s₀ s₁) {M : InLean.
 theorem toName_quotName : toName InLean.quotName = ConLeche.quotName := rfl
 
 theorem trShape_members (p : InLean.BlockShape) : (trShape p).members = p.members.map trMember := rfl
-
-/-- A bind on the pure side, under five facts. -/
-theorem runs5_bind {A B C D E : Prop} {α β : Type} {x : ConLeche.FueledM α}
-    {f : α → ConLeche.FueledM β} {a : α} {b : β} (hx : Runs x a)
-    (h : A ∧ B ∧ C ∧ D ∧ E ∧ Runs (f a) b) : A ∧ B ∧ C ∧ D ∧ E ∧ Runs (x >>= f) b :=
-  ⟨h.1, h.2.1, h.2.2.1, h.2.2.2.1, h.2.2.2.2.1, Runs.bind hx h.2.2.2.2.2⟩
 
 theorem any_nestOcc_tr {s : InLean.CState} (names : List Lean.Name) (lo hi : Nat) :
     ∀ {l : List Lean.Expr}, OkSL s l = true →
@@ -1765,7 +1742,7 @@ theorem nestSeedOfI_run {ctx : InLean.NestCtx} {cctx : ConLeche.NestCtx} (hR : C
       simp only [OkSL, List.all_eq_true] at hds; exact okS_of_tabLe ht₁ (hds x hxd)
     have hA := replaceAppsI_tr hsub 0 ctx.nP x 0 hokx
     rw [← replaceApps_eq] at hA
-    have hB := replaceFVarsI_tr hkm hA.1
+    have hB := replaceFVarsI_trR hkm hA.1
     refine ⟨hB.1, ?_⟩
     rw [hB.2, hA.2, TrS_of_tabLe ht₁ (by simp only [OkSL, List.all_eq_true] at hds; exact hds x hxd),
       TrSL_of_tabLe ht₁ hokpar, TrSL_of_tabLe ht₁ hokh, hR.names, hR.lps, hR.nP, hpar, params_trL]

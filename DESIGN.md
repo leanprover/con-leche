@@ -112796,6 +112796,344 @@ Gates: `lake build InLean InLeanProof inlean-replay` warning-free;
 `tests/layering.sh`, `tests/trust-surface.sh`, `tests/no-local-paths.sh`,
 `tests/inlean-sync.sh` pass.
 
+### Lane O7-positivity: the walk's records and pure steps, two divergences in the walk (2026-11-08)
+
+Scope was round 4's "what remains" for the positivity walk, bottom-up
+(`nestFields` … `nestPos`, then `nestRoot`, `checkAbsCtorSortsAll`, so
+`checkBlockPositivity`).  The records, every pure step and the frame's
+group-reading steps are done, and so is `nestFields` against a recursion
+spec; `nestCtors` and everything above it are not started, because the
+walk's simulation is false for the code at two sites (findings 2 and 3).
+No `sorry`, no new axiom (the instantiation-based theorems use the stop-gap
+`mkData` axioms, as every `TrS` lemma); no `InLean/*` change; 51 new pins,
+`runs4_bind` replaced by `runs5_bind`.
+
+**The records** (`InLeanProof/PassNestPos0.lean`).  `trNK` (field kinds),
+`trHole` (a hole: `trKey` of its key), `trNf` (a normal form), `trSt` (keys
+and the active list through `trKey`, the normal forms through `trNf`), all at
+a state, with their side conditions `KeyOk`/`NfOk`/`StOk`/`ProgOk`, stable
+as the table grows (`*.mono`, which also say the reading does not move).
+* *Keys compare as their readings*: InLean's derived `==` on `NestKey` is
+  `Name.beq`, the scoped lawful level `==` and the checker's `clEq` on the
+  parameters (`instBEqNestKey.beq.eq_1`), so `keyBeq_tr` is O2
+  (`clEq_iff_TransS`) plus the injectivity of `toName`/`trL`; membership
+  (`contains_trKey`) and `nestAcceptGroup_tr` follow.  So the cache and the
+  cycle check need no extra invariant: equal readings are equal keys.
+* `WalkRel fe L s ctx cctx`: `CanonRel`, `ctx.fe = fe`, `cctx.find? = L.find?`,
+  the sort, the index counts, and the parameters through the state (round
+  4's finding 2, packaged); `rootHoles_tr`, `nestHoleAt_tr`.
+* The containers: `nestCtorEntry_tr`, `ctorEntry_lookup_tr` (through
+  `ctorView_rel`/`ctorView_none`), `nestContainer_tr`, `nestBlockOf_tr`,
+  `nestFrameMates_tr` (`eraseDups_map_toName`).
+* `replaceFVarsI_tr` (`FSub`: InLean's images read as master's), with
+  `nestKeyMap_sub` and `nestHoleImg_sub` (the holes read back, by induction
+  on the stack).
+* `fvarB_tr` (the variable bound, from `mem_fvarIds` and
+  `fvarRange_TrS_le`), `hasLooseBVars_of_closed` (both sides' loose-variable
+  test on a closed reading; `import all Lean.Expr` for `hasLooseBVars`'s
+  body).
+
+**The walk's first steps** (`InLeanProof/PassNestPos.lean`).
+* `RecSpecI`: master's cached `RecSpec`'s twin — at a readable input, well
+  scoped at its depth and closed (`TOk`), under `WalkRel`, `ProgOk`, `StOk`,
+  a successful run answers master's on the readings, its normal form `TOk`,
+  the state `StOk`.
+* `nestFieldsI_run` (`TeleOk`: the telescope readable, `TeleWS`, closed).
+* `nestCrestI_run`, `lbb_nestCrest` (a crest of a closed type at closed
+  variables is closed, from the `Verify` lemmas: no `Model` import).
+* `nestGroupCtorsI_run` (the state unchanged), `nestGrowGroupI_run`
+  (`GrpOk`), on `nestInstTypeI_run`, which now also states that its type is
+  scoped wherever the key's parameters are (master's `InstWS`, via
+  `wscoped_instPisWith`).
+* `allFvarB_tr`, `nestWalkStack_tr`.
+
+**Theorems** (file:line).  `PassNestPos0.lean`: `trNK_ne_ordinary` :43,
+`closed_of_tabLe` :73, `KeyOk.mono` :80, `NfOk.mono` :86, `map_trKey_of_tabLe`
+:92, `map_trNf_of_tabLe` :99, `StOk.mono` :106, `nameBeq_tr` :123,
+`levelBeq_tr` :129, `levelsBeq_tr` :137, `exprsBeq_tr` :149, `keyBeq_tr` :172,
+`contains_trKey_list` :184, `contains_trKey` :195, `trGrp_cons` :206,
+`trGrp_append` :210, `nestAcceptGroup_tr` :215, `WalkRel` :248,
+`WalkRel.mono` :260, `rootHoles_tr` :273, `nestHoleAt_tr` :284,
+`nestCtorEntry_tr` :297, `trCtorL_append` :322, `ctorEntry_lookup_tr` :326,
+`nestContainer_tr` :349, `nestBlockOf_tr` :388, `eraseDups_map_toName` :407,
+`nestFrameMates_tr` :425, `replaceFVars_eq` :451, `cReplaceFVars_closed` :456,
+`rf_closed` :472, `replaceFVarsI_mapSpec` :483, `replaceFVarsI_tr` :581,
+`replaceFVarsI_trL` :593, `nestKeyMap_sub` :605, `ProgOk.mono` :626,
+`getD_names_tr` :633, `nestHoleImg_sub` :640, `foldl_fvarB_le` :676,
+`fvarRange_TrS_le` :688, `fvarB_tr` :758, `hasLooseBVars_of_closed` :787.
+`PassNestPos.lean`: `TOk.mono` :37, `RecSpecI` :44, `TeleOk.mono` :60,
+`nestFieldsI_run` :68, `nestCrestI_run` :162, `lbb_nestCrest` :193,
+`nestGroupCtorsI_run` :226, `GrpOk.mono` :273, `nestGrowGroupI_run` :292,
+`allFvarB_tr` :337, `nestWalkStack_tr` :345.  `PassNestKey.lean`:
+`runs5_bind` :275, `nestInstTypeI_run` :283 (restated).  All theorems pinned.
+
+**Findings.**
+1. The records need no invariant beyond readability: InLean's key `==` is
+   equality of readings at the state (above).
+2. *The walk's re-abstractions can write the range marker, and the walk
+   reads the result unchecked* (the class of round 3's step 0).  InLean's
+   `closeTelescope` and `abstract1` abstract by depth
+   (`EO.abstractDepthsFrom`), writing `EO.rangePoison` (an `mvar`) where the
+   bound index would pass `maxBVarIdx` (1048574); master's abstraction has
+   no bound.  Two walk sites read such a result: `nestCtors`
+   (`closeTelescope nds hi cur`: the U4 test `structUsedLater`, the
+   returned normal form, the recorded `NestCtorNf`) and `nestPos`'s `Π` arm
+   (`abstract1 nb dep 0`).  A field variable reaches such a depth through
+   reduction: a later field's domain `D x`, `D` a stored definition whose
+   body is `fun y => ∀ z₁ … z_N, P y` with `N = 1048574` (its `bvar N` is in
+   range), is walked to `∀ z₁ … z_N, P x` (`x` the field's variable);
+   closing the telescope two fields later abstracts `x` at index `N + 1`,
+   so InLean writes the marker.  If `x`'s field is recursive, master's
+   `structUsedLater` sees the use and rejects ("a later field … depends on a
+   recursive or nested field"); InLean's (`hasLooseBVarI 0` on the marked
+   term) does not, so InLean can accept where master rejects.  Not built as
+   a file (a 10^6-deep binder nest).  So `nestCtorsI_run` is false for the
+   code as it stands; the proof needs, at both sites, a refusal of a marked
+   result before it is read: `unless !(closeTelescope nds hi cur).hasExprMVar`
+   (O(1): an input has no `mvar`, so the flag is the marker) in `nestCtors`
+   right after `nestFields`, and the same on the rebuilt `Π` in `nestPos`,
+   each an internal error ("too many bound variables"), as `reducedFormer`
+   and `projStepsAllOk` refuse.  `closeTelescope_tr` then applies
+   (`emvarS = false` from the flag, `Expr.hasExprMVar_eq`).  Not done: it is
+   an `InLean/*` change; awaiting the ruling.
+3. *The root's fuel differs*: `nestRoot` fuels each constructor's walk by
+   `whnfWalkFuel crest` = `EO.depth crest + 1024`; InLean's `depthGo` counts
+   an `mdata` node (`| .proj _ _ x | .mdata _ x => d + 1`), master's
+   `Expr.depth` reads the `mdata`-free reading, so InLean's fuel can be the
+   larger, and `nestPos` declines (`notImplemented`) when fuel runs out: on
+   a telescope that reduction manufactures beyond master's fuel and within
+   InLean's, InLean succeeds where master declines.  The twin should read
+   through `mdata` (`| .mdata _ x => depthGo x memo`, as every other walk
+   does); then `EO.depth e = (TrS s e).depth` is provable.  The seeds'
+   fuel (`nestSeeds`, `whnfWalkFuel` of a key's parameters) is the same
+   function.  Not done: an `InLean/*` change.
+4. *Proof-side*: `deriving BEq` yields `instBEqNestKey.beq.eq_1`, the way to
+   unfold a derived comparison; `lake env lean` checks against the BUILT
+   imports (a changed dependency needs `lake build` of it first).
+
+**What remains** (bottom-up), after the ruling on findings 2 and 3:
+`structUsedLater` read (`peelPis` through the reading, `hasLooseBVarI` as
+master's `hasLooseBVar`), `nestCtorsI_run` (the recursion as
+`∀ x s, OkS s x → RecSpecI (rec x) (rec' (TrS s x))`, `namesNodup` by
+`nodup_tr`, `instLevelParamsM_specI`, `nestCrestI_run`, `inferType`/
+`ensureSort` through `OpsSimI` with `wscoped_nestCrest`/`lbb_nestCrest`,
+`nestFieldsI_run`, U4 by `trNK_ne_ordinary`, `nestResHead`/`appArgs`/
+`nestOccI_tr`, the push through `trNf`), `nestFrameI_run`
+(`familyKeyCheckI_run`, the holes by `mkFVarM_specI` at `GrpOk`'s types,
+`frameHoles`), `nestContNewI_run` (`nestFrameMates_tr`, `nestGrowGroupI_run`,
+the active list, `nestAcceptGroup_tr`, `allFvarB_tr`), `nestContKeyI_run`
+(`contains_trKey` on the array and the list), `nestContI_run`
+(`nestContainer_tr`, `hasLooseBVars_of_closed`, `allFvarB_tr`,
+`nestInstTypeI_run`), `nestPosI_run` by induction on the fuel
+(`OpsSimI.whnf`, `nestHoleAt_tr`, the ∀ arm's rebuild by
+`toExpr_abstractDepthsFrom`), then `nestRoot` (finding 3's depth lemma),
+`checkAbsCtorSortsAll`, `checkBlockPositivity` (with `blockNestCtxI_run`,
+`nestUniformI_run`); and the rest of round 4's list (`checkBlockClasses`,
+`nestSeeds`, the tables, the pushes, `PassSimI`/`TailSimI`,
+`checkIndDeclC_sim_rest`).
+
+Gates: `lake build InLean InLeanProof inlean-replay` warning-free;
+`tests/layering.sh`, `tests/trust-surface.sh`, `tests/no-local-paths.sh`,
+`tests/inlean-sync.sh` pass.
+
+### Lane O7-positivity, round 2: the two walk fixes, the walk proved (2026-11-08)
+
+Scope was round 1's findings 2 and 3 (ruled: InLean fixes), then round 1's
+"what remains" for the walk, bottom-up.  Both fixes are in; the walk
+(`nestCtors` … `nestPos`) and the root (`nestRoot`) are proved;
+`checkAbsCtorSortsAll` and `checkBlockPositivity` are not.  No `sorry`, no
+new axiom (the `TrS`/instantiation theorems use the stop-gap `mkData` axioms,
+as before); 37 new pins.
+
+**Step 0, the fixes** (commit 8986d7e49; `InLean/Inductives/Positivity.lean`,
+`InLean/ExprOps.lean`).
+* `nestCtors` refuses `closeTelescope nds hi cur` when it `hasExprMVar` (the
+  range marker; an input has no `mvar`), and `nestPos`'s `Π` arm refuses
+  `abstract1 nb dep 0` likewise, each an internal error ("too many bound
+  variables") before anything reads the result: round 1's finding 2 (U4 could
+  read a marked telescope and miss a later field's use) is closed.
+* `EO.depthGo` reads through `mdata` (`| .mdata _ x => depthGo x memo`), so
+  the walk's fuel is master's: `depth_TrS` (`EO.depth e = (TrS s e).depth`,
+  for every state and term, no side condition) and `whnfWalkFuel_TrS`
+  (`InLeanProof/NestDepth.lean`: both memoised walks against their plain
+  depths `ldepth`/`cdepth`, memo invariants as `mapOff_spec`'s, and
+  `ldepth = cdepth ∘ trE` for any id translation answering free variables).
+* Validation (`inlean-replay --kernel=inlean --compare --quiet`): Init 64,530,
+  Std 110,064, Lean 199,645 declarations accepted, 0 rejected, 0 declined, 0
+  exact and 0 cosmetic mismatches; `scripts/inlean_negtest.lean` 13/13 agree;
+  `instructions:u` on Init 868.8 G (869.6 G at lane O7-stages round 3, one run).
+
+**The walk** (`InLeanProof/PassNestWalk.lean`).
+* `structUsedLater_tr` (through `peelPis_tr`, master's `stripPis`' rest, and
+  `hasLooseBVarI_TrS`), `emvarS_closeTelescope` (the flag is the marker on a
+  readable telescope, `RangeOk_closeTelescope`), `nestResHead_tr`,
+  `all_nestOcc_tr`, `getD_trNK`.
+* `CtorOkI` (a constructor record of a stored constant: `okC`, closed, no free
+  variable), `nestContainer_ctorOk`, `nestGroupCtors_ctorOk`: what
+  `nestCrest`'s scoping (`wscoped_nestCrest`) and closedness need.
+* **`nestCtorsI_run`**: the recursion as `∀ s x, OkS s x → RecSpecI … (rec x)
+  (rec' (TrS s x))` (so the root's fuel, read at any state, fits); outputs
+  `OutOk` (readable, scoped at the frame) and read by `trOuts`.  Its parts:
+  `nodup_tr`, `instLevelParamsM_specI`, `nestCrestI_run`, `inferType`/
+  `ensureSort` through `OpsSimI` at the crest's scope and closedness,
+  `nestFieldsI_run`, the marker refusal into `closeTelescope_tr`, U4, the
+  result's head and indices, the pushed normal form through `nestHoleImg_sub`
+  and `replaceFVarsI_tr`.
+* `mapM_mkFVarM_tys` (holes at given types), **`nestFrameI_run`**
+  (`familyKeyCheckI_run`, `nestGroupCtorsI_run`, the frame's holes as
+  master's `mapIdx` of the group, the frame stack read through
+  `piBinders_TrS`).
+* `TOk_nestWalkStack` (master's `allWS_nestWalkStack` on the readings),
+  **`nestContNewI_run`**, **`nestContKeyI_run`** (`contains_trKey`,
+  `contains_trKey_list`), `hasLooseBVars_tr` (InLean's `hasLooseBVars` is
+  master's `bvarB == 0` on any readable term, through `bvarBound_toExpr`),
+  **`nestContI_run`** (the parameters' scope at the frame from the
+  local-variable check: `WScoped.of_fvarsBelow`).
+* `abstract1_tr`, `TrS_eq_forallE`, and **`nestPosI_run`**: `∀ fuel,
+  RecSpecI fe L ctx cctx (nestPos … fuel) (master's nestPos … fuel)`, by
+  induction on the fuel (the container case calls `nestContI_run` with the
+  hypothesis).
+* **`nestRootI_run`**: every member's constructors at their own fuel,
+  `whnfWalkFuel_TrS` turning InLean's recursion into master's.
+
+**Theorems** (file:line).  `NestDepth.lean`: `cdepth` :26, `CDepthMemoInv`
+:34, `CDepthMemoInv.insert` :37, `cdepthGo_spec` :50, `cdepth_eq` :108,
+`ldepth` :120, `LDepthMemoInv` :129, `LDepthMemoInv.insert` :132,
+`ldepthGo_spec` :145, `ldepth_eq` :222, `ldepth_trE` :227, `depth_TrS` :245,
+`whnfWalkFuel_TrS` :249.  `PassNestWalk.lean`: `peelPis_tr` :37,
+`structUsedLater_tr` :65, `RangeOk_closeTelescope` :87,
+`emvarS_closeTelescope` :101, `CtorOkI` :112, `nestContainer_ctorOk` :115,
+`nestGroupCtors_ctorOk` :162, `OutOk` :196, `trOuts` :201, `OutOk.mono` :205,
+`getD_trNK` :216, `nestResHead_tr` :223, `all_nestOcc_tr` :239, `allWS_TrSL`
+:248, `closed_TrSL` :254, `TOk_all_mono` :260, `nestCtorsI_run` :267,
+`mapM_mkFVarM_tys` :420, `nestFrameI_run` :455, `TOk_nestWalkStack` :575,
+`ProgOk_nestWalkStack` :586, `nestContNewI_run` :597, `nestContKeyI_run` :675,
+`hasLooseBVars_tr` :715, `paramsCheck_tr` :724, `nestContI_run` :735,
+`contains_toName` :839, `abstract1_tr` :847, `TrS_eq_forallE` :860,
+`nestPosI_run` :878, `nestRootI_run` :1077.  All theorems pinned.
+
+**Findings.**
+1. With the two fixes no statement turned out false for the code.
+2. *`split` on master's nested `match`*: after `w ← whnf`, master's
+   `match w with | .forallE … | _ => match w.getAppFn with …` splits on the
+   inner `match` first; `generalize TrS s w = W` and `cases W` (the `Π`
+   case refuted by `TrS_eq_forallE`) is the robust route, and `split at h`
+   on InLean's `match EO.stripTop w` fails outright ("discriminants") —
+   `generalize hx : EO.stripTop w = x` and `cases x` instead.
+3. *A `have` in a `do` block blocks `bind_run`*: InLean's `let prog' := …`
+   in `nestFrame` (and `let wp`, `let args`) is a `have`; `simp only at h`
+   (ζ) first.
+4. *Structure literals across lines*: a `{ st with f := g x }` whose
+   application breaks the line before `x` does not parse in a `have` type;
+   the anonymous constructor with an ascription does.
+
+**What remains** (bottom-up): `checkAbsCtorSortsAll` — it needs a run lemma
+for InLean's monadic `allLevelParamsDefined` (`withAnnotations`: the
+annotations read through the table) against master's `allLevelParamsDefined`,
+and `OutOk` strengthened by closedness (`openPisAtFvarsI_run` takes a closed
+input; master's `closeTelescope` of closed parts is closed, by
+`lbb_abstract1`, not yet stated), then `openers_fvarTypeD_WScoped`/
+`openPisAtFvars_bounded`/`openPisAtFvars_index` for the fields as in
+`PassCtors.lean`'s use of `checkStructFieldSortsIFI_run`;
+`checkBlockPositivity` (`blockNestCtxI_run` for the context and the holes,
+`nestUniformI_run`, `nestRootI_run` — its premises: the holes `TOk` at
+`ctx.hiAt 0`, the canonical parameters scoped there, `names.length ≤
+holes.length`, `CtorOkI` of every member constructor — then
+`checkAbsCtorSortsAll`); and the rest of round 4's list (`checkBlockClasses`,
+`nestSeeds` — its fuel is `whnfWalkFuel`, so `whnfWalkFuel_TrS` applies, and
+`nestContKeyI_run` is its step —, the tables, the pushes,
+`PassSimI`/`TailSimI`, `checkIndDeclC_sim_rest`).
+
+Gates: `lake build InLean InLeanProof inlean-replay` warning-free;
+`tests/layering.sh`, `tests/trust-surface.sh`, `tests/no-local-paths.sh`,
+`tests/inlean-sync.sh` pass.
+
+### Lane O7-positivity, round 3: the fields' sorts, the block's positivity, the seeds (2026-11-08)
+
+Scope was round 2's "what remains" (1) `checkAbsCtorSortsAll`, (2)
+`checkBlockPositivity`, (3) `nestSeeds`' walk, stated to compose with lane
+O7-recursors' `nestSeedOfI_run`/`classSeedsI_run` (branch agent/451-o7classes).
+All three are proved.  No InLean change, no `sorry`, no new axiom (the
+`TrS` theorems use the stop-gap `mkData` axioms, as before); 14 new pins.
+
+**Strengthened statements.**
+* `OutOk` (`PassNestWalk.lean`) now says the normal form is closed too:
+  `nestCtorsI_run` gets it from master's `closeTelescope_bounded`
+  (`Verify/Inductives/NestCallSyn.lean`, the `lbb_abstract1` argument round 2
+  named) over the fields' `TeleOk` and the result's `TOk`.
+* `blockNestCtxI_run` (`PassNest.lean`) also states the canonical parameters
+  scoped at `p.nP` (`openPisAtFvars_WScoped` of the first former's opening)
+  and master's `nestHoles` at the context as the holes' readings.  Nothing
+  else used it.
+
+**The level-parameter guard** (`InLeanProof/PassPositivity.lean`).
+InLean's `allLevelParamsDefined` asks the test of the term and of the interned
+types of the ids its variables reach (`withAnnotations`, the
+`leafGuardM.closure`); master's recurses into a free variable's type.
+`allLPD_toExpr`: a reading passes when the closed reading `trC` does and every
+occurring id's reading does; `idLpd`: an id's reading passes when every
+interned type it reaches does (strong induction on the number, as `idLeaves`);
+`allLevelParamsDefinedI_run`: InLean's run reads no state and its pass is
+master's (`closure_contains_iff` puts every reached id in the annotations,
+`allLevelParamsDefined_of_guard` turns each annotation's test into `trC`'s).
+
+**The fields' sorts.** `checkAbsCtorSortsI_run` (the normal form's guard, its
+fields opened at `ctx.hiAt 0` by `openPisAtFvarsI_run` from `OutOk`'s
+closedness, the field facts by `openers_fvarTypeD_WScoped`,
+`openPisAtFvars_bounded`, `openPisAtFvars_index`, then
+`checkStructFieldSortsIFI_run`, as `PassCtors.lean`'s sums) and
+`checkAbsCtorSortsAllI_run`.
+
+**The block's positivity.** `checkBlockPositivityI_run`: master's run at the
+translated shape and `L.find?`, on the readings of the outputs and the walk's
+state (`OutOk` at `p.nP + p.memberNames.length`, `StOk`).  Its premises: the
+formers' types closed and in range (as `blockNestCtxI_run`), `CtorOkI` of every
+stored constructor, `okL p.resSort`.  `WalkRel` is built from the context
+(`trShape_nIdxs`, `trShape_memberNames`, `trShape_lps`); `nestRootI_run`'s
+premises: the holes `TOk` at `ctx.hiAt 0` from master's `nestHoles_ok`
+(`NestCtxOk` from `EnvWF` and `trC_hasFvar`), the parameters scoped there,
+`names.length ≤ holes.length` from `nestHoles_length`.
+
+**The seeds** (`InLeanProof/PassNestSeeds.lean`). `nestSeedsI_run`: master's
+`nestSeeds` on `ks.map fun q => (trKey s₀ q.1, q.2)` — the form
+`classSeedsI_run` states master's `classSeeds` in — from the empty frame
+stack; each seed's fuel is master's (`seedFuel_tr`, `whnfWalkFuel_TrS`), then
+`nestInstTypeI_run` and `nestContKeyI_run` with the walk at that fuel
+(`nestPosI_run`).  A seed must satisfy `SeedOkI s₀ (ctx.hiAt 0)`: levels with a
+reading and parameters `TOk` at the holes' depth.
+
+**Theorems** (file:line).  `PassPositivity.lean`: `allLPD_toExpr` :32,
+`RReach.of_succ` :81, `idLpd` :89, `allLevelParamsDefinedI_run` :114,
+`checkAbsCtorSortsI_run` :177, `checkAbsCtorSortsAllI_run` :243,
+`trShape_memberCtors` :281, `trShape_nIdxs` :286, `trSt_empty` :289,
+`StOk_empty` :292, `checkBlockPositivityI_run` :299.  `PassNestSeeds.lean`:
+`SeedOkI` :27, `SeedOkI.mono` :30, `seedFuel_tr` :39, `nestSeedsI_run` :51.
+All theorems pinned.
+
+**Findings.**
+1. No statement turned out false for the code.
+2. *Composing the seeds*: `classSeedsI_run` (agent/451-o7classes) states
+   `OkSL` of the seeds' parameters, not their levels' reading nor their scope.
+   For `SeedOkI` the caller adds `q.1.lvls.all okLv` (from `OkTM` and
+   `nestSeedOfI_run`'s `r.1.lvls = us`; one more conjunct in
+   `classSeedsI_run`'s conclusion) and the scope and closedness of
+   `TrSL s q.1.ds` from master's side through the equality
+   (`mem_classSeeds`, `nestSeedOf_ds`, `nestSeedOf_closed`).
+3. *`unless` after `cases b`*: the `if` reduces with the bind already gone, so
+   no `bind_run` for the guard's `pure ()`; master's side keeps one
+   `Runs.pure` bind.
+
+**What remains** (bottom-up): the seeds' preconditions from `classSeedsI_run`
+(finding 2) and the class stage that calls `nestSeeds` (`checkBlockClasses`,
+O7-recursors' lane); the tables, the pushes, `PassSimI`/`TailSimI`,
+`checkIndDeclC_sim_rest`; the block tail's use of `checkBlockPositivityI_run`
+(its premises: the formers' and constructors' closedness from the
+constructors' stage, `okL p.resSort` from the shape).
+
+Gates: `lake build InLean InLeanProof inlean-replay` warning-free;
+`tests/layering.sh`, `tests/trust-surface.sh`, `tests/no-local-paths.sh`,
+`tests/inlean-sync.sh` pass.
+
 ### Lane O7-classes: the class stage, the seeds, the index sorts and the K flags (2026-11-08)
 
 Scope was the pass's class stage and the tail's stages (round 4's list, minus
@@ -113762,3 +114100,234 @@ exit 0 (layering, shake, trust surface, overview links, whitepaper links, fragme
 pindump, no-local-paths, challenge, olean gate 122/122, selfcheck, axioms pinned (30 theorems,
 `tests/ConLecheTests/Axioms.lean` unchanged), arena tutorial 90/92 as before, e2e 552/552, the
 trusted and `--jobs` sweeps without divergence). No `sorry`, no new axiom.
+### Lane CertArm: the certified `Nat` operations' arm (2026-11-08, agent/451-certarm)
+
+**Target.**  `CertArmSimI pins` (DeclStep.lean), the last named arm of O6's
+`checkDecl_sim_full`: a safe definition at a certified `Nat` operation's name.
+One new file, `InLeanProof/CertArm.lean`; the root and `AxiomPins.lean` gained
+an import and 10 pins.  No `InLean/*` change, no `sorry`, no new axiom (the
+standing `mkData` stop-gaps where a cached flag is read).
+
+**The structural operations: proved** (`checkDefnC_struct_sim`).
+* *The guards at the pushed environment* (`natOpGuard_tr`, `natOpStoredOk_tr`;
+  `divModEnvGuard_tr` for the WF operations).  The pushed pair is
+  `presI_defn`'s (`FEnv.push` is `addConst`, master's `pushDelta` of one record
+  is the cons).  `natOpTyPinned` reads `EO.stripMData`, a memoised walk:
+  `erase_stripMData` (the memo's entries erase as their keys,
+  `StripMemoInv`), so the translation reads through it.  `natOpCod`'s `Bool`
+  pin (`Pin.matches` at no level parameter) is master's level-free `Sort 1`.
+* *The equations* (`natOpEqs_tr`): InLean's `natOpEquations` over the two
+  interned variables (`natVars`, `mkFVarM_specI`), self-references substituted,
+  translate to master's `natOpEquations 0` with `substConst0` at the stored
+  value; an interned variable is left alone by InLean's `substConst0`
+  (`substConst0_fvarlike`), so no `mdata` premise is needed.  Scoping at depth
+  2 and closedness from master's `natOpEquations_wscopedB`/
+  `wscopedB_substConst0` and a restated `lbb_substConst0`.
+* *The loop* (`certifyNatEqs_sim`): induction over the list, `OpsSimI.defeq`
+  at depth 2, the translation kept along the run by `TrS_of_tabLe`.
+
+**FINDING 1: `NatKinds` is a premise.**  InLean's `natOpGuard` reads the `Nat`
+names stored (`natLitStoredF`); master's reads `natLitSupported` (their kinds
+and shapes).  The shapes are `EnvWF.shapes`'; the kinds (`NatKinds`: an
+inductive and two constructors) are not given by `JobEnvI` (master's model
+reads them off `BasisPinnedTT.natKinds`; at the theorem's arbitrary `E`, a
+`Nat` stored as a definition over a copy of the inductive, with
+`Nat.zero`/`Nat.succ` definitions of its constructors, passes InLean's guard
+and fails master's).  So `CertArmSimI pins` as stated is not provable; the new
+statements take `ConLeche.NatKinds L`.  Not a twin bug: InLean's own fold puts
+`Nat` only by a pinned block (`basisNamesOk`), so P4 discharges it from the
+fold, InLean's side or master's (`BasisPinnedTT`, or the reserved names' check
+on master's fold).
+
+**The WF operations: named** (`DivModArmSimI pins`).  `trPinSet` translates
+a decoded variant (`InLean.PinSet`) to master's `NatOpPinSet` (an operation
+the variant lacks gets the pin `.bvar 0`, which `divModPinGuard`'s first
+conjunct refuses, as InLean skips the variant), and `loadedPins` is the
+translation of `loadPinSets ()` (the empty list where the dumps do not decode:
+InLean then declines every such operation).  The theorem is parametric in
+`pins` (master's, task #304) and is to be used at `loadedPins`.
+`certArm_of`, **`checkDeclKindC_sim_nk`**, **`checkDecl_sim_nk`**: the
+declaration step for every non-inductive kind from `DivModArmSimI pins` and
+`NatKinds L` (`checkDecl_sim_full` with the structural operations proved).
+
+**FINDING 2 (twin divergence, blocks `DivModArmSimI` without a premise on the
+dumps): resolution of the pins.**  Master's `divModPinGuard` asks
+`Expr.constsResolve` of the variant's pin and type pins (constants, the
+structure of every projection, the literals' support declarations); InLean's
+(`divModPinGuard`, `constsResolve` in `InLean/CheckerC.lean`) asks only the
+constants (`EO.usedConstants`).  For the certificates the gap closes from
+InLean's inference (`constsResolve_of_infer`); the pin is only compared by
+defeq, which need not walk it.  The dumps have projections: in the nightly
+dump the pins of `Nat.mod`, `Nat.div`, `Nat.shiftLeft`, `Nat.shiftRight`
+project out of `PProd` without naming `PProd` as a constant (no string
+literals anywhere).  Whether `PProd` is stored whenever InLean's guards pass
+depends on the dumps' content, which the proof cannot read (decoding the JSON
+in the kernel is out of reach).  Fix (executable, outside this lane): InLean's
+`constsResolve` the twin of master's `Expr.constsResolve` (constants,
+projections' structure names, the `Nat`/`String` support constants for
+literals).
+
+**FINDING 3 (twin divergence, behaviour only): InLean's variant loop runs
+every attempt in full.**  `checkDivModPin` writes `if typesOk && (← opDefeq
+… value' op.pin) && (← checkDivModCerts …) then return`; `do` lifts both
+nested actions before the `if` (checked: `if b && (← tick) && (← tick)` ticks
+twice at `b = false`), so InLean compares the pin and infers the certificates
+even where a type pin failed, and the certificates even where the pin did not
+match.  Master's `checkDivModPinAt` runs the pin comparison only after the type
+pins and the certificates only after the pin.  The type pins exist (task #364)
+so that a foreign variant's certificates, ill-typed against the stream, are
+never inferred; on a stream of a later variant's toolchain InLean infers the
+first variant's certificates, and an inference that throws is an error of the
+run where master moves on and accepts.  It does not falsify "InLean accepts ⇒
+master accepts" (master's calls are a prefix of InLean's, and the variant
+InLean accepts on passed all three), so the simulation can follow the code;
+the fix is to nest the three tests as master does.
+
+**What remains** (`DivModArmSimI loadedPins`, in order): FINDING 2 resolved
+(InLean's `constsResolve` fixed, or a premise on the decoded dumps); the
+translation of `substConstAll` (InLean's is `replaceI`, a memoised walk; master's
+under binders), of `divModCertStmts` over the interned variables (the spine
+lemma of `natOpEqs_tr`), of `trPinSet`'s fields against `PinSet.op?`; the
+certificate loop (`checkDivModCerts`, inference at depth 4 over `mkFVarM 2/3`
+of the hypotheses); the type-pin loop with its `break`; the variant loop
+(`for … in sets` with `continue`/early `return` against `checkDivModPinLoop`,
+FINDING 3's extra calls carried along).  Then P4 supplies `NatKinds L`.
+
+Gates: `lake build InLean InLeanProof` warning-free; `tests/layering.sh`,
+`tests/trust-surface.sh`, `tests/no-local-paths.sh`, `tests/inlean-sync.sh`
+pass.
+
+**Lane CertArm, continued: findings 2 and 3 fixed (2026-11-08).**  Coordinator's ruling: both
+are twin bugs.
+
+*Executable change* (`InLean/CheckerC.lean`).  `constsResolve` is the twin of master's
+`Expr.constsResolve` on a term without free variables: every constant stored
+(`EO.usedConstants`), and no node that is a projection of an unstored structure or a literal
+without its support declarations (`natLitStoredF`/`strLitStoredF`, one memoised `EO.any`).
+`checkTermWF` reads it (it read only the constants: O6's gap); the div/mod guards and
+`checkReducePin` already called it.  The variant loop is master's shape: `checkDivModPinLoop`
+(recursion over the variants with the reasons list), `checkDivModPinAt` (the type pins, then the
+pin, then the certificates, each only after the previous passed) and `checkTypePins`.  The
+annotations' free variables of the certificates' hypotheses (the interned `Nat` variables) are not
+read by InLean's `constsResolve`; master's reads their type `Nat`, which `divModEnvGuard` has
+established stored.
+
+*Proofs.*  `checkTermWF_run` follows (the last guard is `constsResolve`); nothing else unfolded
+the changed code.  New `InLeanProof/CertDivMod.lean`: **`constsResolve_tr`** (InLean's
+resolution is master's on the reading, the free variables' reading resolving;
+`constsResolve_trC` for closed terms), through `usedConstants_complete` (`collect_complete` and
+the deduplicating fold) and `anySpec` (`anyNode_fresh`).  `crNF_of_infer`/
+`constsResolve_of_infer` stay: they are still how O6's constant and value checks get master's
+guard, which `constsResolve_trC` now gives directly from `checkTermWF` (a simplification left for
+a later pass: the inference lemmas are used by the inductive tier too).  2 pins.
+
+*Validation* (`inlean-replay --kernel=inlean --compare --quiet`): Init 64,530, Std 110,064,
+Lean 199,645 declarations accepted, 0 rejected, 0 declined, 0 exact and 0 cosmetic mismatches;
+`scripts/inlean_negtest.lean` 13/13.  `instructions:u` on Init (`--kernel=inlean --quiet`, one
+run): 895.4 G (868.8 G before): +3.1 %, the second walk `constsResolve` adds to every checked
+type and value; fusing it with `usedConstants` into one walk is the obvious remedy, not done.
+With `--certify-nat-ops` Init declines at `Nat.land` ("unsupported Nat.div/mod environment",
+`divModEnvGuard`, which this lane did not change; not checked against the code before it).
+
+**FINDING 4 (blocks the variant loop): the guards' converse, at decoded data.**  InLean's variant
+loop and master's move on at the same variants only if InLean's guard is false exactly where
+master's is: where InLean's is false and master's true, master runs an attempt InLean never ran,
+and the simulation has no run of it.  So the loop needs the converse of the guard translations.
+For `constsResolve` it should hold (both read the stored names, `EnvPresI` both ways; not proved).  For the cached
+flags (`hasLooseBVars`, `hasFVar`, `hasLevelParam`) it holds on terms in range only (the
+`mkData` stop-gaps), and the pins, proofs and type pins are decoded at run time, so their range is
+a fact about the dumps the proof cannot read.  Proposal (executable, needs a ruling): the decoder
+(`loadPinSets`) refuses a dump with a term out of range (`EO.inRange`, the one check the proof
+takes for unverified input), so that `loadPinSets () = .ok sets` gives every decoded term in
+range; `trPinSet` then translates every variant faithfully.  Without it, `DivModArmSimI
+loadedPins` needs the range of the decoded terms as a premise.
+
+*What remains* (`DivModArmSimI loadedPins`): FINDING 4's ruling; `trPinSet`'s fields against
+`PinSet.op?` (`divModDeclPin`/`divModCertProofs`/`divModTypePins` at a translated name are
+`trOpPin`/`trOpProofs`/`trOpTypePins`, eight names); the guards both ways (`divModPinGuard`,
+`divModCertGuard`, `divModCertsGuard`, from `constsResolve_tr` and its converse and the flags);
+`substConstAll` (InLean's `replaceI` is `mapSpec` by `mapOff_fresh`; translation to master's
+under binders, the value closed); `divModCertStmts` over the interned variables (as
+`natOpEqs_tr`); the certificate loop (inference at depth 4, `mkFVarM 2`/`3` at the hypotheses,
+master's `divModCertApplied`); `checkTypePins` (`typePinStored`); `checkDivModPinAt`; the variant
+loop by induction over the variants; the arm (`checkDefnC` with `divModEnvGuard_tr` at the pushed
+environment).  Then P4 supplies `NatKinds L`.
+
+Gates: `lake build InLean InLeanProof` warning-free; `tests/layering.sh`,
+`tests/trust-surface.sh`, `tests/no-local-paths.sh`, `tests/inlean-sync.sh` pass.
+
+**Lane CertArm, continued: finding 4 ruled, the walk fused (2026-11-08).**  Coordinator's ruling
+(within the maintainer's: range gaps become internal errors): the decoder refuses a dump with a term
+out of range.
+
+*Executable change.*  `InLean/NatOpPins.lean`: `PinOp.inRange`/`PinSet.inRange` (`EO.inRange` on
+the pin, every proof, every type pin); `loadPinSets` fails on a dump with a term out of range, which
+`checkDivModPin` turns into an internal error.  `InLean/CheckerC.lean`: `constsResolve` is one
+memoised `EO.any` (an unstored constant, an unstored projection structure, a literal without its
+support declarations), no separate `usedConstants` pass.
+
+*Proofs* (`InLeanProof/CertDivMod.lean`).  `constsResolve_tr` on the single walk (the
+`usedConstants` completeness and the deduplication lemmas are gone with it);
+**`loadPinSets_range`**: `loadPinSets () = .ok sets` gives every decoded pin, proof and type pin
+`RangeOk` and metavariable-free.  1 pin.
+
+*Validation*: Init 64,530, Std 110,064, Lean 199,645 accepted, 0 rejected, 0 declined, 0 exact
+and 0 cosmetic mismatches (Std and Lean on the fused walk; Init again with the decoder check);
+`scripts/inlean_negtest.lean` 13/13; `instructions:u` on Init 878.0 G (868.8 G before the lane's
+resolution change, 895.4 G with two walks): +1.1 %.
+
+*What remains* (`DivModArmSimI loadedPins`): the guards both ways at in-range decoded terms
+(`divModPinGuard`, `divModCertGuard`, `divModCertsGuard`; the converse of `constsResolve_tr` by
+`EnvPresI.none`, the cached flags by the `mkData` stop-gaps at `loadPinSets_range`); `trPinSet`'s
+fields against `PinSet.op?` (eight names; `trOpPin` is `trC` on an in-range, fvar-free pin);
+`substConstAll` (InLean's `replaceI` is `mapSpec` by `mapOff_fresh`; master's under binders, the
+value closed); `divModCertStmts` over the interned variables (as `natOpEqs_tr`); the certificate
+loop (inference at depth 4, `mkFVarM 2`/`3` at the hypotheses, master's `divModCertApplied`);
+`checkTypePins` (`typePinStored`); `checkDivModPinAt`; the variant loop by induction over
+`sets.toList`; the arm (`checkDefnC` with `divModEnvGuard_tr` at the pushed environment, as
+`checkDefnC_struct_sim`).  Then P4 supplies `NatKinds L`.
+
+Gates: `lake build InLean InLeanProof` warning-free; `tests/layering.sh`,
+`tests/trust-surface.sh`, `tests/no-local-paths.sh`, `tests/inlean-sync.sh` pass.
+
+**Lane CertArm, continued: DivModArm, the WF operations' arm proved (2026-11-08).**  New
+`InLeanProof/DivModArm.lean`; no `InLean/*` change, no `sorry`, no new axiom (the standing `mkData`
+stop-gaps where a cached flag is read), 15 pins.  **`divModArmSimI : DivModArmSimI loadedPins`**,
+so **`checkDeclKindC_sim_nk`**/**`checkDecl_sim_nk`** now take `NatKinds L` as their one premise
+beyond the job's; the statements from the named arm are renamed `checkDeclKindC_sim_arm`/
+`checkDecl_sim_arm` (`CertArm.lean`).
+
+* *The decoded terms are closed readings* (`loadPinSets_okC`).  The guards' converse needs every
+  decoded pin, proof and type pin `okC`; the range check gives `RangeOk` and no expression
+  metavariable, but not "no free variable" and "no level metavariable" (a level metavariable has no
+  reading, `okLv`; a free variable reads as `bvar 0`, which under a binder is bound, so master's
+  guard could pass where InLean's `hasFVar` refuses).  Both follow from the decoder's structure: it
+  has no constructor for either (`entry_ok` over the sixteen tags, the `for` loop of `blob` by
+  `except_forIn_inv`, the `mapM`s by `except_mapM_all`).  No executable change was needed.
+* *The guards, both ways* (`divModPinGuard_eq`, `divModCertGuard_eq`, `divModCertsGuard_eq`, and
+  `divModPinGuard_none`: a variant without the operation is refused by master's guard on the
+  `.bvar 0` pin, as InLean skips it).  The cached flags of a closed reading are master's
+  (`flags_trC`; `trC_allLevelParamsDefined_nil` holds structurally); resolution both ways
+  (`constsResolve_trE_conv` by `EnvPresI.none`, `constsResolve_eqA` where only the term's own free
+  variables need resolve at master's: the interned `x`, `y` read `fvar 0`/`fvar 1` of type `Nat`,
+  stored).  `substConst0` commutes with the reading on the statements' spines (`TrS_substConst0`),
+  `substConstAll`'s reading is master's (`substConstAll_trC`, through `mapOff_fresh`), and the
+  statements over the interned variables are master's (`divModCertStmts_tr`).
+* *The attempt and the loop*: `checkTypePins_sim` (stored types closed by `EnvWF`),
+  `checkDivModCerts_sim` (the applied proof by `applied0/1/2`, scoped by master's
+  `divModCertApplied_wscoped`; inference and the comparison at depth 4), `checkDivModPinAt_sim`,
+  `checkDivModPinLoop_sim` (induction over `sets.toList`, both decline-reason lists arbitrary: they
+  differ, InLean saying "no pin" where master's guard fails, and only the messages read them), and
+  the arm `checkDefnC_divMod_sim` (the pushed environment as in `checkDefnC_struct_sim`, `Nat`
+  stored before the push from InLean's guard).
+
+*Validation* (step 0, the branch's executable state before this lane, unchanged by it): Std 110,064
+and Lean 199,645 declarations accepted, 0 rejected, 0 declined, 0 exact and 0 cosmetic mismatches;
+`scripts/inlean_negtest.lean` 13/13.
+
+*What remains*: P4 supplies `NatKinds L` (from the fold's pinned basis block).  The simplification
+noted above (`constsResolve_trC` in place of `crNF_of_infer` for O6's checks) is still not done.
+
+Gates: `lake build InLean InLeanProof inlean-replay` warning-free; `tests/layering.sh`,
+`tests/trust-surface.sh`, `tests/no-local-paths.sh`, `tests/inlean-sync.sh` pass.
+

@@ -34,13 +34,13 @@ variable {mode : ConLeche.CheckMode} {eager : Bool} {env : ConLeche.Env}
 /-! ## Closings: the marker-freeness of the pieces -/
 
 /-- A marker-free closed telescope has marker-free binders and body. -/
-theorem emvarS_closeTelescope : ∀ (bs : List Lean.Expr) (i : Nat) (body : Lean.Expr),
+theorem emvarS_closeTelescope_all : ∀ (bs : List Lean.Expr) (i : Nat) (body : Lean.Expr),
     emvarS (InLean.closeTelescope bs i body) = false →
       (∀ b ∈ bs, emvarS b = false) ∧ emvarS body = false
   | [], _, _, h => ⟨fun _ hb => (nomatch hb), h⟩
   | dom :: bs, i, body, h => by
     simp only [InLean.closeTelescope, emvarS, Bool.or_eq_false_iff] at h
-    obtain ⟨h1, h2⟩ := emvarS_closeTelescope bs (i + 1) body (emvarS_of_abstract1 h.2)
+    obtain ⟨h1, h2⟩ := emvarS_closeTelescope_all bs (i + 1) body (emvarS_of_abstract1 h.2)
     refine ⟨fun b hb => ?_, h2⟩
     rcases List.mem_cons.1 hb with rfl | hb
     · exact h.1
@@ -398,7 +398,7 @@ theorem minorTyI_run {s₀ s' : InLean.CState} {g : InLean.ClassGen} {c d : Nat}
   refine ⟨hs₄, (ht₁.trans ht₃).trans ht₄, fun e he hem => ?_⟩
   simp only [Option.some.injEq] at he
   subst he
-  obtain ⟨hemb, -⟩ := emvarS_closeTelescope _ _ _ hem
+  obtain ⟨hemb, -⟩ := emvarS_closeTelescope_all _ _ _ hem
   obtain ⟨hihso, hihsC⟩ := hR3 ihs rfl (fun e he => hemb e (List.mem_append_right _ he))
   have ht₁₄ := ht₃.trans ht₄
   have hds₄ := okSL_of_tabLe ((ht₁.trans ht₃).trans ht₄) hMn.2.1
