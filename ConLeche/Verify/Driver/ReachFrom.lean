@@ -562,6 +562,8 @@ theorem agreeCheck_ok (he : EnvOk sp fs env) {c : ReachCache} (hc : CacheOk sp f
   unfold agreeCheck
   split
   · simpa using hc
+  split
+  · simpa using hc
   simp only [ModelIO.allOk_bind]
   intro x _ hx
   obtain ⟨h1, -⟩ := stmtAt_ok he hc s₁ x _ hx

@@ -69,15 +69,16 @@ holds `y`. -/
       ∃ t, PartNames sp fs ⟨s₁.part.mod, .exported⟩ t ∧ ∃ q ∈ t.consts, q.name = y)
 
 /-- **Two copies of `y` agree** (`agreeCheck`'s outcome): the context's `s₁` and `s₂`, one
-module, or both proofs of one statement, the names of `s₂`'s statement read as reads of its
-module (`P`), an inference recorded (`pend`) where a status asks it. -/
+module, or both proofs of one statement, `s₂` neither unsafe nor partial, the names of `s₂`'s
+statement read as reads of its module (`P`), an inference recorded (`pend`) where a status asks
+it. -/
 @[expose] def AgreeOk (sp : SearchPath) (fs : FS) (pend : String × Name × ConstantVal → Prop)
     (P : Name × Name → Prop) (y : Name) (s₁ s₂ : Spot) : Prop :=
   s₁.part.mod = s₂.part.mod ∨
     ∃ (r₁ : Region) (cv₁ : ConstantVal) (k₁ : CKindF Name Unit) (r₂ : Region) (cv₂ : ConstantVal)
       (k₂ : CKindF Name Unit) (p₁ p₂ : ProofStatus),
       PartRegion sp fs s₁.part r₁ ∧ StmtSkel r₁ s₁.pos.loc cv₁ k₁ ∧
-      PartRegion sp fs s₂.part r₂ ∧ StmtSkel r₂ s₂.pos.loc cv₂ k₂ ∧
+      PartRegion sp fs s₂.part r₂ ∧ StmtSkel r₂ s₂.pos.loc cv₂ k₂ ∧ s₂.pos.skipped = false ∧
       cv₁.levelParams = cv₂.levelParams ∧ cv₁.type = cv₂.type ∧
       StatusOk sp fs s₁ k₁ p₁ ∧ StatusOk sp fs s₂ k₂ p₂ ∧ p₁ ≠ .no ∧ p₂ ≠ .no ∧
       (∀ c ∈ (needsGo {} #[] cv₂.type).2, P (s₂.part.mod, c)) ∧
@@ -106,10 +107,10 @@ theorem copyOf_mono {env : ReachEnv ModelIO} {a b : Std.HashMap Name Spot} (hab 
 theorem AgreeOk.mono {sp : SearchPath} {fs : FS} {pend pend' : String × Name × ConstantVal → Prop}
     {P P' : Name × Name → Prop} (hp : ∀ x, pend x → pend' x) (hP : ∀ x, P x → P' x)
     {y : Name} {s₁ s₂ : Spot} (h : AgreeOk sp fs pend P y s₁ s₂) : AgreeOk sp fs pend' P' y s₁ s₂ := by
-  rcases h with h | ⟨r₁, cv₁, k₁, r₂, cv₂, k₂, p₁, p₂, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10,
-    a11, a12⟩
+  rcases h with h | ⟨r₁, cv₁, k₁, r₂, cv₂, k₂, p₁, p₂, a1, a2, a3, a4, a0, a5, a6, a7, a8, a9,
+    a10, a11, a12⟩
   · exact .inl h
-  · exact .inr ⟨r₁, cv₁, k₁, r₂, cv₂, k₂, p₁, p₂, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10,
+  · exact .inr ⟨r₁, cv₁, k₁, r₂, cv₂, k₂, p₁, p₂, a1, a2, a3, a4, a0, a5, a6, a7, a8, a9, a10,
       fun c hc => hP _ (a11 c hc), fun hi => (a12 hi).imp fun _ h => hp _ h⟩
 
 theorem Passed.mono {sp : SearchPath} {fs : FS} {env : ReachEnv ModelIO}
@@ -686,7 +687,7 @@ end
 /-- **A partner read `agreeCheck` records**: a name of the statement of the copy `s₂`, as a read
 of `s₂`'s module. -/
 @[expose] def AgreeNew (sp : SearchPath) (fs : FS) (s₂ : Spot) (x : Name × Name) : Prop :=
-  x.1 = s₂.part.mod ∧ ∃ rg cv₂ k₂, PartRegion sp fs s₂.part rg ∧ StmtSkel rg s₂.pos.loc cv₂ k₂ ∧
+  x.1 = s₂.part.mod ∧ s₂.pos.skipped = false ∧ ∃ rg cv₂ k₂, PartRegion sp fs s₂.part rg ∧ StmtSkel rg s₂.pos.loc cv₂ k₂ ∧
     x.2 ∈ (needsGo {} #[] cv₂.type).2
 
 theorem ps_no {p₁ p₂ : ProofStatus} (h : ¬(p₁ == .no || p₂ == .no) = true) :
@@ -735,6 +736,10 @@ theorem agreeCheck_st (he : EnvOk sp fs env) {c : ReachCache} (hc : CacheOk sp f
   · rename_i hm
     simp only [ModelIO.allOk_pure]
     exact ⟨Step.rfl, fun _ => .inl (eq_of_beq hm)⟩
+  split
+  · simp only [ModelIO.allOk_pure]; exact ⟨Step.rfl, fun h => by cases h⟩
+  rename_i hsk
+  have hsk : s₂.pos.skipped = false := by simpa using hsk
   simp only [ModelIO.allOk_bind]
   intro x _ hx
   obtain ⟨h1, h2⟩ := stmtAt_ok he hc s₁ x _ hx
@@ -781,7 +786,7 @@ theorem agreeCheck_st (he : EnvOk sp fs env) {c : ReachCache} (hc : CacheOk sp f
   simp only []
   have hN : ∀ x ∈ partnerReads s₂.part.mod cv₂.type, AgreeNew sp fs s₂ x := fun x hx => by
     obtain ⟨a, b⟩ := mem_partnerReads.1 hx
-    exact ⟨a, rg₂, cv₂, k₂, hr₂, hst₂, b⟩
+    exact ⟨a, hsk, rg₂, cv₂, k₂, hr₂, hst₂, b⟩
   have hP : ∀ c' ∈ (needsGo {} #[] cv₂.type).2,
       (s₂.part.mod, c') ∈ c₄.partners ++ partnerReads s₂.part.mod cv₂.type :=
     fun c' hc' => Array.mem_append.2 (.inr (mem_partnerReads.2 ⟨rfl, hc'⟩))
@@ -795,12 +800,12 @@ theorem agreeCheck_st (he : EnvOk sp fs env) {c : ReachCache} (hc : CacheOk sp f
   split
   · simp only [ModelIO.allOk_pure]
     refine ⟨st5.trans (Step.pending_push _), fun _ => .inr ⟨rg₁, cv₁, k₁, rg₂, cv₂, k₂, p₁, p₂,
-      hr₁, hst₁, hr₂, hst₂, heq'.1, heq'.2, h5 p₁ rfl, h6 p₂ rfl, hn₁, hn₂, hP,
+      hr₁, hst₁, hr₂, hst₂, hsk, heq'.1, heq'.2, h5 p₁ rfl, h6 p₂ rfl, hn₁, hn₂, hP,
       fun _ => ⟨_, Array.mem_push.2 (.inr rfl)⟩⟩⟩
   · rename_i hinf
     simp only [ModelIO.allOk_pure]
     exact ⟨st5, fun _ => .inr ⟨rg₁, cv₁, k₁, rg₂, cv₂, k₂, p₁, p₂,
-      hr₁, hst₁, hr₂, hst₂, heq'.1, heq'.2, h5 p₁ rfl, h6 p₂ rfl, hn₁, hn₂, hP,
+      hr₁, hst₁, hr₂, hst₂, hsk, heq'.1, heq'.2, h5 p₁ rfl, h6 p₂ rfl, hn₁, hn₂, hP,
       fun hi => absurd hi (ps_inf hinf)⟩⟩
 
 end

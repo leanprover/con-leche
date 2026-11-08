@@ -446,11 +446,16 @@ def partnerReads (h : Name) (ty : Expr) : Array (Name × Name) :=
 
 /-- **Two copies of `y` agree**, the context's `s₁` and `s₂` of home `h`'s view: one module, or
 both proofs of one statement (an inference recorded with its statement), whose names `s₂`'s
-module reads as the context does (recorded in `partners`, each name as a read of that module). -/
+module reads as the context does (recorded in `partners`, each name as a read of that module).
+The copy `h` reads is not unsafe or partial: `s₂`'s module holds it as a constant of its own
+(a safe constant never reads an unsafe or partial one, in Lean's kernel as in the worker). -/
 def agreeCheck (env : ReachEnv μ) (c : ReachCache) (h y : Name) (s₁ s₂ : Spot) :
     μ (ReachCache × Except CheckError Unit) := do
   if s₁.part.mod == s₂.part.mod then return (c, .ok ())
   let what := s!"name capture at {y}, read by module {h}"
+  if s₂.pos.skipped then
+    return (c, .error (.invalid s!"{what}: its copy of {y}, of module {s₂.part.mod}, is unsafe \
+      or partial"))
   let bad : CheckError := .invalid s!"{what}: the copies of {y} of modules {s₁.part.mod} and \
     {s₂.part.mod} are not one constant (not two proofs of one statement)"
   match ← stmtAt env c s₁ with
