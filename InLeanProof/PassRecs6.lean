@@ -4,6 +4,7 @@ public import InLeanProof.PassRecs5
 public import InLeanProof.PassEnv
 public import InLeanProof.BlockPresR
 public import ConLeche.Verify.Cached.GenRecC
+import ConLeche.Verify.Inductives.NestContInv
 /- `ConstantInfo.name` is read as a projection of `toConstantVal`. -/
 import all Lean.Declaration
 /- `FEnv.push` (not exposed in `InLean/Push.lean`). -/
@@ -312,5 +313,138 @@ theorem jobEnvI_ruleEnv (hJ : JobEnvI fe L) {p : InLean.BlockShape} {Ms : List I
   obtain ⟨hP, hR⟩ := presI_consBlockRecsBareF hJ.laws hle _ _ 0 hl hJ.pres hJ.proj
     (fun x hx => hfr _ (hmem x hx)) hnd' (fun x hx => hso _ (hmem x hx)) (fun x hx => hok _ (hmem x hx))
   exact ⟨hJ.laws, hP, ConLeche.Cached.envWF_ruleEnv hJ.wf hT _ _, hR⟩
+
+
+/-! ## The stage's guards, translated -/
+
+theorem isNeverZero_tr : ∀ u : Lean.Level, ConLeche.Level.isNeverZero (trL u) = InLean.isNeverZero u
+  | .zero => rfl
+  | .succ _ => rfl
+  | .max a b => by
+    simp only [trL, ConLeche.Level.isNeverZero, InLean.isNeverZero, isNeverZero_tr a, isNeverZero_tr b]
+  | .imax _ b => by simp only [trL, ConLeche.Level.isNeverZero, InLean.isNeverZero, isNeverZero_tr b]
+  | .param _ => rfl
+  | .mvar _ => rfl
+
+theorem numCtorsOf_tr : ∀ l : List InLean.MemberShape,
+    ConLeche.numCtorsOf (l.map trMember) = InLean.numCtorsOf l
+  | [] => rfl
+  | m :: l => by
+    simp only [List.map_cons, ConLeche.numCtorsOf, InLean.numCtorsOf, numCtorsOf_tr l, trMember,
+      List.length_map]
+
+theorem blockLargeElimAllowed_tr (p : InLean.BlockShape) (b : Bool) :
+    ConLeche.blockLargeElimAllowed (trShape p) b = InLean.blockLargeElimAllowed p b := by
+  unfold ConLeche.blockLargeElimAllowed InLean.blockLargeElimAllowed
+  rw [trShape_k]
+  simp only [trShape, ConLeche.BlockShape.numCtors, InLean.BlockShape.numCtors, numCtorsOf_tr,
+    isNeverZero_tr]
+
+theorem structElimLevel_tr (elim : Lean.Name) (large : Bool) :
+    ConLeche.structElimLevel (toName elim) large = trL (InLean.structElimLevel elim large) := by
+  unfold ConLeche.structElimLevel InLean.structElimLevel
+  cases large <;> rfl
+
+theorem any_member_trTM (s : InLean.CState) (Ms : List InLean.TargetMajor) :
+    (Ms.map (trTM s)).any (·.member.isNone) = Ms.any (·.member.isNone) := by
+  simp [List.any_map, Function.comp_def, trTM]
+
+theorem minors_trCR (s : InLean.CState) (rd : InLean.ClassRead) :
+    ((trCR s rd).slots.filter ConLeche.ClassSlot.isMinor).length =
+      (rd.slots.filter InLean.ClassSlot.isMinor).length := by
+  simp only [trCR]
+  induction rd.slots with
+  | nil => rfl
+  | cons sl sls ih =>
+    cases sl <;> simp_all [trSlot, List.filter_cons, ConLeche.ClassSlot.isMinor, InLean.ClassSlot.isMinor]
+
+theorem ctorsSum_tr (s : InLean.CState) (xss : List (List InLean.ClassCtor)) :
+    ((xss.map (·.map (trCC s))).map List.length).sum = (xss.map List.length).sum := by
+  simp [Function.comp_def]
+
+theorem classRecOf_tr (recCls : List Nat) (cvGs : List Lean.ConstantVal) (t : Nat) :
+    ConLeche.classRecOf recCls (cvGs.map trCV) t = (InLean.classRecOf recCls cvGs t).map toName := by
+  unfold ConLeche.classRecOf InLean.classRecOf
+  rw [List.length_map, Option.map_map]
+  congr 1
+  funext r
+  simp only [Function.comp_apply, List.getD_eq_getElem?_getD, List.getElem?_map]
+  cases cvGs[r]? <;> rfl
+
+/-! ## The former types -/
+
+/-- **A class's former type is closed** (master's side): a member's
+declared type, or a stored former's telescope at the class's levels. -/
+theorem classFormerTy_lbb {L : ConLeche.Env} (hwf : ConLeche.EnvWF L) {formers : List ConLeche.ConstantVal}
+    {M : ConLeche.TargetMajor} {v : ConLeche.Expr}
+    (hT : ∀ cv ∈ formers, cv.type.looseBVarsBounded 0 = true)
+    (hmem : ∀ t, M.member = some t → t < formers.length)
+    (hR : Runs (ConLeche.classFormerTy (ConLeche.fueledOpsM .verified) (ConLeche.mkFEnv L) formers M) v) :
+    v.looseBVarsBounded 0 = true := by
+  obtain ⟨F, hrun⟩ := hR
+  rw [ConLeche.classFormerTy_datF] at hrun
+  unfold ConLeche.classFormerTy at hrun
+  split at hrun
+  · rename_i t ht
+    simp only [pure, Except.pure, Except.ok.injEq] at hrun
+    subst hrun
+    have htl := hmem t ht
+    rw [List.getD_eq_getElem?_getD, List.getElem?_eq_getElem htl, Option.getD_some]
+    exact hT _ (List.getElem_mem htl)
+  · split at hrun
+    · rename_i cv caps hf
+      simp only [bind, Except.bind] at hrun
+      split at hrun
+      · simp at hrun
+      rename_i ty hfam
+      simp only [pure, Except.pure, Except.ok.injEq] at hrun
+      subst hrun
+      rw [ConLeche.mkFEnv_find?_fun] at hf
+      have hw := hwf.consts _ (List.mem_of_find?_eq_some hf)
+      rw [ConLeche.Expr.looseBVarsBounded_instantiateLevelParams]
+      exact ConLeche.familyTelescope_bounded
+        (fun _ _ _ hw he => ConLeche.whnf_looseBVars hwf F hw he) hfam hw.2.2.2.1
+    · simp [throw, throwThe, MonadExceptOf.throw] at hrun
+
+/-- **The classes' former types** (`Ms.mapM classFormerTy`), elementwise
+`classFormerTyI_run`, closed. -/
+theorem classFormerTysI_run {fe : InLean.FEnv} {L : ConLeche.Env} (hJ : JobEnvI fe L)
+    (hRF : ReducedFormerSimI) {formers : List Lean.ConstantVal}
+    (hfo : ∀ cv ∈ formers, okC cv.type = true ∧ (trC cv.type).looseBVarsBounded 0 = true) :
+    ∀ (Ms : List InLean.TargetMajor) {s₀ s' : InLean.CState} {v : List Lean.Expr},
+      CSOKI .verified false L s₀ →
+      (∀ M ∈ Ms, OkTMN s₀ M ∧ ∀ t, M.member = some t → t < formers.length) →
+      Ms.mapM (InLean.classFormerTy (sharedOpsC .verified fe) fe formers) s₀ = .ok (v, s') →
+      CSOKI .verified false L s' ∧ TabLe s₀ s' ∧ OkSL s' v = true ∧ v.length = Ms.length ∧
+        (∀ f ∈ v, (TrS s' f).looseBVarsBounded 0 = true) ∧
+        RunsAll (ConLeche.classFormerTy (ConLeche.fueledOpsM .verified) (ConLeche.mkFEnv L)
+          (formers.map trCV)) (Ms.map (trTM s₀)) (TrSL s' v)
+  | [], s₀, s', v, hs, _, h => by
+    rw [List.mapM_nil] at h
+    obtain ⟨rfl, rfl⟩ := pure_run h
+    exact ⟨hs, TabLe.refl _, rfl, rfl, (fun _ h => by cases h), trivial⟩
+  | M :: Ms, s₀, s', v, hs, hMs, h => by
+    rw [List.mapM_cons] at h
+    obtain ⟨x, s₁, h1, h⟩ := bind_run h
+    obtain ⟨xs, s₂, h2, h⟩ := bind_run h
+    obtain ⟨rfl, rfl⟩ := pure_run h
+    obtain ⟨hok, hmem⟩ := hMs M List.mem_cons_self
+    obtain ⟨hs₁, ht₁, hxo, hR1⟩ := classFormerTyI_run hJ hRF hs hok.1 (fun cv h => (hfo cv h).1) hmem h1
+    obtain ⟨hs₂, ht₂, hxso, hlen, hxsl, hR2⟩ := classFormerTysI_run hJ hRF hfo Ms hs₁
+      (fun M' h => ⟨(OkTMN.mono ht₁ (hMs M' (List.mem_cons_of_mem _ h)).1).1,
+        (hMs M' (List.mem_cons_of_mem _ h)).2⟩) h2
+    have hxl : (TrS s₁ x).looseBVarsBounded 0 = true := by
+      refine classFormerTy_lbb hJ.wf (formers := formers.map trCV) (fun cv hcv => ?_) ?_ hR1
+      · obtain ⟨c, hc, rfl⟩ := List.mem_map.1 hcv
+        exact (hfo c hc).2
+      · intro t ht; rw [List.length_map]; exact hmem t ht
+    rw [map_trTM_mono ht₁ (fun M' h => (hMs M' (List.mem_cons_of_mem _ h)).1)] at hR2
+    refine ⟨hs₂, ht₁.trans ht₂, by simp [OkSL_cons, okS_of_tabLe ht₂ hxo, hxso], by simp [hlen],
+      fun f hf => ?_, ?_⟩
+    · rcases List.mem_cons.1 hf with rfl | hf
+      · rw [TrS_of_tabLe ht₂ hxo]; exact hxl
+      · exact hxsl f hf
+    · rw [List.map_cons, TrSL_cons, TrS_of_tabLe ht₂ hxo]
+      exact ⟨hR1, hR2⟩
 
 end InLeanProof

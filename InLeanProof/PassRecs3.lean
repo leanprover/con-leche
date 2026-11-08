@@ -731,6 +731,34 @@ theorem filter_ctor_trNf (s : InLean.CState) (nfs : List InLean.NestCtorNf) (n :
   intro e _
   simp [trNf, toName_beq]
 
+/-- `instPisWith` keeps a closed term closed at closed arguments. -/
+theorem lbb_instPisWith :
+    ∀ (as : List ConLeche.Expr) (e : ConLeche.Expr) {r : ConLeche.Expr},
+      (∀ a ∈ as, a.looseBVarsBounded 0 = true) → e.looseBVarsBounded 0 = true →
+      ConLeche.instPisWith as e = some r → r.looseBVarsBounded 0 = true
+  | [], e, r, _, he, h => by
+    simp only [ConLeche.instPisWith, Option.some.injEq] at h; subst h; exact he
+  | a :: as, .forallE d b, r, ha, he, h => by
+    simp only [ConLeche.instPisWith] at h
+    simp only [ConLeche.Expr.looseBVarsBounded, Bool.and_eq_true] at he
+    exact lbb_instPisWith as _ (fun x hx => ha x (List.mem_cons_of_mem _ hx))
+      (lbb_instantiate1 (ha a List.mem_cons_self) he.2) h
+  | _ :: _, .bvar _, _, _, _, h | _ :: _, .fvar _ _, _, _, _, h | _ :: _, .sort _, _, _, _, h
+  | _ :: _, .const _ _, _, _, _, h | _ :: _, .app _ _, _, _, _, h | _ :: _, .lam _ _, _, _, _, h
+  | _ :: _, .letE _ _ _, _, _, _, h | _ :: _, .lit _, _, _, _, h | _ :: _, .proj _ _ _, _, _, _, h => by
+    simp [ConLeche.instPisWith] at h
+
+/-- A class's constructor's two telescopes, read at a state, are closed. -/
+@[expose] def CtorLbb (s : InLean.CState) (x : InLean.ClassCtor) : Prop :=
+  (TrS s x.tyD).looseBVarsBounded 0 = true ∧ (TrS s x.tyN).looseBVarsBounded 0 = true
+
+theorem CtorLbb.mono {s₀ s₁ : InLean.CState} (h : TabLe s₀ s₁) {x : InLean.ClassCtor}
+    (hx : OkCC s₀ x) (hl : CtorLbb s₀ x) : CtorLbb s₁ x := by
+  obtain ⟨-, h2, h3⟩ := hx
+  unfold CtorLbb
+  rw [TrS_of_tabLe h h2, TrS_of_tabLe h h3]
+  exact hl
+
 /-- **One constructor of a class** (`classCtorOf`): InLean's reading is
 master's on the readings, the constructor read as `trCC`. -/
 theorem classCtorOfI_run {fe : InLean.FEnv} {L : ConLeche.Env} (hO : OpsSimI fe L)
@@ -739,9 +767,9 @@ theorem classCtorOfI_run {fe : InLean.FEnv} {L : ConLeche.Env} (hO : OpsSimI fe 
     {sr s₀ s' : InLean.CState} {x : InLean.ClassCtor} (hs : CSOKI .verified false L s₀)
     (hfo : OkSL s₀ formerTys = true) (hMs : ∀ t, ClassOk s₀ (Ms.getD t default))
     (hFr : ∀ t, FrameOk (TrSL s₀ (Ms.getD t default).pfvs) (TrSL s₀ formerTys))
-    (hct : okC ctor.1.type = true)
+    (hct : okC ctor.1.type = true) (hctl : (trC ctor.1.type).looseBVarsBounded 0 = true)
     (h : InLean.classCtorOf (sharedOpsC .verified fe) fe p formerTys rd Ms c ctor s₀ = .ok (x, s')) :
-    CSOKI .verified false L s' ∧ TabLe s₀ s' ∧ OkCC s' x ∧
+    CSOKI .verified false L s' ∧ TabLe s₀ s' ∧ OkCC s' x ∧ CtorLbb s' x ∧
       Runs (ConLeche.classCtorOf (ConLeche.fueledOpsM .verified) L (trShape p) (TrSL s₀ formerTys)
         (trCR sr rd) (Ms.map (trTM s₀)) c (trCtor ctor)) (trCC s' x) := by
   unfold InLean.classCtorOf at h
@@ -821,7 +849,15 @@ theorem classCtorOfI_run {fe : InLean.FEnv} {L : ConLeche.Env} (hO : OpsSimI fe 
       simp only [OkSL, List.all_eq_true] at hds
       rw [TrS_of_tabLe ht₀₇ (hds a ha)]; exact hdsc a ha) hpw
   rw [TrSL_of_tabLe ht₀₇ hMc.2.1, htyt, hMc₆.2] at htDC
-  refine ⟨hs₇, ht₀₇, ⟨hct, htDo, okS_of_tabLe ht₀₇ he0o⟩, ?_⟩
+  refine ⟨hs₇, ht₀₇, ⟨hct, htDo, okS_of_tabLe ht₀₇ he0o⟩, ⟨?_, ?_⟩, ?_⟩
+  · refine lbb_instPisWith _ _ (fun a ha => ?_) ?_ htDC
+    · obtain ⟨a', ha', rfl⟩ := List.mem_map.1 ha
+      exact hdsc a' ha'
+    · unfold ConLeche.targetCtorAt
+      split
+      · exact hctl
+      · rw [ConLeche.Expr.looseBVarsBounded_instantiateLevelParams]; exact hctl
+  · rw [TrS_of_tabLe ht₀₇ he0o]; exact he0c
   refine Runs.bind hA ?_
   simp only [trTM] at htDC
   rw [htDC]
@@ -856,33 +892,35 @@ theorem classCtorsOfI_run {fe : InLean.FEnv} {L : ConLeche.Env} (hO : OpsSimI fe
       (∀ t, ClassOk s₀ (Ms.getD t default)) →
       (∀ t, FrameOk (TrSL s₀ (Ms.getD t default).pfvs) (TrSL s₀ formerTys)) →
       (∀ ctor ∈ ctors, okC ctor.1.type = true) →
+      (∀ ctor ∈ ctors, (trC ctor.1.type).looseBVarsBounded 0 = true) →
       InLean.classCtorsOf (sharedOpsC .verified fe) fe p formerTys rd Ms c ctors s₀ = .ok (xs, s') →
-      CSOKI .verified false L s' ∧ TabLe s₀ s' ∧ (∀ x ∈ xs, OkCC s' x) ∧
+      CSOKI .verified false L s' ∧ TabLe s₀ s' ∧ (∀ x ∈ xs, OkCC s' x ∧ CtorLbb s' x) ∧
         Runs (ConLeche.classCtorsOf (ConLeche.fueledOpsM .verified) L (trShape p) (TrSL s₀ formerTys)
           (trCR sr rd) (Ms.map (trTM s₀)) c (ctors.map trCtor)) (xs.map (trCC s'))
-  | [], s₀, s', xs, hs, _, _, _, _, h => by
+  | [], s₀, s', xs, hs, _, _, _, _, _, h => by
     unfold InLean.classCtorsOf at h
     obtain ⟨rfl, rfl⟩ := pure_run h
     exact ⟨hs, TabLe.refl _, (fun _ h => by cases h), by unfold ConLeche.classCtorsOf; exact Runs.pure _⟩
-  | ctor :: cs, s₀, s', xs, hs, hfo, hMs, hFr, hct, h => by
+  | ctor :: cs, s₀, s', xs, hs, hfo, hMs, hFr, hct, hctl, h => by
     unfold InLean.classCtorsOf at h
     unfold ConLeche.classCtorsOf
     obtain ⟨x, s₁, h1, h⟩ := bind_run h
     obtain ⟨xs', s₂, h2, h⟩ := bind_run h
     obtain ⟨rfl, rfl⟩ := pure_run h
-    obtain ⟨hs₁, ht₁, hx, hR1⟩ := classCtorOfI_run (sr := sr) hO hs hfo hMs hFr
-      (hct ctor List.mem_cons_self) h1
+    obtain ⟨hs₁, ht₁, hx, hxl, hR1⟩ := classCtorOfI_run (sr := sr) hO hs hfo hMs hFr
+      (hct ctor List.mem_cons_self) (hctl ctor List.mem_cons_self) h1
     have hMs₁ : ∀ t, ClassOk s₁ (Ms.getD t default) := fun t => (hMs t).mono ht₁
     obtain ⟨hs₂, ht₂, hxs, hR2⟩ := classCtorsOfI_run hO cs hs₁ (okSL_of_tabLe ht₁ hfo) hMs₁
       (fun t => by
         rw [TrSL_of_tabLe ht₁ (hMs t).1.2.2.1, TrSL_of_tabLe ht₁ hfo]; exact hFr t)
-      (fun c' hc' => hct c' (List.mem_cons_of_mem _ hc')) h2
+      (fun c' hc' => hct c' (List.mem_cons_of_mem _ hc'))
+      (fun c' hc' => hctl c' (List.mem_cons_of_mem _ hc')) h2
     rw [TrSL_of_tabLe ht₁ hfo, map_trTM_mono ht₁ (okTMN_all_of_getD hMs)] at hR2
     have hoc := OkCC.mono ht₂ hx
     refine ⟨hs₂, ht₁.trans ht₂, ?_, ?_⟩
     · intro y hy
       rcases List.mem_cons.1 hy with rfl | hy
-      · exact hoc.1
+      · exact ⟨hoc.1, CtorLbb.mono ht₂ hx hxl⟩
       · exact hxs y hy
     · rw [List.map_cons, List.map_cons, hoc.2]
       exact Runs.bind hR1 (Runs.bind hR2 (Runs.pure _))
@@ -897,15 +935,16 @@ theorem classesCtorsI_run {fe : InLean.FEnv} {L : ConLeche.Env} (hO : OpsSimI fe
       (∀ t, ClassOk s₀ (Ms.getD t default)) →
       (∀ t, FrameOk (TrSL s₀ (Ms.getD t default).pfvs) (TrSL s₀ formerTys)) →
       (∀ M ∈ rest, ClassOk s₀ M) →
+      (∀ M ∈ rest, ∀ ctor ∈ M.ctors, (trC ctor.1.type).looseBVarsBounded 0 = true) →
       InLean.classesCtors (sharedOpsC .verified fe) fe p formerTys rd Ms c rest s₀ = .ok (xss, s') →
-      CSOKI .verified false L s' ∧ TabLe s₀ s' ∧ (∀ xs ∈ xss, ∀ x ∈ xs, OkCC s' x) ∧
+      CSOKI .verified false L s' ∧ TabLe s₀ s' ∧ (∀ xs ∈ xss, ∀ x ∈ xs, OkCC s' x ∧ CtorLbb s' x) ∧
         Runs (ConLeche.classesCtors (ConLeche.fueledOpsM .verified) L (trShape p) (TrSL s₀ formerTys)
           (trCR sr rd) (Ms.map (trTM s₀)) c (rest.map (trTM s₀))) (xss.map (·.map (trCC s')))
-  | [], c, s₀, s', xss, hs, _, _, _, _, h => by
+  | [], c, s₀, s', xss, hs, _, _, _, _, _, h => by
     unfold InLean.classesCtors at h
     obtain ⟨rfl, rfl⟩ := pure_run h
     exact ⟨hs, TabLe.refl _, (fun _ h => by cases h), by unfold ConLeche.classesCtors; exact Runs.pure _⟩
-  | M :: rest, c, s₀, s', xss, hs, hfo, hMs, hFr, hrest, h => by
+  | M :: rest, c, s₀, s', xss, hs, hfo, hMs, hFr, hrest, hrl, h => by
     unfold InLean.classesCtors at h
     simp only [List.map_cons]
     unfold ConLeche.classesCtors
@@ -914,21 +953,22 @@ theorem classesCtorsI_run {fe : InLean.FEnv} {L : ConLeche.Env} (hO : OpsSimI fe
     obtain ⟨rfl, rfl⟩ := pure_run h
     have hM := hrest M List.mem_cons_self
     obtain ⟨hs₁, ht₁, hxs, hR1⟩ := classCtorsOfI_run (sr := sr) hO M.ctors hs hfo hMs hFr
-      hM.2.2.2 h1
+      hM.2.2.2 (hrl M List.mem_cons_self) h1
     have hMs₁ : ∀ t, ClassOk s₁ (Ms.getD t default) := fun t => (hMs t).mono ht₁
     obtain ⟨hs₂, ht₂, hxss, hR2⟩ := classesCtorsI_run hO rest (c + 1) hs₁ (okSL_of_tabLe ht₁ hfo)
       hMs₁
       (fun t => by
         rw [TrSL_of_tabLe ht₁ (hMs t).1.2.2.1, TrSL_of_tabLe ht₁ hfo]; exact hFr t)
-      (fun M' hM' => (hrest M' (List.mem_cons_of_mem _ hM')).mono ht₁) h2
+      (fun M' hM' => (hrest M' (List.mem_cons_of_mem _ hM')).mono ht₁)
+      (fun M' hM' => hrl M' (List.mem_cons_of_mem _ hM')) h2
     rw [TrSL_of_tabLe ht₁ hfo, map_trTM_mono ht₁ (okTMN_all_of_getD hMs),
       map_trTM_mono ht₁ (fun M' hM' => (hrest M' (List.mem_cons_of_mem _ hM')).1)] at hR2
     refine ⟨hs₂, ht₁.trans ht₂, ?_, ?_⟩
     · intro ys hys
       rcases List.mem_cons.1 hys with rfl | hys
-      · exact fun x hx => (OkCC.mono ht₂ (hxs x hx)).1
+      · exact fun x hx => ⟨(OkCC.mono ht₂ (hxs x hx).1).1, CtorLbb.mono ht₂ (hxs x hx).1 (hxs x hx).2⟩
       · exact hxss ys hys
-    · rw [List.map_cons, map_trCC_mono ht₂ hxs]
+    · rw [List.map_cons, map_trCC_mono ht₂ (fun x hx => (hxs x hx).1)]
       exact Runs.bind hR1 (Runs.bind hR2 (Runs.pure _))
 
 /-! ## The generator's record and its `OptionT` steps -/
@@ -970,23 +1010,6 @@ theorem liftM_run {α : Type} {x : InLean.CheckCM α} {s₀ s' : InLean.CState} 
   obtain ⟨a, s₁, h1, h⟩ := bind_run h
   obtain ⟨rfl, rfl⟩ := pure_run h
   exact ⟨a, rfl, h1⟩
-
-/-- `instPisWith` keeps a closed term closed at closed arguments. -/
-theorem lbb_instPisWith :
-    ∀ (as : List ConLeche.Expr) (e : ConLeche.Expr) {r : ConLeche.Expr},
-      (∀ a ∈ as, a.looseBVarsBounded 0 = true) → e.looseBVarsBounded 0 = true →
-      ConLeche.instPisWith as e = some r → r.looseBVarsBounded 0 = true
-  | [], e, r, _, he, h => by
-    simp only [ConLeche.instPisWith, Option.some.injEq] at h; subst h; exact he
-  | a :: as, .forallE d b, r, ha, he, h => by
-    simp only [ConLeche.instPisWith] at h
-    simp only [ConLeche.Expr.looseBVarsBounded, Bool.and_eq_true] at he
-    exact lbb_instPisWith as _ (fun x hx => ha x (List.mem_cons_of_mem _ hx))
-      (lbb_instantiate1 (ha a List.mem_cons_self) he.2) h
-  | _ :: _, .bvar _, _, _, _, h | _ :: _, .fvar _ _, _, _, _, h | _ :: _, .sort _, _, _, _, h
-  | _ :: _, .const _ _, _, _, _, h | _ :: _, .app _ _, _, _, _, h | _ :: _, .lam _ _, _, _, _, h
-  | _ :: _, .letE _ _ _, _, _, _, h | _ :: _, .lit _, _, _, _, h | _ :: _, .proj _ _ _, _, _, _, h => by
-    simp [ConLeche.instPisWith] at h
 
 /-- Opened variables read as variables (`openPisAtFvars_index` on the reading). -/
 theorem fvsOk_of_open {s : InLean.CState} {n i : Nat} {e : ConLeche.Expr} {fvs : List Lean.Expr}
