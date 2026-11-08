@@ -6,6 +6,7 @@ import ConLeche.Verify.Frontend.Olean.Lazy
 import ConLeche.Verify.Frontend.Olean.Equiv
 import ConLeche.Verify.Cached.PushChain
 import ConLeche.Verify.Cached.DeclPushes
+import ConLeche.Verify.Cached.GuardsC
 import ConLeche.Verify.Driver.Reach
 import ConLeche.Verify.Frontend.Prepare
 
@@ -317,5 +318,117 @@ theorem exported_sub_private {sp : SearchPath} {fs : FS} {M : Name} {jobs : Nat}
   rw [hqp] at ht'
   rw [partNames_unique hf ht' hp] at hq'
   exact ⟨_, hq', hqn⟩
+
+/-! ## An own statement does not read its own name -/
+
+/-- **What `constsResolveF` asks stored**: every name an expression reads. -/
+theorem constsResolveF_readNames {fe : FEnv} :
+    ∀ {e : Expr}, e.constsResolveF fe = true → ∀ n ∈ e.readNames, (fe.find? n).isSome = true
+  | .bvar _, _, n, h => by simp [Expr.readNames] at h
+  | .sort _, _, n, h => by simp [Expr.readNames] at h
+  | .lit (.natVal _), he, n, h => by
+    simp only [Expr.constsResolveF, Bool.and_eq_true] at he
+    simp only [Expr.readNames, List.mem_cons, List.not_mem_nil, or_false] at h
+    rcases h with rfl | rfl | rfl <;> simp_all
+  | .lit (.strVal _), he, n, h => by
+    simp only [Expr.constsResolveF, Bool.and_eq_true] at he
+    simp only [Expr.readNames, List.mem_cons, List.not_mem_nil, or_false] at h
+    rcases h with rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl <;> simp_all
+  | .const m _, he, n, h => by
+    simp only [Expr.readNames, List.mem_singleton] at h
+    subst h; exact he
+  | .fvar _ ty, he, n, h => constsResolveF_readNames (e := ty) he n h
+  | .app f a, he, n, h => by
+    simp only [Expr.constsResolveF, Bool.and_eq_true] at he
+    simp only [Expr.readNames, List.mem_append] at h
+    rcases h with h | h
+    · exact constsResolveF_readNames he.1 n h
+    · exact constsResolveF_readNames he.2 n h
+  | .lam ty b, he, n, h => by
+    simp only [Expr.constsResolveF, Bool.and_eq_true] at he
+    simp only [Expr.readNames, List.mem_append] at h
+    rcases h with h | h
+    · exact constsResolveF_readNames he.1 n h
+    · exact constsResolveF_readNames he.2 n h
+  | .forallE ty b, he, n, h => by
+    simp only [Expr.constsResolveF, Bool.and_eq_true] at he
+    simp only [Expr.readNames, List.mem_append] at h
+    rcases h with h | h
+    · exact constsResolveF_readNames he.1 n h
+    · exact constsResolveF_readNames he.2 n h
+  | .letE ty v b, he, n, h => by
+    simp only [Expr.constsResolveF, Bool.and_eq_true] at he
+    simp only [Expr.readNames, List.mem_append] at h
+    rcases h with (h | h) | h
+    · exact constsResolveF_readNames he.1.1 n h
+    · exact constsResolveF_readNames he.1.2 n h
+    · exact constsResolveF_readNames he.2 n h
+  | .proj m _ x, he, n, h => by
+    simp only [Expr.constsResolveF, Bool.and_eq_true] at he
+    simp only [Expr.readNames, List.mem_cons] at h
+    rcases h with rfl | h
+    · exact he.1
+    · exact constsResolveF_readNames he.2 n h
+
+-- The walk splits at each of the check's guards and carries the rest of the clause into both
+-- halves, as `checkConstantValC_fresh`'s.
+set_option maxHeartbeats 400000 in
+/-- **A checked statement is fresh and resolves.** -/
+theorem checkConstantValC_fresh_res (mode : CheckMode) (fe : FEnv)
+    (cv : ConstantVal) {a b c : Bool} :
+    Yields (checkConstantValC mode fe cv a b c)
+      (fun _ => fe.find? cv.name = none ∧ constsResolveFC fe cv.type = true) := by
+  unfold checkConstantValC
+  yields
+  all_goals exact Yields.pure ⟨Option.not_isSome_iff_eq_none.mp (by assumption), by simp_all⟩
+
+/-- The statement a record checks with `checkConstantValC`: a definition's, theorem's, opaque
+constant's, or an axiom's at no `Quot.sound`. -/
+@[expose] def StmtRecord (d : Declaration) (cv : ConstantVal) : Prop :=
+  (∃ v h, d = .defnDecl cv v h) ∨ (∃ v, d = .thmDecl cv v) ∨ (∃ v, d = .opaqueDecl cv v) ∨
+    (d = .axiomDecl cv ∧ cv.name ≠ quotSoundName)
+
+/-- **An accepted statement record is fresh and its type resolves**, at the step's start. -/
+theorem checkDeclStepC_stmt {mode : CheckMode} {pins : List NatOpPinSet} {fe : FEnv}
+    {d : Declaration} {cv : ConstantVal} (hd : StmtRecord d cv) :
+    Yields (checkDeclStepC mode pins fe d)
+      (fun _ => fe.find? cv.name = none ∧ constsResolveFC fe cv.type = true) := by
+  unfold checkDeclStepC checkDeclC
+  ybind
+  refine Yields.bind' (Q := fun _ => fe.find? cv.name = none ∧ constsResolveFC fe cv.type = true)
+    ?_ fun _ h => Yields.const h
+  unfold checkDeclKindC
+  rcases hd with ⟨v, h, rfl⟩ | ⟨v, rfl⟩ | ⟨v, rfl⟩ | ⟨rfl, hq⟩
+  · exact Yields.bind' (checkConstantValC_fresh_res mode fe cv) fun _ h => Yields.const h
+  · exact Yields.bind' (checkConstantValC_fresh_res mode fe cv) fun _ h => Yields.const h
+  · exact Yields.bind' (checkConstantValC_fresh_res mode fe cv) fun _ h => Yields.const h
+  · simp only [hq, ↓reduceIte]
+    exact Yields.bind' (checkConstantValC_fresh_res mode fe cv) fun _ h => Yields.const h
+
+/-- **An accepted statement record's type does not read its own name.** -/
+theorem declsRun_stmt_fresh {mode : CheckMode} {pins : List NatOpPinSet} {ds : List Declaration}
+    {p q : Nat × FEnv} (h : DeclsRun mode pins ds p q) :
+    ∀ d ∈ ds, ∀ cv, StmtRecord d cv → cv.name ∉ cv.type.readNames := by
+  induction h with
+  | nil => exact fun _ h => nomatch h
+  | @cons pd ds p p₁ q hstep rest ih =>
+    intro d hd cv hcv
+    rcases List.mem_cons.mp hd with rfl | hd
+    · obtain ⟨fe₁, s₁, -, hC⟩ := declStep_ok hstep
+      obtain ⟨hf, hr⟩ := checkDeclStepC_stmt hcv _ _ _ hC
+      rw [constsResolveFC_spec] at hr
+      intro hn
+      have := constsResolveF_readNames hr _ hn
+      rw [hf] at this
+      cases this
+    · exact ih d hd cv hcv
+
+/-- **An own statement record's type does not read its own name**, at an accepted worker. -/
+theorem own_stmt_fresh {mode : CheckMode} {sp : SearchPath} {fs : FS} {M : Name}
+    {w : WorkerRead} (hrun : OwnRun mode sp fs M w) {d : Declaration}
+    (hd : d ∈ ownDeclsOf sp fs M w) {cv : ConstantVal} (hcv : StmtRecord d cv) :
+    cv.name ∉ cv.type.readNames := by
+  obtain ⟨q, hq⟩ := hrun
+  exact declsRun_stmt_fresh hq d hd cv hcv
 
 end ConLeche.Driver
