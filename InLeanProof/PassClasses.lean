@@ -993,4 +993,153 @@ theorem rangeGuard_tr {s : InLean.CState} {x : Lean.Expr} (h : OkS s x = true) {
   rw [ConLeche.Expr.fvarB_eq]
   exact fvarB_le_tr h hg.2
 
+/-- Every element of a list runs to its answer under `f`. -/
+@[expose] def RunsAll {α β : Type} (f : α → ConLeche.FueledM β) : List α → List β → Prop
+  | [], [] => True
+  | a :: l, b :: bs => Runs (f a) b ∧ RunsAll f l bs
+  | _, _ => False
+
+/-- Master's `mapM` runs where every element does (`FueledM` has no lawful-monad
+instance, so through `mapM.loop`). -/
+theorem runs_mapM_loop {α β : Type} {f : α → ConLeche.FueledM β} :
+    ∀ {l : List α} {bs : List β}, RunsAll f l bs →
+      ∀ acc : List β, Runs (List.mapM.loop f l acc) (acc.reverse ++ bs)
+  | [], [], _, acc => by simp only [List.append_nil]; exact Runs.pure _
+  | a :: l, b :: bs, h, acc => by
+    have := runs_mapM_loop h.2 (b :: acc)
+    simp only [List.reverse_cons, List.append_assoc, List.singleton_append] at this
+    exact Runs.bind h.1 this
+  | [], _ :: _, h, _ | _ :: _, [], h, _ => h.elim
+
+theorem runs_mapM {α β : Type} {f : α → ConLeche.FueledM β} {l : List α} {bs : List β}
+    (h : RunsAll f l bs) : Runs (l.mapM f) bs := by
+  have := runs_mapM_loop h []
+  simp only [List.reverse_nil, List.nil_append] at this
+  exact this
+
+/-! ## The class keys -/
+
+/-- A recorded constructor normal form, read at a state. -/
+@[expose] def trNf (s : InLean.CState) (e : InLean.NestCtorNf) : ConLeche.NestCtorNf :=
+  ⟨toName e.ctor, e.lvls.map trL, TrSL s e.ds, TrS s e.ty⟩
+
+/-- A resolved major, read at a state. -/
+@[expose] def trTM (s : InLean.CState) (M : InLean.TargetMajor) : ConLeche.TargetMajor :=
+  ⟨toName M.ind, M.lvls.map trL, TrSL s M.ds, M.nPc, M.nIdx, M.ctors.map trCtor, M.member,
+    M.nfs.map (trNf s), TrSL s M.pfvs⟩
+
+theorem classes_trCR (s : InLean.CState) (r : InLean.ClassRead) :
+    (trCR s r).classes = r.classes.map (trCK s) := by
+  unfold ConLeche.ClassRead.classes InLean.ClassRead.classes trCR
+  simp only
+  induction r.slots with
+  | nil => rfl
+  | cons x l ih =>
+    cases x <;> simp [trSlot, ih]
+
+theorem okSlot_classes {s : InLean.CState} {r : InLean.ClassRead} (h : ∀ x ∈ r.slots, OkSlot s x) :
+    ∀ k ∈ r.classes, k.lvls.all okLv = true ∧ OkSL s k.ds = true := by
+  intro k hk
+  unfold InLean.ClassRead.classes at hk
+  obtain ⟨x, hx, hxk⟩ := List.mem_filterMap.1 hk
+  cases x with
+  | motive k' => cases hxk; exact h _ hx
+  | minor => cases hxk
+
+/-- The pre-pass's parameter counts, related (`classNPcOf`). -/
+theorem classNPcOf_tr {fe : InLean.FEnv} {L : ConLeche.Env} (hJ : JobEnvI fe L)
+    (p : InLean.BlockShape) (I : Lean.Name) :
+    ConLeche.classNPcOf (trShape p) (ConLeche.mkFEnv L) (toName I) = InLean.classNPcOf p fe I := by
+  unfold ConLeche.classNPcOf InLean.classNPcOf
+  rw [trShape_memberNames, contains_map_toName, ConLeche.mkFEnv_find?, trShape_nP]
+  by_cases hm : p.memberNames.contains I = true
+  · simp only [hm, ↓reduceIte]
+  · simp only [hm, Bool.false_eq_true, ↓reduceIte]
+    cases hv : fe.indView? I with
+    | some q =>
+      obtain ⟨cv, caps⟩ := q
+      obtain ⟨hL, -, -⟩ := indView_trCV hJ hv
+      rw [hL]; rfl
+    | none =>
+      have hn := indView_none_tr hJ hv
+      split
+      · rename_i ccv caps heq; exact (hn ccv caps heq).elim
+      · rfl
+
+/-- **A class key made checkable** (`classKeyOf`): InLean's key is master's on
+the reading; its parameters pass master's range guard. -/
+theorem classKeyOfI_run {nP : Nat} {params : List Lean.Expr} {k k' : InLean.ClassKey}
+    {s₀ s' : InLean.CState} (hp : OkSL s₀ params = true) (hlv : k.lvls.all okLv = true)
+    (hds : OkSL s₀ k.ds = true) (h : InLean.classKeyOf nP params k s₀ = .ok (k', s')) :
+    s' = s₀ ∧ k'.lvls.all okLv = true ∧ OkSL s₀ k'.ds = true ∧
+      (∀ x ∈ TrSL s₀ k'.ds, x.bvarB = 0 ∧ x.fvarB ≤ nP) ∧
+      Runs (ConLeche.classKeyOf (m := ConLeche.FueledM) nP (TrSL s₀ params) (trCK s₀ k))
+        (trCK s₀ k') := by
+  unfold InLean.classKeyOf at h
+  unfold ConLeche.classKeyOf
+  have hc : ∀ x ∈ k.ds, OkS s₀ (InLean.targetCanonParams params x) = true ∧
+      TrS s₀ (InLean.targetCanonParams params x) =
+        ConLeche.targetCanonParams (TrSL s₀ params) (TrS s₀ x) := by
+    intro x hx
+    simp only [OkSL, List.all_eq_true] at hds
+    exact targetCanonParamsI_tr hp (hds x hx)
+  have hkc : ConLeche.classKeyCanon (TrSL s₀ params) (trCK s₀ k) =
+      trCK s₀ (InLean.classKeyCanon params k) := by
+    simp only [ConLeche.classKeyCanon, InLean.classKeyCanon, trCK, TrSL, List.map_map]
+    congr 1
+    exact List.map_congr_left fun x hx => (hc x hx).2.symm
+  have hokc : OkSL s₀ (InLean.classKeyCanon params k).ds = true := by
+    simp only [InLean.classKeyCanon, OkSL, List.all_map, List.all_eq_true, Function.comp_apply]
+    exact fun x hx => (hc x hx).1
+  rw [hkc]
+  by_cases hg : ((InLean.classKeyCanon params k).ds.all
+      fun x => !x.hasLooseBVars && decide (InLean.fvarB x ≤ nP)) = true
+  · simp only [hg, ↓reduceIte] at h
+    obtain ⟨rfl, rfl⟩ := pure_run h
+    have hgC : ((trCK s₀ (InLean.classKeyCanon params k)).ds.all
+        fun x => x.bvarB == 0 && decide (x.fvarB ≤ nP)) = true := by
+      simp only [trCK, TrSL, List.all_map, List.all_eq_true, Function.comp_apply] at hg ⊢
+      intro x hx
+      simp only [OkSL, List.all_eq_true] at hokc
+      exact rangeGuard_tr (hokc x hx) (hg x hx)
+    refine ⟨rfl, hlv, hokc, fun x hx => ?_, ?_⟩
+    · simp only [trCK, List.all_eq_true, Bool.and_eq_true, beq_iff_eq, decide_eq_true_eq] at hgC
+      exact hgC x hx
+    · simp only [hgC, ↓reduceIte]
+      first | exact Runs.pure _ | exact Runs.bind (Runs.pure _) (Runs.pure _)
+  · simp only [hg] at h
+    obtain ⟨_, _, h1, -⟩ := bind_run h
+    exact (throw_run h1).elim
+
+/-- Every class key made checkable. -/
+theorem mapM_classKeyOfI_run {nP : Nat} {params : List Lean.Expr} {s₀ : InLean.CState}
+    (hp : OkSL s₀ params = true) :
+    ∀ {ks ks' : List InLean.ClassKey} {s' : InLean.CState},
+      (∀ k ∈ ks, k.lvls.all okLv = true ∧ OkSL s₀ k.ds = true) →
+      ks.mapM (InLean.classKeyOf nP params) s₀ = .ok (ks', s') →
+      s' = s₀ ∧ (∀ k ∈ ks', k.lvls.all okLv = true ∧ OkSL s₀ k.ds = true ∧
+        ∀ x ∈ TrSL s₀ k.ds, x.bvarB = 0 ∧ x.fvarB ≤ nP) ∧
+        RunsAll (ConLeche.classKeyOf (m := ConLeche.FueledM) nP (TrSL s₀ params))
+          (ks.map (trCK s₀)) (ks'.map (trCK s₀))
+  | [], ks', s', _, h => by
+    simp only [List.mapM_nil] at h
+    obtain ⟨rfl, rfl⟩ := pure_run h
+    exact ⟨rfl, by simp, trivial⟩
+  | k :: ks, ks', s', hk, h => by
+    simp only [List.mapM_cons] at h
+    obtain ⟨k', s₁, h1, h⟩ := bind_run h
+    obtain ⟨hk1, hk2⟩ := hk k List.mem_cons_self
+    obtain ⟨hs1, hlv', hds', hg', hR1⟩ := classKeyOfI_run hp hk1 hk2 h1
+    rw [hs1] at h
+    obtain ⟨ks'', s₂, h2, h⟩ := bind_run h
+    obtain ⟨hs2, hall, hR2⟩ := mapM_classKeyOfI_run hp
+      (fun x hx => hk x (List.mem_cons_of_mem _ hx)) h2
+    rw [hs2] at h
+    obtain ⟨rfl, rfl⟩ := pure_run h
+    refine ⟨rfl, fun x hx => ?_, ?_⟩
+    · rcases List.mem_cons.1 hx with rfl | hx
+      · exact ⟨hlv', hds', hg'⟩
+      · exact hall x hx
+    · exact ⟨hR1, hR2⟩
+
 end InLeanProof
