@@ -39,6 +39,7 @@ public import InLeanProof.ProjGuardI
 public import InLeanProof.PassEnv
 public import InLeanProof.PassCtors
 public import InLeanProof.PassNest
+public import InLeanProof.PassUniform
 public import InLeanProof.DeclGuards
 public import InLeanProof.DeclStep
 public import InLeanProof.DeclPins

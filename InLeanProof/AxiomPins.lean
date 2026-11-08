@@ -33,6 +33,7 @@ public import InLeanProof.PassNest
 public import InLeanProof.DeclStep
 public import InLeanProof.DeclPins
 public import InLeanProof.ProjGuardI
+public import InLeanProof.PassUniform
 
 /-!
 # The axiom pins of the InLean proof tier (task #451, lane G)
@@ -2649,3 +2650,105 @@ info: 'InLeanProof.projGuardRowsGoI_run' depends on axioms: [propext,
 -/
 #guard_msgs in
 #print axioms InLeanProof.projGuardRowsGoI_run
+
+/-- info: 'InLeanProof.LvFits_zero_of_RangeOk' depends on axioms: [propext] -/
+#guard_msgs in
+#print axioms InLeanProof.LvFits_zero_of_RangeOk
+
+/-- info: 'InLeanProof.maxDepthS_params' does not depend on any axioms -/
+#guard_msgs in
+#print axioms InLeanProof.maxDepthS_params
+
+/-- info: 'InLeanProof.params_okLv' depends on axioms: [propext, Quot.sound] -/
+#guard_msgs in
+#print axioms InLeanProof.params_okLv
+
+/-- info: 'InLeanProof.params_trL' depends on axioms: [propext, Quot.sound] -/
+#guard_msgs in
+#print axioms InLeanProof.params_trL
+
+/--
+info: 'InLeanProof.instLvlParamsI_params_tr' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound,
+ InLeanProof.Expr.mkAppData_fields,
+ InLeanProof.Expr.mkData_eq,
+ InLeanProof.Level.mkData_eq]
+-/
+#guard_msgs in
+#print axioms InLeanProof.instLvlParamsI_params_tr
+
+/--
+info: 'InLeanProof.instPisWithI_map' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound,
+ InLeanProof.Expr.mkAppData_fields,
+ InLeanProof.Expr.mkData_eq,
+ InLeanProof.Level.mkData_eq]
+-/
+#guard_msgs in
+#print axioms InLeanProof.instPisWithI_map
+
+/-- info: 'InLeanProof.mapM_mkFVarM_run' depends on axioms: [propext, Classical.choice, Quot.sound] -/
+#guard_msgs in
+#print axioms InLeanProof.mapM_mkFVarM_run
+
+/-- info: 'InLeanProof.map_trL_beq' depends on axioms: [propext, Quot.sound] -/
+#guard_msgs in
+#print axioms InLeanProof.map_trL_beq
+
+/-- info: 'InLeanProof.nestCanonSub_rel' depends on axioms: [propext, Classical.choice, Quot.sound] -/
+#guard_msgs in
+#print axioms InLeanProof.nestCanonSub_rel
+
+/--
+info: 'InLeanProof.nestCanonCrestI_run' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound,
+ InLeanProof.Expr.mkAppData_fields,
+ InLeanProof.Expr.mkData_eq,
+ InLeanProof.Level.mkData_eq]
+-/
+#guard_msgs in
+#print axioms InLeanProof.nestCanonCrestI_run
+
+/-- info: 'InLeanProof.hiAt_rel' depends on axioms: [propext, Classical.choice, Quot.sound] -/
+#guard_msgs in
+#print axioms InLeanProof.hiAt_rel
+
+/--
+info: 'InLeanProof.nestRootCanonI_run' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound,
+ InLeanProof.Expr.mkAppData_fields,
+ InLeanProof.Expr.mkData_eq,
+ InLeanProof.Level.mkData_eq]
+-/
+#guard_msgs in
+#print axioms InLeanProof.nestRootCanonI_run
+
+/--
+info: 'InLeanProof.nestUniformOkI_run' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound,
+ InLeanProof.Expr.mkAppData_fields,
+ InLeanProof.Expr.mkData_eq,
+ InLeanProof.Level.mkData_eq]
+-/
+#guard_msgs in
+#print axioms InLeanProof.nestUniformOkI_run
+
+/-- info: 'InLeanProof.forIn_unit_run' depends on axioms: [propext, Classical.choice, Quot.sound] -/
+#guard_msgs in
+#print axioms InLeanProof.forIn_unit_run
+
+/--
+info: 'InLeanProof.nestUniformI_run' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound,
+ InLeanProof.Expr.mkAppData_fields,
+ InLeanProof.Expr.mkData_eq,
+ InLeanProof.Level.mkData_eq]
+-/
+#guard_msgs in
+#print axioms InLeanProof.nestUniformI_run
