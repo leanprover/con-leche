@@ -39,8 +39,9 @@ from the records; InLean reads the same data off Lean's entries at use
 
 **The range bound.**  InLean's cutoffs read Lean's cached fields, which the
 stop-gap axioms (`InLeanProof/MkDataAxioms.lean`) describe only in range, so
-the statement is about terms in range: a premise on `E` and `d`, a conclusion
-on `E'`.  `Expr.RangeOk` is what C's constructors enforce, so every term that
+the statement is about terms in range: a premise on `d` (`DeclRangeOk`).  The
+terms of the constants InLean sees in the environment are in range through
+the relation (`StoredT` in its entries, and the projection bodies' range).  `Expr.RangeOk` is what C's constructors enforce, so every term that
 exists at runtime has it; it is not an axiom about all `Expr`s, and must not
 be one (`Expr.bvar (2^20)` exists in the logic).
 
@@ -62,21 +63,6 @@ declaration and no `partial` definition. -/
   | ci => ci.isUnsafe = false
 
 /-! ## In range -/
-
-/-- A constant's terms are in range. -/
-@[expose] def ConstRangeOk : Lean.ConstantInfo → Prop
-  | .axiomInfo v => Expr.RangeOk v.type
-  | .defnInfo v => Expr.RangeOk v.type ∧ Expr.RangeOk v.value
-  | .thmInfo v => Expr.RangeOk v.type ∧ Expr.RangeOk v.value
-  | .opaqueInfo v => Expr.RangeOk v.type ∧ Expr.RangeOk v.value
-  | .quotInfo v => Expr.RangeOk v.type
-  | .inductInfo v => Expr.RangeOk v.type
-  | .ctorInfo v => Expr.RangeOk v.type
-  | .recInfo v => Expr.RangeOk v.type ∧ ∀ r ∈ v.rules, Expr.RangeOk r.rhs
-
-/-- Every constant of `E` is in range. -/
-@[expose] def EnvRangeOk (E : Kernel.Environment) : Prop :=
-  ∀ n ci, E.find? n = some ci → ConstRangeOk ci
 
 /-- A declaration's terms are in range. -/
 @[expose] def DeclRangeOk : Declaration → Prop

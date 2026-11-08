@@ -114881,12 +114881,17 @@ and give `EnvRel` alone.  Deleted: `Presents`, `ReadsGroup`, `installAll` (`Stat
 the quotient step).  `step_of` loses the records' provenance and `Presents` premises.  No
 `InLean/*` change.
 
-Also found, not changed: `EnvRangeOk E` is, like the provenance, only carried (premise to
-conclusion by `step_of`); no step reads it.  It stays in the statement as the range bound on
-`E'`, pending the maintainer's ruling.
+`EnvRangeOk E` was, like the provenance, only carried (premise to conclusion by `step_of`); no
+step read it.  Coordinator's ruling: dropped too, premise and conclusion, from `AddDeclSound`,
+`no_false_of_addDeclSound` and `no_false`.  With it went `EnvRangeOk`, `ConstRangeOk`
+(`Statement.lean`), `quotConstsI_range`, `constRangeOk_of_block`, and `step_of`'s premises on
+the new constants (freshness, distinctness, range, `EnvLaws`): `step_of` is now master's fold
+and the relation at the new environment.  The range bound is `DeclRangeOk` on the declaration;
+the terms InLean sees in the environment are in range through `EnvPresI` (`StoredT`).
 
 Pins: `addDeclSound` unchanged (`propext`, `Classical.choice`, `Quot.sound` and the three
 `MkDataAxioms` stop-gaps); `envRel_of_none`, `EnvRel.reads` added (`propext`,
-`Classical.choice`, `Quot.sound`).  Gates: `lake build InLean InLeanProof` warning-free;
+`Classical.choice`, `Quot.sound`).  Gates: `lake build InLean InLeanProof` and `lake build`
+warning-free;
 `tests/layering.sh`, `tests/trust-surface.sh`, `tests/no-local-paths.sh`,
 `tests/inlean-sync.sh`, `tests/shake.sh`.

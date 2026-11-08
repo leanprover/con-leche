@@ -27,8 +27,7 @@ keeps the relation and the environment's model.  The step, by kind:
 * **the relation**: InLean's reading of the environment (`EnvPresI`) and the
   projection bodies' range (`ProjBodiesInRange`) are kept by the per-kind
   lemmas (`presI_*`, `quotGroupPres`, `indGroupPresBP`;
-  `projBodiesInRange_*`), and every constant added is in range
-  (`EnvRangeOk`).
+  `projBodiesInRange_*`).
 -/
 
 public section
@@ -221,7 +220,7 @@ finds a constant at a name exactly where `L` does, the two entries related
 capabilities, firing modes), and the projection tables alike (`EnvPresI`);
 and every projection body InLean builds off `E` is in range
 (`ProjBodiesInRange`; a structure's bodies may leave the range while its
-types are in it, so this is no consequence of `EnvRangeOk`).  The simulation
+types are in it).  The simulation
 of InLean's checks by con-leche's needs both.  It holds where InLean finds
 nothing (`envRel_of_none`), every accepted step keeps it (`addDeclSound`),
 and through it every safe constant of `E` but `sorryAx` reads as a constant
@@ -308,32 +307,20 @@ theorem foldl_pushDelta_consts : ∀ (ds : List ConLeche.Declaration) (L : ConLe
 
 universe w
 
-/-- **A step adding fresh, distinct constants `cs` in range**, with records
-`ds` master's fold accepts, keeps the theorem's invariants, given the relation
-at the new environment. -/
+/-- **A step whose records `ds` master's fold accepts** keeps the theorem's
+invariants, given the relation at the new environment. -/
 theorem step_of {V : Type w} [ConLeche.SetTheory V] {pins : List ConLeche.NatOpPinSet}
-    (hlaws : EnvLaws) {E E' : Kernel.Environment} {L : ConLeche.Env}
-    {cs : List Lean.ConstantInfo} {ds : List ConLeche.Declaration} {F : Nat} {L₁ : ConLeche.Env}
-    (hE' : ∀ n, E'.find? n = (cs.foldl InLean.addConst E).find? n)
-    (hfresh : ∀ ci ∈ cs, E.find? ci.name = none) (hnd : (cs.map (·.name)).Nodup)
-    (hcr : ∀ ci ∈ cs, ConstRangeOk ci)
-    (hER : EnvRangeOk E) (hM : ConLeche.Model.EnvModelOk V L)
+    {E' : Kernel.Environment} {L : ConLeche.Env}
+    {ds : List ConLeche.Declaration} {F : Nat} {L₁ : ConLeche.Env}
+    (hM : ConLeche.Model.EnvModelOk V L)
     (hfold : ds.foldlM (ConLeche.checkDecl .verified (ConLeche.fueledOps .verified F) pins) L =
       .ok L₁)
     (hrel : EnvRel E' L₁) :
-    ∃ L', EnvRangeOk E' ∧ EnvRel E' L' ∧ ConLeche.Model.EnvModelOk V L' ∧
+    ∃ L', EnvRel E' L' ∧ ConLeche.Model.EnvModelOk V L' ∧
       ∃ new, L'.consts = new ++ L.consts := by
-  have hff := find_foldl_addConst hlaws cs E hfresh hnd
-  refine ⟨L₁, ?_, hrel, ConLeche.Model.foldPM ds L hM hfold, ?_⟩
-  · intro n ci hf
-    by_cases hn : n ∈ cs.map (·.name)
-    · obtain ⟨c, hc, rfl⟩ := List.mem_map.1 hn
-      rw [(hE' _).trans (hff.1 c hc), Option.some.injEq] at hf
-      exact hf ▸ hcr c hc
-    · rw [(hE' n).trans (hff.2 n hn)] at hf
-      exact hER n ci hf
-  · rw [foldlM_checkDecl_env ds L hfold]
-    exact foldl_pushDelta_consts ds L
+  refine ⟨L₁, hrel, ConLeche.Model.foldPM ds L hM hfold, ?_⟩
+  rw [foldlM_checkDecl_env ds L hfold]
+  exact foldl_pushDelta_consts ds L
 
 /-! ## The one-constant kinds -/
 
@@ -353,11 +340,11 @@ theorem single_step {V : Type w} [ConLeche.SetTheory V] (hlaws : EnvLaws)
     {ci : Lean.ConstantInfo}
     (hd : SafeDecl decl) (hdr : DeclRangeOk decl) (hnI : ∀ lps nP ts u, decl ≠ .inductDecl lps nP ts u)
     (ha : InLean.checkDecl theoremConfig E decl = .ok a) (hac : a = { consts := #[ci] })
-    (hfresh : E.find? ci.name = none) (hnotInd : ∀ v, ci ≠ .inductInfo v) (hcr : ConstRangeOk ci)
-    (hER : EnvRangeOk E) (hR : EnvRel E L) (hM : ConLeche.Model.EnvModelOk V L)
+    (hfresh : E.find? ci.name = none) (hnotInd : ∀ v, ci ≠ .inductInfo v)
+    (hR : EnvRel E L) (hM : ConLeche.Model.EnvModelOk V L)
     (hpres : ∀ d, toDecl [ci] = some d → EnvPresI { env := InLean.addConst E ci, coreAxioms := false }
       (L.pushDelta (ConLeche.declConstants d) (ConLeche.declTables d))) :
-    ∃ L', EnvRangeOk (InLean.addConst E ci) ∧ EnvRel (InLean.addConst E ci) L' ∧
+    ∃ L', EnvRel (InLean.addConst E ci) L' ∧
       ConLeche.Model.EnvModelOk V L' ∧ ∃ new, L'.consts = new ++ L.consts := by
   obtain ⟨-, ds, hds, F, L₁, hfold⟩ :=
     checkDecl_sim_nk (jobEnvI_of hlaws hR hM) (natKinds_of_modelOk hM) hd hdr hnI ha
@@ -376,8 +363,7 @@ theorem single_step {V : Type w} [ConLeche.SetTheory V] (hlaws : EnvLaws)
     rw [hL₁]
     exact ⟨hpres d hd', projBodiesInRange_one hlaws hR.proj (ctorsStored_of_pres hR.pres) hfresh
       hnotInd⟩
-  exact step_of (cs := [ci]) hlaws (fun _ => rfl) (by simpa using hfresh) (by simp)
-    (fun c hc => by rw [List.mem_singleton.1 hc]; exact hcr) hER hM hfold hrel
+  exact step_of hM hfold hrel
 
 /-! ## The inductive block -/
 
@@ -425,13 +411,6 @@ theorem numParams_of_checkIndDeclC {fe : InLean.FEnv} {block : List Lean.Constan
 
 /-! ## The quotient package -/
 
-theorem quotConstsI_range : ∀ ci ∈ quotConstsI.toList, ConstRangeOk ci := by
-  rw [quotConstsI_eq]
-  intro ci hci
-  simp only [List.mem_cons, List.not_mem_nil, or_false] at hci
-  rcases hci with rfl | rfl | rfl | rfl <;>
-    exact RangeOk_of_rangeB (by decide)
-
 theorem quotConstsI_nodup : (quotConstsI.toList.map (·.name)).Nodup := by
   rw [quotConstsI_eq]
   exact List.Pairwise.of_map (S := fun a b => a ≠ b) toName
@@ -441,9 +420,8 @@ theorem quotConstsI_nodup : (quotConstsI.toList.map (·.name)).Nodup := by
 theorem quot_step {V : Type w} [ConLeche.SetTheory V] (hlaws : EnvLaws)
     {E : Kernel.Environment} {L : ConLeche.Env} {a : InLean.Added}
     (ha : InLean.checkDecl theoremConfig E .quotDecl = .ok a)
-    (hER : EnvRangeOk E) (hR : EnvRel E L) (hM : ConLeche.Model.EnvModelOk V L) :
-    a.quot = true ∧ ∃ L', EnvRangeOk (InLean.markQuot (a.consts.foldl InLean.addConst E)) ∧
-      EnvRel (InLean.markQuot (a.consts.foldl InLean.addConst E)) L' ∧
+    (hR : EnvRel E L) (hM : ConLeche.Model.EnvModelOk V L) :
+    a.quot = true ∧ ∃ L', EnvRel (InLean.markQuot (a.consts.foldl InLean.addConst E)) L' ∧
       ConLeche.Model.EnvModelOk V L' ∧ ∃ new, L'.consts = new ++ L.consts := by
   obtain ⟨s', hK, -, -⟩ := checkDecl_run ha
   obtain ⟨-, ds, hds, F, L₁, hfold⟩ :=
@@ -480,7 +458,7 @@ theorem quot_step {V : Type w} [ConLeche.SetTheory V] (hlaws : EnvLaws)
     refine ⟨hpres, ?_⟩
     exact projBodiesInRange_congr (E' := InLean.markQuot (quotConstsI.foldl InLean.addConst E))
       (fun n => hE' n) hgrp
-  exact step_of hlaws hE' hfresh quotConstsI_nodup quotConstsI_range hER hM hfold hrel
+  exact step_of hM hfold hrel
 
 /-- An accepted block check's block starts with a former. -/
 theorem checkIndDeclC_head {fe : InLean.FEnv} {block : List Lean.ConstantInfo} {nP : Nat}
@@ -555,18 +533,13 @@ theorem mem_of_storedBlock {consts : Array Lean.ConstantInfo} {ci : Lean.Constan
   rw [Array.mem_toList_iff]
   rcases h with (h | h) | h <;> exact h.1
 
-theorem constRangeOk_of_block {ci : Lean.ConstantInfo} (hb : InLean.isBlockConst ci = true)
-    (hr : CIRange ci) : ConstRangeOk ci := by
-  cases ci <;> simp_all [InLean.isBlockConst, CIRange, ConstRangeOk] <;> exact hr
-
 /-- **An inductive block's step.** -/
 theorem ind_step {V : Type w} [ConLeche.SetTheory V] (hlaws : EnvLaws)
     {E : Kernel.Environment} {L : ConLeche.Env} {lps : List Name} {nP : Nat}
     {types : List InductiveType} {a : InLean.Added}
     (ha : InLean.checkDecl theoremConfig E (.inductDecl lps nP types false) = .ok a)
-    (hER : EnvRangeOk E) (hR : EnvRel E L) (hM : ConLeche.Model.EnvModelOk V L) :
-    ∃ L', EnvRangeOk (a.consts.foldl InLean.addConst E) ∧
-      EnvRel (a.consts.foldl InLean.addConst E) L' ∧
+    (hR : EnvRel E L) (hM : ConLeche.Model.EnvModelOk V L) :
+    ∃ L', EnvRel (a.consts.foldl InLean.addConst E) L' ∧
       ConLeche.Model.EnvModelOk V L' ∧ ∃ new, L'.consts = new ++ L.consts := by
   obtain ⟨s', hK, hbn, hsq⟩ := checkDecl_run ha
   have hK' : (InLean.checkInductiveC .verified { env := E, coreAxioms := false } lps nP types
@@ -619,11 +592,7 @@ theorem ind_step {V : Type w} [ConLeche.SetTheory V] (hlaws : EnvLaws)
   have hpres := indGroupPresBP hlaws _ L a.consts nP {} s' _ hR.pres rfl hsub hfresh hnd
     (sees_of_checkInductiveC hK' hnsorry) hok.2.1 hok.2.2.2.2.2.2.1 hrun hd
   have hproj := projBodiesInRange_ind hlaws hR.proj (ctorsStored_of_pres hR.pres) hK' hfresh hnd
-  have hE' : ∀ n, (a.consts.foldl InLean.addConst E).find? n =
-      (a.consts.toList.foldl InLean.addConst E).find? n := by
-    intro n; rw [← Array.foldl_toList]
-  refine step_of hlaws hE' hfresh hnd
-    (fun ci hci => constRangeOk_of_block (hblk ci hci) (hCIR ci hci)) hER hM hfold ?_
+  refine step_of hM hfold ?_
   rw [foldlM_checkDecl_env _ L hfold]
   exact ⟨hpres, hproj⟩
 
@@ -632,12 +601,12 @@ theorem ind_step {V : Type w} [ConLeche.SetTheory V] (hlaws : EnvLaws)
 /-- The conclusion at two environments storing alike. -/
 theorem concl_congr {V : Type w} [ConLeche.SetTheory V] {E₁ E₂ : Kernel.Environment}
     {L : ConLeche.Env} (h : ∀ n, E₂.find? n = E₁.find? n)
-    (hc : ∃ L', EnvRangeOk E₁ ∧ EnvRel E₁ L' ∧ ConLeche.Model.EnvModelOk V L' ∧
+    (hc : ∃ L', EnvRel E₁ L' ∧ ConLeche.Model.EnvModelOk V L' ∧
       ∃ new, L'.consts = new ++ L.consts) :
-    ∃ L', EnvRangeOk E₂ ∧ EnvRel E₂ L' ∧ ConLeche.Model.EnvModelOk V L' ∧
+    ∃ L', EnvRel E₂ L' ∧ ConLeche.Model.EnvModelOk V L' ∧
       ∃ new, L'.consts = new ++ L.consts := by
-  obtain ⟨L', hER, ⟨hpres, hproj⟩, hM, hnew⟩ := hc
-  exact ⟨L', fun n ci hf => hER n ci (by rw [← h]; exact hf),
+  obtain ⟨L', ⟨hpres, hproj⟩, hM, hnew⟩ := hc
+  exact ⟨L',
     ⟨presI_congr hpres rfl rfl rfl (fun n => h n), projBodiesInRange_congr (fun n => h n) hproj⟩,
     hM, hnew⟩
 
@@ -645,23 +614,23 @@ theorem foldl_single (E : Kernel.Environment) (ci : Lean.ConstantInfo) :
     (#[ci] : Array Lean.ConstantInfo).foldl InLean.addConst E = InLean.addConst E ci := by
   rw [← Array.foldl_toList]; rfl
 
-/-- **The simulation theorem**: if the kernel environment `E` is in range and
-related to a con-leche environment `L` with a model, and InLean's `addDecl` at
-con-leche's axiom policy accepts a safe declaration in range that is not a
-non-standard axiom, some extension of `L` with a model is related to the new
-environment, which is in range. -/
+/-- **The simulation theorem**: if the kernel environment `E` is related to a
+con-leche environment `L` with a model, and InLean's `addDecl` at con-leche's
+axiom policy accepts a safe declaration in range that is not a non-standard
+axiom, some extension of `L` with a model is related to the new
+environment. -/
 @[expose] def AddDeclSound (V : Type w) [ConLeche.SetTheory V] : Prop :=
   EnvLaws →
   ∀ (E E' : Kernel.Environment) (d : Declaration) (L : ConLeche.Env),
-    SafeDecl d → DeclRangeOk d → EnvRangeOk E → EnvRel E L → ConLeche.Model.EnvModelOk V L →
+    SafeDecl d → DeclRangeOk d → EnvRel E L → ConLeche.Model.EnvModelOk V L →
     InLean.addDecl E d theoremConfig = .ok E' →
-    ∃ L', EnvRangeOk E' ∧ EnvRel E' L' ∧ ConLeche.Model.EnvModelOk V L' ∧
+    ∃ L', EnvRel E' L' ∧ ConLeche.Model.EnvModelOk V L' ∧
       ∃ new, L'.consts = new ++ L.consts
 
 /-- **The simulation theorem, proved.** -/
 theorem addDeclSound (V : Type w) [ConLeche.SetTheory V] :
     AddDeclSound V := by
-  intro hlaws E E' d L hd hdr hER hR hM h
+  intro hlaws E E' d L hd hdr hR hM h
   unfold InLean.addDecl at h
   split at h
   case h_2 => cases h
@@ -684,7 +653,7 @@ theorem addDeclSound (V : Type w) [ConLeche.SetTheory V] :
     obtain ⟨rfl, hfresh⟩ := axiom_shape (fe := { env := E, coreAxioms := false }) hK
     refine concl_congr (fun n => by rw [hq, foldl_single]) ?_
     refine single_step hlaws hd hdr (fun _ _ _ _ h => by cases h) ha rfl hfresh
-      (fun _ h => by cases h) hdr hER hR hM fun d' hd' => ?_
+      (fun _ h => by cases h) hR hM fun d' hd' => ?_
     by_cases hqs : v.name = InLean.quotSoundName
     · exact presI_quotSound hlaws hR.pres hd' hfresh hdr hd.1
         (checkAxiomC_quotSound (fe := { env := E, coreAxioms := false }) hK hqs).2.1
@@ -693,32 +662,32 @@ theorem addDeclSound (V : Type w) [ConLeche.SetTheory V] :
     obtain ⟨rfl, hfresh⟩ := defn_shape (fe := { env := E, coreAxioms := false }) hd hK
     refine concl_congr (fun n => by rw [hq, foldl_single]) ?_
     exact single_step hlaws hd hdr (fun _ _ _ _ h => by cases h) ha rfl hfresh
-      (fun _ h => by cases h) hdr hER hR hM fun d' hd' =>
+      (fun _ h => by cases h) hR hM fun d' hd' =>
         presI_defn hlaws hR.pres hd' hfresh hdr.1 hdr.2 hd fun hn =>
           (hns (.defnInfo v) (fun _ h => by cases h) (by simp) hn).elim
   | thmDecl v =>
     obtain ⟨rfl, hfresh⟩ := thm_shape (fe := { env := E, coreAxioms := false }) hK
     refine concl_congr (fun n => by rw [hq, foldl_single]) ?_
     exact single_step hlaws hd hdr (fun _ _ _ _ h => by cases h) ha rfl hfresh
-      (fun _ h => by cases h) hdr hER hR hM fun d' hd' =>
+      (fun _ h => by cases h) hR hM fun d' hd' =>
         presI_thm hlaws hR.pres hd' hfresh hdr.1 fun hn =>
           (hns (.thmInfo v) (fun _ h => by cases h) (by simp) hn).elim
   | opaqueDecl v =>
     obtain ⟨rfl, hfresh⟩ := opaque_shape (fe := { env := E, coreAxioms := false }) hK
     refine concl_congr (fun n => by rw [hq, foldl_single]) ?_
     exact single_step hlaws hd hdr (fun _ _ _ _ h => by cases h) ha rfl hfresh
-      (fun _ h => by cases h) hdr hER hR hM fun d' hd' =>
+      (fun _ h => by cases h) hR hM fun d' hd' =>
         presI_opaque hlaws hR.pres hd' hfresh hdr.1 hd fun hn =>
           (hns (.opaqueInfo v) (fun _ h => by cases h) (by simp) hn).elim
   | mutualDefnDecl vs => exact hd.elim
   | quotDecl =>
-    obtain ⟨hqt, hc⟩ := quot_step hlaws ha hER hR hM
+    obtain ⟨hqt, hc⟩ := quot_step hlaws ha hR hM
     simp only [hqt, ↓reduceIte]
     exact hc
   | inductDecl lps nP types u =>
     have hu : u = false := hd
     subst hu
-    exact concl_congr (fun n => hq _ _ n) (ind_step hlaws ha hER hR hM)
+    exact concl_congr (fun n => hq _ _ n) (ind_step hlaws ha hR hM)
 
 /-- **No proof of `False`**: under the target, InLean never adds a safe
 constant whose type reads as `False` to an environment related to one with a
@@ -726,13 +695,13 @@ model (`sorryAx` aside: con-leche's policy hides it, so nothing it checks can
 use it). -/
 theorem no_false_of_addDeclSound (V : Type w) [ConLeche.SetTheory V] (hS : AddDeclSound V)
     (hlaws : EnvLaws) {E E' : Kernel.Environment} {d : Declaration} {L : ConLeche.Env}
-    (hd : SafeDecl d) (hdr : DeclRangeOk d) (hE : EnvRangeOk E) (hR : EnvRel E L)
+    (hd : SafeDecl d) (hdr : DeclRangeOk d) (hR : EnvRel E L)
     (hM : ConLeche.Model.EnvModelOk V L)
     (h : InLean.addDecl E d theoremConfig = .ok E')
     {n : Name} {ci : Lean.ConstantInfo} (hci : E'.find? n = some ci) (hsafe : SafeConst ci)
     (hn : n ≠ InLean.sorryAxName)
     (hfalse : toExprC ci.type = some (.const ConLeche.falseName [])) : False := by
-  obtain ⟨L', -, hR', hM', -⟩ := hS hlaws E E' d L hd hdr hE hR hM h
+  obtain ⟨L', hR', hM', -⟩ := hS hlaws E E' d L hd hdr hR hM h
   obtain ⟨c, hc, -, hty⟩ := hR'.reads hci hsafe hn
   obtain ⟨mp⟩ := hM'.nonempty
   rw [hfalse] at hty
@@ -742,12 +711,12 @@ theorem no_false_of_addDeclSound (V : Type w) [ConLeche.SetTheory V] (hS : AddDe
 as `False` to an environment related to one with a model (`sorryAx` aside). -/
 theorem no_false (V : Type w) [ConLeche.SetTheory V]
     (hlaws : EnvLaws) {E E' : Kernel.Environment} {d : Declaration} {L : ConLeche.Env}
-    (hd : SafeDecl d) (hdr : DeclRangeOk d) (hE : EnvRangeOk E) (hR : EnvRel E L)
+    (hd : SafeDecl d) (hdr : DeclRangeOk d) (hR : EnvRel E L)
     (hM : ConLeche.Model.EnvModelOk V L)
     (h : InLean.addDecl E d theoremConfig = .ok E')
     {n : Name} {ci : Lean.ConstantInfo} (hci : E'.find? n = some ci) (hsafe : SafeConst ci)
     (hn : n ≠ InLean.sorryAxName)
     (hfalse : toExprC ci.type = some (.const ConLeche.falseName [])) : False :=
-  no_false_of_addDeclSound V (addDeclSound V) hlaws hd hdr hE hR hM h hci hsafe hn hfalse
+  no_false_of_addDeclSound V (addDeclSound V) hlaws hd hdr hR hM h hci hsafe hn hfalse
 
 end InLeanProof
