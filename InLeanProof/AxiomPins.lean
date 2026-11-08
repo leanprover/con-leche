@@ -57,6 +57,7 @@ public import InLeanProof.PassRecs8
 public import InLeanProof.PassRecs9
 public import InLeanProof.PassRecs10
 public import InLeanProof.TailSim
+public import InLeanProof.AddDeclProof
 
 /-!
 # The axiom pins of the InLean proof tier (task #451, lane G)
@@ -71,11 +72,6 @@ that read no cached field pin the standard axioms alone.
 #guard_msgs in
 #print axioms InLeanProof.mapOff_spec
 
-/--
-info: 'InLeanProof.no_false_of_addDeclSound' depends on axioms: [propext, Classical.choice, Quot.sound]
--/
-#guard_msgs in
-#print axioms InLeanProof.no_false_of_addDeclSound
 
 /--
 info: 'InLeanProof.Expr.fieldsOk' depends on axioms: [propext,
@@ -5939,3 +5935,84 @@ info: 'InLeanProof.checkIndDeclC_sim' depends on axioms: [propext,
 -/
 #guard_msgs in
 #print axioms InLeanProof.checkIndDeclC_sim
+
+/-! ## Lane P4: the simulation theorem -/
+
+/--
+info: 'InLeanProof.checkDecl_env' depends on axioms: [propext, Classical.choice, Quot.sound]
+-/
+#guard_msgs in
+#print axioms InLeanProof.checkDecl_env
+
+/--
+info: 'InLeanProof.step_of' depends on axioms: [propext, Classical.choice, Quot.sound]
+-/
+#guard_msgs in
+#print axioms InLeanProof.step_of
+
+/--
+info: 'InLeanProof.single_step' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound,
+ InLeanProof.Expr.mkAppData_fields,
+ InLeanProof.Expr.mkData_eq,
+ InLeanProof.Level.mkData_eq]
+-/
+#guard_msgs in
+#print axioms InLeanProof.single_step
+
+/--
+info: 'InLeanProof.quot_step' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound,
+ InLeanProof.Expr.mkAppData_fields,
+ InLeanProof.Expr.mkData_eq,
+ InLeanProof.Level.mkData_eq]
+-/
+#guard_msgs in
+#print axioms InLeanProof.quot_step
+
+/--
+info: 'InLeanProof.numParams_of_checkIndDeclC' depends on axioms: [propext, Classical.choice, Quot.sound]
+-/
+#guard_msgs in
+#print axioms InLeanProof.numParams_of_checkIndDeclC
+
+/--
+info: 'InLeanProof.ind_step' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound,
+ InLeanProof.Expr.mkAppData_fields,
+ InLeanProof.Expr.mkData_eq,
+ InLeanProof.Level.mkData_eq]
+-/
+#guard_msgs in
+#print axioms InLeanProof.ind_step
+
+/--
+info: 'InLeanProof.addDeclSound_of' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound,
+ InLeanProof.Expr.mkAppData_fields,
+ InLeanProof.Expr.mkData_eq,
+ InLeanProof.Level.mkData_eq]
+-/
+#guard_msgs in
+#print axioms InLeanProof.addDeclSound_of
+
+/--
+info: 'InLeanProof.no_false_of_addDeclSound' depends on axioms: [propext, Classical.choice, Quot.sound]
+-/
+#guard_msgs in
+#print axioms InLeanProof.no_false_of_addDeclSound
+
+/--
+info: 'InLeanProof.no_false_of_indRunFacts' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound,
+ InLeanProof.Expr.mkAppData_fields,
+ InLeanProof.Expr.mkData_eq,
+ InLeanProof.Level.mkData_eq]
+-/
+#guard_msgs in
+#print axioms InLeanProof.no_false_of_indRunFacts

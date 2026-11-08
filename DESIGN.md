@@ -114712,3 +114712,78 @@ places are different matchers: `rw` with one does not find the other, `exact` (d
 Gates: `lake build InLean InLeanProof inlean-replay` warning-free; `tests/layering.sh`,
 `tests/trust-surface.sh`, `tests/no-local-paths.sh`, `tests/inlean-sync.sh`, `tests/shake.sh`
 pass.
+
+### Lane P4: the assembly, `AddDeclSound` from the inductive arm's run facts (2026-11-08, task #451, agent/451-inlean2)
+
+Scope was `AddDeclSound` proved and `no_false_of_addDeclSound` discharged.  Done up to one
+named obligation of the inductive arm (`IndRunFactsI`, below).  New file
+`InLeanProof/AddDeclProof.lean`; no `InLean/*` change; no `sorry`, no new axiom.
+
+**The statement, adjusted** (`AddDeclSound` moved from `Statement.lean` to
+`AddDeclProof.lean`, beside its proof, because it now names `EnvPresI`, which is defined
+downstream of `Statement.lean`).  One premise and the matching conclusion are added:
+`RelatesI E L := EnvPresI { env := E, coreAxioms := false } L ∧ ProjBodiesInRange { env := E,
+coreAxioms := false }` (O4's relation at the theorem's configuration, and the projection bodies'
+range).  `Presents` reads only names and types; the simulation (O5–O7) runs InLean's at-use
+readers against master's install, which needs `EnvPresI`, and that is not a consequence of
+`Presents`: an `E` holding `unsafe def g : Nat := 0` (and `Nat`) is presented by `installAll`
+of its records (`toDecl` reads an unsafe definition; `Presents`' third clause is about safe
+constants only), but InLean hides `g` while that `L` stores it, so `EnvPresI.none` fails; and
+a structure's projection bodies may leave the range while its types are in it (P3b, finding 2),
+so `ProjBodiesInRange` is not a consequence of `EnvRangeOk`.  `RelatesI` holds wherever InLean
+finds nothing (`relatesI_of_none`: `presI_empty`, `projBodiesInRange_of_none`) and every
+accepted step keeps it, so the theorem still iterates from the start.  Nothing else changed:
+`Presents`, `EnvRangeOk`, `DeclRangeOk`, `SafeDecl`, `EnvLaws`, `theoremConfig` are as they
+were; `NatKinds L` and `EnvWF L` come from `EnvModelOk V L` (`basis_pinned.natKinds`,
+`envWF_of_modelOk`), not from premises.
+
+**The proof** (`addDeclSound_of`, by kind through `InLean.addDecl`/`checkDecl`):
+* `checkDecl_run`: InLean's entry inverted (the kind's run at the fresh state, `basisNamesOk`,
+  no `sorryAxSquat`); the kinds' shapes (`axiom_shape`, `defn_shape`, `thm_shape`,
+  `opaque_shape`: one constant, `quot := false`, its name fresh in Lean's environment).
+* Master's side: `checkDecl_env` — master's accepted pure step returns exactly
+  `L.pushDelta (declConstants d) (declTables d)`, read off the run relation
+  (`checkDeclRun_ofEnvFactsK`; the block arm by `blockRun_env`); `foldlM_checkDecl_env` for the
+  fold; `EnvModelOk` by master's `foldPM`.
+* `step_of`: one generic step — fresh, distinct constants, records each reading a sub-list of
+  them, master's fold accepting the records, `RelatesI` at the new environment — gives the whole
+  conclusion (`EnvRangeOk` by `find_foldl_addConst`, `Presents` with the records appended, its
+  third clause from the relation, `presents_reads`).
+* `single_step` (axiom, definition, theorem, opaque): `checkDecl_sim_nk` (O6), `presI_axiom`/
+  `presI_quotSound`/`presI_defn`/`presI_thm`/`presI_opaque`, `projBodiesInRange_one`.
+* `quot_step`: `checkDecl_sim_nk`, `quotGroupPres`, `projBodiesInRange_group` (no former among
+  the four) moved across `markQuot` (`projBodiesInRange_congr`, `markQuot_find`).
+* `ind_step`: `checkIndDeclC_sim` (O7) at the stored block, the declared parameter count equal
+  to the stored first former's (`numParams_of_checkIndDeclC`, by `genEntriesAgree_members`:
+  O7's finding 1), `basisNamesOk_ind_tr` and master's `checkDecl_of_kind`, `indGroupPresBP`
+  (`fe.pending = []` by construction), `projBodiesInRange_ind`.
+* `concl_congr`: the conclusion moves across `markQuot` (an inductive's generated `Added` may
+  carry any `quot` flag; the lookups agree, `EnvLaws`).
+
+**What remains: `IndRunFactsI`** (stated in `AddDeclProof.lean`; `addDeclSound_of` and
+`no_false_of_indRunFacts` take it).  Three facts of an accepted safe `checkInductiveC` run that
+neither `checkInductiveC_ok` nor O7's results give:
+1. *The generated constants' names are distinct* (`indGroupPresBP`, `projBodiesInRange_ind`
+   and the record's `ReadsGroup` need it).  InLean tests each name fresh in Lean's
+   environment, not the list; distinctness follows from the stages' tests (members' and
+   constructors' `namesNodup` in `checkBlockKS`, the constructors fresh at the formers'
+   environment, `checkBlockCtorsF_fresh`; the recursors' `namesNodup`, `targetRecPins_nodup`,
+   and their freshness at the constructors' environment), not yet composed.  An executable
+   alternative: `checkInductiveC` tests `namesNodup (gen.consts.map (·.name))`.
+2. *The stored block reads as a record* (`toBlock (storedBlock a.consts) = some cb`,
+   `checkIndDeclC_sim`'s `hb`): every type and rule translates (no free or meta variable, no
+   level metavariable).  True for the code by the stages' checks (`checkTermWF` on formers'
+   and constructors' types; the recursors compared with the regenerated ones), not yet read off.
+3. *The block check starts from a state with the invariant* (`CSOKIF s₀`, `checkIndDeclC_sim`'s
+   `hs`).  `checkInductiveC` runs the unverified generator (`Ind.genInductive`, in `CheckCM`:
+   it infers, reduces and interns free variables on the checker's state) and then runs the
+   block check from that state flushed; `flushed` keeps the free-variable table, whose
+   invariant (`FVTableOK`: every interned type in range and translating) the generator is not
+   known to keep.  Lane TailSim's "the fold's invariant" for `hs` overlooked the generator.
+   Proving it means walking the generator's state effects; the executable alternative is to
+   start the block check from the empty state (`CSOKIF_empty`), at the cost of re-interning.
+   Not a false statement (the theorem is not known false), so no `InLean/*` change here: a
+   ruling is needed between the proof and the executable change.
+
+Pins (`AxiomPins.lean`): `addDeclSound_of`, `no_false_of_addDeclSound`,
+`no_false_of_indRunFacts` and the steps.

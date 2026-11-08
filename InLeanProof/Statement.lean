@@ -17,10 +17,13 @@ and InLean accepts a safe declaration `d` that is not a non-standard axiom, at
 con-leche's axiom policy (`theoremConfig`), then some extension of `L`
 presents the new environment and carries the invariant (maintainer's ruling,
 2026-11-08).
-`AddDeclSound` states it; it is not proved (the obligations are in DESIGN.md,
-"TASK #451 — restart on master").  What it gives is proved:
-`no_false_of_addDeclSound` — InLean never adds a safe constant whose type
-reads as `False`.
+`AddDeclSound` (`InLeanProof/AddDeclProof.lean`, beside its proof) states it,
+with InLean's relation to `L` (`RelatesI`: O4's `EnvPresI` and the projection
+bodies' range) as a further premise and conclusion: `Presents` reads only
+names and types, and the simulation needs the readers' agreement, which is
+not a consequence of `Presents` (a `Presents` environment may install an
+unsafe constant InLean hides).  `no_false_of_addDeclSound` — InLean never adds
+a safe constant whose type reads as `False` — follows.
 
 **Why "some `L` presenting `E`".**  con-leche's environment is a list, in
 installation order; a `Kernel.Environment` is a map.  The statement holds
@@ -157,39 +160,5 @@ definitions (the prelude assumed good), an obligation of the
 environment's being ok (DESIGN, O10). -/
 @[expose] def theoremConfig : InLean.Config :=
   { mode := .verified, coreAxioms := false, uncertifiedNatOps := false }
-
-/-! ## The target -/
-
-universe w
-
-/-- **The simulation theorem** (target; not proved). -/
-@[expose] def AddDeclSound (V : Type w) [ConLeche.SetTheory V] : Prop :=
-  EnvLaws →
-  ∀ (E E' : Kernel.Environment) (d : Declaration) (L : ConLeche.Env),
-    SafeDecl d → DeclRangeOk d → EnvRangeOk E →
-    Presents E L → ConLeche.Model.EnvModelOk V L →
-    InLean.addDecl E d theoremConfig = .ok E' →
-    ∃ L', EnvRangeOk E' ∧ Presents E' L' ∧ ConLeche.Model.EnvModelOk V L' ∧
-      ∃ new, L'.consts = new ++ L.consts
-
-/-! ## What the target gives -/
-
-/-- **No proof of `False`**: under the target, InLean never adds a safe
-constant whose type reads as `False` to a presented environment with a
-model (`sorryAx` aside: con-leche's policy hides it, so nothing it checks
-can use it). -/
-theorem no_false_of_addDeclSound (V : Type w) [ConLeche.SetTheory V] (hS : AddDeclSound V)
-    (hlaws : EnvLaws) {E E' : Kernel.Environment} {d : Declaration} {L : ConLeche.Env}
-    (hd : SafeDecl d) (hdr : DeclRangeOk d) (hE : EnvRangeOk E) (hP : Presents E L)
-    (hM : ConLeche.Model.EnvModelOk V L)
-    (h : InLean.addDecl E d theoremConfig = .ok E')
-    {n : Name} {ci : Lean.ConstantInfo} (hci : E'.find? n = some ci) (hsafe : SafeConst ci)
-    (hn : n ≠ InLean.sorryAxName)
-    (hfalse : toExprC ci.type = some (.const ConLeche.falseName [])) : False := by
-  obtain ⟨L', -, ⟨ds, -, -, hread⟩, hM', -⟩ := hS hlaws E E' d L hd hdr hE hP hM h
-  obtain ⟨c, hc, -, hty⟩ := hread n ci hci hsafe hn
-  obtain ⟨mp⟩ := hM'.nonempty
-  rw [hfalse] at hty
-  exact ConLeche.Model.no_constant_of_False mp c hc (Option.some.inj hty).symm
 
 end InLeanProof

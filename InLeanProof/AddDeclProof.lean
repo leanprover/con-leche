@@ -4,6 +4,8 @@ public import InLeanProof.TailSim
 public import InLeanProof.DivModArm
 public import InLeanProof.BlockPresR
 import ConLeche.Semantics.Bridge.Sound
+public import ConLeche.Model.Fold
+import ConLeche.Model.Capstone
 import ConLeche.Model.Inductives.BlockRunFacts
 import ConLeche.Verify.Inductives.BlockShapeInv
 import all Lean.Declaration
@@ -11,8 +13,12 @@ import all Lean.Declaration
 /-!
 # The simulation theorem proved (task #451, lane P4)
 
-`addDeclSound`: InLean's `addDecl` at `theoremConfig` accepting a safe
+`AddDeclSound` (the maintainer's statement, with InLean's relation `RelatesI`
+beside `Presents`; `Statement.lean`'s module docstring says why) and its proof
+`addDeclSound_of`: InLean's `addDecl` at `theoremConfig` accepting a safe
 declaration that is not a non-standard axiom keeps the environment's model.
+The proof takes one named premise, `IndRunFactsI`: three facts of an accepted
+inductive declaration's run not yet proved (DESIGN.md, "Lane P4").
 The step, by kind:
 
 * **master's side**: InLean's check accepted ⇒ master's pure fueled step
@@ -617,5 +623,133 @@ theorem ind_step {V : Type w} [ConLeche.SetTheory V] (hlaws : EnvLaws) (hI : Ind
     (fun ci hci => constRangeOk_of_block (hblk ci hci) (hCIR ci hci)) hER hP hM hfold ?_
   rw [foldlM_checkDecl_env _ L hfold]
   exact ⟨hpres, hproj⟩
+
+/-! ## The theorem -/
+
+/-- The conclusion at two environments storing alike. -/
+theorem concl_congr {V : Type w} [ConLeche.SetTheory V] {E₁ E₂ : Kernel.Environment}
+    {L : ConLeche.Env} (h : ∀ n, E₂.find? n = E₁.find? n)
+    (hc : ∃ L', EnvRangeOk E₁ ∧ Presents E₁ L' ∧ RelatesI E₁ L' ∧ ConLeche.Model.EnvModelOk V L' ∧
+      ∃ new, L'.consts = new ++ L.consts) :
+    ∃ L', EnvRangeOk E₂ ∧ Presents E₂ L' ∧ RelatesI E₂ L' ∧ ConLeche.Model.EnvModelOk V L' ∧
+      ∃ new, L'.consts = new ++ L.consts := by
+  obtain ⟨L', hER, ⟨ds, hgr, hL, hrd⟩, ⟨hpres, hproj⟩, hM, hnew⟩ := hc
+  refine ⟨L', fun n ci hf => hER n ci (by rw [← h]; exact hf), ⟨ds, fun d hd => ?_, hL,
+    fun n ci hf => hrd n ci (by rw [← h]; exact hf)⟩,
+    ⟨presI_congr hpres rfl rfl rfl (fun n => h n), projBodiesInRange_congr (fun n => h n) hproj⟩,
+    hM, hnew⟩
+  obtain ⟨cs, hf, ht⟩ := hgr d hd
+  exact ⟨cs, fun ci hci => by rw [h]; exact hf ci hci, ht⟩
+
+theorem foldl_single (E : Kernel.Environment) (ci : Lean.ConstantInfo) :
+    (#[ci] : Array Lean.ConstantInfo).foldl InLean.addConst E = InLean.addConst E ci := by
+  rw [← Array.foldl_toList]; rfl
+
+/-- **The simulation theorem** (the maintainer's statement, with InLean's
+relation `RelatesI` beside `Presents` as premise and conclusion; DESIGN.md,
+"Lane P4"): if `L` presents and relates to the kernel environment `E` and has
+a model, and InLean's `addDecl` at con-leche's axiom policy accepts a safe
+declaration in range that is not a non-standard axiom, some extension of `L`
+presents and relates to the new environment, in range, and has a model. -/
+@[expose] def AddDeclSound (V : Type w) [ConLeche.SetTheory V] : Prop :=
+  EnvLaws →
+  ∀ (E E' : Kernel.Environment) (d : Declaration) (L : ConLeche.Env),
+    SafeDecl d → DeclRangeOk d → EnvRangeOk E →
+    Presents E L → RelatesI E L → ConLeche.Model.EnvModelOk V L →
+    InLean.addDecl E d theoremConfig = .ok E' →
+    ∃ L', EnvRangeOk E' ∧ Presents E' L' ∧ RelatesI E' L' ∧ ConLeche.Model.EnvModelOk V L' ∧
+      ∃ new, L'.consts = new ++ L.consts
+
+/-- **The simulation theorem, proved** from the inductive arm's remaining
+obligation (`IndRunFactsI`). -/
+theorem addDeclSound_of (V : Type w) [ConLeche.SetTheory V] (hI : IndRunFactsI) :
+    AddDeclSound V := by
+  intro hlaws E E' d L hd hdr hER hP hR hM h
+  unfold InLean.addDecl at h
+  split at h
+  case h_2 => cases h
+  rename_i a ha
+  cases h
+  have hq : ∀ (b : Bool) (E₁ : Kernel.Environment) n,
+      (if b = true then InLean.markQuot E₁ else E₁).find? n = E₁.find? n := by
+    intro b E₁ n; cases b
+    · rfl
+    · exact markQuot_find hlaws E₁ n
+  obtain ⟨s', hK, -, hsq⟩ := checkDecl_run ha
+  have hns : ∀ ci, (∀ v, ci ≠ .axiomInfo v) → ci ∈ a.consts.toList →
+      ci.name = InLean.sorryAxName → False := by
+    intro ci hax hci hn
+    have := hsq ci hci
+    cases ci <;> simp_all [InLean.sorryAxSquat, Lean.ConstantInfo.name,
+      Lean.ConstantInfo.toConstantVal]
+  cases d with
+  | axiomDecl v =>
+    obtain ⟨rfl, hfresh⟩ := axiom_shape (fe := { env := E, coreAxioms := false }) hK
+    refine concl_congr (fun n => by rw [hq, foldl_single]) ?_
+    refine single_step hlaws hd hdr (fun _ _ _ _ h => by cases h) ha rfl hfresh
+      (fun _ h => by cases h) hdr hER hP hR hM fun d' hd' => ?_
+    by_cases hqs : v.name = InLean.quotSoundName
+    · exact presI_quotSound hlaws hR.1 hd' hfresh hdr hd.1
+        (checkAxiomC_quotSound (fe := { env := E, coreAxioms := false }) hK hqs).2.1
+    · exact presI_axiom hlaws hR.1 hd' hfresh hdr hqs hd.1 fun _ => rfl
+  | defnDecl v =>
+    obtain ⟨rfl, hfresh⟩ := defn_shape (fe := { env := E, coreAxioms := false }) hd hK
+    refine concl_congr (fun n => by rw [hq, foldl_single]) ?_
+    exact single_step hlaws hd hdr (fun _ _ _ _ h => by cases h) ha rfl hfresh
+      (fun _ h => by cases h) hdr hER hP hR hM fun d' hd' =>
+        presI_defn hlaws hR.1 hd' hfresh hdr.1 hdr.2 hd fun hn =>
+          (hns (.defnInfo v) (fun _ h => by cases h) (by simp) hn).elim
+  | thmDecl v =>
+    obtain ⟨rfl, hfresh⟩ := thm_shape (fe := { env := E, coreAxioms := false }) hK
+    refine concl_congr (fun n => by rw [hq, foldl_single]) ?_
+    exact single_step hlaws hd hdr (fun _ _ _ _ h => by cases h) ha rfl hfresh
+      (fun _ h => by cases h) hdr hER hP hR hM fun d' hd' =>
+        presI_thm hlaws hR.1 hd' hfresh hdr.1 fun hn =>
+          (hns (.thmInfo v) (fun _ h => by cases h) (by simp) hn).elim
+  | opaqueDecl v =>
+    obtain ⟨rfl, hfresh⟩ := opaque_shape (fe := { env := E, coreAxioms := false }) hK
+    refine concl_congr (fun n => by rw [hq, foldl_single]) ?_
+    exact single_step hlaws hd hdr (fun _ _ _ _ h => by cases h) ha rfl hfresh
+      (fun _ h => by cases h) hdr hER hP hR hM fun d' hd' =>
+        presI_opaque hlaws hR.1 hd' hfresh hdr.1 hd fun hn =>
+          (hns (.opaqueInfo v) (fun _ h => by cases h) (by simp) hn).elim
+  | mutualDefnDecl vs => exact hd.elim
+  | quotDecl =>
+    obtain ⟨hqt, hc⟩ := quot_step hlaws ha hER hP hR hM
+    simp only [hqt, ↓reduceIte]
+    exact hc
+  | inductDecl lps nP types u =>
+    have hu : u = false := hd
+    subst hu
+    exact concl_congr (fun n => hq _ _ n) (ind_step hlaws hI ha hER hP hR hM)
+
+/-- **No proof of `False`**: under the target, InLean never adds a safe
+constant whose type reads as `False` to a presented, related environment with
+a model (`sorryAx` aside: con-leche's policy hides it, so nothing it checks
+can use it). -/
+theorem no_false_of_addDeclSound (V : Type w) [ConLeche.SetTheory V] (hS : AddDeclSound V)
+    (hlaws : EnvLaws) {E E' : Kernel.Environment} {d : Declaration} {L : ConLeche.Env}
+    (hd : SafeDecl d) (hdr : DeclRangeOk d) (hE : EnvRangeOk E) (hP : Presents E L)
+    (hR : RelatesI E L) (hM : ConLeche.Model.EnvModelOk V L)
+    (h : InLean.addDecl E d theoremConfig = .ok E')
+    {n : Name} {ci : Lean.ConstantInfo} (hci : E'.find? n = some ci) (hsafe : SafeConst ci)
+    (hn : n ≠ InLean.sorryAxName)
+    (hfalse : toExprC ci.type = some (.const ConLeche.falseName [])) : False := by
+  obtain ⟨L', -, ⟨ds, -, -, hread⟩, -, hM', -⟩ := hS hlaws E E' d L hd hdr hE hP hR hM h
+  obtain ⟨c, hc, -, hty⟩ := hread n ci hci hsafe hn
+  obtain ⟨mp⟩ := hM'.nonempty
+  rw [hfalse] at hty
+  exact ConLeche.Model.no_constant_of_False mp c hc (Option.some.inj hty).symm
+
+/-- **No proof of `False`, from the inductive arm's remaining obligation.** -/
+theorem no_false_of_indRunFacts (V : Type w) [ConLeche.SetTheory V] (hI : IndRunFactsI)
+    (hlaws : EnvLaws) {E E' : Kernel.Environment} {d : Declaration} {L : ConLeche.Env}
+    (hd : SafeDecl d) (hdr : DeclRangeOk d) (hE : EnvRangeOk E) (hP : Presents E L)
+    (hR : RelatesI E L) (hM : ConLeche.Model.EnvModelOk V L)
+    (h : InLean.addDecl E d theoremConfig = .ok E')
+    {n : Name} {ci : Lean.ConstantInfo} (hci : E'.find? n = some ci) (hsafe : SafeConst ci)
+    (hn : n ≠ InLean.sorryAxName)
+    (hfalse : toExprC ci.type = some (.const ConLeche.falseName [])) : False :=
+  no_false_of_addDeclSound V (addDeclSound_of V hI) hlaws hd hdr hE hP hR hM h hci hsafe hn hfalse
 
 end InLeanProof
