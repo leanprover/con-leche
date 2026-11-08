@@ -115074,17 +115074,20 @@ faithful to con-leche.
 top-level `Array Lean.Expr`, initialized once and `lean_mark_persistent`-ed in the generated C),
 `InLean.mkBvar` (the pooled node below the size, a fresh one above) and `@[simp] mkBvar_eq :
 mkBvar i = .bvar i`.  Every runtime `bvar` construction with a computed index goes through it:
-the walks' callbacks (`EO.liftLooseBVars`, `EO.lowerLooseBVars`, `EO.instantiateBy` and so
+the walks' callbacks (`EO.instantiateBy` and so
 `instantiate`/`instantiate1`/`instantiateRev`, `EO.abstract`, `EO.abstractDepthsFrom`), the pin
 decoder's `"b"` entry (`PinDecode.entry`, con-leche's parser site), the projection bodies'
 parameter loop and its range check (`projBodyAt.params`, `paramsOkB`), `structPsAt` and the
 nested recursor's expected argument list (`StreamRecs`).  Closed `.bvar 0` constants (`CoreC`'s
 `getD` defaults, `.proj T j (.bvar 0)`, the `List` basis types) and the `Pins` DSL keep the bare
-constructor, as in con-leche.  Unlike con-leche, lift and lower also use the pool (con-leche's
-`liftLooseBVars` is the pure Kernel function).
+constructor, as in con-leche.  `EO.liftLooseBVars` and `EO.lowerLooseBVars` build the bare
+`.bvar`, as con-leche's `liftLooseBVars` (the pure Kernel function, no pool) does; an earlier
+version of this lane pooled them, a deviation from con-leche that is resolved (the twin is not
+better than con-leche).
 
 **The proofs.**  The spec callbacks (`liftF`, `instF`, `absF`) keep `.bvar`; their `_eq`
-lemmas read the walk through `simp only [mkBvar_eq]` before `mapOff_spec`.  Four more sites:
+lemmas (`instantiate_eq`, `abstractDepthsFrom_eq`; not lift, whose callback is bare) read the walk
+through `simp only [mkBvar_eq]` before `mapOff_spec`.  Four more sites:
 `params_tr` (`ProjBodiesTr`, the instantiation fact rewritten to `mkBvar`), the
 `structCtorResidOk_TrS` member step (`PassCtors`), the nested recursor's argument list
 (`PassRecs9`) and the pin decoder's `entry_ok` (`DivModArm`, `mkBvar_eq` in its `simp only`).

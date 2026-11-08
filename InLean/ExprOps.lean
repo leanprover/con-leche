@@ -330,7 +330,7 @@ def liftLooseBVars (e : Expr) (s d : Nat) : Expr :=
   (mapOff (fun x k =>
     if x.looseBVarRange ≤ s + k then some x else
     match x with
-    | .bvar i => some (mkBvar (i + d))
+    | .bvar i => some (.bvar (i + d))
     | _ => none) e 0 )
 
 /-- Twin of `Expr.lowerLooseBVars e s d`: loose `bvar i ≥ s` to `bvar (i - d)`. -/
@@ -339,7 +339,7 @@ def lowerLooseBVars (e : Expr) (s d : Nat) : Expr :=
   (mapOff (fun x k =>
     if x.looseBVarRange ≤ s + k then some x else
     match x with
-    | .bvar i => some (mkBvar (i - d))
+    | .bvar i => some (.bvar (i - d))
     | _ => none) e 0 )
 
 /-- The substitution of `n` values read by `get`: `bvar (k + j)` (`j < n`) to

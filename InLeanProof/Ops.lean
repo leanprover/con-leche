@@ -222,7 +222,7 @@ theorem liftLooseBVars_eq (e : Expr) (s d : Nat) :
   unfold EO.liftLooseBVars
   split
   · rfl
-  · simp only [mkBvar_eq]; exact mapOff_spec _ e 0
+  · exact mapOff_spec _ e 0
 
 /-- Lifting by zero is the identity (con-leche side). -/
 theorem cl_lift_zero : ∀ (c : ConLeche.Expr) (cut : Nat), c.liftLooseBVars 0 cut = c := by
