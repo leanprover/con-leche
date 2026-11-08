@@ -924,4 +924,126 @@ theorem classesCtorsI_run {fe : InLean.FEnv} {L : ConLeche.Env} (hO : OpsSimI fe
     · rw [List.map_cons, map_trCC_mono ht₂ hxs]
       exact Runs.bind hR1 (Runs.bind hR2 (Runs.pure _))
 
+/-! ## The generator's record and its `OptionT` steps -/
+
+/-- The generator's record, read at a state. -/
+@[expose] def trCG (s : InLean.CState) (g : InLean.ClassGen) : ConLeche.ClassGen :=
+  ⟨g.nP, TrSL s g.params, g.cls.map (trTM s), TrSL s g.formerTys, g.slots.map (trSlot s),
+    g.ctors.map (·.map (trCC s)), trL g.elim, TrSL s g.pre⟩
+
+theorem optT_bind_run {α β : Type} {x : OptionT InLean.CheckCM α} {f : α → OptionT InLean.CheckCM β}
+    {s₀ s' : InLean.CState} {r : Option β} (h : (x >>= f).run s₀ = .ok (r, s')) :
+    ∃ a s₁, x.run s₀ = .ok (a, s₁) ∧
+      match a with
+      | none => r = none ∧ s' = s₁
+      | some a => (f a).run s₁ = .ok (r, s') := by
+  simp only [OptionT.run, bind, OptionT.bind, OptionT.mk] at h
+  obtain ⟨a, s₁, h1, h⟩ := bind_run h
+  refine ⟨a, s₁, h1, ?_⟩
+  cases a with
+  | none => obtain ⟨rfl, rfl⟩ := pure_run h; exact ⟨rfl, rfl⟩
+  | some a => exact h
+
+theorem optT_pure_run {α : Type} {a : α} {s₀ s' : InLean.CState} {r : Option α}
+    (h : (pure a : OptionT InLean.CheckCM α).run s₀ = .ok (r, s')) : r = some a ∧ s' = s₀ := by
+  simp only [OptionT.run, pure, OptionT.pure, OptionT.mk] at h
+  obtain ⟨rfl, rfl⟩ := pure_run h
+  exact ⟨rfl, rfl⟩
+
+theorem liftOpt_run {α : Type} {o : Option α} {s₀ s' : InLean.CState} {r : Option α}
+    (h : (InLean.liftOpt o).run s₀ = .ok (r, s')) : r = o ∧ s' = s₀ := by
+  simp only [InLean.liftOpt, OptionT.run, OptionT.mk] at h
+  obtain ⟨rfl, rfl⟩ := pure_run h
+  exact ⟨rfl, rfl⟩
+
+theorem liftM_run {α : Type} {x : InLean.CheckCM α} {s₀ s' : InLean.CState} {r : Option α}
+    (h : (liftM x : OptionT InLean.CheckCM α).run s₀ = .ok (r, s')) :
+    ∃ a, r = some a ∧ x s₀ = .ok (a, s') := by
+  simp only [liftM, monadLift, MonadLift.monadLift, OptionT.lift, OptionT.run, OptionT.mk] at h
+  obtain ⟨a, s₁, h1, h⟩ := bind_run h
+  obtain ⟨rfl, rfl⟩ := pure_run h
+  exact ⟨a, rfl, h1⟩
+
+/-- `instPisWith` keeps a closed term closed at closed arguments. -/
+theorem lbb_instPisWith :
+    ∀ (as : List ConLeche.Expr) (e : ConLeche.Expr) {r : ConLeche.Expr},
+      (∀ a ∈ as, a.looseBVarsBounded 0 = true) → e.looseBVarsBounded 0 = true →
+      ConLeche.instPisWith as e = some r → r.looseBVarsBounded 0 = true
+  | [], e, r, _, he, h => by
+    simp only [ConLeche.instPisWith, Option.some.injEq] at h; subst h; exact he
+  | a :: as, .forallE d b, r, ha, he, h => by
+    simp only [ConLeche.instPisWith] at h
+    simp only [ConLeche.Expr.looseBVarsBounded, Bool.and_eq_true] at he
+    exact lbb_instPisWith as _ (fun x hx => ha x (List.mem_cons_of_mem _ hx))
+      (lbb_instantiate1 (ha a List.mem_cons_self) he.2) h
+  | _ :: _, .bvar _, _, _, _, h | _ :: _, .fvar _ _, _, _, _, h | _ :: _, .sort _, _, _, _, h
+  | _ :: _, .const _ _, _, _, _, h | _ :: _, .app _ _, _, _, _, h | _ :: _, .lam _ _, _, _, _, h
+  | _ :: _, .letE _ _ _, _, _, _, h | _ :: _, .lit _, _, _, _, h | _ :: _, .proj _ _ _, _, _, _, h => by
+    simp [ConLeche.instPisWith] at h
+
+/-- **A class's index telescope and major domain** (`ClassGen.major`), read. -/
+theorem majorI_run {mode : ConLeche.CheckMode} {eager : Bool} {env : ConLeche.Env}
+    {s₀ s' : InLean.CState} {g : InLean.ClassGen} {c d : Nat}
+    {r : Option (List Lean.Expr × Lean.Expr)} (hs : CSOKI mode eager env s₀)
+    (hM : ClassOk s₀ (g.cls.getD c default)) (hft : OkS s₀ (g.formerTys.getD c default) = true)
+    (hftc : (TrS s₀ (g.formerTys.getD c default)).looseBVarsBounded 0 = true)
+    (hc : c < g.formerTys.length) (h : (g.major c d).run s₀ = .ok (r, s')) :
+    CSOKI mode eager env s' ∧ TabLe s₀ s' ∧ ∀ ifs maj, r = some (ifs, maj) →
+      OkSL s' ifs = true ∧ OkS s' maj = true ∧
+        (trCG s₀ g).major c d = some (TrSL s' ifs, TrS s' maj) := by
+  obtain ⟨hMn, -, hdsc, -⟩ := hM
+  unfold InLean.ClassGen.major at h
+  unfold ConLeche.ClassGen.major
+  simp only [trCG, getD_map_trTM]
+  have hgf : (TrSL s₀ g.formerTys).getD c default = TrS s₀ (g.formerTys.getD c default) := by
+    rw [List.getD_eq_getElem?_getD, List.getD_eq_getElem?_getD, TrSL, List.getElem?_map]
+    rw [List.getElem?_eq_getElem hc]; rfl
+  rw [hgf]
+  simp only at h
+  obtain ⟨o, s₁, h1, h⟩ := optT_bind_run h
+  obtain ⟨rfl, hst⟩ := liftOpt_run h1
+  subst s₁
+  cases hpw : InLean.instPisWith (g.cls.getD c default).ds (g.formerTys.getD c default) with
+  | none =>
+    rw [hpw] at h
+    obtain ⟨rfl, rfl⟩ := h
+    exact ⟨hs, TabLe.refl _, fun _ _ h => by cases h⟩
+  | some ty =>
+    rw [hpw] at h
+    simp only at h
+    obtain ⟨htyo, htyC⟩ := instPisWithI_tr _ _ hft hMn.2.1 hdsc hpw
+    have htyc : (TrS s₀ ty).looseBVarsBounded 0 = true :=
+      lbb_instPisWith _ _ (fun a ha => by
+        simp only [TrSL, List.mem_map] at ha
+        obtain ⟨a', ha', rfl⟩ := ha
+        exact hdsc a' ha') hftc htyC
+    simp only [trTM]
+    rw [htyC]
+    simp only [Option.bind_eq_bind, Option.bind_some]
+    obtain ⟨o, s₂, h2, h⟩ := optT_bind_run h
+    simp only [InLean.openPisO, OptionT.run, OptionT.mk] at h2
+    unfold InLean.openPisAtFvars at h2
+    obtain ⟨hs₂, ht₂, hop⟩ := openPisAtFvarsI_run _ d hs htyo htyc h2
+    cases o with
+    | none =>
+      obtain ⟨rfl, rfl⟩ := h
+      exact ⟨hs₂, ht₂, fun _ _ h => by cases h⟩
+    | some q =>
+      obtain ⟨ifs, b⟩ := q
+      simp only at h
+      obtain ⟨rfl, rfl⟩ := optT_pure_run h
+      obtain ⟨hifo, -, hopC⟩ := hop ifs b rfl
+      refine ⟨hs₂, ht₂, fun ifs' maj h => ?_⟩
+      simp only [Option.some.injEq, Prod.mk.injEq] at h
+      obtain ⟨rfl, rfl⟩ := h
+      have hds₂ := okSL_of_tabLe ht₂ hMn.2.1
+      refine ⟨hifo, ?_, ?_⟩
+      · unfold InLean.mkAppL
+        rw [OkS_mkAppN, OkS_const, hMn.1, OkSL]
+        simp only [OkSL, List.all_append, Bool.and_eq_true] at hds₂ hifo ⊢
+        exact ⟨trivial, hds₂, hifo⟩
+      · rw [hopC]
+        simp only [Option.bind_some, Option.pure_def]
+        rw [TrS_mkAppL_const, TrSL_append, TrSL_of_tabLe ht₂ hMn.2.1]
+
 end InLeanProof
