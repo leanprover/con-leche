@@ -447,6 +447,74 @@ theorem own_pos_unique {sp : SearchPath} {fs : FS} {M : Name} {jobs : Nat} {w : 
   obtain ⟨-, -, hnd, -⟩ := namePositionsAt_mem hT
   exact eq_of_map_nodup hnd (Array.mem_toList_iff.2 hq) (Array.mem_toList_iff.2 hq') hn
 
+/-- **A copy's own record**: a copy of an accepted module's part, of a statement kind, not filtered
+out, is the statement of the record its emission made of the constant behind it. -/
+theorem copy_entry {sp : SearchPath} {fs : FS} {M : Name} {jobs : Nat} {w : WorkerRead}
+    (hw : WorkerFacts sp fs M jobs w) {s : Spot} (hmod : s.part.mod = M) (hs : CopyAt sp fs s)
+    (hl : s.part.level ≠ .server) {r : Region} (hr : PartRegion sp fs s.part r) {cv : ConstantVal}
+    {k : CKindF Name Unit} (hst : StmtSkel r s.pos.loc cv k) (hsk0 : s.pos.skipped = false)
+    (htag : k.tag < 4) :
+    ∃ p ∈ w.emitted, ∃ e₁ : CEntry, entryDecl e₁ = some p ∧
+      (⟨e₁.name, e₁.levelParams, e₁.type⟩ : ConstantVal) = cv ∧ e₁.kind.tag < 4 := by
+  obtain ⟨f, r0, a, sk, skels, hf, hreg, hsk, hskels, hcn, hcv, hload, hN, hO, hb, hem, hown⟩ :=
+    home_records hw
+  obtain ⟨loc, sP, s1, hloc, hsP, hs1, hn1, hskq, hskP, hbeh, -⟩ :=
+    copy_behind hf hreg hsk hload hcv hmod hs hl hr
+  have hskp : sP.kind.skipped = false := by rw [hskP, ← hskq, hsk0]
+  have hP : nameP r0 sP.name = some cv.name ∧ sP.levelParams.mapM (nameP r0) = some cv.levelParams ∧
+      exprP r0 sP.type = some cv.type ∧ sP.kind.tag < 4 := by
+    rcases hbeh with ⟨hsame, -⟩ | hhid
+    · obtain ⟨k', ⟨sP', hsP', hn, hl', ht, hkm⟩, htk, -⟩ := hsame cv k hst
+      rw [hsP] at hsP'
+      cases hsP'
+      have hkt : sP.kind.tag = k.tag := by rw [(CKindF.mapM_tag hkm).1, htk]
+      exact ⟨hn, hl', ht, by omega⟩
+    · obtain ⟨-, hn, hl', ht, htag'⟩ := hhid cv k hst
+      exact ⟨hn, hl', ht, by omega⟩
+  obtain ⟨hn, hlp, hty, htP⟩ := hP
+  obtain ⟨E, e₁, hE, he₁, hee⟩ := hown loc sP hloc hsP hskp
+  obtain ⟨hn', hl', ht'⟩ := lazyEntry_stmt hE
+  rw [hn] at hn'; rw [hlp] at hl'; rw [hty] at ht'
+  simp only [Option.some.injEq] at hn' hl' ht'
+  obtain ⟨hskE, htagE⟩ := lazyEntry_kind hE
+  have hk : e₁.kind = E.kind := by rw [show e₁.kind = e₁.toCEntryF.kind from rfl, hee]
+  have hsk₁ : e₁.skipped = false := by simp only [CEntry.skipped, hk, hskE, hskp]
+  have ht₁ : e₁.kind.tag < 4 := by rw [hk, htagE]; exact htP
+  have hst₁ : (⟨e₁.name, e₁.levelParams, e₁.type⟩ : ConstantVal) = cv := by
+    obtain ⟨n, l, t⟩ := cv
+    simp only at hn' hl' ht'
+    rw [show e₁.name = e₁.toCEntryF.name from rfl, show e₁.levelParams = e₁.toCEntryF.levelParams
+      from rfl, show e₁.type = e₁.toCEntryF.type from rfl, hee, hn', hl', ht']
+  obtain ⟨p, hp, hpe⟩ := home_entry hN hO hb hem he₁ hsk₁ (by omega)
+  exact ⟨p, hp, e₁, hpe, hst₁, ht₁⟩
+
+/-- **A statement-kind constant's record checks its statement**, at no `Quot.sound`. -/
+theorem entryDecl_stmtRecord {e : CEntry} {p : Declaration} (hp : entryDecl e = some p)
+    (ht : e.kind.tag < 4) (hq : e.name ≠ quotSoundName) (F : Expr → Expr) :
+    StmtRecord (fillDecl F p) ⟨e.name, e.levelParams, e.type⟩ := by
+  rcases e with ⟨⟨n, l, t, k⟩, u⟩
+  cases k with
+  | ax iu =>
+    simp only [entryDecl, Option.some.injEq] at hp
+    subst hp
+    exact .inr (.inr (.inr ⟨rfl, hq⟩))
+  | defn v hh sf =>
+    by_cases hsf : sf = "safe"
+    · subst hsf
+      simp only [entryDecl, Option.some.injEq] at hp
+      subst hp
+      exact .inl ⟨_, _, rfl⟩
+    · simp [entryDecl, hsf] at hp
+  | thm v all =>
+    simp only [entryDecl, Option.some.injEq] at hp
+    subst hp
+    exact .inr (.inl ⟨_, rfl⟩)
+  | opaq v iu =>
+    simp only [entryDecl, Option.some.injEq] at hp
+    subst hp
+    exact .inr (.inr (.inl ⟨_, rfl⟩))
+  | _ => simp [CKindF.tag] at ht
+
 namespace Run
 
 variable {sp : SearchPath} {fs : FS} (R : Run sp fs)
@@ -564,6 +632,30 @@ theorem emitted_ownNames {h : Name} (hh : h ∈ R.names) {p : Declaration}
   rw [show ci.toConstantVal.name = c.name from hcn.symm]
   exact ownNames_mem (Array.mem_toList_iff.1 (List.mem_filter.1 this).1)
 
+/-- **A name an own environment stores, loaded at the module, is in its context**: an own
+record's names are the module's own, which no load holds. -/
+theorem stored_of_own_find {h : Name} (hh : h ∈ R.names) {y : Name}
+    (hy : ((ownEnvOf sp fs h (R.w h)).find? y).isSome = true)
+    (hl : ((R.w h).reads.index.first[y]?).isSome = true) :
+    ((R.dev (R.rk h)).context.find? y).isSome = true := by
+  have hw := R.facts h hh
+  obtain ⟨ci, hci⟩ := Option.isSome_iff_exists.1 hy
+  have hn := Env.find?_name hci
+  rw [R.dev_rk hh]
+  rcases (mem_streamEnv_consts _ _).1 (Env.find?_mem hci) with ⟨p, hp, hcp⟩ | hc
+  · obtain ⟨p0, hp0, rfl⟩ := List.mem_map.1 hp
+    rw [declConstants_fillDecl] at hcp
+    have hpe : p0 ∈ (R.w h).emitted.toList := by
+      rw [hw.own] at hp0
+      exact (Frontend.hoistNatOpGround_perm _ _).mem_iff.1 hp0
+    have := R.emitted_ownNames hh (Array.mem_toList_iff.1 hpe) (List.mem_map_of_mem (f := fun c : ConstantInfo => c.toConstantVal.name) hcp)
+    rw [show ci.toConstantVal.name = y from hn] at this
+    rw [first_none_of_ownNames hw this] at hl
+    cases hl
+  · obtain ⟨d, hd, hcd⟩ := ((mem_streamEnv_consts _ _).1 hc).resolve_right (by simp [Env.empty])
+    rw [← hn]
+    exact stored_of_record hd (List.mem_map_of_mem hcd)
+
 /-- **The context's copy of a name**: a copy of that name on the snapshot, at a level a load
 reads. -/
 theorem copyOf_facts {M : Name} (hM : M ∈ R.names) {y : Name} {s : Spot}
@@ -641,7 +733,6 @@ theorem ctx_stmt {M : Name} (hM : M ∈ R.names) {y : Name}
     have hsy : cv.name ≠ sorryAxName := by
       intro he
       simp [declNames, declConstants, he, hsq] at hyd
-    refine ?_
     by_cases hqs : cv.name = quotSoundName
     · -- `Quot.sound`: the pinned constant, the copy's statement where its home accepted it
       have hyq : y = (quotAt .sound cv).name := by
@@ -826,7 +917,16 @@ theorem reader_ctx {M : Name} (hM : M ∈ R.names) {h y : Name} (hP : (h, y) ∈
       · simp at h0
       · exact h0
     by_cases hsy : cv₂.name = sorryAxName
-    · sorry
+    · -- the tolerated axiom: its home checked its statement, which no context record reads
+      obtain ⟨p, hp, e₁, hpe, hcv, ht₁⟩ := copy_entry hwh hmod2.symm hcp hlv hrg hst hsk2 htag
+      have hq : e₁.name ≠ quotSoundName := by
+        rw [show e₁.name = cv₂.name from congrArg ConstantVal.name hcv, hsy]; decide
+      have hrec := entryDecl_stmtRecord hpe ht₁ hq (fillOf sp fs #[⟨h, (R.w h).home.frontier⟩])
+      rw [hcv] at hrec
+      have hst' := own_type_stored ⟨_, R.run h hhN⟩
+        (List.mem_map.2 ⟨_, emitted_own hwh hp, rfl⟩) hrec y
+        (by rw [← needs_eq_readNames]; exact hyn')
+      exact R.stored_of_own_find hhN hst' hl
     · obtain ⟨ci, hfind, hcv, -, -, -⟩ := copy_own' hwh ⟨_, R.run h hhN⟩ hmod2.symm hcp hlv hrg hst
         hsk2 htag hsy
       exact R.stored_of_own_const hhN (Env.find?_mem hfind) (by rw [hcv]; exact hyn') hl
