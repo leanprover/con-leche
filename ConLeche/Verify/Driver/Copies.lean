@@ -811,4 +811,112 @@ theorem firstIn_zip (y : Name) :
           refine ⟨by omega, t', q, ?_, hq, hqy⟩
           rw [this]; simpa using ht'
 
+/-- Freshness: no name of the own private part is loaded. -/
+theorem freshOk_spec {m : Name} {ld : Loads} {ix : NameIndex} {own : NamePositions}
+    (h : freshOk m ld ix own = .ok ()) {q : NamePosition} (hq : q ∈ own.consts) :
+    ix.first[q.name]? = none := by
+  unfold freshOk at h
+  cases hf : own.consts.find? (ix.first.contains ·.name) with
+  | some q' => simp [hf] at h
+  | none =>
+    have := Array.find?_eq_none.1 hf q hq
+    cases h' : ix.first[q.name]? with
+    | none => rfl
+    | some c =>
+      exfalso; apply this
+      rw [Std.HashMap.contains_eq_isSome_getElem?, h']; rfl
+
+/-- **A home's view is its name index** (`viewOf`'s, by the specification, against the worker at
+the home on the same snapshot): a name the view holds is the home's own private part's, and then
+no loaded module's (freshness), or the view's copy is the home's importer copy, the name
+index's first copy at the part its module is loaded at (`importerSpot`'s spot); a name the view
+does not hold no loaded module holds.  Header-fixpoint determinism is a hypothesis
+(`hdet`, `Loads.lean`'s). -/
+theorem homeView_index {sp : SearchPath} {fs : FS} {M : Name} {jobs : Nat} {w : WorkerRead}
+    (hw : WorkerFacts sp fs M jobs w)
+    (hdet : ∀ ld ld', ModelIO.CanGive (headerFixpoint (moduleImports sp)
+        w.reads.own.header.isModule w.reads.own.header.imports) fs (.ok ld) →
+      ModelIO.CanGive (headerFixpoint (moduleImports sp)
+        w.reads.own.header.isModule w.reads.own.header.imports) fs (.ok ld') → ld = ld')
+    {v : Std.HashMap Name Spot} (hv : HomeView sp fs M v) (y : Name) :
+    (∀ s, v[y]? = some s →
+      (s.part = ⟨M, .private⟩ ∧ w.reads.index.first[y]? = none) ∨
+      ∃ cp q, w.reads.index.first[y]? = some cp ∧ w.reads.index.at cp = some q ∧
+        s = ⟨⟨w.reads.loads.nameAt cp.mod,
+          ((w.reads.loads.flags[cp.mod]?).getD default).level⟩, q⟩) ∧
+    (v[y]? = none → w.reads.index.first[y]? = none) := by
+  obtain ⟨own', ld', ts, hown', hld', hlen, hts, rfl⟩ := hv
+  obtain ⟨_, _, hr⟩ := hw.reads
+  obtain ⟨hown, hld, ⟨parts, hplen, hparts, hix⟩, hfresh⟩ := workerReads_spec hr
+  obtain rfl := partNames_eq hown' hown
+  obtain rfl := hdet _ _ hld' hld
+  generalize hK : ((w.reads.loads.order.zip w.reads.loads.flags).toList.map
+    fun (x : Name × LoadFlags) => (⟨x.1, x.2.level⟩ : PartKey)) = K
+  have hvk : viewKeys M w.reads.loads = ⟨M, .private⟩ :: K := by rw [← hK]; rfl
+  rw [hvk] at hlen hts ⊢
+  cases ts with
+  | nil => simp at hlen
+  | cons t0 ts' =>
+  obtain rfl : t0 = w.reads.own := partNames_eq (hts _ _ (by simp)) hown
+  simp only [List.length_cons, Nat.add_right_cancel_iff] at hlen
+  have hKlen : K.length = parts.length := by rw [hplen, ← hK]; simp
+  have hts' : ts' = parts := by
+    apply List.ext_getElem (by omega)
+    intro i h1 h2
+    have hKi : i < K.length := by omega
+    have hpt := hts K[i] ts'[i] (List.mem_cons_of_mem _ (List.mem_iff_getElem.2
+      ⟨i, by simp; omega, by simp⟩))
+    obtain ⟨x, hx, hxr⟩ := hparts i parts[i] (List.getElem?_eq_getElem h2)
+    have hxK : x = (K[i].mod, K[i].level) := by
+      subst hK
+      simp only [List.getElem?_map, List.getElem_map] at hx ⊢
+      rw [List.getElem?_eq_getElem (by simpa using hKi)] at hx
+      exact (Option.some.inj hx).symm
+    subst hxK
+    exact partNames_eq hpt hxr
+  subst hts'
+  rw [viewFold_get, List.zip_cons_cons]
+  simp only [Std.HashMap.getElem?_empty, Option.none_or, firstIn]
+  rw [hix, nameIndexOf_first]
+  rw [find?_eq_findIdx?]
+  cases hj : w.reads.own.consts.toList.findIdx? (·.name == y) with
+  | some j =>
+    obtain ⟨q, hq, hqy⟩ := findIdx?_spec hj
+    have hqm : q ∈ w.reads.own.consts := Array.mem_toList_iff.1 (List.mem_of_getElem? hq)
+    have hnone := freshOk_spec hfresh hqm
+    rw [beq_iff_eq.1 hqy] at hnone
+    rw [← nameIndexOf_first, ← hix]
+    simp only [Option.bind_some, hq, Option.some.injEq, hnone, reduceCtorEq]
+    exact ⟨fun s hs => .inl ⟨by rw [← hs], trivial⟩, fun h => h.elim⟩
+  | none =>
+    simp only [Option.bind_none]
+    obtain ⟨h1, h2⟩ := firstIn_zip y ts' K 0 hKlen
+    rw [h1]
+    cases hc : firstCopyIn ts' 0 y with
+    | none => simp
+    | some cp =>
+      obtain ⟨-, t, q, ht, hq, -⟩ := h2 cp hc
+      simp only [Nat.sub_zero] at ht
+      have hKm : cp.mod < K.length := by
+        rw [hKlen]; exact (List.getElem?_eq_some_iff.1 ht).1
+      obtain ⟨⟨mn, fl⟩, hz, hKe⟩ : ∃ x, (w.reads.loads.order.zip w.reads.loads.flags).toList[cp.mod]? =
+          some x ∧ K[cp.mod]? = some ⟨x.1, x.2.level⟩ := by
+        subst hK
+        simp only [List.length_map] at hKm
+        refine ⟨_, List.getElem?_eq_getElem hKm, ?_⟩
+        rw [List.getElem?_map, List.getElem?_eq_getElem hKm]
+        rfl
+      rw [Array.toList_zip, List.getElem?_zip_eq_some] at hz
+      obtain ⟨ho, hf⟩ := hz
+      simp only [Nat.sub_zero, Option.bind_some, hKe, ht, hq, Option.map_some, Option.some.injEq,
+        reduceCtorEq]
+      refine ⟨fun s hs => .inr ⟨cp, q, rfl, ?_, ?_⟩, fun h => h.elim⟩
+      · simp [NameIndex.at, nameIndexOf, ht, hq]
+      · rw [← hs]
+        have hn : w.reads.loads.nameAt cp.mod = mn := by
+          simp only [Loads.nameAt]; rw [← Array.getElem?_toList, ho]; rfl
+        have hfl : (w.reads.loads.flags[cp.mod]?).getD default = fl := by
+          rw [← Array.getElem?_toList, hf]; rfl
+        rw [hn, hfl]
+
 end ConLeche.Driver
