@@ -725,13 +725,14 @@ from 581 of 4 092 modules, with one completion.
 
 **One module alone** (`ConLeche/Driver/Worker.lean`, `--olean --module`). The run first reads
 the worker's tables (`workerTables`, `ConLeche/Driver/Tables.lean`): the module located on the
-search path and its private part's name positions read, then its header fixpoint, each module it
+search path, its private view's files read and kept and their name positions read off them,
+then its header fixpoint, each module it
 loads located once and its header read there; every later read of a module's files is at the
 location found there (`ModTables.reads`, whose reads refine the search path's,
 `modTables_within`). `checkModuleG` reads
-the module's home (`homeOf` over its private part's files: its private view loaded, its three
-parts checked against each other, a mismatch a reject; the same files give the region its
-theorems' values are read from), the reads above, its own records (the loaded constants emitted from
+the module's home (`homeOf` over its private part's files, the tables' own: its private view
+loaded, its three parts checked against each other, a mismatch a reject; the same files give the
+region its theorems' values are read from, so the module's files are read once), the reads above, its own records (the loaded constants emitted from
 every own constant, a name that is not the module's a context read; a pinned `Nat` operation's
 ground hoisted ahead of it), the context (`reach`, its names checked distinct), and then checks
 the own records alone over the index of the context's records followed by the own records
