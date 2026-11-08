@@ -65,7 +65,7 @@ passed reads `P` (`Run.capture`'s statement). -/
   (∀ cl ∈ wr.clashes, ClashOk sp fs wr (· ∈ pend) cl) ∧
   inferFlags r.ctx.toList pend = .ok () ∧
   (∀ (y : Name) (s : Spot), loc[y]? = some s → importerSpot env y = none ∧
-    s.part.level = .private ∧ CopyAt sp fs s ∧ Reached sp fs wr s.part.mod) ∧
+    s.part.level = .private ∧ CopyAt sp fs s ∧ Reached sp fs wr s.part.mod ∧ s.pos.name = y) ∧
   (∀ x ∈ P, Reached sp fs wr x.1 ∧ Origin sp fs env r.ctx r.homes x)
 
 theorem capFacts_exists {M : Name} (hM : M ∈ R.names) :
