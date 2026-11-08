@@ -113548,3 +113548,234 @@ exit 0 (layering, shake, trust surface, overview links, whitepaper links, fragme
 pindump, no-local-paths, challenge, olean gate 122/122, selfcheck, axioms pinned (30 theorems,
 `tests/ConLecheTests/Axioms.lean` unchanged), arena tutorial 90/92 as before, e2e 552/552, the
 trusted and `--jobs` sweeps without divergence). No `sorry`, no new axiom.
+### Lane CertArm: the certified `Nat` operations' arm (2026-11-08, agent/451-certarm)
+
+**Target.**  `CertArmSimI pins` (DeclStep.lean), the last named arm of O6's
+`checkDecl_sim_full`: a safe definition at a certified `Nat` operation's name.
+One new file, `InLeanProof/CertArm.lean`; the root and `AxiomPins.lean` gained
+an import and 10 pins.  No `InLean/*` change, no `sorry`, no new axiom (the
+standing `mkData` stop-gaps where a cached flag is read).
+
+**The structural operations: proved** (`checkDefnC_struct_sim`).
+* *The guards at the pushed environment* (`natOpGuard_tr`, `natOpStoredOk_tr`;
+  `divModEnvGuard_tr` for the WF operations).  The pushed pair is
+  `presI_defn`'s (`FEnv.push` is `addConst`, master's `pushDelta` of one record
+  is the cons).  `natOpTyPinned` reads `EO.stripMData`, a memoised walk:
+  `erase_stripMData` (the memo's entries erase as their keys,
+  `StripMemoInv`), so the translation reads through it.  `natOpCod`'s `Bool`
+  pin (`Pin.matches` at no level parameter) is master's level-free `Sort 1`.
+* *The equations* (`natOpEqs_tr`): InLean's `natOpEquations` over the two
+  interned variables (`natVars`, `mkFVarM_specI`), self-references substituted,
+  translate to master's `natOpEquations 0` with `substConst0` at the stored
+  value; an interned variable is left alone by InLean's `substConst0`
+  (`substConst0_fvarlike`), so no `mdata` premise is needed.  Scoping at depth
+  2 and closedness from master's `natOpEquations_wscopedB`/
+  `wscopedB_substConst0` and a restated `lbb_substConst0`.
+* *The loop* (`certifyNatEqs_sim`): induction over the list, `OpsSimI.defeq`
+  at depth 2, the translation kept along the run by `TrS_of_tabLe`.
+
+**FINDING 1: `NatKinds` is a premise.**  InLean's `natOpGuard` reads the `Nat`
+names stored (`natLitStoredF`); master's reads `natLitSupported` (their kinds
+and shapes).  The shapes are `EnvWF.shapes`'; the kinds (`NatKinds`: an
+inductive and two constructors) are not given by `JobEnvI` (master's model
+reads them off `BasisPinnedTT.natKinds`; at the theorem's arbitrary `E`, a
+`Nat` stored as a definition over a copy of the inductive, with
+`Nat.zero`/`Nat.succ` definitions of its constructors, passes InLean's guard
+and fails master's).  So `CertArmSimI pins` as stated is not provable; the new
+statements take `ConLeche.NatKinds L`.  Not a twin bug: InLean's own fold puts
+`Nat` only by a pinned block (`basisNamesOk`), so P4 discharges it from the
+fold, InLean's side or master's (`BasisPinnedTT`, or the reserved names' check
+on master's fold).
+
+**The WF operations: named** (`DivModArmSimI pins`).  `trPinSet` translates
+a decoded variant (`InLean.PinSet`) to master's `NatOpPinSet` (an operation
+the variant lacks gets the pin `.bvar 0`, which `divModPinGuard`'s first
+conjunct refuses, as InLean skips the variant), and `loadedPins` is the
+translation of `loadPinSets ()` (the empty list where the dumps do not decode:
+InLean then declines every such operation).  The theorem is parametric in
+`pins` (master's, task #304) and is to be used at `loadedPins`.
+`certArm_of`, **`checkDeclKindC_sim_nk`**, **`checkDecl_sim_nk`**: the
+declaration step for every non-inductive kind from `DivModArmSimI pins` and
+`NatKinds L` (`checkDecl_sim_full` with the structural operations proved).
+
+**FINDING 2 (twin divergence, blocks `DivModArmSimI` without a premise on the
+dumps): resolution of the pins.**  Master's `divModPinGuard` asks
+`Expr.constsResolve` of the variant's pin and type pins (constants, the
+structure of every projection, the literals' support declarations); InLean's
+(`divModPinGuard`, `constsResolve` in `InLean/CheckerC.lean`) asks only the
+constants (`EO.usedConstants`).  For the certificates the gap closes from
+InLean's inference (`constsResolve_of_infer`); the pin is only compared by
+defeq, which need not walk it.  The dumps have projections: in the nightly
+dump the pins of `Nat.mod`, `Nat.div`, `Nat.shiftLeft`, `Nat.shiftRight`
+project out of `PProd` without naming `PProd` as a constant (no string
+literals anywhere).  Whether `PProd` is stored whenever InLean's guards pass
+depends on the dumps' content, which the proof cannot read (decoding the JSON
+in the kernel is out of reach).  Fix (executable, outside this lane): InLean's
+`constsResolve` the twin of master's `Expr.constsResolve` (constants,
+projections' structure names, the `Nat`/`String` support constants for
+literals).
+
+**FINDING 3 (twin divergence, behaviour only): InLean's variant loop runs
+every attempt in full.**  `checkDivModPin` writes `if typesOk && (← opDefeq
+… value' op.pin) && (← checkDivModCerts …) then return`; `do` lifts both
+nested actions before the `if` (checked: `if b && (← tick) && (← tick)` ticks
+twice at `b = false`), so InLean compares the pin and infers the certificates
+even where a type pin failed, and the certificates even where the pin did not
+match.  Master's `checkDivModPinAt` runs the pin comparison only after the type
+pins and the certificates only after the pin.  The type pins exist (task #364)
+so that a foreign variant's certificates, ill-typed against the stream, are
+never inferred; on a stream of a later variant's toolchain InLean infers the
+first variant's certificates, and an inference that throws is an error of the
+run where master moves on and accepts.  It does not falsify "InLean accepts ⇒
+master accepts" (master's calls are a prefix of InLean's, and the variant
+InLean accepts on passed all three), so the simulation can follow the code;
+the fix is to nest the three tests as master does.
+
+**What remains** (`DivModArmSimI loadedPins`, in order): FINDING 2 resolved
+(InLean's `constsResolve` fixed, or a premise on the decoded dumps); the
+translation of `substConstAll` (InLean's is `replaceI`, a memoised walk; master's
+under binders), of `divModCertStmts` over the interned variables (the spine
+lemma of `natOpEqs_tr`), of `trPinSet`'s fields against `PinSet.op?`; the
+certificate loop (`checkDivModCerts`, inference at depth 4 over `mkFVarM 2/3`
+of the hypotheses); the type-pin loop with its `break`; the variant loop
+(`for … in sets` with `continue`/early `return` against `checkDivModPinLoop`,
+FINDING 3's extra calls carried along).  Then P4 supplies `NatKinds L`.
+
+Gates: `lake build InLean InLeanProof` warning-free; `tests/layering.sh`,
+`tests/trust-surface.sh`, `tests/no-local-paths.sh`, `tests/inlean-sync.sh`
+pass.
+
+**Lane CertArm, continued: findings 2 and 3 fixed (2026-11-08).**  Coordinator's ruling: both
+are twin bugs.
+
+*Executable change* (`InLean/CheckerC.lean`).  `constsResolve` is the twin of master's
+`Expr.constsResolve` on a term without free variables: every constant stored
+(`EO.usedConstants`), and no node that is a projection of an unstored structure or a literal
+without its support declarations (`natLitStoredF`/`strLitStoredF`, one memoised `EO.any`).
+`checkTermWF` reads it (it read only the constants: O6's gap); the div/mod guards and
+`checkReducePin` already called it.  The variant loop is master's shape: `checkDivModPinLoop`
+(recursion over the variants with the reasons list), `checkDivModPinAt` (the type pins, then the
+pin, then the certificates, each only after the previous passed) and `checkTypePins`.  The
+annotations' free variables of the certificates' hypotheses (the interned `Nat` variables) are not
+read by InLean's `constsResolve`; master's reads their type `Nat`, which `divModEnvGuard` has
+established stored.
+
+*Proofs.*  `checkTermWF_run` follows (the last guard is `constsResolve`); nothing else unfolded
+the changed code.  New `InLeanProof/CertDivMod.lean`: **`constsResolve_tr`** (InLean's
+resolution is master's on the reading, the free variables' reading resolving;
+`constsResolve_trC` for closed terms), through `usedConstants_complete` (`collect_complete` and
+the deduplicating fold) and `anySpec` (`anyNode_fresh`).  `crNF_of_infer`/
+`constsResolve_of_infer` stay: they are still how O6's constant and value checks get master's
+guard, which `constsResolve_trC` now gives directly from `checkTermWF` (a simplification left for
+a later pass: the inference lemmas are used by the inductive tier too).  2 pins.
+
+*Validation* (`inlean-replay --kernel=inlean --compare --quiet`): Init 64,530, Std 110,064,
+Lean 199,645 declarations accepted, 0 rejected, 0 declined, 0 exact and 0 cosmetic mismatches;
+`scripts/inlean_negtest.lean` 13/13.  `instructions:u` on Init (`--kernel=inlean --quiet`, one
+run): 895.4 G (868.8 G before): +3.1 %, the second walk `constsResolve` adds to every checked
+type and value; fusing it with `usedConstants` into one walk is the obvious remedy, not done.
+With `--certify-nat-ops` Init declines at `Nat.land` ("unsupported Nat.div/mod environment",
+`divModEnvGuard`, which this lane did not change; not checked against the code before it).
+
+**FINDING 4 (blocks the variant loop): the guards' converse, at decoded data.**  InLean's variant
+loop and master's move on at the same variants only if InLean's guard is false exactly where
+master's is: where InLean's is false and master's true, master runs an attempt InLean never ran,
+and the simulation has no run of it.  So the loop needs the converse of the guard translations.
+For `constsResolve` it should hold (both read the stored names, `EnvPresI` both ways; not proved).  For the cached
+flags (`hasLooseBVars`, `hasFVar`, `hasLevelParam`) it holds on terms in range only (the
+`mkData` stop-gaps), and the pins, proofs and type pins are decoded at run time, so their range is
+a fact about the dumps the proof cannot read.  Proposal (executable, needs a ruling): the decoder
+(`loadPinSets`) refuses a dump with a term out of range (`EO.inRange`, the one check the proof
+takes for unverified input), so that `loadPinSets () = .ok sets` gives every decoded term in
+range; `trPinSet` then translates every variant faithfully.  Without it, `DivModArmSimI
+loadedPins` needs the range of the decoded terms as a premise.
+
+*What remains* (`DivModArmSimI loadedPins`): FINDING 4's ruling; `trPinSet`'s fields against
+`PinSet.op?` (`divModDeclPin`/`divModCertProofs`/`divModTypePins` at a translated name are
+`trOpPin`/`trOpProofs`/`trOpTypePins`, eight names); the guards both ways (`divModPinGuard`,
+`divModCertGuard`, `divModCertsGuard`, from `constsResolve_tr` and its converse and the flags);
+`substConstAll` (InLean's `replaceI` is `mapSpec` by `mapOff_fresh`; translation to master's
+under binders, the value closed); `divModCertStmts` over the interned variables (as
+`natOpEqs_tr`); the certificate loop (inference at depth 4, `mkFVarM 2`/`3` at the hypotheses,
+master's `divModCertApplied`); `checkTypePins` (`typePinStored`); `checkDivModPinAt`; the variant
+loop by induction over the variants; the arm (`checkDefnC` with `divModEnvGuard_tr` at the pushed
+environment).  Then P4 supplies `NatKinds L`.
+
+Gates: `lake build InLean InLeanProof` warning-free; `tests/layering.sh`,
+`tests/trust-surface.sh`, `tests/no-local-paths.sh`, `tests/inlean-sync.sh` pass.
+
+**Lane CertArm, continued: finding 4 ruled, the walk fused (2026-11-08).**  Coordinator's ruling
+(within the maintainer's: range gaps become internal errors): the decoder refuses a dump with a term
+out of range.
+
+*Executable change.*  `InLean/NatOpPins.lean`: `PinOp.inRange`/`PinSet.inRange` (`EO.inRange` on
+the pin, every proof, every type pin); `loadPinSets` fails on a dump with a term out of range, which
+`checkDivModPin` turns into an internal error.  `InLean/CheckerC.lean`: `constsResolve` is one
+memoised `EO.any` (an unstored constant, an unstored projection structure, a literal without its
+support declarations), no separate `usedConstants` pass.
+
+*Proofs* (`InLeanProof/CertDivMod.lean`).  `constsResolve_tr` on the single walk (the
+`usedConstants` completeness and the deduplication lemmas are gone with it);
+**`loadPinSets_range`**: `loadPinSets () = .ok sets` gives every decoded pin, proof and type pin
+`RangeOk` and metavariable-free.  1 pin.
+
+*Validation*: Init 64,530, Std 110,064, Lean 199,645 accepted, 0 rejected, 0 declined, 0 exact
+and 0 cosmetic mismatches (Std and Lean on the fused walk; Init again with the decoder check);
+`scripts/inlean_negtest.lean` 13/13; `instructions:u` on Init 878.0 G (868.8 G before the lane's
+resolution change, 895.4 G with two walks): +1.1 %.
+
+*What remains* (`DivModArmSimI loadedPins`): the guards both ways at in-range decoded terms
+(`divModPinGuard`, `divModCertGuard`, `divModCertsGuard`; the converse of `constsResolve_tr` by
+`EnvPresI.none`, the cached flags by the `mkData` stop-gaps at `loadPinSets_range`); `trPinSet`'s
+fields against `PinSet.op?` (eight names; `trOpPin` is `trC` on an in-range, fvar-free pin);
+`substConstAll` (InLean's `replaceI` is `mapSpec` by `mapOff_fresh`; master's under binders, the
+value closed); `divModCertStmts` over the interned variables (as `natOpEqs_tr`); the certificate
+loop (inference at depth 4, `mkFVarM 2`/`3` at the hypotheses, master's `divModCertApplied`);
+`checkTypePins` (`typePinStored`); `checkDivModPinAt`; the variant loop by induction over
+`sets.toList`; the arm (`checkDefnC` with `divModEnvGuard_tr` at the pushed environment, as
+`checkDefnC_struct_sim`).  Then P4 supplies `NatKinds L`.
+
+Gates: `lake build InLean InLeanProof` warning-free; `tests/layering.sh`,
+`tests/trust-surface.sh`, `tests/no-local-paths.sh`, `tests/inlean-sync.sh` pass.
+
+**Lane CertArm, continued: DivModArm, the WF operations' arm proved (2026-11-08).**  New
+`InLeanProof/DivModArm.lean`; no `InLean/*` change, no `sorry`, no new axiom (the standing `mkData`
+stop-gaps where a cached flag is read), 15 pins.  **`divModArmSimI : DivModArmSimI loadedPins`**,
+so **`checkDeclKindC_sim_nk`**/**`checkDecl_sim_nk`** now take `NatKinds L` as their one premise
+beyond the job's; the statements from the named arm are renamed `checkDeclKindC_sim_arm`/
+`checkDecl_sim_arm` (`CertArm.lean`).
+
+* *The decoded terms are closed readings* (`loadPinSets_okC`).  The guards' converse needs every
+  decoded pin, proof and type pin `okC`; the range check gives `RangeOk` and no expression
+  metavariable, but not "no free variable" and "no level metavariable" (a level metavariable has no
+  reading, `okLv`; a free variable reads as `bvar 0`, which under a binder is bound, so master's
+  guard could pass where InLean's `hasFVar` refuses).  Both follow from the decoder's structure: it
+  has no constructor for either (`entry_ok` over the sixteen tags, the `for` loop of `blob` by
+  `except_forIn_inv`, the `mapM`s by `except_mapM_all`).  No executable change was needed.
+* *The guards, both ways* (`divModPinGuard_eq`, `divModCertGuard_eq`, `divModCertsGuard_eq`, and
+  `divModPinGuard_none`: a variant without the operation is refused by master's guard on the
+  `.bvar 0` pin, as InLean skips it).  The cached flags of a closed reading are master's
+  (`flags_trC`; `trC_allLevelParamsDefined_nil` holds structurally); resolution both ways
+  (`constsResolve_trE_conv` by `EnvPresI.none`, `constsResolve_eqA` where only the term's own free
+  variables need resolve at master's: the interned `x`, `y` read `fvar 0`/`fvar 1` of type `Nat`,
+  stored).  `substConst0` commutes with the reading on the statements' spines (`TrS_substConst0`),
+  `substConstAll`'s reading is master's (`substConstAll_trC`, through `mapOff_fresh`), and the
+  statements over the interned variables are master's (`divModCertStmts_tr`).
+* *The attempt and the loop*: `checkTypePins_sim` (stored types closed by `EnvWF`),
+  `checkDivModCerts_sim` (the applied proof by `applied0/1/2`, scoped by master's
+  `divModCertApplied_wscoped`; inference and the comparison at depth 4), `checkDivModPinAt_sim`,
+  `checkDivModPinLoop_sim` (induction over `sets.toList`, both decline-reason lists arbitrary: they
+  differ, InLean saying "no pin" where master's guard fails, and only the messages read them), and
+  the arm `checkDefnC_divMod_sim` (the pushed environment as in `checkDefnC_struct_sim`, `Nat`
+  stored before the push from InLean's guard).
+
+*Validation* (step 0, the branch's executable state before this lane, unchanged by it): Std 110,064
+and Lean 199,645 declarations accepted, 0 rejected, 0 declined, 0 exact and 0 cosmetic mismatches;
+`scripts/inlean_negtest.lean` 13/13.
+
+*What remains*: P4 supplies `NatKinds L` (from the fold's pinned basis block).  The simplification
+noted above (`constsResolve_trC` in place of `crNF_of_infer` for O6's checks) is still not done.
+
+Gates: `lake build InLean InLeanProof inlean-replay` warning-free; `tests/layering.sh`,
+`tests/trust-surface.sh`, `tests/no-local-paths.sh`, `tests/inlean-sync.sh` pass.
+

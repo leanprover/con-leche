@@ -782,7 +782,7 @@ theorem checkTermWF_run {fe : InLean.FEnv} {what : String} {lps : List Name} {e 
   · exact (throw_bindI_ok h).elim
   rename_i h3
   have hfin : ∀ {s₁ : InLean.CState},
-      (if ((EO.usedConstants e).all fun c => (fe.find? c).isSome) = true then pure ()
+      (if InLean.constsResolve fe e = true then pure ()
         else throw (InLean.unresolvedConstsErrorL (strLitStoredF fe) what e) : InLean.CheckCM Unit)
         s₁ = .ok (u, s') → s' = s₁ := by
     intro s₁ hh
