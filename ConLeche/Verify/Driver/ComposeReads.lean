@@ -19,6 +19,25 @@ open ConLeche ConLeche.Modular ConLeche.Cached ConLeche.Frontend.Olean
 
 variable {sp : SearchPath} {fs : FS}
 
+/-- A presentation installs the names it presents. -/
+theorem presents_names {d p : Declaration} (h : Presents d p) {n : Name} (hn : n ∈ declNames d) :
+    n ∈ declNames p := by
+  rcases h with ⟨hperm, -⟩ | ⟨rfl, -⟩
+  · unfold declNames at hn ⊢
+    obtain ⟨ci, hci, rfl⟩ := List.mem_map.1 hn
+    exact List.mem_map_of_mem (hperm.mem_iff.1 hci)
+  · cases p with
+    | defnDecl cv v hh =>
+      have := declNames_stmt (d := .axiomDecl cv) (.inl rfl) n hn
+      simp [declNames, declConstants, this]; rfl
+    | thmDecl cv v =>
+      have := declNames_stmt (d := .axiomDecl cv) (.inl rfl) n hn
+      simp [declNames, declConstants, this]; rfl
+    | opaqueDecl cv v =>
+      have := declNames_stmt (d := .axiomDecl cv) (.inl rfl) n hn
+      simp [declNames, declConstants, this]; rfl
+    | _ => exact hn
+
 namespace Run
 
 variable (R : Run sp fs)
@@ -126,6 +145,110 @@ theorem readsAlike_isSome {dev : Nat → Module} {i b : Nat} {y : Name}
   split
   · exact hb
   · next hn => exact absurd (by simpa using And.intro hc ha) hn
+
+/-! ## Every passed read agrees -/
+
+/-- The reads module `M`'s capture check passed, by the ranks of their reader modules. -/
+@[expose] def Pr (M : Name) (b : Nat) (y : Name) : Prop :=
+  ∃ h, R.rk h = b ∧ (h, y) ∈ (R.cap M).2.2
+
+/-- **What the composition proves of a module**: every read its capture check passed, of a
+name its context stores, agrees. -/
+@[expose] def AgreeAll (M : Name) : Prop :=
+  ∀ x ∈ (R.cap M).2.2, ((R.dev (R.rk M)).context.find? x.2).isSome = true →
+    Agree R.dev (R.rk M) (R.rk x.1) x.2
+
+/-- **Every passed read agrees at every module**, by strong induction on the rank, given a
+route for each passed read from the modules of smaller rank. -/
+theorem agree_all
+    (hroute : ∀ M ∈ R.names, (∀ M' ∈ R.names, R.rk M' < R.rk M → R.AgreeAll M') →
+      ∀ b y, R.Pr M b y → ((R.dev (R.rk M)).context.find? y).isSome = true →
+        Route R.dev (R.rk M) (R.Pr M) b y) :
+    ∀ M ∈ R.names, R.AgreeAll M := by
+  suffices H : ∀ n, ∀ M ∈ R.names, R.rk M < n → R.AgreeAll M from
+    fun M hM => H _ M hM (Nat.lt_succ_self _)
+  intro n
+  induction n with
+  | zero => intro M _ h; exact absurd h (Nat.not_lt_zero _)
+  | succ n ih =>
+    intro M hM hlt x hx hy
+    exact agree_of_routes (hroute M hM fun M' hM' h' => ih M' hM' (by omega)) _ _
+      ⟨x.1, rfl, hx⟩ hy
+
+/-! ## A copy that agrees is stored -/
+
+theorem own_of_decl {m : Module} {p : Declaration} (hp : p ∈ m.decls) {n : Name}
+    (hn : n ∈ declNames p) : (m.own.find? n).isSome = true := by
+  unfold declNames at hn
+  obtain ⟨ci, hci, rfl⟩ := List.mem_map.1 hn
+  simp only [Module.own, Env.find?, List.find?_isSome]
+  exact ⟨ci, (mem_streamEnv_consts _ _).2 (.inl ⟨p, hp, hci⟩), by simp [ConstantInfo.name]⟩
+
+theorem own_of_context {m : Module} {n : Name} (h : (m.context.find? n).isSome = true) :
+    (m.own.find? n).isSome = true := by
+  simp only [Module.context, Env.find?, List.find?_isSome] at h
+  obtain ⟨ci, hci, he⟩ := h
+  simp only [Module.own, Env.find?, List.find?_isSome]
+  exact ⟨ci, (mem_streamEnv_consts _ _).2 (.inr hci), he⟩
+
+/-- **The interface of a module of the run, and every context record presented** (the parts of
+`localOk_of` that need no capture fact). -/
+theorem iface_presented {M : Name} (hM : M ∈ R.names) :
+    InterfaceOk R.dev (R.rk M) ∧
+    ∀ d ∈ (R.dev (R.rk M)).ctx, ∀ n ∈ declNames d,
+      d ∈ (R.dev ((R.dev (R.rk M)).src n)).iface := by
+  have hd : R.dev (R.rk M) = R.modOf M := R.dev_rk hM
+  have hw := R.facts M hM
+  refine ⟨interfaceOk_of_workers hw R.dev (R.rk M) (by rw [hd]; rfl) fun e he => ?_,
+    fun d hdm n hn => ?_⟩
+  · rw [hd] at he
+    obtain ⟨M', hM', i, h1, h2⟩ := (R.mem_ifaceOf).1 he
+    exact ⟨M', R.jobs M', R.w M', i, R.facts M' hM', h1, h2⟩
+  · rw [hd] at hdm ⊢
+    obtain ⟨i, h, hi, hh⟩ := worker_home hw hdm
+    show d ∈ (R.dev (R.rk (R.homeIn M n))).iface
+    rw [R.homeIn_spec hM hi hh hn, R.dev_rk (R.home_rank hM hh).1]
+    exact (R.mem_ifaceOf).2 ⟨M, hM, i, hi, hh⟩
+
+/-- **A copy that agrees with a module of the run's is stored**: by its source's presented
+record, by the context it is read through, or as one of the two proofs. -/
+theorem stored_of_agree {M : Name} (hM : M ∈ R.names) {b : Nat} {y : Name}
+    (hy : ((R.dev (R.rk M)).context.find? y).isSome = true) (ha : Agree R.dev (R.rk M) b y) :
+    ((R.dev b).own.find? y).isSome = true := by
+  cases ha with
+  | same hb =>
+    subst hb
+    obtain ⟨d, hd, hyd⟩ := streamEnv_find_mem hy
+    have hpres := (R.iface_presented hM).2 d hd y hyd
+    -- the source is a module of the run: its rank's module presents `d`
+    obtain ⟨k, d', h, hk, hh, hyd'⟩ := R.ctx_record hM hy
+    have hsrc : (R.dev (R.rk M)).src y = R.rk h := by
+      rw [R.dev_rk hM]; show R.rk (R.homeIn M y) = _; rw [R.homeIn_spec hM hk hh hyd']
+    have hh' := (R.home_rank hM hh).1
+    rw [hsrc] at hpres ⊢
+    obtain ⟨p, hp, hpr⟩ := (R.iface_presented hh').1.presents d hpres
+    exact own_of_decl hp (presents_names hpr hyd)
+  | via hb _ _ _ => exact own_of_context hb
+  | proof _ h2 _ _ _ _ _ _ => rw [h2]; rfl
+
+/-- **`ImportOk.reads` from the agreement of every passed read.** -/
+theorem reads_of_agree (hall : ∀ M ∈ R.names, R.AgreeAll M) :
+    ∀ M ∈ R.names, ∀ d ∈ R.ctx M, ∀ n ∈ declNames d,
+      RecordScoped (readsAlike R.dev (R.rk M) ((R.dev (R.rk M)).src n)) d := by
+  intro M hM d hd n hn
+  have hw := R.facts M hM
+  obtain ⟨k, h, hk, hh⟩ := worker_home hw hd
+  have hsrc : (R.dev (R.rk M)).src n = R.rk h := by
+    rw [R.dev_rk hM]; show R.rk (R.homeIn M n) = _; rw [R.homeIn_spec hM hk hh hn]
+  rw [hsrc]
+  obtain ⟨-, hrec, -⟩ := R.cap_facts hM
+  apply recordReads_scoped
+  intro y hyr
+  have hy : ((R.dev (R.rk M)).context.find? y).isSome = true := by
+    rw [R.dev_rk hM]; exact (worker_ctx hw).2.2.1 d hd y hyr
+  have hP := (hrec k d h hk hh).2.2.1 y hyr
+  have ha := hall M hM (h, y) hP hy
+  exact readsAlike_isSome hy ha (R.stored_of_agree hM hy ha)
 
 end Run
 
