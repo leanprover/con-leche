@@ -477,9 +477,8 @@ theorem markedExt_consBlockIndsF (hlaws : EnvLaws) {p : InLean.BlockShape} {isRe
 /-- **`JobEnvI` at the formers' push** (finding 1 of lane O7-stages): from
 the job's premises at `fe`/`L`, what the members' reduction and the block
 give (`PassPremI`), the names' freshness read off the formers' run
-(`checkBlockIndsF_fresh`), master's formers' stage, and task #492's guard
-(`ProjGuardI`). -/
-theorem jobEnvI_formers (hG : ProjGuardI) (hJ : JobEnvI fe L) {p : InLean.BlockShape} {isRec : Bool}
+(`checkBlockIndsF_fresh`) and master's formers' stage. -/
+theorem jobEnvI_formers (hJ : JobEnvI fe L) {p : InLean.BlockShape} {isRec : Bool}
     (hpre : PassPremI fe L p) (hok : ∀ ms ∈ p.members, MemberOk ms)
     (hfr : ∀ ms ∈ p.members, fe.env.find? ms.cvT.name = none) {s0 : Lean.Level}
     {p₁c : ConLeche.BlockShape}
@@ -513,6 +512,6 @@ theorem jobEnvI_formers (hG : ProjGuardI) (hJ : JobEnvI fe L) {p : InLean.BlockS
         rw [blockMarks_eq]
         exact congrArg Option.isSome (pendingGo_marks (rest := fe.pending) hpre.nodup m hm)))
   have hproj := hE.projBodies hJ.proj
-  exact ⟨hJ.laws, hpres, hwf, hproj, hG _ _ hJ.laws hpres hwf hproj⟩
+  exact ⟨hJ.laws, hpres, hwf, hproj⟩
 
 end InLeanProof

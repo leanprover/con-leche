@@ -9,8 +9,8 @@ public import InLeanProof.EnvPresI
 `EnvBodiesI fe L` (`BodiesI.lean`), everything the knot's bodies read of the
 environment, from P3a's relation `EnvPresI fe L`, con-leche's well-formedness
 `EnvWF L`, and one more fact about InLean's projection bodies
-(`ProjBodiesInRange`); so the knot simulates at every fuel from these and the
-projection guard's spec (`ssimI_of_pres`).
+(`ProjBodiesInRange`); so the knot simulates at every fuel from these
+(`ssimI_of_pres`).
 
 **Why the extra premise.**  `ProjEntryRel` wants a projection body a stored
 term, in range (`StoredT`), and `EnvPresI`'s `TableRelI` gives the body's
@@ -76,11 +76,10 @@ theorem envBodiesI_of (hP : EnvPresI fe L) (hwf : ConLeche.EnvWF L) (hR : ProjBo
     defeqEnvI_of hP, envProjI_of hP hR⟩
 
 /-- **The knot simulates at every fuel** from the relation, con-leche's
-well-formedness, the projection bodies' range and the guard's spec. -/
+well-formedness and the projection bodies' range. -/
 theorem ssimI_of_pres (hP : EnvPresI fe L) (hwf : ConLeche.EnvWF L) (hR : ProjBodiesInRange fe)
-    (hpg : ∀ b f, SSimI b L fe f → ProjGuardSpecI b L (coreKnotI .verified b fe f) fe)
     {eager : Bool} (f : Nat) : SSimI eager L fe f :=
-  ssimI_of_env (envBodiesI_of hP hwf hR) hpg f
+  ssimI_of_env (envBodiesI_of hP hwf hR) f
 
 universe w
 

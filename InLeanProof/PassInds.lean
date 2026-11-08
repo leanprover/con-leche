@@ -9,9 +9,7 @@ import ConLeche.Verify.Denote.IndFrame
 `checkBlockIndsFSimI` (`checkBlockIndsS_spec`'s twin): InLean's
 `checkBlockIndsF` at `fe` answers master's `checkBlockInds` at `L` on the
 translated shape, from the former's constant check (`CheckConstantValFSimI`,
-O6's) and the job's operations (`OpsSimI`).  Below it: the telescope opener
-at interned variables (`openPisAtFvarsI_run`, master's pure `openPisAtFvars`
-at the translation, read at the final state), the variable's type
+O6's) and the job's operations (`OpsSimI`).  Below it: the variable's type
 (`fvarTypeDI_run`), the result sort (`checkSumTele_tr`), and the members'
 agreement (`checkBlockDomsAtFI_run`, `checkBlockAgreeFI_run`).
 
@@ -28,72 +26,6 @@ open Lean InLean Std.WP ConLeche.Cached
 open scoped Lean.Order
 
 variable {mode : ConLeche.CheckMode} {eager : Bool} {env : ConLeche.Env}
-
-/-! ## The telescope opener -/
-
-/-- **Opening a telescope at interned variables** (master's `openPisAtFvars` at
-the translation): an answer reads, at the final state, as master's on the
-translated term. -/
-theorem openPisAtFvarsI_run :
-    ∀ (n i : Nat) {e : Lean.Expr} {s₀ : InLean.CState} {r : Option (List Lean.Expr × Lean.Expr)}
-      {s' : InLean.CState},
-      CSOKI mode eager env s₀ → OkS s₀ e = true → (TrS s₀ e).looseBVarsBounded 0 = true →
-      InLean.openPisAtFvarsM n e i s₀ = .ok (r, s') →
-      CSOKI mode eager env s' ∧ TabLe s₀ s' ∧
-        ∀ fvs b, r = some (fvs, b) → OkSL s' fvs = true ∧ OkS s' b = true ∧
-          ConLeche.openPisAtFvars n (TrS s₀ e) i = some (TrSL s' fvs, TrS s' b)
-  | 0, i, e, s₀, r, s', hs, hok, _, h => by
-    rw [InLean.openPisAtFvarsM] at h
-    obtain ⟨rfl, rfl⟩ := pureI_ok h
-    refine ⟨hs, TabLe.refl _, ?_⟩
-    rintro fvs b ⟨⟩
-    exact ⟨rfl, hok, rfl⟩
-  | n + 1, i, .mdata _ e, s₀, r, s', hs, hok, hc, h => by
-    rw [InLean.openPisAtFvarsM] at h
-    rw [OkS_mdata] at hok
-    rw [TrS_mdata] at hc ⊢
-    exact openPisAtFvarsI_run (n + 1) i hs hok hc h
-  | n + 1, i, .forallE nm dom body bi, s₀, r, s', hs, hok, hc, h => by
-    rw [InLean.openPisAtFvarsM] at h
-    simp only [OkS_forallE, Bool.and_eq_true] at hok
-    rw [TrS_forallE, lbb_forallE, Bool.and_eq_true] at hc
-    obtain ⟨x, s₂, hx, h⟩ := bindI_ok h
-    obtain ⟨hs₂, ht₂, hokx, htx⟩ := tripleI_iff_run.1 (mkFVarM_specI hs i hok.1 hc.1) x s₂ hx
-    obtain ⟨r', s₃, hr, h⟩ := bindI_ok h
-    have hb₂ : OkS s₂ body = true := okS_of_tabLe ht₂ hok.2
-    have hcx : (TrS s₂ x).looseBVarsBounded 0 = true := by rw [htx]; rfl
-    have hokI : OkS s₂ (body.inst1I x) = true := OkS_inst1 hb₂ hokx hcx
-    have hTI : TrS s₂ (body.inst1I x) =
-        (TrS s₀ body).instantiate1 (.fvar i (TrS s₀ dom)) 0 := by
-      rw [inst1I_eq, TrS_inst1_eq hb₂ hokx hcx, htx, TrS_of_tabLe ht₂ hok.2]
-    obtain ⟨hs₃, ht₃, hR⟩ := openPisAtFvarsI_run n (i + 1) hs₂ hokI
-      (by rw [hTI]; exact lbb_instantiate1 rfl hc.2) hr
-    have ht23 : TabLe s₀ s₃ := ht₂.trans ht₃
-    cases r' with
-    | none =>
-      obtain ⟨rfl, rfl⟩ := pureI_ok h
-      exact ⟨hs₃, ht23, by rintro _ _ ⟨⟩⟩
-    | some q =>
-      obtain ⟨fvs', b'⟩ := q
-      obtain ⟨rfl, rfl⟩ := pureI_ok h
-      refine ⟨hs₃, ht23, ?_⟩
-      rintro fvs b ⟨⟩
-      obtain ⟨hokf, hokb, hm⟩ := hR fvs' b' rfl
-      refine ⟨?_, hokb, ?_⟩
-      · simp only [OkSL, List.all_cons, Bool.and_eq_true]
-        exact ⟨okS_of_tabLe ht₃ hokx, hokf⟩
-      · rw [TrS_forallE]
-        simp only [ConLeche.openPisAtFvars]
-        rw [← hTI, hm]
-        simp only [TrSL, List.map_cons, TrS_of_tabLe ht₃ hokx, htx]
-  | _ + 1, _, .bvar _, _, _, _, hs, _, _, h | _ + 1, _, .fvar _, _, _, _, hs, _, _, h
-  | _ + 1, _, .mvar _, _, _, _, hs, _, _, h | _ + 1, _, .sort _, _, _, _, hs, _, _, h
-  | _ + 1, _, .const _ _, _, _, _, hs, _, _, h | _ + 1, _, .app _ _, _, _, _, hs, _, _, h
-  | _ + 1, _, .lam _ _ _ _, _, _, _, hs, _, _, h | _ + 1, _, .letE _ _ _ _ _, _, _, _, hs, _, _, h
-  | _ + 1, _, .lit _, _, _, _, hs, _, _, h | _ + 1, _, .proj _ _ _, _, _, _, hs, _, _, h => by
-    simp only [InLean.openPisAtFvarsM] at h
-    obtain ⟨rfl, rfl⟩ := pureI_ok h
-    exact ⟨hs, TabLe.refl _, by rintro _ _ ⟨⟩⟩
 
 /-! ## A variable's type -/
 

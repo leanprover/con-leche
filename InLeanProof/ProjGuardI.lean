@@ -1,6 +1,6 @@
 module
 
-public import InLeanProof.PassInds
+public import InLeanProof.WalksInferBody
 import ConLeche.Verify.LooseBVar
 import ConLeche.Verify.ProjGuard
 import ConLeche.Verify.Denote.IndFrame
@@ -13,19 +13,20 @@ InLean's guard (`InLean.checkProjGuardI`) is the twin of master's
 type at the use's levels with its parameters opened (`constTyAtM`,
 `openPisAtFvarsM`), its fields stepped as official `infer_proj` does
 (`projGuardRowsGoM`, twin of `projGuardRowsGo`), and the rows' sorts
-(`checkGuardRowsI`).  This file has the loop: `projGuardRowsGoI_run`, an
-answer's rows read at the final state as master's on the translated
-telescope.  A field the rest of the telescope does not use is stepped over in
+(`checkGuardRowsI`).  This file has the parameters' opener
+(`openPisAtFvarsI_run`, master's pure `openPisAtFvars` at the translation,
+read at the final state) and the loop: `projGuardRowsGoI_run`, an answer's
+rows read at the final state as master's on the translated telescope.  A field the rest of the telescope does not use is stepped over in
 both (`hasLooseBVarI_TrS`: InLean's occurrence test is master's on the
 reading), unopened.  Then the rows' sorts (`checkGuardRowsI_run`), the sort
 they answer to (`projGuardSortI_run`), the rows at a sort
 (`checkProjRowsI_run`, master's `projGuardRows` on the translated entry, whose
 rows' scoping is master's `projGuardRows_ws`), and the guard:
-**`projGuardSpecI_of`**, `ProjGuardSpecI` from the knot's specs, `EnvWF` and
-the relation.  So `ProjGuardI` holds (`projGuardI`) and `JobEnvI`'s guard
-follows from its other premises (`jobEnvI_of`).
+**`projGuardSpecI_of`**, `ProjGuardSpecI` from the knot's specs and what the
+bodies read of the environment (`EnvWF`, `EnvRelI`, `EnvViewI`), so the knot's
+bodies discharge it themselves (`bodiesI_of`).
 
-The proofs are functional (`bindI_ok`, `pureI_ok`), as O7's.
+The proofs are functional (`bind_run`, `pure_run`), as O7's.
 -/
 
 set_option experimental.vcgen true
@@ -38,6 +39,72 @@ open Lean InLean Std.WP ConLeche.Cached
 open scoped Lean.Order
 
 variable {mode : ConLeche.CheckMode} {eager : Bool} {env : ConLeche.Env}
+
+/-! ## The telescope opener -/
+
+/-- **Opening a telescope at interned variables** (master's `openPisAtFvars` at
+the translation): an answer reads, at the final state, as master's on the
+translated term. -/
+theorem openPisAtFvarsI_run :
+    ∀ (n i : Nat) {e : Lean.Expr} {s₀ : InLean.CState} {r : Option (List Lean.Expr × Lean.Expr)}
+      {s' : InLean.CState},
+      CSOKI mode eager env s₀ → OkS s₀ e = true → (TrS s₀ e).looseBVarsBounded 0 = true →
+      InLean.openPisAtFvarsM n e i s₀ = .ok (r, s') →
+      CSOKI mode eager env s' ∧ TabLe s₀ s' ∧
+        ∀ fvs b, r = some (fvs, b) → OkSL s' fvs = true ∧ OkS s' b = true ∧
+          ConLeche.openPisAtFvars n (TrS s₀ e) i = some (TrSL s' fvs, TrS s' b)
+  | 0, i, e, s₀, r, s', hs, hok, _, h => by
+    rw [InLean.openPisAtFvarsM] at h
+    obtain ⟨rfl, rfl⟩ := pure_run h
+    refine ⟨hs, TabLe.refl _, ?_⟩
+    rintro fvs b ⟨⟩
+    exact ⟨rfl, hok, rfl⟩
+  | n + 1, i, .mdata _ e, s₀, r, s', hs, hok, hc, h => by
+    rw [InLean.openPisAtFvarsM] at h
+    rw [OkS_mdata] at hok
+    rw [TrS_mdata] at hc ⊢
+    exact openPisAtFvarsI_run (n + 1) i hs hok hc h
+  | n + 1, i, .forallE nm dom body bi, s₀, r, s', hs, hok, hc, h => by
+    rw [InLean.openPisAtFvarsM] at h
+    simp only [OkS_forallE, Bool.and_eq_true] at hok
+    rw [TrS_forallE, lbb_forallE, Bool.and_eq_true] at hc
+    obtain ⟨x, s₂, hx, h⟩ := bind_run h
+    obtain ⟨hs₂, ht₂, hokx, htx⟩ := tripleI_iff_run.1 (mkFVarM_specI hs i hok.1 hc.1) x s₂ hx
+    obtain ⟨r', s₃, hr, h⟩ := bind_run h
+    have hb₂ : OkS s₂ body = true := okS_of_tabLe ht₂ hok.2
+    have hcx : (TrS s₂ x).looseBVarsBounded 0 = true := by rw [htx]; rfl
+    have hokI : OkS s₂ (body.inst1I x) = true := OkS_inst1 hb₂ hokx hcx
+    have hTI : TrS s₂ (body.inst1I x) =
+        (TrS s₀ body).instantiate1 (.fvar i (TrS s₀ dom)) 0 := by
+      rw [inst1I_eq, TrS_inst1_eq hb₂ hokx hcx, htx, TrS_of_tabLe ht₂ hok.2]
+    obtain ⟨hs₃, ht₃, hR⟩ := openPisAtFvarsI_run n (i + 1) hs₂ hokI
+      (by rw [hTI]; exact lbb_instantiate1 rfl hc.2) hr
+    have ht23 : TabLe s₀ s₃ := ht₂.trans ht₃
+    cases r' with
+    | none =>
+      obtain ⟨rfl, rfl⟩ := pure_run h
+      exact ⟨hs₃, ht23, by rintro _ _ ⟨⟩⟩
+    | some q =>
+      obtain ⟨fvs', b'⟩ := q
+      obtain ⟨rfl, rfl⟩ := pure_run h
+      refine ⟨hs₃, ht23, ?_⟩
+      rintro fvs b ⟨⟩
+      obtain ⟨hokf, hokb, hm⟩ := hR fvs' b' rfl
+      refine ⟨?_, hokb, ?_⟩
+      · simp only [OkSL, List.all_cons, Bool.and_eq_true]
+        exact ⟨okS_of_tabLe ht₃ hokx, hokf⟩
+      · rw [TrS_forallE]
+        simp only [ConLeche.openPisAtFvars]
+        rw [← hTI, hm]
+        simp only [TrSL, List.map_cons, TrS_of_tabLe ht₃ hokx, htx]
+  | _ + 1, _, .bvar _, _, _, _, hs, _, _, h | _ + 1, _, .fvar _, _, _, _, hs, _, _, h
+  | _ + 1, _, .mvar _, _, _, _, hs, _, _, h | _ + 1, _, .sort _, _, _, _, hs, _, _, h
+  | _ + 1, _, .const _ _, _, _, _, hs, _, _, h | _ + 1, _, .app _ _, _, _, _, hs, _, _, h
+  | _ + 1, _, .lam _ _ _ _, _, _, _, hs, _, _, h | _ + 1, _, .letE _ _ _ _ _, _, _, _, hs, _, _, h
+  | _ + 1, _, .lit _, _, _, _, hs, _, _, h | _ + 1, _, .proj _ _ _, _, _, _, hs, _, _, h => by
+    simp only [InLean.openPisAtFvarsM] at h
+    obtain ⟨rfl, rfl⟩ := pure_run h
+    exact ⟨hs, TabLe.refl _, by rintro _ _ ⟨⟩⟩
 
 /-- InLean's occurrence test on a term with a reading is master's on the
 reading. -/
@@ -65,7 +132,7 @@ theorem projGuardRowsGoI_run :
     exact projGuardRowsGoI_run k d hs hok hc h
   | 0, d, .forallE nm dom body bi, s₀, r, s', hs, hok, hc, h => by
     rw [InLean.projGuardRowsGoM] at h
-    obtain ⟨rfl, rfl⟩ := pureI_ok h
+    obtain ⟨rfl, rfl⟩ := pure_run h
     simp only [OkS_forallE, Bool.and_eq_true] at hok
     rw [TrS_forallE, lbb_forallE, Bool.and_eq_true] at hc
     refine ⟨hs, TabLe.refl _, ?_⟩
@@ -93,9 +160,9 @@ theorem projGuardRowsGoI_run :
       exact hm
     · -- a row, opened at its variable
       simp only [hb, ↓reduceIte] at h
-      obtain ⟨x, s₂, hx, h⟩ := bindI_ok h
+      obtain ⟨x, s₂, hx, h⟩ := bind_run h
       obtain ⟨hs₂, ht₂, hokx, htx⟩ := tripleI_iff_run.1 (mkFVarM_specI hs d hok.1 hc.1) x s₂ hx
-      obtain ⟨r', s₃, hr, h⟩ := bindI_ok h
+      obtain ⟨r', s₃, hr, h⟩ := bind_run h
       have hb₂ : OkS s₂ body = true := okS_of_tabLe ht₂ hok.2
       have hcx : (TrS s₂ x).looseBVarsBounded 0 = true := by rw [htx]; rfl
       have hokI : OkS s₂ (body.inst1I x) = true := OkS_inst1 hb₂ hokx hcx
@@ -107,10 +174,10 @@ theorem projGuardRowsGoI_run :
       have ht23 : TabLe s₀ s₃ := ht₂.trans ht₃
       cases r' with
       | none =>
-        obtain ⟨rfl, rfl⟩ := pureI_ok h
+        obtain ⟨rfl, rfl⟩ := pure_run h
         exact ⟨hs₃, ht23, by rintro _ ⟨⟩⟩
       | some rows' =>
-        obtain ⟨rfl, rfl⟩ := pureI_ok h
+        obtain ⟨rfl, rfl⟩ := pure_run h
         refine ⟨hs₃, ht23, ?_⟩
         rintro rows ⟨⟩
         obtain ⟨hokr, hm⟩ := hR rows' rfl
@@ -133,7 +200,7 @@ theorem projGuardRowsGoI_run :
   | _ + 1, _, .lam _ _ _ _, _, _, _, hs, _, _, h | _ + 1, _, .letE _ _ _ _ _, _, _, _, hs, _, _, h
   | _ + 1, _, .lit _, _, _, _, hs, _, _, h | _ + 1, _, .proj _ _ _, _, _, _, hs, _, _, h => by
     simp only [InLean.projGuardRowsGoM] at h
-    obtain ⟨rfl, rfl⟩ := pureI_ok h
+    obtain ⟨rfl, rfl⟩ := pure_run h
     exact ⟨hs, TabLe.refl _, by rintro _ ⟨⟩⟩
 
 /-! ## The rows' sorts -/
@@ -154,14 +221,14 @@ theorem checkGuardRowsI_run (ih : KnotSpecI mode eager env r) {g : Level} (hg : 
           (rows.map fun p => (p.1, TrS s₀ p.2))) ()
   | [], s₀, s', v, hs, _, h => by
     rw [InLean.checkGuardRowsI] at h
-    obtain ⟨rfl, rfl⟩ := pureI_ok h
+    obtain ⟨rfl, rfl⟩ := pure_run h
     exact ⟨hs, TabLe.refl _, Runs.pure _⟩
   | (d, dom) :: rest, s₀, s', v, hs, hrows, h => by
     obtain ⟨hok, hw, hc⟩ := hrows _ List.mem_cons_self
     rw [InLean.checkGuardRowsI] at h
-    obtain ⟨t, s₁, hti, h⟩ := bindI_ok h
+    obtain ⟨t, s₁, hti, h⟩ := bind_run h
     obtain ⟨hs₁, ht₁, hokt, hRt, hwt, hct⟩ := tripleI_iff_run.1 (ih.inferIO hs hok hw hc) t s₁ hti
-    obtain ⟨w, s₂, hwi, h⟩ := bindI_ok h
+    obtain ⟨w, s₂, hwi, h⟩ := bind_run h
     obtain ⟨hs₂, ht₂, hokw, hRw, -, -⟩ := tripleI_iff_run.1 (ih.whnf hs₁ hokt hwt hct) w s₂ hwi
     have ht12 : TabLe s₀ s₂ := ht₁.trans ht₂
     generalize hx : EO.stripTop w = x at h
@@ -174,8 +241,8 @@ theorem checkGuardRowsI_run (ih : KnotSpecI mode eager env r) {g : Level} (hg : 
         simp only [OkS_sort, okLv, Bool.and_eq_true] at hokx; exact hokx.1
       cases hz : InLean.Lvl.zeroWhereZero g u
       · simp only [hz] at h
-        obtain ⟨_, _, h1, _⟩ := bindI_ok h
-        exact (throwI_ok h1).elim
+        obtain ⟨_, _, h1, _⟩ := bind_run h
+        exact (throw_run h1).elim
       · simp only [hz] at h
         have hrest : ∀ p ∈ rest, OkS s₂ p.2 = true ∧ ConLeche.Expr.WScoped p.1 (TrS s₂ p.2) ∧
             (TrS s₂ p.2).looseBVarsBounded 0 = true := by
@@ -197,7 +264,7 @@ theorem checkGuardRowsI_run (ih : KnotSpecI mode eager env r) {g : Level} (hg : 
         simp only [zeroWhereZero_trL hg hu, hz]
         first | exact hR | exact Runs.bind (Runs.pure ()) hR
     | mdata _ _ => exact (stripTop_ne_mdata hx).elim
-    | _ => exact (throwI_ok h).elim
+    | _ => exact (throw_run h).elim
 
 /-! ## The sort the rows answer to -/
 
@@ -252,7 +319,7 @@ theorem projGuardSortI_run (ih : KnotSpecI mode eager env r) {cvT : Lean.Constan
     rw [htr₁] at hruno
     simp only [Option.map_none]
     cases o' with
-    | none => exact (throwI_ok hr).elim
+    | none => exact (throw_run hr).elim
     | some u =>
       obtain ⟨rfl, rfl⟩ := pure_run hr
       have hu : okL u = true := by
@@ -285,7 +352,7 @@ theorem checkProjRowsI_run (ih : KnotSpecI mode eager env r) (henv : ConLeche.En
   obtain ⟨-, hidx, hctor, hnP, -⟩ := hrel
   unfold InLean.checkProjRowsI at h
   cases hf : fe.find? e.ctor with
-  | none => rw [hf] at h; exact (throwI_ok h).elim
+  | none => rw [hf] at h; exact (throw_run h).elim
   | some ci =>
     rw [hf] at h
     simp only at h
@@ -295,26 +362,26 @@ theorem checkProjRowsI_run (ih : KnotSpecI mode eager env r) (henv : ConLeche.En
         cci.toConstantVal.type.instantiateLevelParams cci.toConstantVal.levelParams
           (us.map trL) := by
       simp only [ConLeche.Cached.constTyOf, hL]
-    obtain ⟨t, s₁, htc, h⟩ := bindI_ok h
+    obtain ⟨t, s₁, htc, h⟩ := bind_run h
     obtain ⟨hs₁, ht₁, hokt, htrt⟩ :=
       tripleI_iff_run.1 (constTyAtM_specI hfe hs e.ctor hus) t s₁ htc
     rw [hct] at htrt
     have hlbt : (TrS s₁ t).looseBVarsBounded 0 = true := by
       rw [htrt, ConLeche.Expr.looseBVarsBounded_instantiateLevelParams]; exact hwf.2.2.2.1
-    obtain ⟨o, s₂, ho, h⟩ := bindI_ok h
+    obtain ⟨o, s₂, ho, h⟩ := bind_run h
     obtain ⟨hs₂, ht₂, hR⟩ := openPisAtFvarsI_run e.numParams 0 hs₁ hokt hlbt ho
     cases o with
-    | none => exact (throwI_ok h).elim
+    | none => exact (throw_run h).elim
     | some q =>
       obtain ⟨fvs, b⟩ := q
       obtain ⟨-, hokb, hm⟩ := hR fvs b rfl
       have hlbb : (TrS s₂ b).looseBVarsBounded 0 = true :=
         (ConLeche.Verify.openPisAtFvars_bounded e.numParams hm hlbt).1
       simp only at h
-      obtain ⟨o2, s₃, ho2, h⟩ := bindI_ok h
+      obtain ⟨o2, s₃, ho2, h⟩ := bind_run h
       obtain ⟨hs₃, ht₃, hR2⟩ := projGuardRowsGoI_run e.idx e.numParams hs₂ hokb hlbb ho2
       cases o2 with
-      | none => exact (throwI_ok h).elim
+      | none => exact (throw_run h).elim
       | some rows =>
         obtain ⟨hrowsOk, hm2⟩ := hR2 rows rfl
         have hpg : ConLeche.projGuardRows env.find? ce (us.map trL) =
@@ -336,44 +403,34 @@ theorem checkProjRowsI_run (ih : KnotSpecI mode eager env r) (henv : ConLeche.En
         exact hRr
 
 /-- **The projection guard's spec, proved** (`checkProjGuardC_spec`'s twin):
-from the knot's specs, the environment's well-formedness and the relation. -/
+from the knot's specs, the environment's well-formedness, the relation and
+the former view. -/
 theorem projGuardSpecI_of (ih : KnotSpecI .verified eager env r) (henv : ConLeche.EnvWF env)
-    (hfe : EnvRelI fe env) (hP : EnvPresI fe env) : ProjGuardSpecI eager env r fe := by
+    (hfe : EnvRelI fe env) (hview : EnvViewI fe env) : ProjGuardSpecI eager env r fe := by
   intro e ce us s₀ hs hrel hus
   refine tripleI_iff_run.2 fun v s' h => ?_
   unfold InLean.checkProjGuardI at h
   unfold ConLeche.checkProjGuard
   rw [hrel.1]
   cases hv : fe.indView? e.structName with
-  | none => rw [hv] at h; exact (throwI_ok h).elim
+  | none => rw [hv] at h; exact (throw_run h).elim
   | some p =>
     obtain ⟨cvT, caps⟩ := p
     rw [hv] at h
     simp only at h
-    obtain ⟨ccv, hcv, hL⟩ := indView_rel hP hv
+    obtain ⟨ccv, hcv, hL⟩ := hview.ind _ _ _ hv
     rw [hL]
     simp only
     have hwf := henv.consts _ (ConLeche.Env.find?_mem hL)
-    obtain ⟨o, s₁, ho, h⟩ := bindI_ok h
+    obtain ⟨o, s₁, ho, h⟩ := bind_run h
     obtain ⟨hs₁, ht₁, hog, hRo⟩ := projGuardSortI_run ih hcv hwf.1 hwf.2.2.2.1 caps hus hs ho
     cases o with
     | none =>
-      obtain ⟨rfl, rfl⟩ := pureI_ok h
+      obtain ⟨rfl, rfl⟩ := pure_run h
       exact ⟨hs₁, ht₁, Runs.bind hRo (Runs.pure ())⟩
     | some g =>
       simp only at h
       obtain ⟨hs', ht', hR⟩ := checkProjRowsI_run ih henv hfe hrel hus (hog g rfl) hs₁ h
       exact ⟨hs', ht₁.trans ht', Runs.bind hRo hR⟩
-
-/-- **`ProjGuardI` discharged**: the guard's spec at every environment the
-job's other premises hold at. -/
-theorem projGuardI : ProjGuardI :=
-  fun _ _ _ hP hwf _ _ _ ih => projGuardSpecI_of ih hwf (envRelI_of hP) hP
-
-/-- **The job's premises from the other four**: `JobEnvI.guard` follows from
-the relation and con-leche's well-formedness. -/
-theorem jobEnvI_of {fe : InLean.FEnv} {L : ConLeche.Env} (hl : EnvLaws) (hP : EnvPresI fe L)
-    (hwf : ConLeche.EnvWF L) (hR : ProjBodiesInRange fe) : JobEnvI fe L :=
-  ⟨hl, hP, hwf, hR, fun _ _ ih => projGuardSpecI_of ih hwf (envRelI_of hP) hP⟩
 
 end InLeanProof

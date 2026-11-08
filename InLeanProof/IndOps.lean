@@ -123,25 +123,14 @@ theorem opsSimI_of {fe : InLean.FEnv} {L : ConLeche.Env}
 
 /-- **The job's environment premises** at `fe` against `L`: core's
 environment laws (`EnvLaws`, what a push reads), the relation,
-con-leche's well-formedness, the projection bodies' range (P3b's three) and
-the projection guard's spec (a hypothesis of the knot; it follows from the
-others, `InLeanProof.jobEnvI_of`). -/
+con-leche's well-formedness and the projection bodies' range (P3b's three). -/
 structure JobEnvI (fe : InLean.FEnv) (L : ConLeche.Env) : Prop where
   laws : EnvLaws
   pres : EnvPresI fe L
   wf : ConLeche.EnvWF L
   proj : ProjBodiesInRange fe
-  guard : ∀ b f, SSimI b L fe f → ProjGuardSpecI b L (coreKnotI .verified b fe f) fe
-
-/-- **The projection guard's spec from the job's other premises** (proved as
-`InLeanProof.projGuardI`): what `JobEnvI.guard` asks, at every environment the job's
-other premises hold at.  The job builds its own environments (the formers',
-the constructors'), so the stages need it beyond the declaration's `fe`. -/
-@[expose] def ProjGuardI : Prop :=
-  ∀ (fe : InLean.FEnv) (L : ConLeche.Env), EnvLaws → EnvPresI fe L → ConLeche.EnvWF L →
-    ProjBodiesInRange fe → ∀ b f, SSimI b L fe f → ProjGuardSpecI b L (coreKnotI .verified b fe f) fe
 
 theorem JobEnvI.ops {fe : InLean.FEnv} {L : ConLeche.Env} (h : JobEnvI fe L) : OpsSimI fe L :=
-  opsSimI_of (ssimI_of_pres h.pres h.wf h.proj h.guard _)
+  opsSimI_of (ssimI_of_pres h.pres h.wf h.proj _)
 
 end InLeanProof

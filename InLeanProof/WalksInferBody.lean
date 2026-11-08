@@ -19,7 +19,7 @@ What the bodies read of the environment beyond `EnvRelI`/`EnvDomI` is a named
 hypothesis, P3a's to establish: `EnvProjI` (a projection entry against
 con-leche's, its body a stored open term).  The projection guard
 (`checkProjGuardI` with `projGuardSortI`/`checkProjRowsI`) is a named callee
-spec, `ProjGuardSpecI`, proved later from the knot's specs
+spec, `ProjGuardSpecI`, proved from the knot's specs in the next file
 (`InLeanProof.projGuardSpecI_of`, `ProjGuardI.lean`).
 -/
 
