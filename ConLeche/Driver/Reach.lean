@@ -53,8 +53,8 @@ checked against, as a list of records, and its validation.
 * **Proofs by inference** (`proofStatus`, ruling 3 of #460; axioms by #444's): a copy
   is a proof if it is a theorem, or (an exported axiom) its home's private part declares a
   theorem there, or it is a definition, opaque constant or axiom (exported or not, at its
-  home) whose type the kernel infers to be a proposition at the context (`typeIsPropC`,
-  after the context is built and validated).  The inference accepts every well-typed type
+  home) whose type the kernel infers to be a proposition over the part of the context below
+  its name (`typeIsPropC`, `inferFlags`, after the context is built and validated).  The inference accepts every well-typed type
   Lean's `isPropCheap` accepts, so every pair Lean's merge identifies agrees.  The copies of
   every name two loaded modules hold (`WorkerReads.clashes`) must be proofs of one statement
   (`clashAgree`, Lean's merge); a clash whose proof is inferred has its name reached, so that its
@@ -260,7 +260,8 @@ structure ReachCache where
   located : Std.HashMap Name Spot := {}
   /-- the completed names, each with the home whose view located it -/
   completed : Array (Name × Name) := #[]
-  /-- statements whose being a proposition decides an agreement, inferred at the context -/
+  /-- statements whose being a proposition decides an agreement, inferred over the part of the
+  context below their name -/
   pending : Array (String × Name × ConstantVal) := #[]
   /-- the names of a proof pair's statement, each with the home that reads it as the pair's
   other copy (`agreeCheck`), to be capture-checked once the worklist is done -/
@@ -865,16 +866,25 @@ def typeIsPropC (fe : FEnv) (cv : ConstantVal) : CheckCM Bool := do
   let u ← opSIxC .verified fe 0 jsty
   liftFueled "level comparison" (Level.isEquiv u .zero)
 
-/-- **The inferred flags**: every recorded statement a proposition at the context. -/
-def inferFlags (fe : FEnv) : List (String × Name × ConstantVal) → Except CheckError Unit
+/-- **The part of the context below a name**: the records before the first one storing it (the
+specification's `Module.part`). -/
+def ctxPart (ctx : List Declaration) (y : Name) : List Declaration :=
+  ctx.take (ctx.findIdx fun d => (declNames d).contains y)
+
+/-- **The inferred flags**: every recorded statement a proposition over the part of the context
+below its name (`ctxPart`), as the specification's proof route asks and as Lean's merge infers it
+over the constants loaded before.  The context is in read order, so a statement's names are
+stored before its record, unless it reads its own name, which no home accepts. -/
+def inferFlags (ctx : List Declaration) : List (String × Name × ConstantVal) → Except CheckError Unit
   | [] => .ok ()
   | (what, y, cv) :: rest =>
+    let fe := mkFEnv (streamEnv (ctxPart ctx y))
     if !(exprOk cv.levelParams 0 cv.type && cv.type.constsResolveF fe) then
-      .error (.internal s!"the statement of {y} does not resolve in the context")
+      .error (.invalid s!"the statement of {y} reads a name the context does not store before it")
     else
       match (typeIsPropC fe cv).run' {} with
       | .error e => .error e
-      | .ok true => inferFlags fe rest
+      | .ok true => inferFlags ctx rest
       | .ok false => .error (.invalid s!"{what}: the copies of {y} of two modules are not one \
           constant (its type is not a proposition)")
 
@@ -967,8 +977,7 @@ def reach {μ : Type → Type} [CheckerIO μ] (rd : OleanReads μ) (m : Name) (w
         match validateCtx ctx homes with
         | .error e => pure (.error e)
         | .ok () =>
-          let fe := mkFEnv (streamEnv ctx.toList)
-          match inferFlags fe c.pending.toList with
+          match inferFlags ctx.toList c.pending.toList with
           | .error e => pure (.error e)
           | .ok () =>
             pure (.ok { ctx, homes, completed := c.completed,

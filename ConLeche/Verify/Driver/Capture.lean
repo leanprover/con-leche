@@ -1742,7 +1742,7 @@ theorem reach_capture {sp : SearchPath} {fs : FS} {m : Name} {wr : WorkerReads}
           ∀ y ∈ (needsGo {} #[] kc.2.type).2, (kc.1, y) ∈ P)) ∧
       (∀ x ∈ P, Passed sp fs env loc (· ∈ pend) (· ∈ P) x.1 x.2) ∧
       (∀ cl ∈ wr.clashes, ClashOk sp fs wr (· ∈ pend) cl) ∧
-      inferFlags (mkFEnv (streamEnv r.ctx.toList)) pend = .ok () ∧
+      inferFlags r.ctx.toList pend = .ok () ∧
       (∀ (y : Name) (s : Spot), loc[y]? = some s → importerSpot env y = none ∧ s.part.level = .private ∧
         CopyAt sp fs s ∧ Reached sp fs wr s.part.mod) ∧
       (∀ x ∈ P, Reached sp fs wr x.1 ∧ Origin sp fs env r.ctx r.homes x) := by
@@ -1789,7 +1789,7 @@ theorem reach_capture {sp : SearchPath} {fs : FS} {m : Name} {wr : WorkerReads}
     cases hv : validateCtx (o.map (L.ctx.getD · default)) (o.map (L.homes.getD · default)) with
     | error e => rw [hv] at h; simp at h
     | ok u =>
-    cases hf : inferFlags (mkFEnv (streamEnv (o.map (L.ctx.getD · default)).toList))
+    cases hf : inferFlags (o.map (L.ctx.getD · default)).toList
       c'.pending.toList with
     | error e => rw [hv] at h; simp only at h; rw [hf] at h; simp at h
     | ok u' =>

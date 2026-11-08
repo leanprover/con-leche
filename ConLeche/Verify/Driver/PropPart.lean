@@ -10,23 +10,16 @@ import ConLeche.Verify.Driver.Reach
 import ConLeche.Verify.PinRen
 
 /-!
-# A statement inferred a proposition at the context is one at the part below it
+# A statement the worker inferred a proposition is one over the part below it
 
-The worker infers the statements of its proof pairs at its whole sorted context
-(`inferFlags` at `mkFEnv (streamEnv ctx)`, `ConLeche/Driver/Reach.lean`).  The specification's
-proof route (`ProofSide`, `ConLeche/Modular.lean`) asks the inference at the part of the context
-below the name (`Module.part`: the records before the name's).  This file carries the verdict:
+The worker infers the statements of its proof pairs over the part of its sorted context below
+each name (`inferFlags`, `ctxPart`, `ConLeche/Driver/Reach.lean`), which is the specification's
+`Module.part` (`ConLeche/Modular.lean`), where its proof route (`ProofSide`) asks the inference.
 
 * `inferFlags_typeIsProp`: the cached inference's accept is the pure `TypeIsProp`, with the
-  statement's syntactic clauses and its resolution at the context;
-* `typeIsProp_restrict`: the kernel's run on a type resolving in an environment `E₁` that `E₂`
-  extends is the same run at both (`knot_ext`), so `TypeIsProp` at `E₂` is `TypeIsProp` at `E₁`;
-* `prefix_envExt`: a context in read order with distinct names extends each of its prefixes, given
-  what the knot reads past the term (`StoredFacts`) of which a context's validation says nothing:
-  that the recursors' rules name stored constructors (`RecCtorsStored` of the context) and that a
-  record storing `Nat` stores its two constructors;
-* `typeIsProp_part`: the three together at a context record's statement, whose type does not read
-  the record's own name, at `Module.part`.
+  statement's syntactic clauses and its resolution at the part;
+* `envWF_prefix`: a prefix of a well-formed context in read order is well formed;
+* `typeIsProp_part`: the two together, at `Module.part`.
 -/
 
 public section
@@ -77,13 +70,16 @@ theorem typeIsPropC_sound {E : Env} (henv : EnvWF E) {cv : ConstantVal}
   · exact ((fueledOpsM .verified).ensureSort E 0 jsty).property (Nat.le_max_right F₁ F₂) hF₂
 
 /-- The head of the inferred flags: an accept there is the statement's clauses and its
-inference. -/
-private theorem inferFlags_head {E : Env} (henv : EnvWF E) {w : String} {y : Name}
+inference over the part below its name. -/
+private theorem inferFlags_head {ctx : List Declaration} {w : String} {y : Name}
     {cv : ConstantVal} {rest : List (String × Name × ConstantVal)}
-    (h : inferFlags (mkFEnv E) ((w, y, cv) :: rest) = .ok ()) :
-    (exprOk cv.levelParams 0 cv.type = true ∧ cv.type.constsResolve E = true ∧
-      TypeIsProp .verified E cv.type) ∧ inferFlags (mkFEnv E) rest = .ok () := by
+    (henv : EnvWF (streamEnv (ctxPart ctx y)))
+    (h : inferFlags ctx ((w, y, cv) :: rest) = .ok ()) :
+    (exprOk cv.levelParams 0 cv.type = true ∧ cv.type.constsResolve (streamEnv (ctxPart ctx y)) = true ∧
+      TypeIsProp .verified (streamEnv (ctxPart ctx y)) cv.type) ∧ inferFlags ctx rest = .ok () := by
   unfold inferFlags at h
+  simp only at h
+  generalize streamEnv (ctxPart ctx y) = E at henv h ⊢
   split at h
   · exact nomatch h
   · next hok =>
@@ -107,37 +103,23 @@ private theorem inferFlags_head {E : Env} (henv : EnvWF E) {w : String} {y : Nam
         exact ⟨⟨hok'.1, by rw [← constsResolveF_eq]; exact hok'.2,
           typeIsPropC_sound henv hfv hrun⟩, h⟩
 
-/-- **The inferred flags' accept**: every recorded statement is syntactically closed, resolves at
-the context and is `TypeIsProp` there. -/
-theorem inferFlags_typeIsProp {E : Env} (henv : EnvWF E) :
-    ∀ {ps : List (String × Name × ConstantVal)}, inferFlags (mkFEnv E) ps = .ok () →
+/-- **The inferred flags' accept**: every recorded statement is syntactically closed, resolves
+over the part of the context below its name and is `TypeIsProp` there. -/
+theorem inferFlags_typeIsProp {ctx : List Declaration}
+    (henv : ∀ y, EnvWF (streamEnv (ctxPart ctx y))) :
+    ∀ {ps : List (String × Name × ConstantVal)}, inferFlags ctx ps = .ok () →
       ∀ {w : String} {y : Name} {cv : ConstantVal}, (w, y, cv) ∈ ps →
-        exprOk cv.levelParams 0 cv.type = true ∧ cv.type.constsResolve E = true ∧
-          TypeIsProp .verified E cv.type
+        exprOk cv.levelParams 0 cv.type = true ∧
+          cv.type.constsResolve (streamEnv (ctxPart ctx y)) = true ∧
+          TypeIsProp .verified (streamEnv (ctxPart ctx y)) cv.type
   | [], _, _, _, _, hm => nomatch hm
   | (w', y', cv') :: rest, h, w, y, cv, hm => by
-    obtain ⟨hhd, htl⟩ := inferFlags_head henv h
+    obtain ⟨hhd, htl⟩ := inferFlags_head (henv y') h
     rcases List.mem_cons.mp hm with he | hm'
     · simp only [Prod.mk.injEq] at he
-      obtain ⟨-, -, rfl⟩ := he
+      obtain ⟨-, rfl, rfl⟩ := he
       exact hhd
     · exact inferFlags_typeIsProp henv htl hm'
-
-/-! ## The verdict at an environment the context extends -/
-
-/-- **`TypeIsProp` at a sub-environment**: a type resolving in `E₁`, which `E₂` extends, is
-inferred and sorted alike at both (`knot_ext`), so its verdict is the same. -/
-theorem typeIsProp_restrict {mode : CheckMode} {E₁ E₂ : Env} (hx : EnvExt E₁ E₂) {ty : Expr}
-    (hr : ty.constsResolve E₁ = true) (h : TypeIsProp mode E₂ ty) : TypeIsProp mode E₁ ty := by
-  obtain ⟨F, stype, u, hi, hs, hu⟩ := h
-  have K := knot_ext mode hx F false
-  obtain ⟨hie, hres⟩ := K.infer 0 hr
-  have hi' : inferTypeCore mode false E₁ F 0 ty = .ok stype := by
-    rw [← hi]; exact hie.symm
-  have hst : stype.constsResolve E₁ = true := hres stype hi'
-  obtain ⟨hse, -⟩ := ensureSort_rel (env₂ := E₂) K 0 hst
-  refine ⟨F, stype, u, hi', ?_, hu⟩
-  rw [← hs]; exact hse.symm
 
 /-! ## A prefix of a context in read order -/
 
@@ -312,242 +294,19 @@ theorem envWF_prefix (hwf : EnvWF (streamEnv ctx)) : EnvWF (streamEnv (ctx.take 
     exact ⟨a, b', resolve_prefix_mono (by omega)
       (hb b (Array.mem_toList_iff.2 (Array.mem_of_getElem? hib))), d⟩
 
-theorem bool_of_beq : boolTrueName ∈ pinFootprint natBeqName ∧
-    boolFalseName ∈ pinFootprint natBeqName := by decide
-
-theorem bool_of_ble : boolTrueName ∈ pinFootprint natBleName ∧
-    boolFalseName ∈ pinFootprint natBleName := by decide
-
-include hord in
-/-- What a constant of a prefix reads is stored in the prefix (its record's scope). -/
-theorem prefix_scoped {ci : ConstantInfo} (hc : ci ∈ (streamEnv (ctx.take r)).consts) :
-    ∃ k, k + 1 ≤ r ∧ EntryScoped (streamEnv (ctx.take (k + 1))) ci := by
-  obtain ⟨k, hk, hkr, hck⟩ := prefix_record hc
-  exact ⟨k, hkr, (hord k hk).1 ci hck⟩
-
-include hord in
-/-- The footprint of a stored pinned name is stored in a prefix. -/
-theorem prefix_footprint {n m : Name} (hn : ((streamEnv (ctx.take r)).find? n).isSome = true)
-    (hm : m ∈ pinFootprint n) : ((streamEnv (ctx.take r)).find? m).isSome = true := by
-  obtain ⟨ci, hci⟩ := Option.isSome_iff_exists.mp hn
-  obtain ⟨k, hkr, hsc⟩ := prefix_scoped hord (Env.find?_mem hci)
-  have hname : ci.toConstantVal.name = n := Env.find?_name hci
-  exact isSome_prefix_mono hkr (hsc.2.2.2.2 m (by rw [hname]; exact hm))
-
-include hnd hord in
-/-- **What the knot reads past the term, at a prefix**: given that the context's recursors' rules
-name stored constructors and that a record storing `Nat` stores its constructors. -/
-theorem storedFacts_prefix (hwf : EnvWF (streamEnv ctx))
-    (hrec : RecCtorsStored (streamEnv ctx))
-    (hnat : ∀ d ∈ ctx, natName ∈ declNames d →
-      natZeroName ∈ declNames d ∧ natSuccName ∈ declNames d) :
-    StoredFacts (streamEnv (ctx.take r)) := by
-  have hwfP := envWF_prefix (r := r) hord hwf
-  -- `Nat` stored: its record stores its constructors
-  have hN : ((streamEnv (ctx.take r)).find? natName).isSome = true →
-      ((streamEnv (ctx.take r)).find? natZeroName).isSome = true ∧
-        ((streamEnv (ctx.take r)).find? natSuccName).isSome = true := by
-    intro h
-    obtain ⟨d, hd, hnd'⟩ := streamEnv_find_mem h
-    obtain ⟨h0, h1⟩ := hnat d (List.mem_of_mem_take hd) hnd'
-    exact ⟨streamEnv_find_of_mem hd h0, streamEnv_find_of_mem hd h1⟩
-  refine ⟨hwfP, fun h => ?_, fun n cv mI rP isK rules hf rl hrl => ?_, fun T i e hf => ?_,
-    fun h => ?_⟩
-  · -- the `Nat` trio
-    have hNat : ((streamEnv (ctx.take r)).find? natName).isSome = true := by
-      rcases h with h | h | h
-      · exact h
-      · obtain ⟨ci, hci⟩ := Option.isSome_iff_exists.mp h
-        have hs := hwfP.shapes ci (Env.find?_mem hci)
-        obtain ⟨k, hkr, hsc⟩ := prefix_scoped hord (Env.find?_mem hci)
-        have hty := hsc.1
-        unfold litShapeOk at hs
-        rw [Env.find?_name hci] at hs
-        simp (decide := true) only [↓reduceIte, natZeroOk, Bool.and_eq_true, beq_iff_eq] at hs
-        rw [hs.2] at hty
-        exact isSome_prefix_mono hkr (by simpa [Expr.constsResolve] using hty)
-      · obtain ⟨ci, hci⟩ := Option.isSome_iff_exists.mp h
-        have hs := hwfP.shapes ci (Env.find?_mem hci)
-        obtain ⟨k, hkr, hsc⟩ := prefix_scoped hord (Env.find?_mem hci)
-        have hty := hsc.1
-        unfold litShapeOk at hs
-        rw [Env.find?_name hci] at hs
-        simp (decide := true) only [↓reduceIte, natSuccOk, Bool.and_eq_true] at hs
-        obtain ⟨-, hm⟩ := hs
-        split at hm
-        · next c1 c2 heq =>
-          simp only [Bool.and_eq_true, beq_iff_eq] at hm
-          rw [heq] at hty
-          simp only [Expr.constsResolve, Bool.and_eq_true] at hty
-          rw [← hm.1]
-          exact isSome_prefix_mono hkr hty.1
-        · exact nomatch hm
-    exact ⟨hNat, hN hNat⟩
-  · -- the rules' constructors
-    obtain ⟨cvj, cnP, cnF, hc⟩ := hrec n cv mI rP isK rules (find_prefix hnd hf) rl hrl
-    obtain ⟨k, hkr, hsc⟩ := prefix_scoped hord (Env.find?_mem hf)
-    have hcs := isSome_prefix_mono hkr ((hsc.2.2.1 cv mI rP isK rules rfl rl hrl).2.1)
-    obtain ⟨x, hx⟩ := Option.isSome_iff_exists.mp hcs
-    rw [find_prefix hnd hx] at hc
-    exact ⟨cvj, cnP, cnF, hx.trans hc⟩
-  · -- a table's constructor
-    unfold Env.findProj? at hf
-    split at hf
-    · next tbl htb =>
-      split at hf
-      · obtain rfl := Option.some.inj hf
-        obtain ⟨htm, -, -⟩ := Env.findTable?_mem htb
-        obtain ⟨k, hk, hkr, htk⟩ := prefix_record_table htm
-        exact isSome_prefix_mono hkr ((hord k hk).2 tbl htk).1
-      · exact nomatch hf
-    · exact nomatch hf
-  · -- the `Bool` constructors below the comparisons
-    rcases h with h | h
-    · exact ⟨prefix_footprint hord h bool_of_beq.1, prefix_footprint hord h bool_of_beq.2⟩
-    · exact ⟨prefix_footprint hord h bool_of_ble.1, prefix_footprint hord h bool_of_ble.2⟩
-
-include hnd hord in
-/-- **A context in read order with distinct names extends each of its prefixes.** -/
-theorem prefix_envExt (hwf : EnvWF (streamEnv ctx)) (hrec : RecCtorsStored (streamEnv ctx))
-    (hnat : ∀ d ∈ ctx, natName ∈ declNames d →
-      natZeroName ∈ declNames d ∧ natSuccName ∈ declNames d) :
-    EnvExt (streamEnv (ctx.take r)) (streamEnv ctx) :=
-  ⟨fun _ _ h => find_prefix hnd h, fun _ hT => findTable_prefix hnd hT,
-    storedFacts_prefix hnd hord hwf hrec hnat⟩
-
 end PrefixFacts
 
-/-! ## The statement's names at the part below its record -/
+/-! ## At the specification's part -/
 
-/-- **Resolution read off the names an expression reads**: where every name `e` reads that `E₂`
-stores is stored in `E₁`, what resolves in `E₂` resolves in `E₁`. -/
-theorem constsResolve_of_readNames {E₁ E₂ : Env} :
-    ∀ {e : Expr}, (∀ n ∈ e.readNames, (E₂.find? n).isSome = true → (E₁.find? n).isSome = true) →
-      e.constsResolve E₂ = true → e.constsResolve E₁ = true
-  | .bvar _, _, _ | .sort _, _, _ => rfl
-  | .lit (.natVal _), hf, h => by
-    simp only [Expr.constsResolve, Bool.and_eq_true] at h ⊢
-    simp only [Expr.readNames, List.mem_cons, List.not_mem_nil, or_false, forall_eq_or_imp,
-      forall_eq] at hf
-    exact ⟨⟨hf.1 h.1.1, hf.2.1 h.1.2⟩, hf.2.2 h.2⟩
-  | .lit (.strVal _), hf, h => by
-    simp only [Expr.constsResolve, Bool.and_eq_true] at h ⊢
-    simp only [Expr.readNames, List.mem_cons, List.not_mem_nil, or_false, forall_eq_or_imp,
-      forall_eq] at hf
-    obtain ⟨⟨⟨⟨⟨⟨⟨⟨⟨a1, a2⟩, a3⟩, a4⟩, a5⟩, a6⟩, a7⟩, a8⟩, a9⟩, a10⟩ := h
-    obtain ⟨b1, b2, b3, b4, b5, b6, b7, b8, b9, b10⟩ := hf
-    exact ⟨⟨⟨⟨⟨⟨⟨⟨⟨b1 a1, b2 a2⟩, b3 a3⟩, b4 a4⟩, b5 a5⟩, b6 a6⟩, b7 a7⟩, b8 a8⟩, b9 a9⟩,
-      b10 a10⟩
-  | .const n _, hf, h => hf n (by simp [Expr.readNames]) h
-  | .fvar _ ty, hf, h => constsResolve_of_readNames (e := ty) hf h
-  | .app f a, hf, h => by
-    simp only [Expr.constsResolve, Bool.and_eq_true] at h ⊢
-    exact ⟨constsResolve_of_readNames (fun n hn => hf n (List.mem_append_left _ hn)) h.1,
-      constsResolve_of_readNames (fun n hn => hf n (List.mem_append_right _ hn)) h.2⟩
-  | .lam ty b, hf, h | .forallE ty b, hf, h => by
-    simp only [Expr.constsResolve, Bool.and_eq_true] at h ⊢
-    exact ⟨constsResolve_of_readNames (fun n hn => hf n (List.mem_append_left _ hn)) h.1,
-      constsResolve_of_readNames (fun n hn => hf n (List.mem_append_right _ hn)) h.2⟩
-  | .letE ty v b, hf, h => by
-    simp only [Expr.constsResolve, Bool.and_eq_true] at h ⊢
-    exact ⟨⟨constsResolve_of_readNames (fun n hn => hf n
-        (List.mem_append_left _ (List.mem_append_left _ hn))) h.1.1,
-      constsResolve_of_readNames (fun n hn => hf n
-        (List.mem_append_left _ (List.mem_append_right _ hn))) h.1.2⟩,
-      constsResolve_of_readNames (fun n hn => hf n (List.mem_append_right _ hn)) h.2⟩
-  | .proj s _ e, hf, h => by
-    simp only [Expr.constsResolve, Bool.and_eq_true] at h ⊢
-    exact ⟨hf s (by simp [Expr.readNames]) h.1,
-      constsResolve_of_readNames (fun n hn => hf n (List.mem_cons_of_mem _ hn)) h.2⟩
-
-section Part
-
-variable {ctx : List Declaration} {r : Nat} (hr : r < ctx.length)
-  (hnd : (ctx.flatMap declNames).Nodup)
-
-include hr hnd in
-/-- **The record at position `r` is the first to install its names**: the rank of each is `r`. -/
-theorem findIdx_record {y : Name} (hy : y ∈ declNames ctx[r]) :
-    ctx.findIdx (fun d => (declNames d).contains y) = r := by
-  refine (List.findIdx_eq hr).2 ⟨by simpa using hy, fun j hj => ?_⟩
-  cases hc' : (declNames ctx[j]).contains y with
-  | false => rfl
-  | true =>
-  have hc : y ∈ declNames ctx[j] := by simpa using hc'
-  exfalso
-  rw [← List.take_append_drop r ctx, List.flatMap_append, List.nodup_append] at hnd
-  refine hnd.2.2 y (List.mem_flatMap.2 ⟨ctx[j], ?_, hc⟩) y (List.mem_flatMap.2 ⟨ctx[r], ?_, hy⟩) rfl
-  · exact List.mem_take_iff_getElem.2 ⟨j, Nat.lt_min.2 ⟨hj, by omega⟩, rfl⟩
-  · exact List.mem_iff_getElem.2 ⟨0, by simp; omega, by simp⟩
-
-include hr in
-/-- **A statement's names at the part below its record**: the record at position `r`, scoped in
-the prefix ending with it, installing a constant `ci` and only the name `y`, which `ci`'s type
-does not read, has `ci`'s type resolve in the prefix before it. -/
-theorem constsResolve_part
-    (hord : RecordScoped (streamEnv (ctx.take (r + 1))) ctx[r]) {y : Name} {ci : ConstantInfo}
-    (hci : ci ∈ declConstants ctx[r]) (honly : ∀ n ∈ declNames ctx[r], n = y)
-    (hny : y ∉ ci.toConstantVal.type.readNames) :
-    ci.toConstantVal.type.constsResolve (streamEnv (ctx.take r)) = true := by
-  refine constsResolve_of_readNames (fun n hn hs => ?_) ((hord.1 ci hci).1)
-  obtain ⟨d, hd, hnd'⟩ := streamEnv_find_mem hs
-  rw [List.take_add_one, List.getElem?_eq_getElem hr] at hd
-  rcases List.mem_append.mp hd with hd | hd
-  · exact streamEnv_find_of_mem hd hnd'
-  · simp only [Option.toList_some, List.mem_singleton] at hd
-    subst hd
-    exact absurd (honly n hnd' ▸ hn) hny
-
-end Part
-
-/-- **A statement record installs at most its own name** (`honly`'s form): an axiom record
-(the tolerated axiom's installs nothing, `Quot.sound`'s its pin under that name) and a
-definition record. -/
-theorem declNames_stmt {d : Declaration} {cv : ConstantVal}
-    (hd : d = .axiomDecl cv ∨ ∃ v h, d = .defnDecl cv v h) : ∀ n ∈ declNames d, n = cv.name := by
-  intro n hn
-  rcases hd with rfl | ⟨v, h, rfl⟩
-  · simp only [declNames, declConstants] at hn
-    split at hn
-    · next hq =>
-      simp only [List.map_cons, List.map_nil, List.mem_singleton] at hn
-      rw [hn, hq]
-      have := atLps_name (quotPin .sound) cv.levelParams
-      simp only [quotAt, ConstantInfo.name] at this ⊢
-      rw [this]
-      decide
-    · split at hn
-      · exact nomatch hn
-      · simp only [List.map_cons, List.map_nil, List.mem_singleton] at hn
-        exact hn
-  · simp only [declNames, declConstants, List.map_cons, List.map_nil, List.mem_singleton] at hn
-    exact hn
-
-/-- **The proof route's inference at the part** (`ProofSide`, `ConLeche/Modular.lean`): at a
-module whose context has distinct names, is in read order and well formed, whose recursors'
-rules name stored constructors and whose record storing `Nat` stores its constructors, an accept of
-the inferred flags at the whole context holding `(w, y, cv)`, where the context record of `y`
-installs only `y` with a constant of `cv`'s type, which does not read `y`, gives `cv`'s type
-resolving in the part of the context below `y` and `TypeIsProp` there. -/
-theorem typeIsProp_part {m : Module} (hnd : (m.ctx.flatMap declNames).Nodup)
+/-- **A recorded statement is a proposition over the part below its name** (`Module.part`), for a
+module whose context is the worker's: name-distinct, in read order, well formed. -/
+theorem typeIsProp_part {m : Module}
     (hord : ∀ k (hk : k < m.ctx.length), RecordScoped (streamEnv (m.ctx.take (k + 1))) m.ctx[k])
-    (hwf : EnvWF m.context) (hrec : RecCtorsStored m.context)
-    (hnat : ∀ d ∈ m.ctx, natName ∈ declNames d →
-      natZeroName ∈ declNames d ∧ natSuccName ∈ declNames d)
-    {ps : List (String × Name × ConstantVal)} (hfl : inferFlags (mkFEnv m.context) ps = .ok ())
-    {w : String} {y : Name} {cv : ConstantVal} (hmem : (w, y, cv) ∈ ps)
-    {r : Nat} (hr : r < m.ctx.length) {ci : ConstantInfo} (hci : ci ∈ declConstants m.ctx[r])
-    (hty : ci.toConstantVal.type = cv.type) (hy : y ∈ declNames m.ctx[r])
-    (honly : ∀ n ∈ declNames m.ctx[r], n = y) (hny : y ∉ cv.type.readNames) :
+    (hwf : EnvWF m.context)
+    {ps : List (String × Name × ConstantVal)} (hfl : inferFlags m.ctx ps = .ok ())
+    {w : String} {y : Name} {cv : ConstantVal} (hmem : (w, y, cv) ∈ ps) :
     cv.type.constsResolve (m.part y) = true ∧ TypeIsProp .verified (m.part y) cv.type := by
-  have hpart : m.part y = streamEnv (m.ctx.take r) := by
-    simp only [Module.part, Module.rank]
-    rw [findIdx_record hr hnd hy]
-  obtain ⟨-, -, hP⟩ := inferFlags_typeIsProp hwf hfl hmem
-  have hres : cv.type.constsResolve (streamEnv (m.ctx.take r)) = true := by
-    rw [← hty]
-    exact constsResolve_part hr (hord r hr) hci honly (by rw [hty]; exact hny)
-  rw [hpart]
-  exact ⟨hres, typeIsProp_restrict (prefix_envExt hnd hord hwf hrec hnat) hres hP⟩
+  obtain ⟨-, h1, h2⟩ := inferFlags_typeIsProp (fun y => envWF_prefix hord hwf) hfl hmem
+  exact ⟨h1, h2⟩
 
 end ConLeche.Driver

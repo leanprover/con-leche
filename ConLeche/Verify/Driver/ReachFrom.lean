@@ -1229,7 +1229,7 @@ theorem reach_from {sp : SearchPath} {fs : FS} {m : Name} {wr : WorkerReads}
     cases hv : validateCtx (o.map (L.ctx.getD · default)) (o.map (L.homes.getD · default)) with
     | error e => rw [hv] at h; simp at h
     | ok u =>
-    cases hf : inferFlags (mkFEnv (streamEnv (o.map (L.ctx.getD · default)).toList))
+    cases hf : inferFlags (o.map (L.ctx.getD · default)).toList
       c'.pending.toList with
     | error e => rw [hv] at h; simp only at h; rw [hf] at h; simp at h
     | ok u' =>
