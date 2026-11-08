@@ -142,10 +142,14 @@ def helpText : String := String.intercalate "\n" [
   "  --schedule          Check every module of MODULE's closure by a --module",
   "                      process each, --jobs at once; with",
   "  --schedule-log=FILE      an append-only log, resumed from on a restart",
-  "  --schedule-memory=MIB    a budget: the largest worker killed above it, run",
-  "                           again alone once",
+  "  --schedule-memory=SIZE   a budget (with a unit, K, M, G or T: 40G, 512M):",
+  "                           the largest worker killed above it, run again",
+  "                           alone once",
   "  --schedule-timeout=S     a time limit per worker",
   "  --schedule-stagger=MS    the least time between two starts (default 200)",
+  "                      A line per finished module on stdout: its verdict, its",
+  "                      time, [done/total, running, eta]; --progress=N (ms) or",
+  "                      Ss: a heartbeat on stderr after that long without one",
   "",
   "Exit status:",
   "  0  accepted",
@@ -334,7 +338,7 @@ def runArgs {m : Type → Type} [CheckerIO m] (args : List String) : m UInt8 :=
           match a.files.toList.filterMap Frontend.Olean.parseModName, a.constants.isEmpty,
               a.module || a.modular with
           | [m], true, false =>
-            return ← runReq (.schedule a.searchPath m a.schedule.toList a.mode jobs)
+            return ← runReq (.schedule a.searchPath m a.schedule.toList a.mode a.progress jobs)
           | _, _, _ =>
             eprintln "con-leche: --schedule takes one module name, and none of --constant, \
               --module and --modular"

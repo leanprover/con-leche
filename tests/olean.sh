@@ -869,6 +869,15 @@ case_grep "--schedule: the log resumed" 0 "5 modules logged, 0 to run" --olean \
 case_grep "--schedule: the first failing module, its code" 1 "the first in the graph's order: NpAx (1)" \
   --olean --schedule --search-path=$LIB -- NpAx
 case_ "--schedule: an unknown option" 3 --olean --schedule-frobnicate --search-path=$LIB -- Tiny
+# (task #505: the module lines carry the counts; a budget takes a unit; a heartbeat in ms or s)
+case_grep "--schedule: the last module's line, its counts" 0 "\[4/4 100.0 %, 0 running\]" \
+  --olean --schedule --schedule-memory=40G --progress=1000 --jobs=2 --search-path=$MSP -- PdM
+case_grep "--schedule-memory: a bare number is no size" 3 "takes a size with a unit" --olean \
+  --schedule --schedule-memory=6000 --search-path=$LIB -- Tiny
+case_ "--schedule-memory: 512M" 0 --olean --schedule --schedule-memory=512M --search-path=$LIB \
+  -- Tiny
+case_grep "--schedule takes no --progress percentage" 3 "not a percentage" --olean --schedule \
+  --progress=5% --search-path=$LIB -- Tiny
 case_ "--schedule takes no --modular" 3 --olean --schedule --modular --search-path=$LIB -- Tiny
 rm -rf "$d"
 
