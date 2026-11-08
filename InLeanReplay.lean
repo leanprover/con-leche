@@ -115,9 +115,9 @@ def say (s : String) : M Unit := do
   unless (← read).cfg.quiet do IO.println s
 
 def isTodo (n : Name) : M Bool := do
-  let s ← get
-  if s.remaining.contains n then
-    set { s with remaining := s.remaining.erase n, pending := s.pending.insert n }
+  -- `modify`, not `get`/`set`: a live `s` would make every `erase` copy `remaining`
+  if (← get).remaining.contains n then
+    modify fun s => { s with remaining := s.remaining.erase n, pending := s.pending.insert n }
     return true
   return false
 
