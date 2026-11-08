@@ -34,6 +34,7 @@ public import InLeanProof.DeclStep
 public import InLeanProof.DeclPins
 public import InLeanProof.ProjGuardI
 public import InLeanProof.CertArm
+public import InLeanProof.CertDivMod
 
 /-!
 # The axiom pins of the InLean proof tier (task #451, lane G)
@@ -2757,3 +2758,11 @@ info: 'InLeanProof.checkDecl_sim_nk' depends on axioms: [propext,
 -/
 #guard_msgs in
 #print axioms InLeanProof.checkDecl_sim_nk
+
+/-- info: 'InLeanProof.constsResolve_tr' depends on axioms: [propext, Classical.choice, Quot.sound] -/
+#guard_msgs in
+#print axioms InLeanProof.constsResolve_tr
+
+/-- info: 'InLeanProof.constsResolve_trC' depends on axioms: [propext, Classical.choice, Quot.sound] -/
+#guard_msgs in
+#print axioms InLeanProof.constsResolve_trC
