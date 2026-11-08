@@ -20,6 +20,16 @@ of a module `M`'s part stands in `M`'s own environment, as `M`'s accepted worker
 * `copy_own` — **a copy's constant**: a copy of a statement kind at any level `M` loads has, in
   `M`'s own environment, a statement-kind constant of the copy's statement, a theorem where the
   copy or the private constant behind it is one.
+* `exported_behind`, `exported_sub_private` — an exported copy has a private copy of its name.
+* `own_stmt_fresh` — an own statement record's type does not read its own name (the accepted
+  step checks it fresh, its type resolving before it).
+* `own_type_stored`, `own_reads_ctx` — what an own record reads is stored: a statement's type's
+  names in the own environment, and every read the reach's roots keep in the context.
+* `partNames_eq` — a part's name table on the snapshot is one.
+* `homeView_index` — a home's view (`HomeView`) is its worker's name index: the home's own
+  private part first, then each name's first loaded copy.
+* `recordReads_sound`, `recordReads_complete`, `Presents.reads` — `recordReads` is exactly the
+  names a record's laws read, so a presentation reads what its record reads, or less.
 -/
 
 public section
@@ -918,5 +928,316 @@ theorem homeView_index {sp : SearchPath} {fs : FS} {M : Name} {jobs : Nat} {w : 
         have hfl : (w.reads.loads.flags[cp.mod]?).getD default = fl := by
           rw [← Array.getElem?_toList, hf]; rfl
         rw [hn, hfl]
+
+/-! ## What a record reads, exactly -/
+
+/-- **The memoized walk adds only the expression's names.** -/
+theorem needsGo_sound :
+    ∀ (e : Expr) (seen : Std.HashSet Expr) (acc : Array Name),
+      ∀ n ∈ (needsGo seen acc e).2, n ∈ acc ∨ n ∈ e.needs := by
+  intro e
+  induction e with
+  | bvar i => intro seen acc n hn; exact .inl hn
+  | sort u => intro seen acc n hn; exact .inl hn
+  | const m us =>
+    intro seen acc n hn
+    simp only [needsGo, Array.mem_push] at hn
+    rcases hn with hn | rfl
+    · exact .inl hn
+    · exact .inr (by simp [Expr.needs])
+  | lit l =>
+    intro seen acc n hn
+    simp only [needsGo] at hn
+    rcases mem_appendList.1 hn with hn | hn
+    · exact .inl hn
+    · exact .inr (by cases l <;> simpa [Expr.needs] using hn)
+  | fvar i ty ih =>
+    intro seen acc n hn
+    rw [needsGo] at hn
+    split at hn
+    · exact .inl hn
+    · rcases ih seen acc n hn with h | h
+      · exact .inl h
+      · exact .inr (by simpa [Expr.needs] using h)
+  | app f a ihf iha =>
+    intro seen acc n hn
+    rw [needsGo] at hn
+    split at hn
+    · exact .inl hn
+    · rcases iha _ _ n hn with h | h
+      · rcases ihf seen acc n h with h | h
+        · exact .inl h
+        · exact .inr (by simp [Expr.needs, h])
+      · exact .inr (by simp [Expr.needs, h])
+  | lam ty b iht ihb =>
+    intro seen acc n hn
+    rw [needsGo] at hn
+    split at hn
+    · exact .inl hn
+    · rcases ihb _ _ n hn with h | h
+      · rcases iht seen acc n h with h | h
+        · exact .inl h
+        · exact .inr (by simp [Expr.needs, h])
+      · exact .inr (by simp [Expr.needs, h])
+  | forallE ty b iht ihb =>
+    intro seen acc n hn
+    rw [needsGo] at hn
+    split at hn
+    · exact .inl hn
+    · rcases ihb _ _ n hn with h | h
+      · rcases iht seen acc n h with h | h
+        · exact .inl h
+        · exact .inr (by simp [Expr.needs, h])
+      · exact .inr (by simp [Expr.needs, h])
+  | letE ty v b iht ihv ihb =>
+    intro seen acc n hn
+    rw [needsGo] at hn
+    split at hn
+    · exact .inl hn
+    · rcases ihb _ _ n hn with h | h
+      · rcases ihv _ _ n h with h | h
+        · rcases iht seen acc n h with h | h
+          · exact .inl h
+          · exact .inr (by simp [Expr.needs, h])
+        · exact .inr (by simp [Expr.needs, h])
+      · exact .inr (by simp [Expr.needs, h])
+  | proj m i x ih =>
+    intro seen acc n hn
+    rw [needsGo] at hn
+    split at hn
+    · exact .inl hn
+    · rcases ih _ _ n hn with h | h
+      · rcases Array.mem_push.1 h with h | rfl
+        · exact .inl h
+        · exact .inr (by simp [Expr.needs])
+      · exact .inr (by simp [Expr.needs, h])
+
+/-- **The names a constant's laws read** (`ConstCovered`'s, exactly). -/
+@[expose] def ConstReads (ci : ConstantInfo) (n : Name) : Prop :=
+  n ∈ ci.toConstantVal.type.needs ∨
+  (∃ cv v h, ci = .defnInfo cv v h ∧ n ∈ v.needs) ∨
+  (∃ cv mI rP isK rules, ci = .recInfo cv mI rP isK rules ∧ ∃ r ∈ rules,
+    n ∈ r.rhs.needs ∨ n = r.ctor ∨ ∃ lvls pins, r.fire = .nested lvls pins ∧ ∃ p ∈ pins, n ∈ p.needs) ∨
+  (∃ cv caps, ci = .indInfo cv caps ∧ (n ∈ caps.all ∨ (caps.eta = true ∧ n = caps.etaCtor))) ∨
+  n ∈ pinFootprint ci.toConstantVal.name
+
+/-- **The names a table reads** (`TableCovered`'s, exactly). -/
+@[expose] def TableReads (t : ProjTable) (n : Name) : Prop :=
+  n = t.structName ∨ n = t.ctor ∨ ∃ b ∈ t.bodies.toList, n ∈ b.needs
+
+/-- **The names a record reads**: its constants' laws' and its tables'. -/
+@[expose] def RecordReads (d : Declaration) (n : Name) : Prop :=
+  (∃ ci ∈ declConstants d, ConstReads ci n) ∨ ∃ t ∈ declTables d, TableReads t n
+
+theorem foldl_expr_sound {S : Name → Prop} :
+    ∀ (es : List Expr) (x : NeedsSt), (∀ e ∈ es, ∀ n ∈ e.needs, S n) →
+      ∀ n ∈ (es.foldl NeedsSt.expr x).2, n ∈ x.2 ∨ S n
+  | [], x, _, n, hn => .inl hn
+  | e :: es, x, h, n, hn => by
+    rcases foldl_expr_sound es (x.expr e) (fun e' he' => h e' (List.mem_cons_of_mem _ he')) n hn
+      with h' | h'
+    · rcases needsGo_sound e x.1 x.2 n h' with h'' | h''
+      · exact .inl h''
+      · exact .inr (h e List.mem_cons_self n h'')
+    · exact .inr h'
+
+theorem rule_sound (x : NeedsSt) (r : RecRule) :
+    ∀ n ∈ (x.rule r).2, n ∈ x.2 ∨ (n ∈ r.rhs.needs ∨ n = r.ctor ∨
+      ∃ lvls pins, r.fire = .nested lvls pins ∧ ∃ p ∈ pins, n ∈ p.needs) := by
+  intro n hn
+  have base : ∀ m ∈ ((x.expr r.rhs).names [r.ctor]).2, m ∈ x.2 ∨ (m ∈ r.rhs.needs ∨ m = r.ctor) := by
+    intro m hm
+    simp only [NeedsSt.names] at hm
+    rcases mem_appendList.1 hm with hm | hm
+    · rcases needsGo_sound r.rhs x.1 x.2 m hm with h | h
+      · exact .inl h
+      · exact .inr (.inl h)
+    · exact .inr (.inr (by simpa using hm))
+  unfold NeedsSt.rule at hn
+  split at hn
+  · rename_i lvls pins hf
+    rcases foldl_expr_sound (S := fun m => ∃ p ∈ pins, m ∈ p.needs) pins _
+      (fun p hp m hm => ⟨p, hp, hm⟩) n hn with h | h
+    · rcases base n h with h | h | h
+      · exact .inl h
+      · exact .inr (.inl h)
+      · exact .inr (.inr (.inl h))
+    · exact .inr (.inr (.inr ⟨lvls, pins, hf, h⟩))
+  · rcases base n hn with h | h | h
+    · exact .inl h
+    · exact .inr (.inl h)
+    · exact .inr (.inr (.inl h))
+
+theorem const_sound (x : NeedsSt) (ci : ConstantInfo) :
+    ∀ n ∈ (x.const ci).2, n ∈ x.2 ∨ ConstReads ci n := by
+  intro n hn
+  have hty : ∀ m ∈ (x.expr ci.toConstantVal.type).2, m ∈ x.2 ∨ ConstReads ci m := by
+    intro m hm
+    rcases needsGo_sound _ x.1 x.2 m hm with h | h
+    · exact .inl h
+    · exact .inr (.inl h)
+  have hfp : ∀ m ∈ pinFootprint ci.toConstantVal.name, ConstReads ci m :=
+    fun m hm => .inr (.inr (.inr (.inr hm)))
+  unfold NeedsSt.const at hn
+  simp only [NeedsSt.names] at hn
+  rcases mem_appendList.1 hn with hn | hn
+  rotate_left
+  · exact .inr (hfp n hn)
+  cases ci with
+  | defnInfo cv v hh =>
+    rcases needsGo_sound v _ _ n hn with h | h
+    · exact hty n h
+    · exact .inr (.inr (.inl ⟨cv, v, hh, rfl, h⟩))
+  | recInfo cv mI rP isK rules =>
+    have key : ∀ (rs : List RecRule) (y : NeedsSt), (∀ r ∈ rs, r ∈ rules) →
+        ∀ m ∈ (rs.foldl NeedsSt.rule y).2, m ∈ y.2 ∨ ConstReads (.recInfo cv mI rP isK rules) m := by
+      intro rs
+      induction rs with
+      | nil => intro y _ m hm; exact .inl hm
+      | cons r rs ih =>
+        intro y hr m hm
+        rcases ih (y.rule r) (fun r' h' => hr r' (List.mem_cons_of_mem _ h')) m hm with h | h
+        · rcases rule_sound y r m h with h | h
+          · exact .inl h
+          · exact .inr (.inr (.inr (.inl ⟨cv, mI, rP, isK, rules, rfl, r, hr r List.mem_cons_self, h⟩)))
+        · exact .inr h
+    rcases key rules _ (fun r h => h) n hn with h | h
+    · exact hty n h
+    · exact .inr h
+  | indInfo cv caps =>
+    rcases mem_appendList.1 hn with h | h
+    · exact hty n h
+    · simp only [List.mem_append] at h
+      refine .inr (.inr (.inr (.inr (.inl ⟨cv, caps, rfl, ?_⟩))))
+      rcases h with h | h
+      · exact .inl h
+      · split at h
+        · rename_i he
+          exact .inr ⟨he, by simpa using h⟩
+        · simp at h
+  | axiomInfo cv => exact hty n hn
+  | thmInfo cv => exact hty n hn
+  | ctorInfo cv i n' => exact hty n hn
+
+theorem table_sound (x : NeedsSt) (t : ProjTable) :
+    ∀ n ∈ (x.table t).2, n ∈ x.2 ∨ TableReads t n := by
+  intro n hn
+  unfold NeedsSt.table at hn
+  rcases foldl_expr_sound (S := fun m => ∃ b ∈ t.bodies.toList, m ∈ b.needs) _ _
+    (fun b hb m hm => ⟨b, hb, hm⟩) n hn with h | h
+  · simp only [NeedsSt.names] at h
+    rcases mem_appendList.1 h with h | h
+    · exact .inl h
+    · simp only [List.mem_cons, List.not_mem_nil, or_false] at h
+      rcases h with rfl | rfl
+      · exact .inr (.inl rfl)
+      · exact .inr (.inr (.inl rfl))
+  · exact .inr (.inr (.inr h))
+
+/-- **`recordReads` lists only names a record's constants and tables read.** -/
+theorem recordReads_sound {d : Declaration} {n : Name} (h : n ∈ recordReads d) :
+    RecordReads d n := by
+  unfold recordReads at h
+  have kc : ∀ (cs : List ConstantInfo) (y : NeedsSt), (∀ c ∈ cs, c ∈ declConstants d) →
+      ∀ m ∈ (cs.foldl NeedsSt.const y).2, m ∈ y.2 ∨ RecordReads d m := by
+    intro cs
+    induction cs with
+    | nil => intro y _ m hm; exact .inl hm
+    | cons c cs ih =>
+      intro y hc m hm
+      rcases ih (y.const c) (fun c' h' => hc c' (List.mem_cons_of_mem _ h')) m hm with h | h
+      · rcases const_sound y c m h with h | h
+        · exact .inl h
+        · exact .inr (.inl ⟨c, hc c List.mem_cons_self, h⟩)
+      · exact .inr h
+  have kt : ∀ (ts : List ProjTable) (y : NeedsSt), (∀ t ∈ ts, t ∈ declTables d) →
+      ∀ m ∈ (ts.foldl NeedsSt.table y).2, m ∈ y.2 ∨ RecordReads d m := by
+    intro ts
+    induction ts with
+    | nil => intro y _ m hm; exact .inl hm
+    | cons t ts ih =>
+      intro y ht m hm
+      rcases ih (y.table t) (fun t' h' => ht t' (List.mem_cons_of_mem _ h')) m hm with h | h
+      · rcases table_sound y t m h with h | h
+        · exact .inl h
+        · exact .inr (.inr ⟨t, ht t List.mem_cons_self, h⟩)
+      · exact .inr h
+  rcases kt _ _ (fun t h => h) n h with h | h
+  · rcases kc _ _ (fun c h => h) n h with h | h
+    · simp at h
+    · exact h
+  · exact h
+
+/-- **The names a record reads are in `recordReads`.** -/
+theorem recordReads_complete {d : Declaration} {n : Name} (h : RecordReads d n) :
+    n ∈ recordReads d := by
+  obtain ⟨hc, ht⟩ := recordReads_covers d
+  rcases h with ⟨ci, hci, h⟩ | ⟨t, hti, h⟩
+  · obtain ⟨c1, c2, c3, c4, c5⟩ := hc ci hci
+    rcases h with h | ⟨cv, v, hh, rfl, h⟩ | ⟨cv, mI, rP, isK, rules, rfl, r, hr, h⟩ |
+        ⟨cv, caps, rfl, h⟩ | h
+    · exact c1 n h
+    · exact c2 cv v hh rfl n h
+    · obtain ⟨r1, r2, r3⟩ := c3 cv mI rP isK rules rfl r hr
+      rcases h with h | rfl | ⟨lvls, pins, hf, p, hp, h⟩
+      · exact r1 n h
+      · exact r2
+      · exact r3 lvls pins hf p hp n h
+    · rcases h with h | ⟨he, rfl⟩
+      · exact (c4 cv caps rfl).1 n h
+      · exact (c4 cv caps rfl).2 he
+    · exact c5 n h
+  · obtain ⟨t1, t2, t3⟩ := ht t hti
+    rcases h with rfl | rfl | ⟨b, hb, h⟩
+    · exact t1
+    · exact t2
+    · exact t3 b hb n h
+
+/-- What an axiom's constant reads, any constant of its statement reads. -/
+theorem axiom_constReads {cv : ConstantVal} (hq : cv.name ≠ quotSoundName) {ci : ConstantInfo}
+    (hci : ci ∈ declConstants (.axiomDecl cv)) {n : Name} (hr : ConstReads ci n)
+    {c : ConstantInfo} (hc : c.toConstantVal = cv) : ConstReads c n := by
+  simp only [declConstants, hq, ↓reduceIte] at hci
+  split at hci
+  · simp at hci
+  simp only [List.mem_singleton] at hci
+  subst hci
+  rcases hr with h | ⟨_, _, _, h, -⟩ | ⟨_, _, _, _, _, h, -⟩ | ⟨_, _, h, -⟩ | h
+  · exact .inl (by rw [hc]; exact h)
+  · cases h
+  · cases h
+  · cases h
+  · exact .inr (.inr (.inr (.inr (by rw [hc]; exact h))))
+
+/-- **A presentation reads what the record it presents reads**, or less (a statement at no
+`Quot.sound`, whose constant is the pinned one). -/
+theorem Presents.reads {d p : Declaration} (h : Presents d p)
+    (hq : ∀ cv, stmtOf p = .axiomDecl cv → cv.name ≠ quotSoundName ∨ p = .axiomDecl cv)
+    {n : Name} (hn : n ∈ recordReads d) : n ∈ recordReads p := by
+  apply recordReads_complete
+  rcases h with ⟨hperm, htab⟩ | ⟨rfl, -⟩
+  · rcases recordReads_sound hn with ⟨ci, hci, hr⟩ | ⟨t, hti, hr⟩
+    · exact .inl ⟨ci, hperm.mem_iff.1 hci, hr⟩
+    · exact .inr ⟨t, htab ▸ hti, hr⟩
+  · have hsound := recordReads_sound hn
+    cases p with
+    | defnDecl cv v hh =>
+      rcases hsound with ⟨ci, hci, hr⟩ | ⟨t, hti, -⟩
+      · have hq' := (hq cv rfl).resolve_right (by simp)
+        exact .inl ⟨_, List.mem_singleton_self _, axiom_constReads hq' hci hr rfl⟩
+      · simp [stmtOf, declTables] at hti
+    | thmDecl cv v =>
+      rcases hsound with ⟨ci, hci, hr⟩ | ⟨t, hti, -⟩
+      · have hq' := (hq cv rfl).resolve_right (by simp)
+        exact .inl ⟨_, List.mem_singleton_self _, axiom_constReads hq' hci hr rfl⟩
+      · simp [stmtOf, declTables] at hti
+    | opaqueDecl cv v =>
+      rcases hsound with ⟨ci, hci, hr⟩ | ⟨t, hti, -⟩
+      · have hq' := (hq cv rfl).resolve_right (by simp)
+        exact .inl ⟨_, List.mem_singleton_self _, axiom_constReads hq' hci hr rfl⟩
+      · simp [stmtOf, declTables] at hti
+    | axiomDecl cv => exact hsound
+    | quotDecl k cv => exact hsound
+    | indDecl b nP => exact hsound
 
 end ConLeche.Driver
