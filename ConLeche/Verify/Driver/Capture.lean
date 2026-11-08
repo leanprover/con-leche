@@ -1320,4 +1320,156 @@ theorem clashAgree_st (he : EnvOk sp fs env) :
 
 end
 
+/-! ## The worklist -/
+
+/-- **Where a checked read comes from**: a record's read (its home the reader), a partner read
+of `agreeCheck` at a copy of a reader's view, or a partner read of a clash name a record
+stores. -/
+@[expose] def Origin (sp : SearchPath) (fs : FS) (env : ReachEnv ModelIO) (ctx : Array Declaration)
+    (homes : Array Name) (z : Name × Name) : Prop :=
+  (∃ (k : Nat) (d : Declaration), ctx[k]? = some d ∧ homes[k]? = some z.1 ∧ z.2 ∈ recordReads d) ∨
+  (∃ h, CapNP sp fs h z) ∨
+  (∃ (k : Nat) (d : Declaration), ctx[k]? = some d ∧ ∃ n ∈ declNames d, ∃ cs, env.copies[n]? = some cs ∧
+    ∃ kc ∈ cs, z.1 = kc.1 ∧ z.2 ∈ (needsGo {} #[] kc.2.type).2)
+
+/-- **The worklist's invariant** (see the module docstring), `D` the reads checked so far. -/
+structure CapInv (sp : SearchPath) (fs : FS) (env : ReachEnv ModelIO) (L : ReachLog)
+    (c : ReachCache) (D : List (Name × Name)) : Prop where
+  cache : CacheOk sp fs c
+  views : VOk sp fs c
+  size : L.ctx.size = L.homes.size
+  passed : ∀ x ∈ D,
+    Passed sp fs env c.located (· ∈ c.pending) (fun z => z ∈ D ∨ z ∈ c.partners) x.1 x.2
+  records : ∀ (k : Nat) (d : Declaration) (h : Name), L.ctx[k]? = some d → L.homes[k]? = some h →
+    (∀ y ∈ recordReads d, (h, y) ∈ D) ∧
+    (∃ x ∈ declNames d, ∃ s, copyOf env c.located x = some s ∧ s.part.mod = h ∧ ReadAt sp fs d s) ∧
+    (∀ n ∈ declNames d, ∃ s, copyOf env c.located n = some s ∧ s.part.mod = h) ∧
+    (∀ n ∈ declNames d, ∀ cs, env.copies[n]? = some cs → ∀ kc ∈ cs,
+      ∀ y ∈ (needsGo {} #[] kc.2.type).2, (kc.1, y) ∈ D ∨ (kc.1, y) ∈ c.partners)
+  located : ∀ (y : Name) (s : Spot), c.located[y]? = some s →
+    importerSpot env y = none ∧ Reached sp fs env.wr s.part.mod
+  reads : ∀ z, z ∈ D ∨ z ∈ c.partners → Reached sp fs env.wr z.1 ∧ Origin sp fs env L.ctx L.homes z
+  clashes : ∀ cl ∈ env.wr.clashes, ClashOk sp fs env.wr (· ∈ c.pending) cl
+
+section
+variable {sp : SearchPath} {fs : FS} {env : ReachEnv ModelIO} {ho : HS}
+
+theorem importerSpot_reached (hsize : env.wr.index.parts.size ≤ env.wr.loads.order.size)
+    {y : Name} {i : Nat} {s : Spot} (h : importerSpot env y = some (i, s)) :
+    Reached sp fs env.wr s.part.mod := by
+  unfold importerSpot at h
+  obtain ⟨cp, -, h⟩ := bind_some_left h
+  obtain ⟨q, hq, h⟩ := bind_some_left h
+  simp only [pure, Option.some.injEq, Prod.mk.injEq] at h
+  obtain ⟨-, rfl⟩ := h
+  simp only [NameIndex.at] at hq
+  obtain ⟨t, ht, -⟩ := bind_some_left hq
+  have : cp.mod < env.wr.index.parts.size := (Array.getElem?_eq_some_iff.1 ht).1
+  exact .loaded (by omega)
+
+theorem copyOf_reached (hsize : env.wr.index.parts.size ≤ env.wr.loads.order.size)
+    {loc : Std.HashMap Name Spot}
+    (hloc : ∀ (y : Name) (s : Spot), loc[y]? = some s → Reached sp fs env.wr s.part.mod)
+    {y : Name} {s : Spot} (h : copyOf env loc y = some s) : Reached sp fs env.wr s.part.mod := by
+  unfold copyOf at h
+  split at h
+  · rename_i i s' hi
+    cases h
+    exact importerSpot_reached hsize hi
+  · exact hloc y s h
+
+theorem mem_foldl_partnerReads {z : Name × Name} :
+    ∀ (cs : List (Name × ConstantVal)) (acc : Array (Name × Name)),
+      z ∈ cs.foldl (fun acc (kc : Name × ConstantVal) => acc ++ partnerReads kc.1 kc.2.type) acc ↔
+        z ∈ acc ∨ ∃ kc ∈ cs, z.1 = kc.1 ∧ z.2 ∈ (needsGo {} #[] kc.2.type).2
+  | [], acc => by simp
+  | kc :: cs, acc => by
+    rw [List.foldl_cons, mem_foldl_partnerReads cs, Array.mem_append, mem_partnerReads]
+    constructor
+    · rintro ((h | h) | ⟨kc', hk, h⟩)
+      · exact .inl h
+      · exact .inr ⟨kc, List.mem_cons_self, h⟩
+      · exact .inr ⟨kc', List.mem_cons_of_mem _ hk, h⟩
+    · rintro (h | ⟨kc', hk, h⟩)
+      · exact .inl (.inl h)
+      · rcases List.mem_cons.1 hk with rfl | hk
+        · exact .inl (.inr h)
+        · exact .inr ⟨kc', hk, h⟩
+
+theorem mem_clashPartners {z : Name × Name} :
+    ∀ (ns : List Name) (acc : Array (Name × Name)),
+      z ∈ ns.foldl (fun acc n => match env.copies[n]? with
+        | some cs => cs.foldl (fun acc (k, cv) => acc ++ partnerReads k cv.type) acc
+        | none => acc) acc ↔
+        z ∈ acc ∨ ∃ n ∈ ns, ∃ cs, env.copies[n]? = some cs ∧
+          ∃ kc ∈ cs, z.1 = kc.1 ∧ z.2 ∈ (needsGo {} #[] kc.2.type).2
+  | [], acc => by simp
+  | n :: ns, acc => by
+    rw [List.foldl_cons, mem_clashPartners ns]
+    constructor
+    · rintro (h | ⟨n', hn, cs, hcs, h⟩)
+      · split at h
+        · rename_i cs hcs
+          rw [← Array.foldl_toList, mem_foldl_partnerReads] at h
+          rcases h with h | ⟨kc, hk, h⟩
+          · exact .inl h
+          · exact .inr ⟨n, List.mem_cons_self, cs, hcs, kc, Array.mem_toList_iff.1 hk, h⟩
+        · exact .inl h
+      · exact .inr ⟨n', List.mem_cons_of_mem _ hn, cs, hcs, h⟩
+    · rintro (h | ⟨n', hn, cs, hcs, kc, hk, h⟩)
+      · refine .inl ?_
+        split
+        · rw [← Array.foldl_toList, mem_foldl_partnerReads]; exact .inl h
+        · exact h
+      · rcases List.mem_cons.1 hn with rfl | hn
+        · refine .inl ?_
+          rw [hcs]
+          simp only []
+          rw [← Array.foldl_toList, mem_foldl_partnerReads]
+          exact .inr ⟨kc, Array.mem_toList_iff.2 hk, h⟩
+        · exact .inr ⟨n', hn, cs, hcs, kc, hk, h⟩
+
+theorem mem_clashCopiesOf {wr : WorkerReads} {n : Name} {cs : Array (Name × ConstantVal)}
+    (h : (clashCopiesOf wr)[n]? = some cs) {kc : Name × ConstantVal} (hk : kc ∈ cs) :
+    ∃ cl ∈ wr.clashes, ∃ x ∈ cl.copies, kc = (wr.loads.nameAt x.1.mod, x.2.1) := by
+  unfold clashCopiesOf at h
+  rw [← Array.foldl_toList] at h
+  suffices H : ∀ (l : List Clash) (m : Std.HashMap Name (Array (Name × ConstantVal))),
+      (∀ cl ∈ l, cl ∈ wr.clashes) →
+      (∀ (n : Name) (cs : Array (Name × ConstantVal)), m[n]? = some cs → ∀ kc ∈ cs,
+        ∃ cl ∈ wr.clashes, ∃ x ∈ cl.copies, kc = (wr.loads.nameAt x.1.mod, x.2.1)) →
+      ∀ n cs, (l.foldl (fun m cl => m.insert cl.name
+        (cl.copies.map fun (cp, cv, _) => (wr.loads.nameAt cp.mod, cv))) m)[n]? = some cs →
+        ∀ kc ∈ cs, ∃ cl ∈ wr.clashes, ∃ x ∈ cl.copies, kc = (wr.loads.nameAt x.1.mod, x.2.1) from
+    H _ {} (fun cl h => Array.mem_toList_iff.1 h) (by simp) n cs h kc hk
+  intro l
+  induction l with
+  | nil => intro m _ hm; exact hm
+  | cons cl l ih =>
+    intro m hl hm
+    simp only [List.foldl_cons]
+    refine ih _ (fun c hc => hl c (List.mem_cons_of_mem _ hc)) (fun n' cs' h' kc' hk' => ?_)
+    rw [Std.HashMap.getElem?_insert] at h'
+    split at h'
+    · cases h'
+      obtain ⟨⟨cp, cv, k⟩, hx, rfl⟩ := Array.mem_map.1 hk'
+      exact ⟨cl, hl cl List.mem_cons_self, _, hx, rfl⟩
+    · exact hm n' cs' h' kc' hk'
+
+theorem Origin.push {ctx : Array Declaration} {homes : Array Name} (hsz : ctx.size = homes.size)
+    {d : Declaration} {h : Name} {z : Name × Name} (ho : Origin sp fs env ctx homes z) :
+    Origin sp fs env (ctx.push d) (homes.push h) z := by
+  have hk : ∀ {k : Nat} {e : Declaration}, ctx[k]? = some e → (ctx.push d)[k]? = some e ∧
+      ∀ {g : Name}, homes[k]? = some g → (homes.push h)[k]? = some g := by
+    intro k e he
+    have hlt := (Array.getElem?_eq_some_iff.1 he).1
+    refine ⟨by rw [Array.getElem?_push]; simp only [show k ≠ ctx.size by omega, ↓reduceIte]; exact he, fun {g} hg => ?_⟩
+    rw [Array.getElem?_push]; simp only [show k ≠ homes.size by omega, ↓reduceIte]; exact hg
+  rcases ho with ⟨k, e, he, hh, hr⟩ | ho | ⟨k, e, he, hrest⟩
+  · exact .inl ⟨k, e, (hk he).1, (hk he).2 hh, hr⟩
+  · exact .inr (.inl ho)
+  · exact .inr (.inr ⟨k, e, (hk he).1, hrest⟩)
+
+end
+
 end ConLeche.Driver
