@@ -22,11 +22,14 @@ it plain `IO`:
 * **a memory budget** (`memory`, KiB, 0 for none; `--schedule-memory=40G`): every tick the
   resident sets of the running workers are read (`workerRss`: the scheduler's children in `/proc/self/task/*/children`, each
   by its last argument, `/proc/<pid>/status`'s `VmRSS` and `VmHWM`, the peak so far).
-  **Admission by size**: every module has a known size, the largest resident set seen when it was
-  killed (a lower bound of its peak), 0 while it was never killed.  The room is the budget minus
-  the running workers' peaks; the first module of the queue (the killed ones, in order, then the
+  **Admission by size**: every module has a known size: the largest resident set seen when it was
+  killed, at least double its previous known size and at least the typical peak (a kill sees a
+  lower bound only); a module never killed counts as the typical peak.  The typical peak is the
+  90th percentile of the peaks of the last 200 finished workers (the budget divided by the jobs
+  until 8 have finished).  The room is the budget minus the running workers' peaks, each counted
+  at least at the typical peak (a young worker has not shown its growth yet); the first module of the queue (the killed ones, in order, then the
   others) whose size fits into the room starts, the ones that do not fit stay in their place
-  (only the killed modules have a size, so the scan is over them alone); with nothing running the
+  (only the killed modules have an own size, so the scan is over them alone); with nothing running the
   first one always starts, and then the verdict `memory` decides if it is over the budget.  **Preemption**: when the current resident sets sum to more than
   the budget and no worker is protected, **the largest worker becomes protected** (the largest
   current set, then the largest peak).  **The protection is sticky**: the protected worker stays
@@ -270,12 +273,34 @@ structure St where
   requeued : Nat := 0
   /-- the kills for memory, by module -/
   kills : Std.HashMap Name Nat := {}
+  /-- the largest resident set seen of each running module, KiB -/
+  seen : Std.HashMap Name Nat := {}
+  /-- the peaks of the last `typWindow` finished workers, KiB -/
+  peaks : Array Nat := #[]
+  /-- the typical peak of a worker, KiB: the `typQuantile` of `peaks`; before `typMin` finishes,
+  the budget divided by the jobs -/
+  typ : Nat := 0
+  /-- the running workers' peaks each at least `typ`, at the last tick: what admission counts -/
+  effPk : Nat := 0
   /-- the times (ms since the start) of the last `etaWindow`
   finishes, and before them the start of the window (first element); `#[0]` at the start -/
   stamps : Array Nat := #[0]
 
 /-- How many finishes the estimate looks back over. -/
 def etaWindow : Nat := 200
+
+/-- How many finished workers' peaks the typical peak looks at, how many it needs before it
+replaces the start value, and its quantile (9/10). -/
+def typWindow : Nat := 200
+def typMin : Nat := 8
+
+/-- The typical peak after a finished worker's peak `pk`: the window of recent peaks and its
+90th percentile (`typ` is kept while the window is short). -/
+def pushPeak (peaks : Array Nat) (typ pk : Nat) : Array Nat × Nat :=
+  let w := peaks.push pk
+  let w := if w.size > typWindow then w.extract 1 w.size else w
+  if w.size < typMin then (w, typ)
+  else (w, ((w.qsort (· < ·))[w.size * 9 / 10]?).getD typ)
 
 /-- The estimate's window after a finish at active time `t` (ms since the start, the time with
 ): the last `etaWindow` finishes' times, with the start of the window first. -/
@@ -336,14 +361,16 @@ def run (parse : String → Option Name) (app : System.FilePath) (args : Name �
     progressText total st.nDone st.running.size
       (st.stamps.size - 1, (st.stamps.back?.getD 0) - (st.stamps[0]?.getD 0)) st.mem o.memory
       st.requeued st.prot
-      (if st.running.isEmpty then 0 else (st.front.filter (·.2 > roomOf ((st.mem.map (·.2.2)).getD 0))).length)
+      (if st.running.isEmpty then 0 else (st.front.filter (·.2 > roomOf st.effPk)).length)
   let finish (st : St) (r : Running) (w : String) : IO St := do
     let msg ← r.diagText
     if let some h := logH then
       h.putStrLn s!"{w}\t{spell r.m}"
       h.flush
     let now ← IO.monoMsNow
+    let (peaks, typ) := pushPeak st.peaks st.typ ((st.seen.getD r.m 0))
     let st := { st with verdicts := st.verdicts.insert r.m w, finished := st.finished + 1,
+                        peaks, typ, seen := st.seen.erase r.m,
                         nDone := st.nDone + 1, lastLine := now,
                         stamps := pushStamp st.stamps (now - t0) }
     out.putStrLn s!"con-leche: schedule: {r.m}: {w} t={ConLeche.Cached.msSecs (now - r.start)}s \
@@ -377,6 +404,14 @@ def run (parse : String → Option Name) (app : System.FilePath) (args : Name �
         let (k, h) := look l r
         (t + k, max m k, pk + max h k)) (0, 0, 0)
     if let some (t, _, _) := sample st.running then st := { st with peak := max st.peak t }
+    -- the largest set seen of each running module, for the typical peak of the finished ones
+    st := { st with seen := st.running.foldl (fun m r =>
+      let (k, h) := look (rss.getD []) r
+      m.insert r.m (max (m.getD r.m 0) (max k h))) st.seen }
+    -- what admission counts per running worker: its peak, at least the typical peak
+    let eff (rs : Array Running) : Nat := rs.foldl (fun a r =>
+      let (k, h) := look (rss.getD []) r
+      a + max (max k h) st.typ) 0
     let mut still : Array Running := #[]
     let mut ended : Array (Running × String) := #[]
     for r in st.running do
@@ -388,7 +423,7 @@ def run (parse : String → Option Name) (app : System.FilePath) (args : Name �
           let _ ← r.child.wait
           ended := ended.push (r, "timeout")
         else still := still.push r
-    st := { st with running := still, mem := sample still }
+    st := { st with running := still, mem := sample still, effPk := eff still }
     -- the protected worker finished: starts resume
     let mut resumed : Option Name := none
     if let some p := st.prot then
@@ -433,32 +468,49 @@ def run (parse : String → Option Name) (app : System.FilePath) (args : Name �
                 err.putStrLn s!"con-leche: schedule: memory over {gibBudget o.memory}: \
                   protecting {p.m} ({gib k})"
                 err.flush
-              -- the youngest other worker makes room, and is queued again at the front
-              let mut vs : Option (Nat × Nat) := none
-              for h2 : j in [0:st.running.size] do
-                if j != i then
-                  let sj := st.running[j].start
-                  vs := match vs with
-                    | some (_, s0) => if sj ≥ s0 then some (j, sj) else vs
-                    | none => some (j, sj)
-              if let some (v, _) := vs then
-                if h3 : v < st.running.size then
-                  let r := st.running[v]
-                  r.child.kill
-                  let _ ← r.child.wait
-                  let _ ← r.diagText
-                  err.putStrLn s!"con-leche: schedule: {r.m}: killed at {gib (look rss r).1}, \
-                    requeued"
-                  err.flush
-                  let sz := max (look rss r).1 ((st.front.find? (·.1 == r.m)).map (·.2) |>.getD 0)
-                  st := { st with running := st.running.eraseIdx v, prot := some p.m,
-                                  front := (r.m, sz) :: st.front.filter (·.1 != r.m),
-                                  requeued := st.requeued + 1,
-                                  kills := st.kills.insert r.m ((st.kills.getD r.m 0) + 1) }
+              -- the youngest other workers make room, until the sets sum to the budget at most,
+              -- and are queued again at the front; one line for the burst
+              let mut left := total
+              let mut killed : Array (Name × Nat) := #[]
+              for _ in [0:st.running.size] do
+                if left > o.memory then
+                  let mut vs : Option (Nat × Nat) := none
+                  for j in [0:st.running.size] do
+                    if h2 : j < st.running.size then
+                      if st.running[j].m != p.m then
+                        let sj := st.running[j].start
+                        vs := match vs with
+                          | some (_, s0) => if sj ≥ s0 then some (j, sj) else vs
+                          | none => some (j, sj)
+                  if let some (v, _) := vs then
+                    if h3 : v < st.running.size then
+                      let r := st.running[v]
+                      r.child.kill
+                      let _ ← r.child.wait
+                      let _ ← r.diagText
+                      let kr := (look rss r).1
+                      left := left - min left kr
+                      killed := killed.push (r.m, kr)
+                      -- the known size grows at least by doubling, and is at least the typical
+                      -- peak: the set at the kill is a lower bound, a restart must not die again
+                      let sz := max (max kr st.typ)
+                        (2 * ((st.front.find? (·.1 == r.m)).map (·.2) |>.getD 0))
+                      st := { st with running := st.running.eraseIdx v, prot := some p.m,
+                                      front := (r.m, sz) :: st.front.filter (·.1 != r.m),
+                                      requeued := st.requeued + 1,
+                                      kills := st.kills.insert r.m ((st.kills.getD r.m 0) + 1) }
+              if killed.size = 1 then
+                err.putStrLn s!"con-leche: schedule: {killed[0]!.1}: killed at \
+                  {gib killed[0]!.2}, requeued"
+              else if killed.size > 1 then
+                let items := ", ".intercalate (killed.toList.map fun (m, k) => s!"{m} {gib k}")
+                err.putStrLn s!"con-leche: schedule: killed {killed.size} workers ({items}), \
+                  requeued"
+              err.flush
     -- starts: the first module of the queue whose known size fits into the room (the budget
     -- minus the running workers' peaks); nothing running: the first one always starts
     let now ← IO.monoMsNow
-    let room := roomOf (((sample st.running).map (·.2.2)).getD 0)
+    let room := roomOf (eff st.running)
     if st.stopped then
       st := { st with pending := [], front := [] }
     else if now - st.lastStart ≥ o.stagger && st.running.size < jobs then
@@ -466,7 +518,8 @@ def run (parse : String → Option Name) (app : System.FilePath) (args : Name �
       | some (m, _) => st ← start { st with front := st.front.filter (·.1 != m) } m now
       | none =>
         match st.pending with
-        | m :: ms => if st.running.isEmpty || room > 0 then st ← start { st with pending := ms } m now
+        | m :: ms =>
+          if st.running.isEmpty || st.typ ≤ room then st ← start { st with pending := ms } m now
         | [] => pure ()
     -- the heartbeat: after `heartbeat` ms without a line, the counts and the longest runs
     if o.heartbeat > 0 && now - st.lastLine ≥ o.heartbeat && !st.running.isEmpty then
@@ -477,7 +530,7 @@ def run (parse : String → Option Name) (app : System.FilePath) (args : Name �
       err.flush
       st := { st with lastLine := now }
     return st
-  let st0 : St := { pending := todo, verdicts := logged }
+  let st0 : St := { pending := todo, verdicts := logged, typ := o.memory / jobs }
   let stRef ← IO.mkRef { st0 with nDone := total - todo.length, lastLine := t0 }
   let rec loop : Nat → IO Unit
     | 0 => pure ()

@@ -114982,3 +114982,25 @@ Gates: `lake build`, `lake test` warning-free (after merging `modular` at 3bb1a0
 layering, trust surface, the olean-compare tool (`--home` now `readFiles` then `homeOf`), links (`OVERVIEW.md`'s `checkMainG_ndjson_accept` anchor repointed),
 quotes.  Files: `_tmp/508/scripts/` (the strace readers, `measure.sh`), `_tmp/508/logs/`
 (`k-{modtip,final3}-*.txt` the traces, `inter-f3.txt` the measurements).
+
+### TASK #512 addendum — typical peak, doubled sizes, one kill line per tick
+
+The maintainer's CFSG run thrashed under size-aware admission: modules killed at 32 MiB (a lower
+bound of the peak, taken while the worker was still ramping up) came back at once and died
+again (up to four times), 30 young workers each counted at their small `VmHWM` overshot 40 GiB a
+few seconds later, finishes fell to 4 in 40 kills, ETA 24 h to 44 h.  Changes, `ScheduleIO.lean`
+only:
+
+* **Typical peak** `typ`: the 90th percentile of the peaks (largest set seen, per tick) of the
+  last 200 finished workers; the budget ÷ jobs until 8 have finished.  Admission counts every
+  running worker at `max(peak, typ)`, and a never-killed module at `typ` (it starts only if
+  `typ` fits the room).  A young worker thus reserves the growth it has not shown yet.
+* **Known size on a kill** = `max(RSS at the kill, typ, 2 × previous known size)`: a module killed
+  twice never comes back at the same size, so thrashing is bounded by log(size) kills.
+* **One kill line per burst**: an overflow kills the youngest non-protected workers until the
+  sampled sets sum to the budget at most (one tick, the killed sets subtracted), and prints
+  `killed 8 workers (A 0.1 GiB, B 2.1 GiB, …), requeued`, or the single-kill line.
+* No hysteresis (the typical-peak reservation makes admission count the growth).
+
+Hand test (`--jobs=8`, Init.Data.Nat.Lemmas closure): 200M no kill, exit 0; 120M 3 kills, the
+protection lines as before, Lemmas (about the budget alone) `memory`, exit 3.
