@@ -739,4 +739,76 @@ theorem nameIndexOf_first (ps : List NamePositions) (y : Name) :
   simp only [nameIndexOf, List.foldl_toArray']
   rfl
 
+theorem find?_eq_findIdx? {α : Type} (p : α → Bool) :
+    ∀ l : List α, l.find? p = (l.findIdx? p).bind (l[·]?)
+  | [] => rfl
+  | a :: l => by
+    simp only [List.find?_cons, List.findIdx?_cons]
+    cases hp : p a
+    · simp only [Bool.false_eq_true, ite_false]
+      rw [find?_eq_findIdx? p l]
+      cases l.findIdx? p <;> simp
+    · simp
+
+theorem findIdx?_spec {α : Type} {p : α → Bool} :
+    ∀ {l : List α} {j : Nat}, l.findIdx? p = some j → ∃ a, l[j]? = some a ∧ p a = true
+  | [], _, h => by simp at h
+  | a :: l, j, h => by
+    rw [List.findIdx?_cons] at h
+    cases hp : p a
+    · simp only [hp, Bool.false_eq_true, ite_false] at h
+      obtain ⟨j', hj', rfl⟩ := Option.map_eq_some_iff.1 h
+      obtain ⟨b, hb, hpb⟩ := findIdx?_spec hj'
+      exact ⟨b, by simpa using hb, hpb⟩
+    · simp only [hp, ite_true, Option.some.injEq] at h
+      subst h
+      exact ⟨a, rfl, hp⟩
+
+/-- **The first copy in some parts, by its copy**: the parts' first copy of `y` is the copy the
+first-copy search finds, at the part's key. -/
+theorem firstIn_zip (y : Name) :
+    ∀ (ps : List NamePositions) (ks : List PartKey) (i : Nat), ks.length = ps.length →
+      (firstIn (ks.zip ps) y = (firstCopyIn ps i y).bind fun cp =>
+        (ks[cp.mod - i]?).bind fun k => (ps[cp.mod - i]?).bind fun t =>
+          (t.consts[cp.pos]?).map fun q => ⟨k, q⟩) ∧
+      ∀ cp, firstCopyIn ps i y = some cp → i ≤ cp.mod ∧ ∃ t q, ps[cp.mod - i]? = some t ∧
+        t.consts[cp.pos]? = some q ∧ q.name = y
+  | [], ks, i, h => by
+    cases ks with
+    | nil => exact ⟨rfl, fun cp h => by simp [firstCopyIn] at h⟩
+    | cons _ _ => simp at h
+  | t :: ps, ks, i, h => by
+    cases ks with
+    | nil => simp at h
+    | cons k ks =>
+      simp only [List.length_cons, Nat.add_right_cancel_iff] at h
+      obtain ⟨ih1, ih2⟩ := firstIn_zip y ps ks (i + 1) h
+      simp only [List.zip_cons_cons, firstIn, firstCopyIn]
+      rw [find?_eq_findIdx?]
+      cases hj : t.consts.toList.findIdx? (·.name == y) with
+      | some j =>
+        obtain ⟨q, hq, hqy⟩ := findIdx?_spec hj
+        simp only [Option.bind_some, Nat.sub_self, List.getElem?_cons_zero]
+        refine ⟨?_, fun cp hcp => ?_⟩
+        · simp only [Array.getElem?_toList] at hq
+          simp [hq]
+        · cases hcp
+          refine ⟨Nat.le_refl _, t, q, by simp, by simpa using hq, beq_iff_eq.1 hqy⟩
+      | none =>
+        simp only [Option.bind_none]
+        refine ⟨?_, fun cp hcp => ?_⟩
+        · rw [ih1]
+          cases hc : firstCopyIn ps (i + 1) y with
+          | none => rfl
+          | some cp =>
+            obtain ⟨hle, -⟩ := ih2 cp hc
+            simp only [Option.bind_some]
+            have : cp.mod - i = (cp.mod - (i + 1)) + 1 := by omega
+            rw [this]
+            simp
+        · obtain ⟨hle, t', q, ht', hq, hqy⟩ := ih2 cp hcp
+          have : cp.mod - i = (cp.mod - (i + 1)) + 1 := by omega
+          refine ⟨by omega, t', q, ?_, hq, hqy⟩
+          rw [this]; simpa using ht'
+
 end ConLeche.Driver
