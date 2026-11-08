@@ -97,7 +97,10 @@ prefix's marker-freeness from the first recursor type, the prefix, the
 recursor types; the rule-less recursors' environment (`jobEnvI_ruleEnv`,
 the `sorryAx` clause from the pins), the flush, the rules, the flush.  The
 generator's record is master's `g0` component by component (`trCG` and the
-mono lemmas). -/
+mono lemmas).  Of every output it also gives its name fresh in `fe` and
+`sorryAx` only under `coreAxioms` (it is a generated constant's), and the
+stream's recursor names distinct (the pins), what the generated family's
+push needs (`jobEnvI_genRecs`). -/
 theorem genRecCheckI_run (hC : CheckConstantValFSimI) (hRF : ReducedFormerSimI)
     {fe : InLean.FEnv} {L : ConLeche.Env} (hJ : JobEnvI fe L)
     {p : InLean.BlockShape} {nestedBit : Bool} {params : List Lean.Expr}
@@ -121,7 +124,9 @@ theorem genRecCheckI_run (hC : CheckConstantValFSimI) (hRF : ReducedFormerSimI)
       .ok (out, s')) :
     CSOKI .verified false L s' ∧ TabLe s₀ s' ∧
       (∀ o ∈ out, okC o.1.type = true ∧ (trC o.1.type).looseBVarsBounded 0 = true ∧
-        (∀ r ∈ o.2.2, okC r = true ∧ (trC r).looseBVarsBounded 0 = true) ∧ OkTMN s' o.2.1) ∧
+        (∀ r ∈ o.2.2, okC r = true ∧ (trC r).looseBVarsBounded 0 = true) ∧ OkTMN s' o.2.1 ∧
+        fe.env.find? o.1.name = none ∧ (o.1.name = InLean.sorryAxName → fe.coreAxioms = true)) ∧
+      (p.recs.map (·.cvR.name)).Nodup ∧
       Runs (ConLeche.genRecCheck (ConLeche.ShadowOps.ofOps (ConLeche.fueledOpsM .verified))
         (ConLeche.mkFEnv L) (trShape p) nestedBit (TrSL s₀ params) (tbl.map (trNf s₀))
         (trCR s₀ rd) (Ms.map (trTM s₀)) (block.map trCI)) (out.map (trOut s')) := by
@@ -289,9 +294,11 @@ theorem genRecCheckI_run (hC : CheckConstantValFSimI) (hRF : ReducedFormerSimI)
     cvGs rd.recCls (fun m e L' => flushI_csoki hs₇.residue m e L') hg8 hct8 h9
   have ht₉' := ht₉.trans (TabLe.flushed (s := s₉))
   refine ⟨flushI_csoki (hs₉ .verified false L).residue _ _ _,
-    ht₂.trans (ht₃.trans (ht₃₅.trans (ht₆.trans (ht₆₈.trans ht₉')))), fun o ho => ?_, ?_⟩
+    ht₂.trans (ht₃.trans (ht₃₅.trans (ht₆.trans (ht₆₈.trans ht₉')))), fun o ho => ?_,
+    List.Pairwise.of_map toName (fun a b h he => h (he ▸ rfl)) ((namesNodup_iff _).1 hnd), ?_⟩
   · obtain ⟨hcv, hr, c, hc⟩ := hout o ho
-    refine ⟨(genCVs_closed hgen _ hcv).1, (genCVs_closed hgen _ hcv).2, hr, ?_⟩
+    refine ⟨(genCVs_closed hgen _ hcv).1, (genCVs_closed hgen _ hcv).2, hr, ?_, hfr₇ _ hcv,
+      hso _ hcv⟩
     rw [hc]
     exact (OkTMN.mono ht₉' (getD_of_all hg8.2.1 (okTMN_default _) c)).1
   -- master's side, step by step

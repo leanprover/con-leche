@@ -113812,6 +113812,83 @@ continuation hypothesis; naming it and `subst` works (round 6's finding).
 Gates: `lake build InLean InLeanProof` warning-free; `tests/layering.sh`,
 `tests/trust-surface.sh`, `tests/no-local-paths.sh`, `tests/inlean-sync.sh` pass.
 
+### Lane O7-recursors, round 8: the generated recursors' environment, the projection tables (2026-11-08)
+
+Scope was round 7's "What remains" items 1 and 3; both are done.  No `InLean/*` change; no
+`sorry`, no new axiom; `InLeanProof/PassRecs10.lean` (24 theorems, all pinned), and
+`genRecCheckI_run` (`PassRecs7`) strengthened in place.
+
+* **The major domain's head** (master's side, `genStage_majorHead` :76,
+  `genRecCheck_majorHead` :152): at every output of the stage the generated type strips at
+  the major index to a domain whose head is the output's class's inductive at its levels
+  (`classGenRecTy`'s `ClassGen.major`, the first half of `genStage_nestedRead`'s proof, which
+  needs no `member = none`), and the rule prefix is below the major index.  `ClassHead p M`
+  (`(p.memberNames.contains M.ind) = M.member.isSome`) holds of every class `targetMajorOf`
+  builds (`TargetMajorRun.classHead` :50, its two arms) and is kept by the table entries
+  (`classesNfs`); the stage needs it of its input classes and their indices in range.
+* **The firing mode** (`fire_genEntry` :184): InLean's `recFireAt` on a record with the
+  generated type and the block's members as `all` is `FireRel`-related to master's
+  `generatedFire`: through `fire_head` (round P3r's), a member class gives a member head, so
+  `.plain`; an outside class a head outside the block, so `.nested` at the domain's
+  arguments, which `NestedRead` (`genRecCheck_outFacts`) gives as the pins lifted past the
+  index variables, and `Expr.dropVars_lift` returns the pins.
+* **The entries and the push** (`entryRelI_genEntry` :314, `presI_blockRecInfosTF` :346,
+  `jobEnvI_genRecs` :424): master's `generatedRules` all fire `generatedFire`
+  (`generatedRules_eq`); a rule is related to InLean's `sumRules` entry
+  (`sumRules_rel`); each entry is pushed by `jobEnvI_push_plain` as in
+  `presI_consBlockRecsBareF`.  `jobEnvI_genRecs_of_run` :474 assembles it from
+  `genRecCheckI_run` and master's run on the readings: `envWF_genRecs` (round 7),
+  `genEntryOk_of_run` :392, and the names (`genRecs_names` :440: the outputs are at the
+  stream's recursor names, master's `genRecCheck_outCv`).
+* **`genRecCheckI_run`'s outputs**, strengthened: each output's name fresh in the stage's
+  input and `sorryAx` only under `coreAxioms` (it is a generated constant's,
+  `classRecTysOk_facts`), and the stream's recursor names distinct (the pins).
+* **The tables** (`checkStructProjTableI_run` :611, `checkBlockTablesFI_run` :726): InLean's
+  bodies (`structProjBodies`, `projBodyAt` per field) read as master's (`projBodyAt_tr` and
+  `hasPis_iff_structProjBodies`, given `projStepsOk` of each field), in range
+  (`projBodyAt_range`, from the same `fieldsOkB`), so the scoping guard carries over
+  (`constsResolveF_tr`, `allLevelParamsDefined_of_guard`, the range as master's bound;
+  master's size from `structProjBodies_size`).  Master's "table taken" guard: a table in `L`
+  at `T` is, by `EnvPresI.table` (`TableRelI`), one InLean reads off a former at `T` that is
+  not pending; so it holds where every former at the member's name is pending
+  (`TableMemberOk`), which the block's mark gives.  The task's suggested route (from
+  `EnvWF` and the members' freshness) would need the environment before the formers' push;
+  the mark is in the relation already (`PassEnvRelI`).
+
+**The tail's composition (`checkBlockTailS`, for `TailSimI`), its inputs:**
+1. `checkBlockIdxSortsFI_run` at `env₁` (`hJ.ops`; the formers' types closed).
+2. `jobEnvI_ctors` at `fe₂ = consBlockCtorsF p env₁`: the constructors' names fresh and
+   distinct, `sorryAx`, closed types (the pass's constructor stage), master's `EnvWF` of
+   `consBlockCtors` (`checkBlockPassS_run`).
+3. `genRecCheckI_run` at `fe₂` (its premises: the records', formers', table's and classes'
+   readings, `FvsOk` of the parameters, slots, `recCls` in range, the motive counts — the
+   pass's `PassDataI`), after the flush.
+4. `streamKCheckI_run` on its outputs.
+5. `jobEnvI_genRecs_of_run` from 2 and 3: master's `ClassOutParams` and `ClassHead` of the
+   read classes (`Ms.map (trTM s₀)`; both from master's `TargetMajorRun` of each class, i.e.
+   from the pass's classes stage on master's side) and `recCls` in range.
+6. `streamRecsCheckI_run` at the `JobEnvI` of 5, `sx := s'` of 3, after the flush (the stored
+   records' types and rules closed; the outputs' facts and `OkSL s' g.2.1.ds` from
+   `genRecCheckI_run`'s `OkTMN`).
+7. `checkBlockTablesFI_run` at `fe₂`'s `EnvPresI` (from 2), after the flush:
+   `TableMemberOk` of each member — a closed constructor type, `projStepsOk` at each field
+   (InLean's `projStepsAllOk` in `checkInductiveC`, `projStepsOk_mono`; to be carried by the
+   relation `R`), and every former at the member's name pending (`PassEnvRelI`'s mark with the
+   former's entry at its name).
+8. Master's `checkBlockTail` at `fueledOps .verified F`: `checkBlockRec` is `genRecCheck` at
+   `ShadowOps.ofOps`; the `Runs` composed and taken to a fuel (`runs_atF`); the flushes keep
+   `CSOKI` (`flushI_csoki`).
+
+**Findings.**  No statement was false for the code.  The firing mode needs no fact about the
+stored record: the generated type's head decides it, and that is the class's inductive by
+construction.  `revert a b` then `cases` on a matched term re-introduces in the reverse
+order of the names in a later `intro` (a tactic detail cost one build).  Rewriting `cbs.size`
+before `cbs.all p` breaks the latter's match (its default stop argument is `cbs.size`); rewrite
+the `all` first.
+
+Gates: `lake build InLean InLeanProof` warning-free; `tests/layering.sh`,
+`tests/trust-surface.sh`, `tests/no-local-paths.sh`, `tests/inlean-sync.sh` pass.
+
 ## TASK #489 — what a module's constants mention, in one array per module (2026-11-06, agent/489-flat-uses)
 
 **The task (maintainer).**  After #480, take the self-contained one of the memory fixes a census of
