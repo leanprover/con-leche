@@ -112585,8 +112585,105 @@ Nothing unexplained.
 
 Gates: `lake build InLean InLeanProof inlean-replay` warning-free;
 `tests/layering.sh`, `tests/trust-surface.sh`, `tests/no-local-paths.sh`,
-
 `tests/inlean-sync.sh` pass.
+
+### Lane follow-master: tasks #488–#493 merged, InLean follows #492 and #493 (2026-11-08)
+
+**The merge** (`git merge --no-ff master`, cc65d69e3).  Conflicts: DESIGN.md
+(union: this section, then master's #489–#493 records), `lakefile.lean`
+(master moved to `lakefile.toml`; the InLean targets moved there, same names,
+still not default), `tests/trust-surface.sh` (master's pinned `lakefile.toml`,
+re-hashed with the InLean entries; the `ReadRange.lean` `extern` entry gone
+with #491's C; InLean's two entries kept).  No InLean or InLeanProof file
+conflicted; InLeanProof broke where it cited master's removed names.
+
+**InLean, a twin of master's current code** (`InLean/*`).
+* *The projection guard* (#492).  `projGuardRowsGoM` (`InLean.CoreDefs`) is
+  `projGuardRowsGo`'s twin: a field the rest of the telescope uses is a row
+  and is opened at its interned variable, an unused one is stepped over
+  unopened (`hasLooseBVarI 0`, the cached range answering at once); the
+  projected field's domain is the last row.  `checkProjRowsI` opens the
+  parameters only (`openPisAtFvarsM entry.numParams`) and hands the rest to
+  the loop.  `projGuardRowsAtM` (rows read off a full opening through
+  `structUsedLater`) is gone; `structUsedLater` stays for positivity.
+* *The basis blocks* (#493).  `checkIndDeclC` has one route
+  (`indParamsOk`, `blockShape?`, `genEntriesAgree`, `checkBlockKS`), the
+  pinned blocks included; `checkBasisBlockC` is gone.  The reserved names'
+  check is `InLean.basisNamesOk`/`basisNamesError` (`InLean.AddDecl`), run by
+  `checkDecl` right after `checkDeclKindC`, as master's `checkDecl` after
+  `checkDeclKind`; it reads what the declaration adds (an inductive's
+  generated block, `storedBlock`).  An unsafe block takes no reserved name
+  (master has none; before, the constant check refused it).  The scattered
+  refusals are gone: `checkConstantValC`, `checkConstantValF`,
+  `classConstOk`, `blockShape?`'s three conjuncts, `reservedRecName`'s basis
+  names (and `targetRecPins`' message).  `pinAgrees` compares what master's
+  records carry: an inductive's name and type only (master's pins carry no
+  capabilities), a constructor's counts, a recursor's major index, rule
+  prefix, K flag and rules; the Lean fields InLean dropped (`all`, counts,
+  `ctors`, `isRec`, `induct`) are the generated block's, which
+  `genEntriesAgree` checks against the shape.  `reduceElemOk` reads `Nat` as
+  an inductive matching its pin (`pinFoundInd`), as master's now reads it and
+  as `Bool` was read; `pinFound` is gone.  InLean's `litShapeOk` already read
+  the `Nat` names by level parameters and type.
+
+**Validation** (`inlean-replay --kernel=inlean --compare --quiet`): Init
+64,530, Std 110,064, Lean 199,645 declarations accepted, 0 rejected, 0
+declined, 0 exact and 0 cosmetic mismatches.  `scripts/inlean_negtest.lean`
+13/13 agree.  `instructions:u` (`--kernel=inlean --quiet`, one run each): Init
+868.8 G (868.8 G at lane O6, continued), Lean 3,582.6 G (no
+recent baseline; 3,575.5 G before lane R's `FEnv` change, +0.53 % on Init).
+
+**Proofs** (`InLeanProof/*`; no `sorry`, no new axiom).
+* *Deleted with the pinned branch*: `BasisBlockSimI`, `basisBlockSimI`,
+  `checkBasisBlockC_noSt`, `basisFold_fresh`, `installFold_ok`,
+  `atLps_name`, `atBlock_names`, the `capsFree` layer (`capsFree`,
+  `pinAgrees_capsFree`, `capsFree_toConstantVal`, `capsFree_name`,
+  `constNamed?_caps`, `levelParams_capsFree_some`), `BlockPresOblB`'s `Bool`
+  and the pinned case split of `checkIndDeclC_ok`; `NatPinned` (master's
+  `reduceElemOk` no longer compares the stored entry with `natA`, and with
+  #493's caps-free pins the premise was false of an installed `Nat`).
+* *Now outright*: `blockPresOblP : BlockPresOblP` (P3r's
+  `blockPresOblB_recognised`, for every accepted block) and
+  **`indGroupPresBP : IndGroupPresBP`** (was `indGroupPresBP_of`, with the
+  pinned branch as hypothesis).
+* *The narrow check's counterpart* (`IndBasis.lean`, `DeclStep.lean`):
+  `pins_tr` is now exact (InLean's pins translate to master's), `pinListOk_tr`,
+  `basisNamesOk_ind_tr` (InLean's check on the generated block is master's on
+  its record), `basisNamesOk_toDecl` (a one-constant record's),
+  `checkDecl_of_kind` (master's step from `checkDeclKind` and
+  `basisNamesOk`).
+* *Repaired*: O7's top (`checkIndDeclC_sim`, `_stages`, `_rest`) and O6's arms
+  conclude master's `checkDeclKind` (renamed `StepRuns` → `KindRuns`), which is
+  where InLean's kind check ends; `checkDeclKindC_sim`/`_cert`/`_full` take
+  InLean's `basisNamesOk decl a` and still conclude master's `checkDecl` fold;
+  `checkDecl_sim_of` reads it off InLean's run.  `checkConstantValC_sim` and
+  `litShapeOk_tr` lost the reserved-name step and premise (the `Nat` names by
+  type, as master's); `blockShape?_tr`, `checkIndDeclC_ok`,
+  `toDecl_recognised`, `reduceElemOk_tr` (no `NatPinned`), `pinAgrees_tr`,
+  `listBeqBy_tr`, `blockLinksOk_tr` follow the code.  No statement became
+  false.
+* **`ProjGuardSpecI` proved** (`InLeanProof/ProjGuardI.lean`):
+  `projGuardRowsGoI_run` (the loop at interned variables reads as master's
+  `projGuardRowsGo` on the translated telescope, rows closed),
+  `checkGuardRowsI_run`, `projGuardSortI_run` (`formerNeverZeroI_specI`'s
+  shape), `checkProjRowsI_run` (master's `projGuardRows` on the translated
+  entry; the rows' scoping is master's `projGuardRows_ws`), and
+  `projGuardSpecI_of` from `KnotSpecI`, `EnvWF`, `EnvRelI`, `EnvPresI`.  So
+  `projGuardI : ProjGuardI` and `jobEnvI_of` (the guard from `JobEnvI`'s other
+  four premises).  `JobEnvI.guard` and the knot's `hpg` premises stay as
+  fields/premises (the proof sits after `PassInds.lean`'s opener; moving it
+  before `EnvBodiesPres.lean` would let them go).  Pins updated (4 removed, 2
+  renamed, 8 new).
+
+**What remains** (unchanged otherwise): `CertArmSimI pins` (O6); O7's
+`PassSimI`/`TailSimI` stages (round 3's list); P4.  The `guard` field and
+`hpg` premises are now redundant (above).
+
+Gates: `lake build InLean InLeanProof inlean-replay` warning-free; con-leche's
+`lake build` and `lake test` warning-free; `tests/layering.sh`,
+`tests/trust-surface.sh`, `tests/no-local-paths.sh`, `tests/inlean-sync.sh`
+pass.
+
 ## TASK #489 — what a module's constants mention, in one array per module (2026-11-06, agent/489-flat-uses)
 
 **The task (maintainer).**  After #480, take the self-contained one of the memory fixes a census of
