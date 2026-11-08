@@ -1028,4 +1028,296 @@ theorem captureOne_st (he : EnvOk sp fs env) {c : ReachCache} (hc : CacheOk sp f
 
 end
 
+/-! ## Every read of a record, the partners' reads, the stored names, the clashes -/
+
+/-- **A completion `storedNamesOk` makes**: a name with no importer copy, at the home's private
+part. -/
+@[expose] def StoredNL (env : ReachEnv ModelIO) (h n : Name) (s : Spot) : Prop :=
+  importerSpot env n = none ∧ s.part = ⟨h, .private⟩
+
+/-- The spot of a loaded copy (`clashAgree`'s, `importerSpot`'s). -/
+@[expose] def spotOf (wr : WorkerReads) (cp : Copy) (q : NamePosition) : Spot :=
+  ⟨⟨wr.loads.nameAt cp.mod, ((wr.loads.flags[cp.mod]?).getD default).level⟩, q⟩
+
+/-- **The clash rule passed at a clash** (`clashAgree`): every loaded copy has a status other
+than `.no`, and where it is `.infer`, an inference of a copy's statement is recorded. -/
+@[expose] def ClashOk (sp : SearchPath) (fs : FS) (wr : WorkerReads)
+    (pend : String × Name × ConstantVal → Prop) (cl : Clash) : Prop :=
+  ∀ x ∈ cl.copies, ∀ q, wr.index.at x.1 = some q →
+    ∃ p, StatusOk sp fs (spotOf wr x.1 q) x.2.2 p ∧ p ≠ .no ∧
+      (p = .infer → ∃ w cv', pend (w, cl.name, cv') ∧ ∃ x' ∈ cl.copies, x'.2.1 = cv')
+
+theorem ClashOk.mono {sp : SearchPath} {fs : FS} {wr : WorkerReads}
+    {pend pend' : String × Name × ConstantVal → Prop} (hp : ∀ x, pend x → pend' x) {cl : Clash}
+    (h : ClashOk sp fs wr pend cl) : ClashOk sp fs wr pend' cl := fun x hx q hq => by
+  obtain ⟨p, a, b, c⟩ := h x hx q hq
+  exact ⟨p, a, b, fun hi => by
+    obtain ⟨w, cv', h1, h2⟩ := c hi
+    exact ⟨w, cv', hp _ h1, h2⟩⟩
+
+section
+variable {sp : SearchPath} {fs : FS} {env : ReachEnv ModelIO} {ho : HS}
+
+theorem captureAll_st (he : EnvOk sp fs env) (h : Name) :
+    ∀ (c : ReachCache) (ys : List Name), CacheOk sp fs c → VOk sp fs c → ∀ {hs₀ : HS},
+      ModelIO.AllOk (captureAll env h c ys) fs hs₀ fun p =>
+        CacheOk sp fs p.1 ∧ Step sp fs (CapNL sp fs env h) (CapNP sp fs h) c p.1 ∧
+          (p.2 = .ok () → ∀ y ∈ ys,
+            Passed sp fs env p.1.located (· ∈ p.1.pending) (· ∈ p.1.partners) h y)
+  | c, [], hc, hv => by
+    simp only [captureAll, ModelIO.allOk_pure]
+    exact ⟨hc, Step.rfl, fun _ y hy => by cases hy⟩
+  | c, y :: ys, hc, hv => by
+    simp only [captureAll, ModelIO.allOk_bind]
+    intro x _ hx
+    have h1 := captureOne_ok he hc h y x _ hx
+    obtain ⟨st, hP⟩ := captureOne_st he hc hv h y x _ hx
+    obtain ⟨c', r⟩ := x
+    cases r with
+    | error e => simp only [ModelIO.allOk_pure]; exact ⟨h1, st, fun h => by cases h⟩
+    | ok u =>
+      intro p hs' hp
+      obtain ⟨h2, st2, hP2⟩ := captureAll_st he h c' ys h1 (st.views hv) p hs' hp
+      refine ⟨h2, st.trans st2, fun hok y' hy' => ?_⟩
+      rcases List.mem_cons.1 hy' with rfl | hy'
+      · exact (hP rfl).mono st2.loc_keep st2.pend st2.part_keep
+      · exact hP2 hok y' hy'
+
+theorem capturePairs_st (he : EnvOk sp fs env) :
+    ∀ (c : ReachCache) (ps : List (Name × Name)), CacheOk sp fs c → VOk sp fs c → ∀ {hs₀ : HS},
+      ModelIO.AllOk (capturePairs env c ps) fs hs₀ fun p =>
+        CacheOk sp fs p.1 ∧
+          Step sp fs (fun y s => ∃ x ∈ ps, CapNL sp fs env x.1 y s)
+            (fun z => ∃ x ∈ ps, CapNP sp fs x.1 z) c p.1 ∧
+          (p.2 = .ok () → ∀ x ∈ ps,
+            Passed sp fs env p.1.located (· ∈ p.1.pending) (· ∈ p.1.partners) x.1 x.2)
+  | c, [], hc, hv => by
+    simp only [capturePairs, ModelIO.allOk_pure]
+    exact ⟨hc, Step.rfl, fun _ y hy => by cases hy⟩
+  | c, (h, y) :: ps, hc, hv => by
+    simp only [capturePairs, ModelIO.allOk_bind]
+    intro x _ hx
+    have h1 := captureOne_ok he hc h y x _ hx
+    obtain ⟨st, hP⟩ := captureOne_st he hc hv h y x _ hx
+    have st' := st.mono (NL' := fun a b => ∃ x ∈ (h, y) :: ps, CapNL sp fs env x.1 a b)
+      (NP' := fun z => ∃ x ∈ (h, y) :: ps, CapNP sp fs x.1 z)
+      (fun _ _ hn => ⟨(h, y), List.mem_cons_self, hn⟩) (fun _ hn => ⟨(h, y), List.mem_cons_self, hn⟩)
+    obtain ⟨c', r⟩ := x
+    cases r with
+    | error e => simp only [ModelIO.allOk_pure]; exact ⟨h1, st', fun h => by cases h⟩
+    | ok u =>
+      intro p hs' hp
+      obtain ⟨h2, st2, hP2⟩ := capturePairs_st he c' ps h1 (st.views hv) p hs' hp
+      refine ⟨h2, st'.trans (st2.mono (fun _ _ ⟨x, hx, hn⟩ => ⟨x, List.mem_cons_of_mem _ hx, hn⟩)
+        (fun z ⟨x, hx, hn⟩ => ⟨x, List.mem_cons_of_mem _ hx, hn⟩)), fun hok x' hx' => ?_⟩
+      rcases List.mem_cons.1 hx' with rfl | hx'
+      · exact (hP rfl).mono st2.loc_keep st2.pend st2.part_keep
+      · exact hP2 hok x' hx'
+
+theorem storedNamesOk_st (he : EnvOk sp fs env) (h : Name) :
+    ∀ (c : ReachCache) (ns : List Name), CacheOk sp fs c → ∀ {hs₀ : HS},
+      ModelIO.AllOk (storedNamesOk env c h ns) fs hs₀ fun p =>
+        Step sp fs (StoredNL env h) (fun _ => False) c p.1 ∧
+          (p.2 = .ok () → ∀ n ∈ ns, ∃ s, copyOf env p.1.located n = some s ∧ s.part.mod = h)
+  | c, [], hc => by
+    simp only [storedNamesOk, ModelIO.allOk_pure]
+    exact ⟨Step.rfl, fun _ n hn => by cases hn⟩
+  | c, n :: ns, hc => by
+    unfold storedNamesOk
+    split
+    · rename_i i s hi
+      split
+      · rename_i hm
+        intro p hs' hp
+        obtain ⟨st, hok⟩ := storedNamesOk_st he h c ns hc p hs' hp
+        refine ⟨st, fun hp' n' hn' => ?_⟩
+        rcases List.mem_cons.1 hn' with rfl | hn'
+        · exact ⟨s, by unfold copyOf; rw [hi], eq_of_beq hm⟩
+        · exact hok hp' n' hn'
+      · simp only [ModelIO.allOk_pure]; exact ⟨Step.rfl, fun h => by cases h⟩
+    · rename_i hi
+      split
+      · rename_i s hl
+        split
+        · rename_i hm
+          intro p hs' hp
+          obtain ⟨st, hok⟩ := storedNamesOk_st he h c ns hc p hs' hp
+          refine ⟨st, fun hp' n' hn' => ?_⟩
+          rcases List.mem_cons.1 hn' with rfl | hn'
+          · exact ⟨s, by unfold copyOf; rw [hi]; exact st.loc_keep _ _ hl, eq_of_beq hm⟩
+          · exact hok hp' n' hn'
+        · simp only [ModelIO.allOk_pure]; exact ⟨Step.rfl, fun h => by cases h⟩
+      · rename_i hl
+        simp only [ModelIO.allOk_bind]
+        intro x _ hx
+        obtain ⟨h1, h2⟩ := lookOf_ok he hc _ x _ hx
+        have f1 := lookOf_fr (env := env) c _ x _ hx
+        obtain ⟨c', r⟩ := x
+        cases r with
+        | error e => simp only [ModelIO.allOk_pure]; exact ⟨Step.ofFr f1, fun h => by cases h⟩
+        | ok l =>
+          obtain ⟨t, ht, hlt⟩ := h2 l rfl
+          simp only []
+          split
+          · rename_i q hq
+            have hq' : (lookTable t)[n]? = some q := hlt ▸ hq
+            have hc' : CacheOk sp fs { c' with located := c'.located.insert n ⟨⟨h, .private⟩, q⟩ } :=
+              h1.insert_located' rfl ⟨t, ht, (lookTable_spec t hq').1⟩
+            have hl' : c'.located[n]? = none := by rw [f1.1]; exact hl
+            have st1 : Step sp fs (StoredNL env h) (fun _ => False) c
+                { c' with located := c'.located.insert n ⟨⟨h, .private⟩, q⟩ } :=
+              (Step.ofFr f1).trans ⟨fun y' s' hs' => by
+                  simp only [Std.HashMap.getElem?_insert]
+                  split
+                  · rename_i hyy; rw [← eq_of_beq hyy, hl'] at hs'; cases hs'
+                  · exact hs',
+                fun y' s' hs' => by
+                  simp only [Std.HashMap.getElem?_insert] at hs'
+                  split at hs'
+                  · rename_i hyy
+                    cases hs'
+                    obtain rfl := eq_of_beq hyy
+                    exact .inr ⟨hi, rfl⟩
+                  · exact .inl hs',
+                fun _ h => h, fun _ h => h, fun _ h => .inl h, fun hv => hv⟩
+            intro p hs' hp
+            obtain ⟨st, hok⟩ := storedNamesOk_st he h _ ns hc' p hs' hp
+            refine ⟨st1.trans st, fun hp' n' hn' => ?_⟩
+            rcases List.mem_cons.1 hn' with rfl | hn'
+            · refine ⟨⟨⟨h, .private⟩, q⟩, ?_, rfl⟩
+              unfold copyOf; rw [hi]
+              exact st.loc_keep _ _ (by simp)
+            · exact hok hp' n' hn'
+          · simp only [ModelIO.allOk_pure]; exact ⟨Step.ofFr f1, fun h => by cases h⟩
+
+theorem spotOf_copy (he : EnvOk sp fs env) {cp : Copy} {q : NamePosition}
+    (h : env.wr.index.at cp = some q) : CopyAt sp fs (spotOf env.wr cp q) := by
+  simp only [NameIndex.at] at h
+  obtain ⟨t, ht, hq⟩ := bind_some_left h
+  exact ⟨t, he.parts _ t ht, Array.mem_of_getElem? hq⟩
+
+instance : LawfulBEq ProofStatus where
+  eq_of_beq {a b} h := by cases a <;> cases b <;> first | rfl | exact absurd h (by decide)
+  rfl {a} := by cases a <;> decide
+
+theorem statuses_st (he : EnvOk sp fs env) (xs : List (Spot × ConstantVal × CKindF Name Unit)) :
+    ∀ (c : ReachCache) (acc : List ProofStatus),
+      CacheOk sp fs c → (∀ x ∈ xs, CopyAt sp fs x.1) → ∀ {hs₀ : HS},
+        ModelIO.AllOk (clashAgree.statuses env c xs acc) fs hs₀ fun p =>
+          Fr c p.1 ∧ ∀ ps, p.2 = .ok ps → ps.length = acc.length + xs.length ∧
+            (∀ a ∈ acc, a ∈ ps) ∧ ∀ x ∈ xs, ∃ q ∈ ps, StatusOk sp fs x.1 x.2.2 q := by
+  induction xs with
+  | nil =>
+    intro c acc hc _ _
+    simp only [clashAgree.statuses, ModelIO.allOk_pure]
+    exact ⟨Fr.rfl, fun ps h => by
+      cases h; exact ⟨by simp, fun a ha => ha, fun x hx => by cases hx⟩⟩
+  | cons y rest ih =>
+    obtain ⟨s, cv, k⟩ := y
+    intro c acc hc hcs _
+    simp only [clashAgree.statuses, ModelIO.allOk_bind]
+    intro x _ hx
+    have h1 := proofStatus_ok he hc s k x _ hx
+    obtain ⟨f1, h2⟩ := proofStatus_st he hc s k (hcs (s, cv, k) List.mem_cons_self) x _ hx
+    obtain ⟨c', r⟩ := x
+    cases r with
+    | error e => simp only [ModelIO.allOk_pure]; exact ⟨f1, fun ps h => by cases h⟩
+    | ok p =>
+      intro z hs' hz
+      obtain ⟨f2, h3⟩ := ih c' _ h1 (fun x hx => hcs x (List.mem_cons_of_mem _ hx)) z hs' hz
+      refine ⟨f1.trans f2, fun ps hps => ?_⟩
+      obtain ⟨a0, a1, a2⟩ := h3 ps hps
+      refine ⟨by simp only [List.length_cons] at a0 ⊢; omega,
+        fun a ha => a1 a (List.mem_cons_of_mem _ ha), fun x hx => ?_⟩
+      rcases List.mem_cons.1 hx with rfl | hx
+      · exact ⟨p, a1 p List.mem_cons_self, h2 p rfl⟩
+      · exact a2 x hx
+
+theorem mem_clashSpots {wr : WorkerReads} {cl : Clash} {x : Spot × ConstantVal × CKindF Name Unit} :
+    x ∈ cl.copies.toList.filterMap (fun (cp, cv, k) =>
+      (wr.index.at cp).map fun q =>
+        ((⟨⟨wr.loads.nameAt cp.mod, ((wr.loads.flags[cp.mod]?).getD default).level⟩, q⟩ : Spot), cv, k)) ↔
+      ∃ y ∈ cl.copies, ∃ q, wr.index.at y.1 = some q ∧ x = (spotOf wr y.1 q, y.2.1, y.2.2) := by
+  simp only [List.mem_filterMap, Array.mem_toList_iff]
+  constructor
+  · rintro ⟨⟨cp, cv, k⟩, hy, h⟩
+    obtain ⟨q, hq, rfl⟩ := Option.map_eq_some_iff.1 h
+    exact ⟨_, hy, q, hq, rfl⟩
+  · rintro ⟨⟨cp, cv, k⟩, hy, q, hq, rfl⟩
+    exact ⟨_, hy, by simp [hq, spotOf]⟩
+
+/-- **The clash rule's outcome** (`ClashOk` at every clash). -/
+theorem clashAgree_st (he : EnvOk sp fs env) :
+    ∀ (c : ReachCache) (cls : List Clash) (acc : Array Name), CacheOk sp fs c → ∀ {hs₀ : HS},
+      ModelIO.AllOk (clashAgree env c cls acc) fs hs₀ fun p =>
+        Step sp fs (fun _ _ => False) (fun _ => False) c p.1 ∧
+          ∀ e, p.2 = .ok e → ∀ cl ∈ cls, ClashOk sp fs env.wr (· ∈ p.1.pending) cl
+  | c, [], acc, hc => by
+    simp only [clashAgree, ModelIO.allOk_pure]
+    exact ⟨Step.rfl, fun _ _ cl h => by cases h⟩
+  | c, cl :: cls, acc, hc => by
+    simp only [clashAgree, ModelIO.allOk_bind]
+    intro x _ hx
+    have h1 := statuses_ok he c _ [] hc x _ hx
+    obtain ⟨f1, h2⟩ := statuses_st he _ c [] hc (fun y hy => by
+      obtain ⟨z, -, q, hq, rfl⟩ := mem_clashSpots.1 hy
+      exact spotOf_copy he hq) x _ hx
+    obtain ⟨c', r⟩ := x
+    cases r with
+    | error e => simp only [ModelIO.allOk_pure]; exact ⟨Step.ofFr f1, fun _ h => by cases h⟩
+    | ok ps =>
+      obtain ⟨hlen, -, hps⟩ := h2 ps rfl
+      have hcl : ∀ (pend : String × Name × ConstantVal → Prop),
+          (ps.contains .infer = true → ∃ w cv', pend (w, cl.name, cv') ∧ ∃ x' ∈ cl.copies, x'.2.1 = cv') →
+          ps.contains .no = false → ClashOk sp fs env.wr pend cl := by
+        intro pend hinf hno y hy q hq
+        obtain ⟨p, hp, hst⟩ := hps _ (mem_clashSpots.2 ⟨y, hy, q, hq, rfl⟩)
+        refine ⟨p, hst, fun h => ?_, fun h => hinf ?_⟩
+        · subst h
+          have := List.contains_iff_mem.2 hp
+          rw [hno] at this; cases this
+        · subst h; exact List.contains_iff_mem.2 hp
+      simp only []
+      split
+      · simp only [ModelIO.allOk_pure]; exact ⟨Step.ofFr f1, fun _ h => by cases h⟩
+      rename_i hno
+      have hno' : ps.contains .no = false := by simpa using hno
+      split
+      · rename_i hinf
+        split
+        · rename_i s₀ cv₀ k₀ rest hsp
+          intro p hs' hp
+          obtain ⟨st, hok⟩ := clashAgree_st he _ cls _ (h1.pending _) p hs' hp
+          refine ⟨(Step.ofFr f1).trans ((Step.pending_push _).trans st), fun e he' cl' hcl' => ?_⟩
+          rcases List.mem_cons.1 hcl' with rfl | hcl'
+          · refine hcl _ (fun _ => ⟨_, cv₀, st.pend _ (Array.mem_push.2 (.inr rfl)), ?_⟩) hno'
+            have : (s₀, cv₀, k₀) ∈ cl'.copies.toList.filterMap (fun (cp, cv, k) =>
+                (env.wr.index.at cp).map fun q =>
+                  ((⟨⟨env.wr.loads.nameAt cp.mod, ((env.wr.loads.flags[cp.mod]?).getD default).level⟩,
+                    q⟩ : Spot), cv, k)) := by rw [hsp]; exact List.mem_cons_self
+            obtain ⟨y, hy, q, -, hyq⟩ := mem_clashSpots.1 this
+            exact ⟨y, hy, by simp only [Prod.mk.injEq] at hyq; exact hyq.2.1.symm⟩
+          · exact hok e he' cl' hcl'
+        · rename_i hsp
+          intro p hs' hp
+          obtain ⟨st, hok⟩ := clashAgree_st he _ cls _ h1 p hs' hp
+          refine ⟨(Step.ofFr f1).trans st, fun e he' cl' hcl' => ?_⟩
+          rcases List.mem_cons.1 hcl' with rfl | hcl'
+          · refine hcl _ (fun _ => ?_) hno'
+            -- no spot: no status, so none is `.infer`
+            rw [hsp] at hlen
+            simp only [List.length_nil] at hlen
+            rw [List.length_eq_zero_iff.1 hlen] at hinf
+            simp at hinf
+          · exact hok e he' cl' hcl'
+      · rename_i hinf
+        intro p hs' hp
+        obtain ⟨st, hok⟩ := clashAgree_st he _ cls _ h1 p hs' hp
+        refine ⟨(Step.ofFr f1).trans st, fun e he' cl' hcl' => ?_⟩
+        rcases List.mem_cons.1 hcl' with rfl | hcl'
+        · exact hcl _ (fun h => absurd h hinf) hno'
+        · exact hok e he' cl' hcl'
+
+end
+
 end ConLeche.Driver
