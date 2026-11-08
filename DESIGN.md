@@ -112840,6 +112840,40 @@ environment).  Then P4 supplies `NatKinds L`.
 Gates: `lake build InLean InLeanProof` warning-free; `tests/layering.sh`,
 `tests/trust-surface.sh`, `tests/no-local-paths.sh`, `tests/inlean-sync.sh` pass.
 
+**Lane CertArm, continued: finding 4 ruled, the walk fused (2026-11-08).**  Coordinator's ruling
+(within the maintainer's: range gaps become internal errors): the decoder refuses a dump with a term
+out of range.
+
+*Executable change.*  `InLean/NatOpPins.lean`: `PinOp.inRange`/`PinSet.inRange` (`EO.inRange` on
+the pin, every proof, every type pin); `loadPinSets` fails on a dump with a term out of range, which
+`checkDivModPin` turns into an internal error.  `InLean/CheckerC.lean`: `constsResolve` is one
+memoised `EO.any` (an unstored constant, an unstored projection structure, a literal without its
+support declarations), no separate `usedConstants` pass.
+
+*Proofs* (`InLeanProof/CertDivMod.lean`).  `constsResolve_tr` on the single walk (the
+`usedConstants` completeness and the deduplication lemmas are gone with it);
+**`loadPinSets_range`**: `loadPinSets () = .ok sets` gives every decoded pin, proof and type pin
+`RangeOk` and metavariable-free.  1 pin.
+
+*Validation*: Init 64,530, Std 110,064, Lean 199,645 accepted, 0 rejected, 0 declined, 0 exact
+and 0 cosmetic mismatches (Std and Lean on the fused walk; Init again with the decoder check);
+`scripts/inlean_negtest.lean` 13/13; `instructions:u` on Init 878.0 G (868.8 G before the lane's
+resolution change, 895.4 G with two walks): +1.1 %.
+
+*What remains* (`DivModArmSimI loadedPins`): the guards both ways at in-range decoded terms
+(`divModPinGuard`, `divModCertGuard`, `divModCertsGuard`; the converse of `constsResolve_tr` by
+`EnvPresI.none`, the cached flags by the `mkData` stop-gaps at `loadPinSets_range`); `trPinSet`'s
+fields against `PinSet.op?` (eight names; `trOpPin` is `trC` on an in-range, fvar-free pin);
+`substConstAll` (InLean's `replaceI` is `mapSpec` by `mapOff_fresh`; master's under binders, the
+value closed); `divModCertStmts` over the interned variables (as `natOpEqs_tr`); the certificate
+loop (inference at depth 4, `mkFVarM 2`/`3` at the hypotheses, master's `divModCertApplied`);
+`checkTypePins` (`typePinStored`); `checkDivModPinAt`; the variant loop by induction over
+`sets.toList`; the arm (`checkDefnC` with `divModEnvGuard_tr` at the pushed environment, as
+`checkDefnC_struct_sim`).  Then P4 supplies `NatKinds L`.
+
+Gates: `lake build InLean InLeanProof` warning-free; `tests/layering.sh`,
+`tests/trust-surface.sh`, `tests/no-local-paths.sh`, `tests/inlean-sync.sh` pass.
+
 ## TASK #489 — what a module's constants mention, in one array per module (2026-11-06, agent/489-flat-uses)
 
 **The task (maintainer).**  After #480, take the self-contained one of the memory fixes a census of
