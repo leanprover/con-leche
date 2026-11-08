@@ -115110,6 +115110,76 @@ noise, on Lean about 11 MiB less.
 Gates: `lake build InLean InLeanProof inlean-replay` warning-free; `tests/layering.sh`,
 `tests/trust-surface.sh`, `tests/no-local-paths.sh`, `tests/inlean-sync.sh`, `tests/shake.sh`.
 
+### Lane projBody: a projection body is one instantiation of its field's domain (2026-11-08, task #451, agent/451-projbody)
+
+**The problem.**  Lean's environment has no slot for con-leche's projection table, so InLean
+builds field `i`'s body at use (`projBodyAt`).  It did so as con-leche's install does, one
+binder at a time: `nP + i` `instantiate1` steps, each walking the remaining telescope —
+O(n²) per body, O(n³) over a structure.  On lean4's `bv_stress_structures` benchmarks
+(200-field Prop structures) one `Rel4` group cost 75.4 G instructions (official 1.06 G,
+con-leche about 10.4 G).
+
+**The code** (`InLean/FEnv.lean`).  `projBodyAt T nP i cty` reads field `i`'s domain
+(`binderDom (nP + i)`, moved from `CoreDefs`) and instantiates it once, `instRevI` at
+`projBodyArgs T nP i` = the parameters' variables `bvar nP, …, bvar 1` and the subject's
+projections `.proj T j (bvar 0)` (`j < i`), in telescope order.  The result is the term the
+binder-at-a-time walk builds.  Every caller (`ProjEntry.typeAtI`, `structProjBodies`,
+`FEnv.projBodiesInRange`, `headProofPW`) goes through it.
+
+**The range check.**  The chain's intermediate terms needed their own range check
+(`projStepsOk`: `paramsOkB`/`fieldsOkB` at the last field), because a parameter reference
+could pass C's bound in an intermediate term and come back below it at the end.  With one
+walk there is no intermediate term: reading the walk needs only its input in range (the
+constructor type, which the block's `constInRange` gives) and its values in range
+(`nP ≤ maxBVarIdx`); the body itself can still pass the bound (a parameter reference rises by
+one past the subject's binder at field 0), and the table check reads its range.  So
+`projBodyOk T nP i cty := nP ≤ maxBVarIdx ∧ (projBodyAt …).all inRange`, and
+`projBodiesAllOk` (was `projStepsAllOk`) asks it at every field of every generated structure.
+The old chain is gone entirely (`projBodyAt.params`, `paramsOkB`, `fieldsOkB`,
+`projStepsOk_mono`).
+
+**The proofs** (`InLeanProof/ProjBodiesTr.lean`).  `instLift vs e k` (con-leche's side:
+instantiation at open values in one walk, value `j` lifted past the `k` binders crossed);
+`instLift_snoc` (one more value is one more `instantiate1Lift`, at the depth past the others)
+and `instSeqLift_eq_instLift` (con-leche's per-domain telescope effect `instSeqLift` is
+`instLift` at the values innermost first); `toExpr_instantiateRevO` (InLean's
+`instantiateRev` at open values in range reads as `instLift`, replacing
+`toExpr_instantiate1L`).  `projBodyAt_tr` now takes the constructor type in range and
+`projBodyOk`, and reads con-leche's entry `i` through `instPisAtLift_append` and
+`instPisAtLift_head` (`ConLeche/Verify/Subst.lean`, `instSeqLift` exposed for it).  The
+callers (`BlockPresR`, `PassRecs10`, `TailSim`, `IndDecl`, `StepPres`) follow the rename;
+`projBodyAt_range` reads `projBodyOk`.  `addDeclSound` unchanged (the standard three and the
+three `mkData` stop-gaps).
+
+**Measurements** (one run each, `perf stat -e instructions:u`; the group is the run checking
+only `Rel4q`'s declarations minus the control run checking none):
+
+| | before | after |
+|---|---|---|
+| `Rel4q` group | 75.4 G | 2.70 G (official 1.06 G, con-leche about 10.4 G) |
+| Init replay | 456.27 G | 453.91 G (−0.5 %) |
+
+`inlean-replay --compare`: Init 64,531 and `Rel4q` 64,959 declarations accepted, 0 exact and
+0 cosmetic mismatches.
+
+**Audit: what InLean recomputes from Lean's entries at use** (ruling: direct by default, a
+per-declaration memo only where the same datum is measured to be recomputed within one
+declaration at a cost that matters).  Self-time shares from `perf record` on the Init replay
+and on the `Rel4q` run:
+
+| datum | direct cost per use | repeated in one declaration | Init share | decision |
+|---|---|---|---|---|
+| projection body (`projBodyAt`) | binder walk O(nP + i) + one walk of field `i`'s domain | yes: block check, `projBodiesInRange`, `projBodiesAllOk` (3× per structure), `typeAtI` per `.proj` inference | `projBodyArgs`, `binderDom`, `inRange` ≤ 0.01 % each; on `Rel4q` ≤ 0.1 % | fast direct |
+| table lookup (`findProj?`, `hasTable`, `tableFields?`) | two lookups + `hasPis` O(nP + nF) | yes | 0.07 % + `hasPis` 0.02 % | direct |
+| capabilities (`capsOf`, `indView?`) | lookups, O(1) | yes | 0.02 % each | direct |
+| constructor counts (`ctorView?`) | one lookup | yes | 0.13 % | direct (it is the lookup) |
+| recursor view and counts (`recView?`, `majorIdxOf`) | one lookup, sums | yes | below 0.01 % | direct |
+| rule firing mode (`recFireAt`) | `piBody?` O(majorIdx) + head; nested: `dropVars` on the parameters | yes, per ι step | 0.13 % + `piBody?` 0.04 % | direct |
+| a family's sort (`formerResSort`, `ctorFamily`) | `piResult` walk O(arity) | yes | 0.03 % each | direct |
+| PropWhen head reading (`headProofPW`, `typeSortPWGo`) | as con-leche, plus a projection body at a `.proj` head | yes | 0.13 %, 0.10 % | direct |
+
+None is a cost that matters; no memo is added.
+
 ## TASK #494 — an inductive block that cannot be read is rejected with the reason (2026-11-08, agent/494-ctor-levels)
 
 **Rulings (maintainer, 2026-11-08).** "Don't use 'shapeless' in a user-facing error message; the
