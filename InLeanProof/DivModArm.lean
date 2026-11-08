@@ -1076,4 +1076,134 @@ theorem checkDivModCerts_sim {fe : InLean.FEnv} {L : ConLeche.Env} (hJ : JobEnvI
           (fun p hp => hPm p (List.mem_cons_of_mem _ hp)) h).2.2
         rwa [stmts_map_tabLe ht₀₃ hSrO] at this
 
+/-- The facts a decoded variant's operation carries (`loadPinSets_okC`). -/
+@[expose] def OpOk (op : InLean.PinOp) : Prop :=
+  okC op.pin = true ∧ (∀ p ∈ op.proofs, okC p = true) ∧ ∀ t ∈ op.typePins, okC t.2 = true
+
+theorem op?_mem {ps : InLean.PinSet} {c : Name} {op : InLean.PinOp} (h : ps.op? c = some op) :
+    op ∈ ps.ops := Array.mem_of_find?_eq_some h
+
+/-- What the pin guard gives about the pin and the type pins. -/
+theorem pinGuard_lbb {fe : InLean.FEnv} {op : InLean.PinOp} (hD : OpOk op)
+    (hg : InLean.divModPinGuard fe op = true) :
+    (trC op.pin).looseBVarsBounded 0 = true ∧
+      ∀ t ∈ op.typePins.toList, okC t.2 = true ∧ (trC t.2).looseBVarsBounded 0 = true := by
+  unfold InLean.divModPinGuard at hg
+  simp only [Bool.and_eq_true, Bool.not_eq_true'] at hg
+  refine ⟨by rw [(flags_trC hD.1).1, hg.1.1.1.1]; rfl, fun t ht => ?_⟩
+  have ht' := Array.mem_toList_iff.1 ht
+  have h2 := Array.all_eq_true_iff_forall_mem.1 hg.2 t ht'
+  obtain ⟨n, ty⟩ := t
+  have hok := hD.2.2 _ ht'
+  refine ⟨hok, ?_⟩
+  simp only at h2
+  split at h2
+  · simp only [Bool.and_eq_true, Bool.not_eq_true'] at h2
+    rw [(flags_trC hok).1, h2.1.1.2]; rfl
+  · exact absurd h2 (by simp)
+
+/-- **One variant's attempt** (`checkDivModPinAt`: the type pins, the pin,
+the certificates). -/
+theorem checkDivModPinAt_sim {fe : InLean.FEnv} {L : ConLeche.Env} (hJ : JobEnvI fe L)
+    {c : Name} {value x y : Expr} {ps : InLean.PinSet} {op : InLean.PinOp}
+    (hc : InLean.natDivModNames.contains c = true) (hop : ps.op? c = some op) (hD : OpOk op)
+    (hv : okC value = true) (hvl : (trC value).looseBVarsBounded 0 = true)
+    (hN : (L.find? ConLeche.natName).isSome = true) (hg : InLean.divModPinGuard fe op = true)
+    {s₀ s' : InLean.CState} {b : Bool} (hs : CSOKI .verified false L s₀) (hV : VarsOk s₀ x y)
+    (h : InLean.checkDivModPinAt .verified fe c value x y op s₀ = .ok (b, s')) :
+    CSOKI .verified false L s' ∧ TabLe s₀ s' ∧
+      Runs (ConLeche.checkDivModPinAt (ConLeche.fueledOpsM .verified) L (toName c) (trC value)
+        (trPinSet ps)) b := by
+  obtain ⟨e1, e2, e3⟩ := trPinSet_fields ps hc
+  obtain ⟨hpl, htl⟩ := pinGuard_lbb hD hg
+  unfold InLean.checkDivModPinAt at h
+  unfold ConLeche.checkDivModPinAt
+  rw [e1, e2, e3]
+  simp only [trOpPin, trOpProofs, trOpTypePins, hop]
+  obtain ⟨b1, s₁, hT, h⟩ := bindI_ok h
+  obtain ⟨hs₁, ht₁, hRT⟩ := checkTypePins_sim hJ _ hs htl hT
+  refine (?_ : _ ∧ _ ∧ _)
+  cases b1
+  · simp only [Bool.false_eq_true, ↓reduceIte] at h
+    obtain ⟨rfl, rfl⟩ := pureI_ok h
+    exact ⟨hs₁, ht₁, Runs.bind hRT (by simp only [Bool.false_eq_true, ↓reduceIte]; exact Runs.pure _)⟩
+  simp only [↓reduceIte] at h
+  obtain ⟨b2, s₂, hD2, h⟩ := bindI_ok h
+  obtain ⟨hs₂, ht₂, hRD⟩ := tripleI_iff_run.1 (hJ.ops.defeq (s₀ := s₁) (d := 0)
+    hs₁ (OkS_of_okC _ hv) (OkS_of_okC _ hD.1)
+    (by rw [TrS_of_okC _ hv]; exact trC_wscoped _ _) (by rw [TrS_of_okC _ hD.1]; exact trC_wscoped _ _)
+    (by rw [TrS_of_okC _ hv]; exact hvl) (by rw [TrS_of_okC _ hD.1]; exact hpl)) b2 s₂ hD2
+  rw [TrS_of_okC _ hv, TrS_of_okC _ hD.1] at hRD
+  have ht₀₂ := ht₁.trans ht₂
+  cases b2
+  · simp only [Bool.false_eq_true, ↓reduceIte] at h
+    obtain ⟨rfl, rfl⟩ := pureI_ok h
+    exact ⟨hs₂, ht₀₂, Runs.bind hRT (by
+      simp only [↓reduceIte]
+      exact Runs.bind hRD (by simp only [Bool.false_eq_true, ↓reduceIte]; exact Runs.pure _))⟩
+  simp only [↓reduceIte] at h
+  have hV₂ := hV.mono ht₀₂
+  obtain ⟨hs₃, ht₃, hRC⟩ := checkDivModCerts_sim hJ (c := c) hv hvl hN _ _ hs₂ hV₂
+    (fun p hp => hp) (fun p hp => hD.2.1 p (Array.mem_toList_iff.1 hp)) h
+  rw [divModCertStmts_tr hV₂.2.2.1 hV₂.2.2.2 hc] at hRC
+  exact ⟨hs₃, ht₀₂.trans ht₃, Runs.bind hRT (by
+    simp only [↓reduceIte]
+    exact Runs.bind hRD (by simp only [↓reduceIte]; exact hRC))⟩
+
+/-- **The variant loop** (`checkDivModPinLoop`), by induction over the
+decoded variants: the guards agree both ways, so both loops try the same
+variants. -/
+theorem checkDivModPinLoop_sim {fe : InLean.FEnv} {L : ConLeche.Env} (hJ : JobEnvI fe L)
+    {c : Name} {value x y : Expr} (hc : InLean.natDivModNames.contains c = true)
+    (hv : okC value = true) (hvl : (trC value).looseBVarsBounded 0 = true)
+    (hN : (L.find? ConLeche.natName).isSome = true) :
+    ∀ (l : List InLean.PinSet) (tI tM : List String) {s₀ s' : InLean.CState} {u : Unit},
+      CSOKI .verified false L s₀ → VarsOk s₀ x y → (∀ ps ∈ l, ∀ op ∈ ps.ops, OpOk op) →
+      InLean.checkDivModPinLoop .verified fe c value x y l tI s₀ = .ok (u, s') →
+      CSOKI .verified false L s' ∧ TabLe s₀ s' ∧
+        Runs (ConLeche.checkDivModPinLoop (ConLeche.fueledOpsM .verified) L (toName c) (trC value)
+          (l.map trPinSet) tM) () := by
+  intro l
+  induction l with
+  | nil =>
+    intro tI tM s₀ s' u _ _ _ h
+    unfold InLean.checkDivModPinLoop at h
+    exact (throwI_ok h).elim
+  | cons ps rest ih =>
+    intro tI tM s₀ s' u hs hV hD h
+    have hDr : ∀ ps ∈ rest, ∀ op ∈ ps.ops, OpOk op := fun p hp => hD p (List.mem_cons_of_mem _ hp)
+    unfold InLean.checkDivModPinLoop at h
+    simp only [List.map_cons, ConLeche.checkDivModPinLoop]
+    cases hop : ps.op? c with
+    | none =>
+      simp only [hop] at h
+      rw [divModPinGuard_none hc hop, Bool.false_and]
+      simp only [Bool.false_eq_true, ↓reduceIte]
+      exact ih _ _ hs hV hDr h
+    | some op =>
+      simp only [hop] at h
+      have hDo := hD ps (List.mem_cons_self ..) op (op?_mem hop)
+      obtain ⟨hox, hoy, hx, hy⟩ := hV
+      rw [divModPinGuard_eq hJ.pres hc hop hDo.1 hDo.2.2,
+        divModCertsGuard_eq hJ.pres hox hoy hx hy hN hc hop hv hDo.2.1]
+      split at h
+      · rename_i hg
+        simp only [hg, ↓reduceIte]
+        simp only [Bool.and_eq_true] at hg
+        obtain ⟨b, s₁, hA, h⟩ := bindI_ok h
+        obtain ⟨hs₁, ht₁, hRA⟩ := checkDivModPinAt_sim hJ hc hop hDo hv hvl hN hg.1 hs
+          ⟨hox, hoy, hx, hy⟩ hA
+        cases b
+        · simp only [Bool.false_eq_true, ↓reduceIte] at h
+          obtain ⟨hs₂, ht₂, hR⟩ := ih _ (tM ++ [ConLeche.divModAttemptReason (trPinSet ps)]) hs₁
+            (VarsOk.mono ⟨hox, hoy, hx, hy⟩ ht₁) hDr h
+          exact ⟨hs₂, ht₁.trans ht₂, Runs.bind hRA (by simp only [Bool.false_eq_true, ↓reduceIte]; exact hR)⟩
+        · simp only [↓reduceIte] at h
+          obtain ⟨-, rfl⟩ := pureI_ok h
+          exact ⟨hs₁, ht₁, Runs.bind hRA (by simp only [↓reduceIte]; exact Runs.pure _)⟩
+      · rename_i hg
+        simp only [Bool.not_eq_true] at hg
+        simp only [hg, Bool.false_eq_true, ↓reduceIte]
+        exact ih _ _ hs ⟨hox, hoy, hx, hy⟩ hDr h
+
 end InLeanProof
