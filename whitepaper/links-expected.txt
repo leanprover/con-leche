@@ -11,11 +11,11 @@
 
 >>> whitepaper/main.typ
 
-== ConLeche/MainTheorem.lean#L101-L104
-   101  theorem model_exists (V : Type w) [SetTheory V]
-   102      (pins : List NatOpPinSet) (ds : Array Declaration) (env : Env)
-   103      (accepted : checkDecls .verified pins ds = .ok env) :
-   104      Nonempty (Model V env) := by
+== ConLeche/MainTheorem.lean#L104-L107
+   104  theorem model_exists (V : Type w) [SetTheory V]
+   105      (pins : List NatOpPinSet) (ds : Array Declaration) (env : Env)
+   106      (accepted : checkDecls .verified pins ds = .ok env) :
+   107      Nonempty (Model V env) := by
 
 == whitepaper/Fragment/Sound.lean#L2322-L2326
   2322  theorem soundness [LevelOracle] (m : EnvModel V env) (φ : Name → Nat) :
@@ -26,11 +26,11 @@
 
 >>> whitepaper/sections/01-introduction.typ
 
-== ConLeche/MainTheorem.lean#L101-L104
-   101  theorem model_exists (V : Type w) [SetTheory V]
-   102      (pins : List NatOpPinSet) (ds : Array Declaration) (env : Env)
-   103      (accepted : checkDecls .verified pins ds = .ok env) :
-   104      Nonempty (Model V env) := by
+== ConLeche/MainTheorem.lean#L104-L107
+   104  theorem model_exists (V : Type w) [SetTheory V]
+   105      (pins : List NatOpPinSet) (ds : Array Declaration) (env : Env)
+   106      (accepted : checkDecls .verified pins ds = .ok env) :
+   107      Nonempty (Model V env) := by
 
 == ConLeche/Denotes.lean#L248-L268
    248  structure Model (V : Type w) [SetTheory V] (env : Env) where
@@ -2492,8 +2492,8 @@
    131  /-- Store one more constant. -/
    132  def add (env : Env) (n : Name) (ci : ConstInfo) : Env := ⟨(n, ci) :: env.consts⟩
 
-== ConLeche/Kernel/Env.lean#L456
-   456  structure Env where
+== ConLeche/Kernel/Env.lean#L461
+   461  structure Env where
 
 == whitepaper/Fragment/Env.lean#L66-L107
     66  /-- What kind of constant a name is stored as. -/
@@ -2668,27 +2668,32 @@
    605      v.lparamsIn ci.lparams = true) ∧
    606    ci.type.lparamsIn ci.lparams = true
 
-== ConLeche/Kernel/CheckerBase.lean#L105-L124
-   105  def checkConstantVal (ops : CheckerOps m) (env : Env) (cv : ConstantVal)
-   106      (allowOp : Bool := false) : m Unit := do
-   107    if (env.find? cv.name).isSome then
-   108      throw (.invalid s!"duplicate declaration {cv.name}")
-   109    if natOpName cv.name && !allowOp then
-   110      throw (.invalid s!"a certified Nat operation's name, not a definition: {cv.name}")
-   111    unless litShapeOk (.axiomInfo cv) do
-   112      throw (.notImplemented s!"a declaration at a literal's name with another shape ({cv.name})")
-   113    unless Name.nodup cv.levelParams do
-   114      throw (.invalid s!"duplicate universe parameters in {cv.name}")
-   115    unless cv.type.looseBVarsBounded 0 do
-   116      throw (.invalid s!"loose bound variable in type of {cv.name}")
-   117    if cv.type.hasFvar then
-   118      throw (.invalid s!"unexpected free variable in type of {cv.name}")
-   119    unless cv.type.allLevelParamsDefined cv.levelParams do
-   120      throw (.invalid s!"undeclared universe parameter in type of {cv.name}")
-   121    unless cv.type.constsResolve env do
-   122      throw (unresolvedConstsErrorL (strLitStored env) s!"type of {cv.name}" cv.type)
-   123    let stype ← ops.inferType env 0 cv.type
-   124    let _u ← ops.ensureSort env 0 stype
+== ConLeche/Kernel/CheckerBase.lean#L108-L132
+   108  def checkConstantVal (ops : CheckerOps m) (env : Env) (cv : ConstantVal)
+   109      (allowOp : Bool := false) (allowReduce : Bool := false) (allowSorry : Bool := false) :
+   110      m Unit := do
+   111    if (env.find? cv.name).isSome then
+   112      throw (.invalid s!"duplicate declaration {cv.name}")
+   113    if natOpName cv.name && !allowOp then
+   114      throw (.invalid s!"a certified Nat operation's name, not a definition: {cv.name}")
+   115    if reduceOpNames.contains cv.name && !allowReduce then
+   116      throw (.invalid s!"a compiler-trust name, not an opaque constant: {cv.name}")
+   117    if sorryAxNameAt cv.name && !allowSorry then
+   118      throw (.invalid s!"the tolerated axiom's name, not an axiom: {cv.name}")
+   119    unless litShapeOk (.axiomInfo cv) do
+   120      throw (.notImplemented s!"a declaration at a literal's name with another shape ({cv.name})")
+   121    unless Name.nodup cv.levelParams do
+   122      throw (.invalid s!"duplicate universe parameters in {cv.name}")
+   123    unless cv.type.looseBVarsBounded 0 do
+   124      throw (.invalid s!"loose bound variable in type of {cv.name}")
+   125    if cv.type.hasFvar then
+   126      throw (.invalid s!"unexpected free variable in type of {cv.name}")
+   127    unless cv.type.allLevelParamsDefined cv.levelParams do
+   128      throw (.invalid s!"undeclared universe parameter in type of {cv.name}")
+   129    unless cv.type.constsResolve env do
+   130      throw (unresolvedConstsErrorL (strLitStored env) s!"type of {cv.name}" cv.type)
+   131    let stype ← ops.inferType env 0 cv.type
+   132    let _u ← ops.ensureSort env 0 stype
 
 == ConLeche/Kernel/Checker.lean#L34-L47
     34  def checkDefnVal (ops : CheckerOps m) (env : Env) (cv : ConstantVal)
@@ -5232,11 +5237,11 @@
     78      obtain ⟨m', -, -⟩ := install_thm h.scoped m hok
     79      exact ⟨m'⟩
 
-== ConLeche/MainTheorem.lean#L101-L104
-   101  theorem model_exists (V : Type w) [SetTheory V]
-   102      (pins : List NatOpPinSet) (ds : Array Declaration) (env : Env)
-   103      (accepted : checkDecls .verified pins ds = .ok env) :
-   104      Nonempty (Model V env) := by
+== ConLeche/MainTheorem.lean#L104-L107
+   104  theorem model_exists (V : Type w) [SetTheory V]
+   105      (pins : List NatOpPinSet) (ds : Array Declaration) (env : Env)
+   106      (accepted : checkDecls .verified pins ds = .ok env) :
+   107      Nonempty (Model V env) := by
 
 == whitepaper/Fragment/Install.lean#L176-L181
    176  /-- **Installing a plain inductive block preserves having a model.**
@@ -5274,20 +5279,20 @@
    158    no_empty_inductive_inhabitant V hacc (S := IndSpec.falseSpec name recName elim) rfl rfl rfl rfl
    159      hrec e
 
-== ConLeche/Model/Fold.lean#L509-L516
-   509  mode, the accepted run, the stored constant, its type. -/
-   510  theorem no_proof_of_False_pure (V : Type w) [SetTheory V]
-   511      {F : Nat}
-   512      {ds : List Declaration} {env' : Env}
-   513      (h : checkDeclsPure .verified (fueledOps .verified F) pins ds = .ok env') :
-   514      ∀ c ∈ env'.consts,
-   515        c.toConstantVal.type = .const falseName [] → False := by
-   516    obtain ⟨mp⟩ := checkDeclsPure_sound_of (V := V) h
+== ConLeche/Model/Fold.lean#L576-L583
+   576  mode, the accepted run, the stored constant, its type. -/
+   577  theorem no_proof_of_False_pure (V : Type w) [SetTheory V]
+   578      {F : Nat}
+   579      {ds : List Declaration} {env' : Env}
+   580      (h : checkDeclsPure .verified (fueledOps .verified F) pins ds = .ok env') :
+   581      ∀ c ∈ env'.consts,
+   582        c.toConstantVal.type = .const falseName [] → False := by
+   583    obtain ⟨mp⟩ := checkDeclsPure_sound_of (V := V) h
 
-== ConLeche/Model/Fold.lean#L438-L440
-   438  /-- **The P fold**: the declaration fold's recursion at the P invariant. -/
-   439  theorem foldPM {F : Nat} :
-   440      ∀ (ds : List Declaration) (env : Env) {env' : Env},
+== ConLeche/Model/Fold.lean#L505-L507
+   505  /-- **The P fold**: the declaration fold's recursion at the P invariant. -/
+   506  theorem foldPM {F : Nat} :
+   507      ∀ (ds : List Declaration) (env : Env) {env' : Env},
 
 >>> whitepaper/sections/05-nested.typ
 
@@ -6889,25 +6894,25 @@
    248      obtain ⟨m', hm'⟩ := h.step m
    249      exact ⟨m', fun c hc => ⟨h.stores c hc, by rw [hm' c hc]⟩⟩
 
-== ConLeche/Modular.lean#L237-L254
-   237  /-- **An importer's checks** (at module `i`; see the module docstring). -/
-   238  structure ImportOk (mode : CheckMode) (pins : List NatOpPinSet) (dev : Nat → Module) (i : Nat) :
-   239      Prop where
-   240    below : ∀ b ∈ (dev i).imports, b < i
-   241    src_lt : ∀ n, ((dev i).context.find? n).isSome = true → (dev i).src n < i
-   242    nodup : ((dev i).context.consts.map (·.toConstantVal.name)).Nodup
-   243    /-- every context record is a presentation of the module its names are read from -/
-   244    presented : ∀ d ∈ (dev i).ctx, ∀ n ∈ declNames d, d ∈ (dev ((dev i).src n)).iface
-   245    /-- a context record is read from one module: its names have one source -/
-   246    one_src : ∀ d ∈ (dev i).ctx, ∀ n ∈ declNames d, ∀ n' ∈ declNames d,
-   247      (dev i).src n = (dev i).src n'
-   248    /-- what a context record reads is stored in the context, and agrees with its source's copy -/
-   249    reads : ∀ d ∈ (dev i).ctx, ∀ n ∈ declNames d, RecordScoped (readsAlike dev i ((dev i).src n)) d
-   250    /-- a context record reads only itself and the records before it -/
-   251    ordered : ∀ k (h : k < (dev i).ctx.length),
-   252      RecordScoped (streamEnv ((dev i).ctx.take (k + 1))) (dev i).ctx[k]
-   253    /-- the own records, accepted from the context by the fold's step -/
-   254    accepted : ∃ q, DeclsRun mode pins (dev i).decls ((dev i).ctx.length, mkFEnv (dev i).context) q
+== ConLeche/Modular.lean#L225-L242
+   225  /-- **An importer's checks** (at module `i`; see the module docstring). -/
+   226  structure ImportOk (mode : CheckMode) (pins : List NatOpPinSet) (dev : Nat → Module) (i : Nat) :
+   227      Prop where
+   228    below : ∀ b ∈ (dev i).imports, b < i
+   229    src_lt : ∀ n, ((dev i).context.find? n).isSome = true → (dev i).src n < i
+   230    nodup : ((dev i).context.consts.map (·.toConstantVal.name)).Nodup
+   231    /-- every context record is a presentation of the module its names are read from -/
+   232    presented : ∀ d ∈ (dev i).ctx, ∀ n ∈ declNames d, d ∈ (dev ((dev i).src n)).iface
+   233    /-- a context record is read from one module: its names have one source -/
+   234    one_src : ∀ d ∈ (dev i).ctx, ∀ n ∈ declNames d, ∀ n' ∈ declNames d,
+   235      (dev i).src n = (dev i).src n'
+   236    /-- what a context record reads is stored in the context, and agrees with its source's copy -/
+   237    reads : ∀ d ∈ (dev i).ctx, ∀ n ∈ declNames d, RecordScoped (readsAlike dev i ((dev i).src n)) d
+   238    /-- a context record reads only itself and the records before it -/
+   239    ordered : ∀ k (h : k < (dev i).ctx.length),
+   240      RecordScoped (streamEnv ((dev i).ctx.take (k + 1))) (dev i).ctx[k]
+   241    /-- the own records, accepted from the context by the fold's step -/
+   242    accepted : ∃ q, DeclsRun mode pins (dev i).decls ((dev i).ctx.length, mkFEnv (dev i).context) q
 
 == ConLeche/Modular.lean#L82-L92
     82  /-- **A presentation of an own record**: a record installing the same constants, in any order,
@@ -6922,22 +6927,22 @@
     91    ((declConstants e).Perm (declConstants p) ∧ declTables e = declTables p) ∨
     92      (e = stmtOf p ∧ ∀ n ∈ (declConstants p).map (·.toConstantVal.name), n ∉ reduceOpNames)
 
-== ConLeche/Modular.lean#L206-L220
-   206  /-- **Module `b`'s copy of `n` agrees with the one module `i` reads** (see the module docstring). -/
-   207  inductive Agree (dev : Nat → Module) : Nat → Nat → Name → Prop
-   208    /-- `b` is the module `i` reads `n` from -/
-   209    | same {i b : Nat} {n : Name} : b = (dev i).src n → Agree dev i b n
-   210    /-- `b` reads `n`, and an earlier module's copy agrees both with `b`'s and with `i`'s: one
-   211    record, loaded through two paths -/
-   212    | via {i b t : Nat} {n : Name} : ((dev b).context.find? n).isSome = true → t < b →
-   213        Agree dev b t n → Agree dev i t n → Agree dev i b n
-   214    /-- two proofs of one statement, whose names agree -/
-   215    | proof {i b : Nat} {n : Name} {ci ci' : ConstantInfo} :
-   216        (dev i).context.find? n = some ci → (dev b).own.find? n = some ci' →
-   217        ci'.toConstantVal = ci.toConstantVal → ci.isStmtKind = true → ci'.isStmtKind = true →
-   218        pinnedLeafName n = false → (∀ c ∈ ci.toConstantVal.type.readNames, Agree dev i b c) →
-   219        ProofSide dev i b n ci.toConstantVal.type →
-   220        ProofSide dev i ((dev i).src n) n ci.toConstantVal.type → Agree dev i b n
+== ConLeche/Modular.lean#L194-L208
+   194  /-- **Module `b`'s copy of `n` agrees with the one module `i` reads** (see the module docstring). -/
+   195  inductive Agree (dev : Nat → Module) : Nat → Nat → Name → Prop
+   196    /-- `b` is the module `i` reads `n` from -/
+   197    | same {i b : Nat} {n : Name} : b = (dev i).src n → Agree dev i b n
+   198    /-- `b` reads `n`, and an earlier module's copy agrees both with `b`'s and with `i`'s: one
+   199    record, loaded through two paths -/
+   200    | via {i b t : Nat} {n : Name} : ((dev b).context.find? n).isSome = true → t < b →
+   201        Agree dev b t n → Agree dev i t n → Agree dev i b n
+   202    /-- two proofs of one statement, whose names agree -/
+   203    | proof {i b : Nat} {n : Name} {ci ci' : ConstantInfo} :
+   204        (dev i).context.find? n = some ci → (dev b).own.find? n = some ci' →
+   205        ci'.toConstantVal = ci.toConstantVal → ci.isStmtKind = true → ci'.isStmtKind = true →
+   206        (∀ c ∈ ci.toConstantVal.type.readNames, Agree dev i b c) →
+   207        ProofSide dev i b n ci.toConstantVal.type →
+   208        ProofSide dev i ((dev i).src n) n ci.toConstantVal.type → Agree dev i b n
 
 == ConLeche/Modular/Generic.lean#L275-L276
    275  theorem modular : ∀ k, (∀ i < k, dev.Valid i) →
@@ -7381,39 +7386,56 @@
     34  theorem checkDecls_sound
     35      {ds : Array Declaration} {env' : Env}
 
-== ConLeche/Modular.lean#L237-L254
-   237  /-- **An importer's checks** (at module `i`; see the module docstring). -/
-   238  structure ImportOk (mode : CheckMode) (pins : List NatOpPinSet) (dev : Nat → Module) (i : Nat) :
-   239      Prop where
-   240    below : ∀ b ∈ (dev i).imports, b < i
-   241    src_lt : ∀ n, ((dev i).context.find? n).isSome = true → (dev i).src n < i
-   242    nodup : ((dev i).context.consts.map (·.toConstantVal.name)).Nodup
-   243    /-- every context record is a presentation of the module its names are read from -/
-   244    presented : ∀ d ∈ (dev i).ctx, ∀ n ∈ declNames d, d ∈ (dev ((dev i).src n)).iface
-   245    /-- a context record is read from one module: its names have one source -/
-   246    one_src : ∀ d ∈ (dev i).ctx, ∀ n ∈ declNames d, ∀ n' ∈ declNames d,
-   247      (dev i).src n = (dev i).src n'
-   248    /-- what a context record reads is stored in the context, and agrees with its source's copy -/
-   249    reads : ∀ d ∈ (dev i).ctx, ∀ n ∈ declNames d, RecordScoped (readsAlike dev i ((dev i).src n)) d
-   250    /-- a context record reads only itself and the records before it -/
-   251    ordered : ∀ k (h : k < (dev i).ctx.length),
-   252      RecordScoped (streamEnv ((dev i).ctx.take (k + 1))) (dev i).ctx[k]
-   253    /-- the own records, accepted from the context by the fold's step -/
-   254    accepted : ∃ q, DeclsRun mode pins (dev i).decls ((dev i).ctx.length, mkFEnv (dev i).context) q
+== ConLeche/Modular.lean#L225-L242
+   225  /-- **An importer's checks** (at module `i`; see the module docstring). -/
+   226  structure ImportOk (mode : CheckMode) (pins : List NatOpPinSet) (dev : Nat → Module) (i : Nat) :
+   227      Prop where
+   228    below : ∀ b ∈ (dev i).imports, b < i
+   229    src_lt : ∀ n, ((dev i).context.find? n).isSome = true → (dev i).src n < i
+   230    nodup : ((dev i).context.consts.map (·.toConstantVal.name)).Nodup
+   231    /-- every context record is a presentation of the module its names are read from -/
+   232    presented : ∀ d ∈ (dev i).ctx, ∀ n ∈ declNames d, d ∈ (dev ((dev i).src n)).iface
+   233    /-- a context record is read from one module: its names have one source -/
+   234    one_src : ∀ d ∈ (dev i).ctx, ∀ n ∈ declNames d, ∀ n' ∈ declNames d,
+   235      (dev i).src n = (dev i).src n'
+   236    /-- what a context record reads is stored in the context, and agrees with its source's copy -/
+   237    reads : ∀ d ∈ (dev i).ctx, ∀ n ∈ declNames d, RecordScoped (readsAlike dev i ((dev i).src n)) d
+   238    /-- a context record reads only itself and the records before it -/
+   239    ordered : ∀ k (h : k < (dev i).ctx.length),
+   240      RecordScoped (streamEnv ((dev i).ctx.take (k + 1))) (dev i).ctx[k]
+   241    /-- the own records, accepted from the context by the fold's step -/
+   242    accepted : ∃ q, DeclsRun mode pins (dev i).decls ((dev i).ctx.length, mkFEnv (dev i).context) q
 
 == ConLeche/Modular/Generic.lean#L275-L276
    275  theorem modular : ∀ k, (∀ i < k, dev.Valid i) →
    276      ∃ m : (i : Nat) → i < k → S.Mod (dev.own i), dev.Compatible k m
 
-== ConLeche/MainTheorem.lean#L192-L199
-   192  theorem modular_model_exists (V : Type w) [SetTheory V]
-   193      (pins : List NatOpPinSet) (dev : Nat → Modular.Module) (i : Nat)
-   194      (hok : ∀ j ≤ i, Modular.LocalOk .verified pins dev j) :
-   195      ∃ m : ∀ j ≤ i, Model V (dev j).own,
-   196        (∀ j hj n, ((dev j).context.find? n).isSome = true →
-   197          ∃ h : (dev j).src n ≤ i, (m j hj).cval n = (m ((dev j).src n) h).cval n) ∧
-   198        ∀ j hj n cv, (dev j).own.find? n = some (.thmInfo cv) → pinnedLeafName n = false →
-   199          (m j hj).cval n = fun _ => pt := by
+== ConLeche/MainTheorem.lean#L195-L202
+   195  theorem modular_model_exists (V : Type w) [SetTheory V]
+   196      (pins : List NatOpPinSet) (dev : Nat → Modular.Module) (i : Nat)
+   197      (hok : ∀ j ≤ i, Modular.LocalOk .verified pins dev j) :
+   198      ∃ m : ∀ j ≤ i, Model V (dev j).own,
+   199        (∀ j hj n, ((dev j).context.find? n).isSome = true →
+   200          ∃ h : (dev j).src n ≤ i, (m j hj).cval n = (m ((dev j).src n) h).cval n) ∧
+   201        ∀ j hj n cv, (dev j).own.find? n = some (.thmInfo cv) →
+   202          (m j hj).cval n = fun _ => pt := by
+
+== ConLeche/Verify/Driver/Routes.lean#L335-L336
+   335  theorem localOk (j : Nat) : LocalOk .verified natOpPinSets R.dev j :=
+   336    R.localOk_of (fun _ hM _ _ hh => R.home_rank hM hh) R.reads_ok j
+
+== ConLeche/MainTheorem.lean#L262-L272
+   262  theorem main_modular_no_False (V : Type w) [SetTheory V] {dirs root : String} {r m : Name}
+   263      {fs : FS} {d : Olean.ModDecoded} {c : Olean.CEntryF Name Expr} {v : Expr} {all : List Name}
+   264      (hr : Olean.parseModName root = some r)
+   265      (hcl : Driver.Graph.HdrClosure (Driver.searchPathOf dirs) fs [r] m)
+   266      (hv : Olean.ViewOf (Driver.searchPathOf dirs) fs m d)
+   267      (hmem : c ∈ d.constants) (hk : c.kind = .thm v all) (hty : c.type = .const falseName [])
+   268      (hwork : ∀ m', Driver.Graph.HdrClosure (Driver.searchPathOf dirs) fs [r] m' → ∃ root',
+   269        Olean.parseModName root' = some m' ∧ ModelIO.CanGive
+   270          (Driver.runArgs ["--olean", "--module", "--search-path=" ++ dirs, "--", root']) fs 0) :
+   271      ¬ ModelIO.CanGive (Driver.runArgs ["--check-graph", "--search-path=" ++ dirs, "--", root])
+   272        fs 0 := by
 
 == ConLeche/Frontend/Prepare.lean#L173-L174
    173  def preparePrelude (pre : PreludeIx) (ds : Array Declaration) : Array Declaration :=

@@ -989,7 +989,7 @@ assumed of the environment they extend.
 #theorem(name: "Every accepted environment has a model")[
   For every model of the extended theory, every accepted environment
   #src("whitepaper/Fragment/Consistency.lean", 62, 79)[has a model in it]
-  (#src("ConLeche/MainTheorem.lean", 101, 104)[con-leche's main theorem]).
+  (#src("ConLeche/MainTheorem.lean", 104, 107)[con-leche's main theorem]).
 ] <thm:accepted-model>
 
 #proof[
@@ -1012,7 +1012,7 @@ assumed of the environment they extend.
   environment. Then #src("whitepaper/Fragment/Consistency.lean", 139, 149)[no closed term $e$ has] $tack e => I$; in
   particular no stored constant has type $I$
   (#src("whitepaper/Fragment/Consistency.lean", 155, 159)[at the block `inductive False : Prop`]\;
-  #src("ConLeche/Model/Fold.lean", 509, 516)[as in con-leche]).
+  #src("ConLeche/Model/Fold.lean", 576, 583)[as in con-leche]).
 ] <cor:consistency>
 
 #proof[
@@ -1040,7 +1040,7 @@ assumed of the environment they extend.
   name `False` and say that it denotes the empty set and `Eq` set
   equality, with no hypothesis about the stream (#overview(1)); and
   its acceptance is the run of a program,
-  #src("ConLeche/Model/Fold.lean", 438, 440)[the declaration fold],
+  #src("ConLeche/Model/Fold.lean", 505, 507)[the declaration fold],
   rather than a relation, so a bridge theorem turns each accepting
   run into the derivations §3 and §4 consume (@sec:left-out). The
   argument in between is the one above.

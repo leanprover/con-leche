@@ -10,11 +10,14 @@ import ConLeche.Verify.Cached.StreamThm
 import ConLeche.Verify.Frontend.Prepare
 import ConLeche.Verify.Frontend.FileFalse
 public import ConLeche.Driver.Cli
-public import ConLeche.Verify.Frontend.Olean.Files
+import ConLeche.Verify.Frontend.Olean.Files
 import ConLeche.Verify.Driver.Main
 import ConLeche.Modular
 import ConLeche.Model.Modular.Main
 import ConLeche.Model.Capstone
+import ConLeche.Verify.Driver.Routes
+public import ConLeche.Verify.Driver.Graph
+public import ConLeche.Verify.Driver.Worker
 public section
 
 /-!
@@ -195,7 +198,7 @@ theorem modular_model_exists (V : Type w) [SetTheory V]
     ∃ m : ∀ j ≤ i, Model V (dev j).own,
       (∀ j hj n, ((dev j).context.find? n).isSome = true →
         ∃ h : (dev j).src n ≤ i, (m j hj).cval n = (m ((dev j).src n) h).cval n) ∧
-      ∀ j hj n cv, (dev j).own.find? n = some (.thmInfo cv) → pinnedLeafName n = false →
+      ∀ j hj n cv, (dev j).own.find? n = some (.thmInfo cv) →
         (m j hj).cval n = fun _ => pt := by
   obtain ⟨mm, hc⟩ := Model.Modular.modularModels (V := V) (pins := pins) hok
   have hex : ∀ j (hj : j ≤ i), ∃ mp : Model.EnvModelM V (dev j).own,
@@ -212,11 +215,11 @@ theorem modular_model_exists (V : Type w) [SetTheory V]
     rw [Classical.choose_spec (hex j hj) n (Model.Modular.own_stored_of_context hok hj hn),
       Classical.choose_spec (hex _ hsi) n (Model.Modular.src_stored hok hj hn)]
     exact he
-  · intro j hj n cv hn hpin
+  · intro j hj n cv hn
     rw [Model.Model.ofEnvModelM_cval]
     apply Model.cvalOf_prf
     rw [Classical.choose_spec (hex j hj) n (by rw [hn]; rfl)]
-    exact (mm j (by omega)).2.2.2.1 n _ hn rfl hpin (.inl ⟨cv, rfl⟩)
+    exact (mm j (by omega)).2.2.2.1 n _ hn rfl (.inl ⟨cv, rfl⟩)
 
 /-- **The modular corollary**: no module's own environment stores a constant of type `False`. -/
 theorem modular_no_False (V : Type w) [SetTheory V]
@@ -227,5 +230,78 @@ theorem modular_no_False (V : Type w) [SetTheory V]
   obtain ⟨mm, -⟩ := Model.Modular.modularModels (V := V) (pins := pins) hok
   obtain ⟨mp, -⟩ := (mm j (by omega)).2.2.2.2
   exact Model.no_constant_of_False mp c hc hty
+
+open Frontend in
+/-- **An accepted run over a closure holds no theorem of type `False`**: on a snapshot where every
+module of a closure (`C`, each node's imports its header's, closed under imports, ranked one to one
+and decreasing along every import) has an accepted worker, no module of `C` has a theorem of type
+`False` in its private view.  The run is a development every module of which passes the local
+checks (`Driver.Compose.Run.localOk`), and the theorem is a constant of its module's own
+environment (`Driver.Compose.Run.thm_own`). -/
+theorem run_no_False (V : Type w) [SetTheory V] {sp : Olean.SearchPath} {fs : FS}
+    (C : List Driver.Graph.Node) (rk : Name → Nat)
+    (good : ∀ e ∈ C, ModelIO.CanGive (Olean.moduleImports sp e.1) fs (.ok e.2))
+    (edges : ∀ e ∈ C, ∀ i ∈ e.2, i.module ∈ C.map (·.1) ∧ rk i.module < rk e.1)
+    (inj : (C.map fun e => rk e.1).Nodup)
+    (acc : ∀ M ∈ C.map (·.1), ∃ jobs, Driver.WorkerAccepted .verified sp fs M jobs)
+    {m : Name} (hm : m ∈ C.map (·.1)) {d : Olean.ModDecoded} {c : Olean.CEntryF Name Expr}
+    {v : Expr} {all : List Name} (hv : Olean.ViewOf sp fs m d) (hmem : c ∈ d.constants)
+    (hk : c.kind = .thm v all) (hty : c.type = .const falseName []) : False := by
+  obtain ⟨_, w, -⟩ := acc m hm
+  let R := Driver.Compose.Run.ofAccepted C rk good edges inj acc w
+  have hmR : m ∈ R.names := by rw [Driver.Compose.Run.ofAccepted_names]; exact hm
+  obtain ⟨ci, hci, hcty⟩ := R.thm_own hmR hv hmem hk
+  exact modular_no_False V natOpPinSets R.dev (R.rk m) (fun j _ => R.localOk j) (R.rk m)
+    (Nat.le_refl _) ci hci (by rw [hcty, hty])
+
+open Frontend in
+/-- **The modular corollary, run by run.**  On a snapshot where the private view of a module of
+the headers' import closure of `root`, by the specification, holds a theorem of type `False`, and
+where every module of that closure has an exit 0 of `--olean --module`, no outcome of
+`--check-graph --search-path=<dirs> -- <root>` is an exit 0. -/
+theorem main_modular_no_False (V : Type w) [SetTheory V] {dirs root : String} {r m : Name}
+    {fs : FS} {d : Olean.ModDecoded} {c : Olean.CEntryF Name Expr} {v : Expr} {all : List Name}
+    (hr : Olean.parseModName root = some r)
+    (hcl : Driver.Graph.HdrClosure (Driver.searchPathOf dirs) fs [r] m)
+    (hv : Olean.ViewOf (Driver.searchPathOf dirs) fs m d)
+    (hmem : c ∈ d.constants) (hk : c.kind = .thm v all) (hty : c.type = .const falseName [])
+    (hwork : ∀ m', Driver.Graph.HdrClosure (Driver.searchPathOf dirs) fs [r] m' → ∃ root',
+      Olean.parseModName root' = some m' ∧ ModelIO.CanGive
+        (Driver.runArgs ["--olean", "--module", "--search-path=" ++ dirs, "--", root']) fs 0) :
+    ¬ ModelIO.CanGive (Driver.runArgs ["--check-graph", "--search-path=" ++ dirs, "--", root])
+      fs 0 := by
+  rintro ⟨_, _, h⟩
+  obtain ⟨jobs, _, _, hg⟩ := Driver.runArgs_graph_accept hr h
+  obtain ⟨C, rk, good, hroots, edges, inj, hhdr⟩ := Driver.Graph.checkGraphG_ok hg
+  refine run_no_False V C rk good edges inj (fun M hM => ?_)
+    (Driver.Compose.hdrClosure_mem good hroots (fun e he i hi => (edges e he i hi).1) hcl)
+    hv hmem hk hty
+  obtain ⟨e, he, rfl⟩ := List.mem_map.1 hM
+  obtain ⟨root', hp, _, _, hw⟩ := hwork e.1 (hhdr e he)
+  obtain ⟨m', jobs', hp', hacc⟩ := Driver.runArgs_module_accept hw
+  obtain rfl : m' = e.1 := Option.some.inj (hp'.symm.trans hp)
+  exact ⟨jobs', hacc⟩
+
+open Frontend in
+/-- **The modular corollary, in one process.**  On a snapshot where the private view of a module
+of the headers' import closure of `root`, by the specification, holds a theorem of type `False`,
+no outcome of `--olean --modular --search-path=<dirs> -- <root>` is an exit 0. -/
+theorem main_modular_one_no_False (V : Type w) [SetTheory V] {dirs root : String} {r m : Name}
+    {fs : FS} {d : Olean.ModDecoded} {c : Olean.CEntryF Name Expr} {v : Expr} {all : List Name}
+    (hr : Olean.parseModName root = some r)
+    (hcl : Driver.Graph.HdrClosure (Driver.searchPathOf dirs) fs [r] m)
+    (hv : Olean.ViewOf (Driver.searchPathOf dirs) fs m d)
+    (hmem : c ∈ d.constants) (hk : c.kind = .thm v all) (hty : c.type = .const falseName []) :
+    ¬ ModelIO.CanGive
+      (Driver.runArgs ["--olean", "--modular", "--search-path=" ++ dirs, "--", root]) fs 0 := by
+  rintro ⟨_, _, h⟩
+  obtain ⟨m₀, hp, C, rk, good, hm₀, edges, inj, hacc⟩ := Driver.runArgs_modular_accept h
+  obtain rfl : m₀ = r := Option.some.inj (hp.symm.trans hr)
+  refine run_no_False V C rk good edges inj (fun M hM => ?_)
+    (Driver.Compose.hdrClosure_mem good (fun r' hr' => by
+      rw [List.mem_singleton] at hr'; subst hr'; exact hm₀)
+      (fun e he i hi => (edges e he i hi).1) hcl) hv hmem hk hty
+  obtain ⟨e, he, rfl⟩ := List.mem_map.1 hM
+  exact ⟨1, hacc e he⟩
 
 end ConLeche

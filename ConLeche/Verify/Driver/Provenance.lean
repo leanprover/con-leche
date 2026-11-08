@@ -1071,7 +1071,7 @@ theorem copy_behind {sp : SearchPath} {fs : FS} {h : Name} {f : ModFiles} {r : R
     ∃ loc sP s1, loc ∈ sk.consts ∧ constSkel r loc = some sP ∧
       constSkel r1 s.pos.loc = some s1 ∧ nameP r1 s1.name = some s.pos.name ∧
       s.pos.skipped = s1.kind.skipped ∧ sP.kind.skipped = s1.kind.skipped ∧
-      Behind r1 s.pos.loc r loc sP := by
+      Behind r1 s.pos.loc r loc sP ∧ nameP r sP.name = some s.pos.name := by
   obtain ⟨⟨m, L⟩, q⟩ := s
   simp only at hmod
   subst hmod
@@ -1092,7 +1092,7 @@ theorem copy_behind {sp : SearchPath} {fs : FS} {h : Name} {f : ModFiles} {r : R
     rw [hsk] at hsk'
     cases hsk'
     obtain ⟨hloc, s1, hs1, hn1, -, hsk1⟩ := hall q hq
-    exact ⟨q.loc, s1, s1, hloc, hs1, hs1, hn1, hsk1, rfl, Behind.refl _ _ _⟩
+    exact ⟨q.loc, s1, s1, hloc, hs1, hs1, hn1, hsk1, rfl, Behind.refl _ _ _, hn1⟩
   | exported =>
     simp only [ModFiles.upTo, ModFiles.viewRegion, Option.some.injEq, Prod.mk.injEq] at hreg1
     obtain ⟨rfl, rfl⟩ := hreg1
@@ -1109,7 +1109,7 @@ theorem copy_behind {sp : SearchPath} {fs : FS} {h : Name} {f : ModFiles} {r : R
       obtain ⟨rfl, rfl⟩ := Prod.mk.inj (Option.some.inj hreg')
       rw [hsk] at hskE
       cases hskE
-      exact ⟨q.loc, s1, s1, hloc, hs1, hs1, hn1, hsk1, rfl, Behind.refl _ _ _⟩
+      exact ⟨q.loc, s1, s1, hloc, hs1, hs1, hn1, hsk1, rfl, Behind.refl _ _ _, hn1⟩
     | true =>
       obtain ⟨_, _, hf'⟩ := hf
       obtain ⟨loc0, b, ex, -, -, -, hex, hpriv, -⟩ := readFiles_ok hf'
@@ -1146,11 +1146,15 @@ theorem copy_behind {sp : SearchPath} {fs : FS} {h : Name} {f : ModFiles} {r : R
         exact he
       have hstmt : ∀ cv k, StmtSkel (Region.single ex) q.loc cv k → StmtSkel r q.loc cv k :=
         fun cv k h => h.sub hsub hgood
+      have hn1r : nameP r s1.name = some q.name := by
+        obtain ⟨g1, -⟩ := constSkel_ok hs1
+        rw [hsub.nameP_sub (g1 _ (by simp [CEntryF.names]))]; exact hn1
       rcases hexpoAt q.loc hloc with hin | ⟨se, sp, en, i, loc, hse, hen, ⟨hi, hcsi⟩, hloci, hsp, alt⟩
       · exact ⟨q.loc, s1, s1, hin, hs1r, hs1, hn1, hsk1, rfl,
-          .inl ⟨fun cv k h => ⟨k, hstmt cv k h, rfl, fun _ h => h⟩, hentry⟩⟩
+          .inl ⟨fun cv k h => ⟨k, hstmt cv k h, rfl, fun _ h => h⟩, hentry⟩, hn1r⟩
       rw [hs1r] at hse
       cases hse
+      have hen' : en = q.name := by rw [hn1r] at hen; exact (Option.some.inj hen).symm
       -- the private constant at `loc`, as the load read it
       obtain ⟨r', a', sk', skels', hreg', hsk', hskels', hlen, hal⟩ := loadAt_aligned hload
       rw [hreg] at hreg'
@@ -1172,6 +1176,7 @@ theorem copy_behind {sp : SearchPath} {fs : FS} {h : Name} {f : ModFiles} {r : R
         rw [← hski]; exact hal i hil
       have hspn : nameP r sp.name = some en := by
         rw [(lazyEntry_stmt hlz).1, ← hcsi, hcs]
+      have hspq : nameP r sp.name = some q.name := hen' ▸ hspn
       -- the statement of a copy, as the private part reads it at `q.loc`
       have hst1 : ∀ cv k, StmtSkel (Region.single ex) q.loc cv k →
           nameP r s1.name = some cv.name ∧ s1.levelParams.mapM (nameP r) = some cv.levelParams ∧
@@ -1182,7 +1187,7 @@ theorem copy_behind {sp : SearchPath} {fs : FS} {h : Name} {f : ModFiles} {r : R
         cases hs'
         exact ⟨h1, h2, h3, h4⟩
       rcases alt with ⟨hk, hty, hlps⟩ | ⟨e, pc, x, he, hx, hthm, hnthm⟩
-      · refine ⟨loc, sp, s1, hlocm, hsp, hs1, hn1, hsk1, ?_, .inr fun cv k h => ?_⟩
+      · refine ⟨loc, sp, s1, hlocm, hsp, hs1, hn1, hsk1, ?_, .inr fun cv k h => ?_, hspq⟩
         · unfold hiddenKind at hk
           split at hk <;> rename_i hk1 hk2 <;> simp only [hk1, hk2, CKindF.skipped] at hk ⊢
           all_goals first
@@ -1252,7 +1257,7 @@ theorem copy_behind {sp : SearchPath} {fs : FS} {h : Name} {f : ModFiles} {r : R
           simp only [Option.some.injEq] at h1 h2 h3
           simp [CEntryF.stmt, h1, h2, h3]
         rcases expoOf_cases hx with rfl | ⟨hst, u, heu, hpu, hpt⟩
-        · refine ⟨loc, sp, s1, hlocm, hsp, hs1, hn1, hsk1, by rw [hsk1', hskE'], .inl ⟨?_, ?_⟩⟩
+        · refine ⟨loc, sp, s1, hlocm, hsp, hs1, hn1, hsk1, by rw [hsk1', hskE'], .inl ⟨?_, ?_⟩, hspq⟩
           · intro cv k h
             obtain ⟨hcv, hk1⟩ := hcvE cv k h
             obtain ⟨k', hk', htk', hq'⟩ := kind_names hmP
@@ -1275,7 +1280,7 @@ theorem copy_behind {sp : SearchPath} {fs : FS} {h : Name} {f : ModFiles} {r : R
             rw [he1] at he'
             cases he'
             exact hpc
-        · refine ⟨loc, sp, s1, hlocm, hsp, hs1, hn1, hsk1, ?_, .inr fun cv k h => ?_⟩
+        · refine ⟨loc, sp, s1, hlocm, hsp, hs1, hn1, hsk1, ?_, .inr fun cv k h => ?_, hspq⟩
           · rw [hsk1', hskE', heu, hpu]; rfl
           · obtain ⟨hcv, hk1⟩ := hcvE cv k h
             refine ⟨?_, ?_, ?_, ?_, by rw [htag1]; exact hpt⟩
@@ -1377,7 +1382,7 @@ theorem recordFrom_presents_nongroup {sp : SearchPath} {fs : FS} {h : Name}
   refine ⟨fun {x s r1 cv k} hmod hs hl hr hst hsk0 hg hq hred => ?_,
     fun {s r1 r₀ e d cv k} hmod hs hl hr he hr₀ hst hk1 hsk0 hd => ?_,
     fun {s r1 cv q d} hmod hs hl hr hst hd => ?_⟩
-  · obtain ⟨loc, sP, s1, hloc, hsP, hs1, hn1, hskq, hskP, hbeh⟩ :=
+  · obtain ⟨loc, sP, s1, hloc, hsP, hs1, hn1, hskq, hskP, hbeh, -⟩ :=
       copy_behind hf hreg hsk hload hcv hmod hs hl hr
     have hskp : sP.kind.skipped = false := by rw [hskP, ← hskq, hsk0]
     have hpos : s.pos.name = cv.name := by
@@ -1406,7 +1411,7 @@ theorem recordFrom_presents_nongroup {sp : SearchPath} {fs : FS} {h : Name}
   · obtain ⟨rfl⟩ : r₀ = r1 := by
       rw [← hmod] at hf
       exact partRegion_unique hf hr₀ hr
-    obtain ⟨loc, sP, s1, hloc, hsP, hs1, hn1, hskq, hskP, hbeh⟩ :=
+    obtain ⟨loc, sP, s1, hloc, hsP, hs1, hn1, hskq, hskP, hbeh, -⟩ :=
       copy_behind hf hreg hsk hload hcv hmod hs hl hr
     have hskp : sP.kind.skipped = false := by rw [hskP, ← hskq, hsk0]
     have het : e.kind.tag = 1 := by rw [(StmtSkel.entry hst he).2, hk1]
@@ -1415,7 +1420,7 @@ theorem recordFrom_presents_nongroup {sp : SearchPath} {fs : FS} {h : Name}
         (fun E hE => lazyEntry_entryAt hsP hE (hent e he) (by omega)) (by omega) hd
     · obtain ⟨⟨u, rfl⟩, -⟩ := hhid cv k hst
       simp [CKindF.tag] at hk1
-  · obtain ⟨loc, sP, s1, hloc, hsP, hs1, hn1, hskq, hskP, hbeh⟩ :=
+  · obtain ⟨loc, sP, s1, hloc, hsP, hs1, hn1, hskq, hskP, hbeh, -⟩ :=
       copy_behind hf hreg hsk hload hcv hmod hs hl hr
     rcases hbeh with ⟨hsame, -⟩ | hhid
     · obtain ⟨k', hk', -, hq'⟩ := hsame cv _ hst

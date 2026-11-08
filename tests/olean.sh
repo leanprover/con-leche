@@ -627,9 +627,13 @@ for m in Tiny TinyUse TinyClassic LazyVal PrivUnused HidA HidAll HidUse RbH RbM 
     HiLamA HiLamB HiInhD HiInhL HiInhT HiInhX HiInhM HiInhM2 \
     TeqH TeqP1 TeqP2 TeqQ2 TeqX TeqM TeqBoth NsC NsH NsM NsN \
     LdgQ LdgA LdgM LdgN LdvQ LdvA LdvM LdvN GrN LvA LvB LvC LvM LvN \
-    PdA PdB WvA WvB ClashA ClashB ClashX FrX FrY MoX NlB NlX NlY RtA PpA PpB; do
+    PdA PdB WvA WvB ClashA ClashB ClashX FrX FrY MoX NlB NlX NlY PpA PpB DnM1 DnM2 DnH \
+    GbG GbG2; do
   work_ "the worker at $m" 0 "accepted" "$MSP" $m
 done
+# RtA's theorem at the compiler-trust name Lean.reduceBool: the name is reserved to the opaque
+# constant of the pin's shape, so RtA's own worker refuses it, a reject Lean does not make
+work_ "a theorem at a compiler-trust name" 1 "a compiler-trust name, not an opaque constant" "$MSP" RtA
 # RtA's theorem at the compiler-trust name Lean.reduceBool, read by RtM: its statement as an
 # axiom at that name presents nothing RtA declares (a record there is presented as itself), so
 # the reach refuses it (task #448); Lean accepts the module
@@ -660,6 +664,92 @@ case_ "two definitions of one proposition, merged" 1 --olean --search-path=$MSP 
 # Lean proves False with no axiom here (H's bar.eq_1 reads Q's foo, M holds Q2's):
 # rejected, the target verdict
 work_ "a captured name" 1 "name capture at foo, read by module DgCapH" "$MSP" DgCapM
+# Exports completed on demand (task #501).  DnM1 and DnM2 each export a theorem y : foo = foo
+# (the type patched in: Lean writes no exported statement reading a privately imported name),
+# foo dangling in each export, DgCapQ's in DnM1's and DgCapQ2's in DnM2's.  DnH loads both y,
+# which merge as two theorems of one statement; completing both exports gives two foo, which
+# clash: rejected.  Lean, importing the files, completes nothing and merges the two y (it then
+# refuses DnH's own z, elaborated against y : True); a completing Lean would refuse the two foo.
+d="$TMPDIR/con-leche-olean-dangling"
+rm -rf "$d"; cp -r "$LIB" "$d"
+for k in 1 2; do
+  xpatch "$d" DnM$k "K='$k'
+# Each new object goes at the end of its part, after everything it points to (the reader
+# asks a child to come before its parent): the type foo = foo, then y's chain up to a new
+# root (ConstantVal, its theorem or axiom value, the ConstantInfo, the constants array, the
+# ModuleData), the header's root pointer moved to it.
+def obj(a):
+    bb, o = at(a)
+    if bb[o + 7] == 246:  # an array: its header, size, capacity, elements
+        return bytes(bb[o:o + 24 + 8 * struct.unpack_from('<Q', bb, o + 16)[0]])
+    return bytes(bb[o:o + struct.unpack_from('<H', bb, o + 4)[0]])
+def clone(ext, a, i, v, arr=False):
+    base, bb = parts[ext]; n = base + len(bb); bb.extend(obj(a))
+    if arr: struct.pack_into('<Q', bb, n - base + 24 + 8 * i, v)
+    else: setfld(n, i, v)
+    return n
+for ext in ['olean', 'olean.private']:
+    base, bb = parts[ext]
+    root = struct.unpack_from('<Q', bb, 88)[0]
+    cs = consts(ext)
+    eq = next(c for n, c in cs.items() if n.endswith('.bar' + K + '.eq_1'))
+    t = fld(fld(fld(eq, 0), 0), 2)
+    foo = fld(t, 1)
+    n1 = clone(ext, fld(t, 0), 1, foo)
+    n2 = clone(ext, t, 0, n1)
+    y = cs['y']
+    cv = clone(ext, fld(fld(y, 0), 0), 2, n2)
+    val = clone(ext, fld(y, 0), 0, cv)
+    ci = clone(ext, y, 0, val)
+    arr = fld(root, 2)
+    ab, ao = at(arr)
+    k = next(j for j in range(struct.unpack_from('<Q', ab, ao + 8)[0])
+             if struct.unpack_from('<Q', ab, ao + 24 + 8 * j)[0] == y)
+    arr2 = clone(ext, arr, k, ci, arr=True)
+    root2 = clone(ext, root, 2, arr2)
+    struct.pack_into('<Q', bb, 88, root2)
+"
+done
+work_ "two copies of a theorem whose exports complete to different names" 1 \
+  "name capture at foo, read by module DnM2" "$d:$INIT" DnH
+rm -rf "$d"
+# A group's stored names (task #501): GbG's exported part without S.rec (no other name of the
+# group reads it; Lean's exported parts need not hold every recursor), and GbG2's S.rec, which
+# GbG2's exposed w reads.  GbH reaches S's group first, which stores S.rec, then w: the context
+# reads S.rec from GbG2, and the group stores GbG's: rejected.  Lean, which loads no S.rec of
+# GbG at GbH, accepts the module; the shape is one Lean never writes.
+d="$TMPDIR/con-leche-olean-stored"
+rm -rf "$d"; cp -r "$LIB" "$d"
+xpatch "$d" GbG "
+# Drop S.mk from GbG's exported part: new name and constant arrays without it (the last entry
+# moved to its slot), and a new ModuleData pointing at them, each after what it points to.
+def obj(a):
+    bb, o = at(a)
+    if bb[o + 7] == 246:
+        return bytes(bb[o:o + 24 + 8 * struct.unpack_from('<Q', bb, o + 16)[0]])
+    return bytes(bb[o:o + struct.unpack_from('<H', bb, o + 4)[0]])
+def drop(ext, arr, k):
+    base, bb = parts[ext]; n = base + len(bb); bb.extend(obj(arr)); o = n - base
+    sz = struct.unpack_from('<Q', bb, o + 8)[0]
+    struct.pack_into('<Q', bb, o + 24 + 8 * k, struct.unpack_from('<Q', bb, o + 24 + 8 * (sz - 1))[0])
+    struct.pack_into('<Q', bb, o + 8, sz - 1)
+    return n
+ext = 'olean'
+base, bb = parts[ext]
+root = struct.unpack_from('<Q', bb, 88)[0]
+cs = consts(ext)
+mk = cs[\"S.rec\"]
+ab, ao = at(fld(root, 2))
+k = next(j for j in range(struct.unpack_from('<Q', ab, ao + 8)[0])
+         if struct.unpack_from('<Q', ab, ao + 24 + 8 * j)[0] == mk)
+names2 = drop(ext, fld(root, 1), k)
+consts2 = drop(ext, fld(root, 2), k)
+root2 = base + len(bb); bb.extend(obj(root)); setfld(root2, 1, names2); setfld(root2, 2, consts2)
+struct.pack_into('<Q', bb, 88, root2)
+"
+work_ "a group's name the importer loads from another module" 1 \
+  "a record read from module GbG stores S.rec, which the context reads from module GbG2" "$d:$INIT" GbH
+rm -rf "$d"
 # an axiom at a certified Nat operation's name (Lean accepts the module): its own
 # record is rejected, as on the merged read (the fast path's names it reads are
 # left to that record's check)
@@ -669,6 +759,10 @@ work_ "an axiom at a certified Nat operation's name" 1 "not a definition: Nat.di
 work_ "two axioms of one propositional statement meet" 0 "1 flags inferred" "$MSP" AxM --progress
 work_ "an axiom of a proposition meets a theorem" 0 "1 flags inferred" "$MSP" AxIM --progress
 for m in AxA AxB AxIT AxNM; do work_ "the worker at $m" 0 "accepted" "$MSP" $m; done
+# QsA's and QsB's `axiom Quot.sound`, over QsP's quotient, meet at QsM (Lean merges the two
+# axioms); QsM's context reads QsB's theorem, whose read of `Quot.sound` is QsB's own copy, a
+# proof pair with the context's (QsA's): every worker accepts (task #501)
+for m in QsP QsA QsB QsM; do work_ "the worker at $m" 0 "accepted" "$LIB" $m; done
 # the toolchain's homes of certified Nat operations (Nat.gcd; Nat.land, Nat.lor, Nat.xor,
 # Nat.shiftLeft, Nat.shiftRight): their pins' and certificates' constants are reached, so
 # their install checks find them (exit 2 before task #446)

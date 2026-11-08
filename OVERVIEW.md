@@ -159,7 +159,7 @@ The statement is two theorems: one about the declaration fold
 `checkDecls`, the function whose result the `con-leche` binary's
 driver returns for a parsed export stream, and one about the chunks
 the binary reads. The main theorem,
-[`model_exists` in `ConLeche/MainTheorem.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/MainTheorem.lean#L101-L104):
+[`model_exists` in `ConLeche/MainTheorem.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/MainTheorem.lean#L104-L107):
 
 > For every model `V` of the `SetTheory` interface, every
 > `Nat.div`/`Nat.mod` pin list `pins` and every list of declarations
@@ -201,7 +201,7 @@ and a truth value with a member is `{pt}`. So the two sides of every
 accepted equation denote the same set.
 
 The main corollary,
-[`no_False_declaration` in the same file](https://github.com/leanprover/con-leche/blob/master/ConLeche/MainTheorem.lean#L115-L122):
+[`no_False_declaration` in the same file](https://github.com/leanprover/con-leche/blob/master/ConLeche/MainTheorem.lean#L118-L125):
 
 > … if the chunks are a `jsonWithTheoremFalse` file — a name entry for
 > `False`, an expression entry for the constant `False`, a name entry
@@ -246,7 +246,7 @@ default mode, which is the verified one, and the default worker count;
 nothing is said about `--help` or the other flags. On a snapshot where
 the file's bytes are a `jsonWithTheoremFalse` file, no outcome of
 `runArgs` is an exit 0
-([theorem `main_no_False` in the same file](https://github.com/leanprover/con-leche/blob/master/ConLeche/MainTheorem.lean#L151-L153)).
+([theorem `main_no_False` in the same file](https://github.com/leanprover/con-leche/blob/master/ConLeche/MainTheorem.lean#L154-L156)).
 This is a theorem about the outcomes of `runArgs` in the model; that a
 run of the binary that exits 0 is one of those outcomes is assumed, not
 proved, and §2 states what the assumption is.
@@ -320,7 +320,7 @@ way.
 
 **Modular checking** has its own theorem, about a development of
 modules rather than one stream,
-[`modular_model_exists` in `ConLeche/MainTheorem.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/MainTheorem.lean#L192-L199):
+[`modular_model_exists` in `ConLeche/MainTheorem.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/MainTheorem.lean#L195-L202):
 if every module passes the local checks of `ConLeche/Modular.lean`
 (its interface presents its own records; as an importer, its context
 is made of presented records read as their homes read them, and its
@@ -336,9 +336,17 @@ below the name; no module records anything about its names for others.
 Hence no module's own environment stores a constant
 of type `False` (`modular_no_False`). An
 exit 0 of the binary at one module (`--olean --module`) establishes that
-module's part of the local checks (§2, one module alone); that the
-runs at every module of a closure compose into the local checks of a
-development is not proved yet.
+module's part of the local checks (§2, one module alone), and the runs at
+every module of a closure compose into a development every module of
+which passes them (`Run.localOk`, `ConLeche/Verify/Driver/Routes.lean`):
+each module is the closure's module of its rank, its context its worker's,
+a name read from the home of the record storing it, and every read the
+capture check passed agrees by the branch that passed it. So
+`main_modular_no_False` holds of the files: if the private view of a module
+of the headers' import closure of `root` holds a theorem of type `False`
+and every module of that closure has an exit 0 of `--olean --module` on the
+same snapshot, no run of `--check-graph -- <root>` exits 0; and no run of
+`--olean --modular -- <root>` exits 0 (`main_modular_one_no_False`).
 
 `False` is not read off the stream: the checker installs it from a
 built-in pin, and a stream that declares `False` or `False.rec`
@@ -480,7 +488,7 @@ Read from the outside in:
    records, nothing generated
    ([function `declConstants` in `ConLeche/Kernel/Install.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/Install.lean#L82-L94)).
    What a check pushes is what its record says, at any index and any mode
-   ([theorem `checkDeclC_pushes` in `ConLeche/Verify/Cached/DeclPushes.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Verify/Cached/DeclPushes.lean#L699-L700)).
+   ([theorem `checkDeclC_pushes` in `ConLeche/Verify/Cached/DeclPushes.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Verify/Cached/DeclPushes.lean#L703-L704)).
 
    The driver runs those checks in any order. Before any of them it builds
    one index of the whole stream from the records alone
@@ -495,7 +503,7 @@ Read from the outside in:
    that record. Every check reads its index through the lookups alone (the
    constants' and the projection tables'), so at two indices with the same
    lookups it fails alike or pushes the same constants
-   ([theorem `checkDeclStepC_twin` in `ConLeche/Verify/Cached/ViewCongr.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Verify/Cached/ViewCongr.lean#L1352-L1356)).
+   ([theorem `checkDeclStepC_twin` in `ConLeche/Verify/Cached/ViewCongr.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Verify/Cached/ViewCongr.lean#L1353-L1357)).
    The view of a position answers as the fold's index there as long as the
    names so far are distinct, which every passing job before it ensures,
    so every job passing is an accept of the fold
@@ -559,11 +567,11 @@ Read from the outside in:
    on exhaustion every operation throws
    ([the fuel recursion's base case in `ConLeche/Kernel/Core.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/Core.lean#L1777-L1782)).
    Its declaration fold is what the model tier proves things about
-   ([theorem `no_proof_of_False_pure` in `ConLeche/Model/Fold.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Model/Fold.lean#L510-L517)).
+   ([theorem `no_proof_of_False_pure` in `ConLeche/Model/Fold.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Model/Fold.lean#L577-L584)).
 5. **The model tier** (`ConLeche/Model/*`, the set model of the checker)
    shows that each declaration step preserves an invariant on the
    environment
-   ([theorem `declStep_preserves` in `ConLeche/Model/Fold.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Model/Fold.lean#L428)),
+   ([theorem `declStep_preserves` in `ConLeche/Model/Fold.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Model/Fold.lean#L495)),
    and that the invariant forbids a constant of type `False`, whose
    pinned denotation is the empty set
    ([theorem `no_constant_of_False` in `ConLeche/Model/Capstone.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Model/Capstone.lean#L137-L143)).
@@ -674,14 +682,19 @@ definition's are never read), an inductive group is presented whole, always read
 home's private part (an exported part lists a group's recursors sorted by name and need not hold
 them all), and a compiler-trust name (`Lean.reduceBool`, `Lean.reduceNat`) is presented as its
 statement only where its home declares an opaque constant or an axiom there. What a record reads
-(`recordReads`: its constants' and tables' names, `RecordScoped`'s) is pushed. A name the index
-lacks is located in its reader's home's view by headers and name tables (the home's own private
-part, then the parts its header fixpoint loads, the first copy) and read from its module's
-private part as its statement; a name located nowhere is a reject. Every read of a record is
-checked against its reader's home: the context's copy stands for the home's when the home's
-public-import closure holds its module and the name is in that module's exported part, otherwise
-the copy the home's view locates must agree with it (one module, or two proofs of one
-statement whose every name is checked so too, as a read of that home), else the module is
+(`recordReads`: its constants' and tables' names, `RecordScoped`'s) is pushed. A record of home `h` means by a name it reads the copy `h`'s export
+holds: `h`'s own, or the copy of a module of `h`'s public-import closure that exports it. A name neither holds is
+dangling in `h`'s export and is completed where the export was made: located in `h`'s view by
+headers and name tables (`h`'s own private part, then the parts its header fixpoint loads, the
+first copy) and read from its module's private part as its statement, its own reads dangling or
+not relative to that module; a name located nowhere is a reject. Exports are completed on
+demand: for the names the context's records read, and for every copy of every clashing name the
+context stores. The capture check is the same rule: a read passes when the context's copy is
+the home's own or comes from a module of the home's public-import closure that exports it;
+otherwise the copy the home's view locates (on Lean's output, a completed name or a clashing
+copy) must agree with the context's: one module, or two proofs of one statement whose every
+name is checked so too, as a read of that copy's module. Every name a group stores has no
+importer copy or one of the group's home. Else the module is
 rejected (name capture). A copy is a proof if it is a theorem,
 its home declares a theorem at an exported axiom, or it is a definition, opaque constant or axiom
 whose type the kernel infers to be a proposition at the context; every name two loaded modules hold
@@ -1629,14 +1642,16 @@ from mentions `sorry`, whether or not anything uses it, so its record
 is checked for well-formedness and then installs nothing — there is no
 set model for it and there cannot be one. A stream that merely
 declares it is therefore accepted; a stream that *uses* it declines, at
-the record that uses it.
+the record that uses it. Any other declaration at its name is
+rejected.
 
 The compiler-trust family, `Lean.trustCompiler`, `Lean.reduceBool`,
 `Lean.reduceNat` and the axioms `Lean.ofReduceBool` and
 `Lean.ofReduceNat`, is neither rejected nor trusted: `trustCompiler`
 installs as an opaque with value `True.intro`, the two reduce
 operations install as ordinary opaques pinned to the identity
-function, and the two axioms are accepted only after the install
+function (any other declaration at their names is rejected, as at a
+certified operation's name), and the two axioms are accepted only after the install
 certifies, by definitional equality, that the stored reduce operation
 is the identity, at which point each axiom's statement is an inhabited
 proposition in the model

@@ -167,17 +167,20 @@ theorem #src("ConLeche/Verify/Cached/MainC.lean", 32, 35)[composes it with the f
 *Modular checking.* In the fragment, a module's context, views and
 the module each context name is read from are given, and the local
 checks of @sec:mod-local say what they must satisfy. Con-leche states
-#src("ConLeche/Modular.lean", 237, 254)[the same checks] over its own
+#src("ConLeche/Modular.lean", 225, 242)[the same checks] over its own
 records, a context being a list of the records its imports present, in
 an order in which every record reads only itself and earlier records, and
 carries #src("ConLeche/Modular/Generic.lean", 275, 276)[the theorem]
 over the interface of @sec:mod-iface, and its instance for con-leche's
-models gives #src("ConLeche/MainTheorem.lean", 192, 199)[the modular
+models gives #src("ConLeche/MainTheorem.lean", 195, 202)[the modular
 theorem]. Con-leche
 computes a module's context from the `.olean` files and checks the
-module's own records against it, one module per run; that the runs at
-every module of an import closure together give the local checks is not
-proved yet.
+module's own records against it, one module per run, and
+#src("ConLeche/Verify/Driver/Routes.lean", 335, 336)[the runs at every module
+of an import closure together give the local checks]. Hence
+#src("ConLeche/MainTheorem.lean", 262, 272)[no module of the closure holds a
+theorem of type `False`] where the graph check and every module's run exit 0
+on one snapshot.
 
 *The frontend.* Between the export file and the declaration fold sit
 a decoder and one transformation of the decoded list,

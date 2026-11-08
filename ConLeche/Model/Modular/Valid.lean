@@ -607,7 +607,7 @@ theorem agree_alike {i : Nat} (hok : ∀ j ≤ i, LocalOk .verified pins dev j) 
     obtain rfl := Option.some.inj hct'
     refine ⟨cb, own_find?_of_context hndb hcb, hac.trans hab.symm, ?_⟩
     rw [htj, ← htb, own_findTable?_of_context hndb hKb.nodup hctx]
-  | @proof j b x ci ci' hC' hB' hcv hk hk' _ _ _ _ _ =>
+  | @proof j b x ci ci' hC' hB' hcv hk hk' _ _ _ _ =>
     intro hj hb ciC hC
     rw [hC'] at hC
     obtain rfl := Option.some.inj hC
@@ -649,7 +649,7 @@ theorem agree_home {i : Nat} (hok : ∀ j ≤ i, LocalOk .verified pins dev j) :
     have hkt : ct.isStmtKind = false := hac.eq_of_not_stmt hk ▸ hk
     have hkb : cb.isStmtKind = false := (hab.symm.eq_of_not_stmt hkt) ▸ hkt
     exact (ihb hb (by omega) hcb hkb).symm.trans (ihj hj (by omega) hC hk)
-  | @proof j b x ci ci' hC' _ _ hk _ _ _ _ _ _ =>
+  | @proof j b x ci ci' hC' _ _ hk _ _ _ _ _ =>
     intro _ _ ciC hC hk'
     rw [hC'] at hC
     obtain rfl := Option.some.inj hC

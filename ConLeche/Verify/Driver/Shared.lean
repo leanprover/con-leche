@@ -393,6 +393,16 @@ theorem captureAll_within (h : OleanReads.Within fs env.rd sp) (m : Name) :
     simp only [captureAll]
     within_tac [captureOne_within h, captureAll_within h]
 
+theorem storedNamesOk_within (h : OleanReads.Within fs env.rd sp) (m : Name) :
+    ∀ (c : ReachCache) (ns : List Name),
+      ModelIO.Within fs (storedNamesOk env c m ns) (storedNamesOk (env.onPath sp) c m ns)
+  | c, [] => by simp only [storedNamesOk]; exact ModelIO.Within.pure _
+  | c, n :: ns => by
+    simp only [storedNamesOk]
+    have he : importerSpot (env.onPath sp) n = importerSpot env n := rfl
+    rw [he]
+    within_tac [lookOf_within h, storedNamesOk_within h]
+
 theorem capturePairs_within (h : OleanReads.Within fs env.rd sp) :
     ∀ (c : ReachCache) (ps : List (Name × Name)),
       ModelIO.Within fs (capturePairs env c ps) (capturePairs (env.onPath sp) c ps)
@@ -431,8 +441,11 @@ theorem reachGo_within (h : OleanReads.Within fs env.rd sp) :
   intro fuel
   induction fuel with
   | zero => intro L c; rw [reachGo, reachGo]; within_tac []
-  | succ fuel ih => intro L c; rw [reachGo, reachGo]; within_tac [readRecord_within h,
-      captureAll_within h, capturePairs_within h, ih]
+  | succ fuel ih =>
+    intro L c; rw [reachGo, reachGo]
+    simp only [show clashPartners (env.onPath sp) = clashPartners env from rfl]
+    within_tac [readRecord_within h, captureAll_within h, storedNamesOk_within h,
+      capturePairs_within h, ih]
 
 end
 
@@ -441,8 +454,10 @@ theorem reach_within {fs : FS} {rd : OleanReads ModelIO} {sp : SearchPath}
     (roots : Array Name) :
     ModelIO.Within fs (reach rd m wr own roots) (reach (.ofPath sp) m wr own roots) := by
   simp only [reach]
-  have hc := clashAgree_within (env := { rd, mod := m, wr, own }) (sp := sp) h {} wr.clashes.toList #[]
-  have hg := reachGo_within (env := { rd, mod := m, wr, own }) (sp := sp) h
+  have hc := clashAgree_within (env := { rd, mod := m, wr, own, copies := clashCopiesOf wr })
+    (sp := sp) h {} wr.clashes.toList #[]
+  have hg := reachGo_within (env := { rd, mod := m, wr, own, copies := clashCopiesOf wr })
+    (sp := sp) h
   simp only [ReachEnv.onPath] at hc hg
   within_tac [hc, hg]
 

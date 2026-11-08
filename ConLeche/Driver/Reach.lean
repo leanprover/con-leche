@@ -24,29 +24,37 @@ checked against, as a list of records, and its validation.
   all.  A compiler-trust name is presented as its statement only where its home declares an
   opaque constant or an axiom there (`stmtRecord`).  What the record reads (`recordReads`)
   is pushed.
-* **The completion**: a name the index lacks, read by a record of home `h`, is located in
-  `h`'s view (`viewOf`: `h`'s own private part first, then the parts `h`'s header fixpoint
-  loads, the first copy found; never by a name's `_private` spelling) and read from its
-  module's private part as its statement (a group whole); its reads are resolved or
-  completed in turn, each in its own home's view.  A name located nowhere is malformed
-  input (exit 1).
+* **The completion of the exports, on demand.**  A record of home `h` means by a name `y` it
+  reads the copy `h`'s export holds: `h`'s own, or the copy of a module of `h`'s public-import
+  closure whose exported part holds `y`.  A name neither holds is **dangling** in `h`'s export,
+  and is completed where the export was made: located in `h`'s view (`viewOf`: `h`'s own private
+  part first, then the parts `h`'s header fixpoint loads, the first copy found; never by a name's
+  `_private` spelling) and read from its module's private part as its statement (a group
+  whole); its reads are dangling or not relative to the module it was read from, in turn.  A
+  name located nowhere is malformed input (exit 1).  Completion is done for the names the
+  context's records read and for every copy of every clashing name the context stores, and no
+  other: a completed copy joins the loaded ones, and where two copies meet they must agree.
 * **The capture check** (`captureOne`), for every record of home `h` and every name `y` it
-  reads: the context's copy of `y` stands for `h`'s if it is `h`'s own, or `h`'s
-  public-import closure holds its module and `y` is in that module's exported part (`h`'s
-  view then holds that copy, and `h`'s clash rule made every copy it might choose agree);
-  otherwise `y` is located in `h`'s view and the two copies must agree (`agreeCheck`, the
-  specification's `Agree`): one module, or both proofs of one statement whose names agree.
-  Else the module is rejected ("name capture").  A context record reading one of `M`'s own
-  names is rejected so too.
-* **The partner's statement** at a proof pair: every name the statement reads is
-  capture-checked as a read of `h` (`ReachCache.partners`, after the worklist has read every
-  record, so that each such name is the context's: the context's copy of the name has that
-  statement), so that `h` reads the statement as the importer does.
+  reads: the read passes when the context's copy of `y` is `h`'s own, or comes from a module
+  of `h`'s public-import closure that exports it: the copy `h`'s export holds.  Otherwise `y`
+  is located in `h`'s view, which on Lean's output means a completed name or a clashing copy,
+  and the two copies must agree (`agreeCheck`, the specification's `Agree`): one module, or
+  both proofs of one statement whose names agree.  Else the module is rejected ("name
+  capture").  A context record reading one of `M`'s own names is rejected so too.
+* **The names a record stores** (`storedNamesOk`): a group read with one of its names stores
+  all of them; each must have no importer copy or one of the group's home, and none located
+  elsewhere, else the module is rejected; one with no copy is located at the home's private
+  part, so that a later read compares with it.
+* **A copy's statement** at a proof pair, and every copy of a clashing name the context stores
+  (`clashPartners`): every name the statement reads is capture-checked as a read of the copy's
+  module (`ReachCache.partners`, after the worklist has read every record, so that each such
+  name is the context's: the context's copy of the name has that statement), so that every
+  copy reads its statement as the context does.
 * **Proofs by inference** (`proofStatus`, ruling 3 of #460; axioms by #444's): a copy
   is a proof if it is a theorem, or (an exported axiom) its home's private part declares a
   theorem there, or it is a definition, opaque constant or axiom (exported or not, at its
-  home) whose type the kernel infers to be a proposition at the context (`typeIsPropC`,
-  after the context is built and validated).  The inference accepts every well-typed type
+  home) whose type the kernel infers to be a proposition over the part of the context below
+  its name (`typeIsPropC`, `inferFlags`, after the context is built and validated).  The inference accepts every well-typed type
   Lean's `isPropCheap` accepts, so every pair Lean's merge identifies agrees.  The copies of
   every name two loaded modules hold (`WorkerReads.clashes`) must be proofs of one statement
   (`clashAgree`, Lean's merge); a clash whose proof is inferred has its name reached, so that its
@@ -231,6 +239,9 @@ structure ReachEnv (μ : Type → Type) where
   wr : WorkerReads
   /-- the module's own names -/
   own : Std.HashSet Name
+  /-- every copy of each name two loaded modules hold: the copy's module and its statement
+  (`clashCopiesOf`) -/
+  copies : Std.HashMap Name (Array (Name × ConstantVal)) := {}
 
 /-- **The reach's caches**: what it has read of the files.  A part's memo is taken out of
 `parts` while it is extended, so that it is changed at reference count 1. -/
@@ -249,13 +260,25 @@ structure ReachCache where
   located : Std.HashMap Name Spot := {}
   /-- the completed names, each with the home whose view located it -/
   completed : Array (Name × Name) := #[]
-  /-- statements whose being a proposition decides an agreement, inferred at the context -/
+  /-- statements whose being a proposition decides an agreement, inferred over the part of the
+  context below their name -/
   pending : Array (String × Name × ConstantVal) := #[]
   /-- the names of a proof pair's statement, each with the home that reads it as the pair's
   other copy (`agreeCheck`), to be capture-checked once the worklist is done -/
   partners : Array (Name × Name) := #[]
   /-- how many reads were looked for in their reader's view -/
   searches : Nat := 0
+
+/-- **The parts of module `h`'s view**, in order: `h`'s own private part, then the parts its
+header fixpoint `ld` loads, in its order. -/
+def viewKeys (h : Name) (ld : Loads) : List PartKey :=
+  ⟨h, .private⟩ :: (ld.order.zip ld.flags).toList.map fun (m, fl) => ⟨m, fl.level⟩
+
+/-- **One part's names into a view**, the first copy of each name kept. -/
+def viewStep (v : Std.HashMap Name Spot) (k : PartKey) (t : NamePositions) :
+    Std.HashMap Name Spot :=
+  t.consts.foldl (fun (v : Std.HashMap Name Spot) q =>
+    if v.contains q.name then v else v.insert q.name ⟨k, q⟩) v
 
 section
 variable {μ : Type → Type} [CheckerIO μ]
@@ -353,10 +376,7 @@ def viewAdd (env : ReachEnv μ) :
   | c, v, k :: ks => do
     match ← tableOf env c k with
     | (c, .error e) => pure (c, .error e)
-    | (c, .ok t) =>
-      let v := t.consts.foldl (fun (v : Std.HashMap Name Spot) q =>
-        if v.contains q.name then v else v.insert q.name ⟨k, q⟩) v
-      viewAdd env c v ks
+    | (c, .ok t) => viewAdd env c (viewStep v k t) ks
 
 /-- **Module `h`'s view, by name**: `h`'s own private part, then the parts `h`'s header
 fixpoint loads, in its order, the first copy of each name.  Built once per home. -/
@@ -371,9 +391,7 @@ def viewOf (env : ReachEnv μ) (c : ReachCache) (h : Name) :
       match ← headerFixpoint env.rd.imports own.header.isModule own.header.imports with
       | .error e => pure (c, .error e)
       | .ok ld =>
-        let ks : List PartKey := ⟨h, .private⟩ ::
-          (ld.order.zip ld.flags).toList.map fun (m, fl) => ⟨m, fl.level⟩
-        match ← viewAdd env c {} ks with
+        match ← viewAdd env c {} (viewKeys h ld) with
         | (c, .error e) => pure (c, .error e)
         | (c, .ok v) => pure ({ c with views := c.views.insert h v }, .ok v)
 
@@ -427,12 +445,17 @@ def partnerReads (h : Name) (ty : Expr) : Array (Name × Name) :=
   (needsGo {} #[] ty).2.map (h, ·)
 
 /-- **Two copies of `y` agree**, the context's `s₁` and `s₂` of home `h`'s view: one module, or
-both proofs of one statement (an inference recorded with its statement), whose names `h` reads as
-the context does (recorded in `partners`). -/
+both proofs of one statement (an inference recorded with its statement), whose names `s₂`'s
+module reads as the context does (recorded in `partners`, each name as a read of that module).
+The copy `h` reads is not unsafe or partial: `s₂`'s module holds it as a constant of its own
+(a safe constant never reads an unsafe or partial one, in Lean's kernel as in the worker). -/
 def agreeCheck (env : ReachEnv μ) (c : ReachCache) (h y : Name) (s₁ s₂ : Spot) :
     μ (ReachCache × Except CheckError Unit) := do
   if s₁.part.mod == s₂.part.mod then return (c, .ok ())
   let what := s!"name capture at {y}, read by module {h}"
+  if s₂.pos.skipped then
+    return (c, .error (.invalid s!"{what}: its copy of {y}, of module {s₂.part.mod}, is unsafe \
+      or partial"))
   let bad : CheckError := .invalid s!"{what}: the copies of {y} of modules {s₁.part.mod} and \
     {s₂.part.mod} are not one constant (not two proofs of one statement)"
   match ← stmtAt env c s₁ with
@@ -451,7 +474,7 @@ def agreeCheck (env : ReachEnv μ) (c : ReachCache) (h y : Name) (s₁ s₂ : Sp
         | (c, .ok p₂) =>
           if p₁ == .no || p₂ == .no then pure (c, .error bad)
           else
-            let c := { c with partners := c.partners ++ partnerReads h cv₂.type }
+            let c := { c with partners := c.partners ++ partnerReads s₂.part.mod cv₂.type }
             if p₁ == .infer || p₂ == .infer then
               pure ({ c with pending := c.pending.push (what, y, cv₁) }, .ok ())
             else pure (c, .ok ())
@@ -544,6 +567,41 @@ def captureOne (env : ReachEnv μ) (c : ReachCache) (h y : Name) :
         | (c, .ok p) =>
           pure ({ c with located := c.located.insert y p,
                          completed := c.completed.push (y, h) }, .ok ())
+
+/-- **The names a record stores, against the importer's copies** (a group's members,
+constructors and recursors, read with it from its home `h`'s private part): each has no importer
+copy or one of `h`, and no located copy or one of `h`; one with neither is located at `h`'s private
+part, so that a later read of it is compared with the context's copy like any read.  A copy of
+another module is never one constant with a group's (no group member is a proof): a reject. -/
+def storedNamesOk (env : ReachEnv μ) (c : ReachCache) (h : Name) :
+    List Name → μ (ReachCache × Except CheckError Unit)
+  | [] => pure (c, .ok ())
+  | n :: ns => do
+    let bad (k : Name) : CheckError := .invalid s!"a record read from module {h} stores {n}, \
+      which the context reads from module {k}"
+    match importerSpot env n with
+    | some (_, s) =>
+      if s.part.mod == h then storedNamesOk env c h ns else pure (c, .error (bad s.part.mod))
+    | none =>
+      match c.located[n]? with
+      | some s =>
+        if s.part.mod == h then storedNamesOk env c h ns else pure (c, .error (bad s.part.mod))
+      | none =>
+        match ← lookOf env c ⟨h, .private⟩ with
+        | (c, .error e) => pure (c, .error e)
+        | (c, .ok l) =>
+          match l[n]? with
+          | some q => storedNamesOk env { c with located := c.located.insert n ⟨⟨h, .private⟩, q⟩ } h ns
+          | none => pure (c, .error (.invalid s!"module {h}: a record of its private part stores \
+              {n}, which its private part does not hold"))
+
+/-- **Every copy of a clashing name the context stores**, its statement's names each as a read of
+the copy's module (`copies`): every copy a home might have chosen reads its statement as the
+context does. -/
+def clashPartners (env : ReachEnv μ) (ns : List Name) : Array (Name × Name) :=
+  ns.foldl (fun acc n => match env.copies[n]? with
+    | some cs => cs.foldl (fun acc (k, cv) => acc ++ partnerReads k cv.type) acc
+    | none => acc) #[]
 
 /-- The capture check of every read of a record. -/
 def captureAll (env : ReachEnv μ) (h : Name) :
@@ -751,6 +809,12 @@ def missingError (d : Declaration) (x h : Name) : CheckError :=
     else .invalid s!"the record read for {x} from {h} does not declare it"
   | _ => .invalid s!"the record read for {x} from {h} does not declare it"
 
+/-- **The copies of every name two loaded modules hold**, by name: each copy's module and
+statement. -/
+def clashCopiesOf (wr : WorkerReads) : Std.HashMap Name (Array (Name × ConstantVal)) :=
+  wr.clashes.foldl (fun m cl =>
+    m.insert cl.name (cl.copies.map fun (cp, cv, _) => (wr.loads.nameAt cp.mod, cv))) {}
+
 /-- **The reach's worklist** (see the module docstring). -/
 def reachGo {μ : Type → Type} [CheckerIO μ] (env : ReachEnv μ) :
     Nat → ReachLog → ReachCache → μ (Except CheckError (ReachLog × ReachCache))
@@ -783,7 +847,12 @@ def reachGo {μ : Type → Type} [CheckerIO μ] (env : ReachEnv μ) :
             let rd := (recordReads d).toList
             match ← captureAll env h c rd with
             | (_, .error e) => pure (.error e)
-            | (c, .ok ()) => reachGo env fuel (L.add d h rd rest) c
+            | (c, .ok ()) =>
+              match ← storedNamesOk env c h ns with
+              | (_, .error e) => pure (.error e)
+              | (c, .ok ()) =>
+                reachGo env fuel (L.add d h rd rest)
+                  { c with partners := c.partners ++ clashPartners env ns }
 
 /-! ## The validation and the flags -/
 
@@ -802,16 +871,25 @@ def typeIsPropC (fe : FEnv) (cv : ConstantVal) : CheckCM Bool := do
   let u ← opSIxC .verified fe 0 jsty
   liftFueled "level comparison" (Level.isEquiv u .zero)
 
-/-- **The inferred flags**: every recorded statement a proposition at the context. -/
-def inferFlags (fe : FEnv) : List (String × Name × ConstantVal) → Except CheckError Unit
+/-- **The part of the context below a name**: the records before the first one storing it (the
+specification's `Module.part`). -/
+def ctxPart (ctx : List Declaration) (y : Name) : List Declaration :=
+  ctx.take (ctx.findIdx fun d => (declNames d).contains y)
+
+/-- **The inferred flags**: every recorded statement a proposition over the part of the context
+below its name (`ctxPart`), as the specification's proof route asks and as Lean's merge infers it
+over the constants loaded before.  The context is in read order, so a statement's names are
+stored before its record, unless it reads its own name, which no home accepts. -/
+def inferFlags (ctx : List Declaration) : List (String × Name × ConstantVal) → Except CheckError Unit
   | [] => .ok ()
   | (what, y, cv) :: rest =>
+    let fe := mkFEnv (streamEnv (ctxPart ctx y))
     if !(exprOk cv.levelParams 0 cv.type && cv.type.constsResolveF fe) then
-      .error (.internal s!"the statement of {y} does not resolve in the context")
+      .error (.invalid s!"the statement of {y} reads a name the context does not store before it")
     else
       match (typeIsPropC fe cv).run' {} with
       | .error e => .error e
-      | .ok true => inferFlags fe rest
+      | .ok true => inferFlags ctx rest
       | .ok false => .error (.invalid s!"{what}: the copies of {y} of two modules are not one \
           constant (its type is not a proposition)")
 
@@ -883,7 +961,7 @@ structure Reach where
 rule's keys, the worklist, the context's validation, the inferred flags. -/
 def reach {μ : Type → Type} [CheckerIO μ] (rd : OleanReads μ) (m : Name) (wr : WorkerReads)
     (own : Std.HashSet Name) (roots : Array Name) : μ (Except CheckError Reach) := do
-  let env : ReachEnv μ := { rd, mod := m, wr, own }
+  let env : ReachEnv μ := { rd, mod := m, wr, own, copies := clashCopiesOf wr }
   match ← clashAgree env {} wr.clashes.toList #[] with
   | (_, .error e) => pure (.error e)
   | (c, .ok extra) =>
@@ -904,8 +982,7 @@ def reach {μ : Type → Type} [CheckerIO μ] (rd : OleanReads μ) (m : Name) (w
         match validateCtx ctx homes with
         | .error e => pure (.error e)
         | .ok () =>
-          let fe := mkFEnv (streamEnv ctx.toList)
-          match inferFlags fe c.pending.toList with
+          match inferFlags ctx.toList c.pending.toList with
           | .error e => pure (.error e)
           | .ok () =>
             pure (.ok { ctx, homes, completed := c.completed,

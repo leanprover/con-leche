@@ -42,12 +42,17 @@ def opSIxC (fe : FEnv) (d : Nat) (i : Expr) : CheckCM Level :=
 /-- `checkConstantVal` on a parsed declaration: the checks of
 `checkConstantValF` with the syntactic passes memoized on the `Expr`
 DAG and the cached operations on its nodes. -/
-def checkConstantValC (fe : FEnv) (cv : ConstantVal) (allowOp : Bool := false) :
+def checkConstantValC (fe : FEnv) (cv : ConstantVal) (allowOp : Bool := false)
+    (allowReduce : Bool := false) (allowSorry : Bool := false) :
     CheckCM Unit := do
   if (fe.find? cv.name).isSome then
     throw (.invalid s!"duplicate declaration {cv.name}")
   if natOpName cv.name && !allowOp then
     throw (.invalid s!"a certified Nat operation's name, not a definition: {cv.name}")
+  if reduceOpNames.contains cv.name && !allowReduce then
+    throw (.invalid s!"a compiler-trust name, not an opaque constant: {cv.name}")
+  if sorryAxNameAt cv.name && !allowSorry then
+    throw (.invalid s!"the tolerated axiom's name, not an axiom: {cv.name}")
   unless litShapeOk (.axiomInfo cv) do
     throw (.notImplemented s!"a declaration at a literal's name with another shape ({cv.name})")
   unless Name.nodup cv.levelParams do
@@ -200,7 +205,7 @@ def checkDeclKindC (pins : List NatOpPinSet) (fe : FEnv) (pd : Declaration) :
     let ci ← checkThmValCI mode fe cv value
     pure (fe.push ci)
   | .opaqueDecl cv value => do
-    checkConstantValC mode fe cv
+    checkConstantValC mode fe cv (allowReduce := true)
     let ci ← checkOpaqueValCI mode fe cv value
     if reduceOpNames.contains cv.name then
       checkReducePinF (sharedOpsC mode fe) fe (fe.overlay [ci]) cv.name value
@@ -209,7 +214,7 @@ def checkDeclKindC (pins : List NatOpPinSet) (fe : FEnv) (pd : Declaration) :
     if cv.name = quotSoundName then
       checkQuotRecordC fe .sound cv
     else do
-      checkConstantValC mode fe cv
+      checkConstantValC mode fe cv (allowSorry := true)
       if stdAxiomOkF fe cv then
         pure (fe.push (.axiomInfo cv))
       else if cv.name = trustCompilerName then

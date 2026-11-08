@@ -1,6 +1,7 @@
 module
 
 import ConLeche.Kernel.StdAxioms
+public import ConLeche.Kernel.TrustAxioms
 public import ConLeche.Kernel.TypeChecker
 public import ConLeche.Kernel.NatOpPins
 public import ConLeche.Kernel.Inductives.StructParts
@@ -101,13 +102,20 @@ variable {m : Type → Type} [Monad m] [MonadExceptOf CheckError m]
 
 /-- Checks common to all declarations: fresh name, well-formed universe
 parameters, and a type that is a type and mentions only declared
-parameters.  `allowOp` is a definition's: only it may take a certified operation's name. -/
+parameters.  `allowOp` is a definition's: only it may take a certified operation's name;
+`allowReduce` an opaque constant's: only it may take a compiler-trust name; `allowSorry` an
+axiom's: only it may take `sorryAx`'s. -/
 def checkConstantVal (ops : CheckerOps m) (env : Env) (cv : ConstantVal)
-    (allowOp : Bool := false) : m Unit := do
+    (allowOp : Bool := false) (allowReduce : Bool := false) (allowSorry : Bool := false) :
+    m Unit := do
   if (env.find? cv.name).isSome then
     throw (.invalid s!"duplicate declaration {cv.name}")
   if natOpName cv.name && !allowOp then
     throw (.invalid s!"a certified Nat operation's name, not a definition: {cv.name}")
+  if reduceOpNames.contains cv.name && !allowReduce then
+    throw (.invalid s!"a compiler-trust name, not an opaque constant: {cv.name}")
+  if sorryAxNameAt cv.name && !allowSorry then
+    throw (.invalid s!"the tolerated axiom's name, not an axiom: {cv.name}")
   unless litShapeOk (.axiomInfo cv) do
     throw (.notImplemented s!"a declaration at a literal's name with another shape ({cv.name})")
   unless Name.nodup cv.levelParams do

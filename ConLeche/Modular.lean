@@ -56,7 +56,7 @@ theorem modular_model_exists (V : Type w) [SetTheory V]
     ∃ m : ∀ j ≤ i, Model V (dev j).own,
       (∀ j hj n, ((dev j).context.find? n).isSome = true →
         ∃ h : (dev j).src n ≤ i, (m j hj).cval n = (m ((dev j).src n) h).cval n) ∧
-      ∀ j hj n cv, (dev j).own.find? n = some (.thmInfo cv) → pinnedLeafName n = false →
+      ∀ j hj n cv, (dev j).own.find? n = some (.thmInfo cv) →
         (m j hj).cval n = fun _ => pt
 ```
 
@@ -137,18 +137,6 @@ def TypeIsProp (mode : CheckMode) (E : Env) (ty : Expr) : Prop :=
   ∃ F stype u, inferTypeCore mode false E F 0 ty = .ok stype ∧
     ensureSortCore mode false E F 0 stype = .ok u ∧ Level.isEquiv u .zero = some true
 
-/-- A definition, theorem or axiom: the kinds whose copies may differ by a value. -/
-def _root_.ConLeche.ConstantInfo.isStmtKind : ConstantInfo → Bool
-  | .defnInfo .. | .thmInfo .. | .axiomInfo .. => true
-  | _ => false
-
-/-- **A name whose constant's leaf is pinned to something else than a proof**: a certified
-operation's, a compiler-trust name's, or `sorryAx`'s (which stores nothing); never a proof's
-copy.  (`Quot.sound`'s pinned leaf is the canonical proof.) -/
-def pinnedLeafName (n : Name) : Bool :=
-  natOpNames.contains n || natDivModNames.contains n || reduceOpNames.contains n ||
-    n == sorryAxName
-
 /-- **The names an expression reads**: its constants, a literal's support names and a
 projection's structure (the names `Expr.constsResolve` asks stored). -/
 def _root_.ConLeche.Expr.readNames : Expr → List Name
@@ -215,7 +203,7 @@ inductive Agree (dev : Nat → Module) : Nat → Nat → Name → Prop
   | proof {i b : Nat} {n : Name} {ci ci' : ConstantInfo} :
       (dev i).context.find? n = some ci → (dev b).own.find? n = some ci' →
       ci'.toConstantVal = ci.toConstantVal → ci.isStmtKind = true → ci'.isStmtKind = true →
-      pinnedLeafName n = false → (∀ c ∈ ci.toConstantVal.type.readNames, Agree dev i b c) →
+      (∀ c ∈ ci.toConstantVal.type.readNames, Agree dev i b c) →
       ProofSide dev i b n ci.toConstantVal.type →
       ProofSide dev i ((dev i).src n) n ci.toConstantVal.type → Agree dev i b n
 

@@ -113646,3 +113646,687 @@ no-local-paths, challenge, olean gate 304/304, selfcheck (56,183 declarations), 
 (66 theorems, `tests/ConLecheTests/Axioms.lean` unchanged), arena tutorial 90/92, e2e 557/557,
 the trusted and `--jobs` sweeps without divergence.  No `sorry`, no new axiom, no new `unsafe`,
 `implemented_by` or C.
+
+
+## TASK #501 — the composition `main_modular_no_False`: two gaps in the capture check (2026-11-07, agent/501-compose)
+
+On `modular` (off 4687e7ea8).  Before any proof: the plan of #500 cont. 4 for `ImportOk.reads`
+(the capture check's soundness, route by route) was read against `ConLeche/Driver/Reach.lean`.
+Two of its routes do not follow from what the workers check, so the composition cannot be proved
+on the current code.  **Stopped for a ruling; nothing else changed on the branch.**
+
+**Gap A: the public-import shortcut through a copy that is not the reader's home's.**
+`captureOne` at importer `i`, a record `d` of home `h` reading `y`, the context's copy of `y` from
+module `M1`: if `M1` is in `h`'s public-import closure and `y` is in `M1`'s exported part, the
+read passes.  The plan derives `Agree dev i h y` by `via` at `t = M1`, which needs
+`Agree dev h M1 y`.  That holds by `same` when `h`'s own context reads `y` from `M1`.  It fails when
+`h` loads another copy of `y` first (from `M2`): then `y` is a clash at `h`, and `h`'s
+`clashAgree` checks only the copies' statuses and (through the index's `subsumesF`) equal
+statements.  It records no partner reads, so `Agree dev h M1 y` by `proof` lacks its
+`∀ c ∈ readNames, Agree dev h M1 c`.  Where `M1`'s copy is inferred (an exported axiom whose
+private constant is a definition or an axiom), it also lacks a `ProofSide` for `M1`: `i` infers
+nothing at the shortcut, and `h` inferred the statement under its own reading of the names, not
+`M1`'s.  The other route, `via` at `t = M2`, needs `Agree dev i M2 y`, which has the same gaps.
+Cont. 4's argument for not doing partner reads at clashes ("one a record reads meets `agreeCheck`
+there") does not hold at the shortcut, which skips `agreeCheck`.  The semantic gap is real only
+in the inferred case.  Two theorems are proofs whatever their statements' names mean (the
+generic theorem's `IsThm` needs nothing more), so in the theorem case only the specification asks
+too much.
+
+**Gap B: a group's other names are not checked against the importer's copies.**  `readRecord x`
+reads `x`'s group from the private part of the module of `x`'s copy, `G`, and the group stores
+all its members, constructors and recursors.  Nothing checks the importer's copy of those other
+names (`importerSpot n`), or that they have no copy.  So if `G`'s exported part holds the type but
+not a constructor `n`, and a loaded `G2` exports an `n`, a later read of `n` by a record of home
+`G2` passes `captureOne` (the importer copy's module is the reader's home).  Yet the context's `n`
+is `G`'s constructor, and `src i n = G`: no `Agree` route holds.  Likewise `captureOne`'s last
+branch (no importer copy, nothing located) completes `y` from the reader's view without asking
+whether a context record already stores `y` from another module.  Lean's output never has this
+shape (a constructor is exported with its type, or is private and mangled), but the files are
+untrusted.
+
+**Proposed fixes** (each a check of untrusted input; neither rejects what Lean accepts):
+* B: when a record of home `h` is added, every name it stores has no importer copy or one in
+  module `h`, else exit 1 ("the group of `x` of `G` stores `n`, which the importer loads from
+  `G2`").  Every such name without an importer copy goes into `located` at `h`'s private part,
+  so a later read compares with it (`same` or `agreeCheck`) instead of completing it again.
+* A, in two parts:
+  1. **Specification**: move `Agree.proof`'s names hypothesis into `ProofSide`'s inference arm,
+     `(constsResolve ∧ TypeIsProp ∧ ∀ c ∈ ty.readNames, Agree dev i b c) ∨ ThmAt dev b n`.  Only
+     `Model/Modular/Main.lean`'s `side` uses the names, and only on that arm.  Then a theorem
+     pair needs nothing about names, and `agreeCheck` need not record partner reads when both
+     copies are `.yes` (a small saving).
+  2. **Worker**: at a clash in `h`'s context with an inferred copy, every non-first copy's
+     statement names are capture-checked as reads of that copy's module, like `agreeCheck`'s
+     partners.  With `h`'s inference (`pending`, at `h`'s part by `knot_ext`), this gives
+     `Agree dev h M1 y` by `proof`.  Cont. 4 measured +6.7 % to +11.7 % for partner reads at every
+     clash, with every clash name reached; this asks only inferred clashes the context already
+     reads, which should be rare (to be measured).
+  The alternative to A.2 is to drop the shortcut and always locate the read in `h`'s view.  That
+  is sound with no theory change, but it builds a view per reader home, which the shortcut exists
+  to avoid.
+* Pinned names: `proofStatus` says `.no` at `pinnedLeafName` (the brief's second option).  This
+  is simpler than proving that a type checked at a pinned name is no proposition, since crafted
+  files could put a theorem copy there.
+
+**What else the composition needs** (no gap found; plumbing, several sessions):
+* `below`/`src_lt`: every module of a home's header fixpoint is reached from it by imports, so it
+  is in the graph's closure with a smaller rank.  A completion's module is in its reader home's
+  view.  `reach_from` must say where each home came from: an importer copy, or a located copy in
+  a reader home's view.
+* a semantic invariant of the worklist, recording for each record of home `h` and each read `y`
+  which branch of `captureOne` passed;
+* `h`'s view's first copy is `h`'s index's first copy (one header fixpoint and the same tables
+  on one snapshot);
+* an accepted own record's reads are stored in the own environment (from `DeclsRun`);
+* a statement's type does not read its own name (its home's check of it), so `TypeIsProp` at
+  the full context gives it at the part (`ordered`, `knot_ext`);
+* `Agree` by induction on the context order, for the partner names.
+
+Recommended: B, A.1 + A.2, pinned `.no`, then the composition.
+
+### #501 cont. (the ruling on gap A, and the cost of completing every export; 2026-11-07)
+
+**The ruling (maintainer).**  Gap A is closed by completing each loaded module's exports where
+they were made, not by A.1/A.2.  A name a record of `M`'s loaded part reads is **dangling** in
+`M`'s export iff neither `M`'s part nor the exported part of a module of `M`'s public-import
+closure holds it.  It is completed from `M`'s view (its private part first, then its header
+fixpoint, first copy), as a statement or a whole group.  Its own reads are dangling or not relative
+to the module it was read from.  The completed copies join the loaded ones under the clash rule.
+Then a read of a record of home `h` passes when the context's copy is `h`'s own, or comes from a
+module of `h`'s public-import closure that exports it: that is the check, not a shortcut.
+Locating the read in `h`'s view and `agreeCheck` is the fallback, which on Lean's output means
+completed names and clashing copies.  Gap B: every name a read group stores is completed or
+compared like any read.  Pinned names: `proofStatus` says `.no` at `pinnedLeafName`.
+Efficiency is the lane's problem; a restricted version must keep the verdict and the proof of
+"complete every loaded export".  Stop if the cost is more than a few percent.
+
+**The measurement: the scan alone is too dear.**  A probe (not landed; `_tmp/501/probe.patch`)
+does the part every version of "complete every loaded export" needs before it completes
+anything.  For every loaded part, after the worker's reads, it walks every constant's expressions
+once (`usesRoots` over `lazyRoots`, one stamp per part, so a shared subterm is walked once), reads
+the names met, and counts those no copy in the part or in its public-import closure holds.
+`perf stat -e instructions:u`, `--jobs=8`, one run each, under the guard, against `modular`'s tip
+4687e7ea8 (Mathlib v4.35.0; search path its build, its packages' and the toolchain's `lib/lean`):
+
+| worker | base | with the scan | | names met | dangling |
+|---|---|---|---|---|---|
+| `Init.Data.Nat.Lemmas` | 9.192 G | 9.481 G | +3.1 % | 9 848 | 29 |
+| `Mathlib.GroupTheory.Coxeter.Basic` | 8.989 G | 16.637 G | +85 % | 316 093 | 1 460 |
+| `Mathlib.Analysis.SpecialFunctions.Gamma.Basic` | 15.757 G | 31.135 G | +98 % | 718 725 | 1 567 |
+| `Mathlib.RingTheory.WittVector.MulP` | 9.070 G | 20.412 G | +125 % | 514 781 | 1 539 |
+
+All exit 0; the records reached are unchanged (898, 2 268, 6 326, 2 078).  A worker today reads
+only its loaded parts' name tables.  Walking their expressions is the merged run's decode, once
+per worker.  The dangling names are real on Lean's output: an exposed definition's value
+mentions its home's private auxiliaries (`_private.….match_1`, `._proof_1`, `isClassApp?`, ...),
+about 1 500 per Mathlib worker.  Each of them would then be completed, with its group and its own
+reads, which adds to these numbers.
+
+**Stopped for a ruling: the cost.**  The restrictions the ruling allows do not reach the verdict
+of "complete every loaded export": a clash between two completed copies of an unreached export
+is that version's exit 1.  Finding it needs the scan above, since only the expressions say
+what an export reads.  The options as they stand:
+* **R1, restricted to the context.**  Complete what the context's records read, and every copy of
+  every clash name the context reads, recursively.  Every read the check meets has its export's
+  copy, and the clash rule covers every copy a home might choose there: what gap A needs.  Its
+  verdict differs from the plain version's only by clashes among completions that no context
+  record reads, which it accepts.  The cost is in reads already walked, plus the clash names'
+  statements (rare).  It is close to A.2: a non-first copy's statement completed and clash-ruled
+  is a partner read.
+* **R2, the plain version in the one-process mode only.**  The scan is done once per module with
+  the shared tables, so its total is one decode of the closure (the merged run's).  `--module`
+  and `--schedule` workers keep R1.  Two semantics, so not recommended.
+* **R3, the plain version everywhere**, at the cost above (×1.9 to ×2.3 on Mathlib workers).
+
+### #501 cont. 2 (R1: the exports completed on demand; gap B; fixtures; cost; 2026-11-07)
+
+**Rulings.**  R1 (maintainer): the exports are completed on demand.  Completion repairs each
+export where it was made (dangling relative to the exporting module and its public-import
+closure, completed from that module's view, the clash rule on completed copies), for the names
+reached from the context's records and every copy of every clashing name the context reads,
+recursively.  That is the check as designed, not a restriction of a fuller one.  Loaded copies
+stay clash-checked eagerly through the name tables.  The public-import route of `captureOne` is
+the check, not a shortcut: locating a read in the home's view and `agreeCheck` is the fallback
+(on Lean's output: completed names and clashing copies).  Pinned names: no code change (ruling
+of 2026-11-07, superseding the earlier `.no`); two copies at a `pinnedLeafName` agree because
+the model gives both the pinned value, to be proved in the composition from the home workers'
+acceptance and the pin check at install.
+
+**The code** (`ConLeche/Driver/Reach.lean`).  The capture check already completed a dangling read
+from its home's view, and it already took a read from the home's public-import closure as the
+home's copy.  What R1 adds is two pieces:
+* `clashPartners`: when a record storing a clashing name is added, every copy of that name
+  (`ReachEnv.copies`, `clashCopiesOf` over `WorkerReads.clashes`: each copy's module and
+  statement) has its statement's names capture-checked as reads of the copy's module
+  (`ReachCache.partners`).  This closes gap A: at a home `h` whose context reads `y` from `M2`,
+  the copy of `M1`, which an importer reaches through `h`'s public-import closure, reads its
+  statement as `h` does, so `Agree dev h M1 y` holds by `proof`.
+* `agreeCheck`'s partner reads are reads of the partner copy's module (`s₂.part.mod`), not of the
+  reader's home: the copy's statement means what its own module's export means.
+
+**Gap B** (`storedNamesOk`).  Every name a record stores has no importer copy or one of the
+record's home, and no located copy or one of the home; one with neither is located at the
+home's private part, so that a later read compares with it.  Does the per-export completion
+already cover it?  Partly.  A constructor or block member is read by its own group record (the
+recursor's rules, the type former's `all`), so its capture check already compares the
+importer's copy with the home's view.  A recursor is read by nothing in its group, and an
+exported part need not hold every recursor, so the stored-names check is needed for it.
+
+**Proofs.**  `storedNamesOk_ok`, `storedNamesOk_within`, `CacheOk.insert_located'`; `reachGo_inv`,
+`reachGo_from`, `reachGo_within`, `reach_within`, `reach_from` repaired for the new step.
+
+**Fixtures** (`tests/olean.sh`, 304 → 311; `tests/olean/build.sh`).  `DnM1`/`DnM2`/`DnH`: each `DnM`
+exports a theorem `y` whose type the gate patches to `foo = foo`, `foo` dangling in each export
+(DgCapQ's in `DnM1`, DgCapQ2's in `DnM2`).  Lean writes no such exported statement, and
+Lean-made dangling statements carry module-mangled names, so two modules never share one.  The
+gate's `xpatch` appends the new objects to each part, each after what it points to, up to a new
+`ModuleData`.  `DnH` loads both `y`: rejected, "name capture at foo, read by module DnM2".
+Lean, importing the files, completes nothing and merges the two `y` (it then refuses `DnH`'s own
+`z`, elaborated against `y : True`); a completing Lean refuses the two `foo`.  `GbG`/`GbG2`/`GbH`:
+`GbG`'s exported part without `S.rec` (dropped by the gate), and `GbG2`'s definition named `S.rec`,
+which `GbG2`'s exposed `w` reads.  `GbH` is compiled against a stand-in `GbG2` (no `S.rec`).
+`GbH` reaches `S`'s group first, then `w`: rejected, "a record read from module GbG stores S.rec,
+which the context reads from module GbG2".  The binary of `modular`'s tip accepts it.  Lean,
+which loads no `S.rec` of `GbG` at `GbH`, accepts it, but the shape is one Lean never writes.
+
+**Cost** (`perf stat -e instructions:u`, `--jobs=8`, one run each, under the guard, against
+`modular`'s tip 4687e7ea8; Mathlib v4.35.0):
+
+| worker | base | R1 |
+|---|---|---|
+| `Init.Data.Nat.Lemmas` | 9.192 G | 9.194 G (+0.02 %) |
+| `Mathlib.GroupTheory.Coxeter.Basic` | 8.989 G | 8.987 G (−0.01 %) |
+| `Mathlib.Analysis.SpecialFunctions.Gamma.Basic` | 15.757 G | 15.768 G (+0.07 %) |
+| `Mathlib.RingTheory.WittVector.MulP` | 9.070 G | 9.070 G (+0.00 %) |
+
+All exit 0, and the records reached are unchanged.
+
+**Documents.**  The reach's module docstring, OVERVIEW's paragraph on a module's context and
+§7's table row and con-leche paragraph state the completion on demand and the check.
+
+**Merged** `modular` at 0118b6ce8 (#491–#493).  `lake build`, `lake test`; the olean gate after it.
+
+### #501 cont. 3 (the state at the end of the session; not landed)
+
+**On the branch** `agent/501-compose` (at the commit carrying this record): R1, gap B, the fixtures,
+the documents (cont. 2), `modular` at 0118b6ce8 merged in and the reach's proofs adapted to it
+(`ModelIO.Within.pure`, the handle argument of `AllOk`).  `lake build` and `lake test` pass
+warning-free, as do the olean gate (311/311 under the guard), overview links, the quote gate,
+layering, the trust surface, no-local-paths and the whitepaper's links gate.  Not run yet:
+`tests/arena.sh` in full, shake, challenge, the fragment gate and the whitepaper build.
+
+**Left, in order:**
+1. **The pinned names' agreement** (ruling of 2026-11-07): a lemma that two copies at a
+   `pinnedLeafName` agree.  The model gives both the pinned value, valid for every copy, since
+   each copy's home accepted it under the install's pin check (#493's uniform one).  This is the
+   maintainer's argument: a crafted `theorem Nat.add : True` fails its home's own checks.  Then
+   `Agree` (or `agree_alike`) gets a pinned route.
+2. **The composition** `main_modular_no_False` and its one-process twin, as #501's first record
+   lists.  The development is built from `checkGraphG_ok`'s closure and ranks, and each worker's
+   context, own records and homes; `LocalOk` follows from `worker_local`, `interfaceOk_of_workers`
+   and `presented_of_worker`.  Still to prove: `below`/`src_lt`, a home's view's first copy being
+   its index's first copy, and an accepted own record's reads being stored.  The bulk is `reads`:
+   a worklist invariant recording which branch of `captureOne` passed for every read and every
+   partner read (now including `clashPartners`' reads, each as a read of the copy's module), the
+   stored-names facts of `storedNamesOk`, and `Agree` by induction on the context order.  Its
+   routes: `same` at the home's own copy; `via` at the public-import route, with
+   `Agree dev h M1 y` at `h` by `same` (one copy) or by `proof` from `h`'s `clashPartners` and
+   clash statuses; `proof` at `agreeCheck`.
+3. The gates in full, then land on `modular` with `--no-ff`.
+
+### #501 cont. 4 (the pinned names: the ruling's premise does not hold in the model; stopped)
+
+`modular` is still at 0118b6ce8, so there was nothing to merge.  Before writing the pinned-names
+lemma, the ruling's argument was checked against the model.  **Stopped for a ruling; the code is
+unchanged.**
+
+**Where the composition needs it.**  In `ImportOk.reads`, a read `y` at a `pinnedLeafName` passes
+`captureOne` with two copies from different modules only through `agreeCheck` or `clashAgree`
+(also through the public-import route at a clash in the home's context).  Both copies then have a
+proof status other than `.no`, and an `.infer` copy had its statement inferred to be a proposition
+at the context (`inferFlags`).  `Agree.proof` is closed to such a `y` (`pinnedLeafName y = false`),
+so a route is owed.
+
+**The premise that fails: "the model value is fixed by name".**  That holds of the reserved basis
+names (`pinnedStructT`, `EnvModel.acval_pinned_free`: `Nat`, `Eq`, `Empty`, `False`, the quotient,
+and `Quot.sound`, already used by `quotSound_leaf`).  None of them is a `pinnedLeafName`.  At the
+names that are:
+* a certified operation (`natOpNames`, `natDivModNames`): `harvestDefn`'s leaf is the reading of
+  the home's own value (`L = A`, "no fast-path name has the canonical leaf").  `defn_reads`'s
+  `LeafReads` is term equality away from `.prf`.  `NatOps`/`DivMod` constrain the leaf only by
+  recurrences under interpretation.  Two homes' definitions of `Nat.add` only have to be defeq to
+  the pin (certified by runs, not compared syntactically), so their leaves are different terms;
+* a compiler-trust opaque (`reduceOpNames`): `harvestOpaque`'s `cond` excludes the name, and the
+  leaf is the reading of the home's value, which `ReduceOps` constrains only by `op x = x` under
+  interpretation;
+* `sorryAx`: no record installs it, so it stores nothing (vacuous).
+The generic theorem compares values as terms (`val m n = m.1 n : (Name → Nat) → Term`).  So two
+copies at such a name do not get one value "by fiat", and an `Agree` route on that ground cannot
+be proved.
+
+**What does hold, in the ruling's spirit: such a pair never passes on an accepted snapshot.**
+* `.yes` (a theorem at the copy's home, or an exported axiom whose private part declares one): a
+  home declaring a theorem at a certified-operation or compiler-trust name fails its own check
+  (`checkConstantVal`, `reservedRecName`; `stmtRecord`'s opaque-or-axiom requirement).  With
+  `worker_thm` (every theorem of a module's private view is an own record of its accepted worker)
+  this is cheap.
+* `.infer`: the context's copy has its home's pinned type (`natOpTyPinned`, `reduceOpCvA`, from the
+  home's acceptance), `X → … → Y` over `Nat` (pinned) or `Bool` (the element type `reduceElem_sort`
+  fixes at the home at `Sort 1`).  Its inferred sort at the importer's context is `imax 1 …`, never
+  `0`, if the importer's copies of those names have the homes' types.  `Nat`'s copy has its
+  home's type through `presented`, `InterfaceOk` and the home's accepted run (#493's pin-shape
+  check).  `Bool`'s copy has it through the statement's partner reads (`Agree` on the type's names,
+  `agree_alike`).  This needs a computation lemma for `inferTypeCore` on such a telescope at an
+  environment where the domain constants have type `Sort 1`, and the transfer just described.  No
+  code change.
+
+**Options:**
+1. **`proofStatus` says `.no` at a `pinnedLeafName`** (the ruling of #501's first record,
+   superseded on 2026-11-07).  One line in `proofStatus`, and `agreeCheck_ok`/`clashAgree_ok` read
+   it.  The pinned case then never reaches `Agree.proof`.  It rejects nothing Lean accepts: Lean
+   merges two copies only as theorems or by `isPropCheap`, and no home accepts a theorem or a
+   proposition-typed copy at such a name.  Cheapest.
+2. **The unreachability lemma above, with no code change.**  About one session, mostly the
+   inference computation and the type transfer, inside the `reads` proof, which needs that
+   transfer machinery anyway.
+3. **Leaves fixed by name in the model**: a certified operation's and a compiler-trust opaque's
+   leaf becomes the reading of the vendored pin, with `defn_reads` met because the home's value is
+   certified equal to it under interpretation.  `LeafReads` would have to be relaxed from term
+   equality, which reaches every consumer of `defn_reads`.  Large; not recommended.
+
+Recommended: 1, or 2 if no code change is to stay the rule.  The rest of cont. 3's plan for the
+composition is unchanged.
+
+### #501 cont. 5 (option 2 ruled; the inference lemma; a reachable pinned pair at `reduce*`; stopped)
+
+**Ruling** (coordinator, 2026-11-08): option 2 of cont. 4.  No code change for pinned names.
+Instead, prove that on a snapshot every worker accepted, no pair of copies at a `pinnedLeafName`
+passes `agreeCheck`/`clashAgree` as a proof pair.
+
+**Done: the inference computation** (`ConLeche/Verify/Driver/Pinned.lean`, not yet imported by
+anything).  `not_typeIsProp_arrows`: where an environment stores the constants of a pinned type
+(`PinnedArrows`: `a → b` or `a → a' → b`, each constant level-free at `Sort 1`, `SortOne`),
+`TypeIsProp` fails.  The inferred sort is `imax 1 1` or `imax 1 (imax 1 1)`, which
+`Level.isEquiv_sound` at the zero assignment separates from `0`.  With `infer_sortOne`,
+`infer_arrow`, `whnf_sort_ok`, `ensureSort_sort_ok`.  This covers the certified `Nat` operations
+(`natOpTyPinned`) and the compiler-trust opaques (`reduceOpCvA`), once the importer's copies of
+`Nat` and `Bool` are shown to have their homes' types.
+
+**The premise that fails: not every copy at a `reduce*` name has the pinned type.**
+`checkDeclKindC` checks the compiler-trust pin only on an **opaque** at `Lean.reduceBool`/
+`Lean.reduceNat` (`checkReducePinF`), and refuses an axiom there (`nonStdAxiomMsg`).  A
+**definition** there passes `checkConstantValC … true` with any type, and so does a **theorem**
+with any propositional type: `natOpName` covers only the `Nat` operations.  So this shape is
+accepted by every worker:
+* `M1`: `def Lean.reduceBool : 2 + 2 = 4 := rfl`;
+* `M2`: `theorem Lean.reduceBool : 2 + 2 = 4`, and an exported `t` whose type reads
+  `Lean.reduceBool`;
+* `I` imports both.  `clashAgree` passes (`.infer`/`.yes`, `TypeIsProp` of `2 + 2 = 4`).  `I`'s
+  context reads `reduceBool` from `M1`: `readRecord`'s `.defn` arm reads the definition whole, and
+  `Presents` allows no statement presentation at a `reduce*` name.  `t`'s record, of home `M2`,
+  reads `reduceBool`; `captureOne` locates it in `M2`'s view, and `agreeCheck` passes.
+`ImportOk.reads` then asks `Agree dev I M2 Lean.reduceBool`.  Only `Agree.proof` fits, and it is
+closed by `pinnedLeafName`.  In the model the two copies do agree: `harvestDefn`'s leaf choice
+excludes only the `Nat` operations (`.prf` under `SemPropType`), and `harvestThm`'s leaf is the
+proof.  So the theorem's conclusion holds, but the specification cannot state it, and no
+unreachability lemma exists for this pair.  At the `Nat` operations and at a `reduce*` opaque,
+option 2's argument holds: a theorem there is refused (`checkConstantValC`'s `natOpName` arm; a
+statement presentation is excluded by `Presents`), and the pinned types fall under
+`not_typeIsProp_arrows`.
+
+**Options:**
+1. **A kind-aware exclusion in the specification.**  Replace `pinnedLeafName n = false` in
+   `Agree.proof`, `ProofLeaves`, `ProofInX`/`IsThmX` and `modular_model_exists`'s theorem clause by
+   "the copy's leaf is not pinned": not a `Nat`-operation name, not `sorryAx`, and not a `reduce*`
+   name stored as an axiom (where an opaque installs).  A definition or theorem at a `reduce*` name
+   then takes the proof route.  The model needs no new argument (`harvestDefn` and `harvestThm`
+   already give `.prf`); `new_proof_leaf` and `Step.lean` follow.  At an importer, the kind of a
+   `reduce*` copy is its home's, since `Presents` keeps a record there whole.  The `Nat`
+   operations and the opaques keep option 2's unreachability.  No code change; about half a
+   session beyond option 2.
+2. **The compiler-trust names reserved to opaque constants**, like `natOpName` for the `Nat`
+   operations: `checkConstantValC` refuses any other declaration at a `reduce*` name.  This is a
+   code change, and a new reject.  Lean refuses `def Lean.reduceBool` only through its own
+   `Init.Core`, not in files without it.
+3. **`proofStatus` returns `.no` at a `pinnedLeafName`** (cont. 4's option 1).  It rejects the
+   shape above, which a Lean import merges if `isPropCheap` accepts the definition's type, so it
+   is a new reject on crafted files.
+
+Recommended: 1.  Nothing else changed; the composition's plan (cont. 3) is unchanged.
+
+### #501 cont. 6 (pinned names agree like every other name; the reserved names; 2026-11-08)
+
+**Rulings** (coordinator, then the maintainer's addendum, 2026-11-08).  The pinned-name exclusion
+is removed where it starts, in the step's leaf statement: every theorem, and every definition,
+opaque constant or axiom whose type reads as a truth value, gets the canonical proof at every
+name.  And the compiler-trust names are held to their pin like `Eq` and the `Nat` operations:
+any declaration at `Lean.reduceBool`/`Lean.reduceNat` other than the opaque constant is exit 1.
+The same holds for `sorryAx`, if anything can be installed there.  No other code change.
+
+**The leaf statement** (`ConLeche/Model/Fold.lean`).  `DeclProofLeaf` is one clause over the
+constants a record installs (`declConstants`): a statement kind (definition, theorem, axiom) that
+is a theorem or whose type is `SemPropType` has the leaf `.prf`.  `harvestDefn` and `harvestOpaque`
+choose `.prf` on `SemPropType` alone.  The fast paths' laws need no case analysis at the type.
+`NatOps`, `DivMod` and `ReduceOps` are established, as before, at the model whose new leaf is the
+value's reading (`coreCons … A`).  They are then carried to the model actually built, whose leaf
+is `.prf` exactly where the reading interprets as the point (`hApt`).  The carrying is
+`ConLeche/Model/Env/LeafInterp.lean`.  `denote_leavesAlike` says that valuations whose leaves
+interpret alike read every expression alike, since `denote` never looks into a leaf and `interp`
+is compositional.  `NatOps.of_alike`, `DivMod.of_alike` and `ReduceOps.of_alike` follow, the laws
+being statements about interpretations.  This is
+simpler than a vacuity argument and also covers what a vacuity argument cannot.  At `Nat.beq` and
+`Nat.ble` the pinned type `Nat → Nat → Bool` reads as a truth value wherever `Bool` does, and
+nothing pins `Bool`.  So `not_typeIsProp_arrows` (cont. 5) went unused, and
+`ConLeche/Verify/Driver/Pinned.lean` is deleted.  The axiom step keeps its one `sorryAx` case,
+justified by `declConstants`: the tolerated axiom's record installs nothing.  `Quot.sound` takes
+its pin's leaf in both its record shapes (the axiom and the quotient record).  A block installs
+no statement kind (`stmtKind_of_ind`).  `ConstantInfo.isStmtKind` moved to
+`ConLeche/Kernel/Env.lean`, beside `ConstantInfo.name`, since the fold reads it.
+
+**The specification.**  `pinnedLeafName` and `pinnedLeafName_false` are deleted.  They are gone
+from `ProofLeaves`, `Agree.proof`, `ProofInX`, `IsThmX` and `new_proof_leaf`, and from
+`modular_model_exists`' theorem clause (`MainTheorem.lean`, `Challenge.lean`, the header of
+`Modular.lean`).  So the composition needs no pinned-name lemma: a proof pair at any name takes
+`Agree.proof`.  The axiom pins are unchanged (`lake test`).
+
+**The reserved names** (`checkConstantVal` and its twins `checkConstantValF`,
+`checkConstantValC`).  Two guards follow the certified operations' one.  A compiler-trust name is
+taken only where `allowReduce` holds (the opaque arm, whose pin check fixes the shape), else exit
+1: "a compiler-trust name, not an opaque constant".  `sorryAx`'s name is taken only where
+`allowSorry` holds (the axiom arm, whose record installs nothing), else exit 1: "the tolerated
+axiom's name, not an axiom" (`sorryAxNameAt`, `Kernel/Basis/Names.lean`).  Until now a
+definition, theorem or opaque constant at `sorryAx` was installed as an ordinary constant, so the
+check was needed there too.  Block members go through the same check, at the defaults.  The
+inversions, bridges and simulations take the two flags (`Verify/Extend/Inversions.lean`,
+`Semantics/Bridge/DeclRun.lean`, `Verify/{CheckerF,BridgeDecl}.lean`,
+`Verify/Cached/{BridgeC,ViewCongr,PushChain,DeclPushes}.lean`).  The two freshness walks over the
+check (`checkConstantValF_fresh`, `checkConstantValC_fresh`) now split at three reserved-name
+guards and run at `maxHeartbeats 400000`, with the reason beside the option.
+
+**Fixtures** (`tests/e2e/src/`, exported by `scripts/export-fixture.sh`, `prelude` files):
+`reduce_name_def` (`def Lean.reduceBool : T`), `reduce_name_thm` (`theorem Lean.reduceNat : T`) and
+`sorry_name_def` (`def sorryAx : T`), `T` a proposition.  All three exit 1.  Lean accepts all
+three in a file without its `Init`, so these are rejects Lean does not make, as ruled.
+cont. 5's merged pair is rejected at `M1`'s `def Lean.reduceBool` (`reduce_name_def`).
+
+**Cost** (`perf stat -e instructions:u`, one run each, under the guard; the lane before the change,
+dadf3a6d2, against 191fedb7d):
+
+| run | before | after |
+|---|---|---|
+| `init-prelude` | 2.0102 G | 2.0109 G (+0.03 %) |
+| `grind-ring-5` | 15.5938 G | 15.5937 G (−0.00 %) |
+| `app-lam` | 22.0708 G | 22.0595 G (−0.05 %) |
+| `let-ladder` | 2.5976 G | 2.5956 G (−0.08 %) |
+| `beta-ladder` | 4.8682 G | 4.8691 G (+0.02 %) |
+| worker `Init.Data.Nat.Lemmas` | 9.1898 G | 9.1912 G (+0.02 %) |
+| worker `Mathlib.GroupTheory.Coxeter.Basic` | 8.9718 G | 8.9753 G (+0.04 %) |
+| worker `Mathlib.Analysis.SpecialFunctions.Gamma.Basic` | 15.7254 G | 15.7279 G (+0.02 %) |
+| worker `Mathlib.RingTheory.WittVector.MulP` | 9.0603 G | 9.0598 G (−0.01 %) |
+
+All exit 0, with the same records reached.  (`init-full` is not on this machine's `_tmp`.)
+
+**Documents.**  OVERVIEW §8 states both reservations.  The anchors in OVERVIEW, README (link
+repointed only) and the whitepaper follow the moved lines.  §7's prose needed no change: it never
+named the exclusion.
+
+### #501 cont. 7 (the gates on cont. 6's tree; the state at the end of the session; not landed)
+
+**Two follow-ups the full battery found.**
+* The olean fixture `RtA` declares `theorem Lean.reduceBool : RtT`.  Its own worker accepted it
+  until now, and now refuses it (exit 1, "a compiler-trust name, not an opaque constant"): the
+  reservation's reject, which Lean does not make.  `tests/olean.sh` moves it out of the accepted
+  workers into its own case; `RtM`'s verdict is unchanged.  `RtA.lean`'s comment says so (its
+  `.olean.server` is rebuilt; the other levels are unchanged).
+* `CheckerBase`'s `public import ConLeche.Kernel.TrustAxioms` (the guard reads `reduceOpNames`)
+  made `StructInstall`'s own import of it redundant.  That import is removed, as is its
+  shake allowlist line.
+
+**Gates on the tree at f4891317b.**  `lake build` and `lake test` warning-free; overview links
+(162) and whitepaper links (526) after the anchors followed the moved lines; quote gate (4
+statements); layering; trust surface (13 escapes, all allowlisted); no-local-paths; pindump;
+challenge (statements identical); fragment gate (axioms pinned); whitepaper build (PDF and HTML,
+in `nix develop ./whitepaper`); shake (677/677 allowlisted, no public import demotable); olean
+gate 311/311 under the guard.  `tests/arena.sh` in full under the guard ran on 5a7642a6b, before
+the two follow-ups: everything passed but the two items above (axioms pinned, 66 theorems;
+selfcheck 56 226 declarations; arena tutorial 90/92; e2e 560/560; the trusted and `--jobs` sweeps
+without divergence; peak anon 9.3 GB).  After the follow-ups, shake and the olean gate were
+re-run alone, and passed.
+
+**Left, in order** (cont. 3's plan, less its first item: pinned names now take `Agree.proof` like
+every other name, so no pinned lemma is owed):
+1. **The composition** `main_modular_no_False` and its one-process twin.  The development is built
+   from `checkGraphG_ok`'s closure and ranks (`rk`, injective on the closure), with module `j` the
+   closure's module of rank `j`.  Its `ctx` is that worker's sorted context and its `decls` the
+   own records with the theorems' values in place (`fillDecl`).  `src n` is the rank of the home
+   of the record storing `n`.  `iface` is the records any closure worker's context reads with
+   that home, which gives `InterfaceOk` by `interfaceOk_of_workers` and `presented` by
+   `presented_of_worker`.  `imports` is `[]`: nothing but `below` reads it.  A rank outside the
+   closure is the empty module.  Still to prove:
+   * `src_lt` (and the `nameOf (rk h) = h` that `presented_of_worker` asks): every home and every
+     located copy's module is in the module's strict import closure.  This is a worklist invariant
+     of `reachGo` (the importer copy's module is in the header fixpoint's load order; a located
+     copy comes from a home's view, its own private part or its header fixpoint) and a
+     `levelsGo` lemma: the load order's modules are reached from the module by import edges.
+     Then `graphOf_ok`'s edges decrease `rk`;
+   * `reads`, the bulk: a worklist invariant recording, for every read of every record and every
+     partner read, which `captureOne` branch passed.  Then `Agree` by induction on the context
+     order.  `same` holds at the home's own copy, given that the record storing a name has the
+     module of its importer copy or located copy as home (`readRecord`, `storedNamesOk`).  `via`
+     holds at the public-import route, with `Agree dev h M1 y` at `h` by `same` (one copy) or by
+     `proof` from `h`'s `clashAgree` statuses and `clashPartners`' reads.  `proof` holds at
+     `agreeCheck`'s pairs.  Its `ProofSide` is `ThmAt` from `worker_thm` (`.yes`), or
+     `TypeIsProp` at the part from `inferFlags` at the full context (`knot_ext`, the prefix closed
+     by `ordered`).  `readsAlike` also needs every read stored in the home's own environment:
+     the home's own record's reads are its worker's roots, and a statement presentation reads
+     less;
+   * a home's view's first copy is its index's first copy (one header fixpoint, one snapshot).
+   Then `main_modular_no_False` is `modular_no_False` at that development, for the module whose
+   private view holds the theorem of type `False` (`worker_thm`).  The one-process twin goes
+   through `checkModularG_accept`.  Then `binary_modular`/the capstones, `Challenge.lean`/
+   `comparator.json` where they state the run-level theorem, the axiom pins, OVERVIEW §1 and
+   whitepaper §7.
+2. The gates in full; then land on `modular` with `--no-ff`, with a summary covering R1, gap B,
+   the fixtures, the costs, the source fix of the pinned names, the reservations and the
+   composition.
+
+The session ended here: cont. 6's change is complete and gated, and the composition is not
+started.
+
+### #501 cont. 8 (the composition, most of the way; the part inference; the state; not landed)
+
+`modular` is still at 0118b6ce8: nothing to merge.  The composition was split into six
+independent pieces (each a new file under `ConLeche/Verify/Driver/`, all model-free), proved on
+side branches and merged into the lane, then assembled.  No `sorry`, no axiom, no new `unsafe`.
+
+**The pieces.**
+* `Loads.lean` (the header fixpoint): `ImpReach` (reached from an import list by header edges),
+  `PubReach` (a path of public imports), `headerFixpoint_sound` (every loaded module reached from
+  the root's imports, the arrays' sizes, the index), `headerFixpoint_complete` (every module
+  public-reachable from an import of the root is loaded: the worklist's closure invariant `LvInv`),
+  `headerFixpoint_unique`, `moduleImports_unique`, `pubClosures_sound`/`pubClosures_pubReach`
+  (the `ModSet` bits by `decide`), `readPartNames_header` (the private part's header imports are
+  `moduleImports`', given the home load).
+* `Capture.lean` (the worklist's capture invariant, `reach_capture`): at an accepting `reach`,
+  a final located map `loc`, pending list `pend` and checked pairs `P` such that every context
+  record was read at its name's copy (`copyOf`, `ReadAt`), its names' copies are its home's, its
+  reads and its clash partners are in `P`, every pair of `P` passed (`Passed`: the home's copy, the
+  public-import route `PubRoute`, or the home's view's copy agreeing, `AgreeOk`, with `StatusOk` the
+  meaning of `proofStatus`), every clash's statuses (`ClashOk`), `inferFlags` over `pend`, every
+  located copy and every reader `Reached` (loaded, or in a reached home's view), and each pair's
+  `Origin`.  Monotonicity of the caches (`Fr`, `Step`) carries a pair passed early to the end.
+* `Copies.lean`: `homeView_index` (a home's view is its own worker's index: first copy, private
+  part first, freshness), `copy_own` (a copy's statement-kind constant in its module's own
+  environment, a theorem where `proofStatus` says `.yes`), `exported_behind`,
+  `exported_sub_private`, `own_type_stored`, `own_reads_ctx`, `Presents.reads`, `own_stmt_fresh`
+  (an own statement's type does not read its name).  `copy_behind` also returns the private
+  skeleton's name.
+* `Clashes.lean` (the worker's index and clashes): `workerIndex_copies`, `workerClash_complete`,
+  `workerClash_stmt`, `workerClash_same`, `clashCopiesOf_spec`, `workerReads_loads` (the loads are
+  the header fixpoint of the private part's header, `pub = pubClosures loads`, sizes, freshness),
+  `readFiles_unique_at`, `partNames_region`.  `import all Init.Data.Array.QSort.Basic` (reason in
+  the file: `qsort`'s permutation needs its private body).  `spotOf` moved to `ReachFrom.lean`.
+* `PropPart.lean`: `inferFlags_typeIsProp`, `envWF_prefix`, `typeIsProp_part`, `declNames_stmt`.
+* `Compose.lean`, `ComposeReads.lean` (the assembly, below).
+* `Verify/Driver/Graph.lean`: `HdrClosure` (the roots' import closure by the headers) and
+  `graphOf_closure`; `checkGraphG_ok` also gives `∀ e ∈ C, HdrClosure sp fs roots e.1`, so the
+  run-level statement can ask a worker for every module of the headers' closure.
+
+**A code change: the proof pairs' statements are inferred over the part below their name**
+(`inferFlags ctx`, `ctxPart`, `Driver/Reach.lean`).  The specification's proof route asks
+`TypeIsProp` at `Module.part`; the worker inferred at the whole context.  Carrying the verdict down
+by `knot_ext` needs `StoredFacts` of the prefix, and two of its parts are not available model-free
+for a context: that every recursor rule names a stored `ctorInfo` (`RecCtorsStored`; a nested rule
+names another record's constructor, and every producer of the fact lives in `Model/*`), and that a
+record storing `Nat` stores its constructors (derivable, with three missing inversions).  The
+worker now infers over `ctx.take (ctx.findIdx …)`, the specification's part exactly, as Lean's merge
+infers over the constants loaded before.  The context is in read order, so a statement's names are
+there; one that is not resolved there reads its own name (exit 1, which no home accepts).  No new
+reject on Lean's output.  The cost is negative where nothing is pending (the whole-context `FEnv`
+is no longer built): `Init.Data.Nat.Lemmas` 9.192 G → 9.184 G, `Coxeter.Basic` 8.977 G → 8.918 G,
+`Gamma.Basic` 15.726 G → 15.516 G, `WittVector.MulP` 9.061 G → 8.988 G (`instructions:u`, one run
+each, `--jobs=8`, under the guard; base the cont. 6 binary); 0 flags inferred on all four.  This was
+decided in the lane, not ruled: to be confirmed at review.
+
+**The assembly** (`Compose.lean`, namespace `ConLeche.Driver.Compose`).
+* `Run sp fs`: the graph check's closure `C`, ranks `rk`, `good`, `edges`, `inj`, and a worker
+  per module (`WorkerFacts` and the own records' `DeclsRun`); `Run.ofAccepted`.
+* `Run.dev`: module `j` the module of rank `j` (`nameOf`, `nameOf_rk`, `dev_rk`), else empty;
+  `ctx` the sorted context, `decls` the filled own records (`ownDecls`), `src n` the rank of the
+  home of the record storing `n` (`homeIn`, `homeIn_spec`), `iface` every context record a worker
+  read with that home (`ifaceOf`, `mem_ifaceOf`), `imports = []`.
+* `localOk_of`: `LocalOk` at every rank from two facts, every home of a smaller rank and
+  `ImportOk.reads`; `InterfaceOk` by `interfaceOk_of_workers`, the rest by `worker_local`,
+  `worker_home`, `homeIn_spec`.
+* `home_rank` (proved): every home is a module of the run of smaller rank (`capture`,
+  `importerSpot_loaded`, `reached_rank`, `fixpoint_rank`, `rootImports`, `impReach_rank`).
+* `agree_of_routes`: at one module, every passed pair agrees given a `Route` per pair (the copy is
+  the reader's, or the reader reads it from an earlier module `t` agreeing with it; and `t` is the
+  source, or `ProofAt`: two proofs of one statement whose names were passed as reads of `t`, each
+  of smaller rank), by induction on the context order.
+* `thm_own`: a theorem of a private view is a constant of the development's own environment.
+* `ComposeReads.lean`: `cap` (the capture data chosen per module), `src_copy`,
+  `readsAlike_isSome`, `agree_all` (strong induction on the rank over `agree_of_routes`),
+  `stored_of_agree` (an agreeing copy is stored in its module's own environment: by the
+  presented record, the context, or the own constant; so Copies' item (d) is not needed),
+  `reads_of_agree`, `passed_open`, `route_same` (the home's own copy), and **`reads_of_routes`**:
+  `ImportOk.reads` at every module of the run from one hypothesis, `hroute`, a `Route` for every
+  passed pair whose copy is not its reader's, given agreement at every earlier module.
+
+**Left, in order** (estimated one to two sessions):
+1. `hroute`, Cases B and C of the plan (the public-import route; the view route, one module or a
+   proof pair), with:
+   * `ctx_h ∋ y` for a via route, by the pair's origin: a record read (`reach_from`,
+     `recordFrom_presents`, `Presents.reads`, `own_reads_ctx`; side conditions: no own
+     definition, theorem or opaque at `Quot.sound` presented as a statement, and "a home constant's
+     name is an own-table name" for `ownNames`), a partner (a `copy_own` variant returning the
+     record, `own_type_stored`, "an own record's names are own-table names");
+   * Case B: `PubReach.first` (written, not committed: a public path leaving its start begins
+     with an import of it), `headerFixpoint_complete` at the reader's fixpoint, M1's part at the
+     reader's level holding `y`, the clash at the reader, the converse of `clashCopiesOf_spec`
+     (a clash's copies are in `clashCopiesOf` at its name), then `Agree.proof` at the reader;
+   * Case C: `homeView_index` (with `headerFixpoint_unique`), C.1 by `same` at the reader, C.2 by
+     `ProofAt` (`ReadAt`, `copy_own`, `rank c < rank y` from `ordered`, `own_stmt_fresh`,
+     `declNames_stmt`; `ProofSide` by `StatusOk`/`typeIsProp_part`).
+   * **A premise to check in C.2 at the reader's own copy**: `copy_own` asks the copy not skipped
+     (unsafe or partial); `agreeCheck` does not look.  A record read of a skipped own constant
+     needs "an accepted run's records are `RecordScoped`" (model-free only for statement types);
+     a partner read of one does not arise (a partner's names are a statement's).  To settle first.
+2. `Run.localOk`, then `main_modular_no_False` (`MainTheorem.lean`: `--check-graph` and a
+   worker for every module of `HdrClosure` exit 0, the false theorem of `InClosure`'s module:
+   `checkGraphG_ok`, `runArgs_module_accept`, `Run.ofAccepted`, `thm_own`, `modular_no_False`)
+   and its one-process twin (`runArgs_modular_accept`); the axiom pins, OVERVIEW §1, whitepaper
+   §7 (`Challenge.lean`/`comparator.json` state no run-level theorem: nothing to change there).
+3. The gates in full (shake will see the new files' imports), then land with `--no-ff`.
+
+**Gates on this tree** (the umbrella imports `ComposeReads`; `Loads.lean` imports the olean interface): `lake build`
+warning-free; `lake test` warning-free; layering, trust surface (13 escapes, allowlisted),
+overview links (162), quote gate, no-local-paths; the olean gate 311/311 under the guard (peak
+anon 3.6 GB; `PpM` infers its one flag over the part).  Not run: arena, shake, challenge, fragment,
+whitepaper.
+
+### #501 cont. 9 (the composition proved; the reader's copy safe; 2026-11-08)
+
+`modular` is still at 0118b6ce8: nothing to merge.
+
+**The Case C premise (cont. 8): a check of untrusted input.**  `Agree.proof` needs the reader's
+view's copy `s₂` to be a constant of its module's own environment, and the worker leaves unsafe
+and partial constants out of it.  Nothing checked `s₂`: on crafted files a module `h` whose own
+private part holds `unsafe axiom y : P` while its context stores `y` as another module's group
+member (gap B's shape) can pass its own worker, and an importer then passes `h`'s read of `y`
+against a safe `axiom y : P` of a third module by `agreeCheck`: no `Agree` route holds, and the
+two readings of `y` differ.  So `agreeCheck` now refuses an unsafe or partial `s₂` (exit 1,
+"its copy of y, of module h, is unsafe or partial").  What Lean does: its kernel refuses a safe
+declaration that uses an unsafe or a partial one (`type_checker::infer_constant`), so a safe
+record's read is never of such a copy at its home; a partner read is of a copy `agreeCheck`
+already passed (now safe) or of a clash's copy, and Lean's merge (`subsumesInfo`, the worker's
+`subsumesF`) makes a clash's copies all unsafe or none, the context's being safe.  So no new
+reject on Lean's output.  `AgreeOk` and `AgreeNew` carry the flag (and `AgreeNew` the copy's
+statement kind).  A clash's copies needed no check: the worker's clash rule is already Lean's
+(`workerClash_kinds`: theorems or axioms, one unsafe flag).
+
+**`Quot.sound` in two modules** (checked, no code change).  A prelude module may declare
+`axiom Quot.sound` over a quotient that has none; two such modules meet at an importer, which
+Lean merges (axiom/axiom, `isPropCheap`).  The record installs the pin (`quotAt .sound`), an
+axiom, so the proof route applies; `copy_own` now covers it (the home's accepted run checked
+the pin, `quotPinHit`, so the pin's statement is the copy's).  Fixtures `QsP`/`QsA`/`QsB`/`QsM`
+(`tests/olean.sh`): every worker accepts.
+
+**Cost** (`instructions:u`, one run each, `--jobs=8`, under the guard; base the cont. 8
+binary): `Init.Data.Nat.Lemmas` 9.1851 G → 9.1837 G, `Coxeter.Basic` 8.9151 G → 8.9146 G,
+`Gamma.Basic` 15.5144 G → 15.5166 G, `WittVector.MulP` 8.9863 G → 8.9858 G; all exit 0, the
+records reached unchanged.
+
+**The proofs** (all model-free, `ConLeche/Verify/Driver/`):
+* `RouteWorker.lean`: `readNames_needsGo`, `first_none_of_ownNames` (freshness), `first_of_at`,
+  `spotOf_level`, `homeView_copy`, `workerClash_kinds` (with `workerClash_two`), `copy_own`
+  (the former `copy_own` of `Copies.lean`, now at `Quot.sound` too and with the statement's
+  freshness; the first version and `entryDecl_stmt` are gone).
+* `RouteCtx.lean`: `ctx_stmt` (a context name with a statement-kind copy is stored by that
+  statement, read at that copy, safe; a group's names are no statement's at its home, by
+  position in its private table), `rank_lt`, `reader_ctx` (a reader stores what it reads, where
+  loaded at it, by the pair's origin: a record's read through its presented own record; a
+  partner's through the copy's own record; the tolerated axiom through its home's statement
+  check), with inversions of the own run (reserved names, `quotPinHit`, `sorryAx`).  A
+  completion's located copy now carries its name (`CapNL`, `StoredNL`, `CapFacts`).
+  `readNames_stored_of_resolve` restates a `Model` lemma, which `Verify` cannot import.
+* `RoutePub.lean`: `pub_loaded` (the public-import route's module is loaded at the reader, of
+  smaller rank, with a copy of the name there; `PubReach.first`).
+* `Routes.lean`: `side_of_status`, `side_of_clash`, `agree_loaded` (case B: one module, or a
+  clash at the reader, `Agree.proof` there from its clash partner reads), `proofAt_of` (case C's
+  proof pair), `route`, `reads_ok`, **`Run.localOk`**, `clashCopiesOf_complete`,
+  `hdrClosure_mem`.
+* `ConLeche/MainTheorem.lean`: `run_no_False`, **`main_modular_no_False`** (`--check-graph` and a
+  `--olean --module` exit 0 at every module of `HdrClosure` on one snapshot), and
+  **`main_modular_one_no_False`** (`--olean --modular`).  Axioms pinned.
+
+The pieces were proved on side branches (`agent/501-rw`, `-rp`, `-rc`) against stated lemmas and
+merged; the side worktrees are removed.  Imports minimized by `lake shake`; five public
+re-exports `pub-import-plan.py` calls demotable were measured needed and joined its
+`FALLBACK` list.
+
+**No fixture for the new reject**: the shape needs a private part holding an unsafe constant
+whose name the home's context stores from another module (gap B's crafted shape) and a
+third module's safe copy; the olean gate's patcher could build it, but it was not done in this
+session.  To be added.
+
+**Gates on the final tree** (the commit carrying this record): `lake build` and `lake test`
+warning-free; `tests/arena.sh` in full under the guard (below); the whitepaper build (PDF and
+HTML, in `nix develop ./whitepaper`).
+
+**Landed** on `modular` with `--no-ff` (`modular` unchanged at 0118b6ce8 since cont. 2's merge).
+The lane, in one place: R1, each loaded export completed on demand where it was made, and the
+public-import route as the check (cont. 1–2); gap B, the names a read group stores checked
+against the importer's copies (cont. 2); every theorem, and every statement kind of a
+propositional type, has the canonical proof as its leaf at every name, and the compiler-trust
+names and `sorryAx` reserved to their own shapes (cont. 6); the proof pairs' statements inferred
+over the part of the context below the name (cont. 8); the reader's view's copy refused when
+unsafe or partial (this record); and the composition: an accepted run is a development every
+module of which passes the local checks, so no module of the closure holds a theorem of type
+`False` (`main_modular_no_False`, `main_modular_one_no_False`).
+The battery: layering, shake (678/678 allowlisted, no public import demotable), trust surface
+(13 escapes, allowlisted), overview links (162), whitepaper links (528), fragment, quote gate,
+pindump, no-local-paths, challenge (statements identical), olean gate 315/315, selfcheck (57 351
+declarations), axioms pinned (69 theorems), arena tutorial 90/92, e2e 560/560, the trusted and
+`--jobs` sweeps without divergence; exit 0, peak anon 3.0 GB.

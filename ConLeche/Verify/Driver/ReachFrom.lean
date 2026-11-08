@@ -63,6 +63,23 @@ instance : LawfulBEq PartKey where
 @[expose] def CopyAt (sp : SearchPath) (fs : FS) (s : Spot) : Prop :=
   ∃ t, PartNames sp fs s.part t ∧ s.pos ∈ t.consts
 
+/-- **Module `h`'s view on the snapshot** (`viewOf`'s, by the specification): the parts of
+`viewKeys` over `h`'s header fixpoint, read from `h`'s private part's header, each part's name
+table the snapshot's, folded in order with the first copy of each name kept. -/
+@[expose] def HomeView (sp : SearchPath) (fs : FS) (h : Name) (v : Std.HashMap Name Spot) : Prop :=
+  ∃ (own : NamePositions) (ld : Loads) (ts : List NamePositions),
+    PartNames sp fs ⟨h, .private⟩ own ∧
+    ModelIO.CanGive (headerFixpoint (moduleImports sp) own.header.isModule own.header.imports) fs
+      (.ok ld) ∧
+    ts.length = (viewKeys h ld).length ∧
+    (∀ k t, (k, t) ∈ (viewKeys h ld).zip ts → PartNames sp fs k t) ∧
+    v = ((viewKeys h ld).zip ts).foldl (fun v kt => viewStep v kt.1 kt.2) {}
+
+/-- **A loaded copy's spot**: the part its module is loaded at, and its name position there
+(`importerSpot`'s, `clashAgree`'s). -/
+@[expose] def spotOf (wr : WorkerReads) (cp : Copy) (q : NamePosition) : Spot :=
+  ⟨⟨wr.loads.nameAt cp.mod, ((wr.loads.flags[cp.mod]?).getD default).level⟩, q⟩
+
 /-- **A part's region** on the snapshot. -/
 @[expose] def PartRegion (sp : SearchPath) (fs : FS) (k : PartKey) (r : Region) : Prop :=
   ∃ f a, PartFiles sp fs k f ∧ f.viewRegion k.level = some (r, a)
@@ -464,7 +481,7 @@ theorem viewAdd_ok (he : EnvOk sp fs env) :
     | ok t =>
       simp only []
       refine viewAdd_ok he c' _ ks h1 ?_
-      rw [← Array.foldl_toList]
+      rw [viewStep, ← Array.foldl_toList]
       exact viewAdd_fold k t _ v hv (h2 t rfl) (fun q hq => Array.mem_toList_iff.1 hq)
 
 theorem viewOf_ok (he : EnvOk sp fs env) {c : ReachCache} (hc : CacheOk sp fs c) (h : Name) :
@@ -543,6 +560,8 @@ theorem agreeCheck_ok (he : EnvOk sp fs env) {c : ReachCache} (hc : CacheOk sp f
     (s₁ s₂ : Spot) :
     ModelIO.AllOk (agreeCheck env c h y s₁ s₂) fs ho fun p => CacheOk sp fs p.1 := by
   unfold agreeCheck
+  split
+  · simpa using hc
   split
   · simpa using hc
   simp only [ModelIO.allOk_bind]
@@ -752,6 +771,42 @@ theorem capturePairs_ok (he : EnvOk sp fs env) :
     | error e => simpa using h1
     | ok u => exact capturePairs_ok he c' ps h1
 
+
+theorem CacheOk.insert_located' {c : ReachCache} (hc : CacheOk sp fs c) {y : Name} {s : Spot}
+    (hl : s.part.level = .private) (hs : CopyAt sp fs s) :
+    CacheOk sp fs { c with located := c.located.insert y s } :=
+  hc.insert_located hl hs c.completed
+
+theorem storedNamesOk_ok (he : EnvOk sp fs env) (h : Name) :
+    ∀ (c : ReachCache) (ns : List Name), CacheOk sp fs c → ∀ {hs₀ : HS},
+      ModelIO.AllOk (storedNamesOk env c h ns) fs hs₀ fun p => CacheOk sp fs p.1
+  | c, [], hc => by simpa [storedNamesOk] using hc
+  | c, n :: ns, hc => by
+    unfold storedNamesOk
+    split
+    · split
+      · exact storedNamesOk_ok he h c ns hc
+      · simpa using hc
+    · split
+      · split
+        · exact storedNamesOk_ok he h c ns hc
+        · simpa using hc
+      · simp only [ModelIO.allOk_bind]
+        intro x _ hx
+        obtain ⟨h1, h2⟩ := lookOf_ok he hc _ x _ hx
+        obtain ⟨c', r⟩ := x
+        cases r with
+        | error e => simpa using h1
+        | ok l =>
+          obtain ⟨t, ht, hl⟩ := h2 l rfl
+          simp only []
+          split
+          · rename_i q hq
+            have hq' : (lookTable t)[n]? = some q := hl ▸ hq
+            have hc' : CacheOk sp fs { c' with located := c'.located.insert n ⟨⟨h, .private⟩, q⟩ } :=
+              h1.insert_located' rfl ⟨t, ht, (lookTable_spec t hq').1⟩
+            exact storedNamesOk_ok he h _ ns hc'
+          · simpa using h1
 
 /-! ## A record read -/
 
@@ -1132,7 +1187,14 @@ theorem reachGo_from (he : EnvOk sp fs env) :
               obtain ⟨c₂, r⟩ := z
               cases r with
               | error e => simp
-              | ok u => exact ih _ c₂ h3 (hL.add hd _ _)
+              | ok u =>
+                simp only [ModelIO.allOk_bind]
+                intro z _ hz
+                have h4 := storedNamesOk_ok he h c₂ _ h3 z _ hz
+                obtain ⟨c₃, r⟩ := z
+                cases r with
+                | error e => simp
+                | ok u => exact ih _ _ (h4.partners _) (hL.add hd _ _)
 
 /-- **What the reach read, from where**: at every accepting outcome of `reach` on the search
 path's reads, from a name index whose parts are the snapshot's tables, every context record
@@ -1146,7 +1208,8 @@ theorem reach_from {sp : SearchPath} {fs : FS} {m : Name} {wr : WorkerReads}
     r.ctx.size = r.homes.size ∧
       ∀ (i : Nat) (d : Declaration) (hm : Name), r.ctx[i]? = some d → r.homes[i]? = some hm →
         RecordFrom sp fs d hm := by
-  have he : EnvOk sp fs { rd := .ofPath sp, mod := m, wr, own } := ⟨rfl, hparts, hindex⟩
+  have he : EnvOk sp fs { rd := .ofPath sp, mod := m, wr, own, copies := clashCopiesOf wr } :=
+    ⟨rfl, hparts, hindex⟩
   unfold reach at h
   simp only [ModelIO.bind_ok] at h
   obtain ⟨⟨c, x⟩, _, hx, h⟩ := h
@@ -1173,7 +1236,7 @@ theorem reach_from {sp : SearchPath} {fs : FS} {m : Name} {wr : WorkerReads}
     cases hv : validateCtx (o.map (L.ctx.getD · default)) (o.map (L.homes.getD · default)) with
     | error e => rw [hv] at h; simp at h
     | ok u =>
-    cases hf : inferFlags (mkFEnv (streamEnv (o.map (L.ctx.getD · default)).toList))
+    cases hf : inferFlags (o.map (L.ctx.getD · default)).toList
       c'.pending.toList with
     | error e => rw [hv] at h; simp only at h; rw [hf] at h; simp at h
     | ok u' =>

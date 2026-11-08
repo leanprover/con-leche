@@ -58,14 +58,16 @@ variable {V : Type w} [SetTheory V]
 variable {pins : List ConLeche.NatOpPinSet}
 
 /-- The axiom kind's whole step, discharged by `axiomStepPB_of` below: the leaf of a stored axiom
-whose type is a proposition is the canonical proof. -/
+whose type is a proposition is the canonical proof, and so is `Quot.sound`'s.  (`sorryAx`'s
+record stores nothing, `declConstants`.) -/
 def AxiomStepPB (V : Type w) [SetTheory V] : Prop :=
   -- the relation premise is the run projection (`DeclAxiomRun`), which
   -- names no valuation; the carrier is the invariant the branches consume
   ∀ {F : Nat} {env : Env} (mp : EnvModelM V env)
     {cv : ConstantVal} {env₂ : Env},
     DeclAxiomRun F env cv env₂ → ConLeche.basisNamesOk (.axiomDecl cv) = true →
-    CoverStepLeaf mp env₂ cv.name (cv.name ≠ ConLeche.sorryAxName ∧ SemPropType V mp.base2.acval env cv.type)
+    CoverStepLeaf mp env₂ cv.name (cv.name = quotSoundName ∨
+      cv.name ≠ ConLeche.sorryAxName ∧ SemPropType V mp.base2.acval env cv.type)
 
 /-- **`AxiomStepPB`, discharged.**  All four `DeclAxiomRun` branches:
 the two standard axioms (`axiomStd`), `Lean.trustCompiler`
@@ -78,7 +80,7 @@ theorem axiomStepPB_of : AxiomStepPB V := by
       CoverStepLeaf mp env₂ cv.name Q :=
     fun hQP h => h.elim fun mp' h' => ⟨mp', h'.1, h'.2.1 ∘ hQP, h'.2.2⟩
   -- the `Quot.sound` arm is a quotient record
-  rcases hR with ⟨hn, hq⟩ | ⟨-, hR⟩
+  rcases hR with ⟨hn, hq⟩ | ⟨hnq, hR⟩
   · obtain ⟨mp', hrel, hcov⟩ := declQuotPB_at mp hq
     obtain ⟨-, -, -, rfl⟩ := hq
     refine ⟨mp', hrel, fun _ => funext fun ψ => ?_, hcov⟩
@@ -92,10 +94,11 @@ theorem axiomStepPB_of : AxiomStepPB V := by
   obtain ⟨type', hopn, hcv, hbranch⟩ := hR
   rcases hbranch with ⟨hok, rfl⟩ | ⟨hname, hok, rfl⟩ |
     ⟨hor, hok, rfl⟩ | ⟨-, -, -, -, -, -, hsorry, rfl⟩
-  · exact weak And.right (axiomStd mp hopn hcv hok)
-  · exact weak And.right (axiomTrustCompiler mp hopn hcv hname hok)
-  · exact weak And.right (axiomOfReduce mp hopn hcv hor hok)
-  · exact (axiomSkip mp).elim fun mp' h' => ⟨mp', h'.1, fun h => absurd hsorry h.1, h'.2⟩
+  · exact weak (fun h => (h.resolve_left hnq).2) (axiomStd mp hopn hcv hok)
+  · exact weak (fun h => (h.resolve_left hnq).2) (axiomTrustCompiler mp hopn hcv hname hok)
+  · exact weak (fun h => (h.resolve_left hnq).2) (axiomOfReduce mp hopn hcv hor hok)
+  · exact (axiomSkip mp).elim fun mp' h' =>
+      ⟨mp', h'.1, fun h => absurd hsorry (h.resolve_left hnq).1, h'.2⟩
 
 /-! ## Coverage through the fold
 
@@ -318,21 +321,37 @@ theorem unreserved_of_basisNamesOk {block : List ConstantInfo} {nP : Nat}
     Bool.not_true] at hb
   exact hb
 
-/-- **What a step says of its proof's leaf**: a theorem's leaf is the canonical proof, and so is
-a definition's or opaque constant's whose type the checker finds to be a proposition, at a name
-with no fast path, and a stored axiom's whose type it finds to be one. -/
+/-- **What a step says of its proofs' leaves**: every constant the record installs that is a
+theorem, or a definition, opaque constant or axiom whose type reads as a truth value, has the
+canonical proof as its leaf. -/
 @[expose] def DeclProofLeaf (V : Type w) [SetTheory V] (acval₀ : Name → (Name → Nat) → Term)
-    (env : Env) : Declaration → (Name → (Name → Nat) → Term) → Prop
-  | .thmDecl cv _, acval => acval cv.name = fun _ => .prf
-  | .defnDecl cv _ _, acval =>
-    (ConLeche.natOpNames.contains cv.name || ConLeche.natDivModNames.contains cv.name) = false ∧
-      SemPropType V acval₀ env cv.type → acval cv.name = fun _ => .prf
-  | .opaqueDecl cv _, acval =>
-    ConLeche.reduceOpNames.contains cv.name = false ∧ SemPropType V acval₀ env cv.type →
-      acval cv.name = fun _ => .prf
-  | .axiomDecl cv, acval =>
-    cv.name ≠ ConLeche.sorryAxName ∧ SemPropType V acval₀ env cv.type → acval cv.name = fun _ => .prf
-  | _, _ => True
+    (env : Env) (d : Declaration) (acval : Name → (Name → Nat) → Term) : Prop :=
+  ∀ ci ∈ declConstants d, ci.isStmtKind = true →
+    ((∃ cv, ci = .thmInfo cv) ∨ SemPropType V acval₀ env ci.toConstantVal.type) →
+    acval ci.toConstantVal.name = fun _ => .prf
+
+/-- An inductive block installs no definition, theorem or axiom. -/
+theorem stmtKind_of_ind {block : List ConstantInfo} {nP : Nat} {ci : ConstantInfo}
+    (hci : ci ∈ declConstants (.indDecl block nP)) : ci.isStmtKind = false := by
+  simp only [declConstants] at hci
+  split at hci
+  · next p _ =>
+    unfold blockConstants blockFormers blockCtors at hci
+    simp only [List.mem_append, List.mem_map] at hci
+    rcases hci with (⟨_, -, rfl⟩ | ⟨_, -, rfl⟩) | hr
+    · rfl
+    · rfl
+    · have : ∀ rs, ∀ c ∈ blockRecs p rs, c.isStmtKind = false := by
+        intro rs
+        induction rs with
+        | nil => exact fun _ h => nomatch h
+        | cons r rs ih =>
+          intro c hc
+          rcases List.mem_cons.mp hc with rfl | hc
+          · rfl
+          · exact ih c hc
+      exact this _ _ hr
+  · exact absurd hci List.not_mem_nil
 
 /-- **The per-declaration P step, by dispatch, against the input's carrier.**  The premise is the
 RUN record (`DeclRun`, valuation-free; the `ind` kind arrives through its `Ind` parameter), so
@@ -371,7 +390,11 @@ theorem declStep_agrees
     have hsh := hrun
     obtain ⟨type', value', hcv, -, henv2, -, -⟩ := hsh
     subst henv2
-    exact leaf (fun _ h => h)
+    exact leaf (fun _ h ci hci _ hc => by
+        obtain rfl := List.mem_singleton.mp hci
+        rcases hc with ⟨_, h'⟩ | hs
+        · exact nomatch h'
+        · exact h hs)
       (PlainStep.closeLeaf (PlainStep.cons hnres) (harvestDefn mp hrun hnres) hcov hN)
   | thmDecl cv value =>
     have hnres : ConLeche.reservedBasisNames.contains cv.name = false := by
@@ -380,7 +403,9 @@ theorem declStep_agrees
     -- the run record has no is-a-proposition derivation row
     obtain ⟨-, type', value', hcv, -, -, henv2⟩ := hsh
     subst henv2
-    exact leaf (fun _ h => h trivial)
+    exact leaf (fun _ h ci hci _ _ => by
+        obtain rfl := List.mem_singleton.mp hci
+        exact h trivial)
       (PlainStep.closeLeaf (PlainStep.cons hnres) (harvestThm mp hrun hnres) hcov hN)
   | opaqueDecl cv value =>
     have hnres : ConLeche.reservedBasisNames.contains cv.name = false := by
@@ -388,16 +413,58 @@ theorem declStep_agrees
     have hsh := hrun
     obtain ⟨-, type', value', hcv, -, henv2, -⟩ := hsh
     subst henv2
-    exact leaf (fun _ h => h)
+    exact leaf (fun _ h ci hci _ hc => by
+        obtain rfl := List.mem_singleton.mp hci
+        rcases hc with ⟨_, h'⟩ | hs
+        · exact nomatch h'
+        · exact h hs)
       (PlainStep.closeLeaf (PlainStep.cons hnres) (harvestOpaque mp hrun hnres) hcov hN)
   | axiomDecl cv =>
     obtain ⟨new, hnew, -, hres⟩ := plainStep_axiom hrun hnames
-    exact leaf (fun _ h => h) ⟨(axiomStepPB_of mp hrun hnames).covered hcov,
+    refine leaf (fun _ h ci hci _ hc => ?_) ⟨(axiomStepPB_of mp hrun hnames).covered hcov,
       hN.append hnew hres⟩
+    simp only [declConstants] at hci
+    by_cases hq : cv.name = quotSoundName
+    · rw [ite_eq_left hq, List.mem_singleton] at hci
+      subst hci
+      rw [show (ConLeche.quotAt .sound cv).toConstantVal.name = cv.name from by
+        rw [hq]; exact ConLeche.Verify.atLps_name _ _]
+      exact h (.inl hq)
+    · rw [ite_eq_right hq] at hci
+      by_cases hy : cv.name = ConLeche.sorryAxName
+      · rw [ite_eq_left hy] at hci; exact absurd hci List.not_mem_nil
+      · rw [ite_eq_right hy, List.mem_singleton] at hci
+        subst hci
+        rcases hc with ⟨_, h'⟩ | hs
+        · exact nomatch h'
+        · exact h (.inr ⟨hy, hs⟩)
   | quotDecl k cv =>
-    exact triv (fun _ => trivial) ((plainStep_quot hrun).close (declQuotPB_at mp hrun) hcov hN)
+    -- a quotient record's one statement-kind constant is `Quot.sound`, whose leaf is its pin's
+    obtain ⟨⟨mp', h1, h2, -⟩, hN'⟩ :=
+      (plainStep_quot hrun).close (declQuotPB_at mp hrun) hcov hN
+    refine ⟨⟨mp', h1, h2, fun ci hci hk _ => ?_⟩, hN'⟩
+    simp only [declConstants, List.mem_singleton] at hci
+    subst hci
+    have hq := hrun
+    obtain ⟨-, -, -, rfl⟩ := hq
+    cases k with
+    | sound =>
+      have hname : (ConLeche.quotAt .sound cv).name = quotSoundName :=
+        ConLeche.Verify.atLps_name _ _
+      rw [show (ConLeche.quotAt .sound cv).toConstantVal.name = quotSoundName from hname]
+      have hf : (⟨ConLeche.quotAt .sound cv :: env.consts, env.tables⟩ : Env).find?
+          quotSoundName = some (ConLeche.quotAt .sound cv) := by
+        simp only [ConLeche.Env.find?_cons, hname, ↓reduceIte]
+      exact funext fun ψ => mp'.base2.acval_pinned_free hf (by decide)
+        (fun _ => by simp (decide := true) [ConLeche.Verify.pinnedStructT])
+    | _ =>
+      have hat : ∀ (c : ConstantInfo) (ps : List Name), (c.atLps ps).isStmtKind = c.isStmtKind :=
+        fun c _ => by cases c <;> rfl
+      unfold ConLeche.quotAt at hk
+      rw [hat] at hk
+      exact absurd hk (by decide)
   | indDecl block nP =>
-    refine triv (fun _ => trivial) ?_
+    refine triv (fun _ ci hci hk _ => absurd hk (by rw [stmtKind_of_ind hci]; decide)) ?_
     have hrun' : ConLeche.Semantics.DeclIndRunDispatchK F env block nP env₂ := hrun
     unfold ConLeche.Semantics.DeclIndRunDispatchK at hrun'
     cases hdf : ConLeche.blockShape? nP block with

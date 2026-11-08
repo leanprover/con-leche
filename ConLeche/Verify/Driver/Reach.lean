@@ -591,8 +591,12 @@ theorem reachGo_inv (env : ReachEnv ModelIO) (fs : FS) (rs : List Name) :
               obtain ⟨⟨c₂, r⟩, _, -, h⟩ := h
               rcases r with e | u
               · simp at h
-              · simp only at h
-                exact ih _ _ (hi.add hs (by simpa using hx) hm) h
+              · simp only [ModelIO.bind_ok] at h
+                obtain ⟨⟨c₃, r⟩, _, -, h⟩ := h
+                rcases r with e | u
+                · simp at h
+                · simp only at h
+                  exact ih _ _ (hi.add hs (by simpa using hx) hm) h
 
 /-- The constants of a list's environment are its records'. -/
 theorem mem_streamEnv_consts {ci : ConstantInfo} :
@@ -1133,7 +1137,7 @@ theorem reach_ok {rd : OleanReads ModelIO} {m : Name} {wr : WorkerReads} {own : 
     cases hv : validateCtx (o.map (L.ctx.getD · default)) (o.map (L.homes.getD · default)) with
     | error e => rw [hv] at h; simp at h
     | ok u =>
-    cases hf : inferFlags (mkFEnv (streamEnv (o.map (L.ctx.getD · default)).toList))
+    cases hf : inferFlags (o.map (L.ctx.getD · default)).toList
       c'.pending.toList with
     | error e => rw [hv] at h; simp only at h; rw [hf] at h; simp at h
     | ok u' =>

@@ -16,11 +16,11 @@
 == ConLeche/Kernel/Name.lean#L207
    207  def render (n : Name) : String :=
 
-== ConLeche/MainTheorem.lean#L101-L104
-   101  theorem model_exists (V : Type w) [SetTheory V]
-   102      (pins : List NatOpPinSet) (ds : Array Declaration) (env : Env)
-   103      (accepted : checkDecls .verified pins ds = .ok env) :
-   104      Nonempty (Model V env) := by
+== ConLeche/MainTheorem.lean#L104-L107
+   104  theorem model_exists (V : Type w) [SetTheory V]
+   105      (pins : List NatOpPinSet) (ds : Array Declaration) (env : Env)
+   106      (accepted : checkDecls .verified pins ds = .ok env) :
+   107      Nonempty (Model V env) := by
 
 == ConLeche/Denotes.lean#L123-L124
    123  inductive Denotes (cval : Name → (LevelParam → Nat) → V) (env : Env) (φ : LevelParam → Nat) :
@@ -49,15 +49,15 @@
    267      A ∈ˢ univ (Level.eval φ u) → a ∈ˢ A → b ∈ˢ A →
    268      app (app (app E A) a) b = eqv a b
 
-== ConLeche/MainTheorem.lean#L115-L122
-   115  theorem no_False_declaration (V : Type w) [SetTheory V]
-   116      (pins : List NatOpPinSet) (chunks : List ByteArray)
-   117      (h : jsonWithTheoremFalse chunks) :
-   118      ∃ e, (do
-   119        let pre ← builtinPreludeE
-   120        let r ← parseChunks chunks
-   121        let ds := preparePrelude pre r.decls
-   122        checkDecls .verified pins ds) = .error e := by
+== ConLeche/MainTheorem.lean#L118-L125
+   118  theorem no_False_declaration (V : Type w) [SetTheory V]
+   119      (pins : List NatOpPinSet) (chunks : List ByteArray)
+   120      (h : jsonWithTheoremFalse chunks) :
+   121      ∃ e, (do
+   122        let pre ← builtinPreludeE
+   123        let r ← parseChunks chunks
+   124        let ds := preparePrelude pre r.decls
+   125        checkDecls .verified pins ds) = .error e := by
 
 == ConLeche/Accepts.lean#L62-L72
     62  def jsonWithTheoremFalse (chunks : List ByteArray) : Prop :=
@@ -72,10 +72,10 @@
     71  \{\"thm\":\{\"all\":[{k}],\"levelParams\":[],\"name\":{k},\"type\":{j},\"value\":{v}}}
     72  {after}").toUTF8
 
-== ConLeche/MainTheorem.lean#L151-L153
-   151  theorem main_no_False (V : Type w) [SetTheory V] {file : String} {fs : FS} {b : ByteArray}
-   152      (hb : fs.file file = some b) (hF : jsonWithTheoremFalse [b]) :
-   153      ¬ ModelIO.CanGive (Driver.runArgs ["--", file]) fs 0 := by
+== ConLeche/MainTheorem.lean#L154-L156
+   154  theorem main_no_False (V : Type w) [SetTheory V] {file : String} {fs : FS} {b : ByteArray}
+   155      (hb : fs.file file = some b) (hF : jsonWithTheoremFalse [b]) :
+   156      ¬ ModelIO.CanGive (Driver.runArgs ["--", file]) fs 0 := by
 
 == ConLeche/Verify/Cached/StreamThm.lean#L103-L106
    103  theorem no_False_theorem_accepted (V : Type w) [SetTheory V]
@@ -113,22 +113,22 @@
     83  def checkDecls (mode : CheckMode) (pins : List NatOpPinSet) (ds : Array Declaration) :
     84      Except (CheckError × Nat) Env := do
 
-== ConLeche/MainTheorem.lean#L192-L199
-   192  theorem modular_model_exists (V : Type w) [SetTheory V]
-   193      (pins : List NatOpPinSet) (dev : Nat → Modular.Module) (i : Nat)
-   194      (hok : ∀ j ≤ i, Modular.LocalOk .verified pins dev j) :
-   195      ∃ m : ∀ j ≤ i, Model V (dev j).own,
-   196        (∀ j hj n, ((dev j).context.find? n).isSome = true →
-   197          ∃ h : (dev j).src n ≤ i, (m j hj).cval n = (m ((dev j).src n) h).cval n) ∧
-   198        ∀ j hj n cv, (dev j).own.find? n = some (.thmInfo cv) → pinnedLeafName n = false →
-   199          (m j hj).cval n = fun _ => pt := by
+== ConLeche/MainTheorem.lean#L195-L202
+   195  theorem modular_model_exists (V : Type w) [SetTheory V]
+   196      (pins : List NatOpPinSet) (dev : Nat → Modular.Module) (i : Nat)
+   197      (hok : ∀ j ≤ i, Modular.LocalOk .verified pins dev j) :
+   198      ∃ m : ∀ j ≤ i, Model V (dev j).own,
+   199        (∀ j hj n, ((dev j).context.find? n).isSome = true →
+   200          ∃ h : (dev j).src n ≤ i, (m j hj).cval n = (m ((dev j).src n) h).cval n) ∧
+   201        ∀ j hj n cv, (dev j).own.find? n = some (.thmInfo cv) →
+   202          (m j hj).cval n = fun _ => pt := by
 
 == tests/ConLecheTests/Axioms.lean#L106-L110
-   106  /--
-   107  info: 'ConLeche.model_exists' depends on axioms: [propext, Classical.choice, Quot.sound]
-   108  -/
-   109  #guard_msgs in
-   110  #print axioms ConLeche.model_exists
+   106  Everything below them is what they are corollaries of. -/
+   107  
+   108  /--
+   109  info: 'ConLeche.model_exists' depends on axioms: [propext, Classical.choice, Quot.sound]
+   110  -/
 
 == ConLeche/Driver/Dispatch.lean#L47
     47    | .oleans sp roots cs mode pace jobs => checkMainG (.oleans sp roots cs) mode pace jobs
@@ -215,9 +215,9 @@
     93      | some p => blockConstants p
     94      | none => []
 
-== ConLeche/Verify/Cached/DeclPushes.lean#L699-L700
-   699  theorem checkDeclC_pushes (mode : CheckMode) (fe : FEnv) (pd : Declaration) :
-   700      Yields (checkDeclC mode pins fe pd) (· = FEnv.pushDelta (declConstants pd) (declTables pd) fe) := by
+== ConLeche/Verify/Cached/DeclPushes.lean#L703-L704
+   703  theorem checkDeclC_pushes (mode : CheckMode) (fe : FEnv) (pd : Declaration) :
+   704      Yields (checkDeclC mode pins fe pd) (· = FEnv.pushDelta (declConstants pd) (declTables pd) fe) := by
 
 == ConLeche/Cached/StreamIndex.lean#L65
     65  def buildIndex (ds : Array Declaration) : StreamIndex :=
@@ -226,12 +226,12 @@
     75  def recordJob (mode : CheckMode) (pins : List NatOpPinSet) (I : StreamIndex) (k : Nat)
     76      (pd : Declaration) : Except CheckError Unit :=
 
-== ConLeche/Verify/Cached/ViewCongr.lean#L1352-L1356
-  1352  theorem checkDeclStepC_twin (pins : List NatOpPinSet) {fe₁ fe₂ : FEnv} (ht : Twin fe₁ fe₂)
-  1353     
-  1354      (pd : Declaration) :
-  1355      RelRun (PushedFrom fe₁ fe₂) (checkDeclStepC mode pins fe₁ pd)
-  1356        (checkDeclStepC mode pins fe₂ pd) := by
+== ConLeche/Verify/Cached/ViewCongr.lean#L1353-L1357
+  1353  theorem checkDeclStepC_twin (pins : List NatOpPinSet) {fe₁ fe₂ : FEnv} (ht : Twin fe₁ fe₂)
+  1354     
+  1355      (pd : Declaration) :
+  1356      RelRun (PushedFrom fe₁ fe₂) (checkDeclStepC mode pins fe₁ pd)
+  1357        (checkDeclStepC mode pins fe₂ pd) := by
 
 == ConLeche/Verify/Cached/StreamIndex.lean#L510-L512
    510  theorem checkDecls_of_jobs {ds : Array Declaration}
@@ -329,18 +329,18 @@
   1781        defeq := fun _ _ _ => throw (.internal "fuel exhausted: defeq")
   1782        defeqE := fun _ _ _ => throw (.internal "fuel exhausted: defeq")
 
-== ConLeche/Model/Fold.lean#L510-L517
-   510  theorem no_proof_of_False_pure (V : Type w) [SetTheory V]
-   511      {F : Nat}
-   512      {ds : List Declaration} {env' : Env}
-   513      (h : checkDeclsPure .verified (fueledOps .verified F) pins ds = .ok env') :
-   514      ∀ c ∈ env'.consts,
-   515        c.toConstantVal.type = .const falseName [] → False := by
-   516    obtain ⟨mp⟩ := checkDeclsPure_sound_of (V := V) h
-   517    exact fun c hc hty => no_constant_of_False mp c hc hty
+== ConLeche/Model/Fold.lean#L577-L584
+   577  theorem no_proof_of_False_pure (V : Type w) [SetTheory V]
+   578      {F : Nat}
+   579      {ds : List Declaration} {env' : Env}
+   580      (h : checkDeclsPure .verified (fueledOps .verified F) pins ds = .ok env') :
+   581      ∀ c ∈ env'.consts,
+   582        c.toConstantVal.type = .const falseName [] → False := by
+   583    obtain ⟨mp⟩ := checkDeclsPure_sound_of (V := V) h
+   584    exact fun c hc hty => no_constant_of_False mp c hc hty
 
-== ConLeche/Model/Fold.lean#L428
-   428  theorem declStep_preserves
+== ConLeche/Model/Fold.lean#L495
+   495  theorem declStep_preserves
 
 == ConLeche/Model/Capstone.lean#L137-L143
    137  theorem no_constant_of_False (mp : EnvModelM V env)
@@ -1301,9 +1301,9 @@
 
 >>> README.md
 
-== ConLeche/Cached/ParsedC.lean#L223-L224
-   223          else throw (.notImplemented
-   224            s!"unsupported compiler-trust axiom environment ({cv.name})")
+== ConLeche/Cached/ParsedC.lean#L228-L229
+   228          else throw (.notImplemented
+   229            s!"unsupported compiler-trust axiom environment ({cv.name})")
 
 == ConLeche/Driver/Cli.lean#L126
    126    "  --jobs=N            Worker threads (default: one per hardware thread)",
@@ -1312,15 +1312,15 @@
     50  /-- The pinned `False` basis block, in install order. -/
     51  def falseBasis : List ConstantInfo := [falseA, falseRecA]
 
-== ConLeche/MainTheorem.lean#L115-L122
-   115  theorem no_False_declaration (V : Type w) [SetTheory V]
-   116      (pins : List NatOpPinSet) (chunks : List ByteArray)
-   117      (h : jsonWithTheoremFalse chunks) :
-   118      ∃ e, (do
-   119        let pre ← builtinPreludeE
-   120        let r ← parseChunks chunks
-   121        let ds := preparePrelude pre r.decls
-   122        checkDecls .verified pins ds) = .error e := by
+== ConLeche/MainTheorem.lean#L118-L125
+   118  theorem no_False_declaration (V : Type w) [SetTheory V]
+   119      (pins : List NatOpPinSet) (chunks : List ByteArray)
+   120      (h : jsonWithTheoremFalse chunks) :
+   121      ∃ e, (do
+   122        let pre ← builtinPreludeE
+   123        let r ← parseChunks chunks
+   124        let ds := preparePrelude pre r.decls
+   125        checkDecls .verified pins ds) = .error e := by
 
 == ConLeche/Denotes.lean#L248-L268
    248  structure Model (V : Type w) [SetTheory V] (env : Env) where
@@ -1394,10 +1394,10 @@
 == ConLeche/Frontend/CheckerIO.lean#L302
    302  def ModelIO (α : Type) : Type := FS → HS → Except IO.Error α → HS → Prop
 
-== ConLeche/MainTheorem.lean#L151-L153
-   151  theorem main_no_False (V : Type w) [SetTheory V] {file : String} {fs : FS} {b : ByteArray}
-   152      (hb : fs.file file = some b) (hF : jsonWithTheoremFalse [b]) :
-   153      ¬ ModelIO.CanGive (Driver.runArgs ["--", file]) fs 0 := by
+== ConLeche/MainTheorem.lean#L154-L156
+   154  theorem main_no_False (V : Type w) [SetTheory V] {file : String} {fs : FS} {b : ByteArray}
+   155      (hb : fs.file file = some b) (hF : jsonWithTheoremFalse [b]) :
+   156      ¬ ModelIO.CanGive (Driver.runArgs ["--", file]) fs 0 := by
 
 == Main.lean#L95
     95  def main (args : List String) : IO Unit := do

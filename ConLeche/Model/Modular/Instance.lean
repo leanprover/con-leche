@@ -26,9 +26,9 @@ con-leche's graded models (`conlecheSemantics`), so that the modular theorem is 
   of it is exposed and read from a member exposing what it reads (`CtxRead`, `Read.lean`).
 * **Amalgamation** gives each name the leaf of the member it is read from, and `ctxModel` builds
   the model (`Restrict.lean`).
-* **A proof by `C`** (`ProofInX`): a definition, theorem or axiom at a name with no pinned leaf
-  whose type `C` infers to be a proposition and reads alike; a model of `C` reads it as a truth
-  value, so does the agreeing model, and `ProofLeaves` gives the canonical proof.  **A theorem**
+* **A proof by `C`** (`ProofInX`): a definition, theorem or axiom whose type `C` infers to be a
+  proposition and reads alike; a model of `C` reads it as a truth value, so does the agreeing
+  model, and `ProofLeaves` gives the canonical proof.  **A theorem**
   (`IsThmX`) gets it in every model.
 * **Acceptance** is the fold's run from the context; **the step** is `declsRun_proofs`
   (`Step.lean`).
@@ -160,7 +160,7 @@ theorem amalgamateX {C : XEnv} {ι : Type} {E : ι → XEnv} (h : AssembledX C E
       (fun n => (hmm n).2.1) (fun n => (hmm n).2.2.1) hleaf hclosed hwd
     -- every proof's leaf, read off its source's
     have hPL : ProofLeaves V C.1 aC := by
-      intro n ci hf hk hpin hc
+      intro n ci hf hk hc
       obtain ⟨i, hi⟩ := Option.isSome_iff_exists.mp (hsrc n (isSome_of hf))
       obtain ⟨ci', hf', hr⟩ := hread.entry n ci hf
       rw [srcEnv_of hi] at hf'
@@ -170,7 +170,7 @@ theorem amalgamateX {C : XEnv} {ι : Type} {E : ι → XEnv} (h : AssembledX C E
         · exact h
       have hcv : ci.toConstantVal = ci'.toConstantVal := hr.alike.cv
       rw [haC n i hi]
-      refine (m i).2.2.2.1 n ci' hf' hk' hpin ?_
+      refine (m i).2.2.2.1 n ci' hf' hk' ?_
       rcases hc with ⟨cv, rfl⟩ | hc
       · rcases hr with rfl | ⟨h, -⟩
         · exact .inl ⟨cv, rfl⟩
@@ -224,10 +224,10 @@ theorem AcceptsX.step {pins : List NatOpPinSet} {Γ Γ' : XEnv} {D : List Declar
     ∃ m' : MMod V Γ', ∀ n, StoresX Γ n → StoresX Γ' n ∧ m'.1 n = m.1 n := by
   obtain ⟨hΓ', hall, k, q, hrun⟩ := h
   obtain ⟨-, -, hPL, mp, hcov, heta, hnat, hag⟩ := m.2
-  have hPL' : ProofLeaves V Γ.1 mp.base2.acval := fun n ci hf hk hpin hc => by
+  have hPL' : ProofLeaves V Γ.1 mp.base2.acval := fun n ci hf hk hc => by
     have hn : (Γ.1.find? n).isSome = true := isSome_of hf
     rw [hag n hn]
-    refine hPL n ci hf hk hpin ?_
+    refine hPL n ci hf hk ?_
     rcases hc with hc | hc
     · exact .inl hc
     · exact .inr (SemPropType.of_denote (fun ψ => denote_alike (R := Γ.1)
@@ -248,10 +248,10 @@ theorem AcceptsX.step {pins : List NatOpPinSet} {Γ Γ' : XEnv} {D : List Declar
 /-! ## Proofs -/
 
 /-- **A proof by `C`** (see the module docstring): `E` stores `n` as a definition, theorem or axiom
-at a name with no pinned leaf, whose type `C` infers to be a proposition, every name of which `C`
-stores and `E` exposes, with alike copies and one table. -/
+whose type `C` infers to be a proposition, every name of which `C` stores and `E` exposes, with
+alike copies and one table. -/
 @[expose] def ProofInX (C E : XEnv) (n : Name) : Prop :=
-  ∃ ci, E.1.find? n = some ci ∧ ci.isStmtKind = true ∧ pinnedLeafName n = false ∧
+  ∃ ci, E.1.find? n = some ci ∧ ci.isStmtKind = true ∧
     TypeIsProp .verified C.1 ci.toConstantVal.type ∧
     ∀ c ∈ ci.toConstantVal.type.readNames, StoresX C c ∧ E.2 c ∧
       LookAlike (C.1.find? c) (E.1.find? c) ∧ C.1.findTable? c = E.1.findTable? c
@@ -264,10 +264,10 @@ theorem LookAlike.symm {f g : Option ConstantInfo} (h : LookAlike f g) : LookAli
 theorem proofInX_val {C E : XEnv} {n : Name} (h : ProofInX C E n) (mC : MMod V C) (m : MMod V E)
     (hag : ∀ c, StoresX C c → StoresX E c → mC.1 c = m.1 c) : m.1 n = fun _ => .prf := by
   classical
-  obtain ⟨ci, hf, hk, hpin, hprop, hnames⟩ := h
+  obtain ⟨ci, hf, hk, hprop, hnames⟩ := h
   obtain ⟨-, -, -, mpC, -, -, -, hagC⟩ := mC.2
   obtain ⟨-, -, hPL, mpE, -, -, -, -⟩ := m.2
-  refine hPL n ci hf hk hpin (.inr ?_)
+  refine hPL n ci hf hk (.inr ?_)
   -- the type's scoping, off the source's well-formedness
   have hwf := mpE.base2.wf.consts ci (ConLeche.Env.find?_mem hf)
   have htf : ci.toConstantVal.type.hasFvar = false := hwf.1
@@ -301,14 +301,14 @@ theorem proofInX_val {C E : XEnv} {n : Name} (h : ProofInX C E n) (mC : MMod V C
       exact ⟨c, c, hc, hc, .inl rfl⟩)
     (fun x hx => (hagC x hx).symm) (fun _ => rfl) ψ 0 _ hresC
 
-/-- **A theorem**: `E` stores `n` as a theorem, at a name with no pinned leaf. -/
+/-- **A theorem**: `E` stores `n` as a theorem. -/
 @[expose] def IsThmX (E : XEnv) (n : Name) : Prop :=
-  (∃ cv, E.1.find? n = some (.thmInfo cv)) ∧ pinnedLeafName n = false
+  ∃ cv, E.1.find? n = some (.thmInfo cv)
 
 theorem isThmX_val {E : XEnv} {n : Name} (h : IsThmX E n) (m : MMod V E) :
     m.1 n = fun _ => .prf := by
-  obtain ⟨⟨cv, hf⟩, hpin⟩ := h
-  exact m.2.2.2.1 n _ hf rfl hpin (.inl ⟨cv, rfl⟩)
+  obtain ⟨cv, hf⟩ := h
+  exact m.2.2.2.1 n _ hf rfl (.inl ⟨cv, rfl⟩)
 
 variable (V) in
 /-- **Con-leche's models as a modular semantics.** -/
