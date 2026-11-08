@@ -210,7 +210,7 @@ variable {fe : InLean.FEnv} {f : Nat}
 theorem coreKnotI_infer_succ (d : Nat) (i : Expr) :
     (coreKnotI .verified eager fe (f + 1)).infer d i =
       memoEI (·.inferC) (fun st mp => { st with inferC := mp })
-        (fun d e => inferBodyI (coreKnotI .verified eager fe f) fe d e) d i := by
+        (fun d e => pollC fe d (inferBodyI (coreKnotI .verified eager fe f) fe d e)) d i := by
   cases eager <;> rfl
 
 /-- An infer memo hit answers the pure infer. -/
@@ -256,7 +256,7 @@ theorem memoEI_infer_specI (henv : ConLeche.EnvWF env)
       Runs ((ConLeche.fueledFns .verified eager env).infer d (TrS s₀ i)) (TrS s' v) ∧
       ConLeche.Expr.WScoped d (TrS s' v) ∧ (TrS s' v).looseBVarsBounded 0 = true; ⊤⦄ := by
   sym only [conleche_grind] =>
-    vcgen [coreKnotI_infer_succ, InLean.memoEI, hbody.triple] <;> finish
+    vcgen [coreKnotI_infer_succ, InLean.memoEI, InLean.pollC, hbody.triple] <;> finish
 
 end Infer
 
@@ -269,10 +269,10 @@ theorem coreKnotI_whnfCore_succ (c : Bool) (d : Nat) (i : Expr) :
     (coreKnotI .verified eager fe (f + 1)).whnfCore c d i =
       if c then
         memoEI (·.whnfCoreCheapC) (fun st mp => { st with whnfCoreCheapC := mp })
-          (fun d e => whnfCoreBodyI .verified (coreKnotI .verified eager fe f) fe true d e) d i
+          (fun d e => pollC fe d (whnfCoreBodyI .verified (coreKnotI .verified eager fe f) fe true d e)) d i
       else
         memoEI (·.whnfCoreC) (fun st mp => { st with whnfCoreC := mp })
-          (fun d e => whnfCoreBodyI .verified (coreKnotI .verified eager fe f) fe false d e) d i := by
+          (fun d e => pollC fe d (whnfCoreBodyI .verified (coreKnotI .verified eager fe f) fe false d e)) d i := by
   cases eager <;> cases c <;> rfl
 
 theorem CSOKI.whnfCore_hit (henv : ConLeche.EnvWF env) {s : InLean.CState} {d : Nat} {i r : Expr}
@@ -347,7 +347,7 @@ theorem memoEI_whnfCore_specI (henv : ConLeche.EnvWF env)
       Runs ((ConLeche.fueledFns .verified eager env).whnfCore c d (TrS s₀ i)) (TrS s' v) ∧
       ConLeche.Expr.WScoped d (TrS s' v) ∧ (TrS s' v).looseBVarsBounded 0 = true; ⊤⦄ := by
   sym only [conleche_grind] =>
-    vcgen [coreKnotI_whnfCore_succ, InLean.memoEI, BodySpecI.triple (hbody true), BodySpecI.triple (hbody false)] <;>
+    vcgen [coreKnotI_whnfCore_succ, InLean.memoEI, InLean.pollC, BodySpecI.triple (hbody true), BodySpecI.triple (hbody false)] <;>
       finish
 
 end WhnfCore
@@ -360,7 +360,7 @@ variable {fe : InLean.FEnv} {f : Nat}
 theorem coreKnotI_whnf_succ (d : Nat) (i : Expr) :
     (coreKnotI .verified eager fe (f + 1)).whnf d i =
       memoEI (·.whnfC) (fun st mp => { st with whnfC := mp })
-        (fun d e => whnfBodyI (coreKnotI .verified eager fe f) fe d e) d i := by
+        (fun d e => pollC fe d (whnfBodyI (coreKnotI .verified eager fe f) fe d e)) d i := by
   cases eager <;> rfl
 
 theorem CSOKI.whnf_hit (henv : ConLeche.EnvWF env) {s : InLean.CState} {d : Nat} {i r : Expr}
@@ -404,7 +404,7 @@ theorem memoEI_whnf_specI (henv : ConLeche.EnvWF env)
       Runs ((ConLeche.fueledFns .verified eager env).whnf d (TrS s₀ i)) (TrS s' v) ∧
       ConLeche.Expr.WScoped d (TrS s' v) ∧ (TrS s' v).looseBVarsBounded 0 = true; ⊤⦄ := by
   sym only [conleche_grind] =>
-    vcgen [coreKnotI_whnf_succ, InLean.memoEI, hbody.triple] <;> finish
+    vcgen [coreKnotI_whnf_succ, InLean.memoEI, InLean.pollC, hbody.triple] <;> finish
 
 end Whnf
 
@@ -416,7 +416,7 @@ variable {fe : InLean.FEnv} {f : Nat}
 theorem coreKnotI_inferIO_succ (d : Nat) (i : Expr) :
     (coreKnotI .verified eager fe (f + 1)).inferIO d i =
       memoEI (·.inferIOC) (fun st mp => { st with inferIOC := mp })
-        (fun d e => inferBodyIOI (CoreFnsI.ioView (coreKnotI .verified eager fe f)) fe d e) d i := by
+        (fun d e => pollC fe d (inferBodyIOI (CoreFnsI.ioView (coreKnotI .verified eager fe f)) fe d e)) d i := by
   cases eager <;> rfl
 
 theorem CSOKI.inferIO_hit (henv : ConLeche.EnvWF env) {s : InLean.CState} {d : Nat} {i r : Expr}
@@ -461,7 +461,7 @@ theorem memoEI_inferIO_specI (henv : ConLeche.EnvWF env)
       Runs ((ConLeche.fueledFns .verified eager env).inferIO d (TrS s₀ i)) (TrS s' v) ∧
       ConLeche.Expr.WScoped d (TrS s' v) ∧ (TrS s' v).looseBVarsBounded 0 = true; ⊤⦄ := by
   sym only [conleche_grind] =>
-    vcgen [coreKnotI_inferIO_succ, InLean.memoEI, hbody.triple] <;> finish
+    vcgen [coreKnotI_inferIO_succ, InLean.memoEI, InLean.pollC, hbody.triple] <;> finish
 
 end InferIO
 
@@ -472,7 +472,7 @@ variable {fe : InLean.FEnv} {f : Nat}
 
 theorem coreKnotI_defeq_succ (d : Nat) (a b : Expr) :
     (coreKnotI .verified eager fe (f + 1)).defeq d a b =
-      memoBI (fun d a b => defeqBodyI .verified eager (coreKnotI .verified eager fe f) fe d a b)
+      memoBI (fun d a b => pollC fe d (defeqBodyI .verified eager (coreKnotI .verified eager fe f) fe d a b))
         d a b := by
   cases eager <;> rfl
 
@@ -538,7 +538,7 @@ theorem memoBI_defeq_specI (henv : ConLeche.EnvWF env)
     ⦃fun v s' => CSOKI .verified eager env s' ∧ TabLe s₀ s' ∧
       Runs ((ConLeche.fueledFns .verified eager env).defeq d (TrS s₀ a) (TrS s₀ b)) v; ⊤⦄ := by
   sym only [conleche_grind] =>
-    vcgen [coreKnotI_defeq_succ, InLean.memoBI, hbody.triple] <;> finish
+    vcgen [coreKnotI_defeq_succ, InLean.memoBI, InLean.pollC, hbody.triple] <;> finish
 
 end Defeq
 

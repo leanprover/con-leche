@@ -33,10 +33,27 @@ def natOpWfNames : List Name :=
 
 /-! ## Errors -/
 
+/-- **The reject of a constant the check does not see** (`FEnv.sees`),
+worded as the official kernel's: an `unsafe` or `partial` constant in the
+check of a safe declaration (official `infer_constant`), else an unknown
+constant. -/
+def unseenConstError (fe : FEnv) (n : Name) : CheckError :=
+  match fe.env.find? n with
+  | some (.defnInfo v) =>
+    if v.safety == .unsafe then
+      .invalid s!"invalid declaration, it uses unsafe declaration '{n}'"
+    else if v.safety == .partial then
+      .invalid s!"invalid declaration, safe declaration must not contain partial declaration '{n}'"
+    else .invalid s!"unknown constant '{n}'"
+  | some ci =>
+    if ci.isUnsafe then .invalid s!"invalid declaration, it uses unsafe declaration '{n}'"
+    else .invalid s!"unknown constant '{n}'"
+  | none => .invalid s!"unknown constant '{n}'"
+
 /-- Twin of `unknownConstError`. -/
-def unknownConstError (n : Name) : CheckError :=
+def unknownConstError (fe : FEnv) (n : Name) : CheckError :=
   if n == sorryAxName then .notImplemented "use of the sorryAx axiom"
-  else .invalid s!"unknown constant {n}"
+  else unseenConstError fe n
 
 /-- Twin of `projIndexedStructLike`. -/
 def projIndexedStructLike (fe : FEnv) (T sn : Name) (i nArgs : Nat) : Bool :=
@@ -190,31 +207,48 @@ def strLitToConstructor (s : String) : Expr :=
         .app (.app (.app (.const listConsName [.zero]) (.const charName []))
           (.app (.const charOfNatName []) (.lit (.natVal c.toNat)))) e
 
-/-- The official kernel's bound on a computed numeral (`LEAN_NAT_MAX_SIZE`'s
-default, 128 MB; the environment variable is not read). -/
-def natMaxBytes : Nat := 128 * 1024 * 1024
+/-- **A numeral's size in bytes**, as the runtime's
+`lean_nat_size_in_bytes` reports it on a 64-bit platform: a scalar (below
+`2 ^ 63`) occupies one word, a big number its 64-bit limbs. -/
+def natSizeBytes (n : Nat) : Nat :=
+  if n < 2 ^ 63 then 8 else 8 * ((n.log2 + 64) / 64)
 
-/-- **The official kernel's numeral guards** (`reduce_pow`,
-`reduce_bin_nat_op`), a deviation from con-leche: a literal computation the
-official kernel refuses is an error here too.  Without them a huge
-exponent or shift falls through to unfolding the operation and exhausts
-the native stack. -/
-def natOpRefusal (c : Name) (a b : Nat) : Option String :=
-  let tooBig := "the kernel refused a `Nat` numeral because its size exceeds the maximum"
+/-- The official kernel's message for a numeral past the size bound. -/
+def natTooBigMsg : String :=
+  "the kernel refused a `Nat` numeral because its size exceeds the maximum; increase the \
+  LEAN_NAT_MAX_SIZE environment variable to allow it"
+
+/-- **The official kernel's guards on a literal computation**
+(`reduce_pow`, `reduce_shiftLeft`), before the result is computed, at the
+size bound `maxBytes` (`Limits.natMaxBytes`): an exponent or shift past
+32 bits, a power whose size bound (the base's size times the exponent)
+exceeds the bound, a shift whose result would.  A deviation from con-leche:
+a literal computation the official kernel refuses is an error here too;
+without them a huge exponent or shift falls through to unfolding the
+operation and exhausts the native stack. -/
+def natOpRefusal (maxBytes : Nat) (c : Name) (a b : Nat) : Option String :=
   if c == natPowName then
     if b ≥ 2 ^ 32 then
       some "the kernel refused to evaluate `Nat.pow` because its second argument does not fit in a 32-bit unsigned integer"
-    else if a > 1 && (a.log2 + 1) * b > natMaxBytes * 8 then
-      some "the kernel refused to evaluate `Nat.pow` because the result would exceed the maximum numeral size"
+    else if a > 1 && b != 0 && natSizeBytes a > maxBytes / b then
+      some "the kernel refused to evaluate `Nat.pow` because the result would exceed the maximum \
+        numeral size; increase the LEAN_NAT_MAX_SIZE environment variable to allow it"
     else none
   else if c == natShiftLeftName then
-    if b ≥ 2 ^ 32 then
+    if a == 0 then none
+    else if b ≥ 2 ^ 32 then
       some "the kernel refused to evaluate `Nat.shiftLeft` because its second argument does not fit in a 32-bit unsigned integer"
-    else if a != 0 && a.log2 + 1 + b > natMaxBytes * 8 then some tooBig
+    else if natSizeBytes a + b / 8 + 1 > maxBytes then some natTooBigMsg
     else none
-  else if c == natMulName then
-    if a.log2 + b.log2 + 2 > natMaxBytes * 8 then some tooBig else none
   else none
+
+/-- **The official kernel's guard on a computed numeral**
+(`reduce_bin_nat_op`'s `check_size`): the result of `Nat.add`, `Nat.sub`
+and `Nat.mul` past the size bound. -/
+def natResultRefused (maxBytes : Nat) (c : Name) : Option Expr → Bool
+  | some (.lit (.natVal r)) =>
+    (c == natAddName || c == natSubName || c == natMulName) && natSizeBytes r > maxBytes
+  | _ => false
 
 /-- Twin of `natOpResult`. -/
 def natOpResult (c : Name) (a b : Nat) : Option Expr :=

@@ -224,7 +224,7 @@ theorem checkInductiveC_ok {μ : CheckMode} {fe : InLean.FEnv} {lps : List Name}
     (u = false → (checkIndDeclC μ fe (storedBlock a.consts) nP).run {} = .ok ((), s')) := by
   unfold checkInductiveC at h
   generalize (((Ind.genInductive μ lps nP types u).run
-    { env := fe.env, coreAxioms := fe.coreAxioms }).run' {}).run' {} = g at h
+    { env := fe.env, coreAxioms := fe.coreAxioms, limits := fe.limits }).run' {}).run' {} = g at h
   rw [StateT.run_bind, StateT.run_lift] at h
   cases g with
   | error e => cases h

@@ -40,6 +40,8 @@ public section
 
 namespace InLeanProof
 
+variable {lim : InLean.Limits}
+
 open Lean InLean Std.WP ConLeche.Cached
 open scoped Lean.Order
 
@@ -431,7 +433,7 @@ theorem checkAxiomC_sorry_sim {fe : InLean.FEnv} {L : ConLeche.Env} (hJ : JobEnv
     (hfs : fe.safety = .safe) (hfc : fe.coreAxioms = false)
     (hs : CSOKI .verified false L s₀) (hr : Expr.RangeOk v.type) (hsafe : v.isUnsafe = false)
     (hn : v.name = InLean.sorryAxName)
-    (h : InLean.checkAxiomC .verified InLeanProof.theoremConfig fe v s₀ = .ok (a, s')) :
+    (h : InLean.checkAxiomC .verified (InLeanProof.theoremConfig lim) fe v s₀ = .ok (a, s')) :
     CSOKI .verified false L s' ∧ TabLe s₀ s' ∧ a.consts = #[.axiomInfo v] ∧ a.quot = false ∧
       ∃ d, toDecl [.axiomInfo v] = some d ∧ KindRuns pins L d := by
   obtain ⟨c1, c2, c3, c4, c5, c6, c7, -, -, -⟩ := cl_axNames
@@ -601,7 +603,7 @@ theorem checkDeclKindC_sim {fe : InLean.FEnv} {L : ConLeche.Env} (hJ : JobEnvI f
     (hfs : fe.safety = .safe) (hfc : fe.coreAxioms = false)
     (hs : CSOKI .verified false L s₀) (hd : SafeDecl decl) (hr : DeclRangeOk decl)
     (harm : ProvedArm decl) (hbn : InLean.basisNamesOk decl a = true)
-    (h : InLean.checkDeclKindC .verified InLeanProof.theoremConfig fe decl s₀ = .ok (a, s')) :
+    (h : InLean.checkDeclKindC .verified (InLeanProof.theoremConfig lim) fe decl s₀ = .ok (a, s')) :
     CSOKI .verified false L s' ∧ TabLe s₀ s' ∧
       ∃ ds, a.consts.toList.mapM (fun ci => toDecl [ci]) = some ds ∧
         ∃ F L', ds.foldlM (ConLeche.checkDecl .verified (ConLeche.fueledOps .verified F) pins) L =
@@ -646,12 +648,12 @@ the statement is about the `pins` P4 relates to InLean's). -/
 
 /-- **The certified operations' arm** (named, not proved here). -/
 @[expose] def CertArmSimI (pins : List ConLeche.NatOpPinSet) : Prop :=
-  ∀ (fe : InLean.FEnv) (L : ConLeche.Env) (v : DefinitionVal) (a : InLean.Added)
+  ∀ (lim : InLean.Limits) (fe : InLean.FEnv) (L : ConLeche.Env) (v : DefinitionVal) (a : InLean.Added)
     (s₀ s' : InLean.CState),
     JobEnvI fe L → fe.safety = .safe → fe.coreAxioms = false → CSOKI .verified false L s₀ →
     Expr.RangeOk v.type → Expr.RangeOk v.value → v.safety = .safe →
     (InLean.natOpNames.contains v.name || InLean.natDivModNames.contains v.name) = true →
-    InLean.checkDefnC .verified InLeanProof.theoremConfig fe v s₀ = .ok (a, s') →
+    InLean.checkDefnC .verified (InLeanProof.theoremConfig lim) fe v s₀ = .ok (a, s') →
     CSOKI .verified false L s' ∧ TabLe s₀ s' ∧ a.consts = #[.defnInfo v] ∧
       ∃ d, toDecl [.defnInfo v] = some d ∧ KindRuns pins L d
 
@@ -667,7 +669,7 @@ theorem checkDeclKindC_sim_cert {pins : List ConLeche.NatOpPinSet} (hC : CertArm
     (hfs : fe.safety = .safe) (hfc : fe.coreAxioms = false)
     (hs : CSOKI .verified false L s₀) (hd : SafeDecl decl) (hr : DeclRangeOk decl)
     (harm : ProvedOrCertArm decl) (hbn : InLean.basisNamesOk decl a = true)
-    (h : InLean.checkDeclKindC .verified InLeanProof.theoremConfig fe decl s₀ = .ok (a, s')) :
+    (h : InLean.checkDeclKindC .verified (InLeanProof.theoremConfig lim) fe decl s₀ = .ok (a, s')) :
     CSOKI .verified false L s' ∧ TabLe s₀ s' ∧
       ∃ ds, a.consts.toList.mapM (fun ci => toDecl [ci]) = some ds ∧
         ∃ F L', ds.foldlM (ConLeche.checkDecl .verified (ConLeche.fueledOps .verified F) pins) L =
@@ -676,7 +678,7 @@ theorem checkDeclKindC_sim_cert {pins : List ConLeche.NatOpPinSet} (hC : CertArm
   · exact checkDeclKindC_sim hJ hfs hfc hs hd hr harm hbn h
   · cases hn : (InLean.natOpNames.contains v.name || InLean.natDivModNames.contains v.name)
     · exact checkDeclKindC_sim hJ hfs hfc hs hd hr hn hbn h
-    · obtain ⟨h1, h2, h3, d, hd', hR⟩ := hC fe L v a s₀ s' hJ hfs hfc hs hr.1 hr.2 hd hn h
+    · obtain ⟨h1, h2, h3, d, hd', hR⟩ := hC lim fe L v a s₀ s' hJ hfs hfc hs hr.1 hr.2 hd hn h
       exact ⟨h1, h2, [d], by rw [h3]; exact single_mapM hd',
       single_fold hR (by rw [basisNamesOk_toDecl (fun _ h => by cases h) hd']; exact hbn)⟩
 
@@ -697,12 +699,12 @@ constant but an axiom at `sorryAx`". -/
 theorem checkDecl_sim_of {E : Kernel.Environment} {L : ConLeche.Env}
     {pins : List ConLeche.NatOpPinSet} {decl : Declaration} {a : InLean.Added}
     (hK : ∀ {a : InLean.Added} {s' : InLean.CState},
-      InLean.checkDeclKindC .verified InLeanProof.theoremConfig { env := E, coreAxioms := false } decl
+      InLean.checkDeclKindC .verified (InLeanProof.theoremConfig lim) { env := E, coreAxioms := false, limits := lim } decl
         {} = .ok (a, s') → InLean.basisNamesOk decl a = true →
       ∃ ds, a.consts.toList.mapM (fun ci => toDecl [ci]) = some ds ∧
         ∃ F L', ds.foldlM (ConLeche.checkDecl .verified (ConLeche.fueledOps .verified F) pins) L =
           .ok L')
-    (h : InLean.checkDecl InLeanProof.theoremConfig E decl = .ok a) :
+    (h : InLean.checkDecl (InLeanProof.theoremConfig lim) E decl = .ok a) :
     (∀ ci ∈ a.consts.toList, ci.name = InLean.sorryAxName → ∃ v, ci = .axiomInfo v) ∧
       ∃ ds, a.consts.toList.mapM (fun ci => toDecl [ci]) = some ds ∧
         ∃ F L', ds.foldlM (ConLeche.checkDecl .verified (ConLeche.fueledOps .verified F) pins) L =
@@ -727,7 +729,7 @@ theorem checkDecl_sim_of {E : Kernel.Environment} {L : ConLeche.Env}
       · exact (throw_bindI_ok hT).elim
       · rename_i hc
         obtain ⟨rfl, -⟩ := pureI_ok hT
-        exact ⟨rfl, by simpa [show theoremConfig.coreAxioms = false from rfl] using hc⟩
+        exact ⟨rfl, by simpa [show (theoremConfig lim).coreAxioms = false from rfl] using hc⟩
     obtain ⟨rfl, hsq'⟩ := hab
     obtain ⟨ds, hds, F, L', hF⟩ := hK hKr hnb
     refine ⟨fun ci hci hn => ?_, ds, hds, F, L', hF⟩
@@ -746,10 +748,10 @@ relate to the environment; and no constant it adds but an axiom takes
 `sorryAx`'s name (`sorryAxSquat`, what `presI_defn`/`presI_thm`/
 `presI_opaque` need: con-leche's policy hides the name). -/
 theorem checkDecl_sim {E : Kernel.Environment} {L : ConLeche.Env}
-    (hJ : JobEnvI { env := E, coreAxioms := false } L) {pins : List ConLeche.NatOpPinSet}
+    (hJ : JobEnvI { env := E, coreAxioms := false, limits := lim } L) {pins : List ConLeche.NatOpPinSet}
     {decl : Declaration} {a : InLean.Added}
     (hd : SafeDecl decl) (hr : DeclRangeOk decl) (harm : ProvedArm decl)
-    (h : InLean.checkDecl InLeanProof.theoremConfig E decl = .ok a) :
+    (h : InLean.checkDecl (InLeanProof.theoremConfig lim) E decl = .ok a) :
     (∀ ci ∈ a.consts.toList, ci.name = InLean.sorryAxName → ∃ v, ci = .axiomInfo v) ∧
       ∃ ds, a.consts.toList.mapM (fun ci => toDecl [ci]) = some ds ∧
         ∃ F L', ds.foldlM (ConLeche.checkDecl .verified (ConLeche.fueledOps .verified F) pins) L =

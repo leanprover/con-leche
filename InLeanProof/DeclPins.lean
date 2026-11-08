@@ -21,6 +21,8 @@ public section
 
 namespace InLeanProof
 
+variable {lim : InLean.Limits}
+
 open Lean InLean ConLeche.Cached
 
 /-- A pin, translated. -/
@@ -106,6 +108,8 @@ theorem pinFoundRec_tr {fe : InLean.FEnv} {L : ConLeche.Env} (hP : EnvPresI fe L
 end InLeanProof
 
 namespace InLeanProof
+
+variable {lim : InLean.Limits}
 open Lean InLean ConLeche.Cached
 
 /-! ## The standard axioms -/
@@ -192,6 +196,8 @@ theorem stdAxiomOk_tr {fe : InLean.FEnv} {L : ConLeche.Env} (hP : EnvPresI fe L)
 end InLeanProof
 
 namespace InLeanProof
+
+variable {lim : InLean.Limits}
 open Lean InLean ConLeche.Cached
 
 /-! ## The compiler-trust family -/
@@ -359,6 +365,8 @@ theorem ofReduceAxOk_tr {fe : InLean.FEnv} {L : ConLeche.Env} (hP : EnvPresI fe 
 end InLeanProof
 
 namespace InLeanProof
+
+variable {lim : InLean.Limits}
 open Lean InLean ConLeche.Cached
 
 /-! ## The pinned axioms' arm -/
@@ -371,7 +379,7 @@ theorem checkAxiomC_pinned_sim {fe : InLean.FEnv} {L : ConLeche.Env} (hJ : JobEn
     (hfs : fe.safety = .safe) (hfc : fe.coreAxioms = false)
     (hs : CSOKI .verified false L s₀) (hr : Expr.RangeOk v.type) (hsafe : v.isUnsafe = false)
     (hq : v.name ≠ InLean.quotSoundName) (hso : v.name ≠ InLean.sorryAxName)
-    (h : InLean.checkAxiomC .verified InLeanProof.theoremConfig fe v s₀ = .ok (a, s')) :
+    (h : InLean.checkAxiomC .verified (InLeanProof.theoremConfig lim) fe v s₀ = .ok (a, s')) :
     CSOKI .verified false L s' ∧ TabLe s₀ s' ∧ a.consts = #[.axiomInfo v] ∧ a.quot = false ∧
       ∃ d, toDecl [.axiomInfo v] = some d ∧ KindRuns pins L d := by
   obtain ⟨c1, c2, -, -, c5, c6, c7, -, -, -⟩ := cl_axNames
@@ -406,7 +414,7 @@ theorem checkAxiomC_pinned_sim {fe : InLean.FEnv} {L : ConLeche.Env} (hJ : JobEn
     · exact (throw_bindI_ok h).elim
     split at h
     · rename_i hh
-      simp [bs, show theoremConfig.coreAxioms = false from rfl] at hh
+      simp [bs, show (theoremConfig lim).coreAxioms = false from rfl] at hh
     · exact (throwI_ok h).elim
   obtain ⟨key, hres⟩ := key
   have hres : a = { consts := #[.axiomInfo v] } ∧ s' = s₁ := ⟨hres.1.symm, hres.2.symm⟩
@@ -444,6 +452,8 @@ theorem checkAxiomC_pinned_sim {fe : InLean.FEnv} {L : ConLeche.Env} (hJ : JobEn
 end InLeanProof
 
 namespace InLeanProof
+
+variable {lim : InLean.Limits}
 open Lean InLean ConLeche.Cached
 
 /-! ## The compiler-trust opaques' pin -/
@@ -486,6 +496,8 @@ theorem reducePinGuard_of_elem {L : ConLeche.Env} {c : Name}
 end InLeanProof
 
 namespace InLeanProof
+
+variable {lim : InLean.Limits}
 open Lean InLean Std.WP ConLeche.Cached
 
 /-- **The compiler-trust pin** (`checkReducePin`, master's): the guards, the
@@ -639,7 +651,7 @@ theorem checkDeclKindC_sim_full {pins : List ConLeche.NatOpPinSet} (hC : CertArm
     (hs : CSOKI .verified false L s₀) (hd : SafeDecl decl) (hr : DeclRangeOk decl)
     (hnI : ∀ lps nP ts u, decl ≠ .inductDecl lps nP ts u)
     (hbn : InLean.basisNamesOk decl a = true)
-    (h : InLean.checkDeclKindC .verified InLeanProof.theoremConfig fe decl s₀ = .ok (a, s')) :
+    (h : InLean.checkDeclKindC .verified (InLeanProof.theoremConfig lim) fe decl s₀ = .ok (a, s')) :
     CSOKI .verified false L s' ∧ TabLe s₀ s' ∧
       ∃ ds, a.consts.toList.mapM (fun ci => toDecl [ci]) = some ds ∧
         ∃ F L', ds.foldlM (ConLeche.checkDecl .verified (ConLeche.fueledOps .verified F) pins) L =
@@ -671,10 +683,10 @@ theorem checkDeclKindC_sim_full {pins : List ConLeche.NatOpPinSet} (hC : CertArm
 `CertArmSimI pins`. -/
 theorem checkDecl_sim_full {pins : List ConLeche.NatOpPinSet} (hC : CertArmSimI pins)
     {E : Kernel.Environment} {L : ConLeche.Env}
-    (hJ : JobEnvI { env := E, coreAxioms := false } L)
+    (hJ : JobEnvI { env := E, coreAxioms := false, limits := lim } L)
     {decl : Declaration} {a : InLean.Added}
     (hd : SafeDecl decl) (hr : DeclRangeOk decl) (hnI : ∀ lps nP ts u, decl ≠ .inductDecl lps nP ts u)
-    (h : InLean.checkDecl InLeanProof.theoremConfig E decl = .ok a) :
+    (h : InLean.checkDecl (InLeanProof.theoremConfig lim) E decl = .ok a) :
     (∀ ci ∈ a.consts.toList, ci.name = InLean.sorryAxName → ∃ v, ci = .axiomInfo v) ∧
       ∃ ds, a.consts.toList.mapM (fun ci => toDecl [ci]) = some ds ∧
         ∃ F L', ds.foldlM (ConLeche.checkDecl .verified (ConLeche.fueledOps .verified F) pins) L =

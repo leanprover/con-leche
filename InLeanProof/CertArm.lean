@@ -42,6 +42,8 @@ public section
 
 namespace InLeanProof
 
+variable {lim : InLean.Limits}
+
 open Lean InLean Std.WP ConLeche.Cached
 
 /-! ## `stripMData` keeps the reading -/
@@ -554,14 +556,14 @@ theorem checkDefnC_struct_sim {fe : InLean.FEnv} {L : ConLeche.Env} (hJ : JobEnv
     {a : InLean.Added} {s₀ s' : InLean.CState}
     (hs : CSOKI .verified false L s₀) (hr : Expr.RangeOk v.type) (hrv : Expr.RangeOk v.value)
     (hsafe : v.safety = .safe) (hn : InLean.natOpNames.contains v.name = true)
-    (h : InLean.checkDefnC .verified InLeanProof.theoremConfig fe v s₀ = .ok (a, s')) :
+    (h : InLean.checkDefnC .verified (InLeanProof.theoremConfig lim) fe v s₀ = .ok (a, s')) :
     CSOKI .verified false L s' ∧ TabLe s₀ s' ∧ a.consts = #[.defnInfo v] ∧
       ∃ d, toDecl [.defnInfo v] = some d ∧ KindRuns pins L d := by
   obtain ⟨hnd, hlit, hN0, hN1, hN2, hso⟩ := natOp_off hn
   unfold InLean.checkDefnC at h
   simp only [hsafe, show (DefinitionSafety.safe == DefinitionSafety.unsafe) = false from rfl,
     Bool.false_eq_true, ↓reduceIte, hn, Bool.true_or,
-    show InLeanProof.theoremConfig.uncertifiedNatOps = false from rfl] at h
+    show (InLeanProof.theoremConfig lim).uncertifiedNatOps = false from rfl] at h
   obtain ⟨_, s₁, hC, h⟩ := bindI_ok h
   have hfresh := checkConstantValC_fresh hC
   obtain ⟨hs₁, ht₁, hok, hlbb, hRC⟩ := checkConstantValC_sim hJ hs hr hC
@@ -791,13 +793,13 @@ error), so any list serves; the empty one is taken. -/
 pin-certified operation's name (`checkDivModPin`), at `pins`, where the `Nat`
 names hold master's kinds. -/
 @[expose] def DivModArmSimI (pins : List ConLeche.NatOpPinSet) : Prop :=
-  ∀ (fe : InLean.FEnv) (L : ConLeche.Env) (v : DefinitionVal) (a : InLean.Added)
+  ∀ (lim : InLean.Limits) (fe : InLean.FEnv) (L : ConLeche.Env) (v : DefinitionVal) (a : InLean.Added)
     (s₀ s' : InLean.CState),
     JobEnvI fe L → ConLeche.NatKinds L → fe.safety = .safe → fe.coreAxioms = false →
     CSOKI .verified false L s₀ →
     Expr.RangeOk v.type → Expr.RangeOk v.value → v.safety = .safe →
     InLean.natDivModNames.contains v.name = true →
-    InLean.checkDefnC .verified InLeanProof.theoremConfig fe v s₀ = .ok (a, s') →
+    InLean.checkDefnC .verified (InLeanProof.theoremConfig lim) fe v s₀ = .ok (a, s') →
     CSOKI .verified false L s' ∧ TabLe s₀ s' ∧ a.consts = #[.defnInfo v] ∧
       ∃ d, toDecl [.defnInfo v] = some d ∧ KindRuns pins L d
 
@@ -810,12 +812,12 @@ theorem certArm_of {pins : List ConLeche.NatOpPinSet} (hW : DivModArmSimI pins)
     (hfs : fe.safety = .safe) (hfc : fe.coreAxioms = false) (hs : CSOKI .verified false L s₀)
     (hr : Expr.RangeOk v.type) (hrv : Expr.RangeOk v.value) (hsafe : v.safety = .safe)
     (hn : (InLean.natOpNames.contains v.name || InLean.natDivModNames.contains v.name) = true)
-    (h : InLean.checkDefnC .verified InLeanProof.theoremConfig fe v s₀ = .ok (a, s')) :
+    (h : InLean.checkDefnC .verified (InLeanProof.theoremConfig lim) fe v s₀ = .ok (a, s')) :
     CSOKI .verified false L s' ∧ TabLe s₀ s' ∧ a.consts = #[.defnInfo v] ∧
       ∃ d, toDecl [.defnInfo v] = some d ∧ KindRuns pins L d := by
   cases hs1 : InLean.natOpNames.contains v.name
   · simp only [hs1, Bool.false_or] at hn
-    exact hW fe L v a s₀ s' hJ hk hfs hfc hs hr hrv hsafe hn h
+    exact hW lim fe L v a s₀ s' hJ hk hfs hfc hs hr hrv hsafe hn h
   · exact checkDefnC_struct_sim hJ hk hs hr hrv hsafe hs1 h
 
 /-- **The declaration step for every non-inductive kind**, from the WF
@@ -827,7 +829,7 @@ theorem checkDeclKindC_sim_arm {pins : List ConLeche.NatOpPinSet} (hW : DivModAr
     (hs : CSOKI .verified false L s₀) (hd : SafeDecl decl) (hr : DeclRangeOk decl)
     (hnI : ∀ lps nP ts u, decl ≠ .inductDecl lps nP ts u)
     (hbn : InLean.basisNamesOk decl a = true)
-    (h : InLean.checkDeclKindC .verified InLeanProof.theoremConfig fe decl s₀ = .ok (a, s')) :
+    (h : InLean.checkDeclKindC .verified (InLeanProof.theoremConfig lim) fe decl s₀ = .ok (a, s')) :
     CSOKI .verified false L s' ∧ TabLe s₀ s' ∧
       ∃ ds, a.consts.toList.mapM (fun ci => toDecl [ci]) = some ds ∧
         ∃ F L', ds.foldlM (ConLeche.checkDecl .verified (ConLeche.fueledOps .verified F) pins) L =
@@ -865,10 +867,10 @@ operations' arm, where the `Nat` names hold master's kinds (`checkDecl_sim_full`
 with the structural operations proved). -/
 theorem checkDecl_sim_arm {pins : List ConLeche.NatOpPinSet} (hW : DivModArmSimI pins)
     {E : Kernel.Environment} {L : ConLeche.Env}
-    (hJ : JobEnvI { env := E, coreAxioms := false } L) (hk : ConLeche.NatKinds L)
+    (hJ : JobEnvI { env := E, coreAxioms := false, limits := lim } L) (hk : ConLeche.NatKinds L)
     {decl : Declaration} {a : InLean.Added}
     (hd : SafeDecl decl) (hr : DeclRangeOk decl) (hnI : ∀ lps nP ts u, decl ≠ .inductDecl lps nP ts u)
-    (h : InLean.checkDecl InLeanProof.theoremConfig E decl = .ok a) :
+    (h : InLean.checkDecl (InLeanProof.theoremConfig lim) E decl = .ok a) :
     (∀ ci ∈ a.consts.toList, ci.name = InLean.sorryAxName → ∃ v, ci = .axiomInfo v) ∧
       ∃ ds, a.consts.toList.mapM (fun ci => toDecl [ci]) = some ds ∧
         ∃ F L', ds.foldlM (ConLeche.checkDecl .verified (ConLeche.fueledOps .verified F) pins) L =

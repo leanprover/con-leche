@@ -51,6 +51,24 @@ open Lean
 
 /-! ## The environment -/
 
+/-- **The official kernel's resource limits** (con-leche has none; the
+defaults impose none but the numerals' size).  Each only adds an error
+exit, so the checker's soundness holds whatever they are.
+
+* `recDepth`: the core's entry points nest at most this deep (the knot's
+  fuel; `none` is `checkFuel`), official `scope_rec_depth`'s bound.
+* `poll`: asked at every entry point the memo misses, with the depth; a
+  limit it answers is the error.  The heartbeat budget and the
+  cancellation token live behind it (core's glue reads the runtime).
+* `natMaxBytes`: the largest numeral the core computes or infers, in
+  bytes (`natSizeBytes`), official `LEAN_NAT_MAX_SIZE`. -/
+structure Limits where
+  recDepth : Option Nat := none
+  poll : Nat → Option Limit := fun _ => none
+  natMaxBytes : Nat := 128 * 1024 * 1024
+
+instance : Inhabited Limits := ⟨{}⟩
+
 /-- Twin of `FEnv`: the environment a check reads, and the declaration's
 safety (official `m_definition_safety`; con-leche checks safe declarations
 only). -/
@@ -74,6 +92,8 @@ structure FEnv where
   formers are pushed (`checkBlockIndsF`); the job's environments are dropped
   with it, so the installed block is read off its entries. -/
   pending : List (Name × Nat) := []
+  /-- The resource limits (`Limits`). -/
+  limits : Limits := {}
 
 /-- Is a constant safe (neither `unsafe` nor `partial`)? -/
 def safeConst : ConstantInfo → Bool

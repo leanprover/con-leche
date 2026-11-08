@@ -17,7 +17,7 @@ environment transition (`flushC`), where master's cached job flushes.
   **any** environment.
 * `OpsSimI fe L`: the four operations at `fe` simulate master's fueled
   operations (`fueledOpsM .verified`) at `L`, in `KnotSpecI`'s post shape;
-  `opsSimI_of` from the knot (`SSimI false L fe checkFuel`), and
+  `opsSimI_of` from the knot (`SSimI false L fe` at the limits' fuel), and
   `opsSimI_of_pres` from the environment relation (`ssimI_of_pres`).
 -/
 
@@ -108,9 +108,10 @@ structure OpsSimI (fe : InLean.FEnv) (L : ConLeche.Env) : Prop where
     ⦃fun u s' => CSOKI .verified false L s' ∧ TabLe s₀ s' ∧ okLv u = true ∧
       Runs ((ConLeche.fueledOpsM .verified).ensureSort L d (TrS s₀ i)) (trL u); ⊤⦄
 
-/-- **The operations from the knot** at the checker's fuel. -/
+/-- **The operations from the knot** at the checker's fuel (the recursion
+limit's, `Limits.recDepth`). -/
 theorem opsSimI_of {fe : InLean.FEnv} {L : ConLeche.Env}
-    (h : SSimI false L fe InLean.checkFuel) : OpsSimI fe L where
+    (h : SSimI false L fe (fe.limits.recDepth.getD InLean.checkFuel)) : OpsSimI fe L where
   infer hs hok hw hc := tripleI_iff_run.2 fun v s' hr => tripleI_iff_run.1 (h.infer hs hok hw hc) v s' hr
   whnf hs hok hw hc := tripleI_iff_run.2 fun v s' hr => tripleI_iff_run.1 (h.whnf hs hok hw hc) v s' hr
   defeq hs hoka hokb hwa hwb hca hcb := tripleI_iff_run.2 fun v s' hr => tripleI_iff_run.1 (h.defeq hs hoka hokb hwa hwb hca hcb) v s' hr

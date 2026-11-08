@@ -117,7 +117,7 @@ accepts a definition at a certified name whose certificate cannot be
 checked: covered only where the environment already holds the certified
 definitions (the prelude assumed good), an obligation of the
 environment's being ok (DESIGN, O10). -/
-@[expose] def theoremConfig : InLean.Config :=
-  { mode := .verified, coreAxioms := false, uncertifiedNatOps := false }
+@[expose] def theoremConfig (lim : InLean.Limits) : InLean.Config :=
+  { mode := .verified, coreAxioms := false, uncertifiedNatOps := false, limits := lim }
 
 end InLeanProof
