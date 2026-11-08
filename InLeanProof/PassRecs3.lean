@@ -981,6 +981,17 @@ theorem lbb_instPisWith :
   | _ :: _, .letE _ _ _, _, _, _, h | _ :: _, .lit _, _, _, _, h | _ :: _, .proj _ _ _, _, _, _, h => by
     simp [ConLeche.instPisWith] at h
 
+/-- Opened variables read as variables (`openPisAtFvars_index` on the reading). -/
+theorem fvsOk_of_open {s : InLean.CState} {n i : Nat} {e : ConLeche.Expr} {fvs : List Lean.Expr}
+    {b : ConLeche.Expr} (ho : OkSL s fvs = true)
+    (h : ConLeche.openPisAtFvars n e i = some (TrSL s fvs, b)) : FvsOk s fvs := by
+  intro f hf
+  obtain ⟨j, hjl, rfl⟩ := List.getElem_of_mem hf
+  refine ⟨okS_getElem? ho (List.getElem?_eq_getElem hjl), ?_⟩
+  obtain ⟨ty, hty⟩ := ConLeche.openPisAtFvars_index _ _ _ h j (TrS s fvs[j])
+    (by simp [TrSL, List.getElem?_eq_getElem hjl])
+  exact ⟨_, ty, hty⟩
+
 /-- **A class's index telescope and major domain** (`ClassGen.major`), read. -/
 theorem majorI_run {mode : ConLeche.CheckMode} {eager : Bool} {env : ConLeche.Env}
     {s₀ s' : InLean.CState} {g : InLean.ClassGen} {c d : Nat}
@@ -989,7 +1000,7 @@ theorem majorI_run {mode : ConLeche.CheckMode} {eager : Bool} {env : ConLeche.En
     (hftc : (TrS s₀ (g.formerTys.getD c default)).looseBVarsBounded 0 = true)
     (hc : c < g.formerTys.length) (h : (g.major c d).run s₀ = .ok (r, s')) :
     CSOKI mode eager env s' ∧ TabLe s₀ s' ∧ ∀ ifs maj, r = some (ifs, maj) →
-      OkSL s' ifs = true ∧ OkS s' maj = true ∧
+      FvsOk s' ifs ∧ OkS s' maj = true ∧
         (trCG s₀ g).major c d = some (TrSL s' ifs, TrS s' maj) := by
   obtain ⟨hMn, -, hdsc, -⟩ := hM
   unfold InLean.ClassGen.major at h
@@ -1037,7 +1048,7 @@ theorem majorI_run {mode : ConLeche.CheckMode} {eager : Bool} {env : ConLeche.En
       simp only [Option.some.injEq, Prod.mk.injEq] at h
       obtain ⟨rfl, rfl⟩ := h
       have hds₂ := okSL_of_tabLe ht₂ hMn.2.1
-      refine ⟨hifo, ?_, ?_⟩
+      refine ⟨fvsOk_of_open hifo hopC, ?_, ?_⟩
       · unfold InLean.mkAppL
         rw [OkS_mkAppN, OkS_const, hMn.1, OkSL]
         simp only [OkSL, List.all_append, Bool.and_eq_true] at hds₂ hifo ⊢
@@ -1045,5 +1056,110 @@ theorem majorI_run {mode : ConLeche.CheckMode} {eager : Bool} {env : ConLeche.En
       · rw [hopC]
         simp only [Option.bind_some, Option.pure_def]
         rw [TrS_mkAppL_const, TrSL_append, TrSL_of_tabLe ht₂ hMn.2.1]
+
+/-- **A recursive field's inductive hypothesis parts** (`ClassGen.ihParts`), read. -/
+theorem ihPartsI_run {mode : ConLeche.CheckMode} {eager : Bool} {env : ConLeche.Env}
+    {s₀ s' : InLean.CState} {g : InLean.ClassGen} {t tele d : Nat} {w : Lean.Expr}
+    {r : Option (List Lean.Expr × List Lean.Expr)} (hs : CSOKI mode eager env s₀)
+    (hw : OkS s₀ w = true) (hwc : (TrS s₀ w).looseBVarsBounded 0 = true)
+    (h : (g.ihParts t tele w d).run s₀ = .ok (r, s')) :
+    CSOKI mode eager env s' ∧ TabLe s₀ s' ∧ ∀ xs idx, r = some (xs, idx) →
+      FvsOk s' xs ∧ OkSL s' idx = true ∧
+        (trCG sg g).ihParts t tele (TrS s₀ w) d = some (TrSL s' xs, TrSL s' idx) := by
+  unfold InLean.ClassGen.ihParts at h
+  unfold ConLeche.ClassGen.ihParts
+  obtain ⟨o, s₁, h1, h⟩ := optT_bind_run h
+  simp only [InLean.openPisO, OptionT.run, OptionT.mk] at h1
+  unfold InLean.openPisAtFvars at h1
+  obtain ⟨hs₁, ht₁, hop⟩ := openPisAtFvarsI_run _ d hs hw hwc h1
+  cases o with
+  | none =>
+    obtain ⟨rfl, rfl⟩ := h
+    exact ⟨hs₁, ht₁, fun _ _ h => by cases h⟩
+  | some q =>
+    obtain ⟨xs, leaf⟩ := q
+    simp only at h
+    obtain ⟨rfl, hst⟩ := optT_pure_run h
+    subst s'
+    obtain ⟨hxo, hlo, hopC⟩ := hop xs leaf rfl
+    refine ⟨hs₁, ht₁, fun xs' idx h => ?_⟩
+    simp only [Option.some.injEq, Prod.mk.injEq] at h
+    obtain ⟨rfl, rfl⟩ := h
+    refine ⟨fvsOk_of_open hxo hopC, OkSL_drop s₁ (OkSL_appArgs s₁ hlo) _, ?_⟩
+    rw [hopC]
+    simp only [Option.pure_def, trCG, getD_map_trTM, trTM, TrSL_drop,
+      TrSL_appArgs]
+    rfl
+
+/-- The binders of opened variables (`mapM fvarTypeD` in `OptionT`), read. -/
+theorem mapM_binder_run {mode : ConLeche.CheckMode} {eager : Bool} {env : ConLeche.Env}
+    {s₀ : InLean.CState} (hs : CSOKI mode eager env s₀) :
+    ∀ (xs : List Lean.Expr) {r : Option (List Lean.Expr)} {s' : InLean.CState}, FvsOk s₀ xs →
+      (xs.mapM fun x => (liftM (InLean.fvarTypeD x) : OptionT InLean.CheckCM Lean.Expr)).run s₀ =
+        .ok (r, s') →
+      s' = s₀ ∧ ∃ bs, r = some bs ∧ OkSL s₀ bs = true ∧
+        TrSL s₀ bs = (TrSL s₀ xs).map ConLeche.Expr.fvarTypeD
+  | [], r, s', _, h => by
+    rw [List.mapM_nil] at h
+    obtain ⟨rfl, rfl⟩ := optT_pure_run h
+    exact ⟨rfl, [], rfl, rfl, rfl⟩
+  | x :: xs, r, s', hx, h => by
+    rw [List.mapM_cons] at h
+    obtain ⟨o, s₁, h1, h⟩ := optT_bind_run h
+    obtain ⟨b, rfl, hfb⟩ := liftM_run h1
+    obtain ⟨hxo, j, ty, hxt⟩ := hx x List.mem_cons_self
+    obtain ⟨hst, hbo, hbt, -⟩ := fvarTypeDI_run hs hxo hxt hfb
+    subst s₁
+    simp only at h
+    obtain ⟨o', s₂, h2, h⟩ := optT_bind_run h
+    obtain ⟨hst, bs, rfl, hbso, hbst⟩ := mapM_binder_run hs xs
+      (fun y hy => hx y (List.mem_cons_of_mem _ hy)) h2
+    subst s₂
+    simp only at h
+    obtain ⟨rfl, rfl⟩ := optT_pure_run h
+    refine ⟨rfl, b :: bs, rfl, by simp [OkSL_cons, hbo, hbso], ?_⟩
+    rw [TrSL_cons, TrSL_cons, List.map_cons, hbt, hbst, hxt]
+    rfl
+
+/-- **A class's motive type** (`ClassGen.motiveTy`), read where InLean's
+closing wrote no out-of-range marker. -/
+theorem motiveTyI_run {mode : ConLeche.CheckMode} {eager : Bool} {env : ConLeche.Env}
+    {s₀ s' : InLean.CState} {g : InLean.ClassGen} {c d : Nat} {r : Option Lean.Expr}
+    (hs : CSOKI mode eager env s₀)
+    (hM : ClassOk s₀ (g.cls.getD c default)) (hft : OkS s₀ (g.formerTys.getD c default) = true)
+    (hftc : (TrS s₀ (g.formerTys.getD c default)).looseBVarsBounded 0 = true)
+    (hc : c < g.formerTys.length) (hel : okLv g.elim = true)
+    (h : (g.motiveTy c d).run s₀ = .ok (r, s')) :
+    CSOKI mode eager env s' ∧ TabLe s₀ s' ∧ ∀ e, r = some e → emvarS e = false →
+      OkS s' e = true ∧ (trCG s₀ g).motiveTy c d = some (TrS s' e) := by
+  unfold InLean.ClassGen.motiveTy at h
+  unfold ConLeche.ClassGen.motiveTy
+  obtain ⟨o, s₁, h1, h⟩ := optT_bind_run h
+  obtain ⟨hs₁, ht₁, hmj⟩ := majorI_run hs hM hft hftc hc h1
+  cases o with
+  | none =>
+    obtain ⟨rfl, rfl⟩ := h
+    exact ⟨hs₁, ht₁, fun _ h => by cases h⟩
+  | some q =>
+    obtain ⟨ifs, maj⟩ := q
+    obtain ⟨hfv, hmo, hmC⟩ := hmj ifs maj rfl
+    rw [hmC]
+    simp only at h ⊢
+    obtain ⟨o', s₂, h2, h⟩ := optT_bind_run h
+    obtain ⟨hst, bs, rfl, hbso, hbst⟩ := mapM_binder_run hs₁ ifs hfv h2
+    subst s₂
+    simp only at h
+    obtain ⟨rfl, hst⟩ := optT_pure_run h
+    subst s'
+    refine ⟨hs₁, ht₁, fun e he hem => ?_⟩
+    simp only [Option.some.injEq] at he
+    subst he
+    have hbo : OkS s₁ (Lean.Expr.forallE .anonymous maj (.sort g.elim) .default) = true := by
+      simp only [OkS_forallE, hmo, OkS_sort, hel, Bool.and_self]
+    obtain ⟨ho, ht⟩ := closeTelescope_tr s₁ bs d _ hbso hbo hem
+    refine ⟨ho, ?_⟩
+    rw [ht, hbst]
+    rfl
+
 
 end InLeanProof
