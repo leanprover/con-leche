@@ -43,6 +43,7 @@ public import InLeanProof.PassRecs3
 public import InLeanProof.PassRecs4
 public import InLeanProof.PassRecs5
 public import InLeanProof.PassRecs6
+public import InLeanProof.PassRecs7
 
 /-!
 # The axiom pins of the InLean proof tier (task #451, lane G)
@@ -4422,3 +4423,50 @@ info: 'InLeanProof.CtorLbb.mono' depends on axioms: [propext, Classical.choice, 
 -/
 #guard_msgs in
 #print axioms InLeanProof.CtorLbb.mono
+
+/--
+info: 'InLeanProof.str_rec_ne_sorryAx' depends on axioms: [propext, Classical.choice, Quot.sound]
+-/
+#guard_msgs in
+#print axioms InLeanProof.str_rec_ne_sorryAx
+
+/--
+info: 'InLeanProof.str_recI_ne_sorryAx' depends on axioms: [propext, Classical.choice, Quot.sound]
+-/
+#guard_msgs in
+#print axioms InLeanProof.str_recI_ne_sorryAx
+
+/--
+info: 'InLeanProof.targetRecPins_not_sorryAx' depends on axioms: [propext, Classical.choice, Quot.sound]
+-/
+#guard_msgs in
+#print axioms InLeanProof.targetRecPins_not_sorryAx
+
+/--
+info: 'InLeanProof.genCVs_okC' depends on axioms: [propext]
+-/
+#guard_msgs in
+#print axioms InLeanProof.genCVs_okC
+
+/--
+info: 'InLeanProof.mem_nfs_nil' depends on axioms: [propext, Quot.sound]
+-/
+#guard_msgs in
+#print axioms InLeanProof.mem_nfs_nil
+
+/--
+info: 'InLeanProof.okSL_of_okC' depends on axioms: [propext, Classical.choice, Quot.sound]
+-/
+#guard_msgs in
+#print axioms InLeanProof.okSL_of_okC
+
+/--
+info: 'InLeanProof.genRecCheckI_run' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound,
+ InLeanProof.Expr.mkAppData_fields,
+ InLeanProof.Expr.mkData_eq,
+ InLeanProof.Level.mkData_eq]
+-/
+#guard_msgs in
+#print axioms InLeanProof.genRecCheckI_run
