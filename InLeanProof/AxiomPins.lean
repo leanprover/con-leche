@@ -32,6 +32,7 @@ public import InLeanProof.BlockPresR
 public import InLeanProof.PassNest
 public import InLeanProof.DeclStep
 public import InLeanProof.DeclPins
+public import InLeanProof.ProjGuardI
 
 /-!
 # The axiom pins of the InLean proof tier (task #451, lane G)
@@ -2626,3 +2627,47 @@ info: 'InLeanProof.basisNamesOk_ind_tr' depends on axioms: [propext,
 /-- info: 'InLeanProof.basisNamesOk_toDecl' depends on axioms: [propext, Quot.sound] -/
 #guard_msgs in
 #print axioms InLeanProof.basisNamesOk_toDecl
+
+/--
+info: 'InLeanProof.projGuardSpecI_of' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound,
+ InLeanProof.Expr.mkAppData_fields,
+ InLeanProof.Expr.mkData_eq,
+ InLeanProof.Level.mkData_eq]
+-/
+#guard_msgs in
+#print axioms InLeanProof.projGuardSpecI_of
+
+/--
+info: 'InLeanProof.projGuardI' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound,
+ InLeanProof.Expr.mkAppData_fields,
+ InLeanProof.Expr.mkData_eq,
+ InLeanProof.Level.mkData_eq]
+-/
+#guard_msgs in
+#print axioms InLeanProof.projGuardI
+
+/--
+info: 'InLeanProof.jobEnvI_of' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound,
+ InLeanProof.Expr.mkAppData_fields,
+ InLeanProof.Expr.mkData_eq,
+ InLeanProof.Level.mkData_eq]
+-/
+#guard_msgs in
+#print axioms InLeanProof.jobEnvI_of
+
+/--
+info: 'InLeanProof.projGuardRowsGoI_run' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound,
+ InLeanProof.Expr.mkAppData_fields,
+ InLeanProof.Expr.mkData_eq,
+ InLeanProof.Level.mkData_eq]
+-/
+#guard_msgs in
+#print axioms InLeanProof.projGuardRowsGoI_run

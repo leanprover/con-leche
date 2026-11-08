@@ -19,8 +19,8 @@ What the bodies read of the environment beyond `EnvRelI`/`EnvDomI` is a named
 hypothesis, P3a's to establish: `EnvProjI` (a projection entry against
 con-leche's, its body a stored open term).  The projection guard
 (`checkProjGuardI` with `projGuardSortI`/`checkProjRowsI`) is a named callee
-spec, `ProjGuardSpecI`: master's guard is being re-shaped (task #492), and
-InLean's is re-ported after it, so its proof waits for that shape.
+spec, `ProjGuardSpecI`, proved later from the knot's specs
+(`InLeanProof.projGuardSpecI_of`, `ProjGuardI.lean`).
 -/
 
 set_option experimental.vcgen true
@@ -328,7 +328,7 @@ theorem fvarTypeM_specI {s₀ : InLean.CState} {id : FVarId} (hs : CSOKI mode ea
 Named hypotheses, P3a's to establish (O4).  A projection entry is
 con-leche's at the translated name, its body read off the constructor type
 (`InLean.projBodyAt`) a stored open term translating to con-leche's stored
-body.  The guard's spec waits for its re-port (task #492). -/
+body.  The guard's spec is `ProjGuardSpecI`. -/
 
 /-- A projection entry against con-leche's. -/
 @[expose] def ProjEntryRel (e : InLean.ProjEntry) (ce : ConLeche.ProjEntry) : Prop :=
@@ -344,8 +344,8 @@ structure EnvProjI (fe : InLean.FEnv) (env : ConLeche.Env) : Prop where
   find : ∀ T i e, fe.findProj? T i = some e →
     ∃ ce, env.findProj? (toName T) i = some ce ∧ ProjEntryRel e ce
 
-/-- **The projection guard's spec** (P3a's, after the guard's re-port, task
-#492), at the knot's record; the io view's guard is the same program
+/-- **The projection guard's spec** (P3a's; proved as `projGuardSpecI_of`),
+at the knot's record; the io view's guard is the same program
 (`CoreFnsI.ioView` keeps `inferIO` and `whnf`). -/
 @[expose] def ProjGuardSpecI (eager : Bool) (env : ConLeche.Env) (r : InLean.CoreFnsI)
     (fe : InLean.FEnv) : Prop :=

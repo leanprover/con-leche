@@ -35,6 +35,7 @@ public import InLeanProof.IndMembers
 public import InLeanProof.IndTele
 public import InLeanProof.IndBasis
 public import InLeanProof.PassInds
+public import InLeanProof.ProjGuardI
 public import InLeanProof.PassEnv
 public import InLeanProof.PassCtors
 public import InLeanProof.PassNest
