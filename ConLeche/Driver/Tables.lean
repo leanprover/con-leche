@@ -1,6 +1,6 @@
 module
 
-public import ConLeche.Frontend.Olean.Levels
+public import ConLeche.Frontend.Olean
 
 @[expose] public section
 

@@ -284,9 +284,9 @@ def readPartNames {μ : Type → Type} [CheckerIO μ] (sp : SearchPath) (x : Nam
 
 /-- **What a worker reads off the files**: a module's imports (off the start of its
 `M.olean`), the files of a view, a part's name positions.  On the search path
-(`OleanReads.ofPath`) each is the read of the files it names; the one-process mode
-(`ConLeche/Driver/Modular.lean`) answers from what it read once up front, and where it
-has nothing, by the same read. -/
+(`OleanReads.ofPath`) each is the read of the files it names; a worker and the one-process
+mode answer from the tables they read once up front (`ModTables.reads`,
+`ConLeche/Driver/Tables.lean`), and where those have nothing, by the same read. -/
 structure OleanReads (μ : Type → Type) where
   /-- a module's imports (`moduleImports`) -/
   imports : Name → μ (Except CheckError (Array ImportRec))
