@@ -16,7 +16,8 @@ and the part below a name is the context's records before the name's.  A module 
 checks (`LocalOk`) is a valid one (`toDev_valid`): its context and every part are assembled from
 the sources (`reading`, `reading_part`, `Valid.lean`), every source storing a name agrees by the
 views' exposure, translated route by route (`Agree.same` is the read module, `Agree.via` one
-record through two paths, `Agree.proof` two proofs: an inference over the part, or theorems), and
+record through two paths, `Agree.proof` two proofs by an inference over the part, `Agree.thm` two
+copies of a theorem's statement, the theorem's module a source too), and
 its records are accepted from the context.  The generic theorem (`Development.modular`) then gives
 the compatible family of models (`modularModels`).
 -/
@@ -124,31 +125,22 @@ theorem toDev_valid {dev : Nat → Module} {i : Nat} (hok : ∀ j ≤ i, LocalOk
   · have hnC : ((dev i).context.find? n).isSome = true := hn.1
     have hsn : (dev i).src n < i := hK.src_lt n hnC
     obtain ⟨ciC, hciC⟩ := Option.isSome_iff_exists.mp hnC
-    -- the side of a proof, translated
-    have side : ∀ b, b < i → ∀ {ci' : ConstantInfo}, (dev b).own.find? n = some ci' →
-        ci'.toConstantVal = ciC.toConstantVal → ci'.isStmtKind = true →
-        (∀ c ∈ ciC.toConstantVal.type.readNames, Agree dev i b c) →
-        ProofSide dev i b n ciC.toConstantVal.type →
-        (toDev V pins dev).ProofSide i n (b, viewOf dev i b) := by
-      intro b hb ci' hB hcv hk' hnames hps
-      rcases hps with ⟨hres, hprop⟩ | hthm
-      · refine .inl ⟨ci', hB, hk', by rw [hcv]; exact hprop, fun c hc => ?_⟩
-        have hc' : c ∈ ciC.toConstantVal.type.readNames := by rw [hcv] at hc; exact hc
-        have hcP : (((dev i).part n).find? c).isSome = true :=
-          Expr.readNames_of_constsResolve hres c hc'
-        have hcC : ((dev i).context.find? c).isSome = true := take_isSome hnd hcP
-        have hag := hnames c hc'
-        obtain ⟨cc, hcc⟩ := Option.isSome_iff_exists.mp hcP
-        obtain ⟨cb, hcb, hal, htab⟩ := agree_alike hok hag (Nat.le_refl i) (Nat.le_of_lt hb)
-          (take_find? hnd hcc)
-        refine ⟨⟨hcP, trivial⟩, ⟨hcC, hag⟩, ⟨cc, cb, hcc, hcb, hal⟩, ?_⟩
-        show (streamEnv ((dev i).ctx.take ((dev i).rank n))).findTable? c = _
-        rw [take_findTable? hnd hcP]
-        exact htab
-      · refine .inr ?_
-        rcases hthm with ⟨cv, h⟩ | ⟨hctx, cv, h⟩
-        · exact .inl ⟨cv, h⟩
-        · exact .inr ⟨⟨hctx, trivial⟩, ⟨cv, h⟩⟩
+    -- a copy whose type's names agree and resolve below the name reads the type as the part does
+    have reads : ∀ b, b < i → ∀ {ty : Expr}, ty.constsResolve ((dev i).part n) = true →
+        (∀ c ∈ ty.readNames, Agree dev i b c) →
+        ReadsX ((dev i).part n, fun _ => True) (viewOf dev i b) ty := by
+      intro b hb ty hres hnames c hc
+      have hcP : (((dev i).part n).find? c).isSome = true :=
+        Expr.readNames_of_constsResolve hres c hc
+      have hcC : ((dev i).context.find? c).isSome = true := take_isSome hnd hcP
+      have hag := hnames c hc
+      obtain ⟨cc, hcc⟩ := Option.isSome_iff_exists.mp hcP
+      obtain ⟨cb, hcb, hal, htab⟩ := agree_alike hok hag (Nat.le_refl i) (Nat.le_of_lt hb)
+        (take_find? hnd hcc)
+      refine ⟨⟨hcP, trivial⟩, ⟨hcC, hag⟩, ⟨cc, cb, hcc, hcb, hal⟩, ?_⟩
+      show (streamEnv ((dev i).ctx.take ((dev i).rank n))).findTable? c = _
+      rw [take_findTable? hnd hcP]
+      exact htab
     refine ⟨⟨_, hmem hsn, rfl, hstored (.same rfl) (Nat.le_refl i) (Nat.le_of_lt hsn) hnC,
         hnC, .same rfl⟩, ?_, fun c hc => ?_, fun x hx hs => ?_⟩
     · -- the part below the name, assembled
@@ -165,26 +157,16 @@ theorem toDev_valid {dev : Nat → Module} {i : Nat} (hok : ∀ j ≤ i, LocalOk
       rw [List.getElem_take] at hcc
       exact List.contains_iff_mem.mpr (List.mem_map.mpr ⟨cc, hcc, hnm⟩)
     · -- every source storing the name agrees
-      obtain ⟨b, hb, rfl⟩ := hsrcs x hx
-      obtain ⟨-, -, hag⟩ := hs
-      cases hag with
-      | same h => exact .inl h
-      | @via _ _ t _ hctx hlt hbt hit =>
-        refine .inr (.inl ⟨⟨hctx, trivial⟩, (t, viewOf dev b t), hmem hlt,
-          ⟨hstored hbt (Nat.le_of_lt hb) (by omega) hctx, hctx, hbt⟩, (t, viewOf dev i t),
-          hmem (by omega), rfl, ⟨hstored hit (Nat.le_refl i) (by omega) hnC, hnC, hit⟩, hlt⟩)
-      | @proof _ _ _ ci ci' hC hB hcv hk hk' hnames hps hps' =>
-        rw [hciC] at hC
-        obtain rfl := Option.some.inj hC
-        refine .inr (.inr ⟨side b hb hB hcv hk' hnames hps, fun y hy hy1 hys => ?_⟩)
-        obtain ⟨b', hb', rfl⟩ := hsrcs y hy
-        obtain rfl : b' = (dev i).src n := hy1
-        -- the read module's copy: its names agree by the record's reads
+      -- the read module's copy, of a statement kind where the context's is: its names agree by
+      -- the record's reads
+      have hsrcCopy : ciC.isStmtKind = true → ∃ ciO, (dev ((dev i).src n)).own.find? n = some ciO ∧
+          ciO.isStmtKind = true ∧ ciO.toConstantVal = ciC.toConstantVal ∧
+          ∀ c ∈ ciC.toConstantVal.type.readNames, Agree dev i ((dev i).src n) c := fun hk => by
         obtain ⟨ciO, hO, hal, -⟩ := agree_alike hok (.same rfl) (Nat.le_refl i)
           (Nat.le_of_lt hsn) hciC
         obtain ⟨e, he, hce, hnm⟩ := streamEnv_find?_some hciC
         have hrd := (hK.reads e he n (List.mem_map.mpr ⟨ciC, hce, hnm⟩)).1 ciC hce
-        refine side _ hsn hO hal.cv.symm ?_ (fun c hc => ?_) hps'
+        refine ⟨ciO, hO, ?_, hal.cv.symm, fun c hc => ?_⟩
         · rcases hal with rfl | ⟨-, -, h⟩
           · exact hk
           · exact h
@@ -193,6 +175,35 @@ theorem toDev_valid {dev : Nat → Module} {i : Nat} (hok : ∀ j ≤ i, LocalOk
           split at hcR
           · next h => exact h.2
           · exact nomatch hcR
+      obtain ⟨b, hb, rfl⟩ := hsrcs x hx
+      obtain ⟨-, -, hag⟩ := hs
+      cases hag with
+      | same h => exact .inl h
+      | @via _ _ t _ hctx hlt hbt hit =>
+        refine .inr (.inl ⟨⟨hctx, trivial⟩, (t, viewOf dev b t), hmem hlt,
+          ⟨hstored hbt (Nat.le_of_lt hb) (by omega) hctx, hctx, hbt⟩, (t, viewOf dev i t),
+          hmem (by omega), rfl, ⟨hstored hit (Nat.le_refl i) (by omega) hnC, hnC, hit⟩, hlt⟩)
+      | @proof _ _ _ ci ci' hC hB hcv hk hk' hnames hres hprop =>
+        rw [hciC] at hC
+        obtain rfl := Option.some.inj hC
+        obtain ⟨ciO, hO, hkO, hcvO, hnO⟩ := hsrcCopy hk
+        refine .inr (.inr ⟨.inl ⟨ci', hB, hk', by rw [hcv]; exact hprop,
+          by rw [hcv]; exact reads b hb hres hnames⟩, fun y hy hy1 hys => ?_⟩)
+        obtain ⟨b', hb', rfl⟩ := hsrcs y hy
+        obtain rfl : b' = (dev i).src n := hy1
+        exact .inl ⟨ciO, hO, hkO, by rw [hcvO]; exact hprop, by rw [hcvO]; exact reads _ hsn hres hnO⟩
+      | @thm _ _ t _ ci ci' cv hC hB hcv hk hk' hnames hres ht hthm hcvt htn =>
+        rw [hciC] at hC
+        obtain rfl := Option.some.inj hC
+        obtain ⟨ciO, hO, hkO, hcvO, hnO⟩ := hsrcCopy hk
+        have hw := hmem (j := i) ht
+        refine .inr (.inr ⟨.inr ⟨_, hw, ci', cv, hB, hk', hthm, by rw [hcvt, hcv],
+          by rw [hcv]; exact reads b hb hres hnames, by rw [hcv]; exact reads t ht hres htn⟩,
+          fun y hy hy1 hys => ?_⟩)
+        obtain ⟨b', hb', rfl⟩ := hsrcs y hy
+        obtain rfl : b' = (dev i).src n := hy1
+        exact .inr ⟨_, hw, ciO, cv, hO, hkO, hthm, by rw [hcvt, hcvO],
+          by rw [hcvO]; exact reads _ hsn hres hnO, by rw [hcvO]; exact reads t ht hres htn⟩
 
 /-- A context name is stored in the module's own environment. -/
 theorem own_stored_of_context {dev : Nat → Module} {i j : Nat}

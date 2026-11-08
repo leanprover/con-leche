@@ -579,6 +579,21 @@ theorem findTable_none_of_stmt {L : List Declaration} (hnd : NodupNames (streamE
     obtain rfl := Option.some.inj hfi
     exact nomatch hk
 
+/-- **Two statement-kind copies of one statement are alike**, with no table. -/
+theorem stmt_alike {i : Nat} (hok : ∀ j ≤ i, LocalOk .verified pins dev j) {j b : Nat} {x : Name}
+    (hj : j ≤ i) (hb : b ≤ i) {ci ci' : ConstantInfo} (hC' : (dev j).context.find? x = some ci)
+    (hB' : (dev b).own.find? x = some ci') (hcv : ci'.toConstantVal = ci.toConstantVal)
+    (hk : ci.isStmtKind = true) (hk' : ci'.isStmtKind = true) :
+    ∃ ciB, (dev b).own.find? x = some ciB ∧ Alike ci ciB ∧
+      (dev j).context.findTable? x = (dev b).own.findTable? x := by
+  have hKj := (hok j hj).importOk
+  have hKb := (hok b hb).importOk
+  have hndb := (ImportOk.chain hKb).1
+  refine ⟨ci', hB', .inr ⟨hcv.symm, hk, hk'⟩, ?_⟩
+  rw [Module.context_eq, findTable_none_of_stmt hKj.nodup hC' hk]
+  rw [Module.own_eq] at hndb hB' ⊢
+  rw [findTable_none_of_stmt hndb hB' hk']
+
 /-- **Agreeing copies are alike, with one table**: the copy module `b` holds of a name that agrees
 with module `j`'s is stored, alike with `j`'s, with its table. -/
 theorem agree_alike {i : Nat} (hok : ∀ j ≤ i, LocalOk .verified pins dev j) :
@@ -611,13 +626,12 @@ theorem agree_alike {i : Nat} (hok : ∀ j ≤ i, LocalOk .verified pins dev j) 
     intro hj hb ciC hC
     rw [hC'] at hC
     obtain rfl := Option.some.inj hC
-    have hKj := (hok j hj).importOk
-    have hKb := (hok b hb).importOk
-    have hndb := (ImportOk.chain hKb).1
-    refine ⟨ci', hB', .inr ⟨hcv.symm, hk, hk'⟩, ?_⟩
-    rw [Module.context_eq, findTable_none_of_stmt hKj.nodup hC' hk]
-    rw [Module.own_eq] at hndb hB' ⊢
-    rw [findTable_none_of_stmt hndb hB' hk']
+    exact stmt_alike hok hj hb hC' hB' hcv hk hk'
+  | @thm j b t x ci ci' cv hC' hB' hcv hk hk' _ _ _ _ _ _ _ _ =>
+    intro hj hb ciC hC
+    rw [hC'] at hC
+    obtain rfl := Option.some.inj hC
+    exact stmt_alike hok hj hb hC' hB' hcv hk hk'
 
 /-- **Where a module's copy of a name comes from**: the module it reads it from, or the module
 itself. -/
@@ -650,6 +664,11 @@ theorem agree_home {i : Nat} (hok : ∀ j ≤ i, LocalOk .verified pins dev j) :
     have hkb : cb.isStmtKind = false := (hab.symm.eq_of_not_stmt hkt) ▸ hkt
     exact (ihb hb (by omega) hcb hkb).symm.trans (ihj hj (by omega) hC hk)
   | @proof j b x ci ci' hC' _ _ hk _ _ _ _ _ =>
+    intro _ _ ciC hC hk'
+    rw [hC'] at hC
+    obtain rfl := Option.some.inj hC
+    rw [hk] at hk'; exact nomatch hk'
+  | @thm j b t x ci ci' cv hC' _ _ hk _ _ _ _ _ _ _ _ =>
     intro _ _ ciC hC hk'
     rw [hC'] at hC
     obtain rfl := Option.some.inj hC

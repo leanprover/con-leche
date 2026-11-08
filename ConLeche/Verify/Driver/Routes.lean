@@ -123,65 +123,40 @@ variable {sp : SearchPath} {fs : FS} (R : Run sp fs)
 theorem ownRun {M : Name} (hM : M ∈ R.names) : OwnRun .verified sp fs M (R.w M) :=
   ⟨_, R.run M hM⟩
 
-/-- **A proof side from a copy's proof status**: a theorem where it comes from (`.yes`), or a
-statement the module infers to be a proposition over the part below the name (`.infer`). -/
-theorem side_of_status {M : Name} (hM : M ∈ R.names) {y T : Name} (hT : T ∈ R.names)
+/-- **A copy whose proof status is `.yes` is a theorem of its module's own environment**, of the
+copy's statement. -/
+theorem thm_of_status {y T : Name} (hT : T ∈ R.names)
     {s : Spot} (hmod : s.part.mod = T) (hs : CopyAt sp fs s) (hl : s.part.level ≠ .server)
     {r : Region} {cv : ConstantVal} {k : CKindF Name Unit} (hr : PartRegion sp fs s.part r)
     (hst : StmtSkel r s.pos.loc cv k) (hsk : s.pos.skipped = false) (hy : cv.name = y)
-    (hsy : y ≠ sorryAxName) {p : ProofStatus} (hp : StatusOk sp fs s k p) (hno : p ≠ .no)
-    {ty : Expr} (hinf : p = .infer → ∃ w cv', (w, y, cv') ∈ (R.cap M).2.1 ∧ cv'.type = ty) :
-    ProofSide R.dev (R.rk M) (R.rk T) y ty := by
-  cases p with
-  | no => exact absurd rfl hno
-  | yes =>
-    have htag := hp.1 hno
-    obtain ⟨ci, hci, -, -, hthm, -⟩ := copy_own (R.facts T hT) (R.ownRun hT) hmod hs hl hr hst hsk
-      htag (by rw [hy]; exact hsy)
-    obtain ⟨cv', rfl⟩ := hthm (by
-      rcases hp.2.1 rfl with h2 | ⟨h0, -, q, hq⟩
-      · exact .inl h2
-      · exact .inr ⟨q, by rw [← hmod]; exact hq⟩)
-    refine .inr (.inl ⟨cv', ?_⟩)
-    rw [R.dev_rk hT, ← hy]
-    exact hci
-  | infer =>
-    obtain ⟨w, cv', hmem, hty⟩ := hinf rfl
-    obtain ⟨-, -, -, -, hfl, -⟩ := R.cap_facts hM
-    have hw := worker_ctx (R.facts M hM)
-    have hpart := typeIsProp_part (m := R.dev (R.rk M))
-      (by rw [R.dev_rk hM]; exact hw.1) (by rw [R.dev_rk hM]; exact hw.2.2.2.1)
-      (by rw [R.dev_rk hM]; exact hfl) hmem
-    rw [hty] at hpart
-    exact .inl hpart
+    (hsy : y ≠ sorryAxName) (hp : StatusOk sp fs s k .yes) :
+    (R.dev (R.rk T)).own.find? y = some (.thmInfo cv) := by
+  have htag := hp.1 (fun h => nomatch h)
+  obtain ⟨ci, hci, hcv, -, hthm, -⟩ := copy_own (R.facts T hT) (R.ownRun hT) hmod hs hl hr hst hsk
+    htag (by rw [hy]; exact hsy)
+  obtain ⟨cv', rfl⟩ := hthm (by
+    rcases hp.2.1 rfl with h2 | ⟨h0, -, q, hq⟩
+    · exact .inl h2
+    · exact .inr ⟨q, by rw [← hmod]; exact hq⟩)
+  obtain rfl : cv' = cv := hcv
+  rw [R.dev_rk hT, ← hy]
+  exact hci
+
+/-- **A recorded inference holds over the part below its name.** -/
+theorem prop_of_pending {M : Name} (hM : M ∈ R.names) {w : String} {y : Name} {cv : ConstantVal}
+    (hmem : (w, y, cv) ∈ (R.cap M).2.1) :
+    TypeIsProp .verified ((R.dev (R.rk M)).part y) cv.type := by
+  obtain ⟨-, -, -, -, hfl, -⟩ := R.cap_facts hM
+  have hw := worker_ctx (R.facts M hM)
+  exact (typeIsProp_part (m := R.dev (R.rk M))
+    (by rw [R.dev_rk hM]; exact hw.1) (by rw [R.dev_rk hM]; exact hw.2.2.2.1)
+    (by rw [R.dev_rk hM]; exact hfl) hmem).2
 
 /-- **The importer's copy at a module is its index's first copy.** -/
 theorem copyOf_first {h y : Name} {cp : Copy} {q : NamePosition}
     (hf : (R.w h).reads.index.first[y]? = some cp) (hq : (R.w h).reads.index.at cp = some q) :
     copyOf (R.envOf h) (R.cap h).1 y = some (spotOf (R.w h).reads cp q) := by
   simp [copyOf, importerSpot, envOf, hf, hq, spotOf]
-
-/-- **A clash copy at a module is a proof for it**, of the statement its context stores. -/
-theorem side_of_clash {h : Name} (hh : h ∈ R.names) {y : Name} {cl : Clash}
-    (hcl : cl ∈ (R.w h).reads.clashes.toList) (hn : cl.name = y)
-    {e : Copy × ConstantVal × CKindF Name Unit} (he : e ∈ cl.copies.toList) {ty : Expr}
-    (hty : e.2.1.type = ty) (hsy : y ≠ sorryAxName)
-    (hsk : ∀ q, (R.w h).reads.index.at e.1 = some q → (spotOf (R.w h).reads e.1 q).pos.skipped = false) :
-    ProofSide R.dev (R.rk h) (R.rk ((R.w h).reads.loads.nameAt e.1.mod)) y ty := by
-  have hw := R.facts h hh
-  obtain ⟨_, _, hr⟩ := hw.reads
-  obtain ⟨q, hq, hc, ⟨rg, hrg, hst⟩, -, hcvn⟩ := workerClash_stmt hr hcl he
-  obtain ⟨-, -, -, -, hsize, -⟩ := workerReads_loads hr
-  have hT := (R.reached_rank hh (.loaded (at_mod_lt hsize hq))).1
-  obtain ⟨-, -, -, hclash, -⟩ := R.cap_facts hh
-  obtain ⟨p, hp, hno, hinf⟩ := hclash cl (Array.mem_toList_iff.1 hcl) e
-    (Array.mem_toList_iff.1 he) q hq
-  refine R.side_of_status hh hT rfl hc (spotOf_level _ _ _) hrg hst (hsk q hq)
-    (hcvn.trans hn) hsy hp hno fun hi => ?_
-  obtain ⟨w, cv', hpend, x', hx', rfl⟩ := hinf hi
-  refine ⟨w, x'.2.1, hn ▸ hpend, ?_⟩
-  rw [← hty]
-  exact (workerClash_same hr hcl (Array.mem_toList_iff.2 hx') he).2.1
 
 /-- **A loaded copy at a module agrees with the one the module reads**: one module, or two
 copies of a clash, proofs of one statement whose names the module's clash partner reads passed. -/
@@ -222,29 +197,53 @@ theorem agree_loaded {h : Name} (hh : h ∈ R.names) (ih : R.AgreeAll h) {y : Na
   obtain ⟨ci', hci', hcv', hk', -, hfresh⟩ := copy_own (R.facts _ hT) (R.ownRun hT) rfl hc
     (spotOf_level _ _ _) hrg hst hskip ht (by rw [hcvy]; exact hsy)
   rw [hcvy] at hci'
-  refine .proof hci (by rw [R.dev_rk hT]; exact hci') (hcv'.trans hcicv.symm) hcik hk'
-    (fun c hc => ?_) ?_ ?_
-  · have hcne : c ≠ y := fun e => hfresh (by rw [hcvy, ← e]; simpa [hcicv] using hc)
-    obtain ⟨-, hctx⟩ := R.rank_lt hh hci hcik hc hcne
+  replace hci' : (R.dev (R.rk ((R.w h).reads.loads.nameAt cp.mod))).own.find? y = some ci' := by
+    rw [R.dev_rk hT]; exact hci'
+  have hcne : ∀ c ∈ ci.toConstantVal.type.readNames, c ≠ y := fun c hc e =>
+    hfresh (by rw [hcvy, ← e]; simpa [hcicv] using hc)
+  -- every clash copy's statement's names, read as its module reads them
+  have hnames : ∀ x ∈ cl.copies.toList, ∀ c ∈ ci.toConstantVal.type.readNames,
+      Agree R.dev (R.rk h) (R.rk ((R.w h).reads.loads.nameAt x.1.mod)) c := by
+    intro x hx c hc
+    obtain ⟨-, hctx⟩ := R.rank_lt hh hci hcik hc (hcne c hc)
     refine ih (_, c) ?_ hctx
     obtain ⟨k, d, hm', hk, hhm, hyd⟩ := R.ctx_record hh hy
     obtain ⟨-, hrec, -⟩ := R.cap_facts hh
-    obtain ⟨cs, hcs, hmem⟩ := clashCopiesOf_complete hr hcl he
+    obtain ⟨cs, hcs, hmem⟩ := clashCopiesOf_complete hr hcl hx
     rw [hcln] at hcs
+    have hxs : x.2.1 = cv₀ := SameStmt.eq (workerClash_same hr hcl hx he)
     exact (hrec k d hm' hk hhm).2.2.2 y hyd cs hcs _ (Array.mem_toList_iff.1 hmem) c
-      (readNames_needsGo (by rw [hcicv] at hc; exact hc))
-  · exact R.side_of_clash hh hcl hcln he (by rw [hcicv]) hsy fun q' hq' => by
-      rw [hq] at hq'; cases hq'; exact hskip
-  · rw [hsrc]
-    exact R.side_of_clash hh hcl hcln he₀ (by rw [hcicv]) hsy fun q' hq' => by
-      rw [hq₀] at hq'; cases hq'; exact hsk₀
+      (readNames_needsGo (by rw [hxs, ← hcicv]; exact hc))
+  have hres : ci.toConstantVal.type.constsResolve ((R.dev (R.rk h)).part y) = true :=
+    part_resolve fun c hc => R.rank_lt hh hci hcik hc (hcne c hc)
+  obtain ⟨-, -, -, hclash, -⟩ := R.cap_facts hh
+  rcases (hclash cl (Array.mem_toList_iff.1 hcl)).2 ⟨_, Array.mem_toList_iff.1 he, by rw [hq]; rfl⟩
+    with ⟨x, hx, qx, hqx, hyes⟩ | ⟨w, cv', hpend, x', hx', rfl⟩
+  · -- a theorem copy, of a loaded module of smaller rank: no inference
+    have hx' := Array.mem_toList_iff.2 hx
+    obtain ⟨qx', hqx', hcx, ⟨rgx, hrgx, hstx⟩, -, hcvnx⟩ := workerClash_stmt hr hcl hx'
+    rw [hqx] at hqx'; cases hqx'
+    obtain ⟨hskx, -⟩ := workerClash_kinds hr hcl he₀ hx'
+    have hskipx : (spotOf (R.w h).reads x.1 qx).pos.skipped = false := by
+      rw [(copyAt_kind hcx hrgx hstx).2, ← (show kd₀.skipped = x.2.2.skipped from hskx),
+        ← (copyAt_kind hc₀ hr₀ hst₀).2, hsk₀]
+    obtain ⟨hU, hUlt⟩ := R.reached_rank hh (.loaded (at_mod_lt hsize hqx))
+    have hxs : x.2.1 = cv₀ := SameStmt.eq (workerClash_same hr hcl hx' he)
+    have hthm := R.thm_of_status hU rfl hcx (spotOf_level _ _ _) hrgx hstx hskipx
+      (hcvnx.trans hcln) hsy hyes
+    exact .thm hci hci' (hcv'.trans hcicv.symm) hcik hk' (hnames _ he) hres hUlt hthm
+      (by rw [hxs, hcicv]) (hnames _ hx')
+  · -- no copy is a theorem: the statement, inferred over the part below the name
+    have hxs : x'.2.1 = cv₀ := SameStmt.eq (workerClash_same hr hcl (Array.mem_toList_iff.2 hx') he)
+    exact .proof hci hci' (hcv'.trans hcicv.symm) hcik hk' (hnames _ he) hres
+      (by rw [hcicv, ← hxs]; exact R.prop_of_pending hh (hcln ▸ hpend))
 
 /-- **Two proofs of one statement, the view's copy a constant of its module**: the view route's
 proof pair at module `M` (`AgreeOk`'s second arm), the view's copy `s₂` of module `T`. -/
 theorem proofAt_of {M : Name} (hM : M ∈ R.names) {y : Name}
     (hy : ((R.dev (R.rk M)).context.find? y).isSome = true) {s₁ : Spot}
-    (hs₁ : copyOf (R.envOf M) (R.cap M).1 y = some s₁)
-    (hsrc : (R.dev (R.rk M)).src y = R.rk s₁.part.mod) {T : Name} (hT : T ∈ R.names) {s₂ : Spot}
+    (hs₁ : copyOf (R.envOf M) (R.cap M).1 y = some s₁) {T : Name} (hT : T ∈ R.names)
+    (hTM : R.rk T < R.rk M) {s₂ : Spot}
     (hmod₂ : s₂.part.mod = T) (hc₂ : CopyAt sp fs s₂) (hl₂ : s₂.part.level ≠ .server)
     {r₁ : Region} {cv₁ : ConstantVal} {k₁ : CKindF Name Unit} {r₂ : Region} {cv₂ : ConstantVal}
     {k₂ : CKindF Name Unit} {p₁ p₂ : ProofStatus}
@@ -254,7 +253,7 @@ theorem proofAt_of {M : Name} (hM : M ∈ R.names) {y : Name}
     (hty : cv₁.type = cv₂.type) (hs1 : StatusOk sp fs s₁ k₁ p₁) (hs2 : StatusOk sp fs s₂ k₂ p₂)
     (hn1 : p₁ ≠ .no) (hn2 : p₂ ≠ .no)
     (hpart : ∀ c ∈ (needsGo {} #[] cv₂.type).2, (s₂.part.mod, c) ∈ (R.cap M).2.2)
-    (hpend : (p₁ = .infer ∨ p₂ = .infer) → ∃ w, (w, y, cv₁) ∈ (R.cap M).2.1)
+    (hpend : p₁ = .yes ∨ p₂ = .yes ∨ ∃ w, (w, y, cv₁) ∈ (R.cap M).2.1)
     (hname₂ : cv₂.name = y) :
     ProofAt R.dev (R.rk M) (R.Pr M) (R.rk T) y := by
   obtain ⟨ci, hci, hcicv, hcik, hc₁, hl₁, hsk₁, hcv1y, hsy, hM1⟩ :=
@@ -263,19 +262,24 @@ theorem proofAt_of {M : Name} (hM : M ∈ R.names) {y : Name}
   obtain ⟨ci', hci', hcv', hk', -, hfresh⟩ := copy_own (R.facts T hT) (R.ownRun hT) hmod₂ hc₂ hl₂
     hr₂ hst₂ hsk₂ (hs2.1 hn2) (by rw [hcv1y]; exact hsy)
   rw [hcv1y] at hci'
+  have hname : ∀ c ∈ ci.toConstantVal.type.readNames, (R.dev (R.rk M)).rank c < (R.dev (R.rk M)).rank y ∧
+      ((R.dev (R.rk M)).context.find? c).isSome = true := fun c hc => by
+    have hc' : c ∈ cv₂.type.readNames := by rw [← hcicv]; exact hc
+    exact R.rank_lt hM hci hcik hc fun e => hfresh (by rw [hcv1y, ← e]; exact hc')
   refine ⟨ci, ci', hci, by rw [R.dev_rk hT]; exact hci', hcv'.trans hcicv.symm, hcik, hk',
-    fun c hc => ?_, ?_, ?_⟩
-  · have hc' : c ∈ cv₂.type.readNames := by rw [← hcicv]; exact hc
-    have hcne : c ≠ y := fun e => hfresh (by rw [hcv1y, ← e]; exact hc')
-    obtain ⟨hrk, hctx⟩ := R.rank_lt hM hci hcik hc hcne
-    exact ⟨⟨T, rfl, hmod₂ ▸ hpart c (readNames_needsGo hc')⟩, hrk, hctx⟩
-  · exact R.side_of_status hM hT hmod₂ hc₂ hl₂ hr₂ hst₂ hsk₂ hcv1y hsy hs2 hn2 fun hi => by
-      obtain ⟨w, hw⟩ := hpend (.inr hi)
-      exact ⟨w, cv₂, hw, by rw [hcicv]⟩
-  · rw [hsrc]
-    exact R.side_of_status hM hM1 rfl hc₁ hl₁ hr₁ hst₁ hsk₁ hcv1y hsy hs1 hn1 fun hi => by
-      obtain ⟨w, hw⟩ := hpend (.inl hi)
-      exact ⟨w, cv₂, hw, by rw [hcicv]⟩
+    fun c hc => ⟨⟨T, rfl, hmod₂ ▸ hpart c (readNames_needsGo (by rw [← hcicv]; exact hc))⟩,
+      hname c hc⟩, part_resolve hname, ?_⟩
+  rcases hpend with h2 | h2 | ⟨w, hw⟩
+  · -- the context's copy is a theorem of its module, whose names are its record's reads
+    obtain ⟨-, hlt, hrd⟩ := R.ctx_reads hM hci hs₁
+    exact .inr ⟨_, cv₂, hlt, R.thm_of_status hM1 rfl hc₁ hl₁ hr₁ hst₁ hsk₁ hcv1y hsy (h2 ▸ hs1),
+      hcicv.symm, fun c hc => ⟨hrd c hc, hname c hc⟩⟩
+  · -- the view's copy is a theorem of its module
+    exact .inr ⟨_, cv₂, hTM, R.thm_of_status hT hmod₂ hc₂ hl₂ hr₂ hst₂ hsk₂
+      (hname₂) hsy (h2 ▸ hs2), hcicv.symm, fun c hc => ⟨⟨T, rfl,
+        hmod₂ ▸ hpart c (readNames_needsGo (by rw [← hcicv]; exact hc))⟩, hname c hc⟩⟩
+  · -- neither: the statement, inferred over the part below the name
+    exact .inl (by rw [hcicv]; exact R.prop_of_pending hM hw)
 
 /-- **The route of a passed pair whose copy is not its reader's** (see the module docstring). -/
 theorem route {M : Name} (hM : M ∈ R.names)
@@ -320,11 +324,12 @@ theorem route {M : Name} (hM : M ∈ R.names)
   · have hname₂ : cv₂.name = y := (copyAt_stmt_name hc₂ hr₂ hst₂).trans hnm₂
     rcases hidx with ⟨hpriv, -⟩ | ⟨cp, q, hf, hq, he⟩
     · have hmod₂ : s₂.part.mod = h := by rw [hpriv]
-      exact ⟨R.rk h, .inl rfl, .inr (R.proofAt_of hM hy hs₁ hsrc hhn hmod₂ hc₂ hl₂ hr₁ hst₁ hr₂
+      exact ⟨R.rk h, .inl rfl, .inr (R.proofAt_of hM hy hs₁ hhn hhr hmod₂ hc₂ hl₂ hr₁ hst₁ hr₂
         hst₂ hsk₂ hlp hty hs1 hs2 hn1 hn2 hpart hpend hname₂)⟩
     · obtain ⟨hT, hlt, hctx, hagr⟩ := himp cp q hf hq he
-      exact ⟨R.rk s₂.part.mod, .inr ⟨hctx, hlt, hagr⟩, .inr (R.proofAt_of hM hy hs₁ hsrc hT rfl
-        hc₂ hl₂ hr₁ hst₁ hr₂ hst₂ hsk₂ hlp hty hs1 hs2 hn1 hn2 hpart hpend hname₂)⟩
+      exact ⟨R.rk s₂.part.mod, .inr ⟨hctx, hlt, hagr⟩, .inr (R.proofAt_of hM hy hs₁ hT
+        (Nat.lt_trans hlt hhr) rfl hc₂ hl₂ hr₁ hst₁ hr₂ hst₂ hsk₂ hlp hty hs1 hs2 hn1 hn2 hpart
+        hpend hname₂)⟩
 
 /-- **`ImportOk.reads` at every module of the run.** -/
 theorem reads_ok : ∀ M ∈ R.names, ∀ d ∈ R.ctx M, ∀ n ∈ declNames d,
