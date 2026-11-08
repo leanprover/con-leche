@@ -139,10 +139,11 @@ def appendIdx (n : Name) (i : Nat) : Name := n.appendIndexAfter i
 /-- C++ `mk_rec_name`. -/
 def mkRecName (I : Name) : Name := .str I "rec"
 
-/-- Prefix an error raised by `x` with the installer stage that raised it. -/
+/-- Suffix a decline or an internal error raised by `x` with the installer
+stage that raised it (a reject's message is the official kernel's). -/
 def withStage (stage : String) (x : M α) : M α :=
   tryCatch x fun
-    | .invalid m => throw (.invalid s!"{m} [{stage}]")
+    | .invalid m => throw (.invalid m)
     | .notImplemented m => throw (.notImplemented s!"{m} [{stage}]")
     | .internal m => throw (.internal s!"{m} [{stage}]")
     | .limit l => throw (.limit l)
