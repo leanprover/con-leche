@@ -629,4 +629,182 @@ theorem levelsGo_inv {sp : SearchPath} {fs : FS} {imps0 : Array ImportRec} {gPri
           · exact levelsGo_inv fuel _ _ h
               (lvInv_open hi hold (by simpa using hnot) ⟨_, _, hr⟩)
 
+theorem lvInv_init {sp : SearchPath} {fs : FS} (isM : Bool) (imps0 : Array ImportRec) :
+    LvInv sp fs imps0 (LvWork.ofImports { importAll := true, isExported := isM } imps0) {} := by
+  refine ⟨fun m is h => by simp at h, by simp, fun m => by simp, fun m h => by simp at h,
+    fun m fl h => ?_, ?_, fun m h => by simp at h, fun pf i h => ?_, fun m is h => by simp at h,
+    fun i hi => .inr (.inr ⟨_, mem_ofImports.2 ⟨i, hi, rfl⟩, by simp⟩)⟩
+  · obtain ⟨_, _, h⟩ := mem_ofImports.1 h; cases h
+  · have := filterMap_ofImports { importAll := true, isExported := isM } imps0 []
+    simp only [List.append_nil] at this
+    rw [this]; simp
+  · obtain ⟨j, hj, h⟩ := mem_ofImports.1 h; cases h; exact .root hj
+
+/-- The index a fold over a list without duplicates builds: each name's position. -/
+theorem indexFold_get? :
+    ∀ (l : List Name) (M : Std.HashMap Name Nat) (k0 : Nat), l.Nodup → ∀ x,
+      (l.foldl (fun (acc : Std.HashMap Name Nat × Nat) m => (acc.1.insert m acc.2, acc.2 + 1))
+        (M, k0)).1[x]? = if x ∈ l then some (k0 + l.idxOf x) else M[x]?
+  | [], M, k0, _, x => by simp
+  | a :: l, M, k0, hnd, x => by
+    rw [List.nodup_cons] at hnd
+    rw [List.foldl_cons, indexFold_get? l _ _ hnd.2 x]
+    by_cases hx : x = a
+    · subst hx
+      simp [hnd.1]
+    · have hax : (a == x) = false := by simpa using Ne.symm hx
+      simp only [List.mem_cons, hx, false_or, List.idxOf_cons, hax, Bool.false_eq_true,
+        ↓reduceIte, Std.HashMap.getElem?_insert]
+      split <;> simp; omega
+
+/-- **What the header fixpoint loads, on a snapshot** (`headerFixpoint` over the search path's
+header reads): its flags and imports by position; its order without duplicates, the index naming
+each module's position; every loaded module reached from the root's imports by import edges,
+with the imports its header read answers. -/
+theorem headerFixpoint_sound {sp : SearchPath} {fs : FS} {isM : Bool} {imps0 : Array ImportRec}
+    {ld : Loads} (h : ModelIO.CanGive (headerFixpoint (moduleImports sp) isM imps0) fs (.ok ld)) :
+    ld.flags.size = ld.order.size ∧ ld.imports.size = ld.order.size ∧ ld.order.toList.Nodup ∧
+      (∀ (k : Nat) (m : Name), ld.order[k]? = some m →
+        ImpReach sp fs imps0 m ∧ ld.index[m]? = some k ∧
+        ∀ is, ld.imports[k]? = some is → ModelIO.CanGive (moduleImports sp m) fs (.ok is)) ∧
+      (∀ (m : Name) (k : Nat), ld.index[m]? = some k → ld.order[k]? = some m) := by
+  obtain ⟨_, _, h⟩ := h
+  simp only [headerFixpoint, ModelIO.bind_ok] at h
+  obtain ⟨r, _, hr, h⟩ := h
+  rcases r with e | st
+  · simp at h
+  simp only [ModelIO.pure_iff, Except.ok.injEq] at h
+  obtain ⟨rfl, -⟩ := h
+  have hi := levelsGo_inv _ _ _ hr (lvInv_init isM imps0)
+  have hix := indexFold_get? st.order.toList {} 0 hi.nodup
+  simp only [Array.foldl_toList] at hix
+  refine ⟨by simp, by simp, hi.nodup, fun k m hk => ?_, fun m k hk => ?_⟩
+  · have hm : m ∈ st.order := Array.mem_of_getElem? hk
+    obtain ⟨is, his⟩ := Option.isSome_iff_exists.1 (hi.ordImps m hm)
+    refine ⟨(hi.imps m is his).1, ?_, fun is' h' => ?_⟩
+    · rw [hix m]; simp only [Array.mem_toList_iff, hm, ↓reduceIte]
+      have hk' : st.order.toList[k]? = some m := by simpa using hk
+      obtain ⟨hlt, hget⟩ := List.getElem?_eq_some_iff.1 hk'
+      rw [← hget, List.Nodup.idxOf_getElem hi.nodup k hlt]
+      simp
+    · simp only [Array.getElem?_map, hk, Option.map_some, his, Option.getD_some,
+        Option.some.injEq] at h'
+      subst h'
+      exact (hi.imps m is his).2
+  · rw [hix m] at hk
+    split at hk
+    · rename_i hm
+      simp only [Nat.zero_add, Option.some.injEq] at hk
+      subst hk
+      have hlt := List.idxOf_lt_length_of_mem hm
+      rw [← Array.getElem?_toList, List.getElem?_eq_getElem hlt, List.getElem_idxOf hlt]
+    · simp at hk
+
+/-- **The header fixpoint loads every module a path of public imports leads to from one of the
+root's imports**: the root is loaded whole, so each of its imports is followed, and a public import
+is followed from every loaded module. -/
+theorem headerFixpoint_complete {sp : SearchPath} {fs : FS} {isM : Bool}
+    {imps0 : Array ImportRec} {ld : Loads}
+    (h : ModelIO.CanGive (headerFixpoint (moduleImports sp) isM imps0) fs (.ok ld))
+    {i : ImportRec} (hi0 : i ∈ imps0) {m : Name} (hm : PubReach sp fs i.module m) :
+    m ∈ ld.order := by
+  obtain ⟨_, _, h⟩ := h
+  simp only [headerFixpoint, ModelIO.bind_ok] at h
+  obtain ⟨r, _, hr, h⟩ := h
+  rcases r with e | st
+  · simp at h
+  simp only [ModelIO.pure_iff, Except.ok.injEq] at h
+  obtain ⟨rfl, -⟩ := h
+  have hi := levelsGo_inv _ _ _ hr (lvInv_init isM imps0)
+  have hcov : ∀ j, LvCovered [] st j → j.module ∈ st.order := by
+    rintro j (h | h | ⟨_, h, _⟩)
+    · exact (hi.flags _).1 h
+    · obtain ⟨_, h'⟩ := hi.openDone _ h; cases h'
+    · cases h
+  show m ∈ st.order
+  induction hm with
+  | refl => exact hcov _ (hi.root i hi0)
+  | @step b is j _ hc hj he ih =>
+    obtain ⟨is', his⟩ := Option.isSome_iff_exists.1 (hi.ordImps b ih)
+    have := moduleImports_canGive_unique hc (hi.imps b is' his).2
+    subst this
+    exact hcov _ (hi.demand b is his j hj he)
+
+/-- **The worklist is determined on a snapshot**: two accepting outcomes agree. -/
+theorem levelsGo_unique {sp : SearchPath} {fs : FS} {gPriv : Bool} :
+    ∀ (fuel : Nat) (ws : List LvWork) (st : LvState) {hs₁ hs₁' hs₂ hs₂' : HS} {a b : LvState},
+      (levelsGo (moduleImports sp) gPriv fuel ws st : ModelIO _) fs hs₁ (.ok (.ok a)) hs₁' →
+      (levelsGo (moduleImports sp) gPriv fuel ws st : ModelIO _) fs hs₂ (.ok (.ok b)) hs₂' →
+      a = b
+  | _, [], st, _, _, _, _, _, _, h₁, h₂ => by
+    simp only [levelsGo, ModelIO.pure_iff, Except.ok.injEq] at h₁ h₂
+    rw [h₁.1, h₂.1]
+  | 0, _ :: _, _, _, _, _, _, _, _, h₁, _ => by simp [levelsGo] at h₁
+  | fuel + 1, .done m fl :: rest, st, _, _, _, _, _, _, h₁, h₂ => by
+    simp only [levelsGo] at h₁ h₂
+    exact levelsGo_unique fuel _ _ h₁ h₂
+  | fuel + 1, .imp pf i :: rest, st, _, _, _, _, _, _, h₁, h₂ => by
+    rw [levelsGo] at h₁ h₂
+    split at h₁
+    · rename_i hc
+      simp only [hc, ↓reduceIte] at h₂
+      exact levelsGo_unique fuel _ _ h₁ h₂
+    · rename_i hc
+      simp only [hc, Bool.false_eq_true, ↓reduceIte] at h₂
+      dsimp only at h₁ h₂
+      cases hold : st.flags[i.module]? with
+      | some old =>
+        simp only [hold] at h₁ h₂
+        split at h₁
+        · rename_i hf
+          simp only [hf, ↓reduceIte] at h₂
+          exact levelsGo_unique fuel _ _ h₁ h₂
+        · rename_i hf
+          simp only [hf, Bool.false_eq_true, ↓reduceIte] at h₂
+          exact levelsGo_unique fuel _ _ h₁ h₂
+      | none =>
+        simp only [hold] at h₁ h₂
+        split at h₁
+        · simp at h₁
+        · rename_i ho
+          simp only [ho, Bool.false_eq_true, ↓reduceIte] at h₂
+          simp only [ModelIO.bind_ok] at h₁ h₂
+          obtain ⟨r₁, _, hr₁, h₁⟩ := h₁
+          obtain ⟨r₂, _, hr₂, h₂⟩ := h₂
+          rcases r₁ with e | is₁
+          · simp at h₁
+          rcases r₂ with e | is₂
+          · simp at h₂
+          obtain rfl := moduleImports_unique hr₁ hr₂
+          exact levelsGo_unique fuel _ _ h₁ h₂
+
+/-- **The header fixpoint is determined on a snapshot.** -/
+theorem headerFixpoint_unique {sp : SearchPath} {fs : FS} {isM : Bool} {imps0 : Array ImportRec}
+    {a b : Loads} (ha : ModelIO.CanGive (headerFixpoint (moduleImports sp) isM imps0) fs (.ok a))
+    (hb : ModelIO.CanGive (headerFixpoint (moduleImports sp) isM imps0) fs (.ok b)) : a = b := by
+  obtain ⟨_, _, ha⟩ := ha
+  obtain ⟨_, _, hb⟩ := hb
+  simp only [headerFixpoint, ModelIO.bind_ok] at ha hb
+  obtain ⟨r₁, _, hr₁, ha⟩ := ha
+  obtain ⟨r₂, _, hr₂, hb⟩ := hb
+  rcases r₁ with e | st₁
+  · simp at ha
+  rcases r₂ with e | st₂
+  · simp at hb
+  obtain rfl := levelsGo_unique _ _ _ hr₁ hr₂
+  simp only [ModelIO.pure_iff, Except.ok.injEq] at ha hb
+  rw [ha.1, hb.1]
+
+/-- **A module of a loaded module's public-import closure** (`pubClosures`, as `captureOne`
+reads it) **is reached from it by a path of public imports**, both modules loaded. -/
+theorem pubClosures_pubReach {sp : SearchPath} {fs : FS} {isM : Bool} {imps0 : Array ImportRec}
+    {ld : Loads} (h : ModelIO.CanGive (headerFixpoint (moduleImports sp) isM imps0) fs (.ok ld))
+    {hi j : Nat} (hp : (((pubClosures ld)[hi]?).map (·.has j)).getD false = true) :
+    ∃ a b, ld.order[hi]? = some a ∧ ld.order[j]? = some b ∧ PubReach sp fs a b := by
+  obtain ⟨-, -, -, hord, hix⟩ := headerFixpoint_sound h
+  obtain ⟨hlt, -, hpp⟩ := pubClosures_sound hix hp
+  obtain ⟨b, hb, hr⟩ := hpp.pubReach hix (fun k m hk is hi => (hord k m hk).2.2 is hi)
+    ld.order[hi] (by simp [hlt])
+  exact ⟨_, b, by simp [hlt], hb, hr⟩
+
 end ConLeche.Driver
