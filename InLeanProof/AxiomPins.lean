@@ -51,6 +51,7 @@ public import InLeanProof.PassRecs3
 public import InLeanProof.PassRecs4
 public import InLeanProof.PassRecs5
 public import InLeanProof.PassRecs6
+public import InLeanProof.PassSim
 
 /-!
 # The axiom pins of the InLean proof tier (task #451, lane G)
@@ -5274,3 +5275,80 @@ info: 'InLeanProof.CtorLbb.mono' depends on axioms: [propext, Classical.choice, 
 -/
 #guard_msgs in
 #print axioms InLeanProof.CtorLbb.mono
+
+/--
+info: 'InLeanProof.consBlockIndsF_pending' depends on axioms: [propext, Classical.choice, Quot.sound]
+-/
+#guard_msgs in
+#print axioms InLeanProof.consBlockIndsF_pending
+
+/--
+info: 'InLeanProof.checkSumCtorsF_fresh' depends on axioms: [propext, Classical.choice, Quot.sound]
+-/
+#guard_msgs in
+#print axioms InLeanProof.checkSumCtorsF_fresh
+
+/--
+info: 'InLeanProof.checkBlockCtorsF_fresh' depends on axioms: [propext, Classical.choice, Quot.sound]
+-/
+#guard_msgs in
+#print axioms InLeanProof.checkBlockCtorsF_fresh
+
+/--
+info: 'InLeanProof.checkBlockCtors_lbb' depends on axioms: [propext, Classical.choice, Quot.sound]
+-/
+#guard_msgs in
+#print axioms InLeanProof.checkBlockCtors_lbb
+
+/--
+info: 'InLeanProof.checkBlockCtors_push' depends on axioms: [propext, Classical.choice, Quot.sound]
+-/
+#guard_msgs in
+#print axioms InLeanProof.checkBlockCtors_push
+
+/--
+info: 'InLeanProof.checkBlockClasses_facts' depends on axioms: [propext, Classical.choice, Quot.sound]
+-/
+#guard_msgs in
+#print axioms InLeanProof.checkBlockClasses_facts
+
+/--
+info: 'InLeanProof.blockNestCtx_params' depends on axioms: [propext, Quot.sound]
+-/
+#guard_msgs in
+#print axioms InLeanProof.blockNestCtx_params
+
+/--
+info: 'InLeanProof.trCR_mono' depends on axioms: [propext, Classical.choice, Quot.sound]
+-/
+#guard_msgs in
+#print axioms InLeanProof.trCR_mono
+
+/--
+info: 'InLeanProof.nestOutKinds_tr' depends on axioms: [propext, Classical.choice, Quot.sound]
+-/
+#guard_msgs in
+#print axioms InLeanProof.nestOutKinds_tr
+
+/--
+info: 'InLeanProof.classSeeds_scoped' depends on axioms: [propext, Classical.choice, Quot.sound]
+-/
+#guard_msgs in
+#print axioms InLeanProof.classSeeds_scoped
+
+/--
+info: 'InLeanProof.PassDataI.frameOk' depends on axioms: [propext, Classical.choice, Quot.sound]
+-/
+#guard_msgs in
+#print axioms InLeanProof.PassDataI.frameOk
+
+/--
+info: 'InLeanProof.passSimRI' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound,
+ InLeanProof.Expr.mkAppData_fields,
+ InLeanProof.Expr.mkData_eq,
+ InLeanProof.Level.mkData_eq]
+-/
+#guard_msgs in
+#print axioms InLeanProof.passSimRI

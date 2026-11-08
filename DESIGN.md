@@ -114331,3 +114331,62 @@ noted above (`constsResolve_trC` in place of `crNF_of_infer` for O6's checks) is
 Gates: `lake build InLean InLeanProof inlean-replay` warning-free; `tests/layering.sh`,
 `tests/trust-surface.sh`, `tests/no-local-paths.sh`, `tests/inlean-sync.sh` pass.
 
+
+### Lane PassSim: the pass assembled (2026-11-08, task #451, agent/451-inlean2)
+
+Scope was `PassSimI (PassRelI D)` from the proved stages, `D` fixed.  Done up to one premise
+`PassSimI` lacks; new file `InLeanProof/PassSim.lean`, 12 theorems, all pinned.  No `InLean/*`
+change; no `sorry`, no new axiom.
+
+* **`passSimRI`** :256 (`PassSimRI (PassRelI PassDataI)`, from `CheckConstantValFSimI` and
+  `ReducedFormerSimI`): the stages in the job's order: `checkBlockIndsFI_run` (+
+  `checkBlockIndsF_fresh`, `jobEnvI_formers`), the flush (`flushI_csoki` at the formers'
+  environment), `checkBlockCtorsFI_run`, `blockNestCtxI_run`, `checkBlockClassesI_run`,
+  `checkBlockPositivityI_run`, `classSeedsI_run`, `nestSeedsI_run`; master's side is
+  `checkBlockPass` bind by bind (`Runs.bind`), then `checkBlockPass_datF`.  The pass runs
+  `blockNestCtx` twice (once itself, once inside the positivity); the seeds' `WalkRel` is
+  built at the pass's own context.
+* **`D` = `PassDataI`** :200: `kinds` by `map (map trNK)` (`nestOutKinds_tr`), `rd` by `trCR`,
+  `cls` by `map trTM`, `tbl` by `map trNf`, all at the final state; and what the tail reads of
+  the pass: the slots `OkSlot`, the classes `OkTM`, the table's entries `OkNf`, the parameters
+  (readable, `params.length = p.nP`, the `j`-th reading `.fvar j _`, scoped below `p.nP`,
+  closed), every class's `pfvs` the block's parameters, the members `MemberOk` with closed
+  formers, every member constructor `CtorOkI`, the stream recursors' types closed, the
+  constructors' names fresh in `env₁` and master's `consBlockCtors` push `EnvWF`.
+* **`FrameOk` arises in the pass**: `PassDataI.frameOk` :224 gives it at every class, at
+  `formerTys := q.p.formers.map (·.type)` (master's `classMajors`: every class at the block's
+  parameters, `checkBlockClasses_facts` :121 through `targetMajorOf_run`).
+* **The parameters' two facts** for `checkBlockClassesI_run`: the scope from
+  `blockNestCtxI_run`, the count from master's run (`blockNestCtx_params` :146:
+  `blockNestCtx_inv`, `openPisAtFvars_length`/`_index`).
+* **The seeds' `SeedOkI`**: levels and readability from `classSeedsI_run`; scope and
+  closedness on master's side (`classSeeds_scoped` :173, `genScoped_of_run`'s argument:
+  `mem_classSeeds`, `nestSeedOf_ds`, `nestSeedOf_closed`, `nestHoles_ok`), an outside class's
+  parameters closed and below `p.nP` from `checkBlockClasses_facts`.
+* Constructor closedness from master's run (`checkBlockCtors_lbb` :94, `direct_sum_ctor_typeWF`),
+  freshness from InLean's (`checkBlockCtorsF_fresh` :79), the push's `EnvWF`
+  (`checkBlockCtors_push` :110).
+* Statement strengthening: `checkBlockIndsFI_run` (`PassInds.lean`) also returns the formers'
+  types closed (it had them from `checkBlockTele(s)FI_run`; no other user).
+
+**Finding (premise).**  `PassSimI` cannot be proved as stated: `checkBlockClassesI_run` takes the
+stream recursors' types closed (`hrecs`, needed by `classReadI_run`'s opener
+`openPisAtFvarsI_run`), and nothing upstream gives it: the block comes from the unverified
+generator, `constInRange` bounds the range only, and `PassTailSimI`/`BlockKSSimI`/
+`checkIndDeclC_sim` carry only `okC`.  `PassSimRI` :241 is `PassSimI` with the premise
+`∀ rc ∈ p₀.recs, okC rc.cvR.type ∧ (trC rc.cvR.type).looseBVarsBounded 0`.  The same closedness
+is a premise of round 6's `genRecCheckI_run`.  To be ruled: thread "the block's types closed"
+from the declaration level (`toBlock`/the generator's output check) into `BlockKSSimI`, or
+drop the need from `classReadI_run`.  Not a counterexample: no InLean divergence is known
+for an open recursor type.
+
+**What remains.**  The premise above (then `PassSimI` follows with `PassTailSimI`'s statement
+gaining it).  `TailSimI (PassRelI PassDataI)` (round 6), whose premises from the pass are in
+`PassDataI`; still to be sourced outside the pass: the constructors' names distinct
+(`ctorNamesOf`, from `checkBlockKS`'s `namesNodup` guard) and their `sorryAx` clause (from
+`BlockKSSimI`'s `hso`), both for `jobEnvI_ctors`; every `tbl` entry closed (the walk's records:
+`NfOk` has no closedness; master's `genRun_tbl_scoped` is the model); `FvsOk s params` follows
+from `paramsOk`+`paramsVar`; `rd.recCls` bounds, `hmc` and the slots are the tail's own.
+
+Gates: `lake build InLean InLeanProof inlean-replay` warning-free; `tests/layering.sh`,
+`tests/trust-surface.sh`, `tests/no-local-paths.sh`, `tests/inlean-sync.sh` pass.

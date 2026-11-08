@@ -396,6 +396,7 @@ theorem checkBlockIndsFI_run (hC : CheckConstantValFSimI) {fe : InLean.FEnv} {L 
     CSOKI .verified false L s' ∧ TabLe s₀ s' ∧ ∃ s0, okL s0 = true ∧ p₁ = p.withSort s0 ∧
       fe₁ = InLean.consBlockIndsF p₁ isRec (p.members.map (·.declared)) 0
         { fe with pending := InLean.blockMarks p₁ ++ fe.pending } ∧
+      (∀ ms ∈ p.members, (trC ms.cvT.type).looseBVarsBounded 0 = true) ∧
       Runs (ConLeche.checkBlockInds (ConLeche.fueledOpsM .verified) L (trShape p) isRec)
         (ConLeche.consBlockInds (trShape p₁) isRec ((trShape p).members.map (·.declared)) 0 L,
           trShape p₁) := by
@@ -416,10 +417,17 @@ theorem checkBlockIndsFI_run (hC : CheckConstantValFSimI) {fe : InLean.FEnv} {L 
   obtain ⟨_, s₃, h3, hk3⟩ := bindI_ok hk2
   obtain ⟨hs₃, ht₃, hR3⟩ := checkBlockAgreeFI_run hJ.ops (hok ms0 (List.mem_cons_self ..)) hcl0
     hl0 hs₂ hall h3
+  have hclAll : ∀ ms ∈ ms0 :: rest, (trC ms.cvT.type).looseBVarsBounded 0 = true := by
+    intro m hm'
+    rcases List.mem_cons.1 hm' with rfl | hm'
+    · exact hcl0
+    · have hmem : m.cvT ∈ cvs.map Prod.fst := by rw [hcvs]; exact List.mem_map_of_mem hm'
+      obtain ⟨x, hx, hxe⟩ := List.mem_map.1 hmem
+      rw [← hxe]; exact (hall x hx).2.1
   obtain ⟨hp, rfl⟩ := pureI_ok hk3
   simp only [Prod.mk.injEq] at hp
   obtain ⟨rfl, rfl⟩ := hp
-  refine ⟨hs₃, ht₁.trans (ht₂.trans ht₃), s0, hl0, rfl, rfl, ?_⟩
+  refine ⟨hs₃, ht₁.trans (ht₂.trans ht₃), s0, hl0, rfl, rfl, hclAll, ?_⟩
   have hmC : (trShape p).members = trMember ms0 :: rest.map trMember := by
     simp [trShape, hm]
   unfold ConLeche.checkBlockInds
