@@ -114241,6 +114241,7 @@ decided in the lane, not ruled: to be confirmed at review.
 3. The gates in full (shake will see the new files' imports), then land with `--no-ff`.
 
 **Gates on this tree** (the umbrella imports `ComposeReads`; `Loads.lean` imports the olean interface): `lake build`
-warning-free; `lake test`, layering, trust surface, overview links, quote gate, no-local-paths
-below.  Not run: arena, shake, challenge, fragment, whitepaper, olean gate (the part inference
-changes the reach; the olean gate's `PpM` infers one flag).
+warning-free; `lake test` warning-free; layering, trust surface (13 escapes, allowlisted),
+overview links (162), quote gate, no-local-paths; the olean gate 311/311 under the guard (peak
+anon 3.6 GB; `PpM` infers its one flag over the part).  Not run: arena, shake, challenge, fragment,
+whitepaper.
