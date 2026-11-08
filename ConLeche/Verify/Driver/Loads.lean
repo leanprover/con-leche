@@ -5,6 +5,10 @@ public import ConLeche.Frontend.Olean.Files
 public import ConLeche.Verify.Frontend.ModelIO
 import ConLeche.Verify.Frontend.Olean.Files
 import Std.Data.HashSet.Lemmas
+import ConLeche.Frontend.Olean.Lazy
+import ConLeche.Verify.Frontend.Olean.Engine
+import ConLeche.Verify.Frontend.Olean.Equiv
+import ConLeche.Verify.Frontend.Olean.Reads
 import Std.Data.HashMap.Lemmas
 
 /-!
@@ -21,7 +25,9 @@ What the composition (task #501) reads off a worker's header fixpoint (`headerFi
   followed from every loaded module;
 * `pubClosures_pubReach` — a module of a loaded module's public-import closure
   (`pubClosures`) is reached from it by a path of public imports;
-* `headerFixpoint_unique` — the fixpoint is determined on a snapshot (`moduleImports_unique`).
+* `headerFixpoint_unique` — the fixpoint is determined on a snapshot (`moduleImports_unique`);
+* `readPartNames_header` — where a module's private view loads, its private part's name table
+  holds the imports its header read answers: a worker's root imports are the graph's edges.
 -/
 
 public section
@@ -806,5 +812,98 @@ theorem pubClosures_pubReach {sp : SearchPath} {fs : FS} {isM : Bool} {imps0 : A
   obtain ⟨b, hb, hr⟩ := hpp.pubReach hix (fun k m hk is hi => (hord k m hk).2.2 is hi)
     ld.order[hi] (by simp [hlt])
   exact ⟨_, b, by simp [hlt], hb, hr⟩
+
+/-! ## The root's imports -/
+
+theorem importsMapM_congr {nm nm' : UInt64 → Option Name} :
+    ∀ (l : List (ImportF UInt64)), (∀ i ∈ l, nm i.module = nm' i.module) →
+      l.mapM (ImportF.mapM nm) = l.mapM (ImportF.mapM nm')
+  | [], _ => rfl
+  | i :: l, h => by
+    simp only [List.mapM_cons, ImportF.mapM, h i List.mem_cons_self,
+      importsMapM_congr l (fun j hj => h j (List.mem_cons_of_mem _ hj))]
+
+/-- **The load of a module's private view holds its header's imports**: the imports its
+skeleton names are those the start of its `M.olean` holds. -/
+theorem loadAt_imports {i : Nat} {m : Name} {f : ModFiles} {l : Loaded}
+    (h : loadAt i m f = some l) :
+    ∃ r a sk imports, f.viewRegion .private = some (r, a) ∧ moduleSkel r a = some sk ∧
+      sk.imports.mapM (ImportF.mapM (nameP r)) = some imports ∧
+      importsPre f.exported.bytes = some imports.toArray := by
+  unfold loadAt at h
+  obtain ⟨⟨r, a⟩, hv, h⟩ := bind_some_left h
+  simp only at h
+  split at h
+  rotate_left
+  · cases h
+  obtain ⟨sk, hsk, h⟩ := bind_some_left h
+  obtain ⟨skels, -, h⟩ := bind_some_left h
+  obtain ⟨outs, -, h⟩ := bind_some_left h
+  obtain ⟨⟨nm, ms, st⟩, hrun, h⟩ := bind_some_left h
+  simp only at h
+  obtain ⟨imports, himp, h⟩ := bind_some_left h
+  split at h
+  rotate_left
+  · cases h
+  rename_i hpre
+  have hs := runMarked_spec r (sk.imports.map (·.module) ++ skels.flatMap CEntryF.names ++
+    usesNames outs) (skels.flatMap lazyRoots)
+  rw [hrun] at hs
+  obtain ⟨h1, -, -⟩ := hs
+  refine ⟨r, a, sk, imports, hv, hsk, ?_, eq_of_beq hpre⟩
+  rw [← himp]
+  exact (importsMapM_congr _ fun i hi => h1 _ (by
+    simp only [List.mem_append, List.mem_map]
+    exact Or.inl (Or.inl ⟨i, hi, rfl⟩))).symm
+
+/-- **A module's private part's name table holds the imports its header read answers**, where
+the module's private view loads (a worker's home read): the worker's root imports are the
+graph's edges. -/
+theorem readPartNames_header {sp : SearchPath} {fs : FS} {m : Name} {f : ModFiles} {i : Nat}
+    {l : Loaded} {t : NamePositions}
+    (hf : ModelIO.CanGive (readFiles sp m .private) fs (.ok f)) (hl : loadAt i m f = some l)
+    (ht : ModelIO.CanGive (readPartNames sp (m, .private)) fs (.ok t)) :
+    ModelIO.CanGive (moduleImports sp m) fs (.ok t.header.imports) := by
+  -- the table is the one of the files' private view
+  obtain ⟨hs₀, _, ht⟩ := ht
+  simp only [readPartNames, ModelIO.bind_ok] at ht
+  obtain ⟨y, hs₁, hy, ht⟩ := ht
+  rcases y with e | loc
+  · simp at ht
+  simp only [readPartNamesAt, ModelIO.bind_ok] at ht
+  obtain ⟨z, hs₂, hz, ht⟩ := ht
+  rcases z with e | f'
+  · simp at ht
+  have hf' : ModelIO.CanGive (readFiles sp m .private) fs (.ok f') := by
+    refine ⟨hs₀, hs₂, ?_⟩
+    simp only [readFiles, ModelIO.bind_ok]
+    exact ⟨.ok loc, hs₁, hy, hz⟩
+  obtain rfl := readFiles_unique hf' hf
+  simp only at ht
+  cases hr : readNamePositions f' .private with
+  | none => simp [hr] at ht
+  | some ps =>
+  simp only [hr, ModelIO.pure_iff, Except.ok.injEq] at ht
+  obtain ⟨rfl, -⟩ := ht
+  obtain ⟨r, a, sk, imports, hv, hsk, himp, hpre⟩ := loadAt_imports hl
+  have hhead : t.header.imports = imports.toArray := by
+    simp only [readNamePositions, hv, bind, Option.bind] at hr
+    unfold namePositionsAt at hr
+    rw [hsk] at hr
+    simp only [Option.bind_eq_bind, Option.bind_some, himp] at hr
+    obtain ⟨cs, -, hr⟩ := bind_some_left hr
+    split at hr
+    · simp only [pure, Option.some.injEq] at hr
+      rw [← hr]
+    · cases hr
+  rw [hhead]
+  -- the header read at the module's location
+  obtain ⟨_, _, hf2⟩ := hf
+  obtain ⟨loc', b, ex, hloc, hb, hp, hex, -⟩ := readFiles_ok hf2
+  rw [hex, Part.ofBytes_bytes hp] at hpre
+  have hg : ModelIO.Gives (moduleImports sp m) fs (.ok imports.toArray) := by
+    simp only [moduleImports]
+    exact hloc.bind (readImportsAt_det hb hp hpre)
+  exact hg.canGive
 
 end ConLeche.Driver
