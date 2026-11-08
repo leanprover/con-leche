@@ -114851,3 +114851,42 @@ Re-validated on the final binary: Init 64,530, Std 110,064, Lean 199,645 accepte
 0 declined, 0 exact and 0 cosmetic mismatches; `scripts/inlean_negtest.lean` 15/15;
 `instructions:u` on Init 878.2 G (unchanged).  Pins: `CIGround_of_constGround`, `addDeclSound`,
 `no_false` (replacing `addDeclSound_of`, `no_false_of_indGround`).  Gates as above, re-run.
+
+### Lane OneRelation: one relation between the kernel environment and con-leche's (2026-11-08, task #451, agent/451-onerel)
+
+Maintainer: `AddDeclSound` took two relations between `E` and `L`, `Presents` (the original
+statement: `L = installAll ds` for records `ds` each reading a declaration group of `E`, and every
+safe constant of `E` but `sorryAx` reading as a constant of `L`) and `RelatesI` (added in lane P4:
+`EnvPresI` at InLean's safe view and `ProjBodiesInRange`), history rather than design; make it one.
+
+**What each part was used for.**
+* `Presents`' provenance (`∃ ds, (∀ d ∈ ds, ∃ cs, ReadsGroup E cs d) ∧ L = installAll ds`): only
+  to re-establish itself in the conclusion (`step_of`: the records appended, the old groups still
+  found by `find_foldl_addConst`).  Master's fold (`foldPM`) takes `EnvModelOk V L` alone,
+  `EnvWF`/`NatKinds` come from `EnvModelOk`, and the simulation reads `EnvPresI`; nothing reads
+  the provenance.
+* `Presents`' third clause (every safe constant but `sorryAx` read by name and type): only for
+  `no_false_of_addDeclSound`, and implied by `EnvPresI.entry` (`presents_reads`, now
+  `EnvRel.reads`: a safe non-`sorryAx` constant is seen, `sees_safe`).
+* `RelatesI`'s two parts: both read by the simulation (`JobEnvI`: `pres`, `proj`), neither
+  derivable from `Presents` (lane P4's examples: an unsafe definition, a structure's bodies out
+  of range).
+
+**Now.**  `EnvRel E L` (`AddDeclProof.lean`), a structure with `pres : EnvPresI {env := E,
+coreAxioms := false} L` and `proj : ProjBodiesInRange {env := E, coreAxioms := false}`;
+`envRel_of_none` (the start), `EnvRel.reads`.  `AddDeclSound`, `no_false_of_addDeclSound`,
+`no_false` and the steps (`step_of`, `single_step`, `quot_step`, `ind_step`, `concl_congr`) take
+and give `EnvRel` alone.  Deleted: `Presents`, `ReadsGroup`, `installAll` (`Statement.lean`),
+`RelatesI`, `relatesI_of_none`, `presents_reads`, `mapM_toDecl_mem` (the records' provenance in
+the quotient step).  `step_of` loses the records' provenance and `Presents` premises.  No
+`InLean/*` change.
+
+Also found, not changed: `EnvRangeOk E` is, like the provenance, only carried (premise to
+conclusion by `step_of`); no step reads it.  It stays in the statement as the range bound on
+`E'`, pending the maintainer's ruling.
+
+Pins: `addDeclSound` unchanged (`propext`, `Classical.choice`, `Quot.sound` and the three
+`MkDataAxioms` stop-gaps); `envRel_of_none`, `EnvRel.reads` added (`propext`,
+`Classical.choice`, `Quot.sound`).  Gates: `lake build InLean InLeanProof` warning-free;
+`tests/layering.sh`, `tests/trust-surface.sh`, `tests/no-local-paths.sh`,
+`tests/inlean-sync.sh`, `tests/shake.sh`.
