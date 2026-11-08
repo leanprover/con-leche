@@ -160,7 +160,7 @@ theorem toExpr_instantiate1L (hfv : FVarsOnly fv) {e v : Expr} {c cv : ConLeche.
     (hr : Expr.RangeOk e) (hvr : Expr.RangeOk v) (h : toExpr fv e = some c)
     (hv : toExpr fv v = some cv) :
     toExpr fv (EO.instantiate1 e v) = some (c.instantiate1Lift cv 0) := by
-  rw [EO.instantiate1, instantiate_eq]
+  rw [instantiate1_eq, instantiate_eq]
   split
   · rename_i hn
     have hl : e.looseBVarRange = 0 := by

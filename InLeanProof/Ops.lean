@@ -359,11 +359,42 @@ theorem toExpr_liftLooseBVars {fv : FVarId → Option ConLeche.Expr} (hfv : FVar
 theorem instantiate_eq (e : Expr) (subst : Array Expr) :
     EO.instantiate e subst =
       if subst.size == 0 || !e.hasLooseBVars then e else mapSpec (instF subst) e 0 := by
-  unfold EO.instantiate
-  dsimp only
+  unfold EO.instantiate EO.instantiateBy
   split
   · rfl
   · exact mapOff_spec _ e 0
+
+/-- The substitution reads its values only below `n`. -/
+theorem instantiateBy_congr {e : Expr} {n : Nat} {get get' : Nat → Expr}
+    (h : ∀ j, j < n → get j = get' j) : EO.instantiateBy e n get = EO.instantiateBy e n get' := by
+  unfold EO.instantiateBy
+  split
+  · rfl
+  · congr 1
+    funext x k
+    split
+    · rfl
+    · split
+      · split
+        · rfl
+        · split
+          · rename_i i _ _ hi; rw [h _ hi]
+          · rfl
+      · rfl
+
+theorem instantiate1_eq (e v : Expr) : EO.instantiate1 e v = EO.instantiate e #[v] := by
+  unfold EO.instantiate1 EO.instantiate
+  exact instantiateBy_congr fun j hj => by
+    have : j = 0 := by omega
+    subst this; rfl
+
+theorem instantiateRev_eq (e : Expr) (subst : Array Expr) :
+    EO.instantiateRev e subst = EO.instantiate e subst.reverse := by
+  unfold EO.instantiateRev EO.instantiate
+  rw [Array.size_reverse]
+  exact instantiateBy_congr fun j hj => by
+    rw [getElem!_pos subst.reverse j (by simpa using hj), Array.getElem_reverse,
+      getElem!_pos subst _ (by omega)]
 
 /-- The substitution reads, entry by entry, as the closed list `cvs`, and
 is in range. -/
@@ -539,7 +570,7 @@ theorem toExpr_instantiate1 {fv : FVarId → Option ConLeche.Expr} (hfv : FVarsO
     {e v : Expr} {c cv : ConLeche.Expr} (hr : Expr.RangeOk e) (hvr : Expr.RangeOk v)
     (h : toExpr fv e = some c) (hv : toExpr fv v = some cv) (hcl : cv.looseBVarsBounded 0 = true) :
     toExpr fv (EO.instantiate1 e v) = some (c.instantiate1 cv 0) := by
-  rw [EO.instantiate1, toExpr_instantiate hfv (SubstReads.single hv hcl hvr) hr h,
+  rw [instantiate1_eq, toExpr_instantiate hfv (SubstReads.single hv hcl hvr) hr h,
     ConLeche.Expr.instantiateList_cons, ConLeche.Expr.instantiateList_nil]
 
 /-- The reversed substitution reads as the reversed list. -/
@@ -564,8 +595,8 @@ side). -/
 theorem toExpr_instantiateRev {fv : FVarId → Option ConLeche.Expr} (hfv : FVarsOnly fv)
     {subst : Array Expr} {cvs : List ConLeche.Expr} (hs : SubstReads fv subst cvs)
     {e : Expr} {c : ConLeche.Expr} (hr : Expr.RangeOk e) (h : toExpr fv e = some c) :
-    toExpr fv (EO.instantiateRev e subst) = some (c.instantiateList cvs.reverse 0) :=
-  toExpr_instantiate hfv hs.reverse hr h
+    toExpr fv (EO.instantiateRev e subst) = some (c.instantiateList cvs.reverse 0) := by
+  rw [instantiateRev_eq]; exact toExpr_instantiate hfv hs.reverse hr h
 
 /-! ### Abstraction by depth -/
 

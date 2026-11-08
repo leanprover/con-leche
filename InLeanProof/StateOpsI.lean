@@ -122,7 +122,7 @@ theorem instListRevM_specI (hs : CSOKI mode eager env s₀) {e : Expr} {vs : Arr
   have hmemR : ∀ j (hj : j < vs.reverse.size), vs.reverse[j] ∈ vs.toList := by
     intro j hj
     exact Array.mem_toList_iff.2 (Array.mem_reverse.1 (Array.getElem_mem hj))
-  have hr' : Expr.RangeOk (EO.instantiateRev e vs) :=
+  have hr' : Expr.RangeOk (EO.instantiateRev e vs) := instantiateRev_eq e vs ▸
     RangeOk_instantiate (RangeOk_of_OkS he)
       (fun j hj => (hmem _ (hmemR j hj)).1) (fun j hj => (hmem _ (hmemR j hj)).2)
   obtain ⟨hok, htr⟩ := ok_of_TransS hr' h

@@ -490,7 +490,7 @@ theorem TrS_inst1 {s : InLean.CState} {b v : Expr} (hb : OkS s b = true) (hv : O
     rw [looseBVarRange_toExpr (FVarTable.trans_fvarsOnly _) (RangeOk_of_OkS hv) (TransS_of_ok hv)]
     have := ConLeche.Expr.looseBVarsBounded_iff.1 hcl
     omega
-  have hr : Expr.RangeOk (EO.instantiate1 b v) :=
+  have hr : Expr.RangeOk (EO.instantiate1 b v) := instantiate1_eq b v ▸
     RangeOk_instantiate (RangeOk_of_OkS hb)
       (fun j hj => by simp at hj; subst hj; exact RangeOk_of_OkS hv)
       (fun j hj => by simp at hj; subst hj; exact hv0)

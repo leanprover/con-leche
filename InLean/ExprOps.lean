@@ -314,25 +314,30 @@ def lowerLooseBVars (e : Expr) (s d : Nat) : Expr :=
     | .bvar i => some (.bvar (i - d))
     | _ => none) e 0 )
 
-/-- Twin of `instantiateListC` (Lean's `instantiate`): `bvar (k + j)` to
-`subst[j]` lifted by `k`, above the substitution lowered by its size. -/
-def instantiate (e : Expr) (subst : Array Expr) : Expr :=
-  let n := subst.size
+/-- The substitution of `n` values read by `get`: `bvar (k + j)` (`j < n`) to
+`get j` lifted by `k`, above the substitution lowered by `n`. -/
+@[inline] def instantiateBy (e : Expr) (n : Nat) (get : Nat → Expr) : Expr :=
   if n == 0 || !e.hasLooseBVars then e else
   (mapOff (fun x k =>
     if x.looseBVarRange ≤ k then some x else
     match x with
     | .bvar i =>
       if i < k then some x
-      else if i - k < n then some (liftLooseBVars (subst[i - k]!) 0 k)
+      else if i - k < n then some (liftLooseBVars (get (i - k)) 0 k)
       else some (.bvar (i - n))
     | _ => none) e 0 )
 
+/-- Twin of `instantiateListC` (Lean's `instantiate`): `bvar (k + j)` to
+`subst[j]` lifted by `k`, above the substitution lowered by its size. -/
+def instantiate (e : Expr) (subst : Array Expr) : Expr :=
+  instantiateBy e subst.size (fun j => subst[j]!)
+
 /-- Twin of `instantiate1C`. -/
-@[inline] def instantiate1 (e v : Expr) : Expr := instantiate e #[v]
+def instantiate1 (e v : Expr) : Expr := instantiateBy e 1 (fun _ => v)
 
 /-- Twin of `instantiateRev`: `bvar 0` is the last element. -/
-@[inline] def instantiateRev (e : Expr) (subst : Array Expr) : Expr := instantiate e subst.reverse
+def instantiateRev (e : Expr) (subst : Array Expr) : Expr :=
+  instantiateBy e subst.size (fun j => subst[subst.size - 1 - j]!)
 
 /-- Lean's `instantiateRevRange e beg end subst`. -/
 @[inline] def instantiateRevRange (e : Expr) (beg stop : Nat) (subst : Array Expr) : Expr :=

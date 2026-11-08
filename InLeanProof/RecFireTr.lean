@@ -112,7 +112,7 @@ theorem dropVars_tr : ∀ (n : Nat) {e : Expr} {c : ConLeche.Expr}, Expr.RangeOk
     have hsr : Expr.RangeOk (Expr.sort Level.zero) := by simp [Expr.RangeOk, depthS]
     have hcl : (Expr.sort Level.zero).looseBVarRange = 0 := by
       rw [Expr.looseBVarRange_eq hsr]; rfl
-    have hr' : Expr.RangeOk (e.inst1I (.sort .zero)) :=
+    have hr' : Expr.RangeOk (EO.instantiate1 e (.sort .zero)) := instantiate1_eq e (.sort .zero) ▸
       RangeOk_instantiate hr (fun j hj => by
         have : j = 0 := by simp at hj; omega
         subst this; exact hsr) (fun j hj => by
