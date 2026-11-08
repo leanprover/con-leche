@@ -5,6 +5,7 @@ public import InLeanProof.NestDepth
 import ConLeche.Verify.Inductives.NestScope
 import ConLeche.Verify.Cached.NestPosC
 import ConLeche.Verify.Cached.Erase
+import ConLeche.Verify.Inductives.NestCallSyn
 /- `Expr.isFVar`'s body (`nestResHead_tr`). -/
 import all Lean.Expr
 
@@ -192,10 +193,10 @@ theorem nestGroupCtors_ctorOk {fe : InLean.FEnv} {L : ConLeche.Env} {s : InLean.
 
 /-! ## A frame's constructors -/
 
-/-- A frame output's normal form: readable, scoped at the frame. -/
+/-- A frame output's normal form: readable, scoped at the frame, closed. -/
 @[expose] def OutOk (s : InLean.CState) (hi : Nat) (o : List InLean.NestFieldKind × Lean.Expr) :
     Prop :=
-  OkS s o.2 = true ∧ ConLeche.Expr.WScoped hi (TrS s o.2)
+  OkS s o.2 = true ∧ ConLeche.Expr.WScoped hi (TrS s o.2) ∧ (TrS s o.2).looseBVarsBounded 0 = true
 
 /-- A frame's outputs, read. -/
 @[expose] def trOuts (s : InLean.CState) (os : List (List InLean.NestFieldKind × Lean.Expr)) :
@@ -206,8 +207,9 @@ theorem OutOk.mono {s₀ s₁ : InLean.CState} (ht : TabLe s₀ s₁) {hi : Nat}
     {os : List (List InLean.NestFieldKind × Lean.Expr)} (h : ∀ o ∈ os, OutOk s₀ hi o) :
     (∀ o ∈ os, OutOk s₁ hi o) ∧ trOuts s₁ os = trOuts s₀ os := by
   refine ⟨fun o ho => ?_, ?_⟩
-  · obtain ⟨h1, h2⟩ := h o ho
-    exact ⟨okS_of_tabLe ht h1, by rw [TrS_of_tabLe ht h1]; exact h2⟩
+  · obtain ⟨h1, h2, h3⟩ := h o ho
+    exact ⟨okS_of_tabLe ht h1, by rw [TrS_of_tabLe ht h1]; exact h2,
+      by rw [TrS_of_tabLe ht h1]; exact h3⟩
   · simp only [trOuts]
     apply List.map_congr_left
     intro o ho
@@ -387,11 +389,17 @@ theorem nestCtorsI_run {fe : InLean.FEnv} {L : ConLeche.Env} {ctx : InLean.NestC
         rw [hTC]
         exact ConLeche.Cached.closeTelescope_wscopedA (by simpa using hnds.2.1)
           (by simpa [TrSL] using hcur.2.1)
+      have hcT : (TrS s₅ (InLean.closeTelescope nds hi cur)).looseBVarsBounded 0 = true := by
+        rw [hTC]
+        exact ConLeche.closeTelescope_bounded _ _ _
+          (fun x hx => by
+            obtain ⟨a, ha, rfl⟩ := List.mem_map.1 hx
+            exact hnds.2.2 a ha) hcur.2.2
       have hTe := TrS_of_tabLe ht₆ hokT
       refine ⟨hs₆, ht05.trans ht₆, ?_, hst₃, ?_⟩
       · intro o ho
         rcases List.mem_cons.1 ho with rfl | ho
-        · exact ⟨okS_of_tabLe ht₆ hokT, by rw [hTe]; exact hwT⟩
+        · exact ⟨okS_of_tabLe ht₆ hokT, by rw [hTe]; exact hwT, by rw [hTe]; exact hcT⟩
         · exact hos o ho
       · refine Runs.bind (Runs.pure _) (Runs.bind hRty (Runs.bind hRu (Runs.bind hR5 ?_)))
         simp only

@@ -113048,6 +113048,92 @@ Gates: `lake build InLean InLeanProof inlean-replay` warning-free;
 `tests/layering.sh`, `tests/trust-surface.sh`, `tests/no-local-paths.sh`,
 `tests/inlean-sync.sh` pass.
 
+### Lane O7-positivity, round 3: the fields' sorts, the block's positivity, the seeds (2026-11-08)
+
+Scope was round 2's "what remains" (1) `checkAbsCtorSortsAll`, (2)
+`checkBlockPositivity`, (3) `nestSeeds`' walk, stated to compose with lane
+O7-recursors' `nestSeedOfI_run`/`classSeedsI_run` (branch agent/451-o7classes).
+All three are proved.  No InLean change, no `sorry`, no new axiom (the
+`TrS` theorems use the stop-gap `mkData` axioms, as before); 14 new pins.
+
+**Strengthened statements.**
+* `OutOk` (`PassNestWalk.lean`) now says the normal form is closed too:
+  `nestCtorsI_run` gets it from master's `closeTelescope_bounded`
+  (`Verify/Inductives/NestCallSyn.lean`, the `lbb_abstract1` argument round 2
+  named) over the fields' `TeleOk` and the result's `TOk`.
+* `blockNestCtxI_run` (`PassNest.lean`) also states the canonical parameters
+  scoped at `p.nP` (`openPisAtFvars_WScoped` of the first former's opening)
+  and master's `nestHoles` at the context as the holes' readings.  Nothing
+  else used it.
+
+**The level-parameter guard** (`InLeanProof/PassPositivity.lean`).
+InLean's `allLevelParamsDefined` asks the test of the term and of the interned
+types of the ids its variables reach (`withAnnotations`, the
+`leafGuardM.closure`); master's recurses into a free variable's type.
+`allLPD_toExpr`: a reading passes when the closed reading `trC` does and every
+occurring id's reading does; `idLpd`: an id's reading passes when every
+interned type it reaches does (strong induction on the number, as `idLeaves`);
+`allLevelParamsDefinedI_run`: InLean's run reads no state and its pass is
+master's (`closure_contains_iff` puts every reached id in the annotations,
+`allLevelParamsDefined_of_guard` turns each annotation's test into `trC`'s).
+
+**The fields' sorts.** `checkAbsCtorSortsI_run` (the normal form's guard, its
+fields opened at `ctx.hiAt 0` by `openPisAtFvarsI_run` from `OutOk`'s
+closedness, the field facts by `openers_fvarTypeD_WScoped`,
+`openPisAtFvars_bounded`, `openPisAtFvars_index`, then
+`checkStructFieldSortsIFI_run`, as `PassCtors.lean`'s sums) and
+`checkAbsCtorSortsAllI_run`.
+
+**The block's positivity.** `checkBlockPositivityI_run`: master's run at the
+translated shape and `L.find?`, on the readings of the outputs and the walk's
+state (`OutOk` at `p.nP + p.memberNames.length`, `StOk`).  Its premises: the
+formers' types closed and in range (as `blockNestCtxI_run`), `CtorOkI` of every
+stored constructor, `okL p.resSort`.  `WalkRel` is built from the context
+(`trShape_nIdxs`, `trShape_memberNames`, `trShape_lps`); `nestRootI_run`'s
+premises: the holes `TOk` at `ctx.hiAt 0` from master's `nestHoles_ok`
+(`NestCtxOk` from `EnvWF` and `trC_hasFvar`), the parameters scoped there,
+`names.length ≤ holes.length` from `nestHoles_length`.
+
+**The seeds** (`InLeanProof/PassNestSeeds.lean`). `nestSeedsI_run`: master's
+`nestSeeds` on `ks.map fun q => (trKey s₀ q.1, q.2)` — the form
+`classSeedsI_run` states master's `classSeeds` in — from the empty frame
+stack; each seed's fuel is master's (`seedFuel_tr`, `whnfWalkFuel_TrS`), then
+`nestInstTypeI_run` and `nestContKeyI_run` with the walk at that fuel
+(`nestPosI_run`).  A seed must satisfy `SeedOkI s₀ (ctx.hiAt 0)`: levels with a
+reading and parameters `TOk` at the holes' depth.
+
+**Theorems** (file:line).  `PassPositivity.lean`: `allLPD_toExpr` :32,
+`RReach.of_succ` :81, `idLpd` :89, `allLevelParamsDefinedI_run` :114,
+`checkAbsCtorSortsI_run` :177, `checkAbsCtorSortsAllI_run` :243,
+`trShape_memberCtors` :281, `trShape_nIdxs` :286, `trSt_empty` :289,
+`StOk_empty` :292, `checkBlockPositivityI_run` :299.  `PassNestSeeds.lean`:
+`SeedOkI` :27, `SeedOkI.mono` :30, `seedFuel_tr` :39, `nestSeedsI_run` :51.
+All theorems pinned.
+
+**Findings.**
+1. No statement turned out false for the code.
+2. *Composing the seeds*: `classSeedsI_run` (agent/451-o7classes) states
+   `OkSL` of the seeds' parameters, not their levels' reading nor their scope.
+   For `SeedOkI` the caller adds `q.1.lvls.all okLv` (from `OkTM` and
+   `nestSeedOfI_run`'s `r.1.lvls = us`; one more conjunct in
+   `classSeedsI_run`'s conclusion) and the scope and closedness of
+   `TrSL s q.1.ds` from master's side through the equality
+   (`mem_classSeeds`, `nestSeedOf_ds`, `nestSeedOf_closed`).
+3. *`unless` after `cases b`*: the `if` reduces with the bind already gone, so
+   no `bind_run` for the guard's `pure ()`; master's side keeps one
+   `Runs.pure` bind.
+
+**What remains** (bottom-up): the seeds' preconditions from `classSeedsI_run`
+(finding 2) and the class stage that calls `nestSeeds` (`checkBlockClasses`,
+O7-recursors' lane); the tables, the pushes, `PassSimI`/`TailSimI`,
+`checkIndDeclC_sim_rest`; the block tail's use of `checkBlockPositivityI_run`
+(its premises: the formers' and constructors' closedness from the
+constructors' stage, `okL p.resSort` from the shape).
+
+Gates: `lake build InLean InLeanProof inlean-replay` warning-free;
+`tests/layering.sh`, `tests/trust-surface.sh`, `tests/no-local-paths.sh`,
+`tests/inlean-sync.sh` pass.
+
 ## TASK #489 — what a module's constants mention, in one array per module (2026-11-06, agent/489-flat-uses)
 
 **The task (maintainer).**  After #480, take the self-contained one of the memory fixes a census of

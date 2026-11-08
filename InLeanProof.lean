@@ -45,6 +45,8 @@ public import InLeanProof.PassNestPos0
 public import InLeanProof.PassNestPos
 public import InLeanProof.NestDepth
 public import InLeanProof.PassNestWalk
+public import InLeanProof.PassPositivity
+public import InLeanProof.PassNestSeeds
 public import InLeanProof.DeclGuards
 public import InLeanProof.DeclStep
 public import InLeanProof.DeclPins
