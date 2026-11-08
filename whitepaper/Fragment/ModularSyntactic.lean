@@ -30,7 +30,7 @@ until there is such a proof to connect it to.
   name of the assembled environment that two of them store.
 
 Declarations are definitions only: no axioms, no inductive types, and
-no copy is a proof (`ProofIn` and `IsThm` hold of nothing), so copies
+no copy is a proof (`ProofIn` and `ProofBy` hold of nothing), so copies
 agree only by being read from one module.  An axiom has no realised value, and the step
 must extend every realisation, so axioms are not conservative here
 either.
@@ -240,8 +240,8 @@ noncomputable def syntacticSemantics : ModularSemantics.{u, u} where
     exact ⟨mC, fun i c hc _ hs => hmC c i hc hs⟩
   ProofIn _ _ _ := False
   proof_val h := h.elim
-  IsThm _ _ := False
-  thm_val h := h.elim
+  ProofBy _ _ _ _ := False
+  proofBy_val h := h.elim
   Decls := List (N × T.Tm × T.Tm)
   Accepts := Accepts
   step h m := by

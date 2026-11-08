@@ -605,6 +605,33 @@ theorem ProofIn.eq_dflt {C E : Env} {n : Name} (h : ProofIn C E n) (mC : EnvMode
     exact PropType.of_infer mC hT hr hu ls
   exact hp n ci hf hk hpt
 
+/-- **`E`'s `n` is a proof by `E'`'s**: `E` stores `n` as a statement
+kind of the type of `E'`'s `n`, which `E'` proves a proof itself (the
+fragment's theorems), the type in scope of `C` and of `E`. -/
+def ProofBy (C E E' : Env) (n : Name) : Prop :=
+  ∃ ci ci', E.find? n = some ci ∧ ci.IsStmt ∧ E'.find? n = some ci' ∧
+    ci'.lparams = ci.lparams ∧ ci'.type = ci.type ∧ Expr.Scoped C ci.lparams 0 ci.type ∧
+    Expr.Scoped E ci.lparams 0 ci.type ∧ ProofIn E' E' n
+
+/-- **A proof by `E'`'s is the point** in every model of `E` that keeps
+proofs the point and agrees with a model of `C` on the constants both
+store, that model agreeing so with one of `E'`. -/
+theorem ProofBy.eq_dflt {C E E' : Env} {n : Name} (h : ProofBy C E E' n)
+    (MC : Name → List Nat → V) (M : Name → List Nat → V) (m' : EnvModel V E') (hp : ProofsPt E M)
+    (hag : ∀ c, (C.find? c).isSome → (E.find? c).isSome → MC c = M c)
+    (hag' : ∀ c, (C.find? c).isSome → (E'.find? c).isSome → MC c = m'.M c) : M n = dflt := by
+  obtain ⟨ci, ci', hf, hk, hf', hlp, hty, hsC, hsE, ci'', hf'', -, -, hsE', s, u, hT, hr, hu⟩ := h
+  rw [hf'] at hf''
+  obtain rfl := Option.some.inj hf''
+  -- the theorem's type reads as a truth value in `E'`'s model, so in `E`'s
+  have hpt' := PropType.of_infer m' hT hr hu
+  have hc : ∀ c ∈ ci.type.consts, ∀ ls, m'.M c ls = M c ls := fun c hc ls => by
+    have hc' : c ∈ ci'.type.consts := by rw [hty]; exact hc
+    rw [← hag' c (hsC.2.1 c hc) (hsE'.2.1 c hc'), hag c (hsC.2.1 c hc) (hsE.2.1 c hc)]
+  refine hp n ci hf hk fun ls => ?_
+  rw [← interp_consts hc, ← hty, ← hlp]
+  exact hpt' ls
+
 /-! ## Modules and their local checks -/
 
 /-- **A module**: its declarations; its **context**, the environment
@@ -638,17 +665,11 @@ theorem mem_sources {dev : Nat → Module} {i : Nat} {x : Nat × Env} :
   · rintro ⟨j', hj', E', hE', rfl, rfl⟩; exact ⟨hj', hE'⟩
   · rintro ⟨hj, hE⟩; exact ⟨j, hj, E, hE, rfl, rfl⟩
 
-/-- **A proof where the copy comes from**: source `x`'s module proves
-its own `n` a proof, or reads `n` from a module that does. -/
-def ThmAt (dev : Nat → Module) (x : Nat × Env) (n : Name) : Prop :=
-  ProofIn (dev x.1).own (dev x.1).own n ∨
-    ((dev x.1).context.find? n).isSome = true ∧
-      ProofIn (dev ((dev x.1).src n)).own (dev ((dev x.1).src n)).own n
-
 /-- **Source `x`'s copy of `n` is a proof** for module `i`: proved one
-over the part below `n`, or where it comes from. -/
+over the part below `n`, or a copy of the statement of a source's copy
+that its own environment proves a proof. -/
 def ProofSide (dev : Nat → Module) (i : Nat) (n : Name) (x : Nat × Env) : Prop :=
-  ProofIn ((dev i).part n) x.2 n ∨ ThmAt dev x n
+  ProofIn ((dev i).part n) x.2 n ∨ ∃ w ∈ sources dev i, ProofBy ((dev i).part n) x.2 w.2 n
 
 /-- **Source `x`'s copy of `n` agrees with the one module `i` reads**:
 `x` is the module `n` is read from; or `x`'s module reads `n` from a

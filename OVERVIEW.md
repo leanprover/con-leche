@@ -333,9 +333,10 @@ module gives each name of its context the value the module it reads it
 from gives it, and every theorem the point. The local checks ask that
 every copy of a name a module's context reads agree with the one it
 reads: the same record (from the same module, perhaps through other
-modules), or two proofs of one statement, which the importer shows by
-inferring the statement a proposition over the part of its context
-below the name; no module records anything about its names for others.
+modules), or two proofs of one statement: a statement an earlier module
+stores as a theorem, or else one the importer infers to be a proposition
+over the part of its context below the name; no module records anything
+about its names for others.
 Hence no module's own environment stores a constant
 of type `False` (`modular_no_False`). An
 exit 0 of the binary at one module (`--olean --module`) establishes that
@@ -700,8 +701,10 @@ name is checked so too, as a read of that copy's module. Every name a group stor
 importer copy or one of the group's home. Else the module is
 rejected (name capture). A copy is a proof if it is a theorem,
 its home declares a theorem at an exported axiom, or it is a definition, opaque constant or axiom
-whose type the kernel infers to be a proposition at the context; every name two loaded modules hold
-must agree so, which merges every pair Lean's import merges. The context's records are sorted in
+whose type is a proposition; copies of one statement of which one is a theorem need no inference
+(a theorem's type is a proposition, and the copies read their one statement alike), and otherwise
+the kernel infers the type to be a proposition over the part of the context below the name. Every
+name two loaded modules hold must agree so, which merges every pair Lean's import merges. The context's records are sorted in
 read order (`readOrder`: each after the records storing what it reads; records that read each
 other are a reject, which Lean's output never has) and validated as untrusted input (`recordOk`).
 At every accepting outcome of `reach` in the IO model, every context record is `RecordScoped` in

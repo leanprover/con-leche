@@ -41,8 +41,11 @@ or both copies are proofs, which every model gives the proofs' value.
 4. **proofs**: `ProofIn C E n` (`C` proves `E`'s `n` a proof: in
    con-leche, its type is inferred at `C` to be a proposition) gives `n`
    the proofs' value in every model of `E` that agrees on `C` with a
-   model of `C` (`proof_val`); `IsThm E n` (`E` stores `n` as a theorem)
-   gives it the proofs' value in every model of `E` (`thm_val`);
+   model of `C` (`proof_val`); `ProofBy C E E' n` (`E'` stores `n` as a
+   theorem of the statement `E`'s `n` has, which `C` reads as both do)
+   gives it the proofs' value in every model of `E` that agrees on `C`
+   with a model of `C` that agrees on `C` with a model of `E'`
+   (`proofBy_val`);
 5. **the conservative step** (`step`): if the checker accepts
    declarations `D` over `Γ`, giving `Γ'`, every model of `Γ` extends
    to one of `Γ'`, keeping every name of `Γ` and its value.
@@ -73,8 +76,8 @@ module it is read from, its part is assembled from the sources and
 holds only context names of smaller rank, and every source that stores
 it **agrees** (`Agrees`): it is that module, or it and the module both
 read the name from one earlier module, or it and that module's copy are
-proofs (`ProofIn` over the part,
-or a theorem where the copy comes from); and the module's declarations
+proofs (each `ProofIn` over the part, or each `ProofBy` a source's
+theorem copy); and the module's declarations
 are accepted over its context, or the module is **compared** (its own
 environment is its context).  If every module is valid, there is a
 **compatible family** of models, one of each module's own environment:
@@ -134,10 +137,14 @@ structure ModularSemantics where
   `C` with one of `C` -/
   proof_val : ∀ {C E : Env} {n : Name}, ProofIn C E n → ∀ (mC : Mod C) (m : Mod E),
     ModelsAgree Stores @val C mC m → val m n = proofVal
-  /-- **`E` stores `n` as a theorem** -/
-  IsThm : Env → Name → Prop
-  /-- a theorem gets the proofs' value in every model -/
-  thm_val : ∀ {E : Env} {n : Name}, IsThm E n → ∀ m : Mod E, val m n = proofVal
+  /-- **`E`'s `n` is a proof by `E'`'s theorem**, read alike over `C` -/
+  ProofBy : Env → Env → Env → Name → Prop
+  /-- a copy of a theorem's statement gets the proofs' value in every
+  model agreeing on `C` with a model of `C` that agrees on `C` with one
+  of the theorem's environment -/
+  proofBy_val : ∀ {C E E' : Env} {n : Name}, ProofBy C E E' n →
+    ∀ (mC : Mod C) (m : Mod E) (m' : Mod E'), ModelsAgree Stores @val C mC m →
+      ModelsAgree Stores @val C mC m' → val m n = proofVal
   /-- declarations -/
   Decls : Type u
   /-- **acceptance**: the checker accepts `D` over `Γ`, giving `Γ'` -/
@@ -195,15 +202,11 @@ def Src (i : Nat) : Type u := {x : Nat × S.Env // x ∈ dev.sources i}
 /-- **Assembled from the sources.** -/
 def Assembled (i : Nat) (E : S.Env) : Prop := S.Assembled E fun x : dev.Src i => x.1.2
 
-/-- **A theorem where the copy comes from**: source `x`'s module stores
-`n` as a theorem, or reads it from a module that does. -/
-def ThmAt (x : Nat × S.Env) (n : S.Name) : Prop :=
-  S.IsThm (dev.own x.1) n ∨ S.Stores (dev.ctx x.1) n ∧ S.IsThm (dev.own (dev.src x.1 n)) n
-
 /-- **Source `x`'s copy of `n` is a proof** for module `i`: proved one
-over the part below `n`, or a theorem where it comes from. -/
+over the part below `n`, or a copy of the statement of a source's
+theorem, read alike over the part. -/
 def ProofSide (i : Nat) (n : S.Name) (x : Nat × S.Env) : Prop :=
-  S.ProofIn (dev.part i n) x.2 n ∨ dev.ThmAt x n
+  S.ProofIn (dev.part i n) x.2 n ∨ ∃ w ∈ dev.sources i, S.ProofBy (dev.part i n) x.2 w.2 n
 
 /-- **Source `x` agrees with the module `n` is read from** (see the
 module docstring): it is that module; or it reads `n` with a source
@@ -290,16 +293,6 @@ theorem modular : ∀ k, (∀ i < k, dev.Valid i) →
     have hsrc : ∀ n, S.Stores (dev.ctx k) n → dev.src k n < k := fun n hn => by
       obtain ⟨x, hx, hx1, -⟩ := (hk.reads n hn).read
       exact hx1 ▸ hlt ⟨x, hx⟩
-    -- a theorem where a copy comes from gets the proofs' value
-    have hthm : ∀ (x : dev.Src k) n, S.Stores x.1.2 n → dev.ThmAt x.1 n →
-        S.val (fam x) n = S.proofVal := by
-      intro x n hs ht
-      rw [(hfam x n hs).2]
-      rcases ht with ht | ⟨hctx, ht⟩
-      · exact S.thm_val ht _
-      · obtain ⟨h, he, -⟩ := hc x.1.1 (hlt x) n hctx
-        rw [he]
-        exact S.thm_val ht _
     -- every source storing a context name gives it the value of the
     -- module it is read from, in rank order
     have hread : ∀ r, ∀ n (hn : S.Stores (dev.ctx k) n), dev.rank k n = r →
@@ -310,19 +303,19 @@ theorem modular : ∀ k, (∀ i < k, dev.Valid i) →
       | _ r ih =>
       intro n hn hr x hs
       have hR := hk.reads n hn
-      -- a proof's copy, by the model of the part below it
-      have hside : ∀ z : dev.Src k, S.Stores z.1.2 n → dev.ProofSide k n z.1 →
-          S.val (fam z) n = S.proofVal := by
-        intro z hz hp
-        rcases hp with hp | ht
-        · have hag : ∀ y y' : dev.Src k,
-              ModelsAgree S.Stores @S.val (dev.part k n) (fam y) (fam y') := by
-            intro y y' c hc' hy hy'
-            obtain ⟨hcC, hlt'⟩ := hR.below c hc'
-            rw [ih _ (hr ▸ hlt') c hcC rfl y hy, ih _ (hr ▸ hlt') c hcC rfl y' hy']
-          obtain ⟨mP, hmP⟩ := S.amalgamate hR.part fam hag
-          exact S.proof_val hp mP (fam z) (hmP z)
-        · exact hthm z n hz ht
+      -- a proof's copy, by the model of the part below it, which the
+      -- names below make an amalgam of the sources
+      have hag : ∀ y y' : dev.Src k,
+          ModelsAgree S.Stores @S.val (dev.part k n) (fam y) (fam y') := by
+        intro y y' c hc' hy hy'
+        obtain ⟨hcC, hlt'⟩ := hR.below c hc'
+        rw [ih _ (hr ▸ hlt') c hcC rfl y hy, ih _ (hr ▸ hlt') c hcC rfl y' hy']
+      obtain ⟨mP, hmP⟩ := S.amalgamate hR.part fam hag
+      have hside : ∀ z : dev.Src k, dev.ProofSide k n z.1 → S.val (fam z) n = S.proofVal := by
+        intro z hp
+        rcases hp with hp | ⟨w, hw, hp⟩
+        · exact S.proof_val hp mP (fam z) (hmP z)
+        · exact S.proofBy_val hp mP (fam z) (fam ⟨w, hw⟩) (hmP z) (hmP ⟨w, hw⟩)
       -- source by source, an earlier source's module first
       suffices h : ∀ t, ∀ x : dev.Src k, x.1.1 = t → S.Stores x.1.2 n →
           S.val (fam x) n = S.val (m (dev.src k n) (hsrc n hn)) n from h _ x rfl hs
@@ -341,7 +334,7 @@ theorem modular : ∀ k, (∀ i < k, dev.Valid i) →
         rw [he', ← hsrcs z hz hzk hzs, ← iht w.1 (hxt ▸ hwlt) ⟨w, hw⟩ rfl hws, (hfam ⟨w, hw⟩ n hws).2]
         exact val_congr m hwz.symm _ _ n
       · obtain ⟨y, hy, hy1, hys⟩ := hR.read
-        rw [hside x hs hpx, ← hside ⟨y, hy⟩ hys (hall y hy hy1 hys), (hfam ⟨y, hy⟩ n hys).2]
+        rw [hside x hpx, ← hside ⟨y, hy⟩ (hall y hy hy1 hys), (hfam ⟨y, hy⟩ n hys).2]
         exact val_congr m hy1 _ _ n
     -- so they agree on the context and amalgamate
     obtain ⟨mC, hmC⟩ := S.amalgamate hk.assembled fam fun x x' n hn hs hs' => by
