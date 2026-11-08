@@ -47,4 +47,5 @@ public import InLeanProof.ProjBodiesTr
 public import InLeanProof.BlockRecogRun
 public import InLeanProof.RecFireTr
 public import InLeanProof.BlockPresR
+public import InLeanProof.CertArm
 public import InLeanProof.AxiomPins

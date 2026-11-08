@@ -18,7 +18,8 @@ against master's `.defnDecl` arm of `checkDeclKind`
 `certifyNatEqs` over `natOpEquations 0`; `checkDivModPin`).
 
 * **The guards at the pushed environment**: `natOpStoredOk_tr`,
-  `natOpGuard_tr`.  InLean's `natOpGuard` reads the `Nat` names stored
+  `natOpGuard_tr`, `divModEnvGuard_tr` (`EO.stripMData` keeps the reading,
+  `erase_stripMData`).  InLean's `natOpGuard` reads the `Nat` names stored
   (`natLitStoredF`), master's their kinds and shapes (`natLitSupported`): the
   shapes are `EnvWF.shapes`', the kinds are `NatKinds`, which no premise of
   the declaration step gives (master's model reads it off `BasisPinnedTT`), so
@@ -27,8 +28,12 @@ against master's `.defnDecl` arm of `checkDeclKind`
   the operation's self-references substituted (`substConst0`), translate to
   master's over `fvar 0`/`fvar 1` (`natOpEqs_tr`); the defeq loop at depth 2
   (`certifyNatEqs_sim`).
+* **The structural operations' arm**: `checkDefnC_struct_sim`.
+* **The WF operations** (`checkDivModPin`): the pin variants InLean decodes,
+  as master's list (`trPinSet`, `loadedPins`); the arm itself is named
+  (`DivModArmSimI`), and `checkDeclKindC_sim_nk`/`checkDecl_sim_nk` are
+  `checkDeclKindC_sim_full`/`checkDecl_sim_full` from it and `NatKinds L`.
 -/
-
 set_option experimental.vcgen true
 
 public section
@@ -670,5 +675,202 @@ theorem checkDefnC_struct_sim {fe : InLean.FEnv} {L : ConLeche.Env} (hJ : JobEnv
   simp only [trCVn] at g1 g2 hself ⊢
   simp only [hn', g1, g2, hself, hnd', Bool.and_self, Bool.false_eq_true, ↓reduceIte]
   exact Runs.bind hRE (by simp only [↓reduceIte]; exact Runs.pure _)
+
+/-! ## The WF operations' environment guard -/
+
+/-- A stored entry at a closed type, through the relation. -/
+theorem find_type_tr {fe : InLean.FEnv} {L : ConLeche.Env} (hP : EnvPresI fe L) {n : Name}
+    {shape : Expr} (hs : okC shape = true)
+    (h : (match fe.find? n with
+      | some ci => InLean.tyIs ci.type shape
+      | none => false) = true) :
+    (match L.find? (toName n) with
+      | some ci => ci.toConstantVal.type == trC shape
+      | none => false) = true := by
+  split at h
+  · rename_i ci hf
+    obtain ⟨cci, hc, -, ht⟩ := find_cv_tr hP hf
+    rw [hc]
+    simp [tyIs_tr ht hs h]
+  · exact nomatch h
+
+/-- **InLean's WF operations' environment guard is master's** (at the pushed
+environment), where the `Nat` names hold master's kinds and shapes. -/
+theorem divModEnvGuard_tr {fe : InLean.FEnv} {L : ConLeche.Env} (hP : EnvPresI fe L)
+    (hsh : ∀ n c, L.find? n = some c → ConLeche.litShapeOk c = true) (hk : ConLeche.NatKinds L)
+    {c : Name} (h : InLean.divModEnvGuard fe c = true) :
+    ConLeche.divModEnvGuard L (toName c) = true := by
+  unfold InLean.divModEnvGuard at h
+  unfold ConLeche.divModEnvGuard
+  simp only [Bool.and_eq_true] at h
+  obtain ⟨⟨⟨⟨h1, h2⟩, h3⟩, h4⟩, h5⟩ := h
+  have e1 := natOpGuard_tr hP hsh hk h1
+  have e2 : (ConLeche.natOpDeps (toName c)).all (ConLeche.natOpStoredOk L) = true := by
+    rw [natDeps_tr, List.all_map]
+    rw [List.all_eq_true] at h2 ⊢
+    intro n hn'
+    exact natOpStoredOk_tr hP (h2 n hn')
+  have e3 := find_isSome_of_pres hP h3
+  have e4 := find_type_tr hP (by decide) h4
+  have e5 := find_type_tr hP (by decide) h5
+  rw [trC_boolConst, ← cl_boolTrueName] at e4
+  rw [trC_boolConst, ← cl_boolFalseName] at e5
+  rw [show toName InLean.eqName = ConLeche.eqName from rfl] at e3
+  simp only [e1, e2, e3, Bool.and_true, Bool.true_and, Bool.and_eq_true]
+  exact ⟨e4, e5⟩
+
+/-! ## The pin variants InLean loads, as master's
+
+InLean decodes its pin variants at run time (`loadPinSets ()`, the embedded
+dumps); master takes its list as a parameter (`pins`, task #304).  The
+statement instantiates `pins` with the translation of what InLean decodes:
+an operation a variant lacks maps to a pin master's guard refuses (a loose
+bound variable, `divModPinGuard`'s first conjunct), as InLean skips the
+variant. -/
+
+/-- One operation's pin in a variant, translated (refused where absent). -/
+@[expose] def trOpPin (ps : InLean.PinSet) (c : Name) : ConLeche.Expr :=
+  match ps.op? c with
+  | some op => trC op.pin
+  | none => .bvar 0
+
+/-- One operation's certificate proofs in a variant, translated. -/
+@[expose] def trOpProofs (ps : InLean.PinSet) (c : Name) : List ConLeche.Expr :=
+  match ps.op? c with
+  | some op => op.proofs.toList.map trC
+  | none => []
+
+/-- One operation's type pins in a variant, translated. -/
+@[expose] def trOpTypePins (ps : InLean.PinSet) (c : Name) : List (ConLeche.Name × ConLeche.Expr) :=
+  match ps.op? c with
+  | some op => op.typePins.toList.map fun p => (toName p.1, trC p.2)
+  | none => []
+
+/-- **A pin variant, translated** (`InLean.PinSet` → `NatOpPinSet`). -/
+@[expose] def trPinSet (ps : InLean.PinSet) : ConLeche.NatOpPinSet where
+  toolchain := ps.toolchain
+  divPin := trOpPin ps InLean.natDivName
+  modPin := trOpPin ps InLean.natModName
+  gcdPin := trOpPin ps InLean.natGcdName
+  landPin := trOpPin ps InLean.natLandName
+  lorPin := trOpPin ps InLean.natLorName
+  xorPin := trOpPin ps InLean.natXorName
+  shiftLeftPin := trOpPin ps InLean.natShiftLeftName
+  shiftRightPin := trOpPin ps InLean.natShiftRightName
+  divProofs := trOpProofs ps InLean.natDivName
+  modProofs := trOpProofs ps InLean.natModName
+  gcdProofs := trOpProofs ps InLean.natGcdName
+  landProofs := trOpProofs ps InLean.natLandName
+  lorProofs := trOpProofs ps InLean.natLorName
+  xorProofs := trOpProofs ps InLean.natXorName
+  shiftLeftProofs := trOpProofs ps InLean.natShiftLeftName
+  shiftRightProofs := trOpProofs ps InLean.natShiftRightName
+  divTypePins := trOpTypePins ps InLean.natDivName
+  modTypePins := trOpTypePins ps InLean.natModName
+  gcdTypePins := trOpTypePins ps InLean.natGcdName
+  landTypePins := trOpTypePins ps InLean.natLandName
+  lorTypePins := trOpTypePins ps InLean.natLorName
+  xorTypePins := trOpTypePins ps InLean.natXorName
+  shiftLeftTypePins := trOpTypePins ps InLean.natShiftLeftName
+  shiftRightTypePins := trOpTypePins ps InLean.natShiftRightName
+
+/-- **The variants InLean runs with, as master's list.**  Where the dumps do
+not decode, InLean declines every pin-certified operation (an internal
+error), so any list serves; the empty one is taken. -/
+@[expose] def loadedPins : List ConLeche.NatOpPinSet :=
+  match InLean.loadPinSets () with
+  | .ok sets => sets.toList.map trPinSet
+  | .error _ => []
+
+/-! ## The certified operations' arm, from the WF operations' -/
+
+/-- **The WF operations' arm** (named, not proved here): a definition at a
+pin-certified operation's name (`checkDivModPin`), at `pins`, where the `Nat`
+names hold master's kinds. -/
+@[expose] def DivModArmSimI (pins : List ConLeche.NatOpPinSet) : Prop :=
+  ∀ (fe : InLean.FEnv) (L : ConLeche.Env) (v : DefinitionVal) (a : InLean.Added)
+    (s₀ s' : InLean.CState),
+    JobEnvI fe L → ConLeche.NatKinds L → fe.safety = .safe → fe.coreAxioms = false →
+    CSOKI .verified false L s₀ →
+    Expr.RangeOk v.type → Expr.RangeOk v.value → v.safety = .safe →
+    InLean.natDivModNames.contains v.name = true →
+    InLean.checkDefnC .verified InLeanProof.theoremConfig fe v s₀ = .ok (a, s') →
+    CSOKI .verified false L s' ∧ TabLe s₀ s' ∧ a.consts = #[.defnInfo v] ∧
+      ∃ d, toDecl [.defnInfo v] = some d ∧ KindRuns pins L d
+
+/-- **`CertArmSimI`'s conclusion, from the WF operations' arm**, where the
+`Nat` names hold master's kinds (the structural operations by
+`checkDefnC_struct_sim`). -/
+theorem certArm_of {pins : List ConLeche.NatOpPinSet} (hW : DivModArmSimI pins)
+    {fe : InLean.FEnv} {L : ConLeche.Env} {v : DefinitionVal} {a : InLean.Added}
+    {s₀ s' : InLean.CState} (hJ : JobEnvI fe L) (hk : ConLeche.NatKinds L)
+    (hfs : fe.safety = .safe) (hfc : fe.coreAxioms = false) (hs : CSOKI .verified false L s₀)
+    (hr : Expr.RangeOk v.type) (hrv : Expr.RangeOk v.value) (hsafe : v.safety = .safe)
+    (hn : (InLean.natOpNames.contains v.name || InLean.natDivModNames.contains v.name) = true)
+    (h : InLean.checkDefnC .verified InLeanProof.theoremConfig fe v s₀ = .ok (a, s')) :
+    CSOKI .verified false L s' ∧ TabLe s₀ s' ∧ a.consts = #[.defnInfo v] ∧
+      ∃ d, toDecl [.defnInfo v] = some d ∧ KindRuns pins L d := by
+  cases hs1 : InLean.natOpNames.contains v.name
+  · simp only [hs1, Bool.false_or] at hn
+    exact hW fe L v a s₀ s' hJ hk hfs hfc hs hr hrv hsafe hn h
+  · exact checkDefnC_struct_sim hJ hk hs hr hrv hsafe hs1 h
+
+/-- **The declaration step for every non-inductive kind**, from the WF
+operations' arm, where the `Nat` names hold master's kinds. -/
+theorem checkDeclKindC_sim_nk {pins : List ConLeche.NatOpPinSet} (hW : DivModArmSimI pins)
+    {fe : InLean.FEnv} {L : ConLeche.Env} (hJ : JobEnvI fe L) (hk : ConLeche.NatKinds L)
+    {decl : Declaration} {a : InLean.Added} {s₀ s' : InLean.CState}
+    (hfs : fe.safety = .safe) (hfc : fe.coreAxioms = false)
+    (hs : CSOKI .verified false L s₀) (hd : SafeDecl decl) (hr : DeclRangeOk decl)
+    (hnI : ∀ lps nP ts u, decl ≠ .inductDecl lps nP ts u)
+    (hbn : InLean.basisNamesOk decl a = true)
+    (h : InLean.checkDeclKindC .verified InLeanProof.theoremConfig fe decl s₀ = .ok (a, s')) :
+    CSOKI .verified false L s' ∧ TabLe s₀ s' ∧
+      ∃ ds, a.consts.toList.mapM (fun ci => toDecl [ci]) = some ds ∧
+        ∃ F L', ds.foldlM (ConLeche.checkDecl .verified (ConLeche.fueledOps .verified F) pins) L =
+          .ok L' := by
+  cases decl with
+  | defnDecl v =>
+    cases hn : (InLean.natOpNames.contains v.name || InLean.natDivModNames.contains v.name)
+    · exact checkDeclKindC_sim hJ hfs hfc hs hd hr hn hbn h
+    · obtain ⟨h1, h2, h3, d, hd', hR⟩ := certArm_of hW hJ hk hfs hfc hs hr.1 hr.2 hd hn h
+      exact ⟨h1, h2, [d], by rw [h3]; exact single_mapM hd',
+        single_fold hR (by rw [basisNamesOk_toDecl (fun _ h => by cases h) hd']; exact hbn)⟩
+  | axiomDecl v =>
+    by_cases hq : v.name = InLean.quotSoundName
+    · exact checkDeclKindC_sim hJ hfs hfc hs hd hr (.inr hq) hbn h
+    by_cases hso : v.name = InLean.sorryAxName
+    · exact checkDeclKindC_sim hJ hfs hfc hs hd hr (.inl hso) hbn h
+    obtain ⟨h1, h2, h3, -, d, hd', hR⟩ :=
+      checkAxiomC_pinned_sim (pins := pins) hJ hfs hfc hs hr hd.1 hq hso h
+    exact ⟨h1, h2, [d], by rw [h3]; exact single_mapM hd',
+      single_fold hR (by rw [basisNamesOk_toDecl (fun _ h => by cases h) hd']; exact hbn)⟩
+  | opaqueDecl v =>
+    cases hn : InLean.reduceOpNames.contains v.name
+    · exact checkDeclKindC_sim hJ hfs hfc hs hd hr hn hbn h
+    · obtain ⟨h1, h2, h3, -, d, hd', hR⟩ :=
+        checkOpaqueC_reduce_sim (pins := pins) hJ hs hr.1 hr.2 hn h
+      exact ⟨h1, h2, [d], by rw [h3]; exact single_mapM hd',
+      single_fold hR (by rw [basisNamesOk_toDecl (fun _ h => by cases h) hd']; exact hbn)⟩
+  | thmDecl v => exact checkDeclKindC_sim hJ hfs hfc hs hd hr trivial hbn h
+  | quotDecl => exact checkDeclKindC_sim hJ hfs hfc hs hd hr trivial hbn h
+  | mutualDefnDecl vs => exact hd.elim
+  | inductDecl lps nP ts u => exact (hnI lps nP ts u rfl).elim
+
+/-- **O6 at the entry point, every non-inductive kind**, from the WF
+operations' arm, where the `Nat` names hold master's kinds (`checkDecl_sim_full`
+with the structural operations proved). -/
+theorem checkDecl_sim_nk {pins : List ConLeche.NatOpPinSet} (hW : DivModArmSimI pins)
+    {E : Kernel.Environment} {L : ConLeche.Env}
+    (hJ : JobEnvI { env := E, coreAxioms := false } L) (hk : ConLeche.NatKinds L)
+    {decl : Declaration} {a : InLean.Added}
+    (hd : SafeDecl decl) (hr : DeclRangeOk decl) (hnI : ∀ lps nP ts u, decl ≠ .inductDecl lps nP ts u)
+    (h : InLean.checkDecl InLeanProof.theoremConfig E decl = .ok a) :
+    (∀ ci ∈ a.consts.toList, ci.name = InLean.sorryAxName → ∃ v, ci = .axiomInfo v) ∧
+      ∃ ds, a.consts.toList.mapM (fun ci => toDecl [ci]) = some ds ∧
+        ∃ F L', ds.foldlM (ConLeche.checkDecl .verified (ConLeche.fueledOps .verified F) pins) L =
+          .ok L' :=
+  checkDecl_sim_of (fun hK hbn =>
+    (checkDeclKindC_sim_nk hW hJ hk rfl rfl (CSOKI_empty L) hd hr hnI hbn hK).2.2) h
 
 end InLeanProof

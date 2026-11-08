@@ -33,6 +33,7 @@ public import InLeanProof.PassNest
 public import InLeanProof.DeclStep
 public import InLeanProof.DeclPins
 public import InLeanProof.ProjGuardI
+public import InLeanProof.CertArm
 
 /-!
 # The axiom pins of the InLean proof tier (task #451, lane G)
@@ -2671,3 +2672,88 @@ info: 'InLeanProof.projGuardRowsGoI_run' depends on axioms: [propext,
 -/
 #guard_msgs in
 #print axioms InLeanProof.projGuardRowsGoI_run
+
+/--
+info: 'InLeanProof.erase_stripMData' depends on axioms: [propext, Classical.choice, Quot.sound]
+-/
+#guard_msgs in
+#print axioms InLeanProof.erase_stripMData
+
+/--
+info: 'InLeanProof.natOpStoredOk_tr' depends on axioms: [propext, Classical.choice, Quot.sound]
+-/
+#guard_msgs in
+#print axioms InLeanProof.natOpStoredOk_tr
+
+/--
+info: 'InLeanProof.natOpGuard_tr' depends on axioms: [propext, Classical.choice, Quot.sound]
+-/
+#guard_msgs in
+#print axioms InLeanProof.natOpGuard_tr
+
+/--
+info: 'InLeanProof.natOpEqs_tr' depends on axioms: [propext, Classical.choice, Quot.sound]
+-/
+#guard_msgs in
+#print axioms InLeanProof.natOpEqs_tr
+
+/--
+info: 'InLeanProof.certifyNatEqs_sim' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound,
+ InLeanProof.Expr.mkAppData_fields,
+ InLeanProof.Expr.mkData_eq,
+ InLeanProof.Level.mkData_eq]
+-/
+#guard_msgs in
+#print axioms InLeanProof.certifyNatEqs_sim
+
+/--
+info: 'InLeanProof.checkDefnC_struct_sim' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound,
+ InLeanProof.Expr.mkAppData_fields,
+ InLeanProof.Expr.mkData_eq,
+ InLeanProof.Level.mkData_eq]
+-/
+#guard_msgs in
+#print axioms InLeanProof.checkDefnC_struct_sim
+
+/--
+info: 'InLeanProof.divModEnvGuard_tr' depends on axioms: [propext, Classical.choice, Quot.sound]
+-/
+#guard_msgs in
+#print axioms InLeanProof.divModEnvGuard_tr
+
+/--
+info: 'InLeanProof.certArm_of' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound,
+ InLeanProof.Expr.mkAppData_fields,
+ InLeanProof.Expr.mkData_eq,
+ InLeanProof.Level.mkData_eq]
+-/
+#guard_msgs in
+#print axioms InLeanProof.certArm_of
+
+/--
+info: 'InLeanProof.checkDeclKindC_sim_nk' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound,
+ InLeanProof.Expr.mkAppData_fields,
+ InLeanProof.Expr.mkData_eq,
+ InLeanProof.Level.mkData_eq]
+-/
+#guard_msgs in
+#print axioms InLeanProof.checkDeclKindC_sim_nk
+
+/--
+info: 'InLeanProof.checkDecl_sim_nk' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound,
+ InLeanProof.Expr.mkAppData_fields,
+ InLeanProof.Expr.mkData_eq,
+ InLeanProof.Level.mkData_eq]
+-/
+#guard_msgs in
+#print axioms InLeanProof.checkDecl_sim_nk
