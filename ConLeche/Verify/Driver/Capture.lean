@@ -1035,10 +1035,6 @@ part. -/
 @[expose] def StoredNL (env : ReachEnv ModelIO) (h n : Name) (s : Spot) : Prop :=
   importerSpot env n = none ∧ s.part = ⟨h, .private⟩
 
-/-- The spot of a loaded copy (`clashAgree`'s, `importerSpot`'s). -/
-@[expose] def spotOf (wr : WorkerReads) (cp : Copy) (q : NamePosition) : Spot :=
-  ⟨⟨wr.loads.nameAt cp.mod, ((wr.loads.flags[cp.mod]?).getD default).level⟩, q⟩
-
 /-- **The clash rule passed at a clash** (`clashAgree`): every loaded copy has a status other
 than `.no`, and where it is `.infer`, an inference of a copy's statement is recorded. -/
 @[expose] def ClashOk (sp : SearchPath) (fs : FS) (wr : WorkerReads)

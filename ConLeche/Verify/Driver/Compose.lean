@@ -5,6 +5,10 @@ public import ConLeche.Verify.Driver.Groups
 public import ConLeche.Verify.Driver.Graph
 import ConLeche.Verify.Driver.Reach
 public import ConLeche.Verify.Driver.Loads
+public import ConLeche.Verify.Driver.Capture
+public import ConLeche.Verify.Driver.Clashes
+public import ConLeche.Verify.Driver.Copies
+public import ConLeche.Verify.Driver.PropPart
 import ConLeche.Verify.Cached.Fill
 
 /-!
@@ -449,5 +453,47 @@ theorem agree_of_routes {dev : Nat → Module} {i : Nat} {Pr : Nat → Name → 
     rcases htb with rfl | ⟨hb, hlt', hbt⟩
     · exact hit
     · exact .via hb hlt' hbt hit
+
+/-! ## What the workers reach -/
+
+namespace Run
+
+variable (R : Run sp fs)
+
+/-- **What a module reaches by imports, from its own header.** -/
+theorem rootImports {M : Name} (hM : M ∈ R.names) {own : NamePositions}
+    (hown : ModelIO.CanGive (readPartNames sp (M, .private)) fs (.ok own)) :
+    ModelIO.CanGive (moduleImports sp M) fs (.ok own.header.imports) := by
+  obtain ⟨f, hf, hl⟩ := workerFacts_load (R.facts M hM)
+  exact readPartNames_header hf hl hown
+
+/-- **A module of a header fixpoint read from a module of the run is one of smaller rank.** -/
+theorem fixpoint_rank {M : Name} (hM : M ∈ R.names) {own : NamePositions} {ld : Loads}
+    (hown : ModelIO.CanGive (readPartNames sp (M, .private)) fs (.ok own))
+    (hld : ModelIO.CanGive (headerFixpoint (moduleImports sp) own.header.isModule
+      own.header.imports) fs (.ok ld)) {m : Name} (hm : m ∈ ld.order) :
+    m ∈ R.names ∧ R.rk m < R.rk M := by
+  obtain ⟨k, hk, rfl⟩ := Array.getElem_of_mem hm
+  obtain ⟨-, -, -, hs, -⟩ := headerFixpoint_sound hld
+  exact R.impReach_rank hM (R.rootImports hM hown) (hs k _ (by simp [hk])).1
+
+/-- **What a worker of the run reaches, by loads and views, is a module of smaller rank.** -/
+theorem reached_rank {M : Name} (hM : M ∈ R.names) {m : Name}
+    (h : Reached sp fs (R.w M).reads m) : m ∈ R.names ∧ R.rk m < R.rk M := by
+  induction h with
+  | @loaded j hj =>
+    obtain ⟨_, _, hrd⟩ := (R.facts M hM).reads
+    obtain ⟨own, hown, hld, -⟩ := workerReads_loads hrd
+    have : (R.w M).reads.loads.nameAt j ∈ (R.w M).reads.loads.order := by
+      unfold Loads.nameAt; rw [Array.getElem?_eq_getElem hj]; simp
+    exact R.fixpoint_rank hM hown hld this
+  | @view h v y s _ hv hs ih =>
+    obtain ⟨own, ld, ts, hown, hld, -, -, rfl⟩ := hv
+    rcases (homeView_part hs).1 with hp | hp
+    · rw [hp]; exact ih
+    · have := R.fixpoint_rank ih.1 hown hld hp
+      exact ⟨this.1, by omega⟩
+
+end Run
 
 end ConLeche.Driver.Compose

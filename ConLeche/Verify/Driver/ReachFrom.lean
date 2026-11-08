@@ -75,6 +75,11 @@ table the snapshot's, folded in order with the first copy of each name kept. -/
     (∀ k t, (k, t) ∈ (viewKeys h ld).zip ts → PartNames sp fs k t) ∧
     v = ((viewKeys h ld).zip ts).foldl (fun v kt => viewStep v kt.1 kt.2) {}
 
+/-- **A loaded copy's spot**: the part its module is loaded at, and its name position there
+(`importerSpot`'s, `clashAgree`'s). -/
+@[expose] def spotOf (wr : WorkerReads) (cp : Copy) (q : NamePosition) : Spot :=
+  ⟨⟨wr.loads.nameAt cp.mod, ((wr.loads.flags[cp.mod]?).getD default).level⟩, q⟩
+
 /-- **A part's region** on the snapshot. -/
 @[expose] def PartRegion (sp : SearchPath) (fs : FS) (k : PartKey) (r : Region) : Prop :=
   ∃ f a, PartFiles sp fs k f ∧ f.viewRegion k.level = some (r, a)

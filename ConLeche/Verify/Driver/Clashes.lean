@@ -864,10 +864,6 @@ theorem workerReads_open {sp : SearchPath} {fs : FS} {m : Name} {jobs : Nat} {wr
   subst h
   exact ⟨rfl, ⟨infos, ⟨_, _, hd⟩, rfl⟩, _, hfm⟩
 
-/-- **A copy's spot**: the part its module is loaded at, and its name position there. -/
-@[expose] def spotOf (wr : WorkerReads) (cp : Copy) (q : NamePosition) : Spot :=
-  ⟨⟨wr.loads.nameAt cp.mod, ((wr.loads.flags[cp.mod]?).getD default).level⟩, q⟩
-
 /-- **The worker's index, copy by copy** (`IdxInv` at the end of the parts): every copy the
 index records is a position of its name; every name position of a loaded part is a copy, recorded
 as its name's first copy or a later one; a later copy is not its name's first; the first copy's
