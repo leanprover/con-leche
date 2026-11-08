@@ -5979,6 +5979,12 @@ info: 'InLeanProof.numParams_of_checkIndDeclC' depends on axioms: [propext, Clas
 #print axioms InLeanProof.numParams_of_checkIndDeclC
 
 /--
+info: 'InLeanProof.CIGround_of_constGround' depends on axioms: [propext, Quot.sound]
+-/
+#guard_msgs in
+#print axioms InLeanProof.CIGround_of_constGround
+
+/--
 info: 'InLeanProof.okC_of_ground' depends on axioms: [propext,
  Quot.sound,
  InLeanProof.Expr.mkAppData_fields,
@@ -6010,7 +6016,7 @@ info: 'InLeanProof.ind_step' depends on axioms: [propext,
 #print axioms InLeanProof.ind_step
 
 /--
-info: 'InLeanProof.addDeclSound_of' depends on axioms: [propext,
+info: 'InLeanProof.addDeclSound' depends on axioms: [propext,
  Classical.choice,
  Quot.sound,
  InLeanProof.Expr.mkAppData_fields,
@@ -6018,7 +6024,7 @@ info: 'InLeanProof.addDeclSound_of' depends on axioms: [propext,
  InLeanProof.Level.mkData_eq]
 -/
 #guard_msgs in
-#print axioms InLeanProof.addDeclSound_of
+#print axioms InLeanProof.addDeclSound
 
 /--
 info: 'InLeanProof.no_false_of_addDeclSound' depends on axioms: [propext, Classical.choice, Quot.sound]
@@ -6027,7 +6033,7 @@ info: 'InLeanProof.no_false_of_addDeclSound' depends on axioms: [propext, Classi
 #print axioms InLeanProof.no_false_of_addDeclSound
 
 /--
-info: 'InLeanProof.no_false_of_indGround' depends on axioms: [propext,
+info: 'InLeanProof.no_false' depends on axioms: [propext,
  Classical.choice,
  Quot.sound,
  InLeanProof.Expr.mkAppData_fields,
@@ -6035,4 +6041,4 @@ info: 'InLeanProof.no_false_of_indGround' depends on axioms: [propext,
  InLeanProof.Level.mkData_eq]
 -/
 #guard_msgs in
-#print axioms InLeanProof.no_false_of_indGround
+#print axioms InLeanProof.no_false

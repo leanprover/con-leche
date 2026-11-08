@@ -114838,3 +114838,16 @@ Pins (`AxiomPins.lean`): `okC_of_ground`, `toBlock_of_ground`, `no_false_of_indG
 Gates: `lake build InLean InLeanProof inlean-replay` warning-free; `tests/layering.sh`,
 `tests/trust-surface.sh`, `tests/no-local-paths.sh`, `tests/inlean-sync.sh`, `tests/shake.sh`;
 `lake build`, `lake test`.
+
+**Closed** (coordinator's ruling, same session: the cheap check, as an internal error, since
+the generator's output, not the input, is at fault).  `checkInductiveC` tests `constGround`
+(`InLean/Inductives/Decl.lean`, beside `constClosed`: `!hasFVar && !hasMVar` of each generated
+constant's type and each recursor rule's right-hand side).  `checkInductiveC_ok` reads it off
+(its proof now splits one guard at a time, each failed guard's branch closing at once: the ten
+guards' joint split ran out of heartbeats), `CIGround_of_constGround` turns it into `CIGround`,
+and `IndGroundI` is gone: **`addDeclSound : AddDeclSound V`** and **`no_false`** (the
+no-`False` theorem with no premise beyond the target's) are proved unconditionally.
+Re-validated on the final binary: Init 64,530, Std 110,064, Lean 199,645 accepted, 0 rejected,
+0 declined, 0 exact and 0 cosmetic mismatches; `scripts/inlean_negtest.lean` 15/15;
+`instructions:u` on Init 878.2 G (unchanged).  Pins: `CIGround_of_constGround`, `addDeclSound`,
+`no_false` (replacing `addDeclSound_of`, `no_false_of_indGround`).  Gates as above, re-run.

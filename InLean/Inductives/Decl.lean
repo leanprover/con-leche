@@ -51,6 +51,13 @@ def constClosed : ConstantInfo → Bool
   | .recInfo v => !v.type.hasLooseBVars && v.rules.all fun r => !r.rhs.hasLooseBVars
   | ci => !ci.type.hasLooseBVars
 
+/-- A generated constant's terms carry no free variable and no metavariable
+(the cached flags): the stored block is read as declaration terms. -/
+def constGround : ConstantInfo → Bool
+  | .recInfo v => !v.type.hasFVar && !v.type.hasMVar &&
+      v.rules.all fun r => !r.rhs.hasFVar && !r.rhs.hasMVar
+  | ci => !ci.type.hasFVar && !ci.type.hasMVar
+
 /-- **The generated entries carry what con-leche's install computes** from
 the block (`consBlockIndsF`, `consSumCtorsF`, `recEntry`): every former's
 `all`, parameter and index counts, constructors and `isRec` (`blockIsRec`),
@@ -123,6 +130,8 @@ def checkInductiveC (fe : FEnv) (lps : List Name) (nparams : Nat) (types : List 
     throw (.internal "too many bound variables in a generated constant")
   unless gen.consts.all constClosed do
     throw (.internal "inductive generator: a constant with loose bound variables")
+  unless gen.consts.all constGround do
+    throw (.internal "inductive generator: a constant with free variables or metavariables")
   -- every name fresh in the environment itself, as official's `check_name`
   -- (the block check tests its own names; the generated recursors' and the
   -- auxiliary constants' are tested here)

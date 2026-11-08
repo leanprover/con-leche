@@ -15,11 +15,8 @@ import all Lean.Declaration
 
 `AddDeclSound` (the maintainer's statement, with InLean's relation `RelatesI`
 beside `Presents`; `Statement.lean`'s module docstring says why) and its proof
-`addDeclSound_of`: InLean's `addDecl` at `theoremConfig` accepting a safe
+`addDeclSound`: InLean's `addDecl` at `theoremConfig` accepting a safe
 declaration that is not a non-standard axiom keeps the environment's model.
-The proof takes one named premise, `IndGroundI`: the generated constants of an
-accepted inductive declaration carry no free variable and no metavariable, not
-yet read off the run (DESIGN.md, "Lane P4-close").
 The step, by kind:
 
 * **master's side**: InLean's check accepted ⇒ master's pure fueled step
@@ -542,18 +539,10 @@ flags). -/
       ∀ r ∈ v.rules, r.rhs.hasFVar = false ∧ r.rhs.hasMVar = false
   | ci => ci.type.hasFVar = false ∧ ci.type.hasMVar = false
 
-/-- **What the inductive arm reads off an accepted safe inductive declaration
-beyond `checkInductiveC_ok`** (NOT proved; the remaining obligation of the
-inductive arm): the generated constants' terms carry no free variable and no
-metavariable, so the stored block reads as a record (`toBlock_of_ground`).
-The block check tests this of the formers' and constructors' types
-(`checkTermWF`) and compares the recursors with regenerated ones; neither is
-read off yet. -/
-@[expose] def IndGroundI : Prop :=
-  ∀ (fe : InLean.FEnv) (lps : List Name) (nP : Nat) (types : List InductiveType)
-    (s s' : InLean.CState) (a : InLean.Added),
-    (InLean.checkInductiveC .verified fe lps nP types false).run s = .ok (a, s') →
-    ∀ ci ∈ a.consts.toList, CIGround ci
+/-- What `checkInductiveC` tests of each generated constant (`constGround`). -/
+theorem CIGround_of_constGround {ci : Lean.ConstantInfo} (h : InLean.constGround ci = true) :
+    CIGround ci := by
+  cases ci <;> simp_all [InLean.constGround, CIGround]
 
 theorem okC_of_ground {e : Lean.Expr} (hr : Expr.RangeOk e) (hf : e.hasFVar = false)
     (hm : e.hasMVar = false) : okC e = true := by
@@ -606,8 +595,8 @@ theorem constRangeOk_of_block {ci : Lean.ConstantInfo} (hb : InLean.isBlockConst
     (hr : CIRange ci) : ConstRangeOk ci := by
   cases ci <;> simp_all [InLean.isBlockConst, CIRange, ConstRangeOk] <;> exact hr
 
-/-- **An inductive block's step**, from `IndGroundI`. -/
-theorem ind_step {V : Type w} [ConLeche.SetTheory V] (hlaws : EnvLaws) (hI : IndGroundI)
+/-- **An inductive block's step.** -/
+theorem ind_step {V : Type w} [ConLeche.SetTheory V] (hlaws : EnvLaws)
     {E : Kernel.Environment} {L : ConLeche.Env} {lps : List Name} {nP : Nat}
     {types : List InductiveType} {a : InLean.Added}
     (ha : InLean.checkDecl theoremConfig E (.inductDecl lps nP types false) = .ok a)
@@ -624,7 +613,7 @@ theorem ind_step {V : Type w} [ConLeche.SetTheory V] (hlaws : EnvLaws) (hI : Ind
   have hnd : (a.consts.toList.map (·.name)).Nodup :=
     List.Pairwise.of_map toName (R := (· ≠ ·)) (fun _ _ h e => h (by rw [e]))
       ((namesNodup_iff _).1 hok.2.2.2.2.2.2.2.1)
-  have hrun := hok.2.2.2.2.2.2.2.2 rfl
+  have hrun := hok.2.2.2.2.2.2.2.2.2 rfl
   have hJ := jobEnvI_of hlaws hR hM
   have hsub := storedBlock_of_checkInductiveC hK'
   have hfresh := fresh_of_checkInductiveC hK'
@@ -640,7 +629,10 @@ theorem ind_step {V : Type w} [ConLeche.SetTheory V] (hlaws : EnvLaws) (hI : Ind
     exact CIRange_of_constInRange (h2 ci (Array.mem_toList_iff.1 hci))
   obtain ⟨cb, hcb⟩ := toBlock_of_ground (l := InLean.storedBlock a.consts) fun ci hci =>
     ⟨hblk ci (mem_of_storedBlock hci), hCIR ci (mem_of_storedBlock hci),
-      hI _ lps nP types {} s' a hK' ci (mem_of_storedBlock hci)⟩
+      CIGround_of_constGround (by
+        have h9 := hok.2.2.2.2.2.2.2.2.1
+        rw [Array.all_eq_true_iff_forall_mem] at h9
+        exact h9 ci (Array.mem_toList_iff.1 (mem_of_storedBlock hci)))⟩
   have hnsorry : ∀ ci ∈ a.consts.toList, ci.name ≠ InLean.sorryAxName := by
     intro ci hci hn
     have h1 := hsq ci hci
@@ -711,9 +703,8 @@ presents and relates to the new environment, in range, and has a model. -/
     ∃ L', EnvRangeOk E' ∧ Presents E' L' ∧ RelatesI E' L' ∧ ConLeche.Model.EnvModelOk V L' ∧
       ∃ new, L'.consts = new ++ L.consts
 
-/-- **The simulation theorem, proved** from the inductive arm's remaining
-obligation (`IndGroundI`). -/
-theorem addDeclSound_of (V : Type w) [ConLeche.SetTheory V] (hI : IndGroundI) :
+/-- **The simulation theorem, proved.** -/
+theorem addDeclSound (V : Type w) [ConLeche.SetTheory V] :
     AddDeclSound V := by
   intro hlaws E E' d L hd hdr hER hP hR hM h
   unfold InLean.addDecl at h
@@ -772,7 +763,7 @@ theorem addDeclSound_of (V : Type w) [ConLeche.SetTheory V] (hI : IndGroundI) :
   | inductDecl lps nP types u =>
     have hu : u = false := hd
     subst hu
-    exact concl_congr (fun n => hq _ _ n) (ind_step hlaws hI ha hER hP hR hM)
+    exact concl_congr (fun n => hq _ _ n) (ind_step hlaws ha hER hP hR hM)
 
 /-- **No proof of `False`**: under the target, InLean never adds a safe
 constant whose type reads as `False` to a presented, related environment with
@@ -792,8 +783,9 @@ theorem no_false_of_addDeclSound (V : Type w) [ConLeche.SetTheory V] (hS : AddDe
   rw [hfalse] at hty
   exact ConLeche.Model.no_constant_of_False mp c hc (Option.some.inj hty).symm
 
-/-- **No proof of `False`, from the inductive arm's remaining obligation.** -/
-theorem no_false_of_indGround (V : Type w) [ConLeche.SetTheory V] (hI : IndGroundI)
+/-- **No proof of `False`**: InLean never adds a safe constant whose type reads
+as `False` to a presented, related environment with a model (`sorryAx` aside). -/
+theorem no_false (V : Type w) [ConLeche.SetTheory V]
     (hlaws : EnvLaws) {E E' : Kernel.Environment} {d : Declaration} {L : ConLeche.Env}
     (hd : SafeDecl d) (hdr : DeclRangeOk d) (hE : EnvRangeOk E) (hP : Presents E L)
     (hR : RelatesI E L) (hM : ConLeche.Model.EnvModelOk V L)
@@ -801,6 +793,6 @@ theorem no_false_of_indGround (V : Type w) [ConLeche.SetTheory V] (hI : IndGroun
     {n : Name} {ci : Lean.ConstantInfo} (hci : E'.find? n = some ci) (hsafe : SafeConst ci)
     (hn : n ≠ InLean.sorryAxName)
     (hfalse : toExprC ci.type = some (.const ConLeche.falseName [])) : False :=
-  no_false_of_addDeclSound V (addDeclSound_of V hI) hlaws hd hdr hE hP hR hM h hci hsafe hn hfalse
+  no_false_of_addDeclSound V (addDeclSound V) hlaws hd hdr hE hP hR hM h hci hsafe hn hfalse
 
 end InLeanProof

@@ -220,7 +220,7 @@ theorem checkInductiveC_ok {μ : CheckMode} {fe : InLean.FEnv} {lps : List Name}
     a.consts.all (fun ci =>
       ({ fe with env := a.consts.foldl InLean.addConst fe.env } : InLean.FEnv).projBodiesInRange ci.name) =
       true ∧ projStepsAllOk a.consts = true ∧
-    namesNodup (a.consts.toList.map (·.name)) = true ∧
+    namesNodup (a.consts.toList.map (·.name)) = true ∧ a.consts.all constGround = true ∧
     (u = false → (checkIndDeclC μ fe (storedBlock a.consts) nP).run {} = .ok ((), s')) := by
   unfold checkInductiveC at h
   generalize (((Ind.genInductive μ lps nP types u).run
@@ -231,19 +231,37 @@ theorem checkInductiveC_ok {μ : CheckMode} {fe : InLean.FEnv} {lps : List Name}
   | ok gen =>
     rw [except_ok_bind, pure_bind] at h
     generalize checkUnsafeBlock μ fe gen.consts = X at h
+    -- one guard at a time: a failed guard's branch closes at once
     cases u <;>
-    cases h1 : gen.consts.all isBlockConst <;> cases h2 : gen.consts.all constInRange <;>
+    cases h1 : gen.consts.all isBlockConst <;>
+    (try simp only [h1, ↓reduceIte, Bool.false_eq_true, throw, throwThe, MonadExceptOf.throw,
+      StateT.run_bind, StateT.run_lift, Function.comp, except_error_bind, reduceCtorEq] at h) <;>
+    cases h2 : gen.consts.all constInRange <;>
+    (try simp only [h2, ↓reduceIte, Bool.false_eq_true,
+      StateT.run_bind, StateT.run_lift, except_error_bind, reduceCtorEq] at h) <;>
     cases h7 : gen.consts.all constClosed <;>
+    (try simp only [h7, ↓reduceIte, Bool.false_eq_true,
+      StateT.run_bind, StateT.run_lift, except_error_bind, reduceCtorEq] at h) <;>
+    cases h9 : gen.consts.all constGround <;>
+    (try simp only [h9, ↓reduceIte, Bool.false_eq_true,
+      StateT.run_bind, StateT.run_lift, except_error_bind, reduceCtorEq] at h) <;>
     cases h4 : gen.consts.all (fun ci => (fe.env.find? ci.name).isNone) <;>
+    (try simp only [h4, ↓reduceIte, Bool.false_eq_true,
+      StateT.run_bind, StateT.run_lift, except_error_bind, reduceCtorEq] at h) <;>
     cases h8 : namesNodup (gen.consts.toList.map (·.name)) <;>
+    (try simp only [h8, ↓reduceIte, Bool.false_eq_true,
+      StateT.run_bind, StateT.run_lift, except_error_bind, reduceCtorEq] at h) <;>
     cases h5 : gen.consts.all safeConst <;>
+    (try simp only [h5, Bool.or_false, Bool.or_true, ↓reduceIte, Bool.false_eq_true,
+      StateT.run_bind, StateT.run_lift, except_error_bind, reduceCtorEq] at h) <;>
     cases h3 : gen.consts.all (fun ci =>
       ({ fe with env := gen.consts.foldl InLean.addConst fe.env } : InLean.FEnv).projBodiesInRange
         ci.name) <;>
+    (try simp only [h3, ↓reduceIte, Bool.false_eq_true,
+      StateT.run_bind, StateT.run_lift, except_error_bind, reduceCtorEq] at h) <;>
     cases h6 : projStepsAllOk gen.consts <;>
-    simp only [h1, h2, h3, h4, h5, h6, h7, h8, Bool.or_false, Bool.or_true, ↓reduceIte,
-      Bool.false_eq_true, throw, throwThe, MonadExceptOf.throw,
-      StateT.run_bind, StateT.run_lift, Function.comp, except_error_bind, reduceCtorEq] at h
+    (try simp only [h6, ↓reduceIte, Bool.false_eq_true,
+      StateT.run_bind, StateT.run_lift, except_error_bind, reduceCtorEq] at h)
     all_goals
       rw [show StateT.run (set ({} : CState) : CheckCM Unit) s = Except.ok ((), {}) from rfl,
         except_ok_bind] at h
@@ -255,7 +273,7 @@ theorem checkInductiveC_ok {μ : CheckMode} {fe : InLean.FEnv} {lps : List Name}
           rw [hy, except_ok_bind] at h
           obtain ⟨⟨⟩, q2⟩ := q
           obtain ⟨rfl, rfl⟩ := Prod.mk.inj (Except.ok.inj h)
-          exact ⟨h1, h2, h7, h4, by simp [h5], h3, h6, h8, fun _ => hy⟩
+          exact ⟨h1, h2, h7, h4, by simp [h5], h3, h6, h8, h9, fun _ => hy⟩
       · simp only [StateT.run_bind, StateT.run_lift, except_error_bind, reduceCtorEq] at h
     all_goals
       cases hx : StateT.run X ((), ({} : CState)).snd with
@@ -263,7 +281,7 @@ theorem checkInductiveC_ok {μ : CheckMode} {fe : InLean.FEnv} {lps : List Name}
       | ok q =>
         rw [hx, except_ok_bind] at h
         obtain rfl := (Prod.mk.inj (Except.ok.inj h)).1
-        exact ⟨h1, h2, h7, h4, by simp, h3, h6, h8, nofun⟩
+        exact ⟨h1, h2, h7, h4, by simp, h3, h6, h8, h9, nofun⟩
 
 /-- **An accepted inductive declaration keeps the bodies' range** (its
 constants fresh and distinct, as P4 has them). -/
@@ -273,7 +291,7 @@ theorem projBodiesInRange_ind (hlaws : EnvLaws) (hR : ProjBodiesInRange fe) (hcs
     (hfresh : ∀ ci ∈ a.consts.toList, fe.env.find? ci.name = none)
     (hnd : (a.consts.toList.map (·.name)).Nodup) :
     ProjBodiesInRange { fe with env := a.consts.foldl InLean.addConst fe.env } := by
-  obtain ⟨-, -, -, -, -, h3, -, -, -⟩ := checkInductiveC_ok h
+  obtain ⟨-, -, -, -, -, h3, -, -, -, -⟩ := checkInductiveC_ok h
   rw [← Array.foldl_toList] at h3 ⊢
   refine projBodiesInRange_group hlaws hR hcs hfresh hnd ?_
   intro ci hci
