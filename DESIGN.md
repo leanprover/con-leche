@@ -114851,3 +114851,79 @@ Re-validated on the final binary: Init 64,530, Std 110,064, Lean 199,645 accepte
 0 declined, 0 exact and 0 cosmetic mismatches; `scripts/inlean_negtest.lean` 15/15;
 `instructions:u` on Init 878.2 G (unchanged).  Pins: `CIGround_of_constGround`, `addDeclSound`,
 `no_false` (replacing `addDeclSound_of`, `no_false_of_indGround`).  Gates as above, re-run.
+
+### Lane Faithful-perf: con-leche's memo discipline and fast paths in InLean (2026-11-08, task #451, agent/451-inlean2)
+
+Maintainer's rulings of 2026-11-08: `withExclusive` is allowed in InLean (it is in the standard
+library on lean4 master), and InLean adopts con-leche's own performance techniques where it lacks
+them, nothing beyond them.
+
+* **`InLean/Exclusive.lean`**: con-leche's `withExclusive`/`withExcl` (`k false` in the logic,
+  `implemented_by` the reference-count read), allowlisted in `tests/trust-surface.sh` for `unsafe`
+  and `implemented_by` exactly as `ConLeche/Kernel/Exclusive.lean` is, with the note that it goes
+  when the toolchain's `Init.Util` has the primitive.
+* **Walks** (`InLean/ExprOps.lean`): `EO.mapOff` and `EO.anyNode` are con-leche's walk shape. The
+  plain descents `EO.mapP`/`EO.anyP` are the references; the walks `mapX`/`anyX` return a `Squash`
+  of the value with its proof against them beside a pointer-keyed memo (`pkey`, `PEnt` with its
+  own proof, `MemoXP.shared`: address read, probe, hit validated by `ptrDec`). Only the compound
+  nodes `withExclusive` reports shared are probed and recorded, the table starts at the first such
+  node, and the root is never probed. Nodes are borrowed (`@&`), and the walks are `@[specialize]`
+  so each operation's callback is a direct call: the generated C has no closure per node and no
+  `lean_inc` of the child before `lean_is_exclusive_obj`. The old per-call
+  `HashMap (Expr × Nat)` with structural keys and an entry for every compound node is gone.
+  `instantiate`, `instantiate1` and `instantiateRev` share one core, `EO.instantiateBy`, that
+  reads values through an index function, so `instantiate1` builds no `#[v]` and `instantiateRev`
+  no reversed array (con-leche's `instantiate1C`/`instantiateRev` shape).
+* **Equalities** (`InLean/ExprEq.lean`): `enterBeq` and `enterCl` probe and record only
+  shared/shared pairs (`withExcl` on both sides, con-leche's `enterBeq`). `beqMemo` and its child
+  step reject on the cached data word first (`dataNe`: pointer, then `a.data == b.data`, then the
+  walk, con-leche's `beqMemo`). `keyEqMemo` and `keyGoX`'s child step do the same, justified by
+  `data_eraseK`, which moves here from `InLeanProof/Sim.lean` (it needs `import all Lean.Expr`
+  for the computed field's equations).
+* **Not done: `clEq`'s data test.** The mdata-invariant part of the word (flags and loose-bvar
+  range) is invariant under `mdata` only by what C's `Expr.mkData` computes, and InLean has that
+  only from the stop-gap axioms (`InLeanProof/MkDataAxioms.lean`). The `@[csimp]` equation has to
+  be proved in `InLean/*`, which is axiom-free, so the test cannot be justified there. It becomes
+  provable when the lean4 branch gives `mkData` a Lean body.
+* **Proofs**: `mapOff_spec`/`anyNode_spec` are now equations (`EO.mapOff f e k = mapSpec f e k`),
+  read off `EO.mapOff_eq` and `mapP_spec` (the `update*!` bodies as constructors). The memo
+  invariants `MapMemoInv`/`AnyMemoInv` and `mapOff_fresh`/`anyNode_fresh` are gone, and their
+  users rewrite with the new equations. `instantiate1_eq`, `instantiateRev_eq` and
+  `instantiateBy_congr` relate the substitution's entry points.
+
+**Validation** (`inlean-replay --kernel=inlean --compare --quiet`): Init 64,530, Std 110,064,
+Lean 199,645 accepted, 0 rejected, 0 declined, 0 exact and 0 cosmetic mismatches;
+`scripts/inlean_negtest.lean` 15/15.
+
+**`instructions:u`** (`--kernel=inlean --quiet`, one run each, after the harness fix 96a8f778b;
+con-leche `--olean --jobs=1`):
+
+| module | InLean before | InLean after | con-leche | official |
+|---|---|---|---|---|
+| Init | 673.5 G | 456.6 G (−32.2 %) | 441.4 G | 305.1 G |
+| Std | 1,041.3 G | 689.7 G (−33.8 %) | 658.8 G | 494.0 G |
+| Lean | 1,316.9 G | 878.6 G (−33.3 %) | 822.9 G | 610.7 G |
+
+Profile on Init (`perf record`, the perf lane's category script, absolute G from the shares):
+
+| category | InLean before | InLean after | con-leche |
+|---|---|---|---|
+| equality | 74.8 | 23.9 | 20.7 |
+| own expression walks | 97.2 | 56.1 | 66.3 |
+| mdata reading | 8.8 | 7.5 | — |
+| cached fields/ranges | 16.7 | 8.8 | — |
+| runtime (rc/alloc/free) | 325.3 | 212.3 | 187.2 |
+| hash-map internals | 42.9 | 43.1 | 38.1 |
+| core logic | 54.0 | 52.4 | 58.1 |
+| other (incl. `Kernel.Environment.find?`) | 51.9 | 50.3 | 22.6 |
+| olean reader (con-leche only) | — | — | 47.5 |
+
+What remains between the two: allocation/RC (+25 G), the `Lean.Kernel.Environment` lookups
+(`PersistentHashMap.find`, about 15 G) and `mdata` reading. con-leche's shared `bvar` pool is the
+one con-leche technique still missing on the walks' path (`.bvar` is built fresh in
+`instantiate`/`lift`/`lower`).
+
+Pins: `InLean.data_eraseK` (was `InLeanProof.data_eraseK`); `addDeclSound` unchanged (the
+standard three and the three `mkData` stop-gaps). Gates: `lake build InLean InLeanProof
+inlean-replay` warning-free; `tests/layering.sh`, `tests/trust-surface.sh`,
+`tests/no-local-paths.sh`, `tests/inlean-sync.sh`, `tests/shake.sh`.
