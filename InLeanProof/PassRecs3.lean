@@ -729,14 +729,14 @@ master's on the readings, the constructor read as `trCC`. -/
 theorem classCtorOfI_run {fe : InLean.FEnv} {L : ConLeche.Env} (hO : OpsSimI fe L)
     {p : InLean.BlockShape} {formerTys : List Lean.Expr} {rd : InLean.ClassRead}
     {Ms : List InLean.TargetMajor} {c : Nat} {ctor : Lean.ConstantVal × Nat}
-    {s₀ s' : InLean.CState} {x : InLean.ClassCtor} (hs : CSOKI .verified false L s₀)
+    {sr s₀ s' : InLean.CState} {x : InLean.ClassCtor} (hs : CSOKI .verified false L s₀)
     (hfo : OkSL s₀ formerTys = true) (hMs : ∀ t, ClassOk s₀ (Ms.getD t default))
     (hFr : ∀ t, FrameOk (TrSL s₀ (Ms.getD t default).pfvs) (TrSL s₀ formerTys))
     (hct : okC ctor.1.type = true)
     (h : InLean.classCtorOf (sharedOpsC .verified fe) fe p formerTys rd Ms c ctor s₀ = .ok (x, s')) :
     CSOKI .verified false L s' ∧ TabLe s₀ s' ∧ OkCC s' x ∧
       Runs (ConLeche.classCtorOf (ConLeche.fueledOpsM .verified) L (trShape p) (TrSL s₀ formerTys)
-        (trCR s₀ rd) (Ms.map (trTM s₀)) c (trCtor ctor)) (trCC s' x) := by
+        (trCR sr rd) (Ms.map (trTM s₀)) c (trCtor ctor)) (trCC s' x) := by
   unfold InLean.classCtorOf at h
   unfold ConLeche.classCtorOf
   obtain ⟨hMc, hnfc, hdsc, -⟩ := hMs c
@@ -755,7 +755,7 @@ theorem classCtorOfI_run {fe : InLean.FEnv} {L : ConLeche.Env} (hO : OpsSimI fe 
   simp only [ConLeche.unwrapOr]
   rw [Runs.pure_bind_eq]
   obtain ⟨q, s₂, h2, h⟩ := bind_run h
-  obtain ⟨hst, hq⟩ := classMinorSlotI_run (s := s₀) h2
+  obtain ⟨hst, hq⟩ := classMinorSlotI_run (s := sr) h2
   subst s₂
   obtain ⟨_, ihs⟩ := q
   rw [Runs.bind_eq _ hq]
@@ -823,5 +823,105 @@ theorem classCtorOfI_run {fe : InLean.FEnv} {L : ConLeche.Env} (hO : OpsSimI fe 
   unfold trCC
   rw [TrS_of_tabLe ht₀₇ he0o]
   exact Runs.pure _
+
+/-! ## Every constructor of every class -/
+
+theorem map_trCC_mono {s₀ s₁ : InLean.CState} (h : TabLe s₀ s₁) :
+    ∀ {xs : List InLean.ClassCtor}, (∀ x ∈ xs, OkCC s₀ x) → xs.map (trCC s₁) = xs.map (trCC s₀)
+  | [], _ => rfl
+  | x :: xs, hx => by
+    rw [List.map_cons, List.map_cons, (OkCC.mono h (hx x List.mem_cons_self)).2,
+      map_trCC_mono h (fun y hy => hx y (List.mem_cons_of_mem _ hy))]
+
+theorem okTMN_all_of_getD {s : InLean.CState} {Ms : List InLean.TargetMajor}
+    (h : ∀ t, ClassOk s (Ms.getD t default)) : ∀ M ∈ Ms, OkTMN s M := by
+  intro M hM
+  obtain ⟨k, hk, rfl⟩ := List.getElem_of_mem hM
+  have := (h k).1
+  rwa [List.getD_eq_getElem?_getD, List.getElem?_eq_getElem hk, Option.getD_some] at this
+
+/-- **Every constructor of class `c`** (`classCtorsOf`). -/
+theorem classCtorsOfI_run {fe : InLean.FEnv} {L : ConLeche.Env} (hO : OpsSimI fe L)
+    {p : InLean.BlockShape} {formerTys : List Lean.Expr} {rd : InLean.ClassRead}
+    {Ms : List InLean.TargetMajor} {c : Nat} {sr : InLean.CState} :
+    ∀ (ctors : List (Lean.ConstantVal × Nat)) {s₀ s' : InLean.CState} {xs : List InLean.ClassCtor},
+      CSOKI .verified false L s₀ → OkSL s₀ formerTys = true →
+      (∀ t, ClassOk s₀ (Ms.getD t default)) →
+      (∀ t, FrameOk (TrSL s₀ (Ms.getD t default).pfvs) (TrSL s₀ formerTys)) →
+      (∀ ctor ∈ ctors, okC ctor.1.type = true) →
+      InLean.classCtorsOf (sharedOpsC .verified fe) fe p formerTys rd Ms c ctors s₀ = .ok (xs, s') →
+      CSOKI .verified false L s' ∧ TabLe s₀ s' ∧ (∀ x ∈ xs, OkCC s' x) ∧
+        Runs (ConLeche.classCtorsOf (ConLeche.fueledOpsM .verified) L (trShape p) (TrSL s₀ formerTys)
+          (trCR sr rd) (Ms.map (trTM s₀)) c (ctors.map trCtor)) (xs.map (trCC s'))
+  | [], s₀, s', xs, hs, _, _, _, _, h => by
+    unfold InLean.classCtorsOf at h
+    obtain ⟨rfl, rfl⟩ := pure_run h
+    exact ⟨hs, TabLe.refl _, (fun _ h => by cases h), by unfold ConLeche.classCtorsOf; exact Runs.pure _⟩
+  | ctor :: cs, s₀, s', xs, hs, hfo, hMs, hFr, hct, h => by
+    unfold InLean.classCtorsOf at h
+    unfold ConLeche.classCtorsOf
+    obtain ⟨x, s₁, h1, h⟩ := bind_run h
+    obtain ⟨xs', s₂, h2, h⟩ := bind_run h
+    obtain ⟨rfl, rfl⟩ := pure_run h
+    obtain ⟨hs₁, ht₁, hx, hR1⟩ := classCtorOfI_run (sr := sr) hO hs hfo hMs hFr
+      (hct ctor List.mem_cons_self) h1
+    have hMs₁ : ∀ t, ClassOk s₁ (Ms.getD t default) := fun t => (hMs t).mono ht₁
+    obtain ⟨hs₂, ht₂, hxs, hR2⟩ := classCtorsOfI_run hO cs hs₁ (okSL_of_tabLe ht₁ hfo) hMs₁
+      (fun t => by
+        rw [TrSL_of_tabLe ht₁ (hMs t).1.2.2.1, TrSL_of_tabLe ht₁ hfo]; exact hFr t)
+      (fun c' hc' => hct c' (List.mem_cons_of_mem _ hc')) h2
+    rw [TrSL_of_tabLe ht₁ hfo, map_trTM_mono ht₁ (okTMN_all_of_getD hMs)] at hR2
+    have hoc := OkCC.mono ht₂ hx
+    refine ⟨hs₂, ht₁.trans ht₂, ?_, ?_⟩
+    · intro y hy
+      rcases List.mem_cons.1 hy with rfl | hy
+      · exact hoc.1
+      · exact hxs y hy
+    · rw [List.map_cons, List.map_cons, hoc.2]
+      exact Runs.bind hR1 (Runs.bind hR2 (Runs.pure _))
+
+/-- **Every class's constructors** (`classesCtors`), from class `c` on. -/
+theorem classesCtorsI_run {fe : InLean.FEnv} {L : ConLeche.Env} (hO : OpsSimI fe L)
+    {p : InLean.BlockShape} {formerTys : List Lean.Expr} {rd : InLean.ClassRead}
+    {Ms : List InLean.TargetMajor} {sr : InLean.CState} :
+    ∀ (rest : List InLean.TargetMajor) (c : Nat) {s₀ s' : InLean.CState}
+      {xss : List (List InLean.ClassCtor)},
+      CSOKI .verified false L s₀ → OkSL s₀ formerTys = true →
+      (∀ t, ClassOk s₀ (Ms.getD t default)) →
+      (∀ t, FrameOk (TrSL s₀ (Ms.getD t default).pfvs) (TrSL s₀ formerTys)) →
+      (∀ M ∈ rest, ClassOk s₀ M) →
+      InLean.classesCtors (sharedOpsC .verified fe) fe p formerTys rd Ms c rest s₀ = .ok (xss, s') →
+      CSOKI .verified false L s' ∧ TabLe s₀ s' ∧ (∀ xs ∈ xss, ∀ x ∈ xs, OkCC s' x) ∧
+        Runs (ConLeche.classesCtors (ConLeche.fueledOpsM .verified) L (trShape p) (TrSL s₀ formerTys)
+          (trCR sr rd) (Ms.map (trTM s₀)) c (rest.map (trTM s₀))) (xss.map (·.map (trCC s')))
+  | [], c, s₀, s', xss, hs, _, _, _, _, h => by
+    unfold InLean.classesCtors at h
+    obtain ⟨rfl, rfl⟩ := pure_run h
+    exact ⟨hs, TabLe.refl _, (fun _ h => by cases h), by unfold ConLeche.classesCtors; exact Runs.pure _⟩
+  | M :: rest, c, s₀, s', xss, hs, hfo, hMs, hFr, hrest, h => by
+    unfold InLean.classesCtors at h
+    simp only [List.map_cons]
+    unfold ConLeche.classesCtors
+    obtain ⟨xs, s₁, h1, h⟩ := bind_run h
+    obtain ⟨xss', s₂, h2, h⟩ := bind_run h
+    obtain ⟨rfl, rfl⟩ := pure_run h
+    have hM := hrest M List.mem_cons_self
+    obtain ⟨hs₁, ht₁, hxs, hR1⟩ := classCtorsOfI_run (sr := sr) hO M.ctors hs hfo hMs hFr
+      hM.2.2.2 h1
+    have hMs₁ : ∀ t, ClassOk s₁ (Ms.getD t default) := fun t => (hMs t).mono ht₁
+    obtain ⟨hs₂, ht₂, hxss, hR2⟩ := classesCtorsI_run hO rest (c + 1) hs₁ (okSL_of_tabLe ht₁ hfo)
+      hMs₁
+      (fun t => by
+        rw [TrSL_of_tabLe ht₁ (hMs t).1.2.2.1, TrSL_of_tabLe ht₁ hfo]; exact hFr t)
+      (fun M' hM' => (hrest M' (List.mem_cons_of_mem _ hM')).mono ht₁) h2
+    rw [TrSL_of_tabLe ht₁ hfo, map_trTM_mono ht₁ (okTMN_all_of_getD hMs),
+      map_trTM_mono ht₁ (fun M' hM' => (hrest M' (List.mem_cons_of_mem _ hM')).1)] at hR2
+    refine ⟨hs₂, ht₁.trans ht₂, ?_, ?_⟩
+    · intro ys hys
+      rcases List.mem_cons.1 hys with rfl | hys
+      · exact fun x hx => (OkCC.mono ht₂ (hxs x hx)).1
+      · exact hxss ys hys
+    · rw [List.map_cons, map_trCC_mono ht₂ hxs]
+      exact Runs.bind hR1 (Runs.bind hR2 (Runs.pure _))
 
 end InLeanProof
