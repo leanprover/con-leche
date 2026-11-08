@@ -478,7 +478,7 @@ theorem allFv_substConst0 {P : FVarId → Prop} {n : Name} {r : Expr} (hr : AllF
 /-- **A property of the statements' terms**, from its closure under
 application and constants and its holding at the two variables. -/
 theorem divModCertStmts_all {x y : Expr} (c : Name) (Q : Expr → Prop)
-    (hC : ∀ n us, Q (.const n us)) (hA : ∀ f a, Q f → Q a → Q (.app f a)) (hx : Q x) (hy : Q y) :
+    (hC : ∀ n (us : List Level), (∀ u ∈ us, u = .succ .zero) → Q (.const n us)) (hA : ∀ f a, Q f → Q a → Q (.app f a)) (hx : Q x) (hy : Q y) :
     ∀ p ∈ InLean.divModCertStmts x y c, (∀ h ∈ p.1, Q h) ∧ Q p.2 := by
   unfold InLean.divModCertStmts
   repeat' split
@@ -486,7 +486,8 @@ theorem divModCertStmts_all {x y : Expr} (c : Name) (Q : Expr → Prop)
     simp only [List.mem_cons, List.not_mem_nil, or_false, forall_eq_or_imp, forall_eq]
     try simp only [imp_false, IsEmpty.forall_iff, implies_true, and_true]
   all_goals (repeat' constructor) <;> intros <;> subst_vars
-  all_goals (repeat (first | exact hx | exact hy | apply hA | apply hC))
+  all_goals (repeat (first | exact hx | exact hy | apply hA |
+    (apply hC; intro u hu; simp only [List.mem_cons, List.not_mem_nil, or_false] at hu; try exact hu)))
 
 /-- An application spine of constants over leaves reading as free variables. -/
 @[expose] def SpineF (s : InLean.CState) : Expr → Prop
@@ -629,5 +630,146 @@ theorem trPinSet_fields (ps : InLean.PinSet) {c : Name} (hc : InLean.natDivModNa
     ConLeche.divModTypePins, ← cl_natDivName, ← cl_natModName, ← cl_natGcdName,
     ← cl_natLandName, ← cl_natLorName, ← cl_natXorName, ← cl_natShiftLeftName,
     ← cl_natShiftRightName, ↓reduceIte] <;> exact ⟨rfl, rfl, rfl⟩
+
+/-! ## The guards, both ways -/
+
+theorem list_all_congr {α : Type} {f g : α → Bool} :
+    ∀ {l : List α}, (∀ a ∈ l, f a = g a) → l.all f = l.all g
+  | [], _ => rfl
+  | a :: l, h => by
+    simp only [List.all_cons, h a (List.mem_cons_self ..),
+      list_all_congr (fun b hb => h b (List.mem_cons_of_mem _ hb))]
+
+theorem typePinStored_tr {fe : InLean.FEnv} {L : ConLeche.Env} (hP : EnvPresI fe L) (n : Name) :
+    ConLeche.typePinStored L (toName n) = trC (match fe.find? n with
+      | some ci => ci.type
+      | none => .sort .zero) ∧
+    okC (match fe.find? n with
+      | some ci => ci.type
+      | none => .sort .zero) = true := by
+  unfold ConLeche.typePinStored
+  cases hf : fe.find? n with
+  | none => rw [hP.none n hf]; exact ⟨rfl, rfl⟩
+  | some ci =>
+    obtain ⟨cci, hc, hST⟩ := find_storedT hP hf
+    obtain ⟨o, t⟩ := hST.okC
+    rw [hc]; exact ⟨t.symm, o⟩
+
+/-- One type pin's guard. -/
+theorem typePinGuard_eq {fe : InLean.FEnv} {L : ConLeche.Env} (hP : EnvPresI fe L) (n : Name)
+    {ty : Expr} (hty : okC ty = true) :
+    ((L.find? (toName n)).isSome && !(ConLeche.typePinStored L (toName n)).hasFvar &&
+      (trC ty).looseBVarsBounded 0 && !(trC ty).hasFvar && (trC ty).constsResolve L) =
+    (match fe.find? n with
+      | some ci => !ci.type.hasFVar && !ty.hasLooseBVars && !ty.hasFVar && InLean.constsResolve fe ty
+      | none => false) := by
+  obtain ⟨f1, f2, -⟩ := flags_trC hty
+  cases hf : fe.find? n with
+  | none => simp [hP.none n hf]
+  | some ci =>
+    obtain ⟨cci, hc, hST⟩ := find_storedT hP hf
+    have hfv : ci.type.hasFVar = false := by rw [Expr.hasFVar_eq hST.2.1]; exact hST.1
+    unfold ConLeche.typePinStored
+    simp [hc, ← hST.okC.2, trC_hasFvar, f1, f2, hfv, constsResolve_eqC hP hty]
+
+/-- **The variant's pin guard is master's**, where the variant holds the operation. -/
+theorem divModPinGuard_eq {fe : InLean.FEnv} {L : ConLeche.Env} (hP : EnvPresI fe L)
+    {ps : InLean.PinSet} {op : InLean.PinOp} {c : Name}
+    (hc : InLean.natDivModNames.contains c = true) (hop : ps.op? c = some op)
+    (hpin : okC op.pin = true) (htp : ∀ t ∈ op.typePins, okC t.2 = true) :
+    ConLeche.divModPinGuard (trPinSet ps) L (toName c) = InLean.divModPinGuard fe op := by
+  obtain ⟨e1, -, e3⟩ := trPinSet_fields ps hc
+  have hp1 : trOpPin ps c = trC op.pin := by simp [trOpPin, hop]
+  have hp3 : trOpTypePins ps c = op.typePins.toList.map fun p => (toName p.1, trC p.2) := by
+    simp [trOpTypePins, hop]
+  obtain ⟨f1, f2, f3⟩ := flags_trC hpin
+  unfold ConLeche.divModPinGuard InLean.divModPinGuard
+  rw [e1, e3, hp1, hp3, f1, f3, trC_hasFvar, f2, constsResolve_eqC hP hpin, List.all_map,
+    ← Array.all_toList]
+  congr 1
+  refine list_all_congr fun t ht => ?_
+  obtain ⟨n, ty⟩ := t
+  exact typePinGuard_eq hP n (htp _ (Array.mem_toList_iff.1 ht))
+
+/-- Where the variant lacks the operation, master's guard refuses it. -/
+theorem divModPinGuard_none {L : ConLeche.Env} {ps : InLean.PinSet} {c : Name}
+    (hc : InLean.natDivModNames.contains c = true) (hop : ps.op? c = none) :
+    ConLeche.divModPinGuard (trPinSet ps) L (toName c) = false := by
+  obtain ⟨e1, -, -⟩ := trPinSet_fields ps hc
+  unfold ConLeche.divModPinGuard
+  rw [e1]
+  simp [trOpPin, hop, ConLeche.Expr.looseBVarsBounded]
+
+/-- A free variable whose master type resolves. -/
+@[expose] def FvRes (s : InLean.CState) (L : ConLeche.Env) (id : FVarId) : Prop :=
+  (TrS s (.fvar id)).constsResolve L = true
+
+/-- What a statement term satisfies at a state where the variables read as
+`fvar 0`/`fvar 1` of type `Nat`, `Nat` stored. -/
+@[expose] def StmtOk (s : InLean.CState) (L : ConLeche.Env) (h : Expr) : Prop :=
+  SpineF s h ∧ OkS s h = true ∧ AllFv (FvRes s L) h
+
+theorem stmtOk_all {s : InLean.CState} {L : ConLeche.Env} {x y : Expr}
+    (hokx : OkS s x = true) (hoky : OkS s y = true)
+    (hx : TrS s x = .fvar 0 (.const ConLeche.natName []))
+    (hy : TrS s y = .fvar 1 (.const ConLeche.natName []))
+    (hN : (L.find? ConLeche.natName).isSome = true) (c : Name) :
+    ∀ p ∈ InLean.divModCertStmts x y c, (∀ h ∈ p.1, StmtOk s L h) ∧ StmtOk s L p.2 := by
+  refine divModCertStmts_all c _ ?_ ?_ ?_ ?_
+  · intro n us hus
+    refine ⟨trivial, ?_, trivial⟩
+    simp only [OkS_const, List.all_eq_true]
+    intro u hu; rw [hus u hu]; rfl
+  · intro f a hf ha
+    exact ⟨⟨hf.1, ha.1⟩, by simp [OkS_app, hf.2.1, ha.2.1], ⟨hf.2.2, ha.2.2⟩⟩
+  · exact ⟨spineF_of_fvar hx, hokx, allFv_of_trE_fvar hx (by simpa [ConLeche.Expr.constsResolve] using hN)⟩
+  · exact ⟨spineF_of_fvar hy, hoky, allFv_of_trE_fvar hy (by simpa [ConLeche.Expr.constsResolve] using hN)⟩
+
+theorem constsResolve_subst_eq {fe : InLean.FEnv} {L : ConLeche.Env} (hP : EnvPresI fe L)
+    {s : InLean.CState} {c : Name} {annVal h : Expr} (hv : okC annVal = true) (hh : StmtOk s L h) :
+    (ConLeche.Expr.substConst0 (toName c) (trC annVal) (TrS s h)).constsResolve L =
+      InLean.constsResolve fe (InLean.substConst0 c annVal h) := by
+  rw [← TrS_of_okC s hv, ← TrS_substConst0 c annVal hh.1]
+  exact constsResolve_eqA hP _ (allFv_substConst0 (allFv_of_okC _ hv) hh.2.2)
+    (OkS_substConst0 (OkS_of_okC s hv) _ hh.2.1)
+
+/-- **One certificate's guard is master's.** -/
+theorem divModCertGuard_eq {fe : InLean.FEnv} {L : ConLeche.Env} (hP : EnvPresI fe L)
+    {s : InLean.CState} {c : Name} {annVal proof eqE : Expr} {hyps : List Expr}
+    (hv : okC annVal = true) (hp : okC proof = true) (hh : ∀ h ∈ hyps, StmtOk s L h)
+    (he : StmtOk s L eqE) :
+    ConLeche.divModCertGuard L (toName c) (trC annVal) (hyps.map (TrS s)) (TrS s eqE) (trC proof) =
+      InLean.divModCertGuard fe c annVal hyps eqE proof := by
+  obtain ⟨o, t⟩ := substConstAll_trC (n := c) hv hp
+  obtain ⟨f1, f2, f3⟩ := flags_trC o
+  unfold ConLeche.divModCertGuard InLean.divModCertGuard
+  simp only []
+  rw [← t, f1, f3, trC_hasFvar, f2, constsResolve_eqC hP o, constsResolve_subst_eq hP hv he,
+    List.map_map, List.all_map, List.all_map]
+  congr 2
+  exact list_all_congr fun h hm => constsResolve_subst_eq hP hv (hh h hm)
+
+/-- **The variant's certificates' guards are master's**, where the variant
+holds the operation. -/
+theorem divModCertsGuard_eq {fe : InLean.FEnv} {L : ConLeche.Env} (hP : EnvPresI fe L)
+    {s : InLean.CState} {x y : Expr} (hokx : OkS s x = true) (hoky : OkS s y = true)
+    (hx : TrS s x = .fvar 0 (.const ConLeche.natName []))
+    (hy : TrS s y = .fvar 1 (.const ConLeche.natName []))
+    (hN : (L.find? ConLeche.natName).isSome = true)
+    {ps : InLean.PinSet} {op : InLean.PinOp} {c : Name} {annVal : Expr}
+    (hc : InLean.natDivModNames.contains c = true) (hop : ps.op? c = some op)
+    (hv : okC annVal = true) (hpr : ∀ p ∈ op.proofs, okC p = true) :
+    ConLeche.divModCertsGuard (trPinSet ps) L (toName c) (trC annVal) =
+      ((InLean.divModCertStmts x y c).zip op.proofs.toList).all
+        (fun p => InLean.divModCertGuard fe c annVal p.1.1 p.1.2 p.2) := by
+  obtain ⟨-, e2, -⟩ := trPinSet_fields ps hc
+  have hp2 : trOpProofs ps c = op.proofs.toList.map trC := by simp [trOpProofs, hop]
+  unfold ConLeche.divModCertsGuard
+  rw [e2, hp2, ← divModCertStmts_tr hx hy hc, List.zip_map, List.all_map]
+  refine list_all_congr fun p hp => ?_
+  obtain ⟨⟨hyps, eqE⟩, proof⟩ := p
+  have hm1 := List.of_mem_zip hp
+  obtain ⟨hh, he⟩ := stmtOk_all hokx hoky hx hy hN c _ hm1.1
+  exact divModCertGuard_eq hP hv (hpr _ (Array.mem_toList_iff.1 hm1.2)) hh he
 
 end InLeanProof
