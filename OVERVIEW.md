@@ -37,7 +37,10 @@ import closure, or with `--constant` only the named constants and what they ment
 `.olean` reader); `--olean --module` checks one module's own declarations alone, against the
 records of the modules it loads that they read (§2, one module alone); `--olean --modular` checks
 every module of the root's closure so, in one process, and `--olean --schedule` by one
-`--module` process per module (§2, every module of a closure); `--check-graph` reads only
+`--module` process per module (§2, every module of a closure; `--modular` is of limited use: every
+module redoes its own reach, so on Mathlib it took 3.0 times the merged run's instructions at a
+lower peak (2.4 against 3.1 GiB), and the merged run, or the scheduler for isolation and memory
+limits, is the better choice); `--check-graph` reads only
 the headers of those modules' import closure and checks that its import graph is acyclic and
 every import is on the search path (§2, the import graph); `--` ends the options, every argument after it being a
 file or a module, whatever it is called; `--help` before any `--` prints a summary of all this
