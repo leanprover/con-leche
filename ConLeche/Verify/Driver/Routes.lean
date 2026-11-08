@@ -53,7 +53,61 @@ theorem clashCopiesOf_complete {sp : SearchPath} {fs : FS} {m : Name} {jobs : Na
     {cl : Clash} (hcl : cl ∈ wr.clashes.toList) {e : Copy × ConstantVal × CKindF Name Unit}
     (he : e ∈ cl.copies.toList) :
     ∃ cs, (clashCopiesOf wr)[cl.name]? = some cs ∧ (wr.loads.nameAt e.1.mod, e.2.1) ∈ cs.toList := by
-  sorry
+  obtain ⟨-, ⟨infos, -, hcls⟩, -⟩ := workerReads_open h
+  obtain ⟨-, -, hmore, -, -, -⟩ := workerIndex_copies h
+  obtain ⟨c1, -⟩ := clashCopies_spec (ix := wr.index) fun n c hm => by
+    obtain ⟨-, cp₀, hf, -⟩ := hmore n c hm
+    rw [hf]; rfl
+  let g : Copy × ConstantVal × CKindF Name Unit → Name × ConstantVal :=
+    fun x => (wr.loads.nameAt x.1.mod, x.2.1)
+  let ins : Std.HashMap Name (Array (Name × ConstantVal)) → Clash →
+      Std.HashMap Name (Array (Name × ConstantVal)) := fun m cl => m.insert cl.name (cl.copies.map g)
+  have hkeep : ∀ (l : List Clash) (m : Std.HashMap Name (Array (Name × ConstantVal))),
+      (∀ c ∈ l, c.name ≠ cl.name) → (l.foldl ins m)[cl.name]? = m[cl.name]? := by
+    intro l
+    induction l with
+    | nil => intro m _; rfl
+    | cons a l ih =>
+      intro m hl
+      rw [List.foldl_cons, ih _ (fun c hc => hl c (List.mem_cons_of_mem _ hc))]
+      simp only [ins, Std.HashMap.getElem?_insert]
+      rw [if_neg (by simpa using hl a List.mem_cons_self)]
+  have hlast : ∀ (l : List Clash) (m : Std.HashMap Name (Array (Name × ConstantVal))),
+      (∃ c ∈ l, c.name = cl.name) →
+      ∃ c ∈ l, c.name = cl.name ∧ (l.foldl ins m)[cl.name]? = some (c.copies.map g) := by
+    intro l
+    induction l with
+    | nil => intro m ⟨c, hc, _⟩; cases hc
+    | cons a l ih =>
+      intro m hex
+      by_cases hl : ∃ c ∈ l, c.name = cl.name
+      · obtain ⟨c, hc, hn, he⟩ := ih (ins m a) hl
+        exact ⟨c, List.mem_cons_of_mem _ hc, hn, by rw [List.foldl_cons]; exact he⟩
+      · have ha : a.name = cl.name := by
+          obtain ⟨c, hc, hn⟩ := hex
+          rcases List.mem_cons.1 hc with rfl | hc
+          · exact hn
+          · exact absurd ⟨c, hc, hn⟩ hl
+        refine ⟨a, List.mem_cons_self, ha, ?_⟩
+        rw [List.foldl_cons, hkeep l _ (fun c hc hn => hl ⟨c, hc, hn⟩)]
+        simp [ins, ha]
+  obtain ⟨c, hc, hcn, hcs⟩ := hlast wr.clashes.toList {} ⟨cl, hcl, rfl⟩
+  refine ⟨c.copies.map g, by
+    show (wr.clashes.foldl ins {})[cl.name]? = _
+    rw [← Array.foldl_toList]; exact hcs, ?_⟩
+  rw [hcls, Array.toList_map] at hcl hc
+  obtain ⟨⟨n, a⟩, ha, rfl⟩ := List.mem_map.1 hcl
+  obtain ⟨⟨n', a'⟩, ha', rfl⟩ := List.mem_map.1 hc
+  simp only at hcn
+  subst hcn
+  simp only [Array.toList_filterMap, List.mem_filterMap] at he
+  obtain ⟨d, hd, hdv⟩ := he
+  have hd' : d ∈ a'.toList :=
+    (c1 n' a' (Array.mem_toList_iff.1 ha') d).2 ((c1 n' a (Array.mem_toList_iff.1 ha) d).1 hd)
+  rw [Array.toList_map]
+  refine List.mem_map.2 ⟨e, ?_, rfl⟩
+  simp only [Array.toList_filterMap, List.mem_filterMap]
+  exact ⟨d, hd', hdv⟩
 
 /-- One statement is one `ConstantVal`. -/
 theorem SameStmt.eq {a b : ConstantVal} (h : SameStmt a b) : a = b := by
