@@ -188,13 +188,13 @@
   1748        g.lineNo + (bs.map fun b => (recsOf b).size).sum,
   1749        g.total + (bs.map ByteArray.size).sum⟩ := by
 
-== ConLeche/Driver/CheckMain.lean#L409-L414
-   409  theorem checkMainG_ndjson_accept {file : String} {mode : CheckMode}
-   410      {pace : Pace} {jobs : Nat} {fs : FS} {hs hs' : HS}
-   411      (h : (checkMainG (.ndjson file) mode pace jobs : ModelIO _) fs hs (.ok 0) hs') :
-   412      ∃ pre b r env, Frontend.builtinPreludeE = .ok pre ∧ fs.file file = some b ∧
-   413        Frontend.parseChunks [b] = .ok r ∧
-   414        Cached.checkDecls mode natOpPinSets (Frontend.preparePrelude pre r.decls) = .ok env := by
+== ConLeche/Driver/CheckMain.lean#L412-L417
+   412  theorem checkMainG_ndjson_accept {file : String} {mode : CheckMode}
+   413      {pace : Pace} {jobs : Nat} {fs : FS} {hs hs' : HS}
+   414      (h : (checkMainG (.ndjson file) mode pace jobs : ModelIO _) fs hs (.ok 0) hs') :
+   415      ∃ pre b r env, Frontend.builtinPreludeE = .ok pre ∧ fs.file file = some b ∧
+   416        Frontend.parseChunks [b] = .ok r ∧
+   417        Cached.checkDecls mode natOpPinSets (Frontend.preparePrelude pre r.decls) = .ok env := by
 
 == ConLeche/Cached/Decls.lean#L46-L47
     46  def declStep (pins : List NatOpPinSet) (p : Nat × FEnv) (pd : Declaration) :
