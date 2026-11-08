@@ -20,9 +20,11 @@ model-free:
   at a level a load reads;
 * `workerClash_kinds` — a clash's copies are theorems or axioms, all unsafe or none (Lean's
   merge rule, `subsumesF`);
-* `copy_own` — `copy_own` at every name but the tolerated axiom's, `Quot.sound` included (its
-  pinned constant is the copy's statement where its home accepted it), and the statement's type
-  does not read its own name.
+* `copy_own` — **a copy's constant**: a copy of a statement kind at any level its module `M`
+  loads has, in `M`'s own environment, a statement-kind constant of the copy's statement (at
+  `Quot.sound` the pin, which is the copy's statement where its home accepted it), a theorem where
+  the copy or the private constant behind it is one; the statement's type does not read its own
+  name.
 -/
 
 public section
@@ -274,7 +276,7 @@ theorem workerClash_kinds {m : Name} {jobs : Nat} {wr : WorkerReads} {hs hs' : H
 /-- **The own entry behind a copy**: a copy of `M`'s part, at a level a load reads, of a statement
 kind, not filtered out, stands for a constant of the home's merge, of the copy's statement, kept
 and of a statement kind, whose record is emitted; a theorem where the copy or the private constant
-behind it is one (`copy_own`'s first half). -/
+behind it is one. -/
 theorem copy_entry {M : Name} {jobs : Nat} {w : WorkerRead} (hw : WorkerFacts sp fs M jobs w)
     {s : Spot} (hmod : s.part.mod = M) (hs : CopyAt sp fs s) (hl : s.part.level ≠ .server)
     {r : Region} (hr : PartRegion sp fs s.part r) {cv : ConstantVal} {k : CKindF Name Unit}
@@ -430,11 +432,10 @@ theorem readNames_instantiateLevelParams (ks : List Name) (us : List Level) (e :
   | proj s i e ih => simp only [Expr.instantiateLevelParams, Expr.readNames, ih]
   | _ => rfl
 
-/-- **A copy's constant in its module's own environment** (`copy_own`, at `Quot.sound` too): a
-copy of `M`'s part, at a level a load reads, of a statement kind, not filtered out, at no
-`sorryAx`, has in `M`'s own environment a statement-kind constant of the copy's statement, a
-theorem where the copy or the private constant behind it is one; and the statement's type does
-not read its own name. -/
+/-- **A copy's constant in its module's own environment**: a copy of `M`'s part, at a level a
+load reads, of a statement kind, not filtered out, at no `sorryAx`, has in `M`'s own environment
+a statement-kind constant of the copy's statement, a theorem where the copy or the private
+constant behind it is one; and the statement's type does not read its own name. -/
 theorem copy_own {mode : CheckMode} {M : Name} {jobs : Nat}
     {w : WorkerRead} (hw : WorkerFacts sp fs M jobs w) (hrun : OwnRun mode sp fs M w)
     {s : Spot} (hmod : s.part.mod = M) (hs : CopyAt sp fs s) (hl : s.part.level ≠ .server)
