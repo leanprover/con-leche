@@ -1,0 +1,347 @@
+module
+
+public import InLeanProof.TailSim
+public import InLeanProof.DivModArm
+public import InLeanProof.BlockPresR
+import ConLeche.Semantics.Bridge.Sound
+import ConLeche.Model.Inductives.BlockRunFacts
+import ConLeche.Verify.Inductives.BlockShapeInv
+import all Lean.Declaration
+
+/-!
+# The simulation theorem proved (task #451, lane P4)
+
+`addDeclSound`: InLean's `addDecl` at `theoremConfig` accepting a safe
+declaration that is not a non-standard axiom keeps the environment's model.
+The step, by kind:
+
+* **master's side**: InLean's check accepted ⇒ master's pure fueled step
+  accepts the records of what InLean adds (O6, `checkDecl_sim_nk`; O7,
+  `checkIndDeclC_sim`) ⇒ master's fold carries `EnvModelOk` (`foldPM`), and
+  master's accepted step installs exactly the records' constants and tables
+  (`checkDecl_env`, from the run relation), so the new environment is
+  `installAll` of the old records and the new ones;
+* **InLean's side**: the relation (`EnvPresI`) and the projection bodies'
+  range (`ProjBodiesInRange`) are kept by the per-kind lemmas (`presI_*`,
+  `quotGroupPres`, `indGroupPresBP`; `projBodiesInRange_*`), and every
+  constant added is in range (`EnvRangeOk`).
+-/
+
+public section
+
+namespace InLeanProof
+
+open Lean InLean
+
+/-! ## Master's accepted step installs the records -/
+
+/-- **What master's accepted step returns**: the environment with the
+record's constants and tables pushed (`declConstants`, `declTables`), read
+off the run relation (`checkDeclRun_ofEnvFactsK`). -/
+theorem checkDecl_env {pins : List ConLeche.NatOpPinSet} {F : Nat} {L L' : ConLeche.Env}
+    {d : ConLeche.Declaration}
+    (h : ConLeche.checkDecl .verified (ConLeche.fueledOps .verified F) pins L d = .ok L') :
+    L' = L.pushDelta (ConLeche.declConstants d) (ConLeche.declTables d) := by
+  obtain ⟨-, hr⟩ := ConLeche.Semantics.checkDeclRun_ofEnvFactsK h
+  cases d with
+  | defnDecl cv value hint =>
+    obtain ⟨type', value', hcv, hvf, rfl, -⟩ := hr
+    obtain ⟨-, -, -, -, rfl, -⟩ := hcv
+    obtain ⟨-, -, rfl, -⟩ := hvf
+    cases cv; rfl
+  | thmDecl cv value =>
+    obtain ⟨-, type', value', hcv, -, -, rfl⟩ := hr
+    obtain ⟨-, -, -, -, rfl, -⟩ := hcv
+    cases cv; rfl
+  | opaqueDecl cv value =>
+    obtain ⟨-, type', value', hcv, -, rfl, -⟩ := hr
+    obtain ⟨-, -, -, -, rfl, -⟩ := hcv
+    cases cv; rfl
+  | axiomDecl cv =>
+    rcases hr with ⟨hq, -, -, -, rfl⟩ | ⟨hq, type', -, hcv, hb⟩
+    · simp only [ConLeche.declConstants, ConLeche.declTables, hq, ↓reduceIte]; rfl
+    · obtain ⟨-, -, -, -, rfl, -⟩ := hcv
+      have hcv' : (⟨cv.name, cv.levelParams, cv.type⟩ : ConLeche.ConstantVal) = cv := by cases cv; rfl
+      simp only [hcv'] at hb
+      rcases hb with ⟨hs, rfl⟩ | ⟨ht, -, rfl⟩ | ⟨ht, -, rfl⟩ | ⟨-, -, -, -, -, -, hs, rfl⟩
+      · have : cv.name ≠ ConLeche.sorryAxName := by
+          intro h'
+          rw [ConLeche.stdAxiomOk, ite_eq_right, ite_eq_right] at hs <;> rw [h'] at * <;>
+            first | exact absurd hs (by decide) | decide
+        simp only [ConLeche.declConstants, ConLeche.declTables, hq, this, ↓reduceIte]; rfl
+      · have : cv.name ≠ ConLeche.sorryAxName := by rw [ht]; decide
+        simp only [ConLeche.declConstants, ConLeche.declTables, hq, this, ↓reduceIte]; rfl
+      · have : cv.name ≠ ConLeche.sorryAxName := by rcases ht with ht | ht <;> rw [ht] <;> decide
+        simp only [ConLeche.declConstants, ConLeche.declTables, hq, this, ↓reduceIte]; rfl
+      · simp only [ConLeche.declConstants, ConLeche.declTables, hs, ↓reduceIte]; rfl
+  | quotDecl k cv =>
+    obtain ⟨-, -, -, rfl⟩ := hr
+    rfl
+  | indDecl block nP =>
+    have hr' : ConLeche.Semantics.DeclIndRunDispatchK F L block nP L' := hr
+    unfold ConLeche.Semantics.DeclIndRunDispatchK at hr'
+    cases hdf : ConLeche.blockShape? nP block with
+    | none => rw [hdf] at hr'; exact hr'.elim
+    | some p =>
+      rw [hdf] at hr'
+      simp only [ConLeche.declConstants, ConLeche.declTables, hdf]
+      exact ConLeche.Semantics.blockRun_env (ConLeche.blockShape?_declared hdf) hr'
+
+/-- **Master's accepted fold installs the records, in order.** -/
+theorem foldlM_checkDecl_env {pins : List ConLeche.NatOpPinSet} {F : Nat} :
+    ∀ (ds : List ConLeche.Declaration) (L : ConLeche.Env) {L' : ConLeche.Env},
+      ds.foldlM (ConLeche.checkDecl .verified (ConLeche.fueledOps .verified F) pins) L = .ok L' →
+      L' = ds.foldl (fun L d => L.pushDelta (ConLeche.declConstants d) (ConLeche.declTables d)) L
+  | [], _, _, h => by
+    simp only [List.foldlM, pure, Except.pure, Except.ok.injEq] at h
+    exact h.symm
+  | d :: ds, L, _, h => by
+    simp only [List.foldlM, Bind.bind, Except.bind] at h
+    cases hd : ConLeche.checkDecl .verified (ConLeche.fueledOps .verified F) pins L d with
+    | error e => rw [hd] at h; exact nomatch h
+    | ok L1 =>
+      rw [hd] at h
+      rw [List.foldl_cons, ← checkDecl_env hd]
+      exact foldlM_checkDecl_env ds L1 h
+
+end InLeanProof
+
+namespace InLeanProof
+
+open Lean InLean
+
+/-! ## InLean's side: the entry point and the kinds' shapes -/
+
+/-- **InLean's accepted declaration check, inverted**: the kind's check at the
+fresh state, the reserved names' check, no squatter at `sorryAx`'s name. -/
+theorem checkDecl_run {E : Kernel.Environment} {decl : Declaration} {a : InLean.Added}
+    (h : InLean.checkDecl theoremConfig E decl = .ok a) :
+    ∃ s', InLean.checkDeclKindC .verified theoremConfig { env := E, coreAxioms := false } decl
+        {} = .ok (a, s') ∧ InLean.basisNamesOk decl a = true ∧
+      ∀ ci ∈ a.consts.toList, InLean.sorryAxSquat ci = false := by
+  unfold InLean.checkDecl at h
+  split at h
+  · exact nomatch h
+  unfold InLean.runC at h
+  dsimp only at h
+  split at h
+  · rename_i a' s' hrun
+    cases h
+    obtain ⟨b, s₁, hKr, hT⟩ := bindI_ok hrun
+    have hnb : InLean.basisNamesOk decl b = true := by
+      cases hc : InLean.basisNamesOk decl b
+      · simp only [hc, Bool.false_eq_true, ↓reduceIte] at hT
+        exact (throw_bindI_ok hT).elim
+      · rfl
+    simp only [hnb, ↓reduceIte] at hT
+    split at hT
+    · exact (throw_bindI_ok hT).elim
+    · rename_i hc
+      obtain ⟨rfl, -⟩ := pureI_ok hT
+      refine ⟨s₁, hKr, hnb, ?_⟩
+      have hc' : b.consts.any InLean.sorryAxSquat = false := by
+        simpa [show theoremConfig.coreAxioms = false from rfl] using hc
+      simp only [← Array.any_toList, List.any_eq_false] at hc'
+      exact fun ci hci => by simpa using hc' ci hci
+  · exact nomatch h
+
+theorem thm_shape {fe : InLean.FEnv} {v : TheoremVal} {a : InLean.Added} {s s' : InLean.CState}
+    (h : InLean.checkThmC .verified fe v s = .ok (a, s')) :
+    a = { consts := #[.thmInfo v] } ∧ fe.env.find? v.name = none := by
+  unfold InLean.checkThmC at h
+  obtain ⟨_, _, h1, h⟩ := bindI_ok h
+  refine ⟨?_, checkConstantValC_fresh h1⟩
+  obtain ⟨_, _, -, h⟩ := bindI_ok h
+  obtain ⟨_, _, -, h⟩ := bindI_ok h
+  obtain ⟨_, _, -, h⟩ := bindI_ok h
+  dsimp only at h
+  split at h
+  · obtain ⟨_, _, -, h⟩ := bindI_ok h
+    exact (pureI_ok h).1.symm
+  · exact (throw_bindI_ok h).elim
+
+theorem opaque_shape {fe : InLean.FEnv} {v : OpaqueVal} {a : InLean.Added} {s s' : InLean.CState}
+    (h : InLean.checkOpaqueC .verified fe v s = .ok (a, s')) :
+    a = { consts := #[.opaqueInfo v] } ∧ fe.env.find? v.name = none := by
+  unfold InLean.checkOpaqueC at h
+  obtain ⟨_, _, h1, h⟩ := bindI_ok h
+  refine ⟨?_, checkConstantValC_fresh h1⟩
+  repeat' (first | exact (throw_bindI_ok h).elim | (obtain ⟨_, _, -, h⟩ := bindI_ok h) |
+    (dsimp only at h; split at h))
+  all_goals first | exact (pureI_ok h).1.symm | exact (throwI_ok h).elim
+
+theorem defn_shape {fe : InLean.FEnv} {v : DefinitionVal} {a : InLean.Added} {s s' : InLean.CState}
+    (hsafe : v.safety = .safe)
+    (h : InLean.checkDefnC .verified theoremConfig fe v s = .ok (a, s')) :
+    a = { consts := #[.defnInfo v] } ∧ fe.env.find? v.name = none := by
+  unfold InLean.checkDefnC at h
+  simp only [hsafe, show (DefinitionSafety.safe == DefinitionSafety.unsafe) = false from rfl,
+    show theoremConfig.uncertifiedNatOps = false from rfl,
+    Bool.false_eq_true, ↓reduceIte] at h
+  obtain ⟨_, _, h1, h⟩ := bindI_ok h
+  refine ⟨?_, checkConstantValC_fresh h1⟩
+  obtain ⟨_, _, -, h⟩ := bindI_ok h
+  by_cases hc : (natOpNames.contains v.name || natDivModNames.contains v.name) = true
+  · simp only [hc, ↓reduceIte] at h
+    obtain ⟨_, _, -, h⟩ := bindI_ok h
+    exact (pureI_ok h).1.symm
+  · simp only [hc, Bool.false_eq_true, ↓reduceIte] at h
+    exact (pureI_ok h).1.symm
+
+theorem axiom_shape {fe : InLean.FEnv} {v : AxiomVal} {a : InLean.Added} {s s' : InLean.CState}
+    (h : InLean.checkAxiomC .verified theoremConfig fe v s = .ok (a, s')) :
+    a = { consts := #[.axiomInfo v] } ∧ fe.env.find? v.name = none := by
+  by_cases hq : v.name = InLean.quotSoundName
+  · obtain ⟨h1, -, h3⟩ := checkAxiomC_quotSound h hq
+    have : a.quot = false := by
+      unfold InLean.checkAxiomC at h
+      simp only [hq, beq_self_eq_true, ↓reduceIte] at h
+      repeat' (first | exact (throw_bindI_ok h).elim | (obtain ⟨_, _, -, h⟩ := bindI_ok h) |
+        split at h)
+      all_goals first | (rw [← (pureI_ok h).1]) | exact (throwI_ok h).elim
+    exact ⟨by cases a; simp_all, h3⟩
+  · unfold InLean.checkAxiomC at h
+    have bq : (v.name == InLean.quotSoundName) = false := by simpa using hq
+    simp only [bq, Bool.false_eq_true, ↓reduceIte] at h
+    obtain ⟨_, _, h1, h⟩ := bindI_ok h
+    refine ⟨?_, by have := checkConstantValC_fresh h1; exact this⟩
+    repeat' (first | exact (throw_bindI_ok h).elim | exact (pureI_ok h).1.symm |
+      exact (throwI_ok h).elim | split at h)
+
+/-! ## The invariant InLean's side carries -/
+
+/-- **InLean's relation to con-leche's environment** at the theorem's
+configuration: the environment relation (`EnvPresI`, O4) and the projection
+bodies' range (`ProjBodiesInRange`).  What the simulation needs of the
+environment beyond `Presents`; kept by every accepted step (`addDeclSound`),
+and true wherever InLean finds nothing (`relatesI_of_none`). -/
+@[expose] def RelatesI (E : Kernel.Environment) (L : ConLeche.Env) : Prop :=
+  EnvPresI { env := E, coreAxioms := false } L ∧ ProjBodiesInRange { env := E, coreAxioms := false }
+
+/-- **The start**: an environment InLean finds nothing in is related to the
+empty one. -/
+theorem relatesI_of_none {E : Kernel.Environment}
+    (h : ∀ n, ({ env := E, coreAxioms := false } : InLean.FEnv).find? n = none) :
+    RelatesI E ConLeche.Env.empty := by
+  refine ⟨presI_empty h, projBodiesInRange_of_none fun T i => ?_⟩
+  unfold InLean.FEnv.findProj?
+  rw [h T]
+
+/-- The projection reads at two environments storing alike. -/
+theorem findProj_congr {fe : InLean.FEnv} {E' : Kernel.Environment}
+    (h : ∀ n, E'.find? n = fe.env.find? n) (T : Name) (i : Nat) :
+    ({ fe with env := E' } : InLean.FEnv).findProj? T i = fe.findProj? T i := by
+  have hf : ∀ n, ({ fe with env := E' } : InLean.FEnv).find? n = fe.find? n :=
+    fun n => FEnv.find?_congr (fe := fe) (fe' := { fe with env := E' }) rfl rfl (h n)
+  unfold InLean.FEnv.findProj?
+  rw [hf T]
+  cases fe.find? T with
+  | none => rfl
+  | some ci =>
+    cases ci with
+    | inductInfo v =>
+      show (if fe.isPending v.name = true then none else _) =
+        (if fe.isPending v.name = true then none else _)
+      split
+      · rfl
+      · split
+        · split
+          · rw [hf]
+          · rfl
+        · rfl
+    | _ => rfl
+
+theorem projBodiesInRange_congr {fe : InLean.FEnv} {E' : Kernel.Environment}
+    (h : ∀ n, E'.find? n = fe.env.find? n) (hR : ProjBodiesInRange fe) :
+    ProjBodiesInRange { fe with env := E' } := by
+  intro T i e he
+  rw [findProj_congr h] at he
+  exact hR T i e he
+
+/-- **`L` holds every safe constant InLean finds, by name and type** (the
+third clause of `Presents`, from the relation). -/
+theorem presents_reads {E : Kernel.Environment} {L : ConLeche.Env}
+    (hP : EnvPresI { env := E, coreAxioms := false } L) :
+    ∀ n ci, E.find? n = some ci → SafeConst ci → n ≠ InLean.sorryAxName →
+      ∃ c ∈ L.consts, toName n = c.name ∧ toExprC ci.type = some c.toConstantVal.type := by
+  intro n ci hf hsafe hn
+  have hs : InLean.safeConst ci = true := by
+    cases ci <;> simp_all [SafeConst, InLean.safeConst]
+  have hsee : ({ env := E, coreAxioms := false } : InLean.FEnv).sees n ci = true :=
+    sees_safe hs fun h => absurd h hn
+  have hfe : ({ env := E, coreAxioms := false } : InLean.FEnv).find? n = some ci := by
+    rw [FEnv.find?_eq_filter]
+    simp only [hf, Option.filter_some, hsee, ↓reduceIte]
+  obtain ⟨cci, hL, hr⟩ := hP.entry n ci hfe
+  have hcv := hr.cv
+  unfold ConLeche.Env.find? at hL
+  have hmem := List.mem_of_find?_eq_some hL
+  have hname := List.find?_some hL
+  refine ⟨cci, hmem, ?_, ?_⟩
+  · simp only [beq_iff_eq] at hname
+    exact hname.symm
+  · rw [ci_cv_type]; exact hcv.2.2.2.2
+
+/-! ## One step, generically -/
+
+theorem foldl_pushDelta_consts : ∀ (ds : List ConLeche.Declaration) (L : ConLeche.Env),
+    ∃ new, (ds.foldl (fun L d => L.pushDelta (ConLeche.declConstants d) (ConLeche.declTables d))
+      L).consts = new ++ L.consts
+  | [], _ => ⟨[], rfl⟩
+  | d :: ds, L => by
+    obtain ⟨new, h⟩ := foldl_pushDelta_consts ds
+      (L.pushDelta (ConLeche.declConstants d) (ConLeche.declTables d))
+    refine ⟨new ++ (ConLeche.declConstants d).reverse, ?_⟩
+    rw [List.foldl_cons, h]
+    simp [ConLeche.Env.pushDelta]
+
+universe w
+
+/-- **A step adding fresh, distinct constants `cs`**, read as the records
+`ds` master's fold accepts, keeps the theorem's invariants, given the relation
+at the new environment. -/
+theorem step_of {V : Type w} [ConLeche.SetTheory V] {pins : List ConLeche.NatOpPinSet}
+    (hlaws : EnvLaws) {E E' : Kernel.Environment} {L : ConLeche.Env}
+    {cs : List Lean.ConstantInfo} {ds : List ConLeche.Declaration} {F : Nat} {L₁ : ConLeche.Env}
+    (hE' : ∀ n, E'.find? n = (cs.foldl InLean.addConst E).find? n)
+    (hfresh : ∀ ci ∈ cs, E.find? ci.name = none) (hnd : (cs.map (·.name)).Nodup)
+    (hgr : ∀ d ∈ ds, ∃ cs', (∀ ci ∈ cs', ci ∈ cs) ∧ toDecl cs' = some d)
+    (hcr : ∀ ci ∈ cs, ConstRangeOk ci)
+    (hER : EnvRangeOk E) (hP : Presents E L) (hM : ConLeche.Model.EnvModelOk V L)
+    (hfold : ds.foldlM (ConLeche.checkDecl .verified (ConLeche.fueledOps .verified F) pins) L =
+      .ok L₁)
+    (hrel : RelatesI E' L₁) :
+    ∃ L', EnvRangeOk E' ∧ Presents E' L' ∧ RelatesI E' L' ∧ ConLeche.Model.EnvModelOk V L' ∧
+      ∃ new, L'.consts = new ++ L.consts := by
+  have hff := find_foldl_addConst hlaws cs E hfresh hnd
+  have hold : ∀ n, n ∉ cs.map (·.name) → E'.find? n = E.find? n :=
+    fun n hn => (hE' n).trans (hff.2 n hn)
+  have hnew : ∀ ci ∈ cs, E'.find? ci.name = some ci := fun ci hci => (hE' _).trans (hff.1 ci hci)
+  have hnotin : ∀ n ci, E.find? n = some ci → n ∉ cs.map (·.name) := by
+    intro n ci hf hm
+    obtain ⟨c, hc, rfl⟩ := List.mem_map.1 hm
+    rw [hfresh c hc] at hf; cases hf
+  refine ⟨L₁, ?_, ?_, hrel, ConLeche.Model.foldPM ds L hM hfold, ?_⟩
+  · intro n ci hf
+    by_cases hn : n ∈ cs.map (·.name)
+    · obtain ⟨c, hc, rfl⟩ := List.mem_map.1 hn
+      rw [hnew c hc, Option.some.injEq] at hf
+      exact hf ▸ hcr c hc
+    · rw [hold n hn] at hf
+      exact hER n ci hf
+  · obtain ⟨dsO, hgO, rfl, -⟩ := hP
+    refine ⟨dsO ++ ds, ?_, ?_, presents_reads hrel.1⟩
+    · intro d hd
+      rcases List.mem_append.1 hd with hd | hd
+      · obtain ⟨cs0, ⟨hf0, ht0⟩⟩ := hgO d hd
+        refine ⟨cs0, fun ci hci => ?_, ht0⟩
+        have := hf0 ci hci
+        rw [hold _ (hnotin _ _ this)]
+        exact this
+      · obtain ⟨cs', hsub, ht⟩ := hgr d hd
+        exact ⟨cs', fun ci hci => hnew ci (hsub ci hci), ht⟩
+    · rw [foldlM_checkDecl_env ds _ hfold, installAll, installAll, List.foldl_append]
+  · rw [foldlM_checkDecl_env ds L hfold]
+    exact foldl_pushDelta_consts ds L
+
+end InLeanProof
