@@ -114390,3 +114390,55 @@ from `paramsOk`+`paramsVar`; `rd.recCls` bounds, `hmc` and the slots are the tai
 
 Gates: `lake build InLean InLeanProof inlean-replay` warning-free; `tests/layering.sh`,
 `tests/trust-surface.sh`, `tests/no-local-paths.sh`, `tests/inlean-sync.sh` pass.
+
+### Lane GenClosed: the generator's output closed; the pass proved (2026-11-08, task #451, agent/451-inlean2)
+
+Lane PassSim's finding (the stream recursors' types closed, a premise nothing upstream gave)
+resolved as the other checks on the unverified generator's output: checked, read off the run.
+
+**Executable** (`InLean/Inductives/Decl.lean`).  `checkInductiveC` refuses, as an internal error
+("inductive generator: a constant with loose bound variables"), a generated constant whose type,
+or for a recursor a rule's right-hand side, has loose bound variables (`constClosed`, on the
+cached `hasLooseBVars`, after `constInRange`, which makes the cached range the term's).
+*Validation* (`inlean-replay --kernel=inlean --compare --quiet`): Init 64,530, Std 110,064,
+Lean 199,645 accepted, 0 rejected, 0 declined, 0 exact and 0 cosmetic mismatches;
+`scripts/inlean_negtest.lean` 13/13.  `instructions:u` on Init (`--kernel=inlean --quiet`, one
+run): 878.2 G (878.0 G recorded at lane DivModArm, the last measurement): +0.02 %.
+
+**Proofs** (no `sorry`, no new axiom; new and changed theorems pinned).
+* `checkInductiveC_ok` gains `a.consts.all constClosed` (its third conjunct; the four readers
+  re-indexed); **`closed_of_checkInductiveC`** (`StepPres.lean`): every generated constant
+  `CIClosed` (`IndShape.lean`: the type, and a recursor's rules' right-hand sides, without loose
+  bound variables; `CIClosed_of_constClosed`).
+* `CIClosed` of the block is a premise of `BlockKSSimI`, `PassTailSimI`, `TailSimI`,
+  `checkIndDeclC_sim`, `checkIndDeclC_sim_stages`, `checkIndDeclC_sim_rest` (P4 has it from
+  `closed_of_checkInductiveC`, as `CIRange` from `constInRange`).
+* `blockKSSimI_of` derives the shape's recursors closed: **`recsClosed_of_block`**
+  (`blockShape?_recs`: a recognised shape's recursors are the block's; `lbb_trC_of_closed`:
+  a closed term with a reading reads closed, through the cached range, so the standing `mkData`
+  stop-gaps now reach `blockKSSimI_of`).  That fact is now `PassSimI`'s and `PassTailSimI`'s
+  premise (`∀ rc ∈ p₀.recs, okC rc.cvR.type ∧ (trC rc.cvR.type).looseBVarsBounded 0`);
+  `PassSimRI` is gone and **`passSimI : PassSimI (PassRelI PassDataI)`** (was `passSimRI`).
+* **For round 7's `genRecCheckI_run`** (branch agent/451-o7classes): its `hrecs` at the tail's
+  `q.p` is `PassDataI.recs`, the pass's copy of its premise above; its `hfo` is
+  `PassDataI.members`; its `htb` is `PassDataI.tblOk` with the new `PassDataI.tblCl`.  The
+  stored block's own closedness (types and rules) is `TailSimI`'s new premise
+  `∀ ci ∈ block, CIClosed ci`.
+* The tail's other inputs from outside the pass, now in `PassDataI`:
+  - `ctorsNodup : (ctorNamesOf q.p.members).Nodup` and `ctorsSorry` (a constructor named
+    `sorryAx` only under `q.env₁.coreAxioms`): `jobEnvI_ctors`'s `hnd` and `hso`.  Source:
+    `PassPremI`'s new fields `ctorsNodup` (`p₀.allCtors` names, `checkBlockKS`'s guard) and
+    `ctorsSorry` (from `BlockKSSimI`'s `hso` through `blockShape?_ctors`), across the members'
+    reduction by `reduceMembersS_ctors` (moved from `BlockRecogRun.lean` to `IndBlockKS.lean`),
+    across the formers' push by `consBlockIndsF_coreAxioms`.
+  - `tblCl : ∀ e ∈ q.tbl.toList, (TrS s e.ty).looseBVarsBounded 0`: master's
+    `checkBlockPositivity_nfScoped` (the positivity run, `PositivityRun` from `hR5`) and
+    `nestSeeds_nfScoped` (the seeds' walk, `hR7`; the seeds' `ScB` is `classSeeds_scoped`'s),
+    the walk's context `nestCtx_ok_of_envWF` — `genRun_tbl_scoped`'s argument at the pass.
+
+**What remains** of the tail's inputs: `FvsOk s params` (from `paramsOk`+`paramsVar`), the
+`rd.recCls` bounds, `hmc` and the slots (the tail's own); `TailSimI (PassRelI PassDataI)` itself
+(round 7).
+
+Gates: `lake build InLean InLeanProof inlean-replay` warning-free; `tests/layering.sh`,
+`tests/trust-surface.sh`, `tests/no-local-paths.sh`, `tests/inlean-sync.sh` pass.
