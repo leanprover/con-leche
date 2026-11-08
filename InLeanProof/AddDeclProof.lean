@@ -344,4 +344,94 @@ theorem step_of {V : Type w} [ConLeche.SetTheory V] {pins : List ConLeche.NatOpP
   · rw [foldlM_checkDecl_env ds L hfold]
     exact foldl_pushDelta_consts ds L
 
+/-! ## The one-constant kinds -/
+
+theorem natKinds_of_modelOk {V : Type w} [ConLeche.SetTheory V] {L : ConLeche.Env}
+    (h : ConLeche.Model.EnvModelOk V L) : ConLeche.NatKinds L :=
+  h.1.elim fun mp _ => mp.base2.basis_pinned.natKinds
+
+theorem jobEnvI_of {V : Type w} [ConLeche.SetTheory V] (hlaws : EnvLaws) {E : Kernel.Environment}
+    {L : ConLeche.Env} (hR : RelatesI E L) (hM : ConLeche.Model.EnvModelOk V L) :
+    JobEnvI { env := E, coreAxioms := false } L :=
+  ⟨hlaws, hR.1, envWF_of_modelOk hM, hR.2⟩
+
+/-- **A declaration adding one constant** (every kind but the quotient package
+and an inductive block). -/
+theorem single_step {V : Type w} [ConLeche.SetTheory V] (hlaws : EnvLaws)
+    {E : Kernel.Environment} {L : ConLeche.Env} {decl : Declaration} {a : InLean.Added}
+    {ci : Lean.ConstantInfo}
+    (hd : SafeDecl decl) (hdr : DeclRangeOk decl) (hnI : ∀ lps nP ts u, decl ≠ .inductDecl lps nP ts u)
+    (ha : InLean.checkDecl theoremConfig E decl = .ok a) (hac : a = { consts := #[ci] })
+    (hfresh : E.find? ci.name = none) (hnotInd : ∀ v, ci ≠ .inductInfo v) (hcr : ConstRangeOk ci)
+    (hER : EnvRangeOk E) (hP : Presents E L) (hR : RelatesI E L)
+    (hM : ConLeche.Model.EnvModelOk V L)
+    (hpres : ∀ d, toDecl [ci] = some d → EnvPresI { env := InLean.addConst E ci, coreAxioms := false }
+      (L.pushDelta (ConLeche.declConstants d) (ConLeche.declTables d))) :
+    ∃ L', EnvRangeOk (InLean.addConst E ci) ∧ Presents (InLean.addConst E ci) L' ∧
+      RelatesI (InLean.addConst E ci) L' ∧ ConLeche.Model.EnvModelOk V L' ∧
+      ∃ new, L'.consts = new ++ L.consts := by
+  obtain ⟨-, ds, hds, F, L₁, hfold⟩ :=
+    checkDecl_sim_nk (jobEnvI_of hlaws hR hM) (natKinds_of_modelOk hM) hd hdr hnI ha
+  subst hac
+  have hds' : ds.length = 1 ∧ ∀ d ∈ ds, toDecl [ci] = some d := by
+    simp only [List.mapM_cons, List.mapM_nil, Option.pure_def,
+      Option.bind_eq_bind, Option.bind_eq_some_iff, Option.some.injEq] at hds
+    obtain ⟨d, hd1, _, rfl, rfl⟩ := hds
+    simp [hd1]
+  obtain ⟨d, rfl⟩ : ∃ d, ds = [d] := by
+    match ds, hds'.1 with
+    | [d], _ => exact ⟨d, rfl⟩
+  have hd' := hds'.2 d (List.mem_singleton_self d)
+  have hL₁ := foldlM_checkDecl_env [d] L hfold
+  have hrel : RelatesI (InLean.addConst E ci) L₁ := by
+    rw [hL₁]
+    exact ⟨hpres d hd', projBodiesInRange_one hlaws hR.2 (ctorsStored_of_pres hR.1) hfresh hnotInd⟩
+  exact step_of (cs := [ci]) hlaws (fun _ => rfl) (by simpa using hfresh) (by simp)
+    (fun d' hd'' => ⟨[ci], fun _ h => h, by rw [List.mem_singleton.1 hd'']; exact hd'⟩)
+    (fun c hc => by rw [List.mem_singleton.1 hc]; exact hcr) hER hP hM hfold hrel
+
+/-! ## The inductive block -/
+
+/-- **The declared parameter count is the stored first former's**: an
+accepted block check compared every former entry's `numParams` with the
+shape's, which is the declared count (`genEntriesAgree`). -/
+theorem numParams_of_checkIndDeclC {fe : InLean.FEnv} {block : List Lean.ConstantInfo} {nP : Nat}
+    {s s' : CState} (h : InLean.checkIndDeclC .verified fe block nP s = .ok ((), s'))
+    {v : InductiveVal} {rest : List Lean.ConstantInfo} (hb : block = .inductInfo v :: rest) :
+    v.numParams = nP := by
+  unfold InLean.checkIndDeclC at h
+  split at h
+  · cases hp : InLean.blockShape? nP block with
+    | none => rw [hp] at h; exact (checkShapelessS_not_ok h).elim
+    | some p =>
+      rw [hp] at h
+      obtain ⟨_, _, h1, h2⟩ := bindI_ok h
+      obtain ⟨cvTs, cs, rs, hsp, hlen, -⟩ := checkBlockKS_cover h2
+      obtain ⟨cvT0, tl, cs', rs', nIdxs, hsp', hnP, hmem, -, -⟩ := blockShape?_spec hp
+      rw [hsp] at hsp'
+      obtain ⟨rfl, -, -⟩ := Prod.mk.inj (Option.some.inj hsp')
+      obtain ⟨v', rest', hb', hv'⟩ := blockSplit_head hsp
+      rw [hb] at hb'
+      obtain ⟨hvv, -⟩ := List.cons.inj hb'
+      cases hvv
+      obtain ⟨ms, hms, hcvT⟩ : ∃ ms ∈ p.members, ms.cvT = cvT0 := by
+        rw [hmem]
+        cases nIdxs with
+        | nil => rw [hmem] at hlen; simp [mkMembers] at hlen
+        | cons n0 nr =>
+          cases hgr : blockGroups ((cvT0 :: tl).map (·.name)) cvT0.levelParams nP
+              (cvT0 :: tl).length (cs.map fun c => (c.1, c.2.2)) with
+          | nil => rw [hmem, hgr] at hlen; simp [mkMembers] at hlen
+          | cons g0 gr => exact ⟨{ cvT := cvT0, declared := cvT0, nIdx := n0, ctors := g0 },
+              by simp [mkMembers], rfl⟩
+      obtain ⟨v'', hf, hn, -⟩ := genEntriesAgree_members h1 ms hms
+      rw [hcvT, hb] at hf
+      have hname : (Lean.ConstantInfo.inductInfo v).name = cvT0.name := by
+        rw [← hv']; rfl
+      simp only [InLean.constNamed?, List.find?_cons, hname, beq_self_eq_true,
+        Option.some.injEq] at hf
+      cases hf
+      rw [hn, hnP]
+  · exact (throwI_ok h).elim
+
 end InLeanProof
