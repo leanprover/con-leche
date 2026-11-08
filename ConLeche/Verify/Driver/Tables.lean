@@ -11,7 +11,7 @@ What the tables of `ConLeche/Driver/Tables.lean` hold, on a snapshot:
 * `modTables_within` — **the tables' reads refine the search path's**: every table was read off
   the snapshot (`TablesOk`: the module's location is `findModule`'s answer, its imports, where
   held, `moduleImports`', its two parts' name positions, where held, `readPartNamesAt`'s at that
-  location), so each of the three reads answered from them is one of the search path's
+  location, its private view's files, where held, `readFilesAt`'s there), so each of the three reads answered from them is one of the search path's
   (`OleanReads.Within`): a held value is one the read can give, a read at a table's location is
   the search path's read, since the location is the one `findModule` gives (it is determined
   on the snapshot);
@@ -36,7 +36,8 @@ open ConLeche ConLeche.Frontend.Olean
     (∀ p, t.priv = some p →
       ModelIO.CanGive (readPartNamesAt t.loc (t.name, .private)) fs (.ok p)) ∧
     (∀ p, t.expo = some p →
-      ModelIO.CanGive (readPartNamesAt t.loc (t.name, .exported)) fs (.ok p))
+      ModelIO.CanGive (readPartNamesAt t.loc (t.name, .exported)) fs (.ok p)) ∧
+    (∀ f, t.files = some f → ModelIO.CanGive (readFilesAt t.loc t.name .private) fs (.ok f))
 
 theorem ModTables.find_mem {T : ModTables} {m : Name} {t : ModTable} (h : T.find m = some t) :
     t ∈ T.mods ∧ t.name = m := by
@@ -82,8 +83,7 @@ theorem readPartNamesAt_within (fs : FS) (loc : Located) (x : Name × OLeanLevel
   exact ModelIO.Within.bind (readFilesAt_within fs _ _ _) fun r => by
     rcases r with e | f
     · exact ModelIO.Within.pure _
-    · simp only
-      split <;> exact ModelIO.Within.pure _
+    · exact ModelIO.Within.pure _
 
 /-- **The tables' reads refine the search path's.** -/
 theorem modTables_within {fs : FS} {sp : SearchPath} {T : ModTables} (hT : TablesOk fs sp T) :
@@ -103,8 +103,15 @@ theorem modTables_within {fs : FS} {sp : SearchPath} {T : ModTables} (hT : Table
     split
     · rename_i t ht
       obtain ⟨hm, rfl⟩ := ModTables.find_mem ht
-      exact ModelIO.Within.at_loc (a := fun loc => readFilesAt loc t.name level) (hT t hm).1
-        (readFilesAt_within fs _ _ _)
+      have hat : ∀ level, ModelIO.Within fs (readFilesAt t.loc t.name level)
+          (readFiles sp t.name level) := fun level =>
+        ModelIO.Within.at_loc (a := fun loc => readFilesAt loc t.name level) (hT t hm).1
+          (readFilesAt_within fs _ _ _)
+      split
+      · rename_i f hf
+        exact ModelIO.Within.of_table (readFiles_within fs sp _ _)
+          ((hat .private).canGive ((hT t hm).2.2.2.2 f hf))
+      · exact hat _
     · exact readFiles_within fs sp m level
   · obtain ⟨n, level⟩ := x
     simp only [ModTables.reads]
@@ -121,7 +128,7 @@ theorem modTables_within {fs : FS} {sp : SearchPath} {T : ModTables} (hT : Table
           ((hat .private).canGive ((hT t hm).2.2.1 p hp))
       · rename_i e he
         exact ModelIO.Within.of_table (readPartNames_within fs sp _)
-          ((hat .exported).canGive ((hT t hm).2.2.2 e he))
+          ((hat .exported).canGive ((hT t hm).2.2.2.1 e he))
       · exact hat _
     · exact readPartNames_within fs sp (n, level)
 
@@ -191,7 +198,9 @@ theorem TablesOk.push {fs : FS} {sp : SearchPath} {T : ModTables} {t : ModTable}
       (∀ p, t.priv = some p →
         ModelIO.CanGive (readPartNamesAt t.loc (t.name, .private)) fs (.ok p)) ∧
       (∀ p, t.expo = some p →
-        ModelIO.CanGive (readPartNamesAt t.loc (t.name, .exported)) fs (.ok p))) :
+        ModelIO.CanGive (readPartNamesAt t.loc (t.name, .exported)) fs (.ok p)) ∧
+      (∀ f, t.files = some f →
+        ModelIO.CanGive (readFilesAt t.loc t.name .private) fs (.ok f))) :
     TablesOk fs sp (T.push t) := by
   intro u hu
   simp only [ModTables.push, Array.mem_push] at hu
@@ -228,7 +237,8 @@ theorem tabImports_keeps (fs : FS) (sp : SearchPath) (n : Name) :
     exact hT
   simp only [ModelIO.pure_iff, Except.ok.injEq, Prod.mk.injEq] at h
   obtain ⟨⟨-, rfl⟩, -⟩ := h
-  refine hT.push ⟨⟨_, _, hx⟩, fun is' h' => ?_, (fun _ h' => by cases h'), (fun _ h' => by cases h')⟩
+  refine hT.push ⟨⟨_, _, hx⟩, fun is' h' => ?_, (fun _ h' => by cases h'), (fun _ h' => by cases h'),
+    (fun _ h' => by cases h')⟩
   cases h'
   exact moduleImports_at hx hy
 
@@ -244,19 +254,32 @@ theorem workerTables_ok {fs : FS} {sp : SearchPath} {m : Name} {T : ModTables} {
     exact TablesOk.empty fs sp
   simp only [ModelIO.bind_ok] at h
   obtain ⟨y, hs₂, hy, h⟩ := h
-  rcases y with e | own
+  rcases y with e | f
   · simp only [ModelIO.pure_iff] at h
     obtain ⟨h, -⟩ := h
     cases h
     exact (TablesOk.empty fs sp).push ⟨⟨_, _, hx⟩, (fun _ h' => by cases h'),
-      (fun _ h' => by cases h'), (fun _ h' => by cases h')⟩
-  simp only [ModelIO.bind_ok] at h
+      (fun _ h' => by cases h'), (fun _ h' => by cases h'), (fun _ h' => by cases h')⟩
+  have hf : ModelIO.CanGive (readFilesAt loc m .private) fs (.ok f) := ⟨_, _, hy⟩
+  simp only at h
+  cases hn : namesOf m f .private with
+  | error e =>
+    simp only [hn, ModelIO.pure_iff] at h
+    obtain ⟨h, -⟩ := h
+    cases h
+    exact (TablesOk.empty fs sp).push ⟨⟨_, _, hx⟩, (fun _ h' => by cases h'),
+      (fun _ h' => by cases h'), (fun _ h' => by cases h'), (fun f' h' => by cases h'; exact hf)⟩
+  | ok own =>
+  simp only [hn, ModelIO.bind_ok] at h
   obtain ⟨⟨r, T'⟩, hs₃, hr, h⟩ := h
   simp only [ModelIO.pure_iff] at h
   obtain ⟨h, -⟩ := h
   cases h
+  have hp : ModelIO.CanGive (readPartNamesAt loc (m, .private)) fs (.ok own) := by
+    refine ⟨hs₁, hs₂, ?_⟩
+    simp only [readPartNamesAt, ModelIO.bind_ok]
+    exact ⟨.ok f, hs₂, hy, by simp [hn]⟩
   refine headerFixpoint_keeps (tabImports_keeps fs sp) _ _ _ _ _ _ _ hr ?_
   exact (TablesOk.empty fs sp).push ⟨⟨_, _, hx⟩, (fun _ h' => by cases h'),
-    (fun p h' => by cases h'; exact ⟨_, _, hy⟩), (fun _ h' => by cases h')⟩
-
-end ConLeche.Driver
+    (fun p h' => by cases h'; exact hp), (fun _ h' => by cases h'),
+    (fun f' h' => by cases h'; exact hf)⟩

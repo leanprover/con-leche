@@ -56,6 +56,21 @@ def CacheOK (sp : SearchPath) (fs : FS) (values : Array ModRef) (c : ValueCache)
 theorem cacheOK_empty {sp : SearchPath} {fs : FS} {values : Array ModRef} :
     CacheOK sp fs values {} := fun r h => by simp at h
 
+/-- **A module's files' region kept** (a worker's home read): the snapshot's. -/
+theorem cacheOK_files {sp : SearchPath} {fs : FS} {values : Array ModRef} {i : Nat}
+    {md : ModRef} {f : ModFiles} (hmd : values[i]? = some md)
+    (hf : ModelIO.CanGive (readFiles sp md.name .private) fs (.ok f)) :
+    CacheOK sp fs values (match f.viewRegion .private with
+      | some (r, _) => { idx := i, region := some r }
+      | none => {}) := by
+  split
+  · rename_i r a hra
+    intro r' hr'
+    simp only [Option.some.injEq] at hr'
+    subst hr'
+    exact ⟨md, f, a, hmd, hf, hra⟩
+  · exact cacheOK_empty
+
 variable {sp : SearchPath} {fs : FS} {values : Array ModRef}
 
 /-- The region of a module, from a kept one or the files. -/
@@ -254,16 +269,18 @@ theorem oleanStep_spec {mode : CheckMode} {run : OleanRun} {pl : PoolLive} {ds :
   subst h
   exact oleanJobRun_spec hgood hc hx
 
-/-- **Every state a worker can reach keeps its module's region.** -/
+/-- **Every state a worker can reach keeps its module's region**, from a kept region the
+snapshot's (`seed`). -/
 theorem oleanWorker_reach {mode : CheckMode} {run : OleanRun} {pl : PoolLive} {ds : Array Declaration}
-    {J : Jobs ds}
+    {J : Jobs ds} {seed : ValueCache}
     (hgood : ∀ md ∈ values, ∃ f r a, ModelIO.CanGive (readFiles sp md.name .private) fs (.ok f) ∧
       f.viewRegion .private = some (r, a) ∧ md.frontier.Good r)
-    {s : OleanWorker}
-    (h : WorkerReach (fun w => ({ w } : OleanWorker)) (oleanStep mode run pl J sp values) fs s) :
+    (hseed : CacheOK sp fs values seed) {s : OleanWorker}
+    (h : WorkerReach (fun w => ({ w, cache := seed } : OleanWorker)) (oleanStep mode run pl J sp values)
+      fs s) :
     CacheOK sp fs values s.cache := by
   induction h with
-  | init w => exact cacheOK_empty
+  | init w => exact hseed
   | step _ hs ih => exact (oleanStep_spec hgood ih hs).1
 
 /-! ## The check phase -/
@@ -289,12 +306,12 @@ theorem mapExcept_each {α β ε : Type} {f : α → ModelIO (Except ε β)} {fs
 /-- **The check phase from position `start` passes every job from there on**, at the records
 with their values in place. -/
 theorem checkOleansG_jobs {mode : CheckMode} {pace : Pace} {t0 tIndex tParse jobs : Nat}
-    {ds : Array Declaration} {J : Jobs ds} {start : Nat} {alone : Bool}
+    {ds : Array Declaration} {J : Jobs ds} {start : Nat} {alone : Bool} {seed : ValueCache}
     (hgood : ∀ md ∈ values, ∃ f r a, ModelIO.CanGive (readFiles sp md.name .private) fs (.ok f) ∧
       f.viewRegion .private = some (r, a) ∧ md.frontier.Good r)
-    {hs hs' : HS}
-    (h : (checkOleansG mode pace t0 tIndex tParse jobs sp values J start alone : ModelIO _) fs hs
-      (.ok (.ok ())) hs') :
+    (hseed : CacheOK sp fs values seed) {hs hs' : HS}
+    (h : (checkOleansG mode pace t0 tIndex tParse jobs sp values J start alone seed : ModelIO _) fs
+      hs (.ok (.ok ())) hs') :
     ∀ t, start ≤ t → t < ds.size → JobFact mode J (fillOf sp fs values) t := by
   simp only [checkOleansG, ModelIO.bind_ok, ModelIO.liftIO_iff, exists_eq_left] at h
   obtain ⟨run, ⟨pl, tStart⟩, ⟨ss, res⟩, _, hmap, _, h⟩ := h
@@ -305,7 +322,7 @@ theorem checkOleansG_jobs {mode : CheckMode} {pace : Pace} {t0 tIndex tParse job
   obtain ⟨-, hm⟩ := (hmap : workerMap _ _ _ fs _ (.ok (ss, .ok us)) _)
   intro t hst ht
   obtain ⟨u, _, _, s, hreach, s', hs⟩ := mapExcept_each hm t (List.mem_range'_1.mpr ⟨hst, by omega⟩)
-  exact (oleanStep_spec hgood (oleanWorker_reach hgood hreach) hs).2 rfl
+  exact (oleanStep_spec hgood (oleanWorker_reach hgood hseed hreach) hs).2 rfl
 
 /-- **The check phase of an `--olean` run accepts the records with their values in place.** -/
 theorem checkOleansG_accept {mode : CheckMode} {pace : Pace} {t0 tIndex tParse jobs : Nat}
@@ -315,7 +332,7 @@ theorem checkOleansG_accept {mode : CheckMode} {pace : Pace} {t0 tIndex tParse j
     {hs hs' : HS}
     (h : (checkOleansG mode pace t0 tIndex tParse jobs sp values J : ModelIO _) fs hs (.ok (.ok ())) hs') :
     ∃ env, checkDecls mode natOpPinSets (ds.map (fillDecl (fillOf sp fs values))) = .ok env := by
-  have hfacts := checkOleansG_jobs hgood h
+  have hfacts := checkOleansG_jobs hgood cacheOK_empty h
   -- every record's job passed, at the records with their values in place
   refine ⟨_, checkDecls_of_jobs (mode := mode) (pins := natOpPinSets) fun k hk => ?_⟩
   have hk' : k < ds.size := by simpa using hk

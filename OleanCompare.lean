@@ -32,8 +32,8 @@ differ (so the maps' equality is equality record for record).
 views with one memo, checked against each other) and compares each view with
 `readView`'s; exit 0, or the first failure's exit code.
 
-`--home` is each module's home read alone (`readHome`: the private view loaded, its
-three parts checked against each other); exit 0, or the first failure's exit code.
+`--home` is each module's home read alone (`homeOf` over its private part's files: the private
+view loaded, its three parts checked against each other); exit 0, or the first failure's exit code.
 
 `--reads` is a worker's reads at one module (`workerReads`: the header fixpoint, the
 name index of the loaded parts, Lean's clash rule and freshness), with their counts;
@@ -163,7 +163,7 @@ open Frontend.Olean in
 /-- `--home`: each module's home read. -/
 def runHome (sp : List System.FilePath) (mods : Array Name) : IO UInt32 := do
   for m in mods do
-    match ← (readHome (.ofPath sp) m : IO _) with
+    match (← (readFiles sp m .private : IO _)).bind (homeOf m) with
     | .ok (l, expo) =>
       let n (x : Expo) := (expo.filter (· == x)).size
       IO.println s!"{m}: {l.constants.size} constants, exported {n .same} same, {n .hidden} hidden, \

@@ -341,6 +341,25 @@ def withPart {α : Type} (env : ReachEnv μ) (c : ReachCache) (k : PartKey)
     | some (st, a) => pure ({ c with parts := c.parts.insert k (r, st) }, .ok a)
     | none => pure ({ c with parts := c.parts.insert k (r, st) }, .error (undecodable k.mod))
 
+/-- **A part's region and name table off one read of its files** (task #508): for `groupAt`,
+which reads both.  The region is kept with an empty memo; the table is the region's
+(`namePositionsAt`, what `readNamePositions` reads), kept where none is yet.  Nothing is read
+where the region is kept already. -/
+def loadPart (env : ReachEnv μ) (c : ReachCache) (k : PartKey) :
+    μ (ReachCache × Except CheckError Unit) := do
+  if c.parts.contains k then return (c, .ok ())
+  match ← env.rd.files k.mod k.level with
+  | .error e => pure (c, .error e)
+  | .ok fs =>
+    match fs.viewRegion k.level with
+    | none => pure (c, .error (viewError k.mod fs k.level))
+    | some (r, a) =>
+      let c := { c with parts := c.parts.insert k (r, {}) }
+      if c.tables.contains k then return (c, .ok ())
+      match namePositionsAt r a with
+      | some t => pure ({ c with tables := c.tables.insert k t }, .ok ())
+      | none => pure (c, .error (viewError k.mod fs k.level))
+
 /-- Several constants with one memo (`entryWith`, in order). -/
 def entriesWith (r : Region) (st : SM) : List Nat → Option (SM × List (CEntryF Name Expr))
   | [] => some (st, [])
@@ -666,9 +685,13 @@ def groupMerged (t : CEntryF Name Expr) (tys rest : List (CEntryF Name Expr)) (a
   mergedOfList ((t :: tys ++ recs).map CEntry.ofF)
 
 /-- **Type `n`'s group, read from one part**: `none` where the part lacks one of its
-members or constructors. -/
+members or constructors.  The part's files are read once, for its table and its region
+(`loadPart`). -/
 def groupAt (env : ReachEnv μ) (c : ReachCache) (k : PartKey) (n : Name) :
     μ (ReachCache × Except CheckError (Option Declaration)) := do
+  match ← loadPart env c k with
+  | (c, .error e) => pure (c, .error e)
+  | (c, .ok ()) =>
   match ← lookOf env c k with
   | (c, .error e) => pure (c, .error e)
   | (c, .ok look) =>
