@@ -3,6 +3,7 @@ module
 public import InLeanProof.PassNestKey
 import ConLeche.Verify.Denote.IndFrame
 import InLeanProof.DeclGuards
+import ConLeche.Verify.Inductives.RecCheckScope
 
 /-!
 # O7-classes: the classes the recursors eliminate (task #451, lane O7-classes)
@@ -1072,7 +1073,8 @@ theorem classKeyOfI_run {nP : Nat} {params : List Lean.Expr} {k k' : InLean.Clas
     {s₀ s' : InLean.CState} (hp : OkSL s₀ params = true) (hlv : k.lvls.all okLv = true)
     (hds : OkSL s₀ k.ds = true) (h : InLean.classKeyOf nP params k s₀ = .ok (k', s')) :
     s' = s₀ ∧ k'.lvls.all okLv = true ∧ OkSL s₀ k'.ds = true ∧
-      (∀ x ∈ TrSL s₀ k'.ds, x.bvarB = 0 ∧ x.fvarB ≤ nP) ∧
+      (∀ x ∈ TrSL s₀ k'.ds, (x.bvarB = 0 ∧ x.fvarB ≤ nP) ∧
+        ∃ y, x = ConLeche.targetCanonParams (TrSL s₀ params) y) ∧
       Runs (ConLeche.classKeyOf (m := ConLeche.FueledM) nP (TrSL s₀ params) (trCK s₀ k))
         (trCK s₀ k') := by
   unfold InLean.classKeyOf at h
@@ -1104,7 +1106,11 @@ theorem classKeyOfI_run {nP : Nat} {params : List Lean.Expr} {k k' : InLean.Clas
       exact rangeGuard_tr (hokc x hx) (hg x hx)
     refine ⟨rfl, hlv, hokc, fun x hx => ?_, ?_⟩
     · simp only [trCK, List.all_eq_true, Bool.and_eq_true, beq_iff_eq, decide_eq_true_eq] at hgC
-      exact hgC x hx
+      refine ⟨hgC x hx, ?_⟩
+      obtain ⟨z, hz, rfl⟩ := List.mem_map.1 hx
+      simp only [InLean.classKeyCanon, List.mem_map] at hz
+      obtain ⟨y, hy, rfl⟩ := hz
+      exact ⟨TrS s₀ y, (hc y hy).2⟩
     · simp only [hgC, ↓reduceIte]
       first | exact Runs.pure _ | exact Runs.bind (Runs.pure _) (Runs.pure _)
   · simp only [hg] at h
@@ -1118,7 +1124,8 @@ theorem mapM_classKeyOfI_run {nP : Nat} {params : List Lean.Expr} {s₀ : InLean
       (∀ k ∈ ks, k.lvls.all okLv = true ∧ OkSL s₀ k.ds = true) →
       ks.mapM (InLean.classKeyOf nP params) s₀ = .ok (ks', s') →
       s' = s₀ ∧ (∀ k ∈ ks', k.lvls.all okLv = true ∧ OkSL s₀ k.ds = true ∧
-        ∀ x ∈ TrSL s₀ k.ds, x.bvarB = 0 ∧ x.fvarB ≤ nP) ∧
+        ∀ x ∈ TrSL s₀ k.ds, (x.bvarB = 0 ∧ x.fvarB ≤ nP) ∧
+          ∃ y, x = ConLeche.targetCanonParams (TrSL s₀ params) y) ∧
         RunsAll (ConLeche.classKeyOf (m := ConLeche.FueledM) nP (TrSL s₀ params))
           (ks.map (trCK s₀)) (ks'.map (trCK s₀))
   | [], ks', s', _, h => by
@@ -1375,7 +1382,7 @@ theorem targetMajorOfI_run {fe : InLean.FEnv} {L : ConLeche.Env} (hJ : JobEnvI f
       refine runs5_bind (Runs.pure _) ?_
       by_cases hgd : (us == p.lps.map Level.param && List.take p.nP (appArgs mty) ==
           List.take p.nP fvs) = true
-      · simp only [hgd, Bool.not_true, Bool.false_eq_true, ↓reduceIte] at h
+      · simp only [hgd, ↓reduceIte] at h
         obtain ⟨rfl, rfl⟩ := pure_run h
         simp only [Bool.and_eq_true] at hgd
         have hlv : (us.map trL == (trShape p).lps.map ConLeche.Level.param) = true := by
@@ -1386,13 +1393,13 @@ theorem targetMajorOfI_run {fe : InLean.FEnv} {L : ConLeche.Env} (hJ : JobEnvI f
               simp only [OkSL, List.all_eq_true] at hokf
               exact hokf b (List.mem_of_mem_take hb))) hgd.2]
           exact beq_self_eq_true _
-        simp only [hlv, hds, Bool.and_self, Bool.not_true, Bool.false_eq_true, ↓reduceIte,
+        simp only [hlv, hds, Bool.and_self, ↓reduceIte,
           trShape_nP]
         refine ⟨hs, TabLe.refl _, ⟨hokus, OkSL_take s₀ hokf _, hokp, rfl⟩, (fun h => by cases h),
           (fun h => by cases h), ?_⟩
         simp only [trTM, trMember, TrSL_take, List.map_nil]
         exact Runs.pure _
-      · simp only [hgd, Bool.not_false, ↓reduceIte] at h
+      · simp only [hgd] at h
         obtain ⟨_, _, h2, -⟩ := bind_run h
         exact (throw_run h2).elim
     | none =>
@@ -1416,7 +1423,7 @@ theorem targetMajorOfI_run {fe : InLean.FEnv} {L : ConLeche.Env} (hJ : JobEnvI f
         fun a ha => hcl a (List.mem_of_mem_take ha)
       by_cases hgd : (((appArgs mty).take nPc).length == nPc && ((appArgs mty).take nPc).all
           fun x => !x.hasLooseBVars && decide (InLean.fvarB x ≤ p.nP)) = true
-      · simp only [hgd, Bool.not_true, Bool.false_eq_true, ↓reduceIte] at h
+      · simp only [hgd, ↓reduceIte] at h
         have hgC : (((TrSL s₀ (appArgs mty)).take nPc).length == nPc &&
             ((TrSL s₀ (appArgs mty)).take nPc).all
               fun x => x.bvarB == 0 && decide (x.fvarB ≤ (trShape p).nP)) = true := by
@@ -1431,10 +1438,10 @@ theorem targetMajorOfI_run {fe : InLean.FEnv} {L : ConLeche.Env} (hJ : JobEnvI f
           rw [TrSL_take]
           simp only [Bool.and_eq_true, List.all_eq_true, beq_iff_eq, decide_eq_true_eq] at hgC
           exact hgC.2
-        simp only [hgC, Bool.not_true, Bool.false_eq_true, ↓reduceIte]
+        simp only [hgC, ↓reduceIte]
         rw [← TrSL_take, any_nestOcc_tr p.memberNames 0 0 hokds]
         by_cases hn : ((appArgs mty).take nPc).any (fun x => InLean.nestOcc p.memberNames 0 0 x) = true
-        · simp only [hn, Bool.not_true, Bool.false_eq_true, ↓reduceIte] at h ⊢
+        · simp only [hn, ↓reduceIte] at h ⊢
           obtain ⟨ki, s₂, h2, h⟩ := bind_run h
           obtain ⟨nIdx, sI⟩ := ki
           obtain ⟨hs₂, ht₂, hsI, hR2⟩ := targetOutsideInstI_run hJ hRF hs hokus hokds hcds h2
@@ -1445,11 +1452,11 @@ theorem targetMajorOfI_run {fe : InLean.FEnv} {L : ConLeche.Env} (hJ : JobEnvI f
           refine runs5_bind (Runs.pure _) ?_
           cases b with
           | false =>
-            simp only [Bool.not_false, ↓reduceIte] at h
+            simp only [] at h
             obtain ⟨_, _, h4, -⟩ := bind_run h
             exact (throw_run h4).elim
           | true =>
-            simp only [Bool.not_true, Bool.false_eq_true, ↓reduceIte] at h ⊢
+            simp only [↓reduceIte] at h ⊢
             obtain ⟨rfl, rfl⟩ := pure_run h
             have ht03 := ht₂.trans ht₃
             refine ⟨hs₃, ht03, ⟨hokus, okSL_of_tabLe ht03 hokds, okSL_of_tabLe ht03 hokp, rfl⟩,
@@ -1457,10 +1464,10 @@ theorem targetMajorOfI_run {fe : InLean.FEnv} {L : ConLeche.Env} (hJ : JobEnvI f
               (fun _ x hx => List.mem_of_mem_take hx), ?_⟩
             simp only [trTM, TrSL_of_tabLe ht03 hokds, TrSL_of_tabLe ht03 hokp, List.map_nil]
             exact Runs.pure _
-        · simp only [hn, Bool.not_false, ↓reduceIte] at h
+        · simp only [hn] at h
           obtain ⟨_, _, h2, -⟩ := bind_run h
           exact (throw_run h2).elim
-      · simp only [hgd, Bool.not_false, ↓reduceIte] at h
+      · simp only [hgd] at h
         obtain ⟨_, _, h2, -⟩ := bind_run h
         exact (throw_run h2).elim
   | _ =>
@@ -1625,5 +1632,92 @@ theorem classMajorsI_run {fe : InLean.FEnv} {L : ConLeche.Env} (hJ : JobEnvI fe 
         rw [hks] at hR3
         exact hR3
       · rw [htrM]; exact Runs.pure _
+
+/-! ## The class stage -/
+
+/-- A term moved to the block's parameters, its variables below them, is
+scoped there (master's `replaceFVars_WScoped_of_below`). -/
+theorem canon_wscoped {params : List ConLeche.Expr} {d : Nat}
+    (hp : ∀ (i : Nat) x, params[i]? = some x → ConLeche.Expr.WScoped d x) (hlen : d ≤ params.length)
+    {y : ConLeche.Expr} (hb : (ConLeche.targetCanonParams params y).fvarB ≤ d) :
+    ConLeche.Expr.WScoped d (ConLeche.targetCanonParams params y) := by
+  rw [ConLeche.Expr.fvarB_eq] at hb
+  exact ConLeche.replaceFVars_WScoped_of_below (g := fun i => params[i]?) (fun i r h => hp i r h)
+    (fun i hi => by simp only [Option.isSome_iff_exists]; exact ⟨params[i]'(by omega), by simp⟩) y
+    (ConLeche.Expr.fvarsBelow_iff.2 hb)
+
+theorem trShape_k (p : InLean.BlockShape) : (trShape p).k = p.k := by
+  simp [ConLeche.BlockShape.k, InLean.BlockShape.k, trShape]
+
+theorem filter_member_trTM (s : InLean.CState) (Ms : List InLean.TargetMajor) (t : Nat) :
+    ((Ms.map (trTM s)).filter (·.member == some t)).length = (Ms.filter (·.member == some t)).length := by
+  rw [List.filter_map, List.length_map]
+  rfl
+
+/-- **The class stage** (`checkBlockClasses`): InLean's reading and classes are
+master's on the readings, at master's lookup `mkFEnv L`, over the block's
+parameters (variables scoped below the parameter count, one per parameter). -/
+theorem checkBlockClassesI_run {fe : InLean.FEnv} {L : ConLeche.Env} (hJ : JobEnvI fe L)
+    (hRF : ReducedFormerSimI) {p : InLean.BlockShape} (hsr : okL p.resSort = true)
+    (hrecs : ∀ rc ∈ p.recs, okC rc.cvR.type = true ∧ (trC rc.cvR.type).looseBVarsBounded 0 = true)
+    {params : List Lean.Expr} {s₀ s' : InLean.CState} {rd : InLean.ClassRead}
+    {Ms : List InLean.TargetMajor} (hs : CSOKI .verified false L s₀) (hokp : OkSL s₀ params = true)
+    (hpar : ∀ (i : Nat) x, (TrSL s₀ params)[i]? = some x → ConLeche.Expr.WScoped p.nP x)
+    (hlen : p.nP ≤ params.length)
+    (h : InLean.checkBlockClasses (sharedOpsC .verified fe) fe p params s₀ = .ok ((rd, Ms), s')) :
+    CSOKI .verified false L s' ∧ TabLe s₀ s' ∧ (∀ x ∈ rd.slots, OkSlot s' x) ∧
+      (∀ M ∈ Ms, OkTM s' M) ∧
+      Runs (ConLeche.checkBlockClasses (ConLeche.fueledOpsM .verified) (ConLeche.mkFEnv L) (trShape p)
+        (TrSL s₀ params)) (trCR s' rd, Ms.map (trTM s')) := by
+  unfold InLean.checkBlockClasses at h
+  unfold ConLeche.checkBlockClasses
+  obtain ⟨o, s₁, h1, h⟩ := bind_run h
+  obtain ⟨hs₁, ht₁, hR1⟩ := classReadI_run p.nP (InLean.classNPcOf p fe)
+    (ConLeche.classNPcOf (trShape p) (ConLeche.mkFEnv L)) (classNPcOf_tr hJ p) hrecs hs h1
+  obtain ⟨rd', s₂, h2, h⟩ := bind_run h
+  cases o with
+  | none => simp only [InLean.unwrapOr] at h2; exact (throw_run h2).elim
+  | some rd0 =>
+  simp only [InLean.unwrapOr] at h2
+  obtain ⟨rfl, rfl⟩ := pure_run h2
+  obtain ⟨hoks, hcr⟩ := hR1 rd0 rfl
+  rw [trShape_nP, show (trShape p).recs = p.recs.map trRec from rfl, hcr]
+  simp only [ConLeche.unwrapOr]
+  have hokp₁ := okSL_of_tabLe ht₁ hokp
+  have htp₁ := TrSL_of_tabLe ht₁ hokp
+  obtain ⟨keys, s₃, h3, h⟩ := bind_run h
+  obtain ⟨hs3, hkeys, hRk⟩ := mapM_classKeyOfI_run (nP := p.nP) hokp₁ (okSlot_classes hoks) h3
+  rw [hs3] at h
+  obtain ⟨Ms0, s₄, h4, h⟩ := bind_run h
+  obtain ⟨hs₄, ht₄, hokMs, hRM⟩ := classMajorsI_run hJ hRF hsr hs₁ hokp₁ (fun k hk => by
+    obtain ⟨a1, a2, a3⟩ := hkeys k hk
+    refine ⟨a1, a2, fun x hx => ?_⟩
+    obtain ⟨⟨hb, hf⟩, y, rfl⟩ := a3 x hx
+    rw [htp₁] at hf hb ⊢
+    exact ⟨canon_wscoped hpar (by rw [TrSL_length]; exact hlen) hf, hb⟩) h4
+  rw [htp₁] at hRM
+  by_cases hg : ((List.range p.k).all fun t => (Ms0.filter (·.member == some t)).length == 1) = true
+  · simp only [hg, ↓reduceIte] at h
+    obtain ⟨hq, rfl⟩ := pure_run h
+    simp only [Prod.mk.injEq] at hq
+    obtain ⟨rfl, rfl⟩ := hq
+    have hgC : ((List.range (trShape p).k).all fun t =>
+        ((Ms0.map (trTM s₄)).filter (·.member == some t)).length == 1) = true := by
+      simp only [trShape_k, filter_member_trTM]; exact hg
+    have hsl : trCR s₄ rd0 = trCR s₁ rd0 := by
+      simp only [trCR]
+      congr 1
+      exact List.map_congr_left fun x hx => trSlot_mono ht₄ (hoks x hx)
+    refine ⟨hs₄, ht₁.trans ht₄, fun x hx => OkSlot.mono ht₄ (hoks x hx), hokMs, ?_⟩
+    refine Runs.bind (Runs.pure _) ?_
+    refine Runs.bind (a := keys.map (trCK s₁)) ?_ ?_
+    · rw [classes_trCR, ← htp₁]
+      exact runs_mapM hRk
+    · refine Runs.bind hRM ?_
+      simp only [hgC, ↓reduceIte, hsl]
+      exact Runs.pure _
+  · simp only [hg] at h
+    obtain ⟨_, _, h5, -⟩ := bind_run h
+    exact (throw_run h5).elim
 
 end InLeanProof
