@@ -81,8 +81,8 @@ def unresolvedConstsErrorL (strOk : Bool) (where_ : String) (e : Expr) : CheckEr
 constant and every projection's structure stored, a literal's support
 declarations stored. -/
 def constsResolve (fe : FEnv) (e : Expr) : Bool :=
-  (EO.usedConstants e).all (fun c => (fe.find? c).isSome) &&
   !EO.any (fun
+    | .const c _ => (fe.find? c).isNone
     | .proj s _ _ => (fe.find? s).isNone
     | .lit (.natVal _) => !natLitStoredF fe
     | .lit (.strVal _) => !strLitStoredF fe

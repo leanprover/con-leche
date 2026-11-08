@@ -2766,3 +2766,7 @@ info: 'InLeanProof.checkDecl_sim_nk' depends on axioms: [propext,
 /-- info: 'InLeanProof.constsResolve_trC' depends on axioms: [propext, Classical.choice, Quot.sound] -/
 #guard_msgs in
 #print axioms InLeanProof.constsResolve_trC
+
+/-- info: 'InLeanProof.loadPinSets_range' depends on axioms: [propext, Classical.choice, Quot.sound] -/
+#guard_msgs in
+#print axioms InLeanProof.loadPinSets_range
