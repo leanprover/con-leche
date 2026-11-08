@@ -1,6 +1,7 @@
 module
 
 public import InLeanProof.CertDivMod
+import ConLeche.Verify.Cached.BridgeCS1
 /- `ConstantInfo.name`/`levelParams`/`type` are read as projections of `toConstantVal`. -/
 import all Lean.Declaration
 /- `FEnv.push` (core's private add, behind `InLean/Push.lean`) is read to find the pushed definition. -/
@@ -771,5 +772,308 @@ theorem divModCertsGuard_eq {fe : InLean.FEnv} {L : ConLeche.Env} (hP : EnvPresI
   have hm1 := List.of_mem_zip hp
   obtain ⟨hh, he⟩ := stmtOk_all hokx hoky hx hy hN c _ hm1.1
   exact divModCertGuard_eq hP hv (hpr _ (Array.mem_toList_iff.1 hm1.2)) hh he
+
+/-! ## The attempt -/
+
+theorem typePinStored_lbb {L : ConLeche.Env} (hw : ConLeche.EnvWF L) (n : ConLeche.Name) :
+    (ConLeche.typePinStored L n).looseBVarsBounded 0 = true := by
+  unfold ConLeche.typePinStored
+  split
+  · rename_i ci hc; exact (hw.consts _ (ConLeche.Env.find?_mem hc)).2.2.2.1
+  · rfl
+
+/-- **The type pins** (`checkTypePins`, master's against `typePinStored`). -/
+theorem checkTypePins_sim {fe : InLean.FEnv} {L : ConLeche.Env} (hJ : JobEnvI fe L) :
+    ∀ (l : List (Name × Expr)) {s₀ s' : InLean.CState} {b : Bool},
+      CSOKI .verified false L s₀ → (∀ t ∈ l, okC t.2 = true ∧ (trC t.2).looseBVarsBounded 0 = true) →
+      InLean.checkTypePins .verified fe l s₀ = .ok (b, s') →
+      CSOKI .verified false L s' ∧ TabLe s₀ s' ∧
+        Runs (ConLeche.checkTypePins (ConLeche.fueledOpsM .verified) L
+          (l.map fun p => (toName p.1, trC p.2))) b := by
+  intro l
+  induction l with
+  | nil =>
+    intro s₀ s' b hs _ h
+    unfold InLean.checkTypePins at h
+    obtain ⟨rfl, rfl⟩ := pureI_ok h
+    exact ⟨hs, TabLe.refl _, by simp only [List.map_nil, ConLeche.checkTypePins]; exact Runs.pure _⟩
+  | cons p rest ih =>
+    intro s₀ s' b hs hp h
+    obtain ⟨n, ty⟩ := p
+    unfold InLean.checkTypePins at h
+    obtain ⟨b1, s₁, hD, h⟩ := bindI_ok h
+    obtain ⟨hty, hlbb⟩ := hp (n, ty) (List.mem_cons_self ..)
+    obtain ⟨hst, hsto⟩ := typePinStored_tr hJ.pres n
+    obtain ⟨hs₁, ht₁, hRD⟩ := tripleI_iff_run.1 (hJ.ops.defeq (s₀ := s₀) (d := 0)
+      hs (OkS_of_okC _ hsto) (OkS_of_okC _ hty)
+      (by rw [TrS_of_okC _ hsto]; exact trC_wscoped _ _) (by rw [TrS_of_okC _ hty]; exact trC_wscoped _ _)
+      (by rw [TrS_of_okC _ hsto, ← hst]; exact typePinStored_lbb hJ.wf _)
+      (by rw [TrS_of_okC _ hty]; exact hlbb)) b1 s₁ hD
+    rw [TrS_of_okC _ hsto, TrS_of_okC _ hty, ← hst] at hRD
+    simp only [List.map_cons, ConLeche.checkTypePins]
+    have hp' : ∀ t ∈ rest, okC t.2 = true ∧ (trC t.2).looseBVarsBounded 0 = true :=
+      fun t ht => hp t (List.mem_cons_of_mem _ ht)
+    cases b1
+    · simp only [Bool.false_eq_true, ↓reduceIte] at h
+      obtain ⟨rfl, rfl⟩ := pureI_ok h
+      exact ⟨hs₁, ht₁, Runs.bind hRD (by simp only [Bool.false_eq_true, ↓reduceIte]; exact Runs.pure _)⟩
+    · simp only [↓reduceIte] at h
+      obtain ⟨hs₂, ht₂, hR⟩ := ih hs₁ hp' h
+      exact ⟨hs₂, ht₁.trans ht₂, Runs.bind hRD (by simp only [↓reduceIte]; exact hR)⟩
+
+/-- The statement terms read scoped at the two variables and closed. -/
+theorem stmtScope_all {s : InLean.CState} {x y : Expr}
+    (hx : TrS s x = .fvar 0 (.const ConLeche.natName []))
+    (hy : TrS s y = .fvar 1 (.const ConLeche.natName [])) (c : Name) :
+    ∀ p ∈ InLean.divModCertStmts x y c,
+      (∀ h ∈ p.1, (TrS s h).wscopedB 2 = true ∧ (TrS s h).looseBVarsBounded 0 = true) ∧
+      ((TrS s p.2).wscopedB 2 = true ∧ (TrS s p.2).looseBVarsBounded 0 = true) := by
+  refine divModCertStmts_all c (fun h => (TrS s h).wscopedB 2 = true ∧
+    (TrS s h).looseBVarsBounded 0 = true) ?_ ?_ ?_ ?_
+  · intro n us _; simp [TrS_const, ConLeche.Expr.wscopedB, ConLeche.Expr.looseBVarsBounded]
+  · intro f a hf ha
+    simp [TrS_app, ConLeche.Expr.wscopedB, ConLeche.Expr.looseBVarsBounded, hf.1, hf.2, ha.1, ha.2]
+  · simp [hx, ConLeche.Expr.wscopedB, ConLeche.Expr.looseBVarsBounded]
+  · simp [hy, ConLeche.Expr.wscopedB, ConLeche.Expr.looseBVarsBounded]
+
+/-- The facts about the two variables a state carries. -/
+@[expose] def VarsOk (s : InLean.CState) (x y : Expr) : Prop :=
+  OkS s x = true ∧ OkS s y = true ∧ TrS s x = .fvar 0 (.const ConLeche.natName []) ∧
+    TrS s y = .fvar 1 (.const ConLeche.natName [])
+
+theorem VarsOk.mono {s₀ s₁ : InLean.CState} {x y : Expr} (h : VarsOk s₀ x y) (ht : TabLe s₀ s₁) :
+    VarsOk s₁ x y :=
+  ⟨okS_of_tabLe ht h.1, okS_of_tabLe ht h.2.1, by rw [TrS_of_tabLe ht h.1, h.2.2.1],
+    by rw [TrS_of_tabLe ht h.2.1, h.2.2.2]⟩
+
+/-- The statements' list, read at a later state. -/
+theorem stmts_map_tabLe {L : ConLeche.Env} {s₀ s₁ : InLean.CState} (ht : TabLe s₀ s₁)
+    {S : List (List Expr × Expr)}
+    (hS : ∀ p ∈ S, (∀ h ∈ p.1, StmtOk s₀ L h) ∧ StmtOk s₀ L p.2) :
+    S.map (fun p => (p.1.map (TrS s₁), TrS s₁ p.2)) = S.map (fun p => (p.1.map (TrS s₀), TrS s₀ p.2)) := by
+  refine List.map_congr_left fun p hp => ?_
+  obtain ⟨hh, he⟩ := hS p hp
+  rw [TrS_of_tabLe ht he.2.1, List.map_congr_left fun h hm => TrS_of_tabLe ht (hh h hm).2.1]
+
+theorem divModCertApplied_lbb (q : ConLeche.Expr) (hs : List ConLeche.Expr) :
+    (ConLeche.divModCertApplied q hs).looseBVarsBounded 0 = q.looseBVarsBounded 0 := by
+  unfold ConLeche.divModCertApplied
+  split <;> simp [ConLeche.Expr.looseBVarsBounded]
+
+/-- What the applied certificate satisfies at the state after it. -/
+@[expose] def AppliedOk (L : ConLeche.Env) (s₀ s₁ : InLean.CState) (p : Expr) (hs : List Expr)
+    (applied : Expr) : Prop :=
+  CSOKI .verified false L s₁ ∧ TabLe s₀ s₁ ∧ OkS s₁ applied = true ∧
+    TrS s₁ applied = ConLeche.divModCertApplied (TrS s₀ p) (hs.map (TrS s₀))
+
+theorem base_tr {s₀ : InLean.CState} {p x y : Expr} (hV : VarsOk s₀ x y) (hp : OkS s₀ p = true) :
+    OkS s₀ (mkApp2 p x y) = true ∧
+      TrS s₀ (mkApp2 p x y) = .app (.app (TrS s₀ p) (.fvar 0 (.const ConLeche.natName [])))
+        (.fvar 1 (.const ConLeche.natName [])) := by
+  obtain ⟨hox, hoy, hx, hy⟩ := hV
+  exact ⟨by simp only [mkApp2, mkAppB, mkApp, OkS_app, hp, hox, hoy, Bool.and_self],
+    by simp only [mkApp2, mkAppB, mkApp, TrS_app, hx, hy]⟩
+
+/-- **The applied certificate, no hypothesis variable** (no hypothesis, or more than two). -/
+theorem applied0 {L : ConLeche.Env} {s₀ : InLean.CState} {p x y : Expr} {hs : List Expr}
+    (hs₀ : CSOKI .verified false L s₀) (hV : VarsOk s₀ x y) (hp : OkS s₀ p = true)
+    (h1 : ∀ a, hs ≠ [a]) (h2 : ∀ a b, hs ≠ [a, b]) :
+    AppliedOk L s₀ s₀ p hs (mkApp2 p x y) := by
+  obtain ⟨o, t⟩ := base_tr hV hp
+  refine ⟨hs₀, TabLe.refl _, o, ?_⟩
+  rw [t]
+  unfold ConLeche.divModCertApplied
+  split
+  · rename_i a he
+    rcases hs with _ | ⟨a', _ | ⟨b', t'⟩⟩
+    · simp at he
+    · exact (h1 a' rfl).elim
+    · simp at he
+  · rename_i a b he
+    rcases hs with _ | ⟨a', _ | ⟨b', _ | ⟨c', t'⟩⟩⟩
+    · simp at he
+    · simp at he
+    · exact (h2 a' b' rfl).elim
+    · simp at he
+  · rfl
+
+/-- **The applied certificate, one hypothesis variable** (`mkFVarM 2`). -/
+theorem applied1 {L : ConLeche.Env} {s₀ s₁ : InLean.CState} {p x y h1 a : Expr}
+    (hs₀ : CSOKI .verified false L s₀) (hV : VarsOk s₀ x y) (hp : OkS s₀ p = true)
+    (o1 : OkS s₀ h1 = true) (l1 : (TrS s₀ h1).looseBVarsBounded 0 = true)
+    (hA : mkFVarM 2 h1 s₀ = .ok (a, s₁)) :
+    AppliedOk L s₀ s₁ p [h1] (.app (mkApp2 p x y) a) := by
+  obtain ⟨o, t⟩ := base_tr hV hp
+  obtain ⟨hs₁, ht₁, hoa, hTa⟩ := tripleI_iff_run.1 (mkFVarM_specI hs₀ 2 o1 l1) a s₁ hA
+  refine ⟨hs₁, ht₁, ?_, ?_⟩
+  · simp only [OkS_app, okS_of_tabLe ht₁ o, hoa, Bool.and_self]
+  · rw [TrS_app, TrS_of_tabLe ht₁ o, t, hTa]; rfl
+
+/-- **The applied certificate, two hypothesis variables** (`mkFVarM 2`, `3`). -/
+theorem applied2 {L : ConLeche.Env} {s₀ s₁ s₂ : InLean.CState} {p x y h1 h2 a b : Expr}
+    (hs₀ : CSOKI .verified false L s₀) (hV : VarsOk s₀ x y) (hp : OkS s₀ p = true)
+    (o1 : OkS s₀ h1 = true) (l1 : (TrS s₀ h1).looseBVarsBounded 0 = true)
+    (o2 : OkS s₀ h2 = true) (l2 : (TrS s₀ h2).looseBVarsBounded 0 = true)
+    (hA : mkFVarM 2 h1 s₀ = .ok (a, s₁)) (hB : mkFVarM 3 h2 s₁ = .ok (b, s₂)) :
+    AppliedOk L s₀ s₂ p [h1, h2] (mkApp2 (mkApp2 p x y) a b) := by
+  obtain ⟨o, t⟩ := base_tr hV hp
+  obtain ⟨hs₁, ht₁, hoa, hTa⟩ := tripleI_iff_run.1 (mkFVarM_specI hs₀ 2 o1 l1) a s₁ hA
+  obtain ⟨hs₂, ht₂, hob, hTb⟩ := tripleI_iff_run.1 (mkFVarM_specI hs₁ 3 (okS_of_tabLe ht₁ o2)
+    (by rw [TrS_of_tabLe ht₁ o2]; exact l2)) b s₂ hB
+  have ht := ht₁.trans ht₂
+  refine ⟨hs₂, ht, ?_, ?_⟩
+  · simp only [mkApp2, mkAppB, mkApp] at o ⊢
+    simp only [OkS_app, okS_of_tabLe ht o, okS_of_tabLe ht₂ hoa, hob, Bool.and_self]
+  · have e1 : TrS s₂ (mkApp2 (mkApp2 p x y) a b) =
+        .app (.app (TrS s₂ (mkApp2 p x y)) (TrS s₂ a)) (TrS s₂ b) := by
+      simp only [mkApp2, mkAppB, mkApp, TrS_app]
+    rw [e1, TrS_of_tabLe ht o, t, TrS_of_tabLe ht₂ hoa, hTa, hTb, TrS_of_tabLe ht₁ o2]
+    rfl
+
+/-- **The certificate loop** (`checkDivModCerts`, at depth 4 over the
+interned variables and hypotheses). -/
+theorem checkDivModCerts_sim {fe : InLean.FEnv} {L : ConLeche.Env} (hJ : JobEnvI fe L)
+    {c : Name} {annVal x y : Expr} (hv : okC annVal = true)
+    (hvl : (trC annVal).looseBVarsBounded 0 = true)
+    (hN : (L.find? ConLeche.natName).isSome = true) :
+    ∀ (S : List (List Expr × Expr)) (P : List Expr) {s₀ s' : InLean.CState} {b : Bool},
+      CSOKI .verified false L s₀ → VarsOk s₀ x y → (∀ p ∈ S, p ∈ InLean.divModCertStmts x y c) →
+      (∀ p ∈ P, okC p = true) →
+      InLean.checkDivModCerts .verified fe c annVal x y S P s₀ = .ok (b, s') →
+      CSOKI .verified false L s' ∧ TabLe s₀ s' ∧
+        Runs (ConLeche.checkDivModCerts (ConLeche.fueledOpsM .verified) L (toName c) (trC annVal)
+          (S.map fun p => (p.1.map (TrS s₀), TrS s₀ p.2)) (P.map trC)) b := by
+  intro S
+  induction S with
+  | nil =>
+    intro P s₀ s' b hs _ _ _ h
+    cases P with
+    | nil =>
+      unfold InLean.checkDivModCerts at h
+      obtain ⟨rfl, rfl⟩ := pureI_ok h
+      exact ⟨hs, TabLe.refl _, by simp only [List.map_nil, ConLeche.checkDivModCerts]; exact Runs.pure _⟩
+    | cons =>
+      unfold InLean.checkDivModCerts at h
+      obtain ⟨rfl, rfl⟩ := pureI_ok h
+      exact ⟨hs, TabLe.refl _, by simp only [List.map_nil, List.map_cons, ConLeche.checkDivModCerts]; exact Runs.pure _⟩
+  | cons q srest ih =>
+    intro P s₀ s' b hs hV hSm hPm h
+    obtain ⟨hyps, eqE⟩ := q
+    cases P with
+    | nil =>
+      unfold InLean.checkDivModCerts at h
+      obtain ⟨rfl, rfl⟩ := pureI_ok h
+      exact ⟨hs, TabLe.refl _, by simp only [List.map_nil, List.map_cons, ConLeche.checkDivModCerts]; exact Runs.pure _⟩
+    | cons proof prest =>
+      obtain ⟨hox, hoy, hx, hy⟩ := hV
+      have hpS := hSm _ (List.mem_cons_self ..)
+      obtain ⟨hhO, heO⟩ := stmtOk_all (L := L) hox hoy hx hy hN c _ hpS
+      obtain ⟨hhW, heW⟩ := stmtScope_all hx hy c _ hpS
+      have hpr := hPm proof (List.mem_cons_self ..)
+      have hG := divModCertGuard_eq (c := c) hJ.pres hv hpr hhO heO
+      have hSrest : ∀ p ∈ srest, p ∈ InLean.divModCertStmts x y c :=
+        fun p hp => hSm p (List.mem_cons_of_mem _ hp)
+      have hSrO : ∀ p ∈ srest, (∀ h ∈ p.1, StmtOk s₀ L h) ∧ StmtOk s₀ L p.2 :=
+        fun p hp => stmtOk_all hox hoy hx hy hN c _ (hSrest p hp)
+      simp only [List.map_cons, ConLeche.checkDivModCerts]
+      rw [hG]
+      unfold InLean.checkDivModCerts at h
+      split at h
+      rotate_left
+      · rename_i hg
+        obtain ⟨rfl, rfl⟩ := pureI_ok h
+        simp only [hg, Bool.false_eq_true, ↓reduceIte]
+        exact ⟨hs, TabLe.refl _, Runs.pure _⟩
+      rename_i hg
+      simp only [hg, ↓reduceIte]
+      obtain ⟨o, t⟩ := substConstAll_trC (n := c) hv hpr
+      have hgM := hG ▸ hg
+      have hhs : ∀ h ∈ hyps.map (InLean.substConst0 c annVal),
+          OkS s₀ h = true ∧ (TrS s₀ h).looseBVarsBounded 0 = true := by
+        intro h hm
+        obtain ⟨h0, hm0, rfl⟩ := List.mem_map.1 hm
+        refine ⟨OkS_substConst0 (OkS_of_okC s₀ hv) _ (hhO h0 hm0).2.1, ?_⟩
+        rw [TrS_substConst0 c annVal (hhO h0 hm0).1, TrS_of_okC s₀ hv]
+        exact lbb_substConst0 hvl _ (hhW h0 hm0).2
+      have hV : VarsOk s₀ x y := ⟨hox, hoy, hx, hy⟩
+      have hop := OkS_of_okC s₀ o
+      obtain ⟨applied, s₁, ⟨hs₁, ht₁, hoA, hTA⟩, h⟩ : ∃ applied s₁,
+          AppliedOk L s₀ s₁ (InLean.substConstAll c annVal proof)
+            (hyps.map (InLean.substConst0 c annVal)) applied ∧
+          (do
+            let tp ← InLean.opInfer .verified fe 4 applied
+            let l ← InLean.opDefeq .verified fe 4 tp (InLean.substConst0 c annVal eqE)
+            if l = true then InLean.checkDivModCerts .verified fe c annVal x y srest prest
+            else pure false : InLean.CheckCM Bool) s₁ = .ok (b, s') := by
+        simp only [] at h
+        generalize hHS : hyps.map (InLean.substConst0 c annVal) = HS at hhs h
+        rcases HS with _ | ⟨h1, _ | ⟨h2, _ | ⟨h3, t⟩⟩⟩
+        · obtain ⟨ap, s₂, hP, h⟩ := bindI_ok h
+          obtain ⟨rfl, rfl⟩ := pureI_ok hP
+          exact ⟨_, _, applied0 hs hV hop (by simp) (by simp), h⟩
+        · obtain ⟨a, s₂, hA, h⟩ := bindI_ok h
+          obtain ⟨ap, s₃, hP, h⟩ := bindI_ok h
+          obtain ⟨rfl, rfl⟩ := pureI_ok hP
+          obtain ⟨o1, l1⟩ := hhs h1 (by simp)
+          exact ⟨_, _, applied1 hs hV hop o1 l1 hA, h⟩
+        · obtain ⟨a, s₂, hA, h⟩ := bindI_ok h
+          obtain ⟨b', s₃, hB, h⟩ := bindI_ok h
+          obtain ⟨ap, s₄, hP, h⟩ := bindI_ok h
+          obtain ⟨rfl, rfl⟩ := pureI_ok hP
+          obtain ⟨o1, l1⟩ := hhs h1 (by simp)
+          obtain ⟨o2, l2⟩ := hhs h2 (by simp)
+          exact ⟨_, _, applied2 hs hV hop o1 l1 o2 l2 hA hB, h⟩
+        · obtain ⟨ap, s₂, hP, h⟩ := bindI_ok h
+          obtain ⟨rfl, rfl⟩ := pureI_ok hP
+          exact ⟨_, _, applied0 hs hV hop (by simp) (by simp), h⟩
+      have hmapH : (hyps.map (InLean.substConst0 c annVal)).map (TrS s₀) =
+          (hyps.map (TrS s₀)).map (ConLeche.Expr.substConst0 (toName c) (trC annVal)) := by
+        simp only [List.map_map]
+        refine List.map_congr_left fun h hm => ?_
+        simp only [Function.comp]
+        rw [TrS_substConst0 c annVal (hhO h hm).1, TrS_of_okC s₀ hv]
+      rw [hmapH, TrS_of_okC s₀ o, t] at hTA
+      have hwA := ConLeche.Cached.divModCertApplied_wscoped (trC_hasFvar annVal)
+        (fun hyp hm => by
+          obtain ⟨h0, hm0, rfl⟩ := List.mem_map.1 hm
+          exact (hhW h0 hm0).1) hgM
+      have hlA : (TrS s₁ applied).looseBVarsBounded 0 = true := by
+        rw [hTA, divModCertApplied_lbb]
+        unfold ConLeche.divModCertGuard at hgM
+        simp only [Bool.and_eq_true] at hgM
+        exact hgM.1.1.1.1.1
+      obtain ⟨tp, s₂, hI, h⟩ := bindI_ok h
+      obtain ⟨hs₂, ht₂, hotp, hRI, hwtp, hltp⟩ := tripleI_iff_run.1 (hJ.ops.infer (s₀ := s₁) (d := 4)
+        hs₁ hoA (by rw [hTA]; exact hwA) hlA) tp s₂ hI
+      rw [hTA] at hRI
+      obtain ⟨b1, s₃, hD, h⟩ := bindI_ok h
+      have ht₁₂ := ht₁.trans ht₂
+      have hoe : OkS s₀ (InLean.substConst0 c annVal eqE) = true :=
+        OkS_substConst0 (OkS_of_okC s₀ hv) _ heO.2.1
+      have hTe : TrS s₂ (InLean.substConst0 c annVal eqE) =
+          ConLeche.Expr.substConst0 (toName c) (trC annVal) (TrS s₀ eqE) := by
+        rw [TrS_of_tabLe ht₁₂ hoe, TrS_substConst0 c annVal heO.1, TrS_of_okC s₀ hv]
+      have hwE : ConLeche.Expr.WScoped 4 (TrS s₂ (InLean.substConst0 c annVal eqE)) := by
+        rw [hTe]
+        exact ConLeche.Expr.WScoped.mono (show 2 ≤ 4 by omega)
+          (ConLeche.Expr.WScoped.of_wscopedB (ConLeche.wscopedB_substConst0 (trC_hasFvar _) _ heW.1))
+      have hlE : (TrS s₂ (InLean.substConst0 c annVal eqE)).looseBVarsBounded 0 = true := by
+        rw [hTe]; exact lbb_substConst0 hvl _ heW.2
+      obtain ⟨hs₃, ht₃, hRD⟩ := tripleI_iff_run.1 (hJ.ops.defeq (s₀ := s₂) (d := 4)
+        hs₂ hotp (okS_of_tabLe ht₁₂ hoe) hwtp hwE hltp hlE) b1 s₃ hD
+      rw [hTe] at hRD
+      have ht₀₃ := ht₁₂.trans ht₃
+      refine ⟨?_, ?_, Runs.bind hRI (Runs.bind hRD ?_)⟩ <;> cases b1
+      all_goals simp only [Bool.false_eq_true, ↓reduceIte] at h ⊢
+      · exact (pureI_ok h).2 ▸ hs₃
+      · exact (ih prest hs₃ (VarsOk.mono ⟨hox, hoy, hx, hy⟩ ht₀₃) hSrest
+          (fun p hp => hPm p (List.mem_cons_of_mem _ hp)) h).1
+      · exact (pureI_ok h).2 ▸ ht₀₃
+      · exact ht₀₃.trans (ih prest hs₃ (VarsOk.mono ⟨hox, hoy, hx, hy⟩ ht₀₃) hSrest
+          (fun p hp => hPm p (List.mem_cons_of_mem _ hp)) h).2.1
+      · obtain ⟨rfl, -⟩ := pureI_ok h; exact Runs.pure _
+      · have := (ih prest hs₃ (VarsOk.mono ⟨hox, hoy, hx, hy⟩ ht₀₃) hSrest
+          (fun p hp => hPm p (List.mem_cons_of_mem _ hp)) h).2.2
+        rwa [stmts_map_tabLe ht₀₃ hSrO] at this
 
 end InLeanProof
