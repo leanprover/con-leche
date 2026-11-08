@@ -1719,12 +1719,6 @@ info: 'InLeanProof.presI_quotSound' depends on axioms: [propext,
 #print axioms InLeanProof.presI_quotSound
 
 /--
-info: 'InLeanProof.checkShapelessS_run_ne' depends on axioms: [propext, Classical.choice, Quot.sound]
--/
-#guard_msgs in
-#print axioms InLeanProof.checkShapelessS_run_ne
-
-/--
 info: 'InLeanProof.checkIndDeclC_ok' depends on axioms: [propext, Classical.choice, Quot.sound]
 -/
 #guard_msgs in
@@ -1752,9 +1746,11 @@ info: 'InLeanProof.basisNameHit_toBlock' depends on axioms: [propext, Quot.sound
 #guard_msgs in
 #print axioms InLeanProof.blockSplit_tr
 
-/-- info: 'InLeanProof.blockShape?_tr' depends on axioms: [propext, Quot.sound] -/
+/--
+info: 'InLeanProof.readBlock_tr' depends on axioms: [propext, Classical.choice, Quot.sound]
+-/
 #guard_msgs in
-#print axioms InLeanProof.blockShape?_tr
+#print axioms InLeanProof.readBlock_tr
 
 /-- info: 'InLeanProof.indParamsOk_tr' depends on axioms: [propext, Quot.sound] -/
 #guard_msgs in
@@ -1790,12 +1786,6 @@ info: 'InLeanProof.genEntriesAgree_noSt' depends on axioms: [propext, Classical.
 #print axioms InLeanProof.genEntriesAgree_noSt
 
 /--
-info: 'InLeanProof.checkShapelessS_not_ok' depends on axioms: [propext, Classical.choice, Quot.sound]
--/
-#guard_msgs in
-#print axioms InLeanProof.checkShapelessS_not_ok
-
-/--
 info: 'InLeanProof.checkIndDeclC_sim_of' depends on axioms: [propext, Classical.choice, Quot.sound]
 -/
 #guard_msgs in
@@ -1811,9 +1801,11 @@ info: 'InLeanProof.reduceMembersSimI_of' depends on axioms: [propext, Classical.
 #guard_msgs in
 #print axioms InLeanProof.reduceMembersSimI_of
 
-/-- info: 'InLeanProof.blockShape?_memberOk' depends on axioms: [propext, Quot.sound] -/
+/--
+info: 'InLeanProof.readBlock_memberOk' depends on axioms: [propext, Classical.choice, Quot.sound]
+-/
 #guard_msgs in
-#print axioms InLeanProof.blockShape?_memberOk
+#print axioms InLeanProof.readBlock_memberOk
 
 /--
 info: 'InLeanProof.blockKSSimI_of' depends on axioms: [propext,
@@ -1846,17 +1838,21 @@ info: 'InLeanProof.blockKSSimI_of' depends on axioms: [propext,
 #guard_msgs in
 #print axioms InLeanProof.blockSplit_recs
 
-/-- info: 'InLeanProof.blockShape?_recs' depends on axioms: [propext, Quot.sound] -/
+/--
+info: 'InLeanProof.readBlock_recs' depends on axioms: [propext, Classical.choice, Quot.sound]
+-/
 #guard_msgs in
-#print axioms InLeanProof.blockShape?_recs
+#print axioms InLeanProof.readBlock_recs
 
 /-- info: 'InLeanProof.members_ctors_from' depends on axioms: [propext, Quot.sound] -/
 #guard_msgs in
 #print axioms InLeanProof.members_ctors_from
 
-/-- info: 'InLeanProof.blockShape?_ctors' depends on axioms: [propext, Quot.sound] -/
+/--
+info: 'InLeanProof.readBlock_ctors' depends on axioms: [propext, Classical.choice, Quot.sound]
+-/
 #guard_msgs in
-#print axioms InLeanProof.blockShape?_ctors
+#print axioms InLeanProof.readBlock_ctors
 
 /-- info: 'InLeanProof.reduceMemberS_ctors' depends on axioms: [propext, Classical.choice, Quot.sound] -/
 #guard_msgs in
@@ -2118,9 +2114,11 @@ info: 'InLeanProof.checkBlockIndsFI_run' depends on axioms: [propext,
 #guard_msgs in
 #print axioms InLeanProof.presI_formers
 
-/-- info: 'InLeanProof.blockShape?_members' depends on axioms: [propext, Quot.sound] -/
+/--
+info: 'InLeanProof.readBlock_members' depends on axioms: [propext, Classical.choice, Quot.sound]
+-/
 #guard_msgs in
-#print axioms InLeanProof.blockShape?_members
+#print axioms InLeanProof.readBlock_members
 
 /-- info: 'InLeanProof.checkBlockIndsF_fresh' depends on axioms: [propext, Classical.choice, Quot.sound] -/
 #guard_msgs in
@@ -2220,9 +2218,11 @@ info: 'InLeanProof.projBodyAt_tr' depends on axioms: [propext,
 #guard_msgs in
 #print axioms InLeanProof.checkBlockKS_cover
 
-/-- info: 'InLeanProof.blockShape?_spec' depends on axioms: [propext, Quot.sound] -/
+/--
+info: 'InLeanProof.readBlock_spec' depends on axioms: [propext, Classical.choice, Quot.sound]
+-/
 #guard_msgs in
-#print axioms InLeanProof.blockShape?_spec
+#print axioms InLeanProof.readBlock_spec
 
 /--
 info: 'InLeanProof.dropVars_tr' depends on axioms: [propext,
@@ -5893,9 +5893,11 @@ info: 'InLeanProof.tailSimI' depends on axioms: [propext,
 #guard_msgs in
 #print axioms InLeanProof.blockSplit_info
 
-/-- info: 'InLeanProof.blockShape?_info' depends on axioms: [propext, Quot.sound] -/
+/--
+info: 'InLeanProof.readBlock_info' depends on axioms: [propext, Classical.choice, Quot.sound]
+-/
 #guard_msgs in
-#print axioms InLeanProof.blockShape?_info
+#print axioms InLeanProof.readBlock_info
 
 /-- info: 'InLeanProof.forIn_ok_each' depends on axioms: [propext, Classical.choice, Quot.sound] -/
 #guard_msgs in

@@ -18,9 +18,9 @@ them with master's fold theorem; P3r's `IndGroupPresBP` gives the environment
 relation after the step.
 
 The dispatch is proved here: the declared parameter count
-(`indParamsOk_tr`), the recogniser (`blockShape?_tr`), the generated entries'
+(`indParamsOk_tr`), the reader (`readBlock_tr`), the generated entries'
 agreement (`genEntriesAgree` changes no state, `genEntriesAgree_noSt`) and the
-shapeless decline (it never accepts, `checkShapelessS_not_ok`).  A pinned
+reader's reject (a throw, it never accepts).  A pinned
 basis block takes the same route.  The job run is a named hypothesis, stated
 as the cached driver's `_run` lemma it twins: `BlockKSSimI`
 (`checkBlockKS_run`'s twin), the recognised block's job
@@ -111,15 +111,6 @@ theorem genEntriesAgree_noSt (p : InLean.BlockShape) (block : List Lean.Constant
     | apply NoSt.ite
     | split)
 
-/-- **The shapeless branch never accepts** (it declines after its former
-checks, `checkShapeless`'s twin). -/
-theorem checkShapelessS_not_ok {mode : InLean.CheckMode} {fe : InLean.FEnv}
-    {block : List Lean.ConstantInfo} {s₀ s' : InLean.CState} {v : Unit}
-    (h : InLean.checkShapelessS mode fe block s₀ = .ok (v, s')) : False := by
-  unfold InLean.checkShapelessS at h
-  obtain ⟨_, _, _, h⟩ := bindI_ok h
-  exact throwI_ok h
-
 /-- What the declaration step checks of the generator's output (`constInRange`)
 is the range premise here. -/
 theorem CIRange_of_constInRange {ci : Lean.ConstantInfo} (h : InLean.constInRange ci = true) :
@@ -163,7 +154,7 @@ InLean from a state with the residue, accepted by master's pure fueled
     JobEnvI fe L → (∀ ci ∈ block, ci.name = InLean.sorryAxName → fe.coreAxioms = true) →
     CSOKIF s₀ → (∀ ci ∈ block, CIRange ci) → (∀ ci ∈ block, CIClosed ci) →
     (∀ ci ∈ block, isBlockKind ci = true ∧ okC ci.toConstantVal.type = true) →
-    InLean.blockShape? nP block = some p → TailShapeOkI p →
+    InLean.readBlock nP block = .ok p → TailShapeOkI p →
     InLean.checkBlockKS .verified fe block p s₀ = .ok ((), s') →
     CSOKIF s' ∧ ∃ F L', ConLeche.checkBlock (ConLeche.fueledOps .verified F) L (block.map trCI)
       (trShape p) = .ok L'
@@ -181,7 +172,7 @@ theorem checkIndDeclC_sim_of (hK : BlockKSSimI)
     (hso : ∀ ci ∈ block, ci.name = InLean.sorryAxName → fe.coreAxioms = true)
     {s₀ s' : InLean.CState} (hs : CSOKIF s₀) (hr : ∀ ci ∈ block, CIRange ci)
     (hcl : ∀ ci ∈ block, CIClosed ci) (hb : toBlock block = some cb)
-    (hTS : ∀ p s, InLean.blockShape? nP block = some p →
+    (hTS : ∀ p s, InLean.readBlock nP block = .ok p →
       InLean.genEntriesAgree p block s = .ok ((), s) → TailShapeOkI p)
     (h : InLean.checkIndDeclC .verified fe block nP s₀ = .ok ((), s')) :
     CSOKIF s' ∧ ∃ F L', ConLeche.checkDeclKind (ConLeche.fueledOps .verified F) pins L
@@ -190,11 +181,11 @@ theorem checkIndDeclC_sim_of (hK : BlockKSSimI)
   unfold InLean.checkIndDeclC at h
   by_cases hok : InLean.indParamsOk nP block = true
   · rw [ite_eq_left hok] at h
-    cases hsh : InLean.blockShape? nP block with
-    | none =>
+    cases hsh : InLean.readBlock nP block with
+    | error e =>
       rw [hsh] at h
-      exact (checkShapelessS_not_ok h).elim
-    | some p =>
+      exact (throwI_ok h).elim
+    | ok p =>
       rw [hsh] at h
       obtain ⟨u, s₁, h1, h2⟩ := bindI_ok h
       have hs1 : s₁ = s₀ := genEntriesAgree_noSt p block s₀ u s₁ h1
@@ -205,7 +196,7 @@ theorem checkIndDeclC_sim_of (hK : BlockKSSimI)
       have hok' : ConLeche.indParamsOk nP (block.map trCI) = true := by
         rw [indParamsOk_tr]; exact hok
       simp only [ConLeche.checkDeclKind, hok', ↓reduceIte,
-        blockShape?_tr nP block (fun ci h => (hk ci h).2), hsh, Option.map_some]
+        readBlock_tr nP block (fun ci h => (hk ci h).2) hsh]
       exact hF
   · rw [ite_eq_right hok] at h
     exact (throwI_ok h).elim

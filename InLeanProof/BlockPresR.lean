@@ -9,7 +9,7 @@ import all Lean.Declaration
 /-!
 # `BlockPresObl` and the block's step (task #451, lanes P3r and follow-master)
 
-An accepted block (`checkIndDeclC`: `blockShape? = some p`, `genEntriesAgree`
+An accepted block (`checkIndDeclC`: `readBlock = .ok p`, `genEntriesAgree`
 and `checkBlockKS` accepted; a pinned basis block takes the same route)
 installs, on con-leche's side, `blockConstants (trShape p)` and
 `blockTables (trShape p)`; InLean adds the generated constants.  This file
@@ -34,7 +34,7 @@ premises** (findings of this lane, see DESIGN.md "Lane P3r"):
   takes that `Bool` and `projStepsAll_of_ok` reads the premise off it.
 
 **How the entries are read.**  The recogniser's record is the block's split
-(`blockShape?_spec`); the block check's recursor-name stage gives the split's
+(`readBlock_spec`); the block check's recursor-name stage gives the split's
 counts and constructor grouping (`checkBlockKS_cover`); `genEntriesAgree`
 (`GenAgree`) gives each generated entry's data.  The block's names are
 distinct (the generated constants' are), so `constNamed?` finds the very
@@ -259,14 +259,14 @@ theorem find?_reverse_key {α β : Type} [BEq β] [LawfulBEq β] (f : α → β)
 /-! ## The recognised block, read off the run -/
 
 /-- **What an accepted recognised block gives**, gathered: the split, the
-record (`blockShape?_spec`), the counts and grouping (`checkBlockKS_cover`),
+record (`readBlock_spec`), the counts and grouping (`checkBlockKS_cover`),
 the generated entries (`GenAgree`), distinct names and closed readings. -/
 structure RecogCtx (block : List Lean.ConstantInfo) (p : InLean.BlockShape) (nP : Nat)
     (cvTs : List ConstantVal) (cs : List (ConstantVal × Nat × Nat)) (rs : List RecParts) : Prop where
   ndB : (block.map (·.name)).Nodup
   ok : ∀ ci ∈ block, CIOk ci
   okT : ∀ ci ∈ block, okC ci.toConstantVal.type = true
-  hp : InLean.blockShape? nP block = some p
+  hp : InLean.readBlock nP block = .ok p
   pnP : p.nP = nP
   ga : GenAgree p block
   split : InLean.blockSplit block = some (cvTs, cs, rs)
@@ -304,12 +304,12 @@ theorem blockSplit_formers : ∀ {block : List Lean.ConstantInfo} {cvTs cs rs},
 theorem recogCtx_of {μ : CheckMode} {fe : InLean.FEnv} {block : List Lean.ConstantInfo}
     {p : InLean.BlockShape} {nP : Nat} {s s₁ s' : InLean.CState}
     (hndB : (block.map (·.name)).Nodup) (hR : ∀ ci ∈ block, CIRange ci) (cb : List ConLeche.ConstantInfo)
-    (htb : toBlock block = some cb) (hp : InLean.blockShape? nP block = some p)
+    (htb : toBlock block = some cb) (hp : InLean.readBlock nP block = .ok p)
     (hgen : (genEntriesAgree p block) s = .ok ((), s₁))
     (hks : (checkBlockKS μ fe block p) s₁ = .ok ((), s')) :
     ∃ cvTs cs rs, RecogCtx block p nP cvTs cs rs := by
   obtain ⟨cvTs, cs, rs, hsp, hlenT, -, hctorsN, -, hndM⟩ := checkBlockKS_cover hks
-  obtain ⟨cvT0, tl, cs', rs', nIdxs, hsp', hpnP, hmems, hrecs, hlps⟩ := blockShape?_spec hp
+  obtain ⟨cvT0, tl, cs', rs', nIdxs, hsp', hpnP, hmems, hrecs, hlps⟩ := readBlock_spec hp
   rw [hsp] at hsp'
   simp only [Option.some.injEq, Prod.mk.injEq] at hsp'
   obtain ⟨rfl, rfl, rfl⟩ := hsp'
@@ -806,7 +806,7 @@ theorem find?_name_news {news : List ConLeche.ConstantInfo} (hnd : (news.map (·
 /-- **The declared parameter count of an accepted recognised block** (O7's
 finding 1): `toDecl` reads the record's count off the first former, and
 `genEntriesAgree` checks it against the shape's, which is the declaration's
-(`blockShape?` sets `nP := nPd`).  So the record is at InLean's `nP`. -/
+(`readBlock` sets `nP := nPd`).  So the record is at InLean's `nP`. -/
 theorem toDecl_recognised {μ : CheckMode} {fe : InLean.FEnv} {block : List Lean.ConstantInfo}
     {nP : Nat} {s s' : InLean.CState} {d : ConLeche.Declaration}
     (hndB : (block.map (·.name)).Nodup) (hR : ∀ ci ∈ block, CIRange ci)
@@ -814,7 +814,7 @@ theorem toDecl_recognised {μ : CheckMode} {fe : InLean.FEnv} {block : List Lean
     (hd : toDecl block = some d) :
     ∃ cb, toBlock block = some cb ∧ d = .indDecl cb nP := by
   obtain ⟨-, p, hp, s₁, hgen, hks⟩ := checkIndDeclC_ok hrun
-  obtain ⟨cvT0, tl, cs0, rs0, nI0, hsp', -, -, -, -⟩ := blockShape?_spec hp
+  obtain ⟨cvT0, tl, cs0, rs0, nI0, hsp', -, -, -, -⟩ := readBlock_spec hp
   obtain ⟨v0, rest, hblock, -⟩ := blockSplit_head hsp'
   have hd' := hd
   rw [hblock] at hd'
@@ -847,8 +847,8 @@ theorem blockPresOblP : BlockPresOblP := by
   obtain ⟨cvTs, cs, rs, C⟩ := recogCtx_of hndB hR cb htb hp hgen hks
   -- con-leche's install of the record
   have hcb : cb = (storedBlock consts).map trCI := (toBlock_eq htb hR).1
-  have hsh : ConLeche.blockShape? nP cb = some (trShape p) := by
-    rw [hcb, blockShape?_tr nP _ C.okT, hp]; rfl
+  have hsh : ConLeche.readBlock nP cb = .ok (trShape p) := by
+    rw [hcb]; exact readBlock_tr nP _ C.okT hp
   have hdc : ConLeche.declConstants (.indDecl cb nP) =
       ConLeche.blockConstants (trShape p) := by
     simp only [ConLeche.declConstants, hsh]

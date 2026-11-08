@@ -147,7 +147,7 @@ theorem reduceMemberSimI_of (hC : CheckConstantValFSimI) (hRF : ReducedFormerSim
 tail. -/
 theorem blockKSSimI_of_stages (hC : CheckConstantValFSimI) (hRF : ReducedFormerSimI)
     (hPT : PassTailSimI) : BlockKSSimI :=
-  blockKSSimI_of (reduceMemberSimI_of hC hRF) hPT fun _ _ _ hk h => blockShape?_memberOk hk h
+  blockKSSimI_of (reduceMemberSimI_of hC hRF) hPT fun _ _ _ hk h => readBlock_memberOk hk h
 
 /-! ## The pass and the tail, split at a relation
 
@@ -238,7 +238,7 @@ theorem checkIndDeclC_sim_stages (hC : CheckConstantValFSimI)
     (hso : ∀ ci ∈ block, ci.name = InLean.sorryAxName → fe.coreAxioms = true)
     {s₀ s' : InLean.CState} (hs : CSOKIF s₀) (hr : ∀ ci ∈ block, CIRange ci)
     (hcl : ∀ ci ∈ block, CIClosed ci) (hb : toBlock block = some cb)
-    (hTS : ∀ p s, InLean.blockShape? nP block = some p →
+    (hTS : ∀ p s, InLean.readBlock nP block = .ok p →
       InLean.genEntriesAgree p block s = .ok ((), s) → TailShapeOkI p)
     (h : InLean.checkIndDeclC .verified fe block nP s₀ = .ok ((), s')) :
     CSOKIF s' ∧ ∃ F L', ConLeche.checkDeclKind (ConLeche.fueledOps .verified F) pins L

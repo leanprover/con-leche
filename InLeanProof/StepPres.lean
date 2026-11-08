@@ -428,19 +428,13 @@ theorem run_bind_throw {β α : Type} {x : CheckCM β} {s : CState} {r : α × C
     simp only [throw, throwThe, MonadExceptOf.throw, StateT.run_lift, Function.comp,
       except_error_bind, reduceCtorEq] at h
 
-/-- A shapeless block is never accepted (`checkShapelessS` ends in a throw). -/
-theorem checkShapelessS_run_ne {μ : CheckMode} {block : List Lean.ConstantInfo} {s s' : CState} :
-    (checkShapelessS μ fe block).run s ≠ .ok ((), s') := by
-  unfold checkShapelessS
-  exact run_bind_throw _ _ (fun _ => rfl)
-
 /-- **What an accepted inductive check says**: a recognised block whose
 generated entries agree with its shape and whose block check passed (a pinned
-basis block included).  The shapeless branch and a parameter mismatch throw. -/
+basis block included).  A block that cannot be read and a parameter mismatch throw. -/
 theorem checkIndDeclC_ok {μ : CheckMode} {block : List Lean.ConstantInfo} {nP : Nat}
     {s s' : CState} (h : (checkIndDeclC μ fe block nP).run s = .ok ((), s')) :
     indParamsOk nP block = true ∧
-      ∃ p, InLean.blockShape? nP block = some p ∧ ∃ s₁,
+      ∃ p, InLean.readBlock nP block = .ok p ∧ ∃ s₁,
         (genEntriesAgree p block).run s = .ok ((), s₁) ∧
         (checkBlockKS μ fe block p).run s₁ = .ok ((), s') := by
   unfold checkIndDeclC at h
@@ -448,9 +442,12 @@ theorem checkIndDeclC_ok {μ : CheckMode} {block : List Lean.ConstantInfo} {nP :
   · simp [hpo, StateT.run, throw, throwThe, MonadExceptOf.throw, StateT.lift, Functor.map, Except.map] at h
   · simp only [hpo, ↓reduceIte] at h
     refine ⟨rfl, ?_⟩
-    cases hs : InLean.blockShape? nP block with
-    | none => rw [hs] at h; exact absurd h checkShapelessS_run_ne
-    | some p =>
+    cases hs : InLean.readBlock nP block with
+    | error e =>
+      rw [hs] at h
+      simp [StateT.run, throw, throwThe, MonadExceptOf.throw, StateT.lift, Functor.map,
+        Except.map] at h
+    | ok p =>
       rw [hs] at h
       simp only at h
       rw [StateT.run_bind] at h

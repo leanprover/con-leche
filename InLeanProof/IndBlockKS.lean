@@ -350,12 +350,12 @@ theorem members_ok {cvTs : List Lean.ConstantVal} {nIdxs : List Nat}
 
 /-- **A recognised shape's members have a closed reading**, given the block's
 types have one. -/
-theorem blockShape?_memberOk {nP : Nat} {block : List Lean.ConstantInfo} {p : InLean.BlockShape}
+theorem readBlock_memberOk {nP : Nat} {block : List Lean.ConstantInfo} {p : InLean.BlockShape}
     (hk : ∀ ci ∈ block, isBlockKind ci = true ∧ okC ci.toConstantVal.type = true)
-    (h : InLean.blockShape? nP block = some p) : ∀ ms ∈ p.members, MemberOk ms := by
+    (h : InLean.readBlock nP block = .ok p) : ∀ ms ∈ p.members, MemberOk ms := by
   cases hsp : InLean.blockSplit block with
   | none =>
-    unfold InLean.blockShape? at h; rw [hsp] at h; cases h
+    unfold InLean.readBlock at h; rw [hsp] at h; cases h
   | some q =>
     obtain ⟨cvTs, cs, rs⟩ := q
     obtain ⟨h1, h2⟩ := blockSplit_sub hsp
@@ -369,7 +369,7 @@ theorem blockShape?_memberOk {nP : Nat} {block : List Lean.ConstantInfo} {p : In
       intro names lps k g hg c hc
       obtain ⟨c', hc', rfl⟩ := List.mem_map.1 (blockGroups_sub _ _ _ _ _ g hg c hc)
       exact hC c' hc'
-    unfold InLean.blockShape? at h
+    unfold InLean.readBlock at h
     rw [hsp] at h
     cases cvTs with
     | nil => cases h
@@ -379,20 +379,18 @@ theorem blockShape?_memberOk {nP : Nat} {block : List Lean.ConstantInfo} {p : In
       | cons r0 rtl =>
         obtain ⟨cvR0, r0b⟩ := r0
         simp only at h
-        cases hc : InLean.blockMemberCounts? nP (cvT0 :: tl).length cs.length
+        cases hc : InLean.blockMemberCounts nP (cvT0 :: tl).length cs.length
             ((cvT0 :: tl).map (·.name)) ((cvR0, r0b) :: rtl) 0 (cvT0 :: tl) with
-        | none => rw [hc] at h; cases h
-        | some nIdxs =>
+        | error e => rw [hc] at h; cases h
+        | ok nIdxs =>
           rw [hc] at h
           simp only at h
-          split at h
-          · revert h
-            repeat' split
-            all_goals intro h
-            all_goals first
-              | (cases h; done)
-              | (simp only [Option.some.injEq] at h; subst h; exact members_ok hT (hG _ _ _))
-          · cases h
+          revert h
+          repeat' split
+          all_goals intro h
+          all_goals first
+            | (cases h; done)
+            | (simp only [Except.ok.injEq] at h; subst h; exact members_ok hT (hG _ _ _))
 
 theorem members_from {cvTs : List Lean.ConstantVal} {nIdxs : List Nat}
     {groups : List (List (Lean.ConstantVal × Nat))} {block : List Lean.ConstantInfo}
@@ -406,16 +404,16 @@ theorem members_from {cvTs : List Lean.ConstantVal} {nIdxs : List Nat}
 
 /-- **A recognised shape's members are the block's formers**, declared as
 read. -/
-theorem blockShape?_members {nP : Nat} {block : List Lean.ConstantInfo} {p : InLean.BlockShape}
-    (h : InLean.blockShape? nP block = some p) :
+theorem readBlock_members {nP : Nat} {block : List Lean.ConstantInfo} {p : InLean.BlockShape}
+    (h : InLean.readBlock nP block = .ok p) :
     ∀ ms ∈ p.members, ms.declared = ms.cvT ∧ ∃ ci ∈ block, ci.toConstantVal = ms.declared := by
   cases hsp : InLean.blockSplit block with
   | none =>
-    unfold InLean.blockShape? at h; rw [hsp] at h; cases h
+    unfold InLean.readBlock at h; rw [hsp] at h; cases h
   | some q =>
     obtain ⟨cvTs, cs, rs⟩ := q
     have h1 := (blockSplit_sub hsp).1
-    unfold InLean.blockShape? at h
+    unfold InLean.readBlock at h
     rw [hsp] at h
     cases cvTs with
     | nil => cases h
@@ -425,20 +423,18 @@ theorem blockShape?_members {nP : Nat} {block : List Lean.ConstantInfo} {p : InL
       | cons r0 rtl =>
         obtain ⟨cvR0, r0b⟩ := r0
         simp only at h
-        cases hc : InLean.blockMemberCounts? nP (cvT0 :: tl).length cs.length
+        cases hc : InLean.blockMemberCounts nP (cvT0 :: tl).length cs.length
             ((cvT0 :: tl).map (·.name)) ((cvR0, r0b) :: rtl) 0 (cvT0 :: tl) with
-        | none => rw [hc] at h; cases h
-        | some nIdxs =>
+        | error e => rw [hc] at h; cases h
+        | ok nIdxs =>
           rw [hc] at h
           simp only at h
-          split at h
-          · revert h
-            repeat' split
-            all_goals intro h
-            all_goals first
-              | (cases h; done)
-              | (simp only [Option.some.injEq] at h; subst h; exact members_from h1)
-          · cases h
+          revert h
+          repeat' split
+          all_goals intro h
+          all_goals first
+            | (cases h; done)
+            | (simp only [Except.ok.injEq] at h; subst h; exact members_from h1)
 
 theorem blockSplitCtors_recs : ∀ {block : List Lean.ConstantInfo} {cs rs},
     InLean.blockSplitCtors block = some (cs, rs) → ∀ r ∈ rs, ∃ ci ∈ block, ci.toConstantVal = r.1
@@ -481,16 +477,16 @@ theorem blockSplit_recs : ∀ {block : List Lean.ConstantInfo} {cvTs cs rs},
     exact blockSplitCtors_recs h1
 
 /-- **A recognised shape's recursors are the block's**. -/
-theorem blockShape?_recs {nP : Nat} {block : List Lean.ConstantInfo} {p : InLean.BlockShape}
-    (h : InLean.blockShape? nP block = some p) :
+theorem readBlock_recs {nP : Nat} {block : List Lean.ConstantInfo} {p : InLean.BlockShape}
+    (h : InLean.readBlock nP block = .ok p) :
     ∀ rc ∈ p.recs, ∃ ci ∈ block, ci.toConstantVal = rc.cvR := by
   cases hsp : InLean.blockSplit block with
   | none =>
-    unfold InLean.blockShape? at h; rw [hsp] at h; cases h
+    unfold InLean.readBlock at h; rw [hsp] at h; cases h
   | some q =>
     obtain ⟨cvTs, cs, rs⟩ := q
     have h1 := blockSplit_recs hsp
-    unfold InLean.blockShape? at h
+    unfold InLean.readBlock at h
     rw [hsp] at h
     cases cvTs with
     | nil => cases h
@@ -500,22 +496,20 @@ theorem blockShape?_recs {nP : Nat} {block : List Lean.ConstantInfo} {p : InLean
       | cons r0 rtl =>
         obtain ⟨cvR0, r0b⟩ := r0
         simp only at h
-        cases hc : InLean.blockMemberCounts? nP (cvT0 :: tl).length cs.length
+        cases hc : InLean.blockMemberCounts nP (cvT0 :: tl).length cs.length
             ((cvT0 :: tl).map (·.name)) ((cvR0, r0b) :: rtl) 0 (cvT0 :: tl) with
-        | none => rw [hc] at h; cases h
-        | some nIdxs =>
+        | error e => rw [hc] at h; cases h
+        | ok nIdxs =>
           rw [hc] at h
           simp only at h
-          split at h
-          · revert h
-            repeat' split
-            all_goals intro h
-            all_goals first
-              | (cases h; done)
-              | (simp only [Option.some.injEq] at h; subst h
-                 exact fun rc hrc => by
-                   obtain ⟨r, hr, rfl⟩ := List.mem_map.1 hrc; exact h1 r hr)
-          · cases h
+          revert h
+          repeat' split
+          all_goals intro h
+          all_goals first
+            | (cases h; done)
+            | (simp only [Except.ok.injEq] at h; subst h
+               exact fun rc hrc => by
+                 obtain ⟨r, hr, rfl⟩ := List.mem_map.1 hrc; exact h1 r hr)
 
 theorem members_ctors_from {cvTs : List Lean.ConstantVal} {nIdxs : List Nat}
     {groups : List (List (Lean.ConstantVal × Nat))} {P : Lean.ConstantVal × Nat → Prop}
@@ -528,12 +522,12 @@ theorem members_ctors_from {cvTs : List Lean.ConstantVal} {nIdxs : List Nat}
   exact hG g (List.of_mem_zip ha).2
 
 /-- **A recognised shape's constructors are the block's**. -/
-theorem blockShape?_ctors {nP : Nat} {block : List Lean.ConstantInfo} {p : InLean.BlockShape}
-    (h : InLean.blockShape? nP block = some p) :
+theorem readBlock_ctors {nP : Nat} {block : List Lean.ConstantInfo} {p : InLean.BlockShape}
+    (h : InLean.readBlock nP block = .ok p) :
     ∀ ms ∈ p.members, ∀ c ∈ ms.ctors, ∃ ci ∈ block, ci.toConstantVal = c.1 := by
   cases hsp : InLean.blockSplit block with
   | none =>
-    unfold InLean.blockShape? at h; rw [hsp] at h; cases h
+    unfold InLean.readBlock at h; rw [hsp] at h; cases h
   | some q =>
     obtain ⟨cvTs, cs, rs⟩ := q
     have h2 := (blockSplit_sub hsp).2
@@ -543,7 +537,7 @@ theorem blockShape?_ctors {nP : Nat} {block : List Lean.ConstantInfo} {p : InLea
       intro names lps k g hg c hc
       obtain ⟨c', hc', rfl⟩ := List.mem_map.1 (blockGroups_sub _ _ _ _ _ g hg c hc)
       exact h2 c' hc'
-    unfold InLean.blockShape? at h
+    unfold InLean.readBlock at h
     rw [hsp] at h
     cases cvTs with
     | nil => cases h
@@ -553,21 +547,19 @@ theorem blockShape?_ctors {nP : Nat} {block : List Lean.ConstantInfo} {p : InLea
       | cons r0 rtl =>
         obtain ⟨cvR0, r0b⟩ := r0
         simp only at h
-        cases hc : InLean.blockMemberCounts? nP (cvT0 :: tl).length cs.length
+        cases hc : InLean.blockMemberCounts nP (cvT0 :: tl).length cs.length
             ((cvT0 :: tl).map (·.name)) ((cvR0, r0b) :: rtl) 0 (cvT0 :: tl) with
-        | none => rw [hc] at h; cases h
-        | some nIdxs =>
+        | error e => rw [hc] at h; cases h
+        | ok nIdxs =>
           rw [hc] at h
           simp only at h
-          split at h
-          · revert h
-            repeat' split
-            all_goals intro h
-            all_goals first
-              | (cases h; done)
-              | (simp only [Option.some.injEq] at h; subst h
-                 exact members_ctors_from (hG _ _ _))
-          · cases h
+          revert h
+          repeat' split
+          all_goals intro h
+          all_goals first
+            | (cases h; done)
+            | (simp only [Except.ok.injEq] at h; subst h
+               exact members_ctors_from (hG _ _ _))
 
 /-- The members' reduction keeps every member's constructors. -/
 theorem reduceMemberS_ctors {μ : CheckMode} {fe : InLean.FEnv} {ms ms' : InLean.MemberShape}
@@ -657,10 +649,10 @@ theorem tailShapeOkI_reduced {μ : CheckMode} {fe : InLean.FEnv} {p : InLean.Blo
 generated recursors' stage take of the stream's recursors). -/
 theorem recsClosed_of_block {nP : Nat} {block : List Lean.ConstantInfo} {p : InLean.BlockShape}
     (hk : ∀ ci ∈ block, isBlockKind ci = true ∧ okC ci.toConstantVal.type = true)
-    (hcl : ∀ ci ∈ block, CIClosed ci) (h : InLean.blockShape? nP block = some p) :
+    (hcl : ∀ ci ∈ block, CIClosed ci) (h : InLean.readBlock nP block = .ok p) :
     ∀ rc ∈ p.recs, okC rc.cvR.type = true ∧ (trC rc.cvR.type).looseBVarsBounded 0 = true := by
   intro rc hrc
-  obtain ⟨ci, hci, he⟩ := blockShape?_recs h rc hrc
+  obtain ⟨ci, hci, he⟩ := readBlock_recs h rc hrc
   rw [← he]
   exact ⟨(hk ci hci).2, lbb_trC_of_closed (hk ci hci).2 (hcl ci hci).type⟩
 
@@ -669,7 +661,7 @@ members' reduction and the pass with its tail, given that a recognised
 shape's members have a closed reading (`hMO`). -/
 theorem blockKSSimI_of (hR : ReduceMemberSimI) (hPT : PassTailSimI)
     (hMO : ∀ nP block p, (∀ ci ∈ block, isBlockKind ci = true ∧ okC ci.toConstantVal.type = true) →
-      InLean.blockShape? nP block = some p → ∀ ms ∈ p.members, MemberOk ms) : BlockKSSimI := by
+      InLean.readBlock nP block = .ok p → ∀ ms ∈ p.members, MemberOk ms) : BlockKSSimI := by
   intro fe L block nP p s₀ s' hJ hso hs hr hcl hk hsh hts h
   unfold InLean.checkBlockKS at h
   by_cases hnd : (InLean.namesNodup (p.allCtors.map (·.1.name)) &&
@@ -694,7 +686,7 @@ theorem blockKSSimI_of (hR : ReduceMemberSimI) (hPT : PassTailSimI)
   rw [flushI_run] at hfl
   injection hfl with hfl
   obtain rfl : s₁.flushed = sC := congrArg Prod.snd hfl
-  have hMF := blockShape?_members hsh
+  have hMF := readBlock_members hsh
   obtain ⟨hAt, -⟩ := ConLeche.reduceMembers_inv (fun m hm => by
     obtain ⟨m0, hm0, rfl⟩ := List.mem_map.1 hm
     show trCV m0.declared = trCV m0.cvT
@@ -730,7 +722,7 @@ theorem blockKSSimI_of (hR : ReduceMemberSimI) (hPT : PassTailSimI)
     · intro c hc hn
       have : m.ctors ∈ p.members.map (·.ctors) := reduceMembersS_ctors hms ▸ List.mem_map_of_mem hm
       obtain ⟨m0, hm0, he⟩ := List.mem_map.1 this
-      obtain ⟨ci, hci, hce⟩ := blockShape?_ctors hsh m0 hm0 c (he ▸ hc)
+      obtain ⟨ci, hci, hce⟩ := readBlock_ctors hsh m0 hm0 c (he ▸ hc)
       exact hso ci hci (by rw [ci_cv_name, hce]; exact hn)
   obtain ⟨hs', F₂, q, hP, hT⟩ := hPT fe L block { p with members := ms } (InLean.blockIsRec p)
     s₁.flushed s' hJ (flushI_csoki hs₁ .verified false L) hr hcl hk hokms

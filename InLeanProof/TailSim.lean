@@ -363,14 +363,14 @@ theorem blockSplit_info : ∀ {block : List Lean.ConstantInfo} {cvTs cs rs},
 
 /-- **A recognised shape's constructors and recursors, as the block stores
 them**: a constructor's entry with its field count, a recursor's rules. -/
-theorem blockShape?_info {nP : Nat} {block : List Lean.ConstantInfo} {p : InLean.BlockShape}
-    (h : InLean.blockShape? nP block = some p) :
+theorem readBlock_info {nP : Nat} {block : List Lean.ConstantInfo} {p : InLean.BlockShape}
+    (h : InLean.readBlock nP block = .ok p) :
     (∀ ms ∈ p.members, ∀ c ∈ ms.ctors, ∃ v, Lean.ConstantInfo.ctorInfo v ∈ block ∧
       v.toConstantVal = c.1 ∧ v.numFields = c.2) ∧
     ∀ rc ∈ p.recs, ∃ v, Lean.ConstantInfo.recInfo v ∈ block ∧ v.rules = rc.rules := by
   cases hsp : InLean.blockSplit block with
   | none =>
-    unfold InLean.blockShape? at h; rw [hsp] at h; cases h
+    unfold InLean.readBlock at h; rw [hsp] at h; cases h
   | some q =>
     obtain ⟨cvTs, cs, rs⟩ := q
     obtain ⟨h2, h3⟩ := blockSplit_info hsp
@@ -380,7 +380,7 @@ theorem blockShape?_info {nP : Nat} {block : List Lean.ConstantInfo} {p : InLean
       intro names lps k g hg c hc
       obtain ⟨c', hc', rfl⟩ := List.mem_map.1 (blockGroups_sub _ _ _ _ _ g hg c hc)
       exact h2 c' hc'
-    unfold InLean.blockShape? at h
+    unfold InLean.readBlock at h
     rw [hsp] at h
     cases cvTs with
     | nil => cases h
@@ -390,22 +390,20 @@ theorem blockShape?_info {nP : Nat} {block : List Lean.ConstantInfo} {p : InLean
       | cons r0 rtl =>
         obtain ⟨cvR0, r0b⟩ := r0
         simp only at h
-        cases hc : InLean.blockMemberCounts? nP (cvT0 :: tl).length cs.length
+        cases hc : InLean.blockMemberCounts nP (cvT0 :: tl).length cs.length
             ((cvT0 :: tl).map (·.name)) ((cvR0, r0b) :: rtl) 0 (cvT0 :: tl) with
-        | none => rw [hc] at h; cases h
-        | some nIdxs =>
+        | error e => rw [hc] at h; cases h
+        | ok nIdxs =>
           rw [hc] at h
           simp only at h
-          split at h
-          · revert h
-            repeat' split
-            all_goals intro h
-            all_goals first
-              | (cases h; done)
-              | (simp only [Option.some.injEq] at h; subst h
-                 exact ⟨members_ctors_from (hG _ _ _), fun rc hrc => by
-                   obtain ⟨r, hr, rfl⟩ := List.mem_map.1 hrc; exact h3 r hr⟩)
-          · cases h
+          revert h
+          repeat' split
+          all_goals intro h
+          all_goals first
+            | (cases h; done)
+            | (simp only [Except.ok.injEq] at h; subst h
+               exact ⟨members_ctors_from (hG _ _ _), fun rc hrc => by
+                 obtain ⟨r, hr, rfl⟩ := List.mem_map.1 hrc; exact h3 r hr⟩)
 
 /-- A `for` loop of `CheckCM` that ran through has run its body at every
 element, each run yielding. -/
@@ -483,9 +481,9 @@ record, the generator's projection steps and the generated entries' agreement. -
 theorem tailShapeOkI_of {nP : Nat} {block : List Lean.ConstantInfo}
     {cb : List ConLeche.ConstantInfo} (hb : toBlock block = some cb)
     (hr : ∀ ci ∈ block, CIRange ci) (hst : BlockStepsOk block)
-    {p : InLean.BlockShape} {s : InLean.CState} (hsh : InLean.blockShape? nP block = some p)
+    {p : InLean.BlockShape} {s : InLean.CState} (hsh : InLean.readBlock nP block = .ok p)
     (hg : InLean.genEntriesAgree p block s = .ok ((), s)) : TailShapeOkI p := by
-  obtain ⟨hci, hrc⟩ := blockShape?_info hsh
+  obtain ⟨hci, hrc⟩ := readBlock_info hsh
   have hok := toBlock_CIOk hb hr
   refine ⟨fun ms hms c hc i hi => ?_, fun rc hrc' r hr' => ?_⟩
   · obtain ⟨v, hv, hnP, hvc⟩ := genEntriesAgree_members hg ms hms
@@ -496,7 +494,7 @@ theorem tailShapeOkI_of {nP : Nat} {block : List Lean.ConstantInfo}
     have hty : cv.type = c.1.type := by rw [← hcve]
     have hvn' : v.name = ms.cvT.name := hvn
     rw [hvn', hnP, hnf, hty] at hst'
-    rw [((blockShape?_members hsh) ms hms).1]
+    rw [((readBlock_members hsh) ms hms).1]
     exact projStepsOk_mono (by omega) hst'
   · obtain ⟨v, hv, hrl⟩ := hrc rc hrc'
     exact (hok _ hv).2 r (hrl ▸ hr')

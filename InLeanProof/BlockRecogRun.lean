@@ -267,32 +267,32 @@ end
 
 /-! ## The recognised shape, spelled out -/
 
-/-- The member records `blockShape?` builds. -/
+/-- The member records `readBlock` builds. -/
 @[expose] def mkMembers (cvTs : List ConstantVal) (nIdxs : List Nat)
     (groups : List (List (ConstantVal × Nat))) : List InLean.MemberShape :=
   ((cvTs.zip nIdxs).zip groups).map fun a =>
     ({ cvT := a.1.1, declared := a.1.1, nIdx := a.1.2, ctors := a.2 } : InLean.MemberShape)
 
-/-- The recursor records `blockShape?` builds. -/
+/-- The recursor records `readBlock` builds. -/
 @[expose] def mkRec (names : List Name) (r : RecParts) : InLean.RecShape :=
   { cvR := r.1, rP := r.2.2.1, mI := r.2.1, tgt := recTargetOf names r.2.1 r.1.type,
     rules := r.2.2.2.2, isK := r.2.2.2.1 }
 
-/-- **What `blockShape?` builds**: the split's formers zipped with their index
+/-- **What `readBlock` builds**: the split's formers zipped with their index
 counts and constructor groups, the split's recursors with their targets, the
 declared parameter count, every former at the first one's level names. -/
-theorem blockShape?_spec {nPd : Nat} {block : List Lean.ConstantInfo} {p : InLean.BlockShape}
-    (h : InLean.blockShape? nPd block = some p) :
+theorem readBlock_spec {nPd : Nat} {block : List Lean.ConstantInfo} {p : InLean.BlockShape}
+    (h : InLean.readBlock nPd block = .ok p) :
     ∃ cvT0 tl cs rs nIdxs, InLean.blockSplit block = some (cvT0 :: tl, cs, rs) ∧ p.nP = nPd ∧
       p.members = mkMembers (cvT0 :: tl) nIdxs (blockGroups ((cvT0 :: tl).map (·.name))
         cvT0.levelParams nPd (cvT0 :: tl).length (cs.map fun c => (c.1, c.2.2))) ∧
       p.recs = rs.map (mkRec ((cvT0 :: tl).map (·.name))) ∧
       ∀ c ∈ cvT0 :: tl, c.levelParams = cvT0.levelParams := by
   cases hsp : InLean.blockSplit block with
-  | none => unfold InLean.blockShape? at h; rw [hsp] at h; cases h
+  | none => unfold InLean.readBlock at h; rw [hsp] at h; cases h
   | some q =>
     obtain ⟨cvTs, cs, rs⟩ := q
-    unfold InLean.blockShape? at h
+    unfold InLean.readBlock at h
     rw [hsp] at h
     cases cvTs with
     | nil => cases h
@@ -302,25 +302,27 @@ theorem blockShape?_spec {nPd : Nat} {block : List Lean.ConstantInfo} {p : InLea
       | cons r0 rtl =>
         obtain ⟨cvR0, r0b⟩ := r0
         simp only at h
-        cases hc : InLean.blockMemberCounts? nPd (cvT0 :: tl).length cs.length
+        cases hc : InLean.blockMemberCounts nPd (cvT0 :: tl).length cs.length
             ((cvT0 :: tl).map (·.name)) ((cvR0, r0b) :: rtl) 0 (cvT0 :: tl) with
-        | none => rw [hc] at h; cases h
-        | some nIdxs =>
+        | error e => rw [hc] at h; cases h
+        | ok nIdxs =>
           rw [hc] at h
           simp only at h
-          split at h
-          · rename_i hcond
-            simp only [Bool.and_eq_true, List.all_eq_true, beq_iff_eq] at hcond
-            have hlps : ∀ c ∈ cvT0 :: tl, c.levelParams = cvT0.levelParams := hcond.1
+          cases hf : (cvT0 :: tl).find? (fun c => c.levelParams != cvT0.levelParams) with
+          | some c => rw [hf] at h; cases h
+          | none =>
+            rw [hf] at h
+            have hlps : ∀ c ∈ cvT0 :: tl, c.levelParams = cvT0.levelParams := by
+              intro c hc'
+              simpa using List.find?_eq_none.1 hf c hc'
             refine ⟨cvT0, tl, cs, (cvR0, r0b) :: rtl, nIdxs, rfl, ?_⟩
             revert h
             repeat' split
             all_goals intro h
             all_goals first
               | (cases h; done)
-              | (simp only [Option.some.injEq] at h; subst h
+              | (simp only [Except.ok.injEq] at h; subst h
                  exact ⟨rfl, rfl, rfl, hlps⟩)
-          · cases h
 
 /-! ## The block's split, element by element -/
 

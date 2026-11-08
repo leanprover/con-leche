@@ -83,12 +83,12 @@ theorem checkDecl_env {pins : List ConLeche.NatOpPinSet} {F : Nat} {L L' : ConLe
   | indDecl block nP =>
     have hr' : ConLeche.Semantics.DeclIndRunDispatchK F L block nP L' := hr
     unfold ConLeche.Semantics.DeclIndRunDispatchK at hr'
-    cases hdf : ConLeche.blockShape? nP block with
-    | none => rw [hdf] at hr'; exact hr'.elim
-    | some p =>
+    cases hdf : ConLeche.readBlock nP block with
+    | error e => rw [hdf] at hr'; exact hr'.elim
+    | ok p =>
       rw [hdf] at hr'
       simp only [ConLeche.declConstants, ConLeche.declTables, hdf]
-      exact ConLeche.Semantics.blockRun_env (ConLeche.blockShape?_declared hdf) hr'
+      exact ConLeche.Semantics.blockRun_env (ConLeche.readBlock_declared hdf) hr'
 
 /-- **Master's accepted fold installs the records, in order.** -/
 theorem foldlM_checkDecl_env {pins : List ConLeche.NatOpPinSet} {F : Nat} :
@@ -376,13 +376,13 @@ theorem numParams_of_checkIndDeclC {fe : InLean.FEnv} {block : List Lean.Constan
     v.numParams = nP := by
   unfold InLean.checkIndDeclC at h
   split at h
-  · cases hp : InLean.blockShape? nP block with
-    | none => rw [hp] at h; exact (checkShapelessS_not_ok h).elim
-    | some p =>
+  · cases hp : InLean.readBlock nP block with
+    | error e => rw [hp] at h; exact (throwI_ok h).elim
+    | ok p =>
       rw [hp] at h
       obtain ⟨_, _, h1, h2⟩ := bindI_ok h
       obtain ⟨cvTs, cs, rs, hsp, hlen, -⟩ := checkBlockKS_cover h2
-      obtain ⟨cvT0, tl, cs', rs', nIdxs, hsp', hnP, hmem, -, -⟩ := blockShape?_spec hp
+      obtain ⟨cvT0, tl, cs', rs', nIdxs, hsp', hnP, hmem, -, -⟩ := readBlock_spec hp
       rw [hsp] at hsp'
       obtain ⟨rfl, -, -⟩ := Prod.mk.inj (Option.some.inj hsp')
       obtain ⟨v', rest', hb', hv'⟩ := blockSplit_head hsp
@@ -466,10 +466,10 @@ theorem checkIndDeclC_head {fe : InLean.FEnv} {block : List Lean.ConstantInfo} {
     ∃ v rest, block = .inductInfo v :: rest := by
   unfold InLean.checkIndDeclC at h
   split at h
-  · cases hp : InLean.blockShape? nP block with
-    | none => rw [hp] at h; exact (checkShapelessS_not_ok h).elim
-    | some p =>
-      obtain ⟨cvT0, tl, cs', rs', nIdxs, hsp, -⟩ := blockShape?_spec hp
+  · cases hp : InLean.readBlock nP block with
+    | error e => rw [hp] at h; exact (throwI_ok h).elim
+    | ok p =>
+      obtain ⟨cvT0, tl, cs', rs', nIdxs, hsp, -⟩ := readBlock_spec hp
       obtain ⟨v, rest, hb, -⟩ := blockSplit_head hsp
       exact ⟨v, rest, hb⟩
   · exact (throwI_ok h).elim

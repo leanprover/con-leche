@@ -5,10 +5,10 @@ public import InLeanProof.IndPres
 import all Lean.Declaration
 
 /-!
-# O7: the inductive block's recogniser at the translation (task #451, lane O7)
+# O7: the inductive block's reader at the translation (task #451, lane O7)
 
-InLean's recogniser (`InLean/Inductives/BlockShape.lean`: `blockSplit`,
-`blockShape?`, `indParamsOk`, `basisNameHit`) is pure; so is con-leche's
+InLean's reader (`InLean/Inductives/BlockShape.lean`: `blockSplit`,
+`readBlock`, `indParamsOk`, `basisNameHit`) is pure; so is con-leche's
 (`ConLeche/Kernel/Inductives/BlockShape.lean`).  A block's terms are closed
 (`toBlock` reads them with `toExprC`), so the translation here is the total
 closed one, `trC` (`trE` with no free variable), and a whole block reads as
@@ -19,8 +19,9 @@ closed one, `trC` (`trE` with no free variable), and a whole block reads as
   `block.map trCI`, every constant a former, a constructor or a recursor.
 * `blockSplit_tr`: `ConLeche.blockSplit (block.map trCI)` is InLean's split,
   translated, for every list.
-* `blockShape?_tr`: the recogniser at the translated block answers the
-  translation of InLean's answer, given that the block's types have a reading
+* `readBlock_toOption_tr`, `readBlock_tr`: the reader at the translated block
+  reads the translation of InLean's shape, and fails where InLean's fails (the
+  errors' text aside: names print as `toName`'s), given that the block's types have a reading
   (`okC`, no level metavariable: the comparisons `memberIdxAt?` and the
   result sort's `isEquiv` read levels).
 * `indParamsOk_tr`, `basisNameHit_tr`: the two guards in front of it.
@@ -454,9 +455,17 @@ theorem recTargetOf_tr' (L : List Lean.ConstantVal) (mI : Nat) (ty : Lean.Expr) 
       InLean.recTargetOf (L.map (·.name)) mI ty := by
   rw [← recTargetOf_tr, List.map_map]; rfl
 
-theorem blockCounts?_tr (nPd k nC nR : Nat) (cvT : Lean.ConstantVal) (r : Option (Nat × Nat)) :
-    ConLeche.blockCounts? nPd k nC nR (trCV cvT) r = InLean.blockCounts? nPd k nC nR cvT r := by
-  unfold ConLeche.blockCounts? InLean.blockCounts?
+theorem toOption_map {ε α β : Type} (x : Except ε α) (f : α → β) :
+    (x.map f).toOption = x.toOption.map f := by
+  cases x <;> rfl
+
+/-- The counts at the translation, up to the errors' text (con-leche's names
+print as `toName`'s). -/
+theorem blockCounts_tr (nPd k nC nR : Nat) (cvT : Lean.ConstantVal)
+    (r : Option (Lean.Name × Nat × Nat)) :
+    (ConLeche.blockCounts nPd k nC nR (trCV cvT) (r.map fun q => (toName q.1, q.2))).toOption =
+      (InLean.blockCounts nPd k nC nR cvT r).toOption := by
+  unfold ConLeche.blockCounts InLean.blockCounts
   simp only [trCV]
   rw [piBinders_tr]
   have hne : ∀ m b, (InLean.piBinders cvT.type).2 ≠ .mdata m b := by
@@ -466,9 +475,18 @@ theorem blockCounts?_tr (nPd k nC nR : Nat) (cvT : Lean.ConstantVal) (r : Option
   generalize InLean.piBinders cvT.type = q at hne
   obtain ⟨bs, x⟩ := q
   cases x with
-  | sort u => simp [trC, trE]
+  | sort u =>
+    simp only [trC, trE, List.length_map, apply_ite Except.toOption]
+    rfl
   | mdata m b => exact absurd rfl (hne m b)
-  | _ => simp only [trC, trE, Option.getD_none] <;> rfl
+  | _ =>
+    simp only [trC, trE, Option.getD_none]
+    cases r with
+    | none => rfl
+    | some q =>
+      obtain ⟨rn, mI, rP⟩ := q
+      simp only [Option.map_some, apply_ite Except.toOption]
+      rfl
 
 theorem ctorMember?_tr (names lps : List Lean.Name) (nP : Nat) (c : Lean.ConstantVal × Nat) :
     ConLeche.ctorMember? (names.map toName) (lps.map toName) nP (trCV c.1, c.2) =
@@ -500,27 +518,36 @@ theorem blockGroups_tr (names lps : List Lean.Name) (nP k : Nat) (cs : List (Lea
     simp only [Function.comp_apply, trCtor]
     rw [ctorMember?_tr]
 
-theorem blockMemberCounts?_tr (nPd k nC : Nat) (names : List Lean.Name) (rs : List InLean.RecParts) :
+theorem blockMemberCounts_tr (nPd k nC : Nat) (names : List Lean.Name) (rs : List InLean.RecParts) :
     ∀ (m : Nat) (ts : List Lean.ConstantVal),
-      ConLeche.blockMemberCounts? nPd k nC (names.map toName) (rs.map trParts) m (ts.map trCV) =
-        InLean.blockMemberCounts? nPd k nC names rs m ts
+      (ConLeche.blockMemberCounts nPd k nC (names.map toName) (rs.map trParts) m
+          (ts.map trCV)).toOption =
+        (InLean.blockMemberCounts nPd k nC names rs m ts).toOption
   | _, [] => rfl
   | m, cvT :: ts => by
-    simp only [List.map_cons, ConLeche.blockMemberCounts?, InLean.blockMemberCounts?, List.length_map]
+    simp only [List.map_cons, ConLeche.blockMemberCounts, InLean.blockMemberCounts, List.length_map]
     have hfind : ((rs.map trParts).find? fun q =>
-        ConLeche.recTargetOf (names.map toName) q.2.1 q.1.type == m).map (fun q => (q.2.1, q.2.2.1)) =
-        (rs.find? fun q => InLean.recTargetOf names q.2.1 q.1.type == m).map
-          (fun q => (q.2.1, q.2.2.1)) := by
-      rw [List.find?_map, Option.map_map]
+        ConLeche.recTargetOf (names.map toName) q.2.1 q.1.type == m).map
+          (fun q => (q.1.name, q.2.1, q.2.2.1)) =
+        ((rs.find? fun q => InLean.recTargetOf names q.2.1 q.1.type == m).map
+          (fun q => (q.1.name, q.2.1, q.2.2.1))).map fun q => (toName q.1, q.2) := by
+      rw [List.find?_map, Option.map_map, Option.map_map]
       have : ((fun q : ConLeche.ConstantVal × Nat × Nat × Bool × List ConLeche.RecRule =>
           ConLeche.recTargetOf (names.map toName) q.2.1 q.1.type == m) ∘ trParts) =
           fun q => InLean.recTargetOf names q.2.1 q.1.type == m := by
         funext q; simp only [Function.comp_apply, trParts, trCV]; rw [recTargetOf_tr]
       rw [this]; rfl
-    rw [hfind, blockCounts?_tr]
-    cases InLean.blockCounts? nPd k nC rs.length cvT _ with
-    | none => rfl
-    | some c => simp only [blockMemberCounts?_tr nPd k nC names rs (m + 1) ts]
+    rw [hfind]
+    have hc := blockCounts_tr nPd k nC rs.length cvT
+      ((rs.find? fun q => InLean.recTargetOf names q.2.1 q.1.type == m).map
+        (fun q => (q.1.name, q.2.1, q.2.2.1)))
+    have ih := blockMemberCounts_tr nPd k nC names rs (m + 1) ts
+    revert hc
+    cases InLean.blockCounts nPd k nC rs.length cvT _ <;>
+      cases ConLeche.blockCounts nPd k nC rs.length (trCV cvT) _ <;> intro hc <;>
+      simp only [Except.toOption, reduceCtorEq, Option.some.injEq] at hc
+    · rfl
+    · subst hc; rw [toOption_map, toOption_map, ih]
 
 theorem blockSplit_head {block : List Lean.ConstantInfo} {cvT0 : Lean.ConstantVal}
     {tl : List Lean.ConstantVal} {cs rs}
@@ -606,7 +633,7 @@ theorem shape_eq_of {M : List ConLeche.MemberShape} {M' : List InLean.MemberShap
   simp only [trShape, isEquiv_zero_tr hok]
 
 /-- The result sort's two readings (a local closing step, used three times
-below: the matches are `blockShape?`'s own, so no lemma can name them). -/
+below: the matches are `readBlock`'s own, so no lemma can name them). -/
 local macro "sort_tac " h:term : tactic => `(tactic| (
   try rw [stripPis_tr]
   cases hst : InLean.stripPis _ _ with
@@ -624,13 +651,32 @@ local macro "sort_tac " h:term : tactic => `(tactic| (
     | mdata m b => exact absurd rfl (hm m b)
     | _ => rfl))
 
-/-- **The recogniser at the translation**: con-leche's `blockShape?` on the
-translated block answers InLean's shape, translated, given that the former
-types have a reading. -/
-theorem blockShape?_tr (nPd : Nat) (block : List Lean.ConstantInfo)
+theorem find?_map_trCV_levelParams (L : List Lean.ConstantVal) (lps : List Lean.Name) :
+    (L.map trCV).find? (fun c => c.levelParams != lps.map toName) =
+      (L.find? fun c => c.levelParams != lps).map trCV := by
+  rw [List.find?_map]
+  congr 2
+  funext c
+  simp only [Function.comp_apply, trCV_levelParams, bne, map_toName_beq]
+
+theorem find?_map_trCtorParts (cs : List (Lean.ConstantVal × Nat × Nat))
+    (p : Lean.ConstantVal × Nat × Nat → Bool) (q : ConLeche.ConstantVal × Nat × Nat → Bool)
+    (hpq : ∀ c, q (trCtorParts c) = p c) :
+    (cs.map trCtorParts).find? q = (cs.find? p).map trCtorParts := by
+  rw [List.find?_map]
+  congr 2
+  funext c
+  exact hpq c
+
+/-- **The reader at the translation**, up to the errors' text (con-leche's
+names print as `toName`'s): con-leche's `readBlock` on the translated block
+reads InLean's shape, translated, given that the former types have a reading. -/
+theorem readBlock_toOption_tr (nPd : Nat) (block : List Lean.ConstantInfo)
     (hok : ∀ ci ∈ block, okC ci.toConstantVal.type = true) :
-    ConLeche.blockShape? nPd (block.map trCI) = (InLean.blockShape? nPd block).map trShape := by
-  unfold ConLeche.blockShape? InLean.blockShape?
+    (ConLeche.readBlock nPd (block.map trCI)).toOption =
+      (InLean.readBlock nPd block).toOption.map trShape := by
+  unfold ConLeche.readBlock InLean.readBlock
+  simp only
   rw [blockSplit_tr]
   cases hsp : InLean.blockSplit block with
   | none => rfl
@@ -645,40 +691,75 @@ theorem blockShape?_tr (nPd : Nat) (block : List Lean.ConstantInfo)
       | cons r0 rtl =>
         obtain ⟨v, rest, rfl, hv⟩ := blockSplit_head hsp
         have hok0 : okC cvT0.type = true := hv ▸ hok _ List.mem_cons_self
+        have hmc := blockMemberCounts_tr nPd (cvT0 :: tl).length cs.length
+          ((cvT0 :: tl).map (·.name)) (r0 :: rtl) 0 (cvT0 :: tl)
         simp only [List.map_cons]
         simp only [← List.map_cons, List.length_map, names_trCV, trCV_name, trCV_levelParams,
           trCV_type]
-        rw [blockMemberCounts?_tr]
-        have hgrp : List.map (fun c => (c.1, c.2.2)) (List.map trCtorParts cs) =
-            (cs.map fun c => (c.1, c.2.2)).map trCtor := by
-          simp [trCtorParts, trCtor]
-        rw [hgrp, blockGroups_tr]
-        simp only [recTargetOf_tr, trParts, trCV_type]
-        generalize hL : cvT0 :: tl = L
-        generalize hR : rtl = R
-        cases InLean.blockMemberCounts? nPd L.length cs.length (L.map (·.name)) (r0 :: R) 0 L with
-        | none => rfl
-        | some nIdxs =>
-          simp only [List.all_map, Function.comp_def, trCV_levelParams,
-            map_toName_beq, trCtorParts, trParts, List.map_map, trCV_type]
-          have hsort := hok0
-          by_cases hc : ((L.all fun x => x.levelParams == cvT0.levelParams) &&
-            cs.all fun x => x.2.1 == nPd && x.1.levelParams == cvT0.levelParams) = true
-          · simp only [hc, ↓reduceIte, recTargetOf_tr']
+        split
+        next e hC =>
+          have h' := hmc.symm.trans (congrArg Except.toOption hC)
+          cases hI : InLean.blockMemberCounts nPd (cvT0 :: tl).length cs.length
+              ((cvT0 :: tl).map (·.name)) (r0 :: rtl) 0 (cvT0 :: tl) with
+          | error _ => rfl
+          | ok _ => rw [hI] at h'; cases h'
+        next nIdxs hC =>
+          have h' := hmc.symm.trans (congrArg Except.toOption hC)
+          cases hI : InLean.blockMemberCounts nPd (cvT0 :: tl).length cs.length
+              ((cvT0 :: tl).map (·.name)) (r0 :: rtl) 0 (cvT0 :: tl) with
+          | error _ => rw [hI] at h'; cases h'
+          | ok n' =>
+            rw [hI] at h'
+            cases h'
+            simp only
+            rw [find?_map_trCV_levelParams]
+            cases (cvT0 :: tl).find? (fun c => c.levelParams != cvT0.levelParams) with
+            | some c => rfl
+            | none =>
+            rw [find?_map_trCtorParts cs (fun c => c.2.1 != nPd) _ (fun _ => rfl)]
+            cases cs.find? (fun c => c.2.1 != nPd) with
+            | some c => rfl
+            | none =>
+            rw [find?_map_trCtorParts cs (fun c => c.1.levelParams != cvT0.levelParams) _
+              (fun c => by simp only [trCtorParts, trCV_levelParams, bne, map_toName_beq])]
+            cases cs.find? (fun c => c.1.levelParams != cvT0.levelParams) with
+            | some c => rfl
+            | none =>
+            simp only
+            have hgrp : List.map (fun c => (c.1, c.2.2)) (List.map trCtorParts cs) =
+                (cs.map fun c => (c.1, c.2.2)).map trCtor := by
+              simp [trCtorParts, trCtor]
+            rw [hgrp, blockGroups_tr]
+            simp only [recTargetOf_tr, trParts, trCV_type, trCV_levelParams, Except.toOption,
+              Option.map_none]
+            generalize hL : cvT0 :: tl = L
+            have hsort := hok0
             cases hlp : r0.1.levelParams with
             | nil =>
-              simp only [List.map_nil, Option.map_some]
-              refine shape_eq_of (members_tr _ _ _) (by simp [trRec]) rfl ?_ ?_ <;> sort_tac hsort
+              simp only [List.map_nil]
+              refine shape_eq_of (members_tr _ _ _) (by simp [trRec, trParts, Function.comp_def, recTargetOf_tr']) rfl ?_ ?_ <;> sort_tac hsort
             | cons elim relps =>
               simp only [List.map_cons, map_toName_beq, contains_map_toName]
               by_cases hl : (relps == cvT0.levelParams && !cvT0.levelParams.contains elim) = true
-              · simp only [hl, ↓reduceIte, Option.map_some]
-                refine shape_eq_of (members_tr _ _ _) (by simp [trRec]) rfl ?_ ?_ <;> sort_tac hsort
-              · simp only [hl, Bool.false_eq_true, ↓reduceIte, Option.map_some]
-                refine shape_eq_of (members_tr _ _ _) (by simp [trRec]) rfl ?_ ?_ <;> sort_tac hsort
-          · simp only [hc, Bool.false_eq_true, ↓reduceIte]; rfl
+              · simp only [hl, ↓reduceIte]
+                refine shape_eq_of (members_tr _ _ _) (by simp [trRec, trParts, Function.comp_def, recTargetOf_tr']) rfl ?_ ?_ <;> sort_tac hsort
+              · simp only [hl, Bool.false_eq_true, ↓reduceIte]
+                refine shape_eq_of (members_tr _ _ _) (by simp [trRec, trParts, Function.comp_def, recTargetOf_tr']) rfl ?_ ?_ <;> sort_tac hsort
 
-/-! ## The guards in front of the recogniser -/
+/-- **The reader at the translation**: a block InLean reads, con-leche reads
+translated. -/
+theorem readBlock_tr (nPd : Nat) (block : List Lean.ConstantInfo)
+    (hok : ∀ ci ∈ block, okC ci.toConstantVal.type = true) {p : InLean.BlockShape}
+    (h : InLean.readBlock nPd block = .ok p) :
+    ConLeche.readBlock nPd (block.map trCI) = .ok (trShape p) := by
+  have h' := readBlock_toOption_tr nPd block hok
+  rw [h] at h'
+  revert h'
+  cases ConLeche.readBlock nPd (block.map trCI) <;>
+    simp only [Except.toOption, Option.map_some, reduceCtorEq, Option.some.injEq, false_implies]
+  rintro rfl; rfl
+
+/-! ## The guards in front of the reader -/
 
 @[simp] theorem trCI_name (ci : Lean.ConstantInfo) : (trCI ci).name = toName ci.name := by
   cases ci <;> rfl
