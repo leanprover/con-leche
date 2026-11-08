@@ -113686,6 +113686,69 @@ constant leaves one); counting them by the error was quicker than reading the el
 Gates: `lake build InLean InLeanProof` warning-free; `tests/layering.sh`,
 `tests/trust-surface.sh`, `tests/no-local-paths.sh`, `tests/inlean-sync.sh` pass.
 
+### Lane O7-recursors, round 6: the stage composed, the stored recursors' comparison (2026-11-08)
+
+Scope was round 5's "What remains" 1–3.  Items 1 and 2 are done; item 3 is done up to one
+recursor's type and rules (`streamRecCompare`); the firing-data guard, the per-recursor and
+family folds and `checkBlockTablesF` are not.  No `InLean/*` change; no `sorry`, no new axiom;
+`InLeanProof/PassRecs7.lean` (7 theorems) and `InLeanProof/PassRecs8.lean` (10 theorems and the
+predicate `FvAt`), all pinned.  The branch merged agent/451-inlean2's ab5b85958 (the
+coordinator's renames) before the second half.
+
+* **`genRecCheckI_run`** (`PassRecs7` :93): InLean's `genRecCheck (shadowOpsC .verified) fe p …`
+  at `s₀` against master's `genRecCheck (ShadowOps.ofOps (fueledOpsM .verified)) (mkFEnv L)
+  (trShape p) nestedBit (TrSL s₀ params) (tbl.map (trNf s₀)) (trCR s₀ rd) (Ms.map (trTM s₀))
+  (block.map trCI)`, output `out.map (trOut s')`, every output's rules `okC` and its class
+  `OkTMN s'`.  Premises as round 5 listed them, minus the `sorryAx` clause; `FrameOk` of every
+  class stays a named premise; the formers' `WScoped 0` is not one (`trC_wscoped`).  The proof
+  destructures InLean's run first (the `unless`/`if` guards are join points: `dsimp only`, then
+  `split`), then the pieces in the stage's order.  The generator's record: master's `g0` is
+  `trCG s₅ g0` (`hG0`: parameters by `FvsOk.mono`, classes, slots and constructors by their mono
+  lemmas, the elimination level by `structElimLevel_tr`), and master's `g` is `trCG` at the
+  prefix's state and at the flushed one (`htrG0`, `CGOk.mono`).  The rule-less environment is
+  `jobEnvI_ruleEnv` at the classes' output, its freshness and names from
+  `classRecTysOk_facts`, distinctness from `targetRecPins_nodup`.
+* **The `sorryAx` clause from the pins** (`targetRecPins_not_sorryAx` :35): an own recursor's
+  name is a member's `T.rec` (`blockRecNameSetOk`), an auxiliary one `T.rec_<i>`
+  (`str_rec_ne_sorryAx`, `str_recI_ne_sorryAx`: the last component's first character).
+* **One stored recursor's type and rules** (`PassRecs8`): `ruleAgreeI_run` :29 and
+  `recTyCheckI_run` :265 follow `classRuleCheckI_run`'s pattern (closed readings, the level
+  guard, `constsResolveF_tr`, the operations' simulations); the stored type is opened at
+  interned variables (`openPisAtFvarsI_run`) and each opened variable reads as master's at its
+  position, its annotation scoped there (`FvAt`, `fvAt_of_open` :251 from master's
+  `openPisAtFvars_index`/`_typeWScoped`), which is what `recDomsAtI_run` :196 needs for the
+  domains' comparison at depth `j`.  Where InLean's equality test (`Expr.clEq`) says equal, the
+  readings are equal (`trC_of_clEq`) and master skips too; where it says unequal, master may
+  skip or check, and InLean's check gives master's (`streamRulesCheckI_run` :105,
+  `streamRecCompareI_run` :361).  `streamRulesShapeI_run` :148: pure guards.
+
+**What remains** (bottom-up):
+1. `streamNestedOk` and `generatedFire` read: InLean's Boolean guard on a stored type against
+   master's on `trC`, at `generatedFire (trTM s M) rP` (`auxRuleFire`'s pins are
+   `abstractPrefix rP 0` of the class's parameters: a `TrS` lemma for `abstractPrefix`, and for
+   `EO.liftLooseBVars`, `EO.stripTop`, `getAppFnT`/`appArgs` on readings; the arguments'
+   comparison is `clEq` on InLean's side, so equal erasures give equal readings).
+2. `streamRecCheckI_run` (shape, nested guard, `streamRecCompareI_run`) and
+   `streamRecsCheckI_run` over `p.recs` and `genRecCheckI_run`'s output at `feG`
+   (`fe₂.pushAll (blockRecInfosTF p 0 out)`: its `JobEnvI` is not proved yet).  The output's
+   premises `streamRecCompareI_run` needs beyond `genRecCheckI_run`'s conclusion: the generated
+   types' `okC` and closedness (`GenCVs`, not yet carried to the output: `classRecsRulesOkI_run`
+   should state that each output's constant is its input's), the rules' closedness
+   (`classRuleCheck` guards it; `classRulesOkI_run` gives only `okC`).
+3. `checkBlockTablesF` (round 4's item 3 unchanged: `structProjBodies` against master's on
+   `trC`, `Expr.constsResolve_instantiate1`, `constsResolveF_tr`, "table taken" from `EnvWF`
+   and freshness).
+
+**Findings.**  No statement was false for the code.  Proof devices: an `obtain ⟨…, rfl⟩` on a
+state equation in the middle of a destructured run can rename the remaining hypotheses (the
+substituted variable's dependants are reintroduced), so this proof names every intermediate
+hypothesis and substitutes the variable (`subst s₁`).  On master's side, an `if (a == b) = true`
+whose condition is a `BEq` of readings does not `split` (its `Decidable` instance depends on the
+condition); `by_cases` on the equation of the readings and `simp only [beq_iff_eq, …]` does it.
+
+Gates: `lake build InLean InLeanProof` warning-free; `tests/layering.sh`,
+`tests/trust-surface.sh`, `tests/no-local-paths.sh`, `tests/inlean-sync.sh` pass.
+
 ## TASK #489 — what a module's constants mention, in one array per module (2026-11-06, agent/489-flat-uses)
 
 **The task (maintainer).**  After #480, take the self-contained one of the memory fixes a census of

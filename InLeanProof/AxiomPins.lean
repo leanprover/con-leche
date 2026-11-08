@@ -52,6 +52,7 @@ public import InLeanProof.PassRecs4
 public import InLeanProof.PassRecs5
 public import InLeanProof.PassRecs6
 public import InLeanProof.PassRecs7
+public import InLeanProof.PassRecs8
 
 /-!
 # The axiom pins of the InLean proof tier (task #451, lane G)
@@ -5322,3 +5323,82 @@ info: 'InLeanProof.genRecCheckI_run' depends on axioms: [propext,
 -/
 #guard_msgs in
 #print axioms InLeanProof.genRecCheckI_run
+
+/--
+info: 'InLeanProof.ruleAgreeI_run' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound,
+ InLeanProof.Expr.mkAppData_fields,
+ InLeanProof.Expr.mkData_eq,
+ InLeanProof.Level.mkData_eq]
+-/
+#guard_msgs in
+#print axioms InLeanProof.ruleAgreeI_run
+
+/--
+info: 'InLeanProof.streamRulesCheckI_run' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound,
+ InLeanProof.Expr.mkAppData_fields,
+ InLeanProof.Expr.mkData_eq,
+ InLeanProof.Level.mkData_eq]
+-/
+#guard_msgs in
+#print axioms InLeanProof.streamRulesCheckI_run
+
+/--
+info: 'InLeanProof.streamRulesShapeI_run' depends on axioms: [propext, Classical.choice, Quot.sound]
+-/
+#guard_msgs in
+#print axioms InLeanProof.streamRulesShapeI_run
+
+/--
+info: 'InLeanProof.FvAt.mono' depends on axioms: [propext, Classical.choice, Quot.sound]
+-/
+#guard_msgs in
+#print axioms InLeanProof.FvAt.mono
+
+/--
+info: 'InLeanProof.getElem?_TrSL' depends on axioms: [propext, Classical.choice, Quot.sound]
+-/
+#guard_msgs in
+#print axioms InLeanProof.getElem?_TrSL
+
+/--
+info: 'InLeanProof.recDomsAtI_run' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound,
+ InLeanProof.Expr.mkAppData_fields,
+ InLeanProof.Expr.mkData_eq,
+ InLeanProof.Level.mkData_eq]
+-/
+#guard_msgs in
+#print axioms InLeanProof.recDomsAtI_run
+
+/--
+info: 'InLeanProof.fvAt_of_open' depends on axioms: [propext, Classical.choice, Quot.sound]
+-/
+#guard_msgs in
+#print axioms InLeanProof.fvAt_of_open
+
+/--
+info: 'InLeanProof.recTyCheckI_run' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound,
+ InLeanProof.Expr.mkAppData_fields,
+ InLeanProof.Expr.mkData_eq,
+ InLeanProof.Level.mkData_eq]
+-/
+#guard_msgs in
+#print axioms InLeanProof.recTyCheckI_run
+
+/--
+info: 'InLeanProof.streamRecCompareI_run' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound,
+ InLeanProof.Expr.mkAppData_fields,
+ InLeanProof.Expr.mkData_eq,
+ InLeanProof.Level.mkData_eq]
+-/
+#guard_msgs in
+#print axioms InLeanProof.streamRecCompareI_run
