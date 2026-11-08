@@ -36,7 +36,7 @@ inductive Req where
       (jobs : Nat)
   /-- every module of a closure, one worker process each (`scheduleG`, outside the theorem) -/
   | schedule (searchPath : List System.FilePath) (root : Name) (opts : List String)
-      (mode : CheckMode) (jobs : Nat)
+      (mode : CheckMode) (pace : Pace) (jobs : Nat)
   /-- one module against its context (`checkModuleG`) -/
   | module (searchPath : List System.FilePath) (m : Name) (mode : CheckMode) (pace : Pace)
       (jobs : Nat)
@@ -47,7 +47,7 @@ def runReq {μ : Type → Type} [CheckerIO μ] : Req → μ UInt8
   | .oleans sp roots cs mode pace jobs => checkMainG (.oleans sp roots cs) mode pace jobs
   | .graph sp roots jobs => Graph.checkGraphG sp roots jobs
   | .modular sp root mode pace jobs => checkModularG sp root mode pace jobs
-  | .schedule sp root opts mode jobs => scheduleG sp root opts mode jobs
+  | .schedule sp root opts mode pace jobs => scheduleG sp root opts mode pace jobs
   | .module sp m mode pace jobs => checkModuleG (.ofPath sp) sp m mode pace jobs
 
 end ConLeche.Driver

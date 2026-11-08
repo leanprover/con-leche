@@ -781,10 +781,20 @@ closure and, at every module of it, `WorkerAccepted` (`checkModularG_accept`,
 worker step to answer 0; a failure names the first failing module in the graph's order, with its
 code. The scheduler starts one `--olean --module --jobs=1` process of the binary per module, at
 most `--jobs` at once, staggered (`--schedule-stagger=MS`), within a memory budget over the
-running workers' resident sets (`--schedule-memory=MIB`: the largest is killed, by its own child
-handle, and run again alone once), with a time limit per worker (`--schedule-timeout=S`) and an
-append-only log a restart resumes from (`--schedule-log=FILE`); its verdict is its workers' exit
-codes, and no theorem is about it: the modular statement composes what each run's exit 0 says.
+running workers' resident sets (`--schedule-memory=SIZE`, a number with a unit `K`, `M`, `G` or
+`T`, such as `40G`: the largest is killed, by its own child handle, and run again alone once),
+with a time limit per worker (`--schedule-timeout=S`) and an append-only log a restart resumes
+from (`--schedule-log=FILE`, one `<verdict>\t<module>` line per finished module); its verdict is
+its workers' exit codes, and no theorem is about it: the modular statement composes what each
+run's exit 0 says. A worker's three standard streams are pipes and it inherits no other
+descriptor; its stdout and stderr are read as it runs, and its stderr is passed on for a verdict
+other than 0. Each finished module gets a line on stdout,
+`con-leche: schedule: M: VERDICT t=Ss [done/total p %, k running, eta D]`: `done` counts the
+modules a resumed run found logged, and the estimate is the remaining modules at the rate this
+run has finished them so far. With `--progress=N` (milliseconds, at least a second) or
+`--progress=Ss`, a heartbeat on stderr after that long without a line gives the same counts and
+the three longest-running workers. A worker that cannot be started is that module's verdict 3,
+with the reason; no further worker starts, and the running ones are waited for.
 
 `runArgs_oleans_accept` is `runArgs_accept`'s statement for these arguments:
 every exit 0 read records off the snapshot's files that `checkDecls` accepts, with each

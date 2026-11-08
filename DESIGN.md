@@ -112084,9 +112084,10 @@ Lean).
 `con-leche --olean --schedule[-OPT=V]… --search-path=DIRS -- ROOT`: the closure by `graphOf`,
 then one `--olean --module --jobs=1` process of the binary (`IO.appPath`) per module, any order,
 at most `--jobs` at once; staggered starts (`--schedule-stagger=MS`, default 200); a memory budget
-over the running workers' `VmRSS` (`--schedule-memory=MIB`: above it the largest is killed by its
-own `Child` handle, queued to run again alone, killed again its verdict `memory`); a time limit
-per worker (`--schedule-timeout=S`, verdict `timeout`); an append-only log
+over the running workers' `VmRSS` (`--schedule-memory=SIZE`, since #505 with a unit such as
+`40G`: above it the largest is killed by its own `Child` handle, queued to run again alone,
+killed again its verdict `memory`); a time limit per worker (`--schedule-timeout=S`, verdict
+`timeout`); an append-only log
 (`--schedule-log=FILE`, one `<verdict>\t<module>` line per finished module, flushed; a restart
 skips every logged module).  Exit 0 iff every module's verdict is 0, else the first failing
 module in the graph's order with its code (`timeout`, `memory`, `signal`: 3).  The options are
@@ -112112,7 +112113,7 @@ v4.35.0 Mathlib, search path its build, its packages' builds and the toolchain's
 | merged `--olean -- Mathlib.GroupTheory.Coxeter.Basic` | (one closure) | 1 100 G | 0.94 GiB (stats line) | 0 |
 | `--modular -- Mathlib` | 10 976 | 23 832 G | 2.36 / 2.37 GiB | 2 (the same two) |
 | merged `--olean -- Mathlib` (master's, #489) | | 7 931 G | 3.13 GiB | 0 |
-| `--schedule --schedule-memory=6000 -- Std.Data.HashMap.Lemmas` (216 workers) | 216 | 306 G (with the children) | 0.21 / 0.18 GiB | 2 (the same two) |
+| `--schedule --schedule-memory=6000M -- Std.Data.HashMap.Lemmas` (216 workers) | 216 | 306 G (with the children) | 0.21 / 0.18 GiB | 2 (the same two) |
 | `--modular -- Std.Data.HashMap.Lemmas` | 216 | 275 G | 0.55 / 0.56 GiB | 2 (the same two) |
 
 The whole of Mathlib fits the 8 GB guard in the one-process mode (2.4 GiB; the tables of 10 976
@@ -112124,7 +112125,7 @@ its clash rule's statements; the own checks are the merged run's.  Sharing the r
 records is the next step (above).  The scheduler on a 216-module closure costs 11 % more
 instructions than the one-process mode there (every worker reads its loaded parts' name tables
 itself), at a third of its peak.  Its kills and limits, by hand on `Init.Data.Nat.Lemmas`' 84
-modules: at `--schedule-memory=60` (MiB, below most workers' peak) 24 kills: 12 modules killed beside
+modules: at `--schedule-memory=60M` (below most workers' peak) 24 kills: 12 modules killed beside
 others, run again alone and killed again, their verdict `memory`, the other 70 as without a
 budget; at `--schedule-timeout=2`
 `Init.Data.BitVec.Lemmas` is `timeout`, the run exit 3 naming it; the log resumed after a full
@@ -114358,3 +114359,88 @@ Ruling: `--olean --modular` is `--olean --schedule` without processes and need n
 why (task #468's numbers: on Mathlib 3.0x the merged run's instructions at a lower peak, 2.4 vs
 3.1 GiB; every module redoes its own reach), pointing to plain `--olean` for speed and
 `--olean --schedule` for isolation and memory limits. README.md: only two `Cli.lean#L277` links repointed to L280 (the help text grew by three lines); a sentence is suggested to the maintainer.
+
+## TASK #505 — the scheduler's descriptors, its workers' streams, progress (2026-11-08, agent/505-schedule)
+
+**The report.**  `--olean --schedule --schedule-memory=40000 --jobs=16` on TauCeti's CFSG
+closure (`ulimit -n` 1024; `40G` had been refused at the start) ended with
+`con-leche: accepted 6 declarations (--verified)` (the stdout of `Mathlib.Tactic.ScopedNS`'s
+worker, which has six declarations, and whose stdout was meant to be `/dev/null`), then
+`internal error: resource exhausted (error code: 24, too many open files)`: the scheduler itself,
+through `runArgs`'s catch, with its workers left running.
+
+**The cause: two defects of Lean's runtime** (v4.35.0, `src/runtime/process.cpp`; reproducers in
+`_tmp/505/repro/`, `Pid.lean` and `Repro.lean`, not filed: the maintainer's).
+
+1. `IO.Process.Child.pid` is declared `Child cfg → UInt32` (owned), its C function
+   `lean_io_process_child_pid(b_obj_arg, b_obj_arg)` borrows and never releases: every call
+   leaks one reference, so the child object, and with it its piped handles, is never freed.
+   The memory budget called `child.pid` every 50 ms tick for every running worker, so every
+   module running at some tick kept its stderr pipe open in the scheduler for the rest of the
+   run.  Reproducer: 200 spawns of `true` with stderr piped, each waited for and read; with one
+   `pid` call each the process holds 212 descriptors after them, without it 12.
+2. For a `.null` stream `spawn` runs `fd = open("/dev/null"); dup2(fd, n)` in the child, checks
+   neither and closes nothing: the worker inherits the open `/dev/null` descriptors (not
+   close-on-exec), and when the parent's table is full the open fails, `dup2(-1, 1)` fails, and
+   the worker keeps the PARENT's stdout.  Reproducer: the table filled, two slots freed (the
+   stderr pipe takes them), `echo` spawned with stdout `.null` prints to the parent's stdout.
+   (Also: a `pipe2` or `fork` that fails after an earlier `pipe2` leaks that pipe.)
+
+So: the leak (1) fills the table; the spawn whose stderr pipe takes the last two slots gives a
+worker with the scheduler's stdout (2), the ScopedNS line; the next spawn's `pipe2` throws EMFILE
+and the scheduler dies.  Sibling pipes are not inherited (`pipe2(O_CLOEXEC)`).
+
+**Before** (the #501 binary, `ulimit -n 1024`, `--jobs=16 --schedule-memory=40000`, Mathlib's
+`Mathlib.GroupTheory.Coxeter.Basic`, 2 850 modules): the scheduler's descriptors grew 15 → 178
+→ 412 → 707 at 0/65/130/196 s, 1 013 of its 1 021 at the end pipes, one worker running; after
+1 300 modules logged, `con-leche: accepted 3 declarations (--verified)` (Aesop.Builder.Default's
+worker) and the internal error, exit 3.  At `ulimit -n 64` the same after 145 modules; one
+sample caught a worker with `1 -> the scheduler's stdout`, `63 -> /dev/null`.  Without a budget
+the scheduler stays at 12 + 1 per running worker: the leak is the budget's `pid`.
+
+**The fixes** (`ConLeche/Driver/ScheduleIO.lean`; no `extern`, no C, plain IO):
+* `Child.pid` is not called: the budget reads the scheduler's children from
+  `/proc/self/task/*/children`, each by its last argument (`/proc/<pid>/cmdline`, the worker's
+  `spell m`) and its `VmRSS` (`workerRss`); a system without those files refuses the budget at
+  the start (exit 3).  The kill is still the worker's own `Child.kill`.
+* All three of the worker's streams are pipes (`WCfg`): no `/dev/null` is opened in the child,
+  which inherits exactly 0, 1, 2 (`dup2`ed from close-on-exec pipes).  Its stdin is closed at
+  the start (`takeStdin`), stdout and stderr are each read to the end by a dedicated task, so a
+  worker can no longer block on a full stderr pipe (before: read only after its exit, so more
+  than 64 KiB deadlocked it); stderr is passed on for a verdict other than 0, stdout dropped.
+* A failed spawn is that module's verdict 3 with the reason (not logged, so a restart retries
+  it), no further worker starts, the running ones are waited for, the summary says how many
+  modules were not run.  Any other error kills the running workers before it is passed on.
+  (A signal to the scheduler still leaves its workers to finish: they are short-lived and
+  write only to their pipes.)
+
+**After** (this binary, `ulimit -n 64`, `--jobs=16 --schedule-memory=40G --progress=10000`, the
+same closure): all 2 850 modules 0, exit 0, peak anon 0.78 GB; the scheduler never above 30
+descriptors, every worker at most 12, all its own (0, 1, 2 pipes, then its runtime's); no stray
+line on stdout.  At `ulimit -n` 18 and 24 on `Init.Data.Nat.Lemmas` (`--jobs=8`,
+`--schedule-stagger=0`) the spawn fails: `con-leche: schedule: Init.PropLemmas: 3: no worker
+started: resource exhausted (error code: 24, too many open files); no further worker starts,
+the running ones are waited for`, then `79 of 84 modules not accepted (78 not run); …`, exit 3
+(at 24; the module and the counts depend on timing).
+
+**Progress.**  The module line (stdout) is now
+`con-leche: schedule: Init.Data.List.Zip: 0 t=0.1s [289/2850 10.1 %, 0 running, eta 8m35s]`:
+the modules with a verdict (a resumed run's logged ones included: 40 logged of 84 start at
+`[41/84 48.8 %, …]`), the workers running, and an estimate, the remaining modules at the rate
+this run has finished them so far (elapsed × remaining ÷ finished in this run).  `--progress=N`
+(milliseconds, at least a second) or `--progress=Ss` adds a heartbeat on stderr after that long
+without a line: `con-leche: schedule: [11/173 6.3 %, 2 running, eta 1m02s]; longest:
+Init.Data.BitVec.Lemmas 4s, Init.Data.Int.DivMod.Lemmas 0s`; `--progress=P%` is refused for the
+scheduler (exit 3).  The pace reaches the scheduler through `Req.schedule`'s new `pace` field.
+The log's format is unchanged.
+
+**Memory units** (maintainer's ruling): `--schedule-memory=SIZE` requires a unit, `K`, `M`, `G`
+or `T` (KiB … TiB, lower case too); a bare number is refused at the start ("takes a size with a
+unit, K, M, G or T (e.g. 512M, 40G), got \"40000\""), as `40G` was before (then "not a number").
+The #468 record's values are now `6000M` and `60M`.
+
+Fixtures (`tests/olean.sh`, 317 → 321): the last module's counts with a budget and a heartbeat,
+a bare budget refused, `512M` accepted, a percentage pace refused.  Gates: `lake build`, `lake
+test` warning-free; trust surface (the process fence unchanged), layering, shake, overview links
+(the `runArgs` anchor moved by the usage text), quote gate, pindump, challenge, no-local-paths;
+the olean gate 321/321 under the guard.

@@ -28,11 +28,19 @@ open ConLeche ConLeche.Frontend.Olean
 /-- **The scheduler**, generic in the IO class (see the module docstring); `opts` the values of
 its `--schedule` flags. -/
 def scheduleG {μ : Type → Type} [CheckerIO μ] (sp : SearchPath) (root : Name)
-    (opts : List String) (mode : CheckMode) (jobs : Nat) : μ UInt8 := do
+    (opts : List String) (mode : CheckMode) (pace : Pace) (jobs : Nat) : μ UInt8 := do
   let modeTag : String := match mode with
     | .verified => "--verified"
     | .trusted => "--trusted"
-  match Schedule.Opts.parse opts {} with
+  -- the heartbeat: `--progress=N` after N ms without a line (at least a second), `Ss` after S
+  -- seconds; a percentage has no meaning here (every module's line says how far the run is)
+  let beat : Except String Nat := match pace with
+    | .off => .ok 0
+    | .every n => .ok (max n 1000)
+    | .seconds s => .ok (s * 1000)
+    | .percent _ => .error "--schedule takes --progress=N (milliseconds) or --progress=Ss, \
+        not a percentage"
+  match beat >>= fun h => (Schedule.Opts.parse opts { heartbeat := h }) with
   | .error msg =>
     diagLine s!"con-leche: {msg}"
     return 3
