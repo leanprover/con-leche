@@ -40,6 +40,7 @@ public import InLeanProof.PassTail
 public import InLeanProof.PassRecs
 public import InLeanProof.PassRecs2
 public import InLeanProof.PassRecs3
+public import InLeanProof.PassRecs4
 
 /-!
 # The axiom pins of the InLean proof tier (task #451, lane G)
