@@ -114,8 +114,9 @@ def checkUnsafeBlock (fe : FEnv) (consts : Array ConstantInfo) : CheckCM Unit :=
 then checked (`checkIndDeclC`, after the `And` pin, `andPinOk`). -/
 def checkInductiveC (fe : FEnv) (lps : List Name) (nparams : Nat) (types : List InductiveType)
     (isUnsafe : Bool) : CheckCM Added := do
-  let gen ← (Ind.genInductive mode lps nparams types isUnsafe).run
-    { env := fe.env, coreAxioms := fe.coreAxioms } |>.run' {}
+  -- the generator runs in a state of its own
+  let gen ← StateT.lift ((((Ind.genInductive mode lps nparams types isUnsafe).run
+      { env := fe.env, coreAxioms := fe.coreAxioms }).run' {}).run' {})
   unless gen.consts.all isBlockConst do
     throw (.internal "inductive generator: a constant outside the block")
   unless gen.consts.all constInRange do
@@ -128,6 +129,9 @@ def checkInductiveC (fe : FEnv) (lps : List Name) (nparams : Nat) (types : List 
   unless gen.consts.all (fun ci => (fe.env.find? ci.name).isNone) do
     let dup := gen.consts.find? (fun ci => (fe.env.find? ci.name).isSome)
     throw (.invalid s!"duplicate declaration {(dup.map (·.name)).getD .anonymous}")
+  -- and distinct among themselves, as official's one-by-one additions
+  unless namesNodup (gen.consts.toList.map (·.name)) do
+    throw (.invalid "duplicate declaration in an inductive block")
   -- a safe block's constants are safe (the generator is not verified)
   unless isUnsafe || gen.consts.all safeConst do
     throw (.internal "inductive generator: an unsafe constant in a safe block")
@@ -138,8 +142,8 @@ def checkInductiveC (fe : FEnv) (lps : List Name) (nparams : Nat) (types : List 
   -- and so is every intermediate term building them
   unless projStepsAllOk gen.consts do
     throw (.internal "too many bound variables in a projection body")
-  -- the generator's environment is not `fe`'s
-  flushC
+  -- the block check starts from the empty state
+  set ({} : CState)
   if isUnsafe then
     checkUnsafeBlock mode fe gen.consts
     return gen

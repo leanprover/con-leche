@@ -17,8 +17,9 @@ import all Lean.Declaration
 beside `Presents`; `Statement.lean`'s module docstring says why) and its proof
 `addDeclSound_of`: InLean's `addDecl` at `theoremConfig` accepting a safe
 declaration that is not a non-standard axiom keeps the environment's model.
-The proof takes one named premise, `IndRunFactsI`: three facts of an accepted
-inductive declaration's run not yet proved (DESIGN.md, "Lane P4").
+The proof takes one named premise, `IndGroundI`: the generated constants of an
+accepted inductive declaration carry no free variable and no metavariable, not
+yet read off the run (DESIGN.md, "Lane P4-close").
 The step, by kind:
 
 * **master's side**: InLean's check accepted ⇒ master's pure fueled step
@@ -534,21 +535,65 @@ theorem checkIndDeclC_head {fe : InLean.FEnv} {block : List Lean.ConstantInfo} {
       exact ⟨v, rest, hb⟩
   · exact (throwI_ok h).elim
 
+/-- A constant's terms carry no free variable and no metavariable (the cached
+flags). -/
+@[expose] def CIGround : Lean.ConstantInfo → Prop
+  | .recInfo v => (v.type.hasFVar = false ∧ v.type.hasMVar = false) ∧
+      ∀ r ∈ v.rules, r.rhs.hasFVar = false ∧ r.rhs.hasMVar = false
+  | ci => ci.type.hasFVar = false ∧ ci.type.hasMVar = false
+
 /-- **What the inductive arm reads off an accepted safe inductive declaration
 beyond `checkInductiveC_ok`** (NOT proved; the remaining obligation of the
-inductive arm): the generated constants' names are distinct (InLean tests each
-name fresh in its stage's environment, not the list as a whole), the stored
-block reads as a record (`toBlock`: its types and rules translate), and the
-block check ran from a state with the invariant (`CSOKIF`: the unverified
-generator runs on the checker's state before the block check, which starts
-from that state flushed). -/
-@[expose] def IndRunFactsI : Prop :=
+inductive arm): the generated constants' terms carry no free variable and no
+metavariable, so the stored block reads as a record (`toBlock_of_ground`).
+The block check tests this of the formers' and constructors' types
+(`checkTermWF`) and compares the recursors with regenerated ones; neither is
+read off yet. -/
+@[expose] def IndGroundI : Prop :=
   ∀ (fe : InLean.FEnv) (lps : List Name) (nP : Nat) (types : List InductiveType)
     (s s' : InLean.CState) (a : InLean.Added),
-    CSOKIF s → (InLean.checkInductiveC .verified fe lps nP types false).run s = .ok (a, s') →
-    (a.consts.toList.map (·.name)).Nodup ∧ (∃ cb, toBlock (InLean.storedBlock a.consts) = some cb) ∧
-    ∃ s₀ s₁, CSOKIF s₀ ∧
-      (InLean.checkIndDeclC .verified fe (InLean.storedBlock a.consts) nP).run s₀ = .ok ((), s₁)
+    (InLean.checkInductiveC .verified fe lps nP types false).run s = .ok (a, s') →
+    ∀ ci ∈ a.consts.toList, CIGround ci
+
+theorem okC_of_ground {e : Lean.Expr} (hr : Expr.RangeOk e) (hf : e.hasFVar = false)
+    (hm : e.hasMVar = false) : okC e = true := by
+  rw [Expr.hasFVar_eq hr] at hf
+  rw [hasMVar_eq hr, Bool.or_eq_false_iff] at hm
+  exact okC_of_flags hr hf hm.1 hm.2
+
+theorem toRules_of_okC : ∀ {rs : List Lean.RecursorRule}, (∀ r ∈ rs, okC r.rhs = true) →
+    toRules rs = some (rs.map trRule)
+  | [], _ => rfl
+  | r :: rs, h => by
+    have h1 := toExprC_of_okC (h r (by simp))
+    have h2 := toRules_of_okC (rs := rs) fun r' hr' => h r' (by simp [hr'])
+    simp [toRules, toRule, h1, h2, trRule]
+
+/-- **A list of block constants in range, without free variables and
+metavariables, reads as a record.** -/
+theorem toBlock_of_ground : ∀ {l : List Lean.ConstantInfo},
+    (∀ ci ∈ l, InLean.isBlockConst ci = true ∧ CIRange ci ∧ CIGround ci) →
+    ∃ cb, toBlock l = some cb
+  | [], _ => ⟨[], rfl⟩
+  | ci :: l, h => by
+    obtain ⟨cb, hcb⟩ := toBlock_of_ground (l := l) fun c hc => h c (by simp [hc])
+    obtain ⟨hb, hr, hg⟩ := h ci (by simp)
+    have hrec : ∃ c, toBlockRecord ci = some c := by
+      cases ci with
+      | inductInfo v =>
+        have : toExprC v.type = some (trC v.type) := toExprC_of_okC (okC_of_ground hr hg.1 hg.2)
+        exact ⟨_, by simp only [toBlockRecord, toCV, this]; rfl⟩
+      | ctorInfo v =>
+        have : toExprC v.type = some (trC v.type) := toExprC_of_okC (okC_of_ground hr hg.1 hg.2)
+        exact ⟨_, by simp only [toBlockRecord, toCV, this]; rfl⟩
+      | recInfo v =>
+        have h1 := toExprC_of_okC (okC_of_ground hr.1 hg.1.1 hg.1.2)
+        have h2 := toRules_of_okC (rs := v.rules) fun r hr' =>
+          okC_of_ground (hr.2 r hr') (hg.2 r hr').1 (hg.2 r hr').2
+        exact ⟨_, by simp only [toBlockRecord, toCV, h1, h2]; rfl⟩
+      | _ => simp [InLean.isBlockConst] at hb
+    obtain ⟨c, hc⟩ := hrec
+    exact ⟨c :: cb, by simp [toBlock, hc, hcb]⟩
 
 theorem mem_of_storedBlock {consts : Array Lean.ConstantInfo} {ci : Lean.ConstantInfo}
     (h : ci ∈ InLean.storedBlock consts) : ci ∈ consts.toList := by
@@ -561,8 +606,8 @@ theorem constRangeOk_of_block {ci : Lean.ConstantInfo} (hb : InLean.isBlockConst
     (hr : CIRange ci) : ConstRangeOk ci := by
   cases ci <;> simp_all [InLean.isBlockConst, CIRange, ConstRangeOk] <;> exact hr
 
-/-- **An inductive block's step**, from `IndRunFactsI`. -/
-theorem ind_step {V : Type w} [ConLeche.SetTheory V] (hlaws : EnvLaws) (hI : IndRunFactsI)
+/-- **An inductive block's step**, from `IndGroundI`. -/
+theorem ind_step {V : Type w} [ConLeche.SetTheory V] (hlaws : EnvLaws) (hI : IndGroundI)
     {E : Kernel.Environment} {L : ConLeche.Env} {lps : List Name} {nP : Nat}
     {types : List InductiveType} {a : InLean.Added}
     (ha : InLean.checkDecl theoremConfig E (.inductDecl lps nP types false) = .ok a)
@@ -576,7 +621,10 @@ theorem ind_step {V : Type w} [ConLeche.SetTheory V] (hlaws : EnvLaws) (hI : Ind
   have hK' : (InLean.checkInductiveC .verified { env := E, coreAxioms := false } lps nP types
       false).run {} = .ok (a, s') := hK
   have hok := checkInductiveC_ok hK'
-  obtain ⟨hnd, ⟨cb, hcb⟩, s₀, s₁, hs₀, hrun⟩ := hI _ lps nP types {} s' a CSOKIF_empty hK'
+  have hnd : (a.consts.toList.map (·.name)).Nodup :=
+    List.Pairwise.of_map toName (R := (· ≠ ·)) (fun _ _ h e => h (by rw [e]))
+      ((namesNodup_iff _).1 hok.2.2.2.2.2.2.2.1)
+  have hrun := hok.2.2.2.2.2.2.2.2 rfl
   have hJ := jobEnvI_of hlaws hR hM
   have hsub := storedBlock_of_checkInductiveC hK'
   have hfresh := fresh_of_checkInductiveC hK'
@@ -590,6 +638,9 @@ theorem ind_step {V : Type w} [ConLeche.SetTheory V] (hlaws : EnvLaws) (hI : Ind
     have h2 := hok.2.1
     rw [Array.all_eq_true_iff_forall_mem] at h2
     exact CIRange_of_constInRange (h2 ci (Array.mem_toList_iff.1 hci))
+  obtain ⟨cb, hcb⟩ := toBlock_of_ground (l := InLean.storedBlock a.consts) fun ci hci =>
+    ⟨hblk ci (mem_of_storedBlock hci), hCIR ci (mem_of_storedBlock hci),
+      hI _ lps nP types {} s' a hK' ci (mem_of_storedBlock hci)⟩
   have hnsorry : ∀ ci ∈ a.consts.toList, ci.name ≠ InLean.sorryAxName := by
     intro ci hci hn
     have h1 := hsq ci hci
@@ -597,10 +648,10 @@ theorem ind_step {V : Type w} [ConLeche.SetTheory V] (hlaws : EnvLaws) (hI : Ind
     cases ci <;> simp_all [InLean.sorryAxSquat, InLean.isBlockConst]
   -- master's step on the block's record
   obtain ⟨-, F, L₁, hkind⟩ := checkIndDeclC_sim (pins := loadedPins) hJ
-    (fun ci hci hn => absurd hn (hnsorry ci (mem_of_storedBlock hci))) hs₀
+    (fun ci hci hn => absurd hn (hnsorry ci (mem_of_storedBlock hci))) CSOKIF_empty
     (fun ci hci => hCIR ci (mem_of_storedBlock hci))
     (fun ci hci => closed_of_checkInductiveC hK' ci (mem_of_storedBlock hci))
-    (blockStepsOk_storedBlock hok.2.2.2.2.2.2) hcb hrun
+    (blockStepsOk_storedBlock hok.2.2.2.2.2.2.1) hcb hrun
   obtain ⟨v, rest, hhead⟩ := checkIndDeclC_head hrun
   have hnP := numParams_of_checkIndDeclC hrun hhead
   have hd : toDecl (InLean.storedBlock a.consts) = some (.indDecl cb nP) := by
@@ -611,8 +662,8 @@ theorem ind_step {V : Type w} [ConLeche.SetTheory V] (hlaws : EnvLaws) (hI : Ind
   have hfold : [ConLeche.Declaration.indDecl cb nP].foldlM
       (ConLeche.checkDecl .verified (ConLeche.fueledOps .verified F) loadedPins) L = .ok L₁ := by
     simp [List.foldlM, hstep, bind, Except.bind, pure, Except.pure]
-  have hpres := indGroupPresBP hlaws _ L a.consts nP s₀ s₁ _ hR.1 rfl hsub hfresh hnd
-    (sees_of_checkInductiveC hK' hnsorry) hok.2.1 hok.2.2.2.2.2.2 hrun hd
+  have hpres := indGroupPresBP hlaws _ L a.consts nP {} s' _ hR.1 rfl hsub hfresh hnd
+    (sees_of_checkInductiveC hK' hnsorry) hok.2.1 hok.2.2.2.2.2.2.1 hrun hd
   have hproj := projBodiesInRange_ind hlaws hR.2 (ctorsStored_of_pres hR.1) hK' hfresh hnd
   have hE' : ∀ n, (a.consts.foldl InLean.addConst E).find? n =
       (a.consts.toList.foldl InLean.addConst E).find? n := by
@@ -661,8 +712,8 @@ presents and relates to the new environment, in range, and has a model. -/
       ∃ new, L'.consts = new ++ L.consts
 
 /-- **The simulation theorem, proved** from the inductive arm's remaining
-obligation (`IndRunFactsI`). -/
-theorem addDeclSound_of (V : Type w) [ConLeche.SetTheory V] (hI : IndRunFactsI) :
+obligation (`IndGroundI`). -/
+theorem addDeclSound_of (V : Type w) [ConLeche.SetTheory V] (hI : IndGroundI) :
     AddDeclSound V := by
   intro hlaws E E' d L hd hdr hER hP hR hM h
   unfold InLean.addDecl at h
@@ -742,7 +793,7 @@ theorem no_false_of_addDeclSound (V : Type w) [ConLeche.SetTheory V] (hS : AddDe
   exact ConLeche.Model.no_constant_of_False mp c hc (Option.some.inj hty).symm
 
 /-- **No proof of `False`, from the inductive arm's remaining obligation.** -/
-theorem no_false_of_indRunFacts (V : Type w) [ConLeche.SetTheory V] (hI : IndRunFactsI)
+theorem no_false_of_indGround (V : Type w) [ConLeche.SetTheory V] (hI : IndGroundI)
     (hlaws : EnvLaws) {E E' : Kernel.Environment} {d : Declaration} {L : ConLeche.Env}
     (hd : SafeDecl d) (hdr : DeclRangeOk d) (hE : EnvRangeOk E) (hP : Presents E L)
     (hR : RelatesI E L) (hM : ConLeche.Model.EnvModelOk V L)

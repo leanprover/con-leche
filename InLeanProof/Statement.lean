@@ -2,8 +2,6 @@ module
 
 public import InLeanProof.ToCL
 public import InLeanProof.Fields
-public import ConLeche.Model.Fold
-public import ConLeche.Model.Capstone
 
 /-!
 # The simulation theorem's statement (task #451)

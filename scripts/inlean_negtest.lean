@@ -23,6 +23,9 @@ def cases : List (String × Declaration) := [
   ("non-uniform param", mkInd `NU (.forallE `n nat ty0 .default)
       [(`NU.mk, .forallE `n nat (.forallE `x (.app (.const `NU []) (.app (.const `Nat.succ []) (.bvar 0))) (.app (.const `NU []) (.bvar 1)) .default) .default)] [] 1),
   ("duplicate name", mkInd `Nat ty0 []),
+  -- the generated constants' names are distinct
+  ("duplicate constructor", mkInd `Dup ty0 [(`Dup.a, .const `Dup []), (`Dup.a, .const `Dup [])]),
+  ("constructor at the recursor's name", mkInd `DR ty0 [(`DR.rec, .const `DR [])]),
   -- a safe check does not see an unsafe constant (`FEnv.sees`); a name is
   -- fresh in the environment itself
   ("safe definition using an unsafe one", .defnDecl

@@ -2,6 +2,7 @@ module
 
 public import InLeanProof.BodiesI
 public import InLeanProof.EnvPresI
+public import ConLeche.Model.Fold
 
 /-!
 # The knot's environment hypotheses from the relation (task #451, lane P3b)

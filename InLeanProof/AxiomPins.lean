@@ -5979,6 +5979,26 @@ info: 'InLeanProof.numParams_of_checkIndDeclC' depends on axioms: [propext, Clas
 #print axioms InLeanProof.numParams_of_checkIndDeclC
 
 /--
+info: 'InLeanProof.okC_of_ground' depends on axioms: [propext,
+ Quot.sound,
+ InLeanProof.Expr.mkAppData_fields,
+ InLeanProof.Expr.mkData_eq,
+ InLeanProof.Level.mkData_eq]
+-/
+#guard_msgs in
+#print axioms InLeanProof.okC_of_ground
+
+/--
+info: 'InLeanProof.toBlock_of_ground' depends on axioms: [propext,
+ Quot.sound,
+ InLeanProof.Expr.mkAppData_fields,
+ InLeanProof.Expr.mkData_eq,
+ InLeanProof.Level.mkData_eq]
+-/
+#guard_msgs in
+#print axioms InLeanProof.toBlock_of_ground
+
+/--
 info: 'InLeanProof.ind_step' depends on axioms: [propext,
  Classical.choice,
  Quot.sound,
@@ -6007,7 +6027,7 @@ info: 'InLeanProof.no_false_of_addDeclSound' depends on axioms: [propext, Classi
 #print axioms InLeanProof.no_false_of_addDeclSound
 
 /--
-info: 'InLeanProof.no_false_of_indRunFacts' depends on axioms: [propext,
+info: 'InLeanProof.no_false_of_indGround' depends on axioms: [propext,
  Classical.choice,
  Quot.sound,
  InLeanProof.Expr.mkAppData_fields,
@@ -6015,4 +6035,4 @@ info: 'InLeanProof.no_false_of_indRunFacts' depends on axioms: [propext,
  InLeanProof.Level.mkData_eq]
 -/
 #guard_msgs in
-#print axioms InLeanProof.no_false_of_indRunFacts
+#print axioms InLeanProof.no_false_of_indGround
