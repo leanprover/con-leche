@@ -397,6 +397,56 @@ theorem ownNames_mem {l : Loaded} {c : CEntry} (hc : c ∈ l.constants) :
         · exact .inr h
   exact key _ _ (.inr (Array.mem_toList_iff.2 hc))
 
+/-- **A copy of a statement kind, of an accepted module's part, has a position of its name and
+of a statement kind in the module's private table.** -/
+theorem copy_private_pos {sp : SearchPath} {fs : FS} {M : Name} {jobs : Nat} {w : WorkerRead}
+    (hw : WorkerFacts sp fs M jobs w) {s : Spot} (hmod : s.part.mod = M) (hs : CopyAt sp fs s)
+    (hl : s.part.level ≠ .server) {r1 : Region} (hr : PartRegion sp fs s.part r1)
+    {cv : ConstantVal} {k : CKindF Name Unit} (hst : StmtSkel r1 s.pos.loc cv k) (hk : k.tag < 4) :
+    ∃ q ∈ w.reads.own.consts, q.name = s.pos.name ∧ q.tag < 4 := by
+  obtain ⟨f, r, a, sk, skels, hf, hreg, hsk, hskels, hcn, hcv, hload, -⟩ := home_records hw
+  obtain ⟨loc, sP, s1, hloc, hsP, hs1, hn1, hskq, hskP, hbeh, hnP⟩ :=
+    copy_behind hf hreg hsk hload hcv hmod hs hl hr
+  have htP : sP.kind.tag < 4 := by
+    rcases hbeh with ⟨hsame, -⟩ | hhid
+    · obtain ⟨k', ⟨sP', hsP', -, -, -, hkm⟩, htk, -⟩ := hsame cv k hst
+      rw [hsP] at hsP'
+      cases hsP'
+      rw [(CKindF.mapM_tag hkm).1, htk]; exact hk
+    · obtain ⟨-, -, -, -, htag'⟩ := hhid cv k hst
+      omega
+  have hT := home_table hf hreg (worker_ownTable hw)
+  obtain ⟨q, hq, hql, hqn⟩ := namePositionsAt_complete hT hsk hloc hsP hnP
+  obtain ⟨_, _, _, hall⟩ := namePositionsAt_mem hT
+  obtain ⟨-, s'', hs'', -, htg, -⟩ := hall q hq
+  rw [hql, hsP] at hs''
+  cases hs''
+  exact ⟨q, hq, hqn, by rw [htg]; exact htP⟩
+
+/-- **A constant of an accepted module's private view has a position of its name and kind** in
+the module's private table. -/
+theorem home_const_pos {sp : SearchPath} {fs : FS} {M : Name} {jobs : Nat} {w : WorkerRead}
+    (hw : WorkerFacts sp fs M jobs w) {c : CEntry} (hc : c ∈ w.home.constants) :
+    ∃ q ∈ w.reads.own.consts, q.name = c.name ∧ q.tag = c.kind.tag := by
+  obtain ⟨f, r, a, sk, skels, hf, hreg, hsk, hskels, hcn, hcv, hload, -⟩ := home_records hw
+  have hT := home_table hf hreg (worker_ownTable hw)
+  obtain ⟨q, hq, s, hs, hn, htg, -, hle⟩ :=
+    Forall₂.mem_right (home_rows hload hreg hT) c (Array.mem_toList_iff.2 hc)
+  refine ⟨q, Array.mem_toList_iff.1 hq, ?_, ?_⟩
+  · have := (lazyEntry_stmt hle).1
+    rw [hn] at this
+    exact Option.some.inj this
+  · rw [htg, ← (lazyEntry_kind hle).2]
+
+/-- The private table of an accepted module names each position once. -/
+theorem own_pos_unique {sp : SearchPath} {fs : FS} {M : Name} {jobs : Nat} {w : WorkerRead}
+    (hw : WorkerFacts sp fs M jobs w) {q q' : NamePosition} (hq : q ∈ w.reads.own.consts)
+    (hq' : q' ∈ w.reads.own.consts) (hn : q.name = q'.name) : q = q' := by
+  obtain ⟨f, r, a, sk, skels, hf, hreg, -⟩ := home_records hw
+  have hT := home_table hf hreg (worker_ownTable hw)
+  obtain ⟨-, -, hnd, -⟩ := namePositionsAt_mem hT
+  exact eq_of_map_nodup hnd (Array.mem_toList_iff.2 hq) (Array.mem_toList_iff.2 hq') hn
+
 namespace Run
 
 variable {sp : SearchPath} {fs : FS} (R : Run sp fs)
@@ -661,7 +711,36 @@ theorem ctx_stmt {M : Name} (hM : M ∈ R.names) {y : Name}
     cases hs'
     obtain ⟨-, rfl⟩ := stmtSkel_unique (partRegion_unique hf' hr1 hr ▸ hst1) hst
     simp [CKindF.tag] at hk
-  | group hg => sorry
+  | group hg =>
+    -- a group read from the home's private part: its names are no statement's there
+    obtain ⟨t, q, tE, np, ni, nn, all, cs, ir, iu, irf, mqs, cqs, tys, rest, t', rb, r₁, r₂, r₃, r₄,
+      -, -, -, -, -, -, -, -, -, -, -, -, -, -, hd⟩ := hg
+    obtain ⟨tys', ctors', recs', ts, cts, rcs, -, hdo, g1, g2, g3⟩ := groupRecord_res hd
+    obtain ⟨⟨b, nP, rfl⟩, -⟩ := declOfF_ind_names hdo (P := fun _ => True)
+      (fun t ht => by obtain ⟨c, -, hc⟩ := Forall₂.mem_left g1 t ht; exact ⟨c, hc.1, trivial⟩)
+      (fun t ht => by obtain ⟨c, -, hc⟩ := Forall₂.mem_left g2 t ht; exact ⟨c, hc.1, trivial⟩)
+      (fun t ht => by obtain ⟨c, -, hc⟩ := Forall₂.mem_left g3 t ht; exact ⟨c, hc.1, trivial⟩)
+    obtain ⟨ci, hci, hcin⟩ := List.mem_map.1 hyd
+    have hns : ci.isStmtKind = false := by
+      simp only [declConstants] at hci
+      split at hci
+      · exact blockConstants_not_stmt _ hci
+      · cases hci
+    obtain ⟨p, hp, hpres⟩ := hpr
+    have hcp' : ci ∈ declConstants p := by
+      rcases hpres with ⟨hperm, -⟩ | ⟨he, -⟩
+      · exact hperm.mem_iff.1 hci
+      · cases p <;> simp only [stmtOf] at he <;>
+          first | (cases he; done) | (rw [← he]; exact hci)
+    obtain ⟨c, hc, hcn, htc⟩ := R.emitted_names hhm hp hcp'
+    have hcm := (mergedOfList_spec _).2.1 _ _ hc
+    obtain ⟨q₁, hq₁, hq₁n, hq₁t⟩ :=
+      home_const_pos hwm (Array.mem_toList_iff.1 (List.mem_filter.1 hcm).1)
+    obtain ⟨q₂, hq₂, hq₂n, hq₂t⟩ := copy_private_pos hwm hmod hcp hlv hr hst hk
+    have := own_pos_unique hwm hq₁ hq₂ (by rw [hq₁n, hq₂n, hnm, hcn]; exact hcin)
+    subst this
+    have := htc hns
+    omega
 
 /-- **A name a stored statement's type reads, other than its own, is stored before it.** -/
 theorem rank_lt {M : Name} (hM : M ∈ R.names) {y : Name} {ci : ConstantInfo}
