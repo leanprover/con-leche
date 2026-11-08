@@ -79,7 +79,7 @@ module's imports are expanded at most three times (the flags only grow), so the
 steps are at most three per import edge and two per module; `fuel` bounds them.
 `meta` imports load the same data as plain ones here: what `meta` adds is IR, which
 holds no constants (`mkIRData`). -/
-def levelsGo {μ : Type → Type} [CheckerIO μ] (imps : Name → μ (Except CheckError (Array ImportRec)))
+def levelsGo {μ : Type → Type} [Monad μ] (imps : Name → μ (Except CheckError (Array ImportRec)))
     (gPriv : Bool) :
     Nat → List LvWork → LvState → μ (Except CheckError LvState)
   | _, [], st => pure (.ok st)
@@ -139,7 +139,7 @@ case: a module Lean meets first through a `meta` import of a module loaded witho
 its data (for its IR only), and loads later, has its place at that first meeting in
 Lean's order and at the later one here.  The order decides nothing but which copy of
 a name comes first in the index (`ConLeche/Frontend/Olean/Index.lean`). -/
-def headerFixpoint {μ : Type → Type} [CheckerIO μ]
+def headerFixpoint {μ : Type → Type} [Monad μ]
     (imps : Name → μ (Except CheckError (Array ImportRec))) (isModule : Bool)
     (imports : Array ImportRec) : μ (Except CheckError Loads) := do
   let root : LoadFlags := { importAll := true, isExported := isModule }

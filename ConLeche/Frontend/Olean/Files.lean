@@ -84,66 +84,81 @@ structure Located where
 /-- The three files of a module, by extension. -/
 def partExts : List String := ["olean", "olean.server", "olean.private"]
 
-/-- The real paths of a module's three files in one directory, `none` where
-absent. -/
+/-- Which of a module's three files one directory holds. -/
 def locateIn {μ : Type → Type} [CheckerIO μ] (m : Name) (d : System.FilePath) :
-    μ (System.FilePath × List (Option String)) := do
-  let fs ← partExts.mapM fun e => do
-    let p := modFile d m e
-    if ← CheckerIO.pathExists p then
-      return some (← CheckerIO.realPath p).toString
-    else return none
+    μ (System.FilePath × List Bool) := do
+  let fs ← partExts.mapM fun e => CheckerIO.pathExists (modFile d m e)
   return (d, fs)
 
 /-- **The search path's directories holding any of module `m`'s files**
-(`findModule`), in order: each with the real paths of the three files. -/
+(`findModule`), in order: each with which of the three files it holds. -/
 def locateHits {μ : Type → Type} [CheckerIO μ] (sp : SearchPath) (m : Name) :
-    μ (Array (System.FilePath × List (Option String))) := do
+    μ (Array (System.FilePath × List Bool)) := do
   let hs ← sp.mapM (locateIn m)
-  return (hs.filter fun h => h.2.any (·.isSome)).toArray
+  return (hs.filter fun h => h.2.any id).toArray
+
+/-- The real paths of the files a directory holds of a module, `none` where absent. -/
+def realsIn {μ : Type → Type} [CheckerIO μ] (m : Name) (h : System.FilePath × List Bool) :
+    μ (List (Option String)) :=
+  (partExts.zip h.2).mapM fun (e, b) => do
+    if b then return some (← CheckerIO.realPath (modFile h.1 m e)).toString else return none
+
+/-- **The directories holding a module's files, and their real paths where they are
+compared**: the real paths only where two or more directories hold some of the files (one
+directory is one location whatever its files' real paths are, so its files are not resolved;
+task #509). -/
+def locateFiles {μ : Type → Type} [CheckerIO μ] (sp : SearchPath) (m : Name) :
+    μ (Array (System.FilePath × List Bool) × List (List (Option String))) := do
+  let hits ← locateHits sp m
+  if hits.size ≤ 1 then return (hits, [])
+  return (hits, ← hits.toList.mapM (realsIn m))
 
 /-- **The module's location from the directories holding its files**
-(`locateHits`), or why there is none (`findModule`). -/
-def locateOf (m : Name) (hits : Array (System.FilePath × List (Option String))) :
-    Except CheckError Located := Id.run do
+(`locateFiles`: `hits`, and the real paths `reals` where there are two or more), or why
+there is none (`findModule`). -/
+def locateOf (m : Name) (hits : Array (System.FilePath × List Bool))
+    (reals : List (List (Option String))) : Except CheckError Located := Id.run do
   let some (d, fs) := hits[0]? |
     return .error (.internal s!"module {m}: no .olean on the search path")
-  -- the locations: the directories up to real paths, first spelling kept
-  let locs := hits.foldl (fun (acc : Array (System.FilePath × List (Option String))) h =>
-    if acc.any (·.2 == h.2) then acc else acc.push h) #[]
-  let names (xs : Array (System.FilePath × List (Option String))) : String :=
-    ", ".intercalate (xs.toList.map (·.1.toString))
-  if locs.size > 1 then
-    let twice := (List.range 3).any fun i =>
-      let rs := locs.toList.filterMap fun l => (l.2[i]?).join
-      rs.any fun r => rs.any (· != r)
-    if twice then
-      return .error (.internal s!"module {m}: its files are in more than one location on \
-        the search path ({names locs}); the search path must hold each module once")
-    else
-      let desc (l : System.FilePath × List (Option String)) : String :=
-        let held := (partExts.zip l.2).filterMap fun (e, r) => r.map fun _ => s!"{m}.{e}"
-        s!"{", ".intercalate held} in {l.1}"
-      return .error (.internal s!"module {m}: its parts are split across directories \
-        ({"; ".intercalate (locs.toList.map desc)}); a module's files must be in one directory")
+  let names (xs : Array ((System.FilePath × List Bool) × List (Option String))) : String :=
+    ", ".intercalate (xs.toList.map (·.1.1.toString))
+  if hits.size > 1 then
+    -- the locations: the directories up to real paths, first spelling kept
+    let locs := (hits.toList.zip reals).foldl
+      (fun (acc : Array ((System.FilePath × List Bool) × List (Option String))) h =>
+        if acc.any (·.2 == h.2) then acc else acc.push h) #[]
+    if locs.size > 1 then
+      let twice := (List.range 3).any fun i =>
+        let rs := locs.toList.filterMap fun l => (l.2[i]?).join
+        rs.any fun r => rs.any (· != r)
+      if twice then
+        return .error (.internal s!"module {m}: its files are in more than one location on \
+          the search path ({names locs}); the search path must hold each module once")
+      else
+        let desc (l : (System.FilePath × List Bool) × List (Option String)) : String :=
+          let held := (partExts.zip l.1.2).filterMap fun (e, b) => if b then some s!"{m}.{e}" else none
+          s!"{", ".intercalate held} in {l.1.1}"
+        return .error (.internal s!"module {m}: its parts are split across directories \
+          ({"; ".intercalate (locs.toList.map desc)}); a module's files must be in one directory")
   match fs with
   | [o, s, p] =>
-    if o.isNone then
-      let held := [("olean.server", s), ("olean.private", p)].filterMap fun (e, r) =>
-        r.map fun _ => s!"{m}.{e}"
+    if !o then
+      let held := [("olean.server", s), ("olean.private", p)].filterMap fun (e, b) =>
+        if b then some s!"{m}.{e}" else none
       return .error (.internal s!"module {m}: {" and ".intercalate held} without \
         {m}.olean in {d}")
-    return .ok ⟨d, s.isSome, p.isSome⟩
+    return .ok ⟨d, s, p⟩
   | _ => return .error (.internal s!"module {m}: locating its files")
 
 /-- **Find a module, strictly** (task #392).  Lean takes the first
 search-path directory holding `M.olean` and reads the other parts beside
 it; a copy further down is ignored, so two copies would let two tools
 (or two search-path orders) read two different modules under one name.
-Here every directory is looked at, each of the module's files
-(`M.olean`, `M.olean.server`, `M.olean.private`) taken by its real path,
-so that a directory listed twice, or reached through a symbolic link, is
-one location.  Malformed input (`.internal`, exit 3):
+Here every directory is looked at for each of the module's files
+(`M.olean`, `M.olean.server`, `M.olean.private`); where two or more hold
+some of them, the files are compared by their real paths, so that a
+directory listed twice, or reached through a symbolic link, is one
+location.  Malformed input (`.internal`, exit 3):
 
 * one of the files with two real paths: the module is in two places;
 * the directories holding some of the files not all holding the same
@@ -155,8 +170,8 @@ Whether the parts the `.olean` needs are there is `readFiles`'s check (it
 depends on the exported part's module-system flag). -/
 def findModule {μ : Type → Type} [CheckerIO μ] (sp : SearchPath) (m : Name) :
     μ (Except CheckError Located) := do
-  match ← tryCatchThe IO.Error (Except.ok <$> locateHits sp m) (fun e => pure (.error e)) with
-  | .ok hits => return locateOf m hits
+  match ← tryCatchThe IO.Error (Except.ok <$> locateFiles sp m) (fun e => pure (.error e)) with
+  | .ok (hits, reals) => return locateOf m hits reals
   | .error e => return .error (.internal s!"module {m}: locating its files: {e}")
 
 /-- Read and validate one file. -/
@@ -273,9 +288,9 @@ def readPartNames {μ : Type → Type} [CheckerIO μ] (sp : SearchPath) (x : Nam
 
 /-- **What a worker reads off the files**: a module's imports (off the start of its
 `M.olean`), the files of a view, a part's name positions.  On the search path
-(`OleanReads.ofPath`) each is the read of the files it names; the one-process mode
-(`ConLeche/Driver/Modular.lean`) answers from what it read once up front, and where it
-has nothing, by the same read. -/
+(`OleanReads.ofPath`) each is the read of the files it names; a worker and the one-process
+mode answer from the tables they read once up front (`ModTables.reads`,
+`ConLeche/Driver/Tables.lean`), and where those have nothing, by the same read. -/
 structure OleanReads (μ : Type → Type) where
   /-- a module's imports (`moduleImports`) -/
   imports : Name → μ (Except CheckError (Array ImportRec))
@@ -289,12 +304,6 @@ def OleanReads.ofPath {μ : Type → Type} [CheckerIO μ] (sp : SearchPath) : Ol
   imports := moduleImports sp
   files := readFiles sp
   names := readPartNames sp
-
-/-- **The reads with one part's name positions in hand** (task #508): `v` answers the names
-of part `x₀`, which the files a worker read already give, so that they are not read again. -/
-def OleanReads.withNames {μ : Type → Type} [CheckerIO μ] (rd : OleanReads μ)
-    (x₀ : Name × OLeanLevel) (v : Except CheckError NamePositions) : OleanReads μ :=
-  { rd with names := fun x => if x == x₀ then pure v else rd.names x }
 
 /-- **A module's home, off its files**: its private view loaded (`loadView`, its theorems'
 values left in the file; `i` its place in the order the references name), and its three parts

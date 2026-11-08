@@ -720,11 +720,15 @@ the context is 2 874 constants (276 groups) from 151 of the 2 479 loaded modules
 completion; on `Mathlib.Analysis.SpecialFunctions.Gamma.Basic`, 7 973 constants (694 groups)
 from 581 of 4 092 modules, with one completion.
 
-**One module alone** (`ConLeche/Driver/Worker.lean`, `--olean --module`). `checkModuleG` reads
+**One module alone** (`ConLeche/Driver/Worker.lean`, `--olean --module`). The run first reads
+the worker's tables (`workerTables`, `ConLeche/Driver/Tables.lean`): the module located on the
+search path and its private part's name positions read, then its header fixpoint, each module it
+loads located once and its header read there; every later read of a module's files is at the
+location found there (`ModTables.reads`, whose reads refine the search path's,
+`modTables_within`). `checkModuleG` reads
 the module's home (`homeOf` over its private part's files: its private view loaded, its three
-parts checked against each other, a mismatch a reject; the same files give its own part's names
-and the region its theorems' values are read from, so the module's files are read once), the
-reads above, its own records (the loaded constants emitted from
+parts checked against each other, a mismatch a reject; the same files give the region its
+theorems' values are read from), the reads above, its own records (the loaded constants emitted from
 every own constant, a name that is not the module's a context read; a pinned `Nat` operation's
 ground hoisted ahead of it), the context (`reach`, its names checked distinct), and then checks
 the own records alone over the index of the context's records followed by the own records
@@ -784,7 +788,7 @@ worker step to answer 0; a failure names the first failing module in the graph's
 code. The scheduler starts one `--olean --module --jobs=1` process of the binary per module, at
 most `--jobs` at once, staggered (`--schedule-stagger=MS`), within a memory budget over the
 running workers' resident sets (`--schedule-memory=SIZE`, a number with a unit `K`, `M`, `G` or
-`T`, such as `40G`: the largest is killed, by its own child handle, and run again alone once),
+`T`, such as `40G`: a worker starts only while the running workers' peak sets sum to under it; when their current sets exceed it the largest is protected, the youngest others are killed by their own child handles and queued again, and no worker starts until the protected one finishes; the protected one alone over the budget has the verdict `memory`),
 with a time limit per worker (`--schedule-timeout=S`) and an append-only log a restart resumes
 from (`--schedule-log=FILE`, one `<verdict>\t<module>` line per finished module); its verdict is
 its workers' exit codes, and no theorem is about it: the modular statement composes what each
@@ -1793,7 +1797,7 @@ and every such line carries its reason.
 | Directory | Contents |
 |---|---|
 | `Main.lean` | The binary's entry point: the plumbing around `runArgs` at `IO`, followed by the exit. |
-| `ConLeche/Driver/` | The proof-carrying IO driver: the index build and the check phase's worker pool (`CheckPool.lean`), the rounds parse's owner threads (`OwnerParse.lean`), the stream parse over the IO class's folds (`StreamParse.lean`), the end-of-run statistics (`Stats.lean`), `checkDeclsIO` (`Run.lean`), a module's context for checking it on its own (`Reach.lean`), the check of one module against it (`Worker.lean`), the import graph check (`Graph.lean`), every module of a closure in one process (`Modular.lean`) and by one worker process each (`Schedule.lean`, `ScheduleIO.lean`), the driver's sequencing generic in the IO class (`CheckMain.lean`), the run of a request (`Dispatch.lean`) and the command line and `runArgs` over them (`Cli.lean`). Checker code, like `Kernel/*`; the one tier besides `Main.lean` that may import `ConLeche/Verify/*`. |
+| `ConLeche/Driver/` | The proof-carrying IO driver: the index build and the check phase's worker pool (`CheckPool.lean`), the rounds parse's owner threads (`OwnerParse.lean`), the stream parse over the IO class's folds (`StreamParse.lean`), the end-of-run statistics (`Stats.lean`), `checkDeclsIO` (`Run.lean`), a module's context for checking it on its own (`Reach.lean`), the check of one module against it (`Worker.lean`), the tables a run reads up front, each module located once (`Tables.lean`), the import graph check (`Graph.lean`), every module of a closure in one process (`Modular.lean`) and by one worker process each (`Schedule.lean`, `ScheduleIO.lean`), the driver's sequencing generic in the IO class (`CheckMain.lean`), the run of a request (`Dispatch.lean`) and the command line and `runArgs` over them (`Cli.lean`). Checker code, like `Kernel/*`; the one tier besides `Main.lean` that may import `ConLeche/Verify/*`. |
 | `ConLeche/Kernel/` | The pure checker: `Expr`/`Level`/`Name`, what a declaration adds (`Install.lean`), `PropWhen`, the mutually recursive core of reduction, inference and conversion (`Core.lean`), declaration checking (`Checker.lean`, `DeclCheck.lean`), the basis pins (`Basis/`), the inductive installer (`Inductives/`: the recogniser `BlockShape.lean`, the positivity check `Positivity.lean`, the entry `checkBlock` with its constructor stages (`Sum*`) and projection tables (`Struct*`), the recursor generator and check `GenRec.lean`, and `ClassRead.lean`, which reads the classes off the stream's recursor types without checking them), the Nat-op pins. Imports no theory module. |
 | `ConLeche/Cached/` | The shipped cached checker: hashed expressions, memo state, the cached core and declaration step, the parsed-record step (`ParsedC.lean`), the declaration fold `checkDecls` and its accepting runs (`Decls.lean`), the index of a stream and a record's job (`StreamIndex.lean`). |
 | `ConLeche/Frontend/` | The export parser: the dialect's byte recogniser and syntax records (`Scan/`) and the semantic layer over them (`ExportC.lean`), which decodes the file's records and nothing else; the checker's IO class, its model over a snapshot of the files, the binary's instance and the folds over a file handle's reads (`CheckerIO.lean`); the serial streaming driver and a chunk's scan into syntax records apart from their application (`Stream.lean`); the rounds parse's counters and finished tables (`Rounds.lean`) and its rounds (`RoundsWork.lean`); the preparation of the fold's input (`Prepare.lean`, with the built-in prelude of `Prelude.lean` and the reordering of `NatOpGround.lean`, which moves what a pinned Nat operation's certificates mention ahead of it); the `.olean` reader (`Olean.lean`, the interface, over `Olean/`: the byte region `Region.lean`, the specification decoder `Spec.lean`, the fast one `Fast.lean`, the sparse one `Sparse.lean`, the imports off a file's start `Header.lean`, the reads of a part of a region `Reads.lean`, a module's views `View.lean` and their checks against each other `Module.lean`, the files through the IO class `Files.lean`, the closure `Closure.lean`, the merge `Merge.lean`, the emission `Emit.lean`, the records `Records.lean`, the header fixpoint `Levels.lean`, the loaded names and the clash rule `Index.lean`, and one group's record `Group.lean`). |

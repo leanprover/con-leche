@@ -8,9 +8,10 @@ import ConLeche.Verify.Frontend.Olean.Files
 # Reads answered from tables, in the model
 
 A worker's reads of the files go through `OleanReads` (`ConLeche/Frontend/Olean/Files.lean`): a
-module's imports, a view's files, a part's name positions.  The worker reads them on the search
-path (`OleanReads.ofPath sp`); the one-process mode (`ConLeche/Driver/Modular.lean`) answers them
-from tables it read once up front, and where a table has nothing, by the same read.
+module's imports, a view's files, a part's name positions.  On the search path they are
+`OleanReads.ofPath sp`; a worker and the one-process mode answer them from tables they read once
+up front (`ModTables.reads`, `ConLeche/Driver/Tables.lean`), and where a table has nothing, by
+the same read.
 
 **Refinement** (`ModelIO.Within fs a b`): every outcome of `a` on the snapshot `fs`, from any open
 handles, is one of `b` from every open handles; the handles are not compared, since a table
@@ -22,10 +23,9 @@ operations does.  Then every phase of the worker written over `rd` refines the s
 the search path (`headerFixpoint_within`, `workerReads_within`, `reach_within`), because each
 is built from the reads by binds, matches and the parallel map, all of which keep refinement
 (`Within.bind`, `mapExcept_within`).  So whatever a phase over the tables accepts, the same phase
-over the files accepts too, and what is proved of the worker's accepting outcomes holds of the
-one-process mode's (`ConLeche/Verify/Driver/Worker.lean`).  A part's names a worker has in hand
-off files it read (`OleanReads.withNames`) keep refinement too (`OleanReads.Within.withNames`):
-they are the names the search path's read gives (`readPartNames_of_files`).
+over the files accepts too, and what is proved of the worker's accepting outcomes over the search
+path's reads (`ConLeche/Verify/Driver/Worker.lean`) holds of every run over the tables
+(`modTables_within`, `ConLeche/Verify/Driver/Tables.lean`).
 -/
 
 public section
@@ -162,7 +162,7 @@ theorem findModule_within (fs : FS) (sp : SearchPath) (m : Name) :
     ModelIO.Within fs (findModule sp m) (findModule sp m) := by
   simp only [findModule]
   refine ModelIO.Within.bind (ModelIO.Within.tryCatch
-    (ModelIO.Within.map _ (ModelIO.Within.of_det (locateHits_det sp m fs)))
+    (ModelIO.Within.map _ (ModelIO.Within.of_det (locateFiles_det sp m fs)))
     fun _ => ModelIO.Within.pure _) fun _ => ?_
   within_tac []
 
@@ -275,23 +275,6 @@ theorem workerReads_within {fs : FS} {rd : OleanReads ModelIO} {sp : SearchPath}
   · exact ModelIO.Within.pure _
   refine ModelIO.Within.bind (readInfos_within h _ _ _ _) fun _ => ?_
   within_tac []
-
-/-- **One part's names in hand keep refinement**, where they are the search path's. -/
-theorem OleanReads.Within.withNames {fs : FS} {rd : OleanReads ModelIO} {sp : SearchPath}
-    (h : OleanReads.Within fs rd sp) {x₀ : Name × OLeanLevel} {v : Except CheckError NamePositions}
-    (hv : ModelIO.CanGive (readPartNames sp x₀) fs v) :
-    OleanReads.Within fs (rd.withNames x₀ v) sp := by
-  refine ⟨h.imports, h.files, fun x => ?_⟩
-  simp only [OleanReads.withNames]
-  split
-  · rename_i hx
-    rw [eq_of_beq hx]
-    intro _ o _ ho hs₀
-    simp only [ModelIO.pure_iff] at ho
-    obtain ⟨rfl, -⟩ := ho
-    obtain ⟨_, _, hv⟩ := hv
-    exact readPartNames_within fs sp x₀ _ _ _ hv hs₀
-  · exact h.names x
 
 end Frontend.Olean
 

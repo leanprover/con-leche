@@ -58,24 +58,36 @@ theorem realPath_det (p : System.FilePath) (fs : FS) :
     (CheckerIO.realPath p : ModelIO System.FilePath).Det fs := ⟨fs.real p, fun hs => ⟨hs, rfl⟩⟩
 
 theorem locateIn_det (m : Name) (d : System.FilePath) (fs : FS) :
-    (locateIn m d : ModelIO _).Det fs := by
-  refine ModelIO.det_bind (ModelIO.det_mapM fun e _ => ?_) fun _ => ModelIO.det_pure _ _
-  refine ModelIO.det_bind (pathExists_det _ _) fun x => ?_
-  cases x
-  · exact ModelIO.det_pure _ _
-  · exact ModelIO.det_bind (realPath_det _ _) fun _ => ModelIO.det_pure _ _
+    (locateIn m d : ModelIO _).Det fs :=
+  ModelIO.det_bind (ModelIO.det_mapM fun _ _ => pathExists_det _ _) fun _ => ModelIO.det_pure _ _
 
 theorem locateHits_det (sp : SearchPath) (m : Name) (fs : FS) :
     (locateHits sp m : ModelIO _).Det fs :=
   ModelIO.det_bind (ModelIO.det_mapM fun d _ => locateIn_det m d fs) fun _ => ModelIO.det_pure _ _
 
+theorem realsIn_det (m : Name) (h : System.FilePath × List Bool) (fs : FS) :
+    (realsIn m h : ModelIO _).Det fs := by
+  refine ModelIO.det_mapM fun x _ => ?_
+  obtain ⟨e, b⟩ := x
+  cases b
+  · exact ModelIO.det_pure _ _
+  · exact ModelIO.det_bind (realPath_det _ _) fun _ => ModelIO.det_pure _ _
+
+theorem locateFiles_det (sp : SearchPath) (m : Name) (fs : FS) :
+    (locateFiles sp m : ModelIO _).Det fs := by
+  refine ModelIO.det_bind (locateHits_det sp m fs) fun hits => ?_
+  split
+  · exact ModelIO.det_pure _ _
+  · exact ModelIO.det_bind (ModelIO.det_mapM fun h _ => realsIn_det m h fs)
+      fun _ => ModelIO.det_pure _ _
+
 /-- A module found: the snapshot determines the location. -/
 theorem findModule_ok {sp : SearchPath} {m : Name} {fs : FS} {hs : HS} {loc : Located} {hs' : HS}
     (h : (findModule sp m : ModelIO _) fs hs (.ok (.ok loc)) hs') :
     ModelIO.Gives (findModule sp m) fs (.ok loc) := by
-  have key : ∀ hits, ModelIO.Gives (locateHits sp m) fs hits →
-      ModelIO.Gives (findModule sp m) fs (locateOf m hits) := by
-    intro hits hh
+  have key : ∀ x, ModelIO.Gives (locateFiles sp m) fs x →
+      ModelIO.Gives (findModule sp m) fs (locateOf m x.1 x.2) := by
+    intro x hh
     simp only [findModule]
     exact hh.map.tryCatch.bind (ModelIO.gives_pure _ _)
   simp only [findModule, ModelIO.bind_ok, ModelIO.tryCatch_ok] at h
@@ -83,7 +95,7 @@ theorem findModule_ok {sp : SearchPath} {m : Name} {fs : FS} {hs : HS} {loc : Lo
   rcases hx with hx | ⟨e, _, -, hx⟩
   · simp only [ModelIO.map_ok] at hx
     obtain ⟨hits, hh, rfl⟩ := hx
-    have hk := key hits ((locateHits_det sp m fs).of_ok hh)
+    have hk := key hits ((locateFiles_det sp m fs).of_ok hh)
     simp only [ModelIO.pure_iff, Except.ok.injEq] at hr
     rw [← hr.1] at hk
     exact hk

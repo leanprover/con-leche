@@ -106,7 +106,6 @@ theorem workerRead_ok {rd : OleanReads ModelIO} {sp : SearchPath} {m : Name} {pa
   · simp at h
   have hf : ModelIO.CanGive (readFiles sp m .private) fs (.ok f) :=
     (hrd.files m .private).canGive ⟨_, _, hx⟩
-  have hrd' := hrd.withNames (readPartNames_of_files hf)
   simp only at h
   cases hh : homeOf m f with
   | error e => simp [hh] at h
@@ -135,8 +134,8 @@ theorem workerRead_ok {rd : OleanReads ModelIO} {sp : SearchPath} {m : Name} {pa
   simp only [ModelIO.pure_iff, Except.ok.injEq] at h
   obtain ⟨h, -⟩ := h
   subst h
-  refine ⟨⟨f, hf, hh⟩, (workerReads_within hrd' m jobs).canGive ⟨_, _, hy⟩, hds,
-    (reach_within hrd' m _ _ _).canGive ⟨_, _, hz⟩, (namesNodupGo_spec hn).1, rfl, ?_⟩
+  refine ⟨⟨f, hf, hh⟩, (workerReads_within hrd m jobs).canGive ⟨_, _, hy⟩, hds,
+    (reach_within hrd m _ _ _).canGive ⟨_, _, hz⟩, (namesNodupGo_spec hn).1, rfl, ?_⟩
   -- the values' region: the home's files' private region
   exact cacheOK_files (md := ⟨m, l.frontier⟩) rfl hf
 

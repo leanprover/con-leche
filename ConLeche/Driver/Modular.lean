@@ -2,6 +2,7 @@ module
 
 public import ConLeche.Driver.Worker
 public import ConLeche.Driver.Graph
+public import ConLeche.Driver.Tables
 
 @[expose] public section
 
@@ -37,18 +38,6 @@ namespace ConLeche.Driver
 
 open ConLeche ConLeche.Frontend.Olean
 
-/-- **What the one-process mode reads of a module up front.** -/
-structure ModTable where
-  name : Name
-  /-- where its files are -/
-  loc : Located
-  /-- its imports, off its header -/
-  imports : Array ImportRec
-  /-- its private part's name positions -/
-  priv : NamePositions
-  /-- its exported part's name positions -/
-  expo : NamePositions
-
 /-- **A module's table**: located, its two parts' name positions read; its imports the graph's. -/
 def readModTable {μ : Type → Type} [CheckerIO μ] (sp : SearchPath) (e : Graph.Node) :
     μ (Except CheckError ModTable) := do
@@ -60,45 +49,8 @@ def readModTable {μ : Type → Type} [CheckerIO μ] (sp : SearchPath) (e : Grap
     | .ok priv =>
       match ← readPartNamesAt loc (e.1, .exported) with
       | .error err => pure (.error err)
-      | .ok expo => pure (.ok { name := e.1, loc, imports := e.2, priv, expo })
-
-/-- **The tables of a closure**, by module name. -/
-structure ModTables where
-  index : Std.HashMap Name Nat
-  mods : Array ModTable
-
-/-- The tables of a list of modules. -/
-def ModTables.ofArray (ts : Array ModTable) : ModTables :=
-  { index := ts.foldl (fun (acc : Std.HashMap Name Nat × Nat) t =>
-      (acc.1.insert t.name acc.2, acc.2 + 1)) ({}, 0) |>.1, mods := ts }
-
-/-- A module's table, if the tables hold one of that name. -/
-def ModTables.find (T : ModTables) (m : Name) : Option ModTable :=
-  match T.index[m]? with
-  | some i =>
-    match T.mods[i]? with
-    | some t => if t.name == m then some t else none
-    | none => none
-  | none => none
-
-/-- **The reads answered from the tables**: a module's imports and its parts' name positions
-from its table, a view's files read at the location in it; what the tables do not hold, on the
-search path. -/
-def ModTables.reads {μ : Type → Type} [CheckerIO μ] (sp : SearchPath) (T : ModTables) :
-    OleanReads μ where
-  imports m := match T.find m with
-    | some t => pure (.ok t.imports)
-    | none => moduleImports sp m
-  files m level := match T.find m with
-    | some t => readFilesAt t.loc m level
-    | none => readFiles sp m level
-  names x := match T.find x.1 with
-    | some t =>
-      match x.2 with
-      | .private => pure (.ok t.priv)
-      | .exported => pure (.ok t.expo)
-      | .server => readPartNamesAt t.loc x
-    | none => readPartNames sp x
+      | .ok expo => pure (.ok { name := e.1, loc, imports := some e.2, priv := some priv,
+                                expo := some expo })
 
 /-- One module of the run: its worker's steps over the tables, its code. -/
 def modularStep {μ : Type → Type} [CheckerIO μ] (sp : SearchPath) (T : ModTables)
@@ -131,7 +83,7 @@ def checkModularG {μ : Type → Type} [CheckerIO μ] (sp : SearchPath) (root : 
       let T := ModTables.ofArray ts.toArray
       CheckerIO.liftIO (markShared T)
       say s!"tables read: {T.mods.size} modules, \
-        {T.mods.foldl (fun n t => n + t.priv.consts.size) 0} names"
+        {T.mods.foldl (fun n t => n + (t.priv.map (·.consts.size)).getD 0) 0} names"
       let (_, res) ← CheckerIO.parMapWorkers jobs (fun _ => ()) (modularStep sp T mode)
         (C.toList.map (·.1))
       match res with

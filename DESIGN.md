@@ -114584,126 +114584,143 @@ text moved the definition from line 284 to 287).  Gates: `lake build`, `lake tes
 warning-free; trust surface, layering, overview links, quote gate; olean gate 321/321 under the
 guard.  No fixture pins the memory text: a tick may miss a short worker.
 
-## TASK #508 — a worker's re-reads: the home's files and a group's part read once (2026-11-08, agent/508-rereads)
+## TASK #510: memory preemption in the scheduler (`Driver/ScheduleIO.lean`)
 
-#504 found a `--olean --module` worker reading files in full several times (`Init/Prelude.olean`
-four to seven times).  The question: which phase re-reads what, and can each file be read at most
-once per worker, as #468 says?  Off `modular` at be22ced8e (the "before" binary); "after" is the lane with `modular` at 310efb51a merged (#507 touches the scheduler only).
+Trigger: in the maintainer's run (239 685 modules, `--jobs=16`, `--schedule-memory=40G`) one
+kill queued a module "to run again alone", and the old start step then started nothing else
+while `solos` was non-empty: the workers drained from 11 to 1 and the run waited at one job for
+10+ minutes. Ruling (second version; deferral of the retries was dropped): the big module
+preempts the others.
 
-**Method.**  `strace -f -k -e trace=openat` on the four workers of #501 (`--jobs=8`), every open of
-an `.olean*` file attributed to the innermost function of its stack naming a phase
-(`_tmp/508/scripts/kparse.py`, `ktab.py`); a whole-file read is an open under `readBinFile` (it
-reads the whole file), a header read one under `foldChunks` (4 KiB).  The byte counts are file
-sizes per open.  #504's byte counts are lower bounds: its reader (`an2.py`) loses the reads of
-multi-threaded strace's split lines (`<unfinished ...>`), and part of the reads go through the
-runtime's `io_uring` (no `read` call to see); counted by opens, the excess is larger than #504
-said (Coxeter: 224 MiB of 748, not 114 of 394).
+* Overflow (sum of `VmRSS` of the running workers over the budget): the worker with the largest
+  current RSS (ties: largest `VmHWM`) is protected; the youngest other worker is killed and
+  put at the FRONT of `pending` (no verdict, not logged); starts pause while the protected worker
+  runs; next tick still over: the next-youngest goes; the protected one alone over the budget
+  is killed with verdict `memory` (no retry). A different worker that becomes the largest takes
+  over the protection. Starts resume when the protected worker finishes. The solo queue is gone.
+* Admission (sawtooth profiles): a worker starts only while the sum of the running workers'
+  `VmHWM` (peaks so far, at least the current RSS) is under the budget, besides jobs, stagger and
+  pause. Nothing running: sum 0, a worker always starts, so no deadlock.
+* Status line / heartbeat: `k running, 67 MiB now (max 67 MiB), 67 MiB peaks of 0.1 GiB,
+  1 requeued, paused for M`; the summary adds the re-run count per run (kills, modules, most
+  kills of one module).
 
-**1. Who reads what, before** (`.olean*` whole-file reads; MiB; "again" = the file was read in
-full before in the same worker).  `names` is `workerReads`' name index (every loaded part, at its
-level), `infos` the clash rule's statements (`readInfos`), `reach.part` the reach's regions
-(`withPart`), `reach.table` its name tables off the index (`tableOf`: `privSpot`, `groupAt`), `home`
-`readHome`, `value` `readValue` in the check phase.
+Hand test (`--olean --schedule --jobs=4 --search-path=<toolchain lib> -- Init.Data.Nat.Lemmas`,
+84 modules, each worker 15..100 MiB; budget 60M is below single workers' peaks, so the budgets
+below are 90M and 120M; guard and `timeout`; one run each, wall time only an illustration):
 
-| phase | file | Nat.Lemmas reads / MiB / again | Coxeter | Gamma | MulP |
-|---|---|---|---|---|---|
-| home (`readHome`) | own, all three | 3 / 3.5 / 0 | 3 / 1.7 / 0 | 3 / 1.1 / 0 | 3 / 0.3 / 0 |
-| names, the own part | own, all three | 3 / 3.5 / 3.5 | 3 / 1.7 / 1.7 | 3 / 1.1 / 1.1 | 3 / 0.3 / 0.3 |
-| names, the loaded parts | `.olean` | 80 / 19.3 / 0 | 2 479 / 465.5 / 0 | 4 092 / 814.7 / 0 | 3 239 / 633.0 / 0 |
-| infos | `.olean` | 5 / 3.8 / 3.8 | 161 / 61.9 / 61.9 | 290 / 121.3 / 121.3 | 233 / 93.1 / 93.1 |
-| reach.part | `.olean` | 48 / 18.7 / 18.7 | 212 / 79.8 / 79.8 | 815 / 283.6 / 283.6 | 195 / 77.8 / 77.8 |
-| reach.part | `.server`, `.private` | 28 / 5.1 / 5.1 | 122 / 26.8 / 26.8 | 468 / 120.8 / 120.8 | 100 / 21.8 / 21.8 |
-| reach.table | `.olean` | 15 / 8.5 / 8.5 | 103 / 40.0 / 40.0 | 319 / 141.1 / 141.1 | 114 / 55.5 / 55.5 |
-| reach.table | `.server`, `.private` | 28 / 5.8 / 0 | 206 / 57.1 / 0 | 638 / 188.6 / 0 | 228 / 73.7 / 0 |
-| value (8 job threads) | own, all three | 24 / 27.8 / 27.8 | 24 / 13.7 / 13.7 | 24 / 8.7 / 8.7 | 24 / 2.7 / 2.7 |
-| **whole-file reads** | | 234 / 96.0 / 67.4 (70 %) | 3 313 / 748.3 / 224.0 (30 %) | 6 652 / 1 680.8 / 676.4 (40 %) | 4 139 / 958.2 / 251.1 (26 %) |
+```
+old, 120M: Init.Data.Nat.Lemmas: killed at 105 MiB (running workers 168 MiB, budget 120 MiB); to run again alone
+           wall 18s (the old run at 60M: 68 kills, nothing but solos after the first; wall 23s)
+new, 120M: Init.Data.Nat.Bitwise.Basic: killed at 63 MiB to make room for Init.Data.Nat.Lemmas (0.1 GiB), queued again (running 0.1 GiB of 0.1 GiB); starts paused until Init.Data.Nat.Lemmas finishes
+           Init.Data.Nat.Lemmas: 0 t=0.8s [1/84 1.1 %, 0 running, 1 requeued, eta 1m10s]  (pause over, starts resume)
+           con-leche: schedule: 1 kills for memory put modules back in the queue (1 modules, at most 1 times each)
+           exit 0, wall 19s
+new,  90M: 6 kills of 6 different modules (at most 1 each), e.g.
+           Init.Data.Int.Basic: killed at 12 MiB to make room for Init.Omega.Coeffs (58 MiB), queued again (running 100 MiB of 90 MiB); starts paused until Init.Omega.Coeffs finishes
+           Init.Data.Nat.Lemmas: 97 MiB alone, over the budget of 90 MiB: memory     (case 4)
+           exit 3 (first not accepted: Init.Data.Nat.Lemmas (memory)), wall 19s; old: 3 kills, exit 3, wall 17s
+new,  30M: every module alone over the budget: 25 `memory` verdicts, 0 kills of others, no deadlock
+```
 
-(Plus the header reads: one 4 KiB read per loaded module in the header fixpoint, and a few in a
-view's fixpoint (`viewOf`).)
+Admission at 200M: peaks 0.1 GiB of 0.1 GiB with 2 running; the pool never filled to 4 where
+peaks filled the budget, and the run ended normally (wall 18s, as old). The protected worker is
+chosen by current RSS with VmHWM as tie-break. Gates: lake build/test clean, trust-surface,
+tests/olean.sh 321/321 under the guard, overview links. `tests/quote-gate.sh` reports
+`model_exists`, `main_no_False`, `main_oleans_no_False` on the unmodified `modular` tip too
+(not from this lane).
 
-**The causes.**
-* **The own module's files, 1 + 1 + up to 8 times**: `readHome` read them, `workerReads` read them
-  again for the own part's names, and in the check phase every job thread's `ValueCache` started
-  empty, so each of the eight read the module's three files again for its first theorem's value
-  (`regionFor`).  Nat.Lemmas: 31 of its 67 MiB of re-reads.
-* **A group's part, twice**: `groupAt` asked the part's name table first (`lookOf` → `tableOf`,
-  which reads the files for the names and keeps only the table) and its region next (`withPart`,
-  which reads the files again and keeps the region).  Every private part a group is read from was
-  read twice: the `.server`/`.private` re-reads of `reach.part`.
-* **The name index's files, again**: `workerReads` reads every loaded part in full for its names
-  and keeps the names only; the clash rule then reads the clashing copies' modules again for their
-  statements, and the reach reads the exported parts it takes records from, and the `.olean` of
-  every private part it reads (privSpot, groups), again.  This is the rest: Coxeter 158 MiB, Gamma
-  455 MiB, MulP 201 MiB, Nat.Lemmas 23 MiB.
+## TASK #509 — each module located once per worker; real paths only where compared (2026-11-08, agent/509-findmodule)
 
-No re-read is needed for soundness: on one snapshot every read of a file gives one value (the
-trust assumption), which the proofs already use (`readFiles_unique`).
+#504 found 206 844 `readlink` and 155 263 `statx` calls in the `--olean --module` worker at
+`Mathlib.GroupTheory.Coxeter.Basic`, all from `findModule`.
 
-**2. The fix** (what is clearly a win).
-* **The home's files, once** (`ConLeche/Driver/Worker.lean`): `workerRead` reads `M`'s private
-  part's files (`rd.files m .private`) and takes the home off them (`homeOf`, the pure half of
-  the former `readHome`, which is gone); the same files give the own part's names, answered to
-  `workerReads` through `OleanReads.withNames` (one part's names in hand; refinement
-  `OleanReads.Within.withNames`, from `readPartNames_of_files`: the names off files the search path
-  gives are the names the search path's read gives), and the region the theorems' values are read
-  from: `WorkerRead.values`, a `ValueCache` every check-phase worker starts from (`checkOleansG`'s
-  `seed`, marked persistent with the references in `OleanRun.pool`, so the eight threads share one
-  region without atomic counting).  `WorkerFacts.home` now states the files and `homeOf`;
-  `WorkerFacts.values` the kept region (`CacheOK`, `cacheOK_files`); `oleanWorker_reach`,
-  `checkOleansG_jobs` take the seed's `CacheOK`.
-* **A group's part, once** (`ConLeche/Driver/Reach.lean`): `groupAt` starts with `loadPart`, which
-  reads the part's files once and keeps both the region (empty memo) and, where none is kept yet,
-  the name table off that region (`namePositionsAt`, what `readNamePositions` reads); the
-  lookups and region reads after it are hits.  A part whose table alone is asked (`privSpot`) still
-  keeps only its table: no memory for a region nobody reads.  `loadPart_ok` (the caches stay the
-  snapshot's, the table by `readPartNames_of_files`), `loadPart_fr`, `loadPart_within`.
+**The cause, counted.**  A probe (a line per `findModule` call and per worker phase, not
+committed) on Coxeter at `--jobs=8`: 5 444 lookups of 2 480 distinct modules, at most 10 of one
+module.  By phase: the home 1 (`readHome`); the reads 5 120 (the own names 1, the header fixpoint
+2 479, the loaded parts' name positions 2 479, the clash copies' files about 160); the reach 315
+(of 191 modules, all of them loaded); the values 8 (one per job, the module itself).  Each lookup
+is, for each of the 10 search-path directories, a `pathExists` on each of the three files
+(30 `statx`, about 24 failing), and a `realPath` of every file found: glibc's `realpath` makes
+one `readlink` per path component (13 or so here), so a module found with three files costs
+about 38 `readlink`.  The real paths were compared only to tell whether two directories holding
+the module are one location; with one directory holding it they decide nothing.
 
-**After** (the same strace, whole-file reads):
+**The fix.**
+1. `findModule` (`ConLeche/Frontend/Olean/Files.lean`): `locateIn` gives which of the three
+   files a directory holds; `locateFiles` resolves real paths (`realsIn`) only where two or
+   more directories hold some of the files, and `locateOf` compares them only there.  The
+   module → files mapping, the strictness (#392) and every error are unchanged: with one
+   directory the old comparison was vacuous.  No search-path directory is resolved at all on
+   the common path, so the separate per-directory `realPath` the brief asked for is not needed.
+2. The tables (`ConLeche/Driver/Tables.lean`, `ModTable`/`ModTables`, moved from `Modular.lean`
+   and generalized: imports and name positions optional).  The run of `--module`
+   (`runReq`, `Dispatch.lean`) reads the worker's tables up front (`workerTables`): the module
+   located and its private part's name positions read there, then its header fixpoint run once
+   over `tabImports` (located, header read at the location, the module's table pushed) in
+   `StateT ModTables μ`, the tables being the explicit state threaded through the fixpoint.
+   `levelsGo`/`headerFixpoint` are now generic in the monad (`[Monad μ]`; they use nothing
+   else).  Nothing in `workerTables` fails: a failed read leaves the tables as they were, and
+   the worker's own read reports it.  The worker then runs unchanged over `ModTables.reads`:
+   every read of a module with a table is at its location, the own names and every loaded
+   header from the table; the worker's fixpoint runs again, in memory.  So each module the
+   worker touches is located once (Coxeter: 2 480 lookups, was 5 444); the own module's files
+   are read as often as before (the up-front names read replaces the worker's).
+3. Proofs (`ConLeche/Verify/Driver/Tables.lean`): `TablesOk` (each table's location is
+   `findModule`'s on the snapshot, each held value its read's), `modTables_within` (moved from
+   the one-process mode, generalized: the reads answered from tables refine the search path's),
+   `levelsGo_keeps`/`headerFixpoint_keeps` (a state invariant kept by every header read is
+   kept by the fixpoint), `tabImports_keeps`, `workerTables_ok`.  `runArgs_module_accept`
+   now goes through `checkModuleG_accept (modTables_within (workerTables_ok _))`; its statement
+   is unchanged.  `findModule_ok`'s proof is repaired against `locateFiles` (`locateFiles_det`,
+   `realsIn_det`).  The uncached read survives only as what the tables are proved against
+   (`OleanReads.ofPath`), not as a second implementation.
 
-| worker | reads | MiB read | re-read | `Init/Prelude.olean` |
-|---|---|---|---|---|
-| `Init.Data.Nat.Lemmas` | 234 → 174 | 96.0 → 51.9 (−46 %) | 67.4 → 23.3 | 5 → 4 |
-| `Mathlib.GroupTheory.Coxeter.Basic` | 3 313 → 3 112 | 748.3 → 682.4 (−9 %) | 224.0 → 158.1 | 5 → 4 |
-| `Mathlib.Analysis.SpecialFunctions.Gamma.Basic` | 6 652 → 5 941 | 1 680.8 → 1 459.1 (−13 %) | 676.4 → 454.7 | 5 → 4 |
-| `Mathlib.RingTheory.WittVector.MulP` | 4 139 → 3 971 | 958.2 → 908.2 (−5 %) | 251.1 → 201.2 | 5 → 4 |
+**Lean's semantics.**  Unchanged: the mapping is still the strict one of #392 (Lean takes the
+first directory holding `M.olean`; we look at all and refuse two locations or split parts).
+In the model `pathExists p` is `(fs.real p).isSome`, so a found file's `realPath` never failed;
+not resolving it changes no outcome.
 
-**3. Measurements** (`_tmp/508/scripts/measure.sh`: `--jobs=8`, three runs per worker under the
-guard, `instructions:u` of the first (the three agree to 0.05 %), the three `cycles:u`, the peak
-RSS of each run by `getrusage`).
+**Measured** (v4.35.0 Mathlib, `_tmp/509/measure.sh`, the `#501` command line, `--jobs=8`, under
+the guard; `before` = `modular` at be22ced8e, `after` = this lane before the merge of #507).
+Syscalls (`strace -c -f -e trace=readlink,statx,openat`):
 
-| worker | `instructions:u` | `cycles:u` (3 runs) | peak RSS (3 runs) |
+| run | `readlink` | `statx` | `openat` |
 |---|---|---|---|
-| `Init.Data.Nat.Lemmas` | 9.182 G → 9.168 G (−0.2 %) | 4.48 4.38 4.59 G → 4.75 5.22 5.03 G | 186 184 180 MB → 104 102 100 MB (−44 %) |
-| `Mathlib.GroupTheory.Coxeter.Basic` | 8.913 G → 8.878 G (−0.4 %) | 3.65 3.61 3.71 G → 3.94 3.85 3.74 G | 274 298 320 MB → 251 267 302 MB |
-| `Mathlib.Analysis.SpecialFunctions.Gamma.Basic` | 15.512 G → 15.364 G (−1.0 %) | 6.49 6.46 6.39 G → 7.05 6.73 6.79 G | 694 692 706 MB → 660 669 652 MB (−5 %) |
-| `Mathlib.RingTheory.WittVector.MulP` | 8.986 G → 8.957 G (−0.3 %) | 3.43 3.58 3.64 G → 3.78 3.71 3.65 G | 304 300 294 MB → 278 264 292 MB |
+| `Init.Data.Nat.Lemmas` | 7 602 → 0 | 7 122 → 2 685 | 412 → 394 |
+| `Mathlib.GroupTheory.Coxeter.Basic` | 206 844 → 0 | 155 263 → 75 451 | 5 876 → 5 876 |
+| `Mathlib.Analysis.SpecialFunctions.Gamma.Basic` | 385 188 → 0 | 277 281 → 125 567 | 10 924 → 10 827 |
+| `Mathlib.RingTheory.WittVector.MulP` | 274 608 → 0 | 200 431 → 98 317 | 7 462 → 7 461 |
+| merged `--olean`, Coxeter | 731 979 → 0 | 568 531 → 562 981 | 51 518 → 50 964 |
+| `--check-graph`, Coxeter | 107 754 → 0 | 82 650 → 82 650 | 2 930 → 2 930 |
 
-The two cycle columns were taken an hour apart and the machine's load moved between them; run
-interleaved (base, after, base, … three each, `_tmp/508/logs/interleaved.txt`) the cycles do not
-separate: Nat.Lemmas 4.88 5.26 4.71 G against 5.17 5.46 4.64 G, Coxeter 3.94 3.90 3.86 against
-3.76 3.92 3.89, Gamma 7.27 7.12 6.66 against 7.10 6.55 6.54, MulP 3.40 3.38 3.45 against 3.53
-3.40 3.55.  So: fewer instructions (the reads' copies), the peak lower (Nat.Lemmas: the eight
-check threads each kept a copy of the module's region; now they share one), cycles within the
-noise.  Before the seed was marked persistent, the shared region's atomic reference counts showed
-as about +5 % cycles on Nat.Lemmas in one sample; with the mark, ten interleaved runs gave
-4.78 G before against 4.74 G after (means).
+`instructions:u` (one run per stream) and `cycles:u` (three runs, ranges; the `before` cycles
+from a second series run with nothing else of this lane running):
 
-**4. Not done: the name index's files, kept** (a memory/time choice, reported).  What is left
-(Coxeter 158 MiB, Gamma 455 MiB, MulP 201 MiB, Nat.Lemmas 23 MiB) is every re-read of a file first
-read for the name index.  Which loaded parts the clash rule and the reach read again is known only
-after the index is complete (the clashes) or the reach has run (the reached names), so the only way
-to read them once is to keep every loaded part's bytes from the index to the end of the reach: all
-of `names`' `.olean` bytes (Coxeter 466 MiB, Gamma 815 MiB, MulP 633 MiB) against a peak RSS of
-0.3-0.7 GB today, which is at the reach's end; roughly double or triple the peak, to save the
-kernel's copy of 158-455 MiB (by #504's attribution under 3 % of the cycles and well under 1 % of
-the instructions).  Two smaller variants: keep the clash rule's files for the reach (it re-reads
-Coxeter 25 MiB, Gamma 71 MiB, MulP 37 MiB of them, holding Coxeter 37 MiB, Gamma 50 MiB, MulP
-56 MiB the reach never reads: a higher peak); read the clashing copies' statements while the
-later copies' bytes are at hand in the index's fold (the first copy's module would still be read
-again).  Not done; the maintainer's call.  So #468's "reads each part's files once per module" is
-true of the module's own files and of the reach's parts among themselves, not of the index's.
+| run | `instructions:u` | `cycles:u` |
+|---|---|---|
+| `Init.Data.Nat.Lemmas` | 9.185 G → 9.129 G (−0.6 %) | 4.74–4.95 G → 4.37–4.66 G |
+| `Mathlib.GroupTheory.Coxeter.Basic` | 8.915 G → 7.795 G (−12.6 %) | 3.67–3.83 G → 3.35–3.62 G |
+| `Mathlib.Analysis.SpecialFunctions.Gamma.Basic` | 15.515 G → 13.341 G (−14.0 %) | 6.55–6.94 G → 5.83–5.93 G |
+| `Mathlib.RingTheory.WittVector.MulP` | 8.988 G → 7.540 G (−16.1 %) | 3.61–3.68 G → 2.99–3.08 G |
+| merged `--olean`, Coxeter | 1 100.12 G → 1 100.00 G (−0.01 %) | (before series disturbed) → 580–594 G |
+| `--check-graph`, Coxeter | 1.339 G → 1.301 G (−2.8 %) | 0.574–0.586 G → 0.531–0.552 G |
 
-Gates: `lake build`, `lake test` warning-free; `tests/arena.sh` in full under the guard; shake,
-layering, trust surface, the olean-compare tool (`--home` now `readFiles` then `homeOf`), links (`OVERVIEW.md`'s `checkMainG_ndjson_accept` anchor repointed),
-quotes.  Files: `_tmp/508/scripts/` (the strace readers, `measure.sh`), `_tmp/508/logs/`
-(`k-{base,v2}-*.txt` the traces, `measure-*.txt`).
+The user-space instructions fall with the syscalls: glibc's `realpath` walks the path in user
+space, and every lookup builds 30 paths.  Kernel cycles (`cycles:k`, three alternated runs per
+binary, `_tmp/509/logs/kcyc/`) vary 1.3–11.8 G on the loaded machine within one binary and say
+nothing; by #504's microbenchmark (about 1 700 kernel cycles a call) the 287 000 calls removed
+from Coxeter are about 0.5 G kernel cycles, of its 1.0–1.2 G.  Verdicts unchanged.
+
+**Not done, and why.**
+* The worker still makes 30 `statx` per module (10 directories × 3 files; 24 failing):
+  strictness looks at every directory.  Fewer would need either a directory listing (a new
+  `CheckerIO` operation with its model) or the parent directory's existence standing for its
+  files' (a new property of the snapshot); both are a trust-model change, left to a ruling.
+* The merged `--olean` run locates each module in `closureOrder`, again in `loadModule`, and
+  again for every switch of a job's value cache (`regionFor`); there the location is 0.01 % of
+  the instructions, and the value cache is #508's.  The one-process mode locates every module
+  in the graph walk and again in `readModTable` (one lookup more per module, against a whole
+  closure's checks).  The worker's values phase: 8 lookups of its own module (one per job,
+  `readValue` on the search path).
+* `--check-graph` already locates each module once; it gains the `readlink`s only.
