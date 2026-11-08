@@ -5945,6 +5945,18 @@ info: 'InLeanProof.checkDecl_env' depends on axioms: [propext, Classical.choice,
 #print axioms InLeanProof.checkDecl_env
 
 /--
+info: 'InLeanProof.envRel_of_none' depends on axioms: [propext, Classical.choice, Quot.sound]
+-/
+#guard_msgs in
+#print axioms InLeanProof.envRel_of_none
+
+/--
+info: 'InLeanProof.EnvRel.reads' depends on axioms: [propext, Classical.choice, Quot.sound]
+-/
+#guard_msgs in
+#print axioms InLeanProof.EnvRel.reads
+
+/--
 info: 'InLeanProof.step_of' depends on axioms: [propext, Classical.choice, Quot.sound]
 -/
 #guard_msgs in
