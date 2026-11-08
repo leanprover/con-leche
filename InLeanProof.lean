@@ -43,6 +43,7 @@ public import InLeanProof.PassUniform
 public import InLeanProof.PassNestKey
 public import InLeanProof.PassNestPos0
 public import InLeanProof.PassNestPos
+public import InLeanProof.NestDepth
 public import InLeanProof.DeclGuards
 public import InLeanProof.DeclStep
 public import InLeanProof.DeclPins

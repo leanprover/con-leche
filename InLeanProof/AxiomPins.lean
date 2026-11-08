@@ -36,6 +36,7 @@ public import InLeanProof.ProjGuardI
 public import InLeanProof.PassUniform
 public import InLeanProof.PassNestKey
 public import InLeanProof.PassNestPos
+public import InLeanProof.NestDepth
 
 /-!
 # The axiom pins of the InLean proof tier (task #451, lane G)
@@ -3103,3 +3104,39 @@ info: 'InLeanProof.hasLooseBVars_of_closed' depends on axioms: [propext,
 -/
 #guard_msgs in
 #print axioms InLeanProof.hasLooseBVars_of_closed
+
+/-- info: 'InLeanProof.CDepthMemoInv.insert' depends on axioms: [propext, Classical.choice, Quot.sound] -/
+#guard_msgs in
+#print axioms InLeanProof.CDepthMemoInv.insert
+
+/-- info: 'InLeanProof.cdepthGo_spec' depends on axioms: [propext, Classical.choice, Quot.sound] -/
+#guard_msgs in
+#print axioms InLeanProof.cdepthGo_spec
+
+/-- info: 'InLeanProof.cdepth_eq' depends on axioms: [propext, Classical.choice, Quot.sound] -/
+#guard_msgs in
+#print axioms InLeanProof.cdepth_eq
+
+/-- info: 'InLeanProof.LDepthMemoInv.insert' depends on axioms: [propext, Classical.choice, Quot.sound] -/
+#guard_msgs in
+#print axioms InLeanProof.LDepthMemoInv.insert
+
+/-- info: 'InLeanProof.ldepthGo_spec' depends on axioms: [propext, Classical.choice, Quot.sound] -/
+#guard_msgs in
+#print axioms InLeanProof.ldepthGo_spec
+
+/-- info: 'InLeanProof.ldepth_eq' depends on axioms: [propext, Classical.choice, Quot.sound] -/
+#guard_msgs in
+#print axioms InLeanProof.ldepth_eq
+
+/-- info: 'InLeanProof.ldepth_trE' depends on axioms: [propext] -/
+#guard_msgs in
+#print axioms InLeanProof.ldepth_trE
+
+/-- info: 'InLeanProof.depth_TrS' depends on axioms: [propext, Classical.choice, Quot.sound] -/
+#guard_msgs in
+#print axioms InLeanProof.depth_TrS
+
+/-- info: 'InLeanProof.whnfWalkFuel_TrS' depends on axioms: [propext, Classical.choice, Quot.sound] -/
+#guard_msgs in
+#print axioms InLeanProof.whnfWalkFuel_TrS

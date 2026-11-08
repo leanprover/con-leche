@@ -507,7 +507,8 @@ def stripMDataGo : Expr → Memo → Expr × Memo
 
 def stripMData (e : Expr) : Expr := (stripMDataGo e (freshFor e)).1
 
-/-- Twin of `Expr.depthGo` (memoised). -/
+/-- Twin of `Expr.depthGo` (memoised), on the reading: an `mdata` node is read
+through. -/
 def depthGo : Expr → Std.HashMap Expr Nat → Nat × Std.HashMap Expr Nat
   | e, memo =>
     if !isCompound e then (1, memo) else
@@ -528,7 +529,8 @@ def depthGo : Expr → Std.HashMap Expr Nat → Nat × Std.HashMap Expr Nat
           let (d₂, memo) := depthGo v memo
           let (d₃, memo) := depthGo b memo
           (max (max d₁ d₂) d₃ + 1, memo)
-        | .proj _ _ x | .mdata _ x =>
+        | .mdata _ x => depthGo x memo
+        | .proj _ _ x =>
           let (d, memo) := depthGo x memo
           (d + 1, memo)
         | _ => (1, memo)
