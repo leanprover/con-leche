@@ -597,7 +597,7 @@ theorem substConstAll_trC {n : Name} {r e : Expr} (hr : okC r = true) (he : okC 
     okC (InLean.substConstAll n r e) = true ∧
       trC (InLean.substConstAll n r e) = ConLeche.Expr.substConstAll (toName n) (trC r) (trC e) := by
   unfold InLean.substConstAll Expr.replaceI EO.replace
-  rw [mapOff_fresh]
+  rw [mapOff_spec]
   exact substConstAll_tr hr e 0 he
 
 theorem natDivModNames_cases {c : Name} (hc : InLean.natDivModNames.contains c = true) :

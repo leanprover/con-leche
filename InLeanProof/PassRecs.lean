@@ -113,7 +113,7 @@ theorem targetAbs_eq (names : List Lean.Name) (lvls : List Lean.Level) (holes : 
     (e : Lean.Expr) :
     InLean.targetAbs names lvls holes e = mapSpec (fun x _ => taF names lvls holes x) e 0 := by
   unfold InLean.targetAbs EO.replace
-  rw [mapOff_fresh]; rfl
+  rw [mapOff_spec]; rfl
 
 /-- **The member abstraction, read** (`targetAbs`). -/
 theorem targetAbsI_tr {s : InLean.CState} (names : List Lean.Name) {lvls : List Lean.Level}

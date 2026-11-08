@@ -118,7 +118,7 @@ theorem anySpec_mentions (names : List Lean.Name) (p : Lean.Expr → Bool)
 theorem piDomsMentionAny_tr (names : List Lean.Name) : ∀ (e : Lean.Expr),
     ConLeche.Expr.piDomsMentionAny (names.map toName) (trC e) = InLean.piDomsMentionAny names e
   | .forallE _ ty b _ => by
-    simp only [InLean.piDomsMentionAny, EO.any, anyNode_fresh]
+    simp only [InLean.piDomsMentionAny, EO.any, anyNode_spec]
     rw [anySpec_mentions names _ (fun _ _ => rfl) (fun _ _ _ => rfl)
       (fun x h1 h2 => by cases x <;> simp_all)]
     simp only [trC, trE, ConLeche.Expr.piDomsMentionAny]

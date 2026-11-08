@@ -443,7 +443,7 @@ theorem constsResolveF_tr {fe : InLean.FEnv} {L : ConLeche.Env} (hP : EnvPresI f
   refine constsResolve_of_test hP hok (fun n hn => ?_) 0 ?_
   · exact Array.all_eq_true_iff_forall_mem.1 hb.1 n (usedConstants_complete hn)
   · have := hb.2
-    simp only [EO.any, anyNode_fresh] at this
+    simp only [EO.any, anyNode_spec] at this
     rw [← this]
     congr 1
 

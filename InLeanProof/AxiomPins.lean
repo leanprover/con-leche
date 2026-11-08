@@ -121,9 +121,9 @@ info: 'InLeanProof.toExpr_instantiate' depends on axioms: [propext,
 #guard_msgs in
 #print axioms InLeanProof.toExpr_of_clEq
 
-/-- info: 'InLeanProof.data_eraseK' depends on axioms: [propext, Quot.sound] -/
+/-- info: 'InLean.data_eraseK' depends on axioms: [propext, Quot.sound] -/
 #guard_msgs in
-#print axioms InLeanProof.data_eraseK
+#print axioms InLean.data_eraseK
 
 /-- info: 'InLeanProof.mkFVarM_ok' depends on axioms: [propext, Classical.choice, Quot.sound] -/
 #guard_msgs in

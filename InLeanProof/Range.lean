@@ -145,7 +145,7 @@ theorem Lvl_depth_eq : ∀ u : Level, Lvl.depth u = depthS u := by
 
 theorem inRange_eq (e : Expr) : EO.inRange e = !anySpec inRangeF e 0 := by
   unfold EO.inRange
-  rw [anyNode_fresh]
+  rw [anyNode_spec]
   rfl
 
 theorem RangeOk_of_anySpec : ∀ (e : Expr) (k : Nat), anySpec inRangeF e k = false →

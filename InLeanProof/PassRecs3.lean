@@ -233,7 +233,7 @@ theorem eraseFVarTysI_run {mode : ConLeche.CheckMode} {eager : Bool} {env : ConL
       have := hc id (.inl ⟨Array.mem_toList_iff.2 hmem, hds⟩)
       rwa [Std.HashMap.contains_eq_isSome_getElem?] at this
     unfold EO.replace
-    rw [mapOff_fresh, ← TrS_of_tabLe ht₁ he]
+    rw [mapOff_spec, ← TrS_of_tabLe ht₁ he]
     exact ⟨hs₁, ht₁, mapSpec_efF_tr hm e 0 he₁ hocc⟩
 
 /-- **A list's erasure, read** (`mapM eraseFVarTys`). -/

@@ -451,7 +451,7 @@ have a reading, which is master's image. -/
 theorem replaceFVars_eq (fI : Nat → Option Lean.Expr) (e : Lean.Expr) :
     InLean.replaceFVars fI e = if !e.hasFVar then e else mapSpec (fun x _ => rfF fI x) e 0 := by
   unfold InLean.replaceFVars EO.replace
-  rw [mapOff_fresh]; rfl
+  rw [mapOff_spec]; rfl
 
 theorem cReplaceFVars_closed (f : Nat → Option ConLeche.Expr) :
     ∀ (e : ConLeche.Expr), e.hasFvar = false → ConLeche.Expr.replaceFVars f e = e

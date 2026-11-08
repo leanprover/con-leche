@@ -163,6 +163,15 @@
 #       records read the generated C for the trap the primitive exists
 #       to avoid (a hidden reference before the read).
 #
+#   InLean/Exclusive.lean              unsafe, implemented_by
+#       InLean's twin of `ConLeche/Kernel/Exclusive.lean`'s
+#       `withExclusive`, allowed for InLean by the maintainer's ruling of
+#       2026-11-08 (task #451), on the same justification as the entry
+#       above: defined as `k false`, implemented by the reference-count
+#       read, every use through `withExcl` into a `Squash`.  To be
+#       replaced by the standard library's `withExclusive` (`Init.Util`)
+#       when the toolchain has it; the entry then goes.
+#
 #   ConLeche/Driver/CheckPool.lean     unsafe
 #       THE PERSISTENT MARK BEFORE THE CHECK PHASE.  Three term-level
 #       `unsafe Runtime.markPersistent` calls: two in `Jobs.build`, taken
@@ -271,6 +280,7 @@ ALLOW = {
     'ConLeche/Kernel/Expr.lean':     {'computed_field'},
     'ConLeche/Kernel/Name.lean':     {'computed_field'},
     'ConLeche/Kernel/Exclusive.lean': {'unsafe', 'implemented_by'},
+    'InLean/Exclusive.lean':         {'unsafe', 'implemented_by'},
     'InLeanProof/MkDataAxioms.lean': {'axiom'},
     'InLean/Pins.lean': {'ofReduceBool'},
 }

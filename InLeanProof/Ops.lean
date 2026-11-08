@@ -19,7 +19,9 @@ node callback `f`.  Two steps relate them to con-leche's pure
 operations:
 
 1. `mapOff_spec`: the memoised walk computes the plain structural map
-   `mapSpec f` (the memo invariant: every entry is `mapSpec`'s answer).
+   `mapSpec f` (the walk carries its proof against its plain descent
+   `EO.mapP`, `EO.mapOff_eq`; `mapP_spec` reads `Expr.update*!` as the
+   constructors).
 2. Per operation, `toExpr` commutes: InLean's lift on a term in range
    (`Expr.RangeOk`) reading as `c` reads as con-leche's `liftLooseBVars` of
    `c`.  The walks' cutoffs read Lean's cached fields, which is where the
@@ -53,26 +55,6 @@ binder). -/
   | e@(.proj s i x), k => (f e k).getD (.proj s i (mapSpec f x k))
   | e, k => (f e k).getD e
 
-/-- The memo invariant: every recorded answer is `mapSpec`'s. -/
-def MapMemoInv (f : Expr → Nat → Option Expr) (memo : EO.Memo) : Prop :=
-  ∀ (key : Expr × Nat) (r : Expr), memo[key]? = some r → r = mapSpec f key.1 key.2
-
-theorem MapMemoInv.empty {f : Expr → Nat → Option Expr} : MapMemoInv f {} := by
-  intro key r h; simp at h
-
-theorem MapMemoInv.insert {f : Expr → Nat → Option Expr} {memo : EO.Memo}
-    (hm : MapMemoInv f memo) {e : Expr} {k : Nat} {r : Expr} (hr : r = mapSpec f e k) :
-    MapMemoInv f (memo.insert (e, k) r) := by
-  intro key r' h
-  rw [Std.HashMap.getElem?_insert] at h
-  split at h
-  · rename_i heq
-    have : (e, k) = key := eq_of_beq heq
-    subst this
-    simp only [Option.some.injEq] at h
-    exact h ▸ hr
-  · exact hm key r' h
-
 theorem mapSpec_eq_of_some {f : Expr → Nat → Option Expr} {e : Expr} {k : Nat} {r : Expr}
     (h : f e k = some r) : mapSpec f e k = r := by
   rw [mapSpec.eq_def]; split <;> simp_all
@@ -90,125 +72,59 @@ theorem mapSpec_leaf (f : Expr → Nat → Option Expr) {e : Expr} (k : Nat)
   case lit l => rfl
   all_goals simp [EO.isCompound] at h
 
-/-- **The memoised walk is its plain spec** (and keeps the invariant). -/
-theorem mapOff_spec (f : Expr → Nat → Option Expr) :
-    ∀ (e : Expr) (k : Nat) (memo : EO.Memo), MapMemoInv f memo →
-      (EO.mapOff f e k memo).1 = mapSpec f e k ∧ MapMemoInv f (EO.mapOff f e k memo).2 := by
+/-- **The walk's plain descent is the structural map** (`EO.mapP` rebuilds
+with `Expr.update*!`, whose logical bodies are the constructors). -/
+theorem mapP_spec (f : Expr → Nat → Option Expr) :
+    ∀ (e : Expr) (k : Nat), EO.mapP f e k = mapSpec f e k := by
   intro e
   induction e with
   | app g a ihg iha =>
-    intro k memo hm
-    rw [EO.mapOff]
+    intro k
     cases hf : f (.app g a) k with
-    | some r => exact ⟨(mapSpec_eq_of_some hf).symm, hm⟩
-    | none =>
-      simp only [EO.isCompound, Bool.not_true, Bool.false_eq_true, ↓reduceIte]
-      cases hhit : memo[(Expr.app g a, k)]? with
-      | some r => exact ⟨hm _ _ hhit, hm⟩
-      | none =>
-        obtain ⟨h1, h2⟩ := ihg k memo hm
-        obtain ⟨h3, h4⟩ := iha k _ h2
-        have hv : (Expr.app g a).updateApp! (EO.mapOff f g k memo).1
-            (EO.mapOff f a k (EO.mapOff f g k memo).2).1 = mapSpec f (.app g a) k := by
-          rw [h1, h3]; simp [mapSpec, hf, Expr.updateApp!, mkApp]
-        exact ⟨hv, h4.insert hv⟩
+    | some r => rw [EO.mapP_some hf, mapSpec_eq_of_some hf]
+    | none => rw [EO.mapP_app hf, ihg, iha]; simp [mapSpec, hf, Expr.updateApp!, mkApp]
   | lam n t b bi iht ihb =>
-    intro k memo hm
-    rw [EO.mapOff]
+    intro k
     cases hf : f (.lam n t b bi) k with
-    | some r => exact ⟨(mapSpec_eq_of_some hf).symm, hm⟩
+    | some r => rw [EO.mapP_some hf, mapSpec_eq_of_some hf]
     | none =>
-      simp only [EO.isCompound, Bool.not_true, Bool.false_eq_true, ↓reduceIte]
-      cases hhit : memo[(Expr.lam n t b bi, k)]? with
-      | some r => exact ⟨hm _ _ hhit, hm⟩
-      | none =>
-        obtain ⟨h1, h2⟩ := iht k memo hm
-        obtain ⟨h3, h4⟩ := ihb (k + 1) _ h2
-        have hv : (Expr.lam n t b bi).updateLambdaE! (EO.mapOff f t k memo).1
-            (EO.mapOff f b (k + 1) (EO.mapOff f t k memo).2).1 = mapSpec f (.lam n t b bi) k := by
-          rw [h1, h3]; simp [mapSpec, hf, Expr.updateLambdaE!, Expr.updateLambda!, mkLambda]
-        exact ⟨hv, h4.insert hv⟩
+      rw [EO.mapP_lam hf, iht, ihb]
+      simp [mapSpec, hf, Expr.updateLambdaE!, Expr.updateLambda!, mkLambda]
   | forallE n t b bi iht ihb =>
-    intro k memo hm
-    rw [EO.mapOff]
+    intro k
     cases hf : f (.forallE n t b bi) k with
-    | some r => exact ⟨(mapSpec_eq_of_some hf).symm, hm⟩
+    | some r => rw [EO.mapP_some hf, mapSpec_eq_of_some hf]
     | none =>
-      simp only [EO.isCompound, Bool.not_true, Bool.false_eq_true, ↓reduceIte]
-      cases hhit : memo[(Expr.forallE n t b bi, k)]? with
-      | some r => exact ⟨hm _ _ hhit, hm⟩
-      | none =>
-        obtain ⟨h1, h2⟩ := iht k memo hm
-        obtain ⟨h3, h4⟩ := ihb (k + 1) _ h2
-        have hv : (Expr.forallE n t b bi).updateForallE! (EO.mapOff f t k memo).1
-            (EO.mapOff f b (k + 1) (EO.mapOff f t k memo).2).1
-              = mapSpec f (.forallE n t b bi) k := by
-          rw [h1, h3]; simp [mapSpec, hf, Expr.updateForallE!, Expr.updateForall!, mkForall]
-        exact ⟨hv, h4.insert hv⟩
+      rw [EO.mapP_forallE hf, iht, ihb]
+      simp [mapSpec, hf, Expr.updateForallE!, Expr.updateForall!, mkForall]
   | letE n t v b nd iht ihv ihb =>
-    intro k memo hm
-    rw [EO.mapOff]
+    intro k
     cases hf : f (.letE n t v b nd) k with
-    | some r => exact ⟨(mapSpec_eq_of_some hf).symm, hm⟩
+    | some r => rw [EO.mapP_some hf, mapSpec_eq_of_some hf]
     | none =>
-      simp only [EO.isCompound, Bool.not_true, Bool.false_eq_true, ↓reduceIte]
-      cases hhit : memo[(Expr.letE n t v b nd, k)]? with
-      | some r => exact ⟨hm _ _ hhit, hm⟩
-      | none =>
-        obtain ⟨h1, h2⟩ := iht k memo hm
-        obtain ⟨h3, h4⟩ := ihv k _ h2
-        obtain ⟨h5, h6⟩ := ihb (k + 1) _ h4
-        have hv : (Expr.letE n t v b nd).updateLetE! (EO.mapOff f t k memo).1
-            (EO.mapOff f v k (EO.mapOff f t k memo).2).1
-            (EO.mapOff f b (k + 1) (EO.mapOff f v k (EO.mapOff f t k memo).2).2).1
-              = mapSpec f (.letE n t v b nd) k := by
-          rw [h1, h3, h5]; simp [mapSpec, hf, Expr.updateLetE!, Expr.updateLet!]
-        exact ⟨hv, h6.insert hv⟩
+      rw [EO.mapP_letE hf, iht, ihv, ihb]
+      simp [mapSpec, hf, Expr.updateLetE!, Expr.updateLet!]
   | mdata m x ih =>
-    intro k memo hm
-    rw [EO.mapOff]
+    intro k
     cases hf : f (.mdata m x) k with
-    | some r => exact ⟨(mapSpec_eq_of_some hf).symm, hm⟩
-    | none =>
-      simp only [EO.isCompound, Bool.not_true, Bool.false_eq_true, ↓reduceIte]
-      cases hhit : memo[(Expr.mdata m x, k)]? with
-      | some r => exact ⟨hm _ _ hhit, hm⟩
-      | none =>
-        obtain ⟨h1, h2⟩ := ih k memo hm
-        have hv : (Expr.mdata m x).updateMData! (EO.mapOff f x k memo).1
-            = mapSpec f (.mdata m x) k := by
-          rw [h1]; simp [mapSpec, hf, Expr.updateMData!, mkMData]
-        exact ⟨hv, h2.insert hv⟩
+    | some r => rw [EO.mapP_some hf, mapSpec_eq_of_some hf]
+    | none => rw [EO.mapP_mdata hf, ih]; simp [mapSpec, hf, Expr.updateMData!, mkMData]
   | proj s i x ih =>
-    intro k memo hm
-    rw [EO.mapOff]
+    intro k
     cases hf : f (.proj s i x) k with
-    | some r => exact ⟨(mapSpec_eq_of_some hf).symm, hm⟩
-    | none =>
-      simp only [EO.isCompound, Bool.not_true, Bool.false_eq_true, ↓reduceIte]
-      cases hhit : memo[(Expr.proj s i x, k)]? with
-      | some r => exact ⟨hm _ _ hhit, hm⟩
-      | none =>
-        obtain ⟨h1, h2⟩ := ih k memo hm
-        have hv : (Expr.proj s i x).updateProj! (EO.mapOff f x k memo).1
-            = mapSpec f (.proj s i x) k := by
-          rw [h1]; simp [mapSpec, hf, Expr.updateProj!, mkProj]
-        exact ⟨hv, h2.insert hv⟩
+    | some r => rw [EO.mapP_some hf, mapSpec_eq_of_some hf]
+    | none => rw [EO.mapP_proj hf, ih]; simp [mapSpec, hf, Expr.updateProj!, mkProj]
   | bvar | fvar | mvar | sort | const | lit =>
-    intro k memo hm
-    unfold EO.mapOff
+    intro k
     rw [mapSpec_leaf f k rfl]
-    cases f _ k <;> exact ⟨rfl, hm⟩
+    cases hf : f _ k with
+    | some r => rw [EO.mapP_some hf]; rfl
+    | none => rw [EO.mapP_leaf hf rfl]; rfl
 
-/-- A fresh memo of any capacity is empty. -/
-theorem MapMemoInv.fresh {f : Expr → Nat → Option Expr} (n : Nat) :
-    MapMemoInv f (Std.HashMap.emptyWithCapacity n) := by
-  intro key r h; simp at h
-
-/-- The walk from its own fresh memo (`EO.freshFor`). -/
-theorem mapOff_fresh (f : Expr → Nat → Option Expr) (e : Expr) (k : Nat) (x : Expr) :
-    (EO.mapOff f e k (EO.freshFor x)).1 = mapSpec f e k :=
-  (mapOff_spec f e k _ (MapMemoInv.fresh _)).1
+/-- **The memoised walk is the structural map.** -/
+theorem mapOff_spec (f : Expr → Nat → Option Expr) (e : Expr) (k : Nat) :
+    EO.mapOff f e k = mapSpec f e k := by
+  rw [EO.mapOff_eq, mapP_spec]
 
 /-! ## The reading of a term below its range -/
 
@@ -306,7 +222,7 @@ theorem liftLooseBVars_eq (e : Expr) (s d : Nat) :
   unfold EO.liftLooseBVars
   split
   · rfl
-  · exact mapOff_fresh _ e 0 e
+  · exact mapOff_spec _ e 0
 
 /-- Lifting by zero is the identity (con-leche side). -/
 theorem cl_lift_zero : ∀ (c : ConLeche.Expr) (cut : Nat), c.liftLooseBVars 0 cut = c := by
@@ -447,7 +363,7 @@ theorem instantiate_eq (e : Expr) (subst : Array Expr) :
   dsimp only
   split
   · rfl
-  · exact mapOff_fresh _ e 0 e
+  · exact mapOff_spec _ e 0
 
 /-- The substitution reads, entry by entry, as the closed list `cvs`, and
 is in range. -/
@@ -730,7 +646,7 @@ theorem abstractDepthsFrom_eq (e : Expr) (d k c₀ : Nat) :
   unfold EO.abstractDepthsFrom
   split
   · rfl
-  · exact mapOff_fresh _ e c₀ e
+  · exact mapOff_spec _ e c₀
 
 /-- The cutoff: a node in range with no free variable is its own
 abstraction. -/
@@ -1034,7 +950,7 @@ theorem instantiateLevelParams_eq (e : Expr) (ps : List Name) (us : List Level) 
   unfold EO.instantiateLevelParams
   split
   · rfl
-  · exact mapOff_fresh _ e 0 e
+  · exact mapOff_spec _ e 0
 
 theorem ilp_cut {fv : FVarId → Option ConLeche.Expr} {ps : List Name} {us : List Level}
     {cus : List ConLeche.Level} {x : Expr} {k : Nat} {cx : ConLeche.Expr}
@@ -1223,169 +1139,55 @@ asks the children (binder offset `+1` under a binder), left to right. -/
 section anyNode
 attribute [local instance 2000] instBEqExprExact
 
-/-- The fold's memo invariant: every entry is `anySpec`'s answer. -/
-def AnyMemoInv (p : Expr → Nat → Option Bool) (memo : Std.HashMap (Expr × Nat) Bool) : Prop :=
-  ∀ (key : Expr × Nat) (b : Bool), memo[key]? = some b → b = anySpec p key.1 key.2
-
-theorem AnyMemoInv.insert {p : Expr → Nat → Option Bool} {memo : Std.HashMap (Expr × Nat) Bool}
-    (hm : AnyMemoInv p memo) {e : Expr} {k : Nat} {b : Bool} (hb : b = anySpec p e k) :
-    AnyMemoInv p (memo.insert (e, k) b) := by
-  intro key b' h
-  rw [Std.HashMap.getElem?_insert] at h
-  split at h
-  · rename_i heq
-    have : (e, k) = key := eq_of_beq heq
-    subst this
-    simp only [Option.some.injEq] at h
-    exact h ▸ hb
-  · exact hm key b' h
-
 theorem anySpec_some {p : Expr → Nat → Option Bool} {e : Expr} {k : Nat} {b : Bool}
     (h : p e k = some b) : anySpec p e k = b := by
   rw [anySpec.eq_def]; split <;> simp_all
 
-/-- **The memoised fold is its plain spec.** -/
-theorem anyNode_spec (p : Expr → Nat → Option Bool) :
-    ∀ (e : Expr) (k : Nat) (memo : Std.HashMap (Expr × Nat) Bool), AnyMemoInv p memo →
-      (EO.anyNode p e k memo).1 = anySpec p e k ∧ AnyMemoInv p (EO.anyNode p e k memo).2 := by
+/-- **The walk's plain descent is the structural fold.** -/
+theorem anyP_spec (p : Expr → Nat → Option Bool) :
+    ∀ (e : Expr) (k : Nat), EO.anyP p e k = anySpec p e k := by
   intro e
   induction e with
   | app g a ihg iha =>
-    intro k memo hm
-    rw [EO.anyNode]
+    intro k
     cases hp : p (.app g a) k with
-    | some b => exact ⟨(anySpec_some hp).symm, hm⟩
-    | none =>
-      have hs : anySpec p (.app g a) k = (anySpec p g k || anySpec p a k) := by simp [anySpec, hp]
-      simp only [EO.isCompound, Bool.not_true, Bool.false_eq_true, ↓reduceIte]
-      cases hl : memo[(Expr.app g a, k)]? with
-      | some b => exact ⟨hm _ _ hl, hm⟩
-      | none =>
-        obtain ⟨h1, h2⟩ := ihg k memo hm
-        obtain ⟨h3, h4⟩ := iha k _ h2
-        cases hb : (EO.anyNode p g k memo).1
-        · simp only [Bool.false_eq_true, ↓reduceIte]
-          have hv : (EO.anyNode p a k (EO.anyNode p g k memo).2).1 = anySpec p (.app g a) k := by
-            rw [hs, ← h1, hb, Bool.false_or, h3]
-          exact ⟨hv, h4.insert hv⟩
-        · simp only [↓reduceIte]
-          have hv : true = anySpec p (.app g a) k := by rw [hs, ← h1, hb, Bool.true_or]
-          exact ⟨hv, h2.insert hv⟩
+    | some b => rw [EO.anyP_some hp, anySpec_some hp]
+    | none => rw [EO.anyP_app hp, ihg, iha]; simp [anySpec, hp]
   | lam n t b bi iht ihb =>
-    intro k memo hm
-    rw [EO.anyNode]
+    intro k
     cases hp : p (.lam n t b bi) k with
-    | some b => exact ⟨(anySpec_some hp).symm, hm⟩
-    | none =>
-      have hs : anySpec p (.lam n t b bi) k = (anySpec p t k || anySpec p b (k + 1)) := by
-        simp [anySpec, hp]
-      simp only [EO.isCompound, Bool.not_true, Bool.false_eq_true, ↓reduceIte]
-      cases hl : memo[(Expr.lam n t b bi, k)]? with
-      | some b => exact ⟨hm _ _ hl, hm⟩
-      | none =>
-        obtain ⟨h1, h2⟩ := iht k memo hm
-        obtain ⟨h3, h4⟩ := ihb (k + 1) _ h2
-        cases hb : (EO.anyNode p t k memo).1
-        · simp only [Bool.false_eq_true, ↓reduceIte]
-          have hv : (EO.anyNode p b (k + 1) (EO.anyNode p t k memo).2).1 =
-              anySpec p (.lam n t b bi) k := by
-            rw [hs, ← h1, hb, Bool.false_or, h3]
-          exact ⟨hv, h4.insert hv⟩
-        · simp only [↓reduceIte]
-          have hv : true = anySpec p (.lam n t b bi) k := by rw [hs, ← h1, hb, Bool.true_or]
-          exact ⟨hv, h2.insert hv⟩
+    | some b => rw [EO.anyP_some hp, anySpec_some hp]
+    | none => rw [EO.anyP_lam hp, iht, ihb]; simp [anySpec, hp]
   | forallE n t b bi iht ihb =>
-    intro k memo hm
-    rw [EO.anyNode]
+    intro k
     cases hp : p (.forallE n t b bi) k with
-    | some b => exact ⟨(anySpec_some hp).symm, hm⟩
-    | none =>
-      have hs : anySpec p (.forallE n t b bi) k = (anySpec p t k || anySpec p b (k + 1)) := by
-        simp [anySpec, hp]
-      simp only [EO.isCompound, Bool.not_true, Bool.false_eq_true, ↓reduceIte]
-      cases hl : memo[(Expr.forallE n t b bi, k)]? with
-      | some b => exact ⟨hm _ _ hl, hm⟩
-      | none =>
-        obtain ⟨h1, h2⟩ := iht k memo hm
-        obtain ⟨h3, h4⟩ := ihb (k + 1) _ h2
-        cases hb : (EO.anyNode p t k memo).1
-        · simp only [Bool.false_eq_true, ↓reduceIte]
-          have hv : (EO.anyNode p b (k + 1) (EO.anyNode p t k memo).2).1 =
-              anySpec p (.forallE n t b bi) k := by
-            rw [hs, ← h1, hb, Bool.false_or, h3]
-          exact ⟨hv, h4.insert hv⟩
-        · simp only [↓reduceIte]
-          have hv : true = anySpec p (.forallE n t b bi) k := by rw [hs, ← h1, hb, Bool.true_or]
-          exact ⟨hv, h2.insert hv⟩
+    | some b => rw [EO.anyP_some hp, anySpec_some hp]
+    | none => rw [EO.anyP_forallE hp, iht, ihb]; simp [anySpec, hp]
   | letE n t v b nd iht ihv ihb =>
-    intro k memo hm
-    rw [EO.anyNode]
+    intro k
     cases hp : p (.letE n t v b nd) k with
-    | some b => exact ⟨(anySpec_some hp).symm, hm⟩
-    | none =>
-      have hs : anySpec p (.letE n t v b nd) k =
-          (anySpec p t k || anySpec p v k || anySpec p b (k + 1)) := by
-        simp [anySpec, hp]
-      simp only [EO.isCompound, Bool.not_true, Bool.false_eq_true, ↓reduceIte]
-      cases hl : memo[(Expr.letE n t v b nd, k)]? with
-      | some b => exact ⟨hm _ _ hl, hm⟩
-      | none =>
-        obtain ⟨h1, h2⟩ := iht k memo hm
-        obtain ⟨h3, h4⟩ := ihv k _ h2
-        obtain ⟨h5, h6⟩ := ihb (k + 1) _ h4
-        cases hb : (EO.anyNode p t k memo).1
-        · simp only [Bool.false_eq_true, ↓reduceIte]
-          cases hb' : (EO.anyNode p v k (EO.anyNode p t k memo).2).1
-          · simp only [Bool.false_eq_true, ↓reduceIte]
-            have hv : (EO.anyNode p b (k + 1) (EO.anyNode p v k (EO.anyNode p t k memo).2).2).1 =
-                anySpec p (.letE n t v b nd) k := by
-              rw [hs, ← h1, hb, ← h3, hb', h5]; simp
-            exact ⟨hv, h6.insert hv⟩
-          · simp only [↓reduceIte]
-            have hv : true = anySpec p (.letE n t v b nd) k := by
-              rw [hs, ← h1, hb, ← h3, hb']; simp
-            exact ⟨hv, h4.insert hv⟩
-        · simp only [↓reduceIte]
-          have hv : true = anySpec p (.letE n t v b nd) k := by rw [hs, ← h1, hb]; simp
-          exact ⟨hv, h2.insert hv⟩
+    | some b => rw [EO.anyP_some hp, anySpec_some hp]
+    | none => rw [EO.anyP_letE hp, iht, ihv, ihb]; simp [anySpec, hp]
   | mdata m x ih =>
-    intro k memo hm
-    rw [EO.anyNode]
+    intro k
     cases hp : p (.mdata m x) k with
-    | some b => exact ⟨(anySpec_some hp).symm, hm⟩
-    | none =>
-      have hs : anySpec p (.mdata m x) k = anySpec p x k := by simp [anySpec, hp]
-      simp only [EO.isCompound, Bool.not_true, Bool.false_eq_true, ↓reduceIte]
-      cases hl : memo[(Expr.mdata m x, k)]? with
-      | some b => exact ⟨hm _ _ hl, hm⟩
-      | none =>
-        obtain ⟨h1, h2⟩ := ih k memo hm
-        have hv : (EO.anyNode p x k memo).1 = anySpec p (.mdata m x) k := by rw [hs, h1]
-        exact ⟨hv, h2.insert hv⟩
+    | some b => rw [EO.anyP_some hp, anySpec_some hp]
+    | none => rw [EO.anyP_mdata hp, ih]; simp [anySpec, hp]
   | proj s i x ih =>
-    intro k memo hm
-    rw [EO.anyNode]
+    intro k
     cases hp : p (.proj s i x) k with
-    | some b => exact ⟨(anySpec_some hp).symm, hm⟩
-    | none =>
-      have hs : anySpec p (.proj s i x) k = anySpec p x k := by simp [anySpec, hp]
-      simp only [EO.isCompound, Bool.not_true, Bool.false_eq_true, ↓reduceIte]
-      cases hl : memo[(Expr.proj s i x, k)]? with
-      | some b => exact ⟨hm _ _ hl, hm⟩
-      | none =>
-        obtain ⟨h1, h2⟩ := ih k memo hm
-        have hv : (EO.anyNode p x k memo).1 = anySpec p (.proj s i x) k := by rw [hs, h1]
-        exact ⟨hv, h2.insert hv⟩
+    | some b => rw [EO.anyP_some hp, anySpec_some hp]
+    | none => rw [EO.anyP_proj hp, ih]; simp [anySpec, hp]
   | bvar | fvar | mvar | sort | const | lit =>
-    intro k memo hm
-    unfold EO.anyNode
+    intro k
     cases hp : p _ k with
-    | some b => exact ⟨(anySpec_some hp).symm, hm⟩
-    | none => simp [EO.isCompound, anySpec, hp]; exact hm
+    | some b => rw [EO.anyP_some hp, anySpec_some hp]
+    | none => rw [EO.anyP_leaf hp rfl]; simp [anySpec, hp]
 
-theorem anyNode_fresh (p : Expr → Nat → Option Bool) (e : Expr) (k : Nat) (x : Expr) :
-    (EO.anyNode p e k (EO.freshFor x)).1 = anySpec p e k :=
-  (anyNode_spec p e k _ (fun _ _ h => by simp [EO.freshFor] at h)).1
+/-- **The memoised fold is the structural fold.** -/
+theorem anyNode_spec (p : Expr → Nat → Option Bool) (e : Expr) (k : Nat) :
+    EO.anyNode p e k = anySpec p e k := by
+  rw [EO.anyNode_eq, anyP_spec]
 
 end anyNode
 
@@ -1610,7 +1412,7 @@ theorem hasFVar_toExpr {fv : FVarId → Option ConLeche.Expr} (hfv : FVarsOnly f
 
 theorem hasLooseBVar_eq (e : Expr) (i : Nat) :
     EO.hasLooseBVar e i = anySpec (hlbF i) e 0 :=
-  anyNode_fresh _ e 0 e
+  anyNode_spec _ e 0
 
 /-- con-leche's test is false at and above a term's bound. -/
 theorem cl_hasLooseBVar_of_bound : ∀ {c : ConLeche.Expr} {n : Nat}, c.bvarBound ≤ n →

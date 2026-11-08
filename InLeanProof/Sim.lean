@@ -76,11 +76,8 @@ theorem toExpr_of_keyEq (fv : FVarId → Option ConLeche.Expr) {a b : Expr}
 /-! ## The memo keys are lawful
 
 Lean's cached hash reads no binder name, binder info or `nonDep` (the
-computed field `Expr.data`), so `eraseK`-equal terms hash alike. -/
-
-theorem data_eraseK : ∀ e : Expr, (eraseK e).data = e.data := by
-  intro e
-  induction e <;> simp_all [eraseK, Expr.data]
+computed field `Expr.data`, `InLean.data_eraseK`), so `eraseK`-equal terms
+hash alike. -/
 
 instance : LawfulHashable EKey where
   hash_eq a b h := by

@@ -144,7 +144,7 @@ theorem anySpec_nestOcc (s : InLean.CState) (names : List Lean.Name) (lo hi : Na
 theorem nestOccI_tr {s : InLean.CState} (names : List Lean.Name) (lo hi : Nat) {e : Lean.Expr}
     (h : OkS s e = true) :
     InLean.nestOcc names lo hi e = ConLeche.Expr.nestOcc (names.map toName) lo hi (TrS s e) := by
-  simp only [InLean.nestOcc, EO.any, anyNode_fresh]
+  simp only [InLean.nestOcc, EO.any, anyNode_spec]
   exact anySpec_nestOcc s names lo hi _ (fun _ _ => rfl) (fun _ => rfl)
     (fun x h1 h2 => by cases x <;> simp_all) e 0 h
 
@@ -261,7 +261,7 @@ have a reading, which is master's image at the translated head. -/
 theorem replaceApps_eq (fI : Lean.Name → List Lean.Level → Option Lean.Expr) (b n : Nat)
     (e : Lean.Expr) : InLean.replaceApps fI b n e = mapSpec (fun x _ => raF fI b n x) e 0 := by
   unfold InLean.replaceApps EO.replace
-  rw [mapOff_fresh]; rfl
+  rw [mapOff_spec]; rfl
 
 theorem raF_hole {s : InLean.CState} {fI fC} (hR : SubRel s fI fC) (b n : Nat) {x : Lean.Expr}
     (h : OkS s x = true) :

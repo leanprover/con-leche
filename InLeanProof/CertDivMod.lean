@@ -38,7 +38,7 @@ open Lean InLean Std.WP ConLeche.Cached
 
 theorem any_eq_anySpec (p : Expr → Bool) (e : Expr) :
     EO.any p e = anySpec (fun x _ => if p x then some true else none) e 0 := by
-  unfold EO.any; rw [anyNode_fresh]
+  unfold EO.any; rw [anyNode_spec]
 
 theorem natLit_cr {L : ConLeche.Env} (h : ConLeche.natLitStored L = true) (n : Nat) :
     (ConLeche.Expr.lit (.natVal n)).constsResolve L = true := by
