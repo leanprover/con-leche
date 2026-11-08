@@ -759,6 +759,10 @@ work_ "an axiom at a certified Nat operation's name" 1 "not a definition: Nat.di
 work_ "two axioms of one propositional statement meet" 0 "1 flags inferred" "$MSP" AxM --progress
 work_ "an axiom of a proposition meets a theorem" 0 "1 flags inferred" "$MSP" AxIM --progress
 for m in AxA AxB AxIT AxNM; do work_ "the worker at $m" 0 "accepted" "$MSP" $m; done
+# QsA's and QsB's `axiom Quot.sound`, over QsP's quotient, meet at QsM (Lean merges the two
+# axioms); QsM's context reads QsB's theorem, whose read of `Quot.sound` is QsB's own copy, a
+# proof pair with the context's (QsA's): every worker accepts (task #501)
+for m in QsP QsA QsB QsM; do work_ "the worker at $m" 0 "accepted" "$LIB" $m; done
 # the toolchain's homes of certified Nat operations (Nat.gcd; Nat.land, Nat.lor, Nat.xor,
 # Nat.shiftLeft, Nat.shiftRight): their pins' and certificates' constants are reached, so
 # their install checks find them (exit 2 before task #446)
