@@ -11,6 +11,13 @@ The recursor stage (`genRecCheck`) against master's, continued bottom-up:
 * `eraseFVarTysI_run`: InLean's `eraseFVarTys` (a `for` over `fvarIds` filling
   a `HashMap` of interned `Sort 0`-typed variables, then `EO.replace`) is
   master's pure `Expr.eraseFVarTys` on the reading.
+* `targetK53I_run`, `classNodesAgreeI_run`, `classFieldsAgreeI_run`: the node
+  agreement (K.53′), InLean's `true` / pass is master's.
+* `classCtorOfI_run`, `classCtorsOfI_run`, `classesCtorsI_run`: the classes'
+  constructors, read as `trCC`.
+* The generator's record `trCG` and its `OptionT CheckCM` steps against master's
+  `Option`: `majorI_run`, `ihPartsI_run`, `motiveTyI_run` (the last where
+  InLean's closing wrote no out-of-range marker, `emvarS = false`).
 -/
 
 set_option experimental.vcgen true
@@ -1160,6 +1167,5 @@ theorem motiveTyI_run {mode : ConLeche.CheckMode} {eager : Bool} {env : ConLeche
     refine ⟨ho, ?_⟩
     rw [ht, hbst]
     rfl
-
 
 end InLeanProof

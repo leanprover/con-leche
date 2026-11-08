@@ -113033,6 +113033,108 @@ is closed by `isDefEq_self_runs`, not by a change.
 Gates: `lake build InLean InLeanProof` warning-free; `tests/layering.sh`,
 `tests/trust-surface.sh`, `tests/no-local-paths.sh`, `tests/inlean-sync.sh` pass.
 
+### Lane O7-recursors, round 2: the erased comparison, the classes' constructors, the generator's first steps (2026-11-08)
+
+Scope was round 1's "What remains" 1-4.  Items 1 and 2 are done; item 3 is started
+(the generator's record and its first three `OptionT` steps); item 4 is not started.
+One new file, `InLeanProof/PassRecs3.lean` (43 theorems, all pinned); no `InLean/*`
+change; no existing proof changed (the root's and `AxiomPins.lean`'s imports added);
+no `sorry`; no new axiom (13 theorems use the stop-gap `mkData` axioms, as every
+`TrS`/instantiate lemma).
+
+**The erased comparison.**  **`eraseFVarTysI_run`** :212: InLean's `eraseFVarTys` (a
+`for` over `fvarIds` filling a `HashMap` with interned `Sort 0`-typed variables, then
+`EO.replace`) is master's pure `Expr.eraseFVarTys` on the reading.  The loop's
+invariant is `EraseMapOk` (every entry read as master's variable at the id's depth,
+annotated `Sort 0`; `efLoop_run` :161); the replacement is `mapSpec_efF_tr` :57,
+which needs an entry only for the variables that occur (`OccF`, through
+`mem_fvarIds`); the loop body is restated as `efBody` (`eraseFVarTys_eq` :152, by
+`rfl`).  `mapM_eraseFVarTysI_run` :240 for the lists.
+
+**K.53′ and the node agreement.**  `stripPis_TrS` :265 (`stripPis` on the reading, not
+only on `trC`), `getAppNumArgsT_TrS` :305.  **`targetK53I_run`** :311: InLean's
+`true` is master's `true` on the readings, in the class's frame (`FrameOk`, the class
+`OkTMN`).  Only the `true` direction is stated: the one caller throws on `false`.
+InLean's `==` on the erased lists gives the readings' equality (`TrSL_of_beq`); the
+class match is `targetClassMatchI_run`.  **`classNodesAgreeI_run`** :447 (over the
+class's entries, `piDomAt_tr` :429 reading the field domain),
+**`classFieldsAgreeI_run`** :565 (the kinds as `trCF`; `classLeafAt_tr` :525, through
+`getAppFnT_ne_mdata` and `toName_beq`).  The datum's fields are `FvsOk` (readable,
+read as variables); the classes are given as `∀ t, … (Ms.getD t default)`, because
+master's `Ms.getD t default` is reached for any `t` a kind names
+(`getD_map_trTM` :509: `trTM s default = default`).
+
+**The classes' constructors.**  The translation `trCC` (constructor `trCV`, kinds
+`trCF`, the two types `TrS`), its side condition `OkCC`, and `ClassOk` (a class's facts
+the stage reads: `OkTMN`, its entries' and parameters' readings closed, its
+constructors' types closed).  `targetCtorAtI_run` :644, `classFieldsOf_length` :666,
+**`classCtorOfI_run`** :736 (the entries filtered as master's, `filter_ctor_trNf`; the
+datum opened by `openPisAtFvarsI_run`, its fields `FvsOk` by master's
+`openPisAtFvars_index`; `instPisWithI_tr` for the parameter telescope),
+**`classCtorsOfI_run`** :851, **`classesCtorsI_run`** :891: InLean's answer read as
+`xss.map (·.map (trCC s'))`, master's at the class read `trCR sr rd` for any `sr`
+(the read's translation does not depend on the state's growth here).
+
+**The generator's first steps.**  The record `trCG` (parameters, former types and
+prefix by `TrSL`, classes by `trTM`, slots by `trSlot`, constructors by `trCC`, the
+elimination level by `trL`).  The `OptionT CheckCM` steps: `optT_bind_run` :941,
+`optT_pure_run`, `liftOpt_run`, `liftM_run`.  `lbb_instPisWith` :975,
+`fvsOk_of_open` :992; **`majorI_run`** :1003 (`ClassGen.major`: InLean's `some` is
+master's `some` on the readings; at a class index below the former types' length,
+since master's `formerTys.getD c default` and InLean's do not read alike),
+**`ihPartsI_run`** :1068, `mapM_binder_run` :1102 (the binders of opened variables),
+**`motiveTyI_run`** :1133 (where InLean's closing wrote no out-of-range marker).
+
+**Findings.**
+1. **FINDING: the generator's closings may write InLean's out-of-range marker, and
+   nothing after them refuses it by name.**  InLean's `closeTelescope`/`closeLams`
+   abstract through `EO.abstractDepthsFrom`, which writes `EO.rangePoison` (an
+   `mvar`) where a bound index would pass `maxBVarIdx` (1 048 574): a variable under
+   more than that many binders of the closed term.  `reducedFormer` refuses such a
+   term (`EO.inRange`, `reducedFormer_emvar`); `classGenRecTy`, `classGenRule`,
+   `motiveTy` and `minorTy` do not, and neither `classConstOk` nor `classRuleCheck`
+   tests `hasExprMVar`.  InLean's `inferType` throws on an `mvar` node it reaches, so
+   a poisoned generated type or rule should be refused in the end, and no
+   counterexample to "InLean accepts ⇒ master accepts" is known.  But the
+   simulation needs the generated terms' readings (`OkS`) to call `OpsSimI.infer`
+   at all, and "InLean's `inferType` passed ⇒ the term has a reading" is a lemma
+   about the whole knot that nobody has.  `motiveTyI_run` therefore takes
+   `emvarS e = false` on its answer (the marker-freeness `closeTelescope_tr` needs).
+   Proposed fix (executable, outside this lane, maintainer's call): refuse a
+   generated type or rule that is not `EO.inRange`, in `classConstOk` (after the
+   `hasFVar` test) and `classRuleCheck` (beside its closedness test), as
+   `reducedFormer` does; master's twin has nothing to test (master's terms have no
+   marker), so the twin would carry a comment.  Then `emvarS` comes from the guard
+   and every closing step reads as master's.  Without it the stage needs the lemma
+   above.
+2. No statement turned out false for the code.
+
+**What remains** (bottom-up, in this order):
+1. `minorTy` (`openPisO` of `x.tyD`, `targetPiDomsWith`, the inductive hypotheses
+   through `ihPartsI_run` and `g.motVar` = `mkFVarM` of a slot (`mkFVarM_specI`: the
+   reading `.fvar (nP + s) (.sort .zero)`, master's `slotVar`), `closeTelescope_tr`
+   under finding 1's marker-freeness), `prefixBinders` (the `mapM` over the slots,
+   `motiveTyI_run`/`minorTy`, `find?` over the translated constructors by `trCC`'s
+   names), `classGenRecTy`, `classGenRule` (`closeLams`: a `closeLams_tr` twin of
+   `closeTelescope_tr` is needed; the `filterMapM` in `OptionT`; `recOf` by
+   `classRecOf` on `trCV` names).
+2. `classConstOk`, `classRecTyCheck`, `classRecTyOk`/`classRecTysOk` (the result
+   `rc.cvR with type := gty` read by `trCV`; the frame of `OpsSimI` needs the
+   generated type's reading closed and `WScoped 0`), `classRuleCheck`,
+   `classRulesOk`, `classRecsRulesOk` at `classFeROvl` (`opsRuleR feR`), then
+   `genRecCheck` with `shadowOpsC` (`opsAt`, `flush`), output `out.map (trOut s)`:
+   the pieces are round 1's `targetRecPinsI_run`, `classStreamRecsI_run`,
+   `classesNfsI_run`, `classFormerTyI_run`, and this round's `classesCtorsI_run`;
+   the `∀ t, ClassOk …`/`FrameOk …` hypotheses come from `classesNfsI_run`'s classes
+   (`getD_of_all`, `classOk_default`) and the positivity lane's table (`FrameOk`,
+   the entries' readings closed).
+3. `streamRecsCheck` on `trOut`, `checkBlockTablesF` (`structProjBodies` against
+   master's on `trC`, `Expr.constsResolve_instantiate1`, round O7-classes' finding 2
+   from `EnvWF` and freshness).
+
+Gates: `lake build InLean InLeanProof` warning-free; `tests/layering.sh`,
+`tests/trust-surface.sh`, `tests/no-local-paths.sh`, `tests/inlean-sync.sh` pass.
+
 ## TASK #489 — what a module's constants mention, in one array per module (2026-11-06, agent/489-flat-uses)
 
 **The task (maintainer).**  After #480, take the self-contained one of the memory fixes a census of
