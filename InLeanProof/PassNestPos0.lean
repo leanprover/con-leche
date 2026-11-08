@@ -156,7 +156,8 @@ theorem exprsBeq_tr {s : InLean.CState} (hfv : FVTableOK s) :
     simp only [OkSL_cons, Bool.and_eq_true] at h₁ h₂
     rw [List.cons_beq_cons, TrSL_cons, TrSL_cons, List.cons_beq_cons, exprsBeq_tr hfv h₁.2 h₂.2]
     congr 1
-    have hc := clEq_iff_TransS hfv (b := b) (TransS_of_ok h₁.1)
+    have hc := clEq_iff_TransS hfv (b := b) (RangeOk_of_OkS h₁.1) (RangeOk_of_OkS h₂.1)
+      (TransS_of_ok h₁.1)
     show Expr.clEq a b = _
     by_cases h : TrS s a = TrS s b
     · rw [h] at hc

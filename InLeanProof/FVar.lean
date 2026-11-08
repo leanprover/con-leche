@@ -5,12 +5,12 @@ public import InLeanProof.Sim
 /-!
 # Free variables and the checker's equality (task #451, lane P1: O2, O3)
 
-* **O2**: InLean's checker equality `Expr.clEq` is equality after `erase`;
-  `toExpr` reads through `erase` (`toExpr_erase`), and conversely two terms
+* **O2**: InLean's checker equality `Expr.clEq` is, on terms in range,
+  equality after `erase` (`clEq_iff_erase`); `toExpr` reads through `erase` (`toExpr_erase`), and conversely two terms
   that translate equal under an injective id translation are equal after
   `erase` (`erase_eq_of_toExpr`, through the left inverse `fromExpr`).  So,
-  at a state whose table is in order, `clEq a b` holds exactly when `a` and
-  `b` translate equal (`clEq_iff_TransS`).
+  at a state whose table is in order, `clEq a b` holds on terms in range
+  exactly when `a` and `b` translate equal (`clEq_iff_TransS`).
 * **O3**: the table's invariant `FVTableOK` makes the id translation
   injective (`trans_inj`), and `mkFVarM` keeps the invariant, answers the free
   variable con-leche's `.fvar d ty` is, and only extends the translation
@@ -175,11 +175,12 @@ theorem erase_eq_of_toExpr {fv : FVarId → Option ConLeche.Expr} (hfo : FVarsOn
   rw [erase_eq_fromExpr hfo hinj a c ha, erase_eq_fromExpr hfo hinj b c hb]
 
 /-- `Expr.clEq` is equality of translations (under an injective id
-translation, on translatable terms). -/
+translation, on translatable terms in range). -/
 theorem clEq_of_toExpr {fv : FVarId → Option ConLeche.Expr} (hfo : FVarsOnly fv)
-    (hinj : FvInj fv) {a b : Expr} {c : ConLeche.Expr}
-    (ha : toExpr fv a = some c) (hb : toExpr fv b = some c) : Expr.clEq a b = true :=
-  (Expr.clEq_iff a b).2 (erase_eq_of_toExpr hfo hinj ha hb)
+    (hinj : FvInj fv) {a b : Expr} {c : ConLeche.Expr} (hra : Expr.RangeOk a)
+    (hrb : Expr.RangeOk b) (ha : toExpr fv a = some c) (hb : toExpr fv b = some c) :
+    Expr.clEq a b = true :=
+  (clEq_iff_erase hra hrb).2 (erase_eq_of_toExpr hfo hinj ha hb)
 
 /-! ## Translations along a larger id translation -/
 
@@ -622,7 +623,8 @@ theorem mkFVarM_ok {s : InLean.CState} (hs : FVTableOK s) {d : Nat} {ty : Expr}
       have hmem := List.mem_of_find?_eq_some hfind
       have hp := List.find?_some hfind
       obtain ⟨tc, htc, hhash⟩ := hs.cls d _ c hmem
-      rw [htc, Option.getD_some, Expr.clEq_iff] at hp
+      rw [htc, Option.getD_some] at hp
+      replace hp := Expr.clEq_sound hp
       have hl : (tableOf s).live d c = true := by
         simp only [FVarTable.live, tableOf, htc, hhash]
         exact List.contains_iff_mem.2 hmem
@@ -650,7 +652,7 @@ theorem mkFVarM_ok {s : InLean.CState} (hs : FVTableOK s) {d : Nat} {ty : Expr}
           erase tx ≠ erase ty := by
         intro x hx tx htx he
         have := (List.find?_eq_none.1 hnone) x hx
-        rw [htx, Option.getD_some, Expr.clEq_iff] at this
+        rw [htx, Option.getD_some, clEq_iff_erase (hs.range x tx htx) hrty] at this
         exact this he
       have hlt : ∀ d' h' m, m ∈ s.fvCls.getD (d', h') [] → m < s.fvTys.size := by
         intro d' h' m hm
@@ -775,11 +777,12 @@ theorem TransS_fvar {s : InLean.CState} {id : FVarId} {d : Nat} {cty : ConLeche.
 
 /-- **O2 at a state**: the checker's equality is equality of translations. -/
 theorem clEq_iff_TransS {s : InLean.CState} (hs : FVTableOK s) {a b : Expr} {c : ConLeche.Expr}
+    (hra : Expr.RangeOk a) (hrb : Expr.RangeOk b)
     (ha : TransS s a = some c) : Expr.clEq a b = true ↔ TransS s b = some c := by
   constructor
   · intro h
     rw [← ha]; exact (toExpr_of_clEq _ h).symm
   · intro hb
-    exact clEq_of_toExpr (FVarTable.trans_fvarsOnly _) hs.trans_inj ha hb
+    exact clEq_of_toExpr (FVarTable.trans_fvarsOnly _) hs.trans_inj hra hrb ha hb
 
 end InLeanProof

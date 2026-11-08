@@ -59,12 +59,97 @@ theorem toExpr_stripTop (fv : FVarId → Option ConLeche.Expr) :
   intro e
   induction e <;> simp_all [EO.stripTop, toExpr]
 
+/-! ## The checker's equality on terms in range
+
+`Expr.clEq` tests each pair of nodes on the part of the data word `mdata`
+keeps (`clDataNe`).  On terms in range that part is the five structural
+fields (`Expr.fieldsOk`), which `erase` does not change, so the test never
+rejects an `erase`-equal pair there. -/
+
+theorem rangeS_erase : ∀ e : Expr, rangeS (erase e) = rangeS e := by
+  intro e; induction e <;> simp_all [erase, rangeS]
+
+theorem fvarS_erase : ∀ e : Expr, fvarS (erase e) = fvarS e := by
+  intro e; induction e <;> simp_all [erase, fvarS]
+
+theorem emvarS_erase : ∀ e : Expr, emvarS (erase e) = emvarS e := by
+  intro e; induction e <;> simp_all [erase, emvarS]
+
+theorem elmvarS_erase : ∀ e : Expr, elmvarS (erase e) = elmvarS e := by
+  intro e; induction e <;> simp_all [erase, elmvarS]
+
+theorem elparamS_erase : ∀ e : Expr, elparamS (erase e) = elparamS e := by
+  intro e; induction e <;> simp_all [erase, elparamS]
+
+/-- Bits 40 to 63 of a word are its range and four flags. -/
+theorem shiftRight40_eq {x y : UInt64} (h1 : x.toNat / 2 ^ 44 = y.toNat / 2 ^ 44)
+    (h2 : decide (x.toNat / 2 ^ 40 % 2 = 1) = decide (y.toNat / 2 ^ 40 % 2 = 1))
+    (h3 : decide (x.toNat / 2 ^ 41 % 2 = 1) = decide (y.toNat / 2 ^ 41 % 2 = 1))
+    (h4 : decide (x.toNat / 2 ^ 42 % 2 = 1) = decide (y.toNat / 2 ^ 42 % 2 = 1))
+    (h5 : decide (x.toNat / 2 ^ 43 % 2 = 1) = decide (y.toNat / 2 ^ 43 % 2 = 1)) :
+    x >>> 40 = y >>> 40 := by
+  apply UInt64.toNat_inj.1
+  show (UInt64.shiftRight x 40).toNat = (UInt64.shiftRight y 40).toNat
+  rw [shiftRight_toNat x 40 (by decide), shiftRight_toNat y 40 (by decide)]
+  simp only [decide_eq_decide] at h2 h3 h4 h5
+  generalize x.toNat = a at *
+  generalize y.toNat = b at *
+  simp only [UInt64.reduceToNat]
+  omega
+
+/-- The `mdata`-invariant part of a data word is its range and four flags. -/
+theorem clDataNe_of_fields {a b : Expr}
+    (h1 : a.data.looseBVarRange.toNat = b.data.looseBVarRange.toNat)
+    (h2 : a.data.hasFVar = b.data.hasFVar) (h3 : a.data.hasExprMVar = b.data.hasExprMVar)
+    (h4 : a.data.hasLevelMVar = b.data.hasLevelMVar)
+    (h5 : a.data.hasLevelParam = b.data.hasLevelParam) : clDataNe a b = false := by
+  rw [Data.range_read, Data.range_read] at h1
+  rw [Data.fvar_read, Data.fvar_read] at h2
+  rw [Data.emvar_read, Data.emvar_read] at h3
+  rw [Data.lmvar_read, Data.lmvar_read] at h4
+  rw [Data.lparam_read, Data.lparam_read] at h5
+  have e : dataInv a = dataInv b := shiftRight40_eq h1 h2 h3 h4 h5
+  simp [clDataNe, e]
+
+/-- On terms in range, `erase`-equal terms pass the data test. -/
+theorem clDataNe_of_erase {a b : Expr} (ha : Expr.RangeOk a) (hb : Expr.RangeOk b)
+    (h : erase a = erase b) : clDataNe a b = false := by
+  have A := Expr.fieldsOk a ha
+  have B := Expr.fieldsOk b hb
+  apply clDataNe_of_fields
+  · rw [A.range, B.range, ← rangeS_erase a, h, rangeS_erase]
+  · rw [A.fvar, B.fvar, ← fvarS_erase a, h, fvarS_erase]
+  · rw [A.emvar, B.emvar, ← emvarS_erase a, h, emvarS_erase]
+  · rw [A.lmvar, B.lmvar, ← elmvarS_erase a, h, elmvarS_erase]
+  · rw [A.lparam, B.lparam, ← elparamS_erase a, h, elparamS_erase]
+
+/-- On terms in range, the plain descent answers `true` on `erase`-equal
+terms. -/
+theorem clB_complete : ∀ a b, Expr.RangeOk a → Expr.RangeOk b → erase a = erase b →
+    clB a b = true := by
+  intro a b
+  fun_induction clB a b <;> intro ha hb he
+  case case1 ih => exact ih ha hb he
+  case case2 ih => exact ih ha hb he
+  case case8 hc =>
+    exact absurd (by rw [← ctorTag_erase_of_ne _ hc.2.1, ← ctorTag_erase_of_ne _ hc.2.2, he]) hc.1
+  case case9 => simp [he]
+  all_goals
+    simp only [Expr.RangeOk, erase, Expr.app.injEq, Expr.lam.injEq, Expr.forallE.injEq,
+      Expr.letE.injEq, Expr.proj.injEq, true_and] at ha hb he
+    simp_all [clDataNe_of_erase]
+
+/-- **The checker's equality on terms in range is equality after `erase`.** -/
+theorem clEq_iff_erase {a b : Expr} (ha : Expr.RangeOk a) (hb : Expr.RangeOk b) :
+    Expr.clEq a b = true ↔ erase a = erase b := by
+  refine ⟨Expr.clEq_sound, fun h => ?_⟩
+  rw [Expr.clEq_eq, clStep, clDataNe_of_erase ha hb h, clB_complete a b ha hb h]; rfl
+
 /-- **O2, one direction**: terms InLean's checker compares equal translate
 equal. -/
 theorem toExpr_of_clEq (fv : FVarId → Option ConLeche.Expr) {a b : Expr}
     (h : Expr.clEq a b = true) : toExpr fv a = toExpr fv b := by
-  rw [Expr.clEq_iff] at h
-  rw [← toExpr_erase fv a, h, toExpr_erase]
+  rw [← toExpr_erase fv a, Expr.clEq_sound h, toExpr_erase]
 
 /-- Memo keys that compare equal translate equal (`keyEq` erases less than
 `toCL`). -/

@@ -115012,6 +115012,59 @@ Gates: `lake build`, `lake test`, `lake build InLean InLeanProof inlean-replay` 
 `tests/arena.sh` exit 0 (olean gate 122/122, axioms pinned (30 theorems), arena tutorial 90/92 as
 before, e2e 558/558, the trusted and `--jobs` sweeps without divergence, selfcheck accepted).
 
+### Lane clEq: the checker's equality tests the data word per child (2026-11-08, task #451, agent/451-inlean2)
+
+Maintainer: give `clEq` con-leche's data-word fast path in the form that keeps InLean
+axiom-free: InLean *defines* `Expr.clEq` (and its per-child step) with the test built in, no
+`@[csimp]` theorem; the proof re-proves what it reads of `clEq` with the `MkDataAxioms` stop-gaps.
+
+**The code** (`InLean/ExprEq.lean`).  `dataInv e = e.data >>> 40` (the four flags and the
+loose-variable range, which `mdata` copies from its body; not the hash or the depth) and
+`clDataNe`.  `clB` is the plain descent the comparison executes: `mdata` read through, each child
+pair `clStep` (`!clDataNe && clB`), the constructor cases, two leaves by `erase`-equality.
+`Expr.clEq a b` is the pointer test, `clDataNe`, then `clGoX`, which decides `clB a b = true`
+with the memo; its child step `clChild` is `enterCl` with `clDataNe` as the reject test.
+`enterCl` is now generic in a reflexive relation `R` (memo entries `ClPair R` carry `R fst snd`),
+and its descent receives the proof that the reject test passed; the key comparison uses it at
+`KeyR` (`eraseK`-equality, `keyChild`, unchanged behaviour).  `clGoX`'s catch-all reads
+`clB_other` (two leaves or two constructors: `ctorTag`, then `erase`) instead of calling `clB`.
+In InLean (no axiom beyond the standard ones): `clB_refl`, `clB_sound`,
+`Expr.clEq_eq : clEq a b = clStep a b`, `Expr.clEq_sound` (only `erase`-equal terms compare
+equal).  `Expr.clEq_iff` and the scoped `EquivBEq Expr` instance are gone (nothing used the
+instance, and its transitivity would need a proof of its own).
+
+**The proofs** (`InLeanProof/Sim.lean`): `rangeS_erase` & co. (the structural fields ignore
+`erase`), `shiftRight40_eq` and `clDataNe_of_fields` (bits 40–63 are the range and four flags,
+read with `Data.range_read` & co.), `clDataNe_of_erase` (in range, `erase`-equal ⇒ `clDataNe`
+false, by `Expr.fieldsOk`), `clB_complete` (`fun_induction clB`), `clEq_iff_erase` (in range,
+`clEq` is `erase`-equality).  `toExpr_of_clEq` uses `clEq_sound`; `clEq_of_toExpr` and
+`clEq_iff_TransS` take `Expr.RangeOk` of both terms (their callers `clBeq_TrS`, `exprsBeq_tr`
+have `OkS`, so `RangeOk_of_OkS`); `mkFVarM_ok`'s class search reads `clEq_sound` on a hit and
+`clEq_iff_erase` on a miss (`FVTableOK.range` and the type's range).  `TrS_of_clEq`,
+`trC_of_clEq` and their users go through `toExpr_of_clEq` and are unchanged.
+
+**Pins.**  `addDeclSound` unchanged.  Twenty-two pins moved: those reaching `clEq_iff_TransS` or
+`mkFVarM_ok` (`clEq_iff_TransS`, `mkFVarM_ok`, `mkFVarM_specI`, `lamsStepL_spec`,
+`tryUnfoldProjAppI_spec`, `mapM_mkFVarM_*`, the inductive passes' `_run`/`_tr` lemmas) now
+list the three `mkData` stop-gaps; those that only mention `clEq` (`toExpr_of_clEq`,
+`litShapeOk_tr`, `matchesPin_tr`, `mapM_toExpr_of_beq`) gain `Classical.choice`, because
+`clEq`'s definition now contains the memo (`Std.HashMap`) where it was `decide (erase a =
+erase b)` substituted by `@[csimp]`.  New pins: `InLean.Expr.clEq_sound`, `clEq_iff_erase`.
+
+**Validation** (`inlean-replay --kernel=inlean --compare --quiet`): Init 64,530, Std 110,064,
+Lean 199,645 accepted, 0 rejected, 0 declined, 0 exact and 0 cosmetic mismatches;
+`scripts/inlean_negtest.lean` 15/15.
+
+**`instructions:u`** on Init (one run each): 457.3 G (was 456.7 G, +0.1 %).  Equality category
+(Faithful-perf's script, absolute from the share): 23.4 G (was 23.9 G; con-leche 20.7 G), within
+the profile's sampling error.  A first version whose `clGoX` called `clB` at the leaves measured
+458.2 G (`clB` 1.6 G self).  The test rejects few pairs that the descent did not already reject
+at its first differing leaf; what remains of the category is mostly the key equality
+(`keyGoX`, `keyEqMemo` and their maps, about 11 G), `clGoX` about 6.5 G.
+
+Gates: `lake build InLean InLeanProof inlean-replay` warning-free; `tests/layering.sh`,
+`tests/trust-surface.sh`, `tests/no-local-paths.sh`, `tests/inlean-sync.sh`, `tests/shake.sh`.
+
 ## TASK #494 — an inductive block that cannot be read is rejected with the reason (2026-11-08, agent/494-ctor-levels)
 
 **Rulings (maintainer, 2026-11-08).** "Don't use 'shapeless' in a user-facing error message; the

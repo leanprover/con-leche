@@ -348,7 +348,7 @@ reading is equality of translations (P1's `clEq_iff_TransS`). -/
 theorem clBeq_TrS {s : InLean.CState} (hs : FVTableOK s) {a b : Expr} (ha : OkS s a = true)
     (hb : OkS s b = true) :
     (@BEq.beq Expr InLean.instBEqExprI a b) = decide (TrS s a = TrS s b) := by
-  have h := clEq_iff_TransS hs (TransS_of_ok ha) (b := b)
+  have h := clEq_iff_TransS hs (RangeOk_of_OkS ha) (RangeOk_of_OkS hb) (TransS_of_ok ha) (b := b)
   rw [TransS_of_ok hb, Option.some.injEq] at h
   show Expr.clEq a b = _
   by_cases he : TrS s a = TrS s b
