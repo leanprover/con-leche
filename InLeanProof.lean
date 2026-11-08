@@ -60,6 +60,7 @@ public import InLeanProof.PassRecs7
 public import InLeanProof.PassRecs8
 public import InLeanProof.PassRecs9
 public import InLeanProof.PassRecs10
+public import InLeanProof.TailSim
 public import InLeanProof.DeclGuards
 public import InLeanProof.DeclStep
 public import InLeanProof.DeclPins

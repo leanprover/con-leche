@@ -7,7 +7,7 @@ import all Lean.Expr
 /-!
 # O7: InLean's inductive declaration against master's (task #451, lane O7)
 
-**The top of O7**, `checkIndDeclC_sim`: InLean's `checkIndDeclC .verified fe
+**The top of O7**, `checkIndDeclC_sim_of`: InLean's `checkIndDeclC .verified fe
 block nP` accepting from a state with the residue (`CSOKIF`) means master's
 pure fueled declaration kind check accepts the translated block
 (`ConLeche.checkDeclKind (fueledOps .verified F) pins L (.indDecl cb nP)`
@@ -142,6 +142,17 @@ theorem lbb_trC_of_closed {e : Lean.Expr} (hok : okC e = true) (h : e.hasLooseBV
 
 /-! ## The job run, named -/
 
+/-- **What the tail reads of the recognised shape beyond the pass** (lane
+TailSim): at a one-constructor member, the projection bodies' steps in range
+at every field (`projStepsOk`, which the inductive check runs on the generated
+block, `projStepsAllOk`), and the stream recursors' rules with a closed reading
+(the block's `CIOk`).  `checkIndDeclC_sim_of` derives it from the generated
+entries' agreement (`genEntriesAgree`). -/
+structure TailShapeOkI (p : InLean.BlockShape) : Prop where
+  steps : ∀ ms ∈ p.members, ∀ c, ms.ctors = [c] → ∀ i < c.2,
+    InLean.projStepsOk ms.declared.name p.nP i c.1.type = true
+  rules : ∀ rc ∈ p.recs, ∀ r ∈ rc.rules, okC r.rhs = true
+
 /-- **A recognised block's job** (`checkBlockKS_run`'s twin): accepted by
 InLean from a state with the residue, accepted by master's pure fueled
 `checkBlock` on the translated block and shape, and the residue kept
@@ -152,7 +163,7 @@ InLean from a state with the residue, accepted by master's pure fueled
     JobEnvI fe L → (∀ ci ∈ block, ci.name = InLean.sorryAxName → fe.coreAxioms = true) →
     CSOKIF s₀ → (∀ ci ∈ block, CIRange ci) → (∀ ci ∈ block, CIClosed ci) →
     (∀ ci ∈ block, isBlockKind ci = true ∧ okC ci.toConstantVal.type = true) →
-    InLean.blockShape? nP block = some p →
+    InLean.blockShape? nP block = some p → TailShapeOkI p →
     InLean.checkBlockKS .verified fe block p s₀ = .ok ((), s') →
     CSOKIF s' ∧ ∃ F L', ConLeche.checkBlock (ConLeche.fueledOps .verified F) L (block.map trCI)
       (trShape p) = .ok L'
@@ -162,13 +173,16 @@ variable {pins : List ConLeche.NatOpPinSet}
 /-- **O7's top: InLean's inductive declaration simulates master's pure
 declaration kind check** on the translated block (`checkDeclStepC_run`'s
 `.indDecl` arm and `checkModeledOrNativeSF_run`, for InLean), from the job
-run. -/
-theorem checkIndDeclC_sim (hK : BlockKSSimI)
+run, and the shape facts the tail reads (`TailShapeOkI`) from the generated
+entries' agreement. -/
+theorem checkIndDeclC_sim_of (hK : BlockKSSimI)
     {fe : InLean.FEnv} {L : ConLeche.Env} (hJ : JobEnvI fe L)
     {block : List Lean.ConstantInfo} {cb : List ConLeche.ConstantInfo} {nP : Nat}
     (hso : ∀ ci ∈ block, ci.name = InLean.sorryAxName → fe.coreAxioms = true)
     {s₀ s' : InLean.CState} (hs : CSOKIF s₀) (hr : ∀ ci ∈ block, CIRange ci)
     (hcl : ∀ ci ∈ block, CIClosed ci) (hb : toBlock block = some cb)
+    (hTS : ∀ p s, InLean.blockShape? nP block = some p →
+      InLean.genEntriesAgree p block s = .ok ((), s) → TailShapeOkI p)
     (h : InLean.checkIndDeclC .verified fe block nP s₀ = .ok ((), s')) :
     CSOKIF s' ∧ ∃ F L', ConLeche.checkDeclKind (ConLeche.fueledOps .verified F) pins L
       (.indDecl cb nP) = .ok L' := by
@@ -185,7 +199,8 @@ theorem checkIndDeclC_sim (hK : BlockKSSimI)
       obtain ⟨u, s₁, h1, h2⟩ := bindI_ok h
       have hs1 : s₁ = s₀ := genEntriesAgree_noSt p block s₀ u s₁ h1
       subst hs1
-      obtain ⟨hs', F, L', hF⟩ := hK fe L block nP p s₁ s' hJ hso hs hr hcl hk hsh h2
+      obtain ⟨hs', F, L', hF⟩ := hK fe L block nP p s₁ s' hJ hso hs hr hcl hk hsh
+        (hTS p s₁ hsh (by cases u; exact h1)) h2
       refine ⟨hs', F, L', ?_⟩
       have hok' : ConLeche.indParamsOk nP (block.map trCI) = true := by
         rw [indParamsOk_tr]; exact hok

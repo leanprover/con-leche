@@ -238,9 +238,12 @@ theorem checkIndDeclC_sim_stages (hC : CheckConstantValFSimI)
     (hso : ∀ ci ∈ block, ci.name = InLean.sorryAxName → fe.coreAxioms = true)
     {s₀ s' : InLean.CState} (hs : CSOKIF s₀) (hr : ∀ ci ∈ block, CIRange ci)
     (hcl : ∀ ci ∈ block, CIClosed ci) (hb : toBlock block = some cb)
+    (hTS : ∀ p s, InLean.blockShape? nP block = some p →
+      InLean.genEntriesAgree p block s = .ok ((), s) → TailShapeOkI p)
     (h : InLean.checkIndDeclC .verified fe block nP s₀ = .ok ((), s')) :
     CSOKIF s' ∧ ∃ F L', ConLeche.checkDeclKind (ConLeche.fueledOps .verified F) pins L
       (.indDecl cb nP) = .ok L' :=
-  checkIndDeclC_sim (blockKSSimI_of_stages hC hRF (passTailSimI_of hP hT)) hJ hso hs hr hcl hb h
+  checkIndDeclC_sim_of (blockKSSimI_of_stages hC hRF (passTailSimI_of hP hT)) hJ hso hs hr hcl hb
+    hTS h
 
 end InLeanProof

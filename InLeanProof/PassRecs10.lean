@@ -1,6 +1,7 @@
 module
 
 public import InLeanProof.PassRecs9
+public import InLeanProof.PassSim
 public import InLeanProof.RecFireTr
 public import ConLeche.Verify.Inductives.TargetAuxFire
 import ConLeche.Verify.Cached.BlockPushes
@@ -37,38 +38,6 @@ public section
 namespace InLeanProof
 
 open Lean InLean Std.WP ConLeche.Cached
-
-/-! ## Master's side: the major domain's head -/
-
-/-- A class is a member exactly when its inductive is one of the block's
-member names. -/
-@[expose] def ClassHead (p : ConLeche.BlockShape) (M : ConLeche.TargetMajor) : Prop :=
-  p.memberNames.contains M.ind = M.member.isSome
-
-/-- `targetMajorOf`'s two arms: a member at a member name, an outside
-class at a name of none. -/
-theorem TargetMajorRun.classHead {ops : ConLeche.CheckerOps ConLeche.CheckM} {fe : ConLeche.FEnv}
-    {p : ConLeche.BlockShape} {pfvs fvs : List ConLeche.Expr} {mty : ConLeche.Expr}
-    {M : ConLeche.TargetMajor} (R : ConLeche.TargetMajorRun ops fe p pfvs fvs mty M) :
-    ClassHead p M := by
-  unfold ClassHead
-  cases R with
-  | member I t ms hfn ht =>
-    have : (p.memberNames.findIdx? (· == I)).isSome = true := by rw [ht]; rfl
-    rw [List.findIdx?_isSome, List.any_eq_true] at this
-    obtain ⟨x, hx, he⟩ := this
-    simp only [beq_iff_eq] at he
-    subst he
-    simpa using hx
-  | outside I us nPc nIdx ctors sI hfn ht =>
-    rw [List.findIdx?_eq_none_iff] at ht
-    simp only [Option.isSome_none]
-    cases hc : p.memberNames.contains I with
-    | false => rfl
-    | true =>
-      have hI : I ∈ p.memberNames := by simpa using hc
-      have := ht I hI
-      simp at this
 
 /-- **The generated recursor type's major domain is its class's inductive
 applied** (`classGenRecTy`), at every output, the output's class being

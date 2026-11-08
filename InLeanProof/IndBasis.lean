@@ -443,21 +443,4 @@ theorem checkDecl_of_kind {pins : List ConLeche.NatOpPinSet} {F : Nat} {L L' : C
   simp only [ConLeche.checkDecl, h, hn]
   rfl
 
-variable {pins : List ConLeche.NatOpPinSet}
-
-/-- **O7's top with the reduct discharged**: what remains is the former's
-constant check (O6's guards) and the pass and the tail. -/
-theorem checkIndDeclC_sim_rest (hC : CheckConstantValFSimI)
-    {R : InLean.CState → InLean.BlockPass → ConLeche.BlockPass ConLeche.Env → Prop}
-    (hP : PassSimI R) (hT : TailSimI R)
-    {fe : InLean.FEnv} {L : ConLeche.Env} (hJ : JobEnvI fe L)
-    {block : List Lean.ConstantInfo} {cb : List ConLeche.ConstantInfo} {nP : Nat}
-    (hso : ∀ ci ∈ block, ci.name = InLean.sorryAxName → fe.coreAxioms = true)
-    {s₀ s' : InLean.CState} (hs : CSOKIF s₀) (hr : ∀ ci ∈ block, CIRange ci)
-    (hcl : ∀ ci ∈ block, CIClosed ci) (hb : toBlock block = some cb)
-    (h : InLean.checkIndDeclC .verified fe block nP s₀ = .ok ((), s')) :
-    CSOKIF s' ∧ ∃ F L', ConLeche.checkDeclKind (ConLeche.fueledOps .verified F) pins L
-      (.indDecl cb nP) = .ok L' :=
-  checkIndDeclC_sim_stages hC reducedFormerSimI hP hT hJ hso hs hr hcl hb h
-
 end InLeanProof

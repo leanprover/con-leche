@@ -7,6 +7,7 @@ public import InLeanProof.PassPositivity
 public import InLeanProof.PassClasses
 import ConLeche.Verify.Inductives.GenRecRun
 import ConLeche.Verify.Inductives.RecCheckRun
+public import ConLeche.Verify.Inductives.GenRecScoped
 import ConLeche.Verify.Inductives.NestScope
 import ConLeche.Verify.Inductives.NestNfScope
 import ConLeche.Verify.InferLemmas
@@ -203,6 +204,249 @@ theorem classSeeds_scoped {cctx : ConLeche.NestCtx} {H : List ConLeche.Expr}
     hHW hparW, ?_⟩
   exact ConLeche.nestSeedOf_closed hh hparF (fun x hx => lbb_of_bvarB (hds x hx).1) y hy
 
+/-! ## Master's side: the major domain's head -/
+
+/-- A class is a member exactly when its inductive is one of the block's
+member names. -/
+def ClassHead (p : ConLeche.BlockShape) (M : ConLeche.TargetMajor) : Prop :=
+  p.memberNames.contains M.ind = M.member.isSome
+
+/-- `targetMajorOf`'s two arms: a member at a member name, an outside
+class at a name of none. -/
+theorem TargetMajorRun.classHead {ops : ConLeche.CheckerOps ConLeche.CheckM} {fe : ConLeche.FEnv}
+    {p : ConLeche.BlockShape} {pfvs fvs : List ConLeche.Expr} {mty : ConLeche.Expr}
+    {M : ConLeche.TargetMajor} (R : ConLeche.TargetMajorRun ops fe p pfvs fvs mty M) :
+    ClassHead p M := by
+  unfold ClassHead
+  cases R with
+  | member I t ms hfn ht =>
+    have : (p.memberNames.findIdx? (· == I)).isSome = true := by rw [ht]; rfl
+    rw [List.findIdx?_isSome, List.any_eq_true] at this
+    obtain ⟨x, hx, he⟩ := this
+    simp only [beq_iff_eq] at he
+    subst he
+    simpa using hx
+  | outside I us nPc nIdx ctors sI hfn ht =>
+    rw [List.findIdx?_eq_none_iff] at ht
+    simp only [Option.isSome_none]
+    cases hc : p.memberNames.contains I with
+    | false => rfl
+    | true =>
+      have hI : I ∈ p.memberNames := by simpa using hc
+      have := ht I hI
+      simp at this
+
+
+/-! ## The classes, for the tail (lane TailSim) -/
+
+/-- An outside inductive's constructors (`targetCtorsOf`) have closed readings:
+they are the environment's (`nestContainer_ctorOk` at the empty context). -/
+theorem targetCtorsOf_ctorOk {fe : InLean.FEnv} {L : ConLeche.Env} (hJ : JobEnvI fe L)
+    {I : Lean.Name} {q : Nat × List (Lean.ConstantVal × Nat)}
+    (h : InLean.targetCtorsOf fe I = some q) : ∀ c ∈ q.2, CtorOkI c := by
+  unfold InLean.targetCtorsOf InLean.nestContainer at h
+  split at h
+  · rename_i cv caps _
+    have hall : ∀ x ∈ caps.ctors.filterMap (fun n =>
+        (fe.ctorView? n).bind fun (cv, nPc, nF) => InLean.nestCtorEntry I cv nPc nF),
+        CtorOkI (x.1, x.2.2) := by
+      intro x hx
+      obtain ⟨n, -, hn⟩ := List.mem_filterMap.1 hx
+      cases hv : fe.ctorView? n with
+      | none => rw [hv] at hn; cases hn
+      | some p =>
+        obtain ⟨cv', nPc, nF⟩ := p
+        rw [hv] at hn
+        simp only [Option.bind_some] at hn
+        have hx1 : x.1 = cv' := by
+          unfold InLean.nestCtorEntry at hn
+          split at hn
+          · split at hn
+            · split at hn
+              · simp only [Option.some.injEq] at hn; rw [← hn]
+              · cases hn
+            · cases hn
+          · cases hn
+        obtain ⟨ccv, hcv, hL⟩ := ctorView_rel hJ.pres hv
+        have he := hcv.eq_trCV
+        subst he
+        have hwf := hJ.wf.consts _ (ConLeche.Env.find?_mem hL)
+        rw [hx1]
+        exact ⟨(trC_of_toExprC hcv.2.2.2.2 hcv.2.2.2.1).1, hwf.1, hwf.2.2.2.1⟩
+    simp only at h
+    split at h
+    · simp only [Option.some.injEq] at h
+      subst h
+      simp
+    · simp only [Option.some.injEq] at h
+      subst h
+      rename_i heq
+      intro c hc
+      obtain ⟨x, hx, rfl⟩ := List.mem_map.1 hc
+      exact hall x (by simpa [heq] using hx)
+  · cases h
+
+/-- **A major's constructors** (InLean's `targetMajorOf`): a member's are the
+member's, an outside inductive's its stored ones. -/
+theorem targetMajorOf_ctors {ops : InLean.CheckerOps} {fe : InLean.FEnv} {p : InLean.BlockShape}
+    {pfvs fvs : List Lean.Expr} {mty : Lean.Expr} {s₀ s' : InLean.CState} {M : InLean.TargetMajor}
+    (h : InLean.targetMajorOf ops fe p pfvs fvs mty s₀ = .ok (M, s')) :
+    (M.member = none → ∃ I q, InLean.targetCtorsOf fe I = some q ∧ M.ctors = q.2) ∧
+      ∀ t, M.member = some t → ∃ ms, p.members[t]? = some ms ∧ M.ctors = ms.ctors := by
+  have hth : ∀ {α : Type} {e : InLean.CheckError} {k : α → InLean.CheckCM InLean.TargetMajor}
+      {s : InLean.CState}, ¬ ((throw e : InLean.CheckCM α) >>= k) s = .ok (M, s') := fun h => by
+    obtain ⟨_, _, h1, -⟩ := bind_run h; exact throw_run h1
+  unfold InLean.targetMajorOf at h
+  cases hg : mty.getAppFnT with
+  | const I us =>
+    simp only [hg] at h
+    cases hfi : p.memberNames.findIdx? (· == I) with
+    | some t =>
+      simp only [hfi] at h
+      obtain ⟨ms, s₁, h1, h⟩ := bind_run h
+      obtain ⟨hms, -⟩ := unwrapOr_run h1
+      split at h
+      · obtain ⟨rfl, -⟩ := pure_run h
+        refine ⟨fun h => by simp at h, fun t' ht' => ?_⟩
+        simp only [Option.some.injEq] at ht'
+        subst ht'
+        exact ⟨ms, hms, rfl⟩
+      · exact absurd h hth
+    | none =>
+      simp only [hfi] at h
+      split at h
+      · exact absurd h hth
+      · cases hct : InLean.targetCtorsOf fe I with
+        | none => simp only [hct] at h; exact (throw_run h).elim
+        | some q =>
+          obtain ⟨nPc, ctors⟩ := q
+          simp only [hct] at h
+          split at h
+          · split at h
+            · obtain ⟨⟨nIdx, sI⟩, s₁, h1, h⟩ := bind_run h
+              obtain ⟨b, s₂, h2, h⟩ := bind_run h
+              split at h
+              · obtain ⟨rfl, -⟩ := pure_run h
+                exact ⟨fun _ => ⟨I, _, hct, rfl⟩, fun t ht => by simp at ht⟩
+              · exact absurd h hth
+            · exact absurd h hth
+          · exact absurd h hth
+  | _ => simp only [hg] at h; exact (throw_run h).elim
+
+/-- **The classes' constructors and member indices** (InLean's `classMajors`). -/
+theorem classMajors_ctors {ops : InLean.CheckerOps} {fe : InLean.FEnv} {p : InLean.BlockShape}
+    {pfvs : List Lean.Expr} :
+    ∀ {keys : List InLean.ClassKey} {s₀ s' : InLean.CState} {Ms : List InLean.TargetMajor},
+      InLean.classMajors ops fe p pfvs keys s₀ = .ok (Ms, s') → ∀ M ∈ Ms,
+        (M.member = none → ∃ I q, InLean.targetCtorsOf fe I = some q ∧ M.ctors = q.2) ∧
+        ∀ t, M.member = some t → ∃ ms, p.members[t]? = some ms ∧ M.ctors = ms.ctors
+  | [], s₀, s', Ms, h => by
+    unfold InLean.classMajors at h
+    obtain ⟨rfl, -⟩ := pure_run h
+    simp
+  | key :: keys, s₀, s', Ms, h => by
+    unfold InLean.classMajors at h
+    obtain ⟨M, s₁, h1, h⟩ := bind_run h
+    obtain ⟨_, s₂, _, h⟩ := bind_run h
+    obtain ⟨Ms', s₃, h3, h⟩ := bind_run h
+    obtain ⟨rfl, -⟩ := pure_run h
+    intro M' hM'
+    rcases List.mem_cons.1 hM' with rfl | hM'
+    · exact targetMajorOf_ctors h1
+    · exact classMajors_ctors h3 M' hM'
+
+/-- **The classes' constructors and member indices** (InLean's
+`checkBlockClasses`). -/
+theorem checkBlockClasses_ctors {ops : InLean.CheckerOps} {fe : InLean.FEnv}
+    {p : InLean.BlockShape} {params : List Lean.Expr} {s₀ s' : InLean.CState}
+    {rd : InLean.ClassRead} {Ms : List InLean.TargetMajor}
+    (h : InLean.checkBlockClasses ops fe p params s₀ = .ok ((rd, Ms), s')) : ∀ M ∈ Ms,
+      (M.member = none → ∃ I q, InLean.targetCtorsOf fe I = some q ∧ M.ctors = q.2) ∧
+      ∀ t, M.member = some t → ∃ ms, p.members[t]? = some ms ∧ M.ctors = ms.ctors := by
+  unfold InLean.checkBlockClasses at h
+  obtain ⟨o, s₁, h1, h⟩ := bind_run h
+  obtain ⟨rd', s₂, h2, h⟩ := bind_run h
+  obtain ⟨keys, s₃, h3, h⟩ := bind_run h
+  obtain ⟨Ms', s₄, h4, h⟩ := bind_run h
+  have hc := classMajors_ctors h4
+  simp only at h
+  split at h
+  · obtain ⟨he, -⟩ := pure_run h
+    cases he
+    exact hc
+  · obtain ⟨_, _, h5, -⟩ := bind_run h
+    exact (throw_run h5).elim
+
+theorem motPosOf_length_classes : ∀ (slots : List ConLeche.ClassSlot),
+    (ConLeche.ClassRead.motPosOf slots).length = (ConLeche.ClassRead.mk slots []).classes.length
+  | [] => rfl
+  | x :: rest => by
+    have h := ConLeche.ClassRead.motPosOf_append [x] rest
+    simp only [List.singleton_append] at h
+    rw [h, List.length_append, List.length_map, motPosOf_length_classes rest]
+    unfold ConLeche.ClassRead.classes
+    cases x <;> simp [ConLeche.ClassRead.motPosOf] <;> omega
+
+/-- Every recursor's class, as master's pre-pass reads it, is a motive ordinal. -/
+theorem classRead_recCls_lt {nP : Nat} {nPc : ConLeche.Name → Nat} {recs : List ConLeche.RecShape}
+    {rd : ConLeche.ClassRead} (h : ConLeche.classRead nP nPc recs = some rd) :
+    ∀ c ∈ rd.recCls, c < (ConLeche.ClassRead.motPosOf rd.slots).length := by
+  unfold ConLeche.classRead at h
+  obtain ⟨rc0, -, h⟩ := Option.bind_eq_some_iff.mp h
+  obtain ⟨⟨_, body⟩, -, h⟩ := Option.bind_eq_some_iff.mp h
+  obtain ⟨slots, -, h⟩ := Option.bind_eq_some_iff.mp h
+  obtain ⟨recCls, hrc, h⟩ := Option.bind_eq_some_iff.mp h
+  simp only [Option.pure_def, Option.some.injEq] at h
+  subst h
+  intro c hc
+  obtain ⟨rc, -, hf⟩ := ConLeche.option_mapM_mem hrc c hc
+  obtain ⟨⟨_, concl⟩, -, hf⟩ := Option.bind_eq_some_iff.mp hf
+  simp only at hf
+  split at hf
+  · exact ConLeche.classOfMotiveVar_lt hf
+  · exact nomatch hf
+
+/-- **Master's classes, for the tail**: an outside class's parameters the block's
+(`ClassOutParams`), a class a member exactly at a member name (`ClassHead`), its
+parameters closed, every recursor's class in range, one class per motive. -/
+theorem checkBlockClasses_tailFacts {fe₁ : ConLeche.FEnv} {p : ConLeche.BlockShape}
+    {params : List ConLeche.Expr} {rd : ConLeche.ClassRead} {Ms : List ConLeche.TargetMajor}
+    (h : Runs (ConLeche.checkBlockClasses (ConLeche.fueledOpsM .verified) fe₁ p params) (rd, Ms))
+    (hpc : ∀ x ∈ params, x.looseBVarsBounded 0 = true) :
+    (∀ M ∈ Ms, ConLeche.ClassOutParams p.nP M ∧ ClassHead p M ∧
+      ∀ x ∈ M.ds, x.looseBVarsBounded 0 = true) ∧
+    (∀ c ∈ rd.recCls, c < Ms.length) ∧ (ConLeche.ClassRead.motPosOf rd.slots).length = Ms.length := by
+  obtain ⟨F, hF⟩ := h
+  rw [ConLeche.checkBlockClasses_datF] at hF
+  obtain ⟨R⟩ := ConLeche.checkBlockClasses_run hF
+  obtain ⟨hlen, hall⟩ := ConLeche.classMajors_run R.hMs
+  have hkl := ConLeche.mapM_ok_length R.hkeys
+  have hmp : (ConLeche.ClassRead.motPosOf rd.slots).length = Ms.length := by
+    rw [motPosOf_length_classes, hlen, hkl]; rfl
+  refine ⟨fun M hM => ?_, fun c hc => ?_, hmp⟩
+  · obtain ⟨i, hi⟩ := List.getElem?_of_mem hM
+    have hik : i < R.keys.length := by
+      rw [← hlen]; exact (List.getElem?_eq_some_iff.1 hi).1
+    obtain ⟨M', hM', ⟨C⟩⟩ := hall i _ (List.getElem?_eq_getElem hik)
+    rw [hi] at hM'
+    obtain rfl := Option.some.inj hM'
+    have hH := TargetMajorRun.classHead C.major
+    refine ⟨?_, hH, ?_⟩
+    · intro hn
+      cases C.major with
+      | member I t ms hfn ht hms hpar' nfs => exact nomatch hn
+      | outside I us nPc nIdx ctors sI hfn ht hnq hctors hdsLen hdsSc hment hinst hsort nfs =>
+        exact ⟨hdsLen, hdsSc⟩
+    · cases C.major with
+      | member I t ms hfn ht hms hpar' nfs =>
+        intro x hx
+        exact hpc x (List.mem_of_mem_take hx)
+      | outside I us nPc nIdx ctors sI hfn ht hnq hctors hdsLen hdsSc hment hinst hsort nfs =>
+        intro x hx
+        exact lbb_of_bvarB (hdsSc x hx).1
+  · rw [← hmp]
+    exact classRead_recCls_lt R.hrd c hc
+
 /-! ## The relation's data -/
 
 /-- **The pass's data** (`PassRelI`'s `D`): the field kinds, the class
@@ -216,7 +460,11 @@ constructors' names fresh at the formers' environment, distinct and not
 `sorryAx` unless `coreAxioms` (`jobEnvI_ctors`'s premises), master's
 environment with them pushed well formed, and the table's entries closed
 (master's `checkBlockPositivity_nfScoped` and `nestSeeds_nfScoped` on its
-side of the run). -/
+side of the run); and for the tail (lane TailSim): the result sort's reading,
+the members' names, the shape facts (`TailShapeOkI`), the classes' constructors
+closed and member indices in range (`checkBlockClasses_ctors`), master's classes'
+`ClassOutParams`, `ClassHead` and closed parameters, the recursors' classes in
+range and one class per motive (`checkBlockClasses_tailFacts`). -/
 structure PassDataI (s : InLean.CState) (q : InLean.BlockPass) (cq : ConLeche.BlockPass ConLeche.Env) :
     Prop where
   kinds : cq.kinds = q.kinds.map (·.map (·.map trNK))
@@ -241,6 +489,15 @@ structure PassDataI (s : InLean.CState) (q : InLean.BlockPass) (cq : ConLeche.Bl
   ctorsNodup : (ctorNamesOf q.p.members).Nodup
   ctorsSorry : ∀ m ∈ q.p.members, ∀ c ∈ m.ctors, c.1.name = InLean.sorryAxName →
     q.env₁.coreAxioms = true
+  sortOk : okL q.p.resSort = true
+  names : ∀ ms ∈ q.p.members, ms.cvT.name = ms.declared.name
+  shape : TailShapeOkI q.p
+  clsCtors : ∀ M ∈ q.cls, ∀ c ∈ M.ctors, CtorOkI c
+  clsMember : ∀ M ∈ q.cls, ∀ t, M.member = some t → t < q.p.members.length
+  clsMaster : ∀ M ∈ cq.cls, ConLeche.ClassOutParams cq.p.nP M ∧ ClassHead cq.p M ∧
+    ∀ x ∈ M.ds, x.looseBVarsBounded 0 = true
+  recCls : ∀ c ∈ cq.rd.recCls, c < cq.cls.length
+  motives : (ConLeche.ClassRead.motPosOf cq.rd.slots).length = cq.cls.length
 
 /-- **A class's frame** (`FrameOk`, the recursor stage's hypothesis at every
 class): its parameters are the block's, scoped at their count and closed; the
@@ -448,6 +705,9 @@ theorem passSimI (hC : CheckConstantValFSimI) (hRF : ReducedFormerSimI) :
   have ht47 := ht₅.trans (ht₆.trans ht₇)
   have hTr : TrSL s₇ fvs = TrSL s₃ fvs := TrSL_of_tabLe ht37 hokf
   have hclsF := checkBlockClasses_facts hR4
+  have hcT := checkBlockClasses_tailFacts hR4 (fun x hx => by
+    obtain ⟨a, ha, rfl⟩ := List.mem_map.1 hx
+    exact hclf a ha)
   refine
     { kinds := nestOutKinds_tr s₅ outs
       rd := (trCR_mono ht47 hslots).symm
@@ -482,6 +742,25 @@ theorem passSimI (hC : CheckConstantValFSimI) (hRF : ReducedFormerSimI) :
         exact this.2
       ctorsSorry := fun m hm c hc hn => by
         rw [hmem] at hm
-        exact hca ▸ hpre.ctorsSorry m hm c hc hn }
+        exact hca ▸ hpre.ctorsSorry m hm c hc hn
+      sortOk := hsr
+      names := fun m hm => hpre.name m (hmem ▸ hm)
+      shape := by
+        rw [← hp₁]; exact ⟨hpre.shape.steps, hpre.shape.rules⟩
+      clsCtors := fun M hM c hc => by
+        obtain ⟨hout, hin⟩ := checkBlockClasses_ctors h4 M hM
+        cases hmM : M.member with
+        | none =>
+          obtain ⟨I, q, hq, he⟩ := hout hmM
+          exact targetCtorsOf_ctorOk hJ₁ hq c (he ▸ hc)
+        | some t =>
+          obtain ⟨ms, hms', he⟩ := hin t hmM
+          exact hct _ (List.mem_map_of_mem (List.mem_of_getElem? hms')) c (he ▸ hc)
+      clsMember := fun M hM t ht => by
+        obtain ⟨ms, hms', -⟩ := (checkBlockClasses_ctors h4 M hM).2 t ht
+        exact (List.getElem?_eq_some_iff.1 hms').1
+      clsMaster := (hcT.1)
+      recCls := hcT.2.1
+      motives := hcT.2.2 }
 
 end InLeanProof

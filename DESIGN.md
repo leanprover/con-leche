@@ -114645,3 +114645,70 @@ run): 878.2 G (878.0 G recorded at lane DivModArm, the last measurement): +0.02 
 
 Gates: `lake build InLean InLeanProof inlean-replay` warning-free; `tests/layering.sh`,
 `tests/trust-surface.sh`, `tests/no-local-paths.sh`, `tests/inlean-sync.sh` pass.
+
+### Lane TailSim: the tail composed, O7 closed (2026-11-08, task #451, agent/451-inlean2)
+
+Scope was `TailSimI (PassRelI PassDataI)` from round 8's eight inputs, then the inductive
+declaration step without the `PassSimI`/`TailSimI` hypotheses.  Both done.  No `InLean/*`
+change; no `sorry`, no new axiom (the composition carries the standing `mkData` stop-gaps,
+as `checkIndDeclC_sim_stages` did); new file `InLeanProof/TailSim.lean`; new and changed
+theorems pinned.
+
+* **`tailSimI`** (`TailSim.lean`): round 8's list in order.  The relation's facts sit at the
+  pass's final state; each stage reads them at its own state through the readings'
+  monotonicity (`OkTM.mono`, `OkNf.mono`, `FvsOk.mono`, `trCR_mono`, `TrSL_of_tabLe`, with
+  `TabLe.flushed` at the flushes).  `FvsOk` of the parameters from `paramsOk` + `paramsVar`;
+  the motive counts (`hmc`) from one class per motive (`motive_count_lt`); the K flags, the
+  stored recursors and the tables as planned; the tables' pending clause from the block's
+  mark (`find?_ind_name`: a former found at `n` is named `n`, through master's index;
+  `consBlockCtorsF_pending`, `pendingFields_go_isSome`).  Master's side is
+  `checkBlockTail` bind by bind (`checkBlockRec` unfolds to `genRecCheck` at
+  `ShadowOps.ofOps`; `blockNestedBit_tr`), then `checkBlockTail_datF`.
+* **`PassDataI` strengthened** (`PassSim.lean`), proved in `passSimI` from the runs it
+  already had: `sortOk`, `names`, `shape : TailShapeOkI q.p`, `clsCtors` (every class's
+  constructors `CtorOkI`: a member's from the constructors' stage, an outside one's from the
+  environment, `targetCtorsOf_ctorOk`; which arm, InLean's `checkBlockClasses_ctors`),
+  `clsMember`, and on master's side `clsMaster` (`ClassOutParams`, `ClassHead`, the
+  parameters closed), `recCls`, `motives` (`checkBlockClasses_tailFacts`: `classMajors_run`,
+  `classRead_recCls_lt`, `motPosOf_length_classes`).  `ClassHead` and
+  `TargetMajorRun.classHead` moved from `PassRecs10.lean` to `PassSim.lean`
+  (`PassRecs10` now imports `PassSim`).
+* **What the tail reads beyond the pass** (`TailShapeOkI`, `IndDecl.lean`): the projection
+  steps at a one-constructor member (`projStepsOk` at every field) and the stream recursors'
+  rules with a closed reading.  Neither is in the pass; both come from the block.
+  `BlockKSSimI` takes it of the recognised shape; `PassPremI.shape` carries it across the
+  members' reduction (`reduceMembersS_dc`, `tailShapeOkI_reduced`).  The top derives it
+  (`checkIndDeclC_sim_of`'s new premise `hTS`, discharged by `tailShapeOkI_of`) from the
+  generated entries' agreement (`genEntriesAgree_members`: the member's former, its
+  parameter count and constructor names; `forIn_ok_each`), the shape's constructor entries
+  and recursor rules (`blockShape?_info`), the block's record (`toBlock_CIOk`) and the
+  generator's projection steps (`BlockStepsOk`, a membership form of `projStepsAllOk`).
+* **`checkIndDeclC_sim`** (`TailSim.lean`, the final statement; the hypothesis-taking one in
+  `IndDecl.lean` is now `checkIndDeclC_sim_of`; `checkIndDeclC_sim_rest` in `IndBasis.lean`
+  is gone, the final statement replaces it):
+
+  ```lean
+  theorem checkIndDeclC_sim {fe : InLean.FEnv} {L : ConLeche.Env} (hJ : JobEnvI fe L)
+      {block : List Lean.ConstantInfo} {cb : List ConLeche.ConstantInfo} {nP : Nat}
+      (hso : ∀ ci ∈ block, ci.name = InLean.sorryAxName → fe.coreAxioms = true)
+      {s₀ s' : InLean.CState} (hs : CSOKIF s₀) (hr : ∀ ci ∈ block, CIRange ci)
+      (hcl : ∀ ci ∈ block, CIClosed ci) (hst : BlockStepsOk block) (hb : toBlock block = some cb)
+      (h : InLean.checkIndDeclC .verified fe block nP s₀ = .ok ((), s')) :
+      CSOKIF s' ∧ ∃ F L', ConLeche.checkDeclKind (ConLeche.fueledOps .verified F) pins L
+        (.indDecl cb nP) = .ok L'
+  ```
+
+**For P4** (at `block = storedBlock a.consts` of an accepted `checkInductiveC`): `hJ` and
+`hs` are the fold's invariant; `hso` from `checkDecl`'s `sorryAxSquat` (as before); `hr` from
+`constInRange` (`CIRange_of_constInRange`); `hcl` from `closed_of_checkInductiveC`; `hst` from
+`blockStepsOk_storedBlock` and `checkInductiveC_ok`'s last conjunct (`projStepsAllOk`);
+`hb` the block's record (the existing `toBlock` premise).  Nothing else.
+
+**Findings.**  No statement was false for the code.  `obtain ⟨rfl, _⟩` on a state equation
+re-introduces hypotheses by `subst`, and a shadowed `h` can then come back as the newest
+name; the continuations are named apart.  Two `match` predicates elaborated in different
+places are different matchers: `rw` with one does not find the other, `exact` (defeq) does.
+
+Gates: `lake build InLean InLeanProof inlean-replay` warning-free; `tests/layering.sh`,
+`tests/trust-surface.sh`, `tests/no-local-paths.sh`, `tests/inlean-sync.sh`, `tests/shake.sh`
+pass.

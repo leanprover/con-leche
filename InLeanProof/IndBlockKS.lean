@@ -194,6 +194,7 @@ structure PassPremI (fe : InLean.FEnv) (L : ConLeche.Env) (p₀ : InLean.BlockSh
   range : ∀ ms ∈ p₀.members, Expr.RangeOk ms.declared.type
   ctorsNodup : (p₀.allCtors.map (·.1.name)).Nodup
   ctorsSorry : ∀ ms ∈ p₀.members, ∀ c ∈ ms.ctors, c.1.name = InLean.sorryAxName → fe.coreAxioms = true
+  shape : TailShapeOkI p₀
 
 /-- **The pass and the stages after it** (`checkBlockPassS_run` and
 `checkBlockTailS_run` together, see the module docstring): from the residue,
@@ -602,6 +603,56 @@ theorem reduceMembersS_ctors {μ : CheckMode} {fe : InLean.FEnv} {nP : Nat} :
     obtain ⟨rfl, -⟩ := pureI_ok h
     simp only [List.map_cons, reduceMemberS_ctors hm, reduceMembersS_ctors hr]
 
+/-- The members' reduction keeps every member's declared former and constructors,
+together. -/
+theorem reduceMemberS_dc {μ : CheckMode} {fe : InLean.FEnv} {ms ms' : InLean.MemberShape}
+    {nP : Nat} {s₀ s' : InLean.CState} (h : InLean.reduceMemberS μ fe ms nP s₀ = .ok (ms', s')) :
+    ms'.declared = ms.declared ∧ ms'.ctors = ms.ctors := by
+  unfold InLean.reduceMemberS at h
+  split at h
+  · split at h
+    · exact (throwI_ok h).elim
+    · obtain ⟨_, _, _, h⟩ := bindI_ok h
+      obtain ⟨cvR, _, _, h⟩ := bindI_ok h
+      obtain ⟨b, _, _, h⟩ := bindI_ok h
+      dsimp only at h
+      split at h
+      · obtain ⟨rfl, -⟩ := pureI_ok h
+        exact ⟨rfl, rfl⟩
+      · obtain ⟨_, _, h1, -⟩ := bindI_ok h
+        exact (throwI_ok h1).elim
+  · obtain ⟨rfl, -⟩ := pureI_ok h
+    exact ⟨rfl, rfl⟩
+
+theorem reduceMembersS_dc {μ : CheckMode} {fe : InLean.FEnv} {nP : Nat} :
+    ∀ {l l' : List InLean.MemberShape} {s₀ s' : InLean.CState},
+      InLean.reduceMembersS μ fe nP l s₀ = .ok (l', s') →
+      l'.map (fun m => (m.declared, m.ctors)) = l.map (fun m => (m.declared, m.ctors))
+  | [], l', s₀, s', h => by
+    obtain ⟨rfl, -⟩ := pureI_ok h
+    rfl
+  | ms :: rest, l', s₀, s', h => by
+    unfold InLean.reduceMembersS at h
+    obtain ⟨_, _, _, h⟩ := bindI_ok h
+    obtain ⟨m', _, hm, h⟩ := bindI_ok h
+    obtain ⟨r', _, hr, h⟩ := bindI_ok h
+    obtain ⟨rfl, -⟩ := pureI_ok h
+    obtain ⟨h1, h2⟩ := reduceMemberS_dc hm
+    simp only [List.map_cons, h1, h2, reduceMembersS_dc hr]
+
+/-- `TailShapeOkI` across the members' reduction. -/
+theorem tailShapeOkI_reduced {μ : CheckMode} {fe : InLean.FEnv} {p : InLean.BlockShape}
+    {ms : List InLean.MemberShape} {s₀ s' : InLean.CState}
+    (hm : InLean.reduceMembersS μ fe p.nP p.members s₀ = .ok (ms, s')) (h : TailShapeOkI p) :
+    TailShapeOkI { p with members := ms } := by
+  refine ⟨fun m hm' c hc i hi => ?_, h.rules⟩
+  have hx : (m.declared, m.ctors) ∈ p.members.map (fun m => (m.declared, m.ctors)) :=
+    reduceMembersS_dc hm ▸ List.mem_map_of_mem (f := fun m => (m.declared, m.ctors)) hm'
+  obtain ⟨m0, hm0, he⟩ := List.mem_map.1 hx
+  simp only [Prod.mk.injEq] at he
+  rw [← he.1]
+  exact h.steps m0 hm0 c (he.2.trans hc) i hi
+
 /-- **A block's recursor types, closed with a closed reading** (what the pass and the
 generated recursors' stage take of the stream's recursors). -/
 theorem recsClosed_of_block {nP : Nat} {block : List Lean.ConstantInfo} {p : InLean.BlockShape}
@@ -619,7 +670,7 @@ shape's members have a closed reading (`hMO`). -/
 theorem blockKSSimI_of (hR : ReduceMemberSimI) (hPT : PassTailSimI)
     (hMO : ∀ nP block p, (∀ ci ∈ block, isBlockKind ci = true ∧ okC ci.toConstantVal.type = true) →
       InLean.blockShape? nP block = some p → ∀ ms ∈ p.members, MemberOk ms) : BlockKSSimI := by
-  intro fe L block nP p s₀ s' hJ hso hs hr hcl hk hsh h
+  intro fe L block nP p s₀ s' hJ hso hs hr hcl hk hsh hts h
   unfold InLean.checkBlockKS at h
   by_cases hnd : (InLean.namesNodup (p.allCtors.map (·.1.name)) &&
       InLean.namesNodup p.memberNames) = true
@@ -655,7 +706,7 @@ theorem blockKSSimI_of (hR : ReduceMemberSimI) (hPT : PassTailSimI)
     rw [← he]; exact (hMF m0 hm0).2
   have hpre : PassPremI fe L { p with members := ms } := by
     refine ⟨fun m hm => (hAt _ (List.mem_map_of_mem hm)).declaredWF, fun m hm => ?_, ?_,
-      fun m hm hn => ?_, fun m hm => ?_, ?_, fun m hm => ?_⟩
+      fun m hm hn => ?_, fun m hm => ?_, ?_, fun m hm => ?_, tailShapeOkI_reduced hms hts⟩
     · have := (hAt _ (List.mem_map_of_mem (f := trMember) hm)).name
       exact toName_inj this
     · have e : ms.map (·.declared.name) = p.memberNames := by
