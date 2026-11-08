@@ -112874,6 +112874,47 @@ loop (inference at depth 4, `mkFVarM 2`/`3` at the hypotheses, master's `divModC
 Gates: `lake build InLean InLeanProof` warning-free; `tests/layering.sh`,
 `tests/trust-surface.sh`, `tests/no-local-paths.sh`, `tests/inlean-sync.sh` pass.
 
+**Lane CertArm, continued: DivModArm, the WF operations' arm proved (2026-11-08).**  New
+`InLeanProof/DivModArm.lean`; no `InLean/*` change, no `sorry`, no new axiom (the standing `mkData`
+stop-gaps where a cached flag is read), 15 pins.  **`divModArmSimI : DivModArmSimI loadedPins`**,
+so **`checkDeclKindC_sim_nk`**/**`checkDecl_sim_nk`** now take `NatKinds L` as their one premise
+beyond the job's; the statements from the named arm are renamed `checkDeclKindC_sim_arm`/
+`checkDecl_sim_arm` (`CertArm.lean`).
+
+* *The decoded terms are closed readings* (`loadPinSets_okC`).  The guards' converse needs every
+  decoded pin, proof and type pin `okC`; the range check gives `RangeOk` and no expression
+  metavariable, but not "no free variable" and "no level metavariable" (a level metavariable has no
+  reading, `okLv`; a free variable reads as `bvar 0`, which under a binder is bound, so master's
+  guard could pass where InLean's `hasFVar` refuses).  Both follow from the decoder's structure: it
+  has no constructor for either (`entry_ok` over the sixteen tags, the `for` loop of `blob` by
+  `except_forIn_inv`, the `mapM`s by `except_mapM_all`).  No executable change was needed.
+* *The guards, both ways* (`divModPinGuard_eq`, `divModCertGuard_eq`, `divModCertsGuard_eq`, and
+  `divModPinGuard_none`: a variant without the operation is refused by master's guard on the
+  `.bvar 0` pin, as InLean skips it).  The cached flags of a closed reading are master's
+  (`flags_trC`; `trC_allLevelParamsDefined_nil` holds structurally); resolution both ways
+  (`constsResolve_trE_conv` by `EnvPresI.none`, `constsResolve_eqA` where only the term's own free
+  variables need resolve at master's: the interned `x`, `y` read `fvar 0`/`fvar 1` of type `Nat`,
+  stored).  `substConst0` commutes with the reading on the statements' spines (`TrS_substConst0`),
+  `substConstAll`'s reading is master's (`substConstAll_trC`, through `mapOff_fresh`), and the
+  statements over the interned variables are master's (`divModCertStmts_tr`).
+* *The attempt and the loop*: `checkTypePins_sim` (stored types closed by `EnvWF`),
+  `checkDivModCerts_sim` (the applied proof by `applied0/1/2`, scoped by master's
+  `divModCertApplied_wscoped`; inference and the comparison at depth 4), `checkDivModPinAt_sim`,
+  `checkDivModPinLoop_sim` (induction over `sets.toList`, both decline-reason lists arbitrary: they
+  differ, InLean saying "no pin" where master's guard fails, and only the messages read them), and
+  the arm `checkDefnC_divMod_sim` (the pushed environment as in `checkDefnC_struct_sim`, `Nat`
+  stored before the push from InLean's guard).
+
+*Validation* (step 0, the branch's executable state before this lane, unchanged by it): Std 110,064
+and Lean 199,645 declarations accepted, 0 rejected, 0 declined, 0 exact and 0 cosmetic mismatches;
+`scripts/inlean_negtest.lean` 13/13.
+
+*What remains*: P4 supplies `NatKinds L` (from the fold's pinned basis block).  The simplification
+noted above (`constsResolve_trC` in place of `crNF_of_infer` for O6's checks) is still not done.
+
+Gates: `lake build InLean InLeanProof inlean-replay` warning-free; `tests/layering.sh`,
+`tests/trust-surface.sh`, `tests/no-local-paths.sh`, `tests/inlean-sync.sh` pass.
+
 ## TASK #489 — what a module's constants mention, in one array per module (2026-11-06, agent/489-flat-uses)
 
 **The task (maintainer).**  After #480, take the self-contained one of the memory fixes a census of
