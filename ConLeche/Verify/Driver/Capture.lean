@@ -1472,4 +1472,155 @@ theorem Origin.push {ctx : Array Declaration} {homes : Array Name} (hsz : ctx.si
 
 end
 
+section
+variable {sp : SearchPath} {fs : FS} {env : ReachEnv ModelIO} {ho : HS}
+
+theorem copies_reached (hcop : env.copies = clashCopiesOf env.wr)
+    (hcm : ∀ cl ∈ env.wr.clashes, ∀ x ∈ cl.copies, x.1.mod < env.wr.loads.order.size)
+    {n : Name} {cs : Array (Name × ConstantVal)} (h : env.copies[n]? = some cs)
+    {kc : Name × ConstantVal} (hk : kc ∈ cs) : Reached sp fs env.wr kc.1 := by
+  rw [hcop] at h
+  obtain ⟨cl, hcl, x, hx, rfl⟩ := mem_clashCopiesOf h hk
+  exact .loaded (hcm cl hcl x hx)
+
+/-- The partners' reads checked: the invariant kept. -/
+theorem CapInv.pairs {L L' : ReachLog} {c c₁ : ReachCache} {D : List (Name × Name)}
+    (hI : CapInv sp fs env L c D) (hctx : L'.ctx = L.ctx) (hhomes : L'.homes = L.homes)
+    (h1 : CacheOk sp fs c₁)
+    (st : Step sp fs (fun y s => ∃ x ∈ c.partners.toList, CapNL sp fs env x.1 y s)
+      (fun z => ∃ x ∈ c.partners.toList, CapNP sp fs x.1 z) { c with partners := #[] } c₁)
+    (hP : ∀ x ∈ c.partners.toList,
+      Passed sp fs env c₁.located (· ∈ c₁.pending) (· ∈ c₁.partners) x.1 x.2) :
+    CapInv sp fs env L' c₁ (D ++ c.partners.toList) := by
+  have hreach : ∀ x ∈ c.partners.toList, Reached sp fs env.wr x.1 := fun x hx =>
+    (hI.reads x (.inr (Array.mem_toList_iff.1 hx))).1
+  refine ⟨h1, st.views hI.views, by rw [hctx, hhomes]; exact hI.size, fun x hx => ?_,
+    fun k d h hd hh => ?_, fun y s hs => ?_, fun z hz => ?_,
+    fun cl hcl => (hI.clashes cl hcl).mono st.pend⟩
+  · rcases List.mem_append.1 hx with hx | hx
+    · exact (hI.passed x hx).mono st.loc_keep st.pend fun z hz =>
+        hz.elim (fun h => .inl (List.mem_append_left _ h))
+          (fun h => .inl (List.mem_append_right _ (Array.mem_toList_iff.2 h)))
+    · exact (hP x hx).mono (fun _ _ h => h) (fun _ h => h) fun z hz => .inr hz
+  · rw [hctx] at hd; rw [hhomes] at hh
+    obtain ⟨a, ⟨x, hx, s, hs, hm, hra⟩, b, e⟩ := hI.records k d h hd hh
+    refine ⟨fun y hy => List.mem_append_left _ (a y hy),
+      ⟨x, hx, s, copyOf_mono st.loc_keep hs, hm, hra⟩,
+      fun n hn => (b n hn).imp fun s hs => ⟨copyOf_mono st.loc_keep hs.1, hs.2⟩,
+      fun n hn cs hcs kc hk y hy => .inl ?_⟩
+    rcases e n hn cs hcs kc hk y hy with h | h
+    · exact List.mem_append_left _ h
+    · exact List.mem_append_right _ (Array.mem_toList_iff.2 h)
+  · rcases st.loc_new y s hs with h | ⟨x, hx, himp, v, t, hv, ht, hst⟩
+    · exact hI.located y s h
+    · refine ⟨himp, ?_⟩
+      rw [show s.part.mod = t.part.mod by rw [hst]]
+      exact .view (hreach x hx) hv ht
+  · rcases hz with hz | hz
+    · rcases List.mem_append.1 hz with hz | hz
+      · obtain ⟨a, b⟩ := hI.reads z (.inl hz)
+        exact ⟨a, by rw [hctx, hhomes]; exact b⟩
+      · obtain ⟨a, b⟩ := hI.reads z (.inr (Array.mem_toList_iff.1 hz))
+        exact ⟨a, by rw [hctx, hhomes]; exact b⟩
+    · rcases st.part_new z hz with h | ⟨x, hx, v, y, s₂, hv, hs, hnew⟩
+      · simp at h
+      · refine ⟨?_, .inr (.inl ⟨x.1, v, y, s₂, hv, hs, hnew⟩)⟩
+        rw [hnew.1]
+        exact .view (hreach x hx) hv hs
+
+/-- A record added: the invariant kept. -/
+theorem CapInv.add (hsize : env.wr.index.parts.size ≤ env.wr.loads.order.size)
+    (hcop : env.copies = clashCopiesOf env.wr)
+    (hcm : ∀ cl ∈ env.wr.clashes, ∀ x ∈ cl.copies, x.1.mod < env.wr.loads.order.size)
+    {L L' : ReachLog} {c c₁ c₂ c₃ : ReachCache} {D : List (Name × Name)}
+    {d : Declaration} {h x : Name} {s : Spot}
+    (hI : CapInv sp fs env L c D) (hctx : L'.ctx = L.ctx.push d) (hhomes : L'.homes = L.homes.push h)
+    (f1 : Fr c c₁) (hx : x ∈ declNames d) (hcp : copyOf env c.located x = some s)
+    (hh : h = s.part.mod) (hra : ReadAt sp fs d s)
+    (st2 : Step sp fs (CapNL sp fs env h) (CapNP sp fs h) c₁ c₂)
+    (hP2 : ∀ y ∈ (recordReads d).toList,
+      Passed sp fs env c₂.located (· ∈ c₂.pending) (· ∈ c₂.partners) h y)
+    (h3 : CacheOk sp fs c₃) (st3 : Step sp fs (StoredNL env h) (fun _ => False) c₂ c₃)
+    (hS : ∀ n ∈ declNames d, ∃ s, copyOf env c₃.located n = some s ∧ s.part.mod = h) :
+    CapInv sp fs env L' { c₃ with partners := c₃.partners ++ clashPartners env (declNames d) }
+      (D ++ (recordReads d).toList.map (h, ·)) := by
+  let NL : Name → Spot → Prop := fun y s => CapNL sp fs env h y s ∨ StoredNL env h y s
+  let NP : Name × Name → Prop := fun z => CapNP sp fs h z ∨ z ∈ clashPartners env (declNames d)
+  have T3 : Step sp fs NL NP c₂ { c₃ with partners := c₃.partners ++ clashPartners env (declNames d) } :=
+    (st3.mono (fun _ _ h => .inr h) (fun _ h => h.elim)).trans
+      (Step.partners_append fun z hz => .inr hz)
+  have T : Step sp fs NL NP c { c₃ with partners := c₃.partners ++ clashPartners env (declNames d) } :=
+    (Step.ofFr f1).trans ((st2.mono (fun _ _ h => .inl h) (fun _ h => .inl h)).trans T3)
+  have hRh : Reached sp fs env.wr h := hh ▸ copyOf_reached hsize (fun y s h => (hI.located y s h).2) hcp
+  have hk : ∀ {k : Nat} {e : Declaration} {g : Name}, L'.ctx[k]? = some e → L'.homes[k]? = some g →
+      (L.ctx[k]? = some e ∧ L.homes[k]? = some g) ∨ (k = L.ctx.size ∧ e = d ∧ g = h) := by
+    intro k e g he hg
+    rw [hctx, Array.getElem?_push] at he
+    rw [hhomes, Array.getElem?_push] at hg
+    by_cases hks : k = L.ctx.size
+    · simp only [hks, ↓reduceIte, Option.some.injEq] at he
+      simp only [hks, hI.size, ↓reduceIte, Option.some.injEq] at hg
+      exact .inr ⟨hks, he.symm, hg.symm⟩
+    · simp only [hks, ↓reduceIte] at he
+      simp only [show k ≠ L.homes.size by rw [← hI.size]; exact hks, ↓reduceIte] at hg
+      exact .inl ⟨he, hg⟩
+  have hnew : L'.ctx[L.ctx.size]? = some d ∧ L'.homes[L.ctx.size]? = some h := by
+    rw [hctx, hhomes, Array.getElem?_push, Array.getElem?_push]
+    simp [hI.size]
+  have horig : ∀ {z}, Origin sp fs env L.ctx L.homes z → Origin sp fs env L'.ctx L'.homes z := by
+    intro z o; rw [hctx, hhomes]; exact o.push hI.size
+  have hmemP : ∀ {z}, z ∈ D ∨ z ∈ c.partners →
+      z ∈ D ++ (recordReads d).toList.map (h, ·) ∨
+        z ∈ c₃.partners ++ clashPartners env (declNames d) := fun hz =>
+    hz.elim (fun h => .inl (List.mem_append_left _ h)) (fun h => .inr (T.part_keep _ h))
+  refine ⟨h3.partners _, T.views hI.views, by rw [hctx, hhomes]; simp [hI.size],
+    fun z hz => ?_, fun k e g he hg => ?_, fun y s' hs' => ?_, fun z hz => ?_,
+    fun cl hcl => (hI.clashes cl hcl).mono T.pend⟩
+  · rcases List.mem_append.1 hz with hz | hz
+    · exact (hI.passed z hz).mono T.loc_keep T.pend fun _ h => hmemP h
+    · obtain ⟨y, hy, rfl⟩ := List.mem_map.1 hz
+      exact (hP2 y hy).mono T3.loc_keep T3.pend fun _ h => .inr (T3.part_keep _ h)
+  · rcases hk he hg with ⟨he', hg'⟩ | ⟨-, rfl, rfl⟩
+    · obtain ⟨a, ⟨x', hx', s'', hs'', hm, hra'⟩, b, e'⟩ := hI.records k e g he' hg'
+      refine ⟨fun y hy => List.mem_append_left _ (a y hy),
+        ⟨x', hx', s'', copyOf_mono T.loc_keep hs'', hm, hra'⟩,
+        fun n hn => (b n hn).imp fun s hs => ⟨copyOf_mono T.loc_keep hs.1, hs.2⟩,
+        fun n hn cs hcs kc hk' y hy => hmemP (e' n hn cs hcs kc hk' y hy)⟩
+    · refine ⟨fun y hy => List.mem_append_right _
+          (List.mem_map.2 ⟨y, Array.mem_toList_iff.2 hy, rfl⟩),
+        ⟨x, hx, s, copyOf_mono T.loc_keep hcp, hh.symm, hra⟩, hS,
+        fun n hn cs hcs kc hk' y hy => .inr ?_⟩
+      refine Array.mem_append.2 (.inr ?_)
+      unfold clashPartners
+      exact (mem_clashPartners (env := env) _ #[]).2 (.inr ⟨n, hn, cs, hcs, kc, hk', rfl, hy⟩)
+  · rcases T.loc_new y s' hs' with h' | h' | ⟨himp, hp⟩
+    · exact hI.located y s' h'
+    · obtain ⟨himp, v, t, hv, ht, hst⟩ := h'
+      refine ⟨himp, ?_⟩
+      rw [show s'.part.mod = t.part.mod by rw [hst]]
+      exact .view hRh hv ht
+    · refine ⟨himp, ?_⟩
+      rw [show s'.part.mod = h by rw [hp]]
+      exact hRh
+  · rcases hz with hz | hz
+    · rcases List.mem_append.1 hz with hz | hz
+      · obtain ⟨a, b⟩ := hI.reads z (.inl hz)
+        exact ⟨a, horig b⟩
+      · obtain ⟨y, hy, rfl⟩ := List.mem_map.1 hz
+        exact ⟨hRh, .inl ⟨L.ctx.size, d, hnew.1, hnew.2, Array.mem_toList_iff.1 hy⟩⟩
+    · rcases T.part_new z hz with h' | h' | h'
+      · obtain ⟨a, b⟩ := hI.reads z (.inr h')
+        exact ⟨a, horig b⟩
+      · obtain ⟨v, y, s₂, hv, hs, hnw⟩ := h'
+        refine ⟨?_, .inr (.inl ⟨h, v, y, s₂, hv, hs, hnw⟩)⟩
+        rw [hnw.1]
+        exact .view hRh hv hs
+      · unfold clashPartners at h'
+        rcases (mem_clashPartners (env := env) _ #[]).1 h' with h' | ⟨n, hn, cs, hcs, kc, hk', h1, h2⟩
+        · simp at h'
+        · refine ⟨h1 ▸ copies_reached hcop hcm hcs hk',
+            .inr (.inr ⟨L.ctx.size, d, hnew.1, n, hn, cs, hcs, kc, hk', h1, h2⟩)⟩
+
+end
+
 end ConLeche.Driver
