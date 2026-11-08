@@ -47,6 +47,14 @@ public import InLeanProof.NestDepth
 public import InLeanProof.PassNestWalk
 public import InLeanProof.PassPositivity
 public import InLeanProof.PassNestSeeds
+public import InLeanProof.PassClasses
+public import InLeanProof.PassTail
+public import InLeanProof.PassRecs
+public import InLeanProof.PassRecs2
+public import InLeanProof.PassRecs3
+public import InLeanProof.PassRecs4
+public import InLeanProof.PassRecs5
+public import InLeanProof.PassRecs6
 public import InLeanProof.DeclGuards
 public import InLeanProof.DeclStep
 public import InLeanProof.DeclPins
