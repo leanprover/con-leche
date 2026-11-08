@@ -37,6 +37,7 @@ public import InLeanProof.PassUniform
 public import InLeanProof.PassNestKey
 public import InLeanProof.PassClasses
 public import InLeanProof.PassTail
+public import InLeanProof.PassRecs
 
 /-!
 # The axiom pins of the InLean proof tier (task #451, lane G)
@@ -3236,3 +3237,32 @@ info: 'InLeanProof.checkBlockIdxSortsFI_run' depends on axioms: [propext,
 /-- info: 'InLeanProof.streamKCheckI_run' depends on axioms: [propext, Classical.choice, Quot.sound] -/
 #guard_msgs in
 #print axioms InLeanProof.streamKCheckI_run
+
+/-! ## Lane O7-classes, continued (`PassRecs.lean`) -/
+
+/-- info: 'InLeanProof.occF_le_fvarRange' depends on axioms: [propext, Classical.choice, Quot.sound] -/
+#guard_msgs in
+#print axioms InLeanProof.occF_le_fvarRange
+
+/--
+info: 'InLeanProof.fvarB_tr' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound,
+ InLeanProof.Expr.mkAppData_fields,
+ InLeanProof.Expr.mkData_eq,
+ InLeanProof.Level.mkData_eq]
+-/
+#guard_msgs in
+#print axioms InLeanProof.fvarB_tr
+
+/-- info: 'InLeanProof.targetAbs_eq' depends on axioms: [propext, Classical.choice, Quot.sound] -/
+#guard_msgs in
+#print axioms InLeanProof.targetAbs_eq
+
+/-- info: 'InLeanProof.targetAbsI_tr' depends on axioms: [propext, Classical.choice, Quot.sound] -/
+#guard_msgs in
+#print axioms InLeanProof.targetAbsI_tr
+
+/-- info: 'InLeanProof.isEquivList_tr' depends on axioms: [propext, Quot.sound] -/
+#guard_msgs in
+#print axioms InLeanProof.isEquivList_tr

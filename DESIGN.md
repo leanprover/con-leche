@@ -112934,6 +112934,34 @@ Gates: `lake build InLean InLeanProof` warning-free; `tests/layering.sh`,
 `tests/trust-surface.sh`, `tests/no-local-paths.sh`, `tests/inlean-sync.sh`
 pass.
 
+**Lane O7-classes, continued (2026-11-08).**  Coordinator: finding 1 is being
+fixed by the positivity lane (`EO.depthGo` reads through `mdata`, with a lemma
+`EO.depth e = (TrS s e).depth`); the walk stays theirs.  This round starts the
+recursor stage, bottom-up (`InLeanProof/PassRecs.lean`, 5 pins):
+`occF_le_fvarRange` :31 and **`fvarB_tr`** :77 (InLean's `fvarB` *equals*
+master's `fvarRange` of the reading, the converse `fvarB_le_tr` lacked: the
+stage's range tests in `targetParamsDefEq` decide branches), `targetAbs_eq`
+:112 and **`targetAbsI_tr`** :119 (the member abstraction, `EO.replace`, is
+master's `targetAbs` on the reading), **`isEquivList_tr`** :197.
+
+*What remains of the recursor stage* (in this order): `targetParamsDefEq` (the
+syntactic test `a' == b'`: InLean's `true` gives master's `true`
+(`TrS_of_clEq`); InLean's `false` with equal readings sends InLean through
+`inferType`/`isDefEq` where master recurses at once, so the simulation needs
+master's `isDefEq` answering `true` on equal terms, or reflexivity of the
+fueled defeq, as a lemma; the inferred terms need scoping at
+`|pfvs| + |formerTys|`, which for the table's entries is the positivity lane's
+output, a named hypothesis), `targetClassMatch` (`targetHoles` as
+`mapM_mkFVarM_run`-style interned holes at the formers' types), `targetMajorNfs`
+and `classesNfs` (over the table, `trNf`), `targetRecPins` (pure guards on the
+shape and the block), `classStreamRecs`, `classesCtors` (`classMinorSlot`,
+`classFieldsOf`, `classFieldsAgree`, `classNodesAgree`, `targetK53`),
+`classFormerTy`, `ClassGen`'s prefix, `classRecTysOk`, `classRecsRulesOk` at
+`classFeROvl`, the output as `out.map (trOut s)`; then `streamRecsCheck` on
+`trOut` and `checkBlockTablesF` (InLean's `structProjBodies` against master's
+on `trC`, master's resolution guard through `Expr.constsResolve_instantiate1`,
+finding 2 from `EnvWF` and freshness).
+
 ## TASK #489 — what a module's constants mention, in one array per module (2026-11-06, agent/489-flat-uses)
 
 **The task (maintainer).**  After #480, take the self-contained one of the memory fixes a census of
