@@ -114787,3 +114787,54 @@ neither `checkInductiveC_ok` nor O7's results give:
 
 Pins (`AxiomPins.lean`): `addDeclSound_of`, `no_false_of_addDeclSound`,
 `no_false_of_indRunFacts` and the steps.
+
+### Lane P4-close: the generator cut off, the run facts read off (2026-11-08, task #451, agent/451-inlean2)
+
+Coordinator's rulings: the unverified generator's influence on the verified check is cut off
+or checked cheaply.  Done for two of `IndRunFactsI`'s three facts; the third is narrowed to a
+named, smaller obligation (`IndGroundI`, below), because reading it off the run is a walk of
+the block check, not a consequence of the facts already read off.
+
+**Executable** (`InLean/Inductives/Decl.lean`, `checkInductiveC`):
+* the generator runs in a state of its own (`StateT.lift` of its run from `{}`), and the block
+  check starts from the empty state (`set {}`, where it ran from the generator's state flushed);
+* the generated constants' names are tested distinct (`namesNodup`), next to the freshness
+  test.  A rejection, not an internal error: two constructors of one name, or a constructor at
+  the recursor's name, reach it from the input (official rejects both, adding one by one).
+  `scripts/inlean_negtest.lean` gains both cases.
+
+**Proofs** (no `sorry`, no new axiom; pinned):
+* `checkInductiveC_ok` gains `namesNodup (a.consts.toList.map (·.name))` and, for a safe block,
+  the block check's run from `{}` ending at the run's final state.  So `ind_step` takes the
+  names' distinctness (`namesNodup_iff`, `List.Pairwise.of_map`) and `CSOKIF` of the start
+  (`CSOKIF_empty`) from the run.
+* `toBlock_of_ground`: a list of block constants in range (`CIRange`) whose terms carry no
+  free variable and no metavariable (`CIGround`, on the cached `hasFVar`/`hasMVar`) reads as a
+  record (`okC_of_ground` = `Expr.hasFVar_eq`, `hasMVar_eq`, `okC_of_flags`; `toRules_of_okC`).
+  Closedness is not needed for the reading.
+* **What remains: `IndGroundI`** — every constant of an accepted safe `checkInductiveC` run
+  is `CIGround`.  Not a consequence of `CIRange`/`CIClosed`: `constClosed` tests loose bound
+  variables only, and a free variable or metavariable has no closed reading (`toExprC`).  True
+  for the code by the block check (`checkTermWF` on the formers' and constructors' types inside
+  `checkBlockIndsF`/`checkBlockCtorsF`, the recursors compared with regenerated ones in
+  `genRecCheck`), but the simulation takes the reading as input (`checkIndDeclC_sim`'s `hb`), so
+  reading it off means a walk of the block check.  The cheap executable alternative, in the
+  ruling's pattern: `constClosed` (or a check beside it) also tests `!hasFVar && !hasMVar` of
+  each type and rule, which makes `IndGroundI` one `Array.all` read off `checkInductiveC_ok`.
+  Not done here: the lane's rule allowed no further `InLean/*` change for a statement not false.
+* `addDeclSound_of (hI : IndGroundI) : AddDeclSound V` and `no_false_of_indGround` replace the
+  `IndRunFactsI` forms.  `Statement.lean` drops `ConLeche.Model.Fold`/`Capstone` (unused there);
+  `EnvBodiesPres.lean`, whose `envWF_of_modelOk` names `EnvModelOk`, imports `Model.Fold` itself.
+
+**Validation** (`inlean-replay --kernel=inlean --compare --quiet`): Init 64,530, Std 110,064,
+Lean 199,645 accepted, 0 rejected, 0 declined, 0 exact and 0 cosmetic mismatches;
+`scripts/inlean_negtest.lean` 15/15.
+`instructions:u` (`--kernel=inlean --quiet`, one run each): Init 878.2 G (878.2 G at lane
+GenClosed: no change from re-interning in the block check), Lean 3,608.1 G (3,582.6 G was the
+last Lean number, several lanes back, so the +0.71 % is not this lane's alone).
+
+Pins (`AxiomPins.lean`): `okC_of_ground`, `toBlock_of_ground`, `no_false_of_indGround`;
+`checkInductiveC_ok`, `ind_step`, `addDeclSound_of` re-pinned unchanged.
+Gates: `lake build InLean InLeanProof inlean-replay` warning-free; `tests/layering.sh`,
+`tests/trust-surface.sh`, `tests/no-local-paths.sh`, `tests/inlean-sync.sh`, `tests/shake.sh`;
+`lake build`, `lake test`.
