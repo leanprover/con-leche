@@ -114070,3 +114070,66 @@ All exit 0, with the same records reached.  (`init-full` is not on this machine'
 **Documents.**  OVERVIEW §8 states both reservations.  The anchors in OVERVIEW, README (link
 repointed only) and the whitepaper follow the moved lines.  §7's prose needed no change: it never
 named the exclusion.
+
+### #501 cont. 7 (the gates on cont. 6's tree; the state at the end of the session; not landed)
+
+**Two follow-ups the full battery found.**
+* The olean fixture `RtA` declares `theorem Lean.reduceBool : RtT`.  Its own worker accepted it
+  until now, and now refuses it (exit 1, "a compiler-trust name, not an opaque constant"): the
+  reservation's reject, which Lean does not make.  `tests/olean.sh` moves it out of the accepted
+  workers into its own case; `RtM`'s verdict is unchanged.  `RtA.lean`'s comment says so (its
+  `.olean.server` is rebuilt; the other levels are unchanged).
+* `CheckerBase`'s `public import ConLeche.Kernel.TrustAxioms` (the guard reads `reduceOpNames`)
+  made `StructInstall`'s own import of it redundant.  That import is removed, as is its
+  shake allowlist line.
+
+**Gates on the tree at f4891317b.**  `lake build` and `lake test` warning-free; overview links
+(162) and whitepaper links (526) after the anchors followed the moved lines; quote gate (4
+statements); layering; trust surface (13 escapes, all allowlisted); no-local-paths; pindump;
+challenge (statements identical); fragment gate (axioms pinned); whitepaper build (PDF and HTML,
+in `nix develop ./whitepaper`); shake (677/677 allowlisted, no public import demotable); olean
+gate 311/311 under the guard.  `tests/arena.sh` in full under the guard ran on 5a7642a6b, before
+the two follow-ups: everything passed but the two items above (axioms pinned, 66 theorems;
+selfcheck 56 226 declarations; arena tutorial 90/92; e2e 560/560; the trusted and `--jobs` sweeps
+without divergence; peak anon 9.3 GB).  After the follow-ups, shake and the olean gate were
+re-run alone, and passed.
+
+**Left, in order** (cont. 3's plan, less its first item: pinned names now take `Agree.proof` like
+every other name, so no pinned lemma is owed):
+1. **The composition** `main_modular_no_False` and its one-process twin.  The development is built
+   from `checkGraphG_ok`'s closure and ranks (`rk`, injective on the closure), with module `j` the
+   closure's module of rank `j`.  Its `ctx` is that worker's sorted context and its `decls` the
+   own records with the theorems' values in place (`fillDecl`).  `src n` is the rank of the home
+   of the record storing `n`.  `iface` is the records any closure worker's context reads with
+   that home, which gives `InterfaceOk` by `interfaceOk_of_workers` and `presented` by
+   `presented_of_worker`.  `imports` is `[]`: nothing but `below` reads it.  A rank outside the
+   closure is the empty module.  Still to prove:
+   * `src_lt` (and the `nameOf (rk h) = h` that `presented_of_worker` asks): every home and every
+     located copy's module is in the module's strict import closure.  This is a worklist invariant
+     of `reachGo` (the importer copy's module is in the header fixpoint's load order; a located
+     copy comes from a home's view, its own private part or its header fixpoint) and a
+     `levelsGo` lemma: the load order's modules are reached from the module by import edges.
+     Then `graphOf_ok`'s edges decrease `rk`;
+   * `reads`, the bulk: a worklist invariant recording, for every read of every record and every
+     partner read, which `captureOne` branch passed.  Then `Agree` by induction on the context
+     order.  `same` holds at the home's own copy, given that the record storing a name has the
+     module of its importer copy or located copy as home (`readRecord`, `storedNamesOk`).  `via`
+     holds at the public-import route, with `Agree dev h M1 y` at `h` by `same` (one copy) or by
+     `proof` from `h`'s `clashAgree` statuses and `clashPartners`' reads.  `proof` holds at
+     `agreeCheck`'s pairs.  Its `ProofSide` is `ThmAt` from `worker_thm` (`.yes`), or
+     `TypeIsProp` at the part from `inferFlags` at the full context (`knot_ext`, the prefix closed
+     by `ordered`).  `readsAlike` also needs every read stored in the home's own environment:
+     the home's own record's reads are its worker's roots, and a statement presentation reads
+     less;
+   * a home's view's first copy is its index's first copy (one header fixpoint, one snapshot).
+   Then `main_modular_no_False` is `modular_no_False` at that development, for the module whose
+   private view holds the theorem of type `False` (`worker_thm`).  The one-process twin goes
+   through `checkModularG_accept`.  Then `binary_modular`/the capstones, `Challenge.lean`/
+   `comparator.json` where they state the run-level theorem, the axiom pins, OVERVIEW §1 and
+   whitepaper §7.
+2. The gates in full; then land on `modular` with `--no-ff`, with a summary covering R1, gap B,
+   the fixtures, the costs, the source fix of the pinned names, the reservations and the
+   composition.
+
+The session ended here: cont. 6's change is complete and gated, and the composition is not
+started.
