@@ -487,4 +487,147 @@ theorem classNodesAgreeI_run {fe : InLean.FEnv} {L : ConLeche.Env} (hO : OpsSimI
         refine ⟨hs', ht₁.trans ht', Runs.bind hK ?_⟩
         simpa using hR
 
+/-! ## Node agreement at every recursive field -/
+
+theorem unwrapOr_run {α : Type} {o : Option α} {err : InLean.CheckError} {s₀ s' : InLean.CState}
+    {v : α} (h : InLean.unwrapOr o err s₀ = .ok (v, s')) : o = some v ∧ s' = s₀ := by
+  unfold InLean.unwrapOr at h
+  cases o with
+  | none => exact (throw_run h).elim
+  | some a => obtain ⟨rfl, rfl⟩ := pure_run h; exact ⟨rfl, rfl⟩
+
+theorem trTM_default (s : InLean.CState) : trTM s default = default := rfl
+
+theorem getD_map_trTM (s : InLean.CState) (Ms : List InLean.TargetMajor) (t : Nat) :
+    (Ms.map (trTM s)).getD t default = trTM s (Ms.getD t default) := by
+  rw [List.getD_eq_getElem?_getD, List.getD_eq_getElem?_getD, List.getElem?_map]
+  cases Ms[t]? <;> rfl
+
+theorem getD_of_all {α : Type} [Inhabited α] {P : α → Prop} {l : List α} (h : ∀ a ∈ l, P a)
+    (hd : P default) (t : Nat) : P (l.getD t default) := by
+  rw [List.getD_eq_getElem?_getD]
+  cases ht : l[t]? with
+  | none => exact hd
+  | some a => exact h a (List.mem_of_getElem? ht)
+
+theorem okTMN_default (s : InLean.CState) : OkTMN s default :=
+  ⟨rfl, rfl, rfl, fun _ h => by cases h⟩
+
+/-- A field's leaf class test, read. -/
+theorem classLeafAt_tr {s : InLean.CState} (M : InLean.TargetMajor) {leaf : Lean.Expr} :
+    InLean.classLeafAt M leaf = ConLeche.classLeafAt (trTM s M) (TrS s leaf) := by
+  unfold InLean.classLeafAt ConLeche.classLeafAt
+  rw [← TrS_getAppFnT]
+  have hm : ∀ m y, leaf.getAppFnT ≠ .mdata m y := fun _ _ h => getAppFnT_ne_mdata h
+  generalize leaf.getAppFnT = x at hm
+  cases x with
+  | const I us => simp [TrS_const, trTM, toName_beq]
+  | mdata m y => exact (hm m y rfl).elim
+  | fvar id =>
+    cases hc : FVarTable.trans (tableOf s) id with
+    | none => simp only [TrS, trE, hc]; rfl
+    | some c =>
+      obtain ⟨_, _, rfl⟩ := FVarTable.trans_fvarsOnly _ id _ hc
+      simp only [TrS, trE, hc]; rfl
+  | _ => simp [TrS, trE]
+
+/-- The datum's opened fields: readable, read as variables. -/
+@[expose] def FvsOk (s : InLean.CState) (fvs : List Lean.Expr) : Prop :=
+  ∀ f ∈ fvs, OkS s f = true ∧ ∃ j ty, TrS s f = .fvar j ty
+
+theorem FvsOk.mono {s₀ s₁ : InLean.CState} (h : TabLe s₀ s₁) {fvs : List Lean.Expr}
+    (hf : FvsOk s₀ fvs) : FvsOk s₁ fvs ∧ TrSL s₁ fvs = TrSL s₀ fvs := by
+  refine ⟨fun f hf' => ?_, ?_⟩
+  · obtain ⟨ho, j, ty, ht⟩ := hf f hf'
+    exact ⟨okS_of_tabLe h ho, j, ty, by rw [TrS_of_tabLe h ho, ht]⟩
+  · exact TrSL_of_tabLe h (by simp only [OkSL, List.all_eq_true]; exact fun f hf' => (hf f hf').1)
+
+theorem FvsOk.okSL {s : InLean.CState} {fvs : List Lean.Expr} (hf : FvsOk s fvs) :
+    OkSL s fvs = true := by
+  simp only [OkSL, List.all_eq_true]; exact fun f hf' => (hf f hf').1
+
+theorem FvsOk.lbb {s : InLean.CState} {fvs : List Lean.Expr} (hf : FvsOk s fvs) :
+    ∀ x ∈ fvs, (TrS s x).looseBVarsBounded 0 = true := by
+  intro x hx
+  obtain ⟨-, j, ty, ht⟩ := hf x hx
+  rw [ht]; rfl
+
+/-- **Node agreement at every recursive field** (`classFieldsAgree`):
+InLean's pass is master's on the readings, the kinds as `trCF`. -/
+theorem classFieldsAgreeI_run {fe : InLean.FEnv} {L : ConLeche.Env} (hO : OpsSimI fe L)
+    {p : InLean.BlockShape} {formerTys fvs : List Lean.Expr} {Ms : List InLean.TargetMajor}
+    {ctor : Lean.Name} {E : List InLean.NestCtorNf} :
+    ∀ (ks : List InLean.ClassField) (i : Nat) {s₀ s' : InLean.CState} {u : Unit},
+      CSOKI .verified false L s₀ → OkSL s₀ formerTys = true →
+      (∀ t, OkTMN s₀ (Ms.getD t default)) →
+      (∀ t, FrameOk (TrSL s₀ (Ms.getD t default).pfvs) (TrSL s₀ formerTys)) →
+      FvsOk s₀ fvs → i + ks.length ≤ fvs.length → (∀ e ∈ E, OkNf s₀ e) →
+      InLean.classFieldsAgree (sharedOpsC .verified fe) fe p formerTys Ms fvs ctor E i ks s₀ =
+        .ok (u, s') →
+      CSOKI .verified false L s' ∧ TabLe s₀ s' ∧
+        Runs (ConLeche.classFieldsAgree (ConLeche.fueledOpsM .verified) L (trShape p)
+          (TrSL s₀ formerTys) (Ms.map (trTM s₀)) (TrSL s₀ fvs) (toName ctor) (E.map (trNf s₀)) i
+          (ks.map trCF)) ()
+  | [], i, s₀, s', u, hs, _, _, _, _, _, _, h => by
+    unfold InLean.classFieldsAgree at h
+    obtain ⟨-, rfl⟩ := pure_run h
+    exact ⟨hs, TabLe.refl _, by unfold ConLeche.classFieldsAgree; exact Runs.pure _⟩
+  | .ordinary :: ks, i, s₀, s', u, hs, hfo, hMs, hFr, hfv, hlen, hE, h => by
+    unfold InLean.classFieldsAgree at h
+    simp only [List.map_cons, trCF]
+    unfold ConLeche.classFieldsAgree
+    exact classFieldsAgreeI_run hO ks (i + 1) hs hfo hMs hFr hfv
+      (by simp only [List.length_cons] at hlen; omega) hE h
+  | .recursive t tele :: ks, i, s₀, s', u, hs, hfo, hMs, hFr, hfv, hlen, hE, h => by
+    unfold InLean.classFieldsAgree at h
+    simp only [List.map_cons, trCF]
+    unfold ConLeche.classFieldsAgree
+    simp only [List.length_cons] at hlen
+    have hi : i < fvs.length := by omega
+    have hget : fvs.getD i default = fvs[i] := by
+      rw [List.getD_eq_getElem?_getD, List.getElem?_eq_getElem hi, Option.getD_some]
+    have hgetC : (TrSL s₀ fvs).getD i default = TrS s₀ fvs[i] := by
+      rw [List.getD_eq_getElem?_getD, TrSL, List.getElem?_map, List.getElem?_eq_getElem hi]; rfl
+    rw [hget] at h
+    rw [hgetC]
+    obtain ⟨hxo, j, ty, hxt⟩ := hfv _ (List.getElem_mem hi)
+    obtain ⟨w, s₁, h1, hA⟩ := bind_run h
+    obtain ⟨rfl, hwo, hwt, -⟩ := fvarTypeDI_run hs hxo hxt h1
+    obtain ⟨q, s₂, h2, h⟩ := bind_run hA
+    obtain ⟨hsp, rfl⟩ := unwrapOr_run h2
+    obtain ⟨teleB, leaf⟩ := q
+    obtain ⟨hsp1, hsp2⟩ := stripPis_TrS tele w hwo
+    obtain ⟨htbo, hlo⟩ := hsp1 teleB leaf hsp
+    rw [hxt]
+    simp only [ConLeche.Expr.fvarTypeD]
+    rw [← hwt, hsp2, hsp]
+    simp only [Option.map_some, ConLeche.unwrapOr]
+    have hM := hMs t
+    rw [Runs.pure_bind_eq]
+    simp only [getD_map_trTM, ← classLeafAt_tr]
+    cases hcl : InLean.classLeafAt (Ms.getD t default) leaf with
+    | false =>
+      simp only [hcl] at h
+      obtain ⟨_, _, h3, -⟩ := bind_run h; exact (throw_run h3).elim
+    | true =>
+      simp only [hcl, ↓reduceIte] at h
+      obtain ⟨_, s₃, h3, h⟩ := bind_run h
+      obtain ⟨hs₃, ht₃, hN⟩ := classNodesAgreeI_run hO E hs hfo hM (hFr t) htbo hlo hfv.okSL
+        hfv.lbb hE h3
+      have hfv₃ := hfv.mono ht₃
+      obtain ⟨hs', ht', hR⟩ := classFieldsAgreeI_run hO ks (i + 1) hs₃ (okSL_of_tabLe ht₃ hfo)
+        (fun t' => (OkTMN.mono ht₃ (hMs t')).1)
+        (fun t' => by
+          rw [TrSL_of_tabLe ht₃ (hMs t').2.2.1, TrSL_of_tabLe ht₃ hfo]; exact hFr t')
+        hfv₃.1 (by omega) (fun e he => (OkNf.mono ht₃ (hE e he)).1) h
+      rw [TrSL_of_tabLe ht₃ hfo, hfv₃.2, map_trNf_mono ht₃ hE,
+        map_trTM_mono ht₃ (Ms := Ms) ?_] at hR
+      · refine ⟨hs', ht₃.trans ht', ?_⟩
+        simp only [↓reduceIte]
+        exact Runs.bind hN hR
+      · intro M hM'
+        obtain ⟨k, hk, rfl⟩ := List.getElem_of_mem hM'
+        have := hMs k
+        rwa [List.getD_eq_getElem?_getD, List.getElem?_eq_getElem hk, Option.getD_some] at this
+
 end InLeanProof
