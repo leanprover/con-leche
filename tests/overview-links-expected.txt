@@ -16,11 +16,11 @@
 == ConLeche/Kernel/Name.lean#L207
    207  def render (n : Name) : String :=
 
-== ConLeche/MainTheorem.lean#L101-L104
-   101  theorem model_exists (V : Type w) [SetTheory V]
-   102      (pins : List NatOpPinSet) (ds : Array Declaration) (env : Env)
-   103      (accepted : checkDecls .verified pins ds = .ok env) :
-   104      Nonempty (Model V env) := by
+== ConLeche/MainTheorem.lean#L102-L105
+   102  theorem model_exists (V : Type w) [SetTheory V]
+   103      (pins : List NatOpPinSet) (ds : Array Declaration) (env : Env)
+   104      (accepted : checkDecls .verified pins ds = .ok env) :
+   105      Nonempty (Model V env) := by
 
 == ConLeche/Denotes.lean#L123-L124
    123  inductive Denotes (cval : Name → (LevelParam → Nat) → V) (env : Env) (φ : LevelParam → Nat) :
@@ -49,15 +49,15 @@
    267      A ∈ˢ univ (Level.eval φ u) → a ∈ˢ A → b ∈ˢ A →
    268      app (app (app E A) a) b = eqv a b
 
-== ConLeche/MainTheorem.lean#L115-L122
-   115  theorem no_False_declaration (V : Type w) [SetTheory V]
-   116      (pins : List NatOpPinSet) (chunks : List ByteArray)
-   117      (h : jsonWithTheoremFalse chunks) :
-   118      ∃ e, (do
-   119        let pre ← builtinPreludeE
-   120        let r ← parseChunks chunks
-   121        let ds := preparePrelude pre r.decls
-   122        checkDecls .verified pins ds) = .error e := by
+== ConLeche/MainTheorem.lean#L116-L123
+   116  theorem no_False_declaration (V : Type w) [SetTheory V]
+   117      (pins : List NatOpPinSet) (chunks : List ByteArray)
+   118      (h : jsonWithTheoremFalse chunks) :
+   119      ∃ e, (do
+   120        let pre ← builtinPreludeE
+   121        let r ← parseChunks chunks
+   122        let ds := preparePrelude pre r.decls
+   123        checkDecls .verified pins ds) = .error e := by
 
 == ConLeche/Accepts.lean#L62-L72
     62  def jsonWithTheoremFalse (chunks : List ByteArray) : Prop :=
@@ -72,10 +72,10 @@
     71  \{\"thm\":\{\"all\":[{k}],\"levelParams\":[],\"name\":{k},\"type\":{j},\"value\":{v}}}
     72  {after}").toUTF8
 
-== ConLeche/MainTheorem.lean#L151-L153
-   151  theorem main_no_False (V : Type w) [SetTheory V] {file : String} {fs : FS} {b : ByteArray}
-   152      (hb : fs.file file = some b) (hF : jsonWithTheoremFalse [b]) :
-   153      ¬ ModelIO.CanGive (Driver.runArgs ["--", file]) fs 0 := by
+== ConLeche/MainTheorem.lean#L152-L154
+   152  theorem main_no_False (V : Type w) [SetTheory V] {file : String} {fs : FS} {b : ByteArray}
+   153      (hb : fs.file file = some b) (hF : jsonWithTheoremFalse [b]) :
+   154      ¬ ModelIO.CanGive (Driver.runArgs ["--", file]) fs 0 := by
 
 == ConLeche/Verify/Cached/StreamThm.lean#L103-L106
    103  theorem no_False_theorem_accepted (V : Type w) [SetTheory V]
@@ -113,22 +113,22 @@
     83  def checkDecls (mode : CheckMode) (pins : List NatOpPinSet) (ds : Array Declaration) :
     84      Except (CheckError × Nat) Env := do
 
-== ConLeche/MainTheorem.lean#L192-L199
-   192  theorem modular_model_exists (V : Type w) [SetTheory V]
-   193      (pins : List NatOpPinSet) (dev : Nat → Modular.Module) (i : Nat)
-   194      (hok : ∀ j ≤ i, Modular.LocalOk .verified pins dev j) :
-   195      ∃ m : ∀ j ≤ i, Model V (dev j).own,
-   196        (∀ j hj n, ((dev j).context.find? n).isSome = true →
-   197          ∃ h : (dev j).src n ≤ i, (m j hj).cval n = (m ((dev j).src n) h).cval n) ∧
-   198        ∀ j hj n cv, (dev j).own.find? n = some (.thmInfo cv) →
-   199          (m j hj).cval n = fun _ => pt := by
+== ConLeche/MainTheorem.lean#L193-L200
+   193  theorem modular_model_exists (V : Type w) [SetTheory V]
+   194      (pins : List NatOpPinSet) (dev : Nat → Modular.Module) (i : Nat)
+   195      (hok : ∀ j ≤ i, Modular.LocalOk .verified pins dev j) :
+   196      ∃ m : ∀ j ≤ i, Model V (dev j).own,
+   197        (∀ j hj n, ((dev j).context.find? n).isSome = true →
+   198          ∃ h : (dev j).src n ≤ i, (m j hj).cval n = (m ((dev j).src n) h).cval n) ∧
+   199        ∀ j hj n cv, (dev j).own.find? n = some (.thmInfo cv) →
+   200          (m j hj).cval n = fun _ => pt := by
 
 == tests/ConLecheTests/Axioms.lean#L106-L110
-   106  /--
-   107  info: 'ConLeche.model_exists' depends on axioms: [propext, Classical.choice, Quot.sound]
-   108  -/
-   109  #guard_msgs in
-   110  #print axioms ConLeche.model_exists
+   106  Everything below them is what they are corollaries of. -/
+   107  
+   108  /--
+   109  info: 'ConLeche.model_exists' depends on axioms: [propext, Classical.choice, Quot.sound]
+   110  -/
 
 == ConLeche/Driver/Dispatch.lean#L47
     47    | .oleans sp roots cs mode pace jobs => checkMainG (.oleans sp roots cs) mode pace jobs
@@ -1312,15 +1312,15 @@
     50  /-- The pinned `False` basis block, in install order. -/
     51  def falseBasis : List ConstantInfo := [falseA, falseRecA]
 
-== ConLeche/MainTheorem.lean#L115-L122
-   115  theorem no_False_declaration (V : Type w) [SetTheory V]
-   116      (pins : List NatOpPinSet) (chunks : List ByteArray)
-   117      (h : jsonWithTheoremFalse chunks) :
-   118      ∃ e, (do
-   119        let pre ← builtinPreludeE
-   120        let r ← parseChunks chunks
-   121        let ds := preparePrelude pre r.decls
-   122        checkDecls .verified pins ds) = .error e := by
+== ConLeche/MainTheorem.lean#L116-L123
+   116  theorem no_False_declaration (V : Type w) [SetTheory V]
+   117      (pins : List NatOpPinSet) (chunks : List ByteArray)
+   118      (h : jsonWithTheoremFalse chunks) :
+   119      ∃ e, (do
+   120        let pre ← builtinPreludeE
+   121        let r ← parseChunks chunks
+   122        let ds := preparePrelude pre r.decls
+   123        checkDecls .verified pins ds) = .error e := by
 
 == ConLeche/Denotes.lean#L248-L268
    248  structure Model (V : Type w) [SetTheory V] (env : Env) where
@@ -1394,10 +1394,10 @@
 == ConLeche/Frontend/CheckerIO.lean#L302
    302  def ModelIO (α : Type) : Type := FS → HS → Except IO.Error α → HS → Prop
 
-== ConLeche/MainTheorem.lean#L151-L153
-   151  theorem main_no_False (V : Type w) [SetTheory V] {file : String} {fs : FS} {b : ByteArray}
-   152      (hb : fs.file file = some b) (hF : jsonWithTheoremFalse [b]) :
-   153      ¬ ModelIO.CanGive (Driver.runArgs ["--", file]) fs 0 := by
+== ConLeche/MainTheorem.lean#L152-L154
+   152  theorem main_no_False (V : Type w) [SetTheory V] {file : String} {fs : FS} {b : ByteArray}
+   153      (hb : fs.file file = some b) (hF : jsonWithTheoremFalse [b]) :
+   154      ¬ ModelIO.CanGive (Driver.runArgs ["--", file]) fs 0 := by
 
 == Main.lean#L95
     95  def main (args : List String) : IO Unit := do

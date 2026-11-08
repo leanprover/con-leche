@@ -3,7 +3,6 @@ module
 public import ConLeche.Verify.Driver.RouteCtx
 public import ConLeche.Verify.Driver.RoutePub
 import ConLeche.Verify.Driver.Reach
-import ConLeche.Verify.Frontend.Olean.Reads
 
 /-!
 # The routes of the capture check's pairs, and the local checks of a run
@@ -29,22 +28,6 @@ public section
 namespace ConLeche.Driver.Compose
 
 open ConLeche ConLeche.Modular ConLeche.Cached ConLeche.Frontend.Olean
-
-/-- **A copy's filter flag is its kind's.** -/
-theorem copyAt_stmt_skipped {sp : SearchPath} {fs : FS} {s : Spot} {r : Region} {cv : ConstantVal}
-    {k : CKindF Name Unit} (hs : CopyAt sp fs s) (hr : PartRegion sp fs s.part r)
-    (hst : StmtSkel r s.pos.loc cv k) : s.pos.skipped = k.skipped := by
-  obtain ⟨t, ht, hq⟩ := hs
-  obtain ⟨f, a, hf, hreg⟩ := hr
-  have hn := partNames_region ht hf
-  simp only [readNamePositions, hreg] at hn
-  change namePositionsAt r a = some t at hn
-  obtain ⟨_, _, _, hall⟩ := namePositionsAt_mem hn
-  obtain ⟨_, sk, hsk, -, -, hskp⟩ := hall _ hq
-  obtain ⟨sk', hsk', -, -, -, hk⟩ := hst
-  rw [hsk] at hsk'
-  cases hsk'
-  exact hskp.trans (CKindF.mapM_tag hk).2
 
 /-- **The reach's table lists every copy of a clash**, under the clash's name. -/
 theorem clashCopiesOf_complete {sp : SearchPath} {fs : FS} {m : Name} {jobs : Nat}
@@ -227,8 +210,8 @@ theorem agree_loaded {h : Name} (hh : h ∈ R.names) (ih : R.AgreeAll h) {y : Na
   have hsame : cv₀ = cv := SameStmt.eq (workerClash_same hr hcl he₀ he)
   subst hsame
   have hskip : (spotOf (R.w h).reads cp q).pos.skipped = false := by
-    rw [copyAt_stmt_skipped hc hrg hst, ← (show kd₀.skipped = kd.skipped from hsk01),
-      ← copyAt_stmt_skipped hc₀ hr₀ hst₀, hsk₀]
+    rw [(copyAt_kind hc hrg hst).2, ← (show kd₀.skipped = kd.skipped from hsk01),
+      ← (copyAt_kind hc₀ hr₀ hst₀).2, hsk₀]
   have hT := (R.reached_rank hh (.loaded (at_mod_lt hsize hq))).1
   have hcvy : cv₀.name = y := hcvn.trans hcln
   obtain ⟨ci', hci', hcv', hk', -, hfresh⟩ := copy_own (R.facts _ hT) (R.ownRun hT) rfl hc

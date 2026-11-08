@@ -11,11 +11,11 @@
 
 >>> whitepaper/main.typ
 
-== ConLeche/MainTheorem.lean#L101-L104
-   101  theorem model_exists (V : Type w) [SetTheory V]
-   102      (pins : List NatOpPinSet) (ds : Array Declaration) (env : Env)
-   103      (accepted : checkDecls .verified pins ds = .ok env) :
-   104      Nonempty (Model V env) := by
+== ConLeche/MainTheorem.lean#L102-L105
+   102  theorem model_exists (V : Type w) [SetTheory V]
+   103      (pins : List NatOpPinSet) (ds : Array Declaration) (env : Env)
+   104      (accepted : checkDecls .verified pins ds = .ok env) :
+   105      Nonempty (Model V env) := by
 
 == whitepaper/Fragment/Sound.lean#L2322-L2326
   2322  theorem soundness [LevelOracle] (m : EnvModel V env) (φ : Name → Nat) :
@@ -26,11 +26,11 @@
 
 >>> whitepaper/sections/01-introduction.typ
 
-== ConLeche/MainTheorem.lean#L101-L104
-   101  theorem model_exists (V : Type w) [SetTheory V]
-   102      (pins : List NatOpPinSet) (ds : Array Declaration) (env : Env)
-   103      (accepted : checkDecls .verified pins ds = .ok env) :
-   104      Nonempty (Model V env) := by
+== ConLeche/MainTheorem.lean#L102-L105
+   102  theorem model_exists (V : Type w) [SetTheory V]
+   103      (pins : List NatOpPinSet) (ds : Array Declaration) (env : Env)
+   104      (accepted : checkDecls .verified pins ds = .ok env) :
+   105      Nonempty (Model V env) := by
 
 == ConLeche/Denotes.lean#L248-L268
    248  structure Model (V : Type w) [SetTheory V] (env : Env) where
@@ -5237,11 +5237,11 @@
     78      obtain ⟨m', -, -⟩ := install_thm h.scoped m hok
     79      exact ⟨m'⟩
 
-== ConLeche/MainTheorem.lean#L101-L104
-   101  theorem model_exists (V : Type w) [SetTheory V]
-   102      (pins : List NatOpPinSet) (ds : Array Declaration) (env : Env)
-   103      (accepted : checkDecls .verified pins ds = .ok env) :
-   104      Nonempty (Model V env) := by
+== ConLeche/MainTheorem.lean#L102-L105
+   102  theorem model_exists (V : Type w) [SetTheory V]
+   103      (pins : List NatOpPinSet) (ds : Array Declaration) (env : Env)
+   104      (accepted : checkDecls .verified pins ds = .ok env) :
+   105      Nonempty (Model V env) := by
 
 == whitepaper/Fragment/Install.lean#L176-L181
    176  /-- **Installing a plain inductive block preserves having a model.**
@@ -7410,15 +7410,32 @@
    275  theorem modular : ∀ k, (∀ i < k, dev.Valid i) →
    276      ∃ m : (i : Nat) → i < k → S.Mod (dev.own i), dev.Compatible k m
 
-== ConLeche/MainTheorem.lean#L192-L199
-   192  theorem modular_model_exists (V : Type w) [SetTheory V]
-   193      (pins : List NatOpPinSet) (dev : Nat → Modular.Module) (i : Nat)
-   194      (hok : ∀ j ≤ i, Modular.LocalOk .verified pins dev j) :
-   195      ∃ m : ∀ j ≤ i, Model V (dev j).own,
-   196        (∀ j hj n, ((dev j).context.find? n).isSome = true →
-   197          ∃ h : (dev j).src n ≤ i, (m j hj).cval n = (m ((dev j).src n) h).cval n) ∧
-   198        ∀ j hj n cv, (dev j).own.find? n = some (.thmInfo cv) →
-   199          (m j hj).cval n = fun _ => pt := by
+== ConLeche/MainTheorem.lean#L193-L200
+   193  theorem modular_model_exists (V : Type w) [SetTheory V]
+   194      (pins : List NatOpPinSet) (dev : Nat → Modular.Module) (i : Nat)
+   195      (hok : ∀ j ≤ i, Modular.LocalOk .verified pins dev j) :
+   196      ∃ m : ∀ j ≤ i, Model V (dev j).own,
+   197        (∀ j hj n, ((dev j).context.find? n).isSome = true →
+   198          ∃ h : (dev j).src n ≤ i, (m j hj).cval n = (m ((dev j).src n) h).cval n) ∧
+   199        ∀ j hj n cv, (dev j).own.find? n = some (.thmInfo cv) →
+   200          (m j hj).cval n = fun _ => pt := by
+
+== ConLeche/Verify/Driver/Routes.lean#L330-L331
+   330  theorem localOk (j : Nat) : LocalOk .verified natOpPinSets R.dev j :=
+   331    R.localOk_of (fun _ hM _ _ hh => R.home_rank hM hh) R.reads_ok j
+
+== ConLeche/MainTheorem.lean#L260-L270
+   260  theorem main_modular_no_False (V : Type w) [SetTheory V] {dirs root : String} {r m : Name}
+   261      {fs : FS} {d : Olean.ModDecoded} {c : Olean.CEntryF Name Expr} {v : Expr} {all : List Name}
+   262      (hr : Olean.parseModName root = some r)
+   263      (hcl : Driver.Graph.HdrClosure (Driver.searchPathOf dirs) fs [r] m)
+   264      (hv : Olean.ViewOf (Driver.searchPathOf dirs) fs m d)
+   265      (hmem : c ∈ d.constants) (hk : c.kind = .thm v all) (hty : c.type = .const falseName [])
+   266      (hwork : ∀ m', Driver.Graph.HdrClosure (Driver.searchPathOf dirs) fs [r] m' → ∃ root',
+   267        Olean.parseModName root' = some m' ∧ ModelIO.CanGive
+   268          (Driver.runArgs ["--olean", "--module", "--search-path=" ++ dirs, "--", root']) fs 0) :
+   269      ¬ ModelIO.CanGive (Driver.runArgs ["--check-graph", "--search-path=" ++ dirs, "--", root])
+   270        fs 0 := by
 
 == ConLeche/Frontend/Prepare.lean#L173-L174
    173  def preparePrelude (pre : PreludeIx) (ds : Array Declaration) : Array Declaration :=
