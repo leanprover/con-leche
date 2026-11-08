@@ -1,0 +1,490 @@
+module
+
+public import InLeanProof.PassRecs2
+
+/-!
+# O7-recursors: the erased comparison and the classes' constructors (task #451, lane O7-recursors)
+
+The recursor stage (`genRecCheck`) against master's, continued bottom-up:
+
+* `eraseFVarTysI_run`: InLean's `eraseFVarTys` (a `for` over `fvarIds` filling
+  a `HashMap` of interned `Sort 0`-typed variables, then `EO.replace`) is
+  master's pure `Expr.eraseFVarTys` on the reading.
+-/
+
+set_option experimental.vcgen true
+
+public section
+
+namespace InLeanProof
+
+open Lean InLean Std.WP ConLeche.Cached
+
+/-! ## Erasing the variables' annotations -/
+
+/-- The erasing map's entries: each read as master's variable at the id's
+depth, annotated `Sort 0`. -/
+@[expose] def EraseMapOk (s : InLean.CState) (m : Std.HashMap FVarId Lean.Expr) : Prop :=
+  ∀ id y, m[id]? = some y → ∃ d, EO.fvDepth? id = some d ∧ OkS s y = true ∧
+    TrS s y = .fvar d (.sort .zero)
+
+theorem EraseMapOk.mono {s₀ s₁ : InLean.CState} (h : TabLe s₀ s₁) {m : Std.HashMap FVarId Lean.Expr}
+    (hm : EraseMapOk s₀ m) : EraseMapOk s₁ m := by
+  intro id y hy
+  obtain ⟨d, hd, ho, ht⟩ := hm id y hy
+  exact ⟨d, hd, okS_of_tabLe h ho, by rw [TrS_of_tabLe h ho, ht]⟩
+
+/-- The callback of InLean's `eraseFVarTys`. -/
+@[expose] def efF (m : Std.HashMap FVarId Lean.Expr) (x : Lean.Expr) : Option Lean.Expr :=
+  match x with
+  | .fvar id => m[id]?
+  | _ => none
+
+theorem efF_nonfvar {m : Std.HashMap FVarId Lean.Expr} {x : Lean.Expr} (hx : ∀ id, x ≠ .fvar id) :
+    efF m x = none := by
+  cases x <;> simp_all [efF]
+
+/-- **The erasing replacement, read**: at a map holding every variable of
+the term, master's `eraseFVarTys` of the reading. -/
+theorem mapSpec_efF_tr {s : InLean.CState} {m : Std.HashMap FVarId Lean.Expr}
+    (hm : EraseMapOk s m) :
+    ∀ (e : Lean.Expr) (k : Nat), OkS s e = true →
+      (∀ id, OccF id e → (EO.fvDepth? id).isSome → (m[id]?).isSome) →
+      OkS s (mapSpec (fun x _ => efF m x) e k) = true ∧
+        TrS s (mapSpec (fun x _ => efF m x) e k) = (TrS s e).eraseFVarTys := by
+  intro e
+  induction e with
+  | fvar id =>
+    intro k h hc
+    obtain ⟨d', ty, ht, hd'⟩ := TrS_stripTop_fvar (id := id) h rfl
+    obtain ⟨y, hy⟩ := Option.isSome_iff_exists.1 (hc id rfl (by rw [hd']; rfl))
+    obtain ⟨d, hd, hyo, hyt⟩ := hm id y hy
+    rw [hd] at hd'; cases hd'
+    rw [mapSpec_eq_of_some (f := fun x _ => efF m x) (by simpa [efF] using hy)]
+    refine ⟨hyo, ?_⟩
+    rw [hyt, ht]
+    rfl
+  | app f a ihf iha =>
+    intro k h hc
+    simp only [OkS_app, Bool.and_eq_true] at h
+    have h1 := ihf k h.1 (fun id hi => hc id (.inl hi))
+    have h2 := iha k h.2 (fun id hi => hc id (.inr hi))
+    simp only [mapSpec, efF_nonfvar (m := m) (x := .app f a) (by simp), Option.getD_none,
+      OkS_app, TrS_app, ConLeche.Expr.eraseFVarTys, ConLeche.Expr.replaceFVars, h1.1, h2.1,
+      Bool.and_self, true_and]
+    rw [h1.2, h2.2]; rfl
+  | lam nm t b bi iht ihb =>
+    intro k h hc
+    simp only [OkS_lam, Bool.and_eq_true] at h
+    have h1 := iht k h.1 (fun id hi => hc id (.inl hi))
+    have h2 := ihb (k + 1) h.2 (fun id hi => hc id (.inr hi))
+    simp only [mapSpec, efF_nonfvar (m := m) (x := .lam nm t b bi) (by simp), Option.getD_none,
+      OkS_lam, TrS_lam, ConLeche.Expr.eraseFVarTys, ConLeche.Expr.replaceFVars, h1.1, h2.1,
+      Bool.and_self, true_and]
+    rw [h1.2, h2.2]; rfl
+  | forallE nm t b bi iht ihb =>
+    intro k h hc
+    simp only [OkS_forallE, Bool.and_eq_true] at h
+    have h1 := iht k h.1 (fun id hi => hc id (.inl hi))
+    have h2 := ihb (k + 1) h.2 (fun id hi => hc id (.inr hi))
+    simp only [mapSpec, efF_nonfvar (m := m) (x := .forallE nm t b bi) (by simp),
+      Option.getD_none, OkS_forallE, TrS_forallE, ConLeche.Expr.eraseFVarTys,
+      ConLeche.Expr.replaceFVars, h1.1, h2.1, Bool.and_self, true_and]
+    rw [h1.2, h2.2]; rfl
+  | letE nm t v b nd iht ihv ihb =>
+    intro k h hc
+    simp only [OkS_letE, Bool.and_eq_true] at h
+    have h1 := iht k h.1.1 (fun id hi => hc id (.inl hi))
+    have h2 := ihv k h.1.2 (fun id hi => hc id (.inr (.inl hi)))
+    have h3 := ihb (k + 1) h.2 (fun id hi => hc id (.inr (.inr hi)))
+    simp only [mapSpec, efF_nonfvar (m := m) (x := .letE nm t v b nd) (by simp),
+      Option.getD_none, OkS_letE, TrS_letE, ConLeche.Expr.eraseFVarTys,
+      ConLeche.Expr.replaceFVars, h1.1, h2.1, h3.1, Bool.and_self, true_and]
+    rw [h1.2, h2.2, h3.2]; rfl
+  | proj sn i x ih =>
+    intro k h hc
+    rw [OkS_proj] at h
+    have h1 := ih k h hc
+    simp only [mapSpec, efF_nonfvar (m := m) (x := .proj sn i x) (by simp), Option.getD_none,
+      OkS_proj, TrS_proj, ConLeche.Expr.eraseFVarTys, ConLeche.Expr.replaceFVars, h1.1, true_and]
+    rw [h1.2]; rfl
+  | mdata md x ih =>
+    intro k h hc
+    rw [OkS_mdata] at h
+    simp only [mapSpec, efF_nonfvar (m := m) (x := .mdata md x) (by simp), Option.getD_none,
+      OkS_mdata, TrS_mdata]
+    exact ih k h hc
+  | bvar i =>
+    intro k h _
+    simp only [mapSpec, efF_nonfvar (m := m) (x := .bvar i) (by simp), Option.getD_none]
+    exact ⟨h, by simp [TrS, trE, ConLeche.Expr.eraseFVarTys, ConLeche.Expr.replaceFVars]⟩
+  | sort u =>
+    intro k h _
+    simp only [mapSpec, efF_nonfvar (m := m) (x := .sort u) (by simp), Option.getD_none]
+    exact ⟨h, by simp [TrS, trE, ConLeche.Expr.eraseFVarTys, ConLeche.Expr.replaceFVars]⟩
+  | const c us =>
+    intro k h _
+    simp only [mapSpec, efF_nonfvar (m := m) (x := .const c us) (by simp), Option.getD_none]
+    exact ⟨h, by simp [TrS, trE, ConLeche.Expr.eraseFVarTys, ConLeche.Expr.replaceFVars]⟩
+  | lit l =>
+    intro k h _
+    simp only [mapSpec, efF_nonfvar (m := m) (x := .lit l) (by simp), Option.getD_none]
+    exact ⟨h, by simp [TrS, trE, ConLeche.Expr.eraseFVarTys, ConLeche.Expr.replaceFVars]⟩
+  | mvar i => intro k h; simp [OkS, okE] at h
+
+/-- The body of InLean's `eraseFVarTys` loop. -/
+@[expose] def efBody (id : FVarId) (m : Std.HashMap FVarId Lean.Expr) :
+    InLean.CheckCM (ForInStep (Std.HashMap FVarId Lean.Expr)) :=
+  match EO.fvDepth? id with
+  | some i => (do
+    let y ← mkFVarM i (.sort .zero)
+    pure (ForInStep.yield (m.insert id y)))
+  | _ => pure (ForInStep.yield m)
+
+theorem eraseFVarTys_eq (e : Lean.Expr) :
+    InLean.eraseFVarTys e = if !e.hasFVar then pure e else (do
+      let m ← forIn (EO.fvarIds e).toList ({} : Std.HashMap FVarId Lean.Expr) efBody
+      pure (EO.replace (efF m) e)) := by
+  rw [Array.forIn_toList]
+  unfold InLean.eraseFVarTys efBody efF
+  rfl
+
+/-- The erasing loop: every variable met with a depth gets its entry. -/
+theorem efLoop_run {mode : ConLeche.CheckMode} {eager : Bool} {env : ConLeche.Env} :
+    ∀ (l : List FVarId) (m : Std.HashMap FVarId Lean.Expr) {t t' : InLean.CState}
+      {m' : Std.HashMap FVarId Lean.Expr},
+      CSOKI mode eager env t → EraseMapOk t m → forIn l m efBody t = .ok (m', t') →
+      CSOKI mode eager env t' ∧ TabLe t t' ∧ EraseMapOk t' m' ∧
+        ∀ id, (id ∈ l ∧ (EO.fvDepth? id).isSome) ∨ m.contains id → m'.contains id
+  | [], m, t, t', m', hs, hm, h => by
+    rw [List.forIn_nil] at h
+    obtain ⟨rfl, rfl⟩ := pure_run h
+    exact ⟨hs, TabLe.refl _, hm, fun id hid => by simpa using hid⟩
+  | id :: l, m, t, t', m', hs, hm, h => by
+    rw [List.forIn_cons] at h
+    obtain ⟨st, t₂, h1, h⟩ := bind_run h
+    unfold efBody at h1
+    cases hd : EO.fvDepth? id with
+    | none =>
+      rw [hd] at h1
+      obtain ⟨rfl, rfl⟩ := pure_run h1
+      obtain ⟨hs', ht', hm', hc⟩ := efLoop_run l m hs hm h
+      refine ⟨hs', ht', hm', fun id' hid => hc id' ?_⟩
+      rcases hid with ⟨hmem, hds⟩ | hmc
+      · rcases List.mem_cons.1 hmem with rfl | hmem
+        · rw [hd] at hds; cases hds
+        · exact .inl ⟨hmem, hds⟩
+      · exact .inr hmc
+    | some i =>
+      rw [hd] at h1
+      obtain ⟨y, t₂, h3, h1⟩ := bind_run h1
+      obtain ⟨rfl, rfl⟩ := pure_run h1
+      obtain ⟨hs₃, ht₃, hyo, hyt⟩ := tripleI_iff_run.1
+        (mkFVarM_specI hs i (ty := .sort .zero) (by simp [OkS, okE, okLv, okL, depthS]) rfl) y t₂ h3
+      have hm₃ : EraseMapOk t₂ (m.insert id y) := by
+        intro id' y' hy'
+        rw [Std.HashMap.getElem?_insert] at hy'
+        split at hy'
+        · rename_i heq
+          cases hy'
+          have : id = id' := eq_of_beq heq
+          subst this
+          exact ⟨i, hd, hyo, by rw [hyt]; rfl⟩
+        · exact (hm.mono ht₃) id' y' hy'
+      obtain ⟨hs', ht', hm', hc⟩ := efLoop_run l _ hs₃ hm₃ h
+      refine ⟨hs', ht₃.trans ht', hm', fun id' hid => hc id' ?_⟩
+      rcases hid with ⟨hmem, hds⟩ | hmc
+      · rcases List.mem_cons.1 hmem with rfl | hmem
+        · exact .inr (by simp)
+        · exact .inl ⟨hmem, hds⟩
+      · exact .inr (by simp [hmc])
+
+/-- **InLean's `eraseFVarTys`, read**: master's pure `Expr.eraseFVarTys` of
+the reading. -/
+theorem eraseFVarTysI_run {mode : ConLeche.CheckMode} {eager : Bool} {env : ConLeche.Env}
+    {s₀ s' : InLean.CState} {e r : Lean.Expr} (hs : CSOKI mode eager env s₀)
+    (he : OkS s₀ e = true) (h : InLean.eraseFVarTys e s₀ = .ok (r, s')) :
+    CSOKI mode eager env s' ∧ TabLe s₀ s' ∧ OkS s' r = true ∧
+      TrS s' r = (TrS s₀ e).eraseFVarTys := by
+  rw [eraseFVarTys_eq] at h
+  cases hf : e.hasFVar with
+  | false =>
+    simp only [hf, Bool.not_false, ↓reduceIte] at h
+    obtain ⟨rfl, rfl⟩ := pure_run h
+    refine ⟨hs, TabLe.refl _, he, (cReplaceFVars_noFvar _ ?_).symm⟩
+    rw [← hasFVar_TrS (s := s₀) he, hf]
+  | true =>
+    simp only [hf, Bool.not_true, Bool.false_eq_true, ↓reduceIte] at h
+    obtain ⟨m, s₁, h1, h⟩ := bind_run h
+    obtain ⟨rfl, rfl⟩ := pure_run h
+    obtain ⟨hs₁, ht₁, hm, hc⟩ := efLoop_run _ _ hs (fun _ _ hy => by simp at hy) h1
+    have he₁ := okS_of_tabLe ht₁ he
+    have hocc : ∀ id, OccF id e → (EO.fvDepth? id).isSome → (m[id]?).isSome := by
+      intro id hid hds
+      have hmem : id ∈ EO.fvarIds e := (mem_fvarIds (RangeOk_of_OkS he) id).2 hid
+      have := hc id (.inl ⟨Array.mem_toList_iff.2 hmem, hds⟩)
+      rwa [Std.HashMap.contains_eq_isSome_getElem?] at this
+    unfold EO.replace
+    rw [mapOff_fresh, ← TrS_of_tabLe ht₁ he]
+    exact ⟨hs₁, ht₁, mapSpec_efF_tr hm e 0 he₁ hocc⟩
+
+/-- **A list's erasure, read** (`mapM eraseFVarTys`). -/
+theorem mapM_eraseFVarTysI_run {mode : ConLeche.CheckMode} {eager : Bool} {env : ConLeche.Env} :
+    ∀ (l : List Lean.Expr) {s₀ s' : InLean.CState} {r : List Lean.Expr},
+      CSOKI mode eager env s₀ → OkSL s₀ l = true →
+      l.mapM InLean.eraseFVarTys s₀ = .ok (r, s') →
+      CSOKI mode eager env s' ∧ TabLe s₀ s' ∧ OkSL s' r = true ∧
+        TrSL s' r = (TrSL s₀ l).map ConLeche.Expr.eraseFVarTys
+  | [], s₀, s', r, hs, _, h => by
+    rw [List.mapM_nil] at h
+    obtain ⟨rfl, rfl⟩ := pure_run h
+    exact ⟨hs, TabLe.refl _, rfl, rfl⟩
+  | a :: l, s₀, s', r, hs, hl, h => by
+    simp only [OkSL_cons, Bool.and_eq_true] at hl
+    rw [List.mapM_cons] at h
+    obtain ⟨x, s₁, h1, h⟩ := bind_run h
+    obtain ⟨xs, s₂, h2, h⟩ := bind_run h
+    obtain ⟨rfl, rfl⟩ := pure_run h
+    obtain ⟨hs₁, ht₁, hxo, hxt⟩ := eraseFVarTysI_run hs hl.1 h1
+    obtain ⟨hs₂, ht₂, hxso, hxst⟩ := mapM_eraseFVarTysI_run l hs₁ (okSL_of_tabLe ht₁ hl.2) h2
+    refine ⟨hs₂, ht₁.trans ht₂, by simp [OkSL_cons, okS_of_tabLe ht₂ hxo, hxso], ?_⟩
+    rw [TrSL_cons, TrSL_cons, List.map_cons, TrS_of_tabLe ht₂ hxo, hxt, hxst,
+      TrSL_of_tabLe ht₁ hl.2]
+
+/-! ## The node agreement's comparison (K.53′) -/
+
+/-- `stripPis` commutes with the reading. -/
+theorem stripPis_TrS {s : InLean.CState} :
+    ∀ (n : Nat) (e : Lean.Expr), OkS s e = true →
+      (∀ ds r, InLean.stripPis n e = some (ds, r) → OkSL s ds = true ∧ OkS s r = true) ∧
+        ConLeche.Expr.stripPis n (TrS s e) =
+          (InLean.stripPis n e).map fun (ds, r) => (TrSL s ds, TrS s r)
+  | 0, e, h => by
+    refine ⟨fun ds r hs => ?_, by simp [InLean.stripPis, ConLeche.Expr.stripPis, TrSL]⟩
+    simp only [InLean.stripPis, Option.some.injEq, Prod.mk.injEq] at hs
+    obtain ⟨rfl, rfl⟩ := hs
+    exact ⟨rfl, h⟩
+  | n + 1, .forallE nm d b bi, h => by
+    simp only [OkS_forallE, Bool.and_eq_true] at h
+    obtain ⟨ih1, ih2⟩ := stripPis_TrS n b h.2
+    refine ⟨fun ds r hs => ?_, ?_⟩
+    · simp only [InLean.stripPis, Option.map_eq_some_iff] at hs
+      obtain ⟨⟨ds', r'⟩, h1, h2⟩ := hs
+      simp only [Prod.mk.injEq] at h2
+      obtain ⟨rfl, rfl⟩ := h2
+      obtain ⟨h3, h4⟩ := ih1 ds' r' h1
+      exact ⟨by simp [OkSL_cons, h.1, h3], h4⟩
+    · rw [TrS_forallE]
+      simp only [InLean.stripPis, ConLeche.Expr.stripPis, ih2]
+      cases InLean.stripPis n b <;> simp [TrSL_cons]
+  | n + 1, .mdata m e, h => by
+    rw [OkS_mdata] at h
+    rw [TrS_mdata]
+    simp only [InLean.stripPis]
+    exact stripPis_TrS (n + 1) e h
+  | n + 1, .mvar _, h => by simp [OkS, okE] at h
+  | n + 1, .fvar id, h => by
+    refine ⟨fun ds r hs => by simp [InLean.stripPis] at hs, ?_⟩
+    rw [TrS_fvar h]
+    simp [InLean.stripPis, ConLeche.Expr.stripPis]
+  | _ + 1, .bvar _, _ | _ + 1, .sort _, _ | _ + 1, .const _ _, _
+  | _ + 1, .app _ _, _ | _ + 1, .lam _ _ _ _, _ | _ + 1, .letE _ _ _ _ _, _ | _ + 1, .lit _, _
+  | _ + 1, .proj _ _ _, _ => by
+    refine ⟨fun ds r hs => by simp [InLean.stripPis] at hs, ?_⟩
+    simp [InLean.stripPis, ConLeche.Expr.stripPis, TrS_bvar, TrS_sort, TrS_const, TrS_app,
+      TrS_lam, TrS_letE, TrS_lit, TrS_proj]
+
+theorem getAppNumArgsT_TrS {s : InLean.CState} {e : Lean.Expr} (h : OkS s e = true) :
+    Expr.getAppNumArgsT e = (TrS s e).getAppArgs.length :=
+  getAppNumArgsT_eq (FVarTable.trans_fvarsOnly _) e _ (TransS_of_ok h)
+
+/-- **The node agreement's comparison** (`targetK53`): InLean's `true` is
+master's on the readings, in the class's frame `FrameOk`. -/
+theorem targetK53I_run {fe : InLean.FEnv} {L : ConLeche.Env} (hO : OpsSimI fe L)
+    {p : InLean.BlockShape} {formerTys tele : List Lean.Expr} {Mc : InLean.TargetMajor}
+    {majDom f : Lean.Expr} {s₀ s' : InLean.CState} (hs : CSOKI .verified false L s₀)
+    (hfo : OkSL s₀ formerTys = true) (hM : OkTMN s₀ Mc)
+    (hF : FrameOk (TrSL s₀ Mc.pfvs) (TrSL s₀ formerTys))
+    (htele : OkSL s₀ tele = true) (hmaj : OkS s₀ majDom = true) (hf : OkS s₀ f = true)
+    (h : InLean.targetK53 (sharedOpsC .verified fe) fe p formerTys Mc tele majDom f s₀ =
+      .ok (true, s')) :
+    CSOKI .verified false L s' ∧ TabLe s₀ s' ∧
+      Runs (ConLeche.targetK53 (ConLeche.fueledOpsM .verified) L (trShape p)
+        (TrSL s₀ formerTys) (trTM s₀ Mc) (TrSL s₀ tele) (TrS s₀ majDom) (TrS s₀ f)) true := by
+  obtain ⟨hlv, hds, hpf, -⟩ := hM
+  unfold InLean.targetK53 at h
+  unfold ConLeche.targetK53
+  have hlen : (TrSL s₀ tele).length = tele.length := by simp [TrSL]
+  obtain ⟨hsp1, hsp2⟩ := stripPis_TrS tele.length f hf
+  rw [hlen, hsp2]
+  cases hsp : InLean.stripPis tele.length f with
+  | none => rw [hsp] at h; exact absurd (pure_run h).1 (by simp)
+  | some q =>
+    obtain ⟨teleW, leafW⟩ := q
+    obtain ⟨htwo, hlwo⟩ := hsp1 teleW leafW hsp
+    rw [hsp] at h
+    simp only [Option.map_some]
+    obtain ⟨r1, s₁, h1, h⟩ := bind_run h
+    obtain ⟨r2, s₂, h2, h⟩ := bind_run h
+    obtain ⟨hs₁, ht₁, hr1o, hr1t⟩ := mapM_eraseFVarTysI_run teleW hs htwo h1
+    obtain ⟨hs₂, ht₂, hr2o, hr2t⟩ := mapM_eraseFVarTysI_run tele hs₁ (okSL_of_tabLe ht₁ htele) h2
+    have ht₀₂ := ht₁.trans ht₂
+    cases hne : (r1 != r2) with
+    | true => rw [hne] at h; exact absurd (pure_run h).1 (by simp)
+    | false =>
+      rw [hne] at h
+      simp only [Bool.false_eq_true, ↓reduceIte] at h
+      have heq : (r1 == r2) = true := by simpa [bne] using hne
+      have hTr : TrSL s₂ r1 = TrSL s₂ r2 :=
+        TrSL_of_beq (okSL_of_tabLe ht₂ hr1o) (fun b _ => TransS_of_ok (by
+          simp only [OkSL, List.all_eq_true] at hr2o; exact hr2o b ‹_›)) heq
+      rw [TrSL_of_tabLe ht₂ hr1o, hr1t, hr2t, TrSL_of_tabLe ht₁ htele] at hTr
+      rw [hTr]
+      simp only [bne_self_eq_false, Bool.false_eq_true, ↓reduceIte]
+      rw [← TrS_getAppFnT, ← TrS_getAppFnT]
+      generalize hdL : leafW.getAppFnT = hL at h
+      generalize hdM : majDom.getAppFnT = hM at h
+      cases hL <;> try (simp only at h; exact absurd (pure_run h).1 (by simp))
+      rename_i I' us'
+      cases hM <;> try (simp only at h; exact absurd (pure_run h).1 (by simp))
+      rename_i I u
+      simp only at h
+      rw [TrS_const, TrS_const]
+      simp only
+      have hus' := okLv_of_getAppFnT hlwo hdL
+      have hlo₂ := okS_of_tabLe ht₀₂ hlwo
+      have hmo₂ := okS_of_tabLe ht₀₂ hmaj
+      obtain ⟨r3, s₃, h3, h⟩ := bind_run h
+      obtain ⟨r4, s₄, h4, h⟩ := bind_run h
+      have hA1 : OkSL s₂ ((appArgs leafW).drop Mc.nPc) = true :=
+        OkSL_drop s₂ (OkSL_appArgs s₂ hlo₂) _
+      obtain ⟨hs₃, ht₃, hr3o, hr3t⟩ := mapM_eraseFVarTysI_run _ hs₂ hA1 h3
+      have hA2 : OkSL s₃ ((appArgs majDom).drop Mc.nPc) = true :=
+        OkSL_drop s₃ (OkSL_appArgs s₃ (okS_of_tabLe ht₃ hmo₂)) _
+      obtain ⟨hs₄, ht₄, hr4o, hr4t⟩ := mapM_eraseFVarTysI_run _ hs₃ hA2 h4
+      have ht₀₄ := ht₀₂.trans (ht₃.trans ht₄)
+      cases hc : (I' == I && leafW.getAppNumArgsT == majDom.getAppNumArgsT && r3 == r4 &&
+          nestOcc p.memberNames 0 0 (mkAppL (Expr.const I' us') (List.take Mc.nPc (appArgs leafW))))
+      with
+      | false =>
+        rw [hc] at h
+        simp only [Bool.false_eq_true, ↓reduceIte] at h
+        exact absurd (pure_run h).1 (by simp)
+      | true =>
+        rw [hc] at h
+        simp only [↓reduceIte] at h
+        have hTCM := h
+        simp only [Bool.and_eq_true] at hc
+        obtain ⟨⟨⟨hI, hn⟩, hr⟩, hocc⟩ := hc
+        obtain rfl : I' = I := by simpa using hI
+        -- the erased indices agree on the readings
+        have hTr4 : TrSL s₄ r3 = TrSL s₄ r4 :=
+          TrSL_of_beq (okSL_of_tabLe ht₄ hr3o) (fun b hb => TransS_of_ok (by
+            simp only [OkSL, List.all_eq_true] at hr4o; exact hr4o b hb)) hr
+        rw [TrSL_of_tabLe ht₄ hr3o, hr3t, hr4t, TrSL_of_tabLe ht₀₂ (OkSL_drop s₀ (OkSL_appArgs s₀ hlwo) _),
+          TrSL_of_tabLe (ht₀₂.trans ht₃) (OkSL_drop s₀ (OkSL_appArgs s₀ hmaj) _), TrSL_drop, TrSL_drop,
+          TrSL_appArgs, TrSL_appArgs] at hTr4
+        have hok₀ : OkS s₀ (InLean.mkAppL (Expr.const I' us') (List.take Mc.nPc (appArgs leafW))) = true := by
+          unfold InLean.mkAppL
+          rw [OkS_mkAppN, OkS_const, hus', OkSL_take s₀ (OkSL_appArgs s₀ hlwo)]; rfl
+        rw [nestOccI_tr _ 0 0 hok₀, TrS_mkAppL_const, TrSL_take, TrSL_appArgs] at hocc
+        have hcC : ((toName I' == toName I' &&
+            (TrS s₀ leafW).getAppArgs.length == (TrS s₀ majDom).getAppArgs.length &&
+            ((TrS s₀ leafW).getAppArgs.drop Mc.nPc).map ConLeche.Expr.eraseFVarTys ==
+              ((TrS s₀ majDom).getAppArgs.drop Mc.nPc).map ConLeche.Expr.eraseFVarTys &&
+            ConLeche.Expr.nestOcc (trShape p).memberNames 0 0
+              ((ConLeche.Expr.const (toName I') (us'.map trL)).mkAppN
+                ((TrS s₀ leafW).getAppArgs.take Mc.nPc))) = true) := by
+          rw [← getAppNumArgsT_TrS hlwo, ← getAppNumArgsT_TrS hmaj, hTr4, trShape_memberNames]
+          simp only [beq_self_eq_true, Bool.true_and, hocc, Bool.and_true]
+          exact hn
+        simp only [trTM] at hcC ⊢
+        simp only [hcC]
+        simp only [↓reduceIte]
+        have hds₄ := okSL_of_tabLe ht₀₄ hds
+        have hpf₄ := okSL_of_tabLe ht₀₄ hpf
+        have hfo₄ := okSL_of_tabLe ht₀₄ hfo
+        have heds : OkSL s₀ (List.take Mc.nPc (appArgs leafW)) = true :=
+          OkSL_take s₀ (OkSL_appArgs s₀ hlwo) _
+        have hF₄ : FrameOk (TrSL s₄ Mc.pfvs) (TrSL s₄ formerTys) := by
+          rw [TrSL_of_tabLe ht₀₄ hpf, TrSL_of_tabLe ht₀₄ hfo]; exact hF
+        obtain ⟨hs', ht', hR⟩ := targetClassMatchI_run hO hs₄ hfo₄ hpf₄ hF₄ hlv hus' hds₄
+          (okSL_of_tabLe ht₀₄ heds) hTCM
+        refine ⟨hs', ht₀₄.trans ht', ?_⟩
+        rw [TrSL_of_tabLe ht₀₄ hpf, TrSL_of_tabLe ht₀₄ hfo, TrSL_of_tabLe ht₀₄ hds,
+          TrSL_of_tabLe ht₀₄ heds, TrSL_take, TrSL_appArgs] at hR
+        exact hR
+
+/-! ## Node agreement -/
+
+/-- A recorded form's field domain `i`, read. -/
+theorem piDomAt_tr {s : InLean.CState} {fvs : List Lean.Expr} {ty f : Lean.Expr} {i : Nat}
+    (hfv : OkSL s fvs = true) (hfc : ∀ x ∈ fvs, (TrS s x).looseBVarsBounded 0 = true)
+    (hty : OkS s ty = true)
+    (h : ((InLean.targetPiDomsWith fvs ty).getD [])[i]? = some f) :
+    OkS s f = true ∧
+      ((ConLeche.targetPiDomsWith (TrSL s fvs) (TrS s ty)).getD [])[i]? = some (TrS s f) := by
+  obtain ⟨h1, h2⟩ := targetPiDomsWith_tr fvs ty hfv hfc hty
+  rw [h2]
+  cases hd : InLean.targetPiDomsWith fvs ty with
+  | none => rw [hd] at h; simp at h
+  | some ds =>
+    rw [hd] at h
+    simp only [Option.getD_some] at h
+    refine ⟨okS_getElem? (h1 ds hd) h, ?_⟩
+    simp [TrSL, h]
+
+/-- **Node agreement at one recursive field** (`classNodesAgree`): InLean's
+pass is master's on the readings. -/
+theorem classNodesAgreeI_run {fe : InLean.FEnv} {L : ConLeche.Env} (hO : OpsSimI fe L)
+    {p : InLean.BlockShape} {formerTys tele fvs : List Lean.Expr} {Mc : InLean.TargetMajor}
+    {leaf : Lean.Expr} {i : Nat} {ctor : Lean.Name} :
+    ∀ (es : List InLean.NestCtorNf) {s₀ s' : InLean.CState} {u : Unit},
+      CSOKI .verified false L s₀ → OkSL s₀ formerTys = true → OkTMN s₀ Mc →
+      FrameOk (TrSL s₀ Mc.pfvs) (TrSL s₀ formerTys) →
+      OkSL s₀ tele = true → OkS s₀ leaf = true → OkSL s₀ fvs = true →
+      (∀ x ∈ fvs, (TrS s₀ x).looseBVarsBounded 0 = true) → (∀ e ∈ es, OkNf s₀ e) →
+      InLean.classNodesAgree (sharedOpsC .verified fe) fe p formerTys Mc tele leaf fvs i ctor es
+        s₀ = .ok (u, s') →
+      CSOKI .verified false L s' ∧ TabLe s₀ s' ∧
+        Runs (ConLeche.classNodesAgree (ConLeche.fueledOpsM .verified) L (trShape p)
+          (TrSL s₀ formerTys) (trTM s₀ Mc) (TrSL s₀ tele) (TrS s₀ leaf) (TrSL s₀ fvs) i
+          (toName ctor) (es.map (trNf s₀))) ()
+  | [], s₀, s', u, hs, _, _, _, _, _, _, _, _, h => by
+    unfold InLean.classNodesAgree at h
+    obtain ⟨-, rfl⟩ := pure_run h
+    exact ⟨hs, TabLe.refl _, by unfold ConLeche.classNodesAgree; exact Runs.pure _⟩
+  | e :: es, s₀, s', u, hs, hfo, hM, hF, hte, hle, hfv, hfc, hes, h => by
+    unfold InLean.classNodesAgree at h
+    unfold ConLeche.classNodesAgree
+    obtain ⟨-, -, hty⟩ := hes e List.mem_cons_self
+    cases hd : ((InLean.targetPiDomsWith fvs e.ty).getD [])[i]? with
+    | none => rw [hd] at h; exact (throw_run h).elim
+    | some f =>
+      rw [hd] at h
+      obtain ⟨hfo', hfC⟩ := piDomAt_tr hfv hfc hty hd
+      simp only [List.map_cons, trNf]
+      rw [hfC]
+      simp only
+      obtain ⟨b, s₁, h1, h⟩ := bind_run h
+      cases b with
+      | false =>
+        simp only [Bool.false_eq_true, ↓reduceIte] at h
+        obtain ⟨_, _, h2, -⟩ := bind_run h; exact (throw_run h2).elim
+      | true =>
+        obtain ⟨hs₁, ht₁, hK⟩ := targetK53I_run hO hs hfo hM hF hte hle hfo' h1
+        simp only [↓reduceIte] at h
+        have hM₁ := OkTMN.mono ht₁ hM
+        have hes₁ : ∀ e ∈ es, OkNf s₁ e := fun e he => (OkNf.mono ht₁ (hes e (List.mem_cons_of_mem _ he))).1
+        obtain ⟨hs', ht', hR⟩ := classNodesAgreeI_run hO es hs₁ (okSL_of_tabLe ht₁ hfo) hM₁.1
+          (by rw [TrSL_of_tabLe ht₁ hM.2.2.1, TrSL_of_tabLe ht₁ hfo]; exact hF) (okSL_of_tabLe ht₁ hte)
+          (okS_of_tabLe ht₁ hle) (okSL_of_tabLe ht₁ hfv)
+          (fun x hx => by
+            rw [TrS_of_tabLe ht₁ (by simp only [OkSL, List.all_eq_true] at hfv; exact hfv x hx)]
+            exact hfc x hx) hes₁ h
+        rw [hM₁.2, TrSL_of_tabLe ht₁ hfo, TrSL_of_tabLe ht₁ hte, TrS_of_tabLe ht₁ hle,
+          TrSL_of_tabLe ht₁ hfv, map_trNf_mono ht₁ (fun e he => hes e (List.mem_cons_of_mem _ he))] at hR
+        refine ⟨hs', ht₁.trans ht', Runs.bind hK ?_⟩
+        simpa using hR
+
+end InLeanProof
