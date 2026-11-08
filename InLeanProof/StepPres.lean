@@ -207,7 +207,7 @@ theorem except_ok_bind {ε α β : Type} (x : α) (f : α → Except ε β) : (E
 /-- **What an accepted inductive declaration says of its constants**: block
 constants only, in range, closed, fresh in the environment and distinct, safe
 when the block is, every projection body the extended environment reads at
-their names in range, every intermediate term building those bodies in range;
+their names in range, every body of the block's structures in range;
 and a safe block's check accepted the stored block from the empty state (the
 generator runs in a state of its own). -/
 theorem checkInductiveC_ok {μ : CheckMode} {fe : InLean.FEnv} {lps : List Name} {nP : Nat}
@@ -219,7 +219,7 @@ theorem checkInductiveC_ok {μ : CheckMode} {fe : InLean.FEnv} {lps : List Name}
     (u || a.consts.all safeConst) = true ∧
     a.consts.all (fun ci =>
       ({ fe with env := a.consts.foldl InLean.addConst fe.env } : InLean.FEnv).projBodiesInRange ci.name) =
-      true ∧ projStepsAllOk a.consts = true ∧
+      true ∧ projBodiesAllOk a.consts = true ∧
     namesNodup (a.consts.toList.map (·.name)) = true ∧ a.consts.all constGround = true ∧
     (u = false → (checkIndDeclC μ fe (storedBlock a.consts) nP).run {} = .ok ((), s')) := by
   unfold checkInductiveC at h
@@ -259,7 +259,7 @@ theorem checkInductiveC_ok {μ : CheckMode} {fe : InLean.FEnv} {lps : List Name}
         ci.name) <;>
     (try simp only [h3, ↓reduceIte, Bool.false_eq_true,
       StateT.run_bind, StateT.run_lift, except_error_bind, reduceCtorEq] at h) <;>
-    cases h6 : projStepsAllOk gen.consts <;>
+    cases h6 : projBodiesAllOk gen.consts <;>
     (try simp only [h6, ↓reduceIte, Bool.false_eq_true,
       StateT.run_bind, StateT.run_lift, except_error_bind, reduceCtorEq] at h)
     all_goals
@@ -298,12 +298,12 @@ theorem projBodiesInRange_ind (hlaws : EnvLaws) (hR : ProjBodiesInRange fe) (hcs
   rw [Array.all_eq_true_iff_forall_mem] at h3
   exact h3 ci (Array.mem_toList_iff.1 hci)
 
-/-- **`IndGroupPresBP`'s projection-steps premise from an accepted inductive
+/-- **`IndGroupPresBP`'s projection-bodies premise from an accepted inductive
 declaration.** -/
-theorem projStepsAllOk_of_checkInductiveC {μ : CheckMode} {lps : List Name} {nP : Nat}
+theorem projBodiesAllOk_of_checkInductiveC {μ : CheckMode} {lps : List Name} {nP : Nat}
     {types : List InductiveType} {u : Bool} {s s' : CState} {a : Added}
     (h : (checkInductiveC μ fe lps nP types u).run s = .ok (a, s')) :
-    projStepsAllOk a.consts = true :=
+    projBodiesAllOk a.consts = true :=
   (checkInductiveC_ok h).2.2.2.2.2.2.1
 
 /-- **`IndGroupPresBP`'s block premise from an accepted inductive declaration.** -/

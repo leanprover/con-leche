@@ -757,7 +757,7 @@ theorem instSeq_instantiate1Lift :
 effect of peeling a telescope at **open** arguments
 (`Expr.instPisAtLift`, which is what a projection's generated type is
 built with). -/
-def instSeqLift : List Expr → Nat → Expr → Expr
+@[expose] def instSeqLift : List Expr → Nat → Expr → Expr
   | [], _, e => e
   | a :: as, t, e => instSeqLift as (t - 1) (e.instantiate1Lift a t)
 

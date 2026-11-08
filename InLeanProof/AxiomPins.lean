@@ -2234,7 +2234,7 @@ info: 'InLeanProof.checkBlockCtorsFI_run' depends on axioms: [propext,
 /-! Lane P3r: `BlockPresObl`'s recognised branch (`BlockPresR.lean`). -/
 
 /--
-info: 'InLeanProof.toExpr_instantiate1L' depends on axioms: [propext,
+info: 'InLeanProof.toExpr_instantiateRevO' depends on axioms: [propext,
  Classical.choice,
  Quot.sound,
  InLeanProof.Expr.mkAppData_fields,
@@ -2242,7 +2242,7 @@ info: 'InLeanProof.toExpr_instantiate1L' depends on axioms: [propext,
  InLeanProof.Level.mkData_eq]
 -/
 #guard_msgs in
-#print axioms InLeanProof.toExpr_instantiate1L
+#print axioms InLeanProof.toExpr_instantiateRevO
 
 /--
 info: 'InLeanProof.projBodyAt_tr' depends on axioms: [propext,
@@ -2347,21 +2347,13 @@ info: 'InLeanProof.indGroupPresBP' depends on axioms: [propext,
 #guard_msgs in
 #print axioms InLeanProof.toDecl_recognised
 
-/-- info: 'InLeanProof.fieldsOkB_mono' depends on axioms: [propext, Classical.choice, Quot.sound] -/
+/-- info: 'InLeanProof.projBodiesAll_of_ok' depends on axioms: [propext, Classical.choice, Quot.sound] -/
 #guard_msgs in
-#print axioms InLeanProof.fieldsOkB_mono
+#print axioms InLeanProof.projBodiesAll_of_ok
 
-/-- info: 'InLeanProof.projStepsOk_mono' depends on axioms: [propext, Classical.choice, Quot.sound] -/
+/-- info: 'InLeanProof.projBodiesAllOk_of_checkInductiveC' depends on axioms: [propext, Classical.choice, Quot.sound] -/
 #guard_msgs in
-#print axioms InLeanProof.projStepsOk_mono
-
-/-- info: 'InLeanProof.projStepsAll_of_ok' depends on axioms: [propext, Classical.choice, Quot.sound] -/
-#guard_msgs in
-#print axioms InLeanProof.projStepsAll_of_ok
-
-/-- info: 'InLeanProof.projStepsAllOk_of_checkInductiveC' depends on axioms: [propext, Classical.choice, Quot.sound] -/
-#guard_msgs in
-#print axioms InLeanProof.projStepsAllOk_of_checkInductiveC
+#print axioms InLeanProof.projBodiesAllOk_of_checkInductiveC
 
 /--
 info: 'InLeanProof.instPisWithI_tr' depends on axioms: [propext,
@@ -5839,10 +5831,6 @@ info: 'InLeanProof.jobEnvI_genRecs_of_run' depends on axioms: [propext,
 #guard_msgs in
 #print axioms InLeanProof.jobEnvI_genRecs_of_run
 
-/-- info: 'InLeanProof.fields_range' depends on axioms: [propext, Classical.choice, Quot.sound] -/
-#guard_msgs in
-#print axioms InLeanProof.fields_range
-
 /-- info: 'InLeanProof.projBodyAt_range' depends on axioms: [propext, Classical.choice, Quot.sound] -/
 #guard_msgs in
 #print axioms InLeanProof.projBodyAt_range
@@ -6035,16 +6023,16 @@ info: 'InLeanProof.genEntriesAgree_members' depends on axioms: [propext, Classic
 #print axioms InLeanProof.genEntriesAgree_members
 
 /--
-info: 'InLeanProof.blockStepsOk_of_projStepsAllOk' depends on axioms: [propext, Classical.choice, Quot.sound]
+info: 'InLeanProof.blockProjBodiesOk_of_projBodiesAllOk' depends on axioms: [propext, Classical.choice, Quot.sound]
 -/
 #guard_msgs in
-#print axioms InLeanProof.blockStepsOk_of_projStepsAllOk
+#print axioms InLeanProof.blockProjBodiesOk_of_projBodiesAllOk
 
 /--
-info: 'InLeanProof.blockStepsOk_storedBlock' depends on axioms: [propext, Classical.choice, Quot.sound]
+info: 'InLeanProof.blockProjBodiesOk_storedBlock' depends on axioms: [propext, Classical.choice, Quot.sound]
 -/
 #guard_msgs in
-#print axioms InLeanProof.blockStepsOk_storedBlock
+#print axioms InLeanProof.blockProjBodiesOk_storedBlock
 
 /--
 info: 'InLeanProof.tailShapeOkI_of' depends on axioms: [propext, Classical.choice, Quot.sound]

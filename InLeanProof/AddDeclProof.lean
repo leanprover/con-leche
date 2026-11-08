@@ -578,7 +578,7 @@ theorem ind_step {V : Type w} [ConLeche.SetTheory V] (hlaws : EnvLaws)
     (fun ci hci hn => absurd hn (hnsorry ci (mem_of_storedBlock hci))) CSOKIF_empty
     (fun ci hci => hCIR ci (mem_of_storedBlock hci))
     (fun ci hci => closed_of_checkInductiveC hK' ci (mem_of_storedBlock hci))
-    (blockStepsOk_storedBlock hok.2.2.2.2.2.2.1) hcb hrun
+    (blockProjBodiesOk_storedBlock hok.2.2.2.2.2.2.1) hcb hrun
   obtain ⟨v, rest, hhead⟩ := checkIndDeclC_head hrun
   have hnP := numParams_of_checkIndDeclC hrun hhead
   have hd : toDecl (InLean.storedBlock a.consts) = some (.indDecl cb nP) := by
