@@ -792,7 +792,7 @@ worker step to answer 0; a failure names the first failing module in the graph's
 code. The scheduler starts one `--olean --module --jobs=1` process of the binary per module, at
 most `--jobs` at once, staggered (`--schedule-stagger=MS`), within a memory budget over the
 running workers' resident sets (`--schedule-memory=SIZE`, a number with a unit `K`, `M`, `G` or
-`T`, such as `40G`: a worker starts only while the running workers' peak sets sum to under it; when their current sets exceed it the largest is protected, the youngest others are killed by their own child handles and queued again, and no worker starts until the protected one finishes; the protected one alone over the budget has the verdict `memory`),
+`T`, such as `40G`: the first queued module whose known size (the largest resident set seen when it was killed, 0 if never) fits into the budget minus the running workers' peak sets starts; when their current sets exceed the budget the largest is protected, and stays so while it runs; each further overflow kills the youngest other worker by its own child handle and queues it again with its size; the protected one alone over the budget has the verdict `memory`),
 with a time limit per worker (`--schedule-timeout=S`) and an append-only log a restart resumes
 from (`--schedule-log=FILE`, one `<verdict>\t<module>` line per finished module); its verdict is
 its workers' exit codes, and no theorem is about it: the modular statement composes what each
@@ -801,7 +801,7 @@ descriptor; its stdout and stderr are read as it runs, and its stderr is passed 
 other than 0. Each finished module gets a line on stdout,
 `con-leche: schedule: M: VERDICT t=Ss [done/total p %, k running, 1.2 GiB (max 0.6 GiB) of 40 GiB, eta D]`:
 `done` counts the modules a resumed run found logged, and the estimate is the remaining modules
-at the rate this run has finished them so far; the memory is the running workers' total resident
+at the rate of this run's last 200 finishes; the memory is the running workers' total resident
 set, the largest one's, and the budget when one is set (read every tick from `/proc`, left out
 where that cannot be read), and the final summary line gives the run's peak total. With
 `--progress=N` (milliseconds, at least a second) or `--progress=Ss`, a heartbeat on stderr after

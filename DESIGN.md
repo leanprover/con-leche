@@ -114806,6 +114806,54 @@ cont. 8 had already left nothing pending there), so the change is noise on these
 theorem among the copies is enough", the proof's amalgamated part, the fragment's `ProofBy`, and
 con-leche's checks; anchors repointed.  OVERVIEW: the rule in §1 and §8.
 
+## TASK #512 — sticky protection, terser scheduler lines, a windowed ETA (2026-11-08, agent/512-sticky)
+
+Trigger: the maintainer's run (239 685 modules, `--jobs=32`, `--schedule-memory=40G`): with
+sawtooth profiles the largest-now worker changed every tick, so the protection moved and the
+previously protected worker (10 GiB, 40 s in) was killed as "youngest other"; every kill line
+repeated the protected module and the pause; the ETA swung from 16 h to 58 h in one pause.
+
+* **Sticky protection.** On an overflow with no protected worker the largest (current RSS, then
+  `VmHWM`) becomes protected, as in #510.  While it runs it stays protected, even when another
+  grows larger; every overflow kills the youngest other worker.  The protection ends when the
+  protected worker finishes or is killed alone with `memory`.  Peak admission, front-of-queue
+  requeue, no verdict, not logged: unchanged.
+* **Size-aware admission (maintainer's addendum; replaces the blanket pause).**  Pausing every
+  start while a worker is protected wasted capacity (live: 27.6 GiB running of 40, 11 GiB free,
+  nothing starting).  Every module has a known size: the largest RSS seen when it was killed, a
+  lower bound of its peak; never killed: unknown, counted 0.  The room is the budget minus the
+  running workers' `VmHWM` sum.  The first module in queue order whose known size fits starts
+  (jobs and stagger as before); one that does not fit stays in its place and the scan goes on.
+  With nothing running the first one always starts (and the `memory` verdict decides if it is
+  over the whole budget).  Only killed modules have a size, so they are a separate ordered
+  list `front` (O(requeued) per tick) before the `pending` list of unknown ones, which is never
+  scanned: its head starts when the room is above 0.  A kill puts the module at the head of
+  `front` with its size raised to the killed RSS; newly admitted workers are the youngest, so
+  they are what a growing protected worker kills, and each kill teaches a size, so the module
+  is not restarted until it fits: thrashing is bounded.
+* **Output.** Kill: `M: killed at 63 MiB, requeued`.  One line when a protection begins, one when
+  it ends.  The status line has `protecting M` and `n waiting for room` (killed modules that do
+  not fit yet); there is no `paused`.
+* **ETA.** `remaining × ms ÷ n` over the last `n ≤ 200` finishes (`etaWindow`), `ms` their active
+  time: the time from the finish before the window (or the start) to the last finish, minus the
+  last finish: a quiet stretch does not grow the estimate until a module finishes (no pause exists
+  any more to leave out).
+
+Examples (`--olean --schedule --jobs=4 --search-path=<toolchain lib> -- Init.Data.Nat.Lemmas`):
+```
+120M: memory over 0.1 GiB: protecting Init.Data.Nat.Lemmas (91 MiB)
+      Init.Data.Nat.Bitwise.Basic: killed at 63 MiB, requeued
+      Init.TacticsExtra: 0 t=0.0s [2/84 2.3 %, 1 running, 91 MiB now (max 91 MiB), 91 MiB peaks
+        of 0.1 GiB, 1 requeued, protecting Init.Data.Nat.Lemmas, 1 waiting for room, eta 26s]
+      Init.Data.Nat.Lemmas finished, protection over          exit 0
+90M:  Init.Data.Array.Basic: 93 MiB alone, over the budget of 90 MiB: memory   exit 3
+```
+Starts under protection: Init.Data.Nat.Log2 and Init.TacticsExtra were started and finished
+while Lemmas was protected (above); the requeued Bitwise.Basic (known size 63 MiB) waited in the
+queue (`1 waiting for room`) until Lemmas had finished and the room was there.  The protection staying put while another worker grows larger could not be provoked at this
+scale (the workers peak at 100 MiB within milliseconds); the rule is the code's `findIdx?` on
+the protected module before the largest is looked at.
+
 ## TASK #508 — a worker's re-reads: the home's files and a group's part read once (2026-11-08, agent/508-rereads)
 
 #504 found a `--olean --module` worker reading files in full several times (`Init/Prelude.olean`
