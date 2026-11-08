@@ -697,6 +697,22 @@ theorem readFiles_unique {sp : SearchPath} {m : Name} {fs : FS} {a b : ModFiles}
   have := (readFiles_of_all .private ha).eq hb
   simpa [ModFiles.upTo, eq_comm] using this
 
+/-- **A part's name positions off files the search path gives** are what the search path's
+name read gives. -/
+theorem readPartNames_of_files {fs : FS} {sp : SearchPath} {m : Name} {level : OLeanLevel}
+    {f : ModFiles} (h : ModelIO.CanGive (readFiles sp m level) fs (.ok f)) :
+    ModelIO.CanGive (readPartNames sp (m, level)) fs (namesOf m f level) := by
+  obtain ⟨hs, hs', h⟩ := h
+  simp only [readFiles, ModelIO.bind_ok] at h
+  obtain ⟨x, hs₁, hx, h⟩ := h
+  rcases x with e | loc
+  · simp at h
+  refine ⟨hs, hs', ?_⟩
+  simp only [readPartNames, readPartNamesAt, ModelIO.bind_ok]
+  refine ⟨.ok loc, hs₁, hx, ?_⟩
+  simp only [ModelIO.bind_ok]
+  exact ⟨.ok f, hs', h, by simp⟩
+
 /-- The parts of a load, at the view it read, of a module whose view reads in full. -/
 theorem view_parts {f : ModFiles} {r : Region} {a : UInt64} {d : ModDecoded}
     (hr : f.viewRegion .private = some (r, a)) (hd : decodeModuleSpec f .private = some d) :

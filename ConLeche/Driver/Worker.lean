@@ -12,7 +12,8 @@ public import ConLeche.Driver.Reach
 in the phases below, generic in the IO class like `checkMainG`.  Its theorem in the model is
 `ConLeche/Verify/Driver/Worker.lean`'s.
 
-1. **The home** (`readHome`): `M`'s private view loaded (`loadAt`, its theorems' values left in
+1. **The home** (`homeOf`, off `M`'s private part's files, which give the own part's names and
+   the theorems' values' region too: each of `M`'s files is read once): `M`'s private view loaded (`loadAt`, its theorems' values left in
    the file) and its three parts checked against each other (`checkViews`: what `M` presents to
    its importers refines its own constants; a mismatch exit 1).
 2. **The reads** (`workerReads`): the header fixpoint, the name index of every loaded part, Lean's
@@ -112,6 +113,9 @@ structure WorkerRead where
   reach : Reach
   /-- the records moved by the ground hoist -/
   hoisted : Array Name
+  /-- the home's region, which the theorems' values are read from (`readValue`): the home's
+  files, read once -/
+  values : ValueCache
 
 /-- A line of the worker's heartbeat (`--progress`). -/
 def workerSay {μ : Type → Type} [CheckerIO μ] (pace : Pace) (t0 : Nat) (line : String) : μ Unit :=
@@ -125,9 +129,17 @@ def workerSay {μ : Type → Type} [CheckerIO μ] (pace : Pace) (t0 : Nat) (line
 /-- **Phases 1–4 of the worker at module `m`** (see the module docstring). -/
 def workerRead {μ : Type → Type} [CheckerIO μ] (rd : OleanReads μ) (m : Name) (pace : Pace)
     (t0 jobs : Nat) : μ (Except (CheckError × Nat) WorkerRead) := do
-  match ← readHome rd m with
+  match ← rd.files m .private with
+  | .error e => pure (.error (e, 0))
+  | .ok f =>
+  match homeOf m f with
   | .error e => pure (.error (e, 0))
   | .ok (l, expo) =>
+    -- the home's files, read once, give the own part's names and the values' region too
+    let rd := rd.withNames (m, .private) (namesOf m f .private)
+    let values : ValueCache := match f.viewRegion .private with
+      | some (r, _) => { idx := 0, region := some r }
+      | none => {}
     workerSay pace t0 s!"the home of {m}: {l.constants.size} constants, views checked"
     match ← workerReads rd m jobs with
     | .error e => pure (.error (e, 0))
@@ -147,7 +159,7 @@ def workerRead {μ : Type → Type} [CheckerIO μ] (rd : OleanReads μ) (m : Nam
             {r.completed.size} completed, {r.inferred} flags inferred"
           let (ownDs, hoisted) := Frontend.hoistNatOpGround (ownUses l) ds
           pure (.ok { home := l, expo, reads := wr, emitted := ds, own := ownDs, reach := r,
-                      hoisted })
+                      hoisted, values })
 
 /-- **The worker at module `m`**, generic in the IO class: phases 1–4 (`workerRead`, its reads of
 the files `rd`), then the own records' jobs over the index of the context and the own records, and
@@ -180,7 +192,7 @@ def checkModuleG {μ : Type → Type} [CheckerIO μ] (rd : OleanReads μ) (sp : 
         (parse {ConLeche.Cached.msSecs (tParse - t0)}s)"
     verdictG modeTag w.own.size t0 ds
       (← checkOleansG mode pace t0 tIndex tParse jobs sp #[⟨m, w.home.frontier⟩] J
-        w.reach.ctx.size alone)
+        w.reach.ctx.size alone w.values)
       (if alone then "" else s!"module {m}: ")
 
 end ConLeche.Driver

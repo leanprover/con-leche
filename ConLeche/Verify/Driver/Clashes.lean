@@ -102,7 +102,7 @@ theorem partNames_region {sp : SearchPath} {fs : FS} {k : PartKey} {t : NamePosi
   obtain ⟨y, hs₁, hy, h⟩ := h
   rcases y with e | loc
   · simp at h
-  simp only [readPartNamesAt, ModelIO.bind_ok] at h
+  simp only [readPartNamesAt, namesOf, ModelIO.bind_ok] at h
   obtain ⟨z, hs₂, hz, h⟩ := h
   rcases z with e | g
   · simp at h

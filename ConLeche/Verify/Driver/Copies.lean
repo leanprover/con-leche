@@ -503,7 +503,7 @@ theorem partNames_eq {sp : SearchPath} {fs : FS} {k : PartKey} {t t' : NamePosit
   rcases y' with e | loc'
   · simp at h'
   obtain rfl : loc' = loc := Except.ok.inj ((findModule_ok hy).ok hy')
-  simp only [readPartNamesAt, ModelIO.bind_ok] at h h'
+  simp only [readPartNamesAt, namesOf, ModelIO.bind_ok] at h h'
   obtain ⟨z, _, hz, h⟩ := h
   obtain ⟨z', _, hz', h'⟩ := h'
   rcases z with e | f

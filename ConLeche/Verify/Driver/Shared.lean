@@ -19,11 +19,13 @@ open handles (`findModule_within`, `moduleImports_within`, `readFiles_within`,
 `readPartNames_within`): locating a module opens no file, and the header read is determined.
 The reads `rd` refine the search path's (`OleanReads.Within fs rd sp`) when each of their three
 operations does.  Then every phase of the worker written over `rd` refines the same phase over
-the search path (`headerFixpoint_within`, `workerReads_within`, `readHome_within`,
-`reach_within`), because each is built from the reads by binds, matches and the parallel map,
-all of which keep refinement (`Within.bind`, `mapExcept_within`).  So whatever a phase over the
-tables accepts, the same phase over the files accepts too, and what is proved of the worker's
-accepting outcomes holds of the one-process mode's (`ConLeche/Verify/Driver/Worker.lean`).
+the search path (`headerFixpoint_within`, `workerReads_within`, `reach_within`), because each
+is built from the reads by binds, matches and the parallel map, all of which keep refinement
+(`Within.bind`, `mapExcept_within`).  So whatever a phase over the tables accepts, the same phase
+over the files accepts too, and what is proved of the worker's accepting outcomes holds of the
+one-process mode's (`ConLeche/Verify/Driver/Worker.lean`).  A part's names a worker has in hand
+off files it read (`OleanReads.withNames`) keep refinement too (`OleanReads.Within.withNames`):
+they are the names the search path's read gives (`readPartNames_of_files`).
 -/
 
 public section
@@ -274,12 +276,22 @@ theorem workerReads_within {fs : FS} {rd : OleanReads ModelIO} {sp : SearchPath}
   refine ModelIO.Within.bind (readInfos_within h _ _ _ _) fun _ => ?_
   within_tac []
 
-theorem readHome_within {fs : FS} {rd : OleanReads ModelIO} {sp : SearchPath}
-    (h : OleanReads.Within fs rd sp) (m : Name) (i : Nat) :
-    ModelIO.Within fs (readHome rd m i) (readHome (.ofPath sp) m i) := by
-  simp only [readHome]
-  refine ModelIO.Within.bind (h.files _ _) fun _ => ?_
-  within_tac []
+/-- **One part's names in hand keep refinement**, where they are the search path's. -/
+theorem OleanReads.Within.withNames {fs : FS} {rd : OleanReads ModelIO} {sp : SearchPath}
+    (h : OleanReads.Within fs rd sp) {x₀ : Name × OLeanLevel} {v : Except CheckError NamePositions}
+    (hv : ModelIO.CanGive (readPartNames sp x₀) fs v) :
+    OleanReads.Within fs (rd.withNames x₀ v) sp := by
+  refine ⟨h.imports, h.files, fun x => ?_⟩
+  simp only [OleanReads.withNames]
+  split
+  · rename_i hx
+    rw [eq_of_beq hx]
+    intro _ o _ ho hs₀
+    simp only [ModelIO.pure_iff] at ho
+    obtain ⟨rfl, -⟩ := ho
+    obtain ⟨_, _, hv⟩ := hv
+    exact readPartNames_within fs sp x₀ _ _ _ hv hs₀
+  · exact h.names x
 
 end Frontend.Olean
 
@@ -416,11 +428,16 @@ theorem recBlocksOf_within (h : OleanReads.Within fs env.rd sp) (c : ReachCache)
   simp only [recBlocksOf]
   within_tac [tableOf_within h, withPart_within h]
 
+theorem loadPart_within (h : OleanReads.Within fs env.rd sp) (c : ReachCache) (k : PartKey) :
+    ModelIO.Within fs (loadPart env c k) (loadPart (env.onPath sp) c k) := by
+  simp only [loadPart, ReachEnv.onPath]
+  within_tac [h.files]
+
 theorem groupAt_within (h : OleanReads.Within fs env.rd sp) (c : ReachCache) (k : PartKey)
     (n : Name) :
     ModelIO.Within fs (groupAt env c k n) (groupAt (env.onPath sp) c k n) := by
   simp only [groupAt]
-  within_tac [lookOf_within h, withPart_within h, recBlocksOf_within h]
+  within_tac [loadPart_within h, lookOf_within h, withPart_within h, recBlocksOf_within h]
 
 theorem stmtRecord_within (h : OleanReads.Within fs env.rd sp) (c : ReachCache) (s : Spot)
     (cv : ConstantVal) :

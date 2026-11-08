@@ -160,8 +160,7 @@ theorem modTables_within {fs : FS} {sp : SearchPath} {T : ModTables} (hT : Table
           exact ModelIO.Within.bind (readFilesAt_within fs _ _ _) fun r => by
             rcases r with e | f
             · exact ModelIO.Within.pure _
-            · simp only
-              split <;> exact ModelIO.Within.pure _)
+            · exact ModelIO.Within.pure _)
       cases level with
       | «private» =>
         exact ModelIO.Within.of_table (readPartNames_within fs sp _)
