@@ -1452,7 +1452,7 @@ theorem targetMajorOfI_run {fe : InLean.FEnv} {L : ConLeche.Env} (hJ : JobEnvI f
           refine runs5_bind (Runs.pure _) ?_
           cases b with
           | false =>
-            simp only [] at h
+            simp only at h
             obtain ⟨_, _, h4, -⟩ := bind_run h
             exact (throw_run h4).elim
           | true =>
@@ -1719,5 +1719,132 @@ theorem checkBlockClassesI_run {fe : InLean.FEnv} {L : ConLeche.Env} (hJ : JobEn
   · simp only [hg] at h
     obtain ⟨_, _, h5, -⟩ := bind_run h
     exact (throw_run h5).elim
+
+/-! ## The seeds -/
+
+theorem fvSubRel_nestKeyMap {s : InLean.CState} {ds holes : List Lean.Expr} (hd : OkSL s ds = true)
+    (hh : OkSL s holes = true) :
+    FvSubRel s (InLean.nestKeyMap ds holes) (ConLeche.nestKeyMap (TrSL s ds) (TrSL s holes)) := by
+  intro i
+  unfold InLean.nestKeyMap ConLeche.nestKeyMap
+  rw [TrSL_length]
+  by_cases hi : i < ds.length
+  · simp only [hi, ↓reduceIte]
+    exact ⟨by simp [TrSL], fun y hy => okS_getElem? hd hy⟩
+  · simp only [hi, ↓reduceIte]
+    exact ⟨by simp [TrSL], fun y hy => okS_getElem? hh hy⟩
+
+/-- **A class as a seed** (`nestSeedOf`): InLean's key reads, at the final
+state, as master's at the readings. -/
+theorem nestSeedOfI_run {ctx : InLean.NestCtx} {cctx : ConLeche.NestCtx} (hR : CanonRel ctx cctx)
+    {s₀ s' : InLean.CState} (hs : CSOKI mode eager env s₀) {holes : List Lean.Expr}
+    (hpar : cctx.params = TrSL s₀ ctx.params) (hokpar : OkSL s₀ ctx.params = true)
+    (hokh : OkSL s₀ holes = true) {I : Lean.Name} {us : List Lean.Level} {ds : List Lean.Expr}
+    {nPc : Nat} {r : InLean.NestKey × Nat} (hds : OkSL s₀ ds = true)
+    (h : InLean.nestSeedOf ctx holes I us ds nPc s₀ = .ok (r, s')) :
+    CSOKI mode eager env s' ∧ TabLe s₀ s' ∧ OkSL s' r.1.ds = true ∧ r.1.lvls = us ∧
+      ConLeche.nestSeedOf cctx (TrSL s₀ holes) (toName I) (us.map trL) (TrSL s₀ ds) nPc =
+        (trKey s' r.1, r.2) := by
+  unfold InLean.nestSeedOf at h
+  obtain ⟨vars, s₁, h1, h⟩ := bind_run h
+  unfold InLean.nestCanonVars at h1
+  obtain ⟨hs₁, ht₁, hokv, htrv⟩ := mapM_mkFVarM_run (mode := mode) (eager := eager) (env := env)
+    (fun m => ctx.nP + m) (List.range ctx.names.length) hs h1
+  obtain ⟨rfl, rfl⟩ := pure_run h
+  have hsub := nestCanonSub_rel (s := s₁) (names := ctx.names) ctx.nP (params_okLv ctx.lps) hokv htrv
+  have hkm := fvSubRel_nestKeyMap (okSL_of_tabLe ht₁ hokpar) (okSL_of_tabLe ht₁ hokh)
+  have hx : ∀ x ∈ ds,
+      OkS s₁ (InLean.replaceFVars (InLean.nestKeyMap ctx.params holes)
+        (InLean.replaceApps (InLean.nestCanonSub ctx.names (ctx.lps.map .param) vars) 0 ctx.nP x)) = true ∧
+      TrS s₁ (InLean.replaceFVars (InLean.nestKeyMap ctx.params holes)
+        (InLean.replaceApps (InLean.nestCanonSub ctx.names (ctx.lps.map .param) vars) 0 ctx.nP x)) =
+      ((TrS s₀ x).replaceApps (ConLeche.nestCanonSub cctx.names (cctx.lps.map .param) cctx.nP) 0
+        cctx.nP).replaceFVars (ConLeche.nestKeyMap cctx.params (TrSL s₀ holes)) := by
+    intro x hxd
+    have hokx : OkS s₁ x = true := by
+      simp only [OkSL, List.all_eq_true] at hds; exact okS_of_tabLe ht₁ (hds x hxd)
+    have hA := replaceAppsI_tr hsub 0 ctx.nP x 0 hokx
+    rw [← replaceApps_eq] at hA
+    have hB := replaceFVarsI_tr hkm hA.1
+    refine ⟨hB.1, ?_⟩
+    rw [hB.2, hA.2, TrS_of_tabLe ht₁ (by simp only [OkSL, List.all_eq_true] at hds; exact hds x hxd),
+      TrSL_of_tabLe ht₁ hokpar, TrSL_of_tabLe ht₁ hokh, hR.names, hR.lps, hR.nP, hpar, params_trL]
+  refine ⟨hs₁, ht₁, ?_, rfl, ?_⟩
+  · simp only [OkSL, List.all_map, List.all_eq_true, Function.comp_apply]
+    exact fun x hxd => (hx x hxd).1
+  · simp only [ConLeche.nestSeedOf, trKey]
+    generalize TrSL s₀ holes = H at hx ⊢
+    simp only [TrSL, List.map_map]
+    congr 2
+    exact List.map_congr_left fun x hxd => ((hx x hxd).2).symm
+
+/-- **The seeds** (`classSeeds`): every outside class, as master's seed on the
+readings. -/
+theorem classSeedsI_run {ctx : InLean.NestCtx} {cctx : ConLeche.NestCtx} (hR : CanonRel ctx cctx)
+    {holes : List Lean.Expr} :
+    ∀ {Ms : List InLean.TargetMajor} {s₀ s' : InLean.CState} {r : List (InLean.NestKey × Nat)},
+      CSOKI mode eager env s₀ → cctx.params = TrSL s₀ ctx.params → OkSL s₀ ctx.params = true →
+      OkSL s₀ holes = true → (∀ M ∈ Ms, OkTM s₀ M) →
+      InLean.classSeeds ctx holes Ms s₀ = .ok (r, s') →
+      CSOKI mode eager env s' ∧ TabLe s₀ s' ∧ (∀ q ∈ r, OkSL s' q.1.ds = true) ∧
+        ConLeche.classSeeds cctx (TrSL s₀ holes) (Ms.map (trTM s₀)) =
+          r.map fun q => (trKey s' q.1, q.2)
+  | [], s₀, s', r, hs, _, _, _, _, h => by
+    unfold InLean.classSeeds at h
+    rw [List.filterMapM_nil] at h
+    obtain ⟨rfl, rfl⟩ := pure_run h
+    exact ⟨hs, TabLe.refl _, by simp, rfl⟩
+  | M :: Ms, s₀, s', r, hs, hpar, hokpar, hokh, hM, h => by
+    unfold InLean.classSeeds at h
+    rw [List.filterMapM_cons] at h
+    obtain ⟨o, s₁, h1, h⟩ := bind_run h
+    obtain ⟨hlv, hds, -, -⟩ := hM M List.mem_cons_self
+    have hrest : ∀ {s₁ s'' : InLean.CState} {r' : List (InLean.NestKey × Nat)},
+        CSOKI mode eager env s₁ →
+        TabLe s₀ s₁ → InLean.classSeeds ctx holes Ms s₁ = .ok (r', s'') →
+        CSOKI mode eager env s'' ∧ TabLe s₁ s'' ∧ (∀ q ∈ r', OkSL s'' q.1.ds = true) ∧
+          ConLeche.classSeeds cctx (TrSL s₀ holes) (Ms.map (trTM s₀)) =
+            r'.map fun q => (trKey s'' q.1, q.2) := by
+      intro s₁ s'' r' hs₁ ht h'
+      obtain ⟨a1, a2, a3, a4⟩ := classSeedsI_run hR hs₁ (by rw [TrSL_of_tabLe ht hokpar]; exact hpar)
+        (okSL_of_tabLe ht hokpar) (okSL_of_tabLe ht hokh)
+        (fun M' hM' => (OkTM.mono ht (hM M' (List.mem_cons_of_mem _ hM'))).1) h'
+      refine ⟨a1, a2, a3, ?_⟩
+      rw [← a4, TrSL_of_tabLe ht hokh]
+      congr 1
+      exact List.map_congr_left fun M' hM' =>
+        ((OkTM.mono ht (hM M' (List.mem_cons_of_mem _ hM'))).2).symm
+    unfold ConLeche.classSeeds
+    rw [List.map_cons, List.filterMap_cons]
+    cases hm : M.member with
+    | some t =>
+      simp only [hm, Option.isNone_some, Bool.false_eq_true, ↓reduceIte] at h1
+      obtain ⟨rfl, rfl⟩ := pure_run h1
+      simp only at h
+      obtain ⟨a1, a2, a3, a4⟩ := hrest hs (TabLe.refl _) h
+      refine ⟨a1, a2, a3, ?_⟩
+      simp only [trTM, hm, Option.isNone_some, Bool.false_eq_true, ↓reduceIte]
+      exact a4
+    | none =>
+      simp only [hm, Option.isNone_none, ↓reduceIte] at h1
+      rw [map_eq_pure_bind] at h1
+      obtain ⟨q, s₂, h2, h1⟩ := bind_run h1
+      obtain ⟨rfl, rfl⟩ := pure_run h1
+      obtain ⟨hs₂, ht₂, hokq, -, hseed⟩ := nestSeedOfI_run hR hs hpar hokpar hokh hds h2
+      simp only at h
+      obtain ⟨rest, s₃, h3, h⟩ := bind_run h
+      obtain ⟨a1, a2, a3, a4⟩ := hrest hs₂ ht₂ (by unfold InLean.classSeeds; exact h3)
+      obtain ⟨rfl, rfl⟩ := pure_run h
+      refine ⟨a1, ht₂.trans a2, ?_, ?_⟩
+      · intro q' hq'
+        rcases List.mem_cons.1 hq' with rfl | hq'
+        · exact okSL_of_tabLe a2 hokq
+        · exact a3 q' hq'
+      · simp only [trTM, hm, Option.isNone_none, ↓reduceIte]
+        rw [show ConLeche.nestSeedOf cctx (TrSL s₀ holes) (toName M.ind) (M.lvls.map trL)
+          (TrSL s₀ M.ds) M.nPc = (trKey s₂ q.1, q.2) from hseed]
+        unfold ConLeche.classSeeds at a4
+        simp only [a4, List.map_cons, List.cons.injEq, Prod.mk.injEq, and_true]
+        simp only [trKey, TrSL_of_tabLe a2 hokq]
 
 end InLeanProof
