@@ -1,14 +1,15 @@
 module
 
-public import ConLeche.Verify.Driver.Groups
 import ConLeche.Verify.Frontend.Olean.Reads
-import ConLeche.Verify.Frontend.Olean.Lazy
 import ConLeche.Verify.Frontend.Olean.Equiv
 import ConLeche.Verify.Cached.PushChain
 import ConLeche.Verify.Cached.DeclPushes
 import ConLeche.Verify.Cached.GuardsC
 import ConLeche.Verify.Driver.Reach
 import ConLeche.Verify.Frontend.Prepare
+import ConLeche.Verify.Driver.Provenance
+public import ConLeche.Verify.Driver.ReachFrom
+public import ConLeche.Verify.Driver.Worker
 
 /-!
 # A module's copies in its own environment

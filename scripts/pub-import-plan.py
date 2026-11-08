@@ -54,6 +54,16 @@ DIR   = os.environ.get('PUBPLAN_DIR', '_tmp/m3')
 # a tree whose `rfl`s stop closing, so they stay public and the gate must not
 # ask for them again.
 FALLBACK = {
+    # task #501: `PropPart.lean`'s statements name `CState`, `typeIsPropC` (through
+    # `ConLeche.Driver.Reach`) and `EnvWF`; `RouteCtx.lean`'s name `StmtRecord` (`Copies`),
+    # `homeMerged` (`Provenance`) and `Run.cap`'s membership (`ComposeReads`).  Each measured by
+    # demoting it alone (unknown identifier `CState`, `PropPart.lean:41`; `EnvWF`, `:40`;
+    # `StmtRecord`, `RouteCtx.lean:460`; `homeMerged`, `:526`; a stuck `Membership`, `:489`).
+    ('ConLeche.Verify.Driver.PropPart', 'ConLeche.Driver.Reach'),
+    ('ConLeche.Verify.Driver.PropPart', 'ConLeche.Verify.EnvWF'),
+    ('ConLeche.Verify.Driver.RouteCtx', 'ConLeche.Verify.Driver.ComposeReads'),
+    ('ConLeche.Verify.Driver.RouteCtx', 'ConLeche.Verify.Driver.Copies'),
+    ('ConLeche.Verify.Driver.RouteCtx', 'ConLeche.Verify.Driver.Provenance'),
     # task #448: `ReachFrom.lean`'s statements name `PartKey`, `ModelIO.AllOk` and `SM.Good`
     # (the last by dot-notation) through these.  Each measured by demoting it alone (unknown
     # identifier `PartKey`, `ReachFrom.lean:42`; unknown constant `ModelIO.AllOk`, `:225`;

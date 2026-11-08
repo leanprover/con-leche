@@ -3,9 +3,11 @@ module
 public import ConLeche.Verify.Driver.Copies
 public import ConLeche.Verify.Driver.Clashes
 import ConLeche.Verify.Driver.Reach
+import ConLeche.Verify.Driver.Provenance
 import ConLeche.Verify.Driver.Compose
 import ConLeche.Verify.Frontend.Olean.Lazy
 import ConLeche.Verify.Frontend.Olean.Reads
+public import ConLeche.Verify.Frontend.Olean.Emit
 
 /-!
 # The routes' facts about one worker

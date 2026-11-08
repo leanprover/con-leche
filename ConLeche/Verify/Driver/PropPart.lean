@@ -1,13 +1,13 @@
 module
 
-public import ConLeche.Modular
+import ConLeche.Modular
 public import ConLeche.Driver.Reach
-public import ConLeche.Verify.EnvExt
 import ConLeche.Verify.Cached.BridgeC
 import ConLeche.Verify.Cached.StreamIndex
 import ConLeche.Verify.Cached.PushChain
 import ConLeche.Verify.Driver.Reach
 import ConLeche.Verify.PinRen
+public import ConLeche.Verify.EnvWF
 
 /-!
 # A statement the worker inferred a proposition is one over the part below it

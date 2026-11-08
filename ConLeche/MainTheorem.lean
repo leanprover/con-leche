@@ -10,12 +10,14 @@ import ConLeche.Verify.Cached.StreamThm
 import ConLeche.Verify.Frontend.Prepare
 import ConLeche.Verify.Frontend.FileFalse
 public import ConLeche.Driver.Cli
-public import ConLeche.Verify.Frontend.Olean.Files
+import ConLeche.Verify.Frontend.Olean.Files
 import ConLeche.Verify.Driver.Main
-public import ConLeche.Verify.Driver.Routes
 import ConLeche.Modular
 import ConLeche.Model.Modular.Main
 import ConLeche.Model.Capstone
+import ConLeche.Verify.Driver.Routes
+public import ConLeche.Verify.Driver.Graph
+public import ConLeche.Verify.Driver.Worker
 public section
 
 /-!

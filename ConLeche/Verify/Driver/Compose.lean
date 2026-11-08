@@ -1,15 +1,13 @@
 module
 
 public import ConLeche.Verify.Driver.Worker
-public import ConLeche.Verify.Driver.Groups
-public import ConLeche.Verify.Driver.Graph
 import ConLeche.Verify.Driver.Reach
 public import ConLeche.Verify.Driver.Loads
 public import ConLeche.Verify.Driver.Capture
-public import ConLeche.Verify.Driver.Clashes
-public import ConLeche.Verify.Driver.Copies
-public import ConLeche.Verify.Driver.PropPart
 import ConLeche.Verify.Cached.Fill
+import ConLeche.Verify.Driver.Clashes
+import ConLeche.Verify.Driver.Groups
+public import ConLeche.Driver.Graph
 
 /-!
 # The composition: a development from an accepted run

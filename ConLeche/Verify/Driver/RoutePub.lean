@@ -1,8 +1,9 @@
 module
 
 public import ConLeche.Verify.Driver.ComposeReads
-public import ConLeche.Verify.Driver.RouteWorker
-import ConLeche.Verify.Driver.Reach
+import ConLeche.Verify.Driver.Clashes
+import ConLeche.Verify.Driver.Copies
+import ConLeche.Verify.Driver.Provenance
 
 /-!
 # The routes: the public-import route

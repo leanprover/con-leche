@@ -2,6 +2,8 @@ module
 
 public import ConLeche.Verify.Driver.Compose
 import ConLeche.Verify.Driver.Reach
+import ConLeche.Verify.Driver.PropPart
+import ConLeche.Verify.Driver.Groups
 
 /-!
 # The composition: what a context record reads agrees with its home's copy

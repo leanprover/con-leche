@@ -1,7 +1,6 @@
 module
 
 public import ConLeche.Verify.Driver.ComposeReads
-public import ConLeche.Verify.Driver.RouteWorker
 import ConLeche.Verify.Driver.Reach
 import ConLeche.Verify.Cached.DeclPushes
 import ConLeche.Verify.Frontend.Prepare
@@ -10,6 +9,14 @@ import ConLeche.Verify.Frontend.Olean.Reads
 import ConLeche.Verify.Inductives.BlockShapeInv
 import ConLeche.Verify.PinRen
 import ConLeche.Verify.Frontend.Olean.Group
+import ConLeche.Verify.Driver.RouteWorker
+import ConLeche.Verify.Frontend.Olean.Emit
+import ConLeche.Verify.Frontend.Olean.GroupSame
+public import ConLeche.Verify.Driver.Provenance
+import ConLeche.Verify.Driver.Groups
+public import ConLeche.Verify.Driver.Copies
+import ConLeche.Verify.Driver.Clashes
+import ConLeche.Verify.Driver.PropPart
 
 /-!
 # The routes: what a module's context stores, and how
