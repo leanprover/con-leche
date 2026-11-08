@@ -53,7 +53,7 @@ theorem find?_cons_fresh {c ci : ConstantInfo} {env : Env} {n : Name}
     exact nomatch h
 
 /-- **A new proof's leaf is the canonical proof**: a stored constant a record adds, a theorem or
-of a type that reads as a truth value at a name with no pinned leaf, gets it from its install. -/
+of a type that reads as a truth value, gets it from its install. -/
 theorem new_proof_leaf {F : Nat} {env env₂ : Env} {d : Declaration}
     (hrun : DeclRun F (ConLeche.Semantics.DeclIndRunDispatchK F env) env d env₂) {fe : FEnv}
     (hch : PushChain env fe) (he : fe.env = env₂)
@@ -62,10 +62,9 @@ theorem new_proof_leaf {F : Nat} {env env₂ : Env} {d : Declaration}
     (hleaf : ∀ n, (env.find? n).isSome = true → a' n = a n)
     (hpl : DeclProofLeaf V a env d a') {n : Name} {ci : ConstantInfo}
     (hf : env₂.find? n = some ci) (hnew : env.find? n = none) (hk : ci.isStmtKind = true)
-    (hpin : pinnedLeafName n = false) (hqs : n ≠ quotSoundName)
+    (hqs : n ≠ quotSoundName)
     (hc : (∃ cv, ci = .thmInfo cv) ∨ SemPropType V a' env₂ ci.toConstantVal.type) :
     a' n = fun _ => .prf := by
-  obtain ⟨hop, hred, hsy⟩ := pinnedLeafName_false hpin
   subst he
   -- the constant is the record's
   have hname := ConLeche.Env.find?_name hf
@@ -86,24 +85,22 @@ theorem new_proof_leaf {F : Nat} {env env₂ : Env} {d : Declaration}
     rw [henv2] at hf
     obtain ⟨rfl, rfl⟩ := find?_cons_fresh hf hnew
     have htr : type'.constsResolve env = true := hcv.2.2.2.2.2.2.1
-    have hann : type' = cv.type := hcv.2.2.2.2.1
     rcases hc with ⟨_, h⟩ | hc
     · exact nomatch h
-    · exact hpl ⟨hop, hann ▸ hsem htr hc⟩
+    · exact hpl _ hmem_ci hk (.inr (hsem htr hc))
   | thmDecl cv v =>
     obtain ⟨-, type', value', hcv, -, -, henv2⟩ := hrun
     rw [henv2] at hf
     obtain ⟨rfl, rfl⟩ := find?_cons_fresh hf hnew
-    exact hpl
+    exact hpl _ hmem_ci hk (.inl ⟨_, rfl⟩)
   | opaqueDecl cv v =>
     obtain ⟨-, type', value', hcv, -, henv2, -⟩ := hrun
     rw [henv2] at hf
     obtain ⟨rfl, rfl⟩ := find?_cons_fresh hf hnew
     have htr : type'.constsResolve env = true := hcv.2.2.2.2.2.2.1
-    have hann : type' = cv.type := hcv.2.2.2.2.1
     rcases hc with ⟨_, h⟩ | hc
     · exact nomatch h
-    · exact hpl ⟨hred, hann ▸ hsem htr hc⟩
+    · exact hpl _ hmem_ci hk (.inr (hsem htr hc))
   | axiomDecl cv =>
     rcases hrun with ⟨hq, -, -, -, henv2⟩ | ⟨-, type', -, hcv, hbr⟩
     · rw [henv2] at hf
@@ -112,7 +109,6 @@ theorem new_proof_leaf {F : Nat} {env env₂ : Env} {d : Declaration}
         ConLeche.Verify.atLps_name _ _] at hname
       exact absurd hname.symm (by rw [show (quotPin .sound).name = quotSoundName from rfl]; exact hqs)
     · have htr : type'.constsResolve env = true := hcv.2.2.2.2.2.2.1
-      have hann : type' = cv.type := hcv.2.2.2.2.1
       have hax : fe.env = ⟨.axiomInfo ⟨cv.name, cv.levelParams, type'⟩ :: env.consts, env.tables⟩ ∨
           fe.env = env := by
         rcases hbr with ⟨-, h⟩ | ⟨-, -, h⟩ | ⟨-, -, h⟩ | ⟨-, -, -, -, -, -, -, h⟩
@@ -125,7 +121,7 @@ theorem new_proof_leaf {F : Nat} {env env₂ : Env} {d : Declaration}
         obtain ⟨rfl, rfl⟩ := find?_cons_fresh hf hnew
         rcases hc with ⟨_, h⟩ | hc
         · exact nomatch h
-        · exact hpl ⟨hsy, hann ▸ hsem htr hc⟩
+        · exact hpl _ hmem_ci hk (.inr (hsem htr hc))
       · rw [h, hnew] at hf; exact nomatch hf
   | quotDecl k cv =>
     rcases hrec with ⟨_, _, _, h, -⟩ | ⟨_, _, h, -⟩ | ⟨_, _, h, -⟩ | ⟨_, h, -⟩ <;> cases h
@@ -162,11 +158,11 @@ theorem declsRun_proofs :
       checkDeclStepC_push (pins := pins) .verified (PushChain.refl E) pd {} fe₁ s₁ hstepC
     -- every proof's leaf, after the record
     have hPLn : ProofLeaves V fe₁.env mp₁.base2.acval := by
-      intro n ci hf hk hpin hc
+      intro n ci hf hk hc
       by_cases hold : (E.find? n).isSome = true
       · have hf' : E.find? n = some ci := (pushChain_find_old hch hold) ▸ hf
         rw [hleaf₁ n hold]
-        refine hPL n ci hf' hk hpin ?_
+        refine hPL n ci hf' hk ?_
         rcases hc with h | h
         · exact .inl h
         · have hr : ci.toConstantVal.type.constsResolve E = true :=
@@ -184,7 +180,7 @@ theorem declsRun_proofs :
           rfl
         by_cases hqs : n = quotSoundName
         · subst hqs; exact quotSound_leaf mp₁ hf
-        refine new_proof_leaf hrunD hch rfl (fun c hc hnc => ?_) hleaf₁ hPL₁ hf hnew hk hpin hqs hc
+        refine new_proof_leaf hrunD hch rfl (fun c hc hnc => ?_) hleaf₁ hPL₁ hf hnew hk hqs hc
         rw [hfe₁] at hc
         simp only [streamEnv, List.foldl, Env.pushDelta, List.mem_append, List.mem_reverse] at hc
         exact hc.resolve_right hnc

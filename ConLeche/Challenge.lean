@@ -170,7 +170,7 @@ theorem modular_model_exists (V : Type w) [SetTheory V]
     ∃ m : ∀ j ≤ i, Model V (dev j).own,
       (∀ j hj n, ((dev j).context.find? n).isSome = true →
         ∃ h : (dev j).src n ≤ i, (m j hj).cval n = (m ((dev j).src n) h).cval n) ∧
-      ∀ j hj n cv, (dev j).own.find? n = some (.thmInfo cv) → pinnedLeafName n = false →
+      ∀ j hj n cv, (dev j).own.find? n = some (.thmInfo cv) →
         (m j hj).cval n = fun _ => pt :=
   sorry
 

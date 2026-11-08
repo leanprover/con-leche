@@ -13,7 +13,7 @@ public section
 The invariant behind agreement by proof irrelevance (`ConLeche.Modular.Agree.proof`): in every
 model of the modular instance, a stored theorem's leaf is the canonical proof `.prf`, and so is
 a stored definition's or axiom's whose type reads as a truth value under the model
-(`SemPropType`), at a name whose leaf is not pinned (`ProofLeaves`).  It is a property of the
+(`SemPropType`), at every name (`ProofLeaves`).  It is a property of the
 model, not of the checker: the step chooses those leaves (`DeclProofLeaf`), and a context's
 model reads them off its sources'.  Because the condition is the type's reading, it carries
 between two models that read the type alike (`SemPropType.of_denote`), which is how an
@@ -32,19 +32,12 @@ variable {V : Type w} [SetTheory V]
 variable (V) in
 /-- **Every proof's leaf is the canonical proof** (see the module docstring). -/
 @[expose] def ProofLeaves (E : Env) (a : Name → (Name → Nat) → Term) : Prop :=
-  ∀ n ci, E.find? n = some ci → ci.isStmtKind = true → pinnedLeafName n = false →
+  ∀ n ci, E.find? n = some ci → ci.isStmtKind = true →
     ((∃ cv, ci = .thmInfo cv) ∨ SemPropType V a E ci.toConstantVal.type) →
     a n = fun _ => .prf
 
 theorem ProofLeaves.empty (a : Name → (Name → Nat) → Term) : ProofLeaves V Env.empty a :=
   fun _ _ h => nomatch h
-
-/-- The pinned names, unfolded. -/
-theorem pinnedLeafName_false {n : Name} (h : pinnedLeafName n = false) :
-    (natOpNames.contains n || natDivModNames.contains n) = false ∧
-      reduceOpNames.contains n = false ∧ n ≠ sorryAxName := by
-  simp only [pinnedLeafName, Bool.or_eq_false_iff, beq_eq_false_iff_ne] at h
-  exact ⟨by rw [h.1.1.1, h.1.1.2]; rfl, h.1.2, h.2⟩
 
 /-- **`Quot.sound`'s leaf is the canonical proof**, in every model storing it: its pin's. -/
 theorem quotSound_leaf {E : Env} (mp : EnvModelM V E) {ci : ConstantInfo}

@@ -188,8 +188,8 @@ section Mirrors
 variable {ops : CheckerOps m}
 
 theorem checkConstantValF_congr (h : EnvFree ops) {fe₁ fe₂ : FEnv}
-    (hfe : fe₁.find? = fe₂.find?) (cv : ConstantVal) :
-    checkConstantValF ops fe₁ cv = checkConstantValF ops fe₂ cv := by
+    (hfe : fe₁.find? = fe₂.find?) (cv : ConstantVal) {a b : Bool} :
+    checkConstantValF ops fe₁ cv a b = checkConstantValF ops fe₂ cv a b := by
   unfold checkConstantValF
   simp only [h.inferType fe₁.env, h.inferType fe₂.env,
     h.ensureSort fe₁.env, h.ensureSort fe₂.env, hfe, constsResolveF_congr hfe,
@@ -373,7 +373,8 @@ variable {mode : CheckMode}
 
 theorem checkConstantValC_congr {fe₁ fe₂ : FEnv} (hfe : fe₁.find? = fe₂.find?)
     (htb : fe₁.findTable? = fe₂.findTable?)
-    (cv : ConstantVal) {a : Bool} : checkConstantValC mode fe₁ cv a = checkConstantValC mode fe₂ cv a := by
+    (cv : ConstantVal) {a b : Bool} :
+    checkConstantValC mode fe₁ cv a b = checkConstantValC mode fe₂ cv a b := by
   unfold checkConstantValC
   simp only [coreKnotI_congr hfe htb, constsResolveFC_congr hfe, opSIxC_congr hfe htb, hfe,
     strLitStoredF_congr hfe]

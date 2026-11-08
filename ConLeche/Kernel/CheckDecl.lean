@@ -88,7 +88,7 @@ def checkDeclKind (ops : CheckerOps m) (pins : List NatOpPinSet) (env : Env)
     checkConstantVal ops env cv
     checkThmVal ops env cv value
   | .opaqueDecl cv value => do
-    checkConstantVal ops env cv
+    checkConstantVal ops env cv (allowReduce := true)
     let env2 ← checkOpaqueVal ops env cv value
     -- Compiler-trust opaques (`Lean.reduceNat`/`Lean.reduceBool`,
     -- task #95): the stored value must be definitionally equal to the

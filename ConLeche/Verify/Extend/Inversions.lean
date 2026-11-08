@@ -37,8 +37,8 @@ theorem fueledOps_whnf (F : Nat) (env : Env) (d : Nat) (e : Expr) :
     (fueledOps mode F).whnf env d e = ConLeche.whnf mode false env F d e := rfl
 
 /-- Inversion for `checkConstantVal`. -/
-theorem checkConstantVal_inv {env : Env} {cv : ConstantVal} {a : Bool}
-    (h : checkConstantVal (fueledOps mode F) env cv a = .ok ()) :
+theorem checkConstantVal_inv {env : Env} {cv : ConstantVal} {a b : Bool}
+    (h : checkConstantVal (fueledOps mode F) env cv a b = .ok ()) :
     env.find? cv.name = none ∧
     Name.nodup cv.levelParams = true ∧
     cv.type.looseBVarsBounded 0 = true ∧
@@ -58,6 +58,11 @@ theorem checkConstantVal_inv {env : Env} {cv : ConstantVal} {a : Bool}
     rw [ite_eq_left hop] at h
     exact nomatch h
   simp only [hop] at h
+  by_cases hred : (reduceOpNames.contains cv.name && !b) = true
+  case pos =>
+    rw [ite_eq_left hred] at h
+    exact nomatch h
+  simp only [hred] at h
   by_cases hshape : litShapeOk (.axiomInfo cv) = true
   case neg => simp [hshape] at h
   simp only [hshape] at h
@@ -93,8 +98,8 @@ theorem checkConstantVal_inv {env : Env} {cv : ConstantVal} {a : Bool}
     stype, u, htp, htr, by first | rfl | exact hst, by first | rfl | exact hsort⟩
 
 /-- A constant's check says its shape at a literal's name. -/
-theorem checkConstantVal_shape {env : Env} {cv : ConstantVal} {a : Bool}
-    (h : checkConstantVal (fueledOps mode F) env cv a = .ok ()) :
+theorem checkConstantVal_shape {env : Env} {cv : ConstantVal} {a b : Bool}
+    (h : checkConstantVal (fueledOps mode F) env cv a b = .ok ()) :
     litShapeOk (.axiomInfo cv) = true := by
   by_cases hs : litShapeOk (.axiomInfo cv) = true
   · exact hs
@@ -107,15 +112,19 @@ theorem checkConstantVal_shape {env : Env} {cv : ConstantVal} {a : Bool}
   · rw [ite_eq_left hop] at h
     exact nomatch h
   simp only [hop] at h
+  by_cases hred : (reduceOpNames.contains cv.name && !b) = true
+  · rw [ite_eq_left hred] at h
+    exact nomatch h
+  simp only [hred] at h
   simp [hs] at h
 
-theorem checkConstantVal_litShapeAt {env : Env} {cv : ConstantVal} {a : Bool}
-    (h : checkConstantVal (fueledOps mode F) env cv a = .ok ()) : LitShapeAt cv :=
+theorem checkConstantVal_litShapeAt {env : Env} {cv : ConstantVal} {a b : Bool}
+    (h : checkConstantVal (fueledOps mode F) env cv a b = .ok ()) : LitShapeAt cv :=
   litShapeAt_of_check (checkConstantVal_shape h)
 
 /-- Only a definition takes a certified operation's name. -/
-theorem checkConstantVal_opName {env : Env} {cv : ConstantVal} {a : Bool}
-    (h : checkConstantVal (fueledOps mode F) env cv a = .ok ())
+theorem checkConstantVal_opName {env : Env} {cv : ConstantVal} {a b : Bool}
+    (h : checkConstantVal (fueledOps mode F) env cv a b = .ok ())
     (hn : natOpName cv.name = true) : a = true := by
   cases a with
   | true => rfl
@@ -129,8 +138,9 @@ theorem checkConstantVal_opName {env : Env} {cv : ConstantVal} {a : Bool}
   exact nomatch h
 
 /-- Only a definition takes a certified operation's name, at `allowOp`'s default. -/
-theorem checkConstantVal_opName_false {env : Env} {cv : ConstantVal}
-    (h : checkConstantVal (fueledOps mode F) env cv = .ok ()) : natOpName cv.name = false := by
+theorem checkConstantVal_opName_false {env : Env} {cv : ConstantVal} {b : Bool}
+    (h : checkConstantVal (fueledOps mode F) env cv false b = .ok ()) :
+    natOpName cv.name = false := by
   cases hn : natOpName cv.name with
   | false => rfl
   | true => exact nomatch checkConstantVal_opName h hn

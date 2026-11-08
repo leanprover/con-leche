@@ -126,13 +126,13 @@ theorem toDev_valid {dev : Nat → Module} {i : Nat} (hok : ∀ j ≤ i, LocalOk
     obtain ⟨ciC, hciC⟩ := Option.isSome_iff_exists.mp hnC
     -- the side of a proof, translated
     have side : ∀ b, b < i → ∀ {ci' : ConstantInfo}, (dev b).own.find? n = some ci' →
-        ci'.toConstantVal = ciC.toConstantVal → ci'.isStmtKind = true → pinnedLeafName n = false →
+        ci'.toConstantVal = ciC.toConstantVal → ci'.isStmtKind = true →
         (∀ c ∈ ciC.toConstantVal.type.readNames, Agree dev i b c) →
         ProofSide dev i b n ciC.toConstantVal.type →
         (toDev V pins dev).ProofSide i n (b, viewOf dev i b) := by
-      intro b hb ci' hB hcv hk' hpin hnames hps
+      intro b hb ci' hB hcv hk' hnames hps
       rcases hps with ⟨hres, hprop⟩ | hthm
-      · refine .inl ⟨ci', hB, hk', hpin, by rw [hcv]; exact hprop, fun c hc => ?_⟩
+      · refine .inl ⟨ci', hB, hk', by rw [hcv]; exact hprop, fun c hc => ?_⟩
         have hc' : c ∈ ciC.toConstantVal.type.readNames := by rw [hcv] at hc; exact hc
         have hcP : (((dev i).part n).find? c).isSome = true :=
           Expr.readNames_of_constsResolve hres c hc'
@@ -147,8 +147,8 @@ theorem toDev_valid {dev : Nat → Module} {i : Nat} (hok : ∀ j ≤ i, LocalOk
         exact htab
       · refine .inr ?_
         rcases hthm with ⟨cv, h⟩ | ⟨hctx, cv, h⟩
-        · exact .inl ⟨⟨cv, h⟩, hpin⟩
-        · exact .inr ⟨⟨hctx, trivial⟩, ⟨cv, h⟩, hpin⟩
+        · exact .inl ⟨cv, h⟩
+        · exact .inr ⟨⟨hctx, trivial⟩, ⟨cv, h⟩⟩
     refine ⟨⟨_, hmem hsn, rfl, hstored (.same rfl) (Nat.le_refl i) (Nat.le_of_lt hsn) hnC,
         hnC, .same rfl⟩, ?_, fun c hc => ?_, fun x hx hs => ?_⟩
     · -- the part below the name, assembled
@@ -173,10 +173,10 @@ theorem toDev_valid {dev : Nat → Module} {i : Nat} (hok : ∀ j ≤ i, LocalOk
         refine .inr (.inl ⟨⟨hctx, trivial⟩, (t, viewOf dev b t), hmem hlt,
           ⟨hstored hbt (Nat.le_of_lt hb) (by omega) hctx, hctx, hbt⟩, (t, viewOf dev i t),
           hmem (by omega), rfl, ⟨hstored hit (Nat.le_refl i) (by omega) hnC, hnC, hit⟩, hlt⟩)
-      | @proof _ _ _ ci ci' hC hB hcv hk hk' hpin hnames hps hps' =>
+      | @proof _ _ _ ci ci' hC hB hcv hk hk' hnames hps hps' =>
         rw [hciC] at hC
         obtain rfl := Option.some.inj hC
-        refine .inr (.inr ⟨side b hb hB hcv hk' hpin hnames hps, fun y hy hy1 hys => ?_⟩)
+        refine .inr (.inr ⟨side b hb hB hcv hk' hnames hps, fun y hy hy1 hys => ?_⟩)
         obtain ⟨b', hb', rfl⟩ := hsrcs y hy
         obtain rfl : b' = (dev i).src n := hy1
         -- the read module's copy: its names agree by the record's reads
@@ -184,7 +184,7 @@ theorem toDev_valid {dev : Nat → Module} {i : Nat} (hok : ∀ j ≤ i, LocalOk
           (Nat.le_of_lt hsn) hciC
         obtain ⟨e, he, hce, hnm⟩ := streamEnv_find?_some hciC
         have hrd := (hK.reads e he n (List.mem_map.mpr ⟨ciC, hce, hnm⟩)).1 ciC hce
-        refine side _ hsn hO hal.cv.symm ?_ hpin (fun c hc => ?_) hps'
+        refine side _ hsn hO hal.cv.symm ?_ (fun c hc => ?_) hps'
         · rcases hal with rfl | ⟨-, -, h⟩
           · exact hk
           · exact h

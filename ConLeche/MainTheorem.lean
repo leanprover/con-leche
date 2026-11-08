@@ -195,7 +195,7 @@ theorem modular_model_exists (V : Type w) [SetTheory V]
     ∃ m : ∀ j ≤ i, Model V (dev j).own,
       (∀ j hj n, ((dev j).context.find? n).isSome = true →
         ∃ h : (dev j).src n ≤ i, (m j hj).cval n = (m ((dev j).src n) h).cval n) ∧
-      ∀ j hj n cv, (dev j).own.find? n = some (.thmInfo cv) → pinnedLeafName n = false →
+      ∀ j hj n cv, (dev j).own.find? n = some (.thmInfo cv) →
         (m j hj).cval n = fun _ => pt := by
   obtain ⟨mm, hc⟩ := Model.Modular.modularModels (V := V) (pins := pins) hok
   have hex : ∀ j (hj : j ≤ i), ∃ mp : Model.EnvModelM V (dev j).own,
@@ -212,11 +212,11 @@ theorem modular_model_exists (V : Type w) [SetTheory V]
     rw [Classical.choose_spec (hex j hj) n (Model.Modular.own_stored_of_context hok hj hn),
       Classical.choose_spec (hex _ hsi) n (Model.Modular.src_stored hok hj hn)]
     exact he
-  · intro j hj n cv hn hpin
+  · intro j hj n cv hn
     rw [Model.Model.ofEnvModelM_cval]
     apply Model.cvalOf_prf
     rw [Classical.choose_spec (hex j hj) n (by rw [hn]; rfl)]
-    exact (mm j (by omega)).2.2.2.1 n _ hn rfl hpin (.inl ⟨cv, rfl⟩)
+    exact (mm j (by omega)).2.2.2.1 n _ hn rfl (.inl ⟨cv, rfl⟩)
 
 /-- **The modular corollary**: no module's own environment stores a constant of type `False`. -/
 theorem modular_no_False (V : Type w) [SetTheory V]

@@ -161,8 +161,8 @@ theorem FreshNames.step {env : Env} {c : ConstantInfo} {ns : List Name}
 /-! ## The generic stage helpers keep the name and record the guard -/
 
 theorem checkConstantValC_fresh (mode : CheckMode) (fe : FEnv)
-    (cv : ConstantVal) {a : Bool} :
-    Yields (checkConstantValC mode fe cv a)
+    (cv : ConstantVal) {a b : Bool} :
+    Yields (checkConstantValC mode fe cv a b)
       (fun _ => fe.find? cv.name = none) := by
   unfold checkConstantValC
   yields

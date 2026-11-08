@@ -1641,7 +1641,8 @@ The compiler-trust family, `Lean.trustCompiler`, `Lean.reduceBool`,
 `Lean.ofReduceNat`, is neither rejected nor trusted: `trustCompiler`
 installs as an opaque with value `True.intro`, the two reduce
 operations install as ordinary opaques pinned to the identity
-function, and the two axioms are accepted only after the install
+function (any other declaration at their names is rejected, as at a
+certified operation's name), and the two axioms are accepted only after the install
 certifies, by definitional equality, that the stored reduce operation
 is the identity, at which point each axiom's statement is an inhabited
 proposition in the model

@@ -9,6 +9,7 @@ public import ConLeche.Model.ReduceOps
 public import ConLeche.Model.Cover
 import ConLeche.Semantics.DeclRun
 import ConLeche.Model.Reading.Levels
+import ConLeche.Model.Env.LeafInterp
 
 public section
 
@@ -183,8 +184,7 @@ theorem harvestDefn
     (hR : DeclDefnRun F env cv value hint env₂)
     -- the reserved names' check (`basisNamesOk`)
     (hnres : ConLeche.reservedBasisNames.contains cv.name = false) :
-    CoverStepLeaf mp env₂ cv.name ((ConLeche.natOpNames.contains cv.name ||
-      ConLeche.natDivModNames.contains cv.name) = false ∧ SemPropType V mp.base2.acval env cv.type) := by
+    CoverStepLeaf mp env₂ cv.name (SemPropType V mp.base2.acval env cv.type) := by
   obtain ⟨type', value', hcv, hvfr, rfl, hnatc, hdmc⟩ := hR
   obtain ⟨hfind, hnd, hlbt, hitf, hann, htp, htr,
     hrunT, hcvShape⟩ := hcv
@@ -322,18 +322,16 @@ theorem harvestDefn
           (fun σ hσ => (hrT σ hσ).1) htE ρ (Sat_nil V ρ))
     rw [← heq]
     exact hrM ρ (Sat_nil V ρ)
-  -- the leaf: the canonical proof where the constant is one (a type the checker finds to be a proposition, at a name
-  -- with no fast path),
-  -- the value's reading otherwise
+  -- the leaf: the canonical proof where the constant is one (a type that reads as a truth
+  -- value), the value's reading otherwise
   classical
-  let cond : Prop := (ConLeche.natOpNames.contains cv.name ||
-      ConLeche.natDivModNames.contains cv.name) = false ∧ SemPropType V mp.base2.acval env cv.type
+  let cond : Prop := SemPropType V mp.base2.acval env cv.type
   obtain ⟨L, hLdef⟩ : ∃ L : (Name → Nat) → Term, L = if cond then (fun _ => .prf) else A :=
     ⟨_, rfl⟩
   have hLA : ¬ cond → L = A := fun h => by simp only [hLdef, h, ↓reduceIte]
   have hLP : cond → L = fun _ => .prf := fun h => by simp only [hLdef, h, ↓reduceIte]
   have hApt : cond → ∀ ψ ρ, interp V ρ (A ψ) = pt := fun hc ψ ρ =>
-    eq_pt_of_mem_univZero (hc.2 ψ (Ta ψ) (hann ▸ hTa ψ) ρ) (hmemA ψ ρ)
+    eq_pt_of_mem_univZero (hc ψ (Ta ψ) (hann ▸ hTa ψ) ρ) (hmemA ψ ρ)
   have hLparams : ∀ ψ₁ ψ₂ : Name → Nat,
       (∀ p ∈ cv.levelParams, ψ₁ p = ψ₂ p) → L ψ₁ = L ψ₂ := by
     intro ψ₁ ψ₂ hψ
@@ -374,21 +372,35 @@ theorem harvestDefn
         (c₀ := .defnInfo ⟨cv.name, cv.levelParams, type'⟩ value' hint)
         (A := L) hfresh
         ψ 0 hcb h
-  -- assemble
-  refine coverStepLeaf_cons hfresh (fun _ _ h => nomatch h) (fun _ _ _ h => nomatch h) hLP
-    (declStep_preserves_of_cons mp
-    (c₀ := .defnInfo ⟨cv.name, cv.levelParams, type'⟩ value' hint)
-    (A := L) hfresh
-    (ConsHead.ofFresh
+  -- the cons head, at a leaf: the value's reading, or the canonical proof
+  have hhOf : ∀ B : (Name → Nat) → Term, (∀ ψ, Term.Closed (B ψ)) →
+      ConsHead env (.defnInfo ⟨cv.name, cv.levelParams, type'⟩ value' hint) B := fun B hB =>
+    ConsHead.ofFresh
       (EnvWF.cons (hcvShape _ (by rw [hann]; rfl)) mp.base2.wf ⟨htf', htp,
         Expr.constsResolve_mono htr, hbt',
         (fun _ _ _ heq => by
           obtain ⟨rfl, rfl, rfl⟩ := ConstantInfo.defnInfo.inj heq
           exact ⟨hvf', hvp, Expr.constsResolve_mono hvr, hbv'⟩),
         (fun _ _ _ _ _ heq => nomatch heq)⟩)
-      hLclosed
+      hB
       hnres
-      (fun _ _ _ _ _ heq => nomatch heq))
+      (fun _ _ _ _ _ heq => nomatch heq)
+  -- the value's reading's model, which the fast paths' laws are established at; the canonical
+  -- proof interprets alike where the type reads as a truth value
+  have hAcl : ∀ ψ : Name → Nat, Term.Closed (A ψ) := fun ψ =>
+    denote_closed mp.base2.cval_closed hvf' hbv' (hA ψ)
+  let mA := coreCons mp.base2 (c₀ := .defnInfo ⟨cv.name, cv.levelParams, type'⟩ value' hint) A
+    hfresh (hhOf A hAcl) hAparams hAok
+  have hAlike : LeavesAlike V mA.acval (acvalWith mp.base2.acval cv.name L) :=
+    leavesAlike_acvalWith fun ψ ρ => by
+      by_cases hc : cond
+      · rw [hLP hc, interp_prf]; exact hApt hc ψ ρ
+      · rw [hLA hc]
+  -- assemble
+  refine coverStepLeaf_cons hfresh (fun _ _ h => nomatch h) (fun _ _ _ h => nomatch h) hLP
+    (declStep_preserves_of_cons mp
+    (c₀ := .defnInfo ⟨cv.name, cv.levelParams, type'⟩ value' hint)
+    (A := L) hfresh (hhOf L hLclosed)
     hLparams hLok ?_ ?_ ?_ ?_ ?_ ?_ ?_ ?_ ?_ ?_ ?_ ?_)
   · -- `htyReads`
     intro ψ
@@ -480,9 +492,8 @@ theorem harvestDefn
     -- preserves the stored entries
     intro φ
     by_cases hno : ConLeche.natOpNames.contains cv.name = true
-    · -- the install (no fast-path name has the canonical leaf)
-      obtain rfl : L = A := hLA fun hc => by
-        have h1 : (_ || _) = false := hc.1; rw [hno] at h1; simp at h1
+    · -- the install, at the value's reading's model
+      refine NatOps.of_alike (m := mA) hAlike ?_
       obtain ⟨hg2, hself₂, hruns⟩ := hnatc hno
       have hcmem : cv.name ∈ ConLeche.natOpNames :=
         List.contains_iff_mem.mp hno
@@ -529,8 +540,7 @@ theorem harvestDefn
     -- preserves the stored entries
     intro φ
     by_cases hno : ConLeche.natDivModNames.contains cv.name = true
-    · obtain rfl : L = A := hLA fun hc => by
-        have h1 : (_ || _) = false := hc.1; rw [hno] at h1; simp at h1
+    · refine DivMod.of_alike (m := mA) hAlike ?_
       obtain ⟨hgenv, _, -, -, hcerts⟩ := hdmc hno
       exact divMod_install mp (mp.div_mod φ) mp.eq_law
         (fun {d} {e} {t} hrun hw hb hL =>
@@ -1090,8 +1100,7 @@ theorem harvestOpaque
     (hR : DeclOpaqueRun F env cv value env₂)
     -- the reserved names' check (`basisNamesOk`)
     (hnres : ConLeche.reservedBasisNames.contains cv.name = false) :
-    CoverStepLeaf mp env₂ cv.name
-      (ConLeche.reduceOpNames.contains cv.name = false ∧ SemPropType V mp.base2.acval env cv.type) := by
+    CoverStepLeaf mp env₂ cv.name (SemPropType V mp.base2.acval env cv.type) := by
   obtain ⟨hopn, type', value', hcv, hvfr, rfl, hred⟩ := hR
   obtain ⟨hfind, hnd, hlbt, hitf, hann, htp, htr,
     hrunT, hcvShape⟩ := hcv
@@ -1231,13 +1240,13 @@ theorem harvestOpaque
   -- that is not a `reduce*` opaque),
   -- the value's reading otherwise
   classical
-  let cond : Prop := ConLeche.reduceOpNames.contains cv.name = false ∧ SemPropType V mp.base2.acval env cv.type
+  let cond : Prop := SemPropType V mp.base2.acval env cv.type
   obtain ⟨L, hLdef⟩ : ∃ L : (Name → Nat) → Term, L = if cond then (fun _ => .prf) else A :=
     ⟨_, rfl⟩
   have hLA : ¬ cond → L = A := fun h => by simp only [hLdef, h, ↓reduceIte]
   have hLP : cond → L = fun _ => .prf := fun h => by simp only [hLdef, h, ↓reduceIte]
   have hApt : cond → ∀ ψ ρ, interp V ρ (A ψ) = pt := fun hc ψ ρ =>
-    eq_pt_of_mem_univZero (hc.2 ψ (Ta ψ) (hann ▸ hTa ψ) ρ) (hmemA ψ ρ)
+    eq_pt_of_mem_univZero (hc ψ (Ta ψ) (hann ▸ hTa ψ) ρ) (hmemA ψ ρ)
   have hLparams : ∀ ψ₁ ψ₂ : Name → Nat,
       (∀ p ∈ cv.levelParams, ψ₁ p = ψ₂ p) → L ψ₁ = L ψ₂ := by
     intro ψ₁ ψ₂ hψ
@@ -1273,19 +1282,33 @@ theorem harvestOpaque
         (c₀ := .axiomInfo ⟨cv.name, cv.levelParams, type'⟩)
         (A := L) hfresh
         ψ 0 hcb h
-  -- assemble
-  refine coverStepLeaf_cons hfresh (fun _ _ h => nomatch h) (fun _ _ _ h => nomatch h) hLP
-    (declStep_preserves_of_cons mp
-    (c₀ := .axiomInfo ⟨cv.name, cv.levelParams, type'⟩)
-    (A := L) hfresh
-    (ConsHead.ofFresh
+  -- the cons head, at a leaf: the value's reading, or the canonical proof
+  have hhOf : ∀ B : (Name → Nat) → Term, (∀ ψ, Term.Closed (B ψ)) →
+      ConsHead env (.axiomInfo ⟨cv.name, cv.levelParams, type'⟩) B := fun B hB =>
+    ConsHead.ofFresh
       (EnvWF.cons (hcvShape _ (by rw [hann]; rfl)) mp.base2.wf ⟨htf', htp,
         Expr.constsResolve_mono htr, hbt',
         (fun _ _ _ heq => nomatch heq),
         (fun _ _ _ _ _ heq => nomatch heq)⟩)
-      hLclosed
+      hB
       hnres
-      (fun _ _ _ _ _ heq => nomatch heq))
+      (fun _ _ _ _ _ heq => nomatch heq)
+  -- the value's reading's model, which the compiler-trust law is established at; the canonical
+  -- proof interprets alike where the type reads as a truth value
+  have hAcl : ∀ ψ : Name → Nat, Term.Closed (A ψ) := fun ψ =>
+    denote_closed mp.base2.cval_closed hvf' hbv' (hA ψ)
+  let mA := coreCons mp.base2 (c₀ := .axiomInfo ⟨cv.name, cv.levelParams, type'⟩) A
+    hfresh (hhOf A hAcl) hAparams hAok
+  have hAlike : LeavesAlike V mA.acval (acvalWith mp.base2.acval cv.name L) :=
+    leavesAlike_acvalWith fun ψ ρ => by
+      by_cases hc : cond
+      · rw [hLP hc, interp_prf]; exact hApt hc ψ ρ
+      · rw [hLA hc]
+  -- assemble
+  refine coverStepLeaf_cons hfresh (fun _ _ h => nomatch h) (fun _ _ _ h => nomatch h) hLP
+    (declStep_preserves_of_cons mp
+    (c₀ := .axiomInfo ⟨cv.name, cv.levelParams, type'⟩)
+    (A := L) hfresh (hhOf L hLclosed)
     hLparams hLok ?_ ?_ ?_ ?_ ?_ ?_ ?_ ?_ ?_ ?_ ?_ ?_)
   · -- `htyReads`
     intro ψ
@@ -1356,9 +1379,7 @@ theorem harvestOpaque
     -- run is what makes the law true of it (`Model/ReduceOps.lean`);
     -- every *other* stored operation crosses by the transport inside.
     by_cases hrn : ConLeche.reduceOpNames.contains cv.name = true
-    · obtain rfl : L = A := hLA fun hc => by
-        have h1 : ConLeche.reduceOpNames.contains cv.name = false := hc.1
-        rw [hrn] at h1; exact nomatch h1
+    · refine ReduceOps.of_alike (m := mA) hAlike ?_
       exact reduceOps_install mp hfresh hvf' hbv' hannv hA hAclosed
         hAok hTa
         (fun ψ ρ => by
