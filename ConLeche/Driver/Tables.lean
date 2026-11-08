@@ -9,8 +9,9 @@ public import ConLeche.Frontend.Olean
 
 A worker reads a module's files in several phases (its header in the header fixpoint, its name
 positions, its views in the reach), and each read names the module, not its files.  Locating a
-module on the search path (`findModule`) looks at every directory of it, so a process that
-located a module at every read would locate most modules two or three times (task #509).  The
+module on the search path (`findModule`) asks where its root is, so a process that located a
+module at every read would locate most modules two or three times (task #509), and a process
+resolves each root once (`Roots`, task #511).  The
 tables hold what a run has read of a module once: where its files are (`loc`), and, where read,
 its imports and its two parts' name positions.  The reads answered from them (`ModTables.reads`)
 take a module's location from its table and read its files there; what a table does not hold
@@ -69,7 +70,7 @@ def ModTables.find (T : ModTables) (m : Name) : Option ModTable :=
 
 /-- **The reads answered from the tables**: what a module's table holds from it, the rest read
 at the location in it; a module without a table, on the search path. -/
-def ModTables.reads {μ : Type → Type} [CheckerIO μ] (sp : SearchPath) (T : ModTables) :
+def ModTables.reads {μ : Type → Type} [CheckerIO μ] (sp : Roots) (T : ModTables) :
     OleanReads μ where
   imports m := match T.find m with
     | some t =>
@@ -88,32 +89,36 @@ def ModTables.reads {μ : Type → Type} [CheckerIO μ] (sp : SearchPath) (T : M
       | _, _, _ => readPartNamesAt t.loc x
     | none => readPartNames sp x
 
-/-- **A module's imports, its location entered in the tables**: located on the search path,
-its header read there. -/
-def tabImports {μ : Type → Type} [CheckerIO μ] (sp : SearchPath) (n : Name) :
-    StateT ModTables μ (Except CheckError (Array ImportRec)) := fun T => do
-  match ← findModule sp n with
-  | .error e => pure (.error e, T)
+/-- **A module's imports, its location entered in the tables**: its root resolved, the module
+located, its header read there. -/
+def tabImports {μ : Type → Type} [CheckerIO μ] (n : Name) :
+    StateT (Roots × ModTables) μ (Except CheckError (Array ImportRec)) := fun (R, T) => do
+  let R ← R.resolve n
+  match ← findModule R n with
+  | .error e => pure (.error e, (R, T))
   | .ok loc =>
     match ← readImportsAt loc n with
-    | .error e => pure (.error e, T)
+    | .error e => pure (.error e, (R, T))
     | .ok is =>
-      pure (.ok is, T.push { name := n, loc, imports := some is, priv := none, expo := none })
+      pure (.ok is, (R, T.push { name := n, loc, imports := some is, priv := none, expo := none }))
 
 /-- **A worker's tables** at module `m`: `m` located, its private part's name positions read
 there, then its header fixpoint (`headerFixpoint`) over `tabImports`, which locates each module
-it loads once.  Nothing here fails: where a read fails, the tables hold what was read before it,
-and the worker's own read of the rest reports the failure. -/
-def workerTables {μ : Type → Type} [CheckerIO μ] (sp : SearchPath) (m : Name) : μ ModTables := do
-  match ← findModule sp m with
-  | .error _ => pure {}
+it loads once; beside them, the search path with the roots of those modules resolved, each
+once.  Nothing here fails: where a read fails, the tables hold what was read before it, and the
+worker's own read of the rest reports the failure. -/
+def workerTables {μ : Type → Type} [CheckerIO μ] (sp : Roots) (m : Name) :
+    μ (Roots × ModTables) := do
+  let R ← sp.resolve m
+  match ← findModule R m with
+  | .error _ => pure (R, {})
   | .ok loc =>
     match ← readPartNamesAt loc (m, .private) with
     | .error _ =>
-      pure (ModTables.push {} { name := m, loc, imports := none, priv := none, expo := none })
+      pure (R, ModTables.push {} { name := m, loc, imports := none, priv := none, expo := none })
     | .ok own =>
       let T0 := ModTables.push {} { name := m, loc, imports := none, priv := some own, expo := none }
-      let (_, T) ← (headerFixpoint (tabImports sp) own.header.isModule own.header.imports).run T0
-      pure T
+      let (_, RT) ← (headerFixpoint tabImports own.header.isModule own.header.imports).run (R, T0)
+      pure RT
 
 end ConLeche.Driver

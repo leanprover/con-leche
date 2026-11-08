@@ -121,7 +121,7 @@ def jobRun (mode : CheckMode) {ds : Array Declaration} (J : Jobs ds) (t : Nat) (
 file reads it and is checked with it in place, any other record as it stands.  The value is
 dropped when the check ends. -/
 def oleanJobRun {μ : Type → Type} [CheckerIO μ] (mode : CheckMode) {ds : Array Declaration}
-    (J : Jobs ds) (sp : List System.FilePath) (values : Array Frontend.Olean.ModRef)
+    (J : Jobs ds) (sp : Frontend.Olean.Roots) (values : Array Frontend.Olean.ModRef)
     (c : Frontend.Olean.ValueCache) (t : Nat) :
     μ (Frontend.Olean.ValueCache × Except (CheckError × Nat) Unit) :=
   match ds[t]? with
@@ -141,7 +141,7 @@ structure OleanWorker where
 
 /-- **One job of the pool**: timed, with the heartbeat. -/
 def oleanStep {μ : Type → Type} [CheckerIO μ] (mode : CheckMode) (run : OleanRun) (pl : PoolLive)
-    {ds : Array Declaration} (J : Jobs ds) (sp : List System.FilePath)
+    {ds : Array Declaration} (J : Jobs ds) (sp : Frontend.Olean.Roots)
     (values : Array Frontend.Olean.ModRef) (s : OleanWorker) (t : Nat) :
     μ (OleanWorker × Except (CheckError × Nat) Unit) := do
   let ts ← CheckerIO.liftIO (jobBegin pl run.pace s.w t)
@@ -154,7 +154,7 @@ map, in fold order; the first failure in that order is the result, whatever the 
 timing.  A run of a closure checks every record (`start = 0`); a module's worker its own
 records, after its context's (`checkModuleG`). -/
 def checkOleansG {μ : Type → Type} [CheckerIO μ] (mode : CheckMode)
-    (pace : Pace) (t0 tIndex tParse jobs : Nat) (sp : List System.FilePath)
+    (pace : Pace) (t0 tIndex tParse jobs : Nat) (sp : Frontend.Olean.Roots)
     (values : Array Frontend.Olean.ModRef) {ds : Array Declaration} (J : Jobs ds)
     (start : Nat := 0) (alone : Bool := true) : μ (Except (CheckError × Nat) Unit) := do
   let run ← CheckerIO.liftIO (OleanRun.new pace t0 tIndex tParse jobs alone)
@@ -373,11 +373,11 @@ def checkMainG {μ : Type → Type} [CheckerIO μ] (input : Input) (mode : Check
         verdictG modeTag parsed.size t0 decls (match verdict with
           | .ok _ => .ok ()
           | .error e => .error e)
-      | some (sp, rd) =>
-        -- the theorems' values are read in their checks, and what the
-        -- read kept of the merge is dropped here
+      | some (_, rd) =>
+        -- the theorems' values are read in their checks, on the search path with the
+        -- closure's roots resolved, and what the read kept of the merge is dropped here
         verdictG modeTag parsed.size t0 decls
-          (← checkOleansG mode pace t0 tIndex tParse jobs sp rd.values J)
+          (← checkOleansG mode pace t0 tIndex tParse jobs rd.roots rd.values J)
 
 /-- **An exit 0 is the fold's accept**: the verdict's code is 0 only on an `.ok`. -/
 theorem verdictG_ok {modeTag : String} {size t0 : Nat} {decls : Array Declaration} {who : String}

@@ -156,7 +156,7 @@ the files `rd`), then the own records' jobs over the index of the context and th
 the verdict.  `alone`: the process's one check (`--module`); else one module of the one-process
 mode, whose data is freed with it (nothing marked persistent, no statistics) and whose verdict
 line names it. -/
-def checkModuleG {μ : Type → Type} [CheckerIO μ] (rd : OleanReads μ) (sp : SearchPath) (m : Name)
+def checkModuleG {μ : Type → Type} [CheckerIO μ] (rd : OleanReads μ) (sp : Roots) (m : Name)
     (mode : CheckMode) (pace : Pace) (jobs : Nat) (alone : Bool := true) : μ UInt8 := do
   let t0 ← clockMs
   let modeTag : String := match mode with

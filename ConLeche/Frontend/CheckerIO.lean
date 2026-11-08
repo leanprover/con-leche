@@ -13,13 +13,14 @@ and every thread (the rounds parse's owners, the check pool) — is an `IO` acti
 `CheckerIO.liftIO`.  The same code runs at two instances:
 
 * **`IO`** (`instCheckerIOIO`): the binary.  Each file operation is the
-  runtime's own call (`System.FilePath.pathExists`, `IO.FS.realPath`,
-  `IO.FS.readBinFile`, a file's metadata, and a file handle,
+  runtime's own call (`System.FilePath.pathExists`, `System.FilePath.isDir`,
+  `IO.FS.realPath`, `IO.FS.readBinFile`, a file's metadata, and a file handle,
   `IO.FS.Handle.mk` and `IO.FS.Handle.read`), and `liftIO` is the
   identity.
 * **`ModelIO`**: a model, a NON-DETERMINISM monad over a file system
-  snapshot `FS` (a real path for every path that names something, bytes
-  for every regular file by its real path) and the open handles `HS`
+  snapshot `FS` (a real path for every path that names something, which
+  paths are directories, bytes for every regular file by its real path) and
+  the open handles `HS`
   (each a file's bytes and the position of its next read): an action is
   the set of its possible outcomes, a value or an exception and the
   handles after it, from the snapshot and the handles before it.  The
@@ -140,6 +141,8 @@ does. -/
 class CheckerIO (m : Type → Type) extends Monad m, MonadExceptOf IO.Error m where
   /-- whether the path names something (a file, a directory) -/
   pathExists : System.FilePath → m Bool
+  /-- whether the path names a directory (through symbolic links) -/
+  isDir : System.FilePath → m Bool
   /-- the path with every symbolic link resolved, absolute; throws where
   the path names nothing -/
   realPath : System.FilePath → m System.FilePath
@@ -280,10 +283,15 @@ read by no one else. -/
 /-! ## The model -/
 
 /-- **A file system snapshot**: the real path of every path that names
-something, and the bytes of every regular file, by its real path. -/
+something, which paths name directories, and the bytes of every regular
+file, by its real path.  Nothing relates the three: a directory's answer
+says nothing of the paths below it, and what the checker concludes from
+one (where a module's root is, task #511) it concludes by definition. -/
 structure FS where
   /-- the real path of a path that names something, `none` where nothing is -/
   real : System.FilePath → Option System.FilePath
+  /-- whether a path names a directory -/
+  dir : System.FilePath → Bool
   /-- a regular file's bytes, by its real path; `none` for a directory or
   anything else that is not a readable regular file -/
   bytes : System.FilePath → Option ByteArray
@@ -370,6 +378,7 @@ handle's position, cut at the end of the file (`min (pos + n) b.size`);
 `liftIO` may have any outcome and leaves the handles as they were. -/
 instance : CheckerIO ModelIO where
   pathExists p := fun fs hs => ModelIO.ret (some (fs.real p).isSome) hs
+  isDir p := fun fs hs => ModelIO.ret (some (fs.dir p)) hs
   realPath p := fun fs hs => ModelIO.ret (fs.real p) hs
   readBinFile p := fun fs hs => ModelIO.ret (fs.file p) hs
   Handle := Nat
@@ -499,6 +508,7 @@ def parMapWorkersIO {σ α β ε : Type} (jobs : Nat) (init : Nat → σ) (f : �
 /-- **The binary's instance**: the runtime's calls; `liftIO` the identity. -/
 instance instCheckerIOIO : CheckerIO IO where
   pathExists p := p.pathExists
+  isDir p := p.isDir
   realPath p := IO.FS.realPath p
   readBinFile p := IO.FS.readBinFile p
   Handle := IO.FS.Handle

@@ -1114,7 +1114,7 @@ theorem copy_behind {sp : SearchPath} {fs : FS} {h : Name} {f : ModFiles} {r : R
       obtain ⟨_, _, hf'⟩ := hf
       obtain ⟨loc0, b, ex, -, -, -, hex, hpriv, -⟩ := readFiles_ok hf'
       have hm' : ModFiles.isModule { exported := ex } = true := by rw [← hex]; exact hm
-      obtain ⟨bs, bp, sv, p, -, -, -, -, -, -, hfeq⟩ := hpriv rfl hm'
+      obtain ⟨bs, bp, sv, p, -, -, -, -, hfeq⟩ := hpriv rfl hm'
       subst hfeq
       simp only at hm hskE hs1 hn1 ⊢
       obtain ⟨r3, hr3, hexpo⟩ := checkViews_expo hcv hm rfl rfl

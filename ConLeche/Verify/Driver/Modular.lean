@@ -64,7 +64,7 @@ theorem mapExcept_both {α β ε : Type} {f : α → ModelIO (Except ε β)} {fs
 
 /-! ## The tables -/
 
-theorem readModTable_ok {sp : SearchPath} {fs : FS} {e : Graph.Node} {t : ModTable} {hs hs' : HS}
+theorem readModTable_ok {sp : Roots} {fs : FS} {e : Graph.Node} {t : ModTable} {hs hs' : HS}
     (h : (readModTable sp e : ModelIO _) fs hs (.ok (.ok t)) hs') :
     t.name = e.1 ∧ t.imports = some e.2 ∧ ModelIO.CanGive (findModule sp e.1) fs (.ok t.loc) ∧
     (∀ p, t.priv = some p → ModelIO.CanGive (readPartNamesAt t.loc (e.1, .private)) fs (.ok p)) ∧
@@ -88,16 +88,19 @@ theorem readModTable_ok {sp : SearchPath} {fs : FS} {e : Graph.Node} {t : ModTab
     (fun p h => by cases h; exact ⟨_, _, hz⟩)⟩
 
 /-- The tables of the graph's modules, read off the snapshot. -/
-theorem tables_ok {sp : SearchPath} {fs : FS} {C : List Graph.Node} {ts : List ModTable}
+theorem tables_ok {sp : SearchPath} {R : Roots} {fs : FS} {C : List Graph.Node}
+    {ts : List ModTable} (hR : R.Ok fs) (hp : R.path = sp)
     (hC : ∀ e ∈ C, ModelIO.CanGive (moduleImports sp e.1) fs (.ok e.2))
-    (h : ∀ t ∈ ts, ∃ e ∈ C, ModelIO.CanGive (readModTable sp e) fs (.ok t)) :
+    (h : ∀ t ∈ ts, ∃ e ∈ C, ModelIO.CanGive (readModTable R e) fs (.ok t)) :
     TablesOk fs sp (ModTables.ofArray ts.toArray) := by
+  subst hp
   intro t ht
   simp only [ModTables.ofArray, List.mem_toArray] at ht
   obtain ⟨e, he, _, _, hr⟩ := h t ht
   obtain ⟨hn, hi, h1, h2, h3⟩ := readModTable_ok hr
   rw [hn]
-  exact ⟨h1, (fun is h => by rw [hi] at h; cases h; exact hC e he), h2, h3⟩
+  exact ⟨(findModule_sub hR _).canGive h1, (fun is h => by rw [hi] at h; cases h; exact hC e he),
+    h2, h3⟩
 
 /-! ## The run -/
 
@@ -107,11 +110,11 @@ whatever the `liftIO` actions answered. -/
 theorem checkModularG_accept {sp : SearchPath} {root : Name} {mode : CheckMode} {pace : Pace}
     {jobs : Nat} {fs : FS} {hs hs' : HS}
     (h : (checkModularG sp root mode pace jobs : ModelIO _) fs hs (.ok 0) hs') :
-    ∃ C, ModelIO.CanGive (Graph.graphOf sp [root] jobs) fs (.ok C) ∧
+    ∃ C T, ModelIO.CanGive (Graph.graphOf sp [root] jobs) fs (.ok (C, T)) ∧
       ∀ e ∈ C.toList, WorkerAccepted mode sp fs e.1 1 := by
   simp only [checkModularG, clockMs, diagLine, outLine, ModelIO.bind_ok] at h
   obtain ⟨t0, _, -, x, _, hx, h⟩ := h
-  rcases x with e | C
+  rcases x with e | ⟨C, R⟩
   · simp only [ModelIO.bind_ok, ModelIO.pure_iff, Except.ok.injEq] at h
     obtain ⟨_, _, -, h, -⟩ := h
     exact absurd h.symm (CheckError.exitCode_ne_zero _)
@@ -121,8 +124,8 @@ theorem checkModularG_accept {sp : SearchPath} {root : Name} {mode : CheckMode} 
   · simp only [ModelIO.bind_ok, ModelIO.pure_iff, Except.ok.injEq] at h
     obtain ⟨_, _, -, h, -⟩ := h
     exact absurd h.symm (CheckError.exitCode_ne_zero _)
-  obtain ⟨rk, hgood, -, -, -⟩ := Graph.graphOf_ok hx
-  have hT := tables_ok hgood (mapExcept_both hy).1
+  obtain ⟨rk, hgood, -, -, -, hR, hp⟩ := Graph.graphOf_ok hx
+  have hT := tables_ok hR hp hgood (mapExcept_both hy).1
   simp only [ModelIO.bind_ok] at h
   obtain ⟨_, _, -, _, _, -, ⟨ss, res⟩, _, hz, h⟩ := h
   rcases res with e | rs
@@ -133,7 +136,7 @@ theorem checkModularG_accept {sp : SearchPath} {root : Name} {mode : CheckMode} 
   cases hf : rs.find? (·.2 != 0) with
   | none =>
     have hn := hf
-    refine ⟨C, ⟨_, _, hx⟩, fun e he => ?_⟩
+    refine ⟨C, R, ⟨_, _, hx⟩, fun e he => ?_⟩
     have hmem : e.1 ∈ C.toList.map (·.1) := List.mem_map_of_mem he
     obtain ⟨r, hr, _, _, hw⟩ := hm _ hmem
     obtain ⟨s, -, s', hs⟩ := hw
@@ -144,7 +147,7 @@ theorem checkModularG_accept {sp : SearchPath} {root : Name} {mode : CheckMode} 
       have := List.find?_eq_none.1 hn _ hr
       simpa using this
     subst h0
-    exact checkModuleG_accept (modTables_within hT) hc
+    exact checkModuleG_accept (modTables_within hR hp hT) hR hp hc
   | some mc =>
     obtain ⟨m, c⟩ := mc
     simp only [hf, ModelIO.bind_ok, ModelIO.pure_iff, Except.ok.injEq] at h

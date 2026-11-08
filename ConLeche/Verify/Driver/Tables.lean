@@ -85,9 +85,12 @@ theorem readPartNamesAt_within (fs : FS) (loc : Located) (x : Name × OLeanLevel
     · simp only
       split <;> exact ModelIO.Within.pure _
 
-/-- **The tables' reads refine the search path's.** -/
-theorem modTables_within {fs : FS} {sp : SearchPath} {T : ModTables} (hT : TablesOk fs sp T) :
-    OleanReads.Within fs (T.reads sp) sp := by
+/-- **The tables' reads refine the search path's**, a read the tables do not hold made
+through roots read off the snapshot. -/
+theorem modTables_within {fs : FS} {sp : SearchPath} {R : Roots} {T : ModTables}
+    (hR : R.Ok fs) (hp : R.path = sp) (hT : TablesOk fs sp T) :
+    OleanReads.Within fs (T.reads R) sp := by
+  subst hp
   refine ⟨fun m => ?_, fun m level => ?_, fun x => ?_⟩
   · simp only [ModTables.reads]
     split
@@ -95,35 +98,36 @@ theorem modTables_within {fs : FS} {sp : SearchPath} {T : ModTables} (hT : Table
       obtain ⟨hm, rfl⟩ := ModTables.find_mem ht
       split
       · rename_i is his
-        exact ModelIO.Within.of_table (moduleImports_within fs sp _) ((hT t hm).2.1 is his)
+        exact ModelIO.Within.of_table (moduleImports_within fs _ _) ((hT t hm).2.1 is his)
       · exact ModelIO.Within.at_loc (a := fun loc => readImportsAt loc t.name) (hT t hm).1
           (readImportsAt_within fs _ _)
-    · exact moduleImports_within fs sp m
+    · exact ModelIO.Within.of_sub (moduleImports_sub hR m) (moduleImports_within fs _ m)
   · simp only [ModTables.reads]
     split
     · rename_i t ht
       obtain ⟨hm, rfl⟩ := ModTables.find_mem ht
       exact ModelIO.Within.at_loc (a := fun loc => readFilesAt loc t.name level) (hT t hm).1
         (readFilesAt_within fs _ _ _)
-    · exact readFiles_within fs sp m level
+    · exact ModelIO.Within.of_sub (readFiles_sub hR m level) (readFiles_within fs _ m level)
   · obtain ⟨n, level⟩ := x
     simp only [ModTables.reads]
     split
     · rename_i t ht
       obtain ⟨hm, rfl⟩ := ModTables.find_mem ht
       have hat : ∀ level, ModelIO.Within fs (readPartNamesAt t.loc (t.name, level))
-          (readPartNames sp (t.name, level)) := fun level =>
+          (readPartNames (R.path : Roots) (t.name, level)) := fun level =>
         ModelIO.Within.at_loc (a := fun loc => readPartNamesAt loc (t.name, level)) (hT t hm).1
           (readPartNamesAt_within fs _ _)
       split
       · rename_i p hp
-        exact ModelIO.Within.of_table (readPartNames_within fs sp _)
+        exact ModelIO.Within.of_table (readPartNames_within fs _ _)
           ((hat .private).canGive ((hT t hm).2.2.1 p hp))
       · rename_i e he
-        exact ModelIO.Within.of_table (readPartNames_within fs sp _)
+        exact ModelIO.Within.of_table (readPartNames_within fs _ _)
           ((hat .exported).canGive ((hT t hm).2.2.2 e he))
       · exact hat _
-    · exact readPartNames_within fs sp (n, level)
+    · exact ModelIO.Within.of_sub (readPartNames_sub hR (n, level))
+        (readPartNames_within fs _ (n, level))
 
 /-! ## A state kept by the header fixpoint -/
 
@@ -204,59 +208,77 @@ theorem TablesOk.empty (fs : FS) (sp : SearchPath) : TablesOk fs sp {} := by
   simp at ht
 
 /-- A header read at the location `findModule` gives is `moduleImports`'. -/
-theorem moduleImports_at {sp : SearchPath} {n : Name} {fs : FS} {loc : Located}
+theorem moduleImports_at {sp : Roots} {n : Name} {fs : FS} {loc : Located}
     {is : Array ImportRec} {hs hs₁ hs₂ : HS}
     (hf : (findModule sp n : ModelIO _) fs hs (.ok (.ok loc)) hs₁)
     (hr : (readImportsAt loc n : ModelIO _) fs hs₁ (.ok (.ok is)) hs₂) :
     ModelIO.CanGive (moduleImports sp n) fs (.ok is) :=
   ⟨hs, hs₂, by simp only [moduleImports, ModelIO.bind_ok]; exact ⟨_, _, hf, hr⟩⟩
 
+/-- **What a worker's tables keep**: the roots read off the snapshot, on the search path `sp`,
+and the tables. -/
+@[expose] def WorkerTablesOk (fs : FS) (sp : SearchPath) (RT : Roots × ModTables) : Prop :=
+  RT.1.Ok fs ∧ RT.1.path = sp ∧ TablesOk fs sp RT.2
+
+/-- A location through roots read off the snapshot is the search path's. -/
+theorem findModule_at {fs : FS} {sp : SearchPath} {R : Roots} (hR : R.Ok fs) (hp : R.path = sp)
+    {n : Name} {loc : Located} {hs hs₁ : HS}
+    (hf : (findModule R n : ModelIO _) fs hs (.ok (.ok loc)) hs₁) :
+    (findModule (sp : Roots) n : ModelIO _) fs hs (.ok (.ok loc)) hs₁ := by
+  have := findModule_sub hR n _ _ _ hf
+  rwa [hp] at this
+
 theorem tabImports_keeps (fs : FS) (sp : SearchPath) (n : Name) :
-    StateKeeps (TablesOk fs sp) fs (tabImports sp n) := by
-  intro T hs a T' hs' h hT
+    StateKeeps (WorkerTablesOk fs sp) fs (tabImports n) := by
+  intro ⟨R, T⟩ hs a RT' hs' h ⟨hR, hp, hT⟩
   simp only [tabImports, ModelIO.bind_ok] at h
-  obtain ⟨x, hs₁, hx, h⟩ := h
+  obtain ⟨R₁, hs₀, hR₁, x, hs₁, hx, h⟩ := h
+  obtain ⟨hR₁ok, hR₁p⟩ := Roots.resolve_ok hR hR₁
+  have hp₁ : R₁.path = sp := hR₁p.trans hp
   rcases x with e | loc
   · simp only [ModelIO.pure_iff, Except.ok.injEq, Prod.mk.injEq] at h
     obtain ⟨⟨-, rfl⟩, -⟩ := h
-    exact hT
+    exact ⟨hR₁ok, hp₁, hT⟩
   simp only [ModelIO.bind_ok] at h
   obtain ⟨y, hs₂, hy, h⟩ := h
   rcases y with e | is
   · simp only [ModelIO.pure_iff, Except.ok.injEq, Prod.mk.injEq] at h
     obtain ⟨⟨-, rfl⟩, -⟩ := h
-    exact hT
+    exact ⟨hR₁ok, hp₁, hT⟩
   simp only [ModelIO.pure_iff, Except.ok.injEq, Prod.mk.injEq] at h
   obtain ⟨⟨-, rfl⟩, -⟩ := h
-  refine hT.push ⟨⟨_, _, hx⟩, fun is' h' => ?_, (fun _ h' => by cases h'), (fun _ h' => by cases h')⟩
+  have hx' := findModule_at hR₁ok hp₁ hx
+  refine ⟨hR₁ok, hp₁, hT.push ⟨⟨_, _, hx'⟩, fun is' h' => ?_, (fun _ h' => by cases h'),
+    (fun _ h' => by cases h')⟩⟩
   cases h'
-  exact moduleImports_at hx hy
+  exact moduleImports_at hx' hy
 
-/-- **A worker's tables are read off the snapshot.** -/
-theorem workerTables_ok {fs : FS} {sp : SearchPath} {m : Name} {T : ModTables} {hs hs' : HS}
-    (h : (workerTables sp m : ModelIO _) fs hs (.ok T) hs') : TablesOk fs sp T := by
+/-- **A worker's tables are read off the snapshot**, and so are the roots beside them. -/
+theorem workerTables_ok {fs : FS} {sp : SearchPath} {m : Name} {R : Roots} {T : ModTables}
+    {hs hs' : HS} (h : (workerTables sp m : ModelIO _) fs hs (.ok (R, T)) hs') :
+    R.Ok fs ∧ R.path = sp ∧ TablesOk fs sp T := by
   simp only [workerTables, ModelIO.bind_ok] at h
-  obtain ⟨x, hs₁, hx, h⟩ := h
+  obtain ⟨R₀, hs₀, hR₀, x, hs₁, hx, h⟩ := h
+  obtain ⟨hR₀ok, hR₀p⟩ := Roots.resolve_ok (Roots.ok_coe fs sp) hR₀
   rcases x with e | loc
-  · simp only [ModelIO.pure_iff] at h
-    obtain ⟨h, -⟩ := h
-    cases h
-    exact TablesOk.empty fs sp
+  · simp only [ModelIO.pure_iff, Except.ok.injEq, Prod.mk.injEq] at h
+    obtain ⟨⟨rfl, rfl⟩, -⟩ := h
+    exact ⟨hR₀ok, hR₀p, TablesOk.empty fs sp⟩
+  have hx' := findModule_at hR₀ok hR₀p hx
   simp only [ModelIO.bind_ok] at h
   obtain ⟨y, hs₂, hy, h⟩ := h
   rcases y with e | own
-  · simp only [ModelIO.pure_iff] at h
-    obtain ⟨h, -⟩ := h
-    cases h
-    exact (TablesOk.empty fs sp).push ⟨⟨_, _, hx⟩, (fun _ h' => by cases h'),
-      (fun _ h' => by cases h'), (fun _ h' => by cases h')⟩
+  · simp only [ModelIO.pure_iff, Except.ok.injEq, Prod.mk.injEq] at h
+    obtain ⟨⟨rfl, rfl⟩, -⟩ := h
+    exact ⟨hR₀ok, hR₀p, (TablesOk.empty fs sp).push ⟨⟨_, _, hx'⟩, (fun _ h' => by cases h'),
+      (fun _ h' => by cases h'), (fun _ h' => by cases h')⟩⟩
   simp only [ModelIO.bind_ok] at h
-  obtain ⟨⟨r, T'⟩, hs₃, hr, h⟩ := h
-  simp only [ModelIO.pure_iff] at h
+  obtain ⟨⟨r, RT⟩, hs₃, hr, h⟩ := h
+  simp only [ModelIO.pure_iff, Except.ok.injEq] at h
   obtain ⟨h, -⟩ := h
-  cases h
-  refine headerFixpoint_keeps (tabImports_keeps fs sp) _ _ _ _ _ _ _ hr ?_
-  exact (TablesOk.empty fs sp).push ⟨⟨_, _, hx⟩, (fun _ h' => by cases h'),
-    (fun p h' => by cases h'; exact ⟨_, _, hy⟩), (fun _ h' => by cases h')⟩
+  subst h
+  exact headerFixpoint_keeps (tabImports_keeps fs sp) _ _ _ _ _ _ _ hr
+    ⟨hR₀ok, hR₀p, (TablesOk.empty fs sp).push ⟨⟨_, _, hx'⟩, (fun _ h' => by cases h'),
+      (fun p h' => by cases h'; exact ⟨_, _, hy⟩), (fun _ h' => by cases h')⟩⟩
 
 end ConLeche.Driver

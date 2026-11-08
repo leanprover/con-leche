@@ -3,6 +3,7 @@ module
 public import ConLeche.Driver.Reach
 public import ConLeche.Verify.Frontend.ModelIO
 import ConLeche.Verify.Frontend.Olean.Files
+public import ConLeche.Verify.Frontend.Olean.Roots
 
 /-!
 # Reads answered from tables, in the model
@@ -158,13 +159,13 @@ structure OleanReads.Within (fs : FS) (rd : OleanReads ModelIO) (sp : SearchPath
 
 /-! ## The reads of the files: the same outcomes from any open handles -/
 
-theorem findModule_within (fs : FS) (sp : SearchPath) (m : Name) :
-    ModelIO.Within fs (findModule sp m) (findModule sp m) := by
-  simp only [findModule]
-  refine ModelIO.Within.bind (ModelIO.Within.tryCatch
-    (ModelIO.Within.map _ (ModelIO.Within.of_det (locateFiles_det sp m fs)))
-    fun _ => ModelIO.Within.pure _) fun _ => ?_
-  within_tac []
+theorem findModule_within (fs : FS) (sp : Roots) (m : Name) :
+    ModelIO.Within fs (findModule sp m) (findModule sp m) :=
+  ModelIO.Within.of_noHandles (findModule_noHandles sp m)
+
+theorem pathExists_within (fs : FS) (p : System.FilePath) :
+    ModelIO.Within fs (CheckerIO.pathExists p) (CheckerIO.pathExists p) :=
+  ModelIO.Within.of_noHandles (pathExists_noHandles p)
 
 theorem readPart_within (fs : FS) (p : System.FilePath) :
     ModelIO.Within fs (readPart p) (readPart p) := by
@@ -172,13 +173,31 @@ theorem readPart_within (fs : FS) (p : System.FilePath) :
   exact ModelIO.Within.bind (ModelIO.Within.of_det ⟨fs.file p, fun hs => ⟨hs, rfl⟩⟩)
     fun _ => ModelIO.Within.pure _
 
+theorem oleanFailed_within (fs : FS) (loc : Located) (m : Name) (e : IO.Error) :
+    ModelIO.Within fs (oleanFailed loc m e) (oleanFailed loc m e) := by
+  simp only [oleanFailed]
+  within_tac [pathExists_within fs _]
+
+theorem partFailed_within (fs : FS) (loc : Located) (m : Name) (x : String) (e : IO.Error) :
+    ModelIO.Within fs (partFailed loc m x e) (partFailed loc m x e) := by
+  simp only [partFailed]
+  within_tac [pathExists_within fs _]
+
+theorem readPartOr_within (fs : FS) (p : System.FilePath) {a : IO.Error → ModelIO CheckError}
+    (ha : ∀ e, ModelIO.Within fs (a e) (a e)) :
+    ModelIO.Within fs (readPartOr p a) (readPartOr p a) := by
+  simp only [readPartOr]
+  exact ModelIO.Within.tryCatch (readPart_within fs p) fun e => ModelIO.Within.map _ (ha e)
+
 theorem readImportsAt_within (fs : FS) (loc : Located) (m : Name) :
     ModelIO.Within fs (readImportsAt loc m) (readImportsAt loc m) := by
   simp only [readImportsAt]
-  refine ModelIO.Within.bind (ModelIO.Within.of_det (foldChunks_isDet _ _ _ _ _ fs)) fun _ => ?_
+  refine ModelIO.Within.bind (ModelIO.Within.tryCatch
+    (ModelIO.Within.map _ (ModelIO.Within.of_det (foldChunks_isDet _ _ _ _ _ fs)))
+    fun e => ModelIO.Within.map _ (oleanFailed_within fs loc m e)) fun _ => ?_
   within_tac []
 
-theorem moduleImports_within (fs : FS) (sp : SearchPath) (m : Name) :
+theorem moduleImports_within (fs : FS) (sp : Roots) (m : Name) :
     ModelIO.Within fs (moduleImports sp m) (moduleImports sp m) := by
   simp only [moduleImports]
   within_tac [findModule_within fs sp m, readImportsAt_within fs _ m]
@@ -186,17 +205,83 @@ theorem moduleImports_within (fs : FS) (sp : SearchPath) (m : Name) :
 theorem readFilesAt_within (fs : FS) (loc : Located) (m : Name) (level : OLeanLevel) :
     ModelIO.Within fs (readFilesAt loc m level) (readFilesAt loc m level) := by
   simp only [readFilesAt]
-  within_tac [readPart_within fs _]
+  within_tac [readPartOr_within fs _ (oleanFailed_within fs loc m),
+    readPartOr_within fs _ (partFailed_within fs loc m _), pathExists_within fs _]
 
-theorem readFiles_within (fs : FS) (sp : SearchPath) (m : Name) (level : OLeanLevel) :
+theorem readFiles_within (fs : FS) (sp : Roots) (m : Name) (level : OLeanLevel) :
     ModelIO.Within fs (readFiles sp m level) (readFiles sp m level) := by
   simp only [readFiles]
   within_tac [findModule_within fs sp m, readFilesAt_within fs _ m level]
 
-theorem readPartNames_within (fs : FS) (sp : SearchPath) (x : Name × OLeanLevel) :
+theorem readPartNames_within (fs : FS) (sp : Roots) (x : Name × OLeanLevel) :
     ModelIO.Within fs (readPartNames sp x) (readPartNames sp x) := by
   simp only [readPartNames, readPartNamesAt]
   within_tac [findModule_within fs sp x.1, readFilesAt_within fs _ x.1 x.2]
+
+/-! ## A module's files at its location, determined -/
+
+theorem readPart_isDet (p : System.FilePath) (fs : FS) :
+    (readPart p : ModelIO (Except CheckError Part)).Det fs := by
+  simp only [readPart]
+  exact ModelIO.det_bind ⟨fs.file p, fun hs => ⟨hs, rfl⟩⟩ fun _ => ModelIO.det_pure _ _
+
+theorem oleanFailed_isDet (loc : Located) (m : Name) (e : IO.Error) (fs : FS) :
+    (oleanFailed loc m e : ModelIO CheckError).Det fs := by
+  simp only [oleanFailed]
+  refine ModelIO.det_bind (pathExists_det _ fs) fun _ => ?_
+  split
+  · exact ModelIO.det_pure _ _
+  refine ModelIO.det_bind (pathExists_det _ fs) fun _ =>
+    ModelIO.det_bind (pathExists_det _ fs) fun _ => ?_
+  (repeat' split) <;> exact ModelIO.det_pure _ _
+
+theorem partFailed_isDet (loc : Located) (m : Name) (x : String) (e : IO.Error) (fs : FS) :
+    (partFailed loc m x e : ModelIO CheckError).Det fs := by
+  simp only [partFailed]
+  refine ModelIO.det_bind (pathExists_det _ fs) fun _ => ?_
+  split <;> exact ModelIO.det_pure _ _
+
+theorem readPartOr_isDet {fs : FS} (p : System.FilePath) {a : IO.Error → ModelIO CheckError}
+    {g : ModelIO CheckError} (ha : ∀ e, a e = g) (hg : g.Det fs) :
+    (readPartOr p a : ModelIO (Except CheckError Part)).Det fs := by
+  simp only [readPartOr]
+  refine ModelIO.det_tryCatch (readPart_isDet p fs) (fun e => by rw [ha e]) ?_
+  exact ModelIO.det_bind hg fun _ => ModelIO.det_pure _ _
+
+theorem readFilesAt_isDet (loc : Located) (m : Name) (level : OLeanLevel) (fs : FS) :
+    (readFilesAt loc m level : ModelIO (Except CheckError ModFiles)).Det fs := by
+  have hd (x : String) := readPartOr_isDet (fs := fs) (modFile loc.dir m x)
+    (a := partFailed loc m x) (g := partFailed loc m x (IO.userError "")) (fun _ => rfl)
+    (partFailed_isDet loc m x _ fs)
+  simp only [readFilesAt]
+  refine ModelIO.det_bind (readPartOr_isDet _ (a := oleanFailed loc m)
+    (g := oleanFailed loc m (IO.userError "")) (fun _ => rfl) (oleanFailed_isDet loc m _ fs))
+    fun x => ?_
+  rcases x with e | ex
+  · exact ModelIO.det_pure _ _
+  simp only
+  split
+  · exact ModelIO.det_pure _ _
+  split
+  · refine ModelIO.det_bind (pathExists_det _ fs) fun _ =>
+      ModelIO.det_bind (pathExists_det _ fs) fun _ => ?_
+    split <;> exact ModelIO.det_pure _ _
+  refine ModelIO.det_bind (hd _) fun y => ?_
+  rcases y with e | s
+  · exact ModelIO.det_pure _ _
+  simp only
+  split
+  · refine ModelIO.det_bind (pathExists_det _ fs) fun _ => ?_
+    split <;> exact ModelIO.det_pure _ _
+  refine ModelIO.det_bind (hd _) fun z => ?_
+  rcases z with e | p
+  · exact ModelIO.det_pure _ _
+  · exact ModelIO.det_pure _ _
+
+/-- **Through roots read off the snapshot, a read refines the search path's.** -/
+theorem _root_.ConLeche.ModelIO.Within.of_sub {α : Type} {fs : FS} {a b : ModelIO α} (hs : ModelIO.Sub fs a b)
+    (hb : ModelIO.Within fs b b) : ModelIO.Within fs a b :=
+  fun hs₀ o hs' h hs₁ => hb hs₀ o hs' (hs _ _ _ h) hs₁
 
 /-- The search path's reads refine themselves. -/
 theorem OleanReads.Within.ofPath (fs : FS) (sp : SearchPath) :

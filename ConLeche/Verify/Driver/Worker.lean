@@ -175,20 +175,28 @@ environment (`ImportOk.accepted`). -/
         (streamEnv w.reach.ctx.toList)))
 
 /-- The check phase and the verdict of an accepted worker: an exit 0 is `WorkerAccepted`. -/
-theorem worker_tail {sp : SearchPath} {m : Name} {mode : CheckMode} {pace : Pace}
-    {jobs : Nat} {fs : FS} {w : WorkerRead} (hw : WorkerFacts sp fs m jobs w) (tag who : String)
+theorem worker_tail {sp : SearchPath} {R : Roots} {m : Name} {mode : CheckMode} {pace : Pace}
+    {jobs : Nat} {fs : FS} {w : WorkerRead} (hR : R.Ok fs) (hp : R.path = sp)
+    (hw : WorkerFacts sp fs m jobs w) (tag who : String)
     (alone : Bool) (t0 tIndex tParse : Nat) (J : Jobs (w.reach.ctx ++ w.own)) :
-    ∀ v hs hs', (checkOleansG mode pace t0 tIndex tParse jobs sp #[⟨m, w.home.frontier⟩] J
+    ∀ v hs hs', (checkOleansG mode pace t0 tIndex tParse jobs R #[⟨m, w.home.frontier⟩] J
         w.reach.ctx.size alone : ModelIO _) fs hs (.ok v) hs' →
       ModelIO.AllOk (verdictG tag w.own.size t0 (w.reach.ctx ++ w.own) v who) fs hs'
         (fun c => c = 0 → WorkerAccepted mode sp fs m jobs) := by
+  subst hp
   intro v _ _ hv c _ hc h0
   obtain rfl := verdictG_ok hc h0
-  have hjobs := checkOleansG_jobs (workerFacts_good hw) hv
+  have hgood : ∀ md ∈ (#[⟨m, w.home.frontier⟩] : Array ModRef), ∃ f r a,
+      ModelIO.CanGive (readFiles R md.name .private) fs (.ok f) ∧
+      f.viewRegion .private = some (r, a) ∧ md.frontier.Good r := fun md hmd => by
+    obtain ⟨f, r, a, h1, h2, h3⟩ := workerFacts_good hw md hmd
+    exact ⟨f, r, a, readFiles_rev hR h1, h2, h3⟩
+  have hjobs := checkOleansG_jobs hgood hv
+  rw [fillOf_roots hR] at hjobs
   refine ⟨w, hw, ?_⟩
   have hrun := checkDecls_of_jobs_from (mode := mode) (pins := natOpPinSets)
-    (ctx := w.reach.ctx.map (fillDecl (fillOf sp fs #[⟨m, w.home.frontier⟩])))
-    (own := w.own.map (fillDecl (fillOf sp fs #[⟨m, w.home.frontier⟩])))
+    (ctx := w.reach.ctx.map (fillDecl (fillOf (R.path : Roots) fs #[⟨m, w.home.frontier⟩])))
+    (own := w.own.map (fillDecl (fillOf (R.path : Roots) fs #[⟨m, w.home.frontier⟩])))
     ?_ ?_
   · simpa [streamEnv_fill] using hrun
   · rw [Array.toList_map, streamEnv_fill]
@@ -204,12 +212,12 @@ theorem worker_tail {sp : SearchPath} {m : Name} {mode : CheckMode} {pace : Pace
 snapshot `fs` that is an exit 0 is `WorkerAccepted`, at any `--jobs`, pace and `alone`, whatever
 the `liftIO` actions answered, for any reads `rd` that refine the search path's (the search
 path's own, `OleanReads.Within.ofPath`, or the one-process mode's tables). -/
-theorem checkModuleG_accept {rd : OleanReads ModelIO} {sp : SearchPath} {m : Name}
+theorem checkModuleG_accept {rd : OleanReads ModelIO} {sp : SearchPath} {R : Roots} {m : Name}
     {mode : CheckMode} {pace : Pace} {jobs : Nat} {alone : Bool} {fs : FS}
-    (hrd : OleanReads.Within fs rd sp) {hs hs' : HS}
-    (h : (checkModuleG rd sp m mode pace jobs alone : ModelIO _) fs hs (.ok 0) hs') :
+    (hrd : OleanReads.Within fs rd sp) (hR : R.Ok fs) (hRp : R.path = sp) {hs hs' : HS}
+    (h : (checkModuleG rd R m mode pace jobs alone : ModelIO _) fs hs (.ok 0) hs') :
     WorkerAccepted mode sp fs m jobs := by
-  suffices H : ModelIO.AllOk (checkModuleG rd sp m mode pace jobs alone) fs hs
+  suffices H : ModelIO.AllOk (checkModuleG rd R m mode pace jobs alone) fs hs
       (fun c => c = 0 → WorkerAccepted mode sp fs m jobs) from H 0 hs' h rfl
   simp only [checkModuleG, clockMs, diagLine, ModelIO.allOk_bind, ModelIO.liftIO_iff]
   rintro t0 _ rfl - _ rfl x _ hx
@@ -228,7 +236,7 @@ theorem checkModuleG_accept {rd : OleanReads ModelIO} {sp : SearchPath} {m : Nam
     by_cases hp : pace.on = true <;>
     simp only [hp, Bool.false_eq_true, ↓reduceIte, ModelIO.allOk_bind, ModelIO.liftIO_iff] <;>
     (first | rintro (_ : Unit) _ rfl | skip) <;>
-    exact fun v hs₁ hv => worker_tail hw _ _ _ t0 tIndex tParse J v _ hs₁ hv
+    exact fun v hs₁ hv => worker_tail hR hRp hw _ _ _ t0 tIndex tParse J v _ hs₁ hv
 
 /-! ## The context -/
 

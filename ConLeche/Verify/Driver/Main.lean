@@ -309,8 +309,9 @@ theorem runArgs_module_accept {dirs root : String} {fs : FS} {hs hs' : HS}
           simp only [Array.find?_empty, List.filterMap_cons, hr, List.filterMap_nil,
             Array.isEmpty_empty] at hc
           simp only [runReq, ModelIO.bind_ok] at hc
-          obtain ⟨T, _, hT, hc⟩ := hc
-          exact ⟨m, _, rfl, checkModuleG_accept (modTables_within (workerTables_ok hT)) hc⟩
+          obtain ⟨⟨R, T⟩, _, hT, hc⟩ := hc
+          obtain ⟨hR, hp, hT⟩ := workerTables_ok hT
+          exact ⟨m, _, rfl, checkModuleG_accept (modTables_within hR hp hT) hR hp hc⟩
   · simp
 
 /-- The arguments `--olean --modular --search-path=<dirs> -- <root>`: that one root, those
@@ -379,8 +380,8 @@ theorem runArgs_modular_accept {dirs root : String} {fs : FS} {hs hs' : HS}
             Array.isEmpty_empty] at hc
           generalize (none : Option Nat).getD _ = j at hc
           simp only [runReq] at hc
-          obtain ⟨C, ⟨_, _, hC⟩, hall⟩ := checkModularG_accept hc
-          obtain ⟨rk, h1, h2, h3, h4⟩ := Graph.graphOf_ok hC
+          obtain ⟨C, T, ⟨_, _, hC⟩, hall⟩ := checkModularG_accept hc
+          obtain ⟨rk, h1, h2, h3, h4, -⟩ := Graph.graphOf_ok hC
           exact ⟨m, rfl, C.toList, rk, h1, h2 m (by simp), h3, h4, hall⟩
   · simp
 

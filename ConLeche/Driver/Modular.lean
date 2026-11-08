@@ -14,7 +14,8 @@ closure on its own, as the worker (`checkModuleG`, `ConLeche/Driver/Worker.lean`
 one process (DESIGN #460 §3, ruling 8):
 
 1. **The graph** (`graphOf`, `ConLeche/Driver/Graph.lean`): the closure's headers read, its
-   import graph checked acyclic, every import resolved, as `--check-graph` does.
+   import graph checked acyclic, every import resolved, as `--check-graph` does; the roots of
+   its modules resolved there once, for every later read.
 2. **The tables, read once** (`readModTable`, on the parallel map): every module of the closure
    located (`findModule`), and its two parts' name positions (`readPartNamesAt`, the private and
    the exported level); its imports are the graph's.  The tables are marked persistent before
@@ -39,7 +40,7 @@ namespace ConLeche.Driver
 open ConLeche ConLeche.Frontend.Olean
 
 /-- **A module's table**: located, its two parts' name positions read; its imports the graph's. -/
-def readModTable {μ : Type → Type} [CheckerIO μ] (sp : SearchPath) (e : Graph.Node) :
+def readModTable {μ : Type → Type} [CheckerIO μ] (sp : Roots) (e : Graph.Node) :
     μ (Except CheckError ModTable) := do
   match ← findModule sp e.1 with
   | .error err => pure (.error err)
@@ -53,13 +54,13 @@ def readModTable {μ : Type → Type} [CheckerIO μ] (sp : SearchPath) (e : Grap
                                 expo := some expo })
 
 /-- One module of the run: its worker's steps over the tables, its code. -/
-def modularStep {μ : Type → Type} [CheckerIO μ] (sp : SearchPath) (T : ModTables)
+def modularStep {μ : Type → Type} [CheckerIO μ] (sp : Roots) (T : ModTables)
     (mode : CheckMode) (_ : Unit) (m : Name) : μ (Unit × Except Empty (Name × UInt8)) := do
   let c ← checkModuleG (T.reads sp) sp m mode .off 1 false
   pure ((), .ok (m, c))
 
 /-- **The one-process mode**, generic in the IO class (see the module docstring). -/
-def checkModularG {μ : Type → Type} [CheckerIO μ] (sp : SearchPath) (root : Name)
+def checkModularG {μ : Type → Type} [CheckerIO μ] (sp : Roots) (root : Name)
     (mode : CheckMode) (pace : Pace) (jobs : Nat) : μ UInt8 := do
   let t0 ← clockMs
   let modeTag : String := match mode with
@@ -73,7 +74,7 @@ def checkModularG {μ : Type → Type} [CheckerIO μ] (sp : SearchPath) (root : 
   | .error e =>
     diagLine s!"con-leche: graph: {e}"
     return e.exitCode
-  | .ok C =>
+  | .ok (C, sp) =>
     say s!"graph: acyclic, {C.size} modules"
     match ← CheckerIO.parMapExcept jobs (readModTable sp) C.toList with
     | .error e =>

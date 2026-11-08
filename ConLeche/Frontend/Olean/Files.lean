@@ -25,13 +25,26 @@ open ConLeche
 `LEAN_PATH` lists them. -/
 abbrev SearchPath := List System.FilePath
 
-/-- The file a module's level is stored in. -/
-def modFile (dir : System.FilePath) (m : Name) (ext : String) : System.FilePath :=
+/-- A module's path below a directory, without an extension: its components as
+directories (Lean's `modToFilePath`). -/
+def modDir (dir : System.FilePath) (m : Name) : System.FilePath :=
   let rec comps : Name → List String
     | .anonymous => []
     | .str p s => comps p ++ [s]
     | .num p n => comps p ++ [toString n]
-  (comps m).foldl (· / ·) dir |>.addExtension ext
+  (comps m).foldl (fun (p : System.FilePath) (c : String) => p / c) dir
+
+/-- **A module name's root**: its first component (Lean's `Name.root`). -/
+def _root_.ConLeche.Name.root : Name → Name
+  | .anonymous => .anonymous
+  | .str .anonymous s => .str .anonymous s
+  | .num .anonymous n => .num .anonymous n
+  | .str p _ => ConLeche.Name.root p
+  | .num p _ => ConLeche.Name.root p
+
+/-- The file a module's level is stored in. -/
+def modFile (dir : System.FilePath) (m : Name) (ext : String) : System.FilePath :=
+  (modDir dir m).addExtension ext
 
 /-- Where the scan of a name is. -/
 inductive NameScan where
@@ -74,111 +87,140 @@ of digits being a number (`_private.M.0.foo`), as Lean's name literals read it. 
 def parseConstName (s : String) : Option Name :=
   scanName true s.toList .anonymous .start ""
 
-/-- **Where a module's files are** (task #392): the search-path directory
-holding them, and which of the two parts beside its `.olean` it holds. -/
+/-- **Where a root's modules are** (task #511): the one search-path directory holding the
+root, or why there is none. -/
+inductive RootAt where
+  /-- the directory holding it -/
+  | dir (d : System.FilePath)
+  /-- no directory holds it -/
+  | missing
+  /-- directories in two or more locations hold it, these (the first spelling of each) -/
+  | twice (ds : List System.FilePath)
+  /-- an exception while looking, its message -/
+  | failed (e : String)
+
+/-- **A search path with its roots resolved**: the directories, and the roots looked up on
+them so far, each with where its modules are.  A run resolves each root once, the first
+time it reads a module of it (`Roots.resolve`); a root not in the map is looked up on the
+directories. -/
+structure Roots where
+  path : SearchPath
+  map : Std.HashMap Name RootAt := {}
+
+/-- A search path, no root resolved yet. -/
+instance : Coe SearchPath Roots := ⟨fun sp => { path := sp }⟩
+
+/-- **Whether a directory holds a root**, as Lean asks it (`SearchPath.findWithExt`): a
+directory of the root's name, or a file of that name with `.olean`. -/
+def holdsRoot {μ : Type → Type} [CheckerIO μ] (r : Name) (d : System.FilePath) : μ Bool := do
+  if ← CheckerIO.isDir (modDir d r) then return true
+  CheckerIO.pathExists (modFile d r "olean")
+
+/-- The directories, one for each location: real paths compared, the first spelling kept. -/
+def oneEach (ds : List (System.FilePath × System.FilePath)) : List System.FilePath :=
+  (ds.foldl (fun (acc : Array (System.FilePath × System.FilePath)) d =>
+    if acc.any (·.2 == d.2) then acc else acc.push d) #[]).toList.map (·.1)
+
+/-- **Where a root's modules are on the search path** (task #511): the directories holding
+the root (`holdsRoot`); where two or more do, their real paths compared, so that a directory
+listed twice, or reached through a symbolic link, is one location. -/
+def rootHits {μ : Type → Type} [CheckerIO μ] (sp : SearchPath) (r : Name) : μ RootAt := do
+  let held ← sp.mapM fun d => return (d, ← holdsRoot r d)
+  match (held.filter (·.2)).map (·.1) with
+  | [] => return .missing
+  | [d] => return .dir d
+  | hits@(d :: _) =>
+    match oneEach (← hits.mapM fun d => return (d, ← CheckerIO.realPath d)) with
+    | [_] => return .dir d
+    | locs => return .twice locs
+
+/-- `rootHits`, an exception while looking its answer's reason. -/
+def rootAt {μ : Type → Type} [CheckerIO μ] (sp : SearchPath) (r : Name) : μ RootAt :=
+  tryCatchThe IO.Error (rootHits sp r) fun e => return .failed (toString e)
+
+/-- **Where a root's modules are**, from the map or looked up. -/
+def Roots.rootOf {μ : Type → Type} [CheckerIO μ] (R : Roots) (r : Name) : μ RootAt :=
+  match R.map[r]? with
+  | some a => pure a
+  | none => rootAt R.path r
+
+/-- **The roots with module `m`'s resolved.** -/
+def Roots.resolve {μ : Type → Type} [CheckerIO μ] (R : Roots) (m : Name) : μ Roots := do
+  if R.map.contains m.root then return R
+  return { R with map := R.map.insert m.root (← rootAt R.path m.root) }
+
+/-- **Where a module's files are** (task #392): the search-path directory holding its
+root. -/
 structure Located where
   dir : System.FilePath
-  hasServer : Bool
-  hasPrivate : Bool
 
-/-- The three files of a module, by extension. -/
-def partExts : List String := ["olean", "olean.server", "olean.private"]
+/-- **The module's location from where its root is** (`findModule`), or why there is none. -/
+def locatedOf (m : Name) : RootAt → Except CheckError Located
+  | .dir d => .ok ⟨d⟩
+  | .missing => .error (.internal s!"module {m}: no .olean on the search path (no directory \
+      of it holds {m.root} or {m.root}.olean)")
+  | .twice ds => .error (.internal s!"module {m}: its root {m.root} is in more than one \
+      location on the search path ({", ".intercalate (ds.map toString)}); the search path \
+      must hold each root once")
+  | .failed e => .error (.internal s!"module {m}: locating its files: {e}")
 
-/-- Which of a module's three files one directory holds. -/
-def locateIn {μ : Type → Type} [CheckerIO μ] (m : Name) (d : System.FilePath) :
-    μ (System.FilePath × List Bool) := do
-  let fs ← partExts.mapM fun e => CheckerIO.pathExists (modFile d m e)
-  return (d, fs)
+/-- **Find a module, as Lean does, strictly** (tasks #392, #511).  Lean takes the first
+search-path directory holding the module's ROOT (a directory `<Root>` or a file
+`<Root>.olean`, `SearchPath.findWithExt`) and expects the module's files there; a copy in a
+directory further down is never looked at, so two directories holding one root would let two
+tools (or two search-path orders) read two different modules under one name.  Here every
+directory is asked whether it holds the root, and where two or more do, they are compared by
+their real paths, so that a directory listed twice, or reached through a symbolic link, is
+one location (`rootAt`).  Each root is looked up once per run (`Roots`); the module's files
+are then `M.olean`, `M.olean.server` and `M.olean.private` in that directory, and reading
+them says whether they are there (`readImportsAt`, `readFilesAt`).  Malformed input
+(`.internal`, exit 3):
 
-/-- **The search path's directories holding any of module `m`'s files**
-(`findModule`), in order: each with which of the three files it holds. -/
-def locateHits {μ : Type → Type} [CheckerIO μ] (sp : SearchPath) (m : Name) :
-    μ (Array (System.FilePath × List Bool)) := do
-  let hs ← sp.mapM (locateIn m)
-  return (hs.filter fun h => h.2.any id).toArray
+* the root in directories of two locations;
+* no directory holding the root (Lean's "unknown module prefix").
 
-/-- The real paths of the files a directory holds of a module, `none` where absent. -/
-def realsIn {μ : Type → Type} [CheckerIO μ] (m : Name) (h : System.FilePath × List Bool) :
-    μ (List (Option String)) :=
-  (partExts.zip h.2).mapM fun (e, b) => do
-    if b then return some (← CheckerIO.realPath (modFile h.1 m e)).toString else return none
+What the reads refuse: no `M.olean` in the root's directory (another directory holding one
+is not looked at, as in Lean); parts without an `.olean` beside them; and, depending on the
+exported part's module-system flag, a part missing or one too many (`readFilesAt`). -/
+def findModule {μ : Type → Type} [CheckerIO μ] (R : Roots) (m : Name) :
+    μ (Except CheckError Located) :=
+  locatedOf m <$> R.rootOf m.root
 
-/-- **The directories holding a module's files, and their real paths where they are
-compared**: the real paths only where two or more directories hold some of the files (one
-directory is one location whatever its files' real paths are, so its files are not resolved;
-task #509). -/
-def locateFiles {μ : Type → Type} [CheckerIO μ] (sp : SearchPath) (m : Name) :
-    μ (Array (System.FilePath × List Bool) × List (List (Option String))) := do
-  let hits ← locateHits sp m
-  if hits.size ≤ 1 then return (hits, [])
-  return (hits, ← hits.toList.mapM (realsIn m))
-
-/-- **The module's location from the directories holding its files**
-(`locateFiles`: `hits`, and the real paths `reals` where there are two or more), or why
-there is none (`findModule`). -/
-def locateOf (m : Name) (hits : Array (System.FilePath × List Bool))
-    (reals : List (List (Option String))) : Except CheckError Located := Id.run do
-  let some (d, fs) := hits[0]? |
-    return .error (.internal s!"module {m}: no .olean on the search path")
-  let names (xs : Array ((System.FilePath × List Bool) × List (Option String))) : String :=
-    ", ".intercalate (xs.toList.map (·.1.1.toString))
-  if hits.size > 1 then
-    -- the locations: the directories up to real paths, first spelling kept
-    let locs := (hits.toList.zip reals).foldl
-      (fun (acc : Array ((System.FilePath × List Bool) × List (Option String))) h =>
-        if acc.any (·.2 == h.2) then acc else acc.push h) #[]
-    if locs.size > 1 then
-      let twice := (List.range 3).any fun i =>
-        let rs := locs.toList.filterMap fun l => (l.2[i]?).join
-        rs.any fun r => rs.any (· != r)
-      if twice then
-        return .error (.internal s!"module {m}: its files are in more than one location on \
-          the search path ({names locs}); the search path must hold each module once")
-      else
-        let desc (l : (System.FilePath × List Bool) × List (Option String)) : String :=
-          let held := (partExts.zip l.1.2).filterMap fun (e, b) => if b then some s!"{m}.{e}" else none
-          s!"{", ".intercalate held} in {l.1.1}"
-        return .error (.internal s!"module {m}: its parts are split across directories \
-          ({"; ".intercalate (locs.toList.map desc)}); a module's files must be in one directory")
-  match fs with
-  | [o, s, p] =>
-    if !o then
-      let held := [("olean.server", s), ("olean.private", p)].filterMap fun (e, b) =>
-        if b then some s!"{m}.{e}" else none
-      return .error (.internal s!"module {m}: {" and ".intercalate held} without \
-        {m}.olean in {d}")
-    return .ok ⟨d, s, p⟩
-  | _ => return .error (.internal s!"module {m}: locating its files")
-
-/-- **Find a module, strictly** (task #392).  Lean takes the first
-search-path directory holding `M.olean` and reads the other parts beside
-it; a copy further down is ignored, so two copies would let two tools
-(or two search-path orders) read two different modules under one name.
-Here every directory is looked at for each of the module's files
-(`M.olean`, `M.olean.server`, `M.olean.private`); where two or more hold
-some of them, the files are compared by their real paths, so that a
-directory listed twice, or reached through a symbolic link, is one
-location.  Malformed input (`.internal`, exit 3):
-
-* one of the files with two real paths: the module is in two places;
-* the directories holding some of the files not all holding the same
-  ones: the parts are split across directories;
-* parts without an `.olean` beside them;
-* no file on the search path at all.
-
-Whether the parts the `.olean` needs are there is `readFiles`'s check (it
-depends on the exported part's module-system flag). -/
-def findModule {μ : Type → Type} [CheckerIO μ] (sp : SearchPath) (m : Name) :
-    μ (Except CheckError Located) := do
-  match ← tryCatchThe IO.Error (Except.ok <$> locateFiles sp m) (fun e => pure (.error e)) with
-  | .ok (hits, reals) => return locateOf m hits reals
-  | .error e => return .error (.internal s!"module {m}: locating its files: {e}")
+/-- **Why a module's `.olean` cannot be read at its location**: it is not there, with or
+without parts beside it, or it is there and cannot be read (the exception's text is not
+kept: in the model it is any exception, and the reason is the snapshot's alone). -/
+def oleanFailed {μ : Type → Type} [CheckerIO μ] (loc : Located) (m : Name) (_ : IO.Error) :
+    μ CheckError := do
+  if ← CheckerIO.pathExists (modFile loc.dir m "olean") then
+    return .internal s!"module {m}: {modFile loc.dir m "olean"} cannot be read"
+  let s ← CheckerIO.pathExists (modFile loc.dir m "olean.server")
+  let p ← CheckerIO.pathExists (modFile loc.dir m "olean.private")
+  let held := (if s then ["olean.server"] else []) ++ (if p then ["olean.private"] else [])
+  if held.isEmpty then
+    return .internal s!"module {m}: no {m}.olean in {loc.dir}, the search-path directory \
+      holding its root {m.root}"
+  return .internal s!"module {m}: {" and ".intercalate (held.map (s!"{m}." ++ ·))} without \
+    {m}.olean in {loc.dir}"
 
 /-- Read and validate one file. -/
 def readPart {μ : Type → Type} [CheckerIO μ] (p : System.FilePath) :
     μ (Except CheckError Part) := do
   let b ← CheckerIO.readBinFile p
   pure (Part.ofBytes p.toString b)
+
+/-- **Read and validate one of a module's files**, `absent` saying why where it cannot be
+read. -/
+def readPartOr {μ : Type → Type} [CheckerIO μ] (p : System.FilePath)
+    (absent : IO.Error → μ CheckError) : μ (Except CheckError Part) :=
+  tryCatchThe IO.Error (readPart p) fun e => Except.error <$> absent e
+
+/-- Why a part of a module of the module system cannot be read at its location. -/
+def partFailed {μ : Type → Type} [CheckerIO μ] (loc : Located) (m : Name) (ext : String)
+    (_ : IO.Error) : μ CheckError := do
+  if ← CheckerIO.pathExists (modFile loc.dir m ext) then
+    return .internal s!"module {m}: {modFile loc.dir m ext} cannot be read"
+  return .internal s!"module {m}: a module of the module system without its {m}.{ext} in \
+    {loc.dir}"
 
 /-- The header read's chunk size: one read of the start of the file holds
 the imports of 97 % of the CFSG closure's modules. -/
@@ -201,19 +243,21 @@ def hdrFin (path : String) (acc : ByteArray) : Except CheckError (Option (Array 
 at its location (task #425): the file read forward in `hdrChunk` reads
 until the walk to the imports array is inside what was read
 (`foldChunks`, which stops reading there), the header validated and the
-imports decoded from that prefix (`importsPre`). -/
+imports decoded from that prefix (`importsPre`).  A file that cannot be read is
+`oleanFailed`'s error. -/
 def readImportsAt {μ : Type → Type} [CheckerIO μ] (loc : Located) (m : Name) :
     μ (Except CheckError (Array ImportRec)) := do
   let p := modFile loc.dir m "olean"
-  match ← foldChunks p hdrChunk ByteArray.empty (hdrStep p.toString)
-      (hdrFin p.toString) with
-  | .ok (some imps) => pure (.ok imps)
-  | .ok none => pure (.error (undecodable m))
+  match ← tryCatchThe IO.Error (Except.ok <$> foldChunks p hdrChunk ByteArray.empty
+      (hdrStep p.toString) (hdrFin p.toString)) (fun e => Except.error <$> oleanFailed loc m e) with
+  | .ok (.ok (some imps)) => pure (.ok imps)
+  | .ok (.ok none) => pure (.error (undecodable m))
+  | .ok (.error e) => pure (.error e)
   | .error e => pure (.error e)
 
 /-- **A module's imports**, off the start of its exported `.olean`, located
 on the search path. -/
-def moduleImports {μ : Type → Type} [CheckerIO μ] (sp : SearchPath) (m : Name) :
+def moduleImports {μ : Type → Type} [CheckerIO μ] (sp : Roots) (m : Name) :
     μ (Except CheckError (Array ImportRec)) := do
   match ← findModule sp m with
   | .error e => pure (.error e)
@@ -221,42 +265,46 @@ def moduleImports {μ : Type → Type} [CheckerIO μ] (sp : SearchPath) (m : Nam
 
 /-- **The files of a module a view reads at its location**, each validated
 (`ModFiles.viewRegion`).  A part beside a classic `.olean` is no part of it,
-and a module of the module system has all three. -/
+and a module of the module system has all three: reading the parts a view
+needs says whether they are there, and a server view asks for the private
+part's existence besides. -/
 def readFilesAt {μ : Type → Type} [CheckerIO μ] (loc : Located) (m : Name) (level : OLeanLevel) :
     μ (Except CheckError ModFiles) := do
   let bad (what : String) : CheckError := .internal s!"module {m}: {what}"
-  match ← readPart (modFile loc.dir m "olean") with
+  match ← readPartOr (modFile loc.dir m "olean") (oleanFailed loc m) with
   | .error e => pure (.error e)
   | .ok ex =>
     if level == .exported then return .ok { exported := ex }
     if !(ModFiles.isModule { exported := ex }) then
-      if loc.hasServer || loc.hasPrivate then
+      let hasServer ← CheckerIO.pathExists (modFile loc.dir m "olean.server")
+      let hasPrivate ← CheckerIO.pathExists (modFile loc.dir m "olean.private")
+      if hasServer || hasPrivate then
         return .error (bad s!"a module outside the module system (its {m}.olean), with \
-          {if loc.hasPrivate then s!"{m}.olean.private" else s!"{m}.olean.server"} beside it \
+          {if hasPrivate then s!"{m}.olean.private" else s!"{m}.olean.server"} beside it \
           in {loc.dir}")
       return .ok { exported := ex }
-    if !loc.hasServer then
-      return .error (bad s!"a module of the module system without its {m}.olean.server in {loc.dir}")
-    if !loc.hasPrivate then
-      return .error (bad s!"a module of the module system without its {m}.olean.private in {loc.dir}")
-    match ← readPart (modFile loc.dir m "olean.server") with
+    match ← readPartOr (modFile loc.dir m "olean.server") (partFailed loc m "olean.server") with
     | .error e => pure (.error e)
     | .ok s =>
-      if level == .server then return .ok { exported := ex, server := some s }
-      match ← readPart (modFile loc.dir m "olean.private") with
+      if level == .server then
+        if !(← CheckerIO.pathExists (modFile loc.dir m "olean.private")) then
+          return .error (bad s!"a module of the module system without its {m}.olean.private \
+            in {loc.dir}")
+        return .ok { exported := ex, server := some s }
+      match ← readPartOr (modFile loc.dir m "olean.private") (partFailed loc m "olean.private") with
       | .error e => pure (.error e)
       | .ok p => pure (.ok { exported := ex, server := some s, «private» := some p })
 
 /-- **The files of a module a view reads**, located on the search path (`findModule`), then
 read at that location (`readFilesAt`). -/
-def readFiles {μ : Type → Type} [CheckerIO μ] (sp : SearchPath) (m : Name) (level : OLeanLevel) :
+def readFiles {μ : Type → Type} [CheckerIO μ] (sp : Roots) (m : Name) (level : OLeanLevel) :
     μ (Except CheckError ModFiles) := do
   match ← findModule sp m with
   | .error e => pure (.error e)
   | .ok loc => readFilesAt loc m level
 
 /-- **One view of a module**, located on the search path. -/
-def readView {μ : Type → Type} [CheckerIO μ] (sp : SearchPath) (m : Name) (level : OLeanLevel) :
+def readView {μ : Type → Type} [CheckerIO μ] (sp : Roots) (m : Name) (level : OLeanLevel) :
     μ (Except CheckError ModDecoded) := do
   match ← readFiles sp m level with
   | .error e => pure (.error e)
@@ -276,7 +324,7 @@ def readPartNamesAt {μ : Type → Type} [CheckerIO μ] (loc : Located) (x : Nam
     | none => pure (.error (viewError x.1 f x.2))
 
 /-- **One part's name positions**, located on the search path. -/
-def readPartNames {μ : Type → Type} [CheckerIO μ] (sp : SearchPath) (x : Name × OLeanLevel) :
+def readPartNames {μ : Type → Type} [CheckerIO μ] (sp : Roots) (x : Name × OLeanLevel) :
     μ (Except CheckError NamePositions) := do
   match ← findModule sp x.1 with
   | .error e => pure (.error e)
@@ -296,7 +344,7 @@ structure OleanReads (μ : Type → Type) where
   names : Name × OLeanLevel → μ (Except CheckError NamePositions)
 
 /-- **The reads on the search path.** -/
-def OleanReads.ofPath {μ : Type → Type} [CheckerIO μ] (sp : SearchPath) : OleanReads μ where
+def OleanReads.ofPath {μ : Type → Type} [CheckerIO μ] (sp : Roots) : OleanReads μ where
   imports := moduleImports sp
   files := readFiles sp
   names := readPartNames sp
@@ -318,7 +366,7 @@ def readHome {μ : Type → Type} [CheckerIO μ] (rd : OleanReads μ) (m : Name)
 
 /-- **All three views of a module, each parsed whole, and the home's check of them**
 (`checkViews` over the load): for the tools that compare the views. -/
-def readAllViews {μ : Type → Type} [CheckerIO μ] (sp : SearchPath) (m : Name) :
+def readAllViews {μ : Type → Type} [CheckerIO μ] (sp : Roots) (m : Name) :
     μ (Except CheckError (AllViews × Array Expo)) := do
   match ← readFiles sp m .private with
   | .error e => pure (.error e)
