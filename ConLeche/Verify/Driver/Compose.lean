@@ -314,4 +314,52 @@ theorem localOk_of
 
 end Run
 
+/-! ## Agreement from the capture check's routes
+
+At one module `i` of any development, the pairs `(b, y)` the capture check passed (`Pr`): a read
+of `y` as module `b` reads it.  Each passed by a route: the copy is `b`'s, or `b` reads `y` from an
+earlier module `t` whose copy agrees with `b`'s; and `t` is the module `i` reads `y` from, or `t`'s
+copy and `i`'s are two proofs of one statement whose names were passed as reads of `t`, each
+stored before `y`.  Then every passed pair agrees (`agree_of_routes`), by induction on the
+context's order. -/
+
+/-- **`t`'s copy of `y` and the one module `i` reads are proofs of one statement** whose names
+`Pr` passed as reads of `t`, each of smaller rank than `y`. -/
+@[expose] def ProofAt (dev : Nat → Module) (i : Nat) (Pr : Nat → Name → Prop) (t : Nat)
+    (y : Name) : Prop :=
+  ∃ ci ci', (dev i).context.find? y = some ci ∧ (dev t).own.find? y = some ci' ∧
+    ci'.toConstantVal = ci.toConstantVal ∧ ci.isStmtKind = true ∧ ci'.isStmtKind = true ∧
+    (∀ c ∈ ci.toConstantVal.type.readNames, Pr t c ∧ (dev i).rank c < (dev i).rank y ∧
+      ((dev i).context.find? c).isSome = true) ∧
+    ProofSide dev i t y ci.toConstantVal.type ∧
+    ProofSide dev i ((dev i).src y) y ci.toConstantVal.type
+
+/-- **A route of a passed pair** (see the section docstring). -/
+@[expose] def Route (dev : Nat → Module) (i : Nat) (Pr : Nat → Name → Prop) (b : Nat) (y : Name) :
+    Prop :=
+  ∃ t, (t = b ∨ ((dev b).context.find? y).isSome = true ∧ t < b ∧ Agree dev b t y) ∧
+    (t = (dev i).src y ∨ ProofAt dev i Pr t y)
+
+/-- **Every passed pair agrees.** -/
+theorem agree_of_routes {dev : Nat → Module} {i : Nat} {Pr : Nat → Name → Prop}
+    (hr : ∀ b y, Pr b y → ((dev i).context.find? y).isSome = true → Route dev i Pr b y) :
+    ∀ b y, Pr b y → ((dev i).context.find? y).isSome = true → Agree dev i b y := by
+  suffices H : ∀ r, ∀ b y, (dev i).rank y < r → Pr b y →
+      ((dev i).context.find? y).isSome = true → Agree dev i b y from
+    fun b y hp hy => H _ b y (Nat.lt_succ_self _) hp hy
+  intro r
+  induction r with
+  | zero => intro b y h; exact absurd h (Nat.not_lt_zero _)
+  | succ r ih =>
+    intro b y hlt hp hy
+    obtain ⟨t, htb, hts⟩ := hr b y hp hy
+    have hit : Agree dev i t y := by
+      rcases hts with rfl | ⟨ci, ci', h1, h2, h3, h4, h5, h6, h7, h8⟩
+      · exact .same rfl
+      · exact .proof h1 h2 h3 h4 h5 (fun c hc =>
+          ih t c (by have := (h6 c hc).2.1; omega) (h6 c hc).1 (h6 c hc).2.2) h7 h8
+    rcases htb with rfl | ⟨hb, hlt', hbt⟩
+    · exact hit
+    · exact .via hb hlt' hbt hit
+
 end ConLeche.Driver.Compose
