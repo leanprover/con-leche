@@ -112781,6 +112781,65 @@ Gates: `lake build InLean InLeanProof` warning-free; `tests/layering.sh`,
 `tests/trust-surface.sh`, `tests/no-local-paths.sh`, `tests/inlean-sync.sh`
 pass.
 
+**Lane CertArm, continued: findings 2 and 3 fixed (2026-11-08).**  Coordinator's ruling: both
+are twin bugs.
+
+*Executable change* (`InLean/CheckerC.lean`).  `constsResolve` is the twin of master's
+`Expr.constsResolve` on a term without free variables: every constant stored
+(`EO.usedConstants`), and no node that is a projection of an unstored structure or a literal
+without its support declarations (`natLitStoredF`/`strLitStoredF`, one memoised `EO.any`).
+`checkTermWF` reads it (it read only the constants: O6's gap); the div/mod guards and
+`checkReducePin` already called it.  The variant loop is master's shape: `checkDivModPinLoop`
+(recursion over the variants with the reasons list), `checkDivModPinAt` (the type pins, then the
+pin, then the certificates, each only after the previous passed) and `checkTypePins`.  The
+annotations' free variables of the certificates' hypotheses (the interned `Nat` variables) are not
+read by InLean's `constsResolve`; master's reads their type `Nat`, which `divModEnvGuard` has
+established stored.
+
+*Proofs.*  `checkTermWF_run` follows (the last guard is `constsResolve`); nothing else unfolded
+the changed code.  New `InLeanProof/CertDivMod.lean`: **`constsResolve_tr`** (InLean's
+resolution is master's on the reading, the free variables' reading resolving;
+`constsResolve_trC` for closed terms), through `usedConstants_complete` (`collect_complete` and
+the deduplicating fold) and `anySpec` (`anyNode_fresh`).  `crNF_of_infer`/
+`constsResolve_of_infer` stay: they are still how O6's constant and value checks get master's
+guard, which `constsResolve_trC` now gives directly from `checkTermWF` (a simplification left for
+a later pass: the inference lemmas are used by the inductive tier too).  2 pins.
+
+*Validation* (`inlean-replay --kernel=inlean --compare --quiet`): Init 64,530, Std 110,064,
+Lean 199,645 declarations accepted, 0 rejected, 0 declined, 0 exact and 0 cosmetic mismatches;
+`scripts/inlean_negtest.lean` 13/13.  `instructions:u` on Init (`--kernel=inlean --quiet`, one
+run): 895.4 G (868.8 G before): +3.1 %, the second walk `constsResolve` adds to every checked
+type and value; fusing it with `usedConstants` into one walk is the obvious remedy, not done.
+With `--certify-nat-ops` Init declines at `Nat.land` ("unsupported Nat.div/mod environment",
+`divModEnvGuard`, which this lane did not change; not checked against the code before it).
+
+**FINDING 4 (blocks the variant loop): the guards' converse, at decoded data.**  InLean's variant
+loop and master's move on at the same variants only if InLean's guard is false exactly where
+master's is: where InLean's is false and master's true, master runs an attempt InLean never ran,
+and the simulation has no run of it.  So the loop needs the converse of the guard translations.
+For `constsResolve` it should hold (both read the stored names, `EnvPresI` both ways; not proved).  For the cached
+flags (`hasLooseBVars`, `hasFVar`, `hasLevelParam`) it holds on terms in range only (the
+`mkData` stop-gaps), and the pins, proofs and type pins are decoded at run time, so their range is
+a fact about the dumps the proof cannot read.  Proposal (executable, needs a ruling): the decoder
+(`loadPinSets`) refuses a dump with a term out of range (`EO.inRange`, the one check the proof
+takes for unverified input), so that `loadPinSets () = .ok sets` gives every decoded term in
+range; `trPinSet` then translates every variant faithfully.  Without it, `DivModArmSimI
+loadedPins` needs the range of the decoded terms as a premise.
+
+*What remains* (`DivModArmSimI loadedPins`): FINDING 4's ruling; `trPinSet`'s fields against
+`PinSet.op?` (`divModDeclPin`/`divModCertProofs`/`divModTypePins` at a translated name are
+`trOpPin`/`trOpProofs`/`trOpTypePins`, eight names); the guards both ways (`divModPinGuard`,
+`divModCertGuard`, `divModCertsGuard`, from `constsResolve_tr` and its converse and the flags);
+`substConstAll` (InLean's `replaceI` is `mapSpec` by `mapOff_fresh`; translation to master's
+under binders, the value closed); `divModCertStmts` over the interned variables (as
+`natOpEqs_tr`); the certificate loop (inference at depth 4, `mkFVarM 2`/`3` at the hypotheses,
+master's `divModCertApplied`); `checkTypePins` (`typePinStored`); `checkDivModPinAt`; the variant
+loop by induction over the variants; the arm (`checkDefnC` with `divModEnvGuard_tr` at the pushed
+environment).  Then P4 supplies `NatKinds L`.
+
+Gates: `lake build InLean InLeanProof` warning-free; `tests/layering.sh`,
+`tests/trust-surface.sh`, `tests/no-local-paths.sh`, `tests/inlean-sync.sh` pass.
+
 ## TASK #489 — what a module's constants mention, in one array per module (2026-11-06, agent/489-flat-uses)
 
 **The task (maintainer).**  After #480, take the self-contained one of the memory fixes a census of
