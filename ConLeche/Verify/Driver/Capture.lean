@@ -687,8 +687,8 @@ end
 /-- **A partner read `agreeCheck` records**: a name of the statement of the copy `s₂`, as a read
 of `s₂`'s module. -/
 @[expose] def AgreeNew (sp : SearchPath) (fs : FS) (s₂ : Spot) (x : Name × Name) : Prop :=
-  x.1 = s₂.part.mod ∧ s₂.pos.skipped = false ∧ ∃ rg cv₂ k₂, PartRegion sp fs s₂.part rg ∧ StmtSkel rg s₂.pos.loc cv₂ k₂ ∧
-    x.2 ∈ (needsGo {} #[] cv₂.type).2
+  x.1 = s₂.part.mod ∧ s₂.pos.skipped = false ∧ ∃ rg cv₂ k₂, PartRegion sp fs s₂.part rg ∧
+    StmtSkel rg s₂.pos.loc cv₂ k₂ ∧ k₂.tag < 4 ∧ x.2 ∈ (needsGo {} #[] cv₂.type).2
 
 theorem ps_no {p₁ p₂ : ProofStatus} (h : ¬(p₁ == .no || p₂ == .no) = true) :
     p₁ ≠ .no ∧ p₂ ≠ .no := by
@@ -784,9 +784,6 @@ theorem agreeCheck_st (he : EnvOk sp fs env) {c : ReachCache} (hc : CacheOk sp f
   | error e => simp only [ModelIO.allOk_pure]; exact ⟨Step.ofFr f4, fun h => by cases h⟩
   | ok p₂ =>
   simp only []
-  have hN : ∀ x ∈ partnerReads s₂.part.mod cv₂.type, AgreeNew sp fs s₂ x := fun x hx => by
-    obtain ⟨a, b⟩ := mem_partnerReads.1 hx
-    exact ⟨a, hsk, rg₂, cv₂, k₂, hr₂, hst₂, b⟩
   have hP : ∀ c' ∈ (needsGo {} #[] cv₂.type).2,
       (s₂.part.mod, c') ∈ c₄.partners ++ partnerReads s₂.part.mod cv₂.type :=
     fun c' hc' => Array.mem_append.2 (.inr (mem_partnerReads.2 ⟨rfl, hc'⟩))
@@ -794,6 +791,9 @@ theorem agreeCheck_st (he : EnvOk sp fs env) {c : ReachCache} (hc : CacheOk sp f
   · simp only [ModelIO.allOk_pure]; exact ⟨Step.ofFr f4, fun h => by cases h⟩
   rename_i hno
   obtain ⟨hn₁, hn₂⟩ := ps_no hno
+  have hN : ∀ x ∈ partnerReads s₂.part.mod cv₂.type, AgreeNew sp fs s₂ x := fun x hx => by
+    obtain ⟨a, b⟩ := mem_partnerReads.1 hx
+    exact ⟨a, hsk, rg₂, cv₂, k₂, hr₂, hst₂, (h6 p₂ rfl).1 hn₂, b⟩
   have st5 : Step sp fs (fun _ _ => False) (AgreeNew sp fs s₂) c
       { c₄ with partners := c₄.partners ++ partnerReads s₂.part.mod cv₂.type } :=
     (Step.ofFr f4).trans (Step.partners_append hN)
