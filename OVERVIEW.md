@@ -782,7 +782,7 @@ worker step to answer 0; a failure names the first failing module in the graph's
 code. The scheduler starts one `--olean --module --jobs=1` process of the binary per module, at
 most `--jobs` at once, staggered (`--schedule-stagger=MS`), within a memory budget over the
 running workers' resident sets (`--schedule-memory=SIZE`, a number with a unit `K`, `M`, `G` or
-`T`, such as `40G`: the largest is killed, by its own child handle, and run again alone once),
+`T`, such as `40G`: a worker starts only while the running workers' peak sets sum to under it; when their current sets exceed it the largest is protected, the youngest others are killed by their own child handles and queued again, and no worker starts until the protected one finishes; the protected one alone over the budget has the verdict `memory`),
 with a time limit per worker (`--schedule-timeout=S`) and an append-only log a restart resumes
 from (`--schedule-log=FILE`, one `<verdict>\t<module>` line per finished module); its verdict is
 its workers' exit codes, and no theorem is about it: the modular statement composes what each

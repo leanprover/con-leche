@@ -114583,3 +114583,49 @@ Usage text and OVERVIEW §(scheduler) updated; the README's `runArgs` links repo
 text moved the definition from line 284 to 287).  Gates: `lake build`, `lake test`
 warning-free; trust surface, layering, overview links, quote gate; olean gate 321/321 under the
 guard.  No fixture pins the memory text: a tick may miss a short worker.
+
+## TASK #510: memory preemption in the scheduler (`Driver/ScheduleIO.lean`)
+
+Trigger: in the maintainer's run (239 685 modules, `--jobs=16`, `--schedule-memory=40G`) one
+kill queued a module "to run again alone", and the old start step then started nothing else
+while `solos` was non-empty: the workers drained from 11 to 1 and the run waited at one job for
+10+ minutes. Ruling (second version; deferral of the retries was dropped): the big module
+preempts the others.
+
+* Overflow (sum of `VmRSS` of the running workers over the budget): the worker with the largest
+  current RSS (ties: largest `VmHWM`) is protected; the youngest other worker is killed and
+  put at the FRONT of `pending` (no verdict, not logged); starts pause while the protected worker
+  runs; next tick still over: the next-youngest goes; the protected one alone over the budget
+  is killed with verdict `memory` (no retry). A different worker that becomes the largest takes
+  over the protection. Starts resume when the protected worker finishes. The solo queue is gone.
+* Admission (sawtooth profiles): a worker starts only while the sum of the running workers'
+  `VmHWM` (peaks so far, at least the current RSS) is under the budget, besides jobs, stagger and
+  pause. Nothing running: sum 0, a worker always starts, so no deadlock.
+* Status line / heartbeat: `k running, 67 MiB now (max 67 MiB), 67 MiB peaks of 0.1 GiB,
+  1 requeued, paused for M`; the summary adds the re-run count per run (kills, modules, most
+  kills of one module).
+
+Hand test (`--olean --schedule --jobs=4 --search-path=<toolchain lib> -- Init.Data.Nat.Lemmas`,
+84 modules, each worker 15..100 MiB; budget 60M is below single workers' peaks, so the budgets
+below are 90M and 120M; guard and `timeout`; one run each, wall time only an illustration):
+
+```
+old, 120M: Init.Data.Nat.Lemmas: killed at 105 MiB (running workers 168 MiB, budget 120 MiB); to run again alone
+           wall 18s (the old run at 60M: 68 kills, nothing but solos after the first; wall 23s)
+new, 120M: Init.Data.Nat.Bitwise.Basic: killed at 63 MiB to make room for Init.Data.Nat.Lemmas (0.1 GiB), queued again (running 0.1 GiB of 0.1 GiB); starts paused until Init.Data.Nat.Lemmas finishes
+           Init.Data.Nat.Lemmas: 0 t=0.8s [1/84 1.1 %, 0 running, 1 requeued, eta 1m10s]  (pause over, starts resume)
+           con-leche: schedule: 1 kills for memory put modules back in the queue (1 modules, at most 1 times each)
+           exit 0, wall 19s
+new,  90M: 6 kills of 6 different modules (at most 1 each), e.g.
+           Init.Data.Int.Basic: killed at 12 MiB to make room for Init.Omega.Coeffs (58 MiB), queued again (running 100 MiB of 90 MiB); starts paused until Init.Omega.Coeffs finishes
+           Init.Data.Nat.Lemmas: 97 MiB alone, over the budget of 90 MiB: memory     (case 4)
+           exit 3 (first not accepted: Init.Data.Nat.Lemmas (memory)), wall 19s; old: 3 kills, exit 3, wall 17s
+new,  30M: every module alone over the budget: 25 `memory` verdicts, 0 kills of others, no deadlock
+```
+
+Admission at 200M: peaks 0.1 GiB of 0.1 GiB with 2 running; the pool never filled to 4 where
+peaks filled the budget, and the run ended normally (wall 18s, as old). The protected worker is
+chosen by current RSS with VmHWM as tie-break. Gates: lake build/test clean, trust-surface,
+tests/olean.sh 321/321 under the guard, overview links. `tests/quote-gate.sh` reports
+`model_exists`, `main_no_False`, `main_oleans_no_False` on the unmodified `modular` tip too
+(not from this lane).
