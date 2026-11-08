@@ -516,4 +516,96 @@ theorem own_reads_ctx {sp : SearchPath} {fs : FS} {M : Name} {jobs : Nat} {w : W
         · exact .inr ⟨d, hd, hyd⟩
   exact key _ _ (.inr ⟨p, Array.mem_toList_iff.2 hp, hy⟩)
 
+/-! ## A part's name table on the snapshot is one -/
+
+/-- A module's files read at a location are the snapshot's. -/
+theorem readFilesAt_unique {fs : FS} {loc : Located} {m : Name} {L : OLeanLevel}
+    {hs₁ hs₁' hs₂ hs₂' : HS} {f₁ f₂ : ModFiles}
+    (h₁ : (readFilesAt loc m L : ModelIO _) fs hs₁ (.ok (.ok f₁)) hs₁')
+    (h₂ : (readFilesAt loc m L : ModelIO _) fs hs₂ (.ok (.ok f₂)) hs₂') : f₁ = f₂ := by
+  simp only [readFilesAt, ModelIO.bind_ok] at h₁ h₂
+  obtain ⟨x₁, _, hx₁, h₁⟩ := h₁
+  obtain ⟨x₂, _, hx₂, h₂⟩ := h₂
+  obtain ⟨b₁, hb₁, rfl⟩ := readPart_ok hx₁
+  obtain ⟨b₂, hb₂, rfl⟩ := readPart_ok hx₂
+  rw [hb₁] at hb₂
+  cases hb₂
+  cases hp : Part.ofBytes (modFile loc.dir m "olean").toString b₁ with
+  | error e => simp [hp] at h₁
+  | ok ex =>
+  simp only [hp] at h₁ h₂
+  by_cases hl : (L == .exported) = true
+  · simp only [hl, ite_true, ModelIO.pure_iff, Except.ok.injEq] at h₁ h₂
+    exact h₁.1.trans h₂.1.symm
+  simp only [hl, Bool.false_eq_true, ite_false] at h₁ h₂
+  by_cases hm : ModFiles.isModule { exported := ex } = true
+  rotate_left
+  · simp only [hm, Bool.not_false, ite_true] at h₁ h₂
+    split at h₁
+    · simp at h₁
+    · rename_i hc
+      simp only [hc, Bool.false_eq_true, ite_false, ModelIO.pure_iff, Except.ok.injEq] at h₁ h₂
+      exact h₁.1.trans h₂.1.symm
+  simp only [hm, Bool.not_true, Bool.false_eq_true, ite_false] at h₁ h₂
+  by_cases hsv : loc.hasServer = true
+  rotate_left
+  · simp [hsv] at h₁
+  simp only [hsv, Bool.not_true, Bool.false_eq_true, ite_false] at h₁ h₂
+  by_cases hpv : loc.hasPrivate = true
+  rotate_left
+  · simp [hpv] at h₁
+  simp only [hpv, Bool.not_true, Bool.false_eq_true, ite_false, ModelIO.bind_ok] at h₁ h₂
+  obtain ⟨y₁, _, hy₁, h₁⟩ := h₁
+  obtain ⟨y₂, _, hy₂, h₂⟩ := h₂
+  obtain ⟨c₁, hc₁, rfl⟩ := readPart_ok hy₁
+  obtain ⟨c₂, hc₂, rfl⟩ := readPart_ok hy₂
+  rw [hc₁] at hc₂
+  cases hc₂
+  cases hq : Part.ofBytes (modFile loc.dir m "olean.server").toString c₁ with
+  | error e => simp [hq] at h₁
+  | ok sv =>
+  simp only [hq] at h₁ h₂
+  by_cases hls : (L == .server) = true
+  · simp only [hls, ite_true, ModelIO.pure_iff, Except.ok.injEq] at h₁ h₂
+    exact h₁.1.trans h₂.1.symm
+  simp only [hls, Bool.false_eq_true, ite_false, ModelIO.bind_ok] at h₁ h₂
+  obtain ⟨z₁, _, hz₁, h₁⟩ := h₁
+  obtain ⟨z₂, _, hz₂, h₂⟩ := h₂
+  obtain ⟨d₁, hd₁, rfl⟩ := readPart_ok hz₁
+  obtain ⟨d₂, hd₂, rfl⟩ := readPart_ok hz₂
+  rw [hd₁] at hd₂
+  cases hd₂
+  cases hr : Part.ofBytes (modFile loc.dir m "olean.private").toString d₁ with
+  | error e => simp [hr] at h₁
+  | ok pv =>
+  simp only [hr, ModelIO.pure_iff, Except.ok.injEq] at h₁ h₂
+  exact h₁.1.trans h₂.1.symm
+
+/-- **A part's name table on the snapshot is one.** -/
+theorem partNames_eq {sp : SearchPath} {fs : FS} {k : PartKey} {t t' : NamePositions}
+    (h : PartNames sp fs k t) (h' : PartNames sp fs k t') : t = t' := by
+  obtain ⟨_, _, h⟩ := h
+  obtain ⟨_, _, h'⟩ := h'
+  simp only [readPartNames, ModelIO.bind_ok] at h h'
+  obtain ⟨y, _, hy, h⟩ := h
+  obtain ⟨y', _, hy', h'⟩ := h'
+  rcases y with e | loc
+  · simp at h
+  rcases y' with e | loc'
+  · simp at h'
+  obtain rfl : loc' = loc := Except.ok.inj ((findModule_ok hy).ok hy')
+  simp only [readPartNamesAt, ModelIO.bind_ok] at h h'
+  obtain ⟨z, _, hz, h⟩ := h
+  obtain ⟨z', _, hz', h'⟩ := h'
+  rcases z with e | f
+  · simp at h
+  rcases z' with e | f'
+  · simp at h'
+  obtain rfl := readFilesAt_unique hz hz'
+  cases hn : readNamePositions f k.level with
+  | none => simp [hn] at h
+  | some ps =>
+  simp only [hn, ModelIO.pure_iff, Except.ok.injEq] at h h'
+  exact h.1.trans h'.1.symm
+
 end ConLeche.Driver
