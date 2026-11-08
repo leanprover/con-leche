@@ -494,6 +494,69 @@ theorem reached_rank {M : Name} (hM : M ∈ R.names) {m : Name}
     · have := R.fixpoint_rank ih.1 hown hld hp
       exact ⟨this.1, by omega⟩
 
+/-- An importer copy's module is a loaded one. -/
+theorem importerSpot_loaded {env : ReachEnv ModelIO} {y : Name} {i : Nat} {s : Spot}
+    (hsize : env.wr.index.parts.size = env.wr.loads.order.size)
+    (h : importerSpot env y = some (i, s)) :
+    i < env.wr.loads.order.size ∧ s.part.mod = env.wr.loads.nameAt i := by
+  unfold importerSpot at h
+  simp only [Option.bind_eq_bind, Option.bind_eq_some_iff, Option.pure_def,
+    Option.some.injEq] at h
+  obtain ⟨cp, -, q, hq, h⟩ := h
+  cases h
+  unfold NameIndex.at at hq
+  obtain ⟨t, ht, -⟩ := Option.bind_eq_some_iff.1 hq
+  exact ⟨by rw [← hsize]; exact (Array.getElem?_eq_some_iff.1 ht).1, rfl⟩
+
+/-- **The capture facts of a module's worker** (`reach_capture`, at the run's worker). -/
+theorem capture {M : Name} (hM : M ∈ R.names) :
+    let wr := (R.w M).reads
+    let env : ReachEnv ModelIO :=
+      { rd := .ofPath sp, mod := M, wr, own := ownNames (R.w M).home, copies := clashCopiesOf wr }
+    let r := (R.w M).reach
+    ∃ (loc : Std.HashMap Name Spot) (pend : List (String × Name × ConstantVal))
+      (P : List (Name × Name)),
+      r.ctx.size = r.homes.size ∧
+      (∀ (k : Nat) (d : Declaration) (hm : Name), r.ctx[k]? = some d → r.homes[k]? = some hm →
+        (∃ x ∈ declNames d, ∃ s, copyOf env loc x = some s ∧ s.part.mod = hm ∧ ReadAt sp fs d s) ∧
+        (∀ n ∈ declNames d, ∃ s, copyOf env loc n = some s ∧ s.part.mod = hm) ∧
+        (∀ y ∈ recordReads d, (hm, y) ∈ P) ∧
+        (∀ n ∈ declNames d, ∀ cs, env.copies[n]? = some cs → ∀ kc ∈ cs,
+          ∀ y ∈ (needsGo {} #[] kc.2.type).2, (kc.1, y) ∈ P)) ∧
+      (∀ x ∈ P, Passed sp fs env loc (· ∈ pend) (· ∈ P) x.1 x.2) ∧
+      (∀ cl ∈ wr.clashes, ClashOk sp fs wr (· ∈ pend) cl) ∧
+      inferFlags r.ctx.toList pend = .ok () ∧
+      (∀ (y : Name) (s : Spot), loc[y]? = some s → importerSpot env y = none ∧
+        s.part.level = .private ∧ CopyAt sp fs s ∧ Reached sp fs wr s.part.mod) ∧
+      (∀ x ∈ P, Reached sp fs wr x.1 ∧ Origin sp fs env r.ctx r.homes x) := by
+  intro wr env r
+  have hw := R.facts M hM
+  obtain ⟨_, _, hrd⟩ := hw.reads
+  obtain ⟨hparts, hindex⟩ := workerReads_index hrd
+  obtain ⟨-, -, -, -, hsize, -, -, hcm⟩ := workerReads_loads hrd
+  obtain ⟨_, _, hre⟩ := hw.reach
+  exact reach_capture hparts hindex (Nat.le_of_eq hsize)
+    (fun cl hcl x hx => hcm cl (Array.mem_toList_iff.2 hcl) x (Array.mem_toList_iff.2 hx)) hre
+
+/-- **Every home of a context record is a module of the run of smaller rank.** -/
+theorem home_rank {M : Name} (hM : M ∈ R.names) {k : Nat} {h : Name}
+    (hh : (R.w M).reach.homes[k]? = some h) : h ∈ R.names ∧ R.rk h < R.rk M := by
+  obtain ⟨loc, pend, P, hsz, hrec, -, -, -, hloc, -⟩ := R.capture hM
+  obtain ⟨_, _, hrd⟩ := (R.facts M hM).reads
+  obtain ⟨-, -, -, -, hsize, -⟩ := workerReads_loads hrd
+  have hk : k < (R.w M).reach.ctx.size := by
+    rw [hsz]; exact (Array.getElem?_eq_some_iff.1 hh).1
+  obtain ⟨⟨x, -, s, hs, hmod, -⟩, -⟩ := hrec k _ h (Array.getElem?_eq_getElem hk) hh
+  apply R.reached_rank hM
+  rw [← hmod]
+  unfold copyOf at hs
+  split at hs
+  · rename_i i s' he
+    cases hs
+    obtain ⟨hi, hmod'⟩ := importerSpot_loaded hsize he
+    rw [hmod']; exact .loaded hi
+  · exact (hloc x s hs).2.2.2
+
 end Run
 
 end ConLeche.Driver.Compose
