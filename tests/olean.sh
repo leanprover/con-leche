@@ -627,10 +627,13 @@ for m in Tiny TinyUse TinyClassic LazyVal PrivUnused HidA HidAll HidUse RbH RbM 
     HiLamA HiLamB HiInhD HiInhL HiInhT HiInhX HiInhM HiInhM2 \
     TeqH TeqP1 TeqP2 TeqQ2 TeqX TeqM TeqBoth NsC NsH NsM NsN \
     LdgQ LdgA LdgM LdgN LdvQ LdvA LdvM LdvN GrN LvA LvB LvC LvM LvN \
-    PdA PdB WvA WvB ClashA ClashB ClashX FrX FrY MoX NlB NlX NlY RtA PpA PpB DnM1 DnM2 DnH \
+    PdA PdB WvA WvB ClashA ClashB ClashX FrX FrY MoX NlB NlX NlY PpA PpB DnM1 DnM2 DnH \
     GbG GbG2; do
   work_ "the worker at $m" 0 "accepted" "$MSP" $m
 done
+# RtA's theorem at the compiler-trust name Lean.reduceBool: the name is reserved to the opaque
+# constant of the pin's shape, so RtA's own worker refuses it, a reject Lean does not make
+work_ "a theorem at a compiler-trust name" 1 "a compiler-trust name, not an opaque constant" "$MSP" RtA
 # RtA's theorem at the compiler-trust name Lean.reduceBool, read by RtM: its statement as an
 # axiom at that name presents nothing RtA declares (a record there is presented as itself), so
 # the reach refuses it (task #448); Lean accepts the module
