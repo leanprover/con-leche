@@ -9,8 +9,10 @@ public import ConLeche.Driver.Reach
 # The worker: one module checked against the records it is checked against
 
 `con-leche --olean --module --search-path=DIRS -- M` checks the module `M` alone (DESIGN #460 §3),
-in the phases below, generic in the IO class like `checkMainG`.  Its theorem in the model is
-`ConLeche/Verify/Driver/Worker.lean`'s.
+in the phases below, generic in the IO class like `checkMainG`, its reads of the files `rd`
+(`OleanReads`).  Its theorem in the model is `ConLeche/Verify/Driver/Worker.lean`'s.  The run of
+`--module` gives it the reads answered from its tables (`workerTables`,
+`ConLeche/Driver/Tables.lean`: every module its header fixpoint loads located once, up front).
 
 1. **The home** (`readHome`): `M`'s private view loaded (`loadAt`, its theorems' values left in
    the file) and its three parts checked against each other (`checkViews`: what `M` presents to
