@@ -112796,6 +112796,146 @@ Gates: `lake build InLean InLeanProof inlean-replay` warning-free;
 `tests/layering.sh`, `tests/trust-surface.sh`, `tests/no-local-paths.sh`,
 `tests/inlean-sync.sh` pass.
 
+### Lane O7-positivity: the walk's records and pure steps, two divergences in the walk (2026-11-08)
+
+Scope was round 4's "what remains" for the positivity walk, bottom-up
+(`nestFields` … `nestPos`, then `nestRoot`, `checkAbsCtorSortsAll`, so
+`checkBlockPositivity`).  The records, every pure step and the frame's
+group-reading steps are done, and so is `nestFields` against a recursion
+spec; `nestCtors` and everything above it are not started, because the
+walk's simulation is false for the code at two sites (findings 2 and 3).
+No `sorry`, no new axiom (the instantiation-based theorems use the stop-gap
+`mkData` axioms, as every `TrS` lemma); no `InLean/*` change; 51 new pins,
+`runs4_bind` replaced by `runs5_bind`.
+
+**The records** (`InLeanProof/PassNestPos0.lean`).  `trNK` (field kinds),
+`trHole` (a hole: `trKey` of its key), `trNf` (a normal form), `trSt` (keys
+and the active list through `trKey`, the normal forms through `trNf`), all at
+a state, with their side conditions `KeyOk`/`NfOk`/`StOk`/`ProgOk`, stable
+as the table grows (`*.mono`, which also say the reading does not move).
+* *Keys compare as their readings*: InLean's derived `==` on `NestKey` is
+  `Name.beq`, the scoped lawful level `==` and the checker's `clEq` on the
+  parameters (`instBEqNestKey.beq.eq_1`), so `keyBeq_tr` is O2
+  (`clEq_iff_TransS`) plus the injectivity of `toName`/`trL`; membership
+  (`contains_trKey`) and `nestAcceptGroup_tr` follow.  So the cache and the
+  cycle check need no extra invariant: equal readings are equal keys.
+* `WalkRel fe L s ctx cctx`: `CanonRel`, `ctx.fe = fe`, `cctx.find? = L.find?`,
+  the sort, the index counts, and the parameters through the state (round
+  4's finding 2, packaged); `rootHoles_tr`, `nestHoleAt_tr`.
+* The containers: `nestCtorEntry_tr`, `ctorEntry_lookup_tr` (through
+  `ctorView_rel`/`ctorView_none`), `nestContainer_tr`, `nestBlockOf_tr`,
+  `nestFrameMates_tr` (`eraseDups_map_toName`).
+* `replaceFVarsI_tr` (`FSub`: InLean's images read as master's), with
+  `nestKeyMap_sub` and `nestHoleImg_sub` (the holes read back, by induction
+  on the stack).
+* `fvarB_tr` (the variable bound, from `mem_fvarIds` and
+  `fvarRange_TrS_le`), `hasLooseBVars_of_closed` (both sides' loose-variable
+  test on a closed reading; `import all Lean.Expr` for `hasLooseBVars`'s
+  body).
+
+**The walk's first steps** (`InLeanProof/PassNestPos.lean`).
+* `RecSpecI`: master's cached `RecSpec`'s twin — at a readable input, well
+  scoped at its depth and closed (`TOk`), under `WalkRel`, `ProgOk`, `StOk`,
+  a successful run answers master's on the readings, its normal form `TOk`,
+  the state `StOk`.
+* `nestFieldsI_run` (`TeleOk`: the telescope readable, `TeleWS`, closed).
+* `nestCrestI_run`, `lbb_nestCrest` (a crest of a closed type at closed
+  variables is closed, from the `Verify` lemmas: no `Model` import).
+* `nestGroupCtorsI_run` (the state unchanged), `nestGrowGroupI_run`
+  (`GrpOk`), on `nestInstTypeI_run`, which now also states that its type is
+  scoped wherever the key's parameters are (master's `InstWS`, via
+  `wscoped_instPisWith`).
+* `allFvarB_tr`, `nestWalkStack_tr`.
+
+**Theorems** (file:line).  `PassNestPos0.lean`: `trNK_ne_ordinary` :43,
+`closed_of_tabLe` :73, `KeyOk.mono` :80, `NfOk.mono` :86, `map_trKey_of_tabLe`
+:92, `map_trNf_of_tabLe` :99, `StOk.mono` :106, `nameBeq_tr` :123,
+`levelBeq_tr` :129, `levelsBeq_tr` :137, `exprsBeq_tr` :149, `keyBeq_tr` :172,
+`contains_trKey_list` :184, `contains_trKey` :195, `trGrp_cons` :206,
+`trGrp_append` :210, `nestAcceptGroup_tr` :215, `WalkRel` :248,
+`WalkRel.mono` :260, `rootHoles_tr` :273, `nestHoleAt_tr` :284,
+`nestCtorEntry_tr` :297, `trCtorL_append` :322, `ctorEntry_lookup_tr` :326,
+`nestContainer_tr` :349, `nestBlockOf_tr` :388, `eraseDups_map_toName` :407,
+`nestFrameMates_tr` :425, `replaceFVars_eq` :451, `cReplaceFVars_closed` :456,
+`rf_closed` :472, `replaceFVarsI_mapSpec` :483, `replaceFVarsI_tr` :581,
+`replaceFVarsI_trL` :593, `nestKeyMap_sub` :605, `ProgOk.mono` :626,
+`getD_names_tr` :633, `nestHoleImg_sub` :640, `foldl_fvarB_le` :676,
+`fvarRange_TrS_le` :688, `fvarB_tr` :758, `hasLooseBVars_of_closed` :787.
+`PassNestPos.lean`: `TOk.mono` :37, `RecSpecI` :44, `TeleOk.mono` :60,
+`nestFieldsI_run` :68, `nestCrestI_run` :162, `lbb_nestCrest` :193,
+`nestGroupCtorsI_run` :226, `GrpOk.mono` :273, `nestGrowGroupI_run` :292,
+`allFvarB_tr` :337, `nestWalkStack_tr` :345.  `PassNestKey.lean`:
+`runs5_bind` :275, `nestInstTypeI_run` :283 (restated).  All theorems pinned.
+
+**Findings.**
+1. The records need no invariant beyond readability: InLean's key `==` is
+   equality of readings at the state (above).
+2. *The walk's re-abstractions can write the range marker, and the walk
+   reads the result unchecked* (the class of round 3's step 0).  InLean's
+   `closeTelescope` and `abstract1` abstract by depth
+   (`EO.abstractDepthsFrom`), writing `EO.rangePoison` (an `mvar`) where the
+   bound index would pass `maxBVarIdx` (1048574); master's abstraction has
+   no bound.  Two walk sites read such a result: `nestCtors`
+   (`closeTelescope nds hi cur`: the U4 test `structUsedLater`, the
+   returned normal form, the recorded `NestCtorNf`) and `nestPos`'s `Π` arm
+   (`abstract1 nb dep 0`).  A field variable reaches such a depth through
+   reduction: a later field's domain `D x`, `D` a stored definition whose
+   body is `fun y => ∀ z₁ … z_N, P y` with `N = 1048574` (its `bvar N` is in
+   range), is walked to `∀ z₁ … z_N, P x` (`x` the field's variable);
+   closing the telescope two fields later abstracts `x` at index `N + 1`,
+   so InLean writes the marker.  If `x`'s field is recursive, master's
+   `structUsedLater` sees the use and rejects ("a later field … depends on a
+   recursive or nested field"); InLean's (`hasLooseBVarI 0` on the marked
+   term) does not, so InLean can accept where master rejects.  Not built as
+   a file (a 10^6-deep binder nest).  So `nestCtorsI_run` is false for the
+   code as it stands; the proof needs, at both sites, a refusal of a marked
+   result before it is read: `unless !(closeTelescope nds hi cur).hasExprMVar`
+   (O(1): an input has no `mvar`, so the flag is the marker) in `nestCtors`
+   right after `nestFields`, and the same on the rebuilt `Π` in `nestPos`,
+   each an internal error ("too many bound variables"), as `reducedFormer`
+   and `projStepsAllOk` refuse.  `closeTelescope_tr` then applies
+   (`emvarS = false` from the flag, `Expr.hasExprMVar_eq`).  Not done: it is
+   an `InLean/*` change; awaiting the ruling.
+3. *The root's fuel differs*: `nestRoot` fuels each constructor's walk by
+   `whnfWalkFuel crest` = `EO.depth crest + 1024`; InLean's `depthGo` counts
+   an `mdata` node (`| .proj _ _ x | .mdata _ x => d + 1`), master's
+   `Expr.depth` reads the `mdata`-free reading, so InLean's fuel can be the
+   larger, and `nestPos` declines (`notImplemented`) when fuel runs out: on
+   a telescope that reduction manufactures beyond master's fuel and within
+   InLean's, InLean succeeds where master declines.  The twin should read
+   through `mdata` (`| .mdata _ x => depthGo x memo`, as every other walk
+   does); then `EO.depth e = (TrS s e).depth` is provable.  The seeds'
+   fuel (`nestSeeds`, `whnfWalkFuel` of a key's parameters) is the same
+   function.  Not done: an `InLean/*` change.
+4. *Proof-side*: `deriving BEq` yields `instBEqNestKey.beq.eq_1`, the way to
+   unfold a derived comparison; `lake env lean` checks against the BUILT
+   imports (a changed dependency needs `lake build` of it first).
+
+**What remains** (bottom-up), after the ruling on findings 2 and 3:
+`structUsedLater` read (`peelPis` through the reading, `hasLooseBVarI` as
+master's `hasLooseBVar`), `nestCtorsI_run` (the recursion as
+`∀ x s, OkS s x → RecSpecI (rec x) (rec' (TrS s x))`, `namesNodup` by
+`nodup_tr`, `instLevelParamsM_specI`, `nestCrestI_run`, `inferType`/
+`ensureSort` through `OpsSimI` with `wscoped_nestCrest`/`lbb_nestCrest`,
+`nestFieldsI_run`, U4 by `trNK_ne_ordinary`, `nestResHead`/`appArgs`/
+`nestOccI_tr`, the push through `trNf`), `nestFrameI_run`
+(`familyKeyCheckI_run`, the holes by `mkFVarM_specI` at `GrpOk`'s types,
+`frameHoles`), `nestContNewI_run` (`nestFrameMates_tr`, `nestGrowGroupI_run`,
+the active list, `nestAcceptGroup_tr`, `allFvarB_tr`), `nestContKeyI_run`
+(`contains_trKey` on the array and the list), `nestContI_run`
+(`nestContainer_tr`, `hasLooseBVars_of_closed`, `allFvarB_tr`,
+`nestInstTypeI_run`), `nestPosI_run` by induction on the fuel
+(`OpsSimI.whnf`, `nestHoleAt_tr`, the ∀ arm's rebuild by
+`toExpr_abstractDepthsFrom`), then `nestRoot` (finding 3's depth lemma),
+`checkAbsCtorSortsAll`, `checkBlockPositivity` (with `blockNestCtxI_run`,
+`nestUniformI_run`); and the rest of round 4's list (`checkBlockClasses`,
+`nestSeeds`, the tables, the pushes, `PassSimI`/`TailSimI`,
+`checkIndDeclC_sim_rest`).
+
+Gates: `lake build InLean InLeanProof inlean-replay` warning-free;
+`tests/layering.sh`, `tests/trust-surface.sh`, `tests/no-local-paths.sh`,
+`tests/inlean-sync.sh` pass.
+
 ## TASK #489 — what a module's constants mention, in one array per module (2026-11-06, agent/489-flat-uses)
 
 **The task (maintainer).**  After #480, take the self-contained one of the memory fixes a census of

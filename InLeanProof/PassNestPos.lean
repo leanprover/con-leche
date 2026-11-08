@@ -2,6 +2,7 @@ module
 
 public import InLeanProof.PassNestPos0
 import ConLeche.Verify.Inductives.NestScope
+import ConLeche.Verify.Inductives.ReplaceApps
 
 /-!
 # O7-positivity: the positivity walk against master's (task #451, lane O7-positivity)
@@ -15,6 +16,12 @@ The walk's monadic steps, each master's on the readings of
   on the readings, its normal form readable, scoped and closed, the state's
   records readable.
 * `nestFieldsI_run`: a constructor's field telescope through the recursion.
+* `nestCrestI_run`, `lbb_nestCrest`: a stored constructor at a key, and its
+  closedness on master's side.
+* `nestGroupCtorsI_run`, `nestGrowGroupI_run` (`GrpOk`: a group's hole types
+  readable, closed, scoped wherever the key's parameters are): a frame's
+  group.
+* `nestWalkStack_tr`: the stack an instantiation is walked under.
 -/
 
 public section
@@ -147,5 +154,201 @@ theorem nestFieldsI_run {fe : InLean.FEnv} {L : ConLeche.Env} {ctx : InLean.Nest
         exact Runs.pure _
     | mdata m b => exact (hnm m b rfl).elim
     | _ => simp only at h; exact (throw_run h).elim
+
+/-! ## A constructor at a key -/
+
+/-- **A stored constructor type at a key** (`nestCrest`): an answer reads, at
+the final state, as master's on the readings. -/
+theorem nestCrestI_run {mode : ConLeche.CheckMode} {eager : Bool} {env : ConLeche.Env}
+    {names : List Lean.Name} {us : List Lean.Level} {ds holes : List Lean.Expr}
+    {cty : Lean.Expr} {s₀ s' : InLean.CState} {r : Option Lean.Expr}
+    (hs : CSOKI mode eager env s₀) (hus : us.all okLv = true) (hok : OkS s₀ cty = true)
+    (hds : OkSL s₀ ds = true) (hh : OkSL s₀ holes = true)
+    (h : InLean.nestCrest names us ds holes cty s₀ = .ok (r, s')) :
+    CSOKI mode eager env s' ∧ TabLe s₀ s' ∧ (∀ y, r = some y → OkS s' y = true) ∧
+      r.map (TrS s') = ConLeche.nestCrest (names.map toName) (us.map trL) (TrSL s₀ ds)
+        (TrSL s₀ holes) (TrS s₀ cty) := by
+  unfold InLean.nestCrest at h
+  obtain ⟨c, s₁, h1, h⟩ := bind_run h
+  obtain ⟨rfl, rfl⟩ := pure_run h
+  obtain ⟨hs₁, ht₁, hokc, htrc⟩ := nestCanonCrestI_run hs hus hok h1
+  have hds₁ := okSL_of_tabLe ht₁ hds
+  have hh₁ := okSL_of_tabLe ht₁ hh
+  have hF := nestKeyMap_sub hds₁ hh₁
+  rw [TrSL_of_tabLe ht₁ hds, TrSL_of_tabLe ht₁ hh] at hF
+  refine ⟨hs₁, ht₁, ?_, ?_⟩
+  · intro y hy
+    obtain ⟨c0, hc0, rfl⟩ := Option.map_eq_some_iff.1 hy
+    exact (replaceFVarsI_tr hF (hokc c0 hc0)).1
+  · unfold ConLeche.nestCrest
+    have hlen : (TrSL s₀ ds).length = ds.length := by simp [TrSL]
+    rw [hlen, ← htrc]
+    cases c with
+    | none => rfl
+    | some c0 =>
+      simp only [Option.map_some]
+      rw [(replaceFVarsI_tr hF (hokc c0 rfl)).2]
+
+/-- A crest of a closed constructor type at closed variables is closed. -/
+theorem lbb_nestCrest {names : List ConLeche.Name} {us : List ConLeche.Level}
+    {ds holes : List ConLeche.Expr} {cty crest : ConLeche.Expr}
+    (hb : cty.looseBVarsBounded 0 = true)
+    (hds : ∀ x ∈ ds, x.looseBVarsBounded 0 = true)
+    (hh : ∀ x ∈ holes, x.looseBVarsBounded 0 = true)
+    (h : ConLeche.nestCrest names us ds holes cty = some crest) :
+    crest.looseBVarsBounded 0 = true := by
+  unfold ConLeche.nestCrest ConLeche.nestCanonCrest at h
+  obtain ⟨c1, h1, rfl⟩ := Option.map_eq_some_iff.1 h
+  obtain ⟨c0, h0, rfl⟩ := Option.map_eq_some_iff.1 h1
+  have hc0 : c0.looseBVarsBounded 0 = true := by
+    refine ConLeche.looseBVarsBounded_instPisWith (as := ConLeche.nestPhs ds.length) ?_ hb h0
+    intro a ha
+    obtain ⟨i, -, rfl⟩ := List.mem_map.1 ha
+    rfl
+  have hc1 := ConLeche.Expr.looseBVarsBounded_replaceApps (f := ConLeche.nestCanonSub names us ds.length)
+    (b := 0) (n := ds.length) (by
+      intro c v hv hvs
+      unfold ConLeche.nestCanonSub at hvs
+      split at hvs
+      · obtain ⟨m, -, rfl⟩ := Option.map_eq_some_iff.1 hvs; rfl
+      · cases hvs) c0 0 hc0
+  refine ConLeche.looseBVarsBounded_replaceFVars (g := ConLeche.nestKeyMap ds holes) ?_ _ 0 hc1
+  intro i r hr
+  unfold ConLeche.nestKeyMap at hr
+  split at hr
+  · exact hds r (List.mem_of_getElem? hr)
+  · exact hh r (List.mem_of_getElem? hr)
+
+/-! ## A frame's group -/
+
+/-- **A group's constructors** (`nestGroupCtors`): master's at the readings;
+the state does not change. -/
+theorem nestGroupCtorsI_run {fe : InLean.FEnv} {L : ConLeche.Env} {s : InLean.CState}
+    {ctx : InLean.NestCtx} {cctx : ConLeche.NestCtx} (hJ : JobEnvI fe L)
+    (hW : WalkRel fe L s ctx cctx) (nPc : Nat) :
+    ∀ (cs : List Lean.Name) {s₀ s' : InLean.CState} {v : List (Lean.ConstantVal × Nat)},
+      InLean.nestGroupCtors ctx nPc cs s₀ = .ok (v, s') →
+      s' = s₀ ∧ Runs (ConLeche.nestGroupCtors (m := ConLeche.FueledM) cctx nPc (cs.map toName))
+        (trCtorL v)
+  | [], s₀, s', v, h => by
+    unfold InLean.nestGroupCtors at h
+    obtain ⟨rfl, rfl⟩ := pure_run h
+    exact ⟨rfl, by unfold ConLeche.nestGroupCtors; exact Runs.pure _⟩
+  | c :: cs, s₀, s', v, h => by
+    unfold InLean.nestGroupCtors at h
+    obtain ⟨q, s₁, h1, h⟩ := bind_run h
+    have hc := nestContainer_tr hJ hW c
+    unfold ConLeche.nestGroupCtors
+    simp only [List.map_cons]
+    rw [hc]
+    cases hq : InLean.nestContainer ctx c with
+    | none => rw [hq] at h1; exact (throw_run h1).elim
+    | some q' =>
+    rw [hq] at h1
+    obtain ⟨rfl, rfl⟩ := pure_run h1
+    obtain ⟨nPc', ctors⟩ := q'
+    simp only [Option.map_some, ConLeche.unwrapOr] at h ⊢
+    have hE : (trCtorL ctors).isEmpty = ctors.isEmpty := by
+      cases ctors <;> rfl
+    by_cases hb : (nPc' == nPc || ctors.isEmpty) = true
+    · simp only [hb, ↓reduceIte] at h
+      obtain ⟨rest, s₃, h3, h⟩ := bind_run h
+      obtain ⟨rfl, rfl⟩ := pure_run h
+      obtain ⟨rfl, hR⟩ := nestGroupCtorsI_run hJ hW nPc cs h3
+      refine ⟨rfl, Runs.bind (Runs.pure _) ?_⟩
+      simp only [hE, hb, ↓reduceIte]
+      refine Runs.bind hR ?_
+      rw [trCtorL_append]
+      exact Runs.pure _
+    · simp only [hb, Bool.false_eq_true, ↓reduceIte] at h
+      obtain ⟨_, _, h2, -⟩ := bind_run h
+      exact (throw_run h2).elim
+
+/-- A list of terms readable, closed and scoped wherever `ds` is. -/
+@[expose] def GrpOk (s : InLean.CState) (ds : List Lean.Expr) (grp : List (Lean.Name × Lean.Expr)) :
+    Prop :=
+  ∀ x ∈ grp, OkS s x.2 = true ∧ (TrS s x.2).looseBVarsBounded 0 = true ∧
+    ∀ d, (∀ a ∈ ds, ConLeche.Expr.WScoped d (TrS s a)) → ConLeche.Expr.WScoped d (TrS s x.2)
+
+theorem GrpOk.mono {s₀ s₁ : InLean.CState} (ht : TabLe s₀ s₁) {ds : List Lean.Expr}
+    (hds : OkSL s₀ ds = true) {grp : List (Lean.Name × Lean.Expr)} (hg : GrpOk s₀ ds grp) :
+    GrpOk s₁ ds grp ∧ trGrp s₁ grp = trGrp s₀ grp := by
+  refine ⟨?_, ?_⟩
+  · intro x hx
+    obtain ⟨a1, a2, a3⟩ := hg x hx
+    have he := TrS_of_tabLe ht a1
+    refine ⟨okS_of_tabLe ht a1, he ▸ a2, fun d hd => he ▸ a3 d ?_⟩
+    intro a ha
+    rw [← TrS_of_tabLe ht (by simp only [OkSL, List.all_eq_true] at hds; exact hds a ha)]
+    exact hd a ha
+  · simp only [trGrp]
+    apply List.map_congr_left
+    intro x hx
+    rw [TrS_of_tabLe ht (hg x hx).1]
+
+/-- **A frame's group grown** (`nestGrowGroup`): each mate's instantiated
+former through `nestInstType`; master's on the readings, every entry's type
+readable, closed and scoped wherever the key's parameters are. -/
+theorem nestGrowGroupI_run {fe : InLean.FEnv} {L : ConLeche.Env} {sW : InLean.CState}
+    {ctx : InLean.NestCtx} {cctx : ConLeche.NestCtx} (hJ : JobEnvI fe L)
+    (hRF : ReducedFormerSimI) (hW : WalkRel fe L sW ctx cctx) {hi : Nat} {us : List Lean.Level}
+    {ds : List Lean.Expr} (hus : us.all okLv = true) :
+    ∀ (cs : List Lean.Name) (grp : List (Lean.Name × Lean.Expr)) {s₀ s' : InLean.CState}
+      {v : List (Lean.Name × Lean.Expr)},
+      CSOKI .verified false L s₀ → OkSL s₀ ds = true →
+      (∀ a ∈ ds, (TrS s₀ a).looseBVarsBounded 0 = true) → GrpOk s₀ ds grp →
+      InLean.nestGrowGroup ctx (sharedOpsC .verified fe) fe hi us ds cs grp s₀ = .ok (v, s') →
+      CSOKI .verified false L s' ∧ TabLe s₀ s' ∧ GrpOk s' ds v ∧
+        Runs (ConLeche.nestGrowGroup cctx (ConLeche.fueledOpsM .verified) L hi (us.map trL)
+          (TrSL s₀ ds) (cs.map toName) (trGrp s₀ grp)) (trGrp s' v)
+  | [], grp, s₀, s', v, hs, _, _, hg, h => by
+    unfold InLean.nestGrowGroup at h
+    obtain ⟨rfl, rfl⟩ := pure_run h
+    exact ⟨hs, TabLe.refl _, hg, by unfold ConLeche.nestGrowGroup; exact Runs.pure _⟩
+  | c :: cs, grp, s₀, s', v, hs, hds, hcl, hg, h => by
+    unfold InLean.nestGrowGroup at h
+    obtain ⟨⟨k, cty⟩, s₁, h1, h⟩ := bind_run h
+    obtain ⟨hs₁, ht₁, hok₁, hcl₁, hws₁, hR1⟩ := nestInstTypeI_run (key := ⟨c, us, ds⟩) hJ hRF
+      hW.canon hW.fe hW.find hW.sort hW.sortOk hs hus hds hcl h1
+    have hds₁ := okSL_of_tabLe ht₁ hds
+    obtain ⟨hgm, hge⟩ := hg.mono ht₁ hds
+    have hg₁ : GrpOk s₁ ds (grp ++ [(c, cty)]) := by
+      intro x hx
+      rcases List.mem_append.1 hx with hx | hx
+      · exact hgm x hx
+      · rw [List.mem_singleton] at hx
+        subst hx
+        refine ⟨hok₁, hcl₁, fun d hd => hws₁ d ?_⟩
+        intro a ha
+        rw [← TrS_of_tabLe ht₁ (by simp only [OkSL, List.all_eq_true] at hds; exact hds a ha)]
+        exact hd a ha
+    obtain ⟨hs', ht', hv, hR⟩ := nestGrowGroupI_run hJ hRF hW hus cs (grp ++ [(c, cty)]) hs₁ hds₁
+      (closed_of_tabLe ht₁ hds hcl) hg₁ h
+    refine ⟨hs', ht₁.trans ht', hv, ?_⟩
+    unfold ConLeche.nestGrowGroup
+    simp only [List.map_cons]
+    refine Runs.bind hR1 ?_
+    rw [TrSL_of_tabLe ht₁ hds, trGrp_append, hge] at hR
+    exact hR
+
+/-! ## The walk stack -/
+
+/-- The parameters' hole-freeness test, read. -/
+theorem allFvarB_tr {s : InLean.CState} (D : Nat) : ∀ {ds : List Lean.Expr}, OkSL s ds = true →
+    (TrSL s ds).all (fun x => decide (x.fvarB ≤ D)) = ds.all (fun x => decide (InLean.fvarB x ≤ D))
+  | [], _ => rfl
+  | a :: l, h => by
+    simp only [OkSL_cons, Bool.and_eq_true] at h
+    simp only [TrSL_cons, List.all_cons, fvarB_tr h.1, allFvarB_tr D h.2]
+
+/-- **The stack an instantiation is walked under** (`nestWalkStack`), read. -/
+theorem nestWalkStack_tr {fe : InLean.FEnv} {L : ConLeche.Env} {s : InLean.CState}
+    {ctx : InLean.NestCtx} {cctx : ConLeche.NestCtx} (hW : WalkRel fe L s ctx cctx)
+    (prog : List InLean.NestHole) {ds : List Lean.Expr} (hds : OkSL s ds = true) :
+    ConLeche.nestWalkStack cctx (prog.map (trHole s)) (TrSL s ds) =
+      (InLean.nestWalkStack ctx prog ds).map (trHole s) := by
+  unfold ConLeche.nestWalkStack InLean.nestWalkStack
+  rw [hiAt_rel hW.canon, allFvarB_tr _ hds]
+  split <;> rfl
 
 end InLeanProof
