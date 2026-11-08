@@ -397,27 +397,26 @@ def FEnv.hasTable (fe : FEnv) (T : Name) : Bool :=
     | _ => false
   | _ => false
 
-/-- **Twin of `structProjBodies`' field `i`**: the constructor type's
-parameters replaced by `bvar (nP - k)`, the fields before `i` by the
-subject's projections `.proj T j (bvar 0)`, and field `i`'s domain read
-off. -/
+/-- Twin of `Expr.binderDom`. -/
+def binderDom : Nat → Expr → Option Expr
+  | k, .mdata _ e => binderDom k e
+  | 0, .forallE _ A _ _ => some A
+  | k + 1, .forallE _ _ b _ => binderDom k b
+  | _, _ => none
+
+/-- The values field `i`'s domain is instantiated at, in telescope order:
+the parameters as `bvar nP, …, bvar 1`, the fields before `i` as the
+subject's projections `.proj T j (bvar 0)`. -/
+def projBodyArgs (T : Name) (nP i : Nat) : Array Expr :=
+  (Array.range nP).map (fun k => mkBvar (nP - k)) ++
+    (Array.range i).map (fun j => .proj T j (mkBvar 0))
+
+/-- **Twin of `structProjBodies`' field `i`**: field `i`'s domain in the
+constructor type, its parameters and earlier fields instantiated in one walk
+by `projBodyArgs` (con-leche's telescope walk substitutes them one binder at
+a time, to the same term). -/
 def projBodyAt (T : Name) (nP i : Nat) (cty : Expr) : Option Expr :=
-  let rec params : Nat → Expr → Option Expr
-    | k, e =>
-      if k < nP then
-        match EO.stripTop (e) with
-        | .forallE _ _ b _ => params (k + 1) (b.inst1I (mkBvar (nP - k)))
-        | _ => none
-      else some e
-    termination_by k => nP - k
-  let rec fields : Nat → Expr → Option Expr
-    | j, e =>
-      match EO.stripTop e with
-      | .forallE _ d b _ =>
-        if j < i then fields (j + 1) (b.inst1I (.proj T j (.bvar 0))) else some d
-      | _ => none
-    termination_by j => i - j
-  (params 0 cty).bind (fields 0)
+  (binderDom (nP + i) cty).map (·.instRevI (projBodyArgs T nP i))
 
 /-- Twin of `structProjBodies`: every field's body (the block check's
 `checkBlockTablesF` reads them all). -/
@@ -451,41 +450,19 @@ def FEnv.projBodiesInRange (fe : FEnv) (T : Name) : Bool :=
     | _ => true
   | _ => true
 
-/-- Every input of `projBodyAt`'s parameter loop is in range (`EO.inRange`). -/
-def paramsOkB (nP : Nat) (k : Nat) (e : Expr) : Bool :=
-  EO.inRange e && (if k < nP then
-    match EO.stripTop e with
-    | .forallE _ _ b _ => paramsOkB nP (k + 1) (b.inst1I (mkBvar (nP - k)))
-    | _ => true
-  else true)
-termination_by nP - k
+/-- **Field `i`'s body is in range, and so are the parameter variables it is
+built with.**  `projBodiesInRange` reads the bodies of the tables of an
+environment; this is the block check's view of the same bodies, and the
+bound on the parameter variables (`bvar nP` must be a term C can build) is
+what reading `projBodyAt`'s instantiation needs beside it. -/
+def projBodyOk (T : Name) (nP i : Nat) (cty : Expr) : Bool :=
+  decide (nP ≤ EO.maxBVarIdx) && (projBodyAt T nP i cty).all EO.inRange
 
-/-- Every input of `projBodyAt`'s field loop (towards field `i`) is in range. -/
-def fieldsOkB (T : Name) (i : Nat) (j : Nat) (e : Expr) : Bool :=
-  EO.inRange e && (match EO.stripTop e with
-    | .forallE _ _ b _ => if j < i then fieldsOkB T i (j + 1) (b.inst1I (.proj T j (.bvar 0)))
-      else true
-    | _ => true)
-termination_by i - j
-
-/-- **Every intermediate term of `projBodyAt T nP i cty` is in range**, and so
-is the largest parameter variable.  `projBodiesInRange` reads the final
-bodies only; an intermediate term can leave C's range while the final body
-is back in it (a parameter reference under `d` binders is `bvar (nP - k + d)`
-after its parameter's step and is lowered by each field step after it), and
-`mkData` aborts there.  The steps towards field `i` are a prefix of those
-towards any later field, so the last field's test covers them all. -/
-def projStepsOk (T : Name) (nP i : Nat) (cty : Expr) : Bool :=
-  decide (nP ≤ EO.maxBVarIdx) && paramsOkB nP 0 cty &&
-    match projBodyAt.params nP 0 cty with
-    | some r => fieldsOkB T i 0 r
-    | none => true
-
-/-- **`projStepsOk` for every structure of a generated block**: for each
-one-constructor former of `consts` and its constructor in `consts`, the
-steps towards the last field.  The inductive check refuses a block failing
-it as an internal error (`checkInductiveC`), beside `projBodiesInRange`. -/
-def projStepsAllOk (consts : Array ConstantInfo) : Bool :=
+/-- **`projBodyOk` at every field of every structure of a generated block**:
+for each one-constructor former of `consts` and its constructor in `consts`.
+The inductive check refuses a block failing it as an internal error
+(`checkInductiveC`), beside `projBodiesInRange`. -/
+def projBodiesAllOk (consts : Array ConstantInfo) : Bool :=
   consts.all fun ci =>
     match ci with
     | .inductInfo v =>
@@ -494,8 +471,8 @@ def projStepsAllOk (consts : Array ConstantInfo) : Bool :=
         consts.all fun cj =>
           match cj with
           | .ctorInfo cv =>
-            cv.name != c || cv.numFields == 0 ||
-              projStepsOk v.name v.numParams (cv.numFields - 1) cv.type
+            cv.name != c ||
+              (List.range cv.numFields).all fun i => projBodyOk v.name v.numParams i cv.type
           | _ => true
       | _ => true
     | _ => true

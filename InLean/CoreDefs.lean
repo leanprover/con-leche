@@ -91,13 +91,6 @@ def peelPis : Nat → Expr → Option Expr
   | k + 1, .mdata _ e => peelPis (k + 1) e
   | _ + 1, _ => none
 
-/-- Twin of `Expr.binderDom`. -/
-def binderDom : Nat → Expr → Option Expr
-  | k, .mdata _ e => binderDom k e
-  | 0, .forallE _ A _ _ => some A
-  | k + 1, .forallE _ _ b _ => binderDom k b
-  | _, _ => none
-
 /-- Twin of `teleArityOk`. -/
 def teleArityOk (ty : Expr) (args : List Expr) : Bool := (peelPis args.length ty).isSome
 

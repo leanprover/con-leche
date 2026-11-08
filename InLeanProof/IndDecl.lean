@@ -134,14 +134,14 @@ theorem lbb_trC_of_closed {e : Lean.Expr} (hok : okC e = true) (h : e.hasLooseBV
 /-! ## The job run, named -/
 
 /-- **What the tail reads of the recognised shape beyond the pass** (lane
-TailSim): at a one-constructor member, the projection bodies' steps in range
-at every field (`projStepsOk`, which the inductive check runs on the generated
-block, `projStepsAllOk`), and the stream recursors' rules with a closed reading
+TailSim): at a one-constructor member, the projection bodies in range
+at every field (`projBodyOk`, which the inductive check runs on the generated
+block, `projBodiesAllOk`), and the stream recursors' rules with a closed reading
 (the block's `CIOk`).  `checkIndDeclC_sim_of` derives it from the generated
 entries' agreement (`genEntriesAgree`). -/
 structure TailShapeOkI (p : InLean.BlockShape) : Prop where
   steps : ∀ ms ∈ p.members, ∀ c, ms.ctors = [c] → ∀ i < c.2,
-    InLean.projStepsOk ms.declared.name p.nP i c.1.type = true
+    InLean.projBodyOk ms.declared.name p.nP i c.1.type = true
   rules : ∀ rc ∈ p.recs, ∀ r ∈ rc.rules, okC r.rhs = true
 
 /-- **A recognised block's job** (`checkBlockKS_run`'s twin): accepted by

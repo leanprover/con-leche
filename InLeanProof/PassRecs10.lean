@@ -460,52 +460,15 @@ theorem jobEnvI_genRecs_of_run {fe : InLean.FEnv} {L : ConLeche.Env} (hJ : JobEn
 
 /-! ## The projection tables -/
 
-/-- The field loop's result is in range where its steps are (`fieldsOkB`). -/
-theorem fields_range (T : Name) (i : Nat) : ∀ (m j : Nat) (e : Lean.Expr), i - j = m →
-    fieldsOkB T i j e = true → ∀ b, projBodyAt.fields T i j e = some b → Expr.RangeOk b := by
-  intro m
-  induction m with
-  | zero =>
-    intro j e hm hok b hb
-    rw [fieldsOkB] at hok
-    simp only [Bool.and_eq_true] at hok
-    have her := RangeOk_stripTop (RangeOk_of_inRange hok.1).1
-    rw [projBodyAt.fields] at hb
-    revert her hb
-    cases EO.stripTop e with
-    | forallE _ d _ _ =>
-      intro hb her
-      simp only [show ¬ j < i by omega, ↓reduceIte, Option.some.injEq] at hb
-      subst hb; exact her.1
-    | _ => intro hb _; simp at hb
-  | succ m ih =>
-    intro j e hm hok b hb
-    rw [fieldsOkB] at hok
-    simp only [Bool.and_eq_true] at hok
-    obtain ⟨-, hrest⟩ := hok
-    rw [projBodyAt.fields] at hb
-    revert hrest hb
-    cases EO.stripTop e with
-    | forallE _ d bd _ =>
-      intro hb hrest
-      have hji : j < i := by omega
-      simp only [hji, ↓reduceIte] at hrest hb
-      exact ih (j + 1) _ (by omega) hrest b hb
-    | _ => intro hb _; simp at hb
-
-/-- **A projection body built at use is in range** where its steps are
-(`projStepsOk`). -/
+/-- **A projection body built at use is in range** where `projBodyOk`
+says so. -/
 theorem projBodyAt_range {T : Name} {nP i : Nat} {cty b : Lean.Expr}
-    (hok : projStepsOk T nP i cty = true) (h : projBodyAt T nP i cty = some b) :
+    (hok : projBodyOk T nP i cty = true) (h : projBodyAt T nP i cty = some b) :
     Expr.RangeOk b := by
-  unfold projStepsOk at hok
-  unfold projBodyAt at h
-  cases hp : projBodyAt.params nP 0 cty with
-  | none => rw [hp] at h; cases h
-  | some r =>
-    rw [hp] at h hok
-    simp only [Bool.and_eq_true] at hok
-    exact fields_range T i _ 0 r rfl hok.2 b h
+  unfold projBodyOk at hok
+  rw [h] at hok
+  simp only [Bool.and_eq_true, Option.all_some] at hok
+  exact (RangeOk_of_inRange hok.2).1
 
 theorem structProjBodiesGo_length (S : ConLeche.Name) :
     ∀ (k i : Nat) (r : ConLeche.Expr) (l : List ConLeche.Expr),
@@ -572,14 +535,14 @@ theorem option_mapM_mem {α β : Type} {f : α → Option β} :
 `structWalkersC`): accepted, master's `checkStructProjTable` passes on the
 translated constructor at a related environment.  The bodies: InLean's
 built at use (`projBodyAt`) read as master's (`projBodyAt_tr`, given the
-steps in range, `projStepsOk`), so the scoping guard carries over
+bodies and their parameter variables in range, `projBodyOk`), so the scoping guard carries over
 (`constsResolveF_tr`, `allLevelParamsDefined_of_guard`, the range as the
 bound).  Master's "table taken" guard, which InLean does not test: a table
 at `T` in `L` would be one InLean reads off a former at `T` not pending
 (`TableRelI`), and every former at `T` is pending. -/
 theorem checkStructProjTableI_run {fe : InLean.FEnv} {L : ConLeche.Env} (hP : EnvPresI fe L)
     {T : Name} {lps : List Name} {nP nF : Nat} {cv : Lean.ConstantVal}
-    (hok : okC cv.type = true) (hsteps : ∀ i < nF, projStepsOk T nP i cv.type = true)
+    (hok : okC cv.type = true) (hsteps : ∀ i < nF, projBodyOk T nP i cv.type = true)
     (hpend : ∀ v, fe.find? T = some (.inductInfo v) → fe.isPending v.name = true)
     {s₀ s' : InLean.CState}
     (h : InLean.checkStructProjTableF structWalkersC T lps nP nF cv fe s₀ = .ok ((), s')) :
@@ -626,7 +589,7 @@ theorem checkStructProjTableI_run {fe : InLean.FEnv} {L : ConLeche.Env} (hP : En
       cbs[i].looseBVarsBounded (nP + 1)) = true := by
     intro i hi
     have hiF : i < nF := hcsz ▸ hi
-    obtain ⟨b, hb1, -, hb2⟩ := projBodyAt_tr (hsteps i hiF) hc hcbs hiF
+    obtain ⟨b, hb1, -, hb2⟩ := projBodyAt_tr (hsteps i hiF) (RangeOk_of_okE hok) hc hcbs hiF
     have hr := projBodyAt_range (hsteps i hiF) hb1
     obtain ⟨hokb, htrb⟩ := trC_of_toExprC hb2 hr
     have hget : cbs.getD i default = cbs[i] := by simp [Array.getD_eq_getD_getElem?, hi]
@@ -680,12 +643,12 @@ theorem checkStructProjTableI_run {fe : InLean.FEnv} {L : ConLeche.Env} (hP : En
   exact Runs.pure _
 
 /-- What a structure-like member needs for its table's check: a closed
-reading of its constructor's type, the projection bodies' steps in range
-(`projStepsOk`, which InLean's inductive check runs), and the former at its
+reading of its constructor's type, the projection bodies in range
+(`projBodyOk`, which InLean's inductive check runs), and the former at its
 name pending (the block's mark). -/
 @[expose] def TableMemberOk (fe : InLean.FEnv) (nP : Nat) (ms : InLean.MemberShape) : Prop :=
   ∀ c, ms.structCtor? = some c → okC c.1.type = true ∧
-    (∀ i < c.2, projStepsOk ms.cvT.name nP i c.1.type = true) ∧
+    (∀ i < c.2, projBodyOk ms.cvT.name nP i c.1.type = true) ∧
     ∀ v, fe.find? ms.cvT.name = some (.inductInfo v) → fe.isPending v.name = true
 
 /-- **The block's projection tables** (`checkBlockTablesF` at

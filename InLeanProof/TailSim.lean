@@ -26,7 +26,7 @@ K flags (`streamKCheckI_run`), the generated recursors' environment
 declaration step simulates master's pure declaration kind check, from premises
 P4 discharges from the declaration and the environment; the shape facts the
 tail reads (`TailShapeOkI`) come from the generated entries' agreement and the
-generator's projection-step check (`BlockStepsOk`, `projStepsAllOk`).
+generator's projection-step check (`BlockProjBodiesOk`, `projBodiesAllOk`).
 -/
 
 @[expose] public section
@@ -447,40 +447,41 @@ theorem genEntriesAgree_members {p : InLean.BlockShape} {block : List Lean.Const
     · exact absurd hf hth
   · exact absurd hf hth
 
-/-- **The projection steps the generator's output passed**
-(`projStepsAllOk`), at the stored block: at a one-constructor former, its
-constructor's steps towards the last field. -/
-def BlockStepsOk (block : List Lean.ConstantInfo) : Prop :=
+/-- **The projection bodies the generator's output passed**
+(`projBodiesAllOk`), at the stored block: at a one-constructor former, its
+constructor's every field (`projBodyOk`). -/
+def BlockProjBodiesOk (block : List Lean.ConstantInfo) : Prop :=
   ∀ v, Lean.ConstantInfo.inductInfo v ∈ block → ∀ c, v.ctors = [c] →
-    ∀ cv, Lean.ConstantInfo.ctorInfo cv ∈ block → cv.name = c → cv.numFields ≠ 0 →
-      InLean.projStepsOk v.name v.numParams (cv.numFields - 1) cv.type = true
+    ∀ cv, Lean.ConstantInfo.ctorInfo cv ∈ block → cv.name = c → ∀ i < cv.numFields,
+      InLean.projBodyOk v.name v.numParams i cv.type = true
 
-theorem blockStepsOk_of_projStepsAllOk {consts : Array Lean.ConstantInfo}
-    {block : List Lean.ConstantInfo} (h : InLean.projStepsAllOk consts = true)
-    (hsub : ∀ ci ∈ block, ci ∈ consts) : BlockStepsOk block := by
-  intro v hv c hc cv hcv hn hnf
-  unfold InLean.projStepsAllOk at h
+theorem blockProjBodiesOk_of_projBodiesAllOk {consts : Array Lean.ConstantInfo}
+    {block : List Lean.ConstantInfo} (h : InLean.projBodiesAllOk consts = true)
+    (hsub : ∀ ci ∈ block, ci ∈ consts) : BlockProjBodiesOk block := by
+  intro v hv c hc cv hcv hn i hi
+  unfold InLean.projBodiesAllOk at h
   rw [Array.all_eq_true_iff_forall_mem] at h
   have h1 := h _ (hsub _ hv)
   simp only [hc] at h1
   rw [Array.all_eq_true_iff_forall_mem] at h1
   have h2 := h1 _ (hsub _ hcv)
-  simpa [hn, hnf] using h2
+  simp only [hn, bne_self_eq_false, Bool.false_or, List.all_eq_true, List.mem_range] at h2
+  exact h2 i hi
 
-/-- **`BlockStepsOk` of the stored block**, from the inductive check's
-`projStepsAllOk` on the generator's output. -/
-theorem blockStepsOk_storedBlock {consts : Array Lean.ConstantInfo}
-    (h : InLean.projStepsAllOk consts = true) : BlockStepsOk (InLean.storedBlock consts) :=
-  blockStepsOk_of_projStepsAllOk h fun ci hci => by
+/-- **`BlockProjBodiesOk` of the stored block**, from the inductive check's
+`projBodiesAllOk` on the generator's output. -/
+theorem blockProjBodiesOk_storedBlock {consts : Array Lean.ConstantInfo}
+    (h : InLean.projBodiesAllOk consts = true) : BlockProjBodiesOk (InLean.storedBlock consts) :=
+  blockProjBodiesOk_of_projBodiesAllOk h fun ci hci => by
     unfold InLean.storedBlock at hci
     simp only [Array.toList_append, List.mem_append, Array.mem_toList_iff, Array.mem_filter] at hci
     rcases hci with (h | h) | h <;> exact h.1
 
 /-- **The shape facts the tail reads** (`TailShapeOkI`), from the block's
-record, the generator's projection steps and the generated entries' agreement. -/
+record, the generator's projection bodies and the generated entries' agreement. -/
 theorem tailShapeOkI_of {nP : Nat} {block : List Lean.ConstantInfo}
     {cb : List ConLeche.ConstantInfo} (hb : toBlock block = some cb)
-    (hr : ∀ ci ∈ block, CIRange ci) (hst : BlockStepsOk block)
+    (hr : ∀ ci ∈ block, CIRange ci) (hst : BlockProjBodiesOk block)
     {p : InLean.BlockShape} {s : InLean.CState} (hsh : InLean.readBlock nP block = .ok p)
     (hg : InLean.genEntriesAgree p block s = .ok ((), s)) : TailShapeOkI p := by
   obtain ⟨hci, hrc⟩ := readBlock_info hsh
@@ -489,13 +490,13 @@ theorem tailShapeOkI_of {nP : Nat} {block : List Lean.ConstantInfo}
   · obtain ⟨v, hv, hnP, hvc⟩ := genEntriesAgree_members hg ms hms
     obtain ⟨hvm, hvn⟩ := constNamed?_mem hv
     obtain ⟨cv, hcv, hcve, hnf⟩ := hci ms hms c (by rw [hc]; exact List.mem_singleton_self c)
-    have hst' := hst v hvm c.1.name (by simp [hvc, hc]) cv hcv (by rw [← hcve])
+    have hst' := hst v hvm c.1.name (by simp [hvc, hc]) cv hcv (by rw [← hcve]) i
       (by omega)
     have hty : cv.type = c.1.type := by rw [← hcve]
     have hvn' : v.name = ms.cvT.name := hvn
-    rw [hvn', hnP, hnf, hty] at hst'
+    rw [hvn', hnP, hty] at hst'
     rw [((readBlock_members hsh) ms hms).1]
-    exact projStepsOk_mono (by omega) hst'
+    exact hst'
   · obtain ⟨v, hv, hrl⟩ := hrc rc hrc'
     exact (hok _ hv).2 r (hrl ▸ hr')
 
@@ -507,13 +508,13 @@ variable {pins : List ConLeche.NatOpPinSet}
 kind check** on the translated block, from premises on the declaration and
 the environment alone: the job's environment relation (`JobEnvI`), `sorryAx`
 only under `coreAxioms`, the residue, the block in range and closed
-(`constInRange`, `constClosed`), its projection steps (`projStepsAllOk`,
-`blockStepsOk_storedBlock`) and its record (`toBlock`). -/
+(`constInRange`, `constClosed`), its projection bodies (`projBodiesAllOk`,
+`blockProjBodiesOk_storedBlock`) and its record (`toBlock`). -/
 theorem checkIndDeclC_sim {fe : InLean.FEnv} {L : ConLeche.Env} (hJ : JobEnvI fe L)
     {block : List Lean.ConstantInfo} {cb : List ConLeche.ConstantInfo} {nP : Nat}
     (hso : ∀ ci ∈ block, ci.name = InLean.sorryAxName → fe.coreAxioms = true)
     {s₀ s' : InLean.CState} (hs : CSOKIF s₀) (hr : ∀ ci ∈ block, CIRange ci)
-    (hcl : ∀ ci ∈ block, CIClosed ci) (hst : BlockStepsOk block) (hb : toBlock block = some cb)
+    (hcl : ∀ ci ∈ block, CIClosed ci) (hst : BlockProjBodiesOk block) (hb : toBlock block = some cb)
     (h : InLean.checkIndDeclC .verified fe block nP s₀ = .ok ((), s')) :
     CSOKIF s' ∧ ∃ F L', ConLeche.checkDeclKind (ConLeche.fueledOps .verified F) pins L
       (.indDecl cb nP) = .ok L' :=
