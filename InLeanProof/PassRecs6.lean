@@ -24,6 +24,15 @@ recursor stage reads beside the constructors' one:
 Both are pushes of fresh entries that are neither formers nor tables
 (`presI_push_plain`: `presI_push` at one name); the projection bodies' range
 is kept by `projBodiesInRange_one`.
+
+Then the pieces `genRecCheck`'s composition needs beside the earlier rounds'
+`*I_run` theorems: its guards translated (`blockLargeElimAllowed_tr`,
+`minors_trCR`, `classRecOf_tr`, `structElimLevel_tr`), the classes' former
+types as a list, closed (`classFormerTysI_run`, `classFormerTy_lbb` on
+master's side), the classes' entries drawn from the positivity table
+(`classesNfs_sub`), and what the recursor types' run and the pins give the
+rule-less environment (`classRecTysOk_facts`: `rP ≤ mI`, fresh names at the
+records' names; `targetRecPins_nodup`).
 -/
 
 public section
@@ -446,5 +455,149 @@ theorem classFormerTysI_run {fe : InLean.FEnv} {L : ConLeche.Env} (hJ : JobEnvI 
       · exact hxsl f hf
     · rw [List.map_cons, TrSL_cons, TrS_of_tabLe ht₂ hxo]
       exact ⟨hR1, hR2⟩
+
+
+/-! ## What the stage's runs give beside their readings -/
+
+theorem targetMajorNfs_sub {ops : InLean.CheckerOps} {fe : InLean.FEnv} {p : InLean.BlockShape}
+    {formerTys pfvs : List Lean.Expr} {us : List Lean.Level} {ds : List Lean.Expr}
+    {ctors : List (Lean.ConstantVal × Nat)} :
+    ∀ (tbl : List InLean.NestCtorNf) {s₀ s' : InLean.CState} {r : List InLean.NestCtorNf},
+      InLean.targetMajorNfs ops fe p formerTys pfvs us ds ctors tbl s₀ = .ok (r, s') →
+      ∀ e ∈ r, e ∈ tbl
+  | [], s₀, s', r, h => by
+    unfold InLean.targetMajorNfs at h
+    obtain ⟨rfl, rfl⟩ := pure_run h
+    intro e he; cases he
+  | e :: es, s₀, s', r, h => by
+    unfold InLean.targetMajorNfs at h
+    obtain ⟨rest, s₁, h1, h⟩ := bind_run h
+    have ih := targetMajorNfs_sub es h1
+    split at h
+    · obtain ⟨b, s₂, -, h⟩ := bind_run h
+      split at h
+      · obtain ⟨rfl, rfl⟩ := pure_run h
+        intro x hx
+        rcases List.mem_cons.1 hx with rfl | hx
+        · exact List.mem_cons_self
+        · exact List.mem_cons_of_mem _ (ih x hx)
+      · obtain ⟨rfl, rfl⟩ := pure_run h
+        exact fun x hx => List.mem_cons_of_mem _ (ih x hx)
+    · obtain ⟨rfl, rfl⟩ := pure_run h
+      exact fun x hx => List.mem_cons_of_mem _ (ih x hx)
+
+/-- **The classes' entries come from the positivity table.** -/
+theorem classesNfs_sub {ops : InLean.CheckerOps} {fe : InLean.FEnv} {p : InLean.BlockShape}
+    {formerTys : List Lean.Expr} {tbl : List InLean.NestCtorNf} :
+    ∀ (Ms : List InLean.TargetMajor) {s₀ s' : InLean.CState} {v : List InLean.TargetMajor},
+      InLean.classesNfs ops fe p formerTys tbl Ms s₀ = .ok (v, s') →
+      ∀ M ∈ v, ∀ e ∈ M.nfs, e ∈ tbl
+  | [], s₀, s', v, h => by
+    unfold InLean.classesNfs at h
+    obtain ⟨rfl, rfl⟩ := pure_run h
+    intro M hM; cases hM
+  | M :: Ms, s₀, s', v, h => by
+    unfold InLean.classesNfs at h
+    obtain ⟨es, s₁, h1, h⟩ := bind_run h
+    obtain ⟨rest, s₂, h2, h⟩ := bind_run h
+    obtain ⟨rfl, rfl⟩ := pure_run h
+    intro M' hM'
+    rcases List.mem_cons.1 hM' with rfl | hM'
+    · exact targetMajorNfs_sub tbl h1
+    · exact classesNfs_sub Ms h2 M' hM'
+
+theorem classConstOk_fresh {ops : InLean.CheckerOps} {fe : InLean.FEnv} {cv : Lean.ConstantVal}
+    {s₀ s' : InLean.CState} {r : Unit} (h : InLean.classConstOk ops fe cv s₀ = .ok (r, s')) :
+    fe.env.find? cv.name = none := by
+  unfold InLean.classConstOk at h
+  cases hf : fe.env.find? cv.name with
+  | none => rfl
+  | some ci =>
+    rw [hf] at h
+    simp only [Option.isSome_some, ↓reduceIte] at h
+    obtain ⟨_, _, h1, _⟩ := bindI_ok h
+    exact (throwI_ok h1).elim
+
+theorem classRecTyOk_facts {ops : InLean.CheckerOps} {fe : InLean.FEnv} {g : InLean.ClassGen}
+    {k : Nat} {rc : InLean.RecShape} {cvRi : Lean.ConstantVal} {c : Nat} {s₀ s' : InLean.CState}
+    {x : Lean.ConstantVal} (h : InLean.classRecTyOk ops fe g k rc cvRi c s₀ = .ok (x, s')) :
+    rc.rP ≤ rc.mI ∧ fe.env.find? x.name = none ∧ x.name = rc.cvR.name := by
+  unfold InLean.classRecTyOk at h
+  have hth : ∀ {α : Type} {e : InLean.CheckError} {k' : α → InLean.CheckCM Lean.ConstantVal}
+      {s₁ : InLean.CState}, ¬ ((throw e : InLean.CheckCM α) >>= k') s₁ = .ok (x, s') := fun h => by
+    obtain ⟨_, _, h1, -⟩ := bindI_ok h; exact (throwI_ok h1).elim
+  cases g1 : (rc.tgt == (g.cls.getD c default).member.getD k) <;> simp only [g1] at h
+  · exact absurd h hth
+  cases g2 : (rc.rP == g.nP + g.slots.length && rc.mI == rc.rP + (g.cls.getD c default).nIdx) <;>
+    simp only [g2] at h
+  · exact absurd h hth
+  simp only [Bool.and_eq_true, beq_iff_eq] at g2
+  simp only [↓reduceIte] at h
+  obtain ⟨gty?, s₁, -, h⟩ := bindI_ok h
+  obtain ⟨gty, s₂, h2, h⟩ := bindI_ok h
+  obtain ⟨-, rfl⟩ := unwrapOr_run h2
+  obtain ⟨_, s₃, -, h⟩ := bindI_ok h
+  obtain ⟨_, s₄, h3, h⟩ := bindI_ok h
+  have hx := (pureI_ok h).1
+  subst hx
+  unfold InLean.classRecTyCheck at h3
+  obtain ⟨_, _, h4, -⟩ := bindI_ok h3
+  exact ⟨by omega, classConstOk_fresh h4, rfl⟩
+
+/-- **The recursor types' run**: each record's rule prefix below its major
+index, every generated constant fresh and at its record's name. -/
+theorem classRecTysOk_facts {ops : InLean.CheckerOps} {fe : InLean.FEnv} {g : InLean.ClassGen}
+    {k : Nat} :
+    ∀ (rcs : List InLean.RecShape) (cvs : List Lean.ConstantVal) (cs : List Nat)
+      {s₀ s' : InLean.CState} {v : List Lean.ConstantVal},
+      InLean.classRecTysOk ops fe g k rcs cvs cs s₀ = .ok (v, s') →
+      (∀ rc ∈ rcs, rc.rP ≤ rc.mI) ∧ (∀ x ∈ v, fe.env.find? x.name = none) ∧
+        v.map (·.name) = rcs.map (·.cvR.name)
+  | [], cvs, cs, s₀, s', v, h => by
+    unfold InLean.classRecTysOk at h
+    obtain ⟨rfl, rfl⟩ := pureI_ok h
+    exact ⟨(fun _ h => by cases h), (fun _ h => by cases h), rfl⟩
+  | rc :: rcs, cvRi :: cvs, c :: cs, s₀, s', v, h => by
+    unfold InLean.classRecTysOk at h
+    obtain ⟨x, s₁, h1, h⟩ := bindI_ok h
+    obtain ⟨xs, s₂, h2, h⟩ := bindI_ok h
+    obtain ⟨rfl, rfl⟩ := pureI_ok h
+    obtain ⟨hle, hfr, hn⟩ := classRecTyOk_facts h1
+    obtain ⟨hle', hfr', hn'⟩ := classRecTysOk_facts rcs cvs cs h2
+    refine ⟨fun r hr => ?_, fun y hy => ?_, by simp [hn, hn']⟩
+    · rcases List.mem_cons.1 hr with rfl | hr
+      · exact hle
+      · exact hle' r hr
+    · rcases List.mem_cons.1 hy with rfl | hy
+      · exact hfr
+      · exact hfr' y hy
+  | _ :: _, [], _, s₀, s', v, h => by
+    unfold InLean.classRecTysOk at h; exact (throwI_ok h).elim
+  | _ :: _, _ :: _, [], s₀, s', v, h => by
+    unfold InLean.classRecTysOk at h; exact (throwI_ok h).elim
+
+/-- The pins' run: the recursors' names are distinct. -/
+theorem targetRecPins_nodup {p : InLean.BlockShape} {block : List Lean.ConstantInfo}
+    {s₀ s' : InLean.CState} {u : Unit} (h : InLean.targetRecPins p block s₀ = .ok (u, s')) :
+    InLean.namesNodup (p.recs.map (·.cvR.name)) = true := by
+  unfold InLean.targetRecPins at h
+  have hth : ∀ {α : Type} {e : InLean.CheckError} {k : α → InLean.CheckCM Unit},
+      ¬ ((throw e : InLean.CheckCM α) >>= k) s₀ = .ok (u, s') := fun h => by
+    obtain ⟨_, _, h1, -⟩ := bind_run h; exact throw_run h1
+  cases g1 : InLean.blockRecLpsOk p <;> simp only [g1] at h
+  · exact absurd h hth
+  cases g2 : InLean.blockRecNamesUnreserved p <;> simp only [g2, ↓reduceIte] at h
+  · exact absurd h hth
+  split at h
+  rotate_left
+  · exact absurd h hth
+  split at h
+  rotate_left
+  · exact absurd h hth
+  split at h
+  rotate_left
+  · exact absurd h hth
+  rename_i g5
+  simpa using g5
 
 end InLeanProof
