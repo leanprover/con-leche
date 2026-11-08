@@ -1623,4 +1623,93 @@ theorem CapInv.add (hsize : env.wr.index.parts.size ≤ env.wr.loads.order.size)
 
 end
 
+section
+variable {sp : SearchPath} {fs : FS} {env : ReachEnv ModelIO}
+
+/-- **The worklist keeps the capture invariant**, and ends with every partner read checked. -/
+theorem reachGo_capture (he : EnvOk sp fs env)
+    (hsize : env.wr.index.parts.size ≤ env.wr.loads.order.size)
+    (hcop : env.copies = clashCopiesOf env.wr)
+    (hcm : ∀ cl ∈ env.wr.clashes, ∀ x ∈ cl.copies, x.1.mod < env.wr.loads.order.size) :
+    ∀ (fuel : Nat) (L : ReachLog) (c : ReachCache) (D : List (Name × Name)),
+      CapInv sp fs env L c D → ∀ {hs₀ : HS},
+      ModelIO.AllOk (reachGo env fuel L c) fs hs₀ fun r =>
+        ∀ L' c', r = .ok (L', c') → ∃ D', CapInv sp fs env L' c' D' ∧ c'.partners = #[] := by
+  intro fuel
+  induction fuel with
+  | zero =>
+    intro L c D hI _
+    rw [reachGo]
+    split
+    · split
+      · rename_i _ hemp
+        simp only [ModelIO.allOk_pure]
+        intro L' c' h; cases h
+        exact ⟨D, hI, by simpa using hemp⟩
+      · simp
+    · simp
+  | succ fuel ih =>
+    intro L c D hI _
+    rw [reachGo]
+    split
+    · split
+      · rename_i _ hemp
+        simp only [ModelIO.allOk_pure]
+        intro L' c' h; cases h
+        exact ⟨D, hI, by simpa using hemp⟩
+      · simp only [ModelIO.allOk_bind]
+        intro z _ hz
+        obtain ⟨h1, st, hP⟩ := capturePairs_st he { c with partners := #[] } c.partners.toList
+          (hI.cache.partners #[]) hI.views z _ hz
+        obtain ⟨c₁, r⟩ := z
+        cases r with
+        | error e => simp
+        | ok u =>
+          simp only []
+          apply ih
+          exact hI.pairs rfl rfl h1 st (hP rfl)
+    · rename_i x rest hs
+      simp only []
+      split
+      · apply ih (D := D)
+        exact ⟨hI.cache, hI.views, hI.size, hI.passed, hI.records, hI.located, hI.reads,
+          hI.clashes⟩
+      · simp only [ModelIO.allOk_bind]
+        intro z _ hz
+        obtain ⟨f1, hrd⟩ := readRecord_at he hI.cache x z _ hz
+        have hc1 := (readRecord_ok he hI.cache x z _ hz).1
+        obtain ⟨c₁, r⟩ := z
+        cases r with
+        | error e => simp
+        | ok p =>
+          obtain ⟨d, h⟩ := p
+          obtain ⟨s, hcp, hh, hra⟩ := hrd d h rfl
+          simp only []
+          split
+          · simp
+          · rename_i hxn
+            split
+            · simp
+            · simp only [ModelIO.allOk_bind]
+              intro z _ hz
+              obtain ⟨h2, st2, hP2⟩ := captureAll_st he h c₁ _ hc1
+                (fun h v hh => hI.views h v (f1.2.2.2 ▸ hh)) z _ hz
+              obtain ⟨c₂, r⟩ := z
+              cases r with
+              | error e => simp
+              | ok u =>
+                simp only [ModelIO.allOk_bind]
+                intro z _ hz
+                have h3 := storedNamesOk_ok he h c₂ _ h2 z _ hz
+                obtain ⟨st3, hS⟩ := storedNamesOk_st he h c₂ _ h2 z _ hz
+                obtain ⟨c₃, r⟩ := z
+                cases r with
+                | error e => simp
+                | ok u =>
+                  apply ih
+                  exact hI.add hsize hcop hcm rfl rfl f1 (by simpa using hxn) hcp hh hra st2
+                    (hP2 rfl) h3 st3 (hS rfl)
+
+end
+
 end ConLeche.Driver
