@@ -114972,6 +114972,46 @@ warning-free;
 `tests/layering.sh`, `tests/trust-surface.sh`, `tests/no-local-paths.sh`,
 `tests/inlean-sync.sh`, `tests/shake.sh`.
 
+### Lane Sync: lane OneRelation and master's #494 merged, InLean follows #494, InLean on CI (2026-11-08, task #451, agent/451-inlean2)
+
+Maintainer: "build these targets on CI as well" and "sync latest master into this. no decision
+on landing this yet".
+
+**The merges.** `agent/451-onerel` (a16f0f870): only DESIGN.md conflicted (union, Faithful-perf's
+record then OneRelation's); `AddDeclProof.lean`, `Statement.lean` and `AxiomPins.lean` merged
+cleanly and built unchanged.  Master at #494 (4cebc2701): only DESIGN.md conflicted (union, this
+section's lanes then #494's record); InLeanProof broke where it cited master's removed
+`blockShape?`/`checkShapeless`.
+
+**InLean follows #494.**  `blockCounts`, `blockMemberCounts` and `readBlock` (InLean's
+`Inductives/BlockShape.lean`) return `Except CheckError`, with master's messages and its order
+of tests (the three universe and parameter tests as `List.find?` arms); `checkIndDeclC` throws
+the reader's error, and `checkShapelessS` (with its constant check of the formers) is gone.
+From `addDecl` these rejects are not reached: the generator builds the block from the
+`Declaration`, so a block it hands over always reads, and a declaration with more parameters
+than the type's binders is the generator's reject ("incorrect number of parameters"), as
+official's.  No negative test was added for that reason.
+
+**Proofs.**  `readBlock_toOption_tr` states the reader at the translation through `toOption`
+(the errors' text differs: con-leche's names print as `toName`'s), and `readBlock_tr` (InLean
+reads `p` ⇒ con-leche reads `trShape p`) is what the users take; likewise `blockCounts_tr`,
+`blockMemberCounts_tr`.  The reader's walks (`readBlock_spec`, `_memberOk`, `_members`,
+`_recs`, `_ctors`, `_info`) follow the new matches; the reject arms are plain throws.  Pins:
+`checkShapelessS_run_ne`, `checkShapelessS_not_ok` gone; the seven `readBlock_*` pins now read
+[propext, Classical.choice, Quot.sound] (was without `Classical.choice`); `addDeclSound` unchanged.
+
+**CI.**  `.github/workflows/ci.yml` builds `lake build InLean InLeanProof inlean-replay` after
+`lake build`, warning-free by the same grep; its log is uploaded.  Cost, fresh worktree,
+`instructions:u` (all processes): cold `lake build` 5,865.5 G; `lake build InLean InLeanProof
+inlean-replay` on top 1,465.3 G (+25.0 %; 128 modules built).
+
+**Validation** (`inlean-replay --kernel=inlean --compare --quiet`): Init 64,530, Std 110,064,
+Lean 199,645 accepted, 0 rejected, 0 declined, 0 exact and 0 cosmetic mismatches;
+`scripts/inlean_negtest.lean` 15/15; `instructions:u` on Init 456.7 G (was 456.6 G).
+Gates: `lake build`, `lake test`, `lake build InLean InLeanProof inlean-replay` warning-free;
+`tests/arena.sh` exit 0 (olean gate 122/122, axioms pinned (30 theorems), arena tutorial 90/92 as
+before, e2e 558/558, the trusted and `--jobs` sweeps without divergence, selfcheck accepted).
+
 ## TASK #494 — an inductive block that cannot be read is rejected with the reason (2026-11-08, agent/494-ctor-levels)
 
 **Rulings (maintainer, 2026-11-08).** "Don't use 'shapeless' in a user-facing error message; the

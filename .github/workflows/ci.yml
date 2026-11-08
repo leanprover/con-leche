@@ -7,6 +7,12 @@
 #   lake build       every library and executable, and it must be
 #                    WARNING-FREE (a `warning:` line fails the job —
 #                    the project rule, enforced nowhere else).
+#   lake build InLean InLeanProof inlean-replay
+#                    InLean (con-leche's checker on `Lean.Expr`), its
+#                    proofs (`InLeanProof`, whose `AxiomPins` pins
+#                    every theorem's axioms with `#guard_msgs`) and the
+#                    replay driver: not default targets, so `lake build`
+#                    never reaches them; warning-free by the same rule.
 #   lake test        the `ConLecheTests` library: the `#guard`/`example`
 #                    suite AND `tests/ConLecheTests/Axioms.lean`, whose
 #                    `#print axioms` guards pin the consistency
@@ -175,6 +181,18 @@ jobs:
             exit 1
           fi
 
+      # InLean, its proofs and the replay driver are off the default
+      # targets, so the step above never builds them; the same rule.
+      - name: lake build InLean InLeanProof inlean-replay (must be warning-free)
+        run: |
+          set -euo pipefail
+          lake build InLean InLeanProof inlean-replay 2>&1 | tee inlean.log
+          if grep -n 'warning:' inlean.log; then
+            echo '::error::lake build InLean InLeanProof inlean-replay produced warnings'
+            echo '::error::(see the lines above); the tree must stay warning-free.'
+            exit 1
+          fi
+
       # THE WHITEPAPER FRAGMENT (task #324): the paper's own Lean
       # verification is a library off the default targets, so the build
       # above never touches it; its gate builds it warning-free and its
@@ -216,6 +234,7 @@ jobs:
           name: ci-logs
           path: |
             build.log
+            inlean.log
             test.log
             arena.log
           if-no-files-found: ignore
