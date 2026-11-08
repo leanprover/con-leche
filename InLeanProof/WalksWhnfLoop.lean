@@ -311,7 +311,7 @@ theorem whnfAppI_specI (hiota : IotaRecSpecI eager env r fe) : WhnfAppSpecI eage
     intro _ hs hv _ _ _ _ _
     rw [InLean.whnfAppI.eq_def]; simp only [iotaArityOk_guardI]
     sym only [conleche_grind, whnfAppW_TrS_cons _ _ _ hv] =>
-      vcgen [InLean.mkAppNM, hiota, betaPeelI_specI (r := r) (fe := fe), ihr] <;> finish
+      vcgen [InLean.mkAppNM, InLean.pollC, hiota, betaPeelI_specI (r := r) (fe := fe), ihr] <;> finish
 
 end AppLoop
 

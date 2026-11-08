@@ -51,20 +51,29 @@ open Lean
 
 /-! ## The environment -/
 
+/-- **What the core reports to the limits' poll** (`Limits.poll`): a body
+it is about to run, at its depth (official `check_system`'s sites), and a
+constant it unfolds: a definition's δ, a recursor's or the quotient's ι
+(official `record_unfold`, the diagnostics' counter). -/
+inductive Event where
+  | body (depth : Nat)
+  | unfold (n : Name)
+
 /-- **The official kernel's resource limits** (con-leche has none; the
 defaults impose none but the numerals' size).  Each only adds an error
 exit, so the checker's soundness holds whatever they are.
 
 * `recDepth`: the core's entry points nest at most this deep (the knot's
   fuel; `none` is `checkFuel`), official `scope_rec_depth`'s bound.
-* `poll`: asked at every entry point the memo misses, with the depth; a
-  limit it answers is the error.  The heartbeat budget and the
-  cancellation token live behind it (core's glue reads the runtime).
+* `poll`: asked at every body the knot's memos miss and at every
+  unfolding (`Event`); a limit it answers is the error.  The heartbeat
+  budget, the cancellation token and the diagnostics' unfold counter live
+  behind it (core's glue reads and writes the runtime).
 * `natMaxBytes`: the largest numeral the core computes or infers, in
   bytes (`natSizeBytes`), official `LEAN_NAT_MAX_SIZE`. -/
 structure Limits where
   recDepth : Option Nat := none
-  poll : Nat → Option Limit := fun _ => none
+  poll : Event → Option Limit := fun _ => none
   natMaxBytes : Nat := 128 * 1024 * 1024
 
 instance : Inhabited Limits := ⟨{}⟩

@@ -210,7 +210,7 @@ variable {fe : InLean.FEnv} {f : Nat}
 theorem coreKnotI_infer_succ (d : Nat) (i : Expr) :
     (coreKnotI .verified eager fe (f + 1)).infer d i =
       memoEI (·.inferC) (fun st mp => { st with inferC := mp })
-        (fun d e => pollC fe d (inferBodyI (coreKnotI .verified eager fe f) fe d e)) d i := by
+        (fun d e => pollC fe (.body d) (inferBodyI (coreKnotI .verified eager fe f) fe d e)) d i := by
   cases eager <;> rfl
 
 /-- An infer memo hit answers the pure infer. -/
@@ -269,10 +269,10 @@ theorem coreKnotI_whnfCore_succ (c : Bool) (d : Nat) (i : Expr) :
     (coreKnotI .verified eager fe (f + 1)).whnfCore c d i =
       if c then
         memoEI (·.whnfCoreCheapC) (fun st mp => { st with whnfCoreCheapC := mp })
-          (fun d e => pollC fe d (whnfCoreBodyI .verified (coreKnotI .verified eager fe f) fe true d e)) d i
+          (fun d e => pollC fe (.body d) (whnfCoreBodyI .verified (coreKnotI .verified eager fe f) fe true d e)) d i
       else
         memoEI (·.whnfCoreC) (fun st mp => { st with whnfCoreC := mp })
-          (fun d e => pollC fe d (whnfCoreBodyI .verified (coreKnotI .verified eager fe f) fe false d e)) d i := by
+          (fun d e => pollC fe (.body d) (whnfCoreBodyI .verified (coreKnotI .verified eager fe f) fe false d e)) d i := by
   cases eager <;> cases c <;> rfl
 
 theorem CSOKI.whnfCore_hit (henv : ConLeche.EnvWF env) {s : InLean.CState} {d : Nat} {i r : Expr}
@@ -360,7 +360,7 @@ variable {fe : InLean.FEnv} {f : Nat}
 theorem coreKnotI_whnf_succ (d : Nat) (i : Expr) :
     (coreKnotI .verified eager fe (f + 1)).whnf d i =
       memoEI (·.whnfC) (fun st mp => { st with whnfC := mp })
-        (fun d e => pollC fe d (whnfBodyI (coreKnotI .verified eager fe f) fe d e)) d i := by
+        (fun d e => pollC fe (.body d) (whnfBodyI (coreKnotI .verified eager fe f) fe d e)) d i := by
   cases eager <;> rfl
 
 theorem CSOKI.whnf_hit (henv : ConLeche.EnvWF env) {s : InLean.CState} {d : Nat} {i r : Expr}
@@ -416,7 +416,7 @@ variable {fe : InLean.FEnv} {f : Nat}
 theorem coreKnotI_inferIO_succ (d : Nat) (i : Expr) :
     (coreKnotI .verified eager fe (f + 1)).inferIO d i =
       memoEI (·.inferIOC) (fun st mp => { st with inferIOC := mp })
-        (fun d e => pollC fe d (inferBodyIOI (CoreFnsI.ioView (coreKnotI .verified eager fe f)) fe d e)) d i := by
+        (fun d e => pollC fe (.body d) (inferBodyIOI (CoreFnsI.ioView (coreKnotI .verified eager fe f)) fe d e)) d i := by
   cases eager <;> rfl
 
 theorem CSOKI.inferIO_hit (henv : ConLeche.EnvWF env) {s : InLean.CState} {d : Nat} {i r : Expr}
@@ -472,7 +472,7 @@ variable {fe : InLean.FEnv} {f : Nat}
 
 theorem coreKnotI_defeq_succ (d : Nat) (a b : Expr) :
     (coreKnotI .verified eager fe (f + 1)).defeq d a b =
-      memoBI (fun d a b => pollC fe d (defeqBodyI .verified eager (coreKnotI .verified eager fe f) fe d a b))
+      memoBI (fun d a b => pollC fe (.body d) (defeqBodyI .verified eager (coreKnotI .verified eager fe f) fe d a b))
         d a b := by
   cases eager <;> rfl
 

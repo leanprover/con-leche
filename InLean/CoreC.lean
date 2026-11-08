@@ -158,7 +158,15 @@ def ruleRhsAtM (fe : FEnv) (c j : Name) (us : List Level) : CheckCM Expr := do
 
 /-! ### Mode-free bodies -/
 
-/-- Twin of `unfoldDefinitionI`: a theorem never unfolds. -/
+/-- **The limits' poll** (`Limits.poll`) at an event, before `x`: a limit
+it answers is the error. -/
+@[inline] def pollC (fe : FEnv) (ev : Event) (x : CheckCM α) : CheckCM α :=
+  match fe.limits.poll ev with
+  | some l => throw (.limit l)
+  | none => x
+
+/-- Twin of `unfoldDefinitionI`: a theorem never unfolds; the unfolding is
+reported to the poll (`Event.unfold`). -/
 def unfoldDefinitionI (fe : FEnv) (e : Expr) : CheckCM (Option Expr) := do
   match e.getAppFnT with
   | .const n us => do
@@ -167,7 +175,7 @@ def unfoldDefinitionI (fe : FEnv) (e : Expr) : CheckCM (Option Expr) := do
       if us.length = cv.levelParams.length then do
         let v ← constValAtM fe n us
         let r ← mkAppNM v (appArgs e)
-        pure (some r)
+        pollC fe (.unfold n) (pure (some r))
       else pure none
     | none => pure none
   | _ => pure none
@@ -893,7 +901,13 @@ def betaPeelI (r : CoreFnsI) (fe : FEnv) (depth : Nat) :
       let e' ← instListM t acc
       pure (.cont (← mkAppNM e' (a :: rest)))
 
-/-- Twin of `whnfAppI`. -/
+/-- The name of a term's head constant (`.anonymous` for another head). -/
+def headConstName (e : Expr) : Name :=
+  match e.getAppFnT with
+  | .const n _ => n
+  | _ => .anonymous
+
+/-- Twin of `whnfAppI`; a ι step is reported to the poll (`Event.unfold`). -/
 def whnfAppI (r : CoreFnsI) (fe : FEnv) (depth : Nat) : Expr → List Expr → CheckCM WhnfStep
   | v, [] => pure (.done v)
   | v, a :: rest => do
@@ -902,7 +916,9 @@ def whnfAppI (r : CoreFnsI) (fe : FEnv) (depth : Nat) : Expr → List Expr → C
     | _ => do
       let fa := Expr.app v a
       match ← (if iotaArityOk fe fa then iotaRecI mode r fe depth fa else pure none) with
-      | some e'' => pure (.cont (← mkAppNM e'' rest))
+      | some e'' =>
+        let e' ← mkAppNM e'' rest
+        pollC fe (.unfold (headConstName fa)) (pure (.cont e'))
       | none => whnfAppI r fe depth fa rest
 
 /-- Twin of `whnfCoreStepI`; `mdata` is looked through. -/
@@ -1309,30 +1325,24 @@ end
         { st with defeqC := mp.insert (EKey.mk a, EKey.mk b) r }
       pure r
 
-/-- **The limits' poll** (`Limits.poll`) before a body runs, at the
-body's depth: a limit it answers is the error. -/
-@[inline] def pollC (fe : FEnv) (d : Nat) (x : CheckCM α) : CheckCM α :=
-  match fe.limits.poll d with
-  | some l => throw (.limit l)
-  | none => x
 
 /-- Twin of `knotLevelI`; every body runs behind the poll (`pollC`). -/
 @[inline] def knotLevelI (mode : CheckMode) (eager : Bool) (fe : FEnv)
     (prev prevE : Unit → CoreFnsI) : CoreFnsI :=
   { whnfCore := fun c => if c then
         memoEI (·.whnfCoreCheapC) (fun st mp => { st with whnfCoreCheapC := mp })
-          (fun d e => pollC fe d (whnfCoreBodyI mode (prev ()) fe true d e))
+          (fun d e => pollC fe (.body d) (whnfCoreBodyI mode (prev ()) fe true d e))
       else memoEI (·.whnfCoreC) (fun st mp => { st with whnfCoreC := mp })
-        (fun d e => pollC fe d (whnfCoreBodyI mode (prev ()) fe false d e))
+        (fun d e => pollC fe (.body d) (whnfCoreBodyI mode (prev ()) fe false d e))
     whnf := memoEI (·.whnfC) (fun st mp => { st with whnfC := mp })
-      (fun d e => pollC fe d (whnfBodyI (prev ()) fe d e))
+      (fun d e => pollC fe (.body d) (whnfBodyI (prev ()) fe d e))
     infer := memoEI (·.inferC) (fun st mp => { st with inferC := mp })
-      (fun d e => pollC fe d (inferBodyI (prev ()) fe d e))
-    defeq := memoBI (fun d a b => pollC fe d (defeqBodyI mode eager (prev ()) fe d a b))
+      (fun d e => pollC fe (.body d) (inferBodyI (prev ()) fe d e))
+    defeq := memoBI (fun d a b => pollC fe (.body d) (defeqBodyI mode eager (prev ()) fe d a b))
     defeqE := fun d a b => withEagerMemos eager
-      (memoBI (fun d a b => pollC fe d (defeqBodyI mode true (prevE ()) fe d a b)) d a b)
+      (memoBI (fun d a b => pollC fe (.body d) (defeqBodyI mode true (prevE ()) fe d a b)) d a b)
     inferIO := memoEI (·.inferIOC) (fun st mp => { st with inferIOC := mp })
-      (fun d e => pollC fe d (inferBodyIOI (prev ()).ioView fe d e)) }
+      (fun d e => pollC fe (.body d) (inferBodyIOI (prev ()).ioView fe d e)) }
 
 /-- Twin of `knotZeroI`: the fuel is the core's nesting depth, so running
 out of it is the recursion limit (`Limits.recDepth`). -/
