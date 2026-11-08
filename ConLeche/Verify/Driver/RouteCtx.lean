@@ -3,6 +3,8 @@ module
 public import ConLeche.Verify.Driver.ComposeReads
 public import ConLeche.Verify.Driver.RouteWorker
 import ConLeche.Verify.Driver.Reach
+import ConLeche.Verify.Cached.DeclPushes
+import ConLeche.Verify.Frontend.Prepare
 
 /-!
 # The routes: what a module's context stores, and how
@@ -71,9 +73,100 @@ theorem stmt_single {d : Declaration} {ci : ConstantInfo} (h : ci ∈ declConsta
       · rw [List.mem_singleton.1 h]; simp [*]
   | _ => simp only [declConstants, List.mem_singleton] at h ⊢; rw [h]
 
+/-- **An accepted step passed the reserved names' check.** -/
+theorem checkDeclStepC_basis {mode : CheckMode} {pins : List NatOpPinSet} {fe : FEnv}
+    {d : Declaration} :
+    Yields (checkDeclStepC mode pins fe d) (fun _ => basisNamesOk d = true) := by
+  unfold checkDeclStepC checkDeclC
+  yields
+  all_goals exact Yields.pure (by assumption)
+
+/-- **Every record of an accepted run passed the reserved names' check.** -/
+theorem declsRun_basis {mode : CheckMode} {pins : List NatOpPinSet} {ds : List Declaration}
+    {p q : Nat × FEnv} (h : DeclsRun mode pins ds p q) : ∀ d ∈ ds, basisNamesOk d = true := by
+  induction h with
+  | nil => exact fun _ h => nomatch h
+  | @cons pd ds p p₁ q hstep rest ih =>
+    intro d hd
+    rcases List.mem_cons.mp hd with rfl | hd
+    · obtain ⟨fe₁, s₁, -, hC⟩ := declStep_ok hstep
+      exact checkDeclStepC_basis _ _ _ hC
+    · exact ih d hd
+
+/-- **A presentation reads what the record it presents reads**, at a record that passed the
+reserved names' check. -/
+theorem presents_reads {d p : Declaration} (h : Presents d p) (hb : basisNamesOk p = true)
+    {n : Name} (hn : n ∈ recordReads d) : n ∈ recordReads p := by
+  have hres : quotSoundName ∈ reservedBasisNames := by simp [reservedBasisNames]
+  refine Presents.reads h (fun cv hcv => ?_) hn
+  cases p with
+  | axiomDecl c => exact .inr (by simp only [stmtOf] at hcv; rw [hcv])
+  | defnDecl c v hh =>
+    simp only [stmtOf, Declaration.axiomDecl.injEq] at hcv
+    subst hcv
+    refine .inl fun he => ?_
+    simp [basisNamesOk, he] at hb
+    exact hb hres
+  | thmDecl c v =>
+    simp only [stmtOf, Declaration.axiomDecl.injEq] at hcv
+    subst hcv
+    refine .inl fun he => ?_
+    simp [basisNamesOk, he] at hb
+    exact hb hres
+  | opaqueDecl c v =>
+    simp only [stmtOf, Declaration.axiomDecl.injEq] at hcv
+    subst hcv
+    refine .inl fun he => ?_
+    simp [basisNamesOk, he] at hb
+    exact hb hres
+  | quotDecl k c => simp [stmtOf] at hcv
+  | indDecl b nP => simp [stmtOf] at hcv
+
+/-- A record's name is stored where the record is. -/
+theorem stored_of_record {ds : List Declaration} {d : Declaration} (hd : d ∈ ds) {n : Name}
+    (hn : n ∈ declNames d) : ((streamEnv ds).find? n).isSome = true := by
+  unfold declNames at hn
+  obtain ⟨ci, hci, rfl⟩ := List.mem_map.1 hn
+  simp only [Env.find?, List.find?_isSome]
+  exact ⟨ci, (mem_streamEnv_consts _ _).2 (.inl ⟨d, hd, hci⟩), by simp [ConstantInfo.name]⟩
+
 namespace Run
 
 variable {sp : SearchPath} {fs : FS} (R : Run sp fs)
+
+/-- **An emitted record of a module of the run passed the reserved names' check.** -/
+theorem own_basis {h : Name} (hh : h ∈ R.names) {p : Declaration} (hp : p ∈ (R.w h).emitted) :
+    basisNamesOk p = true := by
+  have := declsRun_basis (R.run h hh) _
+    (List.mem_map_of_mem (f := fillDecl (fillOf sp fs #[⟨h, (R.w h).home.frontier⟩]))
+      (emitted_own (R.facts h hh) hp))
+  cases p <;> exact this
+
+/-- **A name an own constant's type reads, loaded at the module, is in its context**: the
+constant is an own record's or a context record's, and either's reads are stored there. -/
+theorem stored_of_own_const {h : Name} (hh : h ∈ R.names) {ci : ConstantInfo}
+    (hci : ci ∈ (ownEnvOf sp fs h (R.w h)).consts) {y : Name}
+    (hy : y ∈ ci.toConstantVal.type.needs)
+    (hl : ((R.w h).reads.index.first[y]?).isSome = true) :
+    ((R.dev (R.rk h)).context.find? y).isSome = true := by
+  have hw := R.facts h hh
+  have hno : (ownNames (R.w h).home).contains y = false := by
+    cases hc : (ownNames (R.w h).home).contains y
+    · rfl
+    · rw [first_none_of_ownNames hw hc] at hl; cases hl
+  have hlc : (R.w h).reads.index.first.contains y = true := by
+    rw [Std.HashMap.contains_eq_isSome_getElem?]; exact hl
+  rw [R.dev_rk hh]
+  rcases (mem_streamEnv_consts _ _).1 hci with ⟨p, hp, hcp⟩ | hc
+  · obtain ⟨p0, hp0, rfl⟩ := List.mem_map.1 hp
+    rw [declConstants_fillDecl] at hcp
+    have hpe : p0 ∈ (R.w h).emitted.toList := by
+      rw [hw.own] at hp0
+      exact (Frontend.hoistNatOpGround_perm _ _).mem_iff.1 hp0
+    exact own_reads_ctx hw (Array.mem_toList_iff.1 hpe)
+      (recordReads_complete (.inl ⟨ci, hcp, .inl hy⟩)) hno (by simp [hlc])
+  · obtain ⟨d, hd, hcd⟩ := ((mem_streamEnv_consts _ _).1 hc).resolve_right (by simp [Env.empty])
+    exact (worker_ctx hw).2.2.1 d hd y (recordReads_complete (.inl ⟨ci, hcd, .inl hy⟩))
 
 /-- **A context name whose copy is of a statement kind is stored by its statement**, read at that
 copy: its constant is a statement kind of the copy's statement, the copy is on the snapshot, at a
@@ -147,7 +240,37 @@ of one of its copies of a clash's name. -/
 theorem reader_ctx {M : Name} (hM : M ∈ R.names) {h y : Name} (hP : (h, y) ∈ (R.cap M).2.2)
     (hl : ((R.w h).reads.index.first[y]?).isSome = true) :
     ((R.dev (R.rk h)).context.find? y).isSome = true := by
-  sorry
+  obtain ⟨-, hrec, -, -, -, -, hreach⟩ := R.cap_facts hM
+  obtain ⟨hR, horig⟩ := hreach _ hP
+  have hhN : h ∈ R.names := (R.reached_rank hM hR).1
+  have hwh := R.facts h hhN
+  have hno : (ownNames (R.w h).home).contains y = false := by
+    cases hc : (ownNames (R.w h).home).contains y
+    · rfl
+    · rw [first_none_of_ownNames hwh hc] at hl; cases hl
+  have hlc : (R.w h).reads.index.first.contains y = true := by
+    rw [Std.HashMap.contains_eq_isSome_getElem?]; exact hl
+  rcases horig with ⟨k, d, hd, hh, hy⟩ | ⟨h', v, y', s₂, hv, hs₂, hmod2, hsk2, rg, cv₂, k₂, hrg, hst,
+      htag, hyn⟩ | ⟨k, d, hd, n, hn, cs, hcs, kc, hkc, hz1, hz2⟩
+  · -- a record of home `h` reads `y`: its presentation of an own record of `h` does
+    obtain ⟨⟨x, -, s, -, hmod, hra⟩, -⟩ := hrec k d h hd hh
+    have hrf := hra.recordFrom
+    rw [hmod] at hrf
+    obtain ⟨p, hp, hpr⟩ := recordFrom_presents hrf hwh
+    rw [R.dev_rk hhN]
+    exact own_reads_ctx hwh hp (presents_reads hpr (R.own_basis hhN hp) hy) hno (by simp [hlc])
+  · -- an `agreeCheck` partner read: a name of the statement of a copy of `h`
+    obtain ⟨hcp, hlv, -⟩ := homeView_copy hv hs₂
+    have hyn' : y ∈ cv₂.type.needs := by
+      rcases needsGo_sound _ _ _ _ hyn with h0 | h0
+      · simp at h0
+      · exact h0
+    by_cases hsy : cv₂.name = sorryAxName
+    · sorry
+    · obtain ⟨ci, hfind, hcv, -, -, -⟩ := copy_own' hwh ⟨_, R.run h hhN⟩ hmod2.symm hcp hlv hrg hst
+        hsk2 htag hsy
+      exact R.stored_of_own_const hhN (Env.find?_mem hfind) (by rw [hcv]; exact hyn') hl
+  · sorry
 
 end Run
 
