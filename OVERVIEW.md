@@ -791,11 +791,13 @@ its workers' exit codes, and no theorem is about it: the modular statement compo
 run's exit 0 says. A worker's three standard streams are pipes and it inherits no other
 descriptor; its stdout and stderr are read as it runs, and its stderr is passed on for a verdict
 other than 0. Each finished module gets a line on stdout,
-`con-leche: schedule: M: VERDICT t=Ss [done/total p %, k running, eta D]`: `done` counts the
-modules a resumed run found logged, and the estimate is the remaining modules at the rate this
-run has finished them so far. With `--progress=N` (milliseconds, at least a second) or
-`--progress=Ss`, a heartbeat on stderr after that long without a line gives the same counts and
-the three longest-running workers. A worker that cannot be started is that module's verdict 3,
+`con-leche: schedule: M: VERDICT t=Ss [done/total p %, k running, 1.2 GiB (max 0.6 GiB) of 40 GiB, eta D]`:
+`done` counts the modules a resumed run found logged, and the estimate is the remaining modules
+at the rate this run has finished them so far; the memory is the running workers' total resident
+set, the largest one's, and the budget when one is set (read every tick from `/proc`, left out
+where that cannot be read), and the final summary line gives the run's peak total. With
+`--progress=N` (milliseconds, at least a second) or `--progress=Ss`, a heartbeat on stderr after
+that long without a line gives the same counts and the three longest-running workers. A worker that cannot be started is that module's verdict 3,
 with the reason; no further worker starts, and the running ones are waited for.
 
 `runArgs_oleans_accept` is `runArgs_accept`'s statement for these arguments:
