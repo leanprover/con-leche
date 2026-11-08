@@ -114549,3 +114549,37 @@ done here.  (A cold-cache figure was not taken; the files were in the page cache
 Files: `_tmp/504/probe.patch` (the probe: `Region.lean`, `Main.lean`), `_tmp/504/logs/` (the
 runs; `ev-*.bin` the line events; `post-skip-*.txt` the tables above), `_tmp/504/postd/Post.lean`
 (the event reader), `_tmp/504/an2.py` (the strace reader).  The tree is unchanged by the probe.
+
+## TASK #507 — the scheduler's status shows its memory (2026-11-08, agent/507-sched-mem)
+
+The maintainer's request: the scheduler watches memory, so its status output shows it.  Every
+tick (50 ms) now reads the running workers' resident sets through the #505 mechanism
+(`/proc/self/task/*/children`, `/proc/<pid>/cmdline`, `VmRSS`; `workerRssOpt`), budget or not;
+if `/proc` cannot be read the memory is left out (an error only with a budget, refused at the
+start as before).  `ConLeche/Driver/ScheduleIO.lean`, plain IO; no theorem.
+
+**Line format.**  The module line and the heartbeat carry, after `k running` (only while a
+worker runs), the running workers' total, the largest one, and the budget when one is set; the
+sizes are GiB with one decimal, MiB below 0.1 GiB, the budget `40 GiB` or `0.5 GiB`.  The
+sample is the one of the tick, over the workers still running after that tick's finishes.  The
+final summary line ends `; peak T of the running workers` (the largest total sampled over the
+run, 0 or none where unreadable).  The log's format is unchanged; the olean gate's pinned line
+(`[4/4 100.0 %, 0 running]`) is unchanged (no workers, no memory), 321/321.
+
+Examples (`--olean --schedule --jobs=4 --search-path=<toolchain lib/lean> -- Init.Data.Nat.Lemmas`):
+```
+con-leche: schedule: Init.Data.Nat.Log2: 0 t=0.1s [1/84 1.1 %, 2 running, 0.1 GiB (max 0.0 GiB), eta 46s]   (first build)
+con-leche: accepted 84 modules, one worker each (--verified); peak 0.1 GiB of the running workers
+```
+with `--schedule-memory=8G`, and `Init.Data.BitVec.Lemmas` at `--jobs=4 --schedule-stagger=0`
+(after the MiB change):
+```
+con-leche: schedule: Init.Data.Fin.Lemmas: 0 t=0.5s [4/173 2.3 %, 3 running, 0.3 GiB (max 0.1 GiB) of 8 GiB, eta 30s]
+con-leche: schedule: Init.Data.BitVec.Bootstrap: 0 t=0.3s [7/173 4.0 %, 3 running, 0.2 GiB (max 98 MiB) of 8 GiB, eta 26s]
+con-leche: schedule: [172/173 99.4 %, 1 running, 73 MiB (max 73 MiB) of 8 GiB, eta 0s]; longest: Init.Data.Array.Extract 3s
+con-leche: accepted 173 modules, one worker each (--verified); peak 0.5 GiB of the running workers
+```
+Usage text and OVERVIEW §(scheduler) updated; the README's `runArgs` links repointed (the usage
+text moved the definition from line 284 to 287).  Gates: `lake build`, `lake test`
+warning-free; trust surface, layering, overview links, quote gate; olean gate 321/321 under the
+guard.  No fixture pins the memory text: a tick may miss a short worker.
