@@ -290,12 +290,35 @@ theorem recBlocksOf_fr (c : ReachCache) (k : PartKey) :
         simp only [ModelIO.allOk_pure]
         exact (h1.trans h3).trans ⟨rfl, rfl, rfl, rfl⟩
 
+theorem loadPart_fr (c : ReachCache) (k : PartKey) :
+    ModelIO.AllOk (loadPart env c k) fs ho fun p => Fr c p.1 := by
+  unfold loadPart
+  split
+  · simp only [ModelIO.allOk_pure]; exact Fr.rfl
+  · simp only [ModelIO.allOk_bind]
+    intro y _ _
+    rcases y with e | fl
+    · simp only [ModelIO.allOk_pure]; exact Fr.rfl
+    · simp only []
+      split
+      · simp only [ModelIO.allOk_pure]; exact Fr.rfl
+      · split
+        · simp only [ModelIO.allOk_pure]; exact ⟨rfl, rfl, rfl, rfl⟩
+        · split <;> (simp only [ModelIO.allOk_pure]; exact ⟨rfl, rfl, rfl, rfl⟩)
+
 theorem groupAt_fr (c : ReachCache) (k : PartKey) (n : Name) :
     ModelIO.AllOk (groupAt env c k n) fs ho fun p => Fr c p.1 := by
   unfold groupAt
   simp only [ModelIO.allOk_bind]
   intro x _ hx
-  have h1 := lookOf_fr c k x _ hx
+  have h0 := loadPart_fr c k x _ hx
+  obtain ⟨c₀, r⟩ := x
+  cases r with
+  | error e => simpa using h0
+  | ok u =>
+  simp only [ModelIO.allOk_bind]
+  intro x _ hx
+  have h1 := h0.trans (lookOf_fr c₀ k x _ hx)
   obtain ⟨c₁, r⟩ := x
   cases r with
   | error e => simpa using h1

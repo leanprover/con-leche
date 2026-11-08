@@ -868,7 +868,7 @@ theorem readPartNames_header {sp : SearchPath} {fs : FS} {m : Name} {f : ModFile
   obtain ⟨y, hs₁, hy, ht⟩ := ht
   rcases y with e | loc
   · simp at ht
-  simp only [readPartNamesAt, ModelIO.bind_ok] at ht
+  simp only [readPartNamesAt, namesOf, ModelIO.bind_ok] at ht
   obtain ⟨z, hs₂, hz, ht⟩ := ht
   rcases z with e | f'
   · simp at ht

@@ -18,8 +18,8 @@ is read at that location, and a module without a table is read on the search pat
 
 * The one-process mode (`ConLeche/Driver/Modular.lean`) reads every module's table, all of it,
   up front.
-* A worker (`--module`, `workerTables`) reads its own module's table (its location and its
-  private part's name positions), then runs its header fixpoint once up front with each
+* A worker (`--module`, `workerTables`) reads its own module's table (its location, its private
+  view's files, which the home then takes from it, and its private part's name positions), then runs its header fixpoint once up front with each
   module's header read at its location and the location entered in the tables (the state of
   the fixpoint's run, `tabImports`); the worker's phases then read every loaded module at the
   location found there.
@@ -43,6 +43,9 @@ structure ModTable where
   priv : Option NamePositions
   /-- its exported part's name positions, where read -/
   expo : Option NamePositions
+  /-- its private view's files, where read (a worker's own module: the home reads them, task
+  #508) -/
+  files : Option ModFiles := none
 
 /-- **The tables**, by module name. -/
 structure ModTables where
@@ -78,7 +81,10 @@ def ModTables.reads {μ : Type → Type} [CheckerIO μ] (sp : SearchPath) (T : M
       | none => readImportsAt t.loc m
     | none => moduleImports sp m
   files m level := match T.find m with
-    | some t => readFilesAt t.loc m level
+    | some t =>
+      match level, t.files with
+      | .private, some f => pure (.ok f)
+      | _, _ => readFilesAt t.loc m level
     | none => readFiles sp m level
   names x := match T.find x.1 with
     | some t =>
@@ -100,19 +106,26 @@ def tabImports {μ : Type → Type} [CheckerIO μ] (sp : SearchPath) (n : Name) 
     | .ok is =>
       pure (.ok is, T.push { name := n, loc, imports := some is, priv := none, expo := none })
 
-/-- **A worker's tables** at module `m`: `m` located, its private part's name positions read
-there, then its header fixpoint (`headerFixpoint`) over `tabImports`, which locates each module
-it loads once.  Nothing here fails: where a read fails, the tables hold what was read before it,
-and the worker's own read of the rest reports the failure. -/
+/-- **A worker's tables** at module `m`: `m` located, its private view's files read there and
+kept (the home reads them, so that they are read once), its private part's name positions off
+them, then its header fixpoint (`headerFixpoint`) over `tabImports`, which locates each module it
+loads once.  Nothing here fails: where a read fails, the tables hold what was read before it, and
+the worker's own read of the rest reports the failure. -/
 def workerTables {μ : Type → Type} [CheckerIO μ] (sp : SearchPath) (m : Name) : μ ModTables := do
   match ← findModule sp m with
   | .error _ => pure {}
   | .ok loc =>
-    match ← readPartNamesAt loc (m, .private) with
+    match ← readFilesAt loc m .private with
     | .error _ =>
       pure (ModTables.push {} { name := m, loc, imports := none, priv := none, expo := none })
+    | .ok f =>
+    match namesOf m f .private with
+    | .error _ =>
+      pure (ModTables.push {} { name := m, loc, imports := none, priv := none, expo := none,
+                                files := some f })
     | .ok own =>
-      let T0 := ModTables.push {} { name := m, loc, imports := none, priv := some own, expo := none }
+      let T0 := ModTables.push {} { name := m, loc, imports := none, priv := some own, expo := none,
+                                    files := some f }
       let (_, T) ← (headerFixpoint (tabImports sp) own.header.isModule own.header.imports).run T0
       pure T
 
