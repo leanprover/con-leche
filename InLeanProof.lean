@@ -56,6 +56,10 @@ public import InLeanProof.PassRecs4
 public import InLeanProof.PassRecs5
 public import InLeanProof.PassRecs6
 public import InLeanProof.PassSim
+public import InLeanProof.PassRecs7
+public import InLeanProof.PassRecs8
+public import InLeanProof.PassRecs9
+public import InLeanProof.PassRecs10
 public import InLeanProof.DeclGuards
 public import InLeanProof.DeclStep
 public import InLeanProof.DeclPins
