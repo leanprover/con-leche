@@ -114583,3 +114583,98 @@ Usage text and OVERVIEW §(scheduler) updated; the README's `runArgs` links repo
 text moved the definition from line 284 to 287).  Gates: `lake build`, `lake test`
 warning-free; trust surface, layering, overview links, quote gate; olean gate 321/321 under the
 guard.  No fixture pins the memory text: a tick may miss a short worker.
+
+## TASK #509 — each module located once per worker; real paths only where compared (2026-11-08, agent/509-findmodule)
+
+#504 found 206 844 `readlink` and 155 263 `statx` calls in the `--olean --module` worker at
+`Mathlib.GroupTheory.Coxeter.Basic`, all from `findModule`.
+
+**The cause, counted.**  A probe (a line per `findModule` call and per worker phase, not
+committed) on Coxeter at `--jobs=8`: 5 444 lookups of 2 480 distinct modules, at most 10 of one
+module.  By phase: the home 1 (`readHome`); the reads 5 120 (the own names 1, the header fixpoint
+2 479, the loaded parts' name positions 2 479, the clash copies' files about 160); the reach 315
+(of 191 modules, all of them loaded); the values 8 (one per job, the module itself).  Each lookup
+is, for each of the 10 search-path directories, a `pathExists` on each of the three files
+(30 `statx`, about 24 failing), and a `realPath` of every file found: glibc's `realpath` makes
+one `readlink` per path component (13 or so here), so a module found with three files costs
+about 38 `readlink`.  The real paths were compared only to tell whether two directories holding
+the module are one location; with one directory holding it they decide nothing.
+
+**The fix.**
+1. `findModule` (`ConLeche/Frontend/Olean/Files.lean`): `locateIn` gives which of the three
+   files a directory holds; `locateFiles` resolves real paths (`realsIn`) only where two or
+   more directories hold some of the files, and `locateOf` compares them only there.  The
+   module → files mapping, the strictness (#392) and every error are unchanged: with one
+   directory the old comparison was vacuous.  No search-path directory is resolved at all on
+   the common path, so the separate per-directory `realPath` the brief asked for is not needed.
+2. The tables (`ConLeche/Driver/Tables.lean`, `ModTable`/`ModTables`, moved from `Modular.lean`
+   and generalized: imports and name positions optional).  The run of `--module`
+   (`runReq`, `Dispatch.lean`) reads the worker's tables up front (`workerTables`): the module
+   located and its private part's name positions read there, then its header fixpoint run once
+   over `tabImports` (located, header read at the location, the module's table pushed) in
+   `StateT ModTables μ`, the tables being the explicit state threaded through the fixpoint.
+   `levelsGo`/`headerFixpoint` are now generic in the monad (`[Monad μ]`; they use nothing
+   else).  Nothing in `workerTables` fails: a failed read leaves the tables as they were, and
+   the worker's own read reports it.  The worker then runs unchanged over `ModTables.reads`:
+   every read of a module with a table is at its location, the own names and every loaded
+   header from the table; the worker's fixpoint runs again, in memory.  So each module the
+   worker touches is located once (Coxeter: 2 480 lookups, was 5 444); the own module's files
+   are read as often as before (the up-front names read replaces the worker's).
+3. Proofs (`ConLeche/Verify/Driver/Tables.lean`): `TablesOk` (each table's location is
+   `findModule`'s on the snapshot, each held value its read's), `modTables_within` (moved from
+   the one-process mode, generalized: the reads answered from tables refine the search path's),
+   `levelsGo_keeps`/`headerFixpoint_keeps` (a state invariant kept by every header read is
+   kept by the fixpoint), `tabImports_keeps`, `workerTables_ok`.  `runArgs_module_accept`
+   now goes through `checkModuleG_accept (modTables_within (workerTables_ok _))`; its statement
+   is unchanged.  `findModule_ok`'s proof is repaired against `locateFiles` (`locateFiles_det`,
+   `realsIn_det`).  The uncached read survives only as what the tables are proved against
+   (`OleanReads.ofPath`), not as a second implementation.
+
+**Lean's semantics.**  Unchanged: the mapping is still the strict one of #392 (Lean takes the
+first directory holding `M.olean`; we look at all and refuse two locations or split parts).
+In the model `pathExists p` is `(fs.real p).isSome`, so a found file's `realPath` never failed;
+not resolving it changes no outcome.
+
+**Measured** (v4.35.0 Mathlib, `_tmp/509/measure.sh`, the `#501` command line, `--jobs=8`, under
+the guard; `before` = `modular` at be22ced8e, `after` = this lane before the merge of #507).
+Syscalls (`strace -c -f -e trace=readlink,statx,openat`):
+
+| run | `readlink` | `statx` | `openat` |
+|---|---|---|---|
+| `Init.Data.Nat.Lemmas` | 7 602 → 0 | 7 122 → 2 685 | 412 → 394 |
+| `Mathlib.GroupTheory.Coxeter.Basic` | 206 844 → 0 | 155 263 → 75 451 | 5 876 → 5 876 |
+| `Mathlib.Analysis.SpecialFunctions.Gamma.Basic` | 385 188 → 0 | 277 281 → 125 567 | 10 924 → 10 827 |
+| `Mathlib.RingTheory.WittVector.MulP` | 274 608 → 0 | 200 431 → 98 317 | 7 462 → 7 461 |
+| merged `--olean`, Coxeter | 731 979 → 0 | 568 531 → 562 981 | 51 518 → 50 964 |
+| `--check-graph`, Coxeter | 107 754 → 0 | 82 650 → 82 650 | 2 930 → 2 930 |
+
+`instructions:u` (one run per stream) and `cycles:u` (three runs, ranges; the `before` cycles
+from a second series run with nothing else of this lane running):
+
+| run | `instructions:u` | `cycles:u` |
+|---|---|---|
+| `Init.Data.Nat.Lemmas` | 9.185 G → 9.129 G (−0.6 %) | 4.74–4.95 G → 4.37–4.66 G |
+| `Mathlib.GroupTheory.Coxeter.Basic` | 8.915 G → 7.795 G (−12.6 %) | 3.67–3.83 G → 3.35–3.62 G |
+| `Mathlib.Analysis.SpecialFunctions.Gamma.Basic` | 15.515 G → 13.341 G (−14.0 %) | 6.55–6.94 G → 5.83–5.93 G |
+| `Mathlib.RingTheory.WittVector.MulP` | 8.988 G → 7.540 G (−16.1 %) | 3.61–3.68 G → 2.99–3.08 G |
+| merged `--olean`, Coxeter | 1 100.12 G → 1 100.00 G (−0.01 %) | (before series disturbed) → 580–594 G |
+| `--check-graph`, Coxeter | 1.339 G → 1.301 G (−2.8 %) | 0.574–0.586 G → 0.531–0.552 G |
+
+The user-space instructions fall with the syscalls: glibc's `realpath` walks the path in user
+space, and every lookup builds 30 paths.  Kernel cycles (`cycles:k`, three alternated runs per
+binary, `_tmp/509/logs/kcyc/`) vary 1.3–11.8 G on the loaded machine within one binary and say
+nothing; by #504's microbenchmark (about 1 700 kernel cycles a call) the 287 000 calls removed
+from Coxeter are about 0.5 G kernel cycles, of its 1.0–1.2 G.  Verdicts unchanged.
+
+**Not done, and why.**
+* The worker still makes 30 `statx` per module (10 directories × 3 files; 24 failing):
+  strictness looks at every directory.  Fewer would need either a directory listing (a new
+  `CheckerIO` operation with its model) or the parent directory's existence standing for its
+  files' (a new property of the snapshot); both are a trust-model change, left to a ruling.
+* The merged `--olean` run locates each module in `closureOrder`, again in `loadModule`, and
+  again for every switch of a job's value cache (`regionFor`); there the location is 0.01 % of
+  the instructions, and the value cache is #508's.  The one-process mode locates every module
+  in the graph walk and again in `readModTable` (one lookup more per module, against a whole
+  closure's checks).  The worker's values phase: 8 lookups of its own module (one per job,
+  `readValue` on the search path).
+* `--check-graph` already locates each module once; it gains the `readlink`s only.
