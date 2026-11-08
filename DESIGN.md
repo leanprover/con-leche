@@ -114818,24 +114818,38 @@ repeated the protected module and the pause; the ETA swung from 16 h to 58 h in 
   grows larger; every overflow kills the youngest other worker.  The protection ends when the
   protected worker finishes or is killed alone with `memory`.  Peak admission, front-of-queue
   requeue, no verdict, not logged: unchanged.
+* **Size-aware admission (maintainer's addendum; replaces the blanket pause).**  Pausing every
+  start while a worker is protected wasted capacity (live: 27.6 GiB running of 40, 11 GiB free,
+  nothing starting).  Every module has a known size: the largest RSS seen when it was killed, a
+  lower bound of its peak; never killed: unknown, counted 0.  The room is the budget minus the
+  running workers' `VmHWM` sum.  The first module in queue order whose known size fits starts
+  (jobs and stagger as before); one that does not fit stays in its place and the scan goes on.
+  With nothing running the first one always starts (and the `memory` verdict decides if it is
+  over the whole budget).  Only killed modules have a size, so they are a separate ordered
+  list `front` (O(requeued) per tick) before the `pending` list of unknown ones, which is never
+  scanned: its head starts when the room is above 0.  A kill puts the module at the head of
+  `front` with its size raised to the killed RSS; newly admitted workers are the youngest, so
+  they are what a growing protected worker kills, and each kill teaches a size, so the module
+  is not restarted until it fits: thrashing is bounded.
 * **Output.** Kill: `M: killed at 63 MiB, requeued`.  One line when a protection begins, one when
-  it ends; the status line's `paused for M` is kept.
+  it ends.  The status line has `protecting M` and `n waiting for room` (killed modules that do
+  not fit yet); there is no `paused`.
 * **ETA.** `remaining × ms ÷ n` over the last `n ≤ 200` finishes (`etaWindow`), `ms` their active
   time: the time from the finish before the window (or the start) to the last finish, minus the
-  time spent with a protected worker (`pausedMs`, summed per tick).  So a long pause is not in
-  the rate, and a quiet stretch does not grow the estimate until a module finishes.
+  last finish: a quiet stretch does not grow the estimate until a module finishes (no pause exists
+  any more to leave out).
 
 Examples (`--olean --schedule --jobs=4 --search-path=<toolchain lib> -- Init.Data.Nat.Lemmas`):
 ```
-120M: memory over 0.1 GiB: starts paused, protecting Init.Data.Nat.Lemmas (91 MiB)
+120M: memory over 0.1 GiB: protecting Init.Data.Nat.Lemmas (91 MiB)
       Init.Data.Nat.Bitwise.Basic: killed at 63 MiB, requeued
-      Init.Data.Nat.Lemmas finished, starts resumed          exit 0
-90M:  memory over 90 MiB: starts paused, protecting Init.TacticsExtra (68 MiB)
-      Init.Data.Nat.Bitwise.Basic: killed at 67 MiB, requeued
-      Init.TacticsExtra finished, starts resumed
-      Init.Data.Array.Basic: 93 MiB alone, over the budget of 90 MiB: memory   exit 3
-      Init.Data.Nat.Lemmas: memory t=0.1s [1/84 1.1 %, 0 running, eta 8s]
+      Init.TacticsExtra: 0 t=0.0s [2/84 2.3 %, 1 running, 91 MiB now (max 91 MiB), 91 MiB peaks
+        of 0.1 GiB, 1 requeued, protecting Init.Data.Nat.Lemmas, 1 waiting for room, eta 26s]
+      Init.Data.Nat.Lemmas finished, protection over          exit 0
+90M:  Init.Data.Array.Basic: 93 MiB alone, over the budget of 90 MiB: memory   exit 3
 ```
-The protection staying put while another worker grows larger could not be provoked at this
+Starts under protection: Init.Data.Nat.Log2 and Init.TacticsExtra were started and finished
+while Lemmas was protected (above); the requeued Bitwise.Basic (known size 63 MiB) waited in the
+queue (`1 waiting for room`) until Lemmas had finished and the room was there.  The protection staying put while another worker grows larger could not be provoked at this
 scale (the workers peak at 100 MiB within milliseconds); the rule is the code's `findIdx?` on
 the protected module before the largest is looked at.
