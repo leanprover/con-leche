@@ -11,8 +11,8 @@ public section
 -- assumption of its statement), PdB's theorem at its private level.
 -- Lean merges them (a theorem stands for an assumption of its
 -- statement, without a test that the statement is a proposition), and
--- so must the modular check: PdA's definition is a proof (its type is
--- inferred to be a proposition), so both copies have one key
+-- so does the modular check: one copy is a theorem, so both are proofs
+-- of one proposition, with no inference (task #506)
 theorem pd_use : id True := pd
 
 end
