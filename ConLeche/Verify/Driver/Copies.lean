@@ -608,4 +608,135 @@ theorem partNames_eq {sp : SearchPath} {fs : FS} {k : PartKey} {t t' : NamePosit
   simp only [hn, ModelIO.pure_iff, Except.ok.injEq] at h h'
   exact h.1.trans h'.1.symm
 
+/-! ## A home's view is its name index -/
+
+/-- **The first copy of a name in some parts**, in their order. -/
+@[expose] def firstIn : List (PartKey × NamePositions) → Name → Option Spot
+  | [], _ => none
+  | (k, t) :: rest, y =>
+    match t.consts.toList.find? (·.name == y) with
+    | some q => some ⟨k, q⟩
+    | none => firstIn rest y
+
+/-- **The first copy of a name in some parts**, as a copy: the part's position from `i` on and
+the name position's in the part. -/
+@[expose] def firstCopyIn : List NamePositions → Nat → Name → Option Copy
+  | [], _, _ => none
+  | t :: ts, i, y =>
+    match t.consts.toList.findIdx? (·.name == y) with
+    | some k => some ⟨i, k⟩
+    | none => firstCopyIn ts (i + 1) y
+
+theorem viewStep_list (k : PartKey) (y : Name) :
+    ∀ (l : List NamePosition) (v : Std.HashMap Name Spot),
+      (l.foldl (fun (v : Std.HashMap Name Spot) q =>
+        if v.contains q.name then v else v.insert q.name ⟨k, q⟩) v)[y]? =
+        (v[y]?).or ((l.find? (·.name == y)).map (⟨k, ·⟩))
+  | [], v => by simp
+  | q :: l, v => by
+    simp only [List.foldl_cons, List.find?_cons]
+    rw [viewStep_list k y l]
+    by_cases hc : v.contains q.name = true
+    · simp only [hc, ite_true]
+      by_cases hq : (q.name == y) = true
+      · have : q.name = y := beq_iff_eq.1 hq
+        subst this
+        rw [Std.HashMap.contains_eq_isSome_getElem?] at hc
+        obtain ⟨s, hs⟩ := Option.isSome_iff_exists.1 hc
+        simp [hs]
+      · simp [hq]
+    · simp only [hc, Bool.false_eq_true, ite_false, Std.HashMap.getElem?_insert]
+      by_cases hq : (q.name == y) = true
+      · have : q.name = y := beq_iff_eq.1 hq
+        subst this
+        rw [Std.HashMap.contains_eq_isSome_getElem?] at hc
+        simp only [Option.not_isSome_iff_eq_none] at hc
+        simp [hc]
+      · simp [hq]
+
+theorem viewStep_get (v : Std.HashMap Name Spot) (k : PartKey) (t : NamePositions) (y : Name) :
+    (viewStep v k t)[y]? = (v[y]?).or ((t.consts.toList.find? (·.name == y)).map (⟨k, ·⟩)) := by
+  rw [viewStep, ← Array.foldl_toList, viewStep_list]
+
+theorem viewFold_get (y : Name) :
+    ∀ (l : List (PartKey × NamePositions)) (v : Std.HashMap Name Spot),
+      (l.foldl (fun v kt => viewStep v kt.1 kt.2) v)[y]? = (v[y]?).or (firstIn l y)
+  | [], v => by simp [firstIn]
+  | (k, t) :: l, v => by
+    simp only [List.foldl_cons]
+    rw [viewFold_get y l, viewStep_get]
+    simp only [firstIn]
+    cases v[y]? <;> cases t.consts.toList.find? (·.name == y) <;> simp
+
+/-- The name index's inner fold over one part. -/
+theorem nameIndex_inner (i : Nat) (y : Name) :
+    ∀ (l : List NamePosition) (first : Std.HashMap Name Copy) (more : Array (Name × Copy)) (k : Nat),
+      (l.foldl (fun (acc : Std.HashMap Name Copy × Array (Name × Copy) × Nat) q =>
+        let (first, more, k) := acc
+        match first[q.name]? with
+        | none => (first.insert q.name ⟨i, k⟩, more, k + 1)
+        | some _ => (first, more.push (q.name, ⟨i, k⟩), k + 1)) (first, more, k)).1[y]? =
+        (first[y]?).or ((l.findIdx? (·.name == y)).map fun j => ⟨i, k + j⟩)
+  | [], first, more, k => by simp
+  | q :: l, first, more, k => by
+    simp only [List.foldl_cons, List.findIdx?_cons]
+    cases hf : first[q.name]? with
+    | none =>
+      simp only []
+      rw [nameIndex_inner i y l, Std.HashMap.getElem?_insert]
+      by_cases hq : (q.name == y) = true
+      · have : q.name = y := beq_iff_eq.1 hq
+        subst this
+        simp [hf]
+      · simp only [hq, Bool.false_eq_true, ite_false, Option.map_map]
+        congr 2
+        funext j
+        simp only [Function.comp, Copy.mk.injEq]
+        exact ⟨trivial, by omega⟩
+    | some c =>
+      simp only []
+      rw [nameIndex_inner i y l]
+      by_cases hq : (q.name == y) = true
+      · have : q.name = y := beq_iff_eq.1 hq
+        subst this
+        simp [hf]
+      · simp only [hq, Bool.false_eq_true, ite_false, Option.map_map]
+        congr 2
+        funext j
+        simp only [Function.comp, Copy.mk.injEq]
+        exact ⟨trivial, by omega⟩
+
+/-- The name index's outer fold over the parts. -/
+theorem nameIndex_outer (y : Name) :
+    ∀ (ps : List NamePositions) (first : Std.HashMap Name Copy) (more : Array (Name × Copy)) (i : Nat),
+      (ps.foldl (fun (acc : Std.HashMap Name Copy × Array (Name × Copy) × Nat) p =>
+        let (first, more, i) := acc
+        let (first, more, _) := p.consts.foldl
+          (fun (acc : Std.HashMap Name Copy × Array (Name × Copy) × Nat) q =>
+            let (first, more, k) := acc
+            match first[q.name]? with
+            | none => (first.insert q.name ⟨i, k⟩, more, k + 1)
+            | some _ => (first, more.push (q.name, ⟨i, k⟩), k + 1)) (first, more, 0)
+        (first, more, i + 1)) (first, more, i)).1[y]? =
+        (first[y]?).or (firstCopyIn ps i y)
+  | [], first, more, i => by simp [firstCopyIn]
+  | p :: ps, first, more, i => by
+    simp only [List.foldl_cons]
+    rw [nameIndex_outer y ps]
+    have hin := nameIndex_inner i y p.consts.toList first more 0
+    rw [Array.foldl_toList] at hin
+    rw [hin]
+    simp only [firstCopyIn, Nat.zero_add]
+    cases first[y]? <;> cases p.consts.toList.findIdx? (·.name == y) <;> simp
+
+/-- **The name index's first copy** is the parts' first copy. -/
+theorem nameIndexOf_first (ps : List NamePositions) (y : Name) :
+    (nameIndexOf ps.toArray).first[y]? = firstCopyIn ps 0 y := by
+  have := nameIndex_outer y ps (Std.HashMap.emptyWithCapacity
+    (ps.toArray.foldl (fun n p => n + p.consts.size) 0)) #[] 0
+  simp only [Std.HashMap.getElem?_emptyWithCapacity, Option.none_or] at this
+  rw [← this]
+  simp only [nameIndexOf, List.foldl_toArray']
+  rfl
+
 end ConLeche.Driver
