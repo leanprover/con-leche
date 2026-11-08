@@ -4,6 +4,7 @@ public import ConLeche.Verify.Driver.Worker
 public import ConLeche.Verify.Driver.Groups
 public import ConLeche.Verify.Driver.Graph
 import ConLeche.Verify.Driver.Reach
+import ConLeche.Verify.Cached.Fill
 
 /-!
 # The composition: a development from an accepted run
@@ -311,6 +312,19 @@ theorem localOk_of
       show d ∈ (R.dev (R.rk (R.homeIn M n))).iface
       rw [R.homeIn_spec hM hi hh hn, R.dev_rk (hhome M hM i h hh).1]
       exact (R.mem_ifaceOf).2 ⟨M, hM, i, hi, hh⟩
+
+/-- **A theorem of a module's private view is a constant of its own environment**, with its
+type (`worker_thm`). -/
+theorem thm_own {M : Name} (hM : M ∈ R.names) {d : ModDecoded} {c : CEntryF Name Expr} {v : Expr}
+    {all : List Name} (hv : ViewOf sp fs M d) (hc : c ∈ d.constants) (hk : c.kind = .thm v all) :
+    ∃ ci ∈ (R.dev (R.rk M)).own.consts, ci.toConstantVal.type = c.type := by
+  obtain ⟨code, hmem, -⟩ := worker_thm (R.facts M hM) hv hc hk
+  refine ⟨.thmInfo ⟨c.name, c.levelParams, c.type⟩, ?_, rfl⟩
+  rw [R.dev_rk hM]
+  show _ ∈ (streamEnv (ownDecls sp fs M (R.w M)) (streamEnv (R.ctx M))).consts
+  refine (mem_streamEnv_consts _ _).2 (.inl ⟨_, List.mem_map.2 ⟨_, Array.mem_toList_iff.2 hmem, rfl⟩, ?_⟩)
+  rw [declConstants_fillDecl]
+  simp [declConstants]
 
 end Run
 
