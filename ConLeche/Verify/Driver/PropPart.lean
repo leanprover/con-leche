@@ -296,6 +296,28 @@ theorem envWF_prefix (hwf : EnvWF (streamEnv ctx)) : EnvWF (streamEnv (ctx.take 
 
 end PrefixFacts
 
+/-- **A statement record installs at most its own name** (the tolerated axiom nothing,
+`Quot.sound` its pin under that name). -/
+theorem declNames_stmt {d : Declaration} {cv : ConstantVal}
+    (hd : d = .axiomDecl cv ∨ ∃ v h, d = .defnDecl cv v h) : ∀ n ∈ declNames d, n = cv.name := by
+  intro n hn
+  rcases hd with rfl | ⟨v, h, rfl⟩
+  · simp only [declNames, declConstants] at hn
+    split at hn
+    · next hq =>
+      simp only [List.map_cons, List.map_nil, List.mem_singleton] at hn
+      rw [hn, hq]
+      have := atLps_name (quotPin .sound) cv.levelParams
+      simp only [quotAt, ConstantInfo.name] at this ⊢
+      rw [this]
+      decide
+    · split at hn
+      · exact nomatch hn
+      · simp only [List.map_cons, List.map_nil, List.mem_singleton] at hn
+        exact hn
+  · simp only [declNames, declConstants, List.map_cons, List.map_nil, List.mem_singleton] at hn
+    exact hn
+
 /-! ## At the specification's part -/
 
 /-- **A recorded statement is a proposition over the part below its name** (`Module.part`), for a
