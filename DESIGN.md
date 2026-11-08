@@ -114583,3 +114583,84 @@ Usage text and OVERVIEW §(scheduler) updated; the README's `runArgs` links repo
 text moved the definition from line 284 to 287).  Gates: `lake build`, `lake test`
 warning-free; trust surface, layering, overview links, quote gate; olean gate 321/321 under the
 guard.  No fixture pins the memory text: a tick may miss a short worker.
+
+## TASK #506 — one theorem is enough: copies of one statement merge without inference (2026-11-08, agent/506-one-thm)
+
+**Ruling (maintainer).**  For copies of one name merged as proofs of one statement (`clashAgree`,
+`agreeCheck`), it is enough that one copy is a theorem.  Every theorem's type is a proposition,
+the copies have one statement, and its names are read alike (the partner and name checks), so no
+copy needs its type inferred.  Inference is needed only when no copy is a theorem.  Lean's merge
+agrees (`subsumesInfo`, `Lean/Environment.lean` of v4.35.0): theorem/theorem and theorem/axiom
+merge with no test of the type; only axiom/axiom asks `isPropCheap`.
+
+**The worker** (`ConLeche/Driver/Reach.lean`).  `agreeCheck`: where either copy's `proofStatus`
+is `.yes`, no pending inference (else, both being `.infer`, one is recorded as before).
+`clashAgree`: a clash with a `.yes` copy is passed with no inference and its name is not
+reached; otherwise as before.  Everything else stays: the partner and names reads, the unsafe or
+partial check of the view's copy, `.no` rejecting, and the index's clash rule (`subsumesF`,
+Lean's), which still refuses a theorem and a definition loaded together.
+
+**The specification** (`ConLeche/Modular.lean`).  `ThmAt` and `ProofSide` are gone.  `Agree` has
+two proof routes: `proof` (the statement inferred over the part below the name, as before) and
+`thm`: an earlier module `t` stores the statement as a theorem, `t`'s reading of its names agreeing
+too.  Both ask the statement's names to resolve in the part.  `t` is any earlier module, not only
+one of the two copies: at a clash with three copies one theorem passes the other two
+(`clashAgree`), and its names are agreed through the clash partner reads.
+
+**The generic theorem** (`ConLeche/Modular/Generic.lean`, the fragment's `ModularSemantics.lean`).
+The interface trades `IsThm`/`thm_val` for `ProofBy C E E' n` and `proofBy_val`: a copy of the
+statement of `E'`'s theorem `n`, read alike over `C`, gets the proofs' value in every model of
+`E` that agrees on `C` with a model of `C` that agrees on `C` with one of `E'`.  `ProofSide` is
+`ProofIn` over the part, or `ProofBy` over the part with some source's view as `E'`; the
+generic `ThmAt` goes.  The proof amalgamates the part's model once and applies either law.
+
+**The model.**  `ProofLeaves` (`Model/Modular/Proofs.lean`) now says two things of every stored
+statement kind: a theorem's type reads as a truth value (`SemPropType`), and a type that reads so
+gives the leaf `.prf` (`ProofLeaves.thm` composes them).  The step gives the first at a new
+theorem from its record's own check (`new_thm_prop`, `Model/Modular/Step.lean`:
+`semPropType_of_run` of the run's `PropTypeRun`, carried past the push by
+`pushChain_denote_old`; `thm_of_record` says a theorem constant is its theorem record's, so no
+case at `Quot.sound` is needed); old names keep both by their readings, amalgamation reads both
+off the sources (`Instance.lean`), and `AcceptsX.step` by `ProofLeaves.of_alike`.  In the
+instance, `ReadsX` (a type's names stored by `C`, exposed by `E`, alike) factors `ProofInX`,
+and `ProofByX`'s law `proofByX_val` transfers the theorem's `SemPropType` to the part's model and
+to the copy's (`ReadsX.denote_eq`).  No new fact beyond the model's own: the theorem's
+propositionality was in its record's run all along.  `toDev_valid` (`Main.lean`) translates
+`Agree.thm` with the theorem's module as the source `w`; `agree_alike`/`agree_home`
+(`Valid.lean`) share `stmt_alike`.  `MainTheorem`'s theorem clause uses `ProofLeaves.thm`.
+
+**The worker's proofs** (`Verify/Driver/`).  `AgreeOk` ends in `p₁ = .yes ∨ p₂ = .yes ∨ ∃ w,
+pend …`; `ClashOk` is every copy's status not `.no`, and, where a copy is in the index, a `.yes`
+copy or a recorded inference (`statuses_st` now also says every status comes from a copy).
+`Compose.ProofAt` keeps the names' facts and asks the statement resolved in the part, then
+`TypeIsProp` or a theorem at an earlier module whose names were passed.  `Routes.lean`:
+`side_of_status` and `side_of_clash` are replaced by `thm_of_status` (a `.yes` copy is a theorem of
+its module's own environment) and `prop_of_pending`; `agree_loaded` takes the clash's `.yes` copy
+(any of them) or its inference; `proofAt_of` the context's copy's theorem (names by its record's
+reads, `ctx_reads`), the view's, or the inference.  `part_isSome`/`part_resolve` (`RouteCtx.lean`):
+names of smaller rank resolve in the part.  Axiom pins unchanged.
+
+**Fixtures** (`tests/olean.sh`, 321 → 327).  `TdA` (`def td : id True`), `TdB` (`theorem td`),
+`TdH` (loads `TdB` privately; the gate patches its exported `ty` to `(fun _ => True) td`, Lean
+writing no exported statement that reads a privately imported name), `TdM` (loads `TdA`, reads
+`ty`): `TdH`'s view locates `td` as `TdB`'s theorem, `agreeCheck` meets a definition and a
+theorem of `id True` (no `isPropCheap` shape).  The base binary: 0, "1 flags inferred"; this lane:
+0, "0 flags inferred".  Lean, importing the patched files, compares nothing (it never loads `TdB`'s
+`td` at `TdM`).  `PdN` (`import all PdA`, `public import PdB`: the definition and the theorem loaded
+together): exit 1, "modules PdA and PdB store different constants named pd", as Lean's import
+refuses it; compiled against a stand-in `PdA`.  So the worker does not accept more than Lean on a
+loaded pair: the one-theorem rule applies where the clash rule (Lean's) already merges and where
+two copies meet through a home's view, which Lean never compares.  `PdM` (a definition exported as
+an axiom and a theorem) and `AxIM` (an axiom and a theorem) now infer nothing: 0 flags (1 before).
+
+**Cost** (`perf stat -e instructions:u`, `--jobs=8`, one run each, under the guard; base the
+binary of `modular` 39ec8fd13): worker `Init.Data.Nat.Lemmas` 9.1871 G → 9.1840 G (−0.03 %),
+`Mathlib.GroupTheory.Coxeter.Basic` 8.9190 G → 8.9198 G (+0.01 %),
+`Mathlib.Analysis.SpecialFunctions.Gamma.Basic` 15.5178 G → 15.5130 G (−0.03 %),
+`Mathlib.RingTheory.WittVector.MulP` 8.9890 G → 8.9876 G (−0.02 %); all exit 0, records unchanged
+(898, 2 268, 6 326, 2 078), 0 flags inferred on all four in both (the part inference of #501
+cont. 8 had already left nothing pending there), so the change is noise on these streams.
+
+**Documents.**  §7: the interface's proof laws (`By` in place of `Thm`), the proof side, "one
+theorem among the copies is enough", the proof's amalgamated part, the fragment's `ProofBy`, and
+con-leche's checks; anchors repointed.  OVERVIEW: the rule in §1 and §8.
