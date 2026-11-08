@@ -1,6 +1,7 @@
 module
 
 public import InLeanProof.PassRecs2
+import ConLeche.Verify.Denote.IndFrame
 
 /-!
 # O7-recursors: the erased comparison and the classes' constructors (task #451, lane O7-recursors)
@@ -629,5 +630,198 @@ theorem classFieldsAgreeI_run {fe : InLean.FEnv} {L : ConLeche.Env} (hO : OpsSim
         obtain ⟨k, hk, rfl⟩ := List.getElem_of_mem hM'
         have := hMs k
         rwa [List.getD_eq_getElem?_getD, List.getElem?_eq_getElem hk, Option.getD_some] at this
+
+/-! ## One constructor of a class -/
+
+/-- A class's constructor at the class's levels (`targetCtorAt`), read. -/
+theorem targetCtorAtI_run {mode : ConLeche.CheckMode} {eager : Bool} {env : ConLeche.Env}
+    {s₀ s' : InLean.CState} {M : InLean.TargetMajor} {c : Lean.ConstantVal} {r : Lean.Expr}
+    (hs : CSOKI mode eager env s₀) (hlv : M.lvls.all okLv = true) (hc : okC c.type = true)
+    (h : InLean.targetCtorAt M c s₀ = .ok (r, s')) :
+    CSOKI mode eager env s' ∧ TabLe s₀ s' ∧ OkS s' r = true ∧
+      TrS s' r = ConLeche.targetCtorAt (trTM s₀ M) (trCV c) := by
+  unfold InLean.targetCtorAt at h
+  unfold ConLeche.targetCtorAt
+  simp only [trTM]
+  cases hm : M.member with
+  | some t =>
+    rw [hm] at h
+    obtain ⟨rfl, rfl⟩ := pure_run h
+    exact ⟨hs, TabLe.refl _, OkS_of_okC s₀ hc, by rw [TrS_of_okC _ hc]; rfl⟩
+  | none =>
+    rw [hm] at h
+    obtain ⟨hs', ht', hok, htr⟩ := tripleI_iff_run.1
+      (instLevelParamsM_specI hs (OkS_of_okC s₀ hc) (fvarS_of_okC hc) hlv) r s' h
+    refine ⟨hs', ht', hok, ?_⟩
+    rw [htr, TrS_of_okC _ hc]
+    rfl
+
+theorem classFieldsOf_length {p : InLean.BlockShape} {ctor : Lean.Name} {ihs : List (Nat × Nat)} :
+    ∀ (fvs : List Lean.Expr) (i : Nat) {s₀ s' : InLean.CState} {v : List InLean.ClassField},
+      InLean.classFieldsOf p ctor ihs i fvs s₀ = .ok (v, s') → v.length = fvs.length
+  | [], i, s₀, s', v, h => by
+    unfold InLean.classFieldsOf at h
+    obtain ⟨rfl, rfl⟩ := pure_run h
+    rfl
+  | f :: fs, i, s₀, s', v, h => by
+    unfold InLean.classFieldsOf at h
+    obtain ⟨w, s₁, -, h⟩ := bind_run h
+    simp only at h
+    have hrest : ∀ {α : Type} (x : InLean.CheckCM InLean.ClassField) {t : InLean.CState},
+        (x >>= fun k' => do let ks' ← InLean.classFieldsOf p ctor ihs (i + 1) fs; pure (k' :: ks'))
+          t = .ok (v, s') → v.length = (f :: fs).length := by
+      intro _ x t h
+      obtain ⟨k, s₂, -, h⟩ := bind_run h
+      obtain ⟨ks, s₃, h3, h⟩ := bind_run h
+      obtain ⟨rfl, rfl⟩ := pure_run h
+      simp only [List.length_cons, classFieldsOf_length fs (i + 1) h3]
+    revert h
+    generalize InLean.nestOcc p.memberNames 0 0 w = b
+    generalize List.filter (fun x => x.fst == i) ihs = l
+    intro h
+    cases b <;> rcases l with _ | ⟨q, _ | ⟨_, _⟩⟩ <;> (try simp only at h) <;>
+      first | exact hrest (α := Unit) _ h | exact (throw_run h).elim
+
+/-- A class's constructor, read at a state. -/
+@[expose] def trCC (s : InLean.CState) (x : InLean.ClassCtor) : ConLeche.ClassCtor :=
+  ⟨trCV x.cv, x.nF, x.kinds.map trCF, TrS s x.tyD, TrS s x.tyN⟩
+
+/-- A class's constructor has readings. -/
+@[expose] def OkCC (s : InLean.CState) (x : InLean.ClassCtor) : Prop :=
+  okC x.cv.type = true ∧ OkS s x.tyD = true ∧ OkS s x.tyN = true
+
+theorem OkCC.mono {s₀ s₁ : InLean.CState} (h : TabLe s₀ s₁) {x : InLean.ClassCtor}
+    (hx : OkCC s₀ x) : OkCC s₁ x ∧ trCC s₁ x = trCC s₀ x := by
+  obtain ⟨h1, h2, h3⟩ := hx
+  refine ⟨⟨h1, okS_of_tabLe h h2, okS_of_tabLe h h3⟩, ?_⟩
+  unfold trCC
+  rw [TrS_of_tabLe h h2, TrS_of_tabLe h h3]
+
+/-- A class's facts the constructor stage reads: its entries closed, its
+parameters closed, its constructors' types closed. -/
+@[expose] def ClassOk (s : InLean.CState) (M : InLean.TargetMajor) : Prop :=
+  OkTMN s M ∧ (∀ e ∈ M.nfs, (TrS s e.ty).looseBVarsBounded 0 = true) ∧
+    (∀ a ∈ M.ds, (TrS s a).looseBVarsBounded 0 = true) ∧ ∀ c ∈ M.ctors, okC c.1.type = true
+
+theorem ClassOk.mono {s₀ s₁ : InLean.CState} (h : TabLe s₀ s₁) {M : InLean.TargetMajor}
+    (hM : ClassOk s₀ M) : ClassOk s₁ M := by
+  obtain ⟨h1, h2, h3, h4⟩ := hM
+  refine ⟨(OkTMN.mono h h1).1, fun e he => ?_, fun a ha => ?_, h4⟩
+  · rw [TrS_of_tabLe h (h1.2.2.2 e he).2.2]; exact h2 e he
+  · have hds := h1.2.1
+    simp only [OkSL, List.all_eq_true] at hds
+    rw [TrS_of_tabLe h (hds a ha)]
+    exact h3 a ha
+
+theorem classOk_default (s : InLean.CState) : ClassOk s default := by
+  refine ⟨okTMN_default s, ?_, ?_, ?_⟩ <;> intro _ h <;> cases h
+
+theorem filter_ctor_trNf (s : InLean.CState) (nfs : List InLean.NestCtorNf) (n : Lean.Name) :
+    (nfs.map (trNf s)).filter (·.ctor == toName n) = (nfs.filter (·.ctor == n)).map (trNf s) := by
+  rw [List.filter_map]
+  congr 1
+  apply List.filter_congr
+  intro e _
+  simp [trNf, toName_beq]
+
+/-- **One constructor of a class** (`classCtorOf`): InLean's reading is
+master's on the readings, the constructor read as `trCC`. -/
+theorem classCtorOfI_run {fe : InLean.FEnv} {L : ConLeche.Env} (hO : OpsSimI fe L)
+    {p : InLean.BlockShape} {formerTys : List Lean.Expr} {rd : InLean.ClassRead}
+    {Ms : List InLean.TargetMajor} {c : Nat} {ctor : Lean.ConstantVal × Nat}
+    {s₀ s' : InLean.CState} {x : InLean.ClassCtor} (hs : CSOKI .verified false L s₀)
+    (hfo : OkSL s₀ formerTys = true) (hMs : ∀ t, ClassOk s₀ (Ms.getD t default))
+    (hFr : ∀ t, FrameOk (TrSL s₀ (Ms.getD t default).pfvs) (TrSL s₀ formerTys))
+    (hct : okC ctor.1.type = true)
+    (h : InLean.classCtorOf (sharedOpsC .verified fe) fe p formerTys rd Ms c ctor s₀ = .ok (x, s')) :
+    CSOKI .verified false L s' ∧ TabLe s₀ s' ∧ OkCC s' x ∧
+      Runs (ConLeche.classCtorOf (ConLeche.fueledOpsM .verified) L (trShape p) (TrSL s₀ formerTys)
+        (trCR s₀ rd) (Ms.map (trTM s₀)) c (trCtor ctor)) (trCC s' x) := by
+  unfold InLean.classCtorOf at h
+  unfold ConLeche.classCtorOf
+  obtain ⟨hMc, hnfc, hdsc, -⟩ := hMs c
+  simp only [getD_map_trTM, trCtor, trCV_name]
+  simp only [trTM]
+  rw [filter_ctor_trNf]
+  obtain ⟨e0, s₁, h1, h⟩ := bind_run h
+  obtain ⟨he0, hst⟩ := unwrapOr_run h1
+  subst s₁
+  have he0m : e0 ∈ (Ms.getD c default).nfs := by
+    have := List.mem_of_mem_head? he0
+    exact (List.mem_filter.1 this).1
+  obtain ⟨-, -, he0o⟩ := hMc.2.2.2 e0 he0m
+  have he0c := hnfc e0 he0m
+  rw [List.head?_map, he0, Option.map_some]
+  simp only [ConLeche.unwrapOr]
+  rw [Runs.pure_bind_eq]
+  obtain ⟨q, s₂, h2, h⟩ := bind_run h
+  obtain ⟨hst, hq⟩ := classMinorSlotI_run (s := s₀) h2
+  subst s₂
+  obtain ⟨_, ihs⟩ := q
+  rw [Runs.bind_eq _ hq]
+  simp only
+  obtain ⟨r, s₃, h3, h⟩ := bind_run h
+  unfold InLean.openPisAtFvars at h3
+  obtain ⟨hs₃, ht₃, hop⟩ := openPisAtFvarsI_run ctor.2 (p.nP + p.k) hs he0o he0c h3
+  obtain ⟨q, s₄, h4, h⟩ := bind_run h
+  obtain ⟨hr, hst⟩ := unwrapOr_run h4
+  subst s₄
+  obtain ⟨fvs, b⟩ := q
+  obtain ⟨hfvo, hbo, hopC⟩ := hop fvs b hr
+  simp only [trNf]
+  rw [trShape_nP, trShape_k, hopC]
+  rw [Runs.pure_bind_eq]
+  simp only
+  have hfv : FvsOk s₃ fvs := by
+    intro f hf
+    obtain ⟨j, hj⟩ := List.getElem_of_mem hf
+    obtain ⟨hjl, rfl⟩ := hj
+    refine ⟨okS_getElem? hfvo (List.getElem?_eq_getElem hjl), ?_⟩
+    obtain ⟨ty, hty⟩ := ConLeche.openPisAtFvars_index _ _ _ hopC j (TrS s₃ fvs[j])
+      (by simp [TrSL, List.getElem?_eq_getElem hjl])
+    exact ⟨_, ty, hty⟩
+  obtain ⟨kinds, s₅, h5, h⟩ := bind_run h
+  have hklen := classFieldsOf_length fvs 0 h5
+  obtain ⟨hst, hK⟩ := classFieldsOfI_run fvs 0 hs₃ hfv h5
+  subst s₅
+  rw [Runs.bind_eq _ hK]
+  obtain ⟨_, s₆, h6, h⟩ := bind_run h
+  have hMs₃ : ∀ t, ClassOk s₃ (Ms.getD t default) := fun t => (hMs t).mono ht₃
+  obtain ⟨hs₆, ht₆, hA⟩ := classFieldsAgreeI_run hO kinds 0 hs₃ (okSL_of_tabLe ht₃ hfo)
+    (fun t => (hMs₃ t).1)
+    (fun t => by
+      rw [TrSL_of_tabLe ht₃ (hMs t).1.2.2.1, TrSL_of_tabLe ht₃ hfo]; exact hFr t)
+    hfv (by omega) (fun e he => (OkNf.mono ht₃ (hMc.2.2.2 e (List.mem_filter.1 he).1)).1) h6
+  rw [TrSL_of_tabLe ht₃ hfo, map_trTM_mono ht₃ (fun M hM => ?_),
+    map_trNf_mono ht₃ (fun e he => hMc.2.2.2 e (List.mem_filter.1 he).1)] at hA
+  rotate_left
+  · obtain ⟨k, hk, rfl⟩ := List.getElem_of_mem hM
+    have := (hMs k).1
+    rwa [List.getD_eq_getElem?_getD, List.getElem?_eq_getElem hk, Option.getD_some] at this
+  simp only at h
+  obtain ⟨ty, s₇, h7, h⟩ := bind_run h
+  have hMc₆ := (OkTMN.mono (ht₃.trans ht₆) hMc)
+  obtain ⟨hs₇, ht₇, htyo, htyt⟩ := targetCtorAtI_run hs₆ hMc.1 hct h7
+  obtain ⟨tyD, s₈, h8, h⟩ := bind_run h
+  obtain ⟨hpw, hst⟩ := unwrapOr_run h8
+  subst s₈
+  obtain ⟨rfl, rfl⟩ := pure_run h
+  have ht₀₇ := ht₃.trans (ht₆.trans ht₇)
+  have hds₇ : OkSL s₇ (Ms.getD c default).ds = true := okSL_of_tabLe ht₀₇ hMc.2.1
+  obtain ⟨htDo, htDC⟩ := instPisWithI_tr _ _ htyo hds₇
+    (fun a ha => by
+      have hds := hMc.2.1
+      simp only [OkSL, List.all_eq_true] at hds
+      rw [TrS_of_tabLe ht₀₇ (hds a ha)]; exact hdsc a ha) hpw
+  rw [TrSL_of_tabLe ht₀₇ hMc.2.1, htyt, hMc₆.2] at htDC
+  refine ⟨hs₇, ht₀₇, ⟨hct, htDo, okS_of_tabLe ht₀₇ he0o⟩, ?_⟩
+  refine Runs.bind hA ?_
+  simp only [trTM] at htDC
+  rw [htDC]
+  simp only
+  rw [Runs.pure_bind_eq]
+  unfold trCC
+  rw [TrS_of_tabLe ht₀₇ he0o]
+  exact Runs.pure _
 
 end InLeanProof
