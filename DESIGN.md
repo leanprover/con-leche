@@ -114350,3 +114350,11 @@ declaration that uses an unsafe one).  The binary of 2013b06ca^ (the parent of t
 exits 1 on `UfM`, earlier: "two context records store a name of S's record (of GbG)".
 Gates: `lake build`; the olean gate 317/317 under the guard; only fixture and gate files changed,
 so `tests/arena.sh` was not rerun.
+
+## TASK #503: `--modular` usage says it is of limited use
+
+Ruling: `--olean --modular` is `--olean --schedule` without processes and need not be cleverer.
+`--help` (`ConLeche/Driver/Cli.lean`) and OVERVIEW.md now say it is of limited practical use and
+why (task #468's numbers: on Mathlib 3.0x the merged run's instructions at a lower peak, 2.4 vs
+3.1 GiB; every module redoes its own reach), pointing to plain `--olean` for speed and
+`--olean --schedule` for isolation and memory limits. README.md: only two `Cli.lean#L277` links repointed to L280 (the help text grew by three lines); a sentence is suggested to the maintainer.
