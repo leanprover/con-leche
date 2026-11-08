@@ -130,16 +130,6 @@ theorem CIRange_of_constInRange {ci : Lean.ConstantInfo} (h : InLean.constInRang
     exact ⟨(RangeOk_of_inRange h.1).1, fun r hr => (RangeOk_of_inRange (h.2 r hr)).1⟩
   | _ => exact (RangeOk_of_inRange h).1
 
-/-- What the declaration step checks of the generator's output (`constClosed`)
-is the closedness premise here. -/
-theorem CIClosed_of_constClosed {ci : Lean.ConstantInfo} (h : InLean.constClosed ci = true) :
-    CIClosed ci := by
-  cases ci with
-  | recInfo v =>
-    simp only [InLean.constClosed, Bool.and_eq_true, Bool.not_eq_true', List.all_eq_true] at h
-    exact ⟨h.1, h.2⟩
-  | _ => simp only [CIClosed]; simpa [InLean.constClosed] using h
-
 /-- A closed term with a closed reading: its reading has no loose bound variable. -/
 theorem lbb_trC_of_closed {e : Lean.Expr} (hok : okC e = true) (h : e.hasLooseBVars = false) :
     (trC e).looseBVarsBounded 0 = true := by

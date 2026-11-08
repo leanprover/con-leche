@@ -1833,6 +1833,10 @@ info: 'InLeanProof.blockKSSimI_of' depends on axioms: [propext,
 #guard_msgs in
 #print axioms InLeanProof.CIClosed_of_constClosed
 
+/-- info: 'InLeanProof.closed_of_checkInductiveC' depends on axioms: [propext, Classical.choice, Quot.sound] -/
+#guard_msgs in
+#print axioms InLeanProof.closed_of_checkInductiveC
+
 /-- info: 'InLeanProof.blockSplitCtors_recs' depends on axioms: [propext, Quot.sound] -/
 #guard_msgs in
 #print axioms InLeanProof.blockSplitCtors_recs
@@ -1844,6 +1848,30 @@ info: 'InLeanProof.blockKSSimI_of' depends on axioms: [propext,
 /-- info: 'InLeanProof.blockShape?_recs' depends on axioms: [propext, Quot.sound] -/
 #guard_msgs in
 #print axioms InLeanProof.blockShape?_recs
+
+/-- info: 'InLeanProof.members_ctors_from' depends on axioms: [propext, Quot.sound] -/
+#guard_msgs in
+#print axioms InLeanProof.members_ctors_from
+
+/-- info: 'InLeanProof.blockShape?_ctors' depends on axioms: [propext, Quot.sound] -/
+#guard_msgs in
+#print axioms InLeanProof.blockShape?_ctors
+
+/-- info: 'InLeanProof.reduceMemberS_ctors' depends on axioms: [propext, Classical.choice, Quot.sound] -/
+#guard_msgs in
+#print axioms InLeanProof.reduceMemberS_ctors
+
+/-- info: 'InLeanProof.reduceMembersS_ctors' depends on axioms: [propext, Classical.choice, Quot.sound] -/
+#guard_msgs in
+#print axioms InLeanProof.reduceMembersS_ctors
+
+/-- info: 'InLeanProof.consBlockIndsF_coreAxioms' depends on axioms: [propext, Classical.choice, Quot.sound] -/
+#guard_msgs in
+#print axioms InLeanProof.consBlockIndsF_coreAxioms
+
+/-- info: 'InLeanProof.ctorNamesOf_allCtors' depends on axioms: [propext] -/
+#guard_msgs in
+#print axioms InLeanProof.ctorNamesOf_allCtors
 
 /--
 info: 'InLeanProof.lbb_trC_of_closed' depends on axioms: [propext,

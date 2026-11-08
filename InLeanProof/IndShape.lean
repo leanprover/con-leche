@@ -104,6 +104,16 @@ theorem CIClosed.type : ∀ {ci : Lean.ConstantInfo}, CIClosed ci →
   | .inductInfo _, h | .ctorInfo _, h | .axiomInfo _, h | .defnInfo _, h | .thmInfo _, h
   | .opaqueInfo _, h | .quotInfo _, h => h
 
+/-- What the declaration step checks of the generator's output (`constClosed`)
+is the closedness premise here. -/
+theorem CIClosed_of_constClosed {ci : Lean.ConstantInfo} (h : InLean.constClosed ci = true) :
+    CIClosed ci := by
+  cases ci with
+  | recInfo v =>
+    simp only [InLean.constClosed, Bool.and_eq_true, Bool.not_eq_true', List.all_eq_true] at h
+    exact ⟨h.1, h.2⟩
+  | _ => simp only [CIClosed]; simpa [InLean.constClosed] using h
+
 /-- **A block with a record is its total translation**, every constant one
 of a block's kinds with a type that has a reading. -/
 theorem toBlock_eq : ∀ {block : List Lean.ConstantInfo} {cb : List ConLeche.ConstantInfo},

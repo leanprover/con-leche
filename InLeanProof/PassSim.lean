@@ -8,6 +8,9 @@ public import InLeanProof.PassClasses
 import ConLeche.Verify.Inductives.GenRecRun
 import ConLeche.Verify.Inductives.RecCheckRun
 import ConLeche.Verify.Inductives.NestScope
+import ConLeche.Verify.Inductives.NestNfScope
+import ConLeche.Verify.InferLemmas
+import ConLeche.Verify.InferLeaves
 import ConLeche.Verify.Inductives.BlockWF
 import ConLeche.Verify.Inductives.PositivityInv
 import ConLeche.Verify.Denote.IndFrame
@@ -32,8 +35,8 @@ parameters, `PassDataI` relates the field kinds, the class reading, the
 classes and the table by their translations at the final state, and carries
 what the tail's stages take of the pass (the readings' facts, the
 parameters' scope, the classes' frames, the formers' and constructors'
-closedness, the constructors' freshness and master's well-formedness at their
-push).
+closedness, the constructors' freshness, distinctness and `sorryAx` clause,
+master's well-formedness at their push, the table's entries closed).
 
 The stream recursors' types closed (`checkBlockClassesI_run`'s `hrecs`, through
 `classReadI_run`'s opener) is `PassSimI`'s premise, from the generator's output
@@ -56,6 +59,20 @@ theorem consBlockIndsF_pending (p : InLean.BlockShape) (isRec : Bool) :
     unfold InLean.consBlockIndsF
     rw [consBlockIndsF_pending p isRec rest (i + 1)]
     rfl
+
+theorem consBlockIndsF_coreAxioms (p : InLean.BlockShape) (isRec : Bool) :
+    ∀ (l : List Lean.ConstantVal) (i : Nat) (fe : InLean.FEnv),
+      (InLean.consBlockIndsF p isRec l i fe).coreAxioms = fe.coreAxioms
+  | [], _, _ => rfl
+  | _ :: rest, i, fe => by
+    unfold InLean.consBlockIndsF
+    rw [consBlockIndsF_coreAxioms p isRec rest (i + 1)]
+    rfl
+
+theorem ctorNamesOf_allCtors (p : InLean.BlockShape) :
+    ctorNamesOf p.members = p.allCtors.map (·.1.name) := by
+  simp only [ctorNamesOf, InLean.BlockShape.allCtors, List.flatMap, List.map_flatten, List.map_map]
+  rfl
 
 theorem checkSumCtorsF_fresh {ops : InLean.CheckerOps} {fe₀ fe : InLean.FEnv} {T : Lean.Name}
     {lps : List Lean.Name} {nP nIdx : Nat} {sr : Lean.Level} {isProp large : Bool}
@@ -195,8 +212,11 @@ the classes, the table's entries), the parameters (readable, one variable per
 parameter, scoped below the parameter count, closed), every class at the
 block's parameters (its frame, `PassDataI.frameOk`), the members' and
 constructors' types closed, the stream recursors' types closed, the
-constructors' names fresh at the formers' environment and master's
-environment with them pushed well formed. -/
+constructors' names fresh at the formers' environment, distinct and not
+`sorryAx` unless `coreAxioms` (`jobEnvI_ctors`'s premises), master's
+environment with them pushed well formed, and the table's entries closed
+(master's `checkBlockPositivity_nfScoped` and `nestSeeds_nfScoped` on its
+side of the run). -/
 structure PassDataI (s : InLean.CState) (q : InLean.BlockPass) (cq : ConLeche.BlockPass ConLeche.Env) :
     Prop where
   kinds : cq.kinds = q.kinds.map (·.map (·.map trNK))
@@ -217,6 +237,10 @@ structure PassDataI (s : InLean.CState) (q : InLean.BlockPass) (cq : ConLeche.Bl
   recs : ∀ rc ∈ q.p.recs, okC rc.cvR.type = true ∧ (trC rc.cvR.type).looseBVarsBounded 0 = true
   ctorsFresh : ∀ ms ∈ q.p.members, ∀ c ∈ ms.ctors, q.env₁.env.find? c.1.name = none
   ctorsWF : ConLeche.EnvWF (ConLeche.consBlockCtors cq.p.nP cq.p.memberCtors cq.env₁)
+  tblCl : ∀ e ∈ q.tbl.toList, (TrS s e.ty).looseBVarsBounded 0 = true
+  ctorsNodup : (ctorNamesOf q.p.members).Nodup
+  ctorsSorry : ∀ m ∈ q.p.members, ∀ c ∈ m.ctors, c.1.name = InLean.sorryAxName →
+    q.env₁.coreAxioms = true
 
 /-- **A class's frame** (`FrameOk`, the recursor stage's hypothesis at every
 class): its parameters are the block's, scoped at their count and closed; the
@@ -252,6 +276,7 @@ theorem passSimI (hC : CheckConstantValFSimI) (hRF : ReducedFormerSimI) :
   have hJ₁ := jobEnvI_formers hJ hpre hms hfr hR1
   have hpend : ∃ rest, fe₁.pending = InLean.blockMarks (p₀.withSort s0) ++ rest :=
     ⟨fe.pending, by rw [hfe₁, consBlockIndsF_pending]⟩
+  have hca : fe₁.coreAxioms = fe.coreAxioms := by rw [hfe₁, consBlockIndsF_coreAxioms]
   rw [← hfe₁] at hJ₁
   generalize ConLeche.consBlockInds (trShape (p₀.withSort s0)) isRec
     ((trShape p₀).members.map (·.declared)) 0 L = E₁ at hJ₁ hR1
@@ -359,6 +384,43 @@ theorem passSimI (hC : CheckConstantValFSimI) (hRF : ReducedFormerSimI) :
   obtain ⟨hs₇, ht₇, hst₇, hR7⟩ := nestSeedsI_run hJ₁ hRF ks pos hs₆ hW hst₆ hseeds h7
   obtain ⟨rfl, rfl⟩ := pureI_ok h
   rw [hstr₆] at hR7
+  -- the table closed (master's `genRun_tbl_scoped`, at the pass)
+  have hMf : ∀ ms ∈ (trShape p₁).members, ms.cvT.type.hasFvar = false := by
+    intro ms hm
+    obtain ⟨m, -, rfl⟩ := List.mem_map.1 hm
+    exact trC_hasFvar _
+  have hTf : ∀ cv ∈ (trShape p₁).formers, ConLeche.ScB 0 cv.type := by
+    intro cv hcv
+    simp only [ConLeche.BlockShape.formers, trShape, List.map_map, List.mem_map] at hcv
+    obtain ⟨m, hm, rfl⟩ := hcv
+    exact ConLeche.ScB.of_closed (trC_hasFvar _) (hclF m hm) 0
+  have hcf : ∀ cl ∈ (trShape p₁).memberCtors, ∀ c ∈ cl, ConLeche.ScB 0 c.1.type := by
+    rw [trShape_memberCtors_trCtor]
+    intro cl hcl c hc
+    obtain ⟨m, hm, rfl⟩ := List.mem_map.1 hcl
+    obtain ⟨c0, hc0, rfl⟩ := List.mem_map.1 hc
+    obtain ⟨-, hf, hb⟩ := hct _ (List.mem_map_of_mem hm) c0 hc0
+    exact ConLeche.ScB.of_closed hf hb 0
+  have hpos : ConLeche.NfStScoped (trShape p₁).nP (trSt s₅ pos) := by
+    obtain ⟨F5, hF5⟩ := hR5
+    rw [ConLeche.checkBlockPositivity_datF] at hF5
+    exact ConLeche.checkBlockPositivity_nfScoped hJ₁.wf hMf hTf hcf ⟨_, hF5, rfl, rfl⟩
+  have htblCl : ConLeche.NfStScoped cctx.nP (trSt s₇ st) := by
+    obtain ⟨F7, hF7⟩ := hR7
+    rw [ConLeche.nestSeeds_datF] at hF7
+    have hcb := ConLeche.nestCtx_ok_of_envWF hJ₁.wf (trShape p₁) (TrSL s₃ fvs) hMf
+    rw [hc] at hcb
+    refine ConLeche.nestSeeds_nfScoped hcb.1 hcb.2
+      (fun x hx => ⟨hparN x hx, ?_⟩)
+      (fun d e w hw he => ConLeche.whnf_WScoped hJ₁.wf F7 hw he)
+      (fun d e w hw he => ConLeche.whnf_looseBVars hJ₁.wf F7 hw he) _ _ _ hF7 ?_
+      (by rw [hcnP]; exact hpos)
+    · rw [hcp] at hx
+      obtain ⟨a, ha, rfl⟩ := List.mem_map.1 hx
+      exact hclf a ha
+    · rw [← hkeq]
+      intro k hk y hy
+      exact hseedsC k hk y hy
   -- master's pass
   have ht37 := ht36.trans ht₇
   have hRun : Runs (ConLeche.checkBlockPass (ConLeche.fueledOpsM .verified) L (trShape p₀) isRec)
@@ -412,6 +474,14 @@ theorem passSimI (hC : CheckConstantValFSimI) (hRF : ReducedFormerSimI) :
       ctors := hct
       recs := hrecs
       ctorsFresh := hcfr
-      ctorsWF := checkBlockCtors_push hJ₁.wf hR2 }
+      ctorsWF := checkBlockCtors_push hJ₁.wf hR2
+      ctorsNodup := by rw [ctorNamesOf_allCtors, ← hp₁]; exact hpre.ctorsNodup
+      tblCl := fun e he => by
+        have := htblCl (trNf s₇ e) (by
+          simp only [trSt, Array.toList_map]; exact List.mem_map_of_mem he)
+        exact this.2
+      ctorsSorry := fun m hm c hc hn => by
+        rw [hmem] at hm
+        exact hca ▸ hpre.ctorsSorry m hm c hc hn }
 
 end InLeanProof

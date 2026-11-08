@@ -184,13 +184,16 @@ of lane O7-stages): the declared formers well-formed at `L` (master's
 `MemberDeclaredWF`, from `reduceMembers_inv`), a reduced former named as
 declared, the declared names distinct (`checkBlockKS`'s guard), not `sorryAx`
 unless `coreAxioms` (P4's, from `checkDecl`'s `sorryAxSquat`), and the
-declared types in range (the block's `CIRange`). -/
+declared types in range (the block's `CIRange`); the constructors' names
+distinct (the same guard) and not `sorryAx` unless `coreAxioms`. -/
 structure PassPremI (fe : InLean.FEnv) (L : ConLeche.Env) (p₀ : InLean.BlockShape) : Prop where
   decl : ∀ ms ∈ p₀.members, ConLeche.MemberDeclaredWF L (trMember ms)
   name : ∀ ms ∈ p₀.members, ms.cvT.name = ms.declared.name
   nodup : (p₀.members.map (·.declared.name)).Nodup
   sorry_ : ∀ ms ∈ p₀.members, ms.declared.name = InLean.sorryAxName → fe.coreAxioms = true
   range : ∀ ms ∈ p₀.members, Expr.RangeOk ms.declared.type
+  ctorsNodup : (p₀.allCtors.map (·.1.name)).Nodup
+  ctorsSorry : ∀ ms ∈ p₀.members, ∀ c ∈ ms.ctors, c.1.name = InLean.sorryAxName → fe.coreAxioms = true
 
 /-- **The pass and the stages after it** (`checkBlockPassS_run` and
 `checkBlockTailS_run` together, see the module docstring): from the residue,
@@ -513,6 +516,92 @@ theorem blockShape?_recs {nP : Nat} {block : List Lean.ConstantInfo} {p : InLean
                    obtain ⟨r, hr, rfl⟩ := List.mem_map.1 hrc; exact h1 r hr)
           · cases h
 
+theorem members_ctors_from {cvTs : List Lean.ConstantVal} {nIdxs : List Nat}
+    {groups : List (List (Lean.ConstantVal × Nat))} {P : Lean.ConstantVal × Nat → Prop}
+    (hG : ∀ g ∈ groups, ∀ c ∈ g, P c) :
+    ∀ ms ∈ ((cvTs.zip nIdxs).zip groups).map
+      (fun a => ({ cvT := a.1.1, declared := a.1.1, nIdx := a.1.2, ctors := a.2 } :
+        InLean.MemberShape)), ∀ c ∈ ms.ctors, P c := by
+  intro ms hms
+  obtain ⟨⟨⟨c, n⟩, g⟩, ha, rfl⟩ := List.mem_map.1 hms
+  exact hG g (List.of_mem_zip ha).2
+
+/-- **A recognised shape's constructors are the block's**. -/
+theorem blockShape?_ctors {nP : Nat} {block : List Lean.ConstantInfo} {p : InLean.BlockShape}
+    (h : InLean.blockShape? nP block = some p) :
+    ∀ ms ∈ p.members, ∀ c ∈ ms.ctors, ∃ ci ∈ block, ci.toConstantVal = c.1 := by
+  cases hsp : InLean.blockSplit block with
+  | none =>
+    unfold InLean.blockShape? at h; rw [hsp] at h; cases h
+  | some q =>
+    obtain ⟨cvTs, cs, rs⟩ := q
+    have h2 := (blockSplit_sub hsp).2
+    have hG : ∀ (names lps : List Lean.Name) (k : Nat),
+        ∀ g ∈ InLean.blockGroups names lps nP k (cs.map fun c => (c.1, c.2.2)), ∀ c ∈ g,
+          ∃ ci ∈ block, ci.toConstantVal = c.1 := by
+      intro names lps k g hg c hc
+      obtain ⟨c', hc', rfl⟩ := List.mem_map.1 (blockGroups_sub _ _ _ _ _ g hg c hc)
+      exact h2 c' hc'
+    unfold InLean.blockShape? at h
+    rw [hsp] at h
+    cases cvTs with
+    | nil => cases h
+    | cons cvT0 tl =>
+      cases rs with
+      | nil => cases h
+      | cons r0 rtl =>
+        obtain ⟨cvR0, r0b⟩ := r0
+        simp only at h
+        cases hc : InLean.blockMemberCounts? nP (cvT0 :: tl).length cs.length
+            ((cvT0 :: tl).map (·.name)) ((cvR0, r0b) :: rtl) 0 (cvT0 :: tl) with
+        | none => rw [hc] at h; cases h
+        | some nIdxs =>
+          rw [hc] at h
+          simp only at h
+          split at h
+          · revert h
+            repeat' split
+            all_goals intro h
+            all_goals first
+              | (cases h; done)
+              | (simp only [Option.some.injEq] at h; subst h
+                 exact members_ctors_from (hG _ _ _))
+          · cases h
+
+/-- The members' reduction keeps every member's constructors. -/
+theorem reduceMemberS_ctors {μ : CheckMode} {fe : InLean.FEnv} {ms ms' : InLean.MemberShape}
+    {nP : Nat} {s₀ s' : InLean.CState} (h : InLean.reduceMemberS μ fe ms nP s₀ = .ok (ms', s')) :
+    ms'.ctors = ms.ctors := by
+  unfold InLean.reduceMemberS at h
+  split at h
+  · split at h
+    · exact (throwI_ok h).elim
+    · obtain ⟨_, _, _, h⟩ := bindI_ok h
+      obtain ⟨cvR, _, _, h⟩ := bindI_ok h
+      obtain ⟨b, _, _, h⟩ := bindI_ok h
+      dsimp only at h
+      split at h
+      · obtain ⟨rfl, -⟩ := pureI_ok h
+        rfl
+      · obtain ⟨_, _, h1, -⟩ := bindI_ok h
+        exact (throwI_ok h1).elim
+  · obtain ⟨rfl, -⟩ := pureI_ok h
+    rfl
+
+theorem reduceMembersS_ctors {μ : CheckMode} {fe : InLean.FEnv} {nP : Nat} :
+    ∀ {l l' : List InLean.MemberShape} {s₀ s' : InLean.CState},
+      InLean.reduceMembersS μ fe nP l s₀ = .ok (l', s') → l'.map (·.ctors) = l.map (·.ctors)
+  | [], l', s₀, s', h => by
+    obtain ⟨rfl, -⟩ := pureI_ok h
+    rfl
+  | ms :: rest, l', s₀, s', h => by
+    unfold InLean.reduceMembersS at h
+    obtain ⟨_, _, _, h⟩ := bindI_ok h
+    obtain ⟨m', _, hm, h⟩ := bindI_ok h
+    obtain ⟨r', _, hr, h⟩ := bindI_ok h
+    obtain ⟨rfl, -⟩ := pureI_ok h
+    simp only [List.map_cons, reduceMemberS_ctors hm, reduceMembersS_ctors hr]
+
 /-- **A block's recursor types, closed with a closed reading** (what the pass and the
 generated recursors' stage take of the stream's recursors). -/
 theorem recsClosed_of_block {nP : Nat} {block : List Lean.ConstantInfo} {p : InLean.BlockShape}
@@ -566,7 +655,7 @@ theorem blockKSSimI_of (hR : ReduceMemberSimI) (hPT : PassTailSimI)
     rw [← he]; exact (hMF m0 hm0).2
   have hpre : PassPremI fe L { p with members := ms } := by
     refine ⟨fun m hm => (hAt _ (List.mem_map_of_mem hm)).declaredWF, fun m hm => ?_, ?_,
-      fun m hm hn => ?_, fun m hm => ?_⟩
+      fun m hm hn => ?_, fun m hm => ?_, ?_, fun m hm => ?_⟩
     · have := (hAt _ (List.mem_map_of_mem (f := trMember) hm)).name
       exact toName_inj this
     · have e : ms.map (·.declared.name) = p.memberNames := by
@@ -582,6 +671,16 @@ theorem blockKSSimI_of (hR : ReduceMemberSimI) (hPT : PassTailSimI)
       exact hso ci hci (by rw [ci_cv_name, he]; exact hn)
     · obtain ⟨ci, hci, he⟩ := hfrom m hm
       rw [← he]; exact (hr ci hci).type
+    · have e : ({ p with members := ms } : InLean.BlockShape).allCtors = p.allCtors := by
+        simp only [InLean.BlockShape.allCtors, reduceMembersS_ctors hms]
+      rw [e]
+      simp only [Bool.and_eq_true] at hnd
+      exact List.Pairwise.of_map toName (fun _ _ h e => h (e ▸ rfl)) ((namesNodup_iff _).1 hnd.1)
+    · intro c hc hn
+      have : m.ctors ∈ p.members.map (·.ctors) := reduceMembersS_ctors hms ▸ List.mem_map_of_mem hm
+      obtain ⟨m0, hm0, he⟩ := List.mem_map.1 this
+      obtain ⟨ci, hci, hce⟩ := blockShape?_ctors hsh m0 hm0 c (he ▸ hc)
+      exact hso ci hci (by rw [ci_cv_name, hce]; exact hn)
   obtain ⟨hs', F₂, q, hP, hT⟩ := hPT fe L block { p with members := ms } (InLean.blockIsRec p)
     s₁.flushed s' hJ (flushI_csoki hs₁ .verified false L) hr hcl hk hokms
     (recsClosed_of_block (p := p) hk hcl hsh) hpre h

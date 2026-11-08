@@ -176,34 +176,6 @@ theorem genEntriesAgree_facts {p : InLean.BlockShape} {block : List Lean.Constan
 section
 variable {μ : CheckMode} {fe : InLean.FEnv}
 
-theorem reduceMemberS_ctors {ms ms' : InLean.MemberShape} {nP : Nat} {s s' : InLean.CState}
-    (h : (reduceMemberS μ fe ms nP) s = .ok (ms', s')) : ms'.ctors = ms.ctors := by
-  unfold reduceMemberS at h
-  by_cases hd : InLean.formerDefHeaded ms.cvT = true
-  · simp only [hd, ↓reduceIte] at h
-    by_cases hx : declinedAtDefinition.contains ms.cvT.name = true
-    · simp only [hx, ↓reduceIte] at h; exact (throwI_ok h).elim
-    · simp only [hx, Bool.false_eq_true, ↓reduceIte] at h
-      obtain ⟨_, _, -, h⟩ := bindI_ok h
-      obtain ⟨_, _, -, h⟩ := bindI_ok h
-      obtain ⟨_, _, -, h⟩ := bindI_ok h
-      obtain ⟨-, h⟩ := iteJ_ok h
-      rw [← (pureI_ok h).1]
-  · simp only [hd, Bool.false_eq_true, ↓reduceIte] at h
-    rw [← (pureI_ok h).1]
-
-theorem reduceMembersS_ctors {nP : Nat} : ∀ {ms ms' : List InLean.MemberShape} {s s' : InLean.CState},
-    (reduceMembersS μ fe nP ms) s = .ok (ms', s') → ms'.map (·.ctors) = ms.map (·.ctors)
-  | [], ms', s, s', h => by
-    unfold reduceMembersS at h; rw [← (pureI_ok h).1]
-  | m :: ms, ms', s, s', h => by
-    unfold reduceMembersS at h
-    obtain ⟨_, _, -, h⟩ := bindI_ok h
-    obtain ⟨m', _, h1, h⟩ := bindI_ok h
-    obtain ⟨rest, _, h2, h⟩ := bindI_ok h
-    rw [← (pureI_ok h).1]
-    simp only [List.map_cons, reduceMemberS_ctors h1, reduceMembersS_ctors h2]
-
 theorem checkBlockIndsF_shape {ops : InLean.CheckerOps} {p : InLean.BlockShape} {isRec : Bool}
     {r : InLean.FEnv × InLean.BlockShape} {s s' : InLean.CState}
     (h : (checkBlockIndsF ops fe p isRec) s = .ok (r, s')) :

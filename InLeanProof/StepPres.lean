@@ -299,6 +299,17 @@ theorem fresh_of_checkInductiveC {μ : CheckMode} {lps : List Name} {nP : Nat}
   rw [Array.all_eq_true_iff_forall_mem] at h3
   simpa using h3 ci (Array.mem_toList_iff.1 hci)
 
+/-- **The block's terms closed, from an accepted inductive declaration**
+(`checkIndDeclC_sim`'s `CIClosed` premise). -/
+theorem closed_of_checkInductiveC {μ : CheckMode} {lps : List Name} {nP : Nat}
+    {types : List InductiveType} {u : Bool} {s s' : CState} {a : Added}
+    (h : (checkInductiveC μ fe lps nP types u).run s = .ok (a, s')) :
+    ∀ ci ∈ a.consts.toList, CIClosed ci := by
+  intro ci hci
+  have h3 := (checkInductiveC_ok h).2.2.1
+  rw [Array.all_eq_true_iff_forall_mem] at h3
+  exact CIClosed_of_constClosed (h3 ci (Array.mem_toList_iff.1 hci))
+
 /-- **`IndGroupPresBP`'s visibility premise from an accepted safe inductive
 declaration**: its constants are safe, so a check sees each one whose name
 is not `sorryAx` (which `InLean.checkDecl` refuses at con-leche's policy,
