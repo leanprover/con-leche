@@ -114133,3 +114133,114 @@ every other name, so no pinned lemma is owed):
 
 The session ended here: cont. 6's change is complete and gated, and the composition is not
 started.
+
+### #501 cont. 8 (the composition, most of the way; the part inference; the state; not landed)
+
+`modular` is still at 0118b6ce8: nothing to merge.  The composition was split into six
+independent pieces (each a new file under `ConLeche/Verify/Driver/`, all model-free), proved on
+side branches and merged into the lane, then assembled.  No `sorry`, no axiom, no new `unsafe`.
+
+**The pieces.**
+* `Loads.lean` (the header fixpoint): `ImpReach` (reached from an import list by header edges),
+  `PubReach` (a path of public imports), `headerFixpoint_sound` (every loaded module reached from
+  the root's imports, the arrays' sizes, the index), `headerFixpoint_complete` (every module
+  public-reachable from an import of the root is loaded: the worklist's closure invariant `LvInv`),
+  `headerFixpoint_unique`, `moduleImports_unique`, `pubClosures_sound`/`pubClosures_pubReach`
+  (the `ModSet` bits by `decide`), `readPartNames_header` (the private part's header imports are
+  `moduleImports`', given the home load).
+* `Capture.lean` (the worklist's capture invariant, `reach_capture`): at an accepting `reach`,
+  a final located map `loc`, pending list `pend` and checked pairs `P` such that every context
+  record was read at its name's copy (`copyOf`, `ReadAt`), its names' copies are its home's, its
+  reads and its clash partners are in `P`, every pair of `P` passed (`Passed`: the home's copy, the
+  public-import route `PubRoute`, or the home's view's copy agreeing, `AgreeOk`, with `StatusOk` the
+  meaning of `proofStatus`), every clash's statuses (`ClashOk`), `inferFlags` over `pend`, every
+  located copy and every reader `Reached` (loaded, or in a reached home's view), and each pair's
+  `Origin`.  Monotonicity of the caches (`Fr`, `Step`) carries a pair passed early to the end.
+* `Copies.lean`: `homeView_index` (a home's view is its own worker's index: first copy, private
+  part first, freshness), `copy_own` (a copy's statement-kind constant in its module's own
+  environment, a theorem where `proofStatus` says `.yes`), `exported_behind`,
+  `exported_sub_private`, `own_type_stored`, `own_reads_ctx`, `Presents.reads`, `own_stmt_fresh`
+  (an own statement's type does not read its name).  `copy_behind` also returns the private
+  skeleton's name.
+* `Clashes.lean` (the worker's index and clashes): `workerIndex_copies`, `workerClash_complete`,
+  `workerClash_stmt`, `workerClash_same`, `clashCopiesOf_spec`, `workerReads_loads` (the loads are
+  the header fixpoint of the private part's header, `pub = pubClosures loads`, sizes, freshness),
+  `readFiles_unique_at`, `partNames_region`.  `import all Init.Data.Array.QSort.Basic` (reason in
+  the file: `qsort`'s permutation needs its private body).  `spotOf` moved to `ReachFrom.lean`.
+* `PropPart.lean`: `inferFlags_typeIsProp`, `envWF_prefix`, `typeIsProp_part`, `declNames_stmt`.
+* `Compose.lean`, `ComposeReads.lean` (the assembly, below).
+* `Verify/Driver/Graph.lean`: `HdrClosure` (the roots' import closure by the headers) and
+  `graphOf_closure`; `checkGraphG_ok` also gives `∀ e ∈ C, HdrClosure sp fs roots e.1`, so the
+  run-level statement can ask a worker for every module of the headers' closure.
+
+**A code change: the proof pairs' statements are inferred over the part below their name**
+(`inferFlags ctx`, `ctxPart`, `Driver/Reach.lean`).  The specification's proof route asks
+`TypeIsProp` at `Module.part`; the worker inferred at the whole context.  Carrying the verdict down
+by `knot_ext` needs `StoredFacts` of the prefix, and two of its parts are not available model-free
+for a context: that every recursor rule names a stored `ctorInfo` (`RecCtorsStored`; a nested rule
+names another record's constructor, and every producer of the fact lives in `Model/*`), and that a
+record storing `Nat` stores its constructors (derivable, with three missing inversions).  The
+worker now infers over `ctx.take (ctx.findIdx …)`, the specification's part exactly, as Lean's merge
+infers over the constants loaded before.  The context is in read order, so a statement's names are
+there; one that is not resolved there reads its own name (exit 1, which no home accepts).  No new
+reject on Lean's output.  The cost is negative where nothing is pending (the whole-context `FEnv`
+is no longer built): `Init.Data.Nat.Lemmas` 9.192 G → 9.184 G, `Coxeter.Basic` 8.977 G → 8.918 G,
+`Gamma.Basic` 15.726 G → 15.516 G, `WittVector.MulP` 9.061 G → 8.988 G (`instructions:u`, one run
+each, `--jobs=8`, under the guard; base the cont. 6 binary); 0 flags inferred on all four.  This was
+decided in the lane, not ruled: to be confirmed at review.
+
+**The assembly** (`Compose.lean`, namespace `ConLeche.Driver.Compose`).
+* `Run sp fs`: the graph check's closure `C`, ranks `rk`, `good`, `edges`, `inj`, and a worker
+  per module (`WorkerFacts` and the own records' `DeclsRun`); `Run.ofAccepted`.
+* `Run.dev`: module `j` the module of rank `j` (`nameOf`, `nameOf_rk`, `dev_rk`), else empty;
+  `ctx` the sorted context, `decls` the filled own records (`ownDecls`), `src n` the rank of the
+  home of the record storing `n` (`homeIn`, `homeIn_spec`), `iface` every context record a worker
+  read with that home (`ifaceOf`, `mem_ifaceOf`), `imports = []`.
+* `localOk_of`: `LocalOk` at every rank from two facts, every home of a smaller rank and
+  `ImportOk.reads`; `InterfaceOk` by `interfaceOk_of_workers`, the rest by `worker_local`,
+  `worker_home`, `homeIn_spec`.
+* `home_rank` (proved): every home is a module of the run of smaller rank (`capture`,
+  `importerSpot_loaded`, `reached_rank`, `fixpoint_rank`, `rootImports`, `impReach_rank`).
+* `agree_of_routes`: at one module, every passed pair agrees given a `Route` per pair (the copy is
+  the reader's, or the reader reads it from an earlier module `t` agreeing with it; and `t` is the
+  source, or `ProofAt`: two proofs of one statement whose names were passed as reads of `t`, each
+  of smaller rank), by induction on the context order.
+* `thm_own`: a theorem of a private view is a constant of the development's own environment.
+* `ComposeReads.lean`: `cap` (the capture data chosen per module), `src_copy`,
+  `readsAlike_isSome`, `agree_all` (strong induction on the rank over `agree_of_routes`),
+  `stored_of_agree` (an agreeing copy is stored in its module's own environment: by the
+  presented record, the context, or the own constant; so Copies' item (d) is not needed),
+  `reads_of_agree`, `passed_open`, `route_same` (the home's own copy), and **`reads_of_routes`**:
+  `ImportOk.reads` at every module of the run from one hypothesis, `hroute`, a `Route` for every
+  passed pair whose copy is not its reader's, given agreement at every earlier module.
+
+**Left, in order** (estimated one to two sessions):
+1. `hroute`, Cases B and C of the plan (the public-import route; the view route, one module or a
+   proof pair), with:
+   * `ctx_h ∋ y` for a via route, by the pair's origin: a record read (`reach_from`,
+     `recordFrom_presents`, `Presents.reads`, `own_reads_ctx`; side conditions: no own
+     definition, theorem or opaque at `Quot.sound` presented as a statement, and "a home constant's
+     name is an own-table name" for `ownNames`), a partner (a `copy_own` variant returning the
+     record, `own_type_stored`, "an own record's names are own-table names");
+   * Case B: `PubReach.first` (written, not committed: a public path leaving its start begins
+     with an import of it), `headerFixpoint_complete` at the reader's fixpoint, M1's part at the
+     reader's level holding `y`, the clash at the reader, the converse of `clashCopiesOf_spec`
+     (a clash's copies are in `clashCopiesOf` at its name), then `Agree.proof` at the reader;
+   * Case C: `homeView_index` (with `headerFixpoint_unique`), C.1 by `same` at the reader, C.2 by
+     `ProofAt` (`ReadAt`, `copy_own`, `rank c < rank y` from `ordered`, `own_stmt_fresh`,
+     `declNames_stmt`; `ProofSide` by `StatusOk`/`typeIsProp_part`).
+   * **A premise to check in C.2 at the reader's own copy**: `copy_own` asks the copy not skipped
+     (unsafe or partial); `agreeCheck` does not look.  A record read of a skipped own constant
+     needs "an accepted run's records are `RecordScoped`" (model-free only for statement types);
+     a partner read of one does not arise (a partner's names are a statement's).  To settle first.
+2. `Run.localOk`, then `main_modular_no_False` (`MainTheorem.lean`: `--check-graph` and a
+   worker for every module of `HdrClosure` exit 0, the false theorem of `InClosure`'s module:
+   `checkGraphG_ok`, `runArgs_module_accept`, `Run.ofAccepted`, `thm_own`, `modular_no_False`)
+   and its one-process twin (`runArgs_modular_accept`); the axiom pins, OVERVIEW §1, whitepaper
+   §7 (`Challenge.lean`/`comparator.json` state no run-level theorem: nothing to change there).
+3. The gates in full (shake will see the new files' imports), then land with `--no-ff`.
+
+**Gates on this tree** (the umbrella imports `ComposeReads`; `Loads.lean` imports the olean interface): `lake build`
+warning-free; `lake test`, layering, trust surface, overview links, quote gate, no-local-paths
+below.  Not run: arena, shake, challenge, fragment, whitepaper, olean gate (the part inference
+changes the reach; the olean gate's `PpM` infers one flag).

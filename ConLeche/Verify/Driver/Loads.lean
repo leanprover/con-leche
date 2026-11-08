@@ -1,11 +1,9 @@
 module
 
-public import ConLeche.Frontend.Olean.Levels
-public import ConLeche.Frontend.Olean.Files
+public import ConLeche.Frontend.Olean
 public import ConLeche.Verify.Frontend.ModelIO
 import ConLeche.Verify.Frontend.Olean.Files
 import Std.Data.HashSet.Lemmas
-import ConLeche.Frontend.Olean.Lazy
 import ConLeche.Verify.Frontend.Olean.Engine
 import ConLeche.Verify.Frontend.Olean.Equiv
 import ConLeche.Verify.Frontend.Olean.Reads
