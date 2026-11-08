@@ -72,6 +72,14 @@ theorem genCVs_okC : ∀ {xs : List Lean.ConstantVal} {rcs : List InLean.RecShap
     · exact hx.2.1
     · exact genCVs_okC hxs y hy
 
+theorem genCVs_closed : ∀ {xs : List Lean.ConstantVal} {rcs : List InLean.RecShape}, GenCVs xs rcs →
+    ∀ x ∈ xs, okC x.type = true ∧ (trC x.type).looseBVarsBounded 0 = true
+  | _, _, .nil => fun _ h => by cases h
+  | _, _, .cons hx hxs => fun y hy => by
+    rcases List.mem_cons.1 hy with rfl | hy
+    · exact hx.2
+    · exact genCVs_closed hxs y hy
+
 theorem mem_nfs_nil {v Ms : List InLean.TargetMajor}
     (h : v.map (fun M => { M with nfs := [] }) = Ms) {M : InLean.TargetMajor} (hM : M ∈ v) :
     { M with nfs := [] } ∈ Ms := h ▸ List.mem_map_of_mem hM
@@ -112,7 +120,8 @@ theorem genRecCheckI_run (hC : CheckConstantValFSimI) (hRF : ReducedFormerSimI)
     (h : InLean.genRecCheck (shadowOpsC .verified) fe p nestedBit params tbl rd Ms block s₀ =
       .ok (out, s')) :
     CSOKI .verified false L s' ∧ TabLe s₀ s' ∧
-      (∀ o ∈ out, (∀ r ∈ o.2.2, okC r = true) ∧ OkTMN s' o.2.1) ∧
+      (∀ o ∈ out, okC o.1.type = true ∧ (trC o.1.type).looseBVarsBounded 0 = true ∧
+        (∀ r ∈ o.2.2, okC r = true ∧ (trC r).looseBVarsBounded 0 = true) ∧ OkTMN s' o.2.1) ∧
       Runs (ConLeche.genRecCheck (ConLeche.ShadowOps.ofOps (ConLeche.fueledOpsM .verified))
         (ConLeche.mkFEnv L) (trShape p) nestedBit (TrSL s₀ params) (tbl.map (trNf s₀))
         (trCR s₀ rd) (Ms.map (trTM s₀)) (block.map trCI)) (out.map (trOut s')) := by
@@ -281,8 +290,8 @@ theorem genRecCheckI_run (hC : CheckConstantValFSimI) (hRF : ReducedFormerSimI)
   have ht₉' := ht₉.trans (TabLe.flushed (s := s₉))
   refine ⟨flushI_csoki (hs₉ .verified false L).residue _ _ _,
     ht₂.trans (ht₃.trans (ht₃₅.trans (ht₆.trans (ht₆₈.trans ht₉')))), fun o ho => ?_, ?_⟩
-  · obtain ⟨hr, c, hc⟩ := hout o ho
-    refine ⟨hr, ?_⟩
+  · obtain ⟨hcv, hr, c, hc⟩ := hout o ho
+    refine ⟨(genCVs_closed hgen _ hcv).1, (genCVs_closed hgen _ hcv).2, hr, ?_⟩
     rw [hc]
     exact (OkTMN.mono ht₉' (getD_of_all hg8.2.1 (okTMN_default _) c)).1
   -- master's side, step by step
@@ -325,9 +334,9 @@ theorem genRecCheckI_run (hC : CheckConstantValFSimI) (hRF : ReducedFormerSimI)
   rw [hG8, hG6, map_trTM_mono (ht₄.trans (ht₅.trans ht₆)) hMs₁₃, ← classFeR_mkFEnv] at hR9
   have hout' : out'.map (trOut s₉.flushed) = out'.map (trOut s₇.flushed) := by
     refine List.map_congr_left fun o ho => ?_
-    obtain ⟨hr, c, hc⟩ := hout o ho
+    obtain ⟨-, hr, c, hc⟩ := hout o ho
     have hM : OkTMN s₇.flushed o.2.1 := by rw [hc]; exact getD_of_all hg8.2.1 (okTMN_default _) c
-    simp only [trOut, TrSL_of_okC _ hr, (OkTMN.mono ht₉' hM).2]
+    simp only [trOut, TrSL_of_okC _ fun r h => (hr r h).1, (OkTMN.mono ht₉' hM).2]
   rw [hout']
   unfold ConLeche.genRecCheck ConLeche.ShadowOps.ofOps
   dsimp only

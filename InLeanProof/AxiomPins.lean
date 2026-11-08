@@ -53,6 +53,7 @@ public import InLeanProof.PassRecs5
 public import InLeanProof.PassRecs6
 public import InLeanProof.PassRecs7
 public import InLeanProof.PassRecs8
+public import InLeanProof.PassRecs9
 
 /-!
 # The axiom pins of the InLean proof tier (task #451, lane G)
@@ -5402,3 +5403,94 @@ info: 'InLeanProof.streamRecCompareI_run' depends on axioms: [propext,
 -/
 #guard_msgs in
 #print axioms InLeanProof.streamRecCompareI_run
+
+/-- info: 'InLeanProof.emvarS_of_mapSpec' depends on axioms: [propext] -/
+#guard_msgs in
+#print axioms InLeanProof.emvarS_of_mapSpec
+
+/-- info: 'InLeanProof.emvarS_of_liftLooseBVars' depends on axioms: [propext, Classical.choice, Quot.sound] -/
+#guard_msgs in
+#print axioms InLeanProof.emvarS_of_liftLooseBVars
+
+/-- info: 'InLeanProof.emvarS_of_abstractPrefix' depends on axioms: [propext, Classical.choice, Quot.sound] -/
+#guard_msgs in
+#print axioms InLeanProof.emvarS_of_abstractPrefix
+
+/--
+info: 'InLeanProof.toExpr_abstractPrefix' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound,
+ InLeanProof.Expr.mkAppData_fields,
+ InLeanProof.Expr.mkData_eq,
+ InLeanProof.Level.mkData_eq]
+-/
+#guard_msgs in
+#print axioms InLeanProof.toExpr_abstractPrefix
+
+/-- info: 'InLeanProof.okC_stripPis' depends on axioms: [propext, Quot.sound] -/
+#guard_msgs in
+#print axioms InLeanProof.okC_stripPis
+
+/-- info: 'InLeanProof.mapM_toExpr_of_beq' depends on axioms: [propext, Quot.sound] -/
+#guard_msgs in
+#print axioms InLeanProof.mapM_toExpr_of_beq
+
+/-- info: 'InLeanProof.mapM_toExpr_TrSL' depends on axioms: [propext, Classical.choice, Quot.sound] -/
+#guard_msgs in
+#print axioms InLeanProof.mapM_toExpr_TrSL
+
+/-- info: 'InLeanProof.mapM_toExpr_bvars' depends on axioms: [propext, Quot.sound] -/
+#guard_msgs in
+#print axioms InLeanProof.mapM_toExpr_bvars
+
+/--
+info: 'InLeanProof.mapM_pins' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound,
+ InLeanProof.Expr.mkAppData_fields,
+ InLeanProof.Expr.mkData_eq,
+ InLeanProof.Level.mkData_eq]
+-/
+#guard_msgs in
+#print axioms InLeanProof.mapM_pins
+
+/--
+info: 'InLeanProof.streamNestedOk_tr' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound,
+ InLeanProof.Expr.mkAppData_fields,
+ InLeanProof.Expr.mkData_eq,
+ InLeanProof.Level.mkData_eq]
+-/
+#guard_msgs in
+#print axioms InLeanProof.streamNestedOk_tr
+
+/--
+info: 'InLeanProof.streamRecCheckI_run' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound,
+ InLeanProof.Expr.mkAppData_fields,
+ InLeanProof.Expr.mkData_eq,
+ InLeanProof.Level.mkData_eq]
+-/
+#guard_msgs in
+#print axioms InLeanProof.streamRecCheckI_run
+
+/--
+info: 'InLeanProof.streamRecsCheckI_run' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound,
+ InLeanProof.Expr.mkAppData_fields,
+ InLeanProof.Expr.mkData_eq,
+ InLeanProof.Level.mkData_eq]
+-/
+#guard_msgs in
+#print axioms InLeanProof.streamRecsCheckI_run
+
+/-- info: 'InLeanProof.envWF_genRecs' depends on axioms: [propext, Classical.choice, Quot.sound] -/
+#guard_msgs in
+#print axioms InLeanProof.envWF_genRecs
+
+/-- info: 'InLeanProof.genCVs_closed' depends on axioms: [propext] -/
+#guard_msgs in
+#print axioms InLeanProof.genCVs_closed

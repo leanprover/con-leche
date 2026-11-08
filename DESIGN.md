@@ -113749,6 +113749,69 @@ condition); `by_cases` on the equation of the readings and `simp only [beq_iff_e
 Gates: `lake build InLean InLeanProof` warning-free; `tests/layering.sh`,
 `tests/trust-surface.sh`, `tests/no-local-paths.sh`, `tests/inlean-sync.sh` pass.
 
+### Lane O7-recursors, round 7: the firing-data guard, the stored recursors' family (2026-11-08)
+
+Scope was round 6's "What remains" 1–3.  Item 1 is done; item 2 is done up to the `JobEnvI`
+at the stored recursors' environment, of which master's well-formedness is done; item 3 is not
+started.  No `InLean/*` change; no `sorry`, no new axiom; `InLeanProof/PassRecs9.lean`
+(13 theorems), `genCVs_closed` in `PassRecs7`, all pinned.
+
+* **The firing-data guard** (`streamNestedOk_tr`, `PassRecs9` :196): InLean's `streamNestedOk`
+  on a stored type (`okC`) at `generatedFire M rP` gives master's on `trC` at `generatedFire
+  (trTM s M) rP`, given `OkSL s M.ds`.  The proof works on `toExpr` at the state's table, not on
+  `TrS`: InLean's comparison (`clEq`) of the domain's arguments against the pins carries the
+  arguments' readings to the pins (`mapM_toExpr_of_beq`), so a pin has a reading, hence no
+  metavariable (`emvarS_of_toExpr`), hence neither its `abstractPrefix` (lifting writes none,
+  `emvarS_of_liftLooseBVars`, from a general `emvarS_of_mapSpec`), so no abstraction wrote its
+  range marker, and `toExpr_abstractPrefix` (master's `Expr.abstractPrefix`, through
+  `toExpr_abstractDepthsFrom` at every cutoff) and `toExpr_liftLooseBVars` read the pin as
+  master's (`mapM_pins`).  The levels by `LawfulBEq`, the head by `TrS_getAppFnT`, the
+  telescope by `stripPis_tr`, `okC_stripPis`, `trC_stripTop`.
+* **The stage's outputs** (strengthened in place): `classRuleCheckI_run` also gives the rule's
+  reading closed (the guard it already read), `classRulesOkI_run` each rule's, and
+  `classRecsRulesOkI_run` that each output's constant is one of its input constants.
+  `genRecCheckI_run` now concludes, of every output, `okC` and a closed reading of the generated
+  type (`genCVs_closed` from `GenCVs`), `okC` and closed readings of the rules, and `OkTMN`.
+* **One recursor and the family** (`streamRecCheckI_run` :253, `streamRecsCheckI_run` :283):
+  the shape (`streamRulesShapeI_run`), the guard, `streamRecCompareI_run`; record by record, at
+  any `JobEnvI fe L`, with the stored records' types and rules `okC` (premises; the coordinator's
+  GenClosed lane on agent/451-inlean2 adds an executable closedness check whose facts discharge
+  closedness premises at the merge — none is needed here, the generated side's closedness comes
+  from `genRecCheckI_run`) and the outputs' facts as `genRecCheckI_run` gives them.
+* **Master's well-formedness at the generated install** (`envWF_genRecs` :320):
+  `genRecCheck_datF` and master's `genRecCheck_recsWF` from the `Runs` that `genRecCheckI_run`
+  gives; it needs `ClassOutParams p.nP` of every class on the readings (master's
+  `ClassMajScoped`'s second part), which PassSim's `PassDataI` should provide.
+
+**What remains** (bottom-up):
+1. `JobEnvI (fe₂.pushAll (blockRecInfosTF p 0 out)) (consBlockRecsT (trShape p) 0
+   (out.map (trOut s')) L₂)`: `wf` is `envWF_genRecs`; `laws`, `proj` by `jobEnvI_push_plain`
+   per entry (as `presI_consBlockRecsBareF`); `pres` needs `EntryRelI` of `recEntry … (generatedRules
+   M rhss)` against master's `.recInfo … (generatedRules rP (trTM s M) rhss)`, i.e. per rule
+   `FireRel (recFireAt rv false)` against master's fire.  That is the crux: InLean reads the
+   fire off the generated type (`recFireAt`: the major domain's head, `.plain` iff it is a
+   block member, else `.nested` at the head's levels and the arguments, index variables
+   dropped).  At an outside major master's `NestedRead` (`genRecCheck_outFacts`.2,
+   `genStage_nestedRead`) gives the domain's shape on the reading, but not that its head `D` is
+   no member of the block (needed: InLean would say `.plain`); at a member major the head being
+   that member is not stated by master either.  Both are facts of `classGenRecTy` (the major's
+   domain is the class's former, `M.ind`, applied), to be proved from the generator's run.
+   Freshness and distinctness of the names are as in `jobEnvI_ruleEnv` (`classRecTysOk_facts`).
+2. The tail's composition (`checkBlockTailS`): `genRecCheckI_run`, `streamKCheck` (round 5's
+   `recKExpected_tr`), the JobEnvI of 1, `streamRecsCheckI_run` at `sx := s'`, then 3.
+3. `checkBlockTablesF` (unchanged): `structProjBodies` against master's on `trC`
+   (`projBodyAt_tr` needs `projStepsOk`, `hasPis_iff_structProjBodies`), `constsResolveF_tr`,
+   and master's extra guard `(fe.findTable? T).isNone` ("table taken", which InLean does not
+   test) from `EnvWF` and the members' freshness.
+
+**Findings.**  No statement was false for the code.  The guard's direction is the only one
+needed (InLean's `true` gives master's `true`), so `clEq`'s converse is not used.  In a
+destructured run, `obtain ⟨rfl, …⟩` on a state equation from a pure step again renamed the
+continuation hypothesis; naming it and `subst` works (round 6's finding).
+
+Gates: `lake build InLean InLeanProof` warning-free; `tests/layering.sh`,
+`tests/trust-surface.sh`, `tests/no-local-paths.sh`, `tests/inlean-sync.sh` pass.
+
 ## TASK #489 — what a module's constants mention, in one array per module (2026-11-06, agent/489-flat-uses)
 
 **The task (maintainer).**  After #480, take the self-contained one of the memory fixes a census of
