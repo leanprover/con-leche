@@ -447,4 +447,286 @@ theorem constsResolveF_tr {fe : InLean.FEnv} {L : ConLeche.Env} (hP : EnvPresI f
     rw [← this]
     congr 1
 
+/-! ## A generated rule, checked -/
+
+/-- A λ-telescope stripped, read: master's on the closed reading, closed pieces. -/
+theorem stripLams_tr : ∀ (n : Nat) (e : Lean.Expr) {rbs : List Lean.Expr} {r : Lean.Expr},
+    okC e = true → InLean.stripLams n e = some (rbs, r) →
+      ConLeche.Expr.stripLams n (trC e) = some (rbs.map trC, trC r) ∧ ∀ b ∈ rbs, okC b = true
+  | 0, e, rbs, r, hok, h => by
+    simp only [InLean.stripLams, Option.some.injEq, Prod.mk.injEq] at h
+    obtain ⟨rfl, rfl⟩ := h
+    exact ⟨rfl, fun _ h => by cases h⟩
+  | n + 1, .lam _ d b _, rbs, r, hok, h => by
+    simp only [okC, okE, Bool.and_eq_true] at hok
+    simp only [InLean.stripLams, Option.map_eq_some_iff] at h
+    obtain ⟨⟨ds, r'⟩, h1, h2⟩ := h
+    simp only [Prod.mk.injEq] at h2
+    obtain ⟨rfl, rfl⟩ := h2
+    obtain ⟨ih1, ih2⟩ := stripLams_tr n b hok.2 h1
+    refine ⟨?_, fun x hx => ?_⟩
+    · show ConLeche.Expr.stripLams (n + 1) (.lam (trC d) (trC b)) = _
+      simp only [ConLeche.Expr.stripLams, ih1, Option.map_some, List.map_cons]
+    · rcases List.mem_cons.1 hx with rfl | hx
+      · exact hok.1
+      · exact ih2 x hx
+  | n + 1, .mdata _ e, rbs, r, hok, h => by
+    simp only [okC, okE] at hok
+    simp only [InLean.stripLams] at h
+    exact stripLams_tr (n + 1) e hok h
+  | _ + 1, .bvar _, _, _, _, h | _ + 1, .fvar _, _, _, _, h | _ + 1, .mvar _, _, _, _, h
+  | _ + 1, .sort _, _, _, _, h | _ + 1, .const _ _, _, _, _, h | _ + 1, .app _ _, _, _, _, h
+  | _ + 1, .forallE _ _ _ _, _, _, _, h | _ + 1, .letE _ _ _ _ _, _, _, _, h
+  | _ + 1, .lit _, _, _, _, h | _ + 1, .proj _ _ _, _, _, _, h => by
+    simp [InLean.stripLams] at h
+
+/-- `allM` over a stateless test, accepted: every element accepted at the state. -/
+theorem allM_true {α : Type} {f : α → InLean.CheckCM Bool} (hf : ∀ a, NoSt (f a)) :
+    ∀ (l : List α) {s s' : InLean.CState}, l.allM f s = .ok (true, s') →
+      s' = s ∧ ∀ a ∈ l, f a s = .ok (true, s)
+  | [], s, s', h => by
+    rw [List.allM_nil] at h
+    obtain ⟨-, rfl⟩ := pureI_ok h
+    exact ⟨rfl, fun _ h => by cases h⟩
+  | a :: l, s, s', h => by
+    rw [List.allM_cons] at h
+    obtain ⟨b, s₁, h1, h2⟩ := bindI_ok h
+    have hs₁ := hf a s b s₁ h1
+    subst hs₁
+    cases b
+    · obtain ⟨h, -⟩ := pureI_ok h2; cases h
+    · obtain ⟨hs', hl⟩ := allM_true hf l h2
+      exact ⟨hs', fun x hx => by
+        rcases List.mem_cons.1 hx with rfl | hx
+        · exact h1
+        · exact hl x hx⟩
+
+/-- A generated rule accepted by `classRuleCheck` is marker-free. -/
+theorem classRuleCheck_emvar {ops : InLean.CheckerOps} {w : InLean.StructWalkers}
+    {feT feR : InLean.FEnv} {cvR : Lean.ConstantVal} {n : Nat} {gen : Lean.Expr}
+    {s₀ s' : InLean.CState} (h : InLean.classRuleCheck ops w feT feR cvR n gen s₀ = .ok ((), s')) :
+    emvarS gen = false := by
+  unfold InLean.classRuleCheck at h
+  have hth : ∀ {α : Type} {e : InLean.CheckError} {k : α → InLean.CheckCM Unit},
+      ¬ ((throw e : InLean.CheckCM α) >>= k) s₀ = .ok ((), s') := fun h => by
+    obtain ⟨_, _, h1, -⟩ := bind_run h; exact throw_run h1
+  cases g1 : (!gen.hasLooseBVars && !gen.hasFVar) <;>
+    simp only [g1, Bool.false_eq_true, ↓reduceIte] at h <;> try exact absurd h hth
+  cases g2 : EO.inRange gen <;>
+    simp only [g2, Bool.false_eq_true, ↓reduceIte] at h <;> try exact absurd h hth
+  exact (RangeOk_of_inRange g2).2
+
+/-- **The check of one generated rule** (`classRuleCheck`, `classRuleCheckS_spec`'s
+twin): from a flushed state, the rule with a reading, typed at the rule-less
+recursors' environment (`JobEnvI feR LR`), its domains resolved at the
+constructors' (`EnvPresI feT LT`). -/
+theorem classRuleCheckI_run {feT feR : InLean.FEnv} {LT LR : ConLeche.Env}
+    (hPT : EnvPresI feT LT) (hJR : JobEnvI feR LR) {cvR : Lean.ConstantVal} {n : Nat}
+    {gen : Lean.Expr} {s₀ s' : InLean.CState} (hs : CSOKIF s₀) (hok : OkS s₀ gen = true)
+    (h : InLean.classRuleCheck (sharedOpsRuleR .verified feR) structWalkersC feT feR cvR n gen s₀ =
+      .ok ((), s')) :
+    (∀ m e L', CSOKI m e L' s') ∧ TabLe s₀ s' ∧ okC gen = true ∧
+      Runs (ConLeche.classRuleCheck (ConLeche.fueledOpsM .verified) .plain (ConLeche.mkFEnv LT)
+        (ConLeche.mkFEnv LR) (trCV cvR) n (trC gen)) () := by
+  unfold InLean.classRuleCheck at h
+  have hth : ∀ {α : Type} {e : InLean.CheckError} {k : α → InLean.CheckCM Unit},
+      ¬ ((throw e : InLean.CheckCM α) >>= k) s₀ = .ok ((), s') := fun h => by
+    obtain ⟨_, _, h1, -⟩ := bind_run h; exact throw_run h1
+  cases g1 : (!gen.hasLooseBVars && !gen.hasFVar) <;>
+    simp only [g1, Bool.false_eq_true, ↓reduceIte] at h <;> try exact absurd h hth
+  simp only [Bool.and_eq_true, Bool.not_eq_true'] at g1
+  cases g2 : EO.inRange gen <;>
+    simp only [g2, Bool.false_eq_true, ↓reduceIte] at h <;> try exact absurd h hth
+  have hr := RangeOk_of_OkS hok
+  obtain ⟨hokc, hTr⟩ := okC_of_OkS hok (by rw [← hasFVar_TrS _ hok]; exact g1.2)
+  have hlbb := lbb_trC_of_range hr hokc g1.1
+  obtain ⟨l, s₁, hl, h⟩ := bindI_ok h
+  obtain ⟨hs1, rfl⟩ := allLevelParamsDefined_noFVar g1.2 hl
+  rw [hs1] at h
+  cases gl : (!gen.hasLevelParam || (EO.levelParams gen).all cvR.levelParams.contains) <;>
+    simp only [gl, Bool.false_eq_true, ↓reduceIte] at h <;> try exact absurd h hth
+  have hlp : (trC gen).allLevelParamsDefined (cvR.levelParams.map toName) = true :=
+    allLevelParamsDefined_of_guard hr fun hh => by simpa [hh] using gl
+  obtain ⟨c, s₁, hc, h⟩ := bindI_ok h
+  have hc' : InLean.constsResolveF feR gen s₀ = .ok (c, s₁) := hc
+  rw [constsResolveF_state hc'] at h
+  cases c <;> simp only [Bool.false_eq_true, ↓reduceIte] at h <;> try exact absurd h hth
+  -- the inference, between two flushes
+  obtain ⟨v, s₂, hI, h⟩ := bindI_ok h
+  simp only [InLean.sharedOpsRuleR] at hI
+  obtain ⟨_, s₄, hf1, hI⟩ := bindI_ok hI
+  rw [flushI_run] at hf1
+  cases hf1
+  obtain ⟨t, s₅, hI1, hI⟩ := bindI_ok hI
+  obtain ⟨hs₅, ht₅, -, hRI, -, -⟩ := tripleI_iff_run.1 (hJR.ops.infer (s₀ := s₀.flushed) (d := 0)
+    (i := gen) (flushI_csoki hs _ _ _) (by rw [OkS_flushed]; exact hok)
+    (by rw [TrS_flushed, hTr]; exact trC_wscoped 0 _) (by rw [TrS_flushed, hTr]; exact hlbb))
+    t s₅ hI1
+  obtain ⟨_, s₆, hf2, hI⟩ := bindI_ok hI
+  rw [flushI_run] at hf2
+  cases hf2
+  obtain ⟨rfl, rfl⟩ := pureI_ok hI
+  -- the telescope and its domains
+  obtain ⟨⟨rbs, r⟩, s₇, hU, h⟩ := bindI_ok h
+  obtain ⟨hU2, rfl⟩ := unwrapOr_run hU
+  obtain ⟨hsl, hrbs⟩ := stripLams_tr n gen hokc hU2
+  obtain ⟨d, s₈, hD, h⟩ := bindI_ok h
+  have hD' : rbs.allM (InLean.constsResolveF feT) s₅.flushed = .ok (d, s₈) := hD
+  cases d <;> simp only [Bool.false_eq_true, ↓reduceIte] at h
+  · exact (throwI_ok h).elim
+  obtain ⟨rfl, hall⟩ := allM_true (constsResolveF_noSt feT) rbs hD'
+  obtain ⟨-, rfl⟩ := pureI_ok h
+  refine ⟨fun m e L' => flushI_csoki hs₅.residue m e L', ht₅.trans TabLe.flushed, hokc, ?_⟩
+  rw [TrS_flushed, hTr] at hRI
+  obtain ⟨F, hF⟩ := runs_atF hRI
+  have gR : (trC gen).constsResolve LR = true := constsResolve_of_infer (trC_hasFvar _) hF
+  have gT : ∀ b ∈ rbs.map trC, b.constsResolve LT = true := by
+    intro b hb
+    obtain ⟨b', hb', rfl⟩ := List.mem_map.1 hb
+    exact constsResolveF_tr hPT (hrbs b' hb') (hall b' hb')
+  unfold ConLeche.classRuleCheck
+  simp only [ConLeche.StructWalkers.plain, ConLeche.mkFEnv_env, ConLeche.constsResolveF_eq, hlbb,
+    trC_hasFvar, trCV, hlp, gR, hsl, Bool.not_false, Bool.and_self, ↓reduceIte]
+  refine Runs.bind hRI (Runs.bind (Runs.pure _) ?_)
+  simp only [List.all_eq_true.2 gT, ↓reduceIte]
+  exact Runs.pure _
+
+/-- What a class's constructor gives the rule generator. -/
+@[expose] def RuleCtorOk (s : InLean.CState) (x : InLean.ClassCtor) : Prop :=
+  OkCC s x ∧ (TrS s x.tyD).looseBVarsBounded 0 = true ∧ (TrS s x.tyN).looseBVarsBounded 0 = true
+
+theorem RuleCtorOk.mono {s₀ s₁ : InLean.CState} (h : TabLe s₀ s₁) {x : InLean.ClassCtor}
+    (hx : RuleCtorOk s₀ x) : RuleCtorOk s₁ x ∧ trCC s₁ x = trCC s₀ x := by
+  obtain ⟨h1, h2, h3⟩ := hx
+  obtain ⟨h1', he⟩ := OkCC.mono h h1
+  refine ⟨⟨h1', ?_, ?_⟩, he⟩
+  · rw [TrS_of_tabLe h h1.2.1]; exact h2
+  · rw [TrS_of_tabLe h h1.2.2]; exact h3
+
+theorem all_okLv_param (lps : List Lean.Name) : (lps.map Lean.Level.param).all okLv = true := by
+  simp [okLv_param]
+
+/-- **A recursor's generated rules** (`classRulesOk`): each rule generated
+(`classGenRuleI_run`), read where its check found it marker-free, and checked
+(`classRuleCheckI_run`). -/
+theorem classRulesOkI_run {feT feR : InLean.FEnv} {LT LR : ConLeche.Env}
+    (hPT : EnvPresI feT LT) (hJR : JobEnvI feR LR) {g : InLean.ClassGen}
+    {recOf : Nat → Option Lean.Name} {recOfM : Nat → Option ConLeche.Name}
+    (hrec : ∀ t, recOfM t = (recOf t).map toName) (hpl : g.params.length = g.nP)
+    {cvR : Lean.ConstantVal} {c : Nat} :
+    ∀ (xs : List InLean.ClassCtor) {s₀ s' : InLean.CState} {v : List Lean.Expr},
+      (∀ m e L', CSOKI m e L' s₀) → CGOk s₀ g → (∀ x ∈ xs, RuleCtorOk s₀ x) →
+      InLean.classRulesOk (sharedOpsRuleR .verified feR) structWalkersC feT feR g recOf cvR c xs s₀ =
+        .ok (v, s') →
+      (∀ m e L', CSOKI m e L' s') ∧ TabLe s₀ s' ∧ (∀ r ∈ v, okC r = true) ∧
+        Runs (ConLeche.classRulesOk (ConLeche.fueledOpsM .verified) .plain (ConLeche.mkFEnv LT)
+          (ConLeche.mkFEnv LR) (trCG s₀ g) recOfM (trCV cvR) c (xs.map (trCC s₀))) (v.map trC)
+  | [], s₀, s', v, hs, _, _, h => by
+    unfold InLean.classRulesOk at h
+    obtain ⟨rfl, rfl⟩ := pureI_ok h
+    refine ⟨hs, TabLe.refl _, (fun _ h => by cases h), ?_⟩
+    unfold ConLeche.classRulesOk
+    exact Runs.pure _
+  | x :: xs, s₀, s', v, hs, hg, hxs, h => by
+    unfold InLean.classRulesOk at h
+    obtain ⟨hx, hxD, hxN⟩ := hxs x List.mem_cons_self
+    obtain ⟨r, s₁, h1, hA⟩ := bindI_ok h
+    obtain ⟨hs₁, ht₁, hgen⟩ := classGenRuleI_run (mode := .verified) (eager := false) (env := LR)
+      (hs .verified false LR) hx hxD hxN hg.2.2.2.2.2 hg.1 hpl hrec (all_okLv_param _) h1
+    obtain ⟨gen, s₂, h2, hB⟩ := bindI_ok hA
+    obtain ⟨hr, rfl⟩ := unwrapOr_run h2
+    obtain ⟨r', s₃, h3, hC⟩ := bindI_ok hB
+    unfold InLean.classRuleOk at h3
+    obtain ⟨_, s₄, h4, h5⟩ := bindI_ok h3
+    obtain ⟨rfl, rfl⟩ := pureI_ok h5
+    obtain ⟨hok, hmas⟩ := hgen gen hr (classRuleCheck_emvar h4)
+    obtain ⟨hs₄, ht₄, hokc, hR4⟩ := classRuleCheckI_run hPT hJR hs₁.residue hok h4
+    obtain ⟨hg₄, htr⟩ := CGOk.mono (ht₁.trans ht₄) hg
+    obtain ⟨rs, s₅, h6, hD⟩ := bindI_ok hC
+    obtain ⟨hs₅, ht₅, hrs, hR6⟩ := classRulesOkI_run hPT hJR hrec hpl xs hs₄ hg₄
+      (fun y hy => (RuleCtorOk.mono (ht₁.trans ht₄) (hxs y (List.mem_cons_of_mem _ hy))).1) h6
+    obtain ⟨rfl, rfl⟩ := pureI_ok hD
+    refine ⟨hs₅, (ht₁.trans ht₄).trans ht₅, fun y hy => ?_, ?_⟩
+    · rcases List.mem_cons.1 hy with rfl | hy
+      · exact hokc
+      · exact hrs y hy
+    rw [TrS_of_okC _ hokc, map_param_trL] at hmas
+    rw [htr, List.map_congr_left (fun y hy =>
+      (RuleCtorOk.mono (ht₁.trans ht₄) (hxs y (List.mem_cons_of_mem _ hy))).2)] at hR6
+    simp only [List.map_cons]
+    unfold ConLeche.classRulesOk
+    simp only [trCV, hmas]
+    refine Runs.bind (Runs.pure _) (Runs.bind ?_ (Runs.bind hR6 (Runs.pure _)))
+    unfold ConLeche.classRuleOk
+    have hsl : (trCG s₀ g).slots.length = g.slots.length := by simp [trCG]
+    have hnP : (trCG s₀ g).nP = g.nP := rfl
+    have hnF : (trCC s₀ x).nF = x.nF := rfl
+    rw [hsl, hnP, hnF]
+    exact Runs.bind hR4 (Runs.pure _)
+
+theorem TrSL_of_okC (s : InLean.CState) {l : List Lean.Expr} (h : ∀ e ∈ l, okC e = true) :
+    TrSL s l = l.map trC := by
+  simp only [TrSL]
+  exact List.map_congr_left fun e he => TrS_of_okC s (h e he)
+
+theorem getD_ctors_mem {xss : List (List InLean.ClassCtor)} {c : Nat} {x : InLean.ClassCtor}
+    (h : x ∈ xss.getD c []) : ∃ xs ∈ xss, x ∈ xs := by
+  rw [List.getD_eq_getElem?_getD] at h
+  cases hc : xss[c]? with
+  | none => rw [hc] at h; cases h
+  | some xs => rw [hc] at h; exact ⟨xs, List.mem_of_getElem? hc, h⟩
+
+/-- **Every recursor's generated rules** (`classRecsRulesOk`), each with its class. -/
+theorem classRecsRulesOkI_run {feT feR : InLean.FEnv} {LT LR : ConLeche.Env}
+    (hPT : EnvPresI feT LT) (hJR : JobEnvI feR LR) {g : InLean.ClassGen}
+    {recOf : Nat → Option Lean.Name} {recOfM : Nat → Option ConLeche.Name}
+    (hrec : ∀ t, recOfM t = (recOf t).map toName) (hpl : g.params.length = g.nP) :
+    ∀ (cvs : List Lean.ConstantVal) (cs : List Nat) {s₀ s' : InLean.CState}
+      {v : List (Lean.ConstantVal × InLean.TargetMajor × List Lean.Expr)},
+      (∀ m e L', CSOKI m e L' s₀) → CGOk s₀ g → (∀ xs ∈ g.ctors, ∀ x ∈ xs, RuleCtorOk s₀ x) →
+      InLean.classRecsRulesOk (sharedOpsRuleR .verified feR) structWalkersC feT feR g recOf cvs cs s₀ =
+        .ok (v, s') →
+      (∀ m e L', CSOKI m e L' s') ∧ TabLe s₀ s' ∧
+        (∀ o ∈ v, (∀ r ∈ o.2.2, okC r = true) ∧ ∃ c, o.2.1 = g.cls.getD c default) ∧
+        Runs (ConLeche.classRecsRulesOk (ConLeche.fueledOpsM .verified) .plain (ConLeche.mkFEnv LT)
+          (ConLeche.mkFEnv LR) (trCG s₀ g) recOfM (cvs.map trCV) cs) (v.map (trOut s₀))
+  | cvG :: cvs, c :: cs, s₀, s', v, hs, hg, hct, h => by
+    unfold InLean.classRecsRulesOk at h
+    obtain ⟨rhss, s₁, h1, hA⟩ := bindI_ok h
+    obtain ⟨hs₁, ht₁, hrh, hR1⟩ := classRulesOkI_run hPT hJR hrec hpl (g.ctors.getD c []) hs hg
+      (fun x hx => by obtain ⟨xs, hxs, hx⟩ := getD_ctors_mem hx; exact hct xs hxs x hx) h1
+    obtain ⟨hg₁, htr⟩ := CGOk.mono ht₁ hg
+    obtain ⟨xs, s₂, h2, hB⟩ := bindI_ok hA
+    obtain ⟨hs₂, ht₂, hxs, hR2⟩ := classRecsRulesOkI_run hPT hJR hrec hpl cvs cs hs₁ hg₁
+      (fun ys hys y hy => (RuleCtorOk.mono ht₁ (hct ys hys y hy)).1) h2
+    obtain ⟨rfl, rfl⟩ := pureI_ok hB
+    refine ⟨hs₂, ht₁.trans ht₂, fun o ho => ?_, ?_⟩
+    · rcases List.mem_cons.1 ho with rfl | ho
+      · exact ⟨hrh, c, rfl⟩
+      · exact hxs o ho
+    rw [htr] at hR2
+    have hout : xs.map (trOut s₁) = xs.map (trOut s₀) := by
+      refine List.map_congr_left fun o ho => ?_
+      obtain ⟨hr, c', hc'⟩ := hxs o ho
+      have hM : OkTMN s₀ o.2.1 := by
+        rw [hc']; exact getD_of_all hg.2.1 (okTMN_default s₀) c'
+      simp only [trOut, TrSL_of_okC _ hr, (OkTMN.mono ht₁ hM).2]
+    rw [hout] at hR2
+    simp only [List.map_cons]
+    unfold ConLeche.classRecsRulesOk
+    have hcls : (trCG s₀ g).cls.getD c default = trTM s₀ (g.cls.getD c default) := by
+      simp only [trCG, getD_map_trTM]
+    have hct' : (trCG s₀ g).ctors.getD c [] = (g.ctors.getD c []).map (trCC s₀) := by
+      simp only [trCG, getD_map_trCCs]
+    rw [hct']
+    refine Runs.bind hR1 (Runs.bind hR2 ?_)
+    simp only [trOut, hcls, TrSL_of_okC _ hrh]
+    exact Runs.pure _
+  | [], _, s₀, s', v, hs, _, _, h | _ :: _, [], s₀, s', v, hs, _, _, h => by
+    unfold InLean.classRecsRulesOk at h
+    obtain ⟨rfl, rfl⟩ := pureI_ok h
+    refine ⟨hs, TabLe.refl _, (fun _ h => by cases h), ?_⟩
+    unfold ConLeche.classRecsRulesOk
+    exact Runs.pure _
+
 end InLeanProof
