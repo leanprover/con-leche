@@ -63,6 +63,18 @@ instance : LawfulBEq PartKey where
 @[expose] def CopyAt (sp : SearchPath) (fs : FS) (s : Spot) : Prop :=
   ∃ t, PartNames sp fs s.part t ∧ s.pos ∈ t.consts
 
+/-- **Module `h`'s view on the snapshot** (`viewOf`'s, by the specification): the parts of
+`viewKeys` over `h`'s header fixpoint, read from `h`'s private part's header, each part's name
+table the snapshot's, folded in order with the first copy of each name kept. -/
+@[expose] def HomeView (sp : SearchPath) (fs : FS) (h : Name) (v : Std.HashMap Name Spot) : Prop :=
+  ∃ (own : NamePositions) (ld : Loads) (ts : List NamePositions),
+    PartNames sp fs ⟨h, .private⟩ own ∧
+    ModelIO.CanGive (headerFixpoint (moduleImports sp) own.header.isModule own.header.imports) fs
+      (.ok ld) ∧
+    ts.length = (viewKeys h ld).length ∧
+    (∀ k t, (k, t) ∈ (viewKeys h ld).zip ts → PartNames sp fs k t) ∧
+    v = ((viewKeys h ld).zip ts).foldl (fun v kt => viewStep v kt.1 kt.2) {}
+
 /-- **A part's region** on the snapshot. -/
 @[expose] def PartRegion (sp : SearchPath) (fs : FS) (k : PartKey) (r : Region) : Prop :=
   ∃ f a, PartFiles sp fs k f ∧ f.viewRegion k.level = some (r, a)
@@ -464,7 +476,7 @@ theorem viewAdd_ok (he : EnvOk sp fs env) :
     | ok t =>
       simp only []
       refine viewAdd_ok he c' _ ks h1 ?_
-      rw [← Array.foldl_toList]
+      rw [viewStep, ← Array.foldl_toList]
       exact viewAdd_fold k t _ v hv (h2 t rfl) (fun q hq => Array.mem_toList_iff.1 hq)
 
 theorem viewOf_ok (he : EnvOk sp fs env) {c : ReachCache} (hc : CacheOk sp fs c) (h : Name) :

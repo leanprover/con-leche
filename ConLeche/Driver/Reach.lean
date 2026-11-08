@@ -268,6 +268,17 @@ structure ReachCache where
   /-- how many reads were looked for in their reader's view -/
   searches : Nat := 0
 
+/-- **The parts of module `h`'s view**, in order: `h`'s own private part, then the parts its
+header fixpoint `ld` loads, in its order. -/
+def viewKeys (h : Name) (ld : Loads) : List PartKey :=
+  ⟨h, .private⟩ :: (ld.order.zip ld.flags).toList.map fun (m, fl) => ⟨m, fl.level⟩
+
+/-- **One part's names into a view**, the first copy of each name kept. -/
+def viewStep (v : Std.HashMap Name Spot) (k : PartKey) (t : NamePositions) :
+    Std.HashMap Name Spot :=
+  t.consts.foldl (fun (v : Std.HashMap Name Spot) q =>
+    if v.contains q.name then v else v.insert q.name ⟨k, q⟩) v
+
 section
 variable {μ : Type → Type} [CheckerIO μ]
 
@@ -364,10 +375,7 @@ def viewAdd (env : ReachEnv μ) :
   | c, v, k :: ks => do
     match ← tableOf env c k with
     | (c, .error e) => pure (c, .error e)
-    | (c, .ok t) =>
-      let v := t.consts.foldl (fun (v : Std.HashMap Name Spot) q =>
-        if v.contains q.name then v else v.insert q.name ⟨k, q⟩) v
-      viewAdd env c v ks
+    | (c, .ok t) => viewAdd env c (viewStep v k t) ks
 
 /-- **Module `h`'s view, by name**: `h`'s own private part, then the parts `h`'s header
 fixpoint loads, in its order, the first copy of each name.  Built once per home. -/
@@ -382,9 +390,7 @@ def viewOf (env : ReachEnv μ) (c : ReachCache) (h : Name) :
       match ← headerFixpoint env.rd.imports own.header.isModule own.header.imports with
       | .error e => pure (c, .error e)
       | .ok ld =>
-        let ks : List PartKey := ⟨h, .private⟩ ::
-          (ld.order.zip ld.flags).toList.map fun (m, fl) => ⟨m, fl.level⟩
-        match ← viewAdd env c {} ks with
+        match ← viewAdd env c {} (viewKeys h ld) with
         | (c, .error e) => pure (c, .error e)
         | (c, .ok v) => pure ({ c with views := c.views.insert h v }, .ok v)
 
