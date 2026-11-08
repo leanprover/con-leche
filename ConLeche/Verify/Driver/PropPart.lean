@@ -7,6 +7,7 @@ import ConLeche.Verify.Cached.BridgeC
 import ConLeche.Verify.Cached.StreamIndex
 import ConLeche.Verify.Cached.PushChain
 import ConLeche.Verify.Driver.Reach
+import ConLeche.Verify.PinRen
 
 /-!
 # A statement inferred a proposition at the context is one at the part below it
@@ -498,6 +499,29 @@ theorem constsResolve_part
     exact absurd (honly n hnd' ▸ hn) hny
 
 end Part
+
+/-- **A statement record installs at most its own name** (`honly`'s form): an axiom record
+(the tolerated axiom's installs nothing, `Quot.sound`'s its pin under that name) and a
+definition record. -/
+theorem declNames_stmt {d : Declaration} {cv : ConstantVal}
+    (hd : d = .axiomDecl cv ∨ ∃ v h, d = .defnDecl cv v h) : ∀ n ∈ declNames d, n = cv.name := by
+  intro n hn
+  rcases hd with rfl | ⟨v, h, rfl⟩
+  · simp only [declNames, declConstants] at hn
+    split at hn
+    · next hq =>
+      simp only [List.map_cons, List.map_nil, List.mem_singleton] at hn
+      rw [hn, hq]
+      have := atLps_name (quotPin .sound) cv.levelParams
+      simp only [quotAt, ConstantInfo.name] at this ⊢
+      rw [this]
+      decide
+    · split at hn
+      · exact nomatch hn
+      · simp only [List.map_cons, List.map_nil, List.mem_singleton] at hn
+        exact hn
+  · simp only [declNames, declConstants, List.map_cons, List.map_nil, List.mem_singleton] at hn
+    exact hn
 
 /-- **The proof route's inference at the part** (`ProofSide`, `ConLeche/Modular.lean`): at a
 module whose context has distinct names, is in read order and well formed, whose recursors'
