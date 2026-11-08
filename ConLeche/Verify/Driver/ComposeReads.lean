@@ -250,6 +250,50 @@ theorem reads_of_agree (hall : ∀ M ∈ R.names, R.AgreeAll M) :
   have ha := hall M hM (h, y) hP hy
   exact readsAlike_isSome hy ha (R.stored_of_agree hM hy ha)
 
+/-! ## The routes -/
+
+/-- **A passed read at module `M`, opened**: the reader `h` (a module of the run of smaller rank),
+the context's copy `s₁`, whose module the name is read from, and the branch of `captureOne` that
+passed it. -/
+theorem passed_open {M : Name} (hM : M ∈ R.names) {h y : Name} (hP : (h, y) ∈ (R.cap M).2.2)
+    (hy : ((R.dev (R.rk M)).context.find? y).isSome = true) :
+    h ∈ R.names ∧ R.rk h < R.rk M ∧ ∃ s₁, copyOf (R.envOf M) (R.cap M).1 y = some s₁ ∧
+      (R.dev (R.rk M)).src y = R.rk s₁.part.mod ∧
+      (s₁.part.mod = h ∨ PubRoute sp fs (R.envOf M) h y s₁ ∨
+        ∃ v s₂, HomeView sp fs h v ∧ v[y]? = some s₂ ∧
+          AgreeOk sp fs (· ∈ (R.cap M).2.1) (· ∈ (R.cap M).2.2) y s₁ s₂) := by
+  obtain ⟨-, -, hpass, -, -, -, hreach⟩ := R.cap_facts hM
+  obtain ⟨hhn, hhr⟩ := R.reached_rank hM (hreach _ hP).1
+  obtain ⟨s₁, hs₁, hb⟩ := hpass _ hP
+  obtain ⟨s, hs, hsrc⟩ := R.src_copy hM hy
+  obtain rfl : s₁ = s := Option.some.inj (hs₁.symm.trans hs)
+  exact ⟨hhn, hhr, s₁, hs, hsrc, hb⟩
+
+/-- **The route of a read whose copy is its reader's own** (`Agree.same`). -/
+theorem route_same {M : Name} (hM : M ∈ R.names) {h y : Name} (hP : (h, y) ∈ (R.cap M).2.2)
+    (hy : ((R.dev (R.rk M)).context.find? y).isSome = true) {s₁ : Spot}
+    (hs₁ : copyOf (R.envOf M) (R.cap M).1 y = some s₁) (hmod : s₁.part.mod = h) :
+    Route R.dev (R.rk M) (R.Pr M) (R.rk h) y := by
+  obtain ⟨-, -, s, hs, hsrc, -⟩ := R.passed_open hM hP hy
+  obtain rfl : s₁ = s := Option.some.inj (hs₁.symm.trans hs)
+  exact ⟨R.rk h, .inl rfl, .inl (by rw [hsrc, hmod])⟩
+
+/-- **`ImportOk.reads` at every module, from a route for every passed read** that is not its
+reader's own copy. -/
+theorem reads_of_routes
+    (hroute : ∀ M ∈ R.names, (∀ M' ∈ R.names, R.rk M' < R.rk M → R.AgreeAll M') →
+      ∀ h y, (h, y) ∈ (R.cap M).2.2 → ((R.dev (R.rk M)).context.find? y).isSome = true →
+      ∀ s₁, copyOf (R.envOf M) (R.cap M).1 y = some s₁ → s₁.part.mod ≠ h →
+        Route R.dev (R.rk M) (R.Pr M) (R.rk h) y) :
+    ∀ M ∈ R.names, ∀ d ∈ R.ctx M, ∀ n ∈ declNames d,
+      RecordScoped (readsAlike R.dev (R.rk M) ((R.dev (R.rk M)).src n)) d := by
+  refine R.reads_of_agree (R.agree_all fun M hM ih b y hPr hy => ?_)
+  obtain ⟨h, rfl, hP⟩ := hPr
+  obtain ⟨-, -, s₁, hs₁, -, -⟩ := R.passed_open hM hP hy
+  by_cases hmod : s₁.part.mod = h
+  · exact R.route_same hM hP hy hs₁ hmod
+  · exact hroute M hM ih h y hP hy s₁ hs₁ hmod
+
 end Run
 
 end ConLeche.Driver.Compose
