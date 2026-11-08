@@ -22,7 +22,7 @@ InLean's `checkDivModPin` (`InLean/CheckerC.lean`) against master's
   interned variables (`divModCertStmts_tr`).
 * **The attempt**: `checkTypePins_sim`, `checkDivModCerts_sim`,
   `checkDivModPinAt_sim`; **the loop**: `checkDivModPinLoop_sim`; **the arm**:
-  `checkDefnC_divMod_sim`, hence `divModArmSimI` and `checkDecl_sim_nk'`.
+  `checkDefnC_divMod_sim`, hence `divModArmSimI` and `checkDecl_sim_nk`.
 -/
 
 set_option experimental.vcgen true
@@ -1205,5 +1205,160 @@ theorem checkDivModPinLoop_sim {fe : InLean.FEnv} {L : ConLeche.Env} (hJ : JobEn
         simp only [Bool.not_eq_true] at hg
         simp only [hg, Bool.false_eq_true, ↓reduceIte]
         exact ih _ _ hs ⟨hox, hoy, hx, hy⟩ hDr h
+
+/-! ## The arm -/
+
+theorem natDivMod_off {c : Name} (hc : InLean.natDivModNames.contains c = true) :
+    InLean.natOpNames.contains c = false ∧
+      ConLeche.litGuardNames.contains (toName c) = false ∧
+      toName c ≠ ConLeche.natName ∧ toName c ≠ ConLeche.natZeroName ∧
+      toName c ≠ ConLeche.natSuccName ∧ c ≠ InLean.sorryAxName := by
+  rcases natDivModNames_cases hc with rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl <;>
+    exact ⟨by rw [← natOpNames_tr]; decide, by decide, by decide, by decide, by decide,
+      ne_of_toName (by decide)⟩
+
+theorem loadedPins_of {sets : Array InLean.PinSet} (h : InLean.loadPinSets () = .ok sets) :
+    loadedPins = sets.toList.map trPinSet := by
+  simp [loadedPins, h]
+
+/-- **A definition at a pin-certified operation's name** (`checkDefnC`'s
+`checkDivModPin`, master's `.defnDecl` arm with its `natDivModNames` branch, at
+the decoded variants), where the `Nat` names hold master's kinds. -/
+theorem checkDefnC_divMod_sim {fe : InLean.FEnv} {L : ConLeche.Env} (hJ : JobEnvI fe L)
+    (hk : ConLeche.NatKinds L) {v : DefinitionVal}
+    {a : InLean.Added} {s₀ s' : InLean.CState}
+    (hs : CSOKI .verified false L s₀) (hr : Expr.RangeOk v.type) (hrv : Expr.RangeOk v.value)
+    (hsafe : v.safety = .safe) (hn : InLean.natDivModNames.contains v.name = true)
+    (h : InLean.checkDefnC .verified InLeanProof.theoremConfig fe v s₀ = .ok (a, s')) :
+    CSOKI .verified false L s' ∧ TabLe s₀ s' ∧ a.consts = #[.defnInfo v] ∧
+      ∃ d, toDecl [.defnInfo v] = some d ∧ KindRuns loadedPins L d := by
+  obtain ⟨hno, hlit, hN0, hN1, hN2, hso⟩ := natDivMod_off hn
+  unfold InLean.checkDefnC at h
+  simp only [hsafe, show (DefinitionSafety.safe == DefinitionSafety.unsafe) = false from rfl,
+    Bool.false_eq_true, ↓reduceIte, hn, Bool.or_true, hno,
+    show InLeanProof.theoremConfig.uncertifiedNatOps = false from rfl] at h
+  obtain ⟨_, s₁, hC, h⟩ := bindI_ok h
+  have hfresh := checkConstantValC_fresh hC
+  obtain ⟨hs₁, ht₁, hok, hlbb, hRC⟩ := checkConstantValC_sim hJ hs hr hC
+  obtain ⟨_, s₂, hV, h⟩ := bindI_ok h
+  obtain ⟨hs₂, ht₂, hokv, hVR⟩ := checkValueC_sim hJ hs₁ hrv hok hlbb hV
+  obtain ⟨_, s₃, hCert, h⟩ := bindI_ok h
+  obtain ⟨rfl, rfl⟩ := pureI_ok h
+  unfold InLean.checkDivModPin at hCert
+  split at hCert
+  rotate_left
+  · exact (throw_bindI_ok hCert).elim
+  rename_i hg
+  cases hload : InLean.loadPinSets () with
+  | error e => simp only [hload] at hCert; exact (throw_bindI_ok hCert).elim
+  | ok sets =>
+  simp only [hload] at hCert
+  obtain ⟨sets', s₄, hL, hCert⟩ := bindI_ok hCert
+  obtain ⟨rfl, rfl⟩ := pureI_ok hL
+  obtain ⟨xy, s₆, hX, hCert⟩ := bindI_ok hCert
+  obtain ⟨x0, y0⟩ := xy
+  unfold InLean.natVars at hX
+  obtain ⟨x, s₅', hX1, hX⟩ := bindI_ok hX
+  obtain ⟨y, s₆', hX2, hX⟩ := bindI_ok hX
+  obtain ⟨hxy, rfl⟩ := pureI_ok hX
+  simp only [Prod.mk.injEq] at hxy
+  obtain ⟨rfl, rfl⟩ := hxy
+  have hnat : ∀ s : InLean.CState, OkS s InLean.natTy = true ∧
+      TrS s InLean.natTy = .const ConLeche.natName [] := fun _ => ⟨rfl, rfl⟩
+  obtain ⟨hs₅', ht₅', hokx, hTx⟩ := tripleI_iff_run.1 (mkFVarM_specI hs₂ 0 (hnat s₂).1
+    (by rw [(hnat s₂).2]; rfl)) x s₅' hX1
+  obtain ⟨hs₆, ht₆, hoky, hTy⟩ := tripleI_iff_run.1 (mkFVarM_specI hs₅' 1 (hnat s₅').1
+    (by rw [(hnat s₅').2]; rfl)) y s₆' hX2
+  rw [(hnat s₂).2] at hTx
+  rw [(hnat s₅').2] at hTy
+  have hVars : VarsOk s₆' x y :=
+    ⟨okS_of_tabLe ht₆ hokx, hoky, by rw [TrS_of_tabLe ht₆ hokx, hTx], hTy⟩
+  -- master's environment with the definition pushed, against InLean's
+  have hd : toDecl [.defnInfo v] = some (.defnDecl (trCVn v.name v.levelParams v.type)
+      (trC v.value) (toHint v.hints)) := by
+    simp [toDecl, toCV_of_okC (v := v.toConstantVal) hok, toExprC_of_okC hokv]
+  have hP2 := presI_defn hJ.laws hJ.pres hd hfresh hr hrv hsafe (fun h => (hso h).elim)
+  have hfe2 : fe.push (.defnInfo v) = { fe with env := InLean.addConst fe.env (.defnInfo v) } := rfl
+  rw [← hfe2] at hP2
+  simp only [ConLeche.declConstants, ConLeche.declTables, ConLeche.Env.pushDelta, List.reverse_cons,
+    List.reverse_nil, List.nil_append, List.singleton_append] at hP2
+  have hsh2 : ∀ n c, ConLeche.Env.find? ⟨.defnInfo (trCVn v.name v.levelParams v.type)
+      (trC v.value) (toHint v.hints) :: L.consts, L.tables⟩ n = some c →
+      ConLeche.litShapeOk c = true := by
+    intro n c hc
+    rw [env_find_cons] at hc
+    split at hc
+    · cases hc; exact ConLeche.litShapeOk_of_not_lit hlit
+    · exact hJ.wf.shapes _ (ConLeche.Env.find?_mem hc)
+  have hk2 : ConLeche.NatKinds ⟨.defnInfo (trCVn v.name v.levelParams v.type)
+      (trC v.value) (toHint v.hints) :: L.consts, L.tables⟩ := by
+    refine ⟨fun c hc => hk.1 c ?_, fun c hc => hk.2.1 c ?_, fun c hc => hk.2.2 c ?_⟩ <;>
+      rw [env_find_cons] at hc <;>
+      simpa [ConLeche.ConstantInfo.name, ConLeche.ConstantInfo.toConstantVal, trCVn, hN0, hN1, hN2] using hc
+  have g1 := divModEnvGuard_tr hP2 hsh2 hk2 hg
+  have hself : ConLeche.Env.find? ⟨.defnInfo (trCVn v.name v.levelParams v.type) (trC v.value)
+      (toHint v.hints) :: L.consts, L.tables⟩ (toName v.name) =
+      some (.defnInfo (trCVn v.name v.levelParams v.type) (trC v.value) (toHint v.hints)) := by
+    rw [env_find_cons]; simp [ConLeche.ConstantInfo.name, ConLeche.ConstantInfo.toConstantVal, trCVn]
+  -- `Nat` is stored before the push
+  have hN : (L.find? ConLeche.natName).isSome = true := by
+    unfold InLean.divModEnvGuard InLean.natOpGuard at hg
+    simp only [Bool.and_eq_true] at hg
+    have h1 := hg.1.1.1.1.1.1
+    rw [natLitStoredF_I (envDomI_of hP2)] at h1
+    simp only [ConLeche.natLitStored, Bool.and_eq_true] at h1
+    have h2 := h1.1.1
+    rw [env_find_cons] at h2
+    simpa [ConLeche.ConstantInfo.name, ConLeche.ConstantInfo.toConstantVal, trCVn, hN0] using h2
+  have hD : ∀ ps ∈ sets.toList, ∀ op ∈ ps.ops, OpOk op := fun ps hps op hop =>
+    loadPinSets_okC hload ps (Array.mem_toList_iff.1 hps) op hop
+  obtain ⟨hs₇, ht₇, hRL⟩ := checkDivModPinLoop_sim hJ hn hokv hVR.1 hN sets.toList [] [] hs₆ hVars
+    hD hCert
+  rw [← loadedPins_of hload] at hRL
+  refine ⟨hs₇, ht₁.trans (ht₂.trans (ht₅'.trans (ht₆.trans ht₇))), rfl, _, hd,
+    ⟨.defnInfo (trCVn v.name v.levelParams v.type) (trC v.value) (toHint v.hints) :: L.consts,
+      L.tables⟩, Runs.bind hRC (Runs.bind (checkDefnVal_runs hVR) ?_)⟩
+  have hn' : ConLeche.natOpNames.contains (toName v.name) = false := by rw [natOpNames_tr]; exact hno
+  have hnd' : ConLeche.natDivModNames.contains (toName v.name) = true := by
+    rw [natDivModNames_tr]; exact hn
+  simp only [trCVn] at g1 hself ⊢
+  simp only [hn', hnd', Bool.false_eq_true, ↓reduceIte]
+  refine Runs.bind (a := ()) ?_ (Runs.pure _)
+  unfold ConLeche.checkDivModPin
+  simp only [g1, hself, ↓reduceIte]
+  exact hRL
+
+/-- **The WF operations' arm, at the decoded variants.** -/
+theorem divModArmSimI : DivModArmSimI loadedPins :=
+  fun _ _ _ _ _ _ hJ hk _ _ hs hr hrv hsafe hn h => checkDefnC_divMod_sim hJ hk hs hr hrv hsafe hn h
+
+/-- **The declaration step for every non-inductive kind, at the decoded
+variants**, where the `Nat` names hold master's kinds. -/
+theorem checkDeclKindC_sim_nk {fe : InLean.FEnv} {L : ConLeche.Env} (hJ : JobEnvI fe L)
+    (hk : ConLeche.NatKinds L) {decl : Declaration} {a : InLean.Added} {s₀ s' : InLean.CState}
+    (hfs : fe.safety = .safe) (hfc : fe.coreAxioms = false)
+    (hs : CSOKI .verified false L s₀) (hd : SafeDecl decl) (hr : DeclRangeOk decl)
+    (hnI : ∀ lps nP ts u, decl ≠ .inductDecl lps nP ts u)
+    (hbn : InLean.basisNamesOk decl a = true)
+    (h : InLean.checkDeclKindC .verified InLeanProof.theoremConfig fe decl s₀ = .ok (a, s')) :
+    CSOKI .verified false L s' ∧ TabLe s₀ s' ∧
+      ∃ ds, a.consts.toList.mapM (fun ci => toDecl [ci]) = some ds ∧
+        ∃ F L', ds.foldlM (ConLeche.checkDecl .verified (ConLeche.fueledOps .verified F) loadedPins)
+          L = .ok L' :=
+  checkDeclKindC_sim_arm divModArmSimI hJ hk hfs hfc hs hd hr hnI hbn h
+
+/-- **O6 at the entry point, every non-inductive kind, at the decoded
+variants**, where the `Nat` names hold master's kinds: the WF operations'
+arm proved, `NatKinds L` the one premise left (for P4). -/
+theorem checkDecl_sim_nk {E : Kernel.Environment} {L : ConLeche.Env}
+    (hJ : JobEnvI { env := E, coreAxioms := false } L) (hk : ConLeche.NatKinds L)
+    {decl : Declaration} {a : InLean.Added}
+    (hd : SafeDecl decl) (hr : DeclRangeOk decl) (hnI : ∀ lps nP ts u, decl ≠ .inductDecl lps nP ts u)
+    (h : InLean.checkDecl InLeanProof.theoremConfig E decl = .ok a) :
+    (∀ ci ∈ a.consts.toList, ci.name = InLean.sorryAxName → ∃ v, ci = .axiomInfo v) ∧
+      ∃ ds, a.consts.toList.mapM (fun ci => toDecl [ci]) = some ds ∧
+        ∃ F L', ds.foldlM (ConLeche.checkDecl .verified (ConLeche.fueledOps .verified F) loadedPins)
+          L = .ok L' :=
+  checkDecl_sim_arm divModArmSimI hJ hk hd hr hnI h
 
 end InLeanProof

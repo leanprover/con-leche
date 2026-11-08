@@ -31,8 +31,10 @@ against master's `.defnDecl` arm of `checkDeclKind`
 * **The structural operations' arm**: `checkDefnC_struct_sim`.
 * **The WF operations** (`checkDivModPin`): the pin variants InLean decodes,
   as master's list (`trPinSet`, `loadedPins`); the arm itself is named
-  (`DivModArmSimI`), and `checkDeclKindC_sim_nk`/`checkDecl_sim_nk` are
+  (`DivModArmSimI`), and `checkDeclKindC_sim_arm`/`checkDecl_sim_arm` are
   `checkDeclKindC_sim_full`/`checkDecl_sim_full` from it and `NatKinds L`.
+  The arm is proved at `loadedPins` in `InLeanProof/DivModArm.lean`
+  (`divModArmSimI`).
 -/
 set_option experimental.vcgen true
 
@@ -784,7 +786,8 @@ error), so any list serves; the empty one is taken. -/
 
 /-! ## The certified operations' arm, from the WF operations' -/
 
-/-- **The WF operations' arm** (named, not proved here): a definition at a
+/-- **The WF operations' arm** (named here, proved at `loadedPins` as
+`divModArmSimI`, `InLeanProof/DivModArm.lean`): a definition at a
 pin-certified operation's name (`checkDivModPin`), at `pins`, where the `Nat`
 names hold master's kinds. -/
 @[expose] def DivModArmSimI (pins : List ConLeche.NatOpPinSet) : Prop :=
@@ -817,7 +820,7 @@ theorem certArm_of {pins : List ConLeche.NatOpPinSet} (hW : DivModArmSimI pins)
 
 /-- **The declaration step for every non-inductive kind**, from the WF
 operations' arm, where the `Nat` names hold master's kinds. -/
-theorem checkDeclKindC_sim_nk {pins : List ConLeche.NatOpPinSet} (hW : DivModArmSimI pins)
+theorem checkDeclKindC_sim_arm {pins : List ConLeche.NatOpPinSet} (hW : DivModArmSimI pins)
     {fe : InLean.FEnv} {L : ConLeche.Env} (hJ : JobEnvI fe L) (hk : ConLeche.NatKinds L)
     {decl : Declaration} {a : InLean.Added} {s₀ s' : InLean.CState}
     (hfs : fe.safety = .safe) (hfc : fe.coreAxioms = false)
@@ -860,7 +863,7 @@ theorem checkDeclKindC_sim_nk {pins : List ConLeche.NatOpPinSet} (hW : DivModArm
 /-- **O6 at the entry point, every non-inductive kind**, from the WF
 operations' arm, where the `Nat` names hold master's kinds (`checkDecl_sim_full`
 with the structural operations proved). -/
-theorem checkDecl_sim_nk {pins : List ConLeche.NatOpPinSet} (hW : DivModArmSimI pins)
+theorem checkDecl_sim_arm {pins : List ConLeche.NatOpPinSet} (hW : DivModArmSimI pins)
     {E : Kernel.Environment} {L : ConLeche.Env}
     (hJ : JobEnvI { env := E, coreAxioms := false } L) (hk : ConLeche.NatKinds L)
     {decl : Declaration} {a : InLean.Added}
@@ -871,6 +874,6 @@ theorem checkDecl_sim_nk {pins : List ConLeche.NatOpPinSet} (hW : DivModArmSimI 
         ∃ F L', ds.foldlM (ConLeche.checkDecl .verified (ConLeche.fueledOps .verified F) pins) L =
           .ok L' :=
   checkDecl_sim_of (fun hK hbn =>
-    (checkDeclKindC_sim_nk hW hJ hk rfl rfl (CSOKI_empty L) hd hr hnI hbn hK).2.2) h
+    (checkDeclKindC_sim_arm hW hJ hk rfl rfl (CSOKI_empty L) hd hr hnI hbn hK).2.2) h
 
 end InLeanProof
