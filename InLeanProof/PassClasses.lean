@@ -1,0 +1,996 @@
+module
+
+public import InLeanProof.PassNestKey
+import ConLeche.Verify.Denote.IndFrame
+import InLeanProof.DeclGuards
+
+/-!
+# O7-classes: the classes the recursors eliminate (task #451, lane O7-classes)
+
+The pass's class stage (`checkBlockClasses`) against master's, piece by piece:
+
+* `classReadMinorI_run`, `classReadSlotsI_run`, `classReadI_run`: InLean's
+  pre-pass (the recursors' prefix opened at interned variables, two `for`
+  loops) reads, at the final state, as master's pure `classRead` on the
+  translated recursors (`trCR`: the keys' parameters through `TrS`).
+
+The proofs are functional (`bind_run`, `pure_run`), as O7's.
+-/
+
+set_option experimental.vcgen true
+
+public section
+
+namespace InLeanProof
+
+open Lean InLean Std.WP ConLeche.Cached
+
+variable {mode : ConLeche.CheckMode} {eager : Bool} {env : ConLeche.Env}
+
+/-! ## The translations -/
+
+/-- A class key, read at a state. -/
+@[expose] def trCK (s : InLean.CState) (k : InLean.ClassKey) : ConLeche.ClassKey :=
+  ⟨toName k.ind, k.lvls.map trL, TrSL s k.ds⟩
+
+/-- A prefix slot, read at a state. -/
+@[expose] def trSlot (s : InLean.CState) : InLean.ClassSlot → ConLeche.ClassSlot
+  | .motive k => .motive (trCK s k)
+  | .minor c C ihs => .minor c (toName C) ihs
+
+/-- The pre-pass's reading, at a state. -/
+@[expose] def trCR (s : InLean.CState) (r : InLean.ClassRead) : ConLeche.ClassRead :=
+  ⟨r.slots.map (trSlot s), r.recCls⟩
+
+/-- A slot has a reading: its key's levels and parameters. -/
+@[expose] def OkSlot (s : InLean.CState) : InLean.ClassSlot → Prop
+  | .motive k => k.lvls.all okLv = true ∧ OkSL s k.ds = true
+  | .minor .. => True
+
+theorem OkSlot.mono {s₀ s₁ : InLean.CState} (h : TabLe s₀ s₁) :
+    ∀ {x : InLean.ClassSlot}, OkSlot s₀ x → OkSlot s₁ x
+  | .motive _, ⟨h1, h2⟩ => ⟨h1, okSL_of_tabLe h h2⟩
+  | .minor .., _ => trivial
+
+theorem trSlot_mono {s₀ s₁ : InLean.CState} (h : TabLe s₀ s₁) :
+    ∀ {x : InLean.ClassSlot}, OkSlot s₀ x → trSlot s₁ x = trSlot s₀ x
+  | .motive k, ⟨_, h2⟩ => by simp only [trSlot, trCK, TrSL_of_tabLe h h2]
+  | .minor .., _ => rfl
+
+theorem classOfMotiveVar_tr : @ConLeche.classOfMotiveVar = @InLean.classOfMotiveVar := rfl
+
+/-! ## Heads through the translation -/
+
+theorem OkS_piResult {s : InLean.CState} : ∀ {e : Lean.Expr}, OkS s e = true →
+    OkS s (InLean.piResult e) = true
+  | .mdata _ e, h => by rw [InLean.piResult]; exact OkS_piResult h
+  | .forallE _ t b _, h => by
+    rw [InLean.piResult]
+    simp only [OkS_forallE, Bool.and_eq_true] at h
+    exact OkS_piResult h.2
+  | .bvar _, h | .fvar _, h | .mvar _, h | .sort _, h | .const .., h | .app .., h | .lam .., h
+  | .letE .., h | .lit _, h | .proj .., h => h
+
+/-- A variable head, read: InLean's depth is the translation's head's index. -/
+theorem headDepth_tr {s : InLean.CState} {e : Lean.Expr} (h : OkS s e = true) :
+    (∀ p, InLean.headDepth? e = some p → ∃ ty, (TrS s e).getAppFn = .fvar p ty) ∧
+      (InLean.headDepth? e = none → ∀ p ty, (TrS s e).getAppFn ≠ .fvar p ty) := by
+  unfold InLean.headDepth?
+  rw [← TrS_getAppFnT]
+  have hok := OkS_getAppFnT s h
+  have hst := stripTop_getAppFnT e
+  generalize Expr.getAppFnT e = x at hok hst ⊢
+  cases x with
+  | fvar id =>
+    obtain ⟨d, ty, ht, hd⟩ := TrS_stripTop_fvar hok rfl
+    rw [ht]
+    simp only [hd]
+    exact ⟨fun p hp => ⟨ty, by cases hp; rfl⟩, fun h => by cases h⟩
+  | mdata m y => exact (stripTop_ne_mdata hst).elim
+  | _ =>
+    refine ⟨fun p hp => by simp at hp, fun _ p ty => ?_⟩
+    exact TrS_not_fvar hok (fun id hid => by simp [hst] at hid) p ty
+
+/-- A constant head, read. -/
+theorem constHead_tr {s : InLean.CState} {e : Lean.Expr} (h : OkS s e = true) :
+    (∀ C us, e.getAppFnT = .const C us → (TrS s e).getAppFn = .const (toName C) (us.map trL)) ∧
+      ((∀ C us, e.getAppFnT ≠ .const C us) → ∀ C us, (TrS s e).getAppFn ≠ .const C us) := by
+  rw [← TrS_getAppFnT]
+  have hok := OkS_getAppFnT s h
+  have hst := stripTop_getAppFnT e
+  generalize Expr.getAppFnT e = x at hok hst ⊢
+  cases x with
+  | const C us => exact ⟨fun C' us' h => by cases h; rfl, fun h => (h C us rfl).elim⟩
+  | fvar id =>
+    refine ⟨fun _ _ h => by simp at h, fun _ C us => ?_⟩
+    rw [TrS_fvar hok]; exact fun h => by simp at h
+  | mdata m y => exact (stripTop_ne_mdata hst).elim
+  | mvar _ => simp [OkS, okE] at hok
+  | _ => exact ⟨fun _ _ h => by simp at h, fun _ C us h => by simp [TrS, trE] at h⟩
+
+theorem getLast?_TrSL {s : InLean.CState} (l : List Lean.Expr) :
+    (TrSL s l).getLast? = (l.getLast?).map (TrS s) := by
+  simp [TrSL, List.getLast?_map]
+
+theorem okS_getLast? {s : InLean.CState} {l : List Lean.Expr} (h : OkSL s l = true) {a : Lean.Expr}
+    (ha : l.getLast? = some a) : OkS s a = true := by
+  simp only [OkSL, List.all_eq_true] at h
+  exact h a (List.mem_of_getLast? ha)
+
+/-! ## Loops -/
+
+/-- **A `for` loop that reads no state and only accumulates**: the answer is
+the fold of what each iteration yields. -/
+theorem forIn_acc_run {α β : Type} (t₀ : InLean.CState) :
+    ∀ (l : List α) (b₀ : β) (f : α → β → InLean.CheckCM (ForInStep β)) (G : α → β → β),
+      (∀ a ∈ l, ∀ (b : β) (t' : InLean.CState) (st : ForInStep β),
+        f a b t₀ = .ok (st, t') → t' = t₀ ∧ st = .yield (G a b)) →
+      ∀ {r : β} {t₁ : InLean.CState}, forIn l b₀ f t₀ = .ok (r, t₁) →
+        t₁ = t₀ ∧ r = l.foldl (fun b a => G a b) b₀
+  | [], b₀, _, _, _, r, t₁, h => by
+    rw [List.forIn_nil] at h
+    obtain ⟨rfl, rfl⟩ := pure_run h
+    exact ⟨rfl, rfl⟩
+  | a :: l, b₀, f, G, hf, r, t₁, h => by
+    rw [List.forIn_cons] at h
+    obtain ⟨st, t₂, h1, h⟩ := bind_run h
+    obtain ⟨ht, rfl⟩ := hf a List.mem_cons_self b₀ t₂ st h1
+    rw [ht] at h
+    exact forIn_acc_run t₀ l (G a b₀) f G (fun a' ha' => hf a' (List.mem_cons_of_mem _ ha')) h
+
+theorem foldl_filterMap {α γ : Type} (F : α → Option γ) :
+    ∀ (l : List α) (acc : List γ),
+      l.foldl (fun b a => b ++ (F a).toList) acc = acc ++ l.filterMap F
+  | [], acc => by simp
+  | a :: l, acc => by
+    rw [List.foldl_cons, foldl_filterMap F l, List.filterMap_cons]
+    cases F a <;> simp
+
+/-- **A `for` loop with an early `return none`**: from `CSOKI`, the table
+grows; a run that went through yields, per element, master's answer `F a`,
+appended. -/
+theorem forIn_early_run {α β γ : Type} :
+    ∀ (l : List α) (acc : List γ) (f : α → Option (Option β) × List γ →
+        InLean.CheckCM (ForInStep (Option (Option β) × List γ))) (F : α → Option γ),
+      (∀ a ∈ l, ∀ (r : Option (Option β) × List γ) (t t' : InLean.CState) st,
+        CSOKI mode eager env t → f a r t = .ok (st, t') →
+        CSOKI mode eager env t' ∧ TabLe t t' ∧
+          ((∃ c, F a = some c ∧ st = .yield (none, r.2 ++ [c])) ∨ st = .done (some none, r.2))) →
+      ∀ {t₀ t₁ : InLean.CState} {r : Option (Option β) × List γ}, CSOKI mode eager env t₀ →
+        forIn l (none, acc) f t₀ = .ok (r, t₁) →
+        CSOKI mode eager env t₁ ∧ TabLe t₀ t₁ ∧ (∀ x, r.1 ≠ some (some x)) ∧
+          (r.1 = none → ∃ rest, l.mapM F = some rest ∧ r.2 = acc ++ rest)
+  | [], acc, _, _, _, t₀, t₁, r, ht, h => by
+    rw [List.forIn_nil] at h
+    obtain ⟨rfl, rfl⟩ := pure_run h
+    exact ⟨ht, TabLe.refl _, (fun _ h => by simp at h), fun _ => ⟨[], rfl, by simp⟩⟩
+  | a :: l, acc, f, F, hf, t₀, t₁, r, ht, h => by
+    rw [List.forIn_cons] at h
+    obtain ⟨st, t₂, h1, h⟩ := bind_run h
+    obtain ⟨ht₂, htt, hst⟩ := hf a List.mem_cons_self _ t₀ t₂ st ht h1
+    rcases hst with ⟨c, hc, rfl⟩ | rfl
+    · obtain ⟨ht', htt', hns, hR⟩ := forIn_early_run l (acc ++ [c]) f F
+        (fun a' ha' => hf a' (List.mem_cons_of_mem _ ha')) ht₂ h
+      refine ⟨ht', htt.trans htt', hns, fun hn => ?_⟩
+      obtain ⟨rest, hrest, hr⟩ := hR hn
+      refine ⟨c :: rest, ?_, by simp [hr]⟩
+      rw [List.mapM_cons, hc, hrest]; rfl
+    · simp only at h
+      obtain ⟨rfl, rfl⟩ := pure_run h
+      exact ⟨ht₂, htt, (fun _ h => by simp at h), fun h => by simp at h⟩
+
+/-- **A `for` loop that reads no state and appends an option per element**:
+the answer is master's `filterMap`. -/
+theorem forIn_filterMap_run {α γ : Type} (t₀ : InLean.CState) (l : List α)
+    (f : α → List γ → InLean.CheckCM (ForInStep (List γ))) (F : α → Option γ)
+    (hf : ∀ a ∈ l, ∀ (b : List γ) (t' : InLean.CState) (st : ForInStep (List γ)),
+      f a b t₀ = .ok (st, t') → t' = t₀ ∧ st = .yield (b ++ (F a).toList))
+    {r : List γ} {t₁ : InLean.CState} (h : forIn l [] f t₀ = .ok (r, t₁)) :
+    t₁ = t₀ ∧ l.filterMap F = r := by
+  obtain ⟨h1, h2⟩ := forIn_acc_run t₀ l [] f (fun a b => b ++ (F a).toList) hf h
+  refine ⟨h1, ?_⟩
+  rw [h2, foldl_filterMap]; rfl
+
+/-- Master's inductive-hypothesis reading of one binder of a minor premise
+(`classReadMinor`'s `filterMap` body, named). -/
+@[expose] def cIh (nP : Nat) (motPos : List Nat) (d : Nat) (fvs : List ConLeche.Expr) (q : Nat) :
+    Option (Nat × Nat) :=
+  match (fvs.getD q default).fvarTypeD.piResult.getAppFn with
+  | ConLeche.Expr.fvar p' _ =>
+    match ConLeche.classOfMotiveVar nP motPos p' with
+    | some t =>
+      match (fvs.getD q default).fvarTypeD.piResult.getAppArgs.getLast? with
+      | some a =>
+        match a.getAppFn with
+        | ConLeche.Expr.fvar f _ => if d ≤ f then some (f - d, t) else none
+        | _ => none
+      | none => none
+    | none => none
+  | _ => none
+
+/-! ## A minor premise -/
+
+/-- **One minor premise, read** (`classReadMinor`): an answer of InLean's is
+master's on the reading. -/
+theorem classReadMinorI_run (nP : Nat) (motPos : List Nat) (d : Nat) {dom : Lean.Expr}
+    {s₀ s' : InLean.CState} {r : Option InLean.ClassSlot} (hs : CSOKI mode eager env s₀)
+    (hok : OkS s₀ dom = true) (hcl : (TrS s₀ dom).looseBVarsBounded 0 = true)
+    (h : InLean.classReadMinor nP motPos d dom s₀ = .ok (r, s')) :
+    CSOKI mode eager env s' ∧ TabLe s₀ s' ∧ ∀ x, r = some x → OkSlot s' x ∧
+      ConLeche.classReadMinor nP motPos d (TrS s₀ dom) = some (trSlot s' x) := by
+  unfold InLean.classReadMinor at h
+  obtain ⟨o, s₁, h1, h⟩ := bind_run h
+  obtain ⟨hs₁, ht₁, hR1⟩ := openPisAtFvarsI_run _ d hs hok hcl h1
+  have hlen : (ConLeche.Expr.piBinders (TrS s₀ dom)).1.length = (InLean.piBinders dom).1.length := by
+    rw [(piBinders_TrS dom hok).1]; simp
+  unfold ConLeche.classReadMinor
+  simp only [hlen]
+  cases o with
+  | none =>
+    obtain ⟨rfl, rfl⟩ := pure_run h
+    exact ⟨hs₁, ht₁, (fun _ h => by simp at h)⟩
+  | some q =>
+  obtain ⟨fvs, concl⟩ := q
+  obtain ⟨hokf, hokc, hop⟩ := hR1 fvs concl rfl
+  rw [hop]
+  simp only [Option.bind_eq_bind, Option.bind_some]
+  obtain ⟨hD1, -⟩ := headDepth_tr hokc
+  cases hp : InLean.headDepth? concl with
+  | none =>
+    simp only [hp] at h
+    obtain ⟨rfl, rfl⟩ := pure_run h
+    exact ⟨hs₁, ht₁, (fun _ h => by simp at h)⟩
+  | some p =>
+  simp only [hp] at h
+  obtain ⟨ty0, hty0⟩ := hD1 p hp
+  rw [hty0]
+  simp only
+  rw [classOfMotiveVar_tr]
+  cases hc : InLean.classOfMotiveVar nP motPos p with
+  | none =>
+    simp only [hc] at h
+    obtain ⟨rfl, rfl⟩ := pure_run h
+    exact ⟨hs₁, ht₁, (fun _ h => by simp at h)⟩
+  | some c =>
+  simp only [hc] at h
+  simp only [Option.bind_some]
+  rw [← TrSL_appArgs, getLast?_TrSL]
+  cases hl : (InLean.appArgs concl).getLast? with
+  | none =>
+    simp only [hl] at h
+    obtain ⟨rfl, rfl⟩ := pure_run h
+    exact ⟨hs₁, ht₁, (fun _ h => by simp at h)⟩
+  | some lastArg =>
+  simp only [hl] at h
+  simp only [Option.map_some, Option.bind_some]
+  have hokl : OkS s₁ lastArg = true := okS_getLast? (OkSL_appArgs s₁ hokc) hl
+  obtain ⟨hC1, -⟩ := constHead_tr hokl
+  generalize hg : lastArg.getAppFnT = g at h
+  cases g with
+  | const C us =>
+    rw [hC1 C us hg]
+    simp only at h ⊢
+    obtain ⟨ihs, s₂, h2, h⟩ := bind_run h
+    obtain ⟨rfl, rfl⟩ := pure_run h
+    have hlenf : (TrSL s₁ fvs).length = fvs.length := by simp [TrSL]
+    refine (fun H => ?_) (forIn_filterMap_run s₁ (List.range fvs.length) _
+      (cIh nP motPos d (TrSL s₁ fvs)) ?_ h2)
+    · obtain ⟨rfl, hih⟩ := H
+      refine ⟨hs₁, ht₁, fun x hx => ?_⟩
+      cases hx
+      refine ⟨trivial, ?_⟩
+      simp only [trSlot]
+      rw [hlenf, ← hih]
+      rfl
+    · intro q hq b t' st hrun
+      have hq' : q < fvs.length := List.mem_range.1 hq
+      have hx : fvs[q]? = some (fvs.getD q default) := by simp [hq']
+      have hokx : OkS s₁ (fvs.getD q default) = true := okS_getElem? hokf hx
+      obtain ⟨ty, hfx⟩ := ConLeche.openPisAtFvars_index _ _ _ hop q (TrS s₁ (fvs.getD q default))
+        (TrSL_getElem? hx)
+      obtain ⟨v, t₂, hv, hrun⟩ := bind_run hrun
+      obtain ⟨ht2, hokv, htv, -⟩ := fvarTypeDI_run hs₁ hokx hfx hv
+      rw [ht2] at hrun
+      have hgd : (TrSL s₁ fvs).getD q default = TrS s₁ (fvs.getD q default) := by
+        simp [TrSL, hq']
+      have hpr : ((TrSL s₁ fvs).getD q default).fvarTypeD.piResult = TrS s₁ (InLean.piResult v) := by
+        rw [hgd, hfx, TrS_piResult, htv]; rfl
+      have hokp := OkS_piResult hokv
+      unfold cIh
+      rw [hpr]
+      obtain ⟨hE1, hE2⟩ := headDepth_tr hokp
+      cases hp' : InLean.headDepth? (InLean.piResult v) with
+      | none =>
+        simp only [hp'] at hrun
+        obtain ⟨rfl, rfl⟩ := pure_run hrun
+        refine ⟨rfl, ?_⟩
+        split
+        · rename_i p ty heq; exact (hE2 hp' p ty heq).elim
+        · simp
+      | some p' =>
+      simp only [hp'] at hrun
+      obtain ⟨ty', hty'⟩ := hE1 p' hp'
+      rw [hty']
+      simp only
+      rw [classOfMotiveVar_tr]
+      cases ht : InLean.classOfMotiveVar nP motPos p' with
+      | none =>
+        simp only [ht] at hrun
+        obtain ⟨rfl, rfl⟩ := pure_run hrun
+        exact ⟨rfl, by simp⟩
+      | some tc =>
+      simp only [ht] at hrun
+      simp only
+      rw [← TrSL_appArgs, getLast?_TrSL]
+      cases hl : (InLean.appArgs (InLean.piResult v)).getLast? with
+      | none =>
+        simp only [hl] at hrun
+        obtain ⟨rfl, rfl⟩ := pure_run hrun
+        exact ⟨rfl, by simp⟩
+      | some a =>
+      simp only [hl] at hrun
+      simp only [Option.map_some]
+      have hoka : OkS s₁ a = true := okS_getLast? (OkSL_appArgs s₁ hokp) hl
+      obtain ⟨hA1, hA2⟩ := headDepth_tr hoka
+      cases hf : InLean.headDepth? a with
+      | none =>
+        simp only [hf] at hrun
+        obtain ⟨rfl, rfl⟩ := pure_run hrun
+        refine ⟨rfl, ?_⟩
+        split
+        · rename_i p ty heq; exact (hA2 hf p ty heq).elim
+        · simp
+      | some f =>
+      simp only [hf] at hrun
+      obtain ⟨tyf, htyf⟩ := hA1 f hf
+      rw [htyf]
+      simp only
+      by_cases hdf : d ≤ f
+      · simp only [hdf, ↓reduceIte] at hrun ⊢
+        obtain ⟨rfl, rfl⟩ := pure_run hrun
+        exact ⟨rfl, rfl⟩
+      · simp only [hdf, ↓reduceIte] at hrun ⊢
+        obtain ⟨rfl, rfl⟩ := pure_run hrun
+        exact ⟨rfl, by simp⟩
+  | _ =>
+    simp only at h
+    obtain ⟨rfl, rfl⟩ := pure_run h
+    exact ⟨hs₁, ht₁, (fun _ h => by simp at h)⟩
+
+/-! ## The prefix -/
+
+/-- **The prefix, read** (`classReadSlots`): an answer of InLean's is master's
+on the reading, at related parameter counts. -/
+theorem classReadSlotsI_run (nPcI : Lean.Name → Nat) (nPcC : ConLeche.Name → Nat)
+    (hnPc : ∀ I, nPcC (toName I) = nPcI I) (np : Nat) :
+    ∀ (n : Nat) (motPos : List Nat) (d : Nat) (e : Lean.Expr) {s₀ s' : InLean.CState}
+      {r : Option (List InLean.ClassSlot)},
+      CSOKI mode eager env s₀ → OkS s₀ e = true → (TrS s₀ e).looseBVarsBounded 0 = true →
+      InLean.classReadSlots nPcI np n motPos d e s₀ = .ok (r, s') →
+      CSOKI mode eager env s' ∧ TabLe s₀ s' ∧ ∀ xs, r = some xs → (∀ x ∈ xs, OkSlot s' x) ∧
+        ConLeche.classReadSlots nPcC np n motPos d (TrS s₀ e) = some (xs.map (trSlot s'))
+  | 0, motPos, d, e, s₀, s', r, hs, _, _, h => by
+    rw [InLean.classReadSlots] at h
+    obtain ⟨rfl, rfl⟩ := pure_run h
+    refine ⟨hs, TabLe.refl _, fun xs hxs => ?_⟩
+    cases hxs
+    exact ⟨by simp, by simp [ConLeche.classReadSlots]⟩
+  | n + 1, motPos, d, e, s₀, s', r, hs, hok, hcl, h => by
+    induction e generalizing s₀ s' r with
+    | mdata m e ih =>
+      rw [InLean.classReadSlots] at h
+      rw [OkS_mdata] at hok
+      rw [TrS_mdata] at hcl ⊢
+      exact ih s₀ s' r hs hok hcl h
+    | forallE nm dom body bi _ _ =>
+      rw [InLean.classReadSlots] at h
+      simp only [OkS_forallE, Bool.and_eq_true] at hok
+      rw [TrS_forallE, lbb_forallE, Bool.and_eq_true] at hcl
+      rw [TrS_forallE]
+      simp only [ConLeche.classReadSlots]
+      -- the continuation, common to both kinds of slot
+      have hcont : ∀ (slot : InLean.ClassSlot) (s₁ : InLean.CState) {cslot : ConLeche.ClassSlot},
+          CSOKI mode eager env s₁ → TabLe s₀ s₁ → OkSlot s₁ slot → cslot = trSlot s₁ slot →
+          ∀ {r' : Option (List InLean.ClassSlot)},
+          (do
+            let x ← InLean.mkFVarM d dom
+            let o ← InLean.classReadSlots nPcI np n
+              (match slot with | .motive _ => motPos ++ [d - np] | _ => motPos) (d + 1) (body.inst1I x)
+            match o with
+            | some rest => pure (some (slot :: rest))
+            | _ => pure none : InLean.CheckCM (Option (List InLean.ClassSlot))) s₁ = .ok (r', s') →
+          CSOKI mode eager env s' ∧ TabLe s₀ s' ∧ ∀ xs, r' = some xs → (∀ x ∈ xs, OkSlot s' x) ∧
+            (do
+              let rest ← ConLeche.classReadSlots nPcC np n
+                (match cslot with | .motive _ => motPos ++ [d - np] | _ => motPos) (d + 1)
+                ((TrS s₀ body).instantiate1 (.fvar d (TrS s₀ dom)))
+              pure (cslot :: rest) : Option (List ConLeche.ClassSlot)) = some (xs.map (trSlot s')) := by
+        intro slot s₁ cslot hs₁ ht₁ hoks hcs r' h
+        obtain ⟨x, s₂, hx, h⟩ := bind_run h
+        have hokd₁ := okS_of_tabLe ht₁ hok.1
+        have htd₁ := TrS_of_tabLe ht₁ hok.1
+        obtain ⟨hs₂, ht₂, hokx, htx⟩ := tripleI_iff_run.1
+          (mkFVarM_specI hs₁ d hokd₁ (by rw [htd₁]; exact hcl.1)) x s₂ hx
+        obtain ⟨o, s₃, ho, h⟩ := bind_run h
+        have ht02 := ht₁.trans ht₂
+        have hb₂ : OkS s₂ body = true := okS_of_tabLe ht02 hok.2
+        have hcx : (TrS s₂ x).looseBVarsBounded 0 = true := by rw [htx]; rfl
+        have hTI : TrS s₂ (body.inst1I x) = (TrS s₀ body).instantiate1 (.fvar d (TrS s₀ dom)) 0 := by
+          rw [inst1I_eq, TrS_inst1_eq hb₂ hokx hcx, htx, TrS_of_tabLe ht02 hok.2, htd₁]
+        obtain ⟨hs₃, ht₃, hR⟩ := classReadSlotsI_run nPcI nPcC hnPc np n _ (d + 1) _ hs₂
+          (OkS_inst1 hb₂ hokx hcx) (by rw [← inst1I_eq, hTI]; exact lbb_instantiate1 rfl hcl.2) ho
+        cases o with
+        | none =>
+          obtain ⟨rfl, rfl⟩ := pure_run h
+          exact ⟨hs₃, ht02.trans ht₃, fun _ h => by simp at h⟩
+        | some rest =>
+          obtain ⟨rfl, rfl⟩ := pure_run h
+          obtain ⟨hokr, hm⟩ := hR rest rfl
+          have ht13 := ht₂.trans ht₃
+          refine ⟨hs₃, ht02.trans ht₃, fun xs hxs => ?_⟩
+          cases hxs
+          refine ⟨?_, ?_⟩
+          · intro y hy
+            rcases List.mem_cons.1 hy with rfl | hy
+            · exact OkSlot.mono ht13 hoks
+            · exact hokr y hy
+          · subst hcs
+            rw [← hTI]
+            have hsl := trSlot_mono ht13 hoks
+            cases slot <;> simp only [inst1I_eq, trSlot] at hm hsl ⊢ <;> rw [hm] <;>
+              simp only [Option.bind_eq_bind, Option.bind_some, List.map_cons] <;> (try rw [← hsl]) <;> rfl
+      have hpr : (TrS s₀ dom).piResult = TrS s₀ (EO.stripTop (InLean.piResult dom)) := by
+        rw [TrS_stripTop, TrS_piResult]
+      have hokp : OkS s₀ (EO.stripTop (InLean.piResult dom)) = true := by
+        rw [OkS_stripTop]; exact OkS_piResult hok.1
+      have hnm : ∀ m b, EO.stripTop (InLean.piResult dom) ≠ .mdata m b := stripTop_ne_mdata' _
+      rw [hpr]
+      generalize EO.stripTop (InLean.piResult dom) = x at h hokp hnm
+      have hminor :
+          (do
+            let slot? ← InLean.classReadMinor np motPos d dom
+            match slot? with
+            | some slot =>
+              (do
+                let x ← InLean.mkFVarM d dom
+                let o ← InLean.classReadSlots nPcI np n
+                  (match slot with | .motive _ => motPos ++ [d - np] | _ => motPos) (d + 1)
+                  (body.inst1I x)
+                match o with
+                | some rest => pure (some (slot :: rest))
+                | _ => pure none : InLean.CheckCM (Option (List InLean.ClassSlot)))
+            | _ => pure none : InLean.CheckCM (Option (List InLean.ClassSlot))) s₀ = .ok (r, s') →
+          CSOKI mode eager env s' ∧ TabLe s₀ s' ∧ ∀ xs, r = some xs → (∀ x ∈ xs, OkSlot s' x) ∧
+            (do
+                let slot ← ConLeche.classReadMinor np motPos d (TrS s₀ dom)
+                let rest ← ConLeche.classReadSlots nPcC np n
+                  (match slot with | .motive _ => motPos ++ [d - np] | _ => motPos) (d + 1)
+                  ((TrS s₀ body).instantiate1 (.fvar d (TrS s₀ dom)))
+                pure (slot :: rest) : Option (List ConLeche.ClassSlot)) = some (xs.map (trSlot s')) := by
+        intro h
+        obtain ⟨o, s₁, h1, h⟩ := bind_run h
+        obtain ⟨hs₁, ht₁, hR1⟩ := classReadMinorI_run np motPos d hs hok.1 hcl.1 h1
+        cases o with
+        | none =>
+          obtain ⟨rfl, rfl⟩ := pure_run h
+          exact ⟨hs₁, ht₁, fun _ h => by simp at h⟩
+        | some slot =>
+          obtain ⟨hoks, hm⟩ := hR1 slot rfl
+          obtain ⟨hs', ht', hR⟩ := hcont slot s₁ hs₁ ht₁ hoks rfl h
+          refine ⟨hs', ht', fun xs hxs => ⟨(hR xs hxs).1, ?_⟩⟩
+          rw [hm]
+          exact (hR xs hxs).2
+      cases x with
+      | sort u =>
+        simp only at h
+        rw [TrS_sort]
+        simp only
+        obtain ⟨o, s₁, h1, h⟩ := bind_run h
+        obtain ⟨ho, rfl⟩ := pure_run h1
+        cases o with
+        | none =>
+          obtain ⟨rfl, rfl⟩ := pure_run h
+          exact ⟨hs, TabLe.refl _, fun _ h => by simp at h⟩
+        | some slot =>
+        obtain ⟨hpb, hokbs, -, -⟩ := piBinders_TrS dom hok.1
+        rw [hpb]
+        simp only
+        cases hb : InLean.piBinders dom with
+        | mk bs b =>
+        simp only [hb] at ho hokbs
+        rw [List.getLast?_map]
+        cases hl : bs.getLast? with
+        | none => simp [hl] at ho
+        | some mdom =>
+        simp only [hl, Option.bind_eq_bind, Option.bind_some] at ho
+        simp only [Option.map_some, Option.bind_eq_bind, Option.bind_some]
+        have hokm : OkS s₀ mdom = true := okS_getLast? hokbs hl
+        obtain ⟨hC1, -⟩ := constHead_tr hokm
+        cases hg : mdom.getAppFnT with
+        | const I us =>
+          simp only [hg] at ho
+          cases ho
+          rw [hC1 I us hg]
+          simp only [Option.pure_def, Option.bind_some]
+          have hokg := OkS_getAppFnT s₀ hokm
+          rw [hg, OkS_const] at hokg
+          have hoks : OkSlot s₀ (.motive ⟨I, us, (InLean.appArgs mdom).take (nPcI I)⟩) :=
+            ⟨hokg, OkSL_take s₀ (OkSL_appArgs s₀ hokm) _⟩
+          refine hcont _ s₀ (cslot := .motive ⟨toName I, us.map trL,
+            (TrS s₀ mdom).getAppArgs.take (nPcC (toName I))⟩) hs (TabLe.refl _) hoks ?_ h
+          simp only [trSlot, trCK, hnPc, TrSL_take, TrSL_appArgs]
+        | _ => simp [hg] at ho
+      | mdata m b => exact (hnm m b rfl).elim
+      | mvar _ => simp [OkS, okE] at hokp
+      | _ =>
+        simp only at h
+        obtain ⟨hs', ht', hR⟩ := hminor h
+        refine ⟨hs', ht', fun xs hxs => ⟨(hR xs hxs).1, ?_⟩⟩
+        split
+        · rename_i v heq
+          obtain ⟨u, hu⟩ := stripTop_of_TrS_sort s₀ heq
+          simp [EO.stripTop] at hu
+        · exact (hR xs hxs).2
+    | _ =>
+      rw [InLean.classReadSlots] at h
+      · obtain ⟨rfl, rfl⟩ := pure_run h
+        exact ⟨hs, TabLe.refl _, fun _ h => by simp at h⟩
+      all_goals (intros; contradiction)
+
+/-! ## The pre-pass -/
+
+/-- InLean's motive positions (`classRead`'s `motPos`, named). -/
+@[expose] def iMotPos (slots : List InLean.ClassSlot) : List Nat :=
+  (List.range slots.length).filter fun s =>
+    match slots[s]? with | some (.motive _) => true | _ => false
+
+/-- Master's motive positions (`classRead`'s `motPos`, named). -/
+@[expose] def cMotPos (slots : List ConLeche.ClassSlot) : List Nat :=
+  (List.range slots.length).filter fun s =>
+    match slots[s]? with | some (.motive _) => true | _ => false
+
+theorem cMotPos_tr (s : InLean.CState) (slots : List InLean.ClassSlot) :
+    cMotPos (slots.map (trSlot s)) = iMotPos slots := by
+  unfold cMotPos iMotPos
+  rw [List.length_map]
+  congr 1
+  funext i
+  rw [List.getElem?_map]
+  cases slots[i]? with
+  | none => rfl
+  | some x => cases x <;> rfl
+
+/-- Master's class of one recursor (`classRead`'s `mapM` body, named). -/
+@[expose] def cRecCl (nP : Nat) (motPos : List Nat) (rc : ConLeche.RecShape) : Option Nat := do
+  let (_, concl) ← ConLeche.openPisAtFvars (rc.mI + 1) rc.cvR.type 0
+  match concl.getAppFn with
+  | .fvar p _ => ConLeche.classOfMotiveVar nP motPos p
+  | _ => none
+
+theorem mapM_map_option {α β γ : Type} (g : α → β) (f : β → Option γ) :
+    ∀ l : List α, (l.map g).mapM f = l.mapM (f ∘ g)
+  | [] => rfl
+  | a :: l => by simp only [List.map_cons, List.mapM_cons, mapM_map_option g f l]; rfl
+
+/-- **The pre-pass, read** (`classRead`): an answer of InLean's is master's on
+the translated recursors, read at the final state. -/
+theorem classReadI_run (nP : Nat) (nPcI : Lean.Name → Nat) (nPcC : ConLeche.Name → Nat)
+    (hnPc : ∀ I, nPcC (toName I) = nPcI I) {recs : List InLean.RecShape}
+    (hok : ∀ rc ∈ recs, okC rc.cvR.type = true ∧ (trC rc.cvR.type).looseBVarsBounded 0 = true)
+    {s₀ s' : InLean.CState} {r : Option InLean.ClassRead} (hs : CSOKI mode eager env s₀)
+    (h : InLean.classRead nP nPcI recs s₀ = .ok (r, s')) :
+    CSOKI mode eager env s' ∧ TabLe s₀ s' ∧ ∀ rd, r = some rd → (∀ x ∈ rd.slots, OkSlot s' x) ∧
+      ConLeche.classRead nP nPcC (recs.map trRec) = some (trCR s' rd) := by
+  unfold InLean.classRead at h
+  unfold ConLeche.classRead
+  cases hh : recs.head? with
+  | none =>
+    simp only [hh] at h
+    obtain ⟨rfl, rfl⟩ := pure_run h
+    exact ⟨hs, TabLe.refl _, fun _ h => by simp at h⟩
+  | some rc0 =>
+  simp only [hh] at h
+  have hrc0 : rc0 ∈ recs := List.mem_of_mem_head? hh
+  obtain ⟨hok0, hcl0⟩ := hok rc0 hrc0
+  rw [List.head?_map, hh]
+  simp only [Option.map_some, Option.bind_eq_bind, Option.bind_some]
+  obtain ⟨o, s₁, h1, h⟩ := bind_run h
+  obtain ⟨hs₁, ht₁, hR1⟩ := openPisAtFvarsI_run nP 0 hs (OkS_of_okC _ hok0)
+    (by rw [TrS_of_okC _ hok0]; exact hcl0) h1
+  cases o with
+  | none =>
+    obtain ⟨rfl, rfl⟩ := pure_run h
+    exact ⟨hs₁, ht₁, fun _ h => by simp at h⟩
+  | some q =>
+  obtain ⟨fvs0, body⟩ := q
+  obtain ⟨-, hokb, hop⟩ := hR1 fvs0 body rfl
+  rw [TrS_of_okC _ hok0] at hop
+  simp only [trRec, trCV_type]
+  rw [hop]
+  simp only [Option.bind_some]
+  have hclb : (TrS s₁ body).looseBVarsBounded 0 = true :=
+    (ConLeche.Verify.openPisAtFvars_bounded nP hop hcl0).1
+  obtain ⟨o2, s₂, h2, h⟩ := bind_run h
+  obtain ⟨hs₂, ht₂, hR2⟩ := classReadSlotsI_run nPcI nPcC hnPc nP _ [] nP body hs₁ hokb hclb h2
+  cases o2 with
+  | none =>
+    obtain ⟨rfl, rfl⟩ := pure_run h
+    exact ⟨hs₂, ht₁.trans ht₂, fun _ h => by simp at h⟩
+  | some slots =>
+  obtain ⟨hoks, hsl⟩ := hR2 slots rfl
+  rw [hsl]
+  simp only [Option.bind_some]
+  conv in List.filter _ _ => change cMotPos (slots.map (trSlot s₂))
+  rw [cMotPos_tr]
+  obtain ⟨st, s₃, h3, h⟩ := bind_run h
+  refine (fun H => ?_) (forIn_early_run (mode := mode) (eager := eager) (env := env) recs []
+    _ (fun rc => cRecCl nP (iMotPos slots) (trRec rc)) ?_ hs₂ h3)
+  · obtain ⟨hs₃, ht₃, hns, hR3⟩ := H
+    obtain ⟨r1, r2⟩ := st
+    cases r1 with
+    | some x =>
+      cases x with
+      | some y => exact (hns y rfl).elim
+      | none =>
+        obtain ⟨rfl, rfl⟩ := pure_run h
+        exact ⟨hs₃, ht₁.trans (ht₂.trans ht₃), fun _ h => by simp at h⟩
+    | none =>
+      obtain ⟨rfl, rfl⟩ := pure_run h
+      obtain ⟨rest, hrest, hr2⟩ := hR3 rfl
+      refine ⟨hs₃, ht₁.trans (ht₂.trans ht₃), fun rd hrd => ?_⟩
+      cases hrd
+      refine ⟨fun x hx => OkSlot.mono ht₃ (hoks x hx), ?_⟩
+      have hm : (recs.map trRec).mapM (cRecCl nP (iMotPos slots)) = some rest := by
+        rw [mapM_map_option]; exact hrest
+      conv in List.mapM _ _ => change (recs.map trRec).mapM (cRecCl nP (iMotPos slots))
+      rw [hm]
+      simp only [List.nil_append] at hr2
+      subst hr2
+      simp only [Option.bind_some, trCR]
+      congr 2
+      exact (List.map_congr_left fun x hx => trSlot_mono ht₃ (hoks x hx)).symm
+  · intro rc hrc rr t t' st ht hrun
+    obtain ⟨hokr, hclr⟩ := hok rc hrc
+    obtain ⟨o, t₁, h1, hrun⟩ := bind_run hrun
+    obtain ⟨ht₁', htt₁, hR⟩ := openPisAtFvarsI_run (rc.mI + 1) 0 ht (OkS_of_okC _ hokr)
+      (by rw [TrS_of_okC _ hokr]; exact hclr) h1
+    cases o with
+    | none =>
+      obtain ⟨rfl, rfl⟩ := pure_run hrun
+      exact ⟨ht₁', htt₁, .inr rfl⟩
+    | some q =>
+    obtain ⟨fvs, concl⟩ := q
+    obtain ⟨-, hokc, hopr⟩ := hR fvs concl rfl
+    rw [TrS_of_okC _ hokr] at hopr
+    simp only at hrun
+    obtain ⟨hD1, -⟩ := headDepth_tr hokc
+    cases hp : InLean.headDepth? concl with
+    | none =>
+      simp only [hp] at hrun
+      obtain ⟨rfl, rfl⟩ := pure_run hrun
+      exact ⟨ht₁', htt₁, .inr rfl⟩
+    | some p =>
+    simp only [hp] at hrun
+    conv at hrun in List.filter _ _ => change iMotPos slots
+    cases hc : InLean.classOfMotiveVar nP (iMotPos slots) p with
+    | none =>
+      simp only [hc] at hrun
+      obtain ⟨rfl, rfl⟩ := pure_run hrun
+      exact ⟨ht₁', htt₁, .inr rfl⟩
+    | some c =>
+      simp only [hc] at hrun
+      obtain ⟨rfl, rfl⟩ := pure_run hrun
+      refine ⟨ht₁', htt₁, .inl ⟨c, ?_, rfl⟩⟩
+      obtain ⟨ty, hty⟩ := hD1 p hp
+      unfold cRecCl
+      simp only [trRec, trCV_type, hopr, Option.bind_eq_bind, Option.bind_some, hty]
+      rw [classOfMotiveVar_tr]
+      exact hc
+
+/-! ## Variable replacement and the range guards, read -/
+
+theorem cReplaceFVars_noFvar (f : Nat → Option ConLeche.Expr) :
+    ∀ {e : ConLeche.Expr}, e.hasFvar = false → ConLeche.Expr.replaceFVars f e = e := by
+  intro e
+  induction e <;> simp_all [ConLeche.Expr.hasFvar, ConLeche.Expr.replaceFVars]
+
+/-- The callback of InLean's `replaceFVars`. -/
+@[expose] def rfF (fI : Nat → Option Lean.Expr) (x : Lean.Expr) : Option Lean.Expr :=
+  match x with
+  | .fvar id => match EO.fvDepth? id with
+    | some i => fI i
+    | none => none
+  | x => if x.hasFVar then none else some x
+
+theorem replaceFVars_eq (fI : Nat → Option Lean.Expr) (e : Lean.Expr) :
+    InLean.replaceFVars fI e = if !e.hasFVar then e else mapSpec (fun x _ => rfF fI x) e 0 := by
+  unfold InLean.replaceFVars EO.replace
+  rw [mapOff_fresh]; rfl
+
+/-- A substitution of variables, related: InLean's images have readings,
+master's are their readings. -/
+@[expose] def FvSubRel (s : InLean.CState) (fI : Nat → Option Lean.Expr)
+    (fC : Nat → Option ConLeche.Expr) : Prop :=
+  ∀ i, (fI i).map (TrS s) = fC i ∧ ∀ y, fI i = some y → OkS s y = true
+
+theorem rfF_tr {s : InLean.CState} {fI fC} (hR : FvSubRel s fI fC) {x : Lean.Expr}
+    (h : OkS s x = true) (y : Lean.Expr) (hy : rfF fI x = some y) :
+    OkS s y = true ∧ TrS s y = ConLeche.Expr.replaceFVars fC (TrS s x) := by
+  cases x with
+  | fvar id =>
+    obtain ⟨d, ty, ht, hd⟩ := TrS_stripTop_fvar h rfl
+    simp only [rfF, hd] at hy
+    obtain ⟨h1, h2⟩ := hR d
+    rw [hy, Option.map_some] at h1
+    refine ⟨h2 y hy, ?_⟩
+    rw [ht]
+    simp only [ConLeche.Expr.replaceFVars, ← h1, Option.getD_some]
+  | _ =>
+    simp only [rfF] at hy
+    split at hy
+    · cases hy
+    · rename_i hf
+      cases hy
+      refine ⟨h, (cReplaceFVars_noFvar fC ?_).symm⟩
+      rw [← hasFVar_TrS (s := s) h]
+      simpa using hf
+
+theorem rfF_none_tr {s : InLean.CState} {fI fC} (hR : FvSubRel s fI fC) {id : FVarId}
+    (h : OkS s (.fvar id) = true) (hy : rfF fI (.fvar id) = none) :
+    TrS s (.fvar id) = ConLeche.Expr.replaceFVars fC (TrS s (.fvar id)) := by
+  obtain ⟨d, ty, ht, hd⟩ := TrS_stripTop_fvar h rfl
+  simp only [rfF, hd] at hy
+  obtain ⟨h1, -⟩ := hR d
+  rw [hy, Option.map_none] at h1
+  rw [ht]
+  simp only [ConLeche.Expr.replaceFVars, ← h1, Option.getD_none]
+
+theorem mapSpec_rfF_tr {s : InLean.CState} {fI fC} (hR : FvSubRel s fI fC) :
+    ∀ (e : Lean.Expr) (k : Nat), OkS s e = true →
+      OkS s (mapSpec (fun x _ => rfF fI x) e k) = true ∧
+        TrS s (mapSpec (fun x _ => rfF fI x) e k) = ConLeche.Expr.replaceFVars fC (TrS s e) := by
+  intro e
+  induction e with
+  | fvar id =>
+    intro k h
+    cases hy : rfF fI (.fvar id) with
+    | some y => rw [mapSpec_eq_of_some (f := fun x _ => rfF fI x) hy]; exact rfF_tr hR h y hy
+    | none =>
+      simp only [mapSpec, hy, Option.getD_none]
+      exact ⟨h, rfF_none_tr hR h hy⟩
+  | app f a ihf iha =>
+    intro k h
+    cases hy : rfF fI (.app f a) with
+    | some y => rw [mapSpec_eq_of_some (f := fun x _ => rfF fI x) hy]; exact rfF_tr hR h y hy
+    | none =>
+      simp only [OkS_app, Bool.and_eq_true] at h
+      simp only [mapSpec, hy, Option.getD_none, OkS_app, TrS_app, ConLeche.Expr.replaceFVars,
+        (ihf k h.1).1, (iha k h.2).1, (ihf k h.1).2, (iha k h.2).2, Bool.and_self, true_and]
+  | lam nm t b bi iht ihb =>
+    intro k h
+    cases hy : rfF fI (.lam nm t b bi) with
+    | some y => rw [mapSpec_eq_of_some (f := fun x _ => rfF fI x) hy]; exact rfF_tr hR h y hy
+    | none =>
+      simp only [OkS_lam, Bool.and_eq_true] at h
+      simp only [mapSpec, hy, Option.getD_none, OkS_lam, TrS_lam, ConLeche.Expr.replaceFVars,
+        (iht k h.1).1, (ihb (k + 1) h.2).1, (iht k h.1).2, (ihb (k + 1) h.2).2, Bool.and_self,
+        true_and]
+  | forallE nm t b bi iht ihb =>
+    intro k h
+    cases hy : rfF fI (.forallE nm t b bi) with
+    | some y => rw [mapSpec_eq_of_some (f := fun x _ => rfF fI x) hy]; exact rfF_tr hR h y hy
+    | none =>
+      simp only [OkS_forallE, Bool.and_eq_true] at h
+      simp only [mapSpec, hy, Option.getD_none, OkS_forallE, TrS_forallE,
+        ConLeche.Expr.replaceFVars, (iht k h.1).1, (ihb (k + 1) h.2).1, (iht k h.1).2,
+        (ihb (k + 1) h.2).2, Bool.and_self, true_and]
+  | letE nm t v b nd iht ihv ihb =>
+    intro k h
+    cases hy : rfF fI (.letE nm t v b nd) with
+    | some y => rw [mapSpec_eq_of_some (f := fun x _ => rfF fI x) hy]; exact rfF_tr hR h y hy
+    | none =>
+      simp only [OkS_letE, Bool.and_eq_true] at h
+      simp only [mapSpec, hy, Option.getD_none, OkS_letE, TrS_letE, ConLeche.Expr.replaceFVars,
+        (iht k h.1.1).1, (ihv k h.1.2).1, (ihb (k + 1) h.2).1, (iht k h.1.1).2, (ihv k h.1.2).2,
+        (ihb (k + 1) h.2).2, Bool.and_self, true_and]
+  | proj sn i x ih =>
+    intro k h
+    cases hy : rfF fI (.proj sn i x) with
+    | some y => rw [mapSpec_eq_of_some (f := fun x _ => rfF fI x) hy]; exact rfF_tr hR h y hy
+    | none =>
+      rw [OkS_proj] at h
+      simp only [mapSpec, hy, Option.getD_none, OkS_proj, TrS_proj, ConLeche.Expr.replaceFVars,
+        (ih k h).1, (ih k h).2, true_and]
+  | mdata m x ih =>
+    intro k h
+    cases hy : rfF fI (.mdata m x) with
+    | some y => rw [mapSpec_eq_of_some (f := fun x _ => rfF fI x) hy]; exact rfF_tr hR h y hy
+    | none =>
+      rw [OkS_mdata] at h
+      simp only [mapSpec, hy, Option.getD_none, OkS_mdata, TrS_mdata]
+      exact ih k h
+  | bvar i =>
+    intro k h
+    cases hy : rfF fI (.bvar i) with
+    | some y => rw [mapSpec_eq_of_some (f := fun x _ => rfF fI x) hy]; exact rfF_tr hR h y hy
+    | none =>
+      simp only [mapSpec, hy, Option.getD_none]
+      exact ⟨h, by simp [TrS, trE, ConLeche.Expr.replaceFVars]⟩
+  | sort u =>
+    intro k h
+    cases hy : rfF fI (.sort u) with
+    | some y => rw [mapSpec_eq_of_some (f := fun x _ => rfF fI x) hy]; exact rfF_tr hR h y hy
+    | none =>
+      simp only [mapSpec, hy, Option.getD_none]
+      exact ⟨h, by simp [TrS, trE, ConLeche.Expr.replaceFVars]⟩
+  | const c us =>
+    intro k h
+    cases hy : rfF fI (.const c us) with
+    | some y => rw [mapSpec_eq_of_some (f := fun x _ => rfF fI x) hy]; exact rfF_tr hR h y hy
+    | none =>
+      simp only [mapSpec, hy, Option.getD_none]
+      exact ⟨h, by simp [TrS, trE, ConLeche.Expr.replaceFVars]⟩
+  | lit l =>
+    intro k h
+    cases hy : rfF fI (.lit l) with
+    | some y => rw [mapSpec_eq_of_some (f := fun x _ => rfF fI x) hy]; exact rfF_tr hR h y hy
+    | none =>
+      simp only [mapSpec, hy, Option.getD_none]
+      exact ⟨h, by simp [TrS, trE, ConLeche.Expr.replaceFVars]⟩
+  | mvar i => intro k h; simp [OkS, okE] at h
+
+/-- **InLean's `replaceFVars`, read**: master's on the reading, at related
+substitutions. -/
+theorem replaceFVarsI_tr {s : InLean.CState} {fI fC} (hR : FvSubRel s fI fC) {e : Lean.Expr}
+    (h : OkS s e = true) :
+    OkS s (InLean.replaceFVars fI e) = true ∧
+      TrS s (InLean.replaceFVars fI e) = ConLeche.Expr.replaceFVars fC (TrS s e) := by
+  rw [replaceFVars_eq]
+  cases hf : e.hasFVar with
+  | false =>
+    simp only [Bool.not_false, ↓reduceIte]
+    refine ⟨h, (cReplaceFVars_noFvar fC ?_).symm⟩
+    rw [← hasFVar_TrS (s := s) h, hf]
+  | true =>
+    simp only [Bool.not_true, Bool.false_eq_true, ↓reduceIte]
+    exact mapSpec_rfF_tr hR e 0 h
+
+theorem fvSubRel_getElem? {s : InLean.CState} {pfvs : List Lean.Expr} (h : OkSL s pfvs = true) :
+    FvSubRel s (fun i => pfvs[i]?) (fun i => (TrSL s pfvs)[i]?) := by
+  intro i
+  refine ⟨?_, fun y hy => okS_getElem? h hy⟩
+  simp [TrSL]
+
+/-- **A term moved to the openers, read** (`targetCanonParams`). -/
+theorem targetCanonParamsI_tr {s : InLean.CState} {pfvs : List Lean.Expr} (hp : OkSL s pfvs = true)
+    {e : Lean.Expr} (h : OkS s e = true) :
+    OkS s (InLean.targetCanonParams pfvs e) = true ∧
+      TrS s (InLean.targetCanonParams pfvs e) = ConLeche.targetCanonParams (TrSL s pfvs) (TrS s e) :=
+  replaceFVarsI_tr (fvSubRel_getElem? hp) h
+
+/-- The loose-bvar bound of a reading is the cached range's spec. -/
+theorem bvarBound_TrS {s : InLean.CState} : ∀ {e : Lean.Expr}, OkS s e = true →
+    (TrS s e).bvarBound = rangeS e := by
+  intro e
+  induction e with
+  | fvar id => intro h; rw [TrS_fvar h]; rfl
+  | mvar _ => intro h; simp [OkS, okE] at h
+  | app f a ihf iha =>
+    intro h; simp only [OkS_app, Bool.and_eq_true] at h
+    simp only [TrS_app, ConLeche.Expr.bvarBound, rangeS, ihf h.1, iha h.2]
+  | lam _ t b _ iht ihb =>
+    intro h; simp only [OkS_lam, Bool.and_eq_true] at h
+    simp only [TrS_lam, ConLeche.Expr.bvarBound, rangeS, iht h.1, ihb h.2]
+  | forallE _ t b _ iht ihb =>
+    intro h; simp only [OkS_forallE, Bool.and_eq_true] at h
+    simp only [TrS_forallE, ConLeche.Expr.bvarBound, rangeS, iht h.1, ihb h.2]
+  | letE _ t v b _ iht ihv ihb =>
+    intro h; simp only [OkS_letE, Bool.and_eq_true] at h
+    simp only [TrS_letE, ConLeche.Expr.bvarBound, rangeS, iht h.1.1, ihv h.1.2, ihb h.2]
+  | mdata _ x ih => intro h; rw [OkS_mdata] at h; rw [TrS_mdata]; exact ih h
+  | proj _ _ x ih => intro h; rw [OkS_proj] at h; simp only [TrS_proj, ConLeche.Expr.bvarBound, rangeS, ih h]
+  | bvar i => intro _; rfl
+  | sort _ => intro _; rfl
+  | const _ _ => intro _; rfl
+  | lit _ => intro _; rfl
+
+/-- InLean's loose-bvar test is master's bound test on the reading. -/
+theorem hasLooseBVars_TrS {s : InLean.CState} {e : Lean.Expr} (h : OkS s e = true) :
+    (!e.hasLooseBVars) = ((TrS s e).bvarB == 0) := by
+  rw [hasLooseBVars_eq (RangeOk_of_OkS h), ConLeche.Expr.bvarB_eq, bvarBound_TrS h]
+  cases rangeS e <;> simp
+
+/-- The fold of `fvarB`. -/
+@[expose] def fvbStep (acc : Nat) (id : FVarId) : Nat :=
+  match EO.fvDepth? id with
+  | some d => max acc (d + 1)
+  | none => acc
+
+theorem fvbFold_le {M : Nat} : ∀ (l : List FVarId) (acc : Nat), acc ≤ M →
+    (∀ id ∈ l, ∀ d, EO.fvDepth? id = some d → d + 1 ≤ M) → l.foldl fvbStep acc ≤ M
+  | [], _, h, _ => h
+  | id :: l, acc, h, hl => by
+    rw [List.foldl_cons]
+    refine fvbFold_le l _ ?_ (fun x hx => hl x (List.mem_cons_of_mem _ hx))
+    unfold fvbStep
+    cases hd : EO.fvDepth? id with
+    | none => exact h
+    | some d => exact Nat.max_le.2 ⟨h, hl id List.mem_cons_self d hd⟩
+
+theorem fvbFold_ge : ∀ (l : List FVarId) (acc : Nat), acc ≤ l.foldl fvbStep acc ∧
+    ∀ id ∈ l, ∀ d, EO.fvDepth? id = some d → d + 1 ≤ l.foldl fvbStep acc
+  | [], acc => ⟨Nat.le_refl _, fun _ h => by simp at h⟩
+  | id :: l, acc => by
+    rw [List.foldl_cons]
+    obtain ⟨h1, h2⟩ := fvbFold_ge l (fvbStep acc id)
+    have hst : acc ≤ fvbStep acc id ∧ ∀ d, EO.fvDepth? id = some d → d + 1 ≤ fvbStep acc id := by
+      unfold fvbStep
+      cases EO.fvDepth? id with
+      | none => exact ⟨Nat.le_refl _, fun _ h => by simp at h⟩
+      | some d' => exact ⟨Nat.le_max_left _ _, fun d h => by cases h; exact Nat.le_max_right _ _⟩
+    refine ⟨Nat.le_trans hst.1 h1, fun x hx d hd => ?_⟩
+    rcases List.mem_cons.1 hx with rfl | hx
+    · exact Nat.le_trans (hst.2 d hd) h1
+    · exact h2 x hx d hd
+
+/-- A reading's variable range is at most `M` when every variable's depth is below. -/
+theorem fvarRange_TrS_le {s : InLean.CState} {M : Nat} : ∀ {e : Lean.Expr}, OkS s e = true →
+    (∀ id, OccF id e → ∀ d, EO.fvDepth? id = some d → d + 1 ≤ M) → (TrS s e).fvarRange ≤ M := by
+  intro e
+  induction e with
+  | fvar id =>
+    intro h hM
+    obtain ⟨d, ty, ht, hd⟩ := TrS_stripTop_fvar h rfl
+    rw [ht]
+    exact hM id rfl d hd
+  | mvar _ => intro h; simp [OkS, okE] at h
+  | app f a ihf iha =>
+    intro h hM; simp only [OkS_app, Bool.and_eq_true] at h
+    simp only [TrS_app, ConLeche.Expr.fvarRange, Nat.max_le]
+    exact ⟨ihf h.1 fun id ho => hM id (.inl ho), iha h.2 fun id ho => hM id (.inr ho)⟩
+  | lam _ t b _ iht ihb =>
+    intro h hM; simp only [OkS_lam, Bool.and_eq_true] at h
+    simp only [TrS_lam, ConLeche.Expr.fvarRange, Nat.max_le]
+    exact ⟨iht h.1 fun id ho => hM id (.inl ho), ihb h.2 fun id ho => hM id (.inr ho)⟩
+  | forallE _ t b _ iht ihb =>
+    intro h hM; simp only [OkS_forallE, Bool.and_eq_true] at h
+    simp only [TrS_forallE, ConLeche.Expr.fvarRange, Nat.max_le]
+    exact ⟨iht h.1 fun id ho => hM id (.inl ho), ihb h.2 fun id ho => hM id (.inr ho)⟩
+  | letE _ t v b _ iht ihv ihb =>
+    intro h hM; simp only [OkS_letE, Bool.and_eq_true] at h
+    simp only [TrS_letE, ConLeche.Expr.fvarRange, Nat.max_le]
+    exact ⟨⟨iht h.1.1 fun id ho => hM id (.inl ho), ihv h.1.2 fun id ho => hM id (.inr (.inl ho))⟩,
+      ihb h.2 fun id ho => hM id (.inr (.inr ho))⟩
+  | mdata _ x ih => intro h hM; rw [OkS_mdata] at h; rw [TrS_mdata]; exact ih h hM
+  | proj _ _ x ih =>
+    intro h hM; rw [OkS_proj] at h
+    simp only [TrS_proj, ConLeche.Expr.fvarRange]; exact ih h hM
+  | bvar _ | sort _ | const _ _ | lit _ => intro _ _; exact Nat.zero_le _
+
+/-- InLean's variable bound at most `M` means the reading's range is. -/
+theorem fvarB_le_tr {s : InLean.CState} {e : Lean.Expr} (h : OkS s e = true) {M : Nat}
+    (hb : InLean.fvarB e ≤ M) : (TrS s e).fvarRange ≤ M := by
+  unfold InLean.fvarB at hb
+  cases hf : e.hasFVar with
+  | false =>
+    have : (TrS s e).hasFvar = false := by rw [← hasFVar_TrS (s := s) h, hf]
+    rw [ConLeche.Expr.hasFvar_eq_false_iff.1 this]
+    exact Nat.zero_le _
+  | true =>
+    simp only [hf, Bool.not_true, Bool.false_eq_true, ↓reduceIte] at hb
+    refine fvarRange_TrS_le h fun id ho d hd => ?_
+    have hmem : id ∈ (EO.fvarIds e).toList :=
+      Array.mem_toList_iff.2 ((mem_fvarIds (RangeOk_of_OkS h) id).2 ho)
+    rw [← Array.foldl_toList] at hb
+    exact Nat.le_trans ((fvbFold_ge _ 0).2 id hmem d hd) hb
+
+/-- InLean's range guard on a term passing means master's passes on the reading. -/
+theorem rangeGuard_tr {s : InLean.CState} {x : Lean.Expr} (h : OkS s x = true) {n : Nat}
+    (hg : (!x.hasLooseBVars && decide (InLean.fvarB x ≤ n)) = true) :
+    ((TrS s x).bvarB == 0 && decide ((TrS s x).fvarB ≤ n)) = true := by
+  simp only [Bool.and_eq_true, decide_eq_true_eq] at hg ⊢
+  refine ⟨by rw [← hasLooseBVars_TrS h]; exact hg.1, ?_⟩
+  rw [ConLeche.Expr.fvarB_eq]
+  exact fvarB_le_tr h hg.2
+
+end InLeanProof
