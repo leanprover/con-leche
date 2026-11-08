@@ -296,7 +296,7 @@ theorem entry_ok (ht : ∀ o ∈ tab, ObjOk o) {j : Json} {o : PinDecode.Obj}
     | (simp only [Except.ok.injEq] at h; subst h
        first
          | trivial
-         | simp only [ObjOk, NoVarS, lmvarS, fvarS, emvarS, elmvarS,
+         | simp only [ObjOk, NoVarS, lmvarS, fvarS, emvarS, elmvarS, mkBvar_eq,
              Bool.or_eq_false_iff, List.any_eq_false, Bool.not_eq_true] at *
            grind)
 

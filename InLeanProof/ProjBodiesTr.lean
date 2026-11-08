@@ -289,6 +289,7 @@ theorem params_tr (nP : Nat) (hnP : nP < maxRange) : ∀ (m k : Nat) (e : Expr) 
       have hvr : Expr.RangeOk (Expr.bvar (nP - k)) := by
         simp only [Expr.RangeOk]; omega
       have hi := toExpr_instantiate1L fvarsOnly_none hbr hvr hb (cv := .bvar (nP - k)) rfl
+      rw [← mkBvar_eq] at hi
       obtain ⟨r', h1, h2, h3⟩ := ih (k + 1) _ _ (by omega) (by omega) hrest hi r hr
       refine ⟨r', ?_, h2, h3⟩
       rw [projBodyAt.params]; simp only [hkn, ↓reduceIte, hst]; exact h1

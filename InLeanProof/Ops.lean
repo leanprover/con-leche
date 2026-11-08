@@ -222,7 +222,7 @@ theorem liftLooseBVars_eq (e : Expr) (s d : Nat) :
   unfold EO.liftLooseBVars
   split
   · rfl
-  · exact mapOff_spec _ e 0
+  · simp only [mkBvar_eq]; exact mapOff_spec _ e 0
 
 /-- Lifting by zero is the identity (con-leche side). -/
 theorem cl_lift_zero : ∀ (c : ConLeche.Expr) (cut : Nat), c.liftLooseBVars 0 cut = c := by
@@ -362,7 +362,7 @@ theorem instantiate_eq (e : Expr) (subst : Array Expr) :
   unfold EO.instantiate EO.instantiateBy
   split
   · rfl
-  · exact mapOff_spec _ e 0
+  · simp only [mkBvar_eq]; exact mapOff_spec _ e 0
 
 /-- The substitution reads its values only below `n`. -/
 theorem instantiateBy_congr {e : Expr} {n : Nat} {get get' : Nat → Expr}
@@ -677,7 +677,7 @@ theorem abstractDepthsFrom_eq (e : Expr) (d k c₀ : Nat) :
   unfold EO.abstractDepthsFrom
   split
   · rfl
-  · exact mapOff_spec _ e c₀
+  · simp only [mkBvar_eq]; exact mapOff_spec _ e c₀
 
 /-- The cutoff: a node in range with no free variable is its own
 abstraction. -/

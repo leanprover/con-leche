@@ -182,7 +182,7 @@ theorem structCtorResidOk_TrS {s : InLean.CState} {T : Lean.Name} {lps : List Le
       intro b hb
       simp only [InLean.structPsAt, List.mem_map] at hb
       obtain ⟨k, -, rfl⟩ := hb
-      rfl) h3
+      rw [mkBvar_eq]; rfl) h3
   rw [TrSL_take, TrSL_appArgs, TrSL_structPsAt] at ht
   simp [hf, hn, ht]
 

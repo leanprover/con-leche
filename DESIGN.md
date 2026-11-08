@@ -115065,6 +115065,48 @@ at its first differing leaf; what remains of the category is mostly the key equa
 Gates: `lake build InLean InLeanProof inlean-replay` warning-free; `tests/layering.sh`,
 `tests/trust-surface.sh`, `tests/no-local-paths.sh`, `tests/inlean-sync.sh`, `tests/shake.sh`.
 
+### Lane bvarPool: con-leche's static `bvar` pool in InLean (2026-11-08, task #451, agent/451-inlean2)
+
+**Ruling (maintainer).** Adopt con-leche's shared `bvar` pool (task #177) in InLean, to stay
+faithful to con-leche.
+
+**The code** (`InLean/ExprOps.lean`).  `InLean.bvarPoolSize` (4096), `InLean.bvarPool` (a closed
+top-level `Array Lean.Expr`, initialized once and `lean_mark_persistent`-ed in the generated C),
+`InLean.mkBvar` (the pooled node below the size, a fresh one above) and `@[simp] mkBvar_eq :
+mkBvar i = .bvar i`.  Every runtime `bvar` construction with a computed index goes through it:
+the walks' callbacks (`EO.liftLooseBVars`, `EO.lowerLooseBVars`, `EO.instantiateBy` and so
+`instantiate`/`instantiate1`/`instantiateRev`, `EO.abstract`, `EO.abstractDepthsFrom`), the pin
+decoder's `"b"` entry (`PinDecode.entry`, con-leche's parser site), the projection bodies'
+parameter loop and its range check (`projBodyAt.params`, `paramsOkB`), `structPsAt` and the
+nested recursor's expected argument list (`StreamRecs`).  Closed `.bvar 0` constants (`CoreC`'s
+`getD` defaults, `.proj T j (.bvar 0)`, the `List` basis types) and the `Pins` DSL keep the bare
+constructor, as in con-leche.  Unlike con-leche, lift and lower also use the pool (con-leche's
+`liftLooseBVars` is the pure Kernel function).
+
+**The proofs.**  The spec callbacks (`liftF`, `instF`, `absF`) keep `.bvar`; their `_eq`
+lemmas read the walk through `simp only [mkBvar_eq]` before `mapOff_spec`.  Four more sites:
+`params_tr` (`ProjBodiesTr`, the instantiation fact rewritten to `mkBvar`), the
+`structCtorResidOk_TrS` member step (`PassCtors`), the nested recursor's argument list
+(`PassRecs9`) and the pin decoder's `entry_ok` (`DivModArm`, `mkBvar_eq` in its `simp only`).
+No pin moved; `addDeclSound` unchanged (the standard three and the three `mkData` stop-gaps).
+
+**Validation** (`inlean-replay --kernel=inlean --compare --quiet`): Init 64,530, Std 110,064,
+Lean 199,645 accepted, 0 rejected, 0 declined, 0 exact and 0 cosmetic mismatches;
+`scripts/inlean_negtest.lean` 15/15.
+
+**Measurements** (one run each, `perf stat -e instructions:u`, peak RSS by `getrusage`):
+
+| | instructions:u before | after | peak RSS before | after |
+|---|---|---|---|---|
+| Init | 457.34 G | 456.11 G (−0.27 %) | 495.0 MiB | 496.0 MiB (+0.2 %) |
+| Lean | 879.74 G | 875.83 G (−0.44 %) | 1,462.1 MiB | 1,450.8 MiB (−0.8 %) |
+
+As in con-leche (instructions about −0.1 %), a small gain; the RSS change on Init is within run
+noise, on Lean about 11 MiB less.
+
+Gates: `lake build InLean InLeanProof inlean-replay` warning-free; `tests/layering.sh`,
+`tests/trust-surface.sh`, `tests/no-local-paths.sh`, `tests/inlean-sync.sh`, `tests/shake.sh`.
+
 ## TASK #494 — an inductive block that cannot be read is rejected with the reason (2026-11-08, agent/494-ctor-levels)
 
 **Rulings (maintainer, 2026-11-08).** "Don't use 'shapeless' in a user-facing error message; the

@@ -241,6 +241,7 @@ theorem streamNestedOk_tr {s : InLean.CState} {ty : Lean.Expr} {mI rP : Nat}
           Option.pure_def, Option.some.injEq] at hr
         obtain ⟨a, ha, b, hb, he⟩ := hr
         rw [← he, mapM_pins rP (mI - rP) hds ha]
+        simp only [mkBvar_eq] at hb
         rw [mapM_toExpr_bvars, Option.some.injEq] at hb
         rw [← hb]
         exact beq_self_eq_true _
