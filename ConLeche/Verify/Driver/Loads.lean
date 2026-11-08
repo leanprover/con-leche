@@ -7,7 +7,7 @@ import ConLeche.Verify.Frontend.Olean.Engine
 import ConLeche.Verify.Frontend.Olean.Equiv
 import ConLeche.Verify.Frontend.Olean.Reads
 import Std.Data.HashMap.Lemmas
-public import ConLeche.Frontend.Olean.Levels
+public import ConLeche.Frontend.Olean
 
 /-!
 # What the header fixpoint loads, on a snapshot
