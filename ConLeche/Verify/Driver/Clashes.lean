@@ -1,6 +1,9 @@
 module
 
+-- `qsort`'s helpers are private in the toolchain: a proof that it permutes its input must see them
+import all Init.Data.Array.QSort.Basic
 public import ConLeche.Verify.Driver.ReachFrom
+import ConLeche.Verify.Frontend.Olean.Equiv
 import ConLeche.Verify.Driver.Provenance
 import ConLeche.Verify.Frontend.Olean.Files
 import ConLeche.Verify.Frontend.Olean.Reads
@@ -353,5 +356,358 @@ theorem done_all {parts : Array NamePositions} {c : Copy} {q : NamePosition}
   cases hp : parts[c.mod]? with
   | none => simp [hp] at h
   | some p => exact .inl (Array.getElem?_eq_some_iff.1 hp).1
+
+/-! ## The doubly held names -/
+
+/-- `clashCopies`' step at one later copy. -/
+@[expose] def ccStep (first : Std.HashMap Name Copy) (m : Std.HashMap Name (Array Copy))
+    (x : Name × Copy) : Std.HashMap Name (Array Copy) :=
+  match x with
+  | (n, c) => m.alter n fun
+      | none => some #[(first[n]?).getD c, c]
+      | some a => some (a.push c)
+
+theorem clashCopies_eq (ix : NameIndex) :
+    clashCopies ix = (ix.more.foldl (ccStep ix.first) {}).toArray := rfl
+
+theorem ccStep_fold (first : Std.HashMap Name Copy) :
+    ∀ (l L : List (Name × Copy)) (m : Std.HashMap Name (Array Copy)),
+      (∀ x ∈ L ++ l, (first[x.1]?).isSome = true) →
+      (∀ n a, m[n]? = some a → ∀ c, c ∈ a.toList ↔ first[n]? = some c ∨ (n, c) ∈ L) →
+      (∀ n c, (n, c) ∈ L → (m[n]?).isSome = true) →
+      (∀ n a, (l.foldl (ccStep first) m)[n]? = some a →
+        ∀ c, c ∈ a.toList ↔ first[n]? = some c ∨ (n, c) ∈ L ++ l) ∧
+      (∀ n c, (n, c) ∈ L ++ l → ((l.foldl (ccStep first) m)[n]?).isSome = true)
+  | [], L, m, _, h1, h2 => by simpa using And.intro h1 h2
+  | (n, c) :: l, L, m, hf, h1, h2 => by
+    rw [List.foldl_cons]
+    have := ccStep_fold first l (L ++ [(n, c)]) (ccStep first m (n, c)) (by simpa using hf)
+      (fun n' a h c' => by
+        simp only [ccStep, Std.HashMap.getElem?_alter] at h
+        split at h
+        · rename_i he
+          obtain rfl := eq_of_beq he
+          cases hm : m[n]? with
+          | none =>
+            rw [hm] at h
+            cases h
+            obtain ⟨c₀, hc₀⟩ := Option.isSome_iff_exists.1 (hf (n, c) (by simp))
+            simp only [hc₀, Option.getD_some, List.mem_append, List.mem_singleton, Prod.mk.injEq,
+              true_and]
+            simp only [List.mem_cons, List.not_mem_nil, or_false]
+            constructor
+            · rintro (rfl | rfl)
+              · exact .inl rfl
+              · exact .inr (.inr rfl)
+            · rintro (h | h | rfl)
+              · exact .inl (Option.some.inj h).symm
+              · exact absurd (h2 _ _ h) (by simp [hm])
+              · exact .inr rfl
+          | some a₀ =>
+            rw [hm] at h
+            cases h
+            simp only [Array.toList_push, List.mem_append, List.mem_singleton, Prod.mk.injEq,
+              true_and]
+            rw [h1 n a₀ hm c']
+            exact or_assoc
+        · rename_i he
+          rw [h1 n' a h c']
+          simp only [List.mem_append, List.mem_singleton, Prod.mk.injEq]
+          constructor
+          · rintro (h | h)
+            · exact .inl h
+            · exact .inr (.inl h)
+          · rintro (h | h | ⟨rfl, rfl⟩)
+            · exact .inl h
+            · exact .inr h
+            · simp at he)
+      (fun n' c' h => by
+        simp only [ccStep, Std.HashMap.getElem?_alter]
+        split
+        · split <;> simp
+        · rename_i he
+          simp only [List.mem_append, List.mem_singleton, Prod.mk.injEq] at h
+          rcases h with h | ⟨rfl, rfl⟩
+          · exact h2 _ _ h
+          · simp at he)
+    simpa using this
+
+/-- **`clashCopies`' table**: the copies listed for a doubly held name are its first copy and its
+later ones, and every name with a later copy is listed. -/
+theorem clashCopies_spec {ix : NameIndex}
+    (hf : ∀ n c, (n, c) ∈ ix.more.toList → (ix.first[n]?).isSome = true) :
+    (∀ n a, (n, a) ∈ clashCopies ix → ∀ c, c ∈ a.toList ↔ ix.first[n]? = some c ∨ (n, c) ∈ ix.more.toList) ∧
+    (∀ n c, (n, c) ∈ ix.more.toList → ∃ a, (n, a) ∈ clashCopies ix) := by
+  have := ccStep_fold ix.first ix.more.toList [] {} (fun x hx => hf x.1 x.2 (by simpa using hx))
+    (fun n a h => by simp at h) (fun n c h => by simp at h)
+  rw [Array.foldl_toList] at this
+  obtain ⟨h1, h2⟩ := this
+  refine ⟨fun n a h c => ?_, fun n c h => ?_⟩
+  · rw [clashCopies_eq, Std.HashMap.mem_toArray_iff_getElem?_eq_some] at h
+    simpa using h1 n a h c
+  · obtain ⟨a, ha⟩ := Option.isSome_iff_exists.1 (h2 n c (by simpa using h))
+    exact ⟨a, by rw [clashCopies_eq, Std.HashMap.mem_toArray_iff_getElem?_eq_some]; exact ha⟩
+
+/-! ## `qsort` permutes -/
+
+private theorem qloop_perm {α : Type} {n : Nat} (lt : α → α → Bool) (lo hi : Nat) (hhi : hi < n) (pivot : α)
+    (as : Vector α n) (i k : Nat) (ilo : lo ≤ i) (ik : i ≤ k) (w : k ≤ hi) :
+    (Array.qpartition.loop lt lo hi hhi pivot as i k ilo ik w).2.Perm as := by
+  fun_induction Array.qpartition.loop lt lo hi hhi pivot as i k ilo ik w with
+  | case1 as i k _ _ _ h hlt ih => exact ih.trans (Vector.swap_perm (by omega) (by omega))
+  | case2 as i k _ _ _ h hlt ih => exact ih
+  | case3 as i k _ _ _ h => exact Vector.swap_perm (by omega) (by omega)
+
+theorem qpartition_perm {α : Type} {n : Nat} (as : Vector α n) (lt : α → α → Bool) (lo hi : Nat)
+    (w : lo ≤ hi) (hlo : lo < n) (hhi : hi < n) :
+    (Array.qpartition as lt lo hi w hlo hhi).2.Perm as := by
+  unfold Array.qpartition
+  refine (qloop_perm _ _ _ _ _ _ _ _ _ _ _).trans ?_
+  split <;> split <;> split <;>
+    first
+    | exact Vector.Perm.refl _
+    | exact Vector.swap_perm (by omega) (by omega)
+    | exact (Vector.swap_perm (by omega) (by omega)).trans (Vector.swap_perm (by omega) (by omega))
+    | exact ((Vector.swap_perm (by omega) (by omega)).trans (Vector.swap_perm (by omega) (by omega))).trans
+        (Vector.swap_perm (by omega) (by omega))
+
+private theorem qsort_sort_perm {α : Type} (lt : α → α → Bool) {n : Nat} (as : Vector α n) (lo hi : Nat)
+    (w : lo ≤ hi) (hlo : lo < n) (hhi : hi < n) :
+    (Array.qsort.sort lt as lo hi w hlo hhi).Perm as := by
+  fun_induction Array.qsort.sort lt as lo hi w hlo hhi with
+  | case1 as lo hi w hlo hhi h mid hmid as' he hge =>
+    have := qpartition_perm as lt lo hi w hlo hhi
+    rw [he] at this; exact this
+  | case2 as lo hi w hlo hhi h mid hmid as' he hlt ih1 ih2 ih3 =>
+    have := qpartition_perm as lt lo hi w hlo hhi
+    rw [he] at this
+    exact (ih3.trans ih1).trans this
+  | case3 => exact Vector.Perm.refl _
+
+theorem qsort_mem {α : Type} (as : Array α) (lt : α → α → Bool) (x : α) :
+    x ∈ as.qsort lt ↔ x ∈ as := by
+  unfold Array.qsort
+  split
+  · exact Iff.rfl
+  · exact ((qsort_sort_perm _ _ _ _ _ _ _).toArray.mem_iff).trans (by simp)
+
+/-! ## The statements read for the doubly held names -/
+
+theorem Copy.beq_iff (a b : Copy) : (a == b) = true ↔ a = b := by
+  cases a; cases b
+  show (_ && _) = true ↔ _
+  simp
+
+instance : LawfulBEq Copy where
+  eq_of_beq h := (Copy.beq_iff _ _).1 h
+  rfl := (Copy.beq_iff _ _).2 rfl
+
+/-- `byModule`'s step. -/
+@[expose] def bmStep (m : Std.HashMap Nat (Array Copy)) (c : Copy) : Std.HashMap Nat (Array Copy) :=
+  m.alter c.mod fun | none => some #[c] | some a => some (a.push c)
+
+theorem byModule_eq (cs : Array Copy) :
+    byModule cs = ((cs.foldl bmStep {}).toArray.qsort (·.1 < ·.1)) := rfl
+
+theorem bmStep_fold :
+    ∀ (l L : List Copy) (m : Std.HashMap Nat (Array Copy)),
+      (∀ i g, m[i]? = some g → ∀ c ∈ g.toList, c.mod = i ∧ c ∈ L) →
+      (∀ c ∈ L, ∃ g, m[c.mod]? = some g ∧ c ∈ g.toList) →
+      (∀ i g, (l.foldl bmStep m)[i]? = some g → ∀ c ∈ g.toList, c.mod = i ∧ c ∈ L ++ l) ∧
+      (∀ c ∈ L ++ l, ∃ g, (l.foldl bmStep m)[c.mod]? = some g ∧ c ∈ g.toList)
+  | [], L, m, h1, h2 => by simpa using And.intro h1 h2
+  | c :: l, L, m, h1, h2 => by
+    rw [List.foldl_cons]
+    have := bmStep_fold l (L ++ [c]) (bmStep m c)
+      (fun i g h c' hc' => by
+        simp only [bmStep, Std.HashMap.getElem?_alter] at h
+        split at h
+        · rename_i he
+          obtain rfl := eq_of_beq he
+          cases hm : m[c.mod]? with
+          | none =>
+            rw [hm] at h; cases h
+            simp only [List.mem_cons, List.not_mem_nil, or_false] at hc'
+            subst hc'; simp
+          | some a =>
+            rw [hm] at h; cases h
+            simp only [Array.toList_push, List.mem_append, List.mem_singleton] at hc'
+            rcases hc' with hc' | rfl
+            · obtain ⟨h3, h4⟩ := h1 _ _ hm c' hc'
+              exact ⟨h3, by simp [h4]⟩
+            · simp
+        · obtain ⟨h3, h4⟩ := h1 _ _ h c' hc'
+          exact ⟨h3, by simp [h4]⟩)
+      (fun c' hc' => by
+        simp only [bmStep, Std.HashMap.getElem?_alter]
+        simp only [List.mem_append, List.mem_singleton] at hc'
+        by_cases he : c.mod = c'.mod
+        · simp only [he, BEq.rfl, ↓reduceIte]
+          rw [← he]
+          cases hm : m[c.mod]? with
+          | none =>
+            rcases hc' with hc' | rfl
+            · obtain ⟨g, hg, -⟩ := h2 c' hc'; rw [← he, hm] at hg; cases hg
+            · simp
+          | some a =>
+            simp only [Option.some.injEq, exists_eq_left', Array.toList_push, List.mem_append,
+              List.mem_singleton]
+            rcases hc' with hc' | rfl
+            · obtain ⟨g, hg, hc⟩ := h2 c' hc'
+              rw [← he, hm] at hg; cases hg; exact .inl hc
+            · exact .inr rfl
+        · have hne : (c.mod == c'.mod) = false := by simpa using he
+          simp only [hne, Bool.false_eq_true, ↓reduceIte]
+          rcases hc' with hc' | rfl
+          · exact h2 c' hc'
+          · exact absurd rfl he)
+    simpa using this
+
+/-- **`byModule`'s groups**: each holds copies of its module only, and every copy is in its
+module's group. -/
+theorem byModule_spec (cs : Array Copy) :
+    (∀ i g, (i, g) ∈ byModule cs → ∀ c ∈ g.toList, c.mod = i ∧ c ∈ cs.toList) ∧
+    (∀ c ∈ cs.toList, ∃ g, (c.mod, g) ∈ byModule cs ∧ c ∈ g.toList) := by
+  obtain ⟨h1, h2⟩ := bmStep_fold cs.toList [] {} (by simp) (by simp)
+  rw [Array.foldl_toList] at h1 h2
+  refine ⟨fun i g h c hc => ?_, fun c hc => ?_⟩
+  · rw [byModule_eq, qsort_mem, Std.HashMap.mem_toArray_iff_getElem?_eq_some] at h
+    simpa using h1 i g h c hc
+  · obtain ⟨g, hg, hcg⟩ := h2 c (by simpa using hc)
+    exact ⟨g, by rw [byModule_eq, qsort_mem, Std.HashMap.mem_toArray_iff_getElem?_eq_some]; exact hg,
+      hcg⟩
+
+/-- A `filterMap` that keeps the length keeps every element. -/
+theorem filterMap_length_eq {α β : Type} {f : α → Option β} :
+    ∀ {l : List α}, (l.filterMap f).length = l.length → ∀ x ∈ l, (f x).isSome = true
+  | [], _, x, hx => by simp at hx
+  | a :: l, h, x, hx => by
+    rw [List.filterMap_cons] at h
+    cases ha : f a with
+    | none =>
+      rw [ha] at h
+      have := List.length_filterMap_le f l
+      simp at h; omega
+    | some b =>
+      rw [ha] at h
+      simp only [List.length_cons, Nat.add_right_cancel_iff] at h
+      rcases List.mem_cons.1 hx with rfl | hx
+      · simp [ha]
+      · exact filterMap_length_eq h x hx
+
+theorem filterMap_getElem? {α β : Type} {f : α → Option β} :
+    ∀ {l : List α}, (∀ x ∈ l, (f x).isSome = true) → ∀ j : Nat,
+      (l.filterMap f)[j]? = (l[j]?).bind f
+  | [], _, j => by simp
+  | a :: l, h, j => by
+    have ha := h a List.mem_cons_self
+    obtain ⟨b, hb⟩ := Option.isSome_iff_exists.1 ha
+    rw [List.filterMap_cons, hb]
+    cases j with
+    | zero => simp [hb]
+    | succ j => simpa using filterMap_getElem? (fun x hx => h x (List.mem_cons_of_mem _ hx)) j
+
+/-- **One module's statements read**: every entry is a requested copy with its position's
+statement and kind, off the files of the part it is loaded at; every requested copy has one. -/
+theorem readInfosOf_ok {sp : SearchPath} {fs : FS} {ld : Loads} {ix : NameIndex} {i : Nat}
+    {cs : Array Copy} {arr : Array (Copy × ConstantVal × CKindF Name Unit)}
+    (h : ModelIO.CanGive (readInfosOf (.ofPath sp) ld ix (i, cs)) fs (.ok arr)) :
+    (∀ c cv k, (c, cv, k) ∈ arr.toList → c ∈ cs.toList ∧ ∃ q f r a, ix.at c = some q ∧
+      ModelIO.CanGive (readFiles sp (ld.nameAt i) ((ld.flags[i]?).getD default).level) fs (.ok f) ∧
+      f.viewRegion ((ld.flags[i]?).getD default).level = some (r, a) ∧ StmtSkel r q.loc cv k) ∧
+    (∀ c ∈ cs.toList, ∃ cv k, (c, cv, k) ∈ arr.toList) := by
+  obtain ⟨hs, hs', h⟩ := h
+  simp only [readInfosOf, ModelIO.bind_ok] at h
+  obtain ⟨x, hs₁, hx, h⟩ := h
+  rcases x with e | f
+  · simp at h
+  simp only at h
+  generalize hst : readStmts f _ _ = st at h
+  generalize hkd : readKinds f _ _ = kd at h
+  rcases st with _ | ss
+  · simp at h
+  rcases kd with _ | ks
+  · simp at h
+  simp only at h
+  split at h
+  rotate_left
+  · simp at h
+  rename_i hlen
+  simp only [Bool.and_eq_true, beq_iff_eq] at hlen
+  simp only [ModelIO.pure_iff, Except.ok.injEq] at h
+  obtain ⟨rfl, -⟩ := h
+  have hf : ModelIO.CanGive (readFiles sp (ld.nameAt i) ((ld.flags[i]?).getD default).level) fs
+      (.ok f) := ⟨hs, hs₁, hx⟩
+  -- the region and the reads
+  simp only [readStmts] at hst
+  cases hreg : f.viewRegion ((ld.flags[i]?).getD default).level with
+  | none => simp [hreg] at hst
+  | some ra =>
+  obtain ⟨r, a⟩ := ra
+  simp only [hreg, Option.bind_eq_bind, Option.bind_some] at hst
+  change stmtsAt r _ = some ss at hst
+  simp only [readKinds, hreg, Option.bind_eq_bind, Option.bind_some] at hkd
+  change List.mapM (kindNamesAt r) _ = some ks at hkd
+  rw [stmtsAt_eq] at hst
+  generalize hlocs : cs.toList.filterMap (fun c => (ix.at c).map (·.loc)) = locs at hst hkd
+  have hl1 := mapM_length_opt hst
+  have hl2 := mapM_length_opt hkd
+  have hall : ∀ c ∈ cs.toList, ((ix.at c).map (·.loc)).isSome = true :=
+    filterMap_length_eq (by rw [hlocs, ← hl1, hlen.1]; simp)
+  have hloc : ∀ j (hj : j < cs.size), ∃ q, ix.at cs[j] = some q ∧ locs[j]? = some q.loc := by
+    intro j hj
+    have := hall cs[j] (by simp)
+    obtain ⟨l, hl⟩ := Option.isSome_iff_exists.1 this
+    obtain ⟨q, hq, rfl⟩ := Option.map_eq_some_iff.1 hl
+    refine ⟨q, hq, ?_⟩
+    rw [← hlocs, filterMap_getElem? hall j, Array.getElem?_toList, Array.getElem?_eq_getElem hj,
+      Option.bind_some, hq]
+    rfl
+  have hent : ∀ j (hj : j < cs.size) (h1 : j < ss.length) (h2 : j < ks.length), ∃ q,
+      ix.at cs[j] = some q ∧ StmtSkel r q.loc ss[j] ks[j] := by
+    intro j hj hj1 hj2
+    obtain ⟨q, hq, hl⟩ := hloc j hj
+    refine ⟨q, hq, ?_⟩
+    have h1 := mapM_getElem? hst j
+    have h2 := mapM_getElem? hkd j
+    rw [hl, Option.bind_some] at h1 h2
+    rw [List.getElem?_eq_getElem hj1] at h1
+    rw [List.getElem?_eq_getElem hj2] at h2
+    obtain ⟨sk, hsk, h1⟩ := bind_some_left h1.symm
+    simp only [kindNamesAt] at h2
+    obtain ⟨sk', hsk', h2⟩ := bind_some_left h2.symm
+    rw [hsk] at hsk'; cases hsk'
+    simp only [stmtP] at h1
+    obtain ⟨n, hn, h1⟩ := bind_some_left h1
+    obtain ⟨lps, hlp, h1⟩ := bind_some_left h1
+    obtain ⟨ty, hty, h1⟩ := bind_some_left h1
+    simp only [pure, Option.some.injEq] at h1
+    rw [← h1]
+    refine ⟨sk, hsk, hn, hlp, hty, ?_⟩
+    rw [← h2]
+    congr 1
+    funext v
+    exact (sparseNameP_eq r v).symm
+  refine ⟨fun c cv k hm => ?_, fun c hc => ?_⟩
+  · rw [Array.toList_zip] at hm
+    obtain ⟨j, hj, hje⟩ := List.getElem_of_mem hm
+    simp only [List.length_zip, Array.length_toList, List.length_zip] at hj
+    have hjc : j < cs.size := by omega
+    have hj1 : j < ss.length := by omega
+    have hj2 : j < ks.length := by omega
+    obtain ⟨q, hq, hsk⟩ := hent j hjc hj1 hj2
+    simp only [List.getElem_zip, Array.getElem_toList] at hje
+    simp only [Prod.mk.injEq] at hje
+    obtain ⟨hc, hcv, hk⟩ := hje
+    refine ⟨?_, q, f, r, a, ?_, hf, hreg, ?_⟩
+    · rw [← hc]; simp
+    · rw [← hc]; exact hq
+    · rw [← hcv, ← hk]; exact hsk
+  · obtain ⟨j, hj, rfl⟩ := List.getElem_of_mem hc
+    have hjc : j < cs.size := by simpa using hj
+    refine ⟨ss[j]'(by omega), ks[j]'(by omega), ?_⟩
+    rw [Array.toList_zip]
+    refine List.mem_iff_getElem.2 ⟨j, by simp; omega, ?_⟩
+    simp
 
 end ConLeche.Driver
