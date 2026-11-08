@@ -32,7 +32,11 @@ it plain `IO`:
 * **progress**: each module's line (stdout) is `M: VERDICT t=Ss [done/total p %, k running,
   eta D]`, `done` counting a resumed run's logged modules, the estimate the remaining modules at
   this run's finish rate so far (`progressText`); with a heartbeat (`heartbeat` ms), after that
-  long without a line, the same counts and the three longest-running workers (stderr);
+  long without a line, the same counts and the three longest-running workers (stderr); the
+  running workers' total resident memory and the largest one's (and the budget, when set)
+  follow `k running` (`1.2 GiB (max 0.6 GiB) of 40 GiB`), read every tick through the same
+  `/proc` files as the budget and shown only where they can be read; the run's peak total ends
+  the summary line;
 * **no worker outlives the scheduler**: a worker that cannot be started is that module's verdict
   3, with the reason, and no further one starts; the running ones are waited for.  On any other
   error the running workers are killed before the error is passed on.
@@ -182,6 +186,20 @@ def workerRss : IO (List (String × Nat)) := do
       | none => pure ()
   return acc
 
+/-- `workerRss`, `none` where `/proc` cannot be read (the status line then shows no memory). -/
+def workerRssOpt : IO (Option (List (String × Nat))) := do
+  try some <$> workerRss catch _ => pure none
+
+/-- KiB as GiB with one decimal (`1.2 GiB`), rounded down; below 0.1 GiB in MiB (`37 MiB`). -/
+def gib (kib : Nat) : String :=
+  if kib < 104858 then s!"{kib / 1024} MiB" else
+  let t := kib * 10 / (1024 * 1024)
+  s!"{t / 10}.{t % 10} GiB"
+
+/-- A budget in KiB as GiB, without the decimal where it is whole (`40 GiB`, `0.5 GiB`). -/
+def gibBudget (kib : Nat) : String :=
+  if kib % (1024 * 1024) = 0 then s!"{kib / (1024 * 1024)} GiB" else gib kib
+
 /-- Can `workerRss` see this process's children? -/
 def childrenReadable : IO Bool := do
   try
@@ -219,21 +237,35 @@ structure St where
   lastLine : Nat := 0
   /-- a worker could not be started: no more start -/
   stopped : Bool := false
+  /-- the running workers' resident memory at the last tick, KiB: the total and the largest
+  (`none`: `/proc` could not be read) -/
+  mem : Option (Nat × Nat) := none
+  /-- the largest total over the run, KiB -/
+  peak : Nat := 0
 
 /-- The progress of a run: `[done/total p %, k running, eta D]`.  `done` counts the logged
 modules of a resumed run; the estimate is the remaining modules at the rate this run has
-finished them so far (`elapsed × remaining ÷ finished`), none before the first finishes. -/
-def progressText (total done finished running elapsed : Nat) : String :=
+finished them so far (`elapsed × remaining ÷ finished`), none before the first finishes.  With
+`mem` (the running workers' total and largest, KiB) and a `budget` (KiB, 0 for none):
+`k running, 1.2 GiB (max 0.6 GiB) of 40 GiB`. -/
+def progressText (total done finished running elapsed : Nat)
+    (mem : Option (Nat × Nat) := none) (budget : Nat := 0) : String :=
   let pm := if total = 0 then 1000 else done * 1000 / total
   let eta := if finished = 0 || done ≥ total then ""
     else s!", eta {dur (elapsed * (total - done) / finished)}"
-  s!"[{done}/{total} {pm / 10}.{pm % 10} %, {running} running{eta}]"
+  let memText := match mem with
+    | some (t, m) =>
+      if running = 0 then ""
+      else s!", {gib t} (max {gib m}){if budget > 0 then s!" of {gibBudget budget}" else ""}"
+    | none => ""
+  s!"[{done}/{total} {pm / 10}.{pm % 10} %, {running} running{memText}{eta}]"
 
 /-- **The scheduler**: the modules' workers (`args m`, the worker's arguments at `m`, of the
 binary `app`; its last argument `spell m`) run as the module docstring says; the verdict of
-every module of `mods`. -/
+every module of `mods`, and the peak of the running workers' total resident memory in KiB
+(0 where `/proc` cannot be read). -/
 def run (parse : String → Option Name) (app : System.FilePath) (args : Name → Array String)
-    (mods : Array Name) (o : Opts) (jobs : Nat) : IO (Std.HashMap Name String) := do
+    (mods : Array Name) (o : Opts) (jobs : Nat) : IO (Std.HashMap Name String × Nat) := do
   let err ← IO.getStderr
   let out ← IO.getStdout
   let logged ← match o.log with
@@ -249,7 +281,7 @@ def run (parse : String → Option Name) (app : System.FilePath) (args : Name �
     | none => pure none
   let t0 ← IO.monoMsNow
   let progress (st : St) (now : Nat) : String :=
-    progressText total st.nDone st.finished st.running.size (now - t0)
+    progressText total st.nDone st.finished st.running.size (now - t0) st.mem o.memory
   let finish (st : St) (r : Running) (w : String) : IO St := do
     let msg ← r.diagText
     if let some h := logH then
@@ -280,6 +312,13 @@ def run (parse : String → Option Name) (app : System.FilePath) (args : Name �
   let tick (st : St) : IO St := do
     let now ← IO.monoMsNow
     let mut st := st
+    -- the resident sets, every tick, budget or not
+    let rss ← workerRssOpt
+    let sample (rs : Array Running) : Option (Nat × Nat) := rss.map fun l =>
+      rs.foldl (fun (t, m) r =>
+        let k := ((l.find? (·.1 == r.arg)).map (·.2)).getD 0
+        (t + k, max m k)) (0, 0)
+    if let some (t, _) := sample st.running then st := { st with peak := max st.peak t }
     let mut still : Array Running := #[]
     let mut ended : Array (Running × String) := #[]
     for r in st.running do
@@ -291,10 +330,10 @@ def run (parse : String → Option Name) (app : System.FilePath) (args : Name �
           let _ ← r.child.wait
           ended := ended.push (r, "timeout")
         else still := still.push r
-    st := { st with running := still }
+    st := { st with running := still, mem := sample still }
     for (r, w) in ended do st ← finish st r w
     if o.memory > 0 && !st.running.isEmpty then
-      let rss ← workerRss
+      let rss := rss.getD []
       let mut total := 0
       let mut big : Option (Nat × Nat) := none
       for h : i in [0:st.running.size] do
@@ -335,6 +374,7 @@ def run (parse : String → Option Name) (app : System.FilePath) (args : Name �
     if o.heartbeat > 0 && now - st.lastLine ≥ o.heartbeat && !st.running.isEmpty then
       let longest := (st.running.qsort (fun a b => a.start < b.start)).toList.take 3
       let ls := ", ".intercalate (longest.map fun r => s!"{r.m} {dur (now - r.start)}")
+      st := { st with mem := sample st.running }
       err.putStrLn s!"con-leche: schedule: {progress st now}; longest: {ls}"
       err.flush
       st := { st with lastLine := now }
@@ -360,16 +400,19 @@ def run (parse : String → Option Name) (app : System.FilePath) (args : Name �
     for r in st.running do
       try r.child.kill; let _ ← r.child.wait catch _ => pure ()
     throw e
-  return (← stRef.get).verdicts
+  let st ← stRef.get
+  return (st.verdicts, st.peak)
 
 /-- **The run's verdict**: 0 when every module's worker answered 0; else the first module in
 the graph's order that did not, its code (`timeout`, `memory`, `signal`: 3). -/
-def summary (mods : Array Name) (vs : Std.HashMap Name String) (modeTag : String) : IO UInt8 := do
+def summary (mods : Array Name) (vs : Std.HashMap Name String) (modeTag : String)
+    (peak : Nat := 0) : IO UInt8 := do
+  let peakText := if peak = 0 then "" else s!"; peak {gib peak} of the running workers"
   let bad := mods.filter fun m => (vs[m]?).getD "missing" != "0"
   match bad[0]? with
   | none =>
     let o ← IO.getStdout
-    o.putStrLn s!"con-leche: accepted {mods.size} modules, one worker each ({modeTag})"
+    o.putStrLn s!"con-leche: accepted {mods.size} modules, one worker each ({modeTag}){peakText}"
     o.flush
     return 0
   | some m =>
@@ -378,7 +421,7 @@ def summary (mods : Array Name) (vs : Std.HashMap Name String) (modeTag : String
     let unrun := (bad.filter fun m => !vs.contains m).size
     let unrunText := if unrun = 0 then "" else s!" ({unrun} not run)"
     e.putStrLn s!"con-leche: {bad.size} of {mods.size} modules not accepted{unrunText}; the \
-      first in the graph's order: {m} ({w}) ({modeTag})"
+      first in the graph's order: {m} ({w}) ({modeTag}){peakText}"
     e.flush
     return match w with
       | "1" => 1
@@ -394,7 +437,7 @@ def runAll (parse : String → Option Name) (args : Name → Array String) (mods
     e.putStrLn "con-leche: --schedule-memory reads the workers' resident sets through \
       /proc/self/task/<tid>/children, which this system does not provide"
     return 3
-  let vs ← run parse (← IO.appPath) args mods o jobs
-  summary mods vs modeTag
+  let (vs, peak) ← run parse (← IO.appPath) args mods o jobs
+  summary mods vs modeTag peak
 
 end ConLeche.Driver.Schedule
