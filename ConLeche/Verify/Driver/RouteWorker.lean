@@ -20,7 +20,7 @@ model-free:
   at a level a load reads;
 * `workerClash_kinds` — a clash's copies are theorems or axioms, all unsafe or none (Lean's
   merge rule, `subsumesF`);
-* `copy_own'` — `copy_own` at every name but the tolerated axiom's, `Quot.sound` included (its
+* `copy_own` — `copy_own` at every name but the tolerated axiom's, `Quot.sound` included (its
   pinned constant is the copy's statement where its home accepted it), and the statement's type
   does not read its own name.
 -/
@@ -329,7 +329,7 @@ theorem copy_entry {M : Name} {jobs : Nat} {w : WorkerRead} (hw : WorkerFacts sp
 
 /-- **A statement-kind entry's record**: a statement record installing its statement as a
 statement kind (a theorem for a theorem), or `Quot.sound`'s axiom. -/
-theorem entryDecl_stmt' {e : CEntry} {p : Declaration} {cv : ConstantVal}
+theorem entryDecl_stmt {e : CEntry} {p : Declaration} {cv : ConstantVal}
     (hcv : (⟨e.name, e.levelParams, e.type⟩ : ConstantVal) = cv) (hp : entryDecl e = some p)
     (ht : e.kind.tag < 4) (hsk : e.skipped = false) (hs : cv.name ≠ sorryAxName) :
     (StmtRecord p cv ∧ ∃ ci ∈ declConstants p, ci.toConstantVal = cv ∧ ci.isStmtKind = true ∧
@@ -435,7 +435,7 @@ copy of `M`'s part, at a level a load reads, of a statement kind, not filtered o
 `sorryAx`, has in `M`'s own environment a statement-kind constant of the copy's statement, a
 theorem where the copy or the private constant behind it is one; and the statement's type does
 not read its own name. -/
-theorem copy_own' {mode : CheckMode} {M : Name} {jobs : Nat}
+theorem copy_own {mode : CheckMode} {M : Name} {jobs : Nat}
     {w : WorkerRead} (hw : WorkerFacts sp fs M jobs w) (hrun : OwnRun mode sp fs M w)
     {s : Spot} (hmod : s.part.mod = M) (hs : CopyAt sp fs s) (hl : s.part.level ≠ .server)
     {r : Region} (hr : PartRegion sp fs s.part r) {cv : ConstantVal} {k : CKindF Name Unit}
@@ -450,7 +450,7 @@ theorem copy_own' {mode : CheckMode} {M : Name} {jobs : Nat}
   have hpo := emitted_own hw hp
   have hpd : fillDecl (fillOf sp fs #[⟨M, w.home.frontier⟩]) p ∈ ownDeclsOf sp fs M w :=
     List.mem_map_of_mem hpo
-  rcases entryDecl_stmt' hst₁ hpe ht₁ hsk₁ hsy with ⟨hrec, ci, hci, hcv, hks, hth⟩ |
+  rcases entryDecl_stmt hst₁ hpe ht₁ hsk₁ hsy with ⟨hrec, ci, hci, hcv, hks, hth⟩ |
     ⟨rfl, hq, htag0⟩
   · have hfind := find?_of_nodup (ownEnv_nodup hw hrun) (own_mem_ownEnv (sp := sp) (fs := fs)
       (M := M) hpo hci)

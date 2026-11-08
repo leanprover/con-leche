@@ -148,7 +148,7 @@ theorem side_of_status {M : Name} (hM : M ∈ R.names) {y T : Name} (hT : T ∈ 
   | no => exact absurd rfl hno
   | yes =>
     have htag := hp.1 hno
-    obtain ⟨ci, hci, -, -, hthm, -⟩ := copy_own' (R.facts T hT) (R.ownRun hT) hmod hs hl hr hst hsk
+    obtain ⟨ci, hci, -, -, hthm, -⟩ := copy_own (R.facts T hT) (R.ownRun hT) hmod hs hl hr hst hsk
       htag (by rw [hy]; exact hsy)
     obtain ⟨cv', rfl⟩ := hthm (by
       rcases hp.2.1 rfl with h2 | ⟨h0, -, q, hq⟩
@@ -231,7 +231,7 @@ theorem agree_loaded {h : Name} (hh : h ∈ R.names) (ih : R.AgreeAll h) {y : Na
       ← copyAt_stmt_skipped hc₀ hr₀ hst₀, hsk₀]
   have hT := (R.reached_rank hh (.loaded (at_mod_lt hsize hq))).1
   have hcvy : cv₀.name = y := hcvn.trans hcln
-  obtain ⟨ci', hci', hcv', hk', -, hfresh⟩ := copy_own' (R.facts _ hT) (R.ownRun hT) rfl hc
+  obtain ⟨ci', hci', hcv', hk', -, hfresh⟩ := copy_own (R.facts _ hT) (R.ownRun hT) rfl hc
     (spotOf_level _ _ _) hrg hst hskip ht (by rw [hcvy]; exact hsy)
   rw [hcvy] at hci'
   refine .proof hci (by rw [R.dev_rk hT]; exact hci') (hcv'.trans hcicv.symm) hcik hk'
@@ -272,7 +272,7 @@ theorem proofAt_of {M : Name} (hM : M ∈ R.names) {y : Name}
   obtain ⟨ci, hci, hcicv, hcik, hc₁, hl₁, hsk₁, hcv1y, hsy, hM1⟩ :=
     R.ctx_stmt hM hy hs₁ hr₁ hst₁ (hs1.1 hn1)
   obtain rfl : cv₂ = cv₁ := SameStmt.eq ⟨hname₂.trans hcv1y.symm, hty.symm, hlp.symm⟩
-  obtain ⟨ci', hci', hcv', hk', -, hfresh⟩ := copy_own' (R.facts T hT) (R.ownRun hT) hmod₂ hc₂ hl₂
+  obtain ⟨ci', hci', hcv', hk', -, hfresh⟩ := copy_own (R.facts T hT) (R.ownRun hT) hmod₂ hc₂ hl₂
     hr₂ hst₂ hsk₂ (hs2.1 hn2) (by rw [hcv1y]; exact hsy)
   rw [hcv1y] at hci'
   refine ⟨ci, ci', hci, by rw [R.dev_rk hT]; exact hci', hcv'.trans hcicv.symm, hcik, hk',
