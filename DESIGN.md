@@ -114245,3 +114245,83 @@ warning-free; `lake test` warning-free; layering, trust surface (13 escapes, all
 overview links (162), quote gate, no-local-paths; the olean gate 311/311 under the guard (peak
 anon 3.6 GB; `PpM` infers its one flag over the part).  Not run: arena, shake, challenge, fragment,
 whitepaper.
+
+### #501 cont. 9 (the composition proved; the reader's copy safe; 2026-11-08)
+
+`modular` is still at 0118b6ce8: nothing to merge.
+
+**The Case C premise (cont. 8): a check of untrusted input.**  `Agree.proof` needs the reader's
+view's copy `s₂` to be a constant of its module's own environment, and the worker leaves unsafe
+and partial constants out of it.  Nothing checked `s₂`: on crafted files a module `h` whose own
+private part holds `unsafe axiom y : P` while its context stores `y` as another module's group
+member (gap B's shape) can pass its own worker, and an importer then passes `h`'s read of `y`
+against a safe `axiom y : P` of a third module by `agreeCheck`: no `Agree` route holds, and the
+two readings of `y` differ.  So `agreeCheck` now refuses an unsafe or partial `s₂` (exit 1,
+"its copy of y, of module h, is unsafe or partial").  What Lean does: its kernel refuses a safe
+declaration that uses an unsafe or a partial one (`type_checker::infer_constant`), so a safe
+record's read is never of such a copy at its home; a partner read is of a copy `agreeCheck`
+already passed (now safe) or of a clash's copy, and Lean's merge (`subsumesInfo`, the worker's
+`subsumesF`) makes a clash's copies all unsafe or none, the context's being safe.  So no new
+reject on Lean's output.  `AgreeOk` and `AgreeNew` carry the flag (and `AgreeNew` the copy's
+statement kind).  A clash's copies needed no check: the worker's clash rule is already Lean's
+(`workerClash_kinds`: theorems or axioms, one unsafe flag).
+
+**`Quot.sound` in two modules** (checked, no code change).  A prelude module may declare
+`axiom Quot.sound` over a quotient that has none; two such modules meet at an importer, which
+Lean merges (axiom/axiom, `isPropCheap`).  The record installs the pin (`quotAt .sound`), an
+axiom, so the proof route applies; `copy_own` now covers it (the home's accepted run checked
+the pin, `quotPinHit`, so the pin's statement is the copy's).  Fixtures `QsP`/`QsA`/`QsB`/`QsM`
+(`tests/olean.sh`): every worker accepts.
+
+**Cost** (`instructions:u`, one run each, `--jobs=8`, under the guard; base the cont. 8
+binary): `Init.Data.Nat.Lemmas` 9.1851 G → 9.1837 G, `Coxeter.Basic` 8.9151 G → 8.9146 G,
+`Gamma.Basic` 15.5144 G → 15.5166 G, `WittVector.MulP` 8.9863 G → 8.9858 G; all exit 0, the
+records reached unchanged.
+
+**The proofs** (all model-free, `ConLeche/Verify/Driver/`):
+* `RouteWorker.lean`: `readNames_needsGo`, `first_none_of_ownNames` (freshness), `first_of_at`,
+  `spotOf_level`, `homeView_copy`, `workerClash_kinds` (with `workerClash_two`), `copy_own`
+  (the former `copy_own` of `Copies.lean`, now at `Quot.sound` too and with the statement's
+  freshness; the first version and `entryDecl_stmt` are gone).
+* `RouteCtx.lean`: `ctx_stmt` (a context name with a statement-kind copy is stored by that
+  statement, read at that copy, safe; a group's names are no statement's at its home, by
+  position in its private table), `rank_lt`, `reader_ctx` (a reader stores what it reads, where
+  loaded at it, by the pair's origin: a record's read through its presented own record; a
+  partner's through the copy's own record; the tolerated axiom through its home's statement
+  check), with inversions of the own run (reserved names, `quotPinHit`, `sorryAx`).  A
+  completion's located copy now carries its name (`CapNL`, `StoredNL`, `CapFacts`).
+  `readNames_stored_of_resolve` restates a `Model` lemma, which `Verify` cannot import.
+* `RoutePub.lean`: `pub_loaded` (the public-import route's module is loaded at the reader, of
+  smaller rank, with a copy of the name there; `PubReach.first`).
+* `Routes.lean`: `side_of_status`, `side_of_clash`, `agree_loaded` (case B: one module, or a
+  clash at the reader, `Agree.proof` there from its clash partner reads), `proofAt_of` (case C's
+  proof pair), `route`, `reads_ok`, **`Run.localOk`**, `clashCopiesOf_complete`,
+  `hdrClosure_mem`.
+* `ConLeche/MainTheorem.lean`: `run_no_False`, **`main_modular_no_False`** (`--check-graph` and a
+  `--olean --module` exit 0 at every module of `HdrClosure` on one snapshot), and
+  **`main_modular_one_no_False`** (`--olean --modular`).  Axioms pinned.
+
+The pieces were proved on side branches (`agent/501-rw`, `-rp`, `-rc`) against stated lemmas and
+merged; the side worktrees are removed.  Imports minimized by `lake shake`; five public
+re-exports `pub-import-plan.py` calls demotable were measured needed and joined its
+`FALLBACK` list.
+
+**No fixture for the new reject**: the shape needs a private part holding an unsafe constant
+whose name the home's context stores from another module (gap B's crafted shape) and a
+third module's safe copy; the olean gate's patcher could build it, but it was not done in this
+session.  To be added.
+
+**Gates on the final tree** (the commit carrying this record): `lake build` and `lake test`
+warning-free; `tests/arena.sh` in full under the guard (below); the whitepaper build (PDF and
+HTML, in `nix develop ./whitepaper`).
+
+**Landed** on `modular` with `--no-ff` (`modular` unchanged at 0118b6ce8 since cont. 2's merge).
+The lane, in one place: R1, each loaded export completed on demand where it was made, and the
+public-import route as the check (cont. 1–2); gap B, the names a read group stores checked
+against the importer's copies (cont. 2); every theorem, and every statement kind of a
+propositional type, has the canonical proof as its leaf at every name, and the compiler-trust
+names and `sorryAx` reserved to their own shapes (cont. 6); the proof pairs' statements inferred
+over the part of the context below the name (cont. 8); the reader's view's copy refused when
+unsafe or partial (this record); and the composition: an accepted run is a development every
+module of which passes the local checks, so no module of the closure holds a theorem of type
+`False` (`main_modular_no_False`, `main_modular_one_no_False`).
