@@ -113213,6 +113213,77 @@ the reading.
 Gates: `lake build InLean InLeanProof inlean-replay` warning-free; `tests/layering.sh`,
 `tests/trust-surface.sh`, `tests/no-local-paths.sh`, `tests/inlean-sync.sh` pass.
 
+### Lane O7-recursors, round 4: the recursor types and the rules checked (2026-11-08)
+
+Scope was round 3's "What remains" 1–3.  Item 1 is done, item 2 up to `classRecsRulesOk`
+(`genRecCheck` itself is not), item 3 is not started.  No `InLean/*` change; no `sorry`, no new
+axiom; `InLeanProof/PassRecs5.lean`, 30 theorems, all pinned (13 use the stop-gap `mkData`
+axioms, as every `TrS` lemma).
+
+* **The generated constant** (`classConstOkI_run` :80): at a term with a reading (`OkS`), the
+  `hasFVar` guard makes it a closed reading (`okC_of_OkS`, `hasFVar_TrS`); range from `OkS`
+  (`RangeOk_of_OkS`); InLean's monadic `allLevelParamsDefined` and `constsResolveF` read the term
+  alone at a term without free variables (`withAnnotations_noFVar` :32,
+  `allLevelParamsDefined_noFVar` :38); master's resolution from the inference
+  (`constsResolve_of_infer`); the freshness through `JobEnvI` (`hJ.pres.none`).
+* **The emvar premises, restructured, not dropped.**  The generator theorems keep their
+  `emvarS e = false →` premise; each check site discharges it from the check's own `EO.inRange`
+  guard before the generator's statement is used: `classConstOk_emvar` :56,
+  `classRecTyCheck_emvar` :169, `classRuleCheck_emvar` :505.  For the prefix
+  (`prefixBindersI_run` needs every binder marker-free): every recursor type closes the whole
+  prefix (`classGenRecTy_shape` :735), so one checked recursor type gives it
+  (`classRecTyOk_pre_emvar` :763, `classRecTysOk_pre_emvar` :785), and the family is non-empty
+  once the pins passed and `0 < p.k` (`recs_ne_nil_of_pins` :801: `blockRecNameSetOk` on the
+  members' own recursors, one `T.rec` per member).  The stage proof runs the recursor types'
+  check, reads the prefix's marker-freeness off its first element, and only then states the
+  prefix's reading.
+* `classRecTyCheckI_run` :140 (`hJ.ops.defeq`), `classRecTyOkI_run` :180 (the record's two
+  guards, `classGenRecTyI_run`, the stored constant `{ rc.cvR with type := gty }` read by
+  `trCV`), `classRecTysOkI_run` :243 (`GenCVs`, the per-record output; `GenCls` :231, what it
+  needs of a recursor's class).
+* **InLean's resolution test, read as master's** (`constsResolveF_tr` :432, from
+  `constsResolve_of_test` :344): `EO.usedConstants` is complete (`usedConstants_complete` :322:
+  `collect_complete` and the deduplicating fold, `ucDedup_spec` :292), the projection and literal
+  test is `anySpec` of `crBad`; at a closed reading and `EnvPresI fe L` the accepted term
+  resolves at `L`.  This is what reads a walker's `resolve` at an environment InLean ran no
+  inference at (the rule's domains at the constructors' environment; also the tables' stage).
+* `classRuleCheckI_run` :523 (from a flushed state: the guards; `stripLams_tr` :453; the
+  inference between `sharedOpsRuleR`'s two flushes at `JobEnvI feR LR`; the domains through
+  `constsResolveF_tr` at `EnvPresI feT LT`; the state after is flushed, so the invariant holds at
+  every environment), `classRulesOkI_run` :612 (`RuleCtorOk` :595: a constructor's readings and
+  closed domains), `classRecsRulesOkI_run` :680 (output `v.map (trOut s₀)`; each output's class is
+  one of `g.cls`).
+
+**What remains** (bottom-up):
+1. **The rule-less recursors' environment**: `JobEnvI (classFeR p Ms cvGs recCls fe₂)
+   (ruleEnv (trShape p) (Ms.map (trTM s)) (cvGs.map trCV) recCls L₂)` (InLean's `classFeROvl` is
+   `classFeR`; master's pure `ShadowOps.ofOps` pushes by `classFeR` on `mkFEnv L₂`, which is
+   `mkFEnv (ruleEnv …)` by `classFeR_mkFEnv`).  `EnvWF` is master's `envWF_ruleEnv`; `EnvPresI` is
+   a push of rule-less `recInfo` entries (`presI_push`, as `presI_formers`); `ProjBodiesInRange`
+   through a marked extension adding no projection.  The same is needed at the constructors'
+   push (`consBlockCtorsF`, `fe₂`), which is the stage's input: no lemma yet.
+2. **`genRecCheck` with `shadowOpsC`** (master's `ShadowOps.ofOps (fueledOpsM .verified)` at
+   `mkFEnv L₂`): the pieces are `targetRecPinsI_run`, `classStreamRecsI_run`,
+   `classesNfsI_run`, `classesCtorsI_run`, `classFormerTyI_run` (over `Ms.mapM`, no list lemma
+   yet), `prefixBindersI_run`, and this round's theorems; the order of the argument is: run the
+   recursor types, read the prefix's marker-freeness (`classRecTysOk_pre_emvar`, the family
+   non-empty by `recs_ne_nil_of_pins`), then state `CGOk` at the prefix's reading, then
+   `classRecTysOkI_run`.  The hypotheses `CGOk`, `GenCls`, `RuleCtorOk`, `hmc` and
+   `g.params.length = g.nP` come from the stage's values (`classesNfsI_run`'s classes,
+   `classesCtorsI_run`'s constructors, the former types' list, the canonical parameters);
+   `classRecOf` on `trCV` names for `hrec`.
+3. `streamRecsCheck` on `trOut`, `checkBlockTablesF` (`structProjBodies` against master's on
+   `trC`, `Expr.constsResolve_instantiate1`; `constsResolveF_tr` for the walker's `resolve`;
+   "table taken" from `EnvWF` and freshness).
+
+**Findings.**  No statement was false for the code.  A proof device: `classConstOk`'s nine
+guards compile to nested join points; `split` and `dsimp` on the unfolded body exceed the
+step limit (the join points inline exponentially), while `cases g : c <;> simp only [g,
+Bool.false_eq_true, ↓reduceIte] at h` per guard, closing the throw branch, does not.
+
+Gates: `lake build InLean InLeanProof` warning-free; `tests/layering.sh`,
+`tests/trust-surface.sh`, `tests/no-local-paths.sh`, `tests/inlean-sync.sh` pass.
+
 ## TASK #489 — what a module's constants mention, in one array per module (2026-11-06, agent/489-flat-uses)
 
 **The task (maintainer).**  After #480, take the self-contained one of the memory fixes a census of

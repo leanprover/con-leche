@@ -729,4 +729,96 @@ theorem classRecsRulesOkI_run {feT feR : InLean.FEnv} {LT LR : ConLeche.Env}
     unfold ConLeche.classRecsRulesOk
     exact Runs.pure _
 
+/-! ## The prefix's marker-freeness, from one checked recursor type -/
+
+/-- A generated recursor type closes the whole prefix. -/
+theorem classGenRecTy_shape {g : InLean.ClassGen} {c : Nat} {s₀ s' : InLean.CState}
+    {e : Lean.Expr} (h : (InLean.classGenRecTy g c).run s₀ = .ok (some e, s')) :
+    ∃ rest body, e = InLean.closeTelescope (g.pre ++ rest) 0 body := by
+  unfold InLean.classGenRecTy at h
+  obtain ⟨o, s₁, -, h⟩ := optT_bind_run h
+  cases o with
+  | none => exact absurd h.1 (by simp)
+  | some q =>
+  obtain ⟨ifs, maj⟩ := q
+  try simp only at h
+  obtain ⟨o, s₂, h2, hk⟩ := optT_bind_run h
+  obtain ⟨t, rfl, -⟩ := liftM_run h2
+  try simp only at hk
+  obtain ⟨o, s₃, -, hk3⟩ := optT_bind_run hk
+  cases o with
+  | none => exact absurd hk3.1 (by simp)
+  | some bs =>
+  try simp only at hk3
+  obtain ⟨o, s₄, h4, hk4⟩ := optT_bind_run hk3
+  obtain ⟨v, rfl, -⟩ := liftM_run h4
+  try simp only at hk4
+  obtain ⟨he, -⟩ := optT_pure_run hk4
+  simp only [Option.some.injEq] at he
+  exact ⟨bs ++ [maj], _, by rw [← List.append_assoc]; exact he⟩
+
+/-- **The prefix is marker-free once one recursor type is checked**: every
+recursor type closes the prefix (`classGenRecTy_shape`), and `classConstOk`
+refuses a type `EO.inRange` refuses. -/
+theorem classRecTyOk_pre_emvar {ops : InLean.CheckerOps} {fe : InLean.FEnv} {g : InLean.ClassGen}
+    {k c : Nat} {rc : InLean.RecShape} {cvRi : Lean.ConstantVal} {s₀ s' : InLean.CState}
+    {v : Lean.ConstantVal} (h : InLean.classRecTyOk ops fe g k rc cvRi c s₀ = .ok (v, s')) :
+    ∀ b ∈ g.pre, emvarS b = false := by
+  unfold InLean.classRecTyOk at h
+  have hth : ∀ {α : Type} {e : InLean.CheckError} {k : α → InLean.CheckCM Lean.ConstantVal},
+      ¬ ((throw e : InLean.CheckCM α) >>= k) s₀ = .ok (v, s') := fun h => by
+    obtain ⟨_, _, h1, -⟩ := bind_run h; exact throw_run h1
+  cases g1 : (rc.tgt == (g.cls.getD c default).member.getD k) <;>
+    simp only [g1, Bool.false_eq_true, ↓reduceIte] at h <;> try exact absurd h hth
+  cases g2 : (rc.rP == g.nP + g.slots.length && rc.mI == rc.rP + (g.cls.getD c default).nIdx) <;>
+    simp only [g2, Bool.false_eq_true, ↓reduceIte] at h <;> try exact absurd h hth
+  obtain ⟨r, s₁, h1, h⟩ := bindI_ok h
+  obtain ⟨gty, s₂, h2, hA⟩ := bindI_ok h
+  obtain ⟨hr, rfl⟩ := unwrapOr_run h2
+  subst hr
+  obtain ⟨_, s₃, h3, -⟩ := bindI_ok hA
+  have hem := classRecTyCheck_emvar h3
+  obtain ⟨rest, body, rfl⟩ := classGenRecTy_shape h1
+  exact fun b hb => (emvarS_closeTelescope _ 0 body hem).1 b (List.mem_append_left _ hb)
+
+/-- The same, at the first recursor of a non-empty family (`classRecTysOk`). -/
+theorem classRecTysOk_pre_emvar {ops : InLean.CheckerOps} {fe : InLean.FEnv} {g : InLean.ClassGen}
+    {k : Nat} {rc : InLean.RecShape} {rcs : List InLean.RecShape} {cvs : List Lean.ConstantVal}
+    {cs : List Nat} {s₀ s' : InLean.CState} {v : List Lean.ConstantVal}
+    (h : InLean.classRecTysOk ops fe g k (rc :: rcs) cvs cs s₀ = .ok (v, s')) :
+    ∀ b ∈ g.pre, emvarS b = false := by
+  match cvs, cs, h with
+  | cvRi :: cvs, c :: cs, h =>
+    unfold InLean.classRecTysOk at h
+    obtain ⟨_, _, h1, -⟩ := bindI_ok h
+    exact classRecTyOk_pre_emvar h1
+  | [], _, h => unfold InLean.classRecTysOk at h; exact (throwI_ok h).elim
+  | _ :: _, [], h => unfold InLean.classRecTysOk at h; exact (throwI_ok h).elim
+
+/-- **The family is non-empty** once the pins passed and the block declares a
+family: one `T.rec` per member (`blockRecNameSetOk` on the members' own
+recursors, `targetRecPins`). -/
+theorem recs_ne_nil_of_pins {p : InLean.BlockShape} {block : List Lean.ConstantInfo}
+    {s₀ s' : InLean.CState} {u : Unit} (h : InLean.targetRecPins p block s₀ = .ok (u, s'))
+    (hk : 0 < p.k) : p.recs ≠ [] := by
+  intro hnil
+  unfold InLean.targetRecPins at h
+  have hth : ∀ {α : Type} {e : InLean.CheckError} {k : α → InLean.CheckCM Unit},
+      ¬ ((throw e : InLean.CheckCM α) >>= k) s₀ = .ok (u, s') := fun h => by
+    obtain ⟨_, _, h1, -⟩ := bind_run h; exact throw_run h1
+  cases g1 : InLean.blockRecLpsOk p <;> simp only [g1] at h
+  · exact absurd h hth
+  cases g2 : InLean.blockRecNamesUnreserved p <;> simp only [g2, ↓reduceIte] at h
+  · exact absurd h hth
+  split at h
+  rotate_left
+  · exact absurd h hth
+  rename_i g3
+  simp only [InLean.blockRecNameSetOk, hnil, List.filter_nil, List.map_nil, List.length_nil,
+    List.length_map, Bool.and_eq_true, beq_iff_eq] at g3
+  have : p.k = 0 := by
+    unfold InLean.BlockShape.k
+    exact g3.1.1.symm
+  omega
+
 end InLeanProof
