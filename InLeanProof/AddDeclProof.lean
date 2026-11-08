@@ -434,4 +434,188 @@ theorem numParams_of_checkIndDeclC {fe : InLean.FEnv} {block : List Lean.Constan
       rw [hn, hnP]
   · exact (throwI_ok h).elim
 
+/-! ## The quotient package -/
+
+theorem mapM_toDecl_mem : ∀ {l : List Lean.ConstantInfo} {ds : List ConLeche.Declaration},
+    l.mapM (fun ci => toDecl [ci]) = some ds → ∀ d ∈ ds, ∃ ci ∈ l, toDecl [ci] = some d
+  | [], ds, h => by
+    simp only [List.mapM_nil, Option.pure_def, Option.some.injEq] at h
+    subst h; intro d hd; cases hd
+  | c :: l, ds, h => by
+    simp only [List.mapM_cons, Option.pure_def, Option.bind_eq_bind, Option.bind_eq_some_iff,
+      Option.some.injEq] at h
+    obtain ⟨d0, hd0, ds', hds', rfl⟩ := h
+    intro d hd
+    rcases List.mem_cons.1 hd with rfl | hd
+    · exact ⟨c, List.mem_cons_self, hd0⟩
+    · obtain ⟨ci, hci, h⟩ := mapM_toDecl_mem hds' d hd
+      exact ⟨ci, List.mem_cons_of_mem _ hci, h⟩
+
+theorem quotConstsI_range : ∀ ci ∈ quotConstsI.toList, ConstRangeOk ci := by
+  rw [quotConstsI_eq]
+  intro ci hci
+  simp only [List.mem_cons, List.not_mem_nil, or_false] at hci
+  rcases hci with rfl | rfl | rfl | rfl <;>
+    exact RangeOk_of_rangeB (by decide)
+
+theorem quotConstsI_nodup : (quotConstsI.toList.map (·.name)).Nodup := by
+  rw [quotConstsI_eq]
+  exact List.Pairwise.of_map (S := fun a b => a ≠ b) toName
+    (fun _ _ h e => h (congrArg toName e)) (by decide)
+
+/-- **The quotient package's step.** -/
+theorem quot_step {V : Type w} [ConLeche.SetTheory V] (hlaws : EnvLaws)
+    {E : Kernel.Environment} {L : ConLeche.Env} {a : InLean.Added}
+    (ha : InLean.checkDecl theoremConfig E .quotDecl = .ok a)
+    (hER : EnvRangeOk E) (hP : Presents E L) (hR : RelatesI E L)
+    (hM : ConLeche.Model.EnvModelOk V L) :
+    a.quot = true ∧ ∃ L', EnvRangeOk (InLean.markQuot (a.consts.foldl InLean.addConst E)) ∧
+      Presents (InLean.markQuot (a.consts.foldl InLean.addConst E)) L' ∧
+      RelatesI (InLean.markQuot (a.consts.foldl InLean.addConst E)) L' ∧
+      ConLeche.Model.EnvModelOk V L' ∧ ∃ new, L'.consts = new ++ L.consts := by
+  obtain ⟨s', hK, -, -⟩ := checkDecl_run ha
+  obtain ⟨-, ds, hds, F, L₁, hfold⟩ :=
+    checkDecl_sim_nk (decl := .quotDecl) (jobEnvI_of hlaws hR hM) (natKinds_of_modelOk hM) trivial trivial
+      (fun _ _ _ _ h => by cases h) ha
+  have hpres := quotGroupPres hlaws _ L {} s' a ds hR.1 hK hds
+  obtain ⟨-, h1, h2, h3, h4, rfl, -⟩ := checkQuotC_run hK
+  refine ⟨rfl, ?_⟩
+  have hfresh : ∀ ci ∈ quotConstsI.toList, E.find? ci.name = none := by
+    rw [quotConstsI_eq]
+    intro ci hci
+    simp only [List.mem_cons, List.not_mem_nil, or_false] at hci
+    rcases hci with rfl | rfl | rfl | rfl
+    · exact h1
+    · exact h2
+    · exact h3
+    · exact h4
+  have hE' : ∀ n, (InLean.markQuot (quotConstsI.foldl InLean.addConst E)).find? n =
+      (quotConstsI.toList.foldl InLean.addConst E).find? n := by
+    intro n; rw [markQuot_find hlaws, ← Array.foldl_toList]
+  have hff := find_foldl_addConst hlaws _ E hfresh quotConstsI_nodup
+  have hgrp := projBodiesInRange_group (fe := { env := E, coreAxioms := false }) hlaws hR.2
+    (ctorsStored_of_pres hR.1) hfresh quotConstsI_nodup (fun ci hci => by
+      apply projBodiesInRange_notInd
+      intro v hv
+      have := FEnv.env_of_find hv
+      rw [show ({ env := E, coreAxioms := false } : InLean.FEnv).env = E from rfl,
+        hff.1 ci hci] at this
+      rw [quotConstsI_eq] at hci
+      simp only [List.mem_cons, List.not_mem_nil, or_false] at hci
+      rcases hci with rfl | rfl | rfl | rfl <;> cases this)
+  have hrel : RelatesI (InLean.markQuot (quotConstsI.foldl InLean.addConst E)) L₁ := by
+    rw [foldlM_checkDecl_env ds L hfold]
+    refine ⟨hpres, ?_⟩
+    exact projBodiesInRange_congr (E' := InLean.markQuot (quotConstsI.foldl InLean.addConst E))
+      (fun n => hE' n) hgrp
+  exact step_of hlaws hE' hfresh quotConstsI_nodup
+    (fun d hd => by
+      obtain ⟨ci, hci, h⟩ := mapM_toDecl_mem hds d hd
+      exact ⟨[ci], fun c hc => by rw [List.mem_singleton.1 hc]; exact hci, h⟩)
+    quotConstsI_range hER hP hM hfold hrel
+
+/-- An accepted block check's block starts with a former. -/
+theorem checkIndDeclC_head {fe : InLean.FEnv} {block : List Lean.ConstantInfo} {nP : Nat}
+    {s s' : CState} (h : InLean.checkIndDeclC .verified fe block nP s = .ok ((), s')) :
+    ∃ v rest, block = .inductInfo v :: rest := by
+  unfold InLean.checkIndDeclC at h
+  split at h
+  · cases hp : InLean.blockShape? nP block with
+    | none => rw [hp] at h; exact (checkShapelessS_not_ok h).elim
+    | some p =>
+      obtain ⟨cvT0, tl, cs', rs', nIdxs, hsp, -⟩ := blockShape?_spec hp
+      obtain ⟨v, rest, hb, -⟩ := blockSplit_head hsp
+      exact ⟨v, rest, hb⟩
+  · exact (throwI_ok h).elim
+
+/-- **What the inductive arm reads off an accepted safe inductive declaration
+beyond `checkInductiveC_ok`** (NOT proved; the remaining obligation of the
+inductive arm): the generated constants' names are distinct (InLean tests each
+name fresh in its stage's environment, not the list as a whole), the stored
+block reads as a record (`toBlock`: its types and rules translate), and the
+block check ran from a state with the invariant (`CSOKIF`: the unverified
+generator runs on the checker's state before the block check, which starts
+from that state flushed). -/
+@[expose] def IndRunFactsI : Prop :=
+  ∀ (fe : InLean.FEnv) (lps : List Name) (nP : Nat) (types : List InductiveType)
+    (s s' : InLean.CState) (a : InLean.Added),
+    CSOKIF s → (InLean.checkInductiveC .verified fe lps nP types false).run s = .ok (a, s') →
+    (a.consts.toList.map (·.name)).Nodup ∧ (∃ cb, toBlock (InLean.storedBlock a.consts) = some cb) ∧
+    ∃ s₀ s₁, CSOKIF s₀ ∧
+      (InLean.checkIndDeclC .verified fe (InLean.storedBlock a.consts) nP).run s₀ = .ok ((), s₁)
+
+theorem mem_of_storedBlock {consts : Array Lean.ConstantInfo} {ci : Lean.ConstantInfo}
+    (h : ci ∈ InLean.storedBlock consts) : ci ∈ consts.toList := by
+  unfold InLean.storedBlock at h
+  simp only [Array.toList_append, List.mem_append, Array.mem_toList_iff, Array.mem_filter] at h
+  rw [Array.mem_toList_iff]
+  rcases h with (h | h) | h <;> exact h.1
+
+theorem constRangeOk_of_block {ci : Lean.ConstantInfo} (hb : InLean.isBlockConst ci = true)
+    (hr : CIRange ci) : ConstRangeOk ci := by
+  cases ci <;> simp_all [InLean.isBlockConst, CIRange, ConstRangeOk] <;> exact hr
+
+/-- **An inductive block's step**, from `IndRunFactsI`. -/
+theorem ind_step {V : Type w} [ConLeche.SetTheory V] (hlaws : EnvLaws) (hI : IndRunFactsI)
+    {E : Kernel.Environment} {L : ConLeche.Env} {lps : List Name} {nP : Nat}
+    {types : List InductiveType} {a : InLean.Added}
+    (ha : InLean.checkDecl theoremConfig E (.inductDecl lps nP types false) = .ok a)
+    (hER : EnvRangeOk E) (hP : Presents E L) (hR : RelatesI E L)
+    (hM : ConLeche.Model.EnvModelOk V L) :
+    ∃ L', EnvRangeOk (a.consts.foldl InLean.addConst E) ∧
+      Presents (a.consts.foldl InLean.addConst E) L' ∧
+      RelatesI (a.consts.foldl InLean.addConst E) L' ∧
+      ConLeche.Model.EnvModelOk V L' ∧ ∃ new, L'.consts = new ++ L.consts := by
+  obtain ⟨s', hK, hbn, hsq⟩ := checkDecl_run ha
+  have hK' : (InLean.checkInductiveC .verified { env := E, coreAxioms := false } lps nP types
+      false).run {} = .ok (a, s') := hK
+  have hok := checkInductiveC_ok hK'
+  obtain ⟨hnd, ⟨cb, hcb⟩, s₀, s₁, hs₀, hrun⟩ := hI _ lps nP types {} s' a CSOKIF_empty hK'
+  have hJ := jobEnvI_of hlaws hR hM
+  have hsub := storedBlock_of_checkInductiveC hK'
+  have hfresh := fresh_of_checkInductiveC hK'
+  have hblk : ∀ ci ∈ a.consts.toList, InLean.isBlockConst ci = true := by
+    intro ci hci
+    have h1 := hok.1
+    rw [Array.all_eq_true_iff_forall_mem] at h1
+    exact h1 ci (Array.mem_toList_iff.1 hci)
+  have hCIR : ∀ ci ∈ a.consts.toList, CIRange ci := by
+    intro ci hci
+    have h2 := hok.2.1
+    rw [Array.all_eq_true_iff_forall_mem] at h2
+    exact CIRange_of_constInRange (h2 ci (Array.mem_toList_iff.1 hci))
+  have hnsorry : ∀ ci ∈ a.consts.toList, ci.name ≠ InLean.sorryAxName := by
+    intro ci hci hn
+    have h1 := hsq ci hci
+    have h2 := hblk ci hci
+    cases ci <;> simp_all [InLean.sorryAxSquat, InLean.isBlockConst]
+  -- master's step on the block's record
+  obtain ⟨-, F, L₁, hkind⟩ := checkIndDeclC_sim (pins := loadedPins) hJ
+    (fun ci hci hn => absurd hn (hnsorry ci (mem_of_storedBlock hci))) hs₀
+    (fun ci hci => hCIR ci (mem_of_storedBlock hci))
+    (fun ci hci => closed_of_checkInductiveC hK' ci (mem_of_storedBlock hci))
+    (blockStepsOk_storedBlock hok.2.2.2.2.2.2) hcb hrun
+  obtain ⟨v, rest, hhead⟩ := checkIndDeclC_head hrun
+  have hnP := numParams_of_checkIndDeclC hrun hhead
+  have hd : toDecl (InLean.storedBlock a.consts) = some (.indDecl cb nP) := by
+    rw [hhead] at hcb ⊢
+    simp only [toDecl, hcb, hnP, Option.bind_eq_bind, Option.bind_some, Option.pure_def]
+  have hstep := checkDecl_of_kind hkind
+    (basisNamesOk_ind_tr (n := nP) hcb (fun ci hci => hCIR ci (mem_of_storedBlock hci)) hbn)
+  have hfold : [ConLeche.Declaration.indDecl cb nP].foldlM
+      (ConLeche.checkDecl .verified (ConLeche.fueledOps .verified F) loadedPins) L = .ok L₁ := by
+    simp [List.foldlM, hstep, bind, Except.bind, pure, Except.pure]
+  have hpres := indGroupPresBP hlaws _ L a.consts nP s₀ s₁ _ hR.1 rfl hsub hfresh hnd
+    (sees_of_checkInductiveC hK' hnsorry) hok.2.1 hok.2.2.2.2.2.2 hrun hd
+  have hproj := projBodiesInRange_ind hlaws hR.2 (ctorsStored_of_pres hR.1) hK' hfresh hnd
+  have hE' : ∀ n, (a.consts.foldl InLean.addConst E).find? n =
+      (a.consts.toList.foldl InLean.addConst E).find? n := by
+    intro n; rw [← Array.foldl_toList]
+  refine step_of hlaws hE' hfresh hnd
+    (fun d' hd' => ⟨InLean.storedBlock a.consts, fun _ h => mem_of_storedBlock h,
+      by rw [List.mem_singleton.1 hd']; exact hd⟩)
+    (fun ci hci => constRangeOk_of_block (hblk ci hci) (hCIR ci hci)) hER hP hM hfold ?_
+  rw [foldlM_checkDecl_env _ L hfold]
+  exact ⟨hpres, hproj⟩
+
 end InLeanProof
