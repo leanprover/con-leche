@@ -719,3 +719,4 @@ ConLeche/Model/AxiomPin.lean	import ConLeche.Semantics.DeclRun	# compensated: th
 ConLeche/Model/Modular/Instance.lean	public import ConLeche.Model.Modular.Step	# compensated: the --only run asks for import ConLeche.Model.Modular.Step and public import ConLeche.Model.Modular.Proofs back in Instance.lean (task #500)
 ConLeche/Model/Modular/Proofs.lean	public import ConLeche.Model.Modular.RestrictAgree	# compensated: the --only run asks for import ConLeche.Model.Modular.RestrictAgree and public import ConLeche.Modular back in Proofs.lean; applied, the module loses SetTheory (task #500)
 ConLeche/Verify/Driver/Loads.lean	public import ConLeche.Frontend.Olean	# the interface of the olean tree (tests/layering.sh); shake proposes its module Levels instead (task #501)
+ConLeche/Driver/Tables.lean	public import ConLeche.Frontend.Olean	# the interface of the olean tree (tests/layering.sh); shake proposes its module Levels instead (task #509)
