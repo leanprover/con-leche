@@ -114444,3 +114444,142 @@ a bare budget refused, `512M` accepted, a percentage pace refused.  Gates: `lake
 test` warning-free; trust surface (the process fence unchanged), layering, shake, overview links
 (the `runArgs` anchor moved by the usage text), quote gate, pindump, challenge, no-local-paths;
 the olean gate 321/321 under the guard.
+
+## TASK #504 — what a worker reads (probe) (2026-11-08, agent/504-read-probe)
+
+The question: would seek-based reads pay off for the per-module worker (`con-leche --olean --module
+-- M`)?  Since #491 the files are read through a sequential `CheckerIO` handle; Lean 4.35's
+`IO.FS.Handle` has no seek, so a seek is an `[extern]` in C.  A measurement probe; nothing lands but
+this record.  The probe (`_tmp/504/probe.patch`, not committed) replaces the compiled `rdU8`,
+`rdU64` and `Region.strAt` by copies (`implemented_by`) that log which 64-byte lines of every
+`.olean`-headed `ByteArray` are read; the kernel-side definitions are unchanged.  Workers: base
+`modular` at 69443c96f, `--jobs=8` for the counters, the strace and the profiles, `--jobs=1` for the probe
+(the bytes touched at one job are taken to be those at eight); v4.35.0 Mathlib, search path its build, its packages'
+builds and the toolchain's `lib/lean` (`measure.sh` of #501, `_tmp/501/measure.sh`).  Every run
+under the guard, one run per stream for `instructions`, three for `cycles`; the files are in the
+page cache (no cold-read figure; no cache dropping on the shared machine).
+
+**1. Bytes read from files** (`strace -f -e trace=read,openat`, summed over the `.olean*` file
+descriptors).  An "open" is one `openat`; the header reads (`hdrChunk`, 4 KiB) are separate opens.
+
+| worker | files | opens | bytes read | header-only opens | full-file opens | distinct files read in full | read in full more than once | re-read excess |
+|---|---|---|---|---|---|---|---|---|
+| `Init.Data.Nat.Lemmas` | 111 | 275 | 51.5 MiB | 130 (0.4 MiB) | 145 (51.0 MiB) | 78 (21.2 MiB) | 47 | 29.8 MiB (58 %) |
+| `Mathlib.GroupTheory.Coxeter.Basic` | 2 688 | 4 752 | 417.4 MiB | 3 094 (10.1 MiB) | 1 658 (407.4 MiB) | 1 284 (284.6 MiB) | 279 | 122.7 MiB (30 %) |
+| `Mathlib.Analysis.SpecialFunctions.Gamma.Basic` | 4 733 | 9 447 | 1 142.1 MiB | 5 124 (17.1 MiB) | 4 323 (1 125.1 MiB) | 2 999 (686.3 MiB) | 958 | 438.8 MiB (39 %) |
+| `Mathlib.RingTheory.WittVector.MulP` | 3 470 | 6 056 | 473.4 MiB | 4 056 (13.1 MiB) | 2 000 (460.2 MiB) | 1 680 (346.4 MiB) | 237 | 113.8 MiB (25 %) |
+
+The "reads each part's files once per module" of #468's list is not what happens: a file is read in
+full several times in one worker (`Init/Prelude.olean`, 3.4 MiB, four times in `Nat.Lemmas`, five
+to seven times in the others).  The excess is the second column from the right; a cache of the read
+parts would remove it with no seek.  (Why each re-read happens was not traced.)
+
+**2. Bytes needed.**  The probe's count is exact for what the reader dereferences, up to the line
+(64 bytes): every `rdU8`/`rdU64` and string extraction on an array that starts with `olean`.  It
+counts per array, so a file read twice is counted twice, like the strace.  The denominator is the
+bytes of those arrays that were touched beyond their header (`Y`): that includes the region copies
+`Region.ofParts` builds from a module's three files (a part appears in several regions), so `Y` is
+larger than the bytes read (417 MiB read, 741 MiB of arrays in Coxeter).  Touched, as a share of `Y`
+at the granularity a seeking reader would fetch:
+
+| worker | `Y` | 64-byte lines | 512-byte blocks | 4 KiB blocks | 64 KiB blocks |
+|---|---|---|---|---|---|
+| `Init.Data.Nat.Lemmas` | 71.2 MiB | 11.1 MiB (15.6 %) | 19.6 MiB (27.5 %) | 31.9 MiB (44.8 %) | 52.2 MiB (73.3 %) |
+| `Mathlib.GroupTheory.Coxeter.Basic` | 741.3 MiB | 60.7 MiB (8.2 %) | 154.3 MiB (20.8 %) | 318.4 MiB (43.0 %) | 602.4 MiB (81.3 %) |
+| `Mathlib.Analysis.SpecialFunctions.Gamma.Basic` | 1 642.7 MiB | 113.9 MiB (6.9 %) | 297.1 MiB (18.1 %) | 690.5 MiB (42.0 %) | 1 303.1 MiB (79.3 %) |
+| `Mathlib.RingTheory.WittVector.MulP` | 973.7 MiB | 73.0 MiB (7.5 %) | 192.4 MiB (19.8 %) | 431.8 MiB (44.3 %) | 805.1 MiB (82.7 %) |
+
+The needed bytes are scattered: the objects a record reaches lie all over a file, so at page
+granularity more than 40 % of every file is touched, and at 64 KiB about 80 %.  Only a reader
+fetching ranges of a few hundred bytes would read 7-16 % (at one `read` per range: millions of
+reads, the events logged are 3.2-5.5 million per Mathlib worker).  Own files are not separated from
+the reach's parts; the figures are the whole worker.  Not counted: the bytes the probe's own
+`b.size < 4096` filter skips (tables that are not files).
+
+**3. Where the time goes** (`perf stat`, `perf record` on cycles, `instructions:u` and
+`instructions:k`; kernel symbols are unreadable here (`kptr_restrict`), so the kernel's samples are
+grouped by address).
+
+| worker | `instructions:u` | `instructions:k` | `cycles:u` | `cycles:k` | kernel share of cycles | copy-to-user hot spot, share of cycles | `memmove` in the process, share of cycles / of user instructions |
+|---|---|---|---|---|---|---|---|
+| `Init.Data.Nat.Lemmas` | 9.183 G | 0.099 G | 4.39-4.71 G | 0.13-0.14 G | 2.6 % | 0.4 % | 0.3 % / 0.2 % |
+| `Mathlib.GroupTheory.Coxeter.Basic` | 8.915 G | 1.875 G | 3.64-3.97 G | 1.02-1.17 G | 25.5 % | 6.7 % | 2.1 % / 1.0 % |
+| `Mathlib.Analysis.SpecialFunctions.Gamma.Basic` | 15.514 G | 3.55-3.97 G | 6.91-8.94 G | 2.28-3.42 G | 25.3 % | 6.5 % | 2.6 % / 1.0 % |
+| `Mathlib.RingTheory.WittVector.MulP` | 8.986 G | 2.448 G | 3.46-3.59 G | 1.27-1.32 G | 27.5 % | 6.3 % | 2.0 % / 1.3 % |
+
+(Cycles: three runs per stream, ranges; the machine is loaded.  Instructions:u: three runs agree
+to 0.01 %.)  Reading, then, is the kernel's copy of the bytes (the one hot address, the same in
+every run, 6.3-6.7 % of the Mathlib workers' cycles, 2-3 % of the kernel's instructions, about
+0.4 % of all instructions) plus the user-space `memmove` (the concatenation of the files into a
+region and every other copy: at most 2.0-2.6 % of cycles, 1.0-1.3 % of user instructions; no
+separate figure for the concatenation).  So **reading is at most about 9 % of the Mathlib workers'
+cycles and about 1.5 % of their instructions**, and under 1 % of `Nat.Lemmas`.  Page faults are
+not the cost (4 305 in Coxeter, 9 086 in Gamma; the allocator reuses memory).
+
+The kernel's other 18-20 % of cycles (and nearly all of its instructions) is not reading but the
+file location: `strace -c` counts 206 844 `readlink` and 155 263 `statx` (130 656 failing) in the
+Coxeter worker, 5 800 opens.  `locateIn` calls `pathExists` and `realPath` for each of the three
+files in each search-path directory (`findModule`, for every module of the closure; how many
+times per module was not traced).  A microbenchmark of 155 000 failing `statx` plus 620 000 `readlink` costs
+1.34 G kernel cycles (about 1 700 per call), so these 362 000 calls are about 0.6 G of Coxeter's
+1.0-1.2 G kernel cycles: roughly 13 % of the worker's cycles, twice the reading.  Not touched by
+this probe (no seek helps it).
+
+**What a seek-based read could save at most.**  With perfect range reads (64-byte lines) the
+kernel copy would shrink to 7-16 % of itself: at most about 6 % of cycles (6.7 % × (1 − 0.08) in
+Coxeter); at 4 KiB granularity about 57 % of it: about 3.7 % of cycles; at 64 KiB about 1 %.  The
+user-space copies would shrink with the bytes allocated, at most their 2-2.6 %.  Instructions:
+about 0.4 % (kernel) plus at most 1.0-1.3 % (user).  An upper bound on the whole: about 6 % of
+cycles and 1.5 % of instructions for the Mathlib workers, about 3.5 % of cycles at the page size
+that a real implementation would use, before the cost of the extra calls and of the C.
+
+**Recommendation.**  Do not add a seek.  It saves at most about 4 % of cycles at a realistic
+granularity (page cache hot; a cold read would weigh the bytes more, which this probe cannot
+say), under 2 % of instructions, and it would take an `[extern]` in C, the thing #491 removed, with
+a new assumption in the `CheckerIO` model (a seek's position law) and a bigger trust surface.  The
+maintainer's earlier view, that reading is not significant, holds for instructions (about 1.5 %)
+and is bounded for cycles (about 9 % for reading in all, most of it unavoidable: the bytes the
+decoder does touch are 40-80 % of every page).  Two things the probe found are larger than any
+seek and need neither C nor a change of the proofs' IO model: the re-reads (25-58 % of the bytes
+read; a read cache keyed by part and level) and the file location (about 13 % of cycles in the
+Mathlib workers: `realPath` on every candidate of every directory, which `--modular`'s tables and
+`findModule`'s once-per-module result could answer from one directory listing).  Reported, not
+done here.  (A cold-cache figure was not taken; the files were in the page cache.)
+
+Files: `_tmp/504/probe.patch` (the probe: `Region.lean`, `Main.lean`), `_tmp/504/logs/` (the
+runs; `ev-*.bin` the line events; `post-skip-*.txt` the tables above), `_tmp/504/postd/Post.lean`
+(the event reader), `_tmp/504/an2.py` (the strace reader).  The tree is unchanged by the probe.
+
+## TASK #507 — the scheduler's status shows its memory (2026-11-08, agent/507-sched-mem)
+
+The maintainer's request: the scheduler watches memory, so its status output shows it.  Every
+tick (50 ms) now reads the running workers' resident sets through the #505 mechanism
+(`/proc/self/task/*/children`, `/proc/<pid>/cmdline`, `VmRSS`; `workerRssOpt`), budget or not;
+if `/proc` cannot be read the memory is left out (an error only with a budget, refused at the
+start as before).  `ConLeche/Driver/ScheduleIO.lean`, plain IO; no theorem.
+
+**Line format.**  The module line and the heartbeat carry, after `k running` (only while a
+worker runs), the running workers' total, the largest one, and the budget when one is set; the
+sizes are GiB with one decimal, MiB below 0.1 GiB, the budget `40 GiB` or `0.5 GiB`.  The
+sample is the one of the tick, over the workers still running after that tick's finishes.  The
+final summary line ends `; peak T of the running workers` (the largest total sampled over the
+run, 0 or none where unreadable).  The log's format is unchanged; the olean gate's pinned line
+(`[4/4 100.0 %, 0 running]`) is unchanged (no workers, no memory), 321/321.
+
+Examples (`--olean --schedule --jobs=4 --search-path=<toolchain lib/lean> -- Init.Data.Nat.Lemmas`):
+```
+con-leche: schedule: Init.Data.Nat.Log2: 0 t=0.1s [1/84 1.1 %, 2 running, 0.1 GiB (max 0.0 GiB), eta 46s]   (first build)
+con-leche: accepted 84 modules, one worker each (--verified); peak 0.1 GiB of the running workers
+```
+with `--schedule-memory=8G`, and `Init.Data.BitVec.Lemmas` at `--jobs=4 --schedule-stagger=0`
+(after the MiB change):
+```
+con-leche: schedule: Init.Data.Fin.Lemmas: 0 t=0.5s [4/173 2.3 %, 3 running, 0.3 GiB (max 0.1 GiB) of 8 GiB, eta 30s]
+con-leche: schedule: Init.Data.BitVec.Bootstrap: 0 t=0.3s [7/173 4.0 %, 3 running, 0.2 GiB (max 98 MiB) of 8 GiB, eta 26s]
+con-leche: schedule: [172/173 99.4 %, 1 running, 73 MiB (max 73 MiB) of 8 GiB, eta 0s]; longest: Init.Data.Array.Extract 3s
+con-leche: accepted 173 modules, one worker each (--verified); peak 0.5 GiB of the running workers
+```
+Usage text and OVERVIEW §(scheduler) updated; the README's `runArgs` links repointed (the usage
+text moved the definition from line 284 to 287).  Gates: `lake build`, `lake test`
+warning-free; trust surface, layering, overview links, quote gate; olean gate 321/321 under the
+guard.  No fixture pins the memory text: a tick may miss a short worker.
