@@ -7,6 +7,9 @@ import ConLeche.Verify.Cached.DeclPushes
 import ConLeche.Verify.Frontend.Prepare
 import ConLeche.Verify.Frontend.Olean.Equiv
 import ConLeche.Verify.Frontend.Olean.Reads
+import ConLeche.Verify.Inductives.BlockShapeInv
+import ConLeche.Verify.PinRen
+import ConLeche.Verify.Frontend.Olean.Group
 
 /-!
 # The routes: what a module's context stores, and how
@@ -229,11 +232,11 @@ theorem entryDecl_defn {c : CEntry} {d : Declaration} (h : entryDecl c = some d)
 
 /-- **A quotient constant's record, from one constant.** -/
 theorem entryDecl_quot {c : CEntry} {d : Declaration} (h : entryDecl c = some d) {q : String}
-    (hk : c.kind = .quot q) : ∃ k cv, d = .quotDecl k cv := by
+    (hk : c.kind = .quot q) : ∃ k, d = .quotDecl k ⟨c.name, c.levelParams, c.type⟩ := by
   unfold entryDecl at h
   rw [hk] at h
   simp only at h
-  split at h <;> (try (rename_i heq; cases heq)) <;> (try (cases h; exact ⟨_, _, rfl⟩)) <;> cases h
+  split at h <;> (try (rename_i heq; cases heq)) <;> (try (cases h; exact ⟨_, rfl⟩)) <;> cases h
 
 /-- **A copy's position says its statement's kind**: its tag and its filter. -/
 theorem copyAt_kind {sp : SearchPath} {fs : FS} {s : Spot} {r : Region} {cv : ConstantVal}
@@ -251,6 +254,148 @@ theorem copyAt_kind {sp : SearchPath} {fs : FS} {s : Spot} {r : Region} {cv : Co
   cases hsk'
   obtain ⟨h1, h2⟩ := CKindF.mapM_tag hkm
   exact ⟨htg.trans h1, hskp.trans h2⟩
+
+theorem except_mapM_mem {ε α β : Type} {f : α → Except ε β} :
+    ∀ {xs : List α} {ys : List β}, xs.mapM f = .ok ys → ∀ y ∈ ys, ∃ x ∈ xs, f x = .ok y
+  | [], ys, h, y, hy => by
+    simp only [List.mapM_nil, pure, Except.pure, Except.ok.injEq] at h
+    subst h; cases hy
+  | x :: xs, ys, h, y, hy => by
+    rw [List.mapM_cons] at h
+    obtain ⟨a, ha, h⟩ := bind_ok_inv h
+    obtain ⟨as, has, h⟩ := bind_ok_inv h
+    simp only [pure, Except.pure, Except.ok.injEq] at h
+    subst h
+    rcases List.mem_cons.1 hy with rfl | hy
+    · exact ⟨x, List.mem_cons_self, ha⟩
+    · obtain ⟨x', hx', hf⟩ := except_mapM_mem has y hy
+      exact ⟨x', List.mem_cons_of_mem _ hx', hf⟩
+
+/-- **A block's record names only its records' constants**, and is an inductive block. -/
+theorem declOfF_ind_names {em : Emit} {ts : List Frontend.IndTypeRec}
+    {cts : List Frontend.IndCtorRec} {rs : List Frontend.IndRecRec} {d : Declaration}
+    (h : Frontend.declOfF em.nm em.lv em.ex (.ind ts cts rs) = .ok (.inl d)) {P : Name → Prop}
+    (hts : ∀ t ∈ ts, ∃ c, CvOf em t.cv c ∧ P c.name)
+    (hcts : ∀ t ∈ cts, ∃ c, CvOf em t.cv c ∧ P c.name)
+    (hrs : ∀ t ∈ rs, ∃ c, CvOf em t.cv c ∧ P c.name) :
+    (∃ b nP, d = .indDecl b nP) ∧ ∀ n ∈ declNames d, P n := by
+  simp only [Frontend.declOfF, bind, Except.bind, pure, Except.pure] at h
+  cases hv : Frontend.validateIndF em.nm em.lv em.ex ts cts rs with
+  | error e => simp only [hv] at h; cases h
+  | ok x =>
+  simp only [hv] at h
+  rcases x with x | ⟨c1, nPd⟩
+  · simp at h
+  simp only at h
+  cases hb : Frontend.indBlockOfF em.nm em.lv em.ex ts c1 rs nPd with
+  | error e => simp only [hb] at h; cases h
+  | ok d' =>
+  simp only [hb, Except.ok.injEq, Sum.inl.injEq] at h
+  subst h
+  obtain ⟨-, -, listed, ctorNames, -, -, hc1⟩ := validateIndF_inr hv
+  have hc1m : ∀ c ∈ c1, c ∈ cts := by
+    intro c hc
+    rw [hc1] at hc
+    obtain ⟨n, -, hn⟩ := List.mem_filterMap.1 hc
+    simp only [ctorAt] at hn
+    obtain ⟨k, -, hk⟩ := Option.bind_eq_some_iff.1 hn
+    have := Array.mem_of_getElem? hk
+    simpa using this
+  unfold Frontend.indBlockOfF at hb
+  obtain ⟨types, htypes, hb⟩ := bind_ok_inv hb
+  obtain ⟨ctors, hctors, hb⟩ := bind_ok_inv hb
+  obtain ⟨recs, hrecs, hb⟩ := bind_ok_inv hb
+  simp only [pure, Except.pure, Except.ok.injEq] at hb
+  subst hb
+  have hblock : ∀ b ∈ types ++ ctors ++ recs, P b.name := by
+    intro b hb
+    simp only [List.mem_append] at hb
+    rcases hb with (hb | hb) | hb
+    · obtain ⟨t, ht, hf⟩ := except_mapM_mem htypes b hb
+      obtain ⟨cv, hcv, hf⟩ := bind_ok_inv hf
+      simp only [pure, Except.pure, Except.ok.injEq] at hf
+      subst hf
+      obtain ⟨c, hc, hp⟩ := hts t ht
+      rw [cvOfF_of hc] at hcv; cases hcv; exact hp
+    · obtain ⟨t, ht, hf⟩ := except_mapM_mem hctors b hb
+      obtain ⟨cv, hcv, hf⟩ := bind_ok_inv hf
+      simp only [pure, Except.pure, Except.ok.injEq] at hf
+      subst hf
+      obtain ⟨c, hc, hp⟩ := hcts t (hc1m t ht)
+      rw [cvOfF_of hc] at hcv; cases hcv; exact hp
+    · obtain ⟨t, ht, hf⟩ := except_mapM_mem hrecs b hb
+      obtain ⟨rules, -, hf⟩ := bind_ok_inv hf
+      obtain ⟨cv, hcv, hf⟩ := bind_ok_inv hf
+      simp only [pure, Except.pure, Except.ok.injEq] at hf
+      subst hf
+      obtain ⟨c, hc, hp⟩ := hrs t ht
+      rw [cvOfF_of hc] at hcv; cases hcv; exact hp
+  refine ⟨⟨_, _, rfl⟩, fun n hn => ?_⟩
+  simp only [declNames, declConstants] at hn
+  split at hn
+  · rename_i p hp
+    obtain ⟨hm, hc, hr⟩ := blockShape?_names hp
+    have : n ∈ (blockConstants p).map (·.name) := hn
+    rw [blockConstants_names] at this
+    simp only [List.mem_append, List.mem_map] at this
+    rcases this with (⟨ms, hms, rfl⟩ | ⟨c, hc', rfl⟩) | ⟨rc, hrc, rfl⟩
+    · obtain ⟨b, hb, hbn⟩ := hm ms hms; rw [← hbn]; exact hblock b hb
+    · obtain ⟨b, hb, hbn⟩ := hc c hc'; rw [← hbn]; exact hblock b hb
+    · obtain ⟨b, hb, hbn⟩ := hr rc hrc; rw [← hbn]; exact hblock b hb
+  · simp at hn
+
+/-- **An accepted quotient record is its slot's pin.** -/
+theorem checkDeclStepC_quot {mode : CheckMode} {pins : List NatOpPinSet} {fe : FEnv}
+    {k : QuotKind} {cv : ConstantVal} :
+    Yields (checkDeclStepC mode pins fe (.quotDecl k cv)) (fun _ => quotPinHit k cv = true) := by
+  unfold checkDeclStepC checkDeclC
+  ybind
+  refine Yields.bind' (Q := fun _ => quotPinHit k cv = true) ?_ fun _ h => Yields.const h
+  show Yields (checkQuotRecordC fe k cv) _
+  unfold checkQuotRecordC
+  yields
+  all_goals exact Yields.const (by assumption)
+
+theorem declsRun_quot {mode : CheckMode} {pins : List NatOpPinSet} {ds : List Declaration}
+    {p q : Nat × FEnv} (h : DeclsRun mode pins ds p q) {k : QuotKind} {cv : ConstantVal}
+    (hd : .quotDecl k cv ∈ ds) : quotPinHit k cv = true := by
+  induction h with
+  | nil => exact nomatch hd
+  | @cons pd ds p p₁ q hstep rest ih =>
+    rcases List.mem_cons.mp hd with rfl | hd
+    · obtain ⟨fe₁, s₁, -, hC⟩ := declStep_ok hstep
+      exact checkDeclStepC_quot _ _ _ hC
+    · exact ih hd
+
+/-- **A pinned quotient record installs its own name.** -/
+theorem quotAt_name_of_hit {k : QuotKind} {cv : ConstantVal} (h : quotPinHit k cv = true) :
+    (quotAt k cv).name = cv.name := by
+  simp only [quotPinHit, Bool.and_eq_true] at h
+  have he := ConstantVal.eq_of_beqP h.2
+  rw [quotAt, ConLeche.Verify.atLps_name, he]
+  rfl
+
+/-- **A module's own names** hold every constant of its private view. -/
+theorem ownNames_mem {l : Loaded} {c : CEntry} (hc : c ∈ l.constants) :
+    (ownNames l).contains c.name = true := by
+  unfold ownNames
+  rw [← Array.foldl_toList]
+  have key : ∀ (L : List CEntry) (acc : Std.HashSet Name),
+      (acc.contains c.name = true ∨ c ∈ L) →
+        (L.foldl (fun s c => s.insert c.name) acc).contains c.name = true := by
+    intro L
+    induction L with
+    | nil => intro acc h; simpa using h
+    | cons a L ih =>
+      intro acc h
+      simp only [List.foldl_cons]
+      apply ih
+      rcases h with h | h
+      · exact .inl (by simp [h])
+      · rcases List.mem_cons.1 h with rfl | h
+        · exact .inl (by simp)
+        · exact .inr h
+  exact key _ _ (.inr (Array.mem_toList_iff.2 hc))
 
 namespace Run
 
@@ -289,6 +434,85 @@ theorem stored_of_own_const {h : Name} (hh : h ∈ R.names) {ci : ConstantInfo}
       (recordReads_complete (.inl ⟨ci, hcp, .inl hy⟩)) hno (by simp [hlc])
   · obtain ⟨d, hd, hcd⟩ := ((mem_streamEnv_consts _ _).1 hc).resolve_right (by simp [Env.empty])
     exact (worker_ctx hw).2.2.1 d hd y (recordReads_complete (.inl ⟨ci, hcd, .inl hy⟩))
+
+/-- **An emitted record's constant is a constant of its module's merge**, of its name, of a
+kind past the statements' where it is no statement. -/
+theorem emitted_names {h : Name} (hh : h ∈ R.names) {p : Declaration} (hp : p ∈ (R.w h).emitted)
+    {ci : ConstantInfo} (hci : ci ∈ declConstants p) :
+    ∃ c : CEntry, (homeMerged (R.w h)).map[c.name]? = some c ∧ c.name = ci.name ∧
+      (ci.isStmtKind = false → 4 ≤ c.kind.tag) := by
+  have hw := R.facts h hh
+  obtain ⟨f, r, a, sk, skels, hf, hreg, hsk, hskels, hcn, hcv, hload, hN, hO, hb, hem, hown⟩ :=
+    home_records hw
+  have hname : ci.name ∈ declNames p := List.mem_map_of_mem hci
+  rcases declsOf_from hN hem hp with ⟨c, hc, hpe⟩ | ⟨ts, cts, rcs, hrf, hdo⟩
+  · refine ⟨c, hc, ?_⟩
+    rcases hck : c.kind with _ | ⟨v, hh', sf⟩ | ⟨v, all⟩ | ⟨v, iu⟩ | q | _ | _ | _
+    all_goals first
+      | (simp [entryDecl, hck] at hpe; done)
+      | skip
+    · -- an axiom
+      simp only [entryDecl, hck, Option.some.injEq] at hpe
+      subst hpe
+      refine ⟨(declNames_stmt (.inl rfl) _ hname).symm, fun hns => ?_⟩
+      simp only [declConstants] at hci
+      split at hci
+      · rw [List.mem_singleton.1 hci] at hns; cases hns
+      · split at hci
+        · cases hci
+        · rw [List.mem_singleton.1 hci] at hns; cases hns
+    · -- a definition
+      by_cases hsf : sf = "safe"
+      · subst hsf
+        simp only [entryDecl, hck, Option.some.injEq] at hpe
+        subst hpe
+        refine ⟨(declNames_stmt (.inr ⟨_, _, rfl⟩) _ hname).symm, fun hns => ?_⟩
+        simp only [declConstants, List.mem_singleton] at hci
+        rw [hci] at hns; cases hns
+      · simp [entryDecl, hck, hsf] at hpe
+    · -- a theorem
+      simp only [entryDecl, hck, Option.some.injEq] at hpe
+      subst hpe
+      simp only [declConstants, List.mem_singleton] at hci
+      subst hci
+      exact ⟨rfl, fun hns => by cases hns⟩
+    · -- an opaque constant
+      simp only [entryDecl, hck, Option.some.injEq] at hpe
+      subst hpe
+      simp only [declConstants, List.mem_singleton] at hci
+      subst hci
+      exact ⟨rfl, fun hns => by cases hns⟩
+    · -- a quotient constant: the pin, at its own name
+      obtain ⟨kq, rfl⟩ := entryDecl_quot hpe hck
+      simp only [declConstants, List.mem_singleton] at hci
+      subst hci
+      have hhit := declsRun_quot (R.run h hh)
+        (List.mem_map.2 ⟨_, emitted_own hw hp, rfl⟩)
+      exact ⟨(quotAt_name_of_hit hhit).symm, fun _ => by simp [CKindF.tag]⟩
+  · obtain ⟨-, hnames⟩ := declOfF_ind_names hdo
+      (P := fun n => ∃ c : CEntry, (homeMerged (R.w h)).map[c.name]? = some c ∧ c.name = n ∧
+        4 ≤ c.kind.tag)
+      (fun t ht => by
+        obtain ⟨c, hst, hcv, htg⟩ := hrf.1 t ht
+        exact ⟨c, hcv, c, hst, rfl, by omega⟩)
+      (fun t ht => by
+        obtain ⟨c, hst, hcv, htg⟩ := hrf.2.1 t ht
+        exact ⟨c, hcv, c, hst, rfl, by omega⟩)
+      (fun t ht => by
+        obtain ⟨c, hst, hcv, htg⟩ := hrf.2.2 t ht
+        exact ⟨c, hcv, c, hst, rfl, by omega⟩)
+    obtain ⟨c, hc, hcn, ht⟩ := hnames _ hname
+    exact ⟨c, hc, hcn, fun _ => ht⟩
+
+/-- **An emitted record's names are its module's own.** -/
+theorem emitted_ownNames {h : Name} (hh : h ∈ R.names) {p : Declaration}
+    (hp : p ∈ (R.w h).emitted) {n : Name} (hn : n ∈ declNames p) :
+    (ownNames (R.w h).home).contains n = true := by
+  obtain ⟨ci, hci, rfl⟩ := List.mem_map.1 hn
+  obtain ⟨c, hc, hcn, -⟩ := R.emitted_names hh hp hci
+  have := (mergedOfList_spec _).2.1 _ _ hc
+  rw [show ci.toConstantVal.name = c.name from hcn.symm]
+  exact ownNames_mem (Array.mem_toList_iff.1 (List.mem_filter.1 this).1)
 
 /-- **The context's copy of a name**: a copy of that name on the snapshot, at a level a load
 reads. -/
@@ -428,7 +652,7 @@ theorem ctx_stmt {M : Name} (hM : M ∈ R.names) {y : Name}
     have := hfind (.defnInfo cv v hh') (by simp [declConstants])
     rwa [show (ConstantInfo.defnInfo cv v hh').name = y from hcvy] at this
   | @quot s1 r1 cv1 q d1 hs1 hl1 hr1 hst1 hd1 =>
-    obtain ⟨kq, cq, rfl⟩ := entryDecl_quot (recordOfEntry_eq hd1) rfl
+    obtain ⟨kq, rfl⟩ := entryDecl_quot (recordOfEntry_eq hd1) rfl
     have hxy : x = y := by
       simp only [declNames, declConstants, List.map_cons, List.map_nil, List.mem_singleton] at hx hyd
       rw [hx, hyd]
