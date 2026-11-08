@@ -5,6 +5,7 @@ public import ConLeche.Verify.Driver.RouteWorker
 import ConLeche.Verify.Driver.Reach
 import ConLeche.Verify.Cached.DeclPushes
 import ConLeche.Verify.Frontend.Prepare
+import ConLeche.Verify.Frontend.Olean.Equiv
 
 /-!
 # The routes: what a module's context stores, and how
@@ -130,6 +131,109 @@ theorem stored_of_record {ds : List Declaration} {d : Declaration} (hd : d ∈ d
   simp only [Env.find?, List.find?_isSome]
   exact ⟨ci, (mem_streamEnv_consts _ _).2 (.inl ⟨d, hd, hci⟩), by simp [ConstantInfo.name]⟩
 
+/-- **A statement and kind at a location are one.** -/
+theorem stmtSkel_unique {r : Region} {loc : Nat} {cv cv' : ConstantVal} {k k' : CKindF Name Unit}
+    (h : StmtSkel r loc cv k) (h' : StmtSkel r loc cv' k') : cv = cv' ∧ k = k' := by
+  obtain ⟨s, hs, hn, hl, ht, hk⟩ := h
+  obtain ⟨s', hs', hn', hl', ht', hk'⟩ := h'
+  rw [hs] at hs'
+  cases hs'
+  rw [hn] at hn'; rw [hl] at hl'; rw [ht] at ht'; rw [hk] at hk'
+  obtain ⟨n, l, t⟩ := cv
+  obtain ⟨n', l', t'⟩ := cv'
+  simp only [Option.some.injEq] at hn' hl' ht' hk'
+  subst hn' hl' ht' hk'
+  exact ⟨rfl, rfl⟩
+
+/-- A quotient constant is no definition. -/
+theorem quotAt_ne_defn (k : QuotKind) (c cv : ConstantVal) (v : Expr) (hh : ReducibilityHint) :
+    quotAt k c ≠ .defnInfo cv v hh := by
+  cases k <;> intro h <;> cases h
+
+/-- **A presentation of a definition is the definition.** -/
+theorem defn_presents {cv : ConstantVal} {v : Expr} {hh : ReducibilityHint} {p : Declaration}
+    (h : Presents (.defnDecl cv v hh) p) : ∃ v' hh', p = .defnDecl cv v' hh' := by
+  rcases h with ⟨hperm, -⟩ | ⟨he, -⟩
+  · have hm : ConstantInfo.defnInfo cv v hh ∈ declConstants p :=
+      hperm.mem_iff.1 (by simp [declConstants])
+    cases p with
+    | defnDecl c v' h' =>
+      simp only [declConstants, List.mem_singleton, ConstantInfo.defnInfo.injEq] at hm
+      exact ⟨v', h', by rw [hm.1]⟩
+    | thmDecl c v' => simp [declConstants] at hm
+    | opaqueDecl c v' => simp [declConstants] at hm
+    | axiomDecl c =>
+      simp only [declConstants] at hm
+      split at hm
+      · exact absurd (List.mem_singleton.1 hm).symm (quotAt_ne_defn _ _ _ _ _)
+      · split at hm
+        · cases hm
+        · simp at hm
+    | quotDecl k c =>
+      simp only [declConstants, List.mem_singleton] at hm
+      exact absurd hm.symm (quotAt_ne_defn _ _ _ _ _)
+    | indDecl b nP =>
+      simp only [declConstants] at hm
+      split at hm
+      · have := blockConstants_not_stmt _ hm; simp [ConstantInfo.isStmtKind] at this
+      · cases hm
+  · cases p <;> simp [stmtOf] at he
+
+-- The walk splits at each of the check's guards and carries the clause into both halves, as
+-- `checkConstantValC_fresh_res`'s (`Copies.lean`) does, at its limit.
+set_option maxHeartbeats 400000 in
+/-- **An accepted check of a statement not an axiom's is not at the tolerated axiom's name.** -/
+theorem checkConstantValC_sorry {mode : CheckMode} {fe : FEnv} {cv : ConstantVal} {a b : Bool} :
+    Yields (checkConstantValC mode fe cv a b false) (fun _ => cv.name ≠ sorryAxName) := by
+  unfold checkConstantValC
+  yields
+  all_goals exact Yields.const (by
+    rename_i hs _ _ _ _ _
+    intro he
+    simp [sorryAxNameAt, he] at hs)
+
+/-- **An accepted definition is not at the tolerated axiom's name.** -/
+theorem checkDeclStepC_defn_sorry {mode : CheckMode} {pins : List NatOpPinSet} {fe : FEnv}
+    {cv : ConstantVal} {v : Expr} {hh : ReducibilityHint} :
+    Yields (checkDeclStepC mode pins fe (.defnDecl cv v hh)) (fun _ => cv.name ≠ sorryAxName) := by
+  unfold checkDeclStepC checkDeclC
+  ybind
+  refine Yields.bind' (Q := fun _ => cv.name ≠ sorryAxName) ?_ fun _ h => Yields.const h
+  unfold checkDeclKindC
+  exact Yields.bind' checkConstantValC_sorry fun _ h => Yields.const h
+
+theorem declsRun_defn_sorry {mode : CheckMode} {pins : List NatOpPinSet} {ds : List Declaration}
+    {p q : Nat × FEnv} (h : DeclsRun mode pins ds p q) {cv : ConstantVal} {v : Expr}
+    {hh : ReducibilityHint} (hd : .defnDecl cv v hh ∈ ds) : cv.name ≠ sorryAxName := by
+  induction h with
+  | nil => exact nomatch hd
+  | @cons pd ds p p₁ q hstep rest ih =>
+    rcases List.mem_cons.mp hd with rfl | hd
+    · obtain ⟨fe₁, s₁, -, hC⟩ := declStep_ok hstep
+      exact checkDeclStepC_defn_sorry _ _ _ hC
+    · exact ih hd
+
+/-- **A definition's record, from one constant.** -/
+theorem entryDecl_defn {c : CEntry} {d : Declaration} (h : entryDecl c = some d)
+    (ht : c.kind.tag = 1) : ∃ v hh, d = .defnDecl ⟨c.name, c.levelParams, c.type⟩ v hh := by
+  rcases c with ⟨⟨n, l, t, k⟩, u⟩
+  cases k with
+  | defn v hh sf =>
+    by_cases hsf : sf = "safe"
+    · subst hsf
+      simp only [entryDecl, Option.some.injEq] at h
+      exact ⟨_, _, h.symm⟩
+    · simp [entryDecl, hsf] at h
+  | _ => simp [CKindF.tag] at ht
+
+/-- **A quotient constant's record, from one constant.** -/
+theorem entryDecl_quot {c : CEntry} {d : Declaration} (h : entryDecl c = some d) {q : String}
+    (hk : c.kind = .quot q) : ∃ k cv, d = .quotDecl k cv := by
+  unfold entryDecl at h
+  rw [hk] at h
+  simp only at h
+  split at h <;> (try (rename_i heq; cases heq)) <;> (try (cases h; exact ⟨_, _, rfl⟩)) <;> cases h
+
 namespace Run
 
 variable {sp : SearchPath} {fs : FS} (R : Run sp fs)
@@ -168,6 +272,33 @@ theorem stored_of_own_const {h : Name} (hh : h ∈ R.names) {ci : ConstantInfo}
   · obtain ⟨d, hd, hcd⟩ := ((mem_streamEnv_consts _ _).1 hc).resolve_right (by simp [Env.empty])
     exact (worker_ctx hw).2.2.1 d hd y (recordReads_complete (.inl ⟨ci, hcd, .inl hy⟩))
 
+/-- **The context's copy of a name**: a copy of that name on the snapshot, at a level a load
+reads. -/
+theorem copyOf_facts {M : Name} (hM : M ∈ R.names) {y : Name} {s : Spot}
+    (hs : copyOf (R.envOf M) (R.cap M).1 y = some s) :
+    CopyAt sp fs s ∧ s.part.level ≠ .server ∧ s.pos.name = y := by
+  obtain ⟨_, _, hrd⟩ := (R.facts M hM).reads
+  obtain ⟨hparts, hindex⟩ := workerReads_index hrd
+  have he : EnvOk sp fs (R.envOf M) := ⟨rfl, hparts, hindex⟩
+  obtain ⟨-, -, -, -, -, hloc, -⟩ := R.cap_facts hM
+  unfold copyOf at hs
+  split at hs
+  · rename_i i s' hi
+    cases hs
+    obtain ⟨a, b⟩ := importerSpot_copy he hi
+    refine ⟨a, b, ?_⟩
+    obtain ⟨-, hfirst, -⟩ := workerIndex_copies hrd
+    unfold importerSpot at hi
+    obtain ⟨cp, hcp, hi⟩ := bind_some_left hi
+    obtain ⟨q, hq, hi⟩ := bind_some_left hi
+    simp only [pure, Option.some.injEq, Prod.mk.injEq] at hi
+    obtain ⟨-, rfl⟩ := hi
+    obtain ⟨q', hq', hn⟩ := hfirst y cp hcp
+    have hq2 : (R.w M).reads.index.at cp = some q := hq
+    rw [hq2] at hq'; cases hq'; exact hn
+  · obtain ⟨-, hlv, hcp, -, hn⟩ := hloc y s hs
+    exact ⟨hcp, by rw [hlv]; decide, hn⟩
+
 /-- **A context name whose copy is of a statement kind is stored by its statement**, read at that
 copy: its constant is a statement kind of the copy's statement, the copy is on the snapshot, at a
 level a load reads, not unsafe or partial, of a module of the run, and the name is not the
@@ -180,7 +311,115 @@ theorem ctx_stmt {M : Name} (hM : M ∈ R.names) {y : Name}
     ∃ ci, (R.dev (R.rk M)).context.find? y = some ci ∧ ci.toConstantVal = cv ∧
       ci.isStmtKind = true ∧ CopyAt sp fs s ∧ s.part.level ≠ .server ∧
       s.pos.skipped = false ∧ cv.name = y ∧ y ≠ sorryAxName ∧ s.part.mod ∈ R.names := by
-  sorry
+  have hw := R.facts M hM
+  obtain ⟨k0, d, hm, hk0, hh, hyd⟩ := R.ctx_record hM hy
+  obtain ⟨-, hrec, -⟩ := R.cap_facts hM
+  obtain ⟨⟨x, hx, s', hs', hmod', hra⟩, hall, -⟩ := hrec k0 d hm hk0 hh
+  obtain ⟨s'', hs'', hmod⟩ := hall y hyd
+  rw [hs] at hs''
+  cases hs''
+  obtain ⟨hhm, -⟩ := R.home_rank hM hh
+  have hwm := R.facts hm hhm
+  have hrun : OwnRun .verified sp fs hm (R.w hm) := ⟨_, R.run hm hhm⟩
+  obtain ⟨f, r0, a, sk, skels, hf, -⟩ := home_records hwm
+  have hf' : ModelIO.CanGive (readFiles sp s.part.mod .private) fs (.ok f) := by
+    rw [hmod]; exact hf
+  obtain ⟨hcp, hlv, hnm⟩ := R.copyOf_facts hM hs
+  have hdm : d ∈ (R.w M).reach.ctx.toList :=
+    Array.mem_toList_iff.2 (Array.mem_of_getElem? hk0)
+  have hfind : ∀ ci ∈ declConstants d, (R.dev (R.rk M)).context.find? ci.name = some ci := by
+    intro ci hci
+    rw [R.dev_rk hM]
+    exact find?_of_nodup (nodupNames_streamEnv hw.nodup)
+      ((mem_streamEnv_consts _ _).2 (.inl ⟨d, hdm, hci⟩))
+  have hcvn : cv.name = s.pos.name := copyAt_stmt_name hcp hr hst
+  have hcvy : cv.name = y := hcvn.trans hnm
+  have hpr : ∃ p ∈ (R.w hm).emitted, Presents d p := by
+    have := hra.recordFrom; rw [hmod'] at this; exact recordFrom_presents this hwm
+  have hres : quotSoundName ∈ reservedBasisNames := by simp [reservedBasisNames]
+  have hsq : sorryAxName ≠ quotSoundName := by decide
+  cases hra with
+  | @stmt x1 s1 r1 cv1 k1 hs1 hl1 hr1 hst1 hsk1 hg hq hd1 hred =>
+    have hxy : x = y := (declNames_stmt (.inl rfl) x hx).trans (declNames_stmt (.inl rfl) y hyd).symm
+    subst x
+    rw [hs] at hs'
+    cases hs'
+    obtain ⟨h1, h2⟩ := stmtSkel_unique (partRegion_unique hf' hr1 hr ▸ hst1) hst
+    subst cv1 k1
+    have hsy : cv.name ≠ sorryAxName := by
+      intro he
+      simp [declNames, declConstants, he, hsq] at hyd
+    refine ?_
+    by_cases hqs : cv.name = quotSoundName
+    · -- `Quot.sound`: the pinned constant, the copy's statement where its home accepted it
+      have hyq : y = (quotAt .sound cv).name := by
+        simpa [declNames, declConstants, hqs, ConstantInfo.name] using hyd
+      obtain ⟨p, hp, hpres⟩ := hpr
+      have hqmem : quotAt .sound cv ∈ declConstants p := by
+        rcases hpres with ⟨hperm, -⟩ | ⟨he, -⟩
+        · exact hperm.mem_iff.1 (by simp [declConstants, hqs])
+        · have hb := R.own_basis hhm hp
+          cases p with
+          | axiomDecl c =>
+            simp only [stmtOf, Declaration.axiomDecl.injEq] at he
+            subst he; simp [declConstants, hqs]
+          | defnDecl c v hh =>
+            simp only [stmtOf, Declaration.axiomDecl.injEq] at he
+            subst he; simp [basisNamesOk, hqs] at hb; exact absurd hres hb
+          | thmDecl c v =>
+            simp only [stmtOf, Declaration.axiomDecl.injEq] at he
+            subst he; simp [basisNamesOk, hqs] at hb; exact absurd hres hb
+          | opaqueDecl c v =>
+            simp only [stmtOf, Declaration.axiomDecl.injEq] at he
+            subst he; simp [basisNamesOk, hqs] at hb; exact absurd hres hb
+          | quotDecl k c => simp [stmtOf] at he
+          | indDecl b nP => simp [stmtOf] at he
+      have hfO := find?_of_nodup (ownEnv_nodup hwm hrun)
+        (own_mem_ownEnv (sp := sp) (fs := fs) (M := hm) (emitted_own hwm hp) hqmem)
+      obtain ⟨ci', hci', hcv', hks', -⟩ := copy_own' hwm hrun hmod hcp hlv hr hst hsk1 hk hsy
+      rw [← hyq, ← hcvy, hci'] at hfO
+      cases hfO
+      refine ⟨quotAt .sound cv, ?_, hcv', hks', hcp, hlv, hsk1, hcvy, hcvy ▸ hsy, hmod ▸ hhm⟩
+      have := hfind (quotAt .sound cv) (by simp [declConstants, hqs])
+      rwa [← hyq] at this
+    · refine ⟨.axiomInfo cv, ?_, rfl, rfl, hcp, hlv, hsk1, hcvy, hcvy ▸ hsy, hmod ▸ hhm⟩
+      have := hfind (.axiomInfo cv) (by simp [declConstants, hqs, hsy])
+      rwa [show (ConstantInfo.axiomInfo cv).name = y from hcvy] at this
+  | @entry s1 r1 r₀ e d1 cv1 k1 hs1 hl1 hr1 he hr₀ hst₀ hk1 hsk1 hd1 =>
+    have hf'' : ModelIO.CanGive (readFiles sp s'.part.mod .private) fs (.ok f) := by
+      rw [hmod']; exact hf
+    rw [partRegion_unique hf'' hr1 hr₀] at he
+    have htag : (CEntry.ofF e).kind.tag = 1 := by
+      rw [show (CEntry.ofF e).kind = e.kind from rfl, (StmtSkel.entry hst₀ he).2, hk1]
+    obtain ⟨v, hh', rfl⟩ := entryDecl_defn (recordOfEntry_eq hd1) htag
+    have hxy : x = y := (declNames_stmt (.inr ⟨_, _, rfl⟩) x hx).trans
+      (declNames_stmt (.inr ⟨_, _, rfl⟩) y hyd).symm
+    subst x
+    rw [hs] at hs'
+    cases hs'
+    obtain ⟨h1, h2⟩ := stmtSkel_unique (partRegion_unique hf' hr₀ hr ▸ hst₀) hst
+    subst cv1 k1
+    have hecv : (⟨(CEntry.ofF e).name, (CEntry.ofF e).levelParams, (CEntry.ofF e).type⟩ :
+        ConstantVal) = cv := (StmtSkel.entry hst₀ he).1
+    rw [hecv] at hpr hfind hyd
+    obtain ⟨p, hp, hpres⟩ := hpr
+    obtain ⟨v', hh'', rfl⟩ := defn_presents hpres
+    have hsy : cv.name ≠ sorryAxName := declsRun_defn_sorry (R.run hm hhm)
+      (List.mem_map.2 ⟨_, emitted_own hwm hp, rfl⟩)
+    refine ⟨.defnInfo cv v hh', ?_, rfl, rfl, hcp, hlv, hsk1, hcvy, hcvy ▸ hsy, hmod ▸ hhm⟩
+    have := hfind (.defnInfo cv v hh') (by simp [declConstants])
+    rwa [show (ConstantInfo.defnInfo cv v hh').name = y from hcvy] at this
+  | @quot s1 r1 cv1 q d1 hs1 hl1 hr1 hst1 hd1 =>
+    obtain ⟨kq, cq, rfl⟩ := entryDecl_quot (recordOfEntry_eq hd1) rfl
+    have hxy : x = y := by
+      simp only [declNames, declConstants, List.map_cons, List.map_nil, List.mem_singleton] at hx hyd
+      rw [hx, hyd]
+    subst x
+    rw [hs] at hs'
+    cases hs'
+    obtain ⟨-, rfl⟩ := stmtSkel_unique (partRegion_unique hf' hr1 hr ▸ hst1) hst
+    simp [CKindF.tag] at hk
+  | group hg => sorry
 
 /-- **A name a stored statement's type reads, other than its own, is stored before it.** -/
 theorem rank_lt {M : Name} (hM : M ∈ R.names) {y : Name} {ci : ConstantInfo}
