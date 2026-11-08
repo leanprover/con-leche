@@ -1786,7 +1786,8 @@ theorem classSeedsI_run {ctx : InLean.NestCtx} {cctx : ConLeche.NestCtx} (hR : C
       CSOKI mode eager env s₀ → cctx.params = TrSL s₀ ctx.params → OkSL s₀ ctx.params = true →
       OkSL s₀ holes = true → (∀ M ∈ Ms, OkTM s₀ M) →
       InLean.classSeeds ctx holes Ms s₀ = .ok (r, s') →
-      CSOKI mode eager env s' ∧ TabLe s₀ s' ∧ (∀ q ∈ r, OkSL s' q.1.ds = true) ∧
+      CSOKI mode eager env s' ∧ TabLe s₀ s' ∧
+        (∀ q ∈ r, q.1.lvls.all okLv = true ∧ OkSL s' q.1.ds = true) ∧
         ConLeche.classSeeds cctx (TrSL s₀ holes) (Ms.map (trTM s₀)) =
           r.map fun q => (trKey s' q.1, q.2)
   | [], s₀, s', r, hs, _, _, _, _, h => by
@@ -1802,7 +1803,8 @@ theorem classSeedsI_run {ctx : InLean.NestCtx} {cctx : ConLeche.NestCtx} (hR : C
     have hrest : ∀ {s₁ s'' : InLean.CState} {r' : List (InLean.NestKey × Nat)},
         CSOKI mode eager env s₁ →
         TabLe s₀ s₁ → InLean.classSeeds ctx holes Ms s₁ = .ok (r', s'') →
-        CSOKI mode eager env s'' ∧ TabLe s₁ s'' ∧ (∀ q ∈ r', OkSL s'' q.1.ds = true) ∧
+        CSOKI mode eager env s'' ∧ TabLe s₁ s'' ∧
+          (∀ q ∈ r', q.1.lvls.all okLv = true ∧ OkSL s'' q.1.ds = true) ∧
           ConLeche.classSeeds cctx (TrSL s₀ holes) (Ms.map (trTM s₀)) =
             r'.map fun q => (trKey s'' q.1, q.2) := by
       intro s₁ s'' r' hs₁ ht h'
@@ -1830,7 +1832,7 @@ theorem classSeedsI_run {ctx : InLean.NestCtx} {cctx : ConLeche.NestCtx} (hR : C
       rw [map_eq_pure_bind] at h1
       obtain ⟨q, s₂, h2, h1⟩ := bind_run h1
       obtain ⟨rfl, rfl⟩ := pure_run h1
-      obtain ⟨hs₂, ht₂, hokq, -, hseed⟩ := nestSeedOfI_run hR hs hpar hokpar hokh hds h2
+      obtain ⟨hs₂, ht₂, hokq, hlvq, hseed⟩ := nestSeedOfI_run hR hs hpar hokpar hokh hds h2
       simp only at h
       obtain ⟨rest, s₃, h3, h⟩ := bind_run h
       obtain ⟨a1, a2, a3, a4⟩ := hrest hs₂ ht₂ (by unfold InLean.classSeeds; exact h3)
@@ -1838,7 +1840,7 @@ theorem classSeedsI_run {ctx : InLean.NestCtx} {cctx : ConLeche.NestCtx} (hR : C
       refine ⟨a1, ht₂.trans a2, ?_, ?_⟩
       · intro q' hq'
         rcases List.mem_cons.1 hq' with rfl | hq'
-        · exact okSL_of_tabLe a2 hokq
+        · exact ⟨hlvq ▸ hlv, okSL_of_tabLe a2 hokq⟩
         · exact a3 q' hq'
       · simp only [trTM, hm, Option.isNone_none, ↓reduceIte]
         rw [show ConLeche.nestSeedOf cctx (TrSL s₀ holes) (toName M.ind) (M.lvls.map trL)

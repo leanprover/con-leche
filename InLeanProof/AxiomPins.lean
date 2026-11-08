@@ -3443,3 +3443,14 @@ info: 'InLeanProof.classFormerTyI_run' depends on axioms: [propext,
 -/
 #guard_msgs in
 #print axioms InLeanProof.classFormerTyI_run
+
+/--
+info: 'InLeanProof.targetPiDomsWith_tr' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound,
+ InLeanProof.Expr.mkAppData_fields,
+ InLeanProof.Expr.mkData_eq,
+ InLeanProof.Level.mkData_eq]
+-/
+#guard_msgs in
+#print axioms InLeanProof.targetPiDomsWith_tr
