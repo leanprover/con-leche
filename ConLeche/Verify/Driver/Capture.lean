@@ -1712,4 +1712,150 @@ theorem reachGo_capture (he : EnvOk sp fs env)
 
 end
 
+/-! ## The reach -/
+
+/-- **What the capture check established, at an accepting outcome of the reach** (see the module
+docstring): over the final completions `loc`, the recorded inferences `pend` and the checked
+reads `P`, every context record is read at its copy, which is its home's, and so is every name it
+stores (C1); every read of it is checked (C2); every checked read passed (C3); the clash names'
+copies' statements are read as their modules read them (C4); the clash rule passed (C5); the
+inferences hold at the context (C6); every completion is a private copy of a reached module
+with no importer copy (C7); and every checked read is a reached module's, from a record's read, a
+partner copy of a reached module's view, or a clash name's copy (C8). -/
+theorem reach_capture {sp : SearchPath} {fs : FS} {m : Name} {wr : WorkerReads}
+    {own : Std.HashSet Name} {roots : Array Name} {r : Reach}
+    (hparts : ∀ i t, wr.index.parts[i]? = some t →
+      PartNames sp fs ⟨wr.loads.nameAt i, ((wr.loads.flags[i]?).getD default).level⟩ t)
+    (hindex : ∀ m i, wr.loads.index[m]? = some i → wr.loads.nameAt i = m)
+    (hsize : wr.index.parts.size ≤ wr.loads.order.size)
+    (hcm : ∀ cl ∈ wr.clashes, ∀ x ∈ cl.copies, x.1.mod < wr.loads.order.size)
+    {hs hs' : HS} (h : (reach (.ofPath sp) m wr own roots : ModelIO _) fs hs (.ok (.ok r)) hs') :
+    let env : ReachEnv ModelIO := { rd := .ofPath sp, mod := m, wr, own, copies := clashCopiesOf wr }
+    ∃ (loc : Std.HashMap Name Spot) (pend : List (String × Name × ConstantVal))
+      (P : List (Name × Name)),
+      r.ctx.size = r.homes.size ∧
+      (∀ (k : Nat) (d : Declaration) (hm : Name), r.ctx[k]? = some d → r.homes[k]? = some hm →
+        (∃ x ∈ declNames d, ∃ s, copyOf env loc x = some s ∧ s.part.mod = hm ∧ ReadAt sp fs d s) ∧
+        (∀ n ∈ declNames d, ∃ s, copyOf env loc n = some s ∧ s.part.mod = hm) ∧
+        (∀ y ∈ recordReads d, (hm, y) ∈ P) ∧
+        (∀ n ∈ declNames d, ∀ cs, env.copies[n]? = some cs → ∀ kc ∈ cs,
+          ∀ y ∈ (needsGo {} #[] kc.2.type).2, (kc.1, y) ∈ P)) ∧
+      (∀ x ∈ P, Passed sp fs env loc (· ∈ pend) (· ∈ P) x.1 x.2) ∧
+      (∀ cl ∈ wr.clashes, ClashOk sp fs wr (· ∈ pend) cl) ∧
+      inferFlags (mkFEnv (streamEnv r.ctx.toList)) pend = .ok () ∧
+      (∀ (y : Name) (s : Spot), loc[y]? = some s → importerSpot env y = none ∧ s.part.level = .private ∧
+        CopyAt sp fs s ∧ Reached sp fs wr s.part.mod) ∧
+      (∀ x ∈ P, Reached sp fs wr x.1 ∧ Origin sp fs env r.ctx r.homes x) := by
+  intro env
+  have he : EnvOk sp fs env := ⟨rfl, hparts, hindex⟩
+  unfold reach at h
+  simp only [ModelIO.bind_ok] at h
+  obtain ⟨⟨c, x⟩, _, hx, h⟩ := h
+  have hc := clashAgree_ok he {} _ #[] (CacheOk.empty sp fs) _ _ hx
+  obtain ⟨st0, hcl0⟩ := clashAgree_st he {} wr.clashes.toList #[] (CacheOk.empty sp fs) _ _ hx
+  rcases x with e | extra
+  · simp at h
+  have hcl := hcl0 extra rfl
+  simp only at h
+  generalize List.find? _ _ = q at h
+  cases q with
+  | some x => simp at h
+  | none =>
+    simp only [ModelIO.bind_ok] at h
+    obtain ⟨y, _, hy, h⟩ := h
+    have hI0 : ∀ rs, CapInv sp fs env (ReachLog.init rs) c [] := by
+      intro rs
+      refine ⟨hc, st0.views (fun h v hh => by simp at hh), by simp [ReachLog.init],
+        fun x hx => (by cases hx), fun k d h hd _ => (by simp [ReachLog.init] at hd),
+        fun y s hs => ?_, fun z hz => ?_,
+        fun cl hcl' => hcl cl (Array.mem_toList_iff.2 hcl')⟩
+      · rcases st0.loc_new y s hs with h | h
+        · simp at h
+        · exact h.elim
+      · rcases hz with hz | hz
+        · cases hz
+        · rcases st0.part_new z hz with h | h
+          · simp at h
+          · exact h.elim
+    have hG := reachGo_capture he hsize rfl hcm _ _ c [] (hI0 _) y _ hy
+    rcases y with e | ⟨L, c'⟩
+    · simp at h
+    obtain ⟨D, hI, hpe⟩ := hG L c' rfl
+    simp only at h
+    cases ho : readOrder L.ctx L.reads with
+    | error e => simp [ho] at h
+    | ok o =>
+    simp only [ho] at h
+    cases hv : validateCtx (o.map (L.ctx.getD · default)) (o.map (L.homes.getD · default)) with
+    | error e => rw [hv] at h; simp at h
+    | ok u =>
+    cases hf : inferFlags (mkFEnv (streamEnv (o.map (L.ctx.getD · default)).toList))
+      c'.pending.toList with
+    | error e => rw [hv] at h; simp only at h; rw [hf] at h; simp at h
+    | ok u' =>
+    simp only [hv, hf, ModelIO.pure_iff, Except.ok.injEq] at h
+    obtain ⟨h, -⟩ := h
+    subst h
+    have hperm := (readOrder_spec ho).1
+    -- a context position is a position of the worklist's records
+    have hfwd : ∀ (k : Nat) (d : Declaration) (hm : Name), (o.map (L.ctx.getD · default))[k]? = some d →
+        (o.map (L.homes.getD · default))[k]? = some hm →
+        L.ctx[o[k]!]? = some d ∧ L.homes[o[k]!]? = some hm := by
+      intro k d hm h1 h2
+      simp only [Array.getElem?_map] at h1 h2
+      cases hoi : o[k]? with
+      | none => simp [hoi] at h1
+      | some j =>
+      simp only [hoi, Option.map_some, Option.some.injEq] at h1 h2
+      have hj : j < L.ctx.size := List.mem_range.1 (hperm.mem_iff.1
+        (Array.mem_toList_iff.2 (Array.mem_of_getElem? hoi)))
+      have hok : o[k]! = j := by
+        rw [getElem!_pos o k (Array.getElem?_eq_some_iff.1 hoi).1]
+        exact (Array.getElem?_eq_some_iff.1 hoi).2
+      rw [hok]
+      refine ⟨?_, ?_⟩
+      · rw [← h1, Array.getElem?_eq_getElem hj]; simp [hj]
+      · rw [← h2, Array.getElem?_eq_getElem (hI.size ▸ hj)]; simp [hI.size ▸ hj]
+    have hback : ∀ (j : Nat) (d : Declaration) (hm : Name), L.ctx[j]? = some d → L.homes[j]? = some hm →
+        ∃ k : Nat, (o.map (L.ctx.getD · default))[k]? = some d ∧
+          (o.map (L.homes.getD · default))[k]? = some hm := by
+      intro j d hm h1 h2
+      have hj : j < L.ctx.size := (Array.getElem?_eq_some_iff.1 h1).1
+      obtain ⟨k, hk, hkj⟩ := List.getElem_of_mem (hperm.mem_iff.2 (List.mem_range.2 hj))
+      have hk' : k < o.size := by simpa using hk
+      have hoi : o[k]? = some j := by
+        rw [Array.getElem?_eq_getElem hk']; simpa using hkj
+      refine ⟨k, ?_, ?_⟩
+      · simp only [Array.getElem?_map, hoi, Option.map_some]
+        rw [Array.getD_eq_getD_getElem?, h1]; rfl
+      · simp only [Array.getElem?_map, hoi, Option.map_some]
+        rw [Array.getD_eq_getD_getElem?, h2]; rfl
+    have horig : ∀ z, Origin sp fs env L.ctx L.homes z →
+        Origin sp fs env (o.map (L.ctx.getD · default)) (o.map (L.homes.getD · default)) z := by
+      intro z hz
+      rcases hz with ⟨j, d, h1, h2, h3⟩ | hz | ⟨j, d, h1, n, hn, cs, hcs, kc, hk, h4, h5⟩
+      · obtain ⟨k, hk1, hk2⟩ := hback j d _ h1 h2
+        exact .inl ⟨k, d, hk1, hk2, h3⟩
+      · exact .inr (.inl hz)
+      · have h2 : L.homes[j]? = some (L.homes.getD j default) := by
+          have hj : j < L.homes.size := hI.size ▸ (Array.getElem?_eq_some_iff.1 h1).1
+          rw [Array.getElem?_eq_getElem hj]; simp [hj]
+        obtain ⟨k, hk1, -⟩ := hback j d _ h1 h2
+        exact .inr (.inr ⟨k, d, hk1, n, hn, cs, hcs, kc, hk, h4, h5⟩)
+    have hmemD : ∀ {z}, z ∈ D ∨ z ∈ c'.partners → z ∈ D := fun hz =>
+      hz.elim id fun h => by rw [hpe] at h; simp at h
+    refine ⟨c'.located, c'.pending.toList, D, by simp, fun k d hm h1 h2 => ?_,
+      fun x hx => (hI.passed x hx).mono (fun _ _ h => h) (fun _ h => Array.mem_toList_iff.2 h)
+        (fun _ h => hmemD h),
+      fun cl hcl' => (hI.clashes cl hcl').mono fun _ h => Array.mem_toList_iff.2 h, by cases u'; exact hf,
+      fun y s hs => ?_, fun x hx => ?_⟩
+    · obtain ⟨h1', h2'⟩ := hfwd k d hm h1 h2
+      obtain ⟨a, b, c₁, e⟩ := hI.records _ d hm h1' h2'
+      exact ⟨b, c₁, a, fun n hn cs hcs kc hk y hy => hmemD (e n hn cs hcs kc hk y hy)⟩
+    · obtain ⟨a, b⟩ := hI.located y s hs
+      obtain ⟨c₁, d₁⟩ := hI.cache.located y s hs
+      exact ⟨a, c₁, d₁, b⟩
+    · obtain ⟨a, b⟩ := hI.reads x (.inl hx)
+      exact ⟨a, horig x b⟩
+
 end ConLeche.Driver
