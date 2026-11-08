@@ -1142,4 +1142,159 @@ theorem mapM_classKeyOfI_run {nP : Nat} {params : List Lean.Expr} {s₀ : InLean
       · exact hall x hx
     · exact ⟨hR1, hR2⟩
 
+/-! ## An outside major's container and type -/
+
+/-- A constructor entry of a container, translated. -/
+@[expose] def trCE (c : Lean.ConstantVal × Nat × Nat) : ConLeche.ConstantVal × Nat × Nat :=
+  (trCV c.1, c.2.1, c.2.2)
+
+theorem nestCtorEntry_tr (C : Lean.Name) (cv : Lean.ConstantVal) (nPc nF : Nat) :
+    ConLeche.nestCtorEntry (toName C) (.ctorInfo (trCV cv) nPc nF) =
+      (InLean.nestCtorEntry C cv nPc nF).map trCE := by
+  unfold ConLeche.nestCtorEntry InLean.nestCtorEntry
+  simp only
+  rw [trCV_type, stripPis_tr]
+  cases InLean.stripPis (nPc + nF) cv.type with
+  | none => rfl
+  | some q =>
+    obtain ⟨ds, body⟩ := q
+    simp only [Option.map_some]
+    rw [getAppFn_tr]
+    have hne : ∀ m b, Expr.getAppFnT body ≠ .mdata m b := fun m b h => getAppFnT_ne_mdata h
+    generalize Expr.getAppFnT body = x at hne
+    cases x with
+    | const n us =>
+      simp only [trC, trE, toName_beq]
+      by_cases hn : (n == C) = true
+      · simp only [hn, ↓reduceIte, Option.map_some]; rfl
+      · simp only [hn, Bool.false_eq_true, ↓reduceIte, Option.map_none]
+    | mdata m b => exact (hne m b rfl).elim
+    | fvar id => simp only [trC, trE, Option.getD_none, Option.map_none]
+    | _ => simp [trC, trE]
+
+theorem ctorEntry_tr {fe : InLean.FEnv} {L : ConLeche.Env} (hJ : JobEnvI fe L) (C n : Lean.Name) :
+    (L.find? (toName n)).bind (ConLeche.nestCtorEntry (toName C)) =
+      ((fe.ctorView? n).bind fun (cv, nPc, nF) => InLean.nestCtorEntry C cv nPc nF).map trCE := by
+  cases hv : fe.ctorView? n with
+  | some q =>
+    obtain ⟨cv, nPc, nF⟩ := q
+    obtain ⟨ccv, hcv, hL⟩ := ctorView_rel hJ.pres hv
+    rw [hL, hcv.eq_trCV]
+    simp only [Option.bind_some]
+    exact nestCtorEntry_tr C cv nPc nF
+  | none =>
+    have hn := ctorView_none hJ.pres hv
+    simp only [Option.bind_none, Option.map_none]
+    cases hL : L.find? (toName n) with
+    | none => rfl
+    | some ci =>
+      cases ci with
+      | ctorInfo ccv nP nF => exact (hn ccv nP nF hL).elim
+      | _ => rfl
+
+/-- **A stored container's constructors** (`targetCtorsOf`), at master's
+lookup: InLean's answer translated. -/
+theorem targetCtorsOf_tr {fe : InLean.FEnv} {L : ConLeche.Env} (hJ : JobEnvI fe L) (I : Lean.Name) :
+    ConLeche.targetCtorsOf (ConLeche.mkFEnv L) (toName I) =
+      (InLean.targetCtorsOf fe I).map fun q => (q.1, q.2.map trCtor) := by
+  unfold ConLeche.targetCtorsOf InLean.targetCtorsOf ConLeche.nestContainer InLean.nestContainer
+  simp only [ConLeche.mkFEnv_find?]
+  cases hv : fe.indView? I with
+  | none =>
+    have hn := indView_none_tr hJ hv
+    simp only [Option.map_none]
+  | some q =>
+    obtain ⟨cv, caps⟩ := q
+    obtain ⟨hL, -, -⟩ := indView_trCV hJ hv
+    rw [hL]
+    simp only
+    have hcs : (toCaps caps).ctors.filterMap
+        (fun n => (L.find? n).bind (ConLeche.nestCtorEntry (toName I))) =
+        (caps.ctors.filterMap fun n =>
+          (fe.ctorView? n).bind fun (cv, nPc, nF) => InLean.nestCtorEntry I cv nPc nF).map trCE := by
+      simp only [toCaps, List.filterMap_map]
+      rw [List.map_filterMap]
+      congr 1
+      funext n
+      exact ctorEntry_tr hJ I n
+    rw [hcs]
+    generalize (caps.ctors.filterMap fun n =>
+      (fe.ctorView? n).bind fun (cv, nPc, nF) => InLean.nestCtorEntry I cv nPc nF) = cs
+    cases cs with
+    | nil => rfl
+    | cons c cs =>
+      simp only [List.map_cons, Option.map_some, List.map_map]
+      rfl
+
+/-- A bind on the pure side, under three facts. -/
+theorem runs3_bind {A B C : Prop} {α β : Type} {x : ConLeche.FueledM α} {f : α → ConLeche.FueledM β}
+    {a : α} {b : β} (hx : Runs x a) (h : A ∧ B ∧ C ∧ Runs (f a) b) : A ∧ B ∧ C ∧ Runs (x >>= f) b :=
+  ⟨h.1, h.2.1, h.2.2.1, Runs.bind hx h.2.2.2⟩
+
+/-- **An outside major's instantiated type former** (`targetOutsideInst`):
+InLean's index count and sort are master's at the readings. -/
+theorem targetOutsideInstI_run {fe : InLean.FEnv} {L : ConLeche.Env} (hJ : JobEnvI fe L)
+    (hRF : ReducedFormerSimI) {I : Lean.Name} {us : List Lean.Level} {ds : List Lean.Expr}
+    {s₀ s' : InLean.CState} {k : Nat} {sI : Lean.Level} (hs : CSOKI .verified false L s₀)
+    (hlv : us.all okLv = true) (hokds : OkSL s₀ ds = true)
+    (hcds : ∀ a ∈ ds, (TrS s₀ a).looseBVarsBounded 0 = true)
+    (h : InLean.targetOutsideInst (sharedOpsC .verified fe) fe I us ds s₀ = .ok ((k, sI), s')) :
+    CSOKI .verified false L s' ∧ TabLe s₀ s' ∧ okL sI = true ∧
+      Runs (ConLeche.targetOutsideInst (ConLeche.fueledOpsM .verified) (ConLeche.mkFEnv L)
+        (toName I) (us.map trL) (TrSL s₀ ds)) (k, trL sI) := by
+  unfold InLean.targetOutsideInst at h
+  unfold ConLeche.targetOutsideInst
+  simp only [ConLeche.mkFEnv_find?]
+  cases hv : fe.indView? I with
+  | none => rw [hv] at h; exact (throw_run h).elim
+  | some q =>
+  rw [hv] at h
+  obtain ⟨cv, caps⟩ := q
+  obtain ⟨hL, hok, hcl⟩ := indView_trCV hJ hv
+  rw [hL]
+  simp only at h ⊢
+  obtain ⟨tyC, s₂, h2, h⟩ := bind_run h
+  obtain ⟨hs₂, ht₂, hokC, hclC, hRC⟩ := familyTelescopeI_run hJ hRF hok hcl hs h2
+  refine runs3_bind hRC ?_
+  obtain ⟨r, s₃, h3, h⟩ := bind_run h
+  obtain ⟨hs₃, ht₃, hokr, htrr⟩ := tripleI_iff_run.1
+    (instLevelParamsM_specI hs₂ (OkS_of_okC s₂ hokC) (fvarS_of_okC hokC) hlv) r s₃ h3
+  rw [TrS_of_okC _ hokC] at htrr
+  have ht13 := ht₂.trans ht₃
+  have hokds₃ := okSL_of_tabLe ht13 hokds
+  have hcds₃ : ∀ a ∈ ds, (TrS s₃ a).looseBVarsBounded 0 = true := by
+    intro a ha
+    rw [TrS_of_tabLe ht13 (by simp only [OkSL, List.all_eq_true] at hokds; exact hokds a ha)]
+    exact hcds a ha
+  have hmap := instPisWithI_map ds r hokr hokds₃ hcds₃
+  rw [htrr, TrSL_of_tabLe ht13 hokds] at hmap
+  simp only [trCV_levelParams]
+  cases hi : InLean.instPisWith ds r with
+  | none => simp only [hi] at h; exact (throw_run h).elim
+  | some ty0 =>
+  simp only [hi] at h
+  rw [hi, Option.map_some] at hmap
+  rw [← hmap]
+  simp only
+  obtain ⟨hokty, -⟩ := instPisWithI_tr ds r hokr hokds₃ hcds₃ hi
+  obtain ⟨hpb, -, hokend, hnm⟩ := piBinders_TrS ty0 hokty
+  rw [hpb]
+  simp only
+  generalize hx : (InLean.piBinders ty0).2 = x at h hokend hnm
+  cases x with
+  | sort u0 =>
+    simp only [EO.stripTop] at h
+    obtain ⟨hkt, rfl⟩ := pure_run h
+    simp only [Prod.mk.injEq] at hkt
+    obtain ⟨rfl, rfl⟩ := hkt
+    rw [TrS_sort]
+    simp only [List.length_map]
+    have hu0 : okL u0 = true := by
+      simp only [OkS_sort, okLv, Bool.and_eq_true] at hokend
+      exact hokend.1
+    exact ⟨hs₃, ht13, hu0, Runs.pure _⟩
+  | mdata m b => exact (hnm m b rfl).elim
+  | fvar id => simp only [EO.stripTop] at h; exact (throw_run h).elim
+  | _ => simp only [EO.stripTop] at h; exact (throw_run h).elim
+
 end InLeanProof
