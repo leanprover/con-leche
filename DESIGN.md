@@ -114325,3 +114325,8 @@ over the part of the context below the name (cont. 8); the reader's view's copy 
 unsafe or partial (this record); and the composition: an accepted run is a development every
 module of which passes the local checks, so no module of the closure holds a theorem of type
 `False` (`main_modular_no_False`, `main_modular_one_no_False`).
+The battery: layering, shake (678/678 allowlisted, no public import demotable), trust surface
+(13 escapes, allowlisted), overview links (162), whitepaper links (528), fragment, quote gate,
+pindump, no-local-paths, challenge (statements identical), olean gate 315/315, selfcheck (57 351
+declarations), axioms pinned (69 theorems), arena tutorial 90/92, e2e 560/560, the trusted and
+`--jobs` sweeps without divergence; exit 0, peak anon 3.0 GB.
