@@ -4,6 +4,7 @@ public import ConLeche.Verify.Driver.Worker
 public import ConLeche.Verify.Driver.Groups
 public import ConLeche.Verify.Driver.Graph
 import ConLeche.Verify.Driver.Reach
+public import ConLeche.Verify.Driver.Loads
 import ConLeche.Verify.Cached.Fill
 
 /-!
@@ -325,6 +326,21 @@ theorem thm_own {M : Name} (hM : M ∈ R.names) {d : ModDecoded} {c : CEntryF Na
   refine (mem_streamEnv_consts _ _).2 (.inl ⟨_, List.mem_map.2 ⟨_, Array.mem_toList_iff.2 hmem, rfl⟩, ?_⟩)
   rw [declConstants_fillDecl]
   simp [declConstants]
+
+/-- **A module reached by imports from a module of the run is one of smaller rank.** -/
+theorem impReach_rank {M : Name} (hM : M ∈ R.names) {imps0 : Array ImportRec}
+    (h0 : ModelIO.CanGive (moduleImports sp M) fs (.ok imps0)) {m : Name}
+    (h : ImpReach sp fs imps0 m) : m ∈ R.names ∧ R.rk m < R.rk M := by
+  induction h with
+  | @root i hi =>
+    obtain ⟨e, he, rfl⟩ := List.mem_map.1 hM
+    obtain rfl := moduleImports_canGive_unique (R.good e he) h0
+    exact R.edges e he i hi
+  | @step a is i _ ha hi ih =>
+    obtain ⟨e, he, rfl⟩ := List.mem_map.1 ih.1
+    obtain rfl := moduleImports_canGive_unique (R.good e he) ha
+    have := R.edges e he i hi
+    exact ⟨this.1, by omega⟩
 
 end Run
 
