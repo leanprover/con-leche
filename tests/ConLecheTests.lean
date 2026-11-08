@@ -397,7 +397,7 @@ private def zBlock (T : Name) (rhs : Expr) : List ConstantInfo :=
 a one-member block, after the pass over the formers, the constructors
 and the classes: the number of recursors it stores. -/
 private def zRecK (block : List ConstantInfo) : Except CheckError Nat := do
-  let some p₀ := blockShape? 0 block | throw (.internal "blockShape?")
+  let p₀ ← readBlock 0 block
   let q ← checkBlockPass (pureOps .verified) Env.empty p₀ false
   let env₂ := consBlockCtors q.p.nP q.p.memberCtors q.env₁
   let out ← checkBlockRec (pureOps .verified) env₂ q.p false q.params q.tbl.toList q.rd q.cls

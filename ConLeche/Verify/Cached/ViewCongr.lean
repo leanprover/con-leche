@@ -1252,13 +1252,6 @@ theorem checkQuotRecordC_twin {fe₁ fe₂ : FEnv} (ht : Twin fe₁ fe₂) (k : 
   relrun
   all_goals exact installBasisDeclF_twin ht.find _
 
-theorem checkShapelessS_twin {fe₁ fe₂ : FEnv} (hfe : fe₁.find? = fe₂.find?)
-    (htb : fe₁.findTable? = fe₂.findTable?) (block : List ConstantInfo) :
-    RelRun (PushedFrom fe₁ fe₂) (checkShapelessS mode fe₁ block) (checkShapelessS mode fe₂ block) := by
-  unfold checkShapelessS
-  simp only [checkConstantValC_congr hfe htb]
-  relrun
-
 /-- The block install, push for push at twins. -/
 theorem checkIndDeclC_twin {fe₁ fe₂ : FEnv} (ht : Twin fe₁ fe₂)
     (block : List ConstantInfo) (nP : Nat) :
@@ -1268,7 +1261,7 @@ theorem checkIndDeclC_twin {fe₁ fe₂ : FEnv} (ht : Twin fe₁ fe₂)
   relrun
   all_goals first
     | exact checkBlockKS_twin ht block _
-    | exact checkShapelessS_twin ht.find ht.findTable block
+    | exact RelRun.ofThrow
 
 /-- **A declaration's own checks at twin indices push the same constants onto each, or fail
 alike.** -/

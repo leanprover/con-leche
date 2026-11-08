@@ -15,7 +15,7 @@ never reserved, so the two rows a basis cons could route by *name*
 row a basis cons routes by *kind* survives — and one that a basis cons
 had to supply bespoke (`nat_heads` at the `Nat` block) becomes free.
 
-**The name finding.**  Every block member passes `blockShape?`'s
+**The name finding.**  Every block member passes `readBlock`'s
 guard (`Kernel/Inductives/BlockShape.lean`), which checks
 
 > `reservedBasisNames.contains cv.name = false`
@@ -61,7 +61,7 @@ variable {V : Type w} [SetTheory V]
 variable {env : Env}
 
 /-- A non-reserved name differs from every reserved one.  The
-inductive tier's workhorse: `blockShape?`'s name guard is the
+inductive tier's workhorse: `readBlock`'s name guard is the
 hypothesis, and the four names the mechanical rows read
 (`Nat`/`Nat.zero`/`Nat.succ`/`Eq`) are all reserved. -/
 theorem ne_of_notReserved {n m : Name}
@@ -92,7 +92,7 @@ rows an inductive block genuinely establishes. -/
 theorem declStep_preserves_of_ind_cons (mp : EnvModelM V env)
     {c₀ : ConstantInfo} {A : (Name → Nat) → Term}
     (hfresh : env.find? c₀.name = none)
-    -- the name: `blockShape?`'s guard at a member
+    -- the name: `readBlock`'s guard at a member
     (hnres : ConLeche.reservedBasisNames.contains c₀.name = false)
     (hop : natOpName c₀.name = false)
     -- the kind: an inductive block installs no value kind and no axiom

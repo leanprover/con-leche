@@ -88,8 +88,8 @@ theorem axiomStepPB_of : AxiomStepPB V := by
 Every step concludes `CoverStep` (`Model/Cover.lean`): a carrier at its
 result to which coverage (`LfpCover mp []`) carries.  The inductive
 step is the uniform install (`declBlock`, every recognised block, nested
-ones included); a block the recogniser does not read never
-installs (`checkShapeless` declines), so there is no other inductive
+ones included); a block `readBlock` cannot read never installs
+(its error is the check's), so there is no other inductive
 step and coverage is unconditional. -/
 
 /-- A step's carrier, covered, from a covered input. -/
@@ -248,9 +248,9 @@ private theorem basisInstallRun_of_block {F : Nat} {env env₂ : Env} {block : L
     {nP : Nat} {kind : ConLeche.BasisKind} {p : ConLeche.BlockShape}
     (hk : ConLeche.basisNameHit block = some kind)
     (hok : ConLeche.pinListOk block kind.decls = true)
-    (hdf : ConLeche.blockShape? nP block = some p) (hrun : BlockRun F env block p env₂) :
+    (hdf : ConLeche.readBlock nP block = .ok p) (hrun : BlockRun F env block p env₂) :
     BasisInstallRun env (kind.storedAt block) env₂ := by
-  have hd := ConLeche.blockShape?_declared hdf
+  have hd := ConLeche.readBlock_declared hdf
   obtain ⟨hC, hT⟩ := ConLeche.blockInstall_pinned hk hok hdf
   have henv := blockRun_env hd hrun
   have hfr := blockRun_fresh hd hrun
@@ -332,12 +332,12 @@ theorem declStep_preserves
   | indDecl block nP =>
     have hrun' : ConLeche.Semantics.DeclIndRunDispatchK F env block nP env₂ := hrun
     unfold ConLeche.Semantics.DeclIndRunDispatchK at hrun'
-    cases hdf : ConLeche.blockShape? nP block with
-    | none =>
-      -- a block the recogniser does not read never installs
+    cases hdf : ConLeche.readBlock nP block with
+    | error _ =>
+      -- a block `readBlock` cannot read never installs
       rw [hdf] at hrun'
       exact hrun'.elim
-    | some p =>
+    | ok p =>
       rw [hdf] at hrun'
       cases hk : ConLeche.basisNameHit block with
       | some kind =>

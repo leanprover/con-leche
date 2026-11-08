@@ -690,9 +690,9 @@ theorem checkDeclKindC_pushes (mode : CheckMode) (fe : FEnv) (pd : Declaration) 
     simp only [declConstants, declTables]
     unfold checkIndDeclC
     split
-    · cases hbp : blockShape? nP block with
-      | none => exact Yields.bind fun _ => Yields.ofThrow
-      | some p => exact checkBlockKS_pushes mode fe block p
+    · cases hbp : readBlock nP block with
+      | error e => exact Yields.ofThrow
+      | ok p => exact checkBlockKS_pushes mode fe block p
     · exact Yields.ofThrow
 
 /-- **An accepting step pushes what the declaration installs**, at every mode. -/
