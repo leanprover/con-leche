@@ -1,0 +1,119 @@
+module
+
+public import ConLeche.Frontend.Olean
+
+@[expose] public section
+
+/-!
+# The tables a run reads up front: each module located once
+
+A worker reads a module's files in several phases (its header in the header fixpoint, its name
+positions, its views in the reach), and each read names the module, not its files.  Locating a
+module on the search path (`findModule`) looks at every directory of it, so a process that
+located a module at every read would locate most modules two or three times (task #509).  The
+tables hold what a run has read of a module once: where its files are (`loc`), and, where read,
+its imports and its two parts' name positions.  The reads answered from them (`ModTables.reads`)
+take a module's location from its table and read its files there; what a table does not hold
+is read at that location, and a module without a table is read on the search path.
+
+* The one-process mode (`ConLeche/Driver/Modular.lean`) reads every module's table, all of it,
+  up front.
+* A worker (`--module`, `workerTables`) reads its own module's table (its location and its
+  private part's name positions), then runs its header fixpoint once up front with each
+  module's header read at its location and the location entered in the tables (the state of
+  the fixpoint's run, `tabImports`); the worker's phases then read every loaded module at the
+  location found there.
+
+In the model, every table is read off the snapshot (`TablesOk`), so the reads answered from the
+tables refine the search path's (`modTables_within`, `ConLeche/Verify/Driver/Tables.lean`).
+-/
+
+namespace ConLeche.Driver
+
+open ConLeche ConLeche.Frontend.Olean
+
+/-- **What a run has read of a module.** -/
+structure ModTable where
+  name : Name
+  /-- where its files are -/
+  loc : Located
+  /-- its imports, off its header, where read -/
+  imports : Option (Array ImportRec)
+  /-- its private part's name positions, where read -/
+  priv : Option NamePositions
+  /-- its exported part's name positions, where read -/
+  expo : Option NamePositions
+
+/-- **The tables**, by module name. -/
+structure ModTables where
+  index : Std.HashMap Name Nat := {}
+  mods : Array ModTable := #[]
+
+/-- The tables with one more module's. -/
+def ModTables.push (T : ModTables) (t : ModTable) : ModTables :=
+  { index := T.index.insert t.name T.mods.size, mods := T.mods.push t }
+
+/-- The tables of a list of modules. -/
+def ModTables.ofArray (ts : Array ModTable) : ModTables :=
+  { index := ts.foldl (fun (acc : Std.HashMap Name Nat × Nat) t =>
+      (acc.1.insert t.name acc.2, acc.2 + 1)) ({}, 0) |>.1, mods := ts }
+
+/-- A module's table, if the tables hold one of that name. -/
+def ModTables.find (T : ModTables) (m : Name) : Option ModTable :=
+  match T.index[m]? with
+  | some i =>
+    match T.mods[i]? with
+    | some t => if t.name == m then some t else none
+    | none => none
+  | none => none
+
+/-- **The reads answered from the tables**: what a module's table holds from it, the rest read
+at the location in it; a module without a table, on the search path. -/
+def ModTables.reads {μ : Type → Type} [CheckerIO μ] (sp : SearchPath) (T : ModTables) :
+    OleanReads μ where
+  imports m := match T.find m with
+    | some t =>
+      match t.imports with
+      | some is => pure (.ok is)
+      | none => readImportsAt t.loc m
+    | none => moduleImports sp m
+  files m level := match T.find m with
+    | some t => readFilesAt t.loc m level
+    | none => readFiles sp m level
+  names x := match T.find x.1 with
+    | some t =>
+      match x.2, t.priv, t.expo with
+      | .private, some p, _ => pure (.ok p)
+      | .exported, _, some e => pure (.ok e)
+      | _, _, _ => readPartNamesAt t.loc x
+    | none => readPartNames sp x
+
+/-- **A module's imports, its location entered in the tables**: located on the search path,
+its header read there. -/
+def tabImports {μ : Type → Type} [CheckerIO μ] (sp : SearchPath) (n : Name) :
+    StateT ModTables μ (Except CheckError (Array ImportRec)) := fun T => do
+  match ← findModule sp n with
+  | .error e => pure (.error e, T)
+  | .ok loc =>
+    match ← readImportsAt loc n with
+    | .error e => pure (.error e, T)
+    | .ok is =>
+      pure (.ok is, T.push { name := n, loc, imports := some is, priv := none, expo := none })
+
+/-- **A worker's tables** at module `m`: `m` located, its private part's name positions read
+there, then its header fixpoint (`headerFixpoint`) over `tabImports`, which locates each module
+it loads once.  Nothing here fails: where a read fails, the tables hold what was read before it,
+and the worker's own read of the rest reports the failure. -/
+def workerTables {μ : Type → Type} [CheckerIO μ] (sp : SearchPath) (m : Name) : μ ModTables := do
+  match ← findModule sp m with
+  | .error _ => pure {}
+  | .ok loc =>
+    match ← readPartNamesAt loc (m, .private) with
+    | .error _ =>
+      pure (ModTables.push {} { name := m, loc, imports := none, priv := none, expo := none })
+    | .ok own =>
+      let T0 := ModTables.push {} { name := m, loc, imports := none, priv := some own, expo := none }
+      let (_, T) ← (headerFixpoint (tabImports sp) own.header.isModule own.header.imports).run T0
+      pure T
+
+end ConLeche.Driver

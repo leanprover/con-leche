@@ -2,6 +2,7 @@ module
 
 public import ConLeche.Driver.Modular
 public import ConLeche.Verify.Driver.Worker
+public import ConLeche.Verify.Driver.Tables
 import ConLeche.Verify.Driver.Graph
 
 /-!
@@ -10,10 +11,10 @@ import ConLeche.Verify.Driver.Graph
 What an exit 0 of the one-process mode at a root (`checkModularG`,
 `ConLeche/Driver/Modular.lean`) establishes on a snapshot:
 
-* `modTables_within` — **the tables' reads refine the search path's**: every table was read off
-  the snapshot (`TablesOk`: the module's location is `findModule`'s answer, its imports
-  `moduleImports`', its two parts' name positions `readPartNamesAt`'s at that location), so each
-  of the three reads answered from them is one of the search path's (`OleanReads.Within`);
+* `tables_ok` — **the tables are read off the snapshot** (`TablesOk`, so that their reads refine
+  the search path's, `modTables_within`, `ConLeche/Verify/Driver/Tables.lean`): each module's
+  location is `findModule`'s answer, its imports the graph's, its two parts' name positions
+  `readPartNamesAt`'s at that location;
 * `checkModularG_accept` — **every module of the closure is an accepted worker**: the closure
   is the graph check's (`graphOf`, whose accepting outcome gives `checkGraphG_ok`'s facts,
   `graphOf_ok`), and at every module of it, `WorkerAccepted` at one job: the per-module facts
@@ -63,18 +64,11 @@ theorem mapExcept_both {α β ε : Type} {f : α → ModelIO (Except ε β)} {fs
 
 /-! ## The tables -/
 
-/-- **Tables read off the snapshot.** -/
-def TablesOk (fs : FS) (sp : SearchPath) (T : ModTables) : Prop :=
-  ∀ t ∈ T.mods, ModelIO.CanGive (findModule sp t.name) fs (.ok t.loc) ∧
-    ModelIO.CanGive (moduleImports sp t.name) fs (.ok t.imports) ∧
-    ModelIO.CanGive (readPartNamesAt t.loc (t.name, .private)) fs (.ok t.priv) ∧
-    ModelIO.CanGive (readPartNamesAt t.loc (t.name, .exported)) fs (.ok t.expo)
-
 theorem readModTable_ok {sp : SearchPath} {fs : FS} {e : Graph.Node} {t : ModTable} {hs hs' : HS}
     (h : (readModTable sp e : ModelIO _) fs hs (.ok (.ok t)) hs') :
-    t.name = e.1 ∧ t.imports = e.2 ∧ ModelIO.CanGive (findModule sp e.1) fs (.ok t.loc) ∧
-    ModelIO.CanGive (readPartNamesAt t.loc (e.1, .private)) fs (.ok t.priv) ∧
-    ModelIO.CanGive (readPartNamesAt t.loc (e.1, .exported)) fs (.ok t.expo) := by
+    t.name = e.1 ∧ t.imports = some e.2 ∧ ModelIO.CanGive (findModule sp e.1) fs (.ok t.loc) ∧
+    (∀ p, t.priv = some p → ModelIO.CanGive (readPartNamesAt t.loc (e.1, .private)) fs (.ok p)) ∧
+    (∀ p, t.expo = some p → ModelIO.CanGive (readPartNamesAt t.loc (e.1, .exported)) fs (.ok p)) := by
   simp only [readModTable, ModelIO.bind_ok] at h
   obtain ⟨x, hs₁, hx, h⟩ := h
   rcases x with err | loc
@@ -90,87 +84,8 @@ theorem readModTable_ok {sp : SearchPath} {fs : FS} {e : Graph.Node} {t : ModTab
   simp only [ModelIO.pure_iff, Except.ok.injEq] at h
   obtain ⟨h, -⟩ := h
   subst h
-  exact ⟨rfl, rfl, ⟨_, _, hx⟩, ⟨_, _, hy⟩, ⟨_, _, hz⟩⟩
-
-theorem ModTables.find_mem {T : ModTables} {m : Name} {t : ModTable} (h : T.find m = some t) :
-    t ∈ T.mods ∧ t.name = m := by
-  simp only [ModTables.find] at h
-  split at h
-  · split at h
-    · rename_i t' ht'
-      by_cases hn : (t'.name == m) = true
-      · simp only [hn, ↓reduceIte, Option.some.injEq] at h
-        subst h
-        exact ⟨Array.mem_of_getElem? ht', beq_iff_eq.1 hn⟩
-      · simp [hn] at h
-    · cases h
-  · cases h
-
-/-- A value a table holds is one the read it stands for gives, from any open handles. -/
-theorem ModelIO.Within.of_table {α : Type} {fs : FS} {a : ModelIO α} {v : α}
-    (ha : ModelIO.Within fs a a) (hv : ModelIO.CanGive a fs v) : ModelIO.Within fs (pure v) a := by
-  intro _ o _ ho hs₀
-  simp only [ModelIO.pure_iff] at ho
-  obtain ⟨rfl, -⟩ := ho
-  obtain ⟨_, _, hv⟩ := hv
-  exact ha _ _ _ hv hs₀
-
-/-- A read at a module's location, where the location is the search path's: the read on the
-search path, from any open handles. -/
-theorem ModelIO.Within.at_loc {α : Type} {fs : FS} {sp : SearchPath} {m : Name} {loc : Located}
-    {a : Located → ModelIO (Except CheckError α)} (hloc : ModelIO.CanGive (findModule sp m) fs (.ok loc))
-    (ha : ModelIO.Within fs (a loc) (a loc)) :
-    ModelIO.Within fs (a loc) (do
-      match ← findModule sp m with
-      | .error e => pure (.error e)
-      | .ok loc => a loc) := by
-  intro hs o hs' ho hs₀
-  obtain ⟨_, _, hf⟩ := hloc
-  obtain ⟨hs₂, hf⟩ := findModule_within fs sp m _ _ _ hf hs₀
-  obtain ⟨hs₁, hr⟩ := ha hs o hs' ho hs₂
-  exact ⟨hs₁, Or.inl ⟨_, hs₂, hf, hr⟩⟩
-
-/-- **The tables' reads refine the search path's.** -/
-theorem modTables_within {fs : FS} {sp : SearchPath} {T : ModTables} (hT : TablesOk fs sp T) :
-    OleanReads.Within fs (T.reads sp) sp := by
-  refine ⟨fun m => ?_, fun m level => ?_, fun x => ?_⟩
-  · simp only [ModTables.reads]
-    split
-    · rename_i t ht
-      obtain ⟨hm, rfl⟩ := ModTables.find_mem ht
-      exact ModelIO.Within.of_table (moduleImports_within fs sp _) (hT t hm).2.1
-    · exact moduleImports_within fs sp m
-  · simp only [ModTables.reads]
-    split
-    · rename_i t ht
-      obtain ⟨hm, rfl⟩ := ModTables.find_mem ht
-      exact ModelIO.Within.at_loc (a := fun loc => readFilesAt loc t.name level) (hT t hm).1
-        (readFilesAt_within fs _ _ _)
-    · exact readFiles_within fs sp m level
-  · obtain ⟨n, level⟩ := x
-    simp only [ModTables.reads]
-    split
-    · rename_i t ht
-      obtain ⟨hm, rfl⟩ := ModTables.find_mem ht
-      have hf := (hT t hm).1
-      have hat : ∀ level, ModelIO.Within fs (readPartNamesAt t.loc (t.name, level))
-          (readPartNames sp (t.name, level)) := fun level =>
-        ModelIO.Within.at_loc (a := fun loc => readPartNamesAt loc (t.name, level)) hf (by
-          simp only [readPartNamesAt]
-          exact ModelIO.Within.bind (readFilesAt_within fs _ _ _) fun r => by
-            rcases r with e | f
-            · exact ModelIO.Within.pure _
-            · simp only
-              split <;> exact ModelIO.Within.pure _)
-      cases level with
-      | «private» =>
-        exact ModelIO.Within.of_table (readPartNames_within fs sp _)
-          ((hat .private).canGive (hT t hm).2.2.1)
-      | exported =>
-        exact ModelIO.Within.of_table (readPartNames_within fs sp _)
-          ((hat .exported).canGive (hT t hm).2.2.2)
-      | server => exact hat .server
-    · exact readPartNames_within fs sp (n, level)
+  exact ⟨rfl, rfl, ⟨_, _, hx⟩, (fun p h => by cases h; exact ⟨_, _, hy⟩),
+    (fun p h => by cases h; exact ⟨_, _, hz⟩)⟩
 
 /-- The tables of the graph's modules, read off the snapshot. -/
 theorem tables_ok {sp : SearchPath} {fs : FS} {C : List Graph.Node} {ts : List ModTable}
@@ -181,8 +96,8 @@ theorem tables_ok {sp : SearchPath} {fs : FS} {C : List Graph.Node} {ts : List M
   simp only [ModTables.ofArray, List.mem_toArray] at ht
   obtain ⟨e, he, _, _, hr⟩ := h t ht
   obtain ⟨hn, hi, h1, h2, h3⟩ := readModTable_ok hr
-  rw [hn, hi]
-  exact ⟨h1, hC e he, h2, h3⟩
+  rw [hn]
+  exact ⟨h1, (fun is h => by rw [hi] at h; cases h; exact hC e he), h2, h3⟩
 
 /-! ## The run -/
 
