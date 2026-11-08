@@ -24,14 +24,15 @@ it plain `IO`:
   by its last argument, `/proc/<pid>/status`'s `VmRSS` and `VmHWM`, the peak so far).
   **Admission**: a worker starts only while the running workers' peaks sum to under the budget
   (nothing running: always).  **Preemption**: when the current resident sets sum to more than
-  the budget, **the largest worker is protected** (the largest current set, then the largest
-  peak) and the youngest other one is killed (by its own process, `Child.kill` of the child
-  this scheduler started, never by a name) and put again at the front of the pending queue:
-  not a verdict, not logged.  No worker starts while the protected one runs; the next tick over
-  the budget kills the next-youngest, and so on; starts resume when the protected worker
-  finishes.  The protected worker alone over the budget is killed, its verdict `memory`
-  (running alone could not help); a different worker that has become the largest takes over
-  the protection;
+  the budget and no worker is protected, **the largest worker becomes protected** (the largest
+  current set, then the largest peak).  **The protection is sticky**: the protected worker stays
+  protected while it runs, even when another grows larger.  Every overflow kills the youngest
+  worker other than the protected one (by its own process, `Child.kill` of the child this
+  scheduler started, never by a name) and puts it again at the front of the pending queue: not
+  a verdict, not logged.  No worker starts while the protected one runs.  The protection ends
+  when the protected worker finishes (starts resume, subject to the admission), or when it is
+  killed, alone over the budget, with the verdict `memory` (running alone could not help).
+  Output: one line when a protection begins, one when it ends, and a short line per kill;
 * **a timeout per worker** (`timeout`, seconds, 0 for none): a worker running longer is killed,
   its verdict `timeout`;
 * **an append-only log** (`log`): one line per finished module, `<verdict>\t<module>`, written
@@ -39,7 +40,7 @@ it plain `IO`:
   run interrupted anywhere resumes where it stopped;
 * **progress**: each module's line (stdout) is `M: VERDICT t=Ss [done/total p %, k running,
   eta D]`, `done` counting a resumed run's logged modules, the estimate the remaining modules at
-  this run's finish rate so far (`progressText`); with a heartbeat (`heartbeat` ms), after that
+  the finish rate of the last 200 finishes, paused time left out (`progressText`); with a heartbeat (`heartbeat` ms), after that
   long without a line, the same counts and the three longest-running workers (stderr); the
   running workers' total resident memory and the largest one's (and the budget, when set)
   follow `k running` (`1.2 GiB now (max 0.6 GiB), 3.0 GiB peaks of 40 GiB`; then `2 requeued`
@@ -261,19 +262,37 @@ structure St where
   requeued : Nat := 0
   /-- the kills for memory, by module -/
   kills : Std.HashMap Name Nat := {}
+  /-- the active times (ms since the start, paused time left out) of the last `etaWindow`
+  finishes, and before them the start of the window (first element); `#[0]` at the start -/
+  stamps : Array Nat := #[0]
+  /-- the time spent with a protected worker, ms (starts paused) -/
+  pausedMs : Nat := 0
+  /-- the time of the last tick -/
+  lastTick : Nat := 0
+
+/-- How many finishes the estimate looks back over. -/
+def etaWindow : Nat := 200
+
+/-- The estimate's window after a finish at active time `t` (ms since the start, the time with
+starts paused left out): the last `etaWindow` finishes' times, with the start of the window first. -/
+def pushStamp (stamps : Array Nat) (t : Nat) : Array Nat :=
+  let s := stamps.push t
+  if s.size > etaWindow + 1 then s.extract 1 s.size else s
 
 /-- The progress of a run: `[done/total p %, k running, eta D]`.  `done` counts the logged
-modules of a resumed run; the estimate is the remaining modules at the rate this run has
-finished them so far (`elapsed × remaining ÷ finished`), none before the first finishes.  With
+modules of a resumed run.  The estimate is the remaining modules at the finish rate of a recent
+window: `window = (n, ms)`, the last `n ≤ 200` finishes of this run and the active time they took
+(from the previous finish, or the start, to the last finish; time with starts paused is left
+out, so one long pause does not stretch it): `remaining × ms ÷ n`; none before the first finish.  With
 `mem` (the running workers' total now, largest now and sum of peaks, KiB) and a `budget` (KiB,
 0 for none): `k running, 1.2 GiB now (max 0.6 GiB), 3.0 GiB peaks of 40 GiB`; then `n requeued`
 (`requeued`, when not 0) and `paused for M` (`paused`). -/
-def progressText (total done finished running elapsed : Nat)
+def progressText (total done running : Nat) (window : Nat × Nat)
     (mem : Option (Nat × Nat × Nat) := none) (budget : Nat := 0) (requeued : Nat := 0)
     (paused : Option Name := none) : String :=
   let pm := if total = 0 then 1000 else done * 1000 / total
-  let eta := if finished = 0 || done ≥ total then ""
-    else s!", eta {dur (elapsed * (total - done) / finished)}"
+  let eta := if window.1 = 0 || done ≥ total then ""
+    else s!", eta {dur (window.2 * (total - done) / window.1)}"
   let memText := match mem with
     | some (t, m, pk) =>
       if running = 0 then ""
@@ -307,7 +326,8 @@ def run (parse : String → Option Name) (app : System.FilePath) (args : Name �
     | none => pure none
   let t0 ← IO.monoMsNow
   let progress (st : St) (now : Nat) : String :=
-    progressText total st.nDone st.finished st.running.size (now - t0) st.mem o.memory
+    progressText total st.nDone st.running.size
+      (st.stamps.size - 1, (st.stamps.back?.getD 0) - (st.stamps[0]?.getD 0)) st.mem o.memory
       st.requeued st.prot
   let finish (st : St) (r : Running) (w : String) : IO St := do
     let msg ← r.diagText
@@ -316,7 +336,8 @@ def run (parse : String → Option Name) (app : System.FilePath) (args : Name �
       h.flush
     let now ← IO.monoMsNow
     let st := { st with verdicts := st.verdicts.insert r.m w, finished := st.finished + 1,
-                        nDone := st.nDone + 1, lastLine := now }
+                        nDone := st.nDone + 1, lastLine := now,
+                        stamps := pushStamp st.stamps (now - t0 - st.pausedMs) }
     out.putStrLn s!"con-leche: schedule: {r.m}: {w} t={ConLeche.Cached.msSecs (now - r.start)}s \
       {progress st now}"
     out.flush
@@ -339,6 +360,8 @@ def run (parse : String → Option Name) (app : System.FilePath) (args : Name �
   let tick (st : St) : IO St := do
     let now ← IO.monoMsNow
     let mut st := st
+    if st.prot.isSome then st := { st with pausedMs := st.pausedMs + (now - st.lastTick) }
+    st := { st with lastTick := now }
     -- the resident sets, every tick, budget or not
     let rss ← workerRssOpt
     let look (l : List (String × Nat × Nat)) (r : Running) : Nat × Nat :=
@@ -361,9 +384,15 @@ def run (parse : String → Option Name) (app : System.FilePath) (args : Name �
         else still := still.push r
     st := { st with running := still, mem := sample still }
     -- the protected worker finished: starts resume
+    let mut resumed : Option Name := none
     if let some p := st.prot then
-      if !st.running.any (·.m == p) then st := { st with prot := none }
+      if !st.running.any (·.m == p) then
+        st := { st with prot := none }
+        resumed := some p
     for (r, w) in ended do st ← finish st r w
+    if let some p := resumed then
+      err.putStrLn s!"con-leche: schedule: {p} finished, starts resumed"
+      err.flush
     if o.memory > 0 && !st.running.isEmpty then
       let rss := rss.getD []
       let mut total := 0
@@ -375,6 +404,11 @@ def run (parse : String → Option Name) (app : System.FilePath) (args : Name �
           | some (j, kj, hj) => if k > kj || (k == kj && hw > hj) then some (i, k, hw)
                                 else some (j, kj, hj)
           | none => some (i, k, hw)
+      -- sticky: a protected worker that still runs stays the protected one
+      if let some pm := st.prot then
+        if let some i := st.running.findIdx? (·.m == pm) then
+          if h : i < st.running.size then
+            big := some (i, (look rss st.running[i]).1, 0)
       if total > o.memory then
         if let some (i, k, _) := big then
           if h : i < st.running.size then
@@ -389,6 +423,10 @@ def run (parse : String → Option Name) (app : System.FilePath) (args : Name �
               st := { st with running := st.running.eraseIdx i, prot := none }
               st ← finish st p "memory"
             else
+              if st.prot.isNone then
+                err.putStrLn s!"con-leche: schedule: memory over {gibBudget o.memory}: starts \
+                  paused, protecting {p.m} ({gib k})"
+                err.flush
               -- the youngest other worker makes room, and is queued again at the front
               let mut vs : Option (Nat × Nat) := none
               for h2 : j in [0:st.running.size] do
@@ -403,9 +441,8 @@ def run (parse : String → Option Name) (app : System.FilePath) (args : Name �
                   r.child.kill
                   let _ ← r.child.wait
                   let _ ← r.diagText
-                  err.putStrLn s!"con-leche: schedule: {r.m}: killed at {gib (look rss r).1} to \
-                    make room for {p.m} ({gib k}), queued again (running {gib total} of \
-                    {gibBudget o.memory}); starts paused until {p.m} finishes"
+                  err.putStrLn s!"con-leche: schedule: {r.m}: killed at {gib (look rss r).1}, \
+                    requeued"
                   err.flush
                   st := { st with running := st.running.eraseIdx v, prot := some p.m,
                                   pending := r.m :: st.pending, requeued := st.requeued + 1,

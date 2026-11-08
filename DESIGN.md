@@ -114805,3 +114805,37 @@ cont. 8 had already left nothing pending there), so the change is noise on these
 **Documents.**  §7: the interface's proof laws (`By` in place of `Thm`), the proof side, "one
 theorem among the copies is enough", the proof's amalgamated part, the fragment's `ProofBy`, and
 con-leche's checks; anchors repointed.  OVERVIEW: the rule in §1 and §8.
+
+## TASK #512 — sticky protection, terser scheduler lines, a windowed ETA (2026-11-08, agent/512-sticky)
+
+Trigger: the maintainer's run (239 685 modules, `--jobs=32`, `--schedule-memory=40G`): with
+sawtooth profiles the largest-now worker changed every tick, so the protection moved and the
+previously protected worker (10 GiB, 40 s in) was killed as "youngest other"; every kill line
+repeated the protected module and the pause; the ETA swung from 16 h to 58 h in one pause.
+
+* **Sticky protection.** On an overflow with no protected worker the largest (current RSS, then
+  `VmHWM`) becomes protected, as in #510.  While it runs it stays protected, even when another
+  grows larger; every overflow kills the youngest other worker.  The protection ends when the
+  protected worker finishes or is killed alone with `memory`.  Peak admission, front-of-queue
+  requeue, no verdict, not logged: unchanged.
+* **Output.** Kill: `M: killed at 63 MiB, requeued`.  One line when a protection begins, one when
+  it ends; the status line's `paused for M` is kept.
+* **ETA.** `remaining × ms ÷ n` over the last `n ≤ 200` finishes (`etaWindow`), `ms` their active
+  time: the time from the finish before the window (or the start) to the last finish, minus the
+  time spent with a protected worker (`pausedMs`, summed per tick).  So a long pause is not in
+  the rate, and a quiet stretch does not grow the estimate until a module finishes.
+
+Examples (`--olean --schedule --jobs=4 --search-path=<toolchain lib> -- Init.Data.Nat.Lemmas`):
+```
+120M: memory over 0.1 GiB: starts paused, protecting Init.Data.Nat.Lemmas (91 MiB)
+      Init.Data.Nat.Bitwise.Basic: killed at 63 MiB, requeued
+      Init.Data.Nat.Lemmas finished, starts resumed          exit 0
+90M:  memory over 90 MiB: starts paused, protecting Init.TacticsExtra (68 MiB)
+      Init.Data.Nat.Bitwise.Basic: killed at 67 MiB, requeued
+      Init.TacticsExtra finished, starts resumed
+      Init.Data.Array.Basic: 93 MiB alone, over the budget of 90 MiB: memory   exit 3
+      Init.Data.Nat.Lemmas: memory t=0.1s [1/84 1.1 %, 0 running, eta 8s]
+```
+The protection staying put while another worker grows larger could not be provoked at this
+scale (the workers peak at 100 MiB within milliseconds); the rule is the code's `findIdx?` on
+the protected module before the largest is looked at.
