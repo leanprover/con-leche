@@ -2,7 +2,6 @@ module
 
 public import ConLeche.Driver.Tables
 public import ConLeche.Verify.Driver.Shared
-import ConLeche.Verify.Frontend.Olean.Files
 
 /-!
 # The tables, in the model
