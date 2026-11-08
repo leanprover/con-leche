@@ -205,13 +205,14 @@ theorem except_error_bind {ε α β : Type} (e : ε) (f : α → Except ε β) :
 theorem except_ok_bind {ε α β : Type} (x : α) (f : α → Except ε β) : (Except.ok x >>= f) = f x := rfl
 
 /-- **What an accepted inductive declaration says of its constants**: block
-constants only, in range, fresh in the environment, safe when the block is,
+constants only, in range, closed, fresh in the environment, safe when the block is,
 every projection body the extended environment reads at their names in
 range, every intermediate term building those bodies in range. -/
 theorem checkInductiveC_ok {μ : CheckMode} {fe : InLean.FEnv} {lps : List Name} {nP : Nat}
     {types : List InductiveType} {u : Bool} {s s' : CState} {a : Added}
     (h : (checkInductiveC μ fe lps nP types u).run s = .ok (a, s')) :
     a.consts.all isBlockConst = true ∧ a.consts.all constInRange = true ∧
+    a.consts.all constClosed = true ∧
     a.consts.all (fun ci => (fe.env.find? ci.name).isNone) = true ∧
     (u || a.consts.all safeConst) = true ∧
     a.consts.all (fun ci =>
@@ -229,17 +230,18 @@ theorem checkInductiveC_ok {μ : CheckMode} {fe : InLean.FEnv} {lps : List Name}
     generalize checkUnsafeBlock μ fe gen.consts = X at h
     cases u <;>
     cases h1 : gen.consts.all isBlockConst <;> cases h2 : gen.consts.all constInRange <;>
+    cases h7 : gen.consts.all constClosed <;>
     cases h4 : gen.consts.all (fun ci => (fe.env.find? ci.name).isNone) <;>
     cases h5 : gen.consts.all safeConst <;>
     cases h3 : gen.consts.all (fun ci =>
       ({ fe with env := gen.consts.foldl InLean.addConst fe.env } : InLean.FEnv).projBodiesInRange
         ci.name) <;>
     cases h6 : projStepsAllOk gen.consts <;>
-    simp only [h1, h2, h3, h4, h5, h6, Bool.or_false, Bool.or_true, ↓reduceIte,
+    simp only [h1, h2, h3, h4, h5, h6, h7, Bool.or_false, Bool.or_true, ↓reduceIte,
       Bool.false_eq_true, throw, throwThe, MonadExceptOf.throw,
       StateT.run_bind, StateT.run_lift, Function.comp, except_error_bind, reduceCtorEq] at h
     all_goals
-      suffices hag : a = gen by subst hag; exact ⟨h1, h2, h4, by simp [h5], h3, h6⟩
+      suffices hag : a = gen by subst hag; exact ⟨h1, h2, h7, h4, by simp [h5], h3, h6⟩
       rw [show StateT.run flushC s1 = Except.ok ((), s1.flushed) from rfl, except_ok_bind] at h
     · split at h
       · rw [StateT.run_bind] at h
@@ -264,7 +266,7 @@ theorem projBodiesInRange_ind (hlaws : EnvLaws) (hR : ProjBodiesInRange fe) (hcs
     (hfresh : ∀ ci ∈ a.consts.toList, fe.env.find? ci.name = none)
     (hnd : (a.consts.toList.map (·.name)).Nodup) :
     ProjBodiesInRange { fe with env := a.consts.foldl InLean.addConst fe.env } := by
-  obtain ⟨-, -, -, -, h3, -⟩ := checkInductiveC_ok h
+  obtain ⟨-, -, -, -, -, h3, -⟩ := checkInductiveC_ok h
   rw [← Array.foldl_toList] at h3 ⊢
   refine projBodiesInRange_group hlaws hR hcs hfresh hnd ?_
   intro ci hci
@@ -277,7 +279,7 @@ theorem projStepsAllOk_of_checkInductiveC {μ : CheckMode} {lps : List Name} {nP
     {types : List InductiveType} {u : Bool} {s s' : CState} {a : Added}
     (h : (checkInductiveC μ fe lps nP types u).run s = .ok (a, s')) :
     projStepsAllOk a.consts = true :=
-  (checkInductiveC_ok h).2.2.2.2.2
+  (checkInductiveC_ok h).2.2.2.2.2.2
 
 /-- **`IndGroupPresBP`'s block premise from an accepted inductive declaration.** -/
 theorem storedBlock_of_checkInductiveC {μ : CheckMode} {lps : List Name} {nP : Nat}
@@ -293,7 +295,7 @@ theorem fresh_of_checkInductiveC {μ : CheckMode} {lps : List Name} {nP : Nat}
     (h : (checkInductiveC μ fe lps nP types u).run s = .ok (a, s')) :
     ∀ ci ∈ a.consts.toList, fe.env.find? ci.name = none := by
   intro ci hci
-  have h3 := (checkInductiveC_ok h).2.2.1
+  have h3 := (checkInductiveC_ok h).2.2.2.1
   rw [Array.all_eq_true_iff_forall_mem] at h3
   simpa using h3 ci (Array.mem_toList_iff.1 hci)
 
@@ -307,7 +309,7 @@ theorem sees_of_checkInductiveC {μ : CheckMode} {lps : List Name} {nP : Nat}
     (hsorry : ∀ ci ∈ a.consts.toList, ci.name ≠ InLean.sorryAxName) :
     ∀ ci ∈ a.consts.toList, fe.sees ci.name ci = true := by
   intro ci hci
-  have h4 := (checkInductiveC_ok h).2.2.2.1
+  have h4 := (checkInductiveC_ok h).2.2.2.2.1
   simp only [Bool.false_or, Array.all_eq_true_iff_forall_mem] at h4
   exact sees_safe (h4 ci (Array.mem_toList_iff.1 hci)) fun hn => absurd hn (hsorry ci hci)
 

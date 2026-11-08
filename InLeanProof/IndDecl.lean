@@ -1,6 +1,8 @@
 module
 
 public import InLeanProof.IndOps
+-- `Expr.hasLooseBVars`'s body (the generator's output closedness check)
+import all Lean.Expr
 
 /-!
 # O7: InLean's inductive declaration against master's (task #451, lane O7)
@@ -128,6 +130,26 @@ theorem CIRange_of_constInRange {ci : Lean.ConstantInfo} (h : InLean.constInRang
     exact ⟨(RangeOk_of_inRange h.1).1, fun r hr => (RangeOk_of_inRange (h.2 r hr)).1⟩
   | _ => exact (RangeOk_of_inRange h).1
 
+/-- What the declaration step checks of the generator's output (`constClosed`)
+is the closedness premise here. -/
+theorem CIClosed_of_constClosed {ci : Lean.ConstantInfo} (h : InLean.constClosed ci = true) :
+    CIClosed ci := by
+  cases ci with
+  | recInfo v =>
+    simp only [InLean.constClosed, Bool.and_eq_true, Bool.not_eq_true', List.all_eq_true] at h
+    exact ⟨h.1, h.2⟩
+  | _ => simp only [CIClosed]; simpa [InLean.constClosed] using h
+
+/-- A closed term with a closed reading: its reading has no loose bound variable. -/
+theorem lbb_trC_of_closed {e : Lean.Expr} (hok : okC e = true) (h : e.hasLooseBVars = false) :
+    (trC e).looseBVarsBounded 0 = true := by
+  have hb := looseBVarRange_toExpr fvarsOnly_none (RangeOk_of_okE hok) (toExpr_of_okE _ hok)
+  rw [ConLeche.Expr.looseBVarsBounded_iff]
+  change decide (e.looseBVarRange > 0) = false at h
+  simp only [hb, decide_eq_false_iff_not] at h
+  show (trE _ e).bvarBound ≤ 0
+  omega
+
 /-! ## The job run, named -/
 
 /-- **A recognised block's job** (`checkBlockKS_run`'s twin): accepted by
@@ -138,7 +160,7 @@ InLean from a state with the residue, accepted by master's pure fueled
   ∀ (fe : InLean.FEnv) (L : ConLeche.Env) (block : List Lean.ConstantInfo) (nP : Nat)
     (p : InLean.BlockShape) (s₀ s' : InLean.CState),
     JobEnvI fe L → (∀ ci ∈ block, ci.name = InLean.sorryAxName → fe.coreAxioms = true) →
-    CSOKIF s₀ → (∀ ci ∈ block, CIRange ci) →
+    CSOKIF s₀ → (∀ ci ∈ block, CIRange ci) → (∀ ci ∈ block, CIClosed ci) →
     (∀ ci ∈ block, isBlockKind ci = true ∧ okC ci.toConstantVal.type = true) →
     InLean.blockShape? nP block = some p →
     InLean.checkBlockKS .verified fe block p s₀ = .ok ((), s') →
@@ -156,7 +178,7 @@ theorem checkIndDeclC_sim (hK : BlockKSSimI)
     {block : List Lean.ConstantInfo} {cb : List ConLeche.ConstantInfo} {nP : Nat}
     (hso : ∀ ci ∈ block, ci.name = InLean.sorryAxName → fe.coreAxioms = true)
     {s₀ s' : InLean.CState} (hs : CSOKIF s₀) (hr : ∀ ci ∈ block, CIRange ci)
-    (hb : toBlock block = some cb)
+    (hcl : ∀ ci ∈ block, CIClosed ci) (hb : toBlock block = some cb)
     (h : InLean.checkIndDeclC .verified fe block nP s₀ = .ok ((), s')) :
     CSOKIF s' ∧ ∃ F L', ConLeche.checkDeclKind (ConLeche.fueledOps .verified F) pins L
       (.indDecl cb nP) = .ok L' := by
@@ -173,7 +195,7 @@ theorem checkIndDeclC_sim (hK : BlockKSSimI)
       obtain ⟨u, s₁, h1, h2⟩ := bindI_ok h
       have hs1 : s₁ = s₀ := genEntriesAgree_noSt p block s₀ u s₁ h1
       subst hs1
-      obtain ⟨hs', F, L', hF⟩ := hK fe L block nP p s₁ s' hJ hso hs hr hk hsh h2
+      obtain ⟨hs', F, L', hF⟩ := hK fe L block nP p s₁ s' hJ hso hs hr hcl hk hsh h2
       refine ⟨hs', F, L', ?_⟩
       have hok' : ConLeche.indParamsOk nP (block.map trCI) = true := by
         rw [indParamsOk_tr]; exact hok

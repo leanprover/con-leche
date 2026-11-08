@@ -35,9 +35,9 @@ parameters' scope, the classes' frames, the formers' and constructors'
 closedness, the constructors' freshness and master's well-formedness at their
 push).
 
-The pass needs one premise `PassSimI` does not state: the stream recursors'
-types closed (`checkBlockClassesI_run`'s `hrecs`, through `classReadI_run`'s
-opener).  `PassSimRI` is `PassSimI` with it.
+The stream recursors' types closed (`checkBlockClassesI_run`'s `hrecs`, through
+`classReadI_run`'s opener) is `PassSimI`'s premise, from the generator's output
+check (`constClosed`, through `recsClosed_of_block`).
 -/
 
 @[expose] public section
@@ -236,25 +236,12 @@ theorem PassDataI.frameOk {s : InLean.CState} {q : InLean.BlockPass}
     rw [TrS_of_okC _ hok.1]
     exact ⟨trC_wscoped 0 _, hcl⟩
 
-/-- **The pass with the stream recursors' types closed**: `PassSimI` with the
-premise `checkBlockClassesI_run` takes of the recursors (`hrecs`). -/
-def PassSimRI (R : InLean.CState → InLean.BlockPass → ConLeche.BlockPass ConLeche.Env → Prop) :
-    Prop :=
-  ∀ (fe : InLean.FEnv) (L : ConLeche.Env) (p₀ : InLean.BlockShape) (isRec : Bool)
-    (q : InLean.BlockPass) (s₀ s' : InLean.CState),
-    JobEnvI fe L → CSOKI .verified false L s₀ → (∀ ms ∈ p₀.members, MemberOk ms) →
-    (∀ rc ∈ p₀.recs, okC rc.cvR.type = true ∧ (trC rc.cvR.type).looseBVarsBounded 0 = true) →
-    PassPremI fe L p₀ →
-    InLean.checkBlockPassS .verified fe p₀ isRec s₀ = .ok (q, s') →
-    ∃ F cq, ConLeche.checkBlockPass (ConLeche.fueledOps .verified F) L (trShape p₀) isRec
-      = .ok cq ∧ CSOKI .verified false cq.env₁ s' ∧ R s' q cq
-
 /-! ## The pass -/
 
 /-- **The pass** (`checkBlockPassS_run`'s twin) at `PassRelI PassDataI`, from
 the former's constant check and its reduct. -/
-theorem passSimRI (hC : CheckConstantValFSimI) (hRF : ReducedFormerSimI) :
-    PassSimRI (PassRelI PassDataI) := by
+theorem passSimI (hC : CheckConstantValFSimI) (hRF : ReducedFormerSimI) :
+    PassSimI (PassRelI PassDataI) := by
   intro fe L p₀ isRec q s₀ s' hJ hs hms hrecs hpre h
   unfold InLean.checkBlockPassS at h
   -- the formers

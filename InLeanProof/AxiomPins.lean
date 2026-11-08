@@ -1814,9 +1814,58 @@ info: 'InLeanProof.reduceMembersSimI_of' depends on axioms: [propext, Classical.
 #guard_msgs in
 #print axioms InLeanProof.blockShape?_memberOk
 
-/-- info: 'InLeanProof.blockKSSimI_of' depends on axioms: [propext, Classical.choice, Quot.sound] -/
+/--
+info: 'InLeanProof.blockKSSimI_of' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound,
+ InLeanProof.Expr.mkAppData_fields,
+ InLeanProof.Expr.mkData_eq,
+ InLeanProof.Level.mkData_eq]
+-/
 #guard_msgs in
 #print axioms InLeanProof.blockKSSimI_of
+
+/-- info: 'InLeanProof.CIClosed.type' depends on axioms: [propext, Quot.sound] -/
+#guard_msgs in
+#print axioms InLeanProof.CIClosed.type
+
+/-- info: 'InLeanProof.CIClosed_of_constClosed' depends on axioms: [propext, Quot.sound] -/
+#guard_msgs in
+#print axioms InLeanProof.CIClosed_of_constClosed
+
+/-- info: 'InLeanProof.blockSplitCtors_recs' depends on axioms: [propext, Quot.sound] -/
+#guard_msgs in
+#print axioms InLeanProof.blockSplitCtors_recs
+
+/-- info: 'InLeanProof.blockSplit_recs' depends on axioms: [propext, Quot.sound] -/
+#guard_msgs in
+#print axioms InLeanProof.blockSplit_recs
+
+/-- info: 'InLeanProof.blockShape?_recs' depends on axioms: [propext, Quot.sound] -/
+#guard_msgs in
+#print axioms InLeanProof.blockShape?_recs
+
+/--
+info: 'InLeanProof.lbb_trC_of_closed' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound,
+ InLeanProof.Expr.mkAppData_fields,
+ InLeanProof.Expr.mkData_eq,
+ InLeanProof.Level.mkData_eq]
+-/
+#guard_msgs in
+#print axioms InLeanProof.lbb_trC_of_closed
+
+/--
+info: 'InLeanProof.recsClosed_of_block' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound,
+ InLeanProof.Expr.mkAppData_fields,
+ InLeanProof.Expr.mkData_eq,
+ InLeanProof.Level.mkData_eq]
+-/
+#guard_msgs in
+#print axioms InLeanProof.recsClosed_of_block
 
 /--
 info: 'InLeanProof.reduceMemberSimI_of' depends on axioms: [propext,
@@ -5343,7 +5392,7 @@ info: 'InLeanProof.PassDataI.frameOk' depends on axioms: [propext, Classical.cho
 #print axioms InLeanProof.PassDataI.frameOk
 
 /--
-info: 'InLeanProof.passSimRI' depends on axioms: [propext,
+info: 'InLeanProof.passSimI' depends on axioms: [propext,
  Classical.choice,
  Quot.sound,
  InLeanProof.Expr.mkAppData_fields,
@@ -5351,4 +5400,4 @@ info: 'InLeanProof.passSimRI' depends on axioms: [propext,
  InLeanProof.Level.mkData_eq]
 -/
 #guard_msgs in
-#print axioms InLeanProof.passSimRI
+#print axioms InLeanProof.passSimI

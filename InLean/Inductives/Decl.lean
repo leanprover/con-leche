@@ -43,6 +43,14 @@ def constInRange : ConstantInfo → Bool
   | .recInfo v => EO.inRange v.type && v.rules.all fun r => EO.inRange r.rhs
   | ci => EO.inRange ci.type
 
+/-- A generated constant's terms are closed (no loose bound variable, read
+off the cached range, which `constInRange` makes the term's): the
+unverified generator's types and recursor rules are what the block check
+opens. -/
+def constClosed : ConstantInfo → Bool
+  | .recInfo v => !v.type.hasLooseBVars && v.rules.all fun r => !r.rhs.hasLooseBVars
+  | ci => !ci.type.hasLooseBVars
+
 /-- **The generated entries carry what con-leche's install computes** from
 the block (`consBlockIndsF`, `consSumCtorsF`, `recEntry`): every former's
 `all`, parameter and index counts, constructors and `isRec` (`blockIsRec`),
@@ -112,6 +120,8 @@ def checkInductiveC (fe : FEnv) (lps : List Name) (nparams : Nat) (types : List 
     throw (.internal "inductive generator: a constant outside the block")
   unless gen.consts.all constInRange do
     throw (.internal "too many bound variables in a generated constant")
+  unless gen.consts.all constClosed do
+    throw (.internal "inductive generator: a constant with loose bound variables")
   -- every name fresh in the environment itself, as official's `check_name`
   -- (the block check tests its own names; the generated recursors' and the
   -- auxiliary constants' are tested here)

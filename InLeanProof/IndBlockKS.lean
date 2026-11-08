@@ -200,8 +200,11 @@ InLean's pass at `fe` followed by its tail on the block is master's pure pass at
   ∀ (fe : InLean.FEnv) (L : ConLeche.Env) (block : List Lean.ConstantInfo) (p₀ : InLean.BlockShape)
     (isRec : Bool) (s₀ s' : InLean.CState),
     JobEnvI fe L → CSOKI .verified false L s₀ → (∀ ci ∈ block, CIRange ci) →
+    (∀ ci ∈ block, CIClosed ci) →
     (∀ ci ∈ block, isBlockKind ci = true ∧ okC ci.toConstantVal.type = true) →
-    (∀ ms ∈ p₀.members, MemberOk ms) → PassPremI fe L p₀ →
+    (∀ ms ∈ p₀.members, MemberOk ms) →
+    (∀ rc ∈ p₀.recs, okC rc.cvR.type = true ∧ (trC rc.cvR.type).looseBVarsBounded 0 = true) →
+    PassPremI fe L p₀ →
     (do let q ← InLean.checkBlockPassS .verified fe p₀ isRec; InLean.checkBlockTailS .verified block q)
       s₀ = .ok ((), s') →
     CSOKIF s' ∧ ∃ F q, ConLeche.checkBlockPass (ConLeche.fueledOps .verified F) L (trShape p₀) isRec
@@ -433,13 +436,101 @@ theorem blockShape?_members {nP : Nat} {block : List Lean.ConstantInfo} {p : InL
               | (simp only [Option.some.injEq] at h; subst h; exact members_from h1)
           · cases h
 
+theorem blockSplitCtors_recs : ∀ {block : List Lean.ConstantInfo} {cs rs},
+    InLean.blockSplitCtors block = some (cs, rs) → ∀ r ∈ rs, ∃ ci ∈ block, ci.toConstantVal = r.1
+  | .ctorInfo v :: rest, cs, rs, h => by
+    simp only [InLean.blockSplitCtors, Option.map_eq_some_iff] at h
+    obtain ⟨q, h1, h2⟩ := h
+    simp only [Prod.mk.injEq] at h2
+    obtain ⟨rfl, rfl⟩ := h2
+    intro r hr
+    obtain ⟨ci, hci, he⟩ := blockSplitCtors_recs h1 r hr
+    exact ⟨ci, List.mem_cons_of_mem _ hci, he⟩
+  | [], cs, rs, h | .recInfo _ :: _, cs, rs, h | .inductInfo _ :: _, cs, rs, h
+  | .axiomInfo _ :: _, cs, rs, h | .defnInfo _ :: _, cs, rs, h | .thmInfo _ :: _, cs, rs, h
+  | .opaqueInfo _ :: _, cs, rs, h | .quotInfo _ :: _, cs, rs, h => by
+    unfold InLean.blockSplitCtors at h
+    simp only [Option.map_eq_some_iff, Prod.mk.injEq] at h
+    obtain ⟨_, h1, -, rfl⟩ := h
+    exact blockSplitRecs_sub h1
+
+theorem blockSplit_recs : ∀ {block : List Lean.ConstantInfo} {cvTs cs rs},
+    InLean.blockSplit block = some (cvTs, cs, rs) → ∀ r ∈ rs, ∃ ci ∈ block, ci.toConstantVal = r.1
+  | .inductInfo v :: rest, cvTs, cs, rs, h => by
+    simp only [InLean.blockSplit, Option.map_eq_some_iff] at h
+    obtain ⟨q, h1, h2⟩ := h
+    simp only [Prod.mk.injEq] at h2
+    obtain ⟨rfl, h3⟩ := h2
+    obtain ⟨q1, q2, q3⟩ := q
+    simp only [Prod.mk.injEq] at h3
+    obtain ⟨rfl, rfl⟩ := h3
+    intro r hr
+    obtain ⟨ci, hci, he⟩ := blockSplit_recs h1 r hr
+    exact ⟨ci, List.mem_cons_of_mem _ hci, he⟩
+  | [], cvTs, cs, rs, h | .recInfo _ :: _, cvTs, cs, rs, h | .ctorInfo _ :: _, cvTs, cs, rs, h
+  | .axiomInfo _ :: _, cvTs, cs, rs, h | .defnInfo _ :: _, cvTs, cs, rs, h
+  | .thmInfo _ :: _, cvTs, cs, rs, h | .opaqueInfo _ :: _, cvTs, cs, rs, h
+  | .quotInfo _ :: _, cvTs, cs, rs, h => by
+    unfold InLean.blockSplit at h
+    simp only [Option.map_eq_some_iff, Prod.mk.injEq] at h
+    obtain ⟨q, h1, rfl, rfl, rfl⟩ := h
+    exact blockSplitCtors_recs h1
+
+/-- **A recognised shape's recursors are the block's**. -/
+theorem blockShape?_recs {nP : Nat} {block : List Lean.ConstantInfo} {p : InLean.BlockShape}
+    (h : InLean.blockShape? nP block = some p) :
+    ∀ rc ∈ p.recs, ∃ ci ∈ block, ci.toConstantVal = rc.cvR := by
+  cases hsp : InLean.blockSplit block with
+  | none =>
+    unfold InLean.blockShape? at h; rw [hsp] at h; cases h
+  | some q =>
+    obtain ⟨cvTs, cs, rs⟩ := q
+    have h1 := blockSplit_recs hsp
+    unfold InLean.blockShape? at h
+    rw [hsp] at h
+    cases cvTs with
+    | nil => cases h
+    | cons cvT0 tl =>
+      cases rs with
+      | nil => cases h
+      | cons r0 rtl =>
+        obtain ⟨cvR0, r0b⟩ := r0
+        simp only at h
+        cases hc : InLean.blockMemberCounts? nP (cvT0 :: tl).length cs.length
+            ((cvT0 :: tl).map (·.name)) ((cvR0, r0b) :: rtl) 0 (cvT0 :: tl) with
+        | none => rw [hc] at h; cases h
+        | some nIdxs =>
+          rw [hc] at h
+          simp only at h
+          split at h
+          · revert h
+            repeat' split
+            all_goals intro h
+            all_goals first
+              | (cases h; done)
+              | (simp only [Option.some.injEq] at h; subst h
+                 exact fun rc hrc => by
+                   obtain ⟨r, hr, rfl⟩ := List.mem_map.1 hrc; exact h1 r hr)
+          · cases h
+
+/-- **A block's recursor types, closed with a closed reading** (what the pass and the
+generated recursors' stage take of the stream's recursors). -/
+theorem recsClosed_of_block {nP : Nat} {block : List Lean.ConstantInfo} {p : InLean.BlockShape}
+    (hk : ∀ ci ∈ block, isBlockKind ci = true ∧ okC ci.toConstantVal.type = true)
+    (hcl : ∀ ci ∈ block, CIClosed ci) (h : InLean.blockShape? nP block = some p) :
+    ∀ rc ∈ p.recs, okC rc.cvR.type = true ∧ (trC rc.cvR.type).looseBVarsBounded 0 = true := by
+  intro rc hrc
+  obtain ⟨ci, hci, he⟩ := blockShape?_recs h rc hrc
+  rw [← he]
+  exact ⟨(hk ci hci).2, lbb_trC_of_closed (hk ci hci).2 (hcl ci hci).type⟩
+
 /-- **The recognised block's job** (`checkBlockKS_run`'s twin) from the
 members' reduction and the pass with its tail, given that a recognised
 shape's members have a closed reading (`hMO`). -/
 theorem blockKSSimI_of (hR : ReduceMemberSimI) (hPT : PassTailSimI)
     (hMO : ∀ nP block p, (∀ ci ∈ block, isBlockKind ci = true ∧ okC ci.toConstantVal.type = true) →
       InLean.blockShape? nP block = some p → ∀ ms ∈ p.members, MemberOk ms) : BlockKSSimI := by
-  intro fe L block nP p s₀ s' hJ hso hs hr hk hsh h
+  intro fe L block nP p s₀ s' hJ hso hs hr hcl hk hsh h
   unfold InLean.checkBlockKS at h
   by_cases hnd : (InLean.namesNodup (p.allCtors.map (·.1.name)) &&
       InLean.namesNodup p.memberNames) = true
@@ -492,7 +583,8 @@ theorem blockKSSimI_of (hR : ReduceMemberSimI) (hPT : PassTailSimI)
     · obtain ⟨ci, hci, he⟩ := hfrom m hm
       rw [← he]; exact (hr ci hci).type
   obtain ⟨hs', F₂, q, hP, hT⟩ := hPT fe L block { p with members := ms } (InLean.blockIsRec p)
-    s₁.flushed s' hJ (flushI_csoki hs₁ .verified false L) hr hk hokms hpre h
+    s₁.flushed s' hJ (flushI_csoki hs₁ .verified false L) hr hcl hk hokms
+    (recsClosed_of_block (p := p) hk hcl hsh) hpre h
   refine ⟨hs', max F₁ F₂,
     L.pushDelta (ConLeche.blockConstants (trShape p)) (ConLeche.blockTables (trShape p) (trShape p).members),
     ?_⟩

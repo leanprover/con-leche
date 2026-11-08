@@ -168,6 +168,7 @@ invariant at `L` (after the job's flush) and ends in it at the formers' environm
   ∀ (fe : InLean.FEnv) (L : ConLeche.Env) (p₀ : InLean.BlockShape) (isRec : Bool)
     (q : InLean.BlockPass) (s₀ s' : InLean.CState),
     JobEnvI fe L → CSOKI .verified false L s₀ → (∀ ms ∈ p₀.members, MemberOk ms) →
+    (∀ rc ∈ p₀.recs, okC rc.cvR.type = true ∧ (trC rc.cvR.type).looseBVarsBounded 0 = true) →
     PassPremI fe L p₀ →
     InLean.checkBlockPassS .verified fe p₀ isRec s₀ = .ok (q, s') →
     ∃ F cq, ConLeche.checkBlockPass (ConLeche.fueledOps .verified F) L (trShape p₀) isRec
@@ -179,6 +180,7 @@ invariant at `L` (after the job's flush) and ends in it at the formers' environm
   ∀ (block : List Lean.ConstantInfo) (q : InLean.BlockPass) (cq : ConLeche.BlockPass ConLeche.Env)
     (s₀ s' : InLean.CState),
     R s₀ q cq → CSOKI .verified false cq.env₁ s₀ → (∀ ci ∈ block, CIRange ci) →
+    (∀ ci ∈ block, CIClosed ci) →
     (∀ ci ∈ block, isBlockKind ci = true ∧ okC ci.toConstantVal.type = true) →
     InLean.checkBlockTailS .verified block q s₀ = .ok ((), s') →
     CSOKIF s' ∧ ∃ F, ConLeche.checkBlockTail (ConLeche.fueledOps .verified F) (block.map trCI) cq = .ok ()
@@ -208,10 +210,10 @@ stages): the environment and shape by `PassEnvRelI`, the parameters by `TrS`. -/
 /-- **The pass and the tail together** from the two, at any relation. -/
 theorem passTailSimI_of {R : InLean.CState → InLean.BlockPass → ConLeche.BlockPass ConLeche.Env → Prop}
     (hP : PassSimI R) (hT : TailSimI R) : PassTailSimI := by
-  intro fe L block p₀ isRec s₀ s' hJ hs hr hk hms hpre h
+  intro fe L block p₀ isRec s₀ s' hJ hs hr hcl hk hms hrecs hpre h
   obtain ⟨q, s₁, h1, h2⟩ := bindI_ok h
-  obtain ⟨F₁, cq, hF₁, hs₁, hR⟩ := hP fe L p₀ isRec q s₀ s₁ hJ hs hms hpre h1
-  obtain ⟨hs', F₂, hF₂⟩ := hT block q cq s₁ s' hR hs₁ hr hk h2
+  obtain ⟨F₁, cq, hF₁, hs₁, hR⟩ := hP fe L p₀ isRec q s₀ s₁ hJ hs hms hrecs hpre h1
+  obtain ⟨hs', F₂, hF₂⟩ := hT block q cq s₁ s' hR hs₁ hr hcl hk h2
   refine ⟨hs', max F₁ F₂, cq, ?_, ?_⟩
   · rw [← ConLeche.checkBlockPass_datF]
     exact FueledM.up (Nat.le_max_left _ _) (by rw [ConLeche.checkBlockPass_datF]; exact hF₁)
@@ -235,10 +237,10 @@ theorem checkIndDeclC_sim_stages (hC : CheckConstantValFSimI)
     {block : List Lean.ConstantInfo} {cb : List ConLeche.ConstantInfo} {nP : Nat}
     (hso : ∀ ci ∈ block, ci.name = InLean.sorryAxName → fe.coreAxioms = true)
     {s₀ s' : InLean.CState} (hs : CSOKIF s₀) (hr : ∀ ci ∈ block, CIRange ci)
-    (hb : toBlock block = some cb)
+    (hcl : ∀ ci ∈ block, CIClosed ci) (hb : toBlock block = some cb)
     (h : InLean.checkIndDeclC .verified fe block nP s₀ = .ok ((), s')) :
     CSOKIF s' ∧ ∃ F L', ConLeche.checkDeclKind (ConLeche.fueledOps .verified F) pins L
       (.indDecl cb nP) = .ok L' :=
-  checkIndDeclC_sim (blockKSSimI_of_stages hC hRF (passTailSimI_of hP hT)) hJ hso hs hr hb h
+  checkIndDeclC_sim (blockKSSimI_of_stages hC hRF (passTailSimI_of hP hT)) hJ hso hs hr hcl hb h
 
 end InLeanProof

@@ -93,6 +93,17 @@ theorem CIRange.type : ∀ {ci : Lean.ConstantInfo}, CIRange ci → Expr.RangeOk
   | .inductInfo _, h | .ctorInfo _, h | .axiomInfo _, h | .defnInfo _, h | .thmInfo _, h
   | .opaqueInfo _, h | .quotInfo _, h => h
 
+/-- A constant's terms are closed (what `constClosed` checks). -/
+@[expose] def CIClosed : Lean.ConstantInfo → Prop
+  | .recInfo v => v.type.hasLooseBVars = false ∧ ∀ r ∈ v.rules, r.rhs.hasLooseBVars = false
+  | ci => ci.type.hasLooseBVars = false
+
+theorem CIClosed.type : ∀ {ci : Lean.ConstantInfo}, CIClosed ci →
+    ci.toConstantVal.type.hasLooseBVars = false
+  | .recInfo _, h => h.1
+  | .inductInfo _, h | .ctorInfo _, h | .axiomInfo _, h | .defnInfo _, h | .thmInfo _, h
+  | .opaqueInfo _, h | .quotInfo _, h => h
+
 /-- **A block with a record is its total translation**, every constant one
 of a block's kinds with a type that has a reading. -/
 theorem toBlock_eq : ∀ {block : List Lean.ConstantInfo} {cb : List ConLeche.ConstantInfo},
