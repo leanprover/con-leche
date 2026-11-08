@@ -602,8 +602,8 @@ theorem agreeCheck_ok (he : EnvOk sp fs env) {c : ReachCache} (hc : CacheOk sp f
   split
   · simpa using h4
   · split
-    · simpa using (h4.partners _).pending _
     · simpa using h4.partners _
+    · simpa using (h4.partners _).pending _
 
 theorem statuses_ok (he : EnvOk sp fs env) :
     ∀ (c : ReachCache) (xs : List (Spot × ConstantVal × CKindF Name Unit)) (acc : List ProofStatus),
@@ -635,10 +635,10 @@ theorem clashAgree_ok (he : EnvOk sp fs env) :
       split
       · simpa using h1
       · split
+        · exact clashAgree_ok he _ cls _ h1
         · split
           · exact clashAgree_ok he _ cls _ (h1.pending _)
           · exact clashAgree_ok he _ cls _ h1
-        · exact clashAgree_ok he _ cls _ h1
 
 theorem inExported_ok (he : EnvOk sp fs env) {c : ReachCache} (hc : CacheOk sp fs c) (m : Name)
     (level : OLeanLevel) (y : Name) :

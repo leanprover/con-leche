@@ -10,14 +10,15 @@ public section
 /-!
 # Every model gives a proof the canonical proof
 
-The invariant behind agreement by proof irrelevance (`ConLeche.Modular.Agree.proof`): in every
-model of the modular instance, a stored theorem's leaf is the canonical proof `.prf`, and so is
-a stored definition's or axiom's whose type reads as a truth value under the model
-(`SemPropType`), at every name (`ProofLeaves`).  It is a property of the
-model, not of the checker: the step chooses those leaves (`DeclProofLeaf`), and a context's
-model reads them off its sources'.  Because the condition is the type's reading, it carries
-between two models that read the type alike (`SemPropType.of_denote`), which is how an
-importer's inference over a part of its context reaches a source's model.
+The invariant behind agreement by proof irrelevance (`ConLeche.Modular.Agree.proof`,
+`Agree.thm`): in every model of the modular instance, a stored theorem's type reads as a truth
+value under the model (`SemPropType`), and a stored theorem's, definition's or axiom's whose type
+reads so has the canonical proof `.prf` as its leaf, at every name (`ProofLeaves`).  It is a
+property of the model, not of the checker: the step chooses those leaves (`DeclProofLeaf`) and
+checks a theorem's type a proposition, and a context's model reads both off its sources'.
+Because the condition is the type's reading, it carries between two models that read the type
+alike (`SemPropType.of_denote`): that is how an importer's inference over a part of its context
+reaches a source's model, and how a theorem's type reaches a copy of its statement.
 -/
 
 namespace ConLeche.Model.Modular
@@ -33,11 +34,16 @@ variable (V) in
 /-- **Every proof's leaf is the canonical proof** (see the module docstring). -/
 @[expose] def ProofLeaves (E : Env) (a : Name → (Name → Nat) → Term) : Prop :=
   ∀ n ci, E.find? n = some ci → ci.isStmtKind = true →
-    ((∃ cv, ci = .thmInfo cv) ∨ SemPropType V a E ci.toConstantVal.type) →
-    a n = fun _ => .prf
+    ((∃ cv, ci = .thmInfo cv) → SemPropType V a E ci.toConstantVal.type) ∧
+    (SemPropType V a E ci.toConstantVal.type → a n = fun _ => .prf)
 
 theorem ProofLeaves.empty (a : Name → (Name → Nat) → Term) : ProofLeaves V Env.empty a :=
   fun _ _ h => nomatch h
+
+/-- **A theorem's leaf is the canonical proof.** -/
+theorem ProofLeaves.thm {E : Env} {a : Name → (Name → Nat) → Term} (h : ProofLeaves V E a)
+    {n : Name} {cv : ConstantVal} (hf : E.find? n = some (.thmInfo cv)) : a n = fun _ => .prf :=
+  (h n _ hf rfl).2 ((h n _ hf rfl).1 ⟨cv, rfl⟩)
 
 /-- **`Quot.sound`'s leaf is the canonical proof**, in every model storing it: its pin's. -/
 theorem quotSound_leaf {E : Env} (mp : EnvModelM V E) {ci : ConstantInfo}
@@ -50,6 +56,19 @@ theorem SemPropType.of_denote {a₁ a₂ : Name → (Name → Nat) → Term} {E�
     (h : ∀ ψ, denote a₁ E₁ ψ 0 ty = denote a₂ E₂ ψ 0 ty) (hs : SemPropType V a₂ E₂ ty) :
     SemPropType V a₁ E₁ ty :=
   fun ψ Ta hT ρ => hs ψ Ta ((h ψ).symm.trans hT) ρ
+
+/-- **`ProofLeaves` carries between two leaf assignments of one environment that read every
+stored type alike and agree on its leaves.** -/
+theorem ProofLeaves.of_alike {E : Env} {a a' : Name → (Name → Nat) → Term}
+    (h : ProofLeaves V E a)
+    (hden : ∀ n ci, E.find? n = some ci → ∀ ψ,
+      denote a' E ψ 0 ci.toConstantVal.type = denote a E ψ 0 ci.toConstantVal.type)
+    (hleaf : ∀ n, (E.find? n).isSome = true → a' n = a n) : ProofLeaves V E a' :=
+  fun n ci hf hk => by
+    obtain ⟨h1, h2⟩ := h n ci hf hk
+    refine ⟨fun ht => SemPropType.of_denote (hden n ci hf) (h1 ht), fun hs => ?_⟩
+    rw [hleaf n (by rw [hf]; rfl)]
+    exact h2 (SemPropType.of_denote (fun ψ => (hden n ci hf ψ).symm) hs)
 
 /-! ## Lookups in a filtered environment, resolution by names -/
 
@@ -198,5 +217,26 @@ theorem stmt_of_record {d : Declaration} {ci : ConstantInfo} (hci : ci ∈ declC
             · exact ih c hc
         rw [this _ _ hr] at hk; exact nomatch hk
     · exact absurd hci List.not_mem_nil
+
+/-- **A theorem a record installs is the theorem record's.** -/
+theorem thm_of_record {d : Declaration} {cv : ConstantVal}
+    (hci : ConstantInfo.thmInfo cv ∈ declConstants d) : ∃ v, d = .thmDecl cv v := by
+  have hq : ∀ k cv', quotAt k cv' ≠ .thmInfo cv := fun k cv' h => by
+    cases k <;> cases h
+  cases d with
+  | defnDecl _ _ _ => cases List.mem_singleton.mp hci
+  | thmDecl cv' v => cases List.mem_singleton.mp hci; exact ⟨v, rfl⟩
+  | opaqueDecl _ _ => cases List.mem_singleton.mp hci
+  | axiomDecl cv' =>
+    simp only [declConstants] at hci
+    split at hci
+    · exact absurd (List.mem_singleton.mp hci).symm (hq _ _)
+    · split at hci
+      · exact absurd hci List.not_mem_nil
+      · cases List.mem_singleton.mp hci
+  | quotDecl k cv' =>
+    simp only [declConstants, List.mem_singleton] at hci
+    exact absurd hci.symm (hq _ _)
+  | indDecl block nP => exact nomatch stmtKind_of_ind hci
 
 end ConLeche.Model.Modular

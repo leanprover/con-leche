@@ -560,17 +560,17 @@ reach_ "two statements under one name, neither reached" 0 "reach" "$MSP" TeqDM
 # the two copies are definitions of Nat, not one key
 reach_ "a captured name" 1 "name capture at foo, read by module DgCapH" "$MSP" DgCapM
 # PdA's definition of `id True` (exported as an axiom) and PdB's theorem meet:
-# the definition's type is inferred to be a proposition, so one key (Lean merges
+# one copy is a theorem, so they agree with no inference (task #506; Lean merges
 # them)
-reach_ "a definition of a proposition meets a theorem: the flag inferred" 0 "1 flags inferred" "$MSP" PdM
+reach_ "a definition of a proposition meets a theorem: no inference" 0 "0 flags inferred" "$MSP" PdM
 # AxA's and AxB's `axiom Lean.trustCompiler : True` meet, both axioms at their homes: Lean
 # merges them (`isPropCheap`), so must the reach (task #444): the flag inferred, one key.
 # Every home accepts its own axiom (the pinned statement), and the merged read the closure
 reach_ "two axioms of one propositional statement meet: the flag inferred" 0 "1 flags inferred" "$MSP" AxM
 case_ "…the homes and the merged read" 0 --olean --search-path=$MSP AxA AxB AxM
 # AxI's `axiom axi : id True` meets AxIT's theorem (Lean's theorem/axiom arm, no isPropCheap):
-# the axiom's type inferred to be a proposition (the home's check declines the axiom)
-reach_ "an axiom of a proposition meets a theorem: the flag inferred" 0 "1 flags inferred" "$MSP" AxIM
+# one copy is a theorem, so no inference (task #506; the home's check declines the axiom)
+reach_ "an axiom of a proposition meets a theorem: no inference" 0 "0 flags inferred" "$MSP" AxIM
 case_ "…the axiom's home declines it" 2 --olean --search-path=$MSP AxI
 # AxNA's `axiom axn : Nat` and AxNB's (as AxNX's files; Lean's import refuses the pair):
 # not a proposition, rejected by the clash rule, as by Lean
@@ -628,7 +628,7 @@ for m in Tiny TinyUse TinyClassic LazyVal PrivUnused HidA HidAll HidUse RbH RbM 
     TeqH TeqP1 TeqP2 TeqQ2 TeqX TeqM TeqBoth NsC NsH NsM NsN \
     LdgQ LdgA LdgM LdgN LdvQ LdvA LdvM LdvN GrN LvA LvB LvC LvM LvN \
     PdA PdB WvA WvB ClashA ClashB ClashX FrX FrY MoX NlB NlX NlY PpA PpB DnM1 DnM2 DnH \
-    GbG GbG2; do
+    GbG GbG2 TdA TdB TdH TdM; do
   work_ "the worker at $m" 0 "accepted" "$MSP" $m
 done
 # RtA's theorem at the compiler-trust name Lean.reduceBool: the name is reserved to the opaque
@@ -653,8 +653,13 @@ work_ "two statements under one name, neither reached" 0 "accepted" "$MSP" TeqDM
 # WvA's wv_secret, read by exported values, is completed as its statement: no
 # override flag
 work_ "an exported value reading a private-only constant" 0 "1 completed" "$MSP" WvM --progress
-# PdA's definition of `id True` meets PdB's theorem: the flag inferred, as Lean merges
-work_ "a definition of a proposition meets a theorem" 0 "1 flags inferred" "$MSP" PdM --progress
+# PdA's definition of `id True` meets PdB's theorem: no inference, one copy being a theorem
+# (task #506), as Lean merges
+work_ "a definition of a proposition meets a theorem" 0 "0 flags inferred" "$MSP" PdM --progress
+# PdA's definition (by `import all`) and PdB's theorem loaded together: the clash rule refuses
+# them, as Lean's import does (no theorem/definition arm); PdN is compiled against a stand-in
+work_ "a definition and a theorem of one name loaded together" 1 \
+  "modules PdA and PdB store different constants named pd" "$MSP" PdN
 # PpA's and PpB's definitions of `2 + 2 = 4`, with different bodies, meet: Lean merges them,
 # and the copies agree in every model because the statement is a proposition (task #500)
 work_ "two definitions of one proposition with different bodies" 0 "1 flags inferred" "$MSP" PpM --progress
@@ -712,6 +717,52 @@ for ext in ['olean', 'olean.private']:
 done
 work_ "two copies of a theorem whose exports complete to different names" 1 \
   "name capture at foo, read by module DnM2" "$d:$INIT" DnH
+rm -rf "$d"
+# A definition and a theorem of one statement meet through a home's view (task #506).  TdH
+# loads TdB privately, so the `td` its exported `tdn.eq_1` reads is dangling in its export;
+# the gate patches TdH's exported theorem `ty` to `(fun _ => True) td` (Lean writes no
+# exported statement reading a privately imported name), still True by β.  TdM loads TdA's
+# definition `td` and reads `ty`; TdH's view locates `td` as TdB's theorem: two proofs of
+# `id True`, which `isPropCheap` does not see as a proposition.  One copy is a theorem, so they
+# agree with no inference.  Lean, importing the patched files, compares nothing: it never loads
+# TdB's `td` at TdM (it refuses the pair loaded together, PdN).
+d="$TMPDIR/con-leche-olean-thmdef"
+rm -rf "$d"; cp -r "$LIB" "$d"
+xpatch "$d" TdH "
+def obj(a):
+    bb, o = at(a)
+    if bb[o + 7] == 246:
+        return bytes(bb[o:o + 24 + 8 * struct.unpack_from('<Q', bb, o + 16)[0]])
+    return bytes(bb[o:o + struct.unpack_from('<H', bb, o + 4)[0]])
+def clone(ext, a, i, v, arr=False):
+    base, bb = parts[ext]; n = base + len(bb); bb.extend(obj(a))
+    if arr: struct.pack_into('<Q', bb, n - base + 24 + 8 * i, v)
+    else: setfld(n, i, v)
+    return n
+for ext in ['olean', 'olean.private']:
+    base, bb = parts[ext]
+    root = struct.unpack_from('<Q', bb, 88)[0]
+    cs = consts(ext)
+    eq = next(c for n, c in cs.items() if n.endswith('tdn.eq_1'))
+    t = fld(fld(fld(eq, 0), 0), 2)
+    rhs = fld(t, 1)
+    y = cs['ty']
+    tru = fld(fld(fld(y, 0), 0), 2)
+    lam = clone(ext, fld(rhs, 0), 2, tru)
+    n2 = clone(ext, rhs, 0, lam)
+    cv = clone(ext, fld(fld(y, 0), 0), 2, n2)
+    val = clone(ext, fld(y, 0), 0, cv)
+    ci = clone(ext, y, 0, val)
+    arr = fld(root, 2)
+    ab, ao = at(arr)
+    k = next(j for j in range(struct.unpack_from('<Q', ab, ao + 8)[0])
+             if struct.unpack_from('<Q', ab, ao + 24 + 8 * j)[0] == y)
+    arr2 = clone(ext, arr, k, ci, arr=True)
+    root2 = clone(ext, root, 2, arr2)
+    struct.pack_into('<Q', bb, 88, root2)
+"
+work_ "a definition and a theorem of one statement meet in a home's view" 0 \
+  "0 flags inferred" "$d:$INIT" TdM --progress
 rm -rf "$d"
 # A group's stored names (task #501): GbG's exported part without S.rec (no other name of the
 # group reads it; Lean's exported parts need not hold every recursor), and GbG2's S.rec, which
@@ -791,10 +842,10 @@ rm -rf "$d"
 # record is rejected, as on the merged read (the fast path's names it reads are
 # left to that record's check)
 work_ "an axiom at a certified Nat operation's name" 1 "not a definition: Nat.div" "$LIB" NpAx
-# two axioms of one propositional statement, and an axiom of a proposition and a
-# theorem, meet: the flag inferred, as Lean merges them
+# two axioms of one propositional statement meet: the flag inferred; an axiom of a
+# proposition and a theorem meet: no inference (task #506); Lean merges both
 work_ "two axioms of one propositional statement meet" 0 "1 flags inferred" "$MSP" AxM --progress
-work_ "an axiom of a proposition meets a theorem" 0 "1 flags inferred" "$MSP" AxIM --progress
+work_ "an axiom of a proposition meets a theorem" 0 "0 flags inferred" "$MSP" AxIM --progress
 for m in AxA AxB AxIT AxNM; do work_ "the worker at $m" 0 "accepted" "$MSP" $m; done
 # QsA's and QsB's `axiom Quot.sound`, over QsP's quotient, meet at QsM (Lean merges the two
 # axioms); QsM's context reads QsB's theorem, whose read of `Quot.sound` is QsB's own copy, a

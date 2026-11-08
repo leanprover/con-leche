@@ -15,8 +15,9 @@ its context one after another by the fold's step (`DeclsRun`), carry a covered m
 context to one of the module's own environment that keeps every context leaf and every proof's
 leaf the canonical proof (`ProofLeaves`).  Each step is a pure `checkDecl` run
 (`checkDeclStepC_run`), and `declStep_agrees` installs it: an earlier name keeps its leaf and its
-type's reading, and a new theorem, or definition, opaque constant or axiom whose type reads as a
-truth value, gets the canonical proof (`DeclProofLeaf`, `new_proof_leaf`).
+type's reading, a new theorem's type reads as a truth value (the theorem record's check,
+`new_thm_prop`), and a new theorem, or definition, opaque constant or axiom whose type reads so,
+gets the canonical proof (`DeclProofLeaf`, `new_proof_leaf`).
 -/
 
 namespace ConLeche.Model.Modular
@@ -52,6 +53,36 @@ theorem find?_cons_fresh {c ci : ConstantInfo} {env : Env} {n : Name}
   · rw [hnew] at h
     exact nomatch h
 
+/-- **A new theorem's type reads as a truth value**: the theorem record's check finds it a
+proposition before the record, and it reads the same after it. -/
+theorem new_thm_prop {F : Nat} {env env₂ : Env} {d : Declaration}
+    (hrun : DeclRun F (ConLeche.Semantics.DeclIndRunDispatchK F env) env d env₂) {fe : FEnv}
+    (hch : PushChain env fe) (he : fe.env = env₂)
+    (hmem : ∀ c ∈ env₂.consts, c ∉ env.consts → c ∈ declConstants d)
+    (mp : EnvModelM V env) {a' : Name → (Name → Nat) → Term}
+    (hleaf : ∀ n, (env.find? n).isSome = true → a' n = mp.base2.acval n) {n : Name}
+    {cv : ConstantVal} (hf : env₂.find? n = some (.thmInfo cv)) (hnew : env.find? n = none) :
+    SemPropType V a' env₂ cv.type := by
+  subst he
+  have hname := ConLeche.Env.find?_name hf
+  have hmem_ci : ConstantInfo.thmInfo cv ∈ declConstants d := by
+    refine hmem _ (ConLeche.Env.find?_mem hf) fun h => ?_
+    have : (env.find? (ConstantInfo.thmInfo cv).name).isSome = true := by
+      unfold Env.find?; rw [List.find?_isSome]; exact ⟨_, h, by simp⟩
+    rw [hname, hnew] at this; exact nomatch this
+  obtain ⟨v, rfl⟩ := thm_of_record hmem_ci
+  obtain ⟨-, -, type', value', hcv, hprop, -, henv2⟩ := hrun
+  rw [henv2] at hf
+  obtain ⟨h, -⟩ := find?_cons_fresh hf hnew
+  rw [show cv.type = type' from congrArg (·.type) (ConstantInfo.thmInfo.inj h)]
+  obtain ⟨-, -, hlbt, hitf, hann, -, htr, -, -⟩ := hcv
+  obtain ⟨htf', hbt'⟩ := stored_syntax hann hitf hlbt
+  refine SemPropType.of_denote (fun ψ => pushChain_denote_old hch hleaf htr ψ)
+    (semPropType_of_run mp (Expr.WScoped.of_not_hasFvar htf') hbt' (fun l hl => ?_)
+      (Expr.fvarLeaves_eq_nil_of_not_hasFvar htf') ⟨F, hprop⟩)
+  rw [Expr.fvarLeaves_eq_nil_of_not_hasFvar htf'] at hl
+  exact absurd hl List.not_mem_nil
+
 /-- **A new proof's leaf is the canonical proof**: a stored constant a record adds, a theorem or
 of a type that reads as a truth value, gets it from its install. -/
 theorem new_proof_leaf {F : Nat} {env env₂ : Env} {d : Declaration}
@@ -63,7 +94,7 @@ theorem new_proof_leaf {F : Nat} {env env₂ : Env} {d : Declaration}
     (hpl : DeclProofLeaf V a env d a') {n : Name} {ci : ConstantInfo}
     (hf : env₂.find? n = some ci) (hnew : env.find? n = none) (hk : ci.isStmtKind = true)
     (hqs : n ≠ quotSoundName)
-    (hc : (∃ cv, ci = .thmInfo cv) ∨ SemPropType V a' env₂ ci.toConstantVal.type) :
+    (hc : SemPropType V a' env₂ ci.toConstantVal.type) :
     a' n = fun _ => .prf := by
   subst he
   -- the constant is the record's
@@ -85,9 +116,7 @@ theorem new_proof_leaf {F : Nat} {env env₂ : Env} {d : Declaration}
     rw [henv2] at hf
     obtain ⟨rfl, rfl⟩ := find?_cons_fresh hf hnew
     have htr : type'.constsResolve env = true := hcv.2.2.2.2.2.2.1
-    rcases hc with ⟨_, h⟩ | hc
-    · exact nomatch h
-    · exact hpl _ hmem_ci hk (.inr (hsem htr hc))
+    exact hpl _ hmem_ci hk (.inr (hsem htr hc))
   | thmDecl cv v =>
     obtain ⟨-, type', value', hcv, -, -, henv2⟩ := hrun
     rw [henv2] at hf
@@ -98,9 +127,7 @@ theorem new_proof_leaf {F : Nat} {env env₂ : Env} {d : Declaration}
     rw [henv2] at hf
     obtain ⟨rfl, rfl⟩ := find?_cons_fresh hf hnew
     have htr : type'.constsResolve env = true := hcv.2.2.2.2.2.2.1
-    rcases hc with ⟨_, h⟩ | hc
-    · exact nomatch h
-    · exact hpl _ hmem_ci hk (.inr (hsem htr hc))
+    exact hpl _ hmem_ci hk (.inr (hsem htr hc))
   | axiomDecl cv =>
     rcases hrun with ⟨hq, -, -, -, henv2⟩ | ⟨-, type', -, hcv, hbr⟩
     · rw [henv2] at hf
@@ -119,9 +146,7 @@ theorem new_proof_leaf {F : Nat} {env env₂ : Env} {d : Declaration}
       rcases hax with h | h
       · rw [h] at hf
         obtain ⟨rfl, rfl⟩ := find?_cons_fresh hf hnew
-        rcases hc with ⟨_, h⟩ | hc
-        · exact nomatch h
-        · exact hpl _ hmem_ci hk (.inr (hsem htr hc))
+        exact hpl _ hmem_ci hk (.inr (hsem htr hc))
       · rw [h, hnew] at hf; exact nomatch hf
   | quotDecl k cv =>
     rcases hrec with ⟨_, _, _, h, -⟩ | ⟨_, _, h, -⟩ | ⟨_, _, h, -⟩ | ⟨_, h, -⟩ <;> cases h
@@ -158,17 +183,16 @@ theorem declsRun_proofs :
       checkDeclStepC_push (pins := pins) .verified (PushChain.refl E) pd {} fe₁ s₁ hstepC
     -- every proof's leaf, after the record
     have hPLn : ProofLeaves V fe₁.env mp₁.base2.acval := by
-      intro n ci hf hk hc
+      intro n ci hf hk
       by_cases hold : (E.find? n).isSome = true
       · have hf' : E.find? n = some ci := (pushChain_find_old hch hold) ▸ hf
+        have hr : ci.toConstantVal.type.constsResolve E = true :=
+          (henv.consts ci (ConLeche.Env.find?_mem hf')).2.2.1
+        obtain ⟨h1, h2⟩ := hPL n ci hf' hk
+        refine ⟨fun ht => SemPropType.of_denote
+          (fun ψ => pushChain_denote_old hch hleaf₁ hr ψ) (h1 ht), fun h => ?_⟩
         rw [hleaf₁ n hold]
-        refine hPL n ci hf' hk ?_
-        rcases hc with h | h
-        · exact .inl h
-        · have hr : ci.toConstantVal.type.constsResolve E = true :=
-            (henv.consts ci (ConLeche.Env.find?_mem hf')).2.2.1
-          exact .inr (SemPropType.of_denote
-            (fun ψ => (pushChain_denote_old hch hleaf₁ hr ψ).symm) h)
+        exact h2 (SemPropType.of_denote (fun ψ => (pushChain_denote_old hch hleaf₁ hr ψ).symm) h)
       · have hnew : E.find? n = none := by
           cases h : E.find? n with
           | none => rfl
@@ -178,12 +202,17 @@ theorem declsRun_proofs :
           simp only at h₁
           rw [h₁, pushDelta_env]
           rfl
+        have hmem : ∀ c ∈ fe₁.env.consts, c ∉ E.consts → c ∈ declConstants pd := by
+          intro c hc hnc
+          rw [hfe₁] at hc
+          simp only [streamEnv, List.foldl, Env.pushDelta, List.mem_append, List.mem_reverse] at hc
+          exact hc.resolve_right hnc
+        refine ⟨fun ⟨cv, h⟩ => ?_, fun hc => ?_⟩
+        · subst h
+          exact new_thm_prop hrunD hch rfl hmem mp hleaf₁ hf hnew
         by_cases hqs : n = quotSoundName
         · subst hqs; exact quotSound_leaf mp₁ hf
-        refine new_proof_leaf hrunD hch rfl (fun c hc hnc => ?_) hleaf₁ hPL₁ hf hnew hk hqs hc
-        rw [hfe₁] at hc
-        simp only [streamEnv, List.foldl, Env.pushDelta, List.mem_append, List.mem_reverse] at hc
-        exact hc.resolve_right hnc
+        exact new_proof_leaf hrunD hch rfl hmem hleaf₁ hPL₁ hf hnew hk hqs hc
     obtain ⟨mp', hleaf', hcov', hE', hN', hPL'⟩ :=
       ih (E := fe₁.env) hcanon mp₁ hcov₁ hE₁ hN₁ hPLn
     have hst : ∀ n, (E.find? n).isSome = true → (fe₁.env.find? n).isSome = true := fun n h => by

@@ -57,8 +57,10 @@ checked against, as a list of records, and its validation.
   its name (`typeIsPropC`, `inferFlags`, after the context is built and validated).  The inference accepts every well-typed type
   Lean's `isPropCheap` accepts, so every pair Lean's merge identifies agrees.  The copies of
   every name two loaded modules hold (`WorkerReads.clashes`) must be proofs of one statement
-  (`clashAgree`, Lean's merge); a clash whose proof is inferred has its name reached, so that its
-  statement's names are in the context.
+  (`clashAgree`, Lean's merge).  Copies of one statement of which one is a theorem need no
+  inference (task #506): a theorem's type is a proposition, and the copies' statement is one,
+  its names read alike.  Only where no copy is a theorem is the statement inferred; such a
+  clash has its name reached, so that its statement's names are in the context.
 * **What a record reads** (`recordReads`): the names its constants' laws and its tables
   ask stored, `RecordScoped`'s (`ConLeche/Modular.lean`): every constant of a type, of a
   definition's value, of a recursor's rules and nested pins, a literal's and a
@@ -464,8 +466,8 @@ def partnerReads (h : Name) (ty : Expr) : Array (Name × Name) :=
   (needsGo {} #[] ty).2.map (h, ·)
 
 /-- **Two copies of `y` agree**, the context's `s₁` and `s₂` of home `h`'s view: one module, or
-both proofs of one statement (an inference recorded with its statement), whose names `s₂`'s
-module reads as the context does (recorded in `partners`, each name as a read of that module).
+both proofs of one statement (one of them a theorem, or else an inference recorded with the
+statement), whose names `s₂`'s module reads as the context does (recorded in `partners`, each name as a read of that module).
 The copy `h` reads is not unsafe or partial: `s₂`'s module holds it as a constant of its own
 (a safe constant never reads an unsafe or partial one, in Lean's kernel as in the worker). -/
 def agreeCheck (env : ReachEnv μ) (c : ReachCache) (h y : Name) (s₁ s₂ : Spot) :
@@ -494,13 +496,12 @@ def agreeCheck (env : ReachEnv μ) (c : ReachCache) (h y : Name) (s₁ s₂ : Sp
           if p₁ == .no || p₂ == .no then pure (c, .error bad)
           else
             let c := { c with partners := c.partners ++ partnerReads s₂.part.mod cv₂.type }
-            if p₁ == .infer || p₂ == .infer then
-              pure ({ c with pending := c.pending.push (what, y, cv₁) }, .ok ())
-            else pure (c, .ok ())
+            if p₁ == .yes || p₂ == .yes then pure (c, .ok ())
+            else pure ({ c with pending := c.pending.push (what, y, cv₁) }, .ok ())
 
 /-- **The clash rule** (ruling 3 of #460, Lean's merge): the copies of every name two loaded
-modules hold must be proofs of one statement; the names whose copies' proofs are inferred, to be
-reached.  Where a record reads such a name, `agreeCheck` asks the agreement. -/
+modules hold must be proofs of one statement, one of them a theorem or the statement inferred to
+be a proposition; the names whose statements are inferred, to be reached.  Where a record reads such a name, `agreeCheck` asks the agreement. -/
 def clashAgree (env : ReachEnv μ) :
     ReachCache → List Clash → Array Name → μ (ReachCache × Except CheckError (Array Name))
   | c, [], acc => pure (c, .ok acc)
@@ -515,14 +516,14 @@ def clashAgree (env : ReachEnv μ) :
       if ps.contains .no then
         pure (c, .error (.invalid s!"the loaded modules {spots.map (·.1.part.mod)} store \
           {cl.name}, not as one constant (not proofs of one statement)"))
-      else if ps.contains .infer then
+      else if ps.contains .yes then clashAgree env c cls acc
+      else
         match spots with
         | (_, cv, _) :: _ =>
           let why := s!"two loaded modules store {cl.name}"
           clashAgree env { c with pending := c.pending.push (why, cl.name, cv) }
             cls (acc.push cl.name)
         | [] => clashAgree env c cls acc
-      else clashAgree env c cls acc
 where
   statuses (c : ReachCache) : List (Spot × ConstantVal × CKindF Name Unit) → List ProofStatus →
       μ (ReachCache × Except CheckError (List ProofStatus))
