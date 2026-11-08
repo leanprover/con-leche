@@ -336,9 +336,17 @@ below the name; no module records anything about its names for others.
 Hence no module's own environment stores a constant
 of type `False` (`modular_no_False`). An
 exit 0 of the binary at one module (`--olean --module`) establishes that
-module's part of the local checks (§2, one module alone); that the
-runs at every module of a closure compose into the local checks of a
-development is not proved yet.
+module's part of the local checks (§2, one module alone), and the runs at
+every module of a closure compose into a development every module of
+which passes them (`Run.localOk`, `ConLeche/Verify/Driver/Routes.lean`):
+each module is the closure's module of its rank, its context its worker's,
+a name read from the home of the record storing it, and every read the
+capture check passed agrees by the branch that passed it. So
+`main_modular_no_False` holds of the files: if the private view of a module
+of the headers' import closure of `root` holds a theorem of type `False`
+and every module of that closure has an exit 0 of `--olean --module` on the
+same snapshot, no run of `--check-graph -- <root>` exits 0; and no run of
+`--olean --modular -- <root>` exits 0 (`main_modular_one_no_False`).
 
 `False` is not read off the stream: the checker installs it from a
 built-in pin, and a stream that declares `False` or `False.rec`

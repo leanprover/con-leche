@@ -71,7 +71,8 @@ theorem clashCopiesOf_complete {sp : SearchPath} {fs : FS} {m : Name} {jobs : Na
       intro m hl
       rw [List.foldl_cons, ih _ (fun c hc => hl c (List.mem_cons_of_mem _ hc))]
       simp only [ins, Std.HashMap.getElem?_insert]
-      rw [if_neg (by simpa using hl a List.mem_cons_self)]
+      have hne : a.name ≠ cl.name := hl a List.mem_cons_self
+      simp [hne]
   have hlast : ∀ (l : List Clash) (m : Std.HashMap Name (Array (Name × ConstantVal))),
       (∃ c ∈ l, c.name = cl.name) →
       ∃ c ∈ l, c.name = cl.name ∧ (l.foldl ins m)[cl.name]? = some (c.copies.map g) := by

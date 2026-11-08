@@ -175,9 +175,12 @@ over the interface of @sec:mod-iface, and its instance for con-leche's
 models gives #src("ConLeche/MainTheorem.lean", 192, 199)[the modular
 theorem]. Con-leche
 computes a module's context from the `.olean` files and checks the
-module's own records against it, one module per run; that the runs at
-every module of an import closure together give the local checks is not
-proved yet.
+module's own records against it, one module per run, and
+#src("ConLeche/Verify/Driver/Routes.lean", 347, 348)[the runs at every module
+of an import closure together give the local checks]. Hence
+#src("ConLeche/MainTheorem.lean", 262, 272)[no module of the closure holds a
+theorem of type `False`] where the graph check and every module's run exit 0
+on one snapshot.
 
 *The frontend.* Between the export file and the declaration fold sit
 a decoder and one transformation of the decoded list,

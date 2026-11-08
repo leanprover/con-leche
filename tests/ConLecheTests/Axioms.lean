@@ -10,6 +10,7 @@ public import ConLeche.Verify.Driver.Reach
 public import ConLeche.Verify.Driver.Graph
 public import ConLeche.Verify.Driver.Main
 public import ConLeche.Verify.Driver.Oleans
+public import ConLeche.Verify.Driver.Routes
 public import ConLeche.Verify.Driver.Worker
 public import ConLeche.Verify.Driver.Groups
 public import ConLeche.Verify.Driver.Modular
@@ -63,6 +64,7 @@ equation the compiled equality rests on.
 | `ConLeche.no_False_declaration` | **THE MAIN COROLLARY**: chunks that are a `jsonWithTheoremFalse` file — a name entry `False`, a constant expression of it, a name entry, and a theorem record of that name and type, in that order — make the binary's chain (the prelude parses, the chunks parse, the fold accepts the prepared records) return an error |
 | `ConLeche.modular_model_exists` | **THE MODULAR THEOREM**: a development every module of which passes the local checks has a compatible family of models of the own environments |
 | `ConLeche.modular_no_False` | its corollary: no module's own environment stores a constant of type `False` |
+| `ConLeche.main_modular_no_False` | **THE MODULAR COROLLARY, RUN BY RUN**: where a module of a root's headers' closure holds a theorem of type `False` in its private view and every module of the closure has an exit 0 of `--olean --module` on the snapshot, no outcome of `--check-graph -- <root>` is an exit 0 (`main_modular_one_no_False`: nor of `--olean --modular -- <root>`) |
 | `ConLeche.main_no_False` | **THE MAIN COROLLARY, LIFTED TO THE DRIVER**: on a snapshot where the file's bytes are a `jsonWithTheoremFalse` file, no outcome of `runArgs` at the arguments `-- <file>` is an exit 0 |
 | `ConLeche.no_False_theorem_accepted` | the step it rests on, at the STREAM: records one of which declares a theorem of type `False` are never accepted by `checkDecls` (`ConLeche/Verify/Cached/StreamThm.lean`) |
 | `no_proof_of_False_cached` / `no_proof_of_Empty_cached` | the fold's letters at every validating mode |
@@ -158,6 +160,24 @@ info: 'ConLeche.main_oleans_no_False' depends on axioms: [propext, Classical.cho
 -/
 #guard_msgs in
 #print axioms ConLeche.main_oleans_no_False
+
+/--
+info: 'ConLeche.main_modular_no_False' depends on axioms: [propext, Classical.choice, Quot.sound]
+-/
+#guard_msgs in
+#print axioms ConLeche.main_modular_no_False
+
+/--
+info: 'ConLeche.main_modular_one_no_False' depends on axioms: [propext, Classical.choice, Quot.sound]
+-/
+#guard_msgs in
+#print axioms ConLeche.main_modular_one_no_False
+
+/--
+info: 'ConLeche.Driver.Compose.Run.localOk' depends on axioms: [propext, Classical.choice, Quot.sound]
+-/
+#guard_msgs in
+#print axioms ConLeche.Driver.Compose.Run.localOk
 
 /--
 info: 'ConLeche.Frontend.Olean.readOleans_ok' depends on axioms: [propext, Classical.choice, Quot.sound]
