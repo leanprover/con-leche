@@ -654,4 +654,206 @@ theorem targetRecPinsI_run {p : InLean.BlockShape} {block : List Lean.ConstantIn
     trShape_k, trShape_allCtorNames, names_trCtorParts, map_toName_beq, g6]
   rfl
 
+/-! ## The stream's recursor types -/
+
+/-- **The stream's recursor types checked** (`classStreamRecs`): each
+record's constant through the former's constant check (`CheckConstantValFSimI`). -/
+theorem classStreamRecsI_run (hC : CheckConstantValFSimI) {fe : InLean.FEnv} {L : ConLeche.Env}
+    (hJ : JobEnvI fe L) :
+    ∀ (rcs : List InLean.RecShape) {s₀ s' : InLean.CState} {v : List Lean.ConstantVal},
+      CSOKI .verified false L s₀ → (∀ rc ∈ rcs, okC rc.cvR.type = true) →
+      InLean.classStreamRecs (sharedOpsC .verified fe) fe rcs s₀ = .ok (v, s') →
+      CSOKI .verified false L s' ∧ TabLe s₀ s' ∧ v = rcs.map (·.cvR) ∧
+        Runs (ConLeche.classStreamRecs (ConLeche.fueledOpsM .verified) (ConLeche.mkFEnv L)
+          (rcs.map trRec)) (v.map trCV)
+  | [], s₀, s', v, hs, _, h => by
+    unfold InLean.classStreamRecs at h
+    obtain ⟨rfl, rfl⟩ := pure_run h
+    exact ⟨hs, TabLe.refl _, rfl, by unfold ConLeche.classStreamRecs; exact Runs.pure _⟩
+  | rc :: rcs, s₀, s', v, hs, hok, h => by
+    unfold InLean.classStreamRecs at h
+    obtain ⟨_, s₁, h1, h⟩ := bind_run h
+    obtain ⟨hs₁, ht₁, -, hR1⟩ := hC fe L rc.cvR s₀ s₁ hJ hs (hok rc List.mem_cons_self) h1
+    obtain ⟨cvs, s₂, h2, h⟩ := bind_run h
+    obtain ⟨hs₂, ht₂, rfl, hR2⟩ :=
+      classStreamRecsI_run hC hJ rcs hs₁ (fun r hr => hok r (List.mem_cons_of_mem _ hr)) h2
+    obtain ⟨rfl, rfl⟩ := pure_run h
+    refine ⟨hs₂, ht₁.trans ht₂, rfl, ?_⟩
+    rw [List.map_cons]
+    unfold ConLeche.classStreamRecs
+    rw [ConLeche.checkConstantValF_eq]
+    exact Runs.bind hR1 (Runs.bind hR2 (Runs.pure _))
+
+/-! ## A constructor's minor premise and its fields -/
+
+theorem hits_tr (s : InLean.CState) (rd : InLean.ClassRead) (c : Nat) (C : Lean.Name) :
+    (List.range (trCR s rd).slots.length).filterMap (fun i =>
+      match ((trCR s rd).slots[i]? : Option ConLeche.ClassSlot) with
+      | some (.minor c' C' ihs) => if c' == c && C' == toName C then some (i, ihs) else none
+      | _ => none) =
+    (List.range rd.slots.length).filterMap (fun i =>
+      match (rd.slots[i]? : Option InLean.ClassSlot) with
+      | some (.minor c' C' ihs) => if c' == c && C' == C then some (i, ihs) else none
+      | _ => none) := by
+  have hl : (trCR s rd).slots.length = rd.slots.length := by simp [trCR]
+  rw [hl]
+  congr 1
+  funext i
+  simp only [trCR, List.getElem?_map]
+  cases rd.slots[i]? with
+  | none => rfl
+  | some x =>
+    cases x with
+    | motive k => rfl
+    | minor c' C' ihs =>
+      simp only [Option.map_some, trSlot]
+      rw [toName_beq]
+
+/-- **A constructor's minor premise** (`classMinorSlot`), read: the same slot. -/
+theorem classMinorSlotI_run {s : InLean.CState} {rd : InLean.ClassRead} {c : Nat}
+    {C : Lean.Name} {s₀ s' : InLean.CState} {v : Nat × List (Nat × Nat)}
+    (h : InLean.classMinorSlot rd c C s₀ = .ok (v, s')) :
+    s' = s₀ ∧ Runs (ConLeche.classMinorSlot (trCR s rd) c (toName C) : ConLeche.FueledM _) v := by
+  unfold InLean.classMinorSlot at h
+  unfold ConLeche.classMinorSlot
+  simp only []
+  erw [hits_tr]
+  revert h
+  generalize List.filterMap _ (List.range rd.slots.length) = hits
+  intro h
+  match hits, h with
+  | [x], h =>
+    obtain ⟨rfl, rfl⟩ := pure_run h
+    exact ⟨rfl, Runs.pure _⟩
+  | [], h => exact (throw_run h).elim
+  | _ :: _ :: _, h => exact (throw_run h).elim
+
+/-- A field's kind, read. -/
+@[expose] def trCF : InLean.ClassField → ConLeche.ClassField
+  | .ordinary => .ordinary
+  | .recursive t n => .recursive t n
+
+/-- **The datum's fields' kinds** (`classFieldsOf`): the fields opened as
+variables (`fvs`, readings `.fvar`), their kinds master's. -/
+theorem classFieldsOfI_run {L : ConLeche.Env} {p : InLean.BlockShape} {ctor : Lean.Name}
+    {ihs : List (Nat × Nat)} :
+    ∀ (fvs : List Lean.Expr) (i : Nat) {s₀ s' : InLean.CState} {v : List InLean.ClassField},
+      CSOKI .verified false L s₀ →
+      (∀ f ∈ fvs, OkS s₀ f = true ∧ ∃ j ty, TrS s₀ f = .fvar j ty) →
+      InLean.classFieldsOf p ctor ihs i fvs s₀ = .ok (v, s') →
+      s' = s₀ ∧ Runs (ConLeche.classFieldsOf (trShape p) (toName ctor) ihs i (TrSL s₀ fvs) :
+        ConLeche.FueledM _) (v.map trCF)
+  | [], i, s₀, s', v, _, _, h => by
+    unfold InLean.classFieldsOf at h
+    obtain ⟨rfl, rfl⟩ := pure_run h
+    exact ⟨rfl, by unfold ConLeche.classFieldsOf; exact Runs.pure _⟩
+  | f :: fs, i, s₀, s', v, hs, hf, h => by
+    unfold InLean.classFieldsOf at h
+    obtain ⟨hfo, j, ty, hfj⟩ := hf f List.mem_cons_self
+    obtain ⟨w, s₁, h1, h⟩ := bind_run h
+    obtain ⟨hs₁, hwo, hwT, -⟩ := fvarTypeDI_run hs hfo hfj h1
+    rw [hs₁] at h
+    have hwC : (TrS s₀ f).fvarTypeD = TrS s₀ w := by rw [hfj, hwT]; rfl
+    have hnC : ConLeche.Expr.nestOcc (trShape p).memberNames 0 0 (TrS s₀ w) =
+        InLean.nestOcc p.memberNames 0 0 w := by
+      rw [trShape_memberNames, nestOccI_tr p.memberNames 0 0 hwo]
+    have hpb : (TrS s₀ w).piBinders.1.length = (InLean.piBinders w).1.length := by
+      rw [(piBinders_TrS w hwo).1, List.length_map]
+    rw [TrSL_cons]
+    unfold ConLeche.classFieldsOf
+    simp only [hwC, hnC, hpb]
+    have hrest : ∀ {k : InLean.ClassField} {s₂ : InLean.CState},
+        (do let ks' ← InLean.classFieldsOf p ctor ihs (i + 1) fs; pure (k :: ks') :
+          InLean.CheckCM _) s₂ = .ok (v, s') → s₂ = s₀ →
+        s' = s₀ ∧ ∃ ks, v = k :: ks ∧
+          Runs (ConLeche.classFieldsOf (trShape p) (toName ctor) ihs (i + 1) (TrSL s₀ fs) :
+            ConLeche.FueledM _) (ks.map trCF) := by
+      intro k s₂ h2 hs₂
+      subst hs₂
+      obtain ⟨ks, s₃, h3, h4⟩ := bind_run h2
+      obtain ⟨rfl, hR⟩ := classFieldsOfI_run fs (i + 1) hs
+        (fun g hg => hf g (List.mem_cons_of_mem _ hg)) h3
+      obtain ⟨rfl, rfl⟩ := pure_run h4
+      exact ⟨rfl, ks, rfl, hR⟩
+    have hok : ∀ {k : InLean.ClassField} {kC : ConLeche.FueledM ConLeche.ClassField},
+        (pure k >>= fun k' => do
+            let ks' ← InLean.classFieldsOf p ctor ihs (i + 1) fs; pure (k' :: ks') :
+          InLean.CheckCM _) s₀ = .ok (v, s') → Runs kC (trCF k) →
+        s' = s₀ ∧ Runs (kC >>= fun k' => do
+            let ks' ← ConLeche.classFieldsOf (trShape p) (toName ctor) ihs (i + 1) (TrSL s₀ fs)
+            pure (k' :: ks')) (v.map trCF) := by
+      intro k kC h hk
+      obtain ⟨k', s₂, h2, h⟩ := bind_run h
+      obtain ⟨rfl, rfl⟩ := pure_run h2
+      obtain ⟨rfl, ks, rfl, hR⟩ := hrest h rfl
+      exact ⟨rfl, Runs.bind hk (Runs.bind hR (Runs.pure _))⟩
+    have hthr : ∀ {α : Type} {e : InLean.CheckError} {k : α → InLean.CheckCM (List InLean.ClassField)},
+        ¬ ((throw e : InLean.CheckCM α) >>= k) s₀ = .ok (v, s') := fun h => by
+      obtain ⟨_, _, h1, -⟩ := bind_run h; exact throw_run h1
+    cases hn : InLean.nestOcc p.memberNames 0 0 w with
+    | false =>
+      cases hfl : ihs.filter (·.1 == i) with
+      | nil => simp only [hn, hfl] at h ⊢; exact hok h (Runs.pure _)
+      | cons _ _ => simp only [hn, hfl] at h; exact absurd h hthr
+    | true =>
+      cases hfl : ihs.filter (·.1 == i) with
+      | nil => simp only [hn, hfl] at h; exact absurd h hthr
+      | cons q qs =>
+        cases qs with
+        | nil => simp only [hn, hfl] at h ⊢; exact hok h (Runs.pure _)
+        | cons _ _ => simp only [hn, hfl] at h; exact absurd h hthr
+
+/-! ## A class's former type -/
+
+/-- **A class's former type** (`classFormerTy`): a member's own, an outside
+class's stored former at the class's levels; the reading is master's. -/
+theorem classFormerTyI_run {fe : InLean.FEnv} {L : ConLeche.Env} (hJ : JobEnvI fe L)
+    (hRF : ReducedFormerSimI) {formers : List Lean.ConstantVal} {M : InLean.TargetMajor}
+    {s₀ s' : InLean.CState} {v : Lean.Expr} (hs : CSOKI .verified false L s₀)
+    (hlv : M.lvls.all okLv = true) (hfo : ∀ cv ∈ formers, okC cv.type = true)
+    (hmem : ∀ t, M.member = some t → t < formers.length)
+    (h : InLean.classFormerTy (sharedOpsC .verified fe) fe formers M s₀ = .ok (v, s')) :
+    CSOKI .verified false L s' ∧ TabLe s₀ s' ∧ OkS s' v = true ∧
+      Runs (ConLeche.classFormerTy (ConLeche.fueledOpsM .verified) (ConLeche.mkFEnv L)
+        (formers.map trCV) (trTM s₀ M)) (TrS s' v) := by
+  unfold InLean.classFormerTy at h
+  unfold ConLeche.classFormerTy
+  simp only [trTM]
+  cases hm : M.member with
+  | some t =>
+    simp only [hm] at h ⊢
+    obtain ⟨rfl, rfl⟩ := pure_run h
+    have ht := hmem t hm
+    have hget : formers.getD t default ∈ formers := by
+      rw [List.getD_eq_getElem?_getD, List.getElem?_eq_getElem ht, Option.getD_some]
+      exact List.getElem_mem ht
+    have hok := hfo _ hget
+    refine ⟨hs, TabLe.refl _, OkS_of_okC s₀ hok, ?_⟩
+    rw [TrS_of_okC _ hok, List.getD_eq_getElem?_getD, List.getElem?_map,
+      List.getElem?_eq_getElem ht, Option.map_some, Option.getD_some, trCV_type,
+      List.getD_eq_getElem?_getD, List.getElem?_eq_getElem ht, Option.getD_some]
+    exact Runs.pure _
+  | none =>
+    simp only [hm] at h ⊢
+    rw [ConLeche.mkFEnv_find?]
+    cases hv : fe.indView? M.ind with
+    | none =>
+      rw [hv] at h; exact (throw_run h).elim
+    | some q =>
+      rw [hv] at h
+      obtain ⟨cv, caps⟩ := q
+      obtain ⟨hL, hok, hcl⟩ := indView_trCV hJ hv
+      rw [hL]
+      simp only at h ⊢
+      obtain ⟨tyC, s₂, h2, h⟩ := bind_run h
+      obtain ⟨hs₂, ht₂, hokC, -, hRC⟩ := familyTelescopeI_run hJ hRF hok hcl hs h2
+      obtain ⟨hs₃, ht₃, hokr, htrr⟩ := tripleI_iff_run.1
+        (instLevelParamsM_specI hs₂ (OkS_of_okC s₂ hokC) (fvarS_of_okC hokC) hlv) v s' h
+      rw [TrS_of_okC _ hokC] at htrr
+      refine ⟨hs₃, ht₂.trans ht₃, hokr, ?_⟩
+      rw [ConLeche.mkFEnv_env]
+      refine Runs.bind hRC ?_
+      rw [htrr, trCV_levelParams]
+      exact Runs.pure _
+
 end InLeanProof

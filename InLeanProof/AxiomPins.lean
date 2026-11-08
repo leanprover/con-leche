@@ -3417,3 +3417,29 @@ info: 'InLeanProof.classesNfsI_run' depends on axioms: [propext,
 #guard_msgs in
 #print axioms InLeanProof.targetRecPinsI_run
 
+/-- info: 'InLeanProof.classStreamRecsI_run' depends on axioms: [propext, Classical.choice, Quot.sound] -/
+#guard_msgs in
+#print axioms InLeanProof.classStreamRecsI_run
+
+/-- info: 'InLeanProof.hits_tr' depends on axioms: [propext, Classical.choice, Quot.sound] -/
+#guard_msgs in
+#print axioms InLeanProof.hits_tr
+
+/-- info: 'InLeanProof.classMinorSlotI_run' depends on axioms: [propext, Classical.choice, Quot.sound] -/
+#guard_msgs in
+#print axioms InLeanProof.classMinorSlotI_run
+
+/-- info: 'InLeanProof.classFieldsOfI_run' depends on axioms: [propext, Classical.choice, Quot.sound] -/
+#guard_msgs in
+#print axioms InLeanProof.classFieldsOfI_run
+
+/--
+info: 'InLeanProof.classFormerTyI_run' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound,
+ InLeanProof.Expr.mkAppData_fields,
+ InLeanProof.Expr.mkData_eq,
+ InLeanProof.Level.mkData_eq]
+-/
+#guard_msgs in
+#print axioms InLeanProof.classFormerTyI_run
