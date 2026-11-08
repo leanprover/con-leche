@@ -348,4 +348,16 @@ theorem localOk (j : Nat) : LocalOk .verified natOpPinSets R.dev j :=
 
 end Run
 
+/-- **Every module of the headers' closure is a node of a closure closed under imports.** -/
+theorem hdrClosure_mem {sp : SearchPath} {fs : FS} {roots : List Name} {C : List Graph.Node}
+    (good : ∀ e ∈ C, ModelIO.CanGive (moduleImports sp e.1) fs (.ok e.2))
+    (hroots : ∀ r ∈ roots, r ∈ C.map (·.1)) (edges : ∀ e ∈ C, ∀ i ∈ e.2, i.module ∈ C.map (·.1))
+    {m : Name} (h : Graph.HdrClosure sp fs roots m) : m ∈ C.map (·.1) := by
+  induction h with
+  | root hr => exact hroots _ hr
+  | @step a is i _ ha hi ih =>
+    obtain ⟨e, he, rfl⟩ := List.mem_map.1 ih
+    obtain rfl := moduleImports_canGive_unique (good e he) ha
+    exact edges e he i hi
+
 end ConLeche.Driver.Compose

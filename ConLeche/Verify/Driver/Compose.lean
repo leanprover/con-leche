@@ -84,6 +84,16 @@ variable (R : Run sp fs)
 /-- The run's modules. -/
 @[expose] def names : List Name := R.C.map (·.1)
 
+/-- The run of an accepted closure has that closure's modules. -/
+theorem ofAccepted_names (C : List Graph.Node) (rk : Name → Nat)
+    (good : ∀ e ∈ C, ModelIO.CanGive (moduleImports sp e.1) fs (.ok e.2))
+    (edges : ∀ e ∈ C, ∀ i ∈ e.2, i.module ∈ C.map (·.1) ∧ rk i.module < rk e.1)
+    (inj : (C.map fun e => rk e.1).Nodup)
+    (acc : ∀ M ∈ C.map (·.1), ∃ jobs, WorkerAccepted .verified sp fs M jobs) (dflt : WorkerRead) :
+    (Run.ofAccepted C rk good edges inj acc dflt).names = C.map (·.1) := by
+  classical
+  rfl
+
 /-- **The module of rank `j`.** -/
 @[expose] def nameOf (j : Nat) : Option Name := (R.C.find? fun e => R.rk e.1 == j).map (·.1)
 
