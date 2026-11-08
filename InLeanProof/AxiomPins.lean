@@ -34,6 +34,7 @@ public import InLeanProof.DeclStep
 public import InLeanProof.DeclPins
 public import InLeanProof.ProjGuardI
 public import InLeanProof.PassUniform
+public import InLeanProof.PassNestKey
 
 /-!
 # The axiom pins of the InLean proof tier (task #451, lane G)
@@ -2752,3 +2753,64 @@ info: 'InLeanProof.nestUniformI_run' depends on axioms: [propext,
 -/
 #guard_msgs in
 #print axioms InLeanProof.nestUniformI_run
+
+/-- info: 'InLeanProof.CVRel.eq_trCV' depends on axioms: [propext, Quot.sound] -/
+#guard_msgs in
+#print axioms InLeanProof.CVRel.eq_trCV
+
+/-- info: 'InLeanProof.indView_trCV' depends on axioms: [propext, Classical.choice, Quot.sound] -/
+#guard_msgs in
+#print axioms InLeanProof.indView_trCV
+
+/-- info: 'InLeanProof.indView_none_tr' depends on axioms: [propext, Classical.choice, Quot.sound] -/
+#guard_msgs in
+#print axioms InLeanProof.indView_none_tr
+
+/-- info: 'InLeanProof.familyTelescopeI_run' depends on axioms: [propext, Classical.choice, Quot.sound] -/
+#guard_msgs in
+#print axioms InLeanProof.familyTelescopeI_run
+
+/--
+info: 'InLeanProof.checkSpineAtI_run' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound,
+ InLeanProof.Expr.mkAppData_fields,
+ InLeanProof.Expr.mkData_eq,
+ InLeanProof.Level.mkData_eq]
+-/
+#guard_msgs in
+#print axioms InLeanProof.checkSpineAtI_run
+
+/--
+info: 'InLeanProof.familyKeyCheckI_run' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound,
+ InLeanProof.Expr.mkAppData_fields,
+ InLeanProof.Expr.mkData_eq,
+ InLeanProof.Level.mkData_eq]
+-/
+#guard_msgs in
+#print axioms InLeanProof.familyKeyCheckI_run
+
+/-- info: 'InLeanProof.piBinders_TrS' depends on axioms: [propext, Classical.choice, Quot.sound] -/
+#guard_msgs in
+#print axioms InLeanProof.piBinders_TrS
+
+/-- info: 'InLeanProof.sortOf_TrS' depends on axioms: [propext, Classical.choice, Quot.sound] -/
+#guard_msgs in
+#print axioms InLeanProof.sortOf_TrS
+
+/-- info: 'InLeanProof.runs4_bind' depends on axioms: [propext] -/
+#guard_msgs in
+#print axioms InLeanProof.runs4_bind
+
+/--
+info: 'InLeanProof.nestInstTypeI_run' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound,
+ InLeanProof.Expr.mkAppData_fields,
+ InLeanProof.Expr.mkData_eq,
+ InLeanProof.Level.mkData_eq]
+-/
+#guard_msgs in
+#print axioms InLeanProof.nestInstTypeI_run

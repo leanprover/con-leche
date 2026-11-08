@@ -112684,6 +112684,118 @@ Gates: `lake build InLean InLeanProof inlean-replay` warning-free; con-leche's
 `tests/trust-surface.sh`, `tests/no-local-paths.sh`, `tests/inlean-sync.sh`
 pass.
 
+### Lane O7-stages, round 4: the guard premises gone, the uniformity check, a container's type (2026-11-08)
+
+Scope was follow-master's cleanup, then round 3's "what remains", bottom-up.
+The cleanup is done; of the stages, the uniform-occurrence check is done
+(round 3's finding 2 included) and the positivity walk's environment-reading
+steps below the frames are proved; the walk itself (`nestPos` and its
+mutual callees) is not started.  No `sorry`, no new axiom (the opener- and
+instantiation-based theorems use the stop-gap `mkData` axioms, as every
+`TrS`/instantiate lemma); no `InLean/*` change; 25 new pins, 2 removed.
+
+**The guard premises gone** (`ProjGuardI.lean`, `BodiesI.lean`,
+`EnvBodiesPres.lean`, `IndOps.lean`, `PassEnv.lean`).  `ProjGuardI.lean` sits
+right after `WalksInferBody.lean` and before `BodiesI.lean`, with the
+parameters' opener (`openPisAtFvarsI_run`, moved from `PassInds.lean`), on
+`WalksIota`'s run helpers (`bind_run`, `pure_run`) and `WalksInferBody`'s
+`throw_run`.  `projGuardSpecI_of` reads the structure through `EnvViewI`
+(what the bodies already read) instead of `EnvPresI`, so `bodiesI_of`
+discharges the guard's spec itself from `EnvBodiesI`.  Gone: `JobEnvI.guard`,
+`ProjGuardI`, `projGuardI`, `jobEnvI_of`, and the `hpg` premises of
+`bodiesI_of`, `ssimI_of_env`, `ssimI_of_pres`, `jobEnvI_formers`.  `JobEnvI`
+is the four premises (laws, relation, `EnvWF`, projection bodies' range).
+
+**The uniform-occurrence check** (`InLeanProof/PassUniform.lean`).
+* `instLvlParamsI_params_tr` (round 3's finding 2): InLean's unchecked
+  `instLvlParamsI` at level *parameters*, on a term with a reading and no free
+  variable, has a reading, master's `instantiateLevelParams` on it.  A
+  parameter is 0 deep (`maxDepthS_params`), so every level of a term in range
+  fits (`LvFits_zero_of_RangeOk`) and no `rangePoison` is written
+  (`emvarS_instantiateLevelParams`, `QuotPres.lean`).
+* `instPisWithI_map`: `instPisWith` as an equation of options (the uniformity
+  check needs the `none` half: InLean refuses exactly where master does).
+* `mapM_mkFVarM_run` (the interned placeholders of `nestPhs`/`nestCanonVars`),
+  `map_trL_beq`, `nestCanonSub_rel` (InLean's canonical substitution over the
+  interned placeholders against master's, `SubRel`), `nestCanonCrestI_run`.
+* `CanonRel ctx cctx` (names, level parameters, parameter count: all the
+  crest and the check read), `nestRootCanonI_run`, `nestUniformOkI_run`, and
+  **`nestUniformI_run`**: InLean's nested `for` loops passing means master's
+  `findSome?` finds nothing, over the translated constructors
+  (`·.map trCtor`), through a generic stateless loop lemma
+  (`forIn_unit_run`: each iteration yields or throws).
+
+**A container instantiation's type** (`InLeanProof/PassNestKey.lean`).
+* `CVRel.eq_trCV`, `indView_trCV` (a container through `JobEnvI`: master's
+  record is `trCV`, closed, in range), `indView_none_tr`.
+* `familyTelescopeI_run` (stored type or reduct, from `ReducedFormerSimI`),
+  `checkSpineAtI_run` (`inferType`/`isDefEq` through `OpsSimI`, the spine
+  well scoped at its depth), `familyKeyCheckI_run` (at master's
+  `L.find?`).
+* `piBinders_TrS`, `sortOf_TrS`, `trKey` (a key read at a state: name,
+  levels, `TrSL` of its parameters), and **`nestInstTypeI_run`**: InLean's
+  `nestInstType` (the checked `instLevelParamsM` where master instantiates
+  unchecked: InLean's extra refusal is the safe direction) answers master's
+  at the translated key, given `CanonRel`, `ctx.fe = fe`, `cctx.find? =
+  L.find?` and `cctx.sort = trL ctx.sort`; its type closed where the key's
+  parameters are.
+
+**Theorems** (file:line).  `ProjGuardI.lean`: `openPisAtFvarsI_run` :48 (moved),
+`projGuardSpecI_of` :408 (restated).  `PassUniform.lean`: `LvFits_zero_of_RangeOk`
+:43, `maxDepthS_params` :56, `params_okLv` :63, `params_trL` :66,
+`instLvlParamsI_params_tr` :74, `instPisWithI_map` :95, `mapM_mkFVarM_run` :127,
+`map_trL_beq` :152, `nestCanonSub_rel` :171, `nestCanonCrestI_run` :201,
+`CanonRel` :251, `hiAt_rel` :256, `nestRootCanonI_run` :262,
+`nestUniformOkI_run` :278, `forIn_unit_run` :313, `nestUniformI_run` :339.
+`PassNestKey.lean`: `CVRel.eq_trCV` :35, `indView_trCV` :45, `indView_none_tr`
+:55, `familyTelescopeI_run` :63, `checkSpineAtI_run` :89, `familyKeyCheckI_run`
+:168, `piBinders_TrS` :228, `sortOf_TrS` :256, `trKey` :271, `runs4_bind` :275,
+`nestInstTypeI_run` :283.  All theorems pinned; `projGuardI` and `jobEnvI_of`
+unpinned (deleted).
+
+**Findings.**
+1. No statement turned out false for the code.
+2. *`D`'s context part needs four facts beyond `blockNestCtxI_run`'s shape*:
+   the walk's steps read `ctx.fe` (InLean) against `cctx.find?` (master), so
+   the stage lemma carries `ctx.fe = fe`, `cctx.find? = L.find?` (with `L`
+   the stage's environment), `cctx.sort = trL ctx.sort` and `okL ctx.sort`;
+   for `p.nestCtx fvs fe` against `(trShape p).nestCtx _ L.find?` all four are
+   by definition.  `CanonRel` (names, lps, nP) is the rest of what the walk
+   reads of the context besides the parameters (`TrSL`).
+3. *Matchers differ across the two sides*: a lemma stating InLean's
+   `match … with | .sort u => some u | _ => none` against master's does not
+   rewrite (each `match` is its own auxiliary); case analysis on the scrutinee
+   is the robust route (`nestInstTypeI_run`).
+4. *Binds under a conjunction*: the stage lemmas conclude facts `∧ Runs`; a
+   pure-side bind is peeled with `runs4_bind` (four facts) before the facts
+   are known, so the proof can follow the code top to bottom.
+
+**What remains** (bottom-up): the walk (`nestFields`, `nestCtorNf`,
+`nestCtors`, `nestGroupCtors`/`nestContainer`, `nestBlockOf`/`nestFrameMates`,
+`nestGrowGroup`, `nestAcceptGroup`, `nestFrame`, `nestWalkStack`,
+`nestContNew`, `nestContKey`, `nestCont`, `nestPos`, fuel-indexed, with a
+`NestState` relation: `keys`/`active` through `trKey` at the current state,
+`ctorNfs` through a `NestCtorNf` translation; `nestHoleAt`/`nestHoleImg`/
+`replaceFVars` translations), `nestRoot`, `checkAbsCtorSortsAll`, so
+`checkBlockPositivity`; `checkBlockClasses` (`classRead`, `classReadSlots`,
+`classReadMinor`, `classKeyOf`, `classMajors` with `targetMajorOf` and
+`targetMajorPins`, translations of `ClassRead`/`ClassKey`/`TargetMajor`);
+`nestSeeds` with `classSeeds`/`nestSeedOf` (`nestSeedOf` reads
+`nestCanonVars`/`nestCanonSub`: `mapM_mkFVarM_run` and `nestCanonSub_rel`
+apply); `checkBlockIdxSortsF`, `genRecCheck` with `shadowOpsC`,
+`streamKCheck`, `streamRecsCheck`, `checkBlockTablesF`; the constructors'
+and generated recursors' pushes (`MarkedExt` extended to constructor
+entries); `PassSimI (PassRelI D)`, `TailSimI (PassRelI D)`,
+`checkIndDeclC_sim_rest` without them.  Master's cached proof of the same
+walk (`ConLeche/Verify/Cached/NestPosC.lean`: `RecSpec`, `TeleWS`,
+`InstWS`, `HolesOk`, `wscoped_nestCrest`, `closeTelescope_wscopedA`) states
+the scope side conditions the twin needs; they are statements about master's
+terms, so the twin can cite them on the readings.
+
+Gates: `lake build InLean InLeanProof inlean-replay` warning-free;
+`tests/layering.sh`, `tests/trust-surface.sh`, `tests/no-local-paths.sh`,
+`tests/inlean-sync.sh` pass.
+
 ## TASK #489 — what a module's constants mention, in one array per module (2026-11-06, agent/489-flat-uses)
 
 **The task (maintainer).**  After #480, take the self-contained one of the memory fixes a census of
