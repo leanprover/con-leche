@@ -8,6 +8,7 @@ import ConLeche.Verify.Driver.Provenance
 import ConLeche.Verify.Frontend.Olean.Files
 import ConLeche.Verify.Frontend.Olean.Reads
 import ConLeche.Verify.Frontend.Olean.Sparse
+import ConLeche.Verify.Driver.Loads
 
 /-!
 # A worker's name index and its clashes, on the snapshot
@@ -1113,5 +1114,86 @@ theorem clashCopiesOf_spec {wr : WorkerReads} {n : Name} {cs : Array (Name × Co
     obtain ⟨rfl, rfl⟩ := hkv
     exact ⟨cp, kd, he, rfl⟩
   · simp at h
+
+/-! ## The load order -/
+
+/-- **What an accepting `workerReads` loaded**: its own private part's name table, the header
+fixpoint from that part's header, the public-import closures of that load order, one loaded part
+per module of the order, the own part's names fresh (none is a loaded name), and every clash copy
+of a module of the order. -/
+theorem workerReads_loads {sp : SearchPath} {fs : FS} {m : Name} {jobs : Nat} {wr : WorkerReads}
+    {hs hs' : HS} (h : (workerReads (.ofPath sp) m jobs : ModelIO _) fs hs (.ok (.ok wr)) hs') :
+    ∃ own, ModelIO.CanGive (readPartNames sp (m, .private)) fs (.ok own) ∧
+      ModelIO.CanGive (headerFixpoint (moduleImports sp) own.header.isModule own.header.imports) fs
+        (.ok wr.loads) ∧
+      wr.pub = pubClosures wr.loads ∧ wr.index.parts.size = wr.loads.order.size ∧ wr.own = own ∧
+      (∀ q ∈ own.consts, wr.index.first.contains q.name = false) ∧
+      ∀ cl ∈ wr.clashes.toList, ∀ x ∈ cl.copies.toList, x.1.mod < wr.loads.order.size := by
+  have hcl : ∀ (cl : Clash), cl ∈ wr.clashes.toList → ∀ (x : Copy × ConstantVal × CKindF Name Unit),
+      x ∈ cl.copies.toList → ∃ q, wr.index.at x.1 = some q := by
+    intro cl hcl' x hx
+    obtain ⟨q, hq, -⟩ := workerClash_stmt h hcl' (cp := x.1) (cv := x.2.1) (kd := x.2.2) hx
+    exact ⟨q, hq⟩
+  have hix := (workerReads_open h).1
+  simp only [workerReads, ModelIO.bind_ok] at h
+  obtain ⟨a, hs₀, ha, h⟩ := h
+  rcases a with e | own
+  · simp at h
+  simp only [ModelIO.bind_ok] at h
+  obtain ⟨b, _, hb, h⟩ := h
+  rcases b with e | ld
+  · simp at h
+  simp only [ModelIO.bind_ok] at h
+  obtain ⟨c, _, hc, h⟩ := h
+  rcases c with e | parts
+  · simp at h
+  simp only at h
+  generalize importsModulesOk _ _ _ _ _ = z at h
+  rcases z with e | u
+  · simp at h
+  simp only [ModelIO.bind_ok] at h
+  obtain ⟨d, _, -, h⟩ := h
+  rcases d with e | infos
+  · simp at h
+  simp only [ModelIO.bind_ok] at h
+  obtain ⟨d, _, -, h⟩ := h
+  rcases d with e | hinfos
+  · simp at h
+  simp only at h
+  generalize (List.forM _ _ : Except CheckError Unit) = z at h
+  rcases z with e | u
+  · simp at h
+  simp only at h
+  generalize hfr : freshOk _ _ _ _ = z at h
+  rcases z with e | u
+  · simp at h
+  simp only [ModelIO.pure_iff, Except.ok.injEq] at h
+  obtain ⟨h, -⟩ := h
+  subst h
+  have hb' : ModelIO.CanGive (headerFixpoint (moduleImports sp) own.header.isModule
+      own.header.imports) fs (.ok ld) := ⟨_, _, hb⟩
+  obtain ⟨hfl, -⟩ := headerFixpoint_sound hb'
+  have hc' : (mapExcept (readPartNames sp) ((ld.order.zip ld.flags).toList.map
+      fun (n, fl) => (n, fl.level)) : ModelIO _) fs _ (.ok (.ok parts)) _ := hc
+  obtain ⟨hlen, -⟩ := mapExcept_getElem hc'
+  have hsize : parts.toArray.size = ld.order.size := by
+    simp only [List.size_toArray, hlen, List.length_map, Array.toList_zip, List.length_zip,
+      Array.length_toList, hfl, Nat.min_self]
+  refine ⟨own, ⟨_, _, ha⟩, hb', rfl, hsize, rfl, fun q hq => ?_, fun cl hcl' x hx => ?_⟩
+  · simp only [freshOk] at hfr
+    split at hfr
+    · rename_i hnone
+      have := Array.find?_eq_none.1 hnone q hq
+      simpa using this
+    · cases hfr
+  · obtain ⟨q, hq⟩ := hcl cl hcl' x hx
+    rw [hix] at hq
+    rw [atP_eq] at hq
+    simp only [atP] at hq
+    cases hp : (nameIndexOf parts.toArray).parts[x.1.mod]? with
+    | none => simp [hp] at hq
+    | some t =>
+      have := (Array.getElem?_eq_some_iff.1 hp).1
+      exact hsize ▸ this
 
 end ConLeche.Driver
