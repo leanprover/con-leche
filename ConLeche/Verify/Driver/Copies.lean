@@ -3,6 +3,7 @@ module
 public import ConLeche.Verify.Driver.Groups
 import ConLeche.Verify.Frontend.Olean.Reads
 import ConLeche.Verify.Frontend.Olean.Lazy
+import ConLeche.Verify.Frontend.Olean.Equiv
 import ConLeche.Verify.Cached.PushChain
 import ConLeche.Verify.Cached.DeclPushes
 import ConLeche.Verify.Driver.Reach
@@ -136,7 +137,7 @@ theorem copy_own {mode : CheckMode} {sp : SearchPath} {fs : FS} {M : Name} {jobs
           q.pos.name = s.pos.name ∧ q.pos.tag = 2) → ∃ cv', ci = .thmInfo cv') := by
   obtain ⟨f, r0, a, sk, skels, hf, hreg, hsk, hskels, hcn, hcv, hload, hN, hO, hb, hem, hown⟩ :=
     home_records hw
-  obtain ⟨loc, sP, s1, hloc, hsP, hs1, hn1, hskq, hskP, hbeh⟩ :=
+  obtain ⟨loc, sP, s1, hloc, hsP, hs1, hn1, hskq, hskP, hbeh, -⟩ :=
     copy_behind hf hreg hsk hload hcv hmod hs hl hr
   have hskp : sP.kind.skipped = false := by rw [hskP, ← hskq, hsk0]
   have hpos : s.pos.name = cv.name := by
@@ -184,5 +185,137 @@ theorem copy_own {mode : CheckMode} {sp : SearchPath} {fs : FS} {M : Name} {jobs
   · exact hthm h2
   · rw [← hqt]
     exact (private_tag hf hreg hsk hskels hcn hqc hqp hloc hsP (by rw [hqn, hpos]; exact hn)).symm
+
+/-! ## An exported copy is behind a private one -/
+
+/-- **The name positions are complete**: every constant of the part's skeleton has a position,
+at its location, named as its skeleton names it. -/
+theorem namePositionsAt_complete {r : Region} {root : UInt64} {t : NamePositions} {sk : ModSkel}
+    (h : namePositionsAt r root = some t) (hsk : moduleSkel r root = some sk) {loc : Nat}
+    (hloc : loc ∈ sk.consts) {s : CEntryF UInt64 UInt64} (hs : constSkel r loc = some s)
+    {n : Name} (hn : nameP r s.name = some n) :
+    ∃ q ∈ t.consts, q.loc = loc ∧ q.name = n := by
+  simp only [namePositionsAt] at h
+  obtain ⟨sk', hsk', h⟩ := bind_some_left h
+  rw [hsk] at hsk'
+  cases hsk'
+  obtain ⟨imps, -, h⟩ := bind_some_left h
+  obtain ⟨cs, hcs, h⟩ := bind_some_left h
+  split at h
+  rotate_left
+  · cases h
+  simp only [pure, Option.some.injEq] at h
+  subst h
+  obtain ⟨q, hq, hql⟩ := mapM_mem hcs hloc
+  simp only [namePosition, hs, hn, Option.bind_eq_bind, Option.bind_some, pure,
+    Option.some.injEq] at hql
+  subst hql
+  exact ⟨_, by simpa using hq, rfl, rfl⟩
+
+/-- A part's name table on the snapshot is one, where the module's private files read. -/
+theorem partNames_unique {sp : SearchPath} {fs : FS} {M : Name} {f : ModFiles}
+    (hf : ModelIO.CanGive (readFiles sp M .private) fs (.ok f)) {L : OLeanLevel}
+    {t t' : NamePositions} (h : PartNames sp fs ⟨M, L⟩ t) (h' : PartNames sp fs ⟨M, L⟩ t') :
+    t = t' := by
+  have e1 := readPartNames_of_all hf h
+  have e2 := readPartNames_of_all hf h'
+  rw [e1] at e2
+  exact Option.some.inj e2
+
+/-- **A worker's reads, on the snapshot**: its own private part's table, the header fixpoint of
+its header, the loaded parts' tables (`keys` the parts in the load order) under the name index,
+and freshness. -/
+theorem workerReads_spec {sp : SearchPath} {fs : FS} {m : Name} {jobs : Nat} {wr : WorkerReads}
+    {hs hs' : HS} (h : (workerReads (.ofPath sp) m jobs : ModelIO _) fs hs (.ok (.ok wr)) hs') :
+    PartNames sp fs ⟨m, .private⟩ wr.own ∧
+    ModelIO.CanGive (headerFixpoint (moduleImports sp) wr.own.header.isModule
+      wr.own.header.imports) fs (.ok wr.loads) ∧
+    (∃ parts : List NamePositions,
+      parts.length = ((wr.loads.order.zip wr.loads.flags).toList.map
+        fun (n, fl) => (n, fl.level)).length ∧
+      (∀ (i : Nat) (t : NamePositions), parts[i]? = some t → ∃ x,
+        ((wr.loads.order.zip wr.loads.flags).toList.map fun (n, fl) => (n, fl.level))[i]? = some x ∧
+        ModelIO.CanGive (readPartNames sp x) fs (.ok t)) ∧
+      wr.index = nameIndexOf parts.toArray) ∧
+    freshOk m wr.loads wr.index wr.own = .ok () := by
+  simp only [workerReads, ModelIO.bind_ok] at h
+  obtain ⟨a, _, ha, h⟩ := h
+  rcases a with e | own
+  · simp at h
+  simp only [ModelIO.bind_ok] at h
+  obtain ⟨b, _, hb, h⟩ := h
+  rcases b with e | ld
+  · simp at h
+  simp only [ModelIO.bind_ok] at h
+  obtain ⟨c, _, hc, h⟩ := h
+  rcases c with e | parts
+  · simp at h
+  simp only at h
+  generalize importsModulesOk _ _ _ _ _ = z at h
+  rcases z with e | u
+  · simp at h
+  simp only [ModelIO.bind_ok] at h
+  obtain ⟨d, _, -, h⟩ := h
+  rcases d with e | infos
+  · simp at h
+  simp only [ModelIO.bind_ok] at h
+  obtain ⟨d, _, -, h⟩ := h
+  rcases d with e | hinfos
+  · simp at h
+  simp only at h
+  generalize (List.forM _ _ : Except CheckError Unit) = z at h
+  rcases z with e | u
+  · simp at h
+  simp only at h
+  cases hfr : freshOk m ld (nameIndexOf parts.toArray) own with
+  | error e => simp [hfr] at h
+  | ok u =>
+  simp only [hfr, ModelIO.pure_iff, Except.ok.injEq] at h
+  obtain ⟨h, -⟩ := h
+  subst h
+  have hc' : (mapExcept (readPartNames sp) ((ld.order.zip ld.flags).toList.map
+      fun (n, fl) => (n, fl.level)) : ModelIO _) fs _ (.ok (.ok parts)) _ := hc
+  obtain ⟨hlen, hget⟩ := mapExcept_getElem hc'
+  exact ⟨⟨_, _, ha⟩, ⟨_, _, hb⟩, ⟨parts, hlen, hget, rfl⟩, hfr⟩
+
+/-- The private part's name table holds the worker's own table. -/
+theorem worker_ownTable {sp : SearchPath} {fs : FS} {M : Name} {jobs : Nat} {w : WorkerRead}
+    (hw : WorkerFacts sp fs M jobs w) : PartNames sp fs ⟨M, .private⟩ w.reads.own := by
+  obtain ⟨_, _, h⟩ := hw.reads
+  exact (workerReads_spec h).1
+
+/-- **An exported copy is behind a private one**: a copy of `M`'s exported part has a copy of its
+name in `M`'s private part. -/
+theorem exported_behind {sp : SearchPath} {fs : FS} {M : Name} {jobs : Nat} {w : WorkerRead}
+    (hw : WorkerFacts sp fs M jobs w) {s : Spot} (hmod : s.part.mod = M) (hs : CopyAt sp fs s)
+    (hl : s.part.level = .exported) :
+    ∃ q : Spot, CopyAt sp fs q ∧ q.part = ⟨M, .private⟩ ∧ q.pos.name = s.pos.name := by
+  obtain ⟨f, r0, a, sk, skels, hf, hreg, hsk, hskels, hcn, hcv, hload, -⟩ := home_records hw
+  have hr1 : PartRegion sp fs s.part (Region.single f.exported) := by
+    obtain ⟨⟨m, L⟩, pos⟩ := s
+    simp only at hmod hl
+    subst hmod hl
+    obtain ⟨_, _, hf'⟩ := hf
+    exact ⟨f.upTo .exported, f.exported.moduleDataAddr, (readFiles_of_all .exported hf').canGive,
+      rfl⟩
+  obtain ⟨loc, sP, s1, hloc, hsP, -, -, -, -, -, hnP⟩ :=
+    copy_behind hf hreg hsk hload hcv hmod hs (by rw [hl]; decide) hr1
+  have ht := worker_ownTable hw
+  have hnt := readPartNames_of_all hf ht
+  simp only [ModFiles.upTo, readNamePositions, hreg, Option.bind_eq_bind, Option.bind_some] at hnt
+  obtain ⟨q, hq, -, hqn⟩ := namePositionsAt_complete hnt hsk hloc hsP hnP
+  exact ⟨⟨⟨M, .private⟩, q⟩, ⟨_, ht, hq⟩, rfl, hqn⟩
+
+/-- **A module's private part holds every name its exported part does.** -/
+theorem exported_sub_private {sp : SearchPath} {fs : FS} {M : Name} {jobs : Nat} {w : WorkerRead}
+    (hw : WorkerFacts sp fs M jobs w) {te tp : NamePositions}
+    (he : PartNames sp fs ⟨M, .exported⟩ te) (hp : PartNames sp fs ⟨M, .private⟩ tp)
+    {q : NamePosition} (hq : q ∈ te.consts) : ∃ q' ∈ tp.consts, q'.name = q.name := by
+  obtain ⟨q', ⟨t', ht', hq'⟩, hqp, hqn⟩ :=
+    exported_behind hw (s := ⟨⟨M, .exported⟩, q⟩) rfl ⟨te, he, hq⟩ rfl
+  obtain ⟨f, -, -, -, -, hf, -⟩ := home_records hw
+  rw [hqp] at ht'
+  rw [partNames_unique hf ht' hp] at hq'
+  exact ⟨_, hq', hqn⟩
 
 end ConLeche.Driver
