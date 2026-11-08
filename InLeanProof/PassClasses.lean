@@ -1297,4 +1297,165 @@ theorem targetOutsideInstI_run {fe : InLean.FEnv} {L : ConLeche.Env} (hJ : JobEn
   | fvar id => simp only [EO.stripTop] at h; exact (throw_run h).elim
   | _ => simp only [EO.stripTop] at h; exact (throw_run h).elim
 
+/-! ## A class as a major -/
+
+/-- A resolved major has a reading at a state (and no recorded normal forms
+yet: the classes' are filled in by the recursor stage). -/
+@[expose] def OkTM (s : InLean.CState) (M : InLean.TargetMajor) : Prop :=
+  M.lvls.all okLv = true ∧ OkSL s M.ds = true ∧ OkSL s M.pfvs = true ∧ M.nfs = []
+
+theorem OkTM.mono {s₀ s₁ : InLean.CState} (h : TabLe s₀ s₁) {M : InLean.TargetMajor}
+    (hM : OkTM s₀ M) : OkTM s₁ M ∧ trTM s₁ M = trTM s₀ M := by
+  obtain ⟨h1, h2, h3, h4⟩ := hM
+  refine ⟨⟨h1, okSL_of_tabLe h h2, okSL_of_tabLe h h3, h4⟩, ?_⟩
+  unfold trTM
+  rw [TrSL_of_tabLe h h2, TrSL_of_tabLe h h3, h4]
+  rfl
+
+theorem toName_quotName : toName InLean.quotName = ConLeche.quotName := rfl
+
+theorem trShape_members (p : InLean.BlockShape) : (trShape p).members = p.members.map trMember := rfl
+
+theorem any_nestOcc_tr {s : InLean.CState} (names : List Lean.Name) (lo hi : Nat) :
+    ∀ {l : List Lean.Expr}, OkSL s l = true →
+      (TrSL s l).any (fun x => x.nestOcc (names.map toName) lo hi) =
+        l.any (fun x => InLean.nestOcc names lo hi x)
+  | [], _ => rfl
+  | a :: l, h => by
+    simp only [OkSL_cons, Bool.and_eq_true] at h
+    simp only [TrSL_cons, List.any_cons, any_nestOcc_tr names lo hi h.2,
+      nestOccI_tr names lo hi h.1]
+
+/-- **A class resolved as a major** (`targetMajorOf`): InLean's major is master's
+on the readings, at master's lookup; an outside major's parameters pass
+master's range guard. -/
+theorem targetMajorOfI_run {fe : InLean.FEnv} {L : ConLeche.Env} (hJ : JobEnvI fe L)
+    (hRF : ReducedFormerSimI) {p : InLean.BlockShape} (hsr : okL p.resSort = true)
+    {pfvs fvs : List Lean.Expr} {mty : Lean.Expr} {s₀ s' : InLean.CState} {M : InLean.TargetMajor}
+    (hs : CSOKI .verified false L s₀) (hokp : OkSL s₀ pfvs = true) (hokf : OkSL s₀ fvs = true)
+    (hokm : OkS s₀ mty = true)
+    (hcl : ∀ a ∈ appArgs mty, (TrS s₀ a).looseBVarsBounded 0 = true)
+    (h : InLean.targetMajorOf (sharedOpsC .verified fe) fe p pfvs fvs mty s₀ = .ok (M, s')) :
+    CSOKI .verified false L s' ∧ TabLe s₀ s' ∧ OkTM s' M ∧
+      (M.member = none → ∀ x ∈ TrSL s' M.ds, x.bvarB = 0 ∧ x.fvarB ≤ p.nP) ∧
+      Runs (ConLeche.targetMajorOf (ConLeche.fueledOpsM .verified) (ConLeche.mkFEnv L) (trShape p)
+        (TrSL s₀ pfvs) (TrSL s₀ fvs) (TrS s₀ mty)) (trTM s' M) := by
+  unfold InLean.targetMajorOf at h
+  unfold ConLeche.targetMajorOf
+  have hokargs : OkSL s₀ (appArgs mty) = true := OkSL_appArgs s₀ hokm
+  rw [← TrSL_appArgs]
+  obtain ⟨hC1, -⟩ := constHead_tr hokm
+  cases hg : mty.getAppFnT with
+  | const I us =>
+    simp only [hg] at h
+    rw [hC1 I us hg]
+    simp only
+    have hokus : us.all okLv = true := by
+      have := OkS_getAppFnT s₀ hokm
+      rwa [hg, OkS_const] at this
+    rw [trShape_memberNames, findIdx?_map_toName]
+    cases hi : p.memberNames.findIdx? (· == I) with
+    | some t =>
+      simp only [hi] at h ⊢
+      obtain ⟨ms, s₁, h1, h⟩ := bind_run h
+      rw [trShape_members, List.getElem?_map]
+      cases hm : p.members[t]? with
+      | none => simp only [hm, InLean.unwrapOr] at h1; exact (throw_run h1).elim
+      | some ms0 =>
+      simp only [hm, InLean.unwrapOr] at h1
+      obtain ⟨rfl, rfl⟩ := pure_run h1
+      simp only [Option.map_some, ConLeche.unwrapOr]
+      refine runs4_bind (Runs.pure _) ?_
+      by_cases hgd : (us == p.lps.map Level.param && List.take p.nP (appArgs mty) ==
+          List.take p.nP fvs) = true
+      · simp only [hgd, Bool.not_true, Bool.false_eq_true, ↓reduceIte] at h
+        obtain ⟨rfl, rfl⟩ := pure_run h
+        simp only [Bool.and_eq_true] at hgd
+        have hlv : (us.map trL == (trShape p).lps.map ConLeche.Level.param) = true := by
+          rw [trShape_lps, ← params_trL, map_trL_beq hokus (params_okLv _)]; exact hgd.1
+        have hds : (List.take p.nP (TrSL s₀ (appArgs mty)) == List.take p.nP (TrSL s₀ fvs)) = true := by
+          rw [← TrSL_take, ← TrSL_take, TrSL_of_beq (OkSL_take s₀ hokargs _)
+            (fun b hb => TransS_of_ok (by
+              simp only [OkSL, List.all_eq_true] at hokf
+              exact hokf b (List.mem_of_mem_take hb))) hgd.2]
+          exact beq_self_eq_true _
+        simp only [hlv, hds, Bool.and_self, Bool.not_true, Bool.false_eq_true, ↓reduceIte,
+          trShape_nP]
+        refine ⟨hs, TabLe.refl _, ⟨hokus, OkSL_take s₀ hokf _, hokp, rfl⟩, (fun h => by cases h), ?_⟩
+        simp only [trTM, trMember, TrSL_take, List.map_nil]
+        exact Runs.pure _
+      · simp only [hgd, Bool.not_false, ↓reduceIte] at h
+        obtain ⟨_, _, h2, -⟩ := bind_run h
+        exact (throw_run h2).elim
+    | none =>
+      simp only [hi] at h ⊢
+      have hq : (toName I == ConLeche.quotName) = (I == InLean.quotName) := by
+        rw [← toName_quotName, toName_beq]
+      rw [hq]
+      by_cases hqI : (I == InLean.quotName) = true
+      · simp only [hqI, ↓reduceIte] at h
+        obtain ⟨_, _, h1, -⟩ := bind_run h
+        exact (throw_run h1).elim
+      simp only [hqI, Bool.false_eq_true, ↓reduceIte] at h ⊢
+      rw [targetCtorsOf_tr hJ I]
+      cases hc : InLean.targetCtorsOf fe I with
+      | none => simp only [hc] at h; exact (throw_run h).elim
+      | some q =>
+      obtain ⟨nPc, ctors⟩ := q
+      simp only [hc, Option.map_some] at h ⊢
+      have hokds : OkSL s₀ ((appArgs mty).take nPc) = true := OkSL_take s₀ hokargs _
+      have hcds : ∀ a ∈ (appArgs mty).take nPc, (TrS s₀ a).looseBVarsBounded 0 = true :=
+        fun a ha => hcl a (List.mem_of_mem_take ha)
+      by_cases hgd : (((appArgs mty).take nPc).length == nPc && ((appArgs mty).take nPc).all
+          fun x => !x.hasLooseBVars && decide (InLean.fvarB x ≤ p.nP)) = true
+      · simp only [hgd, Bool.not_true, Bool.false_eq_true, ↓reduceIte] at h
+        have hgC : (((TrSL s₀ (appArgs mty)).take nPc).length == nPc &&
+            ((TrSL s₀ (appArgs mty)).take nPc).all
+              fun x => x.bvarB == 0 && decide (x.fvarB ≤ (trShape p).nP)) = true := by
+          rw [← TrSL_take]
+          simp only [Bool.and_eq_true, TrSL_length] at hgd ⊢
+          refine ⟨hgd.1, ?_⟩
+          simp only [TrSL, List.all_map, List.all_eq_true, Function.comp_apply] at hgd ⊢
+          intro x hx
+          simp only [OkSL, List.all_eq_true] at hokds
+          exact rangeGuard_tr (hokds x hx) (hgd.2 x hx)
+        have hgdC : ∀ x ∈ TrSL s₀ ((appArgs mty).take nPc), x.bvarB = 0 ∧ x.fvarB ≤ p.nP := by
+          rw [TrSL_take]
+          simp only [Bool.and_eq_true, List.all_eq_true, beq_iff_eq, decide_eq_true_eq] at hgC
+          exact hgC.2
+        simp only [hgC, Bool.not_true, Bool.false_eq_true, ↓reduceIte]
+        rw [← TrSL_take, any_nestOcc_tr p.memberNames 0 0 hokds]
+        by_cases hn : ((appArgs mty).take nPc).any (fun x => InLean.nestOcc p.memberNames 0 0 x) = true
+        · simp only [hn, Bool.not_true, Bool.false_eq_true, ↓reduceIte] at h ⊢
+          obtain ⟨ki, s₂, h2, h⟩ := bind_run h
+          obtain ⟨nIdx, sI⟩ := ki
+          obtain ⟨hs₂, ht₂, hsI, hR2⟩ := targetOutsideInstI_run hJ hRF hs hokus hokds hcds h2
+          refine runs4_bind hR2 ?_
+          obtain ⟨b, s₃, h3, h⟩ := bind_run h
+          obtain ⟨hs₃, ht₃, hb⟩ := tripleI_iff_run.1 (liftFueled_specI hs₂ "level comparison" _) b s₃ h3
+          rw [show (trShape p).resSort = trL p.resSort from rfl, ← isEquiv_trL hsI hsr, hb]
+          refine runs4_bind (Runs.pure _) ?_
+          cases b with
+          | false =>
+            simp only [Bool.not_false, ↓reduceIte] at h
+            obtain ⟨_, _, h4, -⟩ := bind_run h
+            exact (throw_run h4).elim
+          | true =>
+            simp only [Bool.not_true, Bool.false_eq_true, ↓reduceIte] at h ⊢
+            obtain ⟨rfl, rfl⟩ := pure_run h
+            have ht03 := ht₂.trans ht₃
+            refine ⟨hs₃, ht03, ⟨hokus, okSL_of_tabLe ht03 hokds, okSL_of_tabLe ht03 hokp, rfl⟩,
+              fun _ => by rw [TrSL_of_tabLe ht03 hokds]; exact hgdC, ?_⟩
+            simp only [trTM, TrSL_of_tabLe ht03 hokds, TrSL_of_tabLe ht03 hokp, List.map_nil]
+            exact Runs.pure _
+        · simp only [hn, Bool.not_false, ↓reduceIte] at h
+          obtain ⟨_, _, h2, -⟩ := bind_run h
+          exact (throw_run h2).elim
+      · simp only [hgd, Bool.not_false, ↓reduceIte] at h
+        obtain ⟨_, _, h2, -⟩ := bind_run h
+        exact (throw_run h2).elim
+  | _ =>
+    simp only [hg] at h
+    exact (throw_run h).elim
+
 end InLeanProof
