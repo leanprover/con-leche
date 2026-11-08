@@ -328,6 +328,64 @@ theorem thm_own {M : Name} (hM : M ∈ R.names) {d : ModDecoded} {c : CEntryF Na
 
 end Run
 
+/-! ## Where a view's copies are -/
+
+theorem viewStep_mem {v : Std.HashMap Name Spot} {k : PartKey} {t : NamePositions} {y : Name}
+    {s : Spot} (h : (viewStep v k t)[y]? = some s) :
+    v[y]? = some s ∨ (s.part = k ∧ s.pos ∈ t.consts) := by
+  unfold viewStep at h
+  rw [← Array.foldl_toList] at h
+  suffices H : ∀ (l : List NamePosition) (v : Std.HashMap Name Spot), (∀ q ∈ l, q ∈ t.consts) →
+      (l.foldl (fun (v : Std.HashMap Name Spot) q =>
+        if v.contains q.name then v else v.insert q.name ⟨k, q⟩) v)[y]? = some s →
+      v[y]? = some s ∨ (s.part = k ∧ s.pos ∈ t.consts) from
+    H _ v (fun q hq => Array.mem_toList_iff.1 hq) h
+  intro l
+  induction l with
+  | nil => intro v _ h; exact .inl h
+  | cons q l ih =>
+    intro v hl h
+    simp only [List.foldl_cons] at h
+    rcases ih _ (fun q' hq' => hl q' (List.mem_cons_of_mem _ hq')) h with h' | h'
+    · split at h'
+      · exact .inl h'
+      · rw [Std.HashMap.getElem?_insert] at h'
+        split at h'
+        · cases h'; exact .inr ⟨rfl, hl q List.mem_cons_self⟩
+        · exact .inl h'
+    · exact .inr h'
+
+theorem viewFold_mem {y : Name} {s : Spot} :
+    ∀ (l : List (PartKey × NamePositions)) (v : Std.HashMap Name Spot),
+      (l.foldl (fun v kt => viewStep v kt.1 kt.2) v)[y]? = some s →
+      v[y]? = some s ∨ ∃ kt ∈ l, s.part = kt.1 ∧ s.pos ∈ kt.2.consts
+  | [], v, h => .inl h
+  | kt :: l, v, h => by
+    rcases viewFold_mem l _ h with h' | ⟨kt', hkt', h'⟩
+    · rcases viewStep_mem h' with h'' | h''
+      · exact .inl h''
+      · exact .inr ⟨kt, List.mem_cons_self, h''⟩
+    · exact .inr ⟨kt', List.mem_cons_of_mem _ hkt', h'⟩
+
+theorem viewKeys_mem {h : Name} {ld : Loads} {k : PartKey} (hk : k ∈ viewKeys h ld) :
+    k = ⟨h, .private⟩ ∨ k.mod ∈ ld.order := by
+  unfold viewKeys at hk
+  rcases List.mem_cons.1 hk with rfl | hk
+  · exact .inl rfl
+  · obtain ⟨⟨m, fl⟩, hm, rfl⟩ := List.mem_map.1 hk
+    exact .inr (Array.mem_toList_iff.1 (List.of_mem_zip (Array.toList_zip ▸ hm)).1)
+
+/-- **A copy in a home's view is in one of its parts**: `h`'s own private part, or a part its
+header fixpoint loads. -/
+theorem homeView_part {h y : Name} {ld : Loads} {ts : List NamePositions}
+    {s : Spot} (hs : (((viewKeys h ld).zip ts).foldl (fun v kt => viewStep v kt.1 kt.2) {})[y]? =
+      some s) :
+    (s.part = ⟨h, .private⟩ ∨ s.part.mod ∈ ld.order) ∧ ∃ t, (s.part, t) ∈ (viewKeys h ld).zip ts ∧
+      s.pos ∈ t.consts := by
+  rcases viewFold_mem _ _ hs with h' | ⟨kt, hkt, hp, hq⟩
+  · simp at h'
+  · refine ⟨viewKeys_mem (hp ▸ (List.of_mem_zip hkt).1), kt.2, by rw [hp]; exact hkt, hq⟩
+
 /-! ## Agreement from the capture check's routes
 
 At one module `i` of any development, the pairs `(b, y)` the capture check passed (`Pr`): a read
