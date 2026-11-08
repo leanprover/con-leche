@@ -113937,3 +113937,60 @@ be proved.
 
 Recommended: 1, or 2 if no code change is to stay the rule.  The rest of cont. 3's plan for the
 composition is unchanged.
+
+### #501 cont. 5 (option 2 ruled; the inference lemma; a reachable pinned pair at `reduce*`; stopped)
+
+**Ruling** (coordinator, 2026-11-08): option 2 of cont. 4.  No code change for pinned names.
+Instead, prove that on a snapshot every worker accepted, no pair of copies at a `pinnedLeafName`
+passes `agreeCheck`/`clashAgree` as a proof pair.
+
+**Done: the inference computation** (`ConLeche/Verify/Driver/Pinned.lean`, not yet imported by
+anything).  `not_typeIsProp_arrows`: where an environment stores the constants of a pinned type
+(`PinnedArrows`: `a → b` or `a → a' → b`, each constant level-free at `Sort 1`, `SortOne`),
+`TypeIsProp` fails.  The inferred sort is `imax 1 1` or `imax 1 (imax 1 1)`, which
+`Level.isEquiv_sound` at the zero assignment separates from `0`.  With `infer_sortOne`,
+`infer_arrow`, `whnf_sort_ok`, `ensureSort_sort_ok`.  This covers the certified `Nat` operations
+(`natOpTyPinned`) and the compiler-trust opaques (`reduceOpCvA`), once the importer's copies of
+`Nat` and `Bool` are shown to have their homes' types.
+
+**The premise that fails: not every copy at a `reduce*` name has the pinned type.**
+`checkDeclKindC` checks the compiler-trust pin only on an **opaque** at `Lean.reduceBool`/
+`Lean.reduceNat` (`checkReducePinF`), and refuses an axiom there (`nonStdAxiomMsg`).  A
+**definition** there passes `checkConstantValC … true` with any type, and so does a **theorem**
+with any propositional type: `natOpName` covers only the `Nat` operations.  So this shape is
+accepted by every worker:
+* `M1`: `def Lean.reduceBool : 2 + 2 = 4 := rfl`;
+* `M2`: `theorem Lean.reduceBool : 2 + 2 = 4`, and an exported `t` whose type reads
+  `Lean.reduceBool`;
+* `I` imports both.  `clashAgree` passes (`.infer`/`.yes`, `TypeIsProp` of `2 + 2 = 4`).  `I`'s
+  context reads `reduceBool` from `M1`: `readRecord`'s `.defn` arm reads the definition whole, and
+  `Presents` allows no statement presentation at a `reduce*` name.  `t`'s record, of home `M2`,
+  reads `reduceBool`; `captureOne` locates it in `M2`'s view, and `agreeCheck` passes.
+`ImportOk.reads` then asks `Agree dev I M2 Lean.reduceBool`.  Only `Agree.proof` fits, and it is
+closed by `pinnedLeafName`.  In the model the two copies do agree: `harvestDefn`'s leaf choice
+excludes only the `Nat` operations (`.prf` under `SemPropType`), and `harvestThm`'s leaf is the
+proof.  So the theorem's conclusion holds, but the specification cannot state it, and no
+unreachability lemma exists for this pair.  At the `Nat` operations and at a `reduce*` opaque,
+option 2's argument holds: a theorem there is refused (`checkConstantValC`'s `natOpName` arm; a
+statement presentation is excluded by `Presents`), and the pinned types fall under
+`not_typeIsProp_arrows`.
+
+**Options:**
+1. **A kind-aware exclusion in the specification.**  Replace `pinnedLeafName n = false` in
+   `Agree.proof`, `ProofLeaves`, `ProofInX`/`IsThmX` and `modular_model_exists`'s theorem clause by
+   "the copy's leaf is not pinned": not a `Nat`-operation name, not `sorryAx`, and not a `reduce*`
+   name stored as an axiom (where an opaque installs).  A definition or theorem at a `reduce*` name
+   then takes the proof route.  The model needs no new argument (`harvestDefn` and `harvestThm`
+   already give `.prf`); `new_proof_leaf` and `Step.lean` follow.  At an importer, the kind of a
+   `reduce*` copy is its home's, since `Presents` keeps a record there whole.  The `Nat`
+   operations and the opaques keep option 2's unreachability.  No code change; about half a
+   session beyond option 2.
+2. **The compiler-trust names reserved to opaque constants**, like `natOpName` for the `Nat`
+   operations: `checkConstantValC` refuses any other declaration at a `reduce*` name.  This is a
+   code change, and a new reject.  Lean refuses `def Lean.reduceBool` only through its own
+   `Init.Core`, not in files without it.
+3. **`proofStatus` returns `.no` at a `pinnedLeafName`** (cont. 4's option 1).  It rejects the
+   shape above, which a Lean import merges if `isPropCheap` accepts the definition's type, so it
+   is a new reject on crafted files.
+
+Recommended: 1.  Nothing else changed; the composition's plan (cont. 3) is unchanged.
