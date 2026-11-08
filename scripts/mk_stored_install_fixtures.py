@@ -13,13 +13,14 @@ uses `L.rec`) depend on such a block, so the install goes on past it:
                            Official rejects ("type former does not
                            reduce"); the stored install pushes the
                            former as declared, and the job rejects.
-  ind_shapeless_use      — the constructor `L.nil` declares a level
+  ind_ctor_levels_use    — the constructor `L.nil` declares a level
                            parameter the block does not have, so the
-                           recogniser does not read the block (nothing
-                           is pushed) and `L.len`'s install fails on
-                           the missing `L.rec`; the verdict is the
-                           block's (its checked install declines,
-                           "shape not recognised"), at every `--jobs`.
+                           block is not installed (nothing is pushed)
+                           and `L.len`'s install fails on the missing
+                           `L.rec`; the verdict is the block's (its
+                           checked install rejects the constructor's
+                           universe parameters, as official does), at
+                           every `--jobs`.
 
 Usage: scripts/mk_stored_install_fixtures.py [tests/e2e/ind_defhead_fix.ndjson]
 """
@@ -55,7 +56,7 @@ def opaque(r):
     return r
 
 
-def shapeless(r):
+def ctor_levels(r):
     ind = r.get("inductive")
     if ind and ind["types"][0]["name"] == l_name:
         ind["ctors"][0]["levelParams"] = [u_name]
@@ -63,4 +64,4 @@ def shapeless(r):
 
 
 emit("tests/e2e/ind_defhead_opaque_bad.ndjson", opaque)
-emit("tests/e2e/ind_shapeless_use.ndjson", shapeless)
+emit("tests/e2e/ind_ctor_levels_use.ndjson", ctor_levels)

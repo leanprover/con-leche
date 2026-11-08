@@ -110734,3 +110734,58 @@ exit 0 (layering, shake, trust surface, overview links, whitepaper links, fragme
 pindump, no-local-paths, challenge, olean gate 122/122, selfcheck, axioms pinned (30 theorems,
 `tests/ConLecheTests/Axioms.lean` unchanged), arena tutorial 90/92 as before, e2e 552/552, the
 trusted and `--jobs` sweeps without divergence). No `sorry`, no new axiom.
+
+## TASK #494 — an inductive block that cannot be read is rejected with the reason (2026-11-08, agent/494-ctor-levels)
+
+**Rulings (maintainer, 2026-11-08).** "Don't use 'shapeless' in a user-facing error message; the
+proposed reject is much better. And if official rejects that as well, then reject rather than
+decline is the right choice. 'Decline' is something where a user might reasonably ask for that to
+be 'fixed'." And, on review: "even missing recursors (or otherwise non matching) should be a
+reject. this is not con-leche not supporting a feature; this is clearly a bad input."
+
+**Before.** `blockShape?` returned `Option BlockShape`; a block it did not read had its formers
+checked as constants and was then declined, "inductive block T: shape not recognised", whatever
+the reason (`checkShapeless`, `checkShapelessS`).
+
+**Now.** The reader is `readBlock : Nat → List ConstantInfo → Except CheckError BlockShape`
+(`Kernel/Inductives/BlockShape.lean`), and each arm that cannot read the block returns the reason
+as a reject; `blockCounts` and `blockMemberCounts` (the per-member counts) return theirs the same
+way. The dispatch (`checkDeclKind`, `checkIndDeclC`) throws the reader's error; the former
+refusal functions are gone, and so is the constant check of the formers before it (it only chose
+which of two errors to report).
+
+| reason | official | before | now |
+|---|---|---|---|
+| records not types, then constructors, then recursors | rejects | 2 | 1 |
+| no inductive type | rejects | 2 | 1 |
+| no recursor record | accepts (generates it) | 2 | 1: the input format carries every block's recursors |
+| more parameters than a type's binders | rejects | 2 | 1 |
+| no recursor eliminates a member (a former not read as a telescope) | rejects (its replay compares the recursors) | 2 | 1 |
+| a recursor's argument counts do not fit the block | rejects (idem) | 2 | 1 |
+| inductive types at different universe parameters | rejects | 2 | 1 |
+| a constructor's parameter count differs from the block's | rejects | 2 | 1 |
+| a constructor at other universe parameters | rejects | 2 | 1, "constructor C declares universe parameters [v], but its type T declares [w]" |
+
+The decoder builds every block in record order, so the first reason is unreachable from a parsed
+stream; several others are caught earlier by the decoder's count checks or by `indParamsOk`, with
+the same verdict.
+
+**Proofs.** Every reader of the result follows the new type: `readBlock_inv`,
+`readBlock_declared`, `readBlock_names` (`Verify/Inductives/BlockShapeInv.lean`: the three
+universe and parameter tests are now `List.find?` arms, read back by `List.find?_eq_none`),
+`readBlock_dropCaps` and the four pinned blocks' computations (`Verify/BasisBlock.lean`, which
+also shows the block's head name, used in the errors, unchanged by dropping capabilities); the
+error arms of the dispatch are plain throws in the bridges (`DeclPushes`, `PushChain`,
+`StreamIndex`, `BridgeC`, `GenRecC`, `ViewCongr`, `BridgeDecl`, `Semantics/Bridge/Sound.lean`,
+`Model/Fold.lean`). No model work: an error never returns an environment.
+
+**Fixtures.** `basis_eq_refl_other_name_bad` 2 → 1 (#493's moved verdict, back at its target);
+`ind_shapeless_use`, renamed `ind_ctor_levels_use`, 2 → 1 (its TODO). New, from
+`scripts/mk_block_defect_fixtures.py` (one change each to the accepted block `W.{u}` of
+`corner_fuseloop_order_base`): `block_no_type`, `block_params_exceed`, `block_ctor_params` (all 1,
+caught by earlier checks as before), `block_ctor_levels` (1, was 2) and `block_no_rec` (1, was 2;
+official 0, which generates the recursor).
+
+Other declines in the inductive check, not on this path and unchanged: the direct sum and
+structure installs' telescope mismatches (`SumInstall*`, `StructInstall*`), nested positivity's
+fuel, and a family stored at a definition in one tail case (`BlockTail.lean`).
