@@ -431,4 +431,89 @@ theorem own_stmt_fresh {mode : CheckMode} {sp : SearchPath} {fs : FS} {M : Name}
   obtain ⟨q, hq⟩ := hrun
   exact declsRun_stmt_fresh hq d hd cv hcv
 
+/-! ## An own record's reads are stored -/
+
+/-- A name an environment stores stays stored where constants are prepended. -/
+theorem find?_isSome_append {E E' : Env} {new : List ConstantInfo}
+    (h : E'.consts = new ++ E.consts) {n : Name} (hn : (E.find? n).isSome = true) :
+    (E'.find? n).isSome = true := by
+  simp only [Env.find?, List.find?_isSome] at hn ⊢
+  obtain ⟨c, hc, he⟩ := hn
+  exact ⟨c, by rw [h]; exact List.mem_append_right _ hc, he⟩
+
+/-- **The names an accepted statement record's type reads are stored after the run.** -/
+theorem declsRun_stmt_stored {mode : CheckMode} {pins : List NatOpPinSet} {ds : List Declaration}
+    {p q : Nat × FEnv} (h : DeclsRun mode pins ds p q) (hp : p.2 = mkFEnv p.2.env) :
+    ∀ d ∈ ds, ∀ cv, StmtRecord d cv → ∀ n ∈ cv.type.readNames, (q.2.env.find? n).isSome = true := by
+  induction h with
+  | nil => exact fun _ h => nomatch h
+  | @cons pd ds p p₁ q hstep rest ih =>
+    have hall := declsRun_chain mode (DeclsRun.cons hstep rest) (env := p.2.env) (hp ▸ PushChain.refl _)
+    obtain ⟨fe₁, s₁, hq₁, hC⟩ := declStep_ok hstep
+    have h₁ : PushChain p.2.env p₁.2 := by
+      have := declsRun_chain mode (DeclsRun.cons hstep (DeclsRun.nil p₁)) (env := p.2.env)
+        (hp ▸ PushChain.refl _)
+      exact this
+    intro d hd cv hcv
+    rcases List.mem_cons.mp hd with rfl | hd
+    · obtain ⟨-, hr⟩ := checkDeclStepC_stmt hcv _ _ _ hC
+      rw [constsResolveFC_spec] at hr
+      intro n hn
+      have h0 := constsResolveF_readNames hr n hn
+      rw [hp, mkFEnv_find?] at h0
+      obtain ⟨new, hnew, -⟩ := hall.2.1
+      exact find?_isSome_append hnew h0
+    · exact ih h₁.canon d hd cv hcv
+
+/-- **The names an own statement record's type reads are stored** in the own environment. -/
+theorem own_type_stored {mode : CheckMode} {sp : SearchPath} {fs : FS} {M : Name}
+    {w : WorkerRead} (hrun : OwnRun mode sp fs M w) {d : Declaration}
+    (hd : d ∈ ownDeclsOf sp fs M w) {cv : ConstantVal} (hcv : StmtRecord d cv) :
+    ∀ n ∈ cv.type.readNames, ((ownEnvOf sp fs M w).find? n).isSome = true := by
+  obtain ⟨q, hq⟩ := hrun
+  have := declsRun_stmt_stored hq rfl d hd cv hcv
+  rw [declsRun_env mode hq] at this
+  exact this
+
+/-- A name the context stores is stored in the own environment. -/
+theorem ctx_stored_own {sp : SearchPath} {fs : FS} {M : Name} {w : WorkerRead} {n : Name}
+    (h : ((streamEnv w.reach.ctx.toList).find? n).isSome = true) :
+    ((ownEnvOf sp fs M w).find? n).isSome = true := by
+  obtain ⟨d, hd, hn⟩ := streamEnv_find_mem h
+  simp only [declNames, List.mem_map] at hn
+  obtain ⟨ci, hci, rfl⟩ := hn
+  simp only [Env.find?, List.find?_isSome]
+  exact ⟨ci, (mem_streamEnv_consts _ _).2 (.inr ((mem_streamEnv_consts _ _).2 (.inl ⟨d, hd, hci⟩))),
+    by simp [ConstantInfo.name]⟩
+
+/-- **What an own record reads is stored in the context**, where the reach's roots keep it: no
+own name, and loaded or no name of a pinned own constant's fast path (`ownRoots`' filter). -/
+theorem own_reads_ctx {sp : SearchPath} {fs : FS} {M : Name} {jobs : Nat} {w : WorkerRead}
+    (hw : WorkerFacts sp fs M jobs w) {p : Declaration} (hp : p ∈ w.emitted) {y : Name}
+    (hy : y ∈ recordReads p) (ho : (ownNames w.home).contains y = false)
+    (hk : (w.reads.index.first.contains y || !(w.home.constants.foldl
+      (fun s c => (Modular.pinFootprint c.name).foldl (fun s n => s.insert n) s)
+      ({} : Std.HashSet Name)).contains y) = true) :
+    ((streamEnv w.reach.ctx.toList).find? y).isSome = true := by
+  obtain ⟨_, _, hr⟩ := hw.reach
+  refine (reach_ok hr).2.2.2.2 y ?_ ho
+  unfold ownRoots
+  refine Array.mem_append.2 (.inl (Array.mem_filter.2 ⟨Array.mem_append.2 (.inl ?_), hk⟩))
+  rw [← Array.foldl_toList]
+  have key : ∀ (l : List Declaration) (acc : Array Name), y ∈ acc ∨ (∃ d ∈ l, y ∈ recordReads d) →
+      y ∈ l.foldl (fun acc d => acc ++ recordReads d) acc := by
+    intro l
+    induction l with
+    | nil => intro acc h; simpa using h
+    | cons a l ih =>
+      intro acc h
+      simp only [List.foldl_cons]
+      apply ih
+      rcases h with h | ⟨d, hd, hyd⟩
+      · exact .inl (Array.mem_append.2 (.inl h))
+      · rcases List.mem_cons.1 hd with rfl | hd
+        · exact .inl (Array.mem_append.2 (.inr hyd))
+        · exact .inr ⟨d, hd, hyd⟩
+  exact key _ _ (.inr ⟨p, Array.mem_toList_iff.2 hp, hy⟩)
+
 end ConLeche.Driver
