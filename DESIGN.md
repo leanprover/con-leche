@@ -113135,6 +113135,84 @@ since master's `formerTys.getD c default` and InLean's do not read alike),
 Gates: `lake build InLean InLeanProof` warning-free; `tests/layering.sh`,
 `tests/trust-surface.sh`, `tests/no-local-paths.sh`, `tests/inlean-sync.sh` pass.
 
+### Lane O7-recursors, round 3: the range guard, the generator read (2026-11-08)
+
+Scope was round 2's finding 1 (step 0) and its "What remains" 1–3.  Step 0 and item 1
+are done; items 2 and 3 are not started.
+
+**Step 0: the generated terms' range guard** (`InLean/Inductives/GenRec.lean`, within
+the standing ruling that range gaps are internal errors).  `classConstOk` refuses a
+generated type `EO.inRange` refuses (after its `hasFVar` test) and `classRuleCheck` a
+generated rule (after its closedness test), with the internal error "too many bound
+variables", as `reducedFormer` does.  Master's twins have nothing to test (master's
+terms carry no marker) and are unchanged.  Validation (`inlean-replay --kernel=inlean
+--compare --quiet`): Init 64,530, Std 110,064, Lean 199,645 declarations accepted, 0
+rejected, 0 declined, 0 exact and 0 cosmetic mismatches; `scripts/inlean_negtest.lean`
+13/13 agree; `instructions:u` (`--kernel=inlean --quiet Init`, one run) 868.9 G
+(868.8 G in the record of lane O6, continued).
+
+**The generator, read** (`InLeanProof/PassRecs4.lean`, 29 theorems, all pinned; no
+other proof changed; no `sorry`, no new axiom; 16 theorems use the stop-gap `mkData`
+axioms, as every `TrS` lemma).  Each generator step's statement is round 2's
+`motiveTyI_run` shape: InLean's `some e` with `emvarS e = false` is master's `some` on
+the reading.
+* `closeLams_tr` :64, the twin of `closeTelescope_tr`; `emvarS_closeTelescope` :37,
+  `emvarS_closeLams` :50, `emvarS_mkAppN_args` :944: a marker-free closing (or
+  application) has marker-free pieces, which is how the marker-freeness of the whole
+  generated type or rule reaches every inner closing.
+* The `OptionT CheckCM` lists against master's `Option`: `mapM_optT_run` :168 (over a
+  per-step `StepOk`), `filterMapM_optT_run` :710 (`StepOkO`, through core's
+  `List.filterMapM_cons`).
+* `slotVarI_run` :137, `motVarI_run` :146 (`motiveSlot_trSlot`); `lbb_targetPiDomsWith`
+  :103.
+* **`minorTyI_run`** :306 (the inductive hypotheses' step `minorIhStepOk` :230),
+  **`prefixBindersI_run`** :575 (the slot step `prefixSlotStepOk` :474; the record's
+  readings `CGOk`, `CGOk.mono` :435; a motive slot's class below the former types'
+  length is a hypothesis `hmc`), **`classGenRecTyI_run`** :637 (`major_closed` :619 for
+  the major's variable), **`classGenRuleI_run`** :959 (the slot search
+  `find?_slot_tr` :811, the prefix variables `pvarsI_run` :769, the recursive calls'
+  step `ruleIhStepOk` :838; `recOf` read by `hrec : recOfM t = (recOf t).map toName`).
+* A proof device worth knowing: master's `do` blocks hold anonymous `match`es whose
+  matchers differ from a restatement's; a step lemma states master's side in source
+  form and the call site rewrites with `erw` (default transparency unfolds the
+  matchers).  Two `rfl`-patterns on states in one `obtain` chain shadow the
+  continuation's name: the proofs name each continuation afresh.
+* `motiveTyI_run`'s `emvarS e = false` stays on the generator's statements: the guard
+  that provides it is in `classConstOk`/`classRuleCheck`, whose proofs (item 2) pass it
+  down.  Every recursor type closes the whole prefix (`classGenRecTy` abstracts
+  `g.pre`), so one checked recursor type gives every prefix binder's marker-freeness,
+  hence `prefixBindersI_run`'s; the stage proof needs that at least one recursor
+  type is checked (`p.recs` non-empty; not yet located among the earlier guards).
+
+**What remains** (bottom-up, in this order):
+1. `classConstOk` against master's (its guards as `checkConstantValC_sim` reads them:
+   the new `EO.inRange` guard gives `RangeOk` and `emvarS = false`, with `hasFVar` and
+   the bound test `okC_of_flags`; InLean's monadic `allLevelParamsDefined` and
+   `constsResolveF` on a variable-free term, `withAnnotations` returning the term;
+   master's `constsResolveF` from the inference (`constsResolve_of_infer`); the
+   freshness through `JobEnvI`), `classRecTyCheck` (`hJ.ops.defeq`),
+   `classRecTyOk`/`classRecTysOk` (`classGenRecTyI_run`, `rc.cvR with type := gty`
+   read by `trCV`).
+2. `classRuleCheck` (the new guard as in 1; `w.resolve` at `feR`/`feT`; `stripLams` on
+   the reading), `classRulesOk` (`classGenRuleI_run`, `classRecOf` on `trCV` names for
+   `hrec`), `classRecsRulesOk` at `classFeROvl` (`opsRuleR feR`, which needs the
+   rule-less recursors' environment related to master's), then `genRecCheck` with
+   `shadowOpsC` (`opsAt`, `flush`), output `out.map (trOut s)`: the pieces are round 1's
+   `targetRecPinsI_run`, `classStreamRecsI_run`, `classesNfsI_run`, `classFormerTyI_run`,
+   round 2's `classesCtorsI_run`, and this round's generator theorems; the hypotheses
+   `CGOk`, `hmc`, the constructors' closed types and `g.params.length = g.nP` come from
+   the stage's values (`classesNfsI_run`'s classes, `classesCtorsI_run`'s constructors,
+   the former types' list, the canonical parameters).
+3. `streamRecsCheck` on `trOut`, `checkBlockTablesF` (`structProjBodies` against
+   master's on `trC`, `Expr.constsResolve_instantiate1`, round O7-classes' finding 2
+   from `EnvWF` and freshness).
+
+**Findings.**  No statement was false for the code.  The step-0 guard is the only
+`InLean/*` change; it accepts what it accepted before on Init, Std and Lean.
+
+Gates: `lake build InLean InLeanProof inlean-replay` warning-free; `tests/layering.sh`,
+`tests/trust-surface.sh`, `tests/no-local-paths.sh`, `tests/inlean-sync.sh` pass.
+
 ## TASK #489 — what a module's constants mention, in one array per module (2026-11-06, agent/489-flat-uses)
 
 **The task (maintainer).**  After #480, take the self-contained one of the memory fixes a census of
