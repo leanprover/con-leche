@@ -167,7 +167,7 @@ theorem #src("ConLeche/Verify/Cached/MainC.lean", 32, 35)[composes it with the f
 *Modular checking.* In the fragment, a module's context, views and
 the module each context name is read from are given, and the local
 checks of @sec:mod-local say what they must satisfy. Con-leche states
-#src("ConLeche/Modular.lean", 237, 254)[the same checks] over its own
+#src("ConLeche/Modular.lean", 225, 242)[the same checks] over its own
 records, a context being a list of the records its imports present, in
 an order in which every record reads only itself and earlier records, and
 carries #src("ConLeche/Modular/Generic.lean", 275, 276)[the theorem]
