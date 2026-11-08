@@ -710,4 +710,408 @@ theorem readInfosOf_ok {sp : SearchPath} {fs : FS} {ld : Loads} {ix : NameIndex}
     refine List.mem_iff_getElem.2 ⟨j, by simp; omega, ?_⟩
     simp
 
+/-- The infos' insert of one entry. -/
+@[expose] def insStep (m : Std.HashMap Copy (ConstantVal × CKindF Name Unit))
+    (x : Copy × ConstantVal × CKindF Name Unit) : Std.HashMap Copy (ConstantVal × CKindF Name Unit) :=
+  match x with
+  | (c, s, k) => m.insert c (s, k)
+
+theorem insStep_fold :
+    ∀ (L : List (Copy × ConstantVal × CKindF Name Unit)) (m : Std.HashMap Copy (ConstantVal × CKindF Name Unit)),
+      (∀ c v, (L.foldl insStep m)[c]? = some v → (c, v.1, v.2) ∈ L ∨ m[c]? = some v) ∧
+      (∀ c, (∃ s k, (c, s, k) ∈ L) ∨ (m[c]?).isSome = true → ((L.foldl insStep m)[c]?).isSome = true)
+  | [], m => by simp
+  | (c₀, s₀, k₀) :: L, m => by
+    rw [List.foldl_cons]
+    obtain ⟨h1, h2⟩ := insStep_fold L (insStep m (c₀, s₀, k₀))
+    refine ⟨fun c v h => ?_, fun c h => h2 c ?_⟩
+    · rcases h1 c v h with hh | hh
+      · exact .inl (List.mem_cons_of_mem _ hh)
+      · simp only [insStep, Std.HashMap.getElem?_insert] at hh
+        by_cases he : (c₀ == c) = true
+        · rw [ite_eq_left he] at hh
+          obtain rfl := eq_of_beq he
+          rw [← Option.some.inj hh]
+          exact .inl List.mem_cons_self
+        · rw [ite_eq_right he] at hh
+          exact .inr hh
+    · simp only [insStep, Std.HashMap.getElem?_insert]
+      rcases h with ⟨s, k, h⟩ | h
+      · rcases List.mem_cons.1 h with h | h
+        · cases h; right; simp
+        · exact .inl ⟨s, k, h⟩
+      · right
+        split <;> simp_all
+
+theorem infos_fold :
+    ∀ (rs : List (Array (Copy × ConstantVal × CKindF Name Unit)))
+      (m : Std.HashMap Copy (ConstantVal × CKindF Name Unit)),
+      (∀ c v, (rs.foldl (fun m r => r.foldl insStep m) m)[c]? = some v →
+        (∃ r ∈ rs, (c, v.1, v.2) ∈ r.toList) ∨ m[c]? = some v) ∧
+      (∀ c, (∃ r ∈ rs, ∃ s k, (c, s, k) ∈ r.toList) ∨ (m[c]?).isSome = true →
+        ((rs.foldl (fun m r => r.foldl insStep m) m)[c]?).isSome = true)
+  | [], m => by simp
+  | r :: rs, m => by
+    rw [List.foldl_cons]
+    obtain ⟨h1, h2⟩ := infos_fold rs (r.foldl insStep m)
+    obtain ⟨g1, g2⟩ := insStep_fold r.toList m
+    rw [Array.foldl_toList] at g1 g2
+    refine ⟨fun c v h => ?_, fun c h => h2 c ?_⟩
+    · rcases h1 c v h with ⟨r', hr', h⟩ | h
+      · exact .inl ⟨r', List.mem_cons_of_mem _ hr', h⟩
+      · rcases g1 c v h with h | h
+        · exact .inl ⟨r, List.mem_cons_self, h⟩
+        · exact .inr h
+    · rcases h with ⟨r', hr', s, k, h⟩ | h
+      · rcases List.mem_cons.1 hr' with rfl | hr'
+        · exact .inr (g2 c (.inl ⟨s, k, h⟩))
+        · exact .inl ⟨r', hr', s, k, h⟩
+      · exact .inr (g2 c (.inr h))
+
+/-- **The statements read for some copies**: every entry is its copy's position's statement and
+kind, off the files of the part its module is loaded at; every requested copy has one. -/
+theorem readInfos_ok {sp : SearchPath} {fs : FS} {ld : Loads} {ix : NameIndex} {jobs : Nat}
+    {cs : Array Copy} {infos : Std.HashMap Copy (ConstantVal × CKindF Name Unit)}
+    (h : ModelIO.CanGive (readInfos (.ofPath sp) ld ix jobs cs) fs (.ok infos)) :
+    (∀ c v, infos[c]? = some v → ∃ q f r a, ix.at c = some q ∧
+      ModelIO.CanGive (readFiles sp (ld.nameAt c.mod) ((ld.flags[c.mod]?).getD default).level) fs
+        (.ok f) ∧
+      f.viewRegion ((ld.flags[c.mod]?).getD default).level = some (r, a) ∧ StmtSkel r q.loc v.1 v.2) ∧
+    (∀ c ∈ cs.toList, (infos[c]?).isSome = true) := by
+  obtain ⟨hs, hs', h⟩ := h
+  simp only [readInfos, ModelIO.bind_ok] at h
+  obtain ⟨x, hs₁, hx, h⟩ := h
+  rcases x with e | rs
+  · simp at h
+  simp only [ModelIO.pure_iff, Except.ok.injEq] at h
+  obtain ⟨rfl, -⟩ := h
+  have hx' : (mapExcept (readInfosOf (.ofPath sp) ld ix) (byModule cs).toList : ModelIO _) fs hs
+    (.ok (.ok rs)) hs₁ := hx
+  obtain ⟨hlen, hget⟩ := mapExcept_getElem hx'
+  obtain ⟨b1, b2⟩ := byModule_spec cs
+  obtain ⟨f1, f2⟩ := infos_fold rs {}
+  have hfold : (rs.foldl (fun m r => r.foldl (fun m (x : Copy × ConstantVal × CKindF Name Unit) =>
+      match x with | (c, s, k) => m.insert c (s, k)) m) {}) =
+      rs.foldl (fun m r => r.foldl insStep m) {} := rfl
+  rw [hfold]
+  refine ⟨fun c v hv => ?_, fun c hc => f2 c (.inl ?_)⟩
+  · rcases f1 c v hv with ⟨r, hr, hm⟩ | hm
+    · obtain ⟨j, hj, rfl⟩ := List.getElem_of_mem hr
+      obtain ⟨⟨i, g⟩, hxg, hcan⟩ := hget j _ (List.getElem?_eq_getElem hj)
+      obtain ⟨ha, -⟩ := readInfosOf_ok hcan
+      obtain ⟨hcg, q, f, r, a, hq, hf, hreg, hsk⟩ := ha c v.1 v.2 hm
+      have hmod := (b1 i g (Array.mem_toList_iff.1 (List.mem_of_getElem? hxg)) c hcg).1
+      subst hmod
+      exact ⟨q, f, r, a, hq, hf, hreg, hsk⟩
+    · simp at hm
+  · obtain ⟨g, hg, hcg⟩ := b2 c hc
+    obtain ⟨j, hj, hje⟩ := List.getElem_of_mem (Array.mem_toList_iff.2 hg)
+    have hj' : j < rs.length := by rw [hlen]; exact hj
+    obtain ⟨x, hxg, hcan⟩ := hget j _ (List.getElem?_eq_getElem hj')
+    rw [List.getElem?_eq_getElem hj, hje] at hxg
+    cases hxg
+    obtain ⟨-, hb⟩ := readInfosOf_ok hcan
+    obtain ⟨s, k, hm⟩ := hb c hcg
+    exact ⟨_, List.getElem_mem hj', s, k, hm⟩
+
+/-! ## The worker's reads -/
+
+/-- **What an accepting `workerReads` built**: the index of the loaded parts, the statements it
+read for the doubly held names, the clashes from them, and Lean's merge rule passed on each. -/
+theorem workerReads_open {sp : SearchPath} {fs : FS} {m : Name} {jobs : Nat} {wr : WorkerReads}
+    {hs hs' : HS} (h : (workerReads (.ofPath sp) m jobs : ModelIO _) fs hs (.ok (.ok wr)) hs') :
+    wr.index = nameIndexOf wr.index.parts ∧
+    (∃ infos, ModelIO.CanGive (readInfos (.ofPath sp) wr.loads wr.index jobs
+        ((clashCopies wr.index).flatMap (·.2))) fs (.ok infos) ∧
+      wr.clashes = (clashCopies wr.index).map fun (n, cs) =>
+        { name := n, copies := cs.filterMap fun c => (infos[c]?).map fun (s, k) => (c, s, k) }) ∧
+    ∃ headTy, wr.clashes.toList.forM (clashOk wr.loads headTy) = .ok () := by
+  simp only [workerReads, ModelIO.bind_ok] at h
+  obtain ⟨a, _, -, h⟩ := h
+  rcases a with e | own
+  · simp at h
+  simp only [ModelIO.bind_ok] at h
+  obtain ⟨b, _, hb, h⟩ := h
+  rcases b with e | ld
+  · simp at h
+  simp only [ModelIO.bind_ok] at h
+  obtain ⟨c, _, hc, h⟩ := h
+  rcases c with e | parts
+  · simp at h
+  simp only at h
+  generalize importsModulesOk _ _ _ _ _ = z at h
+  rcases z with e | u
+  · simp at h
+  simp only [ModelIO.bind_ok] at h
+  obtain ⟨d, hs₁, hd, h⟩ := h
+  rcases d with e | infos
+  · simp at h
+  simp only [ModelIO.bind_ok] at h
+  obtain ⟨d, _, -, h⟩ := h
+  rcases d with e | hinfos
+  · simp at h
+  simp only at h
+  generalize hfm : (List.forM _ _ : Except CheckError Unit) = z at h
+  rcases z with e | u
+  · simp at h
+  simp only at h
+  generalize freshOk _ _ _ _ = z at h
+  rcases z with e | u
+  · simp at h
+  simp only [ModelIO.pure_iff, Except.ok.injEq] at h
+  obtain ⟨h, -⟩ := h
+  subst h
+  exact ⟨rfl, ⟨infos, ⟨_, _, hd⟩, rfl⟩, _, hfm⟩
+
+/-- **A copy's spot**: the part its module is loaded at, and its name position there. -/
+@[expose] def spotOf (wr : WorkerReads) (cp : Copy) (q : NamePosition) : Spot :=
+  ⟨⟨wr.loads.nameAt cp.mod, ((wr.loads.flags[cp.mod]?).getD default).level⟩, q⟩
+
+/-- **The worker's index, copy by copy** (`IdxInv` at the end of the parts): every copy the
+index records is a position of its name; every name position of a loaded part is a copy, recorded
+as its name's first copy or a later one; a later copy is not its name's first; the first copy's
+module comes no later; and a copy is one on the snapshot (`CopyAt` at its spot). -/
+theorem workerIndex_copies {sp : SearchPath} {fs : FS} {m : Name} {jobs : Nat} {wr : WorkerReads}
+    {hs hs' : HS} (h : (workerReads (.ofPath sp) m jobs : ModelIO _) fs hs (.ok (.ok wr)) hs') :
+    (∀ i t q, wr.index.parts[i]? = some t → q ∈ t.consts →
+      ∃ cp, cp.mod = i ∧ wr.index.at cp = some q) ∧
+    (∀ n cp, wr.index.first[n]? = some cp → ∃ q, wr.index.at cp = some q ∧ q.name = n) ∧
+    (∀ n cp, (n, cp) ∈ wr.index.more.toList → (∃ q, wr.index.at cp = some q ∧ q.name = n) ∧
+      ∃ cp₀, wr.index.first[n]? = some cp₀ ∧ cp₀ ≠ cp) ∧
+    (∀ cp q, wr.index.at cp = some q →
+      wr.index.first[q.name]? = some cp ∨ (q.name, cp) ∈ wr.index.more.toList) ∧
+    (∀ n cp₀ cp q, wr.index.first[n]? = some cp₀ → wr.index.at cp = some q → q.name = n →
+      cp₀.mod ≤ cp.mod) ∧
+    (∀ cp q, wr.index.at cp = some q → CopyAt sp fs (spotOf wr cp q)) := by
+  obtain ⟨hix, -⟩ := workerReads_open h
+  obtain ⟨hparts, -⟩ := workerReads_index h
+  have hI := nameIndexOf_spec wr.index.parts
+  rw [← hix] at hI
+  have hat : ∀ c, wr.index.at c = atP wr.index.parts c := by
+    intro c; rw [hix, atP_eq]; rfl
+  refine ⟨fun i t q ht hq => ?_, fun n cp hf => ?_, fun n cp hm => ?_, fun cp q ha => ?_,
+    fun n cp₀ cp q hf ha hn => ?_, fun cp q ha => ?_⟩
+  · obtain ⟨k, hk, rfl⟩ := Array.getElem_of_mem hq
+    exact ⟨⟨i, k⟩, rfl, by rw [hat]; simp [atP, ht, hk]⟩
+  · obtain ⟨-, q, ha, hn⟩ := hI.hfirst n cp hf
+    exact ⟨q, by rw [hat]; exact ha, hn⟩
+  · obtain ⟨-, ⟨q, ha, hn⟩, h3⟩ := hI.hmore n cp hm
+    exact ⟨⟨q, by rw [hat]; exact ha, hn⟩, h3⟩
+  · rw [hat] at ha
+    exact hI.hall cp q (done_all ha) ha
+  · rw [hat] at ha
+    exact hI.hleast n cp₀ cp hf (done_all ha) ⟨q, ha, hn⟩
+  · rw [hat] at ha
+    simp only [atP] at ha
+    cases hp : wr.index.parts[cp.mod]? with
+    | none => simp [hp] at ha
+    | some t =>
+      simp only [hp, Option.bind_some] at ha
+      exact ⟨t, hparts cp.mod t hp, Array.mem_of_getElem? ha⟩
+
+/-- **Two copies of one name make a clash**, listing both with their statements. -/
+theorem workerClash_complete {sp : SearchPath} {fs : FS} {m : Name} {jobs : Nat}
+    {wr : WorkerReads} {hs hs' : HS}
+    (h : (workerReads (.ofPath sp) m jobs : ModelIO _) fs hs (.ok (.ok wr)) hs')
+    {y : Name} {cp cp' : Copy} {q q' : NamePosition} (hne : cp ≠ cp')
+    (hq : wr.index.at cp = some q) (hq' : wr.index.at cp' = some q') (hn : q.name = y)
+    (hn' : q'.name = y) :
+    ∃ cl ∈ wr.clashes.toList, cl.name = y ∧ (∃ cv kd, (cp, cv, kd) ∈ cl.copies.toList) ∧
+      ∃ cv kd, (cp', cv, kd) ∈ cl.copies.toList := by
+  obtain ⟨-, ⟨infos, hinf, hcl⟩, -⟩ := workerReads_open h
+  obtain ⟨-, -, hmore, hall, -, -⟩ := workerIndex_copies h
+  obtain ⟨c1, c2⟩ := clashCopies_spec (ix := wr.index) fun n c hm => by
+    obtain ⟨-, cp₀, hf, -⟩ := hmore n c hm
+    rw [hf]; rfl
+  obtain ⟨-, hcomp⟩ := readInfos_ok hinf
+  -- one of the two is a later copy
+  have hsome : ∃ c, (y, c) ∈ wr.index.more.toList := by
+    rcases hall cp q hq with h1 | h1
+    · rcases hall cp' q' hq' with h2 | h2
+      · rw [hn] at h1; rw [hn'] at h2
+        rw [h1] at h2
+        exact absurd (Option.some.inj h2) hne
+      · exact ⟨cp', hn' ▸ h2⟩
+    · exact ⟨cp, hn ▸ h1⟩
+  obtain ⟨c, hc⟩ := hsome
+  obtain ⟨a, ha⟩ := c2 y c hc
+  have hmem : ∀ {d : Copy} {p : NamePosition}, wr.index.at d = some p → p.name = y →
+      d ∈ a.toList := fun {d p} hd hp => by
+    rw [c1 y a ha d, ← hp]
+    rcases hall d p hd with h1 | h1
+    · exact .inl h1
+    · exact .inr h1
+  have hentry : ∀ {d : Copy}, d ∈ a.toList → ∃ cv kd,
+      (d, cv, kd) ∈ (a.filterMap fun c => (infos[c]?).map fun (s, k) => (c, s, k)).toList := by
+    intro d hd
+    have hreq : d ∈ ((clashCopies wr.index).flatMap (·.2)).toList := by
+      simp only [Array.toList_flatMap, List.mem_flatMap]
+      exact ⟨(y, a), Array.mem_toList_iff.2 ha, hd⟩
+    obtain ⟨⟨cv, kd⟩, hv⟩ := Option.isSome_iff_exists.1 (hcomp d hreq)
+    refine ⟨cv, kd, ?_⟩
+    simp only [Array.toList_filterMap, List.mem_filterMap]
+    exact ⟨d, hd, by simp [hv]⟩
+  refine ⟨{ name := y, copies := a.filterMap fun c => (infos[c]?).map fun (s, k) => (c, s, k) },
+    ?_, rfl, hentry (hmem hq hn), hentry (hmem hq' hn')⟩
+  rw [hcl, Array.toList_map]
+  exact List.mem_map.2 ⟨(y, a), Array.mem_toList_iff.2 ha, rfl⟩
+
+/-- **A clash copy's statement and kind are its position's**, read off the skeleton of the part
+its module is loaded at, and of the clash's name. -/
+theorem workerClash_stmt {sp : SearchPath} {fs : FS} {m : Name} {jobs : Nat} {wr : WorkerReads}
+    {hs hs' : HS} (h : (workerReads (.ofPath sp) m jobs : ModelIO _) fs hs (.ok (.ok wr)) hs')
+    {cl : Clash} (hcl : cl ∈ wr.clashes.toList) {cp : Copy} {cv : ConstantVal}
+    {kd : CKindF Name Unit} (he : (cp, cv, kd) ∈ cl.copies.toList) :
+    ∃ q, wr.index.at cp = some q ∧ CopyAt sp fs (spotOf wr cp q) ∧
+      (∃ rg, PartRegion sp fs (spotOf wr cp q).part rg ∧ StmtSkel rg q.loc cv kd) ∧
+      q.name = cl.name ∧ cv.name = cl.name := by
+  obtain ⟨-, ⟨infos, hinf, hcls⟩, -⟩ := workerReads_open h
+  obtain ⟨-, hfirst, hmore, -, -, hcopy⟩ := workerIndex_copies h
+  obtain ⟨c1, -⟩ := clashCopies_spec (ix := wr.index) fun n c hm => by
+    obtain ⟨-, cp₀, hf, -⟩ := hmore n c hm
+    rw [hf]; rfl
+  obtain ⟨hsound, -⟩ := readInfos_ok hinf
+  rw [hcls, Array.toList_map] at hcl
+  obtain ⟨⟨n, a⟩, ha, rfl⟩ := List.mem_map.1 hcl
+  simp only [Array.toList_filterMap, List.mem_filterMap] at he
+  obtain ⟨d, hd, hdv⟩ := he
+  cases hv : infos[d]? with
+  | none => simp [hv] at hdv
+  | some v =>
+  simp only [hv, Option.map_some, Option.some.injEq, Prod.mk.injEq] at hdv
+  obtain ⟨rfl, hv1, hv2⟩ := hdv
+  obtain ⟨q, f, r, a', hq, hf, hreg, hsk⟩ := hsound d v hv
+  rw [hv1, hv2] at hsk
+  have hqn : q.name = n := by
+    rcases (c1 n a (Array.mem_toList_iff.1 ha) d).1 hd with h1 | h1
+    · obtain ⟨q', hq', hn⟩ := hfirst n d h1
+      rw [hq] at hq'; cases hq'; exact hn
+    · obtain ⟨⟨q', hq', hn⟩, -⟩ := hmore n d h1
+      rw [hq] at hq'; cases hq'; exact hn
+  have hreg' : PartRegion sp fs (spotOf wr d q).part r := ⟨f, a', hf, hreg⟩
+  have hcp := hcopy d q hq
+  refine ⟨q, hq, hcp, ⟨r, hreg', hsk⟩, hqn, ?_⟩
+  rw [copyAt_stmt_name hcp hreg' hsk]
+  exact hqn
+
+theorem forM_ok_all {α : Type} {f : α → Except CheckError Unit} :
+    ∀ {l : List α}, l.forM f = .ok () → ∀ x ∈ l, f x = .ok ()
+  | [], _, x, hx => by simp at hx
+  | a :: l, h, x, hx => by
+    simp only [List.forM] at h
+    cases ha : f a with
+    | error e => rw [ha] at h; cases h
+    | ok u =>
+      rw [ha] at h
+      rcases List.mem_cons.1 hx with rfl | hx
+      · exact ha
+      · exact forM_ok_all h x hx
+
+/-- One statement: name, type and level parameters. -/
+@[expose] def SameStmt (a b : ConstantVal) : Prop :=
+  a.name = b.name ∧ a.type = b.type ∧ a.levelParams = b.levelParams
+
+theorem subsumesF_same {E E' : Type} {headTy : Name → Option Expr} {cv₁ : ConstantVal}
+    {k₁ : CKindF Name E} {cv₂ : ConstantVal} {k₂ : CKindF Name E'}
+    (h : subsumesF headTy cv₁ k₁ cv₂ k₂ = true) : SameStmt cv₁ cv₂ := by
+  simp only [subsumesF, Bool.and_eq_true, beq_iff_eq] at h
+  exact ⟨h.1.1.1, h.1.1.2, h.1.2⟩
+
+theorem SameStmt.trans {a b c : ConstantVal} (h₁ : SameStmt a b) (h₂ : SameStmt b c) :
+    SameStmt a c := ⟨h₁.1.trans h₂.1, h₁.2.1.trans h₂.2.1, h₁.2.2.trans h₂.2.2⟩
+
+theorem SameStmt.symm {a b : ConstantVal} (h : SameStmt a b) : SameStmt b a :=
+  ⟨h.1.symm, h.2.1.symm, h.2.2.symm⟩
+
+theorem clashOk_fold {X : Type} (stmt : X → ConstantVal) {g : X → X → Except CheckError X}
+    (hg : ∀ a b r, g a b = .ok r → SameStmt (stmt b) (stmt a) ∧ (r = a ∨ r = b)) (k₀ : ConstantVal) :
+    ∀ (rest : List X) (kept r : X), SameStmt (stmt kept) k₀ → rest.foldlM g kept = .ok r →
+      ∀ x ∈ rest, SameStmt (stmt x) k₀
+  | [], _, _, _, _, x, hx => by simp at hx
+  | b :: rest, kept, r, hk, h, x, hx => by
+    simp only [List.foldlM_cons] at h
+    cases hb : g kept b with
+    | error e => rw [hb] at h; cases h
+    | ok r' =>
+      rw [hb] at h
+      obtain ⟨hs, hr'⟩ := hg kept b r' hb
+      have hb' : SameStmt (stmt b) k₀ := hs.trans hk
+      have hr'' : SameStmt (stmt r') k₀ := by rcases hr' with rfl | rfl <;> assumption
+      rcases List.mem_cons.1 hx with rfl | hx
+      · exact hb'
+      · exact clashOk_fold stmt hg k₀ rest r' r hr'' h x hx
+
+/-- **A clash's copies share one statement**: Lean's merge rule passed on it, and it compares
+names, types and level parameters. -/
+theorem workerClash_same {sp : SearchPath} {fs : FS} {m : Name} {jobs : Nat} {wr : WorkerReads}
+    {hs hs' : HS} (h : (workerReads (.ofPath sp) m jobs : ModelIO _) fs hs (.ok (.ok wr)) hs')
+    {cl : Clash} (hcl : cl ∈ wr.clashes.toList) {e₁ e₂ : Copy × ConstantVal × CKindF Name Unit}
+    (h₁ : e₁ ∈ cl.copies.toList) (h₂ : e₂ ∈ cl.copies.toList) : SameStmt e₁.2.1 e₂.2.1 := by
+  obtain ⟨-, -, headTy, hfm⟩ := workerReads_open h
+  have hok := forM_ok_all hfm cl hcl
+  simp only [clashOk] at hok
+  generalize hcs : cl.copies.toList = l at hok h₁ h₂
+  rcases l with _ | ⟨k, rest⟩
+  · simp at h₁
+  simp only at hok
+  generalize hr : List.foldlM (m := Except CheckError) _ k rest = res at hok
+  rcases res with e | r
+  · cases hok
+  have hall := clashOk_fold (fun x : Copy × ConstantVal × CKindF Name Unit => x.2.1)
+    (fun a b r hab => by
+      obtain ⟨_, cv₂, k₂⟩ := a
+      obtain ⟨_, cv₁, k₁⟩ := b
+      simp only at hab ⊢
+      split at hab
+      · rename_i h1
+        exact ⟨subsumesF_same h1, .inr (Except.ok.inj hab).symm⟩
+      · split at hab
+        · rename_i h2
+          exact ⟨(subsumesF_same h2).symm, .inl (Except.ok.inj hab).symm⟩
+        · cases hab) k.2.1 rest k r ⟨rfl, rfl, rfl⟩ hr
+  have hk : ∀ x ∈ k :: rest, SameStmt x.2.1 k.2.1 := fun x hx => by
+    rcases List.mem_cons.1 hx with rfl | hx
+    · exact ⟨rfl, rfl, rfl⟩
+    · exact hall x hx
+  obtain ⟨a1, a2, a3⟩ := hk e₁ h₁
+  obtain ⟨b1, b2, b3⟩ := hk e₂ h₂
+  exact ⟨a1.trans b1.symm, a2.trans b2.symm, a3.trans b3.symm⟩
+
+/-- **The reach's table of the clashes' copies**: a name's entry lists the copies of a clash of
+that name, each with its module and statement. -/
+theorem clashCopiesOf_spec {wr : WorkerReads} {n : Name} {cs : Array (Name × ConstantVal)}
+    (h : (clashCopiesOf wr)[n]? = some cs) {k : Name} {cv : ConstantVal} (hk : (k, cv) ∈ cs.toList) :
+    ∃ cl ∈ wr.clashes.toList, cl.name = n ∧
+      ∃ cp kd, (cp, cv, kd) ∈ cl.copies.toList ∧ k = wr.loads.nameAt cp.mod := by
+  have key : ∀ (l : List Clash) (m : Std.HashMap Name (Array (Name × ConstantVal))),
+      (l.foldl (fun (m : Std.HashMap Name (Array (Name × ConstantVal))) (cl : Clash) => m.insert cl.name
+        (cl.copies.map fun (cp, cv, _) => (wr.loads.nameAt cp.mod, cv))) m)[n]? = some cs →
+      (∃ cl ∈ l, cl.name = n ∧ cs = cl.copies.map fun (cp, cv, _) => (wr.loads.nameAt cp.mod, cv)) ∨
+        m[n]? = some cs := by
+    intro l
+    induction l with
+    | nil => intro m h; exact .inr h
+    | cons cl l ih =>
+      intro m h
+      rw [List.foldl_cons] at h
+      rcases ih _ h with ⟨cl', hcl', h1, h2⟩ | h
+      · exact .inl ⟨cl', List.mem_cons_of_mem _ hcl', h1, h2⟩
+      · rw [Std.HashMap.getElem?_insert] at h
+        split at h
+        · rename_i he
+          exact .inl ⟨cl, List.mem_cons_self, eq_of_beq he, (Option.some.inj h).symm⟩
+        · exact .inr h
+  have h' : (wr.clashes.toList.foldl (fun (m : Std.HashMap Name (Array (Name × ConstantVal)))
+      (cl : Clash) => m.insert cl.name
+      (cl.copies.map fun (cp, cv, _) => (wr.loads.nameAt cp.mod, cv))) {})[n]? = some cs := by
+    rw [Array.foldl_toList]; exact h
+  rcases key _ _ h' with ⟨cl, hcl, hn, rfl⟩ | h
+  · refine ⟨cl, hcl, hn, ?_⟩
+    rw [Array.toList_map] at hk
+    obtain ⟨⟨cp, cv', kd⟩, he, hkv⟩ := List.mem_map.1 hk
+    simp only [Prod.mk.injEq] at hkv
+    obtain ⟨rfl, rfl⟩ := hkv
+    exact ⟨cp, kd, he, rfl⟩
+  · simp at h
+
 end ConLeche.Driver
