@@ -527,7 +527,7 @@ theorem capture {M : Name} (hM : M ∈ R.names) :
       (∀ cl ∈ wr.clashes, ClashOk sp fs wr (· ∈ pend) cl) ∧
       inferFlags r.ctx.toList pend = .ok () ∧
       (∀ (y : Name) (s : Spot), loc[y]? = some s → importerSpot env y = none ∧
-        s.part.level = .private ∧ CopyAt sp fs s ∧ Reached sp fs wr s.part.mod) ∧
+        s.part.level = .private ∧ CopyAt sp fs s ∧ Reached sp fs wr s.part.mod ∧ s.pos.name = y) ∧
       (∀ x ∈ P, Reached sp fs wr x.1 ∧ Origin sp fs env r.ctx r.homes x) := by
   intro wr env r
   have hw := R.facts M hM
@@ -555,7 +555,7 @@ theorem home_rank {M : Name} (hM : M ∈ R.names) {k : Nat} {h : Name}
     cases hs
     obtain ⟨hi, hmod'⟩ := importerSpot_loaded hsize he
     rw [hmod']; exact .loaded hi
-  · exact (hloc x s hs).2.2.2
+  · exact (hloc x s hs).2.2.2.1
 
 end Run
 

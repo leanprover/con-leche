@@ -812,12 +812,45 @@ end
 
 /-! ## The capture check of one read -/
 
+theorem viewStep_name {v : Std.HashMap Name Spot} {k : PartKey} {t : NamePositions}
+    (hv : ∀ (y : Name) (s : Spot), v[y]? = some s → s.pos.name = y) :
+    ∀ (y : Name) (s : Spot), (viewStep v k t)[y]? = some s → s.pos.name = y := by
+  unfold viewStep
+  rw [← Array.foldl_toList]
+  generalize t.consts.toList = l
+  induction l generalizing v with
+  | nil => exact hv
+  | cons q l ih =>
+    simp only [List.foldl_cons]
+    refine ih ?_
+    split
+    · exact hv
+    · intro y s hs
+      rw [Std.HashMap.getElem?_insert] at hs
+      split at hs
+      · cases hs; exact eq_of_beq (by assumption)
+      · exact hv y s hs
+
+/-- **A view's copy of a name is of that name.** -/
+theorem homeView_name {sp : SearchPath} {fs : FS} {h : Name} {v : Std.HashMap Name Spot} (hv : HomeView sp fs h v) {y : Name}
+    {s : Spot} (hs : v[y]? = some s) : s.pos.name = y := by
+  obtain ⟨-, ld, ts, -, -, -, -, rfl⟩ := hv
+  have key : ∀ (l : List (PartKey × NamePositions)) (v : Std.HashMap Name Spot),
+      (∀ (y : Name) (s : Spot), v[y]? = some s → s.pos.name = y) →
+      ∀ (y : Name) (s : Spot), (l.foldl (fun v kt => viewStep v kt.1 kt.2) v)[y]? = some s →
+        s.pos.name = y := by
+    intro l
+    induction l with
+    | nil => intro v hv; exact hv
+    | cons kt l ih => intro v hv; exact ih _ (viewStep_name hv)
+  exact key _ {} (fun y s h => by simp at h) y s hs
+
 /-- **A completion `captureOne` makes** at a read of home `h`: a name with no importer copy, at
 the private part of the module of `h`'s view's copy. -/
 @[expose] def CapNL (sp : SearchPath) (fs : FS) (env : ReachEnv ModelIO) (h y : Name) (s : Spot) :
     Prop :=
   importerSpot env y = none ∧
-    ∃ v t, HomeView sp fs h v ∧ v[y]? = some t ∧ s.part = ⟨t.part.mod, .private⟩
+    ∃ v t, HomeView sp fs h v ∧ v[y]? = some t ∧ s.part = ⟨t.part.mod, .private⟩ ∧ s.pos.name = y
 
 /-- **A partner read `captureOne` records** at a read of home `h`: `agreeCheck`'s, at a copy of
 `h`'s view. -/
@@ -998,12 +1031,13 @@ theorem captureOne_st (he : EnvOk sp fs env) {c : ReachCache} (hc : CacheOk sp f
           intro z _ hz
           obtain ⟨-, h4⟩ := privSpot_ok he h1 s z _ hz
           have f2 := privSpot_fr (env := env) c' s z _ hz
+          have hsn : s.pos.name = y := homeView_name hv ho'.symm
           obtain ⟨c'', r⟩ := z
           cases r with
           | error e =>
             simp only [ModelIO.allOk_pure]; exact ⟨st1'.trans (Step.ofFr f2), fun h => by cases h⟩
           | ok q =>
-            obtain ⟨hq1, -, -, -⟩ := h4 q rfl
+            obtain ⟨hq1, hq2, -, -⟩ := h4 q rfl
             simp only [ModelIO.allOk_pure]
             have hl' : c''.located[y]? = none := by
               rw [f2.1]
@@ -1025,7 +1059,7 @@ theorem captureOne_st (he : EnvOk sp fs env) {c : ReachCache} (hc : CacheOk sp f
               · rename_i hyy
                 cases hs'
                 obtain rfl := eq_of_beq hyy
-                exact .inr ⟨hi, v, s, hv, ho'.symm, hq1⟩
+                exact .inr ⟨hi, v, s, hv, ho'.symm, hq1, hq2.trans hsn⟩
               · exact .inl hs'
             · refine ⟨q, ?_, .inr (.inr ⟨v, s, hv, ho'.symm, .inl ?_⟩)⟩
               · unfold copyOf; rw [hi]; simp
@@ -1038,7 +1072,7 @@ end
 /-- **A completion `storedNamesOk` makes**: a name with no importer copy, at the home's private
 part. -/
 @[expose] def StoredNL (env : ReachEnv ModelIO) (h n : Name) (s : Spot) : Prop :=
-  importerSpot env n = none ∧ s.part = ⟨h, .private⟩
+  importerSpot env n = none ∧ s.part = ⟨h, .private⟩ ∧ s.pos.name = n
 
 /-- **The clash rule passed at a clash** (`clashAgree`): every loaded copy has a status other
 than `.no`, and where it is `.infer`, an inference of a copy's statement is recorded. -/
@@ -1178,7 +1212,7 @@ theorem storedNamesOk_st (he : EnvOk sp fs env) (h : Name) :
                   · rename_i hyy
                     cases hs'
                     obtain rfl := eq_of_beq hyy
-                    exact .inr ⟨hi, rfl⟩
+                    exact .inr ⟨hi, rfl, (lookTable_spec t hq').2⟩
                   · exact .inl hs',
                 fun _ h => h, fun _ h => h, fun _ h => .inl h, fun hv => hv⟩
             intro p hs' hp
@@ -1348,7 +1382,7 @@ structure CapInv (sp : SearchPath) (fs : FS) (env : ReachEnv ModelIO) (L : Reach
     (∀ n ∈ declNames d, ∀ cs, env.copies[n]? = some cs → ∀ kc ∈ cs,
       ∀ y ∈ (needsGo {} #[] kc.2.type).2, (kc.1, y) ∈ D ∨ (kc.1, y) ∈ c.partners)
   located : ∀ (y : Name) (s : Spot), c.located[y]? = some s →
-    importerSpot env y = none ∧ Reached sp fs env.wr s.part.mod
+    importerSpot env y = none ∧ Reached sp fs env.wr s.part.mod ∧ s.pos.name = y
   reads : ∀ z, z ∈ D ∨ z ∈ c.partners → Reached sp fs env.wr z.1 ∧ Origin sp fs env L.ctx L.homes z
   clashes : ∀ cl ∈ env.wr.clashes, ClashOk sp fs env.wr (· ∈ c.pending) cl
 
@@ -1512,9 +1546,9 @@ theorem CapInv.pairs {L L' : ReachLog} {c c₁ : ReachCache} {D : List (Name × 
     rcases e n hn cs hcs kc hk y hy with h | h
     · exact List.mem_append_left _ h
     · exact List.mem_append_right _ (Array.mem_toList_iff.2 h)
-  · rcases st.loc_new y s hs with h | ⟨x, hx, himp, v, t, hv, ht, hst⟩
+  · rcases st.loc_new y s hs with h | ⟨x, hx, himp, v, t, hv, ht, hst, hnm⟩
     · exact hI.located y s h
-    · refine ⟨himp, ?_⟩
+    · refine ⟨himp, ?_, hnm⟩
       rw [show s.part.mod = t.part.mod by rw [hst]]
       exact .view (hreach x hx) hv ht
   · rcases hz with hz | hz
@@ -1552,7 +1586,7 @@ theorem CapInv.add (hsize : env.wr.index.parts.size ≤ env.wr.loads.order.size)
       (Step.partners_append fun z hz => .inr hz)
   have T : Step sp fs NL NP c { c₃ with partners := c₃.partners ++ clashPartners env (declNames d) } :=
     (Step.ofFr f1).trans ((st2.mono (fun _ _ h => .inl h) (fun _ h => .inl h)).trans T3)
-  have hRh : Reached sp fs env.wr h := hh ▸ copyOf_reached hsize (fun y s h => (hI.located y s h).2) hcp
+  have hRh : Reached sp fs env.wr h := hh ▸ copyOf_reached hsize (fun y s h => (hI.located y s h).2.1) hcp
   have hk : ∀ {k : Nat} {e : Declaration} {g : Name}, L'.ctx[k]? = some e → L'.homes[k]? = some g →
       (L.ctx[k]? = some e ∧ L.homes[k]? = some g) ∨ (k = L.ctx.size ∧ e = d ∧ g = h) := by
     intro k e g he hg
@@ -1596,12 +1630,12 @@ theorem CapInv.add (hsize : env.wr.index.parts.size ≤ env.wr.loads.order.size)
       exact (mem_clashPartners (env := env) _ #[]).2 (.inr ⟨n, hn, cs, hcs, kc, hk', rfl, hy⟩)
   · rcases T.loc_new y s' hs' with h' | h' | ⟨himp, hp⟩
     · exact hI.located y s' h'
-    · obtain ⟨himp, v, t, hv, ht, hst⟩ := h'
-      refine ⟨himp, ?_⟩
+    · obtain ⟨himp, v, t, hv, ht, hst, hnm⟩ := h'
+      refine ⟨himp, ?_, hnm⟩
       rw [show s'.part.mod = t.part.mod by rw [hst]]
       exact .view hRh hv ht
-    · refine ⟨himp, ?_⟩
-      rw [show s'.part.mod = h by rw [hp]]
+    · refine ⟨himp, ?_, hp.2⟩
+      rw [show s'.part.mod = h by rw [hp.1]]
       exact hRh
   · rcases hz with hz | hz
     · rcases List.mem_append.1 hz with hz | hz
@@ -1745,7 +1779,7 @@ theorem reach_capture {sp : SearchPath} {fs : FS} {m : Name} {wr : WorkerReads}
       (∀ cl ∈ wr.clashes, ClashOk sp fs wr (· ∈ pend) cl) ∧
       inferFlags r.ctx.toList pend = .ok () ∧
       (∀ (y : Name) (s : Spot), loc[y]? = some s → importerSpot env y = none ∧ s.part.level = .private ∧
-        CopyAt sp fs s ∧ Reached sp fs wr s.part.mod) ∧
+        CopyAt sp fs s ∧ Reached sp fs wr s.part.mod ∧ s.pos.name = y) ∧
       (∀ x ∈ P, Reached sp fs wr x.1 ∧ Origin sp fs env r.ctx r.homes x) := by
   intro env
   have he : EnvOk sp fs env := ⟨rfl, hparts, hindex⟩
@@ -1853,9 +1887,9 @@ theorem reach_capture {sp : SearchPath} {fs : FS} {m : Name} {wr : WorkerReads}
     · obtain ⟨h1', h2'⟩ := hfwd k d hm h1 h2
       obtain ⟨a, b, c₁, e⟩ := hI.records _ d hm h1' h2'
       exact ⟨b, c₁, a, fun n hn cs hcs kc hk y hy => hmemD (e n hn cs hcs kc hk y hy)⟩
-    · obtain ⟨a, b⟩ := hI.located y s hs
+    · obtain ⟨a, b, nm⟩ := hI.located y s hs
       obtain ⟨c₁, d₁⟩ := hI.cache.located y s hs
-      exact ⟨a, c₁, d₁, b⟩
+      exact ⟨a, c₁, d₁, b, nm⟩
     · obtain ⟨a, b⟩ := hI.reads x (.inl hx)
       exact ⟨a, horig x b⟩
 
