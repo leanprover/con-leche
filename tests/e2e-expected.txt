@@ -3305,3 +3305,8 @@
 #   Target verdict: 1.
 1 reduce_name_def.ndjson
 1 reduce_name_thm.ndjson
+# sorry_name_def: a definition at `sorryAx`'s name, of a propositional type, in a file without
+#   Lean's `Init`.  Lean accepts it; con-leche reserves the name to the tolerated axiom, whose
+#   record installs nothing (`checkConstantVal`'s `allowSorry`): a reject Lean does not make.
+#   Target verdict: 1.
+1 sorry_name_def.ndjson

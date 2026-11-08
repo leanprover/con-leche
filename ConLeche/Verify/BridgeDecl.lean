@@ -65,9 +65,9 @@ macro "datF_step_alt" : tactic =>
 macro "datF_tac" : tactic =>
   `(tactic| repeat' datF_step_alt)
 
-theorem checkConstantVal_datF (env : Env) (cv : ConstantVal) (F : Nat) {a b : Bool} :
-    (checkConstantVal (fueledOpsM mode) env cv a b).val F =
-      checkConstantVal (fueledOps mode F) env cv a b := by
+theorem checkConstantVal_datF (env : Env) (cv : ConstantVal) (F : Nat) {a b c : Bool} :
+    (checkConstantVal (fueledOpsM mode) env cv a b c).val F =
+      checkConstantVal (fueledOps mode F) env cv a b c := by
   unfold checkConstantVal
   datF_tac
 
@@ -499,9 +499,9 @@ macro "tdatF_tac" : tactic =>
     | split
     | ((rw [FueledM.atF_bind]; congr 1 <;> try rfl) <;> try funext _)))
 
-theorem checkConstantValF_datF (fe : FEnv) (cv : ConstantVal) (F : Nat) {a b : Bool} :
-    (checkConstantValF (fueledOpsM mode) fe cv a b).val F =
-      checkConstantValF (fueledOps mode F) fe cv a b := by
+theorem checkConstantValF_datF (fe : FEnv) (cv : ConstantVal) (F : Nat) {a b c : Bool} :
+    (checkConstantValF (fueledOpsM mode) fe cv a b c).val F =
+      checkConstantValF (fueledOps mode F) fe cv a b c := by
   unfold checkConstantValF
   datF_tac
 

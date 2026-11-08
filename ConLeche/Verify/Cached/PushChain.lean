@@ -160,9 +160,13 @@ theorem FreshNames.step {env : Env} {c : ConstantInfo} {ns : List Name}
 
 /-! ## The generic stage helpers keep the name and record the guard -/
 
+-- The walk splits at each of the check's guards and carries the rest of the clause into both
+-- halves; with the three reserved-name guards (certified operations, compiler-trust names,
+-- `sorryAx`) it passes the default limit.
+set_option maxHeartbeats 400000 in
 theorem checkConstantValC_fresh (mode : CheckMode) (fe : FEnv)
-    (cv : ConstantVal) {a b : Bool} :
-    Yields (checkConstantValC mode fe cv a b)
+    (cv : ConstantVal) {a b c : Bool} :
+    Yields (checkConstantValC mode fe cv a b c)
       (fun _ => fe.find? cv.name = none) := by
   unfold checkConstantValC
   yields

@@ -125,7 +125,7 @@ def checkDeclKind (ops : CheckerOps m) (pins : List NatOpPinSet) (env : Env)
     if cv.name = quotSoundName then
       checkQuotRecord env .sound cv
     else do
-      checkConstantVal ops env cv
+      checkConstantVal ops env cv (allowSorry := true)
       if stdAxiomOk env cv then
         pure ⟨.axiomInfo cv :: env.consts, env.tables⟩
       else if cv.name = trustCompilerName then

@@ -204,6 +204,10 @@ theorem checkSumTele_name (n : Nat) (cvTa₀ : ConstantVal) :
 
 /-! ### Freshness of the stored names -/
 
+-- The walk splits at each of the check's guards and carries the rest of the clause into both
+-- halves; with the three reserved-name guards (certified operations, compiler-trust names,
+-- `sorryAx`) it passes the default limit.
+set_option maxHeartbeats 400000 in
 theorem checkConstantValF_fresh (ops : CheckerOps CheckCM) (fe : FEnv)
     (cv : ConstantVal) :
     Yields (checkConstantValF ops fe cv)

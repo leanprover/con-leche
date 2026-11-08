@@ -40,8 +40,8 @@ variable {pins : List NatOpPinSet}
 inversion, the two closedness facts beside it, and `ConstantValRun`.
 No `EnvFacts`, no valuation. -/
 theorem constantValRun_of {env : Env} {F : Nat}
-    {cv : ConstantVal} {a b : Bool}
-    (h : checkConstantVal (fueledOps .verified F) env cv a b = .ok ()) :
+    {cv : ConstantVal} {a b c : Bool}
+    (h : checkConstantVal (fueledOps .verified F) env cv a b c = .ok ()) :
     cv.type.hasFvar = false ∧ cv.type.looseBVarsBounded 0 = true ∧
       ConstantValRun F env cv cv.type := by
   obtain ⟨hfind, hnd, hlbt, hitf, stype, u, htp,
@@ -176,7 +176,7 @@ theorem declAxiomRun_of {env env₂ : Env} {F : Nat}
     exact Or.inl ⟨hqs, declQuotRunOf h⟩
   rw [ite_eq_right hqs] at h
   refine Or.inr ⟨hqs, ?_⟩
-  cases hccv : checkConstantVal (fueledOps .verified F) env cv with
+  cases hccv : checkConstantVal (fueledOps .verified F) env cv false false true with
   | error e => rw [hccv] at h; exact nomatch h
   | ok _ =>
   rw [hccv] at h

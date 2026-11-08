@@ -1634,7 +1634,8 @@ from mentions `sorry`, whether or not anything uses it, so its record
 is checked for well-formedness and then installs nothing — there is no
 set model for it and there cannot be one. A stream that merely
 declares it is therefore accepted; a stream that *uses* it declines, at
-the record that uses it.
+the record that uses it. Any other declaration at its name is
+rejected.
 
 The compiler-trust family, `Lean.trustCompiler`, `Lean.reduceBool`,
 `Lean.reduceNat` and the axioms `Lean.ofReduceBool` and
