@@ -112796,6 +112796,144 @@ Gates: `lake build InLean InLeanProof inlean-replay` warning-free;
 `tests/layering.sh`, `tests/trust-surface.sh`, `tests/no-local-paths.sh`,
 `tests/inlean-sync.sh` pass.
 
+### Lane O7-classes: the class stage, the seeds, the index sorts and the K flags (2026-11-08)
+
+Scope was the pass's class stage and the tail's stages (round 4's list, minus
+the positivity walk, which lane O7-positivity proves in parallel).  The class
+stage is done, the seeds' keys are done, the index sorts and the K flags are
+done; `nestSeeds`' walk, `genRecCheck`, `streamRecsCheck` and
+`checkBlockTablesF` are not started.  Two new files (`PassClasses.lean`,
+`PassTail.lean`); no `InLean/*` change; no existing proof file changed (the
+root's imports and 68 pins in `AxiomPins.lean` added); no `sorry`; no new axiom
+(the theorems through the opener, the instantiation or the cached range use the
+stop-gap `mkData` axioms, as every `TrS`/instantiate lemma).
+
+**The translations** (`PassClasses.lean`, state-indexed as `trKey`): `trCK`
+(a class key: name, levels, `TrSL` of its parameters), `trSlot`, `trCR` (the
+pre-pass's reading), `trNf`, `trTM` (a resolved major: every field, the
+parameters and openers through `TrSL`), with their side conditions `OkSlot`,
+`OkTM` (readings, and no recorded normal forms yet: the classes get theirs in
+the recursor stage) and stability along `TabLe` (`OkSlot.mono`, `trSlot_mono`,
+`OkTM.mono`).  These fix `D`'s class part: `rd` by `trCR s`, `cls` by
+`map (trTM s)`.
+
+**The pre-pass** (`classReadMinorI_run`, `classReadSlotsI_run`,
+`classReadI_run`): an answer of InLean's (`some`) is master's pure `classRead`
+on `recs.map trRec`, read at the final state, at related parameter counts
+(`classNPcOf_tr`: InLean's `indView?` against master's `find?` at `mkFEnv L`).
+Only the `some` direction is stated: every `none` of the pre-pass is a refusal
+of `checkBlockClasses`.  The two `for` loops: `forIn_filterMap_run` (the
+inductive hypotheses, a stateless loop, `fvarTypeD` reads no state) and
+`forIn_early_run` (the recursors' classes, a loop with an early `return none`,
+master's `mapM`).  Heads through the translation: `headDepth_tr` (a variable
+head's interned depth), `constHead_tr`.  Master's anonymous bodies are named
+(`cIh`, `cRecCl`, `cMotPos`) and reached by definitional unfolding
+(`conv … => change …`); round 4's finding 3 holds for `rw`, not for `exact`.
+
+**The keys and the majors.**  `replaceFVarsI_tr` (InLean's `replaceFVars`,
+`EO.replace` with its `hasFVar` cut, is master's on the reading at related
+substitutions, `FvSubRel`), `targetCanonParamsI_tr`; the range guard
+`!x.hasLooseBVars && fvarB x ≤ n` passing means master's
+`x.bvarB == 0 && x.fvarB ≤ n` passes on the reading (`rangeGuard_tr`, from
+`bvarBound_TrS` and `fvarB_le_tr`, the latter through `mem_fvarIds`);
+`classKeyOfI_run`, `mapM_classKeyOfI_run`; `targetCtorsOf_tr`
+(`nestContainer` at an empty context, through `ctorView_rel`),
+`targetOutsideInstI_run`, **`targetMajorOfI_run`** (a member at the block's
+levels and parameters, or an outside inductive at an auxiliary type of the
+block), `targetPinTysI_run`, `targetMajorPinsI_run` (through round 4's
+`familyKeyCheckI_run`), `classMajorsI_run`, and **`checkBlockClassesI_run`**:
+InLean's `checkBlockClasses (sharedOpsC .verified fe) fe p params` answers
+master's `checkBlockClasses (fueledOpsM .verified) (mkFEnv L) (trShape p)
+(TrSL s₀ params)` with `(trCR s' rd, Ms.map (trTM s'))`, from `JobEnvI fe L`,
+`ReducedFormerSimI`, `okL p.resSort`, the recursors' types closed, and two
+facts about the parameters: each reading scoped below `p.nP`, and at least
+`p.nP` of them (`canon_wscoped`: a key's parameters, moved to the parameters,
+are then scoped there, master's `replaceFVars_WScoped_of_below`; the outside
+majors' pins infer them at `p.nP`).  Both facts are about `blockNestCtx`'s
+parameters (`openClosedI_run` gives them; `blockNestCtxI_run` does not export
+them yet).  Master's `mapM` in `FueledM` (no lawful-monad instance) goes
+through `RunsAll`/`runs_mapM` (`mapM.loop`).
+
+**The seeds** (`nestSeedOfI_run`, `classSeedsI_run`): InLean's seed keys
+(the canonical placeholders, `replaceApps` at `nestCanonSub`, `replaceFVars`
+at `nestKeyMap`) are master's `classSeeds` on the translated classes, through
+`trKey`, at a context related by `CanonRel` with master's parameters
+`TrSL s₀ ctx.params`.
+
+**The tail** (`PassTail.lean`): `checkBlockIdxSortsFI_run` (against master's
+pure `checkBlockIdxSorts` at `L`, through `checkStructFieldSortsIFI_run`),
+`recKExpected_tr`, `streamKCheckI_run` (the generated family translated as
+`trOut s`: the constant by `trCV`, the major by `trTM s`, the rules by
+`TrSL s`).
+
+**Theorems** (file:line).  `PassClasses.lean`: `headDepth_tr` :76,
+`constHead_tr` :96, `forIn_early_run` :153, `forIn_filterMap_run` :185,
+`classReadMinorI_run` :216, `classReadSlotsI_run` :365, `classReadI_run` :578,
+`replaceFVarsI_tr` :845, `targetCanonParamsI_tr` :866, `hasLooseBVars_TrS`
+:899, `fvarB_le_tr` :972, `rangeGuard_tr` :989, `runs_mapM` :1015,
+`classNPcOf_tr` :1051, `classKeyOfI_run` :1072, `mapM_classKeyOfI_run` :1121,
+`targetCtorsOf_tr` :1204, `targetOutsideInstI_run` :1243, `targetMajorOfI_run`
+:1345, `targetPinTysI_run` :1480, `targetMajorPinsI_run` :1516,
+`classMajorsI_run` :1569, `canon_wscoped` :1640, `checkBlockClassesI_run`
+:1660, `nestSeedOfI_run` :1739, `classSeedsI_run` :1783.  `PassTail.lean`:
+`checkBlockIdxSortsFI_run` :32, `recKExpected_tr` :83, `streamKCheckI_run`
+:99.  All 68 theorems of the two files pinned.
+
+**Findings.**
+1. **FINDING: the positivity walk's fuel is not master's** (false for the
+   code: "InLean accepts ⇒ master accepts" fails).  `whnfWalkFuel`
+   (`InLean.Inductives.Positivity`) is `EO.depth e + fuelSlack`, and
+   `EO.depth` counts an `mdata` node as a level (`.mdata _ x => d + 1`);
+   master's `Expr.depth` of the reading has no `mdata`.  So InLean's walk gets
+   master's fuel plus the `mdata` nodes on the deepest path.  The walk spends
+   one unit per `∀` it enters after `whnf` (`nestPos`) and declines at `0`
+   ("nested positivity: fuel"), so a field whose reduct is a telescope of
+   between the two fuels is walked to the end by InLean and declined by
+   master.  Counterexample (sketch): `def G (X : Type) : Type := Unit → … →
+   Unit → X` (1100 binders), `inductive T | mk : G T → T`, with the
+   constructor's type wrapped in 100 `mdata` nodes (an `addDecl` from meta
+   code): master's fuel is the crest's depth plus 1024 (about 1030) and runs
+   out inside `G T`'s reduct; InLean's is about 1130 and reaches `T`, a
+   recursive field; the official kernel accepts.  The same reading feeds
+   `nestRoot` (`nestCtors`' `whnfWalkFuel crest`) and `nestSeeds` (`F`, the
+   fold over a seed's parameters).  Fix (executable, outside this lane):
+   `whnfWalkFuel` reads a depth that passes through `mdata`, the twin of
+   master's `Expr.depth` on the reading (an `EO.depth` variant with
+   `.mdata _ x => d`); then the walk's fuels agree on the readings and the
+   simulation can pass one fuel.  Until then `nestSeeds` cannot be stated at
+   equal fuels.
+2. *Master's extra table guard is implied.*  Master's `checkStructProjTable`
+   also refuses a structure whose table is taken (`findTable? T`); InLean's
+   `checkStructProjTableF` does not test it.  At the tail's environment the
+   structure is fresh in `L` (`checkBlockIndsF_fresh`) and `EnvWF L`'s table
+   clause puts every table after its structure, so master's guard holds:
+   round 2's finding 2 (a guard need not be simulated when master's earlier
+   facts imply it) applies.  Not yet proved.
+3. No other statement turned out false for the code.
+
+**What remains** (bottom-up):
+* `nestSeeds`: after finding 1's fix, `nestInstTypeI_run` (round 4) and
+  `nestContKey` at the seed (the positivity lane's walk, with its `NestState`
+  relation); the seeds' keys are `classSeedsI_run`.
+* `genRecCheck` with `shadowOpsC` (`targetRecPins`, `classStreamRecs`,
+  `classesNfs`/`targetMajorNfs`/`targetClassMatch`/`targetParamsDefEq`, whose
+  range test decides a branch and so needs `fvarB` *equal*, not only
+  bounded: `fvarB_le_tr`'s converse through `fvbFold_ge`;
+  `classesCtors`, `classFormerTy`, `ClassGen`'s prefix, `classRecTysOk`,
+  `classRecsRulesOk` at `classFeROvl`), and its output as `out.map (trOut s)`.
+* `streamRecsCheck` (on `trOut`), `checkBlockTablesF` (InLean's
+  `structProjBodies` against master's on `trC`; master's resolution guard from
+  the constructor type's, through `Expr.constsResolve_instantiate1`; finding
+  2), the constructors' and generated recursors' pushes.
+* Then `PassSimI (PassRelI D)` with `D s q cq := cq.rd = trCR s q.rd ∧ cq.cls =
+  q.cls.map (trTM s) ∧ (kinds, tbl from the positivity lane)`, the
+  parameters' two facts above read off `blockNestCtx` (`openClosedI_run`),
+  `TailSimI (PassRelI D)`, `checkIndDeclC_sim_rest` without them.
+
+Gates: `lake build InLean InLeanProof` warning-free; `tests/layering.sh`,
+`tests/trust-surface.sh`, `tests/no-local-paths.sh`, `tests/inlean-sync.sh`
+pass.
+
 ## TASK #489 — what a module's constants mention, in one array per module (2026-11-06, agent/489-flat-uses)
 
 **The task (maintainer).**  After #480, take the self-contained one of the memory fixes a census of
