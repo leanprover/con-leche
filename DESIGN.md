@@ -115234,3 +115234,78 @@ official 0, which generates the recursor).
 Other declines in the inductive check, not on this path and unchanged: the direct sum and
 structure installs' telescope mismatches (`SumInstall*`, `StructInstall*`), nested positivity's
 fuel, and a family stored at a definition in one tail case (`BlockTail.lean`).
+
+### Lane CI: the lean4 test suite — the official kernel's limits, messages and tests (2026-11-08, task #451, agent/451-inlean2)
+
+**Goal.**  The lean4 fork's test suite passes but for `elab/async_systems_info` (fails in the
+sandbox, stock build too); maintainer's rulings of 2026-11-08.
+
+**Limits** (`InLean.Limits`, a field of `Config` and of `FEnv`, plumbed into the generator's
+`Ctx`).  Each only adds an error exit, so `addDeclSound` now quantifies over them
+(`theoremConfig lim`, `CertArmSimI`/`DivModArmSimI` with a `∀ lim`; the relation's view stays
+limit-free, `EnvRel.presL`/`projL` and `findProj_limits` move it, all by `rfl`); the axioms are
+unchanged.  A limit reached is `CheckError.limit` (new constructor, con-leche has none), reported
+as its own `Kernel.Exception` (`deterministicTimeout`, `interrupted`, `deepRecursion`).
+* `recDepth`: the knot's fuel (`opInfer` & co. at `fe.limits.recDepth.getD checkFuel`); the
+  fuel is the core's nesting depth, so running out (`knotZeroI`) is the recursion limit.  Core
+  sets 16 × `maxRecDepth` (official `scope_rec_depth`'s factor); `Kernel.whnf`/`isDefEq`/`check`
+  run unbounded, as official's.
+* `poll : Option (Event → Option Limit)`: asked (`pollC`) before every body the knot's memos
+  miss (`Event.body d`, official `check_system`'s sites, behind the cache rather than before it)
+  and at every unfolding (`Event.unfold n`: δ in `unfoldDefinitionI`, ι in `whnfAppI`, official
+  `record_unfold`'s sites).  For the checker it is any function.  Core's glue
+  (`Core.lean`, `addDeclRuntime`, a `def` whose compiled version is
+  `addDeclRuntimeUnsafe` by `implemented_by`) gives the poll one `unsafeBaseIO` closure: at a
+  body, the cancellation token, then the heartbeats (the runtime's allocation counter,
+  `IO.getNumHeartbeats`) since the kernel was entered against `maxHeartbeats`; at an unfolding,
+  a count in an `IO.Ref`, added to the new environment's `diagnostics.unfoldCounter` when the
+  environment's diagnostics are enabled.  No C, no C++ exception: the runtime is read through
+  existing Lean primitives.  `ack` and `structuralNamedF` match the official counts exactly.
+* `natMaxBytes`: `LEAN_NAT_MAX_SIZE` (core reads it at initialization, `builtin_initialize`),
+  with the official guards: `natSizeBytes` is `lean_nat_size_in_bytes` on 64-bit (a scalar 8, a
+  big number its 64-bit limbs); `Nat.succ`, `add`/`sub`/`mul` results (`natResultRefused`),
+  `reduce_pow`'s `size(base) > max / exp`, `reduce_shiftLeft`'s `size + shift/8 + 1`, and the
+  inference of a literal (`infer_lit`).
+
+*Heartbeat semantics.*  Official counts kernel steps (`check_heartbeat`, a thread-local counter
+reset at task start, separate from the allocation counter) against the elaborator's budget.
+InLean counts allocations since its entry, the unit `maxHeartbeats` is documented in; the
+kernel's allocations already counted against the elaborator's budget.  `kernel_maxheartbeats`
+times out as official does.
+
+*Alternatives considered.*  (1) A counter in `CState` (steps, unfoldings): pure and exact, but
+every walk's post would cross one more state field; the poll costs one `pollC` per site and no
+proof change beyond adding `InLean.pollC` to five `vcgen` lists and one case split.  (2) A
+poll per memo lookup (official's order): more calls for no gain in the allocation semantics.
+(3) Separate opaque reads (`heartbeatsAt env`, a closure-returning opaque): the compiler
+eta-expands an opaque of function type, so a start read inside it is re-read at every call
+(the first version never timed out); one `implemented_by` function sequencing the reads in
+`BaseIO` around the pure `addDecl` call avoids that.  (4) A no-op `fun _ => none` default:
++1.4 % on the Init replay (a closure call and an `Event` allocation per body); `Option` costs
+a field test.
+
+**Messages.**  A constant a safe declaration does not see is named as official names it
+(`unseenConstError`: "invalid declaration, it uses unsafe declaration 'c'", "… safe declaration
+must not contain partial declaration 'c'", else "unknown constant 'c'"), in the syntactic gate
+too (`unresolvedConstsErrorL` takes `fe`); the constant stays invisible to the proof.  Duplicates
+are `alreadyDeclared` ("constant has already been declared 'c'", the first duplicate inside a
+block).  The generator runs `add_inductive`'s pre-checks with official's messages
+(`check_no_metavar_no_fvar`, `check_no_nested_aux` = `usesNestedPrefix`,
+`check_uniform_ind_occs` = `nonUniformOcc`) and rejects a constructor whose result is not a
+valid application (`ctorResultIndices`, "invalid return type for 'C.c'"), where it raised
+internal errors; a reject's message carries no generator stage suffix.
+
+**Measured** (`perf stat -e instructions:u`, `inlean-replay --kernel=inlean --mode=verified
+Init`): 456.24 G at 18991ddba, 457.26 G at the lane (+0.2 %); `--compare` on Init: 64530
+accepted, 0 mismatches.
+
+**lean4 tests** (branch `joachim/inlean-kernel`): limits pass as they are
+(`kernelMaxRecDepth`, `kernel_maxheartbeats`, `kernelInterrupt`, `nat_size_limit` but its
+`(InLean)` prefix, `ack`, `structuralNamedF`); `10475` expects the `let`-free types;
+`kernel_is_prop_issue` deleted (as lean4 PR #13851 does); `inductive_rec_proj` expects the four
+declines (lean4 issue #14977); `completion7`/`completionEOF` use `Duo` for the prelude's
+`And`; `kernelQuotNameCollision` deleted (InLean rejects the axiom at the quotient's name, so
+`init_quot` never meets a declared primitive); the remaining kernel-message tests expect
+InLean's text.  Open: in `kernelQuotNameCollision`'s situation the elaborator keeps the
+rejected axiom in its environment and `init_quot` then panics in `AsyncConsts.add` (an
+elaborator issue official's kernel can meet too).
