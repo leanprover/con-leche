@@ -161,9 +161,12 @@ def ruleRhsAtM (fe : FEnv) (c j : Name) (us : List Level) : CheckCM Expr := do
 /-- **The limits' poll** (`Limits.poll`) at an event, before `x`: a limit
 it answers is the error. -/
 @[inline] def pollC (fe : FEnv) (ev : Event) (x : CheckCM α) : CheckCM α :=
-  match fe.limits.poll ev with
-  | some l => throw (.limit l)
+  match fe.limits.poll with
   | none => x
+  | some p =>
+    match p ev with
+    | some l => throw (.limit l)
+    | none => x
 
 /-- Twin of `unfoldDefinitionI`: a theorem never unfolds; the unfolding is
 reported to the poll (`Event.unfold`). -/

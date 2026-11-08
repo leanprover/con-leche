@@ -65,7 +65,7 @@ exit, so the checker's soundness holds whatever they are.
 
 * `recDepth`: the core's entry points nest at most this deep (the knot's
   fuel; `none` is `checkFuel`), official `scope_rec_depth`'s bound.
-* `poll`: asked at every body the knot's memos miss and at every
+* `poll`: if any, asked at every body the knot's memos miss and at every
   unfolding (`Event`); a limit it answers is the error.  The heartbeat
   budget, the cancellation token and the diagnostics' unfold counter live
   behind it (core's glue reads and writes the runtime).
@@ -73,7 +73,7 @@ exit, so the checker's soundness holds whatever they are.
   bytes (`natSizeBytes`), official `LEAN_NAT_MAX_SIZE`. -/
 structure Limits where
   recDepth : Option Nat := none
-  poll : Event → Option Limit := fun _ => none
+  poll : Option (Event → Option Limit) := none
   natMaxBytes : Nat := 128 * 1024 * 1024
 
 instance : Inhabited Limits := ⟨{}⟩

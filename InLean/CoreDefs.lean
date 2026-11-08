@@ -211,7 +211,7 @@ def strLitToConstructor (s : String) : Expr :=
 `lean_nat_size_in_bytes` reports it on a 64-bit platform: a scalar (below
 `2 ^ 63`) occupies one word, a big number its 64-bit limbs. -/
 def natSizeBytes (n : Nat) : Nat :=
-  if n < 2 ^ 63 then 8 else 8 * ((n.log2 + 64) / 64)
+  if n < 9223372036854775808 then 8 else 8 * ((n.log2 + 64) / 64)  -- 2 ^ 63
 
 /-- The official kernel's message for a numeral past the size bound. -/
 def natTooBigMsg : String :=

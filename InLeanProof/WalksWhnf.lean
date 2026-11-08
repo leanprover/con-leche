@@ -688,10 +688,16 @@ theorem unfoldDefinitionI_specI {fe : InLean.FEnv} (hfe : EnvRelI fe env) (hdef 
           obtain ⟨hs₁, ht₁, hokt, hval⟩ :=
             tripleI_iff_run.1 (constValAtM_specI hfe hs n hus) t s₁ hq
           simp only [hq, InLean.mkAppNM, InLean.pollC, pure, StateT.pure, Except.pure] at hr
-          cases hp : fe.limits.poll (.unfold n) with
-          | some l => rw [hp] at hr; exact nomatch hr
-          | none =>
-          rw [hp] at hr
+          have hr : (some (mkAppN t (appArgs e).toArray), s₁) = (o, s') := by
+            generalize fe.limits.poll = q at hr
+            cases q with
+            | none => exact Except.ok.inj hr
+            | some p =>
+              dsimp only at hr
+              generalize p (.unfold n) = q' at hr
+              cases q' with
+              | some l => exact nomatch hr
+              | none => exact Except.ok.inj hr
           obtain ⟨rfl, rfl⟩ := hr
           have hargs : OkSL s₀ (appArgs e) = true := OkSL_appArgs s₀ he
           refine ⟨hs₁, ht₁, ?_, ?_⟩
