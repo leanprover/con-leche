@@ -1316,6 +1316,12 @@ theorem toName_quotName : toName InLean.quotName = ConLeche.quotName := rfl
 
 theorem trShape_members (p : InLean.BlockShape) : (trShape p).members = p.members.map trMember := rfl
 
+/-- A bind on the pure side, under five facts. -/
+theorem runs5_bind {A B C D E : Prop} {α β : Type} {x : ConLeche.FueledM α}
+    {f : α → ConLeche.FueledM β} {a : α} {b : β} (hx : Runs x a)
+    (h : A ∧ B ∧ C ∧ D ∧ E ∧ Runs (f a) b) : A ∧ B ∧ C ∧ D ∧ E ∧ Runs (x >>= f) b :=
+  ⟨h.1, h.2.1, h.2.2.1, h.2.2.2.1, h.2.2.2.2.1, Runs.bind hx h.2.2.2.2.2⟩
+
 theorem any_nestOcc_tr {s : InLean.CState} (names : List Lean.Name) (lo hi : Nat) :
     ∀ {l : List Lean.Expr}, OkSL s l = true →
       (TrSL s l).any (fun x => x.nestOcc (names.map toName) lo hi) =
@@ -1338,6 +1344,7 @@ theorem targetMajorOfI_run {fe : InLean.FEnv} {L : ConLeche.Env} (hJ : JobEnvI f
     (h : InLean.targetMajorOf (sharedOpsC .verified fe) fe p pfvs fvs mty s₀ = .ok (M, s')) :
     CSOKI .verified false L s' ∧ TabLe s₀ s' ∧ OkTM s' M ∧
       (M.member = none → ∀ x ∈ TrSL s' M.ds, x.bvarB = 0 ∧ x.fvarB ≤ p.nP) ∧
+      (M.member = none → ∀ x ∈ M.ds, x ∈ appArgs mty) ∧
       Runs (ConLeche.targetMajorOf (ConLeche.fueledOpsM .verified) (ConLeche.mkFEnv L) (trShape p)
         (TrSL s₀ pfvs) (TrSL s₀ fvs) (TrS s₀ mty)) (trTM s' M) := by
   unfold InLean.targetMajorOf at h
@@ -1365,7 +1372,7 @@ theorem targetMajorOfI_run {fe : InLean.FEnv} {L : ConLeche.Env} (hJ : JobEnvI f
       simp only [hm, InLean.unwrapOr] at h1
       obtain ⟨rfl, rfl⟩ := pure_run h1
       simp only [Option.map_some, ConLeche.unwrapOr]
-      refine runs4_bind (Runs.pure _) ?_
+      refine runs5_bind (Runs.pure _) ?_
       by_cases hgd : (us == p.lps.map Level.param && List.take p.nP (appArgs mty) ==
           List.take p.nP fvs) = true
       · simp only [hgd, Bool.not_true, Bool.false_eq_true, ↓reduceIte] at h
@@ -1381,7 +1388,8 @@ theorem targetMajorOfI_run {fe : InLean.FEnv} {L : ConLeche.Env} (hJ : JobEnvI f
           exact beq_self_eq_true _
         simp only [hlv, hds, Bool.and_self, Bool.not_true, Bool.false_eq_true, ↓reduceIte,
           trShape_nP]
-        refine ⟨hs, TabLe.refl _, ⟨hokus, OkSL_take s₀ hokf _, hokp, rfl⟩, (fun h => by cases h), ?_⟩
+        refine ⟨hs, TabLe.refl _, ⟨hokus, OkSL_take s₀ hokf _, hokp, rfl⟩, (fun h => by cases h),
+          (fun h => by cases h), ?_⟩
         simp only [trTM, trMember, TrSL_take, List.map_nil]
         exact Runs.pure _
       · simp only [hgd, Bool.not_false, ↓reduceIte] at h
@@ -1430,11 +1438,11 @@ theorem targetMajorOfI_run {fe : InLean.FEnv} {L : ConLeche.Env} (hJ : JobEnvI f
           obtain ⟨ki, s₂, h2, h⟩ := bind_run h
           obtain ⟨nIdx, sI⟩ := ki
           obtain ⟨hs₂, ht₂, hsI, hR2⟩ := targetOutsideInstI_run hJ hRF hs hokus hokds hcds h2
-          refine runs4_bind hR2 ?_
+          refine runs5_bind hR2 ?_
           obtain ⟨b, s₃, h3, h⟩ := bind_run h
           obtain ⟨hs₃, ht₃, hb⟩ := tripleI_iff_run.1 (liftFueled_specI hs₂ "level comparison" _) b s₃ h3
           rw [show (trShape p).resSort = trL p.resSort from rfl, ← isEquiv_trL hsI hsr, hb]
-          refine runs4_bind (Runs.pure _) ?_
+          refine runs5_bind (Runs.pure _) ?_
           cases b with
           | false =>
             simp only [Bool.not_false, ↓reduceIte] at h
@@ -1445,7 +1453,8 @@ theorem targetMajorOfI_run {fe : InLean.FEnv} {L : ConLeche.Env} (hJ : JobEnvI f
             obtain ⟨rfl, rfl⟩ := pure_run h
             have ht03 := ht₂.trans ht₃
             refine ⟨hs₃, ht03, ⟨hokus, okSL_of_tabLe ht03 hokds, okSL_of_tabLe ht03 hokp, rfl⟩,
-              fun _ => by rw [TrSL_of_tabLe ht03 hokds]; exact hgdC, ?_⟩
+              (fun _ => by rw [TrSL_of_tabLe ht03 hokds]; exact hgdC),
+              (fun _ x hx => List.mem_of_mem_take hx), ?_⟩
             simp only [trTM, TrSL_of_tabLe ht03 hokds, TrSL_of_tabLe ht03 hokp, List.map_nil]
             exact Runs.pure _
         · simp only [hn, Bool.not_false, ↓reduceIte] at h
@@ -1457,5 +1466,164 @@ theorem targetMajorOfI_run {fe : InLean.FEnv} {L : ConLeche.Env} (hJ : JobEnvI f
   | _ =>
     simp only [hg] at h
     exact (throw_run h).elim
+
+/-! ## The majors' pins and every class -/
+
+/-- **An outside major's parameters typed** (`targetPinTys`). -/
+theorem targetPinTysI_run {fe : InLean.FEnv} {L : ConLeche.Env} (hO : OpsSimI fe L) {d : Nat} :
+    ∀ (xs : List Lean.Expr) {s₀ s' : InLean.CState} {v : Unit},
+      CSOKI .verified false L s₀ → OkSL s₀ xs = true →
+      (∀ a ∈ xs, ConLeche.Expr.WScoped d (TrS s₀ a) ∧ (TrS s₀ a).looseBVarsBounded 0 = true) →
+      InLean.targetPinTys (sharedOpsC .verified fe) fe d xs s₀ = .ok (v, s') →
+      CSOKI .verified false L s' ∧ TabLe s₀ s' ∧
+        Runs (ConLeche.targetPinTys (ConLeche.fueledOpsM .verified) L d (TrSL s₀ xs)) ()
+  | [], s₀, s', v, hs, _, _, h => by
+    unfold InLean.targetPinTys at h
+    obtain ⟨-, rfl⟩ := pure_run h
+    exact ⟨hs, TabLe.refl _, by unfold ConLeche.targetPinTys; exact Runs.pure _⟩
+  | x :: xs, s₀, s', v, hs, hok, hw, h => by
+    unfold InLean.targetPinTys at h
+    simp only [OkSL_cons, Bool.and_eq_true] at hok
+    obtain ⟨hwx, hcx⟩ := hw x List.mem_cons_self
+    obtain ⟨t, s₁, h1, h⟩ := bind_run h
+    obtain ⟨hs₁, ht₁, -, hR1, -, -⟩ := tripleI_iff_run.1 (hO.infer hs hok.1 hwx hcx) t s₁ h1
+    have hok₁ := okSL_of_tabLe ht₁ hok.2
+    obtain ⟨hs', ht', hR⟩ := targetPinTysI_run hO xs hs₁ hok₁ (fun a ha => by
+      rw [TrS_of_tabLe ht₁ (by simp only [OkSL, List.all_eq_true] at hok; exact hok.2 a ha)]
+      exact hw a (List.mem_cons_of_mem _ ha)) h
+    refine ⟨hs', ht₁.trans ht', ?_⟩
+    rw [TrSL_cons]
+    unfold ConLeche.targetPinTys
+    rw [TrSL_of_tabLe ht₁ hok.2] at hR
+    exact Runs.bind hR1 hR
+
+theorem mkFEnv_find?_fun (L : ConLeche.Env) : (ConLeche.mkFEnv L).find? = L.find? :=
+  funext (ConLeche.mkFEnv_find? L)
+
+theorem lbb_of_bvarB {x : ConLeche.Expr} (h : x.bvarB = 0) : x.looseBVarsBounded 0 = true := by
+  rw [ConLeche.Expr.looseBVarsBounded_iff, ← ConLeche.Expr.bvarB_eq, h]
+  exact Nat.le_refl 0
+
+/-- **A major's pins** (`targetMajorPins`): nothing at a member; an outside
+major's parameters typed at the prefix and the instantiation checked. -/
+theorem targetMajorPinsI_run {fe : InLean.FEnv} {L : ConLeche.Env} (hJ : JobEnvI fe L)
+    (hRF : ReducedFormerSimI) {rP : Nat} {M : InLean.TargetMajor} {s₀ s' : InLean.CState} {v : Unit}
+    (hs : CSOKI .verified false L s₀) (hM : OkTM s₀ M)
+    (hw : M.member = none → ∀ a ∈ TrSL s₀ M.ds, ConLeche.Expr.WScoped rP a ∧ a.bvarB = 0)
+    (h : InLean.targetMajorPins (sharedOpsC .verified fe) fe rP M s₀ = .ok (v, s')) :
+    CSOKI .verified false L s' ∧ TabLe s₀ s' ∧
+      Runs (ConLeche.targetMajorPins (ConLeche.fueledOpsM .verified) (ConLeche.mkFEnv L) rP
+        (trTM s₀ M)) () := by
+  unfold InLean.targetMajorPins at h
+  unfold ConLeche.targetMajorPins
+  simp only [trTM, mkFEnv_find?_fun]
+  cases hm : M.member with
+  | some t =>
+    simp only [hm, Option.isNone_some, Bool.false_eq_true, ↓reduceIte] at h ⊢
+    obtain ⟨-, rfl⟩ := pure_run h
+    exact ⟨hs, TabLe.refl _, Runs.pure _⟩
+  | none =>
+    simp only [hm, Option.isNone_none, ↓reduceIte] at h ⊢
+    obtain ⟨hlv, hds, -, -⟩ := hM
+    have hw' : ∀ a ∈ M.ds, ConLeche.Expr.WScoped rP (TrS s₀ a) ∧
+        (TrS s₀ a).looseBVarsBounded 0 = true := by
+      intro a ha
+      obtain ⟨h1, h2⟩ := hw hm (TrS s₀ a) (List.mem_map_of_mem ha)
+      exact ⟨h1, lbb_of_bvarB h2⟩
+    obtain ⟨_, s₁, h1, h⟩ := bind_run h
+    obtain ⟨hs₁, ht₁, hR1⟩ := targetPinTysI_run hJ.ops M.ds hs hds hw' h1
+    have hds₁ := okSL_of_tabLe ht₁ hds
+    obtain ⟨hs', ht', hR2⟩ := familyKeyCheckI_run (d := rP) hJ hRF hs₁ hlv hds₁ (fun a ha => by
+      rw [TrS_of_tabLe ht₁ (by simp only [OkSL, List.all_eq_true] at hds; exact hds a ha)]
+      exact hw' a ha) h
+    refine ⟨hs', ht₁.trans ht', Runs.bind hR1 ?_⟩
+    rw [TrSL_of_tabLe ht₁ hds] at hR2
+    exact hR2
+
+theorem TrS_mkAppL_const (s : InLean.CState) (I : Lean.Name) (us : List Lean.Level)
+    (ds : List Lean.Expr) :
+    TrS s (InLean.mkAppL (.const I us) ds) =
+      ConLeche.Expr.mkAppN (.const (toName I) (us.map trL)) (TrSL s ds) :=
+  TrS_mkAppN s ds _
+
+theorem getAppArgs_mkAppN' : ∀ (ds : List ConLeche.Expr) (c : ConLeche.Expr),
+    (ConLeche.Expr.mkAppN c ds).getAppArgs = c.getAppArgs ++ ds
+  | [], c => by simp [ConLeche.Expr.mkAppN]
+  | a :: ds, c => by
+    rw [ConLeche.Expr.mkAppN, getAppArgs_mkAppN' ds (.app c a), ConLeche.Expr.getAppArgs]
+    simp
+
+theorem getAppArgs_mkAppN_const (c : ConLeche.Expr) (hc : c.getAppArgs = []) (ds : List ConLeche.Expr) :
+    (ConLeche.Expr.mkAppN c ds).getAppArgs = ds := by
+  rw [getAppArgs_mkAppN', hc, List.nil_append]
+
+/-- **Every class checked as a major** (`classMajors`), over the openers
+`pfvs`: InLean's majors are master's on the readings. -/
+theorem classMajorsI_run {fe : InLean.FEnv} {L : ConLeche.Env} (hJ : JobEnvI fe L)
+    (hRF : ReducedFormerSimI) {p : InLean.BlockShape} (hsr : okL p.resSort = true)
+    {pfvs : List Lean.Expr} :
+    ∀ {keys : List InLean.ClassKey} {s₀ s' : InLean.CState} {Ms : List InLean.TargetMajor},
+      CSOKI .verified false L s₀ → OkSL s₀ pfvs = true →
+      (∀ k ∈ keys, k.lvls.all okLv = true ∧ OkSL s₀ k.ds = true ∧
+        ∀ x ∈ TrSL s₀ k.ds, ConLeche.Expr.WScoped p.nP x ∧ x.bvarB = 0) →
+      InLean.classMajors (sharedOpsC .verified fe) fe p pfvs keys s₀ = .ok (Ms, s') →
+      CSOKI .verified false L s' ∧ TabLe s₀ s' ∧ (∀ M ∈ Ms, OkTM s' M) ∧
+        Runs (ConLeche.classMajors (ConLeche.fueledOpsM .verified) (ConLeche.mkFEnv L) (trShape p)
+          (TrSL s₀ pfvs) (keys.map (trCK s₀))) (Ms.map (trTM s'))
+  | [], s₀, s', Ms, hs, _, _, h => by
+    unfold InLean.classMajors at h
+    obtain ⟨rfl, rfl⟩ := pure_run h
+    exact ⟨hs, TabLe.refl _, by simp, by unfold ConLeche.classMajors; exact Runs.pure _⟩
+  | key :: keys, s₀, s', Ms, hs, hokp, hk, h => by
+    unfold InLean.classMajors at h
+    obtain ⟨hlv, hds, hwd⟩ := hk key List.mem_cons_self
+    obtain ⟨M, s₁, h1, h⟩ := bind_run h
+    have hokm : OkS s₀ (InLean.mkAppL (.const key.ind key.lvls) key.ds) = true := by
+      unfold InLean.mkAppL
+      rw [OkS_mkAppN, OkS_const, hlv, hds]; rfl
+    have hargs : TrSL s₀ (appArgs (InLean.mkAppL (.const key.ind key.lvls) key.ds)) =
+        TrSL s₀ key.ds := by
+      rw [TrSL_appArgs, TrS_mkAppL_const]
+      exact getAppArgs_mkAppN_const _ rfl _
+    have hmemA : ∀ a ∈ appArgs (InLean.mkAppL (.const key.ind key.lvls) key.ds),
+        TrS s₀ a ∈ TrSL s₀ key.ds := by
+      intro a ha
+      rw [← hargs]
+      exact List.mem_map_of_mem ha
+    obtain ⟨hs₁, ht₁, hokM, hgM, hsub, hR1⟩ := targetMajorOfI_run hJ hRF hsr hs hokp hokp hokm
+      (fun a ha => lbb_of_bvarB (hwd _ (hmemA a ha)).2) h1
+    have hokA : OkSL s₀ (appArgs (InLean.mkAppL (.const key.ind key.lvls) key.ds)) = true :=
+      OkSL_appArgs s₀ hokm
+    obtain ⟨_, s₂, h2, h⟩ := bind_run h
+    obtain ⟨hs₂, ht₂, hR2⟩ := targetMajorPinsI_run (rP := p.nP) hJ hRF hs₁ hokM (fun hn a ha => by
+      obtain ⟨x, hx, rfl⟩ := List.mem_map.1 ha
+      have hxA := hsub hn x hx
+      have hokx : OkS s₀ x = true := by
+        simp only [OkSL, List.all_eq_true] at hokA; exact hokA x hxA
+      rw [TrS_of_tabLe ht₁ hokx]
+      exact hwd _ (hmemA x hxA)) h2
+    obtain ⟨Ms', s₃, h3, h⟩ := bind_run h
+    have ht12 := ht₁.trans ht₂
+    obtain ⟨hs₃, ht₃, hokMs, hR3⟩ := classMajorsI_run hJ hRF hsr hs₂ (okSL_of_tabLe ht12 hokp)
+      (fun k hk' => by
+        obtain ⟨a1, a2, a3⟩ := hk k (List.mem_cons_of_mem _ hk')
+        refine ⟨a1, okSL_of_tabLe ht12 a2, ?_⟩
+        rw [TrSL_of_tabLe ht12 a2]; exact a3) h3
+    obtain ⟨rfl, rfl⟩ := pure_run h
+    obtain ⟨hokM', htrM⟩ := OkTM.mono (ht₂.trans ht₃) hokM
+    refine ⟨hs₃, ht12.trans ht₃, fun M' hM' => ?_, ?_⟩
+    · rcases List.mem_cons.1 hM' with rfl | hM'
+      · exact hokM'
+      · exact hokMs M' hM'
+    · unfold ConLeche.classMajors
+      simp only [List.map_cons, trCK]
+      rw [← TrS_mkAppL_const]
+      refine Runs.bind hR1 (Runs.bind hR2 (Runs.bind (a := Ms'.map (trTM s₃)) ?_ ?_))
+      · rw [TrSL_of_tabLe ht12 hokp] at hR3
+        have hks : keys.map (trCK s₂) = keys.map (trCK s₀) := List.map_congr_left fun k hk' => by
+          simp only [trCK, TrSL_of_tabLe ht12 (hk k (List.mem_cons_of_mem _ hk')).2.1]
+        rw [hks] at hR3
+        exact hR3
+      · rw [htrM]; exact Runs.pure _
 
 end InLeanProof
