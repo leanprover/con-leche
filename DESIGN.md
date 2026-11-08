@@ -113994,3 +113994,79 @@ statement presentation is excluded by `Presents`), and the pinned types fall und
    is a new reject on crafted files.
 
 Recommended: 1.  Nothing else changed; the composition's plan (cont. 3) is unchanged.
+
+### #501 cont. 6 (pinned names agree like every other name; the reserved names; 2026-11-08)
+
+**Rulings** (coordinator, then the maintainer's addendum, 2026-11-08).  The pinned-name exclusion
+is removed where it starts, in the step's leaf statement: every theorem, and every definition,
+opaque constant or axiom whose type reads as a truth value, gets the canonical proof at every
+name.  And the compiler-trust names are held to their pin like `Eq` and the `Nat` operations:
+any declaration at `Lean.reduceBool`/`Lean.reduceNat` other than the opaque constant is exit 1.
+The same holds for `sorryAx`, if anything can be installed there.  No other code change.
+
+**The leaf statement** (`ConLeche/Model/Fold.lean`).  `DeclProofLeaf` is one clause over the
+constants a record installs (`declConstants`): a statement kind (definition, theorem, axiom) that
+is a theorem or whose type is `SemPropType` has the leaf `.prf`.  `harvestDefn` and `harvestOpaque`
+choose `.prf` on `SemPropType` alone.  The fast paths' laws need no case analysis at the type.
+`NatOps`, `DivMod` and `ReduceOps` are established, as before, at the model whose new leaf is the
+value's reading (`coreCons … A`).  They are then carried to the model actually built, whose leaf
+is `.prf` exactly where the reading interprets as the point (`hApt`).  The carrying is
+`ConLeche/Model/Env/LeafInterp.lean`.  `denote_leavesAlike` says that valuations whose leaves
+interpret alike read every expression alike, since `denote` never looks into a leaf and `interp`
+is compositional.  `NatOps.of_alike`, `DivMod.of_alike` and `ReduceOps.of_alike` follow, the laws
+being statements about interpretations.  This is
+simpler than a vacuity argument and also covers what a vacuity argument cannot.  At `Nat.beq` and
+`Nat.ble` the pinned type `Nat → Nat → Bool` reads as a truth value wherever `Bool` does, and
+nothing pins `Bool`.  So `not_typeIsProp_arrows` (cont. 5) went unused, and
+`ConLeche/Verify/Driver/Pinned.lean` is deleted.  The axiom step keeps its one `sorryAx` case,
+justified by `declConstants`: the tolerated axiom's record installs nothing.  `Quot.sound` takes
+its pin's leaf in both its record shapes (the axiom and the quotient record).  A block installs
+no statement kind (`stmtKind_of_ind`).  `ConstantInfo.isStmtKind` moved to
+`ConLeche/Kernel/Env.lean`, beside `ConstantInfo.name`, since the fold reads it.
+
+**The specification.**  `pinnedLeafName` and `pinnedLeafName_false` are deleted.  They are gone
+from `ProofLeaves`, `Agree.proof`, `ProofInX`, `IsThmX` and `new_proof_leaf`, and from
+`modular_model_exists`' theorem clause (`MainTheorem.lean`, `Challenge.lean`, the header of
+`Modular.lean`).  So the composition needs no pinned-name lemma: a proof pair at any name takes
+`Agree.proof`.  The axiom pins are unchanged (`lake test`).
+
+**The reserved names** (`checkConstantVal` and its twins `checkConstantValF`,
+`checkConstantValC`).  Two guards follow the certified operations' one.  A compiler-trust name is
+taken only where `allowReduce` holds (the opaque arm, whose pin check fixes the shape), else exit
+1: "a compiler-trust name, not an opaque constant".  `sorryAx`'s name is taken only where
+`allowSorry` holds (the axiom arm, whose record installs nothing), else exit 1: "the tolerated
+axiom's name, not an axiom" (`sorryAxNameAt`, `Kernel/Basis/Names.lean`).  Until now a
+definition, theorem or opaque constant at `sorryAx` was installed as an ordinary constant, so the
+check was needed there too.  Block members go through the same check, at the defaults.  The
+inversions, bridges and simulations take the two flags (`Verify/Extend/Inversions.lean`,
+`Semantics/Bridge/DeclRun.lean`, `Verify/{CheckerF,BridgeDecl}.lean`,
+`Verify/Cached/{BridgeC,ViewCongr,PushChain,DeclPushes}.lean`).  The two freshness walks over the
+check (`checkConstantValF_fresh`, `checkConstantValC_fresh`) now split at three reserved-name
+guards and run at `maxHeartbeats 400000`, with the reason beside the option.
+
+**Fixtures** (`tests/e2e/src/`, exported by `scripts/export-fixture.sh`, `prelude` files):
+`reduce_name_def` (`def Lean.reduceBool : T`), `reduce_name_thm` (`theorem Lean.reduceNat : T`) and
+`sorry_name_def` (`def sorryAx : T`), `T` a proposition.  All three exit 1.  Lean accepts all
+three in a file without its `Init`, so these are rejects Lean does not make, as ruled.
+cont. 5's merged pair is rejected at `M1`'s `def Lean.reduceBool` (`reduce_name_def`).
+
+**Cost** (`perf stat -e instructions:u`, one run each, under the guard; the lane before the change,
+dadf3a6d2, against 191fedb7d):
+
+| run | before | after |
+|---|---|---|
+| `init-prelude` | 2.0102 G | 2.0109 G (+0.03 %) |
+| `grind-ring-5` | 15.5938 G | 15.5937 G (−0.00 %) |
+| `app-lam` | 22.0708 G | 22.0595 G (−0.05 %) |
+| `let-ladder` | 2.5976 G | 2.5956 G (−0.08 %) |
+| `beta-ladder` | 4.8682 G | 4.8691 G (+0.02 %) |
+| worker `Init.Data.Nat.Lemmas` | 9.1898 G | 9.1912 G (+0.02 %) |
+| worker `Mathlib.GroupTheory.Coxeter.Basic` | 8.9718 G | 8.9753 G (+0.04 %) |
+| worker `Mathlib.Analysis.SpecialFunctions.Gamma.Basic` | 15.7254 G | 15.7279 G (+0.02 %) |
+| worker `Mathlib.RingTheory.WittVector.MulP` | 9.0603 G | 9.0598 G (−0.01 %) |
+
+All exit 0, with the same records reached.  (`init-full` is not on this machine's `_tmp`.)
+
+**Documents.**  OVERVIEW §8 states both reservations.  The anchors in OVERVIEW, README (link
+repointed only) and the whitepaper follow the moved lines.  §7's prose needed no change: it never
+named the exclusion.
