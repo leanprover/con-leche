@@ -114330,3 +114330,23 @@ The battery: layering, shake (678/678 allowlisted, no public import demotable), 
 pindump, no-local-paths, challenge (statements identical), olean gate 315/315, selfcheck (57 351
 declarations), axioms pinned (69 theorems), arena tutorial 90/92, e2e 560/560, the trusted and
 `--jobs` sweeps without divergence; exit 0, peak anon 3.0 GB.
+
+## TASK #502 — a fixture for the reader's-copy reject of `agreeCheck` (2026-11-08, agent/502-unsafe-fixture)
+
+Task #501's `agreeCheck` refuses a reader's view copy of a name that is unsafe or partial (exit 1,
+"its copy of y, of module h, is unsafe or partial").  The fixture, `UfH`/`UfT`/`UfM`
+(`tests/olean.sh`, 315 → 317; `tests/olean/build.sh`): `UfH` publicly imports `GbG` and exports
+`hz`, whose statement reads `GbG`'s `S` and `S.rec`, and holds `private unsafe axiom u`.  The
+gate drops `S.rec` from `GbG`'s exported part (the `GbH` patch), so `hz`'s read of `S.rec` is
+stored with `S`'s group, and renames `u` to `S.rec` in `UfH`'s private part (the name object and
+the module's name table): a safe theorem next to an unsafe constant its statement reads.  `UfT`
+is a safe `axiom S.rec`; `UfM` imports `UfH` and `UfT` and uses `hz` (compiled against a stand-in
+`UfT`, like `GbH`).  `UfH`'s own worker accepts (`hz` is its own record, not a context record);
+`UfM` is rejected by `agreeCheck`: "name capture at S.rec, read by module UfH: its copy of S.rec,
+of module UfH, is unsafe or partial".  So the check is reachable, and by the shape cont. 9
+described.  Lean, importing the patched files from a module-system file, accepts them and reads
+`S.rec` as `UfT`'s; it re-checks nothing and never writes the shape (its kernel refuses a safe
+declaration that uses an unsafe one).  The binary of 2013b06ca^ (the parent of the check) also
+exits 1 on `UfM`, earlier: "two context records store a name of S's record (of GbG)".
+Gates: `lake build`; the olean gate 317/317 under the guard; only fixture and gate files changed,
+so `tests/arena.sh` was not rerun.

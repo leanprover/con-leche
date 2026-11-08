@@ -749,6 +749,43 @@ struct.pack_into('<Q', bb, 88, root2)
 "
 work_ "a group's name the importer loads from another module" 1 \
   "a record read from module GbG stores S.rec, which the context reads from module GbG2" "$d:$INIT" GbH
+# The reader's copy of a name unsafe (task #502, `agreeCheck`).  UfH's exported hz reads GbG's S
+# and S.rec; with S.rec dropped from GbG's exported part, hz's read of S.rec is stored with S's
+# group.  UfH holds an unsafe axiom in its private part, which the gate renames to S.rec (a safe
+# theorem reading it: Lean's kernel refuses that, so Lean never writes this shape).  UfH's own
+# worker accepts (hz is its own record).  UfM, which loads UfT's safe axiom S.rec and uses hz,
+# passes hz's read of S.rec against UfH's copy of it: rejected, the copy is unsafe.  Lean, which
+# imports the patched files of a module-system file (UfM, UfH, UfT, GbG) without a complaint,
+# re-checks none of them and reads S.rec as UfT's; it never writes this shape.  The parent of the
+# check rejects UfM earlier, "two context records store a name of S's record".
+xpatch "$d" UfH "
+ext = 'olean.private'
+base, bb = parts[ext]
+root = struct.unpack_from('<Q', bb, 88)[0]
+cs = consts(ext)
+# the name object S.rec, from hz's type
+def find(e, seen):
+    if e & 1 or e in seen: return None
+    seen.add(e)
+    b0, o0 = at(e)
+    if b0[o0 + 7] == 4 and name(fld(e, 0)) == 'S.rec': return fld(e, 0)
+    for i in range(b0[o0 + 6]):
+        r = find(fld(e, i), seen)
+        if r: return r
+    return None
+tgt = find(fld(fld(fld(cs['hz'], 0), 0), 2), set())
+u = next(c for n, c in cs.items() if n.endswith('.u'))
+cv = fld(fld(u, 0), 0)
+old = fld(cv, 0)
+setfld(cv, 0, tgt)
+ab, ao = at(fld(root, 1))
+for j in range(struct.unpack_from('<Q', ab, ao + 8)[0]):
+    if struct.unpack_from('<Q', ab, ao + 24 + 8 * j)[0] == old:
+        struct.pack_into('<Q', ab, ao + 24 + 8 * j, tgt)
+"
+work_ "the worker at UfH, which holds an unsafe S.rec" 0 "accepted" "$d:$INIT" UfH
+work_ "a reader's copy of a name unsafe" 1 \
+  "name capture at S.rec, read by module UfH: its copy of S.rec, of module UfH, is unsafe or partial" "$d:$INIT" UfM
 rm -rf "$d"
 # an axiom at a certified Nat operation's name (Lean accepts the module): its own
 # record is rejected, as on the merged read (the fast path's names it reads are

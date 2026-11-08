@@ -17,7 +17,7 @@ for m in Tiny TinyClassic TinyUse PrivUnused LazyVal ClashA ClashB HidA HidAll H
     HiLamA HiLamB HiInhD HiInhX HiInhL HiInhT HiInhM HiInhM2 TeqP1 TeqP2 TeqQ2 TeqH TeqM \
     TeqDM LvC LvB LvA LvM LvN ClashX ClashM FrX FrY FrM TeqBoth TeqX TeqBad MoX MoM GrN \
     PdA PdB PdM NsC NsH NsM NsN LdgQ LdgA LdgM LdvQ LdvA LdvM LdgN LdvN AxA AxB AxM AxNA AxNB \
-    AxNX AxNM AxI AxIT AxIM UsA UsM RtA RtM PpA PpB PpM DnM1 DnM2 DnH GbG GbG2 QsP QsA QsB QsM; do
+    AxNX AxNM AxI AxIT AxIM UsA UsM RtA RtM PpA PpB PpM DnM1 DnM2 DnH GbG GbG2 QsP QsA QsB QsM UfH UfT; do
   mkdir -p "$(dirname "$OUT/$m")"
   LEAN_PATH="$OUT" "$LEAN" -o "$OUT/$m.olean" "tests/olean/src/$m.lean"
 done
@@ -26,6 +26,9 @@ done
 mkdir -p "$OUT/stand"
 LEAN_PATH="$OUT/stand" "$LEAN" -o "$OUT/stand/GbG2.olean" tests/olean/src/stand/GbG2.lean
 LEAN_PATH="$OUT/stand:$OUT" "$LEAN" -o "$OUT/GbH.olean" tests/olean/src/GbH.lean
+# UfM likewise, against a stand-in UfT (no S.rec, which GbG's would clash with)
+LEAN_PATH="$OUT/stand" "$LEAN" -o "$OUT/stand/UfT.olean" tests/olean/src/stand/UfT.lean
+LEAN_PATH="$OUT/stand:$OUT" "$LEAN" -o "$OUT/UfM.olean" tests/olean/src/UfM.lean
 rm -r "$OUT/stand"
 # only the olean levels are fixtures
 find "$OUT" \( -name '*.ir' -o -name '*.ir.sig' \) -delete
