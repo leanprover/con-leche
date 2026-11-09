@@ -1632,7 +1632,9 @@ that the base tiers' own re-exports still carry in are listed in the
 script and the list may only shrink; and the `.olean` reader imports only
 itself and a few base types, only `Files` and `Closure` reach the IO class,
 only `Records` the record builder, and the rest of the checker imports only its
-interface, `Olean.lean`), the trust-surface scan (`tests/trust-surface.sh`: no `unsafe`, `implemented_by`, `extern` or `native_decide` outside an allowlist, and, textually, no module written against the IO class reaching the runtime but through the class's file operations and the arguments of `liftIO`, and `IO.Process.exit` only in `main`; the build file and the native sources pinned by content), the pin
+interface, `Olean.lean`), the trust-surface scan (`tests/trust-surface.sh`: no `unsafe`, `implemented_by`, `extern` or `native_decide` outside an allowlist, and, textually, no module written against the IO class reaching the runtime but through the class's file operations and the arguments of `liftIO`, and `IO.Process.exit` only in `main`; the build file and the native sources pinned by content), the plain-tier reach gate
+(`tests/plain-reach.sh`: every specification-tier definition the compiled binary
+reaches from `main` is listed, with its reason, in `tests/plain-reach-allow.txt`), the pin
 dump freshness, the challenge comparison (`tests/challenge.sh`: the
 challenge module builds with its `sorry` warnings and nothing else,
 and every statement it makes is token-identical to the solution's),
