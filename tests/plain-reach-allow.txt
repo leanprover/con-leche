@@ -428,11 +428,8 @@ ConLeche.Frontend.joinL
 ConLeche.Frontend.joinN
 
 # Plain walks reached from a cached walk or caller, each with its reason.
-ConLeche.Expr.hasLooseBVarBFast  # structUsedLater, reached through a closure of the inductive check, pending task #498
-ConLeche.Expr.hasLooseBVarBGo  # (the walk of hasLooseBVarBFast)
 ConLeche.Expr.substConst0  # the Nat-op statements' substitution: binder-free application spines of a dozen nodes
 ConLeche.openPisAtFvars  # the inductive check, pending task #498
-ConLeche.structUsedLater  # reached through a closure of the inductive check, pending task #498
 ConLeche.Expr.getAppArgs  # propIrrelI through PropRead.unwrapIdDefs (head spines of identity definitions) and the inductive check, pending task #498
 ConLeche.Expr.instantiate1Fast  # the inductive check, pending task #498
 ConLeche.Expr.instantiate1Go  # (the walk of instantiate1Fast)
@@ -457,10 +454,6 @@ ConLeche.FEnv.pushTable  # ConLeche.Kernel.FEnv
 ConLeche.FEnv.pushTables  # ConLeche.Kernel.FEnv
 ConLeche.BlockShape.nestCtx  # ConLeche.Kernel.Inductives.BlockInstall
 ConLeche.blockCapsAt  # ConLeche.Kernel.Inductives.BlockInstall
-ConLeche.blockNestCtx  # ConLeche.Kernel.Inductives.BlockInstall
-ConLeche.checkAbsCtorSorts  # ConLeche.Kernel.Inductives.BlockInstall
-ConLeche.checkAbsCtorSortsAll  # ConLeche.Kernel.Inductives.BlockInstall
-ConLeche.checkBlockPositivity  # ConLeche.Kernel.Inductives.BlockInstall
 ConLeche.nestOutKinds  # ConLeche.Kernel.Inductives.BlockInstall
 ConLeche.FEnv.pushAll  # ConLeche.Kernel.Inductives.BlockInstallF
 ConLeche.FEnv.pushDelta  # ConLeche.Kernel.Inductives.BlockInstallF
@@ -522,19 +515,12 @@ ConLeche.classMajors  # ConLeche.Kernel.Inductives.GenRec
 ConLeche.classMinorSlot  # ConLeche.Kernel.Inductives.GenRec
 ConLeche.classNPcOf  # ConLeche.Kernel.Inductives.GenRec
 ConLeche.classRecOf  # ConLeche.Kernel.Inductives.GenRec
-ConLeche.classSeeds  # ConLeche.Kernel.Inductives.GenRec
-ConLeche.Expr.appHole?  # ConLeche.Kernel.Inductives.Positivity
-ConLeche.Expr.depth  # ConLeche.Kernel.Inductives.Positivity
-ConLeche.Expr.depthGo  # ConLeche.Kernel.Inductives.Positivity
 ConLeche.Expr.mentionsAnyConst  # ConLeche.Kernel.Inductives.StructParts
 ConLeche.Expr.mentionsAnyConstFast  # ConLeche.Kernel.Inductives.StructParts
 ConLeche.Expr.mentionsAnyGo  # ConLeche.Kernel.Inductives.StructParts
 ConLeche.Expr.nestOccFast  # ConLeche.Kernel.Inductives.Positivity
 ConLeche.Expr.nestOccGo  # ConLeche.Kernel.Inductives.Positivity
 ConLeche.Expr.phApp?  # ConLeche.Kernel.Inductives.Positivity
-ConLeche.Expr.piDomsOcc  # ConLeche.Kernel.Inductives.Positivity
-ConLeche.Expr.replaceAppsFast  # ConLeche.Kernel.Inductives.Positivity
-ConLeche.Expr.replaceAppsGo  # ConLeche.Kernel.Inductives.Positivity
 ConLeche.Expr.replaceFVarsFast  # ConLeche.Kernel.Inductives.Positivity
 ConLeche.Expr.replaceFVarsGo  # ConLeche.Kernel.Inductives.Positivity
 ConLeche.NestCtx.hiAt  # ConLeche.Kernel.Inductives.Positivity
@@ -550,40 +536,19 @@ ConLeche.instPisWith  # ConLeche.Kernel.Inductives.Positivity
 ConLeche.memberIdxAt?  # ConLeche.Kernel.Inductives.Positivity
 ConLeche.nestAcceptGroup  # ConLeche.Kernel.Inductives.Positivity
 ConLeche.nestBlockOf  # ConLeche.Kernel.Inductives.Positivity
-ConLeche.nestCanonCrest  # ConLeche.Kernel.Inductives.Positivity
 ConLeche.nestCanonSub  # ConLeche.Kernel.Inductives.Positivity
-ConLeche.nestCont  # ConLeche.Kernel.Inductives.Positivity
-ConLeche.nestContKey  # ConLeche.Kernel.Inductives.Positivity
-ConLeche.nestContNew  # ConLeche.Kernel.Inductives.Positivity
 ConLeche.nestContainer  # ConLeche.Kernel.Inductives.Positivity
-ConLeche.nestCrest  # ConLeche.Kernel.Inductives.Positivity
 ConLeche.nestCtorEntry  # ConLeche.Kernel.Inductives.Positivity
-ConLeche.nestCtorNf  # ConLeche.Kernel.Inductives.Positivity
-ConLeche.nestCtors  # ConLeche.Kernel.Inductives.Positivity
-ConLeche.nestFields  # ConLeche.Kernel.Inductives.Positivity
-ConLeche.nestFrame  # ConLeche.Kernel.Inductives.Positivity
 ConLeche.nestFrameMates  # ConLeche.Kernel.Inductives.Positivity
 ConLeche.nestGroupCtors  # ConLeche.Kernel.Inductives.Positivity
-ConLeche.nestGrowGroup  # ConLeche.Kernel.Inductives.Positivity
 ConLeche.nestHoleAt  # ConLeche.Kernel.Inductives.Positivity
-ConLeche.nestHoleImg  # ConLeche.Kernel.Inductives.Positivity
-ConLeche.nestHoles  # ConLeche.Kernel.Inductives.Positivity
-ConLeche.nestInstType  # ConLeche.Kernel.Inductives.Positivity
 ConLeche.nestKeyMap  # ConLeche.Kernel.Inductives.Positivity
 ConLeche.nestNonValid  # ConLeche.Kernel.Inductives.Positivity
 ConLeche.nestPhs  # ConLeche.Kernel.Inductives.Positivity
-ConLeche.nestPos  # ConLeche.Kernel.Inductives.Positivity
 ConLeche.nestResHead  # ConLeche.Kernel.Inductives.Positivity
-ConLeche.nestRoot  # ConLeche.Kernel.Inductives.Positivity
-ConLeche.nestRootCanon  # ConLeche.Kernel.Inductives.Positivity
-ConLeche.nestSeedOf  # ConLeche.Kernel.Inductives.Positivity
-ConLeche.nestSeeds  # ConLeche.Kernel.Inductives.Positivity
-ConLeche.nestUniform  # ConLeche.Kernel.Inductives.Positivity
-ConLeche.nestUniformOk  # ConLeche.Kernel.Inductives.Positivity
 ConLeche.nestWalkStack  # ConLeche.Kernel.Inductives.Positivity
 ConLeche.reducedFormer  # ConLeche.Kernel.Inductives.Positivity
 ConLeche.whnfTelescope  # ConLeche.Kernel.Inductives.Positivity
-ConLeche.whnfWalkFuel  # ConLeche.Kernel.Inductives.Positivity
 ConLeche.blockNestedBit  # ConLeche.Kernel.Inductives.RecCheck
 ConLeche.instInhabitedTargetMajor.default  # ConLeche.Kernel.Inductives.RecCheck
 ConLeche.recKExpected  # ConLeche.Kernel.Inductives.RecCheck
@@ -602,7 +567,6 @@ ConLeche.structElimLevel  # ConLeche.Kernel.Inductives.StructParts
 ConLeche.structProjArgP  # ConLeche.Kernel.Inductives.StructParts
 ConLeche.structProjPs  # ConLeche.Kernel.Inductives.StructParts
 ConLeche.structPsAt  # ConLeche.Kernel.Inductives.StructParts
-ConLeche.checkStructFieldSortsI  # ConLeche.Kernel.Inductives.SumInstall
 ConLeche.checkSumTele  # ConLeche.Kernel.Inductives.SumInstall
 ConLeche.sumRules  # ConLeche.Kernel.Inductives.SumInstall
 ConLeche.checkStructFieldSortsIFA  # ConLeche.Kernel.Inductives.SumInstallF

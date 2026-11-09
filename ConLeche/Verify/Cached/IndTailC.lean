@@ -27,13 +27,14 @@ variable (mode : CheckMode)
 
 /-! ## The index sorts -/
 
-theorem checkIdxSortsC_eq (fe : FEnv) (s : Level) (nP : Nat) (fvs : List Expr) :
-    ∀ j, checkIdxSortsC mode fe nP fvs j =
-      checkStructFieldSortsIF (sharedOpsC mode fe) fe true false s nP fvs [] j
+theorem checkStructFieldSortsIC_eqF (fe : FEnv) (isProp large : Bool) (s : Level) (nP : Nat)
+    (fvs idxArgs : List Expr) : ∀ j,
+      checkStructFieldSortsIC mode fe isProp large s nP fvs idxArgs j =
+        checkStructFieldSortsIF (sharedOpsC mode fe) fe isProp large s nP fvs idxArgs j
   | 0 => rfl
   | j + 1 => by
-    simp only [checkIdxSortsC, checkStructFieldSortsIF, checkIdxSortsC_eq fe s nP fvs j,
-      Bool.not_true, Bool.false_eq_true, ↓reduceIte]
+    simp only [checkStructFieldSortsIC, checkStructFieldSortsIF,
+      checkStructFieldSortsIC_eqF fe isProp large s nP fvs idxArgs j]
     rfl
 
 theorem checkBlockIdxSortsC_eq (fe : FEnv) (p : BlockShape) :
@@ -41,7 +42,7 @@ theorem checkBlockIdxSortsC_eq (fe : FEnv) (p : BlockShape) :
   | [] => rfl
   | ms :: rest => by
     simp only [checkBlockIdxSortsC, checkBlockIdxSortsF, openPisAtFvarsC_eq,
-      checkIdxSortsC_eq mode fe p.resSort, checkBlockIdxSortsC_eq fe p rest]
+      checkStructFieldSortsIC_eqF, checkBlockIdxSortsC_eq fe p rest]
 
 /-! ## The generated recursors' records -/
 

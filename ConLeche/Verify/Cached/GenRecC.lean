@@ -7,6 +7,7 @@ public import ConLeche.Kernel.Inductives.GenRec
 import ConLeche.Verify.Inductives.RecCheckScope
 import ConLeche.Verify.Cached.WalkersC
 import ConLeche.Verify.Cached.IndTailC
+import ConLeche.Verify.Cached.IndPositivityC
 import ConLeche.Verify.Cached.IndRecC
 public import ConLeche.Verify.Cached.NestPosC
 public import ConLeche.Verify.Inductives.NestScope
@@ -1461,6 +1462,7 @@ theorem checkBlockPassS_run {env : Env} (henv : EnvWF env)
       ∃ F, (checkBlockPass (fueledOpsM .verified) env p₀ isRec).val F
         = .ok ⟨env₁, q.p, q.kinds, q.params, q.rd, q.cls, q.tbl⟩ := by
   unfold checkBlockPassS at h
+  simp only [blockNestCtxC_eq, checkBlockPositivityC_eq, nestSeedsC_eq, classSeedsC_eq] at h
   rw [checkBlockIndsF_eqC] at h
   simp only [bind_assoc, pure_bind] at h
   obtain ⟨r₁, s₁, hind, h⟩ := bindC_ok h

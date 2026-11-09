@@ -1,6 +1,7 @@
 module
 
 public import ConLeche.Cached.IndPass
+public import ConLeche.Cached.IndPositivity
 public import ConLeche.Kernel.Inductives.RecCheck
 
 @[expose] public section
@@ -30,25 +31,15 @@ variable (mode : CheckMode)
 
 /-! ## The index binders' sorts -/
 
-/-- The index binders' sorts at a member: each opened index variable's
-type inferred and a sort (`checkStructFieldSortsIF` at a proposition with
-no large eliminator, the only use the index check makes of it). -/
-def checkIdxSortsC (fe : FEnv) (nP : Nat) (fvs : List Expr) : Nat → CheckCM Unit
-  | 0 => pure ()
-  | j + 1 => do
-    let fv ← unwrapOr fvs[j]? (.internal "direct sum: field index")
-    let ty ← (coreKnotI mode false fe checkFuel).infer (nP + j) fv.fvarTypeD
-    let _ ← ensureSortI (coreKnotI mode false fe checkFuel) (nP + j) ty
-    checkIdxSortsC fe nP fvs j
-
 /-- The cached `checkBlockIdxSortsF`: each member's telescope opened by
-`openPisAtFvarsC`. -/
+`openPisAtFvarsC`, the index binders' sorts by `checkStructFieldSortsIC`
+(`IndPositivity.lean`). -/
 def checkBlockIdxSortsC (fe₁ : FEnv) (p : BlockShape) : List MemberShape → CheckCM Unit
   | [] => pure ()
   | ms :: rest => do
     let tq ← unwrapOr (openPisAtFvarsC (p.nP + ms.nIdx) ms.cvT.type 0)
       (.internal "direct rec: type former telescope")
-    checkIdxSortsC mode fe₁ p.nP (tq.1.drop p.nP) ms.nIdx
+    checkStructFieldSortsIC mode fe₁ true false p.resSort p.nP (tq.1.drop p.nP) [] ms.nIdx
     checkBlockIdxSortsC fe₁ p rest
 
 /-! ## The generated recursors' records -/

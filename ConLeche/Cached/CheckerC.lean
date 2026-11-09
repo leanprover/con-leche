@@ -172,10 +172,10 @@ def checkBlockPassS (fe : FEnv) (p₀ : BlockShape) (isRec : Bool) :
   let (fe₁, p₁) ← checkBlockIndsF (sharedOpsC mode fe) fe p₀ isRec
   flushC
   checkBlockCtorsF (sharedOpsC mode fe₁) fe₁ fe₁ p₁ p₁.members
-  let (ctx, holes) ← blockNestCtx p₁ fe₁.find?
+  let (ctx, holes) ← blockNestCtxC p₁ fe₁.find?
   let (rd, Ms) ← checkBlockClasses (sharedOpsC mode fe₁) fe₁ p₁ ctx.params
-  let (outs, pos) ← checkBlockPositivity (sharedOpsC mode fe₁) fe₁.env fe₁.find? p₁
-  let st ← nestSeeds (sharedOpsC mode fe₁) fe₁.env ctx (classSeeds ctx holes Ms) pos
+  let (outs, pos) ← checkBlockPositivityC mode fe₁ fe₁.find? p₁
+  let st ← nestSeedsC mode fe₁ ctx (classSeedsC ctx holes Ms) pos
   pure ⟨fe₁, p₁, nestOutKinds outs, ctx.params, rd, Ms, st.ctorNfs⟩
 
 /-- **`checkBlockTail` through the index**: one flush entering the recursors' environment.  The
