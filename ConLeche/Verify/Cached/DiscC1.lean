@@ -412,7 +412,7 @@ theorem reduceNatC_spec (ih : SSimC mode eager env f) {d : Nat} {i : Expr} {s₀
       OptWS d o; ⊤⦄ := by
   sym only [conleche_grind, reduceNat_nested, reduceNat.eq_1, reduceNat.eq_2,
       natLitStoredF_eq, rawNatLitC?_spec] =>
-    vcgen [reduceNatI, ih.whnf_spec] <;> finish
+    vcgen [reduceNatI, maxNatSizeM, ih.whnf_spec] <;> finish
 
 end Walks4
 

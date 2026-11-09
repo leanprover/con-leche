@@ -72,10 +72,10 @@ def StreamIndex.view (I : StreamIndex) (k : Nat) : FEnv :=
   ⟨⟨[], []⟩, {}, { I.base with below := c, belowRec := k }, [], {}⟩
 
 /-- **Record `pd`'s job, at position `k`**: what the fold's step asks of it, at its view. -/
-def recordJob (mode : CheckMode) (pins : List NatOpPinSet) (I : StreamIndex) (k : Nat)
+def recordJob (mode : CheckMode) (pins : List NatOpPinSet) (maxNatSize : Nat) (I : StreamIndex) (k : Nat)
     (pd : Declaration) : Except CheckError Unit :=
   if andPinOk pd then
-    match checkDeclStepC mode pins (I.view k) pd {} with
+    match checkDeclStepC mode pins (I.view k) pd { maxNatSize := maxNatSize } with
     | .ok _ => .ok ()
     | .error e => .error e
   else .error (.invalid "`And` must be the standard `And`")
