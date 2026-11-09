@@ -2092,8 +2092,9 @@ does to a binder domain, in one walk (the official kernel's
 `instantiate` at open values; `Verify/Subst.lean`'s
 `instSeqLift_eq_instantiateLift` reads it as the binder-by-binder
 `instantiate1Lift` fold).  `structProjBodies` builds each projection
-body with one call.  Executed as one memoized DAG walk with the
-`bvarB` cutoff, the values in an `Array`. -/
+body with one call.  The specification: the cached driver executes
+`instantiateLiftC` (`ConLeche/Cached/ExprOpsC.lean`, the cutoff and
+the pointer-keyed walk, `instantiateLiftC_spec`). -/
 
 /-- Instantiate `bvar d, bvar (d + 1), …` at the values `vs` (innermost
 first), lifting each value past the `d` binders crossed. -/
@@ -2152,183 +2153,12 @@ theorem instantiateLift_of_bvarBound_le (vs : List Expr) :
     rw [Expr.bvarBound] at h
     rw [instantiateLift, ih d h]
 
-/-- The memo's invariant: every recorded answer is the real one. -/
-def InstLiftMemoInv (vs : List Expr) (memo : Std.HashMap (Expr × Nat) Expr) : Prop :=
-  ∀ (k : Expr × Nat) (r : Expr), memo[k]? = some r → r = instantiateLift k.1 vs k.2
-
-theorem InstLiftMemoInv.empty {vs : List Expr} : InstLiftMemoInv vs {} := by
-  intro k r h; simp at h
-
-theorem InstLiftMemoInv.insert {vs : List Expr} {memo : Std.HashMap (Expr × Nat) Expr}
-    (hm : InstLiftMemoInv vs memo) {e : Expr} {d : Nat} {r : Expr}
-    (heq : r = instantiateLift e vs d) :
-    InstLiftMemoInv vs (memo.insert (e, d) r) := by
-  intro key r' hk
-  rw [Std.HashMap.getElem?_insert] at hk
-  split at hk
-  · rename_i hbeq
-    cases hk
-    rw [← eq_of_beq hbeq]
-    exact heq
-  · exact hm key r' hk
-
-/-- The memoized walk of `instantiateLift`, the values in an `Array`. -/
-def instantiateLiftGo (va : Array Expr) (memo : Std.HashMap (Expr × Nat) Expr)
-    (e : Expr) (d : Nat) : Expr × Std.HashMap (Expr × Nat) Expr :=
-  if e.bvarB ≤ d then (e, memo) else
-  match e with
-  | .bvar j =>
-    (if j < d then .bvar j
-     else if h : j - d < va.size then Expr.liftLooseBVars d 0 va[j - d]
-     else .bvar (j - va.size), memo)
-  | .fvar idx ty => (.fvar idx ty, memo)
-  | .sort u => (.sort u, memo)
-  | .const n us => (.const n us, memo)
-  | .lit l => (.lit l, memo)
-  | e =>
-    match memo[(e, d)]? with
-    | some r => (r, memo)
-    | none =>
-      let (r, memo) : Expr × Std.HashMap (Expr × Nat) Expr :=
-        match e with
-        | .app f a =>
-          let (f', memo) := instantiateLiftGo va memo f d
-          let (a', memo) := instantiateLiftGo va memo a d
-          (.app f' a', memo)
-        | .lam ty body =>
-          let (t, memo) := instantiateLiftGo va memo ty d
-          let (b, memo) := instantiateLiftGo va memo body (d + 1)
-          (.lam t b, memo)
-        | .forallE ty body =>
-          let (t, memo) := instantiateLiftGo va memo ty d
-          let (b, memo) := instantiateLiftGo va memo body (d + 1)
-          (.forallE t b, memo)
-        | .letE ty val body =>
-          let (t, memo) := instantiateLiftGo va memo ty d
-          let (w, memo) := instantiateLiftGo va memo val d
-          let (b, memo) := instantiateLiftGo va memo body (d + 1)
-          (.letE t w b, memo)
-        | .proj s i sub =>
-          let (u, memo) := instantiateLiftGo va memo sub d
-          (.proj s i u, memo)
-        | e => (e, memo)
-      (r, memo.insert (e, d) r)
-
-/-- **The memoized walk is `instantiateLift`.** -/
-theorem instantiateLiftGo_spec {vs : List Expr} :
-    ∀ (e : Expr) (d : Nat) (memo : Std.HashMap (Expr × Nat) Expr),
-      InstLiftMemoInv vs memo →
-      (instantiateLiftGo vs.toArray memo e d).1 = instantiateLift e vs d ∧
-        InstLiftMemoInv vs (instantiateLiftGo vs.toArray memo e d).2 := by
-  intro e
-  induction e with
-  | bvar i =>
-    intro d memo hm
-    rw [instantiateLiftGo]
-    split
-    · rename_i h
-      exact ⟨(instantiateLift_of_bvarBound_le vs _ d (by rwa [← bvarB_eq])).symm, hm⟩
-    · refine ⟨?_, hm⟩
-      simp only [instantiateLift, List.size_toArray, List.getElem_toArray]
-  | sort u =>
-    intro d memo hm
-    rw [instantiateLiftGo]; split <;> exact ⟨rfl, hm⟩
-  | const n us =>
-    intro d memo hm
-    rw [instantiateLiftGo]; split <;> exact ⟨rfl, hm⟩
-  | lit l =>
-    intro d memo hm
-    rw [instantiateLiftGo]; split <;> exact ⟨rfl, hm⟩
-  | fvar i ty _ =>
-    intro d memo hm
-    rw [instantiateLiftGo]; split <;> exact ⟨rfl, hm⟩
-  | app f a ihf iha =>
-    intro d memo hm
-    rw [instantiateLiftGo]
-    split
-    · rename_i h
-      exact ⟨(instantiateLift_of_bvarBound_le vs _ d (by rwa [← bvarB_eq])).symm, hm⟩
-    · split
-      · rename_i r hhit
-        exact ⟨(hm _ _ hhit).symm ▸ rfl, hm⟩
-      · obtain ⟨h1, h2⟩ := ihf d memo hm
-        obtain ⟨h3, h4⟩ := iha d _ h2
-        refine ⟨by simp [instantiateLift, h1, h3], ?_⟩
-        exact h4.insert (by simp [instantiateLift, h1, h3])
-  | lam ty body iht ihb =>
-    intro d memo hm
-    rw [instantiateLiftGo]
-    split
-    · rename_i h
-      exact ⟨(instantiateLift_of_bvarBound_le vs _ d (by rwa [← bvarB_eq])).symm, hm⟩
-    · split
-      · rename_i r hhit
-        exact ⟨(hm _ _ hhit).symm ▸ rfl, hm⟩
-      · obtain ⟨h1, h2⟩ := iht d memo hm
-        obtain ⟨h3, h4⟩ := ihb (d + 1) _ h2
-        refine ⟨by simp [instantiateLift, h1, h3], ?_⟩
-        exact h4.insert (by simp [instantiateLift, h1, h3])
-  | forallE ty body iht ihb =>
-    intro d memo hm
-    rw [instantiateLiftGo]
-    split
-    · rename_i h
-      exact ⟨(instantiateLift_of_bvarBound_le vs _ d (by rwa [← bvarB_eq])).symm, hm⟩
-    · split
-      · rename_i r hhit
-        exact ⟨(hm _ _ hhit).symm ▸ rfl, hm⟩
-      · obtain ⟨h1, h2⟩ := iht d memo hm
-        obtain ⟨h3, h4⟩ := ihb (d + 1) _ h2
-        refine ⟨by simp [instantiateLift, h1, h3], ?_⟩
-        exact h4.insert (by simp [instantiateLift, h1, h3])
-  | letE ty val body iht ihv ihb =>
-    intro d memo hm
-    rw [instantiateLiftGo]
-    split
-    · rename_i h
-      exact ⟨(instantiateLift_of_bvarBound_le vs _ d (by rwa [← bvarB_eq])).symm, hm⟩
-    · split
-      · rename_i r hhit
-        exact ⟨(hm _ _ hhit).symm ▸ rfl, hm⟩
-      · obtain ⟨h1, h2⟩ := iht d memo hm
-        obtain ⟨h3, h4⟩ := ihv d _ h2
-        obtain ⟨h5, h6⟩ := ihb (d + 1) _ h4
-        refine ⟨by simp [instantiateLift, h1, h3, h5], ?_⟩
-        exact h6.insert (by simp [instantiateLift, h1, h3, h5])
-  | proj sn i sub ih =>
-    intro d memo hm
-    rw [instantiateLiftGo]
-    split
-    · rename_i h
-      exact ⟨(instantiateLift_of_bvarBound_le vs _ d (by rwa [← bvarB_eq])).symm, hm⟩
-    · split
-      · rename_i r hhit
-        exact ⟨(hm _ _ hhit).symm ▸ rfl, hm⟩
-      · obtain ⟨h1, h2⟩ := ih d memo hm
-        refine ⟨by simp [instantiateLift, h1], ?_⟩
-        exact h2.insert (by simp [instantiateLift, h1])
-
-/-- The executed `instantiateLift`: the cutoff first (a closed binder
-domain costs neither the values' `Array` nor a memo), then the
-memoized walk. -/
-def instantiateLiftFast (e : Expr) (vs : List Expr) (d : Nat := 0) : Expr :=
-  if e.bvarB ≤ d then e else (instantiateLiftGo vs.toArray {} e d).1
-
-@[csimp] theorem instantiateLift_eq_instantiateLiftFast :
-    @instantiateLift = @instantiateLiftFast := by
-  funext e vs d
-  unfold instantiateLiftFast
-  split
-  · rename_i h
-    exact instantiateLift_of_bvarBound_le vs e d (by rwa [← bvarB_eq])
-  · exact (instantiateLiftGo_spec e d {} InstLiftMemoInv.empty).1.symm
-
 /-- Instantiate the leading `∀`-binders at *open* arguments, returning
 the residual.  Unlike `instPisAt` this uses the general
 capture-avoiding substitution (`instantiate1Lift`), so an argument may
 mention loose `bvar`s of the surrounding context.  The specification
 vocabulary of the projection bodies (`Verify/Subst.lean`'s
-`instPisAtLift_head`); the checker builds them with `instantiateLift`. -/
+`instPisAtLift_head`); the checker builds them with `instantiateLiftC`. -/
 def instPisAtLift : List Expr → Expr → Option Expr
   | [], e => some e
   | a :: as, .forallE _ body => instPisAtLift as (body.instantiate1Lift a)

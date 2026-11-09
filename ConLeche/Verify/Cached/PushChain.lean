@@ -6,6 +6,7 @@ public import ConLeche.Verify.Cached.DeclPushes
 public import ConLeche.Verify.EnvBound
 import ConLeche.Verify.EnvWF
 import ConLeche.Verify.CheckerF
+import ConLeche.Verify.Cached.WalkersC
 
 public section
 
@@ -415,6 +416,7 @@ theorem checkBlockKS_push (mode : CheckMode) {env : Env} {fe : FEnv}
     (hd : ∀ ms ∈ p.members, ms.declared = ms.cvT) :
     Yields (checkBlockKS mode fe block p) (fun fe' => PushChain env fe') := by
   unfold checkBlockKS
+  rw [blockTablesC_eq]
   try apply Yields.letFun
   refine Yields.ofDecCases (fun _ => Yields.ofThrowBind) (fun hnd => ?nb)
   case nb =>

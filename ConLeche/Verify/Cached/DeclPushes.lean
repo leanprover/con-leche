@@ -2,6 +2,7 @@ module
 
 public import ConLeche.Cached.Decls
 import ConLeche.Verify.Cached.BlockOverlay
+import ConLeche.Verify.Cached.WalkersC
 
 public section
 
@@ -636,6 +637,7 @@ theorem checkBlockKS_pushes (mode : CheckMode) (fe : FEnv) (block : List Constan
     Yields (checkBlockKS mode fe block p)
       (· = FEnv.pushDelta (blockConstants p) ((blockTables p p.members).getD []) fe) := by
   unfold checkBlockKS
+  rw [blockTablesC_eq]
   cases blockTables p p.members <;> simp only [unwrapOr, Option.getD, pure_bind] <;> yields
   all_goals first | exact Yields.pure rfl | exact Yields.ofThrow
 

@@ -205,9 +205,9 @@
     94      | .ok p => blockConstants p
     95      | .error _ => []
 
-== ConLeche/Verify/Cached/DeclPushes.lean#L699-L700
-   699  theorem checkDeclC_pushes (mode : CheckMode) (fe : FEnv) (pd : Declaration) :
-   700      Yields (checkDeclC mode pins fe pd) (· = FEnv.pushDelta (declConstants pd) (declTables pd) fe) := by
+== ConLeche/Verify/Cached/DeclPushes.lean#L701-L702
+   701  theorem checkDeclC_pushes (mode : CheckMode) (fe : FEnv) (pd : Declaration) :
+   702      Yields (checkDeclC mode pins fe pd) (· = FEnv.pushDelta (declConstants pd) (declTables pd) fe) := by
 
 == ConLeche/Cached/StreamIndex.lean#L65
     65  def buildIndex (ds : Array Declaration) : StreamIndex :=
@@ -216,17 +216,17 @@
     75  def recordJob (mode : CheckMode) (pins : List NatOpPinSet) (I : StreamIndex) (k : Nat)
     76      (pd : Declaration) : Except CheckError Unit :=
 
-== ConLeche/Verify/Cached/ViewCongr.lean#L1334-L1338
-  1334  theorem checkDeclStepC_twin (pins : List NatOpPinSet) {fe₁ fe₂ : FEnv} (ht : Twin fe₁ fe₂)
-  1335     
-  1336      (pd : Declaration) :
-  1337      RelRun (PushedFrom fe₁ fe₂) (checkDeclStepC mode pins fe₁ pd)
-  1338        (checkDeclStepC mode pins fe₂ pd) := by
+== ConLeche/Verify/Cached/ViewCongr.lean#L1335-L1339
+  1335  theorem checkDeclStepC_twin (pins : List NatOpPinSet) {fe₁ fe₂ : FEnv} (ht : Twin fe₁ fe₂)
+  1336     
+  1337      (pd : Declaration) :
+  1338      RelRun (PushedFrom fe₁ fe₂) (checkDeclStepC mode pins fe₁ pd)
+  1339        (checkDeclStepC mode pins fe₂ pd) := by
 
-== ConLeche/Verify/Cached/StreamIndex.lean#L490-L492
-   490  theorem checkDecls_of_jobs {ds : Array Declaration}
-   491      (h : ∀ k (hk : k < ds.size), recordJob mode pins (buildIndex ds) k ds[k] = .ok ()) :
-   492      checkDecls mode pins ds = .ok (streamEnv ds.toList) := by
+== ConLeche/Verify/Cached/StreamIndex.lean#L491-L493
+   491  theorem checkDecls_of_jobs {ds : Array Declaration}
+   492      (h : ∀ k (hk : k < ds.size), recordJob mode pins (buildIndex ds) k ds[k] = .ok ()) :
+   493      checkDecls mode pins ds = .ok (streamEnv ds.toList) := by
 
 == ConLeche/Driver/CheckPool.lean#L66
     66  def Jobs.build (ds : Array Declaration) : IO (Jobs ds) := do
@@ -372,8 +372,8 @@
 == ConLeche/Kernel/Core.lean#L1387
   1387  def defeqLams (r : CoreFns m) :
 
-== ConLeche/Verify/Cached/BridgeC.lean#L269
-   269  theorem checkDeclStepC_run {env : Env} (henv : EnvWF env) {pd : Declaration}
+== ConLeche/Verify/Cached/BridgeC.lean#L284
+   284  theorem checkDeclStepC_run {env : Env} (henv : EnvWF env) {pd : Declaration}
 
 == ConLeche/Kernel/Core.lean#L1824
   1824  @[irreducible, noinline] def checkFuel : Nat := 4611686018427387904  -- 2^62
@@ -1272,9 +1272,9 @@
 
 >>> README.md
 
-== ConLeche/Cached/ParsedC.lean#L229-L230
-   229    let fe₂ ← checkDeclKindC mode pins fe pd
-   230    unless basisNamesOk pd do
+== ConLeche/Cached/ParsedC.lean#L320-L321
+   320    let fe₂ ← checkDeclKindC mode pins fe pd
+   321    unless basisNamesOk pd do
 
 == ConLeche/Driver/Cli.lean#L122
    122    "  --jobs=N            Worker threads (default: one per hardware thread)",

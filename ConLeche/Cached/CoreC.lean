@@ -983,7 +983,7 @@ def checkProjRowsI (inf wh : Nat → Expr → CheckCM Expr) (fe : FEnv) (entry :
     let cty ← constTyAtM fe entry.ctor entry.ctor us
     match openPisAtFvarsC entry.numParams cty 0 with
     | some (_, r) =>
-      match projGuardRowsGo entry.idx entry.numParams r with
+      match projGuardRowsGoC entry.idx entry.numParams r with
       | some rows => checkGuardRowsI inf wh guardSort rows
       | none =>
         throw (.invalid "projection from a propositional structure must be a proposition")
@@ -995,7 +995,7 @@ def checkProjRowsI (inf wh : Nat → Expr → CheckCM Expr) (fe : FEnv) (entry :
 /-- Twin of `checkProjGuard`: the constructor's type at the use's levels
 through the per-declaration memo (`constTyAtM`), its parameters opened in
 one pass (`openPisAtFvarsC`), then its fields stepped
-(`projGuardRowsGo`). -/
+(`projGuardRowsGoC`). -/
 def checkProjGuardI (inf wh : Nat → Expr → CheckCM Expr) (fe : FEnv) (entry : ProjEntry)
     (us : List Level) : CheckCM Unit := do
   match fe.find? entry.structName with

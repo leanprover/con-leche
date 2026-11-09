@@ -3,6 +3,7 @@ module
 public import ConLeche.Cached.StreamIndex
 public import ConLeche.Verify.Cached.ViewCongr
 public import ConLeche.Verify.Cached.PushChain
+import ConLeche.Verify.Cached.WalkersC
 
 /-!
 # Every job passing is an accept of the fold
@@ -216,7 +217,7 @@ theorem IndexSpec.add {ds : List Declaration} {I : StreamIndex} (h : IndexSpec d
     simp only [StreamIndex.add, hnext]
     rw [hc.2 n, recsConsts_snoc]
   · intro T
-    simp only [StreamIndex.add, hsz]
+    simp only [StreamIndex.add, hsz, declTablesC_eq]
     rw [ht T, recsTables_snoc]
     simp
 

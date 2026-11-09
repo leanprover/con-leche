@@ -57,7 +57,7 @@ def insertTables (tbls : Std.HashMap Name (Nat × ProjTable)) (r : Nat) :
 /-- One record into the index. -/
 def StreamIndex.add (I : StreamIndex) (pd : Declaration) : StreamIndex :=
   let (idx, next) := insertConsts I.base.idx I.next (declConstants pd)
-  { base := { I.base with idx, tbls := insertTables I.base.tbls I.firsts.size (declTables pd) }
+  { base := { I.base with idx, tbls := insertTables I.base.tbls I.firsts.size (declTablesC pd) }
     firsts := I.firsts.push I.next
     next }
 

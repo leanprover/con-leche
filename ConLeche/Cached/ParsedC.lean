@@ -35,34 +35,6 @@ open ConLeche
 
 variable (mode : CheckMode)
 
-/-- Parsed `ensureSort` (no per-call conversion). -/
-def opSIxC (fe : FEnv) (d : Nat) (i : Expr) : CheckCM Level :=
-  ensureSortI (coreKnotI mode false fe checkFuel) d i
-
-/-- `checkConstantVal` on a parsed declaration: the checks of
-`checkConstantValF` with the syntactic passes memoized on the `Expr`
-DAG and the cached operations on its nodes. -/
-def checkConstantValC (fe : FEnv) (cv : ConstantVal) (allowOp : Bool := false) :
-    CheckCM Unit := do
-  if (fe.find? cv.name).isSome then
-    throw (.invalid s!"duplicate declaration {cv.name}")
-  if natOpName cv.name && !allowOp then
-    throw (.invalid s!"a certified Nat operation's name, not a definition: {cv.name}")
-  unless litShapeOk (.axiomInfo cv) do
-    throw (.notImplemented s!"a declaration at a literal's name with another shape ({cv.name})")
-  unless Name.nodup cv.levelParams do
-    throw (.invalid s!"duplicate universe parameters in {cv.name}")
-  unless Expr.looseBVarsBounded 0 cv.type do
-    throw (.invalid s!"loose bound variable in type of {cv.name}")
-  if Expr.hasFvar cv.type then
-    throw (.invalid s!"unexpected free variable in type of {cv.name}")
-  unless Expr.allLevelParamsDefinedC cv.levelParams cv.type do
-    throw (.invalid s!"undeclared universe parameter in type of {cv.name}")
-  unless constsResolveFC fe cv.type do
-    throw (unresolvedConstsErrorL (strLitStoredF fe) s!"type of {cv.name}" cv.type)
-  let jsty ← (coreKnotI mode false fe checkFuel).infer 0 cv.type
-  let _u ← opSIxC mode fe 0 jsty
-
 /-- Check a definition's value against its declared type, returning the
 record to install, unpushed: the pinned `Nat`-operation arm of
 `checkDeclC` certifies against an overlay before it pushes. -/
@@ -149,6 +121,125 @@ def checkIndDeclC (fe : FEnv) (block : List ConstantInfo) (nP : Nat) :
     | .error e => throw e
   else throw (.invalid "number of parameters mismatch")
 
+/-! ## The `Nat.div`/`Nat.mod` pin check (task #497)
+
+`checkDivModPinF`'s twin (and `checkReducePinF`'s).  The specification substitutes the pinned
+operation's value into each certificate proof with the tree walk
+`Expr.substConstAll` (written five times per certificate: four guards
+and the inference), and guards the result with the structurally
+memoised `constsResolveF`/`allLevelParamsDefined`.  Here each variant's
+proofs are substituted ONCE, by the sharing-preserving `substConstAllC`,
+and the substituted proofs feed both the guard and the check; the guards
+are the cached tier's (`constsResolveFC`, `allLevelParamsDefinedC`).
+The twins are monomorphic in `CheckCM` and call the cached core
+(`coreKnotI`) directly; `checkDivModPinC_eq` and `checkReducePinC_eq`
+(`ConLeche/Verify/Cached/PinsC.lean`) are their equations to the
+specification at the shared operations (`sharedOpsC`). -/
+
+/-- `divModCertGuardF` at a substituted proof `sp`. -/
+def divModCertGuardC (fe : FEnv) (c : Name) (annVal : Expr)
+    (hyps : List Expr) (eqE sp : Expr) : Bool :=
+  sp.looseBVarsBounded 0 && !sp.hasFvar &&
+  Expr.allLevelParamsDefinedC [] sp && constsResolveFC fe sp &&
+  (hyps.map (Expr.substConst0 c annVal)).all (fun h => constsResolveFC fe h) &&
+  constsResolveFC fe (Expr.substConst0 c annVal eqE)
+
+/-- `divModPinGuardF` over the cached guards. -/
+def divModPinGuardC (ps : NatOpPinSet) (fe : FEnv) (c : Name) : Bool :=
+  (divModDeclPin ps c).looseBVarsBounded 0 && !(divModDeclPin ps c).hasFvar &&
+  Expr.allLevelParamsDefinedC [] (divModDeclPin ps c) &&
+  constsResolveFC fe (divModDeclPin ps c) &&
+  (divModTypePins ps c).all fun p =>
+    (fe.find? p.1).isSome && !(typePinStoredF fe p.1).hasFvar &&
+    p.2.looseBVarsBounded 0 && !p.2.hasFvar && constsResolveFC fe p.2
+
+/-- `checkTypePinsF` at the cached core. -/
+def checkTypePinsC (fe : FEnv) : List (Name × Expr) → CheckCM Bool
+  | [] => pure true
+  | p :: rest => do
+    if ← (coreKnotI mode false fe checkFuel).defeq 0 (typePinStoredF fe p.1) p.2 then
+      checkTypePinsC fe rest
+    else pure false
+
+/-- `checkDivModCertsF` at the substituted proofs, at the cached core. -/
+def checkDivModCertsC (fe : FEnv) (c : Name) (annVal : Expr) :
+    List (List Expr × Expr) → List Expr → CheckCM Bool
+  | [], [] => pure true
+  | (hyps, eqE) :: srest, sp :: prest => do
+    if divModCertGuardC fe c annVal hyps eqE sp then
+      let tp ← (coreKnotI mode false fe checkFuel).infer 4
+        (divModCertApplied sp (hyps.map (Expr.substConst0 c annVal)))
+      if ← (coreKnotI mode false fe checkFuel).defeq 4 tp (Expr.substConst0 c annVal eqE) then
+        checkDivModCertsC fe c annVal srest prest
+      else pure false
+    else pure false
+  | _, _ => pure false
+
+/-- `checkDivModPinAtF` at the substituted proofs `sps`, at the cached core. -/
+def checkDivModPinAtC (fe : FEnv) (c : Name) (value' : Expr) (ps : NatOpPinSet)
+    (sps : List Expr) : CheckCM Bool := do
+  if ← checkTypePinsC mode fe (divModTypePins ps c) then
+    if ← (coreKnotI mode false fe checkFuel).defeq 0 value' (divModDeclPin ps c) then
+      checkDivModCertsC mode fe c value' (divModCertStmts c) sps
+    else pure false
+  else pure false
+
+/-- `checkDivModPinLoopF`: each variant's proofs substituted once. -/
+def checkDivModPinLoopC (fe : FEnv) (c : Name) (value' : Expr) :
+    List NatOpPinSet → List String → CheckCM Unit
+  | [], tried =>
+    throw (.notImplemented s!"unsupported Nat.div/mod spelling ({c}: no \
+      pin variant matched — {String.intercalate "; " tried})")
+  | ps :: rest, tried =>
+    let sps := (divModCertProofs ps c).map (Expr.substConstAllC c value')
+    if divModPinGuardC ps fe c &&
+        ((divModCertStmts c).zip sps).all
+          (fun p => divModCertGuardC fe c value' p.1.1 p.1.2 p.2) then do
+      if ← checkDivModPinAtC mode fe c value' ps sps then pure ()
+      else
+        checkDivModPinLoopC fe c value' rest
+          (tried ++ [divModAttemptReason ps])
+    else
+      checkDivModPinLoopC fe c value' rest
+        (tried ++ [s!"{ps.toolchain}: pin or certificate ground constants \
+          absent"])
+
+/-- `checkDivModPinF`'s twin, at the cached core. -/
+def checkDivModPinC (pins : List NatOpPinSet) (fe fe2 : FEnv) (c : Name) : CheckCM Unit := do
+  if divModEnvGuardF fe2 c then
+    match fe2.find? c with
+    | some (.defnInfo _ value' _) =>
+      checkDivModPinLoopC mode fe c value' pins []
+    | _ => throw (.internal s!"Nat.div/mod operation not stored ({c})")
+  else throw (.notImplemented
+    s!"unsupported Nat.div/mod environment ({c})")
+
+/-- `reducePinGuardF` over the cached guards. -/
+def reducePinGuardC (fe : FEnv) (c : Name) : Bool :=
+  (reduceDeclPin c).looseBVarsBounded 0 && !(reduceDeclPin c).hasFvar &&
+  Expr.allLevelParamsDefinedC [] (reduceDeclPin c) &&
+  constsResolveFC fe (reduceDeclPin c)
+
+/-- `checkReducePinF`'s twin, at the cached core. -/
+def checkReducePinC (fe fe2 : FEnv) (c : Name) (value : Expr) : CheckCM Unit := do
+  if reduceStoredOkF fe2 c && reduceElemOkF fe c then
+    if reducePinGuardC fe c then do
+      let valA := value
+      let pinA := (reduceDeclPin c)
+      let okPin ← (coreKnotI mode false fe checkFuel).defeq 0 valA pinA
+      if okPin then do
+        let x := reduceCertVar c
+        let ok ← (coreKnotI mode false fe checkFuel).defeq 1 (.app valA x) x
+        if ok then pure ()
+        else throw (.internal
+          s!"pinned compiler-trust opaque is not the identity ({c})")
+      else throw (.notImplemented
+        s!"unsupported compiler-trust opaque spelling ({c})")
+    else throw (.notImplemented
+      s!"unsupported compiler-trust opaque spelling ({c}: pin ground constants absent)")
+  else throw (.notImplemented
+    s!"unsupported compiler-trust opaque declaration ({c})")
+
 /-- **A declaration's own checks** (`checkDeclKind`'s twin), every kind (inductive blocks reuse
 the `Expr`-level drivers).  `pins` is the `Nat.div`/`Nat.mod` pin-variant list the gate tries
 (task #304), threaded from the fold.
@@ -185,7 +276,7 @@ def checkDeclKindC (pins : List NatOpPinSet) (fe : FEnv) (pd : Declaration) :
       | _ => throw (.internal
           s!"structural Nat operation not stored ({cv.name})")
     if natDivModNames.contains cv.name then
-      checkDivModPinF (sharedOpsC mode fe) pins fe (fe.overlay [ci]) cv.name
+      checkDivModPinC mode pins fe (fe.overlay [ci]) cv.name
     pure (fe.push ci)
   | .thmDecl cv value => do
     checkConstantValC mode fe cv
@@ -195,7 +286,7 @@ def checkDeclKindC (pins : List NatOpPinSet) (fe : FEnv) (pd : Declaration) :
     checkConstantValC mode fe cv
     let ci ← checkOpaqueValCI mode fe cv value
     if reduceOpNames.contains cv.name then
-      checkReducePinF (sharedOpsC mode fe) fe (fe.overlay [ci]) cv.name value
+      checkReducePinC mode fe (fe.overlay [ci]) cv.name value
     pure (fe.push ci)
   | .axiomDecl cv =>
     if cv.name = quotSoundName then

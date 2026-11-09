@@ -217,6 +217,10 @@ if tests/challenge.sh; then :; else fail=1; fi
 # built tree; ~1 min, most of it the two olean dumps the fixpoint reads.
 if tests/shake.sh; then :; else fail=1; fi
 
+# THE PLAIN-TIER REACH GATE (task #497): every specification-tier definition the
+# binary reaches is allowlisted with its reason.  Needs the built tree.
+if tests/plain-reach.sh; then :; else fail=1; fi
+
 # THE OLEAN GATE: `--olean` on the committed fixtures of tests/olean/lib and
 # on corrupted copies of them, every verdict pinned.
 if tests/olean.sh; then :; else fail=1; fi

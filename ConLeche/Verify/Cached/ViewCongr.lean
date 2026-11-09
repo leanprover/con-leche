@@ -3,6 +3,7 @@ module
 public import ConLeche.Cached.ParsedC
 import ConLeche.Verify.Cached.KnotCongr
 import ConLeche.Verify.Cached.PinOverlay
+import ConLeche.Verify.Cached.PinsC
 import ConLeche.Verify.Cached.BlockOverlay
 
 /-!
@@ -1211,7 +1212,7 @@ theorem reduceMemberS_congr {fe₁ fe₂ : FEnv} (hfe : fe₁.find? = fe₂.find
     reduceMemberS mode fe₁ ms nP = reduceMemberS mode fe₂ ms nP := by
   have h := sharedOpsC_envFree mode fe₂
   unfold reduceMemberS reducedFormer
-  simp only [sharedOpsC_congr hfe htb, checkConstantValF_congr h hfe,
+  simp only [sharedOpsC_congr hfe htb, checkConstantValC_congr hfe htb,
     whnfTelescope_env h fe₁.env, whnfTelescope_env h fe₂.env, h.isDefEq fe₁.env, h.isDefEq fe₂.env]
 
 theorem reduceMembersS_congr {fe₁ fe₂ : FEnv} (hfe : fe₁.find? = fe₂.find?)
@@ -1284,7 +1285,7 @@ theorem checkDeclKindC_twin (pins : List NatOpPinSet) {fe₁ fe₂ : FEnv} (ht :
     have h := sharedOpsC_envFree mode fe₂
     simp only [natOpGuardF_congr hov, natOpStoredOkF_congr hov, hov,
       sharedOpsC_congr hfe htb, certifyNatEqs_envFree h fe₁.env, certifyNatEqs_envFree h fe₂.env,
-      checkDivModPinF_congr h hfe hov]
+      checkDivModPinC_eq, checkDivModPinF_congr h hfe hov]
     relrun
     all_goals exact RelRun.pure (PushedFrom.push _ _ _)
   | thmDecl cv value =>
@@ -1302,7 +1303,7 @@ theorem checkDeclKindC_twin (pins : List NatOpPinSet) {fe₁ fe₂ : FEnv} (ht :
       rw [find?_overlay_push ht.ovl₁, find?_overlay_push ht.ovl₂]
       exact (ht.push ci).find
     have h := sharedOpsC_envFree mode fe₂
-    simp only [sharedOpsC_congr hfe htb, checkReducePinF_congr h hfe hov]
+    simp only [sharedOpsC_congr hfe htb, checkReducePinC_eq, checkReducePinF_congr h hfe hov]
     relrun
     all_goals exact RelRun.pure (PushedFrom.push _ _ _)
   | axiomDecl cv =>

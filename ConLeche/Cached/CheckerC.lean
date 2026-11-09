@@ -24,6 +24,43 @@ open ConLeche
 
 /-! ### The direct installers' walker (task #214) -/
 
+/-- `structProjBodiesGo` at the memoised substitution
+(`structProjBodiesGoC_eq`). -/
+def structProjBodiesGoC (T : Name) (vs : List Expr) : Nat → Nat → Expr → Option (List Expr)
+  | 0, _, _ => some []
+  | k + 1, i, .forallE fdom body =>
+    (structProjBodiesGoC T (structProjArgP T i :: vs) k (i + 1) body).map
+      (Expr.instantiateLiftC fdom vs :: ·)
+  | _ + 1, _, _ => none
+
+/-- `structProjBodies` at the memoised substitution: each field's raw
+domain substituted once by `instantiateLiftC` (`structProjBodiesC_eq`). -/
+def structProjBodiesC (T : Name) (nP nF : Nat) (cty : Expr) : Option (Array Expr) :=
+  match cty.stripPis nP with
+  | some (_, r) => (structProjBodiesGoC T (structProjPs nP).reverse nF 0 r).map List.toArray
+  | none => none
+
+/-- `blockTables` over the memoised projection bodies (task #497;
+`blockTablesC_eq`, `ConLeche/Verify/Cached/WalkersC.lean`): the tables
+the index records (`declTablesC`, `StreamIndex.add`) and the tables the
+block's install checks and pushes (`checkBlockKS`). -/
+def blockTablesC (p : BlockShape) : List MemberShape → Option (List ProjTable)
+  | [] => some []
+  | ms :: rest =>
+    match ms.structCtor? with
+    | some c =>
+      (structProjBodiesC ms.declared.name p.nP c.2 c.1.type).bind fun bodies =>
+        (blockTablesC p rest).map (⟨ms.declared.name, p.lps, p.nP, c.1.name, c.2, bodies⟩ :: ·)
+    | none => blockTablesC p rest
+
+/-- `declTables` over `blockTablesC`. -/
+def declTablesC : Declaration → List ProjTable
+  | .indDecl block nP =>
+    match readBlock nP block with
+    | .ok p => (blockTablesC p p.members).getD []
+    | .error _ => []
+  | _ => []
+
 /-- **The cached driver's walker**: the memoised constant-resolution
 gate (`constsResolveFC`, verified at `constsResolveFC_spec`); equal to
 `StructWalkers.plain` (`structWalkersC_eq_plain`). -/
@@ -141,13 +178,41 @@ def checkBlockTailS (block : List ConstantInfo) (q : BlockPass FEnv) (Q : List P
   flushC
   checkBlockTablesF (m := CheckCM) structWalkersC fe₂ Q
 
+/-- Parsed `ensureSort` (no per-call conversion). -/
+def opSIxC (fe : FEnv) (d : Nat) (i : Expr) : CheckCM Level :=
+  ensureSortI (coreKnotI mode false fe checkFuel) d i
+
+/-- `checkConstantVal` on a parsed declaration: the checks of
+`checkConstantValF` with the syntactic passes memoized on the `Expr`
+DAG and the cached operations on its nodes. -/
+def checkConstantValC (fe : FEnv) (cv : ConstantVal) (allowOp : Bool := false) :
+    CheckCM Unit := do
+  if (fe.find? cv.name).isSome then
+    throw (.invalid s!"duplicate declaration {cv.name}")
+  if natOpName cv.name && !allowOp then
+    throw (.invalid s!"a certified Nat operation's name, not a definition: {cv.name}")
+  unless litShapeOk (.axiomInfo cv) do
+    throw (.notImplemented s!"a declaration at a literal's name with another shape ({cv.name})")
+  unless Name.nodup cv.levelParams do
+    throw (.invalid s!"duplicate universe parameters in {cv.name}")
+  unless Expr.looseBVarsBounded 0 cv.type do
+    throw (.invalid s!"loose bound variable in type of {cv.name}")
+  if Expr.hasFvar cv.type then
+    throw (.invalid s!"unexpected free variable in type of {cv.name}")
+  unless Expr.allLevelParamsDefinedC cv.levelParams cv.type do
+    throw (.invalid s!"undeclared universe parameter in type of {cv.name}")
+  unless constsResolveFC fe cv.type do
+    throw (unresolvedConstsErrorL (strLitStoredF fe) s!"type of {cv.name}" cv.type)
+  let jsty ← (coreKnotI mode false fe checkFuel).infer 0 cv.type
+  let _u ← opSIxC mode fe 0 jsty
+
 /-- Twin of `reduceMember`. -/
 def reduceMemberS (fe : FEnv) (ms : MemberShape) (nP : Nat) : CheckCM MemberShape :=
   if formerDefHeaded ms.cvT then do
     if declinedAtDefinition.contains ms.cvT.name then
       throw (.notImplemented s!"this family stored at a definition ({ms.cvT.name})")
     else do
-      checkConstantValF (sharedOpsC mode fe) fe ms.cvT
+      checkConstantValC mode fe ms.cvT
       let cvR ← reducedFormer (sharedOpsC mode fe) fe.env ms.cvT (nP + ms.nIdx)
       unless ← (sharedOpsC mode fe).isDefEq fe.env 0 ms.cvT.type cvR.type do
         throw (.invalid "direct sum: a type former's declared type and its reduct differ")
@@ -173,7 +238,7 @@ def checkBlockKS (fe : FEnv) (block : List ConstantInfo) (p₀ : BlockShape) :
   let ms ← reduceMembersS mode fe p₀.nP p₀.members
   flushC
   let q ← checkBlockPassS mode fe { p₀ with members := ms } (blockIsRec p₀)
-  let Q ← unwrapOr (blockTables p₀ p₀.members) (.internal "direct structure: projection bodies")
+  let Q ← unwrapOr (blockTablesC p₀ p₀.members) (.internal "direct structure: projection bodies")
   checkBlockTailS mode block q Q
   pure (FEnv.pushDelta (blockConstants p₀) Q fe)
 
