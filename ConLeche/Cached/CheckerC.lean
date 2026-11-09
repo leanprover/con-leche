@@ -22,34 +22,12 @@ namespace ConLeche.Cached
 
 open ConLeche
 
-/-! ### The direct installers' walkers (task #214) -/
+/-! ### The direct installers' walker (task #214) -/
 
-/-- `Expr.instPisAtLift` at the memoised substitution. -/
-def instPisAtLiftC : List Expr → Expr → Option Expr
-  | [], e => some e
-  | a :: as, .forallE _ body => instPisAtLiftC as (Expr.instantiate1LiftC body a)
-  | _ :: _, _ => none
-
-/-- `structProjBodiesGo` at the memoised substitution. -/
-def structProjBodiesGoC (T : Name) : Nat → Nat → Expr → Option (List Expr)
-  | 0, _, _ => some []
-  | k + 1, i, .forallE fdom body =>
-    (structProjBodiesGoC T k (i + 1) (Expr.instantiate1LiftC body (structProjArgP T i))).map
-      (fdom :: ·)
-  | _ + 1, _, _ => none
-
-/-- `structProjBodies` at the memoised substitution
-(`structProjBodiesC_eq`). -/
-def structProjBodiesC (T : Name) (nP nF : Nat) (cty : Expr) : Option (Array Expr) :=
-  match instPisAtLiftC (structProjPs nP) cty with
-  | some r => (structProjBodiesGoC T nF 0 r).map List.toArray
-  | none => none
-
-/-- **The cached driver's walkers**: the memoised constant-resolution
-gate (`constsResolveFC`, verified at `constsResolveFC_spec`) and the
-memoised projection-body builder; equal to `StructWalkers.plain`
-(`structWalkersC_eq_plain`). -/
-def structWalkersC : StructWalkers := ⟨constsResolveFC, structProjBodiesC⟩
+/-- **The cached driver's walker**: the memoised constant-resolution
+gate (`constsResolveFC`, verified at `constsResolveFC_spec`); equal to
+`StructWalkers.plain` (`structWalkersC_eq_plain`). -/
+def structWalkersC : StructWalkers := ⟨constsResolveFC⟩
 
 variable (mode : CheckMode)
 

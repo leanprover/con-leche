@@ -45,33 +45,31 @@ def checkStructDomsAtFA (ops : CheckerOps m) (fe : FEnv) (off : Nat)
       throw (.notImplemented "direct structure: binder domain mismatch")
     checkStructDomsAtFA ops fe off fvs doms j
 
-/-- **The tree walkers an index-side installer takes from its
-driver** (task #214, after the JZero audit): the constant-resolution
-gate over constructor binder domains and the projection-body builder
-over the constructor telescope are the two whole-tree traversals of
-the block install, and on a heavily DAG-shared block (Mathlib's
+/-- **The tree walker an index-side installer takes from its driver**
+(task #214, after the JZero audit): the constant-resolution gate over
+constructor binder domains is a whole-tree traversal of the block
+install, and on a heavily DAG-shared block (Mathlib's
 `ModularCurve.JZeroGoodReductionSpecialization_alt`: a 3.3 k-node DAG
-unfolding to 19.6 M nodes) they are what the tree-size budget exists
-for.  The cached driver supplies its memoised twins
-(`ConLeche.Cached.structWalkersC`: `constsResolveFC`,
-`structProjBodiesC`); the specification is `StructWalkers.plain`, to
+unfolding to 19.6 M nodes) it must not walk the tree.  The cached
+driver supplies its memoised twin (`ConLeche.Cached.structWalkersC`:
+`constsResolveFC`); the specification is `StructWalkers.plain`, to
 which the driver's record is equal (`structWalkersC_eq_plain`,
-`ConLeche/Verify/Cached/WalkersC.lean`).  The pure installers never see
-this record. -/
+`ConLeche/Verify/Cached/WalkersC.lean`).  The projection-body builder
+(`structProjBodies`) is the same function in both: its substitution
+`Expr.instantiateLift` executes as a memoized DAG walk.  The pure
+installers never see this record. -/
 structure StructWalkers where
   /-- `Expr.constsResolveF` or its memoised twin -/
   resolve : FEnv → Expr → Bool
-  /-- `structProjBodies` or its memoised twin -/
-  projBodies : Name → Nat → Nat → Expr → Option (Array Expr)
 
 /-- The plain walkers: the specification. -/
 def StructWalkers.plain : StructWalkers :=
-  ⟨fun fe e => e.constsResolveF fe, structProjBodies⟩
+  ⟨fun fe e => e.constsResolveF fe⟩
 
 /-- `checkStructProjTable` through the index (task #175 S1). -/
 def checkStructProjTableF (w : StructWalkers) (T : Name) (lps : List Name) (nP nF : Nat)
     (cvCa : ConstantVal) (fe : FEnv) : m Unit := do
-  let bodies ← unwrapOr (w.projBodies T nP nF cvCa.type)
+  let bodies ← unwrapOr (structProjBodies T nP nF cvCa.type)
     (.internal "direct structure: projection bodies")
   -- the bodies' scoping, validated once at insertion (the stage's own
   -- guard, what `EnvWF`'s table clause records): fvar-free, level
