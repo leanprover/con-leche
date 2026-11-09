@@ -29,12 +29,12 @@ open ConLeche.Semantics
 open ConLeche.SetModel
 open ConLeche.Term ConLeche.Verify SetTheory
 
-open ConLeche (Env Expr Name Level ConstantInfo ConstantVal BlockShape BlockParts TargetMajor
+open ConLeche (Env Expr Name Level ConstantInfo ConstantVal BlockShape BlockShape TargetMajor
   ClassGen ClassCtor ClassRead FEnv GenRecRun)
 
 universe w
 
-variable {V : Type w} [SetTheory V] {μ : CheckMode}
+variable {V : Type w} [SetTheory V]
 
 /-! ## 1. The generated family's equation components -/
 
@@ -113,40 +113,39 @@ end Components
 /-- **The recursors' stage's context at the GENERATED stage**:
 `NestedRecCtx` with the generated stage's run in place of the target
 check's. -/
-@[expose] def GenRecCtx (V : Type w) [SetTheory V] (μ : CheckMode) (F : Nat)
-    (block : List ConstantInfo) (envC envI : Env) (pp : BlockParts)
-    (cvTasR : List ConstantVal) (ctorsAsR : List (List (ConstantVal × Nat)))
+@[expose] def GenRecCtx (V : Type w) [SetTheory V] (F : Nat)
+    (block : List ConstantInfo) (envC envI : Env) (pp : BlockShape)
     (out : List (ConstantVal × ConLeche.TargetMajor × List Expr))
-    (mpC : EnvModelM V μ envC) (dR : BlockData V) (isRecR : Bool)
+    (mpC : EnvModelM V envC) (dR : BlockData V) (isRecR : Bool)
     (A : Nat → (Name → Nat) → Term)
     (kindsR : List (List (List ConLeche.NestFieldKind))) (nfsR : List (List Expr))
     (posR : ConLeche.NestState) : Prop :=
-  ConLeche.checkBlockPositivity (m := ConLeche.CheckM) (ConLeche.fueledOps μ F) envI
-      envI.find? pp cvTasR ctorsAsR = .ok (kindsR, nfsR, posR) ∧
-  envC = ConLeche.consBlockCtors pp.nP ctorsAsR envI ∧
-  ctorsAsR.map (·.map (fun cA => (cA.1.name, cA.2)))
+  ConLeche.PositivityRun (ConLeche.fueledOps .verified F) envI
+      envI.find? pp kindsR nfsR posR ∧
+  envC = ConLeche.consBlockCtors pp.nP pp.memberCtors envI ∧
+  pp.memberCtors.map (·.map (fun ctor => (ctor.1.name, ctor.2)))
     = pp.members.map (fun ms => ms.ctors.map (fun c => (c.1.name, c.2))) ∧
-  pp.toBlockShape.memberNames.Nodup ∧
-  BlockNamesOk (V := V) dR cvTasR ∧
-  BlockCtorsStage (V := V) μ F dR pp.lps cvTasR pp.toBlockShape isRecR A envI pp.ctorNamesAt ∧
-  BlockCtorsCore mpC.base2 dR pp.lps cvTasR pp.toBlockShape isRecR A dR.k ∧
-  (∀ c, c < ctorsAsR.length → ctorsAsR[c]? = some (dR.ctorsM c)) ∧
+  pp.memberNames.Nodup ∧
+  BlockNamesOk (V := V) dR pp.formers ∧
+  BlockCtorsStage (V := V) F dR pp.lps pp.formers pp isRecR A envI pp.ctorNamesAt ∧
+  BlockCtorsCore mpC.base2 dR pp.lps pp.formers pp isRecR A dR.k ∧
+  (∀ c, c < pp.memberCtors.length → pp.memberCtors[c]? = some (dR.ctorsM c)) ∧
   (∃ (pk : Nat → BlockMemberPick) (uOfD : Nat → (Name → Nat) → Nat)
       (ppsOf : Nat → (Name → Nat) → List Term),
-    dR = blockDataOf V pp.toBlockShape ctorsAsR pk uOfD ppsOf) ∧
+    dR = blockDataOf V pp pk uOfD ppsOf) ∧
   dR.toLfp ∈ mpC.lfpBlocks ∧
   LfpCover mpC [] ∧
-  FormersModelAt (V := V) envI pp.toBlockShape.memberNames mpC dR pp.lps cvTasR
-    pp.toBlockShape isRecR ∧
-  BlockOverEnv envC pp.toBlockShape.memberNames ∧
+  FormersModelAt (V := V) envI pp.memberNames mpC dR pp.lps pp.formers
+    pp isRecR ∧
+  BlockOverEnv envC pp.memberNames ∧
   -- the generated stage's run: its seeds walked at `envI`, continuing the
   -- positivity run's state
-  Nonempty (GenRecRun μ F (ConLeche.mkFEnv envI) envI (ConLeche.mkFEnv envC) pp.toBlockShape
-    (ConLeche.blockNestedBit pp.toBlockShape kindsR) posR cvTasR block ctorsAsR out) ∧
+  Nonempty (GenRecRun .verified F (ConLeche.mkFEnv envI) envI (ConLeche.mkFEnv envC) pp
+    (ConLeche.blockNestedBit pp kindsR) posR block out) ∧
   -- the block's constructors conclude in its members
-  (∀ c ∈ ctorsAsR.flatten, envI.find? c.1.name = none ∧
+  (∀ c ∈ pp.memberCtors.flatten, envI.find? c.1.name = none ∧
     ∀ C, (ctorEntry C (.ctorInfo c.1 pp.nP c.2)).isSome = true →
-      C ∈ pp.toBlockShape.memberNames)
+      C ∈ pp.memberNames)
 
 /-- **The induction over the classes' majors, at the GENERATED calls**
 (`TgtClassInd` with `genCallT` in place of the target check's calls):

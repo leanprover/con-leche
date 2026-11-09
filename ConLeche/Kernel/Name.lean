@@ -1,11 +1,13 @@
 module
 
 public import Std.Data.HashMap
-/- `ConLeche.withPtrEq` (the pre-2026-09-21 safe `withPtrEq`, vendored
-for the nightly toolchain, task #422) is *definitionally* `k ()` — which
-is what `Name.beqPtr_eq` proves; the executed `Name.beq` stays the plain
+/- `withPtrEq` is `public` but not `@[expose]`, and its whole point here
+is that it is *definitionally* `k ()` — which is what
+`Name.beqPtr_eq` proves.  `import all` makes that body visible **in
+this module only**; that theorem is the public relay, so no importer
+needs it, and the executed `Name.beq` stays the plain
 `decide (· = ·)` that the kernel can still reduce. -/
-public import ConLeche.Util.PtrEq
+import all Init.Util
 
 /-!
 # Hierarchical names
@@ -53,7 +55,7 @@ instance : Hashable Name := ⟨Name.hashData⟩
 *implementation* of `Name.beq`; `Name.beqPtr_eq` proves the two guards
 redundant. -/
 @[inline] def Name.beqPtr (a b : Name) : Bool :=
-  ConLeche.withPtrEq a b (fun _ => a.hashData == b.hashData && decide (a = b))
+  withPtrEq a b (fun _ => a.hashData == b.hashData && decide (a = b))
     (fun h => by subst h; simp)
 
 /-- Both guards are redundant: `withPtrEq a b k h` is *defined* as

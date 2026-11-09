@@ -135,7 +135,7 @@ theorem HoleRel.extend {ctx : NestCtx} {prog : List NestHole} {Δh : List Term}
       Sat V (Ts ++ Δh) (consList (vS ρ ρ') ρ) ∧ Sat V (Ts ++ Δh) (consList (vL ρ ρ') ρ'))
     (hnew : ∀ ρ ρ', R₀ ρ ρ' → ∀ (p : Nat) (hk : NestHole), news[p]? = some hk →
       ∀ (hp : p < news.length) (is : List V),
-      is.length + hk.key.ds.length = ConLeche.nestArity ctx hk.key.cname →
+      is.length = hk.nIdx →
       is.foldl app ((vS ρ ρ')[p]'(by rw [hvS]; exact hp))
         ⊆ˢ is.foldl app ((vL ρ ρ')[p]'(by rw [hvL]; exact hp))) :
     HoleRel m φ ctx (news.reverse ++ prog) (ctx.hiAt prog.length + news.length) (Ts ++ Δh)

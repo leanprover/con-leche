@@ -149,7 +149,7 @@ roots = ["ConLeche.Complete"]
 # gate — never builds it.  Nothing in the tree imports it.
 #
 # Which is why it can rot unseen, and did (task #281: the module's
-# import went stale when `checkDecls` moved to `ConLeche.Cached.Installed`
+# import went stale when `checkDecls` moved to another module
 # and no gate noticed).  `tests/challenge.sh`, in the standard battery,
 # is now the one thing that builds this library — and it diffs the
 # `#check` of every `comparator.json` name against `ConLeche.MainTheorem`.
@@ -164,6 +164,12 @@ srcDir = "tests"
 [[lean_exe]]
 name = "con-leche"
 root = "Main"
+
+# The olean reader against lean4export, record for record
+# (`tests/olean-compare.sh`).
+[[lean_exe]]
+name = "olean-compare"
+root = "OleanCompare"
 
 # The pin dump generator (task #176).  Lives in the certificate
 # library's world — its root imports `ConLeche.PinGen.Certs`, so the

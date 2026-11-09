@@ -294,18 +294,24 @@ theorem IncAll.ge_start {c : Ctr} {rs : List LineRec} (hi : IncAll c rs) (p : Na
 
 /-- `AllOK` line by line. -/
 theorem allOK_of_forall {T : Tabs} :
-    ∀ {c : Ctr} {rs : List LineRec},
-    (∀ p (h : p < rs.length), LineOK T (ctrAt c rs p) rs[p]) → AllOK T c rs := by
-  intro c rs
-  induction rs generalizing c with
-  | nil => intro _; trivial
+    ∀ {c : Ctr} {n : Nat} {rs : List LineRec},
+    (∀ p (h : p < rs.length), rs[p].placed (n + p == 0) = true) →
+    (∀ p (h : p < rs.length), LineOK T (ctrAt c rs p) rs[p]) → AllOK T c n rs := by
+  intro c n rs
+  induction rs generalizing c n with
+  | nil => intro _ _; trivial
   | cons r rs ih =>
-    intro h
+    intro hp h
     have h0 := h 0 (by simp)
     rw [List.getElem_cons_zero, ctrAt_zero] at h0
-    refine ⟨h0, ih fun p hp => ?_⟩
-    have := h (p + 1) (by simpa using hp)
-    simpa [ctrAt, List.take_succ_cons, Ctr.stepAll] using this
+    have hp0 := hp 0 (by simp)
+    rw [List.getElem_cons_zero, Nat.add_zero] at hp0
+    refine ⟨hp0, h0, ih (fun p hq => ?_) fun p hq => ?_⟩
+    · have := hp (p + 1) (by simpa using hq)
+      rw [show n + (p + 1) = n + 1 + p by omega] at this
+      simpa using this
+    · have := h (p + 1) (by simpa using hq)
+      simpa [ctrAt, List.take_succ_cons, Ctr.stepAll] using this
 
 /-! ## Good entries -/
 
@@ -700,13 +706,15 @@ theorem lineOK_of_at {T : Tabs} {c : Ctr} {r : LineRec} {t : Tb} {i : Nat}
 
 /-- **The characterisation from good tables**: increasing lines, the
 finished tables below the window's start, good entries above it, an
-entry wherever a line binds, and a record from every declaration line's
-builder: every line is right at `T`. -/
-theorem allOK_of_good {Γ : WCtx} {T : Tabs} (hT : GoodTabs Γ T)
+entry wherever a line binds, a record from every declaration line's
+builder, and every line where it may stand (`n` lines before the
+window): every line is right at `T`. -/
+theorem allOK_of_good {Γ : WCtx} {T : Tabs} {n : Nat} (hT : GoodTabs Γ T)
     (hD : ∀ p (h : p < Γ.rs.length) d, Γ.rs[p] = .decl d →
-      ∃ x, declOf (cutLk T (Γ.ctr p)) d = .ok (.inl x)) :
-    AllOK T Γ.c0 Γ.rs := by
-  apply allOK_of_forall
+      ∃ x, declOf (cutLk T (Γ.ctr p)) d = .ok (.inl x))
+    (hP : ∀ p (h : p < Γ.rs.length), Γ.rs[p].placed (n + p == 0) = true) :
+    AllOK T Γ.c0 n Γ.rs := by
+  apply allOK_of_forall hP
   intro p hp
   have hfit := hT.inc.get p hp
   have htab : ∀ t i, Γ.rs[p].idAt t = some i → LineOK T (ctrAt Γ.c0 Γ.rs p) Γ.rs[p] := by

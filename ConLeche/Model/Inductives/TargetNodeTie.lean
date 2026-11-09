@@ -38,7 +38,7 @@ open ConLeche (Env Expr Name Level NestCtx NestHole NestKey PosTree TargetMajor 
 
 universe w
 
-variable {V : Type w} [SetTheory V] {μ : CheckMode}
+variable {V : Type w} [SetTheory V]
 
 /-- A stored constant's level parameters (`[]` if none). -/
 @[expose] def lpsOf (env : Env) (n : Name) : List Name :=
@@ -189,7 +189,7 @@ matches the node's key read back (`NodeMajor`), its parameters reading
 as the read-back key's at the prefix spine `xs` (`hfr`), with the
 canonically selected block, reads the node's block, levels and true
 frame. -/
-theorem tgtNodeTie {envC : Env} {mpC : EnvModelM V μ envC} {ex : List Name}
+theorem tgtNodeTie {envC : Env} {mpC : EnvModelM V envC} {ex : List Name}
     (hcov : LfpCover mpC ex) {D0 : LfpDatum V} {d : BlockData V} {Dc : Nat → LfpDatum V}
     {mc : Nat → Nat} {cvc : Nat → ConstantVal} {p : BlockShape}
     {out : List (ConstantVal × TargetMajor × List Expr)} {ψ : Name → Nat} {ρ : Nat → V}

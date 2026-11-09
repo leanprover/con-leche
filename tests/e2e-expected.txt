@@ -128,6 +128,39 @@
 1 nat_pow_wrong.ndjson
 1 nat_pred_wrong.ndjson
 1 nat_beq_wrong.ndjson
+
+# The maximum `Nat` size (official lean4#14849; `natOpRefusal`,
+# ConLeche/Cached/StateC.lean): a `Nat` numeral above the maximum size
+# (default 128 MiB, `--max-nat-size`) rejects, refused before computing
+# for `Nat.pow` and `Nat.shiftLeft` (whose exponent / shift must also fit
+# in 32 bits), after computing for `Nat.add`/`sub`/`mul`/`succ`, and
+# where a literal is inferred.  nat_size is the raw export of
+# tests/e2e/src/nat_size.lean (placeholder exponents);
+# scripts/mk_nat_size_fixtures.py derives the others from it:
+#   nat_size_ok: 1^4000000000, 0^4000000000, 1^4294967295, 2^16777216
+#     (the largest power of two within the maximum size, and the old 2^24
+#     exponent cap's edge) and 1 <<< 100000000 fold;
+#   nat_pow_over_max_size: 2^16777217, refused (it used to unfold);
+#   nat_pow_exp_32bit: 1^4294967296, refused whatever the base;
+#   nat_shift_over_max_size: 1 <<< 1073741760, refused;
+#   nat_shift_exp_32bit: 1 <<< 4294967296, refused.
+0 nat_size.ndjson
+0 nat_size_ok.ndjson
+1 nat_pow_over_max_size.ndjson
+1 nat_pow_exp_32bit.ndjson
+1 nat_shift_over_max_size.ndjson
+1 nat_shift_exp_32bit.ndjson
+# The port of lean4's tests/elab/nat_size_limit.lean, at
+# --max-nat-size=16 (tests/arena.sh's E2E_FLAGS) as the original runs
+# at LEAN_NAT_MAX_SIZE=16; one source per case under tests/e2e/src/,
+# nat_size_limit_pow_32bit derived by scripts/mk_nat_size_fixtures.py.
+0 nat_size_limit_mul_ok.ndjson
+1 nat_size_limit_mul_big.ndjson
+1 nat_size_limit_pow_big.ndjson
+1 nat_size_limit_pow_huge_exp.ndjson
+1 nat_size_limit_pow_32bit.ndjson
+1 nat_size_limit_shift_big.ndjson
+1 nat_size_limit_big_lit.ndjson
 1 nat_ble_wrong.ndjson
 # A level-polymorphic definition under a fast-path name is positively
 # declined at install (the certification pins level-monomorphy).
@@ -356,6 +389,24 @@
 # parse's error at its line (exit 3) whichever path reads it.  Target
 # verdict = today's.
 3 rounds_error_late.ndjson
+# The line placement (task #488, issue #15; scripts/mk_meta_line_fixtures.py
+# over prop_proj.ndjson).  The format's first line is its `meta` header
+# and every later line a record; Lean's reader skips the first line and
+# parses every later one as a record.  No header, the first line a
+# record (meta_line_absent), the header again as line 2
+# (meta_line_second) or midway (meta_line_late), an empty line midway
+# (blank_line_mid) or after the last record (blank_line_final) are
+# malformed (exit 3), on the serial parse and the rounds parse alike.
+# What the header holds is not read (meta_line_free: other contents
+# than lean4export's, exit 0), and a file of no lines checks nothing
+# (empty_file, exit 0, as Lean's reader).  Target verdict = today's.
+3 meta_line_absent.ndjson
+3 meta_line_second.ndjson
+3 meta_line_late.ndjson
+3 blank_line_mid.ndjson
+3 blank_line_final.ndjson
+0 meta_line_free.ndjson
+0 empty_file.ndjson
 # reducenat_guard.ndjson (task #94): defeq-side Nat-literal folding is
 # guarded on both sides being fvar-free (official kernel
 # lazy_delta_reduction; lean4lean TypeChecker.lean:782).  Unguarded,
@@ -1113,6 +1164,23 @@
 # --- #210 Part B both install natively (the placeholder sort on the
 # --- one route; the declines were the modeled path's).
 0 ind_defhead_fix.ndjson
+#
+# --- Task #431: every inductive block is installed as stored on the
+# --- parallel install, its checked install a job; a def-headed former at
+# --- its reduced telescope.  ind_defhead_nested: def-headed CONTAINERS
+# --- (`Box : Type → MyType`, `Vec' : Type → Fam`, `Fam := Nat → Type`)
+# --- nested by later blocks, read at the installed reduced former;
+# --- official 0.  The twins of ind_defhead_fix by
+# --- scripts/mk_stored_install_fixtures.py, each followed by a record
+# --- that uses the block: ind_defhead_opaque_bad (`MyType` an opaque, so
+# --- the former does not reduce; official 1) and ind_ctor_levels_use (a
+# --- constructor with a level parameter the block lacks, so nothing is
+# --- pushed; official 1, rejected for the constructor's universe
+# --- parameters, task #494).  The verdict is the block's job's at every
+# --- `--jobs`.
+0 ind_defhead_nested.ndjson
+1 ind_defhead_opaque_bad.ndjson
+1 ind_ctor_levels_use.ndjson
 0 ind_former_redex.ndjson
 #
 # --- A4 / crack C4: mutual members whose parameter telescopes (…param…)
@@ -1254,7 +1322,7 @@
 # tower_struct (task #215, wired by task #210 Part B): the tower in a
 # structure's constructor field type.  The block installs through the
 # fixpoint route, where every walk the install asks of the field type
-# is DAG-safe (`@[csimp]` memos: `Expr.mentionsConst`,
+# is DAG-safe (`@[csimp]` memos: `Expr.mentionsAnyConst`,
 # `liftLooseBVars`, `instantiateList`, `allLevelParamsDefined`,
 # `constsResolveF`; the range-field reads `looseBVarsBounded`,
 # `hasFvar`) and the constant walks go through `constsResolveFC`
@@ -1307,7 +1375,7 @@
 # (`Kernel/Inductives/StructParts.lean`) and, once past it, the pure
 # rebuild inside `abstract1Fast`, whose fvar-range cutoff cannot fire
 # either when the tower is built OVER the fvar being abstracted.  Both
-# carry a memoized twin now (`hasLooseBVarBGo`, `abstract1Go`,
+# run memoized walks now (`hasLooseBVarBC`, task #498; `abstract1Go`,
 # `@[csimp]`).
 0 tower_usedlater.ndjson
 # tower_beqpair (task #240): two structurally equal depth-60 towers
@@ -1340,7 +1408,8 @@
 # `fvarLeaves` descends into the leaf's type annotation, so the range
 # cannot answer the question at all.  The fix is at the consumer:
 # `mentionsFvarGo` memoizes the `Bool` question, keyed by the node
-# (`q` is fixed for the walk), `@[csimp]`.
+# (`q` is fixed for the walk), `@[csimp]`.  (Task #498: that test and
+# its walk are gone; the fixture stays, a tower under a recursive field.)
 0 tower_recfield.ndjson
 # tower_mutual (task #246): a two-member MUTUAL block whose first
 # constructor carries a depth-60 tower over its own first field.  It
@@ -1394,8 +1463,11 @@
 # inside the recursor rule's λ prefix retargeted — the field binder
 # `(α : Type)` reads `(α : Prop)`.  The rule's prefix is compared with
 # the recursor record's own type, where the binder is still `Type`.
-# GENREC: official 1
-0 ind_rule_binder_bad.ndjson
+# Official 1.  Since task #431 the STORED rule is what is installed, so
+# it is compared with the generated one whole, domains included, and the
+# retargeted domain makes it ill-typed: 1 (before, the domains of the
+# rule's leading binders were not compared: 0).
+1 ind_rule_binder_bad.ndjson
 # proj_typename_bad: the tutorial's `Prod.snd` (arena 096_projRed, the
 # accepting control) with the `.proj` node's `typeName` pointing at
 # another inductive.  Official: "invalid projection x.1".
@@ -1597,24 +1669,35 @@
 #
 # the recursive call names the wrong member's recursor
 # GENREC: official 1
-0 mutual_rec_wrong_member.ndjson
+# #386: the stored rules must agree with the generated ones up to
+# definitional equality, and these do not: 0 → 1, as official.
+1 mutual_rec_wrong_member.ndjson
 # the recursive call's major is a minor premise, not a field
 # GENREC: official 1
-0 mutual_rec_nonfield.ndjson
+# #386: the stored rules must agree with the generated ones up to
+# definitional equality, and these do not: 0 → 1, as official.
+1 mutual_rec_nonfield.ndjson
 # the recursor is passed partially applied, as an argument
 # GENREC: official 1
-0 mutual_rec_unguarded.ndjson
+# #386: the stored rules must agree with the generated ones up to
+# definitional equality, and these do not: 0 → 1, as official.
+1 mutual_rec_unguarded.ndjson
 # A.rec and B.rec exchange their rule bodies ("the rule of
 # InModelMutual.B.mk does not bind the recursor's prefix and the
 # constructor's fields"; the modeller declined it, 2, before the flip)
 # GENREC: official 1
-0 mutual_rec_rules_swapped.ndjson
+# #386: the stored rules must agree with the generated ones up to
+# definitional equality, and these do not: 0 → 1, as official.
+1 mutual_rec_rules_swapped.ndjson
 # GOOD: the canonical body under an identity redex — typed, but not
 # `minor f ih` (the accept-superset).  Official rejects it; the
 # recursor CONFORMANCE check that runs after the uniform route's check
 # (`checkBlockRecConform`) covers ONE member only — the kernel has no
 # mutual generator — so at k = 2 the superset stays.  The k = 1 twin
 # is `corner_rec_body_redex` below.
+# #386: stays 0 — the stored rule is definitionally equal to the
+# generated one (a β-redex), which the stored-rules check allows;
+# official, comparing syntactically, 1.
 0 mutual_rec_body_redex.ndjson
 # A recursor with a MISSING rule.  Completeness is a SOUNDNESS
 # requirement — `Nat.rec` with a rule for `zero` only would prove
@@ -1625,7 +1708,9 @@
 # whose two lists must run out together).  Rejected at the pin ("the
 # rules of … are not one per constructor of its major's inductive").
 # GENREC: official 1
-0 mutual_rec_missing_rule.ndjson
+# #386: the stored rules must agree with the generated ones up to
+# definitional equality, and these do not: 0 → 1, as official.
+1 mutual_rec_missing_rule.ndjson
 # The FAMILY's shared rule PREFIX (the finding of lane RM16, adopted as
 # a ruling on 2026-09-22; DESIGN).  `B.rec`'s `minorA` premise gets a
 # different — still perfectly well-formed — domain,
@@ -1781,6 +1866,9 @@
 # are refused with it — they are the record of the accept-superset the
 # narrowing gives up.
 # GENREC: official 1
+# #386: stays 0 — the stored rule is definitionally equal to the
+# generated one (a β-redex), which the stored-rules check allows;
+# official, comparing syntactically, 1.
 0 corner_rec_call_redex.ndjson
 # `W'` (a W-type) is reflexive and NOT indexed, so no argument of the
 # recursive call carries an index; the same
@@ -1790,6 +1878,9 @@
 # syntactically); with the narrowing the vector itself must be the
 # telescope's variables, so it is refused.
 # GENREC: official 1
+# #386: stays 0 — the stored rule is definitionally equal to the
+# generated one (a β-redex), which the stored-rules check allows;
+# official, comparing syntactically, 1.
 0 corner_rec_wtype_redex.ndjson
 # the very block `corner_rec_call_redex` edits, with the redex moved
 # from the index-carrying telescope argument `k` to the other one,
@@ -1799,6 +1890,9 @@
 # narrowing makes the spine's demand syntactic too, so the twins now
 # agree.
 # GENREC: official 1
+# #386: stays 0 — the stored rule is definitionally equal to the
+# generated one (a β-redex), which the stored-rules check allows;
+# official, comparing syntactically, 1.
 0 corner_rec_redex_nonindex.ndjson
 # `Nat'.rec`'s `succ` rule is the generated body under an identity
 # redex, `λ m z s n. (fun x : m (Nat'.succ n) => x) (s n (Nat'.rec m z s n))`:
@@ -1810,6 +1904,9 @@
 # The k = 2 twin, `mutual_rec_body_redex`, stays accepted: no mutual
 # generator.  Forged by `scripts/mk_rec_corner.py`.
 # GENREC: official 1
+# #386: stays 0 — the stored rule is definitionally equal to the
+# generated one (a β-redex), which the stored-rules check allows;
+# official, comparing syntactically, 1.
 0 corner_rec_body_redex.ndjson
 # `inductive T : Prop | c` closed by `T.rec : (t : T) → True` — an
 # EMPTY rule prefix (no motive, no minor) — with the rule
@@ -1831,17 +1928,23 @@
 # ill-typed however the guard reads it — "a different argument vector"
 # is accepted only when it still types.
 # GENREC: official 1
-0 corner_rec_call_const_bad.ndjson
+# #386: the stored rules must agree with the generated ones up to
+# definitional equality, and these do not: 0 → 1, as official.
+1 corner_rec_call_const_bad.ndjson
 # `Nat'.rec`'s `succ` rule recurses on `Nat'.zero`, a closed term of
 # the type rather than a field of the constructor: not structural, and
 # `motive Nat'.zero` is not the `motive n` the minor asks for.
 # GENREC: official 1
-0 corner_rec_closed_major.ndjson
+# #386: the stored rules must agree with the generated ones up to
+# definitional equality, and these do not: 0 → 1, as official.
+1 corner_rec_closed_major.ndjson
 # `Nat'.rec` with a THIRD rule, for `List'.nil` — a constructor of
 # another type.  One rule per constructor of the major's type is what
 # completeness means, and a stray rule is not one.
 # GENREC: official 1
-0 corner_rec_alien_rule.ndjson
+# #386: the stored rules must agree with the generated ones up to
+# definitional equality, and these do not: 0 → 1, as official.
+1 corner_rec_alien_rule.ndjson
 # `List'.rec`'s major is `t : List' Nat'` where `t : List' α` belongs:
 # the major at the wrong parameters, so the recursor is not this
 # block's.
@@ -1903,16 +2006,22 @@
 # soundness requirement and stays in the record's pin whatever the
 # recursor is called.
 # GENREC: official 1
-0 corner_rec_rule_missing.ndjson
+# #386: the stored rules must agree with the generated ones up to
+# definitional equality, and these do not: 0 → 1, as official.
+1 corner_rec_rule_missing.ndjson
 # The rule pin's two per-rule conjuncts at ONE member, which only the
 # recursor check's `targetRulePins` enforces (the conformance check's
 # copy of the pin is gone): `Nat'.rec`'s `succ` rule claiming 2 fields
 # where `Nat'.succ` has 1, and the two rules in the wrong order.
 # Official rejects both.
 # GENREC: official 1
-0 corner_rec_rule_nfields.ndjson
+# #386: the stored rules must agree with the generated ones up to
+# definitional equality, and these do not: 0 → 1, as official.
+1 corner_rec_rule_nfields.ndjson
 # GENREC: official 1
-0 corner_rec_rules_swapped.ndjson
+# #386: the stored rules must agree with the generated ones up to
+# definitional equality, and these do not: 0 → 1, as official.
+1 corner_rec_rules_swapped.ndjson
 # `Nat'.rec`'s `succ` rule binds its FIELD at a domain that mentions
 # the recursor CONSTANT:
 #   λ m z s (n : (fun _ : T_rec => Nat') Nat'.rec). s n (Nat'.rec m z s n)
@@ -2268,6 +2377,9 @@
 # recursion (the syntactic narrowing of 2026-09-22, kept).
 # FLIP (NESTPLAN L9, the nested flip): 0 → 1 — "not a primitive recursion", official 1.
 # GENREC: official 1
+# #386: stays 0 — the stored rule is definitionally equal to the
+# generated one (a β-redex), which the stored-rules check allows;
+# official, comparing syntactically, 1.
 0 corner_tshadow_aux_nonfield_bad.ndjson
 # corner_tshadow_aux_prop_bad: a non-nested `Type` block whose family
 # carries `T.rec_1` on an OUTSIDE two-constructor `Prop` inductive,
@@ -2551,7 +2663,7 @@
 # c02: a NESTED block whose own former is behind δ (`T : MyType`,
 # `MyType := Type`), `mk : List T → T`.  Today 2 (the modeller: "former
 # T is not a telescope ending in a sort"), TARGET 0 (was 2: "the
-# block's shape is not recognised" — `blockCounts?` read the index count
+# block's shape is not recognised" — `blockCounts` read the index count
 # off the recursor with the NON-nested prefix `nP + k + nC`, which the
 # auxiliary motives and minors break).  The non-nested twin is accepted
 # on every route.
@@ -2773,9 +2885,13 @@
 # rules are not read, the GENERATED rules are installed and every theorem
 # checks against them (charter item 8, GENREC update: any stream rules).
 # GENREC: official 1
-0 genrec_rules_garbage.ndjson
+# #386: the stored rules must agree with the generated ones up to
+# definitional equality, and these do not: 0 → 1, as official.
+1 genrec_rules_garbage.ndjson
 # GENREC: official 1
-0 genrec_rules_garbage_nested.ndjson
+# #386: the stored rules must agree with the generated ones up to
+# definitional equality, and these do not: 0 → 1, as official.
+1 genrec_rules_garbage_nested.ndjson
 # The stream's auxiliary recursor family omits a class a constructor
 # field reaches (`T` nested through `W` and `List`; forged by lane
 # FUSEPOS): official 1 ("Invalid recursor T.rec_1"); today 0 (the
@@ -2878,17 +2994,15 @@
 # accept (the exception is needed: the recursor's value is data read
 # off the constructor the major reduces to).
 0 acc_major_reduce.ndjson
-# The parallel install (task #329; scripts/mk_pinstall_fixtures.py):
-# 3000 definitions whose dependencies form a tree of depth log N, so the
-# install pool installs many at once.  `pinstall_ok` accepts.
-# `pinstall_reject_mid` rejects `c1500` (an undeclared constant in its
-# type) and `pinstall_dup` rejects the second `c7`, two thousand records
-# after the first: the same verdict and the same named declaration at
-# every worker count, although the pool may have installed records past
-# the rejection.
-0 pinstall_ok.ndjson
-1 pinstall_reject_mid.ndjson
-1 pinstall_dup.ndjson
+# A wide stream (scripts/mk_wide_fixtures.py): 3000 definitions whose
+# dependencies form a tree of depth log N.  `wide_ok` accepts.
+# `wide_reject_mid` rejects `c1500` (an undeclared constant in its type)
+# and `wide_dup` rejects the second `c7`, two thousand records after the
+# first: the same verdict and the same named declaration at every worker
+# count, although the pool may have checked records past the rejection.
+0 wide_ok.ndjson
+1 wide_reject_mid.ndjson
+1 wide_dup.ndjson
 # eta_struct_major_no_whnf, eta_struct_major_and_no_whnf (task #342 R2;
 # the arena's corner-cases of the same names, lean4#15351/#15371): a
 # `Prod` major and an `And` major whose head normalization does not
@@ -2943,14 +3057,6 @@
 # (500000; since #354 effectively unbounded), so con-leche does too and
 # accepts.  (At the old 100000: exit 3.)
 0 natmul_deep_major.ndjson
-# stack_fuel_offset.ndjson (tasks #353, #354): `h 3000000 ≡ 3000000`, a
-# successor chain compared one `succ` at a time, ~0.8 KB of native stack
-# per knot level (the deepest path measured).  3000000 levels exceed the
-# 1 GiB thread stack: a native stack overflow, an abort (exit 134).
-# Official accepts (3000000 levels on its native stack); target: accept.
-# (Task #353's checkFuel of 500000 made it a clean exit 3; #354 made the
-# fuel effectively unbounded, so the stack is the limit.)
-134 stack_fuel_offset.ndjson
 # --- task #353, official's `eagerReduce` flag (`m_eager_reduce`).
 # eager_open_nat.ndjson: `@id (Nat.ble (x*0 + 1000000) 999999 = false)
 # (eagerReduce (Eq.refl false))` under `x : Nat`.  The argument's type
@@ -3030,5 +3136,219 @@
 # the stored type, so each fails by a boolean `false` before its
 # certificates are inferred (before the type pins, inferring them threw
 # "application type mismatch" and the variant-fallback combinator
-# caught it).  No variant matches: DECLINE, today and as the target.
-2 natop_typepin_foreign.ndjson
+# caught it).  No variant matches: that record's job declines, which
+# `natopForeignDeclines` (tests/ConLecheTests/DeferTests.lean) pins.  The
+# stream's verdict is an earlier failure since task #480: the theorem
+# `ite_self` (fold position 97) mentions the deleted constant, a reject its
+# check phase job reports first; the operation's decline at install used
+# to overtake it.  Target verdict: 1.
+1 natop_typepin_foreign.ndjson
+# --- task #431: the STORED recursor installed once it agrees with the
+# generated one up to definitional equality (the type binder by binder).
+# stored_rec_outparam: a class with an `outParam` parameter, a structure
+# with an `autoParam` field and one with an `optParam` field — official
+# strips those annotations from the domains of the locals it creates,
+# con-leche's generator keeps them; the stored recursors are installed.
+# Official 0.
+0 stored_rec_outparam.ndjson
+# stored_rule_dom_redex / stored_type_dom_redex
+# (`scripts/mk_stored_rec_fixtures.py`): `Nat'.rec`'s rule for `succ`,
+# resp. its type's `succ` minor premise, with a field's domain written as
+# the β-redex `(fun T : Type => T) Nat'`: definitionally the generated
+# one, installed as stored.  Official (syntactic) 1; target: 0.
+0 stored_rule_dom_redex.ndjson
+0 stored_type_dom_redex.ndjson
+# stored_type_dom_bad: the same field's domain `Nat' → Nat'`: rejected
+# (official 1).
+1 stored_type_dom_bad.ndjson
+# rec_record_k_off_bad / rec_record_k_on_nested_bad / rec_record_nfields_bad /
+# rec_record_ctor_numparams_bad (`scripts/mk_rec_record_fixtures.py`, task
+# #480): the install reads a recursor's K flag, rules and firing data off
+# the record, the block's job checks them.  `MyEq.rec` (K) declaring
+# `k := false`; the auxiliary `TL.rec_1` declaring `k := true`, which
+# nothing used to compare (accepted before #480); an auxiliary rule with
+# one field too many; a constructor record with one parameter more than
+# its block.  Official 1 (inferred from ind_rec_k_bad, not run), target 1.
+1 rec_record_k_off_bad.ndjson
+1 rec_record_k_on_nested_bad.ndjson
+1 rec_record_nfields_bad.ndjson
+1 rec_record_ctor_numparams_bad.ndjson
+# rec_nested_container_params: block `T` with one parameter nested through
+# the two-parameter container `P2`, whose auxiliary recursor's rule fires
+# in two `rfl`s; the firing data come off the record without looking `P2`
+# up.  Official 0, target 0.
+0 rec_nested_container_params.ndjson
+
+# Task #480: axioms' and pinned operations' checks are jobs of the check
+# phase, the first failure in fold order is the verdict
+# (scripts/mk_defer_order.py).
+#   defer_value_reject_then_axiom: a value reject before a non-standard
+#     axiom.  The reject: until #480 this was 2, the axiom's decline at
+#     install overtaking every value check.  Target verdict: 1.
+#   defer_axiom_then_value_reject: the same two records swapped.  Target: 2.
+#   natop_perturbed_used_later, natop_perturbed_later_reject: a perturbed
+#     pinned `Nat.land` and after it a theorem that may fire its literal
+#     fast path before its job has run, right or wrong by any reading of
+#     the operation.  The operation's decline, earlier in the fold.  Target: 2.
+1 defer_value_reject_then_axiom.ndjson
+2 defer_axiom_then_value_reject.ndjson
+2 natop_perturbed_used_later.ndjson
+2 natop_perturbed_later_reject.ndjson
+# Task #480: the projection guard, computed at the use (`projGuardRows`,
+# official `infer_proj`).  proj_guard_* derive from prop_proj_raw
+# (scripts/mk_proj_guard_fixtures.py), all as official:
+#   proj_guard_data_bad: field 1, data.
+#   proj_guard_prop_after_data: field 2, a proposition; the data before it
+#     is used by no later field.
+#   proj_guard_used_data_bad: field 4, a proposition about field 3, data.
+#   proj_guard_past_used_data_bad: field 5, a proposition after field 3, data
+#     a later field uses.
+#   proj_guard_unfold (tests/e2e/src): a field whose type's sort is only
+#     visible after unfolding a definition; `whnf` at the use sees it.
+1 proj_guard_data_bad.ndjson
+0 proj_guard_prop_after_data.ndjson
+1 proj_guard_used_data_bad.ndjson
+1 proj_guard_past_used_data_bad.ndjson
+0 proj_guard_unfold.ndjson
+# eta_prop_struct (tests/e2e/src, task #480): a `Prop` structure is structure-like,
+# as official's `is_non_rec_structure` has it.  Official 0 (Lean elaborated it), target 0.
+0 eta_prop_struct.ndjson
+# ind_defhead_* (tests/e2e/src, task #480): a former stored at a definition, its block
+# checked at the reducts, what a use needs computed at the use.  ind_defhead_chain: through
+# two definitions, with ι; official 0 (run).  ind_defhead_prop_field: a `Prop` family with a
+# data field stays accepted; official 0 (run).  ind_defhead_prop_field_proj_bad: projecting
+# that field; official 1 (run).  ind_defhead_sort_u: a projection at `Sort u`; official 0
+# (run).  ind_defhead_lit_family: `Bool` stored at a definition, declined: the frontend puts a stream's
+# `Bool` ahead of the definition it is declared at; official 0 (run).
+0 ind_defhead_chain.ndjson
+0 ind_defhead_prop_field.ndjson
+1 ind_defhead_prop_field_proj_bad.ndjson
+0 ind_defhead_sort_u.ndjson
+2 ind_defhead_lit_family.ndjson
+# -- task #480: a pinned block is the stream's constants, at the record's own
+# level-parameter names; the comparison with the pin (up to those names) is
+# the block's check, a job in fold order.  Forged by
+# `scripts/mk_basis_names_fixtures.py`; official's verdicts were run
+# (`checkers/official-v4.33.0`).
+# `Eq.{w}`, `Eq.refl.{w}`, `Eq.rec.{u, w}`: the pin up to its names.
+0 basis_eq_other_names.ndjson
+# `Eq.rec.{m, w}`: the motive's parameter at another name.  Official rejects
+# ("Invalid recursor Eq.rec": it compares the record with the recursor it
+# generates, names included).  ACCEPTED here, as the base did: the comparison is
+# up to the names, and the rule still reads `Eq.refl`'s parameter at `w`.
+0 basis_eq_rec_motive_name.ndjson
+# `Eq.rec.{w, m}`: the pin's positions, but the rule's by-name reading of
+# `Eq.refl`'s parameter is the motive's.  Rejected, by official as well ("Invalid
+# recursor Eq.rec").
+1 basis_eq_rec_swapped_names_bad.ndjson
+# `Eq.refl.{v}` under `Eq.{w}`.  Official rejects ("invalid reference to undefined
+# universe level parameter 'v'").  Rejected here as well, for the constructor's
+# universe parameters, before the reserved names' check (task #494).
+1 basis_eq_refl_other_name_bad.ndjson
+# `Nat.rec`'s `Nat.zero` rule at the wrong right-hand side, from the job, at the
+# block's fold position.  Rejected, by official as well ("Invalid recursor Nat.rec").
+1 basis_nat_rule_bad.ndjson
+# the same with the rest of the stream reading the name: every later record is
+# installed before the block's job can report, and the verdict is the job's, in
+# fold order.  Rejected, by official as well.
+1 basis_nat_rule_used_bad.ndjson
+# -- task #493: a pinned block is installed and checked like any other block;
+# the reserved names' check (`basisNamesOk`) runs after.  `basis_eq_mixed_block`
+# (source in tests/e2e/src): a mutual block declaring `Eq`, with the toolchain's
+# shape, next to a twin type.  Its names are not the pinned block's, so `Eq` sits
+# in another block: REJECT at the reserved names' check (it was rejected before
+# #493 too, by the constant check).  Official accepts it (nothing reserves `Eq`
+# in a `prelude` file); target verdict: 1, the reserved names are this checker's.
+1 basis_eq_mixed_block.ndjson
+# -- quotient records at the stream's names (ruling 2026-11-05).  Official's kernel
+# makes the package itself and reads no record: it accepts all of these (run).
+# `Quot.lift`'s and `Quot.ind`'s reductions at a universe-polymorphic `α`.
+0 quot_lift_iota.ndjson
+# `Quot.{w}`, the others at the exporter's names.
+0 basis_quot_other_names.ndjson
+# every record at its own names, the reductions used: no record reads another's.
+0 basis_quot_all_other_names.ndjson
+# `Quot.lift.{y, z}` whose result is another variable: not the pin beyond its names.
+# DECLINE, as a quotient record that disagrees with its pin always did.
+2 basis_quot_lift_type_bad.ndjson
+# -- task #480: the literal fast path fires on a certified operation's name, as official's.
+# Only a definition may take such a name (its job holds it to the pin): a theorem or a family
+# there is refused.  natop_foreign_thm, natop_foreign_former: official 0 (run); 1 by the
+# maintainer's ruling that a foreign declaration at a certified name is a reject.
+# bool_ctor_name_former: a family at a `Bool` constructor's name, which the comparisons' fast
+# path produces by name; official 0 (run), 1 here, a prelude-only corner.
+1 natop_foreign_thm.ndjson
+1 natop_foreign_former.ndjson
+1 bool_ctor_name_former.ndjson
+# -- task #480: a projection's guard at a def-headed structure asks each row to be zero
+# wherever the walked sort is, by zero-ness: exact, and it takes no fuel.  level_fuel_guard:
+# the row and the sort at a level chain deeper than `Level.leq`'s fuel, which the former test
+# read as a refusal.  Official 0 (run); the structure of `ind_defhead_sort_u` passes official's
+# block check, so its rows lie under its sort at every level.  `scripts/mk_level_fuel.py`.
+0 level_fuel_guard.ndjson
+# -- task #480, K.52 read against official.  ind_nest_key_own_ctor: a key `K T T.base` naming the
+# block's own constructor, in a parameter the container's fields do not read.  Official 0 (run on
+# v4.35.0, `tc.check(nested, …)` runs in the environment holding the whole block); here 1, "unknown
+# constant", from the constructor's constant check at the formers' environment, not from K.52.
+# Master rejects it too, so it is no regression of #480; the target is open: such a block may not be
+# desirable at all, and the elaborator does not produce it.
+# ind_defhead_param_bad (`scripts/mk_defhead_param_fixture.py`, base ind_defhead_param_base): member
+# 0 stored at a definition holding its parameters.  Official 1 (run, the source's `mk_official`,
+# `get_params`, "incorrect number of parameters"); here 0, a deliberate accept beyond official.
+1 ind_nest_key_own_ctor.ndjson
+0 ind_defhead_param_base.ndjson
+0 ind_defhead_param_bad.ndjson
+# -- task #480: the shape a literal's meaning reads, checked at the declaration.  ind_lit_shape_char: a
+# `Char` of another shape; official 0 (run), here 2, a deliberate refusal.  ind_defhead_lit_char: a
+# `Char` at a definition, whose declared type is not that shape; official 0 (run), here 2.
+2 ind_lit_shape_char.ndjson
+2 ind_defhead_lit_char.ndjson
+
+# -- task #480, acyclicity with no install phase: a job reads only the entries below its record,
+# so a declaration cannot read itself or a later one.  cycle_self_def: def a := a.  cycle_mutual:
+# a := b, b := a.  cycle_forward: a := b before a harmless b.  Each refused at a, "unknown
+# constant".  Official 1 inferred (its environment holds only the past), not run; target 1.
+1 cycle_self_def.ndjson
+1 cycle_mutual.ndjson
+1 cycle_forward.ndjson
+
+# -- task #492, the projection guard on a wide `Prop` structure: prop_struct_proj_wide is a
+# 150-field `Prop` structure over a `Nat` parameter and its 150 projection functions.  Each
+# `.proj` asks, for every earlier field, whether a later field uses it; asked of the stored
+# constructor type (the parameter a loose variable in every field) that walked the whole
+# remainder each time.  The guard now opens the parameters first and steps the fields as the
+# official `infer_proj` does (`projGuardRowsGo`), each answer a packed-bound read.  Accepted
+# before and after; official 0 (run); target 0.
+0 prop_struct_proj_wide.ndjson
+# --- Task #494: an inductive block whose records cannot be read as one is
+# --- an invalid input, rejected with the reason.  Derived from
+# --- corner_fuseloop_order_base (its block `W.{u} (α : Sort u)`, accepted) by
+# --- scripts/mk_block_defect_fixtures.py, one change each: block_no_type (no
+# --- inductive type; official 1), block_params_exceed (more parameters than
+# --- the type's binders; official 1), block_ctor_params (the constructor's
+# --- parameter count differs from the block's; official 1), block_ctor_levels
+# --- (the constructor declares no universe parameter, `W` declares `u`;
+# --- official 1) and block_no_rec (no recursor record).  The official kernel
+# --- accepts block_no_rec, because it takes inductive types and constructors
+# --- and generates the recursors itself; con-leche's input format carries
+# --- each block's recursors, so a block without them is an invalid input
+# --- here.
+1 block_no_type.ndjson
+1 block_params_exceed.ndjson
+1 block_ctor_params.ndjson
+1 block_ctor_levels.ndjson
+1 block_no_rec.ndjson
+# -- task #520, the cost of the binder-telescope congruence (scripts/mk_defeq_binding_fixtures.py).
+# defeq's ∀/λ congruence used to open one binder at a time, re-instantiating the whole remaining
+# body at each binder: n binders over a body of size m cost O(n·m).  It now has the official
+# `is_def_eq_binding` shape (`defeqBinders`): each domain and the two innermost bodies opened once,
+# in one bulk pass each (O(n + m)); these fixtures pin that shape.
+# defeq_binding_pi / defeq_binding_lam: two telescopes of 40 binders over 100 conjuncts, each
+# mentioning every binder, defeq only after a delta step in the last conjunct.
+# defeq_binding_mutual: a 10-structure mutual block nested through Array/Option/String (lean4's
+# deriving_mutual_block bench without `deriving`), its `brecOn` families (`go`, `eq`: long
+# telescopes over large bodies).  All accepted; official 0 (run); target 0.  They pin the shape,
+# not a cost: the scaling measurements are in DESIGN.md's task #520 record.
+0 defeq_binding_pi.ndjson
+0 defeq_binding_lam.ndjson
+0 defeq_binding_mutual.ndjson

@@ -47,7 +47,7 @@ denotes `pt` and its proof fields denote `pt`, so projection-of-`pt`
 is the *correct* answer by proof irrelevance — iota and membership
 hold with one uniform `projS`, no per-structure variant.  The squash
 membership law carries the proof-field premise `PropS` (every field
-set a truth value — the levelwise `structSort = 0 → fieldSort = 0`
+set a truth value — the levelwise `structSort = 0 → field sort = 0`
 bound); that is not a datum on the projection but the per-use
 legality the checker's own `infer_proj` Prop restriction discharges.
 The two regimes are disjoint by the same separation: graph-regime
@@ -133,7 +133,7 @@ noncomputable def teleNth : {n : Nat} → TeleS V n → Nat → List V → V
   | _, .cons _ _, _ + 1, [] => empty
 
 /-- `PropS T`: every field set is a truth value, hereditarily — the
-levelwise `structSort = 0 → fieldSort = 0` bound, telescope-side. -/
+levelwise `structSort = 0 → field sort = 0` bound, telescope-side. -/
 def PropS : {n : Nat} → TeleS V n → Prop
   | _, .nil => True
   | _, .cons A B => A ∈ˢ (univZero : V) ∧ ∀ a, a ∈ˢ A → PropS (B a)

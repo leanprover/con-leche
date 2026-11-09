@@ -82,7 +82,7 @@ def andRecRaw : ConstantInfo :=
     pi "t" (ap2 (cnst andName) (bv 3) (bv 2)) <|
     .app (bv 2) (bv 0)⟩
     4 4
-    [rule andIntroName 2 <|
+    false [rule andIntroName 2 <|
       lmI "a" prop <|
       lmI "b" prop <|
       lmI "motive" andRecMotive <|

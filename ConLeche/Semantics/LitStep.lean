@@ -66,6 +66,6 @@ theorem natLit_factsAV {ρ : Nat → V} {za sa natA : Term}
 open ConLeche (CheckMode Env Expr Name inferTypeCore inferBody
   natLitSupported)
 
-variable {μ : CheckMode} {env : Env} {φ : Name → Nat} {fuel : Nat}
+variable {env : Env} {φ : Name → Nat} {fuel : Nat}
 
 end ConLeche.Semantics

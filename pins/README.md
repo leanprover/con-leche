@@ -4,10 +4,10 @@ Committed **generated data**: one pin dump per DISTINCT set of
 pinned definitions (named after the toolchain that first needed it),
 and the built-in prelude of the repository's own toolchain:
 
-    pins/leanprover-lean4-nightly-nightly-2026-09-10.json     the dump matching the repository toolchain
+    pins/leanprover-lean4-nightly-nightly-2026-09-10.json     the dump matching the repository toolchain (v4.35.0)
     pins/leanprover-lean4-v4.33.0.json                        further dumps ("pin variants")
     pins/leanprover-lean4-v4.34.0-rc2.json
-    pins/leanprover-lean4-nightly-2026-10-30.prelude.ndjson              the built-in prelude
+    pins/leanprover-lean4-v4.35.0.prelude.ndjson              the built-in prelude
 
 ## The pin dump (`<toolchain>.json`)
 

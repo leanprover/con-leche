@@ -5,6 +5,7 @@ public import ConLeche.Frontend.ExportC
 public import ConLeche.Model.StreamConsts
 import ConLecheTests.PreludeTests
 import ConLecheTests.ScanTests
+import ConLecheTests.OleanTests
 import ConLecheTests.Axioms
 import ConLecheTests.FileTests
 import ConLecheTests.NestedTests
@@ -15,14 +16,16 @@ import ConLecheTests.CondCompare
 import ConLecheTests.LetDenotes
 import ConLecheTests.StreamTests
 import ConLecheTests.RoundsTests
+import ConLecheTests.CheckerIOTests
 import ConLecheTests.DisplayTests
+import ConLecheTests.JobsTests
 /- The suite's `#guard`s are EVALUATED, so every constant they name must be
 reachable from meta code too; a module needed at both levels is imported
 twice (`public import` for the `example`s' statements, `meta import` for
 the evaluation). -/
 meta import ConLeche
 meta import ConLeche.Frontend.ExportC
-meta import ConLeche.Cached.Installed
+meta import ConLeche.Cached.Decls
 meta import ConLeche.Model.StreamConsts
 
 public section
@@ -58,16 +61,6 @@ each naming the theorem family that depends on it. -/
 -- trusted lane (the reference kernel runs none of them).
 #guard CheckMode.verifiedChecks .verified == true
 #guard CheckMode.verifiedChecks .trusted == false
-
--- The eager towers (task #353, official's `m_eager_reduce`): each runs
--- its base mode's checks, with the eager flag set; only `.verified`
--- itself is the model tier's mode.
-#guard CheckMode.verifiedChecks .verifiedEager == true
-#guard CheckMode.verifiedChecks .trustedEager == false
-#guard CheckMode.toEager .verified == .verifiedEager
-#guard CheckMode.toEager .trusted == .trustedEager
-#guard (CheckMode.toEager .verified).eager && !CheckMode.eager .verified
-#guard CheckMode.isVerified .verified && !CheckMode.isVerified .verifiedEager
 
 def dummyAxiom : Declaration :=
   .axiomDecl { name := .str .anonymous "foo", levelParams := [], type := .sort .zero }
@@ -209,6 +202,7 @@ merits, not silently dropped (the pinned basis install never consults
 it). -/
 
 private def basisModelExport : String := String.intercalate "\n" [
+  "{\"meta\":{}}",
   "{\"in\":1,\"str\":{\"pre\":0,\"str\":\"Eq\"}}",
   "{\"in\":2,\"str\":{\"pre\":1,\"str\":\"_model\"}}",
   "{\"in\":3,\"str\":{\"pre\":0,\"str\":\"Empty\"}}",
@@ -226,7 +220,6 @@ private def declCName : ConLeche.Declaration → Name
   | .axiomDecl cv | .defnDecl cv _ _ | .thmDecl cv _ | .opaqueDecl cv _ =>
     cv.name
   | .quotDecl _ cv => cv.name
-  | .basisDecl _ => .anonymous
   | .indDecl b _ => (b.head?.map (·.name)).getD .anonymous
 
 private def eqModelName : Name := Name.anonymous |>.str "Eq" |>.str "_model"
@@ -242,7 +235,7 @@ private def emptyModelAuxName : Name :=
 -- … and the shipped driver accepts them as ordinary definitions.
 #guard match Frontend.parseExportD basisModelExport with
   | .ok ⟨ds⟩ =>
-    (ConLeche.Cached.checkDecls .verified natOpPinSets ds).toBool
+    (ConLeche.Cached.checkDecls .verified natOpPinSets ConLeche.Cached.maxNatSizeDefault ds).toBool
   | .error _ => false
 
 /-! ## Frontend: `sorryAx` is the fold's
@@ -261,6 +254,7 @@ installs nothing), `theorem usesAx : ∀ (p : Prop), p := sorryAx` (a
 use: declines), `theorem usesUse : ∀ (p : Prop), p := usesAx` (a
 transitive use), `def after : Type := Prop`. -/
 private def sorryAxExport : String := String.intercalate "\n" [
+  "{\"meta\":{}}",
   "{\"in\":1,\"str\":{\"pre\":0,\"str\":\"sorryAx\"}}",
   "{\"in\":2,\"str\":{\"pre\":0,\"str\":\"p\"}}",
   "{\"in\":3,\"str\":{\"pre\":0,\"str\":\"usesAx\"}}",
@@ -290,7 +284,7 @@ private def sorryAxExport : String := String.intercalate "\n" [
 -- name it mentions is `sorryAx`.
 #guard match Frontend.parseExportD sorryAxExport with
   | .ok r =>
-    match ConLeche.Cached.checkDecls .verified natOpPinSets r.decls with
+    match ConLeche.Cached.checkDecls .verified natOpPinSets ConLeche.Cached.maxNatSizeDefault r.decls with
     | .error (.notImplemented _, _) => true
     | _ => false
   | .error _ => false
@@ -299,7 +293,7 @@ private def sorryAxExport : String := String.intercalate "\n" [
 -- prefix up to the first use folds clean.
 #guard match Frontend.parseExportD sorryAxExport with
   | .ok r =>
-    (ConLeche.Cached.checkDecls .verified natOpPinSets (r.decls.take 1)).toBool
+    (ConLeche.Cached.checkDecls .verified natOpPinSets ConLeche.Cached.maxNatSizeDefault (r.decls.take 1)).toBool
   | .error _ => false
 
 
@@ -352,9 +346,9 @@ inference, not of reduction. -/
 private def betaRedex : Expr :=
   .app (.lam (.sort .zero) (.bvar 0)) (.sort .zero)
 
-#guard (whnfCore .verified Env.empty 100 0 betaRedex).toOption
+#guard (whnfCore .verified false Env.empty 100 0 betaRedex).toOption
   == some (.sort .zero)
-#guard (whnfCore .trusted Env.empty 100 0 betaRedex).toOption
+#guard (whnfCore .trusted false Env.empty 100 0 betaRedex).toOption
   == some (.sort .zero)
 
 /-! ## The io grade is official's `infer_only` (`ConLeche/Kernel/CoreIO.lean`)
@@ -367,13 +361,13 @@ private def ioRedex : Expr :=
   .app (.fvar 0 (.forallE (.sort .zero) (.sort .zero))) (.bvar 0)
 
 -- (a) The io grade skips the argument, in both modes.
-#guard (inferTypeCoreIO .verified Env.empty 6 1 ioRedex).toOption
+#guard (inferTypeCoreIO .verified false Env.empty 6 1 ioRedex).toOption
   == some (.sort .zero)
-#guard (inferTypeCoreIO .trusted Env.empty 6 1 ioRedex).toOption
+#guard (inferTypeCoreIO .trusted false Env.empty 6 1 ioRedex).toOption
   == some (.sort .zero)
 
 -- (b) The full grade checks it.
-#guard (inferTypeCore .verified Env.empty 6 1 ioRedex).toOption
+#guard (inferTypeCore .verified false Env.empty 6 1 ioRedex).toOption
   == none
 
 /-! ## Zero-motive recursors
@@ -389,25 +383,25 @@ e2e `corner_rec_empty_prefix`), so these drive the kernel directly. -/
 private def zNm (s : String) : Name := .str .anonymous s
 
 private def zRule (c : Name) (rhs : Expr) : RecRule :=
-  { ctor := c, nfields := 0, ctorParams := 0, fire := .plain, rhs := rhs }
+  { ctor := c, nfields := 0, fire := .plain, rhs := rhs }
 
 /-- `inductive T : Prop | c` with the zero-motive `T.rec : (t : T) → T`
 and the given rule right-hand side. -/
 private def zBlock (T : Name) (rhs : Expr) : List ConstantInfo :=
   [.indInfo ⟨T, [], .sort .zero⟩ {},
     .ctorInfo ⟨T.str "c", [], .const T []⟩ 0 0,
-    .recInfo ⟨T.str "rec", [], .forallE (.const T []) (.const T [])⟩ 0 0
+    .recInfo ⟨T.str "rec", [], .forallE (.const T []) (.const T [])⟩ 0 0 false
       [zRule (T.str "c") rhs]]
 
 /-- The kernel's recursor stage (`checkBlockRec`, the generated stage) on
 a one-member block, after the pass over the formers, the constructors
 and the classes: the number of recursors it stores. -/
 private def zRecK (block : List ConstantInfo) : Except CheckError Nat := do
-  let some p₀ := blockParts? 0 block | throw (.internal "blockParts?")
+  let p₀ ← readBlock 0 block
   let q ← checkBlockPass (pureOps .verified) Env.empty p₀ false
-  let env₂ := consBlockCtors q.p.nP q.ctorsAs q.env₁
+  let env₂ := consBlockCtors q.p.nP q.p.memberCtors q.env₁
   let out ← checkBlockRec (pureOps .verified) env₂ q.p false q.params q.tbl.toList q.rd q.cls
-    block q.cvTas
+    block
   pure out.length
 
 -- The stage REJECTS the zero-motive recursor, whatever its rule.
@@ -425,9 +419,9 @@ private def zMutual (rA rB : Expr) : Declaration :=
   let A := zNm "ZA"; let B := zNm "ZB"
   .indDecl [.indInfo ⟨A, [], .sort .zero⟩ {}, .indInfo ⟨B, [], .sort .zero⟩ {},
     .ctorInfo ⟨A.str "c", [], .const A []⟩ 0 0, .ctorInfo ⟨B.str "c", [], .const B []⟩ 0 0,
-    .recInfo ⟨A.str "rec", [], .forallE (.const A []) (.const A [])⟩ 0 0
+    .recInfo ⟨A.str "rec", [], .forallE (.const A []) (.const A [])⟩ 0 0 false
       [zRule (A.str "c") rA],
-    .recInfo ⟨B.str "rec", [], .forallE (.const B []) (.const B [])⟩ 0 0
+    .recInfo ⟨B.str "rec", [], .forallE (.const B []) (.const B [])⟩ 0 0 false
       [zRule (B.str "c") rB]] 0
 
 -- Rejected at two members too, with the right rules …

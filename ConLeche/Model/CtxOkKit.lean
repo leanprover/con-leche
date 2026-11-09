@@ -27,7 +27,7 @@ open ConLeche (CheckMode Env Expr Name)
 
 universe w
 
-variable {V : Type w} [SetTheory V] {μ : CheckMode} {env : Env}
+variable {V : Type w} [SetTheory V] {env : Env}
 variable {m : EnvModel V env} {φ : Name → Nat}
 
 namespace CtxOk

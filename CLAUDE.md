@@ -24,6 +24,14 @@ current fact changed.
     (no `public import` individually demotable).
   - `tests/trust-surface.sh` — no `unsafe`/`implemented_by`/
     `native_decide` outside the allowlisted files.
+  - `tests/plain-reach.sh` — the spec tier (`Kernel/*`) the shipped binary
+    runs, against `tests/plain-reach-allow.txt` (every entry with its
+    reason). The plain tier is specification: a reach is allowed only where
+    the spec code is the best code; otherwise the caller needs a cached
+    twin. A naive spec definition is never allowlisted.
+  - `tests/binary-link.sh` — the shipped binary links no `Lean` elaborator
+    code (no `initialize_Lean…` symbol): a proof module the driver imports
+    must not pull in `grind`/`Lean.Meta` (e.g. `Verify/Cached/DiscC4`).
   - `tests/overview-links.sh` — line-anchored links in `OVERVIEW.md` and
     `README.md`. If you move or change linked lines, re-read the citing
     paragraph, then `tests/overview-links.sh --update`.
@@ -124,11 +132,14 @@ arm or induction case). No custom tactic, macro or elab.
   import `ConLeche/Verify/*` (the theorems about kernel functions that
   need no model, task #329's maintainer ruling), and nothing else of
   the theory: still never `Model/*`, `SetTheory/*`, `SetModel/*`,
-  `Semantics/*`, `Term/*`, `Complete/*`. `Main.lean` is the CLI
-  (argument parsing, I/O, exit codes); `ConLeche/Driver/*` is the
-  driver proper (the install and check loops, the parallel install,
-  the phase sequencing) and is checker code like `Kernel/*` (a
-  `module` header, one `@[expose] public section`).
+  `Semantics/*`, `Term/*`, `Complete/*`. `Main.lean` holds
+  `main`: the plumbing around `runArgs`, followed by the exit;
+  `ConLeche/Driver/Cli.lean` is the CLI: the argument parse and the
+  generic `runArgs`; the rest of
+  `ConLeche/Driver/*` is the driver proper (the parse and check
+  loops, the phase sequencing), and all of it is
+  checker code like `Kernel/*` (a `module` header, one
+  `@[expose] public section`).
 * `ConLeche/Model/*` (the graded model) is imported only by itself, the
   capstone assembly (`Verify/Cached/MainC`, the `ConLeche.Verify.Cached`
   umbrella, `MainTheorem`) and `Complete/*`.
@@ -182,7 +193,6 @@ arm or induction case). No custom tactic, macro or elab.
   the toolchain (`Init.Util`'s `withPtrEq`,
   `Init.Data.Repr`, the Nat-op certificate generator's `Init.Data.Nat.*`);
   each site carries its reason.
-* Elaboration-time code (`Kernel/BasisGen`, `PinGen/*`, the pin and
-  basis splices) is `meta`: `meta section`, `public meta import`; a
+* Elaboration-time code (`PinGen/*`, the pin splices) is `meta`: `meta section`, `public meta import`; a
   module needed at both levels is imported twice (`public import X` +
   `meta import X`).

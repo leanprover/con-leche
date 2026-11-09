@@ -5,7 +5,6 @@ public import ConLeche.Verify.Inductives.NestCallSyn
 public import ConLeche.Verify.Inductives.ClassMatchRun
 public import ConLeche.Verify.Inductives.RecCheckRun
 public import ConLeche.Verify.Inductives.ClassGenMinorSyn
-import ConLeche.Verify.BridgeWfImp
 import ConLeche.Verify.Denote.IndFrame
 import ConLeche.Verify.InferLemmas
 import ConLeche.Verify.ExceptBind

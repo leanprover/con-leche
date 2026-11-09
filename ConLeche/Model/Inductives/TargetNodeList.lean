@@ -47,13 +47,13 @@ open ConLeche (CheckMode Env Expr Name Level NestCtx NestHole NestKey PosTree Ta
 
 universe w
 
-variable {V : Type w} [SetTheory V] {μ : CheckMode}
+variable {V : Type w} [SetTheory V]
 
 /-! ## The list's data -/
 
 section Data
 
-variable {envC : Env} (mpC : EnvModelM V μ envC) (ctx : NestCtx) (d : BlockData V)
+variable {envC : Env} (mpC : EnvModelM V envC) (ctx : NestCtx) (d : BlockData V)
   (ns : List PosTree) (ψ : Name → Nat) (ρ : Nat → V) (xs : List V)
 
 /-- Node `b`'s recorded clause: the block at `0`, the selected block of
@@ -138,7 +138,7 @@ theorem nlDp_lt (ns : List PosTree) (b : Nat) (hb : b < ns.length + 1) : nlDp ns
     omega
 
 /-- A selected block is recorded, once the default is. -/
-theorem lfpSel_mem_blocks {env : Env} {mp : EnvModelM V μ env} {D0 : LfpDatum V}
+theorem lfpSel_mem_blocks {env : Env} {mp : EnvModelM V env} {D0 : LfpDatum V}
     (hD0 : D0 ∈ mp.lfpBlocks) (n : Name) : lfpSel mp D0 n ∈ mp.lfpBlocks := by
   classical
   unfold lfpSel
@@ -148,7 +148,7 @@ theorem lfpSel_mem_blocks {env : Env} {mp : EnvModelM V μ env} {D0 : LfpDatum V
 
 /-- **The node facts the class tie reads** (`tgtNodeTie`'s node premises),
 at every node of the list. -/
-structure NodeListFacts {envC : Env} (mpC : EnvModelM V μ envC) (ctx : NestCtx)
+structure NodeListFacts {envC : Env} (mpC : EnvModelM V envC) (ctx : NestCtx)
     (ns : List PosTree) : Prop where
   /-- the key's container and every group member lie in one recorded block -/
   blk : ∀ t ∈ ns, ∀ n ∈ t.grp.map (·.1),
@@ -176,7 +176,7 @@ node's key read back. -/
 /-- **The presentation's DYNAMIC part over a node list**: the admissible
 frames, their three kit facts, and the calls at the call relation `call` —
 stated at the list's data. -/
-structure TgtNodeDyn (μ : CheckMode) (F : Nat) {envC : Env} (mpC : EnvModelM V μ envC)
+structure TgtNodeDyn (F : Nat) {envC : Env} (mpC : EnvModelM V envC)
     (ctx : NestCtx) (d : BlockData V) (p : BlockShape) (formerTys : List Expr)
     (out : List (ConstantVal × TargetMajor × List Expr)) (Dc : Nat → LfpDatum V)
     (mc : Nat → Nat) (cvc : Nat → ConstantVal) (ns : List PosTree) (ψ : Name → Nat)
@@ -258,7 +258,7 @@ end Dyn
 
 section Build
 
-variable {envC : Env} {mpC : EnvModelM V μ envC} {ctx : NestCtx} {d : BlockData V}
+variable {envC : Env} {mpC : EnvModelM V envC} {ctx : NestCtx} {d : BlockData V}
   {p : BlockShape} {formerTys : List Expr} {out : List (ConstantVal × TargetMajor × List Expr)}
   {Dc : Nat → LfpDatum V} {mc : Nat → Nat} {cvc : Nat → ConstantVal} {ns : List PosTree}
   {ψ : Name → Nat} {ρ : Nat → V} {xs : List V} {F : Nat}
@@ -319,7 +319,7 @@ theorem tgtNodePres_of_list (hcov : LfpCover mpC []) (hd0 : d.toLfp ∈ mpC.lfpB
     (hnCt : ∀ c, c < (tgtRs out).length →
       blockRecNCt (tgtRs out) c = (tgtClsD d Dc out c).nctors (tgtClsM mc p out c))
     {call : List V → Nat → Nat → List V → V → Prop}
-    (Dy : TgtNodeDyn μ F mpC ctx d p formerTys out Dc mc cvc ns ψ ρ xs call)
+    (Dy : TgtNodeDyn F mpC ctx d p formerTys out Dc mc cvc ns ψ ρ xs call)
     (hfrT : NodeFrameTie mpC.base2.acval ctx p out ns ψ ρ xs envC F formerTys)
     (hcover : NodeListCover mpC.base2.acval envC ctx d p out ns ψ ρ xs F formerTys) :
     ∃ P : TgtNodePres envC mpC.base2.acval p out d Dc mc cvc ψ ρ xs call,

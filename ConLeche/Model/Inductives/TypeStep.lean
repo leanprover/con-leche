@@ -72,8 +72,8 @@ claim puts its reading in its type's, the type is a type (so the sort
 test's whnf step is an equation, "not pt" source (1)), and it reads as a
 universe, whose members are types. -/
 theorem gradedTy_of_sort (hin : RulesInputs V m φ) {F d : Nat} {e ty : Expr} {u : Level}
-    (hty : ConLeche.inferTypeCore .verified env F d e = .ok ty)
-    (hsort : ConLeche.ensureSortCore .verified env F d ty = .ok u) (hf : Frame d e)
+    (hty : ConLeche.inferTypeCore .verified false env F d e = .ok ty)
+    (hsort : ConLeche.ensureSortCore .verified false env F d ty = .ok u) (hf : Frame d e)
     {Δa : List Term} {ea : Term} (hC : CtxOk m φ d Δa e)
     (hea : denote m.acval env φ d e = some ea) : GradedTy V Δa ea := by
   have hI : InferSemFull m φ d e ty := infer_sound hin (ConLeche.Rules.inferTypeCore_bridge hty)

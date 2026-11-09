@@ -1,5 +1,6 @@
 module
 
+public import ConLeche.Kernel.Env
 public import ConLeche.Frontend.Export
 public import ConLeche.Cached.ExprNodes
 /- The line reader the driver calls is the SPECIFICATION, `scanLineSpec`
@@ -63,11 +64,8 @@ structure StateD where
   decls : Array Declaration := #[]
 
 /-- **One parsed record, appended** (task #293): the decoder keeps the
-file's records in the file's order.  What used to sit here was the
-prelude dedupe — a basis block the prelude held dropped by kind, a
-record under a prelude name dropped when identical and DECLINING the
-stream when different — and it is `preparePrelude`'s and the fold's
-now (`ConLeche/Frontend/Prepare.lean`). -/
+file's records in the file's order; the prelude's records are `preparePrelude`'s and the fold's
+business (`ConLeche/Frontend/Prepare.lean`). -/
 def pushDecl (st : StateD) (d : Declaration) : StateD :=
   { st with decls := st.decls.push d }
 
@@ -98,11 +96,9 @@ builder's result depends on its lookups' answers alone, and that is
 what the proofs of the rounds parse use
 (`ConLeche/Verify/Frontend/Dense.lean`).
 
-The frontend tree-size budget that used to sit on the declaration-level
-expression lookup was **retired at task #215**: every consumer it
-bounded is now either name-selected (the basis-pin match) or a
-memoized DAG walk (`Expr.renameConsts`, `Expr.instantiate1`;
-`@[csimp]` in `ConLeche/Kernel/ExprOps.lean`), and the adversarial
+The declaration-level expression lookup has no tree-size budget: every consumer is either
+name-selected (the basis-pin match) or a memoized DAG walk (the cached tier's,
+`ConLeche/Cached/ExprOpsC.lean`), and the adversarial
 DAG-tower fixtures in `tests/e2e` are the standing gate in its place —
 a limit told a user "no", a fixture tells *us* which walker
 regressed. -/
@@ -234,8 +230,7 @@ def indPiTeleLen : Expr → Nat
 
 /-- One recursor rule of an inductive record, resolved. -/
 @[specialize] def ruleOfF (nm : Nat → M Name) (_lv : Nat → M Level) (ex : Nat → M Expr) (ru : RuleRec) : M RecRule := do
-  pure (RecRule.mk (← nm ru.ctor) ru.nfields 0 .plain
-    (← ex ru.rhs) false false)
+  pure (RecRule.mk (← nm ru.ctor) ru.nfields .plain (← ex ru.rhs))
 
 /-- **An inductive record, validated** (tasks #217, #228, #271): the
 half of the record's processing that reads the state and changes
@@ -352,18 +347,6 @@ state need not look here at all. -/
   let nested := tys.any (·.numNested != 0)
   let nTypes := tys.length
   let nCtors := cts.length
-  -- official's `is_K_target`: the block is a `Prop`, has ONE type
-  -- with ONE constructor, and that constructor takes only the
-  -- parameters.  At a former whose declared type is not a syntactic
-  -- Π-telescope ending in a sort (task #195) the sort cannot be read
-  -- here and the flag is left to the install.
-  let kExpected? : Option Bool :=
-    match tyTypes, listed, cts with
-    | [ty], [[_]], [c] =>
-      match ty.piResult with
-      | .sort s => some (c.numFields == 0 && Level.isEquiv s .zero == some true)
-      | _ => none
-    | _, _, _ => some false
   for r in (if nested then [] else rcs) do
     let rn ← nm r.cv.name
     unless r.numParams == nPd do
@@ -375,10 +358,6 @@ state need not look here at all. -/
     unless r.numMinors == nCtors do
       return .inl (.invalid s!"recursor {rn} declares {r.numMinors} minor premises; \
         the block has {nCtors} constructors")
-    if let some kE := kExpected? then
-      unless r.k == kE do
-        return .inl (.invalid s!"recursor {rn} declares k := {r.k}; the generated \
-          recursor of this block is{if kE then "" else " not"} K-like")
     -- `numIndices` of `T.rec` is what is left of `T`'s own telescope
     -- once the parameters are peeled; unreadable at a former declared
     -- at a definition, and then not checked
@@ -403,16 +382,11 @@ state need not look here at all. -/
     let rules ← r.rules.mapM (ruleOfF nm lv ex)
     pure (ConstantInfo.recInfo (← cvOfF nm lv ex r.cv)
       (r.numParams + r.numMotives + r.numMinors + r.numIndices)
-      (r.numParams + r.numMotives + r.numMinors) rules)
+      (r.numParams + r.numMotives + r.numMinors) r.k rules)
   let block := types ++ ctors ++ recs
-  -- **EVERY BLOCK IS AN `indDecl`** (task #293): the basis-pin match
-  -- that used to stand here — a name pre-filter (task #215) and then
-  -- `canonEqList` against the five pinned blocks — is
-  -- `preparePrelude`'s (`ConLeche/Frontend/Prepare.lean`), which
-  -- retags a matching block to its `basisDecl` kind before the fold
-  -- sees it.  A block under a pinned name that does NOT match keeps
-  -- its `indDecl` form and is rejected by the fold's reserved-name
-  -- check, exactly as before.
+  -- **EVERY BLOCK IS AN `indDecl`**: the fold recognises a pinned block by
+  -- its members' names (`basisNameHit`) and its check compares it with the
+  -- pin.
   return .indDecl block nPd
 
 /-- The record's own semantics: the declaration kinds, producing
@@ -427,8 +401,7 @@ changed, from key lookups in a DOM to fields of a syntax record. -/
       return .inr (.declined "unsafe axiom")
     -- **`Quot.sound` is the FOLD's** (task #293): the axiom record is
     -- forwarded like any other, and the fold compares it with the
-    -- pinned soundness axiom (`checkDecl`'s `.axiomDecl` arm) — the
-    -- decline on a mismatch was the parser's and is not any more.
+    -- pinned soundness axiom (`checkDecl`'s `.axiomDecl` arm).
     return .inl (.axiomDecl cvp)
   | .defn cvr value hints safety =>
     let cvp ← cvOfF nm lv ex cvr
@@ -455,10 +428,8 @@ changed, from key lookups in a DOM to fields of a syntax record. -/
     -- **ONE RECORD PER `#QUOT` LINE** (task #293): the file declares
     -- the quotient package as four records, and the decoder emits four
     -- — the constant as the file declares it, at the kind the file
-    -- declares it at.  The comparison with the pinned block
-    -- (`preparePrelude`, which retags a matching record to
-    -- `basisDecl .quotK`) and the decline on a mismatch (the fold's
-    -- `.quotDecl` arm) are not the parser's any more.
+    -- declares it at.  The comparison with the slot's pin and the decline
+    -- on a mismatch are the fold's (`checkQuotRecord`).
     let cv ← cvOfF nm lv ex cvr
     let qk ← match kind with
       | "type" => pure QuotKind.type
@@ -492,10 +463,11 @@ and `unresolvedConstsError`); the parser owns no semantic decision. -/
 def applyDeclD (st : StateD) (d : @& DeclRec) : M (StateD ⊕ RecordVerdict) :=
   processLineCoreD st d
 
-/-- **The semantic layer**: one scanned line applied to the parse
-state, reading the fields of the syntax record the byte recogniser
-produced (`ConLeche/Frontend/Scan/Fast.lean`, task #256). -/
-@[inline] def applyLine (st : StateD) (r : @& LineRec) : M (StateD ⊕ RecordVerdict) :=
+/-- **One record applied** to the parse state, reading the fields of the
+syntax record the byte recogniser produced
+(`ConLeche/Frontend/Scan/Fast.lean`, task #256); the header and a blank
+line change nothing (where they may stand is `applyLine`'s). -/
+@[inline] def applyRecord (st : StateD) (r : @& LineRec) : M (StateD ⊕ RecordVerdict) :=
   match r with
   | .expr i e => do pure (.inl (← parseExprEntryD st i e))
   | .name i n => do pure (.inl (← parseNameEntryD st i n))
@@ -503,6 +475,28 @@ produced (`ConLeche/Frontend/Scan/Fast.lean`, task #256). -/
   | .decl d => applyDeclD st d
   | .header => pure (.inl st)
   | .blank => pure (.inl st)
+
+/-- **Where a line may stand** (task #488, issue #15): the format's
+first line is its `meta` header (`first`), as lean4export writes it and
+Lean's reader skips it, and every later line is a record — the header
+only first, every other record never first, a blank line nowhere.  What
+is in the header is read loosely (the recogniser's balanced object). -/
+@[inline] def LineRec.placed (first : Bool) : LineRec → Bool
+  | .header => first
+  | .blank => false
+  | _ => !first
+
+/-- What a line that stands where it may not is told. -/
+def LineRec.misplaced : LineRec → String
+  | .header => "a meta line after the first line"
+  | .blank => "a blank line"
+  | _ => "the first line is not the meta header"
+
+/-- **The semantic layer**: one scanned line, after `lineNo` lines,
+applied to the parse state if it stands where it may. -/
+@[inline] def applyLine (st : StateD) (r : @& LineRec) (lineNo : Nat) :
+    M (StateD ⊕ RecordVerdict) :=
+  if r.placed (lineNo == 0) then applyRecord st r else throw r.misplaced
 
 /-! ## The line feed and the drivers -/
 
@@ -535,15 +529,16 @@ def ParseResultD.ofState (st : StateD) : ParseResultD :=
   ⟨st.decls⟩
 
 /-- Scan and apply the LAST line of a stream — the one no newline
-ends.  A syntactic failure is reported at its offset in the line. -/
+ends — after `lineNo` lines.  A syntactic failure is reported at its
+offset in the line. -/
 def applyFinalLine (st : StateD) (b : @& ByteArray) (i : USize)
     (lineNo : Nat) : Except (CheckError × Nat) StateD :=
   match scanLineSpec b i with
-  | .err e => .error (.internal (ScanErr.render ⟨e.offset - i.toNat, e.what⟩), lineNo)
+  | .err e => .error (.internal (ScanErr.render ⟨e.offset - i.toNat, e.what⟩), lineNo + 1)
   | .ok r _ =>
-    match applyLine st r with
-    | .error msg => .error (.internal msg, lineNo)
-    | .ok (.inr v) => .error (v.toError, lineNo)
+    match applyLine st r lineNo with
+    | .error msg => .error (.internal msg, lineNo + 1)
+    | .ok (.inr v) => .error (v.toError, lineNo + 1)
     | .ok (.inl st) => .ok st
 
 /-- Every COMPLETE line of the chunk from `i`, applied in order: the
@@ -571,7 +566,7 @@ def feedChunk (st : StateD) (b : @& ByteArray) (i : USize) (lineNo : Nat) :
       -- pattern of a machine-word type does not fire.)
       if j == 0 then .ok (st, lineNo, i)
       else
-        match applyLine st r with
+        match applyLine st r lineNo with
         | .error msg => .error (.internal msg, lineNo + 1)
         | .ok (.inr v) => .error (v.toError, lineNo + 1)
         | .ok (.inl st) =>
@@ -604,7 +599,7 @@ def parseBytes (b : ByteArray) :
   if b.size ≥ USize.size then throw sizeError
   let (st, lineNo, tail) ← feedChunk .init b 0 0
   if tail < b.usize then
-    let st ← applyFinalLine st b tail (lineNo + 1)
+    let st ← applyFinalLine st b tail lineNo
     return .ofState st
   else
     return .ofState st
@@ -620,7 +615,7 @@ incomplete tail is put in front of the new bytes, every complete line
 of the buffer is fed, and the new incomplete tail is cut off for the
 next chunk; `total` counts the bytes read before this chunk, for the
 size guard.  This is the step the streaming reader takes
-(`serialLoop`, `ConLeche/Frontend/Stream.lean`, and the rounds parse's
+(`parseFileS`, `ConLeche/Frontend/Stream.lean`, and the rounds parse's
 fallback; the rounds parse proves each of its windows one more stretch
 of these steps, `GOK.window`), pure, so that
 `parseChunks` below — the same step folded over a list of chunks — is
@@ -642,7 +637,7 @@ def chunkFinish (st : StateD) (carry : ByteArray) (lineNo : Nat) :
     Except (CheckError × Nat) ParseResultD :=
   if carry.isEmpty then .ok (.ofState st)
   else
-    match applyFinalLine st carry 0 (lineNo + 1) with
+    match applyFinalLine st carry 0 lineNo with
     | .error e => .error e
     | .ok st => .ok (.ofState st)
 

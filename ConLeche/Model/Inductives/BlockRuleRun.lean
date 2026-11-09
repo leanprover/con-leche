@@ -1,12 +1,12 @@
 module
 
+import ConLeche.Verify.Denote.IndFrame
 import ConLeche.Verify.Inductives.RecStage
 public import ConLeche.Model.Inductives.BlockRuleFit
 import ConLeche.Model.Inductives.BlockRecTyShapeRun
 import ConLeche.Model.Inductives.BlockRecOpenerRead
 import ConLeche.Verify.Rules.Bridge
 import ConLeche.Model.Rules.Recompose
-import ConLeche.Model.Tiers
 import ConLeche.Model.Inductives.BlockRecIdxConv
 
 public section
@@ -26,7 +26,7 @@ open ConLeche.Term ConLeche.Verify
 
 open ConLeche (CheckMode Env Expr Name Level ConstantVal ConstantInfo)
 
-variable {V : Type w} [SetTheory V] {μ : CheckMode}
+variable {V : Type w} [SetTheory V]
 
 /-! ## Opener lists -/
 

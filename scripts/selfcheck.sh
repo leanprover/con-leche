@@ -6,7 +6,7 @@
 # accept the proof that says so.
 #
 # WHAT IS EXPORTED.  Not "the whole imported environment": `ConLeche` reaches
-# `Lean` (through `ConLeche/Kernel/BasisGen.lean`'s elaborator and
+# `Lean` (through `ConLeche/PinGen`'s elaborators and
 # `ConLeche/Frontend/Export.lean`'s JSON reader), and that environment holds
 # ~233k constants, the overwhelming majority of them elaborator internals
 # no declaration of ours depends on.  What is exported is **every

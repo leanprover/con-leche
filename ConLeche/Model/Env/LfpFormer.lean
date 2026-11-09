@@ -1,6 +1,7 @@
 module
 
 public import ConLeche.Model.Env.EnvModelM
+import ConLeche.Model.Env.CanonCrest
 import ConLeche.Model.Env.BlockLfpTup
 import ConLeche.Model.NatEqs
 import ConLeche.Semantics.Tower.TowerKit
@@ -72,29 +73,25 @@ theorem eq_of_mem_mkPisAV_pos {B : Term} :
 
 section Former
 
-variable {μ : CheckMode} {env : Env}
+variable {env : Env}
 
 /-- **A recorded block's former, applied to the block's parameters at a
 satisfying parameter frame, is its hole value at the carrier** (see the
 module docstring). -/
-theorem former_app_eq (mp : EnvModelM V μ env) {D : LfpDatum V} (hD : D ∈ mp.lfpBlocks)
+theorem former_app_eq (mp : EnvModelM V env) {D : LfpDatum V} (hD : D ∈ mp.lfpBlocks)
     {mm : Nat} (hmm : mm < D.k) {ψ : Name → Nat} {ρp : Nat → V}
     (hs : Sat V (D.params ψ).reverse ρp) (ρ : Nat → V) :
     (frameIdx (D.params ψ).length ρp).foldl app (interp V ρ (mp.base2.acval (D.member mm) ψ))
       = D.holeVal ψ ρp (D.carrier ψ ρp) mm := by
   obtain ⟨h, -, hrd, -⟩ := mp.lfp_ok D hD
-  obtain ⟨cv, caps, hf, hab⟩ := hrd mm hmm
+  obtain ⟨cv, caps, hf, -, hab⟩ := hrd mm hmm
   obtain ⟨ab, hta, hmap⟩ := hab ψ
   have hpl := h.parsLen mm hmm ψ
   have hsP := h.parsSat mm hmm ψ ρp hs
   generalize hρ₀ : shiftE (D.pars mm ψ).length 0 ρp = ρ₀
   -- the former inhabits the member's type, read at `ρ₀`
-  have hmem := ConLeche.Env.find?_mem hf
-  have hname := ConLeche.Env.find?_name hf
   have hfm : interp V ρ₀ (mp.base2.acval (D.member mm) ψ) ∈ˢ
-      interp V ρ₀ (mkPisAV ab (.sort (D.w ψ))) := by
-    have := mp.mem_type _ hmem ψ _ hta ρ₀
-    rwa [hname] at this
+      interp V ρ₀ (mkPisAV ab (.sort (D.w ψ))) := mp.formerAt_mem hD hmm hf hta ρ₀
   -- split the tower at the parameters
   have hsplit : ab = ab.take (D.pars mm ψ).length ++ ab.drop (D.pars mm ψ).length :=
     (List.take_append_drop _ _).symm

@@ -25,8 +25,12 @@ normalises to `u` (`level.cpp`, `normalize` flattens, sorts and dedups
       this was the one comparison whose exhaustion REJECTED (the check
       read `none` as "not equivalent"); the other two errored (exit 3).
 
+  level_fuel_guard   `ind_defhead_sort_u`, then `def deep.{u} : S.{M} → PUnit.{M}`
+      by its projection: the guard's one row, at `Sort M`, against the walked
+      `Sort M`.  No comparison of levels: accepted.
+
 Official (v4.34.0, `addDecl`, `_tmp/uniform-inds/SMALLFIX/probe/Fuel.lean`)
-accepts all three.  TARGET 2.
+accepts the first three.  TARGET 2.  Official accepts the fourth (run), as here.
 
 Usage: scripts/mk_level_fuel.py   (writes under tests/e2e/)
 
@@ -161,7 +165,36 @@ def level_fuel_mutual():
     dump("level_fuel_mutual.ndjson", recs)
 
 
+def level_fuel_guard():
+    """A use of `ind_defhead_sort_u`'s projection at the deep level: the guard's row
+    answers to the walked sort through zero-ness, which takes no fuel, so this one is
+    accepted, where every other stream here declines."""
+    src = os.path.join(ROOT, "tests/e2e/ind_defhead_sort_u.ndjson")
+    recs = [json.loads(l) for l in open(src).read().splitlines()]
+    names = {r["str"]["str"]: r["in"] for r in recs
+             if "in" in r and "str" in r and r["str"]["pre"] == 0}
+    s = S()
+    s.recs = recs
+    s.n = max(r["in"] for r in recs if "in" in r)
+    s.l = max(r["il"] for r in recs if "il" in r)
+    s.e = max(r["ie"] for r in recs if "ie" in r)
+    u, x = names["u"], names["s"]
+    lu = next(r["il"] for r in recs if r.get("param") == u)
+    m = s.deep_max(lu)
+    SM = s.ex(const={"name": names["S"], "us": [m]})
+    PM = s.ex(const={"name": names["PUnit"], "us": [m]})
+    ty = s.ex(forallE={"binderInfo": "default", "name": x, "type": SM, "body": PM})
+    b0 = s.ex(bvar=0)
+    pr = s.ex(proj={"idx": 0, "struct": b0, "typeName": names["S"]})
+    val = s.ex(lam={"binderInfo": "default", "name": x, "type": SM, "body": pr})
+    d = s.name("deep")
+    s.recs.append({"def": {"all": [d], "hints": "abbrev", "levelParams": [u], "name": d,
+                           "safety": "safe", "type": ty, "value": val}})
+    dump("level_fuel_guard.ndjson", s.recs)
+
+
 if __name__ == "__main__":
     level_fuel_const()
     level_fuel_sort()
     level_fuel_mutual()
+    level_fuel_guard()

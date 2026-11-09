@@ -54,12 +54,97 @@ DIR   = os.environ.get('PUBPLAN_DIR', '_tmp/m3')
 # a tree whose `rfl`s stop closing, so they stay public and the gate must not
 # ask for them again.
 FALLBACK = {
-    # task #329 (pinstall): the skeleton definitions moved to
-    # `Cached/InstallSkel`; AgreeFloor's statements name them
-    # (`InstallSkel`, `ciSkel`), which the census attributes elsewhere.
-    # Measured: demoting it breaks the file (unknown identifier
-    # `InstallSkel`, `AgreeFloor.lean:192`).
-    ('ConLeche.Verify.Cached.AgreeFloor', 'ConLeche.Cached.InstallSkel'),
+    # task #521: the uniform install's well-formedness lemmas' public statements
+    # name `DeclBlockRun`, `BlockRun`, `MemberDeclaredWF`, `EnvWF`; the census
+    # attributes them elsewhere.  Measured by demoting both (unknown identifier
+    # `Env`, `EnvWF`, `BlockShape`, `DeclBlockWF.lean:40`).
+    ('ConLeche.Semantics.Inductives.DeclBlockWF', 'ConLeche.Semantics.Inductives.DeclBlock'),
+    ('ConLeche.Semantics.Inductives.DeclBlockWF', 'ConLeche.Verify.Inductives.BlockWF'),
+    # task #521: the axiom installs read `nonempty_shapes`, `ofReducePin_type`,
+    # `reduceElem_sort` (`Verify/StdAxiomPin`) through these two re-exports, in
+    # proofs the census does not attribute.  Measured by demoting each (unknown
+    # identifier `nonempty_shapes`, `AxiomPin.lean:179`; `ofReducePin_type`,
+    # `AxiomReduce.lean:60`).
+    ('ConLeche.Model.AxiomMem', 'ConLeche.Verify.StdAxiomPin'),
+    ('ConLeche.Model.AxiomPin', 'ConLeche.Model.AxiomMem'),
+    # task #498 L4: the recursor stage's equations state the twins (`genRecCheckC`,
+    # `targetCtorAtC`, …) against the specification at `sharedOpsC`.
+    # Measured: demoting the edge breaks the file (unknown identifier `TargetMajor`,
+    # `targetCtorAtC`, `IndRecC.lean:30`).
+    ('ConLeche.Verify.Cached.IndRecC', 'ConLeche.Cached.CheckerC'),
+    # task #498: the inductive check's walk lemmas state the cached walks
+    # (`replaceFVarsP`, `replaceFVarsC`, …) against the specification's
+    # (`Expr.replaceFVars`, `closeTelescope`, …).  Measured: demoting either breaks
+    # the file (unknown identifier `replaceFVarsP`, `IndWalksC.lean:40`; unknown
+    # field `replaceFVars`, `IndWalksC.lean:32`).
+    ('ConLeche.Verify.Cached.IndWalksC', 'ConLeche.Cached.ExprOpsC'),
+    ('ConLeche.Verify.Cached.IndWalksC', 'ConLeche.Kernel.Inductives.GenRec'),
+    # task #498 L2: the positivity twins' equations name `Name`, `Expr`, `sharedOpsC`
+    # (`IndPositivityC.lean:33`, unknown identifier); `DiscC4`'s guard lemmas after the
+    # openers moved out (`DiscC4.lean:455`, the kernel no longer finds `projRowsC_spec`).
+    # Each measured by demoting it alone.
+    ('ConLeche.Verify.Cached.IndPositivityC', 'ConLeche.Cached.CheckerC'),
+    ('ConLeche.Verify.Cached.DiscC4', 'ConLeche.Verify.ProjGuard'),
+    # task #498 L3: the pass's and the classes' twin equations state the twins
+    # against the specification at `sharedOpsC`.  Measured: demoting the import
+    # breaks the file (unknown identifier `FEnv`, `IndBlockC.lean:34`).
+    ('ConLeche.Verify.Cached.IndBlockC', 'ConLeche.Cached.CheckerC'),
+    # task #498 L5: the tail's equations state the twins (`streamRecsCheckC`, …) against the
+    # specification at `sharedOpsC` (`FEnv`, `Level`).  Measured:
+    # demoting it breaks the file (unknown identifier `FEnv`, `IndTailC.lean:29`).
+    ('ConLeche.Verify.Cached.IndTailC', 'ConLeche.Cached.CheckerC'),
+    # task #492: the guard-row lemmas' public statements name `projGuardRowsGo`,
+    # `GuardRowsWS`'s `WScoped`; the census attributes them to the private imports
+    # (`LooseBVar`, `Subst`).  Measured: demoting either breaks the file (unknown
+    # identifier `projGuardRowsGo`, `ProjGuard.lean:45`; `Expr.WScoped`, `ProjGuard.lean:30`).
+    ('ConLeche.Verify.ProjGuard', 'ConLeche.Kernel.CoreDefs'),
+    ('ConLeche.Verify.ProjGuard', 'ConLeche.Verify.Shift'),
+    # task #480 (the merge of #481): `readOleans_filled` and its neighbours state `OleanRead`,
+    # `readOleans`, `Merged`, `mergeAll`, `blocksOk`, `declsOf`.  Measured: demoting either
+    # breaks the file (unknown identifier `OleanRead`, `Files.lean:544`).
+    ('ConLeche.Verify.Frontend.Olean.Files', 'ConLeche.Frontend.Olean.Records'),
+    ('ConLeche.Verify.Frontend.Olean.Files', 'ConLeche.Verify.Frontend.Olean.Merge'),
+    # task #480: `reducedFormer_cv` and its neighbours state `CheckerOps`, `reducedFormer` and `WScoped`.
+    # Measured: demoting either breaks the file (`NestContInv.lean:28`, unknown identifier).
+    ('ConLeche.Verify.Inductives.NestContInv', 'ConLeche.Kernel.Inductives.Positivity'),
+    ('ConLeche.Verify.Inductives.NestContInv', 'ConLeche.Verify.Shift'),
+    # task #480: `checkBlockPositivity_deriv` states `BlockShape` and `checkBlockPositivity`.  Measured.
+    ('ConLeche.Verify.Inductives.PosDerivInv', 'ConLeche.Kernel.Inductives.BlockInstall'),
+    # task #480: `OpenedCtx`'s `variable`s name `SetTheory` through it.
+    # Measured: demoting it breaks the file (unknown identifier `SetTheory`,
+    # `OpenedCtx.lean:29`).
+    ('ConLeche.Model.OpenedCtx', 'ConLeche.Model.Currency'),
+    # task #497: `ViewCongr`'s public statements name `CheckerOps`, `CheckMode`, `FEnv`,
+    # `sharedOpsC`; once it imports `PinsC` (which re-exports `ParsedC`) the census
+    # attributes them to that private import.  Measured: demoting it breaks the file
+    # (unknown identifier `CheckerOps`, `ViewCongr.lean:44`).
+    ('ConLeche.Verify.Cached.ViewCongr', 'ConLeche.Cached.ParsedC'),
+    # task #480: each MEASURED by demoting it alone (the module stops building).
+    ('ConLeche.Verify.Cached.PushChain', 'ConLeche.Verify.Cached.DeclPushes'),
+    ('ConLeche.Verify.Inductives.NestNfScope', 'ConLeche.Verify.Inductives.PositivityInv'),
+    ('ConLeche.Model.Inductives.BlockDatum', 'ConLeche.Model.Inductives.FamilyRan'),
+    ('ConLeche.Model.Inductives.DeclaredShapes', 'ConLeche.Verify.Inductives.NestScope'),
+    ('ConLeche.Verify.Inductives.GenRecRun', 'ConLeche.Verify.EnvWF'),
+    # task #470: the olean proofs' public statements name `Region`, `nameP`,
+    # `exprP` (through the reader's `Fast`) and `IsKind`, `Kid`, `KindOK`
+    # (through `Kids`); the census attributes them to the private imports.
+    # Each measured by demoting it (unknown identifier `Region`,
+    # `Engine.lean:25`; `IsKind`, `Sparse.lean:104`).
+    ('ConLeche.Verify.Frontend.Olean.Engine', 'ConLeche.Frontend.Olean.Fast'),
+    ('ConLeche.Verify.Frontend.Olean.Sparse', 'ConLeche.Verify.Frontend.Olean.Kids'),
+    # task #481: the snapshot theorems' public statements name `ModelIO.Det`,
+    # `foldList`; the model finds the module's other public-interface miss first
+    # (`Verify.Frontend.Olean.Emit`), one token, so that this one adds nothing.
+    # Measured by demoting it (no field `Det`, `Files.lean:54`).
+    ('ConLeche.Verify.Frontend.Olean.Files', 'ConLeche.Verify.Frontend.ModelIO'),
+    # `ExportC`'s public definitions name `Declaration`, `ConstantVal`
+    # (unknown identifier, `ExportC.lean:65`); the census attributes them to
+    # its other imports.
+    ('ConLeche.Frontend.ExportC', 'ConLeche.Kernel.Env'),
+    # (likewise `Region`, `ImportF`: unknown identifier, `Reads.lean:40`)
+    ('ConLeche.Verify.Frontend.Olean.Reads', 'ConLeche.Frontend.Olean.Reads'),
+    ('ConLeche.Verify.Frontend.Olean.Prefix', 'ConLeche.Frontend.Olean.Fast'),
+    ('ConLeche.Verify.Frontend.Olean.Reads', 'ConLeche.Frontend.Olean.Header'),
     # lane CHEAPPROJ: `DefEqBridge`'s public statements name `DefEqBridge`/
     # `DefEq` (through `Defs`) and `QuickExit`/`quickDefEqFueled` (through
     # `DefEqStepInv`); the census attributes them to its private `RedBridge`
@@ -67,6 +152,22 @@ FALLBACK = {
     # identifier `DefEqBridge`, `DefEqBridge.lean:39`; `QuickExit`, `:40`).
     ('ConLeche.Verify.Rules.DefEqBridge', 'ConLeche.Verify.Rules.Defs'),
     ('ConLeche.Verify.Rules.DefEqBridge', 'ConLeche.Verify.Rules.DefEqStepInv'),
+    # task #431: `StreamRecsInv`'s public statements name `RecShape`,
+    # `streamRecs`, `consBlockRecsT` (all through `BlockTail`); the census
+    # attributes them elsewhere.  Measured by demoting it (unknown
+    # identifier `RecShape`, `StreamRecsInv.lean:21`).
+    ('ConLeche.Verify.Inductives.StreamRecsInv', 'ConLeche.Kernel.Inductives.BlockTail'),
+    # task #431: `DeclBlockStep`'s public `declBlock` names
+    # `Semantics.DeclBlockRun`, which it receives through this re-export.
+    # Measured by demoting it (unknown identifier
+    # `ConLeche.Semantics.DeclBlockRun`, `DeclBlockStep.lean:76`).
+    ('ConLeche.Model.Inductives.DeclBlock', 'ConLeche.Semantics.Inductives.DeclBlock'),
+    # task #431: `StreamRecsSem`'s public statements name `PiTeleAV` and
+    # `recTyCheck`/`ruleAgree`; the census attributes them elsewhere.
+    # Measured by demoting each alone (unknown identifier `PiTeleAV`,
+    # `StreamRecsSem.lean:120`; `ConLeche.recTyCheck`, `:224`).
+    ('ConLeche.Model.Inductives.StreamRecsSem', 'ConLeche.Model.IndTele'),
+    ('ConLeche.Model.Inductives.StreamRecsSem', 'ConLeche.Kernel.Inductives.StreamRecs'),
     # lane SIMP-AD: measured — demoting it breaks the file's own statements
     # (`Expr.eraseFVarTys`, `NestCallSyn.lean:34`; `targetPiDomsWith`, `:112`).
     ('ConLeche.Verify.Inductives.NestCallSyn', 'ConLeche.Kernel.Inductives.RecCheck'),
@@ -217,15 +318,15 @@ FALLBACK = {
     # identifier, `Complete/PosDerivComplete.lean:57`).
     ('ConLeche.Complete.PosDerivComplete', 'ConLeche.Verify.Inductives.PosDeriv'),
     # lane POSDERIV: the positivity inversion's public statements name
-    # `NestCtxOk` (NestScope) and `BlockParts.nestCtx`/`checkBlockPositivity`
+    # `NestCtxOk` (NestScope) and `BlockShape.nestCtx`/`checkBlockPositivity`
     # (PositivityInv); MEASURED by demoting each (unknown identifier,
     # `PosDerivInv.lean:161` and `:930`).
     ('ConLeche.Verify.Inductives.PosDerivInv', 'ConLeche.Verify.Inductives.NestScope'),
     ('ConLeche.Verify.Inductives.PosDerivInv', 'ConLeche.Verify.Inductives.PositivityInv'),
     # lane POSDERIV s2: `storedFieldShapes_of_walk`'s public statement names
     # `MemberCtorD`/`PosTree`; MEASURED by demoting it (unknown
-    # identifier, `StoredShapes.lean:1049`).
-    ('ConLeche.Model.Inductives.StoredShapes', 'ConLeche.Verify.Inductives.PosDeriv'),
+    # identifier, `DeclaredShapes.lean:1049`).
+    ('ConLeche.Model.Inductives.DeclaredShapes', 'ConLeche.Verify.Inductives.PosDeriv'),
     # lane FLATACC: after the flat (W) witness went (LfpHoleWitness,
     # TupleContainer, Container, BlockHoleFlat deleted) the model stopped
     # attributing these re-exports; each MEASURED by demoting it alone
@@ -302,6 +403,22 @@ FALLBACK = {
     # `TargetIhSlot`'s `variable [SetTheory V]` binder resolves through
     # `TargetRecRead` (`Unknown identifier SetTheory`, `:47`), measured.
     ('ConLeche.Model.Inductives.TargetIhSlot', 'ConLeche.Model.Inductives.TargetRecRead'),
+    # task #480: re-exports the model calls demotable, each MEASURED by building
+    # with it demoted (public statements name what it carries).
+    ('ConLeche.Model.Inductives.ViewedStep', 'ConLeche.Model.Inductives.FormerSwap'),
+    ('ConLeche.Verify.Cached.AgreeFloor', 'ConLeche.Cached.Decls'),
+    ('ConLeche.Verify.EnvExt.Reads', 'ConLeche.Verify.EnvWF'),
+    ('ConLeche.Verify.Inductives.TargetAuxFire', 'ConLeche.Verify.Inductives.GenRecRun'),
+    ('ConLeche.Verify.Rules.RedBridge', 'ConLeche.Verify.Rules.Defs'),
+    ('ConLeche.Verify.Cached.GenRecC', 'ConLeche.Verify.Cached.NestPosC'),
+    ('ConLeche.Verify.EnvExt.Reads', 'ConLeche.Verify.EnvPreds'),
+    ('ConLeche.Verify.Rules.RedBridge', 'ConLeche.Verify.Knot'),
+    ('ConLeche.Model.Inductives.StreamRecsSwap', 'ConLeche.Verify.Extend.RecsTy'),
+    ('ConLeche.Model.Inductives.StreamRecsSwap', 'ConLeche.Model.Inductives.DeclBlock'),
+    ('ConLeche.Model.Inductives.DeclBlockStep', 'ConLeche.Model.Inductives.DeclBlock'),
+    ('ConLeche.Model.Inductives.ViewedStep', 'ConLeche.Verify.EnvExt'),
+    ('ConLeche.Model.Inductives.ViewedStep', 'ConLeche.Model.Inductives.DeclBlockStep'),
+    ('ConLeche.Model.Fold', 'ConLeche.Semantics.Bridge.Sound'),
     # lane RECLIB session 5: the same `variable [SetTheory V]` binder
     # class, MEASURED by demoting each alone (`Unknown identifier
     # SetTheory`, `TargetCallCore.lean:67`, `TargetCallKit.lean:41`).
@@ -334,12 +451,12 @@ FALLBACK = {
     # failures: `NestScope` without `Positivity` loses `NestCtx`
     # (`:121`), without `Shift` loses `WScoped` (`:27`); `NestPosC`
     # without `NestScope` loses `NestCtxOk` (`:47`); `PositivityInv`
-    # without `BlockInstall` loses `BlockParts`/`Expr` (`:26`);
+    # without `BlockInstall` loses `BlockShape`/`Expr` (`:26`);
     # `BlockPosRun` without `BlockLfpTup` loses `LfpDatum.CtorPos`
     # (`:185`), without `BlockHoleRead` `Expr.ErasedEqL` (`:114`),
     # without `BlockStageCtors` `BlockNamesOk` (`:165`), without
     # `NestPosMono` `PiPosThen` (`:77`), without `PositivityInv`
-    # `BlockParts.nestCtx` (`:172`).  (Its sixth, `Model.Rules.Inputs`,
+    # `BlockShape.nestCtx` (`:172`).  (Its sixth, `Model.Rules.Inputs`,
     # WAS demotable and is demoted.)
     # lane CONTSEM session 4: `ContN2`'s `keyFrame_eq_substE` states
     # `substTau` (`Reading.SubstFvars`); MEASURED by demoting it alone
@@ -545,14 +662,6 @@ FALLBACK = {
     # `NodupNames` (EnvBound); the model reads statements, not exposed
     # bodies, and the compiler wants the re-export.
     ('ConLeche.Verify.Cached.PushChain','ConLeche.Verify.EnvBound'),
-    # task #285: `BasisGen` declares the `#stored_basis` COMMAND (was
-    # `#annotate_basis`, task #342), and `BasisA` invokes it.  A command
-    # elaborator is registered, not named, so no census row attributes it —
-    # demoting the line makes `TrustAxioms` fail to parse (`unexpected
-    # token '#'`), which is task #235's third blind class seen from the
-    # other side.  (The fixpoint is order-dependent: this edge became a
-    # demotion candidate only when #285 changed the graph around it.)
-    ('ConLeche.Kernel.BasisA','ConLeche.Kernel.BasisGen'),
     # task #290: every statement of `Verify/Frontend/Local.lean` is over
     # Naive's `NRes`, `isDigit`, `isWs`; the model calls the edge demotable
     # (the private `import Scan.Equiv` covers the constants), but a private
@@ -599,19 +708,19 @@ FALLBACK = {
     # through three of them (`consList_eq_chainFrame`,
     # `BlockDeclRun.lean:617`; `frameIdx_eq_reverse_map`,
     # `BlockStageCtors.lean:347`; `mkPisAV_below_of`,
-    # `BlockRecData.lean:356`); `StoredShapes` states `NoBVar` (it held
+    # `BlockRecData.lean:356`); `DeclaredShapes` states `NoBVar` (it held
     # `LfpHoleWitness`'s slot definitions after lane FLATACC deleted that file)
     # and `FixTeleBound`'s `variable [SetTheory V]` binder resolves
     # through `FixNoBVar` (`:36`).
     ('ConLeche.Model.Inductives.BlockRecGraph','ConLeche.Model.Inductives.BlockRecPreHpre'),
     ('ConLeche.Model.Inductives.FixKit','ConLeche.Semantics.Tower.FixTower'),
-    ('ConLeche.Model.Inductives.StoredShapes','ConLeche.Semantics.NoBVar'),
+    ('ConLeche.Model.Inductives.DeclaredShapes','ConLeche.Semantics.NoBVar'),
     ('ConLeche.Model.Inductives.FixKit','ConLeche.Model.Inductives.FixNoBVar'),
     # lane HOLE2 stage E2 (the gate after the proof refactor): ten more,
     # each MEASURED by demoting it alone.  The file's own public statements
     # name the re-export: `NoBVar` (`HoleSubst.lean:403`), `Expr.nestOcc`
     # (`NestPosOut.lean:45`), `Expr.ErasedEq` (`:45`), `EnvWF` (`:254`),
-    # `paramBvarsAt`/`BlockCtorDataI` (`StoredShapes.lean:784`), `holeP`
+    # `paramBvarsAt`/`BlockCtorDataI` (`DeclaredShapes.lean:784`), `holeP`
     # (`:348`), `HoleIn` (`:419`), the `ITerm`/`denoteMeta` of
     # `BlockHoleRead.lean:350`; downstream reaches through the other two
     # (`mkAppN_wellDenoted_of_pt`, `BlockRecData.lean:3549`; a `rw` over
@@ -620,9 +729,9 @@ FALLBACK = {
     ('ConLeche.Model.Inductives.NestPosOut','ConLeche.Kernel.Inductives.Positivity'),
     ('ConLeche.Model.Inductives.NestPosOut','ConLeche.Verify.Subst'),
     ('ConLeche.Model.Inductives.NestPosOut','ConLeche.Verify.EnvWF'),
-    ('ConLeche.Model.Inductives.StoredShapes','ConLeche.Model.Inductives.BlockData'),
-    ('ConLeche.Model.Inductives.StoredShapes','ConLeche.Model.Inductives.NestPosMono'),
-    ('ConLeche.Model.Inductives.StoredShapes','ConLeche.Model.Inductives.NestPosOut'),
+    ('ConLeche.Model.Inductives.DeclaredShapes','ConLeche.Model.Inductives.BlockData'),
+    ('ConLeche.Model.Inductives.DeclaredShapes','ConLeche.Model.Inductives.NestPosMono'),
+    ('ConLeche.Model.Inductives.DeclaredShapes','ConLeche.Model.Inductives.NestPosOut'),
     # task #342 R3: `Reading/DenoteMeta` is gone (`denoteMeta` folded into
     # `denote`); the re-export moved to `TowerKit`.  MEASURED by demoting it
     # alone: unknown identifier `Term`, `BlockHoleRead.lean:396`.
@@ -711,14 +820,6 @@ FALLBACK = {
     ('ConLeche.Model.Inductives.BlockHoleGrade', 'ConLeche.Verify.Inductives.NfMemberFree'),
     ('ConLeche.Model.Inductives.BlockHoleRead', 'ConLeche.Verify.Inductives.ReplaceApps'),
     ('ConLeche.Verify.Inductives.PosDerivInv', 'ConLeche.Verify.Inductives.HoleImg'),
-    # task #329 (LAYER): the driver split out of `Main.lean` into
-    # `ConLeche/Driver/*`, which changed the census's attribution of
-    # `ViewCongr`'s re-export.  `ViewCongr`'s own public statements name
-    # Kernel types (`FEnv`, `ConstantVal`, …) that reach it ONLY through
-    # `ParInstall`'s own public-import chain (down to `Cached.Installed`
-    # and the Kernel); MEASURED by demoting it alone (unknown identifier
-    # `FEnv`, `ViewCongr.lean:158`; `ConstantVal`, `:159`).
-    ('ConLeche.Cached.ViewCongr', 'ConLeche.Cached.ParInstall'),
     # task #342 (s4-shake): `Motive`'s own public statements name
     # `DenoteMetaSpine` directly; MEASURED by demoting it alone (unknown
     # identifier `DenoteMetaSpine`, `Motive.lean:240`, `:261`, `:281`,
@@ -779,12 +880,12 @@ files=[f for f in subprocess.check_output(['git','ls-files','*.lean']).decode().
                             'whitepaper/'))]
 mod=lambda f: f[:-5].replace('/','.')
 fileof={mod(f):f for f in files}
-UMBRELLA={'ConLeche.lean','ConLeche/Term.lean','ConLeche/SetModel.lean','ConLeche/Semantics.lean',
+UMBRELLA={'ConLeche.lean','ConLeche/Frontend/Olean.lean','ConLeche/Term.lean','ConLeche/SetModel.lean','ConLeche/Semantics.lean',
           'ConLeche/Model.lean','ConLeche/Verify/Cached.lean','ConLeche/Verify/Denote.lean',
           'ConLeche/Kernel/Basis.lean','ConLeche/Complete.lean'}
 # frozen: the umbrellas exist to re-export, the classic roots have no `public`
 # keyword, `tests/*` and the PinGen generator are outside the census roots.
-CLASSIC={'tests/ProofDeps.lean','PinDump.lean'}
+CLASSIC={'tests/ProofDeps.lean','PinDump.lean','OleanCompare.lean'}
 FROZEN_PREFIX=('tests/','ConLeche/PinGen/','ConLeche/Challenge.lean','ConLeche/PinGen.lean')
 EXT=('Std','Lean','Init')
 

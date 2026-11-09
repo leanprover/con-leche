@@ -20,7 +20,7 @@ open ConLeche (Env Expr Name Level ConstantInfo ConstantVal RecFieldKind IndCaps
 
 universe w
 
-variable {V : Type w} [SetTheory V] {μ : CheckMode}
+variable {V : Type w} [SetTheory V]
 
 /-! ## Kit -/
 

@@ -39,42 +39,13 @@ knot.
 The core's **fuel-free helpers** — everything a body reads that
 mentions no monad, no record and no fuel (`unfoldDefinition`, the
 literal guards, the certified `Nat` operations' tables, the η
-fabrications, the install-time rule bits, …) — live
-in `ConLeche/Kernel/CoreDefs.lean` since task #305 (prep) and are
+fabrications, the block's rule bits, …) — live
+in `ConLeche/Kernel/CoreDefs.lean` and are
 re-exported here, so that a relational description of the core's
 moves can name them without importing the bodies.
 -/
 
 namespace ConLeche
-
-/-- **The verdict of a failure, everywhere in the binary** — the one
-error type the whole accept path reports (task #295): the kernel's
-steps, the fold, and the frontend's parse and prelude alike.  The
-three cases are the three verdicts the driver exits with
-(`CheckError.exitCode`, `ConLeche/Driver/Run.lean`): 2 declined, 1 rejected, 3 an
-error of unclear cause or a malformed input.
-
-Where a failure has a POSITION the type is `CheckError × Nat`, and the
-`Nat` is read in the step's own unit: the input's LINE number in the
-frontend (`ConLeche/Frontend/Export.lean`; 0 where no line is meant,
-as in the size guard, which refuses the input before reading it) and
-the record's position in the list the fold folds
-(`ConLeche.Cached.checkDecls`).  The two are in the same type because
-the driver chains the steps, and the main corollary states that chain
-(`ConLeche/MainTheorem.lean`). -/
-inductive CheckError where
-  | notImplemented (what : String)
-  | invalid (msg : String)
-  | internal (msg : String)
-  deriving Repr
-
-instance : ToString CheckError where
-  toString
-    | .notImplemented what => s!"not implemented yet: {what}"
-    | .invalid msg => s!"invalid: {msg}"
-    | .internal msg => s!"internal error: {msg}"
-
-abbrev CheckM := Except CheckError
 
 /-- **The verdict at a constant the environment does not know.**
 
@@ -104,7 +75,7 @@ arguments than its parameters (official's premise is `#ctors = 1` and
 below the constructor's field count: an INDEXED structure-like type,
 where official projects and we store no table (the installer stores
 one at every index-free single-constructor member and only there,
-`checkBlockTables`).  Every other shape official rejects
+`blockTables`).  Every other shape official rejects
 (`invalid_proj_exception`): a head that is no inductive (an axiom, an
 opaque, `Quot`), a constructor count other than one, a node naming
 another type, a field index beyond the fields (`PUnit`, `Eq`: no
@@ -153,7 +124,7 @@ structure CoreFns (m : Type → Type u) where
   official kernel's `is_def_eq` with `m_eager_reduce` set, which
   `infer_app` sets for the comparison of an `eagerReduce _ _`
   argument's type with its domain (`defeqArg`).  The knot ties it to
-  the bodies at `mode.toEager` one level down, so the flag holds for
+  the bodies at `eager := true` one level down, so the flag holds for
   the whole comparison and everything it calls, as official's
   `flet` scope does. -/
   defeqE : Nat → Expr → Expr → m Bool
@@ -203,7 +174,7 @@ def reduceNat (r : CoreFns m) (env : Env) (depth : Nat) (e : Expr) :
     m (Option Expr) := do
   match e with
   | .app (.const c []) a =>
-    if c = natSuccName ∧ natLitSupported env then
+    if c = natSuccName ∧ natLitStored env then
       -- the argument is reduced first (as for the operations below):
       -- literals reach `succ` wrapped in `OfNat`/instance towers, and a
       -- missed packing here defeats the binary fast paths downstream,
@@ -211,19 +182,16 @@ def reduceNat (r : CoreFns m) (env : Env) (depth : Nat) (e : Expr) :
       match rawNatLit? (← r.whnf depth a) with
       | some n => pure (some (.lit (.natVal (n + 1))))
       | none => pure none
-    -- (the audit's S1: the `Nat.pred` and `Nat.log2` literal fast paths
-    -- are gone — official `reduce_nat` (`type_checker.cpp:639-668`) has
-    -- `Nat.succ` and the fourteen binary operations, nothing else.
-    -- `Nat.pred` stays a certified structural operation because
-    -- `Nat.sub`'s recurrence names it; `Nat.log2` is gone entirely)
+    -- (official `reduce_nat`, `type_checker.cpp:639-668`, has `Nat.succ` and the
+    -- fourteen binary operations, nothing else; `Nat.pred` is a certified
+    -- structural operation because `Nat.sub`'s recurrence names it)
     else pure none
   | .app (.app (.const c []) a) b =>
     if (c = natAddName ∨ c = natSubName ∨ c = natMulName ∨
         c = natPowName ∨ c = natBeqName ∨ c = natBleName ∨
         c = natDivName ∨ c = natModName ∨ c = natGcdName ∨
         c = natLandName ∨ c = natLorName ∨ c = natXorName ∨
-        c = natShiftLeftName ∨ c = natShiftRightName) ∧
-        natOpStored env c = true then
+        c = natShiftLeftName ∨ c = natShiftRightName) then
       -- Official `reduce_bin_nat_op` (`type_checker.cpp:606-614`):
       -- the FIRST argument is head-normalised and, unless it is a
       -- literal, the step fails WITHOUT touching the second.  The
@@ -237,7 +205,7 @@ def reduceNat (r : CoreFns m) (env : Env) (depth : Nat) (e : Expr) :
         | some n₂ => pure (natOpResult c n₁ n₂)
         | none => pure none
       | none => pure none
-    else if natOpWfNames.contains c ∧ natLitSupported env then
+    else if natOpWfNames.contains c then
       match rawNatLit? (← r.whnf depth a) with
       | some _ =>
         match rawNatLit? (← r.whnf depth b) with
@@ -284,9 +252,7 @@ must agree, past the `cnP` parameters, with the recursor's index
 arguments `idx` — the model's iota equation only speaks about the
 canonical indices.  At `mI = rP` there is nothing to compare (the law's
 `IotaIndexPin` is discharged by `Or.inl rfl`) and the block is
-skipped.  The residual-head test that once stood beside the comparison
-(`stripPis` + "the body's head is a constant") was consumed by nothing
-in the P lane and is gone. -/
+skipped. -/
 def iotaIndexOk (r : CoreFns m) (env : Env) (depth : Nat) (mI rP cnP : Nat)
     (tyCtor : Expr) (margs idx : List Expr) : m Bool :=
   if mI = rP then pure true
@@ -382,11 +348,6 @@ def structEtaCertWith (r : CoreFns m) (env : Env) (depth : Nat)
                 wtb.getAppArgs.length = caps.etaParams ∧
                 us'.length = cvT.levelParams.length ∧
                 cvc.levelParams = cvT.levelParams ∧
-                -- the former's telescope arity
-                -- `(cvT.type.stripPis caps.etaParams).isSome` is
-                -- `EnvWF`'s `IndCapsWF` clause: established at the
-                -- block's install, read by the η row from the
-                -- invariant
                 -- the slot discipline: every field slot has a
                 -- projection-table entry (a fieldless family trivially)
                 towerSlotsAll env T caps.etaFields = true then
@@ -448,8 +409,6 @@ def structUnitCert (r : CoreFns m) (env : Env) (depth : Nat) (a b : Expr) :
       if caps.unitlike = true ∧
           reservedBasisNames.contains T = false ∧
           wta.getAppArgs.length = caps.unitParams ∧
-          -- `(cvT.type.stripPis caps.unitParams).isSome` is `EnvWF`'s
-          -- `IndCapsWF` clause, established at the block's install
           us'.length = cvT.levelParams.length then
         let tb ← r.inferIO depth b
         let wtb ← r.whnf depth tb
@@ -499,6 +458,57 @@ def stuckIrrel (r : CoreFns m) (env : Env) (depth : Nat) (a b : Expr) :
   else if ← structUnitCert r env depth a b then pure true
   else proofIrrel r depth a b
 
+/-- **Official's walk to a family's sort** (the loop of `check_inductive_types`
+at the use): `n` binders down, each reached by head normalization, then a sort.
+`none` where the type does not get there at this environment. -/
+def formerSortLoop (wh : Nat → Expr → m Expr) : Nat → Nat → Expr → m (Option Level)
+  | d, 0, e => do
+    match ← wh d e with
+    | .sort s => pure (some s)
+    | _ => pure none
+  | d, n + 1, e => do
+    match ← wh d e with
+    | .forallE dom b => formerSortLoop wh (d + 1) n (b.instantiate1 (.fvar d dom))
+    | _ => pure none
+
+/-- **Is a family's sort never zero at the levels `us`** (official
+`is_never_zero`), computed where it is asked, at the environment of the use.  A
+stored type that ends in a sort needs no reduction and no opening; any other is
+walked by `formerSortLoop` at the use's levels.  Where the walk does not reach
+a sort the answer is the conservative one. -/
+def formerNeverZeroAt (wh : Nat → Expr → m Expr) (cvT : ConstantVal) (caps : IndCaps)
+    (us : List Level) : m Bool :=
+  match formerResSort cvT.type with
+  | some _ => pure (formerNeverZero cvT us)
+  | none => do
+    match ← formerSortLoop wh 0 (caps.nparams + caps.nIdx)
+        (cvT.type.instantiateLevelParams cvT.levelParams us) with
+    | some s => pure (Level.zeronessOf s).isNever
+    | none => pure false
+
+/-- **Case 3 of the ι case split** (task #342 L10, S5c): a rule that is not
+K whose constructor's family may be `Prop` at the comparand levels `us`.
+There the constructor's levels and parameters are compared with the
+comparands, the constructor telescope is certified at the full grade,
+and the indices are compared (task #342 L7's counterexample: at a
+`Prop` valuation nothing else ties the two spines), for a `.plain` and
+a `.nested` rule alike.  Elsewhere (case 2) the ι step fires with no check of
+the constructor application: the family's fibres at the recursor's major domain
+are strict, so the major is not the point and its reduction is an equation, and
+the constructor application, being the major's value and not the point, is an
+injection of fields that fit the family's constructor there.  The ι step asks
+at the rule's comparand levels (`recFireComparands`), not at the constructor's,
+which it does not compare there. -/
+def iotaCase3At (wh : Nat → Expr → m Expr) (find? : Name → Option ConstantInfo) (isK : Bool)
+    (cvj : ConstantVal) (us : List Level) : m Bool :=
+  if isK then pure false else
+  match ctorFamily find? cvj with
+  | some (cvT, caps) =>
+    if cvT.levelParams.length == us.length then do
+      pure (!(← formerNeverZeroAt wh cvT caps us))
+    else pure true
+  | none => pure true
+
 /-- Stuck-major rescue (`to_cnstr_when_K` and `to_cnstr_when_structure`
 in the official kernel): a recursor's major premise that does not whnf
 to a constructor application may still be *replaced* by one.  For a
@@ -519,10 +529,10 @@ proof irrelevance likewise off at the trusted mode.  A
 major that fails a check stays put — sound, the reduction simply stays
 stuck. -/
 def majorToCtor (r : CoreFns m) (env : Env) (depth : Nat)
-    (_recName : Name) (rules : List RecRule) (major : Expr) : m Expr := do
+    (_recName : Name) (isK : Bool) (rules : List RecRule) (major : Expr) : m Expr := do
   -- cheap syntactic gates before any inference: a rescue needs a
-  -- single-rule recursor whose rule carries the matching install-time
-  -- rescue bit (`RecRule.k`/`RecRule.eta`)
+  -- single-rule recursor, K-flagged (the record's `isK`) or at an η family
+  -- (`etaRescueOk`)
   if isCtorApp env major then pure major else
   match rules with
   | [rl] =>
@@ -532,7 +542,7 @@ def majorToCtor (r : CoreFns m) (env : Env) (depth : Nat)
       | .const T _ =>
         match env.find? T with
         | some (.indInfo cvT caps) =>
-          if rl.k = true then
+          if isK = true then
             -- task #172 B4: io grade (lean4lean toCtorWhenK inferType)
             let tmaj ← r.whnf depth (← r.inferIO depth major)
             match tmaj.getAppFn with
@@ -572,7 +582,7 @@ def majorToCtor (r : CoreFns m) (env : Env) (depth : Nat)
                 else pure major
               else pure major
             | _ => pure major
-          else if rl.eta = true then
+          else if etaRescueOk rl.ctor cvj cvT caps = true then
             let tmaj ← r.whnf depth (← r.inferIO depth major)
             match tmaj.getAppFn with
             | .const T' ust =>
@@ -589,26 +599,27 @@ def majorToCtor (r : CoreFns m) (env : Env) (depth : Nat)
               -- name, every field slot a projection-table entry
               if T' = T ∧ tmaj.getAppArgs.length = caps.etaParams ∧
                   ust.length = cvT.levelParams.length ∧
-                  capsNeverZero cvT.levelParams ust caps = true ∧
                   reservedBasisNames.contains T = false ∧
                   reservedBasisNames.contains caps.etaCtor = false ∧
                   towerSlotsAll env T caps.etaFields = true then
-                -- no constructor-telescope arity pin, as in the K
-                -- branch, and no level-count pin: the η bit is set
-                -- only at a constructor stored with the former's own
-                -- level parameters (`RecCtorsStored`), which the
-                -- fabrication's levels are those of
-                let fab := Expr.mkAppN (.const caps.etaCtor ust)
-                    (etaFabArgsE T tmaj.getAppArgs major caps.etaFields)
-                -- scope guard, as in the K branch.  No certificate on
-                -- the fabricated spine: the major is the fabrication by
-                -- the family's η law, and the fabrication fits the η
-                -- constructor's telescope by the coherence law (task
-                -- #342 L11b).
-                if fab.wscopedB depth && fab.looseBVarsBounded 0 &&
-                    fab.fvarLeaves.all
-                      (fun l => major.fvarLeaves.contains l) then
-                  pure fab
+                if ← formerNeverZeroAt r.whnf cvT caps ust then
+                  -- no constructor-telescope arity pin, as in the K
+                  -- branch, and no level-count pin: the η bit is set
+                  -- only at a constructor stored with the former's own
+                  -- level parameters (`RecCtorsStored`), which the
+                  -- fabrication's levels are those of
+                  let fab := Expr.mkAppN (.const caps.etaCtor ust)
+                      (etaFabArgsE T tmaj.getAppArgs major caps.etaFields)
+                  -- scope guard, as in the K branch.  No certificate on
+                  -- the fabricated spine: the major is the fabrication by
+                  -- the family's η law, and the fabrication fits the η
+                  -- constructor's telescope by the coherence law (task
+                  -- #342 L11b).
+                  if fab.wscopedB depth && fab.looseBVarsBounded 0 &&
+                      fab.fvarLeaves.all
+                        (fun l => major.fvarLeaves.contains l) then
+                    pure fab
+                  else pure major
                 else pure major
               else pure major
             | _ => pure major
@@ -634,7 +645,7 @@ def majorToCtor (r : CoreFns m) (env : Env) (depth : Nat)
             | .const T' ust =>
               if T' = T ∧ tmaj.getAppArgs.length = cnP ∧
                   cvj.levelParams.length = ust.length ∧
-                  andRescueSlots env rl.ctor cnP ust = true then
+                  andRescueSlots env rl.ctor cnP = true then
                 let fab := Expr.mkAppN (.const rl.ctor ust)
                   (tmaj.getAppArgs ++ [.proj T 0 major, .proj T 1 major])
                 -- scope guard, as in the K branch
@@ -672,7 +683,7 @@ and unreachable for input inference accepted, which declines it). -/
 def litMajorToCtor (r : CoreFns m) (env : Env) (depth : Nat) :
     Expr → m Expr
   | .lit (.strVal s) =>
-    if strLitSupported env then r.whnf depth (strLitToConstructor s)
+    if strLitStored env then r.whnf depth (strLitToConstructor s)
     else pure (.lit (.strVal s))
   | e => pure (litToCtorIfNat env e)
 
@@ -688,7 +699,7 @@ inference accepted, which declines it). -/
 def projLitToCtor (r : CoreFns m) (env : Env) (depth : Nat) :
     Expr → m Expr
   | .lit (.strVal s) =>
-    if strLitSupported env then r.whnf depth (strLitToConstructor s)
+    if strLitStored env then r.whnf depth (strLitToConstructor s)
     else pure (.lit (.strVal s))
   | e => pure e
 
@@ -739,10 +750,10 @@ decision procedure — such as one that first normalizes the major —
 would find); on mathlib-full the `whnf` after a failed K rescue ran
 15 651 times (all `Eq.rec`) and reached a constructor 0 times (see the
 TASK #333 record's audit). A K-like recursor application whose rescue
-fails is now simply stuck, sound either way.
+fails is simply stuck, sound either way.
 
 The rescues (K, structure-eta, `And`) live in one function
-(`majorToCtor`); the K branch is reachable exactly at `recRuleK`, the
+(`majorToCtor`); the K branch is reachable exactly at the record's K flag, the
 eta and `And` branches never are there (an inductive proposition fails
 the eta branch's provably-nonzero guard, and `And` is not K), so the
 split below dispatches each to its site.
@@ -757,22 +768,22 @@ theorem application — `Eq.ndrec … (Int.decEq._proof_1 a b h)` with
 official order fabricates `Eq.refl` from the type (`a ≡ b` by the
 `Nat` literal fast paths) and never opens either proof. -/
 def prepareMajor (r : CoreFns m) (env : Env) (depth : Nat)
-    (recName : Name) (rules : List RecRule) (major : Expr) : m Expr := do
-  if recRuleK rules then
-    let majorK ← majorToCtor mode r env depth recName rules major
+    (recName : Name) (isK : Bool) (rules : List RecRule) (major : Expr) : m Expr := do
+  if isK then
+    let majorK ← majorToCtor mode r env depth recName isK rules major
     if isCtorApp env majorK then
       litMajorToCtor r env depth majorK
     else
       pure majorK
   else
     let majorE ← if major.isStrLit then pure major
-      else majorToCtor mode r env depth recName rules major
+      else majorToCtor mode r env depth recName isK rules major
     if isCtorApp env majorE then
       pure majorE
     else
       let major₀ ← r.whnf depth majorE
       let major₁ ← litMajorToCtor r env depth major₀
-      majorToCtor mode r env depth recName rules major₁
+      majorToCtor mode r env depth recName isK rules major₁
 
 /-- One iota step: the expression is a stored recursor applied to
 exactly its telescope (params, motives, minors, indices, major), the
@@ -783,9 +794,9 @@ stuck major may be rescued — see `majorToCtor`), and the recursor's
 stored type has the redex's arity.  The constructor side follows **the
 ι case split** (task #342 L10, S5c), decided at the rule's comparand levels (`recFireComparands`):
 a K rule, and a rule whose constructor's family is never `Prop` there
-(`iotaCtorNeverProp`), fire with no check of the constructor application
+(`iotaCase3At`), fire with no check of the constructor application
 — official's `inductive_reduce_rec` checks nothing of it either; every
-other rule (case 3, `iotaCase3`) compares the constructor's levels and
+other rule (case 3) compares the constructor's levels and
 parameters with the rule's comparands, certifies the constructor
 telescope at the full grade (`iotaCertsFull`) and compares the indices
 (`iotaIndexOk`).  The result is the rule's rhs applied to the non-index prefix and the
@@ -796,7 +807,7 @@ def iotaRec (r : CoreFns m) (env : Env) (depth : Nat) (e : Expr) :
   match e.getAppFn with
   | .const c us =>
     match env.find? c with
-    | some (.recInfo cv mI rP rules) =>
+    | some (.recInfo cv mI rP isK rules) =>
       let args := e.getAppArgs
       -- checker change #9: the recursor's level arity, guarded as
       -- `unfoldDefinition` guards it (`Core.lean:174`).  The official
@@ -813,19 +824,19 @@ def iotaRec (r : CoreFns m) (env : Env) (depth : Nat) (e : Expr) :
           (Expr.peelPis (mI + 1) cv.type).isSome = true then
         -- the major's preparation (K rescue / whnf / literal / eta) in
         -- the official order — `prepareMajor`'s docstring
-        let major ← prepareMajor mode r env depth c rules
+        let major ← prepareMajor mode r env depth c isK rules
           (args.getD mI (.bvar 0))
         match major.getAppFn with
         | .const cj usj =>
           match env.find? cj with
-          | some (.ctorInfo cvj _ _) =>
+          | some (.ctorInfo cvj cnP _) =>
             match rules.find? (fun r' => r'.ctor == cj) with
             | some rl =>
               let margs := major.getAppArgs
-              -- the constructor's counts are read off the stored rule
-              -- (install-computed); the defensive spine-length check
+              -- the parameter count is the stored constructor's, the
+              -- field count the rule's; the defensive spine-length check
               -- stays
-              if margs.length = rl.ctorParams + rl.nfields then
+              if margs.length = cnP + rl.nfields then
                 -- The ι batch (2026-09-05): the two `stripPis` arity
                 -- pins that stood here were an environment invariant
                 -- re-checked per fire (every install route establishes
@@ -835,11 +846,11 @@ def iotaRec (r : CoreFns m) (env : Env) (depth : Nat) (e : Expr) :
                 -- the rule's comparands (plain: the recursor's own level
                 -- instantiation and leading arguments; nested: the stored
                 -- major-domain instantiations), from the firing mode
-                -- computed once at install (`sumRules` / `auxRuleFire`)
-                let cmp := recFireComparands rl cv.levelParams us cvj.levelParams args rP
+                -- computed once at its check (`sumRules` / `auxRuleFire`)
+                let cmp := recFireComparands rl cnP cv.levelParams us cvj.levelParams args rP
                 -- **the ι case split** (task #342 L10, #349, S5c), decided at
                 -- the comparand levels: a K rule, or a family never `Prop`
-                -- there (`iotaCtorNeverProp`), fires with no check, as
+                -- there (`iotaCase3At`), fires with no check, as
                 -- official's `inductive_reduce_rec` (it compares nothing
                 -- of the major's constructor); case 3 compares the
                 -- constructor's levels and parameters with the comparands,
@@ -849,13 +860,13 @@ def iotaRec (r : CoreFns m) (env : Env) (depth : Nat) (e : Expr) :
                 -- cached twin gates the whole case-3 decision through
                 -- `certAtI mode (do ...)` (`ConLeche/Cached/CoreC.lean`)
                 if ← (if mode.verifiedChecks then
-                    (if iotaCase3 env.find? rl cvj cmp.1 then do
+                    (iotaCase3At r.whnf env.find? isK cvj cmp.1 >>= fun c3 => if c3 then do
                       if ← liftFueled "level comparison" (Level.isEquivList usj cmp.1) then
-                        if ← defEqList r env depth (margs.take rl.ctorParams) cmp.2 then
+                        if ← defEqList r env depth (margs.take cnP) cmp.2 then
                           if ← iotaCertsFull r env depth
                               (cvj.type.instantiateLevelParams cvj.levelParams usj)
                               margs then
-                            iotaIndexOk r env depth mI rP rl.ctorParams
+                            iotaIndexOk r env depth mI rP cnP
                               (cvj.type.instantiateLevelParams cvj.levelParams usj)
                               margs ((args.take mI).drop rP)
                           else pure false
@@ -865,7 +876,7 @@ def iotaRec (r : CoreFns m) (env : Env) (depth : Nat) (e : Expr) :
                   else pure true) then
                   pure (some (Expr.mkAppN
                     (rl.rhs.instantiateLevelParams cv.levelParams us)
-                    (args.take rP ++ margs.drop rl.ctorParams)))
+                    (args.take rP ++ margs.drop cnP)))
                 else pure none
               else pure none
             | none => pure none
@@ -893,8 +904,7 @@ def projCert (env : Env) (c : Name) (args : List Expr) : Bool :=
 2026-09-06): the verified core checks the constructor telescope's
 arity (`projCert`); the trusted core is the official kernel's, which
 reduces every constructor redex with no check.  The trusted lane stays
-an accept-superset of the verified lane, which is all the agreement
-floor (`Verify/Cached/AgreeFloor.lean`) asks of it. -/
+an accept-superset of the verified lane. -/
 def projCertAt (env : Env) (verified : Bool) (c : Name) (args : List Expr) :
     Bool :=
   if verified then projCert env c args else true
@@ -902,8 +912,7 @@ def projCertAt (env : Env) (verified : Bool) (c : Name) (args : List Expr) :
 /-- **The projection rule on a reduced scrutinee** (the official
 kernel's `reduce_proj_core`): `proj_i (ctor p⃗ x⃗) ↦ x_i`, driven by the
 projection table (never by basis names) — the table entry for
-(structName, i) supplies the constructor, the counts and the
-possibly-Prop level guard.  A string-literal scrutinee first expands to
+(structName, i) supplies the constructor and the counts.  A string-literal scrutinee first expands to
 its reduced constructor form (`projLitToCtor`, official: `whnf
 (string_lit_to_constructor c)`).  At the verified mode the fire is
 certified (`projCertAt`: the constructor spine against the
@@ -920,8 +929,7 @@ def reduceProjCore (r : CoreFns m) (env : Env) (depth : Nat) (sn : Name)
       let args := c.getAppArgs
       if k = entry.ctor ∧ i < entry.numFields ∧
           args.length = entry.numParams + entry.numFields ∧
-          us.length = entry.levelParams.length ∧
-          entry.fireOk us = true then
+          us.length = entry.levelParams.length then
         -- the certificate runs unconditionally at the verified mode;
         -- the trusted mode runs none (`projCertAt`).
         if projCertAt env mode.verifiedChecks k args then
@@ -991,10 +999,8 @@ reproduces a loop run by the chained recursion *at some knot fuel*
 (`ConLeche/Verify/BetaSpine.lean`), so the specification and everything
 above it are unchanged.
 
-Task #330: a real 104.7 GB export (a `decide +kernel` proof,
-`CKLaneD.Structural.structural_paths._proof_1_1`) exhausted this budget
-on master, an internal error (exit 3) on a legitimate input, never an
-accept — raising it can't weaken the check, so the budget is now
+A real 104.7 GB export (a `decide +kernel` proof,
+task #330) needs far more than any smaller budget, and a budget cannot weaken the check, so it is
 effectively unbounded: `2^62`, the largest literal that still keeps the
 decrementing counter an unboxed scalar (`2^63` is a bignum on a 64-bit
 `Nat`/`LEAN_MAX_SMALL_NAT`).  A runaway input is left to an external
@@ -1062,6 +1068,55 @@ def ensureSort (r : CoreFns m) (_env : Env) (depth : Nat) (e : Expr) :
   | .sort u => pure u
   | _ => throw (.invalid "expected a sort")
 
+/-- **The rows of a projection's guard** (`projGuardRows`, official
+`infer_proj`'s `is_prop` tests): each row's term has a sort that is zero
+wherever `guardSort` is, so a proposition wherever the structure is one.
+`inf` is the io slot, as official's `infer_type` inside `is_prop`, in
+every body. -/
+def checkGuardRows (inf wh : Nat → Expr → m Expr) (guardSort : Level) :
+    List (Nat × Expr) → m Unit
+  | [] => pure ()
+  | (d, dom) :: rest => do
+    match ← wh d (← inf d dom) with
+    | .sort u =>
+      unless Level.zeroWhereZero guardSort u do
+        throw (.invalid "projection from a propositional structure must be a proposition")
+      checkGuardRows inf wh guardSort rest
+    | _ => throw (.invalid "expected a sort")
+
+/-- **The sort a projection's rows answer to**, at this use: `none` where the
+guard has nothing to ask.  A structure's stored type that ends in a sort answers
+at once: `Prop` asks for propositions, any other sort nothing, as official's
+`is_prop` on the structure's type.  Otherwise the sort is walked to (official's
+`whnf`), at the use's levels: never zero asks nothing, and a sort that may be zero
+asks that each row be a proposition wherever the structure is one.  Where no sort
+is reached the use is rejected, as official's `infer_type` of the structure's
+type would throw. -/
+def projGuardSort (wh : Nat → Expr → m Expr) (cvT : ConstantVal) (caps : IndCaps)
+    (us : List Level) : m (Option Level) :=
+  match formerResSort cvT.type with
+  | some s => pure (if s.isAlwaysZero then some .zero else none)
+  | none => do
+    match ← formerSortLoop wh 0 (caps.nparams + caps.nIdx)
+        (cvT.type.instantiateLevelParams cvT.levelParams us) with
+    | some s => pure (if (Level.zeronessOf s).isNever then none else some s)
+    | none => throw (.invalid "projection from a structure whose type reaches no sort")
+
+/-- **The official `infer_proj` restriction** at this use (task #480):
+computed here, at the environment of the use, from the stored constructor
+type; nothing about it is stored. -/
+def checkProjGuard (inf wh : Nat → Expr → m Expr) (env : Env) (entry : ProjEntry)
+    (us : List Level) : m Unit :=
+  match env.find? entry.structName with
+  | some (.indInfo cvT caps) => do
+    match ← projGuardSort wh cvT caps us with
+    | none => pure ()
+    | some guardSort =>
+      match projGuardRows env.find? entry us with
+      | some rows => checkGuardRows inf wh guardSort rows
+      | none => throw (.invalid "projection from a propositional structure must be a proposition")
+  | _ => throw (.invalid "projection from a propositional structure must be a proposition")
+
 /-- **The argument check of a full-grade application** (task #353,
 official `infer_app`): the type of an `eagerReduce _ _` argument
 (`Expr.isEagerReduce`) is compared with the domain in the eager tower
@@ -1098,13 +1153,13 @@ def inferBody (r : CoreFns m) (env : Env) : Nat → Expr → m Expr :=
           throw (.invalid s!"incorrect number of universe levels for {n}")
         pure (cv.type.instantiateLevelParams cv.levelParams us)
     | .lit (.natVal _) => do
-      if natLitSupported env then pure (.const natName [])
+      if natLitStored env then pure (.const natName [])
       else throw (.invalid "Nat literal without the Nat basis declarations")
     | .lit (.strVal _) => do
       -- a string literal types as `String` (the reference kernels'
       -- `Literal.typeName`); without the pinned support declarations
       -- this is a positively detected unsupported feature: decline
-      if strLitSupported env then pure (.const stringName [])
+      if strLitStored env then pure (.const stringName [])
       else throw (.notImplemented
         "string literals before the String support declarations")
     | .forallE ty body => do
@@ -1140,10 +1195,7 @@ def inferBody (r : CoreFns m) (env : Env) : Nat → Expr → m Expr :=
       -- A `.proj` node is typed by its projection-table entry: the
       -- stored body, level-instantiated at the subject type's levels
       -- and instantiated at its arguments and the subject (task #175
-      -- S1).  Only stored table entries type bare nodes (task #175
-      -- W6: the pinned pair entries and their computed two-member
-      -- fast path are retired; tower-flag: every stored table is a
-      -- real one).
+      -- S1).  Only stored table entries type bare nodes.
       let te ← r.whnf depth (← r.infer depth pe)
       match te.getAppFn with
       | .const T us =>
@@ -1155,17 +1207,11 @@ def inferBody (r : CoreFns m) (env : Env) : Nat → Expr → m Expr :=
           -- table on the node's name, the checker on the head's
           if T = sn ∧ te.getAppArgs.length = entry.numParams ∧
               us.length = entry.levelParams.length then do
-            -- the official `infer_proj` restriction (task #175
-            -- W4c/O4): at a `Prop`-declared structure the field —
-            -- and every earlier field a later field uses — must be
-            -- a proposition at this instantiation; the entry's
-            -- guard level joins exactly those sorts
-            if Level.isEquiv entry.structSort .zero == some true then
-              unless Level.isEquiv
-                  (Level.subst entry.levelParams us entry.fieldSort) .zero
-                  == some true do
-                throw (.invalid
-                  "projection from a propositional structure must be a proposition")
+            -- the official `infer_proj` restriction: at a
+            -- `Prop`-declared structure the field — and every earlier
+            -- field a later field uses — must be a proposition at this
+            -- instantiation
+            checkProjGuard r.inferIO r.whnf env entry us
             -- the body at the subject type's arguments and the
             -- subject, one `instantiateList` (task #175 S1)
             pure (entry.typeAt us te.getAppArgs pe)
@@ -1211,10 +1257,10 @@ def inferBodyIO (r : CoreFns m) (env : Env) : Nat → Expr → m Expr :=
           throw (.invalid s!"incorrect number of universe levels for {n}")
         pure (cv.type.instantiateLevelParams cv.levelParams us)
     | .lit (.natVal _) => do
-      if natLitSupported env then pure (.const natName [])
+      if natLitStored env then pure (.const natName [])
       else throw (.invalid "Nat literal without the Nat basis declarations")
     | .lit (.strVal _) => do
-      if strLitSupported env then pure (.const stringName [])
+      if strLitStored env then pure (.const stringName [])
       else throw (.notImplemented
         "string literals before the String support declarations")
     | .forallE ty body => do
@@ -1254,14 +1300,8 @@ def inferBodyIO (r : CoreFns m) (env : Env) : Nat → Expr → m Expr :=
           -- table on the node's name, the checker on the head's
           if T = sn ∧ te.getAppArgs.length = entry.numParams ∧
               us.length = entry.levelParams.length then do
-            -- the official `infer_proj` restriction (task #175
-            -- W4c/O4), as in `inferBody`
-            if Level.isEquiv entry.structSort .zero == some true then
-              unless Level.isEquiv
-                  (Level.subst entry.levelParams us entry.fieldSort) .zero
-                  == some true do
-                throw (.invalid
-                  "projection from a propositional structure must be a proposition")
+            -- the official `infer_proj` restriction, as in `inferBody`
+            checkProjGuard r.infer r.whnf env entry us
             -- the body at the arguments and the subject, as in
             -- `inferBody` (task #175 S1)
             pure (entry.typeAt us te.getAppArgs pe)
@@ -1321,46 +1361,55 @@ def defeqSpine (r : CoreFns m) (env : Env) (depth : Nat) (a b : Expr) :
     | _ => pure false
   | _ => pure false
 
-/-- Descent budget of the λ-telescope comparison (`defeqLams`).
+/-- Descent budget of the binder-telescope comparison (`defeqBinders`).
 Exhaustion is not an error: the level reached is compared as the
 innermost one, which is always sound. -/
-@[irreducible, noinline] def lamsFuel : Nat := 4611686018427387904  -- 2^62
+@[irreducible, noinline] def bindersFuel : Nat := 4611686018427387904  -- 2^62
 
-/-- The innermost level of `defeqLams`: the opened bodies, and at the
-verified mode their FULL-grade types. -/
-def defeqLamsInner (r : CoreFns m) (depth : Nat) (b₁ b₂ : Expr) : m Bool := do
+/-- The innermost level of `defeqBinders`: the opened bodies, and for
+two λ-telescopes at the verified mode their FULL-grade types. -/
+def defeqBindersInner (r : CoreFns m) (lam : Bool) (depth : Nat) (b₁ b₂ : Expr) : m Bool := do
   unless ← r.defeq (depth + 1) b₁ b₂ do return false
-  if mode.verifiedChecks then
+  if lam && mode.verifiedChecks then
     unless ← r.defeq (depth + 1) (← r.infer (depth + 1) b₁)
         (← r.infer (depth + 1) b₂) do return false
   pure true
 
-/-- **λ-telescope congruence** (task #342, #349; the rules tier's
-`DefEqLams`): two λs compare their domains; while both opened bodies
-are λs (and not syntactically equal) the comparison descends into them
-directly, comparing domains only; at the innermost level the opened
-bodies are compared and, at the verified mode, so are their FULL-grade
-types (the λ check).  The descent is the λ arm's own, not a recursive
-`defeq` call: a recursive call could answer two λs by proof
-irrelevance or the memo, which skips the type comparison that the
-outer levels rely on. -/
-def defeqLams (r : CoreFns m) :
-    Nat → Nat → Expr → Expr → Expr → Expr → m Bool
-  | fuel, depth, ty₁, body₁, ty₂, body₂ => do
-    unless ← r.defeq depth ty₁ ty₂ do return false
-    let b₁ := body₁.instantiate1 (.fvar depth ty₂)
-    let b₂ := body₂.instantiate1 (.fvar depth ty₂)
-    match fuel, Expr.lamPair? b₁ b₂ with
+/-- One level's domains in `defeqBinders`: syntactically equal raw
+domains are equal; otherwise the left one, opened over the variables so
+far, against the opened right one `dom₂`. -/
+def defeqDomain (r : CoreFns m) (depth : Nat) (fvs : List Expr) (ty₁ ty₂ dom₂ : Expr) : m Bool :=
+  if ty₁ == ty₂ then pure true else r.defeq depth (ty₁.instantiateList fvs) dom₂
+
+/-- **Binder-telescope congruence** (the official kernel's
+`is_def_eq_binding`; the rules tier's `DefEq.forallE` and `DefEqLams`):
+two ∀-telescopes (`lam = false`) or two λ-telescopes (`lam = true`) are
+peeled together while both bodies are binders of that kind.  At each
+level the domains are compared, unless they are syntactically equal,
+each opened in one bulk pass over the variables so far (`fvs`,
+innermost first); the level's variable takes the RIGHT domain.  The two
+bodies are compared once, at the innermost level, each opened in one
+bulk pass — and, for λs at the verified mode, so are their FULL-grade
+types (the λ check).  No intermediate body is opened or compared: a
+recursive `defeq` call could answer two λs by proof irrelevance or the
+memo, which skips the type comparison that the outer levels rely on. -/
+def defeqBinders (r : CoreFns m) (lam : Bool) :
+    Nat → Nat → List Expr → Expr → Expr → Expr → Expr → m Bool
+  | fuel, depth, fvs, ty₁, body₁, ty₂, body₂ => do
+    let dom₂ := ty₂.instantiateList fvs
+    unless ← defeqDomain r depth fvs ty₁ ty₂ dom₂ do return false
+    let fvs' := Expr.fvar depth dom₂ :: fvs
+    match fuel, Expr.binderPair? lam body₁ body₂ with
     | fuel + 1, some (ty₁', body₁', ty₂', body₂') =>
-      if b₁ == b₂ then pure true
-      else defeqLams r fuel (depth + 1) ty₁' body₁' ty₂' body₂'
-    | _, _ => defeqLamsInner mode r depth b₁ b₂
+      defeqBinders r lam fuel (depth + 1) fvs' ty₁' body₁' ty₂' body₂'
+    | _, _ =>
+      defeqBindersInner mode r lam depth (body₁.instantiateList fvs')
+        (body₂.instantiateList fvs')
 
 /-- **The easy cases** (the official kernel's `quick_is_def_eq`): the
 syntactic fast path, and the pairs whose verdict is decided on the spot
 — two sorts (level equivalence), two literals, two `∀`s and two `λ`s
-(binder congruence: domains, then bodies opened at the RIGHT domain;
-two λs by `defeqLams`).
+(binder-telescope congruence, `defeqBinders`).
 `none` is "not an easy case".  `defeqBody` runs it on the unreduced
 pair and again after the cheap head normalization, and
 `lazyDeltaStep` after every unfolding.  (The
@@ -1374,13 +1423,10 @@ def quickDefEq (r : CoreFns m) (depth : Nat) (a b : Expr) : m (Option Bool) :=
     pure (some ok)
   | .lit l₁, .lit l₂ => pure (some (l₁ == l₂))
   | .forallE ty₁ body₁, .forallE ty₂ body₂ => do
-    unless ← r.defeq depth ty₁ ty₂ do return some false
-    unless ← r.defeq (depth + 1)
-        (body₁.instantiate1 (.fvar depth ty₂))
-        (body₂.instantiate1 (.fvar depth ty₂)) do return some false
-    pure (some true)
+    let ok ← defeqBinders mode r false bindersFuel depth [] ty₁ body₁ ty₂ body₂
+    pure (some ok)
   | .lam ty₁ body₁, .lam ty₂ body₂ => do
-    let ok ← defeqLams mode r lamsFuel depth ty₁ body₁ ty₂ body₂
+    let ok ← defeqBinders mode r true bindersFuel depth [] ty₁ body₁ ty₂ body₂
     pure (some ok)
   | _, _ => pure none
 
@@ -1532,33 +1578,33 @@ acceleration — guarded on both sides being free of free variables, as
 in the official kernel and lean4lean (an open `Int32`/`Int64` pair
 would otherwise delta-grind the `Nat.brecOn` tower; the whnf-loop
 `reduceNat` stays unguarded, as the official whnf loop is), unless the
-eager flag is set (`mode.eager`, task #353: official's
+eager flag is set (`eager`, task #353: official's
 `(!has_fvar(t_n) && !has_fvar(s_n)) || m_eager_reduce`) — whose
 reduct restarts the comparison (`defeq`, official `is_def_eq_core`),
 then one `lazyDeltaStep`.  Each unfolding is one iteration of this
 loop on its own step budget (task #106: not one unit of the knot's
 recursion depth). -/
-def lazyDeltaReduction (r : CoreFns m) (env : Env) (depth : Nat) :
+def lazyDeltaReduction (eager : Bool) (r : CoreFns m) (env : Env) (depth : Nat) :
     Nat → Expr → Expr → m LazyRes
   | 0, _, _ => throw (.internal "fuel exhausted: defeq loop")
   | n + 1, a, b => do
     match ← defeqOffset r depth a b with
     | some v => pure (.verdict v)
     | none =>
-    match ← (if mode.eager || (!a.hasFvar && !b.hasFvar) then
+    match ← (if eager || (!a.hasFvar && !b.hasFvar) then
         reduceNat r env depth a else pure none) with
     | some a₂ => do
       let v ← r.defeq depth a₂ b
       pure (.verdict v)
     | none =>
-    match ← (if mode.eager || (!a.hasFvar && !b.hasFvar) then
+    match ← (if eager || (!a.hasFvar && !b.hasFvar) then
         reduceNat r env depth b else pure none) with
     | some b₂ => do
       let v ← r.defeq depth a b₂
       pure (.verdict v)
     | none =>
     match ← lazyDeltaStep mode r env depth a b with
-    | .cont a' b' => lazyDeltaReduction r env depth n a' b'
+    | .cont a' b' => lazyDeltaReduction eager r env depth n a' b'
     | .eq => pure (.verdict true)
     | .diff => pure (.verdict false)
     | .unknown => pure (.unknown a b)
@@ -1616,14 +1662,14 @@ def defeqStuck (r : CoreFns m) (env : Env) (depth : Nat) (a b : Expr) :
   | .lit l, .app f x =>
     match l, f with
     | .strVal st, .const cO usO =>
-      if cO = stringOfListName ∧ usO = [] ∧ strLitSupported env then
+      if cO = stringOfListName ∧ usO = [] ∧ strLitStored env then
         r.defeq depth (strLitToConstructor st) (.app (.const cO usO) x)
       else stuckIrrel r env depth (.lit (.strVal st)) (.app (.const cO usO) x)
     | _, _ => stuckIrrel r env depth (.lit l) (.app f x)
   | .app f x, .lit l =>
     match l, f with
     | .strVal st, .const cO usO =>
-      if cO = stringOfListName ∧ usO = [] ∧ strLitSupported env then
+      if cO = stringOfListName ∧ usO = [] ∧ strLitStored env then
         r.defeq depth (.app (.const cO usO) x) (strLitToConstructor st)
       else stuckIrrel r env depth (.app (.const cO usO) x) (.lit (.strVal st))
     | _, _ => stuckIrrel r env depth (.app f x) (.lit l)
@@ -1668,7 +1714,7 @@ def defeqStuck (r : CoreFns m) (env : Env) (depth : Nat) (a b : Expr) :
 the syntactic fast path; the `Bool.true` shortcut (E2,
 `boolTrueShortcut`: right side `Bool.true`, left side fvar-free or the
 eager flag set — official's `(!has_fvar(t) || m_eager_reduce) &&
-is_constant(s, Bool.true)`, the flag being `mode.eager`, task #353);
+is_constant(s, Bool.true)`, the flag being `eager`, task #353);
 `quickDefEq` and proof
 irrelevance (`is_def_eq_proof_irrel`) on the UNREDUCED sides; the cheap
 head normalization of both sides (`whnfCore` with `cheap_proj`);
@@ -1686,17 +1732,17 @@ difference is a proof with no normal form (impredicative `Prop` +
 `propext` + K-like `Eq.rec`, `tests/e2e/src/omega_kloop.lean`), which
 the official order head-normalizes forever.  `quickDefEq` stays first
 because it only fires on sorts, literals and binders, which `whnfCore`
-leaves unchanged: on those pairs the old order's verdict is kept.
+leaves unchanged: on those pairs either order gives the same verdict.
 
 The restarts — after a literal acceleration in the loop and after the
 full `whnfCore` — are `defeq` calls, as official's are `is_def_eq_core`
 calls, so every entry runs the prefix (proof irrelevance included)
 exactly once (the divergence audit's D3 holds by construction); the
 long chains — the unfoldings — are iterations of the lazy loops. -/
-def defeqBody (r : CoreFns m) (env : Env) : Nat → Expr → Expr → m Bool :=
+def defeqBody (eager : Bool) (r : CoreFns m) (env : Env) : Nat → Expr → Expr → m Bool :=
   fun depth a b => do
     if a == b then pure true else
-    if ← (if b.isBoolTrue && (mode.eager || !a.hasFvar) then
+    if ← (if b.isBoolTrue && (eager || !a.hasFvar) then
         boolTrueShortcut r depth a else pure false) then pure true else
     match ← quickDefEq mode r depth a b with
     | some v => pure v
@@ -1709,7 +1755,7 @@ def defeqBody (r : CoreFns m) (env : Env) : Nat → Expr → Expr → m Bool :=
     match ← quickDefEq mode r depth a' b' with
     | some v => pure v
     | none =>
-    match ← lazyDeltaReduction mode r env depth defeqLoopFuel a' b' with
+    match ← lazyDeltaReduction mode eager r env depth defeqLoopFuel a' b' with
     | .verdict v => pure v
     | .unknown a₁ b₁ =>
     if ← defeqProjPair mode r env depth a₁ b₁ then pure true else
@@ -1732,7 +1778,7 @@ next level is constructed lazily, inside each entry point's closure
 (constant work per call; an eager tower would cost `fuel` allocations
 per instantiation). -/
 def coreKnot {m : Type → Type} [Monad m] [MonadExceptOf CheckError m]
-    (mode : CheckMode) (env : Env)
+    (mode : CheckMode) (eager : Bool) (env : Env)
     (wrap : CoreFns m → CoreFns m) : Nat → CoreFns m
   | 0 =>
     { whnfCore := fun _ _ _ => throw (.internal "fuel exhausted: whnfCore")
@@ -1744,23 +1790,23 @@ def coreKnot {m : Type → Type} [Monad m] [MonadExceptOf CheckError m]
   | fuel + 1 =>
     wrap
       { whnfCore := fun c d e =>
-          whnfCoreBody mode (coreKnot mode env wrap fuel) env c d e
-        whnf := fun d e => whnfBody (coreKnot mode env wrap fuel) env d e
+          whnfCoreBody mode (coreKnot mode eager env wrap fuel) env c d e
+        whnf := fun d e => whnfBody (coreKnot mode eager env wrap fuel) env d e
         infer := fun d e =>
-          inferBody (coreKnot mode env wrap fuel) env d e
+          inferBody (coreKnot mode eager env wrap fuel) env d e
         defeq := fun d a b =>
-          defeqBody mode (coreKnot mode env wrap fuel) env d a b
+          defeqBody mode eager (coreKnot mode eager env wrap fuel) env d a b
         -- **The eager slot** (task #353): the eager tower, the knot at
-        -- `mode.toEager` one level down (the flag propagates to
+        -- `eager := true` one level down (the flag propagates to
         -- everything the comparison calls, as official's does)
         defeqE := fun d a b =>
-          defeqBody mode.toEager (coreKnot mode.toEager env wrap fuel) env d a b
+          defeqBody mode true (coreKnot mode true env wrap fuel) env d a b
         -- **The io slot** (task #170 / #172 B4, task #346): official's
         -- `infer_only`, tied to the io-grade view of the knot one level
         -- down (the grade propagates, as official's does)
         inferIO := fun d e =>
           inferBodyIO
-            (CoreFns.ioView (coreKnot mode env wrap fuel)) env d e }
+            (CoreFns.ioView (coreKnot mode eager env wrap fuel)) env d e }
 
 /-- The shared fuel for the checker core: bounds the recursion depth of
 reduction, inference and definitional equality.  Exhaustion is an
@@ -1776,8 +1822,7 @@ level is native recursion, as in the official kernel (a `whnf` of
 bounds the depth is therefore the native stack: every checker thread
 has the Lean runtime's default 1 GiB stack, a level costs 0.8–1.2 KB
 of it, and a recursion deeper than about a million levels aborts
-(`Stack overflow detected`, exit 134;
-`tests/e2e/src/stack_fuel_offset.lean`) — an error like exit 3 for
+(`Stack overflow detected`, exit 134) — an error like exit 3 for
 the arena, and never an accept.  Task #353 had sized the fuel to the
 stack (500000) so that the error was a clean exit 3; the openai/math
 ContinuumCoulombHardness challenge needs more than that and is

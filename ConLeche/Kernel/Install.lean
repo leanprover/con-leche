@@ -1,0 +1,105 @@
+module
+
+public import ConLeche.Kernel.Inductives.BlockInstall
+
+@[expose] public section
+
+/-!
+# What a declaration adds
+
+A declaration's constants and projection tables are a direct consequence of the declaration: this
+file reads them off it, with no environment, no inference and no reduction.  The fold's step pushes
+exactly this once the declaration's checks pass, and the stream's index is built from it before any
+check runs.
+
+A block the checks reject may still read as something here (a recursor whose major is not a
+container reads as firing `.plain`, a block with a structure whose constructor is too short has
+no tables): what it reads as never reaches an accepted environment.
+-/
+
+namespace ConLeche
+
+/-- The environment with a declaration's constants and tables pushed, each list oldest first. -/
+def Env.pushDelta (env : Env) (L : List ConstantInfo) (Q : List ProjTable) : Env :=
+  ⟨L.reverse ++ env.consts, Q.reverse ++ env.tables⟩
+
+/-- The formers, in block order, as declared, with the capabilities their block gives them. -/
+def blockFormers (p : BlockShape) (isRec : Bool) : List ConstantInfo :=
+  (p.members.map (·.declared)).zipIdx.map fun (cv, i) => .indInfo cv (blockCapsAt p i isRec)
+
+/-- The constructors of every member, as declared, in block order. -/
+def blockCtors (p : BlockShape) : List ConstantInfo :=
+  p.allCtors.map fun c => .ctorInfo c.1 p.nP c.2
+
+/-- `n` variables below a term's own, which do not occur in it, dropped. -/
+def Expr.dropVars : Nat → Expr → Expr
+  | 0, e => e
+  | n + 1, e => Expr.dropVars n (e.instantiate1 (.sort .zero))
+
+/-- **How a recursor's rules fire**: `.plain` at a member major; at a major outside the block,
+`.nested` at the levels and parameters of the major's container.  Those are read off the major's
+domain, whose arguments end in the `mI - rP` index variables; the parameters are moved from under
+the index binders to the rule prefix. -/
+def recFire (p : BlockShape) (rc : RecShape) : RecRuleFire :=
+  if rc.tgt < p.k then .plain
+  else
+    match rc.cvR.type.stripPis rc.mI with
+    | some (_, .forallE dom _) =>
+      match dom.getAppFn with
+      | .const _ us =>
+        let nI := rc.mI - rc.rP
+        let args := dom.getAppArgs
+        .nested us ((args.take (args.length - nI)).map (Expr.dropVars nI))
+      | _ => .plain
+    | _ => .plain
+
+/-- The recursors, in block order: each record with its rules' firing mode. -/
+def blockRecs (p : BlockShape) : List RecShape → List ConstantInfo
+  | [] => []
+  | rc :: rest =>
+    .recInfo rc.cvR rc.mI rc.rP rc.isK (rc.rules.map ({ · with fire := recFire p rc })) ::
+      blockRecs p rest
+
+/-- **The projection tables**, in block order: one per structure-like member, its bodies read off
+its constructor's type (`structProjBodies`).  `none` where a structure-like member's constructor
+type is too short to read them: a block whose constructors pass their checks always has its
+tables (`checkBlock` rejects the other case). -/
+def blockTables (p : BlockShape) : List MemberShape → Option (List ProjTable)
+  | [] => some []
+  | ms :: rest =>
+    match ms.structCtor? with
+    | some c =>
+      (structProjBodies ms.declared.name p.nP c.2 c.1.type).bind fun bodies =>
+        (blockTables p rest).map (⟨ms.declared.name, p.lps, p.nP, c.1.name, c.2, bodies⟩ :: ·)
+    | none => blockTables p rest
+
+/-- The block's constants, in push order: the formers, the constructors, the recursors. -/
+def blockConstants (p : BlockShape) : List ConstantInfo :=
+  blockFormers p (blockIsRec p) ++ blockCtors p ++
+    blockRecs p p.recs
+
+/-- **The constants a declaration installs**, in push order.  A block `readBlock` cannot read
+installs nothing (its job rejects it), and `sorryAx` nothing (any use of it declines). -/
+def declConstants : Declaration → List ConstantInfo
+  | .defnDecl cv value hint => [.defnInfo cv value hint]
+  | .thmDecl cv _ => [.thmInfo cv]
+  | .opaqueDecl cv _ => [.axiomInfo cv]
+  | .axiomDecl cv =>
+    if cv.name = quotSoundName then [quotAt .sound cv]
+    else if cv.name = sorryAxName then []
+    else [.axiomInfo cv]
+  | .quotDecl k cv => [quotAt k cv]
+  | .indDecl block nP =>
+    match readBlock nP block with
+    | .ok p => blockConstants p
+    | .error _ => []
+
+/-- **The projection tables a declaration installs**: those of a recognised inductive block. -/
+def declTables : Declaration → List ProjTable
+  | .indDecl block nP =>
+    match readBlock nP block with
+    | .ok p => (blockTables p p.members).getD []
+    | .error _ => []
+  | _ => []
+
+end ConLeche

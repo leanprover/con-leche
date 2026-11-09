@@ -8,7 +8,6 @@ import ConLeche.Model.WellDenotedTransport
 import ConLeche.Model.Rules.Sound
 import ConLeche.Model.CtxOkKit
 import ConLeche.Verify.Rules.Bridge
-import ConLeche.Verify.Modes
 import ConLeche.Verify.InferLemmas
 import ConLeche.Verify.InferLeaves
 import ConLeche.Semantics.Frame
@@ -41,7 +40,7 @@ open ConLeche (CheckMode Env Expr Name Level whnf inferTypeCore)
 universe w
 
 variable {V : Type w} [SetTheory V]
-variable {μ : CheckMode} {env : Env} {φ : Name → Nat} {fuel : Nat}
+variable {env : Env} {φ : Name → Nat} {fuel : Nat}
 
 -- The recomposition, re-exported under the names the fold has always
 -- used (`Model/Rules/Recompose.lean`): `checkSoundAtP5` is the five
@@ -59,10 +58,10 @@ The context premise is needed: the `.fvar` clause returns the leaf's
 stored annotation, which the subject's reading never mentions.  In the
 rules tier readability is the motive's existence form, whose premise
 IS the context. -/
-@[expose] def InferReads {env : Env} (m : EnvModel V env) (μ : CheckMode)
+@[expose] def InferReads {env : Env} (m : EnvModel V env)
     (φ : Name → Nat) (fuel : Nat) : Prop :=
   ∀ {d : Nat} {e t : Expr} {Δa : List Term} {ea : Term},
-    inferTypeCore μ env fuel d e = .ok t →
+    inferTypeCore .verified false env fuel d e = .ok t →
     Expr.WScoped d e → e.looseBVarsBounded 0 = true →
     Expr.LeavesBounded e →
     CtxOk m φ d Δa e →
@@ -73,11 +72,10 @@ IS the context. -/
 the bridge turns the run into a derivation and the infer
 motive CONCLUDES the type's reading — the shape `Recompose.lean`'s
 fourth case destructures. -/
-theorem inferReads_of (hμ : μ.isVerified = true)
+theorem inferReads_of
     {m : EnvModel V env} (hin : Rules.RulesInputs V m φ) :
-    InferReads m μ φ fuel := by
+    InferReads m φ fuel := by
   intro d e t Δa ea hrun hws hb hLb hC hea
-  obtain rfl : μ = .verified := CheckMode.eq_verified hμ
   obtain ⟨-, -, ta, hta, -⟩ :=
     Rules.infer_sound hin (Rules.inferTypeCore_bridge hrun)
       ⟨hws, hb, hLb⟩ hC.toS hea
@@ -89,15 +87,15 @@ theorem inferReads_of (hμ : μ.isVerified = true)
 the induction-bounded checker fuel, and `sortSemAt_of_claims`
 *derives* the fact from the claims one level down.  The subject's
 scoping package is carried so the claims can be applied. -/
-@[expose] def SortSemAt {env : Env} (m : EnvModel V env) (μ : CheckMode)
+@[expose] def SortSemAt {env : Env} (m : EnvModel V env)
     (φ : Name → Nat) (fuel : Nat) : Prop :=
   ∀ {d : Nat} {e t : Expr} {u : Level} {Δa : List Term}
     {ea : Term},
     CtxOk m φ d Δa e →
     Expr.WScoped d e → e.looseBVarsBounded 0 = true →
     Expr.LeavesBounded e →
-    inferTypeCore μ env fuel d e = .ok t →
-    whnf μ env fuel d t = .ok (.sort u) →
+    inferTypeCore .verified false env fuel d e = .ok t →
+    whnf .verified false env fuel d t = .ok (.sort u) →
     denote m.acval env φ d e = some ea →
     ∀ ρ : Nat → V, Sat V Δa ρ →
       WellDenoted V ρ ea ∧ interp V ρ ea ∈ˢ (univ (u.eval φ) : V)
@@ -109,9 +107,9 @@ factor — infer the type (`hreads` says it reads), grade both readings
 lands in the universe. -/
 theorem sortSemAt_of_claims {env : Env} {m : EnvModel V env}
     {fuel : Nat}
-    (ihw : WhnfClaim μ m φ fuel) (ihi : InferClaim μ m φ fuel)
-    (hreads : InferReads m μ φ fuel) :
-    SortSemAt m μ φ fuel := by
+    (ihw : WhnfClaim m φ fuel) (ihi : InferClaim m φ fuel)
+    (hreads : InferReads m φ fuel) :
+    SortSemAt m φ fuel := by
   intro d e t u Δa ea hC hws hb hLb hi hw hea
   obtain ⟨ta, hta⟩ :=
     hreads hi hws hb hLb hC hea
@@ -144,7 +142,7 @@ at each of them the front door has already checked the same condition.
 | --- | --- |
 | a loose `.bvar` | outside the fragment (`.notImplemented`); also excluded by the subject's own `looseBVarsBounded 0` |
 | `.const` unfindable / mis-arity | `env.find?` + `us.length = cv.levelParams.length`, the two `throw`s of the `.const` clause |
-| a literal without its basis | `natLitSupported` / `strLitSupported`, the literal clauses' guards |
+| a literal without its basis | `natLitStored` / `strLitStored`, the literal clauses' guards |
 | `.proj T i` without a table entry | the `.proj` clause throws without an `env.findProj?` entry, and at an entry the reading is the tower (`denote_proj_tower`) |
 
 The `.fvar` clause reads **unconditionally** — `denote` never looks
@@ -176,7 +174,7 @@ equation the clause's second `throw` tests — which is precisely
 `denote`'s `.const` guard. -/
 theorem inferTypeCore_const_inv_len {fuel d : Nat}
     {n : Name} {us : List Level} {t : Expr}
-    (h : inferTypeCore μ env fuel d (.const n us) = .ok t) :
+    (h : inferTypeCore .verified false env fuel d (.const n us) = .ok t) :
     ∃ ci, env.find? n = some ci ∧
       us.length = ci.toConstantVal.levelParams.length := by
   match fuel, h with
@@ -199,28 +197,28 @@ theorem inferTypeCore_const_inv_len {fuel d : Nat}
 /-- **The `Nat`-literal clause's guard, recorded** — `denote`'s own
 literal guard, verbatim. -/
 theorem inferTypeCore_natLit_inv {fuel d k : Nat} {t : Expr}
-    (h : inferTypeCore μ env fuel d (.lit (.natVal k)) = .ok t) :
-    ConLeche.natLitSupported env = true := by
+    (h : inferTypeCore .verified false env fuel d (.lit (.natVal k)) = .ok t) :
+    ConLeche.natLitStored env = true := by
   match fuel, h with
   | 0, h => rw [ConLeche.inferTypeCore_zero] at h; exact nomatch h
   | fuel + 1, h =>
     rw [ConLeche.inferTypeCore_succ] at h
     simp only [ConLeche.inferBody, pure, Except.pure] at h
-    by_cases hg : ConLeche.natLitSupported env = true
+    by_cases hg : ConLeche.natLitStored env = true
     · exact hg
     · rw [ite_eq_right hg] at h
       simp [throw, throwThe, MonadExceptOf.throw] at h
 
 /-- **The string-literal clause's guard, recorded.** -/
 theorem inferTypeCore_strLit_inv {fuel d : Nat} {s : String} {t : Expr}
-    (h : inferTypeCore μ env fuel d (.lit (.strVal s)) = .ok t) :
-    ConLeche.strLitSupported env = true := by
+    (h : inferTypeCore .verified false env fuel d (.lit (.strVal s)) = .ok t) :
+    ConLeche.strLitStored env = true := by
   match fuel, h with
   | 0, h => rw [ConLeche.inferTypeCore_zero] at h; exact nomatch h
   | fuel + 1, h =>
     rw [ConLeche.inferTypeCore_succ] at h
     simp only [ConLeche.inferBody, pure, Except.pure] at h
-    by_cases hg : ConLeche.strLitSupported env = true
+    by_cases hg : ConLeche.strLitStored env = true
     · exact hg
     · rw [ite_eq_right hg] at h
       simp [throw, throwThe, MonadExceptOf.throw] at h
@@ -230,7 +228,7 @@ theorem inferTypeCore_strLit_inv {fuel d : Nat} {s : String} {t : Expr}
 /-- The walk, with the fuel explicit (the induction's own shape). -/
 private theorem acceptedReads_aux (m : EnvModel V env) (φ : Name → Nat) :
     ∀ (F : Nat) {d : Nat} {e t : Expr},
-      inferTypeCore μ env F d e = .ok t →
+      inferTypeCore .verified false env F d e = .ok t →
       Expr.WScoped d e → e.looseBVarsBounded 0 = true →
       Expr.LeavesBounded e →
       ∃ ea, denote m.acval env φ d e = some ea := by
@@ -252,12 +250,12 @@ private theorem acceptedReads_aux (m : EnvModel V env) (φ : Name → Nat) :
       obtain ⟨ci, hf, hlen⟩ := inferTypeCore_const_inv_len h
       exact ⟨_, denote_const hf hlen⟩
     | .lit (.natVal k) =>
-      exact ⟨_, denote_natLit (inferTypeCore_natLit_inv h)⟩
+      exact ⟨_, denote_natLit (ConLeche.natLitSupported_of_stored m.wf m.basis_pinned.natKinds (inferTypeCore_natLit_inv h))⟩
     | .lit (.strVal s) =>
       -- the reading is the (long) pinned character spine; name it by
       -- case analysis rather than transcribing it
       rcases hd : denote m.acval env φ d (.lit (.strVal s)) with _ | ea
-      · rw [denote, ite_eq_left (inferTypeCore_strLit_inv h)] at hd
+      · rw [denote, ite_eq_left (ConLeche.strLitSupported_of_stored m.wf m.basis_pinned.natKinds (inferTypeCore_strLit_inv h))] at hd
         exact nomatch hd
       · exact ⟨ea, rfl⟩
     | .app f a =>
@@ -347,7 +345,7 @@ inference accepts, the stored-term reading `denote` reads.  See the
 module docstring for the guard table and for the `letE` clause. -/
 theorem acceptedReads_of (m : EnvModel V env) (φ : Name → Nat)
     {F d : Nat} {e t : Expr}
-    (h : inferTypeCore μ env F d e = .ok t)
+    (h : inferTypeCore .verified false env F d e = .ok t)
     (hws : Expr.WScoped d e) (hb : e.looseBVarsBounded 0 = true)
     (hL : Expr.LeavesBounded e) :
     ∃ ea, denote m.acval env φ d e = some ea :=

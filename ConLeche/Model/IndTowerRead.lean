@@ -1,5 +1,6 @@
 module
 
+import ConLeche.Verify.Denote.IndFrame
 import ConLeche.Verify.Denote.OpenRevDenote
 public import ConLeche.Model.IndPointKit
 public import ConLeche.Model.BasisEq

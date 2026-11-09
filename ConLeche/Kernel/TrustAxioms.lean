@@ -19,7 +19,7 @@ declined:
   interpretation.
 * `Lean.reduceNat` / `Lean.reduceBool` then check as ordinary
   `opaque`s (their exported values are identity functions modulo the
-  `have := trustCompiler` wrapper); at install their stored values are
+  `have := trustCompiler` wrapper); at its check their stored values are
   pinned against the identity function
   (`ConLeche/Kernel/TrustPins.lean`, hand-pinned since task #273 —
   every toolchain's definition after zeta) by definitional equality —
@@ -162,7 +162,10 @@ def reduceStoredOk (env : Env) (c : Name) : Bool :=
 /-- The element-inductive shape an `ofReduce*` axiom needs: the pinned
 `Nat` basis resp. a standardly-shaped stored `Bool`. -/
 def reduceElemOk (env : Env) (c : Name) : Bool :=
-  if c = reduceNatName then decide (env.find? natName = some natA)
+  if c = reduceNatName then
+    match env.find? natName with
+    | some (.indInfo cvN _) => ConstantVal.matchesPin cvN natA.toConstantVal
+    | _ => false
   else
     match env.find? boolName with
     | some (.indInfo cvB _) => ConstantVal.matchesPin cvB boolCvA
@@ -175,7 +178,7 @@ as a pinned opaque — whose install already ran the identity
 certificate (`checkReducePin`), the fact the model consumes here. -/
 def ofReduceAxOk (env : Env) (cv : ConstantVal) : Bool :=
   let c := ofReduceOp cv.name
-  decide (env.find? eqName = some eqA) &&
+  (env.find? eqName).isSome &&
   reduceElemOk env c &&
   reduceStoredOk env c &&
   ConstantVal.matchesPin cv (ofReducePinA cv.name)
@@ -189,7 +192,7 @@ after zeta). -/
 def reduceDeclPin (c : Name) : Expr :=
   if c = reduceNatName then reduceNatDeclPin else reduceBoolDeclPin
 
-/-- Syntactic guards on the generated pin (checked once at install). -/
+/-- Syntactic guards on the generated pin (checked once). -/
 def reducePinGuard (env : Env) (c : Name) : Bool :=
   (reduceDeclPin c).looseBVarsBounded 0 && !(reduceDeclPin c).hasFvar &&
   (reduceDeclPin c).allLevelParamsDefined [] &&

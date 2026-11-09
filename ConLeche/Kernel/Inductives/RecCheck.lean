@@ -1,5 +1,7 @@
 module
-public import ConLeche.Kernel.Inductives.BlockInstallF
+public import ConLeche.Kernel.FEnv
+public import ConLeche.Kernel.Inductives.BlockShape
+public import ConLeche.Kernel.Inductives.SumInstall
 
 
 @[expose] public section
@@ -23,13 +25,12 @@ record pins:
   `TargetMajor`) and an outside class's parameters typed
   (`targetMajorPins`);
 * the recursor records' pins (`targetRecPins`);
-* the stored family's formats (`tgtRs`, `tgtStoredRules`,
+* the stored family's formats (`tgtRs`, `generatedRules`,
   `blockRecInfosTF`) and the container bit (`blockNestedBit`).
 
-Everything is written over an `FEnv`, parameterised by `ShadowOps` (the
-operations at an index, a flush, the walkers), so the pure install
-(`ShadowOps.ofOps`), the unit tests and the cached fold (`shadowOpsC`,
-`ConLeche/Cached/CheckerC.lean`) run the same code.
+Everything is written over an `FEnv` and a checker's operations; the
+cached driver runs the twins of `ConLeche/Cached/IndRec.lean`, simulated
+against this code (`genRecCheckS_spec`).
 -/
 
 namespace ConLeche
@@ -54,10 +55,10 @@ a constant.  A free variable's ANNOTATION is not abstracted: the
 frame's fields keep their concrete types (a field's value fits them at
 the carrier, and the separated tuple lies below it), so a hole occurs
 in the abstract term only where the term itself names a member, and a
-hole-free abstract term IS a concrete one.  Memoised on the node (tower-shaped DAG fields,
-`tower_struct`).  It is NOT `replaceConsts`
-(`Kernel/ExprOps.lean`) at the member map, on purpose: that one
-rewrites free variables' annotations too, and here the frame's fields
+hole-free abstract term IS a concrete one.  The cached twin `targetAbsC`
+(`ConLeche/Cached/ExprOpsC.lean`) is memoised on the node (tower-shaped DAG fields,
+`tower_struct`).  It is NOT a constant replacement at the member map
+that descends into free variables' annotations, on purpose: here the frame's fields
 must keep their concrete types (see below) — an abstracted annotation
 would make every domain that names an earlier recursive field look
 holed. -/
@@ -83,143 +84,6 @@ def targetAbs (names : List Name) (lvls : List Level) (holes : List Expr) : Expr
     .letE (targetAbs names lvls holes ty) (targetAbs names lvls holes v)
       (targetAbs names lvls holes body)
   | .proj s i sub => .proj s i (targetAbs names lvls holes sub)
-
-/-- The memo's invariant: every recorded answer is the real one. -/
-def TargetAbsMemoInv (names : List Name) (lvls : List Level) (holes : List Expr)
-    (memo : Std.HashMap Expr Expr) : Prop :=
-  ∀ k v, memo[k]? = some v → v = targetAbs names lvls holes k
-
-theorem TargetAbsMemoInv.insert {names : List Name} {lvls : List Level} {holes : List Expr}
-    {memo : Std.HashMap Expr Expr}
-    (hm : TargetAbsMemoInv names lvls holes memo) {e r : Expr}
-    (heq : r = targetAbs names lvls holes e) :
-    TargetAbsMemoInv names lvls holes (memo.insert e r) := by
-  intro k v hk
-  rw [Std.HashMap.getElem?_insert] at hk
-  split at hk
-  · rename_i hbeq
-    cases hk
-    rw [← eq_of_beq hbeq]
-    exact heq
-  · exact hm k v hk
-
-/-- The member abstraction, memoised on the node (tower DAGs). -/
-def targetAbsGo (names : List Name) (lvls : List Level) (holes : List Expr)
-    (memo : Std.HashMap Expr Expr) : Expr → Expr × Std.HashMap Expr Expr
-  | e@(.bvar _) => (e, memo)
-  | e@(.sort _) => (e, memo)
-  | e@(.lit _) => (e, memo)
-  | e@(.fvar _ _) => (e, memo)
-  | e@(.const n us) =>
-    if us == lvls then
-      match names.findIdx? (· == n) with
-      | some t => (holes.getD t e, memo)
-      | none => (e, memo)
-    else (e, memo)
-  | e =>
-    match memo[e]? with
-    | some r => (r, memo)
-    | none =>
-      let (r, memo) : Expr × Std.HashMap Expr Expr :=
-        match e with
-        | .app a b =>
-          let (a', memo) := targetAbsGo names lvls holes memo a
-          let (b', memo) := targetAbsGo names lvls holes memo b
-          (.app a' b', memo)
-        | .lam ty body =>
-          let (t, memo) := targetAbsGo names lvls holes memo ty
-          let (b, memo) := targetAbsGo names lvls holes memo body
-          (.lam t b, memo)
-        | .forallE ty body =>
-          let (t, memo) := targetAbsGo names lvls holes memo ty
-          let (b, memo) := targetAbsGo names lvls holes memo body
-          (.forallE t b, memo)
-        | .letE ty v body =>
-          let (t, memo) := targetAbsGo names lvls holes memo ty
-          let (v', memo) := targetAbsGo names lvls holes memo v
-          let (b, memo) := targetAbsGo names lvls holes memo body
-          (.letE t v' b, memo)
-        | .proj s i sub =>
-          let (u, memo) := targetAbsGo names lvls holes memo sub
-          (.proj s i u, memo)
-        | e => (e, memo)
-      (r, memo.insert e r)
-
-/-- **The memoised walk is `targetAbs`.** -/
-theorem targetAbsGo_spec {names : List Name} {lvls : List Level} {holes : List Expr} :
-    ∀ (e : Expr) {memo : Std.HashMap Expr Expr}, TargetAbsMemoInv names lvls holes memo →
-      (targetAbsGo names lvls holes memo e).1 = targetAbs names lvls holes e ∧
-        TargetAbsMemoInv names lvls holes (targetAbsGo names lvls holes memo e).2 := by
-  intro e
-  induction e with
-  | bvar i => intro memo hm; exact ⟨rfl, hm⟩
-  | sort u => intro memo hm; exact ⟨rfl, hm⟩
-  | lit l => intro memo hm; exact ⟨rfl, hm⟩
-  | fvar i ty _ => intro memo hm; exact ⟨rfl, hm⟩
-  | const n us =>
-    intro memo hm
-    simp only [targetAbsGo, targetAbs]
-    split
-    · split <;> exact ⟨rfl, hm⟩
-    · exact ⟨rfl, hm⟩
-  | app a b iha ihb =>
-    intro memo hm
-    rw [targetAbsGo]
-    split
-    · rename_i r hhit
-      exact ⟨(hm _ _ hhit).symm ▸ rfl, hm⟩
-    · obtain ⟨h1, h2⟩ := iha hm
-      obtain ⟨h3, h4⟩ := ihb h2
-      refine ⟨by simp [targetAbs, h1, h3], ?_⟩
-      exact h4.insert (by simp [targetAbs, h1, h3])
-  | lam ty body iht ihb =>
-    intro memo hm
-    rw [targetAbsGo]
-    split
-    · rename_i r hhit
-      exact ⟨(hm _ _ hhit).symm ▸ rfl, hm⟩
-    · obtain ⟨h1, h2⟩ := iht hm
-      obtain ⟨h3, h4⟩ := ihb h2
-      refine ⟨by simp [targetAbs, h1, h3], ?_⟩
-      exact h4.insert (by simp [targetAbs, h1, h3])
-  | forallE ty body iht ihb =>
-    intro memo hm
-    rw [targetAbsGo]
-    split
-    · rename_i r hhit
-      exact ⟨(hm _ _ hhit).symm ▸ rfl, hm⟩
-    · obtain ⟨h1, h2⟩ := iht hm
-      obtain ⟨h3, h4⟩ := ihb h2
-      refine ⟨by simp [targetAbs, h1, h3], ?_⟩
-      exact h4.insert (by simp [targetAbs, h1, h3])
-  | letE ty v body iht ihv ihb =>
-    intro memo hm
-    rw [targetAbsGo]
-    split
-    · rename_i r hhit
-      exact ⟨(hm _ _ hhit).symm ▸ rfl, hm⟩
-    · obtain ⟨h1, h2⟩ := iht hm
-      obtain ⟨h3, h4⟩ := ihv h2
-      obtain ⟨h5, h6⟩ := ihb h4
-      refine ⟨by simp [targetAbs, h1, h3, h5], ?_⟩
-      exact h6.insert (by simp [targetAbs, h1, h3, h5])
-  | proj s i sub ih =>
-    intro memo hm
-    rw [targetAbsGo]
-    split
-    · rename_i r hhit
-      exact ⟨(hm _ _ hhit).symm ▸ rfl, hm⟩
-    · obtain ⟨h1, h2⟩ := ih hm
-      refine ⟨by simp [targetAbs, h1], ?_⟩
-      exact h2.insert (by simp [targetAbs, h1])
-
-/-- The executed member abstraction (one memoised DAG walk). -/
-def targetAbsFast (names : List Name) (lvls : List Level) (holes : List Expr) (e : Expr) : Expr :=
-  (targetAbsGo names lvls holes {} e).1
-
-@[csimp] theorem targetAbs_eq_targetAbsFast : @targetAbs = @targetAbsFast := by
-  funext names lvls holes e
-  exact (targetAbsGo_spec e (fun k v h => by simp at h)).1.symm
 
 /-- The holes of a rule frame of width `base`: member `t` is
 `.fvar (base + t)` at its former's type. -/
@@ -250,39 +114,19 @@ structure TargetMajor where
   pfvs : List Expr := []
   deriving Inhabited
 
+/-- The `k` rule-less recursors pushed onto the index in block order (`consBlockRecsBare`
+through the index): the environment a rule's right-hand side is resolved and typed at. -/
+def consBlockRecsBareF (p : BlockShape) : Nat → List (ConstantVal × Nat) → FEnv → FEnv
+  | _, [], fe => fe
+  | m, (cvRa, _nIdx) :: rest, fe =>
+    consBlockRecsBareF p (m + 1) rest
+      (fe.push (.recInfo cvRa (p.majorIdxAt m) (p.rulePrefixAt m) false []))
+
 /-- The rule-less generated recursors consed onto the constructors'
 environment `fe`. -/
 def classFeR (p : BlockShape) (Ms : List TargetMajor) (cvGs : List ConstantVal)
     (recCls : List Nat) (fe : FEnv) : FEnv :=
   consBlockRecsBareF p 0 ((cvGs.zip recCls).map fun (cv, c) => (cv, (Ms.getD c default).nIdx)) fe
-
-/-- **The operations the shadow runs on**, per index: the checker's
-entry points at an `FEnv` (`opsAt`), their variant for the rules
-(`opsRuleR`: the cached one flushes at the two environment transitions
-a rule makes, `sharedOpsRuleR`), the flush at an environment change,
-the syntactic walkers, and the environment the rule stage infers the
-rules at (`ruleEnv`: the rule-less generated recursors consed onto the
-constructors' environment — pushed in the pure install, `classFeR`; an
-overlay sharing the index in the cached one, `classFeROvl`).  The pure
-instantiation ignores the index (the pure operations read the `Env`
-they are handed); the cached one is index-bound. -/
-structure ShadowOps (m : Type → Type) where
-  opsAt : FEnv → CheckerOps m
-  opsRuleR : FEnv → CheckerOps m
-  flush : m Unit
-  walkers : StructWalkers
-  ruleEnv : BlockShape → List TargetMajor → List ConstantVal → List Nat → FEnv → FEnv
-
-/-- A checker's operations as shadow operations: the same at every
-index, no flush, the plain walkers, the rule-less recursors pushed —
-how the PURE install runs the check (`checkBlockRec`, `BlockTail.lean`). -/
-def ShadowOps.ofOps (ops : CheckerOps m) : ShadowOps m :=
-  ⟨fun _ => ops, fun _ => ops, Pure.pure (), .plain, classFeR⟩
-
-/-- The pure operations at fuel `F`, at every index (the fueled
-instantiation the model reads a run of). -/
-def ShadowOps.fueled (mode : CheckMode) (F : Nat) : ShadowOps CheckM :=
-  ShadowOps.ofOps (fueledOps mode F)
 
 /-- A term with every free variable's ANNOTATION erased (the variable
 kept): the comparison K.53′ runs up to, which is exactly what the model's
@@ -367,16 +211,17 @@ def targetMajorNfs (ops : CheckerOps m) (env : Env) (p : BlockShape) (formerTys 
 looked up by the names its stored record lists (`nestContainer`'s
 reading). -/
 def targetCtorsOf (fe : FEnv) (I : Name) : Option (Nat × List (ConstantVal × Nat)) :=
-  nestContainer ⟨[], [], 0, [], [], .zero, fe.find?⟩ I
+  nestContainer ⟨[], [], 0, [], [], .zero, fe.find?, []⟩ I
 
 /-- The instantiated type former of an OUTSIDE major `I.{us} ds`: its
 index count and its result sort (a syntactic telescope, as
 `nestInstType` reads it). -/
-def targetOutsideInst (fe : FEnv) (I : Name) (us : List Level) (ds : List Expr) :
-    m (Nat × Level) := do
-  let some (.indInfo cvI _) := fe.find? I
+def targetOutsideInst (ops : CheckerOps m) (fe : FEnv) (I : Name) (us : List Level)
+    (ds : List Expr) : m (Nat × Level) := do
+  let some (.indInfo cvI capsI) := fe.find? I
     | throw (.invalid "target rec: the recursor's major is not a stored inductive")
-  let some ty := instPisWith ds (cvI.type.instantiateLevelParams cvI.levelParams us)
+  let tyI ← familyTelescope ops fe.env cvI capsI
+  let some ty := instPisWith ds (tyI.instantiateLevelParams cvI.levelParams us)
     | throw (.invalid "target rec: the major's type former does not bind its parameters \
         (official: ill-formed inductive type)")
   let (ibs, s) := ty.piBinders
@@ -391,8 +236,7 @@ def targetOutsideInst (fe : FEnv) (I : Name) (us : List Level) (ds : List Expr) 
 (`fvs` the recursor type's openers): a MEMBER of the block at the
 block's levels and parameters, or — a nested block's container — any
 other stored inductive at one of the block's auxiliary types. -/
-def targetMajorOf (fe : FEnv) (p : BlockShape)
-    (ctorsAs : List (List (ConstantVal × Nat))) (pfvs fvs : List Expr)
+def targetMajorOf (ops : CheckerOps m) (fe : FEnv) (p : BlockShape) (pfvs fvs : List Expr)
     (mty : Expr) : m TargetMajor := do
   let args := mty.getAppArgs
   match mty.getAppFn with
@@ -401,12 +245,11 @@ def targetMajorOf (fe : FEnv) (p : BlockShape)
     | some t => do
       -- a MEMBER: at the block's levels and parameters
       let ms ← unwrapOr p.members[t]? (.internal "target rec: member")
-      let ctorsA ← unwrapOr ctorsAs[t]? (.internal "target rec: member constructors")
       unless us == p.lps.map .param && args.take p.nP == fvs.take p.nP do
         throw (.invalid "target rec: the recursor's major premise is not the member at its \
           parameters and its index binders")
       pure { ind := I, lvls := us, ds := fvs.take p.nP, nPc := p.nP, nIdx := ms.nIdx,
-             ctors := ctorsA, member := some t, pfvs := pfvs : TargetMajor }
+             ctors := ms.ctors, member := some t, pfvs := pfvs : TargetMajor }
     | none => do
       -- an OUTSIDE inductive (a nested block's container)
       if I == quotName then
@@ -434,7 +277,7 @@ def targetMajorOf (fe : FEnv) (p : BlockShape)
         throw (.invalid "target rec: the recursor's major is an outside inductive at an \
           instantiation that is no auxiliary type of the block (official generates no such \
           auxiliary recursor: `elim_nested_inductive`, `is_nested`)")
-      let (nIdx, sI) ← targetOutsideInst fe I us ds
+      let (nIdx, sI) ← targetOutsideInst ops fe I us ds
       -- **Q1**: an outside major in ANOTHER
       -- universe than the block (a Type block's family eliminating a
       -- Prop inductive, or the converse) is refused here: the
@@ -478,11 +321,10 @@ application `I Ds` in the parameters' context (`inductive.cpp` v4.33.0
 :1223–1231, "the parametric arguments `Ds` do not appear in the auxiliary
 declaration, so they would otherwise escape type checking"); the `D⃗`
 mention only the parameter binders, below `rP`.  Nothing at a member. -/
-def targetMajorPins (ops : CheckerOps m) (env : Env) (rP : Nat) (M : TargetMajor) : m Unit :=
+def targetMajorPins (ops : CheckerOps m) (fe : FEnv) (rP : Nat) (M : TargetMajor) : m Unit :=
   if M.member.isNone then do
-    targetPinTys ops env rP M.ds
-    let _ ← ops.inferType env rP (Expr.mkAppN (.const M.ind M.lvls) M.ds)
-    pure ()
+    targetPinTys ops fe.env rP M.ds
+    familyKeyCheck ops fe.env fe.find? rP M.ind M.lvls M.ds
   else pure ()
 
 /-! ## The recursor records' pins -/
@@ -499,8 +341,8 @@ def targetRecPins (p : BlockShape) (block : List ConstantInfo) : m Unit := do
   unless blockRecLpsOk p do
     throw (.invalid "target rec: the recursor's level parameters are not the generated ones")
   unless blockRecNamesUnreserved p do
-    throw (.invalid "target rec: a recursor is named for a pinned basis constant, a literal \
-      guard's slot or a certified Nat operation")
+    throw (.invalid "target rec: a recursor is named for a literal guard's slot or a certified \
+      Nat operation")
   let own := p.recs.filter fun rc => rc.tgt < p.k
   let aux := p.recs.filter fun rc => !(rc.tgt < p.k)
   unless blockRecNameSetOk { p with recs := own } do
@@ -574,7 +416,7 @@ def targetPiDomsWith : List Expr → Expr → Option (List Expr)
 
 /-! ## The stored family -/
 
-/-- **The stored family, in the install's recursor-list format**: each
+/-- **The stored family, in the check's recursor-list format**: each
 checked recursor, its generated rules, its major's index count and its
 major's constructors (`consBlockRecs` conses them). -/
 def tgtRs (out : List (ConstantVal × TargetMajor × List Expr)) :
@@ -583,9 +425,9 @@ def tgtRs (out : List (ConstantVal × TargetMajor × List Expr)) :
 
 /-- **The free variables `0 … k-1` closed at cursor `c`**: `fvar i`
 becomes `bvar (c + k - 1 - i)`, as `e.abstractRange 0 k c` does
-(`abstractPrefix_eq`), computed as the fold of `abstract1` passes,
-innermost first, so the walk is memoized and cut off at the term's
-free-variable range. -/
+(`abstractPrefix_eq`), stated as the fold of `abstract1` passes,
+innermost first (the cached twin `abstractPrefixC` is one
+`abstractRangeC` pass). -/
 def Expr.abstractPrefix : Nat → Nat → Expr → Expr
   | 0, _, e => e
   | k + 1, c, e => abstractPrefix k (c + 1) (e.abstract1 k c)
@@ -604,14 +446,35 @@ MAJOR's parameter count and constructors;
 at an OUTSIDE major (a nested block's auxiliary recursor) every rule
 fires `auxRuleFire` (`.nested` at the major's instantiation), at a
 member major as `sumRules` builds it. -/
-def tgtStoredRules (find? : Name → Option ConstantInfo)
-    (cv : ConstantVal) (rP : Nat) (M : TargetMajor) (rhss : List Expr) : List RecRule :=
-  let rules := sumRules find? cv.name M.nPc M.ctors rhss
+def generatedRules (rP : Nat) (M : TargetMajor) (rhss : List Expr) : List RecRule :=
+  let rules := sumRules M.ctors rhss
   match M.member with
   | none =>
     let fire := auxRuleFire M rP
     rules.map fun rl => { rl with fire := fire }
   | some _ => rules
+
+/-- **The K flag a recursor of this block has** (official's
+`is_K_target`, `inductive.cpp`): the block is a proposition with one
+member, and the recursor's major is that member, with one constructor
+and no fields.  An outside major's recursor is never K (official's
+`is_K_target` sees the auxiliary types as further members).  The job
+checks the record's flag against it. -/
+def recKExpected (p : BlockShape) (M : TargetMajor) : Bool :=
+  match M.member, M.ctors with
+  | some _, [c] => p.k == 1 && p.isProp && c.2 == 0
+  | _, _ => false
+
+/-- What the K flag says of a member major: one constructor, no fields. -/
+theorem recKExpected_member {p : BlockShape} {M : TargetMajor} {t : Nat}
+    (hm : M.member = some t) (h : recKExpected p M = true) :
+    ∃ c, M.ctors = [c] ∧ c.2 = 0 := by
+  unfold recKExpected at h
+  rw [hm] at h
+  match hc : M.ctors, h with
+  | [c], h =>
+    simp only [Bool.and_eq_true, beq_iff_eq] at h
+    exact ⟨c, rfl, h.2⟩
 
 /-- **The block's container bit** (official's `m_nested`):
 some field kind is not flat (the positivity function reached a
@@ -622,15 +485,15 @@ def blockNestedBit (p : BlockShape) (kinds : List (List (List NestFieldKind))) :
   !nestKindsFlat kinds || p.recs.any (fun rc => !(rc.tgt < p.k))
 
 /-- **The checked family's records, at their majors**, in push order:
-each recursor's rules at ITS major (`tgtStoredRules`).  The cached
+each recursor's rules at ITS major (`generatedRules`).  The cached
 install pushes them (`FEnv.pushAll`, `checkBlockTailS`), every record
 built before the first push. -/
-def blockRecInfosTF (find? : Name → Option ConstantInfo)
+def blockRecInfosTF
     (p : BlockShape) : Nat → List (ConstantVal × TargetMajor × List Expr) → List ConstantInfo
   | _, [] => []
   | m, (cv, M, rhss) :: rest =>
     .recInfo cv (p.majorIdxAt m) (p.rulePrefixAt m)
-        (tgtStoredRules find? cv (p.rulePrefixAt m) M rhss)
-      :: blockRecInfosTF find? p (m + 1) rest
+        (recKExpected p M) (generatedRules (p.rulePrefixAt m) M rhss)
+      :: blockRecInfosTF p (m + 1) rest
 
 end ConLeche

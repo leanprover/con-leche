@@ -18,13 +18,15 @@ public import ConLeche.Semantics.Skeleton
 public import ConLeche.Semantics.Hoist
 public import ConLeche.Semantics.Decl
 public import ConLeche.Semantics.DeclEta
+public import ConLeche.Semantics.DeclWF
 public import ConLeche.Semantics.DeclRun
 public import ConLeche.Verify.Inductives.DirectInv
 public import ConLeche.Verify.Inductives.TargetAuxFire
-public import ConLeche.Verify.Inductives.BlockPartsInv
+public import ConLeche.Verify.Inductives.BlockShapeInv
 public import ConLeche.Verify.Inductives.BlockWF
 public import ConLeche.Verify.Inductives.RecCheckRun
 public import ConLeche.Semantics.Inductives.DeclBlockEta
+public import ConLeche.Semantics.Inductives.DeclBlockWF
 public import ConLeche.Semantics.Inductives.DeclBlock
 public import ConLeche.Semantics.SubstAV
 public import ConLeche.Semantics.Inductives.HoleMono

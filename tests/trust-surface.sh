@@ -65,7 +65,8 @@
 # in trailing `EXPECT:` comment markers, exactly the lines the gate must
 # report; `--selftest` runs that check alone.
 #
-# NOT SCANNED: `tests/e2e/src/*.lean` and `tests/trust-surface/*.lean`.
+# NOT SCANNED: `tests/e2e/src/*.lean`, `tests/olean/src/*.lean` and
+# `tests/trust-surface/*.lean`.
 # The former are fixture *inputs* — the Lean sources that get exported
 # into the streams the checker must REJECT — so they deliberately
 # contain the very constructs this gate hunts
@@ -99,17 +100,6 @@
 #       (`Name.beqPtr_eq`), per the user's 2026-09-05 ruling *"do not
 #       use `implemented_by`"*.
 #
-#   ConLeche/Util/PtrEq.lean           implemented_by
-#       The toolchain bump to nightly-2026-10-30 (task #422): Lean
-#       deprecated the safe `withPtrEq` (definitionally `k ()`,
-#       `@[implemented_by withPtrEqUnsafe]`) and made it an `unsafe def`
-#       on 2026-09-21.  This file restores that old shape verbatim as
-#       `ConLeche.withPtrEq` (con-agua's vendored patch 0001), so the
-#       escape is the one `Init.Util` itself carried before: the same
-#       TCB entry as on v4.35.0, moved into the tree.  Its users prove the
-#       guard redundant (`Name.beqPtr_eq`, `Expr.beqMemo_eq`, `sameB_eq`,
-#       `slotIs_spec`).
-#
 #   ConLeche/Challenge.lean            sorry
 #       THE PALOMAR CHALLENGE STATEMENT (task #183).  This file is the
 #       *challenge* half of the Comparator pair (`comparator.json`): the
@@ -126,6 +116,17 @@
 #       builds it and no shipped or proved declaration can reach the
 #       `sorryAx` it introduces.  A `sorry` anywhere else still fails
 #       this gate.
+#
+#   THE BUILD AND NATIVE SURFACE (task #450) — not Lean, so not scanned
+#   for tokens, but trusted all the same: the package's build file
+#   (`lakefile.toml`, the targets Lake builds the binary from) and
+#   every native source in the tree (`*.c`, `*.h`, `*.cc`, `*.cpp`,
+#   `*.S`, `*.s`; today there is none: the checker carries no C).  Each is
+#   PINNED by its SHA-256 in `NATIVE` below with its reason: a change to
+#   one, and a native source or a `lakefile.*` that is not listed, fails
+#   the gate until a reviewer re-pins it here (the failure prints the new
+#   digest).  The other projects' `lakefile.toml`s (`bridge/`,
+#   `pinners/`) build no part of the binary and are not listed.
 #
 #   ConLeche/Kernel/Exclusive.lean     unsafe, implemented_by
 #       `withExclusive` (tasks #314, #317) — THE ONE
@@ -148,86 +149,27 @@
 #       records read the generated C for the trap the primitive exists
 #       to avoid (a hidden reference before the read).
 #
-#   ConLeche/Kernel/BasisGen.lean      unsafe, implemented_by
-#       ELABORATOR-ONLY.  `#stored_basis` computes the stored basis
-#       pins (the recursors' install-computed rule fields) at
-#       elaboration time through `unsafe evalTerm` and splices the
-#       resulting literals.  Nothing
-#       here is in the binary; the spliced literals are ordinary data
-#       the proofs consume.
-#
-#   ConLeche/Driver/Run.lean           unsafe
-#       THE PERSISTENT MARK AT THE PHASE BOUNDARY.  Two term-level
-#       `unsafe Runtime.markPersistent` calls in `checkDeclsIO`, taken
-#       once at the phase boundary at every worker count, on the
-#       installed `FEnv` and the pending-check array.  It is the same escape
+#   ConLeche/Driver/CheckPool.lean     unsafe
+#       THE PERSISTENT MARK BEFORE THE CHECK PHASE.  Three term-level
+#       `unsafe Runtime.markPersistent` calls: two in `Jobs.build`, taken
+#       once at every worker count, on the records and on the stream's
+#       index, and one in `markShared`, taken once by an `--olean` run on
+#       the references to the theorems' values still in their files.
+#       It is the same escape
 #       `Lean.Environment.finalizeImport` uses for the same call, and
 #       it is `unsafe` for one reason only: a marked closure is never
 #       freed, and this process exits right after.  Nothing else about
-#       it can be observed.  The graph is READ-ONLY from the boundary
-#       on — every recorded check reads a prefix view of it from a
-#       fresh memo state and writes nothing back — the call is the
-#       IDENTITY on the value, and its result is DISCARDED, so the
-#       `InstalledEnv` the driver goes on to use is the one it already
-#       had and no verdict, and no step of the proof that `checkDecls`
-#       returns that environment, can turn on whether the mark
-#       happened.  `--no-mark-persistent` turns it off, and the output
-#       is identical either way.  No `implemented_by` and no
-#       `computed_field` is tolerated in this file.
+#       it can be observed.  The graph is READ-ONLY from the mark
+#       on -- every job reads a view of it from a fresh memo state and
+#       writes nothing back -- the call is the IDENTITY on the value,
+#       and its result is DISCARDED, so no verdict, and no step of the
+#       proof that `checkDecls` accepts, can turn on whether the mark
+#       happened.  What the mark relies on: the marked graph reaches no
+#       object that is still counted by another thread (the parse's
+#       owners have finished, and the workers have not started).  No
+#       `implemented_by` and no `computed_field` is tolerated in this
+#       file.
 #
-#   ConLeche/Driver/ParInstall.lean    unsafe
-#       THE PARALLEL INSTALL'S OWN MARKS (task #329).  Six term-level
-#       `unsafe Runtime.markPersistent` calls, the same escape as
-#       above.  Two mark what lives to the end of the run: the records
-#       (`ds`), once, before the first prelude task is spawned, and —
-#       inside `installAndPublish`, by the installer before it
-#       publishes anything — an install's result and the array of
-#       constants it publishes into its slot (the constants end up in
-#       the installed environment).  The other four mark the install's
-#       own bookkeeping, which dies with the install and is leaked on
-#       purpose (measured, task #329's `ifix` record): the base shards
-#       (every lookup takes a reference on a shard entry, atomic and
-#       contended if the shard were multi-threaded), the dependency
-#       counts, the per-record states and the dependency edges (one
-#       call, in `depsChunk`), and the assembled dependents (freeing
-#       these cost the check phase more than it saved).
-#       What is read-only from the mark on: the records, the shards,
-#       the edges, the dependents and every published result.  The
-#       counts and states are `IO.Ref`s that every worker WRITES; a
-#       persistent ref is read and written through the runtime's atomic
-#       path exactly like a multi-threaded one, and what is stored in
-#       it is a scalar or (`RState.done`) a fresh wrapper around an
-#       already persistent result, so no write races a count.
-#       Results used: the records', the published result's, the slot
-#       array's and the dependents' marks discard theirs (the call is
-#       the identity on the value and marks the graph in place).  The
-#       shard's and `depsChunk`'s are returned as their task's value:
-#       logically an arbitrary inhabitant of the type, which is
-#       harmless — a shard is pinned by the `BuiltShard` subtype (it
-#       IS `buildShard` of some shard number, which is all
-#       `buildBase_inj` needs), and the counts, states and edges only
-#       schedule (a wrong one costs time or termination, never a
-#       verdict: what the commit takes from a state is a `WRes`, which
-#       carries its own evidence).  What every mark relies on: the marked graph reaches
-#       no object that is already multi-threaded and still counted by
-#       another thread (the mark would downgrade it to persistent under
-#       that thread's feet).  Precisely, every object a mark reaches is
-#       persistent already, or was built by the marking thread, or is
-#       multi-threaded but counted by no other running thread while the
-#       mark runs.  The third kind occurs twice: the dependents' mark
-#       reaches the per-chunk arrays `dependentsChunk` marked
-#       multi-threaded (their tasks have finished, and only the marking
-#       thread holds them); a base shard's mark reaches the projection
-#       tables' `Name`s `predictChunk` built, multi-threaded and shared
-#       with the prediction's `slots` array (their tasks have finished,
-#       the main thread holding `slots` is waiting for the shards, and
-#       the other shard tasks take references only on the names of their
-#       own shards: a name lies in one shard).  The results' mark
-#       reaches only the first two kinds (the warning sits at its
-#       call).  `--no-mark-persistent`
-#       turns all six off at once (the
-#       bookkeeping is then multi-threaded), which is how the A/B is
-#       measured on the shipped binary.
 #   ConLeche/Driver/OwnerParse.lean    unsafe
 #       THE ROUNDS PARSE'S MARKS (task #329).  One term-level
 #       `unsafe Runtime.markPersistent` call (`markOne`, through
@@ -246,8 +188,7 @@
 #       is the identity on the value: nothing the parse returns, and no
 #       step of the proof that it is the serial parse's (`GOK.window`:
 #       every stored entry is GOOD, a property of the round functions),
-#       can turn on whether the mark happened.  `--no-mark-persistent`
-#       turns it off.
+#       can turn on whether the mark happened.
 #       The marks rely on one invariant: every object reachable from a
 #       newly built entry was built on this thread since its last
 #       publication, or is already persistent (entries of the finished
@@ -264,8 +205,9 @@
 #
 #       Run.lean took its escape over from `Main.lean` when the
 #       proof-carrying driver split out of it into `ConLeche/Driver/*`;
-#       `Main.lean` itself is CLI only (argument parsing, I/O, exit
-#       codes) and tolerates no escape.
+#       `Main.lean` itself is the entry point (the plumbing around
+#       `runArgs`, then the exit)
+#       and tolerates no escape.
 #
 # WHAT IS DELIBERATELY *NOT* ALLOWLISTED, and used to be:
 # `ConLeche/SetTheory/Derive/*`.  Twenty `@[implemented_by …] … unsafeCast
@@ -307,20 +249,17 @@ TOKENS = {
 }
 
 ALLOW = {
-    'ConLeche/Driver/Run.lean':       {'unsafe'},
-    'ConLeche/Driver/ParInstall.lean': {'unsafe'},
+    'ConLeche/Driver/CheckPool.lean': {'unsafe'},
     'ConLeche/Driver/OwnerParse.lean': {'unsafe'},
     'ConLeche/Challenge.lean':       {'sorry'},
     'ConLeche/Kernel/Expr.lean':     {'computed_field'},
     'ConLeche/Kernel/Name.lean':     {'computed_field'},
-    'ConLeche/Util/PtrEq.lean':      {'implemented_by'},
-    'ConLeche/Kernel/BasisGen.lean': {'unsafe', 'implemented_by'},
     'ConLeche/Kernel/Exclusive.lean': {'unsafe', 'implemented_by'},
 }
 
 # NOT SCANNED (see the header): fixture *inputs* that deliberately
 # contain what the checker must reject, and the lexer's own fixture.
-SKIP_DIRS = ('tests/e2e/src/', 'tests/trust-surface/')
+SKIP_DIRS = ('tests/e2e/src/', 'tests/olean/src/', 'tests/trust-surface/')
 
 ROOTS = ('Main.lean', 'ConLeche.lean', 'PinDump.lean')
 
@@ -574,6 +513,228 @@ stale = sorted((f, t) for f, ts in ALLOW.items() for t in ts
 for f, t in stale:
     print(f'note: allowlist entry {f} [{t}] has no occurrence left '
           f'(it may be dropped)')
+
+# ---------------------------------- THE BUILD AND NATIVE SURFACE (task #450).
+# Pinned by content: path -> (sha256, reason).  See the header.
+import hashlib
+NATIVE = {
+    'lakefile.toml': ('316e698828d8b5f2e2c3b6108c067fac14f7c4de4270b41018e063c57146e473',
+        'the build: the targets'),
+}
+NATIVE_EXT = ('.c', '.h', '.cc', '.cpp', '.S', '.s')
+found = set(f for f in os.listdir('.') if f.startswith('lakefile.'))
+for dp, dirs, fs in os.walk('.'):
+    dirs[:] = [d for d in dirs if d not in ('.lake', '.git', '_tmp')]
+    for f in fs:
+        if f.endswith(NATIVE_EXT):
+            found.add(os.path.relpath(os.path.join(dp, f), '.'))
+nat_bad = []
+for rel in sorted(found | set(NATIVE)):
+    if not os.path.exists(rel):
+        nat_bad.append(f'{rel}: pinned but missing (drop its entry)')
+        continue
+    with open(rel, 'rb') as fh:
+        h = hashlib.sha256(fh.read()).hexdigest()
+    if rel not in NATIVE:
+        nat_bad.append(f'{rel}: not pinned (sha256 {h}); add it to NATIVE with its reason')
+    elif NATIVE[rel][0] != h:
+        nat_bad.append(f'{rel}: changed (sha256 {h}); review it, then re-pin it in NATIVE')
+if nat_bad:
+    print(f'TRUST-SURFACE FAIL - the build and native surface ({len(nat_bad)}):')
+    for b in nat_bad:
+        print(f'    {b}')
+    sys.exit(1)
+print(f'build and native surface: {len(NATIVE)} files pinned '
+      f'({", ".join(sorted(NATIVE))})')
+
+# ---------------------------------------- THE CHECKER-IO FENCE (task #450).
+# The modules written against the checker's IO class (`CheckerIO`,
+# `ConLeche/Frontend/CheckerIO.lean`) are run at `IO` by the binary and
+# reasoned about at the model `ModelIO` by the proofs.  The trust
+# assumption the class states needs these modules to reach the runtime
+# only through the class: its file operations (whose model is the
+# snapshot) and its escape `CheckerIO.liftIO` (whose model is every
+# outcome).  THIS IS A TEXTUAL CHECK, not a proof: over each module's
+# code (comments and string literals blanked, interpolations kept),
+# with the argument of every `CheckerIO.liftIO` cut out (the rest of
+# its line, any bracket it opens up to its close, and, when the line
+# ends in `do` or with the argument still to come, every following line
+# indented deeper than the line itself) and the named declarations of
+# the binary's instance cut out, no name of the runtime is left: `IO`
+# (but `IO.Error`, the class's error type), `BaseIO`, `EIO`, `ST`,
+# `EST`, `StateRefT`, `Task`, `dbgTrace`/`dbg_trace`, `initialize`, a
+# mutex/channel/condition variable, a file handle, or a
+# runtime file operation by its name (`pathExists`, `realPath`,
+# `readBinFile`, `metadata`, `isDir`, …, except as the class's own
+# `CheckerIO.<op>`).  It does not follow imports or definitions: a
+# helper defined elsewhere that does IO under a pure type
+# (`unsafe`/`implemented_by`/`extern`, which the scan above confines to
+# its allowlist) or a value of a structure of `IO` functions passed in
+# would pass it, so what the fenced modules import is reviewed with
+# them; and it does not see through a notation that expands to a
+# runtime call.  A module joins the list when it is converted.
+IO_FENCE = {
+    # path: the declarations cut out whole (the instance and what only
+    # it calls; the class's own `liftIO` field, whose type is `IO α → m α`)
+    'ConLeche/Frontend/CheckerIO.lean': ('class CheckerIO', 'def openReadIO',
+                                         # the parallel maps behind the
+                                         # instance's `parMapExcept` and
+                                         # `parMapWorkers`
+                                         'def parShare', 'def parMapIO',
+                                         'def firstStop', 'def parWorker',
+                                         'def parMapWorkersIO',
+                                         'instance instCheckerIOIO',
+                                         # the model's instance: its fields are
+                                         # named as the operations are
+                                         'instance : CheckerIO ModelIO'),
+    'ConLeche/Frontend/Stream.lean': (),
+    'ConLeche/Driver/StreamParse.lean': (),
+    'ConLeche/Driver/CheckMain.lean': (),
+    'ConLeche/Driver/Dispatch.lean': (),
+    'ConLeche/Driver/Cli.lean': (),
+    'ConLeche/Frontend/Olean/Files.lean': (),
+    'ConLeche/Frontend/Olean/Closure.lean': (),
+    'ConLeche/Frontend/Olean/Records.lean': (),
+}
+IO_OPS = ('pathExists', 'realPath', 'readBinFile', 'readFile', 'fileSize',
+          'metadata', 'isDir', 'readDir', 'walkDir', 'lines', 'writeFile', 'writeBinFile',
+          'removeFile', 'removeDirAll', 'createDir', 'createDirAll', 'rename',
+          'appDir', 'currentDir', 'getEnv', 'setEnvVar')
+IO_RX = re.compile(
+    r'\b(?:IO|BaseIO|EIO|ST|EST|StateRefT|Task|dbgTrace|dbg_trace|initialize|'
+    r'builtin_initialize|Mutex|Channel|Condvar|Handle)\b(?!\.Error\b)'
+    r'|(?<!CheckerIO)\.(?:' + '|'.join(IO_OPS) + r')\b'
+    r'|(?<![\w.])(?:' + '|'.join(IO_OPS) + r')\b(?=\s)')
+LIFT = 'CheckerIO.liftIO'
+
+def indent_of(line):
+    return len(line) - len(line.lstrip(' '))
+
+def cut_lift_args(code):
+    """Blank the argument of every `CheckerIO.liftIO` (see above)."""
+    lines = code.split('\n')
+    k = 0
+    while k < len(lines):
+        line = lines[k]
+        at = line.find(LIFT)
+        if at < 0:
+            k += 1
+            continue
+        start = at + len(LIFT)
+        rest = line[start:]
+        # the rest of the line, and any bracket it leaves open
+        depth = sum(rest.count(c) for c in '([{') - sum(rest.count(c) for c in ')]}')
+        lines[k] = line[:at] + 'LIFTED' + ' ' * (len(line) - at - len('LIFTED')) \
+            if len(line) - at >= len('LIFTED') else line[:at] + 'LIFTED'
+        base = indent_of(line)
+        tail = rest.strip()
+        block = tail == '' or tail.endswith(' do') or tail == 'do' or tail.endswith('(')
+        m = k + 1
+        while m < len(lines) and (depth > 0 or (block and (lines[m].strip() == '' or
+                                                            indent_of(lines[m]) > base))):
+            depth += sum(lines[m].count(c) for c in '([{') - \
+                sum(lines[m].count(c) for c in ')]}')
+            lines[m] = ''
+            m += 1
+        k = m if m > k + 1 else k + 1
+    return '\n'.join(lines)
+
+def cut_decls(code, heads):
+    """Blank the named top-level declarations, each up to the next line
+    that starts in column 0."""
+    lines = code.split('\n')
+    k = 0
+    while k < len(lines):
+        if any(lines[k].startswith(h + ' ') or lines[k] == h for h in heads):
+            lines[k] = ''
+            k += 1
+            while k < len(lines) and (lines[k] == '' or lines[k][0] == ' '):
+                lines[k] = ''
+                k += 1
+        else:
+            k += 1
+    return '\n'.join(lines)
+
+# the fence's self-test: what it must see, and what it must not
+_fence_probe = '''def f [CheckerIO m] : m Unit := do
+  CheckerIO.liftIO do
+    IO.println "x"
+    let _ ← IO.monoMsNow
+  let _ ← CheckerIO.liftIO (IO.println
+    "y")
+  let _ ← CheckerIO.readBinFile p
+  let _ ← CheckerIO.liftIO IO.monoMsNow
+  IO.println "seen"
+  let _ ← p.pathExists
+def g : IO Unit := pure ()
+'''
+_fence_hits = [i for i, l in enumerate(cut_lift_args(cut_decls(code_only(_fence_probe),
+    ())).split('\n'), 1) if IO_RX.search(l)]
+if _fence_hits != [9, 10, 11]:
+    print(f'CHECKER-IO FENCE SELF-TEST FAIL: hits at {_fence_hits}, expected [9, 10, 11]')
+    sys.exit(1)
+
+io_bad = []
+for rel, heads in IO_FENCE.items():
+    with open(rel, encoding='utf-8') as fh:
+        raw = fh.read()
+    code = cut_lift_args(cut_decls(code_only(raw, rel), heads))
+    for i, line in enumerate(code.split('\n'), 1):
+        if IO_RX.search(line):
+            io_bad.append((rel, i, line.strip()))
+if io_bad:
+    print(f'CHECKER-IO FENCE FAIL - a module written against CheckerIO reaches '
+          f'the runtime outside CheckerIO.liftIO ({len(io_bad)}):')
+    for rel, i, text in io_bad:
+        print(f'    {rel}:{i} {text}')
+    sys.exit(1)
+print(f'checker-io fence (textual): {len(IO_FENCE)} modules reach the runtime only '
+      f'through CheckerIO')
+
+# ------------------------------------------ THE ONE EXIT (task #450).
+# The trust assumption of the IO class says the actions passed to
+# `CheckerIO.liftIO` do not end the process with exit code 0: the exit
+# code the theorems speak of is the one `runArgs` returns, and `main`
+# exits with it.  This gate is stricter than the assumption needs, a
+# check of what the code does today.  TEXTUAL, over the code of every scanned file:
+# `IO.Process.exit` (under any spelling of its name) is in `Main.lean`,
+# twice: `IO.Process.exit code` and, when the abort variables cannot be
+# set, before `runArgs` starts, `IO.Process.exit 3`.  The C function is
+# pinned above and calls no exit.  And `Main.lean`, read and not proved,
+# declares only `enableAbortOnNonlinear`, `flushStdoutStderr` and
+# `main` (a failing flush makes the code 3, task #490, not another exit).
+EXIT_RX = re.compile(r'\bProcess\.exit\b|\blean_io_exit\b|\bopen\s+IO\.Process\b')
+exit_hits = []
+for rel in sources():
+    with open(rel, encoding='utf-8') as fh:
+        raw = fh.read()
+    for i, line in enumerate(code_only(raw, rel).split('\n'), 1):
+        if EXIT_RX.search(line):
+            exit_hits.append((rel, i, line.strip()))
+if [(h[0], h[2]) for h in exit_hits] != [('Main.lean', 'IO.Process.exit 3'),
+                                         ('Main.lean', 'IO.Process.exit code')]:
+    print(f'ONE-EXIT FAIL - IO.Process.exit must appear as `IO.Process.exit 3`, then '
+          f'`IO.Process.exit code`, in Main.lean; found:')
+    for rel, i, text in exit_hits:
+        print(f'    {rel}:{i} {text}')
+    sys.exit(1)
+with open('Main.lean', encoding='utf-8') as fh:
+    _main_top = [l.strip() for l in code_only(fh.read(), 'Main.lean').split('\n')
+                 if l.strip() and not l[0].isspace()]
+_main_expected = ['module', 'public import ConLeche.Driver.Cli',
+                  'public import Std.Async.System', '@[expose] public section',
+                  'def enableAbortOnNonlinear : IO Unit := do',
+                  'def flushStdoutStderr (code : UInt8) : IO UInt8 := do',
+                  'def main (args : List String) : IO Unit := do']
+if _main_top != _main_expected:
+    print(f'MAIN FENCE FAIL - Main.lean must declare only `enableAbortOnNonlinear`, '
+          f'`flushStdoutStderr` and `main`; its top level is:')
+    for l in _main_top:
+        print(f'    {l}')
+    sys.exit(1)
+print('one exit (textual): IO.Process.exit only in Main.lean, the code and the abort '
+      'variables\' 3; Main.lean declares only enableAbortOnNonlinear, flushStdoutStderr '
+      'and main')
 
 files = len({o[0] for o in occurrences})
 print(f'trust surface: {len(occurrences)} escapes in {files} allowlisted '

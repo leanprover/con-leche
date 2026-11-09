@@ -42,20 +42,20 @@ open ConLeche.SetModel
 open SetTheory
 open ConLeche.Term
 
-open ConLeche (Env Expr Name Level ConstantVal ConstantInfo CheckMode FEnv BlockShape BlockParts
+open ConLeche (Env Expr Name Level ConstantVal ConstantInfo CheckMode FEnv BlockShape BlockShape
   TargetMajor RecShape)
 
 universe w
 
-variable {V : Type w} [SetTheory V] {μ : CheckMode}
+variable {V : Type w} [SetTheory V]
 
 /-- The recomputed width `tgtB` at a stored rule. -/
 theorem tgtB_at {p : BlockShape} {out : List (ConstantVal × TargetMajor × List Expr)}
     {j : Nat} {r : ConstantVal × List Expr × Nat × List (ConstantVal × Nat)}
     (hr : (tgtRs out)[j]? = some r)
-    {i : Nat} {cA : ConstantVal × Nat} (hcA : r.2.2.2[i]? = some cA) :
-    tgtB p out j i = p.rulePrefixAt j + cA.2 := by
-  rw [tgtB, tgtCtorOf_at hr hcA]; rfl
+    {i : Nat} {ctor : ConstantVal × Nat} (hctor : r.2.2.2[i]? = some ctor) :
+    tgtB p out j i = p.rulePrefixAt j + ctor.2 := by
+  rw [tgtB, tgtCtorOf_at hr hctor]; rfl
 
 /-! ## `heqP`'s target rows: the level footprint -/
 

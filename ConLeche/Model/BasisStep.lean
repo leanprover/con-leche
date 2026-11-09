@@ -52,14 +52,15 @@ open ConLeche (CheckMode Env Expr Name Level ConstantInfo ConstantVal
 universe w
 
 variable {V : Type w} [SetTheory V]
-variable {μ : CheckMode} {env : Env}
+variable {env : Env}
 
 /-- **The P step at a basis cons.**  Seven of `declStep_preserves_of_cons`'s
 premises are discharged here; what remains is the tower and its
 type's reading. -/
-theorem declStep_preserves_of_basis_cons (mp : EnvModelM V μ env)
+theorem declStep_preserves_of_basis_cons (mp : EnvModelM V env)
     {c₀ : ConstantInfo} {A : (Name → Nat) → Term}
     (hfresh : env.find? c₀.name = none)
+    (hop : natOpName c₀.name = false)
     -- a basis cons is never a value kind
     (hnotdefn : ∀ cv v hint, c₀ ≠ .defnInfo cv v hint)
     -- the two blocks that supply their row bespoke are excluded
@@ -67,7 +68,7 @@ theorem declStep_preserves_of_basis_cons (mp : EnvModelM V μ env)
     (hnS : c₀.name ≠ natSuccName) (hnEq : eqName ≠ c₀.name)
     -- a basis *recursor* cons with rules establishes `rec_rules`
     -- bespoke; one with none transports
-    (hnotrec : ∀ cv mI rP rules, c₀ = .recInfo cv mI rP rules →
+    (hnotrec : ∀ cv mI rP isK rules, c₀ = .recInfo cv mI rP isK rules →
       rules = [])
     -- `caps_ok`: a reserved name, or a kind no stored family mentions
     (hcaps : ConLeche.reservedBasisNames.contains c₀.name = true ∨
@@ -94,14 +95,12 @@ theorem declStep_preserves_of_basis_cons (mp : EnvModelM V μ env)
     (hmemNew : ∀ (ψ : Name → Nat) (ta : Term),
       denote (acvalWith mp.base2.acval c₀.name A)
           ⟨c₀ :: env.consts, env.tables⟩ ψ 0 c₀.toConstantVal.type = some ta →
-      ∀ ρ : Nat → V, interp V ρ (A ψ) ∈ˢ interp V ρ ta)
-    (hind : IndStrictHead (V := V) (acvalWith mp.base2.acval c₀.name A)
-      ⟨c₀ :: env.consts, env.tables⟩ c₀ := by
-      intro _ _ h; first | exact nomatch h | exact ConstantInfo.noConfusion h) :
-    ∃ mp' : EnvModelM V μ ⟨c₀ :: env.consts, env.tables⟩,
+      ∀ ρ : Nat → V, interp V ρ (A ψ) ∈ˢ interp V ρ ta) :
+    ∃ mp' : EnvModelM V ⟨c₀ :: env.consts, env.tables⟩,
       mp'.base2.acval = acvalWith mp.base2.acval c₀.name A := by
-  refine declStep_preserves_of_cons mp (c₀ := c₀) (A := A) hfresh hh hAparams hAok htyReads htyOk hmemNew
-    ?_ ?_ ?_ ?_ ?_ ?_ ?_ ?_ ?_ (hind := hind)
+  refine declStep_preserves_of_cons mp (c₀ := c₀) (A := A) hfresh
+    (by intro hn; rw [hop] at hn; exact nomatch hn) hh hAparams hAok htyReads htyOk hmemNew
+    ?_ ?_ ?_ ?_ ?_ ?_ ?_ ?_ ?_
   · -- `hvalReads`: a basis cons is never a definition
     intro _ψ cv2 value2 hmem
     obtain ⟨hint2, hdt⟩ := hmem
@@ -137,9 +136,10 @@ The row is taken in `natHeads_cons_offNat`'s shape — quantified over
 any carrier whose base and `acval` are the extension's — so a caller
 never has to spell `declStep_preserves_of_cons`'s anonymous-constructor
 carrier. -/
-theorem declStep_preserves_of_basis_rec_cons (mp : EnvModelM V μ env)
+theorem declStep_preserves_of_basis_rec_cons (mp : EnvModelM V env)
     {c₀ : ConstantInfo} {A : (Name → Nat) → Term}
     (hfresh : env.find? c₀.name = none)
+    (hop : natOpName c₀.name = false)
     (hnotdefn : ∀ cv v hint, c₀ ≠ .defnInfo cv v hint)
     (hnN : c₀.name ≠ natName) (hnZ : c₀.name ≠ natZeroName)
     (hnS : c₀.name ≠ natSuccName) (hnEq : eqName ≠ c₀.name)
@@ -165,14 +165,12 @@ theorem declStep_preserves_of_basis_rec_cons (mp : EnvModelM V μ env)
       ∀ ρ : Nat → V, interp V ρ (A ψ) ∈ˢ interp V ρ ta)
     (hrec : ∀ m₂ : EnvModel V ⟨c₀ :: env.consts, env.tables⟩,
       m₂.acval = acvalWith mp.base2.acval c₀.name A →
-      ∀ φ : Name → Nat, RecRules m₂ φ)
-    (hind : IndStrictHead (V := V) (acvalWith mp.base2.acval c₀.name A)
-      ⟨c₀ :: env.consts, env.tables⟩ c₀ := by
-      intro _ _ h; first | exact nomatch h | exact ConstantInfo.noConfusion h) :
-    ∃ mp' : EnvModelM V μ ⟨c₀ :: env.consts, env.tables⟩,
+      ∀ φ : Name → Nat, RecRules m₂ φ) :
+    ∃ mp' : EnvModelM V ⟨c₀ :: env.consts, env.tables⟩,
       mp'.base2.acval = acvalWith mp.base2.acval c₀.name A := by
-  refine declStep_preserves_of_cons mp (c₀ := c₀) (A := A) hfresh hh hAparams hAok htyReads htyOk hmemNew
-    ?_ ?_ ?_ ?_ ?_ ?_ ?_ ?_ ?_ (hind := hind)
+  refine declStep_preserves_of_cons mp (c₀ := c₀) (A := A) hfresh
+    (by intro hn; rw [hop] at hn; exact nomatch hn) hh hAparams hAok htyReads htyOk hmemNew
+    ?_ ?_ ?_ ?_ ?_ ?_ ?_ ?_ ?_
   · intro _ψ cv2 value2 hmem
     obtain ⟨hint2, hdt⟩ := hmem
     exact absurd hdt.symm (hnotdefn cv2 value2 hint2)
@@ -193,13 +191,14 @@ side condition is `eqName ≠ c₀.name`, and at this cons the constant
 *is* `Eq`, so the row is structurally unavailable and the block
 supplies it from its own tower (`eqLaw_of_tower`).  Seven of the
 eight rows still collapse. -/
-theorem declStep_preserves_of_basis_cons_eqrow (mp : EnvModelM V μ env)
+theorem declStep_preserves_of_basis_cons_eqrow (mp : EnvModelM V env)
     {c₀ : ConstantInfo} {A : (Name → Nat) → Term}
     (hfresh : env.find? c₀.name = none)
+    (hop : natOpName c₀.name = false)
     (hnotdefn : ∀ cv v hint, c₀ ≠ .defnInfo cv v hint)
     (hnN : c₀.name ≠ natName) (hnZ : c₀.name ≠ natZeroName)
     (hnS : c₀.name ≠ natSuccName)
-    (hnotrec : ∀ cv mI rP rules, c₀ = .recInfo cv mI rP rules →
+    (hnotrec : ∀ cv mI rP isK rules, c₀ = .recInfo cv mI rP isK rules →
       rules = [])
     (hres : ConLeche.reservedBasisNames.contains c₀.name = true)
     (hred : (∀ cv, c₀ ≠ .axiomInfo cv) ∨
@@ -222,14 +221,12 @@ theorem declStep_preserves_of_basis_cons_eqrow (mp : EnvModelM V μ env)
           ⟨c₀ :: env.consts, env.tables⟩ ψ 0 c₀.toConstantVal.type = some ta →
       ∀ ρ : Nat → V, interp V ρ (A ψ) ∈ˢ interp V ρ ta)
     (heq : ∀ m₂ : EnvModel V ⟨c₀ :: env.consts, env.tables⟩,
-      m₂.acval = acvalWith mp.base2.acval c₀.name A → EqLaw m₂)
-    (hind : IndStrictHead (V := V) (acvalWith mp.base2.acval c₀.name A)
-      ⟨c₀ :: env.consts, env.tables⟩ c₀ := by
-      intro _ _ h; first | exact nomatch h | exact ConstantInfo.noConfusion h) :
-    ∃ mp' : EnvModelM V μ ⟨c₀ :: env.consts, env.tables⟩,
+      m₂.acval = acvalWith mp.base2.acval c₀.name A → EqLaw m₂) :
+    ∃ mp' : EnvModelM V ⟨c₀ :: env.consts, env.tables⟩,
       mp'.base2.acval = acvalWith mp.base2.acval c₀.name A := by
-  refine declStep_preserves_of_cons mp (c₀ := c₀) (A := A) hfresh hh hAparams hAok htyReads htyOk hmemNew
-    ?_ ?_ ?_ ?_ ?_ ?_ ?_ ?_ ?_ (hind := hind)
+  refine declStep_preserves_of_cons mp (c₀ := c₀) (A := A) hfresh
+    (by intro hn; rw [hop] at hn; exact nomatch hn) hh hAparams hAok htyReads htyOk hmemNew
+    ?_ ?_ ?_ ?_ ?_ ?_ ?_ ?_ ?_
   · intro _ψ cv2 value2 hmem
     obtain ⟨hint2, hdt⟩ := hmem
     exact absurd hdt.symm (hnotdefn cv2 value2 hint2)
@@ -249,9 +246,10 @@ block needs this: its first three conses *are* the three names
 `nat_heads`'s guard reads, so `natHeads_cons_offNat` is unavailable at
 every one of them, and `Nat.rec` owes a `rec_rules` row besides.  Five
 rows still collapse. -/
-theorem declStep_preserves_of_basis_cons_gen (mp : EnvModelM V μ env)
+theorem declStep_preserves_of_basis_cons_gen (mp : EnvModelM V env)
     {c₀ : ConstantInfo} {A : (Name → Nat) → Term}
     (hfresh : env.find? c₀.name = none)
+    (hop : natOpName c₀.name = false)
     (hnotdefn : ∀ cv v hint, c₀ ≠ .defnInfo cv v hint)
     (hnEq : eqName ≠ c₀.name)
     (hres : ConLeche.reservedBasisNames.contains c₀.name = true)
@@ -279,14 +277,12 @@ theorem declStep_preserves_of_basis_cons_gen (mp : EnvModelM V μ env)
       ∀ φ : Name → Nat, NatHeads m₂ φ)
     (hrec : ∀ m₂ : EnvModel V ⟨c₀ :: env.consts, env.tables⟩,
       m₂.acval = acvalWith mp.base2.acval c₀.name A →
-      ∀ φ : Name → Nat, RecRules m₂ φ)
-    (hind : IndStrictHead (V := V) (acvalWith mp.base2.acval c₀.name A)
-      ⟨c₀ :: env.consts, env.tables⟩ c₀ := by
-      intro _ _ h; first | exact nomatch h | exact ConstantInfo.noConfusion h) :
-    ∃ mp' : EnvModelM V μ ⟨c₀ :: env.consts, env.tables⟩,
+      ∀ φ : Name → Nat, RecRules m₂ φ) :
+    ∃ mp' : EnvModelM V ⟨c₀ :: env.consts, env.tables⟩,
       mp'.base2.acval = acvalWith mp.base2.acval c₀.name A := by
-  refine declStep_preserves_of_cons mp (c₀ := c₀) (A := A) hfresh hh hAparams hAok htyReads htyOk hmemNew
-    ?_ ?_ ?_ ?_ ?_ ?_ ?_ ?_ ?_ (hind := hind)
+  refine declStep_preserves_of_cons mp (c₀ := c₀) (A := A) hfresh
+    (by intro hn; rw [hop] at hn; exact nomatch hn) hh hAparams hAok htyReads htyOk hmemNew
+    ?_ ?_ ?_ ?_ ?_ ?_ ?_ ?_ ?_
   · intro _ψ cv2 value2 hmem
     obtain ⟨hint2, hdt⟩ := hmem
     exact absurd hdt.symm (hnotdefn cv2 value2 hint2)

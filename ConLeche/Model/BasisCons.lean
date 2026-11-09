@@ -7,7 +7,7 @@ public section
 /-!
 # The basis-cons preservation kit (task #161)
 
-`BasisStepPB` conses *inductive-kind* heads — `indInfo`, `ctorInfo`,
+A basis block conses *inductive-kind* heads — `indInfo`, `ctorInfo`,
 `recInfo` — and the existing preservation lemmas are all keyed on the
 value kinds:
 
@@ -64,7 +64,7 @@ open ConLeche (CheckMode Env Expr Name Level ConstantInfo ConstantVal
 universe w
 
 variable {V : Type w} [SetTheory V]
-variable {μ : CheckMode} {env : Env}
+variable {env : Env}
 
 /-- **`nat_heads` at a cons that is none of the three literal
 heads.**  The guard reads `natName`, `natZeroName` and `natSuccName`
@@ -73,7 +73,7 @@ nor the three leaves — the basis blocks other than `Nat` discharge
 their obligation here, and so would any inductive-kind cons.  (The
 `Nat` block itself is where the guard *becomes* true; it supplies
 `nat_heads` bespoke, and no back-transfer exists.) -/
-theorem natHeads_cons_offNat (mp : EnvModelM V μ env)
+theorem natHeads_cons_offNat (mp : EnvModelM V env)
     {c₀ : ConstantInfo} {A : (Name → Nat) → Term}
     (hnN : c₀.name ≠ natName) (hnZ : c₀.name ≠ natZeroName)
     (hnS : c₀.name ≠ natSuccName)
@@ -137,11 +137,11 @@ theorem etaFamilyStored_descend_reserved {c₀ : ConstantInfo} {T : Name}
 
 /-- **`CapsOk` at a fresh cons whose name is reserved** —
 `capsOk_cons_fresh`'s basis twin.  Every basis block's constant is a
-reserved name (`BasisKind.declsA` ⊆ `reservedBasisNames`), and both
+reserved name (`BasisKind.decls` ⊆ `reservedBasisNames`), and both
 `CapsOk` halves are premised on a *non*-reserved family, so no
 stored family can be completed here and the law's leaves are all
 prefix leaves. -/
-theorem capsOk_cons_basis (mp : EnvModelM V μ env)
+theorem capsOk_cons_basis (mp : EnvModelM V env)
     (hprev : CapsOk mp.base2)
     {c₀ : ConstantInfo} {A : (Name → Nat) → Term}
     (hfresh : env.find? c₀.name = none)
@@ -154,17 +154,13 @@ theorem capsOk_cons_basis (mp : EnvModelM V μ env)
     intro T cvT caps hf hcape hres hfam φ' us hlen
     obtain ⟨hfE, hfam₀, hnT, hnC⟩ :=
       etaFamilyStored_descend_reserved hres₀ hres hf hfam
-    obtain ⟨TVa, hTVa, hokTVa, hlaw, hcoh⟩ :=
+    obtain ⟨hlaw, hcoh⟩ :=
       hprev.1 T cvT caps hfE hcape hres hfam₀ φ' us hlen
-    refine ⟨TVa, ?_, hokTVa, ?_, ?_⟩
-    · rw [hac]
-      exact denote_cons_mono hfresh _ 0
-        (constsBound_instType mp.base2.wf
-          (ConLeche.Env.find?_mem hfE) us) hTVa
-    · intro ρ ts rest x hlents hfit hmem
-      rw [hac, acvalWith_ne hnT] at hmem
+    refine ⟨?_, ?_⟩
+    · intro ρ ts x hlents hfit hmem
+      rw [hac, acvalWith_ne hnT] at hmem hfit
       rw [hac, acvalWith_ne hnC]
-      exact hlaw ρ ts rest x hlents hfit hmem
+      exact hlaw ρ ts x hlents hfit hmem
     · refine hcoh.transport (fun cvC nPc nFc hf₂ => ?_)
         (fun cvC nPc nFc TCa hf hTCa => ?_) (by rw [hac, acvalWith_ne hnT])
         (fun _ _ _ => rfl)
@@ -181,15 +177,10 @@ theorem capsOk_cons_basis (mp : EnvModelM V μ env)
     have hfE : env.find? T = some (.indInfo cvT caps) := by
       rw [ConLeche.Env.find?_cons, ite_eq_right (fun hh => hnT hh.symm)] at hf
       exact hf
-    obtain ⟨TVa, hTVa, hokTVa, hlaw⟩ :=
+    have hlaw :=
       hprev.2 T cvT caps hfE hcapu hres φ' us hlen
-    refine ⟨TVa, ?_, hokTVa, ?_⟩
-    · rw [hac]
-      exact denote_cons_mono hfresh _ 0
-        (constsBound_instType mp.base2.wf
-          (ConLeche.Env.find?_mem hfE) us) hTVa
-    · intro ρ ts rest x y hlents hfit hx hy
-      rw [hac, acvalWith_ne hnT] at hx hy
-      exact hlaw ρ ts rest x y hlents hfit hx hy
+    intro ρ ts x y hlents hfit hx hy
+    rw [hac, acvalWith_ne hnT] at hx hy hfit
+    exact hlaw ρ ts x y hlents hfit hx hy
 
 end ConLeche.Model

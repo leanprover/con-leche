@@ -849,28 +849,6 @@ theorem sumTyAV_fold {w : Nat} {Fss : List (List Term)}
       = sumSet w (sumFibre w (consList as ρ) Fss) := by
   rw [sumTyAV, mkLamsAV_fold hsp, sumBodyAV_interp hok]
 
-/-- **The leaf's fibres follow its sort** (task #342 L7): along a
-spine fitting the parameter telescope, the leaf applied is a member of
-`strictU w` — a truth value at `w = 0`, and above a tagged sum, strict
-(`strict_sumSet`). -/
-theorem sumTyAV_fold_strictU {w : Nat} {Fss : List (List Term)} :
-    ∀ {pps : List Term} {ρ : Nat → V} {as : List V},
-      ParamsOkS w ρ Fss pps → SpineFit ρ pps as →
-      as.foldl SetTheory.app (interp V ρ (sumTyAV w pps Fss)) ∈ˢ (strictU w : V)
-  | [], ρ, [], h, _ => by
-    show interp V ρ (sumBodyAV w Fss) ∈ˢ (strictU w : V)
-    rw [sumBodyAV_interp h]
-    exact sumSet_strictU_of_okB h
-  | [], _, _ :: _, _, hsp => hsp.elim
-  | _ :: _, _, [], _, hsp => hsp.elim
-  | d :: pps, ρ, a :: as, h, hsp => by
-    have ha : a ∈ˢ interp V ρ d := hsp.1
-    have happ : SetTheory.app (interp V ρ (sumTyAV w (d :: pps) Fss)) a
-        = interp V (cons a ρ) (sumTyAV w pps Fss) :=
-      app_lamV ha
-    rw [List.foldl_cons, happ]
-    exact sumTyAV_fold_strictU (h.2.2 a ha) hsp.2
-
 /-!
 ## The index equation, spelled
 

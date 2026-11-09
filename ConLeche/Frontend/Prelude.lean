@@ -40,7 +40,7 @@ the env initially and unconditionally" is "first in every fold", and a
 stream that declares the toolchain's `Bool` is checked on its own
 `Bool` record.  The records install by exactly the routes a stream's
 records install by, the pinned blocks among them recognised by the fold
-(`basisPinHit`, `ConLeche/Kernel/Basis.lean`).  The main theorem
+(`basisNameHit`, `ConLeche/Kernel/Basis.lean`).  The main theorem
 quantifies over the prepared records; the frontend sits below it.
 
 `builtinPreludeE` is a 0-ary definition, so the embedded text is parsed
@@ -58,7 +58,7 @@ regenerates it and re-points this path (`tests/pindump.sh` checks
 both) — even when it adds no pin dump: the prelude is the repository
 toolchain's, the dumps are not (task #328). -/
 def builtinPreludeText : String :=
-  include_str "../../pins/leanprover-lean4-nightly-2026-10-30.prelude.ndjson"
+  include_str "../../pins/leanprover-lean4-v4.35.0.prelude.ndjson"
 
 /-- The parsed, indexed prelude: `Except` because a committed file can
 in principle be corrupted, and a prelude that does not parse must be a

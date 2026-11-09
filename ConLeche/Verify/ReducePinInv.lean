@@ -34,8 +34,8 @@ theorem checkReducePin_inv {env env2 : Env} {c : Name} {value : Expr}
     reduceStoredOk env2 c = true ∧ reduceElemOk env c = true ∧
     reducePinGuard env c = true ∧
       -- the pin side: the `DefEq` against the pin
-      isDefEqCore mode env F 0 value (reduceDeclPin c) = .ok true ∧
-      isDefEqCore mode env F 1 (.app value (reduceCertVar c))
+      isDefEqCore mode false env F 0 value (reduceDeclPin c) = .ok true ∧
+      isDefEqCore mode false env F 1 (.app value (reduceCertVar c))
         (reduceCertVar c) = .ok true := by
   simp only [checkReducePin, fueledOps_isDefEq,
     Bind.bind, Except.bind] at h
@@ -47,7 +47,7 @@ theorem checkReducePin_inv {env env2 : Env} {c : Name} {value : Expr}
   rw [ite_eq_left hpg] at h
   obtain ⟨hstored, helem⟩ := by simpa only [Bool.and_eq_true] using hg
   refine ⟨hstored, helem, hpg, ?_⟩
-  cases hp1 : isDefEqCore mode env F 0 value (reduceDeclPin c) with
+  cases hp1 : isDefEqCore mode false env F 0 value (reduceDeclPin c) with
   | error e => rw [hp1] at h; exact nomatch h
   | ok b1 =>
   rw [hp1] at h
@@ -55,7 +55,7 @@ theorem checkReducePin_inv {env env2 : Env} {c : Name} {value : Expr}
   | false => simp [throw, throwThe, MonadExceptOf.throw] at h
   | true =>
   simp only [ite_true] at h
-  cases hp2 : isDefEqCore mode env F 1 (.app value (reduceCertVar c))
+  cases hp2 : isDefEqCore mode false env F 1 (.app value (reduceCertVar c))
       (reduceCertVar c) with
   | error e => rw [hp2] at h; exact nomatch h
   | ok b2 =>

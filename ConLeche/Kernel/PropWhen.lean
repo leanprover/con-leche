@@ -9,9 +9,9 @@ The reading of a sort's zero-ness predicate
 `Z(l) = {φ | eval φ l = 0}`: either empty (`never`) or "every parameter
 in `ps` is zero" (`ifAllZero ps`; `ps = []` is "zero at every
 valuation").  The checker's head-symbol reader
-(`ConLeche/Kernel/PropRead.lean`, `proofPW`) and an inductive's stored
-`IndCaps.sortZ` carry it; the checker asks two questions of a datum
-only, `isNever` (`capsNeverZero`, the ι case split) and "is it
+(`ConLeche/Kernel/PropRead.lean`, `proofPW`) and the reading of an
+inductive's sort (`formerZ`) produce it; the checker asks two questions of a
+datum only, `isNever` (`formerNeverZero`, the ι case split) and "is it
 `ifAllZero []`" (`PropWhen.isProp`), and compares data in no other way.
 
 The datum is a plain list: duplicates and order are kept, so equal

@@ -31,7 +31,7 @@ open ConLeche.Expr
 open Std.WP
 open scoped Lean.Order
 
-variable {mode : CheckMode}
+variable {mode : CheckMode} {eager : Bool}
 
 variable {env : Env} {f : Nat}
 
@@ -44,9 +44,10 @@ unfolded by its unconditional `eq_def`, and the pure mirrors' own
 equation lemmas go into the `sym` list. -/
 
 theorem inferLamsOutC_spec {d : Nat} :
-    ∀ {stk : List Expr} {j : Nat} {cur : Expr} {s₀ : CState}, CSOK mode env s₀ →
+    ∀ {stk : List Expr} {j : Nat} {cur : Expr} {s₀ : CState}, CSOK mode eager env s₀ →
       ⦃fun s => s = s₀⦄ inferLamsOutI d stk j cur
-      ⦃fun v s' => CSOK mode env s' ∧ Runs (inferLamsOut (m := FueledM) d stk j cur) v; ⊤⦄ := by
+      ⦃fun v s' => CSOK mode eager env s' ∧ Runs (inferLamsOut (m := FueledM) d stk j cur) v; ⊤⦄ :=
+          by
   intro stk
   induction stk with
   | nil =>
@@ -55,25 +56,26 @@ theorem inferLamsOutC_spec {d : Nat} :
   | cons _ rest ih =>
     intro _ _ _ _
     sym only [conleche_grind, inferLamsOut.eq_2] =>
-      vcgen [inferLamsOutI, abstractRangeM_spec (mode := mode) (env := env), ih] <;> finish
+      vcgen [inferLamsOutI, abstractRangeM_spec (mode := mode) (eager := eager) (env := env), ih]
+          <;> finish
 
-theorem inferLamsLeafC_spec (ih : SSimC mode env f) {d : Nat} {t : Expr} {k : Nat}
-    {fvs : Array Expr} {stk : List Expr} {s₀ : CState} (hs : CSOK mode env s₀)
+theorem inferLamsLeafC_spec (ih : SSimC mode eager env f) {d : Nat} {t : Expr} {k : Nat}
+    {fvs : Array Expr} {stk : List Expr} {s₀ : CState} (hs : CSOK mode eager env s₀)
     (hw : Expr.WScoped (d + k) (t.instantiateList fvs.toList.reverse)) :
-    ⦃fun s => s = s₀⦄ inferLamsLeafI (coreKnotI mode (mkFEnv env) f) d t k fvs stk
-    ⦃fun v s' => CSOK mode env s' ∧
-      Runs (inferLamsLeaf (fueledFns mode env) d t k fvs.toList.reverse stk) v; ⊤⦄ := by
+    ⦃fun s => s = s₀⦄ inferLamsLeafI (coreKnotI mode eager (mkFEnv env) f) d t k fvs stk
+    ⦃fun v s' => CSOK mode eager env s' ∧
+      Runs (inferLamsLeaf (fueledFns mode eager env) d t k fvs.toList.reverse stk) v; ⊤⦄ := by
   sym only [conleche_grind, inferLamsLeaf.eq_1] =>
     vcgen [inferLamsLeafI, instListRevM_spec hs, ih.infer_spec,
-      abstractRangeM_spec (mode := mode) (env := env),
-      inferLamsOutC_spec (mode := mode) (env := env)] <;> finish
+      abstractRangeM_spec (mode := mode) (eager := eager) (env := env),
+      inferLamsOutC_spec (mode := mode) (eager := eager) (env := env)] <;> finish
 
-theorem inferLamsC_spec (ih : SSimC mode env f) {d : Nat} :
+theorem inferLamsC_spec (ih : SSimC mode eager env f) {d : Nat} :
     ∀ (fuel : Nat) {t : Expr} {k : Nat} {fvs : Array Expr} {stk : List Expr} {s₀ : CState},
-      CSOK mode env s₀ → Expr.WScoped (d + k) (t.instantiateList fvs.toList.reverse) →
-      ⦃fun s => s = s₀⦄ inferLamsI (coreKnotI mode (mkFEnv env) f) d fuel t k fvs stk
-      ⦃fun v s' => CSOK mode env s' ∧
-        Runs (inferLams (fueledFns mode env) d fuel t k fvs.toList.reverse stk) v; ⊤⦄ := by
+      CSOK mode eager env s₀ → Expr.WScoped (d + k) (t.instantiateList fvs.toList.reverse) →
+      ⦃fun s => s = s₀⦄ inferLamsI (coreKnotI mode eager (mkFEnv env) f) d fuel t k fvs stk
+      ⦃fun v s' => CSOK mode eager env s' ∧
+        Runs (inferLams (fueledFns mode eager env) d fuel t k fvs.toList.reverse stk) v; ⊤⦄ := by
   intro fuel
   induction fuel with
   | zero =>
@@ -90,9 +92,9 @@ theorem inferLamsC_spec (ih : SSimC mode env f) {d : Nat} :
 its codomain sort, so the cached side runs a telescope loop) -/
 
 theorem inferPisOutC_spec :
-    ∀ {stk : List Level} {v : Level} {s₀ : CState}, CSOK mode env s₀ →
+    ∀ {stk : List Level} {v : Level} {s₀ : CState}, CSOK mode eager env s₀ →
       ⦃fun s => s = s₀⦄ inferPisOutI stk v
-      ⦃fun r s' => CSOK mode env s' ∧ Runs (inferPisOut (m := FueledM) stk v) r; ⊤⦄ := by
+      ⦃fun r s' => CSOK mode eager env s' ∧ Runs (inferPisOut (m := FueledM) stk v) r; ⊤⦄ := by
   intro stk
   induction stk with
   | nil =>
@@ -103,22 +105,22 @@ theorem inferPisOutC_spec :
     sym only [conleche_grind, inferPisOut.eq_2] =>
       vcgen [inferPisOutI, ih] <;> finish
 
-theorem inferPisLeafC_spec (ih : SSimC mode env f) {d : Nat} {t : Expr} {k : Nat}
-    {fvs : Array Expr} {stk : List Level} {s₀ : CState} (hs : CSOK mode env s₀)
+theorem inferPisLeafC_spec (ih : SSimC mode eager env f) {d : Nat} {t : Expr} {k : Nat}
+    {fvs : Array Expr} {stk : List Level} {s₀ : CState} (hs : CSOK mode eager env s₀)
     (hw : Expr.WScoped (d + k) (t.instantiateList fvs.toList.reverse)) :
-    ⦃fun s => s = s₀⦄ inferPisLeafI (coreKnotI mode (mkFEnv env) f) d t k fvs stk
-    ⦃fun v s' => CSOK mode env s' ∧
-      Runs (inferPisLeaf (fueledFns mode env) d t k fvs.toList.reverse stk) v; ⊤⦄ := by
+    ⦃fun s => s = s₀⦄ inferPisLeafI (coreKnotI mode eager (mkFEnv env) f) d t k fvs stk
+    ⦃fun v s' => CSOK mode eager env s' ∧
+      Runs (inferPisLeaf (fueledFns mode eager env) d t k fvs.toList.reverse stk) v; ⊤⦄ := by
   sym only [conleche_grind, inferPisLeaf.eq_1] =>
     vcgen [inferPisLeafI, instListRevM_spec hs, ih.infer_spec, ih.whnf_spec,
-      inferPisOutC_spec (mode := mode) (env := env)] <;> finish
+      inferPisOutC_spec (mode := mode) (eager := eager) (env := env)] <;> finish
 
-theorem inferPisC_spec (ih : SSimC mode env f) {d : Nat} :
+theorem inferPisC_spec (ih : SSimC mode eager env f) {d : Nat} :
     ∀ (fuel : Nat) {t : Expr} {k : Nat} {fvs : Array Expr} {stk : List Level} {s₀ : CState},
-      CSOK mode env s₀ → Expr.WScoped (d + k) (t.instantiateList fvs.toList.reverse) →
-      ⦃fun s => s = s₀⦄ inferPisI (coreKnotI mode (mkFEnv env) f) d fuel t k fvs stk
-      ⦃fun v s' => CSOK mode env s' ∧
-        Runs (inferPis (fueledFns mode env) d fuel t k fvs.toList.reverse stk) v; ⊤⦄ := by
+      CSOK mode eager env s₀ → Expr.WScoped (d + k) (t.instantiateList fvs.toList.reverse) →
+      ⦃fun s => s = s₀⦄ inferPisI (coreKnotI mode eager (mkFEnv env) f) d fuel t k fvs stk
+      ⦃fun v s' => CSOK mode eager env s' ∧
+        Runs (inferPis (fueledFns mode eager env) d fuel t k fvs.toList.reverse stk) v; ⊤⦄ := by
   intro fuel
   induction fuel with
   | zero =>
@@ -137,29 +139,29 @@ own tails, with the result scoping recovered from the chained run -/
 private theorem inferLamTail_atF {env : Env} (d : Nat)
     (tyx bodyx : Expr) (F : Nat) :
     ((do
-      let bt ← (fueledFns mode env).infer (d + 1)
+      let bt ← (fueledFns mode eager env).infer (d + 1)
         (bodyx.instantiate1 (.fvar d tyx))
       pure (Expr.forallE tyx (bt.abstract1 d))) : FueledM Expr).val F
-    = (inferTypeCore mode env F (d + 1) (bodyx.instantiate1 (.fvar d tyx))
+    = (inferTypeCore mode eager env F (d + 1) (bodyx.instantiate1 (.fvar d tyx))
         >>= fun bt => pure (Expr.forallE tyx (bt.abstract1 d))) := by
   rw [FueledM.atF_bind]
   rfl
 
 /-- The λ-inference loop against `inferBody`'s own λ-tail (a pure
 rebuild). -/
-theorem inferLamsC_tail_sim (ih : SSimC mode env f) (henv : EnvWF env)
+theorem inferLamsC_tail_sim (ih : SSimC mode eager env f) (henv : EnvWF env)
     {d fuel : Nat} {b t fv : Expr} {bodyx tyx : Expr}
     {s₀ : CState}
-    (hs : CSOK mode env s₀)
+    (hs : CSOK mode eager env s₀)
     (hbody : RelC b bodyx)
     (hty : RelC t tyx)
     (hfv : RelC fv (.fvar d tyx))
     (hwty : Expr.WScoped d tyx) (hwbody : Expr.WScoped d bodyx) :
-    SimC mode env s₀ (RelEC d)
-      (inferLamsI (coreKnotI mode (mkFEnv env) f) d fuel b 1 #[fv]
+    SimC mode eager env s₀ (RelEC d)
+      (inferLamsI (coreKnotI mode eager (mkFEnv env) f) d fuel b 1 #[fv]
         [t])
       (do
-        let bt ← (fueledFns mode env).infer (d + 1)
+        let bt ← (fueledFns mode eager env).infer (d + 1)
           (bodyx.instantiate1 (.fvar d tyx))
         pure (Expr.forallE tyx (bt.abstract1 d))) := by
   have hwopen : Expr.WScoped (d + 1)
@@ -171,9 +173,9 @@ theorem inferLamsC_tail_sim (ih : SSimC mode env f) (henv : EnvWF env)
   subst hb ht
   have hf : .fvar d tyx = fv := hfv.symm
   subst hf
-  have hcore : SimC mode env s₀ RelVC
-      (inferLamsI (coreKnotI mode (mkFEnv env) f) d fuel bodyx 1 #[.fvar d tyx] [tyx])
-      (inferLams (fueledFns mode env) d fuel bodyx 1 [Expr.fvar d tyx] [tyx]) :=
+  have hcore : SimC mode eager env s₀ RelVC
+      (inferLamsI (coreKnotI mode eager (mkFEnv env) f) d fuel bodyx 1 #[.fvar d tyx] [tyx])
+      (inferLams (fueledFns mode eager env) d fuel bodyx 1 [Expr.fvar d tyx] [tyx]) :=
     SimC.of_tripleVC (inferLamsC_spec ih fuel hs hwopen)
   refine SimC.wp (SimC.wr hcore ?himp) ?hsc
   case himp =>
@@ -184,7 +186,7 @@ theorem inferLamsC_tail_sim (ih : SSimC mode env f) (henv : EnvWF env)
     refine ⟨F', ?_⟩
     rw [inferLamTail_atF]
     obtain ⟨bt, hbt, htail⟩ := bind_okB hchain
-    have hbt' : inferTypeCore mode env F' (d + 1)
+    have hbt' : inferTypeCore mode eager env F' (d + 1)
         (bodyx.instantiate1 (.fvar d tyx)) = .ok bt := by
       rw [← instList_single bodyx (Expr.fvar d tyx)]
       exact hbt
@@ -211,12 +213,12 @@ theorem inferLamsC_tail_sim (ih : SSimC mode env f) (henv : EnvWF env)
 private theorem inferPiTail_atF {env : Env} (d : Nat)
     (tyx bodyx : Expr) (lu : Level) (F : Nat) :
     ((do
-      let v ← ensureSort (fueledFns mode env) env (d + 1)
-        (← (fueledFns mode env).infer (d + 1)
+      let v ← ensureSort (fueledFns mode eager env) env (d + 1)
+        (← (fueledFns mode eager env).infer (d + 1)
           (bodyx.instantiate1 (.fvar d tyx)))
       pure (Expr.sort (.imax lu v))) : FueledM Expr).val F
-    = (inferTypeCore mode env F (d + 1) (bodyx.instantiate1 (.fvar d tyx))
-        >>= fun bt => ensureSortCore mode env F (d + 1) bt >>= fun v =>
+    = (inferTypeCore mode eager env F (d + 1) (bodyx.instantiate1 (.fvar d tyx))
+        >>= fun bt => ensureSortCore mode eager env F (d + 1) bt >>= fun v =>
         pure (Expr.sort (.imax lu v))) := by
   rw [FueledM.atF_bind]
   congr 1
@@ -226,19 +228,19 @@ private theorem inferPiTail_atF {env : Env} (d : Nat)
 
 /-- The ∀-inference loop against `inferBody`'s own ∀-tail (the codomain
 sort is inferred). -/
-theorem inferPisC_tail_sim (ih : SSimC mode env f)
+theorem inferPisC_tail_sim (ih : SSimC mode eager env f)
     {d fuel : Nat} {b fv : Expr} {bodyx tyx : Expr}
     {u : Level} {lu : Level} {s₀ : CState}
-    (hs : CSOK mode env s₀)
+    (hs : CSOK mode eager env s₀)
     (hbody : RelC b bodyx)
     (hlu : u = lu)
     (hfv : RelC fv (.fvar d tyx))
     (hwty : Expr.WScoped d tyx) (hwbody : Expr.WScoped d bodyx) :
-    SimC mode env s₀ (RelEC d)
-      (inferPisI (coreKnotI mode (mkFEnv env) f) d fuel b 1 #[fv] [u])
+    SimC mode eager env s₀ (RelEC d)
+      (inferPisI (coreKnotI mode eager (mkFEnv env) f) d fuel b 1 #[fv] [u])
       (do
-        let v ← ensureSort (fueledFns mode env) env (d + 1)
-          (← (fueledFns mode env).infer (d + 1)
+        let v ← ensureSort (fueledFns mode eager env) env (d + 1)
+          (← (fueledFns mode eager env).infer (d + 1)
             (bodyx.instantiate1 (.fvar d tyx)))
         pure (Expr.sort (.imax lu v))) := by
   subst hlu
@@ -249,9 +251,9 @@ theorem inferPisC_tail_sim (ih : SSimC mode env f)
   have hb : bodyx = b := hbody.symm
   have hf : .fvar d tyx = fv := hfv.symm
   subst hb hf
-  have hcore : SimC mode env s₀ RelVC
-      (inferPisI (coreKnotI mode (mkFEnv env) f) d fuel bodyx 1 #[.fvar d tyx] [u])
-      (inferPis (fueledFns mode env) d fuel bodyx 1 [Expr.fvar d tyx] [u]) :=
+  have hcore : SimC mode eager env s₀ RelVC
+      (inferPisI (coreKnotI mode eager (mkFEnv env) f) d fuel bodyx 1 #[.fvar d tyx] [u])
+      (inferPis (fueledFns mode eager env) d fuel bodyx 1 [Expr.fvar d tyx] [u]) :=
     SimC.of_tripleVC (inferPisC_spec ih fuel hs hwopen)
   refine SimC.wp (SimC.wr hcore ?himp) ?hsc
   case himp =>
@@ -262,7 +264,7 @@ theorem inferPisC_tail_sim (ih : SSimC mode env f)
     refine ⟨F', ?_⟩
     rw [inferPiTail_atF]
     obtain ⟨bt, hbt, hwrap⟩ := bind_okB hchain
-    have hbt' : inferTypeCore mode env F' (d + 1)
+    have hbt' : inferTypeCore mode eager env F' (d + 1)
         (bodyx.instantiate1 (.fvar d tyx)) = .ok bt := by
       rw [← instList_single bodyx (Expr.fvar d tyx)]
       exact hbt
@@ -270,7 +272,7 @@ theorem inferPisC_tail_sim (ih : SSimC mode env f)
     unfold inferPisWrap at hwrap
     obtain ⟨v, hv, hwrap⟩ := bind_okB hwrap
     rw [ensureSort_def] at hv
-    have hv' : ensureSortCore mode env F' (d + 1) bt = .ok v := hv
+    have hv' : ensureSortCore mode eager env F' (d + 1) bt = .ok v := hv
     rw [hv', okB_bind]
     unfold inferPisWrap at hwrap
     exact hwrap

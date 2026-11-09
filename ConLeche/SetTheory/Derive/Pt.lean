@@ -207,12 +207,6 @@ theorem _root_.ConLeche.IsTGUniverse.univZero_mem {U y : V}
     (hU : IsTGUniverse (Mem (V := V)) U) (hy : y ∈ˢ U) : (univZero : V) ∈ˢ U :=
   hU.power_mem (hU.unitSet_mem hy)
 
-theorem _root_.ConLeche.IsTGUniverse.truthVal_mem {U y : V}
-    (hU : IsTGUniverse (Mem (V := V)) U) (hy : y ∈ˢ U) (p : Prop) :
-    (truthVal p : V) ∈ˢ U :=
-  hU.transitive (hU.univZero_mem hy) (truthVal_mem_univZero p)
-
-/- Opaque interface operators (see `Derive/Empty.lean`). -/
 attribute [irreducible] ptTag pt unitSet eqv
 
 end ConLeche.SetTheory

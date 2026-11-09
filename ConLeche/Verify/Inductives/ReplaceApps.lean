@@ -434,7 +434,8 @@ theorem WScoped_of_leaves : ∀ (e : Expr) {d : Nat},
 annotation's), or a replacement's. -/
 theorem fvarLeaves_replaceFVars {g : Nat → Option Expr} :
     ∀ (e : Expr), ∀ l ∈ (e.replaceFVars g).fvarLeaves,
-      (∃ i ty, (i, ty) ∈ e.fvarLeaves ∧ g i = none ∧ l ∈ (Expr.fvar i ty).fvarLeaves) ∨
+      (∃ i ty, (i, ty) ∈ e.fvarLeaves ∧ g i = none ∧ l ∈ (Expr.fvar i ty).fvarLeaves ∧
+        (i, ty) ∈ (e.replaceFVars g).fvarLeaves) ∨
         ∃ i a, g i = some a ∧ l ∈ a.fvarLeaves := by
   intro e
   induction e with
@@ -444,7 +445,8 @@ theorem fvarLeaves_replaceFVars {g : Nat → Option Expr} :
     cases hg : g i with
     | none =>
       rw [hg, Option.getD_none] at hl
-      exact .inl ⟨i, ty, by simp [fvarLeaves], hg, hl⟩
+      exact .inl ⟨i, ty, by simp [fvarLeaves], hg, hl, by
+        simp only [replaceFVars]; rw [hg, Option.getD_none]; simp [fvarLeaves]⟩
     | some a =>
       rw [hg, Option.getD_some] at hl
       exact .inr ⟨i, a, hg, hl⟩
@@ -452,31 +454,41 @@ theorem fvarLeaves_replaceFVars {g : Nat → Option Expr} :
     intro l hl
     simp only [replaceFVars, fvarLeaves, List.mem_append] at hl
     rcases hl with hl | hl
-    · exact (ihf l hl).imp_left fun ⟨i, ty, h1, h2, h3⟩ => ⟨i, ty, by simp [fvarLeaves, h1], h2, h3⟩
-    · exact (iha l hl).imp_left fun ⟨i, ty, h1, h2, h3⟩ => ⟨i, ty, by simp [fvarLeaves, h1], h2, h3⟩
+    · exact (ihf l hl).imp_left fun ⟨i, ty, h1, h2, h3, h4⟩ =>
+        ⟨i, ty, by simp [fvarLeaves, h1], h2, h3, by simp [replaceFVars, fvarLeaves, h4]⟩
+    · exact (iha l hl).imp_left fun ⟨i, ty, h1, h2, h3, h4⟩ =>
+        ⟨i, ty, by simp [fvarLeaves, h1], h2, h3, by simp [replaceFVars, fvarLeaves, h4]⟩
   | lam t b iht ihb =>
     intro l hl
     simp only [replaceFVars, fvarLeaves, List.mem_append] at hl
     rcases hl with hl | hl
-    · exact (iht l hl).imp_left fun ⟨i, ty, h1, h2, h3⟩ => ⟨i, ty, by simp [fvarLeaves, h1], h2, h3⟩
-    · exact (ihb l hl).imp_left fun ⟨i, ty, h1, h2, h3⟩ => ⟨i, ty, by simp [fvarLeaves, h1], h2, h3⟩
+    · exact (iht l hl).imp_left fun ⟨i, ty, h1, h2, h3, h4⟩ =>
+        ⟨i, ty, by simp [fvarLeaves, h1], h2, h3, by simp [replaceFVars, fvarLeaves, h4]⟩
+    · exact (ihb l hl).imp_left fun ⟨i, ty, h1, h2, h3, h4⟩ =>
+        ⟨i, ty, by simp [fvarLeaves, h1], h2, h3, by simp [replaceFVars, fvarLeaves, h4]⟩
   | forallE t b iht ihb =>
     intro l hl
     simp only [replaceFVars, fvarLeaves, List.mem_append] at hl
     rcases hl with hl | hl
-    · exact (iht l hl).imp_left fun ⟨i, ty, h1, h2, h3⟩ => ⟨i, ty, by simp [fvarLeaves, h1], h2, h3⟩
-    · exact (ihb l hl).imp_left fun ⟨i, ty, h1, h2, h3⟩ => ⟨i, ty, by simp [fvarLeaves, h1], h2, h3⟩
+    · exact (iht l hl).imp_left fun ⟨i, ty, h1, h2, h3, h4⟩ =>
+        ⟨i, ty, by simp [fvarLeaves, h1], h2, h3, by simp [replaceFVars, fvarLeaves, h4]⟩
+    · exact (ihb l hl).imp_left fun ⟨i, ty, h1, h2, h3, h4⟩ =>
+        ⟨i, ty, by simp [fvarLeaves, h1], h2, h3, by simp [replaceFVars, fvarLeaves, h4]⟩
   | letE t v b iht ihv ihb =>
     intro l hl
     simp only [replaceFVars, fvarLeaves, List.mem_append] at hl
     rcases hl with (hl | hl) | hl
-    · exact (iht l hl).imp_left fun ⟨i, ty, h1, h2, h3⟩ => ⟨i, ty, by simp [fvarLeaves, h1], h2, h3⟩
-    · exact (ihv l hl).imp_left fun ⟨i, ty, h1, h2, h3⟩ => ⟨i, ty, by simp [fvarLeaves, h1], h2, h3⟩
-    · exact (ihb l hl).imp_left fun ⟨i, ty, h1, h2, h3⟩ => ⟨i, ty, by simp [fvarLeaves, h1], h2, h3⟩
+    · exact (iht l hl).imp_left fun ⟨i, ty, h1, h2, h3, h4⟩ =>
+        ⟨i, ty, by simp [fvarLeaves, h1], h2, h3, by simp [replaceFVars, fvarLeaves, h4]⟩
+    · exact (ihv l hl).imp_left fun ⟨i, ty, h1, h2, h3, h4⟩ =>
+        ⟨i, ty, by simp [fvarLeaves, h1], h2, h3, by simp [replaceFVars, fvarLeaves, h4]⟩
+    · exact (ihb l hl).imp_left fun ⟨i, ty, h1, h2, h3, h4⟩ =>
+        ⟨i, ty, by simp [fvarLeaves, h1], h2, h3, by simp [replaceFVars, fvarLeaves, h4]⟩
   | proj s k x ih =>
     intro l hl
     simp only [replaceFVars, fvarLeaves] at hl
-    exact (ih l hl).imp_left fun ⟨i, ty, h1, h2, h3⟩ => ⟨i, ty, by simp [fvarLeaves, h1], h2, h3⟩
+    exact (ih l hl).imp_left fun ⟨i, ty, h1, h2, h3, h4⟩ =>
+        ⟨i, ty, by simp [fvarLeaves, h1], h2, h3, by simp [replaceFVars, fvarLeaves, h4]⟩
   | bvar => intro l hl; simp [replaceFVars, fvarLeaves] at hl
   | sort => intro l hl; simp [replaceFVars, fvarLeaves] at hl
   | const => intro l hl; simp [replaceFVars, fvarLeaves] at hl
@@ -570,7 +582,7 @@ theorem fvarLeaves_nestCrest {names : List Name} {us : List Level} {ds holes : L
   unfold nestCrest at h
   obtain ⟨A, hA, rfl⟩ := Option.map_eq_some_iff.mp h
   intro l hl
-  rcases fvarLeaves_replaceFVars _ l hl with ⟨i, ty, hi, hg, -⟩ | ⟨i, a, hg, hl'⟩
+  rcases fvarLeaves_replaceFVars _ l hl with ⟨i, ty, hi, hg, -, -⟩ | ⟨i, a, hg, hl'⟩
   · obtain ⟨j, hj, hij⟩ := fvarLeaves_nestCanonCrest hcl hA _ hi
     simp only [Prod.mk.injEq] at hij
     obtain ⟨rfl, rfl⟩ := hij

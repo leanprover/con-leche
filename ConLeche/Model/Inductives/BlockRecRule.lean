@@ -1,5 +1,6 @@
 module
 
+import ConLeche.Model.OpenedCtx
 import ConLeche.Semantics.Tower.TowerKit
 import ConLeche.Verify.Denote
 import ConLeche.Verify.Denote.Lemmas
@@ -127,7 +128,7 @@ theorem shiftE_consList_ih {d nR : Nat} {locals ihvals : List V} {ρ' : Nat → 
 
 /-- **The node's own typing**: the residue sub-term the walk has
 reached was inferred by the rule stage's own run, at the checker's
-CERTIFIED grade (`inferTypeCore μ` at `μ = .verified` is
+CERTIFIED grade (`inferTypeCore .verified false` is
 `Infer … .full`, `Rules.inferTypeCore_bridge`).
 
 The fit of a guarded call's arguments is

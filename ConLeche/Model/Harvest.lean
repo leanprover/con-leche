@@ -45,7 +45,7 @@ open ConLeche (CheckMode Env Expr Name Level ConstantInfo ConstantVal
 universe w
 
 variable {V : Type w} [SetTheory V]
-variable {μ : CheckMode} {env : Env} {F : Nat}
+variable {env : Env} {F : Nat}
 
 /-- **The `Nat` guard reflects across a value-kind cons**: the three
 components need `indInfo`/`ctorInfo` shapes, which no `defn`/`thm`/
@@ -94,7 +94,7 @@ The three literal heads are *stored* wherever the guard holds, so
 freshness makes each of them distinct from the new name and the fresh
 leaf is invisible to all three — `mp.nat_heads` transports unchanged.
 No bespoke premise; `harvestThm` and `harvestAxiom` call it. -/
-theorem natHeads_cons_fresh (mp : EnvModelM V μ env)
+theorem natHeads_cons_fresh (mp : EnvModelM V env)
     {c₀ : ConstantInfo} {A : (Name → Nat) → Term}
     (hfresh : env.find? c₀.name = none)
     (hknd : (∀ cv mI, c₀ ≠ .indInfo cv mI) ∧
@@ -138,15 +138,18 @@ theorem natHeads_cons_fresh (mp : EnvModelM V μ env)
   simpa only [e1, e2, e3] using this
 
 /-- **The `defn` harvest** (see the module docstring). -/
-theorem harvestDefn (hμ : μ.isVerified = true)
-    (mp : EnvModelM V μ env)
+theorem harvestDefn
+    (mp : EnvModelM V env)
     {cv : ConstantVal} {value : Expr} {hint : ReducibilityHint}
     {env₂ : Env}
-    (hR : DeclDefnRun μ F env cv value hint env₂) :
+    (hR : DeclDefnRun F env cv value hint env₂)
+    -- the reserved names' check (`basisNamesOk`)
+    (hwf₂ : EnvWF env₂)
+    (hnres : ConLeche.reservedBasisNames.contains cv.name = false) :
     CoverStep mp env₂ := by
   obtain ⟨type', value', hcv, hvfr, rfl, hnatc, hdmc⟩ := hR
-  obtain ⟨hfind, hnres, hnd, hlbt, hitf, hann, htp, htr,
-    hrunT⟩ := hcv
+  obtain ⟨hfind, hnd, hlbt, hitf, hann, htp, htr,
+    hrunT, hcvShape⟩ := hcv
   obtain ⟨hvlb, hvhf, hannv, hvp, hvr, ⟨vtype, hvrun, hvde⟩⟩ := hvfr
   obtain ⟨htf', hbt'⟩ := stored_syntax hann hitf hlbt
   obtain ⟨hvf', hbv'⟩ := stored_syntax hannv hvhf hvlb
@@ -196,9 +199,9 @@ theorem harvestDefn (hμ : μ.isVerified = true)
     simp [hta]
   -- the claims and the reads, per assignment
   have hclaims := fun ψ =>
-    checkSoundAt (V := V) hμ (Rules.RulesInputs.ofSem mp ψ) F
-  have hreads : ∀ ψ, InferReads mp.base2 μ ψ F :=
-    fun ψ => inferReads_of hμ (Rules.RulesInputs.ofSem mp ψ)
+    checkSoundAt (V := V) (Rules.RulesInputs.ofSem mp ψ) F
+  have hreads : ∀ ψ, InferReads mp.base2 ψ F :=
+    fun ψ => inferReads_of (Rules.RulesInputs.ofSem mp ψ)
   -- the value's rows: gradings and the membership at its own type
   have hrowsV : ∀ ψ : Name → Nat, ∃ vta,
       denote mp.base2.acval env ψ 0 vtype = some vta ∧
@@ -298,19 +301,13 @@ theorem harvestDefn (hμ : μ.isVerified = true)
   -- assemble
   refine coverTo_cons hfresh (fun _ _ h => nomatch h) (declStep_preserves_of_cons mp
     (c₀ := .defnInfo ⟨cv.name, cv.levelParams, type'⟩ value' hint)
-    (A := A) hfresh
+    (A := A) hfresh (fun _ => ⟨_, _, _, rfl⟩)
     (ConsHead.ofFresh
-      (EnvWF.cons mp.base2.wf ⟨htf', htp,
-        Expr.constsResolve_mono htr, hbt',
-        (fun _ _ _ heq => by
-          obtain ⟨rfl, rfl, rfl⟩ := ConstantInfo.defnInfo.inj heq
-          exact ⟨hvf', hvp, Expr.constsResolve_mono hvr, hbv'⟩),
-        (fun _ _ _ _ heq => nomatch heq),
-      (fun _ _ heq => nomatch heq)⟩)
+      (hwf₂)
       (fun ψ => denote_closed mp.base2.cval_closed hvf' hbv'
         (hA ψ))
       hnres
-      (fun _ _ _ _ heq => nomatch heq))
+      (fun _ _ _ _ _ heq => nomatch heq))
     hAparams hAok ?_ ?_ ?_ ?_ ?_ ?_ ?_ ?_ ?_ ?_ ?_ ?_)
   · -- `htyReads`
     intro ψ
@@ -485,7 +482,7 @@ theorem harvestDefn (hμ : μ.isVerified = true)
     exact fun φ => recRules_cons_fresh mp
       (c₀ := .defnInfo ⟨cv.name, cv.levelParams, type'⟩ value' hint)
       (A := A) hfresh
-      (fun _ _ _ _ h => ConstantInfo.noConfusion h) _ rfl φ
+      (fun _ _ _ _ _ h => ConstantInfo.noConfusion h) _ rfl φ
   · -- `reduce_ops` at the extension: a definition is not an
     -- `axiomInfo`, so no reduce operation can be this cons
     exact reduceOps_cons_fresh mp.reduce_ops
@@ -516,14 +513,17 @@ theorem harvestDefn (hμ : μ.isVerified = true)
 
 `DeclThmRun`'s prop-check conjuncts are not spent (the P invariant
 stores no is-a-proposition field); they are destructured away with `-`. -/
-theorem harvestThm (hμ : μ.isVerified = true)
-    (mp : EnvModelM V μ env)
+theorem harvestThm
+    (mp : EnvModelM V env)
     {cv : ConstantVal} {value : Expr} {env₂ : Env}
-    (hR : DeclThmRun μ F env cv value env₂) :
+    (hR : DeclThmRun F env cv value env₂)
+    -- the reserved names' check (`basisNamesOk`)
+    (hwf₂ : EnvWF env₂)
+    (hnres : ConLeche.reservedBasisNames.contains cv.name = false) :
     CoverStep mp env₂ := by
-  obtain ⟨type', value', hcv, -, hvfr, rfl⟩ := hR
-  obtain ⟨hfind, hnres, hnd, hlbt, hitf, hann, htp, htr,
-    hrunT⟩ := hcv
+  obtain ⟨hopn, type', value', hcv, -, hvfr, rfl⟩ := hR
+  obtain ⟨hfind, hnd, hlbt, hitf, hann, htp, htr,
+    hrunT, hcvShape⟩ := hcv
   obtain ⟨hvlb, hvhf, hannv, hvp, hvr, ⟨vtype, hvrun, hvde⟩⟩ := hvfr
   obtain ⟨htf', hbt'⟩ := stored_syntax hann hitf hlbt
   obtain ⟨hvf', hbv'⟩ := stored_syntax hannv hvhf hvlb
@@ -571,9 +571,9 @@ theorem harvestThm (hμ : μ.isVerified = true)
     simp [hta]
   -- the claims and the reads, per assignment
   have hclaims := fun ψ =>
-    checkSoundAt (V := V) hμ (Rules.RulesInputs.ofSem mp ψ) F
-  have hreads : ∀ ψ, InferReads mp.base2 μ ψ F :=
-    fun ψ => inferReads_of hμ (Rules.RulesInputs.ofSem mp ψ)
+    checkSoundAt (V := V) (Rules.RulesInputs.ofSem mp ψ) F
+  have hreads : ∀ ψ, InferReads mp.base2 ψ F :=
+    fun ψ => inferReads_of (Rules.RulesInputs.ofSem mp ψ)
   -- the value's rows: gradings and the membership at its own type
   have hrowsV : ∀ ψ : Name → Nat, ∃ vta,
       denote mp.base2.acval env ψ 0 vtype = some vta ∧
@@ -669,17 +669,13 @@ theorem harvestThm (hμ : μ.isVerified = true)
   -- assemble
   refine coverTo_cons hfresh (fun _ _ h => nomatch h) (declStep_preserves_of_cons mp
     (c₀ := .thmInfo ⟨cv.name, cv.levelParams, type'⟩)
-    (A := A) hfresh
+    (A := A) hfresh (fun hn => Bool.noConfusion ((show natOpName cv.name = true from hn).symm.trans hopn))
     (ConsHead.ofFresh
-      (EnvWF.cons mp.base2.wf ⟨htf', htp,
-        Expr.constsResolve_mono htr, hbt',
-        (fun _ _ _ heq => nomatch heq),
-        (fun _ _ _ _ heq => nomatch heq),
-      (fun _ _ heq => nomatch heq)⟩)
+      (hwf₂)
       (fun ψ => denote_closed mp.base2.cval_closed hvf' hbv'
         (hA ψ))
       hnres
-      (fun _ _ _ _ heq => nomatch heq))
+      (fun _ _ _ _ _ heq => nomatch heq))
     hAparams hAok ?_ ?_ ?_ ?_ ?_ ?_ ?_ ?_ ?_ ?_ ?_ ?_)
   · -- `htyReads`
     intro ψ
@@ -744,7 +740,7 @@ theorem harvestThm (hμ : μ.isVerified = true)
     exact fun φ => recRules_cons_fresh mp
       (c₀ := .thmInfo ⟨cv.name, cv.levelParams, type'⟩)
       (A := A) hfresh
-      (fun _ _ _ _ h => ConstantInfo.noConfusion h) _ rfl φ
+      (fun _ _ _ _ _ h => ConstantInfo.noConfusion h) _ rfl φ
   · -- `reduce_ops` at the extension: a theorem is not an `axiomInfo`
     exact reduceOps_cons_fresh mp.reduce_ops
       (c₀ := .thmInfo ⟨cv.name, cv.levelParams, type'⟩)
@@ -774,10 +770,14 @@ the wrapper crosses it.
 
 `DeclAxiomRun`'s tolerated skip needs none of this: it stores nothing
 (`env₂ = env`), so its P invariant is `mp` itself. -/
-theorem harvestAxiom (hμ : μ.isVerified = true)
-    (mp : EnvModelM V μ env)
+theorem harvestAxiom
+    (mp : EnvModelM V env)
     {cv : ConstantVal} {type' : Expr} {A : (Name → Nat) → Term}
-    (hcv : ConstantValRun μ F env cv type')
+    (hopn : natOpName cv.name = false)
+    (hcv : ConstantValRun F env cv type')
+    (hwf₂ : EnvWF ⟨.axiomInfo ⟨cv.name, cv.levelParams, type'⟩ :: env.consts, env.tables⟩)
+    -- the reserved names' check (`basisNamesOk`)
+    (hnres : ConLeche.reservedBasisNames.contains cv.name = false)
     (hAvclosed : ∀ ψ : Name → Nat, Term.Closed (A ψ))
     (hAparams : ∀ ψ₁ ψ₂ : Name → Nat,
       (∀ p ∈ cv.levelParams, ψ₁ p = ψ₂ p) → A ψ₁ = A ψ₂)
@@ -793,8 +793,8 @@ theorem harvestAxiom (hμ : μ.isVerified = true)
     (hnotreduce : cv.name ∉ ConLeche.reduceOpNames) :
     CoverStep mp
       ⟨.axiomInfo ⟨cv.name, cv.levelParams, type'⟩ :: env.consts, env.tables⟩ := by
-  obtain ⟨hfind, hnres, hnd, hlbt, hitf, hann, htp, htr,
-    hrunT⟩ := hcv
+  obtain ⟨hfind, hnd, hlbt, hitf, hann, htp, htr,
+    hrunT, hcvShape⟩ := hcv
   obtain ⟨htf', hbt'⟩ := stored_syntax hann hitf hlbt
   have hfresh : env.find? cv.name = none :=
     Option.isNone_iff_eq_none.mp hfind
@@ -821,9 +821,9 @@ theorem harvestAxiom (hμ : μ.isVerified = true)
     simp [hta]
   -- the claims and the reads, per assignment
   have hclaims := fun ψ =>
-    checkSoundAt (V := V) hμ (Rules.RulesInputs.ofSem mp ψ) F
-  have hreads : ∀ ψ, InferReads mp.base2 μ ψ F :=
-    fun ψ => inferReads_of hμ (Rules.RulesInputs.ofSem mp ψ)
+    checkSoundAt (V := V) (Rules.RulesInputs.ofSem mp ψ) F
+  have hreads : ∀ ψ, InferReads mp.base2 ψ F :=
+    fun ψ => inferReads_of (Rules.RulesInputs.ofSem mp ψ)
   -- the type's rows: its own grading as a subject
   have hrowsT : ∀ ψ : Name → Nat, ∃ sta,
       denote mp.base2.acval env ψ 0 stype = some sta ∧
@@ -854,15 +854,11 @@ theorem harvestAxiom (hμ : μ.isVerified = true)
   -- assemble
   refine coverTo_cons hfresh (fun _ _ h => nomatch h) (declStep_preserves_of_cons mp
     (c₀ := .axiomInfo ⟨cv.name, cv.levelParams, type'⟩)
-    (A := A) hfresh
+    (A := A) hfresh (fun hn => Bool.noConfusion ((show natOpName cv.name = true from hn).symm.trans hopn))
     (ConsHead.ofFresh
-      (EnvWF.cons mp.base2.wf ⟨htf', htp,
-        Expr.constsResolve_mono htr, hbt',
-        (fun _ _ _ heq => nomatch heq),
-        (fun _ _ _ _ heq => nomatch heq),
-      (fun _ _ heq => nomatch heq)⟩)
+      (hwf₂)
       hAvclosed hnres
-      (fun _ _ _ _ heq => nomatch heq))
+      (fun _ _ _ _ _ heq => nomatch heq))
     hAparams hAok ?_ ?_ ?_ ?_ ?_ ?_ ?_ ?_ ?_ ?_ ?_ ?_)
   · -- `htyReads`
     intro ψ
@@ -928,7 +924,7 @@ theorem harvestAxiom (hμ : μ.isVerified = true)
     exact fun φ => recRules_cons_fresh mp
       (c₀ := .axiomInfo ⟨cv.name, cv.levelParams, type'⟩)
       (A := A) hfresh
-      (fun _ _ _ _ h => ConstantInfo.noConfusion h) _ rfl φ
+      (fun _ _ _ _ _ h => ConstantInfo.noConfusion h) _ rfl φ
   · -- `reduce_ops` at the extension: the cons *is* an `axiomInfo`, so
     -- the preservation goes through the pinned name (the branch's
     -- hypothesis), not the kind
@@ -947,14 +943,17 @@ theorem harvestAxiom (hμ : μ.isVerified = true)
 The species, with the value–leaf equation read **directly** off the run's
 leaf equation (no `defn_eq` detour). -/
 
-theorem harvestOpaque (hμ : μ.isVerified = true)
-    (mp : EnvModelM V μ env)
+theorem harvestOpaque
+    (mp : EnvModelM V env)
     {cv : ConstantVal} {value : Expr} {env₂ : Env}
-    (hR : DeclOpaqueRun μ F env cv value env₂) :
+    (hR : DeclOpaqueRun F env cv value env₂)
+    -- the reserved names' check (`basisNamesOk`)
+    (hwf₂ : EnvWF env₂)
+    (hnres : ConLeche.reservedBasisNames.contains cv.name = false) :
     CoverStep mp env₂ := by
-  obtain ⟨type', value', hcv, hvfr, rfl, hred⟩ := hR
-  obtain ⟨hfind, hnres, hnd, hlbt, hitf, hann, htp, htr,
-    hrunT⟩ := hcv
+  obtain ⟨hopn, type', value', hcv, hvfr, rfl, hred⟩ := hR
+  obtain ⟨hfind, hnd, hlbt, hitf, hann, htp, htr,
+    hrunT, hcvShape⟩ := hcv
   obtain ⟨hvlb, hvhf, hannv, hvp, hvr, ⟨vtype, hvrun, hvde⟩⟩ := hvfr
   obtain ⟨htf', hbt'⟩ := stored_syntax hann hitf hlbt
   obtain ⟨hvf', hbv'⟩ := stored_syntax hannv hvhf hvlb
@@ -1002,9 +1001,9 @@ theorem harvestOpaque (hμ : μ.isVerified = true)
     simp [hta]
   -- the claims and the reads, per assignment
   have hclaims := fun ψ =>
-    checkSoundAt (V := V) hμ (Rules.RulesInputs.ofSem mp ψ) F
-  have hreads : ∀ ψ, InferReads mp.base2 μ ψ F :=
-    fun ψ => inferReads_of hμ (Rules.RulesInputs.ofSem mp ψ)
+    checkSoundAt (V := V) (Rules.RulesInputs.ofSem mp ψ) F
+  have hreads : ∀ ψ, InferReads mp.base2 ψ F :=
+    fun ψ => inferReads_of (Rules.RulesInputs.ofSem mp ψ)
   -- the value's rows: gradings and the membership at its own type
   have hrowsV : ∀ ψ : Name → Nat, ∃ vta,
       denote mp.base2.acval env ψ 0 vtype = some vta ∧
@@ -1104,17 +1103,13 @@ theorem harvestOpaque (hμ : μ.isVerified = true)
   -- assemble
   refine coverTo_cons hfresh (fun _ _ h => nomatch h) (declStep_preserves_of_cons mp
     (c₀ := .axiomInfo ⟨cv.name, cv.levelParams, type'⟩)
-    (A := A) hfresh
+    (A := A) hfresh (fun hn => Bool.noConfusion ((show natOpName cv.name = true from hn).symm.trans hopn))
     (ConsHead.ofFresh
-      (EnvWF.cons mp.base2.wf ⟨htf', htp,
-        Expr.constsResolve_mono htr, hbt',
-        (fun _ _ _ heq => nomatch heq),
-        (fun _ _ _ _ heq => nomatch heq),
-      (fun _ _ heq => nomatch heq)⟩)
+      (hwf₂)
       (fun ψ => denote_closed mp.base2.cval_closed hvf' hbv'
         (hA ψ))
       hnres
-      (fun _ _ _ _ heq => nomatch heq))
+      (fun _ _ _ _ _ heq => nomatch heq))
     hAparams hAok ?_ ?_ ?_ ?_ ?_ ?_ ?_ ?_ ?_ ?_ ?_ ?_)
   · -- `htyReads`
     intro ψ
@@ -1178,13 +1173,13 @@ theorem harvestOpaque (hμ : μ.isVerified = true)
     exact fun φ => recRules_cons_fresh mp
       (c₀ := .axiomInfo ⟨cv.name, cv.levelParams, type'⟩)
       (A := A) hfresh
-      (fun _ _ _ _ h => ConstantInfo.noConfusion h) _ rfl φ
+      (fun _ _ _ _ _ h => ConstantInfo.noConfusion h) _ rfl φ
   · -- `reduce_ops` at the extension: **this is the establishment**.
     -- An `opaque` cons is the only place a compiler-trust operation is
     -- ever stored, and `checkReducePin`'s recorded identity-certificate
     -- run is what makes the law true of it (`Model/ReduceOps.lean`);
     -- every *other* stored operation crosses by the transport inside.
-    exact reduceOps_install hμ mp hfresh hvf' hbv' hannv hA hAclosed
+    exact reduceOps_install mp hfresh hvf' hbv' hannv hA hAclosed
       hAok hTa
       (fun ψ ρ => by
         obtain ⟨sta, hsta, htE, -, -⟩ := hrowsT ψ

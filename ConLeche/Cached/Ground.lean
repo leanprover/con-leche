@@ -170,6 +170,29 @@ def gCmpLevels (rl : RecRule) (lps : List Name) (us : List Level)
   match rl.fire with
   | .nested lvls _ => lvls.map (Level.subst lps us)
   | .plain => cvjLps.map fun p => Level.subst lps us (.param p)
+  | .levels lvls => lvls.map (Level.subst lps us)
+
+/-- Case 3 of the ι split, decided without reduction (task #423, on
+master's `iotaCase3I`): `false` at K; at a family whose former's sort is
+syntactic, its never-zero test; `true` (the engine aborts) where the
+incumbent would need `whnf` to read the sort. -/
+def gCase3 (find? : Name → Option ConstantInfo) (isK : Bool) (cvj : ConstantVal)
+    (us : List Level) : Bool :=
+  if isK then false else
+  match ctorFamily find? cvj with
+  | some (cvT, _) =>
+    if cvT.levelParams.length == us.length then
+      match formerResSort cvT.type with
+      | some _ => !formerNeverZero cvT us
+      | none => true
+    else true
+  | none => true
+
+/-- The constructor's parameter count (master's rules no longer store it). -/
+def gCtorParams (find? : Name → Option ConstantInfo) (c : Name) : Nat :=
+  match find? c with
+  | some (.ctorInfo _ nP _) => nP
+  | _ => 0
 
 /-- The leading argument frames of a stack, at most `k` of them, in
 order, and the rest. -/
@@ -311,7 +334,7 @@ def gRun : Nat → Array GCell → GCache → GCtrl → List GFrame → Nat → 
       | some (.ctorInfo ..) =>
         let (xs, k') := gTakeAll k #[]
         gRun n h cc (.ret (.ctor c us xs)) k' st
-      | some (.recInfo cv mI rP rules) =>
+      | some (.recInfo cv mI rP _ rules) =>
         let (xs, k') := gTakeArgs (mI + 1) k #[]
         if xs.size < mI + 1 then gRun n h cc (.ret (.pap c us xs)) k' st
         else if us.length != cv.levelParams.length then .abort "rec level arity" st
@@ -345,6 +368,7 @@ def gRun : Nat → Array GCell → GCache → GCtrl → List GFrame → Nat → 
           gRun n h cc (.ret .neutral) k'' st
         | .lit _ => .abort "literal applied" st
       | .iota c us lps mI rP rules xs :: k' =>
+        let isK := match find? c with | some (.recInfo _ _ _ k _) => k | _ => false
         match v with
         | .lit (.natVal m) =>
           if natOk then
@@ -361,24 +385,24 @@ def gRun : Nat → Array GCell → GCache → GCtrl → List GFrame → Nat → 
         | .ctor cj _ margs =>
           match rules.find? (fun r' => r'.ctor == cj) with
           | some rl =>
-            if margs.size != rl.ctorParams + rl.nfields then .abort "ctor arity" st else
+            if margs.size != (gCtorParams find? rl.ctor) + rl.nfields then .abort "ctor arity" st else
             let (rhs, case3, cc) := match cc.rhss[(c, cj, us)]? with
               | some (rhs, case3) => (rhs, case3, cc)
               | none =>
                 let case3 := match find? cj with
                   | some (.ctorInfo cvj _ _) =>
-                    iotaCase3 find? rl cvj (gCmpLevels rl lps us cvj.levelParams)
+                    gCase3 find? isK cvj (gCmpLevels rl lps us cvj.levelParams)
                   | _ => true
                 let rhs := rl.rhs.instantiateLevelParams lps us
                 (rhs, case3, cc.insRhs (c, cj, us) (rhs, case3))
             if case3 then .abort "case 3" st else
             let k₁ := gPushArgs (xs.extract (mI + 1) xs.size) k'
-            let k₂ := gPushArgs (margs.extract rl.ctorParams margs.size) k₁
+            let k₂ := gPushArgs (margs.extract (gCtorParams find? rl.ctor) margs.size) k₁
             let k₃ := gPushArgs (xs.extract 0 rP) k₂
             gRun n h cc (.eval [] rhs) k₃ st
           | none => .abort "no rule" st
         | _ =>
-          if recRuleK rules then .abort "K major" st
+          if isK then .abort "K major" st
           else .abort "major not a constructor" st
       | .proj sn i :: k' =>
         match v with
@@ -390,7 +414,7 @@ def gRun : Nat → Array GCell → GCache → GCtrl → List GFrame → Nat → 
           | some entry =>
             if kc == entry.ctor && i < entry.numFields &&
                 args.size == entry.numParams + entry.numFields &&
-                us.length == entry.levelParams.length && entry.fireOk us then
+                us.length == entry.levelParams.length then
               match find? kc with
               | some (.ctorInfo cvC _ _) =>
                 if (Expr.peelPis args.size cvC.type).isSome then
@@ -428,8 +452,8 @@ end
 `some true`/`some false` for a `Bool` constructor, `none` otherwise,
 with the step count and the abort reason (for the probe trace). -/
 def groundBool (fe : FEnv) (e : Expr) : Option Bool × (Nat × Nat) × String :=
-  let natOk := natLitSupportedF fe
-  let strOk := strLitSupportedF fe
+  let natOk := natLitStoredF fe
+  let strOk := strLitStoredF fe
   match gRun fe.find? fe.findProj? natOk strOk groundFuel #[] {} (.eval [] e) [] 0 with
   | .done v _ st left =>
     let tr := groundFuel - left

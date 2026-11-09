@@ -1,5 +1,6 @@
 module
 
+import ConLeche.Model.OpenedCtx
 import ConLeche.Model.Inductives.BlockRecAssembly
 import ConLeche.Model.Inductives.BlockRecLaw
 public import ConLeche.Model.Inductives.BlockRecData
@@ -14,7 +15,6 @@ import ConLeche.Verify.Inductives.ClassGenMinorSyn
 import ConLeche.Verify.InstSpine
 import ConLeche.Verify.Denote.OpenVars
 import ConLeche.Verify.Denote.IndFrame
-import ConLeche.Verify.BridgeWfImp
 import ConLeche.Verify.InferLemmas
 import ConLeche.Verify.InferLeaves
 import ConLeche.Verify.BinderLoop
@@ -64,8 +64,8 @@ variable {mode : CheckMode}
 /-- **An inferred application infers its arguments.** -/
 theorem inferTypeCore_mkAppN_args {env : Env} {F d : Nat} :
     ∀ (as : List Expr) {f t : Expr},
-      inferTypeCore mode env F d (Expr.mkAppN f as) = .ok t →
-      ∀ a ∈ as, ∃ ta, inferTypeCore mode env F d a = .ok ta
+      inferTypeCore mode false env F d (Expr.mkAppN f as) = .ok t →
+      ∀ a ∈ as, ∃ ta, inferTypeCore mode false env F d a = .ok ta
   | [], _, _, _, a, ha => nomatch ha
   | b :: as, f, t, h, a, ha => by
     rcases List.mem_cons.mp ha with rfl | ha
@@ -76,8 +76,8 @@ theorem inferTypeCore_mkAppN_args {env : Env} {F d : Nat} :
 
 /-- **An inferred `∀` infers its domain.** -/
 theorem inferTypeCore_forallE_dom' {env : Env} {F d : Nat} {ty bd s : Expr}
-    (h : inferTypeCore mode env F d (.forallE ty bd) = .ok s) :
-    ∃ t, inferTypeCore mode env F d ty = .ok t := by
+    (h : inferTypeCore mode false env F d (.forallE ty bd) = .ok s) :
+    ∃ t, inferTypeCore mode false env F d ty = .ok t := by
   cases F with
   | zero => rw [inferTypeCore_zero] at h; exact nomatch h
   | succ F₀ =>
@@ -139,16 +139,16 @@ open ConLeche.SetModel
 open SetTheory
 open ConLeche.Term ConLeche.Verify
 
-open ConLeche (CheckMode Env Expr Name Level ConstantVal ConstantInfo BlockParts TargetMajor)
+open ConLeche (CheckMode Env Expr Name Level ConstantVal ConstantInfo BlockShape TargetMajor)
 
 universe w
 
-variable {V : Type w} [SetTheory V] {μ : CheckMode}
+variable {V : Type w} [SetTheory V]
 
 section Pins
 
-variable {F : Nat} {envC : Env} {pp : BlockParts} {cvTas : List ConstantVal}
-  {ctorsAs : List (List (ConstantVal × Nat))}
+variable {F : Nat} {envC : Env} {pp : BlockShape} {formers : List ConstantVal}
+  {memberCtors : List (List (ConstantVal × Nat))}
   {rs : List (ConstantVal × List Expr × Nat × List (ConstantVal × Nat))}
 
 /-- An application spine's head is scoped where the spine is. -/
@@ -184,22 +184,22 @@ over the prefix, in the prefix context**: inferred at the prefix depth
 spine's head and arguments; a term scoped at the prefix infers alike
 there), scoped, and in the prefix context — the prefix openers' readings
 are the prefix domains, graded types (see the module docstring). -/
-theorem storedMajorSub_ctx (hμ : μ.isVerified = true) (mpC : EnvModelM V μ envC)
-    (h : ConLeche.RecStageG μ F envC pp cvTas rs)
+theorem storedMajorSub_ctx (mpC : EnvModelM V envC)
+    (h : ConLeche.RecStageG .verified F envC pp rs)
     {j : Nat} {r : ConstantVal × List Expr × Nat × List (ConstantVal × Nat)}
     (hr : rs[j]? = some r) (ψ : Name → Nat) {fvs : List Expr} {concl maj : Expr}
-    (hop : openPisAtFvars (pp.toBlockShape.majorIdxAt j + 1) r.1.type 0 = some (fvs, concl))
-    (hmaj : fvs[pp.toBlockShape.majorIdxAt j]? = some maj)
+    (hop : openPisAtFvars (pp.majorIdxAt j + 1) r.1.type 0 = some (fvs, concl))
+    (hmaj : fvs[pp.majorIdxAt j]? = some maj)
     {x : Expr} (hxA : x ∈ maj.fvarTypeD.getAppArgs ∨
       ∃ args, maj.fvarTypeD = Expr.mkAppN x args)
-    (hlt : ∀ l ∈ x.fvarLeaves, l.1 < pp.toBlockShape.rulePrefixAt j) :
-    (∃ tx, ConLeche.inferTypeCore .verified envC F (pp.toBlockShape.rulePrefixAt j) x = .ok tx) ∧
-      Rules.Frame (pp.toBlockShape.rulePrefixAt j) x ∧
-      CtxOk mpC.base2 ψ (pp.toBlockShape.rulePrefixAt j)
-        (blockRulePdomsAV mpC.base2.acval envC pp.toBlockShape rs ψ j).reverse x := by
-  obtain rfl : μ = .verified := CheckMode.eq_verified hμ
-  generalize hmIdef : pp.toBlockShape.majorIdxAt j = mI at hop hmaj
-  generalize hrPdef : pp.toBlockShape.rulePrefixAt j = rP at hlt ⊢
+    (hlt : ∀ l ∈ x.fvarLeaves, l.1 < pp.rulePrefixAt j) :
+    (∃ tx, ConLeche.inferTypeCore .verified false envC F (pp.rulePrefixAt j) x = .ok
+        tx) ∧
+      Rules.Frame (pp.rulePrefixAt j) x ∧
+      CtxOk mpC.base2 ψ (pp.rulePrefixAt j)
+        (blockRulePdomsAV mpC.base2.acval envC pp rs ψ j).reverse x := by
+  generalize hmIdef : pp.majorIdxAt j = mI at hop hmaj
+  generalize hrPdef : pp.rulePrefixAt j = rP at hlt ⊢
   obtain ⟨_, _, -, ⟨TE⟩⟩ := ConLeche.recStageG_tyGen h hr
   have hle : rP ≤ mI := by have := TE.hmI'; omega
   obtain ⟨stype, u0, hinfT, -⟩ := TE.hcv.sorted
@@ -216,7 +216,7 @@ theorem storedMajorSub_ctx (hμ : μ.isVerified = true) (mpC : EnvModelM V μ en
     obtain ⟨rfl, -⟩ := hB
     rw [hfe, List.getElem?_append_right (by omega), hAlen, Nat.sub_self] at hmaj
     simpa using hmaj.symm
-  have hdomInf : ∃ t, ConLeche.inferTypeCore .verified envC F mI dom = .ok t := by
+  have hdomInf : ∃ t, ConLeche.inferTypeCore .verified false envC F mI dom = .ok t := by
     rw [hrty] at hA
     cases mI with
     | zero =>
@@ -224,7 +224,7 @@ theorem storedMajorSub_ctx (hμ : μ.isVerified = true) (mpC : EnvModelM V μ en
       obtain ⟨-, rfl⟩ := hA
       exact ConLeche.inferTypeCore_forallE_dom' hinfT
     | succ n =>
-      obtain ⟨bt, -, hbt, -⟩ := inferTypeCore_openPis_body rfl n hA hinfT
+      obtain ⟨bt, -, hbt, -⟩ := inferTypeCore_openPis_body n hA hinfT
       rw [Nat.zero_add] at hbt
       exact ConLeche.inferTypeCore_forallE_dom' hbt
   obtain ⟨tdom, htdom⟩ := hdomInf
@@ -237,7 +237,8 @@ theorem storedMajorSub_ctx (hμ : μ.isVerified = true) (mpC : EnvModelM V μ en
   have hbDom : dom.looseBVarsBounded 0 = true := by
     have := hbFvs maj (List.mem_of_getElem? hmaj); rw [hmajE] at this; exact this
   -- the sub-term's inference, scoping and leaves
-  obtain ⟨⟨tx, htx⟩, hwsX, hbX, hlD⟩ : (∃ tx, ConLeche.inferTypeCore .verified envC F mI x = .ok tx) ∧
+  obtain ⟨⟨tx, htx⟩, hwsX, hbX, hlD⟩ : (∃ tx, ConLeche.inferTypeCore .verified false envC F mI x =
+      .ok tx) ∧
       Expr.WScoped mI x ∧ x.looseBVarsBounded 0 = true ∧
       ∀ l ∈ x.fvarLeaves, l ∈ dom.fvarLeaves := by
     rcases hxA with hxA | ⟨args, hdE⟩
@@ -273,12 +274,12 @@ theorem storedMajorSub_ctx (hμ : μ.isVerified = true) (mpC : EnvModelM V μ en
     leavesBounded_of_openers (fun y hy => hbFvs y (List.mem_of_mem_take hy)) hleafP
   -- the recursor type's reading: its prefix domains
   obtain ⟨fvs', concl', hop', -, hTyE, hlenRds, hdomsR, -, hwdTy⟩ :=
-    recStage_tyPis (V := V) rfl mpC h hr ψ
+    recStage_tyPis (V := V) mpC h hr ψ
   rw [hmIdef] at hop' hlenRds
   obtain ⟨hff, -⟩ := Prod.mk.inj (Option.some.inj (hop'.symm.trans hop))
   rw [hff] at hdomsR
-  generalize hPd : blockRulePdomsAV mpC.base2.acval envC pp.toBlockShape rs ψ j = pdoms
-  have hPdE : pdoms = (blockRecRdsAV mpC.base2.acval envC pp.toBlockShape rs ψ j).take
+  generalize hPd : blockRulePdomsAV mpC.base2.acval envC pp rs ψ j = pdoms
+  have hPdE : pdoms = (blockRecRdsAV mpC.base2.acval envC pp rs ψ j).take
       rP := by
     rw [← hPd, blockRulePdomsAV, hrPdef]
   have hlenPd : pdoms.length = rP := by
@@ -297,7 +298,7 @@ theorem storedMajorSub_ctx (hμ : μ.isVerified = true) (mpC : EnvModelM V μ en
     simp only [List.append_nil] at hys ⊢
     rw [hPdE] at hys ⊢
     exact prefixDoms_graded_of_tower
-      (cc := blockRecConclAV mpC.base2.acval envC pp.toBlockShape rs ψ j)
+      (cc := blockRecConclAV mpC.base2.acval envC pp rs ψ j)
       (by rw [hlenRds]; omega) (fun ρ' => by rw [← hTyE]; exact hwdTy ρ') hl hys
   have hokΔ := blockRuleHokΔ_of (V := V) (pdoms := pdoms) (fdoms := []) (ihdoms := [])
     (nF := 0) (nR := 0) hlenPd rfl rfl (by simpa using hokTower)
@@ -336,21 +337,20 @@ theorem storedMajorSub_ctx (hμ : μ.isVerified = true) (mpC : EnvModelM V μ en
 /-- **A stored major-domain argument, or a head of its application spine,
 over the prefix is graded at every prefix spine** (`storedMajorSub_ctx`,
 then the inference's soundness). -/
-theorem storedMajorSub_graded (hμ : μ.isVerified = true) (mpC : EnvModelM V μ envC)
-    (h : ConLeche.RecStageG μ F envC pp cvTas rs)
+theorem storedMajorSub_graded (mpC : EnvModelM V envC)
+    (h : ConLeche.RecStageG .verified F envC pp rs)
     {j : Nat} {r : ConstantVal × List Expr × Nat × List (ConstantVal × Nat)}
     (hr : rs[j]? = some r) (ψ : Name → Nat) {fvs : List Expr} {concl maj : Expr}
-    (hop : openPisAtFvars (pp.toBlockShape.majorIdxAt j + 1) r.1.type 0 = some (fvs, concl))
-    (hmaj : fvs[pp.toBlockShape.majorIdxAt j]? = some maj)
+    (hop : openPisAtFvars (pp.majorIdxAt j + 1) r.1.type 0 = some (fvs, concl))
+    (hmaj : fvs[pp.majorIdxAt j]? = some maj)
     {x : Expr} (hxA : x ∈ maj.fvarTypeD.getAppArgs ∨
       ∃ args, maj.fvarTypeD = Expr.mkAppN x args)
-    (hlt : ∀ l ∈ x.fvarLeaves, l.1 < pp.toBlockShape.rulePrefixAt j) :
-    ∃ w, denote mpC.base2.acval envC ψ (pp.toBlockShape.rulePrefixAt j) x = some w ∧
+    (hlt : ∀ l ∈ x.fvarLeaves, l.1 < pp.rulePrefixAt j) :
+    ∃ w, denote mpC.base2.acval envC ψ (pp.rulePrefixAt j) x = some w ∧
       ∀ σ : Nat → V,
-        Sat V (blockRulePdomsAV mpC.base2.acval envC pp.toBlockShape rs ψ j).reverse σ →
+        Sat V (blockRulePdomsAV mpC.base2.acval envC pp rs ψ j).reverse σ →
         WellDenoted V σ w := by
-  obtain rfl : μ = .verified := CheckMode.eq_verified hμ
-  obtain ⟨⟨tx, htx⟩, hfr, hCE⟩ := storedMajorSub_ctx rfl mpC h hr ψ hop hmaj hxA hlt
+  obtain ⟨⟨tx, htx⟩, hfr, hCE⟩ := storedMajorSub_ctx mpC h hr ψ hop hmaj hxA hlt
   obtain ⟨wa, hwa⟩ := acceptedReads_of mpC.base2 ψ htx hfr.1 hfr.2.1 hfr.2.2
   obtain ⟨-, -, -, -, hgr, -⟩ :=
     Rules.InferSemFull.global
@@ -360,26 +360,26 @@ theorem storedMajorSub_graded (hμ : μ.isVerified = true) (mpC : EnvModelM V μ
 
 /-- **A stored major-domain argument over the prefix is graded at every
 prefix spine** (`storedMajorSub_graded` at an argument). -/
-theorem storedMajorArg_graded (hμ : μ.isVerified = true) (mpC : EnvModelM V μ envC)
-    (h : ConLeche.RecStageG μ F envC pp cvTas rs)
+theorem storedMajorArg_graded (mpC : EnvModelM V envC)
+    (h : ConLeche.RecStageG .verified F envC pp rs)
     {j : Nat} {r : ConstantVal × List Expr × Nat × List (ConstantVal × Nat)}
     (hr : rs[j]? = some r) (ψ : Name → Nat) {fvs : List Expr} {concl maj : Expr}
-    (hop : openPisAtFvars (pp.toBlockShape.majorIdxAt j + 1) r.1.type 0 = some (fvs, concl))
-    (hmaj : fvs[pp.toBlockShape.majorIdxAt j]? = some maj)
+    (hop : openPisAtFvars (pp.majorIdxAt j + 1) r.1.type 0 = some (fvs, concl))
+    (hmaj : fvs[pp.majorIdxAt j]? = some maj)
     {x : Expr} (hxA : x ∈ maj.fvarTypeD.getAppArgs)
-    (hlt : ∀ l ∈ x.fvarLeaves, l.1 < pp.toBlockShape.rulePrefixAt j) :
-    ∃ w, denote mpC.base2.acval envC ψ (pp.toBlockShape.rulePrefixAt j) x = some w ∧
+    (hlt : ∀ l ∈ x.fvarLeaves, l.1 < pp.rulePrefixAt j) :
+    ∃ w, denote mpC.base2.acval envC ψ (pp.rulePrefixAt j) x = some w ∧
       ∀ σ : Nat → V,
-        Sat V (blockRulePdomsAV mpC.base2.acval envC pp.toBlockShape rs ψ j).reverse σ →
+        Sat V (blockRulePdomsAV mpC.base2.acval envC pp rs ψ j).reverse σ →
         WellDenoted V σ w :=
-  storedMajorSub_graded hμ mpC h hr ψ hop hmaj (.inl hxA) hlt
+  storedMajorSub_graded mpC h hr ψ hop hmaj (.inl hxA) hlt
 
 end Pins
 
 section StagePins
 
-variable {F : Nat} {envC : Env} {pp : BlockParts} {cvTas : List ConstantVal}
-  {ctorsAs : List (List (ConstantVal × Nat))} {out : List (ConstantVal × TargetMajor × List Expr)}
+variable {F : Nat} {envC : Env} {pp : BlockShape}
+  {memberCtors : List (List (ConstantVal × Nat))} {out : List (ConstantVal × TargetMajor × List Expr)}
 
 set_option maxHeartbeats 2000000 in
 /-- **The `.nested` pins' law at every stored rule, of ANY recursor
@@ -392,41 +392,37 @@ back at the prefix openers they are those parameters up to erasure
 stored type's own inference (`storedMajorArg_graded`); `nestedPinGrade`
 carries the grading to the chain of any graded fit of the recursor
 type. -/
-theorem recStagePinsOk (hμ : μ.isVerified = true) (mpC : EnvModelM V μ envC)
-        (h : ConLeche.RecStageG μ F envC pp cvTas (tgtRs out))
-    {Rr : Nat → ConstantVal × List Expr × Nat × List (ConstantVal × Nat) → List ConLeche.RecRule}
+theorem recStagePinsOk (mpC : EnvModelM V envC)
+        (h : ConLeche.RecStageG .verified F envC pp (tgtRs out))
+    {Rr : Nat → ConstantVal × List Expr × Nat × List (ConstantVal × Nat) → Bool × List ConLeche.RecRule}
     {s : (Name → Nat) → Nat} {eqs : (Name → Nat) → List Term}
-    (m₃ : EnvModel V (ConLeche.consBlockRecsR Rr pp.toBlockShape 0 (tgtRs out) envC))
+    (m₃ : EnvModel V (ConLeche.consBlockRecsR Rr pp 0 (tgtRs out) envC))
     (hac : m₃.acval = blockRecAcv mpC.base2.acval envC (tgtRs out) s eqs)
     (φ : Name → Nat) (j : Nat) (r : ConstantVal × List Expr × Nat × List (ConstantVal × Nat))
-    (hr : (tgtRs out)[j]? = some r) (cA : ConstantVal × Nat) (rhs : Expr)
+    (hr : (tgtRs out)[j]? = some r) (ctor : ConstantVal × Nat) (rhs : Expr)
     (hread : ∀ lvls pins,
-      ConLeche.tgtFireOf pp.toBlockShape (ConLeche.tgtMajorsOf out) j r = .nested lvls pins →
+      ConLeche.tgtFireOf pp (ConLeche.tgtMajorsOf out) j r = .nested lvls pins →
       ConLeche.NestedRead (·.constsResolve envC) r.1.levelParams r.1.type
-        (pp.toBlockShape.majorIdxAt j) (pp.toBlockShape.rulePrefixAt j)
+        (pp.majorIdxAt j) (pp.rulePrefixAt j)
         (ConLeche.tgtMajorsOf out j).nPc lvls pins) :
-    RecRulePinsOk m₃ φ r.1 (pp.toBlockShape.rulePrefixAt j)
-      (ConLeche.recRuleBits envC.find?
-          { ctor := cA.1.name, nfields := cA.2, ctorParams := (ConLeche.tgtMajorsOf out j).nPc,
-            fire := (ConLeche.tgtFireOf pp.toBlockShape
+    RecRulePinsOk m₃ φ r.1 (pp.rulePrefixAt j)
+      ({ ctor := ctor.1.name, nfields := ctor.2, fire := (ConLeche.tgtFireOf pp
               (ConLeche.tgtMajorsOf out)) j r, rhs := rhs }) := by
   intro us hus lvls pins hf q hq
-  simp only [ConLeche.recRuleBits_fire] at hf
-  simp only [ConLeche.recRuleBits_ctorParams] at hq
   have hsyn := hread lvls pins hf
   obtain ⟨-, -, hpinsWf, -⟩ := id hsyn
   -- the stored type's openers
   obtain ⟨_, _, -, ⟨TE⟩⟩ := ConLeche.recStageG_tyGen h hr
   have hopen := TE.hopen
   have hmaj := TE.hmaj
-  have hle0 : pp.toBlockShape.rulePrefixAt j ≤ pp.toBlockShape.majorIdxAt j := by
+  have hle0 : pp.rulePrefixAt j ≤ pp.majorIdxAt j := by
     have := TE.hmI'; omega
   -- the parameter's grading, at the rule prefix
   have hgradeAt := fun (ψ : Name → Nat) {x : Expr} (hxA : x ∈ TE.maj.fvarTypeD.getAppArgs)
-      (hlt : ∀ l ∈ x.fvarLeaves, l.1 < pp.toBlockShape.rulePrefixAt j) =>
-    storedMajorArg_graded (V := V) hμ mpC h hr ψ hopen hmaj hxA hlt
-  obtain ⟨rP, hRP⟩ : ∃ n, pp.toBlockShape.rulePrefixAt j = n := ⟨_, rfl⟩
-  obtain ⟨mI, hMI⟩ : ∃ n, pp.toBlockShape.majorIdxAt j = n := ⟨_, rfl⟩
+      (hlt : ∀ l ∈ x.fvarLeaves, l.1 < pp.rulePrefixAt j) =>
+    storedMajorArg_graded (V := V) mpC h hr ψ hopen hmaj hxA hlt
+  obtain ⟨rP, hRP⟩ : ∃ n, pp.rulePrefixAt j = n := ⟨_, rfl⟩
+  obtain ⟨mI, hMI⟩ : ∃ n, pp.majorIdxAt j = n := ⟨_, rfl⟩
   rw [hRP, hMI] at hsyn
   rw [hRP] at hgradeAt hle0 ⊢
   rw [hMI] at hopen hmaj hle0
@@ -436,7 +432,7 @@ theorem recStagePinsOk (hμ : μ.isVerified = true) (mpC : EnvModelM V μ envC)
   generalize hds : TE.maj.fvarTypeD.getAppArgs.take (ConLeche.tgtMajorsOf out j).nPc = ds
     at hpinsE
   have hqd : q < ds.length := by
-    rw [← List.length_map (f := (·.abstractRange 0 rP)), hpinsE, hplen]; exact hq
+    rw [← List.length_map (f := (·.abstractRange 0 rP)), hpinsE]; exact hq
   obtain ⟨x, hxdef⟩ : ∃ x, x = ds[q] := ⟨_, rfl⟩
   have hxA : x ∈ TE.maj.fvarTypeD.getAppArgs := by
     rw [hxdef]; exact List.mem_of_mem_take (by rw [hds]; exact List.getElem_mem hqd)
@@ -512,30 +508,30 @@ theorem recStagePinsOk (hμ : μ.isVerified = true) (mpC : EnvModelM V μ envC)
       denote_instLevels m₃.acval_params φ, ← hψ]
     exact blockRecDenote_cross h hac ψ rP _ (constsBound_openRev hcbP 0 rP) hvpden
   · intro ρ zs TVa restR hzslen hzsOk hTVa hfit
-    obtain rfl := blockRuleTVa_run hμ mpC h hac hr φ us hTVa
+    obtain rfl := blockRuleTVa_run mpC h hac hr φ us hTVa
     rw [← hψ] at hfit
     -- the recursor type's prefix telescope
-    obtain ⟨-, -, -, -, hTyE, hlenRds, -, -, -⟩ := recStage_tyPis (V := V) hμ mpC h hr ψ
+    obtain ⟨-, -, -, -, hTyE, hlenRds, -, -, -⟩ := recStage_tyPis (V := V) mpC h hr ψ
     rw [hMI] at hlenRds
-    have hPdE : blockRulePdomsAV mpC.base2.acval envC pp.toBlockShape (tgtRs out) ψ j
-        = (blockRecRdsAV mpC.base2.acval envC pp.toBlockShape (tgtRs out) ψ j).take
+    have hPdE : blockRulePdomsAV mpC.base2.acval envC pp (tgtRs out) ψ j
+        = (blockRecRdsAV mpC.base2.acval envC pp (tgtRs out) ψ j).take
             rP := by
       rw [blockRulePdomsAV, hRP]
-    have htake : ((blockRecRdsAV mpC.base2.acval envC pp.toBlockShape (tgtRs out) ψ j).take
+    have htake : ((blockRecRdsAV mpC.base2.acval envC pp (tgtRs out) ψ j).take
         rP).length = rP := by
       rw [List.length_take, hlenRds]; omega
     have htower : PiTeleAV rP (blockRecTyAV mpC.base2.acval envC (tgtRs out) ψ j)
-        (blockRulePdomsAV mpC.base2.acval envC pp.toBlockShape (tgtRs out) ψ j).reverse
-        (mkPisAV ((blockRecRdsAV mpC.base2.acval envC pp.toBlockShape (tgtRs out) ψ j).drop
+        (blockRulePdomsAV mpC.base2.acval envC pp (tgtRs out) ψ j).reverse
+        (mkPisAV ((blockRecRdsAV mpC.base2.acval envC pp (tgtRs out) ψ j).drop
             rP)
-          (blockRecConclAV mpC.base2.acval envC pp.toBlockShape (tgtRs out) ψ j)) := by
+          (blockRecConclAV mpC.base2.acval envC pp (tgtRs out) ψ j)) := by
       rw [hTyE, hPdE, ← List.take_append_drop rP
-          (blockRecRdsAV mpC.base2.acval envC pp.toBlockShape (tgtRs out) ψ j), mkPisAV_append,
+          (blockRecRdsAV mpC.base2.acval envC pp (tgtRs out) ψ j), mkPisAV_append,
         List.take_append_drop]
-      have := piTeleAV_mkPisAV ((blockRecRdsAV mpC.base2.acval envC pp.toBlockShape
+      have := piTeleAV_mkPisAV ((blockRecRdsAV mpC.base2.acval envC pp
         (tgtRs out) ψ j).take rP) (mkPisAV ((blockRecRdsAV mpC.base2.acval envC
-          pp.toBlockShape (tgtRs out) ψ j).drop rP)
-          (blockRecConclAV mpC.base2.acval envC pp.toBlockShape (tgtRs out) ψ j))
+          pp (tgtRs out) ψ j).drop rP)
+          (blockRecConclAV mpC.base2.acval envC pp (tgtRs out) ψ j))
       rwa [htake] at this
     refine nestedPinGrade (acval := mpC.base2.acval) (env := envC)
       (φ := ψ) (cnF := 0) hacl hainst mpC.base2.cval_closed hoslen hshape

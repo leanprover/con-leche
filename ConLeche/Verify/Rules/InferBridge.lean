@@ -32,7 +32,7 @@ whose `infer` is the lane at `fuel` (`inferIO_def`).
 
 namespace ConLeche.Rules
 
-variable {μ : CheckMode} {env : Env} {fuel : Nat}
+variable {μ : CheckMode} {eager : Bool} {env : Env} {fuel : Nat}
 
 /-! ## The leaf clauses' inversions
 
@@ -43,11 +43,11 @@ rules tier may not import `Model/*`, whose `Tiers.lean` has the two
 literal ones) with the io twins.  Each is one `simp only [inferBody, …]`
 deep. -/
 
-variable {mode : CheckMode}
+variable {mode : CheckMode} {eager : Bool}
 
 /-- The `.sort` clause: the successor sort, no run. -/
 theorem inferTypeCore_sort_inv {d : Nat} {u : Level} {t : Expr}
-    (h : inferTypeCore mode env (fuel + 1) d (.sort u) = .ok t) :
+    (h : inferTypeCore mode eager env (fuel + 1) d (.sort u) = .ok t) :
     t = .sort (.succ u) := by
   rw [inferTypeCore_succ] at h
   simp only [inferBody, pure, Except.pure, Except.ok.injEq] at h
@@ -55,7 +55,7 @@ theorem inferTypeCore_sort_inv {d : Nat} {u : Level} {t : Expr}
 
 /-- The `.fvar` clause: the scope guard and the stored annotation. -/
 theorem inferTypeCore_fvar_inv {d idx : Nat} {ty t : Expr}
-    (h : inferTypeCore mode env (fuel + 1) d (.fvar idx ty) = .ok t) :
+    (h : inferTypeCore mode eager env (fuel + 1) d (.fvar idx ty) = .ok t) :
     idx < d ∧ t = ty := by
   rw [inferTypeCore_succ] at h
   simp only [inferBody, pure, Except.pure] at h
@@ -68,7 +68,7 @@ theorem inferTypeCore_fvar_inv {d idx : Nat} {ty t : Expr}
 
 /-- The `.bvar` clause throws. -/
 theorem inferTypeCore_bvar_inv {d i : Nat} {t : Expr}
-    (h : inferTypeCore mode env (fuel + 1) d (.bvar i) = .ok t) : False := by
+    (h : inferTypeCore mode eager env (fuel + 1) d (.bvar i) = .ok t) : False := by
   rw [inferTypeCore_succ] at h
   simp [inferBody, throw, throwThe, MonadExceptOf.throw] at h
 
@@ -77,7 +77,7 @@ and the instantiated type
 (`inferTypeCore_const_inv` drops the arity — it is consumed inside its
 own `split`). -/
 theorem inferTypeCore_const_inv_full {d : Nat} {n : Name} {us : List Level}
-    {t : Expr} (h : inferTypeCore mode env (fuel + 1) d (.const n us) = .ok t) :
+    {t : Expr} (h : inferTypeCore mode eager env (fuel + 1) d (.const n us) = .ok t) :
     ∃ ci, env.find? n = some ci ∧
       us.length = ci.toConstantVal.levelParams.length ∧
       t = ci.toConstantVal.type.instantiateLevelParams
@@ -99,11 +99,11 @@ theorem inferTypeCore_const_inv_full {d : Nat} {n : Name} {us : List Level}
 
 /-- The `Nat`-literal clause: the support guard and `Nat`. -/
 theorem inferTypeCore_natLit_inv' {d k : Nat} {t : Expr}
-    (h : inferTypeCore mode env (fuel + 1) d (.lit (.natVal k)) = .ok t) :
-    natLitSupported env = true ∧ t = .const natName [] := by
+    (h : inferTypeCore mode eager env (fuel + 1) d (.lit (.natVal k)) = .ok t) :
+    natLitStored env = true ∧ t = .const natName [] := by
   rw [inferTypeCore_succ] at h
   simp only [inferBody, pure, Except.pure] at h
-  by_cases hg : natLitSupported env = true
+  by_cases hg : natLitStored env = true
   · rw [ite_eq_left hg] at h
     simp only [Except.ok.injEq] at h
     exact ⟨hg, h.symm⟩
@@ -112,11 +112,11 @@ theorem inferTypeCore_natLit_inv' {d k : Nat} {t : Expr}
 
 /-- The string-literal clause: the support guard and `String`. -/
 theorem inferTypeCore_strLit_inv' {d : Nat} {s : String} {t : Expr}
-    (h : inferTypeCore mode env (fuel + 1) d (.lit (.strVal s)) = .ok t) :
-    strLitSupported env = true ∧ t = .const stringName [] := by
+    (h : inferTypeCore mode eager env (fuel + 1) d (.lit (.strVal s)) = .ok t) :
+    strLitStored env = true ∧ t = .const stringName [] := by
   rw [inferTypeCore_succ] at h
   simp only [inferBody, pure, Except.pure] at h
-  by_cases hg : strLitSupported env = true
+  by_cases hg : strLitStored env = true
   · rw [ite_eq_left hg] at h
     simp only [Except.ok.injEq] at h
     exact ⟨hg, h.symm⟩
@@ -125,14 +125,15 @@ theorem inferTypeCore_strLit_inv' {d : Nat} {s : String} {t : Expr}
 
 /-- The io lane's `.bvar` clause throws too. -/
 theorem inferTypeCoreIO_bvar_inv {d i : Nat} {t : Expr}
-    (h : inferTypeCoreIO mode env (fuel + 1) d (.bvar i) = .ok t) : False := by
+    (h : inferTypeCoreIO mode eager env (fuel + 1) d (.bvar i) = .ok t) : False := by
   rw [inferTypeCoreIO_succ] at h
   simp [inferBodyIO, throw, throwThe, MonadExceptOf.throw] at h
 
 /-- **`inferTypeCore` at `fuel + 1`**, full grade. -/
-theorem infer_bridge_succ (hw : WhnfBridge μ env fuel) (hd : DefEqBridge μ env fuel)
-    (hdE : DefEqBridge μ.toEager env fuel) (hi : InferBridge μ env fuel) :
-    InferBridge μ env (fuel + 1) := by
+theorem infer_bridge_succ (hw : WhnfBridge μ eager env fuel) (hd : DefEqBridge μ eager env fuel)
+    (hdE : DefEqBridge μ true env fuel) (hi : InferBridge μ eager env fuel)
+    (hio : InferIOBridge μ eager env fuel) :
+    InferBridge μ eager env (fuel + 1) := by
   intro d e t h
   match e, h with
   | .bvar _, h => exact (inferTypeCore_bvar_inv h).elim
@@ -165,7 +166,7 @@ theorem infer_bridge_succ (hw : WhnfBridge μ env fuel) (hd : DefEqBridge μ env
     -- an `eagerReduce _ _` argument was compared in the eager tower
     -- (task #353): the same rule, from that tower's bridge
     have hD : DefEq env d ta ty' := by
-      unfold CheckMode.argMode at hde
+      unfold argEager at hde
       split at hde
       · exact hdE hde
       · exact hd hde
@@ -173,17 +174,17 @@ theorem infer_bridge_succ (hw : WhnfBridge μ env fuel) (hd : DefEqBridge μ env
   | .proj sn i pe, h =>
     obtain ⟨tpe, te, T, us, entry, hpe, hwpe, hfn, hentry, hlen, hlvl, hprop,
       rfl, rfl⟩ := inferTypeCore_proj_inv h
-    simp only [beq_iff_eq] at hprop
-    exact .proj (hi hpe) (hw hwpe) hfn hentry hlen hlvl hprop
+    exact .proj (hi hpe) (hw hwpe) hfn hentry hlen hlvl
+      (checkProjGuard_bridge (fun _ _ _ h => inferTypeIO_bridge hio h) (fun _ _ _ h => hw h) hprop)
   | .lam ty body, h =>
     obtain ⟨tty, u, bt, hty, hwt, hbt, rfl⟩ :=
       inferTypeCore_lam_inv h
     exact .lam (fun _ => hi hty) (fun _ => hw hwt) (hi hbt)
 
 /-- **`inferTypeCoreIO` at `fuel + 1`**, io grade. -/
-theorem inferIO_bridge_succ (hw : WhnfBridge μ env fuel)
-    (hio : InferIOBridge μ env fuel) :
-    InferIOBridge μ env (fuel + 1) := by
+theorem inferIO_bridge_succ (hw : WhnfBridge μ eager env fuel)
+    (hio : InferIOBridge μ eager env fuel) :
+    InferIOBridge μ eager env (fuel + 1) := by
   intro d e t h
   match e, h with
   | .bvar _, h => exact (inferTypeCoreIO_bvar_inv h).elim
@@ -218,8 +219,10 @@ theorem inferIO_bridge_succ (hw : WhnfBridge μ env fuel)
   | .proj sn i pe, h =>
     obtain ⟨tpe, te, T, us, entry, hpe, hwpe, hfn, hentry, hlen, hlvl, hprop,
       rfl, rfl⟩ := inferTypeCoreIO_proj_inv h
-    simp only [beq_iff_eq] at hprop
-    exact .proj (hio hpe) (hw hwpe) hfn hentry hlen hlvl hprop
+    exact .proj (hio hpe) (hw hwpe) hfn hentry hlen hlvl
+      (checkProjGuard_bridge
+        (inf := (pureFnsIO μ eager env fuel).infer) (wh := (pureFnsIO μ eager env fuel).whnf)
+        (fun _ _ _ h => hio h) (fun _ _ _ h => hw (by rwa [pureFnsIO_whnf] at h)) hprop)
   | .app f a, h =>
     obtain ⟨tf, ty', body', htf, hwf, rfl⟩ :=
       inferTypeCoreIO_app_inv h

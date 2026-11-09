@@ -295,7 +295,8 @@ def naiveHints (l : List UInt8) : NRes HintsRec :=
 /-! ## The `meta` header
 
 Validated loosely — a bracket- and string-balanced value — and
-skipped. -/
+skipped; the semantic layer takes it only as the first line
+(`applyLine`). -/
 
 /-- The rest after a `{`/`[`-opened value whose opening bracket has
 been read; `none` when it does not close, or when a newline comes

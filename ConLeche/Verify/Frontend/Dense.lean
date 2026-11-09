@@ -102,36 +102,36 @@ declaration line's builder yields a record. -/
 /-- A right line, applied at a state holding the final tables cut at
 its counters: the state after it holds them cut at the next counters,
 with the line's record pushed. -/
-theorem applyLine_of_lineOK {T : Tabs} {c : Ctr} {r : LineRec} {st : StateD}
+theorem applyRecord_of_lineOK {T : Tabs} {c : Ctr} {r : LineRec} {st : StateD}
     (hok : LineOK T c r) (hst : Holds st T c) :
-    ∃ st', applyLine st r = .ok (.inl st') ∧ Holds st' T (c.step r) ∧
+    ∃ st', applyRecord st r = .ok (.inl st') ∧ Holds st' T (c.step r) ∧
       st'.decls = (match lineDecl T c r with | some x => st.decls.push x | none => st.decls) := by
   cases r with
   | name i x =>
     obtain ⟨hki, hgap, v, hv, hx⟩ := hok
     refine ⟨{ st with names := st.names.insert i v }, ?_, ?_, rfl⟩
-    · simp only [applyLine, parseNameEntryD, hst.lk, hx, StateD.freshName,
+    · simp only [applyRecord, parseNameEntryD, hst.lk, hx, StateD.freshName,
         bound_cut hst.n hki, bind, Except.bind, pure, Except.pure, Bool.false_eq_true,
         ↓reduceIte]
     · exact ⟨get?_insert_cut hst.n hki hgap hv, hst.l, hst.e⟩
   | level i x =>
     obtain ⟨hki, hgap, v, hv, hx⟩ := hok
     refine ⟨{ st with levels := st.levels.insert i v }, ?_, ?_, rfl⟩
-    · simp only [applyLine, parseLevelEntryD, hst.lk, hx, StateD.freshLevel,
+    · simp only [applyRecord, parseLevelEntryD, hst.lk, hx, StateD.freshLevel,
         bound_cut hst.l hki, bind, Except.bind, pure, Except.pure, Bool.false_eq_true,
         ↓reduceIte]
     · exact ⟨hst.n, get?_insert_cut hst.l hki hgap hv, hst.e⟩
   | expr i x =>
     obtain ⟨hki, hgap, v, hv, hx⟩ := hok
     refine ⟨{ st with exprs := st.exprs.insert i v }, ?_, ?_, rfl⟩
-    · simp only [applyLine, parseExprEntryD, hst.lk, hx, StateD.freshExpr,
+    · simp only [applyRecord, parseExprEntryD, hst.lk, hx, StateD.freshExpr,
         bound_cut hst.e hki, bind, Except.bind, pure, Except.pure, Bool.false_eq_true,
         ↓reduceIte]
     · exact ⟨hst.n, hst.l, get?_insert_cut hst.e hki hgap hv⟩
   | decl d =>
     obtain ⟨x, hx⟩ := hok
     refine ⟨pushDecl st x, ?_, ⟨hst.n, hst.l, hst.e⟩, ?_⟩
-    · simp only [applyLine, applyDeclD, processLineCoreD, hst.lk, hx, bind, Except.bind, pure,
+    · simp only [applyRecord, applyDeclD, processLineCoreD, hst.lk, hx, bind, Except.bind, pure,
         Except.pure]
     · simp only [lineDecl, hx, pushDecl]
   | header => exact ⟨st, rfl, hst, rfl⟩
@@ -139,10 +139,11 @@ theorem applyLine_of_lineOK {T : Tabs} {c : Ctr} {r : LineRec} {st : StateD}
 
 /-! ## The characterisation -/
 
-/-- Every line of a list is right, each at its own counters. -/
-@[expose] def AllOK (T : Tabs) : Ctr → List LineRec → Prop
-  | _, [] => True
-  | c, r :: rs => LineOK T c r ∧ AllOK T (c.step r) rs
+/-- Every line of a list is right, each at its own counters, and stands
+where it may, `n` lines before the list (`LineRec.placed`). -/
+@[expose] def AllOK (T : Tabs) : Ctr → Nat → List LineRec → Prop
+  | _, _, [] => True
+  | c, n, r :: rs => r.placed (n == 0) = true ∧ LineOK T c r ∧ AllOK T (c.step r) (n + 1) rs
 
 /-- The records of a list of lines, pushed in order. -/
 @[expose] def declsAlong (T : Tabs) : Ctr → List LineRec → Array Declaration → Array Declaration
@@ -156,7 +157,7 @@ theorem applyLine_of_lineOK {T : Tabs} {c : Ctr} {r : LineRec} {st : StateD}
 the serial fold succeed, holding the final tables cut at the final
 counters, with the lines' records pushed. -/
 theorem applyList_of_allOK (T : Tabs) :
-    ∀ (c : Ctr) (rs : List LineRec) (st : StateD) (k : Nat), AllOK T c rs → Holds st T c →
+    ∀ (c : Ctr) (rs : List LineRec) (st : StateD) (k : Nat), AllOK T c k rs → Holds st T c →
     ∃ st', applyList st rs k = .ok (st', k + rs.length) ∧ Holds st' T (c.stepAll rs) ∧
       st'.decls = declsAlong T c rs st.decls := by
   intro c rs
@@ -164,8 +165,10 @@ theorem applyList_of_allOK (T : Tabs) :
   | nil => intro st k _ h; exact ⟨st, rfl, h, rfl⟩
   | cons r rs ih =>
     intro st k hok hst
-    obtain ⟨hr, hrs⟩ := hok
-    obtain ⟨st₁, h1, hst₁, hd₁⟩ := applyLine_of_lineOK hr hst
+    obtain ⟨hp, hr, hrs⟩ := hok
+    obtain ⟨st₁, h1, hst₁, hd₁⟩ := applyRecord_of_lineOK hr hst
+    rw [← show applyLine st r k = applyRecord st r by simp only [applyLine, hp, ↓reduceIte]]
+      at h1
     obtain ⟨st', h2, hst', hd'⟩ := ih (c.step r) st₁ (k + 1) hrs hst₁
     refine ⟨st', ?_, hst', ?_⟩
     · simp only [applyList, h1, List.length_cons]; rw [h2]; congr 2; omega

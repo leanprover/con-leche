@@ -1,5 +1,6 @@
 module
 
+import ConLeche.Verify.Denote.IndFrame
 public import ConLeche.Model.Inductives.ContAcc
 import ConLeche.Verify.Inductives.PosNodes
 import ConLeche.Model.Inductives.NestPosAccKit
@@ -66,7 +67,7 @@ variable {V : Type w} [SetTheory V] {env : Env}
 
 section Motive
 
-variable {μ : ConLeche.CheckMode} (mp : EnvModelM V μ env) (φ : Name → Nat) (w : Nat)
+variable (mp : EnvModelM V env) (φ : Name → Nat) (w : Nat)
   (ctx : NestCtx) (F : Nat)
 
 /-- **What the container rules read**: coverage and the walk
@@ -125,8 +126,8 @@ module docstring). -/
     (∀ (x : ConstantVal × Nat) (crest : Expr), Q x →
       ConLeche.nestCrest names us ds holes (x.1.type.instantiateLevelParams x.1.levelParams us)
         = some crest →
-      (∃ ty u, ConLeche.inferTypeCore .verified env F hi crest = .ok ty ∧
-        ConLeche.ensureSortCore .verified env F hi ty = .ok u) →
+      (∃ ty u, ConLeche.inferTypeCore .verified false env F hi crest = .ok ty ∧
+        ConLeche.ensureSortCore .verified false env F hi ty = .ok u) →
       ∃ ca, Frame hi crest ∧ CtxOkP mp.base2 φ hi Δ crest ∧
         denote mp.base2.acval env φ hi crest = some ca ∧ GradedTy V Δ ca) →
     (∀ x ∈ cs, Q x) → ∀ x ∈ cs, CtorWalkedA mp.base2 φ w ctx prog hi us ds names holes Δ R x
@@ -144,7 +145,7 @@ so it is enough to prove the reduct's reading accessible (its output
 mentioning only the term's leaves).  The subject walked here is always a
 TYPE (task #342, L12: "not pt" source (1)), so the step is
 `red_sound_ty`. -/
-theorem acc_of_whnf {μ : ConLeche.CheckMode} {mp : EnvModelM V μ env}
+theorem acc_of_whnf {mp : EnvModelM V env}
     (hin : RulesInputs V mp.base2 φ) {F dep : Nat} {e wt : Expr}
     (hw : (fueledOps .verified F).whnf env dep e = .ok wt) (hfr : Frame dep e)
     {Δa : List Term} {ea : Term} {R : FrameRel V}
@@ -157,7 +158,7 @@ theorem acc_of_whnf {μ : ConLeche.CheckMode} {mp : EnvModelM V μ env}
       (∀ ρ, Sat V Δa ρ → interp V ρ ea = interp V ρ wa) →
       AccConcl w ctx prog dep e nf R wa ∧ OutOk mp.base2 φ ctx prog dep Δa k nf wa) :
     AccConcl w ctx prog dep e nf R ea ∧ OutOk mp.base2 φ ctx prog dep Δa k nf ea := by
-  have hw' : ConLeche.whnf .verified env F dep e = .ok wt := hw
+  have hw' : ConLeche.whnf .verified false env F dep e = .ok wt := hw
   obtain ⟨hfrw, hsub, wa, hwa, hgw, heq⟩ :=
     red_sound_ty hin (ConLeche.Rules.whnf_bridge hw') hfr hC.toCtxOk hea hgr
   obtain ⟨⟨hTR, ⟨A, hA, hsz, hinv⟩, hout⟩, hok⟩ := kont hfrw (hC.of_subset hsub)
@@ -172,16 +173,16 @@ theorem acc_of_whnf {μ : ConLeche.CheckMode} {mp : EnvModelM V μ env}
 the level parameters distinct (`frame_lps_nodup`), the block at the walk
 context's level (`n2_sort` at the head), and `frameIterAcc` along the
 walked constructors. -/
-theorem frame_accD {μ : ConLeche.CheckMode} (mp : EnvModelM V μ env)
+theorem frame_accD (mp : EnvModelM V env)
     (hin : RulesInputs V mp.base2 φ) {w : Nat} {ctx : NestCtx} {F : Nat}
     {prog : List NestHole} {us : List Level} {ds : List Expr} {grp : List (Name × Expr)}
     {ctors : List (ConstantVal × Nat)} (hne : grp ≠ []) (hnd : (grp.map (·.1)).Nodup)
-    (hinst : ∀ p ∈ grp, ∃ nI, ConLeche.nestInstType (m := CheckM) ctx (ctx.hiAt prog.length)
-      ⟨p.1, us, ds⟩ = .ok (nI, p.2))
+    (hinst : ∀ p ∈ grp, ∃ nI, ConLeche.nestInstType (m := CheckM) ctx (fueledOps .verified F) env
+      (ctx.hiAt prog.length) ⟨p.1, us, ds⟩ = .ok (nI, p.2))
     (hgrp : grp.map (·.1) = (grp.headD default).1 :: ConLeche.nestFrameMates ctx (grp.headD default).1)
     (hctors : groupCtors ctx ds.length (grp.map (·.1)) = some ctors)
-    (hkty : ∃ ty, (fueledOps .verified F).inferType env (ctx.hiAt prog.length)
-      (Expr.mkAppN (.const (grp.headD default).1 us) ds) = .ok ty)
+    (hkty : ConLeche.familyKeyCheck (fueledOps .verified F) env ctx.find? (ctx.hiAt prog.length)
+      (grp.headD default).1 us ds = .ok ())
     {ts : List PosTree}
     (hwalkD : PosD (fueledOps .verified F) env ctx
       (.ctors ((grpNews us ds (ctx.hiAt prog.length) grp).reverse ++ prog)
@@ -205,14 +206,14 @@ theorem frame_accD {μ : ConLeche.CheckMode} (mp : EnvModelM V μ env)
     (posD_ctors_nodup hwalkD) hnL
   have hwD : D.w (Level.substFn φ lps us) = w := by
     obtain ⟨nI₀, hnI₀⟩ := hinst p₀ List.mem_cons_self
-    have := n2_sort mp hD hmm hcov.find (by rw [hhead]; exact hnI₀) hf₀ (by rw [hlp₀]; exact hndl)
+    have := n2_sort mp hD hmm hf₀ (by rw [hhead]; exact hcov.instFacts hD hmm hf₀ (key := ⟨p₀.1, us, ds⟩) hhead.symm hnI₀)
+      (by rw [hlp₀]; exact hndl)
       (by rw [hlp₀]; exact hul) (by rw [hlp₀]; exact hlenP) hds hdsa
     rw [hlp₀] at this
     exact this.trans hok.2
   -- the key, graded
-  have hkey := frameKey_of_infer mp hin hD hmm hf₀ (by rw [hlp₀]; exact hul) hds hLds hΔ hCds
+  have hkey := frameKey_of_check mp hin hcov hD hmm hf₀ hds hLds hΔ hCds
     hdsa (by rw [hlp₀]; exact hlenP) (by rw [hhead]; exact hkty)
-    (frame_head_instPis hcov.find (hinst p₀ List.mem_cons_self) (hhead ▸ hf₀))
   rw [hlp₀] at hkey
   exact ⟨hndl, hg, hwD, frameIterAcc mp hD hblkD.nodup hkN hcov.find hlps hndl hul hds hdsa hlenP
     hg.2 hin hwD hblkD.ctors rfl hR₀ hΔ hCds hLds hkey hctors
@@ -223,7 +224,7 @@ theorem frame_accD {μ : ConLeche.CheckMode} (mp : EnvModelM V μ env)
 /-- **A container instance whose frame is derived HERE** (`contNew`): the
 frame's conclusion at the enclosing relation seen at the key's depth makes
 the instance accessible (the leaf, `accConcl_of_frameAccOut`). -/
-theorem contNew_accD {μ : ConLeche.CheckMode} (mp : EnvModelM V μ env) {w : Nat}
+theorem contNew_accD (mp : EnvModelM V env) {w : Nat} {F : Nat}
     {ctx : NestCtx} (hok : ContOk mp φ w ctx) {prog : List NestHole} {dep : Nat}
     (hhid : ctx.hiAt prog.length ≤ dep) {D : LfpDatum V} (hD : D ∈ mp.lfpBlocks) {mm : Nat}
     (hmm : mm < D.k) {lps : List Name}
@@ -243,8 +244,8 @@ theorem contNew_accD {μ : ConLeche.CheckMode} (mp : EnvModelM V μ env) {w : Na
     (hgr : GradedTy V Δa wa) (hR : HoleRelA mp.base2 φ w ctx prog dep Δa R)
     (hisC : ∀ isa, DenoteSpine mp.base2.acval env φ dep is isa → ∀ v ∈ isa, ConstOn R v)
     {nI : Nat} {cty : Expr}
-    (hnI : ConLeche.nestInstType (m := CheckM) ctx (ctx.hiAt prog.length) ⟨D.member mm, us, ds⟩
-      = .ok (nI, cty))
+    (hnI : ConLeche.nestInstType (m := CheckM) ctx (fueledOps .verified F) env
+      (ctx.hiAt prog.length) ⟨D.member mm, us, ds⟩ = .ok (nI, cty))
     (hisl : is.length = nI) {grp : List (Name × Expr)} (hhead : D.member mm = (grp.headD default).1)
     (ihf : FrameAccJ mp φ w ctx prog us ds grp) :
     AccConcl w ctx prog dep (Expr.mkAppN (.const (D.member mm) us) (ds ++ is))
@@ -271,7 +272,8 @@ theorem contNew_accD {μ : ConLeche.CheckMode} (mp : EnvModelM V μ env) {w : Na
     simp only [List.headD_cons] at hhead ⊢
     rw [hhead]
     exact List.mem_cons_self
-  obtain ⟨-, hids, -⟩ := n2_link mp hD hmm hok.1.find hnI hf (by rw [hcvl]; exact hnd)
+  obtain ⟨-, hids, -⟩ := n2_link mp hD hmm hf (hok.1.instFacts hD hmm hf rfl hnI)
+    (by rw [hcvl]; exact hnd)
     (by rw [hcvl]; exact hul) (by rw [hcvl, hlenP]) hdsw hdsa
   rw [← hcvl] at hacc hwD
   exact accConcl_of_frameAccOut mp hD hmm hf hhid hwa (by rw [hlenP]) (by rw [hids, hisl])
@@ -283,7 +285,7 @@ depth** (`KeyAcc`, a cache hit's content): its frame, derived under a
 well-scoped frame stack, read along the frameless relation extended by
 EMPTY frames for that stack, and back through the empty frames
 (`frameAccOut_unextend`). -/
-theorem keyAcc_of_frameD {μ : ConLeche.CheckMode} (mp : EnvModelM V μ env) {w : Nat}
+theorem keyAcc_of_frameD (mp : EnvModelM V env) {w : Nat}
     {ctx : NestCtx} (hok : ContOk mp φ w ctx) {F : Nat} {key : NestKey} {prog' : List NestHole}
     {grp : List (Name × Expr)} (hsc : ProgScoped ctx prog') (hmem : key.cname ∈ grp.map (·.1))
     {ts : List PosTree}
@@ -323,7 +325,7 @@ set_option maxHeartbeats 800000 in
 /-- **THE DERIVATION IS ACCESSIBLE** (charter items 2–4): every judgment of a positivity derivation reads
 accessibly in the holes, at every level (task #327), by induction on the
 derivation (see the module docstring). -/
-theorem posD_acc {μ : ConLeche.CheckMode} (mp : EnvModelM V μ env)
+theorem posD_acc (mp : EnvModelM V env)
     (hin : RulesInputs V mp.base2 φ) {w : Nat} {ctx : NestCtx} {F : Nat} :
     ∀ {j : PosJ} {ts : List PosTree}, PosD (fueledOps .verified F) env ctx j ts →
       AccJ mp φ w ctx F j := by
@@ -523,7 +525,7 @@ theorem posD_acc {μ : ConLeche.CheckMode} (mp : EnvModelM V μ env)
     have hkp := keyAcc_of_frameD mp hok (key := ⟨n, us, args.take nPc⟩) (ConLeche.ProgScoped.nil (ctx := ctx)) hmem
       hfrD ihf hds0
       hLds
-    have hc := contHit_acc mp hok.1.find hhid hwa hCw hgw hR hisC hdsw (fun x hx => (hds x hx).2)
+    have hc := contHit_acc mp hok.1 hhid hwa hCw hgw hR hisC hdsw (fun x hx => (hds x hx).2)
       hnI hisl hkp
     rw [List.take_append_drop] at hc
     exact ⟨⟨hc.1, hc.2.1, hc.2.2.trans hlw⟩, hfrw.2.1, hfrw.1, nofun, wa, hwa0, fun _ _ => rfl⟩
@@ -586,7 +588,7 @@ derivation, at no frames): every field's reading accessible under the
 earlier ones along the accessibility hole relation, each bound reading only its field's output's non-hole positions,
 the result's indices hole-free — coverage needed only when some field's
 kind is not flat. -/
-theorem memberCtorD_acc {μ : ConLeche.CheckMode} (mp : EnvModelM V μ env)
+theorem memberCtorD_acc (mp : EnvModelM V env)
     (hin : RulesInputs V mp.base2 φ) {w : Nat} {ctx : NestCtx} {F nF : Nat}
     {crest cur : Expr} {ks : List NestFieldKind} {nds : List Expr}
     {ts : List PosTree}

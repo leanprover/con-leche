@@ -31,7 +31,7 @@ statement follows are those of `CLAUDE.md`'s "The cached simulation
 proofs".
 
 1. **Triples are statements about runs** (§1).  A walk is the triple
-   `⦃fun s => s = s₀⦄ c ⦃fun v s' => CSOK mode env s' ∧ Runs p v ∧ W v; ⊤⦄`:
+   `⦃fun s => s = s₀⦄ c ⦃fun v s' => CSOK mode eager env s' ∧ Runs p v ∧ W v; ⊤⦄`:
    partial correctness, the exception post `⊤`.  `triple_iff_run` reads
    it as "every successful run from `s₀` …", which is what the run-level
    consumers (the knot's `SimC`, the install and driver theorems) take.
@@ -79,7 +79,7 @@ namespace ConLeche.Cached
 open ConLeche Std.WP
 open scoped Lean.Order
 
-variable {mode : CheckMode} {env : Env}
+variable {mode : CheckMode} {eager : Bool} {env : Env}
 
 /-! ## 1. A `CheckCM` triple is a statement about the successful runs -/
 
@@ -168,8 +168,8 @@ step, which no callee spec supplies when the step is operation-free). -/
 whose post names the cached value as the pure side's answer. -/
 theorem SimC.triple {β : Type} {P : β → β → Prop} {W : β → Prop} {s₀ : CState}
     {c : CheckCM β} {p : FueledM β} (hP : ∀ v' v, P v' v → v' = v ∧ W v')
-    (h : SimC mode env s₀ P c p) :
-    ⦃fun s => s = s₀⦄ c ⦃fun v s' => CSOK mode env s' ∧ Runs p v ∧ W v; ⊤⦄ := by
+    (h : SimC mode eager env s₀ P c p) :
+    ⦃fun s => s = s₀⦄ c ⦃fun v s' => CSOK mode eager env s' ∧ Runs p v ∧ W v; ⊤⦄ := by
   refine triple_iff_run.mpr fun v' s' hr => ?_
   obtain ⟨hs', v, hP', F, hF⟩ := h v' s' hr
   obtain ⟨rfl, hW⟩ := hP v' v hP'
@@ -179,8 +179,8 @@ theorem SimC.triple {β : Type} {P : β → β → Prop} {W : β → Prop} {s₀
 simulation for any value relation that holds on the diagonal under `W`. -/
 theorem SimC.of_triple {β : Type} {P : β → β → Prop} {W : β → Prop} {s₀ : CState}
     {c : CheckCM β} {p : FueledM β} (hP : ∀ v, W v → P v v)
-    (h : ⦃fun s => s = s₀⦄ c ⦃fun v s' => CSOK mode env s' ∧ Runs p v ∧ W v; ⊤⦄) :
-    SimC mode env s₀ P c p := by
+    (h : ⦃fun s => s = s₀⦄ c ⦃fun v s' => CSOK mode eager env s' ∧ Runs p v ∧ W v; ⊤⦄) :
+    SimC mode eager env s₀ P c p := by
   intro v' s' hr
   obtain ⟨hs', ⟨F, hF⟩, hW⟩ := triple_iff_run.mp h v' s' hr
   exact ⟨hs', v', hP v' hW, F, hF⟩
@@ -188,30 +188,30 @@ theorem SimC.of_triple {β : Type} {P : β → β → Prop} {W : β → Prop} {s
 /-- A simulation at `RelVC` (plain equality) is a triple whose post
 names the cached value as the pure answer. -/
 theorem SimC.tripleVC {β : Type} {s₀ : CState} {c : CheckCM β} {p : FueledM β}
-    (h : SimC mode env s₀ RelVC c p) :
-    ⦃fun s => s = s₀⦄ c ⦃fun v s' => CSOK mode env s' ∧ Runs p v; ⊤⦄ := by
+    (h : SimC mode eager env s₀ RelVC c p) :
+    ⦃fun s => s = s₀⦄ c ⦃fun v s' => CSOK mode eager env s' ∧ Runs p v; ⊤⦄ := by
   refine triple_iff_run.mpr fun v' s' hr => ?_
   obtain ⟨hs', v, rfl, F, hF⟩ := h v' s' hr
   exact ⟨hs', ⟨F, hF⟩⟩
 
 /-- The converse of `SimC.tripleVC`. -/
 theorem SimC.of_tripleVC {β : Type} {s₀ : CState} {c : CheckCM β} {p : FueledM β}
-    (h : ⦃fun s => s = s₀⦄ c ⦃fun v s' => CSOK mode env s' ∧ Runs p v; ⊤⦄) :
-    SimC mode env s₀ RelVC c p := by
+    (h : ⦃fun s => s = s₀⦄ c ⦃fun v s' => CSOK mode eager env s' ∧ Runs p v; ⊤⦄) :
+    SimC mode eager env s₀ RelVC c p := by
   intro v' s' hr
   obtain ⟨hs', ⟨F, hF⟩⟩ := triple_iff_run.mp h v' s' hr
   exact ⟨hs', v', rfl, F, hF⟩
 
 theorem CEff.triple {β : Type} {Q : β → Prop} {s₀ : CState} {c : CheckCM β}
-    (h : CEff mode env s₀ Q c) :
-    ⦃fun s => s = s₀⦄ c ⦃fun v s' => CSOK mode env s' ∧ Q v; ⊤⦄ :=
+    (h : CEff mode eager env s₀ Q c) :
+    ⦃fun s => s = s₀⦄ c ⦃fun v s' => CSOK mode eager env s' ∧ Q v; ⊤⦄ :=
   triple_iff_run.mpr h
 
 /-- The fuel-exhaustion lift is the same on both sides. -/
-theorem liftFueled_spec {α : Type} {s₀ : CState} (hs : CSOK mode env s₀)
+theorem liftFueled_spec {α : Type} {s₀ : CState} (hs : CSOK mode eager env s₀)
     (what : String) (o : Option α) :
     ⦃fun s => s = s₀⦄ (liftFueled what o : CheckCM α)
-    ⦃fun a s' => CSOK mode env s' ∧ Runs (liftFueled what o) a; ⊤⦄ :=
+    ⦃fun a s' => CSOK mode eager env s' ∧ Runs (liftFueled what o) a; ⊤⦄ :=
   (SimC.liftFueled what o hs).tripleVC
 
 /-! ## 4. Scope side conditions
@@ -498,31 +498,33 @@ in sight, while the named predicate is an atom, and its triple enters
 
 /-- A unary entry point's body simulates its fueled body on well-scoped
 inputs, with a well-scoped answer. -/
-@[expose] def BodySpec (mode : CheckMode) (env : Env) (body : Nat → Expr → CheckCM Expr)
+@[expose] def BodySpec (mode : CheckMode) (eager : Bool) (env : Env) (body : Nat → Expr → CheckCM
+    Expr)
     (spec : Nat → Expr → FueledM Expr) : Prop :=
-  ∀ {s₀ : CState} {d : Nat} {i : Expr}, CSOK mode env s₀ → Expr.WScoped d i →
+  ∀ {s₀ : CState} {d : Nat} {i : Expr}, CSOK mode eager env s₀ → Expr.WScoped d i →
     ⦃fun s => s = s₀⦄ body d i
-    ⦃fun r s' => CSOK mode env s' ∧ Runs (spec d i) r ∧ Expr.WScoped d r; ⊤⦄
+    ⦃fun r s' => CSOK mode eager env s' ∧ Runs (spec d i) r ∧ Expr.WScoped d r; ⊤⦄
 
 theorem BodySpec.triple {body : Nat → Expr → CheckCM Expr} {spec : Nat → Expr → FueledM Expr}
-    (h : BodySpec mode env body spec) {s₀ : CState} {d : Nat} {i : Expr}
-    (hs : CSOK mode env s₀) (hw : Expr.WScoped d i) :
+    (h : BodySpec mode eager env body spec) {s₀ : CState} {d : Nat} {i : Expr}
+    (hs : CSOK mode eager env s₀) (hw : Expr.WScoped d i) :
     ⦃fun s => s = s₀⦄ body d i
-    ⦃fun r s' => CSOK mode env s' ∧ Runs (spec d i) r ∧ Expr.WScoped d r; ⊤⦄ := h hs hw
+    ⦃fun r s' => CSOK mode eager env s' ∧ Runs (spec d i) r ∧ Expr.WScoped d r; ⊤⦄ := h hs hw
 
 /-- A binary `Bool`-valued entry point's body simulates its fueled body
 on well-scoped inputs (`BodySpec` for the defeq slot). -/
-@[expose] def BodySpecB (mode : CheckMode) (env : Env) (body : Nat → Expr → Expr → CheckCM Bool)
+@[expose] def BodySpecB (mode : CheckMode) (eager : Bool) (env : Env) (body : Nat → Expr → Expr →
+    CheckCM Bool)
     (spec : Nat → Expr → Expr → FueledM Bool) : Prop :=
-  ∀ {s₀ : CState} {d : Nat} {a b : Expr}, CSOK mode env s₀ → Expr.WScoped d a →
+  ∀ {s₀ : CState} {d : Nat} {a b : Expr}, CSOK mode eager env s₀ → Expr.WScoped d a →
     Expr.WScoped d b →
-    ⦃fun s => s = s₀⦄ body d a b ⦃fun r s' => CSOK mode env s' ∧ Runs (spec d a b) r; ⊤⦄
+    ⦃fun s => s = s₀⦄ body d a b ⦃fun r s' => CSOK mode eager env s' ∧ Runs (spec d a b) r; ⊤⦄
 
 theorem BodySpecB.triple {body : Nat → Expr → Expr → CheckCM Bool}
-    {spec : Nat → Expr → Expr → FueledM Bool} (h : BodySpecB mode env body spec)
-    {s₀ : CState} {d : Nat} {a b : Expr} (hs : CSOK mode env s₀) (hwa : Expr.WScoped d a)
+    {spec : Nat → Expr → Expr → FueledM Bool} (h : BodySpecB mode eager env body spec)
+    {s₀ : CState} {d : Nat} {a b : Expr} (hs : CSOK mode eager env s₀) (hwa : Expr.WScoped d a)
     (hwb : Expr.WScoped d b) :
-    ⦃fun s => s = s₀⦄ body d a b ⦃fun r s' => CSOK mode env s' ∧ Runs (spec d a b) r; ⊤⦄ :=
+    ⦃fun s => s = s₀⦄ body d a b ⦃fun r s' => CSOK mode eager env s' ∧ Runs (spec d a b) r; ⊤⦄ :=
   h hs hwa hwb
 
 end ConLeche.Cached

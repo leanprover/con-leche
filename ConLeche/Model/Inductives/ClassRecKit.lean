@@ -62,7 +62,7 @@ open ConLeche (CheckMode Env Expr Name Level ConstantVal)
 
 universe w
 
-variable {V : Type w} [SetTheory V] {μ : CheckMode}
+variable {V : Type w} [SetTheory V]
 
 
 /-! ## 0. The graph producer over a STEP premise

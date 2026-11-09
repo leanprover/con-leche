@@ -1,9 +1,6 @@
 module
 
-import ConLeche.Kernel.Env
 public import ConLeche.Kernel.PropRead
-import ConLeche.Kernel.Level
-import ConLeche.Kernel.ExprOps
 public import ConLeche.Kernel.Basis
 
 @[expose] public section
@@ -15,14 +12,14 @@ The definitions of the core checker that mention no monad, no
 `CoreFns` record and no fuel: the delta step and its readers
 (`unfoldDefinition`, `unfoldableHead`, `headHint`, `sameConstHeads`),
 the literal shapes and their guards (`natLitToConstructor`,
-`natLitSupported`, `strLitToConstructor`, `strLitSupported`,
+`natLitStored`, `strLitToConstructor`, `strLitStored`, `litShapeOk`,
 `rawNatLit?`), the certified `Nat` operations' names, recurrences,
 reducts and pins (`natOpNames`, `natDivModNames`, `natOpEquations`,
 `natOpResult`, `natOpStoredOk`, …), the structure-η fabrications
-(`etaProjs`, `etaFabArgsE`, `andRescueSlots`), the install-time rule
-bits (`recRuleBits`, `recRuleK`, `recFireComparands`), the ι case split
+(`etaProjs`, `etaFabArgsE`, `andRescueSlots`), the rule
+data (`etaRescueOk`, `recFireComparands`), the ι case split
 (`iotaCtorNeverProp`, `iotaCase3`) and the tower entry's readers
-(`ProjEntry.fireOk`, `ProjEntry.typeAt`).
+(`projGuardRows`, `ProjEntry.typeAt`).
 
 Split out of `ConLeche/Kernel/Core.lean` at task #305 (prep): a
 relational description of the core's moves — a relation over `Expr`
@@ -57,51 +54,46 @@ def isCtorApp (env : Env) (e : Expr) : Bool :=
     | _ => false
   | _ => false
 
+/-- **A stored inductive's result sort, read where it is needed**: the sort
+its stored type ends in.  `none` where the type does not end in one.
+Nothing about it is stored. -/
+def formerResSort (ty : Expr) : Option Level :=
+  match ty.piResult with
+  | .sort s => some s
+  | _ => none
+
+/-- A stored former that does not show its telescope. -/
+def formerDefHeaded (cv : ConstantVal) : Bool :=
+  (formerResSort cv.type).isNone
+
+/-- **The family's result-sort zero-ness datum**, read off its type; where the
+sort is not read, `ifAllZero []`, "zero at every valuation", which no rescue
+passes. -/
+def formerZ (cvT : ConstantVal) : PropWhen :=
+  match formerResSort cvT.type with
+  | some s => Level.zeronessOf s
+  | none => .ifAllZero []
+
 /-- Is a stored inductive's result sort, at the given level
 instantiation, provably nonzero (official `is_never_zero`)?  The
 official kernel's structure rescue (`to_cnstr_when_structure`)
 requires this of the major's type; `majorToCtor`'s structure-η
 rescue mirrors it (`Sort u` at a concrete level such as `Unit`'s `1` passes, the
-parameter `u` itself does not).  Read off the stored datum: the
-instantiated datum is unsatisfiable exactly where the instantiated
-sort is never zero. -/
-def capsNeverZero (lps : List Name) (us : List Level) (caps : IndCaps) :
-    Bool :=
-  (Level.substPW lps us caps.sortZ).isNever
+parameter `u` itself does not).  The instantiated zero-ness datum is
+unsatisfiable exactly where the instantiated sort is never zero. -/
+def formerNeverZero (cvT : ConstantVal) (us : List Level) : Bool :=
+  (Level.substPW cvT.levelParams us (formerZ cvT)).isNever
 
-/-- **The ι case split's test** (task #342 L10, after task
-#349's prototype): is the constructor's family never `Prop` at the
-level instantiation `us`?  The ι step asks it at the rule's comparand
-levels (`recFireComparands`: the recursor's own instantiation, or a
-nested rule's stored one), not at the constructor's, which it does not
-compare there.  Then (case 2) the ι step fires with no check of the
-constructor application: the family's fibres at the recursor's major
-domain are strict, so the major is not the point and its reduction is
-an equation, and the constructor application, being the major's value
-and not the point, is an injection of fields that fit the family's
-constructor there.  Read off the family's recorded sort zero-ness
-(`IndCaps.sortZ`, recorded for every block member and for the pinned
-`Nat`, `Empty` and `Quot`). -/
-def iotaCtorNeverProp (find? : Name → Option ConstantInfo) (cvj : ConstantVal)
-    (us : List Level) : Bool :=
+/-- **The family a constructor's type concludes in**: its former and its
+capabilities.  `none` where its type concludes in no stored inductive. -/
+def ctorFamily (find? : Name → Option ConstantInfo) (cvj : ConstantVal) :
+    Option (ConstantVal × IndCaps) :=
   match (cvj.type.piResult).getAppFn with
   | .const T _ =>
     match find? T with
-    | some (.indInfo cvT caps) =>
-      cvT.levelParams.length == us.length && capsNeverZero cvT.levelParams us caps
-    | _ => false
-  | _ => false
-
-/-- **Case 3 of the ι case split** (task #342 L10, S5c): a rule that is not
-K whose constructor's family may be `Prop` at the comparand levels `us`.
-There the constructor's levels and parameters are compared with the
-comparands, the constructor telescope is certified at the full grade,
-and the indices are compared (task #342 L7's counterexample: at a
-`Prop` valuation nothing else ties the two spines), for a `.plain` and
-a `.nested` rule alike. -/
-def iotaCase3 (find? : Name → Option ConstantInfo) (rl : RecRule) (cvj : ConstantVal)
-    (us : List Level) : Bool :=
-  !rl.k && !iotaCtorNeverProp find? cvj us
+    | some (.indInfo cvT caps) => some (cvT, caps)
+    | _ => none
+  | _ => none
 
 /-- Unfold the (application of a) definition at the head, one step.
 `none` when the head is not an unfoldable constant.  **Theorems are
@@ -191,15 +183,17 @@ def natSuccOk : Option ConstantInfo → Bool
      | _ => false)
   | _ => false
 
-/-- Whether the environment supports `Nat` literals: `Nat`, `Nat.zero`
-and `Nat.succ` are stored with exactly the expected kinds, level
-parameters and types.  Every literal code path is guarded
-on this — the model interprets a literal by iterating the `Nat.succ`
-value on the `Nat.zero` value, and the soundness proofs read the
-declaration shapes off this guard. -/
+/-- `Nat`, `Nat.zero` and `Nat.succ` are stored with exactly the expected kinds, level parameters and
+types.  The model interprets a literal by iterating the `Nat.succ` value on the `Nat.zero` value and
+reads those shapes off this; a certified operation's check asks it of the environment it runs at. -/
 def natLitSupported (env : Env) : Bool :=
   natIndOk (env.find? natName) && natZeroOk (env.find? natZeroName) &&
     natSuccOk (env.find? natSuccName)
+
+/-- Whether a `Nat` literal's constants are stored.  What they are is the declarations' own check
+(`litShapeOk`), so this reads no type: it says only that a literal may be read at all. -/
+def natLitStored (env : Env) : Bool :=
+  (env.find? natName).isSome && (env.find? natZeroName).isSome && (env.find? natSuccName).isSome
 
 /-- Do all constants referenced in `e` (including inside `fvar` type
 annotations) resolve in `env`?  A `Nat` literal implicitly references
@@ -232,7 +226,7 @@ def Expr.constsResolve (env : Env) : Expr → Bool
 layer; anything else passes through. -/
 def litToCtorIfNat (env : Env) : Expr → Expr
   | .lit (.natVal n) =>
-    if natLitSupported env then natLitToConstructor n else .lit (.natVal n)
+    if natLitStored env then natLitToConstructor n else .lit (.natVal n)
   | e => e
 
 /-- A `Nat` literal reading of a whnf'd expression: literals and the
@@ -248,13 +242,12 @@ A string literal unfolds on demand to `String.ofList [c₁, …, cₙ]` with
 each character built by `Char.ofNat` from a `Nat` literal — the
 reference kernels' `strLitToConstructor` (lean4lean `Expr.lean`, nanoda
 `expr.rs`), mirrored exactly.  The names below are *pinned* like the
-`Nat` literal names: the guard `strLitSupported` checks that the stored
-declarations have exactly the expected types, which is what the
-model's interpretation of a string literal reads its meaning off.
-A string literal in the input while the guard fails is a positively
-detected unsupported feature: inference *declines* (exit 2), and so
-does the constant-resolution guard's error path
-(`unresolvedConstsErrorL`). -/
+`Nat` literal names: a declaration at one of them has exactly the expected
+type (`litShapeOk`, checked at the declaration), which is what the model's
+interpretation of a string literal reads its meaning off.  A string
+literal in the input without its constants is a positively detected
+unsupported feature: inference *declines* (exit 2), and so does the
+constant-resolution guard's error path (`unresolvedConstsErrorL`). -/
 
 /-- The constructor form of a `String` literal:
 `String.ofList (List.cons.{0} Char (Char.ofNat (lit c₁)) (… (List.nil.{0}
@@ -352,13 +345,9 @@ def stringOfListTyOk : Option ConstantInfo → Bool
        | _ => false)
   | none => false
 
-/-- Whether the environment supports `String` literals: the `Nat`
-literal guard plus `String`, `String.ofList`, `List`, `List.nil`,
-`List.cons`, `Char` and `Char.ofNat` stored with exactly the expected
-level parameters and types.  Every string-literal code path
-is guarded on this; the model interprets a string literal through the
-values of these constants, and the soundness proofs read the
-declaration shapes off this guard.  (The reference kernels only check
+/-- `natLitSupported` plus `String`, `String.ofList`, `List`, `List.nil`, `List.cons`, `Char` and
+`Char.ofNat` stored with exactly the expected level parameters and types.  The model interprets a
+string literal through the values of these constants and reads those shapes off this.  (The reference kernels only check
 *existence* of `Char.ofNat` and `String.ofList`; the type pins are what
 makes the interpretation well-defined, in the spirit of the `Nat`
 literal guard.) -/
@@ -372,12 +361,37 @@ def strLitSupported (env : Env) : Bool :=
     charTyOk (env.find? charName) &&
     charOfNatTyOk (env.find? charOfNatName)
 
+/-- Whether a `String` literal's constants are stored (`natLitStored`). -/
+def strLitStored (env : Env) : Bool :=
+  natLitStored env && (env.find? stringName).isSome && (env.find? stringOfListName).isSome &&
+    (env.find? listName).isSome && (env.find? listNilName).isSome &&
+    (env.find? listConsName).isSome && (env.find? charName).isSome &&
+    (env.find? charOfNatName).isSome
+
+/-- **The shape a declaration at a literal's name must have**: what a literal's meaning reads off
+it, its level parameters and type.  Checked at the declaration, once; nothing at a literal's use
+compares a stored type.  A declaration check cannot show a kind, so the three `Nat` names are read
+at the kinds their guards ask for; what they are beyond their types is the pinned `Nat` block's
+(`basisNamesOk`). -/
+def litShapeOk (c : ConstantInfo) : Bool :=
+  if c.name = natName then natIndOk (some (.indInfo c.toConstantVal {}))
+  else if c.name = natZeroName then natZeroOk (some (.ctorInfo c.toConstantVal 0 0))
+  else if c.name = natSuccName then natSuccOk (some (.ctorInfo c.toConstantVal 0 1))
+  else if c.name = stringName then stringTyOk (some c)
+  else if c.name = stringOfListName then stringOfListTyOk (some c)
+  else if c.name = listName then listTyOk (some c)
+  else if c.name = listNilName then listNilTyOk (some c)
+  else if c.name = listConsName then listConsTyOk (some c)
+  else if c.name = charName then charTyOk (some c)
+  else if c.name = charOfNatName then charOfNatTyOk (some c)
+  else true
+
 /-! ## Structural-Nat literal acceleration
 
 The official kernel accelerates the structural `Nat` operations on
 literals (GMP-backed there).  Here the fast path is *certified*: an
 operation participates only when its defining recurrence equations
-hold by definitional equality — checked once, at install: `checkDecl`
+hold by definitional equality — checked once, at its check: `checkDecl`
 positively rejects a nonstandard definition under one of these names,
 so *presence in the store is the certificate* (no runtime flag, no
 re-checking; a reduction-time re-check would in fact livelock — the
@@ -448,44 +462,41 @@ def natOpNames : List Name :=
    natBeqName, natBleName]
 
 /-- The WF-recursive operations with a *pinned-declaration* certified
-fast path: at install, `checkDecl` compares the stream's definition
+fast path: at its check, `checkDecl` compares the stream's definition
 against a vendored pin of the toolchain's own (helper-unfolded)
 definition by definitional equality, and then checks the pinned
 `Nat.ble`-guarded characterization certificates
 (`ConLeche/Kernel/NatOpPins.lean`) like theorem declarations — without
 installing them.  Presence in the store is therefore again the
 capability: a stored operation under one of these names has passed pin
-and certificates, or the install declined.  (The name is historic:
-the family started with `Nat.div`/`Nat.mod` and now covers every
-pin-certified WF-recursive kernel-accelerated `Nat` operation —
-`Nat.log2` left the list when its fast path did, official folding no
-unary operation but `Nat.succ`.) -/
+and certificates, or the install declined.  (The family: every pin-certified WF-recursive kernel-accelerated `Nat`
+operation, `Nat.div` and `Nat.mod` among them; official folds no unary
+operation but `Nat.succ`.) -/
 def natDivModNames : List Name :=
   [natDivName, natModName, natGcdName, natLandName, natLorName,
    natXorName, natShiftLeftName, natShiftRightName]
 
+/-- **The certified operations' names**: the fast path fires on them by name, so only a
+definition may take one, and its job holds it to the pin; any other declaration at such a
+name is refused (`checkConstantVal`, `reservedRecName`). -/
+def natOpName (n : Name) : Bool :=
+  natOpNames.contains n || natDivModNames.contains n
+
 /-! ## The names the environment's own guards look up
 
-`natLitSupported` and `strLitSupported` decide whether a literal may
-be READ, and they decide it by looking ten fixed names up in the
-store.  Three of them (`Nat`, `Nat.zero`, `Nat.succ`) are reserved
-basis names, so no stream declaration can ever fill or change them;
-the other seven — `String`, `String.ofList`, `List`, `List.nil`,
-`List.cons`, `Char`, `Char.ofNat` — are ORDINARY stream declarations,
-and a stream is free to install them (it must: that is how a stream
-earns string literals).
+`natLitStored` and `strLitStored` decide whether a literal may be READ,
+by looking ten fixed names up in the store; `litShapeOk` says what a
+declaration at one of them is.  Three of them (`Nat`, `Nat.zero`,
+`Nat.succ`) are reserved basis names, so only the pinned `Nat` block can
+fill them (`basisNamesOk`); the other seven — `String`, `String.ofList`, `List`,
+`List.nil`, `List.cons`, `Char`, `Char.ofNat` — are ORDINARY stream
+declarations, and a stream is free to install them (it must: that is how
+a stream earns string literals).
 
-What must not happen is a *recursor* taking one of these names.  A
-recursor's name is the stream's business, so nothing else stops a block from
-declaring, say, a recursor called
-`List.cons` of `List.cons`'s type; consing it would flip
-`strLitSupported` from `false` to `true` and a string literal would
-read as one thing below the block's recursors and as another above
-them.  The block install therefore refuses such a name outright
-(`blockRecNamesUnreserved`, `ConLeche/Kernel/Inductives/BlockParts.lean`),
-which makes both guards CONGRUENT across the recursors' cons
-(`strLitSupported_consBlockRecsR`, `ConLeche/Verify/Inductives/BlockWF.lean`)
-— the equation the model's reading law needs. -/
+What must not happen is a *recursor* taking one of these names: it would
+never pass the shape test as what it is.  The block's check refuses such
+a name outright (`blockRecNamesUnreserved`,
+`ConLeche/Kernel/Inductives/BlockShape.lean`). -/
 
 /-- The ten names the two literal guards look up: the `Nat` guard's
 three and the `String` guard's seven. -/
@@ -494,17 +505,21 @@ def litGuardNames : List Name :=
    stringName, stringOfListName, listName, listNilName, listConsName,
    charName, charOfNatName]
 
-/-- **A name no block RECURSOR may take**: one the pinned basis blocks
-reserve, one a literal guard looks up, or one of the certified `Nat`
-operations (whose presence in the store IS their certificate, so a
+/-- **A name no block RECURSOR may take**: one a literal guard looks
+up, one of the certified `Nat` operations (whose presence in the store IS their certificate, so a
 recursor stored under such a name would claim a capability nothing
-certified).  Type formers and constructors are NOT held to this — a
+certified), or `Bool` and its two constructors, whose stored entries the
+certified operations' guards read (`natOpTyPinned`, `natOpGuard`; task
+#431: the stored recursors replace the generated ones' types, which
+must not move a guard).  Type formers and constructors are NOT held to this — a
 stream must be able to declare `List`, `List.cons` and `Nat.add` —
 which is why the block install spends this predicate on the recursors
-alone and keeps `reservedBasisNames` for every declaration. -/
+alone.  The basis names are `basisNamesOk`'s: a pinned block's own
+recursor carries one, and no other declaration may. -/
 def reservedRecName (n : Name) : Bool :=
-  reservedBasisNames.contains n || litGuardNames.contains n ||
-    natOpNames.contains n || natDivModNames.contains n
+  litGuardNames.contains n ||
+    natOpNames.contains n || natDivModNames.contains n ||
+    n == boolName || n == boolTrueName || n == boolFalseName
 
 /-- The operations (transitively) involved in `c`'s recurrences. -/
 def natOpDeps (c : Name) : List Name :=
@@ -563,17 +578,16 @@ def natOpEquations (d : Nat) (c : Name) : List (Expr × Expr) :=
   else []
 
 /-- The reduct of op `c` on literal arguments (`pred` ignores the
-second slot). -/
+second slot): the computation itself, at any size.  The official
+kernel's maximum `Nat` size, which refuses a computation that would be too
+large, is the cached core's (`natOpRefusal`,
+`ConLeche/Cached/StateC.lean`). -/
 def natOpResult (c : Name) (a b : Nat) : Option Expr :=
   if c = natPredName then some (.lit (.natVal (a - 1)))
   else if c = natAddName then some (.lit (.natVal (a + b)))
   else if c = natSubName then some (.lit (.natVal (a - b)))
   else if c = natMulName then some (.lit (.natVal (a * b)))
-  else if c = natPowName then
-    -- the divergence audit's S2: official `reduce_pow` refuses exponents
-    -- above `ReducePowMaxExp = 1 << 24` (`type_checker.cpp:616-627`) and
-    -- lets `Nat.pow` unfold instead — the blow-up protection, mirrored
-    if b > 16777216 then none else some (.lit (.natVal (a ^ b)))
+  else if c = natPowName then some (.lit (.natVal (a ^ b)))
   else if c = natDivName then some (.lit (.natVal (a / b)))
   else if c = natModName then some (.lit (.natVal (a % b)))
   else if c = natGcdName then some (.lit (.natVal (Nat.gcd a b)))
@@ -617,7 +631,7 @@ def natOpGuard (env : Env) (c : Name) : Bool :=
 net*: the preceding certified branches normally intercept literal
 applications, so this list only fires when a capability is absent
 (op not stored, or a dependency missing — a mismatching declaration
-already declined at install); such a *literal application* is then
+already declined at its check); such a *literal application* is then
 positively declined (arena exit 2) rather than ground unary through
 the fuel recursion.  Declaring the functions themselves is
 unaffected: only the reduction path declines. -/
@@ -688,31 +702,6 @@ def natOpStoredOk (env : Env) (n : Name) : Bool :=
     cv.levelParams.isEmpty && natOpTyPinned env n cv.type
   | _ => false
 
-/-- **The reduction-time test for a certified `Nat` operation** (task
-#161 de-gating round A+B+C, item B3; harvest site 37, list entry P7):
-is `c` stored as a definition at all?
-
-`reduceNat` used to re-derive the whole `natOpGuard` at every literal
-hit — `natLitSupported` (three `Env.find?`s), a `natOpDeps c` list
-build plus a lookup per dependency (up to seven), and two more lookups
-for the `Bool` constructors.  That conclusion is *carried by the
-install fold invariant*, for every one
-of the sixteen guarded names: `NatOps` (the seven structural
-ops, `natOpNames`) and `DivMod` (the nine WF-pinned ops,
-`natDivModNames`) both read
-
-  `env.find? c = some (.defnInfo cv v hint) → natOpGuard env c = true ∧ …`
-
-and `checkDecl` is what establishes them: it *declines* a stream that
-stores one of these names without `natOpGuard env₂ c` (Checker.lean's
-`.defnDecl` clause).  The converse is by computation — `c ∈ natOpDeps
-c` for all sixteen — so on every environment the checker builds the two
-tests agree, and the cheap one is a single `find?`. -/
-def natOpStored (env : Env) (c : Name) : Bool :=
-  match env.find? c with
-  | some (.defnInfo _ _ _) => true
-  | _ => false
-
 /-- Peel a `∀`-telescope along an argument list (the residual type of
 a fully applied telescope). -/
 def piResidual : Expr → List Expr → Option Expr
@@ -763,147 +752,136 @@ point. -/
 def teleArityOk (ty : Expr) (args : List Expr) : Bool :=
   (Expr.peelPis args.length ty).isSome
 
-/-- **The tower-fire guard** (task #175 W4c/O4, restated at W6):
-`whnfCore` fires the structural rule `proj_i (ctor p⃗ x⃗) ↦ x_i` at a
-tower-backed entry under exactly the guard the tower infer branch
-types the node with — at a `Prop`-declared structure the field's guard
-level must be a proposition at this instantiation; at every other
-family the rule fires unconditionally.
+/-- Open the first `n` `∀`-binders at fresh free variables `0..n-1`
+(each fvar's type is the binder domain, instantiated with the earlier
+fvars).  Returns the fvars and the opened body. -/
+def openPisAtFvars : Nat → Expr → Nat → Option (List Expr × Expr)
+  | 0, e, _ => some ([], e)
+  | n + 1, .forallE dom body, i =>
+    let fv : Expr := .fvar i dom
+    match openPisAtFvars n (body.instantiate1 fv) (i + 1) with
+    | some (fvs, e) => some (fv :: fvs, e)
+    | none => none
+  | _ + 1, _, _ => none
 
-A guard "the structure's sort is provably nonzero at this
-instantiation" is *not* what the official kernel does (`reduce_proj`
-reduces every constructor redex): it rejects
-`PSigma'.fst (PSigma'.mk a b) ≡ a` at symbolic `u v`, where `max u v`
-is neither provably zero nor nonzero.  The model's justification: at a squash
-instance (the structure's
-sort is `0` at the valuation) the constructor application reads as
-the point, and so does the selected field — for a non-`Prop`-declared
-family every field's sort is bounded by the structure's (the O5 bound
-`checkStructFieldSortsI` checks), so at a zero instantiation every
-field is a proposition; for a `Prop`-declared family the guard says
-so of the projected field directly (`TowerEntryLaw`'s iota clause,
-`ConLeche/Model/Env/EnvModelM.lean`).  Ungated rules on a data field of a
-`Prop`-declared structure stay out: such a node is not even typed
-(`inferBody`'s guard). -/
-def ProjEntry.fireOk (entry : ProjEntry) (us : List Level) : Bool :=
-  !(Level.isEquiv entry.structSort .zero == some true) ||
-    (Level.isEquiv (Level.subst entry.levelParams us entry.fieldSort) .zero
-      == some true)
+/-- Does `bvar i` occur loose in `e`?  (Not through fvar type
+annotations — the generated telescopes are fvar-free.) -/
+def Expr.hasLooseBVar : Nat → Expr → Bool
+  | i, .bvar j => i == j
+  | _, .fvar .. => false
+  | _, .sort _ => false
+  | _, .const .. => false
+  | _, .lit _ => false
+  | i, .app f a => hasLooseBVar i f || hasLooseBVar i a
+  | i, .lam ty b => hasLooseBVar i ty || hasLooseBVar (i + 1) b
+  | i, .forallE ty b => hasLooseBVar i ty || hasLooseBVar (i + 1) b
+  | i, .letE t v b =>
+    hasLooseBVar i t || hasLooseBVar i v || hasLooseBVar (i + 1) b
+  | i, .proj _ _ e => hasLooseBVar i e
+
+/-- `hasLooseBVar` with the packed bound's cutoff (task #214, P4): a
+node whose loose-bvar bound is at or below `i` has no `bvar i`, so the
+walk stops there without descending, so `structUsedLater` calls touch
+only the spine of a large telescope, never its shared instance towers.  Read as `hasLooseBVar`
+by `Expr.hasLooseBVarB_eq` (`ConLeche/Verify/LooseBVar.lean`). -/
+def Expr.hasLooseBVarB (i : Nat) (e : Expr) : Bool :=
+  if e.bvarB ≤ i then false else
+  match e with
+  | .bvar j => i == j
+  | .fvar .. => false
+  | .sort _ => false
+  | .const .. => false
+  | .lit _ => false
+  | .app f a => hasLooseBVarB i f || hasLooseBVarB i a
+  | .lam ty b => hasLooseBVarB i ty || hasLooseBVarB (i + 1) b
+  | .forallE ty b => hasLooseBVarB i ty || hasLooseBVarB (i + 1) b
+  | .letE t v b =>
+    hasLooseBVarB i t || hasLooseBVarB i v || hasLooseBVarB (i + 1) b
+  | .proj _ _ e => hasLooseBVarB i e
+
+/-- **Binder `nP + j` is used by the rest of the telescope**: its
+variable occurs in the remainder of `cty` after it (a later field's
+domain or the result).  The occurrence predicate the positivity check
+and the model state their facts in. -/
+def structUsedLater (cty : Expr) (nP j : Nat) : Bool :=
+  match cty.stripPis (nP + j + 1) with
+  | some (_, rest) => rest.hasLooseBVarB 0
+  | none => false
+
+/-- **The rows of a projection's guard: the field loop of the official
+`infer_proj`.**  `r` is the constructor telescope with its parameters and
+every field before the current one opened, the current field's variable
+at depth `d`; `k` fields remain before the projected one.  A field the
+rest of the telescope uses is a row, its domain at depth `d`, and is
+opened at its variable; one it does not use is stepped over, as official
+does.  The rest's only loose variable is the current field's, so
+`hasLooseBVarB 0` is answered by the packed bound at the binder.  The
+projected field's domain is the last row.  `none` where the telescope
+binds too few fields. -/
+def projGuardRowsGo : Nat → Nat → Expr → Option (List (Nat × Expr))
+  | 0, d, .forallE dom _ => some [(d, dom)]
+  | k + 1, d, .forallE dom body =>
+    if body.hasLooseBVarB 0 then
+      match projGuardRowsGo k (d + 1) (body.instantiate1 (.fvar d dom)) with
+      | some rows => some ((d, dom) :: rows)
+      | none => none
+    else projGuardRowsGo k (d + 1) body
+  | _, _, _ => none
+
+/-- **What a `.proj` use on a `Prop`-declared structure must show**
+(official `infer_proj`, task #480): the domains, at the use's level
+instantiation and at the constructor telescope's own variables, that
+must be propositions — the projected field's, and that of every earlier
+field a later field's type uses.  The parameters are opened, then the
+fields stepped (`projGuardRowsGo`).  Each row is a depth and a term at
+that depth.  `none` where the stored constructor does not bind what the
+entry says (the use is a reject).  Computed where it is read; nothing
+about it is stored. -/
+def projGuardRows (find? : Name → Option ConstantInfo) (entry : ProjEntry)
+    (us : List Level) : Option (List (Nat × Expr)) :=
+  match find? entry.ctor with
+  | some ci =>
+    let cv := ci.toConstantVal
+    match openPisAtFvars entry.numParams
+        (cv.type.instantiateLevelParams cv.levelParams us) 0 with
+    | some (_, r) => projGuardRowsGo entry.idx entry.numParams r
+    | none => none
+  | none => none
 
 /-- **`And`'s projection slots, ready to fire**: the two
-tower entries of `And` are stored, name the rule's constructor at the
-major's parameter count, and their `Prop` guards pass at the levels
-`ust` (`ProjEntry.fireOk`: `And`'s fields are propositions, so a
-`.proj And j h` node is typed by the tower infer branch).  The gate of
-`majorToCtor`'s `And` branch; abstracted over the lookup so the
-indexed twin (`FEnv.andRescueSlotsF`) shares the body. -/
+tower entries of `And` are stored and name the rule's constructor at the
+major's parameter count.  The gate of `majorToCtor`'s `And` branch;
+abstracted over the lookup so the indexed twin
+(`FEnv.andRescueSlotsF`) shares the body. -/
 def andRescueSlotsOf (findProj? : Name → Nat → Option ProjEntry)
-    (ctor : Name) (nP : Nat) (ust : List Level) : Bool :=
+    (ctor : Name) (nP : Nat) : Bool :=
   (List.range 2).all fun j =>
     match findProj? andName j with
-    | some e => e.ctor == ctor && e.numParams == nP && e.numFields == 2 &&
-        e.fireOk ust
+    | some e => e.ctor == ctor && e.numParams == nP && e.numFields == 2
     | none => false
 
 /-- `andRescueSlotsOf` at the plain environment. -/
-def andRescueSlots (env : Env) (ctor : Name) (nP : Nat) (ust : List Level) : Bool :=
-  andRescueSlotsOf env.findProj? ctor nP ust
+def andRescueSlots (env : Env) (ctor : Name) (nP : Nat) : Bool :=
+  andRescueSlotsOf env.findProj? ctor nP
 
-/-- **The K bit at install** (`RecRule.k`): the rule's constructor has
-no fields and belongs to an inductive stored with the K capability (an
-inductive proposition).  Together with the recursor's rule list being
-a singleton — which the reader `recRuleK` and `majorToCtor` match on
-— this is the official kernel's `recursor_val::is_k()`.  Abstracted
-over the lookup so the interned twin (`FEnv.find?`) shares the body. -/
-def recRuleKOf (find? : Name → Option ConstantInfo) (ctor : Name) : Bool :=
-  match find? ctor with
-  | some (.ctorInfo cvj _ cnF) =>
-    match (cvj.type.piResult).getAppFn with
-    | .const T _ =>
-      match find? T with
-      | some (.indInfo _ caps) => caps.ruleK && cnF == 0
-      | _ => false
-    | _ => false
-  | _ => false
-
-/-- **The η-rescue bit at install** (`RecRule.eta`): the rule's
-constructor is the η constructor of a stored η-capable inductive and
-carries that inductive's own level parameters.  Together with the singleton rule list this is the
-standing condition of `majorToCtor`'s structure-η rescue.
+/-- **The structure-η rescue's standing condition, at use**: the single
+rule's constructor `ctor` (stored as `cvj`) is the η constructor of its
+family `cvT`, which is structure-like (`IndCaps.eta`), and carries the family's
+level parameters.  The rescue asks this where it has just looked all three up;
+nothing about it is stored.
 
 The level-parameter conjunct is what lets the rescue fabricate the
 constructor application at the major type's levels without comparing
-the two lists per call: the installer grants η only at a
-constructor stored with the former's level parameters (the
-recogniser pins `c.1.levelParams == lps`), so the conjunct holds
-wherever the rest does. -/
-def recRuleEtaOf (find? : Name → Option ConstantInfo) (ctor : Name) :
-    Bool :=
-  match find? ctor with
-  | some (.ctorInfo cvj _ _) =>
-    match (cvj.type.piResult).getAppFn with
-    | .const T _ =>
-      match find? T with
-      | some (.indInfo cvT caps) =>
-        caps.eta && caps.etaCtor == ctor &&
-          cvj.levelParams == cvT.levelParams
-      | _ => false
-    | _ => false
-  | _ => false
+the two lists per call.  `And.intro` is left to `And`'s own rescue. -/
+def etaRescueOk (ctor : Name) (cvj cvT : ConstantVal) (caps : IndCaps) : Bool :=
+  caps.eta && caps.etaCtor == ctor && cvj.levelParams == cvT.levelParams && ctor != andIntroName
 
-/-- **Stamp a rule's two rescue bits at install** — the one place the
-K and η-rescue conditions are decided.  Every rule is stored
-through this (the pinned basis blocks, the installer's generated
-rules, the projection functions):
-the reduction then reads `RecRule.k`/`RecRule.eta` and re-derives
-nothing, and the environment invariant `RecCtorsStored` records that a
-set bit is the lookup's own verdict. -/
-def recRuleBits (find? : Name → Option ConstantInfo)
-    (rl : RecRule) : RecRule :=
-  { rl with k := recRuleKOf find? rl.ctor,
-            eta := recRuleEtaOf find? rl.ctor }
-
-@[simp] theorem recRuleBits_ctor (find? : Name → Option ConstantInfo)
-    (rl : RecRule) : (recRuleBits find? rl).ctor
-      = rl.ctor := rfl
-
-@[simp] theorem recRuleBits_rhs (find? : Name → Option ConstantInfo)
-    (rl : RecRule) : (recRuleBits find? rl).rhs
-      = rl.rhs := rfl
-
-@[simp] theorem recRuleBits_nfields (find? : Name → Option ConstantInfo)
-    (rl : RecRule) : (recRuleBits find? rl).nfields
-      = rl.nfields := rfl
-
-@[simp] theorem recRuleBits_ctorParams (find? : Name → Option ConstantInfo)
-    (rl : RecRule) :
-    (recRuleBits find? rl).ctorParams = rl.ctorParams := rfl
-
-@[simp] theorem recRuleBits_fire (find? : Name → Option ConstantInfo)
-    (rl : RecRule) : (recRuleBits find? rl).fire
-      = rl.fire := rfl
-
-@[simp] theorem recRuleBits_k (find? : Name → Option ConstantInfo)
-    (rl : RecRule) : (recRuleBits find? rl).k
-      = recRuleKOf find? rl.ctor := rfl
-
-@[simp] theorem recRuleBits_eta (find? : Name → Option ConstantInfo)
-    (rl : RecRule) : (recRuleBits find? rl).eta
-      = recRuleEtaOf find? rl.ctor := rfl
-
-@[simp] theorem map_ctor_recRuleBits (find? : Name → Option ConstantInfo)
-    (rs : List RecRule) :
-    (rs.map (recRuleBits find?)).map (·.ctor) = rs.map (·.ctor) := by
-  simp [List.map_map, Function.comp_def]
-
-/-- Is a recursor K-flagged?  The stored bit of its single rule
-(`RecRule.k`, computed at the block's install by `recRuleKOf`); the
-official kernel reads `recursor_val::is_k()` here in just the same
-way. -/
-def recRuleK (rules : List RecRule) : Bool :=
-  match rules with
-  | [rl] => rl.k
-  | _ => false
+/-- What `etaRescueOk` says. -/
+theorem etaRescueOk_inv {ctor : Name} {cvj cvT : ConstantVal} {caps : IndCaps}
+    (h : etaRescueOk ctor cvj cvT caps = true) :
+    caps.eta = true ∧ caps.etaCtor = ctor ∧ cvj.levelParams = cvT.levelParams := by
+  simp only [etaRescueOk, Bool.and_eq_true, beq_iff_eq] at h
+  exact ⟨h.1.1.1, h.1.1.2, h.1.2⟩
 
 /-- The level and constructor-parameter comparands a firing rule's
 checks compare the major's constructor levels and parameters against:
@@ -913,8 +891,9 @@ name and its parameters are the recursor's leading arguments; for a
 auxiliary recursor's type was generated from, `auxRuleFire`), at the
 recursor's level instantiation and (for the parameters) instantiated at
 the recursor's leading-argument spine (the stored pins live in the
-`rP`-binder prefix context; index arguments never occur in them). -/
-def recFireComparands (rl : RecRule) (lps : List Name)
+`rP`-binder prefix context; index arguments never occur in them); a
+`.levels` rule's levels are stored and its parameters a `.plain` rule's. -/
+def recFireComparands (rl : RecRule) (cnP : Nat) (lps : List Name)
     (us : List Level) (cvjLps : List Name) (args : List Expr)
     (rP : Nat) : List Level × List Expr :=
   match rl.fire with
@@ -924,7 +903,9 @@ def recFireComparands (rl : RecRule) (lps : List Name)
        (p.instantiateLevelParams lps us))
   | .plain =>
     (cvjLps.map fun p => Level.subst lps us (.param p),
-     args.take rl.ctorParams)
+     args.take cnP)
+  | .levels lvls =>
+    (lvls.map (Level.subst lps us), args.take cnP)
 
 /-- **The type of a `.proj` node at a tower-backed entry** (task #175
 S1): the stored body `F_i[p⃗ ↦ bvars, f_j ↦ .proj T j (bvar 0)]`,

@@ -1,7 +1,7 @@
 module
 
 public import ConLeche.Model.Inductives.BlockRep
-public import ConLeche.Model.Inductives.StoredShapes
+public import ConLeche.Model.Inductives.DeclaredShapes
 import ConLeche.Semantics.Kit
 public section
 
@@ -20,7 +20,7 @@ hole holding the tuple's family, curried).
 This file proves it for a uniform block from its representation
 (`BlockModelAt`) and what the stages record of its constructors
 (`BlockHoleFacts`: their reading facts, the stored field shape facts
-`StoredFieldShapes`, and the telescopes' lengths): the clause
+`DeclaredFieldShapes`, and the telescopes' lengths): the clause
 (`BlockModelAt.toLfp`) takes
 `maps`, `acc`, `fibre`, `leaf`, `mkZero`, `mkInj` from the representation
 and `ctor` at the stored fit the hole fit at the carrier is.
@@ -69,12 +69,12 @@ representation: every constructor's reading facts, the stored field
 shape facts, and the lengths of the parameter telescope and of the
 result index readings. -/
 structure BlockHoleFacts (m : EnvModel V env) (d : BlockData V) (lps : List Name) : Prop where
-  facts : ∀ c, c < d.N → ∀ j cA, (d.ctorsM c)[j]? = some cA → BlockCtorRead m d lps c j cA
+  facts : ∀ c, c < d.N → ∀ j ctor, (d.ctorsM c)[j]? = some ctor → BlockCtorRead m d lps c j ctor
   /-- the stored field shape facts: the fields with holes against the
   stored field readings, the members' leaves at the model (the ONE
   interface every reading of the fields' shape goes through) -/
   shapes : ∀ ψ c, c < d.N → ∀ j, j < (d.ctorsM c).length →
-    StoredFieldShapes V d.k d.nP (d.w ψ) d.nIdxAt (fun t => m.acval (d.memberName t) ψ)
+    DeclaredFieldShapes V d.k d.nP (d.w ψ) d.nIdxAt (fun t => m.acval (d.memberName t) ψ)
       (d.params ψ).reverse (d.absF ψ c j) ((d.Fss c ψ).getD j [])
   lenP : ∀ ψ, (d.params ψ).length = d.nP
   /-- every member's own parameter telescope: `nP` long, satisfied where

@@ -63,7 +63,7 @@ namespace ConLeche
   -- compares the container's family at the index tuple, and a partial
   -- application is a function, whose graph does not grow with its values.
   -- A field's domain is a type, so a checked constructor never has one.
-  let ni ← nestInstType ctx (ctx.hiAt prog.length) ⟨n, us, args.take q.1⟩
+  let ni ← nestInstType ctx ops env (ctx.hiAt prog.length) ⟨n, us, args.take q.1⟩
   unless args.length == q.1 + ni.1 do
     throw (.invalid "nested positivity: type expected (a container instance that is not \
       fully applied)")
@@ -96,7 +96,7 @@ namespace ConLeche
         match nestHoleAt ctx prog i with
         | some h =>
           if args.all (fun x => !x.nestOcc ctx.names ctx.nP hi) &&
-              args.length + h.key.ds.length == nestArity ctx h.key.cname then
+              args.length == h.nIdx then
             return (if i < ctx.hiAt 0 then
                 (if kb == 0 then .recursive (i - ctx.nP) else .reflexive (i - ctx.nP))
               else .inProgress, w, st)

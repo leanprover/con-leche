@@ -50,152 +50,6 @@ def Expr.constsResolveF (fe : FEnv) : Expr → Bool
       body.constsResolveF fe
   | .proj s _ e => (fe.find? s).isSome && e.constsResolveF fe
 
-/-! ### `constsResolveF`, memoized (task #210 Part B)
-
-Every direct-install stage asks it of the block's types; a tree walk
-does not finish on a DAG-shared field type (task #215's
-`tower_struct`).  Swapped in by `@[csimp]` (the arrangement of
-`ConLeche/Kernel/ExprOps.lean`): kernel-checked, no trust point, the
-pure walk stays the spec.  Keyed by the node, dropped after each call
-(the answer depends on `fe`); the cached checker's `constsResolveFC`
-keeps its cross-call memo on top. -/
-
-/-- The memo's invariant: every recorded answer is the real one. -/
-def CRFMemoInv (fe : FEnv) (memo : Std.HashMap Expr Bool) : Prop :=
-  ∀ (k : Expr) (r : Bool), memo[k]? = some r → r = k.constsResolveF fe
-
-theorem CRFMemoInv.empty {fe : FEnv} : CRFMemoInv fe {} := by
-  intro k r h; simp at h
-
-theorem CRFMemoInv.insert {fe : FEnv} {memo : Std.HashMap Expr Bool}
-    (hm : CRFMemoInv fe memo) {e : Expr} {r : Bool} (heq : r = e.constsResolveF fe) :
-    CRFMemoInv fe (memo.insert e r) := by
-  intro k r' hk
-  rw [Std.HashMap.getElem?_insert] at hk
-  split at hk
-  · rename_i hbeq
-    cases hk
-    rw [← eq_of_beq hbeq]
-    exact heq
-  · exact hm k r' hk
-
-/-- Memoized `constsResolveF`. -/
-def Expr.constsResolveFGo (fe : FEnv) (memo : Std.HashMap Expr Bool) :
-    Expr → Bool × Std.HashMap Expr Bool
-  | .bvar i => ((Expr.bvar i).constsResolveF fe, memo)
-  | .sort u => ((Expr.sort u).constsResolveF fe, memo)
-  | .lit l => ((Expr.lit l).constsResolveF fe, memo)
-  | .const n us => ((Expr.const n us).constsResolveF fe, memo)
-  | e =>
-    match memo[e]? with
-    | some r => (r, memo)
-    | none =>
-      let (r, memo) : Bool × Std.HashMap Expr Bool :=
-        match e with
-        | .fvar _ ty => constsResolveFGo fe memo ty
-        | .app f a =>
-          let (b₁, memo) := constsResolveFGo fe memo f
-          let (b₂, memo) := constsResolveFGo fe memo a
-          (b₁ && b₂, memo)
-        | .lam ty body =>
-          let (b₁, memo) := constsResolveFGo fe memo ty
-          let (b₂, memo) := constsResolveFGo fe memo body
-          (b₁ && b₂, memo)
-        | .forallE ty body =>
-          let (b₁, memo) := constsResolveFGo fe memo ty
-          let (b₂, memo) := constsResolveFGo fe memo body
-          (b₁ && b₂, memo)
-        | .letE ty val body =>
-          let (b₁, memo) := constsResolveFGo fe memo ty
-          let (b₂, memo) := constsResolveFGo fe memo val
-          let (b₃, memo) := constsResolveFGo fe memo body
-          (b₁ && b₂ && b₃, memo)
-        | .proj s _ sub =>
-          let (b, memo) := constsResolveFGo fe memo sub
-          ((fe.find? s).isSome && b, memo)
-        | e => (e.constsResolveF fe, memo)
-      (r, memo.insert e r)
-
-/-- **The memoized walk is `constsResolveF`.** -/
-theorem Expr.constsResolveFGo_spec {fe : FEnv} :
-    ∀ (e : Expr) (memo : Std.HashMap Expr Bool), CRFMemoInv fe memo →
-      (constsResolveFGo fe memo e).1 = e.constsResolveF fe ∧
-        CRFMemoInv fe (constsResolveFGo fe memo e).2 := by
-  intro e
-  induction e with
-  | bvar i => intro memo hm; exact ⟨rfl, hm⟩
-  | sort u => intro memo hm; exact ⟨rfl, hm⟩
-  | const n us => intro memo hm; exact ⟨rfl, hm⟩
-  | lit l => intro memo hm; exact ⟨rfl, hm⟩
-  | fvar i ty ih =>
-    intro memo hm
-    rw [constsResolveFGo]
-    split
-    · rename_i r hhit
-      exact ⟨(hm _ _ hhit).symm ▸ rfl, hm⟩
-    · obtain ⟨h1, h2⟩ := ih memo hm
-      refine ⟨by simp [constsResolveF, h1], ?_⟩
-      exact h2.insert (by simp [constsResolveF, h1])
-  | app a b iha ihb =>
-    intro memo hm
-    rw [constsResolveFGo]
-    split
-    · rename_i r hhit
-      exact ⟨(hm _ _ hhit).symm ▸ rfl, hm⟩
-    · obtain ⟨h1, h2⟩ := iha memo hm
-      obtain ⟨h3, h4⟩ := ihb _ h2
-      refine ⟨by simp [constsResolveF, h1, h3], ?_⟩
-      exact h4.insert (by simp [constsResolveF, h1, h3])
-  | lam ty body iht ihb =>
-    intro memo hm
-    rw [constsResolveFGo]
-    split
-    · rename_i r hhit
-      exact ⟨(hm _ _ hhit).symm ▸ rfl, hm⟩
-    · obtain ⟨h1, h2⟩ := iht memo hm
-      obtain ⟨h3, h4⟩ := ihb _ h2
-      refine ⟨by simp [constsResolveF, h1, h3], ?_⟩
-      exact h4.insert (by simp [constsResolveF, h1, h3])
-  | forallE ty body iht ihb =>
-    intro memo hm
-    rw [constsResolveFGo]
-    split
-    · rename_i r hhit
-      exact ⟨(hm _ _ hhit).symm ▸ rfl, hm⟩
-    · obtain ⟨h1, h2⟩ := iht memo hm
-      obtain ⟨h3, h4⟩ := ihb _ h2
-      refine ⟨by simp [constsResolveF, h1, h3], ?_⟩
-      exact h4.insert (by simp [constsResolveF, h1, h3])
-  | letE ty val body iht ihv ihb =>
-    intro memo hm
-    rw [constsResolveFGo]
-    split
-    · rename_i r hhit
-      exact ⟨(hm _ _ hhit).symm ▸ rfl, hm⟩
-    · obtain ⟨h1, h2⟩ := iht memo hm
-      obtain ⟨h3, h4⟩ := ihv _ h2
-      obtain ⟨h5, h6⟩ := ihb _ h4
-      refine ⟨by simp [constsResolveF, h1, h3, h5], ?_⟩
-      exact h6.insert (by simp [constsResolveF, h1, h3, h5])
-  | proj s i sub ih =>
-    intro memo hm
-    rw [constsResolveFGo]
-    split
-    · rename_i r hhit
-      exact ⟨(hm _ _ hhit).symm ▸ rfl, hm⟩
-    · obtain ⟨h1, h2⟩ := ih memo hm
-      refine ⟨by simp [constsResolveF, h1], ?_⟩
-      exact h2.insert (by simp [constsResolveF, h1])
-
-/-- The executed `constsResolveF` (one memoized DAG walk). -/
-def Expr.constsResolveFFast (fe : FEnv) (e : Expr) : Bool :=
-  (constsResolveFGo fe {} e).1
-
-@[csimp] theorem Expr.constsResolveF_eq_constsResolveFFast :
-    @Expr.constsResolveF = @Expr.constsResolveFFast := by
-  funext fe e
-  exact (constsResolveFGo_spec e {} CRFMemoInv.empty).1.symm
-
 /-! ## Indexed guard twins (same result as the `Env` versions under
 `mkFEnv`; agreement lemmas in `ConLeche/Verify/CheckerF.lean`) -/
 
@@ -233,7 +87,7 @@ def natOpStoredOkF (fe : FEnv) (n : Name) : Bool :=
 /-- `stdAxiomOk` through the index. -/
 def stdAxiomOkF (fe : FEnv) (cv : ConstantVal) : Bool :=
   if cv.name = propextName then
-    decide (fe.find? eqName = some eqA) &&
+    (fe.find? eqName).isSome &&
     (match fe.find? iffName with
      | some (.indInfo cvI _) => ConstantVal.matchesPin cvI iffA.toConstantVal
      | _ => false) &&
@@ -242,7 +96,7 @@ def stdAxiomOkF (fe : FEnv) (cv : ConstantVal) : Bool :=
        ConstantVal.matchesPin cvIi iffIntroA.toConstantVal
      | _ => false) &&
     (match fe.find? iffRecName with
-     | some (.recInfo cvIr 4 4 _) =>
+     | some (.recInfo cvIr 4 4 _ _) =>
        ConstantVal.matchesPin cvIr iffRecA.toConstantVal
      | _ => false) &&
     ConstantVal.matchesPin cv propextA
@@ -256,7 +110,7 @@ def stdAxiomOkF (fe : FEnv) (cv : ConstantVal) : Bool :=
        ConstantVal.matchesPin cvNi nonemptyIntroA.toConstantVal
      | _ => false) &&
     (match fe.find? nonemptyRecName with
-     | some (.recInfo cvNr 3 3 _) =>
+     | some (.recInfo cvNr 3 3 _ _) =>
        ConstantVal.matchesPin cvNr nonemptyRecA.toConstantVal
      | _ => false) &&
     ConstantVal.matchesPin cv choiceA
@@ -280,7 +134,10 @@ def reduceStoredOkF (fe : FEnv) (c : Name) : Bool :=
 
 /-- `reduceElemOk` through the index. -/
 def reduceElemOkF (fe : FEnv) (c : Name) : Bool :=
-  if c = reduceNatName then decide (fe.find? natName = some natA)
+  if c = reduceNatName then
+    match fe.find? natName with
+    | some (.indInfo cvN _) => ConstantVal.matchesPin cvN natA.toConstantVal
+    | _ => false
   else
     match fe.find? boolName with
     | some (.indInfo cvB _) => ConstantVal.matchesPin cvB boolCvA
@@ -289,7 +146,7 @@ def reduceElemOkF (fe : FEnv) (c : Name) : Bool :=
 /-- `ofReduceAxOk` through the index. -/
 def ofReduceAxOkF (fe : FEnv) (cv : ConstantVal) : Bool :=
   let c := ofReduceOp cv.name
-  decide (fe.find? eqName = some eqA) &&
+  (fe.find? eqName).isSome &&
   reduceElemOkF fe c &&
   reduceStoredOkF fe c &&
   ConstantVal.matchesPin cv (ofReducePinA cv.name)
@@ -303,7 +160,7 @@ def reducePinGuardF (fe : FEnv) (c : Name) : Bool :=
 /-- `divModEnvGuard` through the index. -/
 def divModEnvGuardF (fe2 : FEnv) (c : Name) : Bool :=
   natOpGuardF fe2 c && (natOpDeps c).all (natOpStoredOkF fe2) &&
-  fe2.find? eqName == some eqA &&
+  (fe2.find? eqName).isSome &&
   (match fe2.find? boolTrueName with
     | some ci => ci.toConstantVal.type == .const boolName []
     | none => false) &&
@@ -360,11 +217,13 @@ variable {m : Type → Type} [Monad m] [MonadExceptOf CheckError m]
 
 /-- `checkConstantVal` through the index. -/
 def checkConstantValF (ops : CheckerOps m) (fe : FEnv)
-    (cv : ConstantVal) : m Unit := do
+    (cv : ConstantVal) (allowOp : Bool := false) : m Unit := do
   if (fe.find? cv.name).isSome then
     throw (.invalid s!"duplicate declaration {cv.name}")
-  if reservedBasisNames.contains cv.name then
-    throw (.invalid s!"reserved basis name {cv.name}")
+  if natOpName cv.name && !allowOp then
+    throw (.invalid s!"a certified Nat operation's name, not a definition: {cv.name}")
+  unless litShapeOk (.axiomInfo cv) do
+    throw (.notImplemented s!"a declaration at a literal's name with another shape ({cv.name})")
   unless Name.nodup cv.levelParams do
     throw (.invalid s!"duplicate universe parameters in {cv.name}")
   unless cv.type.looseBVarsBounded 0 do
@@ -374,7 +233,7 @@ def checkConstantValF (ops : CheckerOps m) (fe : FEnv)
   unless cv.type.allLevelParamsDefined cv.levelParams do
     throw (.invalid s!"undeclared universe parameter in type of {cv.name}")
   unless cv.type.constsResolveF fe do
-    throw (unresolvedConstsErrorL (strLitSupportedF fe) s!"type of {cv.name}" cv.type)
+    throw (unresolvedConstsErrorL (strLitStoredF fe) s!"type of {cv.name}" cv.type)
   let stype ← ops.inferType fe.env 0 cv.type
   let _u ← ops.ensureSort fe.env 0 stype
 

@@ -26,6 +26,7 @@ namespace ConLeche.PropWhen
 
 /-! ## Soundness of the readout -/
 
+
 private theorem beq_zero_and (x y : Nat) :
     ((x == 0) && (y == 0)) = (Max.max x y == 0) := by
   cases hx : x == 0 <;> cases hy : y == 0 <;> simp_all <;> omega
@@ -55,6 +56,47 @@ theorem zeronessOf_sound (φ : Name → Nat) :
 end ConLeche.PropWhen
 
 namespace ConLeche.Level
+
+/-- `zeroWhereZero`'s reading. -/
+theorem zeroWhereZero_sound {s u : Level} (h : Level.zeroWhereZero s u = true)
+    (φ : Name → Nat) (hs : Level.eval φ s = 0) : Level.eval φ u = 0 := by
+  have hsh := PropWhen.zeronessOf_sound φ s
+  have huh := PropWhen.zeronessOf_sound φ u
+  rw [hs] at hsh
+  unfold Level.zeroWhereZero at h
+  generalize Level.zeronessOf s = ws at h hsh
+  generalize Level.zeronessOf u = wu at h huh
+  cases ws with
+  | never => exact nomatch hsh
+  | ifAllZero ps =>
+    cases wu with
+    | never => exact nomatch h
+    | ifAllZero qs =>
+      have hq : (qs.all fun n => φ n == 0) = true := by
+        rw [List.all_eq_true] at h ⊢
+        intro n hn
+        have hps : (ps.all fun n => φ n == 0) = true := hsh
+        rw [List.all_eq_true] at hps
+        exact hps n (by simpa using h n hn)
+      have : (Level.eval φ u == 0) = true := huh ▸ hq
+      simpa using this
+
+/-- A level zero at every valuation is seen to be: its zero-ness datum needs no
+parameter to vanish. -/
+theorem isAlwaysZero_of_eval {s : Level} (h : ∀ ψ : Name → Nat, Level.eval ψ s = 0) :
+    s.isAlwaysZero = true := by
+  have hh : ∀ ψ : Name → Nat, (Level.zeronessOf s).holds ψ = true := fun ψ => by
+    rw [PropWhen.zeronessOf_sound, h ψ]; rfl
+  unfold Level.isAlwaysZero
+  generalize Level.zeronessOf s = pw at hh
+  cases pw with
+  | never => exact nomatch hh (fun _ => 0)
+  | ifAllZero ps =>
+    cases ps with
+    | nil => rfl
+    | cons p ps =>
+      have := hh (fun _ => 1)
+      simp [PropWhen.holds] at this
 
 open ConLeche.PropWhen
 

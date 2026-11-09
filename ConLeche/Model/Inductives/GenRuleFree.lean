@@ -476,9 +476,9 @@ theorem ihParts_erase {g : ClassGen} {t tele : Nat} {w w' : Expr} {d d' : Nat}
 class and the stream's constructor. -/
 theorem classCtorRun_unique {mode : ConLeche.CheckMode} {F : Nat} {env : Env}
     {p : ConLeche.BlockShape} {formerTys : List Expr} {rd : ConLeche.ClassRead}
-    {Ms : List ConLeche.TargetMajor} {c : Nat} {cA : ConstantVal × Nat} {x x' : ClassCtor}
-    (C : ConLeche.ClassCtorRun mode F env p formerTys rd Ms c cA x)
-    (C' : ConLeche.ClassCtorRun mode F env p formerTys rd Ms c cA x') : x = x' := by
+    {Ms : List ConLeche.TargetMajor} {c : Nat} {ctor : ConstantVal × Nat} {x x' : ClassCtor}
+    (C : ConLeche.ClassCtorRun mode F env p formerTys rd Ms c ctor x)
+    (C' : ConLeche.ClassCtorRun mode F env p formerTys rd Ms c ctor x') : x = x' := by
   have he0 : C.e0 = C'.e0 := by
     have h1 := C.he0; have h2 := C'.he0
     rw [C.hE] at h1; rw [C'.hE] at h2

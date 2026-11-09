@@ -75,15 +75,15 @@ open ConLeche (FEnv BlockShape TargetMajor RecShape CheckMode)
 section Pin
 
 variable {mode : CheckMode} {F : Nat} {fe : FEnv} {p : BlockShape} {nested : Bool}
-  {block : List ConstantInfo} {cvTas : List ConstantVal}
-  {ctorsAs : List (List (ConstantVal × Nat))}
+  {block : List ConstantInfo} {formers : List ConstantVal}
+  {memberCtors : List (List (ConstantVal × Nat))}
   {out : List (ConstantVal × TargetMajor × List Expr)}
 
 /-- The recomputed constructor at a stored rule is the stored one. -/
 theorem tgtCtorOf_at {out : List (ConstantVal × TargetMajor × List Expr)} {j : Nat}
     {r : ConstantVal × List Expr × Nat × List (ConstantVal × Nat)}
-    (hr : (tgtRs out)[j]? = some r) {i : Nat} {cA : ConstantVal × Nat}
-    (hcA : r.2.2.2[i]? = some cA) : tgtCtorOf out j i = cA := by
+    (hr : (tgtRs out)[j]? = some r) {i : Nat} {ctor : ConstantVal × Nat}
+    (hctor : r.2.2.2[i]? = some ctor) : tgtCtorOf out j i = ctor := by
   simp only [tgtRs, List.getElem?_map] at hr
   cases ho : out[j]? with
   | none => rw [ho] at hr; exact nomatch hr
@@ -91,8 +91,8 @@ theorem tgtCtorOf_at {out : List (ConstantVal × TargetMajor × List Expr)} {j :
     rw [ho] at hr
     obtain rfl := Option.some.inj hr
     simp only [tgtCtorOf, tgtMajor, List.getD_eq_getElem?_getD, ho, Option.getD_some]
-    simp only at hcA
-    rw [hcA, Option.getD_some]
+    simp only at hctor
+    rw [hctor, Option.getD_some]
 
 end Pin
 

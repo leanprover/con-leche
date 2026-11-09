@@ -35,10 +35,10 @@ variable (mode : CheckMode)
 
 /-- The pure instantiation, at an arbitrary fuel. -/
 def fueledOps (F : Nat) : CheckerOps CheckM where
-  inferType env d e := inferTypeCore mode env F d e
-  isDefEq env d a b := isDefEqCore mode env F d a b
-  ensureSort env d e := ensureSortCore mode env F d e
-  whnf env d e := ConLeche.whnf mode env F d e
+  inferType env d e := inferTypeCore mode false env F d e
+  isDefEq env d a b := isDefEqCore mode false env F d a b
+  ensureSort env d e := ensureSortCore mode false env F d e
+  whnf env d e := ConLeche.whnf mode false env F d e
 
 /-- The pure instantiation, at the standard fuel. -/
 def pureOps : CheckerOps CheckM := fueledOps mode checkFuel
@@ -54,14 +54,13 @@ positively detected unsupported feature, never a malformed stream.
 Anything else is an unknown constant, and rejects with the message
 unchanged.  `where_` names the slot, e.g. `"type of Foo"`.
 
-`Expr.mentionsConst` is the same walk `constsResolve` just ran (the
-`.proj` struct name included) and is memoized by `@[csimp]`
-(`ConLeche/Kernel/Inductives/StructParts.lean`), so a DAG-shared term
-does not unfold here.  The companion `unknownConstError`
+`Expr.mentionsAnyConst` at the one name is the same walk `constsResolve`
+just ran (the `.proj` struct name included); the cached driver runs its
+memoized twin (`unresolvedConstsErrorLC`, `ConLeche/Cached/CheckerC.lean`).  The companion `unknownConstError`
 (`ConLeche/Kernel/Core.lean`) decides the same question inside
 inference, which runs after this guard. -/
 def unresolvedConstsError (where_ : String) (e : Expr) : CheckError :=
-  if e.mentionsConst sorryAxName then
+  if e.mentionsAnyConst [sorryAxName] then
     .notImplemented s!"use of the sorryAx axiom in {where_}"
   else .invalid s!"unknown constant in {where_}"
 
@@ -101,12 +100,15 @@ variable {m : Type → Type} [Monad m] [MonadExceptOf CheckError m]
 
 /-- Checks common to all declarations: fresh name, well-formed universe
 parameters, and a type that is a type and mentions only declared
-parameters. -/
-def checkConstantVal (ops : CheckerOps m) (env : Env) (cv : ConstantVal) : m Unit := do
+parameters.  `allowOp` is a definition's: only it may take a certified operation's name. -/
+def checkConstantVal (ops : CheckerOps m) (env : Env) (cv : ConstantVal)
+    (allowOp : Bool := false) : m Unit := do
   if (env.find? cv.name).isSome then
     throw (.invalid s!"duplicate declaration {cv.name}")
-  if reservedBasisNames.contains cv.name then
-    throw (.invalid s!"reserved basis name {cv.name}")
+  if natOpName cv.name && !allowOp then
+    throw (.invalid s!"a certified Nat operation's name, not a definition: {cv.name}")
+  unless litShapeOk (.axiomInfo cv) do
+    throw (.notImplemented s!"a declaration at a literal's name with another shape ({cv.name})")
   unless Name.nodup cv.levelParams do
     throw (.invalid s!"duplicate universe parameters in {cv.name}")
   unless cv.type.looseBVarsBounded 0 do
@@ -116,89 +118,9 @@ def checkConstantVal (ops : CheckerOps m) (env : Env) (cv : ConstantVal) : m Uni
   unless cv.type.allLevelParamsDefined cv.levelParams do
     throw (.invalid s!"undeclared universe parameter in type of {cv.name}")
   unless cv.type.constsResolve env do
-    throw (unresolvedConstsErrorL (strLitSupported env) s!"type of {cv.name}" cv.type)
+    throw (unresolvedConstsErrorL (strLitStored env) s!"type of {cv.name}" cv.type)
   let stype ← ops.inferType env 0 cv.type
   let _u ← ops.ensureSort env 0 stype
-
-/-- Open the first `n` `∀`-binders at fresh free variables `0..n-1`
-(each fvar's type is the binder domain, instantiated with the earlier
-fvars).  Returns the fvars and the opened body. -/
-def openPisAtFvars : Nat → Expr → Nat → Option (List Expr × Expr)
-  | 0, e, _ => some ([], e)
-  | n + 1, .forallE dom body, i =>
-    let fv : Expr := .fvar i dom
-    match openPisAtFvars n (body.instantiate1 fv) (i + 1) with
-    | some (fvs, e) => some (fv :: fvs, e)
-    | none => none
-  | _ + 1, _, _ => none
-
-/-- Core of `openPisAtFvarsF`: `acc` holds the already-created fvars,
-innermost binder first.  Computes
-`openPisAtFvars n (e.instantiateList acc) i` whenever `e` raw-strips
-`n` `∀`-binders (`openPisAtFvarsFGo_sound`), `none` otherwise —
-one `instantiateList` pass per domain instead of one whole-telescope
-`instantiate1` pass per binder. -/
-def openPisAtFvarsFGo (acc : List Expr) :
-    Nat → Expr → Nat → Option (List Expr × Expr)
-  | 0, e, _ => some ([], e.instantiateList acc)
-  | n + 1, .forallE dom body, i =>
-    let fv : Expr := .fvar i (dom.instantiateList acc)
-    match openPisAtFvarsFGo (fv :: acc) n body (i + 1) with
-    | some (fvs, e) => some (fv :: fvs, e)
-    | none => none
-  | _ + 1, _, _ => none
-
-/-- One-pass `openPisAtFvars` (equal to it: `openPisAtFvarsF_eq`; the
-fallback covers telescopes whose binders only appear after
-substitution). -/
-def openPisAtFvarsF (n : Nat) (e : Expr) (i : Nat) :
-    Option (List Expr × Expr) :=
-  match openPisAtFvarsFGo [] n e i with
-  | some r => some r
-  | none => openPisAtFvars n e i
-
-open Expr in
-theorem openPisAtFvarsFGo_sound :
-    ∀ (n : Nat) (e : Expr) (i : Nat) (acc : List Expr)
-      {r : List Expr × Expr},
-      openPisAtFvarsFGo acc n e i = some r →
-      openPisAtFvars n (e.instantiateList acc) i = some r
-  | 0, e, i, acc, r, h => by
-    simp only [openPisAtFvarsFGo, Option.some.injEq] at h
-    simp only [openPisAtFvars, ← h]
-  | n + 1, .forallE dom body, i, acc, r, h => by
-    simp only [openPisAtFvarsFGo] at h
-    split at h
-    case _ fvs e' hgo =>
-      have ih := openPisAtFvarsFGo_sound n body (i + 1)
-        (Expr.fvar i (dom.instantiateList acc) :: acc) hgo
-      rw [instantiateList_cons] at ih
-      simp only [instantiateList, openPisAtFvars, ih]
-      exact h
-    case _ => exact nomatch h
-
-open Expr in
-theorem openPisAtFvarsF_eq (n : Nat) (e : Expr) (i : Nat) :
-    openPisAtFvarsF n e i = openPisAtFvars n e i := by
-  unfold openPisAtFvarsF
-  match h : openPisAtFvarsFGo [] n e i with
-  | some r =>
-    have := openPisAtFvarsFGo_sound n e i [] h
-    rw [instantiateList_nil] at this
-    exact this.symm
-  | none => rfl
-
-/-- **Every `openPisAtFvars` runs as `openPisAtFvarsF`**: the
-sequential definition rewrites the whole remaining body once per
-binder (`instantiate1`), quadratic in binders × body — the recursor stage
-opens each (auxiliary) recursor's type, `mI + 1`
-binders over a body carrying every motive and minor, at every rule.
-The one-pass form instantiates each domain once and the body once.
-Kernel-checked; every proof keeps consuming `openPisAtFvars`. -/
-@[csimp] theorem openPisAtFvars_eq_openPisAtFvarsF :
-    @openPisAtFvars = @openPisAtFvarsF := by
-  funext n e i
-  exact (openPisAtFvarsF_eq n e i).symm
 
 /-- Unwrap an optional value or fail with the given error (the
 `Option`-shaped checks below stay bind-shaped for the verification

@@ -205,7 +205,7 @@ def g4Strict (find? : Name → Option ConstantInfo) (v : Expr) : Nat × Nat :=
   match b.getAppFn with
   | .const r _ =>
     match find? r with
-    | some (.recInfo _ mI _ _) => (if mI < args.size then bit args[mI]! else 0, n)
+    | some (.recInfo _ mI _ _ _) => (if mI < args.size then bit args[mI]! else 0, n)
     | _ => (if natBin14 r && args.size == 2 then bit args[0]! else 0, n)
   | _ => (0, n)
 
@@ -244,7 +244,7 @@ def g4Resolve (P : G4Prog) (c : Name) (us : List Level) : Nat × G4Prog :=
       | some (.ctorInfo cv nP nF) =>
         let (ni, P) := P.nid c
         (1, g4Pis cv.type 0, ni, 0, us.length, 0, .ctor c us nP nF, P)
-      | some (.recInfo cv mI rP rules) =>
+      | some (.recInfo cv mI rP isK rules) =>
         if us.length != cv.levelParams.length || !(Expr.peelPis (mI + 1) cv.type).isSome then
           (5, 0, 0, 0, 0, 0, .neutral, P)
         else
@@ -252,19 +252,19 @@ def g4Resolve (P : G4Prog) (c : Name) (us : List Level) : Nat × G4Prog :=
           let P := rules.foldl (fun P rl =>
             let case3 := match find? rl.ctor with
               | some (.ctorInfo cvj _ _) =>
-                iotaCase3 find? rl cvj (gCmpLevels rl cv.levelParams us cvj.levelParams)
+                gCase3 find? isK cvj (gCmpLevels rl cv.levelParams us cvj.levelParams)
               | _ => true
             let (ni, P) := P.nid rl.ctor
             let (r1, r2, r3, r4, r5, r6) := (P.rules, P.ruleCode, P.rNid, P.rNF, P.rCP, P.rC3)
             let P := { P with rules := #[], ruleCode := #[], rNid := #[], rNF := #[], rCP := #[],
                               rC3 := #[] }
-            { P with rules := r1.push ⟨rl.ctor, rl.nfields, rl.ctorParams, case3, rl.rhs⟩,
+            { P with rules := r1.push ⟨rl.ctor, rl.nfields, (gCtorParams find? rl.ctor), case3, rl.rhs⟩,
                      ruleCode := r2.push 0, rNid := r3.push ni, rNF := r4.push rl.nfields,
-                     rCP := r5.push rl.ctorParams, rC3 := r6.push (if case3 then 1 else 0) }) P
-          let isEta := match rules with | [rl] => rl.eta | _ => false
-          let fl := (if recRuleK rules then 1 else 0) + (if isEta then 2 else 0)
+                     rCP := r5.push (gCtorParams find? rl.ctor), rC3 := r6.push (if case3 then 1 else 0) }) P
+          let isEta := match rules with | [_] => !isK | _ => false
+          let fl := (if isK then 1 else 0) + (if isEta then 2 else 0)
           (2, mI, rP, base, rules.length, fl,
-            .recr cv.levelParams us mI rP base rules.length (recRuleK rules) isEta, P)
+            .recr cv.levelParams us mI rP base rules.length (isK) isEta, P)
       | _ => (5, 0, 0, 0, 0, 0, .neutral, P)
     let (t1, t2, t3, t4, t5, t6, ns) := (P.kTag, P.kCode, P.kArity, P.kSlot, P.kInfo, P.kMap, P.nslots)
     let (u1, u2, u3, u4) := (P.kB, P.kC, P.kD, P.kE)
@@ -312,7 +312,7 @@ def g4Comp : Nat → G4Prog → Expr → Nat × G4Prog
       let (pi, P) := match findProj? sn i with
         | some en =>
           let pj : G4Proj := ⟨en.ctor, i, en.numParams, en.numFields, en.levelParams.length,
-             !(Level.isEquiv en.structSort .zero == some true), en⟩
+             true, en⟩
           let (ni, P) := P.nid en.ctor
           let (q1, q2, q3, q4, q5, q6, q7) := (P.projs, P.pNid, P.pIdx, P.pNP, P.pNF, P.pNl, P.pAlw)
           let P := { P with projs := #[], pNid := #[], pIdx := #[], pNP := #[], pNF := #[],
@@ -863,7 +863,7 @@ def g4Run : Nat → G4Prog → (cel val ev fs argA slots mem mH : Array Nat) →
           if P.kTag[kc]! == 1 && P.kB[kc]! == P.pNid[q]! && idx < P.pNF[q]! &&
               len == np + P.pNF[q]! && len ≤ P.kArity[kc]! && P.kD[kc]! == P.pNl[q]! &&
               (P.pAlw[q]! == 1 || (match P.kInfo[kc]! with
-                | .ctor _ us _ _ => P.projs[q]!.entry.fireOk us
+                | .ctor _ _ _ _ => true
                 | _ => false)) then
             g4Run n P cel val ev fs argA slots mem mH 2 0 0 argA[val[g4X4 v + 2]! + np + idx]! st
           else .abort "proj shape" st
@@ -985,7 +985,7 @@ def ground4BoolCore (find? : Name → Option ConstantInfo)
 
 def ground4Bool (fe : FEnv) (P₀ : G4Prog) (e : Expr) :
     (Option Bool × (Nat × Nat) × String) × G4Prog :=
-  ground4BoolCore fe.find? fe.findProj? (natLitSupportedF fe) (strLitSupportedF fe) P₀ e
+  ground4BoolCore fe.find? fe.findProj? (natLitStoredF fe) (strLitStoredF fe) P₀ e
 
 /-- **The ground shortcut** (task #423, spike; `groundMode ≠ 0`): a
 comparison with `Bool.true` on either side whose other side is closed
@@ -994,11 +994,11 @@ evaluates that side on the ground machine: `Bool.true` answers `true`,
 definitionally equal), anything else (an abort) leaves the comparison
 to the incumbent path (`none`).  Read by `defeqBodyI`
 (`ConLeche/Cached/CoreC.lean`). -/
-def groundShortcut (mode : CheckMode) (fe : FEnv) (P : G3Prog × G4Prog) (a b : Expr) :
+def groundShortcut (eager : Bool) (fe : FEnv) (P : G3Prog × G4Prog) (a b : Expr) :
     Option Bool × (G3Prog × G4Prog) :=
   let t? : Option Expr :=
-    if Expr.isBoolTrue b && (mode.eager || !(Expr.hasFvar a)) then some a
-    else if Expr.isBoolTrue a && (mode.eager || !(Expr.hasFvar b)) then some b
+    if Expr.isBoolTrue b && (eager || !(Expr.hasFvar a)) then some a
+    else if Expr.isBoolTrue a && (eager || !(Expr.hasFvar b)) then some b
     else none
   match t? with
   | none => (none, P)
@@ -1022,16 +1022,16 @@ def groundShortcut (mode : CheckMode) (fe : FEnv) (P : G3Prog × G4Prog) (a b : 
 /-- The ground shortcut reads `fe` only through `find?` and
 `findTable?` (for `ConLeche/Verify/Cached/KnotCongr.lean`). -/
 theorem groundShortcut_congr {fe₁ fe₂ : FEnv} (hfe : fe₁.find? = fe₂.find?)
-    (htb : fe₁.findTable? = fe₂.findTable?) (mode : CheckMode) :
-    groundShortcut mode fe₁ = groundShortcut mode fe₂ := by
+    (htb : fe₁.findTable? = fe₂.findTable?) (eager : Bool) :
+    groundShortcut eager fe₁ = groundShortcut eager fe₂ := by
   have hp : fe₁.findProj? = fe₂.findProj? := by
     funext T i; unfold FEnv.findProj?; rw [htb]
   have hg : groundBool fe₁ = groundBool fe₂ := by
-    funext e; unfold groundBool strLitSupportedF natLitSupportedF; rw [hfe, hp]
-  have hn : natLitSupportedF fe₁ = natLitSupportedF fe₂ := by
-    unfold natLitSupportedF; rw [hfe]
-  have hs : strLitSupportedF fe₁ = strLitSupportedF fe₂ := by
-    unfold strLitSupportedF; rw [hn, hfe]
+    funext e; unfold groundBool strLitStoredF natLitStoredF; rw [hfe, hp]
+  have hn : natLitStoredF fe₁ = natLitStoredF fe₂ := by
+    unfold natLitStoredF; rw [hfe]
+  have hs : strLitStoredF fe₁ = strLitStoredF fe₂ := by
+    unfold strLitStoredF; rw [hn, hfe]
   have hg2 : ground2Bool fe₁ = ground2Bool fe₂ := by
     funext e; unfold ground2Bool; rw [hfe, hp, hn, hs]
   have hg3 : ground3Bool fe₁ = ground3Bool fe₂ := by

@@ -29,7 +29,7 @@ open ConLeche (Env Expr Name Level ConstantInfo ConstantVal BlockShape TargetMaj
 
 universe w
 
-variable {V : Type w} [SetTheory V] {μ : CheckMode}
+variable {V : Type w} [SetTheory V]
 
 theorem stripPis_isSome_of_piCount : ∀ (n : Nat) (e : Expr), n ≤ piCount e →
     (e.stripPis n).isSome = true

@@ -1,23 +1,24 @@
 module
 
 public import ConLeche.Frontend.Stream
-public import ConLeche.Cached.Installed
+public import ConLeche.Cached.Decls
 /- The tests below are EVALUATED, so the constants they name have to be
 reachable from meta code too; a module needed at both levels is imported
 twice. -/
 meta import ConLeche.Frontend.Stream
-meta import ConLeche.Cached.Installed
+meta import ConLeche.Cached.Decls
 
 public section
 
 /-!
 # The serial streaming parse (task #329)
 
-`parseExportStreamS` feeds every read to `chunkStep`, the incomplete
-tail of a read carried into the next.  Its result carries the proof
-that `parseChunks` returns it; what is pinned here is that the IO
-around that proof — the reads, the carried tail — hands the fold the
-bytes of the file and nothing else: on fixtures read at every chunk
+`parseFileS` feeds every read to `chunkStep`, the incomplete tail of a
+read carried into the next, through the IO class's serial fold.  In the
+model of the files that is `parseChunks` of the file's reads (a
+theorem); what is pinned here is that the binary's instance of the fold
+— the reads, the carried tail — hands the step the bytes of the file
+and nothing else: on fixtures read at every chunk
 size from one byte up, the result is the wholesale parse's, verdict,
 line number and records alike.
 -/
@@ -38,7 +39,7 @@ def serialAgrees (path : System.FilePath) : IO Unit := do
   let b ← IO.FS.readBinFile path
   let want := parseSummary (parseBytes b)
   for chunk in [1, 2, 7, 64, 1000, 4096] do
-    let got := parseSummary (← parseExportStreamS path chunk.toUSize).val
+    let got := parseSummary (← (parseFileS path chunk.toUSize : IO _))
     unless got == want do
       throw <| IO.userError s!"{path} at chunk {chunk}: {got.take 200} ≠ {want.take 200}"
 
@@ -58,9 +59,10 @@ def serialAgrees (path : System.FilePath) : IO Unit := do
 -- scan, is `feedChunk`'s (a theorem, `applyScanned_scanChunk`; here
 -- on a value, with the tail position)
 #guard
-  let b := "{\"in\":1,\"str\":{\"pre\":0,\"str\":\"a\"}}\n{\"in\":2,\"str\":{\"pre\":1,".toUTF8
+  let b := ("{\"meta\":{}}\n{\"in\":1,\"str\":{\"pre\":0,\"str\":\"a\"}}\n" ++
+    "{\"in\":2,\"str\":{\"pre\":1,").toUTF8
   match applyScanned .init (scanChunk b) 0, feedChunk .init b 0 0 with
-  | .ok (_, n, t), .ok (_, n', t') => n == 1 && n' == 1 && t == t' && t.toNat == 35
+  | .ok (_, n, t), .ok (_, n', t') => n == 2 && n' == 2 && t == t' && t.toNat == 47
   | _, _ => false
 
 end ConLecheTests

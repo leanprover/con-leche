@@ -1,7 +1,6 @@
 module
 
 public import ConLeche.Kernel.Basis.Names
-public import ConLeche.Kernel.Level
 
 @[expose] public section
 
@@ -13,9 +12,8 @@ the compiler-trust pins are all *raw* `ConstantInfo`s: exactly what an
 export carries for them, which is exactly the toolchain's own
 `Init.Prelude` declaration — binder names and infos
 are not part of an `Expr` (task #205; `piI`/`lmI` mark where the
-signature says `{…}`, for the reader) — with every install-computed
-recursor-rule field at its parse placeholder (`ctorParams := 0`,
-`fire := .plain`).
+signature says `{…}`, for the reader) — with the recursor-rule firing mode at its parse placeholder
+(`fire := .plain`).
 
 Written out with `ConLeche.Expr`'s constructors and `Name.str` chains,
 one such declaration is a single unreadable line.  The helpers below —
@@ -25,9 +23,8 @@ one-to-one, non-abbreviating renaming of those constructors, so a reader can lin
 new notion: every one of them is a `def` whose body is a single `Expr`
 constructor application.
 
-The stored forms are NOT written here: they are computed from these
-raw pins at elaboration time (`#stored_basis`,
-`ConLeche/Kernel/BasisGen.lean`).
+The pins of the block files are what the environment holds at the pin's own
+names (`ConstantInfo.atLps` renames them, `ConLeche/Kernel/Basis.lean`).
 -/
 
 namespace ConLeche
@@ -114,11 +111,14 @@ def ap3 (f a b c : Expr) : Expr := .app (.app (.app f a) b) c
 /-- Quaternary application. -/
 def ap4 (f a b c d : Expr) : Expr := .app (.app (.app (.app f a) b) c) d
 
-/-- A raw iota rule: the install-computed fields (`ctorParams`,
-`fire`, `k`, `eta`) at their parse placeholders, which
-is what the exporter emits and what `#stored_basis` recomputes. -/
+/-- An iota rule: a pin's rule fires plainly, which is what the parser
+makes of an exporter's. -/
 def rule (ctor : Name) (nfields : Nat) (rhs : Expr) : RecRule :=
-  ⟨ctor, nfields, 0, .plain, rhs, false, false⟩
+  ⟨ctor, nfields, .plain, rhs⟩
+
+/-- A quotient eliminator's iota rule: its comparand levels stored. -/
+def ruleAt (ctor : Name) (nfields : Nat) (lvls : List Level) (rhs : Expr) : RecRule :=
+  ⟨ctor, nfields, .levels lvls, rhs⟩
 
 end BasisDSL
 

@@ -203,3 +203,140 @@ theorem openPisAtFvars_length :
 
 
 end ConLeche.Verify
+
+namespace ConLeche
+
+open Expr
+
+/-- `openPisAtFvars` puts the variable it creates for binder `j` at
+index `i + j` — the positional companion of `openPisAtFvars_WScoped`,
+needed wherever a check runs at each binder's *own* frame. -/
+theorem openPisAtFvars_index :
+    ∀ (n : Nat) (e : Expr) (i : Nat) {fvs : List Expr} {body : Expr},
+      openPisAtFvars n e i = some (fvs, body) →
+      ∀ (j : Nat) (x : Expr), fvs[j]? = some x →
+        ∃ ty, x = Expr.fvar (i + j) ty := by
+  intro n
+  induction n with
+  | zero =>
+    intro e i fvs body h j x hx
+    simp only [openPisAtFvars, Option.some.injEq, Prod.mk.injEq] at h
+    rw [← h.1] at hx
+    exact nomatch hx
+  | succ n ih =>
+    intro e i fvs body h j x hx
+    cases e with
+    | forallE dom bodyE =>
+      simp only [openPisAtFvars] at h
+      revert h
+      cases hrec : openPisAtFvars n
+          (bodyE.instantiate1 (.fvar i dom)) (i + 1) with
+      | none => intro h; exact nomatch h
+      | some p =>
+        obtain ⟨fvs', bodyR⟩ := p
+        intro h
+        simp only [Option.some.injEq, Prod.mk.injEq] at h
+        obtain ⟨rfl, rfl⟩ := h
+        cases j with
+        | zero =>
+          simp only [List.getElem?_cons_zero, Option.some.injEq] at hx
+          exact ⟨dom, by rw [← hx, Nat.add_zero]⟩
+        | succ j =>
+          simp only [List.getElem?_cons_succ] at hx
+          obtain ⟨ty', hx'⟩ := ih _ (i + 1) hrec j x hx
+          exact ⟨ty', by rw [hx']; congr 1; omega⟩
+    | bvar _ | fvar _ _ | sort _ | const _ _ | app _ _
+    | lam _ _ | letE _ _ _ | lit _ | proj _ _ _ =>
+      exact nomatch h
+
+/-- Opening a `∀`-telescope at fresh free variables produces variables
+and a body scoped at the extended frame. -/
+theorem openPisAtFvars_WScoped :
+    ∀ (n : Nat) (e : Expr) (i : Nat) {fvs : List Expr} {body : Expr},
+      openPisAtFvars n e i = some (fvs, body) → WScoped i e →
+      (∀ x ∈ fvs, WScoped (i + n) x) ∧ WScoped (i + n) body := by
+  intro n
+  induction n with
+  | zero =>
+    intro e i fvs body h hw
+    simp only [openPisAtFvars, Option.some.injEq, Prod.mk.injEq] at h
+    obtain ⟨rfl, rfl⟩ := h
+    exact ⟨(fun x hx => nomatch hx), hw⟩
+  | succ n ih =>
+    intro e i fvs body h hw
+    cases e with
+    | forallE dom bodyE =>
+      simp only [openPisAtFvars] at h
+      revert h
+      cases hrec : openPisAtFvars n
+          (bodyE.instantiate1 (.fvar i dom)) (i + 1) with
+      | none => intro h; exact nomatch h
+      | some p =>
+        obtain ⟨fvs', bodyR⟩ := p
+        intro h
+        simp only [Option.some.injEq, Prod.mk.injEq] at h
+        obtain ⟨rfl, rfl⟩ := h
+        simp only [WScoped] at hw
+        obtain ⟨hdom, hbody⟩ := hw
+        have hinst : WScoped (i + 1)
+            (bodyE.instantiate1 (.fvar i dom)) :=
+          WScoped.instantiate1 hdom 0 hbody
+        obtain ⟨hfvs', hbody'⟩ := ih _ _ hrec hinst
+        have harith : i + 1 + n = i + (n + 1) := by omega
+        rw [harith] at hfvs' hbody'
+        refine ⟨?_, hbody'⟩
+        intro x hx
+        rcases List.mem_cons.mp hx with rfl | hx
+        · simp only [WScoped]
+          exact ⟨by omega, hdom⟩
+        · exact hfvs' x hx
+    | bvar k => exact nomatch h
+    | fvar a c => exact nomatch h
+    | sort u => exact nomatch h
+    | const c us => exact nomatch h
+    | app f a => exact nomatch h
+    | lam b c => exact nomatch h
+    | letE b c d => exact nomatch h
+    | lit l => exact nomatch h
+    | proj s k e => exact nomatch h
+
+
+/-- Each opened variable's annotation is scoped at its own depth. -/
+theorem openPisAtFvars_typeWScoped :
+    ∀ (n : Nat) {e : Expr} {d : Nat} {fvs : List Expr} {o : Expr},
+      openPisAtFvars n e d = some (fvs, o) → Expr.WScoped d e →
+      ∀ (i : Nat) (x : Expr), fvs[i]? = some x → Expr.WScoped (d + i) (Expr.fvarTypeD x)
+  | 0, _, _, _, _, hop, _, i, x, hx => by
+    simp only [openPisAtFvars, Option.some.injEq, Prod.mk.injEq] at hop
+    obtain ⟨rfl, -⟩ := hop
+    exact nomatch hx
+  | n + 1, e, d, fvs, o, hop, hw, i, x, hx => by
+    match e, hop with
+    | .forallE dom body, hop =>
+      simp only [openPisAtFvars] at hop
+      split at hop
+      · next fvs' o' hop' =>
+        simp only [Option.some.injEq, Prod.mk.injEq] at hop
+        obtain ⟨rfl, rfl⟩ := hop
+        have hw' : Expr.WScoped d dom ∧ Expr.WScoped d body := by
+          simpa only [Expr.WScoped] using hw
+        cases i with
+        | zero =>
+          obtain rfl : Expr.fvar d dom = x := by simpa using hx
+          show Expr.WScoped (d + 0) dom
+          rw [Nat.add_zero]; exact hw'.1
+        | succ i =>
+          simp only [List.getElem?_cons_succ] at hx
+          have hb : Expr.WScoped (d + 1) (body.instantiate1 (.fvar d dom)) :=
+            Expr.WScoped.instantiate1_gen (v := .fvar d dom) (d := d + 1)
+              (by simp only [Expr.WScoped]; exact ⟨by omega, hw'.1⟩) 0
+              (Expr.WScoped.mono (by omega) hw'.2)
+          have := openPisAtFvars_typeWScoped n hop' hb i x hx
+          rw [show d + (i + 1) = d + 1 + i from by omega]
+          exact this
+      · exact nomatch hop
+    | .bvar _, hop | .fvar _ _, hop | .sort _, hop | .const _ _, hop | .app _ _, hop
+    | .lam _ _, hop | .letE _ _ _, hop | .lit _, hop | .proj _ _ _, hop =>
+      simp [openPisAtFvars] at hop
+
+end ConLeche

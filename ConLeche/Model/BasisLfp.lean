@@ -65,6 +65,7 @@ fibre. -/
     (flds : Nat → List Term) : LfpDatum V where
   names := [nm]
   k := 1
+  telescope := fun _ => none
   N := 1
   w := w
   params := fun _ => []
@@ -439,6 +440,7 @@ collapses to the point, where `a` and `b` are the point too. -/
 @[expose] noncomputable def eqLfp (nm cn : Name) (lv : (Name → Nat) → Nat) : LfpDatum V where
   names := [nm]
   k := 1
+  telescope := fun _ => none
   N := 1
   w := fun _ => 0
   params := fun ψ => [.sort (lv ψ), .bvar 0]
@@ -598,12 +600,12 @@ theorem eqLfp_clause {acval : Name → (Name → Nat) → Term}
 /-- `Eq`'s former reads as its hole telescope (M4). -/
 theorem eqLfp_reads {acval : Name → (Name → Nat) → Term} {env : ConLeche.Env}
     {cv : ConLeche.ConstantVal} {caps : ConLeche.IndCaps}
-    (hf : env.find? nm = some (.indInfo cv caps))
+    (hf : env.find? nm = some (.indInfo cv caps)) (hfl : ConLeche.formerDefHeaded cv = false)
     (hty : ∀ ψ, denote acval env ψ 0 cv.type = some
       (.pi (.sort (lv ψ)) (.pi (.bvar 0) (.pi (.bvar 1) (.sort 0))))) :
     LfpReads acval env (eqLfp (V := V) nm cn lv) := fun mm hmm => by
   obtain rfl : mm = 0 := Nat.lt_one_iff.mp hmm
-  exact ⟨cv, caps, hf, fun ψ => ⟨[.sort (lv ψ), .bvar 0, .bvar 1],
+  exact ⟨cv, caps, hf, ⟨fun _ => rfl, .inl ⟨rfl, hfl⟩⟩, fun ψ => ⟨[.sort (lv ψ), .bvar 0, .bvar 1],
     hty ψ, rfl⟩⟩
 
 /-- **`Eq`'s capability records** (`LfpCaps`): its sort is zero everywhere,
@@ -611,7 +613,8 @@ so its zero-ness datum must hold everywhere; it has one constructor. -/
 theorem eqLfp_caps {env : ConLeche.Env}
     {cv : ConLeche.ConstantVal} {caps : ConLeche.IndCaps}
     (hf : env.find? nm = some (.indInfo cv caps))
-    (hz : ∀ ψ : Name → Nat, caps.sortZ.holds ψ = true)
+    (hz : ∀ ψ : Name → Nat, (ConLeche.formerZ cv).holds ψ = true)
+    (hlen : caps.nparams + caps.nIdx = 3)
     (hC : ∃ cv' nPc nF, env.find? cn = some (.ctorInfo cv' nPc nF) ∧
       ∃ (bs : List ConLeche.Expr) (es : List ConLeche.Expr),
         cv'.type.stripPis (nPc + nF)
@@ -620,7 +623,7 @@ theorem eqLfp_caps {env : ConLeche.Env}
     LfpCaps env (eqLfp (V := V) nm cn lv) := by
   refine ⟨fun mm hmm => ?_, fun c hc j _ => ?_⟩
   · obtain rfl : mm = 0 := Nat.lt_one_iff.mp hmm
-    exact ⟨cv, caps, hf, fun ψ _ => hz ψ, fun _ => rfl⟩
+    exact ⟨cv, caps, hf, fun ψ _ => hz ψ, fun _ => hlen.symm⟩
   · obtain rfl : c = 0 := Nat.lt_one_iff.mp hc
     exact hC
 
@@ -643,11 +646,11 @@ theorem lfp0_reads {acval : Name → (Name → Nat) → Term} {env : ConLeche.En
     {cv : ConLeche.ConstantVal} {caps : ConLeche.IndCaps} {nm : Name} {w : (Name → Nat) → Nat}
     {F : V → V} {inj : Nat → List V → V} {n : Nat}
     {cn : Nat → Name} {flds : Nat → List Term}
-    (hf : env.find? nm = some (.indInfo cv caps))
+    (hf : env.find? nm = some (.indInfo cv caps)) (hfl : ConLeche.formerDefHeaded cv = false)
     (hty : ∀ ψ, denote acval env ψ 0 cv.type = some (.sort (w ψ))) :
     LfpReads acval env (lfp0 nm w F inj n cn flds) := fun mm hmm => by
   obtain rfl : mm = 0 := Nat.lt_one_iff.mp hmm
-  exact ⟨cv, caps, hf, fun ψ => ⟨[], hty ψ, rfl⟩⟩
+  exact ⟨cv, caps, hf, ⟨fun _ => rfl, .inl ⟨rfl, hfl⟩⟩, fun ψ => ⟨[], hty ψ, rfl⟩⟩
 
 /-- **A one-member unparameterized unindexed block's constructors read as
 their hole telescopes** (M2): the canonical abstraction has no parameter,
@@ -694,8 +697,8 @@ theorem lfp0_caps {env : ConLeche.Env} {cv : ConLeche.ConstantVal} {caps : ConLe
     {nm : Name} {w : (Name → Nat) → Nat} {F : V → V}
     {inj : Nat → List V → V} {n : Nat} {cn : Nat → Name} {flds : Nat → List Term}
     (hf : env.find? nm = some (.indInfo cv caps))
-    (hz : ∀ ψ : Name → Nat, w ψ = 0 → caps.sortZ.holds ψ = true)
-    (hk : caps.ruleK = true → n = 1)
+    (hz : ∀ ψ : Name → Nat, w ψ = 0 → (ConLeche.formerZ cv).holds ψ = true)
+    (hlen : caps.nparams + caps.nIdx = 0)
     (hC : ∀ j, j < n → ∃ cv' nPc nF, env.find? (cn j) = some (.ctorInfo cv' nPc nF) ∧
       ∃ (bs : List ConLeche.Expr) (es : List ConLeche.Expr),
         cv'.type.stripPis (nPc + nF)
@@ -704,7 +707,7 @@ theorem lfp0_caps {env : ConLeche.Env} {cv : ConLeche.ConstantVal} {caps : ConLe
     LfpCaps env (lfp0 (V := V) nm w F inj n cn flds) := by
   refine ⟨fun mm hmm => ?_, fun c hc j hj => ?_⟩
   · obtain rfl : mm = 0 := Nat.lt_one_iff.mp hmm
-    exact ⟨cv, caps, hf, hz, hk⟩
+    exact ⟨cv, caps, hf, hz, fun _ => hlen.symm⟩
   · obtain rfl : c = 0 := Nat.lt_one_iff.mp hc
     exact hC j hj
 

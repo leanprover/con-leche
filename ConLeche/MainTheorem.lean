@@ -3,12 +3,15 @@ module
 import ConLeche.Verify.Cached.MainC
 public import ConLeche.Denotes
 public import ConLeche.Accepts
-public import ConLeche.Frontend.Prelude
-public import ConLeche.Cached.Installed
+import ConLeche.Frontend.Prelude
+import ConLeche.Cached.Decls
 import ConLeche.Model.Denotes
 import ConLeche.Verify.Cached.StreamThm
 import ConLeche.Verify.Frontend.Prepare
 import ConLeche.Verify.Frontend.FileFalse
+public import ConLeche.Driver.Cli
+public import ConLeche.Verify.Frontend.Olean.Files
+import ConLeche.Verify.Driver.Main
 public section
 
 /-!
@@ -16,8 +19,9 @@ public section
 
 What the checker accepts has a model; hence a file that declares a
 theorem of type `False` is rejected — the form a reader can check
-without knowing what an `Env` is.  Those two theorems are all this file
-holds.  The corollary's hypothesis is the file: the chunks the binary
+without knowing what an `Env` is.  Those two theorems, and the main
+corollary lifted to the driver (`main_no_False`, at the end), are all
+this file holds.  The corollary's hypothesis is the file: the chunks the binary
 read are the UTF-8 of `jsonWithTheoremFalse`'s template, ONE way of
 writing a theorem of type `False` into a JSON export.  Its conclusion
 is the binary's accept path itself, erroring: the three pure functions
@@ -35,15 +39,13 @@ every name in them, are in `ConLeche/Challenge.lean`; the reading of
 terms and the notion of model — and `Denotes_functional`, which says a
 term has at most one denotation — in `ConLeche/Denotes.lean`.
 
-* `checkDecls` (`ConLeche/Cached/Installed.lean`) is the declaration
-  fold: it installs every parsed declaration — a definition, theorem
-  or opaque guarded and pushed with its check recorded, everything
-  else checked in full as it is installed — and then checks every
-  recorded declaration against the prefix of the environment it was
-  installed at.  The binary's driver (`Main.lean`) runs this fold with a
-  heartbeat between the steps and returns its environment together
-  with the proof that `checkDecls` returns it
-  (`Cached.fullyChecked_checkDecls`), so the success line is printed
+* `checkDecls` (`ConLeche/Cached/Decls.lean`) is the declaration
+  fold: it checks every parsed declaration in order, each against the
+  environment of the declarations before it, and pushes what the
+  declaration says.  The binary's driver (`ConLeche/Driver/Cli.lean`)
+  runs the same checks independently, against views of an index built
+  from the records, and returns the proof that `checkDecls` accepts
+  (`Cached.checkDecls_of_jobs`), so the success line is printed
   from an accept of `checkDecls` and from nothing else.
 * `Frontend.builtinPreludeE` is the parsed built-in prelude,
   `Frontend.parseChunks` the streaming parse of the file's chunks (the
@@ -73,6 +75,10 @@ term has at most one denotation — in `ConLeche/Denotes.lean`.
   accepted environment, which is all the model tier reads.  The
   shipped `con-leche` binary runs the fold at `natOpPinSets`, the
   variants this toolchain committed.
+* `maxNatSize` is the maximum `Nat` size: the largest `Nat` numeral, in bytes,
+  the fold takes in or computes.  A larger one only ever makes the fold
+  reject, so both statements hold at every `maxNatSize`; the binary runs at
+  128 MiB unless `--max-nat-size` sets another.
 * `SetTheory V` is the set theory the model lives in; the proof works
   for any `V` implementing that interface.
 
@@ -94,10 +100,10 @@ handed (the empty list included: under it every stream that declares
 `Nat.div` declines).  The shipped binary runs the fold at
 `natOpPinSets`. -/
 theorem model_exists (V : Type w) [SetTheory V]
-    (pins : List NatOpPinSet) (ds : Array Declaration) (env : Env)
-    (accepted : checkDecls .verified pins ds = .ok env) :
+    (pins : List NatOpPinSet) (maxNatSize : Nat) (ds : Array Declaration) (env : Env)
+    (accepted : checkDecls .verified pins maxNatSize ds = .ok env) :
     Nonempty (Model V env) := by
-  obtain ⟨m⟩ := Cached.checkDecls_sound (V := V) rfl accepted
+  obtain ⟨m⟩ := Cached.checkDecls_sound (V := V) accepted
   exact ⟨Model.Model.ofEnvModelM m⟩
 
 open Frontend in
@@ -108,17 +114,69 @@ the preparation keeps the record, and a stream holding it is never
 accepted.  At every pin list, as the main theorem: the shipped binary
 runs the fold at `natOpPinSets`. -/
 theorem no_False_declaration (V : Type w) [SetTheory V]
-    (pins : List NatOpPinSet) (chunks : List ByteArray)
+    (pins : List NatOpPinSet) (maxNatSize : Nat) (chunks : List ByteArray)
     (h : jsonWithTheoremFalse chunks) :
     ∃ e, (do
       let pre ← builtinPreludeE
       let r ← parseChunks chunks
       let ds := preparePrelude pre r.decls
-      checkDecls .verified pins ds) = .error e := by
+      checkDecls .verified pins maxNatSize ds) = .error e := by
   refine Except.exists_error_of_not_ok fun env hacc => ?_
   obtain ⟨pre, -, hacc⟩ := exceptBind_ok hacc
   obtain ⟨r, hparse, hcheck⟩ := exceptBind_ok hacc
   obtain ⟨cv, vl, hty, hmem⟩ := Frontend.parseChunks_jsonWithTheoremFalse h hparse
   exact no_False_theorem_accepted V _ cv vl (Frontend.mem_preparePrelude hmem) hty env hcheck
+
+/-! ## `runArgs`, all of `main` but its plumbing, in the IO model (tasks #424, #450)
+
+`main` (`Main.lean`) is `enableAbortOnNonlinear`, then `Driver.runArgs`
+at `IO`, then the flush and the exit with the code `runArgs` returned;
+those few lines are read, not proved.  `runArgs` is generic in the IO
+class `CheckerIO`, the code computed outside its `liftIO` escape.  The
+theorem below is about every outcome of `runArgs` in the model
+`ModelIO`, at the fixed arguments `-- <file>`: the default mode, which
+is `.verified`, the default worker count; nothing is said about
+`--help` or the other flags.  It is a statement about the binary's
+exit code under the assumption `ConLeche/Frontend/CheckerIO.lean`
+states and argues for: the binary's file operations give the model's
+answers on one snapshot, the actions passed to `CheckerIO.liftIO` do
+not change what those see and do not end the process with exit code 0,
+and Lean's compiler and runtime run the code as written — so that a run
+of the binary that exits 0 is one of the model's outcomes. -/
+
+open Frontend in
+/-- **The main corollary, lifted to the driver.**  On a snapshot where the
+file's bytes are a `jsonWithTheoremFalse` file, no outcome of `runArgs` at
+the arguments `-- <file>` is an exit 0 (`ModelIO.CanGive`: from whatever
+files the run finds open). -/
+theorem main_no_False (V : Type w) [SetTheory V] {file : String} {fs : FS} {b : ByteArray}
+    (hb : fs.file file = some b) (hF : jsonWithTheoremFalse [b]) :
+    ¬ ModelIO.CanGive (Driver.runArgs ["--", file]) fs 0 := by
+  rintro ⟨_, _, h⟩
+  obtain ⟨pre, b', r, env, hp, hb', hr, hc⟩ := Driver.runArgs_accept h
+  obtain rfl : b = b' := Option.some.inj (hb.symm.trans hb')
+  obtain ⟨e, he⟩ := no_False_declaration V natOpPinSets Cached.maxNatSizeDefault [b] hF
+  simp [hp, hr, hc, bind, Except.bind] at he
+
+open Frontend in
+/-- **The main corollary, on `.olean` files.**  On a snapshot where the private view of a module
+of the closure of `root`, by the specification, holds a theorem of type `False`, no outcome of
+`runArgs` at the arguments `--olean --search-path=<dirs> -- <root>` is an exit 0.  At these
+arguments every constant of the closure is checked. -/
+theorem main_oleans_no_False (V : Type w) [SetTheory V] {dirs root : String} {r m : Name} {fs : FS}
+    {d : Olean.ModDecoded} {c : Olean.CEntryF Name Expr} {v : Expr} {all : List Name}
+    (hr : Olean.parseModName root = some r)
+    (hcl : Olean.InClosure (Driver.searchPathOf dirs) fs #[r] m)
+    (hv : Olean.ViewOf (Driver.searchPathOf dirs) fs m d)
+    (hmem : c ∈ d.constants) (hk : c.kind = .thm v all) (hty : c.type = .const falseName []) :
+    ¬ ModelIO.CanGive (Driver.runArgs ["--olean", "--search-path=" ++ dirs, "--", root]) fs 0 := by
+  rintro ⟨_, _, h⟩
+  obtain ⟨pre, rd, env, -, hrd, hchk⟩ := Driver.runArgs_olean_accept h
+  have hroots : (#[root].filterMap Olean.parseModName) = #[r] := by simp [hr]
+  rw [hroots] at hrd
+  obtain ⟨_, _, hrd⟩ := hrd
+  obtain ⟨v', hd⟩ := Olean.readOleans_thm hrd hcl hv hmem hk
+  exact no_False_theorem_accepted V _ _ _
+    (Array.mem_map_of_mem (f := Cached.fillDecl _) (Frontend.mem_prepareD hd)) hty env hchk
 
 end ConLeche

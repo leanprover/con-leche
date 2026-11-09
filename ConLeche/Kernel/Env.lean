@@ -1,7 +1,6 @@
 module
 
 public import ConLeche.Kernel.Expr
-public import ConLeche.Kernel.PropWhen
 
 @[expose] public section
 
@@ -40,30 +39,22 @@ startup and threaded as configuration, never re-read at runtime.
   function gates in `ConLeche/Cached/CoreC.lean` (DESIGN.md, "CORET
   RETIRED").
 
-**The mode is the cores' only parameter** (task #185, 2026-09-06).
-The configuration record that stood between the mode and the
-shipped cores from task #172 B2 to task #185 is gone: what it
-carried is the function `verifiedChecks` below, a `match` on the two
-constructors, so each read reduces by `rfl` at either mode — the
-record's `rfl`-eliminability argument, at the enum itself.
+**The mode is the public interface** (task #185, 2026-09-06; task
+#452): what it carries is the function `verifiedChecks` below, a
+`match` on the two constructors, so each read reduces by `rfl` at
+either mode.
 
 The two values are spelled `--verified` and `--trusted` on the command
 line, and they say what the modes are FOR rather than which artefact
 proves them.
 
-**The eager variants** (task #353): `.verifiedEager` and `.trustedEager`
-are the two modes with the official kernel's `m_eager_reduce` flag set
-— the knot's *eager tower* (`CoreFns.defeqE`, `coreKnot`), which runs
-the comparison of an `eagerReduce _ _` argument's type with its
-domain and everything beneath it.  The flag is read at two places of
-definitional equality (`CheckMode.eager`: the `Bool.true` shortcut and
-the lazy-delta literal fold fire with free variables present), and
-`verifiedChecks` is the base mode's.  No command line selects them. -/
+The cores' other parameter is not the mode's: the official kernel's
+`m_eager_reduce` flag, an argument `eager : Bool` of the knot (tasks
+#353, #452; see `coreKnot`).  It is internal to the core, and every
+entry point outside the knot runs at `eager := false`. -/
 inductive CheckMode where
   | verified
   | trusted
-  | verifiedEager
-  | trustedEager
   deriving DecidableEq, Repr, Inhabited
 
 /-- Are the *verified* mode's extra checks enabled — the work the
@@ -74,49 +65,20 @@ reference kernel does not do it?  Two kinds of work read it:
 * checks the rules tier's premises rest on (`ConLeche/Rules`): the
   λ-rule's codomain-sort check (`inferBody`'s `.lam` clause), the η
   body-type comparison and the λ/λ body-type comparison of
-  `defeqLams`.  The mode-parametric spec (`ConLeche/Kernel/Core.lean`)
+  `defeqBinders`.  The mode-parametric spec (`ConLeche/Kernel/Core.lean`)
   reads it at the same sites the cached core does.
 * the certificate families, which the spec runs unconditionally: the
   K and `And` rescues' proof-irrelevance run, ι's case-3 parameter
   comparison and its case-3 telescope and index certificates.  The
   cached core reads them through `certAtI`
   (`ConLeche/Cached/CoreC.lean`); the simulation tower
-  (`ConLeche/Verify/Cached/*`), stated under
-  `hμ : mode.verifiedChecks = true`, sees through them.  The `.trusted`
+  (`ConLeche/Verify/Cached/*`), stated at `.verified`, sees through
+  them.  The `.trusted`
   instance of the cached-vs-spec simulation is false, deliberately: the
   trusted core skips what the spec runs. -/
 def CheckMode.verifiedChecks : CheckMode → Bool
-  | .trusted => false
-  | .trustedEager => false
-  | _ => true
-
-/-- **Is this the `--verified` mode itself** — `.verified`, not its eager
-tower (task #353)?  The model tier (`ConLeche/Model/*`) is stated at
-the top-level mode a run is started in, under `hμ : μ.isVerified = true`
-(`CheckMode.eq_verified`); the simulation tower and the bridges, which
-also run inside the eager tower, are stated under the weaker
-`verifiedChecks`. -/
-def CheckMode.isVerified : CheckMode → Bool
   | .verified => true
-  | _ => false
-
-/-- The official kernel's `m_eager_reduce` flag (task #353): set while
-an `eagerReduce _ _` argument's type is compared with its domain
-(official `infer_app`, `type_checker.cpp`), for that comparison and
-everything it calls.  Read by `defeqBody` (the `Bool.true` shortcut
-ignores free variables) and `lazyDeltaReduction` (the Nat-literal
-fold ignores free variables). -/
-@[inline] def CheckMode.eager : CheckMode → Bool
-  | .verifiedEager => true
-  | .trustedEager => true
-  | _ => false
-
-/-- The mode with the eager flag set: the eager tower's mode
-(`coreKnot`'s `defeqE` slot). -/
-def CheckMode.toEager : CheckMode → CheckMode
-  | .verified => .verifiedEager
-  | .trusted => .trustedEager
-  | m => m
+  | .trusted => false
 
 /-- Data common to all constants: name, universe parameters, type. -/
 structure ConstantVal where
@@ -147,43 +109,33 @@ constructor's levels or parameters.
   domain applies the container to (`auxRuleFire`) — `lvls` are levels
   over the recursor's level parameters, `pins` expressions in the
   recursor's rule-prefix context, instantiated at the redex's levels and
-  leading arguments. -/
+  leading arguments.
+* `.levels lvls` — a quotient eliminator's rule: the comparands are `lvls`,
+  levels over the recursor's level parameters, and the recursor's leading
+  arguments.  A level parameter is local to its constant, so a stream's
+  `Quot.lift` and `Quot.mk` need not share names; this rule reads no name of
+  the constructor's. -/
 inductive RecRuleFire where
   | plain
   | nested (lvls : List Level) (pins : List Expr)
+  | levels (lvls : List Level)
   deriving DecidableEq, Repr, Inhabited
 
 /-- One iota rule of a recursor: applying the recursor (with its
 parameters, motives and minors) to a `ctor`-headed major premise reduces
 to `rhs` applied to the parameters, motives, minors and the constructor's
-`nfields` fields.  `ctorParams` (the constructor's parameter count) and
-`fire` (the plain/nested firing mode) and the two rescue
-bits `k`/`eta` are *computed at install* from the stored constructor,
-its inductive's capabilities and the recursor type — input rules carry
-the parse placeholders `0`/`.plain`/`false`; reduction reads only the
-installed values, never re-deriving them per fire. -/
+`nfields` fields: the record's three fields, as Lean's `RecursorRule`
+has them.  `fire` (the plain/nested firing mode) is read off the
+recursor's record, the group alone (`storedFire`); input rules carry the
+parse placeholder `.plain`.  The constructor's parameter count is the
+constructor's, looked up where the rule fires. -/
 structure RecRule where
   ctor : Name
   nfields : Nat
-  /-- The constructor's parameter count (install-computed; parse
-  placeholder `0`). -/
-  ctorParams : Nat
   /-- The firing mode (install-computed, parse placeholder `.plain`):
   `.plain` at a member major, `.nested` at an outside one. -/
   fire : RecRuleFire
   rhs : Expr
-  /-- **The K bit** (install-computed, parse placeholder `false`;
-  official `recursor_val::is_k`): this rule is its recursor's only
-  one, its constructor has no fields, and that constructor's
-  inductive is stored with the K capability — the standing condition
-  of `majorToCtor`'s K rescue, decided once at the block's install
-  instead of at every recursor application. -/
-  k : Bool := false
-  /-- **The η-rescue bit** (install-computed, parse placeholder
-  `false`): this rule is its recursor's only one and its constructor
-  is the η constructor of a stored η-capable inductive — the standing
-  condition of `majorToCtor`'s structure-η rescue. -/
-  eta : Bool := false
   deriving DecidableEq, Repr, Inhabited
 
 /-- Reducibility hint of a definition, mirroring Lean's
@@ -229,11 +181,16 @@ inductive BasisKind where
   | eqK | natK | emptyK | falseK | quotK
   deriving DecidableEq, Repr, Inhabited
 
-/-- Definitional capabilities of a stored inductive type, recorded at
-install: structural eta for its (single-constructor) values, unit-like
-collapse (all inhabitants definitionally equal), and rule K for its
-recursor.  The pinned basis blocks carry pinned capabilities. -/
+/-- Definitional capabilities of a stored inductive type that its block
+alone decides, read off the block's records at its check: structure-likeness
+for its (single-constructor) values, unit-like collapse (all inhabitants
+definitionally equal), and the family's names and counts.  The family's
+result sort is on no record, so what depends on it is computed where it is
+read, from the former's type (`formerResSort`, `formerNeverZero`). -/
 structure IndCaps where
+  /-- Official's `is_non_rec_structure`: one constructor, no index, a block that
+  is not recursive.  A proposition may have it: a proof is the point, and the
+  η laws speak of what is not. -/
   eta : Bool := false
   /-- The single constructor the eta law reconstructs through
   (meaningful only when `eta`). -/
@@ -246,15 +203,6 @@ structure IndCaps where
   /-- The parameter count of the unit-like family (meaningful only
   when `unitlike`). -/
   unitParams : Nat := 0
-  ruleK : Bool := false
-  /-- **The family's result-sort zero-ness datum** (install-computed
-  from the stored type; the default `ifAllZero []` reads
-  "zero at every valuation", which no rescue passes).  The structure-η
-  rescue fires only where the official kernel's `is_never_zero` holds
-  of the *instantiated* result sort, and this datum decides that at a
-  use by one level substitution (`capsNeverZero`) instead of a walk
-  down the family's type at every rescue. -/
-  sortZ : PropWhen := .ifAllZero []
   /-- **The block's members** (official's `all`): the formers installed
   together with this one, in block
   order, itself included.  Read by nested positivity alone — a container
@@ -269,8 +217,12 @@ structure IndCaps where
   container WITHOUT constructors (`nestContainer`), whose parameter count
   no constructor record carries. -/
   nparams : Nat := 0
+  /-- **The family's index count** (official's `inductive_val.nindices`), read
+  off the block's recursor record: how many binders past the parameters the
+  reading of the family's sort walks (`formerSortLoop`). -/
+  nIdx : Nat := 0
   /-- **The family's constructors, in declaration order** (official's
-  `inductive_val.cnstrs`): recorded at install (uniform: the member's
+  `inductive_val.cnstrs`): recorded at its check (uniform: the member's
   constructors; basis: the pin's).  Read by nested positivity alone
   (`nestContainer`): a container's constructors are looked up by name,
   never by a scan of the environment.  `Quot` records none (it is no
@@ -292,8 +244,9 @@ loose `bvar`s, the subject at `bvar 0`, the earlier fields already
 spelled as projections of the subject), instantiated at a use by ONE
 `instantiateList` along the subject type's arguments and the subject
 (`ProjEntry.typeAt`); reduced by the generic structural rule `proj_i
-(ctor p⃗ x⃗) ↦ x_i`, guarded at possibly-Prop instances by the stored
-`guards[i]`/`structSort` levels.  The bodies are taken from the
+(ctor p⃗ x⃗) ↦ x_i`.  What official's `infer_proj` requires of a
+`Prop`-declared structure is checked at the use (`projGuardRows`,
+task #480): nothing about it is stored.  The bodies are taken from the
 stored constructor type by substitution alone (`structProjBodies`)
 — no inference, no pins: a slot with no legal instantiation
 simply fails the guard at every use.
@@ -311,24 +264,13 @@ structure ProjTable where
   ctor : Name
   /-- its field count -/
   numFields : Nat
-  /-- the parent's result sort -/
-  structSort : Level
   /-- per field, the projection's result-type body (see above) -/
   bodies : Array Expr
-  /-- per field, **the projection's `Prop` guard level**: the
-  projected field's sort joined with the sorts of the earlier fields
-  that a later field's type uses — exactly the sorts the official
-  `infer_proj` requires to be `Prop` when projecting from a
-  propositional structure (task #175 W4c/O4, `structProjGuards`); the
-  infer branch checks it at every use of a `Prop`-declared
-  structure. -/
-  guards : List Level
   deriving DecidableEq, Repr, Inhabited
 
 /-- **One projection-table entry** — the per-field VIEW of a
 `ProjTable` (`ProjTable.entry`), what `Env.findProj? T i` returns:
-the table's data at field `idx`.  `body` is `bodies[idx]` and
-`fieldSort` is `guards[idx]`. -/
+the table's data at field `idx`.  `body` is `bodies[idx]`. -/
 structure ProjEntry where
   structName : Name
   idx : Nat
@@ -339,16 +281,13 @@ structure ProjEntry where
   /-- the projection's result-type body, scoped at `numParams + 1`
   (see `ProjTable.bodies`) -/
   body : Expr
-  /-- the projection's `Prop` guard level (see `ProjTable.guards`) -/
-  fieldSort : Level
-  structSort : Level
   deriving DecidableEq, Repr, Inhabited
 
 /-- The per-field view of a table at field `i` (meaningful for `i <
 numFields`). -/
 def ProjTable.entry (tbl : ProjTable) (i : Nat) : ProjEntry :=
   ⟨tbl.structName, i, tbl.levelParams, tbl.numParams, tbl.ctor, tbl.numFields,
-    tbl.bodies.getD i default, tbl.guards.getD i .zero, tbl.structSort⟩
+    tbl.bodies.getD i default⟩
 
 /-- Information stored about an accepted constant. -/
 inductive ConstantInfo where
@@ -359,14 +298,16 @@ inductive ConstantInfo where
   | indInfo (val : ConstantVal) (caps : IndCaps)
   /-- A basis constructor (whnf-stuck; the iota target). -/
   | ctorInfo (val : ConstantVal) (numParams numFields : Nat)
-  /-- A basis recursor with its iota rules.  Only the two sums the
+  /-- A recursor with its iota rules and the record's K flag (official's
+  `recursor_val::is_k`, read off the stream's record; the block's job
+  checks it).  Only the two sums the
   firing path reads are stored: `majorIdx` (= numParams + numMotives +
   numMinors + numIndices, the major premise's argument position) and
   `rulePrefix` (= numParams + numMotives + numMinors, the length of the
   argument prefix a rule's rhs is applied to).  The individual counts
-  are consumed at install time only and are not stored. -/
+  are consumed at its check only and are not stored. -/
   | recInfo (val : ConstantVal) (majorIdx rulePrefix : Nat)
-      (rules : List RecRule)
+      (isK : Bool) (rules : List RecRule)
   deriving DecidableEq, Repr, Inhabited
 
 /-- **Which of the four quotient constants a `#QUOT` record declares**
@@ -401,16 +342,6 @@ inductive Declaration where
   official still unfolds theorems until
   https://github.com/leanprover/lean4/pull/14896.) -/
   | opaqueDecl (val : ConstantVal) (value : Expr)
-  /-- **The fold's own record for "install the pinned basis block"**
-  (task #293).  No frontend function produces one: the decoder emits
-  the file's records, `preparePrelude` reorders them, and it is
-  `checkDecl`'s `.indDecl` arm that RECOGNISES a block as one of the
-  five pinned ones (`basisPinHit`, up to `ConstantInfo.canon`) and its
-  `.quotDecl` arm that recognises the quotient package, both of which
-  install through this kind.  It stays a constructor of `Declaration`
-  because the install and every proof about it are written over the
-  kind. -/
-  | basisDecl (kind : BasisKind)
   /-- An inductive block: type formers, constructors and recursors,
   with **the parameter count the stream DECLARES** (task #228).
   Installed by the inductive installer (`checkBlock`).
@@ -431,14 +362,7 @@ inductive Declaration where
   one `quotDecl` per record: the constant the file declares and the
   slot it declares it at, and nothing else.  It mirrors official's
   `Declaration.quotDecl`, which is likewise the record's own kind and
-  not a basis decision.
-
-  What reaches the FOLD under this constructor is a quotient record
-  that is **not** the pinned package: `preparePrelude`
-  (`ConLeche/Frontend/Prepare.lean`) retags a record matching its pin
-  to `basisDecl .quotK`, so `checkDecl`'s arm here is the mismatch —
-  a positively detected unsupported feature, the decline the parser
-  used to issue. -/
+  not a basis decision. -/
   | quotDecl (kind : QuotKind) (val : ConstantVal)
   deriving DecidableEq, Repr, Inhabited
 
@@ -501,7 +425,7 @@ namespace ConstantInfo
 
 def toConstantVal : ConstantInfo → ConstantVal
   | .axiomInfo v | .defnInfo v _ _ | .thmInfo v => v
-  | .indInfo v _ | .ctorInfo v _ _ | .recInfo v _ _ _ => v
+  | .indInfo v _ | .ctorInfo v _ _ | .recInfo v _ _ _ _ => v
 
 def name (c : ConstantInfo) : Name := c.toConstantVal.name
 
@@ -512,15 +436,11 @@ namespace Declaration
 /-- **The names a declaration record declares**: the hoist's name index
 and `preparePrelude`'s lookup of the stream's own copy of a prelude
 declaration read it (`ConLeche/Frontend/{NatOpGround,Prepare}.lean`).
-A quotient record declares the one constant it carries — the other
-three constants of the pinned block are other records' — and a
-`basisDecl`, which no frontend function produces (it is the fold's own
-record for "install the pinned block"), declares the pin's. -/
+A quotient record declares the one constant it carries. -/
 def names : Declaration → List Name
   | .axiomDecl cv | .defnDecl cv .. | .thmDecl cv .. | .opaqueDecl cv .. => [cv.name]
   | .quotDecl _ cv => [cv.name]
   | .indDecl block _ => block.map (·.name)
-  | .basisDecl _ => []
 
 end Declaration
 

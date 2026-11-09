@@ -1,5 +1,7 @@
 module
 
+import ConLeche.Verify.Denote.IndFrame
+import ConLeche.Model.OpenedCtx
 public import ConLeche.Verify.Inductives.RecStage
 import ConLeche.Verify.Inductives.BlockRecRun
 import ConLeche.Model.Inductives.BlockRecRead
@@ -58,7 +60,7 @@ open ConLeche (Env Expr Name Level ConstantVal ConstantInfo)
 
 universe w
 
-variable {V : Type w} [SetTheory V] {μ : CheckMode}
+variable {V : Type w} [SetTheory V]
 
 /-! ## The identification: the stored type's reading IS a Π-tower
 
@@ -107,40 +109,39 @@ recursor type READS, its reading is GRADED, and it IS the Π-tower
 readings and the conclusion's reading at the full depth.  This is what
 the recursor model consumes: `hTyE` at `RecTy ψ c := blockRecTyAV …`,
 `rds`/`concl` at the two named spellings. -/
-theorem recStage_tyPis {envC : Env} (hμ : μ.isVerified = true)
-    (mpC : EnvModelM V μ envC) {p : ConLeche.BlockParts}
-    {cvTas : List ConstantVal}
+theorem recStage_tyPis {envC : Env}
+    (mpC : EnvModelM V envC) {p : ConLeche.BlockShape}
     {rs : List (ConstantVal × List Expr × Nat × List (ConstantVal × Nat))} {F : Nat}
-    (h : ConLeche.RecStageG μ F envC p cvTas rs)
+    (h : ConLeche.RecStageG .verified F envC p rs)
     {i : Nat} {r : ConstantVal × List Expr × Nat × List (ConstantVal × Nat)}
     (hr : rs[i]? = some r) (ψ : Name → Nat) :
     ∃ (fvs : List Expr) (concl : Expr),
-      ConLeche.openPisAtFvars (p.toBlockShape.majorIdxAt i + 1) r.1.type 0
+      ConLeche.openPisAtFvars (p.majorIdxAt i + 1) r.1.type 0
           = some (fvs, concl) ∧
       denote mpC.base2.acval envC ψ 0 r.1.type
           = some (blockRecTyAV mpC.base2.acval envC rs ψ i) ∧
       blockRecTyAV mpC.base2.acval envC rs ψ i
-          = mkPisAV (blockRecRdsAV mpC.base2.acval envC p.toBlockShape rs ψ i)
-              (blockRecConclAV mpC.base2.acval envC p.toBlockShape rs ψ i) ∧
-      (blockRecRdsAV mpC.base2.acval envC p.toBlockShape rs ψ i).length
-          = p.toBlockShape.majorIdxAt i + 1 ∧
+          = mkPisAV (blockRecRdsAV mpC.base2.acval envC p rs ψ i)
+              (blockRecConclAV mpC.base2.acval envC p rs ψ i) ∧
+      (blockRecRdsAV mpC.base2.acval envC p rs ψ i).length
+          = p.majorIdxAt i + 1 ∧
       (∀ (j : Nat) (x : Expr), fvs[j]? = some x →
-        ∃ pd, (blockRecRdsAV mpC.base2.acval envC p.toBlockShape rs ψ i)[j]? = some pd ∧
+        ∃ pd, (blockRecRdsAV mpC.base2.acval envC p rs ψ i)[j]? = some pd ∧
           denote mpC.base2.acval envC ψ j x.fvarTypeD = some pd) ∧
-      denote mpC.base2.acval envC ψ (p.toBlockShape.majorIdxAt i + 1) concl
-          = some (blockRecConclAV mpC.base2.acval envC p.toBlockShape rs ψ i) ∧
+      denote mpC.base2.acval envC ψ (p.majorIdxAt i + 1) concl
+          = some (blockRecConclAV mpC.base2.acval envC p rs ψ i) ∧
       (∀ ρ : Nat → V, WellDenoted V ρ (blockRecTyAV mpC.base2.acval envC rs ψ i)) := by
   obtain ⟨R⟩ := h
   obtain ⟨_, _, -, -, ⟨TE⟩⟩ := R.tyGenAt hr
   have hop := TE.hopen
   have hcv := TE.hcv
-  obtain ⟨_, hru⟩ := constChecked_reads (V := V) hμ mpC hcv
+  obtain ⟨_, hru⟩ := constChecked_reads (V := V) mpC hcv
   obtain ⟨ta, hta, hwd, -⟩ := hru ψ
   obtain rfl : blockRecTyAV mpC.base2.acval envC rs ψ i = ta := blockRecTyAV_eq hr hta
   obtain ⟨pps, b, hst, hb, hlen, hbind⟩ := denote_openPis _ hop hta
-  have hrds : blockRecRdsAV mpC.base2.acval envC p.toBlockShape rs ψ i = pps := by
+  have hrds : blockRecRdsAV mpC.base2.acval envC p rs ψ i = pps := by
     rw [blockRecRdsAV, blockRecTyAV_eq hr hta, hst]; rfl
-  have hcon : blockRecConclAV mpC.base2.acval envC p.toBlockShape rs ψ i = b := by
+  have hcon : blockRecConclAV mpC.base2.acval envC p rs ψ i = b := by
     rw [blockRecConclAV, blockRecTyAV_eq hr hta, hst]; rfl
   refine ⟨TE.fvs, TE.concl, hop, hta, ?_, ?_, ?_, ?_, hwd⟩
   · rw [hrds, hcon]; exact (stripPisAV_eq_mkPis hst).1
@@ -163,29 +164,28 @@ own per-index scoping facts hold
 (`openPisAtFvars_typeWScoped`/`openPisAtFvars_bounded`), and
 `bvarsBelow_of_reading` turns a reading at depth `l` into
 `bvarsBelow l`. -/
-theorem recStage_tyBounds {envC : Env} (hμ : μ.isVerified = true)
-    (mpC : EnvModelM V μ envC) {p : ConLeche.BlockParts}
-    {cvTas : List ConstantVal}
+theorem recStage_tyBounds {envC : Env}
+    (mpC : EnvModelM V envC) {p : ConLeche.BlockShape}
     {rs : List (ConstantVal × List Expr × Nat × List (ConstantVal × Nat))} {F : Nat}
-    (h : ConLeche.RecStageG μ F envC p cvTas rs)
+    (h : ConLeche.RecStageG .verified F envC p rs)
     {i : Nat} {r : ConstantVal × List Expr × Nat × List (ConstantVal × Nat)}
     (hr : rs[i]? = some r) (ψ : Name → Nat) :
-    (∀ l, l < (blockRecRdsAV mpC.base2.acval envC p.toBlockShape rs ψ i).length →
+    (∀ l, l < (blockRecRdsAV mpC.base2.acval envC p rs ψ i).length →
       ConLeche.Term.Term.bvarsBelow l
-        ((blockRecRdsAV mpC.base2.acval envC p.toBlockShape rs ψ i).getD l
+        ((blockRecRdsAV mpC.base2.acval envC p rs ψ i).getD l
           default)) ∧
-    ConLeche.Term.Term.bvarsBelow (blockRecRdsAV mpC.base2.acval envC p.toBlockShape rs ψ i).length
-      (blockRecConclAV mpC.base2.acval envC p.toBlockShape rs ψ i) := by
+    ConLeche.Term.Term.bvarsBelow (blockRecRdsAV mpC.base2.acval envC p rs ψ i).length
+      (blockRecConclAV mpC.base2.acval envC p rs ψ i) := by
   obtain ⟨_, _, -, ⟨TE⟩⟩ := ConLeche.recStageG_tyGen h hr
   have hop := TE.hopen
   have hcv := TE.hcv
-  obtain ⟨_, hru⟩ := constChecked_reads (V := V) hμ mpC hcv
+  obtain ⟨_, hru⟩ := constChecked_reads (V := V) mpC hcv
   obtain ⟨ta, hta, -, -⟩ := hru ψ
   obtain rfl : blockRecTyAV mpC.base2.acval envC rs ψ i = ta := blockRecTyAV_eq hr hta
   obtain ⟨pps, b, hst, hb, hlen, hbind⟩ := denote_openPis _ hop hta
-  have hrds : blockRecRdsAV mpC.base2.acval envC p.toBlockShape rs ψ i = pps := by
+  have hrds : blockRecRdsAV mpC.base2.acval envC p rs ψ i = pps := by
     rw [blockRecRdsAV, blockRecTyAV_eq hr hta, hst]; rfl
-  have hcon : blockRecConclAV mpC.base2.acval envC p.toBlockShape rs ψ i = b := by
+  have hcon : blockRecConclAV mpC.base2.acval envC p rs ψ i = b := by
     rw [blockRecConclAV, blockRecTyAV_eq hr hta, hst]; rfl
   have hws0 : Expr.WScoped 0 r.1.type := Expr.WScoped.of_not_hasFvar hcv.noFvar
   have hlbT : r.1.type.looseBVarsBounded 0 = true := hcv.bounded
@@ -261,13 +261,12 @@ theorem hmem_of_pre {acval : Name → (Name → Nat) → Term} {envC : Env}
 /-- **`blockRecStaged_of`'s `hrd`, end to end**: the reading and the
 grading are the run's (`recStage_tyReads`), the membership is
 the family premise's (`hmem_of_pre`). -/
-theorem hrd_of_pre {envC : Env} (hμ : μ.isVerified = true)
-    (mpC : EnvModelM V μ envC) {p : ConLeche.BlockParts}
-    {cvTas : List ConstantVal}
+theorem hrd_of_pre {envC : Env}
+    (mpC : EnvModelM V envC) {p : ConLeche.BlockShape}
     {rs : List (ConstantVal × List Expr × Nat × List (ConstantVal × Nat))} {F : Nat}
     {acv : Name → (Name → Nat) → Term} {K : Nat} {s : (Name → Nat) → Nat}
     {RecTy : (Name → Nat) → Nat → Term} {eqs : (Name → Nat) → List Term}
-    (h : ConLeche.RecStageG μ F envC p cvTas rs)
+    (h : ConLeche.RecStageG .verified F envC p rs)
     (hK : rs.length = K)
     (hty : ∀ (i : Nat) (r : ConstantVal × List Expr × Nat × List (ConstantVal × Nat)),
       rs[i]? = some r → ∀ ψ : Name → Nat,
@@ -281,6 +280,6 @@ theorem hrd_of_pre {envC : Env} (hμ : μ.isVerified = true)
       denote mpC.base2.acval envC ψ 0 r.1.type = some ta ∧
       (∀ ρ : Nat → V, WellDenotedTy V ρ ta) ∧
       (∀ ρ : Nat → V, interp V ρ (acv r.1.name ψ) ∈ˢ interp V ρ ta) :=
-  hrd_of_mem hμ mpC h (hmem_of_pre hK hty hacv hpre)
+  hrd_of_mem mpC h (hmem_of_pre hK hty hacv hpre)
 
 end ConLeche.Model

@@ -233,9 +233,10 @@ inductive LineRec where
   | level (i : Nat) (r : LevelRec)
   | expr (i : Nat) (r : ExprRec)
   | decl (d : DeclRec)
-  /-- the header record, validated loosely and skipped -/
+  /-- the header record, validated loosely; skipped as the first line,
+  which it must be, malformed on any other (`applyLine`) -/
   | header
-  /-- whitespace only -/
+  /-- whitespace only: malformed (`applyLine`) -/
   | blank
 
 /-! ## The key alphabet -/
@@ -363,7 +364,7 @@ def IdTable.bound (t : @& IdTable α) (i : Nat) : Bool :=
 (`IdTable.markLinear_eq`), which at run time sets the runtime's
 linearity bit on both arrays, so that a copy of either — a push while a
 second reference to the table is alive — panics instead of silently
-copying (`FEnv.markLinear`, `ConLeche/Kernel/FEnv.lean`).  To be
+copying.  To be
 applied where a table is created at run time, never on a closed term
 (the rounds parse marks its own arrays: `round0`, `roundR`). -/
 @[never_extract, noinline]

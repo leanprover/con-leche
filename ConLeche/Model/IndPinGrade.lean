@@ -65,7 +65,7 @@ open ConLeche (CheckMode Env Expr Name Level)
 universe w
 
 variable {V : Type w} [SetTheory V]
-variable {μ : CheckMode} {env : Env} {φ : Name → Nat}
+variable {env : Env} {φ : Name → Nat}
 
 /-! ## The padding element
 

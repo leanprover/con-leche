@@ -54,20 +54,6 @@ theorem _root_.ConLeche.Semantics.WellDenoted.hoist_piTy {Δa : List Term} {A B 
       (cast (WellDenoted_pi V ρ A B) (h ρ hρ)).2.1⟩,
     (Semantics.WellDenoted.hoist_pi (V := V) h).2⟩
 
-/-- The `WellDenoted` application splitter, the hereditary app slot
-included. -/
-theorem _root_.ConLeche.Semantics.WellDenoted.hoist_app {Δa : List Term} {f a : Term}
-    (h : ∀ ρ : Nat → V, Sat V Δa ρ → WellDenoted V ρ (.app f a)) :
-    (∀ ρ : Nat → V, Sat V Δa ρ → WellDenoted V ρ f) ∧
-      (∀ ρ : Nat → V, Sat V Δa ρ → WellDenoted V ρ a) ∧
-      ∀ ρ : Nat → V, Sat V Δa ρ →
-        ∃ (v : Nat) (A : V) (B : V → V),
-          interp V ρ f ∈ˢ piR v A B ∧ interp V ρ a ∈ˢ A ∧
-          (v = 0 → ∀ x, x ∈ˢ A → B x ∈ˢ (univZero : V)) ∧ (v ≠ 0 → IsTy A) :=
-  ⟨fun ρ hρ => (cast (WellDenoted_app V ρ f a) (h ρ hρ)).1,
-    fun ρ hρ => (cast (WellDenoted_app V ρ f a) (h ρ hρ)).2.1,
-    fun ρ hρ => (cast (WellDenoted_app V ρ f a) (h ρ hρ)).2.2⟩
-
 /-! ## The fit-to-application kit -/
 
 theorem wellDenoted_mkAppN_of_fit {ρ : Nat → V} :

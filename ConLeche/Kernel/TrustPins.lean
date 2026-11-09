@@ -30,7 +30,7 @@ toolchain that had the opaques —
 `opaque reduceBool (b : Bool) : Bool := have := trustCompiler; b`,
 whose `have` the conversion zeta-expanded away, leaving `fun b => b` —
 so it is written down here once.  Should a toolchain ever respell the
-opaques, the install-time comparison declines its streams and the
+opaques, the block comparison declines its streams and the
 toolchain matrix (`scripts/natop-matrix.sh`) shows it; no
 generator-side assertion is kept.
 -/

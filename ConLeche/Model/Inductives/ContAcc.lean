@@ -133,7 +133,7 @@ parameters are read at `b` (the frame's depth), with hole-free indices,
 carries the point vacuously and is accessible along the enclosing relation with
 the frame's bound read `dep - b` positions down (it reads parameter
 positions only). -/
-theorem accConcl_of_frameAccOut {μ : ConLeche.CheckMode} (mp : EnvModelM V μ env)
+theorem accConcl_of_frameAccOut (mp : EnvModelM V env)
     {D : LfpDatum V} (hD : D ∈ mp.lfpBlocks) {mm : Nat} (hmm : mm < D.k) {cv : ConstantVal}
     {caps : IndCaps} (hf : env.find? (D.member mm) = some (.indInfo cv caps)) {us : List Level}
     {dep b : Nat} (hbd : b ≤ dep) {ds is : List Expr} {wa : Term}
@@ -212,7 +212,7 @@ parameter count, the container's level parameters distinct, its level
 the walk's), along every frameless accessibility hole relation whose
 pairs satisfy the container's parameter telescope at the key frames, the
 container's carrier is accessible (`FrameAccOut`, at its own member). -/
-@[expose] def KeyAcc {μ : ConLeche.CheckMode} (mp : EnvModelM V μ env) (φ : Name → Nat)
+@[expose] def KeyAcc (mp : EnvModelM V env) (φ : Name → Nat)
     (w : Nat) (ctx : NestCtx) (key : NestKey) : Prop :=
   ∃ D ∈ mp.lfpBlocks, ∃ mm, mm < D.k ∧ D.member mm = key.cname ∧
     ∀ cv caps, env.find? key.cname = some (.indInfo cv caps) →
@@ -230,8 +230,8 @@ container's carrier is accessible (`FrameAccOut`, at its own member). -/
 /-- **A cache hit** (a cached instantiation whose parameters lie below
 every frame hole): the cached accessibility, at the enclosing relation
 seen at the block's own depth, makes the instance accessible. -/
-theorem contHit_acc {μ : ConLeche.CheckMode} (mp : EnvModelM V μ env) {w : Nat}
-    {ctx : NestCtx} (hfind : ∀ n, ctx.find? n = env.find? n) {prog : List NestHole} {dep : Nat}
+theorem contHit_acc (mp : EnvModelM V env) {w : Nat} {F : Nat}
+    {ctx : NestCtx} (hcov : ContCover mp ctx) {prog : List NestHole} {dep : Nat}
     (hhid : ctx.hiAt prog.length ≤ dep) {n : Name} {us : List Level} {ds is : List Expr}
     {wa : Term}
     (hwa : denote mp.base2.acval env φ dep (Expr.mkAppN (.const n us) (ds ++ is)) = some wa)
@@ -241,8 +241,8 @@ theorem contHit_acc {μ : ConLeche.CheckMode} (mp : EnvModelM V μ env) {w : Nat
     (hisC : ∀ isa, DenoteSpine mp.base2.acval env φ dep is isa → ∀ v ∈ isa, ConstOn R v)
     (hdsw : ∀ x ∈ ds, Expr.WScoped (ctx.hiAt prog.length) x ∧ x.looseBVarsBounded 0 = true)
     (hfree : ∀ x ∈ ds, x.fvarB ≤ ctx.hiAt 0) {nI : Nat} {cty : Expr}
-    (hnI : ConLeche.nestInstType (m := CheckM) ctx (ctx.hiAt prog.length) ⟨n, us, ds⟩
-      = .ok (nI, cty))
+    (hnI : ConLeche.nestInstType (m := CheckM) ctx (ConLeche.fueledOps .verified F) env
+      (ctx.hiAt prog.length) ⟨n, us, ds⟩ = .ok (nI, cty))
     (hisl : is.length = nI) (hkp : KeyAcc mp φ w ctx ⟨n, us, ds⟩) :
     AccConcl w ctx prog dep (Expr.mkAppN (.const n us) (ds ++ is))
       (Expr.mkAppN (.const n us) (ds ++ is)) R wa := by
@@ -263,7 +263,7 @@ theorem contHit_acc {μ : ConLeche.CheckMode} (mp : EnvModelM V μ env) {w : Nat
   obtain ⟨dsa, hdsa, -⟩ := DenoteSpine.unlift (m := mp.base2) (φ := φ) hhid
     (fun x hx => (hdsw x hx).1) hsp₁
   -- the index count
-  obtain ⟨-, hids, -⟩ := n2_link mp hD hmm hfind hnI hf hnd hul hlenP hdsw hdsa
+  obtain ⟨-, hids, -⟩ := n2_link mp hD hmm hf (hcov.instFacts hD hmm hf rfl hnI) hnd hul hlenP hdsw hdsa
   -- the cached accessibility at the enclosing relation seen at the block's depth
   have hR00 := hR.dropBase hhid
   have hC0 : ∀ x ∈ ds, CtxOkP mp.base2 φ (ctx.hiAt 0) (Δa.drop (dep - ctx.hiAt 0)) x :=

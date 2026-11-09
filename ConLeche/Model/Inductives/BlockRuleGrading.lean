@@ -1,5 +1,6 @@
 module
 
+import ConLeche.Model.OpenedCtx
 import ConLeche.Verify.Inductives.RecStage
 public import ConLeche.Model.Inductives.BlockRuleRun
 import ConLeche.Model.Inductives.BlockRecIdxConv
@@ -33,7 +34,7 @@ open ConLeche (CheckMode Env Expr Name Level ConstantVal ConstantInfo)
 
 universe w
 
-variable {V : Type w} [SetTheory V] {μ : CheckMode}
+variable {V : Type w} [SetTheory V]
 
 /-! ## Fits of a Π-tower reading, from `SpineFit` -/
 

@@ -2,13 +2,13 @@ module
 
 public import ConLeche.Accepts
 public import ConLeche.Frontend.Prelude
-public import ConLeche.Cached.Installed
+public import ConLeche.Cached.Decls
 /- The `#guard`s below are EVALUATED, so the constants they name have to be
 reachable from meta code too; a module needed at both levels is imported
 twice. -/
 meta import ConLeche.Accepts
 meta import ConLeche.Frontend.Prelude
-meta import ConLeche.Cached.Installed
+meta import ConLeche.Cached.Decls
 /- `import all`: the template interpolates `Nat`s with `toString`, which
 is `Nat.repr`, and `Init/Data/Repr.lean` is a module that does not
 expose it — so the kernel could not decide the string equation below
@@ -96,7 +96,7 @@ private def bogusFalse (r : ParseResultD) : Bool :=
 -- … which the fold then rejects (`Prop` is not a proof of `False`)
 #guard
   match parseChunks [falseFile.toUTF8] with
-  | .ok r => match checkDecls .verified natOpPinSets (preparePrelude preludeIx r.decls) with
+  | .ok r => match checkDecls .verified natOpPinSets maxNatSizeDefault (preparePrelude preludeIx r.decls) with
     | .ok _ => false
     | .error _ => true
   | .error _ => false
@@ -105,10 +105,11 @@ private def bogusFalse (r : ParseResultD) : Bool :=
 -- reads off the tables: an entry bound once is the entry every later
 -- line reads)
 #guard
-  match parseChunks [("{\"in\":1,\"str\":{\"pre\":0,\"str\":\"a\"}}\n" ++
+  match parseChunks [("{\"meta\":{}}\n" ++
+      "{\"in\":1,\"str\":{\"pre\":0,\"str\":\"a\"}}\n" ++
       "{\"in\":1,\"str\":{\"pre\":0,\"str\":\"b\"}}\n").toUTF8] with
   | .ok _ => false
-  | .error (.internal _, 2) => true
+  | .error (.internal _, 3) => true
   | .error _ => false
 
 end ConLecheTests

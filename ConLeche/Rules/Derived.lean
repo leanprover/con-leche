@@ -43,7 +43,7 @@ theorem Expr.mkAppN_getApp' : ∀ (e : Expr),
 `projLitToCtor`'s string arms, `Core.lean:736-738`, `:752-754`: `whnf
 (strLitToConstructor s)`). -/
 theorem Red.strLitWhnf {d : Nat} {s : String} {e' : Expr}
-    (hsup : strLitSupported env = true)
+    (hsup : strLitStored env = true)
     (h : Red env d (strLitToConstructor s) e') :
     Red env d (.lit (.strVal s)) e' :=
   .trans (.strLit hsup) h
@@ -111,14 +111,14 @@ theorem DefEq.natSuccR {d : Nat} {k : Nat} {x : Expr}
 /-- A string literal on the left against a `String.ofList` application
 (`Core.lean:1610-1613`): expand and continue. -/
 theorem DefEq.strLitL {d : Nat} {s : String} {b : Expr}
-    (hsup : strLitSupported env = true)
+    (hsup : strLitStored env = true)
     (h : DefEq env d (strLitToConstructor s) b) :
     DefEq env d (.lit (.strVal s)) b :=
   .redL (.strLit hsup) h
 
 /-- The mirror (`Core.lean:1614-1617`). -/
 theorem DefEq.strLitR {d : Nat} {s : String} {a : Expr}
-    (hsup : strLitSupported env = true)
+    (hsup : strLitStored env = true)
     (h : DefEq env d a (strLitToConstructor s)) :
     DefEq env d a (.lit (.strVal s)) :=
   .redR (.strLit hsup) h

@@ -64,12 +64,11 @@ with the pass-through corollary `pd ∈ ds → pd ∈ preparePrelude ds`.
 the fold folds; `toList` appears in the PROOFS, where it costs
 nothing.)
 
-**What is NOT here.**  Recognising a block as one of the four pinned
-inductive basis blocks, and a quotient record as the pinned package's, is the
-FOLD's (`checkDecl`, `ConLeche/Kernel/Checker.lean`): it compares the
-record with the pin up to `ConstantInfo.canon` and installs the pinned
-block, rejects a differing block through the reserved-name check and
-declines a differing quotient record.  Nothing in this file looks at a
+**What is NOT here.**  Comparing a block with one of the four pinned
+inductive basis blocks, and a quotient record with the pinned package's, is the
+FOLD's (`checkDecl`, `ConLeche/Kernel/CheckDecl.lean`): a pinned block is installed and
+checked like any other block and then compared with its pin (`basisNamesOk`), a differing
+one rejected; a differing quotient record declines.  Nothing in this file looks at a
 record's contents; it reads names, and only to find the stream's copy
 of a prelude declaration.
 -/
@@ -156,10 +155,13 @@ structure Prepared where
   (names, for the driver's receipt) -/
   hoisted : Array Name := #[]
 
-/-- **`preparePrelude`, with its receipts.** -/
-def prepareD (pre : PreludeIx) (ds : Array Declaration) : Prepared :=
+/-- **`preparePrelude`, with its receipts.**  `used` says what a record mentions, where
+the record itself does not say: a theorem's record read from an `.olean` holds a reference
+to its value (`ConLeche/Frontend/Olean/Lazy.lean`). -/
+def prepareD (pre : PreludeIx) (ds : Array Declaration)
+    (used : Declaration → Array Name := Declaration.usedConsts) : Prepared :=
   let (front, rest) := frontOf #[] pre.decls.toList ds
-  let (decls, hoisted) := hoistNatOpGround (front ++ rest)
+  let (decls, hoisted) := hoistNatOpGround used (front ++ rest)
   ⟨decls, decls.size - ds.size, hoisted⟩
 
 /-- **`preparePrelude`**: the parsed stream, prepared for the fold —

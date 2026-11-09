@@ -59,7 +59,7 @@ open ConLeche (Env Expr Name Level ConstantInfo ConstantVal FEnv BlockShape Targ
 
 universe w
 
-variable {V : Type w} [SetTheory V] {μ : CheckMode}
+variable {V : Type w} [SetTheory V]
 
 omit [SetTheory V] in
 /-- An application's argument is scoped wherever the application is. -/

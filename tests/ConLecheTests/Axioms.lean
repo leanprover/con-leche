@@ -1,11 +1,16 @@
 module
 
 public import ConLeche.MainTheorem
+public import ConLeche.Verify.Frontend.Olean.Files
+public import ConLeche.Verify.Frontend.Olean.View
+public import ConLeche.Verify.Frontend.Olean.Emit
+public import ConLeche.Verify.Driver.Oleans
 public import ConLeche.Verify.Cached.MainC
 public import ConLeche.Model.StreamConsts
 public import ConLeche.Verify.Cached.StreamThm
 public import ConLeche.Model.Fold
 public import ConLeche.Model.Capstone
+public import ConLeche.Semantics.DeclWF
 public section
 
 /-!
@@ -33,9 +38,10 @@ compiled behaviour was replaced by `@[implemented_by]` or read off a
 It is under the `ConLecheTests` library (`lake test`), so it can never
 enter a capstone's own dependency closure.
 
-**The eighteen pinned theorems.**  The main theorem first — that is
+**The twenty-one pinned theorems.**  The main theorem first — that is
 the statement a reader comes for — with the functionality of the
 relation it is stated over and the main corollary derived from it,
+the main corollary lifted to the driver in the IO model,
 then the letters on the fold it is stated about, the two transfer theorems between an accept of the fold
 and the driver's fully checked environment, the letters on that
 environment and the model it carries, the pure fueled checker's
@@ -47,12 +53,12 @@ equation the compiled equality rests on.
 | `ConLeche.model_exists` | **THE MAIN THEOREM**: what `checkDecls` accepts in the verified mode has a model in every `SetTheory V` (`Nonempty (Model V env)`) |
 | `ConLeche.Denotes_functional` | a term has at most one denotation under `Denotes` (`ConLeche/Denotes.lean`, with the relation) |
 | `ConLeche.no_False_declaration` | **THE MAIN COROLLARY**: chunks that are a `jsonWithTheoremFalse` file — a name entry `False`, a constant expression of it, a name entry, and a theorem record of that name and type, in that order — make the binary's chain (the prelude parses, the chunks parse, the fold accepts the prepared records) return an error |
+| `ConLeche.main_no_False` | **THE MAIN COROLLARY, LIFTED TO THE DRIVER**: on a snapshot where the file's bytes are a `jsonWithTheoremFalse` file, no outcome of `runArgs` at the arguments `-- <file>` is an exit 0 |
 | `ConLeche.no_False_theorem_accepted` | the step it rests on, at the STREAM: records one of which declares a theorem of type `False` are never accepted by `checkDecls` (`ConLeche/Verify/Cached/StreamThm.lean`) |
 | `no_proof_of_False_cached` / `no_proof_of_Empty_cached` | the fold's letters at every validating mode |
 | `checkDecls_sound` | the model an accept of the fold carries |
-| `fullyChecked_checkDecls` / `checkDecls_fullyChecked` | the driver's fully checked environment is an accept of the fold, and conversely |
-| `no_proof_of_False_checked` / `no_proof_of_Empty_checked` | the letters on the driver's fully checked environment |
-| `fullyChecked_sound` | the model a fully checked environment carries |
+| `checkDecls_envWF` / `checkDeclsPure_envWF` | what the fold (resp. the pure fueled fold) accepts is syntactically well formed (`EnvWF`), model-free: no `SetTheory` argument |
+| `checkDecls_of_jobs` | every record's job at the frozen index passing is an accept of the fold |
 | `no_proof_of_False_pure` | the pure fueled checker's letter |
 | `no_proof_of_Empty_pure` | the same about `Empty` |
 | `no_proof_of_Empty_pure_of` | its install-tier-conditional milestone shape |
@@ -112,6 +118,12 @@ info: 'ConLeche.no_False_declaration' depends on axioms: [propext, Classical.cho
 #guard_msgs in
 #print axioms ConLeche.no_False_declaration
 
+/--
+info: 'ConLeche.main_no_False' depends on axioms: [propext, Classical.choice, Quot.sound]
+-/
+#guard_msgs in
+#print axioms ConLeche.main_no_False
+
 /-! ## What the fold stores of what it reads
 (`ConLeche/Model/StreamConsts.lean`)
 
@@ -119,6 +131,84 @@ The other direction of the same relation between input and output:
 every record of the stream that declares a constant leaves that
 constant, under its own name, with its own level parameters and its
 own declared type, in the environment the fold returns. -/
+
+/--
+info: 'ConLeche.main_oleans_no_False' depends on axioms: [propext, Classical.choice, Quot.sound]
+-/
+#guard_msgs in
+#print axioms ConLeche.main_oleans_no_False
+
+/--
+info: 'ConLeche.Frontend.Olean.readOleans_ok' depends on axioms: [propext, Classical.choice, Quot.sound]
+-/
+#guard_msgs in
+#print axioms ConLeche.Frontend.Olean.readOleans_ok
+
+/--
+info: 'ConLeche.Frontend.Olean.emitAll_covers' depends on axioms: [propext, Classical.choice, Quot.sound]
+-/
+#guard_msgs in
+#print axioms ConLeche.Frontend.Olean.emitAll_covers
+
+/--
+info: 'ConLeche.Frontend.Olean.declsOf_thm' depends on axioms: [propext, Classical.choice, Quot.sound]
+-/
+#guard_msgs in
+#print axioms ConLeche.Frontend.Olean.declsOf_thm
+
+/--
+info: 'ConLeche.Frontend.Olean.declsOf_from' depends on axioms: [propext, Classical.choice, Quot.sound]
+-/
+#guard_msgs in
+#print axioms ConLeche.Frontend.Olean.declsOf_from
+
+/--
+info: 'ConLeche.Frontend.Olean.readOleans_thm' depends on axioms: [propext, Classical.choice, Quot.sound]
+-/
+#guard_msgs in
+#print axioms ConLeche.Frontend.Olean.readOleans_thm
+
+/--
+info: 'ConLeche.Frontend.Olean.readOleans_filled' depends on axioms: [propext, Classical.choice, Quot.sound]
+-/
+#guard_msgs in
+#print axioms ConLeche.Frontend.Olean.readOleans_filled
+
+/--
+info: 'ConLeche.Driver.checkMainG_oleans_accept' depends on axioms: [propext, Classical.choice, Quot.sound]
+-/
+#guard_msgs in
+#print axioms ConLeche.Driver.checkMainG_oleans_accept
+
+/--
+info: 'ConLeche.Frontend.Olean.closureOrder_ok' depends on axioms: [propext, Classical.choice, Quot.sound]
+-/
+#guard_msgs in
+#print axioms ConLeche.Frontend.Olean.closureOrder_ok
+
+/--
+info: 'ConLeche.Frontend.Olean.mergeAll_ok' depends on axioms: [propext, Classical.choice, Quot.sound]
+-/
+#guard_msgs in
+#print axioms ConLeche.Frontend.Olean.mergeAll_ok
+
+/--
+info: 'ConLeche.Frontend.Olean.parseAllViews_eq' depends on axioms: [propext, Classical.choice, Quot.sound]
+-/
+#guard_msgs in
+#print axioms ConLeche.Frontend.Olean.parseAllViews_eq
+
+/--
+info: 'ConLeche.Frontend.Olean.readView_of_all' depends on axioms: [propext, Classical.choice, Quot.sound]
+-/
+#guard_msgs in
+#print axioms ConLeche.Frontend.Olean.readView_of_all
+
+/--
+info: 'ConLeche.Frontend.Olean.moduleImports_of_view' depends on axioms: [propext, Classical.choice, Quot.sound]
+-/
+#guard_msgs in
+#print axioms ConLeche.Frontend.Olean.moduleImports_of_view
 
 /--
 info: 'ConLeche.Cached.checkDecls_consts' depends on axioms: [propext, Classical.choice, Quot.sound]
@@ -146,38 +236,35 @@ info: 'ConLeche.Cached.checkDecls_sound' depends on axioms: [propext, Classical.
 #guard_msgs in
 #print axioms ConLeche.Cached.checkDecls_sound
 
-/-! ## The fold and the driver's fully checked environment
-(`ConLeche/Cached/Installed.lean`, `ConLeche/Model/InstallRun.lean`) -/
+/-! ## The fold's well-formedness, model-free (`ConLeche/Semantics/DeclWF.lean`)
+
+What the fold accepts is syntactically well formed, with no set theory in the statement or the
+proof: the `example` below states it at no `SetTheory` instance. -/
 
 /--
-info: 'ConLeche.Cached.fullyChecked_checkDecls' depends on axioms: [propext, Classical.choice, Quot.sound]
+info: 'ConLeche.Semantics.checkDecls_envWF' depends on axioms: [propext, Classical.choice, Quot.sound]
 -/
 #guard_msgs in
-#print axioms ConLeche.Cached.fullyChecked_checkDecls
+#print axioms ConLeche.Semantics.checkDecls_envWF
 
 /--
-info: 'ConLeche.Cached.checkDecls_fullyChecked' depends on axioms: [propext, Classical.choice, Quot.sound]
+info: 'ConLeche.Semantics.checkDeclsPure_envWF' depends on axioms: [propext, Classical.choice, Quot.sound]
 -/
 #guard_msgs in
-#print axioms ConLeche.Cached.checkDecls_fullyChecked
+#print axioms ConLeche.Semantics.checkDeclsPure_envWF
+
+example {pins : List ConLeche.NatOpPinSet} {maxNatSize : Nat} {ds : Array ConLeche.Declaration}
+    {env' : ConLeche.Env} (h : ConLeche.Cached.checkDecls .verified pins maxNatSize ds = .ok env') :
+    ConLeche.EnvWF env' :=
+  ConLeche.Semantics.checkDecls_envWF h
+
+/-! ## The driver's jobs and the fold (`ConLeche/Verify/Cached/StreamIndex.lean`) -/
 
 /--
-info: 'ConLeche.Cached.no_proof_of_False_checked' depends on axioms: [propext, Classical.choice, Quot.sound]
+info: 'ConLeche.Cached.checkDecls_of_jobs' depends on axioms: [propext, Classical.choice, Quot.sound]
 -/
 #guard_msgs in
-#print axioms ConLeche.Cached.no_proof_of_False_checked
-
-/--
-info: 'ConLeche.Cached.no_proof_of_Empty_checked' depends on axioms: [propext, Classical.choice, Quot.sound]
--/
-#guard_msgs in
-#print axioms ConLeche.Cached.no_proof_of_Empty_checked
-
-/--
-info: 'ConLeche.Cached.fullyChecked_sound' depends on axioms: [propext, Classical.choice, Quot.sound]
--/
-#guard_msgs in
-#print axioms ConLeche.Cached.fullyChecked_sound
+#print axioms ConLeche.Cached.checkDecls_of_jobs
 
 /-! ## The pure fueled checker (`ConLeche/Model/Fold.lean`) -/
 

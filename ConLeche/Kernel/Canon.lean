@@ -80,8 +80,8 @@ def ConstantInfo.canon (ci : ConstantInfo) : ConstantInfo :=
   | .thmInfo _ => .thmInfo cv
   | .indInfo _ _ => .indInfo cv {}
   | .ctorInfo _ nP nF => .ctorInfo cv nP nF
-  | .recInfo _ mI rP rules => .recInfo cv mI rP
-      (rules.map fun r => { r with rhs := canonExpr m r.rhs })
+  | .recInfo _ mI rP isK rules => .recInfo cv mI rP
+      isK (rules.map fun r => { r with rhs := canonExpr m r.rhs })
 
 /-! ### Comparing canonical forms in lockstep (task #226)
 
@@ -89,7 +89,7 @@ Two places ask "is this record the same declaration as that pinned
 one, up to level-parameter names?" — the `Quot.sound` axiom record and
 the four quotient records against the `quot` basis pin, and a block
 against one of the five basis pins.  Both are `checkDecl`'s since task
-#293 (`basisPinHit`, `quotPinHit`, `ConLeche/Kernel/Basis.lean`); a
+#293 (`pinCopyOk`, `quotPinHit`, `ConLeche/Kernel/Basis.lean`); a
 third, the built-in prelude's dedupe, went with that task.  Each used
 to build `ConstantInfo.canon` of BOTH sides and compare the results.
 That is `O(tree)` on the stream side, because `canonExpr` rebuilds
@@ -168,8 +168,7 @@ private theorem boolEq_of_iff {a b : Bool} (h : a = true ↔ b = true) : a = b :
   cases a <;> cases b <;> simp_all
 
 /-- Two constants have the same canonical common data.  (`decide (· =
-·)` is what `==` unfolds to at these `DecidableEq` types, so this is
-the comparison the call sites used to spell inline.) -/
+·)` is what `==` unfolds to at these `DecidableEq` types.) -/
 def ConstantVal.canonEq (cv cv' : ConstantVal) : Bool :=
   decide (ConstantVal.canon cv = ConstantVal.canon cv')
 
@@ -237,8 +236,8 @@ def ConstantInfo.canonEqFast : ConstantInfo → ConstantInfo → Bool
   | .indInfo cv _, .indInfo cv' _ => ConstantVal.canonEqFast cv cv'
   | .ctorInfo cv nP nF, .ctorInfo cv' nP' nF' =>
       ConstantVal.canonEqFast cv cv' && nP == nP' && nF == nF'
-  | .recInfo cv mI rP rules, .recInfo cv' mI' rP' rules' =>
-      ConstantVal.canonEqFast cv cv' && mI == mI' && rP == rP' &&
+  | .recInfo cv mI rP isK rules, .recInfo cv' mI' rP' isK' rules' =>
+      ConstantVal.canonEqFast cv cv' && mI == mI' && rP == rP' && isK == isK' &&
         canonRulesEqFast (canonNameMap cv.levelParams)
           (canonNameMap cv'.levelParams) rules rules'
   | _, _ => false
@@ -286,5 +285,76 @@ theorem canonEqListFast_iff :
   funext xs ys
   exact boolEq_of_iff (by
     simp only [canonEqList, decide_eq_true_eq, canonEqListFast_iff])
+
+/-! ## Pointer-first equality of what an install pushes -/
+
+/-- Element-wise comparison of two lists by `f`. -/
+def listBeqBy {α : Type} (f : α → α → Bool) : List α → List α → Bool
+  | [], [] => true
+  | a :: as, b :: bs => f a b && listBeqBy f as bs
+  | _, _ => false
+
+theorem eq_of_listBeqBy {α : Type} {f : α → α → Bool} (hf : ∀ a b, f a b = true → a = b) :
+    ∀ {l l' : List α}, listBeqBy f l l' = true → l = l'
+  | [], [], _ => rfl
+  | a :: as, b :: bs, h => by
+    simp only [listBeqBy, Bool.and_eq_true] at h
+    rw [hf a b h.1, eq_of_listBeqBy hf h.2]
+  | [], _ :: _, h | _ :: _, [], h => by simp [listBeqBy] at h
+
+/-- `ConstantVal` equality, the type by `Expr`'s pointer-first `==`. -/
+def ConstantVal.beqP (a b : ConstantVal) : Bool :=
+  a.name == b.name && a.levelParams == b.levelParams && a.type == b.type
+
+theorem ConstantVal.eq_of_beqP {a b : ConstantVal} (h : a.beqP b = true) : a = b := by
+  obtain ⟨n, l, t⟩ := a
+  obtain ⟨n', l', t'⟩ := b
+  simp only [ConstantVal.beqP, Bool.and_eq_true, beq_iff_eq] at h
+  obtain ⟨⟨rfl, rfl⟩, rfl⟩ := h
+  rfl
+
+/-- `RecRuleFire` equality, the pins by `Expr`'s `==`. -/
+def RecRuleFire.beqP : RecRuleFire → RecRuleFire → Bool
+  | .plain, .plain => true
+  | .nested l p, .nested l' p' => l == l' && p == p'
+  | .levels l, .levels l' => l == l'
+  | _, _ => false
+
+theorem RecRuleFire.eq_of_beqP {a b : RecRuleFire} (h : a.beqP b = true) : a = b := by
+  cases a <;> cases b <;> simp_all [RecRuleFire.beqP]
+
+/-- `RecRule` equality, the right-hand side by `Expr`'s `==`. -/
+def RecRule.beqP (a b : RecRule) : Bool :=
+  a.ctor == b.ctor && a.nfields == b.nfields && a.fire.beqP b.fire && a.rhs == b.rhs
+
+theorem RecRule.eq_of_beqP {a b : RecRule} (h : a.beqP b = true) : a = b := by
+  obtain ⟨c, n, f, r⟩ := a
+  obtain ⟨c', n', f', r'⟩ := b
+  simp only [RecRule.beqP, Bool.and_eq_true, beq_iff_eq] at h
+  obtain ⟨⟨⟨rfl, rfl⟩, hf⟩, rfl⟩ := h
+  rw [RecRuleFire.eq_of_beqP hf]
+
+/-- **`ConstantInfo` equality, pointer-first**: every `Expr` by its
+memoised `==` (`Expr.beqMemo`), the rest by its decidable equality. -/
+def ConstantInfo.beqP : ConstantInfo → ConstantInfo → Bool
+  | .axiomInfo v, .axiomInfo v' => v.beqP v'
+  | .defnInfo v e h, .defnInfo v' e' h' => v.beqP v' && e == e' && decide (h = h')
+  | .thmInfo v, .thmInfo v' => v.beqP v'
+  | .indInfo v c, .indInfo v' c' => v.beqP v' && decide (c = c')
+  | .ctorInfo v a b, .ctorInfo v' a' b' => v.beqP v' && a == a' && b == b'
+  | .recInfo v a b isK rs, .recInfo v' a' b' isK' rs' =>
+    v.beqP v' && a == a' && b == b' && isK == isK' && listBeqBy RecRule.beqP rs rs'
+  | _, _ => false
+
+theorem ConstantInfo.eq_of_beqP {a b : ConstantInfo} (h : a.beqP b = true) : a = b := by
+  cases a <;> cases b <;> simp only [ConstantInfo.beqP, Bool.and_eq_true, beq_iff_eq,
+    decide_eq_true_eq, reduceCtorEq] at h
+  · rw [ConstantVal.eq_of_beqP h]
+  · obtain ⟨⟨hv, rfl⟩, rfl⟩ := h; rw [ConstantVal.eq_of_beqP hv]
+  · rw [ConstantVal.eq_of_beqP h]
+  · obtain ⟨hv, rfl⟩ := h; rw [ConstantVal.eq_of_beqP hv]
+  · obtain ⟨⟨hv, rfl⟩, rfl⟩ := h; rw [ConstantVal.eq_of_beqP hv]
+  · obtain ⟨⟨⟨⟨hv, rfl⟩, rfl⟩, rfl⟩, hr⟩ := h
+    rw [ConstantVal.eq_of_beqP hv, eq_of_listBeqBy (fun _ _ => RecRule.eq_of_beqP) hr]
 
 end ConLeche

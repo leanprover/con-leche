@@ -1,5 +1,6 @@
 module
 
+import ConLeche.Model.Env.CanonCrest
 import ConLeche.Model.Inductives.ContCtor
 public import ConLeche.Model.Inductives.ContLeaf
 import ConLeche.Model.Inductives.ContFrame
@@ -102,7 +103,9 @@ former instantiated at the key). -/
     (grp : List (Name × Expr)) : Prop :=
   (grp.map (·.1)).Nodup ∧ (∀ c, c ∈ grp.map (·.1) ↔ c ∈ D.names) ∧
     ∀ p ∈ grp, (∃ mm, mm < D.k ∧ p.1 = D.member mm) ∧
-      ∃ nI, ConLeche.nestInstType (m := CheckM) ctx hi ⟨p.1, us, ds⟩ = .ok (nI, p.2)
+      ∃ mm cv caps nI, mm < D.k ∧ p.1 = D.member mm ∧
+        ctx.find? p.1 = some (.indInfo cv caps) ∧
+        ConLeche.NestInstFacts ctx hi ⟨p.1, us, ds⟩ cv.levelParams (D.formerAt mm cv).type nI p.2
 
 /-- **The frame's group is well formed**, nonempty. -/
 @[expose] def GrpOk (ctx : NestCtx) (D : LfpDatum V) (hi : Nat) (us : List Level) (ds : List Expr)
@@ -165,7 +168,7 @@ theorem idxOf_member {D : LfpDatum V} (hnd : D.names.Nodup) (hkN : D.names.lengt
   exact hnd.idxOf_getElem mm (by omega)
 
 /-- **A group member's facts** (N2 at the key, via `n2_link`). -/
-theorem grpMember {μ : ConLeche.CheckMode} (mp : EnvModelM V μ env) {D : LfpDatum V}
+theorem grpMember (mp : EnvModelM V env) {D : LfpDatum V}
     (hD : D ∈ mp.lfpBlocks) (hnN : D.names.Nodup) (hkN : D.names.length = D.k) {ctx : NestCtx}
     (hfind : ∀ n, ctx.find? n = env.find? n) {lps : List Name}
     (hlps : ∀ mm, mm < D.k → ∃ cv caps, env.find? (D.member mm) = some (.indInfo cv caps) ∧
@@ -177,22 +180,21 @@ theorem grpMember {μ : ConLeche.CheckMode} (mp : EnvModelM V μ env) {D : LfpDa
     {grp : List (Name × Expr)} (hg : GrpWf ctx D hi us ds grp) {p : Name × Expr} (hp : p ∈ grp) :
     ∃ mm, mm < D.k ∧ p.1 = D.member mm ∧ D.names.idxOf p.1 = mm ∧ ∃ cv caps,
       env.find? (D.member mm) = some (.indInfo cv caps) ∧ cv.levelParams = lps ∧
-      (cv.type.stripPis ds.length).isSome = true ∧
-      instPisWith ds (cv.type.instantiateLevelParams lps us) = some p.2 ∧
+      ((D.formerAt mm cv).type.stripPis ds.length).isSome = true ∧
+      instPisWith ds ((D.formerAt mm cv).type.instantiateLevelParams lps us) = some p.2 ∧
       ∀ ρ ρ' : Nat → V, AgreeOff (holeP hi ctx.nP hi) ρ ρ' →
         TeleEq (keyFrame dsa hi ρ) (keyFrame dsa hi ρ') (D.ids mm (Level.substFn φ lps us)) := by
   obtain ⟨-, -, hall⟩ := hg
-  obtain ⟨⟨mm, hmm, hpm⟩, nI, hrun⟩ := hall p hp
-  obtain ⟨cv, caps, hf, hcl⟩ := hlps mm hmm
-  rw [hpm] at hrun
+  obtain ⟨-, mm, cv, caps, nI, hmm, hpm, hfc, hF⟩ := hall p hp
+  rw [hfind, hpm] at hfc
+  change env.find? (D.member mm) = _ at hfc
+  obtain ⟨cv', caps', hf, hcl⟩ := hlps mm hmm
+  rw [hf] at hfc
+  obtain ⟨rfl, rfl⟩ : cv' = cv ∧ caps' = caps := by simpa using hfc
   subst hcl
-  obtain ⟨hcty, -, hte⟩ := n2_link mp hD hmm hfind hrun hf hnd hul hlenP hds hdsa
-  obtain ⟨cv', caps', hf', hstrip, -⟩ := ConLeche.nestInstType_inv hrun
-  rw [hfind] at hf'
-  change env.find? (D.member mm) = _ at hf'
-  rw [hf] at hf'
-  obtain ⟨rfl, rfl⟩ : cv = cv' ∧ caps = caps' := by simpa using hf'
-  exact ⟨mm, hmm, hpm, by rw [hpm]; exact idxOf_member hnN hkN hmm, cv, caps, hf, rfl, hstrip,
+  rw [hpm] at hF
+  obtain ⟨hcty, -, hte⟩ := n2_link mp hD hmm hf hF hnd hul hlenP hds hdsa
+  exact ⟨mm, hmm, hpm, by rw [hpm]; exact idxOf_member hnN hkN hmm, cv', caps', hf, rfl, hF.strip,
     hcty, hte⟩
 
 /-- The substituted variables of a frame's constructor type: the key's
@@ -216,8 +218,8 @@ states it directly, with no `nestInstType` run. -/
   (grp.map (·.1)).Nodup ∧ (∀ c, c ∈ grp.map (·.1) ↔ c ∈ D.names) ∧
     ∀ p ∈ grp, ∃ mm, mm < D.k ∧ p.1 = D.member mm ∧ ∃ cv caps,
       env.find? (D.member mm) = some (.indInfo cv caps) ∧
-      (cv.type.stripPis ds.length).isSome = true ∧
-      instPisWith ds (cv.type.instantiateLevelParams cv.levelParams us) = some p.2
+      ((D.formerAt mm cv).type.stripPis ds.length).isSome = true ∧
+      instPisWith ds ((D.formerAt mm cv).type.instantiateLevelParams cv.levelParams us) = some p.2
 
 omit [SetTheory V] in
 /-- The group's hole of member `mm`. -/
@@ -239,7 +241,7 @@ theorem grpHoles_member {D : LfpDatum V} {grp : List (Name × Expr)} {hi : Nat}
 
 section FrameT
 
-variable {μ : ConLeche.CheckMode} (mp : EnvModelM V μ env) {D : LfpDatum V}
+variable (mp : EnvModelM V env) {D : LfpDatum V}
   (hD : D ∈ mp.lfpBlocks) (hnN : D.names.Nodup) (hkN : D.names.length = D.k) {lps : List Name}
   (hlps : ∀ mm, mm < D.k → ∃ cv caps, env.find? (D.member mm) = some (.indInfo cv caps) ∧
       cv.levelParams = lps)
@@ -260,7 +262,7 @@ theorem grp_typeT {p : Name × Expr} (hp : p ∈ grp) :
     (∀ l ∈ p.2.fvarLeaves, ∃ x ∈ ds, l ∈ x.fvarLeaves) ∧
     ∃ mm cv caps, mm < D.k ∧ p.1 = D.member mm ∧
       env.find? (D.member mm) = some (.indInfo cv caps) ∧ ∃ abF : List Term,
-        denote mp.base2.acval env (Level.substFn φ lps us) 0 cv.type
+        denote mp.base2.acval env (Level.substFn φ lps us) 0 (D.formerAt mm cv).type
           = some (mkPisAV abF (.sort (D.w (Level.substFn φ lps us)))) ∧
         abF = D.pars mm (Level.substFn φ lps us) ++ D.ids mm (Level.substFn φ lps us) ∧
         (abF.drop ds.length) = D.ids mm (Level.substFn φ lps us) ∧
@@ -272,11 +274,12 @@ theorem grp_typeT {p : Name × Expr} (hp : p ∈ grp) :
   rw [hf] at hf'
   obtain ⟨rfl, rfl⟩ : cv = cv' ∧ caps = caps' := by simpa using hf'
   subst hlp
-  have hwf := mp.base2.wf.consts _ (ConLeche.Env.find?_mem hf)
-  have hcl : (cv.type.instantiateLevelParams cv.levelParams us).hasFvar = false := by
-    rw [Expr.hasFvar_instantiateLevelParams]; exact hwf.1
-  have hbb : (cv.type.instantiateLevelParams cv.levelParams us).looseBVarsBounded 0 = true := by
-    rw [Expr.looseBVarsBounded_instantiateLevelParams]; exact hwf.2.2.2.1
+  obtain ⟨hwf₁, hwf₂, -⟩ := mp.formerAt_wf hD hmm hf
+  have hcl : ((D.formerAt mm cv).type.instantiateLevelParams cv.levelParams us).hasFvar = false := by
+    rw [Expr.hasFvar_instantiateLevelParams]; exact hwf₁
+  have hbb : ((D.formerAt mm cv).type.instantiateLevelParams cv.levelParams us).looseBVarsBounded 0
+      = true := by
+    rw [Expr.looseBVarsBounded_instantiateLevelParams]; exact hwf₂
   refine ⟨ConLeche.wscoped_instPisWith (fun x hx => (hds x hx).1)
       (Expr.WScoped.of_not_hasFvar hcl) hp2,
     ConLeche.looseBVarsBounded_instPisWith (fun x hx => (hds x hx).2) hbb hp2,
@@ -325,9 +328,7 @@ theorem grp_typeT_wd {p : Name × Expr} (hp : p ∈ grp) {ta : Term}
   refine (WellDenoted_substAV _ _ 0 ρ fun j => hτ j).mpr ?_
   rw [← keyFrame_eq_substE hdl]
   · -- the member's closed type, graded at every frame, past the parameters
-    have hmem := ConLeche.Env.find?_mem hf
-    have hwd := (mp.type_wellDenotedTy _ hmem ψ _ hread
-      (fun j => ρ (j + hi))).1
+    have hwd := (mp.formerAt_wellDenotedTy hD hmm hf hread (fun j => ρ (j + hi))).1
     have hsP := h.parsSat mm hmm ψ _ hs
     have hfit : SpineFit (fun j => ρ (j + hi)) ((abF.take ds.length))
         (dsa.map (interp V ρ)) := by
@@ -438,7 +439,7 @@ theorem crest_readT {c j : Nat} (hc : c < D.k) (hj : j < D.nctors c) {cv : Const
         (cv.type.instantiateLevelParams cv.levelParams us) = some crest ∧
       (∃ Tys : List Term, Tys.length = D.k ∧
         (∀ mm, mm < D.k → ∃ cvm caps ty, env.find? (D.member mm) = some (.indInfo cvm caps) ∧
-          instPisWith (canonParams ds.length) cvm.type = some ty ∧
+          instPisWith (canonParams ds.length) (D.formerAt mm cvm).type = some ty ∧
           denote mp.base2.acval env (Level.substFn φ lps us) (ds.length + mm) ty
             = some (Tys.getD mm default)) ∧
         FieldsEqOn V (D.params (Level.substFn φ lps us) ++ Tys).reverse (ab)
@@ -558,11 +559,11 @@ end FrameT
 /-- **The hole frame's hole values satisfy the recorded reading's hole
 context**: the parameters at the key frame, then each member's hole value
 in its canonical hole type (`canonHoleTy_read`, `LfpDatum.holeVal_mem`). -/
-theorem frameVals_sat {μ : ConLeche.CheckMode} (mp : EnvModelM V μ env) {D : LfpDatum V}
+theorem frameVals_sat (mp : EnvModelM V env) {D : LfpDatum V}
     (hD : D ∈ mp.lfpBlocks) {ψ : Name → Nat} {ρp : Nat → V} (hs : Sat V (D.params ψ).reverse ρp)
     {nPc : Nat} (hnP : (D.params ψ).length = nPc) {Tys : List Term} (hlT : Tys.length = D.k)
     (hTys : ∀ mm, mm < D.k → ∃ cvm caps ty, env.find? (D.member mm) = some (.indInfo cvm caps) ∧
-      instPisWith (canonParams nPc) cvm.type = some ty ∧
+      instPisWith (canonParams nPc) (D.formerAt mm cvm).type = some ty ∧
       denote mp.base2.acval env ψ (nPc + mm) ty = some (Tys.getD mm default))
     (X : Nat → V) (hX : InTupleSpace (D.w ψ) D.N (D.idx ψ ρp) X) :
     Sat V (D.params ψ ++ Tys).reverse (D.frame ψ ρp X) := by
@@ -587,7 +588,7 @@ theorem frameVals_sat {μ : ConLeche.CheckMode} (mp : EnvModelM V μ env) {D : L
 
 section Frame
 
-variable {μ : ConLeche.CheckMode} (mp : EnvModelM V μ env) {D : LfpDatum V}
+variable (mp : EnvModelM V env) {D : LfpDatum V}
   (hD : D ∈ mp.lfpBlocks) (hnN : D.names.Nodup) (hkN : D.names.length = D.k) {ctx : NestCtx}
   (hfind : ∀ n, ctx.find? n = env.find? n) {lps : List Name}
   (hlps : ∀ mm, mm < D.k → ∃ cv caps, env.find? (D.member mm) = some (.indInfo cv caps) ∧
@@ -801,7 +802,7 @@ theorem crest_read {c j : Nat} (hc : c < D.k) (hj : j < D.nctors c) {cv : Consta
         (cv.type.instantiateLevelParams cv.levelParams us) = some crest ∧
       (∃ Tys : List Term, Tys.length = D.k ∧
         (∀ mm, mm < D.k → ∃ cvm caps ty, env.find? (D.member mm) = some (.indInfo cvm caps) ∧
-          instPisWith (canonParams ds.length) cvm.type = some ty ∧
+          instPisWith (canonParams ds.length) (D.formerAt mm cvm).type = some ty ∧
           denote mp.base2.acval env (Level.substFn φ lps us) (ds.length + mm) ty
             = some (Tys.getD mm default)) ∧
         FieldsEqOn V (D.params (Level.substFn φ lps us) ++ Tys).reverse (ab)
@@ -853,8 +854,8 @@ theorem frameIter (hin : RulesInputs V mp.base2 φ) {F : Nat}
       (∀ (x : ConstantVal × Nat) (crest : Expr), Q x →
         ConLeche.nestCrest (grp.map (·.1)) us ds (grpHoles hi grp)
           (x.1.type.instantiateLevelParams x.1.levelParams us) = some crest →
-        (∃ ty u, ConLeche.inferTypeCore .verified env F (hi + grp.length) crest = .ok ty ∧
-          ConLeche.ensureSortCore .verified env F (hi + grp.length) ty = .ok u) →
+        (∃ ty u, ConLeche.inferTypeCore .verified false env F (hi + grp.length) crest = .ok ty ∧
+          ConLeche.ensureSortCore .verified false env F (hi + grp.length) ty = .ok u) →
         ∃ ca, Frame (hi + grp.length) crest ∧ CtxOkP mp.base2 φ (hi + grp.length) Δ crest ∧
           denote mp.base2.acval env φ (hi + grp.length) crest = some ca ∧ GradedTy V Δ ca) →
       (∀ x ∈ ctors, Q x) →
@@ -960,7 +961,7 @@ end Frame
 /-! ## The level parameters of a recorded block -/
 
 /-- The lps of a recorded block's constructor are its members'. -/
-theorem ctor_lps {μ : ConLeche.CheckMode} (mp : EnvModelM V μ env) {D : LfpDatum V}
+theorem ctor_lps (mp : EnvModelM V env) {D : LfpDatum V}
     (hD : D ∈ mp.lfpBlocks) {lps : List Name}
     (hlps : ∀ mm, mm < D.k → ∃ cv caps, env.find? (D.member mm) = some (.indInfo cv caps) ∧
       cv.levelParams = lps)

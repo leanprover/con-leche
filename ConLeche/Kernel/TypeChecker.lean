@@ -18,39 +18,39 @@ every claim over to the cached instance the checker executes
 
 namespace ConLeche
 
-variable (mode : CheckMode)
+variable (mode : CheckMode) (eager : Bool)
 
 /-- The pure core: the bodies tied at `CheckM`, fuel in the knot. -/
 def pureFns (env : Env) : Nat → CoreFns CheckM :=
-  coreKnot mode env id
+  coreKnot mode eager env id
 
 /-- Head normalization without delta (fueled); `cheap` is the official
 kernel's `cheap_proj` (`whnfCoreBody`), off by default. -/
 def whnfCore (env : Env) (fuel depth : Nat) (e : Expr) (cheap : Bool := false) :
     CheckM Expr :=
-  (pureFns mode env fuel).whnfCore cheap depth e
+  (pureFns mode eager env fuel).whnfCore cheap depth e
 
 /-- The full reduction loop (fueled). -/
 def whnf (env : Env) (fuel depth : Nat) (e : Expr) : CheckM Expr :=
-  (pureFns mode env fuel).whnf depth e
+  (pureFns mode eager env fuel).whnf depth e
 
 /-- Full-grade type inference (fueled): the declaration front door's
 entry — official's `infer_type_core(e, infer_only = false)`. -/
 def inferTypeCore (env : Env) (fuel depth : Nat) (e : Expr) : CheckM Expr :=
-  (pureFns mode env fuel).infer depth e
+  (pureFns mode eager env fuel).infer depth e
 
 /-- Type inference at the io grade (fueled): the knot's `inferIO` slot
 — what every internal inference call site runs (task #170).  At every
 mode it is the io lane (`inferTypeIO_on`, `Verify/Knot.lean`). -/
 def inferTypeIO (env : Env) (fuel depth : Nat) (e : Expr) : CheckM Expr :=
-  (pureFns mode env fuel).inferIO depth e
+  (pureFns mode eager env fuel).inferIO depth e
 
 /-- Definitional equality (fueled). -/
 def isDefEqCore (env : Env) (fuel depth : Nat) (a b : Expr) : CheckM Bool :=
-  (pureFns mode env fuel).defeq depth a b
+  (pureFns mode eager env fuel).defeq depth a b
 
 /-- `ensureSort` over the pure knot (fueled). -/
 def ensureSortCore (env : Env) (fuel depth : Nat) (e : Expr) : CheckM Level :=
-  ensureSort (pureFns mode env fuel) env depth e
+  ensureSort (pureFns mode eager env fuel) env depth e
 
 end ConLeche

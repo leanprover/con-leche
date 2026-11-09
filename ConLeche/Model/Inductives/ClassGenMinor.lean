@@ -13,7 +13,7 @@ import ConLeche.Model.Inductives.BlockData
 import ConLeche.Verify.Abstract
 import ConLeche.Semantics.Tower.FixTower
 import ConLeche.Model.Inductives.BlockRecData
-import ConLeche.Model.Inductives.StoredShapes
+import ConLeche.Model.Inductives.DeclaredShapes
 import ConLeche.Model.Inductives.ClassGenRead
 import ConLeche.Model.Inductives.StructFrameKit
 import ConLeche.Model.Inductives.BlockRuleGrading

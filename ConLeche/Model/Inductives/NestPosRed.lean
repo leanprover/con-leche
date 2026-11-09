@@ -1,5 +1,6 @@
 module
 
+import ConLeche.Model.OpenedCtx
 import ConLeche.Model.Inductives.NestPosOut
 public import ConLeche.Verify.Inductives.PosDeriv
 import ConLeche.Semantics.Inductives.FieldsEqOn
@@ -15,7 +16,7 @@ import ConLeche.Verify.Leaves
 import ConLeche.Verify.Abstract
 import ConLeche.Verify.InferLeaves
 import ConLeche.Model.Inductives.TargetIhSlot
-public import ConLeche.Verify.Denote.ConstsBound
+import ConLeche.Verify.Denote.ConstsBound
 
 public section
 
@@ -193,7 +194,8 @@ theorem red_whnf (hin : RulesInputs V m φ) {F dep : Nat} {e w : Expr}
     Frame dep w ∧ LeavesSub w e ∧ ∃ nda, denote m.acval env φ dep w = some nda ∧
       GradedTy V Δa nda ∧ ∀ ρ : Nat → V, Sat V Δa ρ → interp V ρ ea = interp V ρ nda := by
   obtain ⟨hfrw, hsub, wa, hwa, hgw, heq⟩ := red_sound_ty hin
-    (ConLeche.Rules.whnf_bridge (show ConLeche.whnf .verified env F dep e = .ok w from hw)) hfr
+    (ConLeche.Rules.whnf_bridge (show ConLeche.whnf .verified false env F dep e = .ok w from hw))
+        hfr
     hC.toCtxOk hea hgr
   exact ⟨hfrw, hsub, wa, hwa, hgw, heq⟩
 

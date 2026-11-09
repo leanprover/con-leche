@@ -12,7 +12,7 @@ public section
 # Accessibility in the holes: the vocabulary
 
 The counterpart of `NestPosMono.lean`'s vocabulary for the closure
-witness (W): joint accessibility at the instantiation is an install-time
+witness (W): joint accessibility at the instantiation is a block
 lemma derived from the positivity walk, like monotonicity, proved by
 induction on the positivity DERIVATION (`posD_acc`, `PosDerivAcc.lean`),
 never on the run; this file holds what that induction states:
@@ -225,7 +225,7 @@ past the key's parameters (`nestArity`, the frame-hole check). -/
     (∃ t, t < ctx.names.length ∧ ctx.nP + t < d ∧ i = d - 1 - (ctx.nP + t) ∧
       n = ctx.nIdxs.getD t 0) ∨
     (∃ (j : Nat) (hk : NestHole), prog.reverse[j]? = some hk ∧ ctx.hiAt 0 + j < d ∧
-      i = d - 1 - (ctx.hiAt 0 + j) ∧ n + hk.key.ds.length = ConLeche.nestArity ctx hk.key.cname)
+      i = d - 1 - (ctx.hiAt 0 + j) ∧ n = hk.nIdx)
 
 /-- One binder down, the admissible items are the same holes. -/
 theorem shiftQ_holeQ {ctx : NestCtx} {prog : List NestHole} {d : Nat}

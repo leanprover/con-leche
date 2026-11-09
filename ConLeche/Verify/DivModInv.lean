@@ -39,10 +39,10 @@ inductive CertRuns (P : (List Expr × Expr) → Expr → Prop) :
     (st : List Expr × Expr) (proof : Expr) : Prop :=
   divModCertGuard env c annVal st.1 st.2 proof = true ∧
   ∃ tp,
-    inferTypeCore mode env F 4 (divModCertApplied
+    inferTypeCore mode false env F 4 (divModCertApplied
       (Expr.substConstAll c annVal proof)
       (st.1.map (Expr.substConst0 c annVal))) = .ok tp ∧
-    isDefEqCore mode env F 4 tp (Expr.substConst0 c annVal st.2) = .ok true
+    isDefEqCore mode false env F 4 tp (Expr.substConst0 c annVal st.2) = .ok true
 
 /-- Unpack a successful `checkDivModCerts` run, per certificate. -/
 theorem checkDivModCerts_inv {env : Env} {F : Nat} {c : Name}
@@ -62,7 +62,7 @@ theorem checkDivModCerts_inv {env : Env} {F : Nat} {c : Name}
     split
     case isFalse => intro h; simp [pure, Except.pure] at h
     case isTrue hg =>
-        cases hinf : inferTypeCore mode env F 4 (divModCertApplied
+        cases hinf : inferTypeCore mode false env F 4 (divModCertApplied
           (Expr.substConstAll c annVal proof)
           (hyps.map (Expr.substConst0 c annVal))) with
         | error e => intro h; exact nomatch h
@@ -70,7 +70,7 @@ theorem checkDivModCerts_inv {env : Env} {F : Nat} {c : Name}
           intro h
           dsimp only at h
           revert h
-          cases hde : isDefEqCore mode env F 4 tp
+          cases hde : isDefEqCore mode false env F 4 tp
               (Expr.substConst0 c annVal eqE) with
           | error e => intro h; exact nomatch h
           | ok b =>
@@ -124,7 +124,7 @@ certificates checked (task #273). -/
 theorem checkDivModPinAt_inv {env : Env} {F : Nat} {c : Name}
     {value' : Expr} {ps : NatOpPinSet}
     (h : checkDivModPinAt (fueledOps mode F) env c value' ps = .ok true) :
-    isDefEqCore mode env F 0 value' (divModDeclPin ps c) = .ok true ∧
+    isDefEqCore mode false env F 0 value' (divModDeclPin ps c) = .ok true ∧
     checkDivModCerts (fueledOps mode F) env c value'
       (divModCertStmts c) (divModCertProofs ps c) = .ok true := by
   unfold checkDivModPinAt at h
@@ -138,7 +138,7 @@ theorem checkDivModPinAt_inv {env : Env} {F : Nat} {c : Name}
     | false => intro h; simp [pure, Except.pure] at h
     | true =>
       simp only [↓reduceIte]
-      cases hde : isDefEqCore mode env F 0 value' (divModDeclPin ps c) with
+      cases hde : isDefEqCore mode false env F 0 value' (divModDeclPin ps c) with
       | error e => intro h; exact nomatch h
       | ok b =>
         cases b with
@@ -189,7 +189,7 @@ theorem checkDivModPin_inv {env env2 : Env} {F : Nat} {c : Name} {u : Unit}
       env2.find? c = some (.defnInfo cv' value' hint') ∧
       ∃ ps ∈ pins,
         (divModPinGuard ps env c && divModCertsGuard ps env c value') = true ∧
-        isDefEqCore mode env F 0 value' (divModDeclPin ps c) = .ok true ∧
+        isDefEqCore mode false env F 0 value' (divModDeclPin ps c) = .ok true ∧
         checkDivModCerts (fueledOps mode F) env c value'
           (divModCertStmts c) (divModCertProofs ps c) = .ok true := by
   unfold checkDivModPin at h
@@ -207,7 +207,7 @@ theorem checkDivModPin_inv {env env2 : Env} {F : Nat} {c : Name} {u : Unit}
       | thmInfo cv' => intro h; exact nomatch h
       | indInfo cv' caps => intro h; exact nomatch h
       | ctorInfo cv' nP nF => intro h; exact nomatch h
-      | recInfo cv' mI rP rules => intro h; exact nomatch h
+      | recInfo cv' mI rP isK rules => intro h; exact nomatch h
       | defnInfo cv' value' hint' =>
         intro h
         obtain ⟨ps, hm, hg', hat⟩ := checkDivModPinLoop_inv h
@@ -234,7 +234,7 @@ theorem divModEnvGuard_inv {env2 : Env} {c : Name}
     (h : divModEnvGuard env2 c = true) :
     natOpGuard env2 c = true ∧
     (natOpDeps c).all (natOpStoredOk env2) = true ∧
-    env2.find? eqName = some eqA ∧
+    (env2.find? eqName).isSome = true ∧
     (∃ ci, env2.find? boolTrueName = some ci ∧
       ci.toConstantVal.type = .const boolName []) ∧
     (∃ ci, env2.find? boolFalseName = some ci ∧

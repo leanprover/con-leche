@@ -1,6 +1,6 @@
 module
 
-import ConLeche.Verify.Denote.Lemmas
+import ConLeche.Model.OpenedCtx
 public import ConLeche.Verify.BinderLoop
 import ConLeche.Model.Inductives.TableInstall
 public import ConLeche.Model.IndTowerRead
@@ -14,10 +14,7 @@ import ConLeche.Verify.Subst
 import ConLeche.Kernel.Inductives.StructParts
 import ConLeche.Verify.Denote.AcvalCongr
 import ConLeche.Verify.EnvWF
-import ConLeche.Model.IndFrame
-import ConLeche.Model.IndDomGrade
 import ConLeche.Verify.Leaves
-import ConLeche.Verify.BridgeWfImp
 import ConLeche.Verify.Denote.IndFrame
 import ConLeche.Model.Tiers
 import ConLeche.Semantics.Tower.SumTower
@@ -58,17 +55,17 @@ variable {mode : CheckMode}
 /-! ## Leaf clauses of the inference, inverted -/
 
 theorem whnf_sort_eq {env : Env} {F d : Nat} {u : Level} {e' : Expr}
-    (h : whnf mode env F d (.sort u) = .ok e') : e' = .sort u := by
+    (h : whnf mode false env F d (.sort u) = .ok e') : e' = .sort u := by
   have h1 := ConLeche.whnf_mono (Nat.le_add_right F 2) h
   rw [ConLeche.whnf_sort] at h1
   exact (Except.ok.inj h1).symm
 
 theorem ensureSortCore_sort_eq {env : Env} {F d : Nat} {u v : Level}
-    (h : ensureSortCore mode env F d (.sort u) = .ok v) : v = u :=
+    (h : ensureSortCore mode false env F d (.sort u) = .ok v) : v = u :=
   Expr.sort.inj (whnf_sort_eq (ConLeche.ensureSortCore_inv h))
 
 theorem inferTypeCore_sort_inv {env : Env} {F d : Nat} {u : Level} {t : Expr}
-    (h : inferTypeCore mode env F d (.sort u) = .ok t) :
+    (h : inferTypeCore mode false env F d (.sort u) = .ok t) :
     t = .sort (.succ u) := by
   match F, h with
   | 0, h => rw [ConLeche.inferTypeCore_zero] at h; exact nomatch h
@@ -80,8 +77,8 @@ theorem inferTypeCore_sort_inv {env : Env} {F d : Nat} {u : Level} {t : Expr}
 /-- A run on an application spine carries a run on its head. -/
 theorem inferTypeCore_mkAppN_fn_inv {env : Env} {F d : Nat} :
     ∀ (as : List Expr) {f t : Expr},
-      inferTypeCore mode env F d (Expr.mkAppN f as) = .ok t →
-      ∃ tf, inferTypeCore mode env F d f = .ok tf
+      inferTypeCore mode false env F d (Expr.mkAppN f as) = .ok t →
+      ∃ tf, inferTypeCore mode false env F d f = .ok tf
   | [], _, t, h => ⟨t, h⟩
   | a :: as, f, t, h => by
     obtain ⟨tfa, hfa⟩ := inferTypeCore_mkAppN_fn_inv as (f := .app f a) h
@@ -95,9 +92,9 @@ instantiations leave it alone. -/
 theorem inferTypeCore_mkAppN_sort {env : Env} {F d : Nat} :
     ∀ (as : List Expr) {f ty : Expr} {bs : List Expr}
       {s : Level} {t : Expr},
-      inferTypeCore mode env F d f = .ok ty →
+      inferTypeCore mode false env F d f = .ok ty →
       ty.stripPis as.length = some (bs, .sort s) →
-      inferTypeCore mode env F d (Expr.mkAppN f as) = .ok t →
+      inferTypeCore mode false env F d (Expr.mkAppN f as) = .ok t →
       t = .sort s
   | [], f, ty, bs, s, t, hf, hst, h => by
     obtain rfl : ty = t := Except.ok.inj (hf.symm.trans h)
@@ -142,15 +139,15 @@ theorem eval_imax_eq_zero_iff (φ : Name → Nat) (l r : Level) :
 of an inferred Π-type has an inferred sort, and the whole type's sort
 is zero exactly when that one is (`imax`'s zero-ness is its right
 argument's). -/
-theorem piBits_of_infer {env : Env} (hver : mode.verifiedChecks = true) :
+theorem piBits_of_infer {env : Env} :
     ∀ (n : Nat) {F d : Nat} {e t : Expr} {v₀ : Level} {fvs : List Expr}
       {opened : Expr},
       openPisAtFvars n e d = some (fvs, opened) →
-      inferTypeCore mode env F d e = .ok t →
-      ensureSortCore mode env F d t = .ok v₀ →
+      inferTypeCore .verified false env F d e = .ok t →
+      ensureSortCore .verified false env F d t = .ok v₀ →
       ∃ (F' : Nat) (tb : Expr) (vb : Level),
-        inferTypeCore mode env F' (d + n) opened = .ok tb ∧
-        ensureSortCore mode env F' (d + n) tb = .ok vb ∧
+        inferTypeCore .verified false env F' (d + n) opened = .ok tb ∧
+        ensureSortCore .verified false env F' (d + n) tb = .ok vb ∧
         (∀ φ, Level.eval φ v₀ = 0 ↔ Level.eval φ vb = 0)
   | 0, F, d, e, t, v₀, fvs, opened, hop, h, hens => by
     simp only [openPisAtFvars, Option.some.injEq, Prod.mk.injEq] at hop
@@ -170,7 +167,7 @@ theorem piBits_of_infer {env : Env} (hver : mode.verifiedChecks = true) :
           simp only [Option.some.injEq, Prod.mk.injEq] at hop
           obtain ⟨-, rfl⟩ := hop
           obtain ⟨F', tb, vb, hrun, hensb', hv⟩ :=
-            piBits_of_infer hver n hop' hbt hensb
+            piBits_of_infer n hop' hbt hensb
           refine ⟨F', tb, vb, ?_, ?_, ?_⟩
           · rw [show d + (n + 1) = d + 1 + n from by omega]; exact hrun
           · rw [show d + (n + 1) = d + 1 + n from by omega]; exact hensb'
@@ -261,7 +258,7 @@ refutes, because a head of those kinds can *complete* a stored family
 is the block's own (`T`): every other stored family's capability
 constructor is stored already (the fold's `EtaFamiliesClosed` at the
 pre-block environment).  So the prefix families' laws cross as at any
-fresh cons, and the block's own family's laws are the install's
+fresh cons, and the block's own family's laws are the check's
 premise.
 -/
 
@@ -272,7 +269,7 @@ open ConLeche (Env Expr Name Level ConstantInfo ConstantVal IndCaps)
 
 universe w
 
-variable {V : Type w} [SetTheory V] {μ : CheckMode} {env : Env}
+variable {V : Type w} [SetTheory V] {env : Env}
 
 /-- **The block's own capability laws at a carrier** (task #210 Part
 A): what `capsOk_cons_native` asks of the family being installed at
@@ -317,7 +314,7 @@ is NOT this head (`hother`, which may consume the family's storedness
 AT THE EXTENSION — so that a block's still-pending members are refuted
 from the head's KIND rather than from closure); the block's own
 family's laws at the extension are supplied (`hTlaws`). -/
-theorem capsOk_cons_native (mp : EnvModelM V μ env)
+theorem capsOk_cons_native (mp : EnvModelM V env)
     {c₀ : ConstantInfo} {A : (Name → Nat) → Term} {T : Name}
     (hfresh : env.find? c₀.name = none)
     (hkind : (∃ cvT caps, c₀ = .indInfo cvT caps ∧ c₀.name = T) ∨
@@ -364,17 +361,13 @@ theorem capsOk_cons_native (mp : EnvModelM V μ env)
     have hfam₀ : ConLeche.EtaFamilyStored env T' caps' := by
       obtain ⟨hCres, ⟨cvC'', hfC''⟩, hfP⟩ := hfam
       exact ⟨hCres, ⟨cvC'', by rwa [hdown _ hnC] at hfC''⟩, hfP⟩
-    obtain ⟨TVa, hTVa, hokTVa, hlaw, hcoh⟩ :=
+    obtain ⟨hlaw, hcoh⟩ :=
       mp.caps_ok.1 T' cvT' caps' hfE hcape hres hfam₀ φ' us hlen
-    refine ⟨TVa, ?_, hokTVa, ?_, ?_⟩
-    · rw [hac]
-      exact denote_cons_mono hfresh _ 0
-        (constsBound_instType mp.base2.wf
-          (ConLeche.Env.find?_mem hfE) us) hTVa
-    · intro ρ ts rest x hlents hfit hmem
-      rw [hac, acvalWith_ne hnT'] at hmem
+    refine ⟨?_, ?_⟩
+    · intro ρ ts x hlents hfit hmem
+      rw [hac, acvalWith_ne hnT'] at hmem hfit
       rw [hac, acvalWith_ne hnC]
-      exact hlaw ρ ts rest x hlents hfit hmem
+      exact hlaw ρ ts x hlents hfit hmem
     · refine hcoh.transport (fun cvC nPc nFc hf₂ => ?_)
         (fun cvC nPc nFc TCa hf hTCa => ?_) (by rw [hac, acvalWith_ne hnT'])
         (fun _ _ _ => rfl)
@@ -391,16 +384,11 @@ theorem capsOk_cons_native (mp : EnvModelM V μ env)
     have hnT' : T' ≠ c₀.name := hneT T' cvT' caps' hf hTT
     have hfE : env.find? T' = some (.indInfo cvT' caps') := by
       rwa [hdown _ hnT'] at hf
-    obtain ⟨TVa, hTVa, hokTVa, hlaw⟩ :=
+    have hlaw :=
       mp.caps_ok.2 T' cvT' caps' hfE hcapu hres φ' us hlen
-    refine ⟨TVa, ?_, hokTVa, ?_⟩
-    · rw [hac]
-      exact denote_cons_mono hfresh _ 0
-        (constsBound_instType mp.base2.wf
-          (ConLeche.Env.find?_mem hfE) us) hTVa
-    · intro ρ ts rest x y hlents hfit hmx hmy
-      rw [hac, acvalWith_ne hnT'] at hmx hmy
-      exact hlaw ρ ts rest x y hlents hfit hmx hmy
+    intro ρ ts x y hlents hfit hmx hmy
+    rw [hac, acvalWith_ne hnT'] at hmx hmy hfit
+    exact hlaw ρ ts x y hlents hfit hmx hmy
 
 
 /-!
@@ -543,65 +531,10 @@ theorem denote_agree_of_readsAt
 
 /-! ## The reading peel -/
 
-/-- **The peel.**  A Π-prefix opened at `fvar`s reads to a
-`stripPisAV`-strippable reading whose domains are the opened
-variables' annotation readings at their own depths, and whose residual is
-the opened body's reading at the full depth. -/
-theorem denote_openPis {acval : Name → (Name → Nat) → Term} {env : Env}
-    {φ : Name → Nat} :
-    ∀ (n : Nat) {d : Nat} {e : Expr} {fvs : List Expr} {o : Expr}
-      {ea : Term},
-      openPisAtFvars n e d = some (fvs, o) →
-      denote acval env φ d e = some ea →
-      ∃ (pps : List Term) (b : Term),
-        stripPisAV n ea = some (pps, b) ∧
-        denote acval env φ (d + n) o = some b ∧
-        pps.length = n ∧
-        ∀ (i : Nat) (x : Expr), fvs[i]? = some x →
-          ∃ p, pps[i]? = some p ∧
-            denote acval env φ (d + i) x.fvarTypeD = some p
-  | 0, d, e, fvs, o, ea, hop, hden => by
-    simp only [openPisAtFvars, Option.some.injEq, Prod.mk.injEq] at hop
-    obtain ⟨rfl, rfl⟩ := hop
-    exact ⟨[], ea, rfl, by simpa using hden, rfl,
-      fun i x hx => by simp at hx⟩
-  | n + 1, d, e, fvs, o, ea, hop, hden => by
-    match e, hop with
-    | .forallE dom body, hop =>
-      simp only [openPisAtFvars] at hop
-      split at hop
-      · next fvs' o' hop' =>
-        simp only [Option.some.injEq, Prod.mk.injEq] at hop
-        obtain ⟨rfl, rfl⟩ := hop
-        obtain ⟨ta, ba, hta, hba, rfl⟩ := denote_forallE_inv hden
-        obtain ⟨pps, b, hst, hb, hlen, hbind⟩ := denote_openPis n hop' hba
-        refine ⟨ta :: pps, b, ?_, ?_, ?_, ?_⟩
-        · simp only [stripPisAV, hst, Option.map_some]
-        · rw [show d + (n + 1) = d + 1 + n from by omega]; exact hb
-        · simp [hlen]
-        · intro i x hx
-          cases i with
-          | zero =>
-            simp only [List.getElem?_cons_zero, Option.some.injEq] at hx
-            subst hx
-            exact ⟨ta, rfl,
-              by rw [Nat.add_zero]; exact hta⟩
-          | succ i =>
-            simp only [List.getElem?_cons_succ] at hx
-            obtain ⟨p, hp, hpd⟩ := hbind i x hx
-            exact ⟨p, by simpa using hp,
-              by rw [show d + (i + 1) = d + 1 + i from by omega]; exact hpd⟩
-      · exact nomatch hop
-    | .bvar _, hop | .fvar _ _, hop | .sort _, hop | .const _ _, hop
-    | .app _ _, hop | .lam _ _, hop | .letE _ _ _, hop | .lit _, hop
-    | .proj _ _ _, hop =>
-      simp [openPisAtFvars] at hop
-
-
 /-!
 ## The opened frames
 
-The install's stage checks run **at opened frames**: each
+The check's stage checks run **at opened frames**: each
 binder-domain comparison (`checkStructDomsAt`), each field's sort
 inference (`checkStructFieldSortsI`) and the recursor's pins run at the
 depth of the binder they concern, over the variables `openPisAtFvars`
@@ -635,17 +568,6 @@ open ConLeche ConLeche.Semantics ConLeche.Verify SetTheory ConLeche.SetModel
 variable {V : Type w} [SetTheory V]
 
 /-! ## `Sat` bookkeeping -/
-
-omit [SetTheory V] in
-theorem cons_eta (ρ : Nat → V) : cons (ρ 0) (fun j => ρ (j + 1)) = ρ := by
-  funext i
-  cases i <;> rfl
-
-theorem Sat_cons_inv {Δ : List Term} {A : Term} {ρ : Nat → V}
-    (h : Sat V (A :: Δ) ρ) :
-    ρ 0 ∈ˢ interp V (fun j => ρ (j + 1)) A ∧
-      Sat V Δ (fun j => ρ (j + 1)) :=
-  ⟨by have := h 0 A rfl; simpa using this, Sat_tail h⟩
 
 /-- **Context transfer**: a correspondence survives replacing the
 context by one with the same satisfying valuations whose entries
@@ -724,84 +646,6 @@ theorem piTeleAV_graded :
 
 /-! ## The opened context -/
 
-/-- **`CtxOk` at an opening's frame**: a term well-scoped at depth
-`i ≤ k` over the opening's variables correlates with the reading's
-context at that depth (`Γ.drop (k - i)` — the earlier domains,
-innermost first). -/
-theorem ctxOk_opened {env : Env} {m : EnvModel V env} {φ : Name → Nat}
-    {k : Nat} {e : Expr} {fvs : List Expr} {o : Expr}
-    (hop : openPisAtFvars k e 0 = some (fvs, o)) (hcl : e.hasFvar = false)
-    {Γ : List Term} (hΓ : Γ.length = k)
-    (hdoms : ∀ (i : Nat) (x : Expr), fvs[i]? = some x →
-      denote m.acval env φ i (Expr.fvarTypeD x)
-        = some (Γ.getD (k - 1 - i) default))
-    (hokΓ : ∀ i, i < k → ∀ ρ : Nat → V, Sat V (Γ.drop (k - i)) ρ →
-      WellDenotedTy V ρ (Γ.getD (k - 1 - i) default))
-    {i : Nat} (hik : i ≤ k) {x : Expr} (hwx : Expr.WScoped i x)
-    (hleaf : ∀ l ∈ x.fvarLeaves, Expr.fvar l.1 l.2 ∈ fvs) :
-    CtxOk m φ i (Γ.drop (k - i)) x := by
-  have hidx := openPisAtFvars_index k e 0 hop
-  have hlenF : fvs.length = k := openPisAtFvars_length k hop
-  have hws := (openPisAtFvars_WScoped k e 0 hop
-    (Expr.WScoped.of_not_hasFvar hcl)).1
-  -- the positions of the variables a leaf can be
-  have hpos : ∀ l ∈ x.fvarLeaves, fvs[l.1]? = some (Expr.fvar l.1 l.2) := by
-    intro l hl
-    obtain ⟨p, hp⟩ := List.getElem?_of_mem (hleaf l hl)
-    obtain ⟨ty, hx⟩ := hidx p _ hp
-    rw [Nat.zero_add] at hx
-    obtain ⟨rfl, -⟩ : l.1 = p ∧ l.2 = ty := by
-      injection hx with a b
-      exact ⟨a, b⟩
-    exact hp
-  refine ctxOk_of_openers m.acval_closed (fvs := fvs.take i)
-    (Aa := fun j => Γ.getD (k - 1 - j) default) (Δa := Γ.drop (k - i))
-    (by rw [List.length_drop]; omega) ?_ ?_ ?_ (e := x) (n := i) ?_
-    (Expr.fvarLeaves_lt_of_wscoped hwx) ?_ ?_
-  · intro j y hy
-    have hj : j < i := by
-      have := (List.getElem?_eq_some_iff.mp hy).1
-      rw [List.length_take] at this
-      omega
-    rw [List.getElem?_take_of_lt hj] at hy
-    obtain ⟨ty, hx⟩ := hidx j y hy
-    exact ⟨ty, by rw [hx, Nat.zero_add]⟩
-  · intro y hy
-    obtain ⟨j, hj⟩ := List.getElem?_of_mem hy
-    have hji : j < i := by
-      have := (List.getElem?_eq_some_iff.mp hj).1
-      rw [List.length_take] at this
-      omega
-    rw [List.getElem?_take_of_lt hji] at hj
-    obtain ⟨ty, rfl⟩ := hidx j y hj
-    have hw := hws _ (List.mem_of_getElem? hj)
-    rw [Nat.zero_add] at hw ⊢
-    simp only [Expr.WScoped, Nat.zero_add] at hw ⊢
-    exact ⟨hji, hw.2⟩
-  · intro j y hy
-    have hj : j < i := by
-      have := (List.getElem?_eq_some_iff.mp hy).1
-      rw [List.length_take] at this
-      omega
-    rw [List.getElem?_take_of_lt hj] at hy
-    exact hdoms j y hy
-  · intro l hl
-    have hlt := Expr.fvarLeaves_lt_of_wscoped hwx l hl
-    exact List.mem_of_getElem? (by rw [List.getElem?_take_of_lt hlt]; exact hpos l hl)
-  · intro j hj
-    rw [List.getElem?_drop, show k - i + (i - 1 - j) = k - 1 - j from by omega]
-    have hjl : k - 1 - j < Γ.length := by omega
-    rw [List.getD, List.getElem?_eq_getElem hjl]
-    rfl
-  · intro j hj ρ hρ
-    have hd := Sat_drop hρ (i - j)
-    rw [List.drop_drop, show k - i + (i - j) = k - j from by omega] at hd
-    have e : (fun l => ρ (l + (i - 1 - j) + 1)) = fun l => ρ (l + (i - j)) := by
-      funext l; congr 1; omega
-    rw [e]
-    exact hokΓ j (by omega) _ hd
-
-
 /-!
 ## The stage runs, as rows
 
@@ -815,25 +659,25 @@ depth — everything a stage's frame walk consumes, in one record.
 -/
 
 
-variable {V : Type w} [SetTheory V] {μ : CheckMode} {env : Env} {φ : Name → Nat}
+variable {V : Type w} [SetTheory V] {env : Env} {φ : Name → Nat}
 
 /-! ## The claims at one fuel -/
 
 /-- The claims a P carrier answers at fuel `F` and assignment `φ`. -/
-structure ClaimsAt (μ : CheckMode) {env : Env} (m : EnvModel V env)
+structure ClaimsAt {env : Env} (m : EnvModel V env)
     (φ : Name → Nat) (F : Nat) : Prop where
-  whnf : WhnfClaim μ m φ F
-  defeq : DefEqClaim μ m φ F
-  infer : InferClaim μ m φ F
-  reads : InferReads m μ φ F
-  sort : SortSemAt m μ φ F
+  whnf : WhnfClaim m φ F
+  defeq : DefEqClaim m φ F
+  infer : InferClaim m φ F
+  reads : InferReads m φ F
+  sort : SortSemAt m φ F
 
 /-- A P carrier answers them (the sealed capstone). -/
-theorem claimsAt_of (hμ : μ.isVerified = true) (mp : EnvModelM V μ env)
-    (φ : Name → Nat) (F : Nat) : ClaimsAt μ mp.base2 φ F :=
-  have h := checkSoundAt (V := V) hμ (Rules.RulesInputs.ofSem mp φ) F
-  have hr : InferReads mp.base2 μ φ F :=
-    inferReads_of hμ (Rules.RulesInputs.ofSem mp φ)
+theorem claimsAt_of (mp : EnvModelM V env)
+    (φ : Name → Nat) (F : Nat) : ClaimsAt mp.base2 φ F :=
+  have h := checkSoundAt (V := V) (Rules.RulesInputs.ofSem mp φ) F
+  have hr : InferReads mp.base2 φ F :=
+    inferReads_of (Rules.RulesInputs.ofSem mp φ)
   ⟨h.2.1, h.2.2.1, h.2.2.2, hr, sortSemAt_of_claims h.2.1 h.2.2.2 hr⟩
 
 namespace ClaimsAt
@@ -842,9 +686,9 @@ variable {m : EnvModel V env} {F : Nat}
 
 /-- An inference run at a context: the type reads, both readings are
 graded, and the subject inhabits the type. -/
-theorem inferRow (hc : ClaimsAt μ m φ F) {d : Nat} {e t : Expr}
+theorem inferRow (hc : ClaimsAt m φ F) {d : Nat} {e t : Expr}
     {Δ : List Term} {ea : Term}
-    (hi : inferTypeCore μ env F d e = .ok t)
+    (hi : inferTypeCore .verified false env F d e = .ok t)
     (hws : Expr.WScoped d e) (hb : e.looseBVarsBounded 0 = true)
     (hL : Expr.LeavesBounded e) (hC : CtxOk m φ d Δ e)
     (hea : denote m.acval env φ d e = some ea) :
@@ -858,10 +702,10 @@ theorem inferRow (hc : ClaimsAt μ m φ F) {d : Nat} {e t : Expr}
 
 /-- An inference run whose type is a sort: the subject is graded and
 lands in that universe. -/
-theorem sortRow (hc : ClaimsAt μ m φ F) {d : Nat} {e t : Expr} {u : Level}
+theorem sortRow (hc : ClaimsAt m φ F) {d : Nat} {e t : Expr} {u : Level}
     {Δ : List Term} {ea : Term}
-    (hi : inferTypeCore μ env F d e = .ok t)
-    (hens : ensureSortCore μ env F d t = .ok u)
+    (hi : inferTypeCore .verified false env F d e = .ok t)
+    (hens : ensureSortCore .verified false env F d t = .ok u)
     (hws : Expr.WScoped d e) (hb : e.looseBVarsBounded 0 = true)
     (hL : Expr.LeavesBounded e) (hC : CtxOk m φ d Δ e)
     (hea : denote m.acval env φ d e = some ea) :
@@ -872,9 +716,9 @@ theorem sortRow (hc : ClaimsAt μ m φ F) {d : Nat} {e t : Expr} {u : Level}
 /-- A definitional-equality run between two types at a context: the
 readings interpret alike ("not pt" source (1): types are not the point,
 so the conditional claim decides). -/
-theorem defEqRow (hc : ClaimsAt μ m φ F) {d : Nat} {a b : Expr}
+theorem defEqRow (hc : ClaimsAt m φ F) {d : Nat} {a b : Expr}
     {Δ : List Term} {aa ba : Term}
-    (h : ConLeche.isDefEqCore μ env F d a b = .ok true)
+    (h : ConLeche.isDefEqCore .verified false env F d a b = .ok true)
     (hwa : Expr.WScoped d a) (hba : a.looseBVarsBounded 0 = true)
     (hLa : Expr.LeavesBounded a)
     (hwb : Expr.WScoped d b) (hbb : b.looseBVarsBounded 0 = true)
@@ -1057,15 +901,6 @@ theorem piTeleAV_of_stripPisAV :
   | k + 1, .fst _, _, _, h | k + 1, .snd _, _, _, h
   | k + 1, .prf, _, _, h => by
     simp [stripPisAV] at h
-
-/-- The peel's entries, read off the reversed context. -/
-theorem getD_reverse_of_peel {pps : List Term} {k : Nat}
-    (hlen : pps.length = k) {i : Nat} (hi : i < k) {p : Term}
-    (hp : pps[i]? = some p) :
-    (pps.reverse).getD (k - 1 - i) default = p := by
-  rw [List.getD, List.getElem?_reverse (by omega), hlen,
-    show k - 1 - (k - 1 - i) = i from by omega, hp]
-  rfl
 
 /-! ## The hereditary walk -/
 
@@ -1275,13 +1110,13 @@ pins: at every depth `i ≤ nP` the constructor's context and the
 former's have the same satisfying valuations, and below `nP` the
 `i`-th entries interpret alike under the constructor's context. -/
 theorem paramFrames {m : EnvModel V env} {F : Nat}
-    (hc : ClaimsAt μ m φ F) {nP nF : Nat}
+    (hc : ClaimsAt m φ F) {nP nF : Nat}
     {tty cty : Expr} {tfvs cfvs : List Expr} {trest crest : Expr}
     {Γt Γc : List Term} {Rt Rc : Term}
     (hT : Opened m φ nP tty tfvs trest Γt Rt)
     (hC : Opened m φ (nP + nF) cty cfvs crest Γc Rc)
     (hpin : ∀ i, i < nP → ∃ a b, cfvs[i]? = some a ∧ tfvs[i]? = some b ∧
-      ConLeche.isDefEqCore μ env F i (Expr.fvarTypeD a) (Expr.fvarTypeD b)
+      ConLeche.isDefEqCore .verified false env F i (Expr.fvarTypeD a) (Expr.fvarTypeD b)
         = .ok true) :
     ∀ i, i ≤ nP →
       (∀ ρ : Nat → V, Sat V (Γc.drop (nP + nF - i)) ρ ↔
@@ -1537,16 +1372,16 @@ structure FormerData {env : Env} (m : EnvModel V env) (cvT : ConstantVal)
 
 /-- The former's data, from its `checkConstantVal` run at the
 pre-block environment and the stored type's telescope shape. -/
-theorem formerData_of (hμ : μ.isVerified = true) (mp : EnvModelM V μ env)
+theorem formerData_of (mp : EnvModelM V env)
     {F : Nat} {cvT cvTa : ConstantVal} {nP : Nat} {resSort : Level}
     {bs : List Expr}
     (hccv : cvTa = cvT ∧
-      ConLeche.checkConstantVal (ConLeche.fueledOps μ F) env cvT = .ok ())
+      ConLeche.checkConstantVal (ConLeche.fueledOps .verified F) env cvT = .ok ())
     (hstrip : cvTa.type.stripPis nP = some (bs, .sort resSort)) :
     ∃ pps : (Name → Nat) → List Term,
       FormerData mp.base2 cvTa nP resSort pps := by
   obtain ⟨rfl, hccv⟩ := hccv
-  obtain ⟨-, -, -, hlbt, hitf, stype, u, htp', htr', hst, hens⟩ :=
+  obtain ⟨-, -, hlbt, hitf, stype, u, htp', htr', hst, hens⟩ :=
     ConLeche.checkConstantVal_inv hccv
   have hw : Expr.WScoped 0 cvTa.type := Expr.WScoped.of_not_hasFvar hitf
   have hL : Expr.LeavesBounded cvTa.type := Expr.LeavesBounded.of_not_hasFvar hitf
@@ -1555,7 +1390,7 @@ theorem formerData_of (hμ : μ.isVerified = true) (mp : EnvModelM V μ env)
   obtain ⟨fvs, hop⟩ := openPisAtFvars_of_stripPis_sort nP 0 hstrip
   -- the opened body is `Sort resSort`, of sort `succ resSort`
   obtain ⟨F', tb, vb, hib, hensb, -⟩ :=
-    piBits_of_infer (CheckMode.vc hμ) nP hop hst hens
+    piBits_of_infer nP hop hst hens
   obtain rfl := inferTypeCore_sort_inv hib
   obtain rfl := ensureSortCore_sort_eq hensb
   -- per assignment: the reading, its peel, its grading
@@ -1566,7 +1401,7 @@ theorem formerData_of (hμ : μ.isVerified = true) (mp : EnvModelM V μ env)
       (∀ ρ : Nat → V, WellDenoted V ρ (mkPisAV pps (.sort (resSort.eval ψ)))) ∧
       DomsBelow 0 pps := by
     intro ψ
-    have hc := claimsAt_of hμ mp ψ F
+    have hc := claimsAt_of mp ψ F
     obtain ⟨Ta, hTa⟩ := acceptedReads_of mp.base2 ψ hst hw hlbt hL
     obtain ⟨-, -, hokT, -, -⟩ := hc.inferRow hst hw hlbt hL (CtxOk.nil hnil) hTa
     have hokT' : ∀ ρ : Nat → V, WellDenoted V ρ Ta := fun ρ =>
@@ -1641,13 +1476,5 @@ theorem FormerData.pushTable {m : EnvModel V env} {cvT : ConstantVal}
   below := h.below
   params := h.params
   syn := h.syn
-
-theorem stripPisAV_mkPisAV :
-    ∀ (pps : List Term) (b : Term),
-      stripPisAV pps.length (mkPisAV pps b) = some (pps, b)
-  | [], _ => rfl
-  | d :: pps, b => by
-    simp only [List.length_cons, mkPisAV, stripPisAV, stripPisAV_mkPisAV pps b,
-      Option.map_some]
 
 end ConLeche.Model

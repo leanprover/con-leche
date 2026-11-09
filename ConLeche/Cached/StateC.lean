@@ -90,7 +90,7 @@ def etaCtorShapeC (fe : FEnv) (e : Expr) : Bool :=
   match Expr.getAppFn e with
   | .const c _ =>
     match fe.find? c with
-    | some (.ctorInfo _ cnP cnF) => (Expr.getAppArgs e).length == cnP + cnF
+    | some (.ctorInfo _ cnP cnF) => (Expr.getAppArgsC e).length == cnP + cnF
     | _ => false
   | _ => false
 
@@ -109,6 +109,76 @@ structure ModeMemos where
   inferC : Std.HashMap Expr Expr := {}
   inferIOC : Std.HashMap Expr Expr := {}
   defeqC : Std.HashMap (Expr × Expr) Bool := {}
+
+/-! ## The maximum `Nat` size
+
+The official kernel refuses a `Nat` numeral larger than a byte bound
+(`g_nat_max_size`, `LEAN_NAT_MAX_SIZE`, default 128 MiB;
+`src/kernel/type_checker.cpp`, lean4#14849) at the four places one
+enters or grows: a literal it infers (`infer_lit`), the results of
+`Nat.succ`, `Nat.add`, `Nat.sub` and `Nat.mul` (`reduce_nat`,
+`reduce_bin_nat_op`, measured after computing: their operands are
+bounded already), and `Nat.pow` and `Nat.shiftLeft` (`reduce_pow`,
+`reduce_shiftLeft`, estimated from the operands before computing: the
+result can be exponentially larger).  Those two also refuse a second
+argument above `UINT_MAX`.  Each refusal is a kernel exception, so the
+declaration is rejected; here it is `.invalid` (exit 1).
+
+The rule is the cached core's, which is what runs: the specification
+(`natOpResult`, `ConLeche/Kernel/CoreDefs.lean`) is the computation
+itself, and a refusal only makes the cached run throw where the
+specification goes on, which the simulation's exception
+postcondition (`⊤`) admits. -/
+
+/-- The official kernel's default maximum `Nat` size, 128 MiB. -/
+def maxNatSizeDefault : Nat := 134217728
+
+/-- The official kernel's size of a numeral in bytes
+(`lean_nat_size_in_bytes`): one machine word for a scalar, the limbs
+for a GMP number — 8 bytes per started 64 bits, and at least 8. -/
+def natSizeBytes (n : Nat) : Nat := 8 * (n.log2 / 64 + 1)
+
+/-- The largest exponent / shift amount the official kernel evaluates
+(`get_count_arg`: it must fit in a 32-bit unsigned integer). -/
+def natCountMax : Nat := 4294967295
+
+/-- Official's `check_nat_size` message. -/
+def natNumeralTooBig : CheckError :=
+  .invalid "the kernel refused a `Nat` numeral because its size exceeds the maximum; \
+    raise it with --max-nat-size"
+
+/-- Official's `get_count_arg` message. -/
+def natCountTooBig (op : String) : CheckError :=
+  .invalid s!"the kernel refused to evaluate `{op}` because its second argument does not fit \
+    in a 32-bit unsigned integer"
+
+/-- **The refusal before computing** `c a b` at the maximum size `maxNatSize`
+(official `reduce_pow`, `reduce_shiftLeft`): `none` lets the operation
+compute.  `a ^ b` has at most `natSizeBytes a * b` bytes, and a base
+`≤ 1` gives `0` or `1`; `a <<< b` has about `natSizeBytes a + b / 8`
+bytes, and `0 <<< b = 0`. -/
+def natOpRefusal (maxNatSize : Nat) (c : Name) (a b : Nat) : Option CheckError :=
+  if c = natPowName then
+    if b > natCountMax then some (natCountTooBig "Nat.pow")
+    else if a > 1 && b != 0 && natSizeBytes a > maxNatSize / b then
+      some (.invalid "the kernel refused to evaluate `Nat.pow` because the result would \
+        exceed the maximum numeral size; raise it with --max-nat-size")
+    else none
+  else if c = natShiftLeftName then
+    if a = 0 then none
+    else if b > natCountMax then some (natCountTooBig "Nat.shiftLeft")
+    else if natSizeBytes a + b / 8 + 1 > maxNatSize then some natNumeralTooBig
+    else none
+  else none
+
+/-- **The refusal after computing** (official `reduce_bin_nat_op`'s
+`check_size`): the result `x` of `c`, a `Nat.add`, `Nat.sub` or
+`Nat.mul`, is a numeral above the maximum size. -/
+def natResultRefused (maxNatSize : Nat) (c : Name) (x : Expr) : Bool :=
+  (c = natAddName || c = natSubName || c = natMulName) &&
+    match x with
+    | .lit (.natVal n) => natSizeBytes n > maxNatSize
+    | _ => false
 
 /-- Per-declaration state: the memo caches for the five entry points
 (the plain tower's in their own fields, the eager tower's in
@@ -147,12 +217,17 @@ structure CState where
   eqvC : Std.HashMap (Level × Level) Bool := {}
   instC : Std.HashMap (Expr × List Expr × Nat) Expr := {}
   /-- **The eager tower's mode memos** (task #361): the six entry-point
-  memos of the eager tower (the knot at `mode.toEager`, the `defeqE`
+  memos of the eager tower (the knot at `eager := true`, the `defeqE`
   slot), stored here between eager comparisons and swapped in for each
   one (`withEagerMemos`).  Kept for the declaration like the plain
   ones, and apart from them: an eager entry never serves a plain query,
   nor the other way round. -/
   eagerMemos : ModeMemos := {}
+  /-- **The maximum `Nat` size**, in bytes (`maxNatSizeDefault` unless the
+  run sets it, `--max-nat-size`): the largest `Nat` numeral the core
+  takes in or computes (`natOpRefusal`).  Not a memo: set when the
+  declaration's state is made (`Cached.declStep`) and only read. -/
+  maxNatSize : Nat := maxNatSizeDefault
 
 instance : Inhabited CState := ⟨{}⟩
 
@@ -170,6 +245,12 @@ which is exactly the chained specification's next step. -/
 def peelFuel : Nat := 16777216
 
 @[inline] def peelFuelM : CheckCM Nat := pure peelFuel
+
+/-- The declaration's maximum `Nat` size (`CState.maxNatSize`), read off the
+state, which it leaves as it is. -/
+@[inline] def maxNatSizeM : CheckCM Nat := do
+  let s ← get
+  pure s.maxNatSize
 
 /-! ## Syntactic operations (the `*M` wrappers) -/
 
@@ -326,7 +407,7 @@ def ruleRhsAtM (fe : FEnv) (_cI _jI : Name) (c j : Name) (us : List Level) :
   | some i => pure i
   | none =>
     match fe.find? c with
-    | some (.recInfo cv _ _ rules) =>
+    | some (.recInfo cv _ _ _ rules) =>
       match rules.find? (fun r' => r'.ctor == j) with
       | some rl =>
         let i ← instLevelParamsM cv.levelParams us rl.rhs
@@ -357,7 +438,7 @@ def CState.modeMemos (s : CState) : ModeMemos :=
 plain memos move out (returned), the stored eager ones move into the
 six fields, and the eager slot is left empty.  Every map moves — none
 is shared — so the run that follows mutates the eager maps in place.
-From an eager mode the six fields already hold the eager set: nothing
+With the flag set the six fields already hold the eager set: nothing
 moves. -/
 def CState.enterEager (eager : Bool) (s : CState) : Option ModeMemos × CState :=
   if eager then (none, s) else
@@ -387,14 +468,14 @@ next eager comparison of the declaration — the task-#170 memo ruling
 one with and one without the flag") at the eager flag.  The
 mode-independent caches are shared.
 
-Nesting: inside the eager tower the mode is already eager
-(`mode.toEager = mode`) and the six fields already hold the eager set,
+Nesting: inside the eager tower the flag is already set and the six
+fields already hold the eager set,
 so a nested eager comparison runs on them as they are, with no swap.
-The mode test sits in `enterEager`, not in a branch here: `x` occurs
+The flag test sits in `enterEager`, not in a branch here: `x` occurs
 once, so the knot's `defeqE` slot inlines its memo wrapper once and
 builds no extra closure per knot record. -/
-@[inline] def withEagerMemos (mode : CheckMode) (x : CheckCM α) : CheckCM α := do
-  let saved ← modifyGet (CState.enterEager mode.eager)
+@[inline] def withEagerMemos (eager : Bool) (x : CheckCM α) : CheckCM α := do
+  let saved ← modifyGet (CState.enterEager eager)
   let r ← x
   modify (·.leaveEager saved)
   pure r

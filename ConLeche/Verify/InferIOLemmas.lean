@@ -26,7 +26,7 @@ set_option linter.unusedSimpArgs false
 
 namespace ConLeche
 
-variable {mode : CheckMode}
+variable {mode : CheckMode} {eager : Bool}
 
 /-- Inversion for the ∀-rule of the io lane.  Compare
 `inferTypeCore_forall_inv`: the clause is `inferBody`'s verbatim, so
@@ -34,25 +34,25 @@ the only deltas are the lane of the two recursive inferences and the
 lane-folding rewrites. -/
 theorem inferTypeCoreIO_forall_inv {env : Env} {fuel d : Nat}
     {ty body t : Expr}
-    (h : inferTypeCoreIO mode env (fuel + 1) d (.forallE ty body)
+    (h : inferTypeCoreIO mode eager env (fuel + 1) d (.forallE ty body)
       = .ok t) :
-    ∃ tty u bt v, inferTypeCoreIO mode env fuel d ty = .ok tty ∧
-      whnf mode env fuel d tty = .ok (.sort u) ∧
-      inferTypeCoreIO mode env fuel (d + 1)
+    ∃ tty u bt v, inferTypeCoreIO mode eager env fuel d ty = .ok tty ∧
+      whnf mode eager env fuel d tty = .ok (.sort u) ∧
+      inferTypeCoreIO mode eager env fuel (d + 1)
         (body.instantiate1 (.fvar d ty)) = .ok bt ∧
-      ensureSortCore mode env fuel (d + 1) bt = .ok v ∧
+      ensureSortCore mode eager env fuel (d + 1) bt = .ok v ∧
       t = .sort (.imax u v) := by
   rw [inferTypeCoreIO_succ] at h
   simp only [inferBodyIO, pure, Except.pure, Bind.bind,
     Except.bind] at h
   simp only [inferIO_def, pureFnsIO_whnf, ensureSortIO_def] at h
   try dsimp only at h
-  cases hty : inferTypeCoreIO mode env fuel d ty with
+  cases hty : inferTypeCoreIO mode eager env fuel d ty with
   | error err => rw [hty] at h; exact nomatch h
   | ok tty =>
   rw [hty] at h
   dsimp only at h
-  cases hwt : whnf mode env fuel d tty with
+  cases hwt : whnf mode eager env fuel d tty with
   | error err => rw [hwt] at h; exact nomatch h
   | ok w =>
   rw [hwt] at h
@@ -65,13 +65,13 @@ theorem inferTypeCoreIO_forall_inv {env : Env} {fuel d : Nat}
     intro h; simp [throw, throwThe, MonadExceptOf.throw] at h
   intro h
   dsimp only at h
-  cases hbt : inferTypeCoreIO mode env fuel (d + 1)
+  cases hbt : inferTypeCoreIO mode eager env fuel (d + 1)
       (body.instantiate1 (.fvar d ty)) with
   | error err => rw [hbt] at h; exact nomatch h
   | ok bt =>
   rw [hbt] at h
   dsimp only at h
-  cases hes : ensureSortCore mode env fuel (d + 1) bt with
+  cases hes : ensureSortCore mode eager env fuel (d + 1) bt with
   | error err => rw [hes] at h; exact nomatch h
   | ok v =>
   rw [hes] at h
@@ -82,17 +82,17 @@ theorem inferTypeCoreIO_forall_inv {env : Env} {fuel d : Nat}
 and no domain-sort run (official `infer_lambda` at `infer_only`). -/
 theorem inferTypeCoreIO_lam_inv {env : Env} {fuel d : Nat}
     {ty body t : Expr}
-    (h : inferTypeCoreIO mode env (fuel + 1) d (.lam ty body)
+    (h : inferTypeCoreIO mode eager env (fuel + 1) d (.lam ty body)
       = .ok t) :
     ∃ bt,
-      inferTypeCoreIO mode env fuel (d + 1)
+      inferTypeCoreIO mode eager env fuel (d + 1)
         (body.instantiate1 (.fvar d ty)) = .ok bt ∧
       t = .forallE ty (bt.abstract1 d) := by
   rw [inferTypeCoreIO_succ] at h
   simp only [inferBodyIO, pure, Except.pure, Bind.bind,
     Except.bind] at h
   simp only [inferIO_def] at h
-  cases hbt : inferTypeCoreIO mode env fuel (d + 1)
+  cases hbt : inferTypeCoreIO mode eager env fuel (d + 1)
       (body.instantiate1 (.fvar d ty)) with
   | error err => rw [hbt] at h; exact nomatch h
   | ok bt =>
@@ -105,20 +105,20 @@ theorem inferTypeCoreIO_lam_inv {env : Env} {fuel d : Nat}
 ∀ and the result is its body at the argument; the argument is not
 checked. -/
 theorem inferTypeCoreIO_app_inv {env : Env} {fuel d : Nat} {f a t : Expr}
-    (h : inferTypeCoreIO mode env (fuel + 1) d (.app f a) = .ok t) :
-    ∃ tf ty' body', inferTypeCoreIO mode env fuel d f = .ok tf ∧
-      whnf mode env fuel d tf = .ok (.forallE ty' body') ∧
+    (h : inferTypeCoreIO mode eager env (fuel + 1) d (.app f a) = .ok t) :
+    ∃ tf ty' body', inferTypeCoreIO mode eager env fuel d f = .ok tf ∧
+      whnf mode eager env fuel d tf = .ok (.forallE ty' body') ∧
       t = body'.instantiate1 a := by
   rw [inferTypeCoreIO_succ] at h
   simp only [inferBodyIO, pure, Except.pure, Bind.bind,
     Except.bind] at h
   simp only [inferIO_def, pureFnsIO_whnf] at h
-  cases htf : inferTypeCoreIO mode env fuel d f with
+  cases htf : inferTypeCoreIO mode eager env fuel d f with
   | error err => rw [htf] at h; exact nomatch h
   | ok tf =>
   rw [htf] at h
   dsimp only at h
-  cases hw : whnf mode env fuel d tf with
+  cases hw : whnf mode eager env fuel d tf with
   | error err => rw [hw] at h; exact nomatch h
   | ok w =>
   rw [hw] at h
@@ -142,9 +142,9 @@ task #342 R-C): the body's type at the value, neither the type nor the
 value checked. -/
 theorem inferTypeCoreIO_letE_inv {env : Env} {fuel d : Nat}
     {ty v b t : Expr}
-    (h : inferTypeCoreIO mode env (fuel + 1) d (.letE ty v b)
+    (h : inferTypeCoreIO mode eager env (fuel + 1) d (.letE ty v b)
       = .ok t) :
-    inferTypeCoreIO mode env fuel d (b.instantiate1 v) = .ok t := by
+    inferTypeCoreIO mode eager env fuel d (b.instantiate1 v) = .ok t := by
   rw [inferTypeCoreIO_succ] at h
   simpa [inferBodyIO, inferIO_def] using h
 
@@ -153,19 +153,18 @@ theorem inferTypeCoreIO_letE_inv {env : Env} {fuel d : Nat}
 lane, the reduction at the full one). -/
 theorem inferTypeCoreIO_proj_inv {env : Env} {fuel d : Nat} {sn : Name}
     {i : Nat} {e t : Expr}
-    (h : inferTypeCoreIO mode env (fuel + 1) d (.proj sn i e) = .ok t) :
+    (h : inferTypeCoreIO mode eager env (fuel + 1) d (.proj sn i e) = .ok t) :
     ∃ tpe te T us entry,
-      inferTypeCoreIO mode env fuel d e = .ok tpe ∧
-      whnf mode env fuel d tpe = .ok te ∧
+      inferTypeCoreIO mode eager env fuel d e = .ok tpe ∧
+      whnf mode eager env fuel d tpe = .ok te ∧
       te.getAppFn = .const T us ∧
       env.findProj? T i = some entry ∧
       te.getAppArgs.length = entry.numParams ∧
       us.length = entry.levelParams.length ∧
-      -- the official `infer_proj` restriction (task #175 W4c/O4), as in
+      -- the official `infer_proj` restriction, as in
       -- `inferTypeCore_proj_inv`
-      ((Level.isEquiv entry.structSort .zero == some true) = true →
-        (Level.isEquiv (Level.subst entry.levelParams us entry.fieldSort) .zero
-          == some true) = true) ∧
+      checkProjGuard (pureFnsIO mode eager env fuel).infer (pureFnsIO mode eager env fuel).whnf
+        env entry us = .ok () ∧
       (t = entry.typeAt us te.getAppArgs e ∧
        -- task #175 wiring W5: the node's struct name is the head's
        T = sn) := by
@@ -173,12 +172,12 @@ theorem inferTypeCoreIO_proj_inv {env : Env} {fuel d : Nat} {sn : Name}
   simp only [inferBodyIO, pure, Except.pure, Bind.bind,
     Except.bind] at h
   simp only [inferIO_def, pureFnsIO_whnf] at h
-  cases hte : inferTypeCoreIO mode env fuel d e with
+  cases hte : inferTypeCoreIO mode eager env fuel d e with
   | error err => rw [hte] at h; exact nomatch h
   | ok tpe =>
   rw [hte] at h
   dsimp only at h
-  cases hw : whnf mode env fuel d tpe with
+  cases hw : whnf mode eager env fuel d tpe with
   | error err => rw [hw] at h; exact nomatch h
   | ok te =>
   rw [hw] at h
@@ -207,36 +206,22 @@ theorem inferTypeCoreIO_proj_inv {env : Env} {fuel d : Nat} {sn : Name}
   case isFalse => exact nomatch h
   case isTrue hcond =>
     obtain ⟨hsn, hlen, hus⟩ := hcond
-    -- the Prop guard (task #175 W4c/O4), then the residual walk's
-    -- result
-    have hg : (Level.isEquiv entry.structSort .zero == some true) = true →
-        (Level.isEquiv (Level.subst entry.levelParams us entry.fieldSort) .zero
-          == some true) = true := by
-      intro hp
-      rw [ite_eq_left hp] at h
-      by_cases hf : (Level.isEquiv
-          (Level.subst entry.levelParams us entry.fieldSort) .zero
-          == some true) = true
-      · exact hf
-      · rw [ite_eq_right hf] at h
-        exact absurd h (by
-          simp [throw, throwThe, MonadExceptOf.throw, bind, Except.bind])
-    have h' : (pure (entry.typeAt us te.getAppArgs e) : Except CheckError Expr) = .ok t := by
-      by_cases hp : (Level.isEquiv entry.structSort .zero == some true) = true
-      · rw [ite_eq_left hp, ite_eq_left (hg hp)] at h
-        exact h
-      · rw [ite_eq_right hp] at h
-        exact h
-    simp only [pure, Except.pure, Except.ok.injEq] at h'
-    exact ⟨tpe, te, T, us, entry, rfl, hw, hfn, hfp, hlen, hus,
-      hg, h'.symm, hsn⟩
+    -- the guard at this use, then the residual walk's result
+    cases hg : checkProjGuard (pureFnsIO mode eager env fuel).infer
+        (pureFnsIO mode eager env fuel).whnf env entry us with
+    | error err => rw [hg] at h; exact nomatch h
+    | ok _ =>
+      rw [hg] at h
+      simp only [pure, Except.pure, Except.ok.injEq] at h
+      exact ⟨tpe, te, T, us, entry, rfl, hw, hfn, hfp, hlen, hus,
+        hg, h.symm, hsn⟩
 
 /-- **The literal clauses are lane-independent**: neither recurses, so
 the io run *is* the full run — the io twins of the two literal claims
 are the full claims applied across this equation. -/
 theorem inferTypeCoreIO_lit_eq {env : Env} {fuel d : Nat} {l : Literal} :
-    inferTypeCoreIO mode env (fuel + 1) d (.lit l) =
-      inferTypeCore mode env (fuel + 1) d (.lit l) := by
+    inferTypeCoreIO mode eager env (fuel + 1) d (.lit l) =
+      inferTypeCore mode eager env (fuel + 1) d (.lit l) := by
   rw [inferTypeCoreIO_succ, inferTypeCore_succ]
   cases l <;> rfl
 
@@ -255,24 +240,24 @@ else" at the leaves. -/
 
 /-- `.sort` is lane-independent (no recursive run). -/
 theorem inferTypeCoreIO_sort_eq {env : Env} {fuel d : Nat} {u : Level} :
-    inferTypeCoreIO mode env (fuel + 1) d (.sort u) =
-      inferTypeCore mode env (fuel + 1) d (.sort u) := by
+    inferTypeCoreIO mode eager env (fuel + 1) d (.sort u) =
+      inferTypeCore mode eager env (fuel + 1) d (.sort u) := by
   rw [inferTypeCoreIO_succ, inferTypeCore_succ]
   rfl
 
 /-- `.fvar` is lane-independent (the stored annotation, no run). -/
 theorem inferTypeCoreIO_fvar_eq {env : Env} {fuel d idx : Nat}
     {ty : Expr} :
-    inferTypeCoreIO mode env (fuel + 1) d (.fvar idx ty) =
-      inferTypeCore mode env (fuel + 1) d (.fvar idx ty) := by
+    inferTypeCoreIO mode eager env (fuel + 1) d (.fvar idx ty) =
+      inferTypeCore mode eager env (fuel + 1) d (.fvar idx ty) := by
   rw [inferTypeCoreIO_succ, inferTypeCore_succ]
   rfl
 
 /-- `.const` is lane-independent (the stored type, no run). -/
 theorem inferTypeCoreIO_const_eq {env : Env} {fuel d : Nat} {n : Name}
     {us : List Level} :
-    inferTypeCoreIO mode env (fuel + 1) d (.const n us) =
-      inferTypeCore mode env (fuel + 1) d (.const n us) := by
+    inferTypeCoreIO mode eager env (fuel + 1) d (.const n us) =
+      inferTypeCore mode eager env (fuel + 1) d (.const n us) := by
   rw [inferTypeCoreIO_succ, inferTypeCore_succ]
   rfl
 

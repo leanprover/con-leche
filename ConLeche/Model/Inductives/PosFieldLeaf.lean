@@ -24,7 +24,7 @@ opened it at is the leaf, up to erasure.
 
 namespace ConLeche.Model
 open ConLeche (Env Expr Name Level NestCtx NestHole NestKey PosD PosJ NestFieldKind PosTree
-  CheckerOps CheckM nestArity nestContainer)
+  CheckerOps CheckM nestContainer)
 
 /-! ## Towers, closed and opened -/
 
@@ -92,14 +92,14 @@ hole. -/
   (∃ i ty h, w.getAppFn = .fvar i ty ∧ ctx.hiAt 0 ≤ i ∧ i < ctx.hiAt prog.length ∧
     prog.reverse[i - ctx.hiAt 0]? = some h ∧
     (∀ x ∈ w.getAppArgs, x.nestOcc ctx.names ctx.nP (ctx.hiAt prog.length) = false) ∧
-    w.getAppArgs.length + h.key.ds.length = nestArity ctx h.key.cname) ∨
+    w.getAppArgs.length = h.nIdx) ∨
   (∃ n us nPc L u, w.getAppFn = .const n us ∧ ctx.names.contains n = false ∧
     nestContainer ctx n = some (nPc, L) ∧ nPc ≤ w.getAppArgs.length ∧
     (∀ x ∈ w.getAppArgs.drop nPc, x.nestOcc ctx.names ctx.nP (ctx.hiAt prog.length) = false) ∧
     (∀ x ∈ w.getAppArgs.take nPc, x.bvarB = 0 ∧ x.fvarB ≤ ctx.hiAt prog.length) ∧
     u ∈ ts ∧ u.occ = prog ∧ u.key = ⟨n, us, w.getAppArgs.take nPc⟩ ∧
     ∃ nI cty, w.getAppArgs.length = nPc + nI ∧
-      ConLeche.nestInstType (m := CheckM) ctx (ctx.hiAt prog.length)
+      ConLeche.nestInstType (m := CheckM) ctx ops env (ctx.hiAt prog.length)
         ⟨n, us, w.getAppArgs.take nPc⟩ = .ok (nI, cty)) ∨
   w.nestOcc ctx.names ctx.nP (ctx.hiAt prog.length) = false
 
@@ -117,7 +117,7 @@ theorem posD_field_leaf
         ∃ (tele : List Expr) (leafC w : Expr), nd = Expr.mkPisOf tele leafC ∧
           (∀ x ∈ tele, x.nestOcc ctx.names ctx.nP (ctx.hiAt prog.length) = false) ∧
           (∀ os, LocList dep tele.length os → Expr.ErasedEq (leafC.instantiateList os 0) w) ∧
-          FieldLeaf ctx prog w ts
+          FieldLeaf ops env ctx prog w ts
       | _ => True := by
   intro J ts h
   induction h with

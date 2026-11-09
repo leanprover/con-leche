@@ -1,5 +1,7 @@
 module
 
+import ConLeche.Verify.Denote.IndFrame
+import ConLeche.Model.OpenedCtx
 public import ConLeche.Model.Inductives.ContInst
 public import ConLeche.Model.Inductives.BlockRecData
 
@@ -33,7 +35,7 @@ variable {V : Type w} [SetTheory V] {env : Env} {φ : Name → Nat}
 
 section Inst
 
-variable {μ : ConLeche.CheckMode} (mp : EnvModelM V μ env) {D : LfpDatum V}
+variable (mp : EnvModelM V env) {D : LfpDatum V}
   (hD : D ∈ mp.lfpBlocks) (hnN : D.names.Nodup) (hkN : D.names.length = D.k) {lps : List Name}
   (hlps : ∀ mm, mm < D.k → ∃ cv caps, env.find? (D.member mm) = some (.indInfo cv caps) ∧
       cv.levelParams = lps)
@@ -60,7 +62,7 @@ theorem instCtor_open {c j : Nat} (hc : c < D.k) (hj : j < D.nctors c) {cv : Con
     cv.levelParams = lps ∧ ∃ ab : List Term,
       (∃ Tys : List Term, Tys.length = D.k ∧
         (∀ mm, mm < D.k → ∃ cvm caps ty, env.find? (D.member mm) = some (.indInfo cvm caps) ∧
-          ConLeche.instPisWith (canonParams ds.length) cvm.type = some ty ∧
+          ConLeche.instPisWith (canonParams ds.length) (D.formerAt mm cvm).type = some ty ∧
           denote mp.base2.acval env (Level.substFn φ lps us) (ds.length + mm) ty
             = some (Tys.getD mm default)) ∧
         FieldsEqOn V (D.params (Level.substFn φ lps us) ++ Tys).reverse ab

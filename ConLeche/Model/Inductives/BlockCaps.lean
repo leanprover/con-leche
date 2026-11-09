@@ -35,26 +35,33 @@ variable {V : Type w'} [SetTheory V] {env : Env}
 
 /-! ## Reading the record -/
 
+/-- A member's capability record counts its telescope. -/
+theorem blockCapsAt_telescope (p : BlockShape) (mi : Nat) (isRec : Bool) :
+    (blockCapsAt p mi isRec).nparams + (blockCapsAt p mi isRec).nIdx
+      = p.nP + (p.members.getD mi default).nIdx := by
+  unfold blockCapsAt
+  split <;> rfl
+
 /-- The record a member carries, by its constructor list: the
 capability slots are filled only at EXACTLY ONE constructor. -/
 theorem blockCapsAt_cases (p₁ : BlockShape) (mi : Nat) (isRec : Bool) :
     (∃ c : ConstantVal × Nat, (p₁.members.getD mi default).ctors = [c] ∧
       ConLeche.blockCapsAt p₁ mi isRec =
-        { eta := (p₁.members.getD mi default).nIdx == 0 && !p₁.isProp && !isRec
+        { eta := (p₁.members.getD mi default).nIdx == 0 && !isRec
           etaCtor := c.1.name
           etaParams := p₁.nP
           etaFields := c.2
           unitlike := (p₁.members.getD mi default).nIdx == 0 && c.2 == 0 && !isRec
           unitParams := p₁.nP
-          ruleK := p₁.k == 1 && c.2 == 0 && p₁.isProp
-          sortZ := Level.zeronessOf p₁.resSort
           all := p₁.memberNames
           nparams := p₁.nP
+          nIdx := (p₁.members.getD mi default).nIdx
           ctors := [c.1.name] }) ∨
     ConLeche.blockCapsAt p₁ mi isRec =
-      { sortZ := Level.zeronessOf p₁.resSort
+      {
         all := p₁.memberNames
         nparams := p₁.nP
+        nIdx := (p₁.members.getD mi default).nIdx
         ctors := (p₁.members.getD mi default).ctors.map fun c => c.1.name } := by
   unfold ConLeche.blockCapsAt
   split
@@ -85,7 +92,7 @@ theorem blockCapsAt_etaFields_pos {p₁ : BlockShape} {mi : Nat} {isRec : Bool}
     simp only [Bool.and_eq_false_iff, beq_eq_false_iff_ne, ne_eq] at hU
     show 0 < c.2
     rcases hU with (hU | hU) | hU
-    · exact absurd he.1.1 hU
+    · exact absurd he.1 hU
     · omega
     · exact nomatch he.2.symm.trans hU
   · rw [h] at he; exact nomatch he
@@ -111,10 +118,7 @@ theorem blockCapsLawsAt {env' : Env} (m' : EnvModel V env')
     {L : (Name → Nat) → Term}
     (hpar : ∀ ψ, p₁.nP = (pps ψ).length)
     (hleaf : ∀ ψ, m'.acval T ψ = L ψ)
-    (hread : ∀ ψ, denote m'.acval env' ψ 0 cvTa.type
-      = some (mkPisAV (pps ψ) (.sort (w ψ))))
-    (hokTy : ∀ (ψ : Name → Nat) (ρ : Nat → V),
-      WellDenoted V ρ (mkPisAV (pps ψ) (.sort (w ψ))))
+    (hlam : ∀ ψ, ∃ B, L ψ = mkLamsAV (pps ψ) B)
     (hfoldZ : (ConLeche.blockCapsAt p₁ mi isRec).unitlike = true →
       ∀ (ψ : Name → Nat) (ρ : Nat → V) (ts : List V),
         SpineFit ρ ((pps ψ)) ts →
@@ -134,9 +138,9 @@ theorem blockCapsLawsAt {env' : Env} (m' : EnvModel V env')
     CapsLawsAt m' T cvTa (ConLeche.blockCapsAt p₁ mi isRec) := by
   by_cases hu : (ConLeche.blockCapsAt p₁ mi isRec).unitlike = true
   · obtain ⟨-, hpE, hpU⟩ := blockCapsAt_unitlike hu
-    exact ⟨fun _ _ _ => fibreEtaLaw0 hleaf (hfoldZ hu) (hleafC hu) hread hokTy hfit
+    exact ⟨fun _ _ _ => fibreEtaLaw0 hleaf (hfoldZ hu) (hleafC hu) hlam hfit
         (fun ψ => by rw [hpE]; exact hpar ψ) (hreadC hu),
-      fun _ _ => fibreUnitLaw hleaf (hfoldZ hu) hread hokTy
+      fun _ _ => fibreUnitLaw hleaf (hfoldZ hu) hlam
         (fun ψ => by rw [hpU]; exact hpar ψ)⟩
   · have hU : (ConLeche.blockCapsAt p₁ mi isRec).unitlike = false := by simpa using hu
     exact blockCapsLawsAt_vacuous m' hU

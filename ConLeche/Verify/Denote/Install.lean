@@ -184,7 +184,7 @@ theorem ProjOkT.cons {env : Env} {c₀ : ConstantInfo} (h : ProjOkT env) (hwf : 
     (hfresh : env.find? c₀.name = none) :
     ProjOkT ⟨c₀ :: env.consts, env.tables⟩ := by
   have hkeep : ∀ (n : Name) (ci : ConstantInfo),
-      (∀ cv mI rP rules, ci ≠ .recInfo cv mI rP rules) →
+      (∀ cv mI rP isK rules, ci ≠ .recInfo cv mI rP isK rules) →
       env.find? n = some ci → (⟨c₀ :: env.consts, env.tables⟩ : Env).find? n = some ci := by
     intro n ci _ hf
     rw [Env.find?_cons_of_isSome hfresh (by rw [hf]; rfl)]; exact hf

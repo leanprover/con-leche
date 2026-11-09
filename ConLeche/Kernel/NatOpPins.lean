@@ -63,7 +63,7 @@ version.
 The certificates are **kernel-checked theorems**
 (`ConLeche/PinGen/Certs.lean`, the `ConLechePinCerts` library, built by
 `lake build`): a dump carries their proof *terms*, and the statements
-those terms inhabit are re-checked by this checker at install time
+those terms inhabit are re-checked by this checker at its check
 against the hand-pinned `divModCertStmts`.  The committed files are a
 cache of a computation, not a new axiom; a corrupted dump fails its
 certificate check and the stream declines.

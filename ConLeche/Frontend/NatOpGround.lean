@@ -23,7 +23,7 @@ declarations by a DFS from arbitrary roots (`lean4export` walks
 `Nat.ble`/`Nat.sub`/`Bool`) declined at the install.
 
 They cannot go into the prelude: the structural operations are
-certified at install by *definitional* recurrence equations
+certified at its check by *definitional* recurrence equations
 (`certifyNatEqs`) — deliberately not by a syntactic pin, so that a
 stream from another toolchain still installs them (`Nat.add` gained a
 separate `._f` functional between the 4.29 fixtures and the 4.33
@@ -89,10 +89,10 @@ def _root_.ConLeche.Declaration.usedConsts : Declaration → Array Name
       fun (seen, acc) ci =>
         let (seen, acc) := usedConstsGo seen acc ci.toConstantVal.type
         match ci with
-        | .recInfo _ _ _ rules =>
+        | .recInfo _ _ _ _ rules =>
           rules.foldl (fun (seen, acc) r => usedConstsGo seen acc r.rhs) (seen, acc)
         | _ => (seen, acc)).2
-  | .basisDecl _ | .quotDecl .. => #[]
+  | .quotDecl .. => #[]
 
 /-- The pinned `Nat` operation records whose ground the pass serves:
 the pin-certified WF operations and the structural ones (whose
@@ -107,7 +107,8 @@ def isNatOpRecord : Declaration → Option Name
 index to the earliest pinned-operation index it must precede.  Empty —
 and then the hoist is the identity — on every stream whose ground
 precedes its operations. -/
-def hoistTargets (ds : Array Declaration) : Std.HashMap Nat Nat := Id.run do
+def hoistTargets (used : Declaration → Array Name) (ds : Array Declaration) :
+    Std.HashMap Nat Nat := Id.run do
   -- name ↦ the index of the record declaring it (the first, on a
   -- duplicate — the fold rejects the second anyway)
   let mut idx : Std.HashMap Name Nat := {}
@@ -130,7 +131,7 @@ def hoistTargets (ds : Array Declaration) : Std.HashMap Nat Nat := Id.run do
         | some t => if t ≤ i then continue
         | none => pure ()
         target := target.insert k i
-        for n in ds[k]!.usedConsts do
+        for n in used ds[k]! do
           if let some m := idx[n]? then
             if m > i && m != k then stack := stack.push m
   return target
@@ -164,8 +165,9 @@ def applyHoist (ds : Array Declaration) (target : Std.HashMap Nat Nat) :
 /-- **The hoist.**  Returns the reordered records and the names of the
 records moved (empty, and the array untouched, when no operation's
 ground is declared after it). -/
-def hoistNatOpGround (ds : Array Declaration) : Array Declaration × Array Name :=
-  let target := hoistTargets ds
+def hoistNatOpGround (used : Declaration → Array Name) (ds : Array Declaration) :
+    Array Declaration × Array Name :=
+  let target := hoistTargets used ds
   if target.isEmpty then (ds, #[]) else applyHoist ds target
 
 end ConLeche.Frontend

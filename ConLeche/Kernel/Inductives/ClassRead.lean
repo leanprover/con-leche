@@ -1,6 +1,6 @@
 module
 
-public import ConLeche.Kernel.Inductives.BlockParts
+public import ConLeche.Kernel.Inductives.BlockShape
 
 @[expose] public section
 

@@ -1,14 +1,16 @@
 module
 
+import ConLeche.Verify.Denote.IndFrame
 public import ConLeche.Model.Inductives.NestPosAcc
 public import ConLeche.Model.Env.LfpAcc
 public import ConLeche.Model.Inductives.BlockPosRun
 import ConLeche.Model.Inductives.StructEntryKit
+import ConLeche.Verify.LooseBVar
 
 public section
 
 /-!
-# Accessibility from the install's run
+# Accessibility from the check's run
 
 The producer side of (W) by accessibility: at a uniform block's
 install every member constructor's field telescope is accessible along
@@ -32,7 +34,7 @@ open ConLeche.Semantics
 open ConLeche.SetModel
 open ConLeche.Term ConLeche.Verify SetTheory
 
-open ConLeche (Env Expr Name Level NestCtx NestHole ConstantVal BlockShape BlockParts)
+open ConLeche (Env Expr Name Level NestCtx NestHole ConstantVal BlockShape BlockShape)
 
 universe w
 
