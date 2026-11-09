@@ -67,7 +67,7 @@ theorem blockMembersRun_seam
       (blockDataOf V pp pk uOfD ppsOf) pp.formers)
     (hS : BlockCtorsStage (V := V) F
       (blockDataOf V pp pk uOfD ppsOf) pp.lps pp.formers
-      pp isRec A envI pp.ctorNamesAt)
+      pp isRec A envI)
     (hcore : BlockCtorsCore mpC.base2
       (blockDataOf V pp pk uOfD ppsOf) pp.lps pp.formers
       pp isRec A
@@ -112,7 +112,7 @@ theorem blockModelAt_seam
       (blockDataOf V pp pk uOfD ppsOf) pp.formers)
     (hS : BlockCtorsStage (V := V) F
       (blockDataOf V pp pk uOfD ppsOf) pp.lps pp.formers
-      pp isRec A envI pp.ctorNamesAt)
+      pp isRec A envI)
     (hcore : BlockCtorsCore mpC.base2
       (blockDataOf V pp pk uOfD ppsOf) pp.lps pp.formers
       pp isRec A

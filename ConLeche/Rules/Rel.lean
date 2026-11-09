@@ -33,9 +33,8 @@ checker does):
 * `DefEqExpand env d a b T` — two sides of one type compared after
   their η-expansion along the type's binders (task #515).
 * `UnitLike env d T`, `UnitFields env d tele n` — official's
-  `is_unit_like` (task #515): a ∀ with a unit-like codomain, a family
-  without fields, or an η family whose fields are propositions or
-  unit-like.
+  `is_unit_like` (task #515): a ∀ with a unit-like codomain, or an η
+  family whose fields (possibly none) are propositions or unit-like.
 * `Infer env g d e t` — type inference at a grade `g` (`Grade.full` for
   the front door, `Grade.io` for the infer-only lane).  The grade
   propagates to the recursive premises as `CoreFns.ioView` does.  The
@@ -276,29 +275,25 @@ inductive Red (env : Env) : Nat → Expr → Expr → Prop where
   projections is fabricated and scope-guarded.  No certificate: the
   major is the fabrication by the family's η law, and the fabrication
   is graded by the η constructor's telescope coherence (task #342
-  L11b, `EtaCoherent`).  The guards are the ones the η law is keyed
-  on: the two names not reserved, every field slot a projection-table
-  entry. -/
+  L11b, `EtaCoherent`).  The constructor and the counts are the
+  family's projection table's, which the η law is keyed on. -/
   | rescueEta {d : Nat} {major tm tmaj fab : Expr} {recName : Name}
       {cv : ConstantVal} {mI rP : Nat} {isK : Bool} {rl : RecRule} {cvj : ConstantVal}
       {cnP cnF : Nat} {T : Name} {tus ust : List Level} {cvT : ConstantVal}
-      {caps : IndCaps} :
+      {caps : IndCaps} {tbl : ProjTable} :
       env.find? recName = some (.recInfo cv mI rP isK [rl]) →
-      etaRescueOk rl.ctor cvj cvT caps = true →
       env.find? rl.ctor = some (.ctorInfo cvj cnP cnF) →
       (cvj.type.piResult).getAppFn = .const T tus →
       env.find? T = some (.indInfo cvT caps) →
+      etaRescueTable? (env.findTable? T) rl.ctor cvj cvT caps = some tbl →
       Infer env .io d major tm → Red env d tm tmaj →
       tmaj.getAppFn = .const T ust →
-      tmaj.getAppArgs.length = caps.etaParams →
+      tmaj.getAppArgs.length = tbl.numParams →
       ust.length = cvT.levelParams.length →
-      fab = Expr.mkAppN (.const caps.etaCtor ust)
-        (etaFabArgsE T tmaj.getAppArgs major caps.etaFields) →
+      fab = Expr.mkAppN (.const tbl.ctor ust)
+        (etaFabArgsE T tmaj.getAppArgs major tbl.numFields) →
       fab.wscopedB d = true → fab.looseBVarsBounded 0 = true →
       fab.fvarLeaves.all (fun l => major.fvarLeaves.contains l) = true →
-      reservedBasisNames.contains T = false →
-      reservedBasisNames.contains caps.etaCtor = false →
-      towerSlotsAll env T caps.etaFields = true →
       Red env d major fab
   /-- **The `And` rescue** (`majorToCtor`'s `And` branch,
   `Kernel/Core.lean`; `And` only, by ruling): `And.intro a b
@@ -454,32 +449,30 @@ inductive DefEq (env : Env) : Nat → Expr → Expr → Prop where
       DefEq env d a b
   /-- **Structure η** (`structEtaCert` → `structEtaCertWith`,
   `Kernel/Core.lean`): `a` is a fully applied constructor of an
-  η-capable stored structure, `b`'s io-inferred type head-normalises to
-  that structure at agreeing levels, every field slot has a
-  projection-table entry, the parameters agree pairwise, and every
-  field is the corresponding projection of `b`.
+  η-capable stored structure, its projection table's constructor, `b`'s
+  io-inferred type head-normalises to that structure at agreeing levels
+  and the table's parameter count, the parameters agree pairwise, and
+  every field is the corresponding projection of `b`.
   The type application is not certified: the type is a type, so its
   spine fits the former's telescope (task #342 L11b). -/
   | structEta {d : Nat} {a b tb wtb : Expr} {c : Name} {us : List Level}
       {cvc : ConstantVal} {cnP cnF : Nat} {T : Name} {us' : List Level}
-      {cvT : ConstantVal} {caps : IndCaps} :
+      {cvT : ConstantVal} {caps : IndCaps} {tbl : ProjTable} :
       Infer env .io d b tb → Red env d tb wtb →
       a.getAppFn = .const c us →
       env.find? c = some (.ctorInfo cvc cnP cnF) →
       a.getAppArgs.length = cnP + cnF →
       wtb.getAppFn = .const T us' →
       env.find? T = some (.indInfo cvT caps) →
-      caps.eta = true → caps.etaCtor = c →
-      reservedBasisNames.contains T = false →
-      reservedBasisNames.contains c = false →
-      wtb.getAppArgs.length = caps.etaParams →
+      env.findTable? T = some tbl →
+      caps.eta = true → tbl.ctor = c →
+      wtb.getAppArgs.length = tbl.numParams →
       us'.length = cvT.levelParams.length →
       cvc.levelParams = cvT.levelParams →
-      towerSlotsAll env T caps.etaFields = true →
       Level.isEquivList us us' = some true →
-      DefEqList env d (a.getAppArgs.take caps.etaParams) wtb.getAppArgs →
-      DefEqList env d (a.getAppArgs.drop caps.etaParams)
-        (etaProjs T b caps.etaFields) →
+      DefEqList env d (a.getAppArgs.take tbl.numParams) wtb.getAppArgs →
+      DefEqList env d (a.getAppArgs.drop tbl.numParams)
+        (etaProjs T b tbl.numFields) →
       DefEq env d a b
   /-- **Unit-likeness** (`structUnitCert`, `Kernel/Core.lean`; official's
   `is_def_eq_unit_like`): `a`'s io-inferred type head-normalises to a

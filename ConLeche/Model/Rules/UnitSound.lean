@@ -410,7 +410,7 @@ theorem UnitLike.struct_sound (hin : RulesInputs V m φ) {d n : Nat} {T w tele :
   obtain ⟨S, us, cvS, caps, tbl, cvC, nPc, nFc, hfn, hfS, heta, hus, hT, hlen, hfC, rfl,
     htele⟩ := ConLeche.unitLikeShape_some hsh
   -- the table's laws, at every field count
-  obtain ⟨⟨cvT', capsT', hfT', hlpsT', -⟩, hetaL⟩ := hin.tower_ok.table S tbl hT
+  obtain ⟨⟨cvT', capsT', hfT', hlpsT'⟩, hetaL⟩ := hin.tower_ok.table S tbl hT
   obtain ⟨rfl, rfl⟩ : cvS = cvT' ∧ caps = capsT' := by
     rw [hfS] at hfT'
     exact ConstantInfo.indInfo.inj (Option.some.inj hfT')

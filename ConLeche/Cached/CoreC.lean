@@ -338,24 +338,24 @@ def structEtaCertWithI (r : CoreFnsI) (fe : FEnv) (depth : Nat)
           let Tn ← pure T
           match fe.find? Tn with
           | some (.indInfo cvT caps) => do
-            let targs ← pure (Expr.getAppArgsC wtb)
-            if caps.eta = true ∧ caps.etaCtor = cn ∧
-                reservedBasisNames.contains Tn = false ∧
-                reservedBasisNames.contains cn = false ∧
-                targs.length = caps.etaParams ∧
-                us'.length = cvT.levelParams.length ∧
-                cvc.levelParams = cvT.levelParams ∧
-                fe.towerSlotsAllF Tn caps.etaFields = true then do
-              if ← liftFueled "level comparison"
-                  (← isEquivListLM us us') then do
-                -- no type-application certificate (task #342 L11b)
-                if ← defEqListI r fe depth
-                    (aargs.take caps.etaParams) targs then do
-                  let projs ← projNodesI T b (List.range caps.etaFields)
-                  defEqListI r fe depth (aargs.drop caps.etaParams) projs
+            match fe.findTable? Tn with
+            | some tbl => do
+              let targs ← pure (Expr.getAppArgsC wtb)
+              if caps.eta = true ∧ tbl.ctor = cn ∧
+                  targs.length = tbl.numParams ∧
+                  us'.length = cvT.levelParams.length ∧
+                  cvc.levelParams = cvT.levelParams then do
+                if ← liftFueled "level comparison"
+                    (← isEquivListLM us us') then do
+                  -- no type-application certificate (task #342 L11b)
+                  if ← defEqListI r fe depth
+                      (aargs.take tbl.numParams) targs then do
+                    let projs ← projNodesI T b (List.range tbl.numFields)
+                    defEqListI r fe depth (aargs.drop tbl.numParams) projs
+                  else pure false
                 else pure false
               else pure false
-            else pure false
+            | none => pure false
           | _ => pure false
         | _ => pure false
       else pure false
@@ -589,7 +589,8 @@ def majorToCtorI (r : CoreFnsI) (fe : FEnv) (depth : Nat)
                 else pure major
               else pure major
             | _ => pure major
-          else if etaRescueOk rl.ctor cvj cvT caps = true then do
+          else match etaRescueTable? (fe.findTable? T) rl.ctor cvj cvT caps with
+          | some tbl => do
             let tmaj₀ ← r.inferIO depth major
             let tmaj ← r.whnf depth tmaj₀
             match Expr.getAppFn tmaj with
@@ -597,17 +598,13 @@ def majorToCtorI (r : CoreFnsI) (fe : FEnv) (depth : Nat)
               let margs ← pure (Expr.getAppArgsC tmaj)
               let ustL ← pure ust
               -- instantiated non-Prop guard, as in the spec body
-              -- `majorToCtor` (task #61)
-              -- and the η law's keys, as in the spec body
-              if (← pure (T' == T)) ∧ margs.length = caps.etaParams ∧
-                  ust.length = cvT.levelParams.length ∧
-                  reservedBasisNames.contains T = false ∧
-                  reservedBasisNames.contains caps.etaCtor = false ∧
-                  fe.towerSlotsAllF T caps.etaFields = true then do
+              -- `majorToCtor` (task #61); the counts are the table's
+              if (← pure (T' == T)) ∧ margs.length = tbl.numParams ∧
+                  ust.length = cvT.levelParams.length then do
                 if ← formerNeverZeroI r.whnf cvT caps ustL then do
                   let TI ← pure T
-                  let projs ← projNodesI TI major (List.range caps.etaFields)
-                  let ctorI ← pure caps.etaCtor
+                  let projs ← projNodesI TI major (List.range tbl.numFields)
+                  let ctorI ← pure tbl.ctor
                   let h ← pure (Expr.const ctorI ust)
                   let fab ← mkAppNM h (margs ++ projs)
                   -- no certificate on the fabricated spine (task #342 L11b)
@@ -619,34 +616,35 @@ def majorToCtorI (r : CoreFnsI) (fe : FEnv) (depth : Nat)
                 else pure major
               else pure major
             | _ => pure major
-          else if T = andName then do
-            -- the `And`-only rescue, as in the spec body
-            let tmaj₀ ← r.inferIO depth major
-            let tmaj ← r.whnf depth tmaj₀
-            match Expr.getAppFn tmaj with
-            | .const T' ust => do
-              let margs ← pure (Expr.getAppArgsC tmaj)
-              if (← pure (T' == T)) ∧ margs.length = cnP ∧
-                  cvj.levelParams.length = ust.length ∧
-                  fe.andRescueSlotsF rl.ctor cnP = true then do
-                let TI ← pure T
-                let projs ← projNodesI TI major [0, 1]
-                let ctorI ← pure rl.ctor
-                let h ← pure (Expr.const ctorI ust)
-                let fab ← mkAppNM h (margs ++ projs)
-                if ← pure (Expr.wscopedBC depth fab &&
-                    Expr.looseBVarsBounded 0 fab &&
-                    Expr.leafGuard fab major) then do
-                  let tfab ← r.inferIO depth fab
-                  if ← r.defeq depth tmaj tfab then
-                    if ← certAtI mode (proofIrrelI r depth fab major) then
-                      pure fab
+          | none =>
+            if T = andName then do
+              -- the `And`-only rescue, as in the spec body
+              let tmaj₀ ← r.inferIO depth major
+              let tmaj ← r.whnf depth tmaj₀
+              match Expr.getAppFn tmaj with
+              | .const T' ust => do
+                let margs ← pure (Expr.getAppArgsC tmaj)
+                if (← pure (T' == T)) ∧ margs.length = cnP ∧
+                    cvj.levelParams.length = ust.length ∧
+                    fe.andRescueSlotsF rl.ctor cnP = true then do
+                  let TI ← pure T
+                  let projs ← projNodesI TI major [0, 1]
+                  let ctorI ← pure rl.ctor
+                  let h ← pure (Expr.const ctorI ust)
+                  let fab ← mkAppNM h (margs ++ projs)
+                  if ← pure (Expr.wscopedBC depth fab &&
+                      Expr.looseBVarsBounded 0 fab &&
+                      Expr.leafGuard fab major) then do
+                    let tfab ← r.inferIO depth fab
+                    if ← r.defeq depth tmaj tfab then
+                      if ← certAtI mode (proofIrrelI r depth fab major) then
+                        pure fab
+                      else pure major
                     else pure major
                   else pure major
                 else pure major
-              else pure major
-            | _ => pure major
-          else pure major
+              | _ => pure major
+            else pure major
         | _ => pure major
       | _ => pure major
     | _ => pure major

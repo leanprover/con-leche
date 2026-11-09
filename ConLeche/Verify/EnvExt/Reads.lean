@@ -232,8 +232,8 @@ theorem etaCtorShape_ext {e : Expr} (he : Res env₁ e) :
   dsimp only
   rw [hx.find_of_isSome (res_head he hfn)]
 
-/-- `etaCtorPartial` reads the head constructor and the family its stored
-type ends in, both resolved. -/
+/-- `etaCtorPartial` reads the head constructor, the family its stored
+type ends in, both resolved, and the family's table. -/
 theorem etaCtorPartial_ext {e : Expr} (he : Res env₁ e) :
     etaCtorPartial env₂ e = etaCtorPartial env₁ e := by
   unfold etaCtorPartial
@@ -254,7 +254,8 @@ theorem etaCtorPartial_ext {e : Expr} (he : Res env₁ e) :
     case isFalse => rfl
     cases hft : cvc.type.piResult.getAppFn <;> try rfl
     dsimp only
-    rw [hx.find_of_isSome (res_head (res_piResult hty) hft)]
+    have hT := res_head (res_piResult hty) hft
+    rw [hx.find_of_isSome hT, hx.table _ hT]
 
 omit hx in
 /-- A peel of a resolved telescope resolves. -/
@@ -300,11 +301,6 @@ theorem headHint_ext {e : Expr} (he : Res env₁ e) : headHint env₂ e = headHi
   cases hfn : e.getAppFn <;> try rfl
   dsimp only
   rw [hx.find_of_isSome (res_head he hfn)]
-
-theorem towerSlotsAll_ext {T : Name} (hT : (env₁.find? T).isSome = true) (nF : Nat) :
-    towerSlotsAll env₂ T nF = towerSlotsAll env₁ T nF := by
-  unfold towerSlotsAll
-  simp only [hx.findProj hT]
 
 /-- `unitLikeShape` reads the head family, its table and the table's
 constructor, all stored. -/

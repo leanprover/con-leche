@@ -218,7 +218,11 @@ theorem structEtaCertWith_rel (hx : EnvExt env₁ env₂) {a b wtb : Expr} (ha :
             cases ci' with
             | indInfo cvT caps =>
               dsimp only
-              rw [towerSlotsAll_ext hx hT]
+              rw [hx.table T hT]
+              cases env₁.findTable? T with
+              | none => exact Rel.ok trivial
+              | some tbl =>
+              dsimp only
               refine Rel.ite (fun _ => ?_) fun _ => Rel.ok trivial
               refine Rel.bind Rel.triv fun v _ => ?_
               refine Rel.iteB v (fun _ => ?_) fun _ => Rel.ok trivial

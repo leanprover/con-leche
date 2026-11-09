@@ -66,12 +66,6 @@ theorem findProj?_congr (_hfe : fe₁.find? = fe₂.find?)
     fe₁.findProj? = fe₂.findProj? := by
   funext T i; unfold FEnv.findProj?; simp only [htb]
 
-/-- `FEnv.towerSlotsAllF` reads `fe` only through `find?` and `findTable?`. -/
-theorem towerSlotsAllF_congr (hfe : fe₁.find? = fe₂.find?)
-    (htb : fe₁.findTable? = fe₂.findTable?) :
-    fe₁.towerSlotsAllF = fe₂.towerSlotsAllF := by
-  funext T nF; unfold FEnv.towerSlotsAllF; simp only [findProj?_congr hfe htb]
-
 /-- `FEnv.andRescueSlotsF` reads `fe` only through `find?` and `findTable?`. -/
 theorem andRescueSlotsF_congr (hfe : fe₁.find? = fe₂.find?)
     (htb : fe₁.findTable? = fe₂.findTable?) :
@@ -239,12 +233,13 @@ theorem structEtaCertWithI_congr (hfe : fe₁.find? = fe₂.find?)
     (htb : fe₁.findTable? = fe₂.findTable?) (r : CoreFnsI) :
     structEtaCertWithI r fe₁ = structEtaCertWithI r fe₂ := by
   funext depth a b wtb; unfold structEtaCertWithI
-  simp only [hfe, towerSlotsAllF_congr hfe htb, defEqListI_congr hfe]
+  simp only [hfe, htb, defEqListI_congr hfe]
 
-/-- `etaCtorPartialC` reads `fe` only through `find?`. -/
-theorem etaCtorPartialC_congr (hfe : fe₁.find? = fe₂.find?) :
+/-- `etaCtorPartialC` reads `fe` only through `find?` and `findTable?`. -/
+theorem etaCtorPartialC_congr (hfe : fe₁.find? = fe₂.find?)
+    (htb : fe₁.findTable? = fe₂.findTable?) :
     etaCtorPartialC fe₁ = etaCtorPartialC fe₂ := by
-  funext e; unfold etaCtorPartialC; simp only [hfe]
+  funext e; unfold etaCtorPartialC; simp only [hfe, htb]
 
 /-- `structEtaFullI` reads `fe` only through `find?` and `findTable?`. -/
 theorem structEtaFullI_congr (hfe : fe₁.find? = fe₂.find?)
@@ -269,7 +264,7 @@ theorem structEtaCertI_congr (hfe : fe₁.find? = fe₂.find?)
     (htb : fe₁.findTable? = fe₂.findTable?) (r : CoreFnsI) :
     structEtaCertI r fe₁ = structEtaCertI r fe₂ := by
   funext depth a b; unfold structEtaCertI
-  simp only [etaCtorShapeC_congr hfe, etaCtorPartialC_congr hfe,
+  simp only [etaCtorShapeC_congr hfe, etaCtorPartialC_congr hfe htb,
     structEtaFullI_congr hfe htb, structEtaExpandI_congr hfe htb]
 
 /-- `unitLikeStructI` reads `fe` only through `find?` and `findTable?`. -/
@@ -317,8 +312,7 @@ theorem majorToCtorI_congr (hfe : fe₁.find? = fe₂.find?)
     (htb : fe₁.findTable? = fe₂.findTable?) (r : CoreFnsI) :
     majorToCtorI mode r fe₁ = majorToCtorI mode r fe₂ := by
   funext depth recName rules major; unfold majorToCtorI
-  simp only [isCtorAppC_congr hfe, hfe,
-    towerSlotsAllF_congr hfe htb, andRescueSlotsF_congr hfe htb]
+  simp only [isCtorAppC_congr hfe, hfe, htb, andRescueSlotsF_congr hfe htb]
 
 /-- `litMajorToCtorI` reads `fe` only through `find?`. -/
 theorem litMajorToCtorI_congr (hfe : fe₁.find? = fe₂.find?) (r : CoreFnsI) :

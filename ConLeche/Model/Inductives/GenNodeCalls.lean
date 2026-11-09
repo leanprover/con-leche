@@ -32,7 +32,7 @@ import ConLeche.Model.Inductives.TargetCallTie
 import ConLeche.Model.Inductives.TargetNodeDynOf
 import ConLeche.Model.Inductives.TargetNodeCalls
 import ConLeche.Verify.Denote.ErasedEq
-import ConLeche.Semantics.Inductives.DeclBlockEta
+import ConLeche.Semantics.Inductives.BlockConsFind
 public import ConLeche.Model.Inductives.GenCallData
 import ConLeche.Model.Inductives.GenOutFacts
 public import ConLeche.Model.Inductives.TargetNodeDynOf

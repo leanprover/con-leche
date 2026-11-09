@@ -3,7 +3,6 @@ module
 import ConLeche.Model.Capstone
 import ConLeche.Model.NatEqs
 import ConLeche.Model.DivModCert
-import ConLeche.Model.Caps
 import ConLeche.Model.RecRulesCons
 public import ConLeche.Model.ReduceOps
 public import ConLeche.Model.Cover
@@ -308,7 +307,7 @@ theorem harvestDefn
         (hA ψ))
       hnres
       (fun _ _ _ _ _ heq => nomatch heq))
-    hAparams hAok ?_ ?_ ?_ ?_ ?_ ?_ ?_ ?_ ?_ ?_ ?_ ?_)
+    hAparams hAok ?_ ?_ ?_ ?_ ?_ ?_ ?_ ?_ ?_ ?_ ?_)
   · -- `htyReads`
     intro ψ
     show ∃ ta, denote (acvalWith mp.base2.acval cv.name A)
@@ -469,14 +468,6 @@ theorem harvestDefn
     exact eqLaw_cons_valueKind mp.eq_law
       (c₀ := .defnInfo ⟨cv.name, cv.levelParams, type'⟩ value' hint)
       (A := A) (fun _ _ h => ConstantInfo.noConfusion h) _ rfl
-  · -- `caps_ok` at the extension: a value-kind cons is neither a
-    -- former nor a capability constructor, so no stored family can be
-    -- completed here
-    exact capsOk_cons_fresh mp mp.caps_ok
-      (c₀ := .defnInfo ⟨cv.name, cv.levelParams, type'⟩ value' hint)
-      (A := A) hfresh
-      (fun _ _ h => ConstantInfo.noConfusion h)
-      (fun _ _ _ h => ConstantInfo.noConfusion h) _ rfl
   · -- `rec_rules` at the extension: a value-kind cons is neither a
     -- recursor nor a constructor, so no stored rule moves
     exact fun φ => recRules_cons_fresh mp
@@ -676,7 +667,7 @@ theorem harvestThm
         (hA ψ))
       hnres
       (fun _ _ _ _ _ heq => nomatch heq))
-    hAparams hAok ?_ ?_ ?_ ?_ ?_ ?_ ?_ ?_ ?_ ?_ ?_ ?_)
+    hAparams hAok ?_ ?_ ?_ ?_ ?_ ?_ ?_ ?_ ?_ ?_ ?_)
   · -- `htyReads`
     intro ψ
     show ∃ ta, denote (acvalWith mp.base2.acval cv.name A)
@@ -727,14 +718,6 @@ theorem harvestThm
   · exact eqLaw_cons_valueKind mp.eq_law
       (c₀ := .thmInfo ⟨cv.name, cv.levelParams, type'⟩)
       (A := A) (fun _ _ h => ConstantInfo.noConfusion h) _ rfl
-  · -- `caps_ok` at the extension: a value-kind cons is neither a
-    -- former nor a capability constructor, so no stored family can be
-    -- completed here
-    exact capsOk_cons_fresh mp mp.caps_ok
-      (c₀ := .thmInfo ⟨cv.name, cv.levelParams, type'⟩)
-      (A := A) hfresh
-      (fun _ _ h => ConstantInfo.noConfusion h)
-      (fun _ _ _ h => ConstantInfo.noConfusion h) _ rfl
   · -- `rec_rules` at the extension: a value-kind cons is neither a
     -- recursor nor a constructor, so no stored rule moves
     exact fun φ => recRules_cons_fresh mp
@@ -859,7 +842,7 @@ theorem harvestAxiom
       (hwf₂)
       hAvclosed hnres
       (fun _ _ _ _ _ heq => nomatch heq))
-    hAparams hAok ?_ ?_ ?_ ?_ ?_ ?_ ?_ ?_ ?_ ?_ ?_ ?_)
+    hAparams hAok ?_ ?_ ?_ ?_ ?_ ?_ ?_ ?_ ?_ ?_ ?_)
   · -- `htyReads`
     intro ψ
     show ∃ ta, denote (acvalWith mp.base2.acval cv.name A)
@@ -911,14 +894,6 @@ theorem harvestAxiom
   · exact eqLaw_cons_valueKind mp.eq_law
       (c₀ := .axiomInfo ⟨cv.name, cv.levelParams, type'⟩)
       (A := A) (fun _ _ h => ConstantInfo.noConfusion h) _ rfl
-  · -- `caps_ok` at the extension: a value-kind cons is neither a
-    -- former nor a capability constructor, so no stored family can be
-    -- completed here
-    exact capsOk_cons_fresh mp mp.caps_ok
-      (c₀ := .axiomInfo ⟨cv.name, cv.levelParams, type'⟩)
-      (A := A) hfresh
-      (fun _ _ h => ConstantInfo.noConfusion h)
-      (fun _ _ _ h => ConstantInfo.noConfusion h) _ rfl
   · -- `rec_rules` at the extension: a value-kind cons is neither a
     -- recursor nor a constructor, so no stored rule moves
     exact fun φ => recRules_cons_fresh mp
@@ -1110,7 +1085,7 @@ theorem harvestOpaque
         (hA ψ))
       hnres
       (fun _ _ _ _ _ heq => nomatch heq))
-    hAparams hAok ?_ ?_ ?_ ?_ ?_ ?_ ?_ ?_ ?_ ?_ ?_ ?_)
+    hAparams hAok ?_ ?_ ?_ ?_ ?_ ?_ ?_ ?_ ?_ ?_ ?_)
   · -- `htyReads`
     intro ψ
     show ∃ ta, denote (acvalWith mp.base2.acval cv.name A)
@@ -1160,14 +1135,6 @@ theorem harvestOpaque
   · exact eqLaw_cons_valueKind mp.eq_law
       (c₀ := .axiomInfo ⟨cv.name, cv.levelParams, type'⟩)
       (A := A) (fun _ _ h => ConstantInfo.noConfusion h) _ rfl
-  · -- `caps_ok` at the extension: a value-kind cons is neither a
-    -- former nor a capability constructor, so no stored family can be
-    -- completed here
-    exact capsOk_cons_fresh mp mp.caps_ok
-      (c₀ := .axiomInfo ⟨cv.name, cv.levelParams, type'⟩)
-      (A := A) hfresh
-      (fun _ _ h => ConstantInfo.noConfusion h)
-      (fun _ _ _ h => ConstantInfo.noConfusion h) _ rfl
   · -- `rec_rules` at the extension: a value-kind cons is neither a
     -- recursor nor a constructor, so no stored rule moves
     exact fun φ => recRules_cons_fresh mp

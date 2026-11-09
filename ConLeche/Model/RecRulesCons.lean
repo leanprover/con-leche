@@ -1,6 +1,6 @@
 module
 
-public import ConLeche.Model.Caps
+public import ConLeche.Model.Install
 
 public section
 
@@ -9,9 +9,9 @@ public section
 tier)
 
 `recRules_cons_fresh`, the obligation every value-kind harvest
-discharges for the new `EnvModelM` field `rec_rules`.  The statements
-live in `Env/EnvModelM.lean` beside `CapsOk` (the field must mention
-them); this is the preservation half, `capsOk_cons_fresh`'s sibling.
+discharges for the `EnvModelM` field `rec_rules`.  The statements
+live in `Env/Laws.lean` (the field must mention them); this is the
+preservation half.
 
 ## Every crossing is FORWARD; no equality-form transfer
 
@@ -52,6 +52,19 @@ universe w
 
 variable {V : Type w} [SetTheory V]
 variable {env : Env}
+
+/-- **A stored constant's level-instantiated type is prefix-bound.**
+Level instantiation does not move constants, so this is the stored
+type's own `constsResolve` read through `ConstsBound`. -/
+theorem constsBound_instType {env : Env} (hwf : ConLeche.EnvWF env)
+    {c : ConstantInfo} (hc : c ∈ env.consts) (us : List Level) :
+    ConstsBound env
+      (c.toConstantVal.type.instantiateLevelParams
+        c.toConstantVal.levelParams us) := by
+  obtain ⟨-, -, hty, -⟩ := hwf.consts c hc
+  refine constsBound_of_constsResolve _ ?_
+  rw [ConLeche.Expr.constsResolve_instantiateLevelParams]
+  exact hty
 
 /-- The reverse opening introduces no constants, so it preserves
 prefix-boundedness (its opener annotations are `.sort .zero`). -/
@@ -434,9 +447,9 @@ theorem towerTableLaw_ext (mp : EnvModelM V env) {env' : Env}
     (φ : Name → Nat) {T : Name} {tbl : ProjTable}
     (hfT0 : env.findTable? T = some tbl) :
     TowerTableLaw m₂ φ T tbl := by
-  obtain ⟨⟨cvT, capsT, hfT, hlpsT, himp⟩, hetaL⟩ := (mp.tower_ok φ).table T tbl hfT0
+  obtain ⟨⟨cvT, capsT, hfT, hlpsT⟩, hetaL⟩ := (mp.tower_ok φ).table T tbl hfT0
   obtain ⟨-, -, -, -, cvC, hfC, -⟩ := mp.base2.proj_ok T tbl hfT0
-  refine ⟨⟨cvT, capsT, hx.find hfT, hlpsT, himp⟩, ?_⟩
+  refine ⟨⟨cvT, capsT, hx.find hfT, hlpsT⟩, ?_⟩
   intro cvT' capsT' hfT' us hus
   have hfT'' : env.find? T = some (.indInfo cvT' capsT') := by
     exact hx.back (by rw [hfT]; rfl) hfT'

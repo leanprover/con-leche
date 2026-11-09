@@ -281,16 +281,10 @@ structure EnvModelM (env : Env) where
   `declBasisPB_at`.  Consumed by the WF operations' certificate
   frame) -/
   eq_law : EqLaw base2
-  /-- the stored fieldless families' fired η law (an *environment law* for the same reason `eq_law` is — an
-  η-capable family's leaf value is fixed by the inductive install and
-  by nothing else, so the supplier is the inductive install).  Consumed
-  by the structure-η rule's soundness
-  (`Model/Rules/EtaSoundKit.lean`, through `RulesInputs.caps_ok`) -/
-  caps_ok : CapsOk base2
   /-- a certified operation's name holds a definition: the fast path fires by name -/
   op_defn : OpDefn env
   /-- the stored recursors' fired modeled-iota contracts (an
-  *environment law* for the same reason `caps_ok` is — a
+  *environment law* for the same reason `eq_law` is — a
   recursor's rules are fixed by the inductive install and by nothing
   else, so the supplier is the inductive install).  Consumed by the ι rule's
   soundness (`Model/Rules/IotaSound.lean`, through
@@ -424,9 +418,6 @@ field is vacuous — no constants, guards false. -/
     exact nomatch hf
   eq_law := fun _ _ hf => by
     rw [show Env.empty.find? eqName = none from rfl] at hf
-    exact nomatch hf
-  caps_ok := fun T cvT caps hf => by
-    rw [show Env.empty.find? T = none from rfl] at hf
     exact nomatch hf
   rec_rules := fun _ n _ _ _ _ _ hf => by
     rw [show Env.empty.find? n = none from rfl] at hf

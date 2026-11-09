@@ -138,26 +138,26 @@ not a rule of its relations.
 
 #real[
   The checker has the rule as Lean has it,
-  #src("ConLeche/Rules/Rel.lean", 455, 466)[the constructor's fields compared with the projections of the other side],
+  #src("ConLeche/Rules/Rel.lean", 450, 461)[the constructor's fields compared with the projections of the other side],
   with
   #src("ConLeche/Model/Rules/DefEqSound.lean", 571, 573)[its soundness case].
   It uses the same law when it prepares the major premise of a
   recursor on a structure that is never a proposition at the instance.
   The major is taken as found, before any head normalisation, and the
   constructor is applied to its projections, with no further check
-  (#src("ConLeche/Rules/Rel.lean", 272, 282)[the rule],
+  (#src("ConLeche/Rules/Rel.lean", 271, 280)[the rule],
   #src("ConLeche/Model/Rules/IotaSound.lean", 704, 705)[its soundness case]).
   Only if that does not give a constructor application is the major
   head-normalised, and the same expansion is tried once more on the
   result. Whether a type has the rule at all is decided once, when it
   is installed, from its shape (one constructor, no index, in a block
   where no constructor is recursive), and
-  #src("ConLeche/Kernel/Inductives/BlockInstall.lean", 67, 76)[recorded with the type]\;
+  #src("ConLeche/Kernel/Inductives/BlockInstall.lean", 69, 75)[recorded with the type]\;
   the law itself is established there too, not at the use. It is the
   η law of the structure's _projection table_, the record of its
   fields' types that the checker stores for every one-constructor,
   index-free type (@sec:left-out, "Projections")
-  (#src("ConLeche/Model/Inductives/FixKit.lean", 722, 723)[a member is the constructor at the parameters and its own projections]).
+  (#src("ConLeche/Model/Inductives/FixKit.lean", 677, 678)[a member is the constructor at the parameters and its own projections]).
   It is proved when
   #src("ConLeche/Model/Inductives/BlockStageTables.lean", 10, 12)[the checker stores the table],
   by the argument above on the tagged tuple.
@@ -189,7 +189,7 @@ by the same argument.
 
 #real[
   The checker has the rule for
-  #src("ConLeche/Rules/Rel.lean", 490, 490)[any unit-like type] (Lean's:
+  #src("ConLeche/Rules/Rel.lean", 483, 483)[any unit-like type] (Lean's:
   a Π-type whose codomain is unit-like, or a structure whose fields are
   propositions or unit-like), with
   #src("ConLeche/Model/Rules/UnitSound.lean", 488, 488)[its soundness case].
@@ -198,7 +198,7 @@ by the same argument.
   η law is its projection table's, which every structure-like block
   member has, whatever its field count, and it is established at
   installation from the fixed point
-  (#src("ConLeche/Model/Inductives/FixKit.lean", 1383, 1383)[the table's η law, at every field count]).
+  (#src("ConLeche/Model/Inductives/FixKit.lean", 1335, 1335)[the table's η law, at every field count]).
   Neither `PUnit` nor `True` is special to the checker: both are
   installed like any other block.
 ]

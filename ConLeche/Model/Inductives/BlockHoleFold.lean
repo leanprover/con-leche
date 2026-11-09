@@ -498,7 +498,7 @@ theorem blockHoleFold (hH : BlockHoleFacts mo d lps) (hinst : d.nInst = 0)
 /-- **`blockHoleFold` at an index-free member, along a whole parameter
 spine**: the leaf applied to a spine fitting its telescope is the tagged
 union of the member's constructors' stored fields at the extended frame
-(the capability laws' and the table stage's fold). -/
+(the table stage's fold). -/
 theorem blockHoleFold_params (hH : BlockHoleFacts mo d lps) (hinst : d.nInst = 0)
     {A : Nat → (Name → Nat) → Term} {ψ : Name → Nat}
     (hA : ∀ c, c < d.k → A c ψ = blockTyG d.k (d.w ψ) (fun c => d.uM c ψ)

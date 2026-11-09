@@ -193,13 +193,6 @@ structure IndCaps where
   is not recursive.  A proposition may have it: a proof is the point, and the
   η laws speak of what is not. -/
   eta : Bool := false
-  /-- The single constructor the eta law reconstructs through
-  (meaningful only when `eta`). -/
-  etaCtor : Name := .anonymous
-  /-- Its parameter count (meaningful only when `eta`). -/
-  etaParams : Nat := 0
-  /-- Its field count (meaningful only when `eta`). -/
-  etaFields : Nat := 0
   /-- **The block's members** (official's `all`): the formers installed
   together with this one, in block
   order, itself included.  Read by nested positivity alone — a container

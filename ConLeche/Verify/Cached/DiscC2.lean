@@ -127,12 +127,6 @@ theorem unitLikeFieldsC_spec (ih : SSimC mode eager env f)
     | _ =>
       simp only [unitLikeFieldsI, unitLikeFields]
       sym only [conleche_grind] => vcgen <;> finish
-/-- The index's slot tests are the spec's (`mkFEnv`). -/
-theorem towerSlotsAllF_mkFEnv (env : Env) (T : Name) (n : Nat) :
-    (mkFEnv env).towerSlotsAllF T n = towerSlotsAll env T n := by
-  simp only [FEnv.towerSlotsAllF, towerSlotsAll, mkFEnv_findProj?]
-  all_goals rfl
-
 /-- The cached shape read is the spec's (`mkFEnv`). -/
 theorem unitLikeShapeF_mkFEnv (env : Env) (w : Expr) :
     unitLikeShapeF (mkFEnv env) w = unitLikeShape env w := by
@@ -210,6 +204,117 @@ theorem projNodesC_spec (T : Name) (b : Expr) :
     sym only [conleche_grind] =>
       vcgen [projNodesI, ih] <;> finish
 
+section PureSeta
+
+variable {m : Type → Type} [Monad m] [MonadExceptOf CheckError m] {r : CoreFns m} {d : Nat}
+
+/-- The pure structure-η certificate past its lookups (the constructor
+head, its record, the arity, the type's head, its former and its
+table). -/
+@[expose] def setaBodyP (r : CoreFns m) (env : Env) (depth : Nat) (a b wtb : Expr) (c : Name)
+    (us : List Level) (cvc : ConstantVal) (T : Name) (us' : List Level) (cvT : ConstantVal)
+    (caps : IndCaps) (tbl : ProjTable) : m Bool := do
+  if caps.eta = true ∧ tbl.ctor = c ∧
+      wtb.getAppArgs.length = tbl.numParams ∧
+      us'.length = cvT.levelParams.length ∧
+      cvc.levelParams = cvT.levelParams then
+    if ← liftFueled "level comparison" (Level.isEquivList us us') then
+      if ← defEqList r env depth (a.getAppArgs.take tbl.numParams) wtb.getAppArgs then
+        defEqList r env depth (a.getAppArgs.drop tbl.numParams) (etaProjs T b tbl.numFields)
+      else pure false
+    else pure false
+  else pure false
+
+/-! The pure certificate's arms, one equation each. -/
+
+theorem seta_body {env : Env} {a b wtb : Expr} {c : Name} {us : List Level} {cvc : ConstantVal}
+    {cnP cnF : Nat} {T : Name} {us' : List Level} {cvT : ConstantVal} {caps : IndCaps}
+    {tbl : ProjTable} (h1 : a.getAppFn = .const c us)
+    (h2 : env.find? c = some (.ctorInfo cvc cnP cnF)) (h3 : a.getAppArgs.length = cnP + cnF)
+    (h4 : wtb.getAppFn = .const T us') (h5 : env.find? T = some (.indInfo cvT caps))
+    (h6 : env.findTable? T = some tbl) :
+    structEtaCertWith r env d a b wtb = setaBodyP r env d a b wtb c us cvc T us' cvT caps tbl := by
+  rw [structEtaCertWith]; simp only [h1, h2, h3, h4, h5, h6, ↓reduceIte]; rfl
+grind_pattern [conleche_grind] seta_body =>
+    structEtaCertWith r env d a b wtb, Expr.const c us, ConstantInfo.ctorInfo cvc cnP cnF,
+      Expr.const T us', ConstantInfo.indInfo cvT caps, Option.some tbl where
+  guard a.getAppFn = .const c us
+  guard env.find? c = some (.ctorInfo cvc cnP cnF)
+  guard wtb.getAppFn = .const T us'
+  guard env.find? T = some (.indInfo cvT caps)
+  guard env.findTable? T = some tbl
+
+theorem seta_notConst {env : Env} {a b wtb : Expr}
+    (h1 : ∀ c us, a.getAppFn = .const c us → False) :
+    structEtaCertWith r env d a b wtb = pure false := by
+  rw [structEtaCertWith]; split
+  · exact absurd ‹_› (h1 _ _)
+  · rfl
+
+theorem seta_notCtor {env : Env} {a b wtb : Expr} {c : Name} {us : List Level}
+    (h1 : a.getAppFn = .const c us)
+    (h2 : ∀ cvc cnP cnF, env.find? c = some (.ctorInfo cvc cnP cnF) → False) :
+    structEtaCertWith r env d a b wtb = pure false := by
+  rw [structEtaCertWith]; simp only [h1]
+grind_pattern [conleche_grind] seta_notCtor => structEtaCertWith r env d a b wtb, Expr.const c us where
+  guard a.getAppFn = .const c us
+
+theorem seta_arity {env : Env} {a b wtb : Expr} {c : Name} {us : List Level} {cvc : ConstantVal}
+    {cnP cnF : Nat} (h1 : a.getAppFn = .const c us)
+    (h2 : env.find? c = some (.ctorInfo cvc cnP cnF)) (h3 : ¬a.getAppArgs.length = cnP + cnF) :
+    structEtaCertWith r env d a b wtb = pure false := by
+  rw [structEtaCertWith]; simp only [h1, h2, h3, ↓reduceIte]
+grind_pattern [conleche_grind] seta_arity =>
+    structEtaCertWith r env d a b wtb, Expr.const c us, ConstantInfo.ctorInfo cvc cnP cnF where
+  guard a.getAppFn = .const c us
+  guard env.find? c = some (.ctorInfo cvc cnP cnF)
+
+theorem seta_notConstT {env : Env} {a b wtb : Expr} {c : Name} {us : List Level}
+    {cvc : ConstantVal} {cnP cnF : Nat} (h1 : a.getAppFn = .const c us)
+    (h2 : env.find? c = some (.ctorInfo cvc cnP cnF)) (h3 : a.getAppArgs.length = cnP + cnF)
+    (h4 : ∀ T us', wtb.getAppFn = .const T us' → False) :
+    structEtaCertWith r env d a b wtb = pure false := by
+  rw [structEtaCertWith]; simp only [h1, h2, h3, ↓reduceIte]
+grind_pattern [conleche_grind] seta_notConstT =>
+    structEtaCertWith r env d a b wtb, Expr.const c us, ConstantInfo.ctorInfo cvc cnP cnF where
+  guard a.getAppFn = .const c us
+  guard env.find? c = some (.ctorInfo cvc cnP cnF)
+  guard a.getAppArgs.length = cnP + cnF
+
+theorem seta_notInd {env : Env} {a b wtb : Expr} {c : Name} {us : List Level}
+    {cvc : ConstantVal} {cnP cnF : Nat} {T : Name} {us' : List Level}
+    (h1 : a.getAppFn = .const c us)
+    (h2 : env.find? c = some (.ctorInfo cvc cnP cnF)) (h3 : a.getAppArgs.length = cnP + cnF)
+    (h4 : wtb.getAppFn = .const T us')
+    (h5 : ∀ cvT caps, env.find? T = some (.indInfo cvT caps) → False) :
+    structEtaCertWith r env d a b wtb = pure false := by
+  rw [structEtaCertWith]; simp only [h1, h2, h3, h4, ↓reduceIte]
+grind_pattern [conleche_grind] seta_notInd =>
+    structEtaCertWith r env d a b wtb, Expr.const c us, ConstantInfo.ctorInfo cvc cnP cnF,
+      Expr.const T us' where
+  guard a.getAppFn = .const c us
+  guard env.find? c = some (.ctorInfo cvc cnP cnF)
+  guard wtb.getAppFn = .const T us'
+
+theorem seta_noTable {env : Env} {a b wtb : Expr} {c : Name} {us : List Level}
+    {cvc : ConstantVal} {cnP cnF : Nat} {T : Name} {us' : List Level} {cvT : ConstantVal}
+    {caps : IndCaps} (h1 : a.getAppFn = .const c us)
+    (h2 : env.find? c = some (.ctorInfo cvc cnP cnF)) (h3 : a.getAppArgs.length = cnP + cnF)
+    (h4 : wtb.getAppFn = .const T us') (h5 : env.find? T = some (.indInfo cvT caps))
+    (h6 : env.findTable? T = none) :
+    structEtaCertWith r env d a b wtb = pure false := by
+  rw [structEtaCertWith]; simp only [h1, h2, h3, h4, h5, h6, ↓reduceIte]
+grind_pattern [conleche_grind] seta_noTable =>
+    structEtaCertWith r env d a b wtb, Expr.const c us, ConstantInfo.ctorInfo cvc cnP cnF,
+      Expr.const T us', ConstantInfo.indInfo cvT caps where
+  guard a.getAppFn = .const c us
+  guard env.find? c = some (.ctorInfo cvc cnP cnF)
+  guard wtb.getAppFn = .const T us'
+  guard env.find? T = some (.indInfo cvT caps)
+  guard env.findTable? T = none
+
+end PureSeta
+
 /-- `structEtaCertWithI` simulates its fueled original. -/
 theorem structEtaCertWithC_spec (ih : SSimC mode eager env f) {d : Nat} {a b wtb : Expr}
     {s₀ : CState} (hs : CSOK mode eager env s₀) (hwa : Expr.WScoped d a) (hwb : Expr.WScoped d b)
@@ -218,8 +323,7 @@ theorem structEtaCertWithC_spec (ih : SSimC mode eager env f) {d : Nat} {a b wtb
       structEtaCertWithI (coreKnotI mode eager (mkFEnv env) f) (mkFEnv env) d a b wtb
     ⦃fun v s' => CSOK mode eager env s' ∧
         Runs (structEtaCertWith (fueledFns mode eager env) env d a b wtb) v; ⊤⦄ := by
-  sym only [conleche_grind, structEtaCertWith,
-      towerSlotsAllF_mkFEnv] =>
+  sym only [conleche_grind, seta_notConst, setaBodyP] =>
     vcgen [structEtaCertWithI, isEquivListLM_spec (mode := mode) (eager := eager) (env := env),
       liftFueled_spec (mode := mode) (eager := eager) (env := env), defEqListC_spec ih,
       projNodesC_spec (mode := mode) (eager := eager) (env := env)] <;> finish
@@ -228,7 +332,7 @@ theorem structEtaCertWithC_spec (ih : SSimC mode eager env f) {d : Nat} {a b wtb
 theorem etaCtorPartialC_eq (env : Env) (e : Expr) :
     etaCtorPartialC (mkFEnv env) e = etaCtorPartial env e := by
   unfold etaCtorPartialC etaCtorPartial
-  simp only [mkFEnv_find?]
+  simp only [mkFEnv_find?, mkFEnv_findTable?]
   cases e.getAppFn <;> rfl
 
 /-- `structEtaFullI` simulates its fueled original. -/

@@ -397,9 +397,7 @@ theorem BlockFormerFacts.ofDcl {env : Env} {mp : EnvModelM V env} {q : BlockShap
 the leaves `A`, at the capability records the block owes.  BOTH passes
 of the assembly are this theorem — the DUMMY one at the empty chains,
 at whose carrier the constructors are read, and the REAL one at the
-fixpoint leaves those readings build.  The η invariant is threaded
-over the whole member list, because all `k` formers are stored before
-any constructor is. -/
+fixpoint leaves those readings build. -/
 theorem blockFormerPass (mp : EnvModelM V env) {F : Nat} {p₀ : BlockShape} {isRec : Bool}
     {formers : List ConstantVal} {q : BlockShape} {envI : Env}
     {ppsOf : Nat → (Name → Nat) → List Term} {sOf : Nat → Level}
@@ -408,7 +406,6 @@ theorem blockFormerPass (mp : EnvModelM V env) {F : Nat} {p₀ : BlockShape} {is
     (hdecl : ∀ ms ∈ p₀.members, ConLeche.MemberDeclaredWF env ms)
     (hF : BlockFormerFacts mp q (p₀.members.map (·.declared)) formers ppsOf sOf)
     (hnd : q.memberNames.Nodup)
-    (hE : ConLeche.EtaFamiliesClosed env)
     (A : Nat → (Name → Nat) → Term)
     (hAbelowOf : ∀ (j : Nat) (cvTa : ConstantVal), formers[j]? = some cvTa →
       ∀ ψ : Name → Nat, Term.bvarsBelow 0 (A j ψ))
@@ -418,26 +415,8 @@ theorem blockFormerPass (mp : EnvModelM V env) {F : Nat} {p₀ : BlockShape} {is
       ∀ (ψ : Name → Nat) (ρ : Nat → V), WellDenoted V ρ (A j ψ))
     (hAmemOf : ∀ (j : Nat) (cvTa : ConstantVal), formers[j]? = some cvTa →
       ∀ (ψ : Name → Nat) (ρ : Nat → V),
-      interp V ρ (A j ψ) ∈ˢ interp V ρ (mkPisAV (ppsOf j ψ) (.sort (q.resSort.eval ψ))))
-    (hetaNe : ∀ (j j' : Nat) (cvTa cvTb : ConstantVal), formers[j]? = some cvTa →
-      formers[j']? = some cvTb → (ConLeche.blockCapsAt q j isRec).eta = true →
-      cvTb.name ≠ (ConLeche.blockCapsAt q j isRec).etaCtor)
-    (hetaFresh : ∀ (j : Nat) (cvTb : ConstantVal), formers[j]? = some cvTb →
-      (ConLeche.blockCapsAt q j isRec).eta = true →
-      env.find? (ConLeche.blockCapsAt q j isRec).etaCtor = none)
-    (hTlawsOf : ∀ (j : Nat) (cvS cvTa : ConstantVal), (p₀.members.map (·.declared))[j]? = some cvS →
-      formers[j]? = some cvTa →
-      ∀ {env' : Env} (m' : EnvModel V env'),
-      FormerData m' cvTa (q.nP + q.nIdxs.getD j 0) q.resSort (ppsOf j) →
-      env'.find? cvTa.name = none → ConstsBound env' cvTa.type →
-      (∀ (j' : Nat) (cvTb : ConstantVal), formers[j']? = some cvTb →
-        (ConLeche.blockCapsAt q j' isRec).eta = true →
-        env'.find? (ConLeche.blockCapsAt q j' isRec).etaCtor = none) →
-      ∀ m₂ : EnvModel V ⟨.indInfo cvS (ConLeche.blockCapsAt q j isRec) :: env'.consts, env'.tables⟩,
-      m₂.acval = acvalWith m'.acval cvS.name (A j) →
-      CapsLawsAt m₂ cvS.name cvS (ConLeche.blockCapsAt q j isRec)) :
+      interp V ρ (A j ψ) ∈ˢ interp V ρ (mkPisAV (ppsOf j ψ) (.sort (q.resSort.eval ψ)))) :
     ∃ mp' : EnvModelM V envI,
-      ConLeche.EtaFamiliesClosedExceptL envI q.memberNames ∧
       (∀ (j : Nat) (cvTa : ConstantVal), formers[j]? = some cvTa →
         FormerData mp'.base2 cvTa (q.nP + q.nIdxs.getD j 0) q.resSort (ppsOf j)) ∧
       (∀ (j : Nat) (cvS cvTa : ConstantVal), (p₀.members.map (·.declared))[j]? = some cvS →
@@ -459,14 +438,9 @@ theorem blockFormerPass (mp : EnvModelM V env) {F : Nat} {p₀ : BlockShape} {is
     rw [hF.nameOf j cvTa hjq, List.getD_eq_getElem?_getD, List.getElem?_eq_getElem hj]
     rfl
   have hcons := stageBlockFormers (V := V) (p₁ := q) (isRec := isRec)
-    (names := q.memberNames) (declAll := p₀.members.map (·.declared)) (formersAll := formers) (A := A)
+    (declAll := p₀.members.map (·.declared)) (formersAll := formers) (A := A)
     (nPOf := fun j => q.nP + q.nIdxs.getD j 0) (resSort := q.resSort) (ppsOf := ppsOf)
     hF.lenDcl
-    (fun j cvTa hj => by
-      have hjl : j < q.memberNames.length := by
-        rw [hlenNames]; exact (List.getElem?_eq_some_iff.mp hj).1
-      rw [hnameG j cvTa hjl hj]
-      exact List.getElem_mem hjl)
     (fun j j' c c' hj hj' hjj => by
       have hjl : j < q.memberNames.length := by
         rw [hlenNames]; exact (List.getElem?_eq_some_iff.mp hj).1
@@ -475,14 +449,14 @@ theorem blockFormerPass (mp : EnvModelM V env) {F : Nat} {p₀ : BlockShape} {is
       rw [hnameG j c hjl hj, hnameG j' c' hjl' hj']
       exact nodup_getElem_ne hnd hjl hjl' hjj)
     hF.nresOf hF.opOf
-    hAbelowOf hAparamsOf hAokOf hAmemOf hetaNe hTlawsOf
+    hAbelowOf hAparamsOf hAokOf hAmemOf
     (fun _ _ hj _ henv hres => ConLeche.checkBlockInds_cons_envWF hdecl hInd hj henv hres)
     (p₀.members.map (·.declared)) 0 env mp (fun j => by rw [Nat.zero_add]) (Nat.zero_add _)
-    (hE.exceptL q.memberNames) hF.resolveOf (fun j cvTa _ hj => hF.freshOf j cvTa hj)
-    hetaFresh hF.fdOf hF.declOf
+    hF.resolveOf (fun j cvTa _ hj => hF.freshOf j cvTa hj)
+    hF.fdOf hF.declOf
     (fun j _ _ hlt _ _ => absurd hlt (Nat.not_lt_zero _))
-  obtain ⟨mp', hE', hFD', hDS', hc', hag'⟩ := hcons
-  refine ⟨mp', hE', hFD', hDS', hc', fun n hn => hag' n fun cvS hcvS => ?_⟩
+  obtain ⟨mp', hFD', hDS', hc', hag'⟩ := hcons
+  refine ⟨mp', hFD', hDS', hc', fun n hn => hag' n fun cvS hcvS => ?_⟩
   obtain ⟨j, hj⟩ := List.getElem?_of_mem hcvS
   obtain ⟨cvTb, hb⟩ : ∃ cvTb, formers[j]? = some cvTb :=
     ⟨_, List.getElem?_eq_getElem (by
@@ -531,16 +505,8 @@ theorem blockDummyPass (mp : EnvModelM V env) {F : Nat} {p₀ : BlockShape} {isR
       = .ok (envI, q))
     (hdecl : ∀ ms ∈ p₀.members, ConLeche.MemberDeclaredWF env ms)
     (hF : BlockFormerFacts mp q (p₀.members.map (·.declared)) formers ppsOf sOf)
-    (hnd : q.memberNames.Nodup)
-    (hE : ConLeche.EtaFamiliesClosed env)
-    (hetaNe : ∀ (j j' : Nat) (cvTa cvTb : ConstantVal), formers[j]? = some cvTa →
-      formers[j']? = some cvTb → (ConLeche.blockCapsAt q j isRec).eta = true →
-      cvTb.name ≠ (ConLeche.blockCapsAt q j isRec).etaCtor)
-    (hetaFresh : ∀ (j : Nat) (cvTb : ConstantVal), formers[j]? = some cvTb →
-      (ConLeche.blockCapsAt q j isRec).eta = true →
-      env.find? (ConLeche.blockCapsAt q j isRec).etaCtor = none) :
+    (hnd : q.memberNames.Nodup) :
     ∃ mp' : EnvModelM V envI,
-      ConLeche.EtaFamiliesClosedExceptL envI q.memberNames ∧
       (∀ (j : Nat) (cvTa : ConstantVal), formers[j]? = some cvTa →
         FormerData mp'.base2 cvTa (q.nP + q.nIdxs.getD j 0) q.resSort (ppsOf j)) ∧
       (∀ (j : Nat) (cvS cvTa : ConstantVal), (p₀.members.map (·.declared))[j]? = some cvS →
@@ -571,7 +537,7 @@ theorem blockDummyPass (mp : EnvModelM V env) {F : Nat} {p₀ : BlockShape} {isR
     cases hj : formers[j]? with
     | none => rw [hF.ppsNil j hj ψ]; trivial
     | some cvTa => exact (hF.fdOf j cvTa hj).below ψ
-  refine blockFormerPass mp hInd hdecl hF hnd hE
+  exact blockFormerPass mp hInd hdecl hF hnd
     (fun j ψ => sumTyAV (q.resSort.eval ψ) (ppsOf j ψ) [])
     (fun j _ _ ψ => sumTyAV_below (hbelow j ψ) (by intro Fs hFs; exact nomatch hFs))
     (fun j cvTa hj ψ₁ ψ₂ hφ => by
@@ -580,20 +546,6 @@ theorem blockDummyPass (mp : EnvModelM V env) {F : Nat} {p₀ : BlockShape} {isR
       rw [hp, hw])
     (fun j _ _ ψ ρ => sumTyAV_wellDenoted (hwalks j ψ ρ))
     (fun j _ _ ψ ρ => sumTyAV_mem (hwalks j ψ ρ))
-    hetaNe hetaFresh ?_
-  -- the capability law at the DUMMY leaf: η is vacuous (no
-  -- constructor is stored)
-  intro j cvS cvTa hjS hj env' m' hFD' hfreshT hcb hfreshC m₂ hac
-  have hn := (hF.declOf j cvS cvTa hjS hj).name
-  intro he hfam
-  exfalso
-  obtain ⟨-, ⟨cvC, cnP, cnF, hfC⟩, -⟩ := hfam
-  rw [ConLeche.Env.find?_cons,
-    ite_eq_right (fun hh => hetaNe j j cvTa cvTa hj hj he (by
-      show cvTa.name = (ConLeche.blockCapsAt q j isRec).etaCtor
-      rw [← hn]; exact hh)),
-    hfreshC j cvTa hj he] at hfC
-  exact nomatch hfC
 
 /-! ## The members' index telescopes -/
 
@@ -722,8 +674,7 @@ theorem blockCtorFunsAt {F : Nat}
 leaves the dummy pass's readings build.  The block operator's premise bundle
 at the LEAF's chains (`hIdxAll`, `hXAll`) is what `blockLeafWalks`
 turns into the leaf's hereditary premise, and the `blockTyG` capstones
-into its currency facts.  The members' capability law is vacuous here:
-no constructor is stored yet. -/
+into its currency facts. -/
 theorem blockRealPass (mp : EnvModelM V env) {F : Nat} {p₀ : BlockShape} {isRec : Bool}
     {formers : List ConstantVal} {q : BlockShape} {envI : Env}
     {ppsOf : Nat → (Name → Nat) → List Term} {sOf : Nat → Level}
@@ -733,13 +684,6 @@ theorem blockRealPass (mp : EnvModelM V env) {F : Nat} {p₀ : BlockShape} {isRe
     (hdecl : ∀ ms ∈ p₀.members, ConLeche.MemberDeclaredWF env ms)
     (hF : BlockFormerFacts mp q (p₀.members.map (·.declared)) formers ppsOf sOf)
     (hnd : q.memberNames.Nodup)
-    (hE : ConLeche.EtaFamiliesClosed env)
-    (hetaNe : ∀ (j j' : Nat) (cvTa cvTb : ConstantVal), formers[j]? = some cvTa →
-      formers[j']? = some cvTb → (ConLeche.blockCapsAt q j isRec).eta = true →
-      cvTb.name ≠ (ConLeche.blockCapsAt q j isRec).etaCtor)
-    (hetaFresh : ∀ (j : Nat) (cvTb : ConstantVal), formers[j]? = some cvTb →
-      (ConLeche.blockCapsAt q j isRec).eta = true →
-      env.find? (ConLeche.blockCapsAt q j isRec).etaCtor = none)
     -- the index telescopes' lengths, bounds and the chains' bounds
     (hIdsLen : ∀ (j : Nat) (ψ : Name → Nat),
       (((ppsOf j ψ).drop q.nP)).length = q.nIdxs.getD j 0)
@@ -762,7 +706,6 @@ theorem blockRealPass (mp : EnvModelM V env) {F : Nat} {p₀ : BlockShape} {isRe
       BlockChainsOkG q.k (q.resSort.eval ψ) ρp (fun c => uOf c ψ)
         (fun c => ((ppsOf c ψ).drop q.nP)) (Chs ψ)) :
     ∃ mp' : EnvModelM V envI,
-      ConLeche.EtaFamiliesClosedExceptL envI q.memberNames ∧
       (∀ (j : Nat) (cvTa : ConstantVal), formers[j]? = some cvTa →
         FormerData mp'.base2 cvTa (q.nP + q.nIdxs.getD j 0) q.resSort (ppsOf j)) ∧
       (∀ (j : Nat) (cvS cvTa : ConstantVal), (p₀.members.map (·.declared))[j]? = some cvS →
@@ -793,10 +736,10 @@ theorem blockRealPass (mp : EnvModelM V env) {F : Nat} {p₀ : BlockShape} {isRe
     exact blockLeafWalks (nIdx := q.nIdxs.getD j 0) ((hF.fdOf j cvTa hj).len ψ)
       (fun ρ' => (hF.fdOf j cvTa hj).okTy ψ ρ') rfl
       (fun ρp hρp => hIdxAll j hjk ψ ρp hρp) (fun ρp hρp => hXAll j hjk ψ ρp hρp) ρ
-  refine blockFormerPass mp hInd hdecl hF hnd hE
+  refine blockFormerPass mp hInd hdecl hF hnd
     (fun j ψ => blockTyG q.k (q.resSort.eval ψ) (fun c => uOf c ψ)
       (fun c => ((ppsOf c ψ).drop q.nP)) (Chs ψ) (ppsOf j ψ) j)
-    ?_ ?_ ?_ ?_ hetaNe hetaFresh ?_
+    ?_ ?_ ?_ ?_
   · -- closed
     intro j cvTa hj ψ
     exact blockTyAV_below ((hF.fdOf j cvTa hj).below ψ) ((hF.fdOf j cvTa hj).len ψ)
@@ -825,18 +768,5 @@ theorem blockRealPass (mp : EnvModelM V env) {F : Nat} {p₀ : BlockShape} {isRe
     have hjk : j < q.k := by
       have := (List.getElem?_eq_some_iff.mp hj).1; rwa [hF.lenCv] at this
     exact blockTyG_mem hjk (hwalks j cvTa hj hjk ρ ψ)
-  · -- the capability law at the FIXPOINT leaf: η is vacuous (the
-    -- constructor is not stored yet)
-    intro j cvS cvTa hjS hj env' m' hFD' hfreshT hcb hfreshC m₂ hac
-    have hn := (hF.declOf j cvS cvTa hjS hj).name
-    intro he hfam
-    exfalso
-    obtain ⟨-, ⟨cvC, cnP, cnF, hfC⟩, -⟩ := hfam
-    rw [ConLeche.Env.find?_cons,
-      ite_eq_right (fun hh => hetaNe j j cvTa cvTa hj hj he (by
-        show cvTa.name = (ConLeche.blockCapsAt q j isRec).etaCtor
-        rw [← hn]; exact hh)),
-      hfreshC j cvTa hj he] at hfC
-    exact nomatch hfC
 
 end ConLeche.Model

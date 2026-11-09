@@ -902,7 +902,6 @@ theorem EnvModelM.renameCore (mp : EnvModelM V env) (h : RenEnv env env') (hwf :
             nat_ops := ?_
             div_mod := ?_
             eq_law := ?_
-            caps_ok := ?_
             op_defn := fun c hn hs => by
               have hr := natOpName_not_reserved hn
               have h₀ := mp.op_defn c hn (by rw [← h.find_nonres hr]; exact hs)
@@ -983,19 +982,6 @@ theorem EnvModelM.renameCore (mp : EnvModelM V env) (h : RenEnv env env') (hwf :
       obtain ⟨g1, g2⟩ := mp.eq_law c p h1 hp (renTr env env' eqName ψ)
       rw [hv] at g1 g2
       exact ⟨g1, g2⟩
-  · -- `caps_ok`: a capability law is keyed on unreserved names
-    intro T cvT caps hf hcap hres hfam φ' us hus
-    rw [h.find_nonres hres] at hf
-    obtain ⟨hC1, ⟨cvC, cnP, cnF, hC2⟩, hC3⟩ := hfam
-    rw [h.find_nonres hC1] at hC2
-    obtain ⟨hlaw, hcoh⟩ :=
-      mp.caps_ok T cvT caps hf hcap hres ⟨hC1, ⟨cvC, cnP, cnF, hC2⟩, hC3⟩ φ' us hus
-    refine ⟨?_, ?_⟩
-    · rw [hnr hres, hnr hC1]; exact hlaw
-    · exact hcoh.transport (m₂ := m')
-        (fun _ _ _ hf₂ => by rw [h.find_nonres hC1] at hf₂; exact hf₂)
-        (fun _ _ _ _ _ hTCa => by rw [hde']; exact hTCa)
-        (congrFun (hnr hres) _) (fun _ _ _ => rfl)
   · -- `reduce_ops`
     intro c hc cv hf hpin
     have hres : reservedBasisNames.contains c = false :=
@@ -1014,10 +1000,10 @@ theorem EnvModelM.renameCore (mp : EnvModelM V env) (h : RenEnv env env') (hwf :
     refine ⟨fun T tbl hf => ?_, fun T i entry hf => ?_⟩
     · rw [h.findTable] at hf
       obtain ⟨hr1, -, hr3, -⟩ := mp.base2.proj_ok T tbl hf
-      obtain ⟨⟨cvT, capsT, hfT, hlpsT, himp⟩, hetaL⟩ := (mp.tower_ok φ).table T tbl hf
+      obtain ⟨⟨cvT, capsT, hfT, hlpsT⟩, hetaL⟩ := (mp.tower_ok φ).table T tbl hf
       have hTr : reservedBasisNames.contains T = false :=
         (ConLeche.Env.findTable?_mem hf).2.1 ▸ hr1
-      refine ⟨⟨cvT, capsT, (h.find_nonres hTr).trans hfT, hlpsT, himp⟩, ?_⟩
+      refine ⟨⟨cvT, capsT, (h.find_nonres hTr).trans hfT, hlpsT⟩, ?_⟩
       intro cvT' capsT' hfT' us hus
       rw [h.find_nonres hTr] at hfT'
       obtain ⟨hlaw', hcoh⟩ := hetaL cvT' capsT' hfT' us hus

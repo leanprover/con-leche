@@ -109,12 +109,12 @@ theorem structEtaCertWith_bridge (hw : WhnfBridge μ eager env fuel)
     (hwtb : whnf μ eager env fuel d tb = .ok wtb)
     (h : structEtaCertWithFueled μ eager env fuel d a b wtb = .ok true) :
     DefEq env d a b := by
-  obtain ⟨c, us, cvc, cnP, cnF, T, us', cvT, caps,
-    hfn, hfc, hlen, hwfn, hfT, heta, hctor, hresT, hresc, hplen, hulen,
-    hlps, hslots, hus, hpar, hfields⟩ :=
+  obtain ⟨c, us, cvc, cnP, cnF, T, us', cvT, caps, tbl,
+    hfn, hfc, hlen, hwfn, hfT, htbl, heta, hctor, hplen, hulen,
+    hlps, hus, hpar, hfields⟩ :=
     structEtaCertWith_inv h
   exact .structEta (inferTypeIO_bridge hio htb) (hw hwtb) hfn hfc hlen hwfn hfT
-    heta hctor hresT hresc hplen hulen hlps hslots hus
+    htbl heta hctor hplen hulen hlps hus
     (defEqList_bridge hd hpar) (defEqList_bridge hd hfields)
 
 /-- `structEtaFull` ⇒ `DefEq.structEta` (`structEtaFull_inv`, then

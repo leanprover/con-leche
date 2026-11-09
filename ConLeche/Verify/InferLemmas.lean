@@ -907,14 +907,11 @@ theorem majorToCtor_inv {env : Env} {fuel d : Nat} {recName : Name} {isK : Bool}
            isDefEqCore mode eager env fuel d tmaj tfab = .ok true) ∧
          (mode.verifiedChecks = true →
            proofIrrelFueled mode eager env fuel d major' major = .ok true)) ∨
-        (etaRescueOk rl.ctor cvj cvT caps = true ∧
-         tmaj.getAppArgs.length = caps.etaParams ∧
+        (∃ tbl, etaRescueTable? (env.findTable? T) rl.ctor cvj cvT caps = some tbl ∧
+         tmaj.getAppArgs.length = tbl.numParams ∧
          ust.length = cvT.levelParams.length ∧
-         major' = Expr.mkAppN (.const caps.etaCtor ust)
-           (etaFabArgsE T tmaj.getAppArgs major caps.etaFields) ∧
-         (reservedBasisNames.contains T = false ∧
-           reservedBasisNames.contains caps.etaCtor = false ∧
-           towerSlotsAll env T caps.etaFields = true)) ∨
+         major' = Expr.mkAppN (.const tbl.ctor ust)
+           (etaFabArgsE T tmaj.getAppArgs major tbl.numFields)) ∨
         (T = andName ∧
          tmaj.getAppArgs.length = cnP ∧
          cvj.levelParams.length = ust.length ∧
@@ -1126,9 +1123,10 @@ theorem majorToCtor_inv {env : Env} {fuel d : Nat} {recName : Name} {isK : Bool}
       Or.inl ⟨hK, hlvl, harK1, rfl,
         ⟨tfab, htf, hdeq⟩, fun _ => hpi⟩⟩
   · rw [ite_eq_right hK] at h
-    by_cases hE : etaRescueOk rl.ctor cvj cvT caps = true
-    case neg =>
-      rw [ite_eq_right hE] at h
+    cases hE : etaRescueTable? (env.findTable? T) rl.ctor cvj cvT caps with
+    | none =>
+      rw [hE] at h
+      dsimp only at h
       by_cases hA : T = andName
       case neg =>
         rw [ite_eq_right hA] at h
@@ -1265,7 +1263,9 @@ theorem majorToCtor_inv {env : Env} {fuel d : Nat} {recName : Name} {isK : Bool}
         rfl, hfj, hpr, hfT, rfl, htw, hth,
         Or.inr (Or.inr ⟨hA, hplen, hlvl, hslots, rfl,
           ⟨tfab, htf, hdeq⟩, fun _ => hpi⟩)⟩
-    rw [ite_eq_left hE] at h
+    | some tbl =>
+    rw [hE] at h
+    dsimp only at h
     try simp only [Bind.bind, Except.bind] at h
     cases hti : inferTypeIO mode eager env fuel d major with
     | error err => rw [hti] at h; exact nomatch h
@@ -1318,17 +1318,14 @@ theorem majorToCtor_inv {env : Env} {fuel d : Nat} {recName : Name} {isK : Bool}
     | const T' ust =>
     intro h
     dsimp only at h
-    by_cases hTl : T' = T ∧ tmaj.getAppArgs.length = caps.etaParams ∧
-        ust.length = cvT.levelParams.length ∧
-        reservedBasisNames.contains T = false ∧
-        reservedBasisNames.contains caps.etaCtor = false ∧
-        towerSlotsAll env T caps.etaFields = true
+    by_cases hTl : T' = T ∧ tmaj.getAppArgs.length = tbl.numParams ∧
+        ust.length = cvT.levelParams.length
     case neg =>
       rw [ite_eq_right hTl] at h
       simp only [pure, Except.pure, Except.ok.injEq] at h
       exact Or.inl h.symm
     rw [ite_eq_left hTl] at h
-    obtain ⟨rfl, hplen, hlvl, hG⟩ := hTl
+    obtain ⟨rfl, hplen, hlvl⟩ := hTl
     cases hnzr : formerNeverZeroAt (pureFns mode eager env fuel).whnf cvT caps ust with
     | error err => rw [hnzr] at h; exact nomatch h
     | ok nz =>
@@ -1340,15 +1337,15 @@ theorem majorToCtor_inv {env : Env} {fuel d : Nat} {recName : Name} {isK : Bool}
       exact Or.inl h.symm
     | true =>
     simp only [↓reduceIte] at h
-    cases hguard : (Expr.mkAppN (.const caps.etaCtor ust)
+    cases hguard : (Expr.mkAppN (.const tbl.ctor ust)
           (etaFabArgsE T' tmaj.getAppArgs major
-            caps.etaFields)).wscopedB d &&
-        (Expr.mkAppN (.const caps.etaCtor ust)
+            tbl.numFields)).wscopedB d &&
+        (Expr.mkAppN (.const tbl.ctor ust)
           (etaFabArgsE T' tmaj.getAppArgs major
-            caps.etaFields)).looseBVarsBounded 0 &&
-        (Expr.mkAppN (.const caps.etaCtor ust)
+            tbl.numFields)).looseBVarsBounded 0 &&
+        (Expr.mkAppN (.const tbl.ctor ust)
           (etaFabArgsE T' tmaj.getAppArgs major
-            caps.etaFields)).fvarLeaves.all
+            tbl.numFields)).fvarLeaves.all
           (fun l => major.fvarLeaves.contains l) with
     | false =>
       rw [hguard] at h
@@ -1363,7 +1360,7 @@ theorem majorToCtor_inv {env : Env} {fuel d : Nat} {recName : Name} {isK : Bool}
     exact Or.inr ⟨hguard.1.1, hguard.1.2, hguard.2,
       rl, cvj, cnP, cnF, tmaj₀, tmaj, T', us₀, ust, cvT, caps,
       rfl, hfj, hpr, hfT, rfl, htw, hth,
-      Or.inr (Or.inl ⟨hE, hplen, hlvl, rfl, hG⟩)⟩
+      Or.inr (Or.inl ⟨tbl, hE, hplen, hlvl, rfl⟩)⟩
 
 /-- Inversion of one pairwise-defeq step. -/
 theorem defEqList_step_inv {env : Env} {fuel d : Nat} {a b : Expr}
@@ -1640,17 +1637,6 @@ theorem proofIrrel_inv {env : Env} {fuel d : Nat} {a b : Expr}
     cases okA <;> cases okB <;> simp_all
   exact ⟨ta, sta, uT, tb, stb, vT, rfl, hsta, hwta, heq1, rfl, hstb, hwtb, heq2⟩
 
-/-- `towerSlotsAll`, slot by slot. -/
-theorem towerSlotsAll_slot {env : Env} {T : Name} {nF : Nat}
-    (h : towerSlotsAll env T nF = true) :
-    ∀ j, j < nF → ∃ e : ProjEntry, env.findProj? T j = some e := by
-  intro j hj
-  have := List.all_eq_true.mp h j (List.mem_range.mpr hj)
-  revert this
-  cases env.findProj? T j with
-  | none => intro h; exact nomatch h
-  | some e => intro _; exact ⟨e, rfl⟩
-
 /-- `andRescueSlots`, unpacked: both of `And`'s slots are stored tower
 entries naming the rule's constructor at the major's parameter count,
 two fields. -/
@@ -1674,24 +1660,22 @@ theorem structEtaCertWith_inv {env : Env} {fuel d : Nat} {a b wtb : Expr}
     (h : structEtaCertWithFueled mode eager env fuel d a b wtb = .ok true) :
     ∃ (c : Name) (us : List Level) (cvc : ConstantVal) (cnP cnF : Nat)
       (T : Name) (us' : List Level)
-      (cvT : ConstantVal) (caps : IndCaps),
+      (cvT : ConstantVal) (caps : IndCaps) (tbl : ProjTable),
       a.getAppFn = .const c us ∧
       env.find? c = some (.ctorInfo cvc cnP cnF) ∧
       a.getAppArgs.length = cnP + cnF ∧
       wtb.getAppFn = .const T us' ∧
       env.find? T = some (.indInfo cvT caps) ∧
-      caps.eta = true ∧ caps.etaCtor = c ∧
-      reservedBasisNames.contains T = false ∧
-      reservedBasisNames.contains c = false ∧
-      wtb.getAppArgs.length = caps.etaParams ∧
+      env.findTable? T = some tbl ∧
+      caps.eta = true ∧ tbl.ctor = c ∧
+      wtb.getAppArgs.length = tbl.numParams ∧
       us'.length = cvT.levelParams.length ∧
       cvc.levelParams = cvT.levelParams ∧
-      towerSlotsAll env T caps.etaFields = true ∧
       Level.isEquivList us us' = some true ∧
-      defEqListFueled mode eager env fuel d (a.getAppArgs.take caps.etaParams)
+      defEqListFueled mode eager env fuel d (a.getAppArgs.take tbl.numParams)
         wtb.getAppArgs = .ok true ∧
-      defEqListFueled mode eager env fuel d (a.getAppArgs.drop caps.etaParams)
-        (etaProjs T b caps.etaFields) = .ok true := by
+      defEqListFueled mode eager env fuel d (a.getAppArgs.drop tbl.numParams)
+        (etaProjs T b tbl.numFields) = .ok true := by
   dsimp only [structEtaCertWithFueled] at h
   rw [structEtaCertWith] at h
   simp only [defEqList_fold] at h
@@ -1748,16 +1732,19 @@ theorem structEtaCertWith_inv {env : Env} {fuel d : Nat} {a b wtb : Expr}
   | some (.indInfo cvT caps) => ?_
   intro h
   dsimp only at h
-  by_cases hcond : caps.eta = true ∧ caps.etaCtor = c ∧
-      reservedBasisNames.contains T = false ∧
-      reservedBasisNames.contains c = false ∧
-      wtb.getAppArgs.length = caps.etaParams ∧
+  revert h
+  cases htbl : env.findTable? T with
+  | none => intro h; exact nomatch h
+  | some tbl => ?_
+  intro h
+  dsimp only at h
+  by_cases hcond : caps.eta = true ∧ tbl.ctor = c ∧
+      wtb.getAppArgs.length = tbl.numParams ∧
       us'.length = cvT.levelParams.length ∧
-      cvc.levelParams = cvT.levelParams ∧
-      towerSlotsAll env T caps.etaFields = true
+      cvc.levelParams = cvT.levelParams
   case neg => rw [ite_eq_right hcond] at h; exact nomatch h
   rw [ite_eq_left hcond] at h
-  obtain ⟨he1, he2, he5, he5b, he6, he7, he8, he10⟩ := hcond
+  obtain ⟨he1, he2, he6, he7, he8⟩ := hcond
   try simp only [Bind.bind, Except.bind] at h
   cases hlev : Level.isEquivList us us' with
   | none => rw [hlev] at h; simp [liftFueled] at h
@@ -1769,7 +1756,7 @@ theorem structEtaCertWith_inv {env : Env} {fuel d : Nat} {a b wtb : Expr}
   | false => simp at h
   | true => ?_
   simp only [↓reduceIte] at h
-  cases hd1 : defEqListFueled mode eager env fuel d (a.getAppArgs.take caps.etaParams)
+  cases hd1 : defEqListFueled mode eager env fuel d (a.getAppArgs.take tbl.numParams)
       wtb.getAppArgs with
   | error e => rw [hd1] at h; exact nomatch h
   | ok r₃ => ?_
@@ -1779,9 +1766,8 @@ theorem structEtaCertWith_inv {env : Env} {fuel d : Nat} {a b wtb : Expr}
   | false => simp [pure, Except.pure] at h
   | true => ?_
   simp only [↓reduceIte] at h
-  exact ⟨c, us, cvc, cnP, cnF, T, us', cvT, caps,
-    rfl, hfc, hal, rfl, hfT, he1, he2, he5,
-    he5b, he6, he7, he8, he10, hlev, hd1, h⟩
+  exact ⟨c, us, cvc, cnP, cnF, T, us', cvT, caps, tbl,
+    rfl, hfc, hal, rfl, hfT, htbl, he1, he2, he6, he7, he8, hlev, hd1, h⟩
 
 /-- Inversion of the fully-applied structure-eta certificate through its
 type reduction: the stuck side's type is inferred and reduced, and the

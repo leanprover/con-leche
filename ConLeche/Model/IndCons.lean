@@ -10,10 +10,9 @@ public section
 `declStep_preserves_of_basis_cons` (`Model/BasisStep.lean`) collapses seven
 of `declStep_preserves_of_cons`'s premises at a *basis* cons.  An
 *inductive-block* cons is the other side of the same coin: its name is
-never reserved, so the two rows a basis cons could route by *name*
-(`caps_ok` through `capsOk_cons_basis`) are unavailable, while every
-row a basis cons routes by *kind* survives — and one that a basis cons
-had to supply bespoke (`nat_heads` at the `Nat` block) becomes free.
+never reserved, and every row a basis cons routes by *kind* survives —
+and one that a basis cons had to supply bespoke (`nat_heads` at the
+`Nat` block) becomes free.
 
 **The name finding.**  Every block member passes `readBlock`'s
 guard (`Kernel/Inductives/BlockShape.lean`), which checks
@@ -32,18 +31,11 @@ and `reservedBasisNames` is the sixteen pinned names — `Nat`,
 * `eq_law` goes through `eqLaw_cons_fresh` for the same reason: no
   block member is named `Eq`, so the pinned spine's law is untouched.
 
-What is left is exactly the tier's bill: `caps_ok` and `rec_rules`,
-plus the tower and its type's reading.  Both remaining rows are taken
-here in `natHeads_cons_offNat`'s shape — quantified over any carrier
-whose base and `acval` are the extension's — so a caller never spells
+What is left is exactly the tier's bill: `rec_rules`, plus the tower
+and its type's reading.  The remaining row is taken here in
+`natHeads_cons_offNat`'s shape — quantified over any carrier whose base
+and `acval` are the extension's — so a caller never spells
 `declStep_preserves_of_cons`'s anonymous-constructor carrier.
-
-**The `caps_ok` gap is at the family's own conses.**
-`capsOk_cons_fresh` descends the stored-family predicate past a cons
-of a kind no family mentions, and `EtaFamilyStored` mentions two:
-`indInfo` (the former) and `ctorInfo` (the capability constructor).
-`declStep_preserves_of_ind_cons` therefore keeps `caps_ok` open at
-every ind-tier cons and never guesses a route.
 -/
 
 namespace ConLeche.Model
@@ -85,10 +77,10 @@ theorem reserved_eqName : ConLeche.reservedBasisNames.contains eqName = true := 
 
 
 /-- **The P step at an inductive-tier cons.**  Six of
-`declStep_preserves_of_cons`'s eight collapsible rows are discharged here from
+`declStep_preserves_of_cons`'s seven collapsible rows are discharged here from
 the *name* (non-reserved) and the *kind* (never a value kind, never an
-axiom); `caps_ok` and `rec_rules` stay open, because those are the two
-rows an inductive block genuinely establishes. -/
+axiom); `rec_rules` stays open, because it is the row an inductive block
+genuinely establishes. -/
 theorem declStep_preserves_of_ind_cons (mp : EnvModelM V env)
     {c₀ : ConstantInfo} {A : (Name → Nat) → Term}
     (hfresh : env.find? c₀.name = none)
@@ -118,9 +110,7 @@ theorem declStep_preserves_of_ind_cons (mp : EnvModelM V env)
       denote (acvalWith mp.base2.acval c₀.name A)
           ⟨c₀ :: env.consts, env.tables⟩ ψ 0 c₀.toConstantVal.type = some ta →
       ∀ ρ : Nat → V, interp V ρ (A ψ) ∈ˢ interp V ρ ta)
-    -- the tier's two genuine rows
-    (hcaps : ∀ m₂ : EnvModel V ⟨c₀ :: env.consts, env.tables⟩,
-      m₂.acval = acvalWith mp.base2.acval c₀.name A → CapsOk m₂)
+    -- the tier's genuine row
     (hrec : ∀ m₂ : EnvModel V ⟨c₀ :: env.consts, env.tables⟩,
       m₂.acval = acvalWith mp.base2.acval c₀.name A →
       ∀ φ : Name → Nat, RecRules m₂ φ) :
@@ -128,7 +118,7 @@ theorem declStep_preserves_of_ind_cons (mp : EnvModelM V env)
       mp'.base2.acval = acvalWith mp.base2.acval c₀.name A := by
   refine declStep_preserves_of_cons mp (c₀ := c₀) (A := A) hfresh (by intro hn; rw [hop] at hn; exact nomatch hn) hh
     hAparams hAok htyReads htyOk hmemNew
-    ?_ ?_ ?_ ?_ ?_ ?_ ?_ ?_ ?_
+    ?_ ?_ ?_ ?_ ?_ ?_ ?_ ?_
   · -- `hvalReads`: an inductive cons is never a definition
     intro _ψ cv2 value2 hmem
     obtain ⟨hint2, hdt⟩ := hmem
@@ -144,7 +134,6 @@ theorem declStep_preserves_of_ind_cons (mp : EnvModelM V env)
   · -- `eq_law`: `Eq` is reserved, so it is not this cons
     exact eqLaw_cons_fresh mp.eq_law
       (fun h => ne_of_notReserved hnres reserved_eqName h.symm) _ rfl
-  · exact hcaps _ rfl
   · exact fun φ => hrec _ rfl φ
   · exact reduceOps_cons_fresh mp.reduce_ops hfresh
       (Or.inl hnotax) _ rfl
@@ -156,8 +145,7 @@ theorem declStep_preserves_of_ind_cons (mp : EnvModelM V env)
 with `rec_rules` discharged too.  A member is an `indInfo` or a
 `ctorInfo`, so `recRules_cons_fresh`'s side condition holds
 vacuously: the cons is not a recursor at all, and `EnvModel.rec_ctors`
-carries the rest (ENDGAME D §3a).  `caps_ok` remains the member's one
-open row — the block's former *is* a family head. -/
+carries the rest (ENDGAME D §3a); no row stays open. -/
 theorem declStep_preserves_of_ind_member_cons (mp : EnvModelM V env)
     {c₀ : ConstantInfo} {A : (Name → Nat) → Term}
     (hfresh : env.find? c₀.name = none)
@@ -181,14 +169,11 @@ theorem declStep_preserves_of_ind_member_cons (mp : EnvModelM V env)
     (hmemNew : ∀ (ψ : Name → Nat) (ta : Term),
       denote (acvalWith mp.base2.acval c₀.name A)
           ⟨c₀ :: env.consts, env.tables⟩ ψ 0 c₀.toConstantVal.type = some ta →
-      ∀ ρ : Nat → V, interp V ρ (A ψ) ∈ˢ interp V ρ ta)
-    (hcaps : ∀ m₂ : EnvModel V ⟨c₀ :: env.consts, env.tables⟩,
-      m₂.acval = acvalWith mp.base2.acval c₀.name A → CapsOk m₂) :
+      ∀ ρ : Nat → V, interp V ρ (A ψ) ∈ˢ interp V ρ ta) :
     ∃ mp' : EnvModelM V ⟨c₀ :: env.consts, env.tables⟩,
       mp'.base2.acval = acvalWith mp.base2.acval c₀.name A := by
   refine declStep_preserves_of_ind_cons mp hfresh hnres hop ?_ ?_ hh
-    hAparams hAok htyReads htyOk hmemNew
-    hcaps ?_
+    hAparams hAok htyReads htyOk hmemNew ?_
   · rcases hknd with ⟨cv, caps, rfl⟩ | ⟨cv, nP, nF, rfl⟩ <;>
       intro _ _ _ h <;> exact nomatch h
   · rcases hknd with ⟨cv, caps, rfl⟩ | ⟨cv, nP, nF, rfl⟩ <;>
@@ -198,8 +183,8 @@ theorem declStep_preserves_of_ind_member_cons (mp : EnvModelM V env)
       intro _ _ _ _ _ h <;> exact nomatch h
 
 /-- **The P step at a *recursor* cons** — the block's recursors, stored
-as `recInfo`.  Only `caps_ok` and `rec_rules` stay open; both are the
-install's to establish. -/
+as `recInfo`.  Only `rec_rules` stays open: it is the install's to
+establish. -/
 theorem declStep_preserves_of_ind_rec_cons (mp : EnvModelM V env)
     {c₀ : ConstantInfo} {A : (Name → Nat) → Term}
     (hfresh : env.find? c₀.name = none)
@@ -223,8 +208,6 @@ theorem declStep_preserves_of_ind_rec_cons (mp : EnvModelM V env)
       denote (acvalWith mp.base2.acval c₀.name A)
           ⟨c₀ :: env.consts, env.tables⟩ ψ 0 c₀.toConstantVal.type = some ta →
       ∀ ρ : Nat → V, interp V ρ (A ψ) ∈ˢ interp V ρ ta)
-    (hcaps : ∀ m₂ : EnvModel V ⟨c₀ :: env.consts, env.tables⟩,
-      m₂.acval = acvalWith mp.base2.acval c₀.name A → CapsOk m₂)
     (hrec : ∀ m₂ : EnvModel V ⟨c₀ :: env.consts, env.tables⟩,
       m₂.acval = acvalWith mp.base2.acval c₀.name A →
       ∀ φ : Name → Nat, RecRules m₂ φ) :
@@ -234,6 +217,6 @@ theorem declStep_preserves_of_ind_rec_cons (mp : EnvModelM V env)
   exact declStep_preserves_of_ind_cons mp hfresh hnres hop
     (fun _ _ _ h => nomatch h)
     (fun _ h => nomatch h) hh hAparams hAok
-    htyReads htyOk hmemNew hcaps hrec
+    htyReads htyOk hmemNew hrec
 
 end ConLeche.Model

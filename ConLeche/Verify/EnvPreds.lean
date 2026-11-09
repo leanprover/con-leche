@@ -126,8 +126,7 @@ like any other block, and its former stores the capabilities the block gives it 
 /-- `Eq`'s former as stored. -/
 @[expose] def eqI : ConstantInfo :=
   .indInfo eqA.toConstantVal
-    { etaCtor := eqReflName, etaParams := 2, all := [eqName], nparams := 2,
-      nIdx := 1, ctors := [eqReflName] }
+    { all := [eqName], nparams := 2, nIdx := 1, ctors := [eqReflName] }
 
 /-- `Nat`'s former as stored. -/
 @[expose] def natI : ConstantInfo :=

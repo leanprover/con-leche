@@ -676,11 +676,16 @@ private theorem structEtaCertWith_shift (henv : EnvWF env)
     | some ciT =>
       cases ciT <;> try rfl
       case indInfo cvT caps =>
+      dsimp only
+      cases env.findTable? T with
+      | none => rfl
+      | some tbl =>
+      dsimp only
       refine ite_congr' (fun _ => ?_) (fun _ => rfl)
       refine bind_congr_eq rfl ?_
       intro okl _
       refine ite_congr' (fun _ => ?_) (fun _ => rfl)
-      have h2 := defEqList_shift henv ih hpd (as := a.getAppArgs.take caps.etaParams)
+      have h2 := defEqList_shift henv ih hpd (as := a.getAppArgs.take tbl.numParams)
         (bs := wtb.getAppArgs)
         (fun x hx => hwa.getAppArgs x (List.mem_of_mem_take hx))
         (fun x hx => hwwtb.getAppArgs x hx)
@@ -688,15 +693,15 @@ private theorem structEtaCertWith_shift (henv : EnvWF env)
       refine bind_congr_eq h2 ?_
       intro b₃ _
       refine ite_congr' (fun _ => ?_) (fun _ => rfl)
-      have hlist := etaProjs_shift p T b caps.etaFields
-      have hwprojs : ∀ x ∈ etaProjs T b caps.etaFields,
+      have hlist := etaProjs_shift p T b tbl.numFields
+      have hwprojs : ∀ x ∈ etaProjs T b tbl.numFields,
           WScoped d x := by
         intro x hx
         unfold etaProjs at hx
         obtain ⟨i, -, rfl⟩ := List.mem_map.mp hx
         simpa [WScoped] using hwb
-      have h3 := defEqList_shift henv ih hpd (as := a.getAppArgs.drop caps.etaParams)
-        (bs := etaProjs T b caps.etaFields)
+      have h3 := defEqList_shift henv ih hpd (as := a.getAppArgs.drop tbl.numParams)
+        (bs := etaProjs T b tbl.numFields)
         (fun x hx => hwa.getAppArgs x (List.mem_of_mem_drop hx))
         hwprojs
       rw [List.map_drop, ← hlist] at h3
@@ -1145,8 +1150,12 @@ private theorem majorToCtor_shift (henv : EnvWF env)
             intro bb _
             exact ite_rel _ (fun _ => rfl) (fun _ => rfl)
           · -- the structure-eta rescue, then the `And`-only rescue
-            refine ite_rel _ (fun _ => ?_) (fun _ => ?_)
+            cases etaRescueTable? (env.findTable? T) rl.ctor cvj cvT caps with
+            | none => ?_
+            | some tbl => ?_
+            rotate_left
             · -- structure-eta rescue
+              dsimp only
               refine bind_rel _ _ (ih.inferIO hpd hwmaj) ?_
               intro tmaj₀ htmaj₀
               have hwtmaj₀ : WScoped d tmaj₀ :=
@@ -1166,18 +1175,18 @@ private theorem majorToCtor_shift (henv : EnvWF env)
               refine bind_rel_eq _ rfl fun nz _ => ?_
               refine ite_rel _ (fun _ => ?_) (fun _ => rfl)
               rw [etaFabArgsE_shift]
-              have hfab : Expr.mkAppN (Expr.const caps.etaCtor ust)
+              have hfab : Expr.mkAppN (Expr.const tbl.ctor ust)
                   (List.map (shiftFrom p)
                     (etaFabArgsE T tmaj.getAppArgs major
-                      caps.etaFields)) =
-                  shiftFrom p (Expr.mkAppN (.const caps.etaCtor ust)
+                      tbl.numFields)) =
+                  shiftFrom p (Expr.mkAppN (.const tbl.ctor ust)
                     (etaFabArgsE T tmaj.getAppArgs major
-                      caps.etaFields)) := by
+                      tbl.numFields)) := by
                 rw [shiftFrom_mkAppN]
                 rfl
               rw [hfab]
               have hwfabArgs : ∀ x ∈ etaFabArgsE T tmaj.getAppArgs
-                  major caps.etaFields, WScoped d x := by
+                  major tbl.numFields, WScoped d x := by
                 intro x hx
                 unfold etaFabArgsE at hx
                 rcases List.mem_append.mp hx with hx | hx
@@ -1185,14 +1194,15 @@ private theorem majorToCtor_shift (henv : EnvWF env)
                 · unfold etaProjs at hx
                   obtain ⟨j, -, rfl⟩ := List.mem_map.mp hx
                   simpa [WScoped] using hwmaj
-              have hwfab : WScoped d (Expr.mkAppN (.const caps.etaCtor ust)
+              have hwfab : WScoped d (Expr.mkAppN (.const tbl.ctor ust)
                   (etaFabArgsE T tmaj.getAppArgs major
-                    caps.etaFields)) :=
+                    tbl.numFields)) :=
                 Expr.WScoped.mkAppN (by simp [WScoped]) hwfabArgs
               rw [wscopedB_shiftFrom _ hpd, looseBVarsBounded_shiftFrom,
                 fvarLeaves_all_contains_shiftFrom hpd hwfab hwmaj]
               exact ite_rel _ (fun _ => rfl) (fun _ => rfl)
             · -- the `And`-only rescue (or no rescue)
+              dsimp only
               refine ite_rel _ (fun _ => ?_) (fun _ => rfl)
               refine bind_rel _ _ (ih.inferIO hpd hwmaj) ?_
               intro tmaj₀ htmaj₀

@@ -17,23 +17,11 @@ value kinds:
 | `div_mod` | `divMod_cons_fresh` | **reusable**, same disjunct |
 | `eq_law` | `eqLaw_cons_fresh` | **reusable** (the `Eq` disequality, off freshness) |
 | `nat_heads` | `natHeads_cons_fresh` | **REFUTED** — its `hknd` premise is the cons's own kind |
-| `caps_ok` | `capsOk_cons_fresh` | **REFUTED** — same three kind premises |
 | `rec_rules` | `recRules_cons_fresh` | **reusable** at a non-recursor (below) |
 
-This file supplies the two replacements.
+This file supplies the replacement.
 
-## The replacement is `reservedBasisNames`, and it was designed in
-
-`EtaFamilyStored`'s **name-only conjunct**
-(`Verify/EnvGuards.lean:49`) says the capability constructor is
-never a reserved name, and its docstring says why it is there: "which
-keeps the basis installs' head obligations vacuous by computation".
-`CapsOk` carries `reservedBasisNames.contains T =
-false`.  So at a cons whose name *is* reserved, the disequalities
-`capsOk_cons_fresh` derives from the cons's kind come instead from
-the name, and the body transposes unchanged — `capsOk_cons_basis`.
-
-`nat_heads` is easier still: the guard reads exactly three names, so a
+`nat_heads`: the guard reads exactly three names, so a
 cons that is none of them moves neither the guard nor the three leaves
 (`natHeads_cons_offNat`).  The `Nat` block supplies its own
 `nat_heads` bespoke — that is the block where the guard *becomes*
@@ -107,65 +95,5 @@ theorem natHeads_cons_offNat (mp : EnvModelM V env)
     acvalWith_ne (fun h => hnN h.symm)
   have := mp.nat_heads φ hgold ρ
   simpa only [e1, e2, e3] using this
-
-/-- **The stored family descends past a *reserved-named* cons.**
-`etaFamilyStored_descend`'s twin, with both disequalities taken
-from the name rather than from the kind: the law's own
-`reservedBasisNames.contains T = false` premise separates the former,
-and `EtaFamilyStored`'s name-only conjunct separates the capability
-constructor. -/
-theorem etaFamilyStored_descend_reserved {c₀ : ConstantInfo} {T : Name}
-    {cvT : ConstantVal} {caps : IndCaps}
-    (hres₀ : ConLeche.reservedBasisNames.contains c₀.name = true)
-    (hresT : ConLeche.reservedBasisNames.contains T = false)
-    (hf : (⟨c₀ :: env.consts, env.tables⟩ : Env).find? T = some (.indInfo cvT caps))
-    (hfam : ConLeche.EtaFamilyStored ⟨c₀ :: env.consts, env.tables⟩ T caps) :
-    env.find? T = some (.indInfo cvT caps) ∧
-      ConLeche.EtaFamilyStored env T caps ∧
-      T ≠ c₀.name ∧ caps.etaCtor ≠ c₀.name := by
-  obtain ⟨hCres, ⟨cvC, hfC⟩, hfP⟩ := hfam
-  have hnT : T ≠ c₀.name := fun hh => by rw [hh, hres₀] at hresT
-                                         exact nomatch hresT
-  have hnC : caps.etaCtor ≠ c₀.name := fun hh => by
-    rw [hh, hres₀] at hCres; exact nomatch hCres
-  have hdown : ∀ n : Name, n ≠ c₀.name →
-      (⟨c₀ :: env.consts, env.tables⟩ : Env).find? n = env.find? n := by
-    intro n hn
-    rw [ConLeche.Env.find?_cons, ite_eq_right (fun hh => hn hh.symm)]
-  exact ⟨by rwa [hdown _ hnT] at hf, ⟨hCres, ⟨cvC, by rwa [hdown _ hnC] at hfC⟩, hfP⟩,
-    hnT, hnC⟩
-
-/-- **`CapsOk` at a fresh cons whose name is reserved** —
-`capsOk_cons_fresh`'s basis twin.  Every basis block's constant is a
-reserved name (`BasisKind.decls` ⊆ `reservedBasisNames`), and
-`CapsOk` is premised on a *non*-reserved family, so no
-stored family can be completed here and the law's leaves are all
-prefix leaves. -/
-theorem capsOk_cons_basis (mp : EnvModelM V env)
-    (hprev : CapsOk mp.base2)
-    {c₀ : ConstantInfo} {A : (Name → Nat) → Term}
-    (hfresh : env.find? c₀.name = none)
-    (hres₀ : ConLeche.reservedBasisNames.contains c₀.name = true)
-    (m₂ : EnvModel V ⟨c₀ :: env.consts, env.tables⟩)
-    (hac : m₂.acval = acvalWith mp.base2.acval c₀.name A) :
-    CapsOk m₂ := by
-  intro T cvT caps hf hcape hres hfam φ' us hlen
-  obtain ⟨hfE, hfam₀, hnT, hnC⟩ :=
-    etaFamilyStored_descend_reserved hres₀ hres hf hfam
-  obtain ⟨hlaw, hcoh⟩ :=
-    hprev T cvT caps hfE hcape hres hfam₀ φ' us hlen
-  refine ⟨?_, ?_⟩
-  · intro ρ ts x hlents hfit hmem
-    rw [hac, acvalWith_ne hnT] at hmem hfit
-    rw [hac, acvalWith_ne hnC]
-    exact hlaw ρ ts x hlents hfit hmem
-  · refine hcoh.transport (fun cvC nPc nFc hf₂ => ?_)
-      (fun cvC nPc nFc TCa hf hTCa => ?_) (by rw [hac, acvalWith_ne hnT])
-      (fun _ _ _ => rfl)
-    · rwa [ConLeche.Env.find?_cons, ite_eq_right (fun hh => hnC hh.symm)] at hf₂
-    · rw [hac]
-      exact denote_cons_mono hfresh _ 0
-        (constsBound_instType mp.base2.wf
-          (ConLeche.Env.find?_mem hf) us) hTCa
 
 end ConLeche.Model

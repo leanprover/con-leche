@@ -112497,3 +112497,70 @@ Gates: `lake build`, `lake test` warning-free; `tests/arena.sh` (e2e 584/584, ar
 sweeps without divergence, axioms pinned at `[propext, Classical.choice, Quot.sound]`, layering,
 shake, trust surface, the link, quote and whitepaper gates; OVERVIEW's and the whitepaper's
 unit-likeness paragraphs now say the law is the table's at every field count).
+
+**Review round 3 (2026-11-09): structure η reads the table; `CapsOk` is gone.**  Round 2 left
+one reader of the record's `etaCtor` by name: structure η (`structEtaCertWith`) and the
+structure-η rescue (`majorToCtor`'s η arm), whose fieldless case was sound by `CapsOk`'s η half
+(`EtaLaw` under `EtaFamilyStored`).  Both now read the constructor and the counts off the family's
+projection table, at every field count, as unit-likeness does; nothing in the checker looks up a
+name stored in `IndCaps`.
+
+* *Checker* (`Kernel/Core.lean`, `Kernel/CoreDefs.lean`; twins `Cached/CoreC.lean`,
+  `Cached/StateC.lean`).  `structEtaCertWith`: the type's head is a stored former, its table
+  (`findTable?`) gives the constructor (`tbl.ctor = c`) and the counts (`tbl.numParams`,
+  `tbl.numFields`); `caps.eta` stays the gate (official's `is_non_rec_structure`), and the
+  constructor's level parameters are still compared with the former's.  The rescue's gate is
+  `etaRescueTable? (findTable? T) rl.ctor cvj cvT caps` (an `Option ProjTable`: η, the rule's
+  constructor the table's, the level parameters, not `And.intro`); its arm fabricates
+  `tbl.ctor` at `tbl.numFields` projections.  `etaCtorPartial` (the partial-constructor gate)
+  reads `tbl.ctor` too.  The reserved-name tests and `towerSlotsAll` (with `towerSlotsAllF`)
+  are gone: a table is never at a reserved name and covers its own field slots, so neither
+  could fail.
+* *Records*.  `IndCaps.etaCtor`, `etaParams`, `etaFields` are removed (`blockCapsAt` and the
+  pinned `Eq` record lose them): nothing reads them.  `IndCaps.eta` stays.
+* *Verdicts*.  Unchanged: every η family is a structure-like block member, which gets a table
+  (`blockTables`) whose constructor and counts were the record's (round 2's `TowerTableLaw`
+  stated exactly that equality, proved at the install); no basis family claims η.  The
+  fieldless rescue (`corner_punit_unit_eta`, arena `073_typeSingletonRecReduction`) took
+  nothing from the name lookup that the table does not give: the constructor is the table's,
+  the law the table's at zero fields.
+* *Rules and Verify*.  `DefEq.structEta` and `Red.rescueEta` take the table
+  (`env.findTable? T = some tbl`, resp. `etaRescueTable? … = some tbl`) in place of the record's
+  name and counts and drop the reserved-name and slot premises; the inversions
+  (`structEtaCertWith_inv`, `majorToCtor_inv`), the bridges, the fuel and pair-monad
+  projections, the shift (`Deep`), the environment extension (`EnvExt/Reads`, `Rel`, `Whnf`:
+  the table is stable under extension, `EnvExt.table`), the cached congruences and the cached
+  simulation follow.  The cached certificate's pure side is reached through guarded equations,
+  one per arm (`seta_body`, `seta_notCtor`, … in `Verify/Cached/DiscC2.lean`; the table lookup
+  made the nested match one level too deep for `finish`), and the rescue's named blocks take the
+  table (`mtcEtaI`/`mtcEtaCont`, `DiscC3`).  `mkFEnv_findTable?` joins the grind vocabulary.
+* *Model*.  `etaSide` (`Model/Rules/EtaSoundKit.lean`) reads `TowerTableLaw` at the family's
+  table, whatever its field count: one arm.  `TowerTableLaw` and `TowerEntryLaw` lose the
+  clause tying the record's η fields to the table.  Removed with no other user: `EtaLaw`,
+  `CapsOk` (and `EnvModelM.caps_ok`, `RulesInputs.caps_ok`, the `hcaps_ok` row of
+  `declStep_preserves_of_cons` and of every cons wrapper, `Model/Caps.lean`, `capsOk_cons_basis`,
+  `capsOk_pushTable`, the caps bullets of the swaps and of the basis rename),
+  `EtaFamilyStored`, `EtaFamiliesClosed` (with `…ExceptL`, `BlockEtaInv`, `ExtEta`, the fold
+  invariant's η half and `Semantics/DeclEta.lean`), `CapsLawsAt`, `capsLawsAt_vacuous`,
+  `capsOk_cons_native`, `fibreEtaLaw0`, `blockCapsLawsAt`, the block install's η threads
+  (`hetaNe`, `hetaFresh`, `hTlawsOf`, `BlockCtorsStage.capsU`/`out` and its `ctorsOf`
+  parameter, `BlockTablesStage.etaData`, `stageFixTable`'s `hcaps`), and the
+  basis steps' `hcaps`/`hres` premises.  `ctorsLoopEta` is `ctorsLoopAt` (no η invariant);
+  `Semantics/Inductives/DeclBlockEta.lean` keeps only its lookup lemmas and is
+  `BlockConsFind.lean`.  `EnvModelOk` is the covered carrier and the `Nat` facts.
+* *Kept*: `EtaCoherent` (the table's η law's coherence half), `IndCaps.eta`, and the
+  constructor-level-parameter comparison in both checker arms (the soundness reads
+  `cvc.levelParams = cvT.levelParams`; the table law carries the former's level parameters, and
+  `TableHead`, which also has the constructor's, is not among the rules' inputs).
+
+*Performance* (`perf stat -e instructions:u`, one run each, `--verified --jobs=1`, against
+`3854ff6fe`): `init-full` 373 146 991 879 → 373 083 826 401 (−0.017 %), `grind-ring-5`
+13 052 378 389 → 13 050 758 108 (−0.012 %); verdicts unchanged.
+Gates: `lake build`, `lake test` warning-free; `tests/arena.sh` (e2e 584/584, arena tutorial
+90/92, plain-reach 577 all allowlisted (`etaRescueTable?` for `etaRescueOk`, `towerSlotsAllF`
+gone), self-check 53 968 declarations, trusted and `--jobs` sweeps without divergence, axioms
+pinned at `[propext, Classical.choice, Quot.sound]`, layering, shake (the allowlist: the three
+deleted modules' lines out, `Laws`/`Denote/Install`'s `EnvGuards` import recorded with their
+compensation; `BlockConsFind`'s public `BlockInstall` import a measured model exception in
+`scripts/pub-import-plan.py`), trust surface, the link, quote and whitepaper gates; OVERVIEW's
+`IndCaps` row says `eta` alone and the table's reading).

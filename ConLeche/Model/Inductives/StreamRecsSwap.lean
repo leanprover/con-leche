@@ -118,7 +118,6 @@ theorem EnvModelM.swapTyP {env₀ env₃ : Env}
             nat_ops := ?_
             div_mod := ?_
             eq_law := ?_
-            caps_ok := ?_
             op_defn := mp.op_defn.of_same hsomeOp
               (fun n cv v hh hf => (hsame _ _ (fun _ _ _ _ _ he => ConstantInfo.noConfusion he)).mpr hf)
             rec_rules := hrecP _ rfl
@@ -183,24 +182,6 @@ theorem EnvModelM.swapTyP {env₀ env₃ : Env}
     intro ci p hf hp
     exact mp.eq_law ci p ((hsame eqName ci
       (eqCopy_not_rec (hbp₃ eqName ci hf (by decide)).1)).mp hf) hp
-  · -- `caps_ok`
-    have hfam : ∀ (T : Name) (caps : IndCaps),
-        ConLeche.EtaFamilyStored env₃ T caps →
-        ConLeche.EtaFamilyStored env₀ T caps := by
-      intro T caps hst
-      obtain ⟨h1, ⟨cvC, cnP, cnF, hC⟩, h3⟩ := hst
-      exact ⟨h1, ⟨cvC, cnP, cnF, (hsame _ _
-        (fun _ _ _ _ _ h => ConstantInfo.noConfusion h)).mp hC⟩, h3⟩
-    intro T cvT caps hf hcap hres hfamS φ' us hus
-    obtain ⟨hlaw, hcoh⟩ :=
-      mp.caps_ok T cvT caps ((hsame _ _
-        (fun _ _ _ _ _ h => ConstantInfo.noConfusion h)).mp hf) hcap
-        hres (hfam T caps hfamS) φ' us hus
-    refine ⟨hlaw,
-      hcoh.transport (fun cvC nPc nFc hf₂ => (hsame _ _
-        (fun _ _ _ _ _ h => ConstantInfo.noConfusion h)).mp hf₂)
-      (fun cvC nPc nFc TCa _ hTCa => by rw [← hde]; exact hTCa) rfl
-      (fun _ _ _ => rfl)⟩
   · -- `reduce_ops`
     intro c hc cv hf hpin
     obtain ⟨hs, hlaw⟩ := mp.reduce_ops c hc cv
@@ -216,9 +197,9 @@ theorem EnvModelM.swapTyP {env₀ env₃ : Env}
       -- unchanged by the swap, and the reading is `hde`
       have hfT0 : env₀.findTable? T = some tbl := by
         rw [hcg.tableEq]; exact hf
-      obtain ⟨⟨cvT, capsT, hfT, hlpsT, himp⟩, hetaL⟩ := (mp.tower_ok φ).table T tbl hfT0
+      obtain ⟨⟨cvT, capsT, hfT, hlpsT⟩, hetaL⟩ := (mp.tower_ok φ).table T tbl hfT0
       refine ⟨⟨cvT, capsT, (hsame _ _
-        (fun _ _ _ _ _ h => ConstantInfo.noConfusion h)).mpr hfT, hlpsT, himp⟩, ?_⟩
+        (fun _ _ _ _ _ h => ConstantInfo.noConfusion h)).mpr hfT, hlpsT⟩, ?_⟩
       intro cvT' capsT' hfT' us hus
       obtain ⟨hlaw', hcoh⟩ := hetaL cvT' capsT' ((hsame _ _
         (fun _ _ _ _ _ h => ConstantInfo.noConfusion h)).mp hfT') us hus

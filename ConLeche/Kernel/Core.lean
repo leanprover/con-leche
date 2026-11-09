@@ -342,28 +342,29 @@ def structEtaCertWith (r : CoreFns m) (env : Env) (depth : Nat)
         | .const T us' =>
           match env.find? T with
           | some (.indInfo cvT caps) =>
-            if caps.eta = true ∧ caps.etaCtor = c ∧
-                reservedBasisNames.contains T = false ∧
-                reservedBasisNames.contains c = false ∧
-                wtb.getAppArgs.length = caps.etaParams ∧
-                us'.length = cvT.levelParams.length ∧
-                cvc.levelParams = cvT.levelParams ∧
-                -- the slot discipline: every field slot has a
-                -- projection-table entry (a fieldless family trivially)
-                towerSlotsAll env T caps.etaFields = true then
-              if ← liftFueled "level comparison"
-                  (Level.isEquivList us us') then
-                -- no certificate on the type application: `wtb` is the
-                -- reduced type of `b`, a type, so its spine fits the
-                -- former's telescope (task #342 L11b)
-                if ← defEqList r env depth
-                    (a.getAppArgs.take caps.etaParams) wtb.getAppArgs then
-                  defEqList r env depth
-                    (a.getAppArgs.drop caps.etaParams)
-                    (etaProjs T b caps.etaFields)
+            -- the constructor and the counts are the family's projection
+            -- table's, at every field count (official: the family's
+            -- constructor list)
+            match env.findTable? T with
+            | some tbl =>
+              if caps.eta = true ∧ tbl.ctor = c ∧
+                  wtb.getAppArgs.length = tbl.numParams ∧
+                  us'.length = cvT.levelParams.length ∧
+                  cvc.levelParams = cvT.levelParams then
+                if ← liftFueled "level comparison"
+                    (Level.isEquivList us us') then
+                  -- no certificate on the type application: `wtb` is the
+                  -- reduced type of `b`, a type, so its spine fits the
+                  -- former's telescope (task #342 L11b)
+                  if ← defEqList r env depth
+                      (a.getAppArgs.take tbl.numParams) wtb.getAppArgs then
+                    defEqList r env depth
+                      (a.getAppArgs.drop tbl.numParams)
+                      (etaProjs T b tbl.numFields)
+                  else pure false
                 else pure false
               else pure false
-            else pure false
+            | none => pure false
           | _ => pure false
         | _ => pure false
       else pure false
@@ -375,8 +376,8 @@ applied constructor of a structure whose recorded
 capabilities include eta, `b` inhabits that structure type, the
 constructor's parameters are the type's arguments, and every field is
 the corresponding projection (`.proj T j b`) of `b`.  The
-parameter and field counts the certificate works at are the
-capability RECORD's, which is what the stored law speaks; the
+constructor and the parameter and field counts the certificate works at
+are the family's projection table's, which is what the stored law speaks; the
 constructor's own counts gate the redex's shape and nothing else
 (`etaCtorShape`). -/
 def structEtaFull (r : CoreFns m) (env : Env) (depth : Nat) (a b : Expr) :
@@ -612,7 +613,7 @@ def majorToCtor (r : CoreFns m) (env : Env) (depth : Nat)
     (_recName : Name) (isK : Bool) (rules : List RecRule) (major : Expr) : m Expr := do
   -- cheap syntactic gates before any inference: a rescue needs a
   -- single-rule recursor, K-flagged (the record's `isK`) or at an η family
-  -- (`etaRescueOk`)
+  -- (`etaRescueTable?`)
   if isCtorApp env major then pure major else
   match rules with
   | [rl] =>
@@ -662,7 +663,8 @@ def majorToCtor (r : CoreFns m) (env : Env) (depth : Nat)
                 else pure major
               else pure major
             | _ => pure major
-          else if etaRescueOk rl.ctor cvj cvT caps = true then
+          else match etaRescueTable? (env.findTable? T) rl.ctor cvj cvT caps with
+          | some tbl =>
             let tmaj ← r.whnf depth (← r.inferIO depth major)
             match tmaj.getAppFn with
             | .const T' ust =>
@@ -673,23 +675,18 @@ def majorToCtor (r : CoreFns m) (env : Env) (depth : Nat)
               -- test of the declared type's result sort passes a
               -- parametric `Sort u` that a `Prop` instantiation
               -- collapses, which is exactly the case the guard exists
-              -- for.
-              -- the last three conjuncts are the keys of the η law:
-              -- neither the family nor its constructor a reserved basis
-              -- name, every field slot a projection-table entry
-              if T' = T ∧ tmaj.getAppArgs.length = caps.etaParams ∧
-                  ust.length = cvT.levelParams.length ∧
-                  reservedBasisNames.contains T = false ∧
-                  reservedBasisNames.contains caps.etaCtor = false ∧
-                  towerSlotsAll env T caps.etaFields = true then
+              -- for.  The constructor and the counts are the family's
+              -- projection table's, at every field count.
+              if T' = T ∧ tmaj.getAppArgs.length = tbl.numParams ∧
+                  ust.length = cvT.levelParams.length then
                 if ← formerNeverZeroAt r.whnf cvT caps ust then
                   -- no constructor-telescope arity pin, as in the K
-                  -- branch, and no level-count pin: the η bit is set
-                  -- only at a constructor stored with the former's own
-                  -- level parameters (`RecCtorsStored`), which the
-                  -- fabrication's levels are those of
-                  let fab := Expr.mkAppN (.const caps.etaCtor ust)
-                      (etaFabArgsE T tmaj.getAppArgs major caps.etaFields)
+                  -- branch, and no level-count pin: the rule's
+                  -- constructor carries the former's level parameters
+                  -- (`etaRescueTable?`), which the fabrication's levels
+                  -- are those of
+                  let fab := Expr.mkAppN (.const tbl.ctor ust)
+                      (etaFabArgsE T tmaj.getAppArgs major tbl.numFields)
                   -- scope guard, as in the K branch.  No certificate on
                   -- the fabricated spine: the major is the fabrication by
                   -- the family's η law, and the fabrication fits the η
@@ -703,51 +700,52 @@ def majorToCtor (r : CoreFns m) (env : Env) (depth : Nat)
                 else pure major
               else pure major
             | _ => pure major
-          else if T = andName then
-            -- THE `And`-ONLY η RESCUE (user ruling: `And` and nothing
-            -- else — "this is a hack and we want its blast radius
-            -- limited").  `And.rec F h` at a stuck PROOF `h` (a theorem
-            -- is opaque to reduction) fires through the fabrication
-            -- `And.intro a b (.proj And 0 h) (.proj And 1 h)`,
-            -- certified the K branch's way: the fabrication's type
-            -- against the major's, and proof irrelevance — sound
-            -- because in the model every proof is the point.  Official does not η-rescue a proposition
-            -- (`to_cnstr_when_structure` requires a never-zero sort),
-            -- so this is an accept-superset there, reported per the
-            -- `proofIrrel` ruling; it WORKS AROUND the absence of
-            -- https://github.com/leanprover/lean4/pull/14925 (upstream
-            -- builds `casesOn`/`recOn` of such a proposition from
-            -- projections, so no `And.rec` on a proof is emitted), on
-            -- top of opaque theorems, which ANTICIPATE
-            -- https://github.com/leanprover/lean4/pull/14896.
-            let tmaj ← r.whnf depth (← r.inferIO depth major)
-            match tmaj.getAppFn with
-            | .const T' ust =>
-              if T' = T ∧ tmaj.getAppArgs.length = cnP ∧
-                  cvj.levelParams.length = ust.length ∧
-                  andRescueSlots env rl.ctor cnP = true then
-                let fab := Expr.mkAppN (.const rl.ctor ust)
-                  (tmaj.getAppArgs ++ [.proj T 0 major, .proj T 1 major])
-                -- scope guard, as in the K branch
-                if fab.wscopedB depth && fab.looseBVarsBounded 0 &&
-                    fab.fvarLeaves.all
-                      (fun l => major.fvarLeaves.contains l) then
-                  -- the fabrication's type against the major's, then
-                  -- proof irrelevance, as in the K branch
-                  if ← r.defeq depth tmaj (← r.inferIO depth fab) then
-                    -- Task #342 (r1): proof irrelevance here, as in the K
-                    -- branch, is a certificate family — gated off at the
-                    -- trusted mode (`certAtI mode (proofIrrelI ...)` in the
-                    -- cached twin).
-                    if ← (if mode.verifiedChecks then proofIrrel r depth fab major
-                        else pure true) then
-                      pure fab
+          | none =>
+            if T = andName then
+              -- THE `And`-ONLY η RESCUE (user ruling: `And` and nothing
+              -- else — "this is a hack and we want its blast radius
+              -- limited").  `And.rec F h` at a stuck PROOF `h` (a theorem
+              -- is opaque to reduction) fires through the fabrication
+              -- `And.intro a b (.proj And 0 h) (.proj And 1 h)`,
+              -- certified the K branch's way: the fabrication's type
+              -- against the major's, and proof irrelevance — sound
+              -- because in the model every proof is the point.  Official does not η-rescue a proposition
+              -- (`to_cnstr_when_structure` requires a never-zero sort),
+              -- so this is an accept-superset there, reported per the
+              -- `proofIrrel` ruling; it WORKS AROUND the absence of
+              -- https://github.com/leanprover/lean4/pull/14925 (upstream
+              -- builds `casesOn`/`recOn` of such a proposition from
+              -- projections, so no `And.rec` on a proof is emitted), on
+              -- top of opaque theorems, which ANTICIPATE
+              -- https://github.com/leanprover/lean4/pull/14896.
+              let tmaj ← r.whnf depth (← r.inferIO depth major)
+              match tmaj.getAppFn with
+              | .const T' ust =>
+                if T' = T ∧ tmaj.getAppArgs.length = cnP ∧
+                    cvj.levelParams.length = ust.length ∧
+                    andRescueSlots env rl.ctor cnP = true then
+                  let fab := Expr.mkAppN (.const rl.ctor ust)
+                    (tmaj.getAppArgs ++ [.proj T 0 major, .proj T 1 major])
+                  -- scope guard, as in the K branch
+                  if fab.wscopedB depth && fab.looseBVarsBounded 0 &&
+                      fab.fvarLeaves.all
+                        (fun l => major.fvarLeaves.contains l) then
+                    -- the fabrication's type against the major's, then
+                    -- proof irrelevance, as in the K branch
+                    if ← r.defeq depth tmaj (← r.inferIO depth fab) then
+                      -- Task #342 (r1): proof irrelevance here, as in the K
+                      -- branch, is a certificate family — gated off at the
+                      -- trusted mode (`certAtI mode (proofIrrelI ...)` in the
+                      -- cached twin).
+                      if ← (if mode.verifiedChecks then proofIrrel r depth fab major
+                          else pure true) then
+                        pure fab
+                      else pure major
                     else pure major
                   else pure major
                 else pure major
-              else pure major
-            | _ => pure major
-          else pure major
+              | _ => pure major
+            else pure major
         | _ => pure major
       | _ => pure major
     | _ => pure major

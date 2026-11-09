@@ -2,7 +2,7 @@ module
 
 import ConLeche.Verify.Denote
 import ConLeche.Verify.EnvWF
-public import ConLeche.Verify.EnvGuards
+import ConLeche.Verify.EnvGuards
 import ConLeche.Verify.EnvPreds
 public import ConLeche.Verify.Denote.Pinned
 

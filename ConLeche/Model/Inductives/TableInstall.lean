@@ -74,24 +74,6 @@ theorem natOps_pushTable (mp : EnvModelM V env) {t : ProjTable}
   · rw [hac]
     exact hlaw
 
-/-- `CapsOk` across a table install: the stored families, their readings
-and their leaves are the prefix's. -/
-theorem capsOk_pushTable (mp : EnvModelM V env) {t : ProjTable}
-    (hT : env.findTable? t.structName = none)
-    {m₂ : EnvModel V ⟨env.consts, t :: env.tables⟩} (hac : m₂.acval = mp.base2.acval) :
-    CapsOk m₂ := by
-  intro T cvT caps hf hcape hres hfam φ' us hlen
-  obtain ⟨hlaw, hcoh⟩ :=
-    mp.caps_ok T cvT caps hf hcape hres hfam φ' us hlen
-  refine ⟨?_, ?_⟩
-  · rw [hac]
-    exact hlaw
-  · refine hcoh.transport (fun cvC nPc nFc hf₂ => hf₂)
-      (fun cvC nPc nFc TCa hf hTCa => ?_) (by rw [hac]) (fun _ _ _ => rfl)
-    rw [hac]
-    exact denote_pushTable_mono hT _ 0
-      (constsBound_instType mp.base2.wf (ConLeche.Env.find?_mem hf) us) hTCa
-
 /-- **The P step at a projection table's install.**  The structure has
 no table yet, the table is well formed and carries its head data, and
 the table's law and its fields' projection laws are supplied.  The leaf
@@ -137,7 +119,6 @@ theorem declStep_preserves_of_pushTable (mp : EnvModelM V env) {t : ProjTable}
     nat_ops := natOps_pushTable mp hT hac
     div_mod := mp.div_mod
     eq_law := mp.eq_law
-    caps_ok := capsOk_pushTable mp hT hac
     op_defn := fun c hn hs => mp.op_defn c hn hs
     rec_rules := fun φ n cv mI rP isK rules hf rl hmem =>
       recRuleLaw_ext mp hx φ hf hmem

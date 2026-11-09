@@ -12,9 +12,9 @@ stored data's readings, gradings and laws — and nothing about the
 implementation.  One structure, `RulesInputs`, sorted by the tier that
 discharges each field.
 
-Eight fields are the laws `EnvModelM` already carries: `ConstType`,
+Five fields are the laws `EnvModelM` already carries: `ConstType`,
 `NatHeads`, `AcvalDefnInst`, `TowerOk`, `RecRules`,
-`CapsOk`, all of them `Model/Env/Laws.lean`'s (re-exported by
+all of them `Model/Env/Laws.lean`'s (re-exported by
 `Model/Env/EnvModelM.lean`).  `RulesInputs.ofEnvModelM` below reads
 each of them off the fold's invariant.
 
@@ -107,8 +107,6 @@ structure RulesInputs (V : Type w) [SetTheory V] {env : Env}
   tower_ok : TowerOk m φ
   /-- iota tier: the stored recursors' fired contracts -/
   rec_rules : RecRules m φ
-  /-- caps tier: the stored families' capability laws -/
-  caps_ok : CapsOk m
   /-- literal tier: successor packing -/
   nat_succ : NatSuccRow m φ
   /-- literal tier: the binary operations -/
@@ -133,7 +131,6 @@ theorem RulesInputs.ofEnvModelM {env : Env} {φ : Name → Nat}
   defn := mp.defn_reads
   tower_ok := mp.tower_ok φ
   rec_rules := mp.rec_rules φ
-  caps_ok := mp.caps_ok
   nat_succ := hsucc
   nat_op := hop
   nat_op_head := hhead

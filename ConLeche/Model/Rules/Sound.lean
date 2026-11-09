@@ -88,11 +88,10 @@ theorem red_sound (hin : RulesInputs V m φ) :
       (infer_sound hin htp)
       (prop_pt_io hin http rfl (infer_sound hin http) hv (red_sound hin hv)
         (ConLeche.Level.isEquiv_sound hv0 φ))
-  | _, _, _, .rescueEta hrec heta hctor hres hind htm htmaj hthead hlen hlv
-      hfab hws hb hlv' hresT hresC htow =>
-    Red.rescueEta_sound hin hrec heta hctor hres hind (infer_sound hin htm)
-      (red_sound hin htmaj) htmaj hthead hlen hlv hfab hws hb hlv' hresT hresC
-      htow
+  | _, _, _, .rescueEta hrec hctor hres hind heta htm htmaj hthead hlen hlv
+      hfab hws hb hlv' =>
+    Red.rescueEta_sound hin hrec hctor hres hind heta (infer_sound hin htm)
+      (red_sound hin htmaj) htmaj hthead hlen hlv hfab hws hb hlv'
 
 theorem defeq_sound (hin : RulesInputs V m φ) :
     ∀ {d : Nat} {a b : Expr}, DefEq env d a b → DefEqSem m φ d a b
@@ -125,10 +124,10 @@ theorem defeq_sound (hin : RulesInputs V m φ) :
     DefEq.eta_sound hneu (infer_sound hin htb) (red_sound hin hwtb)
       (defeq_sound hin hty) (defeq_sound hin hbody) (infer_sound hin ht₁)
       (defeq_sound hin htB)
-  | _, _, _, .structEta htb hwtb hhead hctor hlen hthead hind heta hetaCtor hresT
-      hresc htlen hlv hlps hslots hus hparams hfields =>
+  | _, _, _, .structEta htb hwtb hhead hctor hlen hthead hind htbl heta hetaCtor
+      htlen hlv hlps hus hparams hfields =>
     DefEq.structEta_sound hin (infer_sound hin htb) (red_sound hin hwtb) hwtb hhead
-      hctor hlen hthead hind heta hetaCtor hresT hresc htlen hlv hlps hslots hus
+      hctor hlen hthead hind htbl heta hetaCtor htlen hlv hlps hus
       (defEqList_sound hin hparams) (defEqList_sound hin hfields)
 
 theorem defEqExpand_sound (hin : RulesInputs V m φ) :
