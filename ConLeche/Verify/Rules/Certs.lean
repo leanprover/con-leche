@@ -109,12 +109,12 @@ theorem structEtaCertWith_bridge (hw : WhnfBridge μ eager env fuel)
     (hwtb : whnf μ eager env fuel d tb = .ok wtb)
     (h : structEtaCertWithFueled μ eager env fuel d a b wtb = .ok true) :
     DefEq env d a b := by
-  obtain ⟨c, us, cvc, cnP, cnF, T, us', cvT, caps,
-    hfn, hfc, hlen, hwfn, hfT, heta, hctor, hresT, hresc, hplen, hulen,
-    hlps, hslots, hus, hpar, hfields⟩ :=
+  obtain ⟨c, us, cvc, cnP, cnF, T, us', cvT, caps, tbl,
+    hfn, hfc, hlen, hwfn, hfT, htbl, heta, hctor, hplen, hulen,
+    hlps, hus, hpar, hfields⟩ :=
     structEtaCertWith_inv h
   exact .structEta (inferTypeIO_bridge hio htb) (hw hwtb) hfn hfc hlen hwfn hfT
-    heta hctor hresT hresc hplen hulen hlps hslots hus
+    htbl heta hctor hplen hulen hlps hus
     (defEqList_bridge hd hpar) (defEqList_bridge hd hfields)
 
 /-- `structEtaFull` ⇒ `DefEq.structEta` (`structEtaFull_inv`, then
@@ -177,7 +177,7 @@ theorem unitLikeFields_bridge (hw : WhnfBridge μ eager env fuel)
       exact .prop htt hr hz ih
     · exact .unit (hul hu) ih
 
-/-- `unitLikeStruct` ⇒ the `unit` or `struct` rule (`unitLikeStruct_inv`),
+/-- `unitLikeStruct` ⇒ the `struct` rule (`unitLikeStruct_inv`),
 given the reduction to `w`. -/
 theorem unitLikeStruct_bridge (hw : WhnfBridge μ eager env fuel)
     (hio : InferIOBridge μ eager env fuel) {ul : Nat → Expr → CheckM Bool}
@@ -185,9 +185,8 @@ theorem unitLikeStruct_bridge (hw : WhnfBridge μ eager env fuel)
     {d : Nat} {T w : Expr} (hr : Red env d T w)
     (h : unitLikeStruct (pureFns μ eager env fuel) ul env d w = .ok true) :
     UnitLike env d T := by
-  rcases unitLikeStruct_inv h with hsh | ⟨tele, n, hsh, hf⟩
-  · exact .unit hr hsh
-  · exact .struct hr hsh (unitLikeFields_bridge hw hio hul n d hf)
+  obtain ⟨tele, n, hsh, hf⟩ := unitLikeStruct_inv h
+  exact .struct hr hsh (unitLikeFields_bridge hw hio hul n d hf)
 
 /-- `unitLikeLoop` ⇒ `UnitLike` (`unitLikeLoop_succ_inv`, by induction on
 the budget). -/

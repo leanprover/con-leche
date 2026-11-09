@@ -1,5 +1,5 @@
 --#export H
-/- End-to-end fixture (task #451, lane blowup): a 25-member mutual block —
+/- End-to-end fixture (task #543; found in task #451): a 25-member mutual block —
    a hub `H` with one constructor per member `Tᵢ` and members that point
    back — whose recursors close telescopes of 25 motives and 49 minors.  The
    radar benchmark `deriving_mutual_block`'s block at a smaller size.
@@ -10,8 +10,9 @@
    the binder, so each pass walks only what mentions the binder's own
    variable; a checker without that cutoff walks every subterm that
    mentions an outer variable (the motives, everywhere) once per binder,
-   quadratic in the telescope.  InLean (`Lean.Expr` caches `hasFVar`, no
-   range) closes the telescope directly, one bulk pass per domain.
+   quadratic in the telescope.  The finding came from InLean (task #451,
+   the twin on `Lean.Expr`, which caches `hasFVar` but no range): it now
+   closes the telescope directly, one bulk pass per domain.
 
    A performance fixture: the block compiled as a module and added to the
    kernel environment of `Init` again, InLean's heartbeats were 4.7M with the

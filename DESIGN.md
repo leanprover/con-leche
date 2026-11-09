@@ -116798,6 +116798,18 @@ grind-ring-5 13.1065 → 13.1058 G, `BvStruct` − `Empty` 1.273 → 1.253 G (mo
 no Lean package module linked, shake); citations repointed in OVERVIEW and
 the whitepaper (moved lines only, the cited text unchanged).
 
+## Task #543: the wide-telescope e2e fixture (2026-11-09)
+
+`tests/e2e/ind_mutual_wide_telescope.ndjson` (source
+`tests/e2e/src/ind_mutual_wide_telescope.lean`): a 25-member mutual block
+whose recursors close telescopes of 25 motives and 49 minors. Found in
+task #451: a checker whose abstraction has no free-variable-range cutoff
+(InLean on `Lean.Expr`) closes a telescope binder by binder in time
+quadratic in its length, while con-leche's `abstract1` stops at the cached
+range. Verdict 0 (accept); `perf stat -e instructions:u` 316.7 M. The
+stream is raw `lean4export` output, regenerated identically by
+`scripts/export-fixture.sh ind_mutual_wide_telescope`.
+
 ## TASK #515 — the wider unit-like η and the η of a partially applied constructor (2026-11-09, agent/515-wide-eta)
 
 **Ruling (maintainer).** The official kernel on lean4 master gained two η extensions (lean4#14977's
@@ -116991,6 +117003,151 @@ Gates: `lake build`, `lake test` warning-free; `tests/arena.sh` (e2e 583/583, ar
 sweeps without divergence, axioms pinned at `[propext, Classical.choice, Quot.sound]`, the link,
 quote and whitepaper gates; the shake gate after dropping `BlockStageCtors`' now unused import of
 `BlockCaps`).
+
+**Review round 2 (2026-11-09): one path for every structure.**  Official's `is_unit_like`
+(`type_checker.cpp:1128`) has one path for every non-recursive structure: the constructor from
+the family's constructor list, its parameters dropped and instantiated with the type's
+arguments, then the field loop, empty at a fieldless structure.  Round 1 still had two arms (a
+fieldless one keyed on `eta ∧ etaFields = 0`, sound by a separate unit law, and one reading the
+constructor off projection-table entry 0).  But every structure-like block member gets a table
+(`blockTables`/`blockTablesC`: one constructor, no index, any field count), and `ProjTable`
+carries the constructor and the field count at the table level.  Now:
+
+* *Checker* (`unitLikeShape`, `Kernel/CoreDefs.lean`; `unitLikeShapeF`, `Cached/CoreC.lean`):
+  the head is a stored η family at its levels; its table (`findTable?`) gives the parameter
+  count (the instance's argument count), the constructor (a stored constructor, matched as
+  before) and the field count; the telescope is the constructor's type at the instance's levels,
+  the table's parameters dropped and instantiated (`unitFieldTele`), and the field loop runs
+  over `tbl.numFields` fields, possibly none.  The result is `Option (Expr × Nat)`, one arm
+  (`UnitLike.struct`; `UnitLike.unit` is gone).  `towerSlotsAll`, the reserved-name test and the
+  level-parameter comparison of the constructor are no longer read: the table has no slots to
+  check, a table is never at a reserved name, and its constructor's level parameters are the
+  table's (`TableHead`, below), so none of them could fail.  Verdicts unchanged.
+* *Model*: the structural-η law is restated at the table (`TowerEtaLaw m φ T tbl`), with the
+  table's η record (`TowerTableLaw`: the former stored, its level parameters the table's, its
+  η record naming the table's constructor and counts).  `TowerOk` is now a structure of two
+  fields: `table` (every stored table's `TowerTableLaw`, at every field count) and `entry` (each
+  entry's typing and iota laws, `TowerEntryLaw` minus its old clause (C)).  The install
+  (`stageFixTable`, `FixKit.lean`) proves the table law with the old clause (C) proof, which
+  never read the field index; the transports (`towerTableLaw_ext`, `Swap`, `StreamRecsSwap`,
+  `BasisRename`, `TableInstall`) are the old (C) transports moved to the table.  The structure-η
+  certificate's tower arm (`etaSide`) reads the table law of the slot-0 entry's table; the
+  unit-like arm (`UnitLike.struct_sound`) reads it at the head's table directly, at any `n`.
+* *Removed*: `UnitLaw`, `CapsOk`'s second half (`CapsOk` is now the fieldless η law alone,
+  `EtaLaw` under `EtaFamilyStored`), `CapsLawsAt`'s second half, `fixEmptyUnitLaw`,
+  `fibreUnitLaw`, the unit arms of `blockCapsLawsAt` and of the two former passes
+  (`blockRealPass` loses its `hfoldZ` premise; `blockCapsLawsAt` still reads the fold for
+  `fibreEtaLaw0`), `UnitLike.unit_sound` and the shape inversions in `UnitSound` (one inversion,
+  `unitLikeShape_some`, `Verify/InstSpine.lean`).  No other user of the unit law existed:
+  `CapsOk`'s η half is read only by the structure-η certificate at a fieldless family (`etaSide`'s
+  no-field arm, which serves the recursor's major-premise rescue too — `corner_punit_unit_eta`
+  and arena `073_typeSingletonRecReduction` go through it, unchanged).  That arm could read the
+  table law as well, which would retire `CapsOk` altogether; it is not done here
+  (`structEtaCertWith` would have to read the table at zero fields).
+* *Invariants*: no new fact, two restated at the table.  The table invariants were all per
+  entry, so vacuous at a fieldless table: `ProjOkT` now carries `TableHead` per table (the
+  entry's `TowerHead` minus its index bound, `TableHead.entry` gives it back), and
+  `StoredFacts.entryCtors` (a table entry's constructor is stored, what lets a run ignore later
+  additions, `Verify/EnvExt`) is `tableCtors`, per table (`StoredFacts.entryCtors` derives the
+  entry form).  Both were already established for every table, fieldless ones included (the
+  install's head data is table-level: `stageFixTable`'s `hhead`); only their statements were
+  per field.  The checker's read of `tbl.ctor` needs `tableCtors` for the extension argument.
+
+*Official's `whnf` of the constructor type vs con-leche's syntactic telescope.*  Official's loop
+is `while (is_pi(ctor_ty))`, with `ctor_ty = whnf(instantiate(binding_body(ctor_ty), fvar))`
+after each field; con-leche's `unitLikeFields` walks exactly `tbl.numFields` syntactic
+`forallE`s.  They agree on every stored constructor of a table: the block install checks each
+constructor (`checkSumCtor`, `Kernel/Inductives/SumInstall.lean`) by `stripPis (nP + nF)`
+followed by `structCtorResidOk` (official's `is_valid_ind_app`): exactly `nP + nF` syntactic
+binders, then the family applied to its parameters and indices, a constant head and so no ∀.
+Instantiating the parameters (and, along the walk, the fields) at closed-over values leaves
+that head in place, so after the `nF` fields official's `whnf` of `T args` is stuck at an
+inductive and the loop stops at the same count; before that each rest is a syntactic ∀, which
+`whnf` leaves unchanged.  The table's `numFields` is the constructor record's `nF`, which that
+check pins to the telescope.  No verdict difference.
+
+*Fixture* `unitlike_fieldless` (0; official 0): fieldless structures with a parameter (`E α`,
+universe-polymorphic `EU.{u} α`), behind a ∀ (`Nat → E Bool`), and inside unit-like structures
+(`W α` with fields `E α`, `EU α`, `True`; `WD α` with `e : E α`, `h : e = e`).  A fieldless
+structure inside a unit-like one was already covered (`unitlike_wide`'s `Foo`, whose `bar :
+Unit` is `PUnit`, a fieldless structure); with parameters it was not.  The round-1 binary
+(`d220352d8`) accepts it too, through its fieldless arm.
+
+*Performance* (`perf stat -e instructions:u`, one run each, `--verified --jobs=1`, against
+`d220352d8`): `init-full` 373 232 519 413 → 373 045 147 743 (−0.050 %), `grind-ring-5`
+13 056 834 071 → 13 052 689 847 (−0.032 %); verdicts unchanged.
+Gates: `lake build`, `lake test` warning-free; `tests/arena.sh` (e2e 584/584, arena tutorial
+90/92, plain-reach 578 all allowlisted, self-check 54 060 declarations, trusted and `--jobs`
+sweeps without divergence, axioms pinned at `[propext, Classical.choice, Quot.sound]`, layering,
+shake, trust surface, the link, quote and whitepaper gates; OVERVIEW's and the whitepaper's
+unit-likeness paragraphs now say the law is the table's at every field count).
+
+**Review round 3 (2026-11-09): structure η reads the table; `CapsOk` is gone.**  Round 2 left
+one reader of the record's `etaCtor` by name: structure η (`structEtaCertWith`) and the
+structure-η rescue (`majorToCtor`'s η arm), whose fieldless case was sound by `CapsOk`'s η half
+(`EtaLaw` under `EtaFamilyStored`).  Both now read the constructor and the counts off the family's
+projection table, at every field count, as unit-likeness does; nothing in the checker looks up a
+name stored in `IndCaps`.
+
+* *Checker* (`Kernel/Core.lean`, `Kernel/CoreDefs.lean`; twins `Cached/CoreC.lean`,
+  `Cached/StateC.lean`).  `structEtaCertWith`: the type's head is a stored former, its table
+  (`findTable?`) gives the constructor (`tbl.ctor = c`) and the counts (`tbl.numParams`,
+  `tbl.numFields`); `caps.eta` stays the gate (official's `is_non_rec_structure`), and the
+  constructor's level parameters are still compared with the former's.  The rescue's gate is
+  `etaRescueTable? (findTable? T) rl.ctor cvj cvT caps` (an `Option ProjTable`: η, the rule's
+  constructor the table's, the level parameters, not `And.intro`); its arm fabricates
+  `tbl.ctor` at `tbl.numFields` projections.  `etaCtorPartial` (the partial-constructor gate)
+  reads `tbl.ctor` too.  The reserved-name tests and `towerSlotsAll` (with `towerSlotsAllF`)
+  are gone: a table is never at a reserved name and covers its own field slots, so neither
+  could fail.
+* *Records*.  `IndCaps.etaCtor`, `etaParams`, `etaFields` are removed (`blockCapsAt` and the
+  pinned `Eq` record lose them): nothing reads them.  `IndCaps.eta` stays.
+* *Verdicts*.  Unchanged: every η family is a structure-like block member, which gets a table
+  (`blockTables`) whose constructor and counts were the record's (round 2's `TowerTableLaw`
+  stated exactly that equality, proved at the install); no basis family claims η.  The
+  fieldless rescue (`corner_punit_unit_eta`, arena `073_typeSingletonRecReduction`) took
+  nothing from the name lookup that the table does not give: the constructor is the table's,
+  the law the table's at zero fields.
+* *Rules and Verify*.  `DefEq.structEta` and `Red.rescueEta` take the table
+  (`env.findTable? T = some tbl`, resp. `etaRescueTable? … = some tbl`) in place of the record's
+  name and counts and drop the reserved-name and slot premises; the inversions
+  (`structEtaCertWith_inv`, `majorToCtor_inv`), the bridges, the fuel and pair-monad
+  projections, the shift (`Deep`), the environment extension (`EnvExt/Reads`, `Rel`, `Whnf`:
+  the table is stable under extension, `EnvExt.table`), the cached congruences and the cached
+  simulation follow.  The cached certificate's pure side is reached through guarded equations,
+  one per arm (`seta_body`, `seta_notCtor`, … in `Verify/Cached/DiscC2.lean`; the table lookup
+  made the nested match one level too deep for `finish`), and the rescue's named blocks take the
+  table (`mtcEtaI`/`mtcEtaCont`, `DiscC3`).  `mkFEnv_findTable?` joins the grind vocabulary.
+* *Model*.  `etaSide` (`Model/Rules/EtaSoundKit.lean`) reads `TowerTableLaw` at the family's
+  table, whatever its field count: one arm.  `TowerTableLaw` and `TowerEntryLaw` lose the
+  clause tying the record's η fields to the table.  Removed with no other user: `EtaLaw`,
+  `CapsOk` (and `EnvModelM.caps_ok`, `RulesInputs.caps_ok`, the `hcaps_ok` row of
+  `declStep_preserves_of_cons` and of every cons wrapper, `Model/Caps.lean`, `capsOk_cons_basis`,
+  `capsOk_pushTable`, the caps bullets of the swaps and of the basis rename),
+  `EtaFamilyStored`, `EtaFamiliesClosed` (with `…ExceptL`, `BlockEtaInv`, `ExtEta`, the fold
+  invariant's η half and `Semantics/DeclEta.lean`), `CapsLawsAt`, `capsLawsAt_vacuous`,
+  `capsOk_cons_native`, `fibreEtaLaw0`, `blockCapsLawsAt`, the block install's η threads
+  (`hetaNe`, `hetaFresh`, `hTlawsOf`, `BlockCtorsStage.capsU`/`out` and its `ctorsOf`
+  parameter, `BlockTablesStage.etaData`, `stageFixTable`'s `hcaps`), and the
+  basis steps' `hcaps`/`hres` premises.  `ctorsLoopEta` is `ctorsLoopAt` (no η invariant);
+  `Semantics/Inductives/DeclBlockEta.lean` keeps only its lookup lemmas and is
+  `BlockConsFind.lean`.  `EnvModelOk` is the covered carrier and the `Nat` facts.
+* *Kept*: `EtaCoherent` (the table's η law's coherence half), `IndCaps.eta`, and the
+  constructor-level-parameter comparison in both checker arms (the soundness reads
+  `cvc.levelParams = cvT.levelParams`; the table law carries the former's level parameters, and
+  `TableHead`, which also has the constructor's, is not among the rules' inputs).
+
+*Performance* (`perf stat -e instructions:u`, one run each, `--verified --jobs=1`, against
+`3854ff6fe`): `init-full` 373 146 991 879 → 373 083 826 401 (−0.017 %), `grind-ring-5`
+13 052 378 389 → 13 050 758 108 (−0.012 %); verdicts unchanged.
+Gates: `lake build`, `lake test` warning-free; `tests/arena.sh` (e2e 584/584, arena tutorial
+90/92, plain-reach 577 all allowlisted (`etaRescueTable?` for `etaRescueOk`, `towerSlotsAllF`
+gone), self-check 53 968 declarations, trusted and `--jobs` sweeps without divergence, axioms
+pinned at `[propext, Classical.choice, Quot.sound]`, layering, shake (the allowlist: the three
+deleted modules' lines out, `Laws`/`Denote/Install`'s `EnvGuards` import recorded with their
+compensation; `BlockConsFind`'s public `BlockInstall` import a measured model exception in
+`scripts/pub-import-plan.py`), trust surface, the link, quote and whitepaper gates; OVERVIEW's
+`IndCaps` row says `eta` alone and the table's reading).
 
 ### Lane eta: task #515's two η rules in InLean (2026-11-09, task #451, agent/451-eta)
 

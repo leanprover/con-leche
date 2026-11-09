@@ -74,19 +74,12 @@ theorem mem_bareOf {rs : List RecDatum} {x : ConstantVal × Nat} (h : x ∈ bare
   obtain ⟨r, hr, rfl⟩ := List.mem_map.mp h
   exact ⟨r, hr, rfl⟩
 
-/-! ## The `k` rule-less conses
-
-A block recursor is not an `indInfo`, so it is no family's former, and
-not a `ctorInfo`, so it is no family's capability constructor; the
-whole capability row therefore crosses with nothing supplied
-(`capsOk_cons_fresh`, its head-kind premises refuted directly by the
-recursor shape). -/
+/-! ## The `k` rule-less conses -/
 
 /-- **The `k` RULE-LESS recursors' cons, P tier.**  Each head is a
 `recInfo` with NO rules, so the whole `EnvModelM` bill is the ordinary
-one (`declStep_preserves_of_ind_rec_cons`) with `caps_ok` free
-(`capsOk_cons_fresh`) and `rec_rules` free (`recRules_cons_fresh`
-at an empty rule list); the chain is then an induction over the
+one (`declStep_preserves_of_ind_rec_cons`) with `rec_rules` free
+(`recRules_cons_fresh` at an empty rule list); the chain is then an induction over the
 recursor list.
 
 The target valuation `acv` is given up front rather than built by
@@ -165,10 +158,6 @@ theorem envModelM_consBlockRecsBare {q : BlockShape}
           obtain ⟨ta', hta', -, hmemta⟩ := hreadUp ψ
           obtain rfl := Option.some.inj (hta'.symm.trans hta)
           exact hmemta ρ)
-        (fun m₂ hac =>
-          capsOk_cons_fresh (c₀ := .recInfo r0.1 (q.majorIdxAt m) (q.rulePrefixAt m) false [])
-            mp mp.caps_ok hfresh
-            (fun _ _ h => nomatch h) (fun _ _ _ h => nomatch h) m₂ hac)
         (fun m₂ hac φ =>
           recRules_cons_fresh (c₀ := .recInfo r0.1 (q.majorIdxAt m) (q.rulePrefixAt m) false [])
             mp hfresh
@@ -291,9 +280,9 @@ theorem recSwapFacts3 {envSelf env₃ : Env} {cval : (Name → (Name → Nat) �
         · rw [← heq]; exact hx
         · rw [h₃] at hx; exact nomatch hx), hp.2.2⟩)
   · -- `ProjOkT`: projection tables are untouched
-    intro n tbl hf i hi
-    exact ConLeche.TowerHead.mono (fun n ci hnr hf' => (hsame n ci hnr).mpr hf')
-      (hprojS n tbl ((hcg.tableEq n).trans hf) i hi)
+    intro n tbl hf
+    exact ConLeche.TableHead.mono (fun n ci hnr hf' => (hsame n ci hnr).mpr hf')
+      (hprojS n tbl ((hcg.tableEq n).trans hf))
 
 /-! ## The names the conses do not touch -/
 

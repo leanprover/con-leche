@@ -269,7 +269,7 @@ theorem extendNat (mp : EnvModelM V env)
   refine coverTo_pend hfresh (declStep_preserves_of_basis_cons_gen mp
     (A := fun _ => Term.const .nat []) hfresh (by decide)
     (fun _ _ _ h => nomatch h)
-    (by decide) (by decide) (Or.inl (fun _ h => nomatch h))
+    (by decide) (Or.inl (fun _ h => nomatch h))
     (ConsHead.ofBasis hwf (fun _ => trivial) rfl
       (fun ψ t hp => by
         rw [show ConLeche.Verify.pinnedStructT natI.name ψ
@@ -307,7 +307,7 @@ theorem extendNatZero (mp : EnvModelM V env)
     (declStep_preserves_of_basis_cons_gen mp
     (A := fun _ => Term.const .natZero []) hfresh (by decide)
     (fun _ _ _ h => nomatch h)
-    (by decide) (by decide) (Or.inl (fun _ h => nomatch h))
+    (by decide) (Or.inl (fun _ h => nomatch h))
     (ConsHead.ofBasis hwf (fun _ => trivial) rfl
       (fun ψ t hp => by
         rw [show ConLeche.Verify.pinnedStructT natZeroA.name ψ
@@ -432,7 +432,7 @@ theorem extendNatSucc (mp : EnvModelM V env)
       declStep_preserves_of_basis_cons_gen mp
     (A := fun _ => Term.const .natSucc []) hfresh (by decide)
     (fun _ _ _ h => nomatch h)
-    (by decide) (by decide) (Or.inl (fun _ h => nomatch h))
+    (by decide) (Or.inl (fun _ h => nomatch h))
     (ConsHead.ofBasis hwf (fun _ => trivial) rfl
       (fun ψ t hp => by
         rw [show ConLeche.Verify.pinnedStructT natSuccA.name ψ
@@ -1313,7 +1313,7 @@ theorem extendNatRec (mp : EnvModelM V env)
     (A := fun ψ => Term.const .natRec [ψ uN]) hfresh (by decide)
     (fun _ _ _ h => nomatch h)
     (by decide) (by decide) (by decide) (by decide)
-    (by decide) (Or.inl (fun _ h => nomatch h))
+    (Or.inl (fun _ h => nomatch h))
     (ConsHead.ofBasis hwf (fun _ => trivial) rfl
       (fun ψ t hp => by
         rw [show ConLeche.Verify.pinnedStructT natRecA.name ψ

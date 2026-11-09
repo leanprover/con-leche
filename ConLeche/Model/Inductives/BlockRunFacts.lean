@@ -8,7 +8,7 @@ import ConLeche.Model.Inductives.BlockCover
 import ConLeche.Verify.Cached.PushChain
 import ConLeche.Verify.Cached.GenRecC
 import ConLeche.Verify.Cached.BlockPushes
-import ConLeche.Semantics.Inductives.DeclBlockEta
+import ConLeche.Semantics.Inductives.BlockConsFind
 
 public section
 
@@ -164,7 +164,7 @@ theorem blockRun_findTable {F : Nat} {env env₂ : Env} {block : List ConstantIn
 
 /-- **The uniform block step, at a recognised block whose records take no reserved name.** -/
 theorem declBlock {F : Nat} {env env₂ : Env} {block : List ConstantInfo} {nPd : Nat} {p₀ : BlockShape}
-    (mp : EnvModelM V env) (hE : ConLeche.EtaFamiliesClosed env)
+    (mp : EnvModelM V env)
     (hdp : ConLeche.readBlock nPd block = .ok p₀)
     -- the reserved names' check (`basisNamesOk`), at a block no pinned one's
     (hres : ∀ c ∈ block, ConLeche.reservedBasisNames.contains c.name = false)
@@ -219,7 +219,7 @@ theorem declBlock {F : Nat} {env env₂ : Env} {block : List ConstantInfo} {nPd 
   have hresR : ∀ rc ∈ ({ p₀ with members := ms } : BlockShape).recs,
       ConLeche.reservedBasisNames.contains rc.cvR.name = false :=
     fun rc hrc => by obtain ⟨b, hb, hn⟩ := hRc rc hrc; exact hn ▸ hres b hb
-  refine ⟨declBlockAt (p₀ := { p₀ with members := ms }) mp hE
+  refine ⟨declBlockAt (p₀ := { p₀ with members := ms }) mp
     (fun m hm => (hlps m hm).trans hlpsEq.symm) hAt
     (fun c hc => by rw [hlpsEq]; exact ⟨hClps₀ c (hctors c hc), hresC c (hctors c hc)⟩)
     hresM hresR hR hcov hRan hNat (blockRun_findTable hdp hrun₀),

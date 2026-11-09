@@ -17,9 +17,7 @@ import ConLeche.Model.BasisAtBlock
 import ConLeche.Model.Swap
 import ConLeche.Semantics.DeclRun
 import ConLeche.Semantics.EnvFacts
-import ConLeche.Semantics.DeclEta
 import ConLeche.Semantics.DeclWF
-import ConLeche.Semantics.Inductives.DeclBlockEta
 import ConLeche.Verify.Abstract
 import ConLeche.Verify.Denote.EnvExt
 import ConLeche.Verify.Denote
@@ -32,13 +30,11 @@ public section
 /-!
 # The P declaration fold, and the capstone (task #161, P4)
 
-`foldPM` carries `EnvModelOk` — the P invariant plus the η-family
-closure — through an accepted stream, and `no_proof_of_Empty_pure` is
-the capstone, with input-level hypotheses only.
+`foldPM` carries `EnvModelOk` — the P invariant — through an accepted
+stream, and `no_proof_of_Empty_pure` is the capstone, with input-level
+hypotheses only.
 
-The η half of the fold invariant is `declEtaStepRun`
-(`Semantics/DeclEta.lean`), model-free at every kind: no install
-obligation is consulted for it.  Every tier step is discharged
+Every tier step is discharged
 (`axiomStepPB_of`, `declBasisPB_at`, `declQuotPB_at`, `declBlock`); the fold carries no
 hypothesis about the mode: the model tier is at `.verified`.
 -/
@@ -100,11 +96,10 @@ theorem CoverTo.covered {env env' : Env} {mp : EnvModelM V env}
     ∃ mp' : EnvModelM V env', LfpCover mp' [] ∧ FamilyRan mp' :=
   h.elim fun mp' h' => ⟨mp', h'.2 hcov, hS.step h'.1 htb⟩
 
-/-- **The P fold invariant**: a covered P carrier plus the η-family
-closure. -/
+/-- **The P fold invariant**: a covered P carrier, and the `Nat` facts. -/
 @[expose] def EnvModelOk (V : Type w) [SetTheory V] (env : Env) :
     Prop :=
-  (∃ mp : EnvModelM V env, LfpCover mp [] ∧ FamilyRan mp) ∧ EtaFamiliesClosed env ∧ NatFacts env
+  (∃ mp : EnvModelM V env, LfpCover mp [] ∧ FamilyRan mp) ∧ NatFacts env
 
 /-- The invariant's carrier. -/
 theorem EnvModelOk.nonempty {env : Env} (h : EnvModelOk V env) :
@@ -113,7 +108,7 @@ theorem EnvModelOk.nonempty {env : Env} (h : EnvModelOk V env) :
 
 /-- The invariant at the empty environment. -/
 theorem EnvModelOk.empty : EnvModelOk V Env.empty :=
-  ⟨⟨EnvModelM.empty V, lfpCover_empty, fun _ hD => nomatch hD⟩, EtaFamiliesClosed.empty,
+  ⟨⟨EnvModelM.empty V, lfpCover_empty, fun _ hD => nomatch hD⟩,
     ⟨fun h => by rcases h with h | h | h <;> exact nomatch h⟩⟩
 
 /-- A step that adds constants, none of `Nat`'s block's, and no table. -/
@@ -290,7 +285,7 @@ its `Ind` parameter), so this step consumes exactly what it reads. -/
 theorem declStep_preserves
     {F : Nat} {env env₂ : Env} {d : Declaration}
     (mp : EnvModelM V env) (hcov : LfpCover mp []) (hS : FamilyRan mp)
-    (hE : EtaFamiliesClosed env) (hN : NatFacts env)
+    (hN : NatFacts env)
     (hrun : DeclRun F (ConLeche.Semantics.DeclIndRunDispatchK F env)
       env d env₂) :
     EnvModelOk V env₂ := by
@@ -298,15 +293,6 @@ theorem declStep_preserves
   -- down to every arm
   have hwf₂ : ConLeche.EnvWF env₂ := ConLeche.Semantics.declRun_envWF mp.base2.wf hrun
   obtain ⟨hnames, hrun⟩ := hrun
-  -- the η half: `declEtaStepRun`, model-free at every kind; at `.indDecl`
-  -- through the dispatch's own case split
-  have hEta : EtaFamiliesClosed env₂ := ConLeche.Semantics.declEtaStepRun (fun h' => by
-    unfold ConLeche.Semantics.DeclIndRunDispatchK at h'
-    split at h'
-    · exact ConLeche.Semantics.blockRun_etaClosed hE h'
-    · exact h'.elim) hE hrun
-  suffices h : (∃ mp' : EnvModelM V env₂, LfpCover mp' [] ∧ FamilyRan mp') ∧ NatFacts env₂ from
-    ⟨h.1, hEta, h.2⟩
   cases d with
   | defnDecl cv value hint =>
     have hnres : ConLeche.reservedBasisNames.contains cv.name = false := by
@@ -358,7 +344,7 @@ theorem declStep_preserves
           natFacts_basis hN hk hinst⟩
       | none =>
         -- the uniform install, at any number of members, nested blocks included
-        exact declBlock mp hE hdf (unreserved_of_basisNamesOk hnames hk) hrun' hcov hS hN
+        exact declBlock mp hdf (unreserved_of_basisNamesOk hnames hk) hrun' hcov hS hN
 
 /-- **The P fold**: the declaration fold's recursion at the P invariant. -/
 theorem foldPM {F : Nat} :
@@ -375,9 +361,9 @@ theorem foldPM {F : Nat} :
     | error e => rw [hd] at h; exact nomatch h
     | ok env1 =>
       rw [hd] at h
-      obtain ⟨⟨mp, hcov, hS⟩, hE, hN⟩ := hm
+      obtain ⟨⟨mp, hcov, hS⟩, hN⟩ := hm
       exact foldPM ds env1
-        (declStep_preserves mp hcov hS hE hN
+        (declStep_preserves mp hcov hS hN
           -- **the RUN bridge, from the P carrier's own `EnvFacts`**
           -- (`checkDeclRun_ofEnvFactsK`; the `ind` kind through
           -- `DeclIndRunDispatchK`)

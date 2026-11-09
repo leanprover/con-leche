@@ -426,7 +426,7 @@ theorem genMemAt_of
     (hdR : d = blockDataOf V pp pk uOfD ppsOf)
     (hN : BlockNamesOk (V := V) d pp.formers)
     (hSt : BlockCtorsStage (V := V) F d pp.lps pp.formers pp isRec A envI'
-      pp.ctorNamesAt)
+     )
     (hcore : BlockCtorsCore mpC.base2 d pp.lps pp.formers pp isRec A d.k)
     (hlfp : d.toLfp ∈ mpC.lfpBlocks)
     (hnames : pp.memberCtors.map (·.map (fun ctor => (ctor.1.name, ctor.2)))

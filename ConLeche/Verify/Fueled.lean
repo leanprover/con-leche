@@ -399,7 +399,6 @@ theorem unitLikeStruct_atF {ul : Nat → Expr → FueledM Bool}
       unitLikeStruct (pureFns mode eager env F) ul' env d w := by
   unfold unitLikeStruct
   split
-  · rfl
   · exact unitLikeFields_atF F hul _ _ _
   · rfl
 
@@ -459,10 +458,11 @@ theorem majorToCtor_atF (d : Nat) (c : Name) (isK : Bool) (rules : List RecRule)
     · rw [ite_eq_left hK, ite_eq_left hK]
       atF_tac2
     rw [ite_eq_right hK, ite_eq_right hK]
-    by_cases hE : etaRescueOk rl.ctor cvj cvT caps = true
-    · rw [ite_eq_left hE, ite_eq_left hE]
+    cases etaRescueTable? (env.findTable? T) rl.ctor cvj cvT caps
+    case some tbl =>
+      dsimp only
       atF_tac2
-    rw [ite_eq_right hE, ite_eq_right hE]
+    dsimp only
     by_cases hA : T = andName
     · rw [ite_eq_left hA, ite_eq_left hA]
       atF_tac2

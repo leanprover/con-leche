@@ -676,11 +676,16 @@ private theorem structEtaCertWith_shift (henv : EnvWF env)
     | some ciT =>
       cases ciT <;> try rfl
       case indInfo cvT caps =>
+      dsimp only
+      cases env.findTable? T with
+      | none => rfl
+      | some tbl =>
+      dsimp only
       refine ite_congr' (fun _ => ?_) (fun _ => rfl)
       refine bind_congr_eq rfl ?_
       intro okl _
       refine ite_congr' (fun _ => ?_) (fun _ => rfl)
-      have h2 := defEqList_shift henv ih hpd (as := a.getAppArgs.take caps.etaParams)
+      have h2 := defEqList_shift henv ih hpd (as := a.getAppArgs.take tbl.numParams)
         (bs := wtb.getAppArgs)
         (fun x hx => hwa.getAppArgs x (List.mem_of_mem_take hx))
         (fun x hx => hwwtb.getAppArgs x hx)
@@ -688,15 +693,15 @@ private theorem structEtaCertWith_shift (henv : EnvWF env)
       refine bind_congr_eq h2 ?_
       intro b₃ _
       refine ite_congr' (fun _ => ?_) (fun _ => rfl)
-      have hlist := etaProjs_shift p T b caps.etaFields
-      have hwprojs : ∀ x ∈ etaProjs T b caps.etaFields,
+      have hlist := etaProjs_shift p T b tbl.numFields
+      have hwprojs : ∀ x ∈ etaProjs T b tbl.numFields,
           WScoped d x := by
         intro x hx
         unfold etaProjs at hx
         obtain ⟨i, -, rfl⟩ := List.mem_map.mp hx
         simpa [WScoped] using hwb
-      have h3 := defEqList_shift henv ih hpd (as := a.getAppArgs.drop caps.etaParams)
-        (bs := etaProjs T b caps.etaFields)
+      have h3 := defEqList_shift henv ih hpd (as := a.getAppArgs.drop tbl.numParams)
+        (bs := etaProjs T b tbl.numFields)
         (fun x hx => hwa.getAppArgs x (List.mem_of_mem_drop hx))
         hwprojs
       rw [List.map_drop, ← hlist] at h3
@@ -839,7 +844,7 @@ field telescope from closed constructor types: it commutes with the
 shift. -/
 theorem unitLikeShape_shiftFrom (henv : EnvWF env) (p : Nat) (w : Expr) :
     unitLikeShape env (shiftFrom p w) =
-      (unitLikeShape env w).map (Option.map fun x => (shiftFrom p x.1, x.2)) := by
+      (unitLikeShape env w).map fun x => (shiftFrom p x.1, x.2) := by
   unfold unitLikeShape
   rw [getAppFn_shiftFrom]
   cases hfn : w.getAppFn <;> try rfl
@@ -853,68 +858,37 @@ theorem unitLikeShape_shiftFrom (henv : EnvWF env) (p : Nat) (w : Expr) :
     case indInfo cvS caps =>
     dsimp only
     rw [getAppArgs_shiftFrom, List.length_map]
-    by_cases h1 : caps.eta = true ∧ caps.etaFields = 0 ∧
-        reservedBasisNames.contains S = false ∧
-        w.getAppArgs.length = caps.etaParams ∧ us.length = cvS.levelParams.length
-    · rw [ite_eq_left h1, ite_eq_left h1]; rfl
-    rw [ite_eq_right h1, ite_eq_right h1]
-    by_cases h2 : caps.eta = true ∧ reservedBasisNames.contains S = false ∧
-        w.getAppArgs.length = caps.etaParams ∧ us.length = cvS.levelParams.length ∧
-        towerSlotsAll env S caps.etaFields = true
-    · rw [ite_eq_left h2, ite_eq_left h2]
-      cases he0 : env.findProj? S 0 with
+    by_cases h1 : caps.eta = true ∧ us.length = cvS.levelParams.length
+    · rw [ite_eq_left h1, ite_eq_left h1]
+      cases hT : env.findTable? S with
       | none => rfl
-      | some e0 =>
+      | some tbl =>
       dsimp only
-      cases hfC : env.find? e0.ctor with
-      | none => rfl
-      | some ci =>
-        cases ci <;> try rfl
-        case ctorInfo cvC nPc nFc =>
-        dsimp only
-        by_cases hl : cvC.levelParams = cvS.levelParams
-        · rw [ite_eq_left hl, ite_eq_left hl]
+      by_cases h2 : w.getAppArgs.length = tbl.numParams
+      · rw [ite_eq_left h2, ite_eq_left h2]
+        cases hfC : env.find? tbl.ctor with
+        | none => rfl
+        | some ci =>
+          cases ci <;> try rfl
+          case ctorInfo cvC nPc nFc =>
+          dsimp only
           have hc : (cvC.type.instantiateLevelParams cvC.levelParams us).hasFvar = false := by
             rw [hasFvar_instantiateLevelParams]
             exact (henv.consts _ (Env.find?_mem hfC)).1
           rw [unitFieldTele_shiftFrom hc]
           cases unitFieldTele (cvC.type.instantiateLevelParams cvC.levelParams us)
-            caps.etaParams w.getAppArgs <;> rfl
-        · rw [ite_eq_right hl, ite_eq_right hl]; rfl
-    · rw [ite_eq_right h2, ite_eq_right h2]; rfl
+            tbl.numParams w.getAppArgs <;> rfl
+      · rw [ite_eq_right h2, ite_eq_right h2]; rfl
+    · rw [ite_eq_right h1, ite_eq_right h1]; rfl
 
 /-- The field telescope of a well-scoped instance is well-scoped. -/
 theorem unitLikeShape_WScoped (henv : EnvWF env) {d : Nat} {w tele : Expr} {n : Nat}
-    (hw : WScoped d w) (h : unitLikeShape env w = some (some (tele, n))) : WScoped d tele := by
-  unfold unitLikeShape at h
-  revert h
-  split
-  · rename_i S us _
-    split
-    · split
-      · intro h; exact nomatch h
-      · split
-        · split
-          · split
-            · rename_i cvC _ _ hfC
-              split
-              · intro h
-                have hc : (cvC.type.instantiateLevelParams cvC.levelParams us).hasFvar = false := by
-                  rw [hasFvar_instantiateLevelParams]
-                  exact (henv.consts _ (Env.find?_mem hfC)).1
-                cases ht : unitFieldTele (cvC.type.instantiateLevelParams cvC.levelParams us) _
-                    w.getAppArgs with
-                | none => rw [ht] at h; exact nomatch h
-                | some t =>
-                  rw [ht] at h
-                  obtain ⟨rfl, -⟩ := Prod.mk.inj (Option.some.inj (Option.some.inj h))
-                  exact unitFieldTele_WScoped hc (fun x hx => WScoped.getAppArgs hw x hx) ht
-              · intro h; exact nomatch h
-            · intro h; exact nomatch h
-          · intro h; exact nomatch h
-        · intro h; exact nomatch h
-    · intro h; exact nomatch h
-  · intro h; exact nomatch h
+    (hw : WScoped d w) (h : unitLikeShape env w = some (tele, n)) : WScoped d tele := by
+  obtain ⟨S, us, _, _, _, cvC, _, _, -, -, -, -, -, -, hfC, -, ht⟩ := unitLikeShape_some h
+  have hc : (cvC.type.instantiateLevelParams cvC.levelParams us).hasFvar = false := by
+    rw [hasFvar_instantiateLevelParams]
+    exact (henv.consts _ (Env.find?_mem hfC)).1
+  exact unitFieldTele_WScoped hc (fun x hx => WScoped.getAppArgs hw x hx) ht
 
 private theorem unitLikeStruct_shift (henv : EnvWF env)
     (ih : ShiftClaims mode eager env fuel) {p : Nat} {ul : Nat → Expr → CheckM Bool}
@@ -927,12 +901,9 @@ private theorem unitLikeStruct_shift (henv : EnvWF env)
   rw [unitLikeShape_shiftFrom henv]
   cases hsh : unitLikeShape env w with
   | none => rfl
-  | some o =>
-    cases o with
-    | none => rfl
-    | some x =>
-      obtain ⟨tele, n⟩ := x
-      exact unitLikeFields_shift henv ih hul n d hpd (unitLikeShape_WScoped henv hww hsh)
+  | some x =>
+    obtain ⟨tele, n⟩ := x
+    exact unitLikeFields_shift henv ih hul n d hpd (unitLikeShape_WScoped henv hww hsh)
 
 private theorem unitLikeLoop_shift (henv : EnvWF env)
     (ih : ShiftClaims mode eager env fuel) {p : Nat} :
@@ -1179,8 +1150,12 @@ private theorem majorToCtor_shift (henv : EnvWF env)
             intro bb _
             exact ite_rel _ (fun _ => rfl) (fun _ => rfl)
           · -- the structure-eta rescue, then the `And`-only rescue
-            refine ite_rel _ (fun _ => ?_) (fun _ => ?_)
+            cases etaRescueTable? (env.findTable? T) rl.ctor cvj cvT caps with
+            | none => ?_
+            | some tbl => ?_
+            rotate_left
             · -- structure-eta rescue
+              dsimp only
               refine bind_rel _ _ (ih.inferIO hpd hwmaj) ?_
               intro tmaj₀ htmaj₀
               have hwtmaj₀ : WScoped d tmaj₀ :=
@@ -1200,18 +1175,18 @@ private theorem majorToCtor_shift (henv : EnvWF env)
               refine bind_rel_eq _ rfl fun nz _ => ?_
               refine ite_rel _ (fun _ => ?_) (fun _ => rfl)
               rw [etaFabArgsE_shift]
-              have hfab : Expr.mkAppN (Expr.const caps.etaCtor ust)
+              have hfab : Expr.mkAppN (Expr.const tbl.ctor ust)
                   (List.map (shiftFrom p)
                     (etaFabArgsE T tmaj.getAppArgs major
-                      caps.etaFields)) =
-                  shiftFrom p (Expr.mkAppN (.const caps.etaCtor ust)
+                      tbl.numFields)) =
+                  shiftFrom p (Expr.mkAppN (.const tbl.ctor ust)
                     (etaFabArgsE T tmaj.getAppArgs major
-                      caps.etaFields)) := by
+                      tbl.numFields)) := by
                 rw [shiftFrom_mkAppN]
                 rfl
               rw [hfab]
               have hwfabArgs : ∀ x ∈ etaFabArgsE T tmaj.getAppArgs
-                  major caps.etaFields, WScoped d x := by
+                  major tbl.numFields, WScoped d x := by
                 intro x hx
                 unfold etaFabArgsE at hx
                 rcases List.mem_append.mp hx with hx | hx
@@ -1219,14 +1194,15 @@ private theorem majorToCtor_shift (henv : EnvWF env)
                 · unfold etaProjs at hx
                   obtain ⟨j, -, rfl⟩ := List.mem_map.mp hx
                   simpa [WScoped] using hwmaj
-              have hwfab : WScoped d (Expr.mkAppN (.const caps.etaCtor ust)
+              have hwfab : WScoped d (Expr.mkAppN (.const tbl.ctor ust)
                   (etaFabArgsE T tmaj.getAppArgs major
-                    caps.etaFields)) :=
+                    tbl.numFields)) :=
                 Expr.WScoped.mkAppN (by simp [WScoped]) hwfabArgs
               rw [wscopedB_shiftFrom _ hpd, looseBVarsBounded_shiftFrom,
                 fvarLeaves_all_contains_shiftFrom hpd hwfab hwmaj]
               exact ite_rel _ (fun _ => rfl) (fun _ => rfl)
             · -- the `And`-only rescue (or no rescue)
+              dsimp only
               refine ite_rel _ (fun _ => ?_) (fun _ => rfl)
               refine bind_rel _ _ (ih.inferIO hpd hwmaj) ?_
               intro tmaj₀ htmaj₀

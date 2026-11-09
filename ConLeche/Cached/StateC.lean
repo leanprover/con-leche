@@ -105,9 +105,12 @@ def etaCtorPartialC (fe : FEnv) (e : Expr) : Option Nat :=
         | .const T _ =>
           match fe.find? T with
           | some (.indInfo _ caps) =>
-            if caps.eta = true ∧ caps.etaCtor = c then
-              some (cnP + cnF - (Expr.getAppArgs e).length)
-            else none
+            match fe.findTable? T with
+            | some tbl =>
+              if caps.eta = true ∧ tbl.ctor = c then
+                some (cnP + cnF - (Expr.getAppArgs e).length)
+              else none
+            | none => none
           | _ => none
         | _ => none
       else none

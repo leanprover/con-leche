@@ -44,14 +44,8 @@ constructors' stage. -/
 structure BlockTablesStage (F : Nat) (d : BlockData V) (lps : List Name)
     (formersAll : List ConstantVal) (p₁ : BlockShape) (isRec : Bool)
     (A : Nat → (Name → Nat) → Term)
-    (envI : Env) (ctorsOf : Name → List Name) (sortsOf : Nat → List Level) : Prop
-    extends BlockCtorsStage F d lps formersAll p₁ isRec A envI ctorsOf where
-  /-- the η data a structure-like member's record carries -/
-  etaData : ∀ (m : Nat) (ctor : ConstantVal × Nat), m < d.k → d.ctorsM m = [ctor] →
-    (ConLeche.blockCapsAt p₁ m isRec).eta = true →
-    (ConLeche.blockCapsAt p₁ m isRec).etaCtor = ctor.1.name ∧
-    (ConLeche.blockCapsAt p₁ m isRec).etaParams = d.nP ∧
-    (ConLeche.blockCapsAt p₁ m isRec).etaFields = ctor.2
+    (envI : Env) (sortsOf : Nat → List Level) : Prop
+    extends BlockCtorsStage F d lps formersAll p₁ isRec A envI where
   /-- the constructor's parameter-and-field telescope -/
   stripC : ∀ (m : Nat) (ctor : ConstantVal × Nat), m < d.k → d.ctorsM m = [ctor] →
     (ctor.1.type.stripPis (d.nP + ctor.2)).isSome = true
@@ -191,9 +185,9 @@ invariant threaded across the installs. -/
 theorem stageBlockTables {F : Nat} {d : BlockData V} {lps : List Name}
     {formersAll : List ConstantVal} {p₁ q : BlockShape} {isRec : Bool}
     {A : Nat → (Name → Nat) → Term}
-    {envI : Env} {ctorsOf : Name → List Name} {sortsOf : Nat → List Level}
+    {envI : Env} {sortsOf : Nat → List Level}
     (hN : BlockNamesOk (V := V) d formersAll)
-    (hS : BlockTablesStage (V := V) F d lps formersAll p₁ isRec A envI ctorsOf sortsOf)
+    (hS : BlockTablesStage (V := V) F d lps formersAll p₁ isRec A envI sortsOf)
     (hqlps : q.lps = lps) (hqnP : q.nP = d.nP)
     {E : Env} {ex : List Name} :
     ∀ (l : List MemberShape) (Q : List ProjTable) (i : Nat) (env : Env) (mp : EnvModelM V env),
@@ -275,7 +269,7 @@ theorem stageBlockTables {F : Nat} {d : BlockData V} {lps : List Name}
         (L := fun ψ => blockTyG d.k (d.w ψ) (fun c => d.uM c ψ) (fun c => d.IdsM c ψ)
           (d.toLfp.holeChains ψ) (d.ppsM i ψ) i)
         mp hTenv hbodies hfT hD
-        (hS.etaData i ctor hik hctorsEq) (hS.lpsT i cvTb hik hcvTb) hfC hlpsC
+        (hS.lpsT i cvTb hik hcvTb) hfC hlpsC
         (hS.stripC i ctor hik hctorsEq) hS.propFlag
         (fun hp s hs => by
           rcases hD.shows with ⟨hdh, -⟩ | rfl

@@ -105,7 +105,6 @@ public import ConLeche.Model.Tiers
 public import ConLeche.Model.Install
 public import ConLeche.Model.NatEqs
 public import ConLeche.Model.NatSem
-public import ConLeche.Model.Caps
 public import ConLeche.Model.DivMod
 public import ConLeche.Model.NatWf
 public import ConLeche.Model.NatStep

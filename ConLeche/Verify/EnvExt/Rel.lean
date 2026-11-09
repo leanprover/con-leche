@@ -218,7 +218,11 @@ theorem structEtaCertWith_rel (hx : EnvExt env₁ env₂) {a b wtb : Expr} (ha :
             cases ci' with
             | indInfo cvT caps =>
               dsimp only
-              rw [towerSlotsAll_ext hx hT]
+              rw [hx.table T hT]
+              cases env₁.findTable? T with
+              | none => exact Rel.ok trivial
+              | some tbl =>
+              dsimp only
               refine Rel.ite (fun _ => ?_) fun _ => Rel.ok trivial
               refine Rel.bind Rel.triv fun v _ => ?_
               refine Rel.iteB v (fun _ => ?_) fun _ => Rel.ok trivial
@@ -301,12 +305,9 @@ theorem unitLikeStruct_rel (hx : EnvExt env₁ env₂) {ul₂ ul₁ : Nat → Ex
   rw [unitLikeShape_ext hx hw]
   cases hsh : unitLikeShape env₁ w with
   | none => exact Rel.ok trivial
-  | some o =>
-    cases o with
-    | none => exact Rel.ok trivial
-    | some x =>
-      obtain ⟨tele, n⟩ := x
-      exact unitLikeFields_rel K hul n d (res_unitLikeShape hx hw hsh)
+  | some x =>
+    obtain ⟨tele, n⟩ := x
+    exact unitLikeFields_rel K hul n d (res_unitLikeShape hx hw hsh)
 
 omit d in
 theorem unitLikeLoop_rel (hx : EnvExt env₁ env₂) :
