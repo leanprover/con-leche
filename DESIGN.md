@@ -111339,3 +111339,96 @@ unchanged, the reach gate at 734).  The link gates' citations moved with `Positi
 lines (OVERVIEW and the whitepaper, re-pointed, no cited text changed).  Two `public import`s
 of `Verify/Cached/IndWalksC.lean` are kept public against the plan script's census, measured, in
 its fallback list.
+
+## TASK #498 — L2: the positivity stage runs its cached twins (2026-11-09, agent/498-l2)
+
+**The twins** (`Cached/IndPositivity.lean`, monomorphic `(mode) (fe)` `CheckCM` or pure
+definitions calling `coreKnotI` directly; no operations record, no walker record).  Of
+`Kernel/Inductives/Positivity.lean`: `familyTelescopeC`, `checkSpineAtC`, `familyKeyCheckC`
+(placed at L3's request, the names L3 uses), `nestInstTypeC`, `nestFieldsC`, `nestCtorNfC`,
+`nestCtorsC`, `nestGrowGroupC`, `nestFrameC`, `nestContNewC`, `nestContKeyC`, `nestContC`,
+`nestPosC`, `nestHoleImgC`, `nestCanonCrestC`, `nestCrestC`, `nestHolesC`, `nestRootCanonC`,
+`piDomsOccC`, `nestUniformOkC`, `nestUniformC`, `nestRootC`, `nestSeedOfC`, `nestSeedsC`,
+`whnfWalkFuelC`; of `CoreDefs`' `structUsedLater`: `structUsedLaterC` (over `hasLooseBVarBC`);
+of the stage in `BlockInstall.lean`: `checkAbsCtorSortsC`, `checkAbsCtorSortsAllC`,
+`blockNestCtxC`, `checkBlockPositivityC`, with `checkStructFieldSortsIC` (the twin of
+`SumInstall`'s `checkStructFieldSortsI`, the stage's field-sort loop); of `GenRec.lean`:
+`classSeedsC`.  Shared, as they walk no `Expr`: `nestContainer`, `nestCtorEntry`,
+`nestGroupCtors`, `nestWalkStack`, `nestHoleAt`, `nestFrameMates`, `nestAcceptGroup`,
+`nestCanonSub`, `nestKeyMap`, `nestPhs`, `nestResHead`, `NestCtx.hiAt`/`rootHoles`.
+`checkBlockPassS` (`Cached/CheckerC.lean`) calls `blockNestCtxC`, `checkBlockPositivityC`,
+`nestSeedsC` and `classSeedsC`.
+
+Two departures from step-by-step mirroring, both value-preserving: `nestInstTypeC` reads the
+instantiated type's binders once (`piBinders` three times in the specification), and
+`nestCtorsC` closes the walked telescope once (`closeTelescopeC`) for the U4 test, the record and
+the output, and takes the walk's fuel function and the walk separately (`fuelOf`, `rec : Nat →
+…`), so a root constructor's `whnfWalkFuel` is computed ONCE before its fields; the
+specification's root `rec := fun crest => nestPos … (whnfWalkFuel crest)` is applied, and the
+fuel recomputed, at every field (the compiled lambda is eta-expanded, so `rec crest` is a
+partial application).  On `prop_struct_proj_wide` this was most of `depthGo`'s share (below).
+The value is the same, so the relation stays an equation.
+
+**New walks.**  `Expr.depthC` (`Cached/ExprOpsC.lean`): a `Nat`-valued walk over its own entry
+type `NEnt` (node, value, proof; no cursor) with `MemoN`, `resNat`; no cutoff (no field records
+a depth), the section's child step (`enterDepth`: compound test, `withExclusive` read, then the
+address-keyed memo).  `Expr.replaceAppsC` (`Cached/IndPositivity.lean`, beside its one
+consumer, as `phApp?` lives in `Positivity.lean`): the pre-order whole-application
+replacement, address-keyed memo, no cutoff; the hole test of an `.app` node reads the spine in
+place (`appHoleAt?`, `constHoleAt?`: no node rebuilt to ask).  `instPisWithC`
+(`ExprOpsC`, after `abstractPrefixC`).  IR audit (`ExprOpsC.c`, `IndPositivity.c`): every
+`lean_is_exclusive_obj` reads a child taken by `lean_ctor_get` from the borrowed node with no
+`lean_inc` of it before; the only `lean_inc_ref` of a child is the memo entry's, after the
+descent; `replaceAppsXP`'s leaves return the node itself.
+
+**The specification made simpler.**  `Expr.depth` is plain structural recursion (the same
+value); its HashMap walk `depthGo` is deleted in the same commit as its allowlist entries.
+
+**Proofs** (`Verify/Cached/IndPositivityC.lean`, 290 lines): one `…C_eq` per twin, each the
+specification at `sharedOpsC mode fe` and `fe.env`, closed by `simp only` with the walks'
+specifications and the callees' equations (`rfl` where only the matchers differ); the
+recursive ones by structural recursion on the list or the fuel (`nestPosC_eq` per fuel, as a
+function equation).  `replaceAppsP_spec`/`replaceAppsC_spec` there; `depthP_spec`,
+`depthC_spec`, `instPisWithC_eq` in `IndWalksC.lean`.  The driver lemmas enter by one `simp
+only [blockNestCtxC_eq, checkBlockPositivityC_eq, nestSeedsC_eq, classSeedsC_eq]` after
+unfolding `checkBlockPassS` (`checkBlockPassS_run`, `GenRecC`; `checkBlockPassS_push`,
+`PushChain`; `checkBlockPassS_twin`, `ViewCongr`); `NestPosC`'s triples are unchanged.
+
+**What the binary links.**  The equations need `openPisAtFvarsC_eq` and `hasLooseBVarBC_spec`,
+which lived in `Verify/Cached/DiscC4.lean`; `ViewCongr` is linked into the driver, so importing
+`DiscC4` (→ `Grind`, `Lean.Meta`) grew the binary 19 → 135 MB.  They move, with
+`openPisAtFvarsGoC_eq` and `openPisAtFvarsFGo_none`, to the end of `IndWalksC.lean` (as L3
+does; `DiscC4` imports `IndWalksC`).  At the lane's head: no `initialize_Lean*` symbol in
+`con-leche`, 19.37 MB against master's 19.30 MB.
+
+**Clean-up.**  Unreached after the switch, deleted with their proofs (the specifications stay):
+the `@[csimp]` memo walks of `Expr.replaceApps` (`replaceAppsGo`, `replaceAppsFast`,
+`ReplaceAppsMemoInv`) and of `Expr.hasLooseBVarB` (`hasLooseBVarBGo`, `hasLooseBVarBFast`,
+`hasLooseBVarBIns`, `LooseBVarMemoInv`, `CoreDefs.lean`), and `depthGo`.  The reach gate:
+734 → 698 reached plain declarations, 36 allowlist entries removed (the positivity stage and
+its walks; `familyTelescope`, `checkSpineAt`, `familyKeyCheck`, `instPisWith`, `nestOcc`'s memo
+walk and `reducedFormer` stay reached through the stages of L3–L5).
+
+**Numbers** (`perf stat -e instructions:u`, one run each, `--jobs=1`, verified; master
+367faa1e9 → the lane):
+
+| run | master | lane | change |
+|---|---|---|---|
+| init-full | 374.714 G | 374.703 G | −0.003 % |
+| grind-ring-5 | 13.1446 G | 13.1271 G | −0.13 % |
+| `BvStruct` module | 431.930 G | 431.352 G | |
+| `Empty` module | 429.655 G | 429.518 G | |
+| `BvStruct` − `Empty` | 2.275 G | 1.834 G | −19.4 % |
+| e2e `prop_struct_proj_wide` | 492.8 M | 336.8 M | −31.7 % |
+
+The same verdicts (57 977, 2 185, 64 366, 63 937, 171 declarations accepted).  Shares on
+`prop_struct_proj_wide` (frame-pointer builds of master and the lane, `perf record -e
+instructions:u -c 1000000 --call-graph fp`, inclusive): `depthGo` 22–29 % on master (two
+recordings) → `depthC` below 0.3 % (17 % before the fuel was computed once per constructor;
+the walk is then dominated by freeing its memo).  The opener, `openPisAtFvarsGoC`, is 21 % on
+master and 30 % of the lane's shorter run, the same ≈ 100 M: every sample of it lies under
+`checkProjRowsI`, the core's projection guard, which this lane does not touch.
+
+**Gates.**  `lake build`, `lake test` warning-free; `tests/arena.sh` (below); the link gates
+repointed (moved lines only); two `public import`s kept against the plan script's census,
+measured, in its fallback list.
