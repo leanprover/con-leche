@@ -2,7 +2,6 @@ module
 
 public import ConLeche.Cached.IndPass
 public import ConLeche.Cached.IndPositivity
-public import ConLeche.Kernel.Inductives.RecCheck
 
 @[expose] public section
 
