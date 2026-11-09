@@ -98,9 +98,12 @@ def etaCtorPartialC (fe : FEnv) (e : Expr) : Option Nat :=
         | .const T _ =>
           match fe.indView? T with
           | some (_, caps) =>
-            if caps.eta = true ∧ caps.etaCtor == c then
-              some (cnP + cnF - e.getAppNumArgsT)
-            else none
+            match fe.findTable? T with
+            | some tbl =>
+              if caps.eta = true ∧ tbl.ctor == c then
+                some (cnP + cnF - e.getAppNumArgsT)
+              else none
+            | none => none
           | none => none
         | _ => none
       else none
@@ -305,9 +308,15 @@ def ctorFamily (fe : FEnv) (cvj : ConstantVal) : Option (ConstantVal × IndCaps)
   | .const T _ => fe.indView? T
   | _ => none
 
-/-- Twin of `etaRescueOk`. -/
-def etaRescueOk (ctor : Name) (cvj cvT : ConstantVal) (caps : IndCaps) : Bool :=
-  caps.eta && caps.etaCtor == ctor && cvj.levelParams == cvT.levelParams && ctor != andIntroName
+/-- Twin of `etaRescueTable?`. -/
+def etaRescueTable? (tbl? : Option TableView) (ctor : Name) (cvj cvT : ConstantVal)
+    (caps : IndCaps) : Option TableView :=
+  match tbl? with
+  | some tbl =>
+    if caps.eta && tbl.ctor == ctor && cvj.levelParams == cvT.levelParams &&
+        ctor != andIntroName then some tbl
+    else none
+  | none => none
 
 /-! ## Telescopes opened at free variables -/
 

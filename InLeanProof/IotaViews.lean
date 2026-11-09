@@ -16,8 +16,8 @@ the environment and the terms, against what con-leche's pure ι step reads:
   and rule by rule its constructor, field count and firing mode
   (`recFireAt`, computed at use, against each rule's stored `fire`; a nested
   rule's pins are stored open terms, `StoredT`);
-* the rescue's readers: `isCtorAppC`, `etaRescueOk`, `towerSlotsAllF`,
-  `andRescueSlotsF`, the reserved names;
+* the rescue's readers: `isCtorAppC`, `etaRescueTable?` (at the family's
+  projection table), `andRescueSlotsF`;
 * the level substitution `substLevelTreesM` and the nested rule's pins
   `pinArgsI` (the reversed-array instantiation is `instSpine`, master's
   `instSpine_eq_instantiateList`).
@@ -37,8 +37,6 @@ variable {mode : ConLeche.CheckMode} {eager : Bool} {env : ConLeche.Env}
 theorem cl_andName : ConLeche.andName = toName InLean.andName := rfl
 theorem cl_andIntroName : ConLeche.andIntroName = toName InLean.andIntroName := rfl
 theorem cl_quotMkName : ConLeche.quotMkName = toName InLean.quotMkName := rfl
-theorem cl_reservedBasisNames :
-    ConLeche.reservedBasisNames = InLean.reservedBasisNames.map toName := rfl
 
 /-- Membership through the (injective) name translation. -/
 theorem contains_map_toName (l : List Name) (n : Name) :
@@ -48,10 +46,6 @@ theorem contains_map_toName (l : List Name) (n : Name) :
   | cons a l ih =>
     simp only [List.map_cons, List.contains_cons, ih, name_beq_eq_decide]
     by_cases h : toName n = toName a <;> simp [h]
-
-theorem reserved_contains (n : Name) :
-    ConLeche.reservedBasisNames.contains (toName n) = InLean.reservedBasisNames.contains n := by
-  rw [cl_reservedBasisNames, contains_map_toName]
 
 /-! ## Level substitution -/
 
@@ -187,56 +181,64 @@ theorem toName_beq (a b : Name) : (toName a == toName b) = (a == b) := by
 theorem toName_bne (a b : Name) : (toName a != toName b) = (a != b) := by
   simp only [bne, toName_beq]
 
-/-- **The structure-η rescue's standing condition** through the views. -/
-theorem etaRescueOk_CV {ctor : Name} {cvj cvT : Lean.ConstantVal}
+/-- **The structure-η rescue's standing condition** through the views: where
+InLean's holds at the family's table, con-leche's holds at the related one. -/
+theorem etaRescueTable_V_some (hv : EnvViewI fe env) {ctor T : Name} {cvj cvT : Lean.ConstantVal}
     {ccvj ccvT : ConLeche.ConstantVal} (hj : CVRel cvj ccvj) (hT : CVRel cvT ccvT)
-    (caps : InLean.IndCaps) :
-    ConLeche.etaRescueOk (toName ctor) ccvj ccvT (toCaps caps) =
-      InLean.etaRescueOk ctor cvj cvT caps := by
-  unfold ConLeche.etaRescueOk InLean.etaRescueOk
-  rw [hj.2.1, hT.2.1, cl_andIntroName]
-  simp only [toCaps, toName_beq, map_toName_beq, toName_bne]
+    {caps : InLean.IndCaps} {t : InLean.TableView}
+    (h : InLean.etaRescueTable? (fe.findTable? T) ctor cvj cvT caps = some t) :
+    ∃ ct, ConLeche.etaRescueTable? (env.findTable? (toName T)) (toName ctor) ccvj ccvT
+        (toCaps caps) = some ct ∧
+      ct.ctor = toName t.ctor ∧ ct.numFields = t.numFields ∧ ct.numParams = t.numParams := by
+  unfold InLean.etaRescueTable? at h
+  unfold ConLeche.etaRescueTable?
+  cases ht : fe.findTable? T with
+  | none => rw [ht] at h; cases h
+  | some t' =>
+    rw [ht] at h
+    obtain ⟨ct, hct, h1, h2, h3, -⟩ := hv.table T t' ht
+    rw [hct]
+    have hcond : ((toCaps caps).eta && ct.ctor == toName ctor &&
+        ccvj.levelParams == ccvT.levelParams && toName ctor != ConLeche.andIntroName) =
+        (caps.eta && t'.ctor == ctor && cvj.levelParams == cvT.levelParams &&
+          ctor != InLean.andIntroName) := by
+      rw [h1, hj.2.1, hT.2.1, cl_andIntroName]
+      simp only [toCaps, toName_beq, map_toName_beq, toName_bne]
+    simp only [hcond]
+    cases hc : (caps.eta && t'.ctor == ctor && cvj.levelParams == cvT.levelParams &&
+        ctor != InLean.andIntroName) with
+    | false => simp [hc] at h
+    | true =>
+      simp only [hc, ↓reduceIte, Option.some.injEq] at h
+      subst h
+      exact ⟨ct, by simp, h1, h2, h3⟩
 
-/-- A field slot's table entry, as the table's field count. -/
-theorem findProj_isSome (fe : InLean.FEnv) (T : Name) (j : Nat) :
-    (fe.findProj? T j).isSome =
-      match fe.tableFields? T with
-      | some n => decide (j < n)
-      | none => false := by
-  unfold InLean.FEnv.findProj? InLean.FEnv.tableFields?
-  repeat' split
-  all_goals simp_all
-  all_goals (rename_i h1 h2; obtain ⟨h3, rfl⟩ := h2; exact Nat.le_of_not_lt fun hj => by simp_all)
-
-theorem towerSlotsAllF_eq (fe : InLean.FEnv) (T : Name) (nF : Nat) :
-    fe.towerSlotsAllF T nF = (List.range nF).all fun j => (fe.findProj? T j).isSome := by
-  unfold InLean.FEnv.towerSlotsAllF
-  simp only [findProj_isSome]
-  cases fe.tableFields? T with
-  | none => cases nF <;> simp [List.range_succ]
-  | some n =>
-    simp only
-    rw [Bool.eq_iff_iff]
-    simp only [Bool.or_eq_true, beq_iff_eq, decide_eq_true_eq, List.all_eq_true, List.mem_range]
-    constructor
-    · rintro (h | h) j hj <;> omega
-    · intro h
-      cases nF with
-      | zero => exact Or.inl rfl
-      | succ k => exact Or.inr (by have := h k (by omega); omega)
-
-theorem findProj_isSome_V (hv : EnvViewI fe env) (T : Name) (j : Nat) :
-    (env.findProj? (toName T) j).isSome = (fe.findProj? T j).isSome := by
-  cases h : fe.findProj? T j with
-  | none => rw [hv.projNone T j h]; rfl
-  | some e => obtain ⟨ce, hce, -⟩ := hv.proj T j e h; rw [hce]; rfl
-
-/-- **The η family's slots** through the views. -/
-theorem towerSlotsAllF_V (hv : EnvViewI fe env) (T : Name) (nF : Nat) :
-    fe.towerSlotsAllF T nF = ConLeche.towerSlotsAll env (toName T) nF := by
-  rw [towerSlotsAllF_eq]
-  unfold ConLeche.towerSlotsAll
-  simp only [findProj_isSome_V hv]
+/-- Where InLean's standing condition fails, con-leche's does. -/
+theorem etaRescueTable_V_none (hv : EnvViewI fe env) {ctor T : Name} {cvj cvT : Lean.ConstantVal}
+    {ccvj ccvT : ConLeche.ConstantVal} (hj : CVRel cvj ccvj) (hT : CVRel cvT ccvT)
+    {caps : InLean.IndCaps}
+    (h : InLean.etaRescueTable? (fe.findTable? T) ctor cvj cvT caps = none) :
+    ConLeche.etaRescueTable? (env.findTable? (toName T)) (toName ctor) ccvj ccvT
+        (toCaps caps) = none := by
+  unfold InLean.etaRescueTable? at h
+  unfold ConLeche.etaRescueTable?
+  cases ht : fe.findTable? T with
+  | none => rw [hv.tableNone T ht]
+  | some t' =>
+    rw [ht] at h
+    obtain ⟨ct, hct, h1, -, -, -⟩ := hv.table T t' ht
+    rw [hct]
+    have hcond : ((toCaps caps).eta && ct.ctor == toName ctor &&
+        ccvj.levelParams == ccvT.levelParams && toName ctor != ConLeche.andIntroName) =
+        (caps.eta && t'.ctor == ctor && cvj.levelParams == cvT.levelParams &&
+          ctor != InLean.andIntroName) := by
+      rw [h1, hj.2.1, hT.2.1, cl_andIntroName]
+      simp only [toCaps, toName_beq, map_toName_beq, toName_bne]
+    simp only [hcond]
+    cases hc : (caps.eta && t'.ctor == ctor && cvj.levelParams == cvT.levelParams &&
+        ctor != InLean.andIntroName) with
+    | false => simp
+    | true => simp [hc] at h
 
 /-- **`And`'s slots** through the views. -/
 theorem andRescueSlotsF_V (hv : EnvViewI fe env) (ctor : Name) (nP : Nat) :

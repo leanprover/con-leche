@@ -239,16 +239,16 @@ theorem envRel_of_none {E : Kernel.Environment}
     (h : ∀ n, ({ env := E, coreAxioms := false } : InLean.FEnv).find? n = none) :
     EnvRel E ConLeche.Env.empty := by
   refine ⟨presI_empty h, projBodiesInRange_of_none fun T i => ?_⟩
-  unfold InLean.FEnv.findProj?
+  unfold InLean.FEnv.findProj? InLean.FEnv.findTable?
   rw [h T]
 
-/-- The projection reads at two environments storing alike. -/
-theorem findProj_congr {fe : InLean.FEnv} {E' : Kernel.Environment}
-    (h : ∀ n, E'.find? n = fe.env.find? n) (T : Name) (i : Nat) :
-    ({ fe with env := E' } : InLean.FEnv).findProj? T i = fe.findProj? T i := by
+/-- The table reads at two environments storing alike. -/
+theorem findTable_congr {fe : InLean.FEnv} {E' : Kernel.Environment}
+    (h : ∀ n, E'.find? n = fe.env.find? n) (T : Name) :
+    ({ fe with env := E' } : InLean.FEnv).findTable? T = fe.findTable? T := by
   have hf : ∀ n, ({ fe with env := E' } : InLean.FEnv).find? n = fe.find? n :=
     fun n => FEnv.find?_congr (fe := fe) (fe' := { fe with env := E' }) rfl rfl (h n)
-  unfold InLean.FEnv.findProj?
+  unfold InLean.FEnv.findTable?
   rw [hf T]
   cases fe.find? T with
   | none => rfl
@@ -265,6 +265,13 @@ theorem findProj_congr {fe : InLean.FEnv} {E' : Kernel.Environment}
           · rfl
         · rfl
     | _ => rfl
+
+/-- The projection reads at two environments storing alike. -/
+theorem findProj_congr {fe : InLean.FEnv} {E' : Kernel.Environment}
+    (h : ∀ n, E'.find? n = fe.env.find? n) (T : Name) (i : Nat) :
+    ({ fe with env := E' } : InLean.FEnv).findProj? T i = fe.findProj? T i := by
+  unfold InLean.FEnv.findProj?
+  rw [findTable_congr h T]
 
 theorem projBodiesInRange_congr {fe : InLean.FEnv} {E' : Kernel.Environment}
     (h : ∀ n, E'.find? n = fe.env.find? n) (hR : ProjBodiesInRange fe) :

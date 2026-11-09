@@ -50,7 +50,7 @@ own entry's relation. -/
 theorem presI_push_plain (hlaws : EnvLaws) (hP : EnvPresI fe L) {ci : Lean.ConstantInfo}
     {cci : ConLeche.ConstantInfo} (hfresh : fe.env.find? ci.name = none)
     (hsees : fe.sees ci.name ci = true) (hname : cci.name = toName ci.name)
-    (hrel : EntryRelI (fe.push ci) ci cci) (htab : (fe.push ci).tableFields? ci.name = none) :
+    (hrel : EntryRelI (fe.push ci) ci cci) (htab : (fe.push ci).findTable? ci.name = none) :
     EnvPresI (fe.push ci) (L.pushDelta [cci] []) := by
   have hfeNone : fe.find? ci.name = none := by
     simp only [FEnv.find?_eq_filter, hfresh, Option.filter_none]
@@ -84,9 +84,9 @@ theorem presI_push_plain (hlaws : EnvLaws) (hP : EnvPresI fe L) {ci : Lean.Const
     exact htab
   · intro t ht; cases ht
 
-theorem tableFields_notInd {fe : InLean.FEnv} {n : Name} {ci : Lean.ConstantInfo}
-    (h : fe.find? n = some ci) (hni : ∀ v, ci ≠ .inductInfo v) : fe.tableFields? n = none := by
-  unfold InLean.FEnv.tableFields?
+theorem findTable_notInd {fe : InLean.FEnv} {n : Name} {ci : Lean.ConstantInfo}
+    (h : fe.find? n = some ci) (hni : ∀ v, ci ≠ .inductInfo v) : fe.findTable? n = none := by
+  unfold InLean.FEnv.findTable?
   rw [h]
   cases ci with
   | inductInfo v => exact (hni v rfl).elim
@@ -112,7 +112,7 @@ theorem jobEnvI_push_plain (hlaws : EnvLaws) (hP : EnvPresI fe L) (hR : ProjBodi
     (hrel : EntryRelI (fe.push ci) ci cci) (hni : ∀ v, ci ≠ .inductInfo v) :
     EnvPresI (fe.push ci) (L.pushDelta [cci] []) ∧ ProjBodiesInRange (fe.push ci) :=
   ⟨presI_push_plain hlaws hP hfresh hsees hname hrel
-      (tableFields_notInd (find_push_self hlaws hfresh hsees) hni),
+      (findTable_notInd (find_push_self hlaws hfresh hsees) hni),
     projBodiesInRange_one hlaws hR (ctorsStored_of_pres hP) hfresh hni⟩
 
 /-! ## The constructors -/

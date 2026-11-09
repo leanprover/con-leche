@@ -726,16 +726,25 @@ parameters and counts. -/
 structure IndGate where
   lps : List ConLeche.Name
   eta : Bool
-  etaCtor : ConLeche.Name
-  etaParams : Nat
-  etaFields : Nat
 
 /-- What a certificate reads of an inductive former's entry. -/
 @[expose] def indRd (env : ConLeche.Env) (T : ConLeche.Name) : Option IndGate :=
   match env.find? T with
-  | some (.indInfo cv caps) =>
-    some ⟨cv.levelParams, caps.eta, caps.etaCtor, caps.etaParams, caps.etaFields⟩
+  | some (.indInfo cv caps) => some ⟨cv.levelParams, caps.eta⟩
   | _ => none
+
+/-- What a certificate reads of a structure's projection table: its
+constructor and counts. -/
+structure TblGate where
+  ctor : ConLeche.Name
+  numParams : Nat
+  numFields : Nat
+
+/-- What a certificate reads of a projection table. -/
+@[expose] def tblRd (env : ConLeche.Env) (T : ConLeche.Name) : Option TblGate :=
+  match env.findTable? T with
+  | some tbl => some ⟨tbl.ctor, tbl.numParams, tbl.numFields⟩
+  | none => none
 
 /-- InLean's constructor view, read as `ctorRd`. -/
 @[expose] def ctorGateI (x : ConstantVal × Nat × Nat) : List ConLeche.Name × Nat × Nat :=
@@ -743,7 +752,11 @@ structure IndGate where
 
 /-- InLean's former view, read as `indRd`. -/
 @[expose] def indGateI (x : ConstantVal × InLean.IndCaps) : IndGate :=
-  ⟨x.1.levelParams.map toName, x.2.eta, toName x.2.etaCtor, x.2.etaParams, x.2.etaFields⟩
+  ⟨x.1.levelParams.map toName, x.2.eta⟩
+
+/-- InLean's table, read as `tblRd`. -/
+@[expose] def tblGateI (t : InLean.TableView) : TblGate :=
+  ⟨toName t.ctor, t.numParams, t.numFields⟩
 
 /-- Lean's reducibility hints, read as con-leche's. -/
 @[expose] def trHint : ReducibilityHints → ConLeche.ReducibilityHint
@@ -776,10 +789,10 @@ structure DefeqEnvI (fe : InLean.FEnv) (env : ConLeche.Env) : Prop where
     unfoldableHeadC fe e = ConLeche.unfoldableHead env (TrS s e)
   headHint : ∀ s e, OkS s e = true → trHint (headHintC fe e) = ConLeche.headHint env (TrS s e)
   strLit : strLitStoredF fe = ConLeche.strLitStored env
-  towerSlots : ∀ T n, fe.towerSlotsAllF T n = ConLeche.towerSlotsAll env (toName T) n
   ctor : ∀ c, ctorRd env (toName c) = (fe.ctorView? c).map ctorGateI
   ind : ∀ T, indRd env (toName T) = (fe.indView? T).map indGateI
-  /-- the views (the unit-like shape and the partial-constructor gate read them) -/
+  /-- the views (the tables, the unit-like shape and the partial-constructor
+  gate read them) -/
   view : EnvViewI fe env
 
 section EnvReaders
@@ -838,9 +851,20 @@ theorem ctorRd_toName (hfe : DefeqEnvI fe env) (c : Name) :
     ctorRd env (toName c) = (fe.ctorView? c).map ctorGateI := hfe.ctor c
 grind_pattern [conleche_grind] ctorRd_toName => DefeqEnvI fe env, fe.ctorView? c
 
-theorem towerSlots_toName (hfe : DefeqEnvI fe env) (T : Name) (n : Nat) :
-    fe.towerSlotsAllF T n = ConLeche.towerSlotsAll env (toName T) n := hfe.towerSlots T n
-grind_pattern [conleche_grind] towerSlots_toName => DefeqEnvI fe env, fe.towerSlotsAllF T n
+/-- A projection table through the views, read as `tblRd`. -/
+theorem tblRd_V (hv : EnvViewI fe env) (T : Name) :
+    tblRd env (toName T) = (fe.findTable? T).map tblGateI := by
+  unfold tblRd
+  cases ht : fe.findTable? T with
+  | none => rw [hv.tableNone T ht]; rfl
+  | some t =>
+    obtain ⟨ct, hct, h1, h2, h3, -⟩ := hv.table T t ht
+    rw [hct]
+    simp [tblGateI, h1, h2, h3]
+
+theorem tblRd_toName (hfe : DefeqEnvI fe env) (T : Name) :
+    tblRd env (toName T) = (fe.findTable? T).map tblGateI := tblRd_V hfe.view T
+grind_pattern [conleche_grind] tblRd_toName => DefeqEnvI fe env, fe.findTable? T
 
 theorem etaShape_TrS (hfe : DefeqEnvI fe env) {s : InLean.CState} {a : Expr}
     (h : OkS s a = true) : etaCtorShapeC fe a = ConLeche.etaCtorShape env (TrS s a) :=
@@ -862,8 +886,14 @@ theorem headHint_TrS (hfe : DefeqEnvI fe env) {s : InLean.CState} {e : Expr}
 grind_pattern [conleche_grind] headHint_TrS => DefeqEnvI fe env, OkS s e, headHintC fe e
 
 @[conleche_grind =] theorem indGateI_mk (cv : ConstantVal) (caps : InLean.IndCaps) :
-    indGateI (cv, caps) = ⟨cv.levelParams.map toName, caps.eta, toName caps.etaCtor,
-      caps.etaParams, caps.etaFields⟩ := rfl
+    indGateI (cv, caps) = ⟨cv.levelParams.map toName, caps.eta⟩ := rfl
+
+@[conleche_grind =] theorem tblGateI_ctor (t : InLean.TableView) :
+    (tblGateI t).ctor = toName t.ctor := rfl
+@[conleche_grind =] theorem tblGateI_numParams (t : InLean.TableView) :
+    (tblGateI t).numParams = t.numParams := rfl
+@[conleche_grind =] theorem tblGateI_numFields (t : InLean.TableView) :
+    (tblGateI t).numFields = t.numFields := rfl
 
 @[conleche_grind =] theorem ctorGateI_mk (cv : ConstantVal) (nP nF : Nat) :
     ctorGateI (cv, nP, nF) = (cv.levelParams.map toName, nP, nF) := rfl
@@ -882,13 +912,6 @@ grind_pattern [conleche_grind] OkSL_take => OkSL s l, l.take k
 grind_pattern [conleche_grind] OkSL_drop => OkSL s l, l.drop k
 grind_pattern [conleche_grind] AllClosed_take => AllClosed l, l.take k
 grind_pattern [conleche_grind] AllClosed_drop => AllClosed l, l.drop k
-
-theorem reservedBasisNames_eq :
-    ConLeche.reservedBasisNames = InLean.reservedBasisNames.map toName := rfl
-
-@[conleche_grind =] theorem reserved_contains_rev (n : Name) :
-    InLean.reservedBasisNames.contains n = ConLeche.reservedBasisNames.contains (toName n) := by
-  rw [reservedBasisNames_eq, contains_map_toName]
 
 theorem toName_map_inj : ∀ {a b : List Name}, a.map toName = b.map toName → a = b
   | [], [], _ => rfl
@@ -1008,10 +1031,13 @@ theorem etaCtorPartial_TrS (hv : EnvViewI fe env) (s : InLean.CState) {a : Expr}
             obtain ⟨cvT, caps⟩ := y
             obtain ⟨ccvT, -, hLT⟩ := hv.ind T cvT caps hiv
             rw [hLT]
-            simp only [toCaps, name_beq_eq_decide, decide_eq_true_eq]
-            by_cases he : caps.eta = true ∧ toName caps.etaCtor = toName n
-            · simp only [he, and_self, ↓reduceIte]
-            · simp only [he, ↓reduceIte]
+            simp only [toCaps]
+            cases ht : fe.findTable? T with
+            | none => rw [hv.tableNone T ht]
+            | some t =>
+              obtain ⟨ct, hct, h1, -⟩ := hv.table T t ht
+              rw [hct]
+              simp only [h1, name_beq_eq_decide, decide_eq_true_eq]
         · split
           · rename_i h; exact absurd h (hx' _ _)
           · split
@@ -1074,62 +1100,37 @@ theorem lbb_peelPis : ∀ {n k : Nat} {e r : ConLeche.Expr}, e.looseBVarsBounded
 companion): the stored constructor type is closed, the peel leaves the
 parameters' binders, and the instance's closed arguments fill them. -/
 theorem unitLikeShape_closed (henv : ConLeche.EnvWF env) {w tele : ConLeche.Expr} {n : Nat}
-    (hw : w.looseBVarsBounded 0 = true) (h : ConLeche.unitLikeShape env w = some (some (tele, n))) :
+    (hw : w.looseBVarsBounded 0 = true) (h : ConLeche.unitLikeShape env w = some (tele, n)) :
     tele.looseBVarsBounded 0 = true := by
-  unfold ConLeche.unitLikeShape at h
-  revert h
-  split
-  · rename_i S us _
-    split
-    · split
-      · intro h; exact nomatch h
-      · split
-        · rename_i caps _ _ hcond
-          split
-          · split
-            · rename_i cvC _ _ hfC
-              split
-              · intro h
-                cases ht : ConLeche.unitFieldTele (cvC.type.instantiateLevelParams cvC.levelParams us)
-                    caps.etaParams w.getAppArgs with
-                | none => rw [ht] at h; exact nomatch h
-                | some t =>
-                  rw [ht] at h
-                  obtain ⟨rfl, -⟩ := Prod.mk.inj (Option.some.inj (Option.some.inj h))
-                  rw [ConLeche.unitFieldTele_eq] at ht
-                  cases hb : ConLeche.Expr.peelPis caps.etaParams
-                      (cvC.type.instantiateLevelParams cvC.levelParams us) with
-                  | none => rw [hb] at ht; exact nomatch ht
-                  | some body =>
-                    rw [hb] at ht
-                    obtain rfl := Option.some.inj ht
-                    have hc0 : (cvC.type.instantiateLevelParams cvC.levelParams us).looseBVarsBounded
-                        0 = true := by
-                      rw [ConLeche.Expr.looseBVarsBounded_instantiateLevelParams]
-                      exact (henv.consts _ (ConLeche.Env.find?_mem hfC)).2.2.2.1
-                    have hbb := lbb_peelPis hc0 hb
-                    rw [Nat.zero_add, ← hcond.2.2.1] at hbb
-                    have hargs := allClosed_getAppArgs hw
-                    simp only [AllClosed, List.all_eq_true] at hargs
-                    exact ConLeche.instSpine_closed hargs hbb
-              · intro h; exact nomatch h
-            · intro h; exact nomatch h
-          · intro h; exact nomatch h
-        · intro h; exact nomatch h
-    · intro h; exact nomatch h
-  · intro h; exact nomatch h
+  obtain ⟨S, us, _, _, tbl, cvC, _, _, -, -, -, -, -, hlen, hfC, -, ht⟩ :=
+    ConLeche.unitLikeShape_some h
+  rw [ConLeche.unitFieldTele_eq] at ht
+  cases hb : ConLeche.Expr.peelPis tbl.numParams
+      (cvC.type.instantiateLevelParams cvC.levelParams us) with
+  | none => rw [hb] at ht; exact nomatch ht
+  | some body =>
+    rw [hb] at ht
+    obtain rfl := Option.some.inj ht
+    have hc0 : (cvC.type.instantiateLevelParams cvC.levelParams us).looseBVarsBounded
+        0 = true := by
+      rw [ConLeche.Expr.looseBVarsBounded_instantiateLevelParams]
+      exact (henv.consts _ (ConLeche.Env.find?_mem hfC)).2.2.2.1
+    have hbb := lbb_peelPis hc0 hb
+    rw [Nat.zero_add, ← hlen] at hbb
+    have hargs := allClosed_getAppArgs hw
+    simp only [AllClosed, List.all_eq_true] at hargs
+    exact ConLeche.instSpine_closed hargs hbb
 
 /-- The shape's answer, its telescope translated. -/
 @[expose] def trUnitShape (s : InLean.CState) :
-    Option (Option (Expr × Nat)) → Option (Option (ConLeche.Expr × Nat))
-  | some (some (t, n)) => some (some (TrS s t, n))
-  | some none => some none
+    Option (Expr × Nat) → Option (ConLeche.Expr × Nat)
+  | some (t, n) => some (TrS s t, n)
   | none => none
 
 /-- The shape's telescope has a reading. -/
-@[expose] def okUnitShape (s : InLean.CState) : Option (Option (Expr × Nat)) → Bool
-  | some (some (t, _)) => OkS s t
-  | _ => true
+@[expose] def okUnitShape (s : InLean.CState) : Option (Expr × Nat) → Bool
+  | some (t, _) => OkS s t
+  | none => true
 
 end Shape
 
@@ -1146,29 +1147,29 @@ theorem structEtaCertWith_eq {m : Type → Type} [Monad m] [MonadExceptOf ConLec
             | .const T us' =>
               match indRd env T with
               | some g =>
-                if g.eta = true ∧ g.etaCtor = c ∧
-                    ConLeche.reservedBasisNames.contains T = false ∧
-                    ConLeche.reservedBasisNames.contains c = false ∧
-                    wtb.getAppArgs.length = g.etaParams ∧
-                    us'.length = g.lps.length ∧
-                    clps = g.lps ∧
-                    ConLeche.towerSlotsAll env T g.etaFields = true then
-                  if ← ConLeche.liftFueled "level comparison"
-                      (ConLeche.Level.isEquivList us us') then
-                    if ← ConLeche.defEqList r env d
-                        (a.getAppArgs.take g.etaParams) wtb.getAppArgs then
-                      ConLeche.defEqList r env d
-                        (a.getAppArgs.drop g.etaParams)
-                        (ConLeche.etaProjs T b g.etaFields)
+                match tblRd env T with
+                | some tb =>
+                  if g.eta = true ∧ tb.ctor = c ∧
+                      wtb.getAppArgs.length = tb.numParams ∧
+                      us'.length = g.lps.length ∧
+                      clps = g.lps then
+                    if ← ConLeche.liftFueled "level comparison"
+                        (ConLeche.Level.isEquivList us us') then
+                      if ← ConLeche.defEqList r env d
+                          (a.getAppArgs.take tb.numParams) wtb.getAppArgs then
+                        ConLeche.defEqList r env d
+                          (a.getAppArgs.drop tb.numParams)
+                          (ConLeche.etaProjs T b tb.numFields)
+                      else pure false
                     else pure false
                   else pure false
-                else pure false
+                | none => pure false
               | none => pure false
             | _ => pure false
           else pure false
         | none => pure false
       | _ => pure false : m Bool) := by
-  unfold ConLeche.structEtaCertWith indRd ctorRd
+  unfold ConLeche.structEtaCertWith indRd ctorRd tblRd
   cases a.getAppFn with
   | const c us =>
     dsimp only
@@ -1184,7 +1185,12 @@ theorem structEtaCertWith_eq {m : Type → Type} [Monad m] [MonadExceptOf ConLec
             dsimp only
             cases env.find? T with
             | none => rfl
-            | some ci' => cases ci' <;> rfl
+            | some ci' =>
+              cases ci' with
+              | indInfo cvT caps =>
+                dsimp only
+                cases env.findTable? T <;> rfl
+              | _ => rfl
           | _ => rfl
         · rfl
       | _ => rfl
@@ -1378,8 +1384,9 @@ theorem structEtaCertWithI_spec {fe : InLean.FEnv} (hfe : DefeqEnvI fe env)
   sym only [conleche_grind, structEtaCertWith_eq] =>
     vcgen [InLean.structEtaCertWithI, isEquivListLM_specI (mode := mode) (eager := eager)
         (env := env), liftFueled_specI (mode := mode) (eager := eager) (env := env), hlist] <;>
-      -- two lookups and two spine heads deep before the first bind, one generation each
-      finish (gen := 12)
+      -- three lookups (the constructor, the former, its table) and two spine heads deep
+      -- before the first bind, one generation each
+      finish (gen := 13)
 
 /-- **A binder opened at a fresh variable**, InLean's way (`mkFVarM`, then
 `inst1I`): the variable reads as con-leche's `.fvar d dom`, the opened body
@@ -1702,62 +1709,50 @@ theorem unitLikeShapeM_specI {fe : InLean.FEnv} (hfe : DefeqEnvI fe env) {w : Ex
       simp only [toCaps] at hr ⊢
       have hlen : (appArgs w).length = (TrS s₀ w).getAppArgs.length := length_appArgs s₀ w
       have hlps : ccvS.levelParams = cvS.levelParams.map toName := hcvS.2.1
-      rw [hlps, ← hlen, length_map_trL, length_map_toName, ← reserved_contains_rev]
-      by_cases h1 : caps.eta = true ∧ caps.etaFields = 0 ∧
-          InLean.reservedBasisNames.contains S = false ∧
-          (appArgs w).length = caps.etaParams ∧ us.length = cvS.levelParams.length
+      rw [hlps, ← hlen, length_map_trL, length_map_toName]
+      by_cases h1 : caps.eta = true ∧ us.length = cvS.levelParams.length
       · simp only [h1, and_self, ↓reduceIte] at hr ⊢
-        obtain ⟨rfl, rfl⟩ := pure_run hr
-        exact ⟨hs, TabLe.refl _, rfl, rfl⟩
-      simp only [h1, ↓reduceIte] at hr ⊢
-      simp only [← towerSlots_toName hfe]
-      by_cases h2 : caps.eta = true ∧ InLean.reservedBasisNames.contains S = false ∧
-          (appArgs w).length = caps.etaParams ∧ us.length = cvS.levelParams.length ∧
-          fe.towerSlotsAllF S caps.etaFields = true
-      · simp only [h2, and_self, ↓reduceIte] at hr ⊢
-        cases hfp : fe.findProj? S 0 with
+        cases ht : fe.findTable? S with
         | none =>
-          simp only [hfp] at hr
+          simp only [ht] at hr
           obtain ⟨rfl, rfl⟩ := pure_run hr
-          rw [hv.projNone S 0 hfp]
+          rw [hv.tableNone S ht]
           exact ⟨hs, TabLe.refl _, rfl, rfl⟩
-        | some e0 =>
-          simp only [hfp] at hr
-          obtain ⟨ce, hce, hcctor, -, -, -⟩ := hv.proj S 0 e0 hfp
-          rw [hce]
+        | some tbl =>
+          simp only [ht] at hr
+          obtain ⟨ct, hct, hcctor, hnF, hnP, -⟩ := hv.table S tbl ht
+          rw [hct]
           simp only
-          rw [hcctor]
-          cases hcv : fe.ctorView? e0.ctor with
-          | none =>
-            simp only [hcv] at hr
-            obtain ⟨rfl, rfl⟩ := pure_run hr
-            refine ⟨hs, TabLe.refl _, rfl, ?_⟩
-            have hn := hv.ctorNone e0.ctor hcv
-            cases hf : env.find? (toName e0.ctor) with
-            | none => rfl
-            | some ci =>
-              cases ci with
-              | ctorInfo ccv nP nF => exact absurd hf (hn ccv nP nF)
-              | _ => rfl
-          | some x =>
-            obtain ⟨cvC, nPc, nFc⟩ := x
-            simp only [hcv] at hr
-            obtain ⟨ccvC, hcvC, hLC⟩ := hv.ctor e0.ctor cvC nPc nFc hcv
-            rw [hLC]
-            simp only
-            rw [hcvC.2.1]
-            by_cases hl : (cvC.levelParams == cvS.levelParams) = true
-            · have hl' : cvC.levelParams = cvS.levelParams := by simpa using hl
-              simp only [hl, ↓reduceIte] at hr
-              simp only [hl', ↓reduceIte]
+          rw [hcctor, hnF, hnP]
+          by_cases h2 : (appArgs w).length = tbl.numParams
+          · simp only [h2, ↓reduceIte] at hr ⊢
+            cases hcv : fe.ctorView? tbl.ctor with
+            | none =>
+              simp only [hcv] at hr
+              obtain ⟨rfl, rfl⟩ := pure_run hr
+              refine ⟨hs, TabLe.refl _, rfl, ?_⟩
+              have hn := hv.ctorNone tbl.ctor hcv
+              cases hf : env.find? (toName tbl.ctor) with
+              | none => rfl
+              | some ci =>
+                cases ci with
+                | ctorInfo ccv nP nF => exact absurd hf (hn ccv nP nF)
+                | _ => rfl
+            | some x =>
+              obtain ⟨cvC, nPc, nFc⟩ := x
+              simp only [hcv] at hr
+              obtain ⟨ccvC, hcvC, hLC⟩ := hv.ctor tbl.ctor cvC nPc nFc hcv
+              rw [hLC]
+              simp only
+              rw [hcvC.2.1]
               obtain ⟨cty, s₁, h1, hr⟩ := bind_run hr
               obtain ⟨hs1, hle1, hok1, htr1⟩ := tripleI_iff_run.1
                 (instLevelParamsM_specI (mode := mode) (eager := eager) (env := env) hs
                   (hcvC.2.2.okS s₀) hcvC.2.2.1 hus) cty s₁ h1
               obtain ⟨rfl, rfl⟩ := pure_run hr
               have hty : TrS s₀ cvC.type = ccvC.type := hcvC.2.2.trS s₀
-              rw [hty, hl'] at htr1
-              obtain ⟨hpok, hpeq⟩ := peelPis_map_TrS s₁ caps.etaParams cty hok1
+              rw [hty] at htr1
+              obtain ⟨hpok, hpeq⟩ := peelPis_map_TrS s₁ tbl.numParams cty hok1
               have hargs : OkSL s₁ (appArgs w) = true :=
                 OkSL_of_tabLe hle1 (OkSL_appArgs (s := s₀) hok)
               have htargs : TrSL s₁ (appArgs w) = (TrS s₀ w).getAppArgs := by
@@ -1769,25 +1764,21 @@ theorem unitLikeShapeM_specI {fe : InLean.FEnv} (hfe : DefeqEnvI fe env) {w : Ex
               unfold ConLeche.unitFieldTele
               rw [← htr1, hpeq]
               refine ⟨hs1, hle1, ?_, ?_⟩
-              · cases hp : InLean.peelPis caps.etaParams cty with
+              · cases hp : InLean.peelPis tbl.numParams cty with
                 | none => rfl
                 | some body =>
                   exact (TrS_instI (hpok body hp) (OkSL_reverse s₁ hargs) hcl).1
-              · cases hp : InLean.peelPis caps.etaParams cty with
+              · cases hp : InLean.peelPis tbl.numParams cty with
                 | none => rfl
                 | some body =>
                   simp only [Option.map_some, trUnitShape]
                   rw [(TrS_instI (hpok body hp) (OkSL_reverse s₁ hargs) hcl).2]
                   rw [← htargs]
                   simp only [TrSL, List.map_reverse]
-            · have hl' : ¬ cvC.levelParams = cvS.levelParams := by simpa using hl
-              simp only [hl, Bool.false_eq_true, ↓reduceIte] at hr
-              have hl'' : ¬ cvC.levelParams.map toName = cvS.levelParams.map toName :=
-                fun h => hl' (toName_map_inj h)
-              simp only [hl'', ↓reduceIte]
-              obtain ⟨rfl, rfl⟩ := pure_run hr
-              exact ⟨hs, TabLe.refl _, rfl, rfl⟩
-      · simp only [h2, ↓reduceIte] at hr ⊢
+          · simp only [h2, ↓reduceIte] at hr ⊢
+            obtain ⟨rfl, rfl⟩ := pure_run hr
+            exact ⟨hs, TabLe.refl _, rfl, rfl⟩
+      · simp only [h1, ↓reduceIte] at hr ⊢
         obtain ⟨rfl, rfl⟩ := pure_run hr
         exact ⟨hs, TabLe.refl _, rfl, rfl⟩
   · have hnone : InLean.unitLikeShapeM fe w = pure none := by
@@ -1823,10 +1814,7 @@ theorem unitLikeStructI_spec {fe : InLean.FEnv} (ih : KnotSpecI mode eager env r
   | none, _, _ =>
     obtain ⟨rfl, rfl⟩ := pure_run hr
     exact ⟨hs1, hle1, Runs.pure _⟩
-  | some none, _, _ =>
-    obtain ⟨rfl, rfl⟩ := pure_run hr
-    exact ⟨hs1, hle1, Runs.pure _⟩
-  | some (some (tele, n)), hokt, htr =>
+  | some (tele, n), hokt, htr =>
     simp only [okUnitShape] at hokt
     simp only [trUnitShape] at htr ⊢
     obtain ⟨hs', hle', hrun⟩ := tripleI_iff_run.1 (unitLikeFieldsI_spec ih hul hs1 hokt

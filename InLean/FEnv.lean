@@ -35,8 +35,8 @@ and nothing is memoised:
   `unsafe` or `partial` constant.  Freshness is read off Lean's environment
   itself, as official's `check_name`.
 * **The block being checked** (`FEnv.pending`): inside an inductive block's
-  job, a member reads as master's staged environments hold it (its
-  capabilities at the shape's field count, no projection table).
+  job, a member reads as master's staged environments hold it (no
+  projection table).
 * **The quotient package** (`Quot`, `Quot.mk`, `Quot.lift`, `Quot.ind`):
   con-leche stores its pins at the record's level names (`quotAt`); here
   Lean's own types, which the quotient's check compares with the pins, and
@@ -92,17 +92,15 @@ structure FEnv where
   use: `sorryAx` is the constant Lean stores, and a certified `Nat`
   operation's name may hold an axiom (`checkAxiomC`). -/
   coreAxioms : Bool := false
-  /-- **The inductive block being checked** (empty outside its job): each
-  member's name with its one constructor's field count as the block's shape
-  reads it (`0` for a member with another number of constructors).  Master's
-  job runs its stages at environments built from the shape (`consBlockIndsF`
-  pushes each former at `blockCapsAt`; no projection table exists until the
-  block's install); InLean's at-use readers read a marked member as those
-  environments do: its capabilities at the shape's field count (`capsOf`), no
-  projection table (`findProj?`, `hasTable`, `tableFields?`).  Set where the
-  formers are pushed (`checkBlockIndsC`); the job's environments are dropped
-  with it, so the installed block is read off its entries. -/
-  pending : List (Name × Nat) := []
+  /-- **The inductive block being checked** (empty outside its job): its
+  members' names.  Master's job runs its stages at environments built from
+  the shape (`consBlockIndsF` pushes each former at `blockCapsAt`; no
+  projection table exists until the block's install); InLean's at-use
+  readers read a marked member as those environments do: no projection
+  table (`findTable?` and its readers).  Set where the formers are pushed
+  (`checkBlockIndsC`); the job's environments are dropped with it, so the
+  installed block is read off its entries. -/
+  pending : List Name := []
   /-- The resource limits (`Limits`). -/
   limits : Limits := {}
 
@@ -132,54 +130,26 @@ official's. -/
   | some ci => if fe.sees n ci then some ci else none
   | none => none
 
-/-- The field count a marked member's capabilities are read at
-(`FEnv.pending`). -/
-def FEnv.pendingFields? (fe : FEnv) (T : Name) : Option Nat :=
-  go fe.pending
-where
-  go : List (Name × Nat) → Option Nat
-    | [] => none
-    | (n, k) :: rest => if n == T then some k else go rest
-
-/-- Is `T` a member of the block being checked? -/
+/-- Is `T` a member of the block being checked (`FEnv.pending`)? -/
 @[inline] def FEnv.isPending (fe : FEnv) (T : Name) : Bool :=
-  (fe.pendingFields? T).isSome
+  fe.pending.contains T
 
 /-! ## Inductives -/
 
 /-- Twin of `IndCaps`. -/
 structure IndCaps where
   eta : Bool := false
-  etaCtor : Name := .anonymous
-  etaParams : Nat := 0
-  etaFields : Nat := 0
   all : List Name := []
   nparams : Nat := 0
   nIdx : Nat := 0
   ctors : List Name := []
   deriving Inhabited
 
-/-- The field count of a former's one constructor `c`: the shape's for a
-member of the block being checked (`FEnv.pending`), else the stored
-constructor's. -/
-def FEnv.fieldsOf (fe : FEnv) (v : InductiveVal) (c : Name) : Nat :=
-  match fe.pendingFields? v.name with
-  | some nF => nF
-  | none =>
-    match fe.find? c with
-    | some (.ctorInfo cv) => cv.numFields
-    | _ => 0
-
-/-- **Twin of `blockCapsAt`**, read off the `InductiveVal` and its one
-constructor's field count (`FEnv.fieldsOf`). -/
-def capsOf (fe : FEnv) (v : InductiveVal) : IndCaps :=
+/-- **Twin of `blockCapsAt`**, read off the `InductiveVal`. -/
+def capsOf (v : InductiveVal) : IndCaps :=
   match v.ctors with
   | [c] =>
-    let nF := fe.fieldsOf v c
     { eta := v.numIndices == 0 && !v.isRec
-      etaCtor := c
-      etaParams := v.numParams
-      etaFields := nF
       all := v.all
       nparams := v.numParams
       nIdx := v.numIndices
@@ -190,7 +160,7 @@ def capsOf (fe : FEnv) (v : InductiveVal) : IndCaps :=
 former and its capabilities, or `Quot` (the pin's empty capabilities). -/
 def FEnv.indView? (fe : FEnv) (n : Name) : Option (ConstantVal × IndCaps) :=
   match fe.find? n with
-  | some (.inductInfo v) => some (v.toConstantVal, capsOf fe v)
+  | some (.inductInfo v) => some (v.toConstantVal, capsOf v)
   | some (.quotInfo q) => if q.kind == .type then some (q.toConstantVal, {}) else none
   | _ => none
 
@@ -358,13 +328,32 @@ def hasPis : Nat → Expr → Bool
   | n + 1, .mdata _ e => hasPis (n + 1) e
   | _, _ => false
 
-/-- **Twin of `FEnv.findProj?`**: the table of `T` exists exactly where
+/-- **A projection table as the checker reads it** (`FEnv.findTable?`, the
+twin of a stored `ProjTable`, the block check's twin of which is
+`InLean.ProjTable`), without the bodies (`projBodyAt` builds field `i`'s
+where inference needs it): the structure, its former's level parameters
+and parameter count, its one constructor and that constructor's field
+count and type. -/
+structure TableView where
+  structName : Name
+  levelParams : List Name
+  numParams : Nat
+  ctor : Name
+  numFields : Nat
+  /-- the constructor's type, which the bodies are read off -/
+  ctorType : Expr
+
+/-- Twin of `ProjTable.entry`: the table viewed at field `i`. -/
+@[inline] def TableView.entry (tbl : TableView) (i : Nat) : ProjEntry :=
+  ⟨tbl.structName, i, tbl.levelParams, tbl.numParams, tbl.ctor, tbl.numFields, tbl.ctorType⟩
+
+/-- **Twin of `FEnv.findTable?`**: the table of `T` exists exactly where
 con-leche's install stores one (`blockTables`: one constructor, no index,
 `structProjBodies` succeeds, i.e. the constructor's type binds the
-parameters and the fields), and field `i` is below the field count; a
-member of the block being checked has none (`FEnv.pending`: master's job
-installs no table before the block's install). -/
-def FEnv.findProj? (fe : FEnv) (T : Name) (i : Nat) : Option ProjEntry :=
+parameters and the fields), at any field count; a member of the block being
+checked has none (`FEnv.pending`: master's job installs no table before the
+block's install). -/
+def FEnv.findTable? (fe : FEnv) (T : Name) : Option TableView :=
   match fe.find? T with
   | some (.inductInfo v) =>
     if fe.isPending v.name then none else
@@ -373,27 +362,24 @@ def FEnv.findProj? (fe : FEnv) (T : Name) (i : Nat) : Option ProjEntry :=
       if v.numIndices == 0 then
         match fe.find? c with
         | some (.ctorInfo cv) =>
-          if i < cv.numFields && hasPis (v.numParams + cv.numFields) cv.type then
-            some ⟨T, i, v.levelParams, v.numParams, c, cv.numFields, cv.type⟩
+          if hasPis (v.numParams + cv.numFields) cv.type then
+            some ⟨T, v.levelParams, v.numParams, c, cv.numFields, cv.type⟩
           else none
         | _ => none
       else none
     | _ => none
   | _ => none
 
+/-- **Twin of `FEnv.findProj?`**: `T`'s table, viewed at field `i` (`none`
+beyond the table's field count). -/
+def FEnv.findProj? (fe : FEnv) (T : Name) (i : Nat) : Option ProjEntry :=
+  match fe.findTable? T with
+  | some tbl => if i < tbl.numFields then some (tbl.entry i) else none
+  | none => none
+
 /-- Does `T` have a table (twin of `(fe.findTable? T).isSome`)? -/
 def FEnv.hasTable (fe : FEnv) (T : Name) : Bool :=
-  match fe.find? T with
-  | some (.inductInfo v) =>
-    !fe.isPending v.name &&
-    match v.ctors with
-    | [c] =>
-      v.numIndices == 0 &&
-        match fe.find? c with
-        | some (.ctorInfo cv) => hasPis (v.numParams + cv.numFields) cv.type
-        | _ => false
-    | _ => false
-  | _ => false
+  (fe.findTable? T).isSome
 
 /-- Twin of `Expr.peelPis`. -/
 def peelPis : Nat → Expr → Option Expr
@@ -502,30 +488,6 @@ def ProjEntry.typeAtI (entry : ProjEntry) (us : List Level) (targs : List Expr) 
   (projBodyAt entry.structName entry.numParams entry.idx entry.ctorType).bind fun body =>
     (EO.instLevelParamsChecked? body entry.levelParams us).map
       (·.instI (#[pe] ++ targs.toArray.reverse))
-
-/-- The field count of `T`'s table, where it has one. -/
-def FEnv.tableFields? (fe : FEnv) (T : Name) : Option Nat :=
-  match fe.find? T with
-  | some (.inductInfo v) =>
-    if fe.isPending v.name then none else
-    match v.ctors with
-    | [c] =>
-      if v.numIndices == 0 then
-        match fe.find? c with
-        | some (.ctorInfo cv) =>
-          if hasPis (v.numParams + cv.numFields) cv.type then some cv.numFields else none
-        | _ => none
-      else none
-    | _ => none
-  | _ => none
-
-/-- Twin of `FEnv.towerSlotsAllF` (`∀ j < nF, findProj? T j` holds): no slot
-to ask for, or a table with at least `nF` fields — one lookup and one binder
-count, not one per field. -/
-def FEnv.towerSlotsAllF (fe : FEnv) (T : Name) (nF : Nat) : Bool :=
-  nF == 0 || match fe.tableFields? T with
-    | some n => nF ≤ n
-    | none => false
 
 /-- Twin of `FEnv.andRescueSlotsF` (`andRescueSlotsOf`). -/
 def FEnv.andRescueSlotsF (fe : FEnv) (ctor : Name) (nP : Nat) : Bool :=

@@ -181,13 +181,12 @@ theorem StoredT.trS {t : Expr} {c : ConLeche.Expr} (h : StoredT t c) (s : InLean
 
 /-- An inductive family's capabilities, as con-leche records them. -/
 @[expose] def toCaps (c : InLean.IndCaps) : ConLeche.IndCaps :=
-  { eta := c.eta, etaCtor := toName c.etaCtor, etaParams := c.etaParams, etaFields := c.etaFields,
-    all := c.all.map toName,
+  { eta := c.eta, all := c.all.map toName,
     nparams := c.nparams, nIdx := c.nIdx, ctors := c.ctors.map toName }
 
 /-- **The environment's views** (O4 with `EnvRelI`/`EnvDomI`/`EnvDefnI`, P3's):
-InLean's view of an inductive family, a constructor or a projection-table
-entry is the translation of con-leche's record at the translated name, and
+InLean's view of an inductive family, a constructor or a projection table
+is the translation of con-leche's record at the translated name, and
 InLean has none exactly where con-leche records none. -/
 structure EnvViewI (fe : InLean.FEnv) (env : ConLeche.Env) : Prop where
   ind : ∀ n cv caps, fe.indView? n = some (cv, caps) →
@@ -197,10 +196,47 @@ structure EnvViewI (fe : InLean.FEnv) (env : ConLeche.Env) : Prop where
     ∃ ccv, CVRel cv ccv ∧ env.find? (toName n) = some (.ctorInfo ccv nP nF)
   ctorNone : ∀ n, fe.ctorView? n = none →
     ∀ ccv nP nF, env.find? (toName n) ≠ some (.ctorInfo ccv nP nF)
-  proj : ∀ T i e, fe.findProj? T i = some e → ∃ ce, env.findProj? (toName T) i = some ce ∧
-    ce.ctor = toName e.ctor ∧ ce.numFields = e.numFields ∧ ce.numParams = e.numParams ∧
-    ce.levelParams = e.levelParams.map toName
-  projNone : ∀ T i, fe.findProj? T i = none → env.findProj? (toName T) i = none
+  table : ∀ T t, fe.findTable? T = some t → ∃ ct, env.findTable? (toName T) = some ct ∧
+    ct.ctor = toName t.ctor ∧ ct.numFields = t.numFields ∧ ct.numParams = t.numParams ∧
+    ct.levelParams = t.levelParams.map toName
+  tableNone : ∀ T, fe.findTable? T = none → env.findTable? (toName T) = none
+
+/-- A projection-table entry through the views (the table's, at the field). -/
+theorem EnvViewI.proj {fe : InLean.FEnv} {env : ConLeche.Env} (hv : EnvViewI fe env) :
+    ∀ T i e, fe.findProj? T i = some e → ∃ ce, env.findProj? (toName T) i = some ce ∧
+      ce.ctor = toName e.ctor ∧ ce.numFields = e.numFields ∧ ce.numParams = e.numParams ∧
+      ce.levelParams = e.levelParams.map toName := by
+  intro T i e h
+  unfold InLean.FEnv.findProj? at h
+  unfold ConLeche.Env.findProj?
+  cases ht : fe.findTable? T with
+  | none => rw [ht] at h; cases h
+  | some t =>
+    rw [ht] at h
+    obtain ⟨ct, hct, h1, h2, h3, h4⟩ := hv.table T t ht
+    rw [hct]
+    by_cases hi : i < t.numFields
+    · simp only [hi, ↓reduceIte, Option.some.injEq] at h
+      subst h
+      exact ⟨ct.entry i, by simp [h2, hi], by
+        simp [ConLeche.ProjTable.entry, InLean.TableView.entry, h1, h2, h3, h4]⟩
+    · simp [hi] at h
+
+/-- No projection-table entry through the views. -/
+theorem EnvViewI.projNone {fe : InLean.FEnv} {env : ConLeche.Env} (hv : EnvViewI fe env) :
+    ∀ T i, fe.findProj? T i = none → env.findProj? (toName T) i = none := by
+  intro T i h
+  unfold InLean.FEnv.findProj? at h
+  unfold ConLeche.Env.findProj?
+  cases ht : fe.findTable? T with
+  | none => rw [hv.tableNone T ht]
+  | some t =>
+    rw [ht] at h
+    obtain ⟨ct, hct, -, h2, -, -⟩ := hv.table T t ht
+    rw [hct]
+    by_cases hi : i < t.numFields
+    · simp [hi] at h
+    · simp [h2, hi]
 
 /-- A family's result sort through the translation. -/
 theorem formerResSort_TrS (s : InLean.CState) (t : Expr) :

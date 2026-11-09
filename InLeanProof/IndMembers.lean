@@ -192,12 +192,11 @@ projection tables built from the pass's members (`blockTables`). -/
 
 /-- **The formers' environment after the pass**, the relation's environment
 part (rulings of 2026-11-08).  InLean's `env₁` is `fe` with the block's
-members marked (`blockMarks`, read by `capsOf` and the table readers) and the
+members marked (`blockMarks`, read by the table readers) and the
 formers pushed; master's is `L` with the formers pushed at `blockCapsAt` and
 no table.  Under the mark InLean reads a member as master's staged
-environments hold it (its capabilities at the shape's field count, no
-projection table), so the job's premises can hold between the two: a former's
-`EntryRelI` clause is `toCaps_capsOf` at the marked field count, its table
+environments hold it (no projection table), so the job's premises can hold
+between the two: a former's `EntryRelI` clause is `toCaps_capsOf`, its table
 clause `none` on both sides.  The same reading carries through the tail's
 pushes (the constructors, the generated recursors), which keep the mark. -/
 @[expose] def PassEnvRelI (q : InLean.BlockPass) (cq : ConLeche.BlockPass ConLeche.Env) : Prop :=

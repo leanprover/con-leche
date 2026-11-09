@@ -382,21 +382,21 @@ def structEtaCertWithI (r : CoreFnsI) (fe : FEnv) (depth : Nat) (a b wtb : Expr)
         | .const Tn us' => do
           match fe.indView? Tn with
           | some (cvT, caps) => do
-            let targs := appArgs wtb
-            if caps.eta = true ∧ caps.etaCtor == cn ∧
-                reservedBasisNames.contains Tn = false ∧
-                reservedBasisNames.contains cn = false ∧
-                targs.length = caps.etaParams ∧
-                us'.length = cvT.levelParams.length ∧
-                cvc.levelParams == cvT.levelParams ∧
-                fe.towerSlotsAllF Tn caps.etaFields = true then do
-              if ← liftFueled "level comparison" (← isEquivListLM us us') then do
-                if ← defEqListI r depth (aargs.take caps.etaParams) targs then
-                  defEqListI r depth (aargs.drop caps.etaParams)
-                    (projNodesI Tn b (List.range caps.etaFields))
+            match fe.findTable? Tn with
+            | some tbl => do
+              let targs := appArgs wtb
+              if caps.eta = true ∧ tbl.ctor == cn ∧
+                  targs.length = tbl.numParams ∧
+                  us'.length = cvT.levelParams.length ∧
+                  cvc.levelParams == cvT.levelParams then do
+                if ← liftFueled "level comparison" (← isEquivListLM us us') then do
+                  if ← defEqListI r depth (aargs.take tbl.numParams) targs then
+                    defEqListI r depth (aargs.drop tbl.numParams)
+                      (projNodesI Tn b (List.range tbl.numFields))
+                  else pure false
                 else pure false
               else pure false
-            else pure false
+            | none => pure false
           | none => pure false
         | _ => pure false
       else pure false
@@ -459,31 +459,26 @@ def unitLikeFieldsI (r : CoreFnsI) (ul : Nat → Expr → CheckCM Bool) :
     | _ => pure false
 
 /-- **Twin of `unitLikeShapeF`**, read off Lean's entries as `structEtaCertWithI`
-reads them (`indView?`, `towerSlotsAllF`, `findProj?`, `ctorView?`).  In the
-monad for the level instantiation, an error past C's depth bound
+reads them (`indView?`, `findTable?`, `ctorView?`): the constructor and the
+field count are the family's projection table's, at every field count.  In
+the monad for the level instantiation, an error past C's depth bound
 (`instLevelParamsM`), as every instantiation of a stored type here. -/
-def unitLikeShapeM (fe : FEnv) (w : Expr) : CheckCM (Option (Option (Expr × Nat))) :=
+def unitLikeShapeM (fe : FEnv) (w : Expr) : CheckCM (Option (Expr × Nat)) :=
   match w.getAppFnT with
   | .const S us =>
     match fe.indView? S with
     | some (cvS, caps) =>
-      if caps.eta = true ∧ caps.etaFields = 0 ∧ reservedBasisNames.contains S = false ∧
-          (appArgs w).length = caps.etaParams ∧
-          us.length = cvS.levelParams.length then pure (some none)
-      else if caps.eta = true ∧ reservedBasisNames.contains S = false ∧
-          (appArgs w).length = caps.etaParams ∧
-          us.length = cvS.levelParams.length ∧
-          fe.towerSlotsAllF S caps.etaFields = true then
-        match fe.findProj? S 0 with
-        | some e0 =>
-          match fe.ctorView? e0.ctor with
-          | some (cvC, _, _) =>
-            if cvC.levelParams == cvS.levelParams then do
+      if caps.eta = true ∧ us.length = cvS.levelParams.length then
+        match fe.findTable? S with
+        | some tbl =>
+          if (appArgs w).length = tbl.numParams then
+            match fe.ctorView? tbl.ctor with
+            | some (cvC, _, _) => do
               let cty ← instLevelParamsM cvC.levelParams us cvC.type
-              pure ((peelPis caps.etaParams cty).map fun body =>
-                some (body.instI (appArgs w).reverse.toArray, caps.etaFields))
-            else pure none
-          | none => pure none
+              pure ((peelPis tbl.numParams cty).map fun body =>
+                (body.instI (appArgs w).reverse.toArray, tbl.numFields))
+            | none => pure none
+          else pure none
         | none => pure none
       else pure none
     | none => pure none
@@ -493,8 +488,7 @@ def unitLikeShapeM (fe : FEnv) (w : Expr) : CheckCM (Option (Option (Expr × Nat
 def unitLikeStructI (r : CoreFnsI) (ul : Nat → Expr → CheckCM Bool) (fe : FEnv)
     (depth : Nat) (w : Expr) : CheckCM Bool := do
   match ← unitLikeShapeM fe w with
-  | some none => pure true
-  | some (some (tele, n)) => unitLikeFieldsI r ul n depth tele
+  | some (tele, n) => unitLikeFieldsI r ul n depth tele
   | none => pure false
 
 /-- Twin of `unitLikeLoopI`. -/
@@ -857,44 +851,44 @@ def majorToCtorI (r : CoreFnsI) (fe : FEnv) (depth : Nat) (isK : Bool)
                 else pure major
               else pure major
             | _ => pure major
-          else if etaRescueOk rl.ctor cvj cvT caps = true then do
+          else match etaRescueTable? (fe.findTable? T) rl.ctor cvj cvT caps with
+          | some tbl => do
             let tmaj ← r.whnf depth (← r.inferIO depth major)
             match tmaj.getAppFnT with
             | .const T' ust => do
               let margs := appArgs tmaj
-              if T' == T ∧ margs.length = caps.etaParams ∧
-                  ust.length = cvT.levelParams.length ∧
-                  reservedBasisNames.contains T = false ∧
-                  reservedBasisNames.contains caps.etaCtor = false ∧
-                  fe.towerSlotsAllF T caps.etaFields = true then do
+              -- the counts are the table's
+              if T' == T ∧ margs.length = tbl.numParams ∧
+                  ust.length = cvT.levelParams.length then do
                 if ← formerNeverZeroI r.whnf cvT caps ust then do
-                  let fab ← mkAppNM (.const caps.etaCtor ust)
-                    (margs ++ projNodesI T major (List.range caps.etaFields))
+                  let fab ← mkAppNM (.const tbl.ctor ust)
+                    (margs ++ projNodesI T major (List.range tbl.numFields))
                   if Expr.wscopedBC depth fab && (Expr.closedBV fab) && (← leafGuardM fab major) then
                     pure fab
                   else pure major
                 else pure major
               else pure major
             | _ => pure major
-          else if T == andName then do
-            let tmaj ← r.whnf depth (← r.inferIO depth major)
-            match tmaj.getAppFnT with
-            | .const T' ust => do
-              let margs := appArgs tmaj
-              if T' == T ∧ margs.length = cnP ∧
-                  cvj.levelParams.length = ust.length ∧
-                  fe.andRescueSlotsF rl.ctor cnP = true then do
-                let fab ← mkAppNM (.const rl.ctor ust) (margs ++ projNodesI T major [0, 1])
-                if Expr.wscopedBC depth fab && (Expr.closedBV fab) && (← leafGuardM fab major) then do
-                  let tfab ← r.inferIO depth fab
-                  if ← r.defeq depth tmaj tfab then
-                    if ← certAtI mode (proofIrrelI r depth fab major) then pure fab
+          | none =>
+            if T == andName then do
+              let tmaj ← r.whnf depth (← r.inferIO depth major)
+              match tmaj.getAppFnT with
+              | .const T' ust => do
+                let margs := appArgs tmaj
+                if T' == T ∧ margs.length = cnP ∧
+                    cvj.levelParams.length = ust.length ∧
+                    fe.andRescueSlotsF rl.ctor cnP = true then do
+                  let fab ← mkAppNM (.const rl.ctor ust) (margs ++ projNodesI T major [0, 1])
+                  if Expr.wscopedBC depth fab && (Expr.closedBV fab) && (← leafGuardM fab major) then do
+                    let tfab ← r.inferIO depth fab
+                    if ← r.defeq depth tmaj tfab then
+                      if ← certAtI mode (proofIrrelI r depth fab major) then pure fab
+                      else pure major
                     else pure major
                   else pure major
                 else pure major
-              else pure major
-            | _ => pure major
-          else pure major
+              | _ => pure major
+            else pure major
         | none => pure major
       | _ => pure major
     | none => pure major

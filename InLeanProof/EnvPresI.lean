@@ -25,14 +25,14 @@ group, the shape the assembly (P4) folds over:
   inductive's capabilities as `capsOf` reads them; a constructor's counts; a
   recursor's counts, K flag and rules with their firing mode as `recFireAt`
   computes it; the quotient package as InLean's views read it).  Every
-  structure's projection table is related to what InLean's `tableFields?`/
+  structure's projection table is related to what InLean's `findTable?`/
   `projBodyAt` read off the former and its constructor (`TableRelI`), and
   every stored table belongs to a stored constant.
 * `presI_push`: adding a group of fresh constants keeps the relation once the
   group's own names are related (its installed constants and tables against
   Lean's entries).  Old names keep their entries: a former's constructors are
-  stored (`EntryRelI`'s `inductInfo` clause), so `capsOf` and the table
-  readers read the same after the push.
+  stored (`EntryRelI`'s `inductInfo` clause), so the table readers read the
+  same after the push.
 * Per kind: `presI_axiom` (a safe axiom, `sorryAx` included: con-leche
   installs nothing for it and InLean hides it unless `coreAxioms`), `presI_defn`,
   `presI_thm`, `presI_opaque` (safe ones); the quotient record and an inductive block are
@@ -45,9 +45,9 @@ group, the shape the assembly (P4) folds over:
   check, every `unsafe` or `partial` constant (`FEnv.sees`): so it covers the
   safe constants only, and Lean's `sorryAx` stands against nothing on
   con-leche's side.  Inside an inductive block's job the members are marked
-  (`FEnv.pending`): a marked former's capabilities are read at the mark's
-  field count and it has no table, as in master's staged environments, so a
-  former's constructors need be stored only when it is unmarked.
+  (`FEnv.pending`): a marked former has no table, as in master's staged
+  environments, so a former's constructors need be stored only when it is
+  unmarked.
 -/
 
 public section
@@ -74,10 +74,10 @@ as InLean computes it at use. -/
 /-- **Lean's entry against con-leche's at the translated name.**  An
 `opaque` is stored by con-leche as an axiom, a theorem by its statement; the
 quotient package as InLean's views read it (`indView?`, `ctorView?`,
-`recAt?`).  A former's capabilities are `capsOf`'s at `fe`; its constructors
-are stored, or it is a member of the block being checked (`FEnv.pending`,
-whose field counts `capsOf` reads), so that what `capsOf` reads does not
-change when the environment grows. -/
+`recAt?`).  A former's capabilities are `capsOf`'s; its constructors are
+stored, or it is a member of the block being checked (`FEnv.pending`, which
+has no table), so that what the table readers read does not change when the
+environment grows. -/
 @[expose] def EntryRelI (fe : InLean.FEnv) : Lean.ConstantInfo → ConLeche.ConstantInfo → Prop
   | .axiomInfo v, .axiomInfo ccv => CVRel v.toConstantVal ccv
   | .opaqueInfo v, .axiomInfo ccv => CVRel v.toConstantVal ccv
@@ -85,7 +85,7 @@ change when the environment grows. -/
   | .defnInfo v, .defnInfo ccv cval h =>
     CVRel v.toConstantVal ccv ∧ StoredT v.value cval ∧ h = trHint v.hints
   | .inductInfo v, .indInfo ccv caps =>
-    CVRel v.toConstantVal ccv ∧ caps = toCaps (capsOf fe v) ∧
+    CVRel v.toConstantVal ccv ∧ caps = toCaps (capsOf v) ∧
       (fe.isPending v.name = true ∨ ∀ c ∈ v.ctors, (fe.find? c).isSome)
   | .ctorInfo v, .ctorInfo ccv nP nF => CVRel v.toConstantVal ccv ∧ nP = v.numParams ∧ nF = v.numFields
   | .recInfo rv, cci => RecRelI rv false cci
@@ -97,12 +97,12 @@ change when the environment grows. -/
   | _, _ => False
 
 /-- **A structure's projection table against InLean's readers**: none where
-`tableFields?` finds none; otherwise the table InLean reads off the former
+`findTable?` finds none; otherwise the table InLean reads off the former
 and its one constructor (`findProj?`), field by field the body
 `projBodyAt` builds, a term without free variables translating to the
 stored one, the structure not a member of the block being checked. -/
 @[expose] def TableRelI (fe : InLean.FEnv) (T : Name) : Option ConLeche.ProjTable → Prop
-  | none => fe.tableFields? T = none
+  | none => fe.findTable? T = none
   | some tbl => ∃ v c cv, fe.find? T = some (.inductInfo v) ∧ fe.isPending v.name = false ∧
       v.ctors = [c] ∧ v.numIndices = 0 ∧
       fe.find? c = some (.ctorInfo cv) ∧ hasPis (v.numParams + cv.numFields) cv.type = true ∧
@@ -141,30 +141,6 @@ theorem FEnv.find?_congr {fe fe' : InLean.FEnv} (hc : fe'.coreAxioms = fe.coreAx
   have he : fe'.sees n = fe.sees n := by
     funext ci; simp only [InLean.FEnv.sees, hc, hs]
   simp only [FEnv.find?_eq_filter, h, he]
-
-/-- A former's field count reads the same at two environments marking it
-alike, where its constructor is read alike unless it is marked. -/
-theorem fieldsOf_congr {fe fe' : InLean.FEnv} {v : InductiveVal} {c : Name}
-    (hp : fe'.pendingFields? v.name = fe.pendingFields? v.name)
-    (hc : fe.isPending v.name = false → fe'.find? c = fe.find? c) :
-    fe'.fieldsOf v c = fe.fieldsOf v c := by
-  unfold InLean.FEnv.fieldsOf
-  rw [hp]
-  cases h : fe.pendingFields? v.name with
-  | some _ => rfl
-  | none => simp only; rw [hc (by simp [InLean.FEnv.isPending, h])]
-
-/-- `capsOf` reads the same at two environments marking the former alike,
-where its constructors are read alike unless it is marked. -/
-theorem capsOf_congr {fe fe' : InLean.FEnv} {v : InductiveVal}
-    (hp : fe'.pendingFields? v.name = fe.pendingFields? v.name)
-    (hc : fe.isPending v.name = false → ∀ c ∈ v.ctors, fe'.find? c = fe.find? c) :
-    capsOf fe' v = capsOf fe v := by
-  unfold InLean.capsOf
-  split
-  · rename_i c hcs
-    rw [fieldsOf_congr hp (fun h => hc h c (by simp [hcs]))]
-  · rfl
 
 theorem toName_fromName : ∀ n : ConLeche.Name, toName (fromName n) = n
   | .anonymous => rfl
@@ -227,7 +203,7 @@ theorem EntryRelI.inv_defn {ccv : ConLeche.ConstantVal} {cval : ConLeche.Expr}
 
 theorem EntryRelI.inv_ind {ccv : ConLeche.ConstantVal} {caps : ConLeche.IndCaps}
     (hr : EntryRelI fe ci (.indInfo ccv caps)) :
-    (∃ v, ci = .inductInfo v ∧ CVRel v.toConstantVal ccv ∧ caps = toCaps (capsOf fe v) ∧
+    (∃ v, ci = .inductInfo v ∧ CVRel v.toConstantVal ccv ∧ caps = toCaps (capsOf v) ∧
       (fe.isPending v.name = true ∨ ∀ c ∈ v.ctors, (fe.find? c).isSome)) ∨
     (∃ q, ci = .quotInfo q ∧ q.kind = .type ∧ caps = {} ∧ CVRel q.toConstantVal ccv) := by
   cases ci with
@@ -509,12 +485,19 @@ theorem ctorView_none (hP : EnvPresI fe L) {n : Name} (h : fe.ctorView? n = none
     · simp (config := { decide := true }) [hk] at h
 
 /-- No table InLean reads: no projection entry. -/
-theorem findProj_none_of {T : Name} (h : fe.tableFields? T = none) (i : Nat) :
+theorem findProj_none_of {T : Name} (h : fe.findTable? T = none) (i : Nat) :
     fe.findProj? T i = none := by
-  unfold InLean.FEnv.tableFields? at h
   unfold InLean.FEnv.findProj?
-  repeat' split
-  all_goals simp_all
+  rw [h]
+
+/-- A table InLean reads, off the former and its one constructor. -/
+theorem findTable_of {T c : Name} {v : InductiveVal} {cv : ConstructorVal}
+    (hT : fe.find? T = some (.inductInfo v)) (hpd : fe.isPending v.name = false)
+    (hcs : v.ctors = [c]) (hI : v.numIndices = 0)
+    (hc : fe.find? c = some (.ctorInfo cv)) (hp : hasPis (v.numParams + cv.numFields) cv.type = true) :
+    fe.findTable? T = some ⟨T, v.levelParams, v.numParams, c, cv.numFields, cv.type⟩ := by
+  unfold InLean.FEnv.findTable?
+  simp [hT, hpd, hcs, hI, hc, hp]
 
 /-- A table InLean reads: its entries. -/
 theorem findProj_of {T c : Name} {v : InductiveVal} {cv : ConstructorVal}
@@ -525,7 +508,8 @@ theorem findProj_of {T c : Name} {v : InductiveVal} {cv : ConstructorVal}
     fe.findProj? T i = if i < cv.numFields then
       some ⟨T, i, v.levelParams, v.numParams, c, cv.numFields, cv.type⟩ else none := by
   unfold InLean.FEnv.findProj?
-  simp [hT, hpd, hcs, hI, hc, hp]
+  rw [findTable_of hT hpd hcs hI hc hp]
+  rfl
 
 /-- **`EnvViewI`** from the relation. -/
 theorem envViewI_of (hP : EnvPresI fe L) : EnvViewI fe L where
@@ -533,37 +517,29 @@ theorem envViewI_of (hP : EnvPresI fe L) : EnvViewI fe L where
   indNone := fun _ h => indView_none hP h
   ctor := fun _ _ _ _ h => ctorView_rel hP h
   ctorNone := fun _ h => ctorView_none hP h
-  proj := by
-    intro T i e h
+  table := by
+    intro T t h
     have ht := hP.table T
-    unfold ConLeche.Env.findProj?
     cases hL : L.findTable? (toName T) with
     | none =>
       rw [hL] at ht
-      rw [findProj_none_of ht] at h; cases h
+      rw [ht] at h; cases h
     | some tbl =>
       rw [hL] at ht
       obtain ⟨v, c, cv, hT, hpd, hcs, hI, hc, hp, -, h2, h3, h4, h5, -⟩ := ht
-      rw [findProj_of hT hpd hcs hI hc hp] at h
-      split at h
-      · rename_i hi
-        simp only [Option.some.injEq] at h; subst h
-        refine ⟨tbl.entry i, by simp [h5, hi], ?_⟩
-        simp [ConLeche.ProjTable.entry, h2, h3, h4, h5]
-      · cases h
-  projNone := by
-    intro T i h
+      rw [findTable_of hT hpd hcs hI hc hp] at h
+      cases h
+      exact ⟨tbl, rfl, h4, h5, h3, h2⟩
+  tableNone := by
+    intro T h
     have ht := hP.table T
-    unfold ConLeche.Env.findProj?
     cases hL : L.findTable? (toName T) with
     | none => rfl
     | some tbl =>
       rw [hL] at ht
-      obtain ⟨v, c, cv, hT, hpd, hcs, hI, hc, hp, -, -, -, -, h5, -⟩ := ht
-      rw [findProj_of hT hpd hcs hI hc hp] at h
-      split at h
-      · cases h
-      · rename_i hi; simp [h5, hi]
+      obtain ⟨v, c, cv, hT, hpd, hcs, hI, hc, hp, -⟩ := ht
+      rw [findTable_of hT hpd hcs hI hc hp] at h
+      cases h
 
 /-! ### The prop-ness readers through the translation
 
@@ -1256,7 +1232,6 @@ theorem defeqEnvI_of (hP : EnvPresI fe L) : DefeqEnvI fe L where
   unfoldable := fun s e _ => unfoldable_of hP s e
   headHint := fun s e _ => headHint_of hP s e
   strLit := strLitStoredF_I (envDomI_of hP)
-  towerSlots := towerSlotsAllF_V (envViewI_of hP)
   ctor := ctorRd_of hP
   ind := indRd_of hP
   view := envViewI_of hP
@@ -1320,10 +1295,8 @@ theorem presI_push {fe fe' : InLean.FEnv} {L : ConLeche.Env}
     obtain ⟨ci, hci⟩ := Option.isSome_iff_exists.1 hs
     have := FEnv.env_of_find hci
     rw [hfresh n hn] at this; cases this
-  have hpf : ∀ T, fe'.pendingFields? T = fe.pendingFields? T := by
-    intro T; simp only [InLean.FEnv.pendingFields?, hpend]
   have hip : ∀ T, fe'.isPending T = fe.isPending T := by
-    intro T; simp only [InLean.FEnv.isPending, hpf]
+    intro T; simp only [InLean.FEnv.isPending, hpend]
   have hnotin : ∀ n, n ∉ names → ∀ c ∈ news, (c.name == toName n) = false := by
     intro n hn c hc
     obtain ⟨m, hm, he⟩ := hnewC c hc
@@ -1348,22 +1321,12 @@ theorem presI_push {fe fe' : InLean.FEnv} {L : ConLeche.Env}
       cases h : m == T
       · rfl
       · rw [eq_of_beq h] at hm; exact absurd hm hT
-  -- a former's capabilities read as before: marked alike, its constructors stored
-  have hcapsExt : ∀ v : InductiveVal,
-      (fe.isPending v.name = true ∨ ∀ c ∈ v.ctors, (fe.find? c).isSome) →
-      capsOf fe' v = capsOf fe v := by
-    intro v h3
-    apply capsOf_congr (hpf v.name)
-    intro hnp c hc
-    rcases h3 with h3 | h3
-    · rw [hnp] at h3; cases h3
-    · exact hext c (h3 c hc)
   have hentryExt : ∀ ci cci, EntryRelI fe ci cci → EntryRelI fe' ci cci := by
     intro ci cci hr
     cases ci <;> cases cci <;> simp only [EntryRelI] at hr ⊢ <;> try exact hr
     rename_i v ccv caps
     obtain ⟨h1, h2, h3⟩ := hr
-    refine ⟨h1, by rw [h2, hcapsExt v h3], ?_⟩
+    refine ⟨h1, h2, ?_⟩
     rw [hip]
     exact h3.imp id fun h c hc => by rw [hext c (h c hc)]; exact h c hc
   -- a name found in `fe` is not new
@@ -1391,7 +1354,7 @@ theorem presI_push {fe fe' : InLean.FEnv} {L : ConLeche.Env}
       | none =>
         rw [ho] at ht
         simp only [TableRelI] at ht ⊢
-        unfold InLean.FEnv.tableFields? at ht ⊢
+        unfold InLean.FEnv.findTable? at ht ⊢
         rw [hfeOld T hT]
         cases hf : fe.find? T with
         | none => rfl
@@ -1553,7 +1516,7 @@ theorem presI_one (hlaws : EnvLaws) (hP : EnvPresI fe L) {ci : Lean.ConstantInfo
     simp only [List.mem_singleton] at hT; subst hT
     rw [findTable_fresh hP hfeNone]
     simp only [TableRelI]
-    unfold InLean.FEnv.tableFields?
+    unfold InLean.FEnv.findTable?
     rw [hfe']
     split
     · rename_i v heq
@@ -1666,7 +1629,7 @@ theorem presI_empty (h : ∀ n, fe.find? n = none) : EnvPresI fe ConLeche.Env.em
   table T := by
     simp only [ConLeche.Env.findTable?, ConLeche.Env.find?, ConLeche.Env.empty, List.find?_nil,
       Option.isSome_none, Bool.false_eq_true, ↓reduceIte, TableRelI]
-    unfold InLean.FEnv.tableFields?
+    unfold InLean.FEnv.findTable?
     rw [h T]
   tabNames _ ht := by cases ht
 
@@ -1682,7 +1645,7 @@ and in range, and the records `toDecl` reads off them.  What is left to prove
 entries, through `presI_push` — the capabilities (`capsOf` against
 `blockCapsAt`, by `genEntriesAgree`), the firing modes (`recFireAt` against
 `recFire`: both read the major's domain at the record's `majorIdx`), the
-projection tables (`tableFields?`/`projBodyAt` against `blockTables`/
+projection tables (`findTable?`/`projBodyAt` against `blockTables`/
 `structProjBodies`), a pinned block's pins against the generated entries,
 and the quotient pins at the record's names. -/
 

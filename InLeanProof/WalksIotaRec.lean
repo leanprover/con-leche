@@ -115,20 +115,18 @@ variable (mode : InLean.CheckMode)
   | _ => pure major
 
 /-- The structure-η rescue past its syntactic gates. -/
-@[expose] def mtcEtaIL (r : InLean.CoreFnsI) (fe : InLean.FEnv) (depth : Nat) (major : Expr) (T : Name)
-    (cvT : Lean.ConstantVal) (caps : InLean.IndCaps) : InLean.CheckCM Expr := do
+@[expose] def mtcEtaIL (r : InLean.CoreFnsI) (depth : Nat) (major : Expr) (T : Name)
+    (cvT : Lean.ConstantVal) (caps : InLean.IndCaps) (tbl : InLean.TableView) :
+    InLean.CheckCM Expr := do
   let tmaj ← r.whnf depth (← r.inferIO depth major)
   match tmaj.getAppFnT with
   | .const T' ust => do
     let margs := appArgs tmaj
-    if T' == T ∧ margs.length = caps.etaParams ∧
-        ust.length = cvT.levelParams.length ∧
-        InLean.reservedBasisNames.contains T = false ∧
-        InLean.reservedBasisNames.contains caps.etaCtor = false ∧
-        fe.towerSlotsAllF T caps.etaFields = true then do
+    if T' == T ∧ margs.length = tbl.numParams ∧
+        ust.length = cvT.levelParams.length then do
       if ← formerNeverZeroI r.whnf cvT caps ust then do
-        let fab ← mkAppNM (.const caps.etaCtor ust)
-          (margs ++ projNodesI T major (List.range caps.etaFields))
+        let fab ← mkAppNM (.const tbl.ctor ust)
+          (margs ++ projNodesI T major (List.range tbl.numFields))
         if Expr.wscopedBC depth fab && (Expr.closedBV fab) && (← leafGuardM fab major) then
           pure fab
         else pure major
@@ -162,9 +160,11 @@ variable (mode : InLean.CheckMode)
     (rl : RecursorRule) (cvj : Lean.ConstantVal) (cnP : Nat) (T : Name) (cvT : Lean.ConstantVal)
     (caps : InLean.IndCaps) : InLean.CheckCM Expr :=
   if isK = true then mtcKIL mode r depth major rl cvj cnP T
-  else if etaRescueOk rl.ctor cvj cvT caps = true then mtcEtaIL r fe depth major T cvT caps
-  else if T == andName then mtcAndIL mode r fe depth major rl cvj cnP T
-  else pure major
+  else match etaRescueTable? (fe.findTable? T) rl.ctor cvj cvT caps with
+  | some tbl => mtcEtaIL r depth major T cvT caps tbl
+  | none =>
+    if T == andName then mtcAndIL mode r fe depth major rl cvj cnP T
+    else pure major
 
 /-- `majorToCtorI` with its blocks named. -/
 theorem majorToCtorI_eq (r : InLean.CoreFnsI) (fe : InLean.FEnv) (depth : Nat) (isK : Bool)
@@ -410,19 +410,21 @@ theorem projNodesI_facts (s : InLean.CState) (T : Name) {b : Expr} {d : Nat} (hb
       · exact h3 x hx
     · rw [InLean.projNodesI, TrSL_cons, AllClosed_cons, h4, TrS_proj, lbb_proj, hc]; rfl
 
-theorem mtcEtaIL_specI (ih : KnotSpecI .verified eager env r) (hv : EnvViewI fe env) {d : Nat} {major : Expr} {T : Name}
+theorem mtcEtaIL_specI (ih : KnotSpecI .verified eager env r) {d : Nat} {major : Expr} {T : Name}
     {cvT : Lean.ConstantVal} {ccvT : ConLeche.ConstantVal} (hcvT : CVRel cvT ccvT)
     (hcl : ccvT.type.hasFvar = false) (hlbb : ccvT.type.looseBVarsBounded 0 = true)
-    {caps : InLean.IndCaps}
+    {caps : InLean.IndCaps} {tbl : InLean.TableView} {ct : ConLeche.ProjTable}
+    (hct1 : ct.ctor = toName tbl.ctor) (hct2 : ct.numFields = tbl.numFields)
+    (hct3 : ct.numParams = tbl.numParams)
     {s₀ : InLean.CState} (hs : CSOKI .verified eager env s₀) (hok : OkS s₀ major = true)
     (hw : ConLeche.Expr.WScoped d (TrS s₀ major))
     (hc : (TrS s₀ major).looseBVarsBounded 0 = true) :
-    ⦃fun s => s = s₀⦄ mtcEtaIL r fe d major T cvT caps
+    ⦃fun s => s = s₀⦄ mtcEtaIL r d major T cvT caps tbl
     ⦃fun m s' => CSOKI .verified eager env s' ∧ TabLe s₀ s' ∧ OkS s' m = true ∧
       Runs ((ConLeche.fueledFns .verified eager env).inferIO d (TrS s₀ major) >>= fun tm =>
         (ConLeche.fueledFns .verified eager env).whnf d tm >>=
-          mtcEtaCont (ConLeche.fueledFns .verified eager env) env d (TrS s₀ major) (toName T) ccvT
-            (toCaps caps)) (TrS s' m) ∧
+          mtcEtaCont (ConLeche.fueledFns .verified eager env) d (TrS s₀ major) (toName T) ccvT
+            (toCaps caps) ct) (TrS s' m) ∧
       ConLeche.Expr.WScoped d (TrS s' m) ∧ (TrS s' m).looseBVarsBounded 0 = true; ⊤⦄ := by
   refine tripleI_iff_run.2 fun m s' hr => ?_
   unfold mtcEtaIL at hr
@@ -434,6 +436,7 @@ theorem mtcEtaIL_specI (ih : KnotSpecI .verified eager env r) (hv : EnvViewI fe 
   have ht02 := ht₁.trans ht₂
   rw [Runs.bind_eq _ hrun₁, Runs.bind_eq _ hrun₂]
   unfold mtcEtaCont
+  rw [hct1, hct2, hct3]
   dsimp only at hr
   by_cases hconst : ∃ T' ust, Expr.getAppFnT tmaj = .const T' ust
   · obtain ⟨T', ust, hfn⟩ := hconst
@@ -444,23 +447,13 @@ theorem mtcEtaIL_specI (ih : KnotSpecI .verified eager env r) (hv : EnvViewI fe 
     have hust := okLv_of_getAppFnT hok₂ hfn
     have hlen : (appArgs tmaj).length = (TrS s₂ tmaj).getAppArgs.length := by
       rw [← TrSL_appArgs, TrSL_length]
-    have hiff : ((T' == T) = true ∧ (appArgs tmaj).length = caps.etaParams ∧
-        ust.length = cvT.levelParams.length ∧
-        InLean.reservedBasisNames.contains T = false ∧
-        InLean.reservedBasisNames.contains caps.etaCtor = false ∧
-        fe.towerSlotsAllF T caps.etaFields = true) ↔
-        (toName T' = toName T ∧ (TrS s₂ tmaj).getAppArgs.length = (toCaps caps).etaParams ∧
-        (ust.map trL).length = ccvT.levelParams.length ∧
-        ConLeche.reservedBasisNames.contains (toName T) = false ∧
-        ConLeche.reservedBasisNames.contains (toCaps caps).etaCtor = false ∧
-        ConLeche.towerSlotsAll env (toName T) (toCaps caps).etaFields = true) := by
-      simp only [toCaps, reserved_contains, ← towerSlotsAllF_V hv, hcvT.2.1, List.length_map,
-        ← hlen, toName_eq_iff, beq_iff_eq]
-    by_cases hcond : (T' == T) = true ∧ (appArgs tmaj).length = caps.etaParams ∧
-        ust.length = cvT.levelParams.length ∧
-        InLean.reservedBasisNames.contains T = false ∧
-        InLean.reservedBasisNames.contains caps.etaCtor = false ∧
-        fe.towerSlotsAllF T caps.etaFields = true
+    have hiff : ((T' == T) = true ∧ (appArgs tmaj).length = tbl.numParams ∧
+        ust.length = cvT.levelParams.length) ↔
+        (toName T' = toName T ∧ (TrS s₂ tmaj).getAppArgs.length = tbl.numParams ∧
+        (ust.map trL).length = ccvT.levelParams.length) := by
+      simp only [hcvT.2.1, List.length_map, ← hlen, toName_eq_iff, beq_iff_eq]
+    by_cases hcond : (T' == T) = true ∧ (appArgs tmaj).length = tbl.numParams ∧
+        ust.length = cvT.levelParams.length
     · have hcond' := hiff.1 hcond
       simp only [hcond, hcond', and_self, ↓reduceIte] at hr ⊢
       obtain ⟨nz, s₃, h3, hr⟩ := bind_run hr
@@ -482,18 +475,18 @@ theorem mtcEtaIL_specI (ih : KnotSpecI .verified eager env r) (hv : EnvViewI fe 
         have hokm := okS_of_tabLe ht03 hok
         have htm := TrS_of_tabLe ht03 hok
         obtain ⟨hp1, hp2, hp3, hp4⟩ := projNodesI_facts s₃ T hokm (htm ▸ hw) (htm ▸ hc)
-          (List.range caps.etaFields)
-        have hxs : OkSL s₃ (appArgs tmaj ++ InLean.projNodesI T major (List.range caps.etaFields))
+          (List.range tbl.numFields)
+        have hxs : OkSL s₃ (appArgs tmaj ++ InLean.projNodesI T major (List.range tbl.numFields))
             = true := OkSL_append s₃ (OkSL_appArgs s₃ hok₃) hp1
-        have hTx : TrSL s₃ (appArgs tmaj ++ InLean.projNodesI T major (List.range caps.etaFields))
+        have hTx : TrSL s₃ (appArgs tmaj ++ InLean.projNodesI T major (List.range tbl.numFields))
             = ConLeche.etaFabArgsE (toName T) (TrS s₂ tmaj).getAppArgs (TrS s₀ major)
-                (toCaps caps).etaFields := by
+                tbl.numFields := by
           rw [TrSL_append, TrSL_appArgs, hp2, htt₃, htm]; rfl
         have hws1 : AllWS d (TrSL s₃ (appArgs tmaj)) := by
           rw [TrSL_appArgs, htt₃]; exact allWS_getAppArgs hw₂
         have hcl1 : AllClosed (TrSL s₃ (appArgs tmaj)) = true := by
           rw [TrSL_appArgs, htt₃]; exact allClosed_getAppArgs hc₂
-        obtain ⟨hokf, htrf, hwf, hcf⟩ := fab_facts (c := caps.etaCtor) hust hxs
+        obtain ⟨hokf, htrf, hwf, hcf⟩ := fab_facts (c := tbl.ctor) hust hxs
           (by rw [TrSL_append]; exact AllWS.append hws1 hp3)
           (by rw [TrSL_append]; exact AllClosed_append hcl1 hp4)
         obtain ⟨g, s₅, h5, hr⟩ := bind_run hr
@@ -503,13 +496,12 @@ theorem mtcEtaIL_specI (ih : KnotSpecI .verified eager env r) (hv : EnvViewI fe 
         have hwf' := hwf
         have hcf' := hcf
         rw [htrf, hTx] at hwf' hcf'
-        have hec : (toCaps caps).etaCtor = toName caps.etaCtor := rfl
-        rw [hec, hwf'.to_wscopedB, hcf', Bool.true_and, Bool.true_and]
+        rw [hwf'.to_wscopedB, hcf', Bool.true_and, Bool.true_and]
         rw [htrf, hTx, htm] at hr
         by_cases hl : leafGuardP (ConLeche.Expr.mkAppN
-            (.const (toName caps.etaCtor) (ust.map trL))
+            (.const (toName tbl.ctor) (ust.map trL))
             (ConLeche.etaFabArgsE (toName T) (TrS s₂ tmaj).getAppArgs (TrS s₀ major)
-              (toCaps caps).etaFields)) (TrS s₀ major) = true
+              tbl.numFields)) (TrS s₀ major) = true
         · simp only [hl, ↓reduceIte] at hr ⊢
           obtain ⟨rfl, rfl⟩ := pure_run hr
           refine ⟨hs₃, ht03, hokf, ?_, hwf, hcf⟩
@@ -649,12 +641,16 @@ theorem mtcBodyIL_specI (ih : KnotSpecI .verified eager env r) (hpi : ProofIrrel
   | true => exact mtcKIL_specI ih hpi hrl hcvj hs hok hw hc
   | false =>
     simp only [Bool.false_eq_true, ↓reduceIte]
-    rw [hrl, etaRescueOk_CV hcvj hcvT]
-    by_cases he : InLean.etaRescueOk rl.ctor cvj cvT caps = true
-    · simp only [he, ↓reduceIte]
+    rw [hrl]
+    cases he : InLean.etaRescueTable? (fe.findTable? T) rl.ctor cvj cvT caps with
+    | some tbl =>
+      obtain ⟨ct, hct, hct1, hct2, hct3⟩ := etaRescueTable_V_some hv hcvj hcvT he
+      rw [hct]
       obtain ⟨hcl, hlbb⟩ := stored_closed henv hfT
-      exact mtcEtaIL_specI ih hv hcvT hcl hlbb hs hok hw hc
-    · simp only [he, Bool.false_eq_true, ↓reduceIte]
+      exact mtcEtaIL_specI ih hcvT hcl hlbb hct1 hct2 hct3 hs hok hw hc
+    | none =>
+      rw [etaRescueTable_V_none hv hcvj hcvT he]
+      simp only
       have hand : (toName T = ConLeche.andName) ↔ (T == InLean.andName) = true := by
         rw [cl_andName, toName_eq_iff, beq_iff_eq]
       by_cases ha : (T == InLean.andName) = true

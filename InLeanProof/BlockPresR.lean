@@ -21,9 +21,8 @@ relates the two at every generated constant's name, which is what
 **The statements are `BlockPresObl`/`IndGroupPresB` with three more
 premises** (findings of this lane, see DESIGN.md "Lane P3r"):
 * `fe.pending = []`.  `IndGroupPresB` is false at an environment carrying
-  a stale block mark at one of the block's names: InLean then reads the
-  installed former's capabilities and table at the mark (`capsOf`,
-  `tableFields?`), con-leche at the shape.  The checker's environments outside
+  a stale block mark at one of the block's names: InLean then reads no
+  table for the installed former (`findTable?`), con-leche the block's.  The checker's environments outside
   a block's job have no mark (`FEnv.pending` defaults to `[]`, `checkDecl`
   builds `fe` without one), so P4 has it.
 * `fe.sees` of every generated constant (`BlockPresObl` lacks it;
@@ -525,17 +524,11 @@ theorem LRel_map_right {α γ : Type} {R : α → γ → Prop} {g : α → γ} :
 theorem CVRel_trCV {v : ConstantVal} (h : okC v.type = true) : CVRel v (trCV v) :=
   ⟨rfl, rfl, fvarS_of_toExprC (toExpr_of_okE _ h), RangeOk_of_okE h, toExpr_of_okE _ h⟩
 
-theorem fieldsOf_nopend (hpend : fe'.pending = []) {v : InductiveVal} {c : Name} {w : ConstructorVal}
-    (h : fe'.find? c = some (.ctorInfo w)) : fe'.fieldsOf v c = w.numFields := by
-  unfold InLean.FEnv.fieldsOf InLean.FEnv.pendingFields?
-  rw [hpend]
-  simp [InLean.FEnv.pendingFields?.go, h]
-
 theorem isPending_nopend (hpend : fe'.pending = []) (n : Name) : fe'.isPending n = false := by
-  simp [InLean.FEnv.isPending, InLean.FEnv.pendingFields?, hpend, InLean.FEnv.pendingFields?.go]
+  simp [InLean.FEnv.isPending, hpend]
 
 /-- **Every generated constant has its installed counterpart**, related. -/
-theorem RecogCtx.entry (C : RecogCtx block p nP cvTs cs rs) (hpend : fe'.pending = [])
+theorem RecogCtx.entry (C : RecogCtx block p nP cvTs cs rs)
     (hfind : ∀ ci ∈ block, fe'.find? ci.name = some ci) :
     ∀ ci ∈ block, ∃ cci ∈ ConLeche.blockConstants (trShape p),
       cci.name = toName ci.name ∧ EntryRelI fe' ci cci := by
@@ -562,32 +555,12 @@ theorem RecogCtx.entry (C : RecogCtx block p nP cvTs cs rs) (hpend : fe'.pending
       rw [hdecl]
       refine ⟨CVRel_trCV hokT, ?_, .inr ?_⟩
       · rw [← ConLeche.Cached.blockIsRecC_eq, blockIsRec_tr]
-        refine (toCaps_capsOf (mi := i) ?_ ?_ ?_ ?_ hrec ?_).symm
+        refine (toCaps_capsOf (mi := i) ?_ ?_ ?_ ?_ hrec).symm
         · rw [trShape_members_getD p hi, hctors]
           simp [trMember, trCtor]
         · rw [trShape_members_getD p hi, hidx]; rfl
         · rw [hnP]; rfl
         · rw [trShape_memberNames, hall]
-        · intro c cc hvc hcc
-          rw [trShape_members_getD p hi] at hcc
-          simp only [trMember] at hcc
-          cases hms : p.members[i].ctors with
-          | nil => rw [hms] at hcc; cases hcc
-          | cons c0 rest =>
-            rw [hms] at hcc
-            cases rest with
-            | cons _ _ => cases hcc
-            | nil =>
-              simp only [List.map_cons, List.map_nil, List.cons.injEq, and_true] at hcc
-              subst hcc
-              rw [hctors, hms] at hvc
-              simp only [List.map_cons, List.map_nil, List.cons.injEq, and_true] at hvc
-              subst hvc
-              obtain ⟨w, hwb, hw1, -, hw3⟩ := C.ctorW (List.getElem_mem hi)
-                (show c0 ∈ p.members[i].ctors by rw [hms]; exact List.mem_cons_self)
-              have hf := hcv hwb
-              rw [show w.name = c0.1.name by rw [← hw1]] at hf
-              rw [fieldsOf_nopend hpend hf, hw3]; rfl
       · intro c hc
         rw [hctors] at hc
         obtain ⟨c0, hc0, rfl⟩ := List.mem_map.1 hc
@@ -717,7 +690,7 @@ theorem RecogCtx.table (C : RecogCtx block p nP cvTs cs rs) (hpend : fe'.pending
     generalize hms : p.members[i] = ms at hiv hnP hidx hctors hmsm
     cases hsc : ms.structCtor? with
     | none =>
-      simp only [Option.map_none, TableRelI, InLean.FEnv.tableFields?]
+      simp only [Option.map_none, TableRelI, InLean.FEnv.findTable?]
       rw [show (Lean.ConstantInfo.inductInfo v).name = v.name from rfl] at hfv ⊢
       rw [hfv]
       simp only [isPending_nopend hpend, Bool.false_eq_true, ↓reduceIte]
@@ -769,7 +742,7 @@ theorem RecogCtx.table (C : RecogCtx block p nP cvTs cs rs) (hpend : fe'.pending
       rw [← hwt]
       cases hb : ConLeche.structProjBodies (toName ms.cvT.name) (trShape p).nP c0.2 (trC w.type) with
       | none =>
-        simp only [Option.map_none, TableRelI, InLean.FEnv.tableFields?]
+        simp only [Option.map_none, TableRelI, InLean.FEnv.findTable?]
         rw [show (Lean.ConstantInfo.inductInfo v).name = v.name from rfl] at hfv ⊢
         rw [hfv]
         simp only [isPending_nopend hpend, Bool.false_eq_true, ↓reduceIte, hvc, hvi]
@@ -803,9 +776,9 @@ theorem RecogCtx.table (C : RecogCtx block p nP cvTs cs rs) (hpend : fe'.pending
           rw [show (trShape p).nP = v.numParams by rw [hnP]; rfl] at hb
           exact projBodyAt_tr hsv (RangeOk_of_okE hokw) (toExpr_of_okE _ hokw) hb (by rw [← hw3]; exact hj)
   · rw [hnotab _ hci (fun w h => by cases h)]
-    simp only [TableRelI, InLean.FEnv.tableFields?, hfind _ hci]
+    simp only [TableRelI, InLean.FEnv.findTable?, hfind _ hci]
   · rw [hnotab _ hci (fun w h => by cases h)]
-    simp only [TableRelI, InLean.FEnv.tableFields?, hfind _ hci]
+    simp only [TableRelI, InLean.FEnv.findTable?, hfind _ hci]
 
 end Entries
 
@@ -955,7 +928,7 @@ theorem blockPresOblP : BlockPresOblP := by
       (L.pushDelta (ConLeche.blockConstants (trShape p)) cQ).find? c.name = some c := by
     intro c hc
     rw [pushDelta_find, find?_name_news hndN hc]
-  have hentry := C.entry (fe' := { fe with env := E' }) hpend hfind
+  have hentry := C.entry (fe' := { fe with env := E' }) hfind
   have hEntry : ∀ ci ∈ consts.toList, ∃ cci,
       (L.pushDelta (ConLeche.blockConstants (trShape p)) cQ).find? (toName ci.name) = some cci ∧
       EntryRelI { fe with env := E' } ci cci := by

@@ -185,7 +185,7 @@ def blockTables (p : BlockShape) : List MemberShape → Option (List ProjTable)
     | none => blockTables p rest
 
 /-- Twin of `checkStructProjTableC`.  A projection table is read off its
-structure (`FEnv.findProj?`), so the "table taken" refusal has nothing to
+structure (`FEnv.findTable?`), so the "table taken" refusal has nothing to
 find: the structure's name is fresh (`checkConstantValF`). -/
 def checkStructProjTableC (t : ProjTable) (fe : FEnv) : CheckCM Unit := do
   unless t.bodies.size = t.numFields ∧ (← t.bodies.allM fun b => do
@@ -279,11 +279,10 @@ def consBlockIndsF (p₁ : BlockShape) (isRec : Bool) : List ConstantVal → Nat
         isReflexive := false }
     consBlockIndsF p₁ isRec rest (i + 1) (fe.push (.inductInfo v))
 
-/-- The block's members as the job's environments mark them (`FEnv.pending`):
-each pushed former's name with its one constructor's field count, which
-`blockCapsAt` reads off the shape. -/
-def blockMarks (p : BlockShape) : List (Name × Nat) :=
-  p.members.map fun ms => (ms.declared.name, match ms.ctors with | [c] => c.2 | _ => 0)
+/-- The block's members as the job's environments mark them
+(`FEnv.pending`): each pushed former's name. -/
+def blockMarks (p : BlockShape) : List Name :=
+  p.members.map (·.declared.name)
 
 /-- Twin of `checkBlockIndsC`.  The formers are pushed onto `fe` marked with
 the block (`blockMarks`): from here to the end of the job InLean reads the

@@ -684,10 +684,6 @@ info: 'InLeanProof.reduceProjCoreI_specI' depends on axioms: [propext, Classical
 #guard_msgs in
 #print axioms InLeanProof.isCtorAppC_TrS
 
-/-- info: 'InLeanProof.towerSlotsAllF_V' depends on axioms: [propext, Classical.choice, Quot.sound] -/
-#guard_msgs in
-#print axioms InLeanProof.towerSlotsAllF_V
-
 /-- info: 'InLeanProof.andRescueSlotsF_V' depends on axioms: [propext, Classical.choice, Quot.sound] -/
 #guard_msgs in
 #print axioms InLeanProof.andRescueSlotsF_V
@@ -1799,9 +1795,7 @@ info: 'InLeanProof.presI_group' depends on axioms: [propext, Classical.choice, Q
 #guard_msgs in
 #print axioms InLeanProof.presI_group
 
-/--
-info: 'InLeanProof.toCaps_capsOf' depends on axioms: [propext, Classical.choice, Quot.sound]
--/
+/-- info: 'InLeanProof.toCaps_capsOf' depends on axioms: [propext] -/
 #guard_msgs in
 #print axioms InLeanProof.toCaps_capsOf
 
@@ -2202,10 +2196,6 @@ info: 'InLeanProof.listBeqBy_tr' depends on axioms: [propext,
 /-- info: 'InLeanProof.FEnv.find?_congr' depends on axioms: [propext, Classical.choice, Quot.sound] -/
 #guard_msgs in
 #print axioms InLeanProof.FEnv.find?_congr
-
-/-- info: 'InLeanProof.capsOf_congr' depends on axioms: [propext, Classical.choice, Quot.sound] -/
-#guard_msgs in
-#print axioms InLeanProof.capsOf_congr
 
 /-- info: 'InLeanProof.sees_safe' depends on axioms: [propext, Classical.choice, Quot.sound] -/
 #guard_msgs in
@@ -5421,10 +5411,10 @@ info: 'InLeanProof.presI_push_plain' depends on axioms: [propext, Classical.choi
 #print axioms InLeanProof.presI_push_plain
 
 /--
-info: 'InLeanProof.tableFields_notInd' depends on axioms: [propext, Classical.choice, Quot.sound]
+info: 'InLeanProof.findTable_notInd' depends on axioms: [propext, Classical.choice, Quot.sound]
 -/
 #guard_msgs in
-#print axioms InLeanProof.tableFields_notInd
+#print axioms InLeanProof.findTable_notInd
 
 /--
 info: 'InLeanProof.find_push_self' depends on axioms: [propext, Classical.choice, Quot.sound]
@@ -6139,10 +6129,6 @@ info: 'InLeanProof.consBlockCtorsF_pending' depends on axioms: [propext, Classic
 -/
 #guard_msgs in
 #print axioms InLeanProof.consBlockCtorsF_pending
-
-/-- info: 'InLeanProof.pendingFields_go_isSome' depends on axioms: [propext, Quot.sound] -/
-#guard_msgs in
-#print axioms InLeanProof.pendingFields_go_isSome
 
 /-- info: 'InLeanProof.find?_ind_name' depends on axioms: [propext, Classical.choice, Quot.sound] -/
 #guard_msgs in

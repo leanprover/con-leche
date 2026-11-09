@@ -70,20 +70,6 @@ theorem consBlockCtorsF_pending (p : InLean.BlockShape) (fe : InLean.FEnv) :
   | nil => rfl
   | cons ms rest ih => simp only [List.foldl_cons]; rw [ih, consSumCtorsF_pending]
 
-theorem pendingFields_go_isSome {T : Lean.Name} :
-    ∀ {l : List (Lean.Name × Nat)} {k : Nat}, (T, k) ∈ l →
-      (InLean.FEnv.pendingFields?.go T l).isSome = true
-  | (n, k') :: rest, k, h => by
-    unfold InLean.FEnv.pendingFields?.go
-    by_cases he : (n == T) = true
-    · simp [he]
-    · simp only [he, Bool.false_eq_true, ↓reduceIte]
-      rcases List.mem_cons.1 h with h | h
-      · simp only [Prod.mk.injEq] at h
-        obtain ⟨rfl, rfl⟩ := h
-        exact absurd (beq_self_eq_true _) he
-      · exact pendingFields_go_isSome h
-
 /-- A former found at `n` is named `n` (through master's index). -/
 theorem find?_ind_name {fe : InLean.FEnv} {L : ConLeche.Env} (hP : EnvPresI fe L) {n : Lean.Name}
     {v : Lean.InductiveVal} (h : fe.find? n = some (.inductInfo v)) : v.name = n := by
@@ -268,12 +254,9 @@ theorem tailSimI (hC : CheckConstantValFSimI) (hRF : ReducedFormerSimI) :
     intro t ht v hv
     obtain ⟨ms, hms, hn⟩ := blockTables_mem p p.members hQ t ht
     rw [find?_ind_name hJ₂.pres hv]
-    unfold InLean.FEnv.isPending InLean.FEnv.pendingFields?
-    rw [consBlockCtorsF_pending, hpend, hn]
-    apply pendingFields_go_isSome
-    apply List.mem_append_left
-    exact List.mem_map_of_mem (f := fun ms : InLean.MemberShape =>
-      (ms.declared.name, match ms.ctors with | [c] => c.2 | _ => 0)) hms
+    unfold InLean.FEnv.isPending
+    rw [consBlockCtorsF_pending, hpend, hn, List.contains_append, Bool.or_eq_true]
+    exact Or.inl (by simpa [InLean.blockMarks] using ⟨ms, hms, rfl⟩)
   obtain ⟨rfl, hRT⟩ := checkBlockTablesCI_run hJ₂.pres hrelQ hTpend hD'
   refine ⟨hs₅.residue.flushed, ?_⟩
   have hcQ' : ConLeche.blockTables (trShape p) (trShape p).members = some cQ := hcQ

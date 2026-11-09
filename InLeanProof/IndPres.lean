@@ -132,24 +132,20 @@ theorem presI_group (hlaws : EnvLaws) (hP : EnvPresI fe L) {cs : List Lean.Const
 /-- **`capsOf` is `blockCapsAt`**, given the member's data: the generated
 entry's constructors, index and parameter counts, members and `isRec`
 (what `genEntriesAgree` checks against InLean's shape), read as
-con-leche's shape's member `mi`, and the one constructor's field count
-where there is one (`FEnv.fieldsOf`: the stored constructor's, or the
-shape's for a member of the block being checked). -/
-theorem toCaps_capsOf {fe : InLean.FEnv} {v : InductiveVal} {p : ConLeche.BlockShape}
+con-leche's shape's member `mi`. -/
+theorem toCaps_capsOf {v : InductiveVal} {p : ConLeche.BlockShape}
     {mi : Nat} {isRec : Bool}
     (hcs : v.ctors.map toName = (p.members.getD mi default).ctors.map (·.1.name))
     (hidx : v.numIndices = (p.members.getD mi default).nIdx) (hnP : v.numParams = p.nP)
-    (hall : v.all.map toName = p.memberNames) (hrec : v.isRec = isRec)
-    (hnF : ∀ c cc, v.ctors = [c] → (p.members.getD mi default).ctors = [cc] →
-      fe.fieldsOf v c = cc.2) :
-    toCaps (capsOf fe v) = ConLeche.blockCapsAt p mi isRec := by
+    (hall : v.all.map toName = p.memberNames) (hrec : v.isRec = isRec) :
+    toCaps (capsOf v) = ConLeche.blockCapsAt p mi isRec := by
   unfold ConLeche.blockCapsAt capsOf
-  generalize hms : p.members.getD mi default = ms at hcs hidx hnF
+  generalize hms : p.members.getD mi default = ms at hcs hidx
   cases hv : v.ctors with
   | nil =>
     rw [hv] at hcs
     cases hc : ms.ctors with
-    | nil => simp [toCaps, hall, hidx, hnP]; rfl
+    | nil => simp [toCaps, hall, hidx, hnP]
     | cons _ _ => rw [hc] at hcs; cases hcs
   | cons c rest =>
     rw [hv] at hcs
@@ -162,7 +158,7 @@ theorem toCaps_capsOf {fe : InLean.FEnv} {v : InductiveVal} {p : ConLeche.BlockS
       | nil =>
         cases rest' with
         | nil =>
-          simp [toCaps, hnF c cc hv hc, hall, hidx, hnP, hrec, hcs.1]
+          simp [toCaps, hall, hidx, hnP, hrec, hcs.1]
         | cons _ _ => cases hcs.2
       | cons c2 rest2 =>
         cases rest' with
@@ -171,6 +167,5 @@ theorem toCaps_capsOf {fe : InLean.FEnv} {v : InductiveVal} {p : ConLeche.BlockS
           simp only [toCaps, List.map_cons, hall, hidx, hnP, hcs.1]
           rw [show rest2.map toName = rest2'.map (·.1.name) from (List.cons.inj hcs.2).2,
             show toName c2 = cc2.1.name from (List.cons.inj hcs.2).1]
-          rfl
 
 end InLeanProof

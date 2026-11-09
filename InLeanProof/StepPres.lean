@@ -66,35 +66,44 @@ theorem inRange_of_projBodiesInRange {T : Name} {i : Nat} {e : ProjEntry} {b : E
     (hc : fe.projBodiesInRange T = true) (h : fe.findProj? T i = some e)
     (hb : projBodyAt e.structName e.numParams e.idx e.ctorType = some b) : EO.inRange b = true := by
   unfold InLean.FEnv.findProj? at h
+  cases ht : fe.findTable? T with
+  | none => rw [ht] at h; cases h
+  | some t =>
+  rw [ht] at h
+  unfold InLean.FEnv.findTable? at ht
   unfold InLean.FEnv.projBodiesInRange at hc
-  split at h
+  split at ht
   next v hT =>
     simp only [hT] at hc
-    split at h
-    · cases h
-    split at h
+    split at ht
+    · cases ht
+    split at ht
     next c hcs =>
       simp only [hcs] at hc
-      split at h
+      split at ht
       next hI =>
         simp only [hI, ↓reduceIte] at hc
-        split at h
+        split at ht
         next cv hcv =>
           simp only [hcv] at hc
-          split at h
-          next hi =>
-            simp only [Bool.and_eq_true, decide_eq_true_eq] at hi
-            simp only [hi.2, ↓reduceIte, List.all_eq_true] at hc
-            simp only [Option.some.injEq] at h
-            subst h
-            have := hc i (List.mem_range.2 hi.1)
-            rw [hb] at this
-            exact this
-          · cases h
-        · cases h
-      · cases h
-    · cases h
-  · cases h
+          split at ht
+          next hp =>
+            simp only [hp, ↓reduceIte, List.all_eq_true] at hc
+            simp only [Option.some.injEq] at ht
+            subst ht
+            by_cases hi : i < cv.numFields
+            · simp only [hi, ↓reduceIte, Option.some.injEq] at h
+              subst h
+              have := hc i (List.mem_range.2 hi)
+              simp only [InLean.TableView.entry] at hb
+              rw [hb] at this
+              exact this
+            · simp [hi] at h
+          · cases ht
+        · cases ht
+      · cases ht
+    · cases ht
+  · cases ht
 
 /-- **Every environment without a structure** has its bodies in range. -/
 theorem projBodiesInRange_of_none (h : ∀ T i, fe.findProj? T i = none) : ProjBodiesInRange fe := by
@@ -110,12 +119,12 @@ theorem feFind_foldl_out (hlaws : EnvLaws) {cs : List Lean.ConstantInfo}
     ((find_foldl_addConst hlaws cs fe.env hfresh hnd).2 n hn)
 
 /-- **A stored structure's table reads as before** a group of fresh names. -/
-theorem findProj_foldl_old (hlaws : EnvLaws) (hcs : CtorsStored fe) {cs : List Lean.ConstantInfo}
+theorem findTable_foldl_old (hlaws : EnvLaws) (hcs : CtorsStored fe) {cs : List Lean.ConstantInfo}
     (hfresh : ∀ ci ∈ cs, fe.env.find? ci.name = none) (hnd : (cs.map (·.name)).Nodup)
-    {T : Name} (hT : T ∉ cs.map (·.name)) (i : Nat) :
-    ({ fe with env := cs.foldl InLean.addConst fe.env } : InLean.FEnv).findProj? T i =
-      fe.findProj? T i := by
-  unfold InLean.FEnv.findProj?
+    {T : Name} (hT : T ∉ cs.map (·.name)) :
+    ({ fe with env := cs.foldl InLean.addConst fe.env } : InLean.FEnv).findTable? T =
+      fe.findTable? T := by
+  unfold InLean.FEnv.findTable?
   rw [feFind_foldl_out hlaws hfresh hnd hT]
   cases hTf : fe.find? T with
   | none => rfl
@@ -141,6 +150,15 @@ theorem findProj_foldl_old (hlaws : EnvLaws) (hcs : CtorsStored fe) {cs : List L
             simp only [feFind_foldl_out hlaws hfresh hnd hc]
       · rfl
     | _ => rfl
+
+/-- **A stored structure's projections read as before** a group of fresh names. -/
+theorem findProj_foldl_old (hlaws : EnvLaws) (hcs : CtorsStored fe) {cs : List Lean.ConstantInfo}
+    (hfresh : ∀ ci ∈ cs, fe.env.find? ci.name = none) (hnd : (cs.map (·.name)).Nodup)
+    {T : Name} (hT : T ∉ cs.map (·.name)) (i : Nat) :
+    ({ fe with env := cs.foldl InLean.addConst fe.env } : InLean.FEnv).findProj? T i =
+      fe.findProj? T i := by
+  unfold InLean.FEnv.findProj?
+  rw [findTable_foldl_old hlaws hcs hfresh hnd hT]
 
 /-- **A group of fresh, distinct constants keeps the bodies' range**, given
 the check on the extended environment at the group's own names. -/
