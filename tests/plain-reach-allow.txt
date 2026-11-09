@@ -466,14 +466,7 @@ ConLeche.checkBlockPositivity  # ConLeche.Kernel.Inductives.BlockInstall
 ConLeche.nestOutKinds  # ConLeche.Kernel.Inductives.BlockInstall
 ConLeche.FEnv.pushAll  # ConLeche.Kernel.Inductives.BlockInstallF
 ConLeche.FEnv.pushDelta  # ConLeche.Kernel.Inductives.BlockInstallF
-ConLeche.checkBlockAgreeF  # ConLeche.Kernel.Inductives.BlockInstallF
-ConLeche.checkBlockCtorsF  # ConLeche.Kernel.Inductives.BlockInstallF
-ConLeche.checkBlockDomsAtF  # ConLeche.Kernel.Inductives.BlockInstallF
-ConLeche.checkBlockIdxSortsF  # ConLeche.Kernel.Inductives.BlockInstallF
-ConLeche.checkBlockIndsF  # ConLeche.Kernel.Inductives.BlockInstallF
 ConLeche.checkBlockTablesF  # ConLeche.Kernel.Inductives.BlockInstallF
-ConLeche.checkBlockTeleF  # ConLeche.Kernel.Inductives.BlockInstallF
-ConLeche.checkBlockTelesF  # ConLeche.Kernel.Inductives.BlockInstallF
 ConLeche.consBlockCtorsF  # ConLeche.Kernel.Inductives.BlockInstallF
 ConLeche.consBlockIndsF  # ConLeche.Kernel.Inductives.BlockInstallF
 ConLeche.blockLargeElimAllowed  # ConLeche.Kernel.Inductives.BlockRec
@@ -509,9 +502,6 @@ ConLeche.declinedAtDefinition  # ConLeche.Kernel.Inductives.BlockTail
 ConLeche.ClassRead.classes  # ConLeche.Kernel.Inductives.ClassRead
 ConLeche.ClassRead.motiveSlot  # ConLeche.Kernel.Inductives.ClassRead
 ConLeche.classOfMotiveVar  # ConLeche.Kernel.Inductives.ClassRead
-ConLeche.classRead  # ConLeche.Kernel.Inductives.ClassRead
-ConLeche.classReadMinor  # ConLeche.Kernel.Inductives.ClassRead
-ConLeche.classReadSlots  # ConLeche.Kernel.Inductives.ClassRead
 ConLeche.instInhabitedClassKey.default  # ConLeche.Kernel.Inductives.ClassRead
 ConLeche.instInhabitedClassSlot.default  # ConLeche.Kernel.Inductives.ClassRead
 ConLeche.Expr.piBinders  # ConLeche.Kernel.Inductives.FieldTele
@@ -524,7 +514,6 @@ ConLeche.ClassGen.prefixBinders  # ConLeche.Kernel.Inductives.GenRec
 ConLeche.ClassGen.slotVar  # ConLeche.Kernel.Inductives.GenRec
 ConLeche.ClassSlot.isMinor  # ConLeche.Kernel.Inductives.GenRec
 ConLeche.blockRecInfosBare  # ConLeche.Kernel.Inductives.GenRec
-ConLeche.checkBlockClasses  # ConLeche.Kernel.Inductives.GenRec
 ConLeche.classConstOk  # ConLeche.Kernel.Inductives.GenRec
 ConLeche.classCtorOf  # ConLeche.Kernel.Inductives.GenRec
 ConLeche.classCtorsOf  # ConLeche.Kernel.Inductives.GenRec
@@ -534,10 +523,7 @@ ConLeche.classFieldsOf  # ConLeche.Kernel.Inductives.GenRec
 ConLeche.classFormerTy  # ConLeche.Kernel.Inductives.GenRec
 ConLeche.classGenRecTy  # ConLeche.Kernel.Inductives.GenRec
 ConLeche.classGenRule  # ConLeche.Kernel.Inductives.GenRec
-ConLeche.classKeyCanon  # ConLeche.Kernel.Inductives.GenRec
-ConLeche.classKeyOf  # ConLeche.Kernel.Inductives.GenRec
 ConLeche.classLeafAt  # ConLeche.Kernel.Inductives.GenRec
-ConLeche.classMajors  # ConLeche.Kernel.Inductives.GenRec
 ConLeche.classMinorSlot  # ConLeche.Kernel.Inductives.GenRec
 ConLeche.classNPcOf  # ConLeche.Kernel.Inductives.GenRec
 ConLeche.classNodesAgree  # ConLeche.Kernel.Inductives.GenRec
@@ -633,12 +619,8 @@ ConLeche.targetCtorsOf  # ConLeche.Kernel.Inductives.RecCheck
 ConLeche.targetHoles  # ConLeche.Kernel.Inductives.RecCheck
 ConLeche.targetK53  # ConLeche.Kernel.Inductives.RecCheck
 ConLeche.targetMajorNfs  # ConLeche.Kernel.Inductives.RecCheck
-ConLeche.targetMajorOf  # ConLeche.Kernel.Inductives.RecCheck
-ConLeche.targetMajorPins  # ConLeche.Kernel.Inductives.RecCheck
-ConLeche.targetOutsideInst  # ConLeche.Kernel.Inductives.RecCheck
 ConLeche.targetParamsDefEq  # ConLeche.Kernel.Inductives.RecCheck
 ConLeche.targetPiDomsWith  # ConLeche.Kernel.Inductives.RecCheck
-ConLeche.targetPinTys  # ConLeche.Kernel.Inductives.RecCheck
 ConLeche.targetRecPins  # ConLeche.Kernel.Inductives.RecCheck
 ConLeche.generatedFire  # ConLeche.Kernel.Inductives.StreamRecs
 ConLeche.recDomsAt  # ConLeche.Kernel.Inductives.StreamRecs
@@ -652,7 +634,6 @@ ConLeche.streamRecCompare  # ConLeche.Kernel.Inductives.StreamRecs
 ConLeche.streamRecsCheck  # ConLeche.Kernel.Inductives.StreamRecs
 ConLeche.streamRulesCheck  # ConLeche.Kernel.Inductives.StreamRecs
 ConLeche.streamRulesShape  # ConLeche.Kernel.Inductives.StreamRecs
-ConLeche.checkStructDomsAtFA  # ConLeche.Kernel.Inductives.StructInstallF
 ConLeche.checkStructProjTableF  # ConLeche.Kernel.Inductives.StructInstallF
 ConLeche.structCtorResidOk  # ConLeche.Kernel.Inductives.StructParts
 ConLeche.structElimLevel  # ConLeche.Kernel.Inductives.StructParts
@@ -662,10 +643,6 @@ ConLeche.structPsAt  # ConLeche.Kernel.Inductives.StructParts
 ConLeche.checkStructFieldSortsI  # ConLeche.Kernel.Inductives.SumInstall
 ConLeche.checkSumTele  # ConLeche.Kernel.Inductives.SumInstall
 ConLeche.sumRules  # ConLeche.Kernel.Inductives.SumInstall
-ConLeche.checkStructFieldSortsIF  # ConLeche.Kernel.Inductives.SumInstallF
-ConLeche.checkStructFieldSortsIFA  # ConLeche.Kernel.Inductives.SumInstallF
-ConLeche.checkSumCtorF  # ConLeche.Kernel.Inductives.SumInstallF
-ConLeche.checkSumCtorsF  # ConLeche.Kernel.Inductives.SumInstallF
 ConLeche.consSumCtorsF  # ConLeche.Kernel.Inductives.SumInstallF
 ConLeche.Expr.dropVars  # ConLeche.Kernel.Install
 ConLeche.blockCtors  # ConLeche.Kernel.Install
