@@ -2,6 +2,7 @@ module
 
 public import InLeanProof.PassNestPos0
 import ConLeche.Verify.Denote.IndFrame
+import ConLeche.Verify.Cached.IndWalksC
 import InLeanProof.DeclGuards
 import ConLeche.Verify.Inductives.RecCheckScope
 
@@ -233,6 +234,7 @@ theorem classReadMinorI_run (nP : Nat) (motPos : List Nat) (d : Nat) {dom : Lean
   | some q =>
   obtain ⟨fvs, concl⟩ := q
   obtain ⟨hokf, hokc, hop⟩ := hR1 fvs concl rfl
+  rw [ConLeche.Cached.openPisAtFvarsC_eq] at hop
   rw [hop]
   simp only [Option.bind_eq_bind, Option.bind_some]
   obtain ⟨hD1, -⟩ := headDepth_tr hokc
@@ -605,6 +607,7 @@ theorem classReadI_run (nP : Nat) (nPcI : Lean.Name → Nat) (nPcC : ConLeche.Na
   | some q =>
   obtain ⟨fvs0, body⟩ := q
   obtain ⟨-, hokb, hop⟩ := hR1 fvs0 body rfl
+  rw [ConLeche.Cached.openPisAtFvarsC_eq] at hop
   rw [TrS_of_okC _ hok0] at hop
   simp only [trRec, trCV_type]
   rw [hop]
@@ -662,6 +665,7 @@ theorem classReadI_run (nP : Nat) (nPcI : Lean.Name → Nat) (nPcC : ConLeche.Na
     | some q =>
     obtain ⟨fvs, concl⟩ := q
     obtain ⟨-, hokc, hopr⟩ := hR fvs concl rfl
+    rw [ConLeche.Cached.openPisAtFvarsC_eq] at hopr
     rw [TrS_of_okC _ hokr] at hopr
     simp only at hrun
     obtain ⟨hD1, -⟩ := headDepth_tr hokc

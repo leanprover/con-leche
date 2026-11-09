@@ -318,18 +318,6 @@ def etaRescueOk (ctor : Name) (cvj cvT : ConstantVal) (caps : IndCaps) : Bool :=
 
 /-! ## Telescopes opened at free variables -/
 
-/-- Twin of `openPisAtFvars`: the first `n` binders opened at the
-variables of depths `i, i + 1, …`. -/
-def openPisAtFvarsM : Nat → Expr → Nat → CheckCM (Option (List Expr × Expr))
-  | 0, e, _ => pure (some ([], e))
-  | n + 1, .mdata _ e, i => openPisAtFvarsM (n + 1) e i
-  | n + 1, .forallE _ dom body _, i => do
-    let fv ← mkFVarM i dom
-    match ← openPisAtFvarsM n (body.inst1I fv) (i + 1) with
-    | some (fvs, e) => pure (some (fv :: fvs, e))
-    | none => pure none
-  | _ + 1, _, _ => pure none
-
 /-- Twin of `openPisRawGoC`: the first `n` binders opened at the variables
 of depths `i, i + 1, …`, each domain instantiated by the variables so far
 (`acc`, outermost first) in one walk; the residual is left raw, the
@@ -341,6 +329,14 @@ def openPisRawM (acc : Array Expr) : Nat → Expr → Nat → CheckCM (Option (A
     let fv ← mkFVarM i (dom.instRevI acc)
     openPisRawM (acc.push fv) n body (i + 1)
   | _ + 1, _, _ => pure none
+
+/-- Twin of `openPisAtFvarsC`: the first `n` binders opened at the
+variables of depths `i, i + 1, …` by the raw opening (`openPisRawM`), then
+the residual instantiated by the variables in one walk. -/
+def openPisAtFvarsM (n : Nat) (e : Expr) (i : Nat) : CheckCM (Option (List Expr × Expr)) := do
+  match ← openPisRawM #[] n e i with
+  | some (fvs, r) => pure (some (fvs.toList, r.instRevI fvs))
+  | none => pure none
 
 /-- Twin of `projGuardFastC`: on the raw field telescope, `some` the
 projected field's raw domain where no field's type up to the projected one,

@@ -3,6 +3,7 @@ module
 public import InLeanProof.PassEnv
 import ConLeche.Verify.Denote.IndFrame
 import ConLeche.Verify.BridgeWfImp
+import ConLeche.Verify.Cached.IndWalksC
 
 /-!
 # O7-stages: the constructors' stage against master's (task #451, lane O7-stages)
@@ -430,6 +431,7 @@ theorem checkSumCtorFI_run (hC : CheckConstantValFSimI) {fe fe₀ : InLean.FEnv}
   simp only [InLean.unwrapOr] at h4
   obtain ⟨rfl, rfl⟩ := pureI_ok h4
   obtain ⟨hs₃, ht₃, hokq, hmC, hfvC⟩ := openClosedI_run hs₁ hokC hcl h3 (TabLe.refl _)
+  rw [ConLeche.Cached.openPisAtFvarsC_eq] at hmC
   -- the former's telescope
   obtain ⟨r2, s₅, h5, h⟩ := bindI_ok h
   obtain ⟨tqv, s₆, h6, h⟩ := bindI_ok h
@@ -439,6 +441,7 @@ theorem checkSumCtorFI_run (hC : CheckConstantValFSimI) {fe fe₀ : InLean.FEnv}
   simp only [InLean.unwrapOr] at h6
   obtain ⟨rfl, rfl⟩ := pureI_ok h6
   obtain ⟨hs₅, ht₅, hokt, hmT, hfvT⟩ := openClosedI_run hs₃ hokT hcT h5 (TabLe.refl _)
+  rw [ConLeche.Cached.openPisAtFvarsC_eq] at hmT
   have hokq₅ : OkSL s₅ cq.1 = true := okSL_of_tabLe ht₅ hokq
   have hTq₅ : TrSL s₅ cq.1 = TrSL s₃ cq.1 := TrSL_of_tabLe ht₅ hokq
   -- the parameter domains
@@ -489,6 +492,7 @@ theorem checkSumCtorFI_run (hC : CheckConstantValFSimI) {fe fe₀ : InLean.FEnv}
   obtain ⟨rfl, rfl⟩ := pureI_ok h10
   obtain ⟨hokx, hokxb, hmX⟩ := hR9 xq.1 xq.2 rfl
   rw [TrS_of_tabLe ht38 hokb₃] at hmX
+  rw [ConLeche.Cached.openPisAtFvarsC_eq] at hmX
   have hfvX : ∀ (i : Nat) (x : ConLeche.Expr), (TrSL s₉ xq.1)[i]? = some x →
       (∃ k ty, x = .fvar k ty) ∧ ConLeche.Expr.WScoped (nP + i) x.fvarTypeD ∧
         x.fvarTypeD.looseBVarsBounded 0 = true := by

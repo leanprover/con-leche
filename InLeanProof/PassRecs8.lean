@@ -2,6 +2,7 @@ module
 
 public import InLeanProof.PassRecs7
 import ConLeche.Verify.Denote.IndFrame
+import ConLeche.Verify.Cached.IndWalksC
 
 /-!
 # O7-recursors: the stream's recursors against the generated ones (task #451, round 6)
@@ -321,6 +322,7 @@ theorem recTyCheckI_run {fe : InLean.FEnv} {L : ConLeche.Env} (hJ : JobEnvI fe L
   · unfold InLean.recTyOpened at h; exact absurd h hth'
   obtain ⟨hsfo, hsbo, hopS⟩ := hos sf sb rfl
   obtain ⟨hgfo, hgbo, hopG⟩ := hog gf gb rfl
+  rw [ConLeche.Cached.openPisAtFvarsC_eq] at hopS hopG
   have hfS := fvAt_of_open hsfo (trC_wscoped 0 _) hopS
   have hfG := fvAt_of_open hgfo (trC_wscoped 0 _) hopG
   obtain ⟨hfS₅, hfST⟩ := hfS.mono ht₅

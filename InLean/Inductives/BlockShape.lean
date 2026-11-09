@@ -93,7 +93,7 @@ def targetPiDomsWith : List Expr → Expr → Option (List Expr)
 
 /-! ## Free variables -/
 
-/-- Twin of `openPisAtFvars`: the first `n` binders opened at the variables of
+/-- Twin of `openPisAtFvarsC`: the first `n` binders opened at the variables of
 depths `i, i + 1, …`. -/
 def openPisAtFvars : Nat → Expr → Nat → CheckCM (Option (List Expr × Expr)) :=
   openPisAtFvarsM

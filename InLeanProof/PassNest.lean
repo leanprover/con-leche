@@ -3,6 +3,7 @@ module
 public import InLeanProof.PassCtors
 import ConLeche.Verify.Inductives.NestScope
 import ConLeche.Verify.Denote.IndFrame
+import ConLeche.Verify.Cached.IndWalksC
 
 /-!
 # O7-stages: the positivity context against master's (task #451, lane O7-stages)
@@ -559,6 +560,7 @@ theorem blockNestCtxI_run {p : InLean.BlockShape} {fe : InLean.FEnv} {s₀ s' : 
   obtain ⟨rfl, rfl⟩ := hctx
   -- the opener, read at the opener's own state
   obtain ⟨hs₂, ht₂, hokf, hop, hfv⟩ := openClosedI_run hs hok0 hcl0 h2 (TabLe.refl _)
+  rw [ConLeche.Cached.openPisAtFvarsC_eq] at hop
   have hclf : ∀ a ∈ fvs, (TrS s₂ a).looseBVarsBounded 0 = true := by
     intro a ha
     obtain ⟨i, hi⟩ := List.mem_iff_getElem?.1 ha

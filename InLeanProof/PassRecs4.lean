@@ -2,6 +2,7 @@ module
 
 public import InLeanProof.PassRecs3
 import ConLeche.Verify.Denote.IndFrame
+import ConLeche.Verify.Cached.IndWalksC
 import ConLeche.Verify.Inductives.NestCallSyn
 import ConLeche.Verify.Inductives.ClassGenScope
 /- `Lean.mkAppN`'s body is not exposed by `Lean.Expr`; the marker-freeness of
@@ -356,6 +357,7 @@ theorem minorTyI_run {s₀ s' : InLean.CState} {g : InLean.ClassGen} {c d : Nat}
   | some q =>
   obtain ⟨fvs, res⟩ := q
   obtain ⟨hfo, hro, hopC⟩ := hop fvs res rfl
+  rw [ConLeche.Cached.openPisAtFvarsC_eq] at hopC
   have hfv : FvsOk s₁ fvs := fvsOk_of_open hfo hopC
   have hfl : fvs.length = x.nF := by
     have := ConLeche.Verify.openPisAtFvars_length _ hopC
@@ -1033,6 +1035,7 @@ theorem classGenRuleI_run {s₀ s' : InLean.CState} {g : InLean.ClassGen}
   | some q =>
   obtain ⟨fvs, res⟩ := q
   obtain ⟨hfo, hro, hopC⟩ := hop fvs res rfl
+  rw [ConLeche.Cached.openPisAtFvarsC_eq] at hopC
   have hfv : FvsOk sA fvs := fvsOk_of_open hfo hopC
   have hfl : fvs.length = x.nF := by
     have := ConLeche.Verify.openPisAtFvars_length _ hopC

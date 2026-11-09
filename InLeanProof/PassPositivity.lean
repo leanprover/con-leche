@@ -5,6 +5,7 @@ public import InLeanProof.PassCtors
 public import InLeanProof.DeclGuards
 import ConLeche.Verify.Cached.BridgeCS3
 import ConLeche.Verify.Denote.IndFrame
+import ConLeche.Verify.Cached.IndWalksC
 
 /-!
 # O7-positivity: the block's positivity against master's (task #451, lane O7-positivity)
@@ -217,6 +218,7 @@ theorem checkAbsCtorSortsI_run {fe : InLean.FEnv} {L : ConLeche.Env} (hJ : JobEn
     simp only [InLean.unwrapOr] at h3
     obtain ⟨rfl, rfl⟩ := pure_run h3
     obtain ⟨hokx, hokxb, hmX⟩ := hR2 xq.1 xq.2 rfl
+    rw [ConLeche.Cached.openPisAtFvarsC_eq] at hmX
     have hfvX : ∀ (i : Nat) (x : ConLeche.Expr), (TrSL s₂ xq.1)[i]? = some x →
         (∃ k ty, x = .fvar k ty) ∧ ConLeche.Expr.WScoped (ctx.hiAt 0 + i) x.fvarTypeD ∧
           x.fvarTypeD.looseBVarsBounded 0 = true := by

@@ -1,6 +1,7 @@
 module
 
 public import InLeanProof.PassClasses
+import ConLeche.Verify.Cached.IndWalksC
 
 /-!
 # O7-classes: the tail's stages (task #451, lane O7-classes)
@@ -54,6 +55,7 @@ theorem checkBlockIdxSortsFI_run {fe : InLean.FEnv} {L : ConLeche.Env} (hO : Ops
     obtain ⟨rfl, rfl⟩ := pure_run h2
     obtain ⟨fvs, b⟩ := q
     obtain ⟨hs₁, ht₁, hokf, hop, hfv⟩ := openClosedI_run hs hk1 hk2 h1 (TabLe.refl _)
+    rw [ConLeche.Cached.openPisAtFvarsC_eq] at hop
     obtain ⟨_, s₃, h3, h⟩ := bind_run h
     have hcf : ∀ (i : Nat) (x : ConLeche.Expr), ((TrSL s₁ fvs).drop p.nP)[i]? = some x →
         (∃ k ty, x = .fvar k ty) ∧ ConLeche.Expr.WScoped (p.nP + i) x.fvarTypeD ∧

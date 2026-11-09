@@ -2,6 +2,7 @@ module
 
 public import InLeanProof.IndBasis
 import ConLeche.Verify.Denote.IndFrame
+import ConLeche.Verify.Cached.IndWalksC
 
 /-!
 # O7-stages: the formers' stage against master's (task #451, lane O7-stages)
@@ -267,7 +268,7 @@ theorem openClosedI_run {s₀ s' s'' : InLean.CState} {n : Nat} {e : Lean.Expr}
     (hc : (trC e).looseBVarsBounded 0 = true)
     (h : InLean.openPisAtFvars n e 0 s₀ = .ok (some (fvs, b), s')) (ht : TabLe s' s'') :
     CSOKI mode eager env s' ∧ TabLe s₀ s' ∧ OkSL s' fvs = true ∧
-      ConLeche.openPisAtFvars n (trC e) 0 = some (TrSL s'' fvs, TrS s' b) ∧
+      ConLeche.openPisAtFvarsC n (trC e) 0 = some (TrSL s'' fvs, TrS s' b) ∧
       ∀ (i : Nat) (x : ConLeche.Expr), (TrSL s'' fvs)[i]? = some x →
         (∃ k ty, x = .fvar k ty) ∧ ConLeche.Expr.WScoped i x.fvarTypeD ∧
           x.fvarTypeD.looseBVarsBounded 0 = true := by
@@ -276,7 +277,8 @@ theorem openClosedI_run {s₀ s' s'' : InLean.CState} {n : Nat} {e : Lean.Expr}
     (by rw [TrS_of_okC _ hok]; exact hc) h
   obtain ⟨hokf, -, hm⟩ := hR fvs b rfl
   rw [TrS_of_okC _ hok, ← TrSL_of_tabLe ht hokf] at hm
-  refine ⟨hs', ht', hokf, hm, fun i x hx => ⟨?_, ?_, ?_⟩⟩
+  refine ⟨hs', ht', hokf, hm, fun i x hx => ⟨?_, ?_, ?_⟩⟩ <;>
+    rw [ConLeche.Cached.openPisAtFvarsC_eq] at hm
   · obtain ⟨ty, rfl⟩ := ConLeche.openPisAtFvars_index n _ 0 hm i x hx
     exact ⟨_, _, rfl⟩
   · have := ConLeche.openPisAtFvars_typeWScoped n hm (trC_wscoped 0 e) i x hx
@@ -327,6 +329,7 @@ theorem checkBlockAgreeFI_run {fe : InLean.FEnv} {L : ConLeche.Env} (hO : OpsSim
     -- the two telescopes, read at the state after the second
     obtain ⟨hs₁, ht₁, hokf0, hm0, hfv0⟩ := openClosedI_run hs h0 hc0 h1 (TabLe.refl _)
     obtain ⟨hs₂, ht₂, hokf, hm, hfv⟩ := openClosedI_run hs₁ hokx hcx h2 (TabLe.refl _)
+    rw [ConLeche.Cached.openPisAtFvarsC_eq] at hm0 hm
     have hT0 : TrSL s₂ fvs0 = TrSL s₁ fvs0 := TrSL_of_tabLe ht₂ hokf0
     have hokf0₂ : OkSL s₂ fvs0 = true := okSL_of_tabLe ht₂ hokf0
     obtain ⟨hs42, hokds, htds⟩ := mapM_fvarTypeDI_run hs₂ hokf0₂

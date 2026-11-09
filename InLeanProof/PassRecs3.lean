@@ -2,6 +2,7 @@ module
 
 public import InLeanProof.PassRecs2
 import ConLeche.Verify.Denote.IndFrame
+import ConLeche.Verify.Cached.IndWalksC
 
 /-!
 # O7-recursors: the erased comparison and the classes' constructors (task #451, lane O7-recursors)
@@ -796,6 +797,7 @@ theorem classCtorOfI_run {fe : InLean.FEnv} {L : ConLeche.Env} (hO : OpsSimI fe 
   subst s₄
   obtain ⟨fvs, b⟩ := q
   obtain ⟨hfvo, hbo, hopC⟩ := hop fvs b hr
+  rw [ConLeche.Cached.openPisAtFvarsC_eq] at hopC
   simp only [trNf]
   rw [trShape_nP, trShape_k, hopC]
   rw [Runs.pure_bind_eq]
@@ -1067,6 +1069,7 @@ theorem majorI_run {mode : ConLeche.CheckMode} {eager : Bool} {env : ConLeche.En
       simp only at h
       obtain ⟨rfl, rfl⟩ := optT_pure_run h
       obtain ⟨hifo, -, hopC⟩ := hop ifs b rfl
+      rw [ConLeche.Cached.openPisAtFvarsC_eq] at hopC
       refine ⟨hs₂, ht₂, fun ifs' maj h => ?_⟩
       simp only [Option.some.injEq, Prod.mk.injEq] at h
       obtain ⟨rfl, rfl⟩ := h
@@ -1105,6 +1108,7 @@ theorem ihPartsI_run {mode : ConLeche.CheckMode} {eager : Bool} {env : ConLeche.
     obtain ⟨rfl, hst⟩ := optT_pure_run h
     subst s'
     obtain ⟨hxo, hlo, hopC⟩ := hop xs leaf rfl
+    rw [ConLeche.Cached.openPisAtFvarsC_eq] at hopC
     refine ⟨hs₁, ht₁, fun xs' idx h => ?_⟩
     simp only [Option.some.injEq, Prod.mk.injEq] at h
     obtain ⟨rfl, rfl⟩ := h

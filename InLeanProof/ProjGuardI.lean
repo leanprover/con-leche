@@ -16,9 +16,7 @@ InLean's guard (`InLean.checkProjGuardI`) is the twin of master's
 type at the use's levels with its parameters opened (`constTyAtM`,
 `openPisAtFvarsM`), its fields stepped as official `infer_proj` does
 (`projGuardRowsGoM`, twin of `projGuardRowsGo`), and the rows' sorts
-(`checkGuardRowsI`).  This file has the parameters' opener
-(`openPisAtFvarsI_run`, master's pure `openPisAtFvars` at the translation,
-read at the final state) and the loop: `projGuardRowsGoI_run`, an answer's
+(`checkGuardRowsI`).  This file has the loop: `projGuardRowsGoI_run`, an answer's
 rows read at the final state as master's on the translated telescope.  A field the rest of the telescope does not use is stepped over in
 both (`hasLooseBVarI_TrS`: InLean's occurrence test is master's on the
 reading), unopened.  Then the rows' sorts (`checkGuardRowsI_run`), the sort
@@ -216,72 +214,6 @@ theorem toExpr_hasLooseBVarIn {fv : FVarId → Option ConLeche.Expr} (hfv : FVar
     rw [ConLeche.Cached.Expr.hasLooseBVarInP_zero]
     unfold EO.hasLooseBVarIn; rfl
   · rw [hasLooseBVarIn_eq e d w hw, hasLooseBVarIn_toExpr hfv d w e hr 0 c h]; rfl
-
-/-! ## The telescope opener -/
-
-/-- **Opening a telescope at interned variables** (master's `openPisAtFvars` at
-the translation): an answer reads, at the final state, as master's on the
-translated term. -/
-theorem openPisAtFvarsI_run :
-    ∀ (n i : Nat) {e : Lean.Expr} {s₀ : InLean.CState} {r : Option (List Lean.Expr × Lean.Expr)}
-      {s' : InLean.CState},
-      CSOKI mode eager env s₀ → OkS s₀ e = true → (TrS s₀ e).looseBVarsBounded 0 = true →
-      InLean.openPisAtFvarsM n e i s₀ = .ok (r, s') →
-      CSOKI mode eager env s' ∧ TabLe s₀ s' ∧
-        ∀ fvs b, r = some (fvs, b) → OkSL s' fvs = true ∧ OkS s' b = true ∧
-          ConLeche.openPisAtFvars n (TrS s₀ e) i = some (TrSL s' fvs, TrS s' b)
-  | 0, i, e, s₀, r, s', hs, hok, _, h => by
-    rw [InLean.openPisAtFvarsM] at h
-    obtain ⟨rfl, rfl⟩ := pure_run h
-    refine ⟨hs, TabLe.refl _, ?_⟩
-    rintro fvs b ⟨⟩
-    exact ⟨rfl, hok, rfl⟩
-  | n + 1, i, .mdata _ e, s₀, r, s', hs, hok, hc, h => by
-    rw [InLean.openPisAtFvarsM] at h
-    rw [OkS_mdata] at hok
-    rw [TrS_mdata] at hc ⊢
-    exact openPisAtFvarsI_run (n + 1) i hs hok hc h
-  | n + 1, i, .forallE nm dom body bi, s₀, r, s', hs, hok, hc, h => by
-    rw [InLean.openPisAtFvarsM] at h
-    simp only [OkS_forallE, Bool.and_eq_true] at hok
-    rw [TrS_forallE, lbb_forallE, Bool.and_eq_true] at hc
-    obtain ⟨x, s₂, hx, h⟩ := bind_run h
-    obtain ⟨hs₂, ht₂, hokx, htx⟩ := tripleI_iff_run.1 (mkFVarM_specI hs i hok.1 hc.1) x s₂ hx
-    obtain ⟨r', s₃, hr, h⟩ := bind_run h
-    have hb₂ : OkS s₂ body = true := okS_of_tabLe ht₂ hok.2
-    have hcx : (TrS s₂ x).looseBVarsBounded 0 = true := by rw [htx]; rfl
-    have hokI : OkS s₂ (body.inst1I x) = true := OkS_inst1 hb₂ hokx hcx
-    have hTI : TrS s₂ (body.inst1I x) =
-        (TrS s₀ body).instantiate1 (.fvar i (TrS s₀ dom)) 0 := by
-      rw [inst1I_eq, TrS_inst1_eq hb₂ hokx hcx, htx, TrS_of_tabLe ht₂ hok.2]
-    obtain ⟨hs₃, ht₃, hR⟩ := openPisAtFvarsI_run n (i + 1) hs₂ hokI
-      (by rw [hTI]; exact lbb_instantiate1 rfl hc.2) hr
-    have ht23 : TabLe s₀ s₃ := ht₂.trans ht₃
-    cases r' with
-    | none =>
-      obtain ⟨rfl, rfl⟩ := pure_run h
-      exact ⟨hs₃, ht23, by rintro _ _ ⟨⟩⟩
-    | some q =>
-      obtain ⟨fvs', b'⟩ := q
-      obtain ⟨rfl, rfl⟩ := pure_run h
-      refine ⟨hs₃, ht23, ?_⟩
-      rintro fvs b ⟨⟩
-      obtain ⟨hokf, hokb, hm⟩ := hR fvs' b' rfl
-      refine ⟨?_, hokb, ?_⟩
-      · simp only [OkSL, List.all_cons, Bool.and_eq_true]
-        exact ⟨okS_of_tabLe ht₃ hokx, hokf⟩
-      · rw [TrS_forallE]
-        simp only [ConLeche.openPisAtFvars]
-        rw [← hTI, hm]
-        simp only [TrSL, List.map_cons, TrS_of_tabLe ht₃ hokx, htx]
-  | _ + 1, _, .bvar _, _, _, _, hs, _, _, h | _ + 1, _, .fvar _, _, _, _, hs, _, _, h
-  | _ + 1, _, .mvar _, _, _, _, hs, _, _, h | _ + 1, _, .sort _, _, _, _, hs, _, _, h
-  | _ + 1, _, .const _ _, _, _, _, hs, _, _, h | _ + 1, _, .app _ _, _, _, _, hs, _, _, h
-  | _ + 1, _, .lam _ _ _ _, _, _, _, hs, _, _, h | _ + 1, _, .letE _ _ _ _ _, _, _, _, hs, _, _, h
-  | _ + 1, _, .lit _, _, _, _, hs, _, _, h | _ + 1, _, .proj _ _ _, _, _, _, hs, _, _, h => by
-    simp only [InLean.openPisAtFvarsM] at h
-    obtain ⟨rfl, rfl⟩ := pure_run h
-    exact ⟨hs, TabLe.refl _, by rintro _ _ ⟨⟩⟩
 
 /-- InLean's occurrence test on a term with a reading is master's on the
 reading. -/
@@ -566,6 +498,19 @@ theorem instantiateRevAt_eq (e : Lean.Expr) (subst : Array Lean.Expr) (c : Nat) 
           · simp [hik, hin]
       | _ => simp [hc]
 
+/-- `instantiateRevAt` at cursor `0` is `instRevI`. -/
+theorem instantiateRevAt_zero (e : Lean.Expr) (acc : Array Lean.Expr) :
+    EO.instantiateRevAt e acc 0 = e.instRevI acc := by
+  show _ = EO.instantiateRev e acc
+  rw [instantiateRevAt_eq, instantiateRev_eq, instantiate_eq, Array.size_reverse]
+  by_cases h0 : acc.size = 0
+  · simp [h0]
+  · by_cases hl : e.looseBVarRange ≤ 0
+    · have : e.hasLooseBVars = false := by simp [Lean.Expr.hasLooseBVars]; omega
+      simp [hl, this]
+    · have : e.hasLooseBVars = true := by simp [Lean.Expr.hasLooseBVars]; omega
+      simp [h0, hl, this]
+
 /-- **Instantiation at a cursor, at closed values, reads as con-leche's**
 `instantiateList` at the reversed values from that cursor. -/
 theorem TrS_instantiateRevAt {s : InLean.CState} {e : Lean.Expr} {acc : Array Lean.Expr}
@@ -638,17 +583,7 @@ theorem openPisRawI_run :
     simp only [OkS_forallE, Bool.and_eq_true] at hok
     rw [TrS_forallE, instList_forallE_eq, lbb_forallE, Bool.and_eq_true] at hlb
     obtain ⟨hod, htd⟩ := TrS_instantiateRevAt (c := 0) hok.1 hacc hcl
-    have hrev : EO.instantiateRevAt dom acc 0 = dom.instRevI acc := by
-      show _ = EO.instantiateRev dom acc
-      rw [instantiateRevAt_eq, instantiateRev_eq, instantiate_eq, Array.size_reverse]
-      by_cases h0 : acc.size = 0
-      · simp [h0]
-      · by_cases hl : dom.looseBVarRange ≤ 0
-        · have : dom.hasLooseBVars = false := by simp [Lean.Expr.hasLooseBVars]; omega
-          simp [hl, this]
-        · have : dom.hasLooseBVars = true := by simp [Lean.Expr.hasLooseBVars]; omega
-          simp [h0, hl, this]
-    rw [hrev] at hod htd
+    rw [instantiateRevAt_zero] at hod htd
     obtain ⟨x, s₂, hx, h⟩ := bind_run h
     obtain ⟨hs₂, ht₂, hokx, htx⟩ := tripleI_iff_run.1
       (mkFVarM_specI hs i hod (by rw [htd]; exact hlb.1)) x s₂ hx
@@ -685,6 +620,71 @@ theorem openPisRawI_run :
     simp only [InLean.openPisRawM] at h
     obtain ⟨rfl, rfl⟩ := pure_run h
     exact ⟨hs, TabLe.refl _, by rintro _ _ ⟨⟩⟩
+
+/-- The raw opening's substitution is the opened variables, innermost first,
+over the one it started from. -/
+theorem openPisRawGoC_acc :
+    ∀ (acc : List ConLeche.Expr) (n : Nat) (e : ConLeche.Expr) (i : Nat)
+      {fvs acc' : List ConLeche.Expr} {r : ConLeche.Expr},
+      ConLeche.openPisRawGoC acc n e i = some (fvs, acc', r) → acc' = fvs.reverse ++ acc
+  | _, 0, _, _, _, _, _, h => by
+    simp only [ConLeche.openPisRawGoC, Option.some.injEq, Prod.mk.injEq] at h
+    obtain ⟨rfl, rfl, -⟩ := h; rfl
+  | acc, n + 1, .forallE dom body, i, _, _, _, h => by
+    simp only [ConLeche.openPisRawGoC] at h
+    split at h
+    · next fvs' acc'' r' hgo =>
+      simp only [Option.some.injEq, Prod.mk.injEq] at h
+      obtain ⟨rfl, rfl, -⟩ := h
+      rw [openPisRawGoC_acc _ n body (i + 1) hgo]
+      simp
+    · exact nomatch h
+  | _, _ + 1, .bvar _, _, _, _, _, h => nomatch h
+  | _, _ + 1, .fvar .., _, _, _, _, h => nomatch h
+  | _, _ + 1, .sort _, _, _, _, _, h => nomatch h
+  | _, _ + 1, .const .., _, _, _, _, h => nomatch h
+  | _, _ + 1, .app .., _, _, _, _, h => nomatch h
+  | _, _ + 1, .lam .., _, _, _, _, h => nomatch h
+  | _, _ + 1, .letE .., _, _, _, _, h => nomatch h
+  | _, _ + 1, .lit _, _, _, _, _, h => nomatch h
+  | _, _ + 1, .proj .., _, _, _, _, h => nomatch h
+
+/-- **Opening a telescope at interned variables** (master's `openPisAtFvarsC`
+at the translation: the raw opening, `openPisRawI_run`, then the residual
+instantiated once): an answer reads, at the final state, as master's on the
+translated term. -/
+theorem openPisAtFvarsI_run (n i : Nat) {e : Lean.Expr} {s₀ : InLean.CState}
+    {r : Option (List Lean.Expr × Lean.Expr)} {s' : InLean.CState}
+    (hs : CSOKI mode eager env s₀) (hok : OkS s₀ e = true)
+    (hc : (TrS s₀ e).looseBVarsBounded 0 = true)
+    (h : InLean.openPisAtFvarsM n e i s₀ = .ok (r, s')) :
+    CSOKI mode eager env s' ∧ TabLe s₀ s' ∧
+      ∀ fvs b, r = some (fvs, b) → OkSL s' fvs = true ∧ OkS s' b = true ∧
+        ConLeche.openPisAtFvarsC n (TrS s₀ e) i = some (TrSL s' fvs, TrS s' b) := by
+  rw [InLean.openPisAtFvarsM] at h
+  obtain ⟨o, s₁, ho, h⟩ := bind_run h
+  obtain ⟨hs₁, ht₁, hR⟩ := openPisRawI_run (acc := #[]) n i hs hok (OkSL_empty _) rfl
+    (by rw [show TrSL s₀ (#[] : Array Lean.Expr).toList = [] from rfl, List.reverse_nil,
+      ConLeche.Expr.instantiateList_nil]; exact hc) ho
+  cases o with
+  | none =>
+    obtain ⟨rfl, rfl⟩ := pure_run h
+    exact ⟨hs₁, ht₁, by rintro _ _ ⟨⟩⟩
+  | some q =>
+    obtain ⟨acc, b⟩ := q
+    obtain ⟨rfl, rfl⟩ := pure_run h
+    refine ⟨hs₁, ht₁, ?_⟩
+    rintro fvs b' ⟨⟩
+    obtain ⟨hacc, hcl, hokb, -, fvs₀, hm⟩ := hR acc b rfl
+    obtain ⟨hokr, htrr⟩ := TrS_instantiateRevAt (c := 0) hokb hacc hcl
+    rw [instantiateRevAt_zero] at hokr htrr
+    rw [show (TrSL s₀ (#[] : Array Lean.Expr).toList).reverse = [] from rfl] at hm
+    have hfv : fvs₀ = TrSL s₁ acc.toList := by
+      have := openPisRawGoC_acc _ _ _ _ hm
+      simpa using (congrArg List.reverse this).symm
+    refine ⟨hacc, hokr, ?_⟩
+    rw [ConLeche.openPisAtFvarsC, ConLeche.openPisAtFvarsGoC, hm]
+    simp only [htrr, ConLeche.Expr.instantiateListC_spec, hfv]
 
 /-- **The guard's fast case at the translation** (master's `projGuardFastC`):
 InLean's answer, read, is master's on the translated raw telescope. -/
@@ -888,17 +888,7 @@ theorem checkProjRowsI_run (ih : KnotSpecI mode eager env r) (henv : ConLeche.En
         rw [hq] at h hfq
         simp only at h
         obtain ⟨hokr, htrr⟩ := TrS_instantiateRevAt (c := 0) hokb hacc hcl
-        have hrev : EO.instantiateRevAt b acc 0 = b.instRevI acc := by
-          show _ = EO.instantiateRev b acc
-          rw [instantiateRevAt_eq, instantiateRev_eq, instantiate_eq, Array.size_reverse]
-          by_cases h0 : acc.size = 0
-          · simp [h0]
-          · by_cases hl : b.looseBVarRange ≤ 0
-            · have : b.hasLooseBVars = false := by simp [Lean.Expr.hasLooseBVars]; omega
-              simp [hl, this]
-            · have : b.hasLooseBVars = true := by simp [Lean.Expr.hasLooseBVars]; omega
-              simp [h0, hl, this]
-        rw [hrev] at hokr htrr
+        rw [instantiateRevAt_zero] at hokr htrr
         obtain ⟨o2, s₃, ho2, h⟩ := bind_run h
         obtain ⟨hs₃, ht₃, hR2⟩ := projGuardRowsGoI_run e.idx e.numParams hs₂ hokr
           (by rw [htrr]; exact hlbb) ho2
