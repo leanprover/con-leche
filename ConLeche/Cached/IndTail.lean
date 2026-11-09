@@ -14,12 +14,13 @@ The production twins of the block check's tail (`checkBlockTail`,
 recursor stage: the generated recursors' records
 (`blockRecInfosTF`), the stream's recursors against the generated ones
 (`streamRecsCheck`, `ConLeche/Kernel/Inductives/StreamRecs.lean`) and the
-projection tables' checks (`checkBlockTablesF`).  Monomorphic `CheckCM`
+projection tables' checks (`checkBlockTables`).  Monomorphic `CheckCM`
 definitions at a mode and an environment index, calling the cached core
 (`coreKnotI`) directly and the cached walks of
 `ConLeche/Cached/ExprOpsC.lean` where the specification runs the plain
 ones.  Each is the specification at the shared operations
-(`ConLeche/Verify/Cached/IndTailC.lean`).
+(`ConLeche/Verify/Cached/IndTailC.lean`; the tables' checks, which read
+the environment, at the index `mkFEnv env` of the specification's `env`).
 -/
 
 namespace ConLeche.Cached
@@ -188,7 +189,7 @@ def streamRecsCheckC (fe : FEnv) :
 
 /-! ## The projection tables -/
 
-/-- The cached `checkStructProjTableF`: the bodies' guards by the memoised
+/-- The cached `checkStructProjTable`: the bodies' guards by the memoised
 walks. -/
 def checkStructProjTableC (t : ProjTable) (fe : FEnv) : CheckCM Unit := do
   unless t.bodies.size = t.numFields ∧ t.bodies.all (fun b => !b.hasFvar &&
@@ -200,7 +201,7 @@ def checkStructProjTableC (t : ProjTable) (fe : FEnv) : CheckCM Unit := do
   unless (fe.findTable? t.structName).isNone do
     throw (.invalid "projection table taken")
 
-/-- The cached `checkBlockTablesF`. -/
+/-- The cached `checkBlockTables`. -/
 def checkBlockTablesC (fe : FEnv) : List ProjTable → CheckCM Unit
   | [] => pure ()
   | t :: rest => do

@@ -2,6 +2,7 @@ module
 
 public import ConLeche.Cached.CoreC
 public import ConLeche.Kernel.Inductives.RecCheck
+public import ConLeche.Kernel.Inductives.BlockInstall
 
 @[expose] public section
 

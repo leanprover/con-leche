@@ -1,7 +1,6 @@
 module
 
 public import ConLeche.Cached.IndPass
-public import ConLeche.Kernel.Inductives.BlockInstallF
 
 public section
 

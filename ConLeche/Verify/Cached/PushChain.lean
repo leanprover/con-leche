@@ -162,18 +162,6 @@ theorem FreshNames.step {env : Env} {c : ConstantInfo} {ns : List Name}
   rw [Env.find?_cons, ite_eq_right (fun he => hnd.1 (by rw [he]; exact hn))]
   exact hfr n (List.mem_cons_of_mem _ hn)
 
-/-! ## The generic stage helpers keep the name and record the guard -/
-
-theorem checkConstantValC_fresh (mode : CheckMode) (fe : FEnv)
-    (cv : ConstantVal) {a : Bool} :
-    Yields (checkConstantValC mode fe cv a)
-      (fun _ => fe.find? cv.name = none) := by
-  unfold checkConstantValC
-  yields
-  all_goals exact Yields.pure (Option.not_isSome_iff_eq_none.mp (by assumption))
-
-/-! ## The constructors' conses -/
-
 /-! ## The block install at k members
 
 A block pushes its formers, then every member's constructors, then its
@@ -246,9 +234,9 @@ theorem checkBlockPassS_push (mode : CheckMode) {env : Env} {fe : FEnv}
         (∀ ms ∈ p₀.members, fe.find? ms.cvT.name = none) ∧
         ∀ n, r.env₁.find? n = none → n ∉ p₀.members.map (·.cvT.name) ∧ fe.find? n = none) := by
   unfold checkBlockPassS
-  simp only [checkBlockIndsC_eq, checkBlockCtorsC_eq, checkBlockClassesC_eq, blockNestCtxC_eq,
-    checkBlockPositivityC_eq, nestSeedsC_eq, classSeedsC_eq]
-  refine Yields.bind' (checkBlockIndsF_fresh _ fe p₀ isRec) fun r₁ h₁ => ?_
+  simp only [checkBlockClassesC_eq, blockNestCtxC_eq, checkBlockPositivityC_eq, nestSeedsC_eq,
+    classSeedsC_eq]
+  refine Yields.bind' (checkBlockIndsC_fresh mode fe p₀ isRec) fun r₁ h₁ => ?_
   obtain ⟨fe₁, p₁⟩ := r₁
   obtain ⟨⟨s, hps⟩, hfe₁, hfr⟩ := h₁
   try simp only [] at hps hfe₁ hfr
@@ -265,7 +253,7 @@ theorem checkBlockPassS_push (mode : CheckMode) {env : Env} {fe : FEnv}
     rw [← h.find?]
     exact hfr ms hms
   ybind
-  refine Yields.bind' (checkBlockCtorsF_fresh _ fe₁ fe₁ _ _) fun _ hfrs => ?_
+  refine Yields.bind' (checkBlockCtorsC_fresh mode fe₁ fe₁ _ _) fun _ hfrs => ?_
   refine Yields.bind fun _ => ?_
   refine Yields.bind fun _ => ?_
   refine Yields.bind fun kinds => ?_

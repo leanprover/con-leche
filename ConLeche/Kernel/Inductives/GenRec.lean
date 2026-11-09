@@ -1,6 +1,7 @@
 module
 
 public import ConLeche.Kernel.Inductives.RecCheck
+public import ConLeche.Kernel.DeclCheck
 public import ConLeche.Kernel.Inductives.ClassRead
 
 @[expose] public section

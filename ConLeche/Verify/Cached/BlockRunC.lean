@@ -22,16 +22,18 @@ are in `ConLeche/Verify/Cached/GenRecC.lean`.
 
 The file follows `BridgeCSDecl.lean`'s layout:
 
-1. the index mirrors at `mkFEnv` ARE the pure stages (`*_eqC`);
-2. the scoping facts every cached operation's triple needs (they are
+1. the scoping facts every cached operation's triple needs (they are
    stated at well-scoped inputs);
-3. the single-environment stages as `Std.WP` triples, proved by `vcgen`
+2. the single-environment stages as `Std.WP` triples, proved by `vcgen`
    and `grind`;
-4. the rule stage, whose one rule alternates between the rule-less
+3. the rule stage, whose one rule alternates between the rule-less
    recursors' environment and the constructors' (`SimG`, a run-level
    simulation whose invariant may change at `sharedOpsRuleR`'s
    flushes);
-5. the assembly, and the dispatch.
+4. the assembly, and the dispatch.
+
+The twins enter at the specification's stages by their equations
+(`ConLeche/Verify/Cached/IndBlockC.lean`).
 -/
 
 set_option experimental.vcgen true
@@ -45,86 +47,7 @@ open scoped Lean.Order
 
 variable {mode : CheckMode}
 
-/-! ## 1. The index mirrors at `mkFEnv` are the pure stages -/
-
-section Mirrors
-
-variable (ops : CheckerOps CheckCM)
-
-theorem checkBlockTeleF_eqC (env : Env) (nP : Nat) (ms : MemberShape) :
-    checkBlockTeleF ops (mkFEnv env) nP ms = checkBlockTele ops env nP ms := by
-  unfold checkBlockTeleF checkBlockTele
-  simp only [checkConstantValF_eq]
-
-theorem checkBlockTelesF_eqC (env : Env) (nP : Nat) :
-    ∀ mss : List MemberShape,
-      checkBlockTelesF ops (mkFEnv env) nP mss = checkBlockTeles ops env nP mss
-  | [] => rfl
-  | ms :: rest => by
-    simp only [checkBlockTelesF, checkBlockTeles, checkBlockTeleF_eqC,
-      checkBlockTelesF_eqC env nP rest]
-
-theorem checkBlockDomsAtF_eqC (env : Env) (off : Nat) (fvs doms : List Expr) :
-    ∀ j : Nat, checkBlockDomsAtF ops (mkFEnv env) off fvs doms j
-      = checkBlockDomsAt ops env off fvs doms j
-  | 0 => rfl
-  | j + 1 => by
-    simp only [checkBlockDomsAtF, checkBlockDomsAt, mkFEnv_env,
-      checkBlockDomsAtF_eqC env off fvs doms j]
-
-theorem checkBlockAgreeF_eqC (env : Env) (nP : Nat) (cvTa0 : ConstantVal) (s0 : Level) :
-    ∀ cvs : List (ConstantVal × Level),
-      checkBlockAgreeF ops (mkFEnv env) nP cvTa0 s0 cvs
-        = checkBlockAgree ops env nP cvTa0 s0 cvs
-  | [] => rfl
-  | (cvTa, s) :: rest => by
-    simp only [checkBlockAgreeF, checkBlockAgree, checkBlockDomsAtF_eqC,
-      checkBlockAgreeF_eqC env nP cvTa0 s0 rest]
-
-theorem consBlockIndsF_mkFEnv (p₁ : BlockShape) (isRec : Bool) :
-    ∀ (formers : List ConstantVal) (i : Nat) (env : Env),
-      consBlockIndsF p₁ isRec formers i (mkFEnv env) = mkFEnv (consBlockInds p₁ isRec formers i env)
-  | [], _, _ => rfl
-  | cvTa :: rest, i, env => by
-    simp only [consBlockIndsF, consBlockInds, push_mkFEnv]
-    exact consBlockIndsF_mkFEnv p₁ isRec rest (i + 1) _
-
-theorem checkBlockIndsF_eqC (env : Env) (p : BlockShape) (isRec : Bool) :
-    checkBlockIndsF ops (mkFEnv env) p isRec
-      = checkBlockInds ops env p isRec >>= fun r => pure (mkFEnv r.1, r.2) := by
-  unfold checkBlockIndsF checkBlockInds
-  rcases hm : p.members with _ | ⟨ms0, rest⟩
-  · rfl
-  · simp only [checkBlockTeleF_eqC, checkBlockTelesF_eqC, checkBlockAgreeF_eqC, bind_assoc,
-      pure_bind, consBlockIndsF_mkFEnv]
-
-theorem checkBlockCtorsF_eqC (env₀ env : Env) (p : BlockShape) :
-    ∀ l : List MemberShape,
-      checkBlockCtorsF ops (mkFEnv env₀) (mkFEnv env) p l = checkBlockCtors ops env₀ env p l
-  | [] => rfl
-  | ms :: rest => by
-    simp only [checkBlockCtorsF, checkBlockCtors, checkSumCtorsF_eq,
-      checkBlockCtorsF_eqC env₀ env p rest]
-
-theorem checkBlockIdxSortsF_eqC (env : Env) (p : BlockShape) :
-    ∀ l : List MemberShape,
-      checkBlockIdxSortsF ops (mkFEnv env) p l = checkBlockIdxSorts ops env p l
-  | [] => rfl
-  | ms :: rest => by
-    simp only [checkBlockIdxSortsF, checkBlockIdxSorts, checkStructFieldSortsIF_eq,
-      checkBlockIdxSortsF_eqC env p rest]
-
-end Mirrors
-
-theorem consBlockCtorsF_mkFEnv (nP : Nat) :
-    ∀ (memberCtors : List (List (ConstantVal × Nat))) (env : Env),
-      consBlockCtorsF nP memberCtors (mkFEnv env) = mkFEnv (consBlockCtors nP memberCtors env)
-  | [], _ => rfl
-  | ctorList :: rest, env => by
-    simp only [consBlockCtorsF, consBlockCtors, consSumCtorsF_mkFEnv]
-    exact consBlockCtorsF_mkFEnv nP rest _
-
-/-! ## 2. Scoping
+/-! ## 1. Scoping
 
 Every cached operation's simulation is stated at a well-scoped input
 (`WScoped`).  Most of the stages' inputs are OPENED telescopes of
@@ -157,7 +80,7 @@ theorem liftFueledS_spec {env : Env} {α : Type} {what : String} {o : Option α}
   sym only [conleche_grind, liftFueled.eq_1, liftFueled.eq_2] =>
     vcgen [liftFueled] <;> finish
 
-/-! ## 3. The single-environment stages, simulated -/
+/-! ## 2. The single-environment stages, simulated -/
 
 section Sims
 
@@ -286,7 +209,7 @@ theorem checkBlockIdxSortsS_spec (henv : EnvWF env)
 end Sims
 
 
-/-! ## 4. The rule stage: two environments, one state
+/-! ## 3. The rule stage: two environments, one state
 
 One rule runs its first two operations at the rule-less recursors'
 environment and the rest at the constructors'; `sharedOpsRuleR`
@@ -324,7 +247,7 @@ theorem ruleR_infer_simG {envR : Env} (henvR : EnvWF envR)
   obtain ⟨rfl, rfl⟩ := pureC_ok hr
   exact ⟨flushC_csok hs₁.residue, t, relEC_diag t hwt, F, hF⟩
 
-/-! ## 5. The assembly -/
+/-! ## 4. The assembly -/
 
 /-- The rule-less recursors' cons is a `consBlockRecs` with no rules. -/
 theorem consBlockRecsBare_eq_consBlockRecs (q : BlockShape) :
@@ -361,14 +284,14 @@ theorem envWF_consBlockRecsBare {q : BlockShape} {cvRas : List (ConstantVal × N
 verdict the pure stage's. -/
 theorem checkBlockTablesS_run (env : Env) :
     ∀ (Q : List ProjTable) {s₀ : CState} {u : Unit} {s' : CState},
-      checkBlockTablesF (m := CheckCM) (mkFEnv env) Q s₀ = .ok (u, s') →
+      checkBlockTables (m := CheckCM) env Q s₀ = .ok (u, s') →
       s' = s₀ ∧ checkBlockTables (m := CheckM) env Q = .ok ()
   | [], s₀, u, s', h => by
-    simp only [checkBlockTablesF] at h
+    simp only [checkBlockTables] at h
     obtain ⟨-, rfl⟩ := pureC_ok h
     exact ⟨rfl, rfl⟩
   | t :: rest, s₀, u, s', h => by
-    unfold checkBlockTablesF at h
+    unfold checkBlockTables at h
     unfold checkBlockTables
     obtain ⟨u₁, s₁, h₁, h⟩ := bindC_ok h
     obtain ⟨rfl, hrest⟩ := checkBlockTablesS_run env rest h

@@ -4,6 +4,7 @@ public import ConLeche.Cached.CheckerC
 import ConLeche.Verify.Cached.GuardsC
 import ConLeche.Verify.Cached.IndWalksC
 import ConLeche.Verify.Cached.IndRecC
+import ConLeche.Verify.CheckerF
 
 public section
 
@@ -12,9 +13,10 @@ public section
 
 The twins of `ConLeche/Cached/IndTail.lean` mirror the specification
 (`blockRecInfosTF`, `streamRecsCheck`,
-`checkBlockTablesF`) step by step at the shared operations `sharedOpsC`,
+`checkBlockTables`) step by step at the shared operations `sharedOpsC`,
 with the cached walks in place of the plain ones; each is equal to it, by
-the walks' equations and unfolding.  The cached driver's lemmas
+the walks' equations and unfolding (the tables' checks, which read the
+environment, at the index `mkFEnv env` of the specification's `env`).  The cached driver's lemmas
 (`checkBlockTailS_run`, `checkBlockTailS_twin`, `checkBlockTailS_fresh`)
 rewrite by them once and then read the specification.
 -/
@@ -126,16 +128,16 @@ theorem streamRecsCheckC_eq (fe : FEnv) :
 
 /-! ## The projection tables -/
 
-theorem checkStructProjTableC_eq (t : ProjTable) (fe : FEnv) :
-    checkStructProjTableC t fe = checkStructProjTableF (m := CheckCM) t fe := by
-  simp only [checkStructProjTableC, checkStructProjTableF, Expr.allLevelParamsDefinedC_spec,
-    constsResolveFC_spec]
+theorem checkStructProjTableC_eq (t : ProjTable) (env : Env) :
+    checkStructProjTableC t (mkFEnv env) = checkStructProjTable (m := CheckCM) t env := by
+  simp only [checkStructProjTableC, checkStructProjTable, Expr.allLevelParamsDefinedC_spec,
+    constsResolveFC_spec, constsResolveF_eq, mkFEnv_find?, mkFEnv_findTable?]
 
-theorem checkBlockTablesC_eq (fe : FEnv) :
-    ∀ Q, checkBlockTablesC fe Q = checkBlockTablesF (m := CheckCM) fe Q
+theorem checkBlockTablesC_eq (env : Env) :
+    ∀ Q, checkBlockTablesC (mkFEnv env) Q = checkBlockTables (m := CheckCM) env Q
   | [] => rfl
   | t :: rest => by
-    simp only [checkBlockTablesC, checkBlockTablesF, checkStructProjTableC_eq,
-      checkBlockTablesC_eq fe rest]
+    simp only [checkBlockTablesC, checkBlockTables, checkStructProjTableC_eq,
+      checkBlockTablesC_eq env rest]
 
 end ConLeche.Cached

@@ -216,12 +216,12 @@
     75  def recordJob (mode : CheckMode) (pins : List NatOpPinSet) (maxNatSize : Nat) (I : StreamIndex) (k : Nat)
     76      (pd : Declaration) : Except CheckError Unit :=
 
-== ConLeche/Verify/Cached/ViewCongr.lean#L1323-L1327
-  1323  theorem checkDeclStepC_twin (pins : List NatOpPinSet) {fe₁ fe₂ : FEnv} (ht : Twin fe₁ fe₂)
-  1324     
-  1325      (pd : Declaration) :
-  1326      RelRun (PushedFrom fe₁ fe₂) (checkDeclStepC mode pins fe₁ pd)
-  1327        (checkDeclStepC mode pins fe₂ pd) := by
+== ConLeche/Verify/Cached/ViewCongr.lean#L1330-L1334
+  1330  theorem checkDeclStepC_twin (pins : List NatOpPinSet) {fe₁ fe₂ : FEnv} (ht : Twin fe₁ fe₂)
+  1331     
+  1332      (pd : Declaration) :
+  1333      RelRun (PushedFrom fe₁ fe₂) (checkDeclStepC mode pins fe₁ pd)
+  1334        (checkDeclStepC mode pins fe₂ pd) := by
 
 == ConLeche/Verify/Cached/StreamIndex.lean#L491-L493
    491  theorem checkDecls_of_jobs {ds : Array Declaration}
@@ -282,10 +282,10 @@
    300  theorem checkDecls_envWF {maxNatSize : Nat} {ds : Array Declaration} {env' : Env}
    301      (h : checkDecls .verified pins maxNatSize ds = .ok env') : EnvWF env' := by
 
-== ConLeche/Verify/Cached/KnotCongr.lean#L481-L483
-   481  theorem coreKnotI_congr (hfe : fe₁.find? = fe₂.find?)
-   482      (htb : fe₁.findTable? = fe₂.findTable?) :
-   483      ∀ F, coreKnotI mode eager fe₁ F = coreKnotI mode eager fe₂ F := by
+== ConLeche/Verify/Cached/KnotCongr.lean#L480-L482
+   480  theorem coreKnotI_congr (hfe : fe₁.find? = fe₂.find?)
+   481      (htb : fe₁.findTable? = fe₂.findTable?) :
+   482      ∀ F, coreKnotI mode eager fe₁ F = coreKnotI mode eager fe₂ F := by
 
 == ConLeche/Kernel/TypeChecker.lean#L29-L54
     29  def whnfCore (env : Env) (fuel depth : Nat) (e : Expr) (cheap : Bool := false) :
@@ -896,9 +896,9 @@
 == ConLeche/Kernel/Inductives/BlockTail.lean#L153
    153  def checkBlock (ops : CheckerOps m) (env : Env) (block : List ConstantInfo) (p₀ : BlockShape) :
 
-== ConLeche/Kernel/Inductives/RecCheck.lean#L229-L230
-   229  def targetMajorOf (ops : CheckerOps m) (fe : FEnv) (p : BlockShape) (pfvs fvs : List Expr)
-   230      (mty : Expr) : m TargetMajor := do
+== ConLeche/Kernel/Inductives/RecCheck.lean#L239-L240
+   239  def targetMajorOf (ops : CheckerOps m) (fe : FEnv) (p : BlockShape) (pfvs fvs : List Expr)
+   240      (mty : Expr) : m TargetMajor := do
 
 == ConLeche/Kernel/Inductives/Positivity.lean#L806-L808
    806  def nestContNew (ctx : NestCtx) (ops : CheckerOps m) (env : Env)
@@ -908,17 +908,17 @@
 == ConLeche/Kernel/Inductives/Positivity.lean#L1032
   1032  def nestRoot (ops : CheckerOps m) (env : Env) (ctx : NestCtx) (holes : List Expr) :
 
-== ConLeche/Kernel/Inductives/GenRec.lean#L497
-   497  def classSeeds (ctx : NestCtx) (holes : List Expr) (Ms : List TargetMajor) :
+== ConLeche/Kernel/Inductives/GenRec.lean#L498
+   498  def classSeeds (ctx : NestCtx) (holes : List Expr) (Ms : List TargetMajor) :
 
 == ConLeche/Kernel/Inductives/BlockInstall.lean#L282
    282  def checkBlockPositivity (ops : CheckerOps m) (env₁ : Env) (find? : Name → Option ConstantInfo)
 
-== ConLeche/Kernel/Inductives/GenRec.lean#L551
-   551  def genRecCheck (ops : CheckerOps m) (fe : FEnv) (p : BlockShape) (nestedBit : Bool)
+== ConLeche/Kernel/Inductives/GenRec.lean#L552
+   552  def genRecCheck (ops : CheckerOps m) (fe : FEnv) (p : BlockShape) (nestedBit : Bool)
 
-== ConLeche/Kernel/Inductives/StreamRecs.lean#L182
-   182  def streamRecsCheck (ops : CheckerOps m) (fe : FEnv) :
+== ConLeche/Kernel/Inductives/StreamRecs.lean#L183
+   183  def streamRecsCheck (ops : CheckerOps m) (fe : FEnv) :
 
 == ConLeche/Verify/Cached/BlockPushes.lean#L272
    272  theorem blockInstall_of_checks {F : Nat} {env env₁ : Env} {block : List ConstantInfo} {p₀ : BlockShape}
@@ -973,11 +973,11 @@
 == ConLeche/Kernel/Inductives/SumInstall.lean#L76
     76  def checkSumCtor (ops : CheckerOps m) (env₀ env : Env) (T : Name)
 
-== ConLeche/Kernel/Inductives/GenRec.lean#L521
-   521  def checkBlockClasses (ops : CheckerOps m) (fe₁ : FEnv) (p : BlockShape)
+== ConLeche/Kernel/Inductives/GenRec.lean#L522
+   522  def checkBlockClasses (ops : CheckerOps m) (fe₁ : FEnv) (p : BlockShape)
 
-== ConLeche/Kernel/Inductives/GenRec.lean#L507
-   507  def classKeyOf (nP : Nat) (params : List Expr)
+== ConLeche/Kernel/Inductives/GenRec.lean#L508
+   508  def classKeyOf (nP : Nat) (params : List Expr)
 
 == ConLeche/Kernel/Inductives/Positivity.lean#L895
    895  def nestPos (ops : CheckerOps m) (env : Env) (ctx : NestCtx) :
@@ -997,20 +997,20 @@
 == ConLeche/Kernel/Inductives/BlockTail.lean#L103
    103  def checkBlockTail (ops : CheckerOps m) (block : List ConstantInfo) (q : BlockPass Env)
 
-== ConLeche/Kernel/Inductives/GenRec.lean#L294
-   294  def classCtorOf (ops : CheckerOps m) (env : Env) (p : BlockShape) (formerTys : List Expr)
+== ConLeche/Kernel/Inductives/GenRec.lean#L295
+   295  def classCtorOf (ops : CheckerOps m) (env : Env) (p : BlockShape) (formerTys : List Expr)
 
-== ConLeche/Kernel/Inductives/GenRec.lean#L176
-   176  def classGenRecTy (g : ClassGen) (c : Nat) : Option Expr := do
+== ConLeche/Kernel/Inductives/GenRec.lean#L177
+   177  def classGenRecTy (g : ClassGen) (c : Nat) : Option Expr := do
 
-== ConLeche/Kernel/Inductives/GenRec.lean#L188
-   188  def classGenRule (g : ClassGen) (recOf : Nat → Option Name) (rlvls : List Level) (c : Nat)
+== ConLeche/Kernel/Inductives/GenRec.lean#L189
+   189  def classGenRule (g : ClassGen) (recOf : Nat → Option Name) (rlvls : List Level) (c : Nat)
 
-== ConLeche/Kernel/Inductives/GenRec.lean#L385
-   385  def classRecTyCheck (ops : CheckerOps m) (fe : FEnv) (cvRi cvG : ConstantVal) : m Unit := do
+== ConLeche/Kernel/Inductives/GenRec.lean#L386
+   386  def classRecTyCheck (ops : CheckerOps m) (fe : FEnv) (cvRi cvG : ConstantVal) : m Unit := do
 
-== ConLeche/Kernel/Inductives/GenRec.lean#L425
-   425  def classRuleCheck (ops : CheckerOps m) (feT feR : FEnv)
+== ConLeche/Kernel/Inductives/GenRec.lean#L426
+   426  def classRuleCheck (ops : CheckerOps m) (feT feR : FEnv)
 
 == ConLeche/Kernel/CoreDefs.lean#L448-L456
    448  `is_constant(e, Bool.true)` (`type_checker.cpp:1097`): the name, no

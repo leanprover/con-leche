@@ -3056,30 +3056,30 @@
     66  /-- Stage 2, one constructor's type: the ordinary constant check (the
     67  constructor is stored AS DECLARED), the result
 
-== ConLeche/Kernel/Inductives/GenRec.lean#L383-L405
-   383  only output a verdict): checked as a constant (`classConstOk`) and
-   384  `isDefEq` to the stream's checked type `cvRi`. -/
-   385  def classRecTyCheck (ops : CheckerOps m) (fe : FEnv) (cvRi cvG : ConstantVal) : m Unit := do
-   386    classConstOk ops fe cvG
-   387    unless ← ops.isDefEq fe.env 0 cvRi.type cvG.type do
-   388      throw (.invalid s!"generated recursor: the type of {cvG.name} is not the generated one \
-   389        (official: invalid recursor)")
-   390  
-   391  /-- **One recursor's generated type, checked and compared**: the record's
-   392  member, rule prefix and major index are the generated ones; the generated
-   393  type is checked as a constant under the record's name and level
-   394  parameters (`checkConstantValF`) and must be `isDefEq` to the stream's
-   395  checked type `cvRi`.  Returns the generated constant (what is stored). -/
-   396  def classRecTyOk (ops : CheckerOps m) (fe : FEnv) (g : ClassGen)
-   397      (k : Nat) (rc : RecShape) (cvRi : ConstantVal) (c : Nat) : m ConstantVal := do
-   398    let ci := g.cls.getD c default
-   399    unless rc.tgt == ci.member.getD k do
-   400      throw (.invalid "generated recursor: the recursor record's member is not its class's")
-   401    unless rc.rP == g.nP + g.slots.length && rc.mI == rc.rP + ci.nIdx do
-   402      throw (.invalid "generated recursor: the recursor record's rule prefix or major index is \
-   403        not the generated one")
-   404    let gty ← unwrapOr (classGenRecTy g c) (.internal "generated recursor: recursor type")
-   405    let cvG := { rc.cvR with type := gty }
+== ConLeche/Kernel/Inductives/GenRec.lean#L384-L406
+   384  only output a verdict): checked as a constant (`classConstOk`) and
+   385  `isDefEq` to the stream's checked type `cvRi`. -/
+   386  def classRecTyCheck (ops : CheckerOps m) (fe : FEnv) (cvRi cvG : ConstantVal) : m Unit := do
+   387    classConstOk ops fe cvG
+   388    unless ← ops.isDefEq fe.env 0 cvRi.type cvG.type do
+   389      throw (.invalid s!"generated recursor: the type of {cvG.name} is not the generated one \
+   390        (official: invalid recursor)")
+   391  
+   392  /-- **One recursor's generated type, checked and compared**: the record's
+   393  member, rule prefix and major index are the generated ones; the generated
+   394  type is checked as a constant under the record's name and level
+   395  parameters (`checkConstantValF`) and must be `isDefEq` to the stream's
+   396  checked type `cvRi`.  Returns the generated constant (what is stored). -/
+   397  def classRecTyOk (ops : CheckerOps m) (fe : FEnv) (g : ClassGen)
+   398      (k : Nat) (rc : RecShape) (cvRi : ConstantVal) (c : Nat) : m ConstantVal := do
+   399    let ci := g.cls.getD c default
+   400    unless rc.tgt == ci.member.getD k do
+   401      throw (.invalid "generated recursor: the recursor record's member is not its class's")
+   402    unless rc.rP == g.nP + g.slots.length && rc.mI == rc.rP + ci.nIdx do
+   403      throw (.invalid "generated recursor: the recursor record's rule prefix or major index is \
+   404        not the generated one")
+   405    let gty ← unwrapOr (classGenRecTy g c) (.internal "generated recursor: recursor type")
+   406    let cvG := { rc.cvR with type := gty }
 
 == ConLeche/Kernel/Inductives/ClassRead.lean#L24-L32
     24  This file READS that data off the recursor types, syntactically, and
@@ -3092,14 +3092,14 @@
     31  anything read here: a wrong reading can only make the generated type
     32  differ from the stream's, i.e. reject.
 
-== ConLeche/Kernel/Inductives/StreamRecs.lean#L182-L188
-   182  def streamRecsCheck (ops : CheckerOps m) (fe : FEnv) :
-   183      List RecShape → List (ConstantVal × TargetMajor × List Expr) → m Unit
-   184    | rc :: rcs, g :: gs => do
-   185      streamRecCheck ops fe rc g
-   186      streamRecsCheck ops fe rcs gs
-   187    | [], [] => pure ()
-   188    | _, _ => throw (.internal "stored recursors: the generated family is not the records'")
+== ConLeche/Kernel/Inductives/StreamRecs.lean#L183-L189
+   183  def streamRecsCheck (ops : CheckerOps m) (fe : FEnv) :
+   184      List RecShape → List (ConstantVal × TargetMajor × List Expr) → m Unit
+   185    | rc :: rcs, g :: gs => do
+   186      streamRecCheck ops fe rc g
+   187      streamRecsCheck ops fe rcs gs
+   188    | [], [] => pure ()
+   189    | _, _ => throw (.internal "stored recursors: the generated family is not the records'")
 
 == whitepaper/Fragment/Decl.lean#L218-L220
    218  /-- The motive's type, under the parameters:
@@ -3151,37 +3151,37 @@
    320      (mkAppN (.bvar (nF + S.n - 1 - j))
    321        (varsAt 0 nF ++ c.recFields.map fun kf => S.ihVal nF kf.1 kf.2))
 
-== ConLeche/Kernel/Inductives/GenRec.lean#L175-L182
-   175  /-- **The generated recursor type** at class `c`. -/
-   176  def classGenRecTy (g : ClassGen) (c : Nat) : Option Expr := do
-   177    let pre := g.pre
-   178    let rP := pre.length
-   179    let (ifs, maj) ← g.major c rP
-   180    let t : Expr := .fvar (rP + ifs.length) maj
-   181    pure (closeTelescope (pre ++ ifs.map g.binder ++ [maj]) 0
-   182      (Expr.mkAppN (g.motVar c) (ifs ++ [t])))
+== ConLeche/Kernel/Inductives/GenRec.lean#L176-L183
+   176  /-- **The generated recursor type** at class `c`. -/
+   177  def classGenRecTy (g : ClassGen) (c : Nat) : Option Expr := do
+   178    let pre := g.pre
+   179    let rP := pre.length
+   180    let (ifs, maj) ← g.major c rP
+   181    let t : Expr := .fvar (rP + ifs.length) maj
+   182    pure (closeTelescope (pre ++ ifs.map g.binder ++ [maj]) 0
+   183      (Expr.mkAppN (g.motVar c) (ifs ++ [t])))
 
-== ConLeche/Kernel/Inductives/GenRec.lean#L188-L207
-   188  def classGenRule (g : ClassGen) (recOf : Nat → Option Name) (rlvls : List Level) (c : Nat)
-   189      (x : ClassCtor) : Option Expr := do
-   190    let pre := g.pre
-   191    let rP := pre.length
-   192    let (s, _) ← (List.range g.slots.length).zip g.slots |>.find? fun (_, sl) =>
-   193      match sl with | .minor c' C _ => c' == c && C == x.cv.name | _ => false
-   194    let (fvs, _) ← openPisAtFvars x.nF x.tyD rP
-   195    let ws ← targetPiDomsWith fvs x.tyN
-   196    let pvars := (List.range rP).map fun i => if i < g.nP then g.params.getD i default else
-   197      g.slotVar (i - g.nP)
-   198    let ihs ← (List.range x.nF).filterMapM fun i =>
-   199      match x.kinds.getD i .ordinary with
-   200      | .ordinary => some none
-   201      | .recursive t tele => do
-   202        let f := fvs.getD i default
-   203        let (xs, idx) ← g.ihParts t tele (ws.getD i default) (rP + x.nF)
-   204        let r ← recOf t
-   205        pure (some (closeLams (xs.map g.binder) (rP + x.nF)
-   206          (Expr.mkAppN (.const r rlvls) (pvars ++ idx ++ [Expr.mkAppN f xs]))))
-   207    pure (closeLams (pre ++ fvs.map g.binder) 0 (Expr.mkAppN (g.slotVar s) (fvs ++ ihs)))
+== ConLeche/Kernel/Inductives/GenRec.lean#L189-L208
+   189  def classGenRule (g : ClassGen) (recOf : Nat → Option Name) (rlvls : List Level) (c : Nat)
+   190      (x : ClassCtor) : Option Expr := do
+   191    let pre := g.pre
+   192    let rP := pre.length
+   193    let (s, _) ← (List.range g.slots.length).zip g.slots |>.find? fun (_, sl) =>
+   194      match sl with | .minor c' C _ => c' == c && C == x.cv.name | _ => false
+   195    let (fvs, _) ← openPisAtFvars x.nF x.tyD rP
+   196    let ws ← targetPiDomsWith fvs x.tyN
+   197    let pvars := (List.range rP).map fun i => if i < g.nP then g.params.getD i default else
+   198      g.slotVar (i - g.nP)
+   199    let ihs ← (List.range x.nF).filterMapM fun i =>
+   200      match x.kinds.getD i .ordinary with
+   201      | .ordinary => some none
+   202      | .recursive t tele => do
+   203        let f := fvs.getD i default
+   204        let (xs, idx) ← g.ihParts t tele (ws.getD i default) (rP + x.nF)
+   205        let r ← recOf t
+   206        pure (some (closeLams (xs.map g.binder) (rP + x.nF)
+   207          (Expr.mkAppN (.const r rlvls) (pvars ++ idx ++ [Expr.mkAppN f xs]))))
+   208    pure (closeLams (pre ++ fvs.map g.binder) 0 (Expr.mkAppN (g.slotVar s) (fvs ++ ihs)))
 
 == whitepaper/Fragment/Decl.lean#L710-L717
    710  /-- **The subsingleton criterion** for a field of sort `v` at
@@ -3206,10 +3206,10 @@
     83    p.resSort.isNeverZero ||
     84      (p.large && p.k == 1 && !nested && (p.numCtors == 0 || p.numCtors == 1))
 
-== ConLeche/Kernel/Inductives/GenRec.lean#L559-L561
-   559    unless 0 < p.k do
-   560      throw (.invalid "generated recursor: the block declares no family")
-   561    if p.large && !blockLargeElimAllowed p (nestedBit || Ms.any (·.member.isNone)) then
+== ConLeche/Kernel/Inductives/GenRec.lean#L560-L562
+   560    unless 0 < p.k do
+   561      throw (.invalid "generated recursor: the block declares no family")
+   562    if p.large && !blockLargeElimAllowed p (nestedBit || Ms.any (·.member.isNone)) then
 
 == ConLeche/Kernel/Inductives/SumInstall.lean#L50-L64
     50  def checkStructFieldSortsI (ops : CheckerOps m) (env : Env) (isProp large : Bool)
@@ -3305,30 +3305,30 @@
    311  are never read; the fragment infers the rule's type likewise). -/
    312  def ruleType (c : CtorSpec) : Expr := mkPis (S.ruleCtx c) (S.ruleBodyTy c)
 
-== ConLeche/Kernel/Inductives/GenRec.lean#L424-L446
-   424  resolving at the constructors' environment `feT`. -/
-   425  def classRuleCheck (ops : CheckerOps m) (feT feR : FEnv)
-   426      (cvR : ConstantVal) (n : Nat) (gen : Expr) : m Unit := do
-   427    unless gen.looseBVarsBounded 0 && !gen.hasFvar do
-   428      throw (.internal s!"generated recursor: a rule of {cvR.name} is not closed")
-   429    unless gen.allLevelParamsDefined cvR.levelParams do
-   430      throw (.internal s!"generated recursor: a rule of {cvR.name} names an undeclared universe \
-   431        parameter")
-   432    unless gen.constsResolveF feR do
-   433      throw (unresolvedConstsError s!"generated rule of {cvR.name}" gen)
-   434    let _ ← ops.inferType feR.env 0 gen
-   435    let (rbs, _) ← unwrapOr (gen.stripLams n)
-   436      (.internal s!"generated recursor: a rule of {cvR.name} is not a λ-telescope over the \
-   437        recursor's prefix and the constructor's fields")
-   438    unless rbs.all (fun b => b.constsResolveF feT) do
-   439      throw (unresolvedConstsError s!"the domains of a generated rule of {cvR.name}" gen)
-   440  
-   441  /-- **One generated rule, installed** (as generated), after its check
-   442  (`classRuleCheck`).  Returns the rule (stored). -/
-   443  def classRuleOk (ops : CheckerOps m) (feT feR : FEnv)
-   444      (cvR : ConstantVal) (n : Nat) (gen : Expr) : m Expr := do
-   445    classRuleCheck ops feT feR cvR n gen
-   446    pure gen
+== ConLeche/Kernel/Inductives/GenRec.lean#L425-L447
+   425  resolving at the constructors' environment `feT`. -/
+   426  def classRuleCheck (ops : CheckerOps m) (feT feR : FEnv)
+   427      (cvR : ConstantVal) (n : Nat) (gen : Expr) : m Unit := do
+   428    unless gen.looseBVarsBounded 0 && !gen.hasFvar do
+   429      throw (.internal s!"generated recursor: a rule of {cvR.name} is not closed")
+   430    unless gen.allLevelParamsDefined cvR.levelParams do
+   431      throw (.internal s!"generated recursor: a rule of {cvR.name} names an undeclared universe \
+   432        parameter")
+   433    unless gen.constsResolveF feR do
+   434      throw (unresolvedConstsError s!"generated rule of {cvR.name}" gen)
+   435    let _ ← ops.inferType feR.env 0 gen
+   436    let (rbs, _) ← unwrapOr (gen.stripLams n)
+   437      (.internal s!"generated recursor: a rule of {cvR.name} is not a λ-telescope over the \
+   438        recursor's prefix and the constructor's fields")
+   439    unless rbs.all (fun b => b.constsResolveF feT) do
+   440      throw (unresolvedConstsError s!"the domains of a generated rule of {cvR.name}" gen)
+   441  
+   442  /-- **One generated rule, installed** (as generated), after its check
+   443  (`classRuleCheck`).  Returns the rule (stored). -/
+   444  def classRuleOk (ops : CheckerOps m) (feT feR : FEnv)
+   445      (cvR : ConstantVal) (n : Nat) (gen : Expr) : m Expr := do
+   446    classRuleCheck ops feT feR cvR n gen
+   447    pure gen
 
 == whitepaper/Fragment/Decl.lean#L531-L572
    531  /-! ### What is stored -/
@@ -5606,64 +5606,64 @@
    384    (`nestContKey`) -/
    385    active : List NestKey := []
 
-== ConLeche/Kernel/Inductives/GenRec.lean#L138-L158
-   138  /-- Constructor `x`'s minor premise type at depth `d`, of class `c`: its
-   139  declared fields, then per recursive field `f` (walked type `w`) the
-   140  inductive hypothesis `∀ a⃗, motive_t e⃗ (f a⃗)`, over the motive at the
-   141  declared result indices and the constructor applied. -/
-   142  def ClassGen.minorTy (g : ClassGen) (c : Nat) (x : ClassCtor) (d : Nat) : Option Expr := do
-   143    let ci := g.cls.getD c default
-   144    let (fvs, res) ← openPisAtFvars x.nF x.tyD d
-   145    let ws ← targetPiDomsWith fvs x.tyN
-   146    let recs := (List.range x.nF).filterMap fun i =>
-   147      match x.kinds.getD i .ordinary with
-   148      | .recursive t tele => some (i, t, tele)
-   149      | .ordinary => none
-   150    let ihs ← (List.range recs.length).mapM fun l => do
-   151      let (i, t, tele) := recs.getD l default
-   152      let e := d + x.nF + l
-   153      let (xs, idx) ← g.ihParts t tele (ws.getD i default) e
-   154      pure (closeTelescope (xs.map g.binder) e
-   155        (Expr.mkAppN (g.motVar t) (idx ++ [Expr.mkAppN (fvs.getD i default) xs])))
-   156    let concl := Expr.mkAppN (g.motVar c)
-   157      (res.getAppArgs.drop ci.nPc ++ [Expr.mkAppN (.const x.cv.name ci.lvls) (ci.ds ++ fvs)])
-   158    pure (closeTelescope (fvs.map g.binder ++ ihs) d concl)
+== ConLeche/Kernel/Inductives/GenRec.lean#L139-L159
+   139  /-- Constructor `x`'s minor premise type at depth `d`, of class `c`: its
+   140  declared fields, then per recursive field `f` (walked type `w`) the
+   141  inductive hypothesis `∀ a⃗, motive_t e⃗ (f a⃗)`, over the motive at the
+   142  declared result indices and the constructor applied. -/
+   143  def ClassGen.minorTy (g : ClassGen) (c : Nat) (x : ClassCtor) (d : Nat) : Option Expr := do
+   144    let ci := g.cls.getD c default
+   145    let (fvs, res) ← openPisAtFvars x.nF x.tyD d
+   146    let ws ← targetPiDomsWith fvs x.tyN
+   147    let recs := (List.range x.nF).filterMap fun i =>
+   148      match x.kinds.getD i .ordinary with
+   149      | .recursive t tele => some (i, t, tele)
+   150      | .ordinary => none
+   151    let ihs ← (List.range recs.length).mapM fun l => do
+   152      let (i, t, tele) := recs.getD l default
+   153      let e := d + x.nF + l
+   154      let (xs, idx) ← g.ihParts t tele (ws.getD i default) e
+   155      pure (closeTelescope (xs.map g.binder) e
+   156        (Expr.mkAppN (g.motVar t) (idx ++ [Expr.mkAppN (fvs.getD i default) xs])))
+   157    let concl := Expr.mkAppN (g.motVar c)
+   158      (res.getAppArgs.drop ci.nPc ++ [Expr.mkAppN (.const x.cv.name ci.lvls) (ci.ds ++ fvs)])
+   159    pure (closeTelescope (fvs.map g.binder ++ ihs) d concl)
 
-== ConLeche/Kernel/Inductives/GenRec.lean#L175-L182
-   175  /-- **The generated recursor type** at class `c`. -/
-   176  def classGenRecTy (g : ClassGen) (c : Nat) : Option Expr := do
-   177    let pre := g.pre
-   178    let rP := pre.length
-   179    let (ifs, maj) ← g.major c rP
-   180    let t : Expr := .fvar (rP + ifs.length) maj
-   181    pure (closeTelescope (pre ++ ifs.map g.binder ++ [maj]) 0
-   182      (Expr.mkAppN (g.motVar c) (ifs ++ [t])))
+== ConLeche/Kernel/Inductives/GenRec.lean#L176-L183
+   176  /-- **The generated recursor type** at class `c`. -/
+   177  def classGenRecTy (g : ClassGen) (c : Nat) : Option Expr := do
+   178    let pre := g.pre
+   179    let rP := pre.length
+   180    let (ifs, maj) ← g.major c rP
+   181    let t : Expr := .fvar (rP + ifs.length) maj
+   182    pure (closeTelescope (pre ++ ifs.map g.binder ++ [maj]) 0
+   183      (Expr.mkAppN (g.motVar c) (ifs ++ [t])))
 
-== ConLeche/Kernel/Inductives/GenRec.lean#L184-L207
-   184  /-- **The generated rule** of a recursor at class `c` for its constructor
-   185  `x`: `λ p⃗ (prefix) f⃗, minor f⃗ (λ a⃗, rec_t p⃗ (prefix) e⃗ (f a⃗))…`, the
-   186  callee `rec_t` the family's recursor at the landing class `t`
-   187  (`recOf`). -/
-   188  def classGenRule (g : ClassGen) (recOf : Nat → Option Name) (rlvls : List Level) (c : Nat)
-   189      (x : ClassCtor) : Option Expr := do
-   190    let pre := g.pre
-   191    let rP := pre.length
-   192    let (s, _) ← (List.range g.slots.length).zip g.slots |>.find? fun (_, sl) =>
-   193      match sl with | .minor c' C _ => c' == c && C == x.cv.name | _ => false
-   194    let (fvs, _) ← openPisAtFvars x.nF x.tyD rP
-   195    let ws ← targetPiDomsWith fvs x.tyN
-   196    let pvars := (List.range rP).map fun i => if i < g.nP then g.params.getD i default else
-   197      g.slotVar (i - g.nP)
-   198    let ihs ← (List.range x.nF).filterMapM fun i =>
-   199      match x.kinds.getD i .ordinary with
-   200      | .ordinary => some none
-   201      | .recursive t tele => do
-   202        let f := fvs.getD i default
-   203        let (xs, idx) ← g.ihParts t tele (ws.getD i default) (rP + x.nF)
-   204        let r ← recOf t
-   205        pure (some (closeLams (xs.map g.binder) (rP + x.nF)
-   206          (Expr.mkAppN (.const r rlvls) (pvars ++ idx ++ [Expr.mkAppN f xs]))))
-   207    pure (closeLams (pre ++ fvs.map g.binder) 0 (Expr.mkAppN (g.slotVar s) (fvs ++ ihs)))
+== ConLeche/Kernel/Inductives/GenRec.lean#L185-L208
+   185  /-- **The generated rule** of a recursor at class `c` for its constructor
+   186  `x`: `λ p⃗ (prefix) f⃗, minor f⃗ (λ a⃗, rec_t p⃗ (prefix) e⃗ (f a⃗))…`, the
+   187  callee `rec_t` the family's recursor at the landing class `t`
+   188  (`recOf`). -/
+   189  def classGenRule (g : ClassGen) (recOf : Nat → Option Name) (rlvls : List Level) (c : Nat)
+   190      (x : ClassCtor) : Option Expr := do
+   191    let pre := g.pre
+   192    let rP := pre.length
+   193    let (s, _) ← (List.range g.slots.length).zip g.slots |>.find? fun (_, sl) =>
+   194      match sl with | .minor c' C _ => c' == c && C == x.cv.name | _ => false
+   195    let (fvs, _) ← openPisAtFvars x.nF x.tyD rP
+   196    let ws ← targetPiDomsWith fvs x.tyN
+   197    let pvars := (List.range rP).map fun i => if i < g.nP then g.params.getD i default else
+   198      g.slotVar (i - g.nP)
+   199    let ihs ← (List.range x.nF).filterMapM fun i =>
+   200      match x.kinds.getD i .ordinary with
+   201      | .ordinary => some none
+   202      | .recursive t tele => do
+   203        let f := fvs.getD i default
+   204        let (xs, idx) ← g.ihParts t tele (ws.getD i default) (rP + x.nF)
+   205        let r ← recOf t
+   206        pure (some (closeLams (xs.map g.binder) (rP + x.nF)
+   207          (Expr.mkAppN (.const r rlvls) (pvars ++ idx ++ [Expr.mkAppN f xs]))))
+   208    pure (closeLams (pre ++ fvs.map g.binder) 0 (Expr.mkAppN (g.slotVar s) (fvs ++ ihs)))
 
 == ConLeche/Kernel/Env.lean#L106-L112
    106  * `.nested lvls pins` — an auxiliary recursor's rule at an outside
@@ -5674,19 +5674,19 @@
    111    recursor's rule-prefix context, instantiated at the redex's levels and
    112    leading arguments.
 
-== ConLeche/Kernel/Inductives/RecCheck.lean#L434-L445
-   434  /-- **One checked recursor's stored rules, at its major**: `sumRules` at the
-   435  MAJOR's parameter count and constructors;
-   436  at an OUTSIDE major (a nested block's auxiliary recursor) every rule
-   437  fires `auxRuleFire` (`.nested` at the major's instantiation), at a
-   438  member major as `sumRules` builds it. -/
-   439  def generatedRules (rP : Nat) (M : TargetMajor) (rhss : List Expr) : List RecRule :=
-   440    let rules := sumRules M.ctors rhss
-   441    match M.member with
-   442    | none =>
-   443      let fire := auxRuleFire M rP
-   444      rules.map fun rl => { rl with fire := fire }
-   445    | some _ => rules
+== ConLeche/Kernel/Inductives/RecCheck.lean#L444-L455
+   444  /-- **One checked recursor's stored rules, at its major**: `sumRules` at the
+   445  MAJOR's parameter count and constructors;
+   446  at an OUTSIDE major (a nested block's auxiliary recursor) every rule
+   447  fires `auxRuleFire` (`.nested` at the major's instantiation), at a
+   448  member major as `sumRules` builds it. -/
+   449  def generatedRules (rP : Nat) (M : TargetMajor) (rhss : List Expr) : List RecRule :=
+   450    let rules := sumRules M.ctors rhss
+   451    match M.member with
+   452    | none =>
+   453      let fire := auxRuleFire M rP
+   454      rules.map fun rl => { rl with fire := fire }
+   455    | some _ => rules
 
 == ConLeche/Kernel/CoreDefs.lean#L884-L896
    884    exact ⟨h.1.1.1, h.1.1.2, h.1.2⟩
@@ -5722,12 +5722,12 @@
     83    p.resSort.isNeverZero ||
     84      (p.large && p.k == 1 && !nested && (p.numCtors == 0 || p.numCtors == 1))
 
-== ConLeche/Kernel/Inductives/GenRec.lean#L557-L561
-   557    let cvRis ← classStreamRecs ops fe p.recs
-   558    -- the elimination guard
-   559    unless 0 < p.k do
-   560      throw (.invalid "generated recursor: the block declares no family")
-   561    if p.large && !blockLargeElimAllowed p (nestedBit || Ms.any (·.member.isNone)) then
+== ConLeche/Kernel/Inductives/GenRec.lean#L558-L562
+   558    let cvRis ← classStreamRecs ops fe p.recs
+   559    -- the elimination guard
+   560    unless 0 < p.k do
+   561      throw (.invalid "generated recursor: the block declares no family")
+   562    if p.large && !blockLargeElimAllowed p (nestedBit || Ms.any (·.member.isNone)) then
 
 == ConLeche/Kernel/Inductives/ClassRead.lean#L15-L32
     15  * the CLASSES — the types the family eliminates, one per MOTIVE of the
@@ -5749,45 +5749,45 @@
     31  anything read here: a wrong reading can only make the generated type
     32  differ from the stream's, i.e. reject.
 
-== ConLeche/Kernel/Inductives/RecCheck.lean#L243-L280
-   243      | none => do
-   244        -- an OUTSIDE inductive (a nested block's container)
-   245        if I == quotName then
-   246          throw (.invalid "target rec: the recursor's major is Quot, which is no inductive")
-   247        let some (nPc, ctors) := targetCtorsOf fe I
-   248          | throw (.invalid "target rec: the recursor's major is not a stored inductive")
-   249        let ds := args.take nPc
-   250        unless ds.length == nPc &&
-   251            ds.all (fun x => x.bvarB == 0 && x.fvarB ≤ p.nP) do
-   252          throw (.invalid "target rec: the major's parameters mention more than the \
-   253            recursor's parameters")
-   254        -- **An auxiliary type of the block**, official's `is_nested`: some
-   255        -- parameter `Dᵢ` names a member of the block (`inductive.cpp` v4.34.0
-   256        -- :1033–1049: `find` over each of the `nparams` arguments for a
-   257        -- constant of `m_new_types`; every auxiliary type is such an
-   258        -- application, restored verbatim by `restore_nested`, and official
-   259        -- accepts an auxiliary recursor exactly at an auxiliary type).  The
-   260        -- calls' proof reads it: a call on a field whose walked type names no
-   261        -- member and no hole targets no class.  Read without whnf and without
-   262        -- entering a free variable's annotation (`nestOcc` at an empty hole
-   263        -- range).  Every class resolved here SEEDS the positivity walk
-   264        -- (`classSeeds`, `GenRec.lean`), so it is a node of the walk by
-   265        -- construction: nothing ties it to a node here.
-   266        unless ds.any (fun x => x.nestOcc p.memberNames 0 0) do
-   267          throw (.invalid "target rec: the recursor's major is an outside inductive at an \
-   268            instantiation that is no auxiliary type of the block (official generates no such \
-   269            auxiliary recursor: `elim_nested_inductive`, `is_nested`)")
-   270        let (nIdx, sI) ← targetOutsideInst ops fe I us ds
-   271        -- **Q1**: an outside major in ANOTHER
-   272        -- universe than the block (a Type block's family eliminating a
-   273        -- Prop inductive, or the converse) is refused here: the
-   274        -- elimination guard is the BLOCK's (`blockLargeElimAllowed`),
-   275        -- and it says nothing about another universe's inductive
-   276        unless ← liftFueled "level comparison" (Level.isEquiv sI p.resSort) do
-   277          throw (.invalid "target rec: the recursor's major lives in another universe than \
-   278            the block (Q1)")
-   279        pure { ind := I, lvls := us, ds := ds, nPc := nPc, nIdx := nIdx, ctors := ctors,
-   280               member := none, pfvs := pfvs }
+== ConLeche/Kernel/Inductives/RecCheck.lean#L253-L290
+   253      | none => do
+   254        -- an OUTSIDE inductive (a nested block's container)
+   255        if I == quotName then
+   256          throw (.invalid "target rec: the recursor's major is Quot, which is no inductive")
+   257        let some (nPc, ctors) := targetCtorsOf fe I
+   258          | throw (.invalid "target rec: the recursor's major is not a stored inductive")
+   259        let ds := args.take nPc
+   260        unless ds.length == nPc &&
+   261            ds.all (fun x => x.bvarB == 0 && x.fvarB ≤ p.nP) do
+   262          throw (.invalid "target rec: the major's parameters mention more than the \
+   263            recursor's parameters")
+   264        -- **An auxiliary type of the block**, official's `is_nested`: some
+   265        -- parameter `Dᵢ` names a member of the block (`inductive.cpp` v4.34.0
+   266        -- :1033–1049: `find` over each of the `nparams` arguments for a
+   267        -- constant of `m_new_types`; every auxiliary type is such an
+   268        -- application, restored verbatim by `restore_nested`, and official
+   269        -- accepts an auxiliary recursor exactly at an auxiliary type).  The
+   270        -- calls' proof reads it: a call on a field whose walked type names no
+   271        -- member and no hole targets no class.  Read without whnf and without
+   272        -- entering a free variable's annotation (`nestOcc` at an empty hole
+   273        -- range).  Every class resolved here SEEDS the positivity walk
+   274        -- (`classSeeds`, `GenRec.lean`), so it is a node of the walk by
+   275        -- construction: nothing ties it to a node here.
+   276        unless ds.any (fun x => x.nestOcc p.memberNames 0 0) do
+   277          throw (.invalid "target rec: the recursor's major is an outside inductive at an \
+   278            instantiation that is no auxiliary type of the block (official generates no such \
+   279            auxiliary recursor: `elim_nested_inductive`, `is_nested`)")
+   280        let (nIdx, sI) ← targetOutsideInst ops fe I us ds
+   281        -- **Q1**: an outside major in ANOTHER
+   282        -- universe than the block (a Type block's family eliminating a
+   283        -- Prop inductive, or the converse) is refused here: the
+   284        -- elimination guard is the BLOCK's (`blockLargeElimAllowed`),
+   285        -- and it says nothing about another universe's inductive
+   286        unless ← liftFueled "level comparison" (Level.isEquiv sI p.resSort) do
+   287          throw (.invalid "target rec: the recursor's major lives in another universe than \
+   288            the block (Q1)")
+   289        pure { ind := I, lvls := us, ds := ds, nPc := nPc, nIdx := nIdx, ctors := ctors,
+   290               member := none, pfvs := pfvs }
 
 == ConLeche/Kernel/Inductives/Positivity.lean#L1086-L1094
   1086  def nestSeeds (ops : CheckerOps m) (env : Env) (ctx : NestCtx) :
@@ -5800,11 +5800,11 @@
   1093        key.ds nPc cty st
   1094      nestSeeds ops env ctx ks st
 
-== ConLeche/Kernel/Inductives/GenRec.lean#L451-L454
-   451      List ClassCtor → m (List Expr)
-   452    | [] => pure []
-   453    | x :: xs => do
-   454      let gen ← unwrapOr (classGenRule g recOf (cvR.levelParams.map .param) c x)
+== ConLeche/Kernel/Inductives/GenRec.lean#L452-L455
+   452      List ClassCtor → m (List Expr)
+   453    | [] => pure []
+   454    | x :: xs => do
+   455      let gen ← unwrapOr (classGenRule g recOf (cvR.levelParams.map .param) c x)
 
 == tests/e2e/src/corner_nestind_f13_listrose.lean#L12-L15
     12  inductive RL (α : Type) : Type where
@@ -5812,22 +5812,22 @@
     14  inductive TL : Type where
     15    | node (l : List (RL TL)) : TL
 
-== ConLeche/Kernel/Inductives/GenRec.lean#L251-L265
-   251  /-- **Node agreement at one recursive field** (K.53′): at every entry
-   252  `E` of the constructor, field `i` (opened at the datum's variables `fvs`)
-   253  has the datum's telescope `tele`, the datum's leaf head and indices, and
-   254  a leaf class matching the inductive hypothesis's class `Mc` per component
-   255  (`targetK53`). -/
-   256  def classNodesAgree (ops : CheckerOps m) (env : Env) (p : BlockShape) (formerTys : List Expr)
-   257      (Mc : TargetMajor) (tele : List Expr) (leaf : Expr) (fvs : List Expr)
-   258      (i : Nat) (ctor : Name) : List NestCtorNf → m Unit
-   259    | [] => pure ()
-   260    | e :: es => do
-   261      let some f := ((targetPiDomsWith fvs e.ty).getD [])[i]?
-   262        | throw (.invalid s!"generated recursor: a recorded normal form of {ctor} is too short")
-   263      unless ← targetK53 ops env p formerTys Mc tele leaf f do
-   264        throw (.invalid s!"generated recursor: field {i} of {ctor} does not land at its inductive \
-   265          hypothesis's class at every node of the positivity check (official: invalid recursor)")
+== ConLeche/Kernel/Inductives/GenRec.lean#L252-L266
+   252  /-- **Node agreement at one recursive field** (K.53′): at every entry
+   253  `E` of the constructor, field `i` (opened at the datum's variables `fvs`)
+   254  has the datum's telescope `tele`, the datum's leaf head and indices, and
+   255  a leaf class matching the inductive hypothesis's class `Mc` per component
+   256  (`targetK53`). -/
+   257  def classNodesAgree (ops : CheckerOps m) (env : Env) (p : BlockShape) (formerTys : List Expr)
+   258      (Mc : TargetMajor) (tele : List Expr) (leaf : Expr) (fvs : List Expr)
+   259      (i : Nat) (ctor : Name) : List NestCtorNf → m Unit
+   260    | [] => pure ()
+   261    | e :: es => do
+   262      let some f := ((targetPiDomsWith fvs e.ty).getD [])[i]?
+   263        | throw (.invalid s!"generated recursor: a recorded normal form of {ctor} is too short")
+   264      unless ← targetK53 ops env p formerTys Mc tele leaf f do
+   265        throw (.invalid s!"generated recursor: field {i} of {ctor} does not land at its inductive \
+   266          hypothesis's class at every node of the positivity check (official: invalid recursor)")
 
 == ConLeche/Model/Env/BlockLfp.lean#L33-L44
     33  **The clause** (`LfpClause`), at every level assignment `ψ` and every

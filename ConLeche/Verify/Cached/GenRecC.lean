@@ -1361,15 +1361,14 @@ theorem checkBlockTailS_run
         = .ok () := by
   unfold checkBlockTailS at h
   dsimp only at h
-  simp only [blockRecInfosTC_eq, streamRecsCheckC_eq, checkBlockTablesC_eq] at h
-  simp only [checkBlockIdxSortsC_eq] at h
-  rw [checkBlockIdxSortsF_eqC] at h
+  simp only [blockRecInfosTC_eq, streamRecsCheckC_eq, checkBlockIdxSortsC_eq, mkFEnv_env,
+    consBlockCtorsF_mkFEnv] at h
+  simp only [checkBlockTablesC_eq] at h
   obtain ⟨isorts, sS, hsorts, h⟩ := bindC_ok h
   have hzT : ∀ x ∈ p.members, WScoped 0 x.cvT.type :=
     fun x hx => hT x.cvT (List.mem_map_of_mem hx)
   obtain ⟨hsS, F₀, hF₀⟩ :=
     triple_iff_run.mp (checkBlockIdxSortsS_spec henv₁ hzT hs) isorts sS hsorts
-  rw [consBlockCtorsF_mkFEnv] at h
   obtain ⟨u2, sC, hfl2, h⟩ := bindC_ok h
   rw [flushC_run] at hfl2
   injection hfl2 with hfl2
@@ -1466,7 +1465,6 @@ theorem checkBlockPassS_run {env : Env} (henv : EnvWF env)
   unfold checkBlockPassS at h
   simp only [checkBlockIndsC_eq, checkBlockCtorsC_eq, checkBlockClassesC_eq, blockNestCtxC_eq,
     checkBlockPositivityC_eq, nestSeedsC_eq, classSeedsC_eq] at h
-  rw [checkBlockIndsF_eqC] at h
   simp only [bind_assoc, pure_bind] at h
   obtain ⟨r₁, s₁, hind, h⟩ := bindC_ok h
   obtain ⟨hs₁, F₁, hF₁⟩ := triple_iff_run.mp (checkBlockIndsS_spec henv hs) r₁ s₁ hind
@@ -1488,7 +1486,7 @@ theorem checkBlockPassS_run {env : Env} (henv : EnvWF env)
   injection hflB with hflB
   obtain rfl : s₁.flushed = sB := congrArg Prod.snd hflB
   simp only [mkFEnv_find?_fun, mkFEnv_env] at h
-  rw [checkBlockCtorsF_eqC] at h
+  rw [checkBlockCtorsC_eq] at h
   obtain ⟨u₂, s₂, hct, h⟩ := bindC_ok h
   cases u₂
   obtain ⟨hs₂, F₂, hF₂⟩ :=
