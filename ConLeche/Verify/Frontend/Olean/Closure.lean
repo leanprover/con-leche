@@ -1,7 +1,7 @@
 module
 
 public import ConLeche.Frontend.Olean.Closure
-public import ConLeche.Verify.Frontend.ModelIO
+public import ConLeche.Verify.Frontend.Olean.Roots
 import Std.Data.HashSet.Lemmas
 
 /-!
@@ -101,23 +101,22 @@ theorem ClosedOrder.push {sp : SearchPath} {fs : FS} {out : Array Name} {m : Nam
       List.take_of_length_le (by simp)]
     exact Array.mem_toList_iff.mpr (hi i hm')
 
-/-- **The walk's value.** -/
+/-- **The walk's value**, through the roots it resolves (`T`, read off the snapshot). -/
 theorem closureGo_ok {sp : SearchPath} {fs : FS} {R : Array Name} :
     ∀ (fuel : Nat) (stack : List (Name × Bool)) (seen done : Std.HashSet Name) (out res : Array Name)
-      {hs hs' : HS},
+      (T T' : Roots) {hs hs' : HS}, T.Ok fs → T.path = sp →
       WalkInv sp fs R stack seen done out →
-      (closureGo sp fuel stack seen done out : ModelIO _) fs hs (.ok (.ok res)) hs' →
-      ClosedOrder sp fs res ∧ ∀ r ∈ R, r ∈ res := by
+      (closureGo T fuel stack seen done out : ModelIO _) fs hs (.ok (.ok (res, T'))) hs' →
+      ClosedOrder sp fs res ∧ (∀ r ∈ R, r ∈ res) ∧ T'.Ok fs ∧ T'.path = sp := by
   intro fuel
   induction fuel with
   | zero =>
-    intro stack seen done out res hs hs' hi h
+    intro stack seen done out res T T' hs hs' hT hTp hi h
     cases stack with
     | nil =>
-      simp only [closureGo, ModelIO.pure_iff, Except.ok.injEq] at h
-      obtain ⟨h, -⟩ := h
-      cases h
-      refine ⟨hi.closed, fun r hr => (hi.outDone r).2 ?_⟩
+      simp only [closureGo, ModelIO.pure_iff, Except.ok.injEq, Prod.mk.injEq] at h
+      obtain ⟨⟨rfl, rfl⟩, -⟩ := h
+      refine ⟨hi.closed, fun r hr => (hi.outDone r).2 ?_, hT, hTp⟩
       rcases hi.roots r hr with h | h | h
       · exact h
       · cases h
@@ -125,13 +124,12 @@ theorem closureGo_ok {sp : SearchPath} {fs : FS} {R : Array Name} :
     | cons x t =>
       simp [closureGo] at h
   | succ fuel ih =>
-    intro stack seen done out res hs hs' hi h
+    intro stack seen done out res T T' hs hs' hT hTp hi h
     match stack, hi, h with
     | [], hi, h =>
-      simp only [closureGo, ModelIO.pure_iff, Except.ok.injEq] at h
-      obtain ⟨h, -⟩ := h
-      cases h
-      refine ⟨hi.closed, fun r hr => (hi.outDone r).2 ?_⟩
+      simp only [closureGo, ModelIO.pure_iff, Except.ok.injEq, Prod.mk.injEq] at h
+      obtain ⟨⟨rfl, rfl⟩, -⟩ := h
+      refine ⟨hi.closed, fun r hr => (hi.outDone r).2 ?_, hT, hTp⟩
       rcases hi.roots r hr with h | h | h
       · exact h
       · cases h
@@ -139,7 +137,7 @@ theorem closureGo_ok {sp : SearchPath} {fs : FS} {R : Array Name} :
     | (m, true) :: rest, hi, h =>
       simp only [closureGo] at h
       obtain ⟨⟨imps, h1, h2⟩, h3⟩ := hi.good
-      refine ih rest seen (done.insert m) (out.push m) res ⟨?_, ?_, ?_, ?_⟩ h
+      refine ih rest seen (done.insert m) (out.push m) res T T' hT hTp ⟨?_, ?_, ?_, ?_⟩ h
       · intro x
         simp only [Array.mem_push, hi.outDone x, Std.HashSet.contains_insert, Bool.or_eq_true,
           beq_iff_eq]
@@ -196,7 +194,7 @@ theorem closureGo_ok {sp : SearchPath} {fs : FS} {R : Array Name} :
           rcases h1 hseen with h4 | h4
           · exact h4
           · cases h4
-        refine ih rest seen done out res ⟨hi.outDone, hi.closed, ?_, ?_⟩ h
+        refine ih rest seen done out res T T' hT hTp ⟨hi.outDone, hi.closed, ?_, ?_⟩ h
         · refine WalkGood.mono (above := [(m, false)]) (above' := []) ?_ ?_ rest [] h3
           · intro a i hc
             simp only [List.append_nil]
@@ -229,6 +227,8 @@ theorem closureGo_ok {sp : SearchPath} {fs : FS} {R : Array Name} :
             · exact .inr (.inr hc)
       · rename_i hseen
         simp only [ModelIO.bind_ok] at h
+        obtain ⟨T₁, _, hT₁, h⟩ := h
+        obtain ⟨hT₁ok, hT₁p⟩ := Roots.resolve_ok hT hT₁
         obtain ⟨y, _, hy, h⟩ := h
         rcases y with e | imps
         · simp at h
@@ -253,9 +253,13 @@ theorem closureGo_ok {sp : SearchPath} {fs : FS} {R : Array Name} :
             have hrevk : ∀ x, (x, false) ∈ ks.reverse.map (·, false) ↔ x ∈ ks := by
               intro x
               simp
-            refine ih _ (seen.insert m) done out res ⟨hi.outDone, hi.closed, ?_, ?_⟩ h
+            have hy' : ModelIO.CanGive (moduleImports (sp : Roots) m) fs (.ok imps) := by
+              have := (moduleImports_sub hT₁ok m).canGive ⟨_, _, hy⟩
+              rwa [hT₁p, hTp] at this
+            refine ih _ (seen.insert m) done out res T₁ T' hT₁ok (hT₁p.trans hTp)
+              ⟨hi.outDone, hi.closed, ?_, ?_⟩ h
             · refine WalkGood.kids ks [] _ hk ?_
-              refine ⟨⟨imps, ⟨_, _, hy⟩, fun i hm' => ?_⟩, ?_⟩
+              refine ⟨⟨imps, hy', fun i hm' => ?_⟩, ?_⟩
               · by_cases hs : (seen.insert m).contains i.module = true
                 · exact .inl (hno i hm' hs)
                 · refine .inr (.inl ?_)
@@ -302,11 +306,13 @@ theorem closureGo_ok {sp : SearchPath} {fs : FS} {R : Array Name} :
                 · exact .inr (.inr (by simp [hc]))
 
 /-- **The closure's order**: where the walk has a value, it holds every root, and every
-module in it comes after all of that module's imports. -/
+module in it comes after all of that module's imports; the roots it resolved are read off the
+snapshot. -/
 theorem closureOrder_ok {sp : SearchPath} {roots order : Array Name} {fs : FS} {hs hs' : HS}
-    (h : (closureOrder sp roots : ModelIO _) fs hs (.ok (.ok order)) hs') :
-    ClosedOrder sp fs order ∧ ∀ r ∈ roots, r ∈ order := by
-  refine closureGo_ok closureFuel _ {} {} #[] order ⟨?_, ?_, ?_, ?_⟩ h
+    {T : Roots} (h : (closureOrder sp roots : ModelIO _) fs hs (.ok (.ok (order, T))) hs') :
+    ClosedOrder sp fs order ∧ (∀ r ∈ roots, r ∈ order) ∧ T.Ok fs ∧ T.path = sp := by
+  refine closureGo_ok closureFuel _ {} {} #[] order _ T (Roots.ok_coe fs sp) rfl
+    ⟨?_, ?_, ?_, ?_⟩ h
   · intro m
     simp
   · intro k hk

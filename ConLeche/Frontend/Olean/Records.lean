@@ -87,6 +87,8 @@ structure OleanRead where
   decls : Array Declaration
   values : Array ModRef
   merged : Merged
+  /-- the search path with the closure's roots resolved, for the values' reads -/
+  roots : Roots
 
 /-- **What a theorem's record mentions**, which its reference does not say: what the load
 read off the file.  `none` for any other record, whose own expressions say it. -/
@@ -103,7 +105,7 @@ def readOleans {μ : Type → Type} [CheckerIO μ] (sp : SearchPath)
   let n ← CheckerIO.liftIO (ReadNotes.new pace)
   match ← loadClosure sp n roots jobs with
   | .error e => pure (.error (e, 0))
-  | .ok ls =>
+  | .ok (ls, R) =>
     CheckerIO.liftIO (n.say s!"merging the constants of {ls.size} modules")
     match mergeAll ls with
     | .error e => pure (.error (e, 0))
@@ -119,7 +121,7 @@ def readOleans {μ : Type → Type} [CheckerIO μ] (sp : SearchPath)
           match declsOf (emitAll mg cs) with
           | .error e => pure (.error e)
           | .ok ds =>
-            pure (.ok ⟨ds, ls.map fun l => ⟨l.name, l.frontier⟩, mg⟩)
+            pure (.ok ⟨ds, ls.map fun l => ⟨l.name, l.frontier⟩, mg, R⟩)
 
 /-! ## A theorem's value, read -/
 
@@ -131,7 +133,7 @@ structure ValueCache where
   region : Option Region := none
 
 /-- The region of module `idx`, from the cache or the files, with the cache to go on with. -/
-def regionFor {μ : Type → Type} [CheckerIO μ] (sp : SearchPath) (m : Name) (idx : Nat)
+def regionFor {μ : Type → Type} [CheckerIO μ] (sp : Roots) (m : Name) (idx : Nat)
     (c : ValueCache) : μ (ValueCache × Except CheckError Region) := do
   match c.region with
   | some r =>
@@ -149,7 +151,7 @@ where
 
 /-- **A theorem's value, from its reference's code**: the files of its module (`regionFor`),
 then the value, over the module's frontier (`frontierExpr`). -/
-def readValue {μ : Type → Type} [CheckerIO μ] (sp : SearchPath) (values : Array ModRef)
+def readValue {μ : Type → Type} [CheckerIO μ] (sp : Roots) (values : Array ModRef)
     (c : ValueCache) (code : Nat) : μ (ValueCache × Except CheckError Expr) := do
   match values[refModule code]? with
   | none => pure (c, .error (.internal s!"a theorem's value in module {refModule code}, of {values.size}"))
@@ -162,7 +164,7 @@ def readValue {μ : Type → Type} [CheckerIO μ] (sp : SearchPath) (values : Ar
       | none => pure (c, .error (undecodable md.name))
 
 /-- A record with its theorem's value read, if it is a theorem's. -/
-def fillRecord {μ : Type → Type} [CheckerIO μ] (sp : SearchPath) (values : Array ModRef)
+def fillRecord {μ : Type → Type} [CheckerIO μ] (sp : Roots) (values : Array ModRef)
     (c : ValueCache) : Declaration → μ (ValueCache × Except CheckError Declaration)
   | .thmDecl cv (.bvar code) => do
     match ← readValue sp values c code with
@@ -171,7 +173,7 @@ def fillRecord {μ : Type → Type} [CheckerIO μ] (sp : SearchPath) (values : A
   | d => pure (c, .ok d)
 
 /-- `fillRecord` of each record, in order. -/
-def fillRecords {μ : Type → Type} [CheckerIO μ] (sp : SearchPath) (values : Array ModRef)
+def fillRecords {μ : Type → Type} [CheckerIO μ] (sp : Roots) (values : Array ModRef)
     (c : ValueCache) : List Declaration → Array Declaration → μ (Except CheckError (Array Declaration))
   | [], acc => pure (.ok acc)
   | d :: ds, acc => do
@@ -187,7 +189,7 @@ def readOleansFull {μ : Type → Type} [CheckerIO μ] (sp : SearchPath)
   match ← readOleans sp roots constants jobs with
   | .error e => pure (.error e)
   | .ok rd =>
-    match ← fillRecords sp rd.values {} rd.decls.toList #[] with
+    match ← fillRecords rd.roots rd.values {} rd.decls.toList #[] with
     | .error e => pure (.error (e, 0))
     | .ok ds => pure (.ok ds)
 

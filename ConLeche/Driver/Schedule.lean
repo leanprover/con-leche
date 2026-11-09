@@ -45,11 +45,11 @@ def scheduleG {μ : Type → Type} [CheckerIO μ] (sp : SearchPath) (root : Name
     diagLine s!"con-leche: {msg}"
     return 3
   | .ok o =>
-    match ← Graph.graphOf sp [root] jobs with
+    match ← Graph.graphOf ↑sp [root] jobs with
     | .error e =>
       diagLine s!"con-leche: graph: {e}"
       return e.exitCode
-    | .ok C =>
+    | .ok (C, _) =>
       let mods := C.map (·.1)
       let dirs := ":".intercalate (sp.map toString)
       let args (m : Name) : Array String :=

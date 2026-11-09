@@ -27,17 +27,20 @@ recursion.  A module whose imports are being expanded (`seen`, not yet
 `done`) is on the walk's current path, so an import of it is an import
 cycle: malformed input (task #383; Lean's own import refuses a cycle).
 `fuel` bounds the steps (each pops one entry: a module's end, an import of
-a module seen, or a module's expansion), an internal error when spent. -/
-def closureGo {μ : Type → Type} [CheckerIO μ] (sp : SearchPath) :
+a module seen, or a module's expansion), an internal error when spent.  The
+roots are resolved as the walk meets them (`Roots.resolve`), and returned
+with the order. -/
+def closureGo {μ : Type → Type} [CheckerIO μ] (sp : Roots) :
     Nat → List (Name × Bool) → Std.HashSet Name → Std.HashSet Name → Array Name →
-      μ (Except CheckError (Array Name))
-  | _, [], _, _, out => pure (.ok out)
+      μ (Except CheckError (Array Name × Roots))
+  | _, [], _, _, out => pure (.ok (out, sp))
   | 0, _ :: _, _, _, _ => pure (.error (.internal "the import closure's walk ran out of steps"))
   | fuel + 1, (m, true) :: rest, seen, done, out =>
     closureGo sp fuel rest seen (done.insert m) (out.push m)
   | fuel + 1, (m, false) :: rest, seen, done, out =>
     if seen.contains m then closureGo sp fuel rest seen done out
     else do
+      let sp ← sp.resolve m
       match ← moduleImports sp m with
       | .error e => pure (.error e)
       | .ok imps =>
@@ -52,8 +55,8 @@ def closureGo {μ : Type → Type} [CheckerIO μ] (sp : SearchPath) :
 import edge is a step or two). -/
 def closureFuel : Nat := 1 <<< 40
 
-def closureOrder {μ : Type → Type} [CheckerIO μ] (sp : SearchPath)
-    (roots : Array Name) : μ (Except CheckError (Array Name)) :=
+def closureOrder {μ : Type → Type} [CheckerIO μ] (sp : Roots)
+    (roots : Array Name) : μ (Except CheckError (Array Name × Roots)) :=
   closureGo sp closureFuel (roots.toList.map (·, false)) {} {} #[]
 
 /-! ## The load -/
@@ -61,7 +64,7 @@ def closureOrder {μ : Type → Type} [CheckerIO μ] (sp : SearchPath)
 /-- **Load one module** for the merge, what it is in the closure's order: its private
 view, what Lean's own import outside the module system and lean4export load, its
 theorems' values left in the file (`loadView`). -/
-def loadModule {μ : Type → Type} [CheckerIO μ] (sp : SearchPath) (n : ReadNotes) (total : Nat)
+def loadModule {μ : Type → Type} [CheckerIO μ] (sp : Roots) (n : ReadNotes) (total : Nat)
     (x : Name × Nat) : μ (Except CheckError Loaded) := do
   match ← readFiles sp x.1 .private with
   | .ok f =>
@@ -75,15 +78,16 @@ def loadModule {μ : Type → Type} [CheckerIO μ] (sp : SearchPath) (n : ReadNo
 /-- **The closure, loaded**: its modules in Lean's order.  The load of a module needs
 nothing of any other module, so the modules are loaded by the parallel map with a stop
 (`CheckerIO.parMapExcept`: at most `jobs` modules in flight); the result is the sequential
-map's, the first failure in module order the one reported. -/
-def loadClosure {μ : Type → Type} [CheckerIO μ] (sp : SearchPath) (n : ReadNotes)
-    (roots : Array Name) (jobs : Nat := 1) : μ (Except CheckError (Array Loaded)) := do
+map's, the first failure in module order the one reported.  Beside the modules, the
+search path with the closure's roots resolved (`closureOrder`). -/
+def loadClosure {μ : Type → Type} [CheckerIO μ] (sp : Roots) (n : ReadNotes)
+    (roots : Array Name) (jobs : Nat := 1) : μ (Except CheckError (Array Loaded × Roots)) := do
   CheckerIO.liftIO (n.say "tracing the import closure")
   match ← closureOrder sp roots with
   | .error e => pure (.error e)
-  | .ok order =>
+  | .ok (order, sp) =>
     CheckerIO.liftIO (n.say s!"loading {order.size} modules")
     return (← CheckerIO.parMapExcept jobs (loadModule sp n order.size)
-      order.toList.zipIdx).map List.toArray
+      order.toList.zipIdx).map fun ls => (ls.toArray, sp)
 
 end ConLeche.Frontend.Olean

@@ -353,35 +353,50 @@ case_grep "upstream merged: UpBoomOleanSol (olean-issue, check-audit-reject)" 3 
 case_ "a module name with an unclosed «" 3 --olean --search-path=$MSP 'UpNum.«12.34'
 
 # --- the search path, strictly -------------------------------------------
-# Every module is looked up in every search-path directory: its files
-# (M.olean, M.olean.server, M.olean.private) in one location only, up to
-# real paths; a module-system module with all three parts; no part
-# without its .olean or beside a classic one; no parts split across
-# directories.
+# A module's files are in the search-path directory holding its ROOT (a
+# directory <Root>/ or a file <Root>.olean), as Lean looks them up: one
+# location only for each root, up to real paths; there M.olean, and for a
+# module-system module all three parts; no part without its .olean or
+# beside a classic one.  Another directory is never looked at for a module.
 spd="$TMPDIR/con-leche-olean-sp"
+NUM='UpNum.«12.34».«5»'
 sp_cases() {
   rm -rf "$spd"; mkdir -p "$spd"
   cp -r "$LIB" "$spd/a"; cp -r "$LIB" "$spd/b"
-  case_grep "search path: a module in two directories${MOD:+ [$MOD]}" 3 "more than one location" \
+  case_grep "search path: a root in two directories${MOD:+ [$MOD]}" 3 "its root TinyUse is in more than one location" \
     --olean $MOD --search-path=$spd/a:$spd/b TinyUse
   # the copy of one module only (the closure's others found once)
   rm -rf "$spd/b"; mkdir -p "$spd/b"; cp "$LIB"/Tiny.olean* "$spd/b/"
-  case_grep "search path: an imported module in two directories${MOD:+ [$MOD]}" 3 "module Tiny: its files are in more than one location" \
+  case_grep "search path: an imported module's root in two directories${MOD:+ [$MOD]}" 3 "module Tiny: its root Tiny is in more than one location" \
     --olean $MOD --search-path=$spd/a:$spd/b TinyUse
   case_ "search path: one directory listed twice${MOD:+ [$MOD]}" 0 \
     --olean $MOD --search-path=$LIB:$LIB TinyUse
   ln -s "$PWD/$LIB" "$spd/link"
   case_ "search path: a directory and a symbolic link to it${MOD:+ [$MOD]}" 0 \
     --olean $MOD --search-path=$spd/link:$LIB TinyUse
+  # a root's directory, without the module, in front of the directory holding it: the root
+  # is in two places (Lean would look in the first one only, and not find the module there)
+  mkdir -p "$spd/c/UpNum"
+  case_grep "search path: a module under a later directory holding its root too${MOD:+ [$MOD]}" 3 "its root UpNum is in more than one location" \
+    --olean $MOD --search-path=$spd/c:$LIB "$NUM"
+  # the root's directory without the module: not on the search path
+  case_grep "search path: a module missing in its root's directory${MOD:+ [$MOD]}" 3 "the search-path directory holding its root UpNum" \
+    --olean $MOD --search-path=$spd/c "$NUM"
   rm -f "$spd/a/Tiny.olean.private"
   case_grep "search path: a missing private part${MOD:+ [$MOD]}" 3 "without its Tiny.olean.private in" \
     --olean $MOD --search-path=$spd/a TinyUse
+  # the private part in a directory that does not hold the root: never looked at
   rm -rf "$spd/b"; mkdir -p "$spd/b"; cp "$LIB/Tiny.olean.private" "$spd/b/"
-  case_grep "search path: parts split across two directories${MOD:+ [$MOD]}" 3 "split across directories" \
+  case_grep "search path: a part outside its root's directory${MOD:+ [$MOD]}" 3 "without its Tiny.olean.private in $spd/a" \
     --olean $MOD --search-path=$spd/a:$spd/b TinyUse
+  # parts without their .olean: of a root module, the root is on no directory; of a module
+  # below a root, an error at the root's directory
   cp "$LIB/Tiny.olean.private" "$spd/a/"; rm -f "$spd/a/Tiny.olean"
-  case_grep "search path: parts without their .olean${MOD:+ [$MOD]}" 3 "without Tiny.olean in" \
+  case_grep "search path: a root module's parts without its .olean${MOD:+ [$MOD]}" 3 "module Tiny: no .olean on the search path" \
     --olean $MOD --search-path=$spd/a TinyUse
+  mkdir -p "$spd/c/UpNum/12.34"; cp "$LIB/Tiny.olean.private" "$spd/c/UpNum/12.34/5.olean.private"
+  case_grep "search path: parts without their .olean${MOD:+ [$MOD]}" 3 "olean.private without" \
+    --olean $MOD --search-path=$spd/c "$NUM"
   cp "$LIB/Tiny.olean" "$spd/a/"; cp "$LIB/Tiny.olean.private" "$spd/a/TinyClassic.olean.private"
   case_grep "search path: a private part beside a classic .olean${MOD:+ [$MOD]}" 3 "TinyClassic.olean.private beside it" \
     --olean $MOD --search-path=$spd/a TinyClassic
@@ -486,6 +501,15 @@ case_grep "graph: a missing import" 1 "Init.Prelude: no .olean on the search pat
   --check-graph --search-path=$LIB HidUse
 case_grep "graph: a missing root" 1 "NoSuchModule: no .olean on the search path" \
   --check-graph --search-path=$LIB NoSuchModule
+# a module missing in its root's directory does not resolve either (exit 1); its root in two
+# directories is malformed (exit 3)
+d="$TMPDIR/con-leche-olean-graph-root"
+rm -rf "$d"; mkdir -p "$d/UpNum"
+case_grep "graph: a module missing in its root's directory" 1 "no .olean on the search path" \
+  --check-graph --search-path=$d "$NUM"
+case_grep "graph: a module's root in two directories" 3 "its root UpNum is in more than one location" \
+  --check-graph --search-path=$d:$LIB "$NUM"
+rm -rf "$d"
 case_ "graph: with --olean, a usage error" 3 --check-graph --olean --search-path=$LIB HidUse
 case_ "graph: without a search path, a usage error" 3 --check-graph HidUse
 # an import cycle: HidA's import of Init.Prelude renamed to HidUse, which imports HidA

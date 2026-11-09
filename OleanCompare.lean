@@ -142,7 +142,7 @@ def viewsEq (a b : Frontend.Olean.ModDecoded) : Bool :=
 open Frontend.Olean in
 /-- `--views`: every module of the closure. -/
 def runViews (sp : List System.FilePath) (roots : Array Name) : IO UInt32 := do
-  let order ← match ← (closureOrder sp roots : IO _) with
+  let (order, sp) ← match ← (closureOrder sp roots : IO _) with
     | .ok o => pure o
     | .error e => IO.eprintln s!"closure: {e}"; return e.exitCode.toUInt32
   for m in order do

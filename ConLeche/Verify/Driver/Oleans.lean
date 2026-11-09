@@ -33,13 +33,13 @@ namespace ConLeche.Driver
 open ConLeche Frontend.Olean Cached
 
 /-- **A reference, with what it stands for on a snapshot put in its place.** -/
-noncomputable def fillOf (sp : SearchPath) (fs : FS) (values : Array ModRef) : Expr → Expr
+noncomputable def fillOf (sp : Roots) (fs : FS) (values : Array ModRef) : Expr → Expr
   | .bvar code =>
     open Classical in
     if h : ∃ e, ValueAt sp fs values code e then h.choose else .bvar code
   | e => e
 
-theorem fillOf_value {sp : SearchPath} {fs : FS} {values : Array ModRef} {code : Nat} {e : Expr}
+theorem fillOf_value {sp : Roots} {fs : FS} {values : Array ModRef} {code : Nat} {e : Expr}
     (h : ValueAt sp fs values code e) : fillOf sp fs values (.bvar code) = e := by
   have hex : ∃ e, ValueAt sp fs values code e := ⟨e, h⟩
   simp only [fillOf, hex, ↓reduceDIte]
@@ -48,16 +48,30 @@ theorem fillOf_value {sp : SearchPath} {fs : FS} {values : Array ModRef} {code :
 /-! ## A worker's state -/
 
 /-- **What a worker's kept region is**: its module's, on the snapshot. -/
-def CacheOK (sp : SearchPath) (fs : FS) (values : Array ModRef) (c : ValueCache) : Prop :=
+def CacheOK (sp : Roots) (fs : FS) (values : Array ModRef) (c : ValueCache) : Prop :=
   ∀ r, c.region = some r → ∃ md f a, values[c.idx]? = some md ∧
     ModelIO.CanGive (readFiles sp md.name .private) fs (.ok f) ∧
     f.viewRegion .private = some (r, a)
 
-theorem cacheOK_empty {sp : SearchPath} {fs : FS} {values : Array ModRef} :
+theorem cacheOK_empty {sp : Roots} {fs : FS} {values : Array ModRef} :
     CacheOK sp fs values {} := fun r h => by simp at h
 
+/-- **The values through roots read off the snapshot are the search path's.** -/
+theorem fillOf_roots {fs : FS} {R : Roots} (hR : R.Ok fs) (values : Array ModRef) :
+    fillOf R fs values = fillOf (R.path : Roots) fs values := by
+  funext x
+  cases x <;> simp only [fillOf]
+  rw [ValueAt.roots hR]
+
+/-- A region kept off the search path is one kept through roots read off the snapshot. -/
+theorem CacheOK.roots {fs : FS} {R : Roots} (hR : R.Ok fs) {values : Array ModRef}
+    {c : ValueCache} (h : CacheOK (R.path : Roots) fs values c) : CacheOK R fs values c := by
+  intro r hr
+  obtain ⟨md, f, a, h1, h2, h3⟩ := h r hr
+  exact ⟨md, f, a, h1, readFiles_rev hR h2, h3⟩
+
 /-- **A module's files' region kept** (a worker's home read): the snapshot's. -/
-theorem cacheOK_files {sp : SearchPath} {fs : FS} {values : Array ModRef} {i : Nat}
+theorem cacheOK_files {sp : Roots} {fs : FS} {values : Array ModRef} {i : Nat}
     {md : ModRef} {f : ModFiles} (hmd : values[i]? = some md)
     (hf : ModelIO.CanGive (readFiles sp md.name .private) fs (.ok f)) :
     CacheOK sp fs values (match f.viewRegion .private with
@@ -71,7 +85,7 @@ theorem cacheOK_files {sp : SearchPath} {fs : FS} {values : Array ModRef} {i : N
     exact ⟨md, f, a, hmd, hf, hra⟩
   · exact cacheOK_empty
 
-variable {sp : SearchPath} {fs : FS} {values : Array ModRef}
+variable {sp : Roots} {fs : FS} {values : Array ModRef}
 
 /-- The region of a module, from a kept one or the files. -/
 theorem regionFor_spec {md : ModRef} {idx : Nat} {c : ValueCache}
@@ -344,7 +358,7 @@ closure of `roots` over a snapshot `fs` that is an exit 0 means the built-in pre
 reader has an outcome on that snapshot (at one job: the parallel map's model is the sequential
 map), and `checkDecls` accepts its records prepared with the prelude, with the theorems' values
 in place (`fillOf`), whatever the `liftIO` actions answered. -/
-theorem checkMainG_oleans_accept {roots : Array Name}
+theorem checkMainG_oleans_accept {sp : SearchPath} {roots : Array Name}
     {cs : Option (Array Name)} {mode : CheckMode} {pace : Pace} {jobs : Nat}
     {hs hs' : HS} (h : (checkMainG (.oleans sp roots cs) mode pace jobs : ModelIO _) fs hs (.ok 0) hs') :
     ∃ pre rd env, Frontend.builtinPreludeE = .ok pre ∧
@@ -374,7 +388,13 @@ theorem checkMainG_oleans_accept {roots : Array Name}
     rcases x with ⟨_ | _ | _, _⟩ | rd
     rotate_right
     · have hx' : (readOleans sp roots cs : ModelIO _) fs _ (.ok (.ok rd)) _ := hx
-      have hgood := readOleans_good hx'
+      obtain ⟨-, -, -, -, ⟨T, -, hrT, hT, hTp⟩, -⟩ := readOleans_ok hx'
+      subst hrT hTp
+      have hgood : ∀ md ∈ rd.values, ∃ f r a,
+          ModelIO.CanGive (readFiles rd.roots md.name .private) fs (.ok f) ∧
+          f.viewRegion .private = some (r, a) ∧ md.frontier.Good r := fun md hmd => by
+        obtain ⟨f, r, a, h1, h2, h3⟩ := readOleans_good hx' md hmd
+        exact ⟨f, r, a, readFiles_rev hT h1, h2, h3⟩
       simp only [Except.map]
       refine ModelIO.allOk_ite (fun _ => ?_) (fun _ => ?_) <;>
         simp only [ModelIO.allOk_bind, ModelIO.liftIO_iff, forall_eq, forall_const] <;>
@@ -385,6 +405,7 @@ theorem checkMainG_oleans_accept {roots : Array Name}
       all_goals
         obtain rfl := verdictG_ok hc h0
         obtain ⟨env, henv⟩ := checkOleansG_accept hgood hv
+        rw [fillOf_roots hT] at henv
         exact ⟨_, rd, env, rfl, ⟨_, _, hx'⟩, henv⟩
     all_goals simp [Except.map]
 
