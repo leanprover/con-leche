@@ -111339,3 +111339,81 @@ unchanged, the reach gate at 734).  The link gates' citations moved with `Positi
 lines (OVERVIEW and the whitepaper, re-pointed, no cited text changed).  Two `public import`s
 of `Verify/Cached/IndWalksC.lean` are kept public against the plan script's census, measured, in
 its fallback list.
+
+## TASK #498 — L5: the tail of the inductive check, cached (2026-11-09, agent/498-l5)
+
+**What runs now.**  `checkBlockTailS` (`Cached/CheckerC.lean`) runs the twins of the stages after
+the recursor stage, in the new module `Cached/IndTail.lean`: monomorphic `(mode) (fe)` `CheckCM`
+(or pure) definitions calling `coreKnotI`'s `infer`/`defeq` and `ensureSortI` directly, with the
+cached walks where the specification runs the plain ones.
+
+| twin | specification | cached walks |
+|---|---|---|
+| `checkBlockIdxSortsC`, `checkIdxSortsC` | `checkBlockIdxSortsF`, `checkStructFieldSortsIF` at `isProp`, no large eliminator (the only use the index check makes of it, so the twin is the infer-and-sort loop) | `openPisAtFvarsC` |
+| `blockRecInfosTC`, `generatedRulesC`, `auxRuleFireC`, `generatedFireC` | `blockRecInfosTF`, `generatedRules`, `auxRuleFire`, `generatedFire` | `abstractPrefixC` (one `abstractRangeC` pass) |
+| `streamRecsCheckC` → `streamRecCheckC` → `streamRecCompareC` → `recTyCheckC` → `recTyOpenedC` → `recDomsAtC`; `streamRulesCheckC`, `ruleAgreeC`, `streamRulesShapeC`, `streamNestedOkC`, `unresolvedConstsErrorC` | the `StreamRecs.lean` checks | `allLevelParamsDefinedC`, `constsResolveFC`, `openPisAtFvarsC`, `liftLooseBVarsC`, `getAppArgsC`, `mentionsAnyConstC` |
+| `checkBlockTablesC` → `checkStructProjTableC` | `checkBlockTablesF` → `checkStructProjTableF` | `allLevelParamsDefinedC`, `constsResolveFC` |
+
+`recDomsAt` was to stay shared, but the shared operations `sharedOpsC` live in `CheckerC.lean`,
+which imports the twins; `recDomsAtC` is the ten-line loop over `coreKnotI`'s `defeq` instead
+(the core's idiom, no operations record).  `streamKCheck`, `sumRules` and `recKExpected` (no
+walk, no operation) are shared unchanged.
+
+**The specification made simpler.**  `recTyCheck`, `ruleAgree`, `streamRulesCheck`,
+`streamRecCompare`, `streamRecCheck`, `streamRecsCheck`, `checkStructProjTableF` and
+`checkBlockTablesF` lose the `StructWalkers` argument and call `Expr.constsResolveF fe`
+directly; the congruences (`streamRecsCheck_congr`, `streamRecsCheck_twin`,
+`checkStructProjTableF_twin`) take the lookup's equality (`constsResolveF_congr`) instead of the
+walker's.  `StructWalkers` itself stays: `genRecCheck`'s rule stage (`classRuleCheck`, lane L4)
+still reads it through `ShadowOps.walkers`; whichever of L4/L5 lands second deletes it.
+
+**The relation.**  Every twin mirrors its specification at `sharedOpsC`, so the relation is an
+equation (`Verify/Cached/IndTailC.lean`, 163 lines, each proof a `simp only` over the walks'
+equations and the callees' equations, `rfl` where `sharedOpsC`'s fields unfold to the core):
+`checkBlockIdxSortsC_eq`, `blockRecInfosTC_eq`, `streamRecsCheckC_eq`, `checkBlockTablesC_eq`
+and their callees'.  The three driver lemmas (`checkBlockTailS_run`, `GenRecC.lean`;
+`checkBlockTailS_twin`, `ViewCongr.lean`; `checkBlockTailS_fresh` needs nothing) rewrite by
+them once after unfolding `checkBlockTailS`; the triples (`streamRecsCheckS_spec`, …) are
+unchanged.  Twin code 240 lines (`IndTail.lean`).
+
+**The binary stays free of the grind tier.**  `IndTailC` is in the driver's import closure
+(`Driver/Run` → `Verify/Cached/StreamIndex` → … → `ViewCongr`), so a lemma it takes from
+`DiscC4` would link `DiscC1`–`4`, `Grind`, `GrindAttr` and `Lean.Meta` into the binary: measured,
+19.3 → 134.6 MB and +110 … +166 M instructions of startup per run.  `openPisAtFvarsGoC_eq`,
+`openPisAtFvarsFGo_none` and `openPisAtFvarsC_eq` move from `DiscC4.lean` to the end of
+`IndWalksC.lean` (the same move as L3's); `nm … | grep -c ' initialize_Lean'` is 0 and the binary
+19.29 MB (master 19.30 MB).
+
+**Reach.**  734 → 713 reached plain declarations; 21 allowlist entries out: the tail's
+specification (`checkBlockIdxSortsF`, `checkStructFieldSortsIF`, `blockRecInfosTF`,
+`generatedRules`, `generatedFire`, `auxRuleFire`, `Expr.abstractPrefix`, `recDomsAt`,
+`recTyOpened`, `recTyCheck`, `ruleAgree`, `streamNestedOk`, `streamRulesShape`,
+`streamRulesCheck`, `streamRecCompare`, `streamRecCheck`, `streamRecsCheck`,
+`checkStructProjTableF`, `checkBlockTablesF`) and the plain lift's memo walk
+(`liftLooseBVarsFast`, `liftLooseBVarsGo`).  **Deleted:** that walk (`liftLooseBVarsGo`,
+`liftLooseBVarsFast`, `LiftMemoInv`, `liftLooseBVarsGo_spec`) and its `@[csimp]`
+`liftLooseBVars_eq_liftLooseBVarsFast`; `Expr.liftLooseBVars` stays as the specification.  No other
+memo walk became unreached (`abstract1`, `instantiate1`, `constsResolveF`, `allLevelParamsDefined`
+and the plain opener are still run by the stages L2–L4 take over).
+
+**Numbers** (`perf stat -e instructions:u`, one run each, `--jobs=1`, verified; master
+367faa1e9 → the lane):
+
+| run | master | lane | change |
+|---|---|---|---|
+| init-full | 374.786 G | 374.693 G | −0.025 % |
+| grind-ring-5 | 13.1483 G | 13.1453 G | −0.02 % |
+| `BvStruct` module | 431.919 G | 431.901 G | |
+| `Empty` module | 429.645 G | 429.622 G | |
+| `BvStruct` − `Empty` | 2.274 G | 2.279 G | (noise, ±20 M per run, L1's record) |
+| e2e `prop_struct_proj_wide` | 492.68 M | 490.70 M | −0.4 % |
+
+The tail is a small share of the inductive check: its own walks are guards over closed
+recursor types and rules, and its time is the core's inference and comparison, which ran cached
+already.  The same verdicts everywhere.
+
+**Gates.**  `lake build`, `lake test` warning-free; `tests/arena.sh` passes (e2e 558/558, the
+reach gate at 713, the shake gate with one `public import` of `IndTailC.lean` kept public against
+the plan script's census, measured, in its fallback list).  The link gates' expectations follow
+`streamRecsCheck`'s new signature (OVERVIEW and the whitepaper cite it; the cited text is the
+same function, the paragraphs need no change).
