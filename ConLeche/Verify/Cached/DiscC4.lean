@@ -438,14 +438,6 @@ theorem projGuardSortC_spec (ih : SSimC mode eager env f) {cvT : ConstantVal} {c
   sym only [conleche_grind, projGuardSort] =>
     vcgen [projGuardSortI, instLevelParamsM, formerSortLoopC_spec ih] <;> finish
 
-/-- The cached occurrence test is `Expr.hasLooseBVarB` (task #497). -/
-theorem hasLooseBVarBC_spec {i : Nat} {e : Expr} :
-    Expr.hasLooseBVarBC i e = Expr.hasLooseBVarB i e := by
-  unfold Expr.hasLooseBVarBC
-  split
-  · next h => exact (Expr.hasLooseBVarBP_cut h).symm
-  · rw [Expr.resBool_eq]; rfl
-
 /-- The cached guard rows are the kernel's (task #497). -/
 theorem projGuardRowsGoC_eq :
     ∀ (k d : Nat) (e : Expr), projGuardRowsGoC k d e = projGuardRowsGo k d e

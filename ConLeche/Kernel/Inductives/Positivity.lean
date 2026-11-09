@@ -467,43 +467,16 @@ the value: the functions' theorems hold at every fuel. -/
 /-- The fuel's slack above the term's depth (see the section header). -/
 def fuelSlack : Nat := 1024
 
-/-- `Expr.depth`'s memoised walk: every node is visited once (the memo
-is keyed by the node), so a DAG costs its distinct nodes, never its
-unfolding. -/
-def Expr.depthGo (memo : Std.HashMap Expr Nat) : Expr → Nat × Std.HashMap Expr Nat
-  | .bvar _ => (1, memo)
-  | .fvar .. => (1, memo)
-  | .sort _ => (1, memo)
-  | .const .. => (1, memo)
-  | .lit _ => (1, memo)
-  | e =>
-    match memo[e]? with
-    | some r => (r, memo)
-    | none =>
-      let (r, memo) : Nat × Std.HashMap Expr Nat :=
-        match e with
-        | .app f a =>
-          let (d₁, memo) := depthGo memo f
-          let (d₂, memo) := depthGo memo a
-          (max d₁ d₂ + 1, memo)
-        | .lam ty body | .forallE ty body =>
-          let (d₁, memo) := depthGo memo ty
-          let (d₂, memo) := depthGo memo body
-          (max d₁ d₂ + 1, memo)
-        | .letE ty v body =>
-          let (d₁, memo) := depthGo memo ty
-          let (d₂, memo) := depthGo memo v
-          let (d₃, memo) := depthGo memo body
-          (max (max d₁ d₂) d₃ + 1, memo)
-        | .proj _ _ x =>
-          let (d, memo) := depthGo memo x
-          (d + 1, memo)
-        | _ => (1, memo)
-      (r, memo.insert e r)
-
-/-- A term's depth (the longest root-to-leaf path; `fvar` annotations
-not descended), memoised. -/
-def Expr.depth (e : Expr) : Nat := (e.depthGo {}).1
+/-- A term's depth: the longest root-to-leaf path (`fvar` annotations
+not descended).  The executed form is the cached tier's memoised
+`Expr.depthC` (`depthC_spec`). -/
+def Expr.depth : Expr → Nat
+  | .app f a => max f.depth a.depth + 1
+  | .lam ty body => max ty.depth body.depth + 1
+  | .forallE ty body => max ty.depth body.depth + 1
+  | .letE ty v body => max (max ty.depth v.depth) body.depth + 1
+  | .proj _ _ x => x.depth + 1
+  | _ => 1
 
 /-- **The fuel of a walk through whnf** starting at `e`: its depth plus
 the slack (see the section header). -/
@@ -846,8 +819,8 @@ def Expr.appHole? (f : Name → List Level → Option Expr) (b n : Nat) (e : Exp
 /-- **The whole-application replacement**, pre-order: a subterm that is a
 whole application `f` maps is replaced by its image, not descended into;
 free variables are leaves (their annotations are not descended into).
-The executed walk is memoised (`replaceAppsGo`, swapped in by
-`@[csimp]`). -/
+The executed walk is the cached tier's memoised `Expr.replaceAppsC`
+(`replaceAppsC_spec`). -/
 def Expr.replaceApps (f : Name → List Level → Option Expr) (b n : Nat) : Expr → Expr
   | .app a x => ((Expr.app a x).appHole? f b n).getD
       (.app (replaceApps f b n a) (replaceApps f b n x))
@@ -861,143 +834,6 @@ def Expr.replaceApps (f : Name → List Level → Option Expr) (b n : Nat) : Exp
   | .fvar i ty => .fvar i ty
   | .sort u => .sort u
   | .lit l => .lit l
-
-/-- The memo's invariant: every recorded answer is the real one. -/
-def ReplaceAppsMemoInv (f : Name → List Level → Option Expr) (b n : Nat)
-    (memo : Std.HashMap Expr Expr) : Prop :=
-  ∀ k v, memo[k]? = some v → v = Expr.replaceApps f b n k
-
-theorem ReplaceAppsMemoInv.insert {f : Name → List Level → Option Expr} {b n : Nat}
-    {memo : Std.HashMap Expr Expr} (hm : ReplaceAppsMemoInv f b n memo) {e r : Expr}
-    (heq : r = Expr.replaceApps f b n e) : ReplaceAppsMemoInv f b n (memo.insert e r) := by
-  intro k v hk
-  rw [Std.HashMap.getElem?_insert] at hk
-  split at hk
-  · rename_i hbeq
-    cases hk
-    rw [← eq_of_beq hbeq]
-    exact heq
-  · exact hm k v hk
-
-/-- The memoised `replaceApps`. -/
-def Expr.replaceAppsGo (f : Name → List Level → Option Expr) (b n : Nat)
-    (memo : Std.HashMap Expr Expr) : Expr → Expr × Std.HashMap Expr Expr
-  | e@(.bvar _) => (e, memo)
-  | e@(.sort _) => (e, memo)
-  | e@(.lit _) => (e, memo)
-  | e@(.fvar ..) => (e, memo)
-  | .const c us => (((Expr.const c us).appHole? f b n).getD (.const c us), memo)
-  | e =>
-    match memo[e]? with
-    | some r => (r, memo)
-    | none =>
-      let (r, memo) : Expr × Std.HashMap Expr Expr :=
-        match e with
-        | .app a x =>
-          match (Expr.app a x).appHole? f b n with
-          | some h => (h, memo)
-          | none =>
-            let (a', memo) := replaceAppsGo f b n memo a
-            let (x', memo) := replaceAppsGo f b n memo x
-            (.app a' x', memo)
-        | .lam t body =>
-          let (t', memo) := replaceAppsGo f b n memo t
-          let (body', memo) := replaceAppsGo f b n memo body
-          (.lam t' body', memo)
-        | .forallE t body =>
-          let (t', memo) := replaceAppsGo f b n memo t
-          let (body', memo) := replaceAppsGo f b n memo body
-          (.forallE t' body', memo)
-        | .letE t v body =>
-          let (t', memo) := replaceAppsGo f b n memo t
-          let (v', memo) := replaceAppsGo f b n memo v
-          let (body', memo) := replaceAppsGo f b n memo body
-          (.letE t' v' body', memo)
-        | .proj s i x =>
-          let (x', memo) := replaceAppsGo f b n memo x
-          (.proj s i x', memo)
-        | e => (e, memo)
-      (r, memo.insert e r)
-
-/-- **The memoised walk is `replaceApps`.** -/
-theorem Expr.replaceAppsGo_spec {f : Name → List Level → Option Expr} {b n : Nat} :
-    ∀ (e : Expr) {memo : Std.HashMap Expr Expr}, ReplaceAppsMemoInv f b n memo →
-      (Expr.replaceAppsGo f b n memo e).1 = Expr.replaceApps f b n e ∧
-        ReplaceAppsMemoInv f b n (Expr.replaceAppsGo f b n memo e).2 := by
-  intro e
-  induction e with
-  | bvar i => intro memo hm; exact ⟨rfl, hm⟩
-  | sort u => intro memo hm; exact ⟨rfl, hm⟩
-  | lit l => intro memo hm; exact ⟨rfl, hm⟩
-  | const c us => intro memo hm; exact ⟨rfl, hm⟩
-  | fvar i ty _ => intro memo hm; exact ⟨rfl, hm⟩
-  | app a x iha ihx =>
-    intro memo hm
-    rw [Expr.replaceAppsGo]
-    split
-    · rename_i r hhit
-      exact ⟨(hm _ _ hhit).symm ▸ rfl, hm⟩
-    · dsimp only
-      split
-      · rename_i h hh
-        have : Expr.replaceApps f b n (.app a x) = h := by simp [Expr.replaceApps, hh]
-        exact ⟨this.symm, hm.insert this.symm⟩
-      · rename_i hh
-        obtain ⟨h1, h2⟩ := iha hm
-        obtain ⟨h3, h4⟩ := ihx h2
-        have : Expr.replaceApps f b n (.app a x) = .app (Expr.replaceAppsGo f b n memo a).1
-            (Expr.replaceAppsGo f b n (Expr.replaceAppsGo f b n memo a).2 x).1 := by
-          simp [Expr.replaceApps, hh, h1, h3]
-        exact ⟨this.symm, h4.insert this.symm⟩
-  | lam t body iht ihb =>
-    intro memo hm
-    rw [Expr.replaceAppsGo]
-    split
-    · rename_i r hhit
-      exact ⟨(hm _ _ hhit).symm ▸ rfl, hm⟩
-    · obtain ⟨h1, h2⟩ := iht hm
-      obtain ⟨h3, h4⟩ := ihb h2
-      refine ⟨by simp [Expr.replaceApps, h1, h3], ?_⟩
-      exact h4.insert (by simp [Expr.replaceApps, h1, h3])
-  | forallE t body iht ihb =>
-    intro memo hm
-    rw [Expr.replaceAppsGo]
-    split
-    · rename_i r hhit
-      exact ⟨(hm _ _ hhit).symm ▸ rfl, hm⟩
-    · obtain ⟨h1, h2⟩ := iht hm
-      obtain ⟨h3, h4⟩ := ihb h2
-      refine ⟨by simp [Expr.replaceApps, h1, h3], ?_⟩
-      exact h4.insert (by simp [Expr.replaceApps, h1, h3])
-  | letE t v body iht ihv ihb =>
-    intro memo hm
-    rw [Expr.replaceAppsGo]
-    split
-    · rename_i r hhit
-      exact ⟨(hm _ _ hhit).symm ▸ rfl, hm⟩
-    · obtain ⟨h1, h2⟩ := iht hm
-      obtain ⟨h3, h4⟩ := ihv h2
-      obtain ⟨h5, h6⟩ := ihb h4
-      refine ⟨by simp [Expr.replaceApps, h1, h3, h5], ?_⟩
-      exact h6.insert (by simp [Expr.replaceApps, h1, h3, h5])
-  | proj s i x ih =>
-    intro memo hm
-    rw [Expr.replaceAppsGo]
-    split
-    · rename_i r hhit
-      exact ⟨(hm _ _ hhit).symm ▸ rfl, hm⟩
-    · obtain ⟨h1, h2⟩ := ih hm
-      refine ⟨by simp [Expr.replaceApps, h1], ?_⟩
-      exact h2.insert (by simp [Expr.replaceApps, h1])
-
-/-- The executed `replaceApps` (one memoised DAG walk). -/
-def Expr.replaceAppsFast (f : Name → List Level → Option Expr) (b n : Nat) (e : Expr) : Expr :=
-  (Expr.replaceAppsGo f b n {} e).1
-
-@[csimp] theorem Expr.replaceApps_eq_replaceAppsFast :
-    @Expr.replaceApps = @Expr.replaceAppsFast := by
-  funext f b n e
-  exact (Expr.replaceAppsGo_spec e (fun k v h => by simp at h)).1.symm
 
 /-- The canonical parameter variables `fvar 0, …, fvar (n - 1)`. -/
 def nestPhs (n : Nat) : List Expr := (List.range n).map fun i => .fvar i (.sort .zero)
