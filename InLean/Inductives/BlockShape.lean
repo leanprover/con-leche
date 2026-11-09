@@ -78,8 +78,6 @@ def instPisWith : List Expr → Expr → Option Expr
   | a :: as, .mdata _ e => instPisWith (a :: as) e
   | _ :: _, _ => none
 
-/-- Twin of `Expr.instPisAtLift`. -/
-def instPisAtLift : List Expr → Expr → Option Expr := instPisWith
 
 /-- Twin of `targetPiDomsWith`. -/
 def targetPiDomsWith : List Expr → Expr → Option (List Expr)

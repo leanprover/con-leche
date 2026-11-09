@@ -272,12 +272,13 @@ theorem TOk_all_mono {s₀ s₁ : InLean.CState} (ht : TabLe s₀ s₁) {d : Nat
 typed, its fields through the recursion, U4, its result, its normal form
 recorded; master's on the readings. -/
 theorem nestCtorsI_run {fe : InLean.FEnv} {L : ConLeche.Env} {ctx : InLean.NestCtx}
-    {cctx : ConLeche.NestCtx} (hJ : JobEnvI fe L) {rec : Lean.Expr → InLean.NestRec}
+    {cctx : ConLeche.NestCtx} (hJ : JobEnvI fe L) {fuelOf : Lean.Expr → Nat}
+    {rec : Nat → InLean.NestRec}
     {rec' : ConLeche.Expr → List ConLeche.NestHole → Nat → Nat → ConLeche.Expr →
       ConLeche.NestState →
       ConLeche.FueledM (ConLeche.NestFieldKind × ConLeche.Expr × ConLeche.NestState)}
     (hrec : ∀ (s : InLean.CState) (x : Lean.Expr), OkS s x = true →
-      RecSpecI fe L ctx cctx (rec x) (rec' (TrS s x)))
+      RecSpecI fe L ctx cctx (rec (fuelOf x)) (rec' (TrS s x)))
     (prog : List InLean.NestHole) (hi : Nat) (us : List Lean.Level) (ds : List Lean.Expr)
     (names : List Lean.Name) (holes : List Lean.Expr) (hus : us.all okLv = true)
     (hlen : names.length ≤ holes.length) :
@@ -286,7 +287,8 @@ theorem nestCtorsI_run {fe : InLean.FEnv} {L : ConLeche.Env} {ctx : InLean.NestC
       CSOKI .verified false L s₀ → WalkRel fe L s₀ ctx cctx → ProgOk s₀ prog → StOk s₀ st →
       OkSL s₀ ds = true → (∀ a ∈ ds, TOk s₀ hi a) →
       OkSL s₀ holes = true → (∀ a ∈ holes, TOk s₀ hi a) → (∀ c ∈ cs, CtorOkI c) →
-      InLean.nestCtors ctx (sharedOpsC .verified fe) fe rec prog hi us ds names holes cs st s₀ =
+      InLean.nestCtors ctx (sharedOpsC .verified fe) fe fuelOf rec prog hi us ds names holes cs st
+        s₀ =
         .ok (v, s') →
       CSOKI .verified false L s' ∧ TabLe s₀ s' ∧ (∀ o ∈ v.1, OutOk s' hi o) ∧ StOk s' v.2 ∧
         Runs (ConLeche.nestCtors cctx (ConLeche.fueledOpsM .verified) L rec'
@@ -380,7 +382,8 @@ theorem nestCtorsI_run {fe : InLean.FEnv} {L : ConLeche.Env} {ctx : InLean.NestC
       obtain ⟨hokD, htrD⟩ := replaceFVarsI_trL hF hds₅
       obtain ⟨hokN, htrN⟩ := replaceFVarsI_tr hF hokT
       have hst₂ : StOk s₅ { st₁ with
-          ctorNfs := (st₁.ctorNfs.push (InLean.nestCtorNf ctx prog hi us ds cv nds cur)) } := by
+          ctorNfs := (st₁.ctorNfs.push
+            (InLean.nestCtorNf ctx prog us ds cv (InLean.closeTelescope nds hi cur))) } := by
         refine ⟨hst₁.1, hst₁.2.1, ?_⟩
         intro n hn
         simp only [Array.toList_push, List.mem_append, List.mem_singleton] at hn
@@ -415,7 +418,7 @@ theorem nestCtorsI_run {fe : InLean.FEnv} {L : ConLeche.Env} {ctx : InLean.NestC
         rw [← nestResHead_tr hcur.1, ← TrSL_appArgs, hW.canon.names, hW.canon.nP,
           all_nestOcc_tr _ _ _ hokArgs, hr]
         simp only [↓reduceIte]
-        have hNf : trNf s₅ (InLean.nestCtorNf ctx prog hi us ds cv nds cur) =
+        have hNf : trNf s₅ (InLean.nestCtorNf ctx prog us ds cv (InLean.closeTelescope nds hi cur)) =
             ConLeche.nestCtorNf cctx (prog.map (trHole s₀)) hi (us.map trL) (TrSL s₀ ds) (trCV cv)
               (TrSL s₅ nds) (TrS s₅ cur) := by
           simp only [trNf, InLean.nestCtorNf, ConLeche.nestCtorNf, htrD, htrN, hTC, hpe,
@@ -432,9 +435,9 @@ theorem nestCtorsI_run {fe : InLean.FEnv} {L : ConLeche.Env} {ctx : InLean.NestC
 
 /-- **Interned holes at given types** (`mapM mkFVarM`): master's free
 variables, read at the final state. -/
-theorem mapM_mkFVarM_tys {mode : ConLeche.CheckMode} {eager : Bool} {env : ConLeche.Env}
-    (g : Nat → Nat) (t : Nat → Lean.Expr) :
-    ∀ (l : List Nat) {s₀ s' : InLean.CState} {xs : List Lean.Expr},
+theorem mapM_mkFVarM_tys {α : Type} {mode : ConLeche.CheckMode} {eager : Bool}
+    {env : ConLeche.Env} (g : α → Nat) (t : α → Lean.Expr) :
+    ∀ (l : List α) {s₀ s' : InLean.CState} {xs : List Lean.Expr},
       CSOKI mode eager env s₀ →
       (∀ i ∈ l, OkS s₀ (t i) = true ∧ (TrS s₀ (t i)).looseBVarsBounded 0 = true) →
       l.mapM (fun i => InLean.mkFVarM (g i) (t i)) s₀ = .ok (xs, s') →
@@ -495,13 +498,10 @@ theorem nestFrameI_run {fe : InLean.FEnv} {L : ConLeche.Env} {ctx : InLean.NestC
   obtain ⟨rfl, hR2⟩ := nestGroupCtorsI_run hJ hW₁ nPc _ h2
   obtain ⟨holes, s₃, h3, h⟩ := bind_run hk
   have hg₁ := (hg.mono ht₁ hds).1
-  obtain ⟨hs₃, ht₃, hokH, htrH⟩ := mapM_mkFVarM_tys (fun i => hi + i)
-    (fun i => (grp.getD i default).2) _ hs₁ (by
-      intro i hi'
-      have hm : grp.getD i default ∈ grp := by
-        have hlt : i < grp.length := by simpa using hi'
-        simp only [List.getD_eq_getElem?_getD, List.getElem?_eq_getElem hlt, Option.getD_some]
-        exact List.getElem_mem _
+  obtain ⟨hs₃, ht₃, hokH, htrH⟩ := mapM_mkFVarM_tys (fun p : (Lean.Name × Lean.Expr) × Nat => hi + p.2)
+    (fun p => p.1.2) _ hs₁ (by
+      intro p hp'
+      have hm : p.1 ∈ grp := List.fst_mem_of_mem_zipIdx hp'
       exact ⟨(hg₁ _ hm).1, (hg₁ _ hm).2.1⟩) h3
   obtain ⟨⟨os, st₁⟩, s₄, h4, h⟩ := bind_run h
   obtain ⟨rfl, rfl⟩ := pure_run h
@@ -517,9 +517,9 @@ theorem nestFrameI_run {fe : InLean.FEnv} {L : ConLeche.Env} {ctx : InLean.NestC
     · simp [trGrp]
     · intro i h1 h2
       have hlt : i < grp.length := by simpa using h1
-      simp only [List.getElem_map, List.getElem_range, List.getElem_mapIdx, trGrp]
-      simp only [List.getD_eq_getElem?_getD, List.getElem?_eq_getElem hlt, Option.getD_some]
+      simp only [List.getElem_map, List.getElem_zipIdx, List.getElem_mapIdx, trGrp]
       rw [TrS_of_tabLe ht₁ (hg _ (List.getElem_mem hlt)).1]
+      simp
   have hdsT₃ : ∀ a ∈ ds, TOk s₃ (hi + grp.length) a := by
     intro a ha
     obtain ⟨h1', h2'⟩ := TOk.mono ht03 (hdsT a ha)
@@ -552,7 +552,8 @@ theorem nestFrameI_run {fe : InLean.FEnv} {L : ConLeche.Env} {ctx : InLean.NestC
     · obtain ⟨i, -, rfl⟩ := List.mem_mapIdx.1 (List.mem_reverse.1 hx)
       exact hKey
     · exact (hp.mono ht03).1 x hx
-  obtain ⟨hs₄, ht₄, -, hst₄, hR4⟩ := nestCtorsI_run hJ (rec := fun _ => rec) (rec' := fun _ => rec')
+  obtain ⟨hs₄, ht₄, -, hst₄, hR4⟩ := nestCtorsI_run hJ (fuelOf := fun _ => 0) (rec := fun _ => rec)
+    (rec' := fun _ => rec')
     (fun _ _ _ => hrec) _ (hi + grp.length) us ds (grp.map (·.1)) holes hus (by simp [hlenH])
     ctors st hs₃ (hW.mono ht03) hp' (hst.mono ht03).1 (okSL_of_tabLe ht03 hds) hdsT₃ hokH hhT₃
     hcOk h4
@@ -1118,7 +1119,7 @@ theorem nestRootI_run {fe : InLean.FEnv} {L : ConLeche.Env} {ctx : InLean.NestCt
       exact ⟨hok a ha, hpW a ha, hW.paramsCl a ha⟩
     have hrec : ∀ (s : InLean.CState) (x : Lean.Expr), OkS s x = true →
         RecSpecI fe L ctx cctx
-          ((fun crest => InLean.nestPos (sharedOpsC .verified fe) fe ctx (InLean.whnfWalkFuel crest)) x)
+          (InLean.nestPos (sharedOpsC .verified fe) fe ctx (InLean.whnfWalkFuel x))
           ((fun crest => ConLeche.nestPos (ConLeche.fueledOpsM .verified) L cctx
             (ConLeche.whnfWalkFuel crest)) (TrS s x)) := by
       intro s x _
@@ -1126,7 +1127,7 @@ theorem nestRootI_run {fe : InLean.FEnv} {L : ConLeche.Env} {ctx : InLean.NestCt
       rw [← whnfWalkFuel_TrS s x]
       exact nestPosI_run hJ hRF _
     obtain ⟨hs₁, ht₁, ho, hst₁, hR1⟩ := nestCtorsI_run hJ
-      (rec := fun crest => InLean.nestPos (sharedOpsC .verified fe) fe ctx (InLean.whnfWalkFuel crest))
+      (fuelOf := InLean.whnfWalkFuel) (rec := InLean.nestPos (sharedOpsC .verified fe) fe ctx)
       (rec' := fun crest => ConLeche.nestPos (ConLeche.fueledOpsM .verified) L cctx
         (ConLeche.whnfWalkFuel crest)) hrec [] (ctx.hiAt 0) (ctx.lps.map .param)
       ctx.params ctx.names holes (params_okLv _) hlen cs st hs hW (fun _ h => nomatch h) hst

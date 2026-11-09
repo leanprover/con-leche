@@ -364,11 +364,17 @@ def reduceStoredOk (fe : FEnv) (c : Name) : Bool :=
   | some ci@(.axiomInfo _) => (reduceOpPin c).matchesExact ci
   | _ => false
 
+/-- Twin of `reducePinGuardC`: the pin closed, without free variables or
+level parameters, its constants stored. -/
+def reducePinGuard (fe : FEnv) (c : Name) : Bool :=
+  !(reduceDeclPin c).hasLooseBVars && !(reduceDeclPin c).hasFVar &&
+  !(reduceDeclPin c).hasLevelParam && constsResolve fe (reduceDeclPin c)
+
 /-- Twin of `checkReducePinC`. -/
 def checkReducePin (fe fe2 : FEnv) (c : Name) (value : Expr) : CheckCM Unit := do
   unless reduceStoredOk fe2 c && reduceElemOk fe c do
     throw (.notImplemented s!"unsupported compiler-trust opaque declaration ({c})")
-  unless constsResolve fe (reduceDeclPin c) do
+  unless reducePinGuard fe c do
     throw (.notImplemented
       s!"unsupported compiler-trust opaque spelling ({c}: pin ground constants absent)")
   unless ← opDefeq mode fe 0 value (reduceDeclPin c) do

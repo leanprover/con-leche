@@ -253,18 +253,19 @@ def nestInstType (ctx : NestCtx) (ops : CheckerOps) (env : FEnv) (hi : Nat) (key
   let ty ← unwrapOr (instPisWith key.ds (← instLevelParamsM cvC.levelParams key.lvls tyC))
     (.invalid "nested positivity: invalid nested inductive datatype, its type does not bind \
       its parameters (official: ill-formed inductive type)")
-  let s ← unwrapOr (match (piBinders ty).2 with
+  let pb := piBinders ty
+  let s ← unwrapOr (match pb.2 with
       | .sort s => some s
       | _ => none)
     (.invalid "nested positivity: invalid nested inductive datatype, its type is not a \
       telescope ending in a sort (official: type expected)")
-  if (piBinders ty).1.any (fun b => nestOcc ctx.names ctx.nP hi b) then
+  if pb.1.any (fun b => nestOcc ctx.names ctx.nP hi b) then
     throw (.invalid "nested positivity: a container's index telescope mentions the block \
       (official: unknown constant)")
   unless ← liftFueled "level comparison" (Lvl.isEquiv s ctx.sort) do
     throw (.invalid "nested positivity: mutually inductive types must live in the \
       same universe")
-  pure ((piBinders ty).1.length, ty)
+  pure (pb.1.length, ty)
 
 /-- Twin of `nestResHead`. -/
 def nestResHead (e : Expr) : Bool := e.getAppFnT.isFVar
@@ -286,14 +287,18 @@ def nestFields (rec : NestRec) (prog : List NestHole) (base : Nat) (err : CheckE
       pure (k :: ks, nd :: nds, res, st)
     | _ => throw err
 
-/-- Twin of `nestCtorNf`. -/
-def nestCtorNf (ctx : NestCtx) (prog : List NestHole) (hi : Nat) (us : List Level)
-    (ds : List Expr) (cv : ConstantVal) (nds : List Expr) (cur : Expr) : NestCtorNf :=
+/-- Twin of `nestCtorNfC`, at the walked telescope `tel` closed once by the
+caller. -/
+def nestCtorNf (ctx : NestCtx) (prog : List NestHole) (us : List Level)
+    (ds : List Expr) (cv : ConstantVal) (tel : Expr) : NestCtorNf :=
   ⟨cv.name, us, ds.map (replaceFVars (nestHoleImg ctx prog)),
-    replaceFVars (nestHoleImg ctx prog) (closeTelescope nds hi cur)⟩
+    replaceFVars (nestHoleImg ctx prog) tel⟩
 
-/-- Twin of `nestCtors`. -/
-def nestCtors (ctx : NestCtx) (ops : CheckerOps) (env : FEnv) (rec : Expr → NestRec)
+/-- Twin of `nestCtorsC`: the walked telescope closed once (for the U4 test,
+the record and the output), the walk of the fields `rec` at the fuel
+`fuelOf crest`, computed once per constructor. -/
+def nestCtors (ctx : NestCtx) (ops : CheckerOps) (env : FEnv) (fuelOf : Expr → Nat)
+    (rec : Nat → NestRec)
     (prog : List NestHole) (hi : Nat) (us : List Level) (ds : List Expr) (names : List Name)
     (holes : List Expr) :
     List (ConstantVal × Nat) → NestState → CheckCM (List (List NestFieldKind × Expr) × NestState)
@@ -309,21 +314,23 @@ def nestCtors (ctx : NestCtx) (ops : CheckerOps) (env : FEnv) (rec : Expr → Ne
         does not bind the parameters (official: ill-formed constructor)")
     let ty ← ops.inferType env hi crest
     let _ ← ops.ensureSort env hi ty
-    let (ks, nds, cur, st) ← nestFields (rec crest) prog hi
+    let F := fuelOf crest
+    let (ks, nds, cur, st) ← nestFields (rec F) prog hi
       (.invalid "nested positivity: invalid nested inductive datatype, its constructor type \
         does not bind its fields (official: ill-formed constructor)") nF 0 crest st
-    if (closeTelescope nds hi cur).hasExprMVar then
+    let tel := closeTelescope nds hi cur
+    if tel.hasExprMVar then
       throw (.internal "too many bound variables")
     if (List.range nF).any (fun i => ks.getD i .ordinary != .ordinary &&
-        structUsedLater (closeTelescope nds hi cur) 0 i) then
+        structUsedLater tel 0 i) then
       throw (.invalid "nested positivity: non valid occurrence of the datatypes being \
         declared (a later field or the result depends on a recursive or nested field)")
     unless nestResHead cur && (appArgs cur).all (fun x => !nestOcc ctx.names ctx.nP hi x) do
       throw (.invalid "nested positivity: invalid return type — a constructor's result \
         index mentions the block")
-    let st := { st with ctorNfs := st.ctorNfs.push (nestCtorNf ctx prog hi us ds cv nds cur) }
-    let (os, st) ← nestCtors ctx ops env rec prog hi us ds names holes cs st
-    pure ((ks, closeTelescope nds hi cur) :: os, st)
+    let st := { st with ctorNfs := st.ctorNfs.push (nestCtorNf ctx prog us ds cv tel) }
+    let (os, st) ← nestCtors ctx ops env fuelOf rec prog hi us ds names holes cs st
+    pure ((ks, tel) :: os, st)
 
 /-- Twin of `nestGroupCtors`. -/
 def nestGroupCtors (ctx : NestCtx) (nPc : Nat) : List Name → CheckCM (List (ConstantVal × Nat))
@@ -369,8 +376,8 @@ def nestFrame (ctx : NestCtx) (ops : CheckerOps) (env : FEnv) (rec : NestRec)
   let prog' := (grp.mapIdx fun _ (c, ty) =>
     ({ key := ⟨c, us, ds⟩, base := hi, nIdx := (piBinders ty).1.length } : NestHole)).reverse ++ prog
   let ctors ← nestGroupCtors ctx nPc (grp.map (·.1))
-  let holes ← (List.range grp.length).mapM fun i => mkFVarM (hi + i) (grp.getD i default).2
-  let (_, st) ← nestCtors ctx ops env (fun _ => rec) prog' (hi + grp.length) us ds (grp.map (·.1))
+  let holes ← grp.zipIdx.mapM fun (x, i) => mkFVarM (hi + i) x.2
+  let (_, st) ← nestCtors ctx ops env (fun _ => 0) (fun _ => rec) prog' (hi + grp.length) us ds (grp.map (·.1))
     holes ctors st
   pure st
 
@@ -505,7 +512,7 @@ def nestRoot (ops : CheckerOps) (env : FEnv) (ctx : NestCtx) (holes : List Expr)
       CheckCM (List (List (List NestFieldKind × Expr)) × NestState)
   | [], st => pure ([], st)
   | cs :: css, st => do
-    let (o, st) ← nestCtors ctx ops env (fun crest => nestPos ops env ctx (whnfWalkFuel crest)) []
+    let (o, st) ← nestCtors ctx ops env whnfWalkFuel (nestPos ops env ctx) []
       (ctx.hiAt 0) (ctx.lps.map .param) ctx.params ctx.names holes cs st
     let (os, st) ← nestRoot ops env ctx holes css st
     pure (o :: os, st)
