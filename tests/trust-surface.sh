@@ -117,11 +117,26 @@
 #       `sorryAx` it introduces.  A `sorry` anywhere else still fails
 #       this gate.
 #
+#   ConLeche/Kernel/NatHash.lean       extern
+#       `natBigHash` (task #547) — THE ONE NATIVE FUNCTION the checker
+#       carries, the maintainer's one deliberate exception to "no C":
+#       the hash of a `Nat` literal of 2^64 and more, all its 64-bit
+#       words mixed with Lean's `mixHash` (`native/nat_hash.c`, a few
+#       lines).  VENDORED FROM lean4#16146 (fixes lean4#15686) under
+#       upstream's symbol `lean_nat_big_hash`; a toolchain that ships the
+#       PR fails the link on the duplicate symbol, and then the file, the
+#       module and this entry go.  Lean has no word access to a big
+#       `Nat`, and a hash of `n mod 2^64` alone put every literal sharing
+#       its low bits in one memo bucket (DESIGN #543).  To the proofs it
+#       is an opaque function of the number: a hash, which no statement
+#       reads beyond "equal literals, equal hashes".
+#
 #   THE BUILD AND NATIVE SURFACE (task #450) — not Lean, so not scanned
 #   for tokens, but trusted all the same: the package's build file
-#   (`lakefile.toml`, the targets Lake builds the binary from) and
-#   every native source in the tree (`*.c`, `*.h`, `*.cc`, `*.cpp`,
-#   `*.S`, `*.s`; today there is none: the checker carries no C).  Each is
+#   (`lakefile.lean`, Lean code that Lake runs to build the binary,
+#   compiling and linking the C below) and every native source in the
+#   tree (`*.c`, `*.h`, `*.cc`, `*.cpp`, `*.S`, `*.s`; today
+#   `native/nat_hash.c`, the literal hash `natBigHash`).  Each is
 #   PINNED by its SHA-256 in `NATIVE` below with its reason: a change to
 #   one, and a native source or a `lakefile.*` that is not listed, fails
 #   the gate until a reviewer re-pins it here (the failure prints the new
@@ -255,6 +270,7 @@ ALLOW = {
     'ConLeche/Kernel/Expr.lean':     {'computed_field'},
     'ConLeche/Kernel/Name.lean':     {'computed_field'},
     'ConLeche/Kernel/Exclusive.lean': {'unsafe', 'implemented_by'},
+    'ConLeche/Kernel/NatHash.lean':  {'extern'},
 }
 
 # NOT SCANNED (see the header): fixture *inputs* that deliberately
@@ -518,8 +534,10 @@ for f, t in stale:
 # Pinned by content: path -> (sha256, reason).  See the header.
 import hashlib
 NATIVE = {
-    'lakefile.toml': ('316e698828d8b5f2e2c3b6108c067fac14f7c4de4270b41018e063c57146e473',
-        'the build: the targets'),
+    'lakefile.lean': ('c4d9d9d44f7de3ec1227726691f7af7f47c8b5af554833c39c29ea4f18d43678',
+        'the build: the targets, and the C compile and link of native/'),
+    'native/nat_hash.c': ('4d71f8daa8bce1685a4f85a1371ad448d013944fb60e99e26c9b3d7181e02a53',
+        'natBigHash, the hash of a big Nat literal (vendored from lean4#16146)'),
 }
 NATIVE_EXT = ('.c', '.h', '.cc', '.cpp', '.S', '.s')
 found = set(f for f in os.listdir('.') if f.startswith('lakefile.'))
