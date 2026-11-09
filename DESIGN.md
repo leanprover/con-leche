@@ -111339,3 +111339,79 @@ unchanged, the reach gate at 734).  The link gates' citations moved with `Positi
 lines (OVERVIEW and the whitepaper, re-pointed, no cited text changed).  Two `public import`s
 of `Verify/Cached/IndWalksC.lean` are kept public against the plan script's census, measured, in
 its fallback list.
+
+## TASK #520 — the binder-telescope congruence: fixtures and a scaling measurement (2026-11-09, agent/520-defeq-binding)
+
+**The question.**  The official kernel compares two Π-type or lambda-expression telescopes in
+`is_def_eq_binding`: it collects the binders of both, instantiates each domain once over the fresh
+locals so far (`instantiate_rev`), compares the domains, and compares the two bodies once at the end,
+one bulk instantiation each.  con-leche's congruence (`quickDefEqI`'s ∀ arm, `defeqLamsI`) goes one
+binder at a time and re-instantiates the whole remaining body at every binder: n binders over a body
+of size m cost O(n·m), where official's cost O(n + m).  Task #322 measured bulk instantiation at
+this site (and at the io ∀/λ clauses) at −0.4 % on init-full; InLean (task #451) found the shape
+dominant on lean4's `deriving_mutual_block` bench.  Does con-leche need it?  Measured, not changed.
+
+**Fixtures** (`scripts/mk_defeq_binding_fixtures.py`, exported at v4.29.1, all accepted, official
+accepts): `defeq_binding_pi` and `defeq_binding_lam` — `w : (∀ x1 … xn : Nat, B) = (∀ x1 … xn : Nat,
+B') := rfl` (and the `fun` variant), `B` a conjunction of K conjuncts `P j (x1 + … + xn)`, `B'` the
+same with `Q := P` in the last one, so the two telescopes are equal only after a delta step at the
+bottom; committed at n = 40, K = 100.  `defeq_binding_mutual` — a mutual block of N = 10 structures
+nested through `Array`/`Option`/`String` (the bench without `deriving`), exported down from its
+`brecOn.eq` theorems (gzipped, 21 220 lines).  Larger sizes were measurement inputs only.
+
+**Method.**  `perf stat -e instructions:u`, one run per stream, `--verified --jobs=1`, master
+367faa1e9.  A declaration's cost is the stream's minus the same stream without it (the synthetic
+`w`: the stream without its last record; the block: the `brecOn` families' streams minus a stream
+of their direct dependencies, so the block's install is in both).  The instantiation share comes
+from a scratch probe (not committed): the four sites (∀ and lambda congruence, io ∀ and λ) call
+an `implemented_by` twin whose instantiation is computed twice when an environment variable is set,
+the difference being one full copy of every instantiation there (walk, allocation and free); a
+second variable counts the nodes the walk visits (distinct (node, depth) pairs past the cutoff).
+The official kernel: the v4.29.1 `lean` re-adding copies of the declarations with `Lean.addDecl`
+(`Elab.async false`), 20 copies (synthetic) or 2 (the block), minus a run adding none.
+
+**Synthetic** (millions of instructions per check of `w`; K = 100 unless noted):
+
+| shape | n | con-leche | chained instantiation | rest | official | con-leche / official |
+|---|---|---|---|---|---|---|
+| Π-type | 10 | 12.7 | 3.2 (25 %) | 9.6 | 8.4 | 1.52 |
+| Π-type | 20 | 17.9 | 6.3 (35 %) | 11.7 | 9.5 | 1.89 |
+| Π-type | 40 | 29.2 | 13.1 (45 %) | 16.1 | 11.6 | 2.52 |
+| Π-type | 80 | 54.3 | 29.3 (54 %) | 25.0 | 15.8 | 3.43 |
+| Π-type | 160 | 114.9 | 72.9 (64 %) | 42.0 | 24.3 | 4.74 |
+| lambda | 10 | 12.7 | 3.2 (25 %) | 9.5 | 8.5 | 1.49 |
+| lambda | 20 | 17.4 | 6.2 (36 %) | 11.2 | 9.6 | 1.82 |
+| lambda | 40 | 27.4 | 13.1 (48 %) | 14.3 | 11.9 | 2.29 |
+| lambda | 80 | 50.0 | 29.2 (58 %) | 20.8 | 16.5 | 3.03 |
+| lambda | 160 | 105.9 | 72.5 (68 %) | 33.4 | 25.6 | 4.13 |
+| Π-type, K = 25 | 40 | 9.8 | 4.7 (48 %) | 5.1 | 4.1 | 2.40 |
+| Π-type, K = 400 | 40 | 106.1 | 46.4 (44 %) | 59.7 | 41.4 | 2.56 |
+
+Official is linear in n (≈ 7.3 M + 0.11 M per binder); con-leche's rest is linear too (≈ 0.2 M per
+binder), and the chained instantiation carries a quadratic term: its increments per doubling of n
+grow 2.2×, 2.4×, 2.7×.  Visited nodes 6 268, 13 138, 28 678, 66 958, 172 318 (n = 10 … 160), about
+420 instructions per visited node.  In K at fixed n both are linear (the ratio stays ≈ 2.4).
+
+**The block** (billions of instructions for the `brecOn` families: `go`, `brecOn`, `eq` of every
+type of the block):
+
+| N | con-leche | chained instantiation | visited nodes | official | con-leche / official |
+|---|---|---|---|---|---|
+| 5 | 0.208 | 0.020 (9.8 %) | 48 357 | 0.326 | 0.64 |
+| 10 | 0.679 | 0.080 (11.8 %) | 196 767 | 1.182 | 0.57 |
+| 20 | 3.122 | 0.479 (15.3 %) | 1 214 712 | 6.181 | 0.51 |
+| 40 | 19.146 | 4.129 (21.6 %) | 10 671 102 | 43.810 | 0.44 |
+
+Split at N = 20 / 40: `go` (with `brecOn`) 2.126 / 13.324 G, of it 10.2 / 14.5 % chained
+instantiation, official 4.631 / 32.363 G; `eq` 0.995 / 5.822 G, of it 26.4 / 37.8 %, official
+1.550 / 11.447 G.  Both kernels grow faster than N² here (the telescopes and their bodies both grow
+with N); the visited nodes grow fastest (×6.2, ×8.8 per doubling).  The io ∀/λ clauses are not
+involved in any of these (at most 244 visited nodes per run).  For scale: the whole N = 40 stream,
+install included, is 24.18 G.
+
+**Reading.**  The cost is quadratic where official's is linear, and on long telescopes over bodies
+that mention every binder it dominates: 64–68 % of the check at n = 160, 4–5× official.  On the
+real-world shape con-leche already runs at about half official's cost, the chained instantiation
+being 10–22 % of the families (38 % of the `eq` theorems at N = 40) and rising with N.  On ordinary
+code it is the −0.4 % of task #322.  The official shape would remove most of the share (a bulk
+instantiation visits each body once); no implementation here, the decision is the maintainer's.
