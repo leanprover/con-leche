@@ -72,6 +72,10 @@ FALLBACK = {
     # Each measured by demoting it alone.
     ('ConLeche.Verify.Cached.IndPositivityC', 'ConLeche.Cached.CheckerC'),
     ('ConLeche.Verify.Cached.DiscC4', 'ConLeche.Verify.ProjGuard'),
+    # task #498 L3: the pass's and the classes' twin equations state the twins
+    # against the specification at `sharedOpsC`.  Measured: demoting the import
+    # breaks the file (unknown identifier `FEnv`, `IndBlockC.lean:34`).
+    ('ConLeche.Verify.Cached.IndBlockC', 'ConLeche.Cached.CheckerC'),
     # task #492: the guard-row lemmas' public statements name `projGuardRowsGo`,
     # `GuardRowsWS`'s `WScoped`; the census attributes them to the private imports
     # (`LooseBVar`, `Subst`).  Measured: demoting either breaks the file (unknown

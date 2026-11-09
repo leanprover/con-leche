@@ -1,5 +1,6 @@
 module
 
+import ConLeche.Verify.Cached.IndBlockC
 import ConLeche.Verify.Denote.IndFrame
 import ConLeche.Verify.Inductives.BlockShapeInv
 public import ConLeche.Verify.Cached.TargetRecC
@@ -1358,6 +1359,7 @@ theorem checkBlockTailS_run
   unfold checkBlockTailS at h
   dsimp only at h
   rw [genRecCheckC_eq] at h
+  simp only [checkBlockIdxSortsC_eq] at h
   rw [checkBlockIdxSortsF_eqC] at h
   obtain ⟨isorts, sS, hsorts, h⟩ := bindC_ok h
   have hzT : ∀ x ∈ p.members, WScoped 0 x.cvT.type :=
@@ -1461,7 +1463,8 @@ theorem checkBlockPassS_run {env : Env} (henv : EnvWF env)
       ∃ F, (checkBlockPass (fueledOpsM .verified) env p₀ isRec).val F
         = .ok ⟨env₁, q.p, q.kinds, q.params, q.rd, q.cls, q.tbl⟩ := by
   unfold checkBlockPassS at h
-  simp only [blockNestCtxC_eq, checkBlockPositivityC_eq, nestSeedsC_eq, classSeedsC_eq] at h
+  simp only [checkBlockIndsC_eq, checkBlockCtorsC_eq, checkBlockClassesC_eq, blockNestCtxC_eq,
+    checkBlockPositivityC_eq, nestSeedsC_eq, classSeedsC_eq] at h
   rw [checkBlockIndsF_eqC] at h
   simp only [bind_assoc, pure_bind] at h
   obtain ⟨r₁, s₁, hind, h⟩ := bindC_ok h
