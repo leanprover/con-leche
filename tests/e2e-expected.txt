@@ -3305,9 +3305,10 @@
 1 block_ctor_levels.ndjson
 1 block_no_rec.ndjson
 # -- task #520, the cost of the binder-telescope congruence (scripts/mk_defeq_binding_fixtures.py).
-# defeq's ∀/λ congruence opens one binder at a time, re-instantiating the whole remaining body
-# with a fresh variable at each binder: n binders over a body of size m cost O(n·m), where the
-# official `is_def_eq_binding` instantiates each domain and the two final bodies once (O(n + m)).
+# defeq's ∀/λ congruence used to open one binder at a time, re-instantiating the whole remaining
+# body at each binder: n binders over a body of size m cost O(n·m).  It now has the official
+# `is_def_eq_binding` shape (`defeqBinders`): each domain and the two innermost bodies opened once,
+# in one bulk pass each (O(n + m)); these fixtures pin that shape.
 # defeq_binding_pi / defeq_binding_lam: two telescopes of 40 binders over 100 conjuncts, each
 # mentioning every binder, defeq only after a delta step in the last conjunct.
 # defeq_binding_mutual: a 10-structure mutual block nested through Array/Option/String (lean4's

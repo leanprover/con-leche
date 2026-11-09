@@ -111765,3 +111765,93 @@ real-world shape con-leche already runs at about half official's cost, the chain
 being 10–22 % of the families (38 % of the `eq` theorems at N = 40) and rising with N.  On ordinary
 code it is the −0.4 % of task #322.  The official shape would remove most of the share (a bulk
 instantiation visits each body once); no implementation here, the decision is the maintainer's.
+
+### The official shape, implemented (maintainer: "no regression, better asymptotics, matches official")
+
+**The shape.**  `quickDefEq`'s two binder arms call one loop, `defeqBinders` (`Kernel/Core.lean`;
+cached twin `defeqBindersI`), `lam : Bool` selecting λs or ∀s.  Per level, as `is_def_eq_binding`:
+the right domain is opened over the variables so far (`dom₂`); the domains are compared by
+`defeqDomain` — skipped when the raw domains are syntactically equal, else the opened left domain
+against `dom₂`; the level's variable `.fvar depth dom₂` is pushed.  The descent continues while both
+bodies are binders of the kind (`Expr.binderPair?`, replacing `lamPair?`).  At the innermost level
+both bodies are opened in one bulk pass each and compared once (`defeqBindersInner`); for λs at the
+verified mode their full-grade types are compared too (the λ check, as before).  No intermediate
+body is opened or compared.  The spec keeps the variables as a list (innermost first,
+`instantiateList`); the cached twin keeps an `Array` (outermost first) and opens with
+`instantiateRev` (`instListRevM`), the memoized DAG walk with the loose-bvar cutoff.  Two
+deliberate differences from official: the variable is always built with its opened domain
+(official skips it when no body mentions the variable — con-leche's variables carry their
+types); and the descent budget `bindersFuel` (2^62; exhaustion compares the level reached as the
+innermost one).  Gone: the chained ∀ arm (bodies opened and compared through `defeq` at every
+binder) and `defeqLams`'s per-level opening and `b₁ == b₂` check.
+
+**The io ∀/λ clauses are unchanged.**  They are inference (`inferBodyIOI`), not a comparison of
+two telescopes; their telescope form would be the front door's `inferPisI`/`inferLamsI` loops, not
+this shape, and none of the measured streams reaches them (≤ 244 visited nodes per run, above).
+
+**Proofs.**  The rules tier is unchanged (`DefEq.forallE`, `DefEqLams`).
+`defeqBinders_bridge` (`Verify/Rules/DefEqBridge.lean`) proves, by induction on the budget, that a
+`true` run at variables `fvs` gives `DefEq` (∀) / `DefEqLams` (λ) of the two binders opened over
+`fvs`: the bulk opening at the pushed list is the rules' one-binder opening of the body opened over
+`fvs` (`instantiateList_cons`), so each level is one `forallE`/`outer`, the innermost one
+`forallE`/`inner`.  Per function as before: inversions (`defeqDomain_inv`, `defeqBinders_inv`,
+`defeqBindersInner_inv`), fuel (`Fueled.lean`), pair projections (`PairM.lean`), environment
+extension (`EnvExt.lean`, with `res_instantiateList`), shift invariance (`Deep.lean`, with
+`shiftFrom_instantiateList`, `WScoped.instantiateList`), and the cached simulation
+(`Verify/Cached/DiscC5.lean`: `BindersSpec` by induction, step/leaf blocks named on both sides,
+`sym`/`vcgen`/`finish`).  No `sorry`, no new axioms; the capstone axioms are unchanged (`lake test`).
+
+**Numbers** (`instructions:u`, one run per stream, `--verified --jobs=1`; master 351602a56 merged,
+before → after).
+
+Synthetic, M instructions per check of `w` (official from the table above):
+
+| shape | n | before | after | official | after / official |
+|---|---|---|---|---|---|
+| Π-type | 10 | 12.8 | 9.8 (−23 %) | 8.4 | 1.18 |
+| Π-type | 20 | 17.9 | 11.4 (−36 %) | 9.5 | 1.20 |
+| Π-type | 40 | 29.2 | 14.6 (−50 %) | 11.6 | 1.26 |
+| Π-type | 80 | 54.3 | 21.1 (−61 %) | 15.8 | 1.34 |
+| Π-type | 160 | 114.9 | 33.4 (−71 %) | 24.3 | 1.38 |
+| lambda | 10 | 12.7 | 10.2 (−20 %) | 8.5 | 1.19 |
+| lambda | 20 | 17.4 | 11.9 (−32 %) | 9.6 | 1.24 |
+| lambda | 40 | 27.4 | 15.1 (−45 %) | 11.9 | 1.26 |
+| lambda | 80 | 50.0 | 21.8 (−56 %) | 16.5 | 1.32 |
+| lambda | 160 | 105.9 | 34.5 (−67 %) | 25.6 | 1.35 |
+| Π-type, K = 25 | 40 | 9.8 | 4.8 (−51 %) | 4.1 | 1.17 |
+| Π-type, K = 400 | 40 | 106.2 | 54.0 (−49 %) | 41.4 | 1.31 |
+
+The quadratic term is gone: per doubling of n the cost now grows by 1.6, 3.2, 6.5, 12.3 M (Π-type),
+linear like official's (about 0.15 M per binder against official's 0.11 M).
+
+The block, G instructions for the `brecOn` families:
+
+| N | before | after | official | after / official | whole stream before → after |
+|---|---|---|---|---|---|
+| 5 | 0.208 | 0.189 (−9.0 %) | 0.326 | 0.58 | 0.702 → 0.675 |
+| 10 | 0.679 | 0.603 (−11.3 %) | 1.182 | 0.51 | 1.260 → 1.173 |
+| 20 | 3.122 | 2.656 (−14.9 %) | 6.181 | 0.43 | 4.012 → 3.522 |
+| 40 | 19.145 | 15.034 (−21.5 %) | 43.810 | 0.34 | 21.245 → 17.061 |
+
+At N = 20 / 40: `go` −9.3 % / −14.0 %, `eq` −27.0 % / −38.5 % — the instantiation shares measured
+above, almost entirely recovered.
+
+The arena perf streams and Init (verdicts identical everywhere):
+
+| stream | before | after | change |
+|---|---|---|---|
+| `init-full` | 374.124 G | 372.682 G | −0.39 % |
+| `init-prelude` | 1.505 G | 1.480 G | −1.67 % |
+| `grind-ring-5` | 13.085 G | 13.030 G | −0.42 % |
+| `church-numerals` | 0.299 G | 0.298 G | −0.22 % |
+| `app-lam`, `beta-ladder`, `let-ladder` and the other 11 perf streams | | | within ±0.04 % |
+
+As task #322's spike measured (−0.4 % on init-full), now landed with its proofs.
+
+**Gates.**  `lake build`, `lake test` warning-free; `tests/arena.sh` passes (e2e 561/561, verdicts
+unchanged, the sweeps, layering, shake, trust surface, quote gate, plain reach — `bindersFuel` and
+`Expr.binderPair?` replace `lamsFuel` and `Expr.lamPair?` in its allowlist —, binary link,
+self-check).  OVERVIEW's λ-check link now points at `defeqBindersInner`; three anchors moved with
+`Core.lean`/`EnvExt.lean`.  The whitepaper's two citations (the innermost λ level, the
+`DefEqLams` rule) cite the same lines, whose text changed (renamed, prose still true); its link
+expectation regenerated.
