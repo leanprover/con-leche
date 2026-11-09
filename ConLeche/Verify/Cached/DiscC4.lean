@@ -437,6 +437,17 @@ theorem projGuardSortC_spec (ih : SSimC mode eager env f) {cvT : ConstantVal} {c
   sym only [conleche_grind, projGuardSort] =>
     vcgen [projGuardSortI, instLevelParamsM, formerSortLoopC_spec ih] <;> finish
 
+/-- The cached one-pass telescope opening is `openPisAtFvars`. -/
+theorem openPisAtFvarsC_eq (n : Nat) (e : Expr) (i : Nat) :
+    openPisAtFvarsC n e i = openPisAtFvars n e i := by
+  unfold openPisAtFvarsC
+  match h : openPisAtFvarsFGo (fun e vs => Expr.instantiateListC e vs) [] n e i with
+  | some r =>
+    have := openPisAtFvarsFGo_sound (fun _ _ => Expr.instantiateListC_spec) n e i [] h
+    rw [Expr.instantiateList_nil] at this
+    exact this.symm
+  | none => rfl
+
 /-- The rows at a guardSort simulate their fueled original. -/
 theorem projRowsC_spec (ih : SSimC mode eager env f) (henv : EnvWF env)
     {entry : ProjEntry} {us : List Level} {guardSort : Level} {s₀ : CState}
@@ -453,7 +464,7 @@ theorem projRowsC_spec (ih : SSimC mode eager env f) (henv : EnvWF env)
   | none =>
     have hp : projGuardRows env.find? entry us = none := by
       simp only [projGuardRows, hc]
-    sym only [conleche_grind, constTyOf, Option.isSome_some, openPisAtFvarsF_eq] =>
+    sym only [conleche_grind, constTyOf, Option.isSome_some, openPisAtFvarsC_eq] =>
       vcgen [checkProjRowsI, constTyAtM_spec (mode := mode) (eager := eager) (env := env),
         checkGuardRowsC_spec ih] <;> finish
   | some ci =>
@@ -462,7 +473,7 @@ theorem projRowsC_spec (ih : SSimC mode eager env f) (henv : EnvWF env)
     | none =>
       have hp : projGuardRows env.find? entry us = none := by
         simp only [projGuardRows, hc, ho]
-      sym only [conleche_grind, constTyOf, Option.isSome_some, openPisAtFvarsF_eq] =>
+      sym only [conleche_grind, constTyOf, Option.isSome_some, openPisAtFvarsC_eq] =>
         vcgen [checkProjRowsI, constTyAtM_spec (mode := mode) (eager := eager) (env := env),
           checkGuardRowsC_spec ih] <;> finish
     | some p =>
@@ -471,7 +482,7 @@ theorem projRowsC_spec (ih : SSimC mode eager env f) (henv : EnvWF env)
       | none =>
         have hp : projGuardRows env.find? entry us = none := by
           simp only [projGuardRows, hc, ho, hg]
-        sym only [conleche_grind, constTyOf, Option.isSome_some, openPisAtFvarsF_eq] =>
+        sym only [conleche_grind, constTyOf, Option.isSome_some, openPisAtFvarsC_eq] =>
           vcgen [checkProjRowsI, constTyAtM_spec (mode := mode) (eager := eager) (env := env),
             checkGuardRowsC_spec ih] <;> finish
       | some rows =>
@@ -479,7 +490,7 @@ theorem projRowsC_spec (ih : SSimC mode eager env f) (henv : EnvWF env)
           simp only [projGuardRows, hc, ho, hg]
         have hws : GuardRowsWS rows :=
           projGuardRows_ws (fun ci' hc' => (henv.consts _ (Env.find?_mem hc')).1) hp
-        sym only [conleche_grind, constTyOf, Option.isSome_some, openPisAtFvarsF_eq] =>
+        sym only [conleche_grind, constTyOf, Option.isSome_some, openPisAtFvarsC_eq] =>
           vcgen [checkProjRowsI, constTyAtM_spec (mode := mode) (eager := eager) (env := env),
             checkGuardRowsC_spec ih] <;> finish
 

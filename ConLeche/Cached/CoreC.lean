@@ -981,7 +981,7 @@ def checkProjRowsI (inf wh : Nat → Expr → CheckCM Expr) (fe : FEnv) (entry :
   match fe.find? entry.ctor with
   | some _ => do
     let cty ← constTyAtM fe entry.ctor entry.ctor us
-    match openPisAtFvarsF entry.numParams cty 0 with
+    match openPisAtFvarsC entry.numParams cty 0 with
     | some (_, r) =>
       match projGuardRowsGo entry.idx entry.numParams r with
       | some rows => checkGuardRowsI inf wh guardSort rows
@@ -994,7 +994,7 @@ def checkProjRowsI (inf wh : Nat → Expr → CheckCM Expr) (fe : FEnv) (entry :
 
 /-- Twin of `checkProjGuard`: the constructor's type at the use's levels
 through the per-declaration memo (`constTyAtM`), its parameters opened in
-one pass (`openPisAtFvarsF`), then its fields stepped
+one pass (`openPisAtFvarsC`), then its fields stepped
 (`projGuardRowsGo`). -/
 def checkProjGuardI (inf wh : Nat → Expr → CheckCM Expr) (fe : FEnv) (entry : ProjEntry)
     (us : List Level) : CheckCM Unit := do

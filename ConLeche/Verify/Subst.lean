@@ -17,21 +17,6 @@ that variable equals opening with the term directly.
 
 namespace ConLeche.Expr
 
-/-- Instantiation is a no-op on terms without matching loose bvars. -/
-theorem instantiate1_eq_self {v : Expr} :
-    ∀ {e : Expr} {k : Nat}, looseBVarsBounded k e = true → e.instantiate1 v k = e := by
-  intro e
-  induction e with
-  | bvar i =>
-    intro k hb
-    simp only [looseBVarsBounded, decide_eq_true_eq] at hb
-    have h1 : ¬ i = k := by omega
-    have h2 : ¬ i > k := by omega
-    simp [instantiate1, h1, h2]
-  | _ =>
-    intro k hb
-    simp_all [looseBVarsBounded, instantiate1]
-
 /-- Two closed instantiations commute (the outer index below the
 inner). -/
 theorem instantiate1_instantiate1 {a b : Expr}

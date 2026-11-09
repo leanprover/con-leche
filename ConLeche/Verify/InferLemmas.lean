@@ -7,7 +7,7 @@ import ConLeche.Verify.InstLevels
 public import ConLeche.Verify.EnvWF
 import ConLeche.Verify.Knot
 public import ConLeche.Verify.StrLitExpr
-public import ConLeche.Verify.InstList
+import ConLeche.Verify.InstList
 public import ConLeche.Verify.InstSpine
 
 public section

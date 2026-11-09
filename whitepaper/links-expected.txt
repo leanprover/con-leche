@@ -5688,20 +5688,20 @@
    610      rules.map fun rl => { rl with fire := fire }
    611    | some _ => rules
 
-== ConLeche/Kernel/CoreDefs.lean#L1153-L1165
-  1153    exact ⟨h.1.1.1, h.1.1.2, h.1.2⟩
-  1154  
-  1155  /-- The level and constructor-parameter comparands a firing rule's
-  1156  checks compare the major's constructor levels and parameters against:
-  1157  for a `.plain` rule the constructor's levels link to the recursor's by
-  1158  name and its parameters are the recursor's leading arguments; for a
-  1159  `.nested` rule both are the stored instantiations (the class the
-  1160  auxiliary recursor's type was generated from, `auxRuleFire`), at the
-  1161  recursor's level instantiation and (for the parameters) instantiated at
-  1162  the recursor's leading-argument spine (the stored pins live in the
-  1163  `rP`-binder prefix context; index arguments never occur in them); a
-  1164  `.levels` rule's levels are stored and its parameters a `.plain` rule's. -/
-  1165  def recFireComparands (rl : RecRule) (cnP : Nat) (lps : List Name)
+== ConLeche/Kernel/CoreDefs.lean#L1157-L1169
+  1157    exact ⟨h.1.1.1, h.1.1.2, h.1.2⟩
+  1158  
+  1159  /-- The level and constructor-parameter comparands a firing rule's
+  1160  checks compare the major's constructor levels and parameters against:
+  1161  for a `.plain` rule the constructor's levels link to the recursor's by
+  1162  name and its parameters are the recursor's leading arguments; for a
+  1163  `.nested` rule both are the stored instantiations (the class the
+  1164  auxiliary recursor's type was generated from, `auxRuleFire`), at the
+  1165  recursor's level instantiation and (for the parameters) instantiated at
+  1166  the recursor's leading-argument spine (the stored pins live in the
+  1167  `rP`-binder prefix context; index arguments never occur in them); a
+  1168  `.levels` rule's levels are stored and its parameters a `.plain` rule's. -/
+  1169  def recFireComparands (rl : RecRule) (cnP : Nat) (lps : List Name)
 
 == ConLeche/Rules/Rel.lean#L212-L223
    212        IotaCase env isK cvj (recFireComparands rl cnP cv.levelParams us cvj.levelParams

@@ -38,6 +38,502 @@ def instantiate1 (e : Expr) (v : Expr) (d : Nat := 0) : Expr :=
   | .lit l => .lit l
   | .proj s i e => .proj s i (instantiate1 e v d)
 
+/-- Are all bound-variable references bound within the expression (below
+`k` at the root)?  Input declarations must satisfy `looseBVarsBounded 0`.
+The pure walk is the specification; the executed function is the
+`O(1)` loose-bvar field read (`looseBVarsBoundedFast`, `@[csimp]`
+below, task #210 Part B). -/
+def looseBVarsBounded (k : Nat) : Expr → Bool
+  | .bvar i => i < k
+  | .fvar _ _ => true
+  | .sort _ | .const _ _ | .lit _ => true
+  | .app f a => looseBVarsBounded k f && looseBVarsBounded k a
+  | .lam ty body | .forallE ty body =>
+    looseBVarsBounded k ty && looseBVarsBounded (k + 1) body
+  | .letE ty val body =>
+    looseBVarsBounded k ty && looseBVarsBounded k val && looseBVarsBounded (k + 1) body
+  | .proj _ _ e => looseBVarsBounded k e
+
+/-- Does the expression contain any free variable (`fvar`)?  Input
+declarations must be `fvar`-free; the checker introduces `fvar`s only
+internally when opening binders. -/
+def hasFvar : Expr → Bool
+  | .bvar _ | .sort _ | .const .. | .lit _ => false
+  | .fvar .. => true
+  | .app f a => hasFvar f || hasFvar a
+  | .lam ty body | .forallE ty body => hasFvar ty || hasFvar body
+  | .letE ty val body => hasFvar ty || hasFvar val || hasFvar body
+  | .proj _ _ e => hasFvar e
+
+/-! ## Derived-field spec functions, and their exactness
+
+The four `@[computed_field]`s of `Expr` (`ConLeche/Kernel/Expr.lean`) are
+declared by their recurrences; these are the same recurrences written
+as ordinary definitions, together with the equivalences that make a
+field read justify the traversal cutoff it guards.  Self-contained:
+they mention nothing but `Expr`.  The cached engine's field facts
+(`ConLeche/Verify/Cached/Erase.lean`) are stated against them. -/
+
+/-- The least `k` with `looseBVarsBounded k` (the spec function of the
+computed field `bvarB`). -/
+def _root_.ConLeche.Expr.bvarBound : Expr → Nat
+  | .bvar i => i + 1
+  | .fvar _ _ | .sort _ | .const _ _ | .lit _ => 0
+  | .app f a => max f.bvarBound a.bvarBound
+  | .lam ty body | .forallE ty body =>
+    max ty.bvarBound (body.bvarBound - 1)
+  | .letE ty val body =>
+    max (max ty.bvarBound val.bvarBound) (body.bvarBound - 1)
+  | .proj _ _ e => e.bvarBound
+
+/-- `bvarBound` is exact for `looseBVarsBounded`. -/
+theorem looseBVarsBounded_iff {x : Expr} :
+    ∀ {k : Nat}, x.looseBVarsBounded k = true ↔ x.bvarBound ≤ k := by
+  induction x <;> intro k <;>
+    (try simp [Expr.looseBVarsBounded, Expr.bvarBound, Nat.max_le, *]) <;>
+    omega
+
+/-- The least `d` with `fvarsBelow d` (the spec function of the computed
+field `fvarB`; `fvar` type annotations are not descended, matching
+`fvarsBelow` and the abstraction traversals). -/
+def _root_.ConLeche.Expr.fvarRange : Expr → Nat
+  | .fvar idx _ => idx + 1
+  | .bvar _ | .sort _ | .const _ _ | .lit _ => 0
+  | .app f a => max f.fvarRange a.fvarRange
+  | .lam ty body | .forallE ty body =>
+    max ty.fvarRange body.fvarRange
+  | .letE ty val body =>
+    max (max ty.fvarRange val.fvarRange) body.fvarRange
+  | .proj _ _ e => e.fvarRange
+
+/-- A term is fvar-free iff its range is zero. -/
+theorem hasFvar_eq_false_iff {x : Expr} :
+    x.hasFvar = false ↔ x.fvarRange = 0 := by
+  induction x <;>
+    simp_all [Expr.hasFvar, Expr.fvarRange, Nat.max_eq_zero_iff,
+      and_assoc]
+
+/-- A term has a reachable fvar leaf iff its range is nonzero. -/
+theorem fvarRange_bne_zero {x : Expr} : (x.fvarRange != 0) = x.hasFvar := by
+  cases hh : x.hasFvar with
+  | false => simp [hasFvar_eq_false_iff.mp hh]
+  | true =>
+    have hne : x.fvarRange ≠ 0 := by
+      intro h0
+      rw [hasFvar_eq_false_iff.mpr h0] at hh
+      cases hh
+    simpa using hne
+
+/-! ## The saturated branch of the packed range fields (task #167)
+
+`Expr.bvarBRaw`/`Expr.fvarBRaw` (`Kernel/Expr.lean`) are the packed
+word's 15-bit range fields; they *saturate* at `satRange`.  The
+accessors the checker reads — `Expr.bvarB`, `Expr.fvarB` — stay
+**exact**: below saturation they are the field, and at saturation they
+fall back to a memoized recomputation of the very same recurrence.
+
+Two consequences, and they are the point of the design:
+
+* **no lemma weakens** — `bvarB_eq`/`fvarB_eq`
+  (`Verify/Cached/Erase.lean`) are still plain equations with the spec
+  functions, so no skip site grows a guard and no invariant is
+  threaded anywhere;
+* **what saturation costs is time, not truth** — the `O(1)` field read
+  becomes an `O(DAG)` walk, and only on a term with `satRange` loose
+  bvars (or fvar levels).  The measured maxima on the real streams are
+  213 (`init-full`), 488 (`grind-ring-5`) and 4000 (`app-lam`, the
+  deepest artificial workload) against `satRange = 32767`.
+
+The walks are **memoized** (an `Std.HashMap` keyed by the node) so
+that even the fallback stays linear in the DAG rather than the
+unfolded tree — the standing "no unmemoized traversals in executable
+paths" rule applies to the saturated branch too. -/
+
+/-- Memoized `bvarBound` (the saturated branch's exact recomputation). -/
+def bvarBoundGo (memo : Std.HashMap Expr Nat) (e : Expr) :
+    Nat × Std.HashMap Expr Nat :=
+  match memo[e]? with
+  | some r => (r, memo)
+  | none =>
+    let (r, memo) : Nat × Std.HashMap Expr Nat :=
+      match e with
+      | .bvar i => (i + 1, memo)
+      | .fvar _ _ | .sort _ | .const _ _ | .lit _ => (0, memo)
+      | .app f a =>
+        let (rf, memo) := bvarBoundGo memo f
+        let (ra, memo) := bvarBoundGo memo a
+        (max rf ra, memo)
+      | .lam ty body | .forallE ty body =>
+        let (rt, memo) := bvarBoundGo memo ty
+        let (rb, memo) := bvarBoundGo memo body
+        (max rt (rb - 1), memo)
+      | .letE ty val body =>
+        let (rt, memo) := bvarBoundGo memo ty
+        let (rv, memo) := bvarBoundGo memo val
+        let (rb, memo) := bvarBoundGo memo body
+        (max (max rt rv) (rb - 1), memo)
+      | .proj _ _ sub => bvarBoundGo memo sub
+    (r, memo.insert e r)
+
+@[inherit_doc bvarBoundGo]
+def bvarBoundMemo (e : Expr) : Nat := (bvarBoundGo {} e).1
+
+/-- Memoized `fvarRange` (the saturated branch's exact
+recomputation). -/
+def fvarRangeGo (memo : Std.HashMap Expr Nat) (e : Expr) :
+    Nat × Std.HashMap Expr Nat :=
+  match memo[e]? with
+  | some r => (r, memo)
+  | none =>
+    let (r, memo) : Nat × Std.HashMap Expr Nat :=
+      match e with
+      | .fvar idx _ => (idx + 1, memo)
+      | .bvar _ | .sort _ | .const _ _ | .lit _ => (0, memo)
+      | .app f a =>
+        let (rf, memo) := fvarRangeGo memo f
+        let (ra, memo) := fvarRangeGo memo a
+        (max rf ra, memo)
+      | .lam ty body | .forallE ty body =>
+        let (rt, memo) := fvarRangeGo memo ty
+        let (rb, memo) := fvarRangeGo memo body
+        (max rt rb, memo)
+      | .letE ty val body =>
+        let (rt, memo) := fvarRangeGo memo ty
+        let (rv, memo) := fvarRangeGo memo val
+        let (rb, memo) := fvarRangeGo memo body
+        (max (max rt rv) rb, memo)
+      | .proj _ _ sub => fvarRangeGo memo sub
+    (r, memo.insert e r)
+
+@[inherit_doc fvarRangeGo]
+def fvarRangeMemo (e : Expr) : Nat := (fvarRangeGo {} e).1
+
+/-- **The loose-bvar bound the checker reads**: the packed field, or —
+on the saturated branch alone — the exact memoized recomputation.
+Equal to `Expr.bvarBound` unconditionally (`bvarB_eq`). -/
+@[inline] def bvarB (e : Expr) : Nat :=
+  let r := e.bvarBRaw
+  if r == satRange then bvarBoundMemo e else r
+
+/-- **The fvar range the checker reads**: the packed field, or — on the
+saturated branch alone — the exact memoized recomputation.  Equal to
+`Expr.fvarRange` unconditionally (`fvarB_eq`). -/
+@[inline] def fvarB (e : Expr) : Nat :=
+  let r := e.fvarBRaw
+  if r == satRange then fvarRangeMemo e else r
+
+
+/-! ### The range fields are exact; `looseBVarsBounded` and `hasFvar` read them (task #210 Part B)
+
+Moved here from `Verify/Cached/Erase.lean` (task #172 B3a) so that the
+executed `looseBVarsBounded` and `hasFvar` can be the `O(1)` field
+reads: the tree walks did not finish on task #215's `tower_struct` (a
+depth-60 DAG tower in a structure field), where the recursor-generation
+checks ask them of the block's types.  Swapped in by `@[csimp]`, as the
+memoized walks below: kernel-checked, no trust point, the pure walks
+stay the specs.  They come before every executed walk in this file
+because those read the loose-bvar bound as their cutoff. -/
+
+/-- The packed loose-bvar field is `bvarBound` wherever it did not
+saturate. -/
+theorem bvarBRaw_exact : ∀ e : Expr, e.bvarBRaw < satRange →
+    e.bvarBRaw = bvarBound e := by
+  intro e
+  induction e with
+  | bvar i => intro h; simp_all [satRange, bvarBound]; omega
+  | fvar _ _ _ | sort _ | const _ _ | lit _ =>
+    intro _; simp [bvarBound]
+  | app f a ihf iha =>
+    intro h
+    rw [bvarBRaw_app] at h ⊢
+    rw [ihf (by omega), iha (by omega), bvarBound]
+  | lam ty b iht ihb =>
+    intro h
+    rw [bvarBRaw_lam] at h ⊢
+    have hb : b.bvarBRaw ≠ satRange := by
+      intro hb'; rw [hb'] at h; simp at h; omega
+    have hb2 : b.bvarBRaw < satRange := by
+      have := bvarBRaw_lt b; simp [satRange] at *; omega
+    rw [ite_eq_right hb, iht (by omega), ihb hb2, bvarBound]
+  | forallE ty b iht ihb =>
+    intro h
+    rw [bvarBRaw_forallE] at h ⊢
+    have hb : b.bvarBRaw ≠ satRange := by
+      intro hb'; rw [hb'] at h; simp at h; omega
+    have hb2 : b.bvarBRaw < satRange := by
+      have := bvarBRaw_lt b; simp [satRange] at *; omega
+    rw [ite_eq_right hb, iht (by omega), ihb hb2, bvarBound]
+  | letE ty v b iht ihv ihb =>
+    intro h
+    rw [bvarBRaw_letE] at h ⊢
+    have hb : b.bvarBRaw ≠ satRange := by
+      intro hb'; rw [hb'] at h; simp at h; omega
+    have hb2 : b.bvarBRaw < satRange := by
+      have := bvarBRaw_lt b; simp [satRange] at *; omega
+    rw [ite_eq_right hb, iht (by omega), ihv (by omega), ihb hb2, bvarBound]
+  | proj s i sub ih =>
+    intro h
+    rw [bvarBRaw_proj] at h ⊢
+    rw [ih h, bvarBound]
+
+/-- The `bvarBound` walk's memo invariant. -/
+def MemoBInv (memo : Std.HashMap Expr Nat) : Prop :=
+  ∀ (e : Expr) (r : Nat), memo[e]? = some r → r = bvarBound e
+
+theorem MemoBInv.empty : MemoBInv {} := by
+  intro e r h; simp at h
+
+theorem MemoBInv.insert {memo : Std.HashMap Expr Nat} (hm : MemoBInv memo)
+    {e : Expr} {r : Nat} (heq : r = bvarBound e) :
+    MemoBInv (memo.insert e r) := by
+  intro e' r' hk
+  rw [Std.HashMap.getElem?_insert] at hk
+  split at hk
+  · rename_i hbeq
+    cases hk
+    rw [← (beq_iff_eq ..).mp hbeq]
+    exact heq
+  · exact hm e' r' hk
+
+/-- **The memoized `bvarBound` walk agrees with `bvarBound`.** -/
+theorem bvarBoundGo_spec : ∀ (e : Expr) {memo : Std.HashMap Expr Nat},
+    MemoBInv memo →
+      (bvarBoundGo memo e).1 = bvarBound e ∧
+        MemoBInv (bvarBoundGo memo e).2 := by
+  intro e
+  induction e with
+  | bvar i =>
+    intro memo hm
+    rw [bvarBoundGo.eq_def]
+    split
+    · rename_i r hhit; exact ⟨hm _ _ hhit, hm⟩
+    · exact ⟨rfl, hm.insert rfl⟩
+  | fvar idx ty _ | sort u | const n us | lit l =>
+    intro memo hm
+    rw [bvarBoundGo.eq_def]
+    split
+    · rename_i r hhit; exact ⟨hm _ _ hhit, hm⟩
+    · exact ⟨rfl, hm.insert rfl⟩
+  | app f a ihf iha =>
+    intro memo hm
+    rw [bvarBoundGo.eq_def]
+    split
+    · rename_i r hhit; exact ⟨hm _ _ hhit, hm⟩
+    · obtain ⟨h1, hm1⟩ := ihf hm
+      obtain ⟨h2, hm2⟩ := iha hm1
+      refine ⟨by simp [h1, h2, bvarBound], hm2.insert ?_⟩
+      simp [h1, h2, bvarBound]
+  | lam ty b iht ihb | forallE ty b iht ihb =>
+    intro memo hm
+    rw [bvarBoundGo.eq_def]
+    split
+    · rename_i r hhit; exact ⟨hm _ _ hhit, hm⟩
+    · obtain ⟨h1, hm1⟩ := iht hm
+      obtain ⟨h2, hm2⟩ := ihb hm1
+      refine ⟨by simp [h1, h2, bvarBound], hm2.insert ?_⟩
+      simp [h1, h2, bvarBound]
+  | letE ty v b iht ihv ihb =>
+    intro memo hm
+    rw [bvarBoundGo.eq_def]
+    split
+    · rename_i r hhit; exact ⟨hm _ _ hhit, hm⟩
+    · obtain ⟨h1, hm1⟩ := iht hm
+      obtain ⟨h2, hm2⟩ := ihv hm1
+      obtain ⟨h3, hm3⟩ := ihb hm2
+      refine ⟨by simp [h1, h2, h3, bvarBound], hm3.insert ?_⟩
+      simp [h1, h2, h3, bvarBound]
+  | proj s i sub ih =>
+    intro memo hm
+    rw [bvarBoundGo.eq_def]
+    split
+    · rename_i r hhit; exact ⟨hm _ _ hhit, hm⟩
+    · obtain ⟨h1, hm1⟩ := ih hm
+      refine ⟨by simp [h1, bvarBound], hm1.insert ?_⟩
+      simp [h1, bvarBound]
+
+@[inherit_doc bvarBoundGo_spec]
+theorem bvarBoundMemo_eq (e : Expr) :
+    bvarBoundMemo e = bvarBound e :=
+  (bvarBoundGo_spec e MemoBInv.empty).1
+
+/-- The `bvarB` field is `bvarBound`. -/
+theorem bvarB_eq : ∀ e : Expr, e.bvarB = bvarBound e := by
+  intro e
+  show (if e.bvarBRaw == satRange then bvarBoundMemo e
+    else e.bvarBRaw) = _
+  split
+  · rename_i h; exact bvarBoundMemo_eq e
+  · rename_i h
+    have hne : e.bvarBRaw ≠ satRange := by simpa using h
+    have := bvarBRaw_lt e
+    exact bvarBRaw_exact e (by simp [satRange] at *; omega)
+
+/-- The packed fvar-range field is `fvarRange` wherever it did not
+saturate. -/
+theorem fvarBRaw_exact : ∀ e : Expr, e.fvarBRaw < satRange →
+    e.fvarBRaw = fvarRange e := by
+  intro e
+  induction e with
+  | fvar idx _ _ => intro h; simp_all [satRange, fvarRange]; omega
+  | bvar _ | sort _ | const _ _ | lit _ => intro _; simp [fvarRange]
+  | app f a ihf iha =>
+    intro h
+    rw [fvarBRaw_app] at h ⊢
+    rw [ihf (by omega), iha (by omega), fvarRange]
+  | lam ty b iht ihb =>
+    intro h
+    rw [fvarBRaw_lam] at h ⊢
+    rw [iht (by omega), ihb (by omega), fvarRange]
+  | forallE ty b iht ihb =>
+    intro h
+    rw [fvarBRaw_forallE] at h ⊢
+    rw [iht (by omega), ihb (by omega), fvarRange]
+  | letE ty v b iht ihv ihb =>
+    intro h
+    rw [fvarBRaw_letE] at h ⊢
+    rw [iht (by omega), ihv (by omega), ihb (by omega), fvarRange]
+  | proj s i sub ih =>
+    intro h
+    rw [fvarBRaw_proj] at h ⊢
+    rw [ih h, fvarRange]
+
+/-- The `fvarRange` walk's memo invariant. -/
+def MemoFInv (memo : Std.HashMap Expr Nat) : Prop :=
+  ∀ (e : Expr) (r : Nat), memo[e]? = some r → r = fvarRange e
+
+theorem MemoFInv.empty : MemoFInv {} := by
+  intro e r h; simp at h
+
+theorem MemoFInv.insert {memo : Std.HashMap Expr Nat} (hm : MemoFInv memo)
+    {e : Expr} {r : Nat} (heq : r = fvarRange e) :
+    MemoFInv (memo.insert e r) := by
+  intro e' r' hk
+  rw [Std.HashMap.getElem?_insert] at hk
+  split at hk
+  · rename_i hbeq
+    cases hk
+    rw [← (beq_iff_eq ..).mp hbeq]
+    exact heq
+  · exact hm e' r' hk
+
+/-- **The memoized `fvarRange` walk agrees with `fvarRange`.** -/
+theorem fvarRangeGo_spec : ∀ (e : Expr) {memo : Std.HashMap Expr Nat},
+    MemoFInv memo →
+      (fvarRangeGo memo e).1 = fvarRange e ∧
+        MemoFInv (fvarRangeGo memo e).2 := by
+  intro e
+  induction e with
+  | fvar idx ty _ =>
+    intro memo hm
+    rw [fvarRangeGo.eq_def]
+    split
+    · rename_i r hhit; exact ⟨hm _ _ hhit, hm⟩
+    · exact ⟨rfl, hm.insert rfl⟩
+  | bvar i | sort u | const n us | lit l =>
+    intro memo hm
+    rw [fvarRangeGo.eq_def]
+    split
+    · rename_i r hhit; exact ⟨hm _ _ hhit, hm⟩
+    · exact ⟨rfl, hm.insert rfl⟩
+  | app f a ihf iha =>
+    intro memo hm
+    rw [fvarRangeGo.eq_def]
+    split
+    · rename_i r hhit; exact ⟨hm _ _ hhit, hm⟩
+    · obtain ⟨h1, hm1⟩ := ihf hm
+      obtain ⟨h2, hm2⟩ := iha hm1
+      refine ⟨by simp [h1, h2, fvarRange], hm2.insert ?_⟩
+      simp [h1, h2, fvarRange]
+  | lam ty b iht ihb | forallE ty b iht ihb =>
+    intro memo hm
+    rw [fvarRangeGo.eq_def]
+    split
+    · rename_i r hhit; exact ⟨hm _ _ hhit, hm⟩
+    · obtain ⟨h1, hm1⟩ := iht hm
+      obtain ⟨h2, hm2⟩ := ihb hm1
+      refine ⟨by simp [h1, h2, fvarRange], hm2.insert ?_⟩
+      simp [h1, h2, fvarRange]
+  | letE ty v b iht ihv ihb =>
+    intro memo hm
+    rw [fvarRangeGo.eq_def]
+    split
+    · rename_i r hhit; exact ⟨hm _ _ hhit, hm⟩
+    · obtain ⟨h1, hm1⟩ := iht hm
+      obtain ⟨h2, hm2⟩ := ihv hm1
+      obtain ⟨h3, hm3⟩ := ihb hm2
+      refine ⟨by simp [h1, h2, h3, fvarRange], hm3.insert ?_⟩
+      simp [h1, h2, h3, fvarRange]
+  | proj s i sub ih =>
+    intro memo hm
+    rw [fvarRangeGo.eq_def]
+    split
+    · rename_i r hhit; exact ⟨hm _ _ hhit, hm⟩
+    · obtain ⟨h1, hm1⟩ := ih hm
+      refine ⟨by simp [h1, fvarRange], hm1.insert ?_⟩
+      simp [h1, fvarRange]
+
+@[inherit_doc fvarRangeGo_spec]
+theorem fvarRangeMemo_eq (e : Expr) :
+    fvarRangeMemo e = fvarRange e :=
+  (fvarRangeGo_spec e MemoFInv.empty).1
+
+/-- The `fvarB` field is `fvarRange`. -/
+theorem fvarB_eq : ∀ e : Expr, e.fvarB = fvarRange e := by
+  intro e
+  show (if e.fvarBRaw == satRange then fvarRangeMemo e
+    else e.fvarBRaw) = _
+  split
+  · rename_i h; exact fvarRangeMemo_eq e
+  · rename_i h
+    have hne : e.fvarBRaw ≠ satRange := by simpa using h
+    have := fvarBRaw_lt e
+    exact fvarBRaw_exact e (by simp [satRange] at *; omega)
+
+/-- The executed `hasFvar`: the fvar-range field read. -/
+def hasFvarFast (e : Expr) : Bool := e.fvarB != 0
+
+@[csimp] theorem hasFvar_eq_hasFvarFast : @hasFvar = @hasFvarFast := by
+  funext e
+  unfold hasFvarFast
+  rw [fvarB_eq]
+  exact fvarRange_bne_zero.symm
+
+/-- The executed `looseBVarsBounded`: the loose-bvar field read. -/
+def looseBVarsBoundedFast (k : Nat) (e : Expr) : Bool := decide (e.bvarB ≤ k)
+
+@[csimp] theorem looseBVarsBounded_eq_looseBVarsBoundedFast :
+    @looseBVarsBounded = @looseBVarsBoundedFast := by
+  funext k e
+  unfold looseBVarsBoundedFast
+  rw [bvarB_eq]
+  by_cases h : e.bvarBound ≤ k
+  · rw [looseBVarsBounded_iff.mpr h, decide_eq_true h]
+  · rw [decide_eq_false h]
+    cases hb : looseBVarsBounded k e with
+    | false => rfl
+    | true => exact absurd (looseBVarsBounded_iff.mp hb) h
+
+/-- Instantiation is a no-op on terms without matching loose bvars. -/
+theorem instantiate1_eq_self {v : Expr} :
+    ∀ {e : Expr} {k : Nat}, looseBVarsBounded k e = true → e.instantiate1 v k = e := by
+  intro e
+  induction e with
+  | bvar i =>
+    intro k hb
+    simp only [looseBVarsBounded, decide_eq_true_eq] at hb
+    have h1 : ¬ i = k := by omega
+    have h2 : ¬ i > k := by omega
+    simp [instantiate1, h1, h2]
+  | _ =>
+    intro k hb
+    simp_all [looseBVarsBounded, instantiate1]
+
+/-- The cutoff the memoized walks below read: at or above the loose-bvar
+bound, instantiation is the identity. -/
+theorem instantiate1_of_bvarB_le {e v : Expr} {d : Nat} (h : e.bvarB ≤ d) :
+    e.instantiate1 v d = e :=
+  instantiate1_eq_self (looseBVarsBounded_iff.mpr (bvarB_eq e ▸ h))
+
 /-! ### `instantiate1`, memoized (task #215)
 
 The third row of task #213's tree-size-budget audit: `instantiate1`
@@ -45,11 +541,18 @@ inside `openPisAtFvars` (`ConLeche/Kernel/CheckerBase.lean`) opens a
 `∀`-telescope one binder at a time, and each step rebuilds the whole
 remaining telescope — `O(tree)` per binder on a DAG-shared type.
 
-As with `renameConsts` above, the memoized walk is swapped in by
+As with `renameConsts` below, the memoized walk is swapped in by
 `@[csimp]`: kernel-checked, no trust point, and the pure definition
 stays what every proof consumes.  The memo is keyed by the *node and
 the cursor* (`instantiate1`'s answer depends on both) and dropped after
-each call, since it also depends on `v`. -/
+each call, since it also depends on `v`.
+
+Every node first reads its loose-bvar bound (`bvarB`, an `O(1)` field
+read): a subterm with no loose bvar at or above the cursor is returned
+as it is, without a memo probe, as the official kernel's
+`offset >= loose_bvar_range` (task #496).  That makes peeling a
+telescope whose tail no longer mentions the peeled binder `O(1)` per
+step, where it was a walk of the whole tail. -/
 
 /-- The memo's invariant: every recorded answer is the real one. -/
 def Inst1MemoInv (v : Expr) (memo : Std.HashMap (Expr × Nat) Expr) : Prop :=
@@ -74,6 +577,7 @@ theorem Inst1MemoInv.insert {v : Expr} {memo : Std.HashMap (Expr × Nat) Expr}
 /-- Memoized `instantiate1`. -/
 def instantiate1Go (v : Expr) (memo : Std.HashMap (Expr × Nat) Expr)
     (e : Expr) (d : Nat) : Expr × Std.HashMap (Expr × Nat) Expr :=
+  if e.bvarB ≤ d then (e, memo) else
   match e with
   | .bvar i => (if i = d then v else if i > d then .bvar (i - 1) else .bvar i, memo)
   | .fvar idx ty => (.fvar idx ty, memo)
@@ -117,61 +621,96 @@ theorem instantiate1Go_spec {v : Expr} :
         Inst1MemoInv v (instantiate1Go v memo e d).2 := by
   intro e
   induction e with
-  | bvar i => intro d memo hm; exact ⟨rfl, hm⟩
-  | fvar i ty _ => intro d memo hm; exact ⟨rfl, hm⟩
-  | sort u => intro d memo hm; exact ⟨rfl, hm⟩
-  | const n us => intro d memo hm; exact ⟨rfl, hm⟩
-  | lit l => intro d memo hm; exact ⟨rfl, hm⟩
+  | bvar i =>
+    intro d memo hm
+    rw [instantiate1Go]
+    split
+    · exact ⟨(instantiate1_of_bvarB_le ‹_›).symm, hm⟩
+    · exact ⟨rfl, hm⟩
+  | fvar i ty _ =>
+    intro d memo hm
+    rw [instantiate1Go]
+    split
+    · exact ⟨(instantiate1_of_bvarB_le ‹_›).symm, hm⟩
+    · exact ⟨rfl, hm⟩
+  | sort u =>
+    intro d memo hm
+    rw [instantiate1Go]
+    split
+    · exact ⟨(instantiate1_of_bvarB_le ‹_›).symm, hm⟩
+    · exact ⟨rfl, hm⟩
+  | const n us =>
+    intro d memo hm
+    rw [instantiate1Go]
+    split
+    · exact ⟨(instantiate1_of_bvarB_le ‹_›).symm, hm⟩
+    · exact ⟨rfl, hm⟩
+  | lit l =>
+    intro d memo hm
+    rw [instantiate1Go]
+    split
+    · exact ⟨(instantiate1_of_bvarB_le ‹_›).symm, hm⟩
+    · exact ⟨rfl, hm⟩
   | app a b iha ihb =>
     intro d memo hm
     rw [instantiate1Go]
     split
-    · rename_i r hhit
-      exact ⟨(hm _ _ hhit).symm ▸ rfl, hm⟩
-    · obtain ⟨h1, h2⟩ := iha d memo hm
-      obtain ⟨h3, h4⟩ := ihb d _ h2
-      refine ⟨by simp [instantiate1, h1, h3], ?_⟩
-      exact h4.insert (by simp [instantiate1, h1, h3])
+    · exact ⟨(instantiate1_of_bvarB_le ‹_›).symm, hm⟩
+    · split
+      · rename_i r hhit
+        exact ⟨(hm _ _ hhit).symm ▸ rfl, hm⟩
+      · obtain ⟨h1, h2⟩ := iha d memo hm
+        obtain ⟨h3, h4⟩ := ihb d _ h2
+        refine ⟨by simp [instantiate1, h1, h3], ?_⟩
+        exact h4.insert (by simp [instantiate1, h1, h3])
   | lam ty body iht ihb =>
     intro d memo hm
     rw [instantiate1Go]
     split
-    · rename_i r hhit
-      exact ⟨(hm _ _ hhit).symm ▸ rfl, hm⟩
-    · obtain ⟨h1, h2⟩ := iht d memo hm
-      obtain ⟨h3, h4⟩ := ihb (d + 1) _ h2
-      refine ⟨by simp [instantiate1, h1, h3], ?_⟩
-      exact h4.insert (by simp [instantiate1, h1, h3])
+    · exact ⟨(instantiate1_of_bvarB_le ‹_›).symm, hm⟩
+    · split
+      · rename_i r hhit
+        exact ⟨(hm _ _ hhit).symm ▸ rfl, hm⟩
+      · obtain ⟨h1, h2⟩ := iht d memo hm
+        obtain ⟨h3, h4⟩ := ihb (d + 1) _ h2
+        refine ⟨by simp [instantiate1, h1, h3], ?_⟩
+        exact h4.insert (by simp [instantiate1, h1, h3])
   | forallE ty body iht ihb =>
     intro d memo hm
     rw [instantiate1Go]
     split
-    · rename_i r hhit
-      exact ⟨(hm _ _ hhit).symm ▸ rfl, hm⟩
-    · obtain ⟨h1, h2⟩ := iht d memo hm
-      obtain ⟨h3, h4⟩ := ihb (d + 1) _ h2
-      refine ⟨by simp [instantiate1, h1, h3], ?_⟩
-      exact h4.insert (by simp [instantiate1, h1, h3])
+    · exact ⟨(instantiate1_of_bvarB_le ‹_›).symm, hm⟩
+    · split
+      · rename_i r hhit
+        exact ⟨(hm _ _ hhit).symm ▸ rfl, hm⟩
+      · obtain ⟨h1, h2⟩ := iht d memo hm
+        obtain ⟨h3, h4⟩ := ihb (d + 1) _ h2
+        refine ⟨by simp [instantiate1, h1, h3], ?_⟩
+        exact h4.insert (by simp [instantiate1, h1, h3])
   | letE ty val body iht ihv ihb =>
     intro d memo hm
     rw [instantiate1Go]
     split
-    · rename_i r hhit
-      exact ⟨(hm _ _ hhit).symm ▸ rfl, hm⟩
-    · obtain ⟨h1, h2⟩ := iht d memo hm
-      obtain ⟨h3, h4⟩ := ihv d _ h2
-      obtain ⟨h5, h6⟩ := ihb (d + 1) _ h4
-      refine ⟨by simp [instantiate1, h1, h3, h5], ?_⟩
-      exact h6.insert (by simp [instantiate1, h1, h3, h5])
+    · exact ⟨(instantiate1_of_bvarB_le ‹_›).symm, hm⟩
+    · split
+      · rename_i r hhit
+        exact ⟨(hm _ _ hhit).symm ▸ rfl, hm⟩
+      · obtain ⟨h1, h2⟩ := iht d memo hm
+        obtain ⟨h3, h4⟩ := ihv d _ h2
+        obtain ⟨h5, h6⟩ := ihb (d + 1) _ h4
+        refine ⟨by simp [instantiate1, h1, h3, h5], ?_⟩
+        exact h6.insert (by simp [instantiate1, h1, h3, h5])
   | proj s i sub ih =>
     intro d memo hm
     rw [instantiate1Go]
     split
-    · rename_i r hhit
-      exact ⟨(hm _ _ hhit).symm ▸ rfl, hm⟩
-    · obtain ⟨h1, h2⟩ := ih d memo hm
-      refine ⟨by simp [instantiate1, h1], ?_⟩
-      exact h2.insert (by simp [instantiate1, h1])
+    · exact ⟨(instantiate1_of_bvarB_le ‹_›).symm, hm⟩
+    · split
+      · rename_i r hhit
+        exact ⟨(hm _ _ hhit).symm ▸ rfl, hm⟩
+      · obtain ⟨h1, h2⟩ := ih d memo hm
+        refine ⟨by simp [instantiate1, h1], ?_⟩
+        exact h2.insert (by simp [instantiate1, h1])
 
 /-- The executed `instantiate1` (one memoized DAG walk). -/
 def instantiate1Fast (e v : Expr) (d : Nat := 0) : Expr :=
@@ -228,6 +767,27 @@ decreasing_by
     | (apply Prod.Lex.left; simp [List.length_take]; omega)
     | (apply Prod.Lex.right; simp; omega)
 
+/-- Bulk instantiation at or above the loose-bvar bound is the
+identity (task #72's scope shortcut). -/
+theorem instantiateList_eq_self {vs : List Expr} :
+    ∀ {e : Expr} {d : Nat}, looseBVarsBounded d e = true →
+      e.instantiateList vs d = e := by
+  intro e
+  induction e with
+  | bvar i =>
+    intro d hb
+    have h1 : i < d := by
+      simpa [looseBVarsBounded] using hb
+    simp [instantiateList, h1]
+  | _ =>
+    intro d hb <;>
+    simp_all [looseBVarsBounded, instantiateList, Bool.and_eq_true]
+
+/-- The cutoff the memoized walk below reads. -/
+theorem instantiateList_of_bvarB_le {e : Expr} {vs : List Expr} {d : Nat}
+    (h : e.bvarB ≤ d) : e.instantiateList vs d = e :=
+  instantiateList_eq_self (looseBVarsBounded_iff.mpr (bvarB_eq e ▸ h))
+
 /-! ### `instantiateList`, memoized (task #210 Part B)
 
 `openPisAtFvars` (`ConLeche/Kernel/CheckerBase.lean`) instantiates
@@ -261,6 +821,7 @@ theorem InstLMemoInv.insert {vs : List Expr} {memo : Std.HashMap (Expr × Nat) E
 /-- Memoized `instantiateList`. -/
 def instantiateListGo (vs : List Expr) (memo : Std.HashMap (Expr × Nat) Expr)
     (e : Expr) (d : Nat) : Expr × Std.HashMap (Expr × Nat) Expr :=
+  if e.bvarB ≤ d then (e, memo) else
   match e with
   | .bvar j => (instantiateList (.bvar j) vs d, memo)
   | .fvar idx ty => (.fvar idx ty, memo)
@@ -304,63 +865,96 @@ theorem instantiateListGo_spec {vs : List Expr} :
         InstLMemoInv vs (instantiateListGo vs memo e d).2 := by
   intro e
   induction e with
-  | bvar i => intro d memo hm; exact ⟨rfl, hm⟩
+  | bvar i =>
+    intro d memo hm
+    rw [instantiateListGo]
+    split
+    · exact ⟨(instantiateList_of_bvarB_le ‹_›).symm, hm⟩
+    · exact ⟨rfl, hm⟩
   | fvar i ty _ =>
-    intro d memo hm; exact ⟨by show (Expr.fvar i ty, memo).1 = _; rw [instantiateList], hm⟩
-  | sort u => intro d memo hm; exact ⟨by show (Expr.sort u, memo).1 = _; rw [instantiateList], hm⟩
+    intro d memo hm
+    rw [instantiateListGo]
+    split
+    · exact ⟨(instantiateList_of_bvarB_le ‹_›).symm, hm⟩
+    · exact ⟨by rw [instantiateList], hm⟩
+  | sort u =>
+    intro d memo hm
+    rw [instantiateListGo]
+    split
+    · exact ⟨(instantiateList_of_bvarB_le ‹_›).symm, hm⟩
+    · exact ⟨by rw [instantiateList], hm⟩
   | const n us =>
-    intro d memo hm; exact ⟨by show (Expr.const n us, memo).1 = _; rw [instantiateList], hm⟩
-  | lit l => intro d memo hm; exact ⟨by show (Expr.lit l, memo).1 = _; rw [instantiateList], hm⟩
+    intro d memo hm
+    rw [instantiateListGo]
+    split
+    · exact ⟨(instantiateList_of_bvarB_le ‹_›).symm, hm⟩
+    · exact ⟨by rw [instantiateList], hm⟩
+  | lit l =>
+    intro d memo hm
+    rw [instantiateListGo]
+    split
+    · exact ⟨(instantiateList_of_bvarB_le ‹_›).symm, hm⟩
+    · exact ⟨by rw [instantiateList], hm⟩
   | app a b iha ihb =>
     intro d memo hm
     rw [instantiateListGo]
     split
-    · rename_i r hhit
-      exact ⟨(hm _ _ hhit).symm ▸ rfl, hm⟩
-    · obtain ⟨h1, h2⟩ := iha d memo hm
-      obtain ⟨h3, h4⟩ := ihb d _ h2
-      refine ⟨by rw [instantiateList]; simp [h1, h3], ?_⟩
-      exact h4.insert (by rw [instantiateList]; simp [h1, h3])
+    · exact ⟨(instantiateList_of_bvarB_le ‹_›).symm, hm⟩
+    · split
+      · rename_i r hhit
+        exact ⟨(hm _ _ hhit).symm ▸ rfl, hm⟩
+      · obtain ⟨h1, h2⟩ := iha d memo hm
+        obtain ⟨h3, h4⟩ := ihb d _ h2
+        refine ⟨by rw [instantiateList]; simp [h1, h3], ?_⟩
+        exact h4.insert (by rw [instantiateList]; simp [h1, h3])
   | lam ty body iht ihb =>
     intro d memo hm
     rw [instantiateListGo]
     split
-    · rename_i r hhit
-      exact ⟨(hm _ _ hhit).symm ▸ rfl, hm⟩
-    · obtain ⟨h1, h2⟩ := iht d memo hm
-      obtain ⟨h3, h4⟩ := ihb (d + 1) _ h2
-      refine ⟨by rw [instantiateList]; simp [h1, h3], ?_⟩
-      exact h4.insert (by rw [instantiateList]; simp [h1, h3])
+    · exact ⟨(instantiateList_of_bvarB_le ‹_›).symm, hm⟩
+    · split
+      · rename_i r hhit
+        exact ⟨(hm _ _ hhit).symm ▸ rfl, hm⟩
+      · obtain ⟨h1, h2⟩ := iht d memo hm
+        obtain ⟨h3, h4⟩ := ihb (d + 1) _ h2
+        refine ⟨by rw [instantiateList]; simp [h1, h3], ?_⟩
+        exact h4.insert (by rw [instantiateList]; simp [h1, h3])
   | forallE ty body iht ihb =>
     intro d memo hm
     rw [instantiateListGo]
     split
-    · rename_i r hhit
-      exact ⟨(hm _ _ hhit).symm ▸ rfl, hm⟩
-    · obtain ⟨h1, h2⟩ := iht d memo hm
-      obtain ⟨h3, h4⟩ := ihb (d + 1) _ h2
-      refine ⟨by rw [instantiateList]; simp [h1, h3], ?_⟩
-      exact h4.insert (by rw [instantiateList]; simp [h1, h3])
+    · exact ⟨(instantiateList_of_bvarB_le ‹_›).symm, hm⟩
+    · split
+      · rename_i r hhit
+        exact ⟨(hm _ _ hhit).symm ▸ rfl, hm⟩
+      · obtain ⟨h1, h2⟩ := iht d memo hm
+        obtain ⟨h3, h4⟩ := ihb (d + 1) _ h2
+        refine ⟨by rw [instantiateList]; simp [h1, h3], ?_⟩
+        exact h4.insert (by rw [instantiateList]; simp [h1, h3])
   | letE ty val body iht ihv ihb =>
     intro d memo hm
     rw [instantiateListGo]
     split
-    · rename_i r hhit
-      exact ⟨(hm _ _ hhit).symm ▸ rfl, hm⟩
-    · obtain ⟨h1, h2⟩ := iht d memo hm
-      obtain ⟨h3, h4⟩ := ihv d _ h2
-      obtain ⟨h5, h6⟩ := ihb (d + 1) _ h4
-      refine ⟨by rw [instantiateList]; simp [h1, h3, h5], ?_⟩
-      exact h6.insert (by rw [instantiateList]; simp [h1, h3, h5])
+    · exact ⟨(instantiateList_of_bvarB_le ‹_›).symm, hm⟩
+    · split
+      · rename_i r hhit
+        exact ⟨(hm _ _ hhit).symm ▸ rfl, hm⟩
+      · obtain ⟨h1, h2⟩ := iht d memo hm
+        obtain ⟨h3, h4⟩ := ihv d _ h2
+        obtain ⟨h5, h6⟩ := ihb (d + 1) _ h4
+        refine ⟨by rw [instantiateList]; simp [h1, h3, h5], ?_⟩
+        exact h6.insert (by rw [instantiateList]; simp [h1, h3, h5])
   | proj s i sub ih =>
     intro d memo hm
     rw [instantiateListGo]
     split
-    · rename_i r hhit
-      exact ⟨(hm _ _ hhit).symm ▸ rfl, hm⟩
-    · obtain ⟨h1, h2⟩ := ih d memo hm
-      refine ⟨by rw [instantiateList]; simp [h1], ?_⟩
-      exact h2.insert (by rw [instantiateList]; simp [h1])
+    · exact ⟨(instantiateList_of_bvarB_le ‹_›).symm, hm⟩
+    · split
+      · rename_i r hhit
+        exact ⟨(hm _ _ hhit).symm ▸ rfl, hm⟩
+      · obtain ⟨h1, h2⟩ := ih d memo hm
+        refine ⟨by rw [instantiateList]; simp [h1], ?_⟩
+        exact h2.insert (by rw [instantiateList]; simp [h1])
 
 /-- The executed `instantiateList` (one memoized DAG walk). -/
 def instantiateListFast (e : Expr) (vs : List Expr) (d : Nat := 0) : Expr :=
@@ -752,22 +1346,6 @@ decreasing_by all_goals first
   | (simp [Expr.sizeF]; omega)
   | simp [Expr.sizeF]
 
-/-- Are all bound-variable references bound within the expression (below
-`k` at the root)?  Input declarations must satisfy `looseBVarsBounded 0`.
-The pure walk is the specification; the executed function is the
-`O(1)` loose-bvar field read (`looseBVarsBoundedFast`, `@[csimp]`
-below, task #210 Part B). -/
-def looseBVarsBounded (k : Nat) : Expr → Bool
-  | .bvar i => i < k
-  | .fvar _ _ => true
-  | .sort _ | .const _ _ | .lit _ => true
-  | .app f a => looseBVarsBounded k f && looseBVarsBounded k a
-  | .lam ty body | .forallE ty body =>
-    looseBVarsBounded k ty && looseBVarsBounded (k + 1) body
-  | .letE ty val body =>
-    looseBVarsBounded k ty && looseBVarsBounded k val && looseBVarsBounded (k + 1) body
-  | .proj _ _ e => looseBVarsBounded k e
-
 /-- Is the expression a ∀? -/
 def isForallE : Expr → Bool
   | .forallE .. => true
@@ -778,17 +1356,6 @@ comparison, `defeqLams`). -/
 def lamPair? : Expr → Expr → Option (Expr × Expr × Expr × Expr)
   | .lam t₁ b₁, .lam t₂ b₂ => some (t₁, b₁, t₂, b₂)
   | _, _ => none
-
-/-- Does the expression contain any free variable (`fvar`)?  Input
-declarations must be `fvar`-free; the checker introduces `fvar`s only
-internally when opening binders. -/
-def hasFvar : Expr → Bool
-  | .bvar _ | .sort _ | .const .. | .lit _ => false
-  | .fvar .. => true
-  | .app f a => hasFvar f || hasFvar a
-  | .lam ty body | .forallE ty body => hasFvar ty || hasFvar body
-  | .letE ty val body => hasFvar ty || hasFvar val || hasFvar body
-  | .proj _ _ e => hasFvar e
 
 /-- The head of an application spine. -/
 def getAppFn : Expr → Expr
@@ -1311,454 +1878,6 @@ arguments. -/
 def instSpine : List Expr → Nat → Expr → Expr
   | [], _, e => e
   | a :: as, t, e => instSpine as (t - 1) (e.instantiate1 a t)
-
-/-! ## Derived-field spec functions, and their exactness
-
-The four `@[computed_field]`s of `Expr` (`ConLeche/Kernel/Expr.lean`) are
-declared by their recurrences; these are the same recurrences written
-as ordinary definitions, together with the equivalences that make a
-field read justify the traversal cutoff it guards.  Self-contained:
-they mention nothing but `Expr`.  The cached engine's field facts
-(`ConLeche/Verify/Cached/Erase.lean`) are stated against them. -/
-
-/-- The least `k` with `looseBVarsBounded k` (the spec function of the
-computed field `bvarB`). -/
-def _root_.ConLeche.Expr.bvarBound : Expr → Nat
-  | .bvar i => i + 1
-  | .fvar _ _ | .sort _ | .const _ _ | .lit _ => 0
-  | .app f a => max f.bvarBound a.bvarBound
-  | .lam ty body | .forallE ty body =>
-    max ty.bvarBound (body.bvarBound - 1)
-  | .letE ty val body =>
-    max (max ty.bvarBound val.bvarBound) (body.bvarBound - 1)
-  | .proj _ _ e => e.bvarBound
-
-/-- `bvarBound` is exact for `looseBVarsBounded`. -/
-theorem looseBVarsBounded_iff {x : Expr} :
-    ∀ {k : Nat}, x.looseBVarsBounded k = true ↔ x.bvarBound ≤ k := by
-  induction x <;> intro k <;>
-    (try simp [Expr.looseBVarsBounded, Expr.bvarBound, Nat.max_le, *]) <;>
-    omega
-
-/-- The least `d` with `fvarsBelow d` (the spec function of the computed
-field `fvarB`; `fvar` type annotations are not descended, matching
-`fvarsBelow` and the abstraction traversals). -/
-def _root_.ConLeche.Expr.fvarRange : Expr → Nat
-  | .fvar idx _ => idx + 1
-  | .bvar _ | .sort _ | .const _ _ | .lit _ => 0
-  | .app f a => max f.fvarRange a.fvarRange
-  | .lam ty body | .forallE ty body =>
-    max ty.fvarRange body.fvarRange
-  | .letE ty val body =>
-    max (max ty.fvarRange val.fvarRange) body.fvarRange
-  | .proj _ _ e => e.fvarRange
-
-/-- A term is fvar-free iff its range is zero. -/
-theorem hasFvar_eq_false_iff {x : Expr} :
-    x.hasFvar = false ↔ x.fvarRange = 0 := by
-  induction x <;>
-    simp_all [Expr.hasFvar, Expr.fvarRange, Nat.max_eq_zero_iff,
-      and_assoc]
-
-/-- A term has a reachable fvar leaf iff its range is nonzero. -/
-theorem fvarRange_bne_zero {x : Expr} : (x.fvarRange != 0) = x.hasFvar := by
-  cases hh : x.hasFvar with
-  | false => simp [hasFvar_eq_false_iff.mp hh]
-  | true =>
-    have hne : x.fvarRange ≠ 0 := by
-      intro h0
-      rw [hasFvar_eq_false_iff.mpr h0] at hh
-      cases hh
-    simpa using hne
-
-/-! ## The saturated branch of the packed range fields (task #167)
-
-`Expr.bvarBRaw`/`Expr.fvarBRaw` (`Kernel/Expr.lean`) are the packed
-word's 15-bit range fields; they *saturate* at `satRange`.  The
-accessors the checker reads — `Expr.bvarB`, `Expr.fvarB` — stay
-**exact**: below saturation they are the field, and at saturation they
-fall back to a memoized recomputation of the very same recurrence.
-
-Two consequences, and they are the point of the design:
-
-* **no lemma weakens** — `bvarB_eq`/`fvarB_eq`
-  (`Verify/Cached/Erase.lean`) are still plain equations with the spec
-  functions, so no skip site grows a guard and no invariant is
-  threaded anywhere;
-* **what saturation costs is time, not truth** — the `O(1)` field read
-  becomes an `O(DAG)` walk, and only on a term with `satRange` loose
-  bvars (or fvar levels).  The measured maxima on the real streams are
-  213 (`init-full`), 488 (`grind-ring-5`) and 4000 (`app-lam`, the
-  deepest artificial workload) against `satRange = 32767`.
-
-The walks are **memoized** (an `Std.HashMap` keyed by the node) so
-that even the fallback stays linear in the DAG rather than the
-unfolded tree — the standing "no unmemoized traversals in executable
-paths" rule applies to the saturated branch too. -/
-
-/-- Memoized `bvarBound` (the saturated branch's exact recomputation). -/
-def bvarBoundGo (memo : Std.HashMap Expr Nat) (e : Expr) :
-    Nat × Std.HashMap Expr Nat :=
-  match memo[e]? with
-  | some r => (r, memo)
-  | none =>
-    let (r, memo) : Nat × Std.HashMap Expr Nat :=
-      match e with
-      | .bvar i => (i + 1, memo)
-      | .fvar _ _ | .sort _ | .const _ _ | .lit _ => (0, memo)
-      | .app f a =>
-        let (rf, memo) := bvarBoundGo memo f
-        let (ra, memo) := bvarBoundGo memo a
-        (max rf ra, memo)
-      | .lam ty body | .forallE ty body =>
-        let (rt, memo) := bvarBoundGo memo ty
-        let (rb, memo) := bvarBoundGo memo body
-        (max rt (rb - 1), memo)
-      | .letE ty val body =>
-        let (rt, memo) := bvarBoundGo memo ty
-        let (rv, memo) := bvarBoundGo memo val
-        let (rb, memo) := bvarBoundGo memo body
-        (max (max rt rv) (rb - 1), memo)
-      | .proj _ _ sub => bvarBoundGo memo sub
-    (r, memo.insert e r)
-
-@[inherit_doc bvarBoundGo]
-def bvarBoundMemo (e : Expr) : Nat := (bvarBoundGo {} e).1
-
-/-- Memoized `fvarRange` (the saturated branch's exact
-recomputation). -/
-def fvarRangeGo (memo : Std.HashMap Expr Nat) (e : Expr) :
-    Nat × Std.HashMap Expr Nat :=
-  match memo[e]? with
-  | some r => (r, memo)
-  | none =>
-    let (r, memo) : Nat × Std.HashMap Expr Nat :=
-      match e with
-      | .fvar idx _ => (idx + 1, memo)
-      | .bvar _ | .sort _ | .const _ _ | .lit _ => (0, memo)
-      | .app f a =>
-        let (rf, memo) := fvarRangeGo memo f
-        let (ra, memo) := fvarRangeGo memo a
-        (max rf ra, memo)
-      | .lam ty body | .forallE ty body =>
-        let (rt, memo) := fvarRangeGo memo ty
-        let (rb, memo) := fvarRangeGo memo body
-        (max rt rb, memo)
-      | .letE ty val body =>
-        let (rt, memo) := fvarRangeGo memo ty
-        let (rv, memo) := fvarRangeGo memo val
-        let (rb, memo) := fvarRangeGo memo body
-        (max (max rt rv) rb, memo)
-      | .proj _ _ sub => fvarRangeGo memo sub
-    (r, memo.insert e r)
-
-@[inherit_doc fvarRangeGo]
-def fvarRangeMemo (e : Expr) : Nat := (fvarRangeGo {} e).1
-
-/-- **The loose-bvar bound the checker reads**: the packed field, or —
-on the saturated branch alone — the exact memoized recomputation.
-Equal to `Expr.bvarBound` unconditionally (`bvarB_eq`). -/
-@[inline] def bvarB (e : Expr) : Nat :=
-  let r := e.bvarBRaw
-  if r == satRange then bvarBoundMemo e else r
-
-/-- **The fvar range the checker reads**: the packed field, or — on the
-saturated branch alone — the exact memoized recomputation.  Equal to
-`Expr.fvarRange` unconditionally (`fvarB_eq`). -/
-@[inline] def fvarB (e : Expr) : Nat :=
-  let r := e.fvarBRaw
-  if r == satRange then fvarRangeMemo e else r
-
-
-/-! ### The range fields are exact; `looseBVarsBounded` and `hasFvar` read them (task #210 Part B)
-
-Moved here from `Verify/Cached/Erase.lean` (task #172 B3a) so that the
-executed `looseBVarsBounded` and `hasFvar` can be the `O(1)` field
-reads: the tree walks did not finish on task #215's `tower_struct` (a
-depth-60 DAG tower in a structure field), where the recursor-generation
-checks ask them of the block's types.  Swapped in by `@[csimp]`, as the
-memos above: kernel-checked, no trust point, the pure walks stay the
-specs. -/
-
-/-- The packed loose-bvar field is `bvarBound` wherever it did not
-saturate. -/
-theorem bvarBRaw_exact : ∀ e : Expr, e.bvarBRaw < satRange →
-    e.bvarBRaw = bvarBound e := by
-  intro e
-  induction e with
-  | bvar i => intro h; simp_all [satRange, bvarBound]; omega
-  | fvar _ _ _ | sort _ | const _ _ | lit _ =>
-    intro _; simp [bvarBound]
-  | app f a ihf iha =>
-    intro h
-    rw [bvarBRaw_app] at h ⊢
-    rw [ihf (by omega), iha (by omega), bvarBound]
-  | lam ty b iht ihb =>
-    intro h
-    rw [bvarBRaw_lam] at h ⊢
-    have hb : b.bvarBRaw ≠ satRange := by
-      intro hb'; rw [hb'] at h; simp at h; omega
-    have hb2 : b.bvarBRaw < satRange := by
-      have := bvarBRaw_lt b; simp [satRange] at *; omega
-    rw [ite_eq_right hb, iht (by omega), ihb hb2, bvarBound]
-  | forallE ty b iht ihb =>
-    intro h
-    rw [bvarBRaw_forallE] at h ⊢
-    have hb : b.bvarBRaw ≠ satRange := by
-      intro hb'; rw [hb'] at h; simp at h; omega
-    have hb2 : b.bvarBRaw < satRange := by
-      have := bvarBRaw_lt b; simp [satRange] at *; omega
-    rw [ite_eq_right hb, iht (by omega), ihb hb2, bvarBound]
-  | letE ty v b iht ihv ihb =>
-    intro h
-    rw [bvarBRaw_letE] at h ⊢
-    have hb : b.bvarBRaw ≠ satRange := by
-      intro hb'; rw [hb'] at h; simp at h; omega
-    have hb2 : b.bvarBRaw < satRange := by
-      have := bvarBRaw_lt b; simp [satRange] at *; omega
-    rw [ite_eq_right hb, iht (by omega), ihv (by omega), ihb hb2, bvarBound]
-  | proj s i sub ih =>
-    intro h
-    rw [bvarBRaw_proj] at h ⊢
-    rw [ih h, bvarBound]
-
-/-- The `bvarBound` walk's memo invariant. -/
-def MemoBInv (memo : Std.HashMap Expr Nat) : Prop :=
-  ∀ (e : Expr) (r : Nat), memo[e]? = some r → r = bvarBound e
-
-theorem MemoBInv.empty : MemoBInv {} := by
-  intro e r h; simp at h
-
-theorem MemoBInv.insert {memo : Std.HashMap Expr Nat} (hm : MemoBInv memo)
-    {e : Expr} {r : Nat} (heq : r = bvarBound e) :
-    MemoBInv (memo.insert e r) := by
-  intro e' r' hk
-  rw [Std.HashMap.getElem?_insert] at hk
-  split at hk
-  · rename_i hbeq
-    cases hk
-    rw [← (beq_iff_eq ..).mp hbeq]
-    exact heq
-  · exact hm e' r' hk
-
-/-- **The memoized `bvarBound` walk agrees with `bvarBound`.** -/
-theorem bvarBoundGo_spec : ∀ (e : Expr) {memo : Std.HashMap Expr Nat},
-    MemoBInv memo →
-      (bvarBoundGo memo e).1 = bvarBound e ∧
-        MemoBInv (bvarBoundGo memo e).2 := by
-  intro e
-  induction e with
-  | bvar i =>
-    intro memo hm
-    rw [bvarBoundGo.eq_def]
-    split
-    · rename_i r hhit; exact ⟨hm _ _ hhit, hm⟩
-    · exact ⟨rfl, hm.insert rfl⟩
-  | fvar idx ty _ | sort u | const n us | lit l =>
-    intro memo hm
-    rw [bvarBoundGo.eq_def]
-    split
-    · rename_i r hhit; exact ⟨hm _ _ hhit, hm⟩
-    · exact ⟨rfl, hm.insert rfl⟩
-  | app f a ihf iha =>
-    intro memo hm
-    rw [bvarBoundGo.eq_def]
-    split
-    · rename_i r hhit; exact ⟨hm _ _ hhit, hm⟩
-    · obtain ⟨h1, hm1⟩ := ihf hm
-      obtain ⟨h2, hm2⟩ := iha hm1
-      refine ⟨by simp [h1, h2, bvarBound], hm2.insert ?_⟩
-      simp [h1, h2, bvarBound]
-  | lam ty b iht ihb | forallE ty b iht ihb =>
-    intro memo hm
-    rw [bvarBoundGo.eq_def]
-    split
-    · rename_i r hhit; exact ⟨hm _ _ hhit, hm⟩
-    · obtain ⟨h1, hm1⟩ := iht hm
-      obtain ⟨h2, hm2⟩ := ihb hm1
-      refine ⟨by simp [h1, h2, bvarBound], hm2.insert ?_⟩
-      simp [h1, h2, bvarBound]
-  | letE ty v b iht ihv ihb =>
-    intro memo hm
-    rw [bvarBoundGo.eq_def]
-    split
-    · rename_i r hhit; exact ⟨hm _ _ hhit, hm⟩
-    · obtain ⟨h1, hm1⟩ := iht hm
-      obtain ⟨h2, hm2⟩ := ihv hm1
-      obtain ⟨h3, hm3⟩ := ihb hm2
-      refine ⟨by simp [h1, h2, h3, bvarBound], hm3.insert ?_⟩
-      simp [h1, h2, h3, bvarBound]
-  | proj s i sub ih =>
-    intro memo hm
-    rw [bvarBoundGo.eq_def]
-    split
-    · rename_i r hhit; exact ⟨hm _ _ hhit, hm⟩
-    · obtain ⟨h1, hm1⟩ := ih hm
-      refine ⟨by simp [h1, bvarBound], hm1.insert ?_⟩
-      simp [h1, bvarBound]
-
-@[inherit_doc bvarBoundGo_spec]
-theorem bvarBoundMemo_eq (e : Expr) :
-    bvarBoundMemo e = bvarBound e :=
-  (bvarBoundGo_spec e MemoBInv.empty).1
-
-/-- The `bvarB` field is `bvarBound`. -/
-theorem bvarB_eq : ∀ e : Expr, e.bvarB = bvarBound e := by
-  intro e
-  show (if e.bvarBRaw == satRange then bvarBoundMemo e
-    else e.bvarBRaw) = _
-  split
-  · rename_i h; exact bvarBoundMemo_eq e
-  · rename_i h
-    have hne : e.bvarBRaw ≠ satRange := by simpa using h
-    have := bvarBRaw_lt e
-    exact bvarBRaw_exact e (by simp [satRange] at *; omega)
-
-/-- The packed fvar-range field is `fvarRange` wherever it did not
-saturate. -/
-theorem fvarBRaw_exact : ∀ e : Expr, e.fvarBRaw < satRange →
-    e.fvarBRaw = fvarRange e := by
-  intro e
-  induction e with
-  | fvar idx _ _ => intro h; simp_all [satRange, fvarRange]; omega
-  | bvar _ | sort _ | const _ _ | lit _ => intro _; simp [fvarRange]
-  | app f a ihf iha =>
-    intro h
-    rw [fvarBRaw_app] at h ⊢
-    rw [ihf (by omega), iha (by omega), fvarRange]
-  | lam ty b iht ihb =>
-    intro h
-    rw [fvarBRaw_lam] at h ⊢
-    rw [iht (by omega), ihb (by omega), fvarRange]
-  | forallE ty b iht ihb =>
-    intro h
-    rw [fvarBRaw_forallE] at h ⊢
-    rw [iht (by omega), ihb (by omega), fvarRange]
-  | letE ty v b iht ihv ihb =>
-    intro h
-    rw [fvarBRaw_letE] at h ⊢
-    rw [iht (by omega), ihv (by omega), ihb (by omega), fvarRange]
-  | proj s i sub ih =>
-    intro h
-    rw [fvarBRaw_proj] at h ⊢
-    rw [ih h, fvarRange]
-
-/-- The `fvarRange` walk's memo invariant. -/
-def MemoFInv (memo : Std.HashMap Expr Nat) : Prop :=
-  ∀ (e : Expr) (r : Nat), memo[e]? = some r → r = fvarRange e
-
-theorem MemoFInv.empty : MemoFInv {} := by
-  intro e r h; simp at h
-
-theorem MemoFInv.insert {memo : Std.HashMap Expr Nat} (hm : MemoFInv memo)
-    {e : Expr} {r : Nat} (heq : r = fvarRange e) :
-    MemoFInv (memo.insert e r) := by
-  intro e' r' hk
-  rw [Std.HashMap.getElem?_insert] at hk
-  split at hk
-  · rename_i hbeq
-    cases hk
-    rw [← (beq_iff_eq ..).mp hbeq]
-    exact heq
-  · exact hm e' r' hk
-
-/-- **The memoized `fvarRange` walk agrees with `fvarRange`.** -/
-theorem fvarRangeGo_spec : ∀ (e : Expr) {memo : Std.HashMap Expr Nat},
-    MemoFInv memo →
-      (fvarRangeGo memo e).1 = fvarRange e ∧
-        MemoFInv (fvarRangeGo memo e).2 := by
-  intro e
-  induction e with
-  | fvar idx ty _ =>
-    intro memo hm
-    rw [fvarRangeGo.eq_def]
-    split
-    · rename_i r hhit; exact ⟨hm _ _ hhit, hm⟩
-    · exact ⟨rfl, hm.insert rfl⟩
-  | bvar i | sort u | const n us | lit l =>
-    intro memo hm
-    rw [fvarRangeGo.eq_def]
-    split
-    · rename_i r hhit; exact ⟨hm _ _ hhit, hm⟩
-    · exact ⟨rfl, hm.insert rfl⟩
-  | app f a ihf iha =>
-    intro memo hm
-    rw [fvarRangeGo.eq_def]
-    split
-    · rename_i r hhit; exact ⟨hm _ _ hhit, hm⟩
-    · obtain ⟨h1, hm1⟩ := ihf hm
-      obtain ⟨h2, hm2⟩ := iha hm1
-      refine ⟨by simp [h1, h2, fvarRange], hm2.insert ?_⟩
-      simp [h1, h2, fvarRange]
-  | lam ty b iht ihb | forallE ty b iht ihb =>
-    intro memo hm
-    rw [fvarRangeGo.eq_def]
-    split
-    · rename_i r hhit; exact ⟨hm _ _ hhit, hm⟩
-    · obtain ⟨h1, hm1⟩ := iht hm
-      obtain ⟨h2, hm2⟩ := ihb hm1
-      refine ⟨by simp [h1, h2, fvarRange], hm2.insert ?_⟩
-      simp [h1, h2, fvarRange]
-  | letE ty v b iht ihv ihb =>
-    intro memo hm
-    rw [fvarRangeGo.eq_def]
-    split
-    · rename_i r hhit; exact ⟨hm _ _ hhit, hm⟩
-    · obtain ⟨h1, hm1⟩ := iht hm
-      obtain ⟨h2, hm2⟩ := ihv hm1
-      obtain ⟨h3, hm3⟩ := ihb hm2
-      refine ⟨by simp [h1, h2, h3, fvarRange], hm3.insert ?_⟩
-      simp [h1, h2, h3, fvarRange]
-  | proj s i sub ih =>
-    intro memo hm
-    rw [fvarRangeGo.eq_def]
-    split
-    · rename_i r hhit; exact ⟨hm _ _ hhit, hm⟩
-    · obtain ⟨h1, hm1⟩ := ih hm
-      refine ⟨by simp [h1, fvarRange], hm1.insert ?_⟩
-      simp [h1, fvarRange]
-
-@[inherit_doc fvarRangeGo_spec]
-theorem fvarRangeMemo_eq (e : Expr) :
-    fvarRangeMemo e = fvarRange e :=
-  (fvarRangeGo_spec e MemoFInv.empty).1
-
-/-- The `fvarB` field is `fvarRange`. -/
-theorem fvarB_eq : ∀ e : Expr, e.fvarB = fvarRange e := by
-  intro e
-  show (if e.fvarBRaw == satRange then fvarRangeMemo e
-    else e.fvarBRaw) = _
-  split
-  · rename_i h; exact fvarRangeMemo_eq e
-  · rename_i h
-    have hne : e.fvarBRaw ≠ satRange := by simpa using h
-    have := fvarBRaw_lt e
-    exact fvarBRaw_exact e (by simp [satRange] at *; omega)
-
-/-- The executed `hasFvar`: the fvar-range field read. -/
-def hasFvarFast (e : Expr) : Bool := e.fvarB != 0
-
-@[csimp] theorem hasFvar_eq_hasFvarFast : @hasFvar = @hasFvarFast := by
-  funext e
-  unfold hasFvarFast
-  rw [fvarB_eq]
-  exact fvarRange_bne_zero.symm
-
-/-- The executed `looseBVarsBounded`: the loose-bvar field read. -/
-def looseBVarsBoundedFast (k : Nat) (e : Expr) : Bool := decide (e.bvarB ≤ k)
-
-@[csimp] theorem looseBVarsBounded_eq_looseBVarsBoundedFast :
-    @looseBVarsBounded = @looseBVarsBoundedFast := by
-  funext k e
-  unfold looseBVarsBoundedFast
-  rw [bvarB_eq]
-  by_cases h : e.bvarBound ≤ k
-  · rw [looseBVarsBounded_iff.mpr h, decide_eq_true h]
-  · rw [decide_eq_false h]
-    cases hb : looseBVarsBounded k e with
-    | false => rfl
-    | true => exact absurd (looseBVarsBounded_iff.mp hb) h
-
 
 /-! ### `abstract1` reads the fvar-range field, and memoizes
 (tasks #226, #233)
