@@ -3,13 +3,15 @@ module
 public import Init.Util
 
 /-!
-# InLean: `withExclusive`, the reference-count read behind the walk memos
+# InLean: `withIsExclusive`, the reference-count read behind the walk memos
 
-Twin of con-leche's `ConLeche.Kernel.Exclusive`, to be replaced by the
-standard library's `withExclusive` (`Init.Util`) when the toolchain carries
-it; the two definitions below are written to that interface.
+Twin of con-leche's `ConLeche.Kernel.Exclusive`, and a copy of the standard
+library's `withIsExclusive` (`Init.Util`, after Lean v4.35.0), with the same
+name, signature and definitions, for toolchains that lack it.  The core copy
+of InLean does not have this module: the generator drops it and the core
+copy uses `Init.Util`'s (`scripts/inlean-sync.py`).
 
-`withExclusive a k h` runs `k` on whether the object `a` is *exclusive* —
+`withIsExclusive a k h` runs `k` on whether the object `a` is *exclusive* —
 single-threaded with reference count exactly 1, so that no other reference
 to it exists.  In the logic it is `k false` ("not known to be exclusive");
 in compiled code `@[implemented_by]` substitutes `k (isExclusiveUnsafe a)`,
@@ -33,8 +35,8 @@ The walks (`InLean.ExprOps`) and the equalities (`InLean.ExprEq`) return a
 **The borrowed-parameter requirement.**  An owned parameter, a `let` keeping
 the object alive across the call, a closure capturing it or a `Prod` holding
 it is a second reference, and the read then answers `false` for every node.
-This module is `@[inline]` down to the `@[extern]` call, and the walks pass
-their node borrowed (`@&`), so the count read is the count of references
+The object is borrowed (`@&`) down to the `@[extern]` call, and the walks
+pass their node borrowed, so the count read is the count of references
 inside the term.
 
 **Trust.**  The one `unsafe`-implemented primitive of InLean: the trust
@@ -50,26 +52,18 @@ and has no other effect; *which* `Bool` is irrelevant to every theorem, by
 namespace InLean
 
 set_option linter.unusedVariables.funArgs false in
-/-- The compiled `withExclusive`: the continuation on the object's real
-exclusivity.  Inlined into its caller, so the object reaches the
-`@[extern]` check as the caller's own variable, borrowed by the check's
-signature. -/
-@[inline] unsafe def withExclusiveUnsafe {α : Type u} {β : Type v} (a : α)
+/-- The compiled `withIsExclusive`: the continuation on the object's real
+exclusivity. -/
+@[inline] unsafe def withIsExclusiveUnsafe {α : Type u} {β : Type v} (a : @& α)
     (k : Bool → β) (h : k true = k false) : β :=
   k (isExclusiveUnsafe a)
 
 /-- Run `k` on whether `a` is an exclusive object (reference count 1) in
 compiled code; in the logic, on `false`.  The obligation says the
 continuation's value does not depend on the answer. -/
-@[implemented_by withExclusiveUnsafe]
-def withExclusive {α : Type u} {β : Type v} (a : α) (k : Bool → β)
+@[implemented_by withIsExclusiveUnsafe]
+def withIsExclusive {α : Type u} {β : Type v} (a : @& α) (k : Bool → β)
     (h : k true = k false) : β :=
   k false
-
-/-- `withExclusive` into a subsingleton: the obligation is
-`Subsingleton.elim`. -/
-@[inline] def withExcl {α : Type u} {β : Type v} [Subsingleton β] (a : α)
-    (k : Bool → β) : β :=
-  withExclusive a k (Subsingleton.elim _ _)
 
 end InLean

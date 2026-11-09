@@ -168,9 +168,11 @@
 #       `withExclusive`, allowed for InLean by the maintainer's ruling of
 #       2026-11-08 (task #451), on the same justification as the entry
 #       above: defined as `k false`, implemented by the reference-count
-#       read, every use through `withExcl` into a `Squash`.  To be
-#       replaced by the standard library's `withExclusive` (`Init.Util`)
-#       when the toolchain has it; the entry then goes.
+#       read, every use through `withExcl` into a `Squash`.  A copy of
+#       the standard library's `withIsExclusive` (`Init.Util` after Lean
+#       v4.35.0), which the lean4 copy of InLean uses instead
+#       (`scripts/inlean-sync.py`, rule 5); the entry goes when the
+#       toolchain has it.
 #
 #   ConLeche/Driver/CheckPool.lean     unsafe
 #       THE PERSISTENT MARK BEFORE THE CHECK PHASE.  Three term-level

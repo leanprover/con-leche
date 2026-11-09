@@ -17,7 +17,7 @@ replaced by Lean-defined, memoised structural walks: twins of
 `instLevelParams`) over `Lean.Expr`'s six binder-bearing constructors.
 
 **The memo** is con-leche's: a walk memoises exactly the nodes the runtime
-reports shared (`withExclusive`, `InLean.Exclusive`), keyed by address and
+reports shared (`withIsExclusive`), keyed by address and
 binder offset, every entry carrying its own proof against the plain
 descent (`mapP`, `anyP`) — a structural recursion, no fuel needed.
 
@@ -131,7 +131,7 @@ shared constant, whose first insert copies the bucket array). -/
 
 con-leche's discipline (`ConLeche.Cached.ExprOpsC`, "The substitution
 walks"): at every compound node past the cutoff the walk asks
-`withExclusive` (`InLean.Exclusive`) whether the node is exclusive; an
+`withIsExclusive` whether the node is exclusive; an
 exclusive node cannot be reached twice and is descended with the memo
 untouched, a shared one is probed and, on a miss, recorded.  The key is the
 node's address packed with the binder offset (`pkey`), the table is created
@@ -139,7 +139,7 @@ at the first shared node, and an entry carries its node, its offset, its
 value and the proof, so a hit is believed only after the pointer test
 (`ptrDec`) and there is no table invariant.  The walks return a `Squash` of
 the value with its proof against the plain descent beside the memo, so the
-obligations of `withExclusive` and `withPtrAddr` are `Subsingleton.elim`. -/
+obligations of `withIsExclusive` and `withPtrAddr` are `Subsingleton.elim`. -/
 
 /-- The packed key: the address over its 8-byte alignment, then the offset
 modulo `2^16` in the low bits. -/

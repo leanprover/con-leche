@@ -34,6 +34,13 @@ The rules, applied to every `InLean/**/*.lean` file, in this order:
      occurrences (`InLean:`, `InLean's`, the `(InLean)` message prefix) stay.
   4. The Nat-operation pin dumps.  `include_str "../pins/` becomes
      `include_str "pins/` (the copy keeps the dumps in its own `pins/`).
+  5. Stand-ins for the standard library.  A file in STDLIB_STANDINS copies
+     a definition of a newer `Init` than con-leche's toolchain, under the
+     same name, signature and body; the copy uses `Init`'s own, so the file
+     is not generated and its import lines (`public import InLean.<file>`)
+     are deleted.  Since the stand-in lives in namespace `InLean` and the
+     original at the root, a use inside `InLean` resolves to the stand-in
+     here and to the original in the copy.
 
 Nothing else changes: comments and docstrings are copied verbatim, so they
 are written in InLean to read correctly in both places.
@@ -61,6 +68,12 @@ INIT_IMPORTS = {
     "ExprEq.lean": ["public import Init"],
 }
 
+# Files of InLean that copy definitions of a newer `Init` (rule 5): what
+# they stand in for.
+STDLIB_STANDINS = {
+    "Exclusive.lean": "`withIsExclusive`, `Init.Util` after Lean v4.35.0",
+}
+
 # Files of the core copy that have no InLean source (the glue to lean4's
 # kernel entry points).  `check` does not compare them.
 CORE_ONLY = ["Core.lean"]
@@ -86,14 +99,22 @@ def source_files():
         dirs.sort()
         for f in sorted(files):
             if f.endswith(".lean"):
-                out.append(os.path.relpath(os.path.join(root, f), SRC))
+                rel = os.path.relpath(os.path.join(root, f), SRC)
+                if rel not in STDLIB_STANDINS:
+                    out.append(rel)
     return sorted(out)
+
+
+def standin_import(rel):
+    return "public import InLean." + rel[:-len(".lean")].replace(os.sep, ".") + "\n"
 
 
 def transform(rel, text):
     if not text.startswith("module\n\n"):
         raise SyncError(f"{rel}: does not start with `module` and a blank line")
     body = text[len("module\n\n"):]
+    for k in STDLIB_STANDINS:
+        body = body.replace(standin_import(k), "")
     head = "module\n\nprelude\n"
     for imp in INIT_IMPORTS.get(rel, []):
         head += imp + "\n"
@@ -108,6 +129,9 @@ def generate(out):
     for k in INIT_IMPORTS:
         if not os.path.isfile(os.path.join(SRC, k)):
             raise SyncError(f"INIT_IMPORTS names {k}, which InLean does not have")
+    for k in STDLIB_STANDINS:
+        if not os.path.isfile(os.path.join(SRC, k)):
+            raise SyncError(f"STDLIB_STANDINS names {k}, which InLean does not have")
     if os.path.exists(out) and os.listdir(out):
         raise SyncError(f"{out}: exists and is not empty")
     files = source_files()

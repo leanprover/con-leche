@@ -2,7 +2,7 @@ module
 
 public import Lean.Expr
 public import InLean.Exclusive
-/- `withPtrEq`/`withPtrAddr`/`withPtrEqDecEq` are public but not exposed;
+/- `withPtrEq`/`withPtrAddr` are public but not exposed (up to Lean v4.35.0);
 `Expr.beq_eq_beqMemo` needs their bodies (`k ()`, `k 0`), as con-leche's
 `ConLeche.Kernel.Expr` does. -/
 import all Init.Util
@@ -33,7 +33,7 @@ inductive the deriving handler refuses, and gets a structural equality
 with its two lemmas.
 
 **The memo discipline** is con-leche's: only a pair whose two nodes are
-both shared (`withExclusive`, `InLean.Exclusive`) is probed and recorded —
+both shared (`withIsExclusive`) is probed and recorded —
 a pair with an exclusive side cannot be queried again within the
 comparison.  The official kernel's `expr_eq_fn::check_cache` guards its
 cache the same way.
@@ -152,13 +152,24 @@ abbrev BeqMap := Std.HashMap Nat EqPair
 @[inline] def beqKey (pa pb : USize) : Nat :=
   ((pa ^^^ (pb * 0x9E3779B97F4A7C15)) &&& 0x3FFFFFFFFFFFFFFF).toNat
 
+/-- `withIsExclusive` into a subsingleton: the obligation is
+`Subsingleton.elim`. -/
+@[inline] def withExcl {α : Type u} {β : Type v} [Subsingleton β] (a : @& α)
+    (k : Bool → β) : β :=
+  withIsExclusive a k (Subsingleton.elim _ _)
+
 /-- Twin of `withAddr`. -/
 @[inline] def withAddr {α : Type u} {β : Type v} [Subsingleton β] (a : α) (k : USize → β) : β :=
   withPtrAddr a k (fun _ _ => Subsingleton.elim _ _)
 
-/-- Twin of `ptrDec`. -/
+/-- Twin of `ptrDec`: the pointer test, then the structural decision.  Written
+out instead of by `withPtrEqDecEq`, whose signature differs between Lean
+v4.35.0 and later toolchains. -/
 @[inline] def ptrDec (a b : Expr) : Decidable (a = b) :=
-  withPtrEqDecEq a b (fun _ => (inferInstance : DecidableEq Expr) a b)
+  let k : Decidable (a = b) := (inferInstance : DecidableEq Expr) a b
+  match h : withPtrEq a b (fun _ => toBoolUsing k) (toBoolUsing_eq_true k) with
+  | true => isTrue (of_toBoolUsing_eq_true (d := k) (by simpa [withPtrEq] using h))
+  | false => isFalse (of_toBoolUsing_eq_false (d := k) (by simpa [withPtrEq] using h))
 
 /-- Twin of `probeHit`. -/
 @[inline] def probeHit (m : BeqMap) (key : Nat) (pa pb : USize) (a b : Expr) :
@@ -320,10 +331,11 @@ equality.  InLean has two equalities:
   build, `erase`-equal terms have those parts equal, so two of its terms
   compare equal exactly when the con-leche terms they stand for do.
 * **`Expr.keyEq`, the memo maps' key equality** (`EKey`): equal after
-  erasing binder names, infos and `nonDep` but not `mdata` (`eraseK`), none
-  of which Lean's cached hash reads, so the maps are lawful.  Two keys that
-  differ only in `mdata` are two entries: InLean may miss where con-leche
-  hits, never the converse.
+  erasing binder names and infos but neither `nonDep` nor `mdata`
+  (`eraseK`).  Lean's cached hash reads no binder name or info, so the maps
+  are lawful; it reads `nonDep` after Lean v4.35.0, so `eraseK` keeps it.
+  Two keys that differ only in `nonDep` or `mdata` are two entries: InLean
+  may miss where con-leche hits, never the converse.
 -/
 
 /-- Binder names, binder infos, `nonDep` and `mdata` erased, hereditarily:
@@ -337,12 +349,12 @@ def erase : Expr → Expr
   | .proj s i e => .proj s i (erase e)
   | e => e
 
-/-- Binder names, binder infos and `nonDep` erased, `mdata` kept. -/
+/-- Binder names and binder infos erased, `nonDep` and `mdata` kept. -/
 def eraseK : Expr → Expr
   | .app f a => .app (eraseK f) (eraseK a)
   | .lam _ t b _ => .lam .anonymous (eraseK t) (eraseK b) .default
   | .forallE _ t b _ => .forallE .anonymous (eraseK t) (eraseK b) .default
-  | .letE _ t v b _ => .letE .anonymous (eraseK t) (eraseK v) (eraseK b) false
+  | .letE _ t v b nd => .letE .anonymous (eraseK t) (eraseK v) (eraseK b) nd
   | .mdata m e => .mdata m (eraseK e)
   | .proj s i e => .proj s i (eraseK e)
   | e => e
@@ -437,7 +449,7 @@ the descent `rec` runs on a pair `rej` let through. -/
       | isTrue hr => .mk (isTrue hr) (ClMap.record r.map (beqKey pa pb) ⟨a, b, pa, pb, hr⟩)
       | d => .mk d r.map
 
-/-- Lean's cached data reads no binder name, binder info or `nonDep`. -/
+/-- Lean's cached data reads no binder name or binder info. -/
 theorem data_eraseK : ∀ e : Expr, (eraseK e).data = e.data := by
   intro e
   induction e <;> simp_all [eraseK, Expr.data]
@@ -457,8 +469,8 @@ memo, the descent `go`. -/
     (go : Option (ClMap KeyR) → ClOutX KeyR (KeyR a b)) : ClOutX KeyR (KeyR a b) :=
   enterCl (R := KeyR) (fun _ => rfl) dataNe dataNe_eraseK map a b fun _ => go
 
-/-- The key comparison's descent (`eraseK`): names, infos and `nonDep` not
-compared, `mdata` compared; a pair of different constructors is unequal, a
+/-- The key comparison's descent (`eraseK`): names and infos not compared,
+`nonDep` and `mdata` compared; a pair of different constructors is unequal, a
 pair of leaves decided by their equality. -/
 def keyGoX (map : Option (ClMap KeyR)) (a b : @& Expr) : ClOutX KeyR (KeyR a b) :=
   match a, b with
@@ -489,7 +501,8 @@ def keyGoX (map : Option (ClMap KeyR)) (a b : @& Expr) : ClOutX KeyR (KeyR a b) 
           | isTrue h₂ => isTrue (by simp only [KeyR, eraseK] at *; simp only [h₁, h₂])
           | isFalse h₂ => isFalse (fun e => h₂ (Expr.forallE.inj e).2.2.1))
           r₂.map
-  | .letE _ t v b _, .letE _ t' v' b' _ =>
+  | .letE _ t v b nd, .letE _ t' v' b' nd' =>
+    if hn : nd = nd' then
     Squash.lift (keyChild map t t' fun mp => keyGoX mp t t') fun r₁ =>
       match r₁.dec with
       | isFalse h₁ => .mk (isFalse (fun e => h₁ (Expr.letE.inj e).2.1)) r₁.map
@@ -498,9 +511,11 @@ def keyGoX (map : Option (ClMap KeyR)) (a b : @& Expr) : ClOutX KeyR (KeyR a b) 
         | isFalse h₂ => .mk (isFalse (fun e => h₂ (Expr.letE.inj e).2.2.1)) r₂.map
         | isTrue h₂ => Squash.lift (keyChild r₂.map b b' fun mp => keyGoX mp b b') fun r₃ =>
           .mk (match r₃.dec with
-            | isTrue h₃ => isTrue (by simp only [KeyR, eraseK] at *; simp only [h₁, h₂, h₃])
+            | isTrue h₃ => isTrue (by
+                subst hn; simp only [KeyR, eraseK] at *; simp only [h₁, h₂, h₃])
             | isFalse h₃ => isFalse (fun e => h₃ (Expr.letE.inj e).2.2.2.1))
             r₃.map
+    else .mk (isFalse (fun e => hn (Expr.letE.inj e).2.2.2.2)) map
   | .proj s i x, .proj s' i' x' =>
     if hs : s = s' ∧ i = i' then
       Squash.lift (keyChild map x x' fun mp => keyGoX mp x x') fun r =>
@@ -736,7 +751,7 @@ theorem Expr.clEq_sound {a b : Expr} (h : Expr.clEq a b = true) : erase a = eras
 scoped instance instBEqExprI : BEq Expr := ⟨Expr.clEq⟩
 
 /-- **A memo key**: an expression compared by `Expr.keyEq`, hashed by Lean's
-cached hash (which reads no binder name, info or `nonDep`). -/
+cached hash (which reads no binder name or info). -/
 structure EKey where
   e : Expr
 
