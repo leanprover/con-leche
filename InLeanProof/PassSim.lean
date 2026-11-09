@@ -556,6 +556,7 @@ theorem passSimI (hC : CheckConstantValFSimI) (hRF : ReducedFormerSimI) :
   have hcfr := checkBlockCtorsF_fresh h2
   obtain ⟨hs₂, ht₂, hR2⟩ := checkBlockCtorsFI_run hC hJ₁ hsr hsB
     (fun ms hm => ⟨(hms ms hm).1, hclF ms hm, (hms ms hm).2.2⟩) h2
+  replace hR2 := hR2.runs
   have hctl := checkBlockCtors_lbb hR2
   have hct : ∀ cs ∈ p₁.memberCtors, ∀ c ∈ cs, CtorOkI c := by
     intro cs hcs c hc

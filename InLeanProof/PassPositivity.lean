@@ -230,6 +230,7 @@ theorem checkAbsCtorSortsI_run {fe : InLean.FEnv} {L : ConLeche.Env} (hJ : JobEn
     obtain ⟨_, s₄, h4, h⟩ := bind_run h
     obtain ⟨hs₄, ht₄, hR4⟩ := checkStructFieldSortsIFI_run hJ.ops hW.sortOk hfvX c.2 hs₂ hokx
       rfl rfl rfl h4
+    replace hR4 := hR4.runs
     have ht04 := ht₂.trans ht₄
     obtain ⟨hos₄, htr₄⟩ := OutOk.mono ht04 (fun o' ho' => hos o' (List.mem_cons_of_mem _ ho'))
     obtain ⟨hs', ht', hR'⟩ := checkAbsCtorSortsI_run hJ cs os hs₄ (hW.mono ht04) hos₄ h

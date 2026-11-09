@@ -67,6 +67,7 @@ theorem checkBlockIdxSortsFI_run {fe : InLean.FEnv} {L : ConLeche.Env} (hO : Ops
       (by simp only [OkSL, List.all_eq_true] at hokf ⊢
           exact fun x hx => hokf x (List.mem_of_mem_drop hx)) rfl
       (by simp [TrSL, List.map_drop]) rfl h3
+    replace hR3 := hR3.runs
     obtain ⟨hs', ht', hR⟩ := checkBlockIdxSortsFI_run hO hsr hs₃
       (fun m hm => hok m (List.mem_cons_of_mem _ hm)) h
     refine ⟨hs', ht₁.trans (ht₃.trans ht'), ?_⟩
