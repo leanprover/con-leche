@@ -125,20 +125,28 @@ theorem checkStructProjTable_mono {env env' : Env} {T : Name} {lps : List Name} 
   simp only [hb, unwrapOr, pure, Except.pure, bind, Except.bind]
   rw [ite_eq_left ⟨hsize, hall'⟩, ite_eq_left hTs', ite_eq_left (by rw [hT]; rfl)]
 
+/-- **A projection table's check makes the table well formed** where it ran. -/
+theorem checkStructProjTable_tableWF {env : Env} {T C : Name} {lps : List Name} {nP nF : Nat}
+    {cvCa : ConstantVal}
+    (h : checkStructProjTable (m := CheckM) T lps nP nF cvCa env = .ok ())
+    {bodies : Array Expr} (hb : structProjBodies T nP nF cvCa.type = some bodies) :
+    TableWF env ⟨T, lps, nP, C, nF, bodies⟩ := by
+  obtain ⟨bodies', hb', ⟨hsize, hall⟩, hT, -⟩ := checkStructProjTable_inv h
+  obtain rfl : bodies' = bodies := Option.some.inj (hb'.symm.trans hb)
+  refine ⟨hT, hsize, fun i b hb => ?_⟩
+  have hmem : b ∈ bodies' := Array.mem_of_getElem? hb
+  have hb' := (Array.all_eq_true_iff_forall_mem.mp hall) b hmem
+  simp only [Bool.and_eq_true, Bool.not_eq_eq_eq_not, Bool.not_true] at hb'
+  exact ⟨hb'.1.1.1, hb'.1.1.2, hb'.1.2, hb'.2⟩
+
 /-- A table the stage checked keeps an environment well-formed. -/
 theorem direct_table_wf {env : Env} (henv : EnvWF env)
     {T : Name} {lps : List Name} {nP nF : Nat}
     {cvCa : ConstantVal}
     (h : checkStructProjTable (m := CheckM) T lps nP nF cvCa env = .ok ())
     {bodies : Array Expr} (hb : structProjBodies T nP nF cvCa.type = some bodies) (C : Name) :
-    EnvWF ⟨env.consts, ⟨T, lps, nP, C, nF, bodies⟩ :: env.tables⟩ := by
-  obtain ⟨bodies', hb', ⟨hsize, hall⟩, hT, -⟩ := checkStructProjTable_inv h
-  obtain rfl : bodies' = bodies := Option.some.inj (hb'.symm.trans hb)
-  refine EnvWF.pushTable henv ⟨hT, hsize, fun i b hb => ?_⟩
-  have hmem : b ∈ bodies' := Array.mem_of_getElem? hb
-  have hb' := (Array.all_eq_true_iff_forall_mem.mp hall) b hmem
-  simp only [Bool.and_eq_true, Bool.not_eq_eq_eq_not, Bool.not_true] at hb'
-  exact ⟨hb'.1.1.1, hb'.1.1.2, hb'.1.2, hb'.2⟩
+    EnvWF ⟨env.consts, ⟨T, lps, nP, C, nF, bodies⟩ :: env.tables⟩ :=
+  EnvWF.pushTable henv (checkStructProjTable_tableWF h hb)
 
 
 /-! ## The frame walks: binder-domain pins and field sorts -/
