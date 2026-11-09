@@ -82,9 +82,14 @@ it plain `IO`:
   eta D]  M`, the module last so the statistics keep their columns (the verdict padded to 7, the time
   to 6, `X` to 5, `done` to the width of `total`, `p` to 5, `k` to the width of `jobs`; only the
   estimate varies), `X` the worker's own peak from its stats line (`rss≥X` the last sampled one where it
-  wrote none), `done` counting a resumed run's logged modules, the estimate the remaining modules
-  at the cumulative rate of this run: the time since its start times the modules left, over the
-  modules finished in this run, none skipped from the log (`progressText`; `n requeued` follows `k running`
+  wrote none), `done` counting a resumed run's logged modules, the estimate `remaining modules × mean module time ÷ average running workers`: the mean over all
+  finished modules with a known time (the log's verdict lines with the ms field, and this run's), the
+  average this run's time-weighted one once it has lasted a minute and is at least 1, else the
+  previous runs' from the log (Σ ms ÷ Σ each run's span, a run ending where `at` falls back), else
+  `--jobs`; no estimate where no time is known.  It leans low: logged times come only from modules
+  that finished, and the long ones are more often still running or interrupted; `killed` lines are
+  lower bounds of modules that will run again, and are not counted
+  (`progressText`; `n requeued` follows `k running`
   once a kill has put modules back); with a heartbeat (`heartbeat` ms), after that long without a
   line, three lines on stderr: `schedule: ` and the same padded counts; the memory (`memLine`):
   `mem 1.2 GiB (largest 0.6 GiB), reserved 3.0 GiB, plan 42.3 GiB of 47 GiB (typical 0.8 GiB)`,
@@ -384,20 +389,57 @@ def childrenReadable : IO Bool := do
     | none => return false
   catch _ => return false
 
-/-- The log's verdicts, by module: every line `<verdict>\t<module>(\t…)` of it (the further fields
-are statistics), the module's name read by `parse`; `killed` lines are no verdicts. -/
-def readLog (parse : String → Option Name) (p : System.FilePath) :
-    IO (Std.HashMap Name String) := do
+/-- **What the log holds**: the verdicts by module, and the times the estimate uses (`etaMs`). -/
+structure Logged where
+  /-- the verdict of each logged module -/
+  verdicts : Std.HashMap Name String := {}
+  /-- the wall times (ms) of the verdict lines that carry one, their sum and count -/
+  msSum : Nat := 0
+  msN : Nat := 0
+  /-- the previous runs' time-weighted average of running workers, in thousandths: the sum of
+  those times over the sum of the runs' spans (a run's span: its last `at`; a run ends where `at`
+  falls back), `0` where there is none to compute -/
+  workers : Nat := 0
+
+/-- The log's verdicts, by module: every line `<verdict>\t<module>(\t…)` of it, the module's name
+read by `parse`; `killed` lines are no verdicts and give no time (a lower bound of a module that
+will run again, and it would pull the mean below the modules that finish).  The `<ms>` of a verdict
+line (the third field; old two-field lines have none) is summed for the mean module time, and with
+the `<at>` (fifth field) of each run's last line gives the previous runs' average of running
+workers. -/
+def readLog (parse : String → Option Name) (p : System.FilePath) : IO Logged := do
   if !(← p.pathExists) then return {}
   let s ← IO.FS.readFile p
-  return (s.splitOn "\n").foldl (fun m l =>
+  -- the fold's state: the log so far, the closed runs' span, the open run's last `at`
+  let (lg, span, lastAt) := (s.splitOn "\n").foldl (fun (lg, span, lastAt) l =>
     match l.splitOn "\t" with
-    | w :: n :: _ =>
-      if w == "killed" then m else
+    | w :: n :: rest =>
+      if w == "killed" then (lg, span, lastAt) else
       match parse n with
-      | some x => m.insert x w
-      | none => m
-    | _ => m) {}
+      | none => (lg, span, lastAt)
+      | some x =>
+        let lg := { lg with verdicts := lg.verdicts.insert x w }
+        match rest[0]?.bind String.toNat? with
+        | none => (lg, span, lastAt)
+        | some ms =>
+          let lg := { lg with msSum := lg.msSum + ms, msN := lg.msN + 1 }
+          match rest[2]?.bind String.toNat? with
+          | some at_ => if at_ < lastAt then (lg, span + lastAt, at_) else (lg, span, at_)
+          | none => (lg, span, lastAt)
+    | _ => (lg, span, lastAt)) (({} : Logged), 0, 0)
+  let span := span + lastAt
+  return { lg with workers := if span = 0 then 0 else lg.msSum * 1000 / span }
+
+/-- **The estimate** (ms) of the time left: `remaining × mean ÷ workers`, the mean module time
+`(logged sum + this run's sum) ÷ (logged count + this run's count)` over every finished module with
+a known time, `workers` the average number of running workers (in thousandths): this run's
+(`runMs ÷ wall`) once the run has lasted a minute and the average is at least 1, else the previous
+runs' (`logged`), else `jobs`.  `none` where no module has a known time. -/
+def etaMs (remaining sum n runMs wall logged jobs : Nat) : Option Nat :=
+  if n = 0 then none else
+  let w := if wall ≥ 60000 && runMs * 1000 / wall ≥ 1000 then runMs * 1000 / wall
+    else if logged ≥ 1000 then logged else jobs * 1000
+  some (remaining * sum * 1000 / n / w)
 
 /-- A finished worker of this run: its wall time (ms), its peak (KiB). -/
 structure Rec where
@@ -417,8 +459,9 @@ structure St where
   verdicts : Std.HashMap Name String
   /-- modules with a verdict, the logged ones of a resumed run included -/
   nDone : Nat := 0
-  /-- modules finished in this run -/
+  /-- modules finished in this run, and the sum of their wall times (ms) -/
   finished : Nat := 0
+  doneMs : Nat := 0
   /-- the time of the last line, module or heartbeat -/
   lastLine : Nat := 0
   /-- a worker could not be started: no more start -/
@@ -519,20 +562,21 @@ def verdictWidth : Nat := 7
 /-- The counts of a run: `[done/total p %, k running, eta D]`, as the middle of each module's line
 and the heartbeat's first line, in fixed columns: `done` padded to the width of `total`, the
 percentage to `100.0`, `k` to the width of `jobs`; only the estimate, last in the bracket, has a
-variable width.  `done` counts the logged modules of a resumed run.  The estimate
-is the cumulative rate of this run: `run = (n, ms)`, the modules finished in this run (not the
-ones skipped from the log) and the time since its start; the estimate is `ms × remaining ÷ n`,
-`remaining = total - done`.  The module times are heavy-tailed (most 1 to 3 s, a few 30 to 50
-minutes), and with the shuffled order the modules run so far are a random sample, so the cumulative
-rate is steady where a window of recent finishes swung with the few long ones.  None before the
-first finish.  Past 48 hours it is in days and hours
+variable width.  `done` counts the logged modules of a resumed run.  The estimate `eta` (ms, from
+`etaMs`: remaining modules × mean module time ÷ average running workers) is shown where there is
+one and modules are left.  The mean is taken over all finished modules with a known time, the log's
+and this run's; with the shuffled order they are a sample of the whole, and the module times are
+heavy-tailed (most 1 to 3 s, a few 30 to 50 minutes).  It leans low: logged times come only from
+modules that finished, and the long ones are more often still running or interrupted (logged
+`killed` lines, lower bounds, are not counted).  Past 48 hours it is in days and hours
 (`51d16h`), from 10 hours in hours, below that with minutes (`dur`).  `n requeued` (`requeued`)
 follows `k running` once a kill has put modules back. -/
-def progressText (total done running : Nat) (run : Nat × Nat) (requeued : Nat := 0)
+def progressText (total done running : Nat) (eta : Option Nat) (requeued : Nat := 0)
     (jobs : Nat := 0) : String :=
   let pm := if total = 0 then 1000 else done * 1000 / total
-  let eta := if run.1 = 0 || done ≥ total then ""
-    else s!", eta {dur (run.2 * (total - done) / run.1)}"
+  let eta := match eta with
+    | some ms => if done ≥ total then "" else s!", eta {dur ms}"
+    | none => ""
   let rq := if requeued = 0 then "" else s!", {requeued} requeued"
   let w := (toString total).length
   s!"[{padL w (toString done)}/{total} {padL 5 s!"{pm / 10}.{pm % 10}"} %, \
@@ -611,10 +655,10 @@ def run (parse : String → Option Name) (app : System.FilePath) (args : Name �
   let logged ← match o.log with
     | some p => readLog parse p
     | none => pure {}
-  let todo := (mods.toList.filter (!logged.contains ·))
+  let todo := (mods.toList.filter (!logged.verdicts.contains ·))
   let todo := if o.shuffled then shuffle todo else todo
   let total := mods.size
-  if logged.size > 0 then
+  if logged.verdicts.size > 0 then
     err.putStrLn s!"con-leche: schedule: {total - todo.length} modules logged, \
       {todo.length} to run"
   let logH ← match o.log with
@@ -627,7 +671,8 @@ def run (parse : String → Option Name) (app : System.FilePath) (args : Name �
     if o.memory = 0 then 1 <<< 60 else planNow st - min (planNow st) pk
   let progress (st : St) (now : Nat) : String :=
     progressText total st.nDone st.running.size
-      (st.nDone - (total - todo.length), now - t0) st.requeued jobs
+      (etaMs (total - st.nDone) (logged.msSum + st.doneMs)
+        (logged.msN + st.finished) st.runMs (now - t0) logged.workers jobs) st.requeued jobs
   let memory (st : St) (growing : Bool) : Option String :=
     memLine st.running.size st.mem st.typ o.memory st.prot
       (if st.running.isEmpty then 0
@@ -646,7 +691,7 @@ def run (parse : String → Option Name) (app : System.FilePath) (args : Name �
         {(workerStats outText msg).logText}"
       h.flush
     let (peaks, typ) := pushPeak st.peaks st.typ pk
-    let st := { st with verdicts := st.verdicts.insert r.m w, finished := st.finished + 1,
+    let st := { st with verdicts := st.verdicts.insert r.m w, finished := st.finished + 1, doneMs := st.doneMs + (now - r.start),
                         peaks, typ, seen := st.seen.erase r.m,
                         nDone := st.nDone + 1, lastLine := now,
                         recs := st.recs.push { m := r.m, ms := now - r.start, pk },
@@ -876,7 +921,7 @@ def run (parse : String → Option Name) (app : System.FilePath) (args : Name �
       err.flush
       st := { st with lastLine := now }
     return st
-  let st0 : St := { pending := todo, verdicts := logged, typ := o.memory / jobs }
+  let st0 : St := { pending := todo, verdicts := logged.verdicts, typ := o.memory / jobs }
   let stRef ← IO.mkRef { st0 with nDone := total - todo.length, lastLine := t0, lastTick := t0 }
   -- SIGINT and SIGTERM, polled every tick; where they cannot be set up the run has no handler
   let sigs : Array (Std.Async.AsyncTask Int × String × UInt8) ←

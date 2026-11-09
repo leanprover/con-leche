@@ -115580,3 +115580,35 @@ Gates: `lake build`, `lake test` warning-free (usage width); trust surface; olea
 332/332 under the guard (no fixture passed the stagger; no pinned output changed); overview links
 (README's two `runArgs` links repointed, the usage grew by two lines); quote gate (the three README
 quotes reported as on the `modular` tip, exit 0).
+
+## TASK #541 — the estimate uses the log's times (2026-11-09, agent/541-eta-log)
+
+Problem: after a restart the #517 estimate (elapsed × remaining ÷ finished in this run) was absurd
+(`eta 1037d23h` at 3 557 of 239 685): a restart begins with the modules that were running at the
+interrupt, the long ones, so almost nothing finishes in the first minutes.
+
+Ruling and change (`ConLeche/Driver/ScheduleIO.lean`, plain IO): the estimate is
+`remaining × mean module time ÷ average running workers`.
+* The mean is over all finished modules with a known time: the verdict lines of the log that carry the
+  ms field (#516; old two-field lines have none) plus this run's finishes (`readLog` returns
+  `Logged`: verdicts, Σms, count, previous workers; read once, where resume reads it).
+* The workers: this run's time-weighted average (`runMs ÷ wall`, what the final statistics use) once
+  the run has lasted a minute and the average is at least 1; else the previous runs' average from the
+  log (Σms of verdict lines ÷ Σ of each run's span, a run being a stretch with rising `at`, its span
+  its last `at`); else `--jobs`.
+* No estimate where no module has a known time.  Admission still does not use the logged sizes.
+* Bias: logged times come only from modules that finished, and the long ones are more often still
+  running or interrupted, so the estimate leans low.  `killed` lines are lower bounds of modules that
+  run again and then give a verdict; they are not counted (counting a bound as a time would pull the
+  mean down twice).
+* The sum of this run's finish times is kept in `St.doneMs`, so a progress line costs O(1).
+
+Simulation: `_tmp/518/mathlib.log` (the #518 run, ms field present) cut to its first 5 000 lines,
+resumed on Mathlib (`--olean --schedule --jobs=8 --schedule-memory=16G`, under the guard), SIGINT to
+the scheduler after 80 s.  Right after the restart: `[ 5001/10976  45.5 %, 6 running, eta 21m24s]`
+(first minute: the previous runs' average, from the log's 2.8 workers of the old 1.5G run); after the
+minute, this run's 7.9 workers: `eta 9m29s`, falling to `8m56s`.  The old formula showed days at that
+point.  Exit 130, 8 workers killed, logged as `killed`; the log resumes.
+
+Gates: `lake build`, `lake test` warning-free; trust surface; olean gate 332/332 under the guard;
+overview links.
