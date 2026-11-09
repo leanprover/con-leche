@@ -115839,3 +115839,136 @@ run in 32.5 s; the first estimate `eta 48s` (before: `eta 5s`, the jobs' 8 worke
 
 Gates: `lake build`, `lake test` warning-free; trust surface; olean gate 332/332 under the
 guard; overview links.
+
+## TASK #543 — CFSG's memory giants: inherent memory, one hash bug (2026-11-09, agent/543-cfsg-mem)
+
+Question (maintainer): some CFSG modules (github.com/AxiomMath/CFSG) make a `--olean --module`
+worker take a great deal of memory or time: `Fi24Seven.C20` 27.6 GiB and still growing,
+`SmithEK.SpanChk` 12.4 GiB, `Census.AE117.Adj56` 10.9 GiB, `K426.McLEnumA` 59 min,
+`Co2Census.CCK4` over 1h16m.  Is the memory inherent in the proofs, or a con-leche bug?
+Investigation only; nothing landed but this record.
+
+**Answer.**  The memory is inherent: Lean's own kernel takes as much on the same declarations,
+or more.  The TIME is not: con-leche hashes a natural-number literal by its low 64 bits only, so
+memo keys that differ only in big literals with equal low bits all land in one hash bucket.
+These proofs compute matrix products and similar programs on Nat literals of 10⁵–10⁶ bits whose
+intermediates share their low bits.  A probe hash that also reads the size and the top 64 bits
+cuts the check of `C20.ck318` from 839 G to 36 G cycles (Lean: 23 G), McLEnumA from over
+1 800 s CPU to 884 s (Lean: 530 s) and CCK4 from over 1 800 s to 180 s (Lean: 31 s).  The
+memory does not change.
+
+**Data.**  CFSG at 69cb972f5 (2026-10-27), toolchain `v4.35.0-rc3`.  The reader reads rc3's
+`.olean` files (format version 2; DESIGN #470: rc3's and v4.35.0's format sources are
+identical): every module below read and checked, no decline.  Fetched without the upstream
+script, after reading it: CFSG's Lake cache maps a revision
+(`revisions/<owner>/<repo>/pt/x86_64-unknown-linux-gnu/tc/leanprover--lean4---v4.35.0-rc3/<commit>.jsonl`,
+Mathlib's at `revisions/leanprover-community/mathlib4/<rev>.jsonl`) to a `.modules.jsonl`,
+lines `[input hash, module path, <hash>.ltar]`.  An archive is
+`artifacts/<owner>/<repo>/<hash>.art`, checked against Lake's hash (the script's `lake_hash`)
+and unpacked with rc3's `leantar` (1 GiB stack, as the script does).  The import closure of one
+target comes from the sources (CFSG's checkout and shallow clones of the dependencies at the
+manifest revisions).  SpanChk and C20 need only 17 and 24 CFSG modules (no Mathlib), Adj56 1 511
+modules, McLEnumA 9 823, CCK4 9 208.  The 9 823-module union: 7.0 GiB of `.olean` files.
+
+**What the proofs compute.**  All by kernel reduction, written for the official kernel's fast
+paths (`Nat.rec`/`Bool.rec` on literals, the GMP-accelerated `Nat` operations):
+* `C20`: `#kc_slice_range CK ck 315 331`: 16 theorems `CK k = true := Lean.reflBoolTrue`.
+  `CK k` (`Data/Kernel/Spor/SlpMat.lean`'s `chunkOK`) runs a straight-line program of 781×781
+  matrix products over GF(3).  A matrix is two Nat literals of 609 961 bits (76 KB each), and
+  `mul3s`/`mulLoop3` (`CFSG/Certificates/Kernel/Orders/Mat3.lean`) multiply them row by row with
+  `Nat.land`/`shiftRight`/`add`.  Every intermediate is a big literal, and the whnf memos keep
+  them all for the declaration.
+* `SpanChk`: `decide +kernel` on GF(4) span checks over 74-bit words (`SmithEKS.spanOKL`).
+* `Adj56`: `decide +kernel` on `adjCheckL 5`/`6`: all quadruples of `Fin n`, permutation
+  powers (`Equiv.Perm` arithmetic, `Finset.card`).
+* `McLEnumA`: `#kenum_sl …`, 87 748 constants, many small enumeration theorems.
+* `CCK4`: `decide +kernel` / `kc_cover` on Co₂ census counts.
+
+**Measurements.**  `perf stat -e instructions:u,cycles:u,task-clock`, one run each, under the
+guard (30 GB) and `timeout`, one process at a time, `--jobs=1`.  "base" is modular 0609e9438,
+"probe" the same plus the hash below.  Lean: `scripts/replay1.lean` (in `_tmp/543`), which is
+leanchecker's `replayFromImports` restricted to the named constants, run by rc3's `lean --run`.
+`Kernel.Environment.replay` is sequential (one `replayConstant` per name, no tasks); task-clock
+equals wall within 3–8 %, so Lean's replay uses one thread and the comparison is one thread
+against one thread.  "peak" = the guard's peak anonymous RSS.  ck318/ck319 are single theorems:
+con-leche in a merged `--olean --constant=` run, which also parses and checks the 3 681 records
+the theorem mentions; Lean replays the theorem alone.  "net" subtracts each side's run without
+the theorem (con-leche `--constant=CFSG.KD.F24S.CK`: 225.1 G instructions, 56.8 G cycles; Lean
+with no constant: 3.4 G, 2.4 G).  The peaks are the whole runs'.  Where `timeout` stopped a
+base run, `perf stat` was stopped with it and reported nothing: the bound is the timeout.
+
+| module / theorem | base: G instr, G cycles, peak | probe: G instr, G cycles, peak | Lean: G instr, G cycles, peak |
+|---|---|---|---|
+| SpanChk (module) | 460.4, 434.8, 12.4 GiB | 460.4, 442.2, 12.4 GiB | 322.0, 334.1, 11.1 GiB |
+| Adj56 (module) | 516.1, 445.4, 11.0 GiB | 516.0, 456.6, 10.9 GiB | 311.3, 307.0, 8.4 GiB |
+| C20 ck318, net | 336.0, 838.9, 10.1 GiB | 75.4, 35.6, 11.9 GiB | 57.8, 22.9, 12.6 GiB |
+| C20 ck319, net | 1 911, 2 669, 20.9 GiB (an earlier run: 26.0 GiB) | killed by the guard at 30 GB | killed by the guard at 30 GB after 18 s |
+| McLEnumA (module) | over 1 800 s CPU: stopped by `timeout` (an earlier run: over 5 000 s wall) | 3 719, 2 971, 1.4 GiB | 1 819, 1 552, 1.3 GiB |
+| CCK4 (module) | over 1 800 s CPU: stopped by `timeout` | 382.1, 674.5, 1.9 GiB | 82.7, 70.2, 2.1 GiB |
+
+The C20 module itself (base, `--progress=1`, with RSS sampled every 2 s): stopped by me after 8
+of its 16 theorems, 5 051 s wall, peak 28.3 GiB.  Per theorem 55–890 s wall.
+
+**Memory: inherent.**  On every declaration measured, Lean's kernel peaks as high as con-leche
+or higher: 12.6 against 11.9 GiB on ck318; on ck319, over 30 GB within 18 s, where con-leche
+peaked at 20.9–26.0 GiB.  The memory is the whnf/whnf-core memos of one declaration: both
+kernels memoize every reduced `Nat` operation (official `type_checker::whnf` inserts
+`reduce_nat`'s result into `m_whnf`), and in C20 each entry holds 76–152 KB literals.  Across
+declarations nothing is kept: `CState.flushed` empties every environment-dependent memo when the
+next declaration starts.  The worker's RSS does not fall at a theorem boundary (sampled: 20.8 GiB
+before the boundary, rising straight on after it).  The freed memory stays with the allocators
+(mimalloc for small objects, glibc malloc for GMP limbs) and is reused by the next theorem.  That
+is why the C20 module's RSS climbs to the largest single theorem's peak plus some
+fragmentation: 28.3 GiB after 8 theorems against 20.9–26.0 GiB for ck319 alone.  No
+cross-declaration leak.  Within one theorem the RSS also falls at times (26.4 → 21.8 GiB during
+C20's ninth theorem: big limbs given back by glibc).  The single-theorem peak varies between runs
+(20.9 and 26.0 GiB for ck319); I put that down to the allocator again, but did not check.
+
+**Time: the literal hash.**  `Literal` derives `Hashable` (`ConLeche/Kernel/Expr.lean`), so a
+`.natVal n` hashes as `hash n = UInt64.ofNat n`, i.e. `n mod 2⁶⁴`, and an `Expr.lit` hash reads
+nothing else of the number.  Lean's `Literal.hash` is the same function.  In C20 the
+intermediates of one matrix product agree in their low limbs (presumably because the low rows are fixed early; not checked), so
+every memo key that differs from another only in such a literal has the same hash.  The
+profile of base ck318 (`perf record`, flat): `Expr.beqGoX` 26 %, `beqDec` 8 %, `__gmpz_cmp`
+7.5 %, `lean_nat_big_eq` 3.5 %, and the eager tower's (`knotEagerI`) `HashMap` `get?` and
+`insert`'s `contains` 3 % each: chains of equal-hash keys walked and compared structurally.
+ck318's 839 G cycles for 336 G instructions show a memory-bound walk.
+The probe:
+
+```lean
+instance : Hashable Literal where
+  hash
+    | .natVal n =>
+      if n < 18446744073709551616 then mixHash 1 (UInt64.ofNat n)
+      else mixHash (mixHash 1 (UInt64.ofNat n)) (mixHash (UInt64.ofNat n.log2) (UInt64.ofNat (n >>> (n.log2 - 63))))
+    | .strVal s => mixHash 2 (hash s)
+```
+
+(`deriving … Hashable` dropped from `Literal`).  `lake build` (proofs included) passes unchanged.
+Verdicts: every probe run accepts what the base run accepts (SpanChk 6, Adj56 4, ck318/ck319 3 676,
+McLEnumA 87 748, CCK4 34 declarations).
+Effect: ck318 −78 % instructions, −96 % cycles (net); McLEnumA over 2×, CCK4 over 10× (table).
+SpanChk and Adj56 are unchanged: their literals are small.  I did not isolate why the official
+kernel, with the same hash, does not pay the same.  The profile names con-leche's
+eager-tower memos (the `t =?= true` site, DESIGN #423), and some con-leche memos have no
+official counterpart (`defeqC`, `instC`).
+
+**Remaining gap to Lean after the probe** (instructions, one thread): ck318 1.3× (cycles
+1.6×), SpanChk 1.4×, Adj56 1.7×, McLEnumA 2.0×, CCK4 4.6×.  CCK4 has 9.6× the cycles, so a
+memory-bound component remains there; I did not analyse it.  These gaps are the speed of
+ground reduction (#423's subject), not memory.
+
+**Proposal (not landed; the maintainer decides).**  Hash big `Nat` literals by more than their
+low 64 bits: the probe's instance, or a hash of all limbs (O(size) once per literal construction;
+the literal was just computed in O(size) anyway).  It changes no reduction step, only which
+bucket a memo key lands in, so the standing ruling on the official reduction order is untouched.
+Expected effect: CFSG's big-literal modules several times faster (C20's ck318 23× in cycles,
+CCK4 over 10×); no effect on memory.  Small literals (below 2⁶⁴) keep a hash of the same quality,
+so Mathlib-like code should not move; that needs measuring on the perf streams and init-full
+before landing.  Memory needs no fix: the official kernel needs as much.  A scheduler
+that runs C20 must budget for 30 GB or more per worker, whichever kernel checks it.
+
+Disk: at most 28 GB in `_tmp/543`: the CFSG clone 17 GB (5.9 GB of it `.git`), the closures'
+`.olean` files 7.0 GB, archives 0.9 GB, IR 0.6 GB, dependency sources 0.3 GB.  Kept for the ground
+evaluation engine session: `_tmp/543/olean`, `_tmp/543/CFSG`, and the base binary in
+`_tmp/543/wt`.
