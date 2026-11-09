@@ -48,42 +48,33 @@ theorem installBasisDeclF_pushC (env : Env) (ci : ConstantInfo) :
 /-! ### The direct simple-structure path's extending stages (task #175) -/
 
 /-- The projection table's checks through the index. -/
-theorem checkStructProjTableF_pushC (T : Name) (lps : List Name)
-    (nP nF : Nat) (cvCa : ConstantVal) (env : Env) :
-    checkStructProjTableF (m := CheckCM) .plain T lps nP nF cvCa (mkFEnv env)
-      = checkStructProjTable (m := CheckCM) T lps nP nF cvCa env := by
+theorem checkStructProjTableF_pushC (t : ProjTable) (env : Env) :
+    checkStructProjTableF (m := CheckCM) .plain t (mkFEnv env)
+      = checkStructProjTable (m := CheckCM) t env := by
   unfold checkStructProjTableF checkStructProjTable
   simp only [StructWalkers.plain, constsResolveF_eq, mkFEnv_find?, mkFEnv_findTable?]
 
 /-- The projection table's checks at the cached driver: operation-free, the state unchanged, the
 verdict the pure stage's. -/
-theorem checkStructProjTableS_run {T : Name} {lps : List Name} {nP nF : Nat}
-    {cvCa : ConstantVal} (env : Env) {s₀ : CState} {u : Unit} {s' : CState}
-    (h : checkStructProjTableF (m := CheckCM) .plain T lps nP nF cvCa
-      (mkFEnv env) s₀ = .ok (u, s')) :
-    s' = s₀ ∧ checkStructProjTable (m := CheckM) T lps nP nF cvCa env = .ok () := by
+theorem checkStructProjTableS_run {t : ProjTable} (env : Env) {s₀ : CState} {u : Unit}
+    {s' : CState} (h : checkStructProjTableF (m := CheckCM) .plain t (mkFEnv env) s₀ = .ok (u, s')) :
+    s' = s₀ ∧ checkStructProjTable (m := CheckM) t env = .ok () := by
   rw [checkStructProjTableF_pushC] at h
   unfold checkStructProjTable at h ⊢
-  cases hb : structProjBodies T nP nF cvCa.type with
-  | none =>
-    try rw [hb] at h
-    exact absurd h throwC_bind_ok
-  | some bodies =>
-    try rw [hb] at h
-    simp only [unwrapOr, pure_bind] at h ⊢
+  dsimp only at h ⊢
+  split at h
+  · next hg =>
+    rw [ite_eq_left hg]
     split at h
-    · next hg =>
-      rw [ite_eq_left hg]
+    · next hT =>
+      rw [ite_eq_left hT]
       split at h
-      · next hT =>
-        rw [ite_eq_left hT]
-        split at h
-        · next hn =>
-          rw [ite_eq_left hn]
-          obtain ⟨-, rfl⟩ := pureC_ok h
-          exact ⟨rfl, rfl⟩
-        · exact nomatch h
-      · exact absurd h throwC_bind_ok
-    · exact absurd h throwC_bind_ok
+      · next hn =>
+        rw [ite_eq_left hn]
+        obtain ⟨-, rfl⟩ := pureC_ok h
+        exact ⟨rfl, rfl⟩
+      · exact nomatch h
+    · exact nomatch h
+  · exact nomatch h
 
 end ConLeche.Cached

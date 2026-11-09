@@ -72,11 +72,9 @@ def structCtorResidOk (T : Name) (lps : List Name) (nP o nIdx : Nat) (cbody : Ex
   cbody.getAppArgs.length == nP + nIdx &&
   cbody.getAppArgs.take nP == structPsAt o nP
 
-/-- The parameter spine of the generated projection types, spelled at
+/-- The parameter spine of the generated projection bodies, spelled at
 the frame of the final `∀ p⃗ (t : T p⃗), _` telescope: `p_k = bvar
-(nP - k)` (the `instPisAtLift` walk lowers each entry once per
-substitution step, landing them at `bvar (nP - 1 - k)` under the
-subject binder). -/
+(nP - k)`, below the subject `bvar 0`. -/
 def structProjPs (nP : Nat) : List Expr :=
   (List.range nP).map fun k => Expr.bvar (nP - k)
 
@@ -88,37 +86,32 @@ O4's per-field entry branch real. -/
 def structProjArgP (T : Name) (j : Nat) : Expr :=
   Expr.proj T j (Expr.bvar 0)
 
-/-- The constructor telescope peeled at the parameters and the first
-`i` subject projections (`.proj` nodes), threaded incrementally (step `i → i + 1` is a single
-`instantiate1Lift`). -/
-def structProjResidP (T : Name) (nP : Nat) (cty : Expr) : Nat → Option Expr
-  | 0 => Expr.instPisAtLift (structProjPs nP) cty
-  | i + 1 => (structProjResidP T nP cty i).bind
-      (Expr.instPisAtLift [structProjArgP T i])
-
 /-- **The projection bodies of a recognised block** (task #175 S1),
-one walk of the constructor telescope: after the parameters are
-replaced by the loose variables `structProjPs nP` (parameter `k` at
-`bvar (nP - k)`, the subject reserved at `bvar 0`), the fields are
-peeled one at a time — field `i`'s domain is body `i`, and the field
-is replaced by the subject's projection `.proj T i (bvar 0)` before
-the walk continues (`structProjResidP`'s step).  So `bodies[i] =
-F_i[p⃗ ↦ bvars, f_j ↦ .proj T j (bvar 0)]`, scoped at `nP + 1`: what
-a `.proj T i e` use instantiates in one `instantiateList` along the
-subject type's arguments and the subject (`ProjEntry.typeAt`).  The
-table holds every field (the official `infer_proj` restriction at a
-`Prop`-declared structure is checked at the use, `projGuardRows`); no
-entry is inferred or pinned. -/
-def structProjBodiesGo (T : Name) : Nat → Nat → Expr → Option (List Expr)
+one walk of the constructor telescope: the parameter binders are
+skipped, and field `i`'s raw domain is instantiated once
+(`Expr.instantiateLift`) at the values of the binders before it,
+innermost first — the subject's earlier projections `.proj T j (bvar
+0)` (`structProjArgP`), then the parameters as the loose variables
+`structProjPs nP` (parameter `k` at `bvar (nP - k)`, the subject
+reserved at `bvar 0`).  So `bodies[i] = F_i[p⃗ ↦ bvars, f_j ↦ .proj T
+j (bvar 0)]`, scoped at `nP + 1`: what a `.proj T i e` use
+instantiates in one `instantiateList` along the subject type's
+arguments and the subject (`ProjEntry.typeAt`).  The values are
+threaded down the telescope (`vs`, one cons per field), the rest of
+the telescope is never rewritten.  The table holds every field (the
+official `infer_proj` restriction at a `Prop`-declared structure is
+checked at the use, `projGuardRows`); no entry is inferred or
+pinned. -/
+def structProjBodiesGo (T : Name) (vs : List Expr) : Nat → Nat → Expr → Option (List Expr)
   | 0, _, _ => some []
   | k + 1, i, .forallE fdom body =>
-    (structProjBodiesGo T k (i + 1) (body.instantiate1Lift (structProjArgP T i))).map
-      (fdom :: ·)
+    (structProjBodiesGo T (structProjArgP T i :: vs) k (i + 1) body).map
+      (fdom.instantiateLift vs :: ·)
   | _ + 1, _, _ => none
 
 def structProjBodies (T : Name) (nP nF : Nat) (cty : Expr) : Option (Array Expr) :=
-  match Expr.instPisAtLift (structProjPs nP) cty with
-  | some r => (structProjBodiesGo T nF 0 r).map List.toArray
+  match cty.stripPis nP with
+  | some (_, r) => (structProjBodiesGo T (structProjPs nP).reverse nF 0 r).map List.toArray
   | none => none
 
 /-- Does the constant `T` occur in `e`?  A syntactic walk (`fvar`

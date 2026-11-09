@@ -634,10 +634,10 @@ theorem checkQuotRecordC_pushes (fe : FEnv) (k : QuotKind) (cv : ConstantVal) :
 theorem checkBlockKS_pushes (mode : CheckMode) (fe : FEnv) (block : List ConstantInfo)
     (p : BlockShape) :
     Yields (checkBlockKS mode fe block p)
-      (· = FEnv.pushDelta (blockConstants p) (blockTables p p.members) fe) := by
+      (· = FEnv.pushDelta (blockConstants p) ((blockTables p p.members).getD []) fe) := by
   unfold checkBlockKS
-  yields
-  all_goals exact Yields.pure rfl
+  cases blockTables p p.members <;> simp only [unwrapOr, Option.getD, pure_bind] <;> yields
+  all_goals first | exact Yields.pure rfl | exact Yields.ofThrow
 
 /-- **A declaration's own checks push what it installs**, at every mode. -/
 theorem checkDeclKindC_pushes (mode : CheckMode) (fe : FEnv) (pd : Declaration) :

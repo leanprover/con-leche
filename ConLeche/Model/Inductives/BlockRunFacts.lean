@@ -65,7 +65,7 @@ theorem blockRun_fresh {F : Nat} {env env₂ : Env} {block : List ConstantInfo} 
     ∀ n ∈ (ConLeche.blockConstants p₀).map (·.name), env.find? n = none := by
   obtain ⟨ms, hms, -, -, hR⟩ := hrun
   obtain ⟨-, -, -, isRec, env₁, p₁, sortsss, ctx, holes, rd, Ms, kinds,
-    nfs, nodes, st, isorts, outR, hInd, hCtors, -, -, -, -, -, -, hRec, -, -, -, -⟩ := hR
+    nfs, nodes, st, isorts, outR, -, hInd, hCtors, -, -, -, -, -, -, hRec, -, -, -, -, -⟩ := hR
   obtain ⟨ms0, mrest, cvTa0, s0, cvs, -, hq, hcons, -, -, -⟩ :=
     ConLeche.checkBlockInds_shape hInd
   obtain ⟨-, -, hname, -, hctors⟩ := ConLeche.reduceMembers_inv hd hms
@@ -133,9 +133,15 @@ theorem blockRun_findTable {F : Nat} {env env₂ : Env} {block : List ConstantIn
   have henv := ConLeche.Semantics.blockRun_env hd hrun
   have hfr := blockRun_fresh hd hrun
   -- a new table is at a member's name, unbound before the block
-  have hne : ∀ t ∈ (ConLeche.blockTables p₀ p₀.members).reverse, (t.structName == T) = false := by
+  have hne : ∀ t ∈ ((ConLeche.blockTables p₀ p₀.members).getD []).reverse,
+      (t.structName == T) = false := by
     intro t ht
-    obtain ⟨m, hm, hn⟩ := ConLeche.Cached.blockTables_names _ _ t (List.mem_reverse.mp ht)
+    obtain ⟨m, hm, hn⟩ : ∃ m ∈ p₀.members, t.structName = m.declared.name := by
+      cases hQ : ConLeche.blockTables p₀ p₀.members with
+      | none => simp only [hQ, Option.getD_none, List.reverse_nil, List.not_mem_nil] at ht
+      | some Q =>
+        simp only [hQ, Option.getD_some, List.mem_reverse] at ht
+        exact ConLeche.blockTables_names _ _ Q hQ t ht
     have hf := hfr m.declared.name (by
       rw [ConLeche.Cached.blockConstants_names]
       exact List.mem_append_left _ (List.mem_append_left _ (List.mem_map_of_mem hm)))
@@ -152,7 +158,7 @@ theorem blockRun_findTable {F : Nat} {env env₂ : Env} {block : List ConstantIn
     exact Bool.or_eq_true_iff.mpr (Or.inr hT)
   unfold Env.findTable?
   rw [hs₂, hT, henv]
-  show ((ConLeche.blockTables p₀ p₀.members).reverse ++ env.tables).find? _ = _
+  show (((ConLeche.blockTables p₀ p₀.members).getD []).reverse ++ env.tables).find? _ = _
   rw [List.find?_append, List.find?_eq_none.mpr (fun t ht => by simp [hne t ht])]
   rfl
 

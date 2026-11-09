@@ -1096,26 +1096,22 @@ theorem RelRun.bind_push {β : Type} {R' : β → β → Prop} {fe₁ fe₂ : FE
     RelRun R' (x₁ >>= k₁) (x₂ >>= k₂) :=
   RelRun.bind hx fun _ _ ⟨L, Q, h₁, h₂⟩ => h₁ ▸ h₂ ▸ hk L Q (ht.pushDelta L Q)
 
-theorem checkStructProjTableF_twin {fe₁ fe₂ : FEnv} (ht : Twin fe₁ fe₂)
-    (T : Name) (lps : List Name) (nP nF : Nat) (cvCa : ConstantVal) :
-    checkStructProjTableF (m := CheckCM) structWalkersC T lps nP nF cvCa fe₁
-      = checkStructProjTableF (m := CheckCM) structWalkersC T lps nP nF cvCa fe₂ := by
+theorem checkStructProjTableF_twin {fe₁ fe₂ : FEnv} (ht : Twin fe₁ fe₂) (t : ProjTable) :
+    checkStructProjTableF (m := CheckCM) structWalkersC t fe₁
+      = checkStructProjTableF (m := CheckCM) structWalkersC t fe₂ := by
   unfold checkStructProjTableF
   have hres : structWalkersC.resolve fe₁ = structWalkersC.resolve fe₂ :=
     constsResolveFC_congr ht.find
   simp only [hres, ht.find, ht.findTable]
 
-theorem checkBlockTablesF_twin (p : BlockShape) {fe₁ fe₂ : FEnv} (ht : Twin fe₁ fe₂) :
-    ∀ xs : List MemberShape,
-      checkBlockTablesF (m := CheckCM) structWalkersC p fe₁ xs
-        = checkBlockTablesF (m := CheckCM) structWalkersC p fe₂ xs
+theorem checkBlockTablesF_twin {fe₁ fe₂ : FEnv} (ht : Twin fe₁ fe₂) :
+    ∀ Q : List ProjTable,
+      checkBlockTablesF (m := CheckCM) structWalkersC fe₁ Q
+        = checkBlockTablesF (m := CheckCM) structWalkersC fe₂ Q
   | [] => rfl
-  | ms :: rest => by
+  | t :: rest => by
     unfold checkBlockTablesF
-    rw [checkBlockTablesF_twin p ht rest]
-    cases ms.structCtor? with
-    | none => rfl
-    | some c => simp only [checkStructProjTableF_twin ht]
+    rw [checkBlockTablesF_twin ht rest, checkStructProjTableF_twin ht]
 
 /-- The relation of two block passes: the same pass but for its
 environment, which is the same pushes onto the twins. -/
@@ -1162,8 +1158,9 @@ theorem checkBlockPassS_twin {fe₁ fe₂ : FEnv} (ht : Twin fe₁ fe₂)
   all_goals exact RelRun.pure ⟨L, Q, rfl, rfl⟩
 
 theorem checkBlockTailS_twin {fe₁ fe₂ : FEnv} (ht : Twin fe₁ fe₂)
-    (block : List ConstantInfo) {q₁ q₂ : BlockPass FEnv} (hq : PassRel fe₁ fe₂ q₁ q₂) :
-    RelRun Eq (checkBlockTailS mode block q₁) (checkBlockTailS mode block q₂) := by
+    (block : List ConstantInfo) {q₁ q₂ : BlockPass FEnv} (hq : PassRel fe₁ fe₂ q₁ q₂)
+    (Q₀ : List ProjTable) :
+    RelRun Eq (checkBlockTailS mode block q₁ Q₀) (checkBlockTailS mode block q₂ Q₀) := by
   obtain ⟨L, Q, rfl, hq₂⟩ := hq
   obtain ⟨env₁, p, kinds, params, rd, cls, tbl⟩ := q₂
   simp only at hq₂
@@ -1204,7 +1201,7 @@ theorem checkBlockTailS_twin {fe₁ fe₂ : FEnv} (ht : Twin fe₁ fe₂)
       (constsResolveFC_congr hf) recs out
   simp only [sharedOpsC_congr htL.find htL.findTable, checkBlockIdxSortsF_congr h (FEnv.pushDelta L Q fe₁)
       (FEnv.pushDelta L Q fe₂), genRecCheck_twin ht₂, hO]
-  rw [hL₂, hL₂, checkBlockTablesF_twin _ (htL.pushAll L₂)]
+  rw [hL₂, hL₂, checkBlockTablesF_twin (htL.pushAll L₂)]
   relrun
   all_goals exact RelRun.of_eq
 
@@ -1234,7 +1231,8 @@ theorem checkBlockKS_twin {fe₁ fe₂ : FEnv} (ht : Twin fe₁ fe₂)
   relrun
   all_goals
     exact RelRun.bind (checkBlockPassS_twin ht _ _) fun _ _ hq =>
-      RelRun.bind (checkBlockTailS_twin ht block hq) fun _ _ _ => RelRun.pure ⟨_, _, rfl, rfl⟩
+      RelRun.bind RelRun.of_eq fun Q _ hQ => hQ ▸
+        RelRun.bind (checkBlockTailS_twin ht block hq Q) fun _ _ _ => RelRun.pure ⟨_, _, rfl, rfl⟩
 
 end Blocks
 

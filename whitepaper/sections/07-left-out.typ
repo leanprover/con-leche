@@ -12,7 +12,7 @@ architecture differs from the fragment's on the features they share.
 
 #left-out[Projections][Lean's primitive projection `e.i`, the `i`-th
 field of a structure value. For every inductive type with one
-constructor and no index the checker stores #src("ConLeche/Kernel/Install.lean", 64, 73)[a
+constructor and no index the checker stores #src("ConLeche/Kernel/Install.lean", 67, 74)[a
 projection table], the fields' types read off the constructor. The
 real checker #src("ConLeche/Rules/Rel.lean", 169, 184)[reduces a projection of a
 constructor application to that field] and #src("ConLeche/Rules/Rel.lean", 627, 635)[infers its type from
@@ -98,7 +98,7 @@ one by one, each against the environment of those before it\; the binary builds
 #src("ConLeche/Cached/StreamIndex.lean", 65, 65)[one index of the whole stream] from the declarations alone
 and runs the checks on a pool of workers, each against the index's view of the declarations before
 it, walking the results in fold order, so its verdict is the fold's.
-#src("ConLeche/Verify/Cached/StreamIndex.lean", 484, 486)[Every check passing is an accept of the fold],
+#src("ConLeche/Verify/Cached/StreamIndex.lean", 490, 492)[Every check passing is an accept of the fold],
 which is what the one-declaration-at-a-time argument of §3 and §4 needs.]
 
 == How the real proof differs from the fragment <sec:differs>
