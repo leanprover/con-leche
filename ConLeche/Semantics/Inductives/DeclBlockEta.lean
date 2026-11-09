@@ -227,7 +227,7 @@ theorem declBlockRun_etaClosed {F : Nat} {env env₂ : Env}
     (hdn : ∀ m ∈ p₀.members, m.cvT.name = m.declared.name)
     (h : DeclBlockRun F env block p₀ env₂) : EtaFamiliesClosed env₂ := by
   obtain ⟨hndC, -, -, isRec, env₁, p₁, sortsss, ctx, holes, rd, Ms, kinds, nfs,
-    pos, st, isorts, rs, hInd, hCtors, -, -, -, -, -, -, hRec, -, -, -, hfin⟩ := h
+    pos, st, isorts, rs, Q, hInd, hCtors, -, -, -, -, -, -, hRec, -, -, -, -, hfin⟩ := h
   obtain ⟨_, _, _, _, _, -, hp₁, rfl, -, -, -⟩ := ConLeche.checkBlockInds_shape hInd
   -- the three freshness facts and the constructors' names
   have hfT := checkBlockInds_fresh hInd

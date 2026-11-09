@@ -54,6 +54,45 @@ DIR   = os.environ.get('PUBPLAN_DIR', '_tmp/m3')
 # a tree whose `rfl`s stop closing, so they stay public and the gate must not
 # ask for them again.
 FALLBACK = {
+    # task #521: the uniform install's well-formedness lemmas' public statements
+    # name `DeclBlockRun`, `BlockRun`, `MemberDeclaredWF`, `EnvWF`; the census
+    # attributes them elsewhere.  Measured by demoting both (unknown identifier
+    # `Env`, `EnvWF`, `BlockShape`, `DeclBlockWF.lean:40`).
+    ('ConLeche.Semantics.Inductives.DeclBlockWF', 'ConLeche.Semantics.Inductives.DeclBlock'),
+    ('ConLeche.Semantics.Inductives.DeclBlockWF', 'ConLeche.Verify.Inductives.BlockWF'),
+    # task #521: the axiom installs read `nonempty_shapes`, `ofReducePin_type`,
+    # `reduceElem_sort` (`Verify/StdAxiomPin`) through these two re-exports, in
+    # proofs the census does not attribute.  Measured by demoting each (unknown
+    # identifier `nonempty_shapes`, `AxiomPin.lean:179`; `ofReducePin_type`,
+    # `AxiomReduce.lean:60`).
+    ('ConLeche.Model.AxiomMem', 'ConLeche.Verify.StdAxiomPin'),
+    ('ConLeche.Model.AxiomPin', 'ConLeche.Model.AxiomMem'),
+    # task #498 L4: the recursor stage's equations state the twins (`genRecCheckC`,
+    # `targetCtorAtC`, …) against the specification at `sharedOpsC`.
+    # Measured: demoting the edge breaks the file (unknown identifier `TargetMajor`,
+    # `targetCtorAtC`, `IndRecC.lean:30`).
+    ('ConLeche.Verify.Cached.IndRecC', 'ConLeche.Cached.CheckerC'),
+    # task #498: the inductive check's walk lemmas state the cached walks
+    # (`replaceFVarsP`, `replaceFVarsC`, …) against the specification's
+    # (`Expr.replaceFVars`, `closeTelescope`, …).  Measured: demoting either breaks
+    # the file (unknown identifier `replaceFVarsP`, `IndWalksC.lean:40`; unknown
+    # field `replaceFVars`, `IndWalksC.lean:32`).
+    ('ConLeche.Verify.Cached.IndWalksC', 'ConLeche.Cached.ExprOpsC'),
+    ('ConLeche.Verify.Cached.IndWalksC', 'ConLeche.Kernel.Inductives.GenRec'),
+    # task #498 L2: the positivity twins' equations name `Name`, `Expr`, `sharedOpsC`
+    # (`IndPositivityC.lean:33`, unknown identifier); `DiscC4`'s guard lemmas after the
+    # openers moved out (`DiscC4.lean:455`, the kernel no longer finds `projRowsC_spec`).
+    # Each measured by demoting it alone.
+    ('ConLeche.Verify.Cached.IndPositivityC', 'ConLeche.Cached.CheckerC'),
+    ('ConLeche.Verify.Cached.DiscC4', 'ConLeche.Verify.ProjGuard'),
+    # task #498 L3: the pass's and the classes' twin equations state the twins
+    # against the specification at `sharedOpsC`.  Measured: demoting the import
+    # breaks the file (unknown identifier `FEnv`, `IndBlockC.lean:34`).
+    ('ConLeche.Verify.Cached.IndBlockC', 'ConLeche.Cached.CheckerC'),
+    # task #498 L5: the tail's equations state the twins (`streamRecsCheckC`, …) against the
+    # specification at `sharedOpsC` (`FEnv`, `Level`).  Measured:
+    # demoting it breaks the file (unknown identifier `FEnv`, `IndTailC.lean:29`).
+    ('ConLeche.Verify.Cached.IndTailC', 'ConLeche.Cached.CheckerC'),
     # task #492: the guard-row lemmas' public statements name `projGuardRowsGo`,
     # `GuardRowsWS`'s `WScoped`; the census attributes them to the private imports
     # (`LooseBVar`, `Subst`).  Measured: demoting either breaks the file (unknown
@@ -75,6 +114,11 @@ FALLBACK = {
     # Measured: demoting it breaks the file (unknown identifier `SetTheory`,
     # `OpenedCtx.lean:29`).
     ('ConLeche.Model.OpenedCtx', 'ConLeche.Model.Currency'),
+    # task #497: `ViewCongr`'s public statements name `CheckerOps`, `CheckMode`, `FEnv`,
+    # `sharedOpsC`; once it imports `PinsC` (which re-exports `ParsedC`) the census
+    # attributes them to that private import.  Measured: demoting it breaks the file
+    # (unknown identifier `CheckerOps`, `ViewCongr.lean:44`).
+    ('ConLeche.Verify.Cached.ViewCongr', 'ConLeche.Cached.ParsedC'),
     # task #515: each MEASURED by demoting it alone.  `UnitSound`'s `variable`s
     # name `SetTheory` through `Inputs` (unknown identifier `SetTheory`,
     # `UnitSound.lean:47`); the certificate bridges' statements name

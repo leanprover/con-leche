@@ -206,11 +206,7 @@ theorem natOpRow_of (mp : EnvModelM V env) (φ : Name → Nat) :
       (fun ρ => natOpV_sub mp.base2 (mp.nat_ops φ) (mp.nat_heads φ) hfc ρ n₁ n₂)
   · exact close _ (by simpa +decide [natOpResult] using hres.symm)
       (fun ρ => natOpV_mul mp.base2 (mp.nat_ops φ) (mp.nat_heads φ) hfc ρ n₁ n₂)
-  · -- `pow`: the reduct exists only below the official exponent cap
-    exact close _ (by
-        have hres' := hres
-        simp +decide [natOpResult] at hres'
-        exact hres'.2.symm)
+  · exact close _ (by simpa +decide [natOpResult] using hres.symm)
       (fun ρ => natOpV_pow mp.base2 (mp.nat_ops φ) (mp.nat_heads φ) hfc ρ n₁ n₂)
   · refine closeB (Or.inl rfl)
       (if n₁ = n₂ then ConLeche.boolTrueName else ConLeche.boolFalseName)

@@ -1212,8 +1212,8 @@ theorem stageFixTable (mp : EnvModelM V env)
     {T : Name} {lps : List Name} {nP : Nat} {resSort : Level} {isProp : Bool}
     {cvS cvTa cvCa : ConstantVal} {nF : Nat} {sorts : List Level}
     {bodies : Array Expr} {caps : IndCaps}
-    (hTbl : ConLeche.checkStructProjTable (m := ConLeche.CheckM) T
-      lps nP nF cvCa env = .ok ())
+    (hTbl : ConLeche.checkStructProjTable (m := ConLeche.CheckM)
+      ⟨T, lps, nP, cvCa.name, nF, bodies⟩ env = .ok ())
     (hb : ConLeche.structProjBodies T nP nF cvCa.type = some bodies)
     (hfT : env.find? T = some (.indInfo cvS caps))
     (hD : FormerDeclared mp.base2 cvS cvTa)
@@ -1264,9 +1264,8 @@ theorem stageFixTable (mp : EnvModelM V env)
             ∈ˢ (univ ((sorts.getD j .zero).eval ψ) : V)) :
     ∃ mp' : EnvModelM V ⟨env.consts, ⟨T, lps, nP, cvCa.name, nF, bodies⟩ :: env.tables⟩,
       env.findTable? T = none ∧ mp'.base2.acval = mp.base2.acval := by
-  have hwf' := ConLeche.direct_table_wf mp.base2.wf hTbl hb cvCa.name
-  obtain ⟨bodies', hbodies, -, hTs, hT0⟩ := ConLeche.checkStructProjTable_inv hTbl
-  obtain rfl : bodies = bodies' := Option.some.inj (hb.symm.trans hbodies)
+  have hwf' := ConLeche.direct_table_wf mp.base2.wf hTbl
+  obtain ⟨-, hTs, hT0⟩ := ConLeche.checkStructProjTable_inv hTbl
   let tbl : ProjTable := ⟨T, lps, nP, cvCa.name, nF, bodies⟩
   -- the field-chain facts, in the frames' spelling
   have hbound : ∀ (ψ : Name → Nat) (ρ : Nat → V),
@@ -1383,7 +1382,7 @@ theorem stageFixTable (mp : EnvModelM V env)
     exact denote_pushTable_mono (t := tbl) hT0 ψ 0 hcbC (hCDread ψ)
   -- the body, opened at the variables
   obtain ⟨cds, bodyB, hcf⟩ :=
-    ConLeche.structProjBody_open hbodies hstripC hCb hi
+    ConLeche.structProjBody_open hb hstripC hCb hi
   refine ⟨rfl, rfl, hi, ⟨cvS, caps, hfT₂, hlpsS, hcaps⟩,
     cvCa, hfC₂, hlpsC, ?_, ?_⟩
   · -- the per-instantiation laws

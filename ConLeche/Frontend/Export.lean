@@ -93,10 +93,9 @@ kind is read by one:
 * the **basis-pin match** selects its candidate by *name* first
   (`ExportC.lean`), so `canonExpr` runs only on a block whose members
   are named exactly as one of the five pins';
-* `Expr.renameConsts` and the `Expr.instantiate1` inside
-  `openPisAtFvars` are **memoized DAG walks**, swapped in by
-  `@[csimp]` in `ConLeche/Kernel/ExprOps.lean` — kernel-checked
-  against the pure definitions, so no proof and no trust point moved.
+* every walk the checker runs over a term is a **memoized DAG walk**
+  of the cached tier (`ConLeche/Cached/ExprOpsC.lean`), proved equal
+  to the pure definition it replaces.
 
 The guard is a **gate, not a limit**: the adversarial
 DAG-tower fixtures in `tests/e2e` put a shared tower of depth 60

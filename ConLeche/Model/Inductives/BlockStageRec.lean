@@ -106,6 +106,11 @@ theorem envModelM_consBlockRecsBare {q : BlockShape}
         r.1.type.allLevelParamsDefined r.1.levelParams = true ∧
         r.1.type.constsResolve env = true ∧
         r.1.type.looseBVarsBounded 0 = true ∧ LitShapeAt r.1) →
+      -- the stage's step (`recStage_bareCons_envWF`)
+      (∀ r ∈ ls, ∀ (m' : Nat) {env' : Env}, ConLeche.EnvWF env' →
+        r.1.type.constsResolve env' = true →
+        ConLeche.EnvWF ⟨.recInfo r.1 (q.majorIdxAt m') (q.rulePrefixAt m') false [] :: env'.consts,
+          env'.tables⟩) →
       (∀ n : Name, (∀ r ∈ ls, n ≠ r.1.name) → acv n = mp.base2.acval n) →
       (∀ r ∈ ls, ∀ ψ : Name → Nat, Term.Closed (acv r.1.name ψ)) →
       (∀ r ∈ ls, ∀ ψ₁ ψ₂ : Name → Nat,
@@ -116,16 +121,16 @@ theorem envModelM_consBlockRecsBare {q : BlockShape}
         (∀ ρ : Nat → V, WellDenotedTy V ρ ta) ∧
         (∀ ρ : Nat → V, interp V ρ (acv r.1.name ψ) ∈ˢ interp V ρ ta)) →
       ∃ mp' : EnvModelM V (consBlockRecsBare q m ls env), mp'.base2.acval = acv
-  | _, [], env, mp, _, _, _, _, _, hag, _, _, _, _ =>
+  | _, [], env, mp, _, _, _, _, _, _, hag, _, _, _, _ =>
     ⟨mp, by funext n; exact (hag n (fun _ h => nomatch h)).symm⟩
-  | m, r0 :: rest, env, mp, hnd, hfr, hnres, hop, hty, hag, hcl, hpar, hok, hrd => by
+  | m, r0 :: rest, env, mp, hnd, hfr, hnres, hop, hty, hwfOf, hag, hcl, hpar, hok, hrd => by
     -- the head
     have hmem0 : r0 ∈ r0 :: rest := List.mem_cons_self
     have hfresh : env.find? r0.1.name = none := hfr r0 hmem0
     rw [List.map_cons, List.nodup_cons] at hnd
     have hnrr : ∀ r ∈ rest, r.1.name ≠ r0.1.name := fun r hr hh =>
       hnd.1 (List.mem_map.mpr ⟨r, hr, hh⟩)
-    obtain ⟨h1, h2, h3, h4, h5⟩ := hty r0 hmem0
+    obtain ⟨-, -, h3, -, -⟩ := hty r0 hmem0
     have hcb : ConstsBound env r0.1.type := constsBound_of_constsResolve _ h3
     have hreadUp : ∀ ψ : Name → Nat, ∃ ta : Term,
         denote (acvalWith mp.base2.acval r0.1.name (acv r0.1.name))
@@ -143,13 +148,7 @@ theorem envModelM_consBlockRecsBare {q : BlockShape}
         (c₀ := .recInfo r0.1 (q.majorIdxAt m) (q.rulePrefixAt m) false []) mp hfresh (hnres r0 hmem0) (hop r0 hmem0)
         ⟨r0.1, q.majorIdxAt m, q.rulePrefixAt m, false, [], rfl⟩
         (ConsHead.ofFresh
-          (ConLeche.EnvWF.cons (h5 _ rfl) mp.base2.wf
-            (ConLeche.structConstWF h1 h2 (Expr.constsResolve_mono h3) h4
-              (fun _ _ _ heq => nomatch heq)
-              (fun _ _ _ _ rules heq r hr => by
-                injection heq with _ _ _ _ e4
-                subst e4
-                exact nomatch hr)))
+          (hwfOf r0 hmem0 m mp.base2.wf h3)
           (fun ψ => hcl r0 hmem0 ψ) (hnres r0 hmem0)
           (fun _ _ _ _ rules heq r hr => by
             injection heq with _ _ _ _ e4
@@ -178,7 +177,7 @@ theorem envModelM_consBlockRecsBare {q : BlockShape}
     show ∃ mp' : EnvModelM V (consBlockRecsBare q (m + 1) rest
         ⟨.recInfo r0.1 (q.majorIdxAt m) (q.rulePrefixAt m) false [] :: env.consts, env.tables⟩),
       mp'.base2.acval = acv
-    refine envModelM_consBlockRecsBare mp₁ ?_ ?_ ?_ ?_ ?_ ?_ ?_ ?_ ?_ ?_
+    refine envModelM_consBlockRecsBare mp₁ ?_ ?_ ?_ ?_ ?_ ?_ ?_ ?_ ?_ ?_ ?_
     · exact hnd.2
     · intro r hr
       rw [ConLeche.Env.find?_cons, ite_eq_right (fun hh => hnrr r hr hh.symm)]
@@ -188,6 +187,7 @@ theorem envModelM_consBlockRecsBare {q : BlockShape}
     · intro r hr
       obtain ⟨g1, g2, g3, g4, g5⟩ := hty r (List.mem_cons_of_mem _ hr)
       exact ⟨g1, g2, Expr.constsResolve_mono g3, g4, g5⟩
+    · exact fun r hr => hwfOf r (List.mem_cons_of_mem _ hr)
     · intro n hn
       rw [hac₁]
       show acv n = acvalWith mp.base2.acval r0.1.name (acv r0.1.name) n
@@ -459,6 +459,10 @@ phases composed: the rule-less chain, then the rule-list swap.  The
 `rec_rules` row (`hrecP`) is the ι content the caller supplies; every
 other row is discharged here. -/
 theorem envModelM_consBlockRecsR
+    (hwfOf : ∀ r ∈ rs, ∀ (m' : Nat) {env' : Env}, ConLeche.EnvWF env' →
+      r.1.type.constsResolve env' = true →
+      ConLeche.EnvWF ⟨.recInfo r.1 (q.majorIdxAt m') (q.rulePrefixAt m') false [] :: env'.consts,
+        env'.tables⟩)
     (hwf₃ : ConLeche.EnvWF (consBlockRecsR R q 0 rs envC))
     (hnew : ∀ (n : Name) (cv : ConstantVal) (mI rP : Nat) (isK : Bool) (rules : List RecRule),
       (consBlockRecsR R q 0 rs envC).find? n
@@ -481,6 +485,7 @@ theorem envModelM_consBlockRecsR
       (fun x hx => by obtain ⟨r, hr, he⟩ := hmemB x hx; rw [he]; exact hnres r hr)
       (fun x hx => by obtain ⟨r, hr, he⟩ := hmemB x hx; rw [he]; exact hop r hr)
       (fun x hx => by obtain ⟨r, hr, he⟩ := hmemB x hx; rw [he]; exact hty r hr)
+      (fun x hx => by obtain ⟨r, hr, he⟩ := hmemB x hx; rw [he]; exact hwfOf r hr)
       (fun n hn => hag n (fun r hr => hn (r.1, r.2.2.1) (List.mem_map_of_mem hr)))
       (fun x hx => by obtain ⟨r, hr, he⟩ := hmemB x hx; rw [he]; exact hcl r hr)
       (fun x hx => by obtain ⟨r, hr, he⟩ := hmemB x hx; rw [he]; exact hpar r hr)
@@ -535,32 +540,17 @@ is then refutable.  With it both guards are untouched
 (`ConLeche.natLitSupported_consBlockRecsR` /
 `strLitSupported_consBlockRecsR`). -/
 theorem blockRecStaged_of
-    (hrhs : ∀ r ∈ rs, ∀ rhs ∈ r.2.1,
-      rhs.hasFvar = false ∧
-      rhs.allLevelParamsDefined r.1.levelParams = true ∧
-      rhs.constsResolve (consBlockRecsBare q 0 (bareOf rs) envC) = true ∧
-      rhs.looseBVarsBounded 0 = true)
+    -- the stage's steps and its result, well formed (`recStage_bareCons_envWF`,
+    -- `recStage_envWF_consR`)
+    (hwfOf : ∀ r ∈ rs, ∀ (m' : Nat) {env' : Env}, ConLeche.EnvWF env' →
+      r.1.type.constsResolve env' = true →
+      ConLeche.EnvWF ⟨.recInfo r.1 (q.majorIdxAt m') (q.rulePrefixAt m') false [] :: env'.consts,
+        env'.tables⟩)
+    (hwf₃ : ConLeche.EnvWF (consBlockRecsR R q 0 rs envC))
     (hctorsIn : ∀ r ∈ rs, ∀ ctor ∈ r.2.2.2,
       ∃ cvj cnP cnF, envC.find? ctor.1.name = some (.ctorInfo cvj cnP cnF))
     {fireOf : Nat → RecDatum → ConLeche.RecRuleFire}
     (hshape : ConLeche.RecRulesShape R rs fireOf)
-    -- a `.nested` firing's pins: `EnvWF`'s clause (vacuous at member
-    -- majors, whose rules never fire `.nested`)
-    (hnest : ∀ (j : Nat) (r : RecDatum), rs[j]? = some r → ∀ lvls pins,
-      fireOf j r = .nested lvls pins →
-        q.rulePrefixAt j ≤ q.majorIdxAt j ∧
-        (∀ l ∈ lvls, l.allParamsDefined r.1.levelParams = true) ∧
-        (∀ pin ∈ pins, pin.hasFvar = false ∧
-          pin.allLevelParamsDefined r.1.levelParams = true ∧
-          pin.constsResolve envC = true ∧
-          pin.looseBVarsBounded (q.rulePrefixAt j) = true) ∧
-        ∃ pre dom body D,
-          r.1.type.stripPis (q.majorIdxAt j) = some (pre, .forallE dom body) ∧
-          dom.getAppFn = .const D lvls ∧
-          dom.getAppArgs =
-            pins.map (Expr.liftLooseBVars (q.majorIdxAt j - q.rulePrefixAt j) 0) ++
-              (List.range (q.majorIdxAt j - q.rulePrefixAt j)).map
-                (fun i => Expr.bvar (q.majorIdxAt j - q.rulePrefixAt j - 1 - i)))
     (hrecP : ∀ m₃ : EnvModel V (consBlockRecsR R q 0 rs envC),
       m₃.acval = acv → ∀ φ : Name → Nat, RecRules m₃ φ)
     (hresRec : ∀ r ∈ rs, ConLeche.reservedRecName r.1.name = false) :
@@ -579,15 +569,7 @@ theorem blockRecStaged_of
     exact nomatch hn
   obtain ⟨mp', hac'⟩ :=
     envModelM_consBlockRecsR mpC hnd hfr hnres hop hty hag hcl hpar hok hrd
-      (ConLeche.envWF_consBlockRecsR mpC.base2.wf
-        (fun r hr => ⟨(hty r hr).1, (hty r hr).2.1, (hty r hr).2.2.1, (hty r hr).2.2.2.1,
-          fun rhs hrhs' => hrhs r hr rhs hrhs'⟩)
-        (fun j r hr rl hrl => by
-          obtain ⟨i, ctor, rhs, -, hrhs', rfl⟩ := hshape j r hr rl hrl
-          refine ⟨List.mem_of_getElem? hrhs', fun lvls pins hf => ?_⟩
-          obtain ⟨n1, n2, n3, pre, dom, body, D, e1, e2, e3⟩ := hnest j r hr lvls pins hf
-          exact ⟨n1, n2, n3, pre, dom, body, D, e1, e2, e3, rfl⟩)
-        (fun r hr => (hty r hr).2.2.2.2))
+      hwfOf hwf₃
       (recCtorsHead_consBlockRecsR (R := R) hshape hfr hctorsIn) hrecP
   refine ⟨mp', fun n hn => by rw [hac']; exact hag n (hne n hn), hkeep, ?_⟩
   · -- the readings of the constructors' environment survive, verbatim

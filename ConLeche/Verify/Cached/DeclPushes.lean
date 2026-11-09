@@ -2,6 +2,8 @@ module
 
 public import ConLeche.Cached.Decls
 import ConLeche.Verify.Cached.BlockOverlay
+import ConLeche.Verify.Cached.WalkersC
+import ConLeche.Verify.Cached.IndRecC
 
 public section
 
@@ -186,13 +188,13 @@ theorem checkOpaqueValCI_shape (mode : CheckMode) (fe : FEnv) (cv : ConstantVal)
 /-! ## The per-member stages' skeletons
 
 Every stage's install decision is the block's own or a freshness
-check; the stored constants' names are the block's (`checkConstantValF`
+check; the stored constants' names are the block's (`checkConstantValC`
 keeps the name). -/
 
 /-! ## The constructor list's skeleton
 
 The stored constructors' names and field counts are the block's
-(`checkConstantValF` keeps the name, the stage keeps the count). -/
+(`checkConstantValC` keeps the name, the stage keeps the count). -/
 
 /-- The former's telescope stage keeps the former. -/
 theorem checkSumTele_name (n : Nat) (cvTa₀ : ConstantVal) :
@@ -204,35 +206,35 @@ theorem checkSumTele_name (n : Nat) (cvTa₀ : ConstantVal) :
 
 /-! ### Freshness of the stored names -/
 
-theorem checkConstantValF_fresh (ops : CheckerOps CheckCM) (fe : FEnv)
-    (cv : ConstantVal) :
-    Yields (checkConstantValF ops fe cv)
+theorem checkConstantValC_fresh (mode : CheckMode) (fe : FEnv)
+    (cv : ConstantVal) {a : Bool} :
+    Yields (checkConstantValC mode fe cv a)
       (fun _ => fe.find? cv.name = none) := by
-  unfold checkConstantValF
+  unfold checkConstantValC
   yields
   all_goals exact Yields.pure (Option.not_isSome_iff_eq_none.mp (by assumption))
 
-theorem checkSumCtorF_fresh (ops : CheckerOps CheckCM) (fe₀ fe : FEnv)
+theorem checkSumCtorC_fresh (mode : CheckMode) (fe₀ fe : FEnv)
     (T : Name) (lps : List Name) (nP nIdx : Nat) (rs : Level) (isProp large : Bool)
     (cvC : ConstantVal) (nF : Nat) (cvTa : ConstantVal) :
-    Yields (checkSumCtorF ops fe₀ fe T lps nP nIdx rs isProp large cvC nF cvTa)
+    Yields (checkSumCtorC mode fe₀ fe T lps nP nIdx rs isProp large cvC nF cvTa)
       (fun _ => fe.find? cvC.name = none) := by
-  unfold checkSumCtorF
-  refine Yields.bind' (checkConstantValF_fresh ops fe cvC) fun _ hfr => ?_
+  unfold checkSumCtorC
+  refine Yields.bind' (checkConstantValC_fresh mode fe cvC) fun _ hfr => ?_
   exact Yields.const hfr
 
-theorem checkSumCtorsF_fresh (ops : CheckerOps CheckCM) (fe₀ fe : FEnv)
+theorem checkSumCtorsC_fresh (mode : CheckMode) (fe₀ fe : FEnv)
     (T : Name) (lps : List Name) (nP nIdx : Nat) (rs : Level) (isProp large : Bool)
     (cvTa : ConstantVal) :
     ∀ (cs : List (ConstantVal × Nat)),
-      Yields (checkSumCtorsF ops fe₀ fe T lps nP nIdx rs isProp large cvTa cs)
+      Yields (checkSumCtorsC mode fe₀ fe T lps nP nIdx rs isProp large cvTa cs)
         (fun _ => ∀ c ∈ cs, fe.find? c.1.name = none)
   | [] => Yields.pure fun _ hc => nomatch hc
   | c :: cs => by
-    unfold checkSumCtorsF
-    refine Yields.bind' (checkSumCtorF_fresh ops fe₀ fe T lps nP nIdx rs isProp
+    unfold checkSumCtorsC
+    refine Yields.bind' (checkSumCtorC_fresh mode fe₀ fe T lps nP nIdx rs isProp
       large c.1 c.2 cvTa) fun _ hfr => ?_
-    refine (checkSumCtorsF_fresh ops fe₀ fe T lps nP nIdx rs isProp large cvTa cs).mono ?_
+    refine (checkSumCtorsC_fresh mode fe₀ fe T lps nP nIdx rs isProp large cvTa cs).mono ?_
     intro _ hfrs d hd
     rcases List.mem_cons.mp hd with rfl | hd
     · exact hfr
@@ -251,28 +253,28 @@ theorem Yields.and {α : Type} {m : CheckCM α} {P Q : α → Prop}
     (hP : Yields m P) (hQ : Yields m Q) : Yields m (fun a => P a ∧ Q a) :=
   fun s a s' hr => ⟨hP s a s' hr, hQ s a s' hr⟩
 
-theorem checkBlockTeleF_fresh (ops : CheckerOps CheckCM) (fe : FEnv) (nP : Nat)
+theorem checkBlockTeleC_fresh (mode : CheckMode) (fe : FEnv) (nP : Nat)
     (ms : MemberShape) :
-    Yields (checkBlockTeleF ops fe nP ms)
+    Yields (checkBlockTeleC mode fe nP ms)
       (fun r => r.1.name = ms.cvT.name ∧ fe.find? ms.cvT.name = none) := by
-  unfold checkBlockTeleF
-  refine Yields.bind' (checkConstantValF_fresh ops fe ms.cvT) fun _ hfr => ?_
+  unfold checkBlockTeleC
+  refine Yields.bind' (checkConstantValC_fresh mode fe ms.cvT) fun _ hfr => ?_
   refine Yields.bind' (checkSumTele_name _ ms.cvT) fun r hn' => ?_
   obtain ⟨cvTa, s⟩ := r
   change cvTa.name = ms.cvT.name at hn'
   yields
   all_goals exact Yields.pure ⟨hn', hfr⟩
 
-theorem checkBlockTelesF_fresh (ops : CheckerOps CheckCM) (fe : FEnv) (nP : Nat) :
+theorem checkBlockTelesC_fresh (mode : CheckMode) (fe : FEnv) (nP : Nat) :
     ∀ mss : List MemberShape,
-      Yields (checkBlockTelesF ops fe nP mss)
+      Yields (checkBlockTelesC mode fe nP mss)
         (fun rs => rs.map (·.1.name) = mss.map (·.cvT.name) ∧
           ∀ ms ∈ mss, fe.find? ms.cvT.name = none)
   | [] => Yields.pure ⟨rfl, fun _ h => nomatch h⟩
   | ms :: rest => by
-    unfold checkBlockTelesF
-    refine Yields.bind' (checkBlockTeleF_fresh ops fe nP ms) fun r hr => ?_
-    refine Yields.bind' (checkBlockTelesF_fresh ops fe nP rest) fun rs hrs => ?_
+    unfold checkBlockTelesC
+    refine Yields.bind' (checkBlockTeleC_fresh mode fe nP ms) fun r hr => ?_
+    refine Yields.bind' (checkBlockTelesC_fresh mode fe nP rest) fun rs hrs => ?_
     refine Yields.pure ⟨by simp [hr.1, hrs.1], ?_⟩
     intro m hm
     rcases List.mem_cons.mp hm with rfl | hm
@@ -282,19 +284,19 @@ theorem checkBlockTelesF_fresh (ops : CheckerOps CheckCM) (fe : FEnv) (nP : Nat)
 /-- The formers' stage: the record the shape completed (the sort read),
 the environment the formers' conses build, the formers' names, and
 their freshness at the block's own index. -/
-theorem checkBlockIndsF_fresh (ops : CheckerOps CheckCM) (fe : FEnv) (p : BlockShape)
+theorem checkBlockIndsC_fresh (mode : CheckMode) (fe : FEnv) (p : BlockShape)
     (isRec : Bool) :
-    Yields (checkBlockIndsF ops fe p isRec)
+    Yields (checkBlockIndsC mode fe p isRec)
       (fun r => (∃ s, r.2 = p.withSort s) ∧
         r.1 = consBlockIndsF r.2 isRec (p.members.map (·.declared)) 0 fe ∧
         ∀ ms ∈ p.members, fe.find? ms.cvT.name = none) := by
-  unfold checkBlockIndsF
+  unfold checkBlockIndsC
   split
   · exact Yields.ofThrow
   · next ms0 rest hm =>
-    refine Yields.bind' (checkBlockTeleF_fresh ops fe p.nP ms0) fun r0 h0 => ?_
+    refine Yields.bind' (checkBlockTeleC_fresh mode fe p.nP ms0) fun r0 h0 => ?_
     obtain ⟨cvTa0, s0⟩ := r0
-    refine Yields.bind' (checkBlockTelesF_fresh ops fe p.nP rest) fun cvs hcvs => ?_
+    refine Yields.bind' (checkBlockTelesC_fresh mode fe p.nP rest) fun cvs hcvs => ?_
     refine Yields.bind fun _ => ?_
     refine Yields.pure ⟨⟨s0, rfl⟩, rfl, ?_⟩
     · rw [hm]
@@ -322,16 +324,16 @@ theorem consBlockCtorsF_flatten (nP : Nat) :
     exact consBlockCtorsF_flatten nP rest _
 
 /-- The constructors' stage: every declared name fresh at the environment the stage runs at. -/
-theorem checkBlockCtorsF_fresh (ops : CheckerOps CheckCM) (fe₀ fe : FEnv) (p : BlockShape) :
+theorem checkBlockCtorsC_fresh (mode : CheckMode) (fe₀ fe : FEnv) (p : BlockShape) :
     ∀ l : List MemberShape,
-      Yields (checkBlockCtorsF ops fe₀ fe p l)
+      Yields (checkBlockCtorsC mode fe₀ fe p l)
         (fun _ => ∀ ms ∈ l, ∀ c ∈ ms.ctors, fe.find? c.1.name = none)
   | [] => Yields.pure fun _ h => nomatch h
   | ms :: rest => by
-    unfold checkBlockCtorsF
-    refine Yields.bind' (checkSumCtorsF_fresh ops fe₀ fe ms.cvT.name p.lps p.nP ms.nIdx p.resSort
+    unfold checkBlockCtorsC
+    refine Yields.bind' (checkSumCtorsC_fresh mode fe₀ fe ms.cvT.name p.lps p.nP ms.nIdx p.resSort
       p.isProp p.large ms.cvT ms.ctors) fun _ hfr => ?_
-    refine (checkBlockCtorsF_fresh ops fe₀ fe p rest).mono ?_
+    refine (checkBlockCtorsC_fresh mode fe₀ fe p rest).mono ?_
     intro _ hfr' ms' hms' c hc
     rcases List.mem_cons.mp hms' with rfl | hms'
     · exact hfr c hc
@@ -400,32 +402,33 @@ theorem classRecTysOk_names (ops : CheckerOps CheckCM) (fe : FEnv) (g : ClassGen
 
 /-- Every recursor's generated rules: the generated constants kept, in
 order. -/
-theorem classRecsRulesOk_fst (ops : CheckerOps CheckCM) (w : StructWalkers) (feT feR : FEnv)
+theorem classRecsRulesOk_fst (ops : CheckerOps CheckCM) (feT feR : FEnv)
     (g : ClassGen) (recOf : Nat → Option Name) :
     ∀ (cvGs : List ConstantVal) (cs : List Nat), cvGs.length ≤ cs.length →
-      Yields (classRecsRulesOk ops w feT feR g recOf cvGs cs)
+      Yields (classRecsRulesOk ops feT feR g recOf cvGs cs)
         (fun out => out.map (·.1) = cvGs)
   | [], _, _ => by unfold classRecsRulesOk; exact Yields.pure rfl
   | _ :: _, [], h => by simp at h
   | cvG :: cvs, c :: cs, h => by
     unfold classRecsRulesOk
     refine Yields.bind fun _ => ?_
-    refine Yields.bind' (classRecsRulesOk_fst ops w feT feR g recOf cvs cs
+    refine Yields.bind' (classRecsRulesOk_fst ops feT feR g recOf cvs cs
       (by simpa using h)) fun xs hxs => ?_
     exact Yields.pure (by simp [hxs])
 
-/-- **The generated stage at the skeleton level**: one stored recursor
+/-- **The cached generated stage at the skeleton level**: one stored recursor
 per record, in order, under the record's name (fresh at the stage's
 index), the family's names distinct. -/
-theorem genRecCheck_names (so : ShadowOps CheckCM) (fe : FEnv)
+theorem genRecCheckC_names (mode : CheckMode) (fe : FEnv)
     (p : BlockShape) (nestedBit : Bool) (params : List Expr) (tbl : List NestCtorNf)
     (rd : ClassRead) (Ms₀ : List TargetMajor)
     (block : List ConstantInfo) :
-    Yields (genRecCheck so fe p nestedBit params tbl rd Ms₀ block)
+    Yields (genRecCheckC mode fe p nestedBit params tbl rd Ms₀ block)
       (fun out => (p.recs.map (·.cvR.name)).Nodup ∧ out.length = p.recs.length ∧
         ∀ (j : Nat) (rc : RecShape), p.recs[j]? = some rc →
           ∃ o, out[j]? = some o ∧ o.1.name = rc.cvR.name ∧ fe.find? rc.cvR.name = none) := by
-  unfold genRecCheck
+  unfold genRecCheckC
+  simp only [classRecTysOkC_eq, classRecsRulesOkC_eq]
   refine Yields.bind' (Q := fun _ => (p.recs.map (·.cvR.name)).Nodup) ?_ fun _ hnd => ?_
   · unfold targetRecPins
     dsimp only
@@ -463,7 +466,7 @@ theorem genRecCheck_names (so : ShadowOps CheckCM) (fe : FEnv)
   refine Yields.bind fun pre => ?_
   refine Yields.bind' (classRecTysOk_names _ fe _ p.k p.recs cvRis _) fun cvGs hG => ?_
   refine Yields.bind fun _ => ?_
-  refine Yields.bind' (classRecsRulesOk_fst _ _ fe _ _ _ cvGs _ (by omega))
+  refine Yields.bind' (classRecsRulesOk_fst _ fe _ _ _ cvGs _ (by omega))
     fun out hout => ?_
   refine Yields.bind fun _ => ?_
   refine Yields.pure ?_
@@ -496,7 +499,7 @@ theorem reduceMemberS_same (mode : CheckMode) (fe : FEnv) (ms : MemberShape) (nP
     · exact Yields.ofThrow
     refine Yields.bind fun _ => ?_
     refine Yields.bind' (Q := fun cvR => cvR.name = ms.cvT.name) ?_ fun cvR hc => ?_
-    · unfold reducedFormer
+    · unfold reducedFormerC
       refine Yields.bind fun _ => ?_
       exact Yields.pure rfl
     · refine Yields.bind fun _ => ?_
@@ -634,10 +637,11 @@ theorem checkQuotRecordC_pushes (fe : FEnv) (k : QuotKind) (cv : ConstantVal) :
 theorem checkBlockKS_pushes (mode : CheckMode) (fe : FEnv) (block : List ConstantInfo)
     (p : BlockShape) :
     Yields (checkBlockKS mode fe block p)
-      (· = FEnv.pushDelta (blockConstants p) (blockTables p p.members) fe) := by
+      (· = FEnv.pushDelta (blockConstants p) ((blockTables p p.members).getD []) fe) := by
   unfold checkBlockKS
-  yields
-  all_goals exact Yields.pure rfl
+  rw [blockTablesC_eq, blockConstantsC_eq]
+  cases blockTables p p.members <;> simp only [unwrapOr, Option.getD, pure_bind] <;> yields
+  all_goals first | exact Yields.pure rfl | exact Yields.ofThrow
 
 /-- **A declaration's own checks push what it installs**, at every mode. -/
 theorem checkDeclKindC_pushes (mode : CheckMode) (fe : FEnv) (pd : Declaration) :
@@ -718,13 +722,13 @@ theorem checkDeclStepC_pushes (mode : CheckMode) (fe : FEnv) (pd : Declaration) 
   ds.foldl (fun e pd => e.pushDelta (declConstants pd) (declTables pd)) env
 
 theorem declsRun_env (mode : CheckMode) {ds : List Declaration}
-    {p q : Nat × FEnv} (h : DeclsRun mode pins ds p q) :
+    {p q : Nat × FEnv} (h : DeclsRun mode pins maxNatSize ds p q) :
     q.2.env = streamEnv ds p.2.env := by
   induction h with
   | nil p => rfl
   | @cons pd ds p p₁ q hstep rest ih =>
     obtain ⟨fe₁, s₁, rfl, hstepC⟩ := declStep_ok hstep
-    have h₁ := checkDeclStepC_pushes (pins := pins) mode p.2 pd {} fe₁ s₁ hstepC
+    have h₁ := checkDeclStepC_pushes (pins := pins) mode p.2 pd _ fe₁ s₁ hstepC
     rw [ih]
     simp only at h₁
     rw [h₁, pushDelta_env]
@@ -732,13 +736,13 @@ theorem declsRun_env (mode : CheckMode) {ds : List Declaration}
 
 /-- **An accepted stream's environment is a function of the stream**, at every mode. -/
 theorem checkDecls_env {mode : CheckMode} {ds : Array Declaration} {env : Env}
-    (h : checkDecls mode pins ds = .ok env) : env = streamEnv ds.toList := by
+    (h : checkDecls mode pins maxNatSize ds = .ok env) : env = streamEnv ds.toList := by
   obtain ⟨n, fe, r, rfl⟩ := checkDecls_run mode h
   exact declsRun_env mode r
 
 /-- **Two modes that both accept a stream end in the same environment.** -/
 theorem checkDecls_agree {μ₁ μ₂ : CheckMode} {ds : Array Declaration} {env₁ env₂ : Env}
-    (h₁ : checkDecls μ₁ pins ds = .ok env₁) (h₂ : checkDecls μ₂ pins ds = .ok env₂) :
+    (h₁ : checkDecls μ₁ pins maxNatSize ds = .ok env₁) (h₂ : checkDecls μ₂ pins maxNatSize ds = .ok env₂) :
     env₁ = env₂ :=
   (checkDecls_env h₁).trans (checkDecls_env h₂).symm
 

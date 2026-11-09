@@ -1083,22 +1083,13 @@ theorem stageCtorGen {T : Name}
       mp'.base2.acval = acvalWith mp.base2.acval cvCa.name
         (fun ψ => sumMkAV (resSort.eval ψ) j (ds ψ) (((ds ψ).drop nP))
           (uChains (Fss ψ))) := by
+  have hwfC : ConLeche.EnvWF ⟨.ctorInfo cvCa nP nF :: env.consts, env.tables⟩ :=
+    hCtor.envWF_cons mp.base2.wf htr
   obtain ⟨⟨hty, hccv⟩, -, -⟩ := hCtor
-  obtain ⟨-, -, hlbt, hitf, -, -, htp, -, -, -⟩ :=
-    ConLeche.checkConstantVal_inv hccv
-  have htf' := hitf
-  have hbt' := hlbt
   have hCname : cvCa.name = cvC.name := by rw [hty]
   have hcb : ConstsBound env cvCa.type := constsBound_of_constsResolve _ htr
   have hTC : T ≠ cvCa.name := by
     intro h; rw [h, hfresh] at hfT; exact nomatch hfT
-  have hwfC : ConLeche.EnvWF ⟨.ctorInfo cvCa nP nF :: env.consts, env.tables⟩ := by
-    refine ConLeche.EnvWF.cons (ConLeche.checkConstantVal_litShapeAt (hty ▸ hccv) _ rfl) mp.base2.wf
-      (ConLeche.structConstWF ?_ ?_ (Expr.constsResolve_mono htr) ?_
-      (fun _ _ _ heq => nomatch heq) (fun _ _ _ _ _ heq => nomatch heq))
-    · show cvCa.type.hasFvar = false; rw [hty]; exact htf'
-    · show cvCa.type.allLevelParamsDefined cvCa.levelParams = true; rw [hty]; exact htp
-    · show cvCa.type.looseBVarsBounded 0 = true; rw [hty]; exact hbt'
   let Fs : (Name → Nat) → List Term := fun ψ => ((ds ψ).drop nP)
   let A : (Name → Nat) → Term :=
     fun ψ => sumMkAV (resSort.eval ψ) j (ds ψ) (Fs ψ) (uChains (Fss ψ))

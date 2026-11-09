@@ -35,27 +35,69 @@ namespace ConLeche.Rules
 
 variable {μ : CheckMode} {eager : Bool} {env : Env} {fuel : Nat}
 
-/-- **The λ-telescope comparison is `DefEqLams`** (`defeqLams_inv`,
-by induction on its descent budget): the innermost level is
-`DefEqLams.inner` (the opened bodies and their full-grade types), an
-outer level is `DefEqLams.outer` over the next level's run, and two
-syntactically equal bodies close by `DefEqLams.refl`. -/
-theorem defeqLams_bridge (hd : DefEqBridge .verified eager env fuel) (hi :
-    InferBridge .verified eager env fuel) :
-    ∀ (k : Nat) {d : Nat} {ty₁ bd₁ ty₂ bd₂ : Expr},
-      defeqLamsFueled .verified eager env fuel k d ty₁ bd₁ ty₂ bd₂ = .ok true →
-      DefEqLams env d (.lam ty₁ bd₁) (.lam ty₂ bd₂)
-  | k, d, ty₁, bd₁, ty₂, bd₂, h => by
-    obtain ⟨hdt, hrest⟩ := defeqLams_inv h
-    rcases hrest with ⟨k', ty₁', bd₁', ty₂', bd₂', rfl, h1, h2, heq | hk⟩ | hin
-    · refine .outer (hd hdt) ?_
-      rw [h1, h2, heq]
-      exact .refl
-    · refine .outer (hd hdt) ?_
-      rw [h1, h2]
-      exact defeqLams_bridge hd hi k' hk
-    · obtain ⟨hb, t₁, t₂, ht₁, ht₂, ht⟩ := defeqLamsInner_inv hin
-      exact .inner (hd hdt) (hd hb) (hi ht₁) (hi ht₂) (hd ht)
+/-- What a binder-telescope comparison establishes: `DefEq` for two
+∀-telescopes, `DefEqLams` for two λ-telescopes. -/
+@[expose] def BindersRel (env : Env) : Bool → Nat → Expr → Expr → Prop
+  | true, d, a, b => DefEqLams env d a b
+  | false, d, a, b => DefEq env d a b
+
+/-- A binder node, opened over a variable list, is the node of the
+opened parts (the body one cursor deeper). -/
+theorem binderOf_instantiateList (lam : Bool) (t b : Expr) (fvs : List Expr) :
+    (Expr.binderOf lam t b).instantiateList fvs =
+      Expr.binderOf lam (t.instantiateList fvs) (b.instantiateList fvs 1) := by
+  cases lam <;> simp [Expr.binderOf, Expr.instantiateList]
+
+/-- **The binder-telescope comparison is `DefEq.forallE` / `DefEqLams`**
+(`defeqBinders_inv`, by induction on its descent budget).  At a level
+opened over `fvs`, the bulk-opened body at the pushed variable list is
+the rules' one-binder opening of the body opened over `fvs`
+(`instantiateList_cons`): the innermost level is `DefEq.forallE` over
+the bodies' comparison, or `DefEqLams.inner` (the bodies and their
+full-grade types); an outer level is `DefEq.forallE` /
+`DefEqLams.outer` over the next level's run.  Syntactically equal raw
+domains are equal opened. -/
+theorem defeqBinders_bridge (hd : DefEqBridge .verified eager env fuel) (hi :
+    InferBridge .verified eager env fuel) (lam : Bool) :
+    ∀ (k : Nat) {d : Nat} {fvs : List Expr} {ty₁ bd₁ ty₂ bd₂ : Expr},
+      defeqBindersFueled .verified eager env fuel lam k d fvs ty₁ bd₁ ty₂ bd₂ = .ok true →
+      BindersRel env lam d ((Expr.binderOf lam ty₁ bd₁).instantiateList fvs)
+        ((Expr.binderOf lam ty₂ bd₂).instantiateList fvs)
+  | k, d, fvs, ty₁, bd₁, ty₂, bd₂, h => by
+    obtain ⟨hdom, hrest⟩ := defeqBinders_inv h
+    have hD : DefEq env d (ty₁.instantiateList fvs) (ty₂.instantiateList fvs) := by
+      rcases defeqDomain_inv hdom with rfl | h'
+      · exact .refl
+      · exact hd h'
+    have hopen : ∀ b : Expr,
+        (b.instantiateList fvs 1).instantiate1 (.fvar d (ty₂.instantiateList fvs)) 0 =
+          b.instantiateList (.fvar d (ty₂.instantiateList fvs) :: fvs) :=
+      fun b => (Expr.instantiateList_cons _ _ _ _).symm
+    rw [binderOf_instantiateList, binderOf_instantiateList]
+    rcases hrest with ⟨k', t₁', b₁', t₂', b₂', rfl, hp, hk⟩ | hin
+    · have ih := defeqBinders_bridge hd hi lam k' hk
+      obtain ⟨rfl, rfl⟩ := Expr.binderPair?_some hp
+      cases lam with
+      | false =>
+        refine DefEq.forallE hD ?_
+        rw [hopen, hopen]
+        exact ih
+      | true =>
+        refine DefEqLams.outer hD ?_
+        rw [hopen, hopen]
+        exact ih
+    · obtain ⟨hb, hty⟩ := defeqBindersInner_inv hin
+      cases lam with
+      | false =>
+        refine DefEq.forallE hD ?_
+        rw [hopen, hopen]
+        exact hd hb
+      | true =>
+        obtain ⟨t₁, t₂, ht₁, ht₂, ht⟩ := hty rfl
+        refine DefEqLams.inner hD ?_ ?_ ?_ (hd ht) <;> simp only [hopen]
+        · exact hd hb
+        · exact hi ht₁
+        · exact hi ht₂
 
 /-- The easy cases' exits are equations. -/
 theorem quickExit_bridge (hd : DefEqBridge .verified eager env fuel) (hi :
@@ -65,8 +107,12 @@ theorem quickExit_bridge (hd : DefEqBridge .verified eager env fuel) (hi :
   | refl => exact .refl
   | sort hle => exact .sort hle
   | lit => exact .refl
-  | forallE hdt hbd => exact .forallE (hd hdt) (hd hbd)
-  | lam hl => exact .lams (defeqLams_bridge hd hi _ hl)
+  | forallE hl =>
+    have h' := defeqBinders_bridge hd hi false _ hl
+    simpa [BindersRel, Expr.binderOf, Expr.instantiateList_nil] using h'
+  | lam hl =>
+    have h' := defeqBinders_bridge hd hi true _ hl
+    exact .lams (by simpa [BindersRel, Expr.binderOf, Expr.instantiateList_nil] using h')
 
 theorem quickDefEq_bridge (hd : DefEqBridge .verified eager env fuel) (hi :
     InferBridge .verified eager env fuel) {d : Nat} {a b : Expr}

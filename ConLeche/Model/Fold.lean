@@ -18,6 +18,7 @@ import ConLeche.Model.Swap
 import ConLeche.Semantics.DeclRun
 import ConLeche.Semantics.EnvFacts
 import ConLeche.Semantics.DeclEta
+import ConLeche.Semantics.DeclWF
 import ConLeche.Semantics.Inductives.DeclBlockEta
 import ConLeche.Verify.Abstract
 import ConLeche.Verify.Denote.EnvExt
@@ -63,7 +64,7 @@ def AxiomStepPB (V : Type w) [SetTheory V] : Prop :=
   ∀ {F : Nat} {env : Env} (mp : EnvModelM V env)
     {cv : ConstantVal} {env₂ : Env},
     DeclAxiomRun F env cv env₂ → ConLeche.basisNamesOk (.axiomDecl cv) = true →
-    CoverStep mp env₂
+    ConLeche.EnvWF env₂ → CoverStep mp env₂
 
 /-- **`AxiomStepPB`, discharged.**  All four `DeclAxiomRun` branches:
 the two standard axioms (`axiomStd`), `Lean.trustCompiler`
@@ -71,16 +72,16 @@ the two standard axioms (`axiomStd`), `Lean.trustCompiler`
 on the `ReduceOps` field), and the tolerated skip (`axiomSkip`, which
 stores nothing). -/
 theorem axiomStepPB_of : AxiomStepPB V := by
-  intro _F _env mp _cv _env₂ hR hb
+  intro _F _env mp _cv _env₂ hR hb hwf
   -- the `Quot.sound` arm is a quotient record
   rcases hR with ⟨-, hq⟩ | ⟨hqs, hR⟩
-  · exact declQuotPB_at mp hq
+  · exact declQuotPB_at mp hq hwf
   obtain ⟨type', hopn, hcv, hbranch⟩ := hR
   rcases hbranch with ⟨hok, rfl⟩ | ⟨hname, hok, rfl⟩ |
     ⟨hor, hok, rfl⟩ | ⟨-, -, -, -, -, -, -, rfl⟩
-  · exact axiomStd mp hopn hcv hok
-  · exact axiomTrustCompiler mp hopn hcv hname hok
-  · exact axiomOfReduce mp hopn hcv hor hok
+  · exact axiomStd mp hopn hcv hwf hok
+  · exact axiomTrustCompiler mp hopn hcv hwf hname hok
+  · exact axiomOfReduce mp hopn hcv hwf hor hok
   · exact axiomSkip mp
 
 /-! ## Coverage through the fold
@@ -293,6 +294,9 @@ theorem declStep_preserves
     (hrun : DeclRun F (ConLeche.Semantics.DeclIndRunDispatchK F env)
       env d env₂) :
     EnvModelOk V env₂ := by
+  -- the post-step environment is well formed: the model-free step (`declRun_envWF`), handed
+  -- down to every arm
+  have hwf₂ : ConLeche.EnvWF env₂ := ConLeche.Semantics.declRun_envWF mp.base2.wf hrun
   obtain ⟨hnames, hrun⟩ := hrun
   -- the η half: `declEtaStepRun`, model-free at every kind; at `.indDecl`
   -- through the dispatch's own case split
@@ -310,7 +314,7 @@ theorem declStep_preserves
     have hsh := hrun
     obtain ⟨type', value', hcv, -, henv2, -, -⟩ := hsh
     subst henv2
-    exact PlainStep.close (PlainStep.cons hnres) (harvestDefn mp hrun hnres) hcov hS hN
+    exact PlainStep.close (PlainStep.cons hnres) (harvestDefn mp hrun hwf₂ hnres) hcov hS hN
   | thmDecl cv value =>
     have hnres : ConLeche.reservedBasisNames.contains cv.name = false := by
       simpa [ConLeche.basisNamesOk] using hnames
@@ -318,17 +322,17 @@ theorem declStep_preserves
     -- the run record has no is-a-proposition derivation row
     obtain ⟨-, type', value', hcv, -, -, henv2⟩ := hsh
     subst henv2
-    exact PlainStep.close (PlainStep.cons hnres) (harvestThm mp hrun hnres) hcov hS hN
+    exact PlainStep.close (PlainStep.cons hnres) (harvestThm mp hrun hwf₂ hnres) hcov hS hN
   | opaqueDecl cv value =>
     have hnres : ConLeche.reservedBasisNames.contains cv.name = false := by
       simpa [ConLeche.basisNamesOk] using hnames
     have hsh := hrun
     obtain ⟨-, type', value', hcv, -, henv2, -⟩ := hsh
     subst henv2
-    exact PlainStep.close (PlainStep.cons hnres) (harvestOpaque mp hrun hnres) hcov hS hN
+    exact PlainStep.close (PlainStep.cons hnres) (harvestOpaque mp hrun hwf₂ hnres) hcov hS hN
   | axiomDecl cv =>
-    exact (plainStep_axiom hrun hnames).close (axiomStepPB_of mp hrun hnames) hcov hS hN
-  | quotDecl k cv => exact (plainStep_quot hrun).close (declQuotPB_at mp hrun) hcov hS hN
+    exact (plainStep_axiom hrun hnames).close (axiomStepPB_of mp hrun hnames hwf₂) hcov hS hN
+  | quotDecl k cv => exact (plainStep_quot hrun).close (declQuotPB_at mp hrun hwf₂) hcov hS hN
   | indDecl block nP =>
     have hrun' : ConLeche.Semantics.DeclIndRunDispatchK F env block nP env₂ := hrun
     unfold ConLeche.Semantics.DeclIndRunDispatchK at hrun'
@@ -350,7 +354,7 @@ theorem declStep_preserves
           simp at hm
         have hinst := basisInstallRun_of_block hk hok hdf hrun'
         obtain ⟨hc, htb⟩ := basisInstallRun_consts hinst
-        exact ⟨(declBasisPB_at mp hnq hok hinst).covered hcov hS (findTable_of_added hc htb),
+        exact ⟨(declBasisPB_at mp hnq hok hinst hwf₂).covered hcov hS (findTable_of_added hc htb),
           natFacts_basis hN hk hinst⟩
       | none =>
         -- the uniform install, at any number of members, nested blocks included

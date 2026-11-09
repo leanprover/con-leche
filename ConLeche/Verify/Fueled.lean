@@ -550,19 +550,25 @@ theorem reduceProjCore_atF (d : Nat) (sn : Name) (i : Nat) (e : Expr) (F : Nat) 
   unfold reduceProjCore
   atF_core3 (rw [projLitToCtor_atF])
 
-theorem defeqLamsInner_atF (d : Nat) (b₁ b₂ : Expr) (F : Nat) :
-    (defeqLamsInner mi (fueledFns mode eager env) d b₁ b₂).val F =
-      defeqLamsInner mi (pureFns mode eager env F) d b₁ b₂ := by
-  unfold defeqLamsInner
+theorem defeqBindersInner_atF (lam : Bool) (d : Nat) (b₁ b₂ : Expr) (F : Nat) :
+    (defeqBindersInner mi (fueledFns mode eager env) lam d b₁ b₂).val F =
+      defeqBindersInner mi (pureFns mode eager env F) lam d b₁ b₂ := by
+  unfold defeqBindersInner
   atF_tac
 
-theorem defeqLams_atF (F : Nat) :
-    ∀ (k d : Nat) (ty₁ body₁ ty₂ body₂ : Expr),
-      (defeqLams mi (fueledFns mode eager env) k d ty₁ body₁ ty₂ body₂).val F =
-        defeqLams mi (pureFns mode eager env F) k d ty₁ body₁ ty₂ body₂
-  | k, d, ty₁, body₁, ty₂, body₂ => by
-    rw [defeqLams.eq_def, defeqLams.eq_def]
-    rw [FueledM.atF_bind]
+theorem defeqDomain_atF (d : Nat) (fvs : List Expr) (ty₁ ty₂ dom₂ : Expr) (F : Nat) :
+    (defeqDomain (fueledFns mode eager env) d fvs ty₁ ty₂ dom₂).val F =
+      defeqDomain (pureFns mode eager env F) d fvs ty₁ ty₂ dom₂ := by
+  unfold defeqDomain
+  atF_tac
+
+theorem defeqBinders_atF (lam : Bool) (F : Nat) :
+    ∀ (k d : Nat) (fvs : List Expr) (ty₁ body₁ ty₂ body₂ : Expr),
+      (defeqBinders mi (fueledFns mode eager env) lam k d fvs ty₁ body₁ ty₂ body₂).val F =
+        defeqBinders mi (pureFns mode eager env F) lam k d fvs ty₁ body₁ ty₂ body₂
+  | k, d, fvs, ty₁, body₁, ty₂, body₂ => by
+    rw [defeqBinders.eq_def, defeqBinders.eq_def]
+    rw [FueledM.atF_bind, defeqDomain_atF]
     congr 1
     funext ok
     cases ok with
@@ -570,16 +576,14 @@ theorem defeqLams_atF (F : Nat) :
     | true =>
       simp only [↓reduceIte]
       split
-      · split
-        · rfl
-        · exact defeqLams_atF F _ (d + 1) _ _ _ _
-      · exact defeqLamsInner_atF d _ _ F
+      · exact defeqBinders_atF lam F _ (d + 1) _ _ _ _ _
+      · exact defeqBindersInner_atF lam d _ _ F
 
 theorem quickDefEq_atF (d : Nat) (a b : Expr) (F : Nat) :
     (quickDefEq mi (fueledFns mode eager env) d a b).val F =
       quickDefEq mi (pureFns mode eager env F) d a b := by
   unfold quickDefEq
-  atF_core3 (rw [defeqLams_atF])
+  atF_core3 (rw [defeqBinders_atF])
 
 theorem defeqOffset_atF (d : Nat) (a b : Expr) (F : Nat) :
     (defeqOffset (fueledFns mode eager env) d a b).val F =

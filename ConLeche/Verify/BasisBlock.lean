@@ -129,7 +129,7 @@ theorem listBeqBy_pinCopyOk_dropCaps :
 
 theorem emptyBlock_install {nP : Nat} {block : List ConstantInfo} {p : BlockShape}
     (hok : listBeqBy pinCopyOk block emptyBasis = true) (hp : readBlock nP block = .ok p) :
-    blockConstants p = BasisKind.emptyK.storedAt block ∧ blockTables p p.members = [] := by
+    blockConstants p = BasisKind.emptyK.storedAt block ∧ blockTables p p.members = some [] := by
   have hd := listBeqBy_pinCopyOk_dropCaps hok fun pin hpin => by
     simp only [emptyBasis, List.mem_cons, List.not_mem_nil, or_false] at hpin
     rcases hpin with rfl | rfl <;> rfl
@@ -166,7 +166,7 @@ theorem emptyBlock_install {nP : Nat} {block : List ConstantInfo} {p : BlockShap
 
 theorem falseBlock_install {nP : Nat} {block : List ConstantInfo} {p : BlockShape}
     (hok : listBeqBy pinCopyOk block falseBasis = true) (hp : readBlock nP block = .ok p) :
-    blockConstants p = BasisKind.falseK.storedAt block ∧ blockTables p p.members = [] := by
+    blockConstants p = BasisKind.falseK.storedAt block ∧ blockTables p p.members = some [] := by
   have hd := listBeqBy_pinCopyOk_dropCaps hok fun pin hpin => by
     simp only [falseBasis, List.mem_cons, List.not_mem_nil, or_false] at hpin
     rcases hpin with rfl | rfl <;> rfl
@@ -203,7 +203,7 @@ theorem falseBlock_install {nP : Nat} {block : List ConstantInfo} {p : BlockShap
 
 theorem eqBlock_install {nP : Nat} {block : List ConstantInfo} {p : BlockShape}
     (hok : listBeqBy pinCopyOk block eqBasis = true) (hp : readBlock nP block = .ok p) :
-    blockConstants p = BasisKind.eqK.storedAt block ∧ blockTables p p.members = [] := by
+    blockConstants p = BasisKind.eqK.storedAt block ∧ blockTables p p.members = some [] := by
   have hd := listBeqBy_pinCopyOk_dropCaps hok fun pin hpin => by
     simp only [eqBasis, List.mem_cons, List.not_mem_nil, or_false] at hpin
     rcases hpin with rfl | rfl | rfl <;> rfl
@@ -255,7 +255,7 @@ theorem eqBlock_install {nP : Nat} {block : List ConstantInfo} {p : BlockShape}
 
 theorem natBlock_install {nP : Nat} {block : List ConstantInfo} {p : BlockShape}
     (hok : listBeqBy pinCopyOk block natBasis = true) (hp : readBlock nP block = .ok p) :
-    blockConstants p = BasisKind.natK.storedAt block ∧ blockTables p p.members = [] := by
+    blockConstants p = BasisKind.natK.storedAt block ∧ blockTables p p.members = some [] := by
   have hd := listBeqBy_pinCopyOk_dropCaps hok fun pin hpin => by
     simp only [natBasis, List.mem_cons, List.not_mem_nil, or_false] at hpin
     rcases hpin with rfl | rfl | rfl | rfl <;> rfl
@@ -304,7 +304,7 @@ table. -/
 theorem blockInstall_pinned {nP : Nat} {block : List ConstantInfo} {kind : BasisKind}
     {p : BlockShape} (hk : basisNameHit block = some kind) (hok : pinListOk block kind.decls = true)
     (hp : readBlock nP block = .ok p) :
-    blockConstants p = kind.storedAt block ∧ blockTables p p.members = [] := by
+    blockConstants p = kind.storedAt block ∧ blockTables p p.members = some [] := by
   simp only [pinListOk, Bool.and_eq_true] at hok
   cases kind with
   | eqK => exact eqBlock_install hok.1 hp

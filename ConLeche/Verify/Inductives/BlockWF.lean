@@ -96,13 +96,18 @@ theorem MemberAt.declaredWF {F : Nat} {env : Env} {nP : Nat} {m : MemberShape}
   · obtain ⟨g1, g2, g3, g4⟩ := checkConstantVal_typeWF hc
     exact .inr ⟨g1, g2, g3, g4, checkConstantVal_litShapeAt hc⟩
 
-/-- **Stage 1 at the run level**: the environment holding the k formers
-is well-formed, and every checked former's type is closed. -/
-theorem direct_block_inds_wf {env envI : Env} (henv : EnvWF env)
+/-- **What the formers' stage checked of each declared former**: closed, its level parameters
+declared, resolving at the block's environment, bounded, at a literal's shape; and every former
+the check read is closed. -/
+theorem checkBlockInds_declaredFacts {env envI : Env}
     {p : BlockShape} {isRec : Bool} {p₁ : BlockShape} {F : Nat}
     (hdecl : ∀ ms ∈ p.members, MemberDeclaredWF env ms)
     (h : checkBlockInds (fueledOps mode F) env p isRec = .ok (envI, p₁)) :
-    EnvWF envI ∧ ∀ cvTa ∈ p.formers, cvTa.type.hasFvar = false := by
+    (∀ cv ∈ p.members.map (·.declared), cv.type.hasFvar = false ∧
+      cv.type.allLevelParamsDefined cv.levelParams = true ∧
+      cv.type.constsResolve env = true ∧
+      cv.type.looseBVarsBounded 0 = true ∧ LitShapeAt cv) ∧
+    ∀ cvTa ∈ p.formers, cvTa.type.hasFvar = false := by
   obtain ⟨ms0, rest, cvTa0, s0, cvs, hm, rfl, rfl, hq, hcvs, -⟩ :=
     checkBlockInds_shape h
   have key : ∀ cvTa ∈ p.formers,
@@ -135,12 +140,37 @@ theorem direct_block_inds_wf {env envI : Env} (henv : EnvWF env)
       obtain ⟨q', hq'', hte⟩ := hall i rest[i] (List.getElem?_eq_getElem hil)
       obtain rfl := Option.some.inj (hi.symm.trans hq'')
       exact step rest[i] q.2 hte
-  refine ⟨envWF_consBlockInds henv fun cv hcv => ?_, fun cvTa hcv => (key cvTa hcv).1⟩
+  refine ⟨fun cv hcv => ?_, fun cvTa hcv => (key cvTa hcv).1⟩
   obtain ⟨ms, hms, rfl⟩ := List.mem_map.mp hcv
   rcases hdecl ms hms with he | hw
   · rw [he]
     exact key _ (List.mem_map_of_mem hms)
   · exact hw
+
+/-- **One former's cons, at the formers' stage**: a declared former the stage checked keeps any
+well-formed environment its type resolves at well formed (the stage's step). -/
+theorem checkBlockInds_cons_envWF {env envI : Env}
+    {p : BlockShape} {isRec : Bool} {p₁ : BlockShape} {F : Nat}
+    (hdecl : ∀ ms ∈ p.members, MemberDeclaredWF env ms)
+    (h : checkBlockInds (fueledOps mode F) env p isRec = .ok (envI, p₁))
+    {j : Nat} {cvS : ConstantVal} (hj : (p.members.map (·.declared))[j]? = some cvS)
+    {env' : Env} (henv : EnvWF env') (hres : cvS.type.constsResolve env' = true) :
+    EnvWF ⟨.indInfo cvS (blockCapsAt p₁ j isRec) :: env'.consts, env'.tables⟩ := by
+  obtain ⟨h1, h2, -, h4, h5⟩ :=
+    (checkBlockInds_declaredFacts hdecl h).1 cvS (List.mem_of_getElem? hj)
+  exact envWF_cons_blockInd henv h1 h2 hres h4 h5
+
+/-- **Stage 1 at the run level**: the environment holding the k formers
+is well-formed, and every checked former's type is closed. -/
+theorem direct_block_inds_wf {env envI : Env} (henv : EnvWF env)
+    {p : BlockShape} {isRec : Bool} {p₁ : BlockShape} {F : Nat}
+    (hdecl : ∀ ms ∈ p.members, MemberDeclaredWF env ms)
+    (h : checkBlockInds (fueledOps mode F) env p isRec = .ok (envI, p₁)) :
+    EnvWF envI ∧ ∀ cvTa ∈ p.formers, cvTa.type.hasFvar = false := by
+  obtain ⟨hfacts, hclosed⟩ := checkBlockInds_declaredFacts hdecl h
+  obtain ⟨-, -, -, -, -, -, -, hcons, -, -, -⟩ := checkBlockInds_shape h
+  rw [hcons]
+  exact ⟨envWF_consBlockInds henv hfacts, hclosed⟩
 
 /-! ## Stage 1b: the constructors consed, member by member -/
 

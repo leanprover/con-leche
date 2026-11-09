@@ -576,78 +576,6 @@ section Base
 
 variable {env env' : Env}
 
-theorem constWF_ren (m : EnvModel V env) (h : RenEnv env env') {c' : ConstantInfo}
-    (hc : c' ∈ env'.consts) : ConstWF env' c' := by
-  obtain ⟨c, hcm, hr⟩ := h.mem hc
-  have hwf := m.wf.consts c hcm
-  have hres : (fun e : Expr => e.constsResolve env') = fun e => e.constsResolve env :=
-    funext h.constsResolve
-  rcases hr with rfl | ⟨hrs, h1, h2⟩
-  · unfold ConstWF at hwf ⊢
-    simp only [h.constsResolve]
-    exact hwf
-  · have hshape := (pinnedInfo_wf hrs).2
-    have hdef := hwf.2.1
-    have hty := PinCopy.type_eq h1 h2 (pinnedInfo_wf hrs).1
-    have hlen : c.toConstantVal.levelParams.length = c'.toConstantVal.levelParams.length := by
-      rw [h1.2.2, h2.2.2]
-    refine ⟨?_, ?_, ?_, ?_, ?_, ?_⟩
-    · rw [hty, Expr.hasFvar_instantiateLevelParams]; exact hwf.1
-    · rw [hty]; exact expr_defined_ren hlen _ hdef
-    · rw [hty, Expr.constsResolve_instantiateLevelParams, h.constsResolve]; exact hwf.2.2.1
-    · rw [hty, Expr.looseBVarsBounded_instantiateLevelParams]; exact hwf.2.2.2.1
-    · intro cv v hint he
-      exact absurd he (h2.not_defn hshape cv v hint)
-    · intro cv' mI rP isK rules' he
-      subst he
-      -- the old side is a recursor as well
-      cases c with
-      | recInfo cv mI0 rP0 isK0 rules =>
-        obtain ⟨cv₂, rules₂, he, hrl⟩ := h1.recr h2 hshape
-        injection he with e0 e1 e2 e3 e4
-        subst e0; subst e1; subst e2; subst e3; subst e4
-        intro r' hr'
-        obtain ⟨rl, hrl0, -, -, hfire, hrhs⟩ := hrl r' hr'
-        obtain ⟨g1, g2, g3, g4, -⟩ := hwf.2.2.2.2.2 cv mI rP isK rules rfl rl hrl0
-        refine ⟨?_, ?_, ?_, ?_, ?_⟩
-        · rw [hrhs, Expr.hasFvar_instantiateLevelParams]; exact g1
-        · rw [hrhs]; exact expr_defined_ren hlen _ g2
-        · rw [hrhs, Expr.constsResolve_instantiateLevelParams, h.constsResolve]; exact g3
-        · rw [hrhs, Expr.looseBVarsBounded_instantiateLevelParams]; exact g4
-        · intro lvls pins hn
-          rcases hfire with ⟨h₁, -⟩ | ⟨ls, -, h₁, -⟩ <;> · rw [h₁] at hn; exact nomatch hn
-      | _ => exact nomatch h1.kind.trans h2.kind.symm
-
-/-- A copy of a pin keeps the pin's shape: a pin at a literal's name has no level parameters. -/
-theorem litShapeOk_pinCopy {n : Name} (hres : reservedBasisNames.contains n = true) {c : ConstantInfo}
-    (h : PinCopy c (pinnedInfo n)) : litShapeOk c = true := by
-  have hn : c.name = n := (PinCopy.name h).trans (pinnedInfo_name hres)
-  have hmem : n ∈ reservedBasisNames := by simpa using hres
-  simp only [reservedBasisNames, List.mem_cons, List.not_mem_nil, or_false] at hmem
-  rcases hmem with rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl |
-    rfl | rfl | rfl
-  all_goals first
-    | exact litShapeOk_of_not_lit (by rw [hn]; decide)
-    | (have hl : c.toConstantVal.levelParams = [] := List.eq_nil_of_length_eq_zero h.2.2
-       have he := h.1
-       rw [hl] at he
-       rw [he]
-       decide)
-
-theorem envWF_ren (m : EnvModel V env) (h : RenEnv env env') : EnvWF env' where
-  consts := fun _ hc => constWF_ren m h hc
-  shapes := fun c' hc => by
-    obtain ⟨c, hcm, hr⟩ := h.mem hc
-    rcases hr with rfl | ⟨hrs, -, h2⟩
-    · exact m.wf.shapes _ hcm
-    · exact litShapeOk_pinCopy hrs h2
-  tables := fun t ht => by
-    rw [h.tables] at ht
-    obtain ⟨h1, h2, h3⟩ := m.wf.tables t ht
-    refine ⟨by rw [h.isSome]; exact h1, h2, fun i b hb => ?_⟩
-    obtain ⟨g1, g2, g3, g4⟩ := h3 i b hb
-    exact ⟨g1, g2, by rw [h.constsResolve]; exact g3, g4⟩
-
 theorem projOk_ren (m : EnvModel V env) (h : RenEnv env env') : ProjOkT env' := by
   intro T tbl hf i hi
   rw [h.findTable] at hf
@@ -734,10 +662,10 @@ theorem basisPinned_ren (m : EnvModel V env) (h : RenEnv env env')
         rw [List.length_map, hl']
 
 /-- **The carrier at the new names.** -/
-@[expose] def EnvModel.rename (m : EnvModel V env) (h : RenEnv env env')
+@[expose] def EnvModel.rename (m : EnvModel V env) (h : RenEnv env env') (hwf : EnvWF env')
     (hlink : ∀ n ci, env'.find? n = some ci → reservedBasisNames.contains n = true →
       PinLinked env' n ci) : EnvModel V env' where
-  wf := envWF_ren m h
+  wf := hwf
   acval := renAcval m.acval env env'
   cval_closed := fun n _ => m.cval_closed n _
   basis_pinned := basisPinned_ren m h hlink
@@ -782,7 +710,7 @@ theorem natOpTyPinned_ren (h : RenEnv env env') {c : Name} {ty : Expr}
 /-- **The transport**: an invariant of `env` is one of `env'`, at the renamed
 valuation, given what the renaming leaves stable and the recorded blocks'
 clauses at the new side. -/
-theorem EnvModelM.renameCore (mp : EnvModelM V env) (h : RenEnv env env')
+theorem EnvModelM.renameCore (mp : EnvModelM V env) (h : RenEnv env env') (hwf : EnvWF env')
     (hmem : ∀ c' ∈ env'.consts, ∃ c ∈ env.consts,
       (c' = c ∧ env'.find? c.name = env.find? c.name) ∨
       (env.find? c.name = some c ∧ env'.find? c.name = some c' ∧
@@ -806,7 +734,7 @@ theorem EnvModelM.renameCore (mp : EnvModelM V env) (h : RenEnv env env')
   have hde : ∀ (φ : Name → Nat) (d : Nat) (e : Expr),
       denote (renAcval mp.base2.acval env env') env' φ d e = denote mp.base2.acval env φ d e :=
     fun φ d e => denote_ren h hparams φ d e
-  let m' := mp.base2.rename h hlink
+  let m' := mp.base2.rename h hwf hlink
   have hac : m'.acval = renAcval mp.base2.acval env env' := rfl
   have hsame : ∀ {n : Name}, env'.find? n = env.find? n → m'.acval n = mp.base2.acval n :=
     fun he => renAcval_same he

@@ -531,6 +531,16 @@ theorem EnvWF.pushTable {env : Env} {t : ProjTable} (henv : EnvWF env)
     · exact ht.of_find (Env.find?_pushTable env _)
     · exact (henv.tables t' hmem).of_find (Env.find?_pushTable env t)⟩
 
+/-- **Tables pushed onto a well-formed environment, each well formed there, keep it well
+formed**: a table install changes no lookup. -/
+theorem EnvWF.pushTables {env : Env} (henv : EnvWF env) {Q : List ProjTable}
+    (hQ : ∀ t ∈ Q, TableWF env t) : EnvWF ⟨env.consts, Q ++ env.tables⟩ := by
+  have hf : Env.find? ⟨env.consts, Q ++ env.tables⟩ = env.find? := rfl
+  refine ⟨fun c hc => (henv.consts c hc).of_find hf, henv.shapes, fun t ht => ?_⟩
+  rcases List.mem_append.mp ht with ht | ht
+  · exact (hQ t ht).of_find hf
+  · exact (henv.tables t ht).of_find hf
+
 /-- The kernel's name-list distinctness check is `List.Nodup`'s. -/
 theorem nodup_of_nameNodup : ∀ {ns : List Name}, ConLeche.Name.nodup ns = true → ns.Nodup
   | [], _ => List.nodup_nil

@@ -1428,6 +1428,7 @@ theorem blockRecBareModel_run {envC : Env}
     (hB fun r hr =>
       ⟨(hfacts r hr).1, (hfacts r hr).2.1, (hfacts r hr).2.2.1, (hfacts r hr).2.2.2.1,
         ConLeche.litShapeAt_of_reservedRec (ConLeche.recStage_reserved h r hr)⟩)
+    (hB fun r hr m' _ henv hres => ConLeche.recStage_bareCons_envWF h hr m' henv hres)
     (fun n hne => blockRecAcv_of_notin (fun r hr => hne (r.1, r.2.2.1)
       (List.mem_map.mpr ⟨r, hr, rfl⟩)))
     (hB fun r hr => (hL r hr).1)

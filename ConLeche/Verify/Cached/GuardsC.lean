@@ -794,6 +794,7 @@ theorem etaCtorShapeC_spec' {env : Env} {e : Expr} {ex : Expr}
     etaCtorShapeC (mkFEnv env) e = etaCtorShape env ex := by
   subst h
   unfold etaCtorShapeC etaCtorShape
+  rw [Expr.getAppArgsC_spec]
   generalize Expr.getAppFn e = f
   cases f <;> simp only [mkFEnv_find?] <;> first
     | rfl

@@ -34,7 +34,7 @@ def jobsVerdict (ds : Array Declaration) : Option (CheckError × Nat) :=
   let I := buildIndex ds
   (List.range ds.size).findSome? fun k =>
     if hk : k < ds.size then
-      match recordJob .verified natOpPinSets I k ds[k] with
+      match recordJob .verified natOpPinSets maxNatSizeDefault I k ds[k] with
       | .ok () => none
       | .error e => some (e, k)
     else none
@@ -51,7 +51,7 @@ def sameAccept (path : System.FilePath) : IO Unit := do
   let ds ← prepared path
   if let some (e, k) := jobsVerdict ds then
     throw <| IO.userError s!"{path}: job {k} fails: {e}"
-  match checkDecls .verified natOpPinSets ds with
+  match checkDecls .verified natOpPinSets maxNatSizeDefault ds with
   | .ok env =>
     let s := streamEnv ds.toList
     unless env.consts == s.consts && env.tables == s.tables do
@@ -62,7 +62,7 @@ def sameAccept (path : System.FilePath) : IO Unit := do
 the fold. -/
 def sameReject (path : System.FilePath) : IO Unit := do
   let ds ← prepared path
-  match jobsVerdict ds, checkDecls .verified natOpPinSets ds with
+  match jobsVerdict ds, checkDecls .verified natOpPinSets maxNatSizeDefault ds with
   | some (.invalid _, p), .error (.invalid _, q) =>
     unless p == q do throw <| IO.userError s!"{path}: rejected at {p}, the fold at {q}"
   | _, _ => throw <| IO.userError s!"{path}: not both rejected as invalid"
@@ -109,7 +109,7 @@ def natopForeignDeclines (path : System.FilePath) : IO Unit := do
   let ds ← prepared path
   let some k := ds.findIdx? (fun d => declCLabel d == "def Nat.gcd")
     | throw <| IO.userError s!"{path}: no record Nat.gcd"
-  match recordJob .verified natOpPinSets (buildIndex ds) k ds[k]! with
+  match recordJob .verified natOpPinSets maxNatSizeDefault (buildIndex ds) k ds[k]! with
   | .error (.notImplemented m) =>
     unless (m.splitOn "a type pin").length > 1 do
       throw <| IO.userError s!"{path}: another decline: {m}"
