@@ -111504,6 +111504,13 @@ the walk is then dominated by freeing its memo).  The opener, `openPisAtFvarsGoC
 master and 30 % of the lane's shorter run, the same ≈ 100 M: every sample of it lies under
 `checkProjRowsI`, the core's projection guard, which this lane does not touch.
 
-**Gates.**  `lake build`, `lake test` warning-free; `tests/arena.sh` (below); the link gates
-repointed (moved lines only); two `public import`s kept against the plan script's census,
-measured, in its fallback list.
+**After merging L4** (master ffe82da8f; its numbers from L4's record → the merged tree, one run
+each): init-full 374.538 → 374.222 G (−0.08 %), grind-ring-5 13.115 → 13.096 G,
+`BvStruct` − `Empty` 2.087 → 1.628 G (−22 %; `BvStruct` 430.792 G, `Empty` 429.164 G),
+`prop_struct_proj_wide` 427.1 → 271.1 M (−36.5 %).  Deduplicated in the merge: L4's
+`familyTelescopeC` (its equation in `WalkersC`), `Expr.instPisWithC` and the openers' equations
+at the end of `IndWalksC` (`hasLooseBVarBC_spec` beside them).  The reach gate at 661.
+
+**Gates** (the merged tree).  `lake build`, `lake test` warning-free; `tests/arena.sh` passes;
+the link gates repointed (moved lines only); two `public import`s kept against the plan
+script's census, measured, in its fallback list.
