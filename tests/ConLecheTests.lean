@@ -18,6 +18,7 @@ import ConLecheTests.StreamTests
 import ConLecheTests.RoundsTests
 import ConLecheTests.CheckerIOTests
 import ConLecheTests.DisplayTests
+import ConLecheTests.ScheduleTests
 import ConLecheTests.JobsTests
 import ConLecheTests.ModularTests
 import ConLecheTests.RefineTests

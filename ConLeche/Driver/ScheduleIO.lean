@@ -38,7 +38,10 @@ it plain `IO`:
   plans against a lower **planning budget** (`planOf`), so that growth admission could not foresee
   lands in the gap instead of causing a kill.  The gap is learned in the run: a **surprise** is how
   far the running workers' current sets ended above what admission had reserved for them when it
-  last started one (the largest over the ticks until the next start; `epMax`, `surprises`); the
+  last started one, the worker furthest above its own reservation left out (`surpriseOf`: one
+  worker outgrowing its reservation is for protection, the kills and the known sizes; the margin
+  is for several at once), the largest over the ticks until the next start (`epMax`,
+  `surprises`); the
   margin is the larger of 10 % of the limit and the 99th percentile of the last 200 surprises
   (`surpriseWindow`, the nonzero ones), and the planning budget the limit minus the margin, at
   least half the limit.
@@ -443,9 +446,7 @@ will run again, and it would pull the mean below the modules that finish).  The 
 line (the third field; old two-field lines have none) is summed for the mean module time, and with
 the `<at>` (fifth field) of each run's last line gives the previous runs' average of running
 workers. -/
-def readLog (parse : String → Option Name) (p : System.FilePath) : IO Logged := do
-  if !(← p.pathExists) then return {}
-  let s ← IO.FS.readFile p
+def parseLog (parse : String → Option Name) (s : String) : Logged :=
   -- the fold's state: the log so far, the closed runs' span, the open run's last `at`
   let (lg, span, lastAt) := (s.splitOn "\n").foldl (fun (lg, span, lastAt) l =>
     match l.splitOn "\t" with
@@ -464,17 +465,23 @@ def readLog (parse : String → Option Name) (p : System.FilePath) : IO Logged :
           | none => (lg, span, lastAt)
     | _ => (lg, span, lastAt)) (({} : Logged), 0, 0)
   let span := span + lastAt
-  return { lg with workers := if span = 0 then 0 else lg.msSum * 1000 / span }
+  { lg with workers := if span = 0 then 0 else lg.msSum * 1000 / span }
+
+/-- `parseLog` of the log file `p`, nothing where there is none. -/
+def readLog (parse : String → Option Name) (p : System.FilePath) : IO Logged := do
+  if !(← p.pathExists) then return {}
+  return parseLog parse (← IO.FS.readFile p)
 
 /-- **The estimate** (ms) of the time left: `remaining × mean ÷ workers`, the mean module time
 `(logged sum + this run's sum) ÷ (logged count + this run's count)` over every finished module with
 a known time, `workers` the average number of running workers (in thousandths): this run's
 (`runMs ÷ wall`) once the run has lasted a minute and the average is at least 1, else the previous
-runs' (`logged`), else `jobs`.  `none` where no module has a known time. -/
+runs' (`logged`, also where it is below 1: a memory-bound run averages fewer than one worker), else
+`jobs`.  `none` where no module has a known time. -/
 def etaMs (remaining sum n runMs wall logged jobs : Nat) : Option Nat :=
   if n = 0 then none else
   let w := if wall ≥ 60000 && runMs * 1000 / wall ≥ 1000 then runMs * 1000 / wall
-    else if logged ≥ 1000 then logged else jobs * 1000
+    else if logged > 0 then logged else jobs * 1000
   some (remaining * sum * 1000 / n / w)
 
 /-- A finished worker of this run: its wall time (ms), its peak (KiB). -/
@@ -528,7 +535,7 @@ structure St where
   /-- what admission had reserved for each running worker (KiB) when it last started one -/
   resv : Std.HashMap Name Nat := {}
   /-- the largest surprise since the last start, KiB: the running workers' current sets minus
-  `resv` of them -/
+  `resv` of them, the one furthest above its own left out (`surpriseOf`) -/
   epMax : Nat := 0
   /-- the last `surpriseWindow` nonzero surprises, KiB, one per stretch between two starts -/
   surprises : Array Nat := #[]
@@ -582,6 +589,19 @@ def pushPeak (peaks : Array Nat) (typ pk : Nat) : Array Nat × Nat :=
 the largest of all kept the planning budget at its floor for long after one big module). -/
 def surpriseWindow : Nat := 200
 def surpriseQ : Nat := 99
+
+/-- **A surprise** (KiB) of the running workers, each given as (its current set, what admission
+reserved for it at the last start): how far their current sets sum above their reservations,
+leaving out the one worker that is furthest above its own (at least 0).  One worker outgrowing
+its reservation is what protection, the kills, the known sizes and the growth gate handle; the
+margin is for several outgrowing theirs at once.  (With that worker counted, one module of 35 GiB
+counted at a typical peak of 2.8 GiB was a surprise of most of the limit, and the planning
+budget sat at its floor while the rest of the memory and most of the cores stayed unused.) -/
+def surpriseOf (ws : List (Nat × Nat)) : Nat :=
+  let cur := ws.foldl (· + ·.1) 0
+  let res := ws.foldl (· + ·.2) 0
+  let top := ws.foldl (fun a (k, v) => max a (k - v)) 0
+  cur - (res + top)
 
 /-- **The planning budget** (KiB) under the hard limit `hard`: `hard - margin`, the margin the
 larger of 10 % of `hard` and the `surpriseQ` percentile of the recent `surprises`, the result at
@@ -831,11 +851,12 @@ def run (parse : String → Option Name) (app : System.FilePath) (args : Name �
           ended := ended.push (r, "timeout")
         else still := still.push r
     st := { st with running := still, mem := sample still, effPk := eff st still }
-    -- the surprise: how far the current sets are above what admission reserved at its last start
+    -- the surprise: how far the current sets are above what admission reserved at its last
+    -- start, the worker furthest above its own left out (`surpriseOf`)
     if o.memory > 0 then
-      if let some (t, _, _) := st.mem then
-        let r := st.running.foldl (fun a w => a + st.resv.getD w.m 0) 0
-        st := { st with epMax := max st.epMax (t - min t r) }
+      if let some l := rss then
+        let ws := st.running.toList.map fun w => ((look l w).1, st.resv.getD w.m 0)
+        st := { st with epMax := max st.epMax (surpriseOf ws) }
     -- the protected worker finished: starts resume
     let mut resumed : Option Name := none
     if let some p := st.prot then

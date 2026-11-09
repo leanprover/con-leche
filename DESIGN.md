@@ -115747,3 +115747,95 @@ Gates: `lake build`, `lake test` warning-free (usage width); trust surface (chec
 modules, process fence ScheduleIO alone, unchanged); layering; shake; olean gate 332/332 under the
 guard (no pinned output changed: the pinned last line has 0 running); overview links (README's two
 `runArgs` links repointed, the usage grew by two lines); quote gate; no-local-paths.
+
+## TASK #545 — the margin leaves the largest surprise out; the 7302-day estimate explained (2026-11-09, agent/545-margin)
+
+`Driver/ScheduleIO.lean` (plain IO, outside every theorem), `scripts/schedsim.py`, OVERVIEW, a test
+file `tests/ConLecheTests/ScheduleTests.lean`.  Trigger: the maintainer's CFSG run (239 685
+modules, `--schedule-memory=45G`, resumed); his log is `_tmp/cfsg-log/cfsg-check.log` (3 640 timed
+verdicts, mean 25.4 s, max 10 920 s; 77 `killed` lines).
+
+**1. The margin.**  One giant was reserved at the typical peak (2.8 GiB, the limit ÷ the jobs:
+only 8 finishes in the run) and grew to 35 GiB: a surprise of 36.5 GiB, so the margin took its
+largest value and the plan its floor (22.5 of 45 GiB).  With the giant's ~20 GiB reserved nothing
+else fit, and the run sat at 3–4 workers for hours.  (With fewer than 100 surprises the 99th
+percentile is the largest one, so a single surprise is enough.)  A worker outgrowing its own
+reservation is handled already (protection, the kills, the known sizes, the growth gate); the
+margin is for several outgrowing theirs at once.  A running worker's reservation already counts
+its peak so far (the reference is taken at every start), so only growth after the last start is a
+surprise; no change was needed there.
+
+* **Rule** (`surpriseOf`): a surprise is Σ current − Σ reserved over the running workers, less the
+  largest single excess `max(0, current − reserved)`, at least 0; i.e. the net excess of all the
+  other workers.  The margin is the 99th percentile of these, as before.
+* **Simulator** (`--margin-excl largest|protected|largest-pos|none`, `--margin-compare`, the data
+  sets `cfsg`: the modules of the maintainer's log in `--cfsg-reps` copies, `restart`: the same after
+  20 synthetic giants at the head of the queue, peaks uniform in 10–35 GiB, times log-uniform in
+  30 min–5 h).  `_tmp/545/sim/margin.md` (Mathlib cases with the profiles, tick 50 ms; the CFSG
+  ones ramp-shaped, 5 copies, seed 518); makespan in minutes, mean running workers, kills, lost:
+
+| case | #540 (nobody left out) | **largest left out** | protected left out | largest, positive parts |
+|---|---|---|---|---|
+| real 1.5G j8 | 46, 3.2, 3, 0.0 % | 35, 4.4, 14, 0.2 % | 46, 3.2, 3, 0.0 % | 34, 4.6, 23, 0.3 % |
+| real 3G j16 | 18, 8.6, 0, 0.0 % | 15, 10.0, 1, 0.0 % | 18, 8.6, 0, 0.0 % | 14, 10.8, 2, 0.0 % |
+| heavy 8G j16 | 62, 5.2, 19, 5.1 % | 57, 5.6, 21, 4.6 % | 62, 5.1, 21, 5.2 % | 56, 6.0, 59, 9.2 % |
+| heavy 16G j32 | 30, 9.8, 10, 0.7 % | 27, 11.5, 20, 1.7 % | 29, 10.2, 12, 0.8 % | 25, 12.8, 39, 5.4 % |
+| heavy30 24G j16 | 58, 5.8, 30, 8.0 % | 53, 6.3, 39, 7.5 % | 59, 5.6, 28, 6.3 % | 52, 6.7, 73, 10.7 % |
+| heavy30 47G j32 | 28, 11.2, 17, 1.0 % | 26, 11.9, 22, 1.6 % | 28, 11.1, 21, 1.4 % | 26, 12.4, 50, 4.1 % |
+| cfsg 45G j32 | 845, 9.5, 62, 12.4 % | 1007, 8.4, 92, 18.2 % | 879, 9.7, 74, 18.4 % | 918, 9.8, 107, 19.4 % |
+| restart 45G j32 | 2368, 4.9, 89, 20.4 % | 2226, 5.3, 91, 21.2 % | 2399, 4.8, 95, 18.9 % | 2324, 5.2, 133, 23.0 % |
+| restart 45G j16 | 2806, 4.6, 68, 22.6 % | 2238, 5.3, 72, 15.6 % | 2504, 5.0, 68, 20.0 % | 2638, 4.9, 98, 23.7 % |
+
+  The CFSG cases are noisy: over 3, 4, 5 and 6 copies (and the giants' seeds 518 and 7 for
+  `restart`; `_tmp/545/sim/m-*.json`) the sums of the makespans are, #540 against largest:
+  `cfsg j32` 3 222 / 3 201 min (largest faster in three of the four, slower at 5 copies), kills
+  243 / 364, lost 67 / 99 h; `restart j16` 18 009 / 16 225 min (−10 %), kills 506 / 548;
+  `restart j32` 16 290 / 16 152 min, kills 662 / 653.  The CFSG data are memory-bound by their
+  hour-long modules of 12–45 GiB (bound 487 min at 5 copies); every rule loses 12–23 % of the
+  worker time to kills there.
+* **Choice: the largest left out.**  It is faster in all six Mathlib cases (7–24 %) and in the
+  sums of the CFSG ones (0.7 %, 10 %, 1 %), at a few more kills (Mathlib: +1 to +11; CFSG without
+  giants at the head: +50 %, the price of the higher plan).  Leaving out the protected worker is
+  #540's rule until the first overflow (the protected worker exists only from then on) and often
+  not the worker that surprised; on Mathlib it is within 2 min of #540, on the CFSG sums slower than the largest in all three
+  and than #540 in two.
+  Counting the others' positive excesses only (no offset by workers below their reservations)
+  has 1.2–3× the kills of the largest for at most 3 % less time on Mathlib and more on CFSG.
+* Left as it is: the typical peak starts at the limit ÷ the jobs (2.8 GiB in the run) until 20
+  modules have finished in this run, while the log's median peak is 0.58 GiB; with the plan at
+  40.5 GiB the room for small modules is still counted in 2.8 GiB units until then.  The logged
+  peaks are not read back (#512's ruling); the maintainer's call.
+
+**2. The estimate.**  The `eta 7302d12h` line is not #541's formula: it is #517's, elapsed ×
+remaining ÷ this run's finishes, 21 376 s × 236 121 ÷ 8 = 630.9 Ms = 7302.2 d (wall 5h56m16s).
+The run that showed it is lines 3 606–3 628 of the log: 8 verdict lines with ten fields (#518's
+format, no threads field, so a binary before #544), 12 kills, 3 workers killed by the interrupt,
+and its statistics say "% of 16 jobs" (before #544): a binary at #540, before #541 landed.  The
+"21d at the start" is the next run's (lines 3 629–3 717, eleven fields, #544's binary): #541's
+formula on the log as it stood then gives exactly `21d13h` (25.4 s × 236 121 ÷ 3.21 logged
+workers).  `readLog` and `etaMs` reproduced on the maintainer's log (a scratch `lean --run` at
+`_tmp/545/eta/`): cut at the 5h56m run's start, 3 556 timed lines, mean 14.9 s, logged workers
+5.1; at that run's end (8 finishes, 39 151 s, 4.1 workers) #541 says `17d4h`, #517 `7302d6h`.
+No path adds a stale `now − start`: `doneMs` and `finished` change only in `finish` (a verdict, a
+timeout, or `memory` alone), with the `start` the worker's spawn tick; kills, the interrupt and a
+failed spawn add nothing.  One real defect found on the way: the previous runs' average was used
+only when at least 1 (`logged ≥ 1000`), so a log of runs averaging fewer than one worker gave
+the estimate over `--jobs`, 8× too low in the hand test below; #541's ruling has no such bound,
+and now `logged > 0` is used.
+
+`readLog`'s fold is now a pure `parseLog` (the file read around it); the test file checks it on a
+log mixing the two-field, five-field and eleven-field formats and `killed` lines (verdicts 5,
+timed 4, workers 2.5), `etaMs` in the first minute, after it, and with a logged average below 1,
+and `surpriseOf` (one giant 30 GiB above, two workers 1 GiB above, one 1 GiB below: 1 GiB; a lone
+worker: 0; two equal giants: one of them).
+
+**Hand tests** (`--olean --schedule --jobs=8 --schedule-memory=300M --progress=2s`,
+`Std.Tactic.BVDecide`, v4.35.0, under the guard and `timeout`): 739 modules 0, 53.6 s, 1.5
+running, 5 kills (0.4 % lost), plan 0.1 GiB at the end (at this scale a worker is a third of the
+limit, so a second worker's growth is still a surprise).  Resumed from a log of 100 two-field, 100
+five-field, 100 eleven-field lines and 2 `killed` lines (logged workers 0.92): 300 skipped, 439
+run in 32.5 s; the first estimate `eta 48s` (before: `eta 5s`, the jobs' 8 workers), then 39 s,
+27 s, 16 s, 4 s at 400, 500, 600, 700 modules.
+
+Gates: `lake build`, `lake test` warning-free; trust surface; olean gate 332/332 under the
+guard; overview links.

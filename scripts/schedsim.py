@@ -16,7 +16,8 @@ budget: the limit minus a margin, the margin the larger of `--margin-init` (0.10
 the `--margin-stat` (p99; `max`, `pNN`) of the last `--margin-window` (200; 0 all) nonzero
 surprises, the plan at least `--margin-floor` (0.5) x the limit; a surprise is the largest, over
 the ticks between two starts, of the running workers' current sets minus what admission reserved
-for them at the earlier start.  Admission by size (the planning budget minus the running workers
+for them at the earlier start, the worker furthest above its own reservation left out
+(`--margin-excl largest`, DESIGN #545; `none` the rule of #540, `protected`, `largest-pos`).  Admission by size (the planning budget minus the running workers
 counted at max(peak so far, typical peak, known size); killed modules first by known size, then
 the queue in order at the typical peak, every module that fits in one tick, each taking its
 reservation off the room; nothing running: the first always starts); the typical peak the
@@ -59,7 +60,10 @@ the kills and the worker time they lost, the time the growth gate held starts, t
 verdicts.  `--grid` runs the variant table of DESIGN #518 (on the old policy, with its stagger
 variants); `--compare` the table of DESIGN #540 (the old policy at 0.85 x and 1 x the limit, the
 new one at the limit, at `--compare-cases`, `data:limit GiB:jobs`, data `real`, `heavy`: 1 % at
-100x time and 10x memory, `heavy30`: the same at 30x memory).
+100x time and 10x memory, `heavy30`: the same at 30x memory).  `--margin-compare` the table of DESIGN #545 (the
+margin rules at `--margin-cases`; besides the log's data sets `cfsg`: the modules of a CFSG log
+(`--cfsg-log`) in `--cfsg-reps` copies, and `restart`: the same after `--giants` synthetic giants,
+peaks 10-35 GiB, times 30 min-5 h, at the head of the queue).
 """
 import argparse, bisect, json, os, random
 
@@ -208,13 +212,16 @@ def simulate(mods, order, budget_kib, jobs, tick=0.1, growth=10, typ_q=0.5,
              install_serial=1.0, read_cap=0, max_time=10 ** 10, plan=True,
              margin_init=0.10, margin_floor=0.5, margin_stat="p99", margin_window=200,
              margin_nonzero=True, stagger=0, burst=0, threads_spare=False,
-             threads_drain=0, drain_d=0):
+             threads_drain=0, drain_d=0, margin_excl="largest"):
     """Returns the statistics of one replay.  Times in ms internally.  `budget_kib` is the hard
     limit (kills only above it); with `plan` admission plans against `hard - margin` (DESIGN
     #540): margin = max(margin_init x hard, the `margin_stat` of the last `margin_window`
     surprises), the plan at least `margin_floor` x hard.  A surprise is a stretch's largest
     max(0, the running workers' sets - what admission reserved for them when it last started
-    one); a stretch ends at a start.  `stagger` (ms) and `burst` (starts per tick, 0: all that
+    one); a stretch ends at a start.  `margin_excl` (DESIGN #545) leaves one worker's excess out of
+    a surprise: `largest` (the shipped rule) the largest single excess over its reservation,
+    `protected` the protected worker's, `none` nobody's (#540); `largest-pos` sums only the
+    other workers' positive excesses.  `stagger` (ms) and `burst` (starts per tick, 0: all that
     fit) only for the old policy (`OLD`)."""
     dt = int(tick * 1000)
     surprises, ep_max, surprise_n = [], 0, 0
@@ -306,7 +313,18 @@ def simulate(mods, order, budget_kib, jobs, tick=0.1, growth=10, typ_q=0.5,
         cur_total = sum(w.cur for w in running)
         reserved = sum(eff(w) for w in running)
         if plan and running:
-            ep_max = max(ep_max, cur_total - sum(w.resv for w in running))
+            exc = [w.cur - w.resv for w in running]
+            top = max(0, max(exc))
+            if margin_excl == "largest":
+                ep = sum(exc) - top
+            elif margin_excl == "largest-pos":
+                ep = sum(e for e in exc if e > 0) - top
+            elif margin_excl == "protected":
+                ep = sum(exc) - max(0, next((w.cur - w.resv for w in running
+                                             if w.mod.m == prot), 0))
+            else:
+                ep = sum(exc)
+            ep_max = max(ep_max, ep)
         run_ms += len(running) * dt
         mem_ms += cur_total * dt
         res_ms += reserved * dt
@@ -541,6 +559,69 @@ DATASETS = {"real": (0.0, 1, 0), "heavy": (0.01, 10, 0), "heavy30": (0.01, 30, 0
             "mcl": (0.0, 1, 10), "mclheavy30": (0.01, 30, 10)}
 
 
+def restart_mods(cfsg_log, reps, giants, seed, prof, default):
+    """DESIGN #545's CFSG-like data: the modules of a real CFSG log (`cfsg_log`), `reps` copies of
+    each (names suffixed), in the shuffled order; with `giants` > 0 the queue begins with that many
+    synthetic giants (peaks uniform in 10-35 GiB, times log-uniform in 30 min-5 h, seed `seed`),
+    as after a restart whose interrupted runs were the long ones."""
+    import math
+    log, _ = read_log(cfsg_log)
+    big = {}
+    for r in range(reps):
+        for n, v in log.items():
+            big[n if r == 0 else f"{n}.Rep{r}"] = v
+    mods, _ = build_mods(big, prof, default, 0.0, 1, 1, seed)
+    order = make_order(mods, "shuffled", None)
+    rng = random.Random(seed)
+    head = []
+    for i in range(giants):
+        x = Mod()
+        x.m = f"Synthetic.Giant{i}"
+        x.ms = int(1000 * 60 * math.exp(rng.uniform(math.log(30), math.log(300))))
+        x.pk = int(rng.uniform(10, 35) * 2 ** 20)
+        x.decls, x.busy, x.slowest, x.shape = 16, int(x.ms * 0.98), int(x.ms * 0.2), None
+        mods[x.m] = x
+        head.append(x.m)
+    return mods, head + order
+
+
+# DESIGN #545's margin rules: whose excess a surprise leaves out
+MARGIN_RULES = [("#540: nobody", "none"), ("largest", "largest"),
+                ("largest, positive parts", "largest-pos"), ("protected", "protected")]
+
+
+def margin_compare(a, log, prof, default, base):
+    """DESIGN #545's table: each case `data:limit GiB:jobs` (data `real`, `heavy`, `heavy30` from
+    the log; `cfsg`, `restart` from `--cfsg-log`) under each rule of `MARGIN_RULES`."""
+    import multiprocessing
+    cases = [c.split(":") for c in a.margin_cases.split(",")]
+    for name in {c[0] for c in cases}:
+        if name in ("cfsg", "restart"):
+            mods, order = restart_mods(a.cfsg_log, a.cfsg_reps,
+                                       a.giants if name == "restart" else 0, a.seed, prof, default)
+        else:
+            h, hm, mcl = DATASETS[name]
+            mods, _ = build_mods(log, prof, default, h, a.heavy_time, hm, a.seed, mcl)
+            order = make_order(mods, "shuffled", None)
+        _G[name] = (mods, {"shuffled": order}, base)
+    jobs = [(d, float(b), int(j), n, dict(margin_excl=k, threads_d=a.threads_d,
+                                          threads_spare=True))
+            for d, b, j in cases for n, k in MARGIN_RULES]
+    with multiprocessing.get_context("fork").Pool(a.procs) as pool:
+        res = pool.map(_one, jobs, chunksize=1)
+    if a.json:
+        json.dump([dict(data=d, budget=b, jobs=j, variant=n, **r) for d, b, j, n, r in res],
+                  open(a.json_out or "/dev/stdout", "w"))
+        return
+    print("| case | rule | makespan | running | kills (modules) | lost | plan at the end | "
+          "largest surprise |")
+    print("|---|---|---|---|---|---|---|---|")
+    for d, b, j, n, r in res:
+        print(f"| {d} {b:g}G j{j} | {n} | {hms(r['makespan_s'])} | {r['running']:.2f} | "
+              f"{r['kills']} ({r['kill_modules']}) | {hms(r['lost_s'])} = {r['lost_pct']:.1f} % | "
+              f"{r['plan_end_gib']:.1f} | {r['surprise_max_gib']:.1f} |")
+
+
 def calibrate(a, log, prof, default, base):
     """The thread rule's divisor d against one thread (d = 0) on each case `data:limit GiB:jobs`;
     `jobs` is the thread budget.  One row per case, a cell per d: makespan, kills."""
@@ -657,6 +738,16 @@ def main():
     ap.add_argument("--compare-cases",
                     default="real:1.5:8,real:3:16,heavy:8:16,heavy:16:32,heavy30:24:16,"
                             "heavy30:47:16,heavy30:47:32")
+    ap.add_argument("--margin-excl", default="largest",
+                    choices=["largest", "largest-pos", "protected", "none"],
+                    help="whose excess a surprise leaves out (DESIGN #545; none: #540)")
+    ap.add_argument("--margin-compare", action="store_true", help="the table of DESIGN #545")
+    ap.add_argument("--margin-cases",
+                    default="real:1.5:8,real:3:16,heavy:8:16,heavy:16:32,heavy30:24:16,"
+                            "heavy30:47:32,cfsg:45:32,restart:45:32,restart:45:16")
+    ap.add_argument("--cfsg-log", help="a CFSG scheduler log for the cases cfsg and restart")
+    ap.add_argument("--cfsg-reps", type=int, default=5, help="copies of the CFSG log's modules")
+    ap.add_argument("--giants", type=int, default=20, help="giants at the head of `restart`")
     ap.add_argument("--procs", type=int, default=8)
     a = ap.parse_args()
     log, _ = read_log(a.log)
@@ -684,11 +775,15 @@ def main():
     if a.calibrate:
         calibrate(a, log, prof, default, base)
         return
+    if a.margin_compare:
+        margin_compare(a, log, prof, default, base)
+        return
     mods, _ = build_mods(log, prof, default, a.heavy, a.heavy_time, a.heavy_mem, a.seed, a.mcl)
     order = make_order(mods, a.order, a.graph_order)
     kw = dict(OLD) if a.old else dict(margin_init=a.margin_init, margin_floor=a.margin_floor,
                                        margin_stat=a.margin_stat, margin_window=a.margin_window,
-                                       threads_spare=not a.threads_greedy)
+                                       threads_spare=not a.threads_greedy,
+                                       margin_excl=a.margin_excl)
     kw.pop("threads_d", None)
     r = simulate(mods, order, int(a.budget * 2 ** 20), a.jobs, a.tick, a.growth,
                  a.typ_q, 0 if a.old else a.threads_d, a.threads_cap, a.thread_budget, a.thread_mem, a.reserve,
