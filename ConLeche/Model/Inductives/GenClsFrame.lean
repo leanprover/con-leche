@@ -1590,7 +1590,6 @@ theorem genRuleRaZ
   have hcb : ∀ q ∈ bs, ConstsBound envC q :=
     openLamsM_constsBound _ hstrip (fun q hq => by
       have hres := RR.hdoms q hq
-      simp only [ConLeche.StructWalkers.plain] at hres
       rw [ConLeche.constsResolveF_eq] at hres
       exact constsBound_of_constsResolve _ hres) hop
   have hlds := readLamBs_cross (fun d e hcbe => blockRecDenote_cross_eq (V := V) (mpC := mpC) (R := Rr) (s := sf)

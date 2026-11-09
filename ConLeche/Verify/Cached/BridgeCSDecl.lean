@@ -52,7 +52,7 @@ theorem checkStructProjTableF_pushC (t : ProjTable) (env : Env) :
     checkStructProjTableF (m := CheckCM) t (mkFEnv env)
       = checkStructProjTable (m := CheckCM) t env := by
   unfold checkStructProjTableF checkStructProjTable
-  simp only [StructWalkers.plain, constsResolveF_eq, mkFEnv_find?, mkFEnv_findTable?]
+  simp only [constsResolveF_eq, mkFEnv_find?, mkFEnv_findTable?]
 
 /-- The projection table's checks at the cached driver: operation-free, the state unchanged, the
 verdict the pure stage's. -/

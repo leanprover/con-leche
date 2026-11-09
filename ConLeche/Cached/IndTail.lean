@@ -1,6 +1,6 @@
 module
 
-public import ConLeche.Cached.CoreC
+public import ConLeche.Cached.IndPass
 public import ConLeche.Kernel.Inductives.RecCheck
 
 @[expose] public section
@@ -101,13 +101,6 @@ def streamNestedOkC (ty : Expr) (mI rP : Nat) : RecRuleFire → Bool
           (List.range (mI - rP)).map (fun i => Expr.bvar (mI - rP - 1 - i))
     | _ => false
 
-/-- The cached `unresolvedConstsError`: the `sorryAx` test by
-`mentionsAnyConstC`. -/
-def unresolvedConstsErrorC (where_ : String) (e : Expr) : CheckError :=
-  if Expr.mentionsAnyConstC [sorryAxName] e then
-    .notImplemented s!"use of the sorryAx axiom in {where_}"
-  else .invalid s!"unknown constant in {where_}"
-
 /-- The cached `recDomsAt`. -/
 def recDomsAtC (fe : FEnv) (rec : Name) (sfvs gfvs : List Expr) :
     Nat → Nat → CheckCM Unit
@@ -143,7 +136,7 @@ def recTyCheckC (fe : FEnv) (rec : Name) (lps : List Name) (n : Nat) (s g : Expr
   unless Expr.allLevelParamsDefinedC lps s do
     throw (.invalid s!"undeclared universe parameter in the type of the recursor {rec}")
   unless constsResolveFC fe s do
-    throw (unresolvedConstsErrorC s!"the type of the recursor {rec}" s)
+    throw (unresolvedConstsErrorLC true s!"the type of the recursor {rec}" s)
   let st ← (coreKnotI mode false fe checkFuel).infer 0 s
   let _ ← ensureSortI (coreKnotI mode false fe checkFuel) 0 st
   recTyOpenedC mode fe rec n (openPisAtFvarsC n s 0) (openPisAtFvarsC n g 0)
@@ -158,7 +151,7 @@ def ruleAgreeC (fe : FEnv) (rec ctor : Name) (lps : List Name) (s g : Expr) :
     throw (.invalid s!"the recursor {rec}'s rule for {ctor} has an undeclared universe \
       parameter")
   unless constsResolveFC fe s do
-    throw (unresolvedConstsErrorC s!"the recursor {rec}'s rule for {ctor}" s)
+    throw (unresolvedConstsErrorLC true s!"the recursor {rec}'s rule for {ctor}" s)
   let ts ← (coreKnotI mode false fe checkFuel).infer 0 s
   let tg ← (coreKnotI mode false fe checkFuel).infer 0 g
   unless ← (coreKnotI mode false fe checkFuel).defeq 0 ts tg do

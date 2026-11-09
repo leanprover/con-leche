@@ -3,6 +3,7 @@ module
 public import ConLeche.Cached.CheckerC
 import ConLeche.Verify.Cached.GuardsC
 import ConLeche.Verify.Cached.IndWalksC
+import ConLeche.Verify.Cached.IndRecC
 
 public section
 
@@ -73,10 +74,6 @@ theorem streamNestedOkC_eq (ty : Expr) (mI rP : Nat) (f : RecRuleFire) :
     funext fun _ => Expr.liftLooseBVarsC_spec
   cases f <;> simp only [streamNestedOkC, streamNestedOk, Expr.getAppArgsC_spec, h] <;> rfl
 
-theorem unresolvedConstsErrorC_eq : unresolvedConstsErrorC = unresolvedConstsError := by
-  funext where_ e
-  simp only [unresolvedConstsErrorC, unresolvedConstsError, Expr.mentionsAnyConstC_spec]
-
 theorem recDomsAtC_eq (fe : FEnv) (rec : Name) (sfvs gfvs : List Expr) :
     ∀ j k, recDomsAtC mode fe rec sfvs gfvs j k =
       recDomsAt (sharedOpsC mode fe) fe.env rec sfvs gfvs j k
@@ -96,13 +93,13 @@ theorem recTyOpenedC_eq (fe : FEnv) (rec : Name) (n : Nat) :
 theorem recTyCheckC_eq (fe : FEnv) (rec : Name) (lps : List Name) (n : Nat) (s g : Expr) :
     recTyCheckC mode fe rec lps n s g = recTyCheck (sharedOpsC mode fe) fe rec lps n s g := by
   simp only [recTyCheckC, recTyCheck, Expr.allLevelParamsDefinedC_spec, constsResolveFC_spec,
-    unresolvedConstsErrorC_eq, openPisAtFvarsC_eq, recTyOpenedC_eq]
+    unresolvedConstsErrorLC_true, openPisAtFvarsC_eq, recTyOpenedC_eq]
   rfl
 
 theorem ruleAgreeC_eq (fe : FEnv) (rec ctor : Name) (lps : List Name) (s g : Expr) :
     ruleAgreeC mode fe rec ctor lps s g = ruleAgree (sharedOpsC mode fe) fe rec ctor lps s g := by
   simp only [ruleAgreeC, ruleAgree, Expr.allLevelParamsDefinedC_spec, constsResolveFC_spec,
-    unresolvedConstsErrorC_eq]
+    unresolvedConstsErrorLC_true]
   rfl
 
 theorem streamRulesShapeC_eq (rec : Name) :

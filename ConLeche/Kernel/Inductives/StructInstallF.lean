@@ -7,9 +7,8 @@ public import ConLeche.Kernel.DeclCheck
 /-!
 # The projection table's checks, through the index
 
-`ConLeche/Kernel/Inductives/StructInstall.lean`'s survivors over an `FEnv` (the
-mirrors the cached drivers run) and the `StructWalkers` record the
-block installer takes its constant walks from (task #214 P3).
+`ConLeche/Kernel/Inductives/StructInstall.lean`'s survivors over an `FEnv`
+(task #214 P3); the cached driver runs their twins (`ConLeche/Cached/IndTail.lean`).
 -/
 
 namespace ConLeche
@@ -44,27 +43,6 @@ def checkStructDomsAtFA (ops : CheckerOps m) (fe : FEnv) (off : Nat)
     unless ← ops.isDefEq fe.env (off + j) a.fvarTypeD b do
       throw (.notImplemented "direct structure: binder domain mismatch")
     checkStructDomsAtFA ops fe off fvs doms j
-
-/-- **The tree walker an index-side installer takes from its driver**
-(task #214, after the JZero audit): the constant-resolution gate over
-constructor binder domains is a whole-tree traversal of the block
-install, and on a heavily DAG-shared block (Mathlib's
-`ModularCurve.JZeroGoodReductionSpecialization_alt`: a 3.3 k-node DAG
-unfolding to 19.6 M nodes) it must not walk the tree.  The cached
-driver supplies its memoised twin (`ConLeche.Cached.structWalkersC`:
-`constsResolveFC`); the specification is `StructWalkers.plain`, to
-which the driver's record is equal (`structWalkersC_eq_plain`,
-`ConLeche/Verify/Cached/WalkersC.lean`).  The projection-body builder
-(`structProjBodies`) is the same function in both: its substitution
-`Expr.instantiateLift` executes as a memoized DAG walk.  The pure
-installers never see this record. -/
-structure StructWalkers where
-  /-- `Expr.constsResolveF` or its memoised twin -/
-  resolve : FEnv → Expr → Bool
-
-/-- The plain walkers: the specification. -/
-def StructWalkers.plain : StructWalkers :=
-  ⟨fun fe e => e.constsResolveF fe⟩
 
 /-- `checkStructProjTable` through the index (task #175 S1). -/
 def checkStructProjTableF (t : ProjTable) (fe : FEnv) : m Unit := do

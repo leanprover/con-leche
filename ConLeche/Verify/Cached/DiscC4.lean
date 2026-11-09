@@ -1,8 +1,8 @@
 module
 
 public import ConLeche.Verify.Cached.BinderLoopC
-import ConLeche.Verify.Cached.IndWalksC
 import ConLeche.Verify.BetaSpine
+import ConLeche.Verify.Cached.IndWalksC
 public import ConLeche.Verify.ProjGuard
 
 public section
