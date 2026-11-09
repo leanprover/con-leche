@@ -1,8 +1,6 @@
 module
 
 public import ConLeche.Kernel.PropRead
-import ConLeche.Kernel.Level
-import ConLeche.Kernel.ExprOps
 public import ConLeche.Kernel.Basis
 
 @[expose] public section

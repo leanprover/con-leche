@@ -9,7 +9,6 @@ import ConLeche.Verify.EnvWF
 import ConLeche.Verify.CheckerF
 import ConLeche.Verify.Cached.WalkersC
 import ConLeche.Verify.Cached.IndPositivityC
-import ConLeche.Verify.Cached.IndRecC
 
 public section
 
