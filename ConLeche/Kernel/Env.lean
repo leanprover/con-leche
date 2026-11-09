@@ -65,7 +65,7 @@ reference kernel does not do it?  Two kinds of work read it:
 * checks the rules tier's premises rest on (`ConLeche/Rules`): the
   λ-rule's codomain-sort check (`inferBody`'s `.lam` clause), the η
   body-type comparison and the λ/λ body-type comparison of
-  `defeqLams`.  The mode-parametric spec (`ConLeche/Kernel/Core.lean`)
+  `defeqBinders`.  The mode-parametric spec (`ConLeche/Kernel/Core.lean`)
   reads it at the same sites the cached core does.
 * the certificate families, which the spec runs unconditionally: the
   K and `And` rescues' proof-irrelevance run, ι's case-3 parameter

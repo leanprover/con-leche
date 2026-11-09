@@ -311,13 +311,13 @@
     53  def ensureSortCore (env : Env) (fuel depth : Nat) (e : Expr) : CheckM Level :=
     54    ensureSort (pureFns mode eager env fuel) env depth e
 
-== ConLeche/Kernel/Core.lean#L1777-L1782
-  1777    | 0 =>
-  1778      { whnfCore := fun _ _ _ => throw (.internal "fuel exhausted: whnfCore")
-  1779        whnf := fun _ _ => throw (.internal "fuel exhausted: whnf")
-  1780        infer := fun _ _ => throw (.internal "fuel exhausted: infer")
-  1781        defeq := fun _ _ _ => throw (.internal "fuel exhausted: defeq")
-  1782        defeqE := fun _ _ _ => throw (.internal "fuel exhausted: defeq")
+== ConLeche/Kernel/Core.lean#L1783-L1788
+  1783    | 0 =>
+  1784      { whnfCore := fun _ _ _ => throw (.internal "fuel exhausted: whnfCore")
+  1785        whnf := fun _ _ => throw (.internal "fuel exhausted: whnf")
+  1786        infer := fun _ _ => throw (.internal "fuel exhausted: infer")
+  1787        defeq := fun _ _ _ => throw (.internal "fuel exhausted: defeq")
+  1788        defeqE := fun _ _ _ => throw (.internal "fuel exhausted: defeq")
 
 == ConLeche/Model/Fold.lean#L431-L438
    431  theorem no_proof_of_False_pure (V : Type w) [SetTheory V]
@@ -369,14 +369,14 @@
 == ConLeche/Kernel/Core.lean#L1244
   1244  def inferBodyIO (r : CoreFns m) (env : Env) : Nat → Expr → m Expr :=
 
-== ConLeche/Kernel/Core.lean#L1387
-  1387  def defeqLams (r : CoreFns m) :
+== ConLeche/Kernel/Core.lean#L1371
+  1371  def defeqBindersInner (r : CoreFns m) (lam : Bool) (depth : Nat) (b₁ b₂ : Expr) : m Bool := do
 
 == ConLeche/Verify/Cached/BridgeC.lean#L284
    284  theorem checkDeclStepC_run {env : Env} (henv : EnvWF env) {pd : Declaration}
 
-== ConLeche/Kernel/Core.lean#L1824
-  1824  @[irreducible, noinline] def checkFuel : Nat := 4611686018427387904  -- 2^62
+== ConLeche/Kernel/Core.lean#L1830
+  1830  @[irreducible, noinline] def checkFuel : Nat := 4611686018427387904  -- 2^62
 
 == ConLeche/Kernel/Exclusive.lean#L6-L42
      6  # `withExclusive`: the reference-count read behind the walk memo
@@ -942,10 +942,10 @@
 == ConLeche/Kernel/Inductives/Positivity.lean#L99
     99  def familyTelescope (ops : CheckerOps m) (env : Env) (cv : ConstantVal) (caps : IndCaps) : m Expr :=
 
-== ConLeche/Verify/EnvExt.lean#L457-L459
-   457  theorem knot_ext (mode : CheckMode) (hx : EnvExt env₁ env₂) :
-   458      ∀ (fuel : Nat) (eager : Bool),
-   459        KR env₁ (pureFns mode eager env₂ fuel) (pureFns mode eager env₁ fuel)
+== ConLeche/Verify/EnvExt.lean#L463-L465
+   463  theorem knot_ext (mode : CheckMode) (hx : EnvExt env₁ env₂) :
+   464      ∀ (fuel : Nat) (eager : Bool),
+   465        KR env₁ (pureFns mode eager env₂ fuel) (pureFns mode eager env₁ fuel)
 
 == ConLeche/Verify/EnvExt/Reads.lean#L28-L29
     28  structure StoredFacts (env : Env) : Prop where

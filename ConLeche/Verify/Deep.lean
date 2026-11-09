@@ -2039,13 +2039,14 @@ private theorem natPred?_shiftFrom {p : Nat} {e : Expr} :
     simp only [shiftFrom]
     split <;> rfl
 
-/-- The innermost level of `defeqLams` is shift-invariant. -/
-private theorem defeqLamsInner_shift (henv : EnvWF env)
-    (ih : ShiftClaims mode eager env fuel) {p d : Nat} (hpd : p ≤ d) {b₁ b₂ : Expr}
+/-- The innermost level of `defeqBinders` is shift-invariant. -/
+private theorem defeqBindersInner_shift (henv : EnvWF env)
+    (ih : ShiftClaims mode eager env fuel) (lam : Bool) {p d : Nat} (hpd : p ≤ d) {b₁ b₂ : Expr}
     (hw₁ : WScoped (d + 1) b₁) (hw₂ : WScoped (d + 1) b₂) :
-    defeqLamsInner mode (pureFns mode eager env fuel) (d + 1) (shiftFrom p b₁) (shiftFrom p b₂) =
-      defeqLamsInner mode (pureFns mode eager env fuel) d b₁ b₂ := by
-  simp only [defeqLamsInner]
+    defeqBindersInner mode (pureFns mode eager env fuel) lam (d + 1) (shiftFrom p b₁)
+        (shiftFrom p b₂) =
+      defeqBindersInner mode (pureFns mode eager env fuel) lam d b₁ b₂ := by
+  simp only [defeqBindersInner]
   refine bind_congr_eq (ih.defeq (p := p) (d := d + 1) (by omega) hw₁ hw₂) ?_
   intro bb _
   refine ite_congr' (fun _ => ?_) (fun _ => rfl)
@@ -2059,49 +2060,80 @@ private theorem defeqLamsInner_shift (henv : EnvWF env)
   intro _ _
   rfl
 
-private theorem lamPair?_shiftFrom {p : Nat} (B₁ B₂ : Expr) :
-    Expr.lamPair? (shiftFrom p B₁) (shiftFrom p B₂) =
-      (Expr.lamPair? B₁ B₂).map fun q =>
+private theorem binderPair?_shiftFrom {p : Nat} (lam : Bool) (B₁ B₂ : Expr) :
+    Expr.binderPair? lam (shiftFrom p B₁) (shiftFrom p B₂) =
+      (Expr.binderPair? lam B₁ B₂).map fun q =>
         (shiftFrom p q.1, shiftFrom p q.2.1, shiftFrom p q.2.2.1, shiftFrom p q.2.2.2) := by
-  cases B₁ <;> cases B₂ <;> (try rw [shiftFrom_fvar]) <;> (try rw [shiftFrom_fvar]) <;>
-    simp [shiftFrom, Expr.lamPair?]
+  cases lam <;> cases B₁ <;> cases B₂ <;> (try rw [shiftFrom_fvar]) <;> (try rw [shiftFrom_fvar]) <;>
+    simp [shiftFrom, Expr.binderPair?]
 
-/-- The λ-telescope comparison is shift-invariant (by induction on its
-descent budget). -/
-private theorem defeqLams_shift (henv : EnvWF env)
-    (ih : ShiftClaims mode eager env fuel) :
-    ∀ (k : Nat) {p d : Nat}, p ≤ d → ∀ {ty₁ body₁ ty₂ body₂ : Expr},
+/-- A binder of either kind is well scoped iff its parts are. -/
+private theorem WScoped_binderOf {d : Nat} {lam : Bool} {t b : Expr}
+    (h : WScoped d (Expr.binderOf lam t b)) : WScoped d t ∧ WScoped d b := by
+  cases lam <;> simpa [Expr.binderOf, WScoped] using h
+
+/-- One level's domain comparison is shift-invariant. -/
+private theorem defeqDomain_shift (ih : ShiftClaims mode eager env fuel) {p d : Nat} (hpd : p ≤ d)
+    {fvs : List Expr} {ty₁ ty₂ dom₂ : Expr} (hfv : ∀ v ∈ fvs, WScoped d v)
+    (hwt₁ : WScoped d ty₁) (hwd : WScoped d dom₂) :
+    defeqDomain (pureFns mode eager env fuel) (d + 1) (fvs.map (shiftFrom p)) (shiftFrom p ty₁)
+        (shiftFrom p ty₂) (shiftFrom p dom₂) =
+      defeqDomain (pureFns mode eager env fuel) d fvs ty₁ ty₂ dom₂ := by
+  unfold defeqDomain
+  rw [shiftFrom_beq]
+  refine ite_congr' (fun _ => rfl) (fun _ => ?_)
+  rw [← shiftFrom_instantiateList]
+  exact ih.defeq hpd (WScoped.instantiateList hfv 0 hwt₁) hwd
+
+/-- The binder-telescope comparison is shift-invariant (by induction on
+its descent budget). -/
+private theorem defeqBinders_shift (henv : EnvWF env)
+    (ih : ShiftClaims mode eager env fuel) (lam : Bool) :
+    ∀ (k : Nat) {p d : Nat}, p ≤ d → ∀ {fvs : List Expr} {ty₁ body₁ ty₂ body₂ : Expr},
+      (∀ v ∈ fvs, WScoped d v) →
       WScoped d ty₁ → WScoped d body₁ → WScoped d ty₂ → WScoped d body₂ →
-      defeqLams mode (pureFns mode eager env fuel) k (d + 1) (shiftFrom p ty₁)
-          (shiftFrom p body₁) (shiftFrom p ty₂) (shiftFrom p body₂) =
-        defeqLams mode (pureFns mode eager env fuel) k d ty₁ body₁ ty₂ body₂
-  | k, p, d, hpd, ty₁, body₁, ty₂, body₂, hwt₁, hwb₁, hwt₂, hwb₂ => by
-    rw [defeqLams.eq_def, defeqLams.eq_def]
-    refine bind_congr_eq (ih.defeq hpd hwt₁ hwt₂) ?_
+      defeqBinders mode (pureFns mode eager env fuel) lam k (d + 1) (fvs.map (shiftFrom p))
+          (shiftFrom p ty₁) (shiftFrom p body₁) (shiftFrom p ty₂) (shiftFrom p body₂) =
+        defeqBinders mode (pureFns mode eager env fuel) lam k d fvs ty₁ body₁ ty₂ body₂
+  | k, p, d, hpd, fvs, ty₁, body₁, ty₂, body₂, hfv, hwt₁, hwb₁, hwt₂, hwb₂ => by
+    rw [defeqBinders.eq_def, defeqBinders.eq_def]
+    dsimp only
+    have hD₂ : WScoped d (ty₂.instantiateList fvs) := WScoped.instantiateList hfv 0 hwt₂
+    rw [← shiftFrom_instantiateList, defeqDomain_shift ih hpd hfv hwt₁ hD₂]
+    refine bind_congr_eq rfl ?_
     intro bb _
     refine ite_congr' (fun _ => ?_) (fun _ => rfl)
-    dsimp only
-    have hB₁ : WScoped (d + 1) (body₁.instantiate1 (.fvar d ty₂)) :=
-      WScoped.instantiate1 hwt₂ 0 hwb₁
-    have hB₂ : WScoped (d + 1) (body₂.instantiate1 (.fvar d ty₂)) :=
-      WScoped.instantiate1 hwt₂ 0 hwb₂
-    rw [← shiftFrom_instantiate1 hpd, ← shiftFrom_instantiate1 hpd, lamPair?_shiftFrom]
-    generalize body₁.instantiate1 (.fvar d ty₂) = B₁ at hB₁ ⊢
-    generalize body₂.instantiate1 (.fvar d ty₂) = B₂ at hB₂ ⊢
-    cases hlp : Expr.lamPair? B₁ B₂ with
+    have hfv' : ∀ v ∈ Expr.fvar d (ty₂.instantiateList fvs) :: fvs, WScoped (d + 1) v := by
+      intro v hv
+      rcases List.mem_cons.mp hv with rfl | hv
+      · simp only [WScoped]; exact ⟨Nat.lt_succ_self d, hD₂⟩
+      · exact WScoped.mono (Nat.le_succ d) (hfv v hv)
+    have hmap : Expr.fvar (d + 1) (shiftFrom p (ty₂.instantiateList fvs)) :: fvs.map (shiftFrom p) =
+        (Expr.fvar d (ty₂.instantiateList fvs) :: fvs).map (shiftFrom p) := by
+      rw [List.map_cons, shiftFrom_fvar_ge hpd]
+    rw [hmap, binderPair?_shiftFrom]
+    cases hlp : Expr.binderPair? lam body₁ body₂ with
     | none =>
-      cases k <;> exact defeqLamsInner_shift henv ih hpd hB₁ hB₂
+      rw [← shiftFrom_instantiateList, ← shiftFrom_instantiateList]
+      cases k <;> exact defeqBindersInner_shift henv ih lam hpd
+        (WScoped.instantiateList hfv' 0 (WScoped.mono (Nat.le_succ d) hwb₁))
+        (WScoped.instantiateList hfv' 0 (WScoped.mono (Nat.le_succ d) hwb₂))
     | some q =>
       obtain ⟨t₁, b₁, t₂, b₂⟩ := q
       cases k with
-      | zero => exact defeqLamsInner_shift henv ih hpd hB₁ hB₂
+      | zero =>
+        rw [← shiftFrom_instantiateList, ← shiftFrom_instantiateList]
+        exact defeqBindersInner_shift henv ih lam hpd
+          (WScoped.instantiateList hfv' 0 (WScoped.mono (Nat.le_succ d) hwb₁))
+          (WScoped.instantiateList hfv' 0 (WScoped.mono (Nat.le_succ d) hwb₂))
       | succ k =>
-        obtain ⟨rfl, rfl⟩ := Expr.lamPair?_some hlp
-        simp only [WScoped] at hB₁ hB₂
+        obtain ⟨rfl, rfl⟩ := Expr.binderPair?_some hlp
+        obtain ⟨h₁, h₂⟩ := WScoped_binderOf hwb₁
+        obtain ⟨h₃, h₄⟩ := WScoped_binderOf hwb₂
         dsimp only [Option.map_some]
-        rw [shiftFrom_beq]
-        refine ite_congr' (fun _ => rfl) (fun _ => ?_)
-        exact defeqLams_shift henv ih k (by omega) hB₁.1 hB₁.2 hB₂.1 hB₂.2
+        exact defeqBinders_shift henv ih lam k (by omega) hfv'
+          (WScoped.mono (Nat.le_succ d) h₁) (WScoped.mono (Nat.le_succ d) h₂)
+          (WScoped.mono (Nat.le_succ d) h₃) (WScoped.mono (Nat.le_succ d) h₄)
 
 /-- The easy cases are shift-invariant. -/
 private theorem quickDefEq_shift (henv : EnvWF env)
@@ -2121,20 +2153,17 @@ private theorem quickDefEq_shift (henv : EnvWF env)
   case forallE.forallE ty₁ body₁ ty₂ body₂ =>
     simp only [WScoped] at hwa hwb
     simp only [shiftFrom]
-    refine bind_congr_eq (ih.defeq hpd hwa.1 hwb.1) ?_
-    intro b₁ _
-    refine ite_congr' (fun _ => ?_) (fun _ => rfl)
-    have hb := ih.defeq (p := p) (d := d + 1) (by omega)
-      (WScoped.instantiate1 hwb.1 0 hwa.2)
-      (WScoped.instantiate1 hwb.1 0 hwb.2)
-    rw [shiftFrom_instantiate1 hpd, shiftFrom_instantiate1 hpd] at hb
-    refine bind_congr_eq hb ?_
-    intro b₂ _
-    rfl
+    have h := defeqBinders_shift henv ih false bindersFuel hpd (fvs := []) (by simp)
+      hwa.1 hwa.2 hwb.1 hwb.2
+    simp only [List.map_nil] at h
+    rw [h]
   case lam.lam ty₁ body₁ ty₂ body₂ =>
     simp only [WScoped] at hwa hwb
     simp only [shiftFrom]
-    rw [defeqLams_shift henv ih lamsFuel hpd hwa.1 hwa.2 hwb.1 hwb.2]
+    have h := defeqBinders_shift henv ih true bindersFuel hpd (fvs := []) (by simp)
+      hwa.1 hwa.2 hwb.1 hwb.2
+    simp only [List.map_nil] at h
+    rw [h]
 
 /-- Offsets are shift-invariant. -/
 private theorem defeqOffset_shift
