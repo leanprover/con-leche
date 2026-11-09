@@ -111198,3 +111198,40 @@ Gates at the lane's head: `lake build`, `lake test` warning-free; `tests/arena.s
 arena tutorial 90/92 as on the base, the new reach gate); the link gates repointed; one
 `public import` (`ViewCongr` → `ParsedC`) kept public against the plan script's census, measured,
 in its fallback list.
+
+### Landing #497 after #495 and #496 (2026-11-09)
+
+**B3 against #495.**  #495 deleted the cached chain B3 was built on (`structProjBodiesC`,
+`instPisAtLiftC`, `instantiate1LiftC`) in favour of one `structProjBodies` (each field's raw
+domain substituted once by `Expr.instantiateLift`), executed for both tiers by a plain-tier
+`@[csimp]` memo walk, with the tables built once per block (`blockTables : … → Option (List
+ProjTable)`, checked and pushed).  Resolved by the reach rule: the plain `structProjBodies` and
+`blockTables` are the specification; the cached tier runs their twins.  `instantiateLiftC`
+(`Cached/ExprOpsC.lean`) is the section's walk for #495's substitution: the `bvarB` cutoff, the
+`withExclusive` read, the pointer-keyed memo, the values in an `Array`
+(`instantiateLiftC_spec`, `Verify/Cached/OpsC.lean`, over `instantiateLiftP_spec`; the cutoff
+is `instantiateLift_of_bvarBound_le`).  Its generated C matches `instantiate1XP`'s line for line
+outside the `bvar` arm: the child step (`enterLiftP`) is identical to `enter1P` after renaming,
+with no `lean_inc_ref` of the node before the exclusivity read.  `structProjBodiesC` is #495's
+algorithm over it, `blockTablesC` returns the `Option`, and `checkBlockKS` builds
+`blockTablesC p₀ p₀.members` once, checks those tables and pushes them; `StreamIndex.add`
+records `declTablesC`.  The proofs rewrite by `blockTablesC_eq` once after unfolding
+`checkBlockKS` (`checkBlockKS_pushes`, `checkBlockKS_push`, `checkBlockKS_run`); the
+`structProjBodiesC_eq`/`blockTablesC_eq`/`declTablesC_eq` chain sits in `WalkersC.lean`.  The
+plain `instantiateLift` memo walk (`instantiateLiftGo`, `instantiateLiftFast`,
+`InstLiftMemoInv`) and its `@[csimp]` were then unreached and are deleted; the plain-reach gate
+passes with no new allowlist entry (741 reached).
+
+**Numbers** (`instructions:u`, one run each, `--jobs=1`, verified; the lane head 5c98f6276 →
+the landed tree):
+
+| run | lane head | landed | change |
+|---|---|---|---|
+| init-full | 374.896 G | 374.911 G | +0.004 % |
+| grind-ring-5 | 13.161 G | 13.148 G | −0.1 % |
+| `BvStruct` − `Empty` | 2.606 G | 2.256 G | −13.4 % |
+| e2e `prop_struct_proj_wide` | 593.2 M | 493.8 M | −16.8 % |
+
+Against master before #495 (501589f56): `BvStruct` − `Empty` 10.08 → 2.26 G, init-full
+381.83 → 374.91 G (−1.8 %), grind-ring-5 15.33 → 13.15 G (−14.2 %), `prop_struct_proj_wide`
+1.775 G → 0.494 G.
