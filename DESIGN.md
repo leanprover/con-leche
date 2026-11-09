@@ -110789,3 +110789,143 @@ official 0, which generates the recursor).
 Other declines in the inductive check, not on this path and unchanged: the direct sum and
 structure installs' telescope mismatches (`SumInstall*`, `StructInstall*`), nested positivity's
 fuel, and a family stored at a definition in one tail case (`BlockTail.lean`).
+
+## TASK #515 — the wider unit-like η and the η of a partially applied constructor (2026-11-09, agent/515-wide-eta)
+
+**Ruling (maintainer).** The official kernel on lean4 master gained two η extensions (lean4#14977's
+renovation): lean4#15372 (unit-like now covers a Π-type whose codomain is unit-like and a
+structure whose fields are all unit-like or propositions) and lean4#15373 (structure η at a
+partially applied constructor, η-expanding as needed). Both only accept more; implement both in
+con-leche proper, verified, matching official's order.
+
+**The rules, as official has them** (`src/kernel/type_checker.cpp` on master).
+
+* `is_unit_like(t)`: `whnf(t)`; while a ∀, open the binder at a fresh variable and `whnf` the
+  body; the result's head must be a non-recursive structure (`is_non_rec_structure`); its
+  constructor's type, at the type's levels, its parameter binders dropped and instantiated with
+  the type's arguments (`instantiate_rev`); then every field binder's domain must satisfy
+  `is_prop(hd) || is_unit_like(hd)`, each field opened at a fresh variable.
+  `is_def_eq_unit_like(t, s)`: `t_type = whnf(infer_type(t))`, `is_unit_like(t_type)`, then
+  `is_def_eq_core(t_type, infer_type(s))`. Still the last test of `is_def_eq_core`.
+* `try_eta_struct_core(t, s)` with `s` headed by a constructor of a non-recursive structure: the
+  arity test is gone; `is_def_eq(infer_type(t), infer_type(s))`; if `s` lacks arguments, both
+  sides are applied to fresh variables along `s`'s type's syntactic ∀s (no `whnf`: a
+  constructor application's type is the rest of its telescope); then each field of `s` against
+  the projection of `t`.
+
+**Implemented** (`Kernel/Core.lean`, twins in `Cached/CoreC.lean`).
+
+* `structUnitCert`: io-infer `a`, `whnf`, `unitLikeLoop` (official's `is_unit_like`), then io-infer
+  `b`, `whnf`, `defeq wta wtb` (as before: the reduced types are compared). A side whose reduced
+  type is a ∀ must be neutral (`Expr.ioNeutral`, head no λ and no `let`): only then is its io claim
+  a membership (task #342 L18). A λ meets the other side through `etaCert` first, which compares
+  the bodies at the codomain, where unit-likeness applies again; so the guard changes no verdict
+  on the PRs' tests.
+* `unitLikeLoop`: a ∀ recurses on the opened codomain; otherwise `unitLikeStruct`, whose shape is
+  a pure read of the stored records (`unitLikeShape`, `Kernel/CoreDefs.lean`): a family with the
+  existing `unitlike` capability (one constructor without fields, no index, not recursive) is
+  unit-like outright; an η family with fields is read through its projection table — every
+  field slot an entry (`towerSlotsAll`, as `structEtaCertWith`), the constructor the first
+  entry's, at the family's level parameters — and its field telescope is the constructor type at
+  the instance's levels, the parameters dropped and bulk-instantiated with the arguments
+  (`unitFieldTele`, official's `binding_body` × n then `instantiate_rev`). `unitLikeFields` walks
+  the fields: `isPropType` (official's `is_prop`: io-infer, `whnf`, a sort equivalent to `Prop`),
+  else the recursive test; the telescope's binders are syntactic (official's `whnf` of each rest
+  leaves a ∀ unchanged). The recursion has its own budget `unitLikeFuel` (2^62, exhaustion is
+  "not unit-like", as `lamsFuel`).
+  *Why the table and not `env.find? caps.etaCtor`:* a run must not see later additions to the
+  environment (`Verify/EnvExt`), and nothing stored ties an η family's `etaCtor` name to a stored
+  constructor; a table entry's constructor is stored (`StoredFacts.entryCtors`), and the tower's
+  laws (the η law and the coherence law) are keyed on the entry — what the soundness reads.
+* `structEtaCert`: a fully applied constructor, the existing certificate (now `structEtaFull`); a
+  partially applied η constructor (`etaCtorPartial`: a stored constructor with fewer arguments
+  than parameters and fields, of a family whose η constructor it is — read before any inference,
+  as official's `is_non_rec_structure` gate), against a neutral side: `defeq tb ta` (official's
+  `is_def_eq(t_type, s_type)`), then `structEtaExpand` along `ta`'s ∀s, one per missing argument,
+  ending in `structEtaFull`. Official also compares the types for full applications; con-leche's
+  full path keeps its own design (parameters against the reduced type, task #342 L11b).
+
+Order: con-leche's stuck fallback (`stuckIrrel`) was and stays structure η both ways, then
+unit-likeness, then proof irrelevance, official's `try_eta_struct` then `is_def_eq_unit_like`.
+
+**Rules tier** (`Rules/Rel.lean`). `DefEq.structUnit` is replaced by `DefEq.unitLike` (premises:
+the two io inferences and reductions, the neutrality guards, `UnitLike env d wta`, `DefEq wta
+wtb`); new `DefEq.etaExpand` (two neutral sides, `DefEq tb ta`, `DefEqExpand env d a b ta`), and
+three relations in the mutual block: `DefEqExpand` (`done` by a `DefEq`; `step` along a ∀,
+applying both sides to `.fvar d dom`), `UnitLike` (`pi`, `unit` by `unitLikeShape = some none`,
+`struct` by `unitLikeShape = some (some (tele, n))` and `UnitFields`), `UnitFields` (`nil`,
+`prop`, `unit`). The constructor of `etaExpand` is the checker's business: the rule holds of any
+two neutral sides.
+
+**Soundness** (`Model/Rules/UnitSound.lean`, wired into `Sound.lean`; motives `UnitLikeSem`,
+`UnitFieldsSem`, `DefEqExpandSem` in `Motive.lean`). No new law, no new axiom.
+
+* Function spaces: two members of `piV A B` with type fibres are equal where all their
+  applications are (`piV_ext`, from `lamV_eta`). The ∀ arm of `UnitLike` and the step of
+  `DefEqExpand` open the binder at the fresh variable (`open_app`: context, reading, leaves,
+  grading of `a x`) and read the claim at every value.
+* `DefEqExpand.done`: two members of one type are both the point or neither (`IsTy`), and the
+  conditional claim equates them. `etaExpand`: neutral sides that are not the point are members
+  of their io types, which the comparison makes one.
+* `UnitLike.unit`: the stored unit law (`CapsOk.2`, unchanged).
+* `UnitLike.struct`: two members that are not the point are, by the tower's η law at the first
+  entry, the constructor at the parameters and their projections, and both spines fit the
+  constructor's telescope (the coherence law). `unitTele_fit` peels the parameters off that fit
+  (one `denote_beta` and `teleFit_inst0_of` per parameter, the bulk instantiation read as the
+  `instSpine` chain) onto the checker's field telescope; there `UnitFields` equates the
+  projections field by field (a proposition's members are the point, `PropPt` from
+  `prop_pt_io`; a unit-like field's by the field's own claim), so the members coincide.
+
+**Verify.** Bridges (`Verify/Rules/Certs.lean`), inversions (`InferLemmas`), fuel (`Fueled`), the
+pair monad (`PairM`), the shift (`Deep`, with `unitLikeShape_shiftFrom` and the telescope kit in
+`Verify/InstSpine.lean`), the environment extension (`EnvExt/Reads`, `EnvExt/Rel`), the cached
+congruences (`KnotCongr`) and the cached simulation (`Cached/DiscC2.lean`, vcgen/finish; the
+field loop cased on the telescope's head, the structure arm through `unitLikeShapeF_mkFEnv`;
+`stuckIrrelC_spec` and `defeqStuckC_spec` now take `EnvWF`). The field loop's two arms each call
+the rest of the loop (no nested `do` block), so that both sides' binds are flat.
+
+**Fixtures** (all new rows of `tests/e2e-expected.txt`): `unitlike_wide` 0 (lean4's
+`tests/elab/2258.lean` and more: a structure whose fields are `B := Unit`, `Unit`, `True`, an
+equation; a proposition field; a Π-type behind `id`; a λ against a variable at a unit-like Π-type;
+a nested unit-like structure field; a dependent field; a Π-typed field; a Π-type ending in a
+unit-like structure), `unitlike_wide_foo_nat_bad`, `_boolwrap_bad`, `_pi_bad` 1;
+`eta_partial_ctor` 0 (lean4's `tests/elab/12520_1.lean`: `T.mk (x True.intro).val = x`, against
+`fun h => x h`, two missing proof fields, a missing unit-like field), `eta_partial_ctor_bad` and
+`_alias_bad` 1 (the test's two must-reject declarations); `unitlike_lean4_13371` and
+`unitlike_lean4_match4` 0 — lean4's `tests/elab/13371.lean` and `match4.lean`, whose
+`noConfusion`s lean4 master's elaborator builds with the wider rule; these two are exported from
+the lean4 master build in `_tmp/lean4` (the v4.29.1 elaborator builds other terms), the recipe in
+their sources. All positive fixtures are rejected by master's binary. The arena's
+`bad/tutorial/115_etaCtor` (exactly 12520_1's first example) is now accepted, as by the official
+kernel since lean4#15373: its row in `tests/arena-expected.txt` is 0 with the reason, and
+`tests/arena.sh` accepts a `bad/` test whose row says 0 (any other accepted `bad/` test is still a
+SOUNDNESS FAIL).
+
+**Performance** (`perf stat -e instructions:u`, one run each, `--verified --jobs=1`, baseline
+master `501589f56`): see the table below; the unit-like test sits on the stuck-comparison path,
+and costs nothing measurable on `init-full`. No per-inductive precomputation was needed: the
+common rejections (a non-structure head, a first field of a non-unit type) are a few memoized
+calls, as official's.
+
+| stream | master | task #515 | Δ |
+|---|---:|---:|---:|
+| `app-lam` | 22 071 798 527 | 22 071 621 500 | -0.001 % |
+| `args-before-unfold` | 68 584 414 | 68 585 538 | +0.002 % |
+| `beta-ladder` | 4 846 588 528 | 4 846 584 017 | -0.000 % |
+| `church-numerals` | 299 435 414 | 299 525 530 | +0.030 % |
+| `discarded-argument` | 69 262 094 | 70 563 620 | +1.879 % |
+| `discarded-argument-match` | 200 214 681 | 201 939 651 | +0.862 % |
+| `folded-constant-first` | 98 431 082 | 98 453 656 | +0.023 % |
+| `folded-constant-last` | 98 465 547 | 98 473 328 | +0.008 % |
+| `grind-ring-5` | 15 331 007 461 | 15 331 845 054 | +0.005 % |
+| `identical-nesting` | 21 368 470 | 21 373 209 | +0.022 % |
+| `init-full` | 381 830 793 653 | 381 853 088 043 | +0.006 % |
+| `init-prelude` | 1 926 091 288 | 1 926 117 037 | +0.001 % |
+| `irrelevance-before-evaluation` | 23 466 844 | 23 469 251 | +0.010 % |
+| `let-ladder` | 2 567 918 670 | 2 567 942 539 | +0.001 % |
+| `repeated-subproblem` | 23 441 734 | 23 445 865 | +0.018 % |
+| `shared-subterm` | 210 089 811 | 210 041 420 | -0.023 % |
+| `shift-cascade` | 57 159 168 | 57 166 854 | +0.013 % |
+| `unroll-versus-evaluate` | 29 151 631 | 29 158 317 | +0.023 % |
+
+All verdicts unchanged (exit 0). The largest relative deltas are on the two small `discarded-argument` streams (+1.3 M and +1.7 M instructions absolute), not attributed further; `init-full` is +0.006 %, `grind-ring-5` +0.005 %.

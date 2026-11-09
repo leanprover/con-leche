@@ -2,7 +2,6 @@ module
 
 public import ConLeche.Model.Rules.Inputs
 import ConLeche.Model.Rules.DefEqSoundKit
-import ConLeche.Model.Rules.EtaSoundKit
 import ConLeche.Model.Rules.IotaSoundKit
 import ConLeche.Model.Rules.RedSoundKit
 import ConLeche.Model.CtxOkKit

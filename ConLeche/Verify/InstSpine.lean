@@ -2,7 +2,6 @@ module
 
 import ConLeche.Verify.Subst
 import ConLeche.Verify.InstList
-public import ConLeche.Kernel.CoreDefs
 public import ConLeche.Verify.Leaves
 public import ConLeche.Verify.InstLevels
 

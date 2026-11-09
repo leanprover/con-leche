@@ -519,14 +519,14 @@ Read from the outside in:
    ([theorem `checkDecls_sound` in the same file](https://github.com/leanprover/con-leche/blob/master/ConLeche/Verify/Cached/MainC.lean#L34-L37)).
    A job's check at a view is the fold's step because the cached core
    reads its environment through the lookups alone
-   ([theorem `coreKnotI_congr` in `ConLeche/Verify/Cached/KnotCongr.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Verify/Cached/KnotCongr.lean#L480-L482)).
+   ([theorem `coreKnotI_congr` in `ConLeche/Verify/Cached/KnotCongr.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Verify/Cached/KnotCongr.lean#L527-L529)).
 4. **The pure checker** (`ConLeche/Kernel/*`) is a fueled, memo-free
    presentation of the same algorithm: `whnfCore`, `whnf`, `inferType`,
    `isDefEq` (and inference at the infer-only grade) are defined by one mutual
    recursion on a fuel parameter
    ([the entry points in `ConLeche/Kernel/TypeChecker.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/TypeChecker.lean#L29-L54));
    on exhaustion every operation throws
-   ([the fuel recursion's base case in `ConLeche/Kernel/Core.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/Core.lean#L1777-L1782)).
+   ([the fuel recursion's base case in `ConLeche/Kernel/Core.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/Core.lean#L1858-L1863)).
    Its declaration fold is what the model tier proves things about
    ([theorem `no_proof_of_False_pure` in `ConLeche/Model/Fold.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Model/Fold.lean#L431-L438)).
 5. **The model tier** (`ConLeche/Model/*`, the set model of the checker)
@@ -653,13 +653,13 @@ reduced by `whnfCore` itself rather than by `whnf`),
 reduction: its value is never unfolded, so whether a declaration
 type-checks never depends on a theorem's value — and the literal fast
 paths
-([function `whnfBody` in `ConLeche/Kernel/Core.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/Core.lean#L1060)),
+([function `whnfBody` in `ConLeche/Kernel/Core.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/Core.lean#L1141)),
 `inferType` computes a type, and `isDefEq` decides conversion in the
 order of the official `is_def_eq_core` (cheap head normalization, the
 easy cases, the lazy-delta loop — which compares two applications of
 the same definition argument by argument before unfolding them, last
 argument first as the official `is_def_eq_args` does
-([function `defeqSpine` in `ConLeche/Kernel/Core.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/Core.lean#L1349)) —, the
+([function `defeqSpine` in `ConLeche/Kernel/Core.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/Core.lean#L1430)) —, the
 projection-against-projection comparison by scrutinees, the full head
 normalization and a restart, then the stuck comparisons) with one
 deliberate exception: the easy cases and proof irrelevance are tried on
@@ -700,15 +700,17 @@ presentation and matter for the proof:
   domains and `let` values checked) and at the official kernel's
   infer-only grade on the terms reduction and definitional equality
   build on their way
-  ([function `inferBodyIO` in `ConLeche/Kernel/Core.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/Core.lean#L1244)).
+  ([function `inferBodyIO` in `ConLeche/Kernel/Core.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/Core.lean#L1325)).
   Beyond the official kernel, the verified mode compares the opened
   bodies' full-grade types at the innermost level of a λ/λ comparison
-  ([function `defeqLams` in `ConLeche/Kernel/Core.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/Core.lean#L1387))
-  and at η; the proof consumes them. Three cheap guards are the proof's
-  too and never change a verdict on well-typed input: η is tried only
-  against a term whose head is no λ and no `let` (a weak-head normal
-  form), a unit-like comparison refuses a Π-type, and a recursor's
-  stored type is checked to have the spine's number of binders. The
+  ([function `defeqLams` in `ConLeche/Kernel/Core.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/Core.lean#L1468))
+  and at η; the proof consumes them. Two cheap guards are the proof's
+  too and never change a verdict on well-typed input: η, unit-likeness
+  at a Π-type and the η-expansion of a partially applied constructor
+  are tried only against a term whose head is no λ and no `let` (a
+  weak-head normal form; a λ meets them through η first), and a
+  recursor's stored type is checked to have the spine's number of
+  binders. The
   synthetic constructor applications of the K and `And` rescues are
   typed at the io grade only: their io type is compared with the
   major's (both modes), then, at the verified mode, proof irrelevance
@@ -731,7 +733,7 @@ presentation and matter for the proof:
   runtime's 1 GiB stack, a level costs at most about 1.2 KB of it, and
   a recursion of about a million levels or more aborts with a stack
   overflow, an error
-  ([definition `checkFuel` in `ConLeche/Kernel/Core.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/Core.lean#L1824)).
+  ([definition `checkFuel` in `ConLeche/Kernel/Core.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/Core.lean#L1905)).
   Reduction *chains* are not bounded by it: the
   `whnf` loop's δ steps, the `whnfCore` loop's β, ι and projection steps
   and the lazy-delta loop each iterate in constant native stack, a
@@ -834,28 +836,28 @@ members of one type, the point does not separate them either, because
 a type's members are all the point or none.
 
 They are proved through a *relational description* of the checker.
-Eight mutually inductive relations over the checker's own terms say what
+Mutually inductive relations over the checker's own terms say what
 moves the core makes — a reduction step, a definitional-equality
-decision, a λ-telescope comparison, a type inference (checking, or
-infer-only as in the official kernel's `infer_only` mode), and four
-certificate checks — with the fuel, the unfolding heuristics and the dispatch order
+decision, a λ-telescope comparison, an η-expansion, a unit-like type
+and its fields, a type inference (checking, or infer-only as in the
+official kernel's `infer_only` mode), and the certificate checks — with the fuel, the unfolding heuristics and the dispatch order
 out of sight; a rule's premises are exactly the certificates the
 checker ran at that site, and the symmetric and derived variants are
 theorems, not constructors
-([the relations in `ConLeche/Rules/Rel.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Rules/Rel.lean#L97-L101)).
+([the relations in `ConLeche/Rules/Rel.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Rules/Rel.lean#L103-L107)).
 Definitional equality has no transitivity rule, deliberately, and
 none can be added: the relation is the checker's verdict on terms
 that are well-formed together, which no rule states, and every
 premise's subject is a subterm of the conclusion or the product of a
 reduction or an inference
-([the docstring of `DefEq` in `ConLeche/Rules/Rel.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Rules/Rel.lean#L324-L347)).
+([the docstring of `DefEq` in `ConLeche/Rules/Rel.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Rules/Rel.lean#L330-L353)).
 The proof then has three parts. The *bridge*: an accepting run of any
 kernel entry point, at any fuel, yields a derivation — one induction
 on fuel, over both values of the eager flag at once,
 mechanical, each checker site landing on one rule
 ([theorem `bridgeAt` in `ConLeche/Verify/Rules/Bridge.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Verify/Rules/Bridge.lean#L29-L32)).
 The *soundness*: a derivation implies the claim's conclusion — one
-structural induction over the eight relations, every case one lemma
+structural induction over the relations, every case one lemma
 about one rule, stated over the environment's laws and never over the
 implementation, at one valuation at a time. β's lemma reads no premise:
 a redex that is not the point has a λ that is not the point, which is
@@ -890,11 +892,20 @@ stuck side's type is a type, so its parameters fit the family's
 telescope with no certificate; the constructor side, not being the
 point, fits the constructor's telescope, so the comparisons the rule
 ran become equations there too.
+Unit-likeness reads the same two laws: two members of an η family with
+fields fit the constructor's telescope at the same parameters, whose
+fields are propositions (every proof is the point) or unit-like, so
+they have the same projections and are the same member; a family
+without fields has its unit law, and two members of a Π-type whose
+codomain is unit-like agree at every argument. The η of a partially
+applied constructor compares the two sides' types, then their
+applications to a fresh variable: two members of one Π-type that agree
+at every argument are equal.
 λ-congruence compares the bodies' types at the innermost level of two
 λ-telescopes, and η the λ's body's type with the Π-type's body: two
 bodies in one type are both the point or neither, so the bodies' claim
 is an equation at every value of the variable, an equation of the λs
-([the master induction in `ConLeche/Model/Rules/Sound.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Model/Rules/Sound.lean#L49-L52)).
+([the master induction in `ConLeche/Model/Rules/Sound.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Model/Rules/Sound.lean#L50-L53)).
 And the *recomposition*, which is a few lines per claim: bridge the
 run, apply the soundness
 ([theorem `checkSoundAtP5` in `ConLeche/Model/Rules/Recompose.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Model/Rules/Recompose.lean#L49-L54)).
@@ -1126,7 +1137,7 @@ resolves at the smaller one
 ([theorem `knot_ext` in `ConLeche/Verify/EnvExt.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Verify/EnvExt.lean#L457-L459)).
 All the knot reads past the term is what a stored constant's record names, and a
 declaration boundary has it stored
-([structure `StoredFacts` in `ConLeche/Verify/EnvExt/Reads.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Verify/EnvExt/Reads.lean#L28-L29)).
+([structure `StoredFacts` in `ConLeche/Verify/EnvExt/Reads.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Verify/EnvExt/Reads.lean#L29-L30)).
 The model therefore keeps one reading of a family: a recorded block's datum says which
 reduct it shows for a member (`LfpDatum.telescope`), and a member's model reads its declared
 type and its reduct as one value at every valuation
@@ -1607,7 +1618,7 @@ and every such line carries its reason.
 | `ConLeche/SetTheory/` | The `SetTheory` class and the derived set operations. |
 | `ConLeche/SetModel/` | Pure set constructions with no expressions in sight: tuples and nested tuples, tagged sums, the fixpoint iteration, the recursor's graph, member containers. |
 | `ConLeche/Semantics/` | The interpretation, the semantic invariant, the semantics of inductive blocks, the declaration-level facts. |
-| `ConLeche/Rules/` | The relational description of the core checker: seven mutually inductive relations over the checker's own `Expr` — reduction, definitional equality, type inference (checking and infer-only), and four certificate checks — with fuel, unfolding heuristics and dispatch order out of sight (`Rel.lean`), and the derived rules (`Derived.lean`). Imports the fuel-free helpers of the kernel and nothing else of it. |
+| `ConLeche/Rules/` | The relational description of the core checker: mutually inductive relations over the checker's own `Expr` — reduction, definitional equality, η-expansion, unit-likeness, type inference (checking and infer-only), and the certificate checks — with fuel, unfolding heuristics and dispatch order out of sight (`Rel.lean`), and the derived rules (`Derived.lean`). Imports the fuel-free helpers of the kernel and nothing else of it. |
 | `ConLeche/Verify/Rules/` | The bridge: an accepting run of a kernel function, at any fuel, yields a derivation (`Bridge.lean`, from one step theorem per entry point and the certificate bridges). |
 | `ConLeche/Model/` | The graded set model of the checker: the environment invariant and its laws (`Env/`), the facts about the stored-term reading `denote` that read the environment invariant (`Reading/`), the claims, the soundness of the rules tier's derivations (`Rules/`: the motives, the environment inputs, one lemma per rule over shared kits, the master induction, and the recomposition of the claims from the bridge), the run-stated remainder the declaration fold reads (`Tiers.lean`), the declaration step, the inductive installs (`Inductives/`, `Ind*`), the Nat-op certification, the final theorems (`Capstone.lean`), and the model read through the statement's relation (`Denotes.lean`). |
 | `ConLeche/Verify/` | Proofs about kernel functions that need no model: well-formedness, scoping, the stored-term reading `denote` and its metatheory (`Denote.lean`, `Denote/`: inversions, depth shift, instantiation, closedness, environment extension), the cached-to-pure simulation (`Cached/`: the core's congruence in the lookup (`KnotCongr.lean`), the block tail's in-place pushes (`BlockOverlay.lean`), every stage's congruence in the index (`ViewCongr.lean`), and every job passing is an accept of the fold (`StreamIndex.lean`, which `ConLeche/Driver/CheckPool.lean` imports)), the inductive installer's kernel-side invariants (`Inductives/`), and the parser's (`Frontend/`: line locality, the parse as a line fold, chunk independence, what a line does to the parse state, the template's lines, the characterisation of the serial fold over a stream that binds in increasing order, good entries and the tables they make (`Good.lean`), and that the rounds keep good entries and a window is one more stretch of the serial parse (`RoundsWork.lean`, `Rounds.lean`), the runs of the IO model and the folds over a file's reads in it (`ModelIO.lean`), that the stream's reads in it put together are the file (`StreamModel.lean`), and the `.olean` reader's decoders and reads (`Olean/`)), and all of `main` in the IO model at the arguments `-- <file>` (`Driver/Main.lean`). |
@@ -1668,7 +1679,7 @@ types.
 |---|---|---|
 | `IndCaps` | `all`, `nparams`, `nIdx`, `ctors` | `InductiveVal.all`, `numParams`, `numIndices`, `ctors` |
 | `IndCaps` | `eta`, `etaCtor`, `etaParams`, `etaFields` | whether the family is structure-like (one constructor, no index, a block that is not recursive), and its constructor's name and counts; read off the block |
-| `IndCaps` | `unitlike`, `unitParams` | whether all inhabitants are definitionally equal; from the constructor types |
+| `IndCaps` | `unitlike`, `unitParams` | whether the family is structure-like with a constructor without fields, so that all its inhabitants are definitionally equal, and its parameter count; read off the block |
 | `recInfo` | `majorIdx`, `rulePrefix` | sums of `RecursorVal.numParams`, `numMotives`, `numMinors`, `numIndices` |
 | `RecRule` | `fire` | `.plain` for a recursor whose major premise is a member of its own block; for an auxiliary recursor of a nested block, `.nested lvls pins`, the levels and the parameter arguments of the recursor's major domain, read off its stored type and closed over the rule prefix (no lookup: the trailing arguments are the record's index variables) |
 
@@ -1690,7 +1701,7 @@ projection's type from the constructor's type when it meets one
 (`infer_proj`). What `infer_proj` requires of a `Prop` structure, that the
 field and every earlier field a later one uses are propositions, is checked
 at the use here too
-([function `checkProjGuard` in `ConLeche/Kernel/Core.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/Core.lean#L1108-L1109)),
+([function `checkProjGuard` in `ConLeche/Kernel/Core.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/Core.lean#L1189-L1190)),
 from the stored constructor type at the environment of the use; nothing
 about it is stored.
 
