@@ -126,4 +126,157 @@ theorem abstractPrefixC_eq : ∀ (k c : Nat) (e : Expr),
     rw [abstractPrefix, ← abstractPrefixC_eq k (c + 1), abstractPrefixC, abstractPrefixC,
       abstractRangeC_spec, abstractRangeC_spec, abstractRange_succ, Nat.zero_add]
 
+/-! ## The member abstraction -/
+
+/-- **The plain descent computes `targetAbs`.** -/
+theorem targetAbsP_spec {names : List Name} {lvls : List Level} {holes : List Expr} :
+    ∀ e : Expr, targetAbsP names lvls holes e = targetAbs names lvls holes e := by
+  intro e
+  induction e with
+  | const n us =>
+    simp only [targetAbsP, targetAbs, targetAbsConst]
+    cases List.findIdx? (· == n) names <;> rfl
+  | _ => simp_all [targetAbsP, targetAbs]
+
+/-- **The cached member abstraction computes `targetAbs`.** -/
+theorem targetAbsC_spec {names : List Name} {lvls : List Level} {holes : List Expr} {e : Expr} :
+    targetAbsC names lvls holes e = targetAbs names lvls holes e := by
+  rw [targetAbsC, resTerm_eq, targetAbsP_spec]
+
+/-! ## Opening telescopes at given arguments -/
+
+/-- **The cached `instPisWith` is `instPisWith`.** -/
+theorem instPisWithC_eq : ∀ (as : List Expr) (e : Expr), instPisWithC as e = instPisWith as e
+  | [], _ => rfl
+  | a :: as, .forallE _ body => by
+    rw [instPisWithC, instPisWith, instantiate1C_spec, instPisWithC_eq as]
+  | _ :: _, .bvar _ => rfl
+  | _ :: _, .fvar .. => rfl
+  | _ :: _, .sort _ => rfl
+  | _ :: _, .const .. => rfl
+  | _ :: _, .app .. => rfl
+  | _ :: _, .lam .. => rfl
+  | _ :: _, .letE .. => rfl
+  | _ :: _, .lit _ => rfl
+  | _ :: _, .proj .. => rfl
+
+/-- **The cached `targetPiDomsWith` is `targetPiDomsWith`.** -/
+theorem targetPiDomsWithC_eq :
+    ∀ (xs : List Expr) (e : Expr), targetPiDomsWithC xs e = targetPiDomsWith xs e
+  | [], _ => rfl
+  | x :: xs, .forallE _ body => by
+    rw [targetPiDomsWithC, targetPiDomsWith, instantiate1C_spec, targetPiDomsWithC_eq xs]
+  | _ :: _, .bvar _ => rfl
+  | _ :: _, .fvar .. => rfl
+  | _ :: _, .sort _ => rfl
+  | _ :: _, .const .. => rfl
+  | _ :: _, .app .. => rfl
+  | _ :: _, .lam .. => rfl
+  | _ :: _, .letE .. => rfl
+  | _ :: _, .lit _ => rfl
+  | _ :: _, .proj .. => rfl
+
+/-! ## Depth -/
+
+/-- **The plain descent computes `Expr.depth`.** -/
+theorem depthP_spec : ∀ e : Expr, depthP e = e.depth := by
+  intro e
+  induction e <;> simp_all [depthP, Expr.depth]
+
+/-- **The cached depth computes `Expr.depth`.** -/
+theorem depthC_spec {e : Expr} : depthC e = e.depth := by
+  rw [depthC, resNat_eq, depthP_spec]
+
 end ConLeche.Expr
+
+namespace ConLeche.Cached
+
+open ConLeche
+
+/-! ## The occurrence test of the guard rows (moved from `DiscC4.lean`, as below) -/
+
+/-- The cached occurrence test is `Expr.hasLooseBVarB` (task #497). -/
+theorem hasLooseBVarBC_spec {i : Nat} {e : Expr} :
+    Expr.hasLooseBVarBC i e = Expr.hasLooseBVarB i e := by
+  unfold Expr.hasLooseBVarBC
+  split
+  · next h => exact (Expr.hasLooseBVarBP_cut h).symm
+  · rw [Expr.resBool_eq]; rfl
+
+/-! ## The one-pass opener (moved from `DiscC4.lean`: the driver's equations import this file) -/
+
+/-- The cached opening loop is the kernel's. -/
+theorem openPisAtFvarsGoC_eq :
+    ∀ (acc : List Expr) (n : Nat) (e : Expr) (i : Nat),
+      openPisAtFvarsGoC acc n e i = openPisAtFvarsFGo acc n e i
+  | _, 0, _, _ => by simp only [openPisAtFvarsGoC, openPisAtFvarsFGo, Expr.instantiateListC_spec]
+  | acc, n + 1, .forallE dom body, i => by
+    simp only [openPisAtFvarsGoC, openPisAtFvarsFGo, Expr.instantiateListC_spec,
+      openPisAtFvarsGoC_eq _ n body (i + 1)]
+    cases openPisAtFvarsFGo (.fvar i (dom.instantiateList acc) :: acc) n body (i + 1) <;> rfl
+  | _, _ + 1, .bvar _, _ => rfl
+  | _, _ + 1, .fvar .., _ => rfl
+  | _, _ + 1, .sort _, _ => rfl
+  | _, _ + 1, .const .., _ => rfl
+  | _, _ + 1, .app .., _ => rfl
+  | _, _ + 1, .lam .., _ => rfl
+  | _, _ + 1, .letE .., _ => rfl
+  | _, _ + 1, .lit _, _ => rfl
+  | _, _ + 1, .proj .., _ => rfl
+
+/-- **The one pass misses no binder**: instantiating at free variables
+never makes a `∀` appear, so where `openPisAtFvarsFGo` finds none, the
+sequential opening of the instantiated term finds none either. -/
+theorem openPisAtFvarsFGo_none :
+    ∀ (n : Nat) (e : Expr) (i : Nat) (acc : List Expr),
+      (∀ a ∈ acc, ∃ k t, a = .fvar k t) → openPisAtFvarsFGo acc n e i = none →
+      openPisAtFvars n (e.instantiateList acc) i = none
+  | 0, _, _, _, _, h => by simp [openPisAtFvarsFGo] at h
+  | n + 1, .forallE dom body, i, acc, hacc, h => by
+    simp only [openPisAtFvarsFGo] at h
+    split at h
+    case _ => exact nomatch h
+    case _ hgo =>
+      have ih := openPisAtFvarsFGo_none n body (i + 1)
+        (Expr.fvar i (dom.instantiateList acc) :: acc)
+        (fun a ha => by
+          rcases List.mem_cons.mp ha with rfl | ha
+          · exact ⟨_, _, rfl⟩
+          · exact hacc a ha) hgo
+      rw [Expr.instantiateList_cons] at ih
+      simp only [Expr.instantiateList, openPisAtFvars, ih]
+  | n + 1, .bvar j, i, acc, hacc, _ => by
+    rw [Expr.instantiateList]
+    split
+    · rfl
+    · split
+      · rename_i hj
+        obtain ⟨k, t, hk⟩ := hacc _ (List.getElem_mem hj)
+        rw [hk, Expr.instantiateList]
+        rfl
+      · rfl
+  | _ + 1, .fvar .., _, _, _, _ => by rw [Expr.instantiateList]; rfl
+  | _ + 1, .sort _, _, _, _, _ => by rw [Expr.instantiateList]; rfl
+  | _ + 1, .const .., _, _, _, _ => by rw [Expr.instantiateList]; rfl
+  | _ + 1, .app .., _, _, _, _ => by rw [Expr.instantiateList]; rfl
+  | _ + 1, .lam .., _, _, _, _ => by rw [Expr.instantiateList]; rfl
+  | _ + 1, .letE .., _, _, _, _ => by rw [Expr.instantiateList]; rfl
+  | _ + 1, .lit _, _, _, _, _ => by rw [Expr.instantiateList]; rfl
+  | _ + 1, .proj .., _, _, _, _ => by rw [Expr.instantiateList]; rfl
+
+/-- The cached one-pass telescope opening is `openPisAtFvars`. -/
+theorem openPisAtFvarsC_eq (n : Nat) (e : Expr) (i : Nat) :
+    openPisAtFvarsC n e i = openPisAtFvars n e i := by
+  unfold openPisAtFvarsC
+  rw [openPisAtFvarsGoC_eq]
+  match h : openPisAtFvarsFGo [] n e i with
+  | some r =>
+    have := openPisAtFvarsFGo_sound n e i [] h
+    rw [Expr.instantiateList_nil] at this
+    exact this.symm
+  | none =>
+    have := openPisAtFvarsFGo_none n e i [] (by simp) h
+    rw [Expr.instantiateList_nil] at this
+    exact this.symm
+
+end ConLeche.Cached

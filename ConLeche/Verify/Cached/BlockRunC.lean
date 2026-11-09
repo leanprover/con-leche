@@ -361,7 +361,7 @@ theorem envWF_consBlockRecsBare {q : BlockShape} {cvRas : List (ConstantVal × N
 verdict the pure stage's. -/
 theorem checkBlockTablesS_run (env : Env) :
     ∀ (Q : List ProjTable) {s₀ : CState} {u : Unit} {s' : CState},
-      checkBlockTablesF (m := CheckCM) .plain (mkFEnv env) Q s₀ = .ok (u, s') →
+      checkBlockTablesF (m := CheckCM) (mkFEnv env) Q s₀ = .ok (u, s') →
       s' = s₀ ∧ checkBlockTables (m := CheckM) env Q = .ok ()
   | [], s₀, u, s', h => by
     simp only [checkBlockTablesF] at h

@@ -27,9 +27,10 @@ record pins:
   `blockRecInfosTF`) and the container bit (`blockNestedBit`).
 
 Everything is written over an `FEnv`, parameterised by `ShadowOps` (the
-operations at an index, a flush, the walkers), so the pure install
-(`ShadowOps.ofOps`), the unit tests and the cached fold (`shadowOpsC`,
-`ConLeche/Cached/CheckerC.lean`) run the same code.
+operations at an index, a flush), so the pure install
+(`ShadowOps.ofOps`) and the unit tests run the same code; the cached
+fold runs the twins of `ConLeche/Cached/IndRec.lean`, equal to this code
+at `shadowOpsC` (`genRecCheckC_eq`).
 -/
 
 namespace ConLeche
@@ -54,7 +55,8 @@ a constant.  A free variable's ANNOTATION is not abstracted: the
 frame's fields keep their concrete types (a field's value fits them at
 the carrier, and the separated tuple lies below it), so a hole occurs
 in the abstract term only where the term itself names a member, and a
-hole-free abstract term IS a concrete one.  Memoised on the node (tower-shaped DAG fields,
+hole-free abstract term IS a concrete one.  The cached twin `targetAbsC`
+(`ConLeche/Cached/ExprOpsC.lean`) is memoised on the node (tower-shaped DAG fields,
 `tower_struct`).  It is NOT `replaceConsts`
 (`Kernel/ExprOps.lean`) at the member map, on purpose: that one
 rewrites free variables' annotations too, and here the frame's fields
@@ -83,143 +85,6 @@ def targetAbs (names : List Name) (lvls : List Level) (holes : List Expr) : Expr
     .letE (targetAbs names lvls holes ty) (targetAbs names lvls holes v)
       (targetAbs names lvls holes body)
   | .proj s i sub => .proj s i (targetAbs names lvls holes sub)
-
-/-- The memo's invariant: every recorded answer is the real one. -/
-def TargetAbsMemoInv (names : List Name) (lvls : List Level) (holes : List Expr)
-    (memo : Std.HashMap Expr Expr) : Prop :=
-  ∀ k v, memo[k]? = some v → v = targetAbs names lvls holes k
-
-theorem TargetAbsMemoInv.insert {names : List Name} {lvls : List Level} {holes : List Expr}
-    {memo : Std.HashMap Expr Expr}
-    (hm : TargetAbsMemoInv names lvls holes memo) {e r : Expr}
-    (heq : r = targetAbs names lvls holes e) :
-    TargetAbsMemoInv names lvls holes (memo.insert e r) := by
-  intro k v hk
-  rw [Std.HashMap.getElem?_insert] at hk
-  split at hk
-  · rename_i hbeq
-    cases hk
-    rw [← eq_of_beq hbeq]
-    exact heq
-  · exact hm k v hk
-
-/-- The member abstraction, memoised on the node (tower DAGs). -/
-def targetAbsGo (names : List Name) (lvls : List Level) (holes : List Expr)
-    (memo : Std.HashMap Expr Expr) : Expr → Expr × Std.HashMap Expr Expr
-  | e@(.bvar _) => (e, memo)
-  | e@(.sort _) => (e, memo)
-  | e@(.lit _) => (e, memo)
-  | e@(.fvar _ _) => (e, memo)
-  | e@(.const n us) =>
-    if us == lvls then
-      match names.findIdx? (· == n) with
-      | some t => (holes.getD t e, memo)
-      | none => (e, memo)
-    else (e, memo)
-  | e =>
-    match memo[e]? with
-    | some r => (r, memo)
-    | none =>
-      let (r, memo) : Expr × Std.HashMap Expr Expr :=
-        match e with
-        | .app a b =>
-          let (a', memo) := targetAbsGo names lvls holes memo a
-          let (b', memo) := targetAbsGo names lvls holes memo b
-          (.app a' b', memo)
-        | .lam ty body =>
-          let (t, memo) := targetAbsGo names lvls holes memo ty
-          let (b, memo) := targetAbsGo names lvls holes memo body
-          (.lam t b, memo)
-        | .forallE ty body =>
-          let (t, memo) := targetAbsGo names lvls holes memo ty
-          let (b, memo) := targetAbsGo names lvls holes memo body
-          (.forallE t b, memo)
-        | .letE ty v body =>
-          let (t, memo) := targetAbsGo names lvls holes memo ty
-          let (v', memo) := targetAbsGo names lvls holes memo v
-          let (b, memo) := targetAbsGo names lvls holes memo body
-          (.letE t v' b, memo)
-        | .proj s i sub =>
-          let (u, memo) := targetAbsGo names lvls holes memo sub
-          (.proj s i u, memo)
-        | e => (e, memo)
-      (r, memo.insert e r)
-
-/-- **The memoised walk is `targetAbs`.** -/
-theorem targetAbsGo_spec {names : List Name} {lvls : List Level} {holes : List Expr} :
-    ∀ (e : Expr) {memo : Std.HashMap Expr Expr}, TargetAbsMemoInv names lvls holes memo →
-      (targetAbsGo names lvls holes memo e).1 = targetAbs names lvls holes e ∧
-        TargetAbsMemoInv names lvls holes (targetAbsGo names lvls holes memo e).2 := by
-  intro e
-  induction e with
-  | bvar i => intro memo hm; exact ⟨rfl, hm⟩
-  | sort u => intro memo hm; exact ⟨rfl, hm⟩
-  | lit l => intro memo hm; exact ⟨rfl, hm⟩
-  | fvar i ty _ => intro memo hm; exact ⟨rfl, hm⟩
-  | const n us =>
-    intro memo hm
-    simp only [targetAbsGo, targetAbs]
-    split
-    · split <;> exact ⟨rfl, hm⟩
-    · exact ⟨rfl, hm⟩
-  | app a b iha ihb =>
-    intro memo hm
-    rw [targetAbsGo]
-    split
-    · rename_i r hhit
-      exact ⟨(hm _ _ hhit).symm ▸ rfl, hm⟩
-    · obtain ⟨h1, h2⟩ := iha hm
-      obtain ⟨h3, h4⟩ := ihb h2
-      refine ⟨by simp [targetAbs, h1, h3], ?_⟩
-      exact h4.insert (by simp [targetAbs, h1, h3])
-  | lam ty body iht ihb =>
-    intro memo hm
-    rw [targetAbsGo]
-    split
-    · rename_i r hhit
-      exact ⟨(hm _ _ hhit).symm ▸ rfl, hm⟩
-    · obtain ⟨h1, h2⟩ := iht hm
-      obtain ⟨h3, h4⟩ := ihb h2
-      refine ⟨by simp [targetAbs, h1, h3], ?_⟩
-      exact h4.insert (by simp [targetAbs, h1, h3])
-  | forallE ty body iht ihb =>
-    intro memo hm
-    rw [targetAbsGo]
-    split
-    · rename_i r hhit
-      exact ⟨(hm _ _ hhit).symm ▸ rfl, hm⟩
-    · obtain ⟨h1, h2⟩ := iht hm
-      obtain ⟨h3, h4⟩ := ihb h2
-      refine ⟨by simp [targetAbs, h1, h3], ?_⟩
-      exact h4.insert (by simp [targetAbs, h1, h3])
-  | letE ty v body iht ihv ihb =>
-    intro memo hm
-    rw [targetAbsGo]
-    split
-    · rename_i r hhit
-      exact ⟨(hm _ _ hhit).symm ▸ rfl, hm⟩
-    · obtain ⟨h1, h2⟩ := iht hm
-      obtain ⟨h3, h4⟩ := ihv h2
-      obtain ⟨h5, h6⟩ := ihb h4
-      refine ⟨by simp [targetAbs, h1, h3, h5], ?_⟩
-      exact h6.insert (by simp [targetAbs, h1, h3, h5])
-  | proj s i sub ih =>
-    intro memo hm
-    rw [targetAbsGo]
-    split
-    · rename_i r hhit
-      exact ⟨(hm _ _ hhit).symm ▸ rfl, hm⟩
-    · obtain ⟨h1, h2⟩ := ih hm
-      refine ⟨by simp [targetAbs, h1], ?_⟩
-      exact h2.insert (by simp [targetAbs, h1])
-
-/-- The executed member abstraction (one memoised DAG walk). -/
-def targetAbsFast (names : List Name) (lvls : List Level) (holes : List Expr) (e : Expr) : Expr :=
-  (targetAbsGo names lvls holes {} e).1
-
-@[csimp] theorem targetAbs_eq_targetAbsFast : @targetAbs = @targetAbsFast := by
-  funext names lvls holes e
-  exact (targetAbsGo_spec e (fun k v h => by simp at h)).1.symm
 
 /-- The holes of a rule frame of width `base`: member `t` is
 `.fvar (base + t)` at its former's type. -/
@@ -260,7 +125,7 @@ def classFeR (p : BlockShape) (Ms : List TargetMajor) (cvGs : List ConstantVal)
 entry points at an `FEnv` (`opsAt`), their variant for the rules
 (`opsRuleR`: the cached one flushes at the two environment transitions
 a rule makes, `sharedOpsRuleR`), the flush at an environment change,
-the syntactic walkers, and the environment the rule stage infers the
+and the environment the rule stage infers the
 rules at (`ruleEnv`: the rule-less generated recursors consed onto the
 constructors' environment — pushed in the pure install, `classFeR`; an
 overlay sharing the index in the cached one, `classFeROvl`).  The pure
@@ -270,14 +135,13 @@ structure ShadowOps (m : Type → Type) where
   opsAt : FEnv → CheckerOps m
   opsRuleR : FEnv → CheckerOps m
   flush : m Unit
-  walkers : StructWalkers
   ruleEnv : BlockShape → List TargetMajor → List ConstantVal → List Nat → FEnv → FEnv
 
 /-- A checker's operations as shadow operations: the same at every
-index, no flush, the plain walkers, the rule-less recursors pushed —
+index, no flush, the rule-less recursors pushed —
 how the PURE install runs the check (`checkBlockRec`, `BlockTail.lean`). -/
 def ShadowOps.ofOps (ops : CheckerOps m) : ShadowOps m :=
-  ⟨fun _ => ops, fun _ => ops, Pure.pure (), .plain, classFeR⟩
+  ⟨fun _ => ops, fun _ => ops, Pure.pure (), classFeR⟩
 
 /-- The pure operations at fuel `F`, at every index (the fueled
 instantiation the model reads a run of). -/

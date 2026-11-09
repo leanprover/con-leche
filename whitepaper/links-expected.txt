@@ -2994,18 +2994,18 @@
     41    them apart: `RecFieldKind.recursive`/`.reflexive`, `FieldTele.lean`.) -/
     42    | reflexive (tele : List Expr) (es : List Expr)
 
-== ConLeche/Kernel/Inductives/Positivity.lean#L512-L522
-   512  /-- The field's kind as the run found it: hole-free, a member hole
-   513  (finitary or under `Π` binders), an instantiation IN PROGRESS (a `Y`
-   514  hole — only inside a container's constructors), or an accepted
-   515  instantiation (under `Π` binders when `refl`). -/
-   516  inductive NestFieldKind where
-   517    | ordinary
-   518    | recursive (tgt : Nat)
-   519    | reflexive (tgt : Nat)
-   520    | inProgress
-   521    | nested (refl : Bool)
-   522    deriving DecidableEq, Inhabited
+== ConLeche/Kernel/Inductives/Positivity.lean#L317-L327
+   317  /-- The field's kind as the run found it: hole-free, a member hole
+   318  (finitary or under `Π` binders), an instantiation IN PROGRESS (a `Y`
+   319  hole — only inside a container's constructors), or an accepted
+   320  instantiation (under `Π` binders when `refl`). -/
+   321  inductive NestFieldKind where
+   322    | ordinary
+   323    | recursive (tgt : Nat)
+   324    | reflexive (tgt : Nat)
+   325    | inProgress
+   326    | nested (refl : Bool)
+   327    deriving DecidableEq, Inhabited
 
 == whitepaper/Fragment/Decl.lean#L628-L642
    628  /-- The scope of a field's pieces: with `k` earlier fields, an
@@ -3032,15 +3032,15 @@
    649  the model reads the domains at a frame with arbitrary recursive slots). -/
    650  def fieldNoRecDep (earlier : List Field) : Field → Prop
 
-== ConLeche/Kernel/Inductives/Positivity.lean#L1164-L1167
-  1164      if (List.range nF).any (fun i => ks.getD i .ordinary != .ordinary &&
-  1165          structUsedLater (closeTelescope nds hi cur) 0 i) then
-  1166        throw (.invalid "nested positivity: non valid occurrence of the datatypes being \
-  1167          declared (a later field or the result depends on a recursive or nested field)")
+== ConLeche/Kernel/Inductives/Positivity.lean#L707-L710
+   707      if (List.range nF).any (fun i => ks.getD i .ordinary != .ordinary &&
+   708          structUsedLater (closeTelescope nds hi cur) 0 i) then
+   709        throw (.invalid "nested positivity: non valid occurrence of the datatypes being \
+   710          declared (a later field or the result depends on a recursive or nested field)")
 
-== ConLeche/Kernel/Inductives/Positivity.lean#L1352-L1353
-  1352  def nestPos (ops : CheckerOps m) (env : Env) (ctx : NestCtx) :
-  1353      Nat → List NestHole → Nat → Nat → Expr → NestState → m (NestFieldKind × Expr × NestState)
+== ConLeche/Kernel/Inductives/Positivity.lean#L895-L896
+   895  def nestPos (ops : CheckerOps m) (env : Env) (ctx : NestCtx) :
+   896      Nat → List NestHole → Nat → Nat → Expr → NestState → m (NestFieldKind × Expr × NestState)
 
 == whitepaper/Fragment/Decl.lean#L209-L216
    209  /-- **The type former's type** `∀ params indices, Sort u`; no binder is
@@ -3093,11 +3093,11 @@
     32  differ from the stream's, i.e. reject.
 
 == ConLeche/Kernel/Inductives/StreamRecs.lean#L182-L188
-   182  def streamRecsCheck (ops : CheckerOps m) (w : StructWalkers)
-   183      (fe : FEnv) : List RecShape → List (ConstantVal × TargetMajor × List Expr) → m Unit
+   182  def streamRecsCheck (ops : CheckerOps m) (fe : FEnv) :
+   183      List RecShape → List (ConstantVal × TargetMajor × List Expr) → m Unit
    184    | rc :: rcs, g :: gs => do
-   185      streamRecCheck ops w fe rc g
-   186      streamRecsCheck ops w fe rcs gs
+   185      streamRecCheck ops fe rc g
+   186      streamRecsCheck ops fe rcs gs
    187    | [], [] => pure ()
    188    | _, _ => throw (.internal "stored recursors: the generated family is not the records'")
 
@@ -3307,27 +3307,27 @@
 
 == ConLeche/Kernel/Inductives/GenRec.lean#L424-L446
    424  resolving at the constructors' environment `feT`. -/
-   425  def classRuleCheck (ops : CheckerOps m) (w : StructWalkers) (feT feR : FEnv)
+   425  def classRuleCheck (ops : CheckerOps m) (feT feR : FEnv)
    426      (cvR : ConstantVal) (n : Nat) (gen : Expr) : m Unit := do
    427    unless gen.looseBVarsBounded 0 && !gen.hasFvar do
    428      throw (.internal s!"generated recursor: a rule of {cvR.name} is not closed")
    429    unless gen.allLevelParamsDefined cvR.levelParams do
    430      throw (.internal s!"generated recursor: a rule of {cvR.name} names an undeclared universe \
    431        parameter")
-   432    unless w.resolve feR gen do
+   432    unless gen.constsResolveF feR do
    433      throw (unresolvedConstsError s!"generated rule of {cvR.name}" gen)
    434    let _ ← ops.inferType feR.env 0 gen
    435    let (rbs, _) ← unwrapOr (gen.stripLams n)
    436      (.internal s!"generated recursor: a rule of {cvR.name} is not a λ-telescope over the \
    437        recursor's prefix and the constructor's fields")
-   438    unless rbs.all (fun b => w.resolve feT b) do
+   438    unless rbs.all (fun b => b.constsResolveF feT) do
    439      throw (unresolvedConstsError s!"the domains of a generated rule of {cvR.name}" gen)
    440  
    441  /-- **One generated rule, installed** (as generated), after its check
    442  (`classRuleCheck`).  Returns the rule (stored). -/
-   443  def classRuleOk (ops : CheckerOps m) (w : StructWalkers) (feT feR : FEnv)
+   443  def classRuleOk (ops : CheckerOps m) (feT feR : FEnv)
    444      (cvR : ConstantVal) (n : Nat) (gen : Expr) : m Expr := do
-   445    classRuleCheck ops w feT feR cvR n gen
+   445    classRuleCheck ops feT feR cvR n gen
    446    pure gen
 
 == whitepaper/Fragment/Decl.lean#L531-L572
@@ -5317,294 +5317,294 @@
     17  inductive TV (α : Type) where
     18    | node : α → {n : Nat} → Vec (TV α) n → TV α
 
-== ConLeche/Kernel/Inductives/Positivity.lean#L1352-L1395
-  1352  def nestPos (ops : CheckerOps m) (env : Env) (ctx : NestCtx) :
-  1353      Nat → List NestHole → Nat → Nat → Expr → NestState → m (NestFieldKind × Expr × NestState)
-  1354    | 0, _, _, _, _, _ => throw (.notImplemented "nested positivity: fuel")
-  1355    | fuel + 1, prog, dep, kb, e, st => do
-  1356      let hi := ctx.hiAt prog.length
-  1357      let w ← ops.whnf env dep e
-  1358      -- `const`: the reduct mentions no member and no hole; the normal
-  1359      -- form is the input when it mentions none either, else the reduct
-  1360      if !w.nestOcc ctx.names ctx.nP hi then
-  1361        return (.ordinary, (if e.nestOcc ctx.names ctx.nP hi then w else e), st)
-  1362      match w with
-  1363      | .forallE a b =>
-  1364        -- `pi`: the domain hole-free, the codomain positive
-  1365        if a.nestOcc ctx.names ctx.nP hi then
-  1366          throw (.invalid "nested positivity: non positive occurrence of the datatypes \
-  1367            being declared")
-  1368        let (k, nb, st) ←
-  1369          nestPos ops env ctx fuel prog (dep + 1) (kb + 1) (b.instantiate1 (.fvar dep a)) st
-  1370        pure (k, .forallE a (nb.abstract1 dep), st)
-  1371      | _ =>
-  1372        let args := w.getAppArgs
-  1373        match w.getAppFn with
-  1374        | .fvar i _ =>
-  1375          -- `holeApp`: a hole (`nestHoleAt`) — a member's, the ROOT frame's,
-  1376          -- or a container frame's, its instantiation in progress — standing
-  1377          -- for its entry's whole application to the parameters, applied to
-  1378          -- hole-free indices, at its full arity (official
-  1379          -- `is_valid_ind_app`, :338–341)
-  1380          match nestHoleAt ctx prog i with
-  1381          | some h =>
-  1382            if args.all (fun x => !x.nestOcc ctx.names ctx.nP hi) && args.length == h.nIdx then
-  1383              return (if i < ctx.hiAt 0 then
-  1384                  (if kb == 0 then .recursive (i - ctx.nP) else .reflexive (i - ctx.nP))
-  1385                else .inProgress, w, st)
-  1386            else throw nestNonValid
-  1387          | none => throw nestNonValid
-  1388        | .const n us =>
-  1389          -- a member constant left after the abstraction (other levels)
-  1390          if ctx.names.contains n then throw nestNonValid
-  1391          -- `contApp`: a stored inductive at a concrete instantiation
-  1392          let (k, st) ← nestCont ctx ops env (nestPos ops env ctx fuel) prog kb n us args st
-  1393          pure (k, w, st)
-  1394        | _ => throw nestNonValid
-  1395  
+== ConLeche/Kernel/Inductives/Positivity.lean#L895-L938
+   895  def nestPos (ops : CheckerOps m) (env : Env) (ctx : NestCtx) :
+   896      Nat → List NestHole → Nat → Nat → Expr → NestState → m (NestFieldKind × Expr × NestState)
+   897    | 0, _, _, _, _, _ => throw (.notImplemented "nested positivity: fuel")
+   898    | fuel + 1, prog, dep, kb, e, st => do
+   899      let hi := ctx.hiAt prog.length
+   900      let w ← ops.whnf env dep e
+   901      -- `const`: the reduct mentions no member and no hole; the normal
+   902      -- form is the input when it mentions none either, else the reduct
+   903      if !w.nestOcc ctx.names ctx.nP hi then
+   904        return (.ordinary, (if e.nestOcc ctx.names ctx.nP hi then w else e), st)
+   905      match w with
+   906      | .forallE a b =>
+   907        -- `pi`: the domain hole-free, the codomain positive
+   908        if a.nestOcc ctx.names ctx.nP hi then
+   909          throw (.invalid "nested positivity: non positive occurrence of the datatypes \
+   910            being declared")
+   911        let (k, nb, st) ←
+   912          nestPos ops env ctx fuel prog (dep + 1) (kb + 1) (b.instantiate1 (.fvar dep a)) st
+   913        pure (k, .forallE a (nb.abstract1 dep), st)
+   914      | _ =>
+   915        let args := w.getAppArgs
+   916        match w.getAppFn with
+   917        | .fvar i _ =>
+   918          -- `holeApp`: a hole (`nestHoleAt`) — a member's, the ROOT frame's,
+   919          -- or a container frame's, its instantiation in progress — standing
+   920          -- for its entry's whole application to the parameters, applied to
+   921          -- hole-free indices, at its full arity (official
+   922          -- `is_valid_ind_app`, :338–341)
+   923          match nestHoleAt ctx prog i with
+   924          | some h =>
+   925            if args.all (fun x => !x.nestOcc ctx.names ctx.nP hi) && args.length == h.nIdx then
+   926              return (if i < ctx.hiAt 0 then
+   927                  (if kb == 0 then .recursive (i - ctx.nP) else .reflexive (i - ctx.nP))
+   928                else .inProgress, w, st)
+   929            else throw nestNonValid
+   930          | none => throw nestNonValid
+   931        | .const n us =>
+   932          -- a member constant left after the abstraction (other levels)
+   933          if ctx.names.contains n then throw nestNonValid
+   934          -- `contApp`: a stored inductive at a concrete instantiation
+   935          let (k, st) ← nestCont ctx ops env (nestPos ops env ctx fuel) prog kb n us args st
+   936          pure (k, w, st)
+   937        | _ => throw nestNonValid
+   938  
 
-== ConLeche/Kernel/Inductives/Positivity.lean#L1452-L1466
-  1452  def nestUniformOk (ctx : NestCtx) (cv : ConstantVal) : Bool :=
-  1453    !cv.type.piDomsOcc ctx.names ctx.nP (ctx.hiAt 0) ctx.nP &&
-  1454      match nestRootCanon ctx cv with
-  1455      | some crest => !crest.nestOcc ctx.names 0 0
-  1456      | none => false
-  1457  
-  1458  /-- `nestUniformOk` at every stored constructor of every member, before
-  1459  the walk (official runs it before anything else): a REJECT with
-  1460  official's wording. -/
-  1461  def nestUniform (ctx : NestCtx) (ctorss : List (List (ConstantVal × Nat))) : m Unit :=
-  1462    match ctorss.findSome? (·.find? (!nestUniformOk ctx ·.1)) with
-  1463    | some c => throw (.invalid s!"invalid occurrence of a datatype being declared in the \
-  1464        type of {c.1.name}: it must be applied to the parameters and universe levels of the \
-  1465        mutual declaration")
-  1466    | none => pure ()
+== ConLeche/Kernel/Inductives/Positivity.lean#L995-L1009
+   995  def nestUniformOk (ctx : NestCtx) (cv : ConstantVal) : Bool :=
+   996    !cv.type.piDomsOcc ctx.names ctx.nP (ctx.hiAt 0) ctx.nP &&
+   997      match nestRootCanon ctx cv with
+   998      | some crest => !crest.nestOcc ctx.names 0 0
+   999      | none => false
+  1000  
+  1001  /-- `nestUniformOk` at every stored constructor of every member, before
+  1002  the walk (official runs it before anything else): a REJECT with
+  1003  official's wording. -/
+  1004  def nestUniform (ctx : NestCtx) (ctorss : List (List (ConstantVal × Nat))) : m Unit :=
+  1005    match ctorss.findSome? (·.find? (!nestUniformOk ctx ·.1)) with
+  1006    | some c => throw (.invalid s!"invalid occurrence of a datatype being declared in the \
+  1007        type of {c.1.name}: it must be applied to the parameters and universe levels of the \
+  1008        mutual declaration")
+  1009    | none => pure ()
 
-== ConLeche/Kernel/Inductives/Positivity.lean#L1026-L1032
-  1026  /-- **A stored constructor type at a key** (see the section header): its
-  1027  canonical abstraction (`nestCanonCrest`, the group `names` at the key's
-  1028  levels `us`), then the key's parameters `ds` and the frame's holes
-  1029  `holes` (one per member of `names`, in order) put in. -/
-  1030  def nestCrest (names : List Name) (us : List Level) (ds holes : List Expr) (cty : Expr) :
-  1031      Option Expr :=
-  1032    (nestCanonCrest names us ds.length cty).map (·.replaceFVars (nestKeyMap ds holes))
+== ConLeche/Kernel/Inductives/Positivity.lean#L569-L575
+   569  /-- **A stored constructor type at a key** (see the section header): its
+   570  canonical abstraction (`nestCanonCrest`, the group `names` at the key's
+   571  levels `us`), then the key's parameters `ds` and the frame's holes
+   572  `holes` (one per member of `names`, in order) put in. -/
+   573  def nestCrest (names : List Name) (us : List Level) (ds holes : List Expr) (cty : Expr) :
+   574      Option Expr :=
+   575    (nestCanonCrest names us ds.length cty).map (·.replaceFVars (nestKeyMap ds holes))
 
-== ConLeche/Kernel/Inductives/Positivity.lean#L1357
-  1357      let w ← ops.whnf env dep e
+== ConLeche/Kernel/Inductives/Positivity.lean#L900
+   900      let w ← ops.whnf env dep e
 
-== ConLeche/Kernel/Inductives/Positivity.lean#L1360-L1361
-  1360      if !w.nestOcc ctx.names ctx.nP hi then
-  1361        return (.ordinary, (if e.nestOcc ctx.names ctx.nP hi then w else e), st)
+== ConLeche/Kernel/Inductives/Positivity.lean#L903-L904
+   903      if !w.nestOcc ctx.names ctx.nP hi then
+   904        return (.ordinary, (if e.nestOcc ctx.names ctx.nP hi then w else e), st)
 
-== ConLeche/Kernel/Inductives/Positivity.lean#L1363-L1370
-  1363      | .forallE a b =>
-  1364        -- `pi`: the domain hole-free, the codomain positive
-  1365        if a.nestOcc ctx.names ctx.nP hi then
-  1366          throw (.invalid "nested positivity: non positive occurrence of the datatypes \
-  1367            being declared")
-  1368        let (k, nb, st) ←
-  1369          nestPos ops env ctx fuel prog (dep + 1) (kb + 1) (b.instantiate1 (.fvar dep a)) st
-  1370        pure (k, .forallE a (nb.abstract1 dep), st)
+== ConLeche/Kernel/Inductives/Positivity.lean#L906-L913
+   906      | .forallE a b =>
+   907        -- `pi`: the domain hole-free, the codomain positive
+   908        if a.nestOcc ctx.names ctx.nP hi then
+   909          throw (.invalid "nested positivity: non positive occurrence of the datatypes \
+   910            being declared")
+   911        let (k, nb, st) ←
+   912          nestPos ops env ctx fuel prog (dep + 1) (kb + 1) (b.instantiate1 (.fvar dep a)) st
+   913        pure (k, .forallE a (nb.abstract1 dep), st)
 
-== ConLeche/Kernel/Inductives/Positivity.lean#L1374-L1388
-  1374        | .fvar i _ =>
-  1375          -- `holeApp`: a hole (`nestHoleAt`) — a member's, the ROOT frame's,
-  1376          -- or a container frame's, its instantiation in progress — standing
-  1377          -- for its entry's whole application to the parameters, applied to
-  1378          -- hole-free indices, at its full arity (official
-  1379          -- `is_valid_ind_app`, :338–341)
-  1380          match nestHoleAt ctx prog i with
-  1381          | some h =>
-  1382            if args.all (fun x => !x.nestOcc ctx.names ctx.nP hi) && args.length == h.nIdx then
-  1383              return (if i < ctx.hiAt 0 then
-  1384                  (if kb == 0 then .recursive (i - ctx.nP) else .reflexive (i - ctx.nP))
-  1385                else .inProgress, w, st)
-  1386            else throw nestNonValid
-  1387          | none => throw nestNonValid
-  1388        | .const n us =>
+== ConLeche/Kernel/Inductives/Positivity.lean#L917-L931
+   917        | .fvar i _ =>
+   918          -- `holeApp`: a hole (`nestHoleAt`) — a member's, the ROOT frame's,
+   919          -- or a container frame's, its instantiation in progress — standing
+   920          -- for its entry's whole application to the parameters, applied to
+   921          -- hole-free indices, at its full arity (official
+   922          -- `is_valid_ind_app`, :338–341)
+   923          match nestHoleAt ctx prog i with
+   924          | some h =>
+   925            if args.all (fun x => !x.nestOcc ctx.names ctx.nP hi) && args.length == h.nIdx then
+   926              return (if i < ctx.hiAt 0 then
+   927                  (if kb == 0 then .recursive (i - ctx.nP) else .reflexive (i - ctx.nP))
+   928                else .inProgress, w, st)
+   929            else throw nestNonValid
+   930          | none => throw nestNonValid
+   931        | .const n us =>
 
-== ConLeche/Kernel/Inductives/Positivity.lean#L1314-L1339
-  1314  def nestCont (ctx : NestCtx) (ops : CheckerOps m) (env : Env)
-  1315      (rec : List NestHole → Nat → Nat → Expr → NestState → m (NestFieldKind × Expr × NestState))
-  1316      (prog : List NestHole) (kb : Nat) (n : Name) (us : List Level) (args : List Expr)
-  1317      (st : NestState) : m (NestFieldKind × NestState) := do
-  1318    let q ← unwrapOr (nestContainer ctx n) nestNonValid
-  1319    if args.length < q.1 ||
-  1320        !(args.drop q.1).all (fun x => !x.nestOcc ctx.names ctx.nP (ctx.hiAt prog.length)) then
-  1321      throw nestNonValid
-  1322    -- `Quot` is stored as an `.indInfo` but is no inductive for
-  1323    -- official (`is_nested_inductive_app` asks `is_inductive()`):
-  1324    -- the one name read here.  Every other basis type (`Eq`, `Nat`,
-  1325    -- `Empty`, `False`, and `And`) is a container like any stored
-  1326    -- inductive.
-  1327    if n == quotName then throw nestNonValid
-  1328    unless (args.take q.1).all (fun x => x.bvarB == 0 && x.fvarB ≤ ctx.hiAt prog.length) do
-  1329      throw (.invalid "nested positivity: nested inductive datatypes parameters \
-  1330        cannot contain local variables")
-  1331    -- the instance is FULLY applied: the container case
-  1332    -- compares the container's family at the index tuple, and a partial
-  1333    -- application is a function, whose graph does not grow with its values.
-  1334    -- A field's domain is a type, so a checked constructor never has one.
-  1335    let ni ← nestInstType ctx ops env (ctx.hiAt prog.length) ⟨n, us, args.take q.1⟩
-  1336    unless args.length == q.1 + ni.1 do
-  1337      throw (.invalid "nested positivity: type expected (a container instance that is not \
-  1338        fully applied)")
-  1339    nestContKey ctx ops env rec prog kb n us (args.take q.1) q.1 ni.2 st
+== ConLeche/Kernel/Inductives/Positivity.lean#L857-L882
+   857  def nestCont (ctx : NestCtx) (ops : CheckerOps m) (env : Env)
+   858      (rec : List NestHole → Nat → Nat → Expr → NestState → m (NestFieldKind × Expr × NestState))
+   859      (prog : List NestHole) (kb : Nat) (n : Name) (us : List Level) (args : List Expr)
+   860      (st : NestState) : m (NestFieldKind × NestState) := do
+   861    let q ← unwrapOr (nestContainer ctx n) nestNonValid
+   862    if args.length < q.1 ||
+   863        !(args.drop q.1).all (fun x => !x.nestOcc ctx.names ctx.nP (ctx.hiAt prog.length)) then
+   864      throw nestNonValid
+   865    -- `Quot` is stored as an `.indInfo` but is no inductive for
+   866    -- official (`is_nested_inductive_app` asks `is_inductive()`):
+   867    -- the one name read here.  Every other basis type (`Eq`, `Nat`,
+   868    -- `Empty`, `False`, and `And`) is a container like any stored
+   869    -- inductive.
+   870    if n == quotName then throw nestNonValid
+   871    unless (args.take q.1).all (fun x => x.bvarB == 0 && x.fvarB ≤ ctx.hiAt prog.length) do
+   872      throw (.invalid "nested positivity: nested inductive datatypes parameters \
+   873        cannot contain local variables")
+   874    -- the instance is FULLY applied: the container case
+   875    -- compares the container's family at the index tuple, and a partial
+   876    -- application is a function, whose graph does not grow with its values.
+   877    -- A field's domain is a type, so a checked constructor never has one.
+   878    let ni ← nestInstType ctx ops env (ctx.hiAt prog.length) ⟨n, us, args.take q.1⟩
+   879    unless args.length == q.1 + ni.1 do
+   880      throw (.invalid "nested positivity: type expected (a container instance that is not \
+   881        fully applied)")
+   882    nestContKey ctx ops env rec prog kb n us (args.take q.1) q.1 ni.2 st
 
-== ConLeche/Kernel/Inductives/Positivity.lean#L1040-L1076
-  1040  def nestInstType (ctx : NestCtx) (ops : CheckerOps m) (env : Env) (hi : Nat) (key : NestKey) :
-  1041      m (Nat × Expr) := do
-  1042    let (cvC, capsC) ← unwrapOr (match ctx.find? key.cname with
-  1043        | some (.indInfo cv caps) => some (cv, caps)
-  1044        | _ => none)
-  1045      (.internal "nested positivity: container vanished")
-  1046    -- the container is applied at its own level count (official:
-  1047    -- `infer_constant`'s "incorrect number of universe levels", which every
-  1048    -- constant of a checked constructor type — and of every
-  1049    -- reduct of it — passed; the model reads the key's constants at it)
-  1050    unless key.lvls.length = cvC.levelParams.length do
-  1051      throw (.invalid "nested positivity: incorrect number of universe levels for a nested \
-  1052        inductive datatype (official: incorrect number of universe levels)")
-  1053    -- the container's parameters are a SYNTACTIC telescope (its canonical
-  1054    -- instantiation exists, so the N2 check below reads
-  1055    -- against the container's recorded index telescope; every stored
-  1056    -- inductive's parameters are binders of its type, as official checks)
-  1057    let tyC ← familyTelescope ops env cvC capsC
-  1058    unless (tyC.stripPis key.ds.length).isSome do
-  1059      throw (.invalid "nested positivity: invalid nested inductive datatype, its type does \
-  1060        not bind its parameters (official: ill-formed inductive type)")
-  1061    let ty ← unwrapOr (instPisWith key.ds
-  1062        (tyC.instantiateLevelParams cvC.levelParams key.lvls))
-  1063      (.invalid "nested positivity: invalid nested inductive datatype, its type does not bind \
-  1064        its parameters (official: ill-formed inductive type)")
-  1065    let s ← unwrapOr (match ty.piBinders.2 with
-  1066        | .sort s => some s
-  1067        | _ => none)
-  1068      (.invalid "nested positivity: invalid nested inductive datatype, its type is not a \
-  1069        telescope ending in a sort (official: type expected)")
-  1070    if ty.piBinders.1.any (fun b => b.nestOcc ctx.names ctx.nP hi) then
-  1071      throw (.invalid "nested positivity: a container's index telescope mentions the block \
-  1072        (official: unknown constant)")
-  1073    unless ← liftFueled "level comparison" (Level.isEquiv s ctx.sort) do
-  1074      throw (.invalid "nested positivity: mutually inductive types must live in the \
-  1075        same universe")
-  1076    pure (ty.piBinders.1.length, ty)
+== ConLeche/Kernel/Inductives/Positivity.lean#L583-L619
+   583  def nestInstType (ctx : NestCtx) (ops : CheckerOps m) (env : Env) (hi : Nat) (key : NestKey) :
+   584      m (Nat × Expr) := do
+   585    let (cvC, capsC) ← unwrapOr (match ctx.find? key.cname with
+   586        | some (.indInfo cv caps) => some (cv, caps)
+   587        | _ => none)
+   588      (.internal "nested positivity: container vanished")
+   589    -- the container is applied at its own level count (official:
+   590    -- `infer_constant`'s "incorrect number of universe levels", which every
+   591    -- constant of a checked constructor type — and of every
+   592    -- reduct of it — passed; the model reads the key's constants at it)
+   593    unless key.lvls.length = cvC.levelParams.length do
+   594      throw (.invalid "nested positivity: incorrect number of universe levels for a nested \
+   595        inductive datatype (official: incorrect number of universe levels)")
+   596    -- the container's parameters are a SYNTACTIC telescope (its canonical
+   597    -- instantiation exists, so the N2 check below reads
+   598    -- against the container's recorded index telescope; every stored
+   599    -- inductive's parameters are binders of its type, as official checks)
+   600    let tyC ← familyTelescope ops env cvC capsC
+   601    unless (tyC.stripPis key.ds.length).isSome do
+   602      throw (.invalid "nested positivity: invalid nested inductive datatype, its type does \
+   603        not bind its parameters (official: ill-formed inductive type)")
+   604    let ty ← unwrapOr (instPisWith key.ds
+   605        (tyC.instantiateLevelParams cvC.levelParams key.lvls))
+   606      (.invalid "nested positivity: invalid nested inductive datatype, its type does not bind \
+   607        its parameters (official: ill-formed inductive type)")
+   608    let s ← unwrapOr (match ty.piBinders.2 with
+   609        | .sort s => some s
+   610        | _ => none)
+   611      (.invalid "nested positivity: invalid nested inductive datatype, its type is not a \
+   612        telescope ending in a sort (official: type expected)")
+   613    if ty.piBinders.1.any (fun b => b.nestOcc ctx.names ctx.nP hi) then
+   614      throw (.invalid "nested positivity: a container's index telescope mentions the block \
+   615        (official: unknown constant)")
+   616    unless ← liftFueled "level comparison" (Level.isEquiv s ctx.sort) do
+   617      throw (.invalid "nested positivity: mutually inductive types must live in the \
+   618        same universe")
+   619    pure (ty.piBinders.1.length, ty)
 
-== ConLeche/Kernel/Inductives/Positivity.lean#L1294-L1303
-  1294  def nestContKey (ctx : NestCtx) (ops : CheckerOps m) (env : Env)
-  1295      (rec : List NestHole → Nat → Nat → Expr → NestState → m (NestFieldKind × Expr × NestState))
-  1296      (prog : List NestHole) (kb : Nat) (n : Name) (us : List Level) (ds : List Expr) (nPc : Nat)
-  1297      (cty : Expr) (st : NestState) : m (NestFieldKind × NestState) :=
-  1298    if st.active.contains ⟨n, us, ds⟩ then
-  1299      throw (.invalid "nested positivity: non valid occurrence of the datatypes being \
-  1300        declared (an instantiation in progress, reached through reduction)")
-  1301    else if ds.all (fun x => x.fvarB ≤ ctx.hiAt 0) && st.keys.contains ⟨n, us, ds⟩ then
-  1302      pure (.nested (kb != 0), st)
-  1303    else nestContNew ctx ops env rec prog kb n us ds nPc cty st
+== ConLeche/Kernel/Inductives/Positivity.lean#L837-L846
+   837  def nestContKey (ctx : NestCtx) (ops : CheckerOps m) (env : Env)
+   838      (rec : List NestHole → Nat → Nat → Expr → NestState → m (NestFieldKind × Expr × NestState))
+   839      (prog : List NestHole) (kb : Nat) (n : Name) (us : List Level) (ds : List Expr) (nPc : Nat)
+   840      (cty : Expr) (st : NestState) : m (NestFieldKind × NestState) :=
+   841    if st.active.contains ⟨n, us, ds⟩ then
+   842      throw (.invalid "nested positivity: non valid occurrence of the datatypes being \
+   843        declared (an instantiation in progress, reached through reduction)")
+   844    else if ds.all (fun x => x.fvarB ≤ ctx.hiAt 0) && st.keys.contains ⟨n, us, ds⟩ then
+   845      pure (.nested (kb != 0), st)
+   846    else nestContNew ctx ops env rec prog kb n us ds nPc cty st
 
-== ConLeche/Kernel/Inductives/Positivity.lean#L1386-L1394
-  1386            else throw nestNonValid
-  1387          | none => throw nestNonValid
-  1388        | .const n us =>
-  1389          -- a member constant left after the abstraction (other levels)
-  1390          if ctx.names.contains n then throw nestNonValid
-  1391          -- `contApp`: a stored inductive at a concrete instantiation
-  1392          let (k, st) ← nestCont ctx ops env (nestPos ops env ctx fuel) prog kb n us args st
-  1393          pure (k, w, st)
-  1394        | _ => throw nestNonValid
+== ConLeche/Kernel/Inductives/Positivity.lean#L929-L937
+   929            else throw nestNonValid
+   930          | none => throw nestNonValid
+   931        | .const n us =>
+   932          -- a member constant left after the abstraction (other levels)
+   933          if ctx.names.contains n then throw nestNonValid
+   934          -- `contApp`: a stored inductive at a concrete instantiation
+   935          let (k, st) ← nestCont ctx ops env (nestPos ops env ctx fuel) prog kb n us args st
+   936          pure (k, w, st)
+   937        | _ => throw nestNonValid
 
-== ConLeche/Kernel/Inductives/Positivity.lean#L1235-L1253
-  1235  def nestFrame (ctx : NestCtx) (ops : CheckerOps m) (env : Env)
-  1236      (rec : List NestHole → Nat → Nat → Expr → NestState → m (NestFieldKind × Expr × NestState))
-  1237      (prog : List NestHole) (hi : Nat) (us : List Level) (ds : List Expr) (nPc : Nat)
-  1238      (grp : List (Name × Expr)) (st : NestState) : m NestState := do
-  1239    -- K.52: the instantiation `C.{us} ds` is TYPED at the frame's own depth (its holes typed by
-  1240    -- their containers' formers, as the constants they stand for).  Official imposes it: after the
-  1241    -- nested elimination, `add_inductive` type-checks every replaced nested application, and a
-  1242    -- reduct of a typed term is typed.  The model grades the key's parameters in the frame's stack
-  1243    -- context by it.
-  1244    familyKeyCheck ops env ctx.find? hi (grp.headD default).1 us ds
-  1245    let prog' := (grp.mapIdx fun _ (c, ty) =>
-  1246      ({ key := ⟨c, us, ds⟩, base := hi, nIdx := ty.piBinders.1.length } : NestHole)).reverse ++ prog
-  1247    let ctors ← nestGroupCtors ctx nPc (grp.map (·.1))
-  1248    let (_, st) ← nestCtors ctx ops env (fun _ => rec) prog' (hi + grp.length) us ds (grp.map (·.1))
-  1249      (grp.mapIdx fun i (_, ty) => Expr.fvar (hi + i) ty) ctors st
-  1250    pure st
-  1251  
-  1252  /-- **The frame stack an instantiation is walked under**: the EMPTY one
-  1253  when its parameters mention no frame hole (they then read only the
+== ConLeche/Kernel/Inductives/Positivity.lean#L778-L796
+   778  def nestFrame (ctx : NestCtx) (ops : CheckerOps m) (env : Env)
+   779      (rec : List NestHole → Nat → Nat → Expr → NestState → m (NestFieldKind × Expr × NestState))
+   780      (prog : List NestHole) (hi : Nat) (us : List Level) (ds : List Expr) (nPc : Nat)
+   781      (grp : List (Name × Expr)) (st : NestState) : m NestState := do
+   782    -- K.52: the instantiation `C.{us} ds` is TYPED at the frame's own depth (its holes typed by
+   783    -- their containers' formers, as the constants they stand for).  Official imposes it: after the
+   784    -- nested elimination, `add_inductive` type-checks every replaced nested application, and a
+   785    -- reduct of a typed term is typed.  The model grades the key's parameters in the frame's stack
+   786    -- context by it.
+   787    familyKeyCheck ops env ctx.find? hi (grp.headD default).1 us ds
+   788    let prog' := (grp.mapIdx fun _ (c, ty) =>
+   789      ({ key := ⟨c, us, ds⟩, base := hi, nIdx := ty.piBinders.1.length } : NestHole)).reverse ++ prog
+   790    let ctors ← nestGroupCtors ctx nPc (grp.map (·.1))
+   791    let (_, st) ← nestCtors ctx ops env (fun _ => rec) prog' (hi + grp.length) us ds (grp.map (·.1))
+   792      (grp.mapIdx fun i (_, ty) => Expr.fvar (hi + i) ty) ctors st
+   793    pure st
+   794  
+   795  /-- **The frame stack an instantiation is walked under**: the EMPTY one
+   796  when its parameters mention no frame hole (they then read only the
 
-== ConLeche/Kernel/Inductives/Positivity.lean#L1131-L1180
-  1131  def nestCtors (ctx : NestCtx) (ops : CheckerOps m) (env : Env)
-  1132      (rec : Expr → List NestHole → Nat → Nat → Expr → NestState →
-  1133        m (NestFieldKind × Expr × NestState))
-  1134      (prog : List NestHole) (hi : Nat) (us : List Level) (ds : List Expr) (names : List Name)
-  1135      (holes : List Expr) :
-  1136      List (ConstantVal × Nat) → NestState → m (List (List NestFieldKind × Expr) × NestState)
-  1137    | [], st => pure ([], st)
-  1138    | (cv, nF) :: cs, st => do
-  1139      -- the constructor's level parameters are distinct (the substitution law
-  1140      -- instantiates them as the recorded reading does;
-  1141      -- every stored constant passed `checkConstantVal`'s own check)
-  1142      unless Name.nodup cv.levelParams do
-  1143        throw (.invalid "nested positivity: invalid nested inductive datatype, its constructor \
-  1144          has a duplicate universe level parameter (official: duplicate universe level \
-  1145          parameter)")
-  1146      -- the container's constructor at the key, its group's WHOLE
-  1147      -- applications replaced by the holes BEFORE its parameters are
-  1148      -- instantiated (`nestCrest`), WITHOUT a β-step (official's
-  1149      -- `instantiate_pi_params`, `inductive.cpp` v4.34.0)
-  1150      let crest ← unwrapOr
-  1151        (nestCrest names us ds holes (cv.type.instantiateLevelParams cv.levelParams us))
-  1152        (.invalid "nested positivity: invalid nested inductive datatype, its constructor type \
-  1153          does not bind the parameters (official: ill-formed constructor)")
-  1154      let ty ← ops.inferType env hi crest
-  1155      let _ ← ops.ensureSort env hi ty
-  1156      let (ks, nds, cur, st) ← nestFields (rec crest) prog hi
-  1157        (.invalid "nested positivity: invalid nested inductive datatype, its constructor type \
-  1158          does not bind its fields (official: ill-formed constructor)") nF 0 crest st
-  1159      -- U4 on the instantiated constructor: no later field and not the result
-  1160      -- reads a field that is
-  1161      -- not ordinary (recursive, reflexive, nested or in progress) — on the
-  1162      -- walked (whnf'd) telescope.  Official rejects every instance
-  1163      -- (charter item 9)
-  1164      if (List.range nF).any (fun i => ks.getD i .ordinary != .ordinary &&
-  1165          structUsedLater (closeTelescope nds hi cur) 0 i) then
-  1166        throw (.invalid "nested positivity: non valid occurrence of the datatypes being \
-  1167          declared (a later field or the result depends on a recursive or nested field)")
-  1168      -- official's "invalid return type" on the instantiated constructor; its
-  1169      -- result is headed by its hole, applied to its indices alone (never
-  1170      -- fires: a stored constructor's result is its inductive applied to
-  1171      -- the parameters, which `nestCrest` abstracts)
-  1172      unless nestResHead cur && cur.getAppArgs.all
-  1173          (fun x => !x.nestOcc ctx.names ctx.nP hi) do
-  1174        throw (.invalid "nested positivity: invalid return type — a constructor's result \
-  1175          index mentions the block")
-  1176      -- K.53′: the constructor's walked normal form at the
-  1177      -- frame's key, read back (`NestCtorNf`)
-  1178      let st := { st with ctorNfs := st.ctorNfs.push (nestCtorNf ctx prog hi us ds cv nds cur) }
-  1179      let (os, st) ← nestCtors ctx ops env rec prog hi us ds names holes cs st
-  1180      pure ((ks, closeTelescope nds hi cur) :: os, st)
+== ConLeche/Kernel/Inductives/Positivity.lean#L674-L723
+   674  def nestCtors (ctx : NestCtx) (ops : CheckerOps m) (env : Env)
+   675      (rec : Expr → List NestHole → Nat → Nat → Expr → NestState →
+   676        m (NestFieldKind × Expr × NestState))
+   677      (prog : List NestHole) (hi : Nat) (us : List Level) (ds : List Expr) (names : List Name)
+   678      (holes : List Expr) :
+   679      List (ConstantVal × Nat) → NestState → m (List (List NestFieldKind × Expr) × NestState)
+   680    | [], st => pure ([], st)
+   681    | (cv, nF) :: cs, st => do
+   682      -- the constructor's level parameters are distinct (the substitution law
+   683      -- instantiates them as the recorded reading does;
+   684      -- every stored constant passed `checkConstantVal`'s own check)
+   685      unless Name.nodup cv.levelParams do
+   686        throw (.invalid "nested positivity: invalid nested inductive datatype, its constructor \
+   687          has a duplicate universe level parameter (official: duplicate universe level \
+   688          parameter)")
+   689      -- the container's constructor at the key, its group's WHOLE
+   690      -- applications replaced by the holes BEFORE its parameters are
+   691      -- instantiated (`nestCrest`), WITHOUT a β-step (official's
+   692      -- `instantiate_pi_params`, `inductive.cpp` v4.34.0)
+   693      let crest ← unwrapOr
+   694        (nestCrest names us ds holes (cv.type.instantiateLevelParams cv.levelParams us))
+   695        (.invalid "nested positivity: invalid nested inductive datatype, its constructor type \
+   696          does not bind the parameters (official: ill-formed constructor)")
+   697      let ty ← ops.inferType env hi crest
+   698      let _ ← ops.ensureSort env hi ty
+   699      let (ks, nds, cur, st) ← nestFields (rec crest) prog hi
+   700        (.invalid "nested positivity: invalid nested inductive datatype, its constructor type \
+   701          does not bind its fields (official: ill-formed constructor)") nF 0 crest st
+   702      -- U4 on the instantiated constructor: no later field and not the result
+   703      -- reads a field that is
+   704      -- not ordinary (recursive, reflexive, nested or in progress) — on the
+   705      -- walked (whnf'd) telescope.  Official rejects every instance
+   706      -- (charter item 9)
+   707      if (List.range nF).any (fun i => ks.getD i .ordinary != .ordinary &&
+   708          structUsedLater (closeTelescope nds hi cur) 0 i) then
+   709        throw (.invalid "nested positivity: non valid occurrence of the datatypes being \
+   710          declared (a later field or the result depends on a recursive or nested field)")
+   711      -- official's "invalid return type" on the instantiated constructor; its
+   712      -- result is headed by its hole, applied to its indices alone (never
+   713      -- fires: a stored constructor's result is its inductive applied to
+   714      -- the parameters, which `nestCrest` abstracts)
+   715      unless nestResHead cur && cur.getAppArgs.all
+   716          (fun x => !x.nestOcc ctx.names ctx.nP hi) do
+   717        throw (.invalid "nested positivity: invalid return type — a constructor's result \
+   718          index mentions the block")
+   719      -- K.53′: the constructor's walked normal form at the
+   720      -- frame's key, read back (`NestCtorNf`)
+   721      let st := { st with ctorNfs := st.ctorNfs.push (nestCtorNf ctx prog hi us ds cv nds cur) }
+   722      let (os, st) ← nestCtors ctx ops env rec prog hi us ds names holes cs st
+   723      pure ((ks, closeTelescope nds hi cur) :: os, st)
 
-== ConLeche/Kernel/Inductives/Positivity.lean#L1489-L1497
-  1489  def nestRoot (ops : CheckerOps m) (env : Env) (ctx : NestCtx) (holes : List Expr) :
-  1490      List (List (ConstantVal × Nat)) → NestState →
-  1491        m (List (List (List NestFieldKind × Expr)) × NestState)
-  1492    | [], st => pure ([], st)
-  1493    | cs :: css, st => do
-  1494      let (o, st) ← nestCtors ctx ops env (fun crest => nestPos ops env ctx (whnfWalkFuel crest)) []
-  1495        (ctx.hiAt 0) (ctx.lps.map .param) ctx.params ctx.names holes cs st
-  1496      let (os, st) ← nestRoot ops env ctx holes css st
-  1497      pure (o :: os, st)
+== ConLeche/Kernel/Inductives/Positivity.lean#L1032-L1040
+  1032  def nestRoot (ops : CheckerOps m) (env : Env) (ctx : NestCtx) (holes : List Expr) :
+  1033      List (List (ConstantVal × Nat)) → NestState →
+  1034        m (List (List (List NestFieldKind × Expr)) × NestState)
+  1035    | [], st => pure ([], st)
+  1036    | cs :: css, st => do
+  1037      let (o, st) ← nestCtors ctx ops env (fun crest => nestPos ops env ctx (whnfWalkFuel crest)) []
+  1038        (ctx.hiAt 0) (ctx.lps.map .param) ctx.params ctx.names holes cs st
+  1039      let (os, st) ← nestRoot ops env ctx holes css st
+  1040      pure (o :: os, st)
 
-== ConLeche/Kernel/Inductives/Positivity.lean#L574-L580
-   574  structure NestState where
-   575    keys : Array NestKey := #[]
-   576    /-- the instantiations whose frames are being walked (every group
-   577    member at the key), outermost last: an instantiation walked at the
-   578    EMPTY stack (`nestWalkStack`) is still in progress for the cycle check
-   579    (`nestContKey`) -/
-   580    active : List NestKey := []
+== ConLeche/Kernel/Inductives/Positivity.lean#L379-L385
+   379  structure NestState where
+   380    keys : Array NestKey := #[]
+   381    /-- the instantiations whose frames are being walked (every group
+   382    member at the key), outermost last: an instantiation walked at the
+   383    EMPTY stack (`nestWalkStack`) is still in progress for the cycle check
+   384    (`nestContKey`) -/
+   385    active : List NestKey := []
 
 == ConLeche/Kernel/Inductives/GenRec.lean#L138-L158
    138  /-- Constructor `x`'s minor premise type at depth `d`, of class `c`: its
@@ -5674,34 +5674,34 @@
    111    recursor's rule-prefix context, instantiated at the redex's levels and
    112    leading arguments.
 
-== ConLeche/Kernel/Inductives/RecCheck.lean#L600-L611
-   600  /-- **One checked recursor's stored rules, at its major**: `sumRules` at the
-   601  MAJOR's parameter count and constructors;
-   602  at an OUTSIDE major (a nested block's auxiliary recursor) every rule
-   603  fires `auxRuleFire` (`.nested` at the major's instantiation), at a
-   604  member major as `sumRules` builds it. -/
-   605  def generatedRules (rP : Nat) (M : TargetMajor) (rhss : List Expr) : List RecRule :=
-   606    let rules := sumRules M.ctors rhss
-   607    match M.member with
-   608    | none =>
-   609      let fire := auxRuleFire M rP
-   610      rules.map fun rl => { rl with fire := fire }
-   611    | some _ => rules
+== ConLeche/Kernel/Inductives/RecCheck.lean#L464-L475
+   464  /-- **One checked recursor's stored rules, at its major**: `sumRules` at the
+   465  MAJOR's parameter count and constructors;
+   466  at an OUTSIDE major (a nested block's auxiliary recursor) every rule
+   467  fires `auxRuleFire` (`.nested` at the major's instantiation), at a
+   468  member major as `sumRules` builds it. -/
+   469  def generatedRules (rP : Nat) (M : TargetMajor) (rhss : List Expr) : List RecRule :=
+   470    let rules := sumRules M.ctors rhss
+   471    match M.member with
+   472    | none =>
+   473      let fire := auxRuleFire M rP
+   474      rules.map fun rl => { rl with fire := fire }
+   475    | some _ => rules
 
-== ConLeche/Kernel/CoreDefs.lean#L1154-L1166
-  1154    exact ⟨h.1.1.1, h.1.1.2, h.1.2⟩
-  1155  
-  1156  /-- The level and constructor-parameter comparands a firing rule's
-  1157  checks compare the major's constructor levels and parameters against:
-  1158  for a `.plain` rule the constructor's levels link to the recursor's by
-  1159  name and its parameters are the recursor's leading arguments; for a
-  1160  `.nested` rule both are the stored instantiations (the class the
-  1161  auxiliary recursor's type was generated from, `auxRuleFire`), at the
-  1162  recursor's level instantiation and (for the parameters) instantiated at
-  1163  the recursor's leading-argument spine (the stored pins live in the
-  1164  `rP`-binder prefix context; index arguments never occur in them); a
-  1165  `.levels` rule's levels are stored and its parameters a `.plain` rule's. -/
-  1166  def recFireComparands (rl : RecRule) (cnP : Nat) (lps : List Name)
+== ConLeche/Kernel/CoreDefs.lean#L913-L925
+   913    exact ⟨h.1.1.1, h.1.1.2, h.1.2⟩
+   914  
+   915  /-- The level and constructor-parameter comparands a firing rule's
+   916  checks compare the major's constructor levels and parameters against:
+   917  for a `.plain` rule the constructor's levels link to the recursor's by
+   918  name and its parameters are the recursor's leading arguments; for a
+   919  `.nested` rule both are the stored instantiations (the class the
+   920  auxiliary recursor's type was generated from, `auxRuleFire`), at the
+   921  recursor's level instantiation and (for the parameters) instantiated at
+   922  the recursor's leading-argument spine (the stored pins live in the
+   923  `rP`-binder prefix context; index arguments never occur in them); a
+   924  `.levels` rule's levels are stored and its parameters a `.plain` rule's. -/
+   925  def recFireComparands (rl : RecRule) (cnP : Nat) (lps : List Name)
 
 == ConLeche/Rules/Rel.lean#L212-L223
    212        IotaCase env isK cvj (recFireComparands rl cnP cv.levelParams us cvj.levelParams
@@ -5749,56 +5749,56 @@
     31  anything read here: a wrong reading can only make the generated type
     32  differ from the stream's, i.e. reject.
 
-== ConLeche/Kernel/Inductives/RecCheck.lean#L409-L446
-   409      | none => do
-   410        -- an OUTSIDE inductive (a nested block's container)
-   411        if I == quotName then
-   412          throw (.invalid "target rec: the recursor's major is Quot, which is no inductive")
-   413        let some (nPc, ctors) := targetCtorsOf fe I
-   414          | throw (.invalid "target rec: the recursor's major is not a stored inductive")
-   415        let ds := args.take nPc
-   416        unless ds.length == nPc &&
-   417            ds.all (fun x => x.bvarB == 0 && x.fvarB ≤ p.nP) do
-   418          throw (.invalid "target rec: the major's parameters mention more than the \
-   419            recursor's parameters")
-   420        -- **An auxiliary type of the block**, official's `is_nested`: some
-   421        -- parameter `Dᵢ` names a member of the block (`inductive.cpp` v4.34.0
-   422        -- :1033–1049: `find` over each of the `nparams` arguments for a
-   423        -- constant of `m_new_types`; every auxiliary type is such an
-   424        -- application, restored verbatim by `restore_nested`, and official
-   425        -- accepts an auxiliary recursor exactly at an auxiliary type).  The
-   426        -- calls' proof reads it: a call on a field whose walked type names no
-   427        -- member and no hole targets no class.  Read without whnf and without
-   428        -- entering a free variable's annotation (`nestOcc` at an empty hole
-   429        -- range).  Every class resolved here SEEDS the positivity walk
-   430        -- (`classSeeds`, `GenRec.lean`), so it is a node of the walk by
-   431        -- construction: nothing ties it to a node here.
-   432        unless ds.any (fun x => x.nestOcc p.memberNames 0 0) do
-   433          throw (.invalid "target rec: the recursor's major is an outside inductive at an \
-   434            instantiation that is no auxiliary type of the block (official generates no such \
-   435            auxiliary recursor: `elim_nested_inductive`, `is_nested`)")
-   436        let (nIdx, sI) ← targetOutsideInst ops fe I us ds
-   437        -- **Q1**: an outside major in ANOTHER
-   438        -- universe than the block (a Type block's family eliminating a
-   439        -- Prop inductive, or the converse) is refused here: the
-   440        -- elimination guard is the BLOCK's (`blockLargeElimAllowed`),
-   441        -- and it says nothing about another universe's inductive
-   442        unless ← liftFueled "level comparison" (Level.isEquiv sI p.resSort) do
-   443          throw (.invalid "target rec: the recursor's major lives in another universe than \
-   444            the block (Q1)")
-   445        pure { ind := I, lvls := us, ds := ds, nPc := nPc, nIdx := nIdx, ctors := ctors,
-   446               member := none, pfvs := pfvs }
+== ConLeche/Kernel/Inductives/RecCheck.lean#L273-L310
+   273      | none => do
+   274        -- an OUTSIDE inductive (a nested block's container)
+   275        if I == quotName then
+   276          throw (.invalid "target rec: the recursor's major is Quot, which is no inductive")
+   277        let some (nPc, ctors) := targetCtorsOf fe I
+   278          | throw (.invalid "target rec: the recursor's major is not a stored inductive")
+   279        let ds := args.take nPc
+   280        unless ds.length == nPc &&
+   281            ds.all (fun x => x.bvarB == 0 && x.fvarB ≤ p.nP) do
+   282          throw (.invalid "target rec: the major's parameters mention more than the \
+   283            recursor's parameters")
+   284        -- **An auxiliary type of the block**, official's `is_nested`: some
+   285        -- parameter `Dᵢ` names a member of the block (`inductive.cpp` v4.34.0
+   286        -- :1033–1049: `find` over each of the `nparams` arguments for a
+   287        -- constant of `m_new_types`; every auxiliary type is such an
+   288        -- application, restored verbatim by `restore_nested`, and official
+   289        -- accepts an auxiliary recursor exactly at an auxiliary type).  The
+   290        -- calls' proof reads it: a call on a field whose walked type names no
+   291        -- member and no hole targets no class.  Read without whnf and without
+   292        -- entering a free variable's annotation (`nestOcc` at an empty hole
+   293        -- range).  Every class resolved here SEEDS the positivity walk
+   294        -- (`classSeeds`, `GenRec.lean`), so it is a node of the walk by
+   295        -- construction: nothing ties it to a node here.
+   296        unless ds.any (fun x => x.nestOcc p.memberNames 0 0) do
+   297          throw (.invalid "target rec: the recursor's major is an outside inductive at an \
+   298            instantiation that is no auxiliary type of the block (official generates no such \
+   299            auxiliary recursor: `elim_nested_inductive`, `is_nested`)")
+   300        let (nIdx, sI) ← targetOutsideInst ops fe I us ds
+   301        -- **Q1**: an outside major in ANOTHER
+   302        -- universe than the block (a Type block's family eliminating a
+   303        -- Prop inductive, or the converse) is refused here: the
+   304        -- elimination guard is the BLOCK's (`blockLargeElimAllowed`),
+   305        -- and it says nothing about another universe's inductive
+   306        unless ← liftFueled "level comparison" (Level.isEquiv sI p.resSort) do
+   307          throw (.invalid "target rec: the recursor's major lives in another universe than \
+   308            the block (Q1)")
+   309        pure { ind := I, lvls := us, ds := ds, nPc := nPc, nIdx := nIdx, ctors := ctors,
+   310               member := none, pfvs := pfvs }
 
-== ConLeche/Kernel/Inductives/Positivity.lean#L1543-L1551
-  1543  def nestSeeds (ops : CheckerOps m) (env : Env) (ctx : NestCtx) :
-  1544      List (NestKey × Nat) → NestState → m NestState
-  1545    | [], st => pure st
-  1546    | (key, nPc) :: ks, st => do
-  1547      let F := key.ds.foldl (fun a d => max a (whnfWalkFuel d)) fuelSlack
-  1548      let (_, cty) ← nestInstType ctx ops env (ctx.hiAt 0) key
-  1549      let (_, st) ← nestContKey ctx ops env (nestPos ops env ctx F) [] 0 key.cname key.lvls
-  1550        key.ds nPc cty st
-  1551      nestSeeds ops env ctx ks st
+== ConLeche/Kernel/Inductives/Positivity.lean#L1086-L1094
+  1086  def nestSeeds (ops : CheckerOps m) (env : Env) (ctx : NestCtx) :
+  1087      List (NestKey × Nat) → NestState → m NestState
+  1088    | [], st => pure st
+  1089    | (key, nPc) :: ks, st => do
+  1090      let F := key.ds.foldl (fun a d => max a (whnfWalkFuel d)) fuelSlack
+  1091      let (_, cty) ← nestInstType ctx ops env (ctx.hiAt 0) key
+  1092      let (_, st) ← nestContKey ctx ops env (nestPos ops env ctx F) [] 0 key.cname key.lvls
+  1093        key.ds nPc cty st
+  1094      nestSeeds ops env ctx ks st
 
 == ConLeche/Kernel/Inductives/GenRec.lean#L451-L454
    451      List ClassCtor → m (List Expr)

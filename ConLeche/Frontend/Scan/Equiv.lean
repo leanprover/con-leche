@@ -20,7 +20,7 @@ the language.  The theorem is `@[csimp]`: the driver
 (`ConLeche/Frontend/ExportC.lean`) reads lines with `scanLineSpec`, and
 the compiler substitutes `scanLineFwd` on the strength of the equality,
 the way the tree installs every fast twin (`canonEqFast`,
-`beqMemo`, `constsResolveFFast`).  Nothing is `implemented_by`.
+`beqMemo`).  Nothing is `implemented_by`.
 
 The proof is the chain of twins below it: the scalars
 (`Equiv/Scalars.lean`), the keys and lists (`Equiv/Keys.lean`), the

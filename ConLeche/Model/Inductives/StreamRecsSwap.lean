@@ -295,7 +295,7 @@ theorem storedSwap_sem {envC : Env}
     (hnres : ∀ g ∈ out, ConLeche.reservedRecName g.1.name = false)
     -- the reserved names' check (`basisNamesOk`), at the generated recursors
     (hresB : ∀ g ∈ out, ConLeche.reservedBasisNames.contains g.1.name = false)
-    (hS : ConLeche.streamRecsCheck (ConLeche.fueledOps .verified F) .plain
+    (hS : ConLeche.streamRecsCheck (ConLeche.fueledOps .verified F)
       (ConLeche.mkFEnv (ConLeche.consBlockRecsT q 0 out envC)) q.recs out = .ok ()) :
     ConLeche.RecCtorsStored (ConLeche.consBlockRecsT q 0 (ConLeche.streamRecs q.recs out) envC) ∧
     BasisPinnedTT (ConLeche.consBlockRecsT q 0 (ConLeche.streamRecs q.recs out) envC)
@@ -353,7 +353,7 @@ theorem storedSwap_sem {envC : Env}
   obtain ⟨-, hallS⟩ := ConLeche.streamRecsCheck_inv hS
   let Q : Nat → ConLeche.RecShape → ConstantVal × ConLeche.TargetMajor × List Expr → Prop :=
     fun j rc g => q.recs[j]? = some rc ∧ out[j]? = some g ∧
-      ConLeche.streamRecCheck (ConLeche.fueledOps .verified F) .plain
+      ConLeche.streamRecCheck (ConLeche.fueledOps .verified F)
         (ConLeche.mkFEnv (ConLeche.consBlockRecsT q 0 out envC)) rc g = .ok ()
   have hC : ConLeche.StreamCorr q Q
       (ConLeche.consBlockRecsT q 0 (ConLeche.streamRecs q.recs out) envC)
@@ -365,10 +365,10 @@ theorem storedSwap_sem {envC : Env}
   -- a stored position's facts
   have hposQ : ∀ {j rc g}, Q j rc g →
       q.majorIdxAt j = rc.mI ∧ (rc.rules.map (·.rhs)).length = g.2.2.length ∧
-      (rc.cvR.type = g.1.type ∨ ConLeche.recTyCheck (ConLeche.fueledOps .verified F) .plain
+      (rc.cvR.type = g.1.type ∨ ConLeche.recTyCheck (ConLeche.fueledOps .verified F)
         (ConLeche.mkFEnv (ConLeche.consBlockRecsT q 0 out envC)) g.1.name g.1.levelParams
         (rc.mI + 1) rc.cvR.type g.1.type = .ok ()) ∧
-      ConLeche.streamRulesCheck (ConLeche.fueledOps .verified F) .plain
+      ConLeche.streamRulesCheck (ConLeche.fueledOps .verified F)
         (ConLeche.mkFEnv (ConLeche.consBlockRecsT q 0 out envC)) g.1.name g.1.levelParams
         rc.rules g.2.2 = .ok () := by
     intro j rc g hQ
@@ -504,7 +504,7 @@ theorem blockRecStagedAt_stored {envC : Env}
     (hnres : ∀ g ∈ out, ConLeche.reservedRecName g.1.name = false)
     -- the reserved names' check (`basisNamesOk`), at the generated recursors
     (hresB : ∀ g ∈ out, ConLeche.reservedBasisNames.contains g.1.name = false)
-    (hS : ConLeche.streamRecsCheck (ConLeche.fueledOps .verified F) .plain
+    (hS : ConLeche.streamRecsCheck (ConLeche.fueledOps .verified F)
       (ConLeche.mkFEnv (ConLeche.consBlockRecsT q 0 out envC)) q.recs out = .ok ())
     (hwfS : EnvWF (ConLeche.consBlockRecsT q 0 (ConLeche.streamRecs q.recs out) envC)) :
     BlockRecStagedAt envC (ConLeche.consBlockRecsT q 0 (ConLeche.streamRecs q.recs out) envC)

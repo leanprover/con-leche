@@ -625,7 +625,7 @@ theorem checkBlockTail_inv {block : List ConstantInfo} {q : BlockPass Env} {Q : 
       checkBlockRec (fueledOps mode F) (consBlockCtors q.p.nP q.p.memberCtors q.env₁)
         q.p (blockNestedBit q.p q.kinds) q.params q.tbl.toList q.rd q.cls block = .ok out ∧
       streamKCheck (m := CheckM) q.p q.p.recs out = .ok () ∧
-      streamRecsCheck (m := CheckM) (fueledOps mode F) .plain
+      streamRecsCheck (m := CheckM) (fueledOps mode F)
         (mkFEnv (consBlockRecsT q.p 0 out (consBlockCtors q.p.nP q.p.memberCtors q.env₁))) q.p.recs out
         = .ok () ∧
       checkBlockTables (m := CheckM) (consBlockCtors q.p.nP q.p.memberCtors q.env₁) Q
@@ -653,7 +653,7 @@ theorem checkBlockTail_inv {block : List ConstantInfo} {q : BlockPass Env} {Q : 
   cases uK
   rw [hK] at h
   dsimp only at h
-  cases hS : streamRecsCheck (m := CheckM) (fueledOps mode F) .plain
+  cases hS : streamRecsCheck (m := CheckM) (fueledOps mode F)
       (mkFEnv (consBlockRecsT q.p 0 out (consBlockCtors q.p.nP q.p.memberCtors q.env₁))) q.p.recs out with
   | error e => rw [hS] at h; exact nomatch h
   | ok u =>
