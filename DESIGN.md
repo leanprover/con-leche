@@ -115004,3 +115004,18 @@ only:
 
 Hand test (`--jobs=8`, Init.Data.Nat.Lemmas closure): 200M no kill, exit 0; 120M 3 kills, the
 protection lines as before, Lemmas (about the budget alone) `memory`, exit 3.
+
+## TASK #513 — the worker's own peak on each finish line (`Driver/ScheduleIO.lean`)
+
+Each per-module finish line now shows the worker's peak resident set next to its time.  The
+number is the worker's own `con-leche: stats: peak RSS X.YZ GiB` line (read from the stderr the
+scheduler drains anyway; exact to 0.01 GiB, `reportedPeak`).  Where a worker wrote none (killed,
+crashed, timed out) the scheduler's last sampled `VmHWM`/`VmRSS` maximum is shown as a lower
+bound, `rss≥`.  The same value (`pk` in `finish`) replaces the sampled one in the typical-peak
+window (#512), so the percentile is exact; running workers keep their sampled value.  The log
+format is unchanged; no pinned gate output contained the finish line.
+
+    con-leche: schedule: Init.Data.Nat.Bitwise.Basic: 0 t=0.6s rss=0.07 GiB [3/84 3.5 %, 2 running, 0.1 GiB now (max 0.1 GiB), 0.1 GiB peaks, eta 23s]
+    con-leche: schedule: Init.Data.Nat.Lemmas: 0 t=0.9s rss=0.11 GiB [4/84 4.7 %, 0 running, eta 18s]
+
+Hand test: `--olean --schedule --jobs=4` on Init.Data.Nat.Lemmas, 84 modules, exit 0, under the guard.
