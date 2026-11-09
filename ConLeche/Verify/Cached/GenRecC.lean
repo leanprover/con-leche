@@ -1561,7 +1561,9 @@ theorem checkBlockPassS_run {env : Env} (henv : EnvWF env)
 theorem reduceMemberS_eq (env : Env) (ms : MemberShape) (nP : Nat) :
     reduceMemberS .verified (mkFEnv env) ms nP =
       reduceMember (sharedOpsC .verified (mkFEnv env)) env ms nP := by
-  simp only [reduceMemberS, reduceMember, checkConstantValC_eq, checkConstantValF_eq, mkFEnv_env]
+  simp only [reduceMemberS, reduceMember, reducedFormerC_eq, checkConstantValC_eq,
+    checkConstantValF_eq, mkFEnv_env]
+  rfl
 
 /-- `reducedFormerS_spec`, its result scoped. -/
 theorem reducedFormerWS_spec (henv : EnvWF env) {cv : ConstantVal} {n : Nat} {s₀ : CState}
@@ -1623,7 +1625,7 @@ theorem checkBlockKS_run
     CSOKF s' ∧ feOut = mkFEnv feOut.env ∧
     ∃ F, checkBlock (fueledOps .verified F) env block p₀ = .ok feOut.env := by
   unfold checkBlockKS at h
-  rw [blockTablesC_eq] at h
+  rw [blockTablesC_eq, blockIsRecC_eq, blockConstantsC_eq] at h
   by_cases hnd : (p₀.allCtors.map (·.1.name)).Nodup ∧ p₀.memberNames.Nodup
   case neg => rw [ite_eq_right hnd] at h; exact absurd h throwC_bind_ok
   rw [ite_eq_left hnd] at h

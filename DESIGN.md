@@ -111235,3 +111235,107 @@ the landed tree):
 Against master before #495 (501589f56): `BvStruct` − `Empty` 10.08 → 2.26 G, init-full
 381.83 → 374.91 G (−1.8 %), grind-ring-5 15.33 → 13.15 G (−14.2 %), `prop_struct_proj_wide`
 1.775 G → 0.494 G.
+
+## TASK #498 — L1: the inductive check's cached walks and its first twins (2026-11-09, agent/498-l1)
+
+**The task** (maintainer's architecture ruling, relayed with the plan): the plain `Kernel/*`
+tier is specification; the inductive check (`Kernel/Inductives/*`), which the cached driver ran as
+is, gets a cached production twin over the cached walks, related to the specification in the
+core's idiom (`sym … vcgen … finish` triples, or an `fC_eq` equation where the twin mirrors the
+specification at `sharedOpsC` — an equation must never keep a twin from being optimised).  The
+twins are monomorphic `(mode) (fe)` `CheckCM` (or pure) definitions calling the cached core
+(`coreKnotI`) directly, with no operations record except to break recursion and no new walker
+record.  A specification definition made naive must be unreached from the binary and not
+allowlisted; the reach gate is the only guard (no `noncomputable`).  Fuel-related verdicts may
+change (lane L7).  Lanes: L1 the walks and the first consumers (this record); L2 positivity, L3
+the pass and the classes, L4 the recursor stage, L5 the tail; L6 the specification's clean-up
+(`ShadowOps`, the csimp memo layers, `StructWalkers`); L7 measured follow-ups.
+
+**The walks** (`Cached/ExprOpsC.lean`, the section's conventions: a plain descent `…P`, the
+child step `enter…` with cutoff, compound test and `withExclusive` read, the walk `…XP` carrying
+its proof against the descent, the wrapper `…C`):
+
+| walk | cutoff | memo key | spec lemma |
+|---|---|---|---|
+| `liftLooseBVarsC amount e c` | `bvarB ≤ c`: the node itself | address, cursor | `liftLooseBVarsP_spec`, `liftLooseBVarsC_spec` (`OpsC.lean`) |
+| `replaceFVarsC f e` | `fvarB = 0`: the node itself | address | `replaceFVarsP_spec`, `replaceFVarsC_spec` (`IndWalksC.lean`) |
+| `nestOccC names lo hi e` | none (no field records constants); `fvar` a leaf | address | `nestOccP_spec`, `nestOccC_spec` |
+| `mentionsAnyConstC names e` | none; `fvar` annotations descended | address | `mentionsAnyConstP_spec`, `mentionsAnyConstC_spec` |
+
+The two `Bool` walks stop at the first occurrence, as `constsResolveFC` stops at the first
+miss.  `instantiateLiftXP` now lifts its values with `liftLooseBVarsC` (its descent
+`instantiateLiftP` reads `liftLooseBVarsP`), so the cached tier no longer runs the plain
+`liftLooseBVarsFast`.  The pure loops: `piDomsMentionAnyC` over `mentionsAnyConstC`;
+`closeTelescopeC`/`closeLamsC`, which abstract each domain and the body ONCE by `abstractRangeC`
+over the free variables of the binders outside it, where the specification re-abstracts the whole
+remaining telescope at every binder (`closeTelescopeGoC_eq`: after `k` binders the closer is the
+specification's closing of the rest abstracted over those `k` variables; the step is
+`abstractRange_succ`); `abstractPrefixC k c e = abstractRangeC e 0 k c`.  `openPisAtFvarsC` loses
+its fallback to the plain sequential opener: instantiating at free variables never makes a `∀`
+appear, so where the one pass finds no binder the sequential opening finds none either
+(`openPisAtFvarsFGo_none`, `DiscC4.lean`; the fallback never ran).
+
+**IR audit** (`.lake/build/ir/ConLeche/Cached/ExprOpsC.c`): every `lean_is_exclusive_obj` of the
+four new walks reads a child obtained by `lean_ctor_get` from the borrowed node, with no
+`lean_inc` of it in between (10 reads per walk, 11 for `mentionsAnyConstC`, which also reads the
+`fvar` annotation); the only `lean_inc_ref` of a child is the memo entry's, after the descent —
+the shape of `instantiate1XP` and `constsResolveFXP`.  No closure is allocated.
+
+**The first consumers.**
+
+* `reduceMemberS` (a family stored at a definition) runs `reducedFormerC` (new module
+  `Cached/IndPositivity.lean`, the twins of `Kernel/Inductives/Positivity.lean`): `whnfTelescopeC`
+  reduces by `coreKnotI`'s `whnf`, opens each binder by `instantiate1C`, and the telescope is
+  closed by `closeTelescopeC`; the declared-against-reduct comparison calls `coreKnotI`'s `defeq`.
+  They mirror the specification at the shared operations, so the relation is an equation:
+  `whnfTelescopeC_eq`, `reducedFormerC_eq` (`WalkersC.lean`), and `reduceMemberS_eq` rewrites by
+  it (the triple `reduceMemberS_spec` is unchanged).
+* `blockIsRecC` (over `piDomsMentionAnyC`), `blockConstantsC` and `declConstantsC`
+  (`Cached/CheckerC.lean`): `StreamIndex.add` records `declConstantsC`, `checkBlockKS` passes
+  `blockIsRecC p₀` to the pass and pushes `blockConstantsC p₀`.  `blockIsRecC_eq`,
+  `blockConstantsC_eq`, `declConstantsC_eq`; the driver lemmas (`checkBlockKS_run`,
+  `checkBlockKS_pushes`, `checkBlockKS_push`, the index's `IndexSpec` step, `StreamIndex.add_fillDecl`,
+  `reduceMemberS_congr`, `reduceMemberS_same`) rewrite by them once.
+
+**The specification made simpler.**  `Expr.mentionsConst T` was `mentionsAnyConst [T]` with its own
+memo walk and `@[csimp]`; its one use is the `sorryAx` test of `unresolvedConstsError`.  It is
+deleted with its walk; `unresolvedConstsError` reads `e.mentionsAnyConst [sorryAxName]`, and
+`mentionsAnyConst` (with its memo walk, still run by the plain inductive check) moved from
+`Positivity.lean` to `StructParts.lean`, below `CheckerBase`.  The cached callers
+(`checkConstantValC`, `checkDefnValCI`, `checkThmValCI`, `checkOpaqueValCI`) throw
+`unresolvedConstsErrorLC`, over `mentionsAnyConstC` (`unresolvedConstsErrorLC_eq`, in
+`checkConstantValC_eq`'s rewrite set; the value checks' triples speak of successes only).
+
+**The reach gate.**  741 → 734 reached plain declarations; the entries removed:
+`Expr.mentionsConst`, `mentionsConstFast`, `mentionsConstGo` (deleted), `Expr.piDomsMentionAny`,
+`blockIsRec`, `blockConstants`, `declConstants`.  No other `@[csimp]` memo walk became unreached:
+`instantiate1`, `liftLooseBVars` (through `streamNestedOk`'s `List.map`), `mentionsAnyConst`,
+`nestOcc`, `replaceFVars` and the plain `openPisAtFvars` are still run by the stages L2–L5 take
+over; their allowlist reasons now say so.  `reducedFormer`, `whnfTelescope` and `closeTelescope`
+are still reached through `familyTelescope` (positivity, L2) and the recursor stage.
+
+**Numbers** (`perf stat -e instructions:u`, one run each, `--jobs=1`, verified; master
+9bec05e98 → the lane):
+
+| run | master | lane | change |
+|---|---|---|---|
+| init-full | 374.907 G | 374.908 G | +0.0003 % |
+| grind-ring-5 | 13.1469 G | 13.1489 G | +0.015 % |
+| e2e `prop_struct_proj_wide` | 493.75 M | 492.79 M | −0.2 % |
+| `BvStruct` module | 431.916 G | 431.940 G | |
+| `Empty` module | 429.647 G | 429.646 G | |
+| `BvStruct` − `Empty` | 2.269 G | 2.294 G | (noise, below) |
+
+The module runs move by about 20 M from run to run: a second pair read `BvStruct` 431.938 /
+431.933 G and `Empty` 429.641 / 429.645 G (master / lane), so `BvStruct` − `Empty` 2.297 /
+2.288 G.  A flat profile of the two `BvStruct` runs shows only the renaming of the shared memo
+specialisations (`…_at_…instantiateLiftXP_spec…` → `…liftLooseBVarsXP_spec…`) and differences
+below its resolution.  L1 is no speed change, as planned: the walks' consumers are the later
+lanes', and of the inductive check only the definition-headed families (`reduceMemberS`) and
+`is_rec` run cached here.  The same verdicts everywhere (64 366 records for `BvStruct`).
+
+**Gates.**  `lake build`, `lake test` warning-free; `tests/arena.sh` passes (e2e verdicts
+unchanged, the reach gate at 734).  The link gates' citations moved with `Positivity.lean`'s
+lines (OVERVIEW and the whitepaper, re-pointed, no cited text changed).  Two `public import`s
+of `Verify/Cached/IndWalksC.lean` are kept public against the plan script's census, measured, in
+its fallback list.

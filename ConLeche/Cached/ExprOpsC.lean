@@ -249,6 +249,93 @@ abbrev ResXP0 (s : Expr → Expr) (e : Expr) := { r : Expr // r = s e } × MemoX
     (rec : Unit → Squash (ResXP0 s e)) : Squash (ResXP0 s e) :=
   MemoXP.shared (s := fun e _ => s e) memo e 0 rec
 
+/-! ### `liftLooseBVarsC` (task #498)
+
+`Expr.liftLooseBVars`: every loose bound variable at or above the
+cursor bumped by a fixed amount.  The section's walk, with the `bvarB`
+cutoff (a node bounded at or below the cursor has nothing to lift and
+is returned unchanged); `liftLooseBVarsP_spec`
+(`ConLeche/Verify/Cached/OpsC.lean`) reads the descent as
+`Expr.liftLooseBVars`.  `instantiateLiftXP` lifts its values with it. -/
+
+/-- The plain descent of `liftLooseBVarsC`: the reference
+`liftLooseBVarsXP` carries its own proof against. -/
+def liftLooseBVarsP (amount : Nat) (e : Expr) (c : Nat) : Expr :=
+  if e.bvarB ≤ c then e else
+  match e with
+  | .bvar i .. => if i ≥ c then Expr.mkBvar (i + amount) else e
+  | .fvar .. | .sort .. | .const .. | .lit .. => e
+  | .app f a .. => mkApp (liftLooseBVarsP amount f c) (liftLooseBVarsP amount a c)
+  | .lam ty body .. =>
+    mkLam (liftLooseBVarsP amount ty c) (liftLooseBVarsP amount body (c + 1))
+  | .forallE ty body .. =>
+    mkForallE (liftLooseBVarsP amount ty c) (liftLooseBVarsP amount body (c + 1))
+  | .letE ty val body .. =>
+    mkLetE (liftLooseBVarsP amount ty c) (liftLooseBVarsP amount val c)
+      (liftLooseBVarsP amount body (c + 1))
+  | .proj sn i sub .. => mkProj sn i (liftLooseBVarsP amount sub c)
+
+theorem liftLooseBVarsP_cut {amount : Nat} {e : Expr} {c : Nat} (h : e.bvarB ≤ c) :
+    liftLooseBVarsP amount e c = e := by
+  rw [liftLooseBVarsP.eq_def]; simp [h]
+
+/-- The child step of `liftLooseBVarsXP`: the cutoff, the compound
+test, the exclusivity read. -/
+@[inline] def enterLLP (amount : Nat) (e : @& Expr) (c : Nat)
+    (memo : MemoXP (liftLooseBVarsP amount))
+    (rec : (hcut : ¬ e.bvarB ≤ c) → Squash (ResXP (liftLooseBVarsP amount) e c)) :
+    Squash (ResXP (liftLooseBVarsP amount) e c) :=
+  if hcut : e.bvarB ≤ c then Squash.mk (⟨e, (liftLooseBVarsP_cut hcut).symm⟩, memo)
+  else if !isCompound e then rec hcut
+  else withExcl e fun excl =>
+    if excl then rec hcut else memo.shared e c fun _ => rec hcut
+
+/-- The walk of `liftLooseBVarsC` (the node is past the cutoff). -/
+def liftLooseBVarsXP (amount : Nat) (memo : MemoXP (liftLooseBVarsP amount)) (e : @& Expr)
+    (c : Nat) (hcut : ¬ e.bvarB ≤ c) : Squash (ResXP (liftLooseBVarsP amount) e c) :=
+  match e with
+  | .bvar i .. =>
+    Squash.mk (⟨if i ≥ c then Expr.mkBvar (i + amount) else .bvar i,
+      by rw [liftLooseBVarsP]; simp [hcut]⟩, memo)
+  | .fvar idx ty .. => Squash.mk (⟨.fvar idx ty, by rw [liftLooseBVarsP]; simp [hcut]⟩, memo)
+  | .sort u .. => Squash.mk (⟨.sort u, by rw [liftLooseBVarsP]; simp [hcut]⟩, memo)
+  | .const n us .. => Squash.mk (⟨.const n us, by rw [liftLooseBVarsP]; simp [hcut]⟩, memo)
+  | .lit l .. => Squash.mk (⟨.lit l, by rw [liftLooseBVarsP]; simp [hcut]⟩, memo)
+  | .app f a .. =>
+    enterLLP amount f c memo (fun h => liftLooseBVarsXP amount memo f c h) |>.lift fun (⟨f', hf⟩, memo) =>
+    enterLLP amount a c memo (fun h => liftLooseBVarsXP amount memo a c h) |>.lift fun (⟨a', ha⟩, memo) =>
+    Squash.mk (⟨mkApp f' a', by rw [liftLooseBVarsP]; simp [hcut, hf, ha, mkApp]⟩, memo)
+  | .lam ty body .. =>
+    enterLLP amount ty c memo (fun h => liftLooseBVarsXP amount memo ty c h) |>.lift fun (⟨ty', ht⟩, memo) =>
+    enterLLP amount body (c + 1) memo (fun h => liftLooseBVarsXP amount memo body (c + 1) h) |>.lift fun (⟨b', hb⟩, memo) =>
+    Squash.mk (⟨mkLam ty' b', by rw [liftLooseBVarsP]; simp [hcut, ht, hb, mkLam]⟩, memo)
+  | .forallE ty body .. =>
+    enterLLP amount ty c memo (fun h => liftLooseBVarsXP amount memo ty c h) |>.lift fun (⟨ty', ht⟩, memo) =>
+    enterLLP amount body (c + 1) memo (fun h => liftLooseBVarsXP amount memo body (c + 1) h) |>.lift fun (⟨b', hb⟩, memo) =>
+    Squash.mk (⟨mkForallE ty' b', by rw [liftLooseBVarsP]; simp [hcut, ht, hb, mkForallE]⟩, memo)
+  | .letE ty val body .. =>
+    enterLLP amount ty c memo (fun h => liftLooseBVarsXP amount memo ty c h) |>.lift fun (⟨ty', ht⟩, memo) =>
+    enterLLP amount val c memo (fun h => liftLooseBVarsXP amount memo val c h) |>.lift fun (⟨v', hv⟩, memo) =>
+    enterLLP amount body (c + 1) memo (fun h => liftLooseBVarsXP amount memo body (c + 1) h) |>.lift fun (⟨b', hb⟩, memo) =>
+    Squash.mk (⟨mkLetE ty' v' b', by rw [liftLooseBVarsP]; simp [hcut, ht, hv, hb, mkLetE]⟩, memo)
+  | .proj sn i sub .. =>
+    enterLLP amount sub c memo (fun h => liftLooseBVarsXP amount memo sub c h) |>.lift fun (⟨s', hs⟩, memo) =>
+    Squash.mk (⟨mkProj sn i s', by rw [liftLooseBVarsP]; simp [hcut, hs, mkProj]⟩, memo)
+
+/-- The cached `Expr.liftLooseBVars amount c`: the cutoff, then the
+walk. -/
+def liftLooseBVarsC (amount : Nat) (e : @& Expr) (c : Nat := 0) : Expr :=
+  if hcut : e.bvarB ≤ c then e else
+  resTerm (liftLooseBVarsXP amount none e c hcut)
+
+/-- The walk is its plain descent (whatever the memo did). -/
+theorem liftLooseBVarsC_eqP (amount : Nat) (e : Expr) (c : Nat) :
+    liftLooseBVarsC amount e c = liftLooseBVarsP amount e c := by
+  rw [liftLooseBVarsC]
+  split
+  · rename_i hcut; exact (liftLooseBVarsP_cut hcut).symm
+  · exact resTerm_eq _
+
 /-! ### `instantiateLiftC`
 
 The capture-avoiding substitution of several variables at once,
@@ -265,7 +352,7 @@ def instantiateLiftP (vs : Array Expr) (e : Expr) (d : Nat) : Expr :=
   match e with
   | .bvar i .. =>
     if i < d then e
-    else if h : i - d < vs.size then Expr.liftLooseBVars d 0 vs[i - d]
+    else if h : i - d < vs.size then liftLooseBVarsP d vs[i - d] 0
     else Expr.mkBvar (i - vs.size)
   | .fvar .. | .sort .. | .const .. | .lit .. => e
   | .app f a .. => mkApp (instantiateLiftP vs f d) (instantiateLiftP vs a d)
@@ -299,9 +386,9 @@ def instantiateLiftXP (vs : @& Array Expr) (memo : MemoXP (instantiateLiftP vs))
   match e with
   | .bvar i .. =>
     Squash.mk (⟨if i < d then .bvar i
-        else if h : i - d < vs.size then Expr.liftLooseBVars d 0 vs[i - d]
+        else if h : i - d < vs.size then liftLooseBVarsC d vs[i - d] 0
         else Expr.mkBvar (i - vs.size),
-      by rw [instantiateLiftP]; simp [hcut]⟩, memo)
+      by rw [instantiateLiftP]; simp [hcut, liftLooseBVarsC_eqP]⟩, memo)
   | .fvar idx ty .. => Squash.mk (⟨.fvar idx ty, by rw [instantiateLiftP]; simp [hcut]⟩, memo)
   | .sort u .. => Squash.mk (⟨.sort u, by rw [instantiateLiftP]; simp [hcut]⟩, memo)
   | .const n us .. => Squash.mk (⟨.const n us, by rw [instantiateLiftP]; simp [hcut]⟩, memo)
@@ -746,6 +833,79 @@ def abstractRangeC (e : @& Expr) (d k : Nat) (c : Nat := 0) : Expr :=
   | _ + 1 =>
     if hcut : e.fvarB ≤ d then e else
     resTerm (abstractRangeXP d k none e c hcut)
+
+/-! ## Free-variable replacement (task #498)
+
+`Expr.replaceFVars f`: every free variable `f` maps replaced whole (its
+annotation is not descended into), every other one kept.  The cutoff
+is the fvar range: a node without a free variable is returned
+unchanged.  No cursor (the replacement does not depend on the binder
+depth: `f`'s values are spliced as they are). -/
+
+/-- The plain descent of `replaceFVarsC`: the reference of
+`replaceFVarsXP` (`replaceFVarsP_spec`, `Verify/Cached/OpsC.lean`). -/
+def replaceFVarsP (f : Nat → Option Expr) (e : Expr) : Expr :=
+  if e.fvarB = 0 then e else
+  match e with
+  | .fvar i ty .. => (f i).getD (.fvar i ty)
+  | .bvar .. | .sort .. | .const .. | .lit .. => e
+  | .app a b .. => mkApp (replaceFVarsP f a) (replaceFVarsP f b)
+  | .lam ty body .. => mkLam (replaceFVarsP f ty) (replaceFVarsP f body)
+  | .forallE ty body .. => mkForallE (replaceFVarsP f ty) (replaceFVarsP f body)
+  | .letE ty val body .. =>
+    mkLetE (replaceFVarsP f ty) (replaceFVarsP f val) (replaceFVarsP f body)
+  | .proj sn i sub .. => mkProj sn i (replaceFVarsP f sub)
+
+theorem replaceFVarsP_cut {f : Nat → Option Expr} {e : Expr} (h : e.fvarB = 0) :
+    replaceFVarsP f e = e := by
+  rw [replaceFVarsP.eq_def]; simp [h]
+
+/-- The child step of `replaceFVarsXP`: the cutoff, the compound test,
+the exclusivity read. -/
+@[inline] def enterRFV (f : @& Nat → Option Expr) (e : @& Expr)
+    (memo : MemoXP0 (replaceFVarsP f))
+    (rec : (hcut : ¬ e.fvarB = 0) → Squash (ResXP0 (replaceFVarsP f) e)) :
+    Squash (ResXP0 (replaceFVarsP f) e) :=
+  if hcut : e.fvarB = 0 then Squash.mk (⟨e, (replaceFVarsP_cut hcut).symm⟩, memo)
+  else if !isCompound e then rec hcut
+  else withExcl e fun excl =>
+    if excl then rec hcut else memo.shared e fun _ => rec hcut
+
+/-- The walk of `replaceFVarsC` (the node is past the cutoff). -/
+def replaceFVarsXP (f : @& Nat → Option Expr) (memo : MemoXP0 (replaceFVarsP f)) (e : @& Expr)
+    (hcut : ¬ e.fvarB = 0) : Squash (ResXP0 (replaceFVarsP f) e) :=
+  match e with
+  | .fvar i ty .. =>
+    Squash.mk (⟨(f i).getD (.fvar i ty), by rw [replaceFVarsP]; simp [hcut]⟩, memo)
+  | .bvar j .. => Squash.mk (⟨.bvar j, by rw [replaceFVarsP]; simp [hcut]⟩, memo)
+  | .sort u .. => Squash.mk (⟨.sort u, by rw [replaceFVarsP]; simp [hcut]⟩, memo)
+  | .const n us .. => Squash.mk (⟨.const n us, by rw [replaceFVarsP]; simp [hcut]⟩, memo)
+  | .lit l .. => Squash.mk (⟨.lit l, by rw [replaceFVarsP]; simp [hcut]⟩, memo)
+  | .app a b .. =>
+    enterRFV f a memo (fun h => replaceFVarsXP f memo a h) |>.lift fun (⟨a', ha⟩, memo) =>
+    enterRFV f b memo (fun h => replaceFVarsXP f memo b h) |>.lift fun (⟨b', hb⟩, memo) =>
+    Squash.mk (⟨mkApp a' b', by rw [replaceFVarsP]; simp [hcut, ha, hb, mkApp]⟩, memo)
+  | .lam ty body .. =>
+    enterRFV f ty memo (fun h => replaceFVarsXP f memo ty h) |>.lift fun (⟨ty', ht⟩, memo) =>
+    enterRFV f body memo (fun h => replaceFVarsXP f memo body h) |>.lift fun (⟨b', hb⟩, memo) =>
+    Squash.mk (⟨mkLam ty' b', by rw [replaceFVarsP]; simp [hcut, ht, hb, mkLam]⟩, memo)
+  | .forallE ty body .. =>
+    enterRFV f ty memo (fun h => replaceFVarsXP f memo ty h) |>.lift fun (⟨ty', ht⟩, memo) =>
+    enterRFV f body memo (fun h => replaceFVarsXP f memo body h) |>.lift fun (⟨b', hb⟩, memo) =>
+    Squash.mk (⟨mkForallE ty' b', by rw [replaceFVarsP]; simp [hcut, ht, hb, mkForallE]⟩, memo)
+  | .letE ty val body .. =>
+    enterRFV f ty memo (fun h => replaceFVarsXP f memo ty h) |>.lift fun (⟨ty', ht⟩, memo) =>
+    enterRFV f val memo (fun h => replaceFVarsXP f memo val h) |>.lift fun (⟨v', hv⟩, memo) =>
+    enterRFV f body memo (fun h => replaceFVarsXP f memo body h) |>.lift fun (⟨b', hb⟩, memo) =>
+    Squash.mk (⟨mkLetE ty' v' b', by rw [replaceFVarsP]; simp [hcut, ht, hv, hb, mkLetE]⟩, memo)
+  | .proj sn i sub .. =>
+    enterRFV f sub memo (fun h => replaceFVarsXP f memo sub h) |>.lift fun (⟨s', hs⟩, memo) =>
+    Squash.mk (⟨mkProj sn i s', by rw [replaceFVarsP]; simp [hcut, hs, mkProj]⟩, memo)
+
+/-- The cached `Expr.replaceFVars f`: the cutoff, then the walk. -/
+def replaceFVarsC (f : Nat → Option Expr) (e : @& Expr) : Expr :=
+  if hcut : e.fvarB = 0 then e else
+  resTerm (replaceFVarsXP f none e hcut)
 
 /-! ## Level instantiation -/
 
@@ -1242,6 +1402,159 @@ cutoff, then the walk (`hasLooseBVarBC_spec`,
 def hasLooseBVarBC (i : Nat) (e : Expr) : Bool :=
   if hcut : e.bvarB ≤ i then false else resBool (hasLooseBVarBXP none e i hcut)
 
+/-! ## Occurrence queries of the inductive check (task #498)
+
+`Expr.nestOcc` (a member constant or a hole variable `lo ..< hi`; a
+free variable's annotation is not looked into, a `.proj` node's
+structure is no occurrence) and `Expr.mentionsAnyConst` (one of the
+constants `names`, annotations included, a `.proj` node naming its
+structure).  Neither has a cached field to cut off on — no field
+records which constants a node mentions — so, like `constsResolveFC`,
+each walk decides its leaves directly and probes only a compound node
+`withExclusive` reports shared.  Both stop at the first occurrence.
+`nestOccP_spec` and `mentionsAnyConstP_spec`
+(`ConLeche/Verify/Cached/IndWalksC.lean`) read the descents as the
+specifications. -/
+
+/-- The plain descent of `nestOccC`. -/
+def nestOccP (names : List Name) (lo hi : Nat) (e : Expr) : Bool :=
+  match e with
+  | .bvar .. | .sort .. | .lit .. => false
+  | .fvar i .. => decide (lo ≤ i ∧ i < hi)
+  | .const n .. => names.contains n
+  | .app f a .. => nestOccP names lo hi f || nestOccP names lo hi a
+  | .lam ty body .. | .forallE ty body .. => nestOccP names lo hi ty || nestOccP names lo hi body
+  | .letE ty val body .. =>
+    nestOccP names lo hi ty || nestOccP names lo hi val || nestOccP names lo hi body
+  | .proj _ _ sub .. => nestOccP names lo hi sub
+
+/-- The child step of `nestOccXP`: the compound test, then the
+exclusivity read (there is no cutoff; `fvar` is a leaf). -/
+@[inline] def enterNO (names : @& List Name) (lo hi : Nat) (e : @& Expr)
+    (memo : MemoB0 (nestOccP names lo hi))
+    (rec : Unit → Squash (ResB0 (nestOccP names lo hi) e)) :
+    Squash (ResB0 (nestOccP names lo hi) e) :=
+  if !isCompound e then rec () else
+  withExcl e fun excl =>
+    if excl then rec () else memo.shared e fun _ => rec ()
+
+/-- The walk of `nestOccC`. -/
+def nestOccXP (names : @& List Name) (lo hi : Nat) (memo : MemoB0 (nestOccP names lo hi))
+    (e : @& Expr) : Squash (ResB0 (nestOccP names lo hi) e) :=
+  match e with
+  | .bvar .. | .sort .. | .lit .. => Squash.mk (⟨false, by rw [nestOccP]⟩, memo)
+  | .fvar i .. => Squash.mk (⟨decide (lo ≤ i ∧ i < hi), by rw [nestOccP]⟩, memo)
+  | .const n .. => Squash.mk (⟨names.contains n, by rw [nestOccP]⟩, memo)
+  | .app f a .. =>
+    enterNO names lo hi f memo (fun _ => nestOccXP names lo hi memo f) |>.lift fun (⟨rf, hf⟩, memo) =>
+    match rf, hf with
+    | true, hf => Squash.mk (⟨true, by rw [nestOccP, ← hf, Bool.true_or]⟩, memo)
+    | false, hf =>
+      enterNO names lo hi a memo (fun _ => nestOccXP names lo hi memo a) |>.lift fun (⟨ra, ha⟩, memo) =>
+      Squash.mk (⟨ra, by rw [nestOccP, ← hf, ← ha, Bool.false_or]⟩, memo)
+  | .lam ty body .. | .forallE ty body .. =>
+    enterNO names lo hi ty memo (fun _ => nestOccXP names lo hi memo ty) |>.lift fun (⟨rt, ht⟩, memo) =>
+    match rt, ht with
+    | true, ht => Squash.mk (⟨true, by rw [nestOccP, ← ht, Bool.true_or]⟩, memo)
+    | false, ht =>
+      enterNO names lo hi body memo (fun _ => nestOccXP names lo hi memo body) |>.lift
+        fun (⟨rb, hb⟩, memo) =>
+      Squash.mk (⟨rb, by rw [nestOccP, ← ht, ← hb, Bool.false_or]⟩, memo)
+  | .letE ty val body .. =>
+    enterNO names lo hi ty memo (fun _ => nestOccXP names lo hi memo ty) |>.lift fun (⟨rt, ht⟩, memo) =>
+    match rt, ht with
+    | true, ht => Squash.mk (⟨true, by rw [nestOccP, ← ht]; simp⟩, memo)
+    | false, ht =>
+      enterNO names lo hi val memo (fun _ => nestOccXP names lo hi memo val) |>.lift
+        fun (⟨rv, hv⟩, memo) =>
+      match rv, hv with
+      | true, hv => Squash.mk (⟨true, by rw [nestOccP, ← ht, ← hv]; simp⟩, memo)
+      | false, hv =>
+        enterNO names lo hi body memo (fun _ => nestOccXP names lo hi memo body) |>.lift
+          fun (⟨rb, hb⟩, memo) =>
+        Squash.mk (⟨rb, by rw [nestOccP, ← ht, ← hv, ← hb]; simp⟩, memo)
+  | .proj _ _ sub .. =>
+    enterNO names lo hi sub memo (fun _ => nestOccXP names lo hi memo sub) |>.lift
+      fun (⟨rs, hs⟩, memo) =>
+    Squash.mk (⟨rs, by rw [nestOccP, ← hs]⟩, memo)
+
+/-- The cached `Expr.nestOcc names lo hi` (one memoized DAG walk). -/
+def nestOccC (names : List Name) (lo hi : Nat) (e : @& Expr) : Bool :=
+  resBool (nestOccXP names lo hi none e)
+
+/-- The plain descent of `mentionsAnyConstC`. -/
+def mentionsAnyConstP (names : List Name) (e : Expr) : Bool :=
+  match e with
+  | .bvar .. | .sort .. | .lit .. => false
+  | .const n .. => names.contains n
+  | .fvar _ ty .. => mentionsAnyConstP names ty
+  | .app f a .. => mentionsAnyConstP names f || mentionsAnyConstP names a
+  | .lam ty body .. | .forallE ty body .. =>
+    mentionsAnyConstP names ty || mentionsAnyConstP names body
+  | .letE ty val body .. =>
+    mentionsAnyConstP names ty || mentionsAnyConstP names val || mentionsAnyConstP names body
+  | .proj s _ sub .. => names.contains s || mentionsAnyConstP names sub
+
+/-- The child step of `mentionsAnyConstXP`: the compound test (`fvar`
+included: its annotation is descended), then the exclusivity read. -/
+@[inline] def enterMAC (names : @& List Name) (e : @& Expr)
+    (memo : MemoB0 (mentionsAnyConstP names))
+    (rec : Unit → Squash (ResB0 (mentionsAnyConstP names) e)) :
+    Squash (ResB0 (mentionsAnyConstP names) e) :=
+  if !isCompoundF e then rec () else
+  withExcl e fun excl =>
+    if excl then rec () else memo.shared e fun _ => rec ()
+
+/-- The walk of `mentionsAnyConstC`. -/
+def mentionsAnyConstXP (names : @& List Name) (memo : MemoB0 (mentionsAnyConstP names))
+    (e : @& Expr) : Squash (ResB0 (mentionsAnyConstP names) e) :=
+  match e with
+  | .bvar .. | .sort .. | .lit .. => Squash.mk (⟨false, by rw [mentionsAnyConstP]⟩, memo)
+  | .const n .. => Squash.mk (⟨names.contains n, by rw [mentionsAnyConstP]⟩, memo)
+  | .fvar _ ty .. =>
+    enterMAC names ty memo (fun _ => mentionsAnyConstXP names memo ty) |>.lift
+      fun (⟨rt, ht⟩, memo) =>
+    Squash.mk (⟨rt, by rw [mentionsAnyConstP, ← ht]⟩, memo)
+  | .app f a .. =>
+    enterMAC names f memo (fun _ => mentionsAnyConstXP names memo f) |>.lift fun (⟨rf, hf⟩, memo) =>
+    match rf, hf with
+    | true, hf => Squash.mk (⟨true, by rw [mentionsAnyConstP, ← hf, Bool.true_or]⟩, memo)
+    | false, hf =>
+      enterMAC names a memo (fun _ => mentionsAnyConstXP names memo a) |>.lift fun (⟨ra, ha⟩, memo) =>
+      Squash.mk (⟨ra, by rw [mentionsAnyConstP, ← hf, ← ha, Bool.false_or]⟩, memo)
+  | .lam ty body .. | .forallE ty body .. =>
+    enterMAC names ty memo (fun _ => mentionsAnyConstXP names memo ty) |>.lift fun (⟨rt, ht⟩, memo) =>
+    match rt, ht with
+    | true, ht => Squash.mk (⟨true, by rw [mentionsAnyConstP, ← ht, Bool.true_or]⟩, memo)
+    | false, ht =>
+      enterMAC names body memo (fun _ => mentionsAnyConstXP names memo body) |>.lift
+        fun (⟨rb, hb⟩, memo) =>
+      Squash.mk (⟨rb, by rw [mentionsAnyConstP, ← ht, ← hb, Bool.false_or]⟩, memo)
+  | .letE ty val body .. =>
+    enterMAC names ty memo (fun _ => mentionsAnyConstXP names memo ty) |>.lift fun (⟨rt, ht⟩, memo) =>
+    match rt, ht with
+    | true, ht => Squash.mk (⟨true, by rw [mentionsAnyConstP, ← ht]; simp⟩, memo)
+    | false, ht =>
+      enterMAC names val memo (fun _ => mentionsAnyConstXP names memo val) |>.lift
+        fun (⟨rv, hv⟩, memo) =>
+      match rv, hv with
+      | true, hv => Squash.mk (⟨true, by rw [mentionsAnyConstP, ← ht, ← hv]; simp⟩, memo)
+      | false, hv =>
+        enterMAC names body memo (fun _ => mentionsAnyConstXP names memo body) |>.lift
+          fun (⟨rb, hb⟩, memo) =>
+        Squash.mk (⟨rb, by rw [mentionsAnyConstP, ← ht, ← hv, ← hb]; simp⟩, memo)
+  | .proj s _ sub .. =>
+    if hs : names.contains s = true then
+      Squash.mk (⟨true, by rw [mentionsAnyConstP, hs, Bool.true_or]⟩, memo)
+    else
+      enterMAC names sub memo (fun _ => mentionsAnyConstXP names memo sub) |>.lift
+        fun (⟨rs, hsub⟩, memo) =>
+      Squash.mk (⟨rs, by rw [mentionsAnyConstP, ← hsub, Bool.eq_false_iff.mpr hs, Bool.false_or]⟩, memo)
+
+/-- The cached `Expr.mentionsAnyConst names` (one memoized DAG walk). -/
+def mentionsAnyConstC (names : List Name) (e : @& Expr) : Bool :=
+  resBool (mentionsAnyConstXP names none e)
+
 /-- Core of `fvarLeavesC` (memoized set accumulation).
 
 **The one walk of the tree whose memo is not the `withExclusive`
@@ -1467,14 +1780,49 @@ def _root_.ConLeche.openPisAtFvarsGoC (acc : List Expr) :
     | none => none
   | _ + 1, _, _ => none
 
-/-- The cached `openPisAtFvarsF` (task #496: on a projection's guard the
+/-- The cached `openPisAtFvars` (task #496: on a projection's guard the
 residual is the constructor's whole field telescope; task #497: its own
-loop). -/
+loop).  No fallback: instantiating at free variables never makes a
+binder appear, so where the one pass finds no `∀` the sequential
+opening finds none either (`openPisAtFvarsC_eq`). -/
 def _root_.ConLeche.openPisAtFvarsC (n : Nat) (e : Expr) (i : Nat) :
     Option (List Expr × Expr) :=
-  match openPisAtFvarsGoC [] n e i with
-  | some r => some r
-  | none => openPisAtFvars n e i
+  openPisAtFvarsGoC [] n e i
+
+/-- The cached `closeTelescope` (task #498): the telescope opened at
+the free variables `i ..< i + bs.length` closed back into a
+`∀`-telescope over `body`, each domain and the body abstracted ONCE,
+over the free variables of the binders outside it (`abstractRangeC`),
+instead of re-abstracting the whole remaining telescope at every binder
+(`closeTelescopeC_eq`, `ConLeche/Verify/Cached/IndWalksC.lean`).  `k`
+counts the binders already passed. -/
+def closeTelescopeGoC (i : Nat) : Nat → List Expr → Expr → Expr
+  | k, [], body => abstractRangeC body i k
+  | k, dom :: bs, body => mkForallE (abstractRangeC dom i k) (closeTelescopeGoC i (k + 1) bs body)
+
+@[inherit_doc closeTelescopeGoC]
+def closeTelescopeC (bs : List Expr) (i : Nat) (body : Expr) : Expr :=
+  closeTelescopeGoC i 0 bs body
+
+/-- The cached `closeLams`: `closeTelescopeC` with `λ` binders. -/
+def closeLamsGoC (i : Nat) : Nat → List Expr → Expr → Expr
+  | k, [], body => abstractRangeC body i k
+  | k, dom :: bs, body => mkLam (abstractRangeC dom i k) (closeLamsGoC i (k + 1) bs body)
+
+@[inherit_doc closeLamsGoC]
+def closeLamsC (bs : List Expr) (i : Nat) (body : Expr) : Expr :=
+  closeLamsGoC i 0 bs body
+
+/-- The cached `Expr.abstractPrefix k c`: the free variables `0 … k-1`
+closed at cursor `c` in one `abstractRangeC` pass. -/
+def abstractPrefixC (k c : Nat) (e : Expr) : Expr :=
+  abstractRangeC e 0 k c
+
+/-- The cached `Expr.piDomsMentionAny`: some binder domain of the
+syntactic `∀`-telescope mentions one of `names`. -/
+def piDomsMentionAnyC (names : List Name) : Expr → Bool
+  | .forallE ty b .. => mentionsAnyConstC names ty || piDomsMentionAnyC names b
+  | _ => false
 
 /-- The cached `projGuardRowsGo` (task #497): the occurrence test and the
 opening of a used field by the cached walks (`projGuardRowsGoC_eq`,

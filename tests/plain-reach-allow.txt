@@ -431,12 +431,12 @@ ConLeche.Frontend.joinN
 ConLeche.Expr.hasLooseBVarBFast  # structUsedLater, reached through a closure of the inductive check, pending task #498
 ConLeche.Expr.hasLooseBVarBGo  # (the walk of hasLooseBVarBFast)
 ConLeche.Expr.substConst0  # the Nat-op statements' substitution: binder-free application spines of a dozen nodes
-ConLeche.openPisAtFvars  # openPisAtFvarsC's fallback and the inductive check, pending task #498
+ConLeche.openPisAtFvars  # the inductive check, pending task #498
 ConLeche.structUsedLater  # reached through a closure of the inductive check, pending task #498
 ConLeche.Expr.getAppArgs  # propIrrelI through PropRead.unwrapIdDefs (head spines of identity definitions) and the inductive check, pending task #498
-ConLeche.Expr.instantiate1Fast  # openPisAtFvarsC's fallback (telescopes whose binders show only after substitution) and the inductive check, pending task #498
+ConLeche.Expr.instantiate1Fast  # the inductive check, pending task #498
 ConLeche.Expr.instantiate1Go  # (the walk of instantiate1Fast)
-ConLeche.Expr.liftLooseBVarsFast  # cached instantiateLiftXP lifts its values with it; the values are projection arguments and parameter bvars (a bvar or a projection of one), a few nodes
+ConLeche.Expr.liftLooseBVarsFast  # the inductive check (streamNestedOk, through a List.map specialization), pending task #498
 ConLeche.Expr.liftLooseBVarsGo  # (the walk of liftLooseBVarsFast)
 
 # PENDING TASK #498 — the inductive check (Kernel/Inductives/*, Kernel/Install) and the
@@ -458,9 +458,7 @@ ConLeche.Expr.stripLams  # ConLeche.Kernel.ExprOps
 ConLeche.FEnv.pushTable  # ConLeche.Kernel.FEnv
 ConLeche.FEnv.pushTables  # ConLeche.Kernel.FEnv
 ConLeche.BlockShape.nestCtx  # ConLeche.Kernel.Inductives.BlockInstall
-ConLeche.Expr.piDomsMentionAny  # ConLeche.Kernel.Inductives.BlockInstall
 ConLeche.blockCapsAt  # ConLeche.Kernel.Inductives.BlockInstall
-ConLeche.blockIsRec  # ConLeche.Kernel.Inductives.BlockInstall
 ConLeche.blockNestCtx  # ConLeche.Kernel.Inductives.BlockInstall
 ConLeche.checkAbsCtorSorts  # ConLeche.Kernel.Inductives.BlockInstall
 ConLeche.checkAbsCtorSortsAll  # ConLeche.Kernel.Inductives.BlockInstall
@@ -560,9 +558,9 @@ ConLeche.genRecCheck  # ConLeche.Kernel.Inductives.GenRec
 ConLeche.Expr.appHole?  # ConLeche.Kernel.Inductives.Positivity
 ConLeche.Expr.depth  # ConLeche.Kernel.Inductives.Positivity
 ConLeche.Expr.depthGo  # ConLeche.Kernel.Inductives.Positivity
-ConLeche.Expr.mentionsAnyConst  # ConLeche.Kernel.Inductives.Positivity
-ConLeche.Expr.mentionsAnyConstFast  # ConLeche.Kernel.Inductives.Positivity
-ConLeche.Expr.mentionsAnyGo  # ConLeche.Kernel.Inductives.Positivity
+ConLeche.Expr.mentionsAnyConst  # ConLeche.Kernel.Inductives.StructParts
+ConLeche.Expr.mentionsAnyConstFast  # ConLeche.Kernel.Inductives.StructParts
+ConLeche.Expr.mentionsAnyGo  # ConLeche.Kernel.Inductives.StructParts
 ConLeche.Expr.nestOccFast  # ConLeche.Kernel.Inductives.Positivity
 ConLeche.Expr.nestOccGo  # ConLeche.Kernel.Inductives.Positivity
 ConLeche.Expr.phApp?  # ConLeche.Kernel.Inductives.Positivity
@@ -656,9 +654,6 @@ ConLeche.streamRulesCheck  # ConLeche.Kernel.Inductives.StreamRecs
 ConLeche.streamRulesShape  # ConLeche.Kernel.Inductives.StreamRecs
 ConLeche.checkStructDomsAtFA  # ConLeche.Kernel.Inductives.StructInstallF
 ConLeche.checkStructProjTableF  # ConLeche.Kernel.Inductives.StructInstallF
-ConLeche.Expr.mentionsConst  # ConLeche.Kernel.Inductives.StructParts
-ConLeche.Expr.mentionsConstFast  # ConLeche.Kernel.Inductives.StructParts
-ConLeche.Expr.mentionsConstGo  # ConLeche.Kernel.Inductives.StructParts
 ConLeche.structCtorResidOk  # ConLeche.Kernel.Inductives.StructParts
 ConLeche.structElimLevel  # ConLeche.Kernel.Inductives.StructParts
 ConLeche.structProjArgP  # ConLeche.Kernel.Inductives.StructParts
@@ -673,11 +668,9 @@ ConLeche.checkSumCtorF  # ConLeche.Kernel.Inductives.SumInstallF
 ConLeche.checkSumCtorsF  # ConLeche.Kernel.Inductives.SumInstallF
 ConLeche.consSumCtorsF  # ConLeche.Kernel.Inductives.SumInstallF
 ConLeche.Expr.dropVars  # ConLeche.Kernel.Install
-ConLeche.blockConstants  # ConLeche.Kernel.Install
 ConLeche.blockCtors  # ConLeche.Kernel.Install
 ConLeche.blockFormers  # ConLeche.Kernel.Install
 ConLeche.blockRecs  # ConLeche.Kernel.Install
-ConLeche.declConstants  # ConLeche.Kernel.Install
 ConLeche.recFire  # ConLeche.Kernel.Install
 ConLeche.Level.isEquivList  # ConLeche.Kernel.Level
 ConLeche.Level.isNeverZero  # ConLeche.Kernel.Level

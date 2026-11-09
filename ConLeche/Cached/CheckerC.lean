@@ -1,7 +1,7 @@
 module
 
 public import ConLeche.Kernel.Inductives.BlockTail
-public import ConLeche.Cached.CoreC
+public import ConLeche.Cached.IndPositivity
 
 @[expose] public section
 
@@ -60,6 +60,32 @@ def declTablesC : Declaration → List ProjTable
     | .ok p => (blockTablesC p p.members).getD []
     | .error _ => []
   | _ => []
+
+/-- The cached `blockIsRec` (official's `is_rec`): the declared
+constructors' syntactic domains scanned by `mentionsAnyConstC`
+(`blockIsRecC_eq`). -/
+def blockIsRecC (p : BlockShape) : Bool :=
+  p.members.any fun ms => ms.ctors.any fun c => Expr.piDomsMentionAnyC p.memberNames c.1.type
+
+/-- `blockConstants` at `blockIsRecC`: the constants the index records
+(`declConstantsC`) and the block's install pushes (`checkBlockKS`). -/
+def blockConstantsC (p : BlockShape) : List ConstantInfo :=
+  blockFormers p (blockIsRecC p) ++ blockCtors p ++ blockRecs p p.recs
+
+/-- `declConstants` over `blockConstantsC`. -/
+def declConstantsC : Declaration → List ConstantInfo
+  | .defnDecl cv value hint => [.defnInfo cv value hint]
+  | .thmDecl cv _ => [.thmInfo cv]
+  | .opaqueDecl cv _ => [.axiomInfo cv]
+  | .axiomDecl cv =>
+    if cv.name = quotSoundName then [quotAt .sound cv]
+    else if cv.name = sorryAxName then []
+    else [.axiomInfo cv]
+  | .quotDecl k cv => [quotAt k cv]
+  | .indDecl block nP =>
+    match readBlock nP block with
+    | .ok p => blockConstantsC p
+    | .error _ => []
 
 /-- **The cached driver's walker**: the memoised constant-resolution
 gate (`constsResolveFC`, verified at `constsResolveFC_spec`); equal to
@@ -178,6 +204,15 @@ def checkBlockTailS (block : List ConstantInfo) (q : BlockPass FEnv) (Q : List P
   flushC
   checkBlockTablesF (m := CheckCM) structWalkersC fe₂ Q
 
+/-- The cached `unresolvedConstsErrorL`: the `sorryAx` test by the
+memoized `mentionsAnyConstC` (`unresolvedConstsErrorLC_eq`). -/
+def unresolvedConstsErrorLC (strOk : Bool) (where_ : String) (e : Expr) : CheckError :=
+  if !strOk && (Expr.hasStrLitGo {} e).1 then
+    .notImplemented "string literals before the String support declarations"
+  else if Expr.mentionsAnyConstC [sorryAxName] e then
+    .notImplemented s!"use of the sorryAx axiom in {where_}"
+  else .invalid s!"unknown constant in {where_}"
+
 /-- Parsed `ensureSort` (no per-call conversion). -/
 def opSIxC (fe : FEnv) (d : Nat) (i : Expr) : CheckCM Level :=
   ensureSortI (coreKnotI mode false fe checkFuel) d i
@@ -202,7 +237,7 @@ def checkConstantValC (fe : FEnv) (cv : ConstantVal) (allowOp : Bool := false) :
   unless Expr.allLevelParamsDefinedC cv.levelParams cv.type do
     throw (.invalid s!"undeclared universe parameter in type of {cv.name}")
   unless constsResolveFC fe cv.type do
-    throw (unresolvedConstsErrorL (strLitStoredF fe) s!"type of {cv.name}" cv.type)
+    throw (unresolvedConstsErrorLC (strLitStoredF fe) s!"type of {cv.name}" cv.type)
   let jsty ← (coreKnotI mode false fe checkFuel).infer 0 cv.type
   let _u ← opSIxC mode fe 0 jsty
 
@@ -213,8 +248,8 @@ def reduceMemberS (fe : FEnv) (ms : MemberShape) (nP : Nat) : CheckCM MemberShap
       throw (.notImplemented s!"this family stored at a definition ({ms.cvT.name})")
     else do
       checkConstantValC mode fe ms.cvT
-      let cvR ← reducedFormer (sharedOpsC mode fe) fe.env ms.cvT (nP + ms.nIdx)
-      unless ← (sharedOpsC mode fe).isDefEq fe.env 0 ms.cvT.type cvR.type do
+      let cvR ← reducedFormerC mode fe ms.cvT (nP + ms.nIdx)
+      unless ← (coreKnotI mode false fe checkFuel).defeq 0 ms.cvT.type cvR.type do
         throw (.invalid "direct sum: a type former's declared type and its reduct differ")
       pure { ms with cvT := cvR }
   else pure ms
@@ -237,9 +272,9 @@ def checkBlockKS (fe : FEnv) (block : List ConstantInfo) (p₀ : BlockShape) :
     throw (.invalid "direct rec: a family at a `Bool` constructor's name")
   let ms ← reduceMembersS mode fe p₀.nP p₀.members
   flushC
-  let q ← checkBlockPassS mode fe { p₀ with members := ms } (blockIsRec p₀)
+  let q ← checkBlockPassS mode fe { p₀ with members := ms } (blockIsRecC p₀)
   let Q ← unwrapOr (blockTablesC p₀ p₀.members) (.internal "direct structure: projection bodies")
   checkBlockTailS mode block q Q
-  pure (FEnv.pushDelta (blockConstants p₀) Q fe)
+  pure (FEnv.pushDelta (blockConstantsC p₀) Q fe)
 
 end ConLeche.Cached
