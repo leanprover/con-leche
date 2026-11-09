@@ -1204,6 +1204,10 @@
 # --- as a β-redex, the third through `id` with sort `max 1 1` and an
 # --- index; and a Prop pair `Prop` / `Sort (max 0 0)`.  Official 0.
 0 ind_mutual_three.ndjson
+# ind_mutual_wide_telescope.ndjson (task #543): a 25-member mutual block whose
+# recursors close long telescopes; a performance fixture for checkers whose
+# abstraction has no free-variable-range cutoff (see its source).
+0 ind_mutual_wide_telescope.ndjson
 # --- task #227: mutual and nested blocks whose INDEX DOMAINS' sorts are
 # --- not syntactically readable (`(x : α)` at `α : id Type`, an index at
 # --- a constant whose declared type is that same stuck application, a
