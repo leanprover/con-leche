@@ -1,6 +1,7 @@
 module
 
-public import ConLeche.Verify.Cached.OpsC
+public import ConLeche.Cached.ExprOpsC
+import ConLeche.Verify.Cached.OpsC
 public import ConLeche.Kernel.Inductives.GenRec
 import ConLeche.Verify.AbstractRange
 

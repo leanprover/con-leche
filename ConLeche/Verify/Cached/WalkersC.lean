@@ -1,7 +1,7 @@
 module
 
 public import ConLeche.Verify.Cached.GuardsC
-public import ConLeche.Verify.Cached.IndWalksC
+import ConLeche.Verify.Cached.IndWalksC
 
 public section
 

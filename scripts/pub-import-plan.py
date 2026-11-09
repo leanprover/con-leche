@@ -54,6 +54,13 @@ DIR   = os.environ.get('PUBPLAN_DIR', '_tmp/m3')
 # a tree whose `rfl`s stop closing, so they stay public and the gate must not
 # ask for them again.
 FALLBACK = {
+    # task #498: the inductive check's walk lemmas state the cached walks
+    # (`replaceFVarsP`, `replaceFVarsC`, …) against the specification's
+    # (`Expr.replaceFVars`, `closeTelescope`, …).  Measured: demoting either breaks
+    # the file (unknown identifier `replaceFVarsP`, `IndWalksC.lean:40`; unknown
+    # field `replaceFVars`, `IndWalksC.lean:32`).
+    ('ConLeche.Verify.Cached.IndWalksC', 'ConLeche.Cached.ExprOpsC'),
+    ('ConLeche.Verify.Cached.IndWalksC', 'ConLeche.Kernel.Inductives.GenRec'),
     # task #492: the guard-row lemmas' public statements name `projGuardRowsGo`,
     # `GuardRowsWS`'s `WScoped`; the census attributes them to the private imports
     # (`LooseBVar`, `Subst`).  Measured: demoting either breaks the file (unknown
