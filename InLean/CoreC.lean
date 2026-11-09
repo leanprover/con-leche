@@ -1104,8 +1104,9 @@ def inferBodyI (r : CoreFnsI) (fe : FEnv) : Nat → Expr → CheckCM Expr :=
         checkConstSafety fe n ci
         constTyAtM fe n us
     | .lit (.natVal n) => do
-      if natSizeBytes n > fe.limits.maxNatSize then throw (.invalid natTooBigMsg)
-      if natLitStoredF fe then pure (.const natName [])
+      if natLitStoredF fe then do
+        if natSizeBytes n > fe.limits.maxNatSize then throw (.invalid natTooBigMsg)
+        pure (.const natName [])
       else throw (.invalid "Nat literal without the Nat basis declarations")
     | .lit (.strVal _) => do
       if strLitStoredF fe then pure (.const stringName [])

@@ -180,6 +180,7 @@ def mentionsAnyConst (names : List Name) (e : Expr) : CheckCM Bool := do
     | .const n _ => names.contains n
     | .proj s _ _ => names.contains s
     | _ => false
+  if EO.any p e then return true
   return (← withAnnotations e).any (EO.any p)
 
 /-- Twin of `Expr.constsResolveF` (through annotations; a literal needs its
