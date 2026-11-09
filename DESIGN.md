@@ -110789,3 +110789,69 @@ official 0, which generates the recursor).
 Other declines in the inductive check, not on this path and unchanged: the direct sum and
 structure installs' telescope mismatches (`SumInstall*`, `StructInstall*`), nested positivity's
 fuel, and a family stored at a definition in one tail case (`BlockTail.lean`).
+
+## TASK #495 — each projection body is one substitution of its raw domain (2026-11-09, agent/495-projbody)
+
+**Question.** The projection table's bodies were built by a chain: after `instPisAtLift
+(structProjPs nP)`, each field's step `instantiate1Lift`ed the whole remaining telescope with
+`.proj T i (bvar 0)`.  The parameters are loose variables of that tail, so the `bvarB` cutoff never
+fires at a structure with parameters, and the pass rebuilt `Σ_i |tail_i|` nodes — quadratic in the
+field count.  The InLean twin builds each body by one instantiation of field `i`'s raw domain.
+
+**Why the chain existed.** Not for a proof.  It was a performance fix (the 2026-08-24 record
+"fields-raw: the near-cubic direct install"): projection `i`'s type then peeled the constructor
+telescope from scratch at `ps ++ projArgs i` — `Σ_i i·n` `instantiate1Lift` traversals — and
+threading the residual made the step one `instantiate1Lift`.  `structProjResidP` and
+`structProjResidP_eq` only tied the threaded value back to the from-scratch peel.  The one
+consumer of the bodies' shape, `structProjBody_open` (used by `Model/Inductives/FixKit.lean`), read
+body `i` as the head domain `instSeqLift args (args.length - 1) b` of the raw binder `b`
+(`instPisAtLift_head`), which is the one-substitution form already.  The cached twin
+(`structProjBodiesC`, `instantiate1LiftC`, task #214 P4) existed because the plain
+`instantiate1Lift` was then a tree walk (DAG-shared field types: `tower_struct`, JZero); nothing
+else ran it.  No other workload depends on the chain.
+
+**Change.** `structProjBodies` skips the parameter binders (`stripPis nP`) and maps each field's
+raw domain once through the new `Expr.instantiateLift` (Kernel/ExprOps: the capture-avoiding
+substitution of several variables at once, values innermost first; executed by `@[csimp]` as the
+`bvarB` cutoff, then a memoized DAG walk over the values in an `Array`).  The values are threaded
+down the telescope, one cons per field (`structProjArgP T i :: vs`); the tail is never rewritten.
+Still computed once at install and stored.  Both tiers run this one definition, so deleted:
+`structProjBodiesC`, `structProjBodiesGoC`, `instPisAtLiftC`, `instantiate1LiftC` with its walk
+(`instantiate1LiftP`/`XP`, `enterLiftP`) and spec, the `projBodies` field of `StructWalkers`,
+`structProjResidP`, and `instantiate1Lift`'s memo walk and `csimp` (nothing executes
+`instantiate1Lift` any more; it and `instPisAtLift` stay as proof vocabulary).
+
+**Proofs.** `Verify/Subst.lean`: `instantiateLift_lift`, `instantiateLift_snoc` and
+`instSeqLift_eq_instantiateLift` (the binder-by-binder fold is the one walk; after the InLean
+branch's `instSeqLift_eq_instLift`).  `Verify/Inductives/DirectGen.lean`: `stripPis_append`,
+`structProjBodiesGo_spec`/`structProjBodies_spec` restated (body `i` is binder `nP + i` of
+`stripPis (nP + i + 1)`, substituted by `instantiateLift` at the reversed argument list), and
+`structProjBody_open` takes the body from the spec instead of `instPisAtLift_head`; its statement
+and the model side are unchanged.  `WalkersC.lean` keeps only the resolution gate's equation.  Net
+−154 lines.
+
+**Numbers** (`instructions:u`, one run each, `--jobs=1`, verified; master 501589f56 → lane):
+
+| workload | master | lane | |
+|---|---|---|---|
+| `bv_stress_structures_1` prefix (`Payload4`, `Node4`, `Rel4`), `--constant=Rel4` | 42.606 G | 41.884 G | −1.69 % |
+| the same, `--constant=Node4` (control) | 31.722 G | 31.722 G | 0 |
+| ⇒ the `Rel4` group | 10.884 G | 10.162 G | −6.6 % |
+| the prefix module, whole (`--olean`), minus an empty module (437.15 / 437.05 G) | 10.079 G | 9.379 G | −6.9 % |
+| `WideP (n : Nat) : Prop`, 1000 fields `n + i = n + i`, minus its control (31.10 G) | 51.36 G | 42.96 G | −16.4 % |
+| e2e `prop_struct_proj_wide` | 1.775 G | 1.591 G | −10.4 % |
+| init-full | 381.864 G | 381.694 G | −0.04 % |
+| grind-ring-5 | 15.330 G | 15.309 G | −0.14 % |
+| the other fourteen arena perf streams | 0.02–22.1 G | | −0.19 … 0.00 % |
+| scale `fields-raw` n = 200 (closed domains, the cutoff) | 270.60 M | 270.40 M | −0.07 % |
+
+On master the chain's own symbols are about 0.3 % of the `Rel4` run's instruction samples; the
+measured saving (0.72 G) is larger, the rest being the allocation and freeing of the rebuilt
+tails.  The `Rel4` group's remaining 10.2 G (official about 1.06 G) is not the bodies; at
+`WideP` the remaining block cost is mostly the memoized `instantiate1` and reference-count
+release, not studied here.  The bodies are still computed twice per structure (the installed
+table, `blockTables`, and the check `checkStructProjTableF`); not changed here.
+
+**Gates.** `lake build`, `lake test` warning-free; `tests/arena.sh` passes, e2e verdicts
+unchanged.  `tests/scale.sh`'s `lparams` shape fails its gate (1.88 > 1.65) on master as well
+(1.85).
