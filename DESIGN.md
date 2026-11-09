@@ -115237,3 +115237,42 @@ resumed run has the same order and skips the logged modules; killed modules stil
 Neighbours in the graph's order are alike in size (a run of 14963..14977 small, a run of 12640.. big),
 so memory pressure came in waves and the estimate's recent window was unrepresentative. The
 verdicts, the first-failing-module report and the log are as before (the graph's order).
+
+## TASK #516 — the log carries statistics, final statistics, SIGINT (2026-11-09, agent/516-stats)
+
+`Driver/ScheduleIO.lean` (plain IO, outside every theorem), `Driver/Cli.lean` (usage), OVERVIEW.
+
+**Log.** A finished module: `<verdict>\t<module>\t<ms>\t<rss>\t<at>`: wall ms, peak KiB (`≥KiB` where it
+is the scheduler's last sample, the worker having reported none), ms since the run's start. A kill
+(for memory, or by an interrupt): `killed\t<module>\t<ms>\t<rss KiB>`. The reader takes the first two
+fields and skips `killed` lines, so old logs resume as before. Logged sizes are NOT fed back into
+admission: every run learns afresh (maintainer's ruling).
+
+**Statistics** (stderr, `statsLines`, this run only; a resumed run says how many modules it skipped).
+Sums weighted by the ms between ticks: running workers, current memory, admission's reserved memory;
+plus the kills (requeues) and the run time they lost, the protections begun, the ms the growth gate
+held a possible start back, and the `memory` and non-zero verdicts. The old "n kills put modules back"
+line is part of the block now. Example (`Std.Tactic.BVDecide`, `--jobs=8 --schedule-stagger=0
+--schedule-memory=300M`):
+
+```
+con-leche: schedule: statistics: 739 modules run, wall 1m04s
+  workers: 3.0 running on average (37 % of 8 jobs)
+  memory: 0.1 GiB in use and 0.1 GiB reserved on average of 0.2 GiB
+  time per module: mean 0.2s, median 0.2s, p90 0.5s, max 5.1s (Init.Data.BitVec.Lemmas)
+  peak per module: mean 62 MiB, median 61 MiB, p90 0.1 GiB, max 0.1 GiB (Std.Data.DTreeMap.Internal.WF.Lemmas)
+  kills: 20 (20 modules), 3.2s lost = 1.6 % of the worker time 3m14s; protections: 17, starts held by the growth gate: 6.5s
+  verdicts: 0 memory, 0 not 0
+```
+
+**Signals.** Lean v4.35.0 has `Std.Async.Signal.Waiter` (`Std/Async/Signal.lean`, libuv; plain Std API,
+no C, no `extern`, no `unsafe`; the module now `public import`s `Std.Async.Signal`, as the exposed
+`run` mentions it). One non-repeating waiter each for SIGINT and SIGTERM, its `AsyncTask` polled with
+`getState` every tick. On a signal: no more starts, each running worker killed and waited for through
+its own `Child`, logged as `killed` (no verdict), the log flushed, the statistics printed (naming the
+signal and the number killed), exit 130 / 143 (the `runAll` result; `summary` is skipped). This closes
+#505's gap. The trust-surface process fence needed no entry (no new process, kill or write primitive
+beyond the existing ones). Hand test: SIGINT sent to the scheduler's pid (found through the timeout's
+`/proc/<pid>/task/*/children`) with 5 workers running: 5 `killed` lines, exit 130, no child left;
+resumed from the log: 74 skipped, 665 run, exit 0. A second SIGINT after the first takes the default
+action (the waiter is one-shot), which is acceptable.

@@ -1,6 +1,7 @@
 module
 
 public import ConLeche.Cached.ParsedC
+public import Std.Async.Signal
 
 @[expose] public section
 
@@ -44,9 +45,24 @@ it plain `IO`:
   Output: one line when a protection begins, one when it ends, and a short line per kill (the module named last);
 * **a timeout per worker** (`timeout`, seconds, 0 for none): a worker running longer is killed,
   its verdict `timeout`;
-* **an append-only log** (`log`): one line per finished module, `<verdict>\t<module>`, written
-  and flushed as it finishes; a restart with the same log skips every module it names, so a
-  run interrupted anywhere resumes where it stopped;
+* **an append-only log** (`log`), written and flushed line by line.  A finished module:
+  `<verdict>\t<module>\t<ms>\t<rss>\t<at>`: the worker's wall time in ms, its peak resident set in
+  KiB (`≥KiB`, with the sign, where it is the last value the scheduler sampled because the worker
+  wrote no figure of its own), and the ms since this run's start.  A kill (for memory, or by an
+  interrupt): `killed\t<module>\t<ms>\t<rss KiB>`, the last sampled set.  A restart with the same
+  log skips every module that has a verdict line (the reader takes the first two fields, so
+  old two-field logs work; a `killed` line is no verdict and is ignored), so a run interrupted
+  anywhere resumes where it stopped.  The logged sizes are not read back into admission: every
+  run learns its sizes afresh;
+* **statistics at the end** (stderr, `statsLines`; only this run, a resumed run says how many
+  modules it skipped): the wall time; the time-weighted mean number of running workers, of the
+  workers' current memory and of what admission reserved, against the jobs and the budget; wall
+  time and peak per module (mean, median, 90th percentile, the maximum with its module); the
+  kills and the worker time lost to them; the protections and the time the growth gate held
+  starts back; the `memory` and the non-zero verdicts;
+* **SIGINT and SIGTERM** (`Std.Async.Signal.Waiter`, polled every tick): no further start, every
+  running worker killed through its own `Child` and waited for, logged as `killed` (no verdict),
+  the log flushed, the statistics printed, and the exit code 130 (SIGINT) or 143 (SIGTERM);
 * **progress**: each module's line (stdout) is `VERDICT  t=Ss  rss=X GiB  [done/total p %, k running,
   eta D]  M`, the module last so the statistics keep their columns (the verdict padded to 7, the time
   to 6, `X` to 5, `done` to the width of `total`, `p` to 5, `k` to the width of `jobs`; only the
@@ -296,18 +312,26 @@ def childrenReadable : IO Bool := do
     | none => return false
   catch _ => return false
 
-/-- The log's verdicts, by module: every line `<verdict>\t<module>` of it, the module's name
-read by `parse`. -/
+/-- The log's verdicts, by module: every line `<verdict>\t<module>(\t…)` of it (the further fields
+are statistics), the module's name read by `parse`; `killed` lines are no verdicts. -/
 def readLog (parse : String → Option Name) (p : System.FilePath) :
     IO (Std.HashMap Name String) := do
   if !(← p.pathExists) then return {}
   let s ← IO.FS.readFile p
   return (s.splitOn "\n").foldl (fun m l =>
     match l.splitOn "\t" with
-    | [w, n] => match parse n with
+    | w :: n :: _ =>
+      if w == "killed" then m else
+      match parse n with
       | some x => m.insert x w
       | none => m
     | _ => m) {}
+
+/-- A finished worker of this run: its wall time (ms), its peak (KiB). -/
+structure Rec where
+  m : Name
+  ms : Nat
+  pk : Nat
 
 /-- **The scheduler's state.** -/
 structure St where
@@ -354,6 +378,29 @@ structure St where
   /-- the times (ms since the start) of the last `etaWindow`
   finishes, and before them the start of the window (first element); `#[0]` at the start -/
   stamps : Array Nat := #[0]
+  /-- this run's finished workers (statistics) -/
+  recs : Array Rec := #[]
+  /-- the time of the last tick; the sums below are weighted by the ms between ticks -/
+  lastTick : Nat := 0
+  /-- Σ running × ms, Σ current KiB × ms, Σ reserved KiB × ms, ms the growth gate held -/
+  runMs : Nat := 0
+  memMs : Nat := 0
+  resMs : Nat := 0
+  gateMs : Nat := 0
+  /-- could the memory be read at some tick -/
+  memSeen : Bool := false
+  /-- did the growth gate hold a possible start back at the last tick -/
+  gateHeld : Bool := false
+  /-- protections begun; kills for memory and the run time of the killed; all worker run time -/
+  protN : Nat := 0
+  killN : Nat := 0
+  killMs : Nat := 0
+  /-- workers killed by an interrupt -/
+  intrN : Nat := 0
+  workMs : Nat := 0
+  /-- verdicts `memory`, verdicts other than 0 -/
+  memVerdicts : Nat := 0
+  nonzero : Nat := 0
 
 /-- How many finishes the estimate looks back over. -/
 def etaWindow : Nat := 200
@@ -406,6 +453,44 @@ def progressText (total done running : Nat) (window : Nat × Nat) (requeued : Na
   s!"[{padL w (toString done)}/{total} {padL 5 s!"{pm / 10}.{pm % 10}"} %, \
     {padL (toString jobs).length (toString running)} running{rq}{eta}]"
 
+/-- A duration: seconds with a decimal below a minute, else `dur`. -/
+def msText (ms : Nat) : String :=
+  if ms < 60000 then s!"{ConLeche.Cached.msSecs ms}s" else dur ms
+
+/-- The mean, median, 90th percentile and maximum (with its module) of `xs`, each shown by `fmt`. -/
+def distText (xs : Array (Name × Nat)) (fmt : Nat → String) : String :=
+  if xs.isEmpty then "none" else
+  let v := xs.qsort (fun a b => a.2 < b.2)
+  let n := v.size
+  let pick (i : Nat) := fmt ((v[i]?).map (·.2) |>.getD 0)
+  let (mx, mv) := (v[n - 1]?).getD (.anonymous, 0)
+  s!"mean {fmt (xs.foldl (· + ·.2) 0 / n)}, median {pick (n / 2)}, p90 {pick (min (n - 1) (n * 9 / 10))}, \
+    max {fmt mv} ({mx})"
+
+/-- The run's statistics, a few lines for stderr.  `wall` is the run's time (ms), `skipped` the
+modules a resumed run found logged, `signal` the signal that ended it early. -/
+def statsLines (st : St) (wall jobs budget skipped : Nat) (signal : Option String) : List String :=
+  let w := max 1 wall
+  let tenth (x : Nat) : String := s!"{x / 10}.{x % 10}"
+  let running := st.runMs * 10 / w
+  let skip := if skipped = 0 then "" else s!", {skipped} skipped from the log"
+  let sig := match signal with | some s => s!", interrupted by {s} ({st.intrN} running workers killed)" | none => ""
+  let memL := if !st.memSeen then [] else
+    let of := if budget > 0 then s!" of {gibBudget budget}" else ""
+    [s!"  memory: {gib (st.memMs / w)} in use and {gib (st.resMs / w)} reserved on average{of}"]
+  let kinds := st.kills.size
+  let work := max 1 st.workMs
+  let lost := st.killMs * 1000 / work
+  [ s!"con-leche: schedule: statistics: {st.recs.size} modules run{skip}, wall {msText wall}{sig}",
+    s!"  workers: {tenth running} running on average ({running * 10 / jobs} % of {jobs} jobs)" ] ++
+  memL ++
+  [ s!"  time per module: {distText (st.recs.map fun r => (r.m, r.ms)) msText}",
+    s!"  peak per module: {distText (st.recs.map fun r => (r.m, r.pk)) gib}",
+    s!"  kills: {st.killN} ({kinds} modules), {msText st.killMs} lost = {lost / 10}.{lost % 10} % \
+      of the worker time {msText st.workMs}; protections: {st.protN}, starts held by the growth gate: \
+      {msText st.gateMs}",
+    s!"  verdicts: {st.memVerdicts} memory, {st.nonzero} not 0" ]
+
 /-- The memory line of the heartbeat, `none` where nothing runs or `/proc` could not be read:
 `mem 9.6 GiB (largest 9.1 GiB), reserved 28.5 GiB of 40 GiB (typical 0.8 GiB)`.  `mem` is the running workers'
 total resident set now and `largest` the biggest one's now; `reserved` is what admission counts,
@@ -426,10 +511,11 @@ def memLine (running : Nat) (mem : Option (Nat × Nat × Nat)) (typ : Nat) (budg
 
 /-- **The scheduler**: the modules' workers (`args m`, the worker's arguments at `m`, of the
 binary `app`; its last argument `spell m`) run as the module docstring says; the verdict of
-every module of `mods`, and the peak of the running workers' total resident memory in KiB
-(0 where `/proc` cannot be read). -/
+every module of `mods`, the peak of the running workers' total resident memory in KiB
+(0 where `/proc` cannot be read), and the signal that ended the run early, with its exit code. -/
 def run (parse : String → Option Name) (app : System.FilePath) (args : Name → Array String)
-    (mods : Array Name) (o : Opts) (jobs : Nat) : IO (Std.HashMap Name String × Nat) := do
+    (mods : Array Name) (o : Opts) (jobs : Nat) :
+    IO (Std.HashMap Name String × Nat × Option (String × UInt8)) := do
   let err ← IO.getStderr
   let out ← IO.getStdout
   let logged ← match o.log with
@@ -457,20 +543,24 @@ def run (parse : String → Option Name) (app : System.FilePath) (args : Name �
       growing
   let finish (st : St) (r : Running) (w : String) : IO St := do
     let msg ← r.diagText
-    if let some h := logH then
-      h.putStrLn s!"{w}\t{spell r.m}"
-      h.flush
     let now ← IO.monoMsNow
     -- the worker's own peak where it reported one, else the last one sampled (a lower bound)
     let sampled := st.seen.getD r.m 0
-    let (pk, rssText) := match reportedPeak msg with
-      | some k => (k, s!"rss={padL 9 (gibText k)}")
-      | none => (sampled, s!"rss≥{padL 9 (gibText sampled)}")
+    let (pk, rssText, logRss) := match reportedPeak msg with
+      | some k => (k, s!"rss={padL 9 (gibText k)}", toString k)
+      | none => (sampled, s!"rss≥{padL 9 (gibText sampled)}", s!"≥{sampled}")
+    if let some h := logH then
+      h.putStrLn s!"{w}\t{spell r.m}\t{now - r.start}\t{logRss}\t{now - t0}"
+      h.flush
     let (peaks, typ) := pushPeak st.peaks st.typ pk
     let st := { st with verdicts := st.verdicts.insert r.m w, finished := st.finished + 1,
                         peaks, typ, seen := st.seen.erase r.m,
                         nDone := st.nDone + 1, lastLine := now,
-                        stamps := pushStamp st.stamps (now - t0) }
+                        stamps := pushStamp st.stamps (now - t0),
+                        recs := st.recs.push { m := r.m, ms := now - r.start, pk },
+                        workMs := st.workMs + (now - r.start),
+                        memVerdicts := st.memVerdicts + (if w == "memory" then 1 else 0),
+                        nonzero := st.nonzero + (if w == "0" then 0 else 1) }
     out.putStrLn s!"{padR verdictWidth w}  t={padL 6 (ConLeche.Cached.msSecs (now - r.start))}s  \
       {rssText}  {progress st now}  {r.m}"
     out.flush
@@ -479,6 +569,11 @@ def run (parse : String → Option Name) (app : System.FilePath) (args : Name �
       for l in lines do err.putStrLn l
       err.flush
     return st
+  -- a kill's log line: the module, the run time, the last sampled resident set
+  let logKill (st : St) (r : Running) (now : Nat) : IO Unit := do
+    if let some h := logH then
+      h.putStrLn s!"killed\t{spell r.m}\t{now - r.start}\t{st.seen.getD r.m 0}"
+      h.flush
   let jobs := max 1 jobs
   let start (st : St) (m : Name) (now : Nat) : IO St := do
     match ← (spawnW app m (args m) now).toBaseIO with
@@ -488,11 +583,18 @@ def run (parse : String → Option Name) (app : System.FilePath) (args : Name �
         worker starts, the running ones are waited for"
       err.flush
       return { st with verdicts := st.verdicts.insert m "3", nDone := st.nDone + 1,
-                       stopped := true }
+                       stopped := true, nonzero := st.nonzero + 1 }
   -- one tick: the running workers looked at, the budget, the starts, the heartbeat
   let tick (st : St) : IO St := do
     let now ← IO.monoMsNow
     let mut st := st
+    -- the time-weighted sums: the state of the last tick holds until this one
+    let dt := now - st.lastTick
+    st := { st with lastTick := now, runMs := st.runMs + st.running.size * dt,
+                    memMs := st.memMs + (st.mem.map (·.1)).getD 0 * dt,
+                    resMs := st.resMs + st.effPk * dt,
+                    gateMs := st.gateMs + (if st.gateHeld then dt else 0),
+                    memSeen := st.memSeen || st.mem.isSome }
     -- the resident sets, every tick, budget or not
     let rss ← workerRssOpt
     let look (l : List (String × Nat × Nat)) (r : Running) : Nat × Nat :=
@@ -563,6 +665,7 @@ def run (parse : String → Option Name) (app : System.FilePath) (args : Name �
               st ← finish st p "memory"
             else
               if st.prot.isNone then
+                st := { st with protN := st.protN + 1 }
                 err.putStrLn s!"con-leche: schedule: memory over {gibBudget o.memory}: \
                   protecting {gib k}: {p.m}"
                 err.flush
@@ -586,6 +689,7 @@ def run (parse : String → Option Name) (app : System.FilePath) (args : Name �
                       r.child.kill
                       let _ ← r.child.wait
                       let _ ← r.diagText
+                      logKill st r now
                       let kr := (look rss r).1
                       left := left - min left kr
                       killed := killed.push (r.m, kr)
@@ -595,7 +699,9 @@ def run (parse : String → Option Name) (app : System.FilePath) (args : Name �
                       st := { st with running := st.running.eraseIdx v, prot := some p.m,
                                       sizes := st.sizes.insert r.m sz,
                                       front := r.m :: st.front.filter (· != r.m),
-                                      requeued := st.requeued + 1,
+                                      requeued := st.requeued + 1, killN := st.killN + 1,
+                                      killMs := st.killMs + (now - r.start),
+                                      workMs := st.workMs + (now - r.start),
                                       kills := st.kills.insert r.m ((st.kills.getD r.m 0) + 1) }
               if killed.size = 1 then
                 err.putStrLn s!"con-leche: schedule: killed at \
@@ -630,6 +736,8 @@ def run (parse : String → Option Name) (app : System.FilePath) (args : Name �
         st := { st with protTrack := some (p, hw, now) }
         growing := o.growth > 0
     | none => st := { st with protTrack := none }
+    st := { st with gateHeld := growing && st.running.size < jobs
+                                   && !(st.front.isEmpty && st.pending.isEmpty) }
     if st.stopped then
       st := { st with pending := [], front := [] }
     else if growing then pure ()
@@ -653,17 +761,28 @@ def run (parse : String → Option Name) (app : System.FilePath) (args : Name �
       st := { st with lastLine := now }
     return st
   let st0 : St := { pending := todo, verdicts := logged, typ := o.memory / jobs }
-  let stRef ← IO.mkRef { st0 with nDone := total - todo.length, lastLine := t0 }
-  let rec loop : Nat → IO Unit
-    | 0 => pure ()
+  let stRef ← IO.mkRef { st0 with nDone := total - todo.length, lastLine := t0, lastTick := t0 }
+  -- SIGINT and SIGTERM, polled every tick; where they cannot be set up the run has no handler
+  let sigs : Array (Std.Async.AsyncTask Int × String × UInt8) ←
+    try
+      let mkW (s : Std.Async.Signal) (name : String) (code : UInt8) := do
+        let w ← Std.Async.Signal.Waiter.mk s false
+        return ((← w.wait), name, code)
+      pure #[← mkW .sigint "SIGINT" 130, ← mkW .sigterm "SIGTERM" 143]
+    catch _ => pure #[]
+  let rec loop : Nat → IO (Option (String × UInt8))
+    | 0 => pure none
     | fuel + 1 => do
       let st ← stRef.get
-      if st.running.isEmpty && st.pending.isEmpty && st.front.isEmpty then return
+      if st.running.isEmpty && st.pending.isEmpty && st.front.isEmpty then return none
+      for (t, name, code) in sigs do
+        if (← t.getState) matches IO.TaskState.finished then return some (name, code)
       stRef.set (← tick st)
       IO.sleep 50
       loop fuel
+  let mut intr : Option (String × UInt8) := none
   try
-    loop (1 <<< 62)
+    intr ← loop (1 <<< 62)
   catch e =>
     -- no worker outlives the scheduler: every running one is killed, by its own child
     let st ← stRef.get
@@ -673,12 +792,23 @@ def run (parse : String → Option Name) (app : System.FilePath) (args : Name �
     for r in st.running do
       try r.child.kill; let _ ← r.child.wait catch _ => pure ()
     throw e
-  let st ← stRef.get
-  if st.requeued > 0 then
-    err.putStrLn s!"con-leche: schedule: {st.requeued} kills for memory put modules back in the \
-      queue ({st.kills.size} modules, at most {st.kills.fold (fun m _ n => max m n) 0} times each)"
+  let mut st ← stRef.get
+  if let some (name, _) := intr then
+    -- no further start; every running worker killed by its own child, logged as killed (no
+    -- verdict), the log flushed
+    let now ← IO.monoMsNow
+    err.putStrLn s!"con-leche: schedule: {name}: killing the {st.running.size} running workers"
     err.flush
-  return (st.verdicts, st.peak)
+    for r in st.running do
+      try r.child.kill; let _ ← r.child.wait catch _ => pure ()
+      logKill st r now
+      st := { st with workMs := st.workMs + (now - r.start) }
+    st := { st with running := #[], intrN := st.running.size }
+  let now ← IO.monoMsNow
+  for l in statsLines st (now - t0) jobs o.memory (total - todo.length) (intr.map (·.1)) do
+    err.putStrLn l
+  err.flush
+  return (st.verdicts, st.peak, intr)
 
 /-- **The run's verdict**: 0 when every module's worker answered 0; else the first module in
 the graph's order that did not, its code (`timeout`, `memory`, `signal`: 3). -/
@@ -714,7 +844,13 @@ def runAll (parse : String → Option Name) (args : Name → Array String) (mods
     e.putStrLn "con-leche: --schedule-memory reads the workers' resident sets through \
       /proc/self/task/<tid>/children, which this system does not provide"
     return 3
-  let (vs, peak) ← run parse (← IO.appPath) args mods o jobs
-  summary mods vs modeTag peak
+  let (vs, peak, intr) ← run parse (← IO.appPath) args mods o jobs
+  match intr with
+  | some (name, code) =>
+    let e ← IO.getStderr
+    e.putStrLn s!"con-leche: interrupted by {name}: {vs.size} of {mods.size} modules have a verdict"
+    e.flush
+    return code
+  | none => summary mods vs modeTag peak
 
 end ConLeche.Driver.Schedule

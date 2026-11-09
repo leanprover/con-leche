@@ -798,7 +798,7 @@ most `--jobs` at once, staggered (`--schedule-stagger=MS`), started in a fixed s
 running workers' resident sets (`--schedule-memory=SIZE`, a number with a unit `K`, `M`, `G` or
 `T`, such as `40G`: the first queued module whose known size (the largest resident set seen when it was killed, 0 if never) fits into the budget minus the running workers' peak sets starts; when their current sets exceed the budget the largest is protected, and stays so while it runs; each further overflow kills the youngest other worker by its own child handle and queues it again with its size; the protected one alone over the budget has the verdict `memory`),
 with a time limit per worker (`--schedule-timeout=S`) and an append-only log a restart resumes
-from (`--schedule-log=FILE`, one `<verdict>\t<module>` line per finished module); its verdict is
+from (`--schedule-log=FILE`: per finished module `<verdict>\t<module>\t<ms>\t<peak KiB>\t<ms since the start>`, the peak prefixed `≥` where it is the scheduler's last sample because the worker reported none; per kill `killed\t<module>\t<ms>\t<KiB>`, which is no verdict; the reader takes the first two fields of each line, so two-field logs resume too, and the logged sizes are not fed back into admission); its verdict is
 its workers' exit codes, and no theorem is about it: the modular statement composes what each
 run's exit 0 says. A worker's three standard streams are pipes and it inherits no other
 descriptor; its stdout and stderr are read as it runs, and its stderr is passed on for a verdict
@@ -808,7 +808,7 @@ other than 0. Each finished module gets a line on stdout,
 at the rate of this run's last 200 finishes (in days and hours past 48 hours, in hours from 10, else with minutes). With
 `--progress=N` (milliseconds, at least a second) or `--progress=Ss`, a heartbeat on stderr after
 that long without a line gives the same counts, a memory line (`mem 1.2 GiB (largest 0.6 GiB), reserved 3.0 GiB of 40 GiB (typical 0.8 GiB)`: the running workers' total resident set now and the largest one's, then what the admission has reserved for them, each at the most of its peak so far, the typical peak and its known size, the budget when one is set, and the typical peak, the median of the last 200 finished workers (the budget divided by the jobs until 20 have finished), which admission assumes for a worker that has not shown its peak yet; read every tick from `/proc`, left out where that cannot be read) and the longest-running worker; the final summary line gives the run's peak total. A worker that cannot be started is that module's verdict 3,
-with the reason; no further worker starts, and the running ones are waited for.
+with the reason; no further worker starts, and the running ones are waited for. At the end the scheduler prints statistics of its own run on stderr: wall time, the time-weighted mean of running workers, of current and of reserved memory, mean, median, 90th percentile and maximum of the time and of the peak per module, the kills with the worker time they lost, the protections and the time the growth gate held starts back, and the `memory` and non-zero verdicts. SIGINT or SIGTERM stops the starts, kills the running workers through their own child handles (logged as `killed`, no verdict), flushes the log, prints the statistics and exits 130 or 143.
 
 `runArgs_oleans_accept` is `runArgs_accept`'s statement for these arguments:
 every exit 0 read records off the snapshot's files that `checkDecls` accepts, with each
