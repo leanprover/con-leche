@@ -124,19 +124,20 @@ theorem structUsedLaterC_eq (cty : Expr) (nP j : Nat) :
     structUsedLaterC cty nP j = structUsedLater cty nP j := by
   simp only [structUsedLaterC, structUsedLater, hasLooseBVarBC_spec] <;> rfl
 
-theorem nestCtorsC_eq (ctx : NestCtx)
-    (rec : Expr → List NestHole → Nat → Nat → Expr → NestState →
+theorem nestCtorsC_eq (ctx : NestCtx) (fuelOf : Expr → Nat)
+    (rec : Nat → List NestHole → Nat → Nat → Expr → NestState →
       CheckCM (NestFieldKind × Expr × NestState))
     (prog : List NestHole) (hi : Nat) (us : List Level) (ds : List Expr) (names : List Name)
     (holes : List Expr) : ∀ (cs : List (ConstantVal × Nat)) (st : NestState),
-      nestCtorsC mode ctx fe rec prog hi us ds names holes cs st =
-        nestCtors ctx (sharedOpsC mode fe) fe.env rec prog hi us ds names holes cs st
+      nestCtorsC mode ctx fe fuelOf rec prog hi us ds names holes cs st =
+        nestCtors ctx (sharedOpsC mode fe) fe.env (fun crest => rec (fuelOf crest)) prog hi us ds
+          names holes cs st
   | [], _ => rfl
   | (cv, nF) :: cs, st => by
     simp only [nestCtorsC, nestCtors, nestCrestC_eq, Expr.instLevelParams_spec, nestFieldsC_eq,
       Expr.closeTelescopeC_eq, structUsedLaterC_eq, Expr.getAppArgsC_spec, Expr.nestOccC_spec,
       nestCtorNfC, nestCtorNf, nestHoleImgC_eq, Expr.replaceFVarsC_spec, replaceFVarsC_fun,
-      nestCtorsC_eq ctx rec prog hi us ds names holes cs]
+      nestCtorsC_eq ctx fuelOf rec prog hi us ds names holes cs]
     rfl
 
 theorem nestGrowGroupC_eq (ctx : NestCtx) (hi : Nat) (us : List Level) (ds : List Expr) :

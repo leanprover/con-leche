@@ -280,9 +280,12 @@ def structUsedLaterC (cty : Expr) (nP j : Nat) : Bool :=
 /-- The cached `nestCtors`: the constructor's crest by `nestCrestC`,
 typed by the cached core, its fields by `nestFieldsC`, the walked
 telescope closed ONCE (`closeTelescopeC`) for the U4 test, the record
-and the output. -/
-def nestCtorsC (ctx : NestCtx) (fe : FEnv)
-    (rec : Expr → List NestHole → Nat → Nat → Expr → NestState →
+and the output.  The walk of the fields is `rec` at the fuel
+`fuelOf crest`, computed once per constructor before its fields are
+walked (the specification's `rec crest`, `fun crest => nestPos … (whnfWalkFuel
+crest)` at the root, is applied anew at every field). -/
+def nestCtorsC (ctx : NestCtx) (fe : FEnv) (fuelOf : Expr → Nat)
+    (rec : Nat → List NestHole → Nat → Nat → Expr → NestState →
       CheckCM (NestFieldKind × Expr × NestState))
     (prog : List NestHole) (hi : Nat) (us : List Level) (ds : List Expr) (names : List Name)
     (holes : List Expr) :
@@ -300,7 +303,8 @@ def nestCtorsC (ctx : NestCtx) (fe : FEnv)
         does not bind the parameters (official: ill-formed constructor)")
     let ty ← (coreKnotI mode false fe checkFuel).infer hi crest
     let _ ← ensureSortI (coreKnotI mode false fe checkFuel) hi ty
-    let (ks, nds, cur, st) ← nestFieldsC (rec crest) prog hi
+    let F := fuelOf crest
+    let (ks, nds, cur, st) ← nestFieldsC (rec F) prog hi
       (.invalid "nested positivity: invalid nested inductive datatype, its constructor type \
         does not bind its fields (official: ill-formed constructor)") nF 0 crest st
     let tel := Expr.closeTelescopeC nds hi cur
@@ -313,7 +317,7 @@ def nestCtorsC (ctx : NestCtx) (fe : FEnv)
       throw (.invalid "nested positivity: invalid return type — a constructor's result \
         index mentions the block")
     let st := { st with ctorNfs := st.ctorNfs.push (nestCtorNfC ctx prog us ds cv tel) }
-    let (os, st) ← nestCtorsC ctx fe rec prog hi us ds names holes cs st
+    let (os, st) ← nestCtorsC ctx fe fuelOf rec prog hi us ds names holes cs st
     pure ((ks, tel) :: os, st)
 
 /-- The cached `nestGrowGroup`. -/
@@ -334,7 +338,7 @@ def nestFrameC (ctx : NestCtx) (fe : FEnv)
   let prog' := (grp.mapIdx fun _ (c, ty) =>
     ({ key := ⟨c, us, ds⟩, base := hi, nIdx := ty.piBinders.1.length } : NestHole)).reverse ++ prog
   let ctors ← nestGroupCtors ctx nPc (grp.map (·.1))
-  let (_, st) ← nestCtorsC mode ctx fe (fun _ => rec) prog' (hi + grp.length) us ds
+  let (_, st) ← nestCtorsC mode ctx fe (fun _ => 0) (fun _ => rec) prog' (hi + grp.length) us ds
     (grp.map (·.1)) (grp.mapIdx fun i (_, ty) => Expr.fvar (hi + i) ty) ctors st
   pure st
 
@@ -467,8 +471,7 @@ def nestRootC (fe : FEnv) (ctx : NestCtx) (holes : List Expr) :
       CheckCM (List (List (List NestFieldKind × Expr)) × NestState)
   | [], st => pure ([], st)
   | cs :: css, st => do
-    let (o, st) ← nestCtorsC mode ctx fe (fun crest => nestPosC mode fe ctx (whnfWalkFuelC crest))
-      [] (ctx.hiAt 0) (ctx.lps.map .param) ctx.params ctx.names holes cs st
+    let (o, st) ← nestCtorsC mode ctx fe whnfWalkFuelC (nestPosC mode fe ctx) [] (ctx.hiAt 0) (ctx.lps.map .param) ctx.params ctx.names holes cs st
     let (os, st) ← nestRootC fe ctx holes css st
     pure (o :: os, st)
 
