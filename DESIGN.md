@@ -112162,3 +112162,66 @@ stores the pins in another order), and their facts are computed on the pin, not 
 **Tests.** `tests/ConLecheTests/Axioms.lean` pins `checkDecls_envWF` and `checkDeclsPure_envWF` at
 the three standard axioms, and states `checkDecls_envWF` in an `example` with no `SetTheory`
 instance in scope.
+
+## TASK #498 — L8: one specification per stage, the twins related to it (2026-11-09, agent/498-l8)
+
+**What went.**  The `FEnv`-indexed layer of the inductive check's specification:
+`Kernel/Inductives/BlockInstallF.lean`, `SumInstallF.lean` and `StructInstallF.lean`, with
+`checkBlockTeleF`, `checkBlockTelesF`, `checkBlockDomsAtF`, `checkBlockAgreeF`, `checkBlockIndsF`,
+`checkBlockCtorsF`, `checkBlockIdxSortsF`, `checkBlockTablesF`, `checkSumCtorF`, `checkSumCtorsF`,
+`checkStructFieldSortsIF`, `checkStructDomsAtF` and `checkStructProjTableF`.  It existed so that the
+cached driver could run the specification on an index; since the driver runs the twins
+(`Cached/Ind*.lean`), it was only their proof target, a second copy of every stage.  Its lemmas
+went with it: the `…F_eqC` mirrors (`BlockRunC`), `checkSumCtorF_eq` & co. (`CheckerF`),
+`checkStructProjTableF_pushC` (`BridgeCSDecl`), the `…F_congr`/`…F_twin` congruences (`ViewCongr`)
+and the `…F_fresh` lemmas (`DeclPushes`).
+
+**How the twins relate now.**  Each twin's equation (`Verify/Cached/IndBlockC.lean`,
+`IndTailC.lean`) targets the plain `Env`-level stage at `sharedOpsC`: a stage that reads its
+environment itself (the constant check, the resolution gates, the table lookups:
+`checkBlockTeleC_eq`, `checkBlockTelesC_eq`, `checkBlockIndsC_eq`, `checkSumCtorC_eq`,
+`checkSumCtorsC_eq`, `checkBlockCtorsC_eq`, `checkStructProjTableC_eq`, `checkBlockTablesC_eq`) at
+the index `mkFEnv env` of the specification's `env`, the pushing stage with its result pushed
+(`checkBlockIndsC mode (mkFEnv env) p isRec = checkBlockInds … env p isRec >>= fun r => pure
+(mkFEnv r.1, r.2)`); a stage that reads it only through the operations (`checkBlockDomsAtC_eq`,
+`checkBlockAgreeC_eq`, `checkStructDomsAtC_eq`, `checkStructFieldSortsC_eq`,
+`checkBlockIdxSortsC_eq`) at any index `fe` and `fe.env`, as positivity's twins already were.  The
+drivers' run lemmas (`checkBlockPassS_run`, `checkBlockTailS_run`, `GenRecC.lean`) rewrite by them
+once, as before, minus the second rewrite through the mirror.  The view congruences
+(`ViewCongr.lean`) and the freshness lemmas (`DeclPushes.lean`) are stated about the twins
+themselves (`checkBlockIndsC_twin`, `checkBlockCtorsC_congr`, `checkBlockIdxSortsC_congr`,
+`checkBlockTablesC_twin`, …; `checkBlockIndsC_fresh`, `checkBlockCtorsC_fresh`, …): a twin reads
+its index only through `coreKnotI`, `checkConstantValC` and `constsResolveFC`, whose congruences
+exist (`coreKnotI_congr`, `checkConstantValC_congr`, `constsResolveFC_congr`), so each is a few
+lines, no longer than the mirror's.  The spec's triples (`BlockRunC`) were already about the
+`Env`-level stages and are unchanged.
+
+**What stays, and where.**  The pushes are production code, not specification: `FEnv.pushAll`
+and `FEnv.pushDelta` move to `Kernel/FEnv.lean` beside `push`/`pushTables`; `consSumCtorsF`,
+`consBlockIndsF`, `consBlockCtorsF` (the pass's and the tail's pushes) to `Cached/IndBlock.lean`,
+with their `_mkFEnv` equations in `IndBlockC.lean`; `consBlockRecsBareF` stays in the specification
+beside `classFeR`, which the recursor stage (written over the index, one copy) uses.  The
+`F`-suffixed declaration-check helpers (`checkConstantValF`, the pin checks, `DeclCheck.lean`) are
+not a second layer: the recursor stage's specification calls `checkConstantValF` itself, and the
+declaration pins are outside this lane.  No specification changed.
+
+**Lines** (the lane's commit against 8c3d9841b): `Kernel/` +29 −301, `Verify/` +257 −374,
+`Cached/` +43 −21, the reach allowlist +2 −5.  The import graph: `RecCheck.lean` imports the three
+modules it uses (`FEnv`, `BlockShape`, `SumInstall`), `GenRec.lean`/`StreamRecs.lean` take
+`DeclCheck` and `Cached/IndPositivity.lean` takes `BlockInstall` directly (the shake gate's
+compensated proposal).
+
+**Reach.**  580 → 577 reached plain declarations: `consBlockIndsF`, `consBlockCtorsF`,
+`consSumCtorsF` are cached-tier code now; `FEnv.pushAll`/`pushDelta` stay listed, under
+`Kernel/FEnv`.
+
+**Numbers** (`perf stat -e instructions:u`, one run each, `--jobs=1`, verified; master 8c3d9841b
+→ the lane before the merge; the same verdicts): init-full 374.631 → 374.568 G (−0.02 %),
+grind-ring-5 13.1065 → 13.1058 G, `BvStruct` − `Empty` 1.273 → 1.253 G (module runs 430.660 →
+430.645 G and 429.386 → 429.392 G; they move by tens of M), `prop_struct_proj_wide` 222.96 →
+222.96 M.  Flat: the executed code is the same twins.
+
+**Gates** (the merged tree).  `lake build`, `lake test` warning-free; `tests/arena.sh` exit 0
+(e2e 574/574, arena tutorial 90/92 as on master, plain-reach at 577 all allowlisted, binary-link:
+no Lean package module linked, shake); citations repointed in OVERVIEW and
+the whitepaper (moved lines only, the cited text unchanged).
