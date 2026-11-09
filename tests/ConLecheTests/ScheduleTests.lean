@@ -30,6 +30,9 @@ open ConLeche.Driver.Schedule
 -- two equal giants: the second one counts
 #guard surpriseOf [(20, 5), (20, 5)] = 15
 
+/-- The module `s` of a test log. -/
+def nm (s : String) : ConLeche.Name := (ConLeche.Frontend.Olean.parseModName s).get!
+
 /-- Two runs, the first in two old formats, the second in the newest one, with kills. -/
 def mixedLog : String :=
   "0\t«A»\n" ++
@@ -37,7 +40,8 @@ def mixedLog : String :=
   "killed\t«C»\t5000000\t9000000\n" ++
   "0\t«D»\t20000\t400000\t20000\n" ++
   "0\t«E»\t30000\t400000\t5000\t16\t600\t0\t43\t10\t1\n" ++
-  "killed\t«F»\t70000\t1000000\n" ++
+  "killed\t«F»\t70000\t1000000\t4\n" ++
+  "killed\t«C»\t80000\t12000000\t1\n" ++
   "1\t«G»\t40000\t≥500000\t20000\t-\t-\t-\t-\t-\t2\n"
 
 #guard (parseLog ConLeche.Frontend.Olean.parseModName mixedLog).verdicts.size = 5
@@ -45,6 +49,27 @@ def mixedLog : String :=
 #guard (parseLog ConLeche.Frontend.Olean.parseModName mixedLog).msSum = 100000
 -- the runs' spans 20 s and 20 s: 100 s of module time in 40 s, 2.5 workers
 #guard (parseLog ConLeche.Frontend.Olean.parseModName mixedLog).workers = 2500
+
+-- the seeded state: the exact peaks in log order (the `≥` one left out), the largest set of each
+-- module's kills, the latest kill first, the module that ran with threads
+#guard (parseLog ConLeche.Frontend.Olean.parseModName mixedLog).peaks = #[400000, 400000, 400000]
+#guard (parseLog ConLeche.Frontend.Olean.parseModName mixedLog).killSize.toList.length = 2
+#guard ((parseLog ConLeche.Frontend.Olean.parseModName mixedLog).killSize.get? (nm "C")) = some 12000000
+#guard ((parseLog ConLeche.Frontend.Olean.parseModName mixedLog).killSize.get? (nm "F")) = some 1000000
+#guard (parseLog ConLeche.Frontend.Olean.parseModName mixedLog).killOrder = [nm "C", nm "F"]
+#guard (parseLog ConLeche.Frontend.Olean.parseModName mixedLog).killMulti.contains (nm "F")
+-- C's old four-field line and its one-thread line: not multi-threaded
+#guard !(parseLog ConLeche.Frontend.Olean.parseModName mixedLog).killMulti.contains (nm "C")
+
+-- the window keeps the last 200 peaks; the median holds from 20 of them, else the start value
+#guard (parseLog ConLeche.Frontend.Olean.parseModName
+  (String.join ((List.range 250).map fun i => s!"0\tm{i}\t1\t{i}\t1\n"))).peaks
+    = (Array.range 250).extract 50 250
+#guard seedPeaks ((Array.range 19).map (· + 1)) 777 = ((Array.range 19).map (· + 1), 777)
+#guard seedPeaks ((Array.range 20).map (· + 1)) 777 = ((Array.range 20).map (· + 1), 11)
+#guard seedPeaks #[] 777 = (#[], 777)
+-- the first finish after a 19-peak seed makes 20: the median applies
+#guard (pushPeak ((Array.range 19).map (· + 1)) 777 20).2 = 11
 
 -- the estimate: 1000 remaining modules at the logged mean of 25 s over the logged 2.5 workers in
 -- the first minute; after an hour at 4 workers with 8 finishes of 1000 s each, the mean over all
