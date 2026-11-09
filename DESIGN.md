@@ -111588,6 +111588,15 @@ checked text-identical).
 | `BvStruct` − `Empty` | 2.266 G | 2.280 G | (the module runs move by ~20 M run to run, L1's record) |
 | e2e `prop_struct_proj_wide` | 492.78 M | 488.76 M | −0.8 % |
 
+The merged tree against master after L2 (87574856e):
+
+| run | master | lane | change |
+|---|---|---|---|
+| init-full | 374.418 G | 374.339 G | −0.02 % |
+| grind-ring-5 | 13.0926 G | 13.0881 G | −0.03 % |
+| `BvStruct` − `Empty` | 1.648 G | 1.600 G | −2.9 % (module runs move by ~20 M) |
+| e2e `prop_struct_proj_wide` | 271.02 M | 266.95 M | −1.5 % |
+
 The pass and the classes were cheap already (the inductive check's cost is in positivity, the
 recursor stage and the tables); the lane is about the reach, not speed.  The same verdicts
 everywhere.
