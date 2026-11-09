@@ -128,6 +128,39 @@
 1 nat_pow_wrong.ndjson
 1 nat_pred_wrong.ndjson
 1 nat_beq_wrong.ndjson
+
+# The maximum `Nat` size (official lean4#14849; `natOpRefusal`,
+# ConLeche/Cached/StateC.lean): a `Nat` numeral above the maximum size
+# (default 128 MiB, `--max-nat-size`) rejects, refused before computing
+# for `Nat.pow` and `Nat.shiftLeft` (whose exponent / shift must also fit
+# in 32 bits), after computing for `Nat.add`/`sub`/`mul`/`succ`, and
+# where a literal is inferred.  nat_size is the raw export of
+# tests/e2e/src/nat_size.lean (placeholder exponents);
+# scripts/mk_nat_size_fixtures.py derives the others from it:
+#   nat_size_ok: 1^4000000000, 0^4000000000, 1^4294967295, 2^16777216
+#     (the largest power of two within the maximum size, and the old 2^24
+#     exponent cap's edge) and 1 <<< 100000000 fold;
+#   nat_pow_over_max_size: 2^16777217, refused (it used to unfold);
+#   nat_pow_exp_32bit: 1^4294967296, refused whatever the base;
+#   nat_shift_over_max_size: 1 <<< 1073741760, refused;
+#   nat_shift_exp_32bit: 1 <<< 4294967296, refused.
+0 nat_size.ndjson
+0 nat_size_ok.ndjson
+1 nat_pow_over_max_size.ndjson
+1 nat_pow_exp_32bit.ndjson
+1 nat_shift_over_max_size.ndjson
+1 nat_shift_exp_32bit.ndjson
+# The port of lean4's tests/elab/nat_size_limit.lean, at
+# --max-nat-size=16 (tests/arena.sh's E2E_FLAGS) as the original runs
+# at LEAN_NAT_MAX_SIZE=16; one source per case under tests/e2e/src/,
+# nat_size_limit_pow_32bit derived by scripts/mk_nat_size_fixtures.py.
+0 nat_size_limit_mul_ok.ndjson
+1 nat_size_limit_mul_big.ndjson
+1 nat_size_limit_pow_big.ndjson
+1 nat_size_limit_pow_huge_exp.ndjson
+1 nat_size_limit_pow_32bit.ndjson
+1 nat_size_limit_shift_big.ndjson
+1 nat_size_limit_big_lit.ndjson
 1 nat_ble_wrong.ndjson
 # A level-polymorphic definition under a fast-path name is positively
 # declined at install (the certification pins level-monomorphy).
@@ -1289,7 +1322,7 @@
 # tower_struct (task #215, wired by task #210 Part B): the tower in a
 # structure's constructor field type.  The block installs through the
 # fixpoint route, where every walk the install asks of the field type
-# is DAG-safe (`@[csimp]` memos: `Expr.mentionsConst`,
+# is DAG-safe (`@[csimp]` memos: `Expr.mentionsAnyConst`,
 # `liftLooseBVars`, `instantiateList`, `allLevelParamsDefined`,
 # `constsResolveF`; the range-field reads `looseBVarsBounded`,
 # `hasFvar`) and the constant walks go through `constsResolveFC`
@@ -1342,7 +1375,7 @@
 # (`Kernel/Inductives/StructParts.lean`) and, once past it, the pure
 # rebuild inside `abstract1Fast`, whose fvar-range cutoff cannot fire
 # either when the tower is built OVER the fvar being abstracted.  Both
-# carry a memoized twin now (`hasLooseBVarBGo`, `abstract1Go`,
+# run memoized walks now (`hasLooseBVarBC`, task #498; `abstract1Go`,
 # `@[csimp]`).
 0 tower_usedlater.ndjson
 # tower_beqpair (task #240): two structurally equal depth-60 towers
@@ -1375,7 +1408,8 @@
 # `fvarLeaves` descends into the leaf's type annotation, so the range
 # cannot answer the question at all.  The fix is at the consumer:
 # `mentionsFvarGo` memoizes the `Bool` question, keyed by the node
-# (`q` is fixed for the walk), `@[csimp]`.
+# (`q` is fixed for the walk), `@[csimp]`.  (Task #498: that test and
+# its walk are gone; the fixture stays, a tower under a recursive field.)
 0 tower_recfield.ndjson
 # tower_mutual (task #246): a two-member MUTUAL block whose first
 # constructor carries a depth-60 tower over its own first field.  It
@@ -3304,6 +3338,20 @@
 1 block_ctor_params.ndjson
 1 block_ctor_levels.ndjson
 1 block_no_rec.ndjson
+# -- task #520, the cost of the binder-telescope congruence (scripts/mk_defeq_binding_fixtures.py).
+# defeq's ∀/λ congruence used to open one binder at a time, re-instantiating the whole remaining
+# body at each binder: n binders over a body of size m cost O(n·m).  It now has the official
+# `is_def_eq_binding` shape (`defeqBinders`): each domain and the two innermost bodies opened once,
+# in one bulk pass each (O(n + m)); these fixtures pin that shape.
+# defeq_binding_pi / defeq_binding_lam: two telescopes of 40 binders over 100 conjuncts, each
+# mentioning every binder, defeq only after a delta step in the last conjunct.
+# defeq_binding_mutual: a 10-structure mutual block nested through Array/Option/String (lean4's
+# deriving_mutual_block bench without `deriving`), its `brecOn` families (`go`, `eq`: long
+# telescopes over large bodies).  All accepted; official 0 (run); target 0.  They pin the shape,
+# not a cost: the scaling measurements are in DESIGN.md's task #520 record.
+0 defeq_binding_pi.ndjson
+0 defeq_binding_lam.ndjson
+0 defeq_binding_mutual.ndjson
 # The wider unit-like η (task #515; official's `is_unit_like` since
 # lean4#15372, ported from lean4's `tests/elab/2258.lean`): ∀s with a
 # unit-like codomain and non-recursive structures whose fields are

@@ -8,11 +8,11 @@ public import ConLeche.Kernel.TrustAxioms
 /-!
 # The projection table's checks (pure fueled checker)
 
-The binder-domain walk and the projection TABLE the block install
+The binder-domain walk and the checks of the projection TABLE the block install
 stores at a structure-like member (`checkStructProjTable`,
-run per member by `checkBlockTables`,
-`ConLeche/Kernel/Inductives/BlockTail.lean`).  The index-threaded twins
-are `ConLeche/Kernel/Inductives/StructInstallF.lean`.
+run per table by `checkBlockTables`,
+`ConLeche/Kernel/Inductives/BlockTail.lean`).  The cached driver runs
+the twins of `ConLeche/Cached/IndBlock.lean` and `ConLeche/Cached/IndTail.lean`.
 -/
 
 namespace ConLeche
@@ -49,34 +49,28 @@ def checkStructDomsAt (ops : CheckerOps m) (env : Env) (off : Nat)
       throw (.notImplemented "direct structure: binder domain mismatch")
     checkStructDomsAt ops env off fvs doms j
 
-/-- Stage 5: **the projection table** (task #175 S1).  One table per
-structure, in the environment's table component (task #362): the fields' result-type bodies read off the
-stored constructor type by substitution alone
-(`structProjBodies`), the constructor and the counts.  Nothing is
-inferred or pinned here — a `.proj T i e` use instantiates
-`bodies[i]` at its own arguments (`ProjEntry.typeAt`) after the
-official `infer_proj` guard (`checkProjGuard`, at the use), and a slot with no legal
-instantiation (a used-later data field of a `Prop` structure) simply
-fails that guard at every use (`invalid`, as official).  The body
-walk cannot fail on a constructor type `checkSumCtor` accepted
-(it peels exactly `nP + nF` binders), so its failure is internal. -/
-def checkStructProjTable (T : Name) (lps : List Name) (nP nF : Nat)
-    (cvCa : ConstantVal) (env : Env) : m Unit := do
-  let bodies ← unwrapOr (structProjBodies T nP nF cvCa.type)
-    (.internal "direct structure: projection bodies")
+/-- Stage 5: **the projection table's checks** (task #175 S1).  One table per
+structure, in the environment's table component (task #362), read off the block by `blockTables`
+(`ConLeche/Kernel/Install.lean`): the fields' result-type bodies read off the stored constructor
+type by substitution alone (`structProjBodies`), the constructor and the counts.  This checks that
+table, as it will be installed.  Nothing is inferred or pinned here — a `.proj T i e` use
+instantiates `bodies[i]` at its own arguments (`ProjEntry.typeAt`) after the official `infer_proj`
+guard (`checkProjGuard`, at the use), and a slot with no legal instantiation (a used-later data
+field of a `Prop` structure) simply fails that guard at every use (`invalid`, as official). -/
+def checkStructProjTable (t : ProjTable) (env : Env) : m Unit := do
   -- the bodies' scoping, validated once at insertion (the stage's own
   -- guard, what `EnvWF`'s table clause records): fvar-free, level
   -- parameters within the structure's, resolving, scoped at the
   -- parameters and the subject; one per field
-  unless bodies.size = nF ∧ bodies.all (fun b => !b.hasFvar &&
-      b.allLevelParamsDefined lps && b.constsResolve env &&
-      b.looseBVarsBounded (nP + 1)) do
+  unless t.bodies.size = t.numFields ∧ t.bodies.all (fun b => !b.hasFvar &&
+      b.allLevelParamsDefined t.levelParams && b.constsResolve env &&
+      b.looseBVarsBounded (t.numParams + 1)) do
     throw (.internal "direct structure: projection body scoping")
   -- the table follows its structure (declared by the same block):
   -- `EnvWF`'s table clause records it
-  unless (env.find? T).isSome do
+  unless (env.find? t.structName).isSome do
     throw (.internal "direct structure: projection table before its structure")
-  unless (env.findTable? T).isNone do
+  unless (env.findTable? t.structName).isNone do
     throw (.invalid "projection table taken")
 
 end ConLeche

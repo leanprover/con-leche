@@ -1,8 +1,6 @@
 module
 
-import ConLeche.Verify.FastOps
 public import ConLeche.Verify.EnvBound
-public import ConLeche.Kernel.Inductives.SumInstallF
 import ConLeche.Kernel.DeclCheck
 
 public section
@@ -11,7 +9,7 @@ public section
 # The indexed checker mirrors agree with the generic checker (task #63)
 
 Under `mkFEnv` every `F`-mirror (`ConLeche/Kernel/DeclCheck.lean`,
-`FEnv.lean`, `Inductives/*F.lean`) *is* its generic counterpart: the mirrors differ only
+`FEnv.lean`) *is* its generic counterpart: the mirrors differ only
 in pure lookup subterms (`FEnv.find?` for `Env.find?`,
 `Expr.constsResolveF` for `Expr.constsResolve`, and the compound
 guards built from them), each of which `mkFEnv_find?` rewrites away.
@@ -143,65 +141,6 @@ theorem checkConstantValF_eq (ops : CheckerOps m) (env : Env)
   simp only [checkConstantValF, checkConstantVal, mkFEnv_find?,
     constsResolveF_eq, strLitStoredF_eq] <;> rfl
 
-/-! ### The direct simple-structure path (task #82) -/
-
-theorem checkStructDomsAtF_eq (ops : CheckerOps m) (env : Env)
-    (off : Nat) (fvs doms : List Expr) :
-    ∀ (j : Nat),
-      checkStructDomsAtF ops (mkFEnv env) off fvs doms j
-        = checkStructDomsAt ops env off fvs doms j
-  | 0 => rfl
-  | j + 1 => by
-    simp only [checkStructDomsAtF, checkStructDomsAt, mkFEnv_env,
-      checkStructDomsAtF_eq ops env off fvs doms j]
-
-/-! ### The direct sum path (task #175 sum-types, indexed) -/
-
-/-- `checkStructFieldSortsIF` (task #175 indexed) at `mkFEnv`. -/
-theorem checkStructFieldSortsIF_eq (ops : CheckerOps m) (env : Env)
-    (isProp large : Bool) (s : Level) (nP : Nat) (fvs idxArgs : List Expr) :
-    ∀ (j : Nat),
-      checkStructFieldSortsIF ops (mkFEnv env) isProp large s nP fvs idxArgs j
-        = checkStructFieldSortsI ops env isProp large s nP fvs idxArgs j
-  | 0 => rfl
-  | j + 1 => by
-    simp only [checkStructFieldSortsIF, checkStructFieldSortsI, mkFEnv_env,
-      checkStructFieldSortsIF_eq ops env isProp large s nP fvs idxArgs j]
-
-/-- `checkStructFieldSortsIFA` (task #175 indexed) at `List.toArray`. -/
-theorem checkStructFieldSortsIFA_eq (ops : CheckerOps m) (fe : FEnv)
-    (isProp large : Bool) (s : Level) (nP : Nat) (fvs idxArgs : List Expr) :
-    ∀ j, checkStructFieldSortsIFA ops fe isProp large s nP fvs.toArray idxArgs j
-      = checkStructFieldSortsIF ops fe isProp large s nP fvs idxArgs j
-  | 0 => rfl
-  | j + 1 => by
-    simp only [checkStructFieldSortsIFA, checkStructFieldSortsIF,
-      List.getElem?_toArray,
-      checkStructFieldSortsIFA_eq ops fe isProp large s nP fvs idxArgs j]
-
-theorem checkSumCtorF_eq (ops : CheckerOps m) (env₀ env : Env) (T : Name)
-    (lps : List Name) (nP nIdx : Nat) (resSort : Level) (isProp large : Bool)
-    (cvC : ConstantVal) (nF : Nat) (cvTa : ConstantVal) :
-    checkSumCtorF ops (mkFEnv env₀) (mkFEnv env) T lps nP nIdx resSort isProp
-        large cvC nF cvTa
-      = checkSumCtor ops env₀ env T lps nP nIdx resSort isProp large cvC nF
-        cvTa := by
-  simp only [checkSumCtorF, checkSumCtor, checkConstantValF_eq,
-    checkStructDomsAtFA_eq, checkStructDomsAtF_eq, openPisAtFvarsF_eq,
-    checkStructFieldSortsIFA_eq, checkStructFieldSortsIF_eq, constsResolveF_eq]
-
-theorem checkSumCtorsF_eq (ops : CheckerOps m) (env₀ env : Env) (T : Name)
-    (lps : List Name) (nP nIdx : Nat) (resSort : Level) (isProp large : Bool)
-    (cvTa : ConstantVal) :
-    ∀ (cs : List (ConstantVal × Nat)),
-      checkSumCtorsF ops (mkFEnv env₀) (mkFEnv env) T lps nP nIdx resSort isProp
-          large cvTa cs
-        = checkSumCtors ops env₀ env T lps nP nIdx resSort isProp large cvTa cs
-  | [] => rfl
-  | c :: cs => by
-    simp only [checkSumCtorsF, checkSumCtors, checkSumCtorF_eq,
-      checkSumCtorsF_eq ops env₀ env T lps nP nIdx resSort isProp large cvTa cs]
-
 omit [MonadExceptOf CheckError m] in
 theorem checkDivModCertsF_eq (ops : CheckerOps m) (env : Env) (c : Name)
     (annVal : Expr) :
@@ -268,16 +207,5 @@ executing monad, in `ConLeche/Verify/Cached/BridgeCSDecl.lean`. -/
 
 theorem push_mkFEnv (env : Env) (ci : ConstantInfo) :
     (mkFEnv env).push ci = mkFEnv ⟨ci :: env.consts, env.tables⟩ := rfl
-
-/-- The direct sum's constructor conses through the index (task #175
-sum-types): the pushed index of the consed environment *is* `mkFEnv`
-of it. -/
-theorem consSumCtorsF_mkFEnv (nP : Nat) :
-    ∀ (cs : List (ConstantVal × Nat)) (env : Env),
-      consSumCtorsF nP cs (mkFEnv env) = mkFEnv (consSumCtors nP cs env)
-  | [], _ => rfl
-  | c :: cs, env => by
-    simp only [consSumCtorsF, consSumCtors, push_mkFEnv,
-      consSumCtorsF_mkFEnv nP cs ⟨.ctorInfo c.1 nP c.2 :: env.consts, env.tables⟩]
 
 end ConLeche

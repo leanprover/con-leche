@@ -217,6 +217,14 @@ if tests/challenge.sh; then :; else fail=1; fi
 # built tree; ~1 min, most of it the two olean dumps the fixpoint reads.
 if tests/shake.sh; then :; else fail=1; fi
 
+# THE PLAIN-TIER REACH GATE (task #497): every specification-tier definition the
+# binary reaches is allowlisted with its reason.  Needs the built tree.
+if tests/plain-reach.sh; then :; else fail=1; fi
+
+# THE BINARY LINK GATE (task #498 L3): the binary links no module of the `Lean`
+# package (a proof module the driver imports must not bring `Lean.Meta` along).
+if tests/binary-link.sh; then :; else fail=1; fi
+
 # THE OLEAN GATE: `--olean` on the committed fixtures of tests/olean/lib and
 # on corrupted copies of them, every verdict pinned.
 if tests/olean.sh; then :; else fail=1; fi
@@ -333,6 +341,20 @@ declare -A E2E_TIMEOUT=(
   [k_rescue_stuck.ndjson]=10
 )
 
+# Per-fixture checker flags, each with its reason.
+# nat_size_limit_*: the port of lean4's tests/elab/nat_size_limit.lean,
+# which runs at LEAN_NAT_MAX_SIZE=16 so that the maximum `Nat` size trips on
+# small numerals; the flag is con-leche's spelling of that bound.
+declare -A E2E_FLAGS=(
+  [nat_size_limit_mul_ok.ndjson]=--max-nat-size=16
+  [nat_size_limit_mul_big.ndjson]=--max-nat-size=16
+  [nat_size_limit_pow_big.ndjson]=--max-nat-size=16
+  [nat_size_limit_pow_huge_exp.ndjson]=--max-nat-size=16
+  [nat_size_limit_pow_32bit.ndjson]=--max-nat-size=16
+  [nat_size_limit_shift_big.ndjson]=--max-nat-size=16
+  [nat_size_limit_big_lit.ndjson]=--max-nat-size=16
+)
+
 e2e_half() {
   e2e_ok=0
   e2e_total=0
@@ -347,7 +369,7 @@ e2e_half() {
       gunzip -c "$src.gz" > "$tmpf" || { echo "E2E FAIL $rel: gunzip failed"; fail=1; continue; }
       src="$tmpf"
     fi
-    timeout "${E2E_TIMEOUT[$rel]:-60}" "$BIN" $MODEFLAG "$src" >/dev/null 2>&1
+    timeout "${E2E_TIMEOUT[$rel]:-60}" "$BIN" $MODEFLAG ${E2E_FLAGS[$rel]:-} "$src" >/dev/null 2>&1
     got=$?
     if [ "$got" != "$want" ]; then
       mismatch "E2E FAIL" "$rel" "$want" "$got"

@@ -10,6 +10,7 @@ public import ConLeche.Model.StreamConsts
 public import ConLeche.Verify.Cached.StreamThm
 public import ConLeche.Model.Fold
 public import ConLeche.Model.Capstone
+public import ConLeche.Semantics.DeclWF
 public section
 
 /-!
@@ -56,6 +57,7 @@ equation the compiled equality rests on.
 | `ConLeche.no_False_theorem_accepted` | the step it rests on, at the STREAM: records one of which declares a theorem of type `False` are never accepted by `checkDecls` (`ConLeche/Verify/Cached/StreamThm.lean`) |
 | `no_proof_of_False_cached` / `no_proof_of_Empty_cached` | the fold's letters at every validating mode |
 | `checkDecls_sound` | the model an accept of the fold carries |
+| `checkDecls_envWF` / `checkDeclsPure_envWF` | what the fold (resp. the pure fueled fold) accepts is syntactically well formed (`EnvWF`), model-free: no `SetTheory` argument |
 | `checkDecls_of_jobs` | every record's job at the frozen index passing is an accept of the fold |
 | `no_proof_of_False_pure` | the pure fueled checker's letter |
 | `no_proof_of_Empty_pure` | the same about `Empty` |
@@ -233,6 +235,28 @@ info: 'ConLeche.Cached.checkDecls_sound' depends on axioms: [propext, Classical.
 -/
 #guard_msgs in
 #print axioms ConLeche.Cached.checkDecls_sound
+
+/-! ## The fold's well-formedness, model-free (`ConLeche/Semantics/DeclWF.lean`)
+
+What the fold accepts is syntactically well formed, with no set theory in the statement or the
+proof: the `example` below states it at no `SetTheory` instance. -/
+
+/--
+info: 'ConLeche.Semantics.checkDecls_envWF' depends on axioms: [propext, Classical.choice, Quot.sound]
+-/
+#guard_msgs in
+#print axioms ConLeche.Semantics.checkDecls_envWF
+
+/--
+info: 'ConLeche.Semantics.checkDeclsPure_envWF' depends on axioms: [propext, Classical.choice, Quot.sound]
+-/
+#guard_msgs in
+#print axioms ConLeche.Semantics.checkDeclsPure_envWF
+
+example {pins : List ConLeche.NatOpPinSet} {maxNatSize : Nat} {ds : Array ConLeche.Declaration}
+    {env' : ConLeche.Env} (h : ConLeche.Cached.checkDecls .verified pins maxNatSize ds = .ok env') :
+    ConLeche.EnvWF env' :=
+  ConLeche.Semantics.checkDecls_envWF h
 
 /-! ## The driver's jobs and the fold (`ConLeche/Verify/Cached/StreamIndex.lean`) -/
 

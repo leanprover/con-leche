@@ -31,9 +31,18 @@ driver as unattributed.
 
 Usage (normally through `scripts/code-stats.py --executed`):
 
-    lake env lean --run scripts/executed-decls.lean [ROOT [ENTRY]]
+    lake env lean --run scripts/executed-decls.lean [--edges] [ROOT [ENTRY]]
 
 with defaults `Main` and `main`.
+
+**`--edges`** (task #497, the plain-tier reach audit `scripts/plain-reach.py`)
+prints instead the reached IR call graph: one line
+
+    <caller IR> \t <caller source> \t <caller module> \t <callee IR> \t <callee source> \t <callee module>
+
+for every reached IR body (ours or not) and every IR declaration it
+names, with the source declaration resolved as above (a name without
+ranges stands for itself, its module that of the IR name).
 -/
 
 def isOurModule (m : String) : Bool :=
@@ -89,7 +98,16 @@ where
     | .num p _ => go p
     | .anonymous => none
 
+/-- The source declaration and module an IR name is attributed to. -/
+def attributeTo (env : Environment) (n : Name) : String × String :=
+  let m := (moduleOf? env n).getD "?"
+  match sourceOf env n with
+  | some s => (s.toString, (moduleOf? env s).getD m)
+  | none => (n.toString, m)
+
 def main (args : List String) : IO UInt32 := do
+  let edges := args.contains "--edges"
+  let args := args.filter (· != "--edges")
   let root := (args.getD 0 "Main").toName
   let entry := (args.getD 1 "main").toName
   initSearchPath (← findSysroot)
@@ -104,6 +122,7 @@ def main (args : List String) : IO UInt32 := do
   let mut todo : Array Name := #[entry]
   let mut out : Array String := #[]
   let mut missing := 0
+  let mut edgeSet : Std.HashSet String := {}
   while h : todo.size > 0 do
     let n := todo[todo.size - 1]
     todo := todo.pop
@@ -112,6 +131,10 @@ def main (args : List String) : IO UInt32 := do
     | some d =>
       if let .fdecl _ _ _ body _ := d then
         for c in bodyRefs body do
+          if edges then
+            let (fs, fm) := attributeTo env n
+            let (ts, tm) := attributeTo env c
+            edgeSet := edgeSet.insert s!"{n}\t{fs}\t{fm}\t{c}\t{ts}\t{tm}"
           if !seen.contains c then
             seen := seen.insert c
             todo := todo.push c
@@ -124,5 +147,6 @@ def main (args : List String) : IO UInt32 := do
           out := out.push s!"{n}\t{s}\t{sm}\t{r.pos.line}\t{r.endPos.line}"
         | none => out := out.push s!"{n}\t?\t{m}\t?\t?"
   IO.eprintln s!"executed-decls: {seen.size} IR declarations reached, {missing} without IR"
-  for l in out.qsort (· < ·) do IO.println l
+  let lines := if edges then edgeSet.toArray else out
+  for l in lines.qsort (· < ·) do IO.println l
   return 0

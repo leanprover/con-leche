@@ -30,13 +30,19 @@ these positivity witnesses instead. -/
 theorem whnfLoopFuel_succ : ∃ n, whnfLoopFuel = n + 1 :=
   ⟨4611686018427387903, by unfold whnfLoopFuel; rfl⟩
 
-/-- `Expr.lamPair?`, read back: two λs. -/
-theorem Expr.lamPair?_some {B₁ B₂ t₁ b₁ t₂ b₂ : Expr}
-    (h : Expr.lamPair? B₁ B₂ = some (t₁, b₁, t₂, b₂)) :
-    B₁ = .lam t₁ b₁ ∧ B₂ = .lam t₂ b₂ := by
-  cases B₁ <;> cases B₂ <;> simp only [Expr.lamPair?, reduceCtorEq] at h
-  obtain ⟨rfl, rfl, rfl, rfl⟩ := by simpa using h
-  exact ⟨rfl, rfl⟩
+/-- The binder node of a kind: a λ (`true`) or a ∀ (`false`), the
+shapes `Expr.binderPair?` reads. -/
+@[expose] def Expr.binderOf : Bool → Expr → Expr → Expr
+  | true, t, b => .lam t b
+  | false, t, b => .forallE t b
+
+/-- `Expr.binderPair?`, read back: two binders of the kind. -/
+theorem Expr.binderPair?_some {lam : Bool} {B₁ B₂ t₁ b₁ t₂ b₂ : Expr}
+    (h : Expr.binderPair? lam B₁ B₂ = some (t₁, b₁, t₂, b₂)) :
+    B₁ = Expr.binderOf lam t₁ b₁ ∧ B₂ = Expr.binderOf lam t₂ b₂ := by
+  cases lam <;> cases B₁ <;> cases B₂ <;>
+    simp only [Expr.binderPair?, reduceCtorEq, Option.some.injEq, Prod.mk.injEq] at h <;>
+    (obtain ⟨rfl, rfl, rfl, rfl⟩ := h; exact ⟨rfl, rfl⟩)
 
 theorem whnfCore_succ (env : Env) (f d : Nat) (e : Expr) {c : Bool} :
     whnfCore mode eager env (f + 1) d e c = whnfCoreBody mode (pureFns mode eager env f) env c d e
@@ -271,13 +277,12 @@ abbrev quickDefEqFueled (mode : CheckMode) (eager : Bool) (env : Env) (fuel : Na
     Expr →
     CheckM (Option Bool) := quickDefEq mode (pureFns mode eager env fuel)
 
-abbrev defeqLamsFueled (mode : CheckMode) (eager : Bool) (env : Env) (fuel : Nat) : Nat → Nat →
-    Expr →
-    Expr → Expr → Expr → CheckM Bool := defeqLams mode (pureFns mode eager env fuel)
+abbrev defeqBindersFueled (mode : CheckMode) (eager : Bool) (env : Env) (fuel : Nat) : Bool →
+    Nat → Nat → List Expr → Expr → Expr → Expr → Expr → CheckM Bool :=
+  defeqBinders mode (pureFns mode eager env fuel)
 
-abbrev defeqLamsInnerFueled (mode : CheckMode) (eager : Bool) (env : Env) (fuel : Nat) : Nat → Expr
-    →
-    Expr → CheckM Bool := defeqLamsInner mode (pureFns mode eager env fuel)
+abbrev defeqBindersInnerFueled (mode : CheckMode) (eager : Bool) (env : Env) (fuel : Nat) : Bool →
+    Nat → Expr → Expr → CheckM Bool := defeqBindersInner mode (pureFns mode eager env fuel)
 
 abbrev defeqOffsetFueled (mode : CheckMode) (eager : Bool) (env : Env) (fuel : Nat) : Nat → Expr →
     Expr →

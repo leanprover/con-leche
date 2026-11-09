@@ -62,7 +62,7 @@ nor nested; nested blocks are the subject of @sec:nested. The block is given by 
   $arrow(e)_j$ of its result $I thick arrow(x) thick arrow(e)_j$.
 
 A field is one of #src("whitepaper/Fragment/Spec.lean", 28, 42)[two kinds]
-(#src("ConLeche/Kernel/Inductives/Positivity.lean", 672, 682)[as in con-leche]):
+(#src("ConLeche/Kernel/Inductives/Positivity.lean", 317, 327)[as in con-leche]):
 
 - _ordinary_: its domain does not mention $I$;
 - _reflexive_: its domain is
@@ -78,7 +78,7 @@ mentions $I$ anywhere else; this is
 #src("whitepaper/Fragment/Decl.lean", 628, 642)[strict positivity].
 And nothing after a reflexive field
 #src("whitepaper/Fragment/Decl.lean", 645, 650)[may depend on its value]
-(#src("ConLeche/Kernel/Inductives/Positivity.lean", 1324, 1327)[as in con-leche] and the
+(#src("ConLeche/Kernel/Inductives/Positivity.lean", 707, 710)[as in con-leche] and the
 official kernel), so that the model can read a constructor's domains
 without knowing the values of its reflexive fields.
 
@@ -89,7 +89,7 @@ without knowing the values of its reflexive fields.
   domain after weak head normal form, with $I$ at the block's
   parameters replaced by a variable standing for the family being
   defined; @sec:nested uses the same check
-  (#src("ConLeche/Kernel/Inductives/Positivity.lean", 1512, 1513)[positivity]).
+  (#src("ConLeche/Kernel/Inductives/Positivity.lean", 895, 896)[positivity]).
 ]
 
 Reflexive fields with a non-empty telescope matter to the model. A
@@ -125,7 +125,7 @@ or $0$ (_small elimination_); the elimination rule below says which.
   parameters and the type, which must be definitionally equal to the
   generated one, and the record's two layout counts, which must equal
   the generated ones
-  (#src("ConLeche/Kernel/Inductives/GenRec.lean", 383, 405)[the comparison]).
+  (#src("ConLeche/Kernel/Inductives/GenRec.lean", 384, 406)[the comparison]).
   An unverified pre-pass reads off that type which type the recursor
   eliminates and how its motive and minor premises are laid out (the
   arguments named on $Nat$ in @ex:nat); a wrong reading can only make
@@ -135,7 +135,7 @@ or $0$ (_small elimination_); the elimination rule below says which.
   once they agree with the generated ones: the type binder by binder up
   to the major premise, each rule up to definitional equality, at the
   generated recursor's firing data
-  (#src("ConLeche/Kernel/Inductives/StreamRecs.lean", 182, 188)[the comparison]).
+  (#src("ConLeche/Kernel/Inductives/StreamRecs.lean", 183, 189)[the comparison]).
 ]
 
 Here is the recursor of the natural numbers.
@@ -196,8 +196,8 @@ indices and the major, and ends in $C thick arrow(y) thick t$.
 #src("whitepaper/Fragment/Decl.lean", 256, 265)[a minor premise],
 #src("whitepaper/Fragment/Decl.lean", 272, 277)[the recursor's type]
 and #src("whitepaper/Fragment/Decl.lean", 314, 321)[a rule's right-hand side]\;
-in con-leche: #src("ConLeche/Kernel/Inductives/GenRec.lean", 175, 182)[the type],
-#src("ConLeche/Kernel/Inductives/GenRec.lean", 188, 207)[a rule].)
+in con-leche: #src("ConLeche/Kernel/Inductives/GenRec.lean", 176, 183)[the type],
+#src("ConLeche/Kernel/Inductives/GenRec.lean", 189, 208)[a rule].)
 
 === The elimination rule
 
@@ -268,7 +268,7 @@ the checker answers each with the level oracle:
 === When a block is accepted
 
 A block #src("whitepaper/Fragment/Decl.lean", 719, 764)[is accepted] when
-(#src("ConLeche/Kernel/Inductives/BlockTail.lean", 154, 163)[as in con-leche]):
+(#src("ConLeche/Kernel/Inductives/BlockTail.lean", 153, 163)[as in con-leche]):
 
 - its names are distinct and fresh;
 - the specification is in scope, positivity included;
@@ -294,7 +294,7 @@ generated type a well-denoted type.
 #real[
   The same steps run in this order, and each generated rule is
   type-checked in the environment holding the rule-less recursor
-  (#src("ConLeche/Kernel/Inductives/GenRec.lean", 424, 446)[a generated rule]).
+  (#src("ConLeche/Kernel/Inductives/GenRec.lean", 425, 447)[a generated rule]).
 ]
 
 === What is stored
@@ -967,11 +967,11 @@ without a certificate, through the projections of the major.
 #real[
   The checker decides the case with one level test per redex: whether
   the constructor's family is
-  #src("ConLeche/Kernel/CoreDefs.lean", 83, 91)[never a proposition]
+  #src("ConLeche/Kernel/CoreDefs.lean", 81, 89)[never a proposition]
   at the levels the rule compares with, read off the family's type where
   the question is asked. A K rule and a family that is never
   a proposition fire with no check; every
-  #src("ConLeche/Kernel/CoreDefs.lean", 100, 102)[other rule] is the
+  #src("ConLeche/Kernel/CoreDefs.lean", 98, 100)[other rule] is the
   certified case, as in the fragment.
 ]
 
@@ -988,7 +988,7 @@ assumed of the environment they extend.
 #theorem(name: "Every accepted environment has a model")[
   For every model of the extended theory, every accepted environment
   #src("whitepaper/Fragment/Consistency.lean", 57, 70)[has a model in it]
-  (#src("ConLeche/MainTheorem.lean", 98, 101)[con-leche's main theorem]).
+  (#src("ConLeche/MainTheorem.lean", 102, 105)[con-leche's main theorem]).
 ] <thm:accepted-model>
 
 #proof[
@@ -1011,7 +1011,7 @@ assumed of the environment they extend.
   environment. Then #src("whitepaper/Fragment/Consistency.lean", 89, 98)[no closed term $e$ has] $tack e => I$; in
   particular no stored constant has type $I$
   (#src("whitepaper/Fragment/Consistency.lean", 134, 138)[at the block `inductive False : Prop`]\;
-  #src("ConLeche/Model/Fold.lean", 431, 438)[as in con-leche]).
+  #src("ConLeche/Model/Fold.lean", 435, 442)[as in con-leche]).
 ] <cor:consistency>
 
 #proof[
@@ -1039,7 +1039,7 @@ assumed of the environment they extend.
   name `False` and say that it denotes the empty set and `Eq` set
   equality, with no hypothesis about the stream (#overview(1)); and
   its acceptance is the run of a program,
-  #src("ConLeche/Model/Fold.lean", 360, 362)[the declaration fold],
+  #src("ConLeche/Model/Fold.lean", 364, 366)[the declaration fold],
   rather than a relation, so a bridge theorem turns each accepting
   run into the derivations §3 and §4 consume (@sec:left-out). The
   argument in between is the one above.

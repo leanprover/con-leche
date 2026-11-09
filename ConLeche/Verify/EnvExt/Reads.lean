@@ -114,6 +114,15 @@ theorem res_instSpine {env : Env} :
     res_instSpine (t - 1) (res_instantiate1 (hargs a List.mem_cons_self) e t he)
       (fun a' ha' => hargs a' (List.mem_cons_of_mem _ ha'))
 
+theorem res_instantiateList {env : Env} :
+    ∀ {vs : List Expr}, (∀ v ∈ vs, Res env v) → ∀ {e : Expr} (d : Nat), Res env e →
+      Res env (e.instantiateList vs d)
+  | [], _, e, d, he => by rw [Expr.instantiateList_nil]; exact he
+  | v :: _vs, hvs, e, d, he => by
+    rw [Expr.instantiateList_cons]
+    exact res_instantiate1 (hvs v List.mem_cons_self) _ d
+      (res_instantiateList (fun w hw => hvs w (List.mem_cons_of_mem _ hw)) (d + 1) he)
+
 theorem res_inst {env : Env} (ks : List Name) (us : List Level) {e : Expr} (h : Res env e) :
     Res env (e.instantiateLevelParams ks us) := by
   simpa [Res, Expr.constsResolve_instantiateLevelParams] using h

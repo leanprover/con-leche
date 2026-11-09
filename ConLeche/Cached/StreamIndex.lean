@@ -8,7 +8,7 @@ public import ConLeche.Cached.ParsedC
 # The index of a stream, and a record's job
 
 The stream's index is built once, after the parse and before any check, from the records alone
-(`declConstants`, `declTables`): every constant with its counter, its position among all the
+(`declConstantsC`, `declTablesC`): every constant with its counter, its position among all the
 constants of the stream, and every table with its record's position.  It is never written again.
 
 The name's FIRST entry wins.  A record whose name an earlier record took sees that entry at its own
@@ -56,8 +56,8 @@ def insertTables (tbls : Std.HashMap Name (Nat × ProjTable)) (r : Nat) :
 
 /-- One record into the index. -/
 def StreamIndex.add (I : StreamIndex) (pd : Declaration) : StreamIndex :=
-  let (idx, next) := insertConsts I.base.idx I.next (declConstants pd)
-  { base := { I.base with idx, tbls := insertTables I.base.tbls I.firsts.size (declTables pd) }
+  let (idx, next) := insertConsts I.base.idx I.next (declConstantsC pd)
+  { base := { I.base with idx, tbls := insertTables I.base.tbls I.firsts.size (declTablesC pd) }
     firsts := I.firsts.push I.next
     next }
 
@@ -72,10 +72,10 @@ def StreamIndex.view (I : StreamIndex) (k : Nat) : FEnv :=
   ⟨⟨[], []⟩, {}, { I.base with below := c, belowRec := k }, [], {}⟩
 
 /-- **Record `pd`'s job, at position `k`**: what the fold's step asks of it, at its view. -/
-def recordJob (mode : CheckMode) (pins : List NatOpPinSet) (I : StreamIndex) (k : Nat)
+def recordJob (mode : CheckMode) (pins : List NatOpPinSet) (maxNatSize : Nat) (I : StreamIndex) (k : Nat)
     (pd : Declaration) : Except CheckError Unit :=
   if andPinOk pd then
-    match checkDeclStepC mode pins (I.view k) pd {} with
+    match checkDeclStepC mode pins (I.view k) pd { maxNatSize := maxNatSize } with
     | .ok _ => .ok ()
     | .error e => .error e
   else .error (.invalid "`And` must be the standard `And`")

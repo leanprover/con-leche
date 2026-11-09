@@ -503,20 +503,18 @@ theorem checkBlockIdxSorts_inv {env₁ : Env} {q : BlockShape} {F : Nat} :
 
 /-! ## The install after the pass -/
 
-/-- The tables' stage, inverted: each structure-like member's table checks passed. -/
-theorem checkBlockTables_inv {p : BlockShape} {env : Env} :
-    ∀ {l : List MemberShape}, checkBlockTables (m := CheckM) p env l = .ok () →
-      ∀ ms ∈ l, ∀ c, ms.structCtor? = some c →
-        checkStructProjTable (m := CheckM) ms.cvT.name p.lps p.nP c.2 c.1 env = .ok ()
-  | [], _, _, h, _, _ => nomatch h
-  | ms :: rest, h, m, hm, c, hc => by
+/-- The tables' stage, inverted: each table's checks passed. -/
+theorem checkBlockTables_inv {env : Env} :
+    ∀ {Q : List ProjTable}, checkBlockTables (m := CheckM) env Q = .ok () →
+      ∀ t ∈ Q, checkStructProjTable (m := CheckM) t env = .ok ()
+  | [], _, _, ht => nomatch ht
+  | _ :: _, h, t', ht => by
     unfold checkBlockTables at h
     obtain ⟨u, hu, h⟩ := exceptBind_ok h
-    rcases List.mem_cons.mp hm with rfl | hm'
-    · rw [hc] at hu
-      cases u
+    rcases List.mem_cons.mp ht with rfl | ht'
+    · cases u
       exact hu
-    · exact checkBlockTables_inv h m hm' c hc
+    · exact checkBlockTables_inv h t' ht'
 
 /-! ## The install does not read the telescope a former was reduced to -/
 
@@ -619,19 +617,19 @@ the RECURSOR STAGE — left opaque, as `checkBlockRec … = .ok out` — the
 stored recursors against the generated ones at the generated install
 (`streamRecsCheck`, task #431), the stored recursors consed
 with their rules at their majors, and the projection tables. -/
-theorem checkBlockTail_inv {block : List ConstantInfo} {q : BlockPass Env} {F : Nat}
-    (h : checkBlockTail (m := CheckM) (fueledOps mode F) block q = .ok ()) :
+theorem checkBlockTail_inv {block : List ConstantInfo} {q : BlockPass Env} {Q : List ProjTable}
+    {F : Nat} (h : checkBlockTail (m := CheckM) (fueledOps mode F) block q Q = .ok ()) :
     ∃ (isorts : List (List Level))
       (out : List (ConstantVal × TargetMajor × List Expr)),
       BlockIdxSortsRun mode F q.env₁ q.p q.p.members isorts ∧
       checkBlockRec (fueledOps mode F) (consBlockCtors q.p.nP q.p.memberCtors q.env₁)
         q.p (blockNestedBit q.p q.kinds) q.params q.tbl.toList q.rd q.cls block = .ok out ∧
       streamKCheck (m := CheckM) q.p q.p.recs out = .ok () ∧
-      streamRecsCheck (m := CheckM) (fueledOps mode F) .plain
+      streamRecsCheck (m := CheckM) (fueledOps mode F)
         (mkFEnv (consBlockRecsT q.p 0 out (consBlockCtors q.p.nP q.p.memberCtors q.env₁))) q.p.recs out
         = .ok () ∧
-      checkBlockTables (m := CheckM) q.p (consBlockCtors q.p.nP q.p.memberCtors q.env₁)
-        q.p.members = .ok () := by
+      checkBlockTables (m := CheckM) (consBlockCtors q.p.nP q.p.memberCtors q.env₁) Q
+        = .ok () := by
   rw [checkBlockTail] at h
   simp only [bind, Except.bind] at h
   cases hsorts : checkBlockIdxSorts (m := CheckM) (fueledOps mode F) q.env₁ q.p
@@ -655,7 +653,7 @@ theorem checkBlockTail_inv {block : List ConstantInfo} {q : BlockPass Env} {F : 
   cases uK
   rw [hK] at h
   dsimp only at h
-  cases hS : streamRecsCheck (m := CheckM) (fueledOps mode F) .plain
+  cases hS : streamRecsCheck (m := CheckM) (fueledOps mode F)
       (mkFEnv (consBlockRecsT q.p 0 out (consBlockCtors q.p.nP q.p.memberCtors q.env₁))) q.p.recs out with
   | error e => rw [hS] at h; exact nomatch h
   | ok u =>
