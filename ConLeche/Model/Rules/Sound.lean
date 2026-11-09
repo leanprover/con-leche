@@ -4,6 +4,7 @@ public import ConLeche.Model.Rules.Inputs
 import ConLeche.Model.Rules.RedSound
 import ConLeche.Model.Rules.IotaSound
 import ConLeche.Model.Rules.DefEqSound
+import ConLeche.Model.Rules.UnitSound
 import ConLeche.Model.Rules.InferSound
 import ConLeche.Model.Rules.GuardSound
 import ConLeche.Model.Rules.FormerSound
@@ -17,7 +18,7 @@ public section
 # The soundness of derivations (task #305)
 
 **Derivation ⇒ P currency**, by one mutual structural recursion over
-the eight relations.  Every case is one per-rule lemma applied to the
+the relations.  Every case is one per-rule lemma applied to the
 recursive calls — nothing semantic happens here, which is the whole
 point: the per-rule lemmas are the proof lanes' deliverables, this
 file is fixed, and it is what the recomposition consumes.
@@ -87,11 +88,10 @@ theorem red_sound (hin : RulesInputs V m φ) :
       (infer_sound hin htp)
       (prop_pt_io hin http rfl (infer_sound hin http) hv (red_sound hin hv)
         (ConLeche.Level.isEquiv_sound hv0 φ))
-  | _, _, _, .rescueEta hrec heta hctor hres hind htm htmaj hthead hlen hlv
-      hfab hws hb hlv' hresT hresC htow =>
-    Red.rescueEta_sound hin hrec heta hctor hres hind (infer_sound hin htm)
-      (red_sound hin htmaj) htmaj hthead hlen hlv hfab hws hb hlv' hresT hresC
-      htow
+  | _, _, _, .rescueEta hrec hctor hres hind heta htm htmaj hthead hlen hlv
+      hfab hws hb hlv' =>
+    Red.rescueEta_sound hin hrec hctor hres hind heta (infer_sound hin htm)
+      (red_sound hin htmaj) htmaj hthead hlen hlv hfab hws hb hlv'
 
 theorem defeq_sound (hin : RulesInputs V m φ) :
     ∀ {d : Nat} {a b : Expr}, DefEq env d a b → DefEqSem m φ d a b
@@ -113,19 +113,43 @@ theorem defeq_sound (hin : RulesInputs V m φ) :
     DefEq.proofIrrel_sound (infer_sound hin hta)
       (prop_pt_io hin htta rfl (infer_sound hin htta) hu (red_sound hin hu)
         (ConLeche.Level.isEquiv_sound hu0 φ))
-  | _, _, _, .structUnit hta hwta hthead hind hunit hresT htlen hlv htb hwtb hwtbF hd =>
-    DefEq.structUnit_sound hin (infer_sound hin hta) (red_sound hin hwta) hwta hthead
-      hind hunit hresT htlen hlv (infer_sound hin htb) (red_sound hin hwtb) hwtb hwtbF
+  | _, _, _, .unitLike hta hwta hnA hu htb hwtb hnB hd =>
+    DefEq.unitLike_sound (infer_sound hin hta) (red_sound hin hwta) hwta hnA
+      (unitLike_sound hin hu) (infer_sound hin htb) (red_sound hin hwtb) hwtb hnB
       (defeq_sound hin hd)
+  | _, _, _, .etaExpand hna hnb hta htb hd hex =>
+    DefEq.etaExpand_sound hna hnb (infer_sound hin hta) (infer_sound hin htb)
+      (defeq_sound hin hd) (defEqExpand_sound hin hex)
   | _, _, _, .eta hneu htb hwtb hty hbody ht₁ htB =>
     DefEq.eta_sound hneu (infer_sound hin htb) (red_sound hin hwtb)
       (defeq_sound hin hty) (defeq_sound hin hbody) (infer_sound hin ht₁)
       (defeq_sound hin htB)
-  | _, _, _, .structEta htb hwtb hhead hctor hlen hthead hind heta hetaCtor hresT
-      hresc htlen hlv hlps hslots hus hparams hfields =>
+  | _, _, _, .structEta htb hwtb hhead hctor hlen hthead hind htbl heta hetaCtor
+      htlen hlv hlps hus hparams hfields =>
     DefEq.structEta_sound hin (infer_sound hin htb) (red_sound hin hwtb) hwtb hhead
-      hctor hlen hthead hind heta hetaCtor hresT hresc htlen hlv hlps hslots hus
+      hctor hlen hthead hind htbl heta hetaCtor htlen hlv hlps hus
       (defEqList_sound hin hparams) (defEqList_sound hin hfields)
+
+theorem defEqExpand_sound (hin : RulesInputs V m φ) :
+    ∀ {d : Nat} {a b T : Expr}, DefEqExpand env d a b T → DefEqExpandSem m φ d a b T
+  | _, _, _, _, .done h => DefEqExpand.done_sound (defeq_sound hin h)
+  | _, _, _, _, .step h => DefEqExpand.step_sound (defEqExpand_sound hin h)
+
+theorem unitLike_sound (hin : RulesInputs V m φ) :
+    ∀ {d : Nat} {T : Expr}, UnitLike env d T → UnitLikeSem m φ d T
+  | _, _, .pi hr h => UnitLike.pi_sound (red_sound hin hr) (unitLike_sound hin h)
+  | _, _, .struct hr hsh hf =>
+    UnitLike.struct_sound hin (red_sound hin hr) hsh (unitFields_sound hin hf)
+
+theorem unitFields_sound (hin : RulesInputs V m φ) :
+    ∀ {d : Nat} {tele : Expr} {n : Nat}, UnitFields env d tele n → UnitFieldsSem m φ d tele n
+  | _, _, _, .nil => UnitFields.nil_sound
+  | _, _, _, .prop htt hu hz h =>
+    UnitFields.prop_sound
+      (prop_pt_io hin htt rfl (infer_sound hin htt) hu (red_sound hin hu)
+        (ConLeche.Level.isEquiv_sound hz φ))
+      (unitFields_sound hin h)
+  | _, _, _, .unit hu h => UnitFields.unit_sound (unitLike_sound hin hu) (unitFields_sound hin h)
 
 theorem defEqLams_sound (hin : RulesInputs V m φ) :
     ∀ {d : Nat} {a b : Expr}, DefEqLams env d a b → DefEqLamsSem m φ d a b

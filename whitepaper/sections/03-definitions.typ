@@ -22,9 +22,9 @@ corollary follow in @sec:ind.
 
 *The environment* $E$, fixed throughout like the valuation, is a
 #src("whitepaper/Fragment/Env.lean", 109, 125)[list of the constants] accepted so far,
-#src("ConLeche/Kernel/Env.lean", 456)[most recent first]. A
+#src("ConLeche/Kernel/Env.lean", 446)[most recent first]. A
 #src("whitepaper/Fragment/Env.lean", 63, 100)[stored constant] has its level parameters $arrow(p)$, its type (a closed
-term over $arrow(p)$) and #src("ConLeche/Kernel/Env.lean", 293, 311)[its _kind_]. We write
+term over $arrow(p)$) and #src("ConLeche/Kernel/Env.lean", 283, 301)[its _kind_]. We write
 $(c.\{arrow(p)\} : T) in E$ for "$c$ is stored with parameters
 $arrow(p)$ and type $T$", and $(c.\{arrow(p)\} : T := v) in E$ when
 it is a definition with value $v$. A
@@ -51,8 +51,8 @@ of constants
 #src("whitepaper/Fragment/Rules.lean", 749, 753)[has its declared type] at the
 levels it is used at, and two constants of the same name
 #src("whitepaper/Fragment/Rules.lean", 563, 566)[are compared] through the level oracle
-(in con-leche: #src("ConLeche/Rules/Rel.lean", 550, 556)[inference]
-and #src("ConLeche/Rules/Rel.lean", 371, 376)[equality]).
+(in con-leche: #src("ConLeche/Rules/Rel.lean", 600, 606)[inference]
+and #src("ConLeche/Rules/Rel.lean", 372, 377)[equality]).
 
 #rules(
   rule(name: "const",
@@ -65,7 +65,7 @@ and #src("ConLeche/Rules/Rel.lean", 371, 376)[equality]).
 
 *The $delta$ rule.* A definition #src("whitepaper/Fragment/Rules.lean", 88, 94)[unfolds to its value] at the levels
 it is used at
-(#src("ConLeche/Rules/Rel.lean", 137, 141)[as in con-leche]). With the
+(#src("ConLeche/Rules/Rel.lean", 142, 146)[as in con-leche]). With the
 head rule of @sec:rules, an applied definition unfolds at its head.
 
 #rules(
@@ -172,7 +172,7 @@ gains three cases, one per rule.
   $arrow(ell) eq.dot arrow(ell)'$ pointwise: \
   The oracle answers yes
   only if the levels agree at every valuation (@sec:levels), so the
-  two constants #src("ConLeche/Model/Rules/DefEqSound.lean", 69, 71)[read the same entry of $M$].
+  two constants #src("ConLeche/Model/Rules/DefEqSound.lean", 70, 72)[read the same entry of $M$].
 
   *#src("whitepaper/Fragment/Sound.lean", 276, 281)[Rule const, inference]*,
   $c.\{arrow(ell)\} => T[arrow(p) := arrow(ell)]$: \

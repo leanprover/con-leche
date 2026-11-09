@@ -303,12 +303,6 @@ theorem structEtaCertWith_atF (d : Nat) (a b wtb : Expr) (F : Nat) :
   unfold structEtaCertWith
   atF_tac
 
-theorem structUnitCert_atF (d : Nat) (a b : Expr) (F : Nat) :
-    (structUnitCert (fueledFns mode eager env) env d a b).val F =
-      structUnitCert (pureFns mode eager env F) env d a b := by
-  unfold structUnitCert
-  atF_tac
-
 theorem etaCert_atF (d : Nat) (ty body : Expr) (b : Expr) (F : Nat) :
     (etaCert mi (fueledFns mode eager env) env d ty body b).val F =
       etaCert mi (pureFns mode eager env F) env d ty body b := by
@@ -330,7 +324,6 @@ macro "atF_step2" : tactic =>
     | (rw [proofIrrel_atF])
     | (rw [propIrrel_atF])
     | (rw [structEtaCertWith_atF])
-    | (rw [structUnitCert_atF])
     | (rw [etaCert_atF])
     | ((rw [FueledM.atF_bind]; congr 1 <;> try rfl) <;> try funext _)
     | (dsimp only [])
@@ -342,11 +335,96 @@ macro "atF_tac2" : tactic =>
     atF_step2 <;> atF_step2 <;> atF_step2 <;> atF_step2 <;>
     atF_step2 <;> atF_step2 <;> atF_step2)
 
+theorem structEtaFull_atF (d : Nat) (a b : Expr) (F : Nat) :
+    (structEtaFull (fueledFns mode eager env) env d a b).val F =
+      structEtaFull (pureFns mode eager env F) env d a b := by
+  unfold structEtaFull
+  atF_tac2
+
+theorem structEtaExpand_atF (F : Nat) :
+    ∀ (k d : Nat) (a b t : Expr),
+      (structEtaExpand (fueledFns mode eager env) env k d a b t).val F =
+        structEtaExpand (pureFns mode eager env F) env k d a b t
+  | 0, d, a, b, _ => structEtaFull_atF d a b F
+  | k + 1, d, a, b, t => by
+    cases t <;> try rfl
+    exact structEtaExpand_atF F k (d + 1) _ _ _
+
 theorem structEtaCert_atF (d : Nat) (a b : Expr) (F : Nat) :
     (structEtaCert (fueledFns mode eager env) env d a b).val F =
       structEtaCert (pureFns mode eager env F) env d a b := by
   unfold structEtaCert
-  atF_tac2
+  split
+  · exact structEtaFull_atF d a b F
+  · split
+    · split
+      · rfl
+      · rw [FueledM.atF_bind]; refine congrArg _ (funext fun ta => ?_)
+        rw [FueledM.atF_bind]; refine congrArg _ (funext fun tb => ?_)
+        rw [FueledM.atF_bind]; refine congrArg _ (funext fun ok => ?_)
+        cases ok
+        · rfl
+        · exact structEtaExpand_atF F _ d a b ta
+    · rfl
+
+theorem isPropType_atF (d : Nat) (T : Expr) (F : Nat) :
+    (isPropType (fueledFns mode eager env) d T).val F = isPropType (pureFns mode eager env F) d T := by
+  unfold isPropType
+  atF_tac
+
+theorem unitLikeFields_atF {ul : Nat → Expr → FueledM Bool}
+    {ul' : Nat → Expr → CheckM Bool} (F : Nat) (hul : ∀ d e, (ul d e).val F = ul' d e) :
+    ∀ (n d : Nat) (t : Expr),
+      (unitLikeFields (fueledFns mode eager env) ul n d t).val F =
+        unitLikeFields (pureFns mode eager env F) ul' n d t
+  | 0, d, t => rfl
+  | n + 1, d, t => by
+    cases t <;> try rfl
+    unfold unitLikeFields
+    rw [FueledM.atF_bind, isPropType_atF]
+    refine congrArg _ (funext fun p => ?_)
+    cases p
+    · simp only [Bool.false_eq_true, ↓reduceIte]
+      rw [FueledM.atF_bind, hul]
+      refine congrArg _ (funext fun u => ?_)
+      cases u
+      · rfl
+      · exact unitLikeFields_atF F hul n (d + 1) _
+    · exact unitLikeFields_atF F hul n (d + 1) _
+
+theorem unitLikeStruct_atF {ul : Nat → Expr → FueledM Bool}
+    {ul' : Nat → Expr → CheckM Bool} (F : Nat) (hul : ∀ d e, (ul d e).val F = ul' d e)
+    (d : Nat) (w : Expr) :
+    (unitLikeStruct (fueledFns mode eager env) ul env d w).val F =
+      unitLikeStruct (pureFns mode eager env F) ul' env d w := by
+  unfold unitLikeStruct
+  split
+  · exact unitLikeFields_atF F hul _ _ _
+  · rfl
+
+theorem unitLikeLoop_atF (F : Nat) :
+    ∀ (fuel d : Nat) (T : Expr),
+      (unitLikeLoop (fueledFns mode eager env) env fuel d T).val F =
+        unitLikeLoop (pureFns mode eager env F) env fuel d T
+  | 0, d, T => rfl
+  | fuel + 1, d, T => by
+    unfold unitLikeLoop
+    rw [FueledM.atF_bind]
+    refine congrArg _ (funext fun w => ?_)
+    split
+    · exact unitLikeLoop_atF F fuel (d + 1) _
+    · exact unitLikeStruct_atF F (fun d e => unitLikeLoop_atF F fuel d e) d _
+
+theorem structUnitCert_atF (d : Nat) (a b : Expr) (F : Nat) :
+    (structUnitCert (fueledFns mode eager env) env d a b).val F =
+      structUnitCert (pureFns mode eager env F) env d a b := by
+  unfold structUnitCert
+  repeat (first
+    | rfl
+    | (rw [unitLikeLoop_atF])
+    | ((rw [FueledM.atF_bind]; congr 1 <;> try rfl) <;> try funext _)
+    | (dsimp only [])
+    | split)
 
 -- Outer casing peeled by hand (as in `ConLeche/Verify/PairM.lean`): the
 -- body outgrew the split-driven macro.
@@ -380,10 +458,11 @@ theorem majorToCtor_atF (d : Nat) (c : Name) (isK : Bool) (rules : List RecRule)
     · rw [ite_eq_left hK, ite_eq_left hK]
       atF_tac2
     rw [ite_eq_right hK, ite_eq_right hK]
-    by_cases hE : etaRescueOk rl.ctor cvj cvT caps = true
-    · rw [ite_eq_left hE, ite_eq_left hE]
+    cases etaRescueTable? (env.findTable? T) rl.ctor cvj cvT caps
+    case some tbl =>
+      dsimp only
       atF_tac2
-    rw [ite_eq_right hE, ite_eq_right hE]
+    dsimp only
     by_cases hA : T = andName
     · rw [ite_eq_left hA, ite_eq_left hA]
       atF_tac2

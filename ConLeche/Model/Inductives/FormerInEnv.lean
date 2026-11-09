@@ -71,13 +71,6 @@ theorem FormerDeclared.cross {env : Env} {m : EnvModel V env} {cvS cvTa : Consta
   · rw [hac]; exact denote_cons_mono hfresh ψ 0 (constsBound_of_constsResolve _ h.resolve) h₁
   · rw [hac]; exact denote_cons_mono hfresh ψ 0 (constsBound_of_constsResolve _ h.readResolve) h₂
 
-/-- A family's capability laws read its former only through its level parameters. -/
-theorem CapsLawsAt.of_lps {env : Env} {m : EnvModel V env} {T : Name} {a b : ConstantVal}
-    {caps : IndCaps} (h : CapsLawsAt m T a caps) (hl : a.levelParams = b.levelParams) :
-    CapsLawsAt m T b caps := by
-  unfold CapsLawsAt EtaLaw UnitLaw at h ⊢
-  rwa [hl] at h
-
 /-- A declared former's facts across a pushed table. -/
 theorem FormerDeclared.pushTable {env : Env} {m : EnvModel V env} {cvS cvTa : ConstantVal}
     (h : FormerDeclared m cvS cvTa) {t : ConLeche.ProjTable}

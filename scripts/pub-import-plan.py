@@ -119,6 +119,14 @@ FALLBACK = {
     # attributes them to that private import.  Measured: demoting it breaks the file
     # (unknown identifier `CheckerOps`, `ViewCongr.lean:44`).
     ('ConLeche.Verify.Cached.ViewCongr', 'ConLeche.Cached.ParsedC'),
+    # task #515: each MEASURED by demoting it alone.  `UnitSound`'s `variable`s
+    # name `SetTheory` through `Inputs` (unknown identifier `SetTheory`,
+    # `UnitSound.lean:47`); the certificate bridges' statements name
+    # `iotaCertsFullFueled` (`Knot`, `Certs.lean:38`) and `DefEqBridge`
+    # (`Defs`, `Certs.lean:35`); the census attributes them to the private imports.
+    ('ConLeche.Model.Rules.UnitSound', 'ConLeche.Model.Rules.Inputs'),
+    ('ConLeche.Verify.Rules.Certs', 'ConLeche.Verify.Knot'),
+    ('ConLeche.Verify.Rules.Certs', 'ConLeche.Verify.Rules.Defs'),
     # task #480: each MEASURED by demoting it alone (the module stops building).
     ('ConLeche.Verify.Cached.PushChain', 'ConLeche.Verify.Cached.DeclPushes'),
     ('ConLeche.Verify.Inductives.NestNfScope', 'ConLeche.Verify.Inductives.PositivityInv'),
@@ -537,17 +545,13 @@ FALLBACK = {
      'ConLeche.Model.Inductives.BlockRuleRun'),
     ('ConLeche.Model.Inductives.BlockDeclRun',
      'ConLeche.Model.Inductives.BlockRecTyShapeRun'),
-    # task #315 (lane ETA1, the k-ary η-closure): `DeclBlockEta.lean`'s two
-    # re-exports are named by its PUBLIC statements (`BlockShape`,
-    # `consBlockInds`, … through `DeclBlock`; `ExtEta`, `EtaFamiliesClosed`
-    # through `EnvGuards`), yet the model reports each individually
-    # demotable.  MEASURED, each alone: demoting `DeclBlock` fails with
-    # `Unknown identifier BlockShape` (`:53`), demoting `EnvGuards` with
-    # `Unknown identifier ExtEta` (`:294`).
-    ('ConLeche.Semantics.Inductives.DeclBlockEta',
-     'ConLeche.Semantics.Inductives.DeclBlock'),
-    ('ConLeche.Semantics.Inductives.DeclBlockEta',
-     'ConLeche.Verify.EnvGuards'),
+    # task #315 (lane ETA1), task #515 round 3: `BlockConsFind.lean`'s
+    # re-export is named by its PUBLIC statements (`BlockShape`,
+    # `consBlockInds`, `consSumCtors`, …), yet the model reports it
+    # demotable.  MEASURED: demoting it fails with `Unknown identifier
+    # Name` (`:33`).
+    ('ConLeche.Semantics.Inductives.BlockConsFind',
+     'ConLeche.Kernel.Inductives.BlockInstall'),
     # task #315 (lane RM52, the level-parameter kit): `BlockRuleParams.lean`
     # re-exports `Model/Inductives/BlockRuleRun.lean` because its `variable`
     # binder gets `[SetTheory V]` through that line and its public statements

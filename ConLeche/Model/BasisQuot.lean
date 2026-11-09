@@ -223,7 +223,7 @@ theorem extendQuot (mp : EnvModelM V env)
     (fun _ _ _ h => nomatch h)
     (by decide) (by decide) (by decide) (by decide)
     (fun _ _ _ _ _ h => nomatch h)
-    (Or.inl (by decide)) (Or.inl (fun _ h => nomatch h))
+    (Or.inl (fun _ h => nomatch h))
     (ConsHead.ofBasis hwf (fun _ => trivial) rfl
       (fun ψ t hp => by
         rw [show ConLeche.Verify.pinnedStructT quotA.name ψ
@@ -261,7 +261,7 @@ theorem extendQuotMk (mp : EnvModelM V env)
     (fun _ _ _ h => nomatch h)
     (by decide) (by decide) (by decide) (by decide)
     (fun _ _ _ _ _ h => nomatch h)
-    (Or.inl (by decide)) (Or.inl (fun _ h => nomatch h))
+    (Or.inl (fun _ h => nomatch h))
     (ConsHead.ofBasis hwf (fun _ => trivial) rfl
       (fun ψ t hp => by
         rw [show ConLeche.Verify.pinnedStructT quotMkA.name ψ
@@ -1135,7 +1135,7 @@ theorem extendQuotInd (mp : EnvModelM V env)
     (A := fun ψ => Term.const .quotInd [ψ uN]) hfresh (by decide)
     (fun _ _ _ h => nomatch h)
     (by decide) (by decide) (by decide) (by decide)
-    (by decide) (Or.inl (fun _ h => nomatch h))
+    (Or.inl (fun _ h => nomatch h))
     (ConsHead.ofBasis hwf (fun _ => trivial) rfl
       (fun ψ t hp => by
         rw [show ConLeche.Verify.pinnedStructT quotIndA.name ψ
@@ -1527,7 +1527,7 @@ theorem extendQuotSound (mp : EnvModelM V env)
     (fun _ _ _ h => nomatch h)
     (by decide) (by decide) (by decide) (by decide)
     (fun _ _ _ _ _ h => nomatch h)
-    (Or.inl (by decide)) (Or.inr (by decide))
+    (Or.inr (by decide))
     (ConsHead.ofBasis hwf (fun _ => trivial) rfl
       (fun ψ t hp => by
         rw [show ConLeche.Verify.pinnedStructT quotSoundA.name ψ
@@ -2515,7 +2515,7 @@ theorem extendQuotLift (mp : EnvModelM V env)
     (A := fun ψ => Term.const .quotLift [ψ uN, ψ vN]) hfresh (by decide)
     (fun _ _ _ h => nomatch h)
     (by decide) (by decide) (by decide) (by decide)
-    (by decide) (Or.inl (fun _ h => nomatch h))
+    (Or.inl (fun _ h => nomatch h))
     (ConsHead.ofBasis hwf (fun _ => trivial) rfl
       (fun ψ t hp => by
         rw [show ConLeche.Verify.pinnedStructT quotLiftA.name ψ

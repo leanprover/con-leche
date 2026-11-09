@@ -49,8 +49,7 @@ frame, from the constructors' stage. -/
 theorem BlockCtorsStage.idxOkAt {envI : Env} {d : BlockData V}
     {lps : List Name} {formers : List ConstantVal} {p₁ : ConLeche.BlockShape} {isRec : Bool}
     {F : Nat} {A : Nat → (Name → Nat) → Term}
-    {ctorsOf : Name → List Name}
-    (hS : BlockCtorsStage (V := V) F d lps formers p₁ isRec A envI ctorsOf) (hk0 : 0 < d.k) :
+    (hS : BlockCtorsStage (V := V) F d lps formers p₁ isRec A envI) (hk0 : 0 < d.k) :
     ∀ (ψ : Name → Nat) (ρp : Nat → V), Sat V (d.params ψ).reverse ρp →
       ∀ c, c < d.N → IdxOk (d.uM c ψ) ρp (d.IdsM c ψ) := by
   intro ψ ρp hs c hc
@@ -63,9 +62,8 @@ hole fit (`LfpDatum.holeOp_fibre`). -/
 theorem blockHoleFib_of_records {envC envI : Env} {mo : EnvModel V envC} {d : BlockData V}
     {lps : List Name} {formers : List ConstantVal} {p₁ : ConLeche.BlockShape} {isRec : Bool}
     {F : Nat} {A : Nat → (Name → Nat) → Term}
-    {ctorsOf : Name → List Name}
     (hN : BlockNamesOk (V := V) d formers)
-    (hS : BlockCtorsStage (V := V) F d lps formers p₁ isRec A envI ctorsOf)
+    (hS : BlockCtorsStage (V := V) F d lps formers p₁ isRec A envI)
     (hcore : BlockCtorsCore mo d lps formers p₁ isRec A d.k)
     (hk0 : 0 < d.k)
     (hPhi : ∀ (ψ : Name → Nat) (ρp : Nat → V), d.Φ ψ ρp = d.toLfp.holeOp ψ ρp)
@@ -95,9 +93,8 @@ theorem blockHoleFib_of_records {envC envI : Env} {mo : EnvModel V envC} {d : Bl
 theorem blockModelAt_of_records {envC envI : Env} {mo : EnvModel V envC} {d : BlockData V}
     {lps : List Name} {formers : List ConstantVal} {p₁ : ConLeche.BlockShape} {isRec : Bool}
     {F : Nat} {A : Nat → (Name → Nat) → Term}
-    {ctorsOf : Name → List Name}
     (hN : BlockNamesOk (V := V) d formers)
-    (hS : BlockCtorsStage (V := V) F d lps formers p₁ isRec A envI ctorsOf)
+    (hS : BlockCtorsStage (V := V) F d lps formers p₁ isRec A envI)
     (hcore : BlockCtorsCore mo d lps formers p₁ isRec A d.k)
     (hinst : d.nInst = 0) (hk0 : 0 < d.k)
     (hPhi : ∀ (ψ : Name → Nat) (ρp : Nat → V), d.Φ ψ ρp = d.toLfp.holeOp ψ ρp)
@@ -242,9 +239,8 @@ in the member's index telescope (`BlockModelAt.resIdxFit`). -/
 theorem blockResIdxFit_of_records {envC envI : Env} {mo : EnvModel V envC} {d : BlockData V}
     {lps : List Name} {formers : List ConstantVal} {p₁ : ConLeche.BlockShape} {isRec : Bool}
     {F : Nat} {A : Nat → (Name → Nat) → Term}
-    {ctorsOf : Name → List Name}
     (hN : BlockNamesOk (V := V) d formers)
-    (hS : BlockCtorsStage (V := V) F d lps formers p₁ isRec A envI ctorsOf)
+    (hS : BlockCtorsStage (V := V) F d lps formers p₁ isRec A envI)
     (hcore : BlockCtorsCore mo d lps formers p₁ isRec A d.k)
     (hinst : d.nInst = 0) (hk0 : 0 < d.k)
     (hPhi : ∀ (ψ : Name → Nat) (ρp : Nat → V), d.Φ ψ ρp = d.toLfp.holeOp ψ ρp)
@@ -282,9 +278,8 @@ theorem blockResIdxFit_of_records {envC envI : Env} {mo : EnvModel V envC} {d : 
 theorem blockLfpClause_of_records {envC envI : Env} {mo : EnvModel V envC} {d : BlockData V}
     {lps : List Name} {formers : List ConstantVal} {p₁ : ConLeche.BlockShape} {isRec : Bool}
     {F : Nat} {A : Nat → (Name → Nat) → Term}
-    {ctorsOf : Name → List Name}
     (hN : BlockNamesOk (V := V) d formers)
-    (hS : BlockCtorsStage (V := V) F d lps formers p₁ isRec A envI ctorsOf)
+    (hS : BlockCtorsStage (V := V) F d lps formers p₁ isRec A envI)
     (hcore : BlockCtorsCore mo d lps formers p₁ isRec A d.k)
     (hinst : d.nInst = 0) (hk0 : 0 < d.k)
     (hPhi : ∀ (ψ : Name → Nat) (ρp : Nat → V), d.Φ ψ ρp = d.toLfp.holeOp ψ ρp)

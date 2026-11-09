@@ -287,7 +287,10 @@ arena_half() {
               if [ "$got" = 1 ] || [ "$got" = 3 ]; then
                 mismatch FAIL "$rel" "$want" "$got"; continue
               fi;;
-      bad/*)  if [ "$got" = 0 ]; then
+      # a `bad/` test is accepted only where its row says so: the
+      # official kernel accepts it since an extension of its rules
+      # (the row's comment names it)
+      bad/*)  if [ "$got" = 0 ] && [ "$want" != 0 ]; then
                 mismatch "SOUNDNESS FAIL" "$rel" "$want" "$got"; continue
               fi;;
     esac

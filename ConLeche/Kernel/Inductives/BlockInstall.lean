@@ -49,18 +49,20 @@ variable {m : Type -> Type} [Monad m] [MonadExceptOf CheckError m]
 /-- **The capability record of member `m`**: official's
 `is_non_rec_structure` (`inductive.cpp:28`, v4.34.0) is
 `ncnstrs == 1 && nindices == 0 && !is_rec` with `is_rec` read over ALL
-constructors of ALL members, so η and unit-likeness are the MEMBER's
+constructors of ALL members, so η is the MEMBER's
 data at the BLOCK's recursion verdict; rule K is official's
 `is_K_target`, which requires `m_ind_types.size() == 1` — a one-member
 block.  BOTH η (`try_eta_struct_core`, `type_checker.cpp:896`) and
 unit-η (`is_def_eq_unit_like`, `type_checker.cpp:1162`) are gated on
-`is_non_rec_structure`, so both carry `!isRec` (unit-η at a member of a
+`is_non_rec_structure`, so η carries `!isRec` (unit-η at a member of a
 recursive block would be an accept-superset, stream
-`whnfswap_unitpost_bad`).  At a FIELDLESS constructor of a
-non-recursive block the record claims BOTH unit-likeness and η, as
-official's gate does: the recursor's major-premise rescue (`Core.lean`,
-its η arm at a fieldless constructor — arena
-`073_typeSingletonRecReduction`) keys on η.  (Granting η at a recursive structure-like is sound in the model
+`whnfswap_unitpost_bad`).  There is no separate unit-like bit, as
+official has none: an η family is unit-like where its constructor's
+fields are (`unitLikeShape`, none at a fieldless one); the recursor's major-premise
+rescue (`Core.lean`, its η arm at a fieldless constructor — arena
+`073_typeSingletonRecReduction`) keys on η as well.  The constructor and
+the counts every η reader works at are the family's projection table's
+(`Env.findTable?`), at every field count: no record repeats them.  (Granting η at a recursive structure-like is sound in the model
 but not in practice: at a reflexive `W1 α = sup (a : α) (f : Nat →
 W1 α)` `isDefEq` spins through η-expansion, `ind_nest_via_refl` —
 official's `!is_rec` is load-bearing.) -/
@@ -68,11 +70,6 @@ def blockCapsAt (p : BlockShape) (mi : Nat) (isRec : Bool) : IndCaps :=
   match (p.members.getD mi default).ctors, (p.members.getD mi default).nIdx with
   | [c], nIdx =>
     { eta := nIdx == 0 && !isRec
-      etaCtor := c.1.name
-      etaParams := p.nP
-      etaFields := c.2
-      unitlike := nIdx == 0 && c.2 == 0 && !isRec
-      unitParams := p.nP
       all := p.memberNames
       nparams := p.nP
       nIdx := nIdx

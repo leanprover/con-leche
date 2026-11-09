@@ -907,14 +907,11 @@ theorem majorToCtor_inv {env : Env} {fuel d : Nat} {recName : Name} {isK : Bool}
            isDefEqCore mode eager env fuel d tmaj tfab = .ok true) ∧
          (mode.verifiedChecks = true →
            proofIrrelFueled mode eager env fuel d major' major = .ok true)) ∨
-        (etaRescueOk rl.ctor cvj cvT caps = true ∧
-         tmaj.getAppArgs.length = caps.etaParams ∧
+        (∃ tbl, etaRescueTable? (env.findTable? T) rl.ctor cvj cvT caps = some tbl ∧
+         tmaj.getAppArgs.length = tbl.numParams ∧
          ust.length = cvT.levelParams.length ∧
-         major' = Expr.mkAppN (.const caps.etaCtor ust)
-           (etaFabArgsE T tmaj.getAppArgs major caps.etaFields) ∧
-         (reservedBasisNames.contains T = false ∧
-           reservedBasisNames.contains caps.etaCtor = false ∧
-           towerSlotsAll env T caps.etaFields = true)) ∨
+         major' = Expr.mkAppN (.const tbl.ctor ust)
+           (etaFabArgsE T tmaj.getAppArgs major tbl.numFields)) ∨
         (T = andName ∧
          tmaj.getAppArgs.length = cnP ∧
          cvj.levelParams.length = ust.length ∧
@@ -1126,9 +1123,10 @@ theorem majorToCtor_inv {env : Env} {fuel d : Nat} {recName : Name} {isK : Bool}
       Or.inl ⟨hK, hlvl, harK1, rfl,
         ⟨tfab, htf, hdeq⟩, fun _ => hpi⟩⟩
   · rw [ite_eq_right hK] at h
-    by_cases hE : etaRescueOk rl.ctor cvj cvT caps = true
-    case neg =>
-      rw [ite_eq_right hE] at h
+    cases hE : etaRescueTable? (env.findTable? T) rl.ctor cvj cvT caps with
+    | none =>
+      rw [hE] at h
+      dsimp only at h
       by_cases hA : T = andName
       case neg =>
         rw [ite_eq_right hA] at h
@@ -1265,7 +1263,9 @@ theorem majorToCtor_inv {env : Env} {fuel d : Nat} {recName : Name} {isK : Bool}
         rfl, hfj, hpr, hfT, rfl, htw, hth,
         Or.inr (Or.inr ⟨hA, hplen, hlvl, hslots, rfl,
           ⟨tfab, htf, hdeq⟩, fun _ => hpi⟩)⟩
-    rw [ite_eq_left hE] at h
+    | some tbl =>
+    rw [hE] at h
+    dsimp only at h
     try simp only [Bind.bind, Except.bind] at h
     cases hti : inferTypeIO mode eager env fuel d major with
     | error err => rw [hti] at h; exact nomatch h
@@ -1318,17 +1318,14 @@ theorem majorToCtor_inv {env : Env} {fuel d : Nat} {recName : Name} {isK : Bool}
     | const T' ust =>
     intro h
     dsimp only at h
-    by_cases hTl : T' = T ∧ tmaj.getAppArgs.length = caps.etaParams ∧
-        ust.length = cvT.levelParams.length ∧
-        reservedBasisNames.contains T = false ∧
-        reservedBasisNames.contains caps.etaCtor = false ∧
-        towerSlotsAll env T caps.etaFields = true
+    by_cases hTl : T' = T ∧ tmaj.getAppArgs.length = tbl.numParams ∧
+        ust.length = cvT.levelParams.length
     case neg =>
       rw [ite_eq_right hTl] at h
       simp only [pure, Except.pure, Except.ok.injEq] at h
       exact Or.inl h.symm
     rw [ite_eq_left hTl] at h
-    obtain ⟨rfl, hplen, hlvl, hG⟩ := hTl
+    obtain ⟨rfl, hplen, hlvl⟩ := hTl
     cases hnzr : formerNeverZeroAt (pureFns mode eager env fuel).whnf cvT caps ust with
     | error err => rw [hnzr] at h; exact nomatch h
     | ok nz =>
@@ -1340,15 +1337,15 @@ theorem majorToCtor_inv {env : Env} {fuel d : Nat} {recName : Name} {isK : Bool}
       exact Or.inl h.symm
     | true =>
     simp only [↓reduceIte] at h
-    cases hguard : (Expr.mkAppN (.const caps.etaCtor ust)
+    cases hguard : (Expr.mkAppN (.const tbl.ctor ust)
           (etaFabArgsE T' tmaj.getAppArgs major
-            caps.etaFields)).wscopedB d &&
-        (Expr.mkAppN (.const caps.etaCtor ust)
+            tbl.numFields)).wscopedB d &&
+        (Expr.mkAppN (.const tbl.ctor ust)
           (etaFabArgsE T' tmaj.getAppArgs major
-            caps.etaFields)).looseBVarsBounded 0 &&
-        (Expr.mkAppN (.const caps.etaCtor ust)
+            tbl.numFields)).looseBVarsBounded 0 &&
+        (Expr.mkAppN (.const tbl.ctor ust)
           (etaFabArgsE T' tmaj.getAppArgs major
-            caps.etaFields)).fvarLeaves.all
+            tbl.numFields)).fvarLeaves.all
           (fun l => major.fvarLeaves.contains l) with
     | false =>
       rw [hguard] at h
@@ -1363,7 +1360,7 @@ theorem majorToCtor_inv {env : Env} {fuel d : Nat} {recName : Name} {isK : Bool}
     exact Or.inr ⟨hguard.1.1, hguard.1.2, hguard.2,
       rl, cvj, cnP, cnF, tmaj₀, tmaj, T', us₀, ust, cvT, caps,
       rfl, hfj, hpr, hfT, rfl, htw, hth,
-      Or.inr (Or.inl ⟨hE, hplen, hlvl, rfl, hG⟩)⟩
+      Or.inr (Or.inl ⟨tbl, hE, hplen, hlvl, rfl⟩)⟩
 
 /-- Inversion of one pairwise-defeq step. -/
 theorem defEqList_step_inv {env : Env} {fuel d : Nat} {a b : Expr}
@@ -1640,17 +1637,6 @@ theorem proofIrrel_inv {env : Env} {fuel d : Nat} {a b : Expr}
     cases okA <;> cases okB <;> simp_all
   exact ⟨ta, sta, uT, tb, stb, vT, rfl, hsta, hwta, heq1, rfl, hstb, hwtb, heq2⟩
 
-/-- `towerSlotsAll`, slot by slot. -/
-theorem towerSlotsAll_slot {env : Env} {T : Name} {nF : Nat}
-    (h : towerSlotsAll env T nF = true) :
-    ∀ j, j < nF → ∃ e : ProjEntry, env.findProj? T j = some e := by
-  intro j hj
-  have := List.all_eq_true.mp h j (List.mem_range.mpr hj)
-  revert this
-  cases env.findProj? T j with
-  | none => intro h; exact nomatch h
-  | some e => intro _; exact ⟨e, rfl⟩
-
 /-- `andRescueSlots`, unpacked: both of `And`'s slots are stored tower
 entries naming the rule's constructor at the major's parameter count,
 two fields. -/
@@ -1674,24 +1660,22 @@ theorem structEtaCertWith_inv {env : Env} {fuel d : Nat} {a b wtb : Expr}
     (h : structEtaCertWithFueled mode eager env fuel d a b wtb = .ok true) :
     ∃ (c : Name) (us : List Level) (cvc : ConstantVal) (cnP cnF : Nat)
       (T : Name) (us' : List Level)
-      (cvT : ConstantVal) (caps : IndCaps),
+      (cvT : ConstantVal) (caps : IndCaps) (tbl : ProjTable),
       a.getAppFn = .const c us ∧
       env.find? c = some (.ctorInfo cvc cnP cnF) ∧
       a.getAppArgs.length = cnP + cnF ∧
       wtb.getAppFn = .const T us' ∧
       env.find? T = some (.indInfo cvT caps) ∧
-      caps.eta = true ∧ caps.etaCtor = c ∧
-      reservedBasisNames.contains T = false ∧
-      reservedBasisNames.contains c = false ∧
-      wtb.getAppArgs.length = caps.etaParams ∧
+      env.findTable? T = some tbl ∧
+      caps.eta = true ∧ tbl.ctor = c ∧
+      wtb.getAppArgs.length = tbl.numParams ∧
       us'.length = cvT.levelParams.length ∧
       cvc.levelParams = cvT.levelParams ∧
-      towerSlotsAll env T caps.etaFields = true ∧
       Level.isEquivList us us' = some true ∧
-      defEqListFueled mode eager env fuel d (a.getAppArgs.take caps.etaParams)
+      defEqListFueled mode eager env fuel d (a.getAppArgs.take tbl.numParams)
         wtb.getAppArgs = .ok true ∧
-      defEqListFueled mode eager env fuel d (a.getAppArgs.drop caps.etaParams)
-        (etaProjs T b caps.etaFields) = .ok true := by
+      defEqListFueled mode eager env fuel d (a.getAppArgs.drop tbl.numParams)
+        (etaProjs T b tbl.numFields) = .ok true := by
   dsimp only [structEtaCertWithFueled] at h
   rw [structEtaCertWith] at h
   simp only [defEqList_fold] at h
@@ -1748,16 +1732,19 @@ theorem structEtaCertWith_inv {env : Env} {fuel d : Nat} {a b wtb : Expr}
   | some (.indInfo cvT caps) => ?_
   intro h
   dsimp only at h
-  by_cases hcond : caps.eta = true ∧ caps.etaCtor = c ∧
-      reservedBasisNames.contains T = false ∧
-      reservedBasisNames.contains c = false ∧
-      wtb.getAppArgs.length = caps.etaParams ∧
+  revert h
+  cases htbl : env.findTable? T with
+  | none => intro h; exact nomatch h
+  | some tbl => ?_
+  intro h
+  dsimp only at h
+  by_cases hcond : caps.eta = true ∧ tbl.ctor = c ∧
+      wtb.getAppArgs.length = tbl.numParams ∧
       us'.length = cvT.levelParams.length ∧
-      cvc.levelParams = cvT.levelParams ∧
-      towerSlotsAll env T caps.etaFields = true
+      cvc.levelParams = cvT.levelParams
   case neg => rw [ite_eq_right hcond] at h; exact nomatch h
   rw [ite_eq_left hcond] at h
-  obtain ⟨he1, he2, he5, he5b, he6, he7, he8, he10⟩ := hcond
+  obtain ⟨he1, he2, he6, he7, he8⟩ := hcond
   try simp only [Bind.bind, Except.bind] at h
   cases hlev : Level.isEquivList us us' with
   | none => rw [hlev] at h; simp [liftFueled] at h
@@ -1769,7 +1756,7 @@ theorem structEtaCertWith_inv {env : Env} {fuel d : Nat} {a b wtb : Expr}
   | false => simp at h
   | true => ?_
   simp only [↓reduceIte] at h
-  cases hd1 : defEqListFueled mode eager env fuel d (a.getAppArgs.take caps.etaParams)
+  cases hd1 : defEqListFueled mode eager env fuel d (a.getAppArgs.take tbl.numParams)
       wtb.getAppArgs with
   | error e => rw [hd1] at h; exact nomatch h
   | ok r₃ => ?_
@@ -1779,20 +1766,19 @@ theorem structEtaCertWith_inv {env : Env} {fuel d : Nat} {a b wtb : Expr}
   | false => simp [pure, Except.pure] at h
   | true => ?_
   simp only [↓reduceIte] at h
-  exact ⟨c, us, cvc, cnP, cnF, T, us', cvT, caps,
-    rfl, hfc, hal, rfl, hfT, he1, he2, he5,
-    he5b, he6, he7, he8, he10, hlev, hd1, h⟩
+  exact ⟨c, us, cvc, cnP, cnF, T, us', cvT, caps, tbl,
+    rfl, hfc, hal, rfl, hfT, htbl, he1, he2, he6, he7, he8, hlev, hd1, h⟩
 
-/-- Inversion of the structure-eta certificate through its type
-reduction: the stuck side's type is inferred and reduced, and the
+/-- Inversion of the fully-applied structure-eta certificate through its
+type reduction: the stuck side's type is inferred and reduced, and the
 `With` form of the certificate ran on the result. -/
-theorem structEtaCert_inv {env : Env} {fuel d : Nat} {a b : Expr}
-    (h : structEtaCertFueled mode eager env fuel d a b = .ok true) :
+theorem structEtaFull_inv {env : Env} {fuel d : Nat} {a b : Expr}
+    (h : structEtaFullFueled mode eager env fuel d a b = .ok true) :
     ∃ tb wtb, inferTypeIO mode eager env fuel d b = .ok tb ∧
       whnf mode eager env fuel d tb = .ok wtb ∧
       structEtaCertWithFueled mode eager env fuel d a b wtb = .ok true := by
-  dsimp only [structEtaCertFueled] at h
-  rw [structEtaCert] at h
+  dsimp only [structEtaFullFueled] at h
+  rw [structEtaFull] at h
   split at h
   case isFalse => exact nomatch h
   simp only [Bind.bind, Except.bind] at h
@@ -1809,26 +1795,187 @@ theorem structEtaCert_inv {env : Env} {fuel d : Nat} {a b : Expr}
   dsimp only at h
   exact ⟨tb, wtb, rfl, hwtb, h⟩
 
+/-- Inversion of the η-expansion at `k + 1`: a `∀` whose opened body
+carries the expansion one level down. -/
+theorem structEtaExpand_succ_inv {env : Env} {fuel k d : Nat} {a b t : Expr}
+    (h : structEtaExpandFueled mode eager env fuel (k + 1) d a b t = .ok true) :
+    ∃ dom body, t = .forallE dom body ∧
+      structEtaExpandFueled mode eager env fuel k (d + 1) (.app a (.fvar d dom))
+        (.app b (.fvar d dom)) (body.instantiate1 (.fvar d dom)) = .ok true := by
+  dsimp only [structEtaExpandFueled] at h
+  cases t with
+  | forallE dom body => exact ⟨dom, body, rfl, by rw [structEtaExpand] at h; exact h⟩
+  | _ => simp [structEtaExpand, pure, Except.pure] at h
+
+/-- A partially applied constructor is neutral: its head is a constant. -/
+theorem ioNeutral_of_etaCtorPartial {env : Env} {a : Expr} {k : Nat}
+    (h : etaCtorPartial env a = some k) : a.ioNeutral = true := by
+  unfold etaCtorPartial at h
+  unfold Expr.ioNeutral
+  revert h
+  cases a.getAppFn <;> intro h <;> first | rfl | exact nomatch h
+
+/-- Inversion of the structure-eta certificate: the fully applied
+certificate, or the partial arm — a neutral other side, the two
+io-inferred types compared, and the η-expansion along the constructor
+side's type. -/
+theorem structEtaCert_inv {env : Env} {fuel d : Nat} {a b : Expr}
+    (h : structEtaCertFueled mode eager env fuel d a b = .ok true) :
+    structEtaFullFueled mode eager env fuel d a b = .ok true ∨
+      ∃ k ta tb, a.ioNeutral = true ∧ b.ioNeutral = true ∧
+        inferTypeIO mode eager env fuel d a = .ok ta ∧
+        inferTypeIO mode eager env fuel d b = .ok tb ∧
+        isDefEqCore mode eager env fuel d tb ta = .ok true ∧
+        structEtaExpandFueled mode eager env fuel k d a b ta = .ok true := by
+  dsimp only [structEtaCertFueled] at h
+  rw [structEtaCert] at h
+  split at h
+  case isTrue => exact Or.inl h
+  revert h
+  cases hp : etaCtorPartial env a with
+  | none => intro h; exact nomatch h
+  | some k =>
+  intro h
+  dsimp only at h
+  have hna := ioNeutral_of_etaCtorPartial hp
+  cases hn : b.ioNeutral with
+  | false => simp [hn, pure, Except.pure] at h
+  | true =>
+  simp only [hn, Bool.not_true, Bool.false_eq_true, ↓reduceIte] at h
+  simp only [Bind.bind, Except.bind] at h
+  simp only [inferTypeIO_def, defeq_def, structEtaExpand_fold] at h
+  cases hta : inferTypeIO mode eager env fuel d a with
+  | error e => rw [hta] at h; exact nomatch h
+  | ok ta =>
+  rw [hta] at h
+  dsimp only at h
+  cases htb : inferTypeIO mode eager env fuel d b with
+  | error e => rw [htb] at h; exact nomatch h
+  | ok tb =>
+  rw [htb] at h
+  dsimp only at h
+  cases hde : isDefEqCore mode eager env fuel d tb ta with
+  | error e => rw [hde] at h; exact nomatch h
+  | ok v =>
+  rw [hde] at h
+  cases v with
+  | false => simp [pure, Except.pure] at h
+  | true => exact Or.inr ⟨k, ta, tb, hna, rfl, rfl, rfl, hde, h⟩
+
+/-- Inversion of the proposition test (official's `is_prop`). -/
+theorem isPropType_inv {env : Env} {fuel d : Nat} {T : Expr}
+    (h : isPropTypeFueled mode eager env fuel d T = .ok true) :
+    ∃ tt u, inferTypeIO mode eager env fuel d T = .ok tt ∧
+      whnf mode eager env fuel d tt = .ok (.sort u) ∧
+      Level.isEquiv u .zero = some true := by
+  dsimp only [isPropTypeFueled] at h
+  simp only [isPropType, Bind.bind, Except.bind, inferTypeIO_def, whnf_def] at h
+  cases htt : inferTypeIO mode eager env fuel d T with
+  | error e => rw [htt] at h; exact nomatch h
+  | ok tt =>
+  rw [htt] at h
+  dsimp only at h
+  cases hw : whnf mode eager env fuel d tt with
+  | error e => rw [hw] at h; exact nomatch h
+  | ok w =>
+  rw [hw] at h
+  cases w with
+  | sort u =>
+    refine ⟨tt, u, rfl, hw, ?_⟩
+    dsimp only at h
+    cases hu : Level.isEquiv u .zero with
+    | none => rw [hu] at h; exact nomatch h
+    | some v =>
+      rw [hu] at h
+      simp only [liftFueled, pure, Except.pure, Except.ok.injEq] at h
+      rw [h]
+  | _ => exact nomatch h
+
+/-- Inversion of the field loop of the unit-like test, one field. -/
+theorem unitLikeFields_succ_inv {env : Env} {fuel n d : Nat} {t : Expr}
+    {ul : Nat → Expr → CheckM Bool}
+    (h : unitLikeFields (pureFns mode eager env fuel) ul (n + 1) d t = .ok true) :
+    ∃ dom body, t = .forallE dom body ∧
+      (isPropTypeFueled mode eager env fuel d dom = .ok true ∨ ul d dom = .ok true) ∧
+      unitLikeFields (pureFns mode eager env fuel) ul n (d + 1)
+        (body.instantiate1 (.fvar d dom)) = .ok true := by
+  cases t with
+  | forallE dom body =>
+    refine ⟨dom, body, rfl, ?_⟩
+    rw [unitLikeFields] at h
+    simp only [Bind.bind, Except.bind, isPropType_fold] at h
+    cases hp : isPropTypeFueled mode eager env fuel d dom with
+    | error e => rw [hp] at h; exact nomatch h
+    | ok p =>
+    rw [hp] at h
+    cases p with
+    | true =>
+      simp only [↓reduceIte] at h
+      exact ⟨Or.inl rfl, h⟩
+    | false =>
+      simp only [Bool.false_eq_true, ↓reduceIte] at h
+      cases hu : ul d dom with
+      | error e => rw [hu] at h; exact nomatch h
+      | ok v =>
+      rw [hu] at h
+      cases v with
+      | false => simp [pure, Except.pure] at h
+      | true => exact ⟨Or.inr rfl, h⟩
+  | _ => simp [unitLikeFields, pure, Except.pure] at h
+
+/-- Inversion of the structure arm of the unit-like test: an η family
+whose field telescope passes the field loop. -/
+theorem unitLikeStruct_inv {env : Env} {fuel d : Nat} {w : Expr}
+    {ul : Nat → Expr → CheckM Bool}
+    (h : unitLikeStruct (pureFns mode eager env fuel) ul env d w = .ok true) :
+    ∃ tele n, unitLikeShape env w = some (tele, n) ∧
+      unitLikeFields (pureFns mode eager env fuel) ul n d tele = .ok true := by
+  unfold unitLikeStruct at h
+  revert h
+  split
+  · rename_i tele n hsh; intro h; exact ⟨tele, n, hsh, h⟩
+  · intro h; exact nomatch h
+
+/-- Inversion of a successful unit-like test at `f + 1`: the reduct is
+a `∀` whose opened codomain is unit-like one level down, or no `∀` and
+passes the structure arm. -/
+theorem unitLikeLoop_succ_inv {env : Env} {fuel f d : Nat} {T : Expr}
+    (h : unitLikeLoopFueled mode eager env fuel (f + 1) d T = .ok true) :
+    ∃ w, whnf mode eager env fuel d T = .ok w ∧
+      ((∃ dom body, w = .forallE dom body ∧
+          unitLikeLoopFueled mode eager env fuel f (d + 1)
+            (body.instantiate1 (.fvar d dom)) = .ok true) ∨
+        unitLikeStruct (pureFns mode eager env fuel)
+          (unitLikeLoopFueled mode eager env fuel f) env d w = .ok true) := by
+  dsimp only [unitLikeLoopFueled] at h
+  rw [unitLikeLoop] at h
+  simp only [Bind.bind, Except.bind, whnf_def] at h
+  cases hw : whnf mode eager env fuel d T with
+  | error e => rw [hw] at h; exact nomatch h
+  | ok w =>
+  rw [hw] at h
+  dsimp only at h
+  refine ⟨w, rfl, ?_⟩
+  cases w with
+  | forallE dom body => exact Or.inl ⟨dom, body, rfl, h⟩
+  | _ => exact Or.inr h
+
 /-- Inversion of a successful unit-likeness certification. -/
 theorem structUnitCert_inv {env : Env} {fuel d : Nat} {a b : Expr}
     (h : structUnitCertFueled mode eager env fuel d a b = .ok true) :
-    ∃ (ta wta : Expr) (T : Name) (us' : List Level)
-      (cvT : ConstantVal) (caps : IndCaps) (tb wtb : Expr),
+    ∃ (ta wta tb wtb : Expr),
       inferTypeIO mode eager env fuel d a = .ok ta ∧
       whnf mode eager env fuel d ta = .ok wta ∧
-      wta.getAppFn = .const T us' ∧
-      env.find? T = some (.indInfo cvT caps) ∧
-      caps.unitlike = true ∧
-      reservedBasisNames.contains T = false ∧
-      wta.getAppArgs.length = caps.unitParams ∧
-      us'.length = cvT.levelParams.length ∧
+      (wta.isForallE = true → a.ioNeutral = true) ∧
+      unitLikeLoopFueled mode eager env fuel unitLikeFuel d wta = .ok true ∧
       inferTypeIO mode eager env fuel d b = .ok tb ∧
-      whnf mode eager env fuel d tb = .ok wtb ∧ wtb.isForallE = false ∧
+      whnf mode eager env fuel d tb = .ok wtb ∧
+      (wtb.isForallE = true → b.ioNeutral = true) ∧
       isDefEqCore mode eager env fuel d wta wtb = .ok true := by
   dsimp only [structUnitCertFueled] at h
   rw [structUnitCert] at h
   simp only [Bind.bind, Except.bind] at h
-  simp only [inferTypeIO_def, whnf_def, defeq_def] at h
+  simp only [inferTypeIO_def, whnf_def, defeq_def, unitLikeLoop_fold] at h
   cases hta : inferTypeIO mode eager env fuel d a with
   | error e => rw [hta] at h; exact nomatch h
   | ok ta => ?_
@@ -1839,39 +1986,24 @@ theorem structUnitCert_inv {env : Env} {fuel d : Nat} {a b : Expr}
   | ok wta => ?_
   rw [hwta] at h
   try dsimp only at h
-  revert h
-  match hwfn : wta.getAppFn with
-  | .bvar _ => intro h; exact nomatch h
-  | .fvar _ _ => intro h; exact nomatch h
-  | .sort _ => intro h; exact nomatch h
-  | .app _ _ => intro h; exact nomatch h
-  | .lam _ _ => intro h; exact nomatch h
-  | .forallE _ _ => intro h; exact nomatch h
-  | .letE _ _ _ => intro h; exact nomatch h
-  | .lit _ => intro h; exact nomatch h
-  | .proj _ _ _ => intro h; exact nomatch h
-  | .const T us' => ?_
-  intro h
-  dsimp only at h
-  revert h
-  match hfT : env.find? T with
-  | none => intro h; exact nomatch h
-  | some (.axiomInfo _) => intro h; exact nomatch h
-  | some (.defnInfo _ _ _) => intro h; exact nomatch h
-  | some (.thmInfo _) => intro h; exact nomatch h
-  | some (.ctorInfo _ _ _) => intro h; exact nomatch h
-  | some (.recInfo _ _ _ _ _) => intro h; exact nomatch h
-  | some (.indInfo cvT caps) => ?_
-  intro h
-  dsimp only at h
-  by_cases hcond : caps.unitlike = true ∧
-      reservedBasisNames.contains T = false ∧
-      wta.getAppArgs.length = caps.unitParams ∧
-      us'.length = cvT.levelParams.length
-  case neg => rw [ite_eq_right hcond] at h; exact nomatch h
-  rw [ite_eq_left hcond] at h
-  obtain ⟨he1, he2, he3, he4⟩ := hcond
-  try simp only [Bind.bind, Except.bind] at h
+  have hA : wta.isForallE = true → a.ioNeutral = true := by
+    intro hF
+    cases hn : a.ioNeutral with
+    | true => rfl
+    | false => simp [hF, hn, pure, Except.pure] at h
+  have hA' : (wta.isForallE && !a.ioNeutral) = false := by
+    cases hF : wta.isForallE with
+    | false => rfl
+    | true => simp [hA hF]
+  simp only [hA', Bool.false_eq_true, ↓reduceIte] at h
+  cases hu : unitLikeLoopFueled mode eager env fuel unitLikeFuel d wta with
+  | error e => rw [hu] at h; exact nomatch h
+  | ok u => ?_
+  rw [hu] at h
+  cases u with
+  | false => simp [pure, Except.pure] at h
+  | true => ?_
+  simp only [↓reduceIte] at h
   cases htb : inferTypeIO mode eager env fuel d b with
   | error e => rw [htb] at h; exact nomatch h
   | ok tb => ?_
@@ -1882,12 +2014,17 @@ theorem structUnitCert_inv {env : Env} {fuel d : Nat} {a b : Expr}
   | ok wtb => ?_
   rw [hwtb] at h
   try dsimp only at h
-  cases hF : wtb.isForallE with
-  | true => simp [hF, pure, Except.pure] at h
-  | false =>
-  simp only [hF, Bool.false_eq_true, ↓reduceIte] at h
-  exact ⟨ta, wta, T, us', cvT, caps, tb, wtb, rfl, hwta, hwfn, hfT,
-    he1, he2, he3, he4, rfl, hwtb, hF, h⟩
+  have hB : wtb.isForallE = true → b.ioNeutral = true := by
+    intro hF
+    cases hn : b.ioNeutral with
+    | true => rfl
+    | false => simp [hF, hn, pure, Except.pure] at h
+  have hB' : (wtb.isForallE && !b.ioNeutral) = false := by
+    cases hF : wtb.isForallE with
+    | false => rfl
+    | true => simp [hB hF]
+  simp only [hB', Bool.false_eq_true, ↓reduceIte] at h
+  exact ⟨ta, wta, tb, wtb, rfl, hwta, hA, hu, rfl, hwtb, hB, h⟩
 
 /-- Inversion of a successful eta certification. -/
 theorem etaCert_inv {env : Env} {fuel d : Nat} {ty₁ body₁ b : Expr}

@@ -85,10 +85,6 @@ theorem wscoped_of_wscopedB {d : Nat} {e : Expr} (h : e.wscopedB d = true) :
   WScoped.of_wscopedB h
 grind_pattern [conleche_grind] wscoped_of_wscopedB => e.wscopedB d
 
-@[conleche_grind =] theorem towerSlotsAllF_eq (env : Env) (T : Name) (n : Nat) :
-    (mkFEnv env).towerSlotsAllF T n = towerSlotsAll env T n :=
-  towerSlotsAllF_mkFEnv env T n
-
 @[conleche_grind =] theorem andRescueSlotsF_eq (env : Env) (ctor : Name) (nP : Nat) :
     (mkFEnv env).andRescueSlotsF ctor nP = andRescueSlots env ctor nP :=
   andRescueSlotsF_spec
@@ -131,23 +127,20 @@ theorem proofIrrelGate_of {m : Type → Type} [Monad m] [MonadExceptOf CheckErro
   | _ => pure major
 
 /-- The cached η rescue. -/
-@[expose] def mtcEtaI (r : CoreFnsI) (fe : FEnv) (depth : Nat) (major : Expr) (T : Name)
-    (cvT : ConstantVal) (caps : IndCaps) : CheckCM Expr := do
+@[expose] def mtcEtaI (r : CoreFnsI) (depth : Nat) (major : Expr) (T : Name)
+    (cvT : ConstantVal) (caps : IndCaps) (tbl : ProjTable) : CheckCM Expr := do
   let tmaj₀ ← r.inferIO depth major
   let tmaj ← r.whnf depth tmaj₀
   match Expr.getAppFn tmaj with
   | .const T' ust => do
     let margs ← pure (Expr.getAppArgsC tmaj)
     let ustL ← pure ust
-    if (← pure (T' == T)) ∧ margs.length = caps.etaParams ∧
-        ust.length = cvT.levelParams.length ∧
-        reservedBasisNames.contains T = false ∧
-        reservedBasisNames.contains caps.etaCtor = false ∧
-        fe.towerSlotsAllF T caps.etaFields = true then do
+    if (← pure (T' == T)) ∧ margs.length = tbl.numParams ∧
+        ust.length = cvT.levelParams.length then do
       if ← formerNeverZeroI r.whnf cvT caps ustL then do
         let TI ← pure T
-        let projs ← projNodesI TI major (List.range caps.etaFields)
-        let ctorI ← pure caps.etaCtor
+        let projs ← projNodesI TI major (List.range tbl.numFields)
+        let ctorI ← pure tbl.ctor
         let h ← pure (Expr.const ctorI ust)
         let fab ← mkAppNM h (margs ++ projs)
         if ← pure (Expr.wscopedBC depth fab &&
@@ -193,9 +186,11 @@ theorem proofIrrelGate_of {m : Type → Type} [Monad m] [MonadExceptOf CheckErro
     (cvj : ConstantVal) (cnP : Nat) (T : Name) (cvT : ConstantVal) (caps : IndCaps) :
     CheckCM Expr :=
   if isK = true then mtcKI mode r depth major rl cvj cnP T
-  else if etaRescueOk rl.ctor cvj cvT caps = true then mtcEtaI r fe depth major T cvT caps
-  else if T = andName then mtcAndI mode r fe depth major rl cvj cnP T
-  else pure major
+  else match etaRescueTable? (fe.findTable? T) rl.ctor cvj cvT caps with
+  | some tbl => mtcEtaI r depth major T cvT caps tbl
+  | none =>
+    if T = andName then mtcAndI mode r fe depth major rl cvj cnP T
+    else pure major
 
 /-- `majorToCtorI` with its blocks named. -/
 theorem majorToCtorI_eq (r : CoreFnsI) (fe : FEnv) (depth : Nat) (recName : Name) (isK : Bool)
@@ -245,25 +240,22 @@ variable {m : Type → Type} [Monad m] [MonadExceptOf CheckError m] {r : CoreFns
   | _ => pure major
 
 /-- The pure η rescue past the major's type. -/
-@[expose] def mtcEtaCont (r : CoreFns m) (env : Env) (depth : Nat) (major : Expr) (T : Name)
-    (cvT : ConstantVal) (caps : IndCaps) (tmaj : Expr) : m Expr :=
+@[expose] def mtcEtaCont (r : CoreFns m) (depth : Nat) (major : Expr) (T : Name)
+    (cvT : ConstantVal) (caps : IndCaps) (tbl : ProjTable) (tmaj : Expr) : m Expr :=
   match tmaj.getAppFn with
   | .const T' ust =>
-    if T' = T ∧ tmaj.getAppArgs.length = caps.etaParams ∧
-        ust.length = cvT.levelParams.length ∧
-        reservedBasisNames.contains T = false ∧
-        reservedBasisNames.contains caps.etaCtor = false ∧
-        towerSlotsAll env T caps.etaFields = true then
+    if T' = T ∧ tmaj.getAppArgs.length = tbl.numParams ∧
+        ust.length = cvT.levelParams.length then
       formerNeverZeroAt r.whnf cvT caps ust >>= fun nz =>
       if nz = true then
-        if (Expr.mkAppN (.const caps.etaCtor ust)
-              (etaFabArgsE T tmaj.getAppArgs major caps.etaFields)).wscopedB depth &&
-            (Expr.mkAppN (.const caps.etaCtor ust)
-              (etaFabArgsE T tmaj.getAppArgs major caps.etaFields)).looseBVarsBounded 0 &&
-            leafGuardP (Expr.mkAppN (.const caps.etaCtor ust)
-              (etaFabArgsE T tmaj.getAppArgs major caps.etaFields)) major then
-          pure (Expr.mkAppN (.const caps.etaCtor ust)
-            (etaFabArgsE T tmaj.getAppArgs major caps.etaFields))
+        if (Expr.mkAppN (.const tbl.ctor ust)
+              (etaFabArgsE T tmaj.getAppArgs major tbl.numFields)).wscopedB depth &&
+            (Expr.mkAppN (.const tbl.ctor ust)
+              (etaFabArgsE T tmaj.getAppArgs major tbl.numFields)).looseBVarsBounded 0 &&
+            leafGuardP (Expr.mkAppN (.const tbl.ctor ust)
+              (etaFabArgsE T tmaj.getAppArgs major tbl.numFields)) major then
+          pure (Expr.mkAppN (.const tbl.ctor ust)
+            (etaFabArgsE T tmaj.getAppArgs major tbl.numFields))
         else pure major
       else pure major
     else pure major
@@ -307,13 +299,15 @@ variable {m : Type → Type} [Monad m] [MonadExceptOf CheckError m] {r : CoreFns
   if isK = true then
     r.inferIO depth major >>= fun tm => r.whnf depth tm >>=
       mtcKCont mode r depth major rl cvj cnP T
-  else if etaRescueOk rl.ctor cvj cvT caps = true then
+  else match etaRescueTable? (env.findTable? T) rl.ctor cvj cvT caps with
+  | some tbl =>
     r.inferIO depth major >>= fun tm => r.whnf depth tm >>=
-      mtcEtaCont r env depth major T cvT caps
-  else if T = andName then
-    r.inferIO depth major >>= fun tm => r.whnf depth tm >>=
-      mtcAndCont mode r env depth major rl cvj cnP T
-  else pure major
+      mtcEtaCont r depth major T cvT caps tbl
+  | none =>
+    if T = andName then
+      r.inferIO depth major >>= fun tm => r.whnf depth tm >>=
+        mtcAndCont mode r env depth major rl cvj cnP T
+    else pure major
 
 /-- `majorToCtor` with its blocks named. -/
 theorem majorToCtor_eq (recName : Name) (isK : Bool) (rules : List RecRule) (major : Expr) :
@@ -449,13 +443,14 @@ theorem EnvWF.indTy_closed (henv : EnvWF env) {T : Name} {cvT : ConstantVal} {ca
   (henv.consts _ (Env.find?_mem h)).1
 
 theorem mtcEtaC_spec (ih : SSimC mode eager env f) {d : Nat} {major : Expr} {T : Name}
-    {cvT : ConstantVal} {caps : IndCaps} {s₀ : CState} (hs : CSOK mode eager env s₀)
+    {cvT : ConstantVal} {caps : IndCaps} {tbl : ProjTable} {s₀ : CState}
+    (hs : CSOK mode eager env s₀)
     (hw : Expr.WScoped d major) (hcl : cvT.type.hasFvar = false) :
-    ⦃fun s => s = s₀⦄ mtcEtaI (coreKnotI mode eager (mkFEnv env) f) (mkFEnv env) d major T cvT caps
+    ⦃fun s => s = s₀⦄ mtcEtaI (coreKnotI mode eager (mkFEnv env) f) d major T cvT caps tbl
     ⦃fun v s' => CSOK mode eager env s' ∧
       Runs ((fueledFns mode eager env).inferIO d major >>= fun tm => (fueledFns mode eager
           env).whnf d tm >>=
-        mtcEtaCont (fueledFns mode eager env) env d major T cvT caps) v ∧
+        mtcEtaCont (fueledFns mode eager env) d major T cvT caps tbl) v ∧
       Expr.WScoped d v; ⊤⦄ := by
   sym only [conleche_grind, mtcEtaCont, etaFabArgsE] =>
     vcgen [mtcEtaI, mkAppNM, ih.inferIO_spec, ih.whnf_spec, formerNeverZeroC_spec ih hcl,

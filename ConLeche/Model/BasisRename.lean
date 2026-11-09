@@ -577,10 +577,10 @@ section Base
 variable {env env' : Env}
 
 theorem projOk_ren (m : EnvModel V env) (h : RenEnv env env') : ProjOkT env' := by
-  intro T tbl hf i hi
+  intro T tbl hf
   rw [h.findTable] at hf
-  obtain ⟨h2, h3, h4, h5, ⟨cvT, caps, hT, hlT⟩, ⟨cvC, hC, hlC, hs⟩⟩ := m.proj_ok T tbl hf i hi
-  exact ⟨h2, h3, h4, h5, ⟨cvT, caps, (h.find_nonres h2).trans hT, hlT⟩,
+  obtain ⟨h2, h3, h4, ⟨cvT, caps, hT, hlT⟩, ⟨cvC, hC, hlC, hs⟩⟩ := m.proj_ok T tbl hf
+  exact ⟨h2, h3, h4, ⟨cvT, caps, (h.find_nonres h2).trans hT, hlT⟩,
     ⟨cvC, (h.find_nonres h4).trans hC, hlC, hs⟩⟩
 
 theorem find_ctor_ren (h : RenEnv env env') {x : Name} {cvj : ConstantVal} {a b : Nat}
@@ -902,7 +902,6 @@ theorem EnvModelM.renameCore (mp : EnvModelM V env) (h : RenEnv env env') (hwf :
             nat_ops := ?_
             div_mod := ?_
             eq_law := ?_
-            caps_ok := ?_
             op_defn := fun c hn hs => by
               have hr := natOpName_not_reserved hn
               have h₀ := mp.op_defn c hn (by rw [← h.find_nonres hr]; exact hs)
@@ -983,25 +982,6 @@ theorem EnvModelM.renameCore (mp : EnvModelM V env) (h : RenEnv env env') (hwf :
       obtain ⟨g1, g2⟩ := mp.eq_law c p h1 hp (renTr env env' eqName ψ)
       rw [hv] at g1 g2
       exact ⟨g1, g2⟩
-  · -- `caps_ok`: a capability law is keyed on unreserved names
-    obtain ⟨he, hu⟩ := mp.caps_ok
-    refine ⟨?_, ?_⟩
-    · intro T cvT caps hf hcap hres hfam φ' us hus
-      rw [h.find_nonres hres] at hf
-      obtain ⟨hC1, ⟨cvC, cnP, cnF, hC2⟩, hC3⟩ := hfam
-      rw [h.find_nonres hC1] at hC2
-      obtain ⟨hlaw, hcoh⟩ :=
-        he T cvT caps hf hcap hres ⟨hC1, ⟨cvC, cnP, cnF, hC2⟩, hC3⟩ φ' us hus
-      refine ⟨?_, ?_⟩
-      · rw [hnr hres, hnr hC1]; exact hlaw
-      · exact hcoh.transport (m₂ := m')
-          (fun _ _ _ hf₂ => by rw [h.find_nonres hC1] at hf₂; exact hf₂)
-          (fun _ _ _ _ _ hTCa => by rw [hde']; exact hTCa)
-          (congrFun (hnr hres) _) (fun _ _ _ => rfl)
-    · intro T cvT caps hf hcap hres φ' us hus
-      rw [h.find_nonres hres] at hf
-      have hlaw := hu T cvT caps hf hcap hres φ' us hus
-      rw [hnr hres]; exact hlaw
   · -- `reduce_ops`
     intro c hc cv hf hpin
     have hres : reservedBasisNames.contains c = false :=
@@ -1016,24 +996,15 @@ theorem EnvModelM.renameCore (mp : EnvModelM V env) (h : RenEnv env env') (hwf :
     rw [hnr hres]
     exact hlaw ψ ρ x hx
   · -- `tower_ok`: a table's names are unreserved
-    intro φ T i entry hf
-    rw [h.findProj] at hf
-    obtain ⟨hr1, -, hr3, -⟩ := mp.base2.proj_ok.towerHead hf
-    obtain ⟨hsn, hidx, hlt, ⟨cvT, capsT, hfT, hlpsT⟩, cvC, hfC, hlpsC, hlaw, hetaL⟩ :=
-      mp.tower_ok φ T i entry hf
-    have hTr : reservedBasisNames.contains T = false := hsn ▸ hr1
-    refine ⟨hsn, hidx, hlt, ⟨cvT, capsT, (h.find_nonres hTr).trans hfT, hlpsT⟩,
-      cvC, (h.find_nonres hr3).trans hfC, hlpsC, fun us hus => ?_, ?_⟩
-    · obtain ⟨⟨Ta, hTa, hA⟩, ⟨TCa, hTCa, hB⟩⟩ := hlaw us hus
-      refine ⟨⟨Ta, by rw [hde']; exact hTa, ?_⟩, ⟨TCa, by rw [hde']; exact hTCa, ?_⟩⟩
-      · rw [hnr hTr]
-        exact fun ρ vs x rest h₁ h₂ h₃ h₄ h₅ h₆ hg =>
-          hA ρ vs x rest h₁ h₂ h₃ h₄ h₅ h₆ (hg.imp_left (TowerGuardAt.mono
-            (by rw [hsn]; exact h.find_nonres hTr)
-            (fun _ _ _ _ ht => by rw [hde']; exact ht) fun _ ht => by rw [hde']; exact ht))
-      · rw [hnr hr3]
-        exact hB
-    · intro cvT' capsT' hfT' us hus
+    intro φ
+    refine ⟨fun T tbl hf => ?_, fun T i entry hf => ?_⟩
+    · rw [h.findTable] at hf
+      obtain ⟨hr1, -, hr3, -⟩ := mp.base2.proj_ok T tbl hf
+      obtain ⟨⟨cvT, capsT, hfT, hlpsT⟩, hetaL⟩ := (mp.tower_ok φ).table T tbl hf
+      have hTr : reservedBasisNames.contains T = false :=
+        (ConLeche.Env.findTable?_mem hf).2.1 ▸ hr1
+      refine ⟨⟨cvT, capsT, (h.find_nonres hTr).trans hfT, hlpsT⟩, ?_⟩
+      intro cvT' capsT' hfT' us hus
       rw [h.find_nonres hTr] at hfT'
       obtain ⟨hlaw', hcoh⟩ := hetaL cvT' capsT' hfT' us hus
       refine ⟨?_, fun he => ?_⟩
@@ -1042,6 +1013,22 @@ theorem EnvModelM.renameCore (mp : EnvModelM V env) (h : RenEnv env env') (hwf :
           (fun _ _ _ hf₂ => by rw [h.find_nonres hr3] at hf₂; exact hf₂)
           (fun _ _ _ _ _ hTCa => by rw [hde']; exact hTCa)
           (congrFun (hnr hTr) _) (fun _ _ _ => rfl)
+    · rw [h.findProj] at hf
+      obtain ⟨hr1, -, hr3, -⟩ := mp.base2.proj_ok.towerHead hf
+      obtain ⟨hsn, hidx, hlt, ⟨cvT, capsT, hfT, hlpsT⟩, cvC, hfC, hlpsC, hlaw⟩ :=
+        (mp.tower_ok φ).entry T i entry hf
+      have hTr : reservedBasisNames.contains T = false := hsn ▸ hr1
+      refine ⟨hsn, hidx, hlt, ⟨cvT, capsT, (h.find_nonres hTr).trans hfT, hlpsT⟩,
+        cvC, (h.find_nonres hr3).trans hfC, hlpsC, fun us hus => ?_⟩
+      obtain ⟨⟨Ta, hTa, hA⟩, ⟨TCa, hTCa, hB⟩⟩ := hlaw us hus
+      refine ⟨⟨Ta, by rw [hde']; exact hTa, ?_⟩, ⟨TCa, by rw [hde']; exact hTCa, ?_⟩⟩
+      · rw [hnr hTr]
+        exact fun ρ vs x rest h₁ h₂ h₃ h₄ h₅ h₆ hg =>
+          hA ρ vs x rest h₁ h₂ h₃ h₄ h₅ h₆ (hg.imp_left (TowerGuardAt.mono
+            (by rw [hsn]; exact h.find_nonres hTr)
+            (fun _ _ _ _ ht => by rw [hde']; exact ht) fun _ ht => by rw [hde']; exact ht))
+      · rw [hnr hr3]
+        exact hB
 
 end Core
 

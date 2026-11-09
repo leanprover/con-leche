@@ -1020,17 +1020,7 @@ theorem ctorWalksGen {m : EnvModel V env} {T : Name} {lps : List Name} {cvT cvC 
 /-- **The P step at a sum-shaped constructor's cons**, for a given fibre fold. -/
 theorem stageCtorGen {T : Name}
     {F : Nat} {lps : List Name} {nP nF nIdx j : Nat} {resSort : Level}
-    {isProp large : Bool} {cvC cvS cvTa cvCa : ConstantVal} {env₀ env₁ : Env} {caps : IndCaps}
-    -- **the other stored families' η constructors are not this one**
-    -- (`capsOk_cons_native`'s `hother`): at ONE family it is closure
-    -- (`etaCtor_ne_of_closed`); at a BLOCK a still-pending member's η
-    -- constructor is one of ITS OWN constructors, which the block's
-    -- distinct names refute
-    (hE : ∀ (T' : Name) (cvT' : ConstantVal) (caps' : IndCaps),
-      env.find? T' = some (.indInfo cvT' caps') → T' ≠ T →
-      ConLeche.reservedBasisNames.contains T' = false → caps'.eta = true →
-      ConLeche.EtaFamilyStored ⟨.ctorInfo cvCa nP nF :: env.consts, env.tables⟩ T' caps' →
-      caps'.etaCtor ≠ cvCa.name)
+    {isProp large : Bool} {cvC cvTa cvCa : ConstantVal} {env₀ env₁ : Env}
     (mp : EnvModelM V env)
     {sorts : List Level}
     (hCtor : ConLeche.SumCtorRun .verified F env₀ env₁ T lps nP nIdx resSort
@@ -1041,21 +1031,12 @@ theorem stageCtorGen {T : Name}
     -- the reserved names' check (`basisNamesOk`)
     (hresC : ConLeche.reservedBasisNames.contains cvCa.name = false)
     (htr : cvCa.type.constsResolve env = true)
-    (hfT : env.find? T = some (.indInfo cvS caps))
     (hlpsT : cvTa.levelParams = lps)
     (hlpsC : cvCa.levelParams = lps)
     {idxArgs : List Expr}
     {ppsAll ds : (Name → Nat) → List Term} {Es : (Name → Nat) → List Term}
     {srcs : List (Option Nat)}
     {Fss Ess : (Name → Nat) → List (List Term)}
-    -- the block's own capability laws at the cons (task #210 Parts A
-    -- and B), at any carrier agreeing with this one off the
-    -- constructor's name and storing the constructor's leaf there
-    (hTlaws : ∀ m₂ : EnvModel V ⟨.ctorInfo cvCa nP nF :: env.consts, env.tables⟩,
-      (∀ n, n ≠ cvCa.name → m₂.acval n = mp.base2.acval n) →
-      (∀ ψ, m₂.acval cvCa.name ψ
-        = sumMkAV (resSort.eval ψ) j (ds ψ) (((ds ψ).drop nP)) (uChains (Fss ψ))) →
-      CapsLawsAt m₂ T cvS caps)
     (hFD : FormerData mp.base2 cvTa (nP + nIdx) resSort ppsAll)
     (hCD : CtorDataI mp.base2 T lps cvCa nP nF nIdx resSort isProp large idxArgs ds Es srcs)
     (hfold : ∀ (ψ : Name → Nat) (ρ : Nat → V),
@@ -1088,8 +1069,6 @@ theorem stageCtorGen {T : Name}
   obtain ⟨⟨hty, hccv⟩, -, -⟩ := hCtor
   have hCname : cvCa.name = cvC.name := by rw [hty]
   have hcb : ConstsBound env cvCa.type := constsBound_of_constsResolve _ htr
-  have hTC : T ≠ cvCa.name := by
-    intro h; rw [h, hfresh] at hfT; exact nomatch hfT
   let Fs : (Name → Nat) → List Term := fun ψ => ((ds ψ).drop nP)
   let A : (Name → Nat) → Term :=
     fun ψ => sumMkAV (resSort.eval ψ) j (ds ψ) (Fs ψ) (uChains (Fss ψ))
@@ -1114,7 +1093,7 @@ theorem stageCtorGen {T : Name}
     (Or.inr ⟨_, _, _, rfl⟩)
     (ConsHead.ofFresh hwfC (fun ψ => hAbelow ψ) hnresC
       (fun _ _ _ _ _ h => nomatch h))
-    ?_ ?_ ?_ ?_ ?_ ?_
+    ?_ ?_ ?_ ?_ ?_
   · intro ψ₁ ψ₂ hφ
     have hφT : ∀ q ∈ cvTa.levelParams, ψ₁ q = ψ₂ q := by rw [hlpsT, ← hlpsC]; exact hφ
     obtain ⟨-, hw⟩ := hFD.params ψ₁ ψ₂ hφT
@@ -1134,25 +1113,6 @@ theorem stageCtorGen {T : Name}
     have := sumMkAV_mem (V := V) (hwalks ψ ρ)
     rw [List.take_append_drop] at this
     exact this
-  · -- `caps_ok`: nothing is claimed by the block's family
-    intro m₂ hac
-    refine capsOk_cons_native mp (c₀ := .ctorInfo cvCa nP nF) (A := A)
-      (T := T) hfresh
-      (Or.inr fun _ _ h => nomatch h) ?_ m₂ hac ?_
-    · intro T' cvT' caps' hf hne hres hcape hfam
-      exact hE T' cvT' caps' hf hne hres hcape hfam
-    · intro cvT caps' hf _
-      have hfT' : (⟨.ctorInfo cvCa nP nF :: env.consts, env.tables⟩ : Env).find? T
-          = some (.indInfo cvS caps) := by
-        rw [ConLeche.Env.find?_cons, ite_eq_right (fun h => hTC h.symm)]
-        exact hfT
-      obtain ⟨rfl, rfl⟩ := ConstantInfo.indInfo.inj (Option.some.inj (hfT'.symm.trans hf))
-      refine hTlaws m₂ (fun n hn => ?_) (fun ψ => ?_)
-      · rw [hac]
-        exact acvalWith_ne hn
-      · rw [hac]
-        exact congrFun acvalWith_self ψ
-
 
 open ConLeche (Env Expr Name Level ConstantInfo ConstantVal IndCaps InductiveShape
  )

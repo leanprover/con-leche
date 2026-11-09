@@ -81,7 +81,7 @@ theorem extendFalse (mp : EnvModelM V env)
     (fun _ _ _ h => nomatch h)
     (by decide) (by decide) (by decide) (by decide)
     (fun _ _ _ _ _ h => nomatch h)
-    (Or.inl (by decide)) (Or.inl (fun _ h => nomatch h))
+    (Or.inl (fun _ h => nomatch h))
     (ConsHead.ofBasis hwf (fun _ => trivial) rfl
       (fun ψ t hp => by
         rw [show ConLeche.Verify.pinnedStructT falseI.name ψ
@@ -158,7 +158,7 @@ theorem extendFalseRec (mp : EnvModelM V env)
     (by decide) (by decide) (by decide) (by decide)
     (fun _ _ _ _ _ h => by
         injection h with _ _ _ _ h4; exact h4 ▸ rfl)
-    (Or.inl (by decide)) (Or.inl (fun _ h => nomatch h))
+    (Or.inl (fun _ h => nomatch h))
     (ConsHead.ofBasis hwf (fun _ => trivial) rfl
       (fun ψ t hp => by
         rw [show ConLeche.Verify.pinnedStructT falseRecA.name ψ

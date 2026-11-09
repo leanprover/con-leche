@@ -17,7 +17,7 @@ the literal shapes and their guards (`natLitToConstructor`,
 reducts and pins (`natOpNames`, `natDivModNames`, `natOpEquations`,
 `natOpResult`, `natOpStoredOk`, …), the structure-η fabrications
 (`etaProjs`, `etaFabArgsE`, `andRescueSlots`), the rule
-data (`etaRescueOk`, `recFireComparands`), the ι case split
+data (`etaRescueTable?`, `recFireComparands`), the ι case split
 (`iotaCtorNeverProp`, `iotaCase3`) and the tower entry's readers
 (`projGuardRows`, `ProjEntry.typeAt`).
 
@@ -709,17 +709,9 @@ def piResidual : Expr → List Expr → Option Expr
   | .forallE _ b, a :: as => piResidual (b.instantiate1 a) as
   | _, _ :: _ => none
 
-/-- Are all `nF` projection slots of `T` table entries — i.e. does
-`T`'s projection table exist and cover them?  (Task #175 tower-flag:
-a stored table always carries bodies, so "the entry exists" is the
-whole test.) -/
-def towerSlotsAll (env : Env) (T : Name) (nF : Nat) : Bool :=
-  (List.range nF).all fun j => (env.findProj? T j).isSome
-
 /-- The fabricated projections of a structure-eta spine: the
-`.proj T j b` nodes (every slot of an η family the checker uses has a
-table entry, `towerSlotsAll`; the node is what the table types and
-reduces). -/
+`.proj T j b` nodes, one per field of the family's projection table
+(the node is what the table types and reduces). -/
 def etaProjs (T : Name) (b : Expr) (nF : Nat) : List Expr :=
   (List.range nF).map fun j => Expr.proj T j b
 
@@ -735,6 +727,71 @@ def etaCtorShape (env : Env) (a : Expr) : Bool :=
     | some (.ctorInfo _ cnP cnF) => a.getAppArgs.length == cnP + cnF
     | _ => false
   | _ => false
+
+/-- **A partially applied η constructor** (official's `try_eta_struct_core`
+since lean4#15373): the candidate's head is a stored constructor applied
+to fewer than its parameters and fields, and the family its type ends in
+is a stored η family whose projection table's constructor it is.  `some k`, `k > 0`
+the arguments it lacks.  Read off the stored records alone, before any
+inference, as official's `is_non_rec_structure` gate is. -/
+def etaCtorPartial (env : Env) (a : Expr) : Option Nat :=
+  match a.getAppFn with
+  | .const c _ =>
+    match env.find? c with
+    | some (.ctorInfo cvc cnP cnF) =>
+      if a.getAppArgs.length < cnP + cnF then
+        match cvc.type.piResult.getAppFn with
+        | .const T _ =>
+          match env.find? T with
+          | some (.indInfo _ caps) =>
+            match env.findTable? T with
+            | some tbl =>
+              if caps.eta = true ∧ tbl.ctor = c then
+                some (cnP + cnF - a.getAppArgs.length)
+              else none
+            | none => none
+          | _ => none
+        | _ => none
+      else none
+    | _ => none
+  | _ => none
+
+/-- **The field telescope of an η family's instance** (the opening of
+official's `is_unit_like` field loop): the η constructor's type at the
+levels `us`, its `nP` parameter binders dropped and instantiated with the
+type's arguments `targs` in one pass (official's `binding_body` ×`nP`,
+then `instantiate_rev`). -/
+def unitFieldTele (cty : Expr) (nP : Nat) (targs : List Expr) : Option Expr :=
+  (Expr.peelPis nP cty).map fun body => body.instantiateList targs.reverse
+
+/-- **The shape of an instance in official's `is_unit_like`**, read off
+the stored records: `w`, a head normal form, is an instance of a stored
+η family (one constructor, no index, not recursive) at its parameters,
+whose constructor's field telescope at the instance's parameters is
+`tele` with `n` fields to check (`some (tele, n)`), or not (`none`).
+The constructor and the field count are the family's projection table's
+(official takes the constructor from the family's constructor list): a
+structure-like family has a table whatever its field count, and the
+table's constructor is a stored constructor (`TableHead`). -/
+def unitLikeShape (env : Env) (w : Expr) : Option (Expr × Nat) :=
+  match w.getAppFn with
+  | .const S us =>
+    match env.find? S with
+    | some (.indInfo cvS caps) =>
+      if caps.eta = true ∧ us.length = cvS.levelParams.length then
+        match env.findTable? S with
+        | some tbl =>
+          if w.getAppArgs.length = tbl.numParams then
+            match env.find? tbl.ctor with
+            | some (.ctorInfo cvC _ _) =>
+              (unitFieldTele (cvC.type.instantiateLevelParams cvC.levelParams us)
+                tbl.numParams w.getAppArgs).map fun tele => (tele, tbl.numFields)
+            | _ => none
+          else none
+        | none => none
+      else none
+    | _ => none
+  | _ => none
 
 /-- The eta-rescue fabrication's argument spine: the major's type's
 arguments, then the major's projections (`etaProjs`). -/
@@ -865,23 +922,39 @@ def andRescueSlots (env : Env) (ctor : Name) (nP : Nat) : Bool :=
   andRescueSlotsOf env.findProj? ctor nP
 
 /-- **The structure-η rescue's standing condition, at use**: the single
-rule's constructor `ctor` (stored as `cvj`) is the η constructor of its
-family `cvT`, which is structure-like (`IndCaps.eta`), and carries the family's
-level parameters.  The rescue asks this where it has just looked all three up;
-nothing about it is stored.
+rule's constructor `ctor` (stored as `cvj`) is the constructor of its
+family's projection table `tbl?` (the family `cvT` structure-like,
+`IndCaps.eta`), and carries the family's level parameters; the table, for
+the fabrication's counts.  The rescue asks this where it has just looked
+all of them up; nothing about it is stored.
 
 The level-parameter conjunct is what lets the rescue fabricate the
 constructor application at the major type's levels without comparing
 the two lists per call.  `And.intro` is left to `And`'s own rescue. -/
-def etaRescueOk (ctor : Name) (cvj cvT : ConstantVal) (caps : IndCaps) : Bool :=
-  caps.eta && caps.etaCtor == ctor && cvj.levelParams == cvT.levelParams && ctor != andIntroName
+def etaRescueTable? (tbl? : Option ProjTable) (ctor : Name) (cvj cvT : ConstantVal)
+    (caps : IndCaps) : Option ProjTable :=
+  match tbl? with
+  | some tbl =>
+    if caps.eta && tbl.ctor == ctor && cvj.levelParams == cvT.levelParams &&
+        ctor != andIntroName then some tbl
+    else none
+  | none => none
 
-/-- What `etaRescueOk` says. -/
-theorem etaRescueOk_inv {ctor : Name} {cvj cvT : ConstantVal} {caps : IndCaps}
-    (h : etaRescueOk ctor cvj cvT caps = true) :
-    caps.eta = true ∧ caps.etaCtor = ctor ∧ cvj.levelParams = cvT.levelParams := by
-  simp only [etaRescueOk, Bool.and_eq_true, beq_iff_eq] at h
-  exact ⟨h.1.1.1, h.1.1.2, h.1.2⟩
+/-- What `etaRescueTable?` says. -/
+theorem etaRescueTable?_inv {tbl? : Option ProjTable} {ctor : Name} {cvj cvT : ConstantVal}
+    {caps : IndCaps} {tbl : ProjTable}
+    (h : etaRescueTable? tbl? ctor cvj cvT caps = some tbl) :
+    tbl? = some tbl ∧ caps.eta = true ∧ tbl.ctor = ctor ∧
+      cvj.levelParams = cvT.levelParams := by
+  unfold etaRescueTable? at h
+  split at h
+  · split at h
+    · rename_i h'
+      simp only [Bool.and_eq_true, beq_iff_eq] at h'
+      cases h
+      exact ⟨rfl, h'.1.1.1, h'.1.1.2, h'.1.2⟩
+    · exact nomatch h
+  · exact nomatch h
 
 /-- The level and constructor-parameter comparands a firing rule's
 checks compare the major's constructor levels and parameters against:

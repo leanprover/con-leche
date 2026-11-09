@@ -89,15 +89,99 @@ theorem projCertAtF_mkFEnv (env : Env) (v : Bool) (c : Name) (args : List Expr) 
   rw [mkFEnv_find?]
   split <;> rfl
 
+/-- `isPropTypeI` simulates its fueled original. -/
+theorem isPropTypeC_spec (ih : SSimC mode eager env f) {d : Nat} {T : Expr} {s₀ : CState}
+    (hs : CSOK mode eager env s₀) (hw : Expr.WScoped d T) :
+    ⦃fun s => s = s₀⦄ isPropTypeI (coreKnotI mode eager (mkFEnv env) f) d T
+    ⦃fun v s' => CSOK mode eager env s' ∧
+        Runs (isPropType (fueledFns mode eager env) d T) v; ⊤⦄ := by
+  sym only [conleche_grind, isPropType] =>
+    vcgen [isPropTypeI, ih.inferIO_spec, ih.whnf_spec,
+      isEquivLM_spec (mode := mode) (eager := eager) (env := env),
+      liftFueled_spec (mode := mode) (eager := eager) (env := env)] <;> finish
+
+/-- The field loop of the unit-like test simulates its fueled original,
+given the field test's simulation. -/
+theorem unitLikeFieldsC_spec (ih : SSimC mode eager env f)
+    {ul : Nat → Expr → CheckCM Bool} {ul' : Nat → Expr → FueledM Bool}
+    (hul : ∀ {d : Nat} {e : Expr} {s₀ : CState}, CSOK mode eager env s₀ → Expr.WScoped d e →
+      ⦃fun s => s = s₀⦄ ul d e
+      ⦃fun v s' => CSOK mode eager env s' ∧ Runs (ul' d e) v; ⊤⦄) :
+    ∀ {n d : Nat} {t : Expr} {s₀ : CState}, CSOK mode eager env s₀ → Expr.WScoped d t →
+      ⦃fun s => s = s₀⦄ unitLikeFieldsI (coreKnotI mode eager (mkFEnv env) f) ul n d t
+      ⦃fun v s' => CSOK mode eager env s' ∧
+        Runs (unitLikeFields (fueledFns mode eager env) ul' n d t) v; ⊤⦄ := by
+  intro n
+  induction n with
+  | zero =>
+    intro d t s₀ hs hw
+    sym only [conleche_grind, unitLikeFields] =>
+      vcgen [unitLikeFieldsI] <;> finish
+  | succ n ihn =>
+    intro d t s₀ hs hw
+    cases t with
+    | forallE dom body =>
+      sym only [conleche_grind, unitLikeFields] =>
+        vcgen [unitLikeFieldsI, isPropTypeC_spec ih, hul,
+          inst1M_spec (mode := mode) (eager := eager) (env := env), ihn] <;> finish
+    | _ =>
+      simp only [unitLikeFieldsI, unitLikeFields]
+      sym only [conleche_grind] => vcgen <;> finish
+/-- The cached shape read is the spec's (`mkFEnv`). -/
+theorem unitLikeShapeF_mkFEnv (env : Env) (w : Expr) :
+    unitLikeShapeF (mkFEnv env) w = unitLikeShape env w := by
+  unfold unitLikeShapeF unitLikeShape unitFieldTele
+  simp only [mkFEnv_find?, mkFEnv_findTable?, Expr.getAppArgsC_spec,
+    Expr.instLevelParams_spec, Expr.instantiateListC_spec, Option.map_map]
+  rfl
+
+/-- The structure arm of the unit-like test simulates its fueled
+original, given the field test's simulation. -/
+theorem unitLikeStructC_spec (ih : SSimC mode eager env f) (henv : EnvWF env)
+    {ul : Nat → Expr → CheckCM Bool} {ul' : Nat → Expr → FueledM Bool}
+    (hul : ∀ {d : Nat} {e : Expr} {s₀ : CState}, CSOK mode eager env s₀ → Expr.WScoped d e →
+      ⦃fun s => s = s₀⦄ ul d e
+      ⦃fun v s' => CSOK mode eager env s' ∧ Runs (ul' d e) v; ⊤⦄)
+    {d : Nat} {w : Expr} {s₀ : CState} (hs : CSOK mode eager env s₀) (hw : Expr.WScoped d w) :
+    ⦃fun s => s = s₀⦄ unitLikeStructI (coreKnotI mode eager (mkFEnv env) f) ul (mkFEnv env) d w
+    ⦃fun v s' => CSOK mode eager env s' ∧
+        Runs (unitLikeStruct (fueledFns mode eager env) ul' env d w) v; ⊤⦄ := by
+  unfold unitLikeStructI unitLikeStruct
+  rw [unitLikeShapeF_mkFEnv]
+  cases hsh : unitLikeShape env w with
+  | none => sym only [conleche_grind] => vcgen <;> finish
+  | some x =>
+    obtain ⟨tele, n⟩ := x
+    exact unitLikeFieldsC_spec ih hul hs (unitLikeShape_WScoped henv hw hsh)
+
+/-- The unit-like test simulates its fueled original. -/
+theorem unitLikeLoopC_spec (ih : SSimC mode eager env f) (henv : EnvWF env) :
+    ∀ {fuel d : Nat} {T : Expr} {s₀ : CState}, CSOK mode eager env s₀ → Expr.WScoped d T →
+      ⦃fun s => s = s₀⦄ unitLikeLoopI (coreKnotI mode eager (mkFEnv env) f) (mkFEnv env) fuel d T
+      ⦃fun v s' => CSOK mode eager env s' ∧
+        Runs (unitLikeLoop (fueledFns mode eager env) env fuel d T) v; ⊤⦄ := by
+  intro fuel
+  induction fuel with
+  | zero =>
+    intro d T s₀ hs hw
+    sym only [conleche_grind, unitLikeLoop] =>
+      vcgen [unitLikeLoopI] <;> finish
+  | succ fuel ihf =>
+    intro d T s₀ hs hw
+    sym only [conleche_grind, unitLikeLoop] =>
+      vcgen [unitLikeLoopI, ih.whnf_spec,
+        inst1M_spec (mode := mode) (eager := eager) (env := env), ihf,
+        unitLikeStructC_spec ih henv ihf] <;> finish
 /-- `structUnitCertI` simulates its fueled original. -/
-theorem structUnitCertC_spec (ih : SSimC mode eager env f) {d : Nat} {a b : Expr} {s₀ : CState}
+theorem structUnitCertC_spec (ih : SSimC mode eager env f) (henv : EnvWF env) {d : Nat}
+    {a b : Expr} {s₀ : CState}
     (hs : CSOK mode eager env s₀) (hwa : Expr.WScoped d a) (hwb : Expr.WScoped d b) :
     ⦃fun s => s = s₀⦄ structUnitCertI (coreKnotI mode eager (mkFEnv env) f) (mkFEnv env) d a b
     ⦃fun v s' => CSOK mode eager env s' ∧
         Runs (structUnitCert (fueledFns mode eager env) env d a b) v; ⊤⦄ := by
   sym only [conleche_grind, structUnitCert] =>
-    vcgen [structUnitCertI, ih.inferIO_spec, ih.whnf_spec, ih.defeq_spec] <;> finish
-
+    vcgen [structUnitCertI, ih.inferIO_spec, ih.whnf_spec, ih.defeq_spec,
+      unitLikeLoopC_spec ih henv] <;> finish
 end Walks2
 
 section Walks4
@@ -120,11 +204,116 @@ theorem projNodesC_spec (T : Name) (b : Expr) :
     sym only [conleche_grind] =>
       vcgen [projNodesI, ih] <;> finish
 
-/-- The index's slot tests are the spec's (`mkFEnv`). -/
-theorem towerSlotsAllF_mkFEnv (env : Env) (T : Name) (n : Nat) :
-    (mkFEnv env).towerSlotsAllF T n = towerSlotsAll env T n := by
-  simp only [FEnv.towerSlotsAllF, towerSlotsAll, mkFEnv_findProj?]
-  all_goals rfl
+section PureSeta
+
+variable {m : Type → Type} [Monad m] [MonadExceptOf CheckError m] {r : CoreFns m} {d : Nat}
+
+/-- The pure structure-η certificate past its lookups (the constructor
+head, its record, the arity, the type's head, its former and its
+table). -/
+@[expose] def setaBodyP (r : CoreFns m) (env : Env) (depth : Nat) (a b wtb : Expr) (c : Name)
+    (us : List Level) (cvc : ConstantVal) (T : Name) (us' : List Level) (cvT : ConstantVal)
+    (caps : IndCaps) (tbl : ProjTable) : m Bool := do
+  if caps.eta = true ∧ tbl.ctor = c ∧
+      wtb.getAppArgs.length = tbl.numParams ∧
+      us'.length = cvT.levelParams.length ∧
+      cvc.levelParams = cvT.levelParams then
+    if ← liftFueled "level comparison" (Level.isEquivList us us') then
+      if ← defEqList r env depth (a.getAppArgs.take tbl.numParams) wtb.getAppArgs then
+        defEqList r env depth (a.getAppArgs.drop tbl.numParams) (etaProjs T b tbl.numFields)
+      else pure false
+    else pure false
+  else pure false
+
+/-! The pure certificate's arms, one equation each. -/
+
+theorem seta_body {env : Env} {a b wtb : Expr} {c : Name} {us : List Level} {cvc : ConstantVal}
+    {cnP cnF : Nat} {T : Name} {us' : List Level} {cvT : ConstantVal} {caps : IndCaps}
+    {tbl : ProjTable} (h1 : a.getAppFn = .const c us)
+    (h2 : env.find? c = some (.ctorInfo cvc cnP cnF)) (h3 : a.getAppArgs.length = cnP + cnF)
+    (h4 : wtb.getAppFn = .const T us') (h5 : env.find? T = some (.indInfo cvT caps))
+    (h6 : env.findTable? T = some tbl) :
+    structEtaCertWith r env d a b wtb = setaBodyP r env d a b wtb c us cvc T us' cvT caps tbl := by
+  rw [structEtaCertWith]; simp only [h1, h2, h3, h4, h5, h6, ↓reduceIte]; rfl
+grind_pattern [conleche_grind] seta_body =>
+    structEtaCertWith r env d a b wtb, Expr.const c us, ConstantInfo.ctorInfo cvc cnP cnF,
+      Expr.const T us', ConstantInfo.indInfo cvT caps, Option.some tbl where
+  guard a.getAppFn = .const c us
+  guard env.find? c = some (.ctorInfo cvc cnP cnF)
+  guard wtb.getAppFn = .const T us'
+  guard env.find? T = some (.indInfo cvT caps)
+  guard env.findTable? T = some tbl
+
+theorem seta_notConst {env : Env} {a b wtb : Expr}
+    (h1 : ∀ c us, a.getAppFn = .const c us → False) :
+    structEtaCertWith r env d a b wtb = pure false := by
+  rw [structEtaCertWith]; split
+  · exact absurd ‹_› (h1 _ _)
+  · rfl
+
+theorem seta_notCtor {env : Env} {a b wtb : Expr} {c : Name} {us : List Level}
+    (h1 : a.getAppFn = .const c us)
+    (h2 : ∀ cvc cnP cnF, env.find? c = some (.ctorInfo cvc cnP cnF) → False) :
+    structEtaCertWith r env d a b wtb = pure false := by
+  rw [structEtaCertWith]; simp only [h1]
+grind_pattern [conleche_grind] seta_notCtor => structEtaCertWith r env d a b wtb, Expr.const c us where
+  guard a.getAppFn = .const c us
+
+theorem seta_arity {env : Env} {a b wtb : Expr} {c : Name} {us : List Level} {cvc : ConstantVal}
+    {cnP cnF : Nat} (h1 : a.getAppFn = .const c us)
+    (h2 : env.find? c = some (.ctorInfo cvc cnP cnF)) (h3 : ¬a.getAppArgs.length = cnP + cnF) :
+    structEtaCertWith r env d a b wtb = pure false := by
+  rw [structEtaCertWith]; simp only [h1, h2, h3, ↓reduceIte]
+grind_pattern [conleche_grind] seta_arity =>
+    structEtaCertWith r env d a b wtb, Expr.const c us, ConstantInfo.ctorInfo cvc cnP cnF where
+  guard a.getAppFn = .const c us
+  guard env.find? c = some (.ctorInfo cvc cnP cnF)
+
+theorem seta_notConstT {env : Env} {a b wtb : Expr} {c : Name} {us : List Level}
+    {cvc : ConstantVal} {cnP cnF : Nat} (h1 : a.getAppFn = .const c us)
+    (h2 : env.find? c = some (.ctorInfo cvc cnP cnF)) (h3 : a.getAppArgs.length = cnP + cnF)
+    (h4 : ∀ T us', wtb.getAppFn = .const T us' → False) :
+    structEtaCertWith r env d a b wtb = pure false := by
+  rw [structEtaCertWith]; simp only [h1, h2, h3, ↓reduceIte]
+grind_pattern [conleche_grind] seta_notConstT =>
+    structEtaCertWith r env d a b wtb, Expr.const c us, ConstantInfo.ctorInfo cvc cnP cnF where
+  guard a.getAppFn = .const c us
+  guard env.find? c = some (.ctorInfo cvc cnP cnF)
+  guard a.getAppArgs.length = cnP + cnF
+
+theorem seta_notInd {env : Env} {a b wtb : Expr} {c : Name} {us : List Level}
+    {cvc : ConstantVal} {cnP cnF : Nat} {T : Name} {us' : List Level}
+    (h1 : a.getAppFn = .const c us)
+    (h2 : env.find? c = some (.ctorInfo cvc cnP cnF)) (h3 : a.getAppArgs.length = cnP + cnF)
+    (h4 : wtb.getAppFn = .const T us')
+    (h5 : ∀ cvT caps, env.find? T = some (.indInfo cvT caps) → False) :
+    structEtaCertWith r env d a b wtb = pure false := by
+  rw [structEtaCertWith]; simp only [h1, h2, h3, h4, ↓reduceIte]
+grind_pattern [conleche_grind] seta_notInd =>
+    structEtaCertWith r env d a b wtb, Expr.const c us, ConstantInfo.ctorInfo cvc cnP cnF,
+      Expr.const T us' where
+  guard a.getAppFn = .const c us
+  guard env.find? c = some (.ctorInfo cvc cnP cnF)
+  guard wtb.getAppFn = .const T us'
+
+theorem seta_noTable {env : Env} {a b wtb : Expr} {c : Name} {us : List Level}
+    {cvc : ConstantVal} {cnP cnF : Nat} {T : Name} {us' : List Level} {cvT : ConstantVal}
+    {caps : IndCaps} (h1 : a.getAppFn = .const c us)
+    (h2 : env.find? c = some (.ctorInfo cvc cnP cnF)) (h3 : a.getAppArgs.length = cnP + cnF)
+    (h4 : wtb.getAppFn = .const T us') (h5 : env.find? T = some (.indInfo cvT caps))
+    (h6 : env.findTable? T = none) :
+    structEtaCertWith r env d a b wtb = pure false := by
+  rw [structEtaCertWith]; simp only [h1, h2, h3, h4, h5, h6, ↓reduceIte]
+grind_pattern [conleche_grind] seta_noTable =>
+    structEtaCertWith r env d a b wtb, Expr.const c us, ConstantInfo.ctorInfo cvc cnP cnF,
+      Expr.const T us', ConstantInfo.indInfo cvT caps where
+  guard a.getAppFn = .const c us
+  guard env.find? c = some (.ctorInfo cvc cnP cnF)
+  guard wtb.getAppFn = .const T us'
+  guard env.find? T = some (.indInfo cvT caps)
+  guard env.findTable? T = none
+
+end PureSeta
 
 /-- `structEtaCertWithI` simulates its fueled original. -/
 theorem structEtaCertWithC_spec (ih : SSimC mode eager env f) {d : Nat} {a b wtb : Expr}
@@ -134,11 +323,51 @@ theorem structEtaCertWithC_spec (ih : SSimC mode eager env f) {d : Nat} {a b wtb
       structEtaCertWithI (coreKnotI mode eager (mkFEnv env) f) (mkFEnv env) d a b wtb
     ⦃fun v s' => CSOK mode eager env s' ∧
         Runs (structEtaCertWith (fueledFns mode eager env) env d a b wtb) v; ⊤⦄ := by
-  sym only [conleche_grind, structEtaCertWith,
-      towerSlotsAllF_mkFEnv] =>
+  sym only [conleche_grind, seta_notConst, setaBodyP] =>
     vcgen [structEtaCertWithI, isEquivListLM_spec (mode := mode) (eager := eager) (env := env),
       liftFueled_spec (mode := mode) (eager := eager) (env := env), defEqListC_spec ih,
       projNodesC_spec (mode := mode) (eager := eager) (env := env)] <;> finish
+
+/-- The partial-constructor gate reads the same store on both sides. -/
+theorem etaCtorPartialC_eq (env : Env) (e : Expr) :
+    etaCtorPartialC (mkFEnv env) e = etaCtorPartial env e := by
+  unfold etaCtorPartialC etaCtorPartial
+  simp only [mkFEnv_find?, mkFEnv_findTable?]
+  cases e.getAppFn <;> rfl
+
+/-- `structEtaFullI` simulates its fueled original. -/
+theorem structEtaFullC_spec (ih : SSimC mode eager env f) {d : Nat} {a b : Expr} {s₀ : CState}
+    (hs : CSOK mode eager env s₀) (hwa : Expr.WScoped d a) (hwb : Expr.WScoped d b) :
+    ⦃fun s => s = s₀⦄ structEtaFullI (coreKnotI mode eager (mkFEnv env) f) (mkFEnv env) d a b
+    ⦃fun v s' => CSOK mode eager env s' ∧
+        Runs (structEtaFull (fueledFns mode eager env) env d a b) v; ⊤⦄ := by
+  sym only [conleche_grind, structEtaFull] =>
+    vcgen [structEtaFullI, ih.inferIO_spec, ih.whnf_spec, structEtaCertWithC_spec ih] <;>
+      finish
+
+/-- The η-expansion simulates its fueled original. -/
+theorem structEtaExpandC_spec (ih : SSimC mode eager env f) :
+    ∀ {k d : Nat} {a b t : Expr} {s₀ : CState}, CSOK mode eager env s₀ →
+      Expr.WScoped d a → Expr.WScoped d b → Expr.WScoped d t →
+      ⦃fun s => s = s₀⦄ structEtaExpandI (coreKnotI mode eager (mkFEnv env) f) (mkFEnv env) k d a b t
+      ⦃fun v s' => CSOK mode eager env s' ∧
+        Runs (structEtaExpand (fueledFns mode eager env) env k d a b t) v; ⊤⦄ := by
+  intro k
+  induction k with
+  | zero =>
+    intro d a b t s₀ hs hwa hwb hwt
+    sym only [conleche_grind, structEtaExpand] =>
+      vcgen [structEtaExpandI, structEtaFullC_spec ih] <;> finish
+  | succ k ihk =>
+    intro d a b t s₀ hs hwa hwb hwt
+    cases t with
+    | forallE dom body =>
+      sym only [conleche_grind, structEtaExpand] =>
+        vcgen [structEtaExpandI, inst1M_spec (mode := mode) (eager := eager) (env := env),
+          ihk] <;> finish
+    | _ =>
+      simp only [structEtaExpandI, structEtaExpand]
+      sym only [conleche_grind] => vcgen <;> finish
 
 /-- `structEtaCertI` simulates its fueled original. -/
 theorem structEtaCertC_spec (ih : SSimC mode eager env f) {d : Nat} {a b : Expr} {s₀ : CState}
@@ -146,20 +375,22 @@ theorem structEtaCertC_spec (ih : SSimC mode eager env f) {d : Nat} {a b : Expr}
     ⦃fun s => s = s₀⦄ structEtaCertI (coreKnotI mode eager (mkFEnv env) f) (mkFEnv env) d a b
     ⦃fun v s' => CSOK mode eager env s' ∧
         Runs (structEtaCert (fueledFns mode eager env) env d a b) v; ⊤⦄ := by
-  sym only [conleche_grind, structEtaCert] =>
-    vcgen [structEtaCertI, ih.inferIO_spec, ih.whnf_spec, structEtaCertWithC_spec ih] <;>
-      finish
+  sym only [conleche_grind, structEtaCert, etaCtorPartialC_eq] =>
+    vcgen [structEtaCertI, structEtaFullC_spec ih, ih.inferIO_spec, ih.defeq_spec,
+      structEtaExpandC_spec ih] <;> finish
 
 /-- `stuckIrrelI` simulates its fueled original. -/
-theorem stuckIrrelC_spec (ih : SSimC mode eager env f) {d : Nat} {a b : Expr} {s₀ : CState}
+theorem stuckIrrelC_spec (ih : SSimC mode eager env f) (henv : EnvWF env) {d : Nat} {a b : Expr}
+    {s₀ : CState}
     (hs : CSOK mode eager env s₀) (hwa : Expr.WScoped d a) (hwb : Expr.WScoped d b) :
     ⦃fun s => s = s₀⦄ stuckIrrelI (coreKnotI mode eager (mkFEnv env) f) (mkFEnv env) d a b
     ⦃fun v s' => CSOK mode eager env s' ∧
         Runs (stuckIrrel (fueledFns mode eager env) env d a b) v; ⊤⦄ := by
   sym only [conleche_grind, stuckIrrel] =>
-    vcgen [stuckIrrelI, structEtaCertC_spec ih, structUnitCertC_spec ih,
+    vcgen [stuckIrrelI, structEtaCertC_spec ih, structUnitCertC_spec ih henv,
       proofIrrelC_spec ih] <;> finish
 
 end Walks4
+
 
 end ConLeche.Cached

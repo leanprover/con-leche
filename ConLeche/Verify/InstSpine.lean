@@ -1,6 +1,7 @@
 module
 
 import ConLeche.Verify.Subst
+import ConLeche.Verify.InstList
 public import ConLeche.Verify.Leaves
 public import ConLeche.Verify.InstLevels
 
@@ -221,4 +222,102 @@ theorem wscoped_instLevels_of_not_hasFvar {e : Expr}
     WScoped d (e.instantiateLevelParams ps us) :=
   WScoped.of_not_hasFvar (by rw [hasFvar_instantiateLevelParams]; exact h)
 
+/-! ## The field telescope of a unit-like instance (task #515)
+
+`unitFieldTele` (`Kernel/CoreDefs.lean`) drops a stored constructor
+type's parameter binders and instantiates them with the instance's
+arguments in one pass; it is the `instSpine` of the arguments. -/
+
+/-- Bulk instantiation at a reversed spine is the spine's `instSpine`. -/
+theorem instantiateList_reverse_eq_instSpine :
+    ∀ (args : List Expr) (e : Expr),
+      e.instantiateList args.reverse = Expr.instSpine args (args.length - 1) e
+  | [], e => Expr.instantiateList_nil e 0
+  | a :: as, e =>
+    (Expr.instSpine_eq_instantiateList (a :: as) as.length e (by simp)).symm
+
+/-- `unitFieldTele` is the `instSpine` of the peeled body. -/
+theorem unitFieldTele_eq (cty : Expr) (n : Nat) (args : List Expr) :
+    unitFieldTele cty n args =
+      (Expr.peelPis n cty).map (Expr.instSpine args (args.length - 1)) := by
+  unfold unitFieldTele
+  congr 1
+  funext body
+  exact instantiateList_reverse_eq_instSpine args body
+
+/-- A peel of an fvar-free telescope is fvar-free. -/
+theorem hasFvar_peelPis : ∀ {n : Nat} {e r : Expr}, e.hasFvar = false →
+    Expr.peelPis n e = some r → r.hasFvar = false
+  | 0, e, r, he, h => by
+    simp only [Expr.peelPis, Option.some.injEq] at h; exact h ▸ he
+  | n + 1, .forallE _ b, r, he, h => by
+    simp only [Expr.hasFvar, Bool.or_eq_false_iff] at he
+    exact hasFvar_peelPis he.2 h
+  | _ + 1, .bvar _, _, _, h | _ + 1, .fvar _ _, _, _, h | _ + 1, .sort _, _, _, h
+  | _ + 1, .const _ _, _, _, h | _ + 1, .app _ _, _, _, h | _ + 1, .lam _ _, _, _, h
+  | _ + 1, .letE _ _ _, _, _, h | _ + 1, .lit _, _, _, h
+  | _ + 1, .proj _ _ _, _, _, h => nomatch h
+
+/-- The field telescope of an fvar-free constructor type commutes with the
+shift (the arguments shifted pointwise). -/
+theorem unitFieldTele_shiftFrom {p : Nat} {cty : Expr} (hc : cty.hasFvar = false)
+    (n : Nat) (args : List Expr) :
+    unitFieldTele cty n (args.map (shiftFrom p)) =
+      (unitFieldTele cty n args).map (shiftFrom p) := by
+  rw [unitFieldTele_eq, unitFieldTele_eq]
+  cases hb : Expr.peelPis n cty with
+  | none => rfl
+  | some body =>
+    simp only [Option.map_some, List.length_map, shiftFrom_instSpine,
+      shiftFrom_eq_self_of_not_hasFvar (hasFvar_peelPis hc hb)]
+
+/-- The field telescope of an fvar-free constructor type at well-scoped
+arguments is well-scoped. -/
+theorem unitFieldTele_WScoped {d : Nat} {cty tele : Expr} {n : Nat} {args : List Expr}
+    (hc : cty.hasFvar = false) (hargs : ∀ a ∈ args, WScoped d a)
+    (h : unitFieldTele cty n args = some tele) : WScoped d tele := by
+  rw [unitFieldTele_eq] at h
+  cases hb : Expr.peelPis n cty with
+  | none => rw [hb] at h; exact nomatch h
+  | some body =>
+    rw [hb] at h
+    obtain rfl := Option.some.inj h
+    exact instSpine_WScoped _ (WScoped.of_not_hasFvar (hasFvar_peelPis hc hb)) hargs
+
+/-- **The shape of a unit-like instance, inverted**: the head family is a
+stored η family at its levels, its projection table's constructor is a
+stored constructor, and the telescope is that constructor's at the
+instance's parameters, with the table's field count. -/
+theorem unitLikeShape_some {env : Env} {w tele : Expr} {n : Nat}
+    (h : unitLikeShape env w = some (tele, n)) :
+    ∃ (S : Name) (us : List Level) (cvS : ConstantVal) (caps : IndCaps) (tbl : ProjTable)
+      (cvC : ConstantVal) (nPc nFc : Nat),
+      w.getAppFn = .const S us ∧ env.find? S = some (.indInfo cvS caps) ∧
+      caps.eta = true ∧ us.length = cvS.levelParams.length ∧
+      env.findTable? S = some tbl ∧ w.getAppArgs.length = tbl.numParams ∧
+      env.find? tbl.ctor = some (.ctorInfo cvC nPc nFc) ∧ n = tbl.numFields ∧
+      unitFieldTele (cvC.type.instantiateLevelParams cvC.levelParams us) tbl.numParams
+        w.getAppArgs = some tele := by
+  unfold unitLikeShape at h
+  split at h <;> try contradiction
+  rename_i S us hfn
+  split at h <;> try contradiction
+  rename_i cvS caps hfS
+  split at h <;> try contradiction
+  rename_i hc
+  split at h <;> try contradiction
+  rename_i tbl hT
+  split at h <;> try contradiction
+  rename_i hlen
+  split at h <;> try contradiction
+  rename_i cvC nPc nFc hfC
+  cases ht : unitFieldTele (cvC.type.instantiateLevelParams cvC.levelParams us) tbl.numParams
+      w.getAppArgs with
+  | none => rw [ht] at h; exact nomatch h
+  | some t =>
+    rw [ht] at h
+    obtain ⟨rfl, rfl⟩ := Prod.mk.inj (Option.some.inj h)
+    exact ⟨S, us, cvS, caps, tbl, cvC, nPc, nFc, hfn, hfS, hc.1, hc.2, hT, hlen, hfC, rfl, ht⟩
+
 end ConLeche
+

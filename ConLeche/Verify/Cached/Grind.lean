@@ -468,7 +468,7 @@ grind_pattern [conleche_grind] wscoped_instLevels =>
 
 /-! ## 5. The index and the operation-free cached operations -/
 
-attribute [conleche_grind =] mkFEnv_find? Expr.getAppArgsC_spec Expr.mkBvar_eq
+attribute [conleche_grind =] mkFEnv_find? mkFEnv_findTable? Expr.getAppArgsC_spec Expr.mkBvar_eq
   Expr.instSpineC_spec Expr.instLevelParams_spec
 
 /-- The index's lookup as a function (for the readers that take the

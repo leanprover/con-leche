@@ -153,6 +153,7 @@ ConLeche.bindersFuel
 ConLeche.liftFueled
 ConLeche.projIndexedStructLike
 ConLeche.projMissError
+ConLeche.unitLikeFuel
 ConLeche.unknownConstError
 ConLeche.whnfCoreLoopFuel
 ConLeche.whnfLoopFuel
@@ -168,7 +169,7 @@ ConLeche.charOfNatTyOk
 ConLeche.charTyOk
 ConLeche.ctorFamily
 ConLeche.eagerReduceName
-ConLeche.etaRescueOk
+ConLeche.etaRescueTable?
 ConLeche.formerNeverZero
 ConLeche.formerResSort
 ConLeche.formerZ
@@ -295,7 +296,6 @@ ConLeche.FEnv.findTable?
 ConLeche.FEnv.overlay
 ConLeche.FEnv.push
 ConLeche.FEnv.rawTable?
-ConLeche.FEnv.towerSlotsAllF
 ConLeche.natLitStoredF
 ConLeche.natLitSupportedF
 ConLeche.natOpGuardF

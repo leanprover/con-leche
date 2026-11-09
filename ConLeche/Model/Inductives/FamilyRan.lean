@@ -150,8 +150,8 @@ theorem EnvModelM.storedFacts {env : Env} (mp : EnvModelM V env) (hN : NatFacts 
   natTrio := hN.trio
   recCtors := mp.base2.rec_ctors
   opDefn := mp.op_defn
-  entryCtors := fun _ _ e hf => by
-    obtain ⟨-, -, -, -, -, cvC, hc, -⟩ := mp.base2.proj_ok.towerHead hf
+  tableCtors := fun _ _ hf => by
+    obtain ⟨-, -, -, -, cvC, hc, -⟩ := mp.base2.proj_ok _ _ hf
     rw [hc]; rfl
   boolCtors := by
     have hg : ∀ c, c ∈ ConLeche.natOpNames → (c = ConLeche.natBeqName ∨ c = ConLeche.natBleName) →

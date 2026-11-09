@@ -281,16 +281,10 @@ structure EnvModelM (env : Env) where
   `declBasisPB_at`.  Consumed by the WF operations' certificate
   frame) -/
   eq_law : EqLaw base2
-  /-- the stored families' fired capability laws (an *environment law* for the same reason `eq_law` is — an
-  η-capable family's leaf value is fixed by the inductive install and
-  by nothing else, so the supplier is the inductive install).  Consumed
-  by the structure-η and unit-like rules' soundness
-  (`Model/Rules/DefEqSound.lean`, through `RulesInputs.caps_ok`) -/
-  caps_ok : CapsOk base2
   /-- a certified operation's name holds a definition: the fast path fires by name -/
   op_defn : OpDefn env
   /-- the stored recursors' fired modeled-iota contracts (an
-  *environment law* for the same reason `caps_ok` is — a
+  *environment law* for the same reason `eq_law` is — a
   recursor's rules are fixed by the inductive install and by nothing
   else, so the supplier is the inductive install).  Consumed by the ι rule's
   soundness (`Model/Rules/IotaSound.lean`, through
@@ -302,8 +296,8 @@ structure EnvModelM (env : Env) where
   install's identity certificate and by nothing else, so the supplier
   is `harvestOpaque`.  Consumed by the `ofReduce*` axiom branch) -/
   reduce_ops : ReduceOps base2
-  /-- the stored tower-backed projection entries' typing and iota
-  laws (an *environment law* for the same reason
+  /-- the stored projection tables' η laws and their entries' typing
+  and iota laws (an *environment law* for the same reason
   `rec_rules` is — a direct structure's entries are fixed by its
   install and by nothing else, so the supplier is the direct install
   step.  Consumed by the `.proj` rows' tower branches) -/
@@ -425,10 +419,6 @@ field is vacuous — no constants, guards false. -/
   eq_law := fun _ _ hf => by
     rw [show Env.empty.find? eqName = none from rfl] at hf
     exact nomatch hf
-  caps_ok := by
-    refine ⟨fun T cvT caps hf => ?_, fun T cvT caps hf => ?_⟩ <;>
-      · rw [show Env.empty.find? T = none from rfl] at hf
-        exact nomatch hf
   rec_rules := fun _ n _ _ _ _ _ hf => by
     rw [show Env.empty.find? n = none from rfl] at hf
     exact nomatch hf
@@ -436,10 +426,15 @@ field is vacuous — no constants, guards false. -/
     rw [show Env.empty.find? c = none from rfl] at hf
     exact nomatch hf
   op_defn := fun _ _ hs => nomatch hs
-  tower_ok := fun _ T i entry hf => by
-    have : Env.empty.findProj? T i = none := rfl
-    rw [this] at hf
-    exact nomatch hf
+  tower_ok := fun _ =>
+    { table := fun T tbl hf => by
+        have : Env.empty.findTable? T = none := rfl
+        rw [this] at hf
+        exact nomatch hf
+      entry := fun T i entry hf => by
+        have : Env.empty.findProj? T i = none := rfl
+        rw [this] at hf
+        exact nomatch hf }
   lfpBlocks := []
   lfp_ok := fun _ hD => nomatch hD
 

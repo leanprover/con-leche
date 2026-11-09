@@ -582,7 +582,7 @@ theorem strLitSupported_consBlockRecsR
     find?_consBlockRecsR_of_ne (ne_of_reservedRecName (n := charName) hnres (by decide)),
     find?_consBlockRecsR_of_ne (ne_of_reservedRecName (n := charOfNatName) hnres (by decide))]
 
-/-! ## The block's η invariant, established -/
+/-! ## The block's constructor names, disjoint -/
 
 /-- A `Nodup` concatenation of per-element lists has DISJOINT members
 at distinct positions (the shape `BlockShape.allCtors` has: the
@@ -617,7 +617,7 @@ private theorem flatten_disjoint_of_nodup {α : Type _} {β : Type _} [Decidable
 
 /-- **The constructor names of the block member called `n`** — `[]` off
 the block, and at a member its own list (the block's member names are
-distinct).  This is `BlockEtaInv`'s `ctorsOf` at a block. -/
+distinct). -/
 def BlockShape.ctorNamesAt (p : BlockShape) (n : Name) : List Name :=
   (p.members.filter (fun ms => ms.cvT.name == n)).flatMap (fun ms => ms.ctors.map (·.1.name))
 
@@ -635,68 +635,10 @@ theorem BlockShape.ctorNamesAt_mem {p : BlockShape} {n n' : Name}
   obtain ⟨c, hc', rfl⟩ := List.mem_map.mp hc
   exact ⟨ms, hms', by simpa using hname, c, hc', rfl⟩
 
-/-- **A member's η constructor is one of ITS OWN constructors**: the
-capability record claims η only where the member has exactly one
-constructor, and names that one. -/
-theorem blockCapsAt_etaCtor_mem {p₁ : BlockShape} {isRec : Bool} {j : Nat} {ms : MemberShape}
-    (hms : p₁.members[j]? = some ms) (he : (blockCapsAt p₁ j isRec).eta = true) :
-    (blockCapsAt p₁ j isRec).etaCtor ∈ p₁.ctorNamesAt ms.cvT.name := by
-  have hgetD : p₁.members.getD j default = ms := by
-    rw [List.getD_eq_getElem?_getD, hms, Option.getD_some]
-  match hcs : ms.ctors with
-  | [c] =>
-    have : (blockCapsAt p₁ j isRec).etaCtor = c.1.name := by
-      rw [blockCapsAt, hgetD, hcs]
-    rw [this]
-    exact BlockShape.mem_ctorNamesAt (List.mem_of_getElem? hms) (by rw [hcs]; exact List.mem_cons_self)
-  | [] => rw [blockCapsAt, hgetD, hcs] at he; exact nomatch he
-  | c :: c' :: cs => rw [blockCapsAt, hgetD, hcs] at he; exact nomatch he
-
-/-- **A `.indInfo` found after the `k` formers' conses** is one of them,
-with ITS capability record, or was stored before the block. -/
-theorem find?_consBlockInds_indInfo {p₁ : BlockShape} {isRec : Bool} :
-    ∀ {formers : List ConstantVal} {i : Nat} {env : Env} {T' : Name}
-      {cvT : ConstantVal} {caps : IndCaps},
-      (consBlockInds p₁ isRec formers i env).find? T' = some (.indInfo cvT caps) →
-      (∃ j, formers[j]? = some cvT ∧ cvT.name = T' ∧ caps = blockCapsAt p₁ (i + j) isRec) ∨
-      env.find? T' = some (.indInfo cvT caps)
-  | [], _, _, _, _, _, h => Or.inr h
-  | cvTa :: rest, i, env, T', cvT, caps, h => by
-    simp only [consBlockInds] at h
-    rcases find?_consBlockInds_indInfo h with ⟨j, hj, hname, hcaps⟩ | h'
-    · exact Or.inl ⟨j + 1, hj, hname, by rw [hcaps, show i + 1 + j = i + (j + 1) from by omega]⟩
-    · rw [ConLeche.Env.find?_cons] at h'
-      split at h'
-      · next heq =>
-        obtain ⟨rfl, rfl⟩ := ConstantInfo.indInfo.inj (Option.some.inj h')
-        exact Or.inl ⟨0, rfl, heq, by rw [Nat.add_zero]⟩
-      · exact Or.inr h'
-
-/-- **`BlockEtaInv`'s second conjunct at the `k` formers' cons**: every
-stored member's η constructor is one of that member's own constructors.
-The members' names are fresh before the block, so a stored `.indInfo`
-at a member's name IS that member's cons. -/
-theorem blockEtaInv_snd_consBlockInds {p₁ : BlockShape} {isRec : Bool}
-    {formers : List ConstantVal} {env : Env} {names : List Name}
-    (hfresh : ∀ T' ∈ names, env.find? T' = none)
-    (hms : ∀ (j : Nat) (cvTa : ConstantVal), formers[j]? = some cvTa →
-      ∃ ms, p₁.members[j]? = some ms ∧ ms.cvT.name = cvTa.name) :
-    ∀ (T' : Name) (cvT : ConstantVal) (caps : IndCaps),
-      (consBlockInds p₁ isRec formers 0 env).find? T' = some (.indInfo cvT caps) →
-      T' ∈ names → caps.eta = true → caps.etaCtor ∈ p₁.ctorNamesAt T' := by
-  intro T' cvT caps hf hmem hcape
-  rcases find?_consBlockInds_indInfo hf with ⟨j, hj, rfl, rfl⟩ | h'
-  · obtain ⟨ms, hmsj, hname⟩ := hms j cvT hj
-    rw [Nat.zero_add] at hcape ⊢
-    rw [← hname]
-    exact blockCapsAt_etaCtor_mem hmsj hcape
-  · rw [hfresh T' hmem] at h'; exact nomatch h'
-
-/-- **A member's constructor completes no OTHER member's η family.**
+/-- **A member's constructor is no OTHER member's.**
 The block's constructor names are distinct (`DeclBlockRun`'s conjunct
 0) and `allCtors` is the members' lists concatenated, so distinct
-members' constructor names are disjoint; `BlockEtaInv.other`'s `hout`
-is that disjointness at the member being consed. -/
+members' constructor names are disjoint. -/
 theorem blockCtorNames_out {p₁ : BlockShape}
     (hnd : (p₁.allCtors.map (·.1.name)).Nodup)
     {m : Nat} {msm : MemberShape} (hm : p₁.members[m]? = some msm)
