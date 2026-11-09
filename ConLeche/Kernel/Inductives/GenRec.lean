@@ -548,12 +548,11 @@ the block's canonical parameter variables, `nestedBit` the elimination
 guard's container bit as the caller reads it (`blockNestedBit`), to which
 every outside class adds.  Returns every recursor, generated, with its
 class and its generated rules (what the install stores). -/
-def genRecCheck (so : ShadowOps m) (fe : FEnv) (p : BlockShape) (nestedBit : Bool)
+def genRecCheck (ops : CheckerOps m) (fe : FEnv) (p : BlockShape) (nestedBit : Bool)
     (params : List Expr) (tbl : List NestCtorNf) (rd : ClassRead) (Ms : List TargetMajor)
     (block : List ConstantInfo) :
     m (List (ConstantVal × TargetMajor × List Expr)) := do
   targetRecPins p block
-  let ops := so.opsAt fe
   -- the stream's recursor types, checked: the generated types are compared with them
   let cvRis ← classStreamRecs ops fe p.recs
   -- the elimination guard
@@ -576,11 +575,8 @@ def genRecCheck (so : ShadowOps m) (fe : FEnv) (p : BlockShape) (nestedBit : Boo
   let pre ← unwrapOr g0.prefixBinders (.internal "generated recursor: recursor prefix")
   let g := { g0 with pre := pre }
   let cvGs ← classRecTysOk ops fe g p.k p.recs cvRis rd.recCls
-  let feR := so.ruleEnv p Ms cvGs rd.recCls fe
-  so.flush
-  let out ← classRecsRulesOk (so.opsRuleR feR) fe feR g
+  -- the rules, inferred at the rule-less recursors consed onto `fe`
+  classRecsRulesOk ops fe (classFeR p Ms cvGs rd.recCls fe) g
     (classRecOf rd.recCls cvGs) cvGs rd.recCls
-  so.flush
-  pure out
 
 end ConLeche

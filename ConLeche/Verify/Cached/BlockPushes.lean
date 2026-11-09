@@ -181,7 +181,7 @@ theorem genRecCheck_outMajor {fe₁ fe : FEnv} {p : BlockShape} {nestedBit : Boo
     {params : List Expr} {tbl : List NestCtorNf} {rd : ClassRead} {Ms₀ : List TargetMajor} {block : List ConstantInfo}
     {out : List (ConstantVal × TargetMajor × List Expr)} {F : Nat}
     (hcls : checkBlockClasses (fueledOps mode F) fe₁ p params = .ok (rd, Ms₀))
-    (h : genRecCheck (ShadowOps.fueled mode F) fe p nestedBit params tbl rd Ms₀ block
+    (h : genRecCheck (fueledOps mode F) fe p nestedBit params tbl rd Ms₀ block
       = .ok out)
     {i : Nat} {rc : RecShape} {o : ConstantVal × TargetMajor × List Expr}
     (hrc : p.recs[i]? = some rc) (ho : out[i]? = some o) :
@@ -276,7 +276,7 @@ theorem blockInstall_of_checks {F : Nat} {env env₁ : Env} {block : List Consta
     (hInd : checkBlockInds (fueledOps .verified F) env p₀ (blockIsRec p₀) = .ok (env₁, p₁))
     (hcls : checkBlockClasses (fueledOps .verified F) (mkFEnv env₁) p₁ params
       = .ok (rd, Ms₀))
-    (hRec : genRecCheck (ShadowOps.fueled .verified F)
+    (hRec : genRecCheck (fueledOps .verified F)
       (mkFEnv (consBlockCtors p₁.nP p₁.memberCtors env₁))
       p₁ nestedBit params tbl rd Ms₀ block = .ok out)
     (hK : streamKCheck (m := CheckM) p₁ p₁.recs out = .ok ())

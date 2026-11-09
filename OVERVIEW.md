@@ -455,7 +455,7 @@ Read from the outside in:
    records, nothing generated
    ([function `declConstants` in `ConLeche/Kernel/Install.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/Install.lean#L83-L95)).
    What a check pushes is what its record says, at any index and any mode
-   ([theorem `checkDeclC_pushes` in `ConLeche/Verify/Cached/DeclPushes.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Verify/Cached/DeclPushes.lean#L701-L702)).
+   ([theorem `checkDeclC_pushes` in `ConLeche/Verify/Cached/DeclPushes.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Verify/Cached/DeclPushes.lean#L703-L704)).
 
    The driver runs those checks in any order. Before any of them it builds
    one index of the whole stream from the records alone
@@ -470,7 +470,7 @@ Read from the outside in:
    that record. Every check reads its index through the lookups alone (the
    constants' and the projection tables'), so at two indices with the same
    lookups it fails alike or pushes the same constants
-   ([theorem `checkDeclStepC_twin` in `ConLeche/Verify/Cached/ViewCongr.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Verify/Cached/ViewCongr.lean#L1339-L1343)).
+   ([theorem `checkDeclStepC_twin` in `ConLeche/Verify/Cached/ViewCongr.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Verify/Cached/ViewCongr.lean#L1323-L1327)).
    The view of a position answers as the fold's index there as long as the
    names so far are distinct, which every passing job before it ensures,
    so every job passing is an accept of the fold
@@ -1017,7 +1017,7 @@ then the constructors, then runs the positivity check and the
 official kernel's remaining checks — parameters applied uniformly,
 universe bound, elimination restriction, index occurrence — and
 finally the recursor check. The whole install is one entry
-([function `checkBlock` in `ConLeche/Kernel/Inductives/BlockTail.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/Inductives/BlockTail.lean#L154)).
+([function `checkBlock` in `ConLeche/Kernel/Inductives/BlockTail.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/Inductives/BlockTail.lean#L153)).
 
 **The classes.** The recursors a block comes with eliminate one
 *class* each: a member of the block, or — in a nested block — another
@@ -1025,7 +1025,7 @@ inductive type at the instantiation the block uses, such as `List T`
 for the auxiliary recursor `T.rec_1`. Before the positivity check the
 installer reads the classes off the stream's recursor types and checks
 each one as a well-formed major premise
-([function `targetMajorOf` in `ConLeche/Kernel/Inductives/RecCheck.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/Inductives/RecCheck.lean#L259-L260)).
+([function `targetMajorOf` in `ConLeche/Kernel/Inductives/RecCheck.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/Inductives/RecCheck.lean#L229-L230)).
 
 **The positivity check** follows the official kernel's: a field's type
 is put in weak head normal form before it is classified, and again
@@ -1142,7 +1142,7 @@ Three limits are verdicts. A declaration at a name a literal's meaning reads (`N
 `Nat.succ`, `String`, `String.ofList`, `List`, `List.nil`, `List.cons`, `Char`, `Char.ofNat`) has the
 shape that meaning reads or is declined at the declaration, whether or not the stream uses a
 literal; what is checked there is read at a literal's use only as the names being stored
-([function `litShapeOk` in `ConLeche/Kernel/CoreDefs.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/CoreDefs.lean#L378)).
+([function `litShapeOk` in `ConLeche/Kernel/CoreDefs.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/CoreDefs.lean#L376)).
 A `Bool` stored at a definition is declined, since the frontend puts a stream's `Bool` first.
 A nested occurrence whose container, or a member of
 the container's block, is def-headed and is not among the families the block's
@@ -1305,7 +1305,7 @@ in the official kernel; they are there because the proof reads them:
   class matching its inductive hypothesis's.
 
 Where the steps live: the entry is
-[function `checkBlock` in `ConLeche/Kernel/Inductives/BlockTail.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/Inductives/BlockTail.lean#L154);
+[function `checkBlock` in `ConLeche/Kernel/Inductives/BlockTail.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/Inductives/BlockTail.lean#L153);
 steps 1–5 are
 [function `checkBlockPass` in the same file](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/Inductives/BlockTail.lean#L52),
 the constructor check of step 3 is
@@ -1325,7 +1325,7 @@ its hole lookup
 and the uniform-parameters check
 [function `nestUniform`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/Inductives/Positivity.lean#L1004);
 step 6 is
-[function `checkBlockTail` in `BlockTail.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/Inductives/BlockTail.lean#L104);
+[function `checkBlockTail` in `BlockTail.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/Inductives/BlockTail.lean#L103);
 steps 7 and 8 are `genRecCheck` (above), with a constructor's
 reference entry and the third proof-only check in
 [function `classCtorOf` in `ConLeche/Kernel/Inductives/GenRec.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/Inductives/GenRec.lean#L294),
@@ -1346,14 +1346,14 @@ instead of trusting the operation's name.
 
 * **Structural operations** (`Nat.add`, `sub`, `mul`, `pow`, `beq`,
   `ble`, and `pred` as a dependency;
-  [the list `natOpNames` in `ConLeche/Kernel/CoreDefs.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/CoreDefs.lean#L450-L458)):
+  [the list `natOpNames` in `ConLeche/Kernel/CoreDefs.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/CoreDefs.lean#L448-L456)):
   when a definition under one of these names arrives, its checked
   step certifies its defining recurrence equations by definitional
   equality, in the environment *before* the operation is stored, with
   the operation's self-references replaced by its definition value, so
   the not-yet-enabled fast path cannot discharge its own equations
   vacuously
-  ([the account of the certified fast path in `ConLeche/Kernel/CoreDefs.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/CoreDefs.lean#L385-L402),
+  ([the account of the certified fast path in `ConLeche/Kernel/CoreDefs.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/CoreDefs.lean#L383-L400),
   [function `certifyNatEqs` in `ConLeche/Kernel/Checker.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/Checker.lean#L105-L112)).
   A nonstandard definition is rejected; presence in the store is the
   certificate, and `whnf` folds literals for stored operations only.
@@ -1363,7 +1363,7 @@ instead of trusting the operation's name.
   ([theorem `natOps_install` in `ConLeche/Model/NatEqs.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Model/NatEqs.lean#L1078)).
 * **Well-founded operations** (`Nat.div`, `mod`, `gcd`, `land`, `lor`,
   `xor`, `shiftLeft`, `shiftRight`;
-  [the list `natDivModNames` in `ConLeche/Kernel/CoreDefs.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/CoreDefs.lean#L477))
+  [the list `natDivModNames` in `ConLeche/Kernel/CoreDefs.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/CoreDefs.lean#L475))
   are defined by well-founded recursion and have no recurrence the
   kernel can check directly. The binary embeds *pinned* copies of
   several supported toolchains' own definitions of each operation,
@@ -1403,7 +1403,7 @@ instead of trusting the operation's name.
   ([function `natOpRefusal` in `ConLeche/Cached/StateC.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Cached/StateC.lean#L160-L172)).
   Within the maximum size every operation folds, whatever the exponent:
   the specification's reduct is the computation itself
-  ([function `natOpResult` in `ConLeche/Kernel/CoreDefs.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/CoreDefs.lean#L587-L607)),
+  ([function `natOpResult` in `ConLeche/Kernel/CoreDefs.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/CoreDefs.lean#L585-L605)),
   and the bound is the cached core's alone, since a refusal only
   throws.
 * **`Bool`.** `Nat.beq` and `Nat.ble` return `Bool.true` or
@@ -1411,8 +1411,8 @@ instead of trusting the operation's name.
   guarded by `Nat.ble`, so these operations install only once `Bool`
   and its two constructors are stored, with no universe parameters,
   the constructors at the type `Bool` itself, and with `Bool : Type`
-  ([function `natOpGuard` in `ConLeche/Kernel/CoreDefs.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/CoreDefs.lean#L604-L618),
-  [function `natOpCod` in the same file](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/CoreDefs.lean#L661-L668)).
+  ([function `natOpGuard` in `ConLeche/Kernel/CoreDefs.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/CoreDefs.lean#L602-L616),
+  [function `natOpCod` in the same file](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/CoreDefs.lean#L659-L666)).
   That is the only reason the checker knows the name. `Bool` is not
   pinned: it is the stream's own block, installed like any other, and
   nothing depends on what it denotes — the fast path's result is the
@@ -1622,8 +1622,8 @@ and every such line carries its reason.
 |---|---|
 | `Main.lean` | The binary's entry point: the plumbing around `runArgs` at `IO`, followed by the exit. |
 | `ConLeche/Driver/` | The proof-carrying IO driver: the index build and the check phase's worker pool (`CheckPool.lean`), the rounds parse's owner threads (`OwnerParse.lean`), the stream parse over the IO class's folds (`StreamParse.lean`), the end-of-run statistics (`Stats.lean`), `checkDeclsIO` (`Run.lean`), the driver's sequencing generic in the IO class (`CheckMain.lean`), the run of a request (`Dispatch.lean`) and the command line and `runArgs` over them (`Cli.lean`). Checker code, like `Kernel/*`; the one tier besides `Main.lean` that may import `ConLeche/Verify/*`. |
-| `ConLeche/Kernel/` | The pure checker: `Expr`/`Level`/`Name`, what a declaration adds (`Install.lean`), `PropWhen`, the mutually recursive core of reduction, inference and conversion (`Core.lean`), declaration checking (`Checker.lean`, `DeclCheck.lean`), the basis pins (`Basis/`), the inductive installer (`Inductives/`: the recogniser `BlockShape.lean`, the positivity check `Positivity.lean`, the entry `checkBlock` with its constructor stages (`Sum*`) and projection tables (`Struct*`), the recursor generator and check `GenRec.lean`, and `ClassRead.lean`, which reads the classes off the stream's recursor types without checking them), the Nat-op pins. Imports no theory module. |
-| `ConLeche/Cached/` | The shipped cached checker: hashed expressions, memo state, the cached core and declaration step, the parsed-record step (`ParsedC.lean`), the cached twins of the inductive check (`Ind*.lean`), the declaration fold `checkDecls` and its accepting runs (`Decls.lean`), the index of a stream and a record's job (`StreamIndex.lean`). |
+| `ConLeche/Kernel/` | The specification, the pure checker the proofs are about: `Expr`/`Level`/`Name`, what a declaration adds (`Install.lean`), `PropWhen`, the mutually recursive core of reduction, inference and conversion (`Core.lean`), declaration checking (`Checker.lean`, `DeclCheck.lean`), the basis pins (`Basis/`), the inductive installer (`Inductives/`: the recogniser `BlockShape.lean`, the positivity check `Positivity.lean`, the entry `checkBlock` with its constructor stages (`Sum*`) and projection tables (`Struct*`), the recursor generator and check `GenRec.lean`, and `ClassRead.lean`, which reads the classes off the stream's recursor types without checking them), the Nat-op pins. Imports no theory module. The binary runs the cached tier's twins in its place; of this tier it runs only the shared helpers the reach gate lists (§12). |
+| `ConLeche/Cached/` | The shipped cached checker: hashed expressions, memo state, the cached core and declaration step, the parsed-record step (`ParsedC.lean`), the cached twins of the whole inductive check (`Ind*.lean`: the formers and constructors, positivity, the classes, the recursor stage and the tail), each related to its specification in `Kernel/Inductives/` by an equation or a simulation triple (`Verify/Cached/Ind*C.lean`, `GenRecC.lean`), the declaration fold `checkDecls` and its accepting runs (`Decls.lean`), the index of a stream and a record's job (`StreamIndex.lean`). |
 | `ConLeche/Frontend/` | The export parser: the dialect's byte recogniser and syntax records (`Scan/`) and the semantic layer over them (`ExportC.lean`), which decodes the file's records and nothing else; the checker's IO class, its model over a snapshot of the files, the binary's instance and the folds over a file handle's reads (`CheckerIO.lean`); the serial streaming driver and a chunk's scan into syntax records apart from their application (`Stream.lean`); the rounds parse's counters and finished tables (`Rounds.lean`) and its rounds (`RoundsWork.lean`); the preparation of the fold's input (`Prepare.lean`, with the built-in prelude of `Prelude.lean` and the reordering of `NatOpGround.lean`, which moves what a pinned Nat operation's certificates mention ahead of it); the `.olean` reader (`Olean.lean`, the interface, over `Olean/`: the byte region `Region.lean`, the specification decoder `Spec.lean`, the fast one `Fast.lean`, the sparse one `Sparse.lean`, the imports off a file's start `Header.lean`, the reads of a part of a region `Reads.lean`, a module's views `View.lean` and their checks against each other `Module.lean`, the files through the IO class `Files.lean`, the closure `Closure.lean`, the merge `Merge.lean`, the emission `Emit.lean` and the records `Records.lean`). |
 | `ConLeche/PinGen/` | Elaboration-time generation of the Nat-op pins and certificate proofs; the committed dump lives in `pins/`. |
 | `ConLeche/Term/` | The term language the denotation targets and the interpretation reads, its substitution operations and the basis constants. |
@@ -1657,7 +1657,9 @@ itself and a few base types, only `Files` and `Closure` reach the IO class,
 only `Records` the record builder, and the rest of the checker imports only its
 interface, `Olean.lean`), the trust-surface scan (`tests/trust-surface.sh`: no `unsafe`, `implemented_by`, `extern` or `native_decide` outside an allowlist, and, textually, no module written against the IO class reaching the runtime but through the class's file operations and the arguments of `liftIO`, and `IO.Process.exit` only in `main`; the build file and the native sources pinned by content), the plain-tier reach gate
 (`tests/plain-reach.sh`: every specification-tier definition the compiled binary
-reaches from `main` is listed, with its reason, in `tests/plain-reach-allow.txt`), the
+reaches from `main` is listed, with its reason, in `tests/plain-reach-allow.txt`, and a
+listed one no longer reached fails too; a definition with a cached twin is reached by
+nothing executed and is not listed), the
 binary link gate (`tests/binary-link.sh`: the compiled binary links no module of the `Lean`
 package, so no proof module the driver imports brings `Lean.Meta` along), the pin
 dump freshness, the challenge comparison (`tests/challenge.sh`: the

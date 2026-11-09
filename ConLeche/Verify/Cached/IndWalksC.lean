@@ -203,31 +203,49 @@ theorem hasLooseBVarBC_spec {i : Nat} {e : Expr} :
   · next h => exact (Expr.hasLooseBVarBP_cut h).symm
   · rw [Expr.resBool_eq]; rfl
 
-/-! ## The one-pass opener (moved from `DiscC4.lean`: the driver's equations import this file) -/
+/-! ## The one-pass opener (here, not in `DiscC4.lean`: the driver's equations import this file) -/
 
-/-- The cached opening loop (the raw one, its residual substituted) is the kernel's. -/
+/-- **The cached opening loop (the raw one, its residual substituted) is the sequential opening
+of the instantiated term.**  Where the one pass finds a binder, so does `openPisAtFvars`; and
+instantiating at free variables never makes a `∀` appear, so where the one pass finds none, the
+sequential opening finds none either. -/
 theorem openPisAtFvarsGoC_eq :
-    ∀ (acc : List Expr) (n : Nat) (e : Expr) (i : Nat),
-      openPisAtFvarsGoC acc n e i = openPisAtFvarsFGo acc n e i
-  | _, 0, _, _ => by
-    simp only [openPisAtFvarsGoC, openPisRawGoC, openPisAtFvarsFGo, Expr.instantiateListC_spec]
-  | acc, n + 1, .forallE dom body, i => by
-    have ih := openPisAtFvarsGoC_eq (.fvar i (Expr.instantiateListC dom acc) :: acc) n body (i + 1)
+    ∀ (n : Nat) (e : Expr) (i : Nat) (acc : List Expr), (∀ a ∈ acc, ∃ k t, a = .fvar k t) →
+      openPisAtFvarsGoC acc n e i = openPisAtFvars n (e.instantiateList acc) i
+  | 0, _, _, _, _ => by
+    simp only [openPisAtFvarsGoC, openPisRawGoC, openPisAtFvars, Expr.instantiateListC_spec]
+  | n + 1, .forallE dom body, i, acc, hacc => by
+    have ih := openPisAtFvarsGoC_eq n body (i + 1)
+      (.fvar i (Expr.instantiateListC dom acc) :: acc)
+      (fun a ha => by
+        rcases List.mem_cons.mp ha with rfl | ha
+        · exact ⟨_, _, rfl⟩
+        · exact hacc a ha)
     simp only [Expr.instantiateListC_spec] at ih
-    simp only [openPisAtFvarsFGo, ← ih]
+    rw [Expr.instantiateList_cons] at ih
+    simp only [Expr.instantiateList, openPisAtFvars, ← ih]
     simp only [openPisAtFvarsGoC, openPisRawGoC, Expr.instantiateListC_spec]
     cases openPisRawGoC (.fvar i (dom.instantiateList acc) :: acc) n body (i + 1) with
     | none => rfl
     | some p => obtain ⟨fvs, acc', r⟩ := p; rfl
-  | _, _ + 1, .bvar _, _ => rfl
-  | _, _ + 1, .fvar .., _ => rfl
-  | _, _ + 1, .sort _, _ => rfl
-  | _, _ + 1, .const .., _ => rfl
-  | _, _ + 1, .app .., _ => rfl
-  | _, _ + 1, .lam .., _ => rfl
-  | _, _ + 1, .letE .., _ => rfl
-  | _, _ + 1, .lit _, _ => rfl
-  | _, _ + 1, .proj .., _ => rfl
+  | n + 1, .bvar j, i, acc, hacc => by
+    rw [Expr.instantiateList]
+    split
+    · rfl
+    · split
+      · rename_i hj
+        obtain ⟨k, t, hk⟩ := hacc _ (List.getElem_mem hj)
+        rw [hk, Expr.instantiateList]
+        rfl
+      · rfl
+  | _ + 1, .fvar .., _, _, _ => by rw [Expr.instantiateList]; rfl
+  | _ + 1, .sort _, _, _, _ => by rw [Expr.instantiateList]; rfl
+  | _ + 1, .const .., _, _, _ => by rw [Expr.instantiateList]; rfl
+  | _ + 1, .app .., _, _, _ => by rw [Expr.instantiateList]; rfl
+  | _ + 1, .lam .., _, _, _ => by rw [Expr.instantiateList]; rfl
+  | _ + 1, .letE .., _, _, _ => by rw [Expr.instantiateList]; rfl
+  | _ + 1, .lit _, _, _, _ => by rw [Expr.instantiateList]; rfl
+  | _ + 1, .proj .., _, _, _ => by rw [Expr.instantiateList]; rfl
 
 /-- The raw opening's substitution is free variables, as its start is. -/
 theorem openPisRawGoC_fvars :
@@ -259,59 +277,9 @@ theorem openPisRawGoC_fvars :
   | _, _ + 1, .lit _, _, _, _, _, _, h => nomatch h
   | _, _ + 1, .proj .., _, _, _, _, _, h => nomatch h
 
-/-- **The one pass misses no binder**: instantiating at free variables
-never makes a `∀` appear, so where `openPisAtFvarsFGo` finds none, the
-sequential opening of the instantiated term finds none either. -/
-theorem openPisAtFvarsFGo_none :
-    ∀ (n : Nat) (e : Expr) (i : Nat) (acc : List Expr),
-      (∀ a ∈ acc, ∃ k t, a = .fvar k t) → openPisAtFvarsFGo acc n e i = none →
-      openPisAtFvars n (e.instantiateList acc) i = none
-  | 0, _, _, _, _, h => by simp [openPisAtFvarsFGo] at h
-  | n + 1, .forallE dom body, i, acc, hacc, h => by
-    simp only [openPisAtFvarsFGo] at h
-    split at h
-    case _ => exact nomatch h
-    case _ hgo =>
-      have ih := openPisAtFvarsFGo_none n body (i + 1)
-        (Expr.fvar i (dom.instantiateList acc) :: acc)
-        (fun a ha => by
-          rcases List.mem_cons.mp ha with rfl | ha
-          · exact ⟨_, _, rfl⟩
-          · exact hacc a ha) hgo
-      rw [Expr.instantiateList_cons] at ih
-      simp only [Expr.instantiateList, openPisAtFvars, ih]
-  | n + 1, .bvar j, i, acc, hacc, _ => by
-    rw [Expr.instantiateList]
-    split
-    · rfl
-    · split
-      · rename_i hj
-        obtain ⟨k, t, hk⟩ := hacc _ (List.getElem_mem hj)
-        rw [hk, Expr.instantiateList]
-        rfl
-      · rfl
-  | _ + 1, .fvar .., _, _, _, _ => by rw [Expr.instantiateList]; rfl
-  | _ + 1, .sort _, _, _, _, _ => by rw [Expr.instantiateList]; rfl
-  | _ + 1, .const .., _, _, _, _ => by rw [Expr.instantiateList]; rfl
-  | _ + 1, .app .., _, _, _, _ => by rw [Expr.instantiateList]; rfl
-  | _ + 1, .lam .., _, _, _, _ => by rw [Expr.instantiateList]; rfl
-  | _ + 1, .letE .., _, _, _, _ => by rw [Expr.instantiateList]; rfl
-  | _ + 1, .lit _, _, _, _, _ => by rw [Expr.instantiateList]; rfl
-  | _ + 1, .proj .., _, _, _, _ => by rw [Expr.instantiateList]; rfl
-
 /-- The cached one-pass telescope opening is `openPisAtFvars`. -/
 theorem openPisAtFvarsC_eq (n : Nat) (e : Expr) (i : Nat) :
     openPisAtFvarsC n e i = openPisAtFvars n e i := by
-  unfold openPisAtFvarsC
-  rw [openPisAtFvarsGoC_eq]
-  match h : openPisAtFvarsFGo [] n e i with
-  | some r =>
-    have := openPisAtFvarsFGo_sound n e i [] h
-    rw [Expr.instantiateList_nil] at this
-    exact this.symm
-  | none =>
-    have := openPisAtFvarsFGo_none n e i [] (by simp) h
-    rw [Expr.instantiateList_nil] at this
-    exact this.symm
+  rw [openPisAtFvarsC, openPisAtFvarsGoC_eq n e i [] (by simp), Expr.instantiateList_nil]
 
 end ConLeche.Cached

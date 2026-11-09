@@ -1408,7 +1408,8 @@
 # `fvarLeaves` descends into the leaf's type annotation, so the range
 # cannot answer the question at all.  The fix is at the consumer:
 # `mentionsFvarGo` memoizes the `Bool` question, keyed by the node
-# (`q` is fixed for the walk), `@[csimp]`.
+# (`q` is fixed for the walk), `@[csimp]`.  (Task #498: that test and
+# its walk are gone; the fixture stays, a tower under a recursive field.)
 0 tower_recfield.ndjson
 # tower_mutual (task #246): a two-member MUTUAL block whose first
 # constructor carries a depth-60 tower over its own first field.  It

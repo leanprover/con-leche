@@ -2066,10 +2066,11 @@ def piResidual (e : Expr) (args : List Expr) : Option Expr :=
   piResidualAcc [] e args
 
 /-- The cached tier's one-pass opening loop, the residual left raw:
-`openPisAtFvarsFGo` with each domain instantiated by `instantiateListC`,
-returning the free variables, the substitution they make (innermost
-first) and the residual before it (`openPisRawGoC_eq`,
-`ConLeche/Verify/Cached/IndWalksC.lean`).  The projection guard reads
+`acc` holds the already-created free variables, innermost binder first,
+and each domain is instantiated by them in one `instantiateListC` pass,
+where `openPisAtFvars` re-instantiates the whole remaining body at every
+binder; returns the free variables, the substitution they make
+(innermost first) and the residual before it.  The projection guard reads
 the raw residual (`projGuardRowsC`); `openPisAtFvarsC` substitutes it. -/
 def _root_.ConLeche.openPisRawGoC (acc : List Expr) :
     Nat → Expr → Nat → Option (List Expr × List Expr × Expr)
@@ -2082,7 +2083,8 @@ def _root_.ConLeche.openPisRawGoC (acc : List Expr) :
   | _ + 1, _, _ => none
 
 /-- The raw opening from the substitution `acc`, its residual
-substituted (`openPisAtFvarsGoC_eq`: `openPisAtFvarsFGo`). -/
+substituted (`openPisAtFvarsGoC_eq`, `ConLeche/Verify/Cached/IndWalksC.lean`:
+the sequential opening of the substituted term). -/
 def _root_.ConLeche.openPisAtFvarsGoC (acc : List Expr) (n : Nat) (e : Expr) (i : Nat) :
     Option (List Expr × Expr) :=
   match openPisRawGoC acc n e i with

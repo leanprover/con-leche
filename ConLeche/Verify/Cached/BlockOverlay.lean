@@ -11,7 +11,7 @@ public section
 The cached driver's block tail (`checkBlockTailS`,
 `ConLeche/Cached/CheckerC.lean`) keeps the constructors' index unique at
 every push: the rule-less recursors are an overlay sharing the index
-(`classFeROvl`, the `ruleEnv` of `shadowOpsC`) and the stored
+(`classFeROvl`, the rule stage's environment in `genRecCheckC`) and the stored
 recursors' records are built before the first push (`blockRecInfosTF`,
 pushed by `FEnv.pushAll`).  The facts the proofs about that code need:
 

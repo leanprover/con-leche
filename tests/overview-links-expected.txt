@@ -205,9 +205,9 @@
     94      | .ok p => blockConstants p
     95      | .error _ => []
 
-== ConLeche/Verify/Cached/DeclPushes.lean#L701-L702
-   701  theorem checkDeclC_pushes (mode : CheckMode) (fe : FEnv) (pd : Declaration) :
-   702      Yields (checkDeclC mode pins fe pd) (· = FEnv.pushDelta (declConstants pd) (declTables pd) fe) := by
+== ConLeche/Verify/Cached/DeclPushes.lean#L703-L704
+   703  theorem checkDeclC_pushes (mode : CheckMode) (fe : FEnv) (pd : Declaration) :
+   704      Yields (checkDeclC mode pins fe pd) (· = FEnv.pushDelta (declConstants pd) (declTables pd) fe) := by
 
 == ConLeche/Cached/StreamIndex.lean#L65
     65  def buildIndex (ds : Array Declaration) : StreamIndex :=
@@ -216,12 +216,12 @@
     75  def recordJob (mode : CheckMode) (pins : List NatOpPinSet) (maxNatSize : Nat) (I : StreamIndex) (k : Nat)
     76      (pd : Declaration) : Except CheckError Unit :=
 
-== ConLeche/Verify/Cached/ViewCongr.lean#L1339-L1343
-  1339  theorem checkDeclStepC_twin (pins : List NatOpPinSet) {fe₁ fe₂ : FEnv} (ht : Twin fe₁ fe₂)
-  1340     
-  1341      (pd : Declaration) :
-  1342      RelRun (PushedFrom fe₁ fe₂) (checkDeclStepC mode pins fe₁ pd)
-  1343        (checkDeclStepC mode pins fe₂ pd) := by
+== ConLeche/Verify/Cached/ViewCongr.lean#L1323-L1327
+  1323  theorem checkDeclStepC_twin (pins : List NatOpPinSet) {fe₁ fe₂ : FEnv} (ht : Twin fe₁ fe₂)
+  1324     
+  1325      (pd : Declaration) :
+  1326      RelRun (PushedFrom fe₁ fe₂) (checkDeclStepC mode pins fe₁ pd)
+  1327        (checkDeclStepC mode pins fe₂ pd) := by
 
 == ConLeche/Verify/Cached/StreamIndex.lean#L491-L493
    491  theorem checkDecls_of_jobs {ds : Array Declaration}
@@ -889,12 +889,12 @@
    422      | _ => true
    423  
 
-== ConLeche/Kernel/Inductives/BlockTail.lean#L154
-   154  def checkBlock (ops : CheckerOps m) (env : Env) (block : List ConstantInfo) (p₀ : BlockShape) :
+== ConLeche/Kernel/Inductives/BlockTail.lean#L153
+   153  def checkBlock (ops : CheckerOps m) (env : Env) (block : List ConstantInfo) (p₀ : BlockShape) :
 
-== ConLeche/Kernel/Inductives/RecCheck.lean#L259-L260
-   259  def targetMajorOf (ops : CheckerOps m) (fe : FEnv) (p : BlockShape) (pfvs fvs : List Expr)
-   260      (mty : Expr) : m TargetMajor := do
+== ConLeche/Kernel/Inductives/RecCheck.lean#L229-L230
+   229  def targetMajorOf (ops : CheckerOps m) (fe : FEnv) (p : BlockShape) (pfvs fvs : List Expr)
+   230      (mty : Expr) : m TargetMajor := do
 
 == ConLeche/Kernel/Inductives/Positivity.lean#L806-L808
    806  def nestContNew (ctx : NestCtx) (ops : CheckerOps m) (env : Env)
@@ -911,7 +911,7 @@
    282  def checkBlockPositivity (ops : CheckerOps m) (env₁ : Env) (find? : Name → Option ConstantInfo)
 
 == ConLeche/Kernel/Inductives/GenRec.lean#L551
-   551  def genRecCheck (so : ShadowOps m) (fe : FEnv) (p : BlockShape) (nestedBit : Bool)
+   551  def genRecCheck (ops : CheckerOps m) (fe : FEnv) (p : BlockShape) (nestedBit : Bool)
 
 == ConLeche/Kernel/Inductives/StreamRecs.lean#L182
    182  def streamRecsCheck (ops : CheckerOps m) (fe : FEnv) :
@@ -954,14 +954,14 @@
 == ConLeche/Model/Inductives/FormerInEnv.lean#L29
     29  structure FormerDeclared {env : Env} (m : EnvModel V env) (cvS cvTa : ConstantVal) : Prop where
 
-== ConLeche/Kernel/CoreDefs.lean#L378
-   378  def litShapeOk (c : ConstantInfo) : Bool :=
+== ConLeche/Kernel/CoreDefs.lean#L376
+   376  def litShapeOk (c : ConstantInfo) : Bool :=
 
 == ConLeche/Kernel/Inductives/ClassRead.lean#L130
    130  def classRead (nP : Nat) (nPc : Name → Nat) (recs : List RecShape) : Option ClassRead := do
 
-== ConLeche/Kernel/Inductives/BlockTail.lean#L154
-   154  def checkBlock (ops : CheckerOps m) (env : Env) (block : List ConstantInfo) (p₀ : BlockShape) :
+== ConLeche/Kernel/Inductives/BlockTail.lean#L153
+   153  def checkBlock (ops : CheckerOps m) (env : Env) (block : List ConstantInfo) (p₀ : BlockShape) :
 
 == ConLeche/Kernel/Inductives/BlockTail.lean#L52
     52  def checkBlockPass (ops : CheckerOps m) (env : Env) (p₀ : BlockShape) (isRec : Bool) :
@@ -990,8 +990,8 @@
 == ConLeche/Kernel/Inductives/Positivity.lean#L1004
   1004  def nestUniform (ctx : NestCtx) (ctorss : List (List (ConstantVal × Nat))) : m Unit :=
 
-== ConLeche/Kernel/Inductives/BlockTail.lean#L104
-   104  def checkBlockTail (ops : CheckerOps m) (block : List ConstantInfo) (q : BlockPass Env)
+== ConLeche/Kernel/Inductives/BlockTail.lean#L103
+   103  def checkBlockTail (ops : CheckerOps m) (block : List ConstantInfo) (q : BlockPass Env)
 
 == ConLeche/Kernel/Inductives/GenRec.lean#L294
    294  def classCtorOf (ops : CheckerOps m) (env : Env) (p : BlockShape) (formerTys : List Expr)
@@ -1008,36 +1008,36 @@
 == ConLeche/Kernel/Inductives/GenRec.lean#L425
    425  def classRuleCheck (ops : CheckerOps m) (feT feR : FEnv)
 
-== ConLeche/Kernel/CoreDefs.lean#L450-L458
-   450  `is_constant(e, Bool.true)` (`type_checker.cpp:1097`): the name, no
-   451  universe levels. -/
-   452  def Expr.isBoolTrue : Expr → Bool
-   453    | .const c [] => c == boolTrueName
-   454    | _ => false
-   455  
-   456  /-- The certified structural-`Nat` operations.  Six of them
-   457  (`add sub mul pow beq ble`) carry a literal fast path; `Nat.pred` is
-   458  here without one — it has no fast path (official's `reduce_nat` folds
+== ConLeche/Kernel/CoreDefs.lean#L448-L456
+   448  `is_constant(e, Bool.true)` (`type_checker.cpp:1097`): the name, no
+   449  universe levels. -/
+   450  def Expr.isBoolTrue : Expr → Bool
+   451    | .const c [] => c == boolTrueName
+   452    | _ => false
+   453  
+   454  /-- The certified structural-`Nat` operations.  Six of them
+   455  (`add sub mul pow beq ble`) carry a literal fast path; `Nat.pred` is
+   456  here without one — it has no fast path (official's `reduce_nat` folds
 
-== ConLeche/Kernel/CoreDefs.lean#L385-L402
-   385    else if c.name = listNilName then listNilTyOk (some c)
-   386    else if c.name = listConsName then listConsTyOk (some c)
-   387    else if c.name = charName then charTyOk (some c)
-   388    else if c.name = charOfNatName then charOfNatTyOk (some c)
-   389    else true
+== ConLeche/Kernel/CoreDefs.lean#L383-L400
+   383    else if c.name = listNilName then listNilTyOk (some c)
+   384    else if c.name = listConsName then listConsTyOk (some c)
+   385    else if c.name = charName then charTyOk (some c)
+   386    else if c.name = charOfNatName then charOfNatTyOk (some c)
+   387    else true
+   388  
+   389  /-! ## Structural-Nat literal acceleration
    390  
-   391  /-! ## Structural-Nat literal acceleration
-   392  
-   393  The official kernel accelerates the structural `Nat` operations on
-   394  literals (GMP-backed there).  Here the fast path is *certified*: an
-   395  operation participates only when its defining recurrence equations
-   396  hold by definitional equality — checked once, at its check: `checkDecl`
-   397  positively rejects a nonstandard definition under one of these names,
-   398  so *presence in the store is the certificate* (no runtime flag, no
-   399  re-checking; a reduction-time re-check would in fact livelock — the
-   400  certification's own `pred zero` equation re-enters the fast path).
-   401  
-   402  The certification runs in the environment *before* the operation is
+   391  The official kernel accelerates the structural `Nat` operations on
+   392  literals (GMP-backed there).  Here the fast path is *certified*: an
+   393  operation participates only when its defining recurrence equations
+   394  hold by definitional equality — checked once, at its check: `checkDecl`
+   395  positively rejects a nonstandard definition under one of these names,
+   396  so *presence in the store is the certificate* (no runtime flag, no
+   397  re-checking; a reduction-time re-check would in fact livelock — the
+   398  certification's own `pred zero` equation re-enters the fast path).
+   399  
+   400  The certification runs in the environment *before* the operation is
 
 == ConLeche/Kernel/Checker.lean#L105-L112
    105  def certifyNatEqs (ops : CheckerOps m) (env : Env) :
@@ -1052,8 +1052,8 @@
 == ConLeche/Model/NatEqs.lean#L1078
   1078  theorem natOps_install (mp : EnvModelM V env) {φ : Name → Nat}
 
-== ConLeche/Kernel/CoreDefs.lean#L477
-   477  def natDivModNames : List Name :=
+== ConLeche/Kernel/CoreDefs.lean#L475
+   475  def natDivModNames : List Name :=
 
 == ConLeche/Kernel/NatOpPins.lean#L1-L16
      1  module
@@ -1105,55 +1105,55 @@
    171      else none
    172    else none
 
-== ConLeche/Kernel/CoreDefs.lean#L587-L607
-   587  def natOpResult (c : Name) (a b : Nat) : Option Expr :=
-   588    if c = natPredName then some (.lit (.natVal (a - 1)))
-   589    else if c = natAddName then some (.lit (.natVal (a + b)))
-   590    else if c = natSubName then some (.lit (.natVal (a - b)))
-   591    else if c = natMulName then some (.lit (.natVal (a * b)))
-   592    else if c = natPowName then some (.lit (.natVal (a ^ b)))
-   593    else if c = natDivName then some (.lit (.natVal (a / b)))
-   594    else if c = natModName then some (.lit (.natVal (a % b)))
-   595    else if c = natGcdName then some (.lit (.natVal (Nat.gcd a b)))
-   596    else if c = natLandName then some (.lit (.natVal (Nat.land a b)))
-   597    else if c = natLorName then some (.lit (.natVal (Nat.lor a b)))
-   598    else if c = natXorName then some (.lit (.natVal (Nat.xor a b)))
-   599    else if c = natShiftLeftName then
-   600      some (.lit (.natVal (Nat.shiftLeft a b)))
-   601    else if c = natShiftRightName then
-   602      some (.lit (.natVal (Nat.shiftRight a b)))
-   603    else if c = natBeqName then
-   604      some (.const (if a = b then boolTrueName else boolFalseName) [])
-   605    else if c = natBleName then
-   606      some (.const (if a <= b then boolTrueName else boolFalseName) [])
-   607    else none
+== ConLeche/Kernel/CoreDefs.lean#L585-L605
+   585  def natOpResult (c : Name) (a b : Nat) : Option Expr :=
+   586    if c = natPredName then some (.lit (.natVal (a - 1)))
+   587    else if c = natAddName then some (.lit (.natVal (a + b)))
+   588    else if c = natSubName then some (.lit (.natVal (a - b)))
+   589    else if c = natMulName then some (.lit (.natVal (a * b)))
+   590    else if c = natPowName then some (.lit (.natVal (a ^ b)))
+   591    else if c = natDivName then some (.lit (.natVal (a / b)))
+   592    else if c = natModName then some (.lit (.natVal (a % b)))
+   593    else if c = natGcdName then some (.lit (.natVal (Nat.gcd a b)))
+   594    else if c = natLandName then some (.lit (.natVal (Nat.land a b)))
+   595    else if c = natLorName then some (.lit (.natVal (Nat.lor a b)))
+   596    else if c = natXorName then some (.lit (.natVal (Nat.xor a b)))
+   597    else if c = natShiftLeftName then
+   598      some (.lit (.natVal (Nat.shiftLeft a b)))
+   599    else if c = natShiftRightName then
+   600      some (.lit (.natVal (Nat.shiftRight a b)))
+   601    else if c = natBeqName then
+   602      some (.const (if a = b then boolTrueName else boolFalseName) [])
+   603    else if c = natBleName then
+   604      some (.const (if a <= b then boolTrueName else boolFalseName) [])
+   605    else none
 
-== ConLeche/Kernel/CoreDefs.lean#L604-L618
-   604      some (.const (if a = b then boolTrueName else boolFalseName) [])
-   605    else if c = natBleName then
-   606      some (.const (if a <= b then boolTrueName else boolFalseName) [])
-   607    else none
-   608  
-   609  /-- Stored-constant guards for op `c`: the `Nat` basis, every
-   610  dependency stored as a definition, and (for the `Bool`-valued ops and
-   611  the `ble`-guarded `div`/`mod`, whose semantic clauses mention the
-   612  `Bool` constructor values) the `Bool` constructors stored, level-free,
-   613  at the type `Bool` itself (their values must be members of `Bool`'s,
-   614  so that a recurrence `beq 0 0 = true` relates two members of one
-   615  type). -/
-   616  def natOpGuard (env : Env) (c : Name) : Bool :=
-   617    natLitSupported env &&
-   618    (natOpDeps c).all (fun n => match env.find? n with
+== ConLeche/Kernel/CoreDefs.lean#L602-L616
+   602      some (.const (if a = b then boolTrueName else boolFalseName) [])
+   603    else if c = natBleName then
+   604      some (.const (if a <= b then boolTrueName else boolFalseName) [])
+   605    else none
+   606  
+   607  /-- Stored-constant guards for op `c`: the `Nat` basis, every
+   608  dependency stored as a definition, and (for the `Bool`-valued ops and
+   609  the `ble`-guarded `div`/`mod`, whose semantic clauses mention the
+   610  `Bool` constructor values) the `Bool` constructors stored, level-free,
+   611  at the type `Bool` itself (their values must be members of `Bool`'s,
+   612  so that a recurrence `beq 0 0 = true` relates two members of one
+   613  type). -/
+   614  def natOpGuard (env : Env) (c : Name) : Bool :=
+   615    natLitSupported env &&
+   616    (natOpDeps c).all (fun n => match env.find? n with
 
-== ConLeche/Kernel/CoreDefs.lean#L661-L668
-   661      .lam (Expr.substConstAll n r ty) (Expr.substConstAll n r b)
-   662    | .forallE ty b =>
-   663      .forallE (Expr.substConstAll n r ty) (Expr.substConstAll n r b)
-   664    | .letE ty v b =>
-   665      .letE (Expr.substConstAll n r ty) (Expr.substConstAll n r v)
-   666        (Expr.substConstAll n r b)
-   667    | .proj s i e => .proj s i (Expr.substConstAll n r e)
-   668    | e => e
+== ConLeche/Kernel/CoreDefs.lean#L659-L666
+   659      .lam (Expr.substConstAll n r ty) (Expr.substConstAll n r b)
+   660    | .forallE ty b =>
+   661      .forallE (Expr.substConstAll n r ty) (Expr.substConstAll n r b)
+   662    | .letE ty v b =>
+   663      .letE (Expr.substConstAll n r ty) (Expr.substConstAll n r v)
+   664        (Expr.substConstAll n r b)
+   665    | .proj s i e => .proj s i (Expr.substConstAll n r e)
+   666    | e => e
 
 == ConLeche/Frontend/Prepare.lean#L168-L175
    168  the prelude's declarations first (the stream's own copies where it has

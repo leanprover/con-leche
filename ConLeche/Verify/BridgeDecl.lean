@@ -853,15 +853,15 @@ theorem classStreamRecs_datF (fe : FEnv) (F : Nat) :
       classStreamRecs_datF fe F rcs]
 
 /-- **The generated recursor stage at fuel `F`**: the pure install's run
-(`ShadowOps.ofOps` at the fueled family) is the model's fueled run. -/
+(at the fueled family) is the model's fueled run. -/
 theorem genRecCheck_datF (fe : FEnv) (p : BlockShape) (nestedBit : Bool) (params : List Expr)
     (tbl : List NestCtorNf) (rd : ClassRead) (Ms : List TargetMajor)
     (block : List ConstantInfo) (F : Nat) :
-    (genRecCheck (ShadowOps.ofOps (fueledOpsM mode)) fe p nestedBit params tbl rd Ms
+    (genRecCheck (fueledOpsM mode) fe p nestedBit params tbl rd Ms
         block).val F =
-      genRecCheck (ShadowOps.fueled mode F) fe p nestedBit params tbl rd Ms block := by
+      genRecCheck (fueledOps mode F) fe p nestedBit params tbl rd Ms block := by
   unfold genRecCheck
-  simp only [ShadowOps.ofOps, ShadowOps.fueled, FueledM.atF_bind, FueledM.atF_pure,
+  simp only [FueledM.atF_bind, FueledM.atF_pure,
     FueledM.atF_throw, FueledM.atF_ite, unwrapOr_atF, targetRecPins_datF, classStreamRecs_datF,
     classesNfs_datF, classesCtors_datF, classFormerTys_datF, classRecTysOk_datF,
     classRecsRulesOk_datF]

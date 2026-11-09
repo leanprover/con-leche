@@ -3,6 +3,7 @@ module
 public import ConLeche.Cached.Decls
 import ConLeche.Verify.Cached.BlockOverlay
 import ConLeche.Verify.Cached.WalkersC
+import ConLeche.Verify.Cached.IndRecC
 
 public section
 
@@ -415,18 +416,19 @@ theorem classRecsRulesOk_fst (ops : CheckerOps CheckCM) (feT feR : FEnv)
       (by simpa using h)) fun xs hxs => ?_
     exact Yields.pure (by simp [hxs])
 
-/-- **The generated stage at the skeleton level**: one stored recursor
+/-- **The cached generated stage at the skeleton level**: one stored recursor
 per record, in order, under the record's name (fresh at the stage's
 index), the family's names distinct. -/
-theorem genRecCheck_names (so : ShadowOps CheckCM) (fe : FEnv)
+theorem genRecCheckC_names (mode : CheckMode) (fe : FEnv)
     (p : BlockShape) (nestedBit : Bool) (params : List Expr) (tbl : List NestCtorNf)
     (rd : ClassRead) (Ms₀ : List TargetMajor)
     (block : List ConstantInfo) :
-    Yields (genRecCheck so fe p nestedBit params tbl rd Ms₀ block)
+    Yields (genRecCheckC mode fe p nestedBit params tbl rd Ms₀ block)
       (fun out => (p.recs.map (·.cvR.name)).Nodup ∧ out.length = p.recs.length ∧
         ∀ (j : Nat) (rc : RecShape), p.recs[j]? = some rc →
           ∃ o, out[j]? = some o ∧ o.1.name = rc.cvR.name ∧ fe.find? rc.cvR.name = none) := by
-  unfold genRecCheck
+  unfold genRecCheckC
+  simp only [classRecTysOkC_eq, classRecsRulesOkC_eq]
   refine Yields.bind' (Q := fun _ => (p.recs.map (·.cvR.name)).Nodup) ?_ fun _ hnd => ?_
   · unfold targetRecPins
     dsimp only

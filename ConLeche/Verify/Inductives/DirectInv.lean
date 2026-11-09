@@ -2,7 +2,6 @@ module
 
 public import ConLeche.Verify.BridgeWfImp
 public import ConLeche.Verify.ExceptBind
-import ConLeche.Verify.FastOps
 import ConLeche.Verify.Extend.Inversions
 import ConLeche.Kernel.Inductives.SumInstall
 
