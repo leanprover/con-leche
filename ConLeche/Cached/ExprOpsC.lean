@@ -1555,6 +1555,116 @@ def mentionsAnyConstXP (names : @& List Name) (memo : MemoB0 (mentionsAnyConstP 
 def mentionsAnyConstC (names : List Name) (e : @& Expr) : Bool :=
   resBool (mentionsAnyConstXP names none e)
 
+/-! ### `depthC` (task #498)
+
+`Expr.depth`, the longest root-to-leaf path (`fvar` annotations not
+descended): the input-derived fuel of the walks through whnf
+(`whnfWalkFuel`).  A `Nat`-valued walk over its own entry type `NEnt`
+(`BEnt` with a `Nat` decision and no cursor: the depth has none); no
+cutoff — no field records a node's depth.  `depthP_spec`
+(`ConLeche/Verify/Cached/IndWalksC.lean`) reads the descent as
+`Expr.depth`. -/
+
+/-- A `Nat` memo entry: the node, its value and the proof. -/
+structure NEnt (s : Expr → Nat) where
+  node : Expr
+  val : Nat
+  eq : val = s node
+
+/-- A validated hit: the stored node IS the current one. -/
+@[inline] def NEnt.hit {s : Expr → Nat} {β : Sort u} (p : NEnt s) (e : Expr)
+    (k : { r : Nat // r = s e } → β) (miss : Unit → β) : β :=
+  match Expr.ptrDec p.node e with
+  | isTrue hn => k ⟨p.val, by rw [p.eq, hn]⟩
+  | isFalse _ => miss ()
+
+/-- The `Nat` table under the packed address key. -/
+abbrev NTab (s : Expr → Nat) := Std.HashMap PKey (NEnt s)
+
+/-- The pointer-keyed `Nat` memo: absent until the first shared
+compound node. -/
+abbrev MemoN (s : Expr → Nat) := Option (NTab s)
+
+/-- A `Nat` walk's result: the value, fixed by its proof, beside the
+memo. -/
+abbrev ResN (s : Expr → Nat) (e : Expr) := { r : Nat // r = s e } × MemoN s
+
+/-- The record: the entry under its packed key. -/
+@[inline] def MemoN.insert {s : Expr → Nat} (memo : MemoN s) (key : Nat) (p : NEnt s) :
+    MemoN s :=
+  match memo with
+  | none => some (({} : NTab s).insert ⟨key⟩ p)
+  | some m => some (m.insert ⟨key⟩ p)
+
+/-- The shared-node step over the `Nat` memo (`MemoB.shared` with
+`NEnt`, at cursor `0`). -/
+@[inline] def MemoN.shared {s : Expr → Nat} (memo : MemoN s) (e : Expr)
+    (rec : Unit → Squash (ResN s e)) : Squash (ResN s e) :=
+  withAddr e fun addr =>
+  let key := pkey addr 0
+  match memo with
+  | none => Squash.lift (rec ()) fun (⟨r, hr⟩, memo) =>
+      Squash.mk (⟨r, hr⟩, memo.insert key ⟨e, r, hr⟩)
+  | some m =>
+    match m[(⟨key⟩ : PKey)]? with
+    | some p => p.hit e (fun r => Squash.mk (r, memo)) fun _ =>
+        Squash.lift (rec ()) fun (⟨r, hr⟩, memo) =>
+          Squash.mk (⟨r, hr⟩, memo.insert key ⟨e, r, hr⟩)
+    | none => Squash.lift (rec ()) fun (⟨r, hr⟩, memo) =>
+        Squash.mk (⟨r, hr⟩, memo.insert key ⟨e, r, hr⟩)
+
+/-- The value of a `Nat` walk's result. -/
+@[inline] def resNat {c : Nat} {M : Type} (s : Squash ({ r : Nat // r = c } × M)) : Nat :=
+  Quotient.lift (fun p => p.1.1) (fun p q _ => by rw [p.1.2, q.1.2]) s
+
+theorem resNat_eq {c : Nat} {M : Type} (s : Squash ({ r : Nat // r = c } × M)) :
+    resNat s = c := by
+  induction s using Quotient.ind with
+  | _ p => exact p.1.2
+
+/-- The plain descent of `depthC`. -/
+def depthP (e : Expr) : Nat :=
+  match e with
+  | .app f a .. => max (depthP f) (depthP a) + 1
+  | .lam ty body .. | .forallE ty body .. => max (depthP ty) (depthP body) + 1
+  | .letE ty val body .. => max (max (depthP ty) (depthP val)) (depthP body) + 1
+  | .proj _ _ sub .. => depthP sub + 1
+  | .bvar .. | .fvar .. | .sort .. | .const .. | .lit .. => 1
+
+/-- The child step of `depthXP`: the compound test, then the
+exclusivity read. -/
+@[inline] def enterDepth (e : @& Expr) (memo : MemoN depthP)
+    (rec : Unit → Squash (ResN depthP e)) : Squash (ResN depthP e) :=
+  if !isCompound e then rec () else
+  withExcl e fun excl =>
+    if excl then rec () else memo.shared e fun _ => rec ()
+
+/-- The walk of `depthC`. -/
+def depthXP (memo : MemoN depthP) (e : @& Expr) : Squash (ResN depthP e) :=
+  match e with
+  | .bvar .. | .fvar .. | .sort .. | .const .. | .lit .. =>
+    Squash.mk (⟨1, by rw [depthP]⟩, memo)
+  | .app f a .. =>
+    enterDepth f memo (fun _ => depthXP memo f) |>.lift fun (⟨df, hf⟩, memo) =>
+    enterDepth a memo (fun _ => depthXP memo a) |>.lift fun (⟨da, ha⟩, memo) =>
+    Squash.mk (⟨max df da + 1, by rw [depthP, hf, ha]⟩, memo)
+  | .lam ty body .. | .forallE ty body .. =>
+    enterDepth ty memo (fun _ => depthXP memo ty) |>.lift fun (⟨dt, ht⟩, memo) =>
+    enterDepth body memo (fun _ => depthXP memo body) |>.lift fun (⟨db, hb⟩, memo) =>
+    Squash.mk (⟨max dt db + 1, by rw [depthP, ht, hb]⟩, memo)
+  | .letE ty val body .. =>
+    enterDepth ty memo (fun _ => depthXP memo ty) |>.lift fun (⟨dt, ht⟩, memo) =>
+    enterDepth val memo (fun _ => depthXP memo val) |>.lift fun (⟨dv, hv⟩, memo) =>
+    enterDepth body memo (fun _ => depthXP memo body) |>.lift fun (⟨db, hb⟩, memo) =>
+    Squash.mk (⟨max (max dt dv) db + 1, by rw [depthP, ht, hv, hb]⟩, memo)
+  | .proj _ _ sub .. =>
+    enterDepth sub memo (fun _ => depthXP memo sub) |>.lift fun (⟨ds, hs⟩, memo) =>
+    Squash.mk (⟨ds + 1, by rw [depthP, hs]⟩, memo)
+
+/-- The cached `Expr.depth` (one memoized DAG walk). -/
+def depthC (e : @& Expr) : Nat :=
+  resNat (depthXP none e)
+
 /-- Core of `fvarLeavesC` (memoized set accumulation).
 
 **The one walk of the tree whose memo is not the `withExclusive`
@@ -1817,6 +1927,13 @@ def closeLamsC (bs : List Expr) (i : Nat) (body : Expr) : Expr :=
 closed at cursor `c` in one `abstractRangeC` pass. -/
 def abstractPrefixC (k c : Nat) (e : Expr) : Expr :=
   abstractRangeC e 0 k c
+
+/-- The cached `instPisWith`: the leading `∀` binders instantiated at
+`args` in order, each by `instantiate1C` (`instPisWithC_eq`). -/
+def _root_.ConLeche.instPisWithC : List Expr → Expr → Option Expr
+  | [], e => some e
+  | a :: as, .forallE _ body .. => instPisWithC as (instantiate1C body a)
+  | _ :: _, _ => none
 
 /-- The cached `Expr.piDomsMentionAny`: some binder domain of the
 syntactic `∀`-telescope mentions one of `names`. -/
