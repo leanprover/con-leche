@@ -117344,3 +117344,77 @@ commit, `perf: InLean follows con-leche's cached inductive stages` (22cc7f83, th
 `inlean-sync.py check` OK.  Stage1 suite (4843 tests): all pass but `async/elab/async_systems_info`
 (sandbox).  Every `tests/elab_bench/*.lean` (93 files) at `TEST_BENCH=1` passes;
 `deriving_mutual_block`'s `#mutual_block` takes 182.1 M heartbeats (182.1 M before).
+
+### Lane spec-relation: InLean relates to master's specification and follows master's cached code by process (2026-11-09, task #451, agent/451-indlock)
+
+**Ruling (maintainer, 2026-11-09, option (a)).**  InLean's proofs relate InLean to master's
+SPECIFICATION, as the core's proofs already do (they copy master's cached-tier proof scripts and
+target the fueled specification with InLean's own `CSOKI`).  InLean follows master's CACHED code
+by process at each sync, not by proof.  This supersedes the ruling of lane indlock above.
+
+**Removed.**  `InLeanProof/CRuns.lean` (lane indlock's relation: the cached stage as a template
+walked beside the specification, its core calls abstract, its only consequence `Runs` of the
+specification) carried no semantic link to the cached tier and is deleted.  The stage lemmas
+conclude `Runs` of the specification stages again, as at 609ef536a: `checkConstantValC_sim`
+(`checkConstantValC_crun` is gone), `checkBlockTeleFI_run`, `checkBlockTelesFI_run`,
+`checkBlockDomsAtFI_run`, `checkBlockAgreeFI_run`, `checkBlockIndsFI_run`,
+`checkStructDomsAtFI_run`, `checkStructFieldSortsIFI_run`, `checkSumCtorFI_run`,
+`checkSumCtorsFI_run`, `checkBlockCtorsFI_run`, `checkBlockIdxSortsFI_run`; their users no
+longer read `.runs`.  Lane twinlock's leaf lemmas (stated against master's cached walks and proved
+from their equations) are unaffected.
+
+**Kept** (InLean code, following master's cached code; also in lean4 22cc7f83): the one-walk
+`structProjBodies` (`structProjBodiesGo`, read field by field by `structProjBodies_eq_fields`,
+related to master's specification `ConLeche.structProjBodies`), `checkSumCtorC`'s array loops
+(`checkStructDomsAtF`, `checkStructFieldSortsC`, the residual's spine read once), `peelPis` in
+`InLean/FEnv.lean`, the #515 merge.  Their proofs relate to the specification: the array field
+loop is the list loop by `checkStructFieldSortsC_toArray`, the spine's length by
+`length_appArgs`, the array domain loop's lookups by `List.getElem?_toArray`.
+
+**How InLean follows master** (standing procedure, every sync):
+
+1. Take the last synced master commit (recorded in the previous sync's record; at this record:
+   8d11cda38) and the new one.
+2. List what changed: `scripts/inlean-cached-diff.sh <old> <new>` prints every declaration of
+   `ConLeche/Cached/*` with a changed line, and every changed declaration of `ConLeche/Kernel/*`
+   the binary runs (`tests/plain-reach-allow.txt`, by name or `module:`).  It is a best-effort
+   scan of the `-U0` hunks against the declaration headers (lane aid, not a gate); read
+   `git log -p <old>..<new> -- ConLeche/Cached ConLeche/Kernel` beside it for what it misses
+   (a change inside a `where` helper is attributed to the enclosing header).
+3. Map each to its InLean twin: master's cached `ConLeche.Cached.fooC` (also `fooF`, `fooS`,
+   `fooI`, `fooP`) ↔ InLean's `InLean.fooC`/`InLean.foo` (InLean's names follow the cached
+   ones, see the tables of lanes twinlock and indlock); a plain function the binary runs ↔
+   InLean's function of the same name; a memoised walk (`instantiate1C`, …) ↔ Lean's own
+   `Expr` operation (`EO.*`), which has no algorithm to follow.
+4. Port each change to the twin (algorithm, guards, error kinds, order of the checks), or decide
+   that it does not apply (a proof-only declaration, a memo InLean does not have, a change of
+   the `ConLeche.Expr` representation); repair the InLean proofs against the specification.
+5. Record in the sync's DESIGN record the list, one line per declaration with its decision
+   (ported / not applicable, why), and the new last synced master commit.
+
+**For later: an InLean → cached simulation (the maintainer's idea).**  If the only obstacle to a
+simulation of master's cached core by InLean's were that the cached core is fuelled (an InLean
+memo hit beside a cached miss makes the cached side recompute, needing fuel the proof cannot
+bound), one could (i) define, very mechanically with `partial_fixpoint`, a fuel-free twin of the
+cached core and prove that if it returns ok then some fuel makes the cached core return the same;
+the fuel-free equations would be a good simulation target (and one might then ask whether the
+whole cached tier could become fuel-free that way); or (ii) skip that twin and prove InLean ⇒
+∃ fuel, cached, viable only if completely mechanical with a good lockstep tactic, given the
+existentials.
+
+Why master's own cached ⇒ specification simulation does not transfer: master's `CSOK`
+(`Verify/Cached/SimC.lean`) stores with every memo entry `∃ F, spec … F … = .ok v`, and the
+specification is pure, so "the specification returns `v` at `k`" is a fact about `k` alone; the
+direction is cached run ⇒ ∃ fuel, specification run (`Runs`, `Verify/Cached/Grind.lean`), and a
+hit returns its stored witness.  The cached core is a stateful target: "the cached core returns
+`v` at `k`" depends on its memo state, so an InLean memo entry cannot carry it; the obstacle is
+statefulness, not only fuel, and a fuel-free twin removes the fuel part but would also need a
+completeness fact master does not prove (from every `CSOK` state the cached core returns the
+specification's value given enough fuel).  A value-level route (InLean ⇒ specification ⇒ cached)
+holds whatever the algorithm, so it would not detect cached-only performance changes; only a
+structural lockstep with a state correspondence would, and the memos do not correspond exactly:
+InLean's keys (`keyEq`) keep `mdata` and use Lean's hash, its free variables are interned by
+`clEq` class, and its per-walk memos are sized.
+
+**Proofs.**  `addDeclSound` unconditional, axioms unchanged (`propext`, `Classical.choice`,
+`Quot.sound`, the three `mkData` stop-gaps); no `sorry`.
