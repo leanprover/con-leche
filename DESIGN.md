@@ -116938,6 +116938,19 @@ calls, as official's.
 
 All verdicts unchanged (exit 0). The largest relative deltas are on the two small `discarded-argument` streams (+1.3 M and +1.7 M instructions absolute), not attributed further; `init-full` is +0.006 %, `grind-ring-5` +0.005 %.
 
+**Merged onto master 8d11cda38 (2026-11-09).**  `master` merged into the lane (`--no-ff`); the
+code merged without conflict: this lane's `Core.lean`/`CoreC.lean` additions (the unit-like loop,
+the partial-constructor η) sit beside #520's `defeqBinders`, which they do not call, and
+#497/#498's cached inductive check does not read the unit-like shape.  By hand: DESIGN.md
+(master's records first, this section after them), OVERVIEW's guard paragraph (this lane's text,
+master's link to `defeqBindersInner`), `tests/e2e-expected.txt` and `scripts/pub-import-plan.py`
+(both sides' rows), the whitepaper's citations (two of this lane's anchors pointed at the deleted
+`defeqLams`/`DefEqLams` lines and now follow master's `defeqBindersInner` and binder-telescope
+relation; the rest moved).  The reach gate (#497) lists `unitLikeFuel` with the other fuel
+constants the cached knot shares.  Gates on the merged tree: `lake build`, `lake test`
+warning-free; `tests/arena.sh` (e2e 583/583, arena tutorial 90/92, plain-reach 578 all
+allowlisted, the link and quote gates).
+
 ### Lane eta: task #515's two η rules in InLean (2026-11-09, task #451, agent/451-eta)
 
 **Merge.** `agent/515-wide-eta` (ae378777d, 7cc846eb9) merged into the lane (`--no-ff`); the one

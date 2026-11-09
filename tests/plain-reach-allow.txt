@@ -153,6 +153,7 @@ ConLeche.bindersFuel
 ConLeche.liftFueled
 ConLeche.projIndexedStructLike
 ConLeche.projMissError
+ConLeche.unitLikeFuel
 ConLeche.unknownConstError
 ConLeche.whnfCoreLoopFuel
 ConLeche.whnfLoopFuel
