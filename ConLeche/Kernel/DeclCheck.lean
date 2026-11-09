@@ -410,7 +410,7 @@ noncomputable def checkDivModCertsF (ops : CheckerOps m) (fe : FEnv) (c : Name)
   | _, _ => pure false
 
 /-- `checkTypePins` through the index. -/
-def checkTypePinsF (ops : CheckerOps m) (fe : FEnv) :
+noncomputable def checkTypePinsF (ops : CheckerOps m) (fe : FEnv) :
     List (Name × Expr) → m Bool
   | [] => pure true
   | p :: rest => do

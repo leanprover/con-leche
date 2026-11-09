@@ -216,7 +216,6 @@ ConLeche.Expr.constsResolveF
 ConLeche.Expr.constsResolveFFast
 ConLeche.Expr.constsResolveFGo
 ConLeche.checkConstantValF
-ConLeche.checkTypePinsF
 ConLeche.divModEnvGuardF
 ConLeche.installBasisDeclF
 ConLeche.natOpCodF
