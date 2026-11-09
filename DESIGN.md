@@ -115276,3 +115276,19 @@ beyond the existing ones). Hand test: SIGINT sent to the scheduler's pid (found 
 `/proc/<pid>/task/*/children`) with 5 workers running: 5 `killed` lines, exit 130, no child left;
 resumed from the log: 74 skipped, 665 run, exit 0. A second SIGINT after the first takes the default
 action (the waiter is one-shot), which is acceptable.
+
+## TASK #517 — the scheduler's estimate is the cumulative rate of the run
+
+Maintainer's ruling. The #512 estimate looked at the last 200 finishes; on the CFSG stream it
+swung from 17 d to 21 d within minutes. Module times there are heavy-tailed (most 1 to 3 s, a few
+30 to 50 min), so a long stretch with few finishes stays inside a 200-finish window until 200 more
+finishes push it out. The window existed to survive the blanket pause, which is gone, and with the
+shuffled start order (#515) the modules run so far are a random sample, so the cumulative rate is
+the steady, unbiased estimate:
+
+`eta = (now - this run's start) × (total - done) ÷ (finished in this run)`
+
+where `finished in this run` is `nDone - (total - todo.length)` (modules skipped from the log are
+excluded) and `total - done` is what is still to run. No estimate is shown before the first finish
+of this run. The window code (`etaWindow`, `pushStamp`, the `stamps` field) is deleted;
+`progressText` takes `(finished, elapsed)`. `ScheduleIO` is plain IO, outside every theorem.

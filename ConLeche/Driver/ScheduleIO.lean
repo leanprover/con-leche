@@ -68,7 +68,8 @@ it plain `IO`:
   to 6, `X` to 5, `done` to the width of `total`, `p` to 5, `k` to the width of `jobs`; only the
   estimate varies), `X` the worker's own peak from its stats line (`rss≥X` the last sampled one where it
   wrote none), `done` counting a resumed run's logged modules, the estimate the remaining modules
-  at the finish rate of the last 200 finishes (`progressText`; `n requeued` follows `k running`
+  at the cumulative rate of this run: the time since its start times the modules left, over the
+  modules finished in this run, none skipped from the log (`progressText`; `n requeued` follows `k running`
   once a kill has put modules back); with a heartbeat (`heartbeat` ms), after that long without a
   line, three lines on stderr: `schedule: ` and the same padded counts; the memory (`memLine`):
   `mem 1.2 GiB (largest 0.6 GiB), reserved 3.0 GiB of 40 GiB (typical 0.8 GiB)`, the running workers' total
@@ -82,7 +83,7 @@ it plain `IO`:
   sorted by the FNV-1a hash of their spelled names (`shuffle`), the same on every run and machine,
   so a resumed run keeps the order and skips the logged modules; killed modules still go to the
   front.  Neighbours in the graph's order are alike in size (runs of small or of big ones), which
-  made the memory pressure come in waves and the estimate's window unrepresentative.  `graph`
+  made the memory pressure come in waves and the modules run so far an unrepresentative sample.  `graph`
   starts them in the graph's order.  The verdicts are reported as ever, in the graph's order;
 * **a growth gate** (`growth`, seconds, default 10, 0 for none; `--schedule-growth=S`): while a
   worker is protected, nothing starts as long as its peak (`VmHWM`) rose within the last `growth`
@@ -177,7 +178,8 @@ def fnv1a (s : String) : UInt64 :=
 
 /-- The modules in a fixed pseudo-random order: by the hash of the spelled name, the name itself
 breaking ties.  Neighbours in the graph's order are alike in size; this spreads them, so the
-memory pressure does not come in waves and the estimate's recent window is representative. -/
+memory pressure does not come in waves and the modules run so far are a random sample, so the
+estimate's cumulative rate is unbiased. -/
 def shuffle (ms : List Name) : List Name :=
   (ms.toArray.map (fun m => (fnv1a (spell m), spell m, m))).qsort
     (fun a b => a.1 < b.1 || (a.1 == b.1 && a.2.1 < b.2.1)) |>.toList.map (·.2.2)
@@ -375,9 +377,6 @@ structure St where
   typ : Nat := 0
   /-- the running workers' peaks each at least `typ`, at the last tick: what admission counts -/
   effPk : Nat := 0
-  /-- the times (ms since the start) of the last `etaWindow`
-  finishes, and before them the start of the window (first element); `#[0]` at the start -/
-  stamps : Array Nat := #[0]
   /-- this run's finished workers (statistics) -/
   recs : Array Rec := #[]
   /-- the time of the last tick; the sums below are weighted by the ms between ticks -/
@@ -402,9 +401,6 @@ structure St where
   memVerdicts : Nat := 0
   nonzero : Nat := 0
 
-/-- How many finishes the estimate looks back over. -/
-def etaWindow : Nat := 200
-
 /-- How many finished workers' peaks the typical peak looks at, how many it needs before it
 replaces the start value, and its quantile (the median). -/
 def typWindow : Nat := 200
@@ -417,12 +413,6 @@ def pushPeak (peaks : Array Nat) (typ pk : Nat) : Array Nat × Nat :=
   let w := if w.size > typWindow then w.extract 1 w.size else w
   if w.size < typMin then (w, typ)
   else (w, ((w.qsort (· < ·))[w.size / 2]?).getD typ)
-
-/-- The estimate's window after a finish at active time `t` (ms since the start, the time with
-): the last `etaWindow` finishes' times, with the start of the window first. -/
-def pushStamp (stamps : Array Nat) (t : Nat) : Array Nat :=
-  let s := stamps.push t
-  if s.size > etaWindow + 1 then s.extract 1 s.size else s
 
 /-- `s` padded with spaces on the left to `w` characters. -/
 def padL (w : Nat) (s : String) : String := "".pushn ' ' (w - s.length) ++ s
@@ -437,17 +427,19 @@ def verdictWidth : Nat := 7
 and the heartbeat's first line, in fixed columns: `done` padded to the width of `total`, the
 percentage to `100.0`, `k` to the width of `jobs`; only the estimate, last in the bracket, has a
 variable width.  `done` counts the logged modules of a resumed run.  The estimate
-is the remaining modules at the finish rate of a recent window: `window = (n, ms)`, the last
-`n ≤ 200` finishes of this run and the active time they took (from the previous finish, or the
-start, to the last finish; a stretch without finishes does not grow it until something finishes):
-`remaining × ms ÷ n`; none before the first finish.  Past 48 hours it is in days and hours
+is the cumulative rate of this run: `run = (n, ms)`, the modules finished in this run (not the
+ones skipped from the log) and the time since its start; the estimate is `ms × remaining ÷ n`,
+`remaining = total - done`.  The module times are heavy-tailed (most 1 to 3 s, a few 30 to 50
+minutes), and with the shuffled order the modules run so far are a random sample, so the cumulative
+rate is steady where a window of recent finishes swung with the few long ones.  None before the
+first finish.  Past 48 hours it is in days and hours
 (`51d16h`), from 10 hours in hours, below that with minutes (`dur`).  `n requeued` (`requeued`)
 follows `k running` once a kill has put modules back. -/
-def progressText (total done running : Nat) (window : Nat × Nat) (requeued : Nat := 0)
+def progressText (total done running : Nat) (run : Nat × Nat) (requeued : Nat := 0)
     (jobs : Nat := 0) : String :=
   let pm := if total = 0 then 1000 else done * 1000 / total
-  let eta := if window.1 = 0 || done ≥ total then ""
-    else s!", eta {dur (window.2 * (total - done) / window.1)}"
+  let eta := if run.1 = 0 || done ≥ total then ""
+    else s!", eta {dur (run.2 * (total - done) / run.1)}"
   let rq := if requeued = 0 then "" else s!", {requeued} requeued"
   let w := (toString total).length
   s!"[{padL w (toString done)}/{total} {padL 5 s!"{pm / 10}.{pm % 10}"} %, \
@@ -536,7 +528,7 @@ def run (parse : String → Option Name) (app : System.FilePath) (args : Name �
     if o.memory = 0 then 1 <<< 60 else o.memory - min o.memory pk
   let progress (st : St) (now : Nat) : String :=
     progressText total st.nDone st.running.size
-      (st.stamps.size - 1, (st.stamps.back?.getD 0) - (st.stamps[0]?.getD 0)) st.requeued jobs
+      (st.nDone - (total - todo.length), now - t0) st.requeued jobs
   let memory (st : St) (growing : Bool) : Option String :=
     memLine st.running.size st.mem st.typ o.memory st.prot
       (if st.running.isEmpty then 0 else (st.front.filter (st.sizes.getD · 0 > roomOf st.effPk)).length)
@@ -556,7 +548,6 @@ def run (parse : String → Option Name) (app : System.FilePath) (args : Name �
     let st := { st with verdicts := st.verdicts.insert r.m w, finished := st.finished + 1,
                         peaks, typ, seen := st.seen.erase r.m,
                         nDone := st.nDone + 1, lastLine := now,
-                        stamps := pushStamp st.stamps (now - t0),
                         recs := st.recs.push { m := r.m, ms := now - r.start, pk },
                         workMs := st.workMs + (now - r.start),
                         memVerdicts := st.memVerdicts + (if w == "memory" then 1 else 0),
