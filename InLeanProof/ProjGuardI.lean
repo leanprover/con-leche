@@ -223,7 +223,7 @@ theorem hasLooseBVarI_TrS {s : InLean.CState} {e : Lean.Expr} (h : OkS s e = tru
   exact toExpr_hasLooseBVar (FVarTable.trans_fvarsOnly _) (RangeOk_of_OkS h) (TransS_of_ok h) i
 
 /-- **The guard's field loop at interned variables** (master's
-`projGuardRowsGo` at the translation): an answer's rows read, at the final
+`projGuardRowsGoC` at the translation): an answer's rows read, at the final
 state, as master's on the translated telescope. -/
 theorem projGuardRowsGoI_run :
     ∀ (k d : Nat) {e : Lean.Expr} {s₀ : InLean.CState}
@@ -233,7 +233,7 @@ theorem projGuardRowsGoI_run :
       CSOKI mode eager env s' ∧ TabLe s₀ s' ∧
         ∀ rows, r = some rows →
           (∀ p ∈ rows, OkS s' p.2 = true ∧ (TrS s' p.2).looseBVarsBounded 0 = true) ∧
-          ConLeche.projGuardRowsGo k d (TrS s₀ e) = some (rows.map fun p => (p.1, TrS s' p.2))
+          ConLeche.projGuardRowsGoC k d (TrS s₀ e) = some (rows.map fun p => (p.1, TrS s' p.2))
   | k, d, .mdata _ e, s₀, r, s', hs, hok, hc, h => by
     rw [InLean.projGuardRowsGoM] at h
     rw [OkS_mdata] at hok
@@ -265,7 +265,8 @@ theorem projGuardRowsGoI_run :
       refine ⟨hs', ht', fun rows hr => ?_⟩
       obtain ⟨hokr, hm⟩ := hR rows hr
       refine ⟨hokr, ?_⟩
-      simp only [ConLeche.projGuardRowsGo, ← hlb, hb, Bool.false_eq_true, ↓reduceIte]
+      simp only [ConLeche.projGuardRowsGoC, ConLeche.Cached.hasLooseBVarBC_spec, ← hlb, hb,
+        Bool.false_eq_true, ↓reduceIte]
       exact hm
     · -- a row, opened at its variable
       simp only [hb, ↓reduceIte] at h
@@ -295,7 +296,8 @@ theorem projGuardRowsGoI_run :
           rcases List.mem_cons.1 hp with rfl | hp
           · exact ⟨okS_of_tabLe ht23 hok.1, by rw [TrS_of_tabLe ht23 hok.1]; exact hc.1⟩
           · exact hokr p hp
-        · simp only [ConLeche.projGuardRowsGo, ← hlb, hb, ↓reduceIte]
+        · simp only [ConLeche.projGuardRowsGoC, ConLeche.Cached.hasLooseBVarBC_spec, ← hlb, hb,
+            ↓reduceIte, ConLeche.Expr.instantiate1C_spec]
           rw [← hTI, hm]
           simp only [List.map_cons, TrS_of_tabLe ht23 hok.1]
   | 0, _, .bvar _, _, _, _, hs, _, _, h | 0, _, .fvar _, _, _, _, hs, _, _, h
@@ -900,8 +902,7 @@ theorem checkProjRowsI_run (ih : KnotSpecI mode eager env r) (henv : ConLeche.En
               some (rows.map fun p => (p.1, TrS s₃ p.2)) := by
             unfold ConLeche.projGuardRowsC
             rw [hraw]
-            simp only [hfq, Option.map_none, ConLeche.Expr.instantiateListC_spec,
-              ConLeche.Cached.projGuardRowsGoC_eq]
+            simp only [hfq, Option.map_none, ConLeche.Expr.instantiateListC_spec]
             rw [← htrr]
             exact hm2
           have hws := ConLeche.projGuardRows_ws
