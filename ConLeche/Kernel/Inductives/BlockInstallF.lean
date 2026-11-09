@@ -11,7 +11,7 @@ public import ConLeche.Kernel.Inductives.SumInstallF
 over an `FEnv`, the mirrors the cached drivers run — the `F` twin of
 every stage at every `k`.  Each stage
 differs from the pure one only in how the environment is read
-(`w.resolve fe` for `Expr.constsResolve env`, `fe.push` for the
+(`Expr.constsResolveF fe` for `Expr.constsResolve env`, `fe.push` for the
 `consts` cons, `checkConstantValF` for `checkConstantVal`) and in
 nothing else, so the cached agreements stay positional.
 -/
@@ -150,11 +150,11 @@ holding the rule-less recursors its rules are inferred at.
 /-! ## The tables and the install -/
 
 /-- `checkBlockTables` through the index. -/
-def checkBlockTablesF (w : StructWalkers) (fe : FEnv) : List ProjTable → m Unit
+def checkBlockTablesF (fe : FEnv) : List ProjTable → m Unit
   | [] => pure ()
   | t :: rest => do
-    checkStructProjTableF w t fe
-    checkBlockTablesF w fe rest
+    checkStructProjTableF t fe
+    checkBlockTablesF fe rest
 
 end Mirrors
 

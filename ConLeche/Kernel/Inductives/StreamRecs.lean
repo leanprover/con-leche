@@ -73,13 +73,13 @@ def recTyOpened (ops : CheckerOps m) (env : Env) (rec : Name) (n : Nat) :
 level parameters `lps`, resolving at `fe`, a type (`inferType`, a sort),
 and the generated one (closed: `classRecTyOk`'s check) binder by binder
 up to the major (`n` binders) — the domains, then the residues. -/
-def recTyCheck (ops : CheckerOps m) (w : StructWalkers) (fe : FEnv) (rec : Name)
+def recTyCheck (ops : CheckerOps m) (fe : FEnv) (rec : Name)
     (lps : List Name) (n : Nat) (s g : Expr) : m Unit := do
   unless s.looseBVarsBounded 0 && !s.hasFvar && !g.hasFvar do
     throw (.invalid s!"the type of the recursor {rec} is not closed")
   unless s.allLevelParamsDefined lps do
     throw (.invalid s!"undeclared universe parameter in the type of the recursor {rec}")
-  unless w.resolve fe s do
+  unless s.constsResolveF fe do
     throw (unresolvedConstsError s!"the type of the recursor {rec}" s)
   let st ← ops.inferType fe.env 0 s
   let _ ← ops.ensureSort fe.env 0 st
@@ -89,7 +89,7 @@ def recTyCheck (ops : CheckerOps m) (w : StructWalkers) (fe : FEnv) (rec : Name)
 `s` is closed, at the record's level parameters `lps`, resolving at
 `fe`; it and the generated `g` are inferred, their types are
 definitionally equal, and so are they. -/
-def ruleAgree (ops : CheckerOps m) (w : StructWalkers) (fe : FEnv) (rec ctor : Name)
+def ruleAgree (ops : CheckerOps m) (fe : FEnv) (rec ctor : Name)
     (lps : List Name) (s g : Expr) : m Unit := do
   unless s.looseBVarsBounded 0 && !s.hasFvar && !g.hasFvar do
     throw (.invalid s!"the recursor {rec}'s rule for {ctor} has a right-hand side that is \
@@ -97,7 +97,7 @@ def ruleAgree (ops : CheckerOps m) (w : StructWalkers) (fe : FEnv) (rec ctor : N
   unless s.allLevelParamsDefined lps do
     throw (.invalid s!"the recursor {rec}'s rule for {ctor} has an undeclared universe \
       parameter")
-  unless w.resolve fe s do
+  unless s.constsResolveF fe do
     throw (unresolvedConstsError s!"the recursor {rec}'s rule for {ctor}" s)
   let ts ← ops.inferType fe.env 0 s
   let tg ← ops.inferType fe.env 0 g
@@ -150,40 +150,40 @@ def streamRulesShape (rec : Name) : List RecRule → List (ConstantVal × Nat) �
 
 /-- The record's rules' checks, each against the generated right-hand side
 at its position (a rule equal to the generated one needs none). -/
-def streamRulesCheck (ops : CheckerOps m) (w : StructWalkers) (fe : FEnv) (rec : Name)
+def streamRulesCheck (ops : CheckerOps m) (fe : FEnv) (rec : Name)
     (lps : List Name) : List RecRule → List Expr → m Unit
   | r :: rs, g :: gs => do
     unless r.rhs == g do
-      ruleAgree ops w fe rec r.ctor lps r.rhs g
-    streamRulesCheck ops w fe rec lps rs gs
+      ruleAgree ops fe rec r.ctor lps r.rhs g
+    streamRulesCheck ops fe rec lps rs gs
   | [], [] => pure ()
   | _, _ => throw (.internal s!"the recursor {rec}: the generated rules are not one per stored rule")
 
 /-- **The comparison of one recursor**: its type unless it is the generated one, and its rules. -/
-def streamRecCompare (ops : CheckerOps m) (w : StructWalkers) (fe : FEnv) (rc : RecShape)
+def streamRecCompare (ops : CheckerOps m) (fe : FEnv) (rc : RecShape)
     (g : ConstantVal × TargetMajor × List Expr) : m Unit := do
   unless rc.cvR.type == g.1.type do
-    recTyCheck ops w fe g.1.name g.1.levelParams (rc.mI + 1) rc.cvR.type g.1.type
-  streamRulesCheck ops w fe g.1.name g.1.levelParams rc.rules g.2.2
+    recTyCheck ops fe g.1.name g.1.levelParams (rc.mI + 1) rc.cvR.type g.1.type
+  streamRulesCheck ops fe g.1.name g.1.levelParams rc.rules g.2.2
 
 /-- **One recursor, the stream's against the generated one** (see the module
 docstring): the stream's record `rc` against the generated recursor
 `(cvG, M, rhssG)` at its position. -/
-def streamRecCheck (ops : CheckerOps m) (w : StructWalkers)
-    (fe : FEnv) (rc : RecShape) (g : ConstantVal × TargetMajor × List Expr) : m Unit := do
+def streamRecCheck (ops : CheckerOps m) (fe : FEnv) (rc : RecShape)
+    (g : ConstantVal × TargetMajor × List Expr) : m Unit := do
   streamRulesShape rc.cvR.name rc.rules g.2.1.ctors
   unless streamNestedOk rc.cvR.type rc.mI rc.rP (generatedFire g.2.1 rc.rP) do
     throw (.invalid s!"the recursor {rc.cvR.name}'s stored type does not apply its \
       major's container at the generated firing data")
-  streamRecCompare ops w fe rc g
+  streamRecCompare ops fe rc g
 
 /-- **The block's recursors against the generated ones**, record
 by record (the generated family is in the records' order). -/
-def streamRecsCheck (ops : CheckerOps m) (w : StructWalkers)
-    (fe : FEnv) : List RecShape → List (ConstantVal × TargetMajor × List Expr) → m Unit
+def streamRecsCheck (ops : CheckerOps m) (fe : FEnv) :
+    List RecShape → List (ConstantVal × TargetMajor × List Expr) → m Unit
   | rc :: rcs, g :: gs => do
-    streamRecCheck ops w fe rc g
-    streamRecsCheck ops w fe rcs gs
+    streamRecCheck ops fe rc g
+    streamRecsCheck ops fe rcs gs
   | [], [] => pure ()
   | _, _ => throw (.internal "stored recursors: the generated family is not the records'")
 

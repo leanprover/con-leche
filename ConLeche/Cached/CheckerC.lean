@@ -2,6 +2,7 @@ module
 
 public import ConLeche.Kernel.Inductives.BlockTail
 public import ConLeche.Cached.IndPositivity
+public import ConLeche.Cached.IndTail
 
 @[expose] public section
 
@@ -184,13 +185,13 @@ def checkBlockPassS (fe : FEnv) (p₀ : BlockShape) (isRec : Bool) :
 /-- **`checkBlockTail` through the index**: one flush entering the recursors' environment.  The
 constructors' index `fe₂` is read at once by the rule-less recursors (the rule stage reads `fe₂` and
 them) and by the generated recursors, so both are overlays sharing it (`shadowOpsC`'s `ruleEnv`,
-`classFeROvl`; `blockRecInfosTF`): a push onto `fe₂` while it is alive would copy the whole bucket
+`classFeROvl`; `blockRecInfosTC`): a push onto `fe₂` while it is alive would copy the whole bucket
 array, once per inductive block. -/
 def checkBlockTailS (block : List ConstantInfo) (q : BlockPass FEnv) (Q : List ProjTable) :
     CheckCM Unit :=
   match q with
   | ⟨env₁, p, kinds, params, rd, cls, tbl⟩ => do
-  checkBlockIdxSortsF (sharedOpsC mode env₁) env₁ p p.members
+  checkBlockIdxSortsC mode env₁ p p.members
   let fe₂ := consBlockCtorsF p.nP p.memberCtors env₁
   flushC
   let out ← genRecCheck (shadowOpsC mode) fe₂ p
@@ -198,11 +199,11 @@ def checkBlockTailS (block : List ConstantInfo) (q : BlockPass FEnv) (Q : List P
   -- the stream's recursors against the generated ones, at the generated recursors as an OVERLAY on
   -- the constructors' index (read-only, sharing it), a flush entering and leaving that environment
   streamKCheck p p.recs out
-  let feG := fe₂.overlay (blockRecInfosTF p 0 out).reverse
+  let feG := fe₂.overlay (blockRecInfosTC p 0 out).reverse
   flushC
-  streamRecsCheck (sharedOpsC mode feG) structWalkersC feG p.recs out
+  streamRecsCheckC mode feG p.recs out
   flushC
-  checkBlockTablesF (m := CheckCM) structWalkersC fe₂ Q
+  checkBlockTablesC fe₂ Q
 
 /-- The cached `unresolvedConstsErrorL`: the `sorryAx` test by the
 memoized `mentionsAnyConstC` (`unresolvedConstsErrorLC_eq`). -/

@@ -67,13 +67,13 @@ def StructWalkers.plain : StructWalkers :=
   ⟨fun fe e => e.constsResolveF fe⟩
 
 /-- `checkStructProjTable` through the index (task #175 S1). -/
-def checkStructProjTableF (w : StructWalkers) (t : ProjTable) (fe : FEnv) : m Unit := do
+def checkStructProjTableF (t : ProjTable) (fe : FEnv) : m Unit := do
   -- the bodies' scoping, validated once at insertion (the stage's own
   -- guard, what `EnvWF`'s table clause records): fvar-free, level
   -- parameters within the structure's, resolving, scoped at the
   -- parameters and the subject; one per field
   unless t.bodies.size = t.numFields ∧ t.bodies.all (fun b => !b.hasFvar &&
-      b.allLevelParamsDefined t.levelParams && w.resolve fe b &&
+      b.allLevelParamsDefined t.levelParams && b.constsResolveF fe &&
       b.looseBVarsBounded (t.numParams + 1)) do
     throw (.internal "direct structure: projection body scoping")
   -- the table follows its structure (declared by the same block):

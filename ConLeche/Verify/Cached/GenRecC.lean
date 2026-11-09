@@ -6,6 +6,7 @@ public import ConLeche.Verify.Cached.TargetRecC
 public import ConLeche.Kernel.Inductives.GenRec
 import ConLeche.Verify.Inductives.RecCheckScope
 import ConLeche.Verify.Cached.WalkersC
+import ConLeche.Verify.Cached.IndTailC
 public import ConLeche.Verify.Cached.NestPosC
 public import ConLeche.Verify.Inductives.NestScope
 import ConLeche.Verify.Cached.DeclPushes
@@ -790,9 +791,9 @@ theorem recTyOpenedS_spec (henv : EnvWF env) {rec : Name}
 theorem recTyCheckS_spec (henv : EnvWF env) {rec : Name}
     {lps : List Name} {n : Nat} {s g : Expr} {s₀ : CState} (hs : CSOK .verified false env s₀) :
     ⦃fun st => st = s₀⦄
-      recTyCheck (sharedOpsC .verified (mkFEnv env)) StructWalkers.plain (mkFEnv env) rec lps n s g
+      recTyCheck (sharedOpsC .verified (mkFEnv env)) (mkFEnv env) rec lps n s g
     ⦃fun v s' => CSOK .verified false env s' ∧
-      Runs (recTyCheck (fueledOpsM .verified) .plain (mkFEnv env) rec lps n s g) v; ⊤⦄ := by
+      Runs (recTyCheck (fueledOpsM .verified) (mkFEnv env) rec lps n s g) v; ⊤⦄ := by
   sym only [conleche_grind, recTyCheck.eq_1, → wscoped_zero_of_hasFvar_false] =>
     vcgen [recTyCheck, inferS_specF henv, sortS_specF henv,
       recTyOpenedS_spec henv] <;> finish
@@ -801,9 +802,9 @@ theorem recTyCheckS_spec (henv : EnvWF env) {rec : Name}
 theorem ruleAgreeS_spec (henv : EnvWF env)
     {rec ctor : Name} {lps : List Name} {s g : Expr} {s₀ : CState} (hs : CSOK .verified false env s₀) :
     ⦃fun st => st = s₀⦄
-      ruleAgree (sharedOpsC .verified (mkFEnv env)) StructWalkers.plain (mkFEnv env) rec ctor lps s g
+      ruleAgree (sharedOpsC .verified (mkFEnv env)) (mkFEnv env) rec ctor lps s g
     ⦃fun v s' => CSOK .verified false env s' ∧
-      Runs (ruleAgree (fueledOpsM .verified) .plain (mkFEnv env) rec ctor lps s g) v; ⊤⦄ := by
+      Runs (ruleAgree (fueledOpsM .verified) (mkFEnv env) rec ctor lps s g) v; ⊤⦄ := by
   sym only [conleche_grind, ruleAgree.eq_1, → wscoped_zero_of_hasFvar_false] =>
     vcgen [ruleAgree, inferS_specF henv, defeqS_specF henv] <;> finish
 
@@ -811,9 +812,9 @@ theorem streamRulesCheckS_spec (henv : EnvWF env)
     {rec : Name} {lps : List Name} :
     ∀ (rs : List RecRule) (gs : List Expr) {s₀ : CState}, CSOK .verified false env s₀ →
       ⦃fun st => st = s₀⦄
-        streamRulesCheck (sharedOpsC .verified (mkFEnv env)) StructWalkers.plain (mkFEnv env) rec lps rs gs
+        streamRulesCheck (sharedOpsC .verified (mkFEnv env)) (mkFEnv env) rec lps rs gs
       ⦃fun v s' => CSOK .verified false env s' ∧
-        Runs (streamRulesCheck (fueledOpsM .verified) .plain (mkFEnv env) rec lps rs gs) v; ⊤⦄ := by
+        Runs (streamRulesCheck (fueledOpsM .verified) (mkFEnv env) rec lps rs gs) v; ⊤⦄ := by
   intro rs
   induction rs with
   | nil =>
@@ -838,9 +839,9 @@ theorem streamRecCompareS_spec (henv : EnvWF env)
     {rc : RecShape} {g : ConstantVal × TargetMajor × List Expr} {s₀ : CState}
     (hs : CSOK .verified false env s₀) :
     ⦃fun st => st = s₀⦄
-      streamRecCompare (sharedOpsC .verified (mkFEnv env)) StructWalkers.plain (mkFEnv env) rc g
+      streamRecCompare (sharedOpsC .verified (mkFEnv env)) (mkFEnv env) rc g
     ⦃fun v s' => CSOK .verified false env s' ∧
-      Runs (streamRecCompare (fueledOpsM .verified) .plain (mkFEnv env) rc g) v; ⊤⦄ := by
+      Runs (streamRecCompare (fueledOpsM .verified) (mkFEnv env) rc g) v; ⊤⦄ := by
   sym only [conleche_grind, streamRecCompare.eq_1] =>
     vcgen [streamRecCompare, recTyCheckS_spec henv, streamRulesCheckS_spec henv] <;> finish
 
@@ -897,9 +898,9 @@ theorem streamRecCheckS_spec (henv : EnvWF env)
     {rc : RecShape} {g : ConstantVal × TargetMajor × List Expr} {s₀ : CState}
     (hs : CSOK .verified false env s₀) :
     ⦃fun st => st = s₀⦄
-      streamRecCheck (sharedOpsC .verified (mkFEnv env)) StructWalkers.plain (mkFEnv env) rc g
+      streamRecCheck (sharedOpsC .verified (mkFEnv env)) (mkFEnv env) rc g
     ⦃fun v s' => CSOK .verified false env s' ∧
-      Runs (streamRecCheck (fueledOpsM .verified) .plain (mkFEnv env) rc g) v; ⊤⦄ := by
+      Runs (streamRecCheck (fueledOpsM .verified) (mkFEnv env) rc g) v; ⊤⦄ := by
   sym only [conleche_grind, streamRecCheck.eq_1] =>
     vcgen [streamRecCheck, streamRulesShapeS_spec (mode := .verified) (env := env),
       streamRecCompareS_spec henv] <;> finish
@@ -908,9 +909,9 @@ theorem streamRecsCheckS_spec (henv : EnvWF env) :
     ∀ (recs : List RecShape) (out : List (ConstantVal × TargetMajor × List Expr))
       {s₀ : CState}, CSOK .verified false env s₀ →
       ⦃fun st => st = s₀⦄
-        streamRecsCheck (sharedOpsC .verified (mkFEnv env)) StructWalkers.plain (mkFEnv env) recs out
+        streamRecsCheck (sharedOpsC .verified (mkFEnv env)) (mkFEnv env) recs out
       ⦃fun v s' => CSOK .verified false env s' ∧
-        Runs (streamRecsCheck (fueledOpsM .verified) .plain (mkFEnv env) recs out) v; ⊤⦄ := by
+        Runs (streamRecsCheck (fueledOpsM .verified) (mkFEnv env) recs out) v; ⊤⦄ := by
   intro recs
   induction recs with
   | nil =>
@@ -1257,7 +1258,7 @@ theorem streamRecs_recsWF {env₂ : Env} (henv₂ : EnvWF env₂) {p : BlockShap
     (h : genRecCheck (ShadowOps.fueled mode F) (mkFEnv env₂) p nestedBit params tbl rd Ms₀
       block = .ok out) (hpl : params.length = p.nP)
     (hMs₀ : ∀ M ∈ Ms₀, ClassOutParams p.nP M)
-    (hS : streamRecsCheck (fueledOps mode F') .plain
+    (hS : streamRecsCheck (fueledOps mode F')
       (mkFEnv (consBlockRecsT p 0 out env₂)) p.recs out = .ok ()) :
     EnvWF (consBlockRecsT p 0 (streamRecs p.recs out) env₂) := by
   obtain ⟨hF, hN⟩ := genRecCheck_outFacts h hpl hMs₀
@@ -1354,6 +1355,8 @@ theorem checkBlockTailS_run
         = .ok () := by
   unfold checkBlockTailS at h
   dsimp only at h
+  simp only [checkBlockIdxSortsC_eq, blockRecInfosTC_eq, streamRecsCheckC_eq,
+    checkBlockTablesC_eq] at h
   rw [checkBlockIdxSortsF_eqC] at h
   obtain ⟨isorts, sS, hsorts, h⟩ := bindC_ok h
   have hzT : ∀ x ∈ p.members, WScoped 0 x.cvT.type :=
@@ -1369,7 +1372,6 @@ theorem checkBlockTailS_run
   obtain ⟨hs₃, F₃, hF₃⟩ := genRecCheckS_run henv₂ hMs₀ hT
     (flushC_csok hsS.residue) hrec
   have henv₃ := genRecCheck_recsWF henv₂ hF₃ hpl (fun M hM => (hMs₀ M hM).2.1)
-  rw [structWalkersC_eq_plain] at h
   -- the stored recursors' check, at the generated install (an overlay
   -- that answers as the pushed index)
   have hovl : (mkFEnv (consBlockCtors p.nP p.memberCtors env₁)).ovl = [] := rfl
@@ -1390,8 +1392,7 @@ theorem checkBlockTailS_run
           (consBlockCtors p.nP p.memberCtors env₁))).env := by
     rw [env_overlay_pushAll _ hovl, pushAll_blockRecInfosTF_mkFEnv]
   rw [sharedOpsC_congr hf htb,
-    streamRecsCheck_congr (w := StructWalkers.plain)
-      (by funext e; exact constsResolveF_congr hf e) he] at h
+    streamRecsCheck_congr hf he] at h
   obtain ⟨uK, sK, hKrun, hK⟩ := bindC_ok h
   obtain ⟨hsK, hKp⟩ := streamKCheck_run hKrun
   rw [hsK] at hK
@@ -1407,7 +1408,7 @@ theorem checkBlockTailS_run
   injection hfl4 with hfl4
   obtain rfl : s₄'.flushed = s₄ := congrArg Prod.snd hfl4
   have hs₄ : CSOKF s₄'.flushed := hs₄'.residue.flushed
-  have hF₄' : streamRecsCheck (fueledOps .verified F₄) .plain
+  have hF₄' : streamRecsCheck (fueledOps .verified F₄)
       (mkFEnv (consBlockRecsT p 0 out
         (consBlockCtors p.nP p.memberCtors env₁))) p.recs out = .ok () := by
     rw [← streamRecsCheck_datF]; cases u4; exact hF₄
@@ -1415,7 +1416,7 @@ theorem checkBlockTailS_run
   obtain ⟨G, hle₀, hle₃, hle₄⟩ : ∃ G, F₀ ≤ G ∧ F₃ ≤ G ∧ F₄ ≤ G :=
     ⟨max F₀ (max F₃ F₄), by omega, by omega, by omega⟩
   refine ⟨hs₅ ▸ hs₄, G, ?_⟩
-  have g₄ : streamRecsCheck (fueledOps .verified G) .plain
+  have g₄ : streamRecsCheck (fueledOps .verified G)
       (mkFEnv (consBlockRecsT p 0 out
         (consBlockCtors p.nP p.memberCtors env₁))) p.recs out = .ok () := by
     rw [← streamRecsCheck_datF]; exact FueledM.up hle₄ (by rw [streamRecsCheck_datF]; exact hF₄')
