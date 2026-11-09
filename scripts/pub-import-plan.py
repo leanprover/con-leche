@@ -61,6 +61,10 @@ FALLBACK = {
     # field `replaceFVars`, `IndWalksC.lean:32`).
     ('ConLeche.Verify.Cached.IndWalksC', 'ConLeche.Cached.ExprOpsC'),
     ('ConLeche.Verify.Cached.IndWalksC', 'ConLeche.Kernel.Inductives.GenRec'),
+    # task #498 L5: the tail's equations state the twins (`checkIdxSortsC`, …) against the
+    # specification at `sharedOpsC` (`FEnv`, `Level`, `checkStructFieldSortsIF`).  Measured:
+    # demoting it breaks the file (unknown identifier `FEnv`, `IndTailC.lean:29`).
+    ('ConLeche.Verify.Cached.IndTailC', 'ConLeche.Cached.CheckerC'),
     # task #492: the guard-row lemmas' public statements name `projGuardRowsGo`,
     # `GuardRowsWS`'s `WScoped`; the census attributes them to the private imports
     # (`LooseBVar`, `Subst`).  Measured: demoting either breaks the file (unknown

@@ -1,7 +1,7 @@
 module
 
 public import ConLeche.Cached.CoreC
-public import ConLeche.Kernel.Inductives.BlockTail
+public import ConLeche.Kernel.Inductives.RecCheck
 
 @[expose] public section
 

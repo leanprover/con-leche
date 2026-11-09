@@ -1,9 +1,8 @@
 module
 
 public import ConLeche.Cached.CheckerC
-import ConLeche.Verify.Cached.WalkersC
+import ConLeche.Verify.Cached.GuardsC
 import ConLeche.Verify.Cached.IndWalksC
-import ConLeche.Verify.Cached.DiscC4
 
 public section
 

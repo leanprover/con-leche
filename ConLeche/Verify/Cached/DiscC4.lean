@@ -1,6 +1,7 @@
 module
 
 public import ConLeche.Verify.Cached.BinderLoopC
+import ConLeche.Verify.Cached.IndWalksC
 import ConLeche.Verify.BetaSpine
 public import ConLeche.Verify.ProjGuard
 
@@ -458,80 +459,6 @@ theorem projGuardRowsGoC_eq :
   | _ + 1, _, .bvar _ | _ + 1, _, .fvar .. | _ + 1, _, .sort _ | _ + 1, _, .const ..
   | _ + 1, _, .app .. | _ + 1, _, .lam .. | _ + 1, _, .letE .. | _ + 1, _, .lit _
   | _ + 1, _, .proj .. => rfl
-
-/-- The cached opening loop is the kernel's. -/
-theorem openPisAtFvarsGoC_eq :
-    ∀ (acc : List Expr) (n : Nat) (e : Expr) (i : Nat),
-      openPisAtFvarsGoC acc n e i = openPisAtFvarsFGo acc n e i
-  | _, 0, _, _ => by simp only [openPisAtFvarsGoC, openPisAtFvarsFGo, Expr.instantiateListC_spec]
-  | acc, n + 1, .forallE dom body, i => by
-    simp only [openPisAtFvarsGoC, openPisAtFvarsFGo, Expr.instantiateListC_spec,
-      openPisAtFvarsGoC_eq _ n body (i + 1)]
-    cases openPisAtFvarsFGo (.fvar i (dom.instantiateList acc) :: acc) n body (i + 1) <;> rfl
-  | _, _ + 1, .bvar _, _ => rfl
-  | _, _ + 1, .fvar .., _ => rfl
-  | _, _ + 1, .sort _, _ => rfl
-  | _, _ + 1, .const .., _ => rfl
-  | _, _ + 1, .app .., _ => rfl
-  | _, _ + 1, .lam .., _ => rfl
-  | _, _ + 1, .letE .., _ => rfl
-  | _, _ + 1, .lit _, _ => rfl
-  | _, _ + 1, .proj .., _ => rfl
-
-/-- **The one pass misses no binder**: instantiating at free variables
-never makes a `∀` appear, so where `openPisAtFvarsFGo` finds none, the
-sequential opening of the instantiated term finds none either. -/
-theorem openPisAtFvarsFGo_none :
-    ∀ (n : Nat) (e : Expr) (i : Nat) (acc : List Expr),
-      (∀ a ∈ acc, ∃ k t, a = .fvar k t) → openPisAtFvarsFGo acc n e i = none →
-      openPisAtFvars n (e.instantiateList acc) i = none
-  | 0, _, _, _, _, h => by simp [openPisAtFvarsFGo] at h
-  | n + 1, .forallE dom body, i, acc, hacc, h => by
-    simp only [openPisAtFvarsFGo] at h
-    split at h
-    case _ => exact nomatch h
-    case _ hgo =>
-      have ih := openPisAtFvarsFGo_none n body (i + 1)
-        (Expr.fvar i (dom.instantiateList acc) :: acc)
-        (fun a ha => by
-          rcases List.mem_cons.mp ha with rfl | ha
-          · exact ⟨_, _, rfl⟩
-          · exact hacc a ha) hgo
-      rw [Expr.instantiateList_cons] at ih
-      simp only [Expr.instantiateList, openPisAtFvars, ih]
-  | n + 1, .bvar j, i, acc, hacc, _ => by
-    rw [Expr.instantiateList]
-    split
-    · rfl
-    · split
-      · rename_i hj
-        obtain ⟨k, t, hk⟩ := hacc _ (List.getElem_mem hj)
-        rw [hk, Expr.instantiateList]
-        rfl
-      · rfl
-  | _ + 1, .fvar .., _, _, _, _ => by rw [Expr.instantiateList]; rfl
-  | _ + 1, .sort _, _, _, _, _ => by rw [Expr.instantiateList]; rfl
-  | _ + 1, .const .., _, _, _, _ => by rw [Expr.instantiateList]; rfl
-  | _ + 1, .app .., _, _, _, _ => by rw [Expr.instantiateList]; rfl
-  | _ + 1, .lam .., _, _, _, _ => by rw [Expr.instantiateList]; rfl
-  | _ + 1, .letE .., _, _, _, _ => by rw [Expr.instantiateList]; rfl
-  | _ + 1, .lit _, _, _, _, _ => by rw [Expr.instantiateList]; rfl
-  | _ + 1, .proj .., _, _, _, _ => by rw [Expr.instantiateList]; rfl
-
-/-- The cached one-pass telescope opening is `openPisAtFvars`. -/
-theorem openPisAtFvarsC_eq (n : Nat) (e : Expr) (i : Nat) :
-    openPisAtFvarsC n e i = openPisAtFvars n e i := by
-  unfold openPisAtFvarsC
-  rw [openPisAtFvarsGoC_eq]
-  match h : openPisAtFvarsFGo [] n e i with
-  | some r =>
-    have := openPisAtFvarsFGo_sound n e i [] h
-    rw [Expr.instantiateList_nil] at this
-    exact this.symm
-  | none =>
-    have := openPisAtFvarsFGo_none n e i [] (by simp) h
-    rw [Expr.instantiateList_nil] at this
-    exact this.symm
 
 /-- The rows at a guardSort simulate their fueled original. -/
 theorem projRowsC_spec (ih : SSimC mode eager env f) (henv : EnvWF env)
