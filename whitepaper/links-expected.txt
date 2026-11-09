@@ -3093,11 +3093,11 @@
     32  differ from the stream's, i.e. reject.
 
 == ConLeche/Kernel/Inductives/StreamRecs.lean#L182-L188
-   182  def streamRecsCheck (ops : CheckerOps m) (w : StructWalkers)
-   183      (fe : FEnv) : List RecShape → List (ConstantVal × TargetMajor × List Expr) → m Unit
+   182  def streamRecsCheck (ops : CheckerOps m) (fe : FEnv) :
+   183      List RecShape → List (ConstantVal × TargetMajor × List Expr) → m Unit
    184    | rc :: rcs, g :: gs => do
-   185      streamRecCheck ops w fe rc g
-   186      streamRecsCheck ops w fe rcs gs
+   185      streamRecCheck ops fe rc g
+   186      streamRecsCheck ops fe rcs gs
    187    | [], [] => pure ()
    188    | _, _ => throw (.internal "stored recursors: the generated family is not the records'")
 
