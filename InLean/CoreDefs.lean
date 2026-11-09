@@ -94,6 +94,26 @@ def peelPis : Nat → Expr → Option Expr
 /-- Twin of `teleArityOk`. -/
 def teleArityOk (ty : Expr) (args : List Expr) : Bool := (peelPis args.length ty).isSome
 
+/-- Twin of `etaCtorPartialC`. -/
+def etaCtorPartialC (fe : FEnv) (e : Expr) : Option Nat :=
+  match e.getAppFnT with
+  | .const c _ =>
+    match fe.ctorView? c with
+    | some (cvc, cnP, cnF) =>
+      if e.getAppNumArgsT < cnP + cnF then
+        match (piResult cvc.type).getAppFnT with
+        | .const T _ =>
+          match fe.indView? T with
+          | some (_, caps) =>
+            if caps.eta = true ∧ caps.etaCtor == c then
+              some (cnP + cnF - e.getAppNumArgsT)
+            else none
+          | none => none
+        | _ => none
+      else none
+    | none => none
+  | _ => none
+
 /-- Twin of `Expr.ioNeutral`. -/
 def Expr.ioNeutral (e : Expr) : Bool :=
   match e.getAppFnT with

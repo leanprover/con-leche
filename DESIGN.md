@@ -115501,3 +115501,54 @@ calls, as official's.
 | `unroll-versus-evaluate` | 29 151 631 | 29 158 317 | +0.023 % |
 
 All verdicts unchanged (exit 0). The largest relative deltas are on the two small `discarded-argument` streams (+1.3 M and +1.7 M instructions absolute), not attributed further; `init-full` is +0.006 %, `grind-ring-5` +0.005 %.
+
+### Lane eta: task #515's two η rules in InLean (2026-11-09, task #451, agent/451-eta)
+
+**Merge.** `agent/515-wide-eta` (ae378777d, 7cc846eb9) merged into the lane (`--no-ff`); the one
+conflict, DESIGN.md's tail, resolved by hand: the lane's records stay after #494, #515's section
+follows them, this record after it.
+
+**InLean** (`InLean/CoreC.lean`, `InLean/CoreDefs.lean`), twin by twin of `Cached/CoreC.lean`'s
+new code and in its order: `structEtaFullI` (the former `structEtaCertI`), `structEtaExpandI`,
+`structEtaCertI` (full application first, then `etaCtorPartialC`, the neutrality guard, the io
+types compared, the expansion), `isPropTypeI`, `unitLikeFieldsI`, `unitLikeShapeM`,
+`unitLikeStructI`, `unitLikeLoopI` (its own budget `unitLikeFuel`, 2^62) and `structUnitCertI`
+(the ∀ guards).  As everywhere in InLean, a fresh variable is `mkFVarM`, a match reads through
+`mdata` (`EO.stripTop`), and the stored records are read off Lean's entries at use
+(`indView?`, `towerSlotsAllF`, `findProj?`, `ctorView?`).  One deviation in shape: con-leche's
+`unitLikeShapeF` is pure, its twin `unitLikeShapeM` is in the monad, because the constructor
+type's level instantiation is `instLevelParamsM` (an error past C's depth bound, as every
+instantiation of a stored type in InLean); the arguments go in with one `instI`.  No memo: the
+shape is a few lookups and one walk of the constructor type, on the stuck path only.
+
+**Proofs** (`InLeanProof/WalksDefeq.lean`).  `DefeqEnvI` gains `view : EnvViewI` (given by
+`envViewI_of`); `head_cases` and `numArgs_TrS` move there from `EnvPresI`.  New:
+`etaCtorPartial_TrS` (the gate through the views, a grind pattern), `peelPis_map_TrS`,
+`lbb_peelPis` and `unitLikeShape_closed` (the telescope of a closed instance is closed, the
+companion of con-leche's `unitLikeShape_WScoped`), `unitLikeShapeM_specI` (the shape through the
+views, by hand: answer `trUnitShape`, telescope read `okUnitShape`), and the walk triples
+`structEtaFullI_spec`, `structEtaExpandI_spec`, `structEtaCertI_spec`, `isPropTypeI_spec`,
+`unitLikeFieldsI_spec`, `unitLikeStructI_spec`, `unitLikeLoopI_spec`, `structUnitCertI_spec`,
+`stuckIrrelI_spec` and `defeqStuckI_spec` (these two now take `EnvWF`, as con-leche's).  The
+successor cases of the two syntactic loops (`structEtaExpandI`, `unitLikeFieldsI`) are proved by
+hand, the binder opened by `open_runI`: `finish` on them did not terminate (over 20 minutes, at
+`gen := 3` too).  `structUnitCert_eq` is gone (the certificate no longer reads the store).
+`addDeclSound`'s axioms are unchanged (the standard three and the three `mkData` stop-gaps); the
+new walk triples use the stop-gaps through `mkFVarM_specI`, as `etaCertI_spec` does
+(`AxiomPins`).
+
+**Gates.**  `lake build`, `lake test`, `lake build InLean InLeanProof inlean-replay` warning-free;
+layering, trust-surface, shake pass; `tests/inlean-sync.sh` passes after a fix: since the lane
+rebase it compared InLean's file list with the copy's without leaving out the stand-ins the
+generator drops (`STDLIB_STANDINS`), and failed.  Init replay `--compare`: 64530 accepted, 0 exact
+and 0 cosmetic mismatches.  Init cost (`perf stat -e instructions:u`, one run each,
+`--mode=verified`): 870a8f72b 454 953 728 662, the lane 455 002 780 454 (+0.011 %).
+
+**lean4** (`joachim/inlean-kernel`, on a8de4cf2): `feat: InLean's wider unit-like η and η of a
+partially applied constructor` (the regeneration, `inlean-sync.py check` OK) and `test: accept
+the InLean kernel's type mismatch in 12520_1` (the test matches the rejection's
+`declTypeMismatch` constructor; InLean rejects both declarations too, reporting `.other
+"(InLean) type mismatch in theorem …"`).  `elab/2258`, `match4`, `13371`, `12520_1` pass.
+Stage1 suite (4843 tests): all pass but `async/elab/async_systems_info` (sandbox) and
+`elab/sym_arith_kron_bounds` (the `Nat.pow` exponent bound, ruling pending).  A stage2 build
+(the stdlib checked by InLean) succeeds.

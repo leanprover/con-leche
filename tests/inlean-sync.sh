@@ -29,9 +29,13 @@ python3 -I scripts/inlean-sync.py generate "$tmp/a" || { say "generate failed"; 
 python3 -I scripts/inlean-sync.py generate "$tmp/b" || { say "generate failed"; exit 1; }
 diff -r "$tmp/a" "$tmp/b" > /dev/null || say "two runs of generate differ"
 
-src=$(cd InLean && find . -name '*.lean' | sort)
+# the standard library's stand-ins (`STDLIB_STANDINS`) are not generated
+standins=$(python3 -I -c 'import importlib.util as u, sys
+s = u.spec_from_file_location("m", "scripts/inlean-sync.py"); m = u.module_from_spec(s)
+s.loader.exec_module(m); print("\n".join("./" + k for k in sorted(m.STDLIB_STANDINS)))')
+src=$(cd InLean && find . -name '*.lean' | sort | grep -vxF "$standins")
 out=$(cd "$tmp/a" && find . -type f | sort)
-[ "$src" = "$out" ] || say "generated files are not exactly InLean's .lean files"
+[ "$src" = "$out" ] || say "generated files are not exactly InLean's .lean files but the stand-ins"
 
 head_ok=$(printf '/-\nCopyright (c) ')
 for f in $out; do

@@ -832,7 +832,12 @@ info: 'InLeanProof.etaCertI_spec' depends on axioms: [propext,
 #print axioms InLeanProof.etaCertI_spec
 
 /--
-info: 'InLeanProof.structUnitCertI_spec' depends on axioms: [propext, Classical.choice, Quot.sound]
+info: 'InLeanProof.structUnitCertI_spec' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound,
+ InLeanProof.Expr.mkAppData_fields,
+ InLeanProof.Expr.mkData_eq,
+ InLeanProof.Level.mkData_eq]
 -/
 #guard_msgs in
 #print axioms InLeanProof.structUnitCertI_spec
@@ -844,13 +849,102 @@ info: 'InLeanProof.structEtaCertWithI_spec' depends on axioms: [propext, Classic
 #print axioms InLeanProof.structEtaCertWithI_spec
 
 /--
-info: 'InLeanProof.structEtaCertI_spec' depends on axioms: [propext, Classical.choice, Quot.sound]
+info: 'InLeanProof.structEtaCertI_spec' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound,
+ InLeanProof.Expr.mkAppData_fields,
+ InLeanProof.Expr.mkData_eq,
+ InLeanProof.Level.mkData_eq]
 -/
 #guard_msgs in
 #print axioms InLeanProof.structEtaCertI_spec
 
 /--
-info: 'InLeanProof.stuckIrrelI_spec' depends on axioms: [propext, Classical.choice, Quot.sound]
+info: 'InLeanProof.etaCtorPartial_TrS' depends on axioms: [propext, Classical.choice, Quot.sound]
+-/
+#guard_msgs in
+#print axioms InLeanProof.etaCtorPartial_TrS
+
+/--
+info: 'InLeanProof.unitLikeShape_closed' depends on axioms: [propext, Classical.choice, Quot.sound]
+-/
+#guard_msgs in
+#print axioms InLeanProof.unitLikeShape_closed
+
+/--
+info: 'InLeanProof.structEtaFullI_spec' depends on axioms: [propext, Classical.choice, Quot.sound]
+-/
+#guard_msgs in
+#print axioms InLeanProof.structEtaFullI_spec
+
+/--
+info: 'InLeanProof.structEtaExpandI_spec' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound,
+ InLeanProof.Expr.mkAppData_fields,
+ InLeanProof.Expr.mkData_eq,
+ InLeanProof.Level.mkData_eq]
+-/
+#guard_msgs in
+#print axioms InLeanProof.structEtaExpandI_spec
+
+/--
+info: 'InLeanProof.isPropTypeI_spec' depends on axioms: [propext, Classical.choice, Quot.sound]
+-/
+#guard_msgs in
+#print axioms InLeanProof.isPropTypeI_spec
+
+/--
+info: 'InLeanProof.unitLikeFieldsI_spec' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound,
+ InLeanProof.Expr.mkAppData_fields,
+ InLeanProof.Expr.mkData_eq,
+ InLeanProof.Level.mkData_eq]
+-/
+#guard_msgs in
+#print axioms InLeanProof.unitLikeFieldsI_spec
+
+/--
+info: 'InLeanProof.unitLikeShapeM_specI' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound,
+ InLeanProof.Expr.mkAppData_fields,
+ InLeanProof.Expr.mkData_eq,
+ InLeanProof.Level.mkData_eq]
+-/
+#guard_msgs in
+#print axioms InLeanProof.unitLikeShapeM_specI
+
+/--
+info: 'InLeanProof.unitLikeStructI_spec' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound,
+ InLeanProof.Expr.mkAppData_fields,
+ InLeanProof.Expr.mkData_eq,
+ InLeanProof.Level.mkData_eq]
+-/
+#guard_msgs in
+#print axioms InLeanProof.unitLikeStructI_spec
+
+/--
+info: 'InLeanProof.unitLikeLoopI_spec' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound,
+ InLeanProof.Expr.mkAppData_fields,
+ InLeanProof.Expr.mkData_eq,
+ InLeanProof.Level.mkData_eq]
+-/
+#guard_msgs in
+#print axioms InLeanProof.unitLikeLoopI_spec
+
+/--
+info: 'InLeanProof.stuckIrrelI_spec' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound,
+ InLeanProof.Expr.mkAppData_fields,
+ InLeanProof.Expr.mkData_eq,
+ InLeanProof.Level.mkData_eq]
 -/
 #guard_msgs in
 #print axioms InLeanProof.stuckIrrelI_spec
@@ -1128,12 +1222,6 @@ info: 'InLeanProof.fvarDepth_TrS' depends on axioms: [propext, Classical.choice,
 -/
 #guard_msgs in
 #print axioms InLeanProof.fvarDepth_TrS
-
-/--
-info: 'InLeanProof.structUnitCert_eq' depends on axioms: [propext, Quot.sound]
--/
-#guard_msgs in
-#print axioms InLeanProof.structUnitCert_eq
 
 /--
 info: 'InLeanProof.structEtaCertWith_eq' depends on axioms: [propext, Quot.sound]

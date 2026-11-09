@@ -61,6 +61,8 @@ inductive LazyRes where
 @[irreducible, noinline] def whnfLoopFuel : Nat := 4611686018427387904  -- 2^62
 /-- Twin of `lamsFuel`. -/
 @[irreducible, noinline] def lamsFuel : Nat := 4611686018427387904  -- 2^62
+/-- Twin of `unitLikeFuel`. -/
+@[irreducible, noinline] def unitLikeFuel : Nat := 4611686018427387904  -- 2^62
 /-- Twin of `defeqLoopFuel`. -/
 @[irreducible, noinline] def defeqLoopFuel : Nat := 4611686018427387904  -- 2^62
 /-- Twin of `checkFuel`. -/
@@ -401,33 +403,122 @@ def structEtaCertWithI (r : CoreFnsI) (fe : FEnv) (depth : Nat) (a b wtb : Expr)
     | none => pure false
   | _ => pure false
 
-/-- Twin of `structEtaCertI`. -/
-def structEtaCertI (r : CoreFnsI) (fe : FEnv) (depth : Nat) (a b : Expr) : CheckCM Bool := do
+/-- Twin of `structEtaFullI`. -/
+def structEtaFullI (r : CoreFnsI) (fe : FEnv) (depth : Nat) (a b : Expr) : CheckCM Bool := do
   if etaCtorShapeC fe a then
     let tb ← r.inferIO depth b
     let wtb ← r.whnf depth tb
     structEtaCertWithI r fe depth a b wtb
   else pure false
 
+/-- Twin of `structEtaExpandI`. -/
+def structEtaExpandI (r : CoreFnsI) (fe : FEnv) :
+    Nat → Nat → Expr → Expr → Expr → CheckCM Bool
+  | 0, depth, a, b, _ => structEtaFullI r fe depth a b
+  | k + 1, depth, a, b, t =>
+    match EO.stripTop t with
+    | .forallE _ dom body _ => do
+      let fv ← mkFVarM depth dom
+      structEtaExpandI r fe k (depth + 1) (.app a fv) (.app b fv) (body.inst1I fv)
+    | _ => pure false
+
+/-- Twin of `structEtaCertI`. -/
+def structEtaCertI (r : CoreFnsI) (fe : FEnv) (depth : Nat) (a b : Expr) : CheckCM Bool := do
+  if etaCtorShapeC fe a then structEtaFullI r fe depth a b else
+  match etaCtorPartialC fe a with
+  | some k =>
+    if !(Expr.ioNeutral b) then pure false else
+    let ta ← r.inferIO depth a
+    let tb ← r.inferIO depth b
+    if ← r.defeq depth tb ta then structEtaExpandI r fe k depth a b ta
+    else pure false
+  | none => pure false
+
+/-- Twin of `isPropTypeI`. -/
+def isPropTypeI (r : CoreFnsI) (depth : Nat) (T : Expr) : CheckCM Bool := do
+  let tt ← r.inferIO depth T
+  let w ← r.whnf depth tt
+  match EO.stripTop w with
+  | .sort u => liftFueled "level comparison" (← isEquivLM u .zero)
+  | _ => pure false
+
+/-- Twin of `unitLikeFieldsI`. -/
+def unitLikeFieldsI (r : CoreFnsI) (ul : Nat → Expr → CheckCM Bool) :
+    Nat → Nat → Expr → CheckCM Bool
+  | 0, _, _ => pure true
+  | n + 1, depth, t =>
+    match EO.stripTop t with
+    | .forallE _ dom body _ => do
+      if ← isPropTypeI r depth dom then do
+        let fv ← mkFVarM depth dom
+        unitLikeFieldsI r ul n (depth + 1) (body.inst1I fv)
+      else if ← ul depth dom then do
+        let fv ← mkFVarM depth dom
+        unitLikeFieldsI r ul n (depth + 1) (body.inst1I fv)
+      else pure false
+    | _ => pure false
+
+/-- **Twin of `unitLikeShapeF`**, read off Lean's entries as `structEtaCertWithI`
+reads them (`indView?`, `towerSlotsAllF`, `findProj?`, `ctorView?`).  In the
+monad for the level instantiation, an error past C's depth bound
+(`instLevelParamsM`), as every instantiation of a stored type here. -/
+def unitLikeShapeM (fe : FEnv) (w : Expr) : CheckCM (Option (Option (Expr × Nat))) :=
+  match w.getAppFnT with
+  | .const S us =>
+    match fe.indView? S with
+    | some (cvS, caps) =>
+      if caps.unitlike = true ∧ reservedBasisNames.contains S = false ∧
+          (appArgs w).length = caps.unitParams ∧
+          us.length = cvS.levelParams.length then pure (some none)
+      else if caps.eta = true ∧ reservedBasisNames.contains S = false ∧
+          (appArgs w).length = caps.etaParams ∧
+          us.length = cvS.levelParams.length ∧
+          fe.towerSlotsAllF S caps.etaFields = true then
+        match fe.findProj? S 0 with
+        | some e0 =>
+          match fe.ctorView? e0.ctor with
+          | some (cvC, _, _) =>
+            if cvC.levelParams == cvS.levelParams then do
+              let cty ← instLevelParamsM cvC.levelParams us cvC.type
+              pure ((peelPis caps.etaParams cty).map fun body =>
+                some (body.instI (appArgs w).reverse.toArray, caps.etaFields))
+            else pure none
+          | none => pure none
+        | none => pure none
+      else pure none
+    | none => pure none
+  | _ => pure none
+
+/-- Twin of `unitLikeStructI`. -/
+def unitLikeStructI (r : CoreFnsI) (ul : Nat → Expr → CheckCM Bool) (fe : FEnv)
+    (depth : Nat) (w : Expr) : CheckCM Bool := do
+  match ← unitLikeShapeM fe w with
+  | some none => pure true
+  | some (some (tele, n)) => unitLikeFieldsI r ul n depth tele
+  | none => pure false
+
+/-- Twin of `unitLikeLoopI`. -/
+def unitLikeLoopI (r : CoreFnsI) (fe : FEnv) : Nat → Nat → Expr → CheckCM Bool
+  | 0, _, _ => pure false
+  | fuel + 1, depth, T => do
+    let w ← r.whnf depth T
+    match EO.stripTop w with
+    | .forallE _ dom body _ => do
+      let fv ← mkFVarM depth dom
+      unitLikeLoopI r fe fuel (depth + 1) (body.inst1I fv)
+    | _ => unitLikeStructI r (unitLikeLoopI r fe fuel) fe depth w
+
 /-- Twin of `structUnitCertI`. -/
 def structUnitCertI (r : CoreFnsI) (fe : FEnv) (depth : Nat) (a b : Expr) : CheckCM Bool := do
   let ta ← r.inferIO depth a
   let wta ← r.whnf depth ta
-  match wta.getAppFnT with
-  | .const Tn us' => do
-    match fe.indView? Tn with
-    | some (cvT, caps) => do
-      if caps.unitlike = true ∧
-          reservedBasisNames.contains Tn = false ∧
-          (appArgs wta).length = caps.unitParams ∧
-          us'.length = cvT.levelParams.length then do
-        let tb ← r.inferIO depth b
-        let wtb ← r.whnf depth tb
-        if (EO.stripTop wtb).isForall then pure false else
-        r.defeq depth wta wtb
-      else pure false
-    | none => pure false
-  | _ => pure false
+  if (EO.stripTop wta).isForall && !(Expr.ioNeutral a) then pure false else
+  if ← unitLikeLoopI r fe unitLikeFuel depth wta then
+    let tb ← r.inferIO depth b
+    let wtb ← r.whnf depth tb
+    if (EO.stripTop wtb).isForall && !(Expr.ioNeutral b) then pure false else
+    r.defeq depth wta wtb
+  else pure false
 
 /-- Twin of `stuckIrrelI`. -/
 def stuckIrrelI (r : CoreFnsI) (fe : FEnv) (depth : Nat) (a b : Expr) : CheckCM Bool := do

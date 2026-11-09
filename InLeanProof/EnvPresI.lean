@@ -565,26 +565,6 @@ theorem envViewI_of (hP : EnvPresI fe L) : EnvViewI fe L where
       · cases h
       · rename_i hi; simp [h5, hi]
 
-/-- The head of a spine: a constant on both sides, or a constant on neither. -/
-theorem head_cases (s : InLean.CState) (e : Expr) :
-    (∃ n us, Expr.getAppFnT e = .const n us ∧ (TrS s e).getAppFn = .const (toName n) (us.map trL)) ∨
-    ((∀ n us, Expr.getAppFnT e ≠ .const n us) ∧ ∀ cn cus, (TrS s e).getAppFn ≠ .const cn cus) := by
-  rw [← TrS_getAppFnT]
-  generalize hx : Expr.getAppFnT e = x
-  cases x with
-  | const n us => exact .inl ⟨n, us, rfl, rfl⟩
-  | mdata m y => exact (getAppFnT_ne_mdata hx).elim
-  | _ =>
-    right
-    refine ⟨fun _ _ h => Expr.noConfusion h, fun cn cus h => ?_⟩
-    obtain ⟨n', us', h'⟩ := stripTop_of_TrS_const s h
-    simp [EO.stripTop] at h'
-
-/-- The spine's argument count through the translation. -/
-theorem numArgs_TrS {s : InLean.CState} {e : Expr} (h : OkS s e = true) :
-    Expr.getAppNumArgsT e = (TrS s e).getAppArgs.length :=
-  getAppNumArgsT_eq (FVarTable.trans_fvarsOnly _) e _ (TransS_of_ok h)
-
 /-! ### The prop-ness readers through the translation
 
 InLean's `proofPW` family against con-leche's (`ConLeche/Kernel/PropRead.lean`),
@@ -1279,6 +1259,7 @@ theorem defeqEnvI_of (hP : EnvPresI fe L) : DefeqEnvI fe L where
   towerSlots := towerSlotsAllF_V (envViewI_of hP)
   ctor := ctorRd_of hP
   ind := indRd_of hP
+  view := envViewI_of hP
 
 /-- **All six** environment hypotheses of the core walks, from the relation. -/
 theorem envHyps_of (hP : EnvPresI fe L) :
