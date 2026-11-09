@@ -46,9 +46,14 @@ it plain `IO`:
 * **a timeout per worker** (`timeout`, seconds, 0 for none): a worker running longer is killed,
   its verdict `timeout`;
 * **an append-only log** (`log`), written and flushed line by line.  A finished module:
-  `<verdict>\t<module>\t<ms>\t<rss>\t<at>`: the worker's wall time in ms, its peak resident set in
-  KiB (`≥KiB`, with the sign, where it is the last value the scheduler sampled because the worker
-  wrote no figure of its own), and the ms since this run's start.  A kill (for memory, or by an
+  `<verdict>\t<module>\t<ms>\t<rss>\t<at>\t<decls>\t<parse>\t<check>\t<busy>\t<slowest>`: the
+  worker's wall time in ms, its peak resident set in KiB (`≥KiB`, with the sign, where it is the
+  last value the scheduler sampled because the worker wrote no figure of its own), the ms since
+  this run's start, and what the worker printed (`workerStats`, `-` where it printed nothing):
+  its declarations (stdout's `accepted N declarations`), its parse and check phases in ms (the
+  `stats: phases:` line, to 0.1 s), its check pool's busy time and its slowest single check in
+  ms (the pool's `stats:` line and `slowest checks:`).  The field order is fixed; new fields go
+  at the end.  A kill (for memory, or by an
   interrupt): `killed\t<module>\t<ms>\t<rss KiB>`, the last sampled set.  A restart with the same
   log skips every module that has a verdict line (the reader takes the first two fields, so
   old two-field logs work; a `killed` line is no verdict and is ignored), so a run interrupted
@@ -227,12 +232,19 @@ def spawnW (app : System.FilePath) (m : Name) (args : Array String) (now : Nat) 
   let diag ← IO.asTask (prio := .dedicated) c.stderr.readToEnd
   return { m, arg := spell m, child := c, out, diag, start := now }
 
-/-- What a finished worker wrote to stderr (its stdout, the verdict line, is dropped). -/
-def Running.diagText (r : Running) : IO String := do
-  let _ ← IO.wait r.out
+/-- What a finished worker wrote to stdout (its verdict line; read for the log's statistics,
+otherwise dropped) and to stderr. -/
+def Running.texts (r : Running) : IO (String × String) := do
+  let out := match ← IO.wait r.out with
+    | .ok s => s
+    | .error _ => ""
   match ← IO.wait r.diag with
-  | .ok s => pure s
-  | .error e => pure s!"con-leche: schedule: {r.m}: its stderr could not be read: {e}"
+  | .ok s => pure (out, s)
+  | .error e => pure (out, s!"con-leche: schedule: {r.m}: its stderr could not be read: {e}")
+
+/-- What a finished worker wrote to stderr. -/
+def Running.diagText (r : Running) : IO String := do
+  return (← r.texts).2
 
 /-- A file's contents, `none` where it cannot be read. -/
 def readOpt (p : System.FilePath) : IO (Option String) := do
@@ -273,6 +285,56 @@ def reportedPeak (msg : String) : Option Nat :=
         | _, _ => none
       | _ => none
     else none
+
+/-- Seconds as a worker prints them (`1.234s`, `0.3s`, `12.0`), in ms; `none` where it is no such
+number. -/
+def secsMs (s : String) : Option Nat :=
+  let s := if s.endsWith "s" then (s.dropEnd 1).toString else s
+  match s.splitOn "." with
+  | [a] => a.toNat?.map (· * 1000)
+  | [a, b] =>
+    match a.toNat?, (String.ofList ((b.toList ++ ['0', '0', '0']).take 3)).toNat? with
+    | some a, some f => if b.length ≤ 3 && b.all Char.isDigit then some (a * 1000 + f) else none
+    | _, _ => none
+  | _ => none
+
+/-- What a finished worker printed of its work (each `none` where it printed nothing): its own
+declarations (stdout, `con-leche: accepted N declarations`), its parse and check phases (ms,
+`con-leche: stats: phases: parse P (index I), check C`), its check pool's busy time and its slowest
+single check (ms, the pool's `con-leche: stats: check …: … busy B …` and `con-leche: stats:
+slowest checks: D …` lines). -/
+structure WorkerStats where
+  decls : Option Nat := none
+  parse : Option Nat := none
+  check : Option Nat := none
+  busy : Option Nat := none
+  slowest : Option Nat := none
+
+/-- `workerStats` read from a worker's stdout `out` and stderr `diag`. -/
+def workerStats (out diag : String) : WorkerStats := Id.run do
+  let words (l : String) : Array String :=
+    ((l.splitOn " ").filter (· != "")).toArray
+  let mut s : WorkerStats := {}
+  for l in out.splitOn "\n" do
+    if l.startsWith "con-leche: accepted " then
+      s := { s with decls := (words l)[2]?.bind String.toNat? }
+  for l in diag.splitOn "\n" do
+    let ws := words l
+    if l.startsWith "con-leche: stats: phases: " then
+      s := { s with parse := ws[4]?.bind secsMs, check := ws[8]?.bind secsMs }
+    else if l.startsWith "con-leche: stats: slowest checks: " then
+      s := { s with slowest := some ((ws[4]?.bind secsMs).getD 0) }
+    else if l.startsWith "con-leche: stats: check" then
+      match ws.findIdx? (· == "busy") with
+      | some i => s := { s with busy := ws[i + 1]?.bind secsMs }
+      | none => pure ()
+  return s
+
+/-- The log's fields for `workerStats`: `\t<decls>\t<parse>\t<check>\t<busy>\t<slowest>`, `-` for
+a missing one. -/
+def WorkerStats.logText (s : WorkerStats) : String :=
+  let f (x : Option Nat) : String := (x.map toString).getD "-"
+  s!"\t{f s.decls}\t{f s.parse}\t{f s.check}\t{f s.busy}\t{f s.slowest}"
 
 /-- **The workers' resident sets**: every child of this process
 (`/proc/self/task/<tid>/children`) by its last argument (`/proc/<pid>/cmdline`, a worker's
@@ -534,7 +596,7 @@ def run (parse : String → Option Name) (app : System.FilePath) (args : Name �
       (if st.running.isEmpty then 0 else (st.front.filter (st.sizes.getD · 0 > roomOf st.effPk)).length)
       growing
   let finish (st : St) (r : Running) (w : String) : IO St := do
-    let msg ← r.diagText
+    let (outText, msg) ← r.texts
     let now ← IO.monoMsNow
     -- the worker's own peak where it reported one, else the last one sampled (a lower bound)
     let sampled := st.seen.getD r.m 0
@@ -542,7 +604,8 @@ def run (parse : String → Option Name) (app : System.FilePath) (args : Name �
       | some k => (k, s!"rss={padL 9 (gibText k)}", toString k)
       | none => (sampled, s!"rss≥{padL 9 (gibText sampled)}", s!"≥{sampled}")
     if let some h := logH then
-      h.putStrLn s!"{w}\t{spell r.m}\t{now - r.start}\t{logRss}\t{now - t0}"
+      h.putStrLn s!"{w}\t{spell r.m}\t{now - r.start}\t{logRss}\t{now - t0}\
+        {(workerStats outText msg).logText}"
       h.flush
     let (peaks, typ) := pushPeak st.peaks st.typ pk
     let st := { st with verdicts := st.verdicts.insert r.m w, finished := st.finished + 1,
