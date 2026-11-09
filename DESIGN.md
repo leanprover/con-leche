@@ -117251,3 +117251,96 @@ regeneration); `inlean-sync.py check` OK.  Stage1 suite (4843 tests): all pass b
 `async/elab/async_systems_info` (sandbox).  Every `tests/elab_bench/*.lean` (93 files) at
 `TEST_BENCH=1` passes; `deriving_mutual_block`'s `#mutual_block` takes 182.1 M heartbeats
 (182.7 M before).
+
+### Lane indlock: InLean's inductive stages in step with master's cached stages (2026-11-09, task #451, agent/451-indlock)
+
+**Ruling (maintainer, 2026-11-09).**  InLean's inductive stages are related to master's CACHED
+stage functions (`checkBlockIndsC`, … in `ConLeche/Cached/Ind*.lean`), so that a change of a
+cached stage on master breaks an InLean proof at the next sync and the twin follows it; the
+plain specification stages are reached through the cached ones, not directly.
+
+**The relation: `CRuns` (`InLeanProof/CRuns.lean`).**  A forward simulation onto a cached run
+(InLean's run ⇒ the cached stage runs from some invariant state to the translated value) is not
+provable: the cached core's memos are not InLean's, so where InLean's core answers, the cached
+core at another memo state may run out of fuel, and nothing relates the two memo tables.  So the
+core stays abstract.  `CRuns mode c p b a` reads the cached `CheckCM` computation `c` step by step
+in step with the fueled specification `p`: a cached core call (`sharedOpsC`'s four,
+`coreKnotI mode false fe checkFuel`) beside `fueledOpsM` at `fe.env` (`CoreTwin`, master's own
+pairing in its `…C_eq` lemmas), a state-free answer of `c` beside a run of `p` (`ret`: the pure
+steps, the unwraps, the passing guards), a bind beside a bind, and `flushC`, which the
+specification does not run.  Its consequence is the specification's run (`CRuns.runs`), which the
+declaration step consumes.  A stage lemma now concludes `CRuns (cachedStage (mkFEnv L) …)
+(specStage (fueledOpsM .verified) L …)` and is proved by unfolding InLean's stage, master's cached
+stage and the specification together; a cached leaf is read through master's equation at the use
+(`openPisAtFvarsC_eq`, `constsResolveFC_spec`, `getAppArgsC_spec`, …).  Its users not yet in step
+read `.runs`.
+
+**Stages in step** (the lemma concludes the cached stage):
+
+| stage (InLean lemma) | cached stage | InLean code changed |
+|---|---|---|
+| constant check (`checkConstantValC_crun`; `checkConstantValC_sim` is its `.runs`) | `checkConstantValC` | no |
+| formers (`checkBlockTeleFI_run`, `checkBlockTelesFI_run`, `checkBlockDomsAtFI_run`, `checkBlockAgreeFI_run`, `checkBlockIndsFI_run`) | `checkBlockTeleC`, `checkBlockTelesC`, `checkBlockDomsAtC`, `checkBlockAgreeC`, `checkBlockIndsC` | no |
+| constructors (`checkStructDomsAtFI_run`, `checkStructFieldSortsIFI_run`, `checkSumCtorFI_run`, `checkSumCtorsFI_run`, `checkBlockCtorsFI_run`) | `checkStructDomsAtC`, `checkStructFieldSortsIC`/`checkStructFieldSortsC`, `checkSumCtorC`, `checkSumCtorsC`, `checkBlockCtorsC` | yes: arrays, the residual's spine once |
+| index sorts (`checkBlockIdxSortsFI_run`) | `checkBlockIdxSortsC` | no |
+| projection bodies, tables (`structProjBodies_tr`, `blockTables_tr`) | `structProjBodiesC`, `blockTablesC` | yes: one walk |
+
+**InLean code (the twins follow master).**  `checkSumCtorC` checks the parameter domains and the
+fields' sorts over arrays (`checkStructDomsAtF`, new `checkStructFieldSortsC`: O(1) lookups where
+the list lookup was O(j) per field) and reads the opened residual's spine once (`args`), as
+master's cached `checkSumCtorC`.  `structProjBodies` is the twin of `structProjBodiesC`: one walk of
+the constructor's field telescope (`structProjBodiesGo`), threading the values each domain is
+instantiated at, where it found each field's domain and built its argument array on its own
+(`projBodyAt`, O(fields × telescope)); `structProjBodies_eq_fields` reads the walk entry by entry
+as the per-field bodies the readings and range facts are stated for (`projBodyOk` stays per field:
+it is InLean's own range check of the bodies inference builds at use, with no twin on master).
+The positivity and index stages keep the list loop `checkStructFieldSortsIC`, as master's; the
+two cached loops are one by master's equations (`cachedFieldSorts_toArray`).  `peelPis` moves to
+`InLean/FEnv.lean`.  Merged #515 (d220352d8): InLean's `IndCaps` drops `unitlike`/`unitParams`,
+the fieldless unit-like case keyed on `eta ∧ etaFields = 0` at `etaParams`.
+
+**The audit** (`_tmp/indlock/audit.lean`, the twinlock script, and `audit2.lean`, the cached
+constants of each conclusion).  Plain targets with a cached twin, not run by the binary, in an
+InLean lemma's conclusion: 155 (288 lemma–target pairs), as at 609ef536a.  Before: none of them
+in a conclusion beside its twin.  After: 13 in lockstep lemmas (`checkConstantVal`,
+`checkBlockTele`, `checkBlockTeles`, `checkBlockDomsAt`, `checkBlockAgree`, `checkBlockInds`,
+`consBlockInds`, `checkStructDomsAt`, `checkStructFieldSortsI`, `checkSumCtor`, `checkSumCtors`,
+`checkBlockCtors`, `checkBlockIdxSorts`: the specification is `CRuns`' second side), and
+`structProjBodies`/`blockTables` left only in helper lemmas (`hasPis_iff_structProjBodies`,
+`cblockTables_*`); 142 targets still related to the specification alone.
+
+**Left** (still `Runs` of the specification): the classes (`checkBlockClassesC` with `classReadC`,
+`classReadSlotsC`, `classReadMinorC`, `classKeyOfC`, `targetMajorOfC`, `targetOutsideInstC`,
+`targetPinTysC`, `targetMajorPinsC`, `classMajorsC`), positivity (`checkBlockPositivityC`,
+`checkAbsCtorSortsC`, the nesting walks), `nestSeedsC`, `blockNestCtxC`, the recursor stage
+(`genRecCheckC`), the tail (`streamKCheck`, `streamRecsCheckC`, `checkBlockTablesC`),
+`reduceMemberS`/`reducedFormerC`, and the drivers `checkBlockPassS`/`checkBlockTailS`/
+`checkBlockKS` (in step only once every stage they bind is); the index readers at master's cached
+readers (`headHintC`, `unitLikeShapeF`, …, the core relation at `mkFEnv`); the remaining pure
+helpers of the twinlock list (`classRead*`, `nest*`, `ClassGen.*`, `target*`, `classSeeds`,
+`generatedFire`/`generatedRules`, `streamNestedOk`, `recFire`, `declConstants`/`declTables`, the
+pushes).  Each is the same mechanical conversion as the formers' stage.
+
+**Proofs.**  `addDeclSound` unconditional, axioms unchanged (`propext`, `Classical.choice`,
+`Quot.sound`, the three `mkData` stop-gaps); no `sorry`.
+
+**Gates.**  `lake build`, `lake test`, `lake build InLean InLeanProof inlean-replay`
+warning-free; layering, trust-surface, shake (664 allowlisted), inlean-sync (23 files),
+plain-reach (578, all allowlisted).  Init replay `--compare`: 64530 accepted, 0 exact and 0
+cosmetic mismatches.
+
+**Init cost** (`perf stat -e instructions:u`, one run each, InLean verified): the twinlock head's
+binary (609ef536a) 450 809 423 301, the lane's head 450 794 150 240 (−0.003 %); con-leche at master
+with #515 (`--olean --jobs=1`) 427 555 181 658 (InLean +5.4 %).
+
+**The 42-member block** (`_tmp/dmb/ol/Wide42`, declaration `H` re-added on `Empty`, the blowup
+lane's probe; the process's import cost, about 1 690.7 M instructions, subtracted): InLean
+1 659.9 M → 1 659.5 M instructions (5 509 871 → 5 509 913 heartbeats); official 536.0 M (387 265
+heartbeats); con-leche (`--olean --jobs=1 --constant=H` less `--constant=Bool`) 856.7 M.  The
+block has no structure with fields, so neither code change reaches it.
+
+**lean4** (`joachim/inlean-kernel`, remote at bb569fb7, an ancestor of the local 196dd6fc): one
+commit, `perf: InLean follows con-leche's cached inductive stages` (22cc7f83, the regeneration);
+`inlean-sync.py check` OK.  Stage1 suite (4843 tests): all pass but `async/elab/async_systems_info`
+(sandbox).  Every `tests/elab_bench/*.lean` (93 files) at `TEST_BENCH=1` passes;
+`deriving_mutual_block`'s `#mutual_block` takes 182.1 M heartbeats (182.1 M before).
