@@ -494,6 +494,8 @@ theorem blockTablesStage_of {F : Nat} {env envI : Env}
     show (q.members.map _).length = _; rw [hlenN]; simp
   -- the formers' data
   obtain ⟨ppsOf, sOf, hF⟩ := blockFormerFacts_of mp hInd hlps₀ hAt hresM
+  have hdecl : ∀ ms ∈ p₀.members, ConLeche.MemberDeclaredWF env ms :=
+    fun ms hms => (hAt ms hms).declaredWF
   -- the η side conditions of the two passes
   have hdclOf := hF.dclAt
   have hofDcl := hF.ofDcl
@@ -537,7 +539,7 @@ theorem blockTablesStage_of {F : Nat} {env envI : Env}
       blockCtorFacts_of (hCR m cvTa hm hcv)
         (fun c hc => hClps c (hmemCtors m hm c hc))
   -- ## the DUMMY pass: the k formers at the EMPTY chain lists
-  obtain ⟨mpD, hEclD, hFDD, hdclD, hfindD₀, hagD⟩ := blockDummyPass mp hInd hF hndM hE hetaNe hetaFresh
+  obtain ⟨mpD, hEclD, hFDD, hdclD, hfindD₀, hagD⟩ := blockDummyPass mp hInd hdecl hF hndM hE hetaNe hetaFresh
   have hfindD := formerInEnv_of hF.lenDcl hdclD hfindD₀
   -- coverage at the dummy carrier, the members exempt (the walk's container case)
   have hmemFresh : ∀ cvTb ∈ q.formers, env.find? cvTb.name = none := by
@@ -1039,7 +1041,7 @@ theorem blockTablesStage_of {F : Nat} {env envI : Env}
   -- ## the REAL pass: the k formers at the HOLE leaves
   obtain ⟨mpR, hEclR, hFDR, hdclR, hfindR₀, hagR⟩ :=
     blockRealPass (uOf := uOf) (Chs := fun ψ => dZ.toLfp.holeChains ψ)
-      mp hInd hF hndM hE hetaNe hetaFresh hIdsLen hIdsBelow
+      mp hInd hdecl hF hndM hE hetaNe hetaFresh hIdsLen hIdsBelow
       (fun ψ c hc => (hchZ ψ).2 c hc)
       (fun ψ₁ ψ₂ hφ => ⟨(hZparams ψ₁ ψ₂ hφ).1, hparamsH ψ₁ ψ₂ hφ⟩)
       (fun j hj ψ ρp hρp c hc => hIdxOf c (hcvOf c hc).choose (hcvOf c hc).choose_spec ψ ρp

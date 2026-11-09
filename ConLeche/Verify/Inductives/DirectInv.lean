@@ -448,6 +448,26 @@ theorem direct_sum_ctor_typeWF {env₀ env : Env} {T : Name} {lps : List Name}
   obtain ⟨g1, g2, g3, g4⟩ := checkConstantVal_typeWF hccv
   exact ⟨g1, g2, g3, g4, checkConstantVal_litShapeAt hccv⟩
 
+/-- **One constructor's cons keeps well-formedness**: the stored constructor is a closed,
+resolving constant. -/
+theorem envWF_cons_ctor {env : Env} {cv : ConstantVal} {nP nF : Nat} (henv : EnvWF env)
+    (h1 : cv.type.hasFvar = false) (h2 : cv.type.allLevelParamsDefined cv.levelParams = true)
+    (h3 : cv.type.constsResolve env = true) (h4 : cv.type.looseBVarsBounded 0 = true)
+    (hs : LitShapeAt cv) : EnvWF ⟨.ctorInfo cv nP nF :: env.consts, env.tables⟩ :=
+  EnvWF.cons (hs _ rfl) henv (structConstWF h1 h2 (Expr.constsResolve_mono h3) h4
+    (fun _ _ _ heq => nomatch heq) (fun _ _ _ _ _ heq => nomatch heq))
+
+/-- **A checked constructor's cons keeps well-formedness**, at any well-formed environment its
+type resolves at (the constructor stage's step). -/
+theorem SumCtorRun.envWF_cons {env₀ env₁ : Env} {T : Name} {lps : List Name}
+    {nP nIdx : Nat} {resSort : Level} {isProp large : Bool} {cvC cvTa cvCa : ConstantVal}
+    {nF : Nat} {F : Nat} {sorts : List Level}
+    (h : SumCtorRun mode F env₀ env₁ T lps nP nIdx resSort isProp large cvC nF cvTa cvCa sorts)
+    {env : Env} (henv : EnvWF env) (hres : cvCa.type.constsResolve env = true) :
+    EnvWF ⟨.ctorInfo cvCa nP nF :: env.consts, env.tables⟩ := by
+  obtain ⟨g1, g2, -, g4, g5⟩ := direct_sum_ctor_typeWF h
+  exact envWF_cons_ctor henv g1 g2 hres g4 g5
+
 /-- A name fresh above the constructors' conses is fresh below them
 (#210). -/
 theorem consSumCtors_find?_none {nP : Nat} {n : Name} :
@@ -477,8 +497,7 @@ theorem envWF_consSumCtors {nP : Nat} :
     simp only [consSumCtors]
     obtain ⟨htf, htp, htr, htb, hts⟩ := hall c List.mem_cons_self
     refine envWF_consSumCtors ?_ ?_
-    · exact EnvWF.cons (hts _ rfl) henv (structConstWF htf htp (Expr.constsResolve_mono htr) htb
-        (fun _ _ _ heq => nomatch heq) (fun _ _ _ _ _ heq => nomatch heq))
+    · exact envWF_cons_ctor henv htf htp htr htb hts
     · intro c' hc'
       obtain ⟨h1, h2, h3, h4, h5⟩ := hall c' (List.mem_cons_of_mem _ hc')
       exact ⟨h1, h2, Expr.constsResolve_mono h3, h4, h5⟩

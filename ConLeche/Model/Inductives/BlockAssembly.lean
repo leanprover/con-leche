@@ -3,6 +3,7 @@ module
 import ConLeche.Verify.Inductives.DirectInv
 import ConLeche.Model.Inductives.BlockCtorFuns
 import ConLeche.Model.Inductives.BlockLeafOk
+public import ConLeche.Verify.Inductives.BlockWF
 public import ConLeche.Model.Inductives.BlockStageFormer
 import ConLeche.Model.Inductives.BlockCaps
 import ConLeche.Model.Inductives.StreamRecsSem
@@ -405,6 +406,7 @@ theorem blockFormerPass (mp : EnvModelM V env) {F : Nat} {p₀ : BlockShape} {is
     {ppsOf : Nat → (Name → Nat) → List Term} {sOf : Nat → Level}
     (hInd : ConLeche.checkBlockInds (m := ConLeche.CheckM) (ConLeche.fueledOps .verified F) env p₀ isRec
       = .ok (envI, q))
+    (hdecl : ∀ ms ∈ p₀.members, ConLeche.MemberDeclaredWF env ms)
     (hF : BlockFormerFacts mp q (p₀.members.map (·.declared)) formers ppsOf sOf)
     (hnd : q.memberNames.Nodup)
     (hE : ConLeche.EtaFamiliesClosed env)
@@ -475,6 +477,7 @@ theorem blockFormerPass (mp : EnvModelM V env) {F : Nat} {p₀ : BlockShape} {is
       exact nodup_getElem_ne hnd hjl hjl' hjj)
     hF.nresOf hF.opOf
     hAbelowOf hAparamsOf hAokOf hAmemOf hetaNe hTlawsOf
+    (fun _ _ hj _ henv hres => ConLeche.checkBlockInds_cons_envWF hdecl hInd hj henv hres)
     (p₀.members.map (·.declared)) 0 env mp (fun j => by rw [Nat.zero_add]) (Nat.zero_add _)
     (hE.exceptL q.memberNames) hF.resolveOf (fun j cvTa _ hj => hF.freshOf j cvTa hj)
     hetaFresh hF.fdOf hF.declOf
@@ -527,6 +530,7 @@ theorem blockDummyPass (mp : EnvModelM V env) {F : Nat} {p₀ : BlockShape} {isR
     {ppsOf : Nat → (Name → Nat) → List Term} {sOf : Nat → Level}
     (hInd : ConLeche.checkBlockInds (m := ConLeche.CheckM) (ConLeche.fueledOps .verified F) env p₀ isRec
       = .ok (envI, q))
+    (hdecl : ∀ ms ∈ p₀.members, ConLeche.MemberDeclaredWF env ms)
     (hF : BlockFormerFacts mp q (p₀.members.map (·.declared)) formers ppsOf sOf)
     (hnd : q.memberNames.Nodup)
     (hE : ConLeche.EtaFamiliesClosed env)
@@ -568,7 +572,7 @@ theorem blockDummyPass (mp : EnvModelM V env) {F : Nat} {p₀ : BlockShape} {isR
     cases hj : formers[j]? with
     | none => rw [hF.ppsNil j hj ψ]; trivial
     | some cvTa => exact (hF.fdOf j cvTa hj).below ψ
-  refine blockFormerPass mp hInd hF hnd hE
+  refine blockFormerPass mp hInd hdecl hF hnd hE
     (fun j ψ => sumTyAV (q.resSort.eval ψ) (ppsOf j ψ) [])
     (fun j _ _ ψ => sumTyAV_below (hbelow j ψ) (by intro Fs hFs; exact nomatch hFs))
     (fun j cvTa hj ψ₁ ψ₂ hφ => by
@@ -742,6 +746,7 @@ theorem blockRealPass (mp : EnvModelM V env) {F : Nat} {p₀ : BlockShape} {isRe
     {uOf : Nat → (Name → Nat) → Nat} {Chs : (Name → Nat) → Nat → List (List Term)}
     (hInd : ConLeche.checkBlockInds (m := ConLeche.CheckM) (ConLeche.fueledOps .verified F) env p₀ isRec
       = .ok (envI, q))
+    (hdecl : ∀ ms ∈ p₀.members, ConLeche.MemberDeclaredWF env ms)
     (hF : BlockFormerFacts mp q (p₀.members.map (·.declared)) formers ppsOf sOf)
     (hnd : q.memberNames.Nodup)
     (hE : ConLeche.EtaFamiliesClosed env)
@@ -814,7 +819,7 @@ theorem blockRealPass (mp : EnvModelM V env) {F : Nat} {p₀ : BlockShape} {isRe
     exact blockLeafWalks (nIdx := q.nIdxs.getD j 0) ((hF.fdOf j cvTa hj).len ψ)
       (fun ρ' => (hF.fdOf j cvTa hj).okTy ψ ρ') rfl
       (fun ρp hρp => hIdxAll j hjk ψ ρp hρp) (fun ρp hρp => hXAll j hjk ψ ρp hρp) ρ
-  refine blockFormerPass mp hInd hF hnd hE
+  refine blockFormerPass mp hInd hdecl hF hnd hE
     (fun j ψ => blockTyG q.k (q.resSort.eval ψ) (fun c => uOf c ψ)
       (fun c => ((ppsOf c ψ).drop q.nP)) (Chs ψ) (ppsOf j ψ) j)
     ?_ ?_ ?_ ?_ hetaNe hetaFresh ?_
