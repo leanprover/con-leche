@@ -449,7 +449,7 @@ Read from the outside in:
    records, nothing generated
    ([function `declConstants` in `ConLeche/Kernel/Install.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/Install.lean#L82-L94)).
    What a check pushes is what its record says, at any index and any mode
-   ([theorem `checkDeclC_pushes` in `ConLeche/Verify/Cached/DeclPushes.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Verify/Cached/DeclPushes.lean#L699-L700)).
+   ([theorem `checkDeclC_pushes` in `ConLeche/Verify/Cached/DeclPushes.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Verify/Cached/DeclPushes.lean#L700-L701)).
 
    The driver runs those checks in any order. Before any of them it builds
    one index of the whole stream from the records alone
@@ -464,11 +464,11 @@ Read from the outside in:
    that record. Every check reads its index through the lookups alone (the
    constants' and the projection tables'), so at two indices with the same
    lookups it fails alike or pushes the same constants
-   ([theorem `checkDeclStepC_twin` in `ConLeche/Verify/Cached/ViewCongr.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Verify/Cached/ViewCongr.lean#L1336-L1340)).
+   ([theorem `checkDeclStepC_twin` in `ConLeche/Verify/Cached/ViewCongr.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Verify/Cached/ViewCongr.lean#L1337-L1341)).
    The view of a position answers as the fold's index there as long as the
    names so far are distinct, which every passing job before it ensures,
    so every job passing is an accept of the fold
-   ([theorem `checkDecls_of_jobs` in `ConLeche/Verify/Cached/StreamIndex.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Verify/Cached/StreamIndex.lean#L484-L486)).
+   ([theorem `checkDecls_of_jobs` in `ConLeche/Verify/Cached/StreamIndex.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Verify/Cached/StreamIndex.lean#L485-L487)).
    A later job may read an earlier constant before that constant's job has
    run: a declaration may read a pinned operation, and fire its literal
    fast path, before the operation's certificates have been checked. The
@@ -722,7 +722,7 @@ presentation and matter for the proof:
 * **Fuel and memos.** The pure checker is fueled; the cached checker is
   not, but its memos are proved to agree with the pure functions at
   every fuel large enough to succeed
-  ([theorem `checkDeclStepC_run` in `ConLeche/Verify/Cached/BridgeC.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Verify/Cached/BridgeC.lean#L269)).
+  ([theorem `checkDeclStepC_run` in `ConLeche/Verify/Cached/BridgeC.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Verify/Cached/BridgeC.lean#L284)).
   Nesting (a head, a scrutinee, a subterm's type) is bounded by the
   shared fuel, an error when exhausted; the fuel is effectively
   unbounded (2^62), since it exists for the proofs' induction. Each

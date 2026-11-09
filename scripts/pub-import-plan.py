@@ -75,6 +75,11 @@ FALLBACK = {
     # Measured: demoting it breaks the file (unknown identifier `SetTheory`,
     # `OpenedCtx.lean:29`).
     ('ConLeche.Model.OpenedCtx', 'ConLeche.Model.Currency'),
+    # task #497: `ViewCongr`'s public statements name `CheckerOps`, `CheckMode`, `FEnv`,
+    # `sharedOpsC`; once it imports `PinsC` (which re-exports `ParsedC`) the census
+    # attributes them to that private import.  Measured: demoting it breaks the file
+    # (unknown identifier `CheckerOps`, `ViewCongr.lean:44`).
+    ('ConLeche.Verify.Cached.ViewCongr', 'ConLeche.Cached.ParsedC'),
     # task #480: each MEASURED by demoting it alone (the module stops building).
     ('ConLeche.Verify.Cached.PushChain', 'ConLeche.Verify.Cached.DeclPushes'),
     ('ConLeche.Verify.Inductives.NestNfScope', 'ConLeche.Verify.Inductives.PositivityInv'),
