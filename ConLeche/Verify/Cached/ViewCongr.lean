@@ -1,6 +1,7 @@
 module
 
 public import ConLeche.Cached.ParsedC
+import ConLeche.Verify.Cached.IndPassC
 import ConLeche.Verify.Cached.KnotCongr
 import ConLeche.Verify.Cached.PinOverlay
 import ConLeche.Verify.Cached.PinsC
@@ -1145,6 +1146,7 @@ theorem checkBlockPassS_twin {fe₁ fe₂ : FEnv} (ht : Twin fe₁ fe₂)
     RelRun (PassRel fe₁ fe₂) (checkBlockPassS mode fe₁ p₀ isRec)
       (checkBlockPassS mode fe₂ p₀ isRec) := by
   unfold checkBlockPassS
+  simp only [checkBlockIndsC_eq, checkBlockCtorsC_eq, checkBlockClassesC_eq]
   refine RelRun.bind (checkBlockIndsF_twin ht.find ht.findTable p₀ isRec) ?_
   rintro ⟨a₁, p₁⟩ ⟨a₂, p₁'⟩ ⟨⟨L, Q, rfl, rfl⟩, he⟩
   simp only at he
@@ -1169,6 +1171,7 @@ theorem checkBlockTailS_twin {fe₁ fe₂ : FEnv} (ht : Twin fe₁ fe₂)
   subst hq₂
   unfold checkBlockTailS
   dsimp only
+  simp only [checkBlockIdxSortsC_eq]
   generalize p.memberCtors = memberCtors
   have htL := ht.pushDelta L Q
   have h := sharedOpsC_envFree mode (FEnv.pushDelta L Q fe₂)

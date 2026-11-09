@@ -13,7 +13,9 @@ calling the cached core (`coreKnotI`) directly and the cached walks of
 `ConLeche/Cached/ExprOpsC.lean` where the specification runs the plain
 ones.  Each is the specification at the shared operations
 (`whnfTelescopeC_eq`, `reducedFormerC_eq`,
-`ConLeche/Verify/Cached/WalkersC.lean`).
+`ConLeche/Verify/Cached/WalkersC.lean`; the family readers
+`familyTelescopeC`, `checkSpineAtC`, `familyKeyCheckC`:
+`ConLeche/Verify/Cached/IndPassC.lean`).
 -/
 
 namespace ConLeche.Cached
@@ -45,5 +47,38 @@ def whnfTelescopeC (fe : FEnv) : Nat → Nat → Expr → CheckCM (List Expr × 
 def reducedFormerC (fe : FEnv) (cv : ConstantVal) (n : Nat) : CheckCM ConstantVal := do
   let (bs, s) ← whnfTelescopeC mode fe 0 n cv.type
   pure { cv with type := Expr.closeTelescopeC bs 0 (.sort s) }
+
+/-- The cached `familyTelescope`: a definition-headed family at its
+reduct by `reducedFormerC`, any other at its stored type. -/
+def familyTelescopeC (fe : FEnv) (cv : ConstantVal) (caps : IndCaps) : CheckCM Expr :=
+  if formerDefHeaded cv then do
+    let cvR ← reducedFormerC mode fe cv (caps.nparams + caps.nIdx)
+    pure cvR.type
+  else pure cv.type
+
+/-- The cached `checkSpineAt`: each argument inferred and compared by
+the cached core, the telescope instantiated by `instantiate1C`. -/
+def checkSpineAtC (fe : FEnv) (d : Nat) : Expr → List Expr → CheckCM Unit
+  | _, [] => pure ()
+  | t, a :: as =>
+    match t with
+    | .forallE ty body => do
+      let ta ← (coreKnotI mode false fe checkFuel).infer d a
+      unless ← (coreKnotI mode false fe checkFuel).defeq d ta ty do
+        throw (.invalid "application type mismatch at a family's parameters")
+      checkSpineAtC fe d (Expr.instantiate1C body a) as
+    | _ => throw (.invalid "function expected at a family's parameters")
+
+/-- The cached `familyKeyCheck`: the family's telescope at the key's
+levels by the cached `instLevelParams`. -/
+def familyKeyCheckC (fe : FEnv) (find? : Name → Option ConstantInfo) (d : Nat)
+    (c : Name) (us : List Level) (ds : List Expr) : CheckCM Unit :=
+  match find? c with
+  | some (.indInfo cv caps) => do
+    unless us.length = cv.levelParams.length do
+      throw (.invalid "incorrect number of universe levels at a family's key")
+    let ty ← familyTelescopeC mode fe cv caps
+    checkSpineAtC mode fe d (Expr.instLevelParams cv.levelParams us ty) ds
+  | _ => throw (.invalid "a family's key is no stored family")
 
 end ConLeche.Cached

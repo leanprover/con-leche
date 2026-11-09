@@ -1818,6 +1818,14 @@ closed at cursor `c` in one `abstractRangeC` pass. -/
 def abstractPrefixC (k c : Nat) (e : Expr) : Expr :=
   abstractRangeC e 0 k c
 
+/-- The cached `instPisWith` (task #498): the leading `Π` binders
+instantiated at `args` in order, each by `instantiate1C`
+(`instPisWithC_eq`, `ConLeche/Verify/Cached/IndWalksC.lean`). -/
+def _root_.ConLeche.instPisWithC : List Expr → Expr → Option Expr
+  | [], e => some e
+  | a :: as, .forallE _ body => instPisWithC as (instantiate1C body a)
+  | _ :: _, _ => none
+
 /-- The cached `Expr.piDomsMentionAny`: some binder domain of the
 syntactic `∀`-telescope mentions one of `names`. -/
 def piDomsMentionAnyC (names : List Name) : Expr → Bool
