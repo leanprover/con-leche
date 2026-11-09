@@ -115035,6 +115035,48 @@ format is unchanged; no pinned gate output contained the finish line.
 
 Hand test: `--olean --schedule --jobs=4` on Init.Data.Nat.Lemmas, 84 modules, exit 0, under the guard.
 
+## TASK #514 — scheduler status lines in 100 columns; the typical peak is the median (2026-11-09, agent/514-status)
+
+`Driver/ScheduleIO.lean`, plain IO, outside every theorem; log format unchanged.
+
+**Lines.** Before (one heartbeat line of about 300 columns; the finish line carried the memory too):
+
+```
+con-leche: schedule: [4642/239685 1.9 %, 2 running, 9.6 GiB now (max 9.1 GiB), 28.5 GiB peaks of 40 GiB, 13 requeued, protecting Certificates.Certificate5081, 8 waiting for room, eta 1240h16m]; longest: Certificates.Certificate5081 7m01s, Certificates.Kernel.Sporadic.Tits.Words2264 7m01s
+con-leche: schedule: M: 0 t=2.3s rss=0.45 GiB [4634/239685 1.9 %, 2 running, 9.6 GiB now (max 9.1 GiB), 28.5 GiB peaks of 40 GiB, eta 1240h16m]
+```
+
+After. The finish line (stdout) is `M: VERDICT t=Ss rss=X GiB [done/total p %, k running(, n requeued), eta D]`;
+the heartbeat (stderr) is three lines, the memory and the longest worker on their own lines and
+shown only where they apply (`/proc` readable, something running):
+
+```
+Init.Data.Nat.Log2: 0 t=0.0s rss=0.05 GiB [2/84 2.3 %, 1 running, eta 41s]
+schedule: [723/739 97.8 %, 4 running, eta 3s]
+  mem 0.3 GiB (largest 0.1 GiB), reserved 0.4 GiB of 6 GiB (typical 71 MiB)
+  longest: Std.Data.DTreeMap.Internal.Lemmas 2s
+```
+
+and for the maintainer's example `schedule: [4642/239685 1.9 %, 2 running, 13 requeued, eta 51d16h]` /
+`  mem 9.6 GiB (largest 9.1 GiB), reserved 28.5 GiB of 40 GiB (typical 0.8 GiB), protecting Certificates.Certificate5081, 8 waiting for room` /
+`  longest: Certificates.Certificate5081 7m01s`. The finish line no longer carries the memory
+(the heartbeat does); the other `con-leche: schedule: ...` event lines (kills, protection) keep their prefix.
+An ETA is `51d16h` past 48 h, `12h` from 10 h, `3h12m` from 1 h, `7m01s`, `42s`.
+
+Glossary: `mem` the running workers' resident sets now, summed; `largest` the biggest one's now;
+`reserved` the sum admission uses, each running worker at max(its VmHWM so far, the typical
+peak, its known size) (before this task it showed the plain sum of the VmHWMs, which hid the
+starvation below); `of B` the budget; `typical` the typical peak admission assumes for a
+worker that has not shown its peak.
+
+**Median.** The typical peak is now the median (was the 90th percentile) of the last 200 finished
+workers' peaks, used from 20 finishes on (was 8; before that budget / jobs). Reason: in the
+maintainer's resumed run about a dozen finishes of 16 and 20 GiB made the p90 about 20 GiB, every
+running and unknown module counted at that, and only 2 of 16 jobs ran with 4 to 11 GiB in use. A
+kill still sets the known size to max(RSS, typical, 2 x previous). Hand test (`Std.Tactic.BVDecide`,
+`--jobs=4 --schedule-memory=6G`): 4 workers run in parallel with the median at 71 MiB; a median
+is unmoved by an outlier among at least 20 small peaks, which is the point.
+
 ## TASK #511 — a module located by its root, as Lean does; each root resolved once per run (2026-11-08, agent/511-root-lookup)
 
 **Lean's rule, corrected.**  #392's docstring (and #509's record) said Lean takes the first
