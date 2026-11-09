@@ -249,8 +249,10 @@ def readLog (parse : String → Option Name) (p : System.FilePath) :
 structure St where
   /-- the modules never killed (unknown size, 0), in order -/
   pending : List Name
-  /-- the killed modules with their known sizes (KiB), in order, before `pending` -/
-  front : List (Name × Nat) := []
+  /-- the killed modules, in order, before `pending` (their sizes are in `sizes`) -/
+  front : List Name := []
+  /-- the known sizes (KiB) of killed modules: the set at a kill, doubled by each further one -/
+  sizes : Std.HashMap Name Nat := {}
   running : Array Running := #[]
   verdicts : Std.HashMap Name String
   lastStart : Nat := 0
@@ -361,7 +363,7 @@ def run (parse : String → Option Name) (app : System.FilePath) (args : Name �
     progressText total st.nDone st.running.size
       (st.stamps.size - 1, (st.stamps.back?.getD 0) - (st.stamps[0]?.getD 0)) st.mem o.memory
       st.requeued st.prot
-      (if st.running.isEmpty then 0 else (st.front.filter (·.2 > roomOf st.effPk)).length)
+      (if st.running.isEmpty then 0 else (st.front.filter (st.sizes.getD · 0 > roomOf st.effPk)).length)
   let finish (st : St) (r : Running) (w : String) : IO St := do
     let msg ← r.diagText
     if let some h := logH then
@@ -411,7 +413,7 @@ def run (parse : String → Option Name) (app : System.FilePath) (args : Name �
     -- what admission counts per running worker: its peak, at least the typical peak
     let eff (rs : Array Running) : Nat := rs.foldl (fun a r =>
       let (k, h) := look (rss.getD []) r
-      a + max (max k h) st.typ) 0
+      a + max (max k h) (max st.typ (st.sizes.getD r.m 0))) 0
     let mut still : Array Running := #[]
     let mut ended : Array (Running × String) := #[]
     for r in st.running do
@@ -493,10 +495,10 @@ def run (parse : String → Option Name) (app : System.FilePath) (args : Name �
                       killed := killed.push (r.m, kr)
                       -- the known size grows at least by doubling, and is at least the typical
                       -- peak: the set at the kill is a lower bound, a restart must not die again
-                      let sz := max (max kr st.typ)
-                        (2 * ((st.front.find? (·.1 == r.m)).map (·.2) |>.getD 0))
+                      let sz := max (max kr st.typ) (2 * st.sizes.getD r.m 0)
                       st := { st with running := st.running.eraseIdx v, prot := some p.m,
-                                      front := (r.m, sz) :: st.front.filter (·.1 != r.m),
+                                      sizes := st.sizes.insert r.m sz,
+                                      front := r.m :: st.front.filter (· != r.m),
                                       requeued := st.requeued + 1,
                                       kills := st.kills.insert r.m ((st.kills.getD r.m 0) + 1) }
               if killed.size = 1 then
@@ -514,8 +516,8 @@ def run (parse : String → Option Name) (app : System.FilePath) (args : Name �
     if st.stopped then
       st := { st with pending := [], front := [] }
     else if now - st.lastStart ≥ o.stagger && st.running.size < jobs then
-      match st.front.find? (fun (_, z) => st.running.isEmpty || z ≤ room) with
-      | some (m, _) => st ← start { st with front := st.front.filter (·.1 != m) } m now
+      match st.front.find? (fun m => st.running.isEmpty || st.sizes.getD m 0 ≤ room) with
+      | some m => st ← start { st with front := st.front.filter (· != m) } m now
       | none =>
         match st.pending with
         | m :: ms =>

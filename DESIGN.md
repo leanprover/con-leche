@@ -115004,3 +115004,18 @@ only:
 
 Hand test (`--jobs=8`, Init.Data.Nat.Lemmas closure): 200M no kill, exit 0; 120M 3 kills, the
 protection lines as before, Lemmas (about the budget alone) `memory`, exit 3.
+
+### TASK #512 addendum 2 — the known size survives a start
+
+The CFSG run still thrashed (9597 killed 7 times, each at 0.1–0.5 GiB).  The bug: the known
+size lived in the `front` list entry, and a start removed the entry, so the next kill saw no
+previous size: `max(RSS, typ, 2 × 0)`, never the doubling.  Sizes now live in a map `sizes`
+that a start keeps; `front` holds only the names in order.  Also: admission counts a RUNNING
+worker at `max(peak, typ, its known size)` (a restarted big module is counted at what it
+reached before, not at its small current set), and a burst of kills (one tick) continues until
+the sampled sets sum to the budget at most.  The repeated single-kill lines of the run were
+successive overflows after re-admissions (the bug above), not an early end of a burst.
+No sizes are stored in the log (maintainer's ruling): a resumed run starts again knowing
+nothing.  Hand test (`--jobs=12 --schedule-stagger=0`, Init.Data.Nat.Lemmas closure): 100M and
+140M, every killed module killed at most once (`at most 1 times each`), the killed ones shown as
+`2 waiting for room` while the protected worker ran at 79 of 100 MiB.
