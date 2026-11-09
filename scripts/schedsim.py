@@ -69,7 +69,9 @@ peaks 10-35 GiB, times 30 min-5 h, at the head of the queue).  `--rank-compare` 
 DESIGN #548 (`RANK_RULES`, `--rank-rules`, `--rank-cases`; data as for `--margin-compare` and
 `starve`: the giants spread over the middle half of the queue): the kill rule (`kill_by` of
 `simulate`: sticky protection with the youngest by start, or no protection with the latest queue
-position or the latest start first), the growth gate (`gate`: the protected worker's, any worker's
+position or the latest start first, or `head`: one slot, the head, starts the first module of the
+queue whether it fits or not, ungated, and is never killed for memory; the others admit as usual,
+and an overflow kills the youngest non-head workers), the growth gate (`gate`: the protected worker's, any worker's
 above its reservation, the same only while the current sets exceed the plan, or none) and the
 drain for the head of the killed modules (`drain`, s); besides the columns above the waits of the
 killed giants (at least 1/8 of the limit) from their kill to their restart.
@@ -235,7 +237,7 @@ def simulate(mods, order, budget_kib, jobs, tick=0.1, growth=10, typ_q=0.5,
              margin_nonzero=True, stagger=0, burst=0, threads_spare=False,
              threads_drain=0, drain_d=0, margin_excl="largest", seed_peaks=None,
              seed_sizes=None, seed_single=(), kill_by="sticky", gate="prot", drain=None,
-             giant_kib=None):
+             giant_kib=None, front_fifo=False):
     """Returns the statistics of one replay.  Times in ms internally.  `budget_kib` is the hard
     limit (kills only above it); with `plan` admission plans against `hard - margin` (DESIGN
     #540): margin = max(margin_init x hard, the `margin_stat` of the last `margin_window`
@@ -252,11 +254,21 @@ def simulate(mods, order, budget_kib, jobs, tick=0.1, growth=10, typ_q=0.5,
     thread.  The kill rule (DESIGN #548): `kill_by="sticky"` the rule of #512 (the largest worker
     protected, sticky, the youngest others killed by start time), `"rank"` no protection, the
     workers of the latest queue position (`rank`, a requeued module keeps its own) killed first,
-    `"start"` no protection, the latest started first; `gate="prot"` the growth gate of #515 (the
+    `"start"` no protection, the latest started first, `"head"` the head slot: one worker starts
+    the first module of the queue (the killed ones first) whenever it has none, fitting or not and
+    whatever the gate, and is never killed for memory (alone over the limit: `memory`); the other
+    slots admit as usual, and an overflow kills the youngest of them by start time (the head counts
+    against the jobs; when it finishes it takes the next module before the other slots do); the
+    `head_*` statistics: the time the head holds a giant, the part of it in which a slot and a
+    queued module were free and the gate open but nothing fit, the head's starts into a room too
+    small for its reservation (`head_forced`), and the kills and overflows while such a start
+    runs; `gate="prot"` the growth gate of #515 (the
     protected worker's peak), `"local"` any running worker above its reservation (max(typical,
-    known size)) whose peak rose within `growth` s; `drain` (s, None: none) the head of the killed
+    known size)) whose peak rose within `growth` s, `"local-tight"` the same only while the current
+    sets exceed the plan (for the head slot: the gate holds the other slots only), `"none"`; `drain` (s, None: none) the head of the killed
     modules, waiting that long and not fitting, holds every other start until it fits or nothing
-    runs.  `giant_kib`: the waits (kill to restart) of modules at least that large are reported
+    runs.  `front_fifo`: a killed module goes behind the killed ones already waiting (the order
+    of the kills), not before them.  `giant_kib`: the waits (kill to restart) of modules at least that large are reported
     apart (`giant_wait_*`)."""
     dt = int(tick * 1000)
     rank_of = {m: i for i, m in enumerate(order)}
@@ -294,6 +306,11 @@ def simulate(mods, order, budget_kib, jobs, tick=0.1, growth=10, typ_q=0.5,
         pending = [m for m in pending if m not in seed_sizes]
         sizes = {m: max(typ, seed_sizes[m]) for m in again}
     prot, prot_track = None, None
+    # the head slot (`kill_by="head"`): its worker, whether it started into a room too small for
+    # its reservation, and the statistics of DESIGN #548's head-slot question
+    head, head_forced = None, False
+    hs = dict(head_giant_ms=0, head_giant_starved_ms=0, head_starts=0, head_forced=0,
+              head_forced_giants=0, kills_forced=0, overflows_forced=0, overflows=0)
     now, last_start = 0, -10 ** 9
     run_ms = mem_ms = res_ms = gate_ms = 0
     kill_n = kill_ms = work_ms = prot_n = mem_verdicts = 0
@@ -335,6 +352,8 @@ def simulate(mods, order, budget_kib, jobs, tick=0.1, growth=10, typ_q=0.5,
 
     def kill(v):
         nonlocal threads_used, kill_n, kill_ms, work_ms
+        if head_forced and head in running:
+            hs["kills_forced"] += 1
         running.remove(v)
         threads_used -= v.threads
         kill_n += 1
@@ -346,7 +365,10 @@ def simulate(mods, order, budget_kib, jobs, tick=0.1, growth=10, typ_q=0.5,
         sizes[v.mod.m] = max(v.cur, typ, 2 * sizes.get(v.mod.m, 0))
         if v.mod.m in front:
             front.remove(v.mod.m)
-        front.insert(0, v.mod.m)
+        if front_fifo:
+            front.append(v.mod.m)  # the killed modules in the order of their kills
+        else:
+            front.insert(0, v.mod.m)
         waited_since[v.mod.m] = now
 
     total = len(pending)
@@ -402,9 +424,16 @@ def simulate(mods, order, budget_kib, jobs, tick=0.1, growth=10, typ_q=0.5,
                 done += 1
             else:
                 key = (lambda w: w.rank) if kill_by == "rank" else (lambda w: (w.start, w.rank))
+                hs["overflows"] += 1
+                if head_forced and head in running:
+                    hs["overflows_forced"] += 1
                 left = cur_total
                 while left > budget_kib and len(running) > 1:
-                    v = max(running, key=key)
+                    # the head slot's worker is never killed for memory; alone it gets `memory`
+                    cands = [w for w in running if w is not head]
+                    if not cands:
+                        break
+                    v = max(cands, key=key)
                     left -= v.cur
                     kill(v)
         elif budget_kib and running and cur_total > budget_kib:
@@ -452,11 +481,50 @@ def simulate(mods, order, budget_kib, jobs, tick=0.1, growth=10, typ_q=0.5,
             prot_track = None
         if growing and len(running) < jobs and (front or pending):
             gate_ms += dt
-        if growing:
-            continue
         started = False
         budget_plan = plan_of()
-        for _ in range(burst or 10 ** 9):
+
+        def launch(pick, room):
+            nonlocal threads_used, thread_starts, thread_sum, last_start
+            mod = mods[pick]
+            t = threads_for(mod, room - (sizes.get(pick, 0) or typ))
+            w = W()
+            w.mod, w.start, w.threads = mod, now, t
+            w.dur, w.pk = dur_pk(mod, t)
+            w.dur = max(w.dur, 1)
+            w.read_end = now + int((mod.ms - mod.busy) * w.dur / max(1, mod.ms))
+            w.hwm = w.cur = 0
+            w.resv = 0
+            w.rank = rank_of.get(pick, len(rank_of))
+            w.rose = now
+            if pick in waited_since:
+                wait_by[pick] = wait_by.get(pick, 0) + now - waited_since.pop(pick)
+            threads_used += t
+            if t > 1:
+                thread_starts += 1
+            thread_sum += t
+            running.append(w)
+            last_start = now
+            return w
+
+        if kill_by == "head":
+            if head is not None and head not in running:
+                head, head_forced = None, False
+            # the head slot: the first module of the queue, fitting or not, gate or not
+            if head is None and (front or pending) and len(running) < jobs and threads_used < tb:
+                room = (budget_plan - min(budget_plan, sum(eff(w) for w in running))) \
+                    if budget_kib else 1 << 60
+                pick = front.pop(0) if front else pending.pop()
+                need = max(typ, sizes.get(pick, 0))
+                head_forced = bool(running) and need > room
+                head = launch(pick, room)
+                hs["head_starts"] += 1
+                if head_forced:
+                    hs["head_forced"] += 1
+                    if giant_kib and mods[pick].pk >= giant_kib:
+                        hs["head_forced_giants"] += 1
+                started = True
+        for _ in range(0 if growing else (burst or 10 ** 9)):
             if now - last_start < stagger or len(running) >= jobs or threads_used >= tb:
                 break
             if started and stagger > 0:
@@ -495,26 +563,14 @@ def simulate(mods, order, budget_kib, jobs, tick=0.1, growth=10, typ_q=0.5,
                 pick = pending.pop()
             if pick is None:
                 break
-            mod = mods[pick]
-            t = threads_for(mod, room - (sizes.get(pick, 0) or typ))
-            w = W()
-            w.mod, w.start, w.threads = mod, now, t
-            w.dur, w.pk = dur_pk(mod, t)
-            w.dur = max(w.dur, 1)
-            w.read_end = now + int((mod.ms - mod.busy) * w.dur / max(1, mod.ms))
-            w.hwm = w.cur = 0
-            w.resv = 0
-            w.rank = rank_of.get(pick, len(rank_of))
-            w.rose = now
-            if pick in waited_since:
-                wait_by[pick] = wait_by.get(pick, 0) + now - waited_since.pop(pick)
-            threads_used += t
-            if t > 1:
-                thread_starts += 1
-            thread_sum += t
-            running.append(w)
-            last_start = now
+            launch(pick, room)
             started = True
+        if kill_by == "head" and head is not None and head in running and giant_kib \
+                and head.mod.pk >= giant_kib:
+            hs["head_giant_ms"] += dt
+            # memory-starved: a slot and a queued module, the gate open, and still no start fits
+            if (front or pending) and len(running) < jobs and threads_used < tb and not growing:
+                hs["head_giant_starved_ms"] += dt
         if started and plan:
             # the episode ends: its surprise recorded, the reservations as admission saw them
             if ep_max > 0 or not margin_nonzero:
@@ -549,7 +605,8 @@ def simulate(mods, order, budget_kib, jobs, tick=0.1, growth=10, typ_q=0.5,
                 wait_max_s=max(wait_by.values(), default=0) / 1000,
                 wait_sum_s=sum(wait_by.values()) / 1000,
                 giant_waited=len(gw), giant_wait_max_s=max(gw, default=0) / 1000,
-                giant_wait_sum_s=sum(gw) / 1000)
+                giant_wait_sum_s=sum(gw) / 1000,
+                **{k: (v / 1000 if k.endswith("_ms") else v) for k, v in hs.items()})
 
 
 def make_order(mods, how, graph_file):
@@ -702,7 +759,13 @@ RANK_RULES = [("today: sticky protection, youngest by start", "sticky", "prot", 
               ("Bt: rank, local gate while over the plan, drain T=10min", "rank", "local-tight",
                600),
               ("start, local gate while over the plan, drain T=0", "start", "local-tight", 0),
-              ("today, gate off", "sticky", "none", None)]
+              ("today, gate off", "sticky", "none", None),
+              ("H: head slot, local gate while over the plan", "head", "local-tight", None),
+              ("H0: head slot, no gate", "head", "none", None),
+              ("Hf: head slot, tight gate, killed in kill order", "head", "local-tight", None,
+               dict(front_fifo=True)),
+              ("Hf0: head slot, no gate, killed in kill order", "head", "none", None,
+               dict(front_fifo=True))]
 
 
 def rank_compare(a, log, prof, default, base):
@@ -725,8 +788,9 @@ def rank_compare(a, log, prof, default, base):
         _G[name] = (mods, {"shuffled": order}, dict(base, **kw))
     jobs = [(d, float(b), int(j), n, dict(kill_by=k, gate=g, drain=t, threads_d=a.threads_d,
                                           threads_spare=True,
-                                          giant_kib=int(float(b) * 2 ** 20 / 8)))
-            for d, b, j in cases for i, (n, k, g, t) in enumerate(RANK_RULES)
+                                          giant_kib=int(float(b) * 2 ** 20 / 8), **x))
+            for d, b, j in cases for i, (n, k, g, t, *xs) in enumerate(RANK_RULES)
+            for x in [xs[0] if xs else {}]
             if not a.rank_rules or str(i) in a.rank_rules.split(",")]
     with multiprocessing.get_context("fork").Pool(a.procs) as pool:
         res = pool.map(_one, jobs, chunksize=1)
