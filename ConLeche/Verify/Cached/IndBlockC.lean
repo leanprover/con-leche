@@ -3,18 +3,17 @@ module
 public import ConLeche.Cached.CheckerC
 import ConLeche.Verify.Cached.WalkersC
 import ConLeche.Verify.Cached.IndRecC
+import ConLeche.Verify.Cached.IndPositivityC
 import ConLeche.Verify.Cached.IndWalksC
 import ConLeche.Verify.Cached.OpsC
 import ConLeche.Verify.Cached.GuardsC
-import ConLeche.Verify.CheckerF
 
 public section
 
 /-!
 # The block pass's and the classes' twins are the specification (task #498)
 
-The twins of `ConLeche/Cached/IndBlock.lean` (and the family readers
-they share with positivity, `ConLeche/Cached/IndPositivity.lean`) mirror
+The twins of `ConLeche/Cached/IndBlock.lean` mirror
 their specifications at the shared operations `sharedOpsC`: each
 equation unfolds both sides, rewrites the cached walks by their spec
 lemmas and the callees by their equations, and closes by `rfl` (the
@@ -28,24 +27,6 @@ namespace ConLeche.Cached
 open ConLeche
 
 variable (mode : CheckMode)
-
-/-! ## The family readers -/
-
-theorem checkSpineAtC_eq (fe : FEnv) (d : Nat) (as : List Expr) :
-    ∀ t, checkSpineAtC mode fe d t as = checkSpineAt (sharedOpsC mode fe) fe.env d t as := by
-  induction as with
-  | nil => intro t; rfl
-  | cons a as ih =>
-    intro t
-    cases t <;> simp only [checkSpineAtC, checkSpineAt, Expr.instantiate1C_spec, ih] <;> rfl
-
-theorem familyKeyCheckC_eq (fe : FEnv) (find? : Name → Option ConstantInfo) (d : Nat)
-    (c : Name) (us : List Level) (ds : List Expr) :
-    familyKeyCheckC mode fe find? d c us ds =
-      familyKeyCheck (sharedOpsC mode fe) fe.env find? d c us ds := by
-  simp only [familyKeyCheckC, familyKeyCheck, familyTelescopeC_eq, checkSpineAtC_eq,
-    Expr.instLevelParams_spec]
-  rfl
 
 /-! ## Stage 1: the formers -/
 
@@ -128,6 +109,16 @@ theorem checkBlockCtorsC_eq (fe₀ fe : FEnv) (p : BlockShape) :
     simp only [checkBlockCtorsC, checkBlockCtorsF, checkSumCtorsC_eq,
       checkBlockCtorsC_eq fe₀ fe p rest]
 
+/-- The index mirror of the field-sort walk is the `Env` one at the index's environment. -/
+theorem checkStructFieldSortsIF_env (ops : CheckerOps CheckCM) (fe : FEnv) (isProp large : Bool)
+    (s : Level) (nP : Nat) (fvs idxArgs : List Expr) : ∀ j,
+      checkStructFieldSortsIF ops fe isProp large s nP fvs idxArgs j =
+        checkStructFieldSortsI ops fe.env isProp large s nP fvs idxArgs j
+  | 0 => rfl
+  | j + 1 => by
+    simp only [checkStructFieldSortsIF, checkStructFieldSortsI,
+      checkStructFieldSortsIF_env ops fe isProp large s nP fvs idxArgs j]
+
 /-- **The cached index sorts are `checkBlockIdxSortsF` at the shared operations.** -/
 theorem checkBlockIdxSortsC_eq (fe₁ : FEnv) (p : BlockShape) :
     ∀ ms, checkBlockIdxSortsC mode fe₁ p ms =
@@ -135,7 +126,7 @@ theorem checkBlockIdxSortsC_eq (fe₁ : FEnv) (p : BlockShape) :
   | [] => rfl
   | ms :: rest => by
     simp only [checkBlockIdxSortsC, checkBlockIdxSortsF, openPisAtFvarsC_eq,
-      checkStructFieldSortsC_eq, checkStructFieldSortsIFA_eq, checkBlockIdxSortsC_eq fe₁ p rest]
+      checkStructFieldSortsIC_eq, checkStructFieldSortsIF_env, checkBlockIdxSortsC_eq fe₁ p rest]
 
 /-! ## The classes -/
 

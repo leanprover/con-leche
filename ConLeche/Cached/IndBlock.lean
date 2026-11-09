@@ -166,15 +166,14 @@ def checkBlockCtorsC (fe₀ fe : FEnv) (p : BlockShape) : List MemberShape → C
       p.resSort p.isProp p.large ms.cvT ms.ctors
     checkBlockCtorsC fe₀ fe p rest
 
-/-- The cached `checkBlockIdxSortsF` (the tail's index sorts), over the
-array walk (`checkStructFieldSortsIFA_eq`). -/
+/-- The cached `checkBlockIdxSortsF` (the tail's index sorts), over
+positivity's `checkStructFieldSortsIC`. -/
 def checkBlockIdxSortsC (fe₁ : FEnv) (p : BlockShape) : List MemberShape → CheckCM Unit
   | [] => pure ()
   | ms :: rest => do
     let tq ← unwrapOr (openPisAtFvarsC (p.nP + ms.nIdx) ms.cvT.type 0)
       (.internal "direct rec: type former telescope")
-    checkStructFieldSortsC mode fe₁ true false p.resSort p.nP (tq.1.drop p.nP).toArray []
-      ms.nIdx
+    checkStructFieldSortsIC mode fe₁ true false p.resSort p.nP (tq.1.drop p.nP) [] ms.nIdx
     checkBlockIdxSortsC fe₁ p rest
 
 /-! ## The classes: the pre-pass -/

@@ -66,6 +66,12 @@ FALLBACK = {
     # field `replaceFVars`, `IndWalksC.lean:32`).
     ('ConLeche.Verify.Cached.IndWalksC', 'ConLeche.Cached.ExprOpsC'),
     ('ConLeche.Verify.Cached.IndWalksC', 'ConLeche.Kernel.Inductives.GenRec'),
+    # task #498 L2: the positivity twins' equations name `Name`, `Expr`, `sharedOpsC`
+    # (`IndPositivityC.lean:33`, unknown identifier); `DiscC4`'s guard lemmas after the
+    # openers moved out (`DiscC4.lean:455`, the kernel no longer finds `projRowsC_spec`).
+    # Each measured by demoting it alone.
+    ('ConLeche.Verify.Cached.IndPositivityC', 'ConLeche.Cached.CheckerC'),
+    ('ConLeche.Verify.Cached.DiscC4', 'ConLeche.Verify.ProjGuard'),
     # task #498 L3: the pass's and the classes' twin equations state the twins
     # against the specification at `sharedOpsC`.  Measured: demoting the import
     # breaks the file (unknown identifier `FEnv`, `IndBlockC.lean:34`).

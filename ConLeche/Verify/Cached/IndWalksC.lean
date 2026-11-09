@@ -176,11 +176,32 @@ theorem targetPiDomsWithC_eq :
   | _ :: _, .lit _ => rfl
   | _ :: _, .proj .. => rfl
 
+/-! ## Depth -/
+
+/-- **The plain descent computes `Expr.depth`.** -/
+theorem depthP_spec : ∀ e : Expr, depthP e = e.depth := by
+  intro e
+  induction e <;> simp_all [depthP, Expr.depth]
+
+/-- **The cached depth computes `Expr.depth`.** -/
+theorem depthC_spec {e : Expr} : depthC e = e.depth := by
+  rw [depthC, resNat_eq, depthP_spec]
+
 end ConLeche.Expr
 
 namespace ConLeche.Cached
 
 open ConLeche
+
+/-! ## The occurrence test of the guard rows (moved from `DiscC4.lean`, as below) -/
+
+/-- The cached occurrence test is `Expr.hasLooseBVarB` (task #497). -/
+theorem hasLooseBVarBC_spec {i : Nat} {e : Expr} :
+    Expr.hasLooseBVarBC i e = Expr.hasLooseBVarB i e := by
+  unfold Expr.hasLooseBVarBC
+  split
+  · next h => exact (Expr.hasLooseBVarBP_cut h).symm
+  · rw [Expr.resBool_eq]; rfl
 
 /-! ## The one-pass opener (moved from `DiscC4.lean`: the driver's equations import this file) -/
 
