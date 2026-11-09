@@ -415,9 +415,9 @@ def tgtRs (out : List (ConstantVal × TargetMajor × List Expr)) :
 
 /-- **The free variables `0 … k-1` closed at cursor `c`**: `fvar i`
 becomes `bvar (c + k - 1 - i)`, as `e.abstractRange 0 k c` does
-(`abstractPrefix_eq`), computed as the fold of `abstract1` passes,
-innermost first, so the walk is memoized and cut off at the term's
-free-variable range. -/
+(`abstractPrefix_eq`), stated as the fold of `abstract1` passes,
+innermost first (the cached twin `abstractPrefixC` is one
+`abstractRangeC` pass). -/
 def Expr.abstractPrefix : Nat → Nat → Expr → Expr
   | 0, _, e => e
   | k + 1, c, e => abstractPrefix k (c + 1) (e.abstract1 k c)

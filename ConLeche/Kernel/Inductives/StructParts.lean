@@ -12,7 +12,7 @@ stream: the family and constructor spines and the Π-rewrites of the
 generated recursor shape (read by the recursor stage,
 `ConLeche/Kernel/Inductives/GenRec.lean`), the projection table's
 bodies (`structProjBodies`, stored by `checkStructProjTable` at a
-structure-like member), and the memoized occurrence walk
+structure-like member), and the occurrence test
 (`mentionsAnyConst`).
 
 Line numbers cite lean4lean `Lean4Lean/Inductive/Add.lean`, a
