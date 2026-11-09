@@ -111690,3 +111690,83 @@ the plan script's census, measured, in its fallback list).  The link gates' expe
 `streamRecsCheck`'s new signature (OVERVIEW and the whitepaper cite it; the cited text is the
 same function, the paragraphs need no change); the citations of `RecCheck.lean` and
 `ViewCongr.lean` moved by one line with the deleted `walkers` field and are repointed.
+
+## TASK #519 — the official kernel's maximum `Nat` size; `Nat.pow` folds at any exponent (2026-11-09, agent/519-natpow)
+
+**The ruling.**  "Make con-leche behave like official in this regard."  Official dropped
+`reduce_pow`'s exponent cap (`ReducePowMaxExp = 1 << 24`, mirrored here as the divergence
+audit's S2: `natOpResult natPowName a b = none` for `b > 2^24`, so `Nat.pow` unfolded one step
+per unit of the exponent) in lean4#14849, for a byte bound on every `Nat` numeral the kernel
+takes in or computes (`src/kernel/type_checker.cpp` on lean4 master: `g_nat_max_size`,
+`LEAN_NAT_MAX_SIZE`, default 128 MiB; `check_nat_size`, `get_count_arg`, `infer_lit`,
+`reduce_bin_nat_op`'s `check_size`, `reduce_pow`, `reduce_shiftLeft`, `reduce_nat`'s `succ`
+clause; the size is `lean_nat_size_in_bytes`, one word for a scalar, the GMP limbs otherwise).
+Where official throws, con-leche rejects (exit 1), with official's messages (the advice names
+`--max-nat-size` in place of the environment variable).
+
+**The rule as implemented** (`natOpRefusal`, `natResultRefused`, `natSizeBytes`,
+`ConLeche/Cached/StateC.lean`; the call sites in `reduceNatI` and `inferBodyI`'s literal
+clause, `ConLeche/Cached/CoreC.lean`):
+
+* a literal inferred above the maximum size (official `infer_lit`);
+* the result of `Nat.succ`, `Nat.add`, `Nat.sub`, `Nat.mul` above the maximum size, measured after
+  computing (their operands are bounded already);
+* `Nat.pow a b`: `b > 2^32 − 1` refuses whatever `a` is (official checks the count first);
+  otherwise `a > 1 ∧ b ≠ 0 ∧ size a > maxNatSize / b` refuses; else it computes.  At the default
+  maximum size `2 ^ k` folds exactly for `k ≤ 2^24` (`size 2 = 8`, so `8 > 2^27 / k` iff
+  `k > 2^24`): the old cap's edge, now a reject above it instead of an unfolding;
+* `Nat.shiftLeft a b`: `a = 0` computes `0`; otherwise `b > 2^32 − 1` refuses, and so does
+  `size a + b / 8 + 1 > maxNatSize`.
+
+The other operations (`div`, `mod`, `gcd`, `land`, `lor`, `xor`, `shiftRight`, `beq`, `ble`)
+are not measured, as in official.  `natSizeBytes n = 8 * (n.log2 / 64 + 1)` (`Nat.log2` is
+`@[extern]`), official's GMP measure on a 64-bit build.
+
+**Where the maximum size lives.**  The specification (`natOpResult`, `Kernel/CoreDefs.lean`) is the
+computation itself, at any size: its `pow` clause lost the cap and nothing else changed.  The
+bound is the cached core's alone.  It cannot be in the spec without being threaded through
+the spec's knot (a parameter of `pureFns`, 400 references) or every `Env`, and it would buy
+nothing: a refusal only throws, the cached simulation's exception postcondition is `⊤`, and the
+spec would have to take the same bound as the cached run anyway (a spec bound below the
+cached one breaks the simulation, one above it is never reached).  So the guard is a cached
+throw where the spec computes on, like the cached tier's other resource guards.  The bound is
+`CState.maxNatSize` (read by `maxNatSizeM`, the state left as it is); the fold takes it as an argument
+beside the pin list (`checkDecls mode pins maxNatSize`, `declStep`, `DeclsRun`, `recordJob`), and
+each record's fresh state is `{ maxNatSize := maxNatSize }`.  The capstones (`model_exists`,
+`no_False_declaration`, Challenge and MainTheorem alike) gained `(maxNatSize : Nat)`: they hold at
+every `maxNatSize`.  `main_no_False` and the driver theorems are at the default.
+
+**The CLI.**  `--max-nat-size=<bytes>` (decimal; a non-numeral is a usage error, exit 3),
+default `maxNatSizeDefault = 134217728`, threaded `Args.maxNatSize → Req → checkMainG →
+checkDeclsIO/checkOleansG → checkPool/jobRun → recordJob`.  No environment variable: the
+driver reads nothing but its arguments and its files, and `LEAN_NAT_MAX_SIZE` in a user's
+environment silently changing a verdict is what a flag avoids.  (Official reads the variable;
+a malformed value there falls back to the default.)
+The name is `maxNatSize` throughout — the capstones' and the fold's argument, the state field,
+`maxNatSizeM`, `Args.maxNatSize`, `maxNatSizeDefault` — and the flag is spelled to match it,
+`--max-nat-size` (official's variable reads the words the other way round).
+
+**Proofs.**  `natOpResult_shape`, `natOpResult_const`, `NatStep`'s `pow` case: the cap's
+`split` gone.  `reduceNatC_spec` (`DiscC1`) and the two inference walks (`DiscC4`) take
+`maxNatSizeM` into `vcgen`'s list; the new branches are throws.  `CSOKF.empty` became
+`CSOKF.fresh maxNatSize`.  The fold's theorems carry `maxNatSize` beside `pins`.  No `sorry`, no new
+axiom; the capstones' axioms are unchanged.
+
+**Fixtures** (`tests/e2e-expected.txt`): `nat_size` (the raw export, placeholder exponents) and,
+derived by `scripts/mk_nat_size_fixtures.py` (the elaborator cannot state them),
+`nat_size_ok` (`1^4000000000`, `0^4000000000`, `1^(2^32−1)`, `2^(2^24)`, `1 <<< 10^8`: 0),
+`nat_pow_over_max_size` (`2^(2^24+1)`: 1), `nat_pow_exp_32bit` (`1^(2^32)`: 1),
+`nat_shift_over_max_size` (`1 <<< 1073741760`: 1), `nat_shift_exp_32bit` (`1 <<< 2^32`: 1); and
+the port of lean4's `tests/elab/nat_size_limit.lean` at `--max-nat-size=16` (arena.sh's new
+`E2E_FLAGS`): `mul_ok` 0, `mul_big`, `pow_big`, `pow_huge_exp`, `pow_32bit`, `shift_big`,
+`big_lit` 1.  The base binary on the same streams: `nat_size_ok`, `nat_pow_over_max_size`,
+`nat_pow_exp_32bit` time out at 60 s (the unfolding), `nat_shift_over_max_size` accepts after
+computing a 128 MiB numeral, `nat_shift_exp_32bit` aborts in the runtime (`lean_nat_shiftl`'s
+panic, exit 134), `nat_size_limit_mul_big` accepts (no bound).  `nat_size_ok` checks in
+62.8 M instructions.
+
+**Numbers** (`instructions:u`, one run each, `--jobs=1`, verified; base 9bec05e98 → lane):
+init-full 374.915 → 375.246 G (+0.09 %), grind-ring-5 13.149 → 13.170 G (+0.16 %), app-lam
+22.080 → 22.080 G, beta-ladder 4.848 → 4.850 G, let-ladder 2.569 → 2.569 G; the other arena perf
+streams (all under 0.4 G) within +0.1 %.  The cost is the size measure (`Nat.log2`) at every
+inferred literal and every folded `add`/`sub`/`mul`/`succ`.

@@ -99,6 +99,8 @@ def reduceNatI (r : CoreFnsI) (fe : FEnv) (depth : Nat) (e : Expr) :
           let w ← r.whnf depth b
           match ← pure (rawNatLitC? w) with
           | some n => do
+            let maxNatSize ← maxNatSizeM
+            if natSizeBytes (n + 1) > maxNatSize then throw natNumeralTooBig
             let r ← pure (Expr.lit (.natVal (n + 1)))
             pure (some r)
           | none => pure none
@@ -122,9 +124,17 @@ def reduceNatI (r : CoreFnsI) (fe : FEnv) (depth : Nat) (e : Expr) :
             | some n₁ => do
               let w₂ ← r.whnf depth b
               match ← pure (rawNatLitC? w₂) with
-              | some n₂ =>
+              | some n₂ => do
+                -- the maximum `Nat` size (official `reduce_pow`,
+                -- `reduce_shiftLeft`, `reduce_bin_nat_op`): refused
+                -- before computing, or by the computed result's size
+                let maxNatSize ← maxNatSizeM
+                match natOpRefusal maxNatSize cn n₁ n₂ with
+                | some err => throw err
+                | none =>
                 match natOpResult cn n₁ n₂ with
                 | some x => do
+                  if natResultRefused maxNatSize cn x then throw natNumeralTooBig
                   let r ← pure x
                   pure (some r)
                 | none => pure none
@@ -1137,8 +1147,12 @@ def inferBodyI (r : CoreFnsI) (fe : FEnv) : Nat → Expr → CheckCM Expr :=
         unless us.length = cv.levelParams.length do
           throw (.invalid s!"incorrect number of universe levels for {nm}")
         constTyAtM fe n nm us
-    | .lit (.natVal _) => do
+    | .lit (.natVal n) => do
       if natLitStoredF fe then do
+        -- a numeral entering the checker is bounded by `maxNatSize` too
+        -- (official `infer_lit`)
+        let maxNatSize ← maxNatSizeM
+        if natSizeBytes n > maxNatSize then throw natNumeralTooBig
         let ni ← pure natName
         pure (Expr.const ni [])
       else throw (.invalid "Nat literal without the Nat basis declarations")

@@ -82,12 +82,12 @@ and the worker count.
 `con-leche: stats:` lines on stderr -- the phase times, the pool's utilisation and tail, the slowest
 checks, the peak resident set.  Performance-only: printed after the verdict is known, from timings the
 workers accumulate beside their proofs; stdout and the exit code do not see them. -/
-def checkDeclsIO (mode : ConLeche.CheckMode) (err : IO.FS.Stream) (pace : Pace) (t0 tIndex tParse jobs : Nat)
+def checkDeclsIO (mode : ConLeche.CheckMode) (maxNatSize : Nat) (err : IO.FS.Stream) (pace : Pace) (t0 tIndex tParse jobs : Nat)
     {ds : Array ConLeche.Declaration} (J : Jobs ds) :
     IO (Except (ConLeche.CheckError × Nat)
-      (PLift (∃ env, ConLeche.Cached.checkDecls mode ConLeche.natOpPinSets ds = .ok env))) := do
+      (PLift (∃ env, ConLeche.Cached.checkDecls mode ConLeche.natOpPinSets maxNatSize ds = .ok env))) := do
   checkStarts err pace t0 ds.size jobs
-  let (chkRep, res) ← checkPool mode err pace t0 jobs J
+  let (chkRep, res) ← checkPool mode maxNatSize err pace t0 jobs J
   match res with
   | .error e =>
     checkDone err pace t0 tIndex tParse jobs ds chkRep (some e)
