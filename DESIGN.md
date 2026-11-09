@@ -117575,3 +117575,71 @@ InLean's keys (`keyEq`) keep `mdata` and use Lean's hash, its free variables are
 
 **Proofs.**  `addDeclSound` unconditional, axioms unchanged (`propext`, `Classical.choice`,
 `Quot.sound`, the three `mkData` stop-gaps); no `sorry`.
+
+### Lane sync4: master's #515 rounds 2 and 3 and #543, InLean follows (2026-11-09, task #451, agent/451-sync4)
+
+**Merge.**  `master` (49d2fa3fd: #543's e2e fixture, #515's review rounds 2 and 3 and its
+merge) into the lane from agent/451-indlock (fb797e623), `--no-ff`.  Conflicts by hand: the
+fixture `ind_mutual_wide_telescope` and its `e2e-expected.txt` comment take master's landed
+wording; DESIGN.md keeps master's #515 rounds inside the #515 section and the #451 lane records
+after them.  **Last synced master: 49d2fa3fd** (was 8d11cda38).
+
+**The checklist** (`scripts/inlean-cached-diff.sh 8d11cda38 49d2fa3fd` and `git log -p`; #515's
+round 1 and its fieldless-arm follow-up, d220352d8, were InLean's already, so what was new is
+d220352d8..49d2fa3fd):
+
+* `structEtaCertWithI` (cached, `Cached/CoreC`) — ported: the constructor and the counts are
+  the family's table's (`findTable?`), the reserved-name and slot guards gone.
+* `unitLikeShapeF` — ported (`unitLikeShapeM`): one path at every field count, read off the
+  table; the result is `Option (Expr × Nat)`, the fieldless arm and the constructor's
+  level-parameter comparison gone, as in master.
+* `unitLikeStructI` — ported: one arm.
+* `majorToCtorI` — ported: the η rescue is `match etaRescueTable? (findTable? T) …`, its
+  fabrication at the table's constructor and counts; the `And` rescue moves under its `none`.
+* `etaCtorPartialC` (`Cached/StateC`) — ported: the constructor compared is the table's.
+* `etaRescueTable?` (plain, `Kernel/CoreDefs`, run by the binary) — ported, replacing InLean's
+  `etaRescueOk`.
+* `FEnv.findProj?`/`FEnv.towerSlotsAllF` (`Kernel/FEnv`) — ported: master reads the table through
+  `findTable?` and drops `towerSlotsAllF`; InLean's `FEnv.findTable?` (a `TableView`, the table
+  without its bodies) is now the one table reader, `findProj?` views it at a field, `hasTable` is
+  its `isSome`; `tableFields?` and `towerSlotsAllF` are gone.
+* `IndCaps` (`Kernel/Env`) and `blockCapsAt` (`Inductives/BlockInstall`) — ported: InLean's
+  `IndCaps` drops `etaCtor`/`etaParams`/`etaFields`, `capsOf` reads only the `InductiveVal`.
+  With that, a block member's mark carried a field count nothing read: `FEnv.pending` is the
+  members' names, `fieldsOf`/`pendingFields?` gone.
+* `towerSlotsAll`, `etaRescueOk`, `etaRescueOk_inv` — gone in master, gone in InLean.
+* `structEtaFull`/`structUnitCertI`/`unitLikeFieldsI`/`unitLikeLoopI`/`isPropTypeI`/
+  `structEtaExpandI`/`structEtaCertI`/`etaCtorShapeC`/`unitLikeFuel` — listed by the script, but
+  changed only in round 1 (or in a comment) and InLean's already: nothing to port.
+* #543 (an e2e fixture) — not applicable.
+
+**Proofs.**  `EnvViewI` relates the tables (`table`, `tableNone`); the projection views
+`EnvViewI.proj`/`projNone` are derived from them, as master's `findProj?` is from
+`findTable?`.  `DefeqEnvI` reads a table as `tblRd` (the `towerSlots` field gone, `IndGate` is
+the levels and `eta`); `structEtaCertWith_eq` names the table lookup, and its `finish` needs one
+generation more (13, the third lookup).  `etaRescueTable_V_some`/`_none` (`IotaViews`) replace
+`etaRescueOk_CV`; `mtcEtaIL` takes the table, as master's `mtcEtaCont`.  The unit-like shape's
+spec and its closedness (`unitLikeShape_closed`, now from master's `unitLikeShape_some`) follow
+the one-path shape.  `TableRelI`'s `none` case is `findTable? = none`; the table lemmas
+(`findTable_of`, `findTable_foldl_old`, `findTable_congr`, `MarkedExt.findTable?`) carry the
+projection ones.  The marks are name lists (`isPending_mark`, `isPending_marks`);
+`capsOf_congr`, `fieldsOf_congr`, `fieldsOf_nopend`, `pendingFields_go_isSome`, `markOf` and
+the reserved-name lemmas of the η readers went.  `addDeclSound` unconditional, axioms unchanged
+(`propext`, `Classical.choice`, `Quot.sound`, the three `mkData` stop-gaps); no `sorry`.
+
+**Gates.**  `lake build`, `lake test`, `lake build InLean InLeanProof inlean-replay`
+warning-free; layering, trust-surface, shake, inlean-sync (23 files), plain-reach (577, all
+allowlisted).
+
+**Init.**  Replay `--compare`: 64530 accepted, 0 exact and 0 cosmetic mismatches.  Cost
+(`perf stat -e instructions:u`, one run each, InLean verified): fb797e623 450 795 677 538, the
+lane's head 451 031 556 572 (+0.05 %); con-leche at master 49d2fa3fd (`--olean --jobs=1`, 63937
+declarations) 427 526 786 231 (InLean +5.5 %).  The +0.05 % is not attributed (a candidate:
+`findProj?` now allocates the table view before the entry, as master's does); not pursued.
+
+**lean4** (`joachim/inlean-kernel`).  One commit on 22cc7f83 (the remote is at bb569fb7, an
+ancestor), `refactor: InLean reads structure eta off the projection table` (f1b97eac, the
+regeneration); `inlean-sync.py check` OK.  Stage1 suite (4843 tests): all pass but
+`async/elab/async_systems_info` (sandbox).  Every `tests/elab_bench/*.lean` (93 files) at
+`TEST_BENCH=1` passes; `deriving_mutual_block`'s `#mutual_block` takes 182.2 M heartbeats
+(182.1 M before; limit 200 M).
