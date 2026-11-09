@@ -70,27 +70,15 @@ theorem emvarS_closeLams (bs : List Lean.Expr) (i : Nat) (body : Lean.Expr)
     (∀ b ∈ bs, emvarS b = false) ∧ emvarS body = false :=
   emvarS_closeLamsFrom bs i 0 body h
 
-/-- Master's λ-closing in bulk (`closeTeleR`'s twin). -/
-@[expose] def closeLamsR : List ConLeche.Expr → Nat → Nat → ConLeche.Expr → ConLeche.Expr
-  | [], i, j, body => body.abstractRange i j 0
-  | dom :: bs, i, j, body => .lam (dom.abstractRange i j 0) (closeLamsR bs i (j + 1) body)
-
-theorem closeLamsR_eq : ∀ (bs : List ConLeche.Expr) (i j : Nat) (body : ConLeche.Expr),
-    (ConLeche.closeLams bs (i + j) body).abstractRange i j 0 = closeLamsR bs i j body
-  | [], _, _, _ => rfl
-  | dom :: bs, i, j, body => by
-    have hs := ConLeche.abstractRange_succ (ConLeche.closeLams bs (i + j + 1) body) i j 0
-    rw [Nat.zero_add] at hs
-    simp only [ConLeche.closeLams, ConLeche.Expr.abstractRange, closeLamsR, ← hs]
-    rw [← closeLamsR_eq bs i (j + 1) body]
-    rfl
-
 theorem closeLamsFrom_tr (s : InLean.CState) :
     ∀ (bs : List Lean.Expr) (i j : Nat) (body : Lean.Expr), OkSL s bs = true → OkS s body = true →
       emvarS (InLean.closeLamsFrom bs i j body) = false →
       OkS s (InLean.closeLamsFrom bs i j body) = true ∧
-        TrS s (InLean.closeLamsFrom bs i j body) = closeLamsR (TrSL s bs) i j (TrS s body)
-  | [], i, j, body, _, hb, hm => tr_abstractDepthsFrom hb i j 0 hm
+        TrS s (InLean.closeLamsFrom bs i j body) =
+          ConLeche.Expr.closeLamsGoC i j (TrSL s bs) (TrS s body)
+  | [], i, j, body, _, hb, hm => by
+    simp only [TrSL, List.map_nil, ConLeche.Expr.closeLamsGoC, ConLeche.Expr.abstractRangeC_spec]
+    exact tr_abstractDepthsFrom hb i j 0 hm
   | dom :: bs, i, j, body, hbs, hb, hm => by
     simp only [OkSL, List.all_cons, Bool.and_eq_true] at hbs
     simp only [InLean.closeLamsFrom, emvarS, Bool.or_eq_false_iff] at hm
@@ -99,21 +87,19 @@ theorem closeLamsFrom_tr (s : InLean.CState) :
     refine ⟨?_, ?_⟩
     · simp only [InLean.closeLamsFrom, OkS_lam, Bool.and_eq_true]
       exact ⟨hokA, hC⟩
-    · simp only [InLean.closeLamsFrom, TrS_lam, TrSL, List.map_cons, closeLamsR]
+    · simp only [InLean.closeLamsFrom, TrS_lam, TrSL, List.map_cons,
+        ConLeche.Expr.closeLamsGoC, ConLeche.Expr.mkLam_eq, ConLeche.Expr.abstractRangeC_spec]
       rw [htrA, hTC]
       rfl
 
-/-- **InLean's λ-closing reads as master's** where it wrote no out-of-range
-marker (`closeTelescope_tr`'s twin). -/
+/-- **InLean's λ-closing reads as master's `closeLamsC`** where it wrote no
+out-of-range marker (`closeTelescope_tr`'s twin). -/
 theorem closeLams_tr (s : InLean.CState) (bs : List Lean.Expr) (i : Nat) (body : Lean.Expr)
     (hbs : OkSL s bs = true) (hb : OkS s body = true)
     (hm : emvarS (InLean.closeLams bs i body) = false) :
     OkS s (InLean.closeLams bs i body) = true ∧
-      TrS s (InLean.closeLams bs i body) = ConLeche.closeLams (TrSL s bs) i (TrS s body) := by
-  obtain ⟨h1, h2⟩ := closeLamsFrom_tr s bs i 0 body hbs hb hm
-  refine ⟨h1, ?_⟩
-  change TrS s (InLean.closeLamsFrom bs i 0 body) = _
-  rw [h2, ← closeLamsR_eq, Nat.add_zero, ConLeche.abstractRange_zero]
+      TrS s (InLean.closeLams bs i body) = ConLeche.Expr.closeLamsC (TrSL s bs) i (TrS s body) :=
+  closeLamsFrom_tr s bs i 0 body hbs hb hm
 
 /-! ## Lists -/
 
@@ -324,6 +310,7 @@ theorem minorIhStepOk {sb sg : InLean.CState} {g : InLean.ClassGen} {fvs ws : Li
       · rfl
       · rw [OkSL_cons, OkS_mkAppN, hf₃, hxs']; rfl
     obtain ⟨ho, ht⟩ := closeTelescope_tr s' bs _ _ (okSL_of_tabLe ht₃ hbso) hbody hem
+    rw [ConLeche.Expr.closeTelescopeC_eq] at ht
     refine ⟨ho, ?_⟩
     rw [ht, TrSL_of_tabLe ht₃ hbso, hbst]
     unfold InLean.mkAppL
@@ -445,6 +432,7 @@ theorem minorTyI_run {s₀ s' : InLean.CState} {g : InLean.ClassGen} {c d : Nat}
     · rw [OkSL_cons, OkS_mkAppN, OkS_const, hMn.1, OkSL_append (h := hds₄) (h' := hfo₄)]; rfl
   obtain ⟨ho, ht⟩ := closeTelescope_tr s' (bs ++ ihs) d _
     (OkSL_append (h := hbso) (h' := okSL_of_tabLe ht₄ hihso)) hbody hem
+  rw [ConLeche.Expr.closeTelescopeC_eq] at ht
   refine ⟨ho, ?_⟩
   simp only [Option.bind_eq_bind] at hihsC
   rw [hihsC]
@@ -719,6 +707,7 @@ theorem classGenRecTyI_run {s₀ s' : InLean.CState} {g : InLean.ClassGen} {c : 
       (h' := okSL_of_tabLe ht₄ hbso)) (h' := ?_)
     rw [OkSL_cons, okS_of_tabLe ht14 hmo]; rfl
   obtain ⟨ho, htr⟩ := closeTelescope_tr s' _ 0 _ hbs hbody hem
+  rw [ConLeche.Expr.closeTelescopeC_eq] at htr
   refine ⟨ho, ?_⟩
   rw [htr, TrSL_append, TrSL_append, TrSL_of_tabLe ((ht₁.trans ht₂).trans ht₄) hpre,
     TrSL_of_tabLe ht₄ hbso, hbst, TrSL_of_tabLe ht₂ hfv.okSL, TrSL_cons, TrSL_nil,
@@ -964,6 +953,7 @@ theorem ruleIhStepOk {sb sg : InLean.CState} {g : InLean.ClassGen} {ks : List In
         (h' := hidx)) (h' := by rw [OkSL_cons, OkS_mkAppN, okS_of_tabLe hbt hf₀, hxs.okSL]; rfl)]
       rfl
     obtain ⟨ho, htr⟩ := closeLams_tr s' bs _ _ hbso hbody hem'
+    rw [ConLeche.Expr.closeLamsC_eq] at htr
     refine ⟨fun e he => (by cases he; exact ho), ?_⟩
     simp only [Option.map_some, Option.pure_def, Option.some.injEq]
     rw [htr, hbst]
@@ -1115,6 +1105,7 @@ theorem classGenRuleI_run {s₀ s' : InLean.CState} {g : InLean.ClassGen}
   obtain ⟨ho, htr⟩ := closeLams_tr s' (g.pre ++ bs) 0 _
     (OkSL_append (h := okSL_of_tabLe (((ht₁.trans ht₃).trans ht₄).trans ht₆) hpre)
       (h' := okSL_of_tabLe ht₆ hbso)) hbody hem
+  rw [ConLeche.Expr.closeLamsC_eq] at htr
   refine ⟨ho, ?_⟩
   rw [(hfv.mono ht₃).2, TrSL_of_tabLe ht₃ hws] at hihsC
   erw [hihsC]

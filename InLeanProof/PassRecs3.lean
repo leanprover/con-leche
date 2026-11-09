@@ -1184,6 +1184,7 @@ theorem motiveTyI_run {mode : ConLeche.CheckMode} {eager : Bool} {env : ConLeche
     have hbo : OkS s₁ (Lean.Expr.forallE .anonymous maj (.sort g.elim) .default) = true := by
       simp only [OkS_forallE, hmo, OkS_sort, hel, Bool.and_self]
     obtain ⟨ho, ht⟩ := closeTelescope_tr s₁ bs d _ hbso hbo hem
+    rw [ConLeche.Expr.closeTelescopeC_eq] at ht
     refine ⟨ho, ?_⟩
     rw [ht, hbst]
     rfl

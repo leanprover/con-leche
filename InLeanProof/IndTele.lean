@@ -2,6 +2,7 @@ module
 
 public import InLeanProof.IndMembers
 public import ConLeche.Verify.Cached.NestPosC
+import ConLeche.Verify.Cached.IndWalksC
 
 /-!
 # O7: the former's whnf telescope and its reduct (task #451, lane O7)
@@ -9,7 +10,7 @@ public import ConLeche.Verify.Cached.NestPosC
 `whnfTelescopeI_run` (`whnfTelescopeS_spec`'s twin): InLean's telescope loop at
 the job's operations answers master's fueled loop at the translation, the
 domains read at the final state.  `closeTelescope_tr`: InLean's closing (by
-depth, `EO.abstractDepthsFrom`) reads as master's `closeTelescope` when it
+depth, `EO.abstractDepthsFrom`) reads as master's `closeTelescopeC` when it
 wrote no out-of-range marker, which `reducedFormer` checks
 (`reducedFormer_emvar`).  `reducedFormerSimI` discharges `ReducedFormerSimI`.
 -/
@@ -201,32 +202,17 @@ theorem tr_abstractDepthsFrom {s : InLean.CState} {e : Lean.Expr} (he : OkS s e 
     (toExpr_abstractDepthsFrom (FVarTable.trans_depthOK _) (RangeOk_of_OkS he) (TransS_of_ok he)
       d k c hm)
 
-/-- Master's telescope closing in bulk: the binders `j` deep closed at the
-variables `i ..< i + j` of the binders outside them. -/
-@[expose] def closeTeleR : List ConLeche.Expr → Nat → Nat → ConLeche.Expr → ConLeche.Expr
-  | [], i, j, body => body.abstractRange i j 0
-  | dom :: bs, i, j, body => .forallE (dom.abstractRange i j 0) (closeTeleR bs i (j + 1) body)
-
-/-- The `abstract1` chain is the bulk closing (`abstractRange_succ`, peeled
-binder by binder). -/
-theorem closeTeleR_eq : ∀ (bs : List ConLeche.Expr) (i j : Nat) (body : ConLeche.Expr),
-    (ConLeche.closeTelescope bs (i + j) body).abstractRange i j 0 = closeTeleR bs i j body
-  | [], _, _, _ => rfl
-  | dom :: bs, i, j, body => by
-    have hs := ConLeche.abstractRange_succ (ConLeche.closeTelescope bs (i + j + 1) body) i j 0
-    rw [Nat.zero_add] at hs
-    simp only [ConLeche.closeTelescope, ConLeche.Expr.abstractRange, closeTeleR, ← hs]
-    rw [← closeTeleR_eq bs i (j + 1) body]
-    rfl
-
-/-- **InLean's closing reads as master's bulk closing** where it wrote no
-out-of-range marker. -/
+/-- **InLean's closing reads as master's one-pass closing**
+(`closeTelescopeGoC`) where it wrote no out-of-range marker. -/
 theorem closeTelescopeFrom_tr (s : InLean.CState) :
     ∀ (bs : List Lean.Expr) (i j : Nat) (body : Lean.Expr), OkSL s bs = true → OkS s body = true →
       emvarS (InLean.closeTelescopeFrom bs i j body) = false →
       OkS s (InLean.closeTelescopeFrom bs i j body) = true ∧
-        TrS s (InLean.closeTelescopeFrom bs i j body) = closeTeleR (TrSL s bs) i j (TrS s body)
-  | [], i, j, body, _, hb, hm => tr_abstractDepthsFrom hb i j 0 hm
+        TrS s (InLean.closeTelescopeFrom bs i j body) =
+          ConLeche.Expr.closeTelescopeGoC i j (TrSL s bs) (TrS s body)
+  | [], i, j, body, _, hb, hm => by
+    simp only [TrSL, List.map_nil, ConLeche.Expr.closeTelescopeGoC, ConLeche.Expr.abstractRangeC_spec]
+    exact tr_abstractDepthsFrom hb i j 0 hm
   | dom :: bs, i, j, body, hbs, hb, hm => by
     simp only [OkSL, List.all_cons, Bool.and_eq_true] at hbs
     simp only [InLean.closeTelescopeFrom, emvarS, Bool.or_eq_false_iff] at hm
@@ -235,22 +221,20 @@ theorem closeTelescopeFrom_tr (s : InLean.CState) :
     refine ⟨?_, ?_⟩
     · simp only [InLean.closeTelescopeFrom, OkS_forallE, Bool.and_eq_true]
       exact ⟨hokA, hC⟩
-    · simp only [InLean.closeTelescopeFrom, TrS_forallE, TrSL, List.map_cons, closeTeleR]
+    · simp only [InLean.closeTelescopeFrom, TrS_forallE, TrSL, List.map_cons,
+        ConLeche.Expr.closeTelescopeGoC, ConLeche.Expr.mkForallE_eq, ConLeche.Expr.abstractRangeC_spec]
       rw [htrA, hTC]
       rfl
 
-/-- **InLean's closing reads as master's** where it wrote no out-of-range
-marker. -/
+/-- **InLean's closing reads as master's `closeTelescopeC`** where it wrote
+no out-of-range marker. -/
 theorem closeTelescope_tr (s : InLean.CState) (bs : List Lean.Expr) (i : Nat) (body : Lean.Expr)
     (hbs : OkSL s bs = true) (hb : OkS s body = true)
     (hm : emvarS (InLean.closeTelescope bs i body) = false) :
     OkS s (InLean.closeTelescope bs i body) = true ∧
       TrS s (InLean.closeTelescope bs i body) =
-        ConLeche.closeTelescope (TrSL s bs) i (TrS s body) := by
-  obtain ⟨h1, h2⟩ := closeTelescopeFrom_tr s bs i 0 body hbs hb hm
-  refine ⟨h1, ?_⟩
-  change TrS s (InLean.closeTelescopeFrom bs i 0 body) = _
-  rw [h2, ← closeTeleR_eq, Nat.add_zero, ConLeche.abstractRange_zero]
+        ConLeche.Expr.closeTelescopeC (TrSL s bs) i (TrS s body) :=
+  closeTelescopeFrom_tr s bs i 0 body hbs hb hm
 
 /-! ## The reduct -/
 
@@ -344,6 +328,7 @@ theorem reducedFormerSimI : ReducedFormerSimI := by
     (by rw [TrS_of_okC _ hok]; exact trC_wscoped 0 _) (by rw [TrS_of_okC _ hok]; exact hcl) h1
   obtain ⟨hokC, htC⟩ := closeTelescope_tr s₁ bs 0 (.sort u) hokbs (by simpa [OkS_sort] using hoku)
     hpoison
+  rw [ConLeche.Expr.closeTelescopeC_eq] at htC
   rw [TrS_of_okC _ hok] at hR
   -- the master reduct: closed and free of free variables
   have hRun : Runs (ConLeche.reducedFormer (ConLeche.fueledOpsM .verified) L (trCV cv) n)

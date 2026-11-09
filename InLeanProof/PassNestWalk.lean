@@ -4,6 +4,7 @@ public import InLeanProof.PassNestPos
 public import InLeanProof.NestDepth
 import ConLeche.Verify.Inductives.NestScope
 import ConLeche.Verify.Cached.NestPosC
+import ConLeche.Verify.Cached.IndWalksC
 import ConLeche.Verify.Cached.Erase
 import ConLeche.Verify.Inductives.NestCallSyn
 /- `Expr.isFVar`'s body (`nestResHead_tr`). -/
@@ -354,6 +355,7 @@ theorem nestCtorsI_run {fe : InLean.FEnv} {L : ConLeche.Env} {ctx : InLean.NestC
       simp only [hm, Bool.false_eq_true, ↓reduceIte] at h
       obtain ⟨hokT, hTC⟩ := closeTelescope_tr s₅ nds hi cur hnds.1 hcur.1
         (emvarS_closeTelescope hnds.1 hcur.1 (by simpa using hm))
+      rw [ConLeche.Expr.closeTelescopeC_eq] at hTC
       by_cases hu : ((List.range nF).any fun i => ks.getD i .ordinary != .ordinary &&
           InLean.structUsedLater (InLean.closeTelescope nds hi cur) 0 i) = true
       · simp only [hu, ↓reduceIte] at h
