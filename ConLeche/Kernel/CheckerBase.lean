@@ -122,50 +122,6 @@ def checkConstantVal (ops : CheckerOps m) (env : Env) (cv : ConstantVal)
   let stype ← ops.inferType env 0 cv.type
   let _u ← ops.ensureSort env 0 stype
 
-open Expr in
-/-- The one-pass opening is the sequential one. -/
-theorem openPisAtFvarsFGo_sound :
-    ∀ (n : Nat) (e : Expr) (i : Nat) (acc : List Expr)
-      {r : List Expr × Expr},
-      openPisAtFvarsFGo acc n e i = some r →
-      openPisAtFvars n (e.instantiateList acc) i = some r
-  | 0, e, i, acc, r, h => by
-    simp only [openPisAtFvarsFGo, Option.some.injEq] at h
-    simp only [openPisAtFvars, ← h]
-  | n + 1, .forallE dom body, i, acc, r, h => by
-    simp only [openPisAtFvarsFGo] at h
-    split at h
-    case _ fvs e' hgo =>
-      have ih := openPisAtFvarsFGo_sound n body (i + 1)
-        (Expr.fvar i (dom.instantiateList acc) :: acc) hgo
-      rw [instantiateList_cons] at ih
-      simp only [instantiateList, openPisAtFvars, ih]
-      exact h
-    case _ => exact nomatch h
-
-open Expr in
-theorem openPisAtFvarsF_eq (n : Nat) (e : Expr) (i : Nat) :
-    openPisAtFvarsF n e i = openPisAtFvars n e i := by
-  unfold openPisAtFvarsF
-  match h : openPisAtFvarsFGo [] n e i with
-  | some r =>
-    have := openPisAtFvarsFGo_sound n e i [] h
-    rw [instantiateList_nil] at this
-    exact this.symm
-  | none => rfl
-
-/-- **Every `openPisAtFvars` runs as `openPisAtFvarsF`**: the
-sequential definition rewrites the whole remaining body once per
-binder (`instantiate1`), quadratic in binders × body — the recursor stage
-opens each (auxiliary) recursor's type, `mI + 1`
-binders over a body carrying every motive and minor, at every rule.
-The one-pass form instantiates each domain once and the body once.
-Kernel-checked; every proof keeps consuming `openPisAtFvars`. -/
-@[csimp] theorem openPisAtFvars_eq_openPisAtFvarsF :
-    @openPisAtFvars = @openPisAtFvarsF := by
-  funext n e i
-  exact (openPisAtFvarsF_eq n e i).symm
-
 /-- Unwrap an optional value or fail with the given error (the
 `Option`-shaped checks below stay bind-shaped for the verification
 batteries). -/

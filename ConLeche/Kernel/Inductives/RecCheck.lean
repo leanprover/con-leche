@@ -26,11 +26,9 @@ record pins:
 * the stored family's formats (`tgtRs`, `generatedRules`,
   `blockRecInfosTF`) and the container bit (`blockNestedBit`).
 
-Everything is written over an `FEnv`, parameterised by `ShadowOps` (the
-operations at an index, a flush), so the pure install
-(`ShadowOps.ofOps`) and the unit tests run the same code; the cached
-fold runs the twins of `ConLeche/Cached/IndRec.lean`, equal to this code
-at `shadowOpsC` (`genRecCheckC_eq`).
+Everything is written over an `FEnv` and a checker's operations; the
+cached driver runs the twins of `ConLeche/Cached/IndRec.lean`, simulated
+against this code (`genRecCheckS_spec`).
 -/
 
 namespace ConLeche
@@ -57,9 +55,8 @@ the carrier, and the separated tuple lies below it), so a hole occurs
 in the abstract term only where the term itself names a member, and a
 hole-free abstract term IS a concrete one.  The cached twin `targetAbsC`
 (`ConLeche/Cached/ExprOpsC.lean`) is memoised on the node (tower-shaped DAG fields,
-`tower_struct`).  It is NOT `replaceConsts`
-(`Kernel/ExprOps.lean`) at the member map, on purpose: that one
-rewrites free variables' annotations too, and here the frame's fields
+`tower_struct`).  It is NOT a constant replacement at the member map
+that descends into free variables' annotations, on purpose: here the frame's fields
 must keep their concrete types (see below) — an abstracted annotation
 would make every domain that names an earlier recursive field look
 holed. -/
@@ -120,33 +117,6 @@ environment `fe`. -/
 def classFeR (p : BlockShape) (Ms : List TargetMajor) (cvGs : List ConstantVal)
     (recCls : List Nat) (fe : FEnv) : FEnv :=
   consBlockRecsBareF p 0 ((cvGs.zip recCls).map fun (cv, c) => (cv, (Ms.getD c default).nIdx)) fe
-
-/-- **The operations the shadow runs on**, per index: the checker's
-entry points at an `FEnv` (`opsAt`), their variant for the rules
-(`opsRuleR`: the cached one flushes at the two environment transitions
-a rule makes, `sharedOpsRuleR`), the flush at an environment change,
-and the environment the rule stage infers the
-rules at (`ruleEnv`: the rule-less generated recursors consed onto the
-constructors' environment — pushed in the pure install, `classFeR`; an
-overlay sharing the index in the cached one, `classFeROvl`).  The pure
-instantiation ignores the index (the pure operations read the `Env`
-they are handed); the cached one is index-bound. -/
-structure ShadowOps (m : Type → Type) where
-  opsAt : FEnv → CheckerOps m
-  opsRuleR : FEnv → CheckerOps m
-  flush : m Unit
-  ruleEnv : BlockShape → List TargetMajor → List ConstantVal → List Nat → FEnv → FEnv
-
-/-- A checker's operations as shadow operations: the same at every
-index, no flush, the rule-less recursors pushed —
-how the PURE install runs the check (`checkBlockRec`, `BlockTail.lean`). -/
-def ShadowOps.ofOps (ops : CheckerOps m) : ShadowOps m :=
-  ⟨fun _ => ops, fun _ => ops, Pure.pure (), classFeR⟩
-
-/-- The pure operations at fuel `F`, at every index (the fueled
-instantiation the model reads a run of). -/
-def ShadowOps.fueled (mode : CheckMode) (F : Nat) : ShadowOps CheckM :=
-  ShadowOps.ofOps (fueledOps mode F)
 
 /-- A term with every free variable's ANNOTATION erased (the variable
 kept): the comparison K.53′ runs up to, which is exactly what the model's
@@ -445,9 +415,9 @@ def tgtRs (out : List (ConstantVal × TargetMajor × List Expr)) :
 
 /-- **The free variables `0 … k-1` closed at cursor `c`**: `fvar i`
 becomes `bvar (c + k - 1 - i)`, as `e.abstractRange 0 k c` does
-(`abstractPrefix_eq`), computed as the fold of `abstract1` passes,
-innermost first, so the walk is memoized and cut off at the term's
-free-variable range. -/
+(`abstractPrefix_eq`), stated as the fold of `abstract1` passes,
+innermost first (the cached twin `abstractPrefixC` is one
+`abstractRangeC` pass). -/
 def Expr.abstractPrefix : Nat → Nat → Expr → Expr
   | 0, _, e => e
   | k + 1, c, e => abstractPrefix k (c + 1) (e.abstract1 k c)

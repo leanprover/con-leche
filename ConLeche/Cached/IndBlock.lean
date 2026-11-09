@@ -94,7 +94,7 @@ def checkBlockIndsC (fe : FEnv) (p : BlockShape) (isRec : Bool) :
 
 /-! ## Stage 1b: the constructors -/
 
-/-- The cached `checkStructDomsAtFA`. -/
+/-- The cached `checkStructDomsAtF`, over arrays. -/
 def checkStructDomsAtC (fe : FEnv) (off : Nat) (fvs doms : Array Expr) : Nat → CheckCM Unit
   | 0 => pure ()
   | j + 1 => do
@@ -104,7 +104,7 @@ def checkStructDomsAtC (fe : FEnv) (off : Nat) (fvs doms : Array Expr) : Nat →
       throw (.notImplemented "direct structure: binder domain mismatch")
     checkStructDomsAtC fe off fvs doms j
 
-/-- The cached `checkStructFieldSortsIFA`. -/
+/-- The cached `checkStructFieldSortsIF`, over an array of field variables. -/
 def checkStructFieldSortsC (fe : FEnv) (isProp large : Bool) (s : Level) (nP : Nat)
     (fvs : Array Expr) (idxArgs : List Expr) : Nat → CheckCM Unit
   | 0 => pure ()

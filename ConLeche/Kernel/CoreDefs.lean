@@ -1,8 +1,6 @@
 module
 
 public import ConLeche.Kernel.PropRead
-import ConLeche.Kernel.Level
-import ConLeche.Kernel.ExprOps
 public import ConLeche.Kernel.Basis
 
 @[expose] public section
@@ -580,17 +578,16 @@ def natOpEquations (d : Nat) (c : Name) : List (Expr × Expr) :=
   else []
 
 /-- The reduct of op `c` on literal arguments (`pred` ignores the
-second slot). -/
+second slot): the computation itself, at any size.  The official
+kernel's maximum `Nat` size, which refuses a computation that would be too
+large, is the cached core's (`natOpRefusal`,
+`ConLeche/Cached/StateC.lean`). -/
 def natOpResult (c : Name) (a b : Nat) : Option Expr :=
   if c = natPredName then some (.lit (.natVal (a - 1)))
   else if c = natAddName then some (.lit (.natVal (a + b)))
   else if c = natSubName then some (.lit (.natVal (a - b)))
   else if c = natMulName then some (.lit (.natVal (a * b)))
-  else if c = natPowName then
-    -- the divergence audit's S2: official `reduce_pow` refuses exponents
-    -- above `ReducePowMaxExp = 1 << 24` (`type_checker.cpp:616-627`) and
-    -- lets `Nat.pow` unfold instead — the blow-up protection, mirrored
-    if b > 16777216 then none else some (.lit (.natVal (a ^ b)))
+  else if c = natPowName then some (.lit (.natVal (a ^ b)))
   else if c = natDivName then some (.lit (.natVal (a / b)))
   else if c = natModName then some (.lit (.natVal (a % b)))
   else if c = natGcdName then some (.lit (.natVal (Nat.gcd a b)))
@@ -766,32 +763,6 @@ def openPisAtFvars : Nat → Expr → Nat → Option (List Expr × Expr)
     | some (fvs, e) => some (fv :: fvs, e)
     | none => none
   | _ + 1, _, _ => none
-
-/-- Core of `openPisAtFvarsF`: `acc` holds the already-created fvars,
-innermost binder first.  Computes
-`openPisAtFvars n (e.instantiateList acc) i` whenever `e` raw-strips
-`n` `∀`-binders (`openPisAtFvarsFGo_sound`), `none` otherwise —
-one bulk instantiation pass per domain instead of one whole-telescope
-`instantiate1` pass per binder.  The cached tier's own loop is
-`openPisAtFvarsGoC` (`Cached/ExprOpsC.lean`, over `instantiateListC`). -/
-def openPisAtFvarsFGo (acc : List Expr) :
-    Nat → Expr → Nat → Option (List Expr × Expr)
-  | 0, e, _ => some ([], e.instantiateList acc)
-  | n + 1, .forallE dom body, i =>
-    let fv : Expr := .fvar i (dom.instantiateList acc)
-    match openPisAtFvarsFGo (fv :: acc) n body (i + 1) with
-    | some (fvs, e) => some (fv :: fvs, e)
-    | none => none
-  | _ + 1, _, _ => none
-
-/-- One-pass `openPisAtFvars` (equal to it: `openPisAtFvarsF_eq`; the
-fallback covers telescopes whose binders only appear after
-substitution). -/
-def openPisAtFvarsF (n : Nat) (e : Expr) (i : Nat) :
-    Option (List Expr × Expr) :=
-  match openPisAtFvarsFGo [] n e i with
-  | some r => some r
-  | none => openPisAtFvars n e i
 
 /-- Does `bvar i` occur loose in `e`?  (Not through fvar type
 annotations — the generated telescopes are fvar-free.) -/

@@ -1,11 +1,9 @@
 module
 
-public import ConLeche.Verify.FastOps
 public import ConLeche.Verify.ProjTele
-import ConLeche.Kernel.Inductives.StructParts
 import ConLeche.Verify.Cached.Erase
 public import ConLeche.Verify.Level
-import ConLeche.Kernel.Inductives.SumInstall
+public import ConLeche.Kernel.Inductives.SumInstall
 
 public section
 

@@ -12,8 +12,8 @@ Everything the installer decides about WHERE the block occurs in a
 constructor field lives here, and nothing about it anywhere else:
 
 * **the occurrence test** at the block's whole member list
-  (`Expr.mentionsAnyConst`, `ConLeche/Kernel/Inductives/StructParts.lean`,
-  memoized by `@[csimp]`);
+  (`Expr.mentionsAnyConst`, `ConLeche/Kernel/Inductives/StructParts.lean`;
+  the cached tier runs `mentionsAnyConstC`);
 * **the normalisation** official's `check_positivity` classifies on:
   the positivity function's own normal form (the root frame's output,
   `nestRoot`; OUTPUT only — the install stores every constructor as

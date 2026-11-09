@@ -11,11 +11,11 @@
 
 >>> whitepaper/main.typ
 
-== ConLeche/MainTheorem.lean#L98-L101
-    98  theorem model_exists (V : Type w) [SetTheory V]
-    99      (pins : List NatOpPinSet) (ds : Array Declaration) (env : Env)
-   100      (accepted : checkDecls .verified pins ds = .ok env) :
-   101      Nonempty (Model V env) := by
+== ConLeche/MainTheorem.lean#L102-L105
+   102  theorem model_exists (V : Type w) [SetTheory V]
+   103      (pins : List NatOpPinSet) (maxNatSize : Nat) (ds : Array Declaration) (env : Env)
+   104      (accepted : checkDecls .verified pins maxNatSize ds = .ok env) :
+   105      Nonempty (Model V env) := by
 
 == whitepaper/Fragment/Sound.lean#L2322-L2326
   2322  theorem soundness [LevelOracle] (m : EnvModel V env) (φ : Name → Nat) :
@@ -26,11 +26,11 @@
 
 >>> whitepaper/sections/01-introduction.typ
 
-== ConLeche/MainTheorem.lean#L98-L101
-    98  theorem model_exists (V : Type w) [SetTheory V]
-    99      (pins : List NatOpPinSet) (ds : Array Declaration) (env : Env)
-   100      (accepted : checkDecls .verified pins ds = .ok env) :
-   101      Nonempty (Model V env) := by
+== ConLeche/MainTheorem.lean#L102-L105
+   102  theorem model_exists (V : Type w) [SetTheory V]
+   103      (pins : List NatOpPinSet) (maxNatSize : Nat) (ds : Array Declaration) (env : Env)
+   104      (accepted : checkDecls .verified pins maxNatSize ds = .ok env) :
+   105      Nonempty (Model V env) := by
 
 == ConLeche/Denotes.lean#L248-L268
    248  structure Model (V : Type w) [SetTheory V] (env : Env) where
@@ -3206,10 +3206,10 @@
     83    p.resSort.isNeverZero ||
     84      (p.large && p.k == 1 && !nested && (p.numCtors == 0 || p.numCtors == 1))
 
-== ConLeche/Kernel/Inductives/GenRec.lean#L560-L562
-   560    unless 0 < p.k do
-   561      throw (.invalid "generated recursor: the block declares no family")
-   562    if p.large && !blockLargeElimAllowed p (nestedBit || Ms.any (·.member.isNone)) then
+== ConLeche/Kernel/Inductives/GenRec.lean#L559-L561
+   559    unless 0 < p.k do
+   560      throw (.invalid "generated recursor: the block declares no family")
+   561    if p.large && !blockLargeElimAllowed p (nestedBit || Ms.any (·.member.isNone)) then
 
 == ConLeche/Kernel/Inductives/SumInstall.lean#L50-L64
     50  def checkStructFieldSortsI (ops : CheckerOps m) (env : Env) (isProp large : Bool)
@@ -3284,18 +3284,18 @@
    763    (S.large = true → ¬ S.NeverProp → S.ctors.length ≤ 1) ∧
    764    (∃ T, Infer (S.envCtors env) [] S.recType T)
 
-== ConLeche/Kernel/Inductives/BlockTail.lean#L154-L164
-   154  def checkBlock (ops : CheckerOps m) (env : Env) (block : List ConstantInfo) (p₀ : BlockShape) :
-   155      m Env := do
-   156    unless (p₀.allCtors.map (·.1.name)).Nodup ∧ p₀.memberNames.Nodup do
-   157      throw (.invalid "direct rec: duplicate constructor")
-   158    unless boolTrueName ∉ p₀.memberNames ∧ boolFalseName ∉ p₀.memberNames do
-   159      throw (.invalid "direct rec: a family at a `Bool` constructor's name")
-   160    let ms ← reduceMembers ops env p₀.nP p₀.members
-   161    let q ← checkBlockPass ops env { p₀ with members := ms } (blockIsRec p₀)
-   162    let Q ← unwrapOr (blockTables p₀ p₀.members) (.internal "direct structure: projection bodies")
-   163    checkBlockTail ops block q Q
-   164    pure (env.pushDelta (blockConstants p₀) Q)
+== ConLeche/Kernel/Inductives/BlockTail.lean#L153-L163
+   153  def checkBlock (ops : CheckerOps m) (env : Env) (block : List ConstantInfo) (p₀ : BlockShape) :
+   154      m Env := do
+   155    unless (p₀.allCtors.map (·.1.name)).Nodup ∧ p₀.memberNames.Nodup do
+   156      throw (.invalid "direct rec: duplicate constructor")
+   157    unless boolTrueName ∉ p₀.memberNames ∧ boolFalseName ∉ p₀.memberNames do
+   158      throw (.invalid "direct rec: a family at a `Bool` constructor's name")
+   159    let ms ← reduceMembers ops env p₀.nP p₀.members
+   160    let q ← checkBlockPass ops env { p₀ with members := ms } (blockIsRec p₀)
+   161    let Q ← unwrapOr (blockTables p₀ p₀.members) (.internal "direct structure: projection bodies")
+   162    checkBlockTail ops block q Q
+   163    pure (env.pushDelta (blockConstants p₀) Q)
 
 == whitepaper/Fragment/Decl.lean#L307-L312
    307  /-- **A rule's type**: `∀ params motive minors fields, motive idx (C params fields)`
@@ -5170,21 +5170,21 @@
   1001      RecRuleLawK (S.M₃ m.M) S.recName S.recInfo (S.nP + 1 + S.n) (S.nP + 1 + S.n + S.nI)
   1002        ⟨c.name, c.fields.length, S.ruleRhs c 0, none, S.isK⟩ := by
 
-== ConLeche/Kernel/CoreDefs.lean#L83-L91
-    83  rescue mirrors it (`Sort u` at a concrete level such as `Unit`'s `1` passes, the
-    84  parameter `u` itself does not).  The instantiated zero-ness datum is
-    85  unsatisfiable exactly where the instantiated sort is never zero. -/
-    86  def formerNeverZero (cvT : ConstantVal) (us : List Level) : Bool :=
-    87    (Level.substPW cvT.levelParams us (formerZ cvT)).isNever
-    88  
-    89  /-- **The family a constructor's type concludes in**: its former and its
-    90  capabilities.  `none` where its type concludes in no stored inductive. -/
-    91  def ctorFamily (find? : Name → Option ConstantInfo) (cvj : ConstantVal) :
+== ConLeche/Kernel/CoreDefs.lean#L81-L89
+    81  rescue mirrors it (`Sort u` at a concrete level such as `Unit`'s `1` passes, the
+    82  parameter `u` itself does not).  The instantiated zero-ness datum is
+    83  unsatisfiable exactly where the instantiated sort is never zero. -/
+    84  def formerNeverZero (cvT : ConstantVal) (us : List Level) : Bool :=
+    85    (Level.substPW cvT.levelParams us (formerZ cvT)).isNever
+    86  
+    87  /-- **The family a constructor's type concludes in**: its former and its
+    88  capabilities.  `none` where its type concludes in no stored inductive. -/
+    89  def ctorFamily (find? : Name → Option ConstantInfo) (cvj : ConstantVal) :
 
-== ConLeche/Kernel/CoreDefs.lean#L100-L102
-   100  /-- Unfold the (application of a) definition at the head, one step.
-   101  `none` when the head is not an unfoldable constant.  **Theorems are
-   102  opaque to reduction**: a stored `thmInfo` never unfolds, so whether a
+== ConLeche/Kernel/CoreDefs.lean#L98-L100
+    98  /-- Unfold the (application of a) definition at the head, one step.
+    99  `none` when the head is not an unfoldable constant.  **Theorems are
+   100  opaque to reduction**: a stored `thmInfo` never unfolds, so whether a
 
 == whitepaper/Fragment/Consistency.lean#L36-L47
     36  /-- **The environments the checker accepts**: the empty environment,
@@ -5224,11 +5224,11 @@
     69      obtain ⟨m', -⟩ := install_ind_any h.scoped m hok
     70      exact ⟨m'⟩
 
-== ConLeche/MainTheorem.lean#L98-L101
-    98  theorem model_exists (V : Type w) [SetTheory V]
-    99      (pins : List NatOpPinSet) (ds : Array Declaration) (env : Env)
-   100      (accepted : checkDecls .verified pins ds = .ok env) :
-   101      Nonempty (Model V env) := by
+== ConLeche/MainTheorem.lean#L102-L105
+   102  theorem model_exists (V : Type w) [SetTheory V]
+   103      (pins : List NatOpPinSet) (maxNatSize : Nat) (ds : Array Declaration) (env : Env)
+   104      (accepted : checkDecls .verified pins maxNatSize ds = .ok env) :
+   105      Nonempty (Model V env) := by
 
 == whitepaper/Fragment/Install.lean#L176-L181
    176  /-- **Installing a plain inductive block preserves having a model.**
@@ -5674,34 +5674,34 @@
    111    recursor's rule-prefix context, instantiated at the redex's levels and
    112    leading arguments.
 
-== ConLeche/Kernel/Inductives/RecCheck.lean#L464-L475
-   464  /-- **One checked recursor's stored rules, at its major**: `sumRules` at the
-   465  MAJOR's parameter count and constructors;
-   466  at an OUTSIDE major (a nested block's auxiliary recursor) every rule
-   467  fires `auxRuleFire` (`.nested` at the major's instantiation), at a
-   468  member major as `sumRules` builds it. -/
-   469  def generatedRules (rP : Nat) (M : TargetMajor) (rhss : List Expr) : List RecRule :=
-   470    let rules := sumRules M.ctors rhss
-   471    match M.member with
-   472    | none =>
-   473      let fire := auxRuleFire M rP
-   474      rules.map fun rl => { rl with fire := fire }
-   475    | some _ => rules
+== ConLeche/Kernel/Inductives/RecCheck.lean#L434-L445
+   434  /-- **One checked recursor's stored rules, at its major**: `sumRules` at the
+   435  MAJOR's parameter count and constructors;
+   436  at an OUTSIDE major (a nested block's auxiliary recursor) every rule
+   437  fires `auxRuleFire` (`.nested` at the major's instantiation), at a
+   438  member major as `sumRules` builds it. -/
+   439  def generatedRules (rP : Nat) (M : TargetMajor) (rhss : List Expr) : List RecRule :=
+   440    let rules := sumRules M.ctors rhss
+   441    match M.member with
+   442    | none =>
+   443      let fire := auxRuleFire M rP
+   444      rules.map fun rl => { rl with fire := fire }
+   445    | some _ => rules
 
-== ConLeche/Kernel/CoreDefs.lean#L913-L925
-   913    exact ⟨h.1.1.1, h.1.1.2, h.1.2⟩
-   914  
-   915  /-- The level and constructor-parameter comparands a firing rule's
-   916  checks compare the major's constructor levels and parameters against:
-   917  for a `.plain` rule the constructor's levels link to the recursor's by
-   918  name and its parameters are the recursor's leading arguments; for a
-   919  `.nested` rule both are the stored instantiations (the class the
-   920  auxiliary recursor's type was generated from, `auxRuleFire`), at the
-   921  recursor's level instantiation and (for the parameters) instantiated at
-   922  the recursor's leading-argument spine (the stored pins live in the
-   923  `rP`-binder prefix context; index arguments never occur in them); a
-   924  `.levels` rule's levels are stored and its parameters a `.plain` rule's. -/
-   925  def recFireComparands (rl : RecRule) (cnP : Nat) (lps : List Name)
+== ConLeche/Kernel/CoreDefs.lean#L884-L896
+   884    exact ⟨h.1.1.1, h.1.1.2, h.1.2⟩
+   885  
+   886  /-- The level and constructor-parameter comparands a firing rule's
+   887  checks compare the major's constructor levels and parameters against:
+   888  for a `.plain` rule the constructor's levels link to the recursor's by
+   889  name and its parameters are the recursor's leading arguments; for a
+   890  `.nested` rule both are the stored instantiations (the class the
+   891  auxiliary recursor's type was generated from, `auxRuleFire`), at the
+   892  recursor's level instantiation and (for the parameters) instantiated at
+   893  the recursor's leading-argument spine (the stored pins live in the
+   894  `rP`-binder prefix context; index arguments never occur in them); a
+   895  `.levels` rule's levels are stored and its parameters a `.plain` rule's. -/
+   896  def recFireComparands (rl : RecRule) (cnP : Nat) (lps : List Name)
 
 == ConLeche/Rules/Rel.lean#L212-L223
    212        IotaCase env isK cvj (recFireComparands rl cnP cv.levelParams us cvj.levelParams
@@ -5722,12 +5722,12 @@
     83    p.resSort.isNeverZero ||
     84      (p.large && p.k == 1 && !nested && (p.numCtors == 0 || p.numCtors == 1))
 
-== ConLeche/Kernel/Inductives/GenRec.lean#L558-L562
-   558    let cvRis ← classStreamRecs ops fe p.recs
-   559    -- the elimination guard
-   560    unless 0 < p.k do
-   561      throw (.invalid "generated recursor: the block declares no family")
-   562    if p.large && !blockLargeElimAllowed p (nestedBit || Ms.any (·.member.isNone)) then
+== ConLeche/Kernel/Inductives/GenRec.lean#L557-L561
+   557    let cvRis ← classStreamRecs ops fe p.recs
+   558    -- the elimination guard
+   559    unless 0 < p.k do
+   560      throw (.invalid "generated recursor: the block declares no family")
+   561    if p.large && !blockLargeElimAllowed p (nestedBit || Ms.any (·.member.isNone)) then
 
 == ConLeche/Kernel/Inductives/ClassRead.lean#L15-L32
     15  * the CLASSES — the types the family eliminates, one per MOTIVE of the
@@ -5749,45 +5749,45 @@
     31  anything read here: a wrong reading can only make the generated type
     32  differ from the stream's, i.e. reject.
 
-== ConLeche/Kernel/Inductives/RecCheck.lean#L273-L310
-   273      | none => do
-   274        -- an OUTSIDE inductive (a nested block's container)
-   275        if I == quotName then
-   276          throw (.invalid "target rec: the recursor's major is Quot, which is no inductive")
-   277        let some (nPc, ctors) := targetCtorsOf fe I
-   278          | throw (.invalid "target rec: the recursor's major is not a stored inductive")
-   279        let ds := args.take nPc
-   280        unless ds.length == nPc &&
-   281            ds.all (fun x => x.bvarB == 0 && x.fvarB ≤ p.nP) do
-   282          throw (.invalid "target rec: the major's parameters mention more than the \
-   283            recursor's parameters")
-   284        -- **An auxiliary type of the block**, official's `is_nested`: some
-   285        -- parameter `Dᵢ` names a member of the block (`inductive.cpp` v4.34.0
-   286        -- :1033–1049: `find` over each of the `nparams` arguments for a
-   287        -- constant of `m_new_types`; every auxiliary type is such an
-   288        -- application, restored verbatim by `restore_nested`, and official
-   289        -- accepts an auxiliary recursor exactly at an auxiliary type).  The
-   290        -- calls' proof reads it: a call on a field whose walked type names no
-   291        -- member and no hole targets no class.  Read without whnf and without
-   292        -- entering a free variable's annotation (`nestOcc` at an empty hole
-   293        -- range).  Every class resolved here SEEDS the positivity walk
-   294        -- (`classSeeds`, `GenRec.lean`), so it is a node of the walk by
-   295        -- construction: nothing ties it to a node here.
-   296        unless ds.any (fun x => x.nestOcc p.memberNames 0 0) do
-   297          throw (.invalid "target rec: the recursor's major is an outside inductive at an \
-   298            instantiation that is no auxiliary type of the block (official generates no such \
-   299            auxiliary recursor: `elim_nested_inductive`, `is_nested`)")
-   300        let (nIdx, sI) ← targetOutsideInst ops fe I us ds
-   301        -- **Q1**: an outside major in ANOTHER
-   302        -- universe than the block (a Type block's family eliminating a
-   303        -- Prop inductive, or the converse) is refused here: the
-   304        -- elimination guard is the BLOCK's (`blockLargeElimAllowed`),
-   305        -- and it says nothing about another universe's inductive
-   306        unless ← liftFueled "level comparison" (Level.isEquiv sI p.resSort) do
-   307          throw (.invalid "target rec: the recursor's major lives in another universe than \
-   308            the block (Q1)")
-   309        pure { ind := I, lvls := us, ds := ds, nPc := nPc, nIdx := nIdx, ctors := ctors,
-   310               member := none, pfvs := pfvs }
+== ConLeche/Kernel/Inductives/RecCheck.lean#L243-L280
+   243      | none => do
+   244        -- an OUTSIDE inductive (a nested block's container)
+   245        if I == quotName then
+   246          throw (.invalid "target rec: the recursor's major is Quot, which is no inductive")
+   247        let some (nPc, ctors) := targetCtorsOf fe I
+   248          | throw (.invalid "target rec: the recursor's major is not a stored inductive")
+   249        let ds := args.take nPc
+   250        unless ds.length == nPc &&
+   251            ds.all (fun x => x.bvarB == 0 && x.fvarB ≤ p.nP) do
+   252          throw (.invalid "target rec: the major's parameters mention more than the \
+   253            recursor's parameters")
+   254        -- **An auxiliary type of the block**, official's `is_nested`: some
+   255        -- parameter `Dᵢ` names a member of the block (`inductive.cpp` v4.34.0
+   256        -- :1033–1049: `find` over each of the `nparams` arguments for a
+   257        -- constant of `m_new_types`; every auxiliary type is such an
+   258        -- application, restored verbatim by `restore_nested`, and official
+   259        -- accepts an auxiliary recursor exactly at an auxiliary type).  The
+   260        -- calls' proof reads it: a call on a field whose walked type names no
+   261        -- member and no hole targets no class.  Read without whnf and without
+   262        -- entering a free variable's annotation (`nestOcc` at an empty hole
+   263        -- range).  Every class resolved here SEEDS the positivity walk
+   264        -- (`classSeeds`, `GenRec.lean`), so it is a node of the walk by
+   265        -- construction: nothing ties it to a node here.
+   266        unless ds.any (fun x => x.nestOcc p.memberNames 0 0) do
+   267          throw (.invalid "target rec: the recursor's major is an outside inductive at an \
+   268            instantiation that is no auxiliary type of the block (official generates no such \
+   269            auxiliary recursor: `elim_nested_inductive`, `is_nested`)")
+   270        let (nIdx, sI) ← targetOutsideInst ops fe I us ds
+   271        -- **Q1**: an outside major in ANOTHER
+   272        -- universe than the block (a Type block's family eliminating a
+   273        -- Prop inductive, or the converse) is refused here: the
+   274        -- elimination guard is the BLOCK's (`blockLargeElimAllowed`),
+   275        -- and it says nothing about another universe's inductive
+   276        unless ← liftFueled "level comparison" (Level.isEquiv sI p.resSort) do
+   277          throw (.invalid "target rec: the recursor's major lives in another universe than \
+   278            the block (Q1)")
+   279        pure { ind := I, lvls := us, ds := ds, nPc := nPc, nIdx := nIdx, ctors := ctors,
+   280               member := none, pfvs := pfvs }
 
 == ConLeche/Kernel/Inductives/Positivity.lean#L1086-L1094
   1086  def nestSeeds (ops : CheckerOps m) (env : Env) (ctx : NestCtx) :
@@ -6441,16 +6441,16 @@
    322        Red env d major fab
 
 == ConLeche/Cached/Decls.lean#L83-L84
-    83  def checkDecls (mode : CheckMode) (pins : List NatOpPinSet) (ds : Array Declaration) :
-    84      Except (CheckError × Nat) Env := do
+    83  /-- **The declaration fold.**
+    84  
 
 == ConLeche/Cached/StreamIndex.lean#L65
     65  def buildIndex (ds : Array Declaration) : StreamIndex :=
 
 == ConLeche/Verify/Cached/StreamIndex.lean#L491-L493
    491  theorem checkDecls_of_jobs {ds : Array Declaration}
-   492      (h : ∀ k (hk : k < ds.size), recordJob mode pins (buildIndex ds) k ds[k] = .ok ()) :
-   493      checkDecls mode pins ds = .ok (streamEnv ds.toList) := by
+   492      (h : ∀ k (hk : k < ds.size), recordJob mode pins maxNatSize (buildIndex ds) k ds[k] = .ok ()) :
+   493      checkDecls mode pins maxNatSize ds = .ok (streamEnv ds.toList) := by
 
 == ConLeche/Kernel/Expr.lean#L315-L317
    315  inductive Expr where

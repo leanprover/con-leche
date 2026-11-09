@@ -420,14 +420,12 @@ ConLeche.Frontend.joinN
 
 # Plain walks reached from a cached walk or caller, each with its reason.
 ConLeche.Expr.substConst0  # the Nat-op statements' substitution: binder-free application spines of a dozen nodes
-ConLeche.Expr.getAppArgs  # propIrrelI through PropRead.unwrapIdDefs (head spines of identity definitions) and the inductive check, pending task #498
-ConLeche.Expr.instantiate1Fast  # the inductive check, pending task #498
-ConLeche.Expr.instantiate1Go  # (the walk of instantiate1Fast)
+ConLeche.Expr.getAppArgs  # an O(spine) reader: propIrrelI through PropRead.unwrapIdDefs (head spines of identity definitions) and the inductive check's spine reads
 
-# PENDING TASK #498 — the inductive check (Kernel/Inductives/*, Kernel/Install) and the
-# walks reached only through it.  The cached driver runs the specification as is; #498 gives
-# it a cached twin.  Measured (task #497, after its twins): prop_struct_proj_wide ~45 % of
-# the run, BvStruct ~0.75 G of the module's own 2.63 G, grind-ring-5 ~0.3 %, init-full < 0.1 %.
+# The inductive check's shared helpers (Kernel/Inductives/*, Kernel/Install): the cached
+# twins (task #498, Cached/Ind*.lean) call them as they are — the block's shape and counts,
+# lists, environment pushes, O(spine)/O(telescope) reads of binders and spines, the level
+# comparison of a class's levels; none walks a term's DAG.
 ConLeche.unwrapOr  # ConLeche.Kernel.CheckerBase
 ConLeche.formerDefHeaded  # ConLeche.Kernel.CoreDefs
 ConLeche.Expr.stripLams  # ConLeche.Kernel.ExprOps
@@ -518,11 +516,8 @@ ConLeche.structPsAt  # ConLeche.Kernel.Inductives.StructParts
 ConLeche.checkSumTele  # ConLeche.Kernel.Inductives.SumInstall
 ConLeche.sumRules  # ConLeche.Kernel.Inductives.SumInstall
 ConLeche.consSumCtorsF  # ConLeche.Kernel.Inductives.SumInstallF
-ConLeche.Expr.dropVars  # ConLeche.Kernel.Install
 ConLeche.blockCtors  # ConLeche.Kernel.Install
 ConLeche.blockFormers  # ConLeche.Kernel.Install
-ConLeche.blockRecs  # ConLeche.Kernel.Install
-ConLeche.recFire  # ConLeche.Kernel.Install
 ConLeche.Level.isEquivList  # ConLeche.Kernel.Level
 ConLeche.Level.isNeverZero  # ConLeche.Kernel.Level
 ConLeche.Name.beqPtr  # ConLeche.Kernel.Name

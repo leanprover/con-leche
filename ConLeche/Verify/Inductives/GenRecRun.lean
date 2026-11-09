@@ -32,8 +32,8 @@ records and never unfolds a stage.
 | the whole stage | `genRecCheck` | `GenStageRun` / `genRecCheck_run` |
 | the stage with the pass's classes and walk | — | `GenRecRun` / `genRecRun_of` |
 
-The records are stated at the fueled pure instantiation
-(`ShadowOps.fueled mode F`).  What the UNVERIFIED pre-pass returned
+The records are stated at the fueled pure operations
+(`fueledOps mode F`).  What the UNVERIFIED pre-pass returned
 (`ClassRead`) appears as data only: nothing is proved about how it was
 read.
 -/
@@ -737,7 +737,7 @@ structure GenStageRun (mode : CheckMode) (F : Nat) (fe : FEnv) (p : BlockShape)
 theorem genRecCheck_run {fe : FEnv} {p : BlockShape} {nestedBit : Bool} {params : List Expr}
     {tbl : List NestCtorNf} {rd : ClassRead} {Ms₀ : List TargetMajor} {block : List ConstantInfo}
     {out : List (ConstantVal × TargetMajor × List Expr)} {F : Nat}
-    (h : genRecCheck (ShadowOps.fueled mode F) fe p nestedBit params tbl rd Ms₀ block
+    (h : genRecCheck (fueledOps mode F) fe p nestedBit params tbl rd Ms₀ block
       = .ok out) :
     Nonempty (GenStageRun mode F fe p nestedBit params tbl rd Ms₀ block out) := by
   unfold genRecCheck at h
@@ -758,12 +758,7 @@ theorem genRecCheck_run {fe : FEnv} {p : BlockShape} {nestedBit : Bool} {params 
   rw [ite_eq_left hminors] at h
   obtain ⟨formerTysC, hformer, h⟩ := exceptBind_ok h
   obtain ⟨pre, hpre, h⟩ := exceptBind_ok h
-  obtain ⟨cvGs, hcvGs, h⟩ := exceptBind_ok h
-  obtain ⟨u7, -, h⟩ := exceptBind_ok h
-  obtain ⟨out', hout, h⟩ := exceptBind_ok h
-  obtain ⟨u8, -, h⟩ := exceptBind_ok h
-  simp only [pure, Except.pure, Except.ok.injEq] at h
-  subst h
+  obtain ⟨cvGs, hcvGs, hout⟩ := exceptBind_ok h
   simp only [Bool.not_eq_true] at helim
   exact ⟨{
     cvRis := cvRis, Ms := Ms, ctors := ctors, formerTysC := formerTysC, pre := pre,
@@ -855,7 +850,7 @@ theorem genRecRun_of {fe₁ : FEnv} {env₁ : Env} {fe : FEnv} {p : BlockShape}
     (hctx : blockNestCtx (m := CheckM) p fe₁.find? = .ok (ctx, holes))
     (hcls : checkBlockClasses (fueledOps mode F) fe₁ p ctx.params = .ok (rd, Ms₀))
     (hst : nestSeeds (fueledOps mode F) env₁ ctx (classSeeds ctx holes Ms₀) pos = .ok st)
-    (h : genRecCheck (ShadowOps.fueled mode F) fe p nestedBit ctx.params st.ctorNfs.toList rd
+    (h : genRecCheck (fueledOps mode F) fe p nestedBit ctx.params st.ctorNfs.toList rd
       Ms₀ block = .ok out) :
     Nonempty (GenRecRun mode F fe₁ env₁ fe p nestedBit pos block out) := by
   obtain ⟨C⟩ := checkBlockClasses_run hcls
@@ -896,7 +891,7 @@ guard is its name's absence there. -/
 theorem genRecCheck_out_fresh {env : Env} {p : BlockShape} {nestedBit : Bool}
     {params : List Expr} {tbl : List NestCtorNf} {rd : ClassRead} {Ms₀ : List TargetMajor} {block : List ConstantInfo}
     {out : List (ConstantVal × TargetMajor × List Expr)} {F : Nat}
-    (h : genRecCheck (ShadowOps.fueled mode F) (mkFEnv env) p nestedBit params tbl rd Ms₀
+    (h : genRecCheck (fueledOps mode F) (mkFEnv env) p nestedBit params tbl rd Ms₀
       block = .ok out) :
     ∀ o ∈ out, env.find? o.1.name = none := by
   obtain ⟨R⟩ := genRecCheck_run h

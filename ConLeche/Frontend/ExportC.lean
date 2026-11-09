@@ -97,8 +97,8 @@ what the proofs of the rounds parse use
 (`ConLeche/Verify/Frontend/Dense.lean`).
 
 The declaration-level expression lookup has no tree-size budget: every consumer is either
-name-selected (the basis-pin match) or a memoized DAG walk (`Expr.renameConsts`, `Expr.instantiate1`;
-`@[csimp]` in `ConLeche/Kernel/ExprOps.lean`), and the adversarial
+name-selected (the basis-pin match) or a memoized DAG walk (the cached tier's,
+`ConLeche/Cached/ExprOpsC.lean`), and the adversarial
 DAG-tower fixtures in `tests/e2e` are the standing gate in its place —
 a limit told a user "no", a fixture tells *us* which walker
 regressed. -/

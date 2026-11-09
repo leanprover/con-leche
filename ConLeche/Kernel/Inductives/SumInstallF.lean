@@ -34,25 +34,6 @@ def checkStructFieldSortsIF (ops : CheckerOps m) (fe : FEnv) (isProp large : Boo
           field outside the indices")
     checkStructFieldSortsIF ops fe isProp large s nP fvs idxArgs j
 
-/-- `checkStructFieldSortsIF` over an array of field variables (the
-callers convert once).  Equal to it at `List.toArray`:
-`checkStructFieldSortsIFA_eq`. -/
-def checkStructFieldSortsIFA (ops : CheckerOps m) (fe : FEnv) (isProp large : Bool)
-    (s : Level) (nP : Nat) (fvs : Array Expr) (idxArgs : List Expr) : Nat → m Unit
-  | 0 => pure ()
-  | j + 1 => do
-    let fv ← unwrapOr fvs[j]? (.internal "direct sum: field index")
-    let ty ← ops.inferType fe.env (nP + j) fv.fvarTypeD
-    let u ← ops.ensureSort fe.env (nP + j) ty
-    if !isProp then
-      unless ← liftFueled "level comparison" (Level.leq u s) do
-        throw (.invalid "direct sum: field universe too large")
-    else if large then
-      unless Level.isEquiv u .zero == some true || idxArgs.contains fv do
-        throw (.invalid "direct sum: large eliminator with a non-propositional \
-          field outside the indices")
-    checkStructFieldSortsIFA ops fe isProp large s nP fvs idxArgs j
-
 /-- `checkSumCtor` through the index. -/
 def checkSumCtorF (ops : CheckerOps m) (fe₀ fe : FEnv) (T : Name)
     (lps : List Name) (nP nIdx : Nat) (resSort : Level) (isProp large : Bool)
@@ -67,12 +48,12 @@ def checkSumCtorF (ops : CheckerOps m) (fe₀ fe : FEnv) (T : Name)
   -- further arguments
   unless structCtorResidOk T lps nP nF nIdx cbody do
     throw (.invalid "direct sum: invalid constructor return type")
-  let cq ← unwrapOr (openPisAtFvarsF nP cvC.type 0)
+  let cq ← unwrapOr (openPisAtFvars nP cvC.type 0)
     (.notImplemented "direct sum: constructor telescope")
-  let tq ← unwrapOr (openPisAtFvarsF nP cvTa.type 0)
+  let tq ← unwrapOr (openPisAtFvars nP cvTa.type 0)
     (.notImplemented "direct sum: type former telescope")
-  checkStructDomsAtFA ops fe 0 cq.1.toArray (tq.1.map Expr.fvarTypeD).toArray nP
-  let xq ← unwrapOr (openPisAtFvarsF nF cq.2 nP)
+  checkStructDomsAtF ops fe 0 cq.1 (tq.1.map Expr.fvarTypeD) nP
+  let xq ← unwrapOr (openPisAtFvars nF cq.2 nP)
     (.notImplemented "direct sum: constructor field telescope")
   unless xq.2.getAppFn == Expr.const T (lps.map .param) &&
       xq.2.getAppArgs.take nP == cq.1 && xq.2.getAppArgs.length == nP + nIdx do
@@ -81,7 +62,7 @@ def checkSumCtorF (ops : CheckerOps m) (fe₀ fe : FEnv) (T : Name)
     throw (.notImplemented "direct sum: field domain after the block")
   unless (xq.2.getAppArgs.drop nP).all fun e => e.constsResolveF fe₀ do
     throw (.invalid "direct sum: index expression mentions the block")
-  checkStructFieldSortsIFA ops fe isProp large resSort nP xq.1.toArray (xq.2.getAppArgs.drop nP) nF
+  checkStructFieldSortsIF ops fe isProp large resSort nP xq.1 (xq.2.getAppArgs.drop nP) nF
 
 /-- `checkSumCtors` through the index. -/
 def checkSumCtorsF (ops : CheckerOps m) (fe₀ fe : FEnv) (T : Name)

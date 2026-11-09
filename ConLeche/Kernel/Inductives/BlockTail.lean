@@ -67,15 +67,14 @@ constructors' environment `env`, on the stream's own recursor family
 (the raw `block`: the pins read it), the pass's classes and table, and
 the elimination guard's container bit `nested` (`blockNestedBit`).
 Returns every generated recursor with its class and its generated rules
-(`tgtRs` is the check's recursor-list format of it).  The pure
-operations run it at every index (`ShadowOps.ofOps`); the cached driver
-runs the SAME function at its own shadow operations (`checkBlockTailS`,
+(`tgtRs` is the check's recursor-list format of it).  The cached
+driver runs its twin `genRecCheckC` (`checkBlockTailS`,
 `ConLeche/Cached/CheckerC.lean`). -/
 def checkBlockRec (ops : CheckerOps m) (env : Env) (p : BlockShape) (nested : Bool)
     (params : List Expr) (tbl : List NestCtorNf) (rd : ClassRead) (Ms : List TargetMajor)
     (block : List ConstantInfo) :
     m (List (ConstantVal × TargetMajor × List Expr)) :=
-  genRecCheck (ShadowOps.ofOps ops) (mkFEnv env) p nested params tbl rd Ms block
+  genRecCheck ops (mkFEnv env) p nested params tbl rd Ms block
 
 /-- **The checked family consed, at its majors**: each
 recursor with its rules at ITS major (`generatedRules`: the major's

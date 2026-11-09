@@ -23,11 +23,12 @@ public section
 # The cached recursor stage, bridged: the GENERATED stage
 
 The generated recursor stage `genRecCheck`
-(`ConLeche/Kernel/Inductives/GenRec.lean`) is written once over
-`ShadowOps`: the pure install runs it at `ShadowOps.ofOps`
-(`checkBlockRec`); the cached driver (`checkBlockTailS`) runs its twin
-`genRecCheckC`, which is `genRecCheck` at `shadowOpsC` (`genRecCheckC_eq`,
-`IndRecC.lean`).  This file proves the cached run reproduced by the pure fueled one
+(`ConLeche/Kernel/Inductives/GenRec.lean`) is written over a checker's
+operations (the pure install, `checkBlockRec`); the cached driver
+(`checkBlockTailS`) runs its twin `genRecCheckC`, whose parts are the
+specification's at the shared operations (`IndRecC.lean`) and which
+flushes around the rule stage and runs it at an overlay.  This file proves
+the cached run reproduced by the pure fueled one
 (`genRecCheckS_spec`, `genRecCheckS_run`), reusing the class kit's
 per-operation simulations (`TargetRecC.lean`), the pass's classes
 (`checkBlockClassesS_spec`), and with them the cached uniform install
@@ -1009,20 +1010,21 @@ theorem genRecCheckS_spec {env₂ : Env}
     (hMs₀ : ListAll (ClassMajScoped p.nP) Ms₀) {block : List ConstantInfo}
     (hT : ListAll TyClosed p.formers) {s₀ : CState} (hs : CSOK .verified false env₂ s₀) :
     ⦃fun s => s = s₀⦄
-      genRecCheck (shadowOpsC .verified) (mkFEnv env₂) p nestedBit params tbl rd Ms₀ block
+      genRecCheckC .verified (mkFEnv env₂) p nestedBit params tbl rd Ms₀ block
     ⦃fun v s' => CSOKF s' ∧
-      Runs (genRecCheck (ShadowOps.ofOps (fueledOpsM .verified)) (mkFEnv env₂) p nestedBit params tbl
+      Runs (genRecCheck (fueledOpsM .verified) (mkFEnv env₂) p nestedBit params tbl
         rd Ms₀ block) v; ⊤⦄ := by
-  -- structural: the shadow operations' fields, and the cached rule stage at the overlay,
+  -- the parts at the shared operations, and the cached rule stage at the overlay,
   -- which answers as the pushed rule-less recursors do
-  unfold genRecCheck
-  dsimp only [shadowOpsC, ShadowOps.ofOps]
-  simp only [classRecsRulesOk_classFeROvl .verified (fe := mkFEnv env₂) rfl]
+  unfold genRecCheckC
+  simp only [classStreamRecsC_eq, classesNfsC_eq, classesCtorsC_eq, classFormerTyC_eq,
+    ClassGen.prefixBindersC_eq, classRecTysOkC_eq, classRecsRulesOkC_eq,
+    classRecsRulesOk_classFeROvl .verified (fe := mkFEnv env₂) rfl]
   simp only [classFeR_mkFEnv, mkFEnv_env]
   -- `gen`: the pure side, evaluated bind by bind, through eleven binds and three guards
-  sym only [conleche_grind, unwrapOr.eq_1, mkFEnv_env, listAll_targetMajScoped hMs₀,
-      → csok_residue, → CSOKAll.residue] =>
-    vcgen [unwrapOr, flushC, targetRecPinsS_spec (mode := .verified) (env := env₂),
+  sym only [conleche_grind, genRecCheck.eq_1, unwrapOr.eq_1, classFeR_mkFEnv, mkFEnv_env,
+      listAll_targetMajScoped hMs₀, → csok_residue, → CSOKAll.residue] =>
+    vcgen [genRecCheck, unwrapOr, flushC, targetRecPinsS_spec (mode := .verified) (env := env₂),
       classStreamRecsS_spec henv₂, classesNfsS_spec henv₂ (allWS_types hT),
       classesCtorsS_spec henv₂ (allWS_types hT),
       classFormerTysS_spec henv₂,
@@ -1039,9 +1041,9 @@ theorem genRecCheckS_run {env₂ : Env}
     {s₀ : CState} (hs : CSOK .verified false env₂ s₀) {out : List (ConstantVal × TargetMajor × List
         Expr)}
     {s' : CState}
-    (h : genRecCheck (shadowOpsC .verified) (mkFEnv env₂) p nestedBit params tbl rd Ms₀ block
+    (h : genRecCheckC .verified (mkFEnv env₂) p nestedBit params tbl rd Ms₀ block
       s₀ = .ok (out, s')) :
-    CSOKF s' ∧ ∃ F, genRecCheck (ShadowOps.fueled .verified F) (mkFEnv env₂) p nestedBit params tbl
+    CSOKF s' ∧ ∃ F, genRecCheck (fueledOps .verified F) (mkFEnv env₂) p nestedBit params tbl
       rd Ms₀ block = .ok out := by
   obtain ⟨hs', F, hF⟩ := triple_iff_run.mp (genRecCheckS_spec henv₂ hMs₀ hT hs) out s' h
   exact ⟨hs', F, by rw [← genRecCheck_datF]; exact hF⟩
@@ -1052,7 +1054,7 @@ theorem genRecCheckS_run {env₂ : Env}
 theorem genRecCheck_outShape {fe : FEnv} {env : Env} {p : BlockShape} {nestedBit : Bool}
     {params : List Expr} {tbl : List NestCtorNf} {rd : ClassRead} {Ms₀ : List TargetMajor} {block : List ConstantInfo}
     {out : List (ConstantVal × TargetMajor × List Expr)} {F : Nat} (hfe : fe = mkFEnv env)
-    (h : genRecCheck (ShadowOps.fueled mode F) fe p nestedBit params tbl rd Ms₀ block
+    (h : genRecCheck (fueledOps mode F) fe p nestedBit params tbl rd Ms₀ block
       = .ok out) : ∀ o ∈ out, LitShapeAt o.1 := by
   subst hfe
   obtain ⟨R⟩ := genRecCheck_run h
@@ -1080,7 +1082,7 @@ theorem genRecCheck_outFacts {env₂ : Env} {p : BlockShape}
     {nestedBit : Bool} {params : List Expr} {tbl : List NestCtorNf} {rd : ClassRead}
     {Ms₀ : List TargetMajor} {block : List ConstantInfo}
     {out : List (ConstantVal × TargetMajor × List Expr)} {F : Nat}
-    (h : genRecCheck (ShadowOps.fueled mode F) (mkFEnv env₂) p nestedBit params tbl rd Ms₀
+    (h : genRecCheck (fueledOps mode F) (mkFEnv env₂) p nestedBit params tbl rd Ms₀
       block = .ok out) (hpl : params.length = p.nP)
     (hMs₀ : ∀ M ∈ Ms₀, ClassOutParams p.nP M) :
     (∀ t ∈ out, t.1.type.hasFvar = false ∧
@@ -1160,7 +1162,7 @@ theorem genRecCheck_recsWF {env₂ : Env} (henv₂ : EnvWF env₂) {p : BlockSha
     {nestedBit : Bool} {params : List Expr} {tbl : List NestCtorNf} {rd : ClassRead}
     {Ms₀ : List TargetMajor} {block : List ConstantInfo}
     {out : List (ConstantVal × TargetMajor × List Expr)} {F : Nat}
-    (h : genRecCheck (ShadowOps.fueled mode F) (mkFEnv env₂) p nestedBit params tbl rd Ms₀
+    (h : genRecCheck (fueledOps mode F) (mkFEnv env₂) p nestedBit params tbl rd Ms₀
       block = .ok out) (hpl : params.length = p.nP)
     (hMs₀ : ∀ M ∈ Ms₀, ClassOutParams p.nP M) :
     EnvWF (consBlockRecsT p 0 out env₂) :=
@@ -1193,7 +1195,7 @@ type. -/
 theorem genRecCheck_outCv {fe : FEnv} {p : BlockShape} {nestedBit : Bool} {params : List Expr}
     {tbl : List NestCtorNf} {rd : ClassRead} {Ms₀ : List TargetMajor} {block : List ConstantInfo}
     {out : List (ConstantVal × TargetMajor × List Expr)} {F : Nat}
-    (h : genRecCheck (ShadowOps.fueled mode F) fe p nestedBit params tbl rd Ms₀ block
+    (h : genRecCheck (fueledOps mode F) fe p nestedBit params tbl rd Ms₀ block
       = .ok out) :
     out.length = p.recs.length ∧
     ∀ (i : Nat) (rc : RecShape) (o : ConstantVal × TargetMajor × List Expr),
@@ -1237,7 +1239,7 @@ theorem targetRecPins_unreserved {p : BlockShape} {block : List ConstantInfo}
 theorem genRecCheck_out_unreserved {fe : FEnv} {p : BlockShape} {nestedBit : Bool}
     {params : List Expr} {tbl : List NestCtorNf} {rd : ClassRead} {Ms₀ : List TargetMajor} {block : List ConstantInfo}
     {out : List (ConstantVal × TargetMajor × List Expr)} {F : Nat}
-    (h : genRecCheck (ShadowOps.fueled mode F) fe p nestedBit params tbl rd Ms₀ block
+    (h : genRecCheck (fueledOps mode F) fe p nestedBit params tbl rd Ms₀ block
       = .ok out) :
     ∀ o ∈ out, reservedRecName o.1.name = false := by
   obtain ⟨R⟩ := genRecCheck_run h
@@ -1259,7 +1261,7 @@ theorem streamRecs_recsWF {env₂ : Env} (henv₂ : EnvWF env₂) {p : BlockShap
     {nestedBit : Bool} {params : List Expr} {tbl : List NestCtorNf} {rd : ClassRead}
     {Ms₀ : List TargetMajor} {block : List ConstantInfo}
     {out : List (ConstantVal × TargetMajor × List Expr)} {F F' : Nat}
-    (h : genRecCheck (ShadowOps.fueled mode F) (mkFEnv env₂) p nestedBit params tbl rd Ms₀
+    (h : genRecCheck (fueledOps mode F) (mkFEnv env₂) p nestedBit params tbl rd Ms₀
       block = .ok out) (hpl : params.length = p.nP)
     (hMs₀ : ∀ M ∈ Ms₀, ClassOutParams p.nP M)
     (hS : streamRecsCheck (fueledOps mode F')
@@ -1360,7 +1362,6 @@ theorem checkBlockTailS_run
   unfold checkBlockTailS at h
   dsimp only at h
   simp only [blockRecInfosTC_eq, streamRecsCheckC_eq, checkBlockTablesC_eq] at h
-  rw [genRecCheckC_eq] at h
   simp only [checkBlockIdxSortsC_eq] at h
   rw [checkBlockIdxSortsF_eqC] at h
   obtain ⟨isorts, sS, hsorts, h⟩ := bindC_ok h
@@ -1430,7 +1431,7 @@ theorem checkBlockTailS_run
     rw [← checkBlockIdxSorts_datF]; exact FueledM.up hle₀ hF₀
   have g₃ : checkBlockRec (fueledOps .verified G) (consBlockCtors p.nP p.memberCtors env₁) p
       (blockNestedBit p kinds) params tbl.toList rd Ms₀ block = .ok out := by
-    show genRecCheck (ShadowOps.fueled .verified G) _ _ _ _ _ _ _ _ = _
+    show genRecCheck (fueledOps .verified G) _ _ _ _ _ _ _ _ = _
     rw [← genRecCheck_datF]
     exact FueledM.up hle₃ (by rw [genRecCheck_datF]; exact hF₃)
   rw [checkBlockTail_datF]

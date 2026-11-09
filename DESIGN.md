@@ -111690,6 +111690,248 @@ the plan script's census, measured, in its fallback list).  The link gates' expe
 `streamRecsCheck`'s new signature (OVERVIEW and the whitepaper cite it; the cited text is the
 same function, the paragraphs need no change); the citations of `RecCheck.lean` and
 `ViewCongr.lean` moved by one line with the deleted `walkers` field and are repointed.
+## TASK #519 — the official kernel's maximum `Nat` size; `Nat.pow` folds at any exponent (2026-11-09, agent/519-natpow)
+
+**The ruling.**  "Make con-leche behave like official in this regard."  Official dropped
+`reduce_pow`'s exponent cap (`ReducePowMaxExp = 1 << 24`, mirrored here as the divergence
+audit's S2: `natOpResult natPowName a b = none` for `b > 2^24`, so `Nat.pow` unfolded one step
+per unit of the exponent) in lean4#14849, for a byte bound on every `Nat` numeral the kernel
+takes in or computes (`src/kernel/type_checker.cpp` on lean4 master: `g_nat_max_size`,
+`LEAN_NAT_MAX_SIZE`, default 128 MiB; `check_nat_size`, `get_count_arg`, `infer_lit`,
+`reduce_bin_nat_op`'s `check_size`, `reduce_pow`, `reduce_shiftLeft`, `reduce_nat`'s `succ`
+clause; the size is `lean_nat_size_in_bytes`, one word for a scalar, the GMP limbs otherwise).
+Where official throws, con-leche rejects (exit 1), with official's messages (the advice names
+`--max-nat-size` in place of the environment variable).
+
+**The rule as implemented** (`natOpRefusal`, `natResultRefused`, `natSizeBytes`,
+`ConLeche/Cached/StateC.lean`; the call sites in `reduceNatI` and `inferBodyI`'s literal
+clause, `ConLeche/Cached/CoreC.lean`):
+
+* a literal inferred above the maximum size (official `infer_lit`);
+* the result of `Nat.succ`, `Nat.add`, `Nat.sub`, `Nat.mul` above the maximum size, measured after
+  computing (their operands are bounded already);
+* `Nat.pow a b`: `b > 2^32 − 1` refuses whatever `a` is (official checks the count first);
+  otherwise `a > 1 ∧ b ≠ 0 ∧ size a > maxNatSize / b` refuses; else it computes.  At the default
+  maximum size `2 ^ k` folds exactly for `k ≤ 2^24` (`size 2 = 8`, so `8 > 2^27 / k` iff
+  `k > 2^24`): the old cap's edge, now a reject above it instead of an unfolding;
+* `Nat.shiftLeft a b`: `a = 0` computes `0`; otherwise `b > 2^32 − 1` refuses, and so does
+  `size a + b / 8 + 1 > maxNatSize`.
+
+The other operations (`div`, `mod`, `gcd`, `land`, `lor`, `xor`, `shiftRight`, `beq`, `ble`)
+are not measured, as in official.  `natSizeBytes n = 8 * (n.log2 / 64 + 1)` (`Nat.log2` is
+`@[extern]`), official's GMP measure on a 64-bit build.
+
+**Where the maximum size lives.**  The specification (`natOpResult`, `Kernel/CoreDefs.lean`) is the
+computation itself, at any size: its `pow` clause lost the cap and nothing else changed.  The
+bound is the cached core's alone.  It cannot be in the spec without being threaded through
+the spec's knot (a parameter of `pureFns`, 400 references) or every `Env`, and it would buy
+nothing: a refusal only throws, the cached simulation's exception postcondition is `⊤`, and the
+spec would have to take the same bound as the cached run anyway (a spec bound below the
+cached one breaks the simulation, one above it is never reached).  So the guard is a cached
+throw where the spec computes on, like the cached tier's other resource guards.  The bound is
+`CState.maxNatSize` (read by `maxNatSizeM`, the state left as it is); the fold takes it as an argument
+beside the pin list (`checkDecls mode pins maxNatSize`, `declStep`, `DeclsRun`, `recordJob`), and
+each record's fresh state is `{ maxNatSize := maxNatSize }`.  The capstones (`model_exists`,
+`no_False_declaration`, Challenge and MainTheorem alike) gained `(maxNatSize : Nat)`: they hold at
+every `maxNatSize`.  `main_no_False` and the driver theorems are at the default.
+
+**The CLI.**  `--max-nat-size=<bytes>` (decimal; a non-numeral is a usage error, exit 3),
+default `maxNatSizeDefault = 134217728`, threaded `Args.maxNatSize → Req → checkMainG →
+checkDeclsIO/checkOleansG → checkPool/jobRun → recordJob`.  No environment variable: the
+driver reads nothing but its arguments and its files, and `LEAN_NAT_MAX_SIZE` in a user's
+environment silently changing a verdict is what a flag avoids.  (Official reads the variable;
+a malformed value there falls back to the default.)
+The name is `maxNatSize` throughout — the capstones' and the fold's argument, the state field,
+`maxNatSizeM`, `Args.maxNatSize`, `maxNatSizeDefault` — and the flag is spelled to match it,
+`--max-nat-size` (official's variable reads the words the other way round).
+
+**Proofs.**  `natOpResult_shape`, `natOpResult_const`, `NatStep`'s `pow` case: the cap's
+`split` gone.  `reduceNatC_spec` (`DiscC1`) and the two inference walks (`DiscC4`) take
+`maxNatSizeM` into `vcgen`'s list; the new branches are throws.  `CSOKF.empty` became
+`CSOKF.fresh maxNatSize`.  The fold's theorems carry `maxNatSize` beside `pins`.  No `sorry`, no new
+axiom; the capstones' axioms are unchanged.
+
+**Fixtures** (`tests/e2e-expected.txt`): `nat_size` (the raw export, placeholder exponents) and,
+derived by `scripts/mk_nat_size_fixtures.py` (the elaborator cannot state them),
+`nat_size_ok` (`1^4000000000`, `0^4000000000`, `1^(2^32−1)`, `2^(2^24)`, `1 <<< 10^8`: 0),
+`nat_pow_over_max_size` (`2^(2^24+1)`: 1), `nat_pow_exp_32bit` (`1^(2^32)`: 1),
+`nat_shift_over_max_size` (`1 <<< 1073741760`: 1), `nat_shift_exp_32bit` (`1 <<< 2^32`: 1); and
+the port of lean4's `tests/elab/nat_size_limit.lean` at `--max-nat-size=16` (arena.sh's new
+`E2E_FLAGS`): `mul_ok` 0, `mul_big`, `pow_big`, `pow_huge_exp`, `pow_32bit`, `shift_big`,
+`big_lit` 1.  The base binary on the same streams: `nat_size_ok`, `nat_pow_over_max_size`,
+`nat_pow_exp_32bit` time out at 60 s (the unfolding), `nat_shift_over_max_size` accepts after
+computing a 128 MiB numeral, `nat_shift_exp_32bit` aborts in the runtime (`lean_nat_shiftl`'s
+panic, exit 134), `nat_size_limit_mul_big` accepts (no bound).  `nat_size_ok` checks in
+62.8 M instructions.
+
+**Numbers** (`instructions:u`, one run each, `--jobs=1`, verified; base 9bec05e98 → lane):
+init-full 374.915 → 375.246 G (+0.09 %), grind-ring-5 13.149 → 13.170 G (+0.16 %), app-lam
+22.080 → 22.080 G, beta-ladder 4.848 → 4.850 G, let-ladder 2.569 → 2.569 G; the other arena perf
+streams (all under 0.4 G) within +0.1 %.  The cost is the size measure (`Nat.log2`) at every
+inferred literal and every folded `add`/`sub`/`mul`/`succ`.
+
+## TASK #498 — L7: measured follow-ups; the projection guard reads before it rebuilds (2026-11-09, agent/498-l7)
+
+**Profile before** (frame-pointer build of master 351602a56, scratch copy only, `perf record -e
+instructions:u --call-graph fp`, `--jobs=1`, verified; a sample attributed to its innermost
+con-leche frame, library and runtime frames transparent).  `prop_struct_proj_wide` (265.1 M):
+the projection guard `checkProjRowsI` 36.7 % inclusive, all of it `openPisAtFvarsGoC`, i.e.
+substituting the parameter into the whole 150-field telescope (`instantiateListXP` 14.6 %, its
+memo table 7.5 %, freeing the copy 7.4 %); the inductive check of `WideRel` (`checkBlockKS`)
+25 %.  `BvStruct` minus `Empty` (1.63 G): `checkProjRowsI` about 0.62 G, again the opening; the
+rest is spread over the `.olean` reader and the shared inference/defeq paths.
+
+**What official does per use, what con-leche repeated.**  Official's `infer_proj` instantiates
+the constructor type at each parameter (`nparams` passes over the whole field telescope) and
+then steps the fields, `has_loose_bvars` deciding in O(1).  con-leche did one pass, so it
+repeated nothing official does not; the cost is the copy itself, at every `.proj` on a `Prop`
+structure.  On both workloads every guard call is in its own declaration (a projection
+theorem), so a per-declaration memo of the opened telescope (keyed by constructor and levels)
+would have nothing to hit; a cross-declaration one is ruled out.  The stepped fields are
+already the official's cheap loop.
+
+**The change** (`Cached/ExprOpsC.lean`, `Cached/CoreC.lean`).  `checkProjRowsI` calls
+`projGuardRowsC nP idx cty`: the parameters are opened with the residual left raw
+(`openPisRawGoC`, which `openPisAtFvarsC` now also uses, substituting the residual after it);
+then `projGuardFastC` asks of the RAW telescope whether some field's type up to the projected
+one, or the telescope after it, mentions an earlier field — each a read-only window query
+`hasLooseBVarInC d w` (loose index in `d ..< d + w`; a new proof-carrying walk over `MemoB`
+with the `bvarB ≤ d` cutoff, beside `hasLooseBVarBC`).  Where nothing is mentioned the
+specification's loop steps over every field and its one row is the projected field's domain,
+which alone is substituted (`instantiateListC dom acc idx`).  Otherwise the residual is
+substituted and `projGuardRowsGoC` steps as before.  The specification (`projGuardRows`) is
+unchanged.  Fixtures: `prop_struct_proj_wide` runs the fast case, `proj_guard_used_data_bad`
+and `proj_guard_past_used_data_bad` the substituting one.
+
+**Proofs** (`Verify/Cached/DiscC4.lean`, about 230 lines; `IndWalksC.lean`).
+`projGuardRowsC_none`/`projGuardRowsC_some` state the cached rows as the specification's after
+`openPisAtFvars`; `projRowsC_spec` takes them in place of `openPisAtFvarsC_eq` and
+`projGuardRowsGoC_eq`.  Underneath: `projGuardFastC_rows` (over the telescope with the
+parameters substituted at the free variables, the loop steps every field and returns the
+projected domain), `projGuardFastC_below`, `hasLooseBVarInP_false` (the reference's `false`
+excludes the window), `hasLooseBVarInC_spec`, and
+`hasLooseBVar_instantiateList_fvars_lt` (substituting free variables at and above an offset
+leaves a lower index's occurrence alone, through `instantiateList_cons` and
+`hasLooseBVar_instantiate1_lt`).  The opener: `openPisAtFvarsGoC_eq` restated for the raw loop,
+`openPisRawGoC_fvars` (its substitution is free variables).
+
+**Profile after.**  `prop_struct_proj_wide`: the guard 32.8 %, now `hasLooseBVarInXP` and its
+memo; a read-only walk costs about 0.75 of the copy per node here, because each node still
+returns a fresh result pair and shared nodes go through the memo table.  The fast case reads
+the whole telescope, as it must: whether an earlier field is used depends on everything after
+it.  Going below that per use would need the used-field facts stored with the structure's
+projection table (a design change against #480's "computed where it is read"), not done.
+
+**Item 2, measured, not done.**  `whnfWalkFuel`: L2 computes it once per root constructor
+(`nestCtorsC`); the per-key fold (`nestKeyMap`) and `depthC` are below 0.01 % on every workload
+(0 samples on `prop_struct_proj_wide`, `BvStruct`).  `instPisWithC` (one `instantiate1C` per
+binder): 0.46 % of `prop_struct_proj_wide`, at most 0.015 % elsewhere; a bulk version would not
+show.  No block-scoped memo was added.
+
+**Remaining hot spots** (lane profiles).  `prop_struct_proj_wide`: the guard (33 %, above), the
+`WideRel` inductive check `checkBlockKS` (31 %: the tail `checkBlockTailS` 16 %, of which
+`genRecCheckC` 14 % — the recursor's rules against the stored ones; the block pass 13 %).
+`BvStruct` minus `Empty`: the guard still the largest single piece (≈ 0.55 G of 1.25 G); the
+rest is the `.olean` reader for the module and the defeq/whnf of the 200 projections' and
+`casesOn`'s types, without a single dominating frame.  init-full and grind-ring-5: unchanged
+shapes — inference through `defeqBodyI`/`lazyDeltaReductionI` (58–65 %), `whnfCoreLoopI` with
+`iotaRecI`/`prepareMajorI` (23 % / 47 % on grind-ring-5), substitution `instantiateListXP`
+(9–11 % self) and its memo tables; the reader 3–4 %.  No new single hot spot.
+
+**Numbers** (`perf stat -e instructions:u`, one run each, `--jobs=1`, verified; master
+2db5b8afd → the lane merged with it):
+
+| run | master | lane | change |
+|---|---|---|---|
+| e2e `prop_struct_proj_wide` | 265.10 M | 222.98 M | −15.9 % |
+| `BvStruct` module | 431.000 G | 430.649 G | |
+| `Empty` module | 429.354 G | 429.400 G | |
+| `BvStruct` − `Empty` | 1.646 G | 1.248 G | −24.2 % |
+| init-full | 374.495 G | 374.435 G | −0.02 % |
+| grind-ring-5 | 13.106 G | 13.110 G | +0.03 % |
+| app-lam | 22.072 G | 22.074 G | 0 |
+| beta-ladder | 4.865 G | 4.865 G | 0 |
+| let-ladder | 2.568 G | 2.568 G | 0 |
+| the 12 other arena perf streams (22–300 M) | | | −0.02 … +0.12 % (tens of thousands of instructions) |
+
+The same verdicts everywhere (171, 64 366, 63 937, 57 977 and 2 185 declarations accepted; every
+arena perf stream accepted).
+
+**Gates** (the merged tree).  `lake build`, `lake test` warning-free; `tests/arena.sh` exit 0
+(e2e 571/571, plain-reach 585 all allowlisted, binary-link: no Lean package module linked).
+
+## TASK #498 — L6: the specification becomes plain specification (2026-11-09, agent/498-l6)
+
+**`ShadowOps` leaves the specification.**  `genRecCheck` (`Kernel/Inductives/GenRec.lean`) takes
+a checker's operations, runs the rule stage at `classFeR` and has no flush; `ShadowOps`,
+`ShadowOps.ofOps`/`.fueled` and `shadowOpsC` are deleted, the model reads `fueledOps .verified F`
+(`BlockRunFacts`, `DeclBlockStep`, `GenRecRun`, `BlockPushes`).  The cached stage `genRecCheckC`
+(flushes around the rule stage, the rule-less recursors as the overlay `classFeROvl`) is no longer
+an equation to the specification but a triple in the core's idiom:
+
+```
+genRecCheckS_spec : ⦃fun s => s = s₀⦄ genRecCheckC .verified (mkFEnv env₂) p nestedBit params tbl rd Ms₀ block
+  ⦃fun v s' => CSOKF s' ∧ Runs (genRecCheck (fueledOpsM .verified) (mkFEnv env₂) p nestedBit params tbl rd Ms₀ block) v; ⊤⦄
+```
+
+(`Verify/Cached/GenRecC.lean`): unfold the twin, enter its parts by their equations
+(`classStreamRecsC_eq` … `classRecsRulesOkC_eq`, `IndRecC.lean`) and the overlay by
+`classRecsRulesOk_classFeROvl`, then one `sym only [conleche_grind, genRecCheck.eq_1, …] =>
+vcgen [genRecCheck, unwrapOr, flushC, <the parts' triples>] <;> finish (gen := 12)`, the same
+list as before.  `genRecCheckC_eq` goes; `genRecCheck_names` becomes `genRecCheckC_names`
+(`DeclPushes`), `genRecCheck_twin` becomes `genRecCheckC_twin` (`ViewCongr`), and
+`checkBlockTailS_run`, `genRecCheck_recFresh` use them directly.
+
+**The last plain memo layers.**  With the reach gate's listing: the `instantiate1` memo walk was
+reached only through `blockConstantsC` → `blockRecs` → `recFire` → `Expr.dropVars` (the stored
+recursors' firing modes, at `StreamIndex.add` and the block's push).  `blockConstantsC` now runs
+`blockRecsC` → `recFireC` → `Expr.dropVarsC` (over `instantiate1C`; `blockRecsC_eq`,
+`recFireC_eq`, `dropVarsC_eq` in `WalkersC.lean`), and `instantiate1Go`/`Fast`, `Inst1MemoInv`, the
+`@[csimp]` and `instantiate1_of_bvarB_le` are deleted.  Unreached and deleted with their
+`@[csimp]`s: the plain one-pass openers `openPisAtFvarsF`/`FGo` (the specification uses
+`openPisAtFvars`; `openPisAtFvarsGoC_eq` now states L7's raw loop, substituted, against
+`openPisAtFvars` of the instantiated term directly, which also absorbs `openPisAtFvarsFGo_none`)
+and `instPisAtF`/`instLamsAtF` with their `Go`s and soundness lemmas.  Used by nothing at all,
+deleted with their memo walks: `Expr.renameConsts`, `Expr.replaceConsts`, `Expr.mentionsFvar`
+(the frontend comments that still named the first were corrected).  No `HashMap` memo walk is left
+in `Kernel/` outside the allowlisted reached ones.
+
+**The specification made simpler.**  `checkSumCtorF` called the array loops
+`checkStructDomsAtFA`/`checkStructFieldSortsIFA` so that the driver could run it; it now calls the
+list loops `checkStructDomsAtF`/`checkStructFieldSortsIF`.  The array variants, their `toArray`
+equations and congruences go; the twins keep their arrays and their equations state them at
+`List.toArray`.  `Verify/FastOps.lean` then held only `instPisAtLift_append`, which nothing uses,
+and is deleted.  Not done, reported: the `FEnv`-indexed `…F` layer of the inductive check
+(`checkSumCtorF` beside `checkSumCtor`, …) exists because the cached driver once ran the
+specification on an `FEnv`; the twins now relate to it, so removing it means re-relating the twins
+to the `Env` specification and moving the index congruences (`ViewCongr`) — a lane of its own.
+
+**Lines** (lane against master 604e9e70a): `Kernel/` +27 −1057 (net −1030; most of it the memo
+walks with their invariants and proofs), `Verify/` and `Model/` +139 −255 (net −116), `Cached/`
++45 −24 (the three firing-mode twins), `Frontend/` comments −1.
+
+**Reach.**  585 → 580 reached plain declarations; out: `Expr.dropVars`, `instantiate1Fast`,
+`instantiate1Go`, `blockRecs`, `recFire`.  The allowlist's former "pending task #498" section now
+says what its entries are: the inductive check's shared helpers the twins call as they are
+(shapes, counts, lists, pushes, `O(spine)`/`O(telescope)` reads); none walks a term's DAG.
+
+**Numbers** (`perf stat -e instructions:u`, one run each, `--jobs=1`, verified).  Before the
+merges (master 351602a56 → the lane): init-full 374.220 → 374.209 G, grind-ring-5 13.0833 →
+13.0836 G, `BvStruct` − `Empty` 1.633 → 1.605 G (module runs move by tens of M),
+`prop_struct_proj_wide` 264.97 → 264.98 M.  Merged (master 604e9e70a → the lane): init-full
+374.439 → 374.551 G (+0.03 %; a second pair 374.461 → 374.552 G), grind-ring-5 13.1049 →
+13.1046 G, `BvStruct` − `Empty` 1.267 → 1.262 G, `prop_struct_proj_wide` 222.98 → 222.99 M.  Flat,
+as expected: nothing deleted ran on these streams except the firing-mode walk.  The same verdicts.
+Binary 19.26 → 19.25 MB.
+
+**Gates** (the merged tree).  `lake build`, `lake test` warning-free; `tests/arena.sh` exit 0
+(e2e 571/571, arena tutorial 90/92 as on master, plain-reach 580 all allowlisted, binary-link,
+shake with the imports the deletions freed removed, whitepaper links).  OVERVIEW §11 (`Kernel/` is
+the specification; `Cached/` holds the twins of the whole inductive check) and §12 (the reach
+gate fails on stale entries; a definition with a twin is not listed); citations repointed in
+OVERVIEW and the whitepaper (moved lines; `genRecCheck`'s cited signature lost `ShadowOps`, the
+paragraph needs no change).
+
 ## TASK #520 — the binder-telescope congruence: fixtures and a scaling measurement (2026-11-09, agent/520-defeq-binding)
 
 **The question.**  The official kernel compares two Π-type or lambda-expression telescopes in

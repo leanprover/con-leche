@@ -11,14 +11,15 @@ public section
 /-!
 # The cached recursor stage is the specification's (task #498)
 
-`genRecCheckC` (`ConLeche/Cached/IndRec.lean`) mirrors `genRecCheck`
-(`ConLeche/Kernel/Inductives/GenRec.lean`) at the cached driver's shadow
-operations `shadowOpsC`: the same steps, each cached walk equal to the
-plain one it replaces (`IndWalksC.lean`, `OpsC.lean`, `GuardsC.lean`,
-`openPisAtFvarsC_eq`), each core call the shared operation it unfolds
-to.  So the relation is an equation, `genRecCheckC_eq`, proved twin by
-twin bottom up; the simulation of the stage (`genRecCheckS_spec`,
-`GenRecC.lean`) enters through it.
+The parts of `genRecCheckC` (`ConLeche/Cached/IndRec.lean`) mirror
+those of `genRecCheck` (`ConLeche/Kernel/Inductives/GenRec.lean`) at the
+cached driver's shared operations: the same steps, each cached walk
+equal to the plain one it replaces (`IndWalksC.lean`, `OpsC.lean`,
+`GuardsC.lean`, `openPisAtFvarsC_eq`), each core call the shared
+operation it unfolds to.  So each relation is an equation, proved twin
+by twin bottom up; the stage itself (which flushes and runs the rules at
+an overlay) is simulated by a triple that enters through them
+(`genRecCheckS_spec`, `GenRecC.lean`).
 -/
 
 namespace ConLeche.Cached
@@ -245,18 +246,5 @@ theorem classStreamRecsC_eq (mode : CheckMode) (fe : FEnv) :
   | rc :: rcs => by
     simp only [classStreamRecsC, classStreamRecs, checkConstantValC_eq,
       classStreamRecsC_eq mode fe rcs]
-
-/-! ## The stage -/
-
-/-- **The cached recursor stage is `genRecCheck` at the cached driver's
-shadow operations.** -/
-theorem genRecCheckC_eq (mode : CheckMode) (fe : FEnv) (p : BlockShape) (nestedBit : Bool)
-    (params : List Expr) (tbl : List NestCtorNf) (rd : ClassRead) (Ms : List TargetMajor)
-    (block : List ConstantInfo) :
-    genRecCheckC mode fe p nestedBit params tbl rd Ms block
-      = genRecCheck (shadowOpsC mode) fe p nestedBit params tbl rd Ms block := by
-  simp only [genRecCheckC, genRecCheck, shadowOpsC, classStreamRecsC_eq, classesNfsC_eq,
-    classesCtorsC_eq, classFormerTyC_eq, ClassGen.prefixBindersC_eq, classRecTysOkC_eq,
-    classRecsRulesOkC_eq]
 
 end ConLeche.Cached

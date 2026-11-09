@@ -22,13 +22,14 @@ domain abstracted once) and the guards `allLevelParamsDefinedC`/
 `constsResolveFC`.  The generators (`ClassGen.majorC` …
 `classGenRuleC`) are pure.
 
-Each twin is the specification at the shared operations
-(`genRecCheckC_eq : genRecCheckC mode fe … = genRecCheck (shadowOpsC
-mode) fe …`, `ConLeche/Verify/Cached/IndRecC.lean`); the rule stage's
+Each part is the specification at the shared operations
+(`…C_eq`, `ConLeche/Verify/Cached/IndRecC.lean`); the rule stage's
 inference runs at the rule-less recursors' environment with
 `sharedOpsRuleR`'s two flushes inline (`classRuleCheckC`).  The
 rule-less recursors are an overlay sharing the constructors' index
-(`classFeROvl`).
+(`classFeROvl`), and the stage flushes entering and leaving the rule
+stage, so the stage itself is simulated against `genRecCheck` by a
+triple (`genRecCheckS_spec`, `ConLeche/Verify/Cached/GenRecC.lean`).
 -/
 
 namespace ConLeche.Cached
@@ -429,7 +430,7 @@ def classStreamRecsC (fe : FEnv) : List RecShape → CheckCM (List ConstantVal)
 /-! ## The stage -/
 
 /-- **The cached generated recursor stage**: `genRecCheck` at the
-cached core and walks (`genRecCheckC_eq`), the rule-less recursors an
+cached core and walks (`genRecCheckS_spec`), the rule-less recursors an
 overlay on the constructors' index `fe` (`classFeROvl`), a flush
 entering and leaving the rule stage. -/
 def genRecCheckC (fe : FEnv) (p : BlockShape) (nestedBit : Bool)

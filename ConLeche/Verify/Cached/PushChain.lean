@@ -9,7 +9,6 @@ import ConLeche.Verify.EnvWF
 import ConLeche.Verify.CheckerF
 import ConLeche.Verify.Cached.WalkersC
 import ConLeche.Verify.Cached.IndPositivityC
-import ConLeche.Verify.Cached.IndRecC
 
 public section
 
@@ -340,16 +339,14 @@ theorem blockRecNameSetOk_nodup {p : BlockShape} (h : blockRecNameSetOk p = true
   exact List.elem_iff.mp (List.all_eq_true.mp hwant x hx)
 
 /-- The cached generated stage's run says the records' names are distinct and fresh at the
-constructors' index (the generated constant's lookup and the record pins; through
-`genRecCheckC_eq`). -/
+constructors' index (the generated constant's lookup and the record pins). -/
 theorem genRecCheck_recFresh (mode : CheckMode) (fe : FEnv)
     (p : BlockShape) (nested : Bool) (params : List Expr) (tbl : List NestCtorNf)
     (rd : ClassRead) (Ms₀ : List TargetMajor)
     (block : List ConstantInfo) :
     Yields (genRecCheckC mode fe p nested params tbl rd Ms₀ block)
       (fun _ => (p.recs.map (·.cvR.name)).Nodup ∧ ∀ rc ∈ p.recs, fe.find? rc.cvR.name = none) := by
-  rw [genRecCheckC_eq]
-  refine Yields.mono (genRecCheck_names (shadowOpsC mode) fe
+  refine Yields.mono (genRecCheckC_names mode fe
     p nested params tbl rd Ms₀ block) fun out hout => ?_
   obtain ⟨hnd, -, hall⟩ := hout
   refine ⟨hnd, fun rc hrc => ?_⟩
@@ -604,11 +601,11 @@ theorem checkDeclStepC_push (mode : CheckMode) {env : Env} {fe : FEnv}
 /-- **An accepting run is a fresh chain**: from a canonical index, it returns a canonical index
 whose constants extend the start by fresh names. -/
 theorem declsRun_chain (mode : CheckMode) {ds : List Declaration} {env : Env} {p q : Nat × FEnv}
-    (h : DeclsRun mode pins ds p q) (hp : PushChain env p.2) : PushChain env q.2 := by
+    (h : DeclsRun mode pins maxNatSize ds p q) (hp : PushChain env p.2) : PushChain env q.2 := by
   induction h with
   | nil p => exact hp
   | @cons pd ds p p₁ q hstep rest ih =>
     obtain ⟨fe₁, s₁, rfl, hstepC⟩ := declStep_ok hstep
-    exact ih (checkDeclStepC_push mode hp pd {} fe₁ s₁ hstepC)
+    exact ih (checkDeclStepC_push mode hp pd _ fe₁ s₁ hstepC)
 
 end ConLeche.Cached

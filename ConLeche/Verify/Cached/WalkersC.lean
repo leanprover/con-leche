@@ -98,8 +98,21 @@ theorem familyTelescopeC_eq (mode : CheckMode) (fe : FEnv) (cv : ConstantVal) (c
 theorem blockIsRecC_eq (p : BlockShape) : blockIsRecC p = blockIsRec p := by
   simp only [blockIsRecC, blockIsRec, Expr.piDomsMentionAnyC_spec]
 
+theorem Expr.dropVarsC_eq : ∀ n : Nat, Expr.dropVarsC n = Expr.dropVars n
+  | 0 => rfl
+  | n + 1 => funext fun e => by
+    simp only [Expr.dropVarsC, Expr.dropVars, Expr.instantiate1C_spec, Expr.dropVarsC_eq n]
+
+theorem recFireC_eq (p : BlockShape) (rc : RecShape) : recFireC p rc = recFire p rc := by
+  simp only [recFireC, recFire, Expr.dropVarsC_eq]
+  rfl
+
+theorem blockRecsC_eq (p : BlockShape) : ∀ rcs, blockRecsC p rcs = blockRecs p rcs
+  | [] => rfl
+  | rc :: rest => by simp only [blockRecsC, blockRecs, recFireC_eq, blockRecsC_eq p rest]
+
 theorem blockConstantsC_eq (p : BlockShape) : blockConstantsC p = blockConstants p := by
-  simp only [blockConstantsC, blockConstants, blockIsRecC_eq]
+  simp only [blockConstantsC, blockConstants, blockIsRecC_eq, blockRecsC_eq]
 
 theorem declConstantsC_eq (pd : Declaration) : declConstantsC pd = declConstants pd := by
   cases pd with

@@ -3,6 +3,7 @@ module
 public import ConLeche.Cached.Decls
 import ConLeche.Verify.Cached.BlockOverlay
 import ConLeche.Verify.Cached.WalkersC
+import ConLeche.Verify.Cached.IndRecC
 
 public section
 
@@ -415,18 +416,19 @@ theorem classRecsRulesOk_fst (ops : CheckerOps CheckCM) (feT feR : FEnv)
       (by simpa using h)) fun xs hxs => ?_
     exact Yields.pure (by simp [hxs])
 
-/-- **The generated stage at the skeleton level**: one stored recursor
+/-- **The cached generated stage at the skeleton level**: one stored recursor
 per record, in order, under the record's name (fresh at the stage's
 index), the family's names distinct. -/
-theorem genRecCheck_names (so : ShadowOps CheckCM) (fe : FEnv)
+theorem genRecCheckC_names (mode : CheckMode) (fe : FEnv)
     (p : BlockShape) (nestedBit : Bool) (params : List Expr) (tbl : List NestCtorNf)
     (rd : ClassRead) (Ms₀ : List TargetMajor)
     (block : List ConstantInfo) :
-    Yields (genRecCheck so fe p nestedBit params tbl rd Ms₀ block)
+    Yields (genRecCheckC mode fe p nestedBit params tbl rd Ms₀ block)
       (fun out => (p.recs.map (·.cvR.name)).Nodup ∧ out.length = p.recs.length ∧
         ∀ (j : Nat) (rc : RecShape), p.recs[j]? = some rc →
           ∃ o, out[j]? = some o ∧ o.1.name = rc.cvR.name ∧ fe.find? rc.cvR.name = none) := by
-  unfold genRecCheck
+  unfold genRecCheckC
+  simp only [classRecTysOkC_eq, classRecsRulesOkC_eq]
   refine Yields.bind' (Q := fun _ => (p.recs.map (·.cvR.name)).Nodup) ?_ fun _ hnd => ?_
   · unfold targetRecPins
     dsimp only
@@ -720,13 +722,13 @@ theorem checkDeclStepC_pushes (mode : CheckMode) (fe : FEnv) (pd : Declaration) 
   ds.foldl (fun e pd => e.pushDelta (declConstants pd) (declTables pd)) env
 
 theorem declsRun_env (mode : CheckMode) {ds : List Declaration}
-    {p q : Nat × FEnv} (h : DeclsRun mode pins ds p q) :
+    {p q : Nat × FEnv} (h : DeclsRun mode pins maxNatSize ds p q) :
     q.2.env = streamEnv ds p.2.env := by
   induction h with
   | nil p => rfl
   | @cons pd ds p p₁ q hstep rest ih =>
     obtain ⟨fe₁, s₁, rfl, hstepC⟩ := declStep_ok hstep
-    have h₁ := checkDeclStepC_pushes (pins := pins) mode p.2 pd {} fe₁ s₁ hstepC
+    have h₁ := checkDeclStepC_pushes (pins := pins) mode p.2 pd _ fe₁ s₁ hstepC
     rw [ih]
     simp only at h₁
     rw [h₁, pushDelta_env]
@@ -734,13 +736,13 @@ theorem declsRun_env (mode : CheckMode) {ds : List Declaration}
 
 /-- **An accepted stream's environment is a function of the stream**, at every mode. -/
 theorem checkDecls_env {mode : CheckMode} {ds : Array Declaration} {env : Env}
-    (h : checkDecls mode pins ds = .ok env) : env = streamEnv ds.toList := by
+    (h : checkDecls mode pins maxNatSize ds = .ok env) : env = streamEnv ds.toList := by
   obtain ⟨n, fe, r, rfl⟩ := checkDecls_run mode h
   exact declsRun_env mode r
 
 /-- **Two modes that both accept a stream end in the same environment.** -/
 theorem checkDecls_agree {μ₁ μ₂ : CheckMode} {ds : Array Declaration} {env₁ env₂ : Env}
-    (h₁ : checkDecls μ₁ pins ds = .ok env₁) (h₂ : checkDecls μ₂ pins ds = .ok env₂) :
+    (h₁ : checkDecls μ₁ pins maxNatSize ds = .ok env₁) (h₂ : checkDecls μ₂ pins maxNatSize ds = .ok env₂) :
     env₁ = env₂ :=
   (checkDecls_env h₁).trans (checkDecls_env h₂).symm
 

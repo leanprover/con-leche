@@ -276,10 +276,10 @@ not the recursor's $alpha$, and $List$'s level names, not $Tree$'s. So
 #src("ConLeche/Kernel/Env.lean", 106, 112)[each rule of a recursor at a container class stores the instantiation],
 that is, the class's levels and parameters as terms in the recursor's
 level parameters and parameters
-(#src("ConLeche/Kernel/Inductives/RecCheck.lean", 464, 475)[the stored rules at a container class]).
+(#src("ConLeche/Kernel/Inductives/RecCheck.lean", 434, 445)[the stored rules at a container class]).
 In the certified case of $iota$ (@sec:iota-cases), the
 constructor application's levels and parameters are compared with
-#src("ConLeche/Kernel/CoreDefs.lean", 913, 925)[the stored ones, instantiated at the recursor's levels and parameter arguments]
+#src("ConLeche/Kernel/CoreDefs.lean", 884, 896)[the stored ones, instantiated at the recursor's levels and parameter arguments]
 (#src("ConLeche/Rules/Rel.lean", 212, 223)[the levels by the level oracle, the parameters definitionally]),
 and the index comparison is as before. In the other cases the rule
 fires comparing nothing, as for a simple block. The constructor's fields
@@ -287,7 +287,7 @@ are what follows its own parameters.
 
 *Large elimination.* A nested block may eliminate into every sort only
 if #src("ConLeche/Kernel/Inductives/BlockRec.lean", 82, 84)[its sort is never zero]
-(#src("ConLeche/Kernel/Inductives/GenRec.lean", 558, 562)[where the checker enforces it]),
+(#src("ConLeche/Kernel/Inductives/GenRec.lean", 557, 561)[where the checker enforces it]),
 as in the official kernel. A nested proposition eliminates only into
 $sans("Prop")$, and the subsingleton criterion is never asked of a
 nested block.
@@ -298,7 +298,7 @@ nested block.
   #src("ConLeche/Kernel/Inductives/ClassRead.lean", 15, 32)[an unverified pre-pass],
   and each class is then checked: the type being defined at the
   block's levels and parameters, or
-  #src("ConLeche/Kernel/Inductives/RecCheck.lean", 273, 310)[a stored inductive type, not the quotient, whose parameters mention the type being defined and nothing but the block's parameters, in the block's sort].
+  #src("ConLeche/Kernel/Inductives/RecCheck.lean", 243, 280)[a stored inductive type, not the quotient, whose parameters mention the type being defined and nothing but the block's parameters, in the block's sort].
   #src("ConLeche/Kernel/Inductives/Positivity.lean", 1086, 1094)[Every class other than the type being defined is walked]
   as a container met at the root, so every class is an instantiation
   the walk visited. A field landing at a class for which the stream
