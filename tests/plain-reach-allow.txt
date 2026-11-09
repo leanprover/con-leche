@@ -436,8 +436,6 @@ ConLeche.structUsedLater  # reached through a closure of the inductive check, pe
 ConLeche.Expr.getAppArgs  # propIrrelI through PropRead.unwrapIdDefs (head spines of identity definitions) and the inductive check, pending task #498
 ConLeche.Expr.instantiate1Fast  # the inductive check, pending task #498
 ConLeche.Expr.instantiate1Go  # (the walk of instantiate1Fast)
-ConLeche.Expr.liftLooseBVarsFast  # the inductive check (streamNestedOk, through a List.map specialization), pending task #498
-ConLeche.Expr.liftLooseBVarsGo  # (the walk of liftLooseBVarsFast)
 
 # PENDING TASK #498 — the inductive check (Kernel/Inductives/*, Kernel/Install) and the
 # walks reached only through it.  The cached driver runs the specification as is; #498 gives
@@ -469,9 +467,7 @@ ConLeche.FEnv.pushDelta  # ConLeche.Kernel.Inductives.BlockInstallF
 ConLeche.checkBlockAgreeF  # ConLeche.Kernel.Inductives.BlockInstallF
 ConLeche.checkBlockCtorsF  # ConLeche.Kernel.Inductives.BlockInstallF
 ConLeche.checkBlockDomsAtF  # ConLeche.Kernel.Inductives.BlockInstallF
-ConLeche.checkBlockIdxSortsF  # ConLeche.Kernel.Inductives.BlockInstallF
 ConLeche.checkBlockIndsF  # ConLeche.Kernel.Inductives.BlockInstallF
-ConLeche.checkBlockTablesF  # ConLeche.Kernel.Inductives.BlockInstallF
 ConLeche.checkBlockTeleF  # ConLeche.Kernel.Inductives.BlockInstallF
 ConLeche.checkBlockTelesF  # ConLeche.Kernel.Inductives.BlockInstallF
 ConLeche.consBlockCtorsF  # ConLeche.Kernel.Inductives.BlockInstallF
@@ -616,12 +612,8 @@ ConLeche.nestWalkStack  # ConLeche.Kernel.Inductives.Positivity
 ConLeche.reducedFormer  # ConLeche.Kernel.Inductives.Positivity
 ConLeche.whnfTelescope  # ConLeche.Kernel.Inductives.Positivity
 ConLeche.whnfWalkFuel  # ConLeche.Kernel.Inductives.Positivity
-ConLeche.Expr.abstractPrefix  # ConLeche.Kernel.Inductives.RecCheck
 ConLeche.Expr.eraseFVarTys  # ConLeche.Kernel.Inductives.RecCheck
-ConLeche.auxRuleFire  # ConLeche.Kernel.Inductives.RecCheck
 ConLeche.blockNestedBit  # ConLeche.Kernel.Inductives.RecCheck
-ConLeche.blockRecInfosTF  # ConLeche.Kernel.Inductives.RecCheck
-ConLeche.generatedRules  # ConLeche.Kernel.Inductives.RecCheck
 ConLeche.instInhabitedTargetMajor.default  # ConLeche.Kernel.Inductives.RecCheck
 ConLeche.recKExpected  # ConLeche.Kernel.Inductives.RecCheck
 ConLeche.targetAbsFast  # ConLeche.Kernel.Inductives.RecCheck
@@ -640,20 +632,8 @@ ConLeche.targetParamsDefEq  # ConLeche.Kernel.Inductives.RecCheck
 ConLeche.targetPiDomsWith  # ConLeche.Kernel.Inductives.RecCheck
 ConLeche.targetPinTys  # ConLeche.Kernel.Inductives.RecCheck
 ConLeche.targetRecPins  # ConLeche.Kernel.Inductives.RecCheck
-ConLeche.generatedFire  # ConLeche.Kernel.Inductives.StreamRecs
-ConLeche.recDomsAt  # ConLeche.Kernel.Inductives.StreamRecs
-ConLeche.recTyCheck  # ConLeche.Kernel.Inductives.StreamRecs
-ConLeche.recTyOpened  # ConLeche.Kernel.Inductives.StreamRecs
-ConLeche.ruleAgree  # ConLeche.Kernel.Inductives.StreamRecs
 ConLeche.streamKCheck  # ConLeche.Kernel.Inductives.StreamRecs
-ConLeche.streamNestedOk  # ConLeche.Kernel.Inductives.StreamRecs
-ConLeche.streamRecCheck  # ConLeche.Kernel.Inductives.StreamRecs
-ConLeche.streamRecCompare  # ConLeche.Kernel.Inductives.StreamRecs
-ConLeche.streamRecsCheck  # ConLeche.Kernel.Inductives.StreamRecs
-ConLeche.streamRulesCheck  # ConLeche.Kernel.Inductives.StreamRecs
-ConLeche.streamRulesShape  # ConLeche.Kernel.Inductives.StreamRecs
 ConLeche.checkStructDomsAtFA  # ConLeche.Kernel.Inductives.StructInstallF
-ConLeche.checkStructProjTableF  # ConLeche.Kernel.Inductives.StructInstallF
 ConLeche.structCtorResidOk  # ConLeche.Kernel.Inductives.StructParts
 ConLeche.structElimLevel  # ConLeche.Kernel.Inductives.StructParts
 ConLeche.structProjArgP  # ConLeche.Kernel.Inductives.StructParts
@@ -662,7 +642,6 @@ ConLeche.structPsAt  # ConLeche.Kernel.Inductives.StructParts
 ConLeche.checkStructFieldSortsI  # ConLeche.Kernel.Inductives.SumInstall
 ConLeche.checkSumTele  # ConLeche.Kernel.Inductives.SumInstall
 ConLeche.sumRules  # ConLeche.Kernel.Inductives.SumInstall
-ConLeche.checkStructFieldSortsIF  # ConLeche.Kernel.Inductives.SumInstallF
 ConLeche.checkStructFieldSortsIFA  # ConLeche.Kernel.Inductives.SumInstallF
 ConLeche.checkSumCtorF  # ConLeche.Kernel.Inductives.SumInstallF
 ConLeche.checkSumCtorsF  # ConLeche.Kernel.Inductives.SumInstallF
