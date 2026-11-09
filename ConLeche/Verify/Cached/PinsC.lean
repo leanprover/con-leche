@@ -11,8 +11,9 @@ public section
 `checkDivModPinC` (`ConLeche/Cached/ParsedC.lean`) substitutes each
 variant's certificate proofs once with the sharing-preserving
 `substConstAllC` and guards them with the cached walks;
-`checkDivModPinC_eq` is its equation to `checkDivModPinF`, at any
-operations and in any monad.
+`checkDivModPinC_eq` is its equation to `checkDivModPinF` at the shared
+operations (`sharedOpsC`): the twin calls the cached core directly, and
+the shared operations are that core.
 -/
 
 namespace ConLeche.Cached
@@ -44,43 +45,47 @@ theorem divModCertsGuardC_eq (ps : NatOpPinSet) (fe : FEnv) (c : Name) (annVal :
   simp only [divModCertsGuardF, List.zip_map_right, List.all_map, Function.comp_def,
     Prod.map_fst, Prod.map_snd, id_eq, divModCertGuardC_eq]
 
-section Pins
+variable (mode : CheckMode)
 
-variable {m : Type → Type} [Monad m] [MonadExceptOf CheckError m]
+theorem checkTypePinsC_eq (fe : FEnv) :
+    ∀ ps : List (Name × Expr),
+      checkTypePinsC mode fe ps = checkTypePinsF (sharedOpsC mode fe) fe ps
+  | [] => rfl
+  | p :: rest => by
+    simp only [checkTypePinsC, checkTypePinsF, checkTypePinsC_eq fe rest]
+    rfl
 
-omit [MonadExceptOf CheckError m] in
-theorem checkDivModCertsC_eq (ops : CheckerOps m) (fe : FEnv) (c : Name) (annVal : Expr) :
+theorem checkDivModCertsC_eq (fe : FEnv) (c : Name) (annVal : Expr) :
     ∀ (stmts : List (List Expr × Expr)) (proofs : List Expr),
-      checkDivModCertsC ops fe c annVal stmts (proofs.map (Expr.substConstAllC c annVal))
-        = checkDivModCertsF ops fe c annVal stmts proofs
+      checkDivModCertsC mode fe c annVal stmts (proofs.map (Expr.substConstAllC c annVal))
+        = checkDivModCertsF (sharedOpsC mode fe) fe c annVal stmts proofs
   | [], [] => rfl
   | [], _ :: _ => rfl
   | _ :: _, [] => rfl
   | (hyps, eqE) :: srest, proof :: prest => by
     simp only [List.map_cons, checkDivModCertsC, checkDivModCertsF, divModCertGuardC_eq]
-    simp only [substConstAllC_spec, checkDivModCertsC_eq ops fe c annVal srest prest]
+    simp only [substConstAllC_spec, checkDivModCertsC_eq fe c annVal srest prest]
+    rfl
 
-omit [MonadExceptOf CheckError m] in
-theorem checkDivModPinAtC_eq (ops : CheckerOps m) (fe : FEnv) (c : Name) (value' : Expr)
-    (ps : NatOpPinSet) :
-    checkDivModPinAtC ops fe c value' ps
+theorem checkDivModPinAtC_eq (fe : FEnv) (c : Name) (value' : Expr) (ps : NatOpPinSet) :
+    checkDivModPinAtC mode fe c value' ps
         ((divModCertProofs ps c).map (Expr.substConstAllC c value'))
-      = checkDivModPinAtF ops fe c value' ps := by
-  simp only [checkDivModPinAtC, checkDivModPinAtF, checkDivModCertsC_eq]
+      = checkDivModPinAtF (sharedOpsC mode fe) fe c value' ps := by
+  simp only [checkDivModPinAtC, checkDivModPinAtF, checkDivModCertsC_eq, checkTypePinsC_eq]
+  rfl
 
-theorem checkDivModPinLoopC_eq (ops : CheckerOps m) (fe : FEnv) (c : Name) (value' : Expr) :
+theorem checkDivModPinLoopC_eq (fe : FEnv) (c : Name) (value' : Expr) :
     ∀ (pins : List NatOpPinSet) (tried : List String),
-      checkDivModPinLoopC ops fe c value' pins tried
-        = checkDivModPinLoopF ops fe c value' pins tried
+      checkDivModPinLoopC mode fe c value' pins tried
+        = checkDivModPinLoopF (sharedOpsC mode fe) fe c value' pins tried
   | [], _ => rfl
   | ps :: rest, tried => by
     simp only [checkDivModPinLoopC, checkDivModPinLoopF, divModPinGuardC_eq,
-      divModCertsGuardC_eq, checkDivModPinAtC_eq, checkDivModPinLoopC_eq ops fe c value' rest]
+      divModCertsGuardC_eq, checkDivModPinAtC_eq, checkDivModPinLoopC_eq fe c value' rest]
 
-/-- **The cached pin check is the specification's.** -/
-theorem checkDivModPinC_eq (ops : CheckerOps m) (pins : List NatOpPinSet) (fe fe2 : FEnv)
-    (c : Name) :
-    checkDivModPinC ops pins fe fe2 c = checkDivModPinF ops pins fe fe2 c := by
+/-- **The cached pin check is the specification's at the shared operations.** -/
+theorem checkDivModPinC_eq (pins : List NatOpPinSet) (fe fe2 : FEnv) (c : Name) :
+    checkDivModPinC mode pins fe fe2 c = checkDivModPinF (sharedOpsC mode fe) pins fe fe2 c := by
   unfold checkDivModPinC checkDivModPinF
   split
   · cases fe2.find? c with
@@ -93,11 +98,10 @@ theorem reducePinGuardC_eq (fe : FEnv) (c : Name) :
   simp only [reducePinGuardC, reducePinGuardF, Expr.allLevelParamsDefinedC_spec,
     constsResolveFC_spec]
 
-/-- **The cached reduce-pin check is the specification's.** -/
-theorem checkReducePinC_eq (ops : CheckerOps m) (fe fe2 : FEnv) (c : Name) (value : Expr) :
-    checkReducePinC ops fe fe2 c value = checkReducePinF ops fe fe2 c value := by
+/-- **The cached reduce-pin check is the specification's at the shared operations.** -/
+theorem checkReducePinC_eq (fe fe2 : FEnv) (c : Name) (value : Expr) :
+    checkReducePinC mode fe fe2 c value = checkReducePinF (sharedOpsC mode fe) fe fe2 c value := by
   simp only [checkReducePinC, checkReducePinF, reducePinGuardC_eq]
-
-end Pins
+  rfl
 
 end ConLeche.Cached

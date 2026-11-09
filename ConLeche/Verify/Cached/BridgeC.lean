@@ -123,17 +123,17 @@ theorem checkDivModPinF_overlay (ops : CheckerOps CheckCM) (env : Env) (ci : Con
     checkDivModPinF_eq]
 
 /-- The cached reduce-pin check at the arm's overlay (`checkReducePinC_eq`, task #497). -/
-theorem checkReducePinC_overlay (ops : CheckerOps CheckCM) (env : Env) (ci : ConstantInfo)
+theorem checkReducePinC_overlay (mode : CheckMode) (env : Env) (ci : ConstantInfo)
     (c : Name) (value : Expr) :
-    checkReducePinC ops (mkFEnv env) ((mkFEnv env).overlay [ci]) c value
-      = checkReducePin ops env ⟨ci :: env.consts, env.tables⟩ c value := by
+    checkReducePinC mode (mkFEnv env) ((mkFEnv env).overlay [ci]) c value
+      = checkReducePin (sharedOpsC mode (mkFEnv env)) env ⟨ci :: env.consts, env.tables⟩ c value := by
   rw [checkReducePinC_eq, checkReducePinF_overlay]
 
 /-- The cached pin check at the arm's overlay (`checkDivModPinC_eq`, task #497). -/
-theorem checkDivModPinC_overlay (ops : CheckerOps CheckCM) (env : Env) (ci : ConstantInfo)
+theorem checkDivModPinC_overlay (mode : CheckMode) (env : Env) (ci : ConstantInfo)
     (c : Name) :
-    checkDivModPinC ops pins (mkFEnv env) ((mkFEnv env).overlay [ci]) c
-      = checkDivModPin ops pins env ⟨ci :: env.consts, env.tables⟩ c := by
+    checkDivModPinC mode pins (mkFEnv env) ((mkFEnv env).overlay [ci]) c
+      = checkDivModPin (sharedOpsC mode (mkFEnv env)) pins env ⟨ci :: env.consts, env.tables⟩ c := by
   rw [checkDivModPinC_eq, checkDivModPinF_overlay]
 
 /-- The structural-`Nat` recurrences at a closed stored value (at the

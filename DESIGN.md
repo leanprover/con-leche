@@ -111087,12 +111087,16 @@ Already unreached today, before this lane too: `mentionsFvar`, `instPisAt`, `ins
 `looseBVarsBounded`), the pointer-first equalities (`Name`/`Level`/`Expr.beq`) and the basis'
 `canonEq` stay: they are the executed code.
 
-**The generic form.**  `checkDivModPinC` and `checkReducePinC` are generic over the operations
-(`ops : CheckerOps m`), like the `F` mirrors they twin: that is what makes `checkDivModPinC_eq` an
-equation at any operations and monad, so the existing bridges (`checkDivModPinF_overlay`,
-`checkDivModPinF_congr`) carry over by one rewrite and no new simulation proof is needed.  #498's
-plan proposes monomorphic `(mode) (fe)` `CheckCM` twins in `CoreC`'s style; these two stay generic
-until then.
+**Monomorphic twins (maintainer's ruling).**  The twins are `(mode) (fe)` `CheckCM` definitions
+calling the cached core directly, like `CoreC`; an operations record only where it breaks
+recursion.  `checkDivModPinC` and `checkReducePinC` (and their `checkTypePinsC`,
+`checkDivModCertsC`, `checkDivModPinAtC`, `checkDivModPinLoopC`) call `coreKnotI`'s `infer` and
+`defeq`; they mirror the specification at the shared operations, so their relation is an equation
+(`checkDivModPinC_eq : checkDivModPinC mode pins fe fe2 c = checkDivModPinF (sharedOpsC mode fe)
+pins fe fe2 c`, `checkReducePinC_eq` likewise), each step closed by unfolding and `rfl` (the
+shared operations are that core); the bridges (`checkDivModPinC_overlay`, `checkReducePinC_overlay`,
+`ViewCongr`) enter through them.  Against the first, ops-generic version: one more lemma
+(`checkTypePinsC_eq`) and `PinsC.lean` 103 → 107 lines.
 
 `tests/scale.sh` reads as on the base: `dag` n=1600 48.69 M (base 48.76 M), `spine` n=400
 33.52 M (33.65 M), `lparams` n=800 94.21 M (93.75 M); `lparams` exceeds its gate as on master
