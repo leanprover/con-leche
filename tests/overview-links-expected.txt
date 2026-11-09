@@ -113,12 +113,12 @@
     83  def checkDecls (mode : CheckMode) (pins : List NatOpPinSet) (ds : Array Declaration) :
     84      Except (CheckError × Nat) Env := do
 
-== tests/ConLecheTests/Axioms.lean#L95-L99
-    95  /--
-    96  info: 'ConLeche.model_exists' depends on axioms: [propext, Classical.choice, Quot.sound]
-    97  -/
-    98  #guard_msgs in
-    99  #print axioms ConLeche.model_exists
+== tests/ConLecheTests/Axioms.lean#L97-L101
+    97  /--
+    98  info: 'ConLeche.model_exists' depends on axioms: [propext, Classical.choice, Quot.sound]
+    99  -/
+   100  #guard_msgs in
+   101  #print axioms ConLeche.model_exists
 
 == ConLeche/Driver/Dispatch.lean#L31
     31  def runReq {μ : Type → Type} [CheckerIO μ] : Req → μ UInt8
@@ -277,6 +277,10 @@
     35      {ds : Array Declaration} {env' : Env}
     36      (h : checkDecls .verified pins ds = .ok env') :
     37      Nonempty (EnvModelM V env') := by
+
+== ConLeche/Semantics/DeclWF.lean#L300-L301
+   300  theorem checkDecls_envWF {ds : Array Declaration} {env' : Env}
+   301      (h : checkDecls .verified pins ds = .ok env') : EnvWF env' := by
 
 == ConLeche/Verify/Cached/KnotCongr.lean#L480-L482
    480  theorem coreKnotI_congr (hfe : fe₁.find? = fe₂.find?)
