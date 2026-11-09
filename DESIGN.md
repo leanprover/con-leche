@@ -115621,3 +115621,129 @@ Request: a kill message also says how long the killed worker had been running.  
 `M 0.4 GiB after 3m12s` per worker.  The format is `dur` (`42s`, `3m12s`, `1h16m`), as in the other
 lines.  The SIGINT report only counts its workers, so it has nothing to add; the log's `killed`
 line already carries the ms and is unchanged.
+
+## TASK #544 — multi-threaded workers: `--jobs` is the thread budget (2026-11-09, agent/544-threads)
+
+`Driver/ScheduleIO.lean`, `Driver/Schedule.lean` (plain IO inside `liftIO`, outside every
+theorem), `Driver/Cli.lean` (usage), `scripts/schedsim.py`, OVERVIEW.  The design agreed with the
+maintainer, with one change the simulator asked for (the cap below).
+
+**The rule.**  With `--schedule`, `--jobs=N` is the thread budget: the running workers' threads
+(each worker's `--jobs=T`) sum to at most N.  A starting worker gets
+`T = max 1 (min cap (decls ÷ d))`, d = 30 (`threadDiv`), where `cap` (`threadCap`) is the free
+threads (N minus the running workers' threads) less those memory could still fill with workers:
+`min (free − 1) (min fit queued)` of them, `fit` the workers at the typical peak that fit into the
+room after this start (unbounded without a limit), `queued` the modules waiting besides it.  So a
+free thread goes to a new worker where one can start, and to an extra thread of a starting
+many-declaration module only where memory, not N, keeps workers from starting (the maintainer's
+clarification: a thread shares the worker's context, 0.2–0.7 GiB a worker on Mathlib, so it buys
+the same core time for far less memory).  The agreed rule's `free threads` alone (the variant
+"greedy" below) also hands threads out when the cores, not memory, are the limit, and that costs
+time: the install phase scales sublinearly (#518: serial fraction 0.56), so a core is worth more
+as a new worker.  A module killed while running with T > 1 runs with one thread from then on
+(`St.single`).  Admission is unchanged: a worker counts at its measured peak, threads included.
+No cap beyond `cap` and the declarations (below).
+
+**The declaration count** (`Schedule.declCount`, `Driver/Schedule.lean`): the constants of the
+module's private view, `readFiles sp m .private` and `moduleSkel` over `viewRegion .private`, the
+constants array's length; no name or expression decoded.  It is the class-generic reader of
+`Frontend/Olean/Files.lean`, instantiated at `IO` inside the `CheckerIO.liftIO` argument of
+`scheduleG` (the checker-IO fence cuts that argument; `Schedule.lean` itself stays generic, and
+`ScheduleIO.lean`, the process fence's one file, imports nothing new: it gets the reader as a
+function `decls : Name → IO (Option Nat)`).  It runs only where `cap` is above 1, so a run whose
+cores are the limit reads almost none.  Cost: 597 reads in 0.4 s (0.7 ms each) on
+`Std.Tactic.BVDecide` at 400M, 194 in under 0.05 s on the DTreeMap closure; the worker then reads
+the same files from the page cache.  A failed read counts 0 declarations (one thread; the worker
+says why).
+
+**Output.**  A finished module's line has a column `×T` (the worker's threads where above 1,
+blank otherwise; no column at `--jobs=1`), and the bracket `U/N threads` after `k running` where
+the running workers hold more threads than there are workers, in the finish lines and the
+heartbeat; the statistics say `% of N threads` and add `threads: S workers started with more than
+one; R declaration counts read in X; K modules back at one thread after a kill`.  The log's verdict
+line gains `\t<threads>` at the end; the reader takes the fields it took before, so old logs resume, and
+the simulator reads the field where present.
+
+**Calibration** (`schedsim.py _tmp/518/mathlib.log --profiles _tmp/518/prof-j1 --tick 0.05
+--install-serial 0.56 --thread-mem 0.01 --calibrate --calibrate-d 0,3,10,30 --calibrate-spare
+both`; makespan in minutes, then the kills and the workers started with T > 1; `d=0` one thread per
+worker, the policy before; "greedy" the agreed rule (cap = the free threads), "spare" the
+shipped one; `real` the 16G Mathlib log, `heavy` a random 1 % at 100× time and 10× memory,
+`heavy30` the same at 30× memory, `mcl` the log plus 10 McLEnumA-like modules (CFSG, #543's
+`_tmp/543/logs/mcl.probe.err`: 87 748 declarations, 554 s at one thread of which 553.9 s check
+busy, slowest check 13.5 s, peak 1.41 GiB), `mclheavy30` both):
+
+| case | bound | d=0 | greedy d=3 | spare d=3 | greedy d=10 | spare d=10 | greedy d=30 | **spare d=30** |
+|---|---|---|---|---|---|---|---|---|
+| real 16G j8 | 21.1 | 22.0 (0, 0) | 33.2 (0, 5794) | 22.0 (0, 0) | 25.9 (0, 3102) | 22.0 (0, 0) | 23.1 (0, 1104) | 22.0 (0, 0) |
+| real 16G j32 | 5.3 | 5.6 (0, 0) | 13.9 (0, 7709) | 5.6 (0, 1) | 8.8 (0, 5404) | 5.6 (0, 1) | 6.5 (0, 2540) | 5.6 (0, 5) |
+| real 1.5G j8 | 21.1 | 51.2 (1, 0) | 46.1 (0, 7151) | 42.2 (2, 4816) | 43.3 (0, 5761) | 42.4 (1, 4555) | 45.0 (0, 3398) | 45.8 (3, 3120) |
+| real 3G j16 | 10.6 | 18.3 (0, 0) | 22.1 (1, 6900) | 16.2 (0, 2966) | 17.6 (0, 5144) | 17.4 (0, 3645) | 16.9 (0, 3107) | 17.5 (0, 2635) |
+| heavy 8G j16 | 28.8 | 62.6 (17, 0) | 58.7 (18, 6477) | 56.8 (14, 1917) | 61.2 (18, 5018) | 58.1 (19, 1930) | 56.4 (14, 2554) | 61.5 (19, 1610) |
+| heavy 16G j32 | 14.4 | 30.8 (12, 0) | 27.5 (3, 6946) | 28.0 (12, 1926) | 27.4 (12, 5080) | 28.0 (19, 2087) | 28.4 (9, 2770) | 30.4 (10, 2027) |
+| heavy30 24G j16 | 26.9 | 57.6 (20, 0) | 55.9 (22, 6127) | 53.1 (26, 716) | 58.6 (21, 4224) | 56.2 (22, 975) | 55.3 (23, 2046) | 57.6 (30, 578) |
+| heavy30 47G j32 | 13.7 | 30.2 (20, 0) | 27.6 (2, 7009) | 27.9 (17, 784) | 26.2 (11, 4843) | 28.7 (22, 1193) | 27.8 (14, 2411) | 28.1 (17, 533) |
+| mcl 16G j32 | 9.2 | 15.0 (0, 0) | 19.9 (0, 7512) | 15.0 (0, 1) | 16.0 (0, 5098) | 15.0 (0, 1) | 16.4 (0, 2345) | 15.0 (0, 5) |
+| mcl 3G j16 | 29.6 | 70.2 (5, 0) | 39.0 (2, 7090) | 33.8 (3, 3731) | 35.9 (4, 5517) | 44.6 (2, 4366) | 27.3 (0, 3153) | 35.3 (1, 2690) |
+| mcl 4G j32 | 22.2 | 57.1 (7, 0) | 25.2 (0, 7762) | 38.8 (3, 4512) | 21.7 (3, 6127) | 22.9 (1, 4727) | 14.4 (0, 3488) | 16.7 (1, 3323) |
+| mclheavy30 47G j32 | 15.1 | 35.0 (20, 0) | 32.2 (1, 6751) | 32.4 (18, 799) | 26.1 (11, 4612) | 33.2 (22, 921) | 32.1 (14, 2324) | 33.1 (18, 529) |
+
+(`_tmp/544/sim/`: `cal1.md` greedy d = 10, 30, 100, 300 with and without a cap of 8; `cal3.md`,
+`cal4.md` the drain; `cal5.md` spare d = 1–100; `cal6-*.md` a cap of 4 and `--thread-mem` 0.1;
+`final.md` the table.)  Readings:
+* **Where the cores are the limit** (real 16G, mcl 16G) threads can only lose: greedy costs
+  5–16 % at d = 30 (23.1 vs 22.0, 6.5 vs 5.6, 16.4 vs 15.0), 18–57 % at d = 10, 50–150 % at
+  d = 3.  Spare starts almost no worker with T > 1 there (0–5) and is equal to d = 0.  This is the
+  maintainer's variant (prefer the thread while memory binds, the worker otherwise), and it
+  matters: it is the difference between a loss and none in every core-bound case.
+* **Where memory is the limit** spare d = 30 gains 11 % (real 1.5G j8), 4 % (3G j16), 2 %, 1 %,
+  0 %, 7 % (heavy, heavy30), 50 % and 71 % (mcl 3G j16: 70 → 35 min; mcl 4G j32: 57 → 17), 5 %
+  (mclheavy30).  So yes: the `cap` rule hands the free threads out in memory-bound phases (the
+  third number: 1 600–3 300 threaded starts there, 0–5 in core-bound runs).
+* **d.**  Under spare, d = 3 and 10 are up to 8 % faster than 30 on the Mathlib-like cases, d = 30
+  20–27 % faster on the memory-bound McLEnumA ones (smaller modules taking fewer threads leave more
+  for the big one when it starts); summed over the nine memory-bound cases 326 (d = 30), 329
+  (d = 3), 332 (d = 10) minutes, within the replay's noise (one shuffled order; neighbouring
+  settings move single cases by ±5 %).  d = 30, the maintainer's starting value, because the
+  McLEnumA class is CFSG's real case, and because it keeps a median module (35 declarations) at
+  one thread, inside the measured scaling (#518 profiled 4 threads only).
+* **No cap.**  A cap of 8 (greedy, `cal1.md`) or 4 (`cal6`) moved cases both ways within the
+  noise; nothing in the data asks for one, and under spare the threads are bounded by what memory
+  leaves idle anyway.  With `--thread-mem 0.1` (10 % more memory per thread, pessimistic: #518
+  measured 1.02× at four threads) spare d = 10 lost 5–8 % in two heavy cases and gained elsewhere;
+  the kill rule bounds the damage to one kill per module.
+* **What the rule cannot do: McLEnumA in a core-bound run.**  `mcl 16G j32` stays at 15.0 min
+  against a bound of 9.2: such a module starts when a worker finishes, with one free thread, and
+  runs 554 s at one thread; if it starts late it is the run's tail.  A "drain" (the head of the
+  queue wanting all N threads holds other starts, up to S seconds; `--calibrate-drain`) gets
+  9.8–10.4 min there, but costs 5–60 % elsewhere (real 16G j8 22 → 36 min at d = 30, heavy 8G
+  63 → 67–90), and restricted to modules of at least 1 000 × N declarations still 9 % in
+  mclheavy30.  Not built; a module's previous time would be the better signal, which needs sizes
+  across runs (#516's ruling).
+
+**The simulator** replays the rule by default (`--threads-d 30`, spare; `--threads-greedy`,
+`--threads-d 0` for one thread; `--old` one thread, as before), with the kill rule, `--mcl N`
+(N McLEnumA-like modules), `--calibrate` (the table), and reads the log's threads field.  `--old`
+reproduces #540's "old at the limit" (real 1.5G j8: 45 min, 68 kills).
+
+**Hand tests** (`--olean --schedule --jobs=8`, v4.35.0 toolchain library, under the guard and
+`timeout`; wall times an illustration).  `Std.Tactic.BVDecide` (739 modules) at
+`--schedule-memory=400M`: 48.2 s, 2.9 running, 217 workers with T > 1, 1 kill, all 0 (#540: 51.6 s,
+2.3 running):
+```
+0        t=   0.0s  rss= 0.07 GiB      [  1/739   0.1 %, 6 running, 7/8 threads, eta 4s]  Init.Data.Char.Lemmas
+0        t=   0.1s  rss= 0.11 GiB  ×6  [ 12/739   1.6 %, 1 running, 1 requeued, eta 9s]  Std.Sat.CNF.Basic
+0        t=   0.2s  rss= 0.10 GiB  ×4  [228/739  30.8 %, 1 running, 4/8 threads, 1 requeued, eta 8s]  Init.Data.UInt.Lemmas
+  threads: 217 workers started with more than one; 597 declaration counts read in 0.4s; 0 modules back at one thread after a kill
+```
+Without a limit: 1 worker with T > 1 (at the tail), 6.9 running of 8: the cores bound the run.
+`Std.Data.DTreeMap.Internal.Lemmas` (219 modules, 4 877 declarations in the root) at 300M,
+`--schedule-order=graph`: 19.3 s, 96 workers with T > 1; the root was killed while running with
+more than one thread and finished at one (`1 modules back at one thread after a kill`);
+`Init.Data.BitVec.Lemmas` (2 091 declarations) ran at ×7, 1.0 s (5.2 s at one thread in the
+BVDecide run).  Heartbeat: `schedule: [177/219  80.8 %, 1 running, 7/8 threads, 6 requeued, eta 0s]`.
+
+Gates: `lake build`, `lake test` warning-free (usage width); trust surface (checker-io fence 13
+modules, process fence ScheduleIO alone, unchanged); layering; shake; olean gate 332/332 under the
+guard (no pinned output changed: the pinned last line has 0 running); overview links (README's two
+`runArgs` links repointed, the usage grew by two lines); quote gate; no-local-paths.

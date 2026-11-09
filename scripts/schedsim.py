@@ -2,8 +2,9 @@
 """schedsim.py -- replay a `--schedule-log` offline under a scheduling policy (DESIGN #518, #540).
 
 The input is a scheduler log (`<verdict>\\t<module>\\t<ms>\\t<rss KiB>\\t<at>\\t<decls>\\t<parse>\\t
-<check>\\t<busy>\\t<slowest>`, `ConLeche/Driver/ScheduleIO.lean`) of a real run, each module's
-wall time and peak at one thread.  `killed` lines and repeated modules are skipped (the last verdict
+<check>\\t<busy>\\t<slowest>\\t<threads>`, `ConLeche/Driver/ScheduleIO.lean`; older logs lack the
+last fields) of a real run, each module's wall time and peak, taken as its time and peak at one
+thread (a module the log ran at more threads is replayed as if one had taken that long).  `killed` lines and repeated modules are skipped (the last verdict
 counts).  Optional memory profiles (`--profiles DIR`, files `<module>.tsv` of `ms<TAB>VmRSS KiB`
 lines sampled from a lone worker) give a module's memory shape over its run; a module without one
 ramps linearly to its peak (`--shape ramp`, the default) or follows the mean profiled shape
@@ -30,9 +31,20 @@ worker's peak rose within that long.
 itself (no planning budget), at most one start per tick and starts at least 200 ms apart (the
 stagger, since removed from the scheduler).
 
+Threads (DESIGN #544, the scheduler's rule; the single replay's default, `--threads-d 0` for one
+thread per worker, `--old` always one): `--jobs` is the thread budget; a worker starts with
+max(1, min(cap, decls // D)) threads, D = `--threads-d` (30), cap the free threads less those
+memory could still fill with workers (min(free - 1, room after this start // typical peak,
+queued modules) of them; `--threads-greedy`: cap = all free threads); a module killed while
+running with more than one thread runs with one from then on.  Its time and peak as below
+(`--install-serial`, `--thread-mem`).  `--calibrate` prints DESIGN #544's table (`--calibrate-d`,
+`-caps`, `-spare`, `-drain`, `-cases`; data sets `real`, `heavy`, `heavy30`, `mcl`: the log plus
+10 McLEnumA-like modules (`MCL`: 87 748 declarations, 554 s, 1.41 GiB; `--mcl N` adds N to a
+single replay), `mclheavy30`: both).
+
 Variants: `--order graph|shuffled` (graph needs `--graph-order FILE`, one module per line, the
-order of `Graph.graphOf`); `--threads-k K --threads-cap C --thread-budget B`: a worker starts at
-threads = max(1, min(C, free threads, decls // K)), its time install + max(slowest, busy / t)
+order of `Graph.graphOf`); `--threads-d D --threads-cap C --thread-budget B`: a worker starts at
+threads as above, at most C, its time install + max(slowest, busy / t)
 (install = wall - busy at one thread, scaled by s + (1 - s) / t, s = `--install-serial`,
 1 by default, 0.56 measured) and its peak scaled by 1 + `--thread-mem` x (t - 1);
 `--read-cap R`: a start only while fewer than R workers are in their read
@@ -85,10 +97,11 @@ def read_log(path):
             continue
         if len(f) < 4:
             continue
-        g = f + ["-"] * (10 - len(f))
+        g = f + ["-"] * (11 - len(f))
         mods[unspell(f[1])] = dict(verdict=f[0], ms=num(g[2]), pk=num(g[3]), at=num(g[4]),
                                    decls=num(g[5]), parse=num(g[6]), check=num(g[7]),
-                                   busy=num(g[8]), slowest=num(g[9]))
+                                   busy=num(g[8]), slowest=num(g[9]),
+                                   threads=num(g[10]) or 1)
     return mods, kills
 
 
@@ -149,10 +162,19 @@ class Mod:
     __slots__ = ("m", "ms", "pk", "decls", "busy", "slowest", "shape")
 
 
-def build_mods(log, profiles, shape_default, heavy, heavy_time, heavy_mem, seed):
+# the McLEnumA class (CFSG, DESIGN #544): 87 748 declarations, 554 s at one thread, nearly all of
+# it checking (busy 553.9 s), the slowest check 13.5 s, peak 1.41 GiB, parse 2.8 s
+MCL = dict(verdict="0", ms=554000, pk=int(1.41 * 2 ** 20), at=0, decls=87748, parse=2800,
+           check=553900, busy=553931, slowest=13489)
+
+
+def build_mods(log, profiles, shape_default, heavy, heavy_time, heavy_mem, seed, mcl=0):
     rng = random.Random(seed)
     names = sorted(log)
     heavy_set = set(rng.sample(names, int(round(heavy * len(names))))) if heavy > 0 else set()
+    if mcl:  # after the heavy draw, which stays that of the log alone
+        log = dict(log, **{f"Synthetic.McL{i}": dict(MCL) for i in range(mcl)})
+        names = sorted(log)
     out = {}
     for n in names:
         r = log[n]
@@ -182,10 +204,11 @@ class W:
 
 
 def simulate(mods, order, budget_kib, jobs, tick=0.1, growth=10, typ_q=0.5,
-             threads_k=0, threads_cap=1, thread_budget=0, thread_mem=0.0, reserve=None,
+             threads_d=0, threads_cap=0, thread_budget=0, thread_mem=0.0, reserve=None,
              install_serial=1.0, read_cap=0, max_time=10 ** 10, plan=True,
              margin_init=0.10, margin_floor=0.5, margin_stat="p99", margin_window=200,
-             margin_nonzero=True, stagger=0, burst=0):
+             margin_nonzero=True, stagger=0, burst=0, threads_spare=False,
+             threads_drain=0, drain_d=0):
     """Returns the statistics of one replay.  Times in ms internally.  `budget_kib` is the hard
     limit (kills only above it); with `plan` admission plans against `hard - margin` (DESIGN
     #540): margin = max(margin_init x hard, the `margin_stat` of the last `margin_window`
@@ -225,11 +248,23 @@ def simulate(mods, order, budget_kib, jobs, tick=0.1, growth=10, typ_q=0.5,
     tb = thread_budget or jobs
     threads_used = 0
 
-    def threads_for(m):
-        if threads_k <= 0:
+    drain_since, drain_ms_box = {}, [0]
+    single = set()  # killed while running with more than one thread: one thread from now on
+    thread_starts = thread_sum = 0
+
+    def threads_for(m, room_after):
+        if threads_d <= 0 or m.m in single:
             return 1
         free = tb - threads_used
-        return max(1, min(threads_cap, free, m.decls // threads_k))
+        if threads_spare:
+            # leave the cores that memory could still fill with workers (at the typical peak,
+            # as many as are queued): threads only from the cores memory cannot fill
+            fit = (room_after // typ) if typ else free
+            free = max(1, free - 1 - min(free - 1, fit, len(pending) + len(front)))
+        t = min(free, m.decls // threads_d)
+        if threads_cap:
+            t = min(t, threads_cap)
+        return max(1, t)
 
     def dur_pk(m, t):
         if t <= 1:
@@ -305,6 +340,8 @@ def simulate(mods, order, budget_kib, jobs, tick=0.1, growth=10, typ_q=0.5,
                     kill_ms += now - v.start
                     work_ms += now - v.start
                     kills_by[v.mod.m] = kills_by.get(v.mod.m, 0) + 1
+                    if v.threads > 1:
+                        single.add(v.mod.m)
                     sizes[v.mod.m] = max(v.cur, typ, 2 * sizes.get(v.mod.m, 0))
                     if v.mod.m in front:
                         front.remove(v.mod.m)
@@ -350,11 +387,20 @@ def simulate(mods, order, budget_kib, jobs, tick=0.1, growth=10, typ_q=0.5,
                     (reserve == 0 or now - waited_since.get(front[0], now) >= reserve * 1000):
                 pass  # drain for the head of the killed modules
             elif pending and (not running or typ <= room):
+                h = pending[-1]
+                if threads_drain and threads_d and running and h not in single and \
+                        mods[h].decls // (drain_d or threads_d) >= tb and tb - threads_used < tb:
+                    # a module that could use every core: no other start until they are free,
+                    # for at most `threads_drain` s
+                    since = drain_since.setdefault(h, now)
+                    if now - since < threads_drain * 1000:
+                        drain_ms_box[0] += dt
+                        break
                 pick = pending.pop()
             if pick is None:
                 break
             mod = mods[pick]
-            t = threads_for(mod)
+            t = threads_for(mod, room - (sizes.get(pick, 0) or typ))
             w = W()
             w.mod, w.start, w.threads = mod, now, t
             w.dur, w.pk = dur_pk(mod, t)
@@ -363,6 +409,9 @@ def simulate(mods, order, budget_kib, jobs, tick=0.1, growth=10, typ_q=0.5,
             w.hwm = w.cur = 0
             w.resv = 0
             threads_used += t
+            if t > 1:
+                thread_starts += 1
+            thread_sum += t
             running.append(w)
             last_start = now
             started = True
@@ -391,7 +440,9 @@ def simulate(mods, order, budget_kib, jobs, tick=0.1, growth=10, typ_q=0.5,
                 running=run_ms / span, mem_gib=mem_ms / span / 2 ** 20,
                 reserved_gib=res_ms / span / 2 ** 20, kills=kill_n, kill_modules=len(kills_by),
                 lost_s=kill_ms / 1000, lost_pct=100 * kill_ms / max(1, work_ms),
-                gate_s=gate_ms / 1000, protections=prot_n, memory_verdicts=mem_verdicts)
+                gate_s=gate_ms / 1000, protections=prot_n, memory_verdicts=mem_verdicts,
+                thread_starts=thread_starts, single=len(single),
+                threads_mean=thread_sum / max(1, total), drain_s=drain_ms_box[0] / 1000)
 
 
 def make_order(mods, how, graph_file):
@@ -412,20 +463,21 @@ def fmt(r):
             f"running {r['running']:5.2f}  "
             f"mem {r['mem_gib']:5.1f} GiB (res {r['reserved_gib']:5.1f})  kills {r['kills']:5d} "
             f"({r['kill_modules']} mods, lost {hms(r['lost_s'])} = {r['lost_pct']:4.1f} %)  "
-            f"gate {hms(r['gate_s'])}  memory {r['memory_verdicts']}")
+            f"gate {hms(r['gate_s'])}  memory {r['memory_verdicts']}  "
+            f"threaded starts {r['thread_starts']}")
 
 
 # the policy before #540: no planning budget, one start per tick, 200 ms apart
-OLD = dict(plan=False, stagger=200, burst=1)
+OLD = dict(plan=False, stagger=200, burst=1, threads_d=0)
 
 VARIANTS = [
     ("a current", OLD),
-    ("b threads k=10 cap=4", dict(OLD, threads_k=10, threads_cap=4)),
-    ("b threads k=30 cap=4", dict(OLD, threads_k=30, threads_cap=4)),
-    ("b threads k=30 cap=8", dict(OLD, threads_k=30, threads_cap=8)),
-    ("b threads k=100 cap=8", dict(OLD, threads_k=100, threads_cap=8)),
+    ("b threads k=10 cap=4", dict(OLD, threads_d=10, threads_cap=4)),
+    ("b threads k=30 cap=4", dict(OLD, threads_d=30, threads_cap=4)),
+    ("b threads k=30 cap=8", dict(OLD, threads_d=30, threads_cap=8)),
+    ("b threads k=100 cap=8", dict(OLD, threads_d=100, threads_cap=8)),
     ("b threads k=30 cap=4, stagger 0, all starts",
-     dict(OLD, threads_k=30, threads_cap=4, stagger=0, burst=64)),
+     dict(OLD, threads_d=30, threads_cap=4, stagger=0, burst=64)),
     ("c graph order", dict(OLD, order="graph")),
     ("d reserve now", dict(OLD, reserve=0)),
     ("d reserve 60s", dict(OLD, reserve=60)),
@@ -484,6 +536,48 @@ def compare(a, log, prof, default, base):
               f"{pl} |")
 
 
+# DESIGN #544's data sets: name -> (heavy fraction, heavy memory factor, McLEnumA-like modules)
+DATASETS = {"real": (0.0, 1, 0), "heavy": (0.01, 10, 0), "heavy30": (0.01, 30, 0),
+            "mcl": (0.0, 1, 10), "mclheavy30": (0.01, 30, 10)}
+
+
+def calibrate(a, log, prof, default, base):
+    """The thread rule's divisor d against one thread (d = 0) on each case `data:limit GiB:jobs`;
+    `jobs` is the thread budget.  One row per case, a cell per d: makespan, kills."""
+    import multiprocessing
+    cases = [c.split(":") for c in a.calibrate_cases.split(",")]
+    ds = [int(x) for x in a.calibrate_d.split(",")]
+    caps = [int(x) for x in (a.calibrate_caps or "0").split(",")]
+    for name in {c[0] for c in cases}:
+        h, hm, mcl = DATASETS[name]
+        mods, _ = build_mods(log, prof, default, h, a.heavy_time, hm, a.seed, mcl)
+        _G[name] = (mods, {"shuffled": make_order(mods, "shuffled", None)}, base)
+    spares = {"both": [False, True], "only": [True]}.get(a.calibrate_spare, [False])
+    drains = [int(x) for x in (a.calibrate_drain or "0").split(",")]
+    variants = [(f"d={d}" + (f" cap={c}" if c else "") + (" spare" if sp else "")
+                 + (f" drain {dr}s" if dr else ""),
+                 dict(threads_d=d, threads_cap=c, threads_spare=sp, threads_drain=dr,
+                      drain_d=a.calibrate_drain_d))
+                for d in ds for c in (caps if d else [0]) for sp in (spares if d else [False])
+                for dr in (drains if d else [0])]
+    jobs = [(d, float(b), int(j), n, kw) for d, b, j in cases for n, kw in variants]
+    with multiprocessing.get_context("fork").Pool(a.procs) as pool:
+        res = pool.map(_one, jobs, chunksize=1)
+    if a.json:
+        json.dump([dict(data=d, budget=b, jobs=j, variant=n, **r) for d, b, j, n, r in res],
+                  open(a.json_out or "/dev/stdout", "w"))
+        return
+    print("| case | bound | " + " | ".join(n for n, _ in variants) + " |")
+    print("|---|---|" + "---|" * len(variants))
+    by = {}
+    for d, b, j, n, r in res:
+        by.setdefault((d, b, j), []).append(r)
+    for (d, b, j), rs in by.items():
+        cells = [f"{r['makespan_s'] / 60:.1f} ({r['kills']}, {r['thread_starts']})" for r in rs]
+        print(f"| {d} {b:g}G j{j} | {rs[0]['lower_bound_s'] / 60:.1f} | " + " | ".join(cells)
+              + " |")
+
+
 def grid(a, datasets, budgets, jobss, variants, procs):
     import multiprocessing
     jobs = [(d, b, j, n, kw) for d in datasets for b in budgets for j in jobss
@@ -523,8 +617,27 @@ def main():
     ap.add_argument("--typ-q", type=float, default=0.5)
     ap.add_argument("--order", choices=["shuffled", "graph"], default="shuffled")
     ap.add_argument("--graph-order")
-    ap.add_argument("--threads-k", type=int, default=0)
-    ap.add_argument("--threads-cap", type=int, default=1)
+    ap.add_argument("--threads-d", type=int, default=30,
+                    help="threads per worker max(1, min(cap, decls / D)) (0: one thread)")
+    ap.add_argument("--threads-greedy", action="store_true",
+                    help="cap = all free threads, not only those memory cannot fill")
+    ap.add_argument("--threads-cap", type=int, default=0, help="0: none")
+    ap.add_argument("--mcl", type=int, default=0,
+                    help="add this many McLEnumA-like modules (DESIGN #544)")
+    ap.add_argument("--calibrate", action="store_true", help="the table of DESIGN #544")
+    ap.add_argument("--calibrate-cases",
+                    default="real:16:8,real:16:32,real:1.5:8,real:3:16,heavy:8:16,heavy:16:32,"
+                            "heavy30:24:16,heavy30:47:32,mcl:16:8,mcl:16:32,mcl:47:32,"
+                            "mclheavy30:47:32")
+    ap.add_argument("--calibrate-d", default="0,10,30,100,300")
+    ap.add_argument("--calibrate-caps", default="0", help="comma-separated, 0: none")
+    ap.add_argument("--calibrate-drain", default="0",
+                    help="comma-separated seconds a module that could use every core may hold "
+                         "other starts (0: none)")
+    ap.add_argument("--calibrate-drain-d", type=int, default=0,
+                    help="the drain only for decls / this >= the thread budget (0: d)")
+    ap.add_argument("--calibrate-spare", default="", choices=["", "both", "only"],
+                    help="also the variant that leaves the cores memory could fill to workers")
     ap.add_argument("--thread-budget", type=int, default=0)
     ap.add_argument("--thread-mem", type=float, default=0.0)
     ap.add_argument("--install-serial", type=float, default=1.0,
@@ -568,12 +681,17 @@ def main():
         grid(a, [n for n, _ in sets], [float(x) for x in a.grid_budgets.split(",")],
              [int(x) for x in a.grid_jobs.split(",")], vs, a.procs)
         return
-    mods, _ = build_mods(log, prof, default, a.heavy, a.heavy_time, a.heavy_mem, a.seed)
+    if a.calibrate:
+        calibrate(a, log, prof, default, base)
+        return
+    mods, _ = build_mods(log, prof, default, a.heavy, a.heavy_time, a.heavy_mem, a.seed, a.mcl)
     order = make_order(mods, a.order, a.graph_order)
     kw = dict(OLD) if a.old else dict(margin_init=a.margin_init, margin_floor=a.margin_floor,
-                                       margin_stat=a.margin_stat, margin_window=a.margin_window)
+                                       margin_stat=a.margin_stat, margin_window=a.margin_window,
+                                       threads_spare=not a.threads_greedy)
+    kw.pop("threads_d", None)
     r = simulate(mods, order, int(a.budget * 2 ** 20), a.jobs, a.tick, a.growth,
-                 a.typ_q, a.threads_k, a.threads_cap, a.thread_budget, a.thread_mem, a.reserve,
+                 a.typ_q, 0 if a.old else a.threads_d, a.threads_cap, a.thread_budget, a.thread_mem, a.reserve,
                  a.install_serial, a.read_cap, **kw)
     print(json.dumps(r) if a.json else fmt(r))
 

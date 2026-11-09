@@ -15,8 +15,19 @@ is about a `--schedule` run, and nothing here reads a file the checks read.  Wha
 it plain `IO`:
 
 * **one worker per module, in any order** (the workers depend on the files only, never on each
-  other's results), at most `jobs` at once; every module that admission lets in starts in the tick
-  it is admitted;
+  other's results); every module that admission lets in starts in the tick it is admitted;
+* **`jobs` is the thread budget**: the running workers' threads (each worker's `--jobs`) sum to at
+  most `jobs`.  A worker starts with `threadsFor`'s threads: `max 1 (min cap (decls ÷ threadDiv))`,
+  `cap` (`threadCap`) the free threads less those the memory could still fill with workers (as
+  many as fit into the room after this start at the typical peak, and as are queued besides it),
+  `decls` the module's declarations, read just before the start off its own files
+  (`Schedule.declCount`, `ConLeche/Driver/Schedule.lean`; only where `cap` is above 1).  A free thread goes to a new worker where one can start; where
+  memory, not the jobs, keeps workers from starting, it goes to an extra thread of a starting
+  module with many declarations: its threads share the worker's context, so a thread costs far
+  less memory than a worker.  Admission counts a worker at its measured peak as before, which
+  includes its threads.  A module killed while running with more than one thread runs with one
+  from then on (`single`), so a heavy many-declaration module costs at most one kill before it
+  runs as before;
 * **workers that inherit nothing but their three standard streams**, all pipes: stdin closed at
   the start, stdout and stderr each read to the end by a thread of its own (so no worker blocks
   on a full pipe), stderr passed on for a verdict other than 0 (`WCfg`, `spawnW`);
@@ -56,14 +67,14 @@ it plain `IO`:
 * **a timeout per worker** (`timeout`, seconds, 0 for none): a worker running longer is killed,
   its verdict `timeout`;
 * **an append-only log** (`log`), written and flushed line by line.  A finished module:
-  `<verdict>\t<module>\t<ms>\t<rss>\t<at>\t<decls>\t<parse>\t<check>\t<busy>\t<slowest>`: the
+  `<verdict>\t<module>\t<ms>\t<rss>\t<at>\t<decls>\t<parse>\t<check>\t<busy>\t<slowest>\t<threads>`: the
   worker's wall time in ms, its peak resident set in KiB (`≥KiB`, with the sign, where it is the
   last value the scheduler sampled because the worker wrote no figure of its own), the ms since
   this run's start, and what the worker printed (`workerStats`, `-` where it printed nothing):
   its declarations (stdout's `accepted N declarations`), its parse and check phases in ms (the
   `stats: phases:` line, to 0.1 s), its check pool's busy time and its slowest single check in
-  ms (the pool's `stats:` line and `slowest checks:`).  The field order is fixed; new fields go
-  at the end.  A kill (for memory, or by an
+  ms (the pool's `stats:` line and `slowest checks:`), and the threads the worker ran with.  The
+  field order is fixed; new fields go at the end.  A kill (for memory, or by an
   interrupt): `killed\t<module>\t<ms>\t<rss KiB>`, the last sampled set.  A restart with the same
   log skips every module that has a verdict line (the reader takes the first two fields, so
   old two-field logs work; a `killed` line is no verdict and is ignored), so a run interrupted
@@ -71,17 +82,20 @@ it plain `IO`:
   run learns its sizes afresh;
 * **statistics at the end** (stderr, `statsLines`; only this run, a resumed run says how many
   modules it skipped): the wall time; the time-weighted mean number of running workers, of the
-  workers' current memory and of what admission reserved, against the jobs and the budget; wall
-  time and peak per module (mean, median, 90th percentile, the maximum with its module); the
+  workers' current memory and of what admission reserved, against the jobs and the budget; where
+  a declaration count was read, the workers started with more than one thread, the reads and their
+  time, and the modules back at one thread after a kill; wall time and peak per module (mean, median, 90th percentile, the maximum with its module); the
   kills and the worker time lost to them; the protections and the time the growth gate held
   starts back; the `memory` and the non-zero verdicts;
 * **SIGINT and SIGTERM** (`Std.Async.Signal.Waiter`, polled every tick): no further start, every
   running worker killed through its own `Child` and waited for, logged as `killed` (no verdict),
   the log flushed, the statistics printed, and the exit code 130 (SIGINT) or 143 (SIGTERM);
-* **progress**: each module's line (stdout) is `VERDICT  t=Ss  rss=X GiB  [done/total p %, k running,
-  eta D]  M`, the module last so the statistics keep their columns (the verdict padded to 7, the time
-  to 6, `X` to 5, `done` to the width of `total`, `p` to 5, `k` to the width of `jobs`; only the
-  estimate varies), `X` the worker's own peak from its stats line (`rss≥X` the last sampled one where it
+* **progress**: each module's line (stdout) is `VERDICT  t=Ss  rss=X GiB  ×T  [done/total p %, k
+  running, U/N threads, eta D]  M`, the module last so the statistics keep their columns (the verdict
+  padded to 7, the time to 6, `X` to 5, `×T` the worker's threads where above 1, else blank, padded
+  to the width of `N` and absent at `--jobs=1`, `done` to the width of `total`, `p` to 5, `k` and
+  `U` to the width of `N`; `U/N threads`, the running workers' threads of the budget, only where
+  they are more than the workers; only the estimate varies), `X` the worker's own peak from its stats line (`rss≥X` the last sampled one where it
   wrote none), `done` counting a resumed run's logged modules, the estimate `remaining modules × mean module time ÷ average running workers`: the mean over all
   finished modules with a known time (the log's verdict lines with the ms field, and this run's), the
   average this run's time-weighted one once it has lasted a minute and is at least 1, else the
@@ -236,17 +250,19 @@ structure Running where
   out : Task (Except IO.Error String)
   diag : Task (Except IO.Error String)
   start : Nat
+  /-- the worker's threads (its `--jobs`) -/
+  threads : Nat := 1
 
-/-- A worker started: the binary `app` at the arguments, the last of which is `spell m`; its
-stdin closed, its stdout and stderr drained. -/
-def spawnW (app : System.FilePath) (m : Name) (args : Array String) (now : Nat) :
-    IO Running := do
+/-- A worker started: the binary `app` at the arguments, the last of which is `spell m`, with
+`threads` threads; its stdin closed, its stdout and stderr drained. -/
+def spawnW (app : System.FilePath) (m : Name) (args : Array String) (now : Nat)
+    (threads : Nat := 1) : IO Running := do
   let c ← IO.Process.spawn { cmd := app.toString, args, stdin := .piped, stdout := .piped
                            , stderr := .piped : IO.Process.SpawnArgs }
   let (_, c) ← c.takeStdin
   let out ← IO.asTask (prio := .dedicated) c.stdout.readToEnd
   let diag ← IO.asTask (prio := .dedicated) c.stderr.readToEnd
-  return { m, arg := spell m, child := c, out, diag, start := now }
+  return { m, arg := spell m, child := c, out, diag, start := now, threads }
 
 /-- What a finished worker wrote to stdout (its verdict line; read for the log's statistics,
 otherwise dropped) and to stderr. -/
@@ -392,6 +408,23 @@ def childrenReadable : IO Bool := do
     | none => return false
   catch _ => return false
 
+/-- The declarations per thread a worker's threads are counted by (`threadsFor`): calibrated
+with `scripts/schedsim.py` on the Mathlib data set and its heavy variants (DESIGN #544). -/
+def threadDiv : Nat := 30
+
+/-- **The threads of a starting worker**: `max 1 (min cap (decls ÷ threadDiv))`, `cap` the
+free threads (`free`, the jobs minus the running workers' threads) less those the memory could
+still fill with workers: `fit` workers at the typical peak fit into the room after this one
+(unbounded without a limit), and `queued` modules wait besides this one; a free thread goes to
+a new worker where one can start, to an extra thread only where memory, not the jobs, keeps
+workers from starting (a worker's threads share its context, so they cost far less memory than
+as many workers).  `decls` is read only where `cap` is above 1. -/
+def threadCap (free fit queued : Nat) : Nat :=
+  free - min (free - 1) (min fit queued)
+
+/-- `threadCap`'s threads for a module of `decls` declarations. -/
+def threadsFor (cap decls : Nat) : Nat := max 1 (min cap (decls / threadDiv))
+
 /-- **What the log holds**: the verdicts by module, and the times the estimate uses (`etaMs`). -/
 structure Logged where
   /-- the verdict of each logged module -/
@@ -524,6 +557,13 @@ structure St where
   /-- verdicts `memory`, verdicts other than 0 -/
   memVerdicts : Nat := 0
   nonzero : Nat := 0
+  /-- modules killed while running with more than one thread: one thread from then on -/
+  single : Std.HashSet Name := {}
+  /-- workers started with more than one thread; the declaration reads (`Schedule.declCount`)
+  and their time (ms) -/
+  threadStarts : Nat := 0
+  declReads : Nat := 0
+  declMs : Nat := 0
 
 /-- How many finished workers' peaks the typical peak looks at, how many it needs before it
 replaces the start value, and its quantile (the median). -/
@@ -572,18 +612,21 @@ and this run's; with the shuffled order they are a sample of the whole, and the 
 heavy-tailed (most 1 to 3 s, a few 30 to 50 minutes).  It leans low: logged times come only from
 modules that finished, and the long ones are more often still running or interrupted (logged
 `killed` lines, lower bounds, are not counted).  Past 48 hours it is in days and hours
-(`51d16h`), from 10 hours in hours, below that with minutes (`dur`).  `n requeued` (`requeued`)
-follows `k running` once a kill has put modules back. -/
+(`51d16h`), from 10 hours in hours, below that with minutes (`dur`).  `T/N threads` follows `k running` where the running workers hold more threads (`T`)
+than there are workers, `N` the thread budget (`jobs`), and `n requeued` (`requeued`) follows
+once a kill has put modules back. -/
 def progressText (total done running : Nat) (eta : Option Nat) (requeued : Nat := 0)
-    (jobs : Nat := 0) : String :=
+    (jobs : Nat := 0) (threads : Nat := 0) : String :=
   let pm := if total = 0 then 1000 else done * 1000 / total
   let eta := match eta with
     | some ms => if done ≥ total then "" else s!", eta {dur ms}"
     | none => ""
   let rq := if requeued = 0 then "" else s!", {requeued} requeued"
+  let jw := (toString jobs).length
+  let th := if threads ≤ running then "" else s!", {padL jw (toString threads)}/{jobs} threads"
   let w := (toString total).length
   s!"[{padL w (toString done)}/{total} {padL 5 s!"{pm / 10}.{pm % 10}"} %, \
-    {padL (toString jobs).length (toString running)} running{rq}{eta}]"
+    {padL jw (toString running)} running{th}{rq}{eta}]"
 
 /-- A duration: seconds with a decimal below a minute, else `dur`. -/
 def msText (ms : Nat) : String :=
@@ -616,8 +659,13 @@ def statsLines (st : St) (wall jobs budget skipped : Nat) (signal : Option Strin
   let kinds := st.kills.size
   let work := max 1 st.workMs
   let lost := st.killMs * 1000 / work
+  let threadsL := if st.declReads = 0 then [] else
+    [s!"  threads: {st.threadStarts} workers started with more than one; {st.declReads} \
+      declaration counts read in {msText st.declMs}; {st.single.size} modules back at one \
+      thread after a kill"]
   [ s!"con-leche: schedule: statistics: {st.recs.size} modules run{skip}, wall {msText wall}{sig}",
-    s!"  workers: {tenth running} running on average ({running * 10 / jobs} % of {jobs} jobs)" ] ++
+    s!"  workers: {tenth running} running on average ({running * 10 / jobs} % of {jobs} threads)" ] ++
+  threadsL ++
   memL ++
   [ s!"  time per module: {distText (st.recs.map fun r => (r.m, r.ms)) msText}",
     s!"  peak per module: {distText (st.recs.map fun r => (r.m, r.pk)) gib}",
@@ -650,8 +698,8 @@ def memLine (running : Nat) (mem : Option (Nat × Nat × Nat)) (typ : Nat) (budg
 binary `app`; its last argument `spell m`) run as the module docstring says; the verdict of
 every module of `mods`, the peak of the running workers' total resident memory in KiB
 (0 where `/proc` cannot be read), and the signal that ended the run early, with its exit code. -/
-def run (parse : String → Option Name) (app : System.FilePath) (args : Name → Array String)
-    (mods : Array Name) (o : Opts) (jobs : Nat) :
+def run (parse : String → Option Name) (app : System.FilePath) (args : Name → Nat → Array String)
+    (decls : Name → IO (Option Nat)) (mods : Array Name) (o : Opts) (jobs : Nat) :
     IO (Std.HashMap Name String × Nat × Option (String × UInt8)) := do
   let err ← IO.getStderr
   let out ← IO.getStdout
@@ -672,10 +720,12 @@ def run (parse : String → Option Name) (app : System.FilePath) (args : Name �
   let planNow (st : St) : Nat := planOf o.memory st.surprises
   let roomOf (st : St) (pk : Nat) : Nat :=
     if o.memory = 0 then 1 <<< 60 else planNow st - min (planNow st) pk
+  let threadsOf (st : St) : Nat := st.running.foldl (· + ·.threads) 0
   let progress (st : St) (now : Nat) : String :=
     progressText total st.nDone st.running.size
       (etaMs (total - st.nDone) (logged.msSum + st.doneMs)
         (logged.msN + st.finished) st.runMs (now - t0) logged.workers jobs) st.requeued jobs
+      (threadsOf st)
   let memory (st : St) (growing : Bool) : Option String :=
     memLine st.running.size st.mem st.typ o.memory st.prot
       (if st.running.isEmpty then 0
@@ -691,7 +741,7 @@ def run (parse : String → Option Name) (app : System.FilePath) (args : Name �
       | none => (sampled, s!"rss≥{padL 9 (gibText sampled)}", s!"≥{sampled}")
     if let some h := logH then
       h.putStrLn s!"{w}\t{spell r.m}\t{now - r.start}\t{logRss}\t{now - t0}\
-        {(workerStats outText msg).logText}"
+        {(workerStats outText msg).logText}\t{r.threads}"
       h.flush
     let (peaks, typ) := pushPeak st.peaks st.typ pk
     let st := { st with verdicts := st.verdicts.insert r.m w, finished := st.finished + 1, doneMs := st.doneMs + (now - r.start),
@@ -701,8 +751,12 @@ def run (parse : String → Option Name) (app : System.FilePath) (args : Name �
                         workMs := st.workMs + (now - r.start),
                         memVerdicts := st.memVerdicts + (if w == "memory" then 1 else 0),
                         nonzero := st.nonzero + (if w == "0" then 0 else 1) }
+    -- the worker's threads where above 1 (`×4`), a blank column of that width otherwise; no
+    -- column where the budget is one thread
+    let thr := if jobs ≤ 1 then "" else
+      padR ((toString jobs).length + 3) (if r.threads > 1 then s!"  ×{r.threads}" else "")
     out.putStrLn s!"{padR verdictWidth w}  t={padL 6 (ConLeche.Cached.msSecs (now - r.start))}s  \
-      {rssText}  {progress st now}  {r.m}"
+      {rssText}{thr}  {progress st now}  {r.m}"
     out.flush
     let lines := (msg.splitOn "\n").filter fun l => l != "" && !l.startsWith "con-leche: stats:"
     if w != "0" then
@@ -715,9 +769,20 @@ def run (parse : String → Option Name) (app : System.FilePath) (args : Name �
       h.putStrLn s!"killed\t{spell r.m}\t{now - r.start}\t{st.seen.getD r.m 0}"
       h.flush
   let jobs := max 1 jobs
-  let start (st : St) (m : Name) (now : Nat) : IO St := do
-    match ← (spawnW app m (args m) now).toBaseIO with
-    | .ok r => return { st with running := st.running.push r }
+  -- a start: the worker's threads from `threadCap` (`cap`), the declarations read only where
+  -- `cap` is above 1, one thread for a module once killed with more
+  let start (st : St) (m : Name) (now : Nat) (cap : Nat) : IO St := do
+    let mut st := st
+    let mut t := 1
+    if cap > 1 && !st.single.contains m then
+      let t0 ← IO.monoMsNow
+      let n ← decls m
+      let t1 ← IO.monoMsNow
+      st := { st with declReads := st.declReads + 1, declMs := st.declMs + (t1 - t0) }
+      t := threadsFor cap (n.getD 0)
+    match ← (spawnW app m (args m t) now t).toBaseIO with
+    | .ok r => return { st with running := st.running.push r,
+                                threadStarts := st.threadStarts + (if t > 1 then 1 else 0) }
     | .error e =>
       err.putStrLn s!"con-leche: schedule: {m}: 3: no worker started: {e}; no further \
         worker starts, the running ones are waited for"
@@ -845,6 +910,8 @@ def run (parse : String → Option Name) (app : System.FilePath) (args : Name �
                       let sz := max (max kr st.typ) (2 * st.sizes.getD r.m 0)
                       st := { st with running := st.running.eraseIdx v, prot := some p.m,
                                       sizes := st.sizes.insert r.m sz,
+                                      single := if r.threads > 1 then st.single.insert r.m
+                                        else st.single,
                                       front := r.m :: st.front.filter (· != r.m),
                                       requeued := st.requeued + 1, killN := st.killN + 1,
                                       killMs := st.killMs + (now - r.start),
@@ -883,26 +950,31 @@ def run (parse : String → Option Name) (app : System.FilePath) (args : Name �
         st := { st with protTrack := some (p, hw, now) }
         growing := o.growth > 0
     | none => st := { st with protTrack := none }
-    st := { st with gateHeld := growing && st.running.size < jobs
+    st := { st with gateHeld := growing && threadsOf st < jobs
                                    && !(st.front.isEmpty && st.pending.isEmpty) }
     if st.stopped then
       st := { st with pending := [], front := [] }
     else if !growing then
       let mut room := roomOf st (eff st st.running)
       let mut started := false
+      -- the threads a start may take (`threadCap`): the free ones less those the room could still
+      -- fill with workers at the typical peak, as many as are queued besides it
+      let capOf (st : St) (room : Nat) : Nat :=
+        let fit := if o.memory = 0 || st.typ = 0 then jobs else room / st.typ
+        threadCap (jobs - threadsOf st) fit (total - st.nDone - st.running.size - 1)
       for _ in [0:jobs] do
-        if st.stopped || st.running.size ≥ jobs then break
+        if st.stopped || threadsOf st ≥ jobs then break
         match st.front.find? (fun m => st.running.isEmpty || st.sizes.getD m 0 ≤ room) with
         | some m =>
           room := room - min room (max st.typ (st.sizes.getD m 0))
-          st ← start { st with front := st.front.filter (· != m) } m now
+          st ← start { st with front := st.front.filter (· != m) } m now (capOf st room)
           started := true
         | none =>
           match st.pending with
           | m :: ms =>
             if st.running.isEmpty || st.typ ≤ room then
               room := room - min room st.typ
-              st ← start { st with pending := ms } m now
+              st ← start { st with pending := ms } m now (capOf st room)
               started := true
             else break
           | [] => break
@@ -1001,14 +1073,15 @@ def summary (mods : Array Name) (vs : Std.HashMap Name String) (modeTag : String
 
 /-- **The scheduler's run**: the workers of `mods`, this binary at the arguments `args m`
 (`run`), then the verdict (`summary`). -/
-def runAll (parse : String → Option Name) (args : Name → Array String) (mods : Array Name)
-    (o : Opts) (jobs : Nat) (modeTag : String) : IO UInt8 := do
+def runAll (parse : String → Option Name) (args : Name → Nat → Array String)
+    (decls : Name → IO (Option Nat)) (mods : Array Name) (o : Opts) (jobs : Nat)
+    (modeTag : String) : IO UInt8 := do
   if o.memory > 0 && !(← childrenReadable) then
     let e ← IO.getStderr
     e.putStrLn "con-leche: --schedule-memory reads the workers' resident sets through \
       /proc/self/task/<tid>/children, which this system does not provide"
     return 3
-  let (vs, peak, intr) ← run parse (← IO.appPath) args mods o jobs
+  let (vs, peak, intr) ← run parse (← IO.appPath) args decls mods o jobs
   match intr with
   | some (name, code) =>
     let e ← IO.getStderr
