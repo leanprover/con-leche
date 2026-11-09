@@ -60,7 +60,9 @@ the kills and the worker time they lost, the time the growth gate held starts, t
 verdicts.  `--grid` runs the variant table of DESIGN #518 (on the old policy, with its stagger
 variants); `--compare` the table of DESIGN #540 (the old policy at 0.85 x and 1 x the limit, the
 new one at the limit, at `--compare-cases`, `data:limit GiB:jobs`, data `real`, `heavy`: 1 % at
-100x time and 10x memory, `heavy30`: the same at 30x memory).  `--margin-compare` the table of DESIGN #545 (the
+100x time and 10x memory, `heavy30`: the same at 30x memory).  `--resume-compare` the table of DESIGN #546 (a resumed run: the restart data of #545 without
+seeding, with the typical peak seeded from the log's recorded peaks, and with the giants' kill
+sizes seeded: `seed_peaks`, `seed_sizes` of `simulate`; `--kill-frac`).  `--margin-compare` the table of DESIGN #545 (the
 margin rules at `--margin-cases`; besides the log's data sets `cfsg`: the modules of a CFSG log
 (`--cfsg-log`) in `--cfsg-reps` copies, and `restart`: the same after `--giants` synthetic giants,
 peaks 10-35 GiB, times 30 min-5 h, at the head of the queue).
@@ -107,6 +109,17 @@ def read_log(path):
                                    busy=num(g[8]), slowest=num(g[9]),
                                    threads=num(g[10]) or 1)
     return mods, kills
+
+
+def log_peaks(path, last=200):
+    """The log's recorded peaks (DESIGN #546): the exact rss of the verdict lines (not `≥`), the
+    last `last` of them in log order."""
+    xs = []
+    for line in open(path, encoding="utf-8"):
+        f = line.rstrip("\n").split("\t")
+        if len(f) >= 4 and f[0] != "killed" and f[3].isdigit():
+            xs.append(int(f[3]))
+    return xs[-last:]
 
 
 def read_profiles(d):
@@ -212,7 +225,8 @@ def simulate(mods, order, budget_kib, jobs, tick=0.1, growth=10, typ_q=0.5,
              install_serial=1.0, read_cap=0, max_time=10 ** 10, plan=True,
              margin_init=0.10, margin_floor=0.5, margin_stat="p99", margin_window=200,
              margin_nonzero=True, stagger=0, burst=0, threads_spare=False,
-             threads_drain=0, drain_d=0, margin_excl="largest"):
+             threads_drain=0, drain_d=0, margin_excl="largest", seed_peaks=None,
+             seed_sizes=None, seed_single=()):
     """Returns the statistics of one replay.  Times in ms internally.  `budget_kib` is the hard
     limit (kills only above it); with `plan` admission plans against `hard - margin` (DESIGN
     #540): margin = max(margin_init x hard, the `margin_stat` of the last `margin_window`
@@ -222,7 +236,11 @@ def simulate(mods, order, budget_kib, jobs, tick=0.1, growth=10, typ_q=0.5,
     a surprise: `largest` (the shipped rule) the largest single excess over its reservation,
     `protected` the protected worker's, `none` nobody's (#540); `largest-pos` sums only the
     other workers' positive excesses.  `stagger` (ms) and `burst` (starts per tick, 0: all that
-    fit) only for the old policy (`OLD`)."""
+    fit) only for the old policy (`OLD`).  A resumed run (DESIGN #546): `seed_peaks`, the log's
+    recorded peaks, start the typical peak's window (the median holds at once from 20 of them);
+    `seed_sizes`, module -> the largest set at its logged kills, puts those modules at the front in
+    that order with the known size max(that, typical peak); `seed_single` modules run with one
+    thread."""
     dt = int(tick * 1000)
     surprises, ep_max, surprise_n = [], 0, 0
     hard = budget_kib
@@ -247,6 +265,15 @@ def simulate(mods, order, budget_kib, jobs, tick=0.1, growth=10, typ_q=0.5,
     waited_since = {}
     running = []
     peaks, typ = [], (budget_kib // jobs if budget_kib else 0)
+    if seed_peaks:
+        peaks = list(seed_peaks[-200:])
+        if len(peaks) >= 20:
+            typ = quantile(sorted(peaks), typ_q)
+    if seed_sizes:
+        again = [m for m in seed_sizes if m in mods]
+        front = again
+        pending = [m for m in pending if m not in seed_sizes]
+        sizes = {m: max(typ, seed_sizes[m]) for m in again}
     prot, prot_track = None, None
     now, last_start = 0, -10 ** 9
     run_ms = mem_ms = res_ms = gate_ms = 0
@@ -256,7 +283,7 @@ def simulate(mods, order, budget_kib, jobs, tick=0.1, growth=10, typ_q=0.5,
     threads_used = 0
 
     drain_since, drain_ms_box = {}, [0]
-    single = set()  # killed while running with more than one thread: one thread from now on
+    single = set(seed_single)  # killed while running with more than one thread: one thread from now on
     thread_starts = thread_sum = 0
 
     def threads_for(m, room_after):
@@ -590,6 +617,32 @@ MARGIN_RULES = [("#540: nobody", "none"), ("largest", "largest"),
                 ("largest, positive parts", "largest-pos"), ("protected", "protected")]
 
 
+def resume_compare(a, log, prof, default, base):
+    """DESIGN #546's table: the restart scenario of #545 (`restart` data: the CFSG log's modules
+    after `--giants` synthetic giants at the head of the queue) without seeding, with the typical
+    peak seeded from the log's recorded peaks, and with the giants' kill sizes seeded too (the
+    set at the kill `--kill-frac` of the peak; they go to the front)."""
+    import multiprocessing
+    cases = [c.split(":") for c in a.margin_cases.split(",")]
+    mods, order = restart_mods(a.cfsg_log, a.cfsg_reps, a.giants, a.seed, prof, default)
+    peaks = log_peaks(a.cfsg_log)
+    giants = {m: int(a.kill_frac * mods[m].pk) for m in order if m.startswith("Synthetic.Giant")}
+    _G["restart"] = (mods, {"shuffled": order}, base)
+    variants = [("unseeded", {}), ("typical peak seeded", dict(seed_peaks=peaks)),
+                ("typical peak and kill sizes seeded", dict(seed_peaks=peaks, seed_sizes=giants))]
+    jobs = [("restart", float(b), int(j), n, dict(margin_excl="largest", threads_d=a.threads_d,
+                                                  threads_spare=True, **kw))
+            for d, b, j in cases for n, kw in variants]
+    with multiprocessing.get_context("fork").Pool(a.procs) as pool:
+        res = pool.map(_one, jobs, chunksize=1)
+    print("| case | seeding | makespan | running | kills (modules) | lost | memory verdicts |")
+    print("|---|---|---|---|---|---|---|")
+    for d, b, j, n, r in res:
+        print(f"| {d} {b:g}G j{j} | {n} | {hms(r['makespan_s'])} | {r['running']:.2f} | "
+              f"{r['kills']} ({r['kill_modules']}) | {hms(r['lost_s'])} = {r['lost_pct']:.1f} % | "
+              f"{r['memory_verdicts']} |")
+
+
 def margin_compare(a, log, prof, default, base):
     """DESIGN #545's table: each case `data:limit GiB:jobs` (data `real`, `heavy`, `heavy30` from
     the log; `cfsg`, `restart` from `--cfsg-log`) under each rule of `MARGIN_RULES`."""
@@ -748,6 +801,9 @@ def main():
     ap.add_argument("--cfsg-log", help="a CFSG scheduler log for the cases cfsg and restart")
     ap.add_argument("--cfsg-reps", type=int, default=5, help="copies of the CFSG log's modules")
     ap.add_argument("--giants", type=int, default=20, help="giants at the head of `restart`")
+    ap.add_argument("--resume-compare", action="store_true", help="the table of DESIGN #546")
+    ap.add_argument("--kill-frac", type=float, default=0.6,
+                    help="the giants' set at their logged kill, as a fraction of their peak")
     ap.add_argument("--procs", type=int, default=8)
     a = ap.parse_args()
     log, _ = read_log(a.log)
@@ -774,6 +830,9 @@ def main():
         return
     if a.calibrate:
         calibrate(a, log, prof, default, base)
+        return
+    if a.resume_compare:
+        resume_compare(a, log, prof, default, base)
         return
     if a.margin_compare:
         margin_compare(a, log, prof, default, base)

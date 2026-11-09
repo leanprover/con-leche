@@ -48,8 +48,8 @@ it plain `IO`:
   **Admission by size**: every module has a known size: the largest resident set seen when it was
   killed, at least double its previous known size and at least the typical peak (a kill sees a
   lower bound only); a module never killed counts as the typical peak.  The typical peak is the
-  median of the peaks of the last 200 finished workers (the limit divided by the jobs
-  until 20 have finished; the median, not a high percentile, so that a few outliers do not make
+  median of the peaks of the last 200 finished workers, the log's recorded ones included (the limit
+  divided by the jobs until 20 are known in total; the median, not a high percentile, so that a few outliers do not make
   every running and unknown module count as huge and starve the start of workers).  The room is the planning budget minus the running workers' peaks, each counted
   at least at the typical peak (a young worker has not shown its growth yet); the first module of the queue (the killed ones, in order, then the
   others) whose size fits into the room starts, the ones that do not fit stay in their place
@@ -78,11 +78,17 @@ it plain `IO`:
   `stats: phases:` line, to 0.1 s), its check pool's busy time and its slowest single check in
   ms (the pool's `stats:` line and `slowest checks:`), and the threads the worker ran with.  The
   field order is fixed; new fields go at the end.  A kill (for memory, or by an
-  interrupt): `killed\t<module>\t<ms>\t<rss KiB>`, the last sampled set.  A restart with the same
+  interrupt): `killed\t<module>\t<ms>\t<rss KiB>\t<threads>`, the last sampled set and the threads the worker
+  ran with (old logs have no threads field: one).  A restart with the same
   log skips every module that has a verdict line (the reader takes the first two fields, so
   old two-field logs work; a `killed` line is no verdict and is ignored), so a run interrupted
-  anywhere resumes where it stopped.  The logged sizes are not read back into admission: every
-  run learns its sizes afresh;
+  anywhere resumes where it stopped.  **A resumed run reads the log's state back into admission**
+  (`parseLog`; DESIGN #546): the typical peak's window starts with the last 200 exact peaks of the
+  verdict lines (`≥` fallbacks left out), so that the median holds from the first tick where the log
+  gives 20 of them; a module with `killed` lines that still has to run starts at the front (the
+  latest kill first), its known size the largest set of its kills, at least the typical peak (no
+  doubling per logged kill), and with one thread where a kill came with more.  Nothing else of
+  admission is read from the log;
 * **statistics at the end** (stderr, `statsLines`; only this run, a resumed run says how many
   modules it skipped): the wall time; the time-weighted mean number of running workers, of the
   workers' current memory and of what admission reserved, against the jobs and the budget; where
@@ -439,10 +445,26 @@ structure Logged where
   those times over the sum of the runs' spans (a run's span: its last `at`; a run ends where `at`
   falls back), `0` where there is none to compute -/
   workers : Nat := 0
+  /-- the exact peaks (KiB) of the last `typWindow` verdict lines that carry an rss field, in
+  log order (`≥` fallbacks left out): the start of the typical peak's window -/
+  peaks : Array Nat := #[]
+  /-- the largest resident set (KiB) at any `killed` line of each module -/
+  killSize : Std.HashMap Name Nat := {}
+  /-- the modules with a `killed` line, the latest kill first -/
+  killOrder : List Name := []
+  /-- the modules with a `killed` line that ran with more than one thread -/
+  killMulti : Std.HashSet Name := {}
+
+/-- How many finished workers' peaks the typical peak looks at. -/
+def typWindow : Nat := 200
 
 /-- The log's verdicts, by module: every line `<verdict>\t<module>(\t…)` of it, the module's name
 read by `parse`; `killed` lines are no verdicts and give no time (a lower bound of a module that
-will run again, and it would pull the mean below the modules that finish).  The `<ms>` of a verdict
+will run again, and it would pull the mean below the modules that finish; their sizes and threads
+are kept apart: `killSize` the largest `<rss>` (fourth field) of a module's kills, `killMulti` the
+modules with a kill that ran with more than one thread (fifth field, absent in old logs: one
+thread), `killOrder` the latest kill first).  The exact `<rss>` of the verdict lines (fourth field,
+not `≥`) fill `peaks`, the last `typWindow` of them.  The `<ms>` of a verdict
 line (the third field; old two-field lines have none) is summed for the mean module time, and with
 the `<at>` (fifth field) of each run's last line gives the previous runs' average of running
 workers. -/
@@ -451,11 +473,24 @@ def parseLog (parse : String → Option Name) (s : String) : Logged :=
   let (lg, span, lastAt) := (s.splitOn "\n").foldl (fun (lg, span, lastAt) l =>
     match l.splitOn "\t" with
     | w :: n :: rest =>
-      if w == "killed" then (lg, span, lastAt) else
+      if w == "killed" then
+        match parse n with
+        | none => (lg, span, lastAt)
+        | some x =>
+          let k := (rest[1]?.bind String.toNat?).getD 0
+          let lg := { lg with killSize := lg.killSize.insert x (max k (lg.killSize.getD x 0)),
+                              killOrder := x :: lg.killOrder.filter (· != x),
+                              killMulti := if (rest[2]?.bind String.toNat?).getD 1 > 1
+                                then lg.killMulti.insert x else lg.killMulti }
+          (lg, span, lastAt)
+      else
       match parse n with
       | none => (lg, span, lastAt)
       | some x =>
         let lg := { lg with verdicts := lg.verdicts.insert x w }
+        let lg := match rest[1]?.bind String.toNat? with
+          | some k => { lg with peaks := lg.peaks.push k }
+          | none => lg
         match rest[0]?.bind String.toNat? with
         | none => (lg, span, lastAt)
         | some ms =>
@@ -465,7 +500,9 @@ def parseLog (parse : String → Option Name) (s : String) : Logged :=
           | none => (lg, span, lastAt)
     | _ => (lg, span, lastAt)) (({} : Logged), 0, 0)
   let span := span + lastAt
-  { lg with workers := if span = 0 then 0 else lg.msSum * 1000 / span }
+  { lg with workers := if span = 0 then 0 else lg.msSum * 1000 / span,
+            peaks := if lg.peaks.size > typWindow then
+              lg.peaks.extract (lg.peaks.size - typWindow) lg.peaks.size else lg.peaks }
 
 /-- `parseLog` of the log file `p`, nothing where there is none. -/
 def readLog (parse : String → Option Name) (p : System.FilePath) : IO Logged := do
@@ -572,10 +609,17 @@ structure St where
   declReads : Nat := 0
   declMs : Nat := 0
 
-/-- How many finished workers' peaks the typical peak looks at, how many it needs before it
-replaces the start value, and its quantile (the median). -/
-def typWindow : Nat := 200
+/-- How many peaks the typical peak needs before it replaces the start value (it looks at the
+last `typWindow`, and takes their median). -/
 def typMin : Nat := 20
+
+/-- The median of a window of peaks (`none` for an empty one). -/
+def medianPeak (w : Array Nat) : Option Nat := (w.qsort (· < ·))[w.size / 2]?
+
+/-- **The seeded typical peak**: the window of the log's recorded peaks and, from `typMin` of them,
+their median, else the start value `typ`. -/
+def seedPeaks (peaks : Array Nat) (typ : Nat) : Array Nat × Nat :=
+  (peaks, if peaks.size < typMin then typ else (medianPeak peaks).getD typ)
 
 /-- The typical peak after a finished worker's peak `pk`: the window of recent peaks and its
 median (`typ` is kept while the window is short). -/
@@ -583,7 +627,7 @@ def pushPeak (peaks : Array Nat) (typ pk : Nat) : Array Nat × Nat :=
   let w := peaks.push pk
   let w := if w.size > typWindow then w.extract 1 w.size else w
   if w.size < typMin then (w, typ)
-  else (w, ((w.qsort (· < ·))[w.size / 2]?).getD typ)
+  else (w, (medianPeak w).getD typ)
 
 /-- How many surprises the margin looks at, and its quantile (99 %: with 200, the second largest;
 the largest of all kept the planning budget at its floor for long after one big module). -/
@@ -786,7 +830,7 @@ def run (parse : String → Option Name) (app : System.FilePath) (args : Name �
   -- a kill's log line: the module, the run time, the last sampled resident set
   let logKill (st : St) (r : Running) (now : Nat) : IO Unit := do
     if let some h := logH then
-      h.putStrLn s!"killed\t{spell r.m}\t{now - r.start}\t{st.seen.getD r.m 0}"
+      h.putStrLn s!"killed\t{spell r.m}\t{now - r.start}\t{st.seen.getD r.m 0}\t{r.threads}"
       h.flush
   let jobs := max 1 jobs
   -- a start: the worker's threads from `threadCap` (`cap`), the declarations read only where
@@ -1017,7 +1061,20 @@ def run (parse : String → Option Name) (app : System.FilePath) (args : Name �
       err.flush
       st := { st with lastLine := now }
     return st
-  let st0 : St := { pending := todo, verdicts := logged.verdicts, typ := o.memory / jobs }
+  -- the log's state read back (DESIGN #546): the typical peak's window; the modules killed before
+  -- that still have to run go to the front (latest kill first, as a kill in this run puts them)
+  -- with their known sizes, and run with one thread where the kill came with more
+  let (peaks0, typ0) := seedPeaks logged.peaks (o.memory / jobs)
+  let again := logged.killOrder.filter (todo.contains ·)
+  let st0 : St := { pending := todo.filter (!again.contains ·), front := again,
+                    verdicts := logged.verdicts, peaks := peaks0, typ := typ0,
+                    sizes := again.foldl (fun m x =>
+                      m.insert x (max typ0 (logged.killSize.getD x 0))) {},
+                    single := again.foldl (fun s x =>
+                      if logged.killMulti.contains x then s.insert x else s) {} }
+  if peaks0.size > 0 || !again.isEmpty then
+    err.putStrLn s!"con-leche: schedule: from the log: {peaks0.size} peaks (typical peak \
+      {gib typ0}), {again.length} killed modules to run again"
   let stRef ← IO.mkRef { st0 with nDone := total - todo.length, lastLine := t0, lastTick := t0 }
   -- SIGINT and SIGTERM, polled every tick; where they cannot be set up the run has no handler
   let sigs : Array (Std.Async.AsyncTask Int × String × UInt8) ←
