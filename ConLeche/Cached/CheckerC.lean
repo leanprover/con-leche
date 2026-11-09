@@ -152,16 +152,6 @@ def sharedOpsRuleR (fe : FEnv) : CheckerOps CheckCM :=
       flushC
       pure t }
 
-/-- **The shadow operations of the cached driver**: the index-bound
-operations `sharedOpsC`, the rule variant `sharedOpsRuleR` (a flush at
-each of a rule's two environment transitions), `flushC` at every
-environment change, and the rule-less recursors
-as an overlay sharing the constructors' index (`classFeROvl`).  The
-cached recursor stage `genRecCheckC` is `genRecCheck` at them
-(`genRecCheckC_eq`); nothing executed runs them (task #498). -/
-def shadowOpsC : ShadowOps CheckCM :=
-  ⟨sharedOpsC mode, sharedOpsRuleR mode, flushC, classFeROvl⟩
-
 /-- **`checkBlockPass` through the index**: the k
 formers checked and consed — one flush entering the environment that
 holds them all — then the constructors per member at that

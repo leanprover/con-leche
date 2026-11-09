@@ -26,11 +26,9 @@ record pins:
 * the stored family's formats (`tgtRs`, `generatedRules`,
   `blockRecInfosTF`) and the container bit (`blockNestedBit`).
 
-Everything is written over an `FEnv`, parameterised by `ShadowOps` (the
-operations at an index, a flush), so the pure install
-(`ShadowOps.ofOps`) and the unit tests run the same code; the cached
-fold runs the twins of `ConLeche/Cached/IndRec.lean`, equal to this code
-at `shadowOpsC` (`genRecCheckC_eq`).
+Everything is written over an `FEnv` and a checker's operations; the
+cached driver runs the twins of `ConLeche/Cached/IndRec.lean`, simulated
+against this code (`genRecCheckS_spec`).
 -/
 
 namespace ConLeche
@@ -120,33 +118,6 @@ environment `fe`. -/
 def classFeR (p : BlockShape) (Ms : List TargetMajor) (cvGs : List ConstantVal)
     (recCls : List Nat) (fe : FEnv) : FEnv :=
   consBlockRecsBareF p 0 ((cvGs.zip recCls).map fun (cv, c) => (cv, (Ms.getD c default).nIdx)) fe
-
-/-- **The operations the shadow runs on**, per index: the checker's
-entry points at an `FEnv` (`opsAt`), their variant for the rules
-(`opsRuleR`: the cached one flushes at the two environment transitions
-a rule makes, `sharedOpsRuleR`), the flush at an environment change,
-and the environment the rule stage infers the
-rules at (`ruleEnv`: the rule-less generated recursors consed onto the
-constructors' environment — pushed in the pure install, `classFeR`; an
-overlay sharing the index in the cached one, `classFeROvl`).  The pure
-instantiation ignores the index (the pure operations read the `Env`
-they are handed); the cached one is index-bound. -/
-structure ShadowOps (m : Type → Type) where
-  opsAt : FEnv → CheckerOps m
-  opsRuleR : FEnv → CheckerOps m
-  flush : m Unit
-  ruleEnv : BlockShape → List TargetMajor → List ConstantVal → List Nat → FEnv → FEnv
-
-/-- A checker's operations as shadow operations: the same at every
-index, no flush, the rule-less recursors pushed —
-how the PURE install runs the check (`checkBlockRec`, `BlockTail.lean`). -/
-def ShadowOps.ofOps (ops : CheckerOps m) : ShadowOps m :=
-  ⟨fun _ => ops, fun _ => ops, Pure.pure (), classFeR⟩
-
-/-- The pure operations at fuel `F`, at every index (the fueled
-instantiation the model reads a run of). -/
-def ShadowOps.fueled (mode : CheckMode) (F : Nat) : ShadowOps CheckM :=
-  ShadowOps.ofOps (fueledOps mode F)
 
 /-- A term with every free variable's ANNOTATION erased (the variable
 kept): the comparison K.53′ runs up to, which is exactly what the model's

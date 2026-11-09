@@ -1042,33 +1042,29 @@ theorem classFeROvl_findTable?_twin {fe₁ fe₂ : FEnv} (ht : Twin fe₁ fe₂)
   exact (classFeR_twin ht p Ms cvGs recCls).findTable
 
 /-- **The recursor stage at twin indices is the same stage.** -/
-theorem genRecCheck_twin {fe₁ fe₂ : FEnv} (ht : Twin fe₁ fe₂) (p : BlockShape)
+theorem genRecCheckC_twin {fe₁ fe₂ : FEnv} (ht : Twin fe₁ fe₂) (p : BlockShape)
     (nestedBit : Bool) (params : List Expr) (tbl : List NestCtorNf) (rd : ClassRead)
     (Ms : List TargetMajor) (block : List ConstantInfo) :
-    genRecCheck (shadowOpsC mode) fe₁ p nestedBit params tbl rd Ms block =
-      genRecCheck (shadowOpsC mode) fe₂ p nestedBit params tbl rd Ms block := by
+    genRecCheckC mode fe₁ p nestedBit params tbl rd Ms block =
+      genRecCheckC mode fe₂ p nestedBit params tbl rd Ms block := by
   have hfe := ht.find
   have key : ∀ (Ms' : List TargetMajor) (cvGs : List ConstantVal) (recCls : List Nat)
       (g : ClassGen) (recOf : Nat → Option Name) ,
-      classRecsRulesOk ((shadowOpsC mode).opsRuleR (classFeROvl p Ms' cvGs recCls fe₁))
+      classRecsRulesOk (sharedOpsRuleR mode (classFeROvl p Ms' cvGs recCls fe₁))
           fe₁ (classFeROvl p Ms' cvGs recCls fe₁) g recOf cvGs recCls
-        = classRecsRulesOk ((shadowOpsC mode).opsRuleR (classFeROvl p Ms' cvGs recCls fe₂))
+        = classRecsRulesOk (sharedOpsRuleR mode (classFeROvl p Ms' cvGs recCls fe₂))
           fe₂ (classFeROvl p Ms' cvGs recCls fe₂) g recOf cvGs recCls := by
     intro Ms' cvGs recCls g recOf
     have hR := classFeROvl_find?_twin ht p Ms' cvGs recCls
     have hRt := classFeROvl_findTable?_twin ht p Ms' cvGs recCls
-    show classRecsRulesOk (sharedOpsRuleR mode _) fe₁ _ g recOf cvGs recCls
-      = classRecsRulesOk (sharedOpsRuleR mode _) fe₂ _ g recOf cvGs recCls
     rw [sharedOpsRuleR_congr mode hR hRt]
     exact classRecsRulesOk_twin (sharedOpsRuleR_envFree mode _)
       (funext (constsResolveF_congr hfe)) (funext (constsResolveF_congr hR)) g recOf cvGs recCls
-  have hops : (shadowOpsC mode).opsAt fe₁ = sharedOpsC mode fe₂ :=
-    sharedOpsC_congr hfe ht.findTable
-  have hops₂ : (shadowOpsC mode).opsAt fe₂ = sharedOpsC mode fe₂ := rfl
-  have hre : (shadowOpsC mode).ruleEnv = classFeROvl := rfl
-  unfold genRecCheck
-  simp only [hre]
-  simp only [key, hops, hops₂, classStreamRecs_congr (sharedOpsC_envFree mode fe₂) hfe,
+  unfold genRecCheckC
+  simp only [classStreamRecsC_eq, classesNfsC_eq, classesCtorsC_eq, classFormerTyC_eq,
+    ClassGen.prefixBindersC_eq, classRecTysOkC_eq, classRecsRulesOkC_eq]
+  simp only [key, sharedOpsC_congr hfe ht.findTable,
+    classStreamRecs_congr (sharedOpsC_envFree mode fe₂) hfe,
     classesNfs_env (sharedOpsC_envFree mode fe₂) fe₁.env,
     classesNfs_env (sharedOpsC_envFree mode fe₂) fe₂.env,
     classesCtors_env (sharedOpsC_envFree mode fe₂) fe₁.env,
@@ -1170,7 +1166,7 @@ theorem checkBlockTailS_twin {fe₁ fe₂ : FEnv} (ht : Twin fe₁ fe₂)
   subst hq₂
   unfold checkBlockTailS
   dsimp only
-  simp only [streamRecsCheckC_eq, checkBlockTablesC_eq, genRecCheckC_eq]
+  simp only [streamRecsCheckC_eq, checkBlockTablesC_eq]
   simp only [checkBlockIdxSortsC_eq]
   generalize p.memberCtors = memberCtors
   have htL := ht.pushDelta L Q
@@ -1205,7 +1201,7 @@ theorem checkBlockTailS_twin {fe₁ fe₂ : FEnv} (ht : Twin fe₁ fe₂)
     exact streamRecsCheck_twin (sharedOpsC_envFree mode _)
       (constsResolveF_congr hf) recs out
   simp only [sharedOpsC_congr htL.find htL.findTable, checkBlockIdxSortsF_congr h (FEnv.pushDelta L Q fe₁)
-      (FEnv.pushDelta L Q fe₂), genRecCheck_twin ht₂, hO]
+      (FEnv.pushDelta L Q fe₂), genRecCheckC_twin ht₂, hO]
   rw [hL₂, hL₂, checkBlockTablesF_twin (htL.pushAll L₂)]
   relrun
   all_goals exact RelRun.of_eq

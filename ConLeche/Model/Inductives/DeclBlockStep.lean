@@ -777,7 +777,7 @@ theorem declBlockAt {F : Nat} {env env₂ : Env}
       (by rw [show p₁.recs = p₀.recs by rw [hq]; rfl]; exact hresR)
   -- ## the STORED recursors (task #431): the generated install's stage
   -- carried to the install of the records' types and right-hand sides
-  have hRec' : ConLeche.genRecCheck (ConLeche.ShadowOps.fueled .verified F)
+  have hRec' : ConLeche.genRecCheck (ConLeche.fueledOps .verified F)
       (mkFEnv (ConLeche.consBlockCtors p₁.nP p₁.memberCtors env₁)) p₁
       (ConLeche.blockNestedBit p₁ kinds) ctx.params st.ctorNfs.toList
       rd Ms block = .ok outR := hRec
