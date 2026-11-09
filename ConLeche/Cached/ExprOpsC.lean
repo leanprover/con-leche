@@ -1147,6 +1147,100 @@ def wscopedBC (d : Nat) (e : Expr) : Bool :=
   | true => true
   | false => resBool (wscopedBXP none e d hcut)
 
+/-- `Expr.hasLooseBVarB` with the node first: the reference of
+`hasLooseBVarBXP` (task #497).  The specification carries the cutoff
+itself (`bvarB ≤ i`). -/
+def hasLooseBVarBP (e : Expr) (i : Nat) : Bool := Expr.hasLooseBVarB i e
+
+theorem hasLooseBVarBP_cut {e : Expr} {i : Nat} (h : e.bvarB ≤ i) :
+    hasLooseBVarBP e i = false := by
+  rw [hasLooseBVarBP, Expr.hasLooseBVarB.eq_def]; simp [h]
+
+/-- The child step of `hasLooseBVarBXP`: the cutoff, the compound test,
+the exclusivity read. -/
+@[inline] def enterLBP (e : @& Expr) (i : Nat) (memo : MemoB hasLooseBVarBP)
+    (rec : (hcut : ¬ e.bvarB ≤ i) → Squash (ResB hasLooseBVarBP e i)) :
+    Squash (ResB hasLooseBVarBP e i) :=
+  if hcut : e.bvarB ≤ i then Squash.mk (⟨false, (hasLooseBVarBP_cut hcut).symm⟩, memo)
+  else if !isCompound e then rec hcut
+  else withExcl e fun excl =>
+    if excl then rec hcut else memo.shared e i fun _ => rec hcut
+
+/-- The walk of `hasLooseBVarBC` (the node is past the cutoff). -/
+def hasLooseBVarBXP (memo : MemoB hasLooseBVarBP) (e : @& Expr) (i : Nat)
+    (hcut : ¬ e.bvarB ≤ i) : Squash (ResB hasLooseBVarBP e i) :=
+  match e with
+  | .bvar j .. =>
+    Squash.mk (⟨i == j, by rw [hasLooseBVarBP, Expr.hasLooseBVarB.eq_def]; simp [hcut]⟩, memo)
+  | .fvar .. => Squash.mk (⟨false, by rw [hasLooseBVarBP, Expr.hasLooseBVarB.eq_def]; simp [hcut]⟩, memo)
+  | .sort .. => Squash.mk (⟨false, by rw [hasLooseBVarBP, Expr.hasLooseBVarB.eq_def]; simp [hcut]⟩, memo)
+  | .const .. => Squash.mk (⟨false, by rw [hasLooseBVarBP, Expr.hasLooseBVarB.eq_def]; simp [hcut]⟩, memo)
+  | .lit .. => Squash.mk (⟨false, by rw [hasLooseBVarBP, Expr.hasLooseBVarB.eq_def]; simp [hcut]⟩, memo)
+  | .app f a .. =>
+    enterLBP f i memo (fun h => hasLooseBVarBXP memo f i h) |>.lift fun (⟨rf, hf⟩, memo) =>
+    match rf, hf with
+    | true, hf =>
+      Squash.mk (⟨true, by
+        rw [hasLooseBVarBP] at hf; rw [hasLooseBVarBP, Expr.hasLooseBVarB.eq_def]; simp [hcut, ← hf]⟩, memo)
+    | false, hf =>
+      enterLBP a i memo (fun h => hasLooseBVarBXP memo a i h) |>.lift fun (⟨ra, ha⟩, memo) =>
+      Squash.mk (⟨ra, by
+        rw [hasLooseBVarBP] at hf ha; rw [hasLooseBVarBP, Expr.hasLooseBVarB.eq_def]
+        simp [hcut, ← hf, ← ha]⟩, memo)
+  | .lam ty body .. =>
+    enterLBP ty i memo (fun h => hasLooseBVarBXP memo ty i h) |>.lift fun (⟨rt, ht⟩, memo) =>
+    match rt, ht with
+    | true, ht =>
+      Squash.mk (⟨true, by
+        rw [hasLooseBVarBP] at ht; rw [hasLooseBVarBP, Expr.hasLooseBVarB.eq_def]; simp [hcut, ← ht]⟩, memo)
+    | false, ht =>
+      enterLBP body (i + 1) memo (fun h => hasLooseBVarBXP memo body (i + 1) h)
+        |>.lift fun (⟨rb, hb⟩, memo) =>
+      Squash.mk (⟨rb, by
+        rw [hasLooseBVarBP] at ht hb; rw [hasLooseBVarBP, Expr.hasLooseBVarB.eq_def]
+        simp [hcut, ← ht, ← hb]⟩, memo)
+  | .forallE ty body .. =>
+    enterLBP ty i memo (fun h => hasLooseBVarBXP memo ty i h) |>.lift fun (⟨rt, ht⟩, memo) =>
+    match rt, ht with
+    | true, ht =>
+      Squash.mk (⟨true, by
+        rw [hasLooseBVarBP] at ht; rw [hasLooseBVarBP, Expr.hasLooseBVarB.eq_def]; simp [hcut, ← ht]⟩, memo)
+    | false, ht =>
+      enterLBP body (i + 1) memo (fun h => hasLooseBVarBXP memo body (i + 1) h)
+        |>.lift fun (⟨rb, hb⟩, memo) =>
+      Squash.mk (⟨rb, by
+        rw [hasLooseBVarBP] at ht hb; rw [hasLooseBVarBP, Expr.hasLooseBVarB.eq_def]
+        simp [hcut, ← ht, ← hb]⟩, memo)
+  | .letE ty val body .. =>
+    enterLBP ty i memo (fun h => hasLooseBVarBXP memo ty i h) |>.lift fun (⟨rt, ht⟩, memo) =>
+    match rt, ht with
+    | true, ht =>
+      Squash.mk (⟨true, by
+        rw [hasLooseBVarBP] at ht; rw [hasLooseBVarBP, Expr.hasLooseBVarB.eq_def]; simp [hcut, ← ht]⟩, memo)
+    | false, ht =>
+      enterLBP val i memo (fun h => hasLooseBVarBXP memo val i h) |>.lift fun (⟨rv, hv⟩, memo) =>
+      match rv, hv with
+      | true, hv =>
+        Squash.mk (⟨true, by
+          rw [hasLooseBVarBP] at ht hv; rw [hasLooseBVarBP, Expr.hasLooseBVarB.eq_def]
+          simp [hcut, ← ht, ← hv]⟩, memo)
+      | false, hv =>
+        enterLBP body (i + 1) memo (fun h => hasLooseBVarBXP memo body (i + 1) h)
+          |>.lift fun (⟨rb, hb⟩, memo) =>
+        Squash.mk (⟨rb, by
+          rw [hasLooseBVarBP] at ht hv hb; rw [hasLooseBVarBP, Expr.hasLooseBVarB.eq_def]
+          simp [hcut, ← ht, ← hv, ← hb]⟩, memo)
+  | .proj _ _ sub .. =>
+    enterLBP sub i memo (fun h => hasLooseBVarBXP memo sub i h) |>.lift fun (⟨rs, hs⟩, memo) =>
+    Squash.mk (⟨rs, by
+      rw [hasLooseBVarBP] at hs; rw [hasLooseBVarBP, Expr.hasLooseBVarB.eq_def]; simp [hcut, ← hs]⟩, memo)
+
+/-- The cached `Expr.hasLooseBVarB i` (one memoized DAG walk): the
+cutoff, then the walk (`hasLooseBVarBC_spec`,
+`ConLeche/Verify/Cached/OpsC.lean`). -/
+def hasLooseBVarBC (i : Nat) (e : Expr) : Bool :=
+  if hcut : e.bvarB ≤ i then false else resBool (hasLooseBVarBXP none e i hcut)
+
 /-- Core of `fvarLeavesC` (memoized set accumulation).
 
 **The one walk of the tree whose memo is not the `withExclusive`
@@ -1359,15 +1453,40 @@ decreasing_by
 def piResidual (e : Expr) (args : List Expr) : Option Expr :=
   piResidualAcc [] e args
 
-/-- The cached `openPisAtFvarsF`: the same one-pass opening
-(`openPisAtFvarsFGo`), each domain and the residual instantiated by
-`instantiateListC` (task #496: on a projection's guard the residual is
-the constructor's whole field telescope). -/
+/-- The cached tier's one-pass opening loop: `openPisAtFvarsFGo` with
+each domain and the residual instantiated by `instantiateListC`
+(`openPisAtFvarsGoC_eq`, `ConLeche/Verify/Cached/DiscC4.lean`). -/
+def _root_.ConLeche.openPisAtFvarsGoC (acc : List Expr) :
+    Nat → Expr → Nat → Option (List Expr × Expr)
+  | 0, e, _ => some ([], instantiateListC e acc)
+  | n + 1, .forallE dom body, i =>
+    let fv : Expr := .fvar i (instantiateListC dom acc)
+    match openPisAtFvarsGoC (fv :: acc) n body (i + 1) with
+    | some (fvs, e) => some (fv :: fvs, e)
+    | none => none
+  | _ + 1, _, _ => none
+
+/-- The cached `openPisAtFvarsF` (task #496: on a projection's guard the
+residual is the constructor's whole field telescope; task #497: its own
+loop). -/
 def _root_.ConLeche.openPisAtFvarsC (n : Nat) (e : Expr) (i : Nat) :
     Option (List Expr × Expr) :=
-  match openPisAtFvarsFGo (fun e vs => instantiateListC e vs) [] n e i with
+  match openPisAtFvarsGoC [] n e i with
   | some r => some r
   | none => openPisAtFvars n e i
+
+/-- The cached `projGuardRowsGo` (task #497): the occurrence test and the
+opening of a used field by the cached walks (`projGuardRowsGoC_eq`,
+`ConLeche/Verify/Cached/DiscC4.lean`). -/
+def _root_.ConLeche.projGuardRowsGoC : Nat → Nat → Expr → Option (List (Nat × Expr))
+  | 0, d, .forallE dom _ => some [(d, dom)]
+  | k + 1, d, .forallE dom body =>
+    if hasLooseBVarBC 0 body then
+      match projGuardRowsGoC k (d + 1) (instantiate1C body (.fvar d dom)) with
+      | some rows => some ((d, dom) :: rows)
+      | none => none
+    else projGuardRowsGoC k (d + 1) body
+  | _, _, _ => none
 
 /-! ## Level-parameter definedness (the parsed-index driver's guard) -/
 
