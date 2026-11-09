@@ -1340,17 +1340,17 @@ theorem checkBlockTailS_run
     {env₁ : Env} (henv₁ : EnvWF env₁) {block : List ConstantInfo}
     {p : BlockShape}
     {kinds : List (List (List NestFieldKind))} {params : List Expr}
-    {rd : ClassRead} {Ms₀ : List TargetMajor} {tbl : Array NestCtorNf}
+    {rd : ClassRead} {Ms₀ : List TargetMajor} {tbl : Array NestCtorNf} {Q : List ProjTable}
     (hT : ∀ cv ∈ p.formers, WScoped 0 cv.type)
     (henv₂ : EnvWF (consBlockCtors p.nP p.memberCtors env₁))
     (hMs₀ : ∀ M ∈ Ms₀, ClassMajScoped p.nP M) (hpl : params.length = p.nP)
     {s₀ : CState} (hs : CSOK .verified false env₁ s₀) {u : Unit} {s' : CState}
     (h : checkBlockTailS .verified block
-      ⟨mkFEnv env₁, p, kinds, params, rd, Ms₀, tbl⟩
+      ⟨mkFEnv env₁, p, kinds, params, rd, Ms₀, tbl⟩ Q
       s₀ = .ok (u, s')) :
     CSOKF s' ∧
     ∃ F, (checkBlockTail (fueledOpsM .verified) block
-      ⟨env₁, p, kinds, params, rd, Ms₀, tbl⟩).val F
+      ⟨env₁, p, kinds, params, rd, Ms₀, tbl⟩ Q).val F
         = .ok () := by
   unfold checkBlockTailS at h
   dsimp only at h
@@ -1411,7 +1411,7 @@ theorem checkBlockTailS_run
       (mkFEnv (consBlockRecsT p 0 out
         (consBlockCtors p.nP p.memberCtors env₁))) p.recs out = .ok () := by
     rw [← streamRecsCheck_datF]; cases u4; exact hF₄
-  obtain ⟨hs₅, hT₆⟩ := checkBlockTablesS_run _ _ _ h
+  obtain ⟨hs₅, hT₆⟩ := checkBlockTablesS_run _ _ h
   obtain ⟨G, hle₀, hle₃, hle₄⟩ : ∃ G, F₀ ≤ G ∧ F₃ ≤ G ∧ F₄ ≤ G :=
     ⟨max F₀ (max F₃ F₄), by omega, by omega, by omega⟩
   refine ⟨hs₅ ▸ hs₄, G, ?_⟩
@@ -1623,6 +1623,7 @@ theorem checkBlockKS_run
     CSOKF s' ∧ feOut = mkFEnv feOut.env ∧
     ∃ F, checkBlock (fueledOps .verified F) env block p₀ = .ok feOut.env := by
   unfold checkBlockKS at h
+  rw [blockTablesC_eq] at h
   by_cases hnd : (p₀.allCtors.map (·.1.name)).Nodup ∧ p₀.memberNames.Nodup
   case neg => rw [ite_eq_right hnd] at h; exact absurd h throwC_bind_ok
   rw [ite_eq_left hnd] at h
@@ -1642,6 +1643,14 @@ theorem checkBlockKS_run
     checkBlockPassS_run henv (fun m hm => (hAt m hm).declaredWF) (flushC_csok hs₁) hP
   simp only at hq₁ hs₂ henv₁ hT henv₂ hMs₀ hpl hF₂
   subst hq₁
+  obtain ⟨Q, s₂', hQ, h⟩ := bindC_ok h
+  cases hQ₀ : blockTables p₀ p₀.members with
+  | none =>
+    rw [hQ₀] at hQ
+    exact nomatch hQ
+  | some Q₀ =>
+  rw [hQ₀] at hQ
+  obtain ⟨rfl, rfl⟩ := pureC_ok hQ
   obtain ⟨u₃, s₃, hTail, h⟩ := bindC_ok h
   obtain ⟨hwfO, F₃, hF₃⟩ := checkBlockTailS_run henv₁ hT henv₂ hMs₀ hpl hs₂ hTail
   obtain ⟨rfl, rfl⟩ := pureC_ok h
@@ -1656,14 +1665,14 @@ theorem checkBlockKS_run
     rw [← checkBlockPass_datF]
     exact FueledM.up (Nat.le_trans (Nat.le_max_left F₂ F₃) (Nat.le_max_right F₁ _)) hF₂
   have g₃ : checkBlockTail (fueledOps .verified (max F₁ (max F₂ F₃))) block
-      ⟨env₁, p, kinds, params, rd, Ms₀, tbl⟩
+      ⟨env₁, p, kinds, params, rd, Ms₀, tbl⟩ Q₀
       = .ok () := by
     rw [← checkBlockTail_datF]
     exact FueledM.up (Nat.le_trans (Nat.le_max_right F₂ F₃) (Nat.le_max_right F₁ _)) hF₃
   unfold checkBlock
-  simp only [ite_eq_left hnd, ite_eq_left hbool, Bind.bind, Except.bind, g₁, g₂, g₃]
-  rw [pushDelta_mkFEnv, mkFEnv_env, blockTablesC_eq]
-  rfl
+  simp only [ite_eq_left hnd, ite_eq_left hbool, Bind.bind, Except.bind, g₁, g₂, hQ₀, unwrapOr,
+    pure, Except.pure, g₃]
+  rw [pushDelta_mkFEnv, mkFEnv_env]
 
 variable {pins : List NatOpPinSet}
 

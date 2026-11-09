@@ -1140,109 +1140,111 @@ theorem piResidual_spec {e : Expr} {args : List Expr} :
   rw [Expr.instantiateList_nil] at h
   exact h
 
-/-! ## The capture-avoiding instantiation (task #214, P4)
+/-! ## The capture-avoiding instantiation at several values (task #497)
 
-`instantiate1Lift`'s twin: the same two facts as `instantiate1`'s —
-the cutoff is `Expr.instantiate1Lift_eq_self`, and the plain descent
-rebuilds exactly the substitution. -/
+`instantiateLift`'s twin: the cutoff is `Expr.instantiateLift_of_bvarBound_le`,
+and the plain descent rebuilds exactly the substitution. -/
 
-/-- **The plain descent computes `Expr.instantiate1Lift`**: the
-reference of `instantiate1LiftXP`. -/
-theorem instantiate1LiftP_spec {v : Expr} : ∀ (e : Expr) (d : Nat),
-    Expr.instantiate1LiftP v e d = Expr.instantiate1Lift e v d := by
+/-- **The plain descent computes `Expr.instantiateLift`**: the
+reference of `instantiateLiftXP`. -/
+theorem instantiateLiftP_spec {vs : List Expr} : ∀ (e : Expr) (d : Nat),
+    Expr.instantiateLiftP vs.toArray e d = Expr.instantiateLift e vs d := by
   intro e
   induction e with
   | bvar i =>
     intro d
-    rw [Expr.instantiate1LiftP.eq_def]
+    rw [Expr.instantiateLiftP.eq_def]
     split
     · rename_i hcut
-      exact (Expr.instantiate1Lift_eq_self (bvarB_le hcut)).symm
+      exact (Expr.instantiateLift_of_bvarBound_le vs _ d (by rwa [← bvarB_eq])).symm
     · dsimp only
-      by_cases hid : i = d <;> by_cases hid' : i > d <;>
-        simp [Expr.instantiate1Lift, hid, hid']
+      by_cases hid : i < d
+      · simp [Expr.instantiateLift, hid]
+      · by_cases hl : i - d < vs.length
+        · simp [Expr.instantiateLift, hid, hl]
+        · simp [Expr.instantiateLift, hid, hl, Expr.mkBvar_eq]
   | fvar idx ty _ =>
     intro d
-    rw [Expr.instantiate1LiftP.eq_def]
+    rw [Expr.instantiateLiftP.eq_def]
     split
     · rename_i hcut
-      exact (Expr.instantiate1Lift_eq_self (bvarB_le hcut)).symm
+      exact (Expr.instantiateLift_of_bvarBound_le vs _ d (by rwa [← bvarB_eq])).symm
     · rfl
   | sort u =>
     intro d
-    rw [Expr.instantiate1LiftP.eq_def]
+    rw [Expr.instantiateLiftP.eq_def]
     split
     · rename_i hcut
-      exact (Expr.instantiate1Lift_eq_self (bvarB_le hcut)).symm
+      exact (Expr.instantiateLift_of_bvarBound_le vs _ d (by rwa [← bvarB_eq])).symm
     · rfl
   | const n us =>
     intro d
-    rw [Expr.instantiate1LiftP.eq_def]
+    rw [Expr.instantiateLiftP.eq_def]
     split
     · rename_i hcut
-      exact (Expr.instantiate1Lift_eq_self (bvarB_le hcut)).symm
+      exact (Expr.instantiateLift_of_bvarBound_le vs _ d (by rwa [← bvarB_eq])).symm
     · rfl
   | lit l =>
     intro d
-    rw [Expr.instantiate1LiftP.eq_def]
+    rw [Expr.instantiateLiftP.eq_def]
     split
     · rename_i hcut
-      exact (Expr.instantiate1Lift_eq_self (bvarB_le hcut)).symm
+      exact (Expr.instantiateLift_of_bvarBound_le vs _ d (by rwa [← bvarB_eq])).symm
     · rfl
   | app f a ihf iha =>
     intro d
-    rw [Expr.instantiate1LiftP.eq_def]
+    rw [Expr.instantiateLiftP.eq_def]
     split
     · rename_i hcut
-      exact (Expr.instantiate1Lift_eq_self (bvarB_le hcut)).symm
+      exact (Expr.instantiateLift_of_bvarBound_le vs _ d (by rwa [← bvarB_eq])).symm
     · dsimp only
       rw [mkApp_eq, ihf d, iha d]
       rfl
   | lam ty bd iht ihb =>
     intro d
-    rw [Expr.instantiate1LiftP.eq_def]
+    rw [Expr.instantiateLiftP.eq_def]
     split
     · rename_i hcut
-      exact (Expr.instantiate1Lift_eq_self (bvarB_le hcut)).symm
+      exact (Expr.instantiateLift_of_bvarBound_le vs _ d (by rwa [← bvarB_eq])).symm
     · dsimp only
       rw [mkLam_eq, iht d, ihb (d + 1)]
       rfl
   | forallE ty bd iht ihb =>
     intro d
-    rw [Expr.instantiate1LiftP.eq_def]
+    rw [Expr.instantiateLiftP.eq_def]
     split
     · rename_i hcut
-      exact (Expr.instantiate1Lift_eq_self (bvarB_le hcut)).symm
+      exact (Expr.instantiateLift_of_bvarBound_le vs _ d (by rwa [← bvarB_eq])).symm
     · dsimp only
       rw [mkForallE_eq, iht d, ihb (d + 1)]
       rfl
   | letE ty val bd iht ihv ihb =>
     intro d
-    rw [Expr.instantiate1LiftP.eq_def]
+    rw [Expr.instantiateLiftP.eq_def]
     split
     · rename_i hcut
-      exact (Expr.instantiate1Lift_eq_self (bvarB_le hcut)).symm
+      exact (Expr.instantiateLift_of_bvarBound_le vs _ d (by rwa [← bvarB_eq])).symm
     · dsimp only
       rw [mkLetE_eq, iht d, ihv d, ihb (d + 1)]
       rfl
   | proj sn i sub ih =>
     intro d
-    rw [Expr.instantiate1LiftP.eq_def]
+    rw [Expr.instantiateLiftP.eq_def]
     split
     · rename_i hcut
-      exact (Expr.instantiate1Lift_eq_self (bvarB_le hcut)).symm
+      exact (Expr.instantiateLift_of_bvarBound_le vs _ d (by rwa [← bvarB_eq])).symm
     · dsimp only
       rw [mkProj_eq, ih d]
       rfl
 
-/-- **`instantiate1Lift`'s twin computes `Expr.instantiate1Lift`.** -/
-theorem instantiate1LiftC_spec (e v : Expr) (d : Nat) :
-    Expr.instantiate1LiftC e v d = Expr.instantiate1Lift e v d := by
-  unfold Expr.instantiate1LiftC
+/-- **`instantiateLift`'s twin computes `Expr.instantiateLift`.** -/
+theorem instantiateLiftC_spec (e : Expr) (vs : List Expr) (d : Nat) :
+    Expr.instantiateLiftC e vs d = Expr.instantiateLift e vs d := by
+  unfold Expr.instantiateLiftC
   split
   · rename_i hcut
-    exact (Expr.instantiate1Lift_eq_self (bvarB_le hcut)).symm
+    exact (Expr.instantiateLift_of_bvarBound_le vs e d (by rwa [← bvarB_eq])).symm
   · rw [Expr.resTerm_eq]
-    exact instantiate1LiftP_spec e d
+    exact instantiateLiftP_spec e d
 
 end ConLeche.Expr

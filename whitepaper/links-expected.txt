@@ -3284,7 +3284,7 @@
    763    (S.large = true → ¬ S.NeverProp → S.ctors.length ≤ 1) ∧
    764    (∃ T, Infer (S.envCtors env) [] S.recType T)
 
-== ConLeche/Kernel/Inductives/BlockTail.lean#L154-L163
+== ConLeche/Kernel/Inductives/BlockTail.lean#L154-L164
    154  def checkBlock (ops : CheckerOps m) (env : Env) (block : List ConstantInfo) (p₀ : BlockShape) :
    155      m Env := do
    156    unless (p₀.allCtors.map (·.1.name)).Nodup ∧ p₀.memberNames.Nodup do
@@ -3293,8 +3293,9 @@
    159      throw (.invalid "direct rec: a family at a `Bool` constructor's name")
    160    let ms ← reduceMembers ops env p₀.nP p₀.members
    161    let q ← checkBlockPass ops env { p₀ with members := ms } (blockIsRec p₀)
-   162    checkBlockTail ops block q
-   163    pure (env.pushDelta (blockConstants p₀) (blockTables p₀ p₀.members))
+   162    let Q ← unwrapOr (blockTables p₀ p₀.members) (.internal "direct structure: projection bodies")
+   163    checkBlockTail ops block q Q
+   164    pure (env.pushDelta (blockConstants p₀) Q)
 
 == whitepaper/Fragment/Decl.lean#L307-L312
    307  /-- **A rule's type**: `∀ params motive minors fields, motive idx (C params fields)`
@@ -6210,23 +6211,21 @@
    293  theorem DefEq.structUnit_sound (hin : RulesInputs V m φ) {d : Nat}
    294      {a ta wta b tb wtb : Expr} {T : Name} {us' : List Level}
 
-== ConLeche/Model/Inductives/FixKit.lean#L1797-L1798
-  1797  
-  1798  /-- **Unit-likeness at a fieldless one-constructor block's leaf**: the
+== ConLeche/Model/Inductives/FixKit.lean#L1796-L1797
+  1796  
+  1797  /-- **Unit-likeness at a fieldless one-constructor block's leaf**: the
 
 >>> whitepaper/sections/07-left-out.typ
 
-== ConLeche/Kernel/Install.lean#L64-L73
-    64  def blockTables (p : BlockShape) : List MemberShape → List ProjTable
-    65    | [] => []
-    66    | ms :: rest =>
-    67      match ms.structCtor? with
-    68      | some c =>
-    69        match structProjBodies ms.declared.name p.nP c.2 c.1.type with
-    70        | some bodies =>
-    71          ⟨ms.declared.name, p.lps, p.nP, c.1.name, c.2, bodies⟩ :: blockTables p rest
-    72        | none => blockTables p rest
-    73      | none => blockTables p rest
+== ConLeche/Kernel/Install.lean#L67-L74
+    67  def blockTables (p : BlockShape) : List MemberShape → Option (List ProjTable)
+    68    | [] => some []
+    69    | ms :: rest =>
+    70      match ms.structCtor? with
+    71      | some c =>
+    72        (structProjBodies ms.declared.name p.nP c.2 c.1.type).bind fun bodies =>
+    73          (blockTables p rest).map (⟨ms.declared.name, p.lps, p.nP, c.1.name, c.2, bodies⟩ :: ·)
+    74      | none => blockTables p rest
 
 == ConLeche/Rules/Rel.lean#L169-L184
    169    /-- **The structural projection** `proj_i (ctor p⃗ x⃗) ↦ x_i`
@@ -6448,10 +6447,10 @@
 == ConLeche/Cached/StreamIndex.lean#L65
     65  def buildIndex (ds : Array Declaration) : StreamIndex :=
 
-== ConLeche/Verify/Cached/StreamIndex.lean#L485-L487
-   485  theorem checkDecls_of_jobs {ds : Array Declaration}
-   486      (h : ∀ k (hk : k < ds.size), recordJob mode pins (buildIndex ds) k ds[k] = .ok ()) :
-   487      checkDecls mode pins ds = .ok (streamEnv ds.toList) := by
+== ConLeche/Verify/Cached/StreamIndex.lean#L491-L493
+   491  theorem checkDecls_of_jobs {ds : Array Declaration}
+   492      (h : ∀ k (hk : k < ds.size), recordJob mode pins (buildIndex ds) k ds[k] = .ok ()) :
+   493      checkDecls mode pins ds = .ok (streamEnv ds.toList) := by
 
 == ConLeche/Kernel/Expr.lean#L315-L317
    315  inductive Expr where

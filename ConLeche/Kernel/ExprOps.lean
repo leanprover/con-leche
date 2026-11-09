@@ -2083,15 +2083,82 @@ def abstract1Fast (e : Expr) (d : Nat) (k : Nat := 0) : Expr :=
   funext e d k
   exact (abstract1Go_spec e k {} Abs1MemoInv.empty).1.symm
 
+/-! ### `instantiateLift`: the capture-avoiding substitution of several variables at once
+
+`bvar (d + j)` (`j` below the values' count) becomes value `j` lifted
+past the `d` binders crossed, and the variables above the values are
+lowered by their count: what peeling a telescope at **open** values
+does to a binder domain, in one walk (the official kernel's
+`instantiate` at open values; `Verify/Subst.lean`'s
+`instSeqLift_eq_instantiateLift` reads it as the binder-by-binder
+`instantiate1Lift` fold).  `structProjBodies` builds each projection
+body with one call.  The specification: the cached driver executes
+`instantiateLiftC` (`ConLeche/Cached/ExprOpsC.lean`, the cutoff and
+the pointer-keyed walk, `instantiateLiftC_spec`). -/
+
+/-- Instantiate `bvar d, bvar (d + 1), …` at the values `vs` (innermost
+first), lifting each value past the `d` binders crossed. -/
+def instantiateLift (e : Expr) (vs : List Expr) (d : Nat := 0) : Expr :=
+  match e with
+  | .bvar j =>
+    if j < d then .bvar j
+    else if h : j - d < vs.length then Expr.liftLooseBVars d 0 vs[j - d]
+    else .bvar (j - vs.length)
+  | .fvar idx ty => .fvar idx ty
+  | .sort u => .sort u
+  | .const n us => .const n us
+  | .app f a => .app (instantiateLift f vs d) (instantiateLift a vs d)
+  | .lam ty body =>
+    .lam (instantiateLift ty vs d) (instantiateLift body vs (d + 1))
+  | .forallE ty body =>
+    .forallE (instantiateLift ty vs d) (instantiateLift body vs (d + 1))
+  | .letE ty val body =>
+    .letE (instantiateLift ty vs d) (instantiateLift val vs d)
+      (instantiateLift body vs (d + 1))
+  | .lit l => .lit l
+  | .proj s i e => .proj s i (instantiateLift e vs d)
+
+/-- Substituting for variables no loose variable reaches is the
+identity. -/
+theorem instantiateLift_of_bvarBound_le (vs : List Expr) :
+    ∀ (e : Expr) (d : Nat), e.bvarBound ≤ d → instantiateLift e vs d = e := by
+  intro e
+  induction e with
+  | bvar i =>
+    intro d h
+    rw [Expr.bvarBound] at h
+    rw [instantiateLift, ite_eq_left (by omega)]
+  | fvar i ty _ => intro d _; rfl
+  | sort u => intro d _; rfl
+  | const n us => intro d _; rfl
+  | lit l => intro d _; rfl
+  | app f a ihf iha =>
+    intro d h
+    rw [Expr.bvarBound, Nat.max_le] at h
+    rw [instantiateLift, ihf d h.1, iha d h.2]
+  | lam ty body iht ihb =>
+    intro d h
+    rw [Expr.bvarBound, Nat.max_le] at h
+    rw [instantiateLift, iht d h.1, ihb (d + 1) (by omega)]
+  | forallE ty body iht ihb =>
+    intro d h
+    rw [Expr.bvarBound, Nat.max_le] at h
+    rw [instantiateLift, iht d h.1, ihb (d + 1) (by omega)]
+  | letE ty val body iht ihv ihb =>
+    intro d h
+    rw [Expr.bvarBound, Nat.max_le, Nat.max_le] at h
+    rw [instantiateLift, iht d h.1.1, ihv d h.1.2, ihb (d + 1) (by omega)]
+  | proj sn i sub ih =>
+    intro d h
+    rw [Expr.bvarBound] at h
+    rw [instantiateLift, ih d h]
+
 /-- Instantiate the leading `∀`-binders at *open* arguments, returning
 the residual.  Unlike `instPisAt` this uses the general
 capture-avoiding substitution (`instantiate1Lift`), so an argument may
-mention loose `bvar`s of the surrounding context — which is what
-building a projection's type out of the constructor telescope needs.
-The specification: the cached driver runs `instPisAtLiftC` over the
-memoised `instantiate1LiftC` (`ConLeche/Cached/CheckerC.lean`; task
-#497 removed the kernel's memoised walk, which nothing executed any
-more). -/
+mention loose `bvar`s of the surrounding context.  The specification
+vocabulary of the projection bodies (`Verify/Subst.lean`'s
+`instPisAtLift_head`); the checker builds them with `instantiateLiftC`. -/
 def instPisAtLift : List Expr → Expr → Option Expr
   | [], e => some e
   | a :: as, .forallE _ body => instPisAtLift as (body.instantiate1Lift a)

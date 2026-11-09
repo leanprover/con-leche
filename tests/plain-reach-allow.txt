@@ -436,7 +436,7 @@ ConLeche.structUsedLater  # reached through a closure of the inductive check, pe
 ConLeche.Expr.getAppArgs  # propIrrelI through PropRead.unwrapIdDefs (head spines of identity definitions) and the inductive check, pending task #498
 ConLeche.Expr.instantiate1Fast  # openPisAtFvarsC's fallback (telescopes whose binders show only after substitution) and the inductive check, pending task #498
 ConLeche.Expr.instantiate1Go  # (the walk of instantiate1Fast)
-ConLeche.Expr.liftLooseBVarsFast  # cached instantiate1LiftXP lifts its value with it; the values are projection arguments (a bvar or a projection of one), a few nodes
+ConLeche.Expr.liftLooseBVarsFast  # cached instantiateLiftXP lifts its values with it; the values are projection arguments and parameter bvars (a bvar or a projection of one), a few nodes
 ConLeche.Expr.liftLooseBVarsGo  # (the walk of liftLooseBVarsFast)
 
 # PENDING TASK #498 — the inductive check (Kernel/Inductives/*, Kernel/Install) and the

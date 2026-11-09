@@ -150,14 +150,11 @@ holding the rule-less recursors its rules are inferred at.
 /-! ## The tables and the install -/
 
 /-- `checkBlockTables` through the index. -/
-def checkBlockTablesF (w : StructWalkers) (p : BlockShape) (fe : FEnv) :
-    List MemberShape → m Unit
+def checkBlockTablesF (w : StructWalkers) (fe : FEnv) : List ProjTable → m Unit
   | [] => pure ()
-  | ms :: rest => do
-    (match ms.structCtor? with
-     | some c => checkStructProjTableF w ms.cvT.name p.lps p.nP c.2 c.1 fe
-     | none => pure ())
-    checkBlockTablesF w p fe rest
+  | t :: rest => do
+    checkStructProjTableF w t fe
+    checkBlockTablesF w fe rest
 
 end Mirrors
 

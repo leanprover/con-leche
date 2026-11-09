@@ -190,24 +190,24 @@
     46  def declStep (pins : List NatOpPinSet) (p : Nat × FEnv) (pd : Declaration) :
     47      Except (CheckError × Nat) (Nat × FEnv) :=
 
-== ConLeche/Kernel/Install.lean#L82-L94
-    82  def declConstants : Declaration → List ConstantInfo
-    83    | .defnDecl cv value hint => [.defnInfo cv value hint]
-    84    | .thmDecl cv _ => [.thmInfo cv]
-    85    | .opaqueDecl cv _ => [.axiomInfo cv]
-    86    | .axiomDecl cv =>
-    87      if cv.name = quotSoundName then [quotAt .sound cv]
-    88      else if cv.name = sorryAxName then []
-    89      else [.axiomInfo cv]
-    90    | .quotDecl k cv => [quotAt k cv]
-    91    | .indDecl block nP =>
-    92      match readBlock nP block with
-    93      | .ok p => blockConstants p
-    94      | .error _ => []
+== ConLeche/Kernel/Install.lean#L83-L95
+    83  def declConstants : Declaration → List ConstantInfo
+    84    | .defnDecl cv value hint => [.defnInfo cv value hint]
+    85    | .thmDecl cv _ => [.thmInfo cv]
+    86    | .opaqueDecl cv _ => [.axiomInfo cv]
+    87    | .axiomDecl cv =>
+    88      if cv.name = quotSoundName then [quotAt .sound cv]
+    89      else if cv.name = sorryAxName then []
+    90      else [.axiomInfo cv]
+    91    | .quotDecl k cv => [quotAt k cv]
+    92    | .indDecl block nP =>
+    93      match readBlock nP block with
+    94      | .ok p => blockConstants p
+    95      | .error _ => []
 
-== ConLeche/Verify/Cached/DeclPushes.lean#L700-L701
-   700  theorem checkDeclC_pushes (mode : CheckMode) (fe : FEnv) (pd : Declaration) :
-   701      Yields (checkDeclC mode pins fe pd) (· = FEnv.pushDelta (declConstants pd) (declTables pd) fe) := by
+== ConLeche/Verify/Cached/DeclPushes.lean#L701-L702
+   701  theorem checkDeclC_pushes (mode : CheckMode) (fe : FEnv) (pd : Declaration) :
+   702      Yields (checkDeclC mode pins fe pd) (· = FEnv.pushDelta (declConstants pd) (declTables pd) fe) := by
 
 == ConLeche/Cached/StreamIndex.lean#L65
     65  def buildIndex (ds : Array Declaration) : StreamIndex :=
@@ -216,17 +216,17 @@
     75  def recordJob (mode : CheckMode) (pins : List NatOpPinSet) (I : StreamIndex) (k : Nat)
     76      (pd : Declaration) : Except CheckError Unit :=
 
-== ConLeche/Verify/Cached/ViewCongr.lean#L1337-L1341
-  1337  theorem checkDeclStepC_twin (pins : List NatOpPinSet) {fe₁ fe₂ : FEnv} (ht : Twin fe₁ fe₂)
-  1338     
-  1339      (pd : Declaration) :
-  1340      RelRun (PushedFrom fe₁ fe₂) (checkDeclStepC mode pins fe₁ pd)
-  1341        (checkDeclStepC mode pins fe₂ pd) := by
+== ConLeche/Verify/Cached/ViewCongr.lean#L1335-L1339
+  1335  theorem checkDeclStepC_twin (pins : List NatOpPinSet) {fe₁ fe₂ : FEnv} (ht : Twin fe₁ fe₂)
+  1336     
+  1337      (pd : Declaration) :
+  1338      RelRun (PushedFrom fe₁ fe₂) (checkDeclStepC mode pins fe₁ pd)
+  1339        (checkDeclStepC mode pins fe₂ pd) := by
 
-== ConLeche/Verify/Cached/StreamIndex.lean#L485-L487
-   485  theorem checkDecls_of_jobs {ds : Array Declaration}
-   486      (h : ∀ k (hk : k < ds.size), recordJob mode pins (buildIndex ds) k ds[k] = .ok ()) :
-   487      checkDecls mode pins ds = .ok (streamEnv ds.toList) := by
+== ConLeche/Verify/Cached/StreamIndex.lean#L491-L493
+   491  theorem checkDecls_of_jobs {ds : Array Declaration}
+   492      (h : ∀ k (hk : k < ds.size), recordJob mode pins (buildIndex ds) k ds[k] = .ok ()) :
+   493      checkDecls mode pins ds = .ok (streamEnv ds.toList) := by
 
 == ConLeche/Driver/CheckPool.lean#L66
     66  def Jobs.build (ds : Array Declaration) : IO (Jobs ds) := do
@@ -866,7 +866,7 @@
    304  theorem blockInstall_pinned {nP : Nat} {block : List ConstantInfo} {kind : BasisKind}
    305      {p : BlockShape} (hk : basisNameHit block = some kind) (hok : pinListOk block kind.decls = true)
    306      (hp : readBlock nP block = .ok p) :
-   307      blockConstants p = kind.storedAt block ∧ blockTables p p.members = [] := by
+   307      blockConstants p = kind.storedAt block ∧ blockTables p p.members = some [] := by
 
 == ConLeche/Kernel/Basis.lean#L189-L194
    189    | .ctor => hasQ
@@ -889,8 +889,8 @@
    422      | _ => true
    423  
 
-== ConLeche/Kernel/Inductives/BlockTail.lean#L152
-   152  formers, the constructors and the classes at official's `is_rec` (`blockIsRec`), and the checks
+== ConLeche/Kernel/Inductives/BlockTail.lean#L154
+   154  def checkBlock (ops : CheckerOps m) (env : Env) (block : List ConstantInfo) (p₀ : BlockShape) :
 
 == ConLeche/Kernel/Inductives/RecCheck.lean#L395-L396
    395  def targetMajorOf (ops : CheckerOps m) (fe : FEnv) (p : BlockShape) (pfvs fvs : List Expr)
@@ -929,15 +929,15 @@
 == ConLeche/SetModel/Access.lean#L243
    243  theorem closed_of_acc (hw : w ≠ 0) (hA : A ∈ˢ (tg w : V)) (hmaps : MapsTuple w k Is Φ)
 
-== ConLeche/Model/Inductives/BlockRunFacts.lean#L160-L167
-   160  theorem declBlock {F : Nat} {env env₂ : Env} {block : List ConstantInfo} {nPd : Nat} {p₀ : BlockShape}
-   161      (mp : EnvModelM V env) (hE : ConLeche.EtaFamiliesClosed env)
-   162      (hdp : ConLeche.readBlock nPd block = .ok p₀)
-   163      -- the reserved names' check (`basisNamesOk`), at a block no pinned one's
-   164      (hres : ∀ c ∈ block, ConLeche.reservedBasisNames.contains c.name = false)
-   165      (hrun : ConLeche.Semantics.BlockRun F env block p₀ env₂) (hcov : LfpCover mp [])
-   166      (hRan : FamilyRan mp) (hNat : NatFacts env) :
-   167      (∃ mp' : EnvModelM V env₂, LfpCover mp' [] ∧ FamilyRan mp') ∧ NatFacts env₂ := by
+== ConLeche/Model/Inductives/BlockRunFacts.lean#L166-L173
+   166  theorem declBlock {F : Nat} {env env₂ : Env} {block : List ConstantInfo} {nPd : Nat} {p₀ : BlockShape}
+   167      (mp : EnvModelM V env) (hE : ConLeche.EtaFamiliesClosed env)
+   168      (hdp : ConLeche.readBlock nPd block = .ok p₀)
+   169      -- the reserved names' check (`basisNamesOk`), at a block no pinned one's
+   170      (hres : ∀ c ∈ block, ConLeche.reservedBasisNames.contains c.name = false)
+   171      (hrun : ConLeche.Semantics.BlockRun F env block p₀ env₂) (hcov : LfpCover mp [])
+   172      (hRan : FamilyRan mp) (hNat : NatFacts env) :
+   173      (∃ mp' : EnvModelM V env₂, LfpCover mp' [] ∧ FamilyRan mp') ∧ NatFacts env₂ := by
 
 == ConLeche/Kernel/Inductives/Positivity.lean#L259
    259  def familyTelescope (ops : CheckerOps m) (env : Env) (cv : ConstantVal) (caps : IndCaps) : m Expr :=
@@ -960,8 +960,8 @@
 == ConLeche/Kernel/Inductives/ClassRead.lean#L130
    130  def classRead (nP : Nat) (nPc : Name → Nat) (recs : List RecShape) : Option ClassRead := do
 
-== ConLeche/Kernel/Inductives/BlockTail.lean#L152
-   152  formers, the constructors and the classes at official's `is_rec` (`blockIsRec`), and the checks
+== ConLeche/Kernel/Inductives/BlockTail.lean#L154
+   154  def checkBlock (ops : CheckerOps m) (env : Env) (block : List ConstantInfo) (p₀ : BlockShape) :
 
 == ConLeche/Kernel/Inductives/BlockTail.lean#L52
     52  def checkBlockPass (ops : CheckerOps m) (env : Env) (p₀ : BlockShape) (isRec : Bool) :
@@ -990,8 +990,8 @@
 == ConLeche/Kernel/Inductives/Positivity.lean#L1621
   1621  def nestUniform (ctx : NestCtx) (ctorss : List (List (ConstantVal × Nat))) : m Unit :=
 
-== ConLeche/Kernel/Inductives/BlockTail.lean#L106
-   106  def checkBlockTail (ops : CheckerOps m) (block : List ConstantInfo) (q : BlockPass Env) :
+== ConLeche/Kernel/Inductives/BlockTail.lean#L104
+   104  def checkBlockTail (ops : CheckerOps m) (block : List ConstantInfo) (q : BlockPass Env)
 
 == ConLeche/Kernel/Inductives/GenRec.lean#L294
    294  def classCtorOf (ops : CheckerOps m) (env : Env) (p : BlockShape) (formerTys : List Expr)

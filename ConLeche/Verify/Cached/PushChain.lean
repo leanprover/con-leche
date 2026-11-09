@@ -1,6 +1,7 @@
 module
 
 import ConLeche.Verify.Inductives.BlockShapeInv
+import ConLeche.Verify.Inductives.DirectInv
 public import ConLeche.Verify.Cached.DeclPushes
 public import ConLeche.Verify.EnvBound
 import ConLeche.Verify.EnvWF
@@ -393,27 +394,11 @@ theorem blockConstants_names (p : BlockShape) :
   simp [List.map_map, Function.comp_def, BlockShape.allCtors]
   rfl
 
-/-- Every table of a block is at a member's declared name. -/
-theorem blockTables_names (p : BlockShape) :
-    ∀ (l : List MemberShape), ∀ t ∈ blockTables p l, ∃ ms ∈ l, t.structName = ms.declared.name
-  | [], _, h => nomatch h
-  | ms :: rest, t, h => by
-    have hrest : t ∈ blockTables p rest → ∃ m ∈ ms :: rest, t.structName = m.declared.name := fun hr => by
-      obtain ⟨m, hm, hn⟩ := blockTables_names p rest t hr
-      exact ⟨m, List.mem_cons_of_mem _ hm, hn⟩
-    simp only [blockTables] at h
-    split at h
-    · split at h
-      · rcases List.mem_cons.mp h with rfl | hr
-        · exact ⟨ms, List.mem_cons_self, rfl⟩
-        · exact hrest hr
-      · exact hrest h
-    · exact hrest h
-
 /-- The checks after the pass: the recursors' names are distinct and fresh at the constructors'
 index. -/
-theorem checkBlockTailS_fresh (mode : CheckMode) {block : List ConstantInfo} {q : BlockPass FEnv} :
-    Yields (checkBlockTailS mode block q) (fun _ =>
+theorem checkBlockTailS_fresh (mode : CheckMode) {block : List ConstantInfo} {q : BlockPass FEnv}
+    {Q : List ProjTable} :
+    Yields (checkBlockTailS mode block q Q) (fun _ =>
       (q.p.recs.map (·.cvR.name)).Nodup ∧
       ∀ rc ∈ q.p.recs, (consBlockCtorsF q.p.nP q.p.memberCtors q.env₁).find? rc.cvR.name = none) := by
   obtain ⟨env₁, p, kinds, params, rd, cls, tbl⟩ := q
@@ -431,6 +416,7 @@ theorem checkBlockKS_push (mode : CheckMode) {env : Env} {fe : FEnv}
     (hd : ∀ ms ∈ p.members, ms.declared = ms.cvT) :
     Yields (checkBlockKS mode fe block p) (fun fe' => PushChain env fe') := by
   unfold checkBlockKS
+  rw [blockTablesC_eq]
   try apply Yields.letFun
   refine Yields.ofDecCases (fun _ => Yields.ofThrowBind) (fun hnd => ?nb)
   case nb =>
@@ -457,6 +443,7 @@ theorem checkBlockKS_push (mode : CheckMode) {env : Env} {fe : FEnv}
       ({ p with members := ms } : BlockShape).allCtors.map (·.1.name) := by rw [hflat]
   have hfrs : ∀ c ∈ q.p.memberCtors.flatten, q.env₁.find? c.1.name = none := by
     rw [hflat]; exact hfrs₀
+  refine Yields.bind' Yields.unwrapOr fun Q hQ => ?_
   refine Yields.bind' (checkBlockTailS_fresh mode) fun _ hrs => Yields.pure ?_
   have hrecs : q.p.recs = p.recs := hrec
   have hnP : q.p.nP = p.nP := hnp
@@ -516,7 +503,7 @@ theorem checkBlockKS_push (mode : CheckMode) {env : Env} {fe : FEnv}
         exact (hC _ (hfrR rc hrc)).2.2
     rw [← h.find?]
     exact hfe
-  · obtain ⟨m, hm, hn⟩ := blockTables_names _ _ t (blockTablesC_eq _ _ ▸ ht)
+  · obtain ⟨m, hm, hn⟩ := blockTables_names _ _ Q hQ t ht
     rw [hn, hd m hm]
     have hm' : m.cvT.name ∈ ms.map (·.cvT.name) := by rw [e₁]; exact List.mem_map_of_mem hm
     obtain ⟨m', hm'm, he⟩ := List.mem_map.mp hm'

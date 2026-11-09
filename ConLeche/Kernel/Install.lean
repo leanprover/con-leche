@@ -13,8 +13,8 @@ exactly this once the declaration's checks pass, and the stream's index is built
 check runs.
 
 A block the checks reject may still read as something here (a recursor whose major is not a
-container reads as firing `.plain`, a structure whose constructor is too short has no table): what
-it reads as never reaches an accepted environment.
+container reads as firing `.plain`, a block with a structure whose constructor is too short has
+no tables): what it reads as never reaches an accepted environment.
 -/
 
 namespace ConLeche
@@ -60,16 +60,17 @@ def blockRecs (p : BlockShape) : List RecShape → List ConstantInfo
     .recInfo rc.cvR rc.mI rc.rP rc.isK (rc.rules.map ({ · with fire := recFire p rc })) ::
       blockRecs p rest
 
-/-- The projection tables, in block order: one per structure-like member. -/
-def blockTables (p : BlockShape) : List MemberShape → List ProjTable
-  | [] => []
+/-- **The projection tables**, in block order: one per structure-like member, its bodies read off
+its constructor's type (`structProjBodies`).  `none` where a structure-like member's constructor
+type is too short to read them: a block whose constructors pass their checks always has its
+tables (`checkBlock` rejects the other case). -/
+def blockTables (p : BlockShape) : List MemberShape → Option (List ProjTable)
+  | [] => some []
   | ms :: rest =>
     match ms.structCtor? with
     | some c =>
-      match structProjBodies ms.declared.name p.nP c.2 c.1.type with
-      | some bodies =>
-        ⟨ms.declared.name, p.lps, p.nP, c.1.name, c.2, bodies⟩ :: blockTables p rest
-      | none => blockTables p rest
+      (structProjBodies ms.declared.name p.nP c.2 c.1.type).bind fun bodies =>
+        (blockTables p rest).map (⟨ms.declared.name, p.lps, p.nP, c.1.name, c.2, bodies⟩ :: ·)
     | none => blockTables p rest
 
 /-- The block's constants, in push order: the formers, the constructors, the recursors. -/
@@ -97,7 +98,7 @@ def declConstants : Declaration → List ConstantInfo
 def declTables : Declaration → List ProjTable
   | .indDecl block nP =>
     match readBlock nP block with
-    | .ok p => blockTables p p.members
+    | .ok p => (blockTables p p.members).getD []
     | .error _ => []
   | _ => []
 

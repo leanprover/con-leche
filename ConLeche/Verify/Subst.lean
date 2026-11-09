@@ -878,6 +878,99 @@ theorem instPisAtLift_head :
           (by rw [hpos as.length b hb]; simp)
         exact ⟨bodyR, by rw [hhead]; rfl⟩
 
+/-! ### The binder-by-binder fold is one simultaneous substitution
+
+`instSeqLift` (the per-domain effect of `instPisAtLift`) substitutes the
+binders one at a time; `Expr.instantiateLift` substitutes them in one
+walk, the values innermost first (`instSeqLift_eq_instantiateLift`). -/
+
+theorem instantiateLift_nil : ∀ (e : Expr) (k : Nat), instantiateLift e [] k = e := by
+  intro e
+  induction e <;> intro k <;> simp_all [instantiateLift]
+
+/-- A term lifted past the values and `k` more binders is the term
+lifted past the `k` binders, after the values' walk. -/
+theorem instantiateLift_lift (ws : List Expr) (k : Nat) :
+    ∀ (v : Expr) (c : Nat),
+      instantiateLift (v.liftLooseBVars (k + ws.length) c) ws (k + c)
+        = v.liftLooseBVars k c := by
+  intro v
+  induction v with
+  | bvar i =>
+    intro c
+    simp only [liftLooseBVars]
+    by_cases hic : i ≥ c
+    · simp only [hic, ↓reduceIte, instantiateLift, show ¬ i + (k + ws.length) < k + c by omega,
+        show ¬ i + (k + ws.length) - (k + c) < ws.length by omega, ↓reduceDIte, bvar.injEq]
+      omega
+    · simp only [hic, ↓reduceIte, instantiateLift, show i < k + c by omega]
+  | lam t b iht ihb =>
+    intro c
+    simp only [liftLooseBVars, instantiateLift, iht c, ← ihb (c + 1), Nat.add_assoc]
+  | forallE t b iht ihb =>
+    intro c
+    simp only [liftLooseBVars, instantiateLift, iht c, ← ihb (c + 1), Nat.add_assoc]
+  | letE t w b iht ihw ihb =>
+    intro c
+    simp only [liftLooseBVars, instantiateLift, iht c, ihw c, ← ihb (c + 1), Nat.add_assoc]
+  | _ => intro c; simp_all [liftLooseBVars, instantiateLift]
+
+/-- **One more value is one more binder substituted**, at the depth
+past the others. -/
+theorem instantiateLift_snoc (ws : List Expr) (v : Expr) :
+    ∀ (e : Expr) (k : Nat),
+      instantiateLift e (ws ++ [v]) k
+        = instantiateLift (e.instantiate1Lift v (k + ws.length)) ws k := by
+  intro e
+  induction e with
+  | bvar i =>
+    intro k
+    simp only [instantiate1Lift]
+    by_cases hik : i < k
+    · simp only [show ¬ i = k + ws.length by omega, show ¬ i > k + ws.length by omega,
+        ↓reduceIte]
+      simp [instantiateLift, hik]
+    · by_cases hin : i - k < ws.length
+      · simp only [show ¬ i = k + ws.length by omega, show ¬ i > k + ws.length by omega,
+          ↓reduceIte]
+        simp only [instantiateLift, hik, ↓reduceIte, List.length_append, List.length_singleton,
+          show i - k < ws.length + 1 by omega, ↓reduceDIte, hin]
+        rw [List.getElem_append_left hin]
+      · by_cases heq : i = k + ws.length
+        · subst heq
+          have := instantiateLift_lift ws k v 0
+          simp only [Nat.add_zero] at this
+          simp only [↓reduceIte, this]
+          simp only [instantiateLift, show ¬ k + ws.length < k by omega, ↓reduceIte]
+          simp
+        · simp only [heq, show i > k + ws.length by omega, ↓reduceIte]
+          simp only [instantiateLift, hik, ↓reduceIte, List.length_append, List.length_singleton,
+            show ¬ i - k < ws.length + 1 by omega, ↓reduceDIte, show ¬ i - 1 < k by omega,
+            show ¬ i - 1 - k < ws.length by omega, bvar.injEq]
+          omega
+  | lam t b iht ihb =>
+    intro k
+    simp only [instantiateLift, instantiate1Lift, iht k, ihb (k + 1), Nat.add_right_comm k 1]
+  | forallE t b iht ihb =>
+    intro k
+    simp only [instantiateLift, instantiate1Lift, iht k, ihb (k + 1), Nat.add_right_comm k 1]
+  | letE t w b iht ihw ihb =>
+    intro k
+    simp only [instantiateLift, instantiate1Lift, iht k, ihw k, ihb (k + 1),
+      Nat.add_right_comm k 1]
+  | _ => intro k; simp_all [instantiateLift, instantiate1Lift]
+
+/-- **Substituting a telescope's binders one at a time is one walk**:
+`instSeqLift` is `instantiateLift` at the values innermost first. -/
+theorem instSeqLift_eq_instantiateLift :
+    ∀ (vs : List Expr) (e : Expr),
+      instSeqLift vs (vs.length - 1) e = instantiateLift e vs.reverse 0
+  | [], e => by simp [instSeqLift, instantiateLift_nil]
+  | a :: as, e => by
+    simp only [instSeqLift, List.length_cons, Nat.add_sub_cancel, List.reverse_cons]
+    rw [instSeqLift_eq_instantiateLift as, instantiateLift_snoc, List.length_reverse,
+      Nat.zero_add]
+
 /-- Instantiation preserves a λ-tower's arity. -/
 theorem stripLams_instantiate1_isSome {v : Expr} :
     ∀ (k : Nat) {e : Expr} (j : Nat), (e.stripLams k).isSome →

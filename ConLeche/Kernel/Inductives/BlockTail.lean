@@ -90,21 +90,19 @@ def consBlockRecsT
         (recKExpected p M) (generatedRules (p.rulePrefixAt m) M rhss)
         :: env.consts, env.tables⟩
 
-/-- **The projection table's checks at every structure-like member**, at the environment holding
+/-- **The checks of the block's projection tables** (`blockTables`), at the environment holding
 the formers and the constructors. -/
-def checkBlockTables (p : BlockShape) (env : Env) : List MemberShape → m Unit
+def checkBlockTables (env : Env) : List ProjTable → m Unit
   | [] => pure ()
-  | ms :: rest => do
-    (match ms.structCtor? with
-     | some c => checkStructProjTable ms.cvT.name p.lps p.nP c.2 c.1 env
-     | none => pure ())
-    checkBlockTables p env rest
+  | t :: rest => do
+    checkStructProjTable t env
+    checkBlockTables env rest
 
 /-- **The checks after the pass**: the index binders' sorts, the generated recursors (at the
 environment holding the constructors), the stream's recursors against them (at the environment
-holding the generated ones) and the projection tables. -/
-def checkBlockTail (ops : CheckerOps m) (block : List ConstantInfo) (q : BlockPass Env) :
-    m Unit := do
+holding the generated ones) and the block's projection tables `Q`. -/
+def checkBlockTail (ops : CheckerOps m) (block : List ConstantInfo) (q : BlockPass Env)
+    (Q : List ProjTable) : m Unit := do
   let p := q.p
   checkBlockIdxSorts ops q.env₁ p p.members
   let env₂ := consBlockCtors p.nP p.memberCtors q.env₁
@@ -112,7 +110,7 @@ def checkBlockTail (ops : CheckerOps m) (block : List ConstantInfo) (q : BlockPa
     q.tbl.toList q.rd q.cls block
   streamKCheck p p.recs out
   streamRecsCheck ops .plain (mkFEnv (consBlockRecsT p 0 out env₂)) p.recs out
-  checkBlockTables p env₂ p.members
+  checkBlockTables env₂ Q
 
 /-! ## The block's check -/
 
@@ -149,8 +147,10 @@ def reduceMembers (ops : CheckerOps m) (env : Env) (nP : Nat) :
 
 /-- Check an inductive block and install it (`blockConstants`, `blockTables`): the distinct names,
 each former reduced to its telescope once (official's `check_inductive_types`), the pass over the
-formers, the constructors and the classes at official's `is_rec` (`blockIsRec`), and the checks
-after it. -/
+formers, the constructors and the classes at official's `is_rec` (`blockIsRec`), the projection
+tables read off the block (once the constructors' telescopes have passed, every structure-like
+member has its table), and the checks after it, the tables' among them.  The tables checked are
+the tables installed. -/
 def checkBlock (ops : CheckerOps m) (env : Env) (block : List ConstantInfo) (p₀ : BlockShape) :
     m Env := do
   unless (p₀.allCtors.map (·.1.name)).Nodup ∧ p₀.memberNames.Nodup do
@@ -159,7 +159,8 @@ def checkBlock (ops : CheckerOps m) (env : Env) (block : List ConstantInfo) (p�
     throw (.invalid "direct rec: a family at a `Bool` constructor's name")
   let ms ← reduceMembers ops env p₀.nP p₀.members
   let q ← checkBlockPass ops env { p₀ with members := ms } (blockIsRec p₀)
-  checkBlockTail ops block q
-  pure (env.pushDelta (blockConstants p₀) (blockTables p₀ p₀.members))
+  let Q ← unwrapOr (blockTables p₀ p₀.members) (.internal "direct structure: projection bodies")
+  checkBlockTail ops block q Q
+  pure (env.pushDelta (blockConstants p₀) Q)
 
 end ConLeche
