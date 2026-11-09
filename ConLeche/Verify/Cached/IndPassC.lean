@@ -5,7 +5,6 @@ import ConLeche.Verify.Cached.WalkersC
 import ConLeche.Verify.Cached.IndWalksC
 import ConLeche.Verify.Cached.OpsC
 import ConLeche.Verify.Cached.GuardsC
-import ConLeche.Verify.Cached.DiscC4
 import ConLeche.Verify.CheckerF
 
 public section
