@@ -367,6 +367,21 @@ def instantiate1 (e v : Expr) : Expr := instantiateBy e 1 (fun _ => v)
 def instantiateRev (e : Expr) (subst : Array Expr) : Expr :=
   instantiateBy e subst.size (fun j => subst[subst.size - 1 - j]!)
 
+/-- Twin of `instantiateListC e vs c` at `vs` the values reversed
+(`instantiateRev` at the cursor `c`): `bvar (k + j)` (`k ≥ c`) to the value
+`j` from the end, lifted by `k`, above the substitution lowered by its size. -/
+def instantiateRevAt (e : Expr) (subst : Array Expr) (c : Nat) : Expr :=
+  if subst.size == 0 || e.looseBVarRange ≤ c then e else
+  (mapOff (fun x k =>
+    if x.looseBVarRange ≤ k then some x else
+    match x with
+    | .bvar i =>
+      if i < k then some x
+      else if i - k < subst.size then
+        some (liftLooseBVars (subst[subst.size - 1 - (i - k)]!) 0 k)
+      else some (mkBvar (i - subst.size))
+    | _ => none) e c )
+
 /-- Lean's `instantiateRevRange e beg end subst`. -/
 @[inline] def instantiateRevRange (e : Expr) (beg stop : Nat) (subst : Array Expr) : Expr :=
   instantiateRev e (subst.extract beg stop)
@@ -617,6 +632,17 @@ def hasLooseBVar (e : Expr) (i : Nat) : Bool :=
     if x.looseBVarRange ≤ i + k then some false else
     match x with
     | .bvar j => some (j == i + k)
+    | _ => none) e 0 )
+
+/-- Twin of `hasLooseBVarInC d w`: a loose variable in the window
+`d ..< d + w` (under binders the window moves up); an empty window asks
+nothing. -/
+def hasLooseBVarIn (e : Expr) (d w : Nat) : Bool :=
+  if w == 0 then false else
+  (anyNode (fun x k =>
+    if x.looseBVarRange ≤ d + k then some false else
+    match x with
+    | .bvar j => some (decide (d + k ≤ j) && decide (j < d + k + w))
     | _ => none) e 0 )
 
 /-- Does some node satisfy `p` (Lean's `(e.find? p).isSome`, memoised)? -/

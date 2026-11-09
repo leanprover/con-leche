@@ -2238,6 +2238,54 @@ info: 'InLeanProof.openPisAtFvarsI_run' depends on axioms: [propext,
 #guard_msgs in
 #print axioms InLeanProof.openPisAtFvarsI_run
 
+/--
+info: 'InLeanProof.toExpr_hasLooseBVarIn' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound,
+ InLeanProof.Expr.mkAppData_fields,
+ InLeanProof.Expr.mkData_eq,
+ InLeanProof.Level.mkData_eq]
+-/
+#guard_msgs in
+#print axioms InLeanProof.toExpr_hasLooseBVarIn
+
+/--
+info: 'InLeanProof.TrS_instantiateRevAt' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound,
+ InLeanProof.Expr.mkAppData_fields,
+ InLeanProof.Expr.mkData_eq,
+ InLeanProof.Level.mkData_eq]
+-/
+#guard_msgs in
+#print axioms InLeanProof.TrS_instantiateRevAt
+
+/--
+info: 'InLeanProof.openPisRawI_run' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound,
+ InLeanProof.Expr.mkAppData_fields,
+ InLeanProof.Expr.mkData_eq,
+ InLeanProof.Level.mkData_eq]
+-/
+#guard_msgs in
+#print axioms InLeanProof.openPisRawI_run
+
+/--
+info: 'InLeanProof.projGuardFast_tr' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound,
+ InLeanProof.Expr.mkAppData_fields,
+ InLeanProof.Expr.mkData_eq,
+ InLeanProof.Level.mkData_eq]
+-/
+#guard_msgs in
+#print axioms InLeanProof.projGuardFast_tr
+
+/-- info: 'InLeanProof.projGuardRowsGo_closed' depends on axioms: [propext, Classical.choice, Quot.sound] -/
+#guard_msgs in
+#print axioms InLeanProof.projGuardRowsGo_closed
+
 /-- info: 'InLeanProof.checkBlockTeleFI_run' depends on axioms: [propext, Classical.choice, Quot.sound] -/
 #guard_msgs in
 #print axioms InLeanProof.checkBlockTeleFI_run

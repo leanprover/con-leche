@@ -644,18 +644,27 @@ def projGuardSortI (wh : Nat → Expr → CheckCM Expr) (cvT : ConstantVal) (cap
     | none => throw (.invalid "projection from a structure whose type reaches no sort")
 
 /-- Twin of `checkProjRowsI`: the constructor's type at the use's levels, its
-parameters opened, then its fields stepped (`projGuardRowsGoM`). -/
+parameters opened with the field telescope left raw (`openPisRawM`); where no
+field before the projected one is mentioned after it (`projGuardFast`), the
+one row is the projected field's domain, its parameters substituted, and the
+telescope is read, not rebuilt; otherwise the telescope is substituted and its
+fields stepped (`projGuardRowsGoM`). -/
 def checkProjRowsI (inf wh : Nat → Expr → CheckCM Expr) (fe : FEnv) (entry : ProjEntry)
     (us : List Level) (guardSort : Level) : CheckCM Unit := do
   match fe.find? entry.ctor with
   | some _ => do
     let cty ← constTyAtM fe entry.ctor us
-    match ← openPisAtFvarsM entry.numParams cty 0 with
-    | some (_, r) =>
-      match ← projGuardRowsGoM entry.idx entry.numParams r with
-      | some rows => checkGuardRowsI inf wh guardSort rows
+    match ← openPisRawM #[] entry.numParams cty 0 with
+    | some (acc, r) =>
+      match projGuardFast entry.idx 0 r with
+      | some dom =>
+        checkGuardRowsI inf wh guardSort
+          [(entry.numParams + entry.idx, EO.instantiateRevAt dom acc entry.idx)]
       | none =>
-        throw (.invalid "projection from a propositional structure must be a proposition")
+        match ← projGuardRowsGoM entry.idx entry.numParams (r.instRevI acc) with
+        | some rows => checkGuardRowsI inf wh guardSort rows
+        | none =>
+          throw (.invalid "projection from a propositional structure must be a proposition")
     | none =>
       throw (.invalid "projection from a propositional structure must be a proposition")
   | none =>

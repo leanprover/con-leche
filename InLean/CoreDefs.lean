@@ -330,6 +330,29 @@ def openPisAtFvarsM : Nat → Expr → Nat → CheckCM (Option (List Expr × Exp
     | none => pure none
   | _ + 1, _, _ => pure none
 
+/-- Twin of `openPisRawGoC`: the first `n` binders opened at the variables
+of depths `i, i + 1, …`, each domain instantiated by the variables so far
+(`acc`, outermost first) in one walk; the residual is left raw, the
+variables returned. -/
+def openPisRawM (acc : Array Expr) : Nat → Expr → Nat → CheckCM (Option (Array Expr × Expr))
+  | 0, e, _ => pure (some (acc, e))
+  | n + 1, .mdata _ e, i => openPisRawM acc (n + 1) e i
+  | n + 1, .forallE _ dom body _, i => do
+    let fv ← mkFVarM i (dom.instRevI acc)
+    openPisRawM (acc.push fv) n body (i + 1)
+  | _ + 1, _, _ => pure none
+
+/-- Twin of `projGuardFastC`: on the raw field telescope, `some` the
+projected field's raw domain where no field's type up to the projected one,
+and nothing after it, mentions a field before it; `j` counts the fields
+passed. -/
+def projGuardFast : Nat → Nat → Expr → Option Expr
+  | k, j, .mdata _ e => projGuardFast k j e
+  | 0, j, e@(.forallE _ dom _ _) => if EO.hasLooseBVarIn e 0 j then none else some dom
+  | k + 1, j, .forallE _ dom body _ =>
+    if EO.hasLooseBVarIn dom 0 j then none else projGuardFast k (j + 1) body
+  | _, _, _ => none
+
 /-- Twin of `structUsedLater`. -/
 def structUsedLater (cty : Expr) (nP j : Nat) : Bool :=
   match peelPis (nP + j + 1) cty with
