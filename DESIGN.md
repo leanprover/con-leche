@@ -110901,3 +110901,95 @@ domains-only `projGuardRowsGo` has nothing left to win here; the `eqN` increment
 increment is outside the guard; a sampled profile of `--constant=Rel4.casesOn` against
 `--constant=Rel4` puts the difference mostly in the `.olean` reader (`frontierWalk`, `exprKids`,
 `markPass`) and the allocator, not in the checker.
+
+## TASK #497 — the plain tier the checker runs: audit (2026-11-09, agent/497-twins)
+
+**The rule** (maintainer): the plain tier (`ConLeche/Kernel/*`, including what `@[csimp]`
+swaps in) is specification code.  The binary may run a plain definition only where it is the
+best code there is; everywhere else the cached tier has a twin, or the cached walk is handed in
+through a walker record where the code is written once in `Kernel/*` (`StructWalkers`).
+
+**The instrument.**  `scripts/executed-decls.lean --edges` prints the reached IR call graph
+from `main` (IR names, their source declarations and modules; `@[csimp]`,
+`@[implemented_by]` and specializations already resolved, since the IR is what the binary
+links).  `scripts/plain-reach.py` reads it and lists every reached declaration of a module
+outside `Cached/*`, `Driver/*` and `Main` (the Frontend reader too with `--frontend`), with
+`rec` (one of its IR declarations lies on a cycle of plain IR declarations: a walk or a loop)
+and its *entries* (the cached-tier declarations reaching it through plain ones only).  With
+`--allow FILE` it is a gate.  The costs are sampled profiles of a frame-pointer build of the
+same tree (`moreLeancArgs = ["-fno-omit-frame-pointer"]`, scratch copy only),
+`perf record -e instructions:u --call-graph fp`, `--jobs=1`, verified mode; a sample is
+attributed to its innermost frame that is one of our declarations (library and runtime frames
+are transparent, so a plain walk's allocation and hash-map work count as the walk's), and a
+*plain run* is the chain of plain frames below the first cached frame.  Inlined plain code
+counts as its cached caller.
+
+**Reach at 6741ad769** (`agent/496-cutoff`): 760 plain source declarations, of which 124 are
+the generated Nat-op pin data of `Kernel/NatOpPins` (closed terms, folded into their
+declarations) and 636 the rest; 147 of the 636 are recursive.
+
+**Where the plain tier's time goes** (share of the whole run, innermost-ours attribution):
+
+| run | plain tier | of which shared data structures (a) | of which class (b) |
+|---|---|---|---|
+| init-full (389 G) | 19.5 % | `Expr.beq` 6.1 %, `FBase.find?`/`FEnv.find?` 4.2 %, `Expr` constructors 3.5 %, `getAppFn`/`mkAppN` 3.0 %, `Name` decEq/hash 1.2 %, `PropRead` 0.8 % | the Nat-op pin check 1.28 % (5.0 G); the declaration guards ≤ 0.45 %; inductive walks < 0.1 % |
+| grind-ring-5 (15.6 G) | 28.4 % | `Expr.beq` 7.8 %, `FBase.find?` 3.4 %, `Expr.app` 4.9 % | the Nat-op pin check **11.1 % (1.73 G)**; guards ≤ 1.9 % (mostly inside the pin check) |
+| app-lam / beta-ladder / let-ladder | 2.5 / 2.3 / 1.7 % | all of it | ~0 |
+| `BvStruct` module (449 G) | 20.0 % | | pin check 1.16 % (5.2 G, in the `Init` closure) |
+| `BvStruct` − `Empty` (3.07 G) | | `getAppFn`, `Expr.app`, `mkAppN`, `find?`, `beq` ≈ 2.2 G | **≈ 1.3 G**: `instantiate1LiftGo` 0.47, `depthGo` 0.38, `abstract1Go` 0.13, `openPisAtFvarsFGo` 0.13, `structProjBodiesGo` 0.10, `allLevelParamsDefinedGo` 0.06, `nestOccGo` 0.05 |
+| e2e `prop_struct_proj_wide` (180 M) | **62.6 %** | | `depthGo` 19.1 %, `instantiate1LiftGo` 18.8 % (`blockTables`, twice), `abstract1Go` 9.6 % (`closeTelescope`, `closeLams`), `openPisAtFvarsFGo` 11.8 % incl., `instantiateListGo` 1.3 % |
+| e2e `wide_ok` (55 M) | 11.6 % | all of it | ~0 |
+
+**Classification of the 636** (and the pin data):
+
+* **(a), 567 and the pin data: the best code there is.**  Shared data structures and their
+  executed operations (`Expr`/`Level`/`Name` constructors with their computed fields,
+  `Expr.beq` = `beqMemo` with its pointer and hash guards, the derived `DecidableEq`s it falls
+  back to at leaves, `Name.beqPtr`, `FEnv`/`FBase` lookups and pushes), constants and pins
+  (`Kernel/Basis*`, `TrustAxioms`, `StdAxioms`, `NatOpPins`, the fuel constants), O(spine)
+  readers with no cheaper form (`getAppFn`, `mkAppN`, `piResult`, `stripPis`, `peelPis`,
+  `natPred?`, …), the field-read guards (`looseBVarsBounded`, `hasFvar`, `bvarB`), the level
+  algorithms (`Level.simplify`, `leqCore`, `subst`, `zeronessOf`, …: the cached tier memoises
+  them by level in `lsimpC`/`lnzC`/`eqvC`, and the official kernel runs the same walks), the
+  `PropRead` head readers behind `propIrrelI`'s fast arms (they are that fast path; head
+  spines and telescopes only), and the driver loops of the declaration and inductive checks
+  over constructors, members and classes (`checkBlockCtorsF`, `genRecCheck`,
+  `classRecsRulesOk`, `nestCtors`, …), which take the cached knot as `CheckerOps` and do no
+  `Expr` walk of their own beyond the ones listed under (b).
+* **(b), 69: an `Expr` walk with a better (cached-tier) form, or asymptotically worse than the
+  cached tier's**, in seven groups:
+
+| group | definitions | module | reached from | cost | planned fix |
+|---|---|---|---|---|---|
+| B1 Nat-op pin check | `checkDivModPinF`, `checkDivModPinLoopF`, `checkDivModPinAtF`, `checkDivModCertsF`, `checkTypePinsF`, `divModCertGuardF`, `divModCertsGuardF`, `divModPinGuardF`, `Expr.substConstAll`, `Expr.substConst0` | `Kernel/DeclCheck`, `Kernel/CoreDefs` | `checkDeclKindC` | init-full 5.0 G (1.28 %), grind-ring-5 1.73 G (11.1 %), any `.olean` run with `Init` 5.2 G | cached twin `checkDivModPinC`: each certificate's substitution once (`substConstAll` is a tree walk without memo, written five times per certificate), pointer-memoised, the guards over `constsResolveFC`/`allLevelParamsDefinedC`; equation to `checkDivModPinF` |
+| B2 declaration guards | `Expr.constsResolveF` (`Fast`/`Go`), `Expr.allLevelParamsDefined` (`Fast`/`Go`), `Expr.hasStrLitGo` | `Kernel/DeclCheck`, `Kernel/Level`, `Kernel/CheckerBase` | `checkConstantValF` (every declaration's type), the definition/theorem checks, the inductive check | ≤ 0.23 % + 0.22 % of init-full incl. (≤ 1.7 G), mostly inside B1 | `checkConstantValF` and the value guards take the cached walks through the walker record (`StructWalkers.resolve` exists; add the level-parameter guard) |
+| B3 projection tables | `blockTables`, `structProjBodies` (`Go`), `Expr.instPisAtLift`, `instantiate1Lift` (`Fast`/`Go`) | `Kernel/Install`, `Kernel/Inductives/StructParts`, `Kernel/ExprOps` | `StreamIndex.add`, `checkBlockKS` (`FEnv.pushDelta`) | `prop_struct_proj_wide` 14 %, `BvStruct` ≈ 0.6 G; the same bodies are built three times per structure (twice plain, once by `structWalkersC.projBodies` in `checkStructProjTableF`) | `blockTablesC` over `structProjBodiesC` with `blockTablesC_eq`, at both cached callers |
+| B4 the inductive check's walks | `instantiate1`, `instantiateList`, `openPisAtFvars(F)`, `abstract1`, `instantiateLevelParams`, `liftLooseBVars` (their `Fast`/`Go`), `Expr.depth(Go)`, `closeTelescope`, `closeLams`, `instPisWith`, `whnfTelescope`, `targetPiDomsWith`, `classReadSlots`, `recDomsAt`, `abstractPrefix`, `dropVars`, and the Kernel-only walks `replaceFVars`, `replaceApps`, `nestOcc`, `mentionsAnyConst`, `mentionsConst`, `piDomsOcc`, `piDomsMentionAny`, `targetAbs` (`Fast`/`Go`) | `Kernel/Inductives/{Positivity,GenRec,RecCheck,ClassRead,StreamRecs,BlockInstall(F),SumInstall(F),StructParts}`, `Kernel/ExprOps`, `Kernel/Install` | `checkBlockPassS`, `checkBlockTailS`, `reduceMemberS` (the inductive check, written once in `Kernel/Inductives/*`) | `prop_struct_proj_wide` ≈ 45 %, `BvStruct` ≈ 0.75 G, grind-ring-5 ≈ 0.3 %, init-full < 0.1 % | **needs a ruling** (below) |
+| B5 the #496 opener | `openPisAtFvarsFGo` with its `inst` parameter | `Kernel/CoreDefs` | `openPisAtFvarsC` (the projection guard) | in B4's numbers | `openPisAtFvarsC` its own loop over `instantiateListC`; the parameter leaves the Kernel loop |
+| B6 the projection guard's rows | `projGuardRowsGo`, `Expr.hasLooseBVarB` (`Fast`/`Go`) | `Kernel/CoreDefs` | `checkProjRowsI` | cold (#496: ≈ 4 M for 200 guards) | `projGuardRowsC` over `instantiate1C` |
+| B7 spine | `Expr.getAppArgs` | `Kernel/ExprOps` | `etaCtorShapeC`, `propIrrelI` | ~0 | the cached callers use `getAppArgsC` |
+
+  Two smaller reaches belong to the groups: the basis' `ConstantVal.atLps`/`ConstantInfo.atLps`
+  (`Kernel/Basis`) run the *unmemoised* `Expr.instantiateLevelParams` (the module is compiled
+  before `instantiateLevelParams_eq_instLPFast`, so that `@[csimp]` never reaches it; basis
+  declarations only, ~0), and the cached `instantiate1LiftXP` lifts its value with the plain
+  `liftLooseBVarsFast` (~0).
+* **(c), 0.**  Nothing was left unclear after the profiles.
+
+**What needs a ruling: B4.**  The inductive check is written once over the index
+(`Kernel/Inductives/*` over `CheckerOps` and `FEnv`) and run as is by the cached driver; its
+substitutions are the plain `@[csimp]` walks (a fresh `Std.HashMap` per call), and its
+Kernel-only walks (`replaceFVars`, `nestOcc`, `depth`, …) have no cached form at all.  Handing
+the cached walks in means a walker record of about a dozen walks (instantiate1, the opener,
+abstract1, instantiateLevelParams, liftLooseBVars, depth, replaceFVars, replaceApps, nestOcc,
+mentionsAnyConst, mentionsConst, targetAbs) threaded through some 60 definitions of seven
+modules and their proofs (each proof rewriting by the record's equality to the plain one, as
+with `structWalkersC_eq_plain`), plus about six new pointer-keyed walks in `Cached/ExprOpsC`
+with their specs.  It pays on wide structures (≈ 45 % of `prop_struct_proj_wide`, ≈ 0.75 G of
+`BvStruct`'s 3.07 G) and is below the noise on init-full and the arena streams.  Part of the
+wide-structure cost is the algorithm, not the walker: `whnfWalkFuel` (`Expr.depth`, a
+structurally keyed `HashMap`) is recomputed per constructor and key on the remaining
+telescope, and `closeTelescope`/`closeLams` re-abstract the whole body once per binder.
+
+B1, B2 (through `StructWalkers`, which `checkConstantValF` would then take), B3, B5, B6 and B7
+need no ruling.
