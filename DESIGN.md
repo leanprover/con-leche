@@ -110823,6 +110823,21 @@ definitions.
    instantiating only the domains it steps over was the candidate next step — measured below,
    not implemented.
 
+The analysis lane's per-declaration table (its binary: the #495 lane, `--jobs=1`, verified;
+official: stock v4.35.0 `addDeclCore` replay of `BvStruct`, differences of stages):
+
+| piece | con-leche | official |
+|---|---|---|
+| `Rel4` inductive block (`Rel4` − `Rel1`, `Rel1` = the same file with 1 field) | 4.04 G | 0.079 G |
+| `Rel4.casesOn` | 2.12 G | 0.39 G (`casesOn` + `recOn`) |
+| `Rel4.recOn` | ~0 beyond `casesOn` | (in the above) |
+| the 200 projections `eqN` | ~0.0105 G each, ~2.1 G | 0.434 G for 201 declarations |
+| `Init` closure pulled by `--constant=Rel4` (`Rel1` − `Node4`) | 6.12 G | 0 |
+| `Rel4` group (block + `casesOn` + projections) | ~8.2 G | ~0.9 G |
+
+Block cost against field count: 49 fields 0.33 G, 99 fields 1.10 G, 199 fields 4.04 G
+(≈ 2.3 M·n + 89 k·n²).
+
 Side facts: `--constant=Rel4` pulls about 815 `Init` declarations, which cost 6.1 G, 3.9 G of it
 `checkDivModPin`; reading the `.olean` closure is a floor of 30.9 G for any `--constant` run on
 this module.
