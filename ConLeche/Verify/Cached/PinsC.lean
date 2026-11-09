@@ -88,6 +88,16 @@ theorem checkDivModPinC_eq (ops : CheckerOps m) (pins : List NatOpPinSet) (fe fe
     | some ci => cases ci <;> first | rfl | simp only [checkDivModPinLoopC_eq]
   · rfl
 
+theorem reducePinGuardC_eq (fe : FEnv) (c : Name) :
+    reducePinGuardC fe c = reducePinGuardF fe c := by
+  simp only [reducePinGuardC, reducePinGuardF, Expr.allLevelParamsDefinedC_spec,
+    constsResolveFC_spec]
+
+/-- **The cached reduce-pin check is the specification's.** -/
+theorem checkReducePinC_eq (ops : CheckerOps m) (fe fe2 : FEnv) (c : Name) (value : Expr) :
+    checkReducePinC ops fe fe2 c value = checkReducePinF ops fe fe2 c value := by
+  simp only [checkReducePinC, checkReducePinF, reducePinGuardC_eq]
+
 end Pins
 
 end ConLeche.Cached

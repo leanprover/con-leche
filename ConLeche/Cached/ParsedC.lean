@@ -151,7 +151,7 @@ def checkIndDeclC (fe : FEnv) (block : List ConstantInfo) (nP : Nat) :
 
 /-! ## The `Nat.div`/`Nat.mod` pin check (task #497)
 
-`checkDivModPinF`'s twin.  The specification substitutes the pinned
+`checkDivModPinF`'s twin (and `checkReducePinF`'s).  The specification substitutes the pinned
 operation's value into each certificate proof with the tree walk
 `Expr.substConstAll` (written five times per certificate: four guards
 and the inference), and guards the result with the structurally
@@ -237,6 +237,33 @@ def checkDivModPinC (ops : CheckerOps m) (pins : List NatOpPinSet)
   else throw (.notImplemented
     s!"unsupported Nat.div/mod environment ({c})")
 
+/-- `reducePinGuardF` over the cached guards. -/
+def reducePinGuardC (fe : FEnv) (c : Name) : Bool :=
+  (reduceDeclPin c).looseBVarsBounded 0 && !(reduceDeclPin c).hasFvar &&
+  Expr.allLevelParamsDefinedC [] (reduceDeclPin c) &&
+  constsResolveFC fe (reduceDeclPin c)
+
+/-- `checkReducePinF`'s twin: the pin's guard over the cached walks. -/
+def checkReducePinC (ops : CheckerOps m) (fe fe2 : FEnv) (c : Name)
+    (value : Expr) : m Unit := do
+  if reduceStoredOkF fe2 c && reduceElemOkF fe c then
+    if reducePinGuardC fe c then do
+      let valA := value
+      let pinA := (reduceDeclPin c)
+      let okPin ← ops.isDefEq fe.env 0 valA pinA
+      if okPin then do
+        let x := reduceCertVar c
+        let ok ← ops.isDefEq fe.env 1 (.app valA x) x
+        if ok then pure ()
+        else throw (.internal
+          s!"pinned compiler-trust opaque is not the identity ({c})")
+      else throw (.notImplemented
+        s!"unsupported compiler-trust opaque spelling ({c})")
+    else throw (.notImplemented
+      s!"unsupported compiler-trust opaque spelling ({c}: pin ground constants absent)")
+  else throw (.notImplemented
+    s!"unsupported compiler-trust opaque declaration ({c})")
+
 end Pins
 
 /-- **A declaration's own checks** (`checkDeclKind`'s twin), every kind (inductive blocks reuse
@@ -285,7 +312,7 @@ def checkDeclKindC (pins : List NatOpPinSet) (fe : FEnv) (pd : Declaration) :
     checkConstantValC mode fe cv
     let ci ← checkOpaqueValCI mode fe cv value
     if reduceOpNames.contains cv.name then
-      checkReducePinF (sharedOpsC mode fe) fe (fe.overlay [ci]) cv.name value
+      checkReducePinC (sharedOpsC mode fe) fe (fe.overlay [ci]) cv.name value
     pure (fe.push ci)
   | .axiomDecl cv =>
     if cv.name = quotSoundName then

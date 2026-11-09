@@ -122,6 +122,13 @@ theorem checkDivModPinF_overlay (ops : CheckerOps CheckCM) (env : Env) (ci : Con
   rw [checkDivModPinF_congr2 _ _ _ (find?_overlay_push (fe := mkFEnv env) rfl ci), push_mkFEnv,
     checkDivModPinF_eq]
 
+/-- The cached reduce-pin check at the arm's overlay (`checkReducePinC_eq`, task #497). -/
+theorem checkReducePinC_overlay (ops : CheckerOps CheckCM) (env : Env) (ci : ConstantInfo)
+    (c : Name) (value : Expr) :
+    checkReducePinC ops (mkFEnv env) ((mkFEnv env).overlay [ci]) c value
+      = checkReducePin ops env ⟨ci :: env.consts, env.tables⟩ c value := by
+  rw [checkReducePinC_eq, checkReducePinF_overlay]
+
 /-- The cached pin check at the arm's overlay (`checkDivModPinC_eq`, task #497). -/
 theorem checkDivModPinC_overlay (ops : CheckerOps CheckCM) (env : Env) (ci : ConstantInfo)
     (c : Name) :
@@ -260,7 +267,7 @@ theorem checkDeclKindC_spec (henv : EnvWF env)
   | opaqueDecl cv value =>
     sym only [conleche_grind, checkDeclKind, push_mkFEnv, mkFEnv_env] =>
       vcgen [checkDeclKindC, checkConstantValC_spec henv hs, checkOpaqueValCI_spec henv,
-        checkReducePinF_overlay, checkReducePinS_spec henv] <;> finish
+        checkReducePinC_overlay, checkReducePinS_spec henv] <;> finish
   | defnDecl cv value hint =>
     sym only [conleche_grind, checkDeclKind, push_mkFEnv, mkFEnv_env, natOpGuardF_overlay,
         natOpStoredOkF_overlay, find?_overlay_mkFEnv, Env.find?_cons, ConstantInfo.name,

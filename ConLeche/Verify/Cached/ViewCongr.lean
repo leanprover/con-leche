@@ -1305,7 +1305,7 @@ theorem checkDeclKindC_twin (pins : List NatOpPinSet) {fe₁ fe₂ : FEnv} (ht :
       rw [find?_overlay_push ht.ovl₁, find?_overlay_push ht.ovl₂]
       exact (ht.push ci).find
     have h := sharedOpsC_envFree mode fe₂
-    simp only [sharedOpsC_congr hfe htb, checkReducePinF_congr h hfe hov]
+    simp only [sharedOpsC_congr hfe htb, checkReducePinC_eq, checkReducePinF_congr h hfe hov]
     relrun
     all_goals exact RelRun.pure (PushedFrom.push _ _ _)
   | axiomDecl cv =>
