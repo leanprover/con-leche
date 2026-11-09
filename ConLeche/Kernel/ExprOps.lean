@@ -837,11 +837,12 @@ def isForallE : Expr → Bool
   | .forallE .. => true
   | _ => false
 
-/-- Two λs: their domains and bodies (the descent of the λ-telescope
-comparison, `defeqLams`). -/
-def lamPair? : Expr → Expr → Option (Expr × Expr × Expr × Expr)
-  | .lam t₁ b₁, .lam t₂ b₂ => some (t₁, b₁, t₂, b₂)
-  | _, _ => none
+/-- Two λs (`lam = true`) or two ∀s (`lam = false`): their domains and
+bodies (the descent of the binder-telescope comparison, `defeqBinders`). -/
+def binderPair? : Bool → Expr → Expr → Option (Expr × Expr × Expr × Expr)
+  | true, .lam t₁ b₁, .lam t₂ b₂ => some (t₁, b₁, t₂, b₂)
+  | false, .forallE t₁ b₁, .forallE t₂ b₂ => some (t₁, b₁, t₂, b₂)
+  | _, _, _ => none
 
 /-- The head of an application spine. -/
 def getAppFn : Expr → Expr

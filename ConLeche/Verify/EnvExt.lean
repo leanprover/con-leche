@@ -57,18 +57,14 @@ theorem res_natPred {x e : Expr} (he : Res env₁ e) (h : e.natPred? = some x) :
     | _ => simp [Expr.natPred?] at h
   | _ => exact nomatch h
 
-theorem res_lamPair {a b t₁ b₁ t₂ b₂ : Expr} (ha : Res env₁ a) (hb : Res env₁ b)
-    (h : Expr.lamPair? a b = some (t₁, b₁, t₂, b₂)) :
+theorem res_binderPair {lam : Bool} {a b t₁ b₁ t₂ b₂ : Expr} (ha : Res env₁ a) (hb : Res env₁ b)
+    (h : Expr.binderPair? lam a b = some (t₁, b₁, t₂, b₂)) :
     Res env₁ t₁ ∧ Res env₁ b₁ ∧ Res env₁ t₂ ∧ Res env₁ b₂ := by
-  cases a with
-  | lam x y =>
-    cases b with
-    | lam x' y' =>
-      simp only [Expr.lamPair?, Option.some.injEq, Prod.mk.injEq] at h
-      obtain ⟨rfl, rfl, rfl, rfl⟩ := h
-      exact ⟨(res_lam.mp ha).1, (res_lam.mp ha).2, (res_lam.mp hb).1, (res_lam.mp hb).2⟩
-    | _ => simp [Expr.lamPair?] at h
-  | _ => simp [Expr.lamPair?] at h
+  cases lam <;> cases a <;> cases b <;>
+    simp only [Expr.binderPair?, reduceCtorEq, Option.some.injEq, Prod.mk.injEq] at h <;>
+    obtain ⟨rfl, rfl, rfl, rfl⟩ := h
+  · exact ⟨(res_forall.mp ha).1, (res_forall.mp ha).2, (res_forall.mp hb).1, (res_forall.mp hb).2⟩
+  · exact ⟨(res_lam.mp ha).1, (res_lam.mp ha).2, (res_lam.mp hb).1, (res_lam.mp hb).2⟩
 
 section Bodies
 
@@ -95,9 +91,10 @@ theorem defeqSpine_rel {a b : Expr} (ha : Res env₁ a) (hb : Res env₁ b) :
     | _ => exact Rel.ok trivial
   | _ => exact Rel.ok trivial
 
-theorem defeqLamsInner_rel {b₁ b₂ : Expr} (h₁ : Res env₁ b₁) (h₂ : Res env₁ b₂) :
-    Rel TT (defeqLamsInner mode r₂ d b₁ b₂) (defeqLamsInner mode r₁ d b₁ b₂) := by
-  unfold defeqLamsInner
+theorem defeqBindersInner_rel (lam : Bool) {b₁ b₂ : Expr} (h₁ : Res env₁ b₁)
+    (h₂ : Res env₁ b₂) :
+    Rel TT (defeqBindersInner mode r₂ lam d b₁ b₂) (defeqBindersInner mode r₁ lam d b₁ b₂) := by
+  unfold defeqBindersInner
   refine Rel.bind (K.defeq (d + 1) h₁ h₂) fun v _ => ?_
   refine Rel.iteB v (fun _ => ?_) fun _ => Rel.ok trivial
   dsimp only
@@ -106,30 +103,41 @@ theorem defeqLamsInner_rel {b₁ b₂ : Expr} (h₁ : Res env₁ b₁) (h₂ : R
     Rel.bind (K.defeq (d + 1) ht₁ ht₂) fun v' _ => ?_
   exact Rel.iteB v' (fun _ => Rel.ok trivial) fun _ => Rel.ok trivial
 
+theorem defeqDomain_rel {fvs : List Expr} {ty₁ ty₂ dom₂ : Expr} (hfv : ∀ v ∈ fvs, Res env₁ v)
+    (h₁ : Res env₁ ty₁) (hd : Res env₁ dom₂) :
+    Rel TT (defeqDomain r₂ d fvs ty₁ ty₂ dom₂) (defeqDomain r₁ d fvs ty₁ ty₂ dom₂) := by
+  unfold defeqDomain
+  exact Rel.ite (fun _ => Rel.ok trivial) fun _ => K.defeq d (res_instantiateList hfv 0 h₁) hd
+
 omit K in
-theorem defeqLams_rel (K : KR env₁ r₂ r₁) (mode : CheckMode) :
-    ∀ (fuel d : Nat) {ty₁ body₁ ty₂ body₂ : Expr}, Res env₁ ty₁ → Res env₁ body₁ → Res env₁ ty₂ →
-      Res env₁ body₂ →
-      Rel TT (defeqLams mode r₂ fuel d ty₁ body₁ ty₂ body₂)
-        (defeqLams mode r₁ fuel d ty₁ body₁ ty₂ body₂)
-  | fuel, d, ty₁, body₁, ty₂, body₂, h₁, hb₁, h₂, hb₂ => by
-    unfold defeqLams
-    refine Rel.bind (K.defeq d h₁ h₂) fun v _ => ?_
+theorem defeqBinders_rel (K : KR env₁ r₂ r₁) (mode : CheckMode) (lam : Bool) :
+    ∀ (fuel d : Nat) {fvs : List Expr} {ty₁ body₁ ty₂ body₂ : Expr}, (∀ v ∈ fvs, Res env₁ v) →
+      Res env₁ ty₁ → Res env₁ body₁ → Res env₁ ty₂ → Res env₁ body₂ →
+      Rel TT (defeqBinders mode r₂ lam fuel d fvs ty₁ body₁ ty₂ body₂)
+        (defeqBinders mode r₁ lam fuel d fvs ty₁ body₁ ty₂ body₂)
+  | fuel, d, fvs, ty₁, body₁, ty₂, body₂, hfv, h₁, hb₁, h₂, hb₂ => by
+    unfold defeqBinders
+    have hd₂ : Res env₁ (ty₂.instantiateList fvs) := res_instantiateList hfv 0 h₂
+    refine Rel.bind (defeqDomain_rel K d hfv h₁ hd₂) fun v _ => ?_
     refine Rel.iteB v (fun _ => ?_) fun _ => Rel.ok trivial
-    have ho₁ : Res env₁ (body₁.instantiate1 (.fvar d ty₂)) := res_open h₂ hb₁
-    have ho₂ : Res env₁ (body₂.instantiate1 (.fvar d ty₂)) := res_open h₂ hb₂
+    have hfv' : ∀ v ∈ Expr.fvar d (ty₂.instantiateList fvs) :: fvs, Res env₁ v := by
+      intro v hv
+      rcases List.mem_cons.mp hv with rfl | hv
+      · exact res_fvar.mpr hd₂
+      · exact hfv v hv
+    have ho₁ := res_instantiateList hfv' 0 hb₁
+    have ho₂ := res_instantiateList hfv' 0 hb₂
     dsimp only
     cases fuel with
-    | zero => exact defeqLamsInner_rel K d mode ho₁ ho₂
+    | zero => exact defeqBindersInner_rel K d mode lam ho₁ ho₂
     | succ fuel =>
-      cases hp : Expr.lamPair? (body₁.instantiate1 (.fvar d ty₂)) (body₂.instantiate1 (.fvar d ty₂)) with
-      | none => exact defeqLamsInner_rel K d mode ho₁ ho₂
+      cases hp : Expr.binderPair? lam body₁ body₂ with
+      | none => exact defeqBindersInner_rel K d mode lam ho₁ ho₂
       | some q =>
         obtain ⟨ty₁', body₁', ty₂', body₂'⟩ := q
         dsimp only
-        refine Rel.ite (fun _ => Rel.ok trivial) fun _ => ?_
-        obtain ⟨h₃, h₄, h₅, h₆⟩ := res_lamPair ho₁ ho₂ hp
-        exact defeqLams_rel K mode fuel (d + 1) h₃ h₄ h₅ h₆
+        obtain ⟨h₃, h₄, h₅, h₆⟩ := res_binderPair hb₁ hb₂ hp
+        exact defeqBinders_rel K mode lam fuel (d + 1) hfv' h₃ h₄ h₅ h₆
 
 theorem quickDefEq_rel {a b : Expr} (ha : Res env₁ a) (hb : Res env₁ b) :
     Rel TT (quickDefEq mode r₂ d a b) (quickDefEq mode r₁ d a b) := by
@@ -138,14 +146,12 @@ theorem quickDefEq_rel {a b : Expr} (ha : Res env₁ a) (hb : Res env₁ b) :
   cases a <;> cases b <;> first
     | exact Rel.ok trivial
     | exact Rel.bind Rel.triv fun _ _ => Rel.ok trivial
-    | exact Rel.bind (defeqLams_rel K mode _ d (res_lam.mp ha).1 (res_lam.mp ha).2
-        (res_lam.mp hb).1 (res_lam.mp hb).2) fun _ _ => Rel.ok trivial
-    | (refine Rel.bind (K.defeq d (res_forall.mp ha).1 (res_forall.mp hb).1) fun v _ => ?_
-       refine Rel.iteB v (fun _ => ?_) fun _ => Rel.ok trivial
-       try dsimp only
-       refine Rel.bind (K.defeq (d + 1) (res_open (res_forall.mp hb).1 (res_forall.mp ha).2)
-         (res_open (res_forall.mp hb).1 (res_forall.mp hb).2)) fun v' _ => ?_
-       exact Rel.iteB v' (fun _ => Rel.ok trivial) fun _ => Rel.ok trivial)
+    | exact Rel.bind (defeqBinders_rel K mode true _ d (fun _ h => nomatch h)
+        (res_lam.mp ha).1 (res_lam.mp ha).2 (res_lam.mp hb).1 (res_lam.mp hb).2)
+        fun _ _ => Rel.ok trivial
+    | exact Rel.bind (defeqBinders_rel K mode false _ d (fun _ h => nomatch h)
+        (res_forall.mp ha).1 (res_forall.mp ha).2 (res_forall.mp hb).1 (res_forall.mp hb).2)
+        fun _ _ => Rel.ok trivial
 
 theorem defeqOffset_rel {a b : Expr} (ha : Res env₁ a) (hb : Res env₁ b) :
     Rel TT (defeqOffset r₂ d a b) (defeqOffset r₁ d a b) := by

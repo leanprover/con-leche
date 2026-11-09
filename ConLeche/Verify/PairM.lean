@@ -228,23 +228,29 @@ theorem defEqList_snd (d : Nat) :
   | [], _ :: _ => rfl
   | _ :: _, [] => rfl
 
-theorem defeqLamsInner_fst (d : Nat) (b₁ b₂ : Expr) :
-    (defeqLamsInner mode (pairFns r₁ r₂ h) d b₁ b₂).val.1 =
-      defeqLamsInner mode r₁ d b₁ b₂ := by
-  unfold defeqLamsInner
+theorem defeqBindersInner_fst (lam : Bool) (d : Nat) (b₁ b₂ : Expr) :
+    (defeqBindersInner mode (pairFns r₁ r₂ h) lam d b₁ b₂).val.1 =
+      defeqBindersInner mode r₁ lam d b₁ b₂ := by
+  unfold defeqBindersInner
   repeat (first
     | rfl
     | ((rw [PairM.fst_bind]; congr 1 <;> try rfl) <;> try funext _)
     | (dsimp only [])
     | split)
 
-theorem defeqLams_fst :
-    ∀ (fuel d : Nat) (ty₁ body₁ ty₂ body₂ : Expr),
-      (defeqLams mode (pairFns r₁ r₂ h) fuel d ty₁ body₁ ty₂ body₂).val.1 =
-        defeqLams mode r₁ fuel d ty₁ body₁ ty₂ body₂
-  | fuel, d, ty₁, body₁, ty₂, body₂ => by
-    rw [defeqLams.eq_def, defeqLams.eq_def]
-    rw [PairM.fst_bind]
+theorem defeqDomain_fst (d : Nat) (fvs : List Expr) (ty₁ ty₂ dom₂ : Expr) :
+    (defeqDomain (pairFns r₁ r₂ h) d fvs ty₁ ty₂ dom₂).val.1 =
+      defeqDomain r₁ d fvs ty₁ ty₂ dom₂ := by
+  unfold defeqDomain
+  split <;> rfl
+
+theorem defeqBinders_fst (lam : Bool) :
+    ∀ (fuel d : Nat) (fvs : List Expr) (ty₁ body₁ ty₂ body₂ : Expr),
+      (defeqBinders mode (pairFns r₁ r₂ h) lam fuel d fvs ty₁ body₁ ty₂ body₂).val.1 =
+        defeqBinders mode r₁ lam fuel d fvs ty₁ body₁ ty₂ body₂
+  | fuel, d, fvs, ty₁, body₁, ty₂, body₂ => by
+    rw [defeqBinders.eq_def, defeqBinders.eq_def]
+    rw [PairM.fst_bind, defeqDomain_fst]
     congr 1
     funext ok
     cases ok with
@@ -252,28 +258,32 @@ theorem defeqLams_fst :
     | true =>
       simp only [↓reduceIte]
       split
-      · split
-        · rfl
-        · exact defeqLams_fst _ (d + 1) _ _ _ _
-      · exact defeqLamsInner_fst d _ _
+      · exact defeqBinders_fst lam _ (d + 1) _ _ _ _ _
+      · exact defeqBindersInner_fst lam d _ _
 
-theorem defeqLamsInner_snd (d : Nat) (b₁ b₂ : Expr) :
-    (defeqLamsInner mode (pairFns r₁ r₂ h) d b₁ b₂).val.2 =
-      defeqLamsInner mode r₂ d b₁ b₂ := by
-  unfold defeqLamsInner
+theorem defeqBindersInner_snd (lam : Bool) (d : Nat) (b₁ b₂ : Expr) :
+    (defeqBindersInner mode (pairFns r₁ r₂ h) lam d b₁ b₂).val.2 =
+      defeqBindersInner mode r₂ lam d b₁ b₂ := by
+  unfold defeqBindersInner
   repeat (first
     | rfl
     | ((rw [PairM.snd_bind]; congr 1 <;> try rfl) <;> try funext _)
     | (dsimp only [])
     | split)
 
-theorem defeqLams_snd :
-    ∀ (fuel d : Nat) (ty₁ body₁ ty₂ body₂ : Expr),
-      (defeqLams mode (pairFns r₁ r₂ h) fuel d ty₁ body₁ ty₂ body₂).val.2 =
-        defeqLams mode r₂ fuel d ty₁ body₁ ty₂ body₂
-  | fuel, d, ty₁, body₁, ty₂, body₂ => by
-    rw [defeqLams.eq_def, defeqLams.eq_def]
-    rw [PairM.snd_bind]
+theorem defeqDomain_snd (d : Nat) (fvs : List Expr) (ty₁ ty₂ dom₂ : Expr) :
+    (defeqDomain (pairFns r₁ r₂ h) d fvs ty₁ ty₂ dom₂).val.2 =
+      defeqDomain r₂ d fvs ty₁ ty₂ dom₂ := by
+  unfold defeqDomain
+  split <;> rfl
+
+theorem defeqBinders_snd (lam : Bool) :
+    ∀ (fuel d : Nat) (fvs : List Expr) (ty₁ body₁ ty₂ body₂ : Expr),
+      (defeqBinders mode (pairFns r₁ r₂ h) lam fuel d fvs ty₁ body₁ ty₂ body₂).val.2 =
+        defeqBinders mode r₂ lam fuel d fvs ty₁ body₁ ty₂ body₂
+  | fuel, d, fvs, ty₁, body₁, ty₂, body₂ => by
+    rw [defeqBinders.eq_def, defeqBinders.eq_def]
+    rw [PairM.snd_bind, defeqDomain_snd]
     congr 1
     funext ok
     cases ok with
@@ -281,10 +291,8 @@ theorem defeqLams_snd :
     | true =>
       simp only [↓reduceIte]
       split
-      · split
-        · rfl
-        · exact defeqLams_snd _ (d + 1) _ _ _ _
-      · exact defeqLamsInner_snd d _ _
+      · exact defeqBinders_snd lam _ (d + 1) _ _ _ _ _
+      · exact defeqBindersInner_snd lam d _ _
 
 theorem iotaIndexOk_fst (d : Nat) (mI rP cnP : Nat) (tyCtor : Expr)
     (margs idx : List Expr) :
@@ -433,7 +441,7 @@ macro "fst_step" : tactic =>
     | (rw [iotaCase3At_fst_proj])
     | (rw [formerNeverZeroAt_fst_proj])
     | (rw [iotaCertsFull_fst])
-    | (rw [defeqLams_fst])
+    | (rw [defeqBinders_fst])
     | (rw [iotaIndexOk_fst])
     | (rw [defEqList_fst])
     | ((rw [PairM.fst_bind]; congr 1 <;> try rfl) <;> try funext _)
@@ -453,7 +461,7 @@ macro "snd_step" : tactic =>
     | (rw [iotaCase3At_snd_proj])
     | (rw [formerNeverZeroAt_snd_proj])
     | (rw [iotaCertsFull_snd])
-    | (rw [defeqLams_snd])
+    | (rw [defeqBinders_snd])
     | (rw [iotaIndexOk_snd])
     | (rw [defEqList_snd])
     | ((rw [PairM.snd_bind]; congr 1 <;> try rfl) <;> try funext _)
@@ -675,7 +683,7 @@ macro "fst_step2" : tactic =>
     | (rw [iotaCase3At_fst_proj])
     | (rw [formerNeverZeroAt_fst_proj])
     | (rw [iotaCertsFull_fst])
-    | (rw [defeqLams_fst])
+    | (rw [defeqBinders_fst])
     | (rw [iotaIndexOk_fst])
     | (rw [defEqList_fst])
     | (rw [reduceNat_fst_proj])
@@ -702,7 +710,7 @@ macro "snd_step2" : tactic =>
     | (rw [iotaCase3At_snd_proj])
     | (rw [formerNeverZeroAt_snd_proj])
     | (rw [iotaCertsFull_snd])
-    | (rw [defeqLams_snd])
+    | (rw [defeqBinders_snd])
     | (rw [iotaIndexOk_snd])
     | (rw [defEqList_snd])
     | (rw [reduceNat_snd_proj])
@@ -882,7 +890,7 @@ macro "fst_core3" x:tactic : tactic =>
     | (rw [iotaCase3At_fst_proj])
     | (rw [formerNeverZeroAt_fst_proj])
     | (rw [iotaCertsFull_fst])
-    | (rw [defeqLams_fst])
+    | (rw [defeqBinders_fst])
     | (rw [iotaIndexOk_fst])
     | (rw [defEqList_fst])
     | (rw [reduceNat_fst_proj])
@@ -916,7 +924,7 @@ macro "snd_core3" x:tactic : tactic =>
     | (rw [iotaCase3At_snd_proj])
     | (rw [formerNeverZeroAt_snd_proj])
     | (rw [iotaCertsFull_snd])
-    | (rw [defeqLams_snd])
+    | (rw [defeqBinders_snd])
     | (rw [iotaIndexOk_snd])
     | (rw [defEqList_snd])
     | (rw [reduceNat_snd_proj])
@@ -1103,7 +1111,7 @@ macro "fst_core4" x:tactic : tactic =>
     | (rw [iotaCase3At_fst_proj])
     | (rw [formerNeverZeroAt_fst_proj])
     | (rw [iotaCertsFull_fst])
-    | (rw [defeqLams_fst])
+    | (rw [defeqBinders_fst])
     | (rw [iotaIndexOk_fst])
     | (rw [defEqList_fst])
     | (rw [reduceNat_fst_proj])
@@ -1163,7 +1171,7 @@ macro "snd_core4" x:tactic : tactic =>
     | (rw [iotaCase3At_snd_proj])
     | (rw [formerNeverZeroAt_snd_proj])
     | (rw [iotaCertsFull_snd])
-    | (rw [defeqLams_snd])
+    | (rw [defeqBinders_snd])
     | (rw [iotaIndexOk_snd])
     | (rw [defEqList_snd])
     | (rw [reduceNat_snd_proj])

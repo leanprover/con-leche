@@ -45,62 +45,44 @@ inductive QuickExit (μ : CheckMode) (eager : Bool) (env : Env) (fuel d : Nat) :
       QuickExit μ eager env fuel d (.sort u) (.sort v)
   /-- Two equal literals. -/
   | lit {l : Literal} : QuickExit μ eager env fuel d (.lit l) (.lit l)
-  /-- ∀-congruence, the bodies opened at the RIGHT domain. -/
+  /-- ∀-congruence: the ∀-telescope comparison (`defeqBinders`). -/
   | forallE {ty₁ bd₁ ty₂ bd₂ : Expr} :
-      isDefEqCore μ eager env fuel d ty₁ ty₂ = .ok true →
-      isDefEqCore μ eager env fuel (d + 1) (bd₁.instantiate1 (.fvar d ty₂))
-        (bd₂.instantiate1 (.fvar d ty₂)) = .ok true →
+      defeqBindersFueled μ eager env fuel false bindersFuel d [] ty₁ bd₁ ty₂ bd₂ = .ok true →
       QuickExit μ eager env fuel d (.forallE ty₁ bd₁) (.forallE ty₂ bd₂)
-  /-- λ-congruence: the λ-telescope comparison (`defeqLams`). -/
+  /-- λ-congruence: the λ-telescope comparison (`defeqBinders`). -/
   | lam {ty₁ bd₁ ty₂ bd₂ : Expr} :
-      defeqLamsFueled μ eager env fuel lamsFuel d ty₁ bd₁ ty₂ bd₂ = .ok true →
+      defeqBindersFueled μ eager env fuel true bindersFuel d [] ty₁ bd₁ ty₂ bd₂ = .ok true →
       QuickExit μ eager env fuel d (.lam ty₁ bd₁) (.lam ty₂ bd₂)
 
-/-- The ∀ arm of `quickDefEq`: a `some true` run compared the domains,
-then the opened bodies. -/
-private theorem binder_inv {d : Nat} {ty₁ bd₁ ty₂ bd₂ : Expr}
-    (h : (do
-      unless ← isDefEqCore μ eager env fuel d ty₁ ty₂ do return some false
-      unless ← isDefEqCore μ eager env fuel (d + 1)
-          (bd₁.instantiate1 (.fvar d ty₂))
-          (bd₂.instantiate1 (.fvar d ty₂)) do return some false
-      pure (some true) : CheckM (Option Bool)) = .ok (some true)) :
-    isDefEqCore μ eager env fuel d ty₁ ty₂ = .ok true ∧
-    isDefEqCore μ eager env fuel (d + 1) (bd₁.instantiate1 (.fvar d ty₂))
-      (bd₂.instantiate1 (.fvar d ty₂)) = .ok true := by
-  cases hdt : isDefEqCore μ eager env fuel d ty₁ ty₂ with
-  | error err => rw [hdt] at h; exact nomatch h
-  | ok r =>
-  rw [hdt] at h
-  cases r with
-  | false => simp [pure, Except.pure, Bind.bind, Except.bind] at h
-  | true =>
-  cases hbd : isDefEqCore μ eager env fuel (d + 1)
-      (bd₁.instantiate1 (.fvar d ty₂)) (bd₂.instantiate1 (.fvar d ty₂)) with
-  | error err => rw [hbd] at h; simp [Bind.bind, Except.bind] at h
-  | ok rb =>
-  rw [hbd] at h
-  cases rb with
-  | false => simp [pure, Except.pure, Bind.bind, Except.bind] at h
-  | true => exact ⟨rfl, rfl⟩
+/-- **One level's domains, inverted** (`defeqDomain`): syntactically
+equal raw domains, or the opened domains compared. -/
+theorem defeqDomain_inv {d : Nat} {fvs : List Expr} {ty₁ ty₂ dom₂ : Expr}
+    (h : defeqDomain (pureFns μ eager env fuel) d fvs ty₁ ty₂ dom₂ = .ok true) :
+    ty₁ = ty₂ ∨ isDefEqCore μ eager env fuel d (ty₁.instantiateList fvs) dom₂ = .ok true := by
+  unfold defeqDomain at h
+  split at h
+  · next heq => exact Or.inl (eq_of_beq heq)
+  · exact Or.inr h
 
-/-- **The innermost level of the λ-telescope comparison, inverted**: the
-opened bodies compared, their full-grade types inferred and compared. -/
-theorem defeqLamsInner_inv {d : Nat} {b₁ b₂ : Expr}
-    (h : defeqLamsInnerFueled .verified eager env fuel d b₁ b₂ = .ok true) :
+/-- **The innermost level of the binder-telescope comparison,
+inverted**: the opened bodies compared and, for λs, their full-grade
+types inferred and compared. -/
+theorem defeqBindersInner_inv {lam : Bool} {d : Nat} {b₁ b₂ : Expr}
+    (h : defeqBindersInnerFueled .verified eager env fuel lam d b₁ b₂ = .ok true) :
     isDefEqCore .verified eager env fuel (d + 1) b₁ b₂ = .ok true ∧
-    ∃ t₁ t₂, inferTypeCore .verified eager env fuel (d + 1) b₁ = .ok t₁ ∧
+    (lam = true → ∃ t₁ t₂, inferTypeCore .verified eager env fuel (d + 1) b₁ = .ok t₁ ∧
       inferTypeCore .verified eager env fuel (d + 1) b₂ = .ok t₂ ∧
-      isDefEqCore .verified eager env fuel (d + 1) t₁ t₂ = .ok true := by
-  simp only [defeqLamsInnerFueled, defeqLamsInner, defeq_def, infer_def,
-    CheckMode.verifiedChecks] at h
+      isDefEqCore .verified eager env fuel (d + 1) t₁ t₂ = .ok true) := by
+  simp only [defeqBindersInnerFueled, defeqBindersInner, defeq_def, infer_def,
+    CheckMode.verifiedChecks, Bool.and_true] at h
   cases hb : isDefEqCore .verified eager env fuel (d + 1) b₁ b₂ with
   | error err => simp [hb, Bind.bind, Except.bind] at h
   | ok r =>
   cases r with
   | false => simp [hb, pure, Except.pure, Bind.bind, Except.bind] at h
   | true =>
-  refine ⟨rfl, ?_⟩
+  refine ⟨rfl, fun hl => ?_⟩
+  subst hl
   cases h₁ : inferTypeCore .verified eager env fuel (d + 1) b₁ with
   | error err => simp [hb, h₁, Bind.bind, Except.bind] at h
   | ok t₁ =>
@@ -114,45 +96,40 @@ theorem defeqLamsInner_inv {d : Nat} {b₁ b₂ : Expr}
   | false => simp [hb, h₁, h₂, ht, pure, Except.pure, Bind.bind, Except.bind] at h
   | true => exact ⟨t₁, t₂, rfl, rfl, ht⟩
 
-/-- **The λ-telescope comparison, inverted** (`defeqLams`): the domains
-compared, then either a descent into two λ bodies (equal, or compared
-by the next level), or the innermost level. -/
-theorem defeqLams_inv {k d : Nat} {ty₁ bd₁ ty₂ bd₂ : Expr}
-    (h : defeqLamsFueled μ eager env fuel k d ty₁ bd₁ ty₂ bd₂ = .ok true) :
-    isDefEqCore μ eager env fuel d ty₁ ty₂ = .ok true ∧
+/-- **The binder-telescope comparison, inverted** (`defeqBinders`): the
+level's domains compared, then either a descent into two binders of the
+kind (compared by the next level, the variable pushed), or the
+innermost level on the bulk-opened bodies. -/
+theorem defeqBinders_inv {lam : Bool} {k d : Nat} {fvs : List Expr} {ty₁ bd₁ ty₂ bd₂ : Expr}
+    (h : defeqBindersFueled μ eager env fuel lam k d fvs ty₁ bd₁ ty₂ bd₂ = .ok true) :
+    defeqDomain (pureFns μ eager env fuel) d fvs ty₁ ty₂ (ty₂.instantiateList fvs) = .ok true ∧
     ((∃ k' ty₁' bd₁' ty₂' bd₂', k = k' + 1 ∧
-        bd₁.instantiate1 (.fvar d ty₂) = .lam ty₁' bd₁' ∧
-        bd₂.instantiate1 (.fvar d ty₂) = .lam ty₂' bd₂' ∧
-        (Expr.lam ty₁' bd₁' = .lam ty₂' bd₂' ∨
-          defeqLamsFueled μ eager env fuel k' (d + 1) ty₁' bd₁' ty₂' bd₂' = .ok true)) ∨
-      defeqLamsInnerFueled μ eager env fuel d (bd₁.instantiate1 (.fvar d ty₂))
-        (bd₂.instantiate1 (.fvar d ty₂)) = .ok true) := by
-  simp only [defeqLamsFueled] at h
-  rw [defeqLams.eq_def] at h
-  simp only [defeq_def] at h
-  cases hdt : isDefEqCore μ eager env fuel d ty₁ ty₂ with
-  | error err => rw [hdt] at h; exact nomatch h
+        Expr.binderPair? lam bd₁ bd₂ = some (ty₁', bd₁', ty₂', bd₂') ∧
+        defeqBindersFueled μ eager env fuel lam k' (d + 1)
+          (.fvar d (ty₂.instantiateList fvs) :: fvs) ty₁' bd₁' ty₂' bd₂' = .ok true) ∨
+      defeqBindersInnerFueled μ eager env fuel lam d
+        (bd₁.instantiateList (.fvar d (ty₂.instantiateList fvs) :: fvs))
+        (bd₂.instantiateList (.fvar d (ty₂.instantiateList fvs) :: fvs)) = .ok true) := by
+  simp only [defeqBindersFueled] at h
+  rw [defeqBinders.eq_def] at h
+  cases hdt : defeqDomain (pureFns μ eager env fuel) d fvs ty₁ ty₂ (ty₂.instantiateList fvs) with
+  | error err => simp only [hdt, Bind.bind, Except.bind] at h; exact nomatch h
   | ok r =>
-  rw [hdt] at h
+  simp only [hdt, Bind.bind, Except.bind] at h
   cases r with
-  | false => simp [pure, Except.pure, Bind.bind, Except.bind] at h
+  | false => simp [pure, Except.pure] at h
   | true =>
   refine ⟨rfl, ?_⟩
-  simp only [Bind.bind, Except.bind, ↓reduceIte] at h
+  simp only [↓reduceIte] at h
   split at h
-  · obtain ⟨h₁, h₂⟩ := Expr.lamPair?_some ‹_›
-    refine Or.inl ⟨_, _, _, _, _, rfl, h₁, h₂, ?_⟩
-    rw [h₁, h₂] at h
-    split at h
-    · next heq => exact Or.inl (eq_of_beq heq)
-    · exact Or.inr h
+  · exact Or.inl ⟨_, _, _, _, _, rfl, ‹_›, h⟩
   · exact Or.inr h
 
 /-- **The inversion of `quickDefEq`'s `some true`.** -/
 theorem quickDefEq_inv {d : Nat} {a b : Expr}
     (h : quickDefEqFueled μ eager env fuel d a b = .ok (some true)) :
     QuickExit μ eager env fuel d a b := by
-  simp only [quickDefEqFueled, quickDefEq, defeq_def] at h
+  simp only [quickDefEqFueled, quickDefEq] at h
   by_cases hab : (a == b) = true
   · obtain rfl : a = b := eq_of_beq hab
     exact .refl
@@ -171,10 +148,16 @@ theorem quickDefEq_inv {d : Nat} {a b : Expr}
     simp only [pure, Except.pure, Except.ok.injEq, Option.some.injEq] at h
     obtain rfl : l₁ = l₂ := eq_of_beq h
     exact .lit
-  · obtain ⟨h₁, h₂⟩ := binder_inv h
-    exact .forallE h₁ h₂
   · simp only [Bind.bind, Except.bind] at h
-    cases hl : defeqLams μ (pureFns μ eager env fuel) lamsFuel d _ _ _ _ with
+    cases hl : defeqBinders μ (pureFns μ eager env fuel) false bindersFuel d [] _ _ _ _ with
+    | error err => rw [hl] at h; exact nomatch h
+    | ok r =>
+      rw [hl] at h
+      simp only [pure, Except.pure, Except.ok.injEq, Option.some.injEq] at h
+      subst h
+      exact .forallE hl
+  · simp only [Bind.bind, Except.bind] at h
+    cases hl : defeqBinders μ (pureFns μ eager env fuel) true bindersFuel d [] _ _ _ _ with
     | error err => rw [hl] at h; exact nomatch h
     | ok r =>
       rw [hl] at h
