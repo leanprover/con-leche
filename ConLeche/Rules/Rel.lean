@@ -7,7 +7,7 @@ public import ConLeche.Kernel.CoreDefs
 /-!
 # The rules tier: a relational description of the core checker (task #305)
 
-The moves the `.verified` core checker makes, as six mutually inductive
+The moves the `.verified` core checker makes, as mutually inductive
 relations over the checker's own `Expr`, indexed by the environment and
 the opening depth `d` (an `fvar` carries its type, so there is no context
 list; a binder opens with `.fvar d ty` at depth `d + 1`, exactly as the
@@ -30,6 +30,12 @@ checker does):
 * `DefEqLams env d a b` — λ-congruence of two λ-telescopes (task #349):
   domains at every level, the opened bodies' FULL-grade types compared
   at the innermost level only (`inner`/`outer`).
+* `DefEqExpand env d a b T` — two sides of one type compared after
+  their η-expansion along the type's binders (task #515).
+* `UnitLike env d T`, `UnitFields env d tele n` — official's
+  `is_unit_like` (task #515): a ∀ with a unit-like codomain, a family
+  without fields, or an η family whose fields are propositions or
+  unit-like.
 * `Infer env g d e t` — type inference at a grade `g` (`Grade.full` for
   the front door, `Grade.io` for the infer-only lane).  The grade
   propagates to the recursive premises as `CoreFns.ioView` does.  The
@@ -475,25 +481,78 @@ inductive DefEq (env : Env) : Nat → Expr → Expr → Prop where
       DefEqList env d (a.getAppArgs.drop caps.etaParams)
         (etaProjs T b caps.etaFields) →
       DefEq env d a b
-  /-- **Unit-like structure** (`structUnitCert`, `Kernel/Core.lean`):
-  both sides inhabit the same stored unit-like family — `a`'s
-  io-inferred type head-normalises to it and `b`'s type is
-  definitionally equal, and is no ∀ (the checker's guard; a family's
-  application is never definitionally equal to a ∀): so `b`'s io claim,
-  where `b` is not the point, is a membership (task #342 L18).  The type
-  application is not certified (task #342 L11b). -/
-  | structUnit {d : Nat} {a ta wta b tb wtb : Expr} {T : Name}
-      {us' : List Level} {cvT : ConstantVal} {caps : IndCaps} :
+  /-- **Unit-likeness** (`structUnitCert`, `Kernel/Core.lean`; official's
+  `is_def_eq_unit_like`): `a`'s io-inferred type head-normalises to a
+  unit-like type (`UnitLike`) and `b`'s to a definitionally equal one.  A
+  side whose reduced type is a ∀ is neutral (the checker's guard), so
+  that its io claim, where it is not the point, is a membership (task
+  #342 L18). -/
+  | unitLike {d : Nat} {a ta wta b tb wtb : Expr} :
       Infer env .io d a ta → Red env d ta wta →
-      wta.getAppFn = .const T us' →
-      env.find? T = some (.indInfo cvT caps) →
-      caps.unitlike = true →
-      reservedBasisNames.contains T = false →
-      wta.getAppArgs.length = caps.unitParams →
-      us'.length = cvT.levelParams.length →
-      Infer env .io d b tb → Red env d tb wtb → wtb.isForallE = false →
+      (wta.isForallE = true → a.ioNeutral = true) →
+      UnitLike env d wta →
+      Infer env .io d b tb → Red env d tb wtb →
+      (wtb.isForallE = true → b.ioNeutral = true) →
       DefEq env d wta wtb →
       DefEq env d a b
+  /-- **η of a partially applied constructor** (`structEtaCert`'s
+  partial arm, `Kernel/Core.lean`; official's `try_eta_struct_core`):
+  two neutral sides whose io-inferred types are definitionally equal,
+  compared after the η-expansion along the first side's type
+  (`DefEqExpand`).  The constructor is the checker's business: the
+  rule holds of any two neutral sides. -/
+  | etaExpand {d : Nat} {a ta b tb : Expr} :
+      a.ioNeutral = true → b.ioNeutral = true →
+      Infer env .io d a ta → Infer env .io d b tb →
+      DefEq env d tb ta →
+      DefEqExpand env d a b ta →
+      DefEq env d a b
+
+/-- **The η-expansion of two sides of one type** (`structEtaExpand`,
+`Kernel/Core.lean`): along the type's syntactic ∀ binders both sides are
+applied to a fresh variable, and the full applications are compared.
+No type is compared: two members of one ∀ applied to one member of its
+domain are members of one fibre. -/
+inductive DefEqExpand (env : Env) : Nat → Expr → Expr → Expr → Prop where
+  | done {d : Nat} {a b T : Expr} : DefEq env d a b → DefEqExpand env d a b T
+  | step {d : Nat} {a b dom body : Expr} :
+      DefEqExpand env (d + 1) (.app a (.fvar d dom)) (.app b (.fvar d dom))
+        (body.instantiate1 (.fvar d dom)) →
+      DefEqExpand env d a b (.forallE dom body)
+
+/-- **A unit-like type** (`unitLikeLoop`, `Kernel/Core.lean`; official's
+`is_unit_like`): its reduct is a ∀ whose opened codomain is unit-like, an
+instance of a stored family without fields, or an instance of a stored η
+family whose constructor's fields, at the instance's parameters, are
+propositions or unit-like (`UnitFields`); the shape is read off the
+stored records (`unitLikeShape`). -/
+inductive UnitLike (env : Env) : Nat → Expr → Prop where
+  | pi {d : Nat} {T dom body : Expr} :
+      Red env d T (.forallE dom body) →
+      UnitLike env (d + 1) (body.instantiate1 (.fvar d dom)) →
+      UnitLike env d T
+  | unit {d : Nat} {T w : Expr} :
+      Red env d T w → unitLikeShape env w = some none → UnitLike env d T
+  | struct {d n : Nat} {T w tele : Expr} :
+      Red env d T w → unitLikeShape env w = some (some (tele, n)) →
+      UnitFields env d tele n → UnitLike env d T
+
+/-- **The fields of a unit-like instance** (`unitLikeFields`,
+`Kernel/Core.lean`): each of the first `n` binders of the telescope has
+a type that is a proposition (its io-inferred type reduces to a sort
+equivalent to `Prop`, official's `is_prop`) or unit-like, the binder
+opened at a fresh variable before the next. -/
+inductive UnitFields (env : Env) : Nat → Expr → Nat → Prop where
+  | nil {d : Nat} {tele : Expr} : UnitFields env d tele 0
+  | prop {d n : Nat} {dom body tt : Expr} {u : Level} :
+      Infer env .io d dom tt → Red env d tt (.sort u) →
+      Level.isEquiv u .zero = some true →
+      UnitFields env (d + 1) (body.instantiate1 (.fvar d dom)) n →
+      UnitFields env d (.forallE dom body) (n + 1)
+  | unit {d n : Nat} {dom body : Expr} :
+      UnitLike env d dom →
+      UnitFields env (d + 1) (body.instantiate1 (.fvar d dom)) n →
+      UnitFields env d (.forallE dom body) (n + 1)
 
 /-- **λ-telescope congruence, typed at the innermost level only**
 (task #349; the fragment's `DefEqLams`).  Two λ-telescopes are compared

@@ -219,7 +219,14 @@
 1 bad/tutorial/110_indexedStructEta.ndjson
 1 bad/tutorial/113_funEtaBad.ndjson
 1 bad/tutorial/114_etaRuleK.ndjson
-1 bad/tutorial/115_etaCtor.ndjson
+# 115 (etaCtor): `T.mk (x True.intro).val = x` at `x : True → T`, the
+# structure η of a partially applied constructor.  The official kernel of
+# v4.29.1 (the arena's) rejects it; the official kernel since lean4#15373
+# accepts it (`try_eta_struct_core` η-expands the constructor side; it is
+# lean4's `tests/elab/12520_1.lean`), and so does con-leche since task #515
+# (maintainer's ruling: the extension only accepts more).  ACCEPT, against
+# the arena's `bad/` placement.
+0 bad/tutorial/115_etaCtor.ndjson
 1 bad/tutorial/116_reflOccLeft.ndjson
 1 bad/tutorial/117_reflOccInIndex.ndjson
 1 bad/tutorial/124_accRecNoEta.ndjson

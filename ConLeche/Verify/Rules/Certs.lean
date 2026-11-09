@@ -117,27 +117,102 @@ theorem structEtaCertWith_bridge (hw : WhnfBridge μ eager env fuel)
     heta hctor hresT hresc hplen hulen hlps hslots hus
     (defEqList_bridge hd hpar) (defEqList_bridge hd hfields)
 
-/-- `structEtaCert` ⇒ `DefEq.structEta` (`structEtaCert_inv`, then
+/-- `structEtaFull` ⇒ `DefEq.structEta` (`structEtaFull_inv`, then
 `structEtaCertWith_bridge`). -/
+theorem structEtaFull_bridge (hw : WhnfBridge μ eager env fuel)
+    (hd : DefEqBridge μ eager env fuel) (hio : InferIOBridge μ eager env fuel)
+    {d : Nat} {a b : Expr}
+    (h : structEtaFullFueled μ eager env fuel d a b = .ok true) :
+    DefEq env d a b := by
+  obtain ⟨tb, wtb, htb, hwtb, h'⟩ := structEtaFull_inv h
+  exact structEtaCertWith_bridge hw hd hio htb hwtb h'
+
+/-- `structEtaExpand` ⇒ `DefEqExpand`: one `step` per binder, `done`
+by `structEtaFull_bridge`. -/
+theorem structEtaExpand_bridge (hw : WhnfBridge μ eager env fuel)
+    (hd : DefEqBridge μ eager env fuel) (hio : InferIOBridge μ eager env fuel) :
+    ∀ (k d : Nat) {a b t : Expr},
+      structEtaExpandFueled μ eager env fuel k d a b t = .ok true →
+      DefEqExpand env d a b t
+  | 0, d, a, b, t, h => .done (structEtaFull_bridge hw hd hio (by
+      dsimp only [structEtaExpandFueled] at h; rw [structEtaExpand] at h; exact h))
+  | k + 1, d, a, b, t, h => by
+    obtain ⟨dom, body, rfl, h'⟩ := structEtaExpand_succ_inv h
+    exact .step (structEtaExpand_bridge hw hd hio k (d + 1) h')
+
+/-- `structEtaCert` ⇒ `DefEq.structEta` (fully applied) or
+`DefEq.etaExpand` (partially applied) (`structEtaCert_inv`). -/
 theorem structEtaCert_bridge (hw : WhnfBridge μ eager env fuel)
     (hd : DefEqBridge μ eager env fuel) (hio : InferIOBridge μ eager env fuel)
     {d : Nat} {a b : Expr}
     (h : structEtaCertFueled μ eager env fuel d a b = .ok true) :
     DefEq env d a b := by
-  obtain ⟨tb, wtb, htb, hwtb, h'⟩ := structEtaCert_inv h
-  exact structEtaCertWith_bridge hw hd hio htb hwtb h'
+  rcases structEtaCert_inv h with h' | ⟨k, ta, tb, hna, hnb, hta, htb, hde, hex⟩
+  · exact structEtaFull_bridge hw hd hio h'
+  · exact .etaExpand hna hnb (inferTypeIO_bridge hio hta) (inferTypeIO_bridge hio htb)
+      (hd hde) (structEtaExpand_bridge hw hd hio k d hex)
 
-/-- `structUnitCert` ⇒ `DefEq.structUnit` (`structUnitCert_inv`). -/
+/-- `isPropType` ⇒ the proposition premises (`isPropType_inv`). -/
+theorem isPropType_bridge (hw : WhnfBridge μ eager env fuel)
+    (hio : InferIOBridge μ eager env fuel) {d : Nat} {T : Expr}
+    (h : isPropTypeFueled μ eager env fuel d T = .ok true) :
+    ∃ tt u, Infer env .io d T tt ∧ Red env d tt (.sort u) ∧
+      Level.isEquiv u .zero = some true := by
+  obtain ⟨tt, u, htt, hwt, hu⟩ := isPropType_inv h
+  exact ⟨tt, u, inferTypeIO_bridge hio htt, hw hwt, hu⟩
+
+/-- `unitLikeFields` ⇒ `UnitFields`, given the field test's bridge. -/
+theorem unitLikeFields_bridge (hw : WhnfBridge μ eager env fuel)
+    (hio : InferIOBridge μ eager env fuel) {ul : Nat → Expr → CheckM Bool}
+    (hul : ∀ {d : Nat} {e : Expr}, ul d e = .ok true → UnitLike env d e) :
+    ∀ (n d : Nat) {t : Expr},
+      unitLikeFields (pureFns μ eager env fuel) ul n d t = .ok true →
+      UnitFields env d t n
+  | 0, _, _, _ => .nil
+  | n + 1, d, t, h => by
+    obtain ⟨dom, body, rfl, hok, hrest⟩ := unitLikeFields_succ_inv h
+    have ih := unitLikeFields_bridge hw hio hul n (d + 1) hrest
+    rcases hok with hp | hu
+    · obtain ⟨tt, u, htt, hr, hz⟩ := isPropType_bridge hw hio hp
+      exact .prop htt hr hz ih
+    · exact .unit (hul hu) ih
+
+/-- `unitLikeStruct` ⇒ the `unit` or `struct` rule (`unitLikeStruct_inv`),
+given the reduction to `w`. -/
+theorem unitLikeStruct_bridge (hw : WhnfBridge μ eager env fuel)
+    (hio : InferIOBridge μ eager env fuel) {ul : Nat → Expr → CheckM Bool}
+    (hul : ∀ {d : Nat} {e : Expr}, ul d e = .ok true → UnitLike env d e)
+    {d : Nat} {T w : Expr} (hr : Red env d T w)
+    (h : unitLikeStruct (pureFns μ eager env fuel) ul env d w = .ok true) :
+    UnitLike env d T := by
+  rcases unitLikeStruct_inv h with hsh | ⟨tele, n, hsh, hf⟩
+  · exact .unit hr hsh
+  · exact .struct hr hsh (unitLikeFields_bridge hw hio hul n d hf)
+
+/-- `unitLikeLoop` ⇒ `UnitLike` (`unitLikeLoop_succ_inv`, by induction on
+the budget). -/
+theorem unitLikeLoop_bridge (hw : WhnfBridge μ eager env fuel)
+    (hio : InferIOBridge μ eager env fuel) :
+    ∀ (f : Nat) {d : Nat} {T : Expr},
+      unitLikeLoopFueled μ eager env fuel f d T = .ok true → UnitLike env d T
+  | 0, d, T, h => by
+    simp [unitLikeLoopFueled, unitLikeLoop, pure, Except.pure] at h
+  | f + 1, d, T, h => by
+    obtain ⟨w, hwh, hpi | hs⟩ := unitLikeLoop_succ_inv h
+    · obtain ⟨dom, body, rfl, h'⟩ := hpi
+      exact .pi (hw hwh) (unitLikeLoop_bridge hw hio f h')
+    · exact unitLikeStruct_bridge hw hio (fun h => unitLikeLoop_bridge hw hio f h) (hw hwh) hs
+
+/-- `structUnitCert` ⇒ `DefEq.unitLike` (`structUnitCert_inv`). -/
 theorem structUnitCert_bridge (hw : WhnfBridge μ eager env fuel)
     (hd : DefEqBridge μ eager env fuel) (hio : InferIOBridge μ eager env fuel)
     {d : Nat} {a b : Expr}
     (h : structUnitCertFueled μ eager env fuel d a b = .ok true) :
     DefEq env d a b := by
-  obtain ⟨ta, wta, T, us', cvT, caps, tb, wtb,
-    hta, hwta, hwfn, hfT, hunit, hres, hplen, hulen, htb, hwtb, hF, hde⟩ :=
+  obtain ⟨ta, wta, tb, wtb, hta, hwta, hnA, hul, htb, hwtb, hnB, hde⟩ :=
     structUnitCert_inv h
-  exact .structUnit (inferTypeIO_bridge hio hta) (hw hwta) hwfn hfT hunit
-    hres hplen hulen (inferTypeIO_bridge hio htb) (hw hwtb) hF (hd hde)
+  exact .unitLike (inferTypeIO_bridge hio hta) (hw hwta) hnA
+    (unitLikeLoop_bridge hw hio _ hul) (inferTypeIO_bridge hio htb) (hw hwtb) hnB (hd hde)
 
 /-- `etaCert` ⇒ `DefEq.eta` (`etaCert_inv`): the λ's opened body's
 full-grade type against the ∀'s body is the checker's η check. -/

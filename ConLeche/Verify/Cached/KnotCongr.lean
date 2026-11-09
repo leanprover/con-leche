@@ -241,18 +241,65 @@ theorem structEtaCertWithI_congr (hfe : fe₁.find? = fe₂.find?)
   funext depth a b wtb; unfold structEtaCertWithI
   simp only [hfe, towerSlotsAllF_congr hfe htb, defEqListI_congr hfe]
 
+/-- `etaCtorPartialC` reads `fe` only through `find?`. -/
+theorem etaCtorPartialC_congr (hfe : fe₁.find? = fe₂.find?) :
+    etaCtorPartialC fe₁ = etaCtorPartialC fe₂ := by
+  funext e; unfold etaCtorPartialC; simp only [hfe]
+
+/-- `structEtaFullI` reads `fe` only through `find?` and `findTable?`. -/
+theorem structEtaFullI_congr (hfe : fe₁.find? = fe₂.find?)
+    (htb : fe₁.findTable? = fe₂.findTable?) (r : CoreFnsI) :
+    structEtaFullI r fe₁ = structEtaFullI r fe₂ := by
+  funext depth a b; unfold structEtaFullI
+  simp only [etaCtorShapeC_congr hfe, structEtaCertWithI_congr hfe htb]
+
+/-- `structEtaExpandI` reads `fe` only through `find?` and `findTable?`. -/
+theorem structEtaExpandI_congr (hfe : fe₁.find? = fe₂.find?)
+    (htb : fe₁.findTable? = fe₂.findTable?) (r : CoreFnsI) :
+    structEtaExpandI r fe₁ = structEtaExpandI r fe₂ := by
+  funext k
+  induction k with
+  | zero => funext depth a b t; simp only [structEtaExpandI, structEtaFullI_congr hfe htb]
+  | succ k ih =>
+    funext depth a b t
+    cases t <;> simp only [structEtaExpandI, ih]
+
 /-- `structEtaCertI` reads `fe` only through `find?` and `findTable?`. -/
 theorem structEtaCertI_congr (hfe : fe₁.find? = fe₂.find?)
     (htb : fe₁.findTable? = fe₂.findTable?) (r : CoreFnsI) :
     structEtaCertI r fe₁ = structEtaCertI r fe₂ := by
   funext depth a b; unfold structEtaCertI
-  simp only [etaCtorShapeC_congr hfe, structEtaCertWithI_congr hfe htb]
+  simp only [etaCtorShapeC_congr hfe, etaCtorPartialC_congr hfe,
+    structEtaFullI_congr hfe htb, structEtaExpandI_congr hfe htb]
 
-/-- `structUnitCertI` reads `fe` only through `find?`. -/
-theorem structUnitCertI_congr (hfe : fe₁.find? = fe₂.find?) (r : CoreFnsI) :
+/-- `unitLikeStructI` reads `fe` only through `find?` and `findTable?`. -/
+theorem unitLikeStructI_congr (hfe : fe₁.find? = fe₂.find?)
+    (htb : fe₁.findTable? = fe₂.findTable?) (r : CoreFnsI)
+    (ul : Nat → Expr → CheckCM Bool) :
+    unitLikeStructI r ul fe₁ = unitLikeStructI r ul fe₂ := by
+  have hsh : unitLikeShapeF fe₁ = unitLikeShapeF fe₂ := by
+    funext w; unfold unitLikeShapeF
+    simp only [hfe, towerSlotsAllF_congr hfe htb, findProj?_congr hfe htb]
+  funext depth w; unfold unitLikeStructI
+  simp only [hsh]
+
+/-- `unitLikeLoopI` reads `fe` only through `find?` and `findTable?`. -/
+theorem unitLikeLoopI_congr (hfe : fe₁.find? = fe₂.find?)
+    (htb : fe₁.findTable? = fe₂.findTable?) (r : CoreFnsI) :
+    unitLikeLoopI r fe₁ = unitLikeLoopI r fe₂ := by
+  funext fuel
+  induction fuel with
+  | zero => funext depth t; simp only [unitLikeLoopI]
+  | succ fuel ih =>
+    funext depth t
+    simp only [unitLikeLoopI, ih, unitLikeStructI_congr hfe htb]
+
+/-- `structUnitCertI` reads `fe` only through `find?` and `findTable?`. -/
+theorem structUnitCertI_congr (hfe : fe₁.find? = fe₂.find?)
+    (htb : fe₁.findTable? = fe₂.findTable?) (r : CoreFnsI) :
     structUnitCertI r fe₁ = structUnitCertI r fe₂ := by
   funext depth a b; unfold structUnitCertI
-  simp only [hfe]
+  simp only [unitLikeLoopI_congr hfe htb]
 
 /-- `etaCertI` does not read `fe` at all. -/
 theorem etaCertI_congr (_hfe : fe₁.find? = fe₂.find?) (r : CoreFnsI) :
@@ -263,7 +310,7 @@ theorem stuckIrrelI_congr (hfe : fe₁.find? = fe₂.find?)
     (htb : fe₁.findTable? = fe₂.findTable?) (r : CoreFnsI) :
     stuckIrrelI r fe₁ = stuckIrrelI r fe₂ := by
   funext depth a b; unfold stuckIrrelI
-  simp only [structEtaCertI_congr hfe htb, structUnitCertI_congr hfe]
+  simp only [structEtaCertI_congr hfe htb, structUnitCertI_congr hfe htb]
 
 /-- `majorToCtorI` reads `fe` only through `find?` and `findTable?`. -/
 theorem majorToCtorI_congr (hfe : fe₁.find? = fe₂.find?)

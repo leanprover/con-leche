@@ -3304,3 +3304,24 @@
 1 block_ctor_params.ndjson
 1 block_ctor_levels.ndjson
 1 block_no_rec.ndjson
+# The wider unit-like η (task #515; official's `is_unit_like` since
+# lean4#15372, ported from lean4's `tests/elab/2258.lean`): ∀s with a
+# unit-like codomain and non-recursive structures whose fields are
+# propositions or unit-like (`unitlike_wide`), and the three negative
+# controls (a `Nat` field, a `Bool` field, a `Bool` codomain).
+0 unitlike_wide.ndjson
+1 unitlike_wide_foo_nat_bad.ndjson
+1 unitlike_wide_boolwrap_bad.ndjson
+1 unitlike_wide_pi_bad.ndjson
+# η for a partially applied structure constructor (task #515; official's
+# `try_eta_struct_core` since lean4#15373, ported from lean4's
+# `tests/elab/12520_1.lean`), and its two must-reject controls.
+0 eta_partial_ctor.ndjson
+1 eta_partial_ctor_bad.ndjson
+1 eta_partial_ctor_alias_bad.ndjson
+# lean4's tests whose master elaboration needs the wider unit-like η
+# (task #515): `tests/elab/13371.lean` and the family of
+# `tests/elab/match4.lean`, exported from a lean4 master build (the
+# sources carry the recipe).
+0 unitlike_lean4_13371.ndjson
+0 unitlike_lean4_match4.ndjson
