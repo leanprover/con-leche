@@ -185,13 +185,41 @@ def checkBlockTailS (block : List ConstantInfo) (q : BlockPass FEnv) : CheckCM U
   flushC
   checkBlockTablesF (m := CheckCM) structWalkersC p fe₂ p.members
 
+/-- Parsed `ensureSort` (no per-call conversion). -/
+def opSIxC (fe : FEnv) (d : Nat) (i : Expr) : CheckCM Level :=
+  ensureSortI (coreKnotI mode false fe checkFuel) d i
+
+/-- `checkConstantVal` on a parsed declaration: the checks of
+`checkConstantValF` with the syntactic passes memoized on the `Expr`
+DAG and the cached operations on its nodes. -/
+def checkConstantValC (fe : FEnv) (cv : ConstantVal) (allowOp : Bool := false) :
+    CheckCM Unit := do
+  if (fe.find? cv.name).isSome then
+    throw (.invalid s!"duplicate declaration {cv.name}")
+  if natOpName cv.name && !allowOp then
+    throw (.invalid s!"a certified Nat operation's name, not a definition: {cv.name}")
+  unless litShapeOk (.axiomInfo cv) do
+    throw (.notImplemented s!"a declaration at a literal's name with another shape ({cv.name})")
+  unless Name.nodup cv.levelParams do
+    throw (.invalid s!"duplicate universe parameters in {cv.name}")
+  unless Expr.looseBVarsBounded 0 cv.type do
+    throw (.invalid s!"loose bound variable in type of {cv.name}")
+  if Expr.hasFvar cv.type then
+    throw (.invalid s!"unexpected free variable in type of {cv.name}")
+  unless Expr.allLevelParamsDefinedC cv.levelParams cv.type do
+    throw (.invalid s!"undeclared universe parameter in type of {cv.name}")
+  unless constsResolveFC fe cv.type do
+    throw (unresolvedConstsErrorL (strLitStoredF fe) s!"type of {cv.name}" cv.type)
+  let jsty ← (coreKnotI mode false fe checkFuel).infer 0 cv.type
+  let _u ← opSIxC mode fe 0 jsty
+
 /-- Twin of `reduceMember`. -/
 def reduceMemberS (fe : FEnv) (ms : MemberShape) (nP : Nat) : CheckCM MemberShape :=
   if formerDefHeaded ms.cvT then do
     if declinedAtDefinition.contains ms.cvT.name then
       throw (.notImplemented s!"this family stored at a definition ({ms.cvT.name})")
     else do
-      checkConstantValF (sharedOpsC mode fe) fe ms.cvT
+      checkConstantValC mode fe ms.cvT
       let cvR ← reducedFormer (sharedOpsC mode fe) fe.env ms.cvT (nP + ms.nIdx)
       unless ← (sharedOpsC mode fe).isDefEq fe.env 0 ms.cvT.type cvR.type do
         throw (.invalid "direct sum: a type former's declared type and its reduct differ")

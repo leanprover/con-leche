@@ -68,6 +68,14 @@ theorem structWalkersC_eq_plain : structWalkersC = StructWalkers.plain := by
   · funext fe e; exact constsResolveFC_spec
   · funext T nP nF cty; exact structProjBodiesC_eq T nP nF cty
 
+/-- **The cached constant check is the index mirror at the cached operations**
+(task #497): the same steps, the guards' cached walks equal to the plain ones. -/
+theorem checkConstantValC_eq (mode : CheckMode) (fe : FEnv) (cv : ConstantVal) (a : Bool) :
+    checkConstantValC mode fe cv a = checkConstantValF (sharedOpsC mode fe) fe cv a := by
+  simp only [checkConstantValC, checkConstantValF, Expr.allLevelParamsDefinedC_spec,
+    constsResolveFC_spec]
+  rfl
+
 /-- **The cached tables are the plain ones** (task #497). -/
 theorem blockTablesC_eq (p : BlockShape) :
     ∀ ms : List MemberShape, blockTablesC p ms = blockTables p ms

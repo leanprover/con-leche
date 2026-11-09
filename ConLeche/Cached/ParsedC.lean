@@ -35,34 +35,6 @@ open ConLeche
 
 variable (mode : CheckMode)
 
-/-- Parsed `ensureSort` (no per-call conversion). -/
-def opSIxC (fe : FEnv) (d : Nat) (i : Expr) : CheckCM Level :=
-  ensureSortI (coreKnotI mode false fe checkFuel) d i
-
-/-- `checkConstantVal` on a parsed declaration: the checks of
-`checkConstantValF` with the syntactic passes memoized on the `Expr`
-DAG and the cached operations on its nodes. -/
-def checkConstantValC (fe : FEnv) (cv : ConstantVal) (allowOp : Bool := false) :
-    CheckCM Unit := do
-  if (fe.find? cv.name).isSome then
-    throw (.invalid s!"duplicate declaration {cv.name}")
-  if natOpName cv.name && !allowOp then
-    throw (.invalid s!"a certified Nat operation's name, not a definition: {cv.name}")
-  unless litShapeOk (.axiomInfo cv) do
-    throw (.notImplemented s!"a declaration at a literal's name with another shape ({cv.name})")
-  unless Name.nodup cv.levelParams do
-    throw (.invalid s!"duplicate universe parameters in {cv.name}")
-  unless Expr.looseBVarsBounded 0 cv.type do
-    throw (.invalid s!"loose bound variable in type of {cv.name}")
-  if Expr.hasFvar cv.type then
-    throw (.invalid s!"unexpected free variable in type of {cv.name}")
-  unless Expr.allLevelParamsDefinedC cv.levelParams cv.type do
-    throw (.invalid s!"undeclared universe parameter in type of {cv.name}")
-  unless constsResolveFC fe cv.type do
-    throw (unresolvedConstsErrorL (strLitStoredF fe) s!"type of {cv.name}" cv.type)
-  let jsty ← (coreKnotI mode false fe checkFuel).infer 0 cv.type
-  let _u ← opSIxC mode fe 0 jsty
-
 /-- Check a definition's value against its declared type, returning the
 record to install, unpushed: the pinned `Nat`-operation arm of
 `checkDeclC` certifies against an overlay before it pushes. -/

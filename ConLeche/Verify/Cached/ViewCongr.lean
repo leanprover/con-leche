@@ -1215,7 +1215,7 @@ theorem reduceMemberS_congr {fe₁ fe₂ : FEnv} (hfe : fe₁.find? = fe₂.find
     reduceMemberS mode fe₁ ms nP = reduceMemberS mode fe₂ ms nP := by
   have h := sharedOpsC_envFree mode fe₂
   unfold reduceMemberS reducedFormer
-  simp only [sharedOpsC_congr hfe htb, checkConstantValF_congr h hfe,
+  simp only [sharedOpsC_congr hfe htb, checkConstantValC_congr hfe htb,
     whnfTelescope_env h fe₁.env, whnfTelescope_env h fe₂.env, h.isDefEq fe₁.env, h.isDefEq fe₂.env]
 
 theorem reduceMembersS_congr {fe₁ fe₂ : FEnv} (hfe : fe₁.find? = fe₂.find?)
