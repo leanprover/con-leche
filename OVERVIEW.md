@@ -513,7 +513,9 @@ Read from the outside in:
    that ships: the same terms with a packed hash on every node, memo
    tables for reduction, inference and definitional equality keyed by
    those hashes, and the direct parser's record type. Nothing is
-   interned; the hash is what makes a term a usable memo key. It is
+   interned; the hash is what makes a term a usable memo key. A
+   `Nat` literal's hash reads all its bits, so literals that agree in
+   their low 64 bits do not share a bucket. It is
    related to the pure checker by a one-directional simulation:
    whatever the cached checker accepts, the pure checker accepts. For
    the fold the simulation is applied step by step along the run, which
@@ -1608,8 +1610,11 @@ declare it.)
   `IO.Process.exit` appears only in `main`, which with
   `enableAbortOnNonlinear` is all `Main.lean` declares. Those few lines
   are read, not proved; the theorems cover `runArgs`, at the arguments `-- <file>` and `--olean --search-path=<dirs> -- <root>`; other flags and `--help` are not
-  covered. The checker carries no C of its own; the build file
-  `lakefile.toml` is pinned by content in the trust-surface gate.
+  covered. The checker carries one C function of its own, the
+  hash of a `Nat` literal of 2^64 and more (`native/nat_hash.c`: all its 64-bit words
+  mixed, Lean's own fix of the literal hash, vendored until the toolchain ships it); the
+  proofs see it as an opaque function of the number, so the assumption is that it is one.
+  It and the build file `lakefile.lean` are pinned by content in the trust-surface gate.
 * `--trusted` mode.
 * Non-acceptance: a decline or a reject carries no claim. The verdict
   line reports the count of accepted stream records.

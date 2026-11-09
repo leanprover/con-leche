@@ -10,10 +10,10 @@ were committed files with no recipe behind them.
 A **pinner** is that recipe: a Lake project whose `lean-toolchain` is
 the dump's toolchain.
 
-    pinners/leanprover-lean4-v4.33.0/                    lean-toolchain, lakefile.toml
-    pinners/leanprover-lean4-v4.34.0-rc2/                lean-toolchain, lakefile.toml
-    pinners/leanprover-lean4-nightly-nightly-2026-09-10/ lean-toolchain, lakefile.toml
-    pinners/leanprover-lean4-pr-releases-pr-release-16441/ lean-toolchain, lakefile.toml, one fork
+    pinners/leanprover-lean4-v4.33.0/                    lean-toolchain, lakefile.lean
+    pinners/leanprover-lean4-v4.34.0-rc2/                lean-toolchain, lakefile.lean
+    pinners/leanprover-lean4-nightly-nightly-2026-09-10/ lean-toolchain, lakefile.lean
+    pinners/leanprover-lean4-pr-releases-pr-release-16441/ lean-toolchain, lakefile.lean, one fork
 
 The directory name is the dump's basename without `.json` — the
 toolchain string with everything outside `[A-Za-z0-9._-]` turned into
