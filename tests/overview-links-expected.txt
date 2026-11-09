@@ -278,10 +278,10 @@
     36      (h : checkDecls .verified pins ds = .ok env') :
     37      Nonempty (EnvModelM V env') := by
 
-== ConLeche/Verify/Cached/KnotCongr.lean#L480-L482
-   480  theorem coreKnotI_congr (hfe : fe₁.find? = fe₂.find?)
-   481      (htb : fe₁.findTable? = fe₂.findTable?) :
-   482      ∀ F, coreKnotI mode eager fe₁ F = coreKnotI mode eager fe₂ F := by
+== ConLeche/Verify/Cached/KnotCongr.lean#L481-L483
+   481  theorem coreKnotI_congr (hfe : fe₁.find? = fe₂.find?)
+   482      (htb : fe₁.findTable? = fe₂.findTable?) :
+   483      ∀ F, coreKnotI mode eager fe₁ F = coreKnotI mode eager fe₂ F := by
 
 == ConLeche/Kernel/TypeChecker.lean#L29-L54
     29  def whnfCore (env : Env) (fuel depth : Nat) (e : Expr) (cheap : Bool := false) :
