@@ -881,10 +881,11 @@ FALLBACK = {
 # roots of `tests/shake.sh` and outside this plan.  Likewise InLean
 # (task #451: `InLean/*`, `InLeanProof/*`, `InLeanReplay.lean`), its own
 # lake libraries, not default targets; InLean imports nothing from
-# `ConLeche.*`.
+# `ConLeche.*`.  `lakefile.lean` is the package's build script, not a
+# module, and so are the pinners' (`pinners/*/lakefile.lean`).
 files=[f for f in subprocess.check_output(['git','ls-files','*.lean']).decode().split()
        if not f.startswith(('tests/e2e/src/','tests/trust-surface/','bridge/','scripts/',
-                            'whitepaper/','InLean'))]
+                            'whitepaper/','InLean','pinners/')) and f != 'lakefile.lean']
 mod=lambda f: f[:-5].replace('/','.')
 fileof={mod(f):f for f in files}
 UMBRELLA={'ConLeche.lean','ConLeche/Frontend/Olean.lean','ConLeche/Term.lean','ConLeche/SetModel.lean','ConLeche/Semantics.lean',
