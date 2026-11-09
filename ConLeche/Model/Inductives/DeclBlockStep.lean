@@ -1,7 +1,6 @@
 module
 
 import ConLeche.Verify.Inductives.PositivityInv
-import ConLeche.Verify.Denote.IndFrame
 import ConLeche.Verify.PropWhen
 import ConLeche.Model.Inductives.GenRecFinal
 import ConLeche.Verify.Inductives.GenRecRun
@@ -14,6 +13,7 @@ import ConLeche.Model.Inductives.BlockCtorReads
 import ConLeche.Model.Inductives.BlockCover
 import ConLeche.Model.Inductives.BlockStageRec
 import ConLeche.Semantics.Inductives.DeclBlockEta
+import ConLeche.Semantics.Inductives.DeclBlockWF
 import ConLeche.Model.Inductives.BlockRecData
 import ConLeche.Verify.Inductives.RecStage
 import ConLeche.Verify.Inductives.BlockWF
@@ -781,25 +781,8 @@ theorem declBlockAt {F : Nat} {env env₂ : Env}
       (mkFEnv (ConLeche.consBlockCtors p₁.nP p₁.memberCtors env₁)) p₁
       (ConLeche.blockNestedBit p₁ kinds) ctx.params st.ctorNfs.toList
       rd Ms block = .ok outR := hRec
-  -- the stream's recursors are well formed: the parameters' variables are one per
-  -- parameter, an outside class's parameters are the block's
-  have hpl : ctx.params.length = p₁.nP := by
-    obtain ⟨cvTa0, fvsP, rest, -, hop, rfl, -⟩ := ConLeche.blockNestCtx_inv hctxR
-    exact ConLeche.Verify.openPisAtFvars_length _ hop
-  have hMs₀ : ∀ M ∈ Ms, ConLeche.ClassOutParams p₁.nP M := by
-    intro M hM
-    obtain ⟨C⟩ := ConLeche.checkBlockClasses_run hcls
-    obtain ⟨hlenK, hallK⟩ := ConLeche.classMajors_run C.hMs
-    obtain ⟨i, hi⟩ := List.getElem?_of_mem hM
-    obtain ⟨key, hkey⟩ : ∃ key, C.keys[i]? = some key := by
-      have := (List.getElem?_eq_some_iff.mp hi).1
-      exact ⟨_, List.getElem?_eq_getElem (by omega)⟩
-    obtain ⟨M', hM', ⟨R⟩⟩ := hallK i key hkey
-    obtain rfl := Option.some.inj (hi.symm.trans hM')
-    cases R.major with
-    | member => intro h; exact nomatch h
-    | outside I us nPc nIdx ctors sI hfn ht hnq hct hdsLen hdsSc => exact fun _ => ⟨hdsLen, hdsSc⟩
-  have hwfS := ConLeche.Cached.streamRecs_recsWF mpC.base2.wf hRec' hpl hMs₀ hSt
+  -- the stream's recursors are well formed (`declBlockRun_recsWF`)
+  have hwfS := ConLeche.Semantics.declBlockRun_recsWF mpC.base2.wf hctxR hcls hRec hSt
   -- the generated recursors are named as the block's
   have hresB : ∀ g ∈ outR, ConLeche.reservedBasisNames.contains g.1.name = false := by
     intro g hg

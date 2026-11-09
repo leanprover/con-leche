@@ -8,6 +8,7 @@ import ConLeche.Model.RecRulesCons
 public import ConLeche.Model.ReduceOps
 public import ConLeche.Model.Cover
 import ConLeche.Semantics.DeclRun
+import ConLeche.Semantics.DeclWF
 import ConLeche.Model.Reading.Levels
 
 public section
@@ -147,6 +148,7 @@ theorem harvestDefn
     (hnres : ConLeche.reservedBasisNames.contains cv.name = false) :
     CoverStep mp env₂ := by
   obtain ⟨type', value', hcv, hvfr, rfl, hnatc, hdmc⟩ := hR
+  have hwf₂ := ConstantValRun.envWF_defn hint mp.base2.wf hcv hvfr
   obtain ⟨hfind, hnd, hlbt, hitf, hann, htp, htr,
     hrunT, hcvShape⟩ := hcv
   obtain ⟨hvlb, hvhf, hannv, hvp, hvr, ⟨vtype, hvrun, hvde⟩⟩ := hvfr
@@ -302,12 +304,7 @@ theorem harvestDefn
     (c₀ := .defnInfo ⟨cv.name, cv.levelParams, type'⟩ value' hint)
     (A := A) hfresh (fun _ => ⟨_, _, _, rfl⟩)
     (ConsHead.ofFresh
-      (EnvWF.cons (hcvShape _ (by rw [hann]; rfl)) mp.base2.wf ⟨htf', htp,
-        Expr.constsResolve_mono htr, hbt',
-        (fun _ _ _ heq => by
-          obtain ⟨rfl, rfl, rfl⟩ := ConstantInfo.defnInfo.inj heq
-          exact ⟨hvf', hvp, Expr.constsResolve_mono hvr, hbv'⟩),
-        (fun _ _ _ _ _ heq => nomatch heq)⟩)
+      (hwf₂)
       (fun ψ => denote_closed mp.base2.cval_closed hvf' hbv'
         (hA ψ))
       hnres
@@ -525,6 +522,7 @@ theorem harvestThm
     (hnres : ConLeche.reservedBasisNames.contains cv.name = false) :
     CoverStep mp env₂ := by
   obtain ⟨hopn, type', value', hcv, -, hvfr, rfl⟩ := hR
+  have hwf₂ := ConstantValRun.envWF_thm mp.base2.wf hcv
   obtain ⟨hfind, hnd, hlbt, hitf, hann, htp, htr,
     hrunT, hcvShape⟩ := hcv
   obtain ⟨hvlb, hvhf, hannv, hvp, hvr, ⟨vtype, hvrun, hvde⟩⟩ := hvfr
@@ -674,10 +672,7 @@ theorem harvestThm
     (c₀ := .thmInfo ⟨cv.name, cv.levelParams, type'⟩)
     (A := A) hfresh (fun hn => Bool.noConfusion ((show natOpName cv.name = true from hn).symm.trans hopn))
     (ConsHead.ofFresh
-      (EnvWF.cons (hcvShape _ (by rw [hann]; rfl)) mp.base2.wf ⟨htf', htp,
-        Expr.constsResolve_mono htr, hbt',
-        (fun _ _ _ heq => nomatch heq),
-        (fun _ _ _ _ _ heq => nomatch heq)⟩)
+      (hwf₂)
       (fun ψ => denote_closed mp.base2.cval_closed hvf' hbv'
         (hA ψ))
       hnres
@@ -798,6 +793,7 @@ theorem harvestAxiom
     (hnotreduce : cv.name ∉ ConLeche.reduceOpNames) :
     CoverStep mp
       ⟨.axiomInfo ⟨cv.name, cv.levelParams, type'⟩ :: env.consts, env.tables⟩ := by
+  have hwf₂ := ConstantValRun.envWF_axiom mp.base2.wf hcv
   obtain ⟨hfind, hnd, hlbt, hitf, hann, htp, htr,
     hrunT, hcvShape⟩ := hcv
   obtain ⟨htf', hbt'⟩ := stored_syntax hann hitf hlbt
@@ -861,10 +857,7 @@ theorem harvestAxiom
     (c₀ := .axiomInfo ⟨cv.name, cv.levelParams, type'⟩)
     (A := A) hfresh (fun hn => Bool.noConfusion ((show natOpName cv.name = true from hn).symm.trans hopn))
     (ConsHead.ofFresh
-      (EnvWF.cons (hcvShape _ (by rw [hann]; rfl)) mp.base2.wf ⟨htf', htp,
-        Expr.constsResolve_mono htr, hbt',
-        (fun _ _ _ heq => nomatch heq),
-        (fun _ _ _ _ _ heq => nomatch heq)⟩)
+      (hwf₂)
       hAvclosed hnres
       (fun _ _ _ _ _ heq => nomatch heq))
     hAparams hAok ?_ ?_ ?_ ?_ ?_ ?_ ?_ ?_ ?_ ?_ ?_ ?_)
@@ -959,6 +952,7 @@ theorem harvestOpaque
     (hnres : ConLeche.reservedBasisNames.contains cv.name = false) :
     CoverStep mp env₂ := by
   obtain ⟨hopn, type', value', hcv, hvfr, rfl, hred⟩ := hR
+  have hwf₂ := ConstantValRun.envWF_axiom mp.base2.wf hcv
   obtain ⟨hfind, hnd, hlbt, hitf, hann, htp, htr,
     hrunT, hcvShape⟩ := hcv
   obtain ⟨hvlb, hvhf, hannv, hvp, hvr, ⟨vtype, hvrun, hvde⟩⟩ := hvfr
@@ -1112,10 +1106,7 @@ theorem harvestOpaque
     (c₀ := .axiomInfo ⟨cv.name, cv.levelParams, type'⟩)
     (A := A) hfresh (fun hn => Bool.noConfusion ((show natOpName cv.name = true from hn).symm.trans hopn))
     (ConsHead.ofFresh
-      (EnvWF.cons (hcvShape _ (by rw [hann]; rfl)) mp.base2.wf ⟨htf', htp,
-        Expr.constsResolve_mono htr, hbt',
-        (fun _ _ _ heq => nomatch heq),
-        (fun _ _ _ _ _ heq => nomatch heq)⟩)
+      (hwf₂)
       (fun ψ => denote_closed mp.base2.cval_closed hvf' hbv'
         (hA ψ))
       hnres
