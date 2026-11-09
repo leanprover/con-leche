@@ -123,7 +123,8 @@ constructors' index `fe₂` is read at once by the rule-less recursors (the rule
 them) and by the generated recursors, so both are overlays sharing it (`shadowOpsC`'s `ruleEnv`,
 `classFeROvl`; `blockRecInfosTF`): a push onto `fe₂` while it is alive would copy the whole bucket
 array, once per inductive block. -/
-def checkBlockTailS (block : List ConstantInfo) (q : BlockPass FEnv) : CheckCM Unit :=
+def checkBlockTailS (block : List ConstantInfo) (q : BlockPass FEnv) (Q : List ProjTable) :
+    CheckCM Unit :=
   match q with
   | ⟨env₁, p, kinds, params, rd, cls, tbl⟩ => do
   checkBlockIdxSortsF (sharedOpsC mode env₁) env₁ p p.members
@@ -138,7 +139,7 @@ def checkBlockTailS (block : List ConstantInfo) (q : BlockPass FEnv) : CheckCM U
   flushC
   streamRecsCheck (sharedOpsC mode feG) structWalkersC feG p.recs out
   flushC
-  checkBlockTablesF (m := CheckCM) structWalkersC p fe₂ p.members
+  checkBlockTablesF (m := CheckCM) structWalkersC fe₂ Q
 
 /-- Twin of `reduceMember`. -/
 def reduceMemberS (fe : FEnv) (ms : MemberShape) (nP : Nat) : CheckCM MemberShape :=
@@ -172,7 +173,8 @@ def checkBlockKS (fe : FEnv) (block : List ConstantInfo) (p₀ : BlockShape) :
   let ms ← reduceMembersS mode fe p₀.nP p₀.members
   flushC
   let q ← checkBlockPassS mode fe { p₀ with members := ms } (blockIsRec p₀)
-  checkBlockTailS mode block q
-  pure (FEnv.pushDelta (blockConstants p₀) (blockTables p₀ p₀.members) fe)
+  let Q ← unwrapOr (blockTables p₀ p₀.members) (.internal "direct structure: projection bodies")
+  checkBlockTailS mode block q Q
+  pure (FEnv.pushDelta (blockConstants p₀) Q fe)
 
 end ConLeche.Cached

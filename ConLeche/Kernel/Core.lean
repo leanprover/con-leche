@@ -75,7 +75,7 @@ arguments than its parameters (official's premise is `#ctors = 1` and
 below the constructor's field count: an INDEXED structure-like type,
 where official projects and we store no table (the installer stores
 one at every index-free single-constructor member and only there,
-`checkBlockTables`).  Every other shape official rejects
+`blockTables`).  Every other shape official rejects
 (`invalid_proj_exception`): a head that is no inductive (an axiom, an
 opaque, `Quot`), a constructor count other than one, a node naming
 another type, a field index beyond the fields (`PUnit`, `Eq`: no

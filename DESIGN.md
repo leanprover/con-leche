@@ -110855,3 +110855,47 @@ table, `blockTables`, and the check `checkStructProjTableF`); not changed here.
 **Gates.** `lake build`, `lake test` warning-free; `tests/arena.sh` passes, e2e verdicts
 unchanged.  `tests/scale.sh`'s `lparams` shape fails its gate (1.88 > 1.65) on master as well
 (1.85).
+
+### The projection tables built once, checked and pushed (2026-11-09, agent/495-once)
+
+**Change.** The bodies were built twice per structure: by the table check (`checkStructProjTable`
+and its `F` twin), which validated their scoping and dropped them, and by the install's
+`blockTables`.  Now `blockTables` is the one place that builds them; `checkBlock` (and the cached
+`checkBlockKS`) computes `blockTables p₀ p₀.members` once, right after the pass, checks those
+tables in the tail and pushes the same value.  `blockTables` returns `Option (List ProjTable)`:
+`none` where a structure-like member's constructor type is too short for its bodies (before, that
+member was silently skipped), and `checkBlock` rejects `none` with the same
+`.internal "direct structure: projection bodies"`.  `checkStructProjTable` takes the `ProjTable`
+itself (scoping of its bodies at its own level parameters and parameter count, its structure
+stored, no table yet); `checkBlockTables env Q` runs it over `Q`.  `declTables` is
+`(blockTables p p.members).getD []`, so a declaration's install is still a function of the
+declaration alone.  The unwrap moved from the end of the tail to just after the pass: the pass's
+`checkSumCtor` already requires `stripPis (nP + nF)` of every constructor, so `none` is unreachable
+there and no verdict changes (none can be observed, hence no fixture).
+
+**Proofs.** `Verify/Inductives/DirectInv.lean`: `checkStructProjTable_inv`/`_mono` and
+`direct_table_wf` are stated over a table (no `structProjBodies` premise); the block's table
+lemmas sit there now: `blockTables_cons_some`, `blockTables_cons_none` and `blockTables_names`
+(moved from `Verify/Cached/PushChain.lean`, stated at `blockTables p l = some Q`).
+`checkBlockTables_inv` gives every table's check.  `DeclBlockRun` carries the tables `Q` with
+`blockTables p₁ p₁.members = some Q`, their checks and the install at `Q`; `blockRun_env` and
+`checkBlockKS_pushes` install `(blockTables p₀ p₀.members).getD []`.  The model's
+`stageBlockTables` walks the members against `blockTables q l = some Q` and takes each table's
+check from `Q`; `stageFixTable` takes the check of the table `⟨T, lps, nP, C, nF, bodies⟩` it
+installs.  Cached: the `F`-twin bridges (`checkStructProjTableS_run`, `checkBlockTablesS_run`,
+the `Twin` congruences, `checkBlockTailS_run`, `checkBlockKS_run`) follow the new arguments;
+`blockTables_sublist` is at `getD []`.  No new axioms; net zero lines.
+
+**Numbers** (`instructions:u`, one run each, `--jobs=1`, verified; ad886780c → lane):
+
+| workload | ad886780c | lane | |
+|---|---|---|---|
+| `--constant=Rel4` minus `--constant=Node4` (41.884/31.722 → 41.882/31.722 G) | 10.162 G | 10.159 G | −0.03 % |
+| `WideP` minus its control (`--constant=Nat.add_comm`, 31.099 G) | 42.952 G | 42.950 G | −0.004 % |
+| e2e `prop_struct_proj_wide` | 1.5915 G | 1.5900 G | −0.09 % |
+| init-full | 381.700 G | 381.763 G | +0.017 % |
+| grind-ring-5 | 15.310 G | 15.309 G | −0.01 % |
+
+The second build of the bodies was cheap: one memoized `instantiateLift` walk per field, a few
+million instructions on these workloads.  The change is for the structure (the table checked is
+the table installed), not for speed.

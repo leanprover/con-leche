@@ -447,7 +447,7 @@ Read from the outside in:
    quotient record as its slot's pin, and every inductive block, the
    pinned basis blocks among them, as the block says: every constant and table read off the block's
    records, nothing generated
-   ([function `declConstants` in `ConLeche/Kernel/Install.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/Install.lean#L82-L94)).
+   ([function `declConstants` in `ConLeche/Kernel/Install.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/Install.lean#L83-L95)).
    What a check pushes is what its record says, at any index and any mode
    ([theorem `checkDeclC_pushes` in `ConLeche/Verify/Cached/DeclPushes.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Verify/Cached/DeclPushes.lean#L699-L700)).
 
@@ -464,11 +464,11 @@ Read from the outside in:
    that record. Every check reads its index through the lookups alone (the
    constants' and the projection tables'), so at two indices with the same
    lookups it fails alike or pushes the same constants
-   ([theorem `checkDeclStepC_twin` in `ConLeche/Verify/Cached/ViewCongr.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Verify/Cached/ViewCongr.lean#L1336-L1340)).
+   ([theorem `checkDeclStepC_twin` in `ConLeche/Verify/Cached/ViewCongr.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Verify/Cached/ViewCongr.lean#L1334-L1338)).
    The view of a position answers as the fold's index there as long as the
    names so far are distinct, which every passing job before it ensures,
    so every job passing is an accept of the fold
-   ([theorem `checkDecls_of_jobs` in `ConLeche/Verify/Cached/StreamIndex.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Verify/Cached/StreamIndex.lean#L484-L486)).
+   ([theorem `checkDecls_of_jobs` in `ConLeche/Verify/Cached/StreamIndex.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Verify/Cached/StreamIndex.lean#L490-L492)).
    A later job may read an earlier constant before that constant's job has
    run: a declaration may read a pinned operation, and fire its literal
    fast path, before the operation's certificates have been checked. The
@@ -1011,7 +1011,7 @@ then the constructors, then runs the positivity check and the
 official kernel's remaining checks — parameters applied uniformly,
 universe bound, elimination restriction, index occurrence — and
 finally the recursor check. The whole install is one entry
-([function `checkBlock` in `ConLeche/Kernel/Inductives/BlockTail.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/Inductives/BlockTail.lean#L152)).
+([function `checkBlock` in `ConLeche/Kernel/Inductives/BlockTail.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/Inductives/BlockTail.lean#L154)).
 
 **The classes.** The recursors a block comes with eliminate one
 *class* each: a member of the block, or — in a nested block — another
@@ -1093,7 +1093,7 @@ the block's induction makes that relation a function at every sort
 (`ConLeche/SetModel/GraphRec.lean`), and the only sort-dependent fact
 it needs is the kernel's own large-elimination guard. The model-tier
 theorem for the whole install is
-[theorem `declBlock` in `ConLeche/Model/Inductives/BlockRunFacts.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Model/Inductives/BlockRunFacts.lean#L160-L167).
+[theorem `declBlock` in `ConLeche/Model/Inductives/BlockRunFacts.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Model/Inductives/BlockRunFacts.lean#L166-L173).
 
 A block that cannot be read this way is an invalid input and is
 rejected, with the reason the reading gives: records out of order, no
@@ -1299,7 +1299,7 @@ in the official kernel; they are there because the proof reads them:
   class matching its inductive hypothesis's.
 
 Where the steps live: the entry is
-[function `checkBlock` in `ConLeche/Kernel/Inductives/BlockTail.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/Inductives/BlockTail.lean#L152);
+[function `checkBlock` in `ConLeche/Kernel/Inductives/BlockTail.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/Inductives/BlockTail.lean#L154);
 steps 1–5 are
 [function `checkBlockPass` in the same file](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/Inductives/BlockTail.lean#L52),
 the constructor check of step 3 is
@@ -1319,7 +1319,7 @@ its hole lookup
 and the uniform-parameters check
 [function `nestUniform`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/Inductives/Positivity.lean#L1621);
 step 6 is
-[function `checkBlockTail` in `BlockTail.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/Inductives/BlockTail.lean#L106);
+[function `checkBlockTail` in `BlockTail.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/Inductives/BlockTail.lean#L104);
 steps 7 and 8 are `genRecCheck` (above), with a constructor's
 reference entry and the third proof-only check in
 [function `classCtorOf` in `ConLeche/Kernel/Inductives/GenRec.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/Inductives/GenRec.lean#L294),

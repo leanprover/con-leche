@@ -268,7 +268,7 @@ the checker answers each with the level oracle:
 === When a block is accepted
 
 A block #src("whitepaper/Fragment/Decl.lean", 719, 764)[is accepted] when
-(#src("ConLeche/Kernel/Inductives/BlockTail.lean", 154, 163)[as in con-leche]):
+(#src("ConLeche/Kernel/Inductives/BlockTail.lean", 154, 164)[as in con-leche]):
 
 - its names are distinct and fresh;
 - the specification is in scope, positivity included;

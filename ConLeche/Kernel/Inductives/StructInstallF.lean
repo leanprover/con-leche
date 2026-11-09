@@ -67,23 +67,20 @@ def StructWalkers.plain : StructWalkers :=
   ⟨fun fe e => e.constsResolveF fe⟩
 
 /-- `checkStructProjTable` through the index (task #175 S1). -/
-def checkStructProjTableF (w : StructWalkers) (T : Name) (lps : List Name) (nP nF : Nat)
-    (cvCa : ConstantVal) (fe : FEnv) : m Unit := do
-  let bodies ← unwrapOr (structProjBodies T nP nF cvCa.type)
-    (.internal "direct structure: projection bodies")
+def checkStructProjTableF (w : StructWalkers) (t : ProjTable) (fe : FEnv) : m Unit := do
   -- the bodies' scoping, validated once at insertion (the stage's own
   -- guard, what `EnvWF`'s table clause records): fvar-free, level
   -- parameters within the structure's, resolving, scoped at the
   -- parameters and the subject; one per field
-  unless bodies.size = nF ∧ bodies.all (fun b => !b.hasFvar &&
-      b.allLevelParamsDefined lps && w.resolve fe b &&
-      b.looseBVarsBounded (nP + 1)) do
+  unless t.bodies.size = t.numFields ∧ t.bodies.all (fun b => !b.hasFvar &&
+      b.allLevelParamsDefined t.levelParams && w.resolve fe b &&
+      b.looseBVarsBounded (t.numParams + 1)) do
     throw (.internal "direct structure: projection body scoping")
   -- the table follows its structure (declared by the same block):
   -- `EnvWF`'s table clause records it
-  unless (fe.find? T).isSome do
+  unless (fe.find? t.structName).isSome do
     throw (.internal "direct structure: projection table before its structure")
-  unless (fe.findTable? T).isNone do
+  unless (fe.findTable? t.structName).isNone do
     throw (.invalid "projection table taken")
 
 end Mirrors

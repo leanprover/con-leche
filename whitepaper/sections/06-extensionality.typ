@@ -195,7 +195,7 @@ by the same argument.
   Unit-likeness is recorded at installation, like η (one constructor,
   no index, no field, in a block where no constructor is recursive),
   and the law is established there from the fixed point
-  (#src("ConLeche/Model/Inductives/FixKit.lean", 1797, 1798)[the fibre is the one tagged empty tuple]).
+  (#src("ConLeche/Model/Inductives/FixKit.lean", 1796, 1797)[the fibre is the one tagged empty tuple]).
   Neither `PUnit` nor `True` is special to the checker: both are
   installed like any other block.
 ]
