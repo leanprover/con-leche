@@ -66,21 +66,22 @@ theorem checkBlockIndsC_eq (fe : FEnv) (p : BlockShape) (isRec : Bool) :
 
 /-! ## Stage 1b: the constructors -/
 
-theorem checkStructDomsAtC_eq (fe : FEnv) (off : Nat) (fvs doms : Array Expr) :
-    ∀ j, checkStructDomsAtC mode fe off fvs doms j =
-      checkStructDomsAtFA (sharedOpsC mode fe) fe off fvs doms j
+theorem checkStructDomsAtC_eq (fe : FEnv) (off : Nat) (fvs doms : List Expr) :
+    ∀ j, checkStructDomsAtC mode fe off fvs.toArray doms.toArray j =
+      checkStructDomsAtF (sharedOpsC mode fe) fe off fvs doms j
   | 0 => rfl
   | j + 1 => by
-    simp only [checkStructDomsAtC, checkStructDomsAtFA, checkStructDomsAtC_eq fe off fvs doms j]
+    simp only [checkStructDomsAtC, checkStructDomsAtF, List.getElem?_toArray,
+      checkStructDomsAtC_eq fe off fvs doms j]
     rfl
 
 theorem checkStructFieldSortsC_eq (fe : FEnv) (isProp large : Bool) (s : Level) (nP : Nat)
-    (fvs : Array Expr) (idxArgs : List Expr) :
-    ∀ j, checkStructFieldSortsC mode fe isProp large s nP fvs idxArgs j =
-      checkStructFieldSortsIFA (sharedOpsC mode fe) fe isProp large s nP fvs idxArgs j
+    (fvs idxArgs : List Expr) :
+    ∀ j, checkStructFieldSortsC mode fe isProp large s nP fvs.toArray idxArgs j =
+      checkStructFieldSortsIF (sharedOpsC mode fe) fe isProp large s nP fvs idxArgs j
   | 0 => rfl
   | j + 1 => by
-    simp only [checkStructFieldSortsC, checkStructFieldSortsIFA,
+    simp only [checkStructFieldSortsC, checkStructFieldSortsIF, List.getElem?_toArray,
       checkStructFieldSortsC_eq fe isProp large s nP fvs idxArgs j]
     rfl
 

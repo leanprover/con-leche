@@ -55,7 +55,7 @@ DIR   = os.environ.get('PUBPLAN_DIR', '_tmp/m3')
 # ask for them again.
 FALLBACK = {
     # task #498 L4: the recursor stage's equations state the twins (`genRecCheckC`,
-    # `targetCtorAtC`, …) against the specification at `sharedOpsC`/`shadowOpsC`.
+    # `targetCtorAtC`, …) against the specification at `sharedOpsC`.
     # Measured: demoting the edge breaks the file (unknown identifier `TargetMajor`,
     # `targetCtorAtC`, `IndRecC.lean:30`).
     ('ConLeche.Verify.Cached.IndRecC', 'ConLeche.Cached.CheckerC'),

@@ -32,18 +32,6 @@ def checkStructDomsAtF (ops : CheckerOps m) (fe : FEnv) (off : Nat)
       throw (.notImplemented "direct structure: binder domain mismatch")
     checkStructDomsAtF ops fe off fvs doms j
 
-/-- `checkStructDomsAtF` over arrays.  Equal to it at `List.toArray`:
-`checkStructDomsAtFA_eq`. -/
-def checkStructDomsAtFA (ops : CheckerOps m) (fe : FEnv) (off : Nat)
-    (fvs doms : Array Expr) : Nat → m Unit
-  | 0 => pure ()
-  | j + 1 => do
-    let a ← unwrapOr fvs[j]? (.internal "direct structure: domain index")
-    let b ← unwrapOr doms[j]? (.internal "direct structure: domain index")
-    unless ← ops.isDefEq fe.env (off + j) a.fvarTypeD b do
-      throw (.notImplemented "direct structure: binder domain mismatch")
-    checkStructDomsAtFA ops fe off fvs doms j
-
 /-- `checkStructProjTable` through the index (task #175 S1). -/
 def checkStructProjTableF (t : ProjTable) (fe : FEnv) : m Unit := do
   -- the bodies' scoping, validated once at insertion (the stage's own

@@ -793,13 +793,13 @@ section FStages
 
 variable {ops : CheckerOps m}
 
-theorem checkStructDomsAtFA_congr (h : EnvFree ops) (fe₁ fe₂ : FEnv) (off : Nat)
-    (fvs doms : Array Expr) :
-    ∀ j, checkStructDomsAtFA ops fe₁ off fvs doms j = checkStructDomsAtFA ops fe₂ off fvs doms j
+theorem checkStructDomsAtF_congr (h : EnvFree ops) (fe₁ fe₂ : FEnv) (off : Nat)
+    (fvs doms : List Expr) :
+    ∀ j, checkStructDomsAtF ops fe₁ off fvs doms j = checkStructDomsAtF ops fe₂ off fvs doms j
   | 0 => rfl
   | j + 1 => by
-    have ih := checkStructDomsAtFA_congr h fe₁ fe₂ off fvs doms j
-    unfold checkStructDomsAtFA
+    have ih := checkStructDomsAtF_congr h fe₁ fe₂ off fvs doms j
+    unfold checkStructDomsAtF
     simp only [h.isDefEq fe₁.env, h.isDefEq fe₂.env]
     rw [ih]
 
@@ -821,18 +821,6 @@ theorem checkStructFieldSortsIF_congr (h : EnvFree ops) (fe₁ fe₂ : FEnv) (is
   | j + 1 => by
     have ih := checkStructFieldSortsIF_congr h fe₁ fe₂ isProp large sl nP fvs idxArgs j
     unfold checkStructFieldSortsIF
-    simp only [h.inferType fe₁.env, h.inferType fe₂.env, h.ensureSort fe₁.env,
-      h.ensureSort fe₂.env]
-    rw [ih]
-
-theorem checkStructFieldSortsIFA_congr (h : EnvFree ops) (fe₁ fe₂ : FEnv) (isProp large : Bool)
-    (sl : Level) (nP : Nat) (fvs : Array Expr) (idxArgs : List Expr) :
-    ∀ j, checkStructFieldSortsIFA ops fe₁ isProp large sl nP fvs idxArgs j =
-      checkStructFieldSortsIFA ops fe₂ isProp large sl nP fvs idxArgs j
-  | 0 => rfl
-  | j + 1 => by
-    have ih := checkStructFieldSortsIFA_congr h fe₁ fe₂ isProp large sl nP fvs idxArgs j
-    unfold checkStructFieldSortsIFA
     simp only [h.inferType fe₁.env, h.inferType fe₂.env, h.ensureSort fe₁.env,
       h.ensureSort fe₂.env]
     rw [ih]
@@ -867,8 +855,8 @@ theorem checkSumCtorF_congr (h : EnvFree ops) {fe₀₁ fe₀₂ fe₁ fe₂ : F
     checkSumCtorF ops fe₀₁ fe₁ T lps nP nIdx resSort isProp large cvC nF cvTa =
       checkSumCtorF ops fe₀₂ fe₂ T lps nP nIdx resSort isProp large cvC nF cvTa := by
   unfold checkSumCtorF
-  simp only [checkConstantValF_congr h hfe, checkStructDomsAtFA_congr h fe₁ fe₂,
-    constsResolveF_congr hfe₀, checkStructFieldSortsIFA_congr h fe₁ fe₂]
+  simp only [checkConstantValF_congr h hfe, checkStructDomsAtF_congr h fe₁ fe₂,
+    constsResolveF_congr hfe₀, checkStructFieldSortsIF_congr h fe₁ fe₂]
 
 theorem checkSumCtorsF_congr (h : EnvFree ops) {fe₀₁ fe₀₂ fe₁ fe₂ : FEnv}
     (hfe₀ : fe₀₁.find? = fe₀₂.find?) (hfe : fe₁.find? = fe₂.find?) (T : Name)

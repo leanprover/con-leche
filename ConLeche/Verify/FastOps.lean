@@ -5,30 +5,13 @@ public import ConLeche.Kernel.Inductives.StructInstallF
 public section
 
 /-!
-# The one-pass structure-install operations equal their sequential specs
+# Instantiating a telescope at lifted arguments, in two steps
 
-The structure install's hot loop runs the `*A` variant
-`checkStructDomsAtFA`; the lemma here identifies it
-**unconditionally** with the
-sequential function the Model/Verify layers keep seeing.
+`instPisAtLift` at an appended argument list is the instantiation at
+the first part, then at the second (`instPisAtLift_append`).
 -/
 
 namespace ConLeche
-
-
-section
-variable {m : Type → Type} [Monad m] [MonadExceptOf CheckError m]
-
-theorem checkStructDomsAtFA_eq (ops : CheckerOps m) (fe : FEnv)
-    (off : Nat) (fvs doms : List Expr) :
-    ∀ j, checkStructDomsAtFA ops fe off fvs.toArray doms.toArray j
-      = checkStructDomsAtF ops fe off fvs doms j
-  | 0 => rfl
-  | j + 1 => by
-    simp only [checkStructDomsAtFA, checkStructDomsAtF,
-      List.getElem?_toArray, checkStructDomsAtFA_eq ops fe off fvs doms j]
-
-end
 
 open Expr in
 theorem instPisAtLift_append :
