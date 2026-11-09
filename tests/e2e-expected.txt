@@ -128,6 +128,39 @@
 1 nat_pow_wrong.ndjson
 1 nat_pred_wrong.ndjson
 1 nat_beq_wrong.ndjson
+
+# The maximum `Nat` size (official lean4#14849; `natOpRefusal`,
+# ConLeche/Cached/StateC.lean): a `Nat` numeral above the maximum size
+# (default 128 MiB, `--max-nat-size`) rejects, refused before computing
+# for `Nat.pow` and `Nat.shiftLeft` (whose exponent / shift must also fit
+# in 32 bits), after computing for `Nat.add`/`sub`/`mul`/`succ`, and
+# where a literal is inferred.  nat_size is the raw export of
+# tests/e2e/src/nat_size.lean (placeholder exponents);
+# scripts/mk_nat_size_fixtures.py derives the others from it:
+#   nat_size_ok: 1^4000000000, 0^4000000000, 1^4294967295, 2^16777216
+#     (the largest power of two within the maximum size, and the old 2^24
+#     exponent cap's edge) and 1 <<< 100000000 fold;
+#   nat_pow_over_max_size: 2^16777217, refused (it used to unfold);
+#   nat_pow_exp_32bit: 1^4294967296, refused whatever the base;
+#   nat_shift_over_max_size: 1 <<< 1073741760, refused;
+#   nat_shift_exp_32bit: 1 <<< 4294967296, refused.
+0 nat_size.ndjson
+0 nat_size_ok.ndjson
+1 nat_pow_over_max_size.ndjson
+1 nat_pow_exp_32bit.ndjson
+1 nat_shift_over_max_size.ndjson
+1 nat_shift_exp_32bit.ndjson
+# The port of lean4's tests/elab/nat_size_limit.lean, at
+# --max-nat-size=16 (tests/arena.sh's E2E_FLAGS) as the original runs
+# at LEAN_NAT_MAX_SIZE=16; one source per case under tests/e2e/src/,
+# nat_size_limit_pow_32bit derived by scripts/mk_nat_size_fixtures.py.
+0 nat_size_limit_mul_ok.ndjson
+1 nat_size_limit_mul_big.ndjson
+1 nat_size_limit_pow_big.ndjson
+1 nat_size_limit_pow_huge_exp.ndjson
+1 nat_size_limit_pow_32bit.ndjson
+1 nat_size_limit_shift_big.ndjson
+1 nat_size_limit_big_lit.ndjson
 1 nat_ble_wrong.ndjson
 # A level-polymorphic definition under a fast-path name is positively
 # declined at install (the certification pins level-monomorphy).

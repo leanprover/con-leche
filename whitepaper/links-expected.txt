@@ -11,11 +11,11 @@
 
 >>> whitepaper/main.typ
 
-== ConLeche/MainTheorem.lean#L98-L101
-    98  theorem model_exists (V : Type w) [SetTheory V]
-    99      (pins : List NatOpPinSet) (ds : Array Declaration) (env : Env)
-   100      (accepted : checkDecls .verified pins ds = .ok env) :
-   101      Nonempty (Model V env) := by
+== ConLeche/MainTheorem.lean#L102-L105
+   102  theorem model_exists (V : Type w) [SetTheory V]
+   103      (pins : List NatOpPinSet) (maxNatSize : Nat) (ds : Array Declaration) (env : Env)
+   104      (accepted : checkDecls .verified pins maxNatSize ds = .ok env) :
+   105      Nonempty (Model V env) := by
 
 == whitepaper/Fragment/Sound.lean#L2322-L2326
   2322  theorem soundness [LevelOracle] (m : EnvModel V env) (φ : Name → Nat) :
@@ -26,11 +26,11 @@
 
 >>> whitepaper/sections/01-introduction.typ
 
-== ConLeche/MainTheorem.lean#L98-L101
-    98  theorem model_exists (V : Type w) [SetTheory V]
-    99      (pins : List NatOpPinSet) (ds : Array Declaration) (env : Env)
-   100      (accepted : checkDecls .verified pins ds = .ok env) :
-   101      Nonempty (Model V env) := by
+== ConLeche/MainTheorem.lean#L102-L105
+   102  theorem model_exists (V : Type w) [SetTheory V]
+   103      (pins : List NatOpPinSet) (maxNatSize : Nat) (ds : Array Declaration) (env : Env)
+   104      (accepted : checkDecls .verified pins maxNatSize ds = .ok env) :
+   105      Nonempty (Model V env) := by
 
 == ConLeche/Denotes.lean#L248-L268
    248  structure Model (V : Type w) [SetTheory V] (env : Env) where
@@ -5170,21 +5170,21 @@
   1001      RecRuleLawK (S.M₃ m.M) S.recName S.recInfo (S.nP + 1 + S.n) (S.nP + 1 + S.n + S.nI)
   1002        ⟨c.name, c.fields.length, S.ruleRhs c 0, none, S.isK⟩ := by
 
-== ConLeche/Kernel/CoreDefs.lean#L83-L91
-    83  rescue mirrors it (`Sort u` at a concrete level such as `Unit`'s `1` passes, the
-    84  parameter `u` itself does not).  The instantiated zero-ness datum is
-    85  unsatisfiable exactly where the instantiated sort is never zero. -/
-    86  def formerNeverZero (cvT : ConstantVal) (us : List Level) : Bool :=
-    87    (Level.substPW cvT.levelParams us (formerZ cvT)).isNever
-    88  
-    89  /-- **The family a constructor's type concludes in**: its former and its
-    90  capabilities.  `none` where its type concludes in no stored inductive. -/
-    91  def ctorFamily (find? : Name → Option ConstantInfo) (cvj : ConstantVal) :
+== ConLeche/Kernel/CoreDefs.lean#L81-L89
+    81  rescue mirrors it (`Sort u` at a concrete level such as `Unit`'s `1` passes, the
+    82  parameter `u` itself does not).  The instantiated zero-ness datum is
+    83  unsatisfiable exactly where the instantiated sort is never zero. -/
+    84  def formerNeverZero (cvT : ConstantVal) (us : List Level) : Bool :=
+    85    (Level.substPW cvT.levelParams us (formerZ cvT)).isNever
+    86  
+    87  /-- **The family a constructor's type concludes in**: its former and its
+    88  capabilities.  `none` where its type concludes in no stored inductive. -/
+    89  def ctorFamily (find? : Name → Option ConstantInfo) (cvj : ConstantVal) :
 
-== ConLeche/Kernel/CoreDefs.lean#L100-L102
-   100  /-- Unfold the (application of a) definition at the head, one step.
-   101  `none` when the head is not an unfoldable constant.  **Theorems are
-   102  opaque to reduction**: a stored `thmInfo` never unfolds, so whether a
+== ConLeche/Kernel/CoreDefs.lean#L98-L100
+    98  /-- Unfold the (application of a) definition at the head, one step.
+    99  `none` when the head is not an unfoldable constant.  **Theorems are
+   100  opaque to reduction**: a stored `thmInfo` never unfolds, so whether a
 
 == whitepaper/Fragment/Consistency.lean#L36-L47
     36  /-- **The environments the checker accepts**: the empty environment,
@@ -5224,11 +5224,11 @@
     69      obtain ⟨m', -⟩ := install_ind_any h.scoped m hok
     70      exact ⟨m'⟩
 
-== ConLeche/MainTheorem.lean#L98-L101
-    98  theorem model_exists (V : Type w) [SetTheory V]
-    99      (pins : List NatOpPinSet) (ds : Array Declaration) (env : Env)
-   100      (accepted : checkDecls .verified pins ds = .ok env) :
-   101      Nonempty (Model V env) := by
+== ConLeche/MainTheorem.lean#L102-L105
+   102  theorem model_exists (V : Type w) [SetTheory V]
+   103      (pins : List NatOpPinSet) (maxNatSize : Nat) (ds : Array Declaration) (env : Env)
+   104      (accepted : checkDecls .verified pins maxNatSize ds = .ok env) :
+   105      Nonempty (Model V env) := by
 
 == whitepaper/Fragment/Install.lean#L176-L181
    176  /-- **Installing a plain inductive block preserves having a model.**
@@ -5688,20 +5688,20 @@
    444      rules.map fun rl => { rl with fire := fire }
    445    | some _ => rules
 
-== ConLeche/Kernel/CoreDefs.lean#L887-L899
-   887    exact ⟨h.1.1.1, h.1.1.2, h.1.2⟩
-   888  
-   889  /-- The level and constructor-parameter comparands a firing rule's
-   890  checks compare the major's constructor levels and parameters against:
-   891  for a `.plain` rule the constructor's levels link to the recursor's by
-   892  name and its parameters are the recursor's leading arguments; for a
-   893  `.nested` rule both are the stored instantiations (the class the
-   894  auxiliary recursor's type was generated from, `auxRuleFire`), at the
-   895  recursor's level instantiation and (for the parameters) instantiated at
-   896  the recursor's leading-argument spine (the stored pins live in the
-   897  `rP`-binder prefix context; index arguments never occur in them); a
-   898  `.levels` rule's levels are stored and its parameters a `.plain` rule's. -/
-   899  def recFireComparands (rl : RecRule) (cnP : Nat) (lps : List Name)
+== ConLeche/Kernel/CoreDefs.lean#L884-L896
+   884    exact ⟨h.1.1.1, h.1.1.2, h.1.2⟩
+   885  
+   886  /-- The level and constructor-parameter comparands a firing rule's
+   887  checks compare the major's constructor levels and parameters against:
+   888  for a `.plain` rule the constructor's levels link to the recursor's by
+   889  name and its parameters are the recursor's leading arguments; for a
+   890  `.nested` rule both are the stored instantiations (the class the
+   891  auxiliary recursor's type was generated from, `auxRuleFire`), at the
+   892  recursor's level instantiation and (for the parameters) instantiated at
+   893  the recursor's leading-argument spine (the stored pins live in the
+   894  `rP`-binder prefix context; index arguments never occur in them); a
+   895  `.levels` rule's levels are stored and its parameters a `.plain` rule's. -/
+   896  def recFireComparands (rl : RecRule) (cnP : Nat) (lps : List Name)
 
 == ConLeche/Rules/Rel.lean#L212-L223
    212        IotaCase env isK cvj (recFireComparands rl cnP cv.levelParams us cvj.levelParams
@@ -6441,16 +6441,16 @@
    322        Red env d major fab
 
 == ConLeche/Cached/Decls.lean#L83-L84
-    83  def checkDecls (mode : CheckMode) (pins : List NatOpPinSet) (ds : Array Declaration) :
-    84      Except (CheckError × Nat) Env := do
+    83  /-- **The declaration fold.**
+    84  
 
 == ConLeche/Cached/StreamIndex.lean#L65
     65  def buildIndex (ds : Array Declaration) : StreamIndex :=
 
 == ConLeche/Verify/Cached/StreamIndex.lean#L491-L493
    491  theorem checkDecls_of_jobs {ds : Array Declaration}
-   492      (h : ∀ k (hk : k < ds.size), recordJob mode pins (buildIndex ds) k ds[k] = .ok ()) :
-   493      checkDecls mode pins ds = .ok (streamEnv ds.toList) := by
+   492      (h : ∀ k (hk : k < ds.size), recordJob mode pins maxNatSize (buildIndex ds) k ds[k] = .ok ()) :
+   493      checkDecls mode pins maxNatSize ds = .ok (streamEnv ds.toList) := by
 
 == ConLeche/Kernel/Expr.lean#L315-L317
    315  inductive Expr where

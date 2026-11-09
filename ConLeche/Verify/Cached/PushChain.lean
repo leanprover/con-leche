@@ -601,11 +601,11 @@ theorem checkDeclStepC_push (mode : CheckMode) {env : Env} {fe : FEnv}
 /-- **An accepting run is a fresh chain**: from a canonical index, it returns a canonical index
 whose constants extend the start by fresh names. -/
 theorem declsRun_chain (mode : CheckMode) {ds : List Declaration} {env : Env} {p q : Nat × FEnv}
-    (h : DeclsRun mode pins ds p q) (hp : PushChain env p.2) : PushChain env q.2 := by
+    (h : DeclsRun mode pins maxNatSize ds p q) (hp : PushChain env p.2) : PushChain env q.2 := by
   induction h with
   | nil p => exact hp
   | @cons pd ds p p₁ q hstep rest ih =>
     obtain ⟨fe₁, s₁, rfl, hstepC⟩ := declStep_ok hstep
-    exact ih (checkDeclStepC_push mode hp pd {} fe₁ s₁ hstepC)
+    exact ih (checkDeclStepC_push mode hp pd _ fe₁ s₁ hstepC)
 
 end ConLeche.Cached

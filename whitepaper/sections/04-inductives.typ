@@ -967,11 +967,11 @@ without a certificate, through the projections of the major.
 #real[
   The checker decides the case with one level test per redex: whether
   the constructor's family is
-  #src("ConLeche/Kernel/CoreDefs.lean", 83, 91)[never a proposition]
+  #src("ConLeche/Kernel/CoreDefs.lean", 81, 89)[never a proposition]
   at the levels the rule compares with, read off the family's type where
   the question is asked. A K rule and a family that is never
   a proposition fire with no check; every
-  #src("ConLeche/Kernel/CoreDefs.lean", 100, 102)[other rule] is the
+  #src("ConLeche/Kernel/CoreDefs.lean", 98, 100)[other rule] is the
   certified case, as in the fragment.
 ]
 
@@ -988,7 +988,7 @@ assumed of the environment they extend.
 #theorem(name: "Every accepted environment has a model")[
   For every model of the extended theory, every accepted environment
   #src("whitepaper/Fragment/Consistency.lean", 57, 70)[has a model in it]
-  (#src("ConLeche/MainTheorem.lean", 98, 101)[con-leche's main theorem]).
+  (#src("ConLeche/MainTheorem.lean", 102, 105)[con-leche's main theorem]).
 ] <thm:accepted-model>
 
 #proof[
