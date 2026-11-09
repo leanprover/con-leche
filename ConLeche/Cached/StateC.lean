@@ -90,7 +90,7 @@ def etaCtorShapeC (fe : FEnv) (e : Expr) : Bool :=
   match Expr.getAppFn e with
   | .const c _ =>
     match fe.find? c with
-    | some (.ctorInfo _ cnP cnF) => (Expr.getAppArgs e).length == cnP + cnF
+    | some (.ctorInfo _ cnP cnF) => (Expr.getAppArgsC e).length == cnP + cnF
     | _ => false
   | _ => false
 
