@@ -102,29 +102,31 @@ it plain `IO`:
 * **SIGINT and SIGTERM** (`Std.Async.Signal.Waiter`, polled every tick): no further start, every
   running worker killed through its own `Child` and waited for, logged as `killed` (no verdict),
   the log flushed, the statistics printed, and the exit code 130 (SIGINT) or 143 (SIGTERM);
-* **progress**: each module's line (stdout) is `VERDICT  t=Ss  rss=X GiB  ×T  [done/total p %, k
-  running, U/N threads, eta D]  M`, the module last so the statistics keep their columns (the verdict
-  padded to 7, the time to 6, `X` to 5, `×T` the worker's threads where above 1, else blank, padded
-  to the width of `N` and absent at `--jobs=1`, `done` to the width of `total`, `p` to 5, `k` and
-  `U` to the width of `N`; `U/N threads`, the running workers' threads of the budget, only where
-  they are more than the workers; only the estimate varies), `X` the worker's own peak from its stats line (`rss≥X` the last sampled one where it
-  wrote none), `done` counting a resumed run's logged modules, the estimate `remaining modules × mean module time ÷ average running workers`: the mean over all
-  finished modules with a known time (the log's verdict lines with the ms field, and this run's), the
-  average this run's time-weighted one once it has lasted a minute and is at least 1, else the
-  previous runs' from the log (Σ ms ÷ Σ each run's span, a run ending where `at` falls back), else
-  `--jobs`; no estimate where no time is known.  It leans low: logged times come only from modules
-  that finished, and the long ones are more often still running or interrupted; `killed` lines are
-  lower bounds of modules that will run again, and are not counted
-  (`progressText`; `n requeued` follows `k running`
-  once a kill has put modules back); with a heartbeat (`heartbeat` ms), after that long without a
-  line, three lines on stderr: `schedule: ` and the same padded counts; the memory (`memLine`):
-  `mem 1.2 GiB (largest 0.6 GiB), reserved 3.0 GiB, plan 42.3 GiB of 47 GiB (typical 0.8 GiB)`,
-  the running workers' total resident set now and the biggest one's, then what admission has
-  reserved for them (each at the most of its peak so far, the typical peak and its known size; not
-  their current use), the planning budget and the hard limit when set, and the typical peak
-  admission assumes, then `n waiting for room` for the killed modules that do not fit yet; and `longest: M 7m01s`, the longest-running worker.  The
-  memory is read every tick through the same `/proc` files as the budget and shown only where it
-  can be read; the run's peak total ends the summary line;
+* **progress**: every finish line (stdout) and every heartbeat (stderr) starts with the SAME
+  status part, in the same fixed columns (`statusText`):
+  `[ 3804 ( 1.5%)  3 wrkr  25 thds  RSS 34.1G tot 27.7G biggest  15d12h eta]`: the modules with
+  a verdict (a resumed run's logged ones included) and their percentage; the running workers; the
+  threads they hold; the running workers' resident sets now, summed (`tot`), and the largest
+  one's (`biggest`), left out where `/proc` cannot be read; the estimate.  A finish line goes on
+  with `VERDICT  t=Ss  rss=X GiB  ×T  M`: the verdict padded to 7, the time to 6, `X` the worker's
+  own peak from its stats line (`rss≥X` the last sampled one where it wrote none), `×T` the
+  worker's threads where above 1 (blank, and absent at `--jobs=1`, otherwise), the module last.
+  With a heartbeat (`heartbeat` ms), after that long without a line, ONE line on stderr: the
+  status part and what explains the wait, `waiting: longest M 7m01s (+2 more), 13 requeued, 5
+  waiting for room: reserved 43.4 GiB of plan 40.5 GiB`: the longest-running worker and how many
+  others run; the modules a kill has put back; and the killed modules whose known size does not
+  fit the room, with what admission has reserved for the running workers (each at the most of
+  its peak so far, the typical peak and its known size; not their current use) against the
+  planning budget it fits them into (`planOf`), the last two parts only where non-zero.  The
+  estimate `eta` is `remaining modules × mean module time
+  ÷ average running workers`: the mean over all finished modules with a known time (the
+  log's verdict lines with the ms field, and this run's), the average this run's time-weighted
+  one once it has lasted a minute and is at least 1, else the previous runs' from the log (Σ ms ÷
+  Σ each run's span, a run ending where `at` falls back), else `--jobs`; no estimate (`?`) where no
+  time is known.  It leans low: logged times come only from modules that finished, and the long ones
+  are more often still running or interrupted; `killed` lines are lower bounds of modules that
+  will run again, and are not counted.  The memory is read every tick through the same `/proc`
+  files as the budget; the run's peak total ends the summary line;
 * **the kill lines** (stderr): `schedule: killed at 0.4 GiB after 3m12s, requeued: M`, the worker's
   set and how long it had run (`dur`); a burst of several: `killed 2 workers, requeued: M 0.4 GiB
   after 3m12s, N 0.2 GiB after 42s`.  The log's `killed` line carries the ms as before;
@@ -683,31 +685,45 @@ def padR (w : Nat) (s : String) : String := s.pushn ' ' (w - s.length)
 /-- The longest verdict word (`timeout`): the width of the verdict column. -/
 def verdictWidth : Nat := 7
 
-/-- The counts of a run: `[done/total p %, k running, eta D]`, as the middle of each module's line
-and the heartbeat's first line, in fixed columns: `done` padded to the width of `total`, the
-percentage to `100.0`, `k` to the width of `jobs`; only the estimate, last in the bracket, has a
-variable width.  `done` counts the logged modules of a resumed run.  The estimate `eta` (ms, from
-`etaMs`: remaining modules × mean module time ÷ average running workers) is shown where there is
-one and modules are left.  The mean is taken over all finished modules with a known time, the log's
-and this run's; with the shuffled order they are a sample of the whole, and the module times are
-heavy-tailed (most 1 to 3 s, a few 30 to 50 minutes).  It leans low: logged times come only from
+/-- A size in KiB as GiB with one decimal (two where `dec` is 2), without the unit, padded to a
+fixed width, for the status part's columns. -/
+def gibCol (dec : Nat) (kib : Nat) : String :=
+  let sc := if dec = 1 then 10 else 100
+  let t := kib * sc / (1024 * 1024)
+  let f := if dec = 1 then s!"{t % 10}" else (if t % 100 < 10 then s!"0{t % 100}" else s!"{t % 100}")
+  padL (if dec = 1 then 5 else 6) s!"{t / sc}.{f}"
+
+/-- **The status part**, the start of every finish line (stdout) and every heartbeat (stderr), so
+the first columns read the same down the terminal:
+`[ 3804 ( 1.5%)  3 wrkr  25 thds  RSS 34.1G tot 27.7G biggest  15d12h eta]`.
+`3804 ( 1.5%)`: the modules with a verdict, counting a resumed run's logged ones, and their
+percentage of `total`; `wrkr` the running workers; `thds` the threads they hold; `RSS tot` the
+running workers' resident sets now, summed, and `biggest` the largest one's (GiB; left out where
+`/proc` could not be read); `eta` the estimate (`etaMs`: remaining modules × mean module time ÷
+average running workers; `dur`: `51d16h` past 48 hours, `12h` from 10, below that with minutes;
+`?` where no time is known, `-` once nothing is left).  It leans low: logged times come only from
 modules that finished, and the long ones are more often still running or interrupted (logged
-`killed` lines, lower bounds, are not counted).  Past 48 hours it is in days and hours
-(`51d16h`), from 10 hours in hours, below that with minutes (`dur`).  `T/N threads` follows `k running` where the running workers hold more threads (`T`)
-than there are workers, `N` the thread budget (`jobs`), and `n requeued` (`requeued`) follows
-once a kill has put modules back. -/
-def progressText (total done running : Nat) (eta : Option Nat) (requeued : Nat := 0)
-    (jobs : Nat := 0) (threads : Nat := 0) : String :=
+`killed` lines, lower bounds, are not counted).  Every field has a fixed width: `done` that of
+`total`, the percentage `100.0`, the counts that of `jobs`, the sizes (two decimals where the limit
+is under 10 GiB) and the estimate seven characters. -/
+def statusText (total done running : Nat) (eta : Option Nat) (jobs threads : Nat)
+    (mem : Option (Nat × Nat × Nat)) (limit : Nat) : String :=
   let pm := if total = 0 then 1000 else done * 1000 / total
   let eta := match eta with
-    | some ms => if done ≥ total then "" else s!", eta {dur ms}"
+    | some ms => if done ≥ total then "-" else dur ms
+    | none => "?"
+  let dec := if limit > 0 && limit < 10 * 1024 * 1024 then 2 else 1
+  let g := gibCol dec
+  let memT := match mem with
     | none => ""
-  let rq := if requeued = 0 then "" else s!", {requeued} requeued"
+    | some (t, m, _) =>
+      let (t, m) := if running = 0 then (0, 0) else (t, m)
+      s!"  RSS {g t}G tot {g m}G biggest"
   let jw := (toString jobs).length
-  let th := if threads ≤ running then "" else s!", {padL jw (toString threads)}/{jobs} threads"
   let w := (toString total).length
-  s!"[{padL w (toString done)}/{total} {padL 5 s!"{pm / 10}.{pm % 10}"} %, \
-    {padL jw (toString running)} running{th}{rq}{eta}]"
+  s!"[{padL w (toString done)} ({padL 5 s!"{pm / 10}.{pm % 10}"}%)  \
+    {padL jw (toString running)} wrkr  {padL jw (toString threads)} thds{memT}  \
+    {padL 7 eta} eta]"
 
 /-- A duration: seconds with a decimal below a minute, else `dur`. -/
 def msText (ms : Nat) : String :=
@@ -755,25 +771,6 @@ def statsLines (st : St) (wall jobs budget skipped : Nat) (signal : Option Strin
       beyond the room",
     s!"  verdicts: {st.memVerdicts} memory, {st.nonzero} not 0" ]
 
-/-- The memory line of the heartbeat, `none` where nothing runs or `/proc` could not be read:
-`mem 9.6 GiB (largest 9.1 GiB), reserved 28.5 GiB, plan 42.3 GiB of 47 GiB (typical 0.8 GiB)`.
-`mem` is the running workers' total resident set now and `largest` the biggest one's now;
-`reserved` is what admission counts, each running worker at the most of its peak so far, the
-typical peak and its known size (not their current use), `plan` the planning budget it fits them
-into (`plan`, `planOf`) and `of` the hard limit (KiB, `budget`, 0 for none: both left out).  Then
-`n waiting for room` (`waiting`) where it applies. -/
-def memLine (running : Nat) (mem : Option (Nat × Nat × Nat)) (typ : Nat) (budget : Nat := 0)
-    (waiting : Nat := 0) (plan : Nat := 0) :
-    Option String :=
-  match mem with
-  | some (t, m, pk) =>
-    if running = 0 then none
-    else
-      let of := if budget > 0 then s!", plan {gib plan} of {gibBudget budget}" else ""
-      let wt := if waiting = 0 then "" else s!", {waiting} waiting for room"
-      some s!"mem {gib t} (largest {gib m}), reserved {gib pk}{of} (typical {gib typ}){wt}"
-  | none => none
-
 /-- **The scheduler**: the modules' workers (`args m`, the worker's arguments at `m`, of the
 binary `app`; its last argument `spell m`) run as the module docstring says; the verdict of
 every module of `mods`, the peak of the running workers' total resident memory in KiB
@@ -805,16 +802,15 @@ def run (parse : String → Option Name) (app : System.FilePath) (args : Name �
   let roomOf (st : St) (pk : Nat) : Nat :=
     if o.memory = 0 then 1 <<< 60 else planNow st - min (planNow st) pk
   let threadsOf (st : St) : Nat := st.running.foldl (· + ·.threads) 0
-  let progress (st : St) (now : Nat) : String :=
-    progressText total st.nDone st.running.size
+  -- the killed modules whose known size does not fit the room (nothing running: none)
+  let waitingOf (st : St) : Nat :=
+    if st.running.isEmpty then 0
+    else (st.again.filter (st.sizes.getD · 0 > roomOf st st.effPk)).length
+  let status (st : St) (now : Nat) : String :=
+    statusText total st.nDone st.running.size
       (etaMs (total - st.nDone) (logged.msSum + st.doneMs)
-        (logged.msN + st.finished) st.runMs (now - t0) logged.workers jobs) st.requeued jobs
-      (threadsOf st)
-  let memory (st : St) : Option String :=
-    memLine st.running.size st.mem st.typ o.memory
-      (if st.running.isEmpty then 0
-       else (st.again.filter (st.sizes.getD · 0 > roomOf st st.effPk)).length)
-      (planNow st)
+        (logged.msN + st.finished) st.runMs (now - t0) logged.workers jobs)
+      jobs (threadsOf st) st.mem o.memory
   let finish (st : St) (r : Running) (w : String) : IO St := do
     let (outText, msg) ← r.texts
     let now ← IO.monoMsNow
@@ -839,8 +835,8 @@ def run (parse : String → Option Name) (app : System.FilePath) (args : Name �
     -- column where the budget is one thread
     let thr := if jobs ≤ 1 then "" else
       padR ((toString jobs).length + 3) (if r.threads > 1 then s!"  ×{r.threads}" else "")
-    out.putStrLn s!"{padR verdictWidth w}  t={padL 6 (ConLeche.Cached.msSecs (now - r.start))}s  \
-      {rssText}{thr}  {progress st now}  {r.m}"
+    out.putStrLn s!"{status st now}  {padR verdictWidth w}  \
+      t={padL 6 (ConLeche.Cached.msSecs (now - r.start))}s  {rssText}{thr}  {r.m}"
     out.flush
     let lines := (msg.splitOn "\n").filter fun l => l != "" && !l.startsWith "con-leche: stats:"
     if w != "0" then
@@ -1025,12 +1021,22 @@ def run (parse : String → Option Name) (app : System.FilePath) (args : Name �
                         resv := st.running.foldl (fun m r => m.insert r.m (eff1 st r)) {} }
     -- the heartbeat: after `heartbeat` ms without a line, the counts and the longest runs
     if o.heartbeat > 0 && now - st.lastLine ≥ o.heartbeat && !st.running.isEmpty then
-      let longest := (st.running.qsort (fun a b => a.start < b.start)).toList.take 1
-      let ls := ", ".intercalate (longest.map fun r => s!"{r.m} {dur (now - r.start)}")
       st := { st with mem := sample st.running }
-      err.putStrLn s!"schedule: {progress st now}"
-      if let some l := memory st then err.putStrLn s!"  {l}"
-      err.putStrLn s!"  longest: {ls}"
+      let byAge := st.running.qsort (fun a b => a.start < b.start)
+      let more := if byAge.size > 1 then s!" (+{byAge.size - 1} more)" else ""
+      -- what explains the wait: the longest worker, the requeued modules, and the killed ones
+      -- waiting for room, with what admission reserved against the planning budget
+      let wt := waitingOf st
+      let rq := if st.requeued = 0 then "" else s!", {st.requeued} requeued"
+      let room := if wt = 0 then "" else
+        let rsv := match st.mem with
+          | some (_, _, pk) => s!": reserved {gib pk}" ++ (if o.memory > 0 then s!" of plan {gib (planNow st)}" else "")
+          | none => ""
+        s!", {wt} waiting for room{rsv}"
+      let ls := match byAge[0]? with
+        | some r => s!"waiting: longest {r.m} {dur (now - r.start)}{more}{rq}{room}"
+        | none => "waiting"
+      err.putStrLn s!"{status st now}  {ls}"
       err.flush
       st := { st with lastLine := now }
     return st

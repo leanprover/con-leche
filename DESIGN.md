@@ -116271,3 +116271,43 @@ con-leche: schedule: head slot starts 99 MiB into a room of 82 MiB: Init.Data.SI
   kills: 9 (9 modules), 2.9s lost = 1.6 % of the worker time 3m01s; the head slot started 56 modules beyond the room
 ```
 At 300M: 56.7 s, 1.6 running, 6 kills (1.0 %), all 0 (#545 at 300M: 53.6 s, 1.5, 5 kills).
+
+## TASK #550 — one status part for every scheduler line (2026-11-09, agent/550-lines)
+
+`Driver/ScheduleIO.lean`, plain IO, outside every theorem; log format unchanged.  Request: the
+first columns of every status output read the same down the terminal, after them either one
+module's finish information or what explains the wait; the status part short enough to read.
+
+**Before** (#514): the finish line `VERDICT  t=Ss  rss=X GiB  ×T  [done/total p %, k running, ...]  M`
+(stdout, module last, no memory) and a three-line heartbeat (counts, a `mem ..., reserved ..., plan
+... of ... (typical ...)` line, a `longest:` line).
+
+**After.** `statusText` is the start of both:
+`[ 3804 ( 1.5%)  3 wrkr  25 thds  RSS 34.1G tot 27.7G biggest  15d12h eta]`: modules with a
+verdict (logged ones of a resumed run included), their percentage, running workers, threads in
+use, the workers' resident sets now (total and the largest), the estimate (`?` where unknown, `-`
+at the end).  All fixed width (sizes with two decimals where the limit is under 10 GiB).  The
+total module count, the thread budget and reserved/plan/limit are no longer in it (the maintainer
+never found plan and limit understandable, ruling during this task); reserved against plan
+appears only in the heartbeat's explanation where it explains the wait, and the final statistics
+block keeps the averages and the plan at the end.  A finish line continues `VERDICT  t=Ss
+rss=X GiB  ×T  M`; a heartbeat is ONE line continuing `waiting: longest M 3m12s (+2 more)`, then,
+only where non-zero, `, 13 requeued` and `, 5 waiting for room: reserved 43.4 GiB of plan 40.5 GiB`.
+Event lines (kills, the head slot's start) are unchanged, the module last.  The `tests/olean.sh`
+case that grepped the old counts now greps `[4 (100.0%)  0 wrkr`.
+
+Hand test, `--olean --schedule --jobs=8 --schedule-memory=300M --progress=2000 -- Std.Tactic.BVDecide`
+(stdout and stderr; each heartbeat line is the status part and the wait):
+
+```
+[  1 (  0.1%)  6 wrkr  7 thds  RSS   0.45G tot   0.09G biggest       5s eta]  0        t=   0.0s  rss= 0.07 GiB      Init.Data.Char.Lemmas
+[  2 (  0.2%)  1 wrkr  2 thds  RSS   0.10G tot   0.10G biggest       7s eta]  0        t=   0.1s  rss= 0.07 GiB      Init.Data.List.Nat.Sum
+[  3 (  0.4%)  1 wrkr  2 thds  RSS   0.10G tot   0.10G biggest       8s eta]  0        t=   0.1s  rss= 0.07 GiB      Init.Data.String.Length
+[  4 (  0.5%)  2 wrkr  6 thds  RSS   0.15G tot   0.07G biggest       9s eta]  0        t=   0.1s  rss= 0.10 GiB  ×2  Init.Data.Iterators.Lemmas.Consumers.Loop
+[700 ( 94.7%)  0 wrkr  0 thds  RSS   0.00G tot   0.00G biggest       0s eta]  0        t=   0.1s  rss= 0.12 GiB  ×4  Std.Sat.AIG.RelabelNat
+[701 ( 94.8%)  0 wrkr  0 thds  RSS   0.00G tot   0.00G biggest       0s eta]  0        t=   0.0s  rss= 0.06 GiB      Init.Data.ByteArray.Extra
+[702 ( 94.9%)  0 wrkr  0 thds  RSS   0.00G tot   0.00G biggest       0s eta]  0        t=   0.1s  rss= 0.08 GiB      Std.Sat.CNF.Relabel
+[703 ( 95.1%)  0 wrkr  0 thds  RSS   0.00G tot   0.00G biggest       0s eta]  0        t=   0.1s  rss= 0.09 GiB  ×2  Init.Data.String.Lemmas.IsEmpty
+[712 ( 96.3%)  1 wrkr  1 thds  RSS   0.11G tot   0.11G biggest       0s eta]  waiting: longest Init.Data.BitVec.Lemmas 2s, 7 requeued
+[712 ( 96.3%)  1 wrkr  1 thds  RSS   0.09G tot   0.09G biggest       0s eta]  waiting: longest Init.Data.BitVec.Lemmas 4s, 7 requeued
+```

@@ -945,7 +945,7 @@ case_grep "--schedule: the first failing module, its code" 1 "the first in the g
   --olean --schedule --search-path=$LIB -- NpAx
 case_ "--schedule: an unknown option" 3 --olean --schedule-frobnicate --search-path=$LIB -- Tiny
 # (task #505: the module lines carry the counts; a budget takes a unit; a heartbeat in ms or s)
-case_grep "--schedule: the last module's line, its counts" 0 "\[4/4 100.0 %, 0 running\]" \
+case_grep "--schedule: the last module's line, its counts" 0 "\[4 (100.0%)  0 wrkr" \
   --olean --schedule --schedule-memory=40G --progress=1000 --jobs=2 --search-path=$MSP -- PdM
 case_grep "--schedule-memory: a bare number is no size" 3 "takes a size with a unit" --olean \
   --schedule --schedule-memory=6000 --search-path=$LIB -- Tiny
