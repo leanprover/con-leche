@@ -91,28 +91,20 @@ theorem emvarS_of_liftLooseBVars {e : Lean.Expr} {s d : Nat}
       · rfl
       · cases hy
 
-theorem emvarS_of_abstractPrefix : ∀ {k c : Nat} {e : Lean.Expr},
-    emvarS (InLean.abstractPrefix k c e) = false → emvarS e = false
-  | 0, _, _, h => h
-  | k + 1, c, e, h => by
-    unfold InLean.abstractPrefix at h
-    exact emvarS_of_abstract1 (emvarS_of_abstractPrefix h)
+theorem emvarS_of_abstractPrefix {k c : Nat} {e : Lean.Expr}
+    (h : emvarS (InLean.abstractPrefix k c e) = false) : emvarS e = false :=
+  emvarS_of_abstractDepthsFrom h
 
 /-- **InLean's prefix abstraction reads as master's** where it wrote no
 marker. -/
-theorem toExpr_abstractPrefix {fv : FVarId → Option ConLeche.Expr} (hfd : FvDepthOK fv) :
-    ∀ (k c : Nat) {e : Lean.Expr} {ce : ConLeche.Expr}, Expr.RangeOk e → toExpr fv e = some ce →
-      emvarS (InLean.abstractPrefix k c e) = false →
-      Expr.RangeOk (InLean.abstractPrefix k c e) ∧
-        toExpr fv (InLean.abstractPrefix k c e) = some (ConLeche.Expr.abstractPrefix k c ce)
-  | 0, _, _, _, hr, h, _ => ⟨hr, h⟩
-  | k + 1, c, e, ce, hr, h, hm => by
-    unfold InLean.abstractPrefix at hm ⊢
-    unfold ConLeche.Expr.abstractPrefix
-    have hm1 := emvarS_of_abstractPrefix hm
-    have h1 := toExpr_abstractDepthsFrom hfd hr h k 1 c hm1
-    rw [abstractRange_one] at h1
-    exact toExpr_abstractPrefix hfd k (c + 1) (RangeOk_abstractDepthsFrom hr k 1 c) h1 hm
+theorem toExpr_abstractPrefix {fv : FVarId → Option ConLeche.Expr} (hfd : FvDepthOK fv)
+    (k c : Nat) {e : Lean.Expr} {ce : ConLeche.Expr} (hr : Expr.RangeOk e) (h : toExpr fv e = some ce)
+    (hm : emvarS (InLean.abstractPrefix k c e) = false) :
+    Expr.RangeOk (InLean.abstractPrefix k c e) ∧
+      toExpr fv (InLean.abstractPrefix k c e) = some (ConLeche.Expr.abstractPrefix k c ce) := by
+  unfold InLean.abstractPrefix at hm ⊢
+  rw [ConLeche.abstractPrefix_eq]
+  exact ⟨RangeOk_abstractDepthsFrom hr 0 k c, toExpr_abstractDepthsFrom hfd hr h 0 k c hm⟩
 
 /-! ## The guard -/
 

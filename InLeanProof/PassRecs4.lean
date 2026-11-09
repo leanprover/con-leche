@@ -33,56 +33,86 @@ variable {mode : ConLeche.CheckMode} {eager : Bool} {env : ConLeche.Env}
 
 /-! ## Closings: the marker-freeness of the pieces -/
 
-/-- A marker-free closed telescope has marker-free binders and body. -/
-theorem emvarS_closeTelescope_all : ∀ (bs : List Lean.Expr) (i : Nat) (body : Lean.Expr),
-    emvarS (InLean.closeTelescope bs i body) = false →
+theorem emvarS_closeTelescopeFrom_all : ∀ (bs : List Lean.Expr) (i j : Nat) (body : Lean.Expr),
+    emvarS (InLean.closeTelescopeFrom bs i j body) = false →
       (∀ b ∈ bs, emvarS b = false) ∧ emvarS body = false
-  | [], _, _, h => ⟨fun _ hb => (nomatch hb), h⟩
-  | dom :: bs, i, body, h => by
-    simp only [InLean.closeTelescope, emvarS, Bool.or_eq_false_iff] at h
-    obtain ⟨h1, h2⟩ := emvarS_closeTelescope_all bs (i + 1) body (emvarS_of_abstract1 h.2)
+  | [], _, _, _, h => ⟨fun _ hb => (nomatch hb), emvarS_of_abstractDepthsFrom h⟩
+  | dom :: bs, i, j, body, h => by
+    simp only [InLean.closeTelescopeFrom, emvarS, Bool.or_eq_false_iff] at h
+    obtain ⟨h1, h2⟩ := emvarS_closeTelescopeFrom_all bs i (j + 1) body h.2
     refine ⟨fun b hb => ?_, h2⟩
     rcases List.mem_cons.1 hb with rfl | hb
-    · exact h.1
+    · exact emvarS_of_abstractDepthsFrom h.1
+    · exact h1 b hb
+
+/-- A marker-free closed telescope has marker-free binders and body. -/
+theorem emvarS_closeTelescope_all (bs : List Lean.Expr) (i : Nat) (body : Lean.Expr)
+    (h : emvarS (InLean.closeTelescope bs i body) = false) :
+    (∀ b ∈ bs, emvarS b = false) ∧ emvarS body = false :=
+  emvarS_closeTelescopeFrom_all bs i 0 body h
+
+theorem emvarS_closeLamsFrom : ∀ (bs : List Lean.Expr) (i j : Nat) (body : Lean.Expr),
+    emvarS (InLean.closeLamsFrom bs i j body) = false →
+      (∀ b ∈ bs, emvarS b = false) ∧ emvarS body = false
+  | [], _, _, _, h => ⟨fun _ hb => (nomatch hb), emvarS_of_abstractDepthsFrom h⟩
+  | dom :: bs, i, j, body, h => by
+    simp only [InLean.closeLamsFrom, emvarS, Bool.or_eq_false_iff] at h
+    obtain ⟨h1, h2⟩ := emvarS_closeLamsFrom bs i (j + 1) body h.2
+    refine ⟨fun b hb => ?_, h2⟩
+    rcases List.mem_cons.1 hb with rfl | hb
+    · exact emvarS_of_abstractDepthsFrom h.1
     · exact h1 b hb
 
 /-- A marker-free closed λ-telescope has marker-free binders and body. -/
-theorem emvarS_closeLams : ∀ (bs : List Lean.Expr) (i : Nat) (body : Lean.Expr),
-    emvarS (InLean.closeLams bs i body) = false →
-      (∀ b ∈ bs, emvarS b = false) ∧ emvarS body = false
-  | [], _, _, h => ⟨fun _ hb => (nomatch hb), h⟩
-  | dom :: bs, i, body, h => by
-    simp only [InLean.closeLams, emvarS, Bool.or_eq_false_iff] at h
-    obtain ⟨h1, h2⟩ := emvarS_closeLams bs (i + 1) body (emvarS_of_abstract1 h.2)
-    refine ⟨fun b hb => ?_, h2⟩
-    rcases List.mem_cons.1 hb with rfl | hb
-    · exact h.1
-    · exact h1 b hb
+theorem emvarS_closeLams (bs : List Lean.Expr) (i : Nat) (body : Lean.Expr)
+    (h : emvarS (InLean.closeLams bs i body) = false) :
+    (∀ b ∈ bs, emvarS b = false) ∧ emvarS body = false :=
+  emvarS_closeLamsFrom bs i 0 body h
+
+/-- Master's λ-closing in bulk (`closeTeleR`'s twin). -/
+@[expose] def closeLamsR : List ConLeche.Expr → Nat → Nat → ConLeche.Expr → ConLeche.Expr
+  | [], i, j, body => body.abstractRange i j 0
+  | dom :: bs, i, j, body => .lam (dom.abstractRange i j 0) (closeLamsR bs i (j + 1) body)
+
+theorem closeLamsR_eq : ∀ (bs : List ConLeche.Expr) (i j : Nat) (body : ConLeche.Expr),
+    (ConLeche.closeLams bs (i + j) body).abstractRange i j 0 = closeLamsR bs i j body
+  | [], _, _, _ => rfl
+  | dom :: bs, i, j, body => by
+    have hs := ConLeche.abstractRange_succ (ConLeche.closeLams bs (i + j + 1) body) i j 0
+    rw [Nat.zero_add] at hs
+    simp only [ConLeche.closeLams, ConLeche.Expr.abstractRange, closeLamsR, ← hs]
+    rw [← closeLamsR_eq bs i (j + 1) body]
+    rfl
+
+theorem closeLamsFrom_tr (s : InLean.CState) :
+    ∀ (bs : List Lean.Expr) (i j : Nat) (body : Lean.Expr), OkSL s bs = true → OkS s body = true →
+      emvarS (InLean.closeLamsFrom bs i j body) = false →
+      OkS s (InLean.closeLamsFrom bs i j body) = true ∧
+        TrS s (InLean.closeLamsFrom bs i j body) = closeLamsR (TrSL s bs) i j (TrS s body)
+  | [], i, j, body, _, hb, hm => tr_abstractDepthsFrom hb i j 0 hm
+  | dom :: bs, i, j, body, hbs, hb, hm => by
+    simp only [OkSL, List.all_cons, Bool.and_eq_true] at hbs
+    simp only [InLean.closeLamsFrom, emvarS, Bool.or_eq_false_iff] at hm
+    obtain ⟨hC, hTC⟩ := closeLamsFrom_tr s bs i (j + 1) body hbs.2 hb hm.2
+    obtain ⟨hokA, htrA⟩ := tr_abstractDepthsFrom hbs.1 i j 0 hm.1
+    refine ⟨?_, ?_⟩
+    · simp only [InLean.closeLamsFrom, OkS_lam, Bool.and_eq_true]
+      exact ⟨hokA, hC⟩
+    · simp only [InLean.closeLamsFrom, TrS_lam, TrSL, List.map_cons, closeLamsR]
+      rw [htrA, hTC]
+      rfl
 
 /-- **InLean's λ-closing reads as master's** where it wrote no out-of-range
 marker (`closeTelescope_tr`'s twin). -/
-theorem closeLams_tr (s : InLean.CState) :
-    ∀ (bs : List Lean.Expr) (i : Nat) (body : Lean.Expr), OkSL s bs = true → OkS s body = true →
-      emvarS (InLean.closeLams bs i body) = false →
-      OkS s (InLean.closeLams bs i body) = true ∧
-        TrS s (InLean.closeLams bs i body) =
-          ConLeche.closeLams (TrSL s bs) i (TrS s body)
-  | [], i, body, _, hb, _ => ⟨hb, rfl⟩
-  | dom :: bs, i, body, hbs, hb, hm => by
-    simp only [OkSL, List.all_cons, Bool.and_eq_true] at hbs
-    simp only [InLean.closeLams, emvarS, Bool.or_eq_false_iff] at hm
-    obtain ⟨hC, hTC⟩ := closeLams_tr s bs (i + 1) body hbs.2 hb (emvarS_of_abstract1 hm.2)
-    have hrr := RangeOk_abstractDepthsFrom (RangeOk_of_OkS hC) i 1 0
-    have h := toExpr_abstractDepthsFrom (FVarTable.trans_depthOK _) (RangeOk_of_OkS hC)
-      (TransS_of_ok hC) i 1 0 hm.2
-    obtain ⟨hokA, htrA⟩ := ok_of_TransS hrr h
-    refine ⟨?_, ?_⟩
-    · simp only [InLean.closeLams, OkS_lam, Bool.and_eq_true]
-      exact ⟨hbs.1, hokA⟩
-    · simp only [InLean.closeLams, TrS_lam, TrSL, List.map_cons, ConLeche.closeLams]
-      unfold InLean.abstract1
-      rw [htrA, hTC, abstractRange_one]
-      rfl
+theorem closeLams_tr (s : InLean.CState) (bs : List Lean.Expr) (i : Nat) (body : Lean.Expr)
+    (hbs : OkSL s bs = true) (hb : OkS s body = true)
+    (hm : emvarS (InLean.closeLams bs i body) = false) :
+    OkS s (InLean.closeLams bs i body) = true ∧
+      TrS s (InLean.closeLams bs i body) = ConLeche.closeLams (TrSL s bs) i (TrS s body) := by
+  obtain ⟨h1, h2⟩ := closeLamsFrom_tr s bs i 0 body hbs hb hm
+  refine ⟨h1, ?_⟩
+  change TrS s (InLean.closeLamsFrom bs i 0 body) = _
+  rw [h2, ← closeLamsR_eq, Nat.add_zero, ConLeche.abstractRange_zero]
 
 /-! ## Lists -/
 

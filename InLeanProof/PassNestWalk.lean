@@ -85,17 +85,20 @@ theorem structUsedLater_tr {s : InLean.CState} {t : Lean.Expr} (h : OkS s t = tr
 
 /-! ## The out-of-range marker of a closed telescope -/
 
-theorem RangeOk_closeTelescope : ∀ (bs : List Lean.Expr) (i : Nat) (body : Lean.Expr),
+theorem RangeOk_closeTelescopeFrom : ∀ (bs : List Lean.Expr) (i j : Nat) (body : Lean.Expr),
     (∀ b ∈ bs, Expr.RangeOk b) → Expr.RangeOk body →
-      Expr.RangeOk (InLean.closeTelescope bs i body)
-  | [], _, _, _, hb => hb
-  | dom :: bs, i, body, hbs, hb => by
-    simp only [InLean.closeTelescope, Expr.RangeOk]
-    refine ⟨hbs dom List.mem_cons_self, ?_⟩
-    unfold InLean.abstract1
-    exact RangeOk_abstractDepthsFrom
-      (RangeOk_closeTelescope bs (i + 1) body (fun b hb' => hbs b (List.mem_cons_of_mem _ hb')) hb)
-      _ _ _
+      Expr.RangeOk (InLean.closeTelescopeFrom bs i j body)
+  | [], _, _, _, _, hb => RangeOk_abstractDepthsFrom hb _ _ _
+  | dom :: bs, i, j, body, hbs, hb => by
+    simp only [InLean.closeTelescopeFrom, Expr.RangeOk]
+    exact ⟨RangeOk_abstractDepthsFrom (hbs dom List.mem_cons_self) _ _ _,
+      RangeOk_closeTelescopeFrom bs i (j + 1) body
+        (fun b hb' => hbs b (List.mem_cons_of_mem _ hb')) hb⟩
+
+theorem RangeOk_closeTelescope (bs : List Lean.Expr) (i : Nat) (body : Lean.Expr)
+    (hbs : ∀ b ∈ bs, Expr.RangeOk b) (hb : Expr.RangeOk body) :
+    Expr.RangeOk (InLean.closeTelescope bs i body) :=
+  RangeOk_closeTelescopeFrom bs i 0 body hbs hb
 
 /-- A closed telescope of readable parts the walk did not refuse has no
 marker. -/

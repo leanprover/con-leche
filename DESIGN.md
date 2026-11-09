@@ -115552,3 +115552,46 @@ the InLean kernel's type mismatch in 12520_1` (the test matches the rejection's
 Stage1 suite (4843 tests): all pass but `async/elab/async_systems_info` (sandbox) and
 `elab/sym_arith_kron_bounds` (the `Nat.pow` exponent bound, ruling pending).  A stage2 build
 (the stdlib checked by InLean) succeeds.
+
+### Lane blowup: the radar file `deriving_mutual_block` — telescope closing in one pass (2026-11-09, task #451, agent/451-blowup)
+
+**The question.**  lean4's radar benchmark `tests/elab_bench/deriving_mutual_block.lean` at bench
+size (a 42-member mutual block deriving `Repr`/`BEq`/`Hashable`) passes 200M heartbeats in the
+fork (290M; the elaboration alone, `debug.skipKernelTC`, is 102M, so InLean's kernel share is
+188M, official's about 55M).  Measured per declaration (each re-added to the kernel environment
+of the compiled module; heartbeats, the metric the radar limits), against official and con-leche
+(`--olean --jobs=1`, heartbeats per job).
+
+**Cause 1, fixed: the recursor telescopes closed binder by binder.**  The block itself cost InLean
+29.4M heartbeats (official 2.1M, con-leche 17.6M), 21.6M of them in `EO.abstractDepthsFrom` under
+`closeTelescope`/`closeLams`/`abstractPrefix`: the twins of con-leche's innermost-first `abstract1`
+chains, one pass per binder over the whole remaining term.  con-leche's walk is cut at a subterm
+whose cached free-variable range (`fvarB`) is at or below the binder, so a pass visits only what
+mentions the binder's own variable; `Lean.Expr` caches `hasFVar` and no range, so InLean's pass
+walked every subterm that mentions an outer variable (the motives, everywhere) once per binder,
+quadratic in a telescope of 130 binders.  InLean now computes the chain directly
+(`closeTelescopeFrom`, `closeLamsFrom`, `abstractPrefix` in `InLean/Inductives/BlockShape.lean`):
+one `abstractDepthsFrom` range pass per domain (the variables of the binders outside it) and one
+over the body.  The proofs read it as master's chain: `closeTeleR_eq`/`closeLamsR_eq`
+(`abstractRange_succ`, binder by binder) and con-leche's `abstractPrefix_eq`
+(`InLeanProof/IndTele.lean`, `PassRecs4.lean`, `PassRecs9.lean`, `PassNestWalk.lean`).  The block:
+29.4M → 8.2M heartbeats, instructions halved.  Fixture `ind_mutual_wide_telescope` (25 members):
+InLean 4.7M → 1.8M heartbeats on its block (official 0.13M).
+
+**Cause 2, open (ruling pending): no O(1) reject in the checker's equality.**  On `T1.brecOn.go`,
+1686 unequal pairs reach `clEq`'s descent and visit 397k nodes (the 410 equal ones 31k); con-leche
+rejects them by the cached hash, which InLean cannot use since it includes `mdata` and `clEq` reads
+through `mdata`.  850 of them, 385k visits, are Π-telescopes: `quickDefEq`'s ∀ case compares the
+remaining bodies with `==` at every binder (twice per level), each walk reaching a difference deep
+in the conclusion.  With the hash as the reject (an experiment, unsound under `mdata`) the
+declaration goes from 2.02M to 1.32M heartbeats (con-leche 1.09M, official 0.48M).
+
+**Measured, not landed.**  The walk memo of con-leche's `instLevelParamsXP` (cursor-free, a shared
+leaf past the cutoff probed): −2 % heartbeats, +11 % instructions on the radar file's
+declarations; dropped.
+
+**Numbers.**  Radar file's definitions and theorems (re-added, InLean): 197.7M heartbeats,
+unchanged by this lane; the block 29.4M → 8.2M.  Gates: `lake build`, `lake test`, `lake build
+InLean InLeanProof inlean-replay` warning-free; layering, trust-surface, shake, inlean-sync pass.
+Init replay `--compare`: 64530 accepted, 0 exact and 0 cosmetic mismatches.  Init cost (`perf stat
+-e instructions:u`, one run each): d89edc810 455 056 608 726, the lane 454 797 001 243 (−0.06 %).

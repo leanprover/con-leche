@@ -137,22 +137,35 @@ def replaceFVars (f : Nat → Option Expr) (e : Expr) : Expr :=
 binder offset `c`). -/
 def abstract1 (e : Expr) (i c : Nat) : Expr := EO.abstractDepthsFrom e i 1 c
 
-/-- Twin of `closeTelescope`. -/
-def closeTelescope : List Expr → Nat → Expr → Expr
-  | [], _, body => body
-  | dom :: bs, i, body =>
-    .forallE .anonymous dom (abstract1 (closeTelescope bs (i + 1) body) i 0) .default
+/-- The telescope over `bs` closed at the variables `i ..< i + j` already
+crossed: each domain abstracts the variables of the binders outside it, the
+body all of them — one pass per domain and one over the body. -/
+def closeTelescopeFrom : List Expr → Nat → Nat → Expr → Expr
+  | [], i, j, body => EO.abstractDepthsFrom body i j 0
+  | dom :: bs, i, j, body =>
+    .forallE .anonymous (EO.abstractDepthsFrom dom i j 0) (closeTelescopeFrom bs i (j + 1) body)
+      .default
 
-/-- Twin of `closeLams`. -/
-def closeLams : List Expr → Nat → Expr → Expr
-  | [], _, body => body
-  | dom :: bs, i, body =>
-    .lam .anonymous dom (abstract1 (closeLams bs (i + 1) body) i 0) .default
+/-- Twin of `closeTelescope` (the innermost-first `abstract1` chain), computed
+directly (`closeTelescopeFrom`): the chain walks every subterm that mentions
+an outer variable once per binder, as con-leche's does not (its cutoff reads
+the variable range, which `Lean.Expr` does not cache). -/
+def closeTelescope (bs : List Expr) (i : Nat) (body : Expr) : Expr :=
+  closeTelescopeFrom bs i 0 body
 
-/-- Twin of `Expr.abstractPrefix`. -/
-def abstractPrefix : Nat → Nat → Expr → Expr
-  | 0, _, e => e
-  | k + 1, c, e => abstractPrefix k (c + 1) (abstract1 e k c)
+/-- `closeLams`'s `closeTelescopeFrom`. -/
+def closeLamsFrom : List Expr → Nat → Nat → Expr → Expr
+  | [], i, j, body => EO.abstractDepthsFrom body i j 0
+  | dom :: bs, i, j, body =>
+    .lam .anonymous (EO.abstractDepthsFrom dom i j 0) (closeLamsFrom bs i (j + 1) body) .default
+
+/-- Twin of `closeLams`, computed directly (as `closeTelescope`). -/
+def closeLams (bs : List Expr) (i : Nat) (body : Expr) : Expr :=
+  closeLamsFrom bs i 0 body
+
+/-- Twin of `Expr.abstractPrefix` (the `abstract1` chain over the levels
+`k - 1, …, 0`), computed directly: one pass over the range. -/
+def abstractPrefix (k c : Nat) (e : Expr) : Expr := EO.abstractDepthsFrom e 0 k c
 
 /-- The terms a term reads: itself and the types of the variables reachable
 from it (con-leche's walks descend into a variable's type annotation). -/
