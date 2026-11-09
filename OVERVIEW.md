@@ -799,8 +799,8 @@ its workers' exit codes, and no theorem is about it: the modular statement compo
 run's exit 0 says. A worker's three standard streams are pipes and it inherits no other
 descriptor; its stdout and stderr are read as it runs, and its stderr is passed on for a verdict
 other than 0. Each finished module gets a line on stdout,
-`con-leche: schedule: M: VERDICT t=Ss [done/total p %, k running, 1.2 GiB (max 0.6 GiB) of 40 GiB, eta D]`:
-`done` counts the modules a resumed run found logged, and the estimate is the remaining modules
+`con-leche: schedule: M: VERDICT t=Ss rss=0.26 GiB [done/total p %, k running, 1.2 GiB (max 0.6 GiB) of 40 GiB, eta D]`:
+`rss` is the worker's own peak resident set (its `peak RSS` statistics line; `rss≥` the last value the scheduler sampled where the worker wrote none, as when killed), `done` counts the modules a resumed run found logged, and the estimate is the remaining modules
 at the rate of this run's last 200 finishes; the memory is the running workers' total resident
 set, the largest one's, and the budget when one is set (read every tick from `/proc`, left out
 where that cannot be read), and the final summary line gives the run's peak total. With

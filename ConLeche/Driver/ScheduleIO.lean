@@ -46,8 +46,8 @@ it plain `IO`:
 * **an append-only log** (`log`): one line per finished module, `<verdict>\t<module>`, written
   and flushed as it finishes; a restart with the same log skips every module it names, so a
   run interrupted anywhere resumes where it stopped;
-* **progress**: each module's line (stdout) is `M: VERDICT t=Ss [done/total p %, k running,
-  eta D]`, `done` counting a resumed run's logged modules, the estimate the remaining modules at
+* **progress**: each module's line (stdout) is `M: VERDICT t=Ss rss=X GiB [done/total p %, k running,
+  eta D]`, `X` the worker's own peak from its stats line (`rss≥X` the last sampled one where it wrote none), `done` counting a resumed run's logged modules, the estimate the remaining modules at
   the finish rate of the last 200 finishes (`progressText`); with a heartbeat (`heartbeat` ms), after that
   long without a line, the same counts and the three longest-running workers (stderr); the
   running workers' total resident memory and the largest one's (and the budget, when set)
@@ -191,6 +191,27 @@ def vmRss (s : String) : Nat := vmField "VmRSS:" s
 
 /-- The peak resident set so far in KiB of a `/proc/<pid>/status`, 0 where it has none. -/
 def vmHwm (s : String) : Nat := vmField "VmHWM:" s
+
+/-- A size in KiB as `X.YZ GiB`, rounded down to 0.01 GiB (the worker's own format, `peakRss`). -/
+def gibText (kib : Nat) : String :=
+  let x := kib * 100 / 1048576
+  s!"{x / 100}.{(x % 100) / 10}{x % 10} GiB"
+
+/-- The peak a worker reported on its stderr (`con-leche: stats: peak RSS X.YZ GiB`, from
+`peakRss`, exact to 0.01 GiB) in KiB, rounded up to the next KiB so `gibText` shows it again;
+`none` where the worker wrote no such line (killed or crashed). -/
+def reportedPeak (msg : String) : Option Nat :=
+  let key := "con-leche: stats: peak RSS "
+  (msg.splitOn "\n").findSome? fun l =>
+    if l.startsWith key then
+      match ((l.drop key.length).toString.splitOn " ").head?.map (·.splitOn ".") with
+      | some [a, b] =>
+        match a.toNat?, b.toNat? with
+        | some a, some b => if b < 100
+            then some ((a * 100 + b) * 1048576 / 100 + 1) else none
+        | _, _ => none
+      | _ => none
+    else none
 
 /-- **The workers' resident sets**: every child of this process
 (`/proc/self/task/<tid>/children`) by its last argument (`/proc/<pid>/cmdline`, a worker's
@@ -370,13 +391,18 @@ def run (parse : String → Option Name) (app : System.FilePath) (args : Name �
       h.putStrLn s!"{w}\t{spell r.m}"
       h.flush
     let now ← IO.monoMsNow
-    let (peaks, typ) := pushPeak st.peaks st.typ ((st.seen.getD r.m 0))
+    -- the worker's own peak where it reported one, else the last one sampled (a lower bound)
+    let sampled := st.seen.getD r.m 0
+    let (pk, rssText) := match reportedPeak msg with
+      | some k => (k, s!"rss={gibText k}")
+      | none => (sampled, s!"rss≥{gibText sampled}")
+    let (peaks, typ) := pushPeak st.peaks st.typ pk
     let st := { st with verdicts := st.verdicts.insert r.m w, finished := st.finished + 1,
                         peaks, typ, seen := st.seen.erase r.m,
                         nDone := st.nDone + 1, lastLine := now,
                         stamps := pushStamp st.stamps (now - t0) }
     out.putStrLn s!"con-leche: schedule: {r.m}: {w} t={ConLeche.Cached.msSecs (now - r.start)}s \
-      {progress st now}"
+      {rssText} {progress st now}"
     out.flush
     let lines := (msg.splitOn "\n").filter fun l => l != "" && !l.startsWith "con-leche: stats:"
     if w != "0" then
