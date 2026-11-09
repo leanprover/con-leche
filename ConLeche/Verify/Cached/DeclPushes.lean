@@ -401,17 +401,17 @@ theorem classRecTysOk_names (ops : CheckerOps CheckCM) (fe : FEnv) (g : ClassGen
 
 /-- Every recursor's generated rules: the generated constants kept, in
 order. -/
-theorem classRecsRulesOk_fst (ops : CheckerOps CheckCM) (w : StructWalkers) (feT feR : FEnv)
+theorem classRecsRulesOk_fst (ops : CheckerOps CheckCM) (feT feR : FEnv)
     (g : ClassGen) (recOf : Nat → Option Name) :
     ∀ (cvGs : List ConstantVal) (cs : List Nat), cvGs.length ≤ cs.length →
-      Yields (classRecsRulesOk ops w feT feR g recOf cvGs cs)
+      Yields (classRecsRulesOk ops feT feR g recOf cvGs cs)
         (fun out => out.map (·.1) = cvGs)
   | [], _, _ => by unfold classRecsRulesOk; exact Yields.pure rfl
   | _ :: _, [], h => by simp at h
   | cvG :: cvs, c :: cs, h => by
     unfold classRecsRulesOk
     refine Yields.bind fun _ => ?_
-    refine Yields.bind' (classRecsRulesOk_fst ops w feT feR g recOf cvs cs
+    refine Yields.bind' (classRecsRulesOk_fst ops feT feR g recOf cvs cs
       (by simpa using h)) fun xs hxs => ?_
     exact Yields.pure (by simp [hxs])
 
@@ -464,7 +464,7 @@ theorem genRecCheck_names (so : ShadowOps CheckCM) (fe : FEnv)
   refine Yields.bind fun pre => ?_
   refine Yields.bind' (classRecTysOk_names _ fe _ p.k p.recs cvRis _) fun cvGs hG => ?_
   refine Yields.bind fun _ => ?_
-  refine Yields.bind' (classRecsRulesOk_fst _ _ fe _ _ _ cvGs _ (by omega))
+  refine Yields.bind' (classRecsRulesOk_fst _ fe _ _ _ cvGs _ (by omega))
     fun out hout => ?_
   refine Yields.bind fun _ => ?_
   refine Yields.pure ?_

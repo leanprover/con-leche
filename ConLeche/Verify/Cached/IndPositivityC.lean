@@ -71,10 +71,6 @@ theorem replaceAppsC_fun (f : Name → List Level → Option Expr) (b n : Nat) :
 
 variable (mode : CheckMode) (fe : FEnv)
 
-theorem familyTelescopeC_eq (cv : ConstantVal) (caps : IndCaps) :
-    familyTelescopeC mode fe cv caps = familyTelescope (sharedOpsC mode fe) fe.env cv caps := by
-  simp only [familyTelescopeC, familyTelescope, reducedFormerC_eq]
-
 theorem checkSpineAtC_eq (d : Nat) : ∀ (t : Expr) (as : List Expr),
     checkSpineAtC mode fe d t as = checkSpineAt (sharedOpsC mode fe) fe.env d t as
   | _, [] => rfl
@@ -98,7 +94,7 @@ theorem nestHoleImgC_eq (ctx : NestCtx) : ∀ prog, nestHoleImgC ctx prog = nest
 
 theorem nestCanonCrestC_eq (names : List Name) (us : List Level) (n : Nat) (cty : Expr) :
     nestCanonCrestC names us n cty = nestCanonCrest names us n cty := by
-  simp only [nestCanonCrestC, nestCanonCrest, instPisWithC_eq, replaceAppsC_fun]
+  simp only [nestCanonCrestC, nestCanonCrest, Expr.instPisWithC_eq, replaceAppsC_fun]
 
 theorem nestCrestC_eq (names : List Name) (us : List Level) (ds holes : List Expr) (cty : Expr) :
     nestCrestC names us ds holes cty = nestCrest names us ds holes cty := by
@@ -106,7 +102,7 @@ theorem nestCrestC_eq (names : List Name) (us : List Level) (ds holes : List Exp
 
 theorem nestInstTypeC_eq (ctx : NestCtx) (hi : Nat) (key : NestKey) :
     nestInstTypeC mode ctx fe hi key = nestInstType ctx (sharedOpsC mode fe) fe.env hi key := by
-  simp only [nestInstTypeC, nestInstType, familyTelescopeC_eq, instPisWithC_eq,
+  simp only [nestInstTypeC, nestInstType, familyTelescopeC_eq, Expr.instPisWithC_eq,
     Expr.instLevelParams_spec, Expr.nestOccC_spec] <;> rfl
 
 theorem nestFieldsC_eq
@@ -195,7 +191,7 @@ theorem nestPosC_eq (ctx : NestCtx) :
     rfl
 
 theorem nestHolesC_eq (ctx : NestCtx) : nestHolesC ctx = nestHoles ctx := by
-  simp only [nestHolesC, nestHoles, instPisWithC_eq] <;> rfl
+  simp only [nestHolesC, nestHoles, Expr.instPisWithC_eq] <;> rfl
 
 theorem nestRootCanonC_eq (ctx : NestCtx) (cv : ConstantVal) :
     nestRootCanonC ctx cv = nestRootCanon ctx cv := by

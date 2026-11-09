@@ -149,10 +149,8 @@ def reducedFormerC (fe : FEnv) (cv : ConstantVal) (n : Nat) : CheckCM ConstantVa
   let (bs, s) ← whnfTelescopeC mode fe 0 n cv.type
   pure { cv with type := Expr.closeTelescopeC bs 0 (.sort s) }
 
-/-! ## A family at a key -/
-
-/-- The cached `familyTelescope`: the stored type, or the reduct by
-`reducedFormerC`. -/
+/-- The cached `familyTelescope`: a definition-headed former's reduct
+by `reducedFormerC` (`familyTelescopeC_eq`). -/
 def familyTelescopeC (fe : FEnv) (cv : ConstantVal) (caps : IndCaps) : CheckCM Expr :=
   if formerDefHeaded cv then do
     let cvR ← reducedFormerC mode fe cv (caps.nparams + caps.nIdx)
@@ -202,10 +200,10 @@ def nestHoleImgC (ctx : NestCtx) : List NestHole → Nat → Option Expr
         (h.key.ds.map (Expr.replaceFVarsC (nestHoleImgC ctx prog))))
     else nestHoleImgC ctx prog i
 
-/-- The cached `nestCanonCrest`: `instPisWithC`, then `replaceAppsC`. -/
+/-- The cached `nestCanonCrest`: `Expr.instPisWithC`, then `replaceAppsC`. -/
 def nestCanonCrestC (names : List Name) (us : List Level) (n : Nat) (cty : Expr) :
     Option Expr :=
-  (instPisWithC (nestPhs n) cty).map (Expr.replaceAppsC (nestCanonSub names us n) 0 n)
+  (Expr.instPisWithC (nestPhs n) cty).map (Expr.replaceAppsC (nestCanonSub names us n) 0 n)
 
 /-- The cached `nestCrest`: `nestCanonCrestC`, then `replaceFVarsC`. -/
 def nestCrestC (names : List Name) (us : List Level) (ds holes : List Expr) (cty : Expr) :
@@ -213,7 +211,7 @@ def nestCrestC (names : List Name) (us : List Level) (ds holes : List Expr) (cty
   (nestCanonCrestC names us ds.length cty).map (Expr.replaceFVarsC (nestKeyMap ds holes))
 
 /-- The cached `nestInstType`: the container's telescope by
-`familyTelescopeC`, instantiated by `instLevelParams` and `instPisWithC`,
+`familyTelescopeC`, instantiated by `instLevelParams` and `Expr.instPisWithC`,
 its binders read once. -/
 def nestInstTypeC (ctx : NestCtx) (fe : FEnv) (hi : Nat) (key : NestKey) :
     CheckCM (Nat × Expr) := do
@@ -228,7 +226,7 @@ def nestInstTypeC (ctx : NestCtx) (fe : FEnv) (hi : Nat) (key : NestKey) :
   unless (tyC.stripPis key.ds.length).isSome do
     throw (.invalid "nested positivity: invalid nested inductive datatype, its type does \
       not bind its parameters (official: ill-formed inductive type)")
-  let ty ← unwrapOr (instPisWithC key.ds
+  let ty ← unwrapOr (Expr.instPisWithC key.ds
       (Expr.instLevelParams cvC.levelParams key.lvls tyC))
     (.invalid "nested positivity: invalid nested inductive datatype, its type does not bind \
       its parameters (official: ill-formed inductive type)")
@@ -430,11 +428,11 @@ def nestPosC (fe : FEnv) (ctx : NestCtx) :
         pure (k, w, st)
       | _ => throw nestNonValid
 
-/-- The cached `nestHoles`: the formers instantiated by `instPisWithC`. -/
+/-- The cached `nestHoles`: the formers instantiated by `Expr.instPisWithC`. -/
 def nestHolesC (ctx : NestCtx) : Option (List Expr) :=
   (List.range ctx.names.length).mapM fun mm =>
     match ctx.formers[mm]? with
-    | some cv => (instPisWithC ctx.params cv.type).map (.fvar (ctx.nP + mm) ·)
+    | some cv => (Expr.instPisWithC ctx.params cv.type).map (.fvar (ctx.nP + mm) ·)
     | none => none
 
 /-- The cached `nestRootCanon`. -/

@@ -169,7 +169,7 @@ theorem genRuleAt (R : GenRecRun mode F fe₁ env₁ fe p nb pos block out)
       x.nF = ctor.2 ∧ x.cv = ctor.1 ∧
       ConLeche.classGenRule R.g (ConLeche.classRecOf R.rd.recCls R.cvGs)
         (r.1.levelParams.map .param) c x = some gen ∧
-      Nonempty (ClassRuleRun mode F .plain fe (ConLeche.classFeR p R.Ms R.cvGs R.rd.recCls fe)
+      Nonempty (ClassRuleRun mode F fe (ConLeche.classFeR p R.Ms R.cvGs R.rd.recCls fe)
         r.1
         (R.g.nP + R.g.slots.length + x.nF) gen rhs) := by
   obtain ⟨t, ho, rfl⟩ : ∃ t, out[j]? = some t ∧ r = (t.1, t.2.2, t.2.1.nIdx, t.2.1.ctors) := by
@@ -2079,7 +2079,6 @@ theorem genRecHdataS
     have hcb : ∀ q ∈ bs, ConstsBound envC q :=
       openLamsM_constsBound _ hstrip (fun q hq => by
         have hres := RR.hdoms q hq
-        simp only [ConLeche.StructWalkers.plain] at hres
         rw [ConLeche.constsResolveF_eq] at hres
         exact constsBound_of_constsResolve _ hres) hop
     rw [← readLamBs_cross (fun d e hcbe => blockRecDenote_cross_eq h _ d e hcbe) 0 bs hcb,

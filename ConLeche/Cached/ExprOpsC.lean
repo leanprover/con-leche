@@ -907,6 +907,95 @@ def replaceFVarsC (f : Nat → Option Expr) (e : @& Expr) : Expr :=
   if hcut : e.fvarB = 0 then e else
   resTerm (replaceFVarsXP f none e hcut)
 
+/-! ## The member abstraction (task #498)
+
+`targetAbs names lvls holes` (`Kernel/Inductives/RecCheck.lean`): every
+member constant at the block's levels replaced by its hole, `fvar`
+annotations not entered.  No field records which constants a node
+mentions, so there is no cutoff: like `nestOccC`, the walk decides its
+leaves directly and probes only a compound node `withExclusive`
+reports shared.  `targetAbsP_spec` (`ConLeche/Verify/Cached/IndWalksC.lean`)
+reads the descent as `targetAbs`. -/
+
+/-- A constant's member abstraction (the walk's one rewriting leaf). -/
+@[inline] def targetAbsConst (names : List Name) (lvls : List Level) (holes : List Expr)
+    (n : Name) (us : List Level) : Expr :=
+  if us == lvls then
+    match names.findIdx? (· == n) with
+    | some t => holes.getD t (.const n us)
+    | none => .const n us
+  else .const n us
+
+/-- The plain descent of `targetAbsC`. -/
+def targetAbsP (names : List Name) (lvls : List Level) (holes : List Expr) (e : Expr) : Expr :=
+  match e with
+  | .bvar .. | .fvar .. | .sort .. | .lit .. => e
+  | .const n us .. => targetAbsConst names lvls holes n us
+  | .app a b .. => mkApp (targetAbsP names lvls holes a) (targetAbsP names lvls holes b)
+  | .lam ty body .. => mkLam (targetAbsP names lvls holes ty) (targetAbsP names lvls holes body)
+  | .forallE ty body .. =>
+    mkForallE (targetAbsP names lvls holes ty) (targetAbsP names lvls holes body)
+  | .letE ty val body .. =>
+    mkLetE (targetAbsP names lvls holes ty) (targetAbsP names lvls holes val)
+      (targetAbsP names lvls holes body)
+  | .proj sn i sub .. => mkProj sn i (targetAbsP names lvls holes sub)
+
+/-- The child step of `targetAbsXP`: the compound test, then the
+exclusivity read (no cutoff). -/
+@[inline] def enterTA (names : @& List Name) (lvls : @& List Level) (holes : @& List Expr)
+    (e : @& Expr) (memo : MemoXP0 (targetAbsP names lvls holes))
+    (rec : Unit → Squash (ResXP0 (targetAbsP names lvls holes) e)) :
+    Squash (ResXP0 (targetAbsP names lvls holes) e) :=
+  if !isCompound e then rec () else
+  withExcl e fun excl =>
+    if excl then rec () else memo.shared e fun _ => rec ()
+
+/-- The walk of `targetAbsC`. -/
+def targetAbsXP (names : @& List Name) (lvls : @& List Level) (holes : @& List Expr)
+    (memo : MemoXP0 (targetAbsP names lvls holes)) (e : @& Expr) :
+    Squash (ResXP0 (targetAbsP names lvls holes) e) :=
+  match e with
+  | .bvar j .. => Squash.mk (⟨.bvar j, by rw [targetAbsP]⟩, memo)
+  | .fvar i ty .. => Squash.mk (⟨.fvar i ty, by rw [targetAbsP]⟩, memo)
+  | .sort u .. => Squash.mk (⟨.sort u, by rw [targetAbsP]⟩, memo)
+  | .lit l .. => Squash.mk (⟨.lit l, by rw [targetAbsP]⟩, memo)
+  | .const n us .. =>
+    Squash.mk (⟨targetAbsConst names lvls holes n us, by rw [targetAbsP]⟩, memo)
+  | .app a b .. =>
+    enterTA names lvls holes a memo (fun _ => targetAbsXP names lvls holes memo a) |>.lift
+      fun (⟨a', ha⟩, memo) =>
+    enterTA names lvls holes b memo (fun _ => targetAbsXP names lvls holes memo b) |>.lift
+      fun (⟨b', hb⟩, memo) =>
+    Squash.mk (⟨mkApp a' b', by rw [targetAbsP, ha, hb]⟩, memo)
+  | .lam ty body .. =>
+    enterTA names lvls holes ty memo (fun _ => targetAbsXP names lvls holes memo ty) |>.lift
+      fun (⟨ty', ht⟩, memo) =>
+    enterTA names lvls holes body memo (fun _ => targetAbsXP names lvls holes memo body) |>.lift
+      fun (⟨b', hb⟩, memo) =>
+    Squash.mk (⟨mkLam ty' b', by rw [targetAbsP, ht, hb]⟩, memo)
+  | .forallE ty body .. =>
+    enterTA names lvls holes ty memo (fun _ => targetAbsXP names lvls holes memo ty) |>.lift
+      fun (⟨ty', ht⟩, memo) =>
+    enterTA names lvls holes body memo (fun _ => targetAbsXP names lvls holes memo body) |>.lift
+      fun (⟨b', hb⟩, memo) =>
+    Squash.mk (⟨mkForallE ty' b', by rw [targetAbsP, ht, hb]⟩, memo)
+  | .letE ty val body .. =>
+    enterTA names lvls holes ty memo (fun _ => targetAbsXP names lvls holes memo ty) |>.lift
+      fun (⟨ty', ht⟩, memo) =>
+    enterTA names lvls holes val memo (fun _ => targetAbsXP names lvls holes memo val) |>.lift
+      fun (⟨v', hv⟩, memo) =>
+    enterTA names lvls holes body memo (fun _ => targetAbsXP names lvls holes memo body) |>.lift
+      fun (⟨b', hb⟩, memo) =>
+    Squash.mk (⟨mkLetE ty' v' b', by rw [targetAbsP, ht, hv, hb]⟩, memo)
+  | .proj sn i sub .. =>
+    enterTA names lvls holes sub memo (fun _ => targetAbsXP names lvls holes memo sub) |>.lift
+      fun (⟨s', hs⟩, memo) =>
+    Squash.mk (⟨mkProj sn i s', by rw [targetAbsP, hs]⟩, memo)
+
+/-- The cached `targetAbs names lvls holes` (one memoized DAG walk). -/
+def targetAbsC (names : List Name) (lvls : List Level) (holes : List Expr) (e : @& Expr) : Expr :=
+  resTerm (targetAbsXP names lvls holes none e)
+
 /-! ## Level instantiation -/
 
 /-- The plain descent of `instLevelParams`: the reference of
@@ -1928,11 +2017,18 @@ closed at cursor `c` in one `abstractRangeC` pass. -/
 def abstractPrefixC (k c : Nat) (e : Expr) : Expr :=
   abstractRangeC e 0 k c
 
-/-- The cached `instPisWith`: the leading `∀` binders instantiated at
-`args` in order, each by `instantiate1C` (`instPisWithC_eq`). -/
-def _root_.ConLeche.instPisWithC : List Expr → Expr → Option Expr
+/-- The cached `instPisWith`: the leading binders instantiated one by
+one by `instantiate1C` (`instPisWithC_eq`). -/
+def instPisWithC : List Expr → Expr → Option Expr
   | [], e => some e
-  | a :: as, .forallE _ body .. => instPisWithC as (instantiate1C body a)
+  | a :: as, .forallE _ body => instPisWithC as (instantiate1C body a)
+  | _ :: _, _ => none
+
+/-- The cached `targetPiDomsWith`: each binder opened by `instantiate1C`
+(`targetPiDomsWithC_eq`). -/
+def targetPiDomsWithC : List Expr → Expr → Option (List Expr)
+  | [], _ => some []
+  | x :: xs, .forallE d b => (d :: ·) <$> targetPiDomsWithC xs (instantiate1C b x)
   | _ :: _, _ => none
 
 /-- The cached `Expr.piDomsMentionAny`: some binder domain of the

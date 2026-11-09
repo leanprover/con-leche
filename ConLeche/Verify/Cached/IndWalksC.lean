@@ -126,7 +126,57 @@ theorem abstractPrefixC_eq : ∀ (k c : Nat) (e : Expr),
     rw [abstractPrefix, ← abstractPrefixC_eq k (c + 1), abstractPrefixC, abstractPrefixC,
       abstractRangeC_spec, abstractRangeC_spec, abstractRange_succ, Nat.zero_add]
 
-/-! ## Depth and parameter instantiation -/
+/-! ## The member abstraction -/
+
+/-- **The plain descent computes `targetAbs`.** -/
+theorem targetAbsP_spec {names : List Name} {lvls : List Level} {holes : List Expr} :
+    ∀ e : Expr, targetAbsP names lvls holes e = targetAbs names lvls holes e := by
+  intro e
+  induction e with
+  | const n us =>
+    simp only [targetAbsP, targetAbs, targetAbsConst]
+    cases List.findIdx? (· == n) names <;> rfl
+  | _ => simp_all [targetAbsP, targetAbs]
+
+/-- **The cached member abstraction computes `targetAbs`.** -/
+theorem targetAbsC_spec {names : List Name} {lvls : List Level} {holes : List Expr} {e : Expr} :
+    targetAbsC names lvls holes e = targetAbs names lvls holes e := by
+  rw [targetAbsC, resTerm_eq, targetAbsP_spec]
+
+/-! ## Opening telescopes at given arguments -/
+
+/-- **The cached `instPisWith` is `instPisWith`.** -/
+theorem instPisWithC_eq : ∀ (as : List Expr) (e : Expr), instPisWithC as e = instPisWith as e
+  | [], _ => rfl
+  | a :: as, .forallE _ body => by
+    rw [instPisWithC, instPisWith, instantiate1C_spec, instPisWithC_eq as]
+  | _ :: _, .bvar _ => rfl
+  | _ :: _, .fvar .. => rfl
+  | _ :: _, .sort _ => rfl
+  | _ :: _, .const .. => rfl
+  | _ :: _, .app .. => rfl
+  | _ :: _, .lam .. => rfl
+  | _ :: _, .letE .. => rfl
+  | _ :: _, .lit _ => rfl
+  | _ :: _, .proj .. => rfl
+
+/-- **The cached `targetPiDomsWith` is `targetPiDomsWith`.** -/
+theorem targetPiDomsWithC_eq :
+    ∀ (xs : List Expr) (e : Expr), targetPiDomsWithC xs e = targetPiDomsWith xs e
+  | [], _ => rfl
+  | x :: xs, .forallE _ body => by
+    rw [targetPiDomsWithC, targetPiDomsWith, instantiate1C_spec, targetPiDomsWithC_eq xs]
+  | _ :: _, .bvar _ => rfl
+  | _ :: _, .fvar .. => rfl
+  | _ :: _, .sort _ => rfl
+  | _ :: _, .const .. => rfl
+  | _ :: _, .app .. => rfl
+  | _ :: _, .lam .. => rfl
+  | _ :: _, .letE .. => rfl
+  | _ :: _, .lit _ => rfl
+  | _ :: _, .proj .. => rfl
+
+/-! ## Depth -/
 
 /-- **The plain descent computes `Expr.depth`.** -/
 theorem depthP_spec : ∀ e : Expr, depthP e = e.depth := by
@@ -137,19 +187,13 @@ theorem depthP_spec : ∀ e : Expr, depthP e = e.depth := by
 theorem depthC_spec {e : Expr} : depthC e = e.depth := by
   rw [depthC, resNat_eq, depthP_spec]
 
-/-- **The cached parameter instantiation is `instPisWith`.** -/
-theorem _root_.ConLeche.instPisWithC_eq : ∀ (args : List Expr) (e : Expr),
-    instPisWithC args e = instPisWith args e
-  | [], _ => rfl
-  | a :: as, e => by
-    cases e <;> simp only [instPisWithC, instPisWith, instantiate1C_spec,
-      ConLeche.instPisWithC_eq as]
-
 end ConLeche.Expr
 
 namespace ConLeche.Cached
 
 open ConLeche
+
+/-! ## The occurrence test of the guard rows (moved from `DiscC4.lean`, as below) -/
 
 /-- The cached occurrence test is `Expr.hasLooseBVarB` (task #497). -/
 theorem hasLooseBVarBC_spec {i : Nat} {e : Expr} :
@@ -158,6 +202,8 @@ theorem hasLooseBVarBC_spec {i : Nat} {e : Expr} :
   split
   · next h => exact (Expr.hasLooseBVarBP_cut h).symm
   · rw [Expr.resBool_eq]; rfl
+
+/-! ## The one-pass opener (moved from `DiscC4.lean`: the driver's equations import this file) -/
 
 /-- The cached opening loop is the kernel's. -/
 theorem openPisAtFvarsGoC_eq :
