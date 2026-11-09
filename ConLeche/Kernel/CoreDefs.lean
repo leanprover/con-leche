@@ -771,14 +771,18 @@ def openPisAtFvars : Nat → Expr → Nat → Option (List Expr × Expr)
 innermost binder first.  Computes
 `openPisAtFvars n (e.instantiateList acc) i` whenever `e` raw-strips
 `n` `∀`-binders (`openPisAtFvarsFGo_sound`), `none` otherwise —
-one `instantiateList` pass per domain instead of one whole-telescope
-`instantiate1` pass per binder. -/
-def openPisAtFvarsFGo (acc : List Expr) :
+one bulk instantiation pass per domain instead of one whole-telescope
+`instantiate1` pass per binder.  The bulk instantiation `inst` is
+`Expr.instantiateList` here and the cached engine's
+`Expr.instantiateListC` in `openPisAtFvarsC` (`Cached/ExprOpsC.lean`,
+task #496); the soundness lemma holds for any `inst` equal to
+`instantiateList`. -/
+@[specialize] def openPisAtFvarsFGo (inst : Expr → List Expr → Expr) (acc : List Expr) :
     Nat → Expr → Nat → Option (List Expr × Expr)
-  | 0, e, _ => some ([], e.instantiateList acc)
+  | 0, e, _ => some ([], inst e acc)
   | n + 1, .forallE dom body, i =>
-    let fv : Expr := .fvar i (dom.instantiateList acc)
-    match openPisAtFvarsFGo (fv :: acc) n body (i + 1) with
+    let fv : Expr := .fvar i (inst dom acc)
+    match openPisAtFvarsFGo inst (fv :: acc) n body (i + 1) with
     | some (fvs, e) => some (fv :: fvs, e)
     | none => none
   | _ + 1, _, _ => none
@@ -788,7 +792,7 @@ fallback covers telescopes whose binders only appear after
 substitution). -/
 def openPisAtFvarsF (n : Nat) (e : Expr) (i : Nat) :
     Option (List Expr × Expr) :=
-  match openPisAtFvarsFGo [] n e i with
+  match openPisAtFvarsFGo (fun e vs => e.instantiateList vs) [] n e i with
   | some r => some r
   | none => openPisAtFvars n e i
 

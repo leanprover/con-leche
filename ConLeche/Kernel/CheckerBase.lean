@@ -124,19 +124,22 @@ def checkConstantVal (ops : CheckerOps m) (env : Env) (cv : ConstantVal)
   let _u ← ops.ensureSort env 0 stype
 
 open Expr in
-theorem openPisAtFvarsFGo_sound :
+/-- The one-pass opening is the sequential one, at any bulk
+instantiation `inst` that is `instantiateList`. -/
+theorem openPisAtFvarsFGo_sound {inst : Expr → List Expr → Expr}
+    (hinst : ∀ e vs, inst e vs = e.instantiateList vs) :
     ∀ (n : Nat) (e : Expr) (i : Nat) (acc : List Expr)
       {r : List Expr × Expr},
-      openPisAtFvarsFGo acc n e i = some r →
+      openPisAtFvarsFGo inst acc n e i = some r →
       openPisAtFvars n (e.instantiateList acc) i = some r
   | 0, e, i, acc, r, h => by
-    simp only [openPisAtFvarsFGo, Option.some.injEq] at h
+    simp only [openPisAtFvarsFGo, Option.some.injEq, hinst] at h
     simp only [openPisAtFvars, ← h]
   | n + 1, .forallE dom body, i, acc, r, h => by
-    simp only [openPisAtFvarsFGo] at h
+    simp only [openPisAtFvarsFGo, hinst] at h
     split at h
     case _ fvs e' hgo =>
-      have ih := openPisAtFvarsFGo_sound n body (i + 1)
+      have ih := openPisAtFvarsFGo_sound hinst n body (i + 1)
         (Expr.fvar i (dom.instantiateList acc) :: acc) hgo
       rw [instantiateList_cons] at ih
       simp only [instantiateList, openPisAtFvars, ih]
@@ -147,9 +150,9 @@ open Expr in
 theorem openPisAtFvarsF_eq (n : Nat) (e : Expr) (i : Nat) :
     openPisAtFvarsF n e i = openPisAtFvars n e i := by
   unfold openPisAtFvarsF
-  match h : openPisAtFvarsFGo [] n e i with
+  match h : openPisAtFvarsFGo (fun e vs => e.instantiateList vs) [] n e i with
   | some r =>
-    have := openPisAtFvarsFGo_sound n e i [] h
+    have := openPisAtFvarsFGo_sound (fun _ _ => rfl) n e i [] h
     rw [instantiateList_nil] at this
     exact this.symm
   | none => rfl

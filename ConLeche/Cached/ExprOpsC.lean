@@ -1297,6 +1297,16 @@ decreasing_by
 def piResidual (e : Expr) (args : List Expr) : Option Expr :=
   piResidualAcc [] e args
 
+/-- The cached `openPisAtFvarsF`: the same one-pass opening
+(`openPisAtFvarsFGo`), each domain and the residual instantiated by
+`instantiateListC` (task #496: on a projection's guard the residual is
+the constructor's whole field telescope). -/
+def _root_.ConLeche.openPisAtFvarsC (n : Nat) (e : Expr) (i : Nat) :
+    Option (List Expr × Expr) :=
+  match openPisAtFvarsFGo (fun e vs => instantiateListC e vs) [] n e i with
+  | some r => some r
+  | none => openPisAtFvars n e i
+
 /-! ## Level-parameter definedness (the parsed-index driver's guard) -/
 
 /-- The plain descent of `allLevelParamsDefinedC`: the reference the
