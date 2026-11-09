@@ -111339,3 +111339,69 @@ unchanged, the reach gate at 734).  The link gates' citations moved with `Positi
 lines (OVERVIEW and the whitepaper, re-pointed, no cited text changed).  Two `public import`s
 of `Verify/Cached/IndWalksC.lean` are kept public against the plan script's census, measured, in
 its fallback list.
+
+## TASK #498 — L3: the block pass and the classes run cached twins (2026-11-09, agent/498-l3)
+
+**The twins** (new module `Cached/IndPass.lean`, monomorphic `(mode) (fe)` `CheckCM`
+definitions over `coreKnotI` and the cached walks, no operations record):
+
+| twin | specification | cached walks it runs |
+|---|---|---|
+| `checkBlockIndsC` → `checkBlockTeleC`/`checkBlockTelesC`, `checkBlockAgreeC`, `checkBlockDomsAtC` | `checkBlockIndsF` & co. | `checkConstantValC`, `openPisAtFvarsC`, the core's `defeq` |
+| `checkBlockCtorsC` → `checkSumCtorsC` → `checkSumCtorC`, `checkStructDomsAtC`, `checkStructFieldSortsC` | `checkBlockCtorsF`, `checkSumCtor(s)F`, `checkStructDomsAtFA`, `checkStructFieldSortsIFA` | `checkConstantValC`, `openPisAtFvarsC`, `getAppArgsC` (the residual's spine read once, the specification reads it three times), `constsResolveFC` |
+| `checkBlockIdxSortsC` (the tail's first step) | `checkBlockIdxSortsF` | `openPisAtFvarsC`, the array field-sort walk (`checkStructFieldSortsIFA_eq`) |
+| `checkBlockClassesC` → `classReadC` (`classReadSlotsC`, `classReadMinorC`), `classKeyOfC` (`classKeyCanonC`, `targetCanonParamsC`), `classMajorsC` → `targetMajorOfC`, `targetOutsideInstC`, `targetMajorPinsC`, `targetPinTysC` | `checkBlockClasses` & co. (`ClassRead.lean`, `GenRec.lean`, `RecCheck.lean`) | `openPisAtFvarsC`, `instantiate1C`, `getAppArgsC`, `replaceFVarsC`, `nestOccC`, `instLevelParams`, `instPisWithC` |
+| `familyTelescopeC`, `checkSpineAtC`, `familyKeyCheckC` (in `Cached/IndPositivity.lean`, the `Positivity.lean` twins, where positivity can use them too) | `familyTelescope`, `checkSpineAt`, `familyKeyCheck` | `reducedFormerC`, `instantiate1C`, `instLevelParams` |
+| `instPisWithC` (`Cached/ExprOpsC.lean`, a pure loop) | `instPisWith` | `instantiate1C` |
+
+Shared and unchanged: `consBlockIndsF`, `consBlockCtorsF`, `consSumCtorsF`, `blockCapsAt`,
+`structCtorResidOk`, `structPsAt`, `checkSumTele`, `classNPcOf`, `classOfMotiveVar` (no `Expr`
+walk; spines and lists).  `checkConstantValC` with `unresolvedConstsErrorLC` and `opSIxC` moved
+from `CheckerC.lean` to the head of `IndPass.lean` (the twins sit below the driver).
+`checkBlockPassS` runs `checkBlockIndsC`, `checkBlockCtorsC`, `checkBlockClassesC`;
+`checkBlockTailS` runs `checkBlockIdxSortsC`.
+
+**The relation.**  Every twin mirrors its specification at `sharedOpsC`, so each is an
+equation (`Verify/Cached/IndPassC.lean`, 221 lines, 26 equations): unfold both sides,
+rewrite the walks by their spec lemmas and the callees by their equations, close by `rfl`
+(where the two sides' `match`es compile to different matchers).  The driver proofs
+(`checkBlockPassS_run`, `checkBlockPassS_twin`, `checkBlockPassS_push`, `checkBlockTailS_run`,
+`checkBlockTailS_twin`) rewrite by `checkBlockIndsC_eq`, `checkBlockCtorsC_eq`,
+`checkBlockClassesC_eq`, `checkBlockIdxSortsC_eq` once after unfolding; nothing else in them
+changed (+8 lines).
+
+**A trap: the binary links the proof modules the driver imports.**  The first version proved
+against `openPisAtFvarsC_eq` by importing `Verify/Cached/DiscC4.lean`; through `PushChain`/
+`ViewCongr` (which the driver imports) the binary then linked `DiscC1`–`DiscC4`, `Grind`,
+`GrindAttr` and with them `Lean.Meta`: 19 → 135 MB, and every run paid their module
+initialisers, +110 … +160 M instructions (`prop_struct_proj_wide` +33 %, grind-ring-5 +1.2 %).
+`openPisAtFvarsGoC_eq`, `openPisAtFvarsFGo_none` and `openPisAtFvarsC_eq` moved to the end of
+`Verify/Cached/IndWalksC.lean` (`DiscC4` imports it).  The new gate `tests/binary-link.sh` (in
+`tests/arena.sh`) fails when the built binary carries any `initialize_Lean…` symbol.
+
+**The reach gate.**  734 → 711 reached plain declarations; removed: `checkBlockIndsF`,
+`checkBlockTeleF`, `checkBlockTelesF`, `checkBlockAgreeF`, `checkBlockDomsAtF`,
+`checkBlockCtorsF`, `checkSumCtorF`, `checkSumCtorsF`, `checkStructDomsAtFA`,
+`checkStructFieldSortsIF`, `checkStructFieldSortsIFA`, `checkBlockIdxSortsF`,
+`checkBlockClasses`, `classRead`, `classReadSlots`, `classReadMinor`, `classKeyOf`,
+`classKeyCanon`, `classMajors`, `targetMajorOf`, `targetOutsideInst`, `targetMajorPins`,
+`targetPinTys`.  No `@[csimp]` memo walk became unreached: `openPisAtFvars`, `instantiate1`,
+`replaceFVars` (`targetParamsDefEq`), `nestOcc`, `instantiateLevelParams`, `familyTelescope`,
+`checkSpineAt`, `familyKeyCheck` and `instPisWith` are still run by positivity and the recursor
+stage (L2, L4); no memo walk is deleted by this lane.
+
+**Numbers** (`perf stat -e instructions:u`, one run each, `--jobs=1`, verified; master
+367faa1e9 → the lane):
+
+| run | master | lane | change |
+|---|---|---|---|
+| init-full | 374.686 G | 374.696 G | +0.003 % |
+| grind-ring-5 | 13.1476 G | 13.1393 G | −0.06 % |
+| `BvStruct` module | 431.912 G | 431.851 G | |
+| `Empty` module | 429.646 G | 429.571 G | |
+| `BvStruct` − `Empty` | 2.266 G | 2.280 G | (the module runs move by ~20 M run to run, L1's record) |
+| e2e `prop_struct_proj_wide` | 492.78 M | 488.76 M | −0.8 % |
+
+The pass and the classes were cheap already (the cost of the inductive check is in positivity,
+the recursor stage and the tables: L2, L4, L5); the lane is about the reach, not speed.  The same
+verdicts everywhere.
