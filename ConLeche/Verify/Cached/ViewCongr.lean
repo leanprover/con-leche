@@ -7,6 +7,7 @@ import ConLeche.Verify.Cached.PinOverlay
 import ConLeche.Verify.Cached.PinsC
 import ConLeche.Verify.Cached.BlockOverlay
 import ConLeche.Verify.Cached.WalkersC
+import ConLeche.Verify.Cached.IndTailC
 import ConLeche.Verify.Cached.IndPositivityC
 import ConLeche.Verify.Cached.IndRecC
 
@@ -986,15 +987,15 @@ theorem recTyOpened_envFree (h : EnvFree ops) (env₁ env₂ : Env) (rec : Name)
   | some (_, _), none => rfl
 
 /-- The stored recursors' check (task #431) reads its index through
-`resolve` alone, and through operations that ignore their environment. -/
+the constant-resolution gate alone, and through operations that ignore their environment. -/
 theorem streamRecsCheck_twin (h : EnvFree ops) {fe₁ fe₂ : FEnv}
-    (hR : w.resolve fe₁ = w.resolve fe₂) :
-    ∀ recs out, streamRecsCheck ops w fe₁ recs out = streamRecsCheck ops w fe₂ recs out
+    (hR : ∀ e : Expr, e.constsResolveF fe₁ = e.constsResolveF fe₂) :
+    ∀ recs out, streamRecsCheck ops fe₁ recs out = streamRecsCheck ops fe₂ recs out
   | [], [] => rfl
   | rc :: rcs, g :: gs => by
     have ih := streamRecsCheck_twin h hR rcs gs
-    have hrules : ∀ lps rec rs gs', streamRulesCheck ops w fe₁ rec lps rs gs'
-        = streamRulesCheck ops w fe₂ rec lps rs gs' := by
+    have hrules : ∀ lps rec rs gs', streamRulesCheck ops fe₁ rec lps rs gs'
+        = streamRulesCheck ops fe₂ rec lps rs gs' := by
       intro lps rec rs
       induction rs with
       | nil => intro gs'; cases gs' <;> rfl
@@ -1099,17 +1100,15 @@ theorem RelRun.bind_push {β : Type} {R' : β → β → Prop} {fe₁ fe₂ : FE
   RelRun.bind hx fun _ _ ⟨L, Q, h₁, h₂⟩ => h₁ ▸ h₂ ▸ hk L Q (ht.pushDelta L Q)
 
 theorem checkStructProjTableF_twin {fe₁ fe₂ : FEnv} (ht : Twin fe₁ fe₂) (t : ProjTable) :
-    checkStructProjTableF (m := CheckCM) structWalkersC t fe₁
-      = checkStructProjTableF (m := CheckCM) structWalkersC t fe₂ := by
+    checkStructProjTableF (m := CheckCM) t fe₁
+      = checkStructProjTableF (m := CheckCM) t fe₂ := by
   unfold checkStructProjTableF
-  have hres : structWalkersC.resolve fe₁ = structWalkersC.resolve fe₂ :=
-    constsResolveFC_congr ht.find
-  simp only [hres, ht.find, ht.findTable]
+  simp only [constsResolveF_congr ht.find, ht.find, ht.findTable]
 
 theorem checkBlockTablesF_twin {fe₁ fe₂ : FEnv} (ht : Twin fe₁ fe₂) :
     ∀ Q : List ProjTable,
-      checkBlockTablesF (m := CheckCM) structWalkersC fe₁ Q
-        = checkBlockTablesF (m := CheckCM) structWalkersC fe₂ Q
+      checkBlockTablesF (m := CheckCM) fe₁ Q
+        = checkBlockTablesF (m := CheckCM) fe₂ Q
   | [] => rfl
   | t :: rest => by
     unfold checkBlockTablesF
@@ -1171,7 +1170,7 @@ theorem checkBlockTailS_twin {fe₁ fe₂ : FEnv} (ht : Twin fe₁ fe₂)
   subst hq₂
   unfold checkBlockTailS
   dsimp only
-  simp only [genRecCheckC_eq]
+  simp only [streamRecsCheckC_eq, checkBlockTablesC_eq, genRecCheckC_eq]
   simp only [checkBlockIdxSortsC_eq]
   generalize p.memberCtors = memberCtors
   have htL := ht.pushDelta L Q
@@ -1184,11 +1183,11 @@ theorem checkBlockTailS_twin {fe₁ fe₂ : FEnv} (ht : Twin fe₁ fe₂)
   have hO : ∀ X : List ConstantInfo,
       streamRecsCheck
           (sharedOpsC mode ((consBlockCtorsF p.nP memberCtors (FEnv.pushDelta L Q fe₁)).overlay
-            X.reverse)) structWalkersC
+            X.reverse))
           ((consBlockCtorsF p.nP memberCtors (FEnv.pushDelta L Q fe₁)).overlay X.reverse)
         = streamRecsCheck
           (sharedOpsC mode ((consBlockCtorsF p.nP memberCtors (FEnv.pushDelta L Q fe₂)).overlay
-            X.reverse)) structWalkersC
+            X.reverse))
           ((consBlockCtorsF p.nP memberCtors (FEnv.pushDelta L Q fe₂)).overlay X.reverse) := by
     intro X
     have hf : ((consBlockCtorsF p.nP memberCtors (FEnv.pushDelta L Q fe₁)).overlay X.reverse).find?
@@ -1204,7 +1203,7 @@ theorem checkBlockTailS_twin {fe₁ fe₂ : FEnv} (ht : Twin fe₁ fe₂)
     funext recs out
     rw [sharedOpsC_congr hf htb]
     exact streamRecsCheck_twin (sharedOpsC_envFree mode _)
-      (constsResolveFC_congr hf) recs out
+      (constsResolveF_congr hf) recs out
   simp only [sharedOpsC_congr htL.find htL.findTable, checkBlockIdxSortsF_congr h (FEnv.pushDelta L Q fe₁)
       (FEnv.pushDelta L Q fe₂), genRecCheck_twin ht₂, hO]
   rw [hL₂, hL₂, checkBlockTablesF_twin (htL.pushAll L₂)]

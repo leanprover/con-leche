@@ -49,15 +49,15 @@ theorem installBasisDeclF_pushC (env : Env) (ci : ConstantInfo) :
 
 /-- The projection table's checks through the index. -/
 theorem checkStructProjTableF_pushC (t : ProjTable) (env : Env) :
-    checkStructProjTableF (m := CheckCM) .plain t (mkFEnv env)
+    checkStructProjTableF (m := CheckCM) t (mkFEnv env)
       = checkStructProjTable (m := CheckCM) t env := by
   unfold checkStructProjTableF checkStructProjTable
-  simp only [StructWalkers.plain, constsResolveF_eq, mkFEnv_find?, mkFEnv_findTable?]
+  simp only [constsResolveF_eq, mkFEnv_find?, mkFEnv_findTable?]
 
 /-- The projection table's checks at the cached driver: operation-free, the state unchanged, the
 verdict the pure stage's. -/
 theorem checkStructProjTableS_run {t : ProjTable} (env : Env) {s₀ : CState} {u : Unit}
-    {s' : CState} (h : checkStructProjTableF (m := CheckCM) .plain t (mkFEnv env) s₀ = .ok (u, s')) :
+    {s' : CState} (h : checkStructProjTableF (m := CheckCM) t (mkFEnv env) s₀ = .ok (u, s')) :
     s' = s₀ ∧ checkStructProjTable (m := CheckM) t env = .ok () := by
   rw [checkStructProjTableF_pushC] at h
   unfold checkStructProjTable at h ⊢

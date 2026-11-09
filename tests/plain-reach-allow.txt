@@ -140,7 +140,6 @@ ConLeche.divModTypePins
 
 # ConLeche.Kernel.CheckerBase — small helpers shared with the cached driver
 ConLeche.Expr.hasStrLitGo
-ConLeche.unresolvedConstsError
 
 # ConLeche.Kernel.Core — O(1)/O(spine) readers and fuel constants shared with the cached knot
 ConLeche.Expr.headIsProj
@@ -303,9 +302,6 @@ ConLeche.natOpGuardF
 ConLeche.strLitStoredF
 
 # ConLeche.Kernel.Level — the level algorithms (levels are small trees; the cached tier memoises them by level, the official kernel runs the same walks)
-ConLeche.Expr.allLevelParamsDefined
-ConLeche.Expr.allLevelParamsDefinedFast
-ConLeche.Expr.allLevelParamsDefinedGo
 ConLeche.Expr.instantiateLevelParams
 ConLeche.Level.allParamsDefined
 ConLeche.Level.byCases
@@ -424,12 +420,9 @@ ConLeche.Frontend.joinN
 
 # Plain walks reached from a cached walk or caller, each with its reason.
 ConLeche.Expr.substConst0  # the Nat-op statements' substitution: binder-free application spines of a dozen nodes
-ConLeche.openPisAtFvars  # the inductive check, pending task #498
 ConLeche.Expr.getAppArgs  # propIrrelI through PropRead.unwrapIdDefs (head spines of identity definitions) and the inductive check, pending task #498
 ConLeche.Expr.instantiate1Fast  # the inductive check, pending task #498
 ConLeche.Expr.instantiate1Go  # (the walk of instantiate1Fast)
-ConLeche.Expr.liftLooseBVarsFast  # the inductive check (streamNestedOk, through a List.map specialization), pending task #498
-ConLeche.Expr.liftLooseBVarsGo  # (the walk of liftLooseBVarsFast)
 
 # PENDING TASK #498 — the inductive check (Kernel/Inductives/*, Kernel/Install) and the
 # walks reached only through it.  The cached driver runs the specification as is; #498 gives
@@ -437,13 +430,6 @@ ConLeche.Expr.liftLooseBVarsGo  # (the walk of liftLooseBVarsFast)
 # the run, BvStruct ~0.75 G of the module's own 2.63 G, grind-ring-5 ~0.3 %, init-full < 0.1 %.
 ConLeche.unwrapOr  # ConLeche.Kernel.CheckerBase
 ConLeche.formerDefHeaded  # ConLeche.Kernel.CoreDefs
-ConLeche.openPisAtFvarsF  # ConLeche.Kernel.CoreDefs
-ConLeche.openPisAtFvarsFGo  # ConLeche.Kernel.CoreDefs
-ConLeche.Expr.abstract1Fast  # ConLeche.Kernel.ExprOps
-ConLeche.Expr.abstract1Go  # ConLeche.Kernel.ExprOps
-ConLeche.Expr.instantiateList  # ConLeche.Kernel.ExprOps
-ConLeche.Expr.instantiateListFast  # ConLeche.Kernel.ExprOps
-ConLeche.Expr.instantiateListGo  # ConLeche.Kernel.ExprOps
 ConLeche.Expr.stripLams  # ConLeche.Kernel.ExprOps
 ConLeche.FEnv.pushTable  # ConLeche.Kernel.FEnv
 ConLeche.FEnv.pushTables  # ConLeche.Kernel.FEnv
@@ -452,7 +438,6 @@ ConLeche.blockCapsAt  # ConLeche.Kernel.Inductives.BlockInstall
 ConLeche.nestOutKinds  # ConLeche.Kernel.Inductives.BlockInstall
 ConLeche.FEnv.pushAll  # ConLeche.Kernel.Inductives.BlockInstallF
 ConLeche.FEnv.pushDelta  # ConLeche.Kernel.Inductives.BlockInstallF
-ConLeche.checkBlockTablesF  # ConLeche.Kernel.Inductives.BlockInstallF
 ConLeche.consBlockCtorsF  # ConLeche.Kernel.Inductives.BlockInstallF
 ConLeche.consBlockIndsF  # ConLeche.Kernel.Inductives.BlockInstallF
 ConLeche.blockLargeElimAllowed  # ConLeche.Kernel.Inductives.BlockRec
@@ -498,9 +483,6 @@ ConLeche.classLeafAt  # ConLeche.Kernel.Inductives.GenRec
 ConLeche.classMinorSlot  # ConLeche.Kernel.Inductives.GenRec
 ConLeche.classNPcOf  # ConLeche.Kernel.Inductives.GenRec
 ConLeche.classRecOf  # ConLeche.Kernel.Inductives.GenRec
-ConLeche.Expr.mentionsAnyConst  # ConLeche.Kernel.Inductives.StructParts
-ConLeche.Expr.mentionsAnyConstFast  # ConLeche.Kernel.Inductives.StructParts
-ConLeche.Expr.mentionsAnyGo  # ConLeche.Kernel.Inductives.StructParts
 ConLeche.Expr.phApp?  # ConLeche.Kernel.Inductives.Positivity
 ConLeche.NestCtx.hiAt  # ConLeche.Kernel.Inductives.Positivity
 ConLeche.NestCtx.rootHoles  # ConLeche.Kernel.Inductives.Positivity
@@ -521,29 +503,13 @@ ConLeche.nestNonValid  # ConLeche.Kernel.Inductives.Positivity
 ConLeche.nestPhs  # ConLeche.Kernel.Inductives.Positivity
 ConLeche.nestResHead  # ConLeche.Kernel.Inductives.Positivity
 ConLeche.nestWalkStack  # ConLeche.Kernel.Inductives.Positivity
-ConLeche.Expr.abstractPrefix  # ConLeche.Kernel.Inductives.RecCheck
-ConLeche.auxRuleFire  # ConLeche.Kernel.Inductives.RecCheck
 ConLeche.blockNestedBit  # ConLeche.Kernel.Inductives.RecCheck
-ConLeche.blockRecInfosTF  # ConLeche.Kernel.Inductives.RecCheck
-ConLeche.generatedRules  # ConLeche.Kernel.Inductives.RecCheck
 ConLeche.instInhabitedTargetMajor.default  # ConLeche.Kernel.Inductives.RecCheck
 ConLeche.recKExpected  # ConLeche.Kernel.Inductives.RecCheck
 ConLeche.targetCtorsOf  # ConLeche.Kernel.Inductives.RecCheck
 ConLeche.targetHoles  # ConLeche.Kernel.Inductives.RecCheck
 ConLeche.targetRecPins  # ConLeche.Kernel.Inductives.RecCheck
-ConLeche.generatedFire  # ConLeche.Kernel.Inductives.StreamRecs
-ConLeche.recDomsAt  # ConLeche.Kernel.Inductives.StreamRecs
-ConLeche.recTyCheck  # ConLeche.Kernel.Inductives.StreamRecs
-ConLeche.recTyOpened  # ConLeche.Kernel.Inductives.StreamRecs
-ConLeche.ruleAgree  # ConLeche.Kernel.Inductives.StreamRecs
 ConLeche.streamKCheck  # ConLeche.Kernel.Inductives.StreamRecs
-ConLeche.streamNestedOk  # ConLeche.Kernel.Inductives.StreamRecs
-ConLeche.streamRecCheck  # ConLeche.Kernel.Inductives.StreamRecs
-ConLeche.streamRecCompare  # ConLeche.Kernel.Inductives.StreamRecs
-ConLeche.streamRecsCheck  # ConLeche.Kernel.Inductives.StreamRecs
-ConLeche.streamRulesCheck  # ConLeche.Kernel.Inductives.StreamRecs
-ConLeche.streamRulesShape  # ConLeche.Kernel.Inductives.StreamRecs
-ConLeche.checkStructProjTableF  # ConLeche.Kernel.Inductives.StructInstallF
 ConLeche.structCtorResidOk  # ConLeche.Kernel.Inductives.StructParts
 ConLeche.structElimLevel  # ConLeche.Kernel.Inductives.StructParts
 ConLeche.structProjArgP  # ConLeche.Kernel.Inductives.StructParts

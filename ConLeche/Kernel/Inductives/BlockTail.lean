@@ -109,7 +109,7 @@ def checkBlockTail (ops : CheckerOps m) (block : List ConstantInfo) (q : BlockPa
   let out ← checkBlockRec ops env₂ p (blockNestedBit p q.kinds) q.params
     q.tbl.toList q.rd q.cls block
   streamKCheck p p.recs out
-  streamRecsCheck ops .plain (mkFEnv (consBlockRecsT p 0 out env₂)) p.recs out
+  streamRecsCheck ops (mkFEnv (consBlockRecsT p 0 out env₂)) p.recs out
   checkBlockTables env₂ Q
 
 /-! ## The block's check -/

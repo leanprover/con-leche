@@ -2,6 +2,7 @@ module
 
 public import ConLeche.Kernel.Inductives.BlockTail
 public import ConLeche.Cached.IndBlock
+public import ConLeche.Cached.IndTail
 
 @[expose] public section
 
@@ -87,11 +88,6 @@ def declConstantsC : Declaration → List ConstantInfo
     | .ok p => blockConstantsC p
     | .error _ => []
 
-/-- **The cached driver's walker**: the memoised constant-resolution
-gate (`constsResolveFC`, verified at `constsResolveFC_spec`); equal to
-`StructWalkers.plain` (`structWalkersC_eq_plain`). -/
-def structWalkersC : StructWalkers := ⟨constsResolveFC⟩
-
 variable (mode : CheckMode)
 
 /-! ## The entry-point record over the cached core
@@ -159,12 +155,12 @@ def sharedOpsRuleR (fe : FEnv) : CheckerOps CheckCM :=
 /-- **The shadow operations of the cached driver**: the index-bound
 operations `sharedOpsC`, the rule variant `sharedOpsRuleR` (a flush at
 each of a rule's two environment transitions), `flushC` at every
-environment change, the memoised walkers, and the rule-less recursors
+environment change, and the rule-less recursors
 as an overlay sharing the constructors' index (`classFeROvl`).  The
 cached recursor stage `genRecCheckC` is `genRecCheck` at them
 (`genRecCheckC_eq`); nothing executed runs them (task #498). -/
 def shadowOpsC : ShadowOps CheckCM :=
-  ⟨sharedOpsC mode, sharedOpsRuleR mode, flushC, structWalkersC, classFeROvl⟩
+  ⟨sharedOpsC mode, sharedOpsRuleR mode, flushC, classFeROvl⟩
 
 /-- **`checkBlockPass` through the index**: the k
 formers checked and consed — one flush entering the environment that
@@ -185,7 +181,7 @@ def checkBlockPassS (fe : FEnv) (p₀ : BlockShape) (isRec : Bool) :
 /-- **`checkBlockTail` through the index**: one flush entering the recursors' environment.  The
 constructors' index `fe₂` is read at once by the rule-less recursors (the rule stage reads `fe₂` and
 them) and by the generated recursors, so both are overlays sharing it (`classFeROvl`,
-`genRecCheckC`; `blockRecInfosTF`): a push onto `fe₂` while it is alive would copy the whole bucket
+`genRecCheckC`; `blockRecInfosTC`): a push onto `fe₂` while it is alive would copy the whole bucket
 array, once per inductive block. -/
 def checkBlockTailS (block : List ConstantInfo) (q : BlockPass FEnv) (Q : List ProjTable) :
     CheckCM Unit :=
@@ -198,11 +194,11 @@ def checkBlockTailS (block : List ConstantInfo) (q : BlockPass FEnv) (Q : List P
   -- the stream's recursors against the generated ones, at the generated recursors as an OVERLAY on
   -- the constructors' index (read-only, sharing it), a flush entering and leaving that environment
   streamKCheck p p.recs out
-  let feG := fe₂.overlay (blockRecInfosTF p 0 out).reverse
+  let feG := fe₂.overlay (blockRecInfosTC p 0 out).reverse
   flushC
-  streamRecsCheck (sharedOpsC mode feG) structWalkersC feG p.recs out
+  streamRecsCheckC mode feG p.recs out
   flushC
-  checkBlockTablesF (m := CheckCM) structWalkersC fe₂ Q
+  checkBlockTablesC fe₂ Q
 
 /-- Twin of `reduceMember`. -/
 def reduceMemberS (fe : FEnv) (ms : MemberShape) (nP : Nat) : CheckCM MemberShape :=

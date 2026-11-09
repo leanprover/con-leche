@@ -6,28 +6,16 @@ import ConLeche.Verify.Cached.IndWalksC
 public section
 
 /-!
-# The cached driver's walker and tables are the plain ones (tasks #214, #497)
+# The cached driver's tables and first twins are the plain ones (tasks #497, #498)
 
-`structWalkersC` — the memoised constant-resolution gate the cached
-driver hands the direct installers (`StructWalkers`,
-`ConLeche/Kernel/Inductives/StructInstallF.lean`) — is equal to the
-specification record `StructWalkers.plain`, by `constsResolveFC_spec`
-(task #171).  Every bridge lemma about the driver rewrites by
-`structWalkersC_eq_plain` once and then reads the plain installer.  The
-projection tables the driver builds (`blockTablesC`, over the memoised
-`instantiateLiftC`) are the plain `blockTables` by `blockTablesC_eq`,
-through `instantiateLiftC_spec` (`OpsC.lean`).
+The projection tables the driver builds (`blockTablesC`, over the
+memoised `instantiateLiftC`) are the plain `blockTables` by
+`blockTablesC_eq`, through `instantiateLiftC_spec` (`OpsC.lean`).
 -/
 
 namespace ConLeche.Cached
 
 open ConLeche
-
-/-- **The driver's walker is the plain one.** -/
-theorem structWalkersC_eq_plain : structWalkersC = StructWalkers.plain := by
-  unfold structWalkersC StructWalkers.plain
-  congr 1
-  funext fe e; exact constsResolveFC_spec
 
 /-- **The cached error of an unresolved constant is the specification's.** -/
 theorem unresolvedConstsErrorLC_eq : unresolvedConstsErrorLC = unresolvedConstsErrorL := by

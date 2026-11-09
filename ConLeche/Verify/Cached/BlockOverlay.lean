@@ -177,13 +177,13 @@ theorem constsResolveF_congr {fe₁ fe₂ : FEnv} (hfe : fe₁.find? = fe₂.fin
   | .proj s _ e => by simp only [Expr.constsResolveF, hfe, constsResolveF_congr hfe e]
 
 /-- The stored recursors' check (task #431) reads its index through
-`resolve` and `env` alone. -/
+`find?` and `env` alone. -/
 theorem streamRecsCheck_congr {m : Type → Type} [Monad m] [MonadExceptOf CheckError m]
-    {ops : CheckerOps m} {w : StructWalkers} {fe₁ fe₂ : FEnv}
-    (hres : w.resolve fe₁ = w.resolve fe₂) (henv : fe₁.env = fe₂.env) :
-    streamRecsCheck ops w fe₁ = streamRecsCheck ops w fe₂ := by
-  have hrules : ∀ rec lps rs gs, streamRulesCheck ops w fe₁ rec lps rs gs
-      = streamRulesCheck ops w fe₂ rec lps rs gs := by
+    {ops : CheckerOps m} {fe₁ fe₂ : FEnv}
+    (hfe : fe₁.find? = fe₂.find?) (henv : fe₁.env = fe₂.env) :
+    streamRecsCheck ops fe₁ = streamRecsCheck ops fe₂ := by
+  have hrules : ∀ rec lps rs gs, streamRulesCheck ops fe₁ rec lps rs gs
+      = streamRulesCheck ops fe₂ rec lps rs gs := by
     intro rec lps rs
     induction rs with
     | nil => intro gs; cases gs <;> rfl
@@ -191,7 +191,7 @@ theorem streamRecsCheck_congr {m : Type → Type} [Monad m] [MonadExceptOf Check
       intro gs
       cases gs with
       | nil => rfl
-      | cons g gs => simp only [streamRulesCheck, ruleAgree, hres, henv, ih]
+      | cons g gs => simp only [streamRulesCheck, ruleAgree, constsResolveF_congr hfe, henv, ih]
   funext recs
   induction recs with
   | nil => funext out; cases out <;> rfl
@@ -200,8 +200,8 @@ theorem streamRecsCheck_congr {m : Type → Type} [Monad m] [MonadExceptOf Check
     cases out with
     | nil => rfl
     | cons g gs =>
-      simp only [streamRecsCheck, streamRecCheck, streamRecCompare, recTyCheck, hres, henv,
-        hrules, ih]
+      simp only [streamRecsCheck, streamRecCheck, streamRecCompare, recTyCheck,
+        constsResolveF_congr hfe, henv, hrules, ih]
 
 /-! ## The rule stage reads `feR` through `constsResolveF` and `env` -/
 

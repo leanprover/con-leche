@@ -147,21 +147,21 @@ theorem streamNestedOk_read {ty : Expr} {mI rP : Nat} {lvls : List Level} {pins 
 
 section Inv
 
-variable {ops : CheckerOps CheckM} {w : StructWalkers} {fe : FEnv}
+variable {ops : CheckerOps CheckM} {fe : FEnv}
 
 theorem streamRulesCheck_inv {rec : Name} {lps : List Name} :
     ∀ {rs : List RecRule} {gs : List Expr},
-      streamRulesCheck ops w fe rec lps rs gs = .ok () →
+      streamRulesCheck ops fe rec lps rs gs = .ok () →
       rs.length = gs.length ∧ ∀ (i : Nat) (r : RecRule) (gi : Expr),
         rs[i]? = some r → gs[i]? = some gi →
-        r.rhs = gi ∨ ruleAgree ops w fe rec r.ctor lps r.rhs gi = .ok ()
+        r.rhs = gi ∨ ruleAgree ops fe rec r.ctor lps r.rhs gi = .ok ()
   | [], [], _ => ⟨rfl, fun i r gi h => by simp at h⟩
   | [], _ :: _, h => by simp [streamRulesCheck, throw, throwThe, MonadExceptOf.throw] at h
   | _ :: _, [], h => by simp [streamRulesCheck, throw, throwThe, MonadExceptOf.throw] at h
   | r :: rs, g :: gs, h => by
     unfold streamRulesCheck at h
-    have key : (r.rhs = g ∨ ruleAgree ops w fe rec r.ctor lps r.rhs g = .ok ()) ∧
-        streamRulesCheck ops w fe rec lps rs gs = .ok () := by
+    have key : (r.rhs = g ∨ ruleAgree ops fe rec r.ctor lps r.rhs g = .ok ()) ∧
+        streamRulesCheck ops fe rec lps rs gs = .ok () := by
       by_cases he : (r.rhs == g) = true
       · simp only [he, ↓reduceIte] at h
         exact ⟨Or.inl (beq_iff_eq.mp he), by simpa [pure, Except.pure, bind, Except.bind] using h⟩
@@ -179,10 +179,10 @@ theorem streamRulesCheck_inv {rec : Name} {lps : List Name} :
     | succ i => exact hall i r' gi (by simpa using hr) (by simpa using hg)
 
 theorem streamRecCompare_inv {rc : RecShape} {g : ConstantVal × TargetMajor × List Expr}
-    (h : streamRecCompare ops w fe rc g = .ok ()) :
+    (h : streamRecCompare ops fe rc g = .ok ()) :
     (rc.cvR.type = g.1.type ∨
-      recTyCheck ops w fe g.1.name g.1.levelParams (rc.mI + 1) rc.cvR.type g.1.type = .ok ()) ∧
-    streamRulesCheck ops w fe g.1.name g.1.levelParams rc.rules g.2.2 = .ok () := by
+      recTyCheck ops fe g.1.name g.1.levelParams (rc.mI + 1) rc.cvR.type g.1.type = .ok ()) ∧
+    streamRulesCheck ops fe g.1.name g.1.levelParams rc.rules g.2.2 = .ok () := by
   unfold streamRecCompare at h
   by_cases he : (rc.cvR.type == g.1.type) = true
   · simp only [he, ↓reduceIte] at h
@@ -192,10 +192,10 @@ theorem streamRecCompare_inv {rc : RecShape} {g : ConstantVal × TargetMajor × 
     exact ⟨Or.inr (by cases u; exact hu), h⟩
 
 theorem streamRecCheck_inv {rc : RecShape} {g : ConstantVal × TargetMajor × List Expr}
-    (h : streamRecCheck ops w fe rc g = .ok ()) :
+    (h : streamRecCheck ops fe rc g = .ok ()) :
     streamRulesShape (m := CheckM) rc.cvR.name rc.rules g.2.1.ctors = .ok () ∧
     streamNestedOk rc.cvR.type rc.mI rc.rP (generatedFire g.2.1 rc.rP) = true ∧
-    streamRecCompare ops w fe rc g = .ok () := by
+    streamRecCompare ops fe rc g = .ok () := by
   unfold streamRecCheck at h
   obtain ⟨u, hu, h⟩ := exceptBind_ok h
   cases u
@@ -206,10 +206,10 @@ theorem streamRecCheck_inv {rc : RecShape} {g : ConstantVal × TargetMajor × Li
 
 theorem streamRecsCheck_inv :
     ∀ {recs : List RecShape} {out : List (ConstantVal × TargetMajor × List Expr)},
-      streamRecsCheck ops w fe recs out = .ok () →
+      streamRecsCheck ops fe recs out = .ok () →
       recs.length = out.length ∧ ∀ (j : Nat) (rc : RecShape)
         (g : ConstantVal × TargetMajor × List Expr), recs[j]? = some rc → out[j]? = some g →
-        streamRecCheck ops w fe rc g = .ok ()
+        streamRecCheck ops fe rc g = .ok ()
   | [], [], _ => ⟨rfl, fun j rc g h => by simp at h⟩
   | [], _ :: _, h => by simp [streamRecsCheck, throw, throwThe, MonadExceptOf.throw] at h
   | _ :: _, [], h => by simp [streamRecsCheck, throw, throwThe, MonadExceptOf.throw] at h
@@ -247,9 +247,9 @@ theorem recDomsAt_inv {env : Env} {rec : Name} {sfvs gfvs : List Expr} :
       · exact recDomsAt_inv h' i (by omega) (by omega)
 
 theorem recTyCheck_inv {rec : Name} {lps : List Name} {n : Nat} {s g : Expr}
-    (h : recTyCheck ops w fe rec lps n s g = .ok ()) :
+    (h : recTyCheck ops fe rec lps n s g = .ok ()) :
     s.looseBVarsBounded 0 = true ∧ s.hasFvar = false ∧ g.hasFvar = false ∧
-    s.allLevelParamsDefined lps = true ∧ w.resolve fe s = true ∧
+    s.allLevelParamsDefined lps = true ∧ s.constsResolveF fe = true ∧
     (∃ st u, ops.inferType fe.env 0 s = .ok st ∧ ops.ensureSort fe.env 0 st = .ok u) ∧
     ∃ sfvs srest gfvs grest, openPisAtFvars n s 0 = some (sfvs, srest) ∧
       openPisAtFvars n g 0 = some (gfvs, grest) ∧
@@ -260,7 +260,7 @@ theorem recTyCheck_inv {rec : Name} {lps : List Name} {n : Nat} {s g : Expr}
   · simp only [h1, ↓reduceIte] at h
     by_cases h2 : s.allLevelParamsDefined lps = true
     · simp only [h2, ↓reduceIte] at h
-      by_cases h3 : w.resolve fe s = true
+      by_cases h3 : s.constsResolveF fe = true
       · simp only [h3, ↓reduceIte] at h
         obtain ⟨st, hst, h⟩ := exceptBind_ok h
         obtain ⟨u, hu, h⟩ := exceptBind_ok h
@@ -287,9 +287,9 @@ theorem recTyCheck_inv {rec : Name} {lps : List Name} {n : Nat} {s g : Expr}
   · simp [h1, throw, throwThe, MonadExceptOf.throw, bind, Except.bind] at h
 
 theorem ruleAgree_inv {rec ctor : Name} {lps : List Name} {s g : Expr}
-    (h : ruleAgree ops w fe rec ctor lps s g = .ok ()) :
+    (h : ruleAgree ops fe rec ctor lps s g = .ok ()) :
     s.looseBVarsBounded 0 = true ∧ s.hasFvar = false ∧ g.hasFvar = false ∧
-    s.allLevelParamsDefined lps = true ∧ w.resolve fe s = true ∧
+    s.allLevelParamsDefined lps = true ∧ s.constsResolveF fe = true ∧
     ∃ ts tg, ops.inferType fe.env 0 s = .ok ts ∧ ops.inferType fe.env 0 g = .ok tg ∧
       ops.isDefEq fe.env 0 ts tg = .ok true ∧ ops.isDefEq fe.env 0 s g = .ok true := by
   unfold ruleAgree at h
@@ -297,7 +297,7 @@ theorem ruleAgree_inv {rec ctor : Name} {lps : List Name} {s g : Expr}
   · simp only [h1, ↓reduceIte] at h
     by_cases h2 : s.allLevelParamsDefined lps = true
     · simp only [h2, ↓reduceIte] at h
-      by_cases h3 : w.resolve fe s = true
+      by_cases h3 : s.constsResolveF fe = true
       · simp only [h3, ↓reduceIte] at h
         obtain ⟨ts, hts, h⟩ := exceptBind_ok h
         obtain ⟨tg, htg, h⟩ := exceptBind_ok h

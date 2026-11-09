@@ -81,7 +81,7 @@ def DeclBlockRun (F : Nat) (env : Env) (block : List ConstantInfo)
     -- 8  the stream's recursors against the generated ones: their K flags, then the
     --    rest at the environment holding the generated ones
     streamKCheck (m := ConLeche.CheckM) p₁ p₁.recs out = .ok () ∧
-    streamRecsCheck (m := ConLeche.CheckM) (fueledOps .verified F) .plain
+    streamRecsCheck (m := ConLeche.CheckM) (fueledOps .verified F)
       (mkFEnv (consBlockRecsT p₁ 0 out
         (consBlockCtors p₁.nP p₁.memberCtors env₁))) p₁.recs out = .ok () ∧
     -- 9  the projection tables, read off the block, and their checks

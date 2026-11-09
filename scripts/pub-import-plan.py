@@ -76,6 +76,10 @@ FALLBACK = {
     # against the specification at `sharedOpsC`.  Measured: demoting the import
     # breaks the file (unknown identifier `FEnv`, `IndBlockC.lean:34`).
     ('ConLeche.Verify.Cached.IndBlockC', 'ConLeche.Cached.CheckerC'),
+    # task #498 L5: the tail's equations state the twins (`streamRecsCheckC`, …) against the
+    # specification at `sharedOpsC` (`FEnv`, `Level`).  Measured:
+    # demoting it breaks the file (unknown identifier `FEnv`, `IndTailC.lean:29`).
+    ('ConLeche.Verify.Cached.IndTailC', 'ConLeche.Cached.CheckerC'),
     # task #492: the guard-row lemmas' public statements name `projGuardRowsGo`,
     # `GuardRowsWS`'s `WScoped`; the census attributes them to the private imports
     # (`LooseBVar`, `Subst`).  Measured: demoting either breaks the file (unknown

@@ -280,8 +280,8 @@ theorem blockInstall_of_checks {F : Nat} {env env₁ : Env} {block : List Consta
       (mkFEnv (consBlockCtors p₁.nP p₁.memberCtors env₁))
       p₁ nestedBit params tbl rd Ms₀ block = .ok out)
     (hK : streamKCheck (m := CheckM) p₁ p₁.recs out = .ok ())
-    {w : StructWalkers} {fe : FEnv}
-    (hS : streamRecsCheck (m := CheckM) (fueledOps .verified F) w fe p₁.recs out = .ok ()) :
+    {fe : FEnv}
+    (hS : streamRecsCheck (m := CheckM) (fueledOps .verified F) fe p₁.recs out = .ok ()) :
     env.pushDelta (blockConstants p₀) Q =
       (consBlockRecsT p₁ 0 (streamRecs p₁.recs out)
         (consBlockCtors p₁.nP p₁.memberCtors env₁)).pushDelta [] Q := by

@@ -125,7 +125,7 @@ def classFeR (p : BlockShape) (Ms : List TargetMajor) (cvGs : List ConstantVal)
 entry points at an `FEnv` (`opsAt`), their variant for the rules
 (`opsRuleR`: the cached one flushes at the two environment transitions
 a rule makes, `sharedOpsRuleR`), the flush at an environment change,
-the syntactic walkers, and the environment the rule stage infers the
+and the environment the rule stage infers the
 rules at (`ruleEnv`: the rule-less generated recursors consed onto the
 constructors' environment — pushed in the pure install, `classFeR`; an
 overlay sharing the index in the cached one, `classFeROvl`).  The pure
@@ -135,14 +135,13 @@ structure ShadowOps (m : Type → Type) where
   opsAt : FEnv → CheckerOps m
   opsRuleR : FEnv → CheckerOps m
   flush : m Unit
-  walkers : StructWalkers
   ruleEnv : BlockShape → List TargetMajor → List ConstantVal → List Nat → FEnv → FEnv
 
 /-- A checker's operations as shadow operations: the same at every
-index, no flush, the plain walkers, the rule-less recursors pushed —
+index, no flush, the rule-less recursors pushed —
 how the PURE install runs the check (`checkBlockRec`, `BlockTail.lean`). -/
 def ShadowOps.ofOps (ops : CheckerOps m) : ShadowOps m :=
-  ⟨fun _ => ops, fun _ => ops, Pure.pure (), .plain, classFeR⟩
+  ⟨fun _ => ops, fun _ => ops, Pure.pure (), classFeR⟩
 
 /-- The pure operations at fuel `F`, at every index (the fueled
 instantiation the model reads a run of). -/
