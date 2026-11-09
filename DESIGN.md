@@ -110789,3 +110789,100 @@ official 0, which generates the recursor).
 Other declines in the inductive check, not on this path and unchanged: the direct sum and
 structure installs' telescope mismatches (`SumInstall*`, `StructInstall*`), nested positivity's
 fuel, and a family stored at a definition in one tail case (`BlockTail.lean`).
+
+## TASK #496 — instantiation stops at the loose-bvar bound; the projection guard opens with the cached walker (2026-11-09, agent/496-cutoff)
+
+**The workload.** `BvStruct`, a reduction of lean4's `elab_bench/bv_stress_structures_1`: a
+200-field `Payload4` of `BitVec 8`, a one-field `Node4`, and a 200-field Prop structure
+`Rel4 (n : Node4)` whose field `eqK` states `n.payload.xK = …`, with its `casesOn`, `recOn` and
+the 200 projections.  After #492 the module's own declarations (the module run minus a run on an
+`Empty` module with the same imports) still cost 10.08 G on master, where the official kernel
+(the same block and its definitions renamed and re-added through `Environment.addDeclCore`)
+spends 0.08 G on the `Rel4` block, 0.39 G on `casesOn`/`recOn` and 0.43 G on the 203 remaining
+definitions.
+
+**Findings (analysis lane, branch `agent/496-rel4`, probes only).**
+
+1. *No loose-bvar cutoff in the kernel-tier substitution walks.*  `instantiate1Go` and
+   `instantiateListGo` (`Kernel/ExprOps.lean`, swapped in by `@[csimp]` for `instantiate1` and
+   `instantiateList`) walked every node of their argument, a fresh `Std.HashMap` memo per call.
+   Peeling a telescope whose tail does not mention the peeled binder — `targetPiDomsWith`
+   (`Kernel/Inductives/RecCheck.lean`), `nestFields` (`Positivity.lean`), `openPisAtFvars`
+   (`Kernel/CoreDefs.lean`) over the 200-field constructor — re-walked the whole remaining tail at
+   each step: quadratic in the field count.  The official kernel returns at once
+   (`offset >= loose_bvar_range`); the cached tier's walkers (`instantiate1P`,
+   `instantiateListC`, `inst1M`) always had the cutoff.  Probe (root cutoff in
+   `instantiate1Fast` only): the `Rel4` block 4.1 → 0.93 G, `Node4` −0.53 G.
+2. *The projection guard opened the parameters with the kernel walker.*  `checkProjRowsI`
+   (`Cached/CoreC.lean`, at every `.proj` on a Prop structure, so 200 times in `Rel4.casesOn`, and
+   once per projection declaration) opened the constructor's parameters with
+   `openPisAtFvarsF`, whose residual is the HashMap-memo `instantiateList` of the whole field
+   telescope.  Probe (the cached walker instead): `casesOn` increment 2.15 → 0.52 G, each
+   `eqN` 10.4 → 4.3 M.
+3. *`projGuardRowsGo` copies the tail* at each field it steps over (`body.instantiate1`); a variant
+   instantiating only the domains it steps over was the candidate next step — measured below,
+   not implemented.
+
+Side facts: `--constant=Rel4` pulls about 815 `Init` declarations, which cost 6.1 G, 3.9 G of it
+`checkDivModPin`; reading the `.olean` closure is a floor of 30.9 G for any `--constant` run on
+this module.
+
+**Fix 1 — the cutoff.**  `instantiate1Go` and `instantiateListGo` first read `e.bvarB` (the packed
+field, exact by `bvarB_eq`) at every node, the root included, and return the node unchanged when
+`e.bvarB ≤ d`, before any memo probe — the shape `instantiate1LiftGo` and `abstract1Go` already
+had.  The proofs are the old inductions with one more arm per case, closed by
+`instantiate1_of_bvarB_le` / `instantiateList_of_bvarB_le`, which rest on
+`instantiate1_eq_self` / `instantiateList_eq_self`.  Those two lemmas moved from
+`Verify/Subst.lean` and `Verify/InstList.lean` to `Kernel/ExprOps.lean` under the same names
+(the kernel cannot import `Verify/*`; every user still finds them).  For the same reason the
+loose-bvar range block (`bvarBound`, `bvarBoundGo`, `bvarB`, `bvarBRaw_exact`, `bvarB_eq`, the
+`fvar` counterparts, `looseBVarsBounded`, `hasFvar` and their field-read `@[csimp]`s) now
+precedes the memoized walks in that file: a `@[csimp]` reaches only code compiled after it, so
+the range reads come first and every executed walk in the file is written against them.
+
+**Fix 2 — the guard's opener.**  `openPisAtFvarsFGo` takes the bulk instantiation as an
+argument (`@[specialize]`).  The kernel's `openPisAtFvarsF` passes `instantiateList`; the cached
+tier's `openPisAtFvarsC` (`Cached/ExprOpsC.lean`, beside `piResidual`) passes
+`instantiateListC`, with the same fallback to `openPisAtFvars`; `checkProjRowsI` calls it.  One
+opener, two instantiations: `openPisAtFvarsFGo_sound` is stated for any instantiation equal to
+`instantiateList`, `openPisAtFvarsF_eq` instantiates it with `rfl`, `openPisAtFvarsC_eq`
+(`Verify/Cached/DiscC4.lean`) with `instantiateListC_spec`, and replaces `openPisAtFvarsF_eq` in
+`projRowsC_spec`'s `sym` set.  `checkProjGuardI_congr` (`KnotCongr.lean`) is unchanged.
+
+**Numbers** (`perf stat -e instructions:u`, one run each, `--jobs=1`, verified mode,
+`--olean` for the module runs; master 501589f56):
+
+| run | master | lane | change |
+|---|---|---|---|
+| `BvStruct` module | 447.21 G | 439.83 G | −7.38 G |
+| `Empty` module (the `Init` closure) | 437.13 G | 436.83 G | −0.30 G |
+| `BvStruct` minus `Empty` | 10.08 G | 3.00 G | −70 % |
+| `--constant=Rel4` | 42.60 G | 38.78 G | −3.83 G |
+| `--constant=Node4` | 31.72 G | 31.18 G | −0.54 G |
+| `Rel4` − `Node4` | 10.88 G | 7.60 G | −3.28 G |
+| `Rel4.casesOn` − `Rel4` | 2.125 G | 0.511 G | −76 % |
+| `Rel4.eq5` − `Rel4` | 14.1 M | 6.5 M | |
+| `Rel4.eq199` − `Rel4` | 13.8 M | 4.4 M | |
+| init-full | 381.83 G | 381.52 G | −0.08 % |
+| grind-ring-5 | 15.331 G | 15.292 G | −0.25 % |
+| app-lam | 22.075 G | 22.073 G | −0.01 % |
+| beta-ladder | 4.848 G | 4.848 G | 0 |
+| let-ladder | 2.5696 G | 2.5694 G | 0 |
+| the 12 other arena perf streams (23–301 M) | | | −0.06 … −0.9 % each |
+
+The same verdicts everywhere (64 366 declarations for `BvStruct`, 57 977 for init-full, every
+arena perf stream accepted; e2e 558/558).  `tests/scale.sh` reads the same as master at the
+largest sizes (`dag` n=1600 48.61 → 48.76 M, `lparams` n=800 93.79 → 93.75 M, `spine` n=400
+34.50 → 33.65 M); `lparams` exceeds its gate on master too (1.89, lane 1.92), and `dag`
+(1.14 → 1.17) and `spine` (1.39 → 1.09) cross their 1.15 gates in opposite directions on
+run-to-run movement of a few hundred thousand instructions in the adjusted counts.
+
+**Item 3 is cold.**  Two ablation probes on the lane (scratch builds, not committed): with the
+rows computed but not checked (`checkGuardRowsI` skipped), the `casesOn` increment is 0.5117 G;
+with neither the rows computed nor checked, 0.5078 G, against the lane's 0.5114 G.  The 200
+guard calls of `casesOn` (counted by a trace in the second probe) cost about 4 M together, so a
+domains-only `projGuardRowsGo` has nothing left to win here; the `eqN` increments move by under
+1 M between the probes, within their run-to-run movement.  What remains of the `casesOn`
+increment is outside the guard; a sampled profile of `--constant=Rel4.casesOn` against
+`--constant=Rel4` puts the difference mostly in the `.olean` reader (`frontierWalk`, `exprKids`,
+`markPass`) and the allocator, not in the checker.
