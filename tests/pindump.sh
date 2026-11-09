@@ -23,7 +23,7 @@
 # computed by the generator running ON its toolchain, so each one has
 # its own self-contained Lake project — a PINNER —
 #
-#     pinners/<sanitised toolchain>/{lean-toolchain,lakefile.toml}
+#     pinners/<sanitised toolchain>/{lean-toolchain,lakefile.lean}
 #
 # whose sources are the repository's own generator (`srcDir = "../.."`;
 # see `pinners/README.md`).  This gate walks `pinners/*/`, and for each
@@ -188,7 +188,7 @@ installed_toolchains=$(elan toolchain list 2>/dev/null | sed 's/ (default)$//')
 for p in pinners/*/; do
   d=$(basename "$p")
   [ -f "$p/lean-toolchain" ] || fail "$p has no lean-toolchain"
-  [ -f "$p/lakefile.toml" ] || fail "$p has no lakefile.toml"
+  [ -f "$p/lakefile.lean" ] || fail "$p has no lakefile.lean"
   ptc=$(tr -d ' \t\n\r' < "$p/lean-toolchain")
   [ "$(sanitise "$ptc")" = "$d" ] ||
     fail "$p names toolchain $ptc, whose dump would be $(sanitise "$ptc").json —

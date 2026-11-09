@@ -554,7 +554,9 @@ Read from the outside in:
    that ships: the same terms with a packed hash on every node, memo
    tables for reduction, inference and definitional equality keyed by
    those hashes, and the direct parser's record type. Nothing is
-   interned; the hash is what makes a term a usable memo key. It is
+   interned; the hash is what makes a term a usable memo key. A
+   `Nat` literal's hash reads all its bits, so literals that agree in
+   their low 64 bits do not share a bucket. It is
    related to the pure checker by a one-directional simulation:
    whatever the cached checker accepts, the pure checker accepts. For
    the fold the simulation is applied step by step along the run, which
@@ -1749,8 +1751,11 @@ declare it.)
   covered. The scheduler (`--schedule`), which no theorem is about, starts processes of the
   binary, kills its own children and appends to its log under `liftIO`; the trust-surface gate
   confines processes, kills and file writes to `ConLeche/Driver/ScheduleIO.lean`. A statement about several runs assumes one snapshot for all of them: the files do
-  not change while the runs read them. The checker carries no C of its own; the build file
-  `lakefile.toml` is pinned by content in the trust-surface gate.
+  not change while the runs read them. The checker carries one C function of its own, the
+  hash of a `Nat` literal of 2^64 and more (`native/nat_hash.c`: all its 64-bit words
+  mixed, Lean's own fix of the literal hash, vendored until the toolchain ships it); the
+  proofs see it as an opaque function of the number, so the assumption is that it is one.
+  It and the build file `lakefile.lean` are pinned by content in the trust-surface gate.
 * `--trusted` mode.
 * Non-acceptance: a decline or a reject carries no claim. The verdict
   line reports the count of accepted stream records.
