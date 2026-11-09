@@ -115292,3 +115292,187 @@ where `finished in this run` is `nDone - (total - todo.length)` (modules skipped
 excluded) and `total - done` is what is still to run. No estimate is shown before the first finish
 of this run. The window code (`etaWindow`, `pushStamp`, the `stamps` field) is deleted;
 `progressText` takes `(finished, elapsed)`. `ScheduleIO` is plain IO, outside every theorem.
+
+## TASK #518 — a scheduling data set from Mathlib, and an offline simulator (2026-11-09, agent/518-sched-data)
+
+The maintainer's request: a data set from a real `--schedule` run over Mathlib, and a simulator that
+replays it, so that scheduling policies can be compared without re-running Mathlib.  Mathlib is not
+the CFSG stream (there: heavy computation, module times up to 50 min, peaks 0.1–24 GiB, 240 k
+modules); a synthetic heavy tail stands in for that below.  Raw files in `_tmp/518/` (not committed).
+
+**1. The log records more** (`Driver/ScheduleIO.lean`, plain IO).  A finished module's line is now
+`<verdict>\t<module>\t<ms>\t<rss>\t<at>\t<decls>\t<parse>\t<check>\t<busy>\t<slowest>`: the five new
+fields read from what the worker prints anyway (`workerStats`): its declarations (stdout's
+`accepted N declarations`, which the scheduler used to drop unread), the `stats: phases:` line's parse
+and check (ms, to 0.1 s), the check pool's busy time and the slowest single check (ms, the pool's
+`stats:` line and `slowest checks:`); `-` where the worker printed none (killed, failed).  A worker at
+`--jobs=1` prints all of them already; nothing was added to the worker.  The order is fixed, new fields
+go at the end; the reader still takes fields 1–2, so old logs resume.  OVERVIEW's log sentence updated.
+
+**2. The runs** (v4.35.0 Mathlib, `_tmp/501/measure.sh`'s search path, under the guard at 24 GB,
+`timeout 14400`; the machine shared, load 15–20 on 96 cores; one run each):
+
+| run (`--jobs=8`, workers at `--jobs=1`) | wall | running (mean) | mem / reserved (mean) | kills (lost) | gate | sum of worker times |
+|---|---|---|---|---|---|---|
+| `--schedule-memory=16G` (the data set, `mathlib.log`) | 41m42s | 4.0 | 0.6 / 0.9 GiB | 0 | 0 | 10 141 s |
+| `16G --schedule-stagger=0` | 13m28s | 7.5 | 1.2 / 1.7 GiB | 0 | 0 | 6 071 s |
+| `--schedule-memory=1500M` | 41m47s | 3.3 | 0.5 / 0.7 GiB | 79 (67 s), 51 protections | 33 s | 8 392 s |
+| `--schedule-memory=1000M` | 48m29s | 2.5 | 0.4 / 0.5 GiB | 395 (236 s), 293 protections | 2m39s | |
+| `Mathlib.GroupTheory.Coxeter.Basic`, `1G` (2 850 modules) | 9m44s | 2.2 | 0.2 / 0.2 GiB | 0 | 0 | |
+
+All 10 976 modules 0 in every run; the guard's peak 2.5 GB (16G), 2.7 GB (stagger 0).  The machine's
+load moves module times: in the 16G run two windows (15–20 and 35–40 min in) had median module times
+twice and p90 four times the rest (the 40 longest modules all finished in them; alone, the same
+modules take 1.5–3.6 s, not 10–14 s), and the sum of the worker times differs by 1.7× between runs.
+The simulator replays each log with its own times, so this noise is in the data, not in its error.
+
+**The stagger bounds the run** (the coordinator's finding, confirmed).  The 16G run's worker times
+sum to 10 141 s (0.92 s per module), 21 min at 8 jobs; but `--schedule-stagger` (200 ms, #468) allows
+5 starts per second: 10 976 × 0.2 s = 36.6 min of the 41.7, and at 0.92 s per module it holds
+concurrency at about 0.92 ÷ 0.2 ≈ 4.6 whatever `--jobs` is (measured 4.0).  Memory never limited the
+run (2.5 GB of 16).  With `--schedule-stagger=0` the same closure took 13m28s at 7.5 of 8 workers,
+memory 2.7 GB, no kill.  (Its module times were lower too, 6 071 s summed: the machine.  Replayed on
+the 16G run's own times the simulator puts stagger 0 at 22.6 min instead of 41.3.)  For CFSG's 240 k
+modules the stagger alone is at least 13.3 h.
+
+**3. The data** (the 16G run; `_tmp/518/summary.txt`, `tools/summary.py`):
+
+| per module | mean | p10 | p50 | p75 | p90 | p99 | p99.9 | max |
+|---|---|---|---|---|---|---|---|---|
+| wall time | 0.9 s | 0.2 s | 0.6 s | 1.0 s | 2.0 s | 6.3 s | 10.8 s | 14.6 s |
+| peak RSS | 0.22 GiB | 0.09 | 0.20 | 0.28 | 0.38 | 0.57 | 0.68 | 0.73 GiB |
+| declarations | 71 | 4 | 35 | 84 | 171 | 491 | 1 248 | 4 877 |
+| install (wall − check busy) | 0.8 s | 0.2 s | 0.5 s | 0.9 s | 1.8 s | 6.0 s | 10.3 s | 13.1 s |
+| check busy | 0.08 s | 0.0 | 0.0 | 0.1 | 0.2 | 0.8 | 2.4 | 10.4 s |
+| slowest single check | 0.01 s | 0.0 | 0.0 | 0.0 | 0.0 | 0.1 | 0.6 | 8.9 s |
+
+The tails are light: the top 1 % of modules hold 8.9 % of the wall time, 2.8 % of the peaks, 11.7 % of
+the declarations.  The worker's time is 91 % install (read, decode, context), 9 % check (sum 14.4 of
+169 min).  Top 10 by wall time: NumberTheory.NumberField.CMField 14.6 s, Analysis.Distribution.TestFunction
+13.7, NumberTheory.ModularForms.Bounds 12.3, AlgebraicGeometry.EllipticCurve.Affine.AddSubMap 12.1,
+AlgebraicGeometry.Geometrically.Basic 11.9, Analysis.Complex.JensenFormula 11.7,
+Probability.Distributions.Gaussian.Real 11.5, NumberTheory.ModularForms.EisensteinSeries.E2.Summable
+11.2, NumberTheory.LSeries.HurwitzZetaEven 10.8, …EisensteinSeries.E2.Transform 10.8 (all `Mathlib.`; all
+in the slow windows).  By peak: …EllipticCurve.Affine.AddSubMap 0.73 GiB, AlgebraicGeometry.AffineSpace
+0.73, NumberTheory.NumberField.Cyclotomic.Ideal 0.71, MeasureTheory.Integral.IntervalIntegral.Basic
+0.71, NumberField.CanonicalEmbedding.Basic 0.70, NumberField.Ideal.Asymptotics 0.69,
+NumberTheory.Height.NumberField 0.69, Analysis.InnerProductSpace.PiL2 0.69,
+ModularForms.EisensteinSeries.QExpansion 0.68, MeasureTheory.Integral.CurveIntegral.Basic 0.68.  By
+declarations: Std.Data.DTreeMap.Internal.Lemmas 4 877, Init.Data.UInt.Lemmas 2 543, Init.Data.SInt.Lemmas
+2 416, Init.Data.BitVec.Lemmas 2 091, Init.Prelude 2 002, Std.Data.Internal.List.Associative 1 756,
+Lean.Data.Lsp.LanguageFeatures 1 665, Std.Data.DTreeMap.Lemmas 1 423, Std.Data.DTreeMap.Raw.Lemmas 1 321,
+Init.Data.Array.Lemmas 1 289.  Largest check: …EllipticCurve.Affine.AddSubMap, busy 10.4 s of which one
+check 8.9 s.
+
+**4. Memory profiles and threads** (`_tmp/518/prof-j{1,4}/`, `tools/profile.py`): 51 modules (the 25
+largest peaks, the 25 longest, the 6 largest checks), each worker alone, its `VmRSS` every 100 ms,
+at `--jobs=1` and `--jobs=4` (4 at a time).  Shape: a ramp to about 60 % of the run (90 % of the peak
+reached at 0.60 of the run, median; p10 0.29, p90 0.74), a plateau, then a drop near the end (median
+largest drop 38 % of the peak at one thread, 55 % at four; mean shape at tenths 0.11 0.22 0.32 0.43 0.54
+0.71 0.81 0.87 0.82 0.72 0.64).  No sawtooth at this scale.  Threads:
+
+| `--jobs=4` ÷ `--jobs=1`, 51 modules | median | min | max |
+|---|---|---|---|
+| wall time | 0.58 | 0.33 | 0.95 |
+| peak RSS | 1.02 | 0.98 | 1.87 (QuadraticForm.QuadraticModuleCat.Monoidal) |
+| parse phase (the 48 with ≥ 0.5 s) | 0.67 | 0.48 (p25) | 0.89 (p75) |
+
+Threads cost almost no memory, and the install phase is parallel too (the worker's reads take
+`--jobs`): its Amdahl serial fraction at 4 is 0.56 (median; quartiles 0.35, 0.82).  The brief's
+model `install + max(slowest, busy ÷ k)` overestimates the time at 4 threads by 1.44× (median); with
+`install × (0.56 + 0.44 ÷ k) + max(slowest, busy ÷ k)` the median ratio of predicted to measured is
+1.03 (quartiles 0.76, 1.33).  The simulator uses the latter (`--install-serial 0.56`).
+
+**5. The simulator** (`scripts/schedsim.py`, its docstring is the manual).  It replays a log under
+the policy of `ScheduleIO.run` at a 50 ms tick: jobs, stagger, one start per tick, admission by size
+(the budget minus the running workers at max(peak so far, typical, known size); killed modules first
+by known size, the queue's head at the typical peak; nothing running: the first starts), the typical
+peak (median of the last 200 from 20 on, budget ÷ jobs before), sticky protection, youngest-first
+kills until the sets fit, the known size max(set, typical, 2 × previous), the `memory` verdict alone,
+the growth gate, the FNV-1a shuffled order (the same hash as `shuffle`).  A module's memory is its
+profile scaled to its peak and time where one exists, else a linear ramp (`--shape mean`: the mean
+profile instead).  Variants: `--order graph` (the graph's order, recomputed from the source headers
+by `_tmp/518/tools/graphorder.py`: 10 976 modules, the same closure), threads from a thread budget
+(`--threads-k/-cap`, the brief's `max(1, min(cap, free, decls ÷ k))`, the thread budget = jobs),
+`--reserve`, `--typ-q`, `--growth`, `--stagger`, `--burst` (several starts per tick), `--read-cap`
+(a start only while fewer than R workers are in their read phase), `--heavy` (a random 1 % at 100×
+time and 10× memory).  It also prints a lower bound: max(work ÷ jobs, memory-time ÷ budget, longest).
+
+**Validation** (each log replayed with its own run's settings, ramp shape; `mean` in brackets):
+
+| run | wall real / sim | running | kills real / sim | lost | gate | protections |
+|---|---|---|---|---|---|---|
+| 16G | 41m42s / 41m16s (−1.0 %) | 4.0 / 4.04 | 0 / 0 | | | |
+| 16G stagger 0 | 13m28s / 14m03s (+4.3 %) | 7.5 / 6.97 | 0 / 0 | | | |
+| 1500M | 41m47s / 40m22s (−3.4 %) | 3.3 / 3.43 | 79 / 51 (24) | 67 / 45 s | 33 / 17 s | 51 / 36 |
+| 1000M | 48m29s / 45m45s (−5.6 %) | 2.5 / 2.66 | 395 / 334 (156) | 236 / 204 s | 159 / 74 s | 293 / 257 |
+| Coxeter 1G | 9m44s / 9m35s (−1.5 %) | 2.2 / 2.25 | 0 / 1 | | | |
+
+The makespan is within 6 %, slightly optimistic under memory pressure; kills are under-counted by
+15–35 % with the ramp (by half with the mean shape: the measured shape reaches its peak later, so fewer
+overflows), the growth gate's time by half (a real `VmHWM` rises in steps the ramp smooths).  The ramp
+stays the default.  At stagger 0 the sim runs fewer workers than the real run (6.97 vs 7.5): its one
+start per 50 ms tick is slower than the real loop, which sleeps 50 ms after the tick's work.
+
+**6. The variants** (makespan in minutes, kills in brackets; `--tick 0.05 --install-serial 0.56
+--thread-mem 0.01`, ramp; `real` the 16G log, `heavy` the same with a random 1 % (seed 518) at 100× time,
+10× memory; full tables with both shapes in `_tmp/518/grid-{ramp,mean}.md`):
+
+| variant | real 16G j8 | real 16G j16 | real 16G j32 | heavy 8G j8 | heavy 8G j16 | heavy 8G j32 | heavy 16G j8 | heavy 16G j16 | heavy 16G j32 | heavy 32G j32 |
+|---|---|---|---|---|---|---|---|---|---|---|
+| lower bound | 21 | 11 | 5 | 40 | 29 | 29 | 40 | 20 | 15 | 10 |
+| a current | 41 (0) | 37 (0) | 37 (0) | 67 (48) | 61 (50) | 60 (53) | 54 (3) | 45 (6) | 44 (6) | 41 (0) |
+| b threads k=10 cap=4 | 45 (0) | 39 (0) | 37 (0) | 73 (18) | 56 (29) | 53 (40) | 62 (0) | 47 (0) | 42 (0) | 42 (0) |
+| b threads k=30 cap=4 | 43 (0) | 38 (0) | 37 (0) | 67 (29) | 58 (43) | 56 (42) | 57 (3) | 44 (0) | 41 (0) | 41 (0) |
+| b threads k=30 cap=8 | 43 (0) | 38 (0) | 37 (0) | 69 (31) | 59 (36) | 56 (44) | 57 (3) | 46 (0) | 41 (0) | 41 (0) |
+| b threads k=100 cap=8 | 41 (0) | 37 (0) | 37 (0) | 65 (39) | 57 (55) | 56 (57) | 54 (3) | 44 (5) | 43 (5) | 41 (0) |
+| b threads k=30 cap=4, stagger 0, all starts | 23 (0) | 12 (0) | 6 (0) | 60 (48) | 49 (92) | 46 (88) | 46 (3) | 31 (19) | 24 (56) | 16 (0) |
+| c graph order | 38 (0) | 37 (0) | 37 (0) | 61 (36) | 56 (49) | 56 (50) | 50 (0) | 39 (2) | 39 (2) | 39 (0) |
+| d reserve now | 41 (0) | 37 (0) | 37 (0) | 67 (48) | 62 (49) | 62 (52) | 54 (3) | 45 (6) | 44 (6) | 41 (0) |
+| d reserve 60s | 41 (0) | 37 (0) | 37 (0) | 67 (48) | 62 (49) | 62 (52) | 54 (3) | 45 (6) | 44 (6) | 41 (0) |
+| e typical p75 | 41 (0) | 37 (0) | 37 (0) | 67 (40) | 61 (47) | 61 (47) | 54 (3) | 44 (4) | 44 (5) | 41 (0) |
+| f growth gate off | 41 (0) | 37 (0) | 37 (0) | 65 (139) | 59 (175) | 57 (174) | 53 (6) | 44 (28) | 42 (29) | 41 (0) |
+| g stagger 50 ms (= 10 ms = 0) | 23 (0) | 13 (0) | 10 (0) | 60 (54) | 54 (91) | 51 (100) | 45 (3) | 31 (30) | 26 (50) | 17 (4) |
+| h stagger 0, all starts per tick | 22 (0) | 11 (0) | 6 (0) | 59 (51) | 53 (98) | 52 (97) | 45 (3) | 31 (28) | 27 (71) | 16 (13) |
+| i stagger 0, at most 2 reading | 80 (0) | 80 (0) | 80 (0) | 153 (3) | 153 (3) | 153 (3) | 152 (0) | 152 (0) | 152 (0) | 152 (0) |
+| i stagger 0, at most 4 reading | 40 (0) | 40 (0) | 40 (0) | 84 (17) | 84 (17) | 84 (17) | 78 (0) | 78 (0) | 78 (0) | 78 (0) |
+
+Budgets of 8 and 32 GiB give the same `real` columns as 16 (no memory pressure at all).  Readings:
+* **The stagger** dominates every `real` column and the heavy ones with room: 41 → 23 min at 8 jobs,
+  37 → 10 at 32.  10 ms and 50 ms are the same as 0, since one start per tick (50 ms) is then the limit;
+  allowing all starts of a tick (h) reaches 6 min at 32 jobs, near the bound of 5.  Under memory
+  pressure (heavy 8G) it gains 10–15 % and doubles the kills (admission, not the stagger, holds memory).
+* **A read-phase gate** (i) in place of the stagger is the worst variant: the read phase is 91 % of a
+  worker's time, so "at most R reading" is "at most R running".  The stagger's original purpose (#468:
+  read phases not peaking together) is now admission's: the stagger-0 run peaked at 2.7 GB of 16, no
+  kill.  So it no longer earns its keep.
+* **Threads** (b) at the stagger: slightly worse (the thread budget = jobs takes cores from workers
+  that the stagger leaves idle anyway); with stagger 0 and memory pressure better (heavy 16G j32 24 vs
+  27 min with 56 vs 71 kills, 8G j32 46 vs 52); the decls rule gives most modules one thread
+  (median 35 declarations), and the heavy modules here are heavy by time, not by declarations.
+* **Graph order** (c) 5–13 % faster in the heavy columns: in this order (BFS from the root) Mathlib's
+  large modules start early and Init/Std/Lean's small ones fill the end, so the tail is short.  The
+  shuffled order was chosen for the estimate and against waves; a longest-known-first order would get
+  the same, but sizes are not fed back across runs (#516's ruling).
+* **Reservation for killed modules** (d): no effect, either way: a killed module's known size fits
+  again soon in these data (killed young, at small sets).
+* **p75 typical** (e): fewer kills (48 → 40), same makespan.
+* **Growth gate off** (f): 2–5 % faster under pressure, 3× the kills (48 → 139 at 8G j8).
+* **Shape**: the mean measured shape gives the same makespans within 3 min and fewer kills.
+
+**7. Recommendation (not implemented; the maintainer decides).**
+1. Set `--schedule-stagger` to 0 by default (or remove it): a measured 3.1× on Mathlib at 8 jobs, no
+   memory cost; on CFSG a 13.3 h floor goes.  Then start every admitted module of a tick, not one per
+   tick (h; matters from 16 jobs on: 13 → 11 min, at 32 jobs 10 → 6).
+2. Keep the growth gate and the median; do not build the reservation.
+3. Threads per worker: only after 1, and only where memory, not jobs, limits the workers: hand the
+   idle cores to the running workers (threads cost ~2 % memory; install and check both scale, 0.58× time
+   at 4 threads).  The declarations rule is a weak signal; a module's previous time would be better,
+   but needs sizes across runs.
+4. On CFSG the decisive numbers are memory-time ÷ budget (the heavy columns' bound) and the longest
+   module; this data set has neither tail, so the variant ranking there is an extrapolation.
+
+Code: `Driver/ScheduleIO.lean` (`secsMs`, `WorkerStats`, `workerStats`, `Running.texts`, the log
+line), `scripts/schedsim.py`; OVERVIEW's log format.  Gates: `lake build`, `lake test` warning-free;
+trust surface, layering, overview links, quote gate (the three README quotes reported as on the
+`modular` tip, exit 0), no-local-paths; olean gate 332/332 under the guard.

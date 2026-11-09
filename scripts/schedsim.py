@@ -1,0 +1,478 @@
+#!/usr/bin/env python3
+"""schedsim.py -- replay a `--schedule-log` offline under a scheduling policy (DESIGN task #518).
+
+The input is a scheduler log (`<verdict>\\t<module>\\t<ms>\\t<rss KiB>\\t<at>\\t<decls>\\t<parse>\\t
+<check>\\t<busy>\\t<slowest>`, `ConLeche/Driver/ScheduleIO.lean`) of a real run, each module's
+wall time and peak at one thread.  `killed` lines and repeated modules are skipped (the last verdict
+counts).  Optional memory profiles (`--profiles DIR`, files `<module>.tsv` of `ms<TAB>VmRSS KiB`
+lines sampled from a lone worker) give a module's memory shape over its run; a module without one
+ramps linearly to its peak (`--shape ramp`, the default) or follows the mean profiled shape
+(`--shape mean`).
+
+The policy replayed is the scheduler's of `ScheduleIO.run`, at a fixed tick (`--tick`, s):
+at most `--jobs` workers, starts `--stagger` ms apart, one start per tick; admission by size (the
+budget minus the running workers counted at max(peak so far, typical peak, known size); killed
+modules first by known size, then the queue's head at the typical peak; nothing running: the first
+always starts); the typical peak the `--typ-q` quantile (0.5, the median) of the last 200 finished
+peaks from 20 finishes on, budget / jobs before; on an overflow the largest worker protected
+(sticky), the youngest others killed until the current sets fit, each requeued at the front with
+known size max(set at the kill, typical, 2 x previous); the protected worker alone over the budget
+gets the verdict `memory`; the growth gate (`--growth`, s, 0 off) holds starts while the protected
+worker's peak rose within that long.
+
+Variants: `--order graph|shuffled` (graph needs `--graph-order FILE`, one module per line, the
+order of `Graph.graphOf`); `--threads-k K --threads-cap C --thread-budget B`: a worker starts at
+threads = max(1, min(C, free threads, decls // K)), its time install + max(slowest, busy / t)
+(install = wall - busy at one thread, scaled by s + (1 - s) / t, s = `--install-serial`,
+1 by default, 0.56 measured) and its peak scaled by 1 + `--thread-mem` x (t - 1);
+`--stagger MS` (the scheduler's `--schedule-stagger`, 200 by default; with modules of about a
+second it, not memory, bounds a Mathlib run: N x stagger); `--burst N`: up to N starts per tick
+(the scheduler: one); `--read-cap R`: a start only while fewer than R workers are in their read
+phase (the stagger's purpose, kept without a fixed delay); `--reserve now|60`: a killed module
+waits at the head of the queue and the scheduler drains for it (no other start until it fits;
+`60`: only once it has waited 60 s); `--heavy F --heavy-time X --heavy-mem Y --seed S`: a
+random fraction F of the modules made X times longer and Y times
+larger (a CFSG-like tail).
+
+Output (one line, or `--json`): the makespan, the mean running workers, the mean memory in use,
+the kills and the worker time they lost, the time the growth gate held starts, the `memory`
+verdicts.  `--grid` runs the variant table of DESIGN #518.
+"""
+import argparse, bisect, json, os, random
+
+FNV_OFF, FNV_PRIME = 14695981039346656037, 1099511628211
+
+
+def spell(m):
+    return ".".join("«" + c + "»" for c in m.split("."))
+
+
+def fnv1a(s):
+    h = FNV_OFF
+    for b in s.encode("utf-8"):
+        h = ((h ^ b) * FNV_PRIME) & 0xFFFFFFFFFFFFFFFF
+    return h
+
+
+def unspell(s):
+    return s.replace("«", "").replace("»", "")
+
+
+def num(x):
+    return None if x in (None, "", "-") else int(x.lstrip("≥"))
+
+
+def read_log(path):
+    """module -> dict(ms, pk, decls, parse, check, busy, slowest, verdict); also the kills."""
+    mods, kills = {}, []
+    for line in open(path, encoding="utf-8"):
+        f = line.rstrip("\n").split("\t")
+        if len(f) < 2:
+            continue
+        if f[0] == "killed":
+            kills.append((unspell(f[1]), num(f[2]) if len(f) > 2 else None))
+            continue
+        if len(f) < 4:
+            continue
+        g = f + ["-"] * (10 - len(f))
+        mods[unspell(f[1])] = dict(verdict=f[0], ms=num(g[2]), pk=num(g[3]), at=num(g[4]),
+                                   decls=num(g[5]), parse=num(g[6]), check=num(g[7]),
+                                   busy=num(g[8]), slowest=num(g[9]))
+    return mods, kills
+
+
+def read_profiles(d):
+    """module -> normalised shape: a list of (fraction of the run, fraction of the peak)."""
+    out = {}
+    if not d:
+        return out
+    for fn in os.listdir(d):
+        if not fn.endswith(".tsv"):
+            continue
+        pts = []
+        for l in open(os.path.join(d, fn)):
+            a = l.split()
+            if len(a) >= 2 and a[0].isdigit() and a[1].isdigit():
+                pts.append((int(a[0]), int(a[1])))
+        if len(pts) < 3:
+            continue
+        t1 = pts[-1][0] or 1
+        p = max(r for _, r in pts) or 1
+        out[fn[:-4]] = [(t / t1, r / p) for t, r in pts]
+    return out
+
+
+def mean_shape(profiles, n=50):
+    if not profiles:
+        return None
+    grid = [i / n for i in range(n + 1)]
+    acc = [0.0] * (n + 1)
+    for sh in profiles.values():
+        xs = [x for x, _ in sh]
+        for i, g in enumerate(grid):
+            j = min(len(sh) - 1, bisect.bisect_left(xs, g))
+            acc[i] += sh[j][1]
+    return [(g, a / len(profiles)) for g, a in zip(grid, acc)]
+
+
+class Shape:
+    def __init__(self, pts):
+        self.xs = [x for x, _ in pts]
+        self.ys = [y for _, y in pts]
+
+    def at(self, f):
+        if f <= 0:
+            return self.ys[0]
+        if f >= 1:
+            return self.ys[-1]
+        j = bisect.bisect_right(self.xs, f)
+        x0, x1 = self.xs[j - 1], self.xs[min(j, len(self.xs) - 1)]
+        y0, y1 = self.ys[j - 1], self.ys[min(j, len(self.ys) - 1)]
+        return y0 if x1 == x0 else y0 + (y1 - y0) * (f - x0) / (x1 - x0)
+
+
+RAMP = None  # linear ramp: f itself
+
+
+class Mod:
+    __slots__ = ("m", "ms", "pk", "decls", "busy", "slowest", "shape")
+
+
+def build_mods(log, profiles, shape_default, heavy, heavy_time, heavy_mem, seed):
+    rng = random.Random(seed)
+    names = sorted(log)
+    heavy_set = set(rng.sample(names, int(round(heavy * len(names))))) if heavy > 0 else set()
+    out = {}
+    for n in names:
+        r = log[n]
+        if r["ms"] is None or r["pk"] is None:
+            continue
+        x = Mod()
+        x.m = n
+        tf, mf = (heavy_time, heavy_mem) if n in heavy_set else (1, 1)
+        x.ms = max(1, r["ms"]) * tf
+        x.pk = max(1, r["pk"]) * mf
+        x.decls = r["decls"] or 0
+        busy = r["busy"] if r["busy"] is not None else 0
+        x.busy = min(busy, r["ms"]) * tf
+        x.slowest = min(r["slowest"] or 0, busy) * tf
+        sp = profiles.get(n)
+        x.shape = Shape(sp) if sp else shape_default
+        out[n] = x
+    return out, heavy_set
+
+
+def quantile(sorted_xs, q):
+    return sorted_xs[min(len(sorted_xs) - 1, int(len(sorted_xs) * q))]
+
+
+class W:
+    __slots__ = ("mod", "start", "dur", "pk", "hwm", "cur", "threads", "read_end")
+
+
+def simulate(mods, order, budget_kib, jobs, tick=0.1, stagger=200, growth=10, typ_q=0.5,
+             threads_k=0, threads_cap=1, thread_budget=0, thread_mem=0.0, reserve=None,
+             burst=1, install_serial=1.0, read_cap=0, max_time=10 ** 10):
+    """Returns the statistics of one replay.  Times in ms internally."""
+    dt = int(tick * 1000)
+    pending = [m for m in order if m in mods]
+    pending.reverse()  # pop() from the end = the head
+    front = []  # killed modules, head first
+    sizes, kills_by = {}, {}
+    waited_since = {}
+    running = []
+    peaks, typ = [], (budget_kib // jobs if budget_kib else 0)
+    prot, prot_track = None, None
+    now, last_start = 0, -10 ** 9
+    run_ms = mem_ms = res_ms = gate_ms = 0
+    kill_n = kill_ms = work_ms = prot_n = mem_verdicts = 0
+    done = 0
+    tb = thread_budget or jobs
+    threads_used = 0
+
+    def threads_for(m):
+        if threads_k <= 0:
+            return 1
+        free = tb - threads_used
+        return max(1, min(threads_cap, free, m.decls // threads_k))
+
+    def dur_pk(m, t):
+        if t <= 1:
+            return m.ms, m.pk
+        install = (m.ms - m.busy) * (install_serial + (1 - install_serial) / t)
+        return int(install + max(m.slowest, m.busy / t)), int(m.pk * (1 + thread_mem * (t - 1)))
+
+    def rss(w, at):
+        f = (at - w.start) / w.dur if w.dur else 1.0
+        s = f if w.mod.shape is None else w.mod.shape.at(f)
+        return int(w.pk * min(1.0, max(0.0, s)))
+
+    def eff(w):
+        return max(w.hwm, typ, sizes.get(w.mod.m, 0))
+
+    total = len(pending)
+    while (pending or front or running) and now < max_time:
+        now += dt
+        # sample, then the finished ones
+        still = []
+        for w in running:
+            if now - w.start >= w.dur:
+                pk = w.pk
+                work_ms += w.dur
+                done += 1
+                threads_used -= w.threads
+                peaks.append(pk)
+                if len(peaks) > 200:
+                    peaks.pop(0)
+                if len(peaks) >= 20:
+                    typ = quantile(sorted(peaks), typ_q)
+            else:
+                w.cur = rss(w, now)
+                w.hwm = max(w.hwm, w.cur)
+                still.append(w)
+        running = still
+        if prot is not None and not any(w.mod.m == prot for w in running):
+            prot = None
+        cur_total = sum(w.cur for w in running)
+        reserved = sum(eff(w) for w in running)
+        run_ms += len(running) * dt
+        mem_ms += cur_total * dt
+        res_ms += reserved * dt
+        # the overflow
+        if budget_kib and running and cur_total > budget_kib:
+            if prot is None or not any(w.mod.m == prot for w in running):
+                big = max(running, key=lambda w: (w.cur, w.hwm))
+            else:
+                big = next(w for w in running if w.mod.m == prot)
+            if len(running) == 1:
+                running = []
+                threads_used -= big.threads
+                work_ms += now - big.start
+                mem_verdicts += 1
+                done += 1
+                prot = None
+            else:
+                if prot is None:
+                    prot_n += 1
+                prot = big.mod.m
+                left = cur_total
+                while left > budget_kib:
+                    others = [w for w in running if w is not big]
+                    if not others:
+                        break
+                    v = max(others, key=lambda w: w.start)
+                    running.remove(v)
+                    threads_used -= v.threads
+                    left -= v.cur
+                    kill_n += 1
+                    kill_ms += now - v.start
+                    work_ms += now - v.start
+                    kills_by[v.mod.m] = kills_by.get(v.mod.m, 0) + 1
+                    sizes[v.mod.m] = max(v.cur, typ, 2 * sizes.get(v.mod.m, 0))
+                    if v.mod.m in front:
+                        front.remove(v.mod.m)
+                    front.insert(0, v.mod.m)
+                    waited_since[v.mod.m] = now
+        # the growth gate
+        growing = False
+        if prot is not None:
+            hw = next((w.hwm for w in running if w.mod.m == prot), 0)
+            if prot_track and prot_track[0] == prot:
+                t = now if hw > prot_track[1] else prot_track[2]
+                prot_track = (prot, max(hw, prot_track[1]), t)
+                growing = growth > 0 and now - t < growth * 1000
+            else:
+                prot_track = (prot, hw, now)
+                growing = growth > 0
+        else:
+            prot_track = None
+        if growing and len(running) < jobs and (front or pending):
+            gate_ms += dt
+        if growing:
+            continue
+        for _ in range(burst):
+            if now - last_start < stagger or len(running) >= jobs or threads_used >= tb:
+                break
+            # the read gate: at most `read_cap` workers in their read (install) phase at once
+            if read_cap and sum(1 for w in running if now < w.read_end) >= read_cap:
+                break
+            room = (budget_kib - min(budget_kib, sum(eff(w) for w in running))) \
+                if budget_kib else 1 << 60
+            pick = None
+            for m in front:
+                if not running or sizes.get(m, 0) <= room:
+                    pick = m
+                    break
+            if pick is not None:
+                front.remove(pick)
+            elif front and reserve is not None and running and \
+                    (reserve == 0 or now - waited_since.get(front[0], now) >= reserve * 1000):
+                pass  # drain for the head of the killed modules
+            elif pending and (not running or typ <= room):
+                pick = pending.pop()
+            if pick is None:
+                break
+            mod = mods[pick]
+            t = threads_for(mod)
+            w = W()
+            w.mod, w.start, w.threads = mod, now, t
+            w.dur, w.pk = dur_pk(mod, t)
+            w.dur = max(w.dur, 1)
+            w.read_end = now + int((mod.ms - mod.busy) * w.dur / max(1, mod.ms))
+            w.hwm = w.cur = 0
+            threads_used += t
+            running.append(w)
+            last_start = now
+    span = max(1, now)
+    # a lower bound at one thread per worker: the work over the jobs, the memory-time over the
+    # budget (each module at the mean of its shape), the longest module
+    ms = [mods[m] for m in order if m in mods]
+    area = sum(x.pk * x.ms * (0.5 if x.shape is None else sum(x.shape.ys) / len(x.shape.ys))
+               for x in ms)
+    lb = max(sum(x.ms for x in ms) / jobs, area / budget_kib if budget_kib else 0,
+             max(x.ms for x in ms))
+    return dict(makespan_s=now / 1000, lower_bound_s=lb / 1000, modules=total, done=done,
+                running=run_ms / span, mem_gib=mem_ms / span / 2 ** 20,
+                reserved_gib=res_ms / span / 2 ** 20, kills=kill_n, kill_modules=len(kills_by),
+                lost_s=kill_ms / 1000, lost_pct=100 * kill_ms / max(1, work_ms),
+                gate_s=gate_ms / 1000, protections=prot_n, memory_verdicts=mem_verdicts)
+
+
+def make_order(mods, how, graph_file):
+    if how == "graph":
+        g = [l.strip() for l in open(graph_file) if l.strip()]
+        seen = set(g)
+        return g + sorted(m for m in mods if m not in seen)
+    return [m for _, _, m in sorted((fnv1a(spell(m)), spell(m), m) for m in mods)]
+
+
+def hms(s):
+    s = int(s)
+    return f"{s // 3600}h{s % 3600 // 60:02d}m{s % 60:02d}s"
+
+
+def fmt(r):
+    return (f"makespan {hms(r['makespan_s'])} (bound {hms(r['lower_bound_s'])})  "
+            f"running {r['running']:5.2f}  "
+            f"mem {r['mem_gib']:5.1f} GiB (res {r['reserved_gib']:5.1f})  kills {r['kills']:5d} "
+            f"({r['kill_modules']} mods, lost {hms(r['lost_s'])} = {r['lost_pct']:4.1f} %)  "
+            f"gate {hms(r['gate_s'])}  memory {r['memory_verdicts']}")
+
+
+VARIANTS = [
+    ("a current", {}),
+    ("b threads k=10 cap=4", dict(threads_k=10, threads_cap=4)),
+    ("b threads k=30 cap=4", dict(threads_k=30, threads_cap=4)),
+    ("b threads k=30 cap=8", dict(threads_k=30, threads_cap=8)),
+    ("b threads k=100 cap=8", dict(threads_k=100, threads_cap=8)),
+    ("b threads k=30 cap=4, stagger 0, all starts", dict(threads_k=30, threads_cap=4, stagger=0,
+                                                       burst=64)),
+    ("c graph order", dict(order="graph")),
+    ("d reserve now", dict(reserve=0)),
+    ("d reserve 60s", dict(reserve=60)),
+    ("e typical p75", dict(typ_q=0.75)),
+    ("f growth gate off", dict(growth=0)),
+    ("g stagger 50ms", dict(stagger=50)),
+    ("g stagger 10ms", dict(stagger=10)),
+    ("g stagger 0", dict(stagger=0)),
+    ("h stagger 0, all starts per tick", dict(stagger=0, burst=64)),
+    ("i stagger 0, at most 2 reading", dict(stagger=0, burst=64, read_cap=2)),
+    ("i stagger 0, at most 4 reading", dict(stagger=0, burst=64, read_cap=4)),
+]
+
+_G = {}
+
+
+def _one(job):
+    data, budget, jobs, name, kw = job
+    mods, orders, base = _G[data]
+    kw = dict(base, **kw)
+    order = orders[kw.pop("order", "shuffled")]
+    r = simulate(mods, order, int(budget * 2 ** 20), jobs, **kw)
+    return (data, budget, jobs, name, r)
+
+
+def grid(a, datasets, budgets, jobss, variants, procs):
+    import multiprocessing
+    jobs = [(d, b, j, n, kw) for d in datasets for b in budgets for j in jobss
+            for n, kw in variants]
+    with multiprocessing.get_context("fork").Pool(procs) as pool:
+        res = pool.map(_one, jobs, chunksize=1)
+    print("| data | budget | jobs | variant | makespan | bound | running | mem GiB | kills (mods) "
+          "| lost | gate | memory |")
+    print("|---|---|---|---|---|---|---|---|---|---|---|---|")
+    for d, b, j, n, r in res:
+        print(f"| {d} | {b:g} | {j} | {n} | {hms(r['makespan_s'])} | {hms(r['lower_bound_s'])} | "
+              f"{r['running']:.2f} | "
+              f"{r['mem_gib']:.1f} | {r['kills']} ({r['kill_modules']}) | {r['lost_pct']:.1f} % | "
+              f"{hms(r['gate_s'])} | {r['memory_verdicts']} |")
+    if a.json:
+        json.dump([dict(data=d, budget=b, jobs=j, variant=n, **r) for d, b, j, n, r in res],
+                  open(a.json_out or "/dev/stdout", "w"))
+
+
+def main():
+    ap = argparse.ArgumentParser(description=__doc__.split("\n")[0])
+    ap.add_argument("log")
+    ap.add_argument("--profiles")
+    ap.add_argument("--shape", choices=["ramp", "mean"], default="ramp")
+    ap.add_argument("--budget", type=float, default=16, help="GiB, 0 for none")
+    ap.add_argument("--jobs", type=int, default=8)
+    ap.add_argument("--tick", type=float, default=0.1)
+    ap.add_argument("--stagger", type=int, default=200)
+    ap.add_argument("--growth", type=int, default=10)
+    ap.add_argument("--read-cap", type=int, default=0,
+                    help="at most this many workers in their read phase (0: no such gate)")
+    ap.add_argument("--burst", type=int, default=1,
+                    help="starts per tick at most (the scheduler: 1)")
+    ap.add_argument("--typ-q", type=float, default=0.5)
+    ap.add_argument("--order", choices=["shuffled", "graph"], default="shuffled")
+    ap.add_argument("--graph-order")
+    ap.add_argument("--threads-k", type=int, default=0)
+    ap.add_argument("--threads-cap", type=int, default=1)
+    ap.add_argument("--thread-budget", type=int, default=0)
+    ap.add_argument("--thread-mem", type=float, default=0.0)
+    ap.add_argument("--install-serial", type=float, default=1.0,
+                    help="the install phase's serial fraction at more threads (1: not parallel)")
+    ap.add_argument("--reserve", type=int, default=None, help="seconds; 0 drains at once")
+    ap.add_argument("--heavy", type=float, default=0.0)
+    ap.add_argument("--heavy-time", type=float, default=100)
+    ap.add_argument("--heavy-mem", type=float, default=10)
+    ap.add_argument("--seed", type=int, default=518)
+    ap.add_argument("--json", action="store_true")
+    ap.add_argument("--json-out")
+    ap.add_argument("--grid", action="store_true", help="the variant table: real and heavy data")
+    ap.add_argument("--grid-budgets", default="8,16,32")
+    ap.add_argument("--grid-jobs", default="8,16,32")
+    ap.add_argument("--grid-variants", default="", help="comma-separated prefixes, empty for all")
+    ap.add_argument("--procs", type=int, default=8)
+    a = ap.parse_args()
+    log, _ = read_log(a.log)
+    prof = read_profiles(a.profiles)
+    default = Shape(mean_shape(prof)) if a.shape == "mean" and prof else None
+    base = dict(tick=a.tick, stagger=a.stagger, growth=a.growth, typ_q=a.typ_q,
+                thread_mem=a.thread_mem, install_serial=a.install_serial, burst=a.burst)
+    if a.grid:
+        sets = [("real", 0.0)] + ([("heavy", a.heavy or 0.01)])
+        for name, h in sets:
+            mods, _ = build_mods(log, prof, default, h, a.heavy_time, a.heavy_mem, a.seed)
+            orders = {"shuffled": make_order(mods, "shuffled", None)}
+            if a.graph_order:
+                orders["graph"] = make_order(mods, "graph", a.graph_order)
+            _G[name] = (mods, orders, base)
+        pre = [p for p in a.grid_variants.split(",") if p]
+        vs = [(n, kw) for n, kw in VARIANTS if (not pre or any(n.startswith(p) for p in pre))
+              and (a.graph_order or kw.get("order") != "graph")]
+        grid(a, [n for n, _ in sets], [float(x) for x in a.grid_budgets.split(",")],
+             [int(x) for x in a.grid_jobs.split(",")], vs, a.procs)
+        return
+    mods, _ = build_mods(log, prof, default, a.heavy, a.heavy_time, a.heavy_mem, a.seed)
+    order = make_order(mods, a.order, a.graph_order)
+    r = simulate(mods, order, int(a.budget * 2 ** 20), a.jobs, a.tick, a.stagger, a.growth,
+                 a.typ_q, a.threads_k, a.threads_cap, a.thread_budget, a.thread_mem, a.reserve,
+                 a.burst, a.install_serial, a.read_cap)
+    print(json.dumps(r) if a.json else fmt(r))
+
+
+if __name__ == "__main__":
+    main()
