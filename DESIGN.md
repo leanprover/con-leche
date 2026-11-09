@@ -115076,3 +115076,121 @@ running and unknown module counted at that, and only 2 of 16 jobs ran with 4 to 
 kill still sets the known size to max(RSS, typical, 2 x previous). Hand test (`Std.Tactic.BVDecide`,
 `--jobs=4 --schedule-memory=6G`): 4 workers run in parallel with the median at 71 MiB; a median
 is unmoved by an outlier among at least 20 small peaks, which is the point.
+
+## TASK #511 — a module located by its root, as Lean does; each root resolved once per run (2026-11-08, agent/511-root-lookup)
+
+**Lean's rule, corrected.**  #392's docstring (and #509's record) said Lean takes the first
+search-path directory holding `M.olean`.  It does not: `SearchPath.findWithExt`
+(`src/lean/Lean/Util/Path.lean:61`, v4.35.0) takes the first directory `p` holding the
+module's ROOT package (`p/<Root>` a directory, or `p/<Root>.olean` a file) and expects the
+module exactly there (`findModuleWithExt` checks that one path); a copy further down is never
+looked at.
+
+**The rule implemented** (maintainer's ruling; `ConLeche/Frontend/Olean/Files.lean`):
+* `rootAt sp r` asks every directory whether it holds the root (`holdsRoot`: `isDir (d/<Root>)`,
+  else `pathExists (d/<Root>.olean)`, Lean's test).  None: `.missing` (Lean's "unknown module
+  prefix").  One: that directory.  Two or more: their REAL paths compared (`realPath` of the
+  directories, #392's comparison, now only here); one location (a directory listed twice, or
+  reached through a symbolic link) is that directory, the first spelling; two locations are an
+  error, exit 3, the message naming the root and the directories ("module M: its root R is in
+  more than one location on the search path (…); the search path must hold each root once").
+* `Roots` (the search path, and a map root → `RootAt`) is resolved once per root per run
+  (`Roots.resolve`); `findModule R m` is `locatedOf m <$> R.rootOf m.root`.  `Located` is the
+  directory alone.
+* The module's files are the three paths in that directory, and reading them answers whether
+  they are there: `readImportsAt`/`readFilesAt` catch a failed read (`readPartOr`) and say why
+  (`oleanFailed`, `partFailed`: not there, parts without the `.olean`, or there and unreadable).
+  Existence is asked only on the failure path, and where a view needs it without reading: a
+  classic module's parts beside it (at the server and private levels, two `pathExists`) and a
+  module-system module's private part at the server level (one), as #392 had them.
+* #392's checks kept: parts without an `.olean` beside them; a root on no directory; a module
+  missing in its root's directory (new message: "no M.olean in D, the search-path directory
+  holding its root R").  The split-parts check and its message are gone: all parts are under the
+  one root directory.  Where the `.olean` is there but cannot be read, the message no longer
+  carries the exception's text (in the model an exception is any exception; leaving it out
+  makes the reads determined on the snapshot, which the proofs use).
+* Who threads the roots: the merged run's walk (`closureGo`, returned with the order; the loads
+  and the theorems' value reads use them, `OleanRead.roots`); `--check-graph` (`closureLevels`:
+  a level's roots resolved before its parallel map; `graphOf` returns them); `--modular` (the
+  graph's roots for `readModTable` and every module's worker steps); the worker
+  (`workerTables` returns the roots with the tables; its fallback reads and its values phase use
+  them).  The "located twice" sites #509 left (merged `closureOrder`/`loadModule`/`regionFor`,
+  one-process `graphOf` + `readModTable`, the worker's values phase) are now a map lookup each.
+
+**The class and the model.**  `CheckerIO.isDir` (at `IO`, `System.FilePath.isDir`); the
+model's snapshot `FS` gains `dir : FilePath → Bool`, and `isDir p` answers `fs.dir p`.  No
+assumption relates `dir` to `real` or `bytes`: the location is defined from the answers, not
+derived from the file tree.  The trust assumption (1) covers it as every other file operation;
+the CheckerIO fence already admits `CheckerIO.isDir`; `CheckerIOTests` compares it on the
+snapshot.
+
+**Proofs.**  New `ConLeche/Verify/Frontend/Olean/Roots.lean`: `rootAt_noHandles`, `rootAt_ok`
+(an answer that is not an exception's is determined), `Roots.Ok` (each resolved root's answer
+one `rootAt` can give), `Roots.resolve_ok`/`foldResolve_ok`, `findModule_ok` (any roots),
+`ModelIO.Sub` (outcomes from the same handles) and the transports `findModule_sub`,
+`moduleImports_sub`, `readFiles_sub`, `readView_sub`, `readPartNames_sub` (through roots read
+off the snapshot ⊆ on the bare search path), `findModule_rev`/`readFiles_rev` (a value outcome
+on the bare path is one through the roots), `ModelIO.det_tryCatch`.  Repaired: `closureGo_ok`/
+`closureOrder_ok` (the walk's roots stay `Ok`), `readFiles_ok`/`readFiles_of_all` (no
+`hasServer`/`hasPrivate`; the classic case says the parts' paths name nothing),
+`readImportsAt_ok/_det`, `readOleans_ok` (one conjunct now names the closure's roots),
+`closureLevels_good/_closure`, `graphOf_ok` (+ the roots' facts), `TablesOk` unchanged,
+`workerTables_ok` (+ roots), `modTables_within`, `worker_tail`/`checkModuleG_accept` (the code's
+roots beside the spec's search path; `fillOf_roots`, `ValueAt.roots`), `tables_ok`,
+`checkModularG_accept`, `checkMainG_oleans_accept`; the Det lemmas of a module's files moved to
+`Shared.lean`.  Every `runArgs_*` statement and every capstone is unchanged; no sorry, no axiom,
+no unsafe.
+
+**Fixtures** (`tests/olean.sh`, the strict search path; 321 → 326 cases):
+* a root in two directories: exit 3 as before, message now "its root TinyUse is in more than one
+  location" (was "its files are in more than one location"); an imported module's root likewise
+  ("module Tiny: its root Tiny is …");
+* one directory twice, a directory and a symbolic link to it: 0, unchanged;
+* NEW: a root's directory without the module in front of the directory holding it (`UpNum/`
+  empty, then the library): exit 3, the root is in two places (Lean would look only in the first
+  and not find the module; strictly, the second holding the root is already the error);
+* NEW: a module missing in its root's directory: exit 3 ("… the search-path directory holding its
+  root UpNum"); under `--check-graph` exit 1 (an import that does not resolve), and its root in
+  two directories exit 3;
+* "parts split across two directories" is now "a part outside its root's directory": exit 3 as
+  before, message now the missing part's ("without its Tiny.olean.private in <a>"): the other
+  directory is never looked at;
+* "parts without their .olean" of a ROOT module (`Tiny.olean` gone, parts left): exit 3 as before,
+  message now "no .olean on the search path" (a lone part does not make a directory hold the
+  root); the check proper moved to a module below a root (`UpNum/12.34/5.olean.private` alone):
+  "… olean.private without …";
+* a missing private part, a private part beside a classic `.olean`: unchanged.
+
+**Measured** (v4.35.0 Mathlib, the #509 command line, `--jobs=8`, under the guard;
+`_tmp/511/measure.sh`; before = `modular` at 7d1ea6609, after = this lane before the merge).
+`strace -c -f -e trace=statx,readlink,openat` (no `readlink` in either, since #509):
+
+| run | `statx` (failing) | `openat` |
+|---|---|---|
+| `Init.Data.Nat.Lemmas` | 2 685 (2 040) → 407 (16) | 394 → 394 |
+| `Mathlib.GroupTheory.Coxeter.Basic` | 75 451 (59 712) → 8 479 (192) | 5 876 → 5 877 |
+| `Mathlib.Analysis.SpecialFunctions.Gamma.Basic` | 125 567 (98 424) → 15 044 (192) | 10 827 → 10 827 |
+| `Mathlib.RingTheory.WittVector.MulP` | 98 317 (77 952) → 10 825 (192) | 7 461 → 7 462 |
+| merged `--olean`, Coxeter | 554 431 (445 824) → 53 284 (192) | 50 109 → 50 310 |
+| `--check-graph`, Coxeter | 82 650 (68 400) → 5 904 (192) | 2 930 → 2 930 |
+
+The `statx` left are the reads' own (`fileSize` and the open's metadata); the 192 failing ones
+are the root lookups (each root once, over the 10 directories).
+
+`instructions:u` (one run per stream) and `cycles:u` (three runs, ranges; the machine is loaded):
+
+| run | `instructions:u` | `cycles:u` |
+|---|---|---|
+| `Init.Data.Nat.Lemmas` | 9.129 G → 9.102 G (−0.3 %) | 4.78–5.20 G → 4.51–6.18 G |
+| `Mathlib.GroupTheory.Coxeter.Basic` | 7.794 G → 6.911 G (−11.3 %) | 3.24–3.31 G → 3.26–3.97 G |
+| `Mathlib.Analysis.SpecialFunctions.Gamma.Basic` | 13.345 G → 11.844 G (−11.2 %) | 6.12–6.50 G → 5.44–5.96 G |
+| `Mathlib.RingTheory.WittVector.MulP` | 7.539 G → 6.378 G (−15.4 %) | 2.87–3.04 G → 2.74–2.82 G |
+| merged `--olean`, Coxeter | 1 099.78 G → 1 093.39 G (−0.6 %) | 575–599 G → 562–582 G |
+| `--check-graph`, Coxeter | 1.304 G → 0.259 G (−80.1 %) | 0.530–0.578 G → 0.163–0.179 G |
+
+Every verdict unchanged (exit 0).  The user-space instructions fall with the paths no longer
+built and asked for (30 per module and lookup before).
+
+**Not done.**  `--compare` (olean-compare) may later need a different search-path policy; not
+now.  README's "File access (existence, reading)" does not name the directory test; reported,
+not changed.

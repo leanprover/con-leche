@@ -133,11 +133,11 @@
 == ConLeche/Driver/Dispatch.lean#L47
     47    | .oleans sp roots cs mode pace jobs => checkMainG (.oleans sp roots cs) mode pace jobs
 
-== ConLeche/Frontend/CheckerIO.lean#L140
-   140  class CheckerIO (m : Type → Type) extends Monad m, MonadExceptOf IO.Error m where
+== ConLeche/Frontend/CheckerIO.lean#L141
+   141  class CheckerIO (m : Type → Type) extends Monad m, MonadExceptOf IO.Error m where
 
-== ConLeche/Frontend/CheckerIO.lean#L302
-   302  def ModelIO (α : Type) : Type := FS → HS → Except IO.Error α → HS → Prop
+== ConLeche/Frontend/CheckerIO.lean#L310
+   310  def ModelIO (α : Type) : Type := FS → HS → Except IO.Error α → HS → Prop
 
 == ConLeche/Verify/Driver/Main.lean#L239-L243
    239  theorem runArgs_accept {file : String} {fs : FS} {hs hs' : HS}
@@ -363,9 +363,9 @@
 == ConLeche/Frontend/Olean/Lazy.lean#L294
    294  def loadAt (i : Nat) (m : Name) (f : ModFiles) : Option Loaded := do
 
-== ConLeche/Frontend/Olean/Records.lean#L152-L153
-   152  def readValue {μ : Type → Type} [CheckerIO μ] (sp : SearchPath) (values : Array ModRef)
-   153      (c : ValueCache) (code : Nat) : μ (ValueCache × Except CheckError Expr) := do
+== ConLeche/Frontend/Olean/Records.lean#L154-L155
+   154  def readValue {μ : Type → Type} [CheckerIO μ] (sp : Roots) (values : Array ModRef)
+   155      (c : ValueCache) (code : Nat) : μ (ValueCache × Except CheckError Expr) := do
 
 == ConLeche/Kernel/Env.lean#L55
     55  inductive CheckMode where
@@ -1382,17 +1382,17 @@
 == ConLeche/Driver/Cli.lean#L287
    287  def runArgs {m : Type → Type} [CheckerIO m] (args : List String) : m UInt8 :=
 
-== ConLeche/Frontend/CheckerIO.lean#L140
-   140  class CheckerIO (m : Type → Type) extends Monad m, MonadExceptOf IO.Error m where
+== ConLeche/Frontend/CheckerIO.lean#L141
+   141  class CheckerIO (m : Type → Type) extends Monad m, MonadExceptOf IO.Error m where
 
-== ConLeche/Frontend/CheckerIO.lean#L165
-   165    parMapExcept : {α β ε : Type} → (jobs : Nat) → (α → m (Except ε β)) → List α →
+== ConLeche/Frontend/CheckerIO.lean#L168
+   168    parMapExcept : {α β ε : Type} → (jobs : Nat) → (α → m (Except ε β)) → List α →
 
-== ConLeche/Frontend/CheckerIO.lean#L181
-   181    liftIO : {α : Type} → IO α → m α
+== ConLeche/Frontend/CheckerIO.lean#L184
+   184    liftIO : {α : Type} → IO α → m α
 
-== ConLeche/Frontend/CheckerIO.lean#L302
-   302  def ModelIO (α : Type) : Type := FS → HS → Except IO.Error α → HS → Prop
+== ConLeche/Frontend/CheckerIO.lean#L310
+   310  def ModelIO (α : Type) : Type := FS → HS → Except IO.Error α → HS → Prop
 
 == ConLeche/MainTheorem.lean#L154-L156
    154  theorem main_no_False (V : Type w) [SetTheory V] {file : String} {fs : FS} {b : ByteArray}

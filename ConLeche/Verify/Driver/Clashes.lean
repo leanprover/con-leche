@@ -36,40 +36,7 @@ namespace ConLeche.Driver
 
 open ConLeche ConLeche.Modular ConLeche.Frontend ConLeche.Frontend.Olean
 
-/-! ## A part's files, determined -/
-
-theorem readPart_isDet (p : System.FilePath) (fs : FS) :
-    (readPart p : ModelIO (Except CheckError Part)).Det fs := by
-  simp only [readPart]
-  exact ModelIO.det_bind ⟨fs.file p, fun hs => ⟨hs, rfl⟩⟩ fun _ => ModelIO.det_pure _ _
-
-theorem readFilesAt_isDet (loc : Located) (m : Name) (level : OLeanLevel) (fs : FS) :
-    (readFilesAt loc m level : ModelIO (Except CheckError ModFiles)).Det fs := by
-  simp only [readFilesAt]
-  refine ModelIO.det_bind (readPart_isDet _ fs) fun x => ?_
-  rcases x with e | ex
-  · exact ModelIO.det_pure _ _
-  simp only
-  split
-  · exact ModelIO.det_pure _ _
-  split
-  · split
-    · exact ModelIO.det_pure _ _
-    · exact ModelIO.det_pure _ _
-  split
-  · exact ModelIO.det_pure _ _
-  split
-  · exact ModelIO.det_pure _ _
-  refine ModelIO.det_bind (readPart_isDet _ fs) fun y => ?_
-  rcases y with e | s
-  · exact ModelIO.det_pure _ _
-  simp only
-  split
-  · exact ModelIO.det_pure _ _
-  refine ModelIO.det_bind (readPart_isDet _ fs) fun z => ?_
-  rcases z with e | p
-  · exact ModelIO.det_pure _ _
-  · exact ModelIO.det_pure _ _
+/-! ## A part's files -/
 
 /-- The files of a read of a part: its module located, its files read there. -/
 theorem readFiles_open {sp : SearchPath} {m : Name} {level : OLeanLevel} {fs : FS}
