@@ -5,7 +5,6 @@ import ConLeche.Model.Inductives.FormerInEnv
 public import ConLeche.Model.Inductives.BlockLeafOk
 import ConLeche.Model.Inductives.FixKit
 import ConLeche.Verify.Inductives.BlockInv
-import ConLeche.Verify.Inductives.BlockWF
 public section
 
 /-!

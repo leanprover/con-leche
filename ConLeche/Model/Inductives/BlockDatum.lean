@@ -16,7 +16,6 @@ import ConLeche.Model.Inductives.BlockAccRunCont
 import ConLeche.Model.Inductives.BlockHoleFold
 import ConLeche.Verify.Inductives.BlockInv
 import ConLeche.Semantics.Inductives.DeclBlockEta
-public import ConLeche.Verify.Inductives.BlockWF
 public section
 
 /-!

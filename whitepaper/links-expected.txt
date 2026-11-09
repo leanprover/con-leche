@@ -5264,20 +5264,20 @@
    137    no_empty_inductive_inhabitant V hacc (S := IndSpec.falseSpec name recName elim) rfl rfl rfl rfl
    138      hrec e
 
-== ConLeche/Model/Fold.lean#L431-L438
-   431  theorem no_proof_of_False_pure (V : Type w) [SetTheory V]
-   432      {F : Nat}
-   433      {ds : List Declaration} {env' : Env}
-   434      (h : checkDeclsPure .verified (fueledOps .verified F) pins ds = .ok env') :
-   435      ∀ c ∈ env'.consts,
-   436        c.toConstantVal.type = .const falseName [] → False := by
-   437    obtain ⟨mp⟩ := checkDeclsPure_sound_of (V := V) h
-   438    exact fun c hc hty => no_constant_of_False mp c hc hty
+== ConLeche/Model/Fold.lean#L435-L442
+   435  theorem no_proof_of_False_pure (V : Type w) [SetTheory V]
+   436      {F : Nat}
+   437      {ds : List Declaration} {env' : Env}
+   438      (h : checkDeclsPure .verified (fueledOps .verified F) pins ds = .ok env') :
+   439      ∀ c ∈ env'.consts,
+   440        c.toConstantVal.type = .const falseName [] → False := by
+   441    obtain ⟨mp⟩ := checkDeclsPure_sound_of (V := V) h
+   442    exact fun c hc hty => no_constant_of_False mp c hc hty
 
-== ConLeche/Model/Fold.lean#L360-L362
-   360  theorem foldPM {F : Nat} :
-   361      ∀ (ds : List Declaration) (env : Env) {env' : Env},
-   362        EnvModelOk V env →
+== ConLeche/Model/Fold.lean#L364-L366
+   364  theorem foldPM {F : Nat} :
+   365      ∀ (ds : List Declaration) (env : Env) {env' : Env},
+   366        EnvModelOk V env →
 
 >>> whitepaper/sections/05-nested.typ
 
