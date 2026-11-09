@@ -772,7 +772,7 @@ innermost binder first.  Computes
 `n` `∀`-binders (`openPisAtFvarsFGo_sound`), `none` otherwise —
 one bulk instantiation pass per domain instead of one whole-telescope
 `instantiate1` pass per binder.  The cached tier's own loop is
-`openPisAtFvarsGoC` (`Cached/ExprOpsC.lean`, over `instantiateListC`). -/
+`openPisRawGoC` (`Cached/ExprOpsC.lean`, over `instantiateListC`). -/
 def openPisAtFvarsFGo (acc : List Expr) :
     Nat → Expr → Nat → Option (List Expr × Expr)
   | 0, e, _ => some ([], e.instantiateList acc)

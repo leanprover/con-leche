@@ -205,15 +205,20 @@ theorem hasLooseBVarBC_spec {i : Nat} {e : Expr} :
 
 /-! ## The one-pass opener (moved from `DiscC4.lean`: the driver's equations import this file) -/
 
-/-- The cached opening loop is the kernel's. -/
+/-- The cached opening loop (the raw one, its residual substituted) is the kernel's. -/
 theorem openPisAtFvarsGoC_eq :
     ∀ (acc : List Expr) (n : Nat) (e : Expr) (i : Nat),
       openPisAtFvarsGoC acc n e i = openPisAtFvarsFGo acc n e i
-  | _, 0, _, _ => by simp only [openPisAtFvarsGoC, openPisAtFvarsFGo, Expr.instantiateListC_spec]
+  | _, 0, _, _ => by
+    simp only [openPisAtFvarsGoC, openPisRawGoC, openPisAtFvarsFGo, Expr.instantiateListC_spec]
   | acc, n + 1, .forallE dom body, i => by
-    simp only [openPisAtFvarsGoC, openPisAtFvarsFGo, Expr.instantiateListC_spec,
-      openPisAtFvarsGoC_eq _ n body (i + 1)]
-    cases openPisAtFvarsFGo (.fvar i (dom.instantiateList acc) :: acc) n body (i + 1) <;> rfl
+    have ih := openPisAtFvarsGoC_eq (.fvar i (Expr.instantiateListC dom acc) :: acc) n body (i + 1)
+    simp only [Expr.instantiateListC_spec] at ih
+    simp only [openPisAtFvarsFGo, ← ih]
+    simp only [openPisAtFvarsGoC, openPisRawGoC, Expr.instantiateListC_spec]
+    cases openPisRawGoC (.fvar i (dom.instantiateList acc) :: acc) n body (i + 1) with
+    | none => rfl
+    | some p => obtain ⟨fvs, acc', r⟩ := p; rfl
   | _, _ + 1, .bvar _, _ => rfl
   | _, _ + 1, .fvar .., _ => rfl
   | _, _ + 1, .sort _, _ => rfl
@@ -223,6 +228,36 @@ theorem openPisAtFvarsGoC_eq :
   | _, _ + 1, .letE .., _ => rfl
   | _, _ + 1, .lit _, _ => rfl
   | _, _ + 1, .proj .., _ => rfl
+
+/-- The raw opening's substitution is free variables, as its start is. -/
+theorem openPisRawGoC_fvars :
+    ∀ (acc : List Expr) (n : Nat) (e : Expr) (i : Nat) {fvs acc' : List Expr} {r : Expr},
+      (∀ a ∈ acc, ∃ k t, a = .fvar k t) → openPisRawGoC acc n e i = some (fvs, acc', r) →
+      ∀ a ∈ acc', ∃ k t, a = .fvar k t
+  | _, 0, _, _, _, _, _, hacc, h => by
+    simp only [openPisRawGoC, Option.some.injEq, Prod.mk.injEq] at h
+    obtain ⟨-, rfl, -⟩ := h; exact hacc
+  | acc, n + 1, .forallE dom body, i, _, _, _, hacc, h => by
+    simp only [openPisRawGoC] at h
+    split at h
+    · next fvs' acc'' r' hgo =>
+      simp only [Option.some.injEq, Prod.mk.injEq] at h
+      obtain ⟨-, rfl, -⟩ := h
+      exact openPisRawGoC_fvars _ n body (i + 1)
+        (fun a ha => by
+          rcases List.mem_cons.mp ha with rfl | ha
+          · exact ⟨_, _, rfl⟩
+          · exact hacc a ha) hgo
+    · exact nomatch h
+  | _, _ + 1, .bvar _, _, _, _, _, _, h => nomatch h
+  | _, _ + 1, .fvar .., _, _, _, _, _, h => nomatch h
+  | _, _ + 1, .sort _, _, _, _, _, _, h => nomatch h
+  | _, _ + 1, .const .., _, _, _, _, _, h => nomatch h
+  | _, _ + 1, .app .., _, _, _, _, _, h => nomatch h
+  | _, _ + 1, .lam .., _, _, _, _, _, h => nomatch h
+  | _, _ + 1, .letE .., _, _, _, _, _, h => nomatch h
+  | _, _ + 1, .lit _, _, _, _, _, _, h => nomatch h
+  | _, _ + 1, .proj .., _, _, _, _, _, h => nomatch h
 
 /-- **The one pass misses no binder**: instantiating at free variables
 never makes a `∀` appear, so where `openPisAtFvarsFGo` finds none, the
