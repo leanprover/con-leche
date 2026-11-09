@@ -111427,7 +111427,7 @@ cached walks where the specification runs the plain ones.
 |---|---|---|
 | `checkBlockIdxSortsC`, `checkIdxSortsC` | `checkBlockIdxSortsF`, `checkStructFieldSortsIF` at `isProp`, no large eliminator (the only use the index check makes of it, so the twin is the infer-and-sort loop) | `openPisAtFvarsC` |
 | `blockRecInfosTC`, `generatedRulesC`, `auxRuleFireC`, `generatedFireC` | `blockRecInfosTF`, `generatedRules`, `auxRuleFire`, `generatedFire` | `abstractPrefixC` (one `abstractRangeC` pass) |
-| `streamRecsCheckC` → `streamRecCheckC` → `streamRecCompareC` → `recTyCheckC` → `recTyOpenedC` → `recDomsAtC`; `streamRulesCheckC`, `ruleAgreeC`, `streamRulesShapeC`, `streamNestedOkC`, `unresolvedConstsErrorC` | the `StreamRecs.lean` checks | `allLevelParamsDefinedC`, `constsResolveFC`, `openPisAtFvarsC`, `liftLooseBVarsC`, `getAppArgsC`, `mentionsAnyConstC` |
+| `streamRecsCheckC` → `streamRecCheckC` → `streamRecCompareC` → `recTyCheckC` → `recTyOpenedC` → `recDomsAtC`; `streamRulesCheckC`, `ruleAgreeC`, `streamRulesShapeC`, `streamNestedOkC` | the `StreamRecs.lean` checks | `allLevelParamsDefinedC`, `constsResolveFC`, `openPisAtFvarsC`, `liftLooseBVarsC`, `getAppArgsC`; the error by `unresolvedConstsErrorLC true` (`IndPass.lean`, over `mentionsAnyConstC`) |
 | `checkBlockTablesC` → `checkStructProjTableC` | `checkBlockTablesF` → `checkStructProjTableF` | `allLevelParamsDefinedC`, `constsResolveFC` |
 
 `recDomsAt` was to stay shared, but the shared operations `sharedOpsC` live in `CheckerC.lean`,
@@ -111440,27 +111440,29 @@ walk, no operation) are shared unchanged.
 `checkBlockTablesF` lose the `StructWalkers` argument and call `Expr.constsResolveF fe`
 directly; the congruences (`streamRecsCheck_congr`, `streamRecsCheck_twin`,
 `checkStructProjTableF_twin`) take the lookup's equality (`constsResolveF_congr`) instead of the
-walker's.  `StructWalkers` itself stays: `genRecCheck`'s rule stage (`classRuleCheck`, lane L4)
-still reads it through `ShadowOps.walkers`; whichever of L4/L5 lands second deletes it.
+walker's.  With L4's rule stage off it too, nothing reads the walker record: L5 lands second of
+L4/L5 and deletes `StructWalkers`, `StructWalkers.plain`, `structWalkersC`,
+`structWalkersC_eq_plain` and the `ShadowOps.walkers` field.
 
 **The relation.**  Every twin mirrors its specification at `sharedOpsC`, so the relation is an
-equation (`Verify/Cached/IndTailC.lean`, 163 lines, each proof a `simp only` over the walks'
+equation (`Verify/Cached/IndTailC.lean`, 159 lines, each proof a `simp only` over the walks'
 equations and the callees' equations, `rfl` where `sharedOpsC`'s fields unfold to the core):
 `checkBlockIdxSortsC_eq`, `blockRecInfosTC_eq`, `streamRecsCheckC_eq`, `checkBlockTablesC_eq`
 and their callees'.  The three driver lemmas (`checkBlockTailS_run`, `GenRecC.lean`;
 `checkBlockTailS_twin`, `ViewCongr.lean`; `checkBlockTailS_fresh` needs nothing) rewrite by
 them once after unfolding `checkBlockTailS`; the triples (`streamRecsCheckS_spec`, …) are
-unchanged.  Twin code 240 lines (`IndTail.lean`).
+unchanged.  Twin code 233 lines (`IndTail.lean`).
 
 **The binary stays free of the grind tier.**  `IndTailC` is in the driver's import closure
 (`Driver/Run` → `Verify/Cached/StreamIndex` → … → `ViewCongr`), so a lemma it takes from
 `DiscC4` would link `DiscC1`–`4`, `Grind`, `GrindAttr` and `Lean.Meta` into the binary: measured,
 19.3 → 134.6 MB and +110 … +166 M instructions of startup per run.  `openPisAtFvarsGoC_eq`,
-`openPisAtFvarsFGo_none` and `openPisAtFvarsC_eq` move from `DiscC4.lean` to the end of
-`IndWalksC.lean` (the same move as L3's); `nm … | grep -c ' initialize_Lean'` is 0 and the binary
-19.29 MB (master 19.30 MB).
+`openPisAtFvarsFGo_none` and `openPisAtFvarsC_eq` sit at the end of `IndWalksC.lean` (moved there
+by L4, landed first; the lane had made the same move); `nm … | grep -c ' initialize_Lean'` is 0 and
+the binary 19.32 MB (master 19.34 MB).
 
-**Reach.**  734 → 713 reached plain declarations; 21 allowlist entries out: the tail's
+**Reach.**  697 → 676 reached plain declarations (on L1's base 734 → 713); 21 allowlist entries
+out: the tail's
 specification (`checkBlockIdxSortsF`, `checkStructFieldSortsIF`, `blockRecInfosTF`,
 `generatedRules`, `generatedFire`, `auxRuleFire`, `Expr.abstractPrefix`, `recDomsAt`,
 `recTyOpened`, `recTyCheck`, `ruleAgree`, `streamNestedOk`, `streamRulesShape`,
@@ -111473,23 +111475,26 @@ memo walk became unreached (`abstract1`, `instantiate1`, `constsResolveF`, `allL
 and the plain opener are still run by the stages L2–L4 take over).
 
 **Numbers** (`perf stat -e instructions:u`, one run each, `--jobs=1`, verified; master
-367faa1e9 → the lane):
+ffe82da8f (after L4) → the merged lane):
 
 | run | master | lane | change |
 |---|---|---|---|
-| init-full | 374.786 G | 374.693 G | −0.025 % |
-| grind-ring-5 | 13.1483 G | 13.1453 G | −0.02 % |
-| `BvStruct` module | 431.919 G | 431.901 G | |
-| `Empty` module | 429.645 G | 429.622 G | |
-| `BvStruct` − `Empty` | 2.274 G | 2.279 G | (noise, ±20 M per run, L1's record) |
-| e2e `prop_struct_proj_wide` | 492.68 M | 490.70 M | −0.4 % |
+| init-full | 374.375 G | 374.345 G | −0.008 % |
+| grind-ring-5 | 13.1124 G | 13.1101 G | −0.02 % |
+| `BvStruct` module | 431.386 G | 431.343 G | |
+| `Empty` module | 429.315 G | 429.304 G | |
+| `BvStruct` − `Empty` | 2.071 G | 2.039 G | −1.6 % (the module runs move by ±20 M, L1's record) |
+| e2e `prop_struct_proj_wide` | 427.15 M | 424.98 M | −0.5 % |
 
+Against L1's master (367faa1e9), before the merge, the lane alone read the same: init-full
+374.786 → 374.693 G, grind-ring-5 13.148 → 13.145 G, `prop_struct_proj_wide` 492.7 → 490.7 M.
 The tail is a small share of the inductive check: its own walks are guards over closed
 recursor types and rules, and its time is the core's inference and comparison, which ran cached
 already.  The same verdicts everywhere.
 
-**Gates.**  `lake build`, `lake test` warning-free; `tests/arena.sh` passes (e2e 558/558, the
-reach gate at 713, the shake gate with one `public import` of `IndTailC.lean` kept public against
+**Gates.**  `lake build`, `lake test` warning-free; `tests/arena.sh` passes on the merged tree
+(e2e 558/558, the reach gate at 676, the shake gate with one `public import` of `IndTailC.lean` kept public against
 the plan script's census, measured, in its fallback list).  The link gates' expectations follow
 `streamRecsCheck`'s new signature (OVERVIEW and the whitepaper cite it; the cited text is the
-same function, the paragraphs need no change).
+same function, the paragraphs need no change); the citations of `RecCheck.lean` and
+`ViewCongr.lean` moved by one line with the deleted `walkers` field and are repointed.
