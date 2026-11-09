@@ -464,7 +464,7 @@ Read from the outside in:
    that record. Every check reads its index through the lookups alone (the
    constants' and the projection tables'), so at two indices with the same
    lookups it fails alike or pushes the same constants
-   ([theorem `checkDeclStepC_twin` in `ConLeche/Verify/Cached/ViewCongr.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Verify/Cached/ViewCongr.lean#L1336-L1340)).
+   ([theorem `checkDeclStepC_twin` in `ConLeche/Verify/Cached/ViewCongr.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Verify/Cached/ViewCongr.lean#L1339-L1343)).
    The view of a position answers as the fold's index there as long as the
    names so far are distinct, which every passing job before it ensures,
    so every job passing is an accept of the fold
@@ -1634,7 +1634,9 @@ itself and a few base types, only `Files` and `Closure` reach the IO class,
 only `Records` the record builder, and the rest of the checker imports only its
 interface, `Olean.lean`), the trust-surface scan (`tests/trust-surface.sh`: no `unsafe`, `implemented_by`, `extern` or `native_decide` outside an allowlist, and, textually, no module written against the IO class reaching the runtime but through the class's file operations and the arguments of `liftIO`, and `IO.Process.exit` only in `main`; the build file and the native sources pinned by content), the plain-tier reach gate
 (`tests/plain-reach.sh`: every specification-tier definition the compiled binary
-reaches from `main` is listed, with its reason, in `tests/plain-reach-allow.txt`), the pin
+reaches from `main` is listed, with its reason, in `tests/plain-reach-allow.txt`), the
+binary link gate (`tests/binary-link.sh`: the compiled binary links no module of the `Lean`
+package, so no proof module the driver imports brings `Lean.Meta` along), the pin
 dump freshness, the challenge comparison (`tests/challenge.sh`: the
 challenge module builds with its `sorry` warnings and nothing else,
 and every statement it makes is token-identical to the solution's),

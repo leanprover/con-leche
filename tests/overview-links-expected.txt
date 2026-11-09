@@ -216,12 +216,12 @@
     75  def recordJob (mode : CheckMode) (pins : List NatOpPinSet) (I : StreamIndex) (k : Nat)
     76      (pd : Declaration) : Except CheckError Unit :=
 
-== ConLeche/Verify/Cached/ViewCongr.lean#L1336-L1340
-  1336  theorem checkDeclStepC_twin (pins : List NatOpPinSet) {fe₁ fe₂ : FEnv} (ht : Twin fe₁ fe₂)
-  1337     
-  1338      (pd : Declaration) :
-  1339      RelRun (PushedFrom fe₁ fe₂) (checkDeclStepC mode pins fe₁ pd)
-  1340        (checkDeclStepC mode pins fe₂ pd) := by
+== ConLeche/Verify/Cached/ViewCongr.lean#L1339-L1343
+  1339  theorem checkDeclStepC_twin (pins : List NatOpPinSet) {fe₁ fe₂ : FEnv} (ht : Twin fe₁ fe₂)
+  1340     
+  1341      (pd : Declaration) :
+  1342      RelRun (PushedFrom fe₁ fe₂) (checkDeclStepC mode pins fe₁ pd)
+  1343        (checkDeclStepC mode pins fe₂ pd) := by
 
 == ConLeche/Verify/Cached/StreamIndex.lean#L491-L493
    491  theorem checkDecls_of_jobs {ds : Array Declaration}
