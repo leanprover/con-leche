@@ -36,7 +36,7 @@ def getAppArgsAccC : Expr → List Expr → List Expr
 
 /-! ## The substitution walks (tasks #314, #316, #317)
 
-ONE walk per operation — `instantiate1XP`, `instantiate1LiftXP`,
+ONE walk per operation — `instantiate1XP`,
 `instantiateListXP`, `instantiateRevXP`, `abstract1XP`,
 `abstractRangeXP`, `instLevelParamsXP` — and ONE memo discipline.  The
 design, as landed:
@@ -248,89 +248,6 @@ abbrev ResXP0 (s : Expr → Expr) (e : Expr) := { r : Expr // r = s e } × MemoX
 @[inline] def MemoXP0.shared {s : Expr → Expr} (memo : MemoXP0 s) (e : Expr)
     (rec : Unit → Squash (ResXP0 s e)) : Squash (ResXP0 s e) :=
   MemoXP.shared (s := fun e _ => s e) memo e 0 rec
-
-/-! ### `instantiate1LiftC` (task #214, P4)
-
-The capture-avoiding substitution `Expr.instantiate1Lift` — the one
-substitution on the direct install's executed path that once had no
-memoised twin at all: `structProjBodies` runs it once per field over
-the constructor telescope, turning a DAG-shared field type into an
-unshared tree each time.  The twin is the section's walk, with the
-`bvarB` cutoff (a node bounded at or below the cursor is returned
-unchanged).  `instantiate1LiftC_spec`
-(`ConLeche/Verify/Cached/OpsC.lean`) reads it as
-`Expr.instantiate1Lift`. -/
-
-/-- The plain descent of `instantiate1LiftC`: the reference
-`instantiate1LiftXP` carries its own proof against. -/
-def instantiate1LiftP (v : Expr) (e : Expr) (d : Nat) : Expr :=
-  if e.bvarB ≤ d then e else
-  match e with
-  | .bvar i .. =>
-    if i = d then Expr.liftLooseBVars d 0 v else if i > d then Expr.mkBvar (i - 1) else e
-  | .fvar .. | .sort .. | .const .. | .lit .. => e
-  | .app f a .. => mkApp (instantiate1LiftP v f d) (instantiate1LiftP v a d)
-  | .lam ty body .. =>
-    mkLam (instantiate1LiftP v ty d) (instantiate1LiftP v body (d + 1))
-  | .forallE ty body .. =>
-    mkForallE (instantiate1LiftP v ty d) (instantiate1LiftP v body (d + 1))
-  | .letE ty val body .. =>
-    mkLetE (instantiate1LiftP v ty d) (instantiate1LiftP v val d)
-      (instantiate1LiftP v body (d + 1))
-  | .proj sn i sub .. => mkProj sn i (instantiate1LiftP v sub d)
-
-theorem instantiate1LiftP_cut {v e : Expr} {d : Nat} (h : e.bvarB ≤ d) :
-    instantiate1LiftP v e d = e := by
-  rw [instantiate1LiftP.eq_def]; simp [h]
-
-/-- The child step of `instantiate1LiftXP`: the cutoff, the compound
-test, the exclusivity read. -/
-@[inline] def enterLiftP (v : @& Expr) (e : @& Expr) (d : Nat)
-    (memo : MemoXP (instantiate1LiftP v))
-    (rec : (hcut : ¬ e.bvarB ≤ d) → Squash (ResXP (instantiate1LiftP v) e d)) :
-    Squash (ResXP (instantiate1LiftP v) e d) :=
-  if hcut : e.bvarB ≤ d then Squash.mk (⟨e, (instantiate1LiftP_cut hcut).symm⟩, memo)
-  else if !isCompound e then rec hcut
-  else withExcl e fun excl =>
-    if excl then rec hcut else memo.shared e d fun _ => rec hcut
-
-/-- The walk of `instantiate1LiftC`. -/
-def instantiate1LiftXP (v : @& Expr) (memo : MemoXP (instantiate1LiftP v)) (e : @& Expr)
-    (d : Nat) (hcut : ¬ e.bvarB ≤ d) : Squash (ResXP (instantiate1LiftP v) e d) :=
-  match e with
-  | .bvar i .. =>
-    Squash.mk (⟨if i = d then Expr.liftLooseBVars d 0 v
-        else if i > d then Expr.mkBvar (i - 1) else .bvar i,
-      by rw [instantiate1LiftP]; simp [hcut]⟩, memo)
-  | .fvar idx ty .. => Squash.mk (⟨.fvar idx ty, by rw [instantiate1LiftP]; simp [hcut]⟩, memo)
-  | .sort u .. => Squash.mk (⟨.sort u, by rw [instantiate1LiftP]; simp [hcut]⟩, memo)
-  | .const n us .. => Squash.mk (⟨.const n us, by rw [instantiate1LiftP]; simp [hcut]⟩, memo)
-  | .lit l .. => Squash.mk (⟨.lit l, by rw [instantiate1LiftP]; simp [hcut]⟩, memo)
-  | .app f a .. =>
-    enterLiftP v f d memo (fun h => instantiate1LiftXP v memo f d h) |>.lift fun (⟨f', hf⟩, memo) =>
-    enterLiftP v a d memo (fun h => instantiate1LiftXP v memo a d h) |>.lift fun (⟨a', ha⟩, memo) =>
-    Squash.mk (⟨mkApp f' a', by rw [instantiate1LiftP]; simp [hcut, hf, ha, mkApp]⟩, memo)
-  | .lam ty body .. =>
-    enterLiftP v ty d memo (fun h => instantiate1LiftXP v memo ty d h) |>.lift fun (⟨ty', ht⟩, memo) =>
-    enterLiftP v body (d + 1) memo (fun h => instantiate1LiftXP v memo body (d + 1) h) |>.lift fun (⟨b', hb⟩, memo) =>
-    Squash.mk (⟨mkLam ty' b', by rw [instantiate1LiftP]; simp [hcut, ht, hb, mkLam]⟩, memo)
-  | .forallE ty body .. =>
-    enterLiftP v ty d memo (fun h => instantiate1LiftXP v memo ty d h) |>.lift fun (⟨ty', ht⟩, memo) =>
-    enterLiftP v body (d + 1) memo (fun h => instantiate1LiftXP v memo body (d + 1) h) |>.lift fun (⟨b', hb⟩, memo) =>
-    Squash.mk (⟨mkForallE ty' b', by rw [instantiate1LiftP]; simp [hcut, ht, hb, mkForallE]⟩, memo)
-  | .letE ty val body .. =>
-    enterLiftP v ty d memo (fun h => instantiate1LiftXP v memo ty d h) |>.lift fun (⟨ty', ht⟩, memo) =>
-    enterLiftP v val d memo (fun h => instantiate1LiftXP v memo val d h) |>.lift fun (⟨v', hv⟩, memo) =>
-    enterLiftP v body (d + 1) memo (fun h => instantiate1LiftXP v memo body (d + 1) h) |>.lift fun (⟨b', hb⟩, memo) =>
-    Squash.mk (⟨mkLetE ty' v' b', by rw [instantiate1LiftP]; simp [hcut, ht, hv, hb, mkLetE]⟩, memo)
-  | .proj sn i sub .. =>
-    enterLiftP v sub d memo (fun h => instantiate1LiftXP v memo sub d h) |>.lift fun (⟨s', hs⟩, memo) =>
-    Squash.mk (⟨mkProj sn i s', by rw [instantiate1LiftP]; simp [hcut, hs, mkProj]⟩, memo)
-
-/-- The cached `Expr.instantiate1Lift`: the cutoff, then the walk. -/
-def instantiate1LiftC (e : @& Expr) (v : Expr) (d : Nat := 0) : Expr :=
-  if hcut : e.bvarB ≤ d then e else
-  resTerm (instantiate1LiftXP v none e d hcut)
 
 /-- The plain descent of `instantiate1C`: the reference the walk is
 verified against (`instantiate1P_spec`, `Verify/Cached/OpsC.lean`, is

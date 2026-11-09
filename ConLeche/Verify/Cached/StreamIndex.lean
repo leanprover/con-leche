@@ -308,15 +308,21 @@ theorem streamEnv_tables (ds : List Declaration) (env : Env) :
 
 theorem blockTables_sublist (p : BlockShape) :
     ∀ l : List MemberShape,
-      ((blockTables p l).map (·.structName)).Sublist (l.map (·.declared.name))
+      (((blockTables p l).getD []).map (·.structName)).Sublist (l.map (·.declared.name))
   | [] => .refl _
   | ms :: rest => by
     have ih := blockTables_sublist p rest
     simp only [blockTables, List.map_cons]
     split
-    · split
-      · exact ih.cons_cons _
-      · exact ih.cons _
+    · rename_i c _
+      cases structProjBodies ms.declared.name p.nP c.2 c.1.type with
+      | none => exact List.nil_sublist _
+      | some bodies =>
+        cases h : blockTables p rest with
+        | none => exact List.nil_sublist _
+        | some Qr =>
+          rw [h] at ih
+          exact ih.cons_cons _
     · exact ih.cons _
 
 theorem declTables_sublist (pd : Declaration) :

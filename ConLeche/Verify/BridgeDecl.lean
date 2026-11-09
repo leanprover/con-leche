@@ -111,14 +111,10 @@ theorem checkStructDomsAt_datF (env : Env) (off : Nat)
       FueledM.atF_ite, fueledOpsM_isDefEq_atF, unwrapOr_atF,
       checkStructDomsAt_datF env off fvs doms F j]
 
-theorem checkStructProjTable_datF (T : Name) (lps : List Name)
-    (nP nF : Nat) (cvCa : ConstantVal)
-    (env : Env) (F : Nat) :
-    (checkStructProjTable T lps nP nF cvCa env : FueledM _).val F =
-      (checkStructProjTable T lps nP nF cvCa env : CheckM _) := by
+theorem checkStructProjTable_datF (t : ProjTable) (env : Env) (F : Nat) :
+    (checkStructProjTable t env : FueledM _).val F = (checkStructProjTable t env : CheckM _) := by
   unfold checkStructProjTable
-  simp only [FueledM.atF_bind, FueledM.atF_pure, FueledM.atF_throw,
-    FueledM.atF_ite, unwrapOr_atF]
+  simp only [FueledM.atF_bind, FueledM.atF_pure, FueledM.atF_throw, FueledM.atF_ite]
 
 /-! ### The constructor-list stages (#175) -/
 
@@ -583,19 +579,16 @@ theorem targetK53_datF (env : Env) (p : BlockShape) (formerTys : List Expr) (Mc 
   repeat' split
   all_goals first | rfl | exact targetClassMatch_datF _ _ _ _ _ _ _ _ _
 
-theorem checkBlockTables_datF (p : BlockShape) (env : Env) (F : Nat) :
-    ∀ l : List MemberShape,
-      (checkBlockTables (m := FueledM) p env l).val F = checkBlockTables (m := CheckM) p env l
+theorem checkBlockTables_datF (env : Env) (F : Nat) :
+    ∀ Q : List ProjTable,
+      (checkBlockTables (m := FueledM) env Q).val F = checkBlockTables (m := CheckM) env Q
   | [] => rfl
-  | ms :: rest => by
+  | t :: rest => by
     unfold checkBlockTables
-    rw [FueledM.atF_bind]
-    split
-    · rw [checkStructProjTable_datF]
-      congr 1
-      funext _
-      exact checkBlockTables_datF p env F rest
-    · exact checkBlockTables_datF p env F rest
+    rw [FueledM.atF_bind, checkStructProjTable_datF]
+    congr 1
+    funext _
+    exact checkBlockTables_datF env F rest
 
 theorem checkAbsCtorSorts_datF (env : Env) (ctx : ConLeche.NestCtx) (F : Nat) :
     ∀ (cs : List (ConstantVal × Nat)) (os : List (List NestFieldKind × Expr)),
@@ -993,9 +986,9 @@ theorem streamKCheck_datF (p : BlockShape) (F : Nat) :
       streamKCheck_datF p F rcs gs]
 
 theorem checkBlockTail_datF (block : List ConstantInfo) (q : BlockPass Env)
-    (F : Nat) :
-    (checkBlockTail (fueledOpsM mode) block q).val F =
-      checkBlockTail (fueledOps mode F) block q := by
+    (Q : List ProjTable) (F : Nat) :
+    (checkBlockTail (fueledOpsM mode) block q Q).val F =
+      checkBlockTail (fueledOps mode F) block q Q := by
   unfold checkBlockTail
   simp only [FueledM.atF_bind, FueledM.atF_pure, FueledM.atF_throw, FueledM.atF_ite,
     checkBlockIdxSorts_datF, checkBlockRec_datF, streamKCheck_datF, streamRecsCheck_datF,
@@ -1027,7 +1020,7 @@ theorem checkBlock_datF (env : Env) (block : List ConstantInfo) (p : BlockShape)
       checkBlock (fueledOps mode F) env block p := by
   unfold checkBlock
   simp only [FueledM.atF_bind, FueledM.atF_pure, FueledM.atF_throw, FueledM.atF_ite,
-    checkBlockPass_datF, checkBlockTail_datF, reduceMembers_datF]
+    checkBlockPass_datF, checkBlockTail_datF, reduceMembers_datF, unwrapOr_atF]
 
 theorem checkDefnVal_datF (env : Env) (cv : ConstantVal) (value : Expr)
     (hint : ReducibilityHint) (F : Nat) :
