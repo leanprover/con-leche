@@ -117044,3 +117044,91 @@ unchanged by this lane; the block 29.4M → 8.2M.  Gates: `lake build`, `lake te
 InLean InLeanProof inlean-replay` warning-free; layering, trust-surface, shake, inlean-sync pass.
 Init replay `--compare`: 64530 accepted, 0 exact and 0 cosmetic mismatches.  Init cost (`perf stat
 -e instructions:u`, one run each): d89edc810 455 056 608 726, the lane 454 797 001 243 (−0.06 %).
+
+### Lane sync3: master's #495–#498, #519–#521 and #515 on master, InLean follows (2026-11-09, task #451, agent/451-sync3)
+
+**Merges.**  #515 first, on its own branch (`agent/515-wide-eta`, a38275837, not on master):
+`master` (8d11cda38) merged, the code without conflict (#515's unit-like loop and
+partial-constructor η beside #520's `defeqBinders`, which they do not call), the documents by
+hand (DESIGN, OVERVIEW's guard paragraph, the e2e rows and public-import fallbacks of both
+sides, two whitepaper citations of the deleted `defeqLams`/`DefEqLams` repointed to master's
+binder-telescope code); the reach gate lists `unitLikeFuel` beside the other fuel constants; its
+gates as in #515's merge note.  Then this lane, from agent/451-blowup (9b03e9b4c): `master`
+merged (ac8fe19de; DESIGN.md by hand: the lanes CI and rebase, master's records, #515, the lanes
+eta and blowup), then the updated #515 (e8b8d4f5b).
+
+**InLean follows master's code** (the maintainer's rule: where a proof broke, the twin changed to
+master's new cached code; the proofs were then re-targeted, never the old code kept):
+
+* **#520** (`is_def_eq_binding`'s shape).  `defeqBindersI` replaces the λ-telescope comparison
+  `defeqLamsI` and the one-binder ∀ arm of `quickDefEqI`: the variables so far are an `Array`,
+  each level's right domain is opened once over them (`instListRevM`), the domains are compared
+  unless syntactically equal (`defeqDomainI`), and the two innermost bodies are opened once each
+  (`defeqBindersInnerI`; the full-grade type check for λs at the verified mode).  The descent
+  test is `Expr.binderPair?` (through `mdata`), the budget `bindersFuel`.  The shortcut of the
+  old λ loop (`b₁ == b₂` at every level) went, as in master.  Proofs (`WalksDefeq.lean`): master's
+  `BindersSpec` script in the `KnotSpecI` idiom (`BindersSpecI`, `bindersStepL_spec`,
+  `bindersSpecI_all`, `defeqBindersI_spec` from the empty accumulator), the pair lemmas
+  `binderPairI_some`/`_none`, the closedness companion of `OptBinderPairWS`
+  (`OptBinderPairCl`, `lbb_binderPair?`); the accumulator vocabulary moved from
+  `WalksInfer.lean` to `WalksDefeq.lean`.
+* **#519.**  `natOpResult` computes `Nat.pow` at any exponent (the `2^24` cap goes); the
+  refusals were InLean's already, with the official messages.  `Limits.natMaxBytes` is
+  `Limits.maxNatSize`, the twin of master's `maxNatSize` (the lean4 glue still reads
+  `LEAN_NAT_MAX_SIZE`).  The proofs target the specification, which only computes, so nothing
+  else changed; `addDeclSound` stays stated for every `Limits`.
+* **#495/#498 (the tables).**  `checkBlockKS` builds the projection tables once from the
+  declared members (`blockTables`, twin of `blockTablesC`, over InLean's one-substitution
+  `structProjBodies`) and the tail checks them (`checkBlockTablesC`, `checkStructProjTableC`).
+  InLean still reads the tables off Lean's entries at use, so the built ones are only checked.
+  Proofs: `ProjBodiesTr` now reads InLean's bodies as master's `Expr.instantiateLift` (its own
+  `instLift` and the binder-by-binder chain went); `blockTables_tr`, `structProjBodies_tr`,
+  `checkBlockTablesCI_run` (`PassRecs10`); the pass/tail split carries the tables
+  (`PassTailSimI`, `TailSimI`, `PassSimI` now also says the pass keeps the members), and
+  `IndBlockKS` relates the tables of the declared and the reduced members (`tableKey`,
+  `reduceMembersS_key`); `BlockPresR` presents the install at the tables the run built
+  (`checkBlockKS_tables`, `cblockTables_isSome`).
+* **#498 L6/L8.**  `StructWalkers` and `ShadowOps` went: the stages call `constsResolveF`
+  directly, and `genRecCheck` is the twin of `genRecCheckC` (the shared operations, the
+  rule-less recursors pushed, a flush entering and leaving the rule stage, each rule's inference
+  between flushes).  InLean's stages are named as the cached twins they follow
+  (`checkBlockIndsC`, `checkBlockCtorsC`, `checkSumCtorC`, …).  `Expr.depth` is master's plain
+  depth (`NestDepth`).
+* **#497 B1.**  The `Nat.div`/`Nat.mod` pin loop substitutes each variant's certificate proofs
+  once and hands them to the guard and the check (`checkDivModPinLoopC`'s shape); the guard
+  lemmas state the substituted proofs.
+* **#496/#497 B5–B6/#498 L7 (the projection guard).**  `checkProjRowsI` opens the parameters
+  with the field telescope left raw (`openPisRawM`, twin of `openPisRawGoC`); where no field
+  before the projected one is mentioned after it (`projGuardFast`, over the window query
+  `EO.hasLooseBVarIn`), the one row is the projected field's domain substituted at the cursor
+  (`EO.instantiateRevAt`), the rest of the telescope read, not rebuilt; otherwise the telescope
+  is substituted once and stepped.  Proofs (`ProjGuardI`): InLean's rows read as master's cached
+  `projGuardRowsC` (`openPisRawI_run`, `projGuardFast_tr`, `TrS_instantiateRevAt`,
+  `toExpr_hasLooseBVarIn`), then the specification by master's `projGuardRowsC_some`/`_none`.
+* **#496 (the bvar cutoff)** was InLean's already: every substitution stops at
+  `looseBVarRange`.  **#521** changes no code InLean twins.
+* **The one-pass telescope closing** (9b03e9b4c) stays: master's `closeTelescopeC`/`closeLamsC`
+  are the same algorithm.
+
+**Not done** (no proof broke): the inductive job's own opener `openPisAtFvars` is still the
+per-binder one (master's `openPisAtFvarsC` is the raw opener with the residual substituted
+once), and the job's other walks are InLean's own (`EO.*`), not one per master's cached walk.
+
+**Proofs.**  `addDeclSound` unconditional, axioms unchanged (`propext`, `Classical.choice`,
+`Quot.sound`, the three `mkData` stop-gaps); no `sorry`.
+
+**Gates.**  `lake build`, `lake test`, `lake build InLean InLeanProof inlean-replay`
+warning-free; layering, trust-surface, shake, inlean-sync, plain-reach (578, all allowlisted).
+Init replay `--compare`: 64530 accepted, 0 exact and 0 cosmetic mismatches.  Init cost
+(`perf stat -e instructions:u`, one run each, InLean verified): 9b03e9b4c 454 787 964 333, the lane
+before the guard (1b39587f7) 450 884 109 582 (−0.86 %), the lane's head 450 887 792 057 (−0.86 %); con-leche at master with #515
+(`--olean --jobs=1`, 63937 declarations) 427 560 429 998 (InLean +5.5 %).
+
+**lean4** (`joachim/inlean-kernel`): two commits on 05d79f04 (the remote's head),
+`feat: InLean evaluates `Nat.pow` at any exponent and compares binder telescopes in one pass`
+(e7cf30bf; the regeneration, `Core.lean`'s glue sets `Limits.maxNatSize`) and `perf: InLean's
+projection guard reads the field telescope before rebuilding it` (bb569fb7); `inlean-sync.py
+check` OK.  Stage1 suite (4843 tests): all pass but `async/elab/async_systems_info` (sandbox);
+`elab/sym_arith_kron_bounds` passes now (#519).  Every `tests/elab_bench/*.lean` (93 files) at
+`TEST_BENCH=1` passes, `deriving_mutual_block` included; its `#mutual_block` command takes
+182.7 M heartbeats (limit 200 M; 268.5 M before lane blowup, 182.4 M after it).  A stage2 build (the stdlib checked by InLean) succeeds.
