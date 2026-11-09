@@ -67,7 +67,7 @@ table (`And`'s).  The four pinned blocks and the quotient package are
 compared with their pins (`pinListOk`, `quotPinHit`) and installed at the
 names their records declare. -/
 def preludeEnvSize (mode : CheckMode) : Option (Nat × Nat) :=
-  match checkDecls mode natOpPinSets preludeIx.decls with
+  match checkDecls mode natOpPinSets natMaxSizeDefault preludeIx.decls with
   | .ok env => some (env.consts.length, env.tables.length)
   | .error _ => none
 

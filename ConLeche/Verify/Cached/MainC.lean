@@ -15,7 +15,7 @@ graded model (`declsRun_model`, `ConLeche/Model/DeclsRun.lean`), so no constant 
 covers.
 
 **At every pin list** (task #304): the fold's pin-list parameter is
-free in all three letters below (`checkDecls .verified pins ds`), because
+free in all three letters below (`checkDecls .verified pins budget ds`), because
 nothing the model tier consumes reads which list the matched
 `Nat.div`/`Nat.mod` variant came from.  The shipped binary's
 statements are these at `pins := natOpPinSets`.
@@ -33,7 +33,7 @@ variable {pins : List NatOpPinSet}
 /-- **Acceptance**: what the fold accepts carries the model. -/
 theorem checkDecls_sound
     {ds : Array Declaration} {env' : Env}
-    (h : checkDecls .verified pins ds = .ok env') :
+    (h : checkDecls .verified pins budget ds = .ok env') :
     Nonempty (EnvModelM V env') := by
   obtain ⟨n, fe, r, rfl⟩ := checkDecls_run .verified h
   exact (declsRun_model (V := V) r rfl ConLeche.Model.EnvModelOk.empty).nonempty
@@ -43,7 +43,7 @@ validating mode, never accepts a stream in which some stored constant
 has type `Empty`.  Hypotheses are input-level only. -/
 theorem no_proof_of_Empty_cached (V : Type w) [SetTheory V]
     {ds : Array Declaration} {env' : Env}
-    (h : checkDecls .verified pins ds = .ok env') :
+    (h : checkDecls .verified pins budget ds = .ok env') :
     ∀ c ∈ env'.consts,
       c.toConstantVal.type = .const emptyName [] → False := by
   obtain ⟨mp⟩ := checkDecls_sound (V := V) h
@@ -54,7 +54,7 @@ the pinned `False` block — no hypothesis about how the stream declared
 `False`.  The step the main corollary rests on is this at `.verified`. -/
 theorem no_proof_of_False_cached (V : Type w) [SetTheory V]
     {ds : Array Declaration} {env' : Env}
-    (h : checkDecls .verified pins ds = .ok env') :
+    (h : checkDecls .verified pins budget ds = .ok env') :
     ∀ c ∈ env'.consts,
       c.toConstantVal.type = .const falseName [] → False := by
   obtain ⟨mp⟩ := checkDecls_sound (V := V) h

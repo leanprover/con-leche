@@ -48,7 +48,7 @@ constant of that type. -/
 theorem declsRun_thmDecl_const {mode : CheckMode} {ds : List Declaration}
     {cv : ConstantVal} {value : Expr} {n : Name} {ls : List Level}
     (hty : cv.type = .const n ls) (hmem : Declaration.thmDecl cv value ∈ ds)
-    {p q : Nat × FEnv} (h : DeclsRun mode pins ds p q) :
+    {p q : Nat × FEnv} (h : DeclsRun mode pins budget ds p q) :
     ∃ c ∈ q.2.env.consts, c.toConstantVal.type = .const n ls := by
   induction h with
   | nil p => exact absurd hmem (List.not_mem_nil)
@@ -56,7 +56,7 @@ theorem declsRun_thmDecl_const {mode : CheckMode} {ds : List Declaration}
     obtain ⟨fe₁, s₁, rfl, hstepC⟩ := declStep_ok hstep
     rcases List.mem_cons.mp hmem with rfl | hmem'
     · -- the record is this step's: its constant is pushed here
-      have hpush := checkDeclStepC_pushes (pins := pins) mode p.2 (.thmDecl cv value) {} fe₁ s₁ hstepC
+      have hpush := checkDeclStepC_pushes (pins := pins) mode p.2 (.thmDecl cv value) _ fe₁ s₁ hstepC
       have henv := declsRun_env mode rest
       have hmemc : ConstantInfo.thmInfo cv ∈ (streamEnv ds fe₁.env).consts := by
         have hconsts : ∀ (l : List Declaration) (e : Env), e.consts ⊆ (streamEnv l e).consts := by
@@ -80,7 +80,7 @@ that type in the environment. -/
 theorem checkDecls_thmDecl_const {mode : CheckMode} {ds : Array Declaration} {env : Env}
     {cv : ConstantVal} {value : Expr} {n : Name} {ls : List Level}
     (hty : cv.type = .const n ls) (hmem : Declaration.thmDecl cv value ∈ ds)
-    (h : checkDecls mode pins ds = .ok env) :
+    (h : checkDecls mode pins budget ds = .ok env) :
     ∃ c ∈ env.consts, c.toConstantVal.type = .const n ls := by
   obtain ⟨_, _, run, rfl⟩ := checkDecls_run mode h
   exact declsRun_thmDecl_const hty (Array.mem_toList_iff.mpr hmem) run
@@ -103,7 +103,7 @@ set, which the constant would have to be a member of
 theorem no_False_theorem_accepted (V : Type w) [SetTheory V]
     (ds : Array Declaration) (cv : ConstantVal) (v : Expr)
     (hmem : Declaration.thmDecl cv v ∈ ds) (hty : cv.type = .const falseName []) :
-    ∀ env, Cached.checkDecls .verified pins ds ≠ .ok env := by
+    ∀ env, Cached.checkDecls .verified pins budget ds ≠ .ok env := by
   intro env accepted
   obtain ⟨c, hc, hcty⟩ := Cached.checkDecls_thmDecl_const hty hmem accepted
   exact Cached.no_proof_of_False_cached V accepted c hc hcty

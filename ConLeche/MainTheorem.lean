@@ -75,6 +75,10 @@ term has at most one denotation — in `ConLeche/Denotes.lean`.
   accepted environment, which is all the model tier reads.  The
   shipped `con-leche` binary runs the fold at `natOpPinSets`, the
   variants this toolchain committed.
+* `budget` is the numeral budget: the largest `Nat` numeral, in bytes,
+  the fold takes in or computes.  A larger one only ever makes the fold
+  reject, so both statements hold at every budget; the binary runs at
+  128 MiB unless `--nat-max-size` sets another.
 * `SetTheory V` is the set theory the model lives in; the proof works
   for any `V` implementing that interface.
 
@@ -96,8 +100,8 @@ handed (the empty list included: under it every stream that declares
 `Nat.div` declines).  The shipped binary runs the fold at
 `natOpPinSets`. -/
 theorem model_exists (V : Type w) [SetTheory V]
-    (pins : List NatOpPinSet) (ds : Array Declaration) (env : Env)
-    (accepted : checkDecls .verified pins ds = .ok env) :
+    (pins : List NatOpPinSet) (budget : Nat) (ds : Array Declaration) (env : Env)
+    (accepted : checkDecls .verified pins budget ds = .ok env) :
     Nonempty (Model V env) := by
   obtain ⟨m⟩ := Cached.checkDecls_sound (V := V) accepted
   exact ⟨Model.Model.ofEnvModelM m⟩
@@ -110,13 +114,13 @@ the preparation keeps the record, and a stream holding it is never
 accepted.  At every pin list, as the main theorem: the shipped binary
 runs the fold at `natOpPinSets`. -/
 theorem no_False_declaration (V : Type w) [SetTheory V]
-    (pins : List NatOpPinSet) (chunks : List ByteArray)
+    (pins : List NatOpPinSet) (budget : Nat) (chunks : List ByteArray)
     (h : jsonWithTheoremFalse chunks) :
     ∃ e, (do
       let pre ← builtinPreludeE
       let r ← parseChunks chunks
       let ds := preparePrelude pre r.decls
-      checkDecls .verified pins ds) = .error e := by
+      checkDecls .verified pins budget ds) = .error e := by
   refine Except.exists_error_of_not_ok fun env hacc => ?_
   obtain ⟨pre, -, hacc⟩ := exceptBind_ok hacc
   obtain ⟨r, hparse, hcheck⟩ := exceptBind_ok hacc
@@ -151,7 +155,7 @@ theorem main_no_False (V : Type w) [SetTheory V] {file : String} {fs : FS} {b : 
   rintro ⟨_, _, h⟩
   obtain ⟨pre, b', r, env, hp, hb', hr, hc⟩ := Driver.runArgs_accept h
   obtain rfl : b = b' := Option.some.inj (hb.symm.trans hb')
-  obtain ⟨e, he⟩ := no_False_declaration V natOpPinSets [b] hF
+  obtain ⟨e, he⟩ := no_False_declaration V natOpPinSets Cached.natMaxSizeDefault [b] hF
   simp [hp, hr, hc, bind, Except.bind] at he
 
 open Frontend in

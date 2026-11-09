@@ -572,7 +572,7 @@ theorem inferBodyC_spec (ih : SSimC mode eager env f) (henv : EnvWF env) :
   sym only [conleche_grind, inferBody, natLitStoredF_eq, strLitStoredF_eq,
       mkFEnv_findProj?, constTyOf, ProjEntry.typeAtI_eq,
       toListRev_empty, Option.isSome_some, EnvWF.constTy_closed henv, wscoped_typeAt henv] =>
-    vcgen [inferBodyI, peelFuelM, inst1M_spec (mode := mode) (eager := eager) (env := env),
+    vcgen [inferBodyI, peelFuelM, natMaxM, inst1M_spec (mode := mode) (eager := eager) (env := env),
         ih.infer_spec, ih.whnf_spec, ih.defeq_spec,
       ensureSortC_spec ih, constTyAtM_spec (mode := mode) (eager := eager) (env := env),
       inferSpineC_spec ih, inferPisC_tail_spec ih, inferLamsC_tail_spec ih henv,
@@ -611,7 +611,7 @@ theorem inferBodyIOC_spec (ih : SSimC mode eager env f) (henv : EnvWF env) :
       natLitStoredF_eq, strLitStoredF_eq, mkFEnv_findProj?, constTyOf,
       ProjEntry.typeAtI_eq, toListRev_empty, Option.isSome_some,
       abstract1C_spec, EnvWF.constTy_closed henv, wscoped_typeAt henv] =>
-    vcgen [inferBodyIOI, inferBodyI, abstract1M, ensureSortIOC_spec ih,
+    vcgen [inferBodyIOI, inferBodyI, natMaxM, abstract1M, ensureSortIOC_spec ih,
       inst1M_spec (mode := mode) (eager := eager) (env := env), ih.ioInfer_spec, ih.ioWhnf_spec,
       constTyAtM_spec (mode := mode) (eager := eager) (env := env), inferSpineIOC_spec ih,
       checkProjGuardC_specIO ih henv] <;>

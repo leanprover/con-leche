@@ -168,30 +168,30 @@ theorem readValue_spec {c : ValueCache} {code : Nat} {o : ValueCache × Except C
 /-! ## A job -/
 
 /-- **What a job that passed establishes**, at the record holding its value. -/
-def JobFact (mode : CheckMode) {ds : Array Declaration} (J : Jobs ds) (F : Expr → Expr) (t : Nat) :
+def JobFact (mode : CheckMode) (budget : Nat) {ds : Array Declaration} (J : Jobs ds) (F : Expr → Expr) (t : Nat) :
     Prop :=
-  ∀ ht : t < ds.size, recordJob mode natOpPinSets J.I t (fillDecl F ds[t]) = .ok ()
+  ∀ ht : t < ds.size, recordJob mode natOpPinSets budget J.I t (fillDecl F ds[t]) = .ok ()
 
-theorem jobRun_ok {mode : CheckMode} {ds : Array Declaration} {J : Jobs ds} {t : Nat}
-    {d : Declaration} (h : jobRun mode J t d = .ok ()) :
-    recordJob mode natOpPinSets J.I t d = .ok () := by
+theorem jobRun_ok {mode : CheckMode} {budget : Nat} {ds : Array Declaration} {J : Jobs ds} {t : Nat}
+    {d : Declaration} (h : jobRun mode budget J t d = .ok ()) :
+    recordJob mode natOpPinSets budget J.I t d = .ok () := by
   unfold jobRun at h
   split at h
   · assumption
   · cases h
 
 /-- **One job's run.** -/
-theorem oleanJobRun_spec {mode : CheckMode} {ds : Array Declaration} {J : Jobs ds}
+theorem oleanJobRun_spec {mode : CheckMode} {budget : Nat} {ds : Array Declaration} {J : Jobs ds}
     {c : ValueCache} {t : Nat} {o : ValueCache × Except (CheckError × Nat) Unit}
     (hgood : ∀ md ∈ values, ∃ f r a, ModelIO.CanGive (readFiles sp md.name .private) fs (.ok f) ∧
       f.viewRegion .private = some (r, a) ∧ md.frontier.Good r)
     (hc : CacheOK sp fs values c)
-    {hs hs' : HS} (h : (oleanJobRun mode J sp values c t : ModelIO _) fs hs (.ok o) hs') :
-    CacheOK sp fs values o.1 ∧ (o.2 = .ok () → JobFact mode J (fillOf sp fs values) t) := by
+    {hs hs' : HS} (h : (oleanJobRun mode budget J sp values c t : ModelIO _) fs hs (.ok o) hs') :
+    CacheOK sp fs values o.1 ∧ (o.2 = .ok () → JobFact mode budget J (fillOf sp fs values) t) := by
   -- a record whose value, if any, is in place already
   have hplain : ∀ d, ds[t]? = some d → fillDecl (fillOf sp fs values) d = d → ∀ {hs hs' : HS},
-      (pure (c, jobRun mode J t d) : ModelIO _) fs hs (.ok o) hs' →
-      CacheOK sp fs values o.1 ∧ (o.2 = .ok () → JobFact mode J (fillOf sp fs values) t) := by
+      (pure (c, jobRun mode budget J t d) : ModelIO _) fs hs (.ok o) hs' →
+      CacheOK sp fs values o.1 ∧ (o.2 = .ok () → JobFact mode budget J (fillOf sp fs values) t) := by
     intro d hd hF hs hs' h
     simp only [ModelIO.pure_iff, Except.ok.injEq] at h
     obtain ⟨h, -⟩ := h
@@ -236,13 +236,13 @@ theorem oleanJobRun_spec {mode : CheckMode} {ds : Array Declaration} {J : Jobs d
     | _ => exact hplain _ hd rfl h
 
 /-- **One job of the pool.** -/
-theorem oleanStep_spec {mode : CheckMode} {run : OleanRun} {pl : PoolLive} {ds : Array Declaration}
+theorem oleanStep_spec {mode : CheckMode} {budget : Nat} {run : OleanRun} {pl : PoolLive} {ds : Array Declaration}
     {J : Jobs ds} {s : OleanWorker} {t : Nat} {o : OleanWorker × Except (CheckError × Nat) Unit}
     (hgood : ∀ md ∈ values, ∃ f r a, ModelIO.CanGive (readFiles sp md.name .private) fs (.ok f) ∧
       f.viewRegion .private = some (r, a) ∧ md.frontier.Good r)
     (hc : CacheOK sp fs values s.cache)
-    {hs hs' : HS} (h : (oleanStep mode run pl J sp values s t : ModelIO _) fs hs (.ok o) hs') :
-    CacheOK sp fs values o.1.cache ∧ (o.2 = .ok () → JobFact mode J (fillOf sp fs values) t) := by
+    {hs hs' : HS} (h : (oleanStep mode budget run pl J sp values s t : ModelIO _) fs hs (.ok o) hs') :
+    CacheOK sp fs values o.1.cache ∧ (o.2 = .ok () → JobFact mode budget J (fillOf sp fs values) t) := by
   simp only [oleanStep, ModelIO.bind_ok] at h
   obtain ⟨_, _, -, x, _, hx, _, _, -, h⟩ := h
   simp only [ModelIO.pure_iff, Except.ok.injEq] at h
@@ -251,12 +251,12 @@ theorem oleanStep_spec {mode : CheckMode} {run : OleanRun} {pl : PoolLive} {ds :
   exact oleanJobRun_spec hgood hc hx
 
 /-- **Every state a worker can reach keeps its module's region.** -/
-theorem oleanWorker_reach {mode : CheckMode} {run : OleanRun} {pl : PoolLive} {ds : Array Declaration}
+theorem oleanWorker_reach {mode : CheckMode} {budget : Nat} {run : OleanRun} {pl : PoolLive} {ds : Array Declaration}
     {J : Jobs ds}
     (hgood : ∀ md ∈ values, ∃ f r a, ModelIO.CanGive (readFiles sp md.name .private) fs (.ok f) ∧
       f.viewRegion .private = some (r, a) ∧ md.frontier.Good r)
     {s : OleanWorker}
-    (h : WorkerReach (fun w => ({ w } : OleanWorker)) (oleanStep mode run pl J sp values) fs s) :
+    (h : WorkerReach (fun w => ({ w } : OleanWorker)) (oleanStep mode budget run pl J sp values) fs s) :
     CacheOK sp fs values s.cache := by
   induction h with
   | init w => exact cacheOK_empty
@@ -283,13 +283,13 @@ theorem mapExcept_each {α β ε : Type} {f : α → ModelIO (Except ε β)} {fs
         · exact mapExcept_each hc x hx
 
 /-- **The check phase of an `--olean` run accepts the records with their values in place.** -/
-theorem checkOleansG_accept {mode : CheckMode} {pace : Pace} {t0 tIndex tParse jobs : Nat}
+theorem checkOleansG_accept {mode : CheckMode} {budget : Nat} {pace : Pace} {t0 tIndex tParse jobs : Nat}
     {ds : Array Declaration} {J : Jobs ds}
     (hgood : ∀ md ∈ values, ∃ f r a, ModelIO.CanGive (readFiles sp md.name .private) fs (.ok f) ∧
       f.viewRegion .private = some (r, a) ∧ md.frontier.Good r)
     {hs hs' : HS}
-    (h : (checkOleansG mode pace t0 tIndex tParse jobs sp values J : ModelIO _) fs hs (.ok (.ok ())) hs') :
-    ∃ env, checkDecls mode natOpPinSets (ds.map (fillDecl (fillOf sp fs values))) = .ok env := by
+    (h : (checkOleansG mode budget pace t0 tIndex tParse jobs sp values J : ModelIO _) fs hs (.ok (.ok ())) hs') :
+    ∃ env, checkDecls mode natOpPinSets budget (ds.map (fillDecl (fillOf sp fs values))) = .ok env := by
   simp only [checkOleansG, ModelIO.bind_ok, ModelIO.liftIO_iff, exists_eq_left] at h
   obtain ⟨run, ⟨pl, tStart⟩, ⟨ss, res⟩, _, hmap, _, h⟩ := h
   simp only [ModelIO.pure_iff, Except.ok.injEq] at h
@@ -297,7 +297,7 @@ theorem checkOleansG_accept {mode : CheckMode} {pace : Pace} {t0 tIndex tParse j
   · simp at h
   -- the worker map's elements
   obtain ⟨-, hm⟩ := (hmap : workerMap _ _ _ fs _ (.ok (ss, .ok us)) _)
-  have hfacts : ∀ t, t < ds.size → JobFact mode J (fillOf sp fs values) t := by
+  have hfacts : ∀ t, t < ds.size → JobFact mode budget J (fillOf sp fs values) t := by
     intro t ht
     obtain ⟨u, _, _, s, hreach, s', hs⟩ := mapExcept_each hm t (List.mem_range.mpr ht)
     exact (oleanStep_spec hgood (oleanWorker_reach hgood hreach) hs).2 rfl
@@ -313,17 +313,17 @@ reader has an outcome on that snapshot (at one job: the parallel map's model is 
 map), and `checkDecls` accepts its records prepared with the prelude, with the theorems' values
 in place (`fillOf`), whatever the `liftIO` actions answered. -/
 theorem checkMainG_oleans_accept {roots : Array Name}
-    {cs : Option (Array Name)} {mode : CheckMode} {pace : Pace} {jobs : Nat}
-    {hs hs' : HS} (h : (checkMainG (.oleans sp roots cs) mode pace jobs : ModelIO _) fs hs (.ok 0) hs') :
+    {cs : Option (Array Name)} {mode : CheckMode} {budget : Nat} {pace : Pace} {jobs : Nat}
+    {hs hs' : HS} (h : (checkMainG (.oleans sp roots cs) mode budget pace jobs : ModelIO _) fs hs (.ok 0) hs') :
     ∃ pre rd env, Frontend.builtinPreludeE = .ok pre ∧
       ModelIO.CanGive (readOleans sp roots cs) fs (.ok rd) ∧
-      checkDecls mode natOpPinSets
+      checkDecls mode natOpPinSets budget
         ((Frontend.prepareD pre rd.decls (usedOf (some (sp, rd)))).decls.map
           (fillDecl (fillOf sp fs rd.values))) = .ok env := by
-  suffices H : ModelIO.AllOk (checkMainG (.oleans sp roots cs) mode pace jobs) fs hs
+  suffices H : ModelIO.AllOk (checkMainG (.oleans sp roots cs) mode budget pace jobs) fs hs
       (fun c => c = 0 → ∃ pre rd env, Frontend.builtinPreludeE = .ok pre ∧
         ModelIO.CanGive (readOleans sp roots cs) fs (.ok rd) ∧
-        checkDecls mode natOpPinSets
+        checkDecls mode natOpPinSets budget
           ((Frontend.prepareD pre rd.decls (usedOf (some (sp, rd)))).decls.map
             (fillDecl (fillOf sp fs rd.values))) = .ok env) from
     H 0 hs' h rfl

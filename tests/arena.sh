@@ -334,6 +334,20 @@ declare -A E2E_TIMEOUT=(
   [k_rescue_stuck.ndjson]=10
 )
 
+# Per-fixture checker flags, each with its reason.
+# nat_size_limit_*: the port of lean4's tests/elab/nat_size_limit.lean,
+# which runs at LEAN_NAT_MAX_SIZE=16 so that the numeral budget trips on
+# small numerals; the flag is con-leche's spelling of that budget.
+declare -A E2E_FLAGS=(
+  [nat_size_limit_mul_ok.ndjson]=--nat-max-size=16
+  [nat_size_limit_mul_big.ndjson]=--nat-max-size=16
+  [nat_size_limit_pow_big.ndjson]=--nat-max-size=16
+  [nat_size_limit_pow_huge_exp.ndjson]=--nat-max-size=16
+  [nat_size_limit_pow_32bit.ndjson]=--nat-max-size=16
+  [nat_size_limit_shift_big.ndjson]=--nat-max-size=16
+  [nat_size_limit_big_lit.ndjson]=--nat-max-size=16
+)
+
 e2e_half() {
   e2e_ok=0
   e2e_total=0
@@ -348,7 +362,7 @@ e2e_half() {
       gunzip -c "$src.gz" > "$tmpf" || { echo "E2E FAIL $rel: gunzip failed"; fail=1; continue; }
       src="$tmpf"
     fi
-    timeout "${E2E_TIMEOUT[$rel]:-60}" "$BIN" $MODEFLAG "$src" >/dev/null 2>&1
+    timeout "${E2E_TIMEOUT[$rel]:-60}" "$BIN" $MODEFLAG ${E2E_FLAGS[$rel]:-} "$src" >/dev/null 2>&1
     got=$?
     if [ "$got" != "$want" ]; then
       mismatch "E2E FAIL" "$rel" "$want" "$got"

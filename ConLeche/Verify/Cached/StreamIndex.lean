@@ -442,9 +442,9 @@ theorem viewTwin {pre rest : List Declaration} {I : StreamIndex} (hI : IndexSpec
 
 /-- **Every job passing is an accepting run**, position by position. -/
 theorem jobs_run {ds : Array Declaration}
-    (h : ∀ k (hk : k < ds.size), recordJob mode pins (buildIndex ds) k ds[k] = .ok ()) :
+    (h : ∀ k (hk : k < ds.size), recordJob mode pins budget (buildIndex ds) k ds[k] = .ok ()) :
     ∀ k, k ≤ ds.size → ∃ fe,
-      DeclsRun mode pins (ds.toList.take k) (0, mkFEnv Env.empty) (k, fe) ∧
+      DeclsRun mode pins budget (ds.toList.take k) (0, mkFEnv Env.empty) (k, fe) ∧
       PushChain Env.empty fe ∧ fe = mkFEnv (streamEnv (ds.toList.take k))
   | 0, _ => ⟨mkFEnv Env.empty, by simpa using DeclsRun.nil _, PushChain.refl _, rfl⟩
   | k + 1, hk => by
@@ -469,17 +469,17 @@ theorem jobs_run {ds : Array Declaration}
     split at hjob
     case isFalse => exact nomatch hjob
     rename_i hand
-    rcases checkDeclStepC_twin (mode := mode) pins ht ds[k] {} with
+    rcases checkDeclStepC_twin (mode := mode) pins ht ds[k] { natMax := budget } with
       ⟨e, -, h₂⟩ | ⟨a₁, a₂, s', h₁, h₂, L', Q', rfl, rfl⟩
     · rw [h₂] at hjob; exact nomatch hjob
-    · have hpush := checkDeclStepC_pushes (pins := pins) mode fe ds[k] {} _ s' h₁
-      have hstep : declStep mode pins (k, fe) ds[k] = .ok (k + 1, FEnv.pushDelta L' Q' fe) := by
+    · have hpush := checkDeclStepC_pushes (pins := pins) mode fe ds[k] { natMax := budget } _ s' h₁
+      have hstep : declStep mode pins budget (k, fe) ds[k] = .ok (k + 1, FEnv.pushDelta L' Q' fe) := by
         unfold declStep
         simp only [hand, ↓reduceIte, h₁]
       have hL : ds.toList.take (k + 1) = ds.toList.take k ++ [ds[k]] := by
         rw [List.take_add_one]
         simp [Array.getElem?_eq_getElem hk']
-      have hchain' := checkDeclStepC_push (pins := pins) mode hchain ds[k] {} _ s' h₁
+      have hchain' := checkDeclStepC_push (pins := pins) mode hchain ds[k] { natMax := budget } _ s' h₁
       have hfe' : FEnv.pushDelta L' Q' fe = mkFEnv (streamEnv (ds.toList.take (k + 1))) := by
         rw [hpush, hfe, pushDelta_mkFEnv, hL]
         congr 1
@@ -489,8 +489,8 @@ theorem jobs_run {ds : Array Declaration}
 
 /-- **Every job passing is an accept of the fold**, at the environment the records denote. -/
 theorem checkDecls_of_jobs {ds : Array Declaration}
-    (h : ∀ k (hk : k < ds.size), recordJob mode pins (buildIndex ds) k ds[k] = .ok ()) :
-    checkDecls mode pins ds = .ok (streamEnv ds.toList) := by
+    (h : ∀ k (hk : k < ds.size), recordJob mode pins budget (buildIndex ds) k ds[k] = .ok ()) :
+    checkDecls mode pins budget ds = .ok (streamEnv ds.toList) := by
   obtain ⟨fe, hrun, -, hfe⟩ := jobs_run h ds.size (Nat.le_refl _)
   rw [List.take_of_length_le (by simp)] at hrun hfe
   rw [checkDecls_of_run mode hrun, hfe]

@@ -71,6 +71,10 @@ theorem parseArgs_flag {s : String} (rest : List String) (a : Args) (h1 : s ≠ 
         match jobsCount v with
         | .ok n => parseArgs rest { a with jobs := some n }
         | .error msg => { a with bad := some msg }
+      else if let some v := flagValue "--nat-max-size=" s then
+        match natMaxSizeArg v with
+        | .ok n => parseArgs rest { a with natMax := n }
+        | .error msg => { a with bad := some msg }
       else if s == "--jobs" then
         { a with bad := some "--jobs takes a worker count: --jobs=<n>; omit the \
             flag for one worker per hardware thread" }
@@ -84,6 +88,11 @@ theorem parseArgs_flag {s : String} (rest : List String) (a : Args) (h1 : s ≠ 
   rw [parseArgs.eq_def]
   split <;> first | (rename_i heq; cases heq; rfl) | simp_all
 
+/-- `--nat-max-size=` is longer than `--search-path=`, and no prefix of its values. -/
+theorem flagValue_natMax_searchPath (dirs : String) :
+    flagValue "--nat-max-size=" ("--search-path=" ++ dirs) = none := by
+  simp [flagValue, String.toList_append]
+
 /-- The arguments `--olean --search-path=<dirs> -- <root>`: that one root, those directories,
 and every other setting at its default (the mode `.verified`, every constant). -/
 theorem parseArgs_olean (dirs root : String) :
@@ -96,7 +105,8 @@ theorem parseArgs_olean (dirs root : String) :
   rw [hfst, parseArgs_flag _ _ (append_ne _ (by decide)) (append_ne _ (by decide))
       (append_ne _ (by decide)) (append_ne _ (by decide)) (append_ne _ (by decide)),
     flagValue_other dirs (by decide) (by decide), flagValue_other dirs (by decide) (by decide),
-    flagValue_other dirs (by decide) (by decide), flagValue_append]
+    flagValue_natMax_searchPath, flagValue_other dirs (by decide) (by decide),
+    flagValue_append]
   have hj : (("--search-path=" ++ dirs) == "--jobs") = false := by
     simp only [beq_eq_false_iff_ne]
     exact append_ne _ (by decide)
@@ -121,7 +131,7 @@ theorem runArgs_oleans_accept {args : List String} {fs : FS} {hs hs' : HS}
       ModelIO.CanGive (Olean.readOleans (parseArgs args {}).searchPath
         ((parseArgs args {}).files.filterMap Olean.parseModName) (parseArgs args {}).rootConstants)
           fs (.ok rd) ∧
-      Cached.checkDecls (parseArgs args {}).mode natOpPinSets
+      Cached.checkDecls (parseArgs args {}).mode natOpPinSets (parseArgs args {}).natMax
         ((prepareD pre rd.decls (usedOf (some ((parseArgs args {}).searchPath, rd)))).decls.map
           (Cached.fillDecl (fillOf (parseArgs args {}).searchPath fs rd.values))) = .ok env := by
   suffices H : ModelIO.AllOk (runArgs args) fs hs
@@ -129,7 +139,7 @@ theorem runArgs_oleans_accept {args : List String} {fs : FS} {hs hs' : HS}
         ModelIO.CanGive (Olean.readOleans (parseArgs args {}).searchPath
           ((parseArgs args {}).files.filterMap Olean.parseModName) (parseArgs args {}).rootConstants)
           fs (.ok rd) ∧
-        Cached.checkDecls (parseArgs args {}).mode natOpPinSets
+        Cached.checkDecls (parseArgs args {}).mode natOpPinSets (parseArgs args {}).natMax
           ((prepareD pre rd.decls (usedOf (some ((parseArgs args {}).searchPath, rd)))).decls.map
             (Cached.fillDecl (fillOf (parseArgs args {}).searchPath fs rd.values))) = .ok env) from
     H 0 hs' h rfl
@@ -165,7 +175,7 @@ theorem runArgs_olean_accept {dirs root : String} {fs : FS} {hs hs' : HS}
     ∃ pre rd env, builtinPreludeE = .ok pre ∧
       ModelIO.CanGive (Olean.readOleans (searchPathOf dirs) (#[root].filterMap Olean.parseModName)
         none) fs (.ok rd) ∧
-      Cached.checkDecls .verified natOpPinSets
+      Cached.checkDecls .verified natOpPinSets Cached.natMaxSizeDefault
         ((prepareD pre rd.decls (usedOf (some (searchPathOf dirs, rd)))).decls.map
           (Cached.fillDecl (fillOf (searchPathOf dirs) fs rd.values))) = .ok env := by
   have hp := parseArgs_olean dirs root
@@ -179,12 +189,12 @@ theorem runArgs_accept {file : String} {fs : FS} {hs hs' : HS}
     (h : (runArgs ["--", file] : ModelIO _) fs hs (.ok 0) hs') :
     ∃ pre b r env, builtinPreludeE = .ok pre ∧ fs.file file = some b ∧
       parseChunks [b] = .ok r ∧
-      Cached.checkDecls .verified natOpPinSets (preparePrelude pre r.decls) = .ok env := by
+      Cached.checkDecls .verified natOpPinSets Cached.natMaxSizeDefault (preparePrelude pre r.decls) = .ok env := by
   -- every value outcome `c` of the run: `c = 0` gives the chain
   suffices H : ModelIO.AllOk (runArgs ["--", file]) fs hs
       (fun c => c = 0 → ∃ pre b r env, builtinPreludeE = .ok pre ∧ fs.file file = some b ∧
         parseChunks [b] = .ok r ∧
-        Cached.checkDecls .verified natOpPinSets (preparePrelude pre r.decls) = .ok env) from
+        Cached.checkDecls .verified natOpPinSets Cached.natMaxSizeDefault (preparePrelude pre r.decls) = .ok env) from
     H 0 hs' h rfl
   -- the code is the request's, or the handler's 3
   refine ModelIO.allOk_tryCatch ?_ fun _ _ _ => ?_

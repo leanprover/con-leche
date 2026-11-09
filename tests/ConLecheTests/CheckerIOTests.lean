@@ -170,8 +170,34 @@ example : (ConLeche.Driver.parseArgs ["--", "--help"] {}).files = #["--help"] :=
 #guard ConLeche.Driver.helpWanted ["x", "--help"]
 -- The help fits a terminal, and names every flag `parseArgs` takes.
 #guard (ConLeche.Driver.helpText.splitOn "\n").all (·.length ≤ 80)
-#guard ["--verified", "--trusted", "--jobs=", "--progress", "--help", "--olean",
-    "--search-path=", "--constant="].all (ConLeche.Driver.helpText.contains ·)
+#guard ["--verified", "--trusted", "--jobs=", "--nat-max-size=", "--progress", "--help",
+    "--olean", "--search-path=", "--constant="].all (ConLeche.Driver.helpText.contains ·)
+
+/-! ## The numeral budget (`--nat-max-size`, `natOpRefusal`; official lean4#14849) -/
+
+#guard (ConLeche.Driver.parseArgs ["--", "f"] {}).natMax == 134217728
+#guard (ConLeche.Driver.parseArgs ["--nat-max-size=16", "--", "f"] {}).natMax == 16
+#guard (ConLeche.Driver.parseArgs ["--nat-max-size=lots", "--", "f"] {}).bad.isSome
+-- the official size measure: a word for a scalar, 8 bytes per started 64 bits
+#guard [0, 1, 2 ^ 63, 2 ^ 64 - 1].all (ConLeche.Cached.natSizeBytes · == 8)
+#guard ConLeche.Cached.natSizeBytes (2 ^ 64) == 16
+#guard ConLeche.Cached.natSizeBytes (2 ^ 128) == 24
+-- `2 ^ k` at the default budget: 8 bytes per unit of the exponent, so `2 ^ 2^24` and no further
+#guard (ConLeche.Cached.natOpRefusal 134217728 ConLeche.natPowName 2 16777216).isNone
+#guard (ConLeche.Cached.natOpRefusal 134217728 ConLeche.natPowName 2 16777217).isSome
+-- a base `≤ 1` at any 32-bit exponent; a larger exponent never
+#guard (ConLeche.Cached.natOpRefusal 134217728 ConLeche.natPowName 1 4294967295).isNone
+#guard (ConLeche.Cached.natOpRefusal 134217728 ConLeche.natPowName 0 4294967295).isNone
+#guard (ConLeche.Cached.natOpRefusal 134217728 ConLeche.natPowName 1 4294967296).isSome
+-- `a <<< b`: `0` shifts freely; otherwise size + b / 8 + 1 within the budget, b in 32 bits
+#guard (ConLeche.Cached.natOpRefusal 0 ConLeche.natShiftLeftName 0 (2 ^ 40)).isNone
+#guard (ConLeche.Cached.natOpRefusal 134217728 ConLeche.natShiftLeftName 1 1073741759).isNone
+#guard (ConLeche.Cached.natOpRefusal 134217728 ConLeche.natShiftLeftName 1 1073741760).isSome
+#guard (ConLeche.Cached.natOpRefusal 134217728 ConLeche.natShiftLeftName 1 4294967296).isSome
+-- add/sub/mul are measured after computing; the others are not refused
+#guard ConLeche.Cached.natResultRefused 16 ConLeche.natMulName (.lit (.natVal (2 ^ 128)))
+#guard !ConLeche.Cached.natResultRefused 16 ConLeche.natMulName (.lit (.natVal (2 ^ 64)))
+#guard !ConLeche.Cached.natResultRefused 16 ConLeche.natDivName (.lit (.natVal (2 ^ 128)))
 /-- No flag: the verified mode. -/
 example : (ConLeche.Driver.parseArgs ["--", "x"] {}).mode = .verified := by
   simp [ConLeche.Driver.parseArgs]
