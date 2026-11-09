@@ -115612,3 +115612,12 @@ point.  Exit 130, 8 workers killed, logged as `killed`; the log resumes.
 
 Gates: `lake build`, `lake test` warning-free; trust surface; olean gate 332/332 under the guard;
 overview links.
+
+## TASK #542 — the kill lines show the worker's age (2026-11-09, agent/542-kill-age)
+
+Request: a kill message also says how long the killed worker had been running.  Change
+(`ConLeche/Driver/ScheduleIO.lean`, plain IO): the single line is
+`con-leche: schedule: killed at 0.4 GiB after 3m12s, requeued: M`; a burst lists
+`M 0.4 GiB after 3m12s` per worker.  The format is `dur` (`42s`, `3m12s`, `1h16m`), as in the other
+lines.  The SIGINT report only counts its workers, so it has nothing to add; the log's `killed`
+line already carries the ms and is unchanged.

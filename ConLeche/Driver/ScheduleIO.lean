@@ -100,6 +100,9 @@ it plain `IO`:
   the killed modules that do not fit yet; and `longest: M 7m01s`, the longest-running worker.  The
   memory is read every tick through the same `/proc` files as the budget and shown only where it
   can be read; the run's peak total ends the summary line;
+* **the kill lines** (stderr): `schedule: killed at 0.4 GiB after 3m12s, requeued: M`, the worker's
+  set and how long it had run (`dur`); a burst of several: `killed 2 workers, requeued: M 0.4 GiB
+  after 3m12s, N 0.2 GiB after 42s`.  The log's `killed` line carries the ms as before;
 * **the start order** (`--schedule-order=shuffled|graph`, default `shuffled`): the modules start
   sorted by the FNV-1a hash of their spelled names (`shuffle`), the same on every run and machine,
   so a resumed run keeps the order and skips the logged modules; killed modules still go to the
@@ -816,7 +819,7 @@ def run (parse : String → Option Name) (app : System.FilePath) (args : Name �
               -- the youngest other workers make room, until the sets sum to the limit at most,
               -- and are queued again at the front; one line for the burst
               let mut left := total
-              let mut killed : Array (Name × Nat) := #[]
+              let mut killed : Array (Name × Nat × Nat) := #[]
               for _ in [0:st.running.size] do
                 if left > o.memory then
                   let mut vs : Option (Nat × Nat) := none
@@ -836,7 +839,7 @@ def run (parse : String → Option Name) (app : System.FilePath) (args : Name �
                       logKill st r now
                       let kr := (look rss r).1
                       left := left - min left kr
-                      killed := killed.push (r.m, kr)
+                      killed := killed.push (r.m, kr, now - r.start)
                       -- the known size grows at least by doubling, and is at least the typical
                       -- peak: the set at the kill is a lower bound, a restart must not die again
                       let sz := max (max kr st.typ) (2 * st.sizes.getD r.m 0)
@@ -849,9 +852,9 @@ def run (parse : String → Option Name) (app : System.FilePath) (args : Name �
                                       kills := st.kills.insert r.m ((st.kills.getD r.m 0) + 1) }
               if killed.size = 1 then
                 err.putStrLn s!"con-leche: schedule: killed at \
-                  {gib killed[0]!.2}, requeued: {killed[0]!.1}"
+                  {gib killed[0]!.2.1} after {dur killed[0]!.2.2}, requeued: {killed[0]!.1}"
               else if killed.size > 1 then
-                let items := ", ".intercalate (killed.toList.map fun (m, k) => s!"{m} {gib k}")
+                let items := ", ".intercalate (killed.toList.map fun (m, k, a) => s!"{m} {gib k} after {dur a}")
                 err.putStrLn s!"con-leche: schedule: killed {killed.size} workers, \
                   requeued: {items}"
               err.flush
