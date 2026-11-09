@@ -467,8 +467,8 @@ def unitLikeShapeM (fe : FEnv) (w : Expr) : CheckCM (Option (Option (Expr × Nat
   | .const S us =>
     match fe.indView? S with
     | some (cvS, caps) =>
-      if caps.unitlike = true ∧ reservedBasisNames.contains S = false ∧
-          (appArgs w).length = caps.unitParams ∧
+      if caps.eta = true ∧ caps.etaFields = 0 ∧ reservedBasisNames.contains S = false ∧
+          (appArgs w).length = caps.etaParams ∧
           us.length = cvS.levelParams.length then pure (some none)
       else if caps.eta = true ∧ reservedBasisNames.contains S = false ∧
           (appArgs w).length = caps.etaParams ∧

@@ -98,19 +98,17 @@ theorem etaFamilyStored_descend {c₀ : ConstantInfo} {T : Name}
 
 /-! ## Why the unit half of `CapsOk` carries no `EtaFamilyStored` premise
 
-`DefEq.structUnit` (`Rules/Rel.lean`) keys the unit law on exactly
-`find? = indInfo`, `unitlike`, `¬reserved`, and an `EtaFamilyStored env
-T caps` premise would make the field **unusable by its own consumer**.
-The unit law's only evidence is `structUnitCertFueled`'s verdict, and
-`structUnitCert_inv` (`Verify/InferLemmas.lean`) yields nine
-facts, *none* of which mentions `caps.etaCtor`: the certificate never
-looks at a constructor.  Nor is the premise derivable from the
-environment: `EtaFamilyStored` is a statement about what is *stored*
-under a name that an `indInfo` entry's `caps` record merely *names*,
-and `EnvWF` relates the two not at all.  `blockCapsAt`
-(`Kernel/Inductives/BlockInstall.lean`) computes `eta` and `unitlike`
-by two independent checks, so a `unitlike`-but-not-`eta` family is
-exactly the shape the premise excludes and the certificate accepts. -/
+`UnitLike.unit` (`Rules/Rel.lean`) keys the unit law on exactly
+`find? = indInfo`, `eta`, no field, `¬reserved` (`unitLikeShape`'s
+fieldless arm), and an `EtaFamilyStored env T caps` premise would make
+the field **unusable by its own consumer**: the arm never looks at a
+constructor, so nothing it reads mentions `caps.etaCtor`.  Nor is the
+premise derivable from the environment: `EtaFamilyStored` is a
+statement about what is *stored* under a name that an `indInfo` entry's
+`caps` record merely *names*, and `EnvWF` relates the two not at all.
+The unit law is therefore owed at every fieldless η family, stored
+constructor or not; the η law (the first half) only once the
+constructor is stored. -/
 
 /-! ## The crossing -/
 
@@ -150,7 +148,7 @@ theorem capsOk_cons_fresh (mp : EnvModelM V env)
   · -- the unit-like half: no fabricated spine, one leaf to move
     -- (and, post-repair, no family premise: the former's freshness
     -- disequality comes from the cons head's non-inductive kind)
-    intro T cvT caps hf hcapu hres φ' us hlen
+    intro T cvT caps hf hcape hz hres φ' us hlen
     have hnT : T ≠ c₀.name := by
       intro hh
       subst hh
@@ -160,7 +158,7 @@ theorem capsOk_cons_fresh (mp : EnvModelM V env)
       rw [ConLeche.Env.find?_cons, ite_eq_right (fun hh => hnT hh.symm)] at hf
       exact hf
     have hlaw :=
-      hprev.2 T cvT caps hfE hcapu hres φ' us hlen
+      hprev.2 T cvT caps hfE hcape hz hres φ' us hlen
     intro ρ ts x y hlents hfit hmx hmy
     rw [hac, acvalWith_ne hnT] at hmx hmy hfit
     exact hlaw ρ ts x y hlents hfit hmx hmy

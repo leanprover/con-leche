@@ -729,15 +729,12 @@ structure IndGate where
   etaCtor : ConLeche.Name
   etaParams : Nat
   etaFields : Nat
-  unitlike : Bool
-  unitParams : Nat
 
 /-- What a certificate reads of an inductive former's entry. -/
 @[expose] def indRd (env : ConLeche.Env) (T : ConLeche.Name) : Option IndGate :=
   match env.find? T with
   | some (.indInfo cv caps) =>
-    some ⟨cv.levelParams, caps.eta, caps.etaCtor, caps.etaParams, caps.etaFields, caps.unitlike,
-      caps.unitParams⟩
+    some ⟨cv.levelParams, caps.eta, caps.etaCtor, caps.etaParams, caps.etaFields⟩
   | _ => none
 
 /-- InLean's constructor view, read as `ctorRd`. -/
@@ -746,8 +743,7 @@ structure IndGate where
 
 /-- InLean's former view, read as `indRd`. -/
 @[expose] def indGateI (x : ConstantVal × InLean.IndCaps) : IndGate :=
-  ⟨x.1.levelParams.map toName, x.2.eta, toName x.2.etaCtor, x.2.etaParams, x.2.etaFields,
-    x.2.unitlike, x.2.unitParams⟩
+  ⟨x.1.levelParams.map toName, x.2.eta, toName x.2.etaCtor, x.2.etaParams, x.2.etaFields⟩
 
 /-- Lean's reducibility hints, read as con-leche's. -/
 @[expose] def trHint : ReducibilityHints → ConLeche.ReducibilityHint
@@ -867,7 +863,7 @@ grind_pattern [conleche_grind] headHint_TrS => DefeqEnvI fe env, OkS s e, headHi
 
 @[conleche_grind =] theorem indGateI_mk (cv : ConstantVal) (caps : InLean.IndCaps) :
     indGateI (cv, caps) = ⟨cv.levelParams.map toName, caps.eta, toName caps.etaCtor,
-      caps.etaParams, caps.etaFields, caps.unitlike, caps.unitParams⟩ := rfl
+      caps.etaParams, caps.etaFields⟩ := rfl
 
 @[conleche_grind =] theorem ctorGateI_mk (cv : ConstantVal) (nP nF : Nat) :
     ctorGateI (cv, nP, nF) = (cv.levelParams.map toName, nP, nF) := rfl
@@ -1707,8 +1703,9 @@ theorem unitLikeShapeM_specI {fe : InLean.FEnv} (hfe : DefeqEnvI fe env) {w : Ex
       have hlen : (appArgs w).length = (TrS s₀ w).getAppArgs.length := length_appArgs s₀ w
       have hlps : ccvS.levelParams = cvS.levelParams.map toName := hcvS.2.1
       rw [hlps, ← hlen, length_map_trL, length_map_toName, ← reserved_contains_rev]
-      by_cases h1 : caps.unitlike = true ∧ InLean.reservedBasisNames.contains S = false ∧
-          (appArgs w).length = caps.unitParams ∧ us.length = cvS.levelParams.length
+      by_cases h1 : caps.eta = true ∧ caps.etaFields = 0 ∧
+          InLean.reservedBasisNames.contains S = false ∧
+          (appArgs w).length = caps.etaParams ∧ us.length = cvS.levelParams.length
       · simp only [h1, and_self, ↓reduceIte] at hr ⊢
         obtain ⟨rfl, rfl⟩ := pure_run hr
         exact ⟨hs, TabLe.refl _, rfl, rfl⟩

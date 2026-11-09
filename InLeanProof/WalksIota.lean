@@ -182,7 +182,7 @@ theorem StoredT.trS {t : Expr} {c : ConLeche.Expr} (h : StoredT t c) (s : InLean
 /-- An inductive family's capabilities, as con-leche records them. -/
 @[expose] def toCaps (c : InLean.IndCaps) : ConLeche.IndCaps :=
   { eta := c.eta, etaCtor := toName c.etaCtor, etaParams := c.etaParams, etaFields := c.etaFields,
-    unitlike := c.unitlike, unitParams := c.unitParams, all := c.all.map toName,
+    all := c.all.map toName,
     nparams := c.nparams, nIdx := c.nIdx, ctors := c.ctors.map toName }
 
 /-- **The environment's views** (O4 with `EnvRelI`/`EnvDomI`/`EnvDefnI`, P3's):

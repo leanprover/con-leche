@@ -906,7 +906,7 @@ ran become equations there too.
 Unit-likeness reads the same two laws: two members of an η family with
 fields fit the constructor's telescope at the same parameters, whose
 fields are propositions (every proof is the point) or unit-like, so
-they have the same projections and are the same member; a family
+they have the same projections and are the same member; an η family
 without fields has its unit law, and two members of a Π-type whose
 codomain is unit-like agree at every argument. The η of a partially
 applied constructor compares the two sides' types, then their
@@ -1022,7 +1022,7 @@ The installer first reads the block's shape
 its parameter count as the stream declares it, checked against the
 type formers' telescopes and against every constructor record before
 anything else runs
-([function `indParamsOk` in `ConLeche/Kernel/Env.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/Env.lean#L416-L423)),
+([function `indParamsOk` in `ConLeche/Kernel/Env.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/Env.lean#L413-L420)),
 and each member's index count off what is left of its type former's
 telescope, as the official kernel reads them. Any number of parameters,
 indices, constructors and fields is supported; fields may be recursive,
@@ -1063,7 +1063,7 @@ weak head normal form erases from every field
 ([function `classSeeds` in `ConLeche/Kernel/Inductives/GenRec.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/Inductives/GenRec.lean#L498)).
 Nothing is stated or cached about a container in its parameter. The
 normal forms the check records are the fields the model reads
-([function `checkBlockPositivity` in `ConLeche/Kernel/Inductives/BlockInstall.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/Inductives/BlockInstall.lean#L282)).
+([function `checkBlockPositivity` in `ConLeche/Kernel/Inductives/BlockInstall.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/Inductives/BlockInstall.lean#L280)).
 
 **The recursor check.** The recursors are generated in the official
 kernel's shape: each class's constructors are read off the positivity
@@ -1183,7 +1183,7 @@ syntactic test: some member occurs in a constructor's binder domain.
   `Π (p⃗ : P⃗) (indices), Sort s_m`.
 * Every member's parameter domains are definitionally equal to
   `T_1`'s, and every `s_m` is equivalent to `s_1`, called `s`.
-* `env1` is `env` plus all type formers, with the η, unit-like and K
+* `env1` is `env` plus all type formers, with the η and K
   capability flags computed from `isRec`.
 
 **3. Constructors** (in `env1`), stored as declared.
@@ -1712,8 +1712,7 @@ types.
 | Where | Field | Lean's counterpart, or how it is computed |
 |---|---|---|
 | `IndCaps` | `all`, `nparams`, `nIdx`, `ctors` | `InductiveVal.all`, `numParams`, `numIndices`, `ctors` |
-| `IndCaps` | `eta`, `etaCtor`, `etaParams`, `etaFields` | whether the family is structure-like (one constructor, no index, a block that is not recursive), and its constructor's name and counts; read off the block |
-| `IndCaps` | `unitlike`, `unitParams` | whether the family is structure-like with a constructor without fields, so that all its inhabitants are definitionally equal, and its parameter count; read off the block |
+| `IndCaps` | `eta`, `etaCtor`, `etaParams`, `etaFields` | whether the family is structure-like (one constructor, no index, a block that is not recursive), and its constructor's name and counts; read off the block. A structure-like family without fields is unit-like: all its inhabitants are definitionally equal |
 | `recInfo` | `majorIdx`, `rulePrefix` | sums of `RecursorVal.numParams`, `numMotives`, `numMinors`, `numIndices` |
 | `RecRule` | `fire` | `.plain` for a recursor whose major premise is a member of its own block; for an auxiliary recursor of a nested block, `.nested lvls pins`, the levels and the parameter arguments of the recursor's major domain, read off its stored type and closed over the rule prefix (no lookup: the trailing arguments are the record's index variables) |
 

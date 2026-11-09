@@ -883,15 +883,15 @@
 == ConLeche/Kernel/Inductives/BlockShape.lean#L396
    396  def readBlock (nPd : Nat) (block : List ConstantInfo) : Except CheckError BlockShape :=
 
-== ConLeche/Kernel/Env.lean#L416-L423
-   416    block.all fun ci => match ci with
-   417      | .indInfo cvT _ =>
-   418        match cvT.type.piSortTeleLen? with
-   419        | some n => decide (nP ≤ n)
-   420        | none => true
-   421      | .ctorInfo _ nPc _ => nPc == nP
-   422      | _ => true
-   423  
+== ConLeche/Kernel/Env.lean#L413-L420
+   413    block.all fun ci => match ci with
+   414      | .indInfo cvT _ =>
+   415        match cvT.type.piSortTeleLen? with
+   416        | some n => decide (nP ≤ n)
+   417        | none => true
+   418      | .ctorInfo _ nPc _ => nPc == nP
+   419      | _ => true
+   420  
 
 == ConLeche/Kernel/Inductives/BlockTail.lean#L153
    153  def checkBlock (ops : CheckerOps m) (env : Env) (block : List ConstantInfo) (p₀ : BlockShape) :
@@ -911,8 +911,8 @@
 == ConLeche/Kernel/Inductives/GenRec.lean#L498
    498  def classSeeds (ctx : NestCtx) (holes : List Expr) (Ms : List TargetMajor) :
 
-== ConLeche/Kernel/Inductives/BlockInstall.lean#L282
-   282  def checkBlockPositivity (ops : CheckerOps m) (env₁ : Env) (find? : Name → Option ConstantInfo)
+== ConLeche/Kernel/Inductives/BlockInstall.lean#L280
+   280  def checkBlockPositivity (ops : CheckerOps m) (env₁ : Env) (find? : Name → Option ConstantInfo)
 
 == ConLeche/Kernel/Inductives/GenRec.lean#L552
    552  def genRecCheck (ops : CheckerOps m) (fe : FEnv) (p : BlockShape) (nestedBit : Bool)

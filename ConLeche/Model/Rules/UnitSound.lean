@@ -388,8 +388,8 @@ theorem unitTele_fit {d : Nat} :
 theorem unitLikeShape_none_inv {w : Expr} (h : unitLikeShape env w = some none) :
     ∃ (S : Name) (us : List Level) (cvS : ConstantVal) (caps : IndCaps),
       w.getAppFn = .const S us ∧ env.find? S = some (.indInfo cvS caps) ∧
-      caps.unitlike = true ∧ ConLeche.reservedBasisNames.contains S = false ∧
-      w.getAppArgs.length = caps.unitParams ∧ us.length = cvS.levelParams.length := by
+      caps.eta = true ∧ caps.etaFields = 0 ∧ ConLeche.reservedBasisNames.contains S = false ∧
+      w.getAppArgs.length = caps.etaParams ∧ us.length = cvS.levelParams.length := by
   unfold unitLikeShape at h
   revert h
   split
@@ -399,7 +399,7 @@ theorem unitLikeShape_none_inv {w : Expr} (h : unitLikeShape env w = some none) 
       split
       · rename_i hc
         intro _
-        exact ⟨S, us, cvS, caps, hfn, hfS, hc.1, hc.2.1, hc.2.2.1, hc.2.2.2⟩
+        exact ⟨S, us, cvS, caps, hfn, hfS, hc⟩
       · split
         · split
           · split
@@ -480,7 +480,7 @@ theorem UnitLike.unit_sound (hin : RulesInputs V m φ) {d : Nat} {T w : Expr}
     UnitLikeSem m φ d T := by
   intro hfT Δa Ta hCT hdT ρ hρ hLT hokT x y hx hy
   obtain ⟨-, -, -, wa, hwa, hokW, heqW⟩ := red_ty_at hr hfT hCT hdT hρ hLT hokT
-  obtain ⟨S, us, cvS, caps, hfn, hfS, hu, hres, hlen, hus⟩ := unitLikeShape_none_inv hsh
+  obtain ⟨S, us, cvS, caps, hfn, hfS, he, hz, hres, hlen, hus⟩ := unitLikeShape_none_inv hsh
   rw [show w = Expr.mkAppN w.getAppFn w.getAppArgs from
     (ConLeche.Expr.mkAppN_getApp w).symm, hfn] at hwa
   obtain ⟨vT, tsa, hvT, hspt, rfl⟩ := denote_mkAppN_inv hwa
@@ -498,7 +498,7 @@ theorem UnitLike.unit_sound (hin : RulesInputs V m φ) {d : Nat} {T w : Expr}
   have hfit : FamFit V ρ _ (tsa.map (interp V ρ)) :=
     ⟨tsa, rfl, hokW, by rw [← heqW]; exact hokT.2.ne_pt⟩
   rw [heqW, interp_mkAppN, hfold] at hx hy
-  exact hin.caps_ok.2 S cvS caps hfS hu hres φ us hus ρ (tsa.map (interp V ρ)) x y
+  exact hin.caps_ok.2 S cvS caps hfS he hz hres φ us hus ρ (tsa.map (interp V ρ)) x y
     (by rw [List.length_map, ← hspt.length, hlen]) hfit hx hy
 
 /-- **An η family with fields**: two members that are not the point are the

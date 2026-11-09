@@ -153,8 +153,6 @@ structure IndCaps where
   etaCtor : Name := .anonymous
   etaParams : Nat := 0
   etaFields : Nat := 0
-  unitlike : Bool := false
-  unitParams : Nat := 0
   all : List Name := []
   nparams : Nat := 0
   nIdx : Nat := 0
@@ -182,8 +180,6 @@ def capsOf (fe : FEnv) (v : InductiveVal) : IndCaps :=
       etaCtor := c
       etaParams := v.numParams
       etaFields := nF
-      unitlike := v.numIndices == 0 && nF == 0 && !v.isRec
-      unitParams := v.numParams
       all := v.all
       nparams := v.numParams
       nIdx := v.numIndices

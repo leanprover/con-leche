@@ -998,9 +998,9 @@ theorem EnvModelM.renameCore (mp : EnvModelM V env) (h : RenEnv env env') (hwf :
           (fun _ _ _ hf₂ => by rw [h.find_nonres hC1] at hf₂; exact hf₂)
           (fun _ _ _ _ _ hTCa => by rw [hde']; exact hTCa)
           (congrFun (hnr hres) _) (fun _ _ _ => rfl)
-    · intro T cvT caps hf hcap hres φ' us hus
+    · intro T cvT caps hf hcap hz hres φ' us hus
       rw [h.find_nonres hres] at hf
-      have hlaw := hu T cvT caps hf hcap hres φ' us hus
+      have hlaw := hu T cvT caps hf hcap hz hres φ' us hus
       rw [hnr hres]; exact hlaw
   · -- `reduce_ops`
     intro c hc cv hf hpin

@@ -302,13 +302,14 @@ telescope coherence (`EtaCoherent`). -/
     EtaCoherent m φ' T caps.etaCtor cvT.levelParams us caps.etaParams
       (fun _ ts _ => ts)
 
-/-- **The fired unit-like law of a unit-like stored family.** -/
+/-- **The fired unit-like law of a fieldless η family**: all its
+inhabitants are equal. -/
 @[expose] def UnitLaw {V : Type w} [SetTheory V] {env : Env}
     (m : EnvModel V env) (φ' : Name → Nat) (T : Name)
     (cvT : ConstantVal) (caps : IndCaps) : Prop :=
   ∀ us : List Level, us.length = cvT.levelParams.length →
     ∀ (ρ : Nat → V) (ts : List V) (x y : V),
-      ts.length = caps.unitParams →
+      ts.length = caps.etaParams →
       FamFit V ρ (m.acval T (Level.substFn φ' cvT.levelParams us)) ts →
       x ∈ˢ ts.foldl SetTheory.app
         (interp V ρ (m.acval T (Level.substFn φ' cvT.levelParams us))) →
@@ -325,11 +326,10 @@ telescope coherence (`EtaCoherent`). -/
     ConLeche.reservedBasisNames.contains T = false →
     ConLeche.EtaFamilyStored env T caps →
     ∀ φ' : Name → Nat, EtaLaw m φ' T cvT caps) ∧
-  -- The unit half carries NO `EtaFamilyStored` premise: it would make
-  -- the law vacuous at a WF environment with a non-reserved
-  -- unitlike-only family.
+  -- The unit half carries NO `EtaFamilyStored` premise: its consumer
+  -- (`unitLikeShape`'s fieldless arm) reads no constructor.
   (∀ (T : Name) (cvT : ConstantVal) (caps : IndCaps),
-    env.find? T = some (.indInfo cvT caps) → caps.unitlike = true →
+    env.find? T = some (.indInfo cvT caps) → caps.eta = true → caps.etaFields = 0 →
     ConLeche.reservedBasisNames.contains T = false →
     ∀ φ' : Name → Nat, UnitLaw m φ' T cvT caps)
 

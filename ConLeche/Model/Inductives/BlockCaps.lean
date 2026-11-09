@@ -16,9 +16,9 @@ two things of the member's leaf — its FOLD at the fieldless shape, and
 (`FixKit.lean`, leaf-abstract) discharge them at the member's hole
 leaf (`blockTyG`), given its fold.
 
-Off the structure-like arm the record claims nothing that is not
-vacuous: a member with a field is never unit-like, and its η claim is
-premised on having no field (`blockCapsLawsAt_vacuous`).
+Off the fieldless structure-like arm the record claims nothing that is
+not vacuous: both laws are premised on having no field
+(`capsLawsAt_vacuous`).
 -/
 
 namespace ConLeche.Model
@@ -51,8 +51,6 @@ theorem blockCapsAt_cases (p₁ : BlockShape) (mi : Nat) (isRec : Bool) :
           etaCtor := c.1.name
           etaParams := p₁.nP
           etaFields := c.2
-          unitlike := (p₁.members.getD mi default).nIdx == 0 && c.2 == 0 && !isRec
-          unitParams := p₁.nP
           all := p₁.memberNames
           nparams := p₁.nP
           nIdx := (p₁.members.getD mi default).nIdx
@@ -68,44 +66,19 @@ theorem blockCapsAt_cases (p₁ : BlockShape) (mi : Nat) (isRec : Bool) :
   · next a b hc => exact Or.inl ⟨b, hc, rfl⟩
   · exact Or.inr rfl
 
-/-- A unit-like member has no field and the block's parameter count in
-both arithmetic slots. -/
-theorem blockCapsAt_unitlike {p₁ : BlockShape} {mi : Nat} {isRec : Bool}
-    (hu : (ConLeche.blockCapsAt p₁ mi isRec).unitlike = true) :
+/-- A fieldless η member: its constructor has no field, and the record
+carries the block's parameter count. -/
+theorem blockCapsAt_fieldless {p₁ : BlockShape} {mi : Nat} {isRec : Bool}
+    (hu : (ConLeche.blockCapsAt p₁ mi isRec).eta = true ∧
+      (ConLeche.blockCapsAt p₁ mi isRec).etaFields = 0) :
     (ConLeche.blockCapsAt p₁ mi isRec).etaFields = 0 ∧
-    (ConLeche.blockCapsAt p₁ mi isRec).etaParams = p₁.nP ∧
-    (ConLeche.blockCapsAt p₁ mi isRec).unitParams = p₁.nP := by
+    (ConLeche.blockCapsAt p₁ mi isRec).etaParams = p₁.nP := by
   rcases blockCapsAt_cases p₁ mi isRec with ⟨c, -, h⟩ | h
-  · rw [h] at hu ⊢
-    simp only [Bool.and_eq_true, beq_iff_eq] at hu
-    exact ⟨hu.1.2, rfl, rfl⟩
-  · rw [h] at hu; exact nomatch hu
-
-/-- A member claiming η but not unit-likeness has a field. -/
-theorem blockCapsAt_etaFields_pos {p₁ : BlockShape} {mi : Nat} {isRec : Bool}
-    (hU : (ConLeche.blockCapsAt p₁ mi isRec).unitlike = false)
-    (he : (ConLeche.blockCapsAt p₁ mi isRec).eta = true) :
-    0 < (ConLeche.blockCapsAt p₁ mi isRec).etaFields := by
-  rcases blockCapsAt_cases p₁ mi isRec with ⟨c, -, h⟩ | h
-  · rw [h] at hU he ⊢
-    simp only [Bool.and_eq_true, beq_iff_eq] at he
-    simp only [Bool.and_eq_false_iff, beq_eq_false_iff_ne, ne_eq] at hU
-    show 0 < c.2
-    rcases hU with (hU | hU) | hU
-    · exact absurd he.1 hU
-    · omega
-    · exact nomatch he.2.symm.trans hU
-  · rw [h] at he; exact nomatch he
+  · refine ⟨hu.2, ?_⟩
+    rw [h]
+  · rw [h] at hu; exact nomatch hu.1
 
 /-! ## The laws -/
-
-/-- **A member with a field owes nothing** (`capsLawsAt_vacuous` at a
-block member). -/
-theorem blockCapsLawsAt_vacuous {env' : Env} (m' : EnvModel V env') {p₁ : BlockShape}
-    {mi : Nat} {isRec : Bool} {T : Name} {cvTa : ConstantVal}
-    (hU : (ConLeche.blockCapsAt p₁ mi isRec).unitlike = false) :
-    CapsLawsAt m' T cvTa (ConLeche.blockCapsAt p₁ mi isRec) :=
-  capsLawsAt_vacuous m' hU fun he => blockCapsAt_etaFields_pos hU he
 
 /-- **A block member's capability laws**, both arms — `blockCtorsLoop`'s
 `hTlawsOf` at a member of a block.  On the structure-like arm the
@@ -119,30 +92,33 @@ theorem blockCapsLawsAt {env' : Env} (m' : EnvModel V env')
     (hpar : ∀ ψ, p₁.nP = (pps ψ).length)
     (hleaf : ∀ ψ, m'.acval T ψ = L ψ)
     (hlam : ∀ ψ, ∃ B, L ψ = mkLamsAV (pps ψ) B)
-    (hfoldZ : (ConLeche.blockCapsAt p₁ mi isRec).unitlike = true →
+    (hfoldZ : (ConLeche.blockCapsAt p₁ mi isRec).eta = true ∧
+      (ConLeche.blockCapsAt p₁ mi isRec).etaFields = 0 →
       ∀ (ψ : Name → Nat) (ρ : Nat → V) (ts : List V),
         SpineFit ρ ((pps ψ)) ts →
         ts.foldl SetTheory.app (interp V ρ (L ψ))
           = sumSet (w ψ) (sumFibre (w ψ) (consList ts ρ) [[] ++ [idxEqAV []]]))
-    (hleafC : (ConLeche.blockCapsAt p₁ mi isRec).unitlike = true →
+    (hleafC : (ConLeche.blockCapsAt p₁ mi isRec).eta = true ∧
+      (ConLeche.blockCapsAt p₁ mi isRec).etaFields = 0 →
       ∀ ψ, m'.acval (ConLeche.blockCapsAt p₁ mi isRec).etaCtor ψ
         = sumMkAV (w ψ) 0 (ds ψ) [] (uChains [[]]))
     (hfit : ∀ (ψ : Name → Nat) (ρ : Nat → V) (as : List V),
       SpineFit ρ ((pps ψ)) as → SpineFit ρ ((ds ψ)) as)
-    (hreadC : (ConLeche.blockCapsAt p₁ mi isRec).unitlike = true →
+    (hreadC : (ConLeche.blockCapsAt p₁ mi isRec).eta = true ∧
+      (ConLeche.blockCapsAt p₁ mi isRec).etaFields = 0 →
       ∀ (cvC : ConstantVal) (nPc nFc : Nat),
         env'.find? (ConLeche.blockCapsAt p₁ mi isRec).etaCtor
           = some (.ctorInfo cvC nPc nFc) →
         cvC.levelParams = cvTa.levelParams ∧ ∃ B : (Name → Nat) → Term,
           ∀ ψ, denote m'.acval env' ψ 0 cvC.type = some (mkPisAV (ds ψ) (B ψ))) :
     CapsLawsAt m' T cvTa (ConLeche.blockCapsAt p₁ mi isRec) := by
-  by_cases hu : (ConLeche.blockCapsAt p₁ mi isRec).unitlike = true
-  · obtain ⟨-, hpE, hpU⟩ := blockCapsAt_unitlike hu
+  by_cases hu : (ConLeche.blockCapsAt p₁ mi isRec).eta = true ∧
+      (ConLeche.blockCapsAt p₁ mi isRec).etaFields = 0
+  · have hpE := (blockCapsAt_fieldless hu).2
     exact ⟨fun _ _ _ => fibreEtaLaw0 hleaf (hfoldZ hu) (hleafC hu) hlam hfit
         (fun ψ => by rw [hpE]; exact hpar ψ) (hreadC hu),
-      fun _ _ => fibreUnitLaw hleaf (hfoldZ hu) hlam
-        (fun ψ => by rw [hpU]; exact hpar ψ)⟩
-  · have hU : (ConLeche.blockCapsAt p₁ mi isRec).unitlike = false := by simpa using hu
-    exact blockCapsLawsAt_vacuous m' hU
+      fun _ _ _ => fibreUnitLaw hleaf (hfoldZ hu) hlam
+        (fun ψ => by rw [hpE]; exact hpar ψ)⟩
+  · exact capsLawsAt_vacuous m' fun he => Nat.pos_of_ne_zero fun hz => hu ⟨he, hz⟩
 
 end ConLeche.Model

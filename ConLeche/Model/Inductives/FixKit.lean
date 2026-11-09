@@ -1777,7 +1777,7 @@ theorem fixEmptyUnitLaw {m : EnvModel V env} {φ' : Name → Nat} {T : Name}
     {cvT : ConstantVal} {caps : IndCaps}
     {w : (Name → Nat) → Nat} {pps : (Name → Nat) → List Term}
     (hleaf : ∀ ψ, m.acval T ψ = sumTyAV (w ψ) (pps ψ) [])
-    (hpar : ∀ ψ, caps.unitParams = (pps ψ).length) :
+    (hpar : ∀ ψ, caps.etaParams = (pps ψ).length) :
     UnitLaw m φ' T cvT caps := by
   intro us _
   · intro ρ ts x y hlen hfit hx _
@@ -1810,7 +1810,7 @@ theorem fibreUnitLaw {m : EnvModel V env} {φ' : Name → Nat} {T : Name}
       ts.foldl SetTheory.app (interp V ρ (L ψ))
         = sumSet (w ψ) (sumFibre (w ψ) (consList ts ρ) [[] ++ [idxEqAV []]]))
     (hlam : ∀ ψ, ∃ B, L ψ = mkLamsAV (pps ψ) B)
-    (hpar : ∀ ψ, caps.unitParams = (pps ψ).length) :
+    (hpar : ∀ ψ, caps.etaParams = (pps ψ).length) :
     UnitLaw m φ' T cvT caps := by
   intro us _
   · intro ρ ts x y hlen hfit hx hy

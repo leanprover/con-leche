@@ -428,8 +428,8 @@ def unitLikeShapeF (fe : FEnv) (w : Expr) : Option (Option (Expr × Nat)) :=
   | .const S us =>
     match fe.find? S with
     | some (.indInfo cvS caps) =>
-      if caps.unitlike = true ∧ reservedBasisNames.contains S = false ∧
-          (Expr.getAppArgsC w).length = caps.unitParams ∧
+      if caps.eta = true ∧ caps.etaFields = 0 ∧ reservedBasisNames.contains S = false ∧
+          (Expr.getAppArgsC w).length = caps.etaParams ∧
           us.length = cvS.levelParams.length then some none
       else if caps.eta = true ∧ reservedBasisNames.contains S = false ∧
           (Expr.getAppArgsC w).length = caps.etaParams ∧

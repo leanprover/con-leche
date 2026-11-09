@@ -4,7 +4,6 @@ import ConLeche.Verify.Inductives.DirectInv
 import ConLeche.Model.Inductives.BlockCtorsLoop
 import ConLeche.Model.Inductives.FormerInEnv
 import ConLeche.Model.Inductives.FixKit
-import ConLeche.Model.Inductives.BlockCaps
 import ConLeche.Model.Inductives.BlockRep
 public import ConLeche.Model.Inductives.BlockAbsRead
 import ConLeche.Model.Env.LfpHoleOp
@@ -201,7 +200,8 @@ structure BlockCtorsStage (F : Nat) (d : BlockData V) (lps : List Name)
   capsU : ∀ m, m < d.k → ∀ (cvTa : ConstantVal), formersAll[m]? = some cvTa →
     ∀ {env' : Env} (m' : EnvModel V env') (kk : Nat) (ctor : ConstantVal × Nat),
     (d.ctorsM m)[kk]? = some ctor →
-    (ConLeche.blockCapsAt p₁ m isRec).unitlike = true →
+    (ConLeche.blockCapsAt p₁ m isRec).eta = true ∧
+      (ConLeche.blockCapsAt p₁ m isRec).etaFields = 0 →
     -- the constructor's stored type and its reading, for the η law's
     -- telescope coherence (task #342 L11b)
     (∀ cvC nPc nFc, env'.find? ctor.1.name = some (.ctorInfo cvC nPc nFc) → cvC = ctor.1) →
@@ -347,13 +347,13 @@ theorem stageBlockCtorsAt {F : Nat}
       CapsLawsAt m' (d.memberName m) cvSm (ConLeche.blockCapsAt p₁ m isRec) := by
     intro env' m' kk ctor hkk hinv' hcvC hFD' hleaf' hleafC'
     rw [hTname] at hleaf' ⊢
-    by_cases hu : (ConLeche.blockCapsAt p₁ m isRec).unitlike = true
+    by_cases hu : (ConLeche.blockCapsAt p₁ m isRec).eta = true ∧
+        (ConLeche.blockCapsAt p₁ m isRec).etaFields = 0
     · refine CapsLawsAt.of_lps (hS.capsU m hm cvTa hcvTa m' kk ctor hkk hu hcvC
         (by rw [hlpsA ctor (List.mem_of_getElem? hkk), hS.lpsT m cvTa hm hcvTa])
         (hinv'.2.1 m kk ctor hkk).2.2.1.read hFD' hleaf' (fun ψ => ?_)) hDm.lps.symm
       rw [hleafC' ψ, hFssEq ψ]
-    · have hU : (ConLeche.blockCapsAt p₁ m isRec).unitlike = false := by simpa using hu
-      exact blockCapsLawsAt_vacuous m' hU
+    · exact capsLawsAt_vacuous m' fun he => Nat.pos_of_ne_zero fun hz => hu ⟨he, hz⟩
   -- ## the data's level-parameter invariance and bounds
   have hFssParams : ∀ ψ₁ ψ₂ : Name → Nat, (∀ q ∈ lps, ψ₁ q = ψ₂ q) →
       fssOf d.nP (ctorDataList (d.dsF m) (d.esF m) ψ₁ (d.ctorsM m) 0)
