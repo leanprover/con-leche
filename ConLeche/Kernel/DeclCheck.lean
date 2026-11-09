@@ -297,8 +297,12 @@ def ofReduceAxOkF (fe : FEnv) (cv : ConstantVal) : Bool :=
   reduceStoredOkF fe c &&
   ConstantVal.matchesPin cv (ofReducePinA cv.name)
 
+/-! The pin guards and checks below that are `noncomputable` are specification only
+(task #497): the cached driver runs their twins (`checkDivModPinC`, `checkReducePinC`,
+`ConLeche/Cached/ParsedC.lean`), and nothing compiled may call them by accident. -/
+
 /-- `reducePinGuard` through the index. -/
-def reducePinGuardF (fe : FEnv) (c : Name) : Bool :=
+noncomputable def reducePinGuardF (fe : FEnv) (c : Name) : Bool :=
   (reduceDeclPin c).looseBVarsBounded 0 && !(reduceDeclPin c).hasFvar &&
   (reduceDeclPin c).allLevelParamsDefined [] &&
   (reduceDeclPin c).constsResolveF fe
@@ -315,7 +319,7 @@ def divModEnvGuardF (fe2 : FEnv) (c : Name) : Bool :=
     | none => false)
 
 /-- `divModCertGuard` through the index. -/
-def divModCertGuardF (fe : FEnv) (c : Name) (annVal : Expr)
+noncomputable def divModCertGuardF (fe : FEnv) (c : Name) (annVal : Expr)
     (hyps : List Expr) (eqE proof : Expr) : Bool :=
   (Expr.substConstAll c annVal proof).looseBVarsBounded 0 &&
   !(Expr.substConstAll c annVal proof).hasFvar &&
@@ -332,7 +336,7 @@ def typePinStoredF (fe : FEnv) (n : Name) : Expr :=
   | none => .sort .zero
 
 /-- `divModPinGuard` through the index. -/
-def divModPinGuardF (ps : NatOpPinSet) (fe : FEnv) (c : Name) : Bool :=
+noncomputable def divModPinGuardF (ps : NatOpPinSet) (fe : FEnv) (c : Name) : Bool :=
   (divModDeclPin ps c).looseBVarsBounded 0 && !(divModDeclPin ps c).hasFvar &&
   (divModDeclPin ps c).allLevelParamsDefined [] &&
   (divModDeclPin ps c).constsResolveF fe &&
@@ -341,7 +345,7 @@ def divModPinGuardF (ps : NatOpPinSet) (fe : FEnv) (c : Name) : Bool :=
     p.2.looseBVarsBounded 0 && !p.2.hasFvar && p.2.constsResolveF fe
 
 /-- `divModCertsGuard` through the index. -/
-def divModCertsGuardF (ps : NatOpPinSet) (fe : FEnv) (c : Name)
+noncomputable def divModCertsGuardF (ps : NatOpPinSet) (fe : FEnv) (c : Name)
     (annVal : Expr) : Bool :=
   ((divModCertStmts c).zip (divModCertProofs ps c)).all
     (fun p => divModCertGuardF fe c annVal p.1.1 p.1.2 p.2)
@@ -390,7 +394,7 @@ def installBasisDeclF (fe : FEnv) (ci : ConstantInfo) : m FEnv := do
   pure (fe.push ci)
 
 /-- `checkDivModCerts` through the index. -/
-def checkDivModCertsF (ops : CheckerOps m) (fe : FEnv) (c : Name)
+noncomputable def checkDivModCertsF (ops : CheckerOps m) (fe : FEnv) (c : Name)
     (annVal : Expr) : List (List Expr × Expr) → List Expr → m Bool
   | [], [] => pure true
   | (hyps, eqE) :: srest, proof :: prest => do
@@ -415,7 +419,7 @@ def checkTypePinsF (ops : CheckerOps m) (fe : FEnv) :
     else pure false
 
 /-- `checkDivModPinAt` through the index. -/
-def checkDivModPinAtF (ops : CheckerOps m) (fe : FEnv) (c : Name)
+noncomputable def checkDivModPinAtF (ops : CheckerOps m) (fe : FEnv) (c : Name)
     (value' : Expr) (ps : NatOpPinSet) : m Bool := do
   if ← checkTypePinsF ops fe (divModTypePins ps c) then
     let pinA := (divModDeclPin ps c)
@@ -427,7 +431,7 @@ def checkDivModPinAtF (ops : CheckerOps m) (fe : FEnv) (c : Name)
   else pure false
 
 /-- `checkDivModPinLoop` through the index. -/
-def checkDivModPinLoopF (ops : CheckerOps m) (fe : FEnv) (c : Name)
+noncomputable def checkDivModPinLoopF (ops : CheckerOps m) (fe : FEnv) (c : Name)
     (value' : Expr) : List NatOpPinSet → List String → m Unit
   | [], tried =>
     throw (.notImplemented s!"unsupported Nat.div/mod spelling ({c}: no \
@@ -445,7 +449,7 @@ def checkDivModPinLoopF (ops : CheckerOps m) (fe : FEnv) (c : Name)
 
 /-- `checkDivModPin` through the index — the variant list is its
 parameter too (task #304). -/
-def checkDivModPinF (ops : CheckerOps m) (pins : List NatOpPinSet)
+noncomputable def checkDivModPinF (ops : CheckerOps m) (pins : List NatOpPinSet)
     (fe fe2 : FEnv) (c : Name) : m Unit := do
   if divModEnvGuardF fe2 c then
     match fe2.find? c with
@@ -456,7 +460,7 @@ def checkDivModPinF (ops : CheckerOps m) (pins : List NatOpPinSet)
     s!"unsupported Nat.div/mod environment ({c})")
 
 /-- `checkReducePin` through the index. -/
-def checkReducePinF (ops : CheckerOps m) (fe fe2 : FEnv) (c : Name)
+noncomputable def checkReducePinF (ops : CheckerOps m) (fe fe2 : FEnv) (c : Name)
     (value : Expr) : m Unit := do
   if reduceStoredOkF fe2 c && reduceElemOkF fe c then
     if reducePinGuardF fe c then do
