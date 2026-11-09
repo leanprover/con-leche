@@ -807,24 +807,24 @@ theorem classRecTysOk_datF (fe : FEnv) (g : ClassGen) (k : Nat) (F : Nat) :
 
 theorem classRuleCheck_datF (feT feR : FEnv) (cvR : ConstantVal) (n : Nat)
     (gen : Expr) (F : Nat) :
-    (classRuleCheck (fueledOpsM mode) .plain feT feR cvR n gen).val F =
-      classRuleCheck (fueledOps mode F) .plain feT feR cvR n gen := by
+    (classRuleCheck (fueledOpsM mode) feT feR cvR n gen).val F =
+      classRuleCheck (fueledOps mode F) feT feR cvR n gen := by
   unfold classRuleCheck
   simp only [FueledM.atF_bind, FueledM.atF_pure, FueledM.atF_throw, FueledM.atF_ite,
     unwrapOr_atF, fueledOpsM_inferType_atF]
 
 theorem classRuleOk_datF (feT feR : FEnv) (cvR : ConstantVal) (n : Nat)
     (gen : Expr) (F : Nat) :
-    (classRuleOk (fueledOpsM mode) .plain feT feR cvR n gen).val F =
-      classRuleOk (fueledOps mode F) .plain feT feR cvR n gen := by
+    (classRuleOk (fueledOpsM mode) feT feR cvR n gen).val F =
+      classRuleOk (fueledOps mode F) feT feR cvR n gen := by
   unfold classRuleOk
   simp only [FueledM.atF_bind, FueledM.atF_pure, classRuleCheck_datF]
 
 theorem classRulesOk_datF (feT feR : FEnv) (g : ClassGen) (recOf : Nat → Option Name)
     (cvR : ConstantVal) (c : Nat) (F : Nat) :
     ∀ (xs : List ClassCtor),
-      (classRulesOk (fueledOpsM mode) .plain feT feR g recOf cvR c xs).val F =
-        classRulesOk (fueledOps mode F) .plain feT feR g recOf cvR c xs
+      (classRulesOk (fueledOpsM mode) feT feR g recOf cvR c xs).val F =
+        classRulesOk (fueledOps mode F) feT feR g recOf cvR c xs
   | [] => rfl
   | x :: xs => by
     unfold classRulesOk
@@ -834,8 +834,8 @@ theorem classRulesOk_datF (feT feR : FEnv) (g : ClassGen) (recOf : Nat → Optio
 theorem classRecsRulesOk_datF (feT feR : FEnv) (g : ClassGen) (recOf : Nat → Option Name)
     (F : Nat) :
     ∀ (cvs : List ConstantVal) (cs : List Nat),
-      (classRecsRulesOk (fueledOpsM mode) .plain feT feR g recOf cvs cs).val F =
-        classRecsRulesOk (fueledOps mode F) .plain feT feR g recOf cvs cs
+      (classRecsRulesOk (fueledOpsM mode) feT feR g recOf cvs cs).val F =
+        classRecsRulesOk (fueledOps mode F) feT feR g recOf cvs cs
   | cvG :: cvs, c :: cs => by
     unfold classRecsRulesOk
     simp only [FueledM.atF_bind, FueledM.atF_pure, classRulesOk_datF,

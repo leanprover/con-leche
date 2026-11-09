@@ -1,7 +1,7 @@
 module
 
 public import ConLeche.Kernel.Inductives.BlockTail
-public import ConLeche.Cached.IndPositivity
+public import ConLeche.Cached.IndRec
 
 @[expose] public section
 
@@ -161,7 +161,8 @@ operations `sharedOpsC`, the rule variant `sharedOpsRuleR` (a flush at
 each of a rule's two environment transitions), `flushC` at every
 environment change, the memoised walkers, and the rule-less recursors
 as an overlay sharing the constructors' index (`classFeROvl`).  The
-recursor stage (`checkBlockTailS`) runs `genRecCheck` at them. -/
+cached recursor stage `genRecCheckC` is `genRecCheck` at them
+(`genRecCheckC_eq`); nothing executed runs them (task #498). -/
 def shadowOpsC : ShadowOps CheckCM :=
   ⟨sharedOpsC mode, sharedOpsRuleR mode, flushC, structWalkersC, classFeROvl⟩
 
@@ -183,8 +184,8 @@ def checkBlockPassS (fe : FEnv) (p₀ : BlockShape) (isRec : Bool) :
 
 /-- **`checkBlockTail` through the index**: one flush entering the recursors' environment.  The
 constructors' index `fe₂` is read at once by the rule-less recursors (the rule stage reads `fe₂` and
-them) and by the generated recursors, so both are overlays sharing it (`shadowOpsC`'s `ruleEnv`,
-`classFeROvl`; `blockRecInfosTF`): a push onto `fe₂` while it is alive would copy the whole bucket
+them) and by the generated recursors, so both are overlays sharing it (`classFeROvl`,
+`genRecCheckC`; `blockRecInfosTF`): a push onto `fe₂` while it is alive would copy the whole bucket
 array, once per inductive block. -/
 def checkBlockTailS (block : List ConstantInfo) (q : BlockPass FEnv) (Q : List ProjTable) :
     CheckCM Unit :=
@@ -193,8 +194,7 @@ def checkBlockTailS (block : List ConstantInfo) (q : BlockPass FEnv) (Q : List P
   checkBlockIdxSortsF (sharedOpsC mode env₁) env₁ p p.members
   let fe₂ := consBlockCtorsF p.nP p.memberCtors env₁
   flushC
-  let out ← genRecCheck (shadowOpsC mode) fe₂ p
-    (blockNestedBit p kinds) params tbl.toList rd cls block
+  let out ← genRecCheckC mode fe₂ p (blockNestedBit p kinds) params tbl.toList rd cls block
   -- the stream's recursors against the generated ones, at the generated recursors as an OVERLAY on
   -- the constructors' index (read-only, sharing it), a flush entering and leaving that environment
   streamKCheck p p.recs out
@@ -203,43 +203,6 @@ def checkBlockTailS (block : List ConstantInfo) (q : BlockPass FEnv) (Q : List P
   streamRecsCheck (sharedOpsC mode feG) structWalkersC feG p.recs out
   flushC
   checkBlockTablesF (m := CheckCM) structWalkersC fe₂ Q
-
-/-- The cached `unresolvedConstsErrorL`: the `sorryAx` test by the
-memoized `mentionsAnyConstC` (`unresolvedConstsErrorLC_eq`). -/
-def unresolvedConstsErrorLC (strOk : Bool) (where_ : String) (e : Expr) : CheckError :=
-  if !strOk && (Expr.hasStrLitGo {} e).1 then
-    .notImplemented "string literals before the String support declarations"
-  else if Expr.mentionsAnyConstC [sorryAxName] e then
-    .notImplemented s!"use of the sorryAx axiom in {where_}"
-  else .invalid s!"unknown constant in {where_}"
-
-/-- Parsed `ensureSort` (no per-call conversion). -/
-def opSIxC (fe : FEnv) (d : Nat) (i : Expr) : CheckCM Level :=
-  ensureSortI (coreKnotI mode false fe checkFuel) d i
-
-/-- `checkConstantVal` on a parsed declaration: the checks of
-`checkConstantValF` with the syntactic passes memoized on the `Expr`
-DAG and the cached operations on its nodes. -/
-def checkConstantValC (fe : FEnv) (cv : ConstantVal) (allowOp : Bool := false) :
-    CheckCM Unit := do
-  if (fe.find? cv.name).isSome then
-    throw (.invalid s!"duplicate declaration {cv.name}")
-  if natOpName cv.name && !allowOp then
-    throw (.invalid s!"a certified Nat operation's name, not a definition: {cv.name}")
-  unless litShapeOk (.axiomInfo cv) do
-    throw (.notImplemented s!"a declaration at a literal's name with another shape ({cv.name})")
-  unless Name.nodup cv.levelParams do
-    throw (.invalid s!"duplicate universe parameters in {cv.name}")
-  unless Expr.looseBVarsBounded 0 cv.type do
-    throw (.invalid s!"loose bound variable in type of {cv.name}")
-  if Expr.hasFvar cv.type then
-    throw (.invalid s!"unexpected free variable in type of {cv.name}")
-  unless Expr.allLevelParamsDefinedC cv.levelParams cv.type do
-    throw (.invalid s!"undeclared universe parameter in type of {cv.name}")
-  unless constsResolveFC fe cv.type do
-    throw (unresolvedConstsErrorLC (strLitStoredF fe) s!"type of {cv.name}" cv.type)
-  let jsty ← (coreKnotI mode false fe checkFuel).infer 0 cv.type
-  let _u ← opSIxC mode fe 0 jsty
 
 /-- Twin of `reduceMember`. -/
 def reduceMemberS (fe : FEnv) (ms : MemberShape) (nP : Nat) : CheckCM MemberShape :=
