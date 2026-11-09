@@ -117132,3 +117132,81 @@ check` OK.  Stage1 suite (4843 tests): all pass but `async/elab/async_systems_in
 `elab/sym_arith_kron_bounds` passes now (#519).  Every `tests/elab_bench/*.lean` (93 files) at
 `TEST_BENCH=1` passes, `deriving_mutual_block` included; its `#mutual_block` command takes
 182.7 M heartbeats (limit 200 M; 268.5 M before lane blowup, 182.4 M after it).  A stage2 build (the stdlib checked by InLean) succeeds.
+
+### Lane twinlock: InLean's leaf lemmas against master's cached walks (2026-11-09, task #451, agent/451-twinlock)
+
+**Why.**  A sync works by the maintainer's rule (master's cached code changes, InLean's proof
+breaks, the twin follows master) only where InLean's lemma is stated against the function
+master's cached code runs and proved from its equations.  Lane sync3 found a gap: the inductive
+job's opener was proved against the specification's `openPisAtFvars`, so master's
+`openPisAtFvarsC` (task #496/#497) broke nothing and InLean kept the per-binder opening.
+
+**InLean code.**  `openPisAtFvarsM` is now the twin of `openPisAtFvarsC`: the raw opening
+(`openPisRawM`, twin of `openPisRawGoC`, the projection guard's already), then the residual
+instantiated once by all the opened variables (`instRevI`), where the per-binder loop
+re-instantiated the whole remaining body at every binder.  Nothing else changed: every other
+re-targeted lemma's InLean function already was its cached twin's algorithm.
+
+**Proofs.**  Each re-targeted lemma concludes master's cached function and is proved from that
+function's own equations, its leaves through their `_spec` lemmas (`instantiate1C_spec`,
+`abstractRangeC_spec`, `instantiateListC_spec`, `hasLooseBVarBC_spec`, `mentionsAnyConstC_spec`).
+A user whose stage is related to the plain specification (the inductive arm's stages are,
+below) reads the specification through master's `_eq` lemma at the use (`openPisAtFvarsC_eq`,
+`closeTelescopeC_eq`, …).  New: `openPisRawGoC_acc` (the raw opening's substitution is the opened
+variables), `instantiateRevAt_zero`.  Gone: the proof tier's own restatements of the cached
+closers (`closeTeleR`, `closeLamsR`).
+
+**The audit.**  `_tmp/twinlock/audit.lean` lists every `InLeanProof` theorem that mentions an
+`InLean` function and every plain-tier definition (outside `ConLeche/Cached`, `Driver`,
+`Frontend`) in its conclusion: 615 definitions, 383 of them not run by the binary
+(`tests/plain-reach-allow.txt`), 163 of those with a cached twin (`…C`, `…F`, `…S`, `…P` in
+`ConLeche/Cached`).  Re-targeted:
+
+| lemma | old target | new target | InLean code changed |
+|---|---|---|---|
+| `openPisAtFvarsI_run`, `openClosedI_run` | `openPisAtFvars` | `openPisAtFvarsC` | yes (`openPisAtFvarsM`) |
+| `closeTelescope_tr`, `closeTelescopeFrom_tr` | `closeTelescope` (via `closeTeleR`) | `closeTelescopeC`, `closeTelescopeGoC` | no |
+| `closeLams_tr`, `closeLamsFrom_tr` | `closeLams` (via `closeLamsR`) | `closeLamsC`, `closeLamsGoC` | no |
+| `toExpr_abstractPrefix` | `Expr.abstractPrefix` | `abstractPrefixC` | no |
+| `instPisWithI_tr`, `instPisWithI_map` | `instPisWith` | `instPisWithC` | no |
+| `targetPiDomsWith_tr`, `piDomAt_tr` | `targetPiDomsWith` | `targetPiDomsWithC` | no |
+| `piDomsMentionAny_tr` | `Expr.piDomsMentionAny` | `piDomsMentionAnyC` | no |
+| `blockIsRec_tr` | `blockIsRec` | `blockIsRecC` | no |
+| `dropVars_tr` | `Expr.dropVars` | `Expr.dropVarsC` | no |
+| `structUsedLater_tr` | `structUsedLater` | `structUsedLaterC` | no |
+| `projGuardRowsGoI_run` | `projGuardRowsGo` | `projGuardRowsGoC` | no |
+
+Kept, by kind (the other 147 twinned targets):
+
+| targets (lemmas) | why kept |
+|---|---|
+| the memoised walks: `Expr.instantiate1`, `instantiateList`, `instantiateLift`, `abstract1`, `abstractRange`, `liftLooseBVars`, `replaceFVars`, `replaceApps`, `targetAbs`, `substConstAll`, `hasLooseBVarB`, `wscopedB`, `nestOcc`, `depth`, `allLevelParamsDefined`, `eraseFVarTys`, `fvarLeaves` (`TrS_inst1`, `toExpr_instantiate*`, `TrS_instI`, `abstractRangeM_specI`, `replaceFVarsI_tr`, `nestOccI_tr`, `depth_TrS`, `term_leaves`, …) | master's `…C` is the memo (`MemoXP`/`MemoB`, `Squash` results) of the plain recursion, whose meaning is the plain function (`…C_spec`); InLean's walk is Lean's own cached walk (`EO.*`).  There is no second algorithm to follow, and master's proofs do not reason about the memo either. |
+| readers over master's environment index: `headHint`, `isCtorApp`, `unfoldableHead`, `sameConstHeads`, `etaCtorShape`, `etaCtorPartial`, `unitLikeShape`, `projCert`, `divModCertGuard`, `divModPinGuard`, `reducePinGuard`, `whnfWalkFuel`, `CoreFns.ioView`, `whnf`/`whnfCore` (the memo records' `CSOKI.whnfC`) | the twin differs from the plain one only in reading `FEnv` (and leaf walks already related); InLean's core relation is stated at the environment, as master's cached core specs are (`headHintC_eq env`, …).  Re-targeting needs the relation at master's index: the first ruling below. |
+| the inductive job's pure helpers: `classRead`, `classReadMinor`, `classReadSlots`, `nestHoles`, `nestHoleImg`, `nestCrest`, `nestCanonCrest`, `nestRootCanon`, `nestSeedOf`, `nestUniformOk`, `ClassGen.{major, ihParts, minorTy, motiveTy, prefixBinders}`, `classGenRecTy`, `classGenRule`, `targetCtorAt`, `targetCanonParams`, `classSeeds`, `generatedFire`, `generatedRules`, `streamNestedOk`, `recFire`, `blockTables`, `blockConstants`, `declConstants`, `declTables`, the pushes `consBlockInds`/`consBlockCtors`/`consSumCtors` | the cached twin is the plain function with its leaves cached (`openPisAtFvarsC`, `instPisWithC`, `replaceFVarsC`, `instantiate1C`, `dropVarsC`, …; the pushes onto the index); InLean's twin is that algorithm.  The re-target is the mechanical one of the table above; not done in this lane. |
+| `structProjBodies` (`structProjBodies_tr`, `hasPis_iff_structProjBodies`, `blockTables_tr`) | **the one algorithmic difference found**: master's `structProjBodiesC` walks the field telescope once, threading the substitution (`structProjBodiesGoC`); InLean's builds each field's body on its own (`projBodyAt`: the field's domain found, then one substitution), O(fields × telescope).  Following it means a loop twin and its range lemma (`projBodyOk` is stated per field, at use); not done in this lane. |
+| `piResidual` (`piResidual_go_TrS`) | InLean's `piResidual.go` already is the twin of `Expr.piResidualAcc`; master relates `piResidualAcc` to the specification only up to erasure (`piResidualAcc_spec`, `OptEr`), InLean's lemma states the exact specification; re-targeting carries `OptEr` through ι. |
+| `projGuardRows` (`checkProjRowsI_run`) | the guard's statement is the specification at the environment (`projGuardRows env.find?`), as master's `checkProjGuardC_spec`; inside, the proof goes through `projGuardRowsC`. |
+| the monadic stages (85): the core (`CoreFns.whnf`/`infer`/`defeq`, `whnfTelescope`, …), the declaration step (`checkDecl`, `checkDeclKind`, the pins), and the whole inductive job (`checkBlockInds`, `checkBlockCtors`, `checkBlockPositivity`, `nest*`, `class*`, `target*`, `stream*`, `genRecCheck`, `reduceMembers`, …) | stated as `Runs` of the plain specification, the shape of master's own cached proofs (`⦃…⦄ c ⦃CSOK ∧ Runs p v⦄`); master's cached inductive tier (#498, `Cached/Ind*`) relates its stages to the same specifications by equations (`checkBlockIndsC_eq`, …).  So a change of a cached stage's algorithm that keeps its `_eq` breaks no InLean proof: the second ruling below. |
+
+**Needs a ruling** (not decided here): (1) whether InLean's core relation should be stated at
+master's index (`mkFEnv env`) so the `FEnv` readers can be re-targeted; (2) whether the inductive
+arm's stages should be related to master's cached stage functions (`checkBlockIndsC` …) instead
+of the specification — that is the lockstep for the job's control flow, and a new relation shape
+(InLean's run against master's `CheckCM` run), not a re-statement.
+
+**Proofs.**  `addDeclSound` unconditional, axioms unchanged (`propext`, `Classical.choice`,
+`Quot.sound`, the three `mkData` stop-gaps); no `sorry`.
+
+**Gates.**  `lake build`, `lake test`, `lake build InLean InLeanProof inlean-replay`
+warning-free; layering, trust-surface, shake (664 allowlisted), inlean-sync, plain-reach (578,
+all allowlisted).  Init replay `--compare`: 64530 accepted, 0 exact and 0 cosmetic mismatches.
+Init cost (`perf stat -e instructions:u`, one run each, InLean verified): sync3's head binary
+450 876 438 093, the lane's head 450 810 157 658 (−0.015 %); con-leche at master with #515
+(`--olean --jobs=1`, last sync's run) 427 560 429 998 (InLean +5.4 %).
+
+**lean4** (`joachim/inlean-kernel`): one commit on bb569fb7 (the remote's head),
+`perf: InLean opens an inductive's telescopes with one substitution of the rest` (196dd6fc, the
+regeneration); `inlean-sync.py check` OK.  Stage1 suite (4843 tests): all pass but
+`async/elab/async_systems_info` (sandbox).  Every `tests/elab_bench/*.lean` (93 files) at
+`TEST_BENCH=1` passes; `deriving_mutual_block`'s `#mutual_block` takes 182.1 M heartbeats
+(182.7 M before).
