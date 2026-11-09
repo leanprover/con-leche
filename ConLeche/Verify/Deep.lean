@@ -853,8 +853,9 @@ theorem unitLikeShape_shiftFrom (henv : EnvWF env) (p : Nat) (w : Expr) :
     case indInfo cvS caps =>
     dsimp only
     rw [getAppArgs_shiftFrom, List.length_map]
-    by_cases h1 : caps.unitlike = true ∧ reservedBasisNames.contains S = false ∧
-        w.getAppArgs.length = caps.unitParams ∧ us.length = cvS.levelParams.length
+    by_cases h1 : caps.eta = true ∧ caps.etaFields = 0 ∧
+        reservedBasisNames.contains S = false ∧
+        w.getAppArgs.length = caps.etaParams ∧ us.length = cvS.levelParams.length
     · rw [ite_eq_left h1, ite_eq_left h1]; rfl
     rw [ite_eq_right h1, ite_eq_right h1]
     by_cases h2 : caps.eta = true ∧ reservedBasisNames.contains S = false ∧

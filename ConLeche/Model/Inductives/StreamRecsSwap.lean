@@ -203,9 +203,9 @@ theorem EnvModelM.swapTyP {env₀ env₃ : Env}
           (fun _ _ _ _ _ h => ConstantInfo.noConfusion h)).mp hf₂)
         (fun cvC nPc nFc TCa _ hTCa => by rw [← hde]; exact hTCa) rfl
         (fun _ _ _ => rfl)⟩
-    · intro T cvT caps hf hcap hres φ' us hus
+    · intro T cvT caps hf hcap hz hres φ' us hus
       exact hu T cvT caps ((hsame _ _
-          (fun _ _ _ _ _ h => ConstantInfo.noConfusion h)).mp hf) hcap
+          (fun _ _ _ _ _ h => ConstantInfo.noConfusion h)).mp hf) hcap hz
           hres φ' us hus
   · -- `reduce_ops`
     intro c hc cv hf hpin

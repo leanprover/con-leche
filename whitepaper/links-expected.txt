@@ -2492,8 +2492,8 @@
    124  /-- Store one more constant. -/
    125  def add (env : Env) (n : Name) (ci : ConstInfo) : Env := ⟨(n, ci) :: env.consts⟩
 
-== ConLeche/Kernel/Env.lean#L456
-   456  structure Env where
+== ConLeche/Kernel/Env.lean#L453
+   453  structure Env where
 
 == whitepaper/Fragment/Env.lean#L63-L100
     63  /-- What kind of constant a name is stored as. -/
@@ -2535,26 +2535,26 @@
     99    kind : ConstKind
    100    deriving DecidableEq
 
-== ConLeche/Kernel/Env.lean#L293-L311
-   293  inductive ConstantInfo where
-   294    | axiomInfo (val : ConstantVal)
-   295    | defnInfo (val : ConstantVal) (value : Expr) (hint : ReducibilityHint)
-   296    | thmInfo (val : ConstantVal)
-   297    /-- An inductive type former (whnf-stuck) with its capabilities. -/
-   298    | indInfo (val : ConstantVal) (caps : IndCaps)
-   299    /-- A basis constructor (whnf-stuck; the iota target). -/
-   300    | ctorInfo (val : ConstantVal) (numParams numFields : Nat)
-   301    /-- A recursor with its iota rules and the record's K flag (official's
-   302    `recursor_val::is_k`, read off the stream's record; the block's job
-   303    checks it).  Only the two sums the
-   304    firing path reads are stored: `majorIdx` (= numParams + numMotives +
-   305    numMinors + numIndices, the major premise's argument position) and
-   306    `rulePrefix` (= numParams + numMotives + numMinors, the length of the
-   307    argument prefix a rule's rhs is applied to).  The individual counts
-   308    are consumed at its check only and are not stored. -/
-   309    | recInfo (val : ConstantVal) (majorIdx rulePrefix : Nat)
-   310        (isK : Bool) (rules : List RecRule)
-   311    deriving DecidableEq, Repr, Inhabited
+== ConLeche/Kernel/Env.lean#L290-L308
+   290  inductive ConstantInfo where
+   291    | axiomInfo (val : ConstantVal)
+   292    | defnInfo (val : ConstantVal) (value : Expr) (hint : ReducibilityHint)
+   293    | thmInfo (val : ConstantVal)
+   294    /-- An inductive type former (whnf-stuck) with its capabilities. -/
+   295    | indInfo (val : ConstantVal) (caps : IndCaps)
+   296    /-- A basis constructor (whnf-stuck; the iota target). -/
+   297    | ctorInfo (val : ConstantVal) (numParams numFields : Nat)
+   298    /-- A recursor with its iota rules and the record's K flag (official's
+   299    `recursor_val::is_k`, read off the stream's record; the block's job
+   300    checks it).  Only the two sums the
+   301    firing path reads are stored: `majorIdx` (= numParams + numMotives +
+   302    numMinors + numIndices, the major premise's argument position) and
+   303    `rulePrefix` (= numParams + numMotives + numMinors, the length of the
+   304    argument prefix a rule's rhs is applied to).  The individual counts
+   305    are consumed at its check only and are not stored. -/
+   306    | recInfo (val : ConstantVal) (majorIdx rulePrefix : Nat)
+   307        (isK : Bool) (rules : List RecRule)
+   308    deriving DecidableEq, Repr, Inhabited
 
 == whitepaper/Fragment/Syntax.lean#L35-L36
     35    /-- A constant of the environment at a level instantiation. -/
@@ -5688,20 +5688,20 @@
    454      rules.map fun rl => { rl with fire := fire }
    455    | some _ => rules
 
-== ConLeche/Kernel/CoreDefs.lean#L952-L964
-   952    exact ⟨h.1.1.1, h.1.1.2, h.1.2⟩
-   953  
-   954  /-- The level and constructor-parameter comparands a firing rule's
-   955  checks compare the major's constructor levels and parameters against:
-   956  for a `.plain` rule the constructor's levels link to the recursor's by
-   957  name and its parameters are the recursor's leading arguments; for a
-   958  `.nested` rule both are the stored instantiations (the class the
-   959  auxiliary recursor's type was generated from, `auxRuleFire`), at the
-   960  recursor's level instantiation and (for the parameters) instantiated at
-   961  the recursor's leading-argument spine (the stored pins live in the
-   962  `rP`-binder prefix context; index arguments never occur in them); a
-   963  `.levels` rule's levels are stored and its parameters a `.plain` rule's. -/
-   964  def recFireComparands (rl : RecRule) (cnP : Nat) (lps : List Name)
+== ConLeche/Kernel/CoreDefs.lean#L953-L965
+   953    exact ⟨h.1.1.1, h.1.1.2, h.1.2⟩
+   954  
+   955  /-- The level and constructor-parameter comparands a firing rule's
+   956  checks compare the major's constructor levels and parameters against:
+   957  for a `.plain` rule the constructor's levels link to the recursor's by
+   958  name and its parameters are the recursor's leading arguments; for a
+   959  `.nested` rule both are the stored instantiations (the class the
+   960  auxiliary recursor's type was generated from, `auxRuleFire`), at the
+   961  recursor's level instantiation and (for the parameters) instantiated at
+   962  the recursor's leading-argument spine (the stored pins live in the
+   963  `rP`-binder prefix context; index arguments never occur in them); a
+   964  `.levels` rule's levels are stored and its parameters a `.plain` rule's. -/
+   965  def recFireComparands (rl : RecRule) (cnP : Nat) (lps : List Name)
 
 == ConLeche/Rules/Rel.lean#L218-L229
    218        IotaCase env isK cvj (recFireComparands rl cnP cv.levelParams us cvj.levelParams
@@ -6176,7 +6176,7 @@
    704  theorem Red.rescueEta_sound (hin : RulesInputs V m φ) {d : Nat}
    705      {major tm tmaj fab : Expr} {recName : Name} {cv : ConstantVal}
 
-== ConLeche/Kernel/Inductives/BlockInstall.lean#L67-L78
+== ConLeche/Kernel/Inductives/BlockInstall.lean#L67-L76
     67  def blockCapsAt (p : BlockShape) (mi : Nat) (isRec : Bool) : IndCaps :=
     68    match (p.members.getD mi default).ctors, (p.members.getD mi default).nIdx with
     69    | [c], nIdx =>
@@ -6184,11 +6184,9 @@
     71        etaCtor := c.1.name
     72        etaParams := p.nP
     73        etaFields := c.2
-    74        unitlike := nIdx == 0 && c.2 == 0 && !isRec
-    75        unitParams := p.nP
-    76        all := p.memberNames
-    77        nparams := p.nP
-    78        nIdx := nIdx
+    74        all := p.memberNames
+    75        nparams := p.nP
+    76        nIdx := nIdx
 
 == ConLeche/Model/Inductives/FixKit.lean#L722-L723
    722    (`sumMkAV_fold`: the application folds to the tagged tuple);

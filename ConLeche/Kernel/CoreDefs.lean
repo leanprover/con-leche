@@ -771,20 +771,21 @@ def unitFieldTele (cty : Expr) (nP : Nat) (targs : List Expr) : Option Expr :=
 
 /-- **The shape of an instance in official's `is_unit_like`**, read off
 the stored records: `w`, a head normal form, is an instance of a stored
-family without fields (its `unitlike` capability; `some none`), or of a
-stored η family (one constructor, no index, not recursive) whose
-constructor's field telescope at the instance's parameters is `tele`
-with `n` fields to check (`some (some (tele, n))`), or neither (`none`).
-A family with fields is read through its projection table, as the η
-certificate reads it (`structEtaCertWith`): every field slot an entry,
-the constructor the first entry's. -/
+η family (one constructor, no index, not recursive) without fields
+(`some none`: nothing to check), or of one whose constructor's field
+telescope at the instance's parameters is `tele` with `n` fields to
+check (`some (some (tele, n))`), or neither (`none`).  A family with
+fields is read through its projection table, as the η certificate reads
+it (`structEtaCertWith`): every field slot an entry, the constructor the
+first entry's.  A fieldless family has no table, and needs no
+constructor: its arm reads the record alone. -/
 def unitLikeShape (env : Env) (w : Expr) : Option (Option (Expr × Nat)) :=
   match w.getAppFn with
   | .const S us =>
     match env.find? S with
     | some (.indInfo cvS caps) =>
-      if caps.unitlike = true ∧ reservedBasisNames.contains S = false ∧
-          w.getAppArgs.length = caps.unitParams ∧
+      if caps.eta = true ∧ caps.etaFields = 0 ∧ reservedBasisNames.contains S = false ∧
+          w.getAppArgs.length = caps.etaParams ∧
           us.length = cvS.levelParams.length then some none
       else if caps.eta = true ∧ reservedBasisNames.contains S = false ∧
           w.getAppArgs.length = caps.etaParams ∧

@@ -112378,3 +112378,44 @@ relation; the rest moved).  The reach gate (#497) lists `unitLikeFuel` with the 
 constants the cached knot shares.  Gates on the merged tree: `lake build`, `lake test`
 warning-free; `tests/arena.sh` (e2e 583/583, arena tutorial 90/92, plain-reach 578 all
 allowlisted, the link and quote gates).
+
+**Review round 1 (2026-11-09): the `unitlike` capability is gone.**  Official has no such flag,
+and con-leche's was exactly `eta ∧ etaFields = 0` (`blockCapsAt`: `unitlike := nIdx == 0 &&
+c.2 == 0 && !isRec`, `unitParams := p.nP`, i.e. `etaParams`).  `IndCaps.unitlike` and
+`IndCaps.unitParams` are removed everywhere (Kernel, Cached, Verify, Model, the basis records);
+the fieldless arm of `unitLikeShape`/`unitLikeShapeF` is keyed on `caps.eta = true ∧
+caps.etaFields = 0` at `caps.etaParams` arguments, and the unit law (`UnitLaw`, the second half of
+`CapsOk` and of `CapsLawsAt`) is owed at `caps.eta = true → caps.etaFields = 0 →`, its
+parameter count `etaParams`.  `capsLawsAt_vacuous` now needs only "η implies a field"
+(`blockCapsLawsAt_vacuous` and `blockCapsAt_etaFields_pos` are gone); the block assembly's
+fieldless hypotheses are the conjunction (`blockCapsAt_fieldless`, `blockCapsAt_eta_nIdx`).
+No other reader of the flag existed: the recursor's major-premise rescue was already keyed on
+η, and nothing of the old `structUnit` path remained.
+
+*Why the fieldless arm stays a separate arm.*  The structure arm's law is the tower's: the η
+law and the coherence law are stated per projection-table entry, and the arm reads its
+constructor through entry 0.  A fieldless structure has no table, so the arm cannot be its
+zero-field instance.  The other law that speaks of a fieldless family, `CapsOk`'s η half
+(`EtaLaw`: every member is the constructor at the parameters), is premised on
+`EtaFamilyStored` (the record's `etaCtor` stored as a constructor); reading that would need a
+lookup of `caps.etaCtor`, the name-only link this lane avoided (above: a run must not see later
+additions, and `EnvWF` does not tie the name to a stored constructor).  With no field there is
+nothing to check and no constructor is needed, so the arm reads the record alone and is sound by
+the unit law, which every fieldless η family owes from its install on.
+
+*The arena's `bad/tutorial/115_etaCtor`.*  `tests/arena.sh` has no mechanism for a pinned
+exception: the gate runs only the vendored tutorial tests, `good/` and `bad/`, and the kernel
+arena's corner-case category (verdict "either") is read only by `scripts/arena/run-suite.sh`,
+the full-suite runner, not by the gate.  So the lane's rule stays: a `bad/` test is accepted
+only where its row in `tests/arena-expected.txt` says 0, with the comment naming the official
+extension; any other accepted `bad/` test is still a SOUNDNESS FAIL.  When the arena moves the
+test to its corner cases (and later to `good/`), the row moves with it.
+
+*Performance* (`perf stat -e instructions:u`, one run each, `--verified --jobs=1`, against
+`a38275837`): `init-full` 373 163 818 261 → 373 238 832 819 (+0.020 %), `grind-ring-5`
+13 054 503 720 → 13 052 966 405 (−0.012 %); verdicts unchanged.
+Gates: `lake build`, `lake test` warning-free; `tests/arena.sh` (e2e 583/583, arena tutorial
+90/92, plain-reach 578 all allowlisted, self-check 54 089 declarations, trusted and `--jobs`
+sweeps without divergence, axioms pinned at `[propext, Classical.choice, Quot.sound]`, the link,
+quote and whitepaper gates; the shake gate after dropping `BlockStageCtors`' now unused import of
+`BlockCaps`).

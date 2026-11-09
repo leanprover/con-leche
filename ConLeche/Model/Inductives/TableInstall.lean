@@ -92,8 +92,8 @@ theorem capsOk_pushTable (mp : EnvModelM V env) {t : ProjTable}
       rw [hac]
       exact denote_pushTable_mono hT _ 0
         (constsBound_instType mp.base2.wf (ConLeche.Env.find?_mem hf) us) hTCa
-  · intro T cvT caps hf hcapu hres φ' us hlen
-    have hlaw := mp.caps_ok.2 T cvT caps hf hcapu hres φ' us hlen
+  · intro T cvT caps hf hcape hz hres φ' us hlen
+    have hlaw := mp.caps_ok.2 T cvT caps hf hcape hz hres φ' us hlen
     rw [hac]
     exact hlaw
 

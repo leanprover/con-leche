@@ -171,14 +171,14 @@ theorem capsOk_cons_basis (mp : EnvModelM V env)
             (ConLeche.Env.find?_mem hf) us) hTCa
   · -- the unit-like half: one leaf to move, the disequality off the
     -- law's own non-reserved premise
-    intro T cvT caps hf hcapu hres φ' us hlen
+    intro T cvT caps hf hcape hz hres φ' us hlen
     have hnT : T ≠ c₀.name := fun hh => by
       rw [hh, hres₀] at hres; exact nomatch hres
     have hfE : env.find? T = some (.indInfo cvT caps) := by
       rw [ConLeche.Env.find?_cons, ite_eq_right (fun hh => hnT hh.symm)] at hf
       exact hf
     have hlaw :=
-      hprev.2 T cvT caps hfE hcapu hres φ' us hlen
+      hprev.2 T cvT caps hfE hcape hz hres φ' us hlen
     intro ρ ts x y hlents hfit hx hy
     rw [hac, acvalWith_ne hnT] at hx hy hfit
     exact hlaw ρ ts x y hlents hfit hx hy

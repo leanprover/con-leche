@@ -522,8 +522,8 @@ inductive DefEqExpand (env : Env) : Nat → Expr → Expr → Expr → Prop wher
 
 /-- **A unit-like type** (`unitLikeLoop`, `Kernel/Core.lean`; official's
 `is_unit_like`): its reduct is a ∀ whose opened codomain is unit-like, an
-instance of a stored family without fields, or an instance of a stored η
-family whose constructor's fields, at the instance's parameters, are
+instance of a stored η family without fields, or an instance of one
+whose constructor's fields, at the instance's parameters, are
 propositions or unit-like (`UnitFields`); the shape is read off the
 stored records (`unitLikeShape`). -/
 inductive UnitLike (env : Env) : Nat → Expr → Prop where

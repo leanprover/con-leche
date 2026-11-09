@@ -510,15 +510,15 @@ theorem blockNIdxs_getD {q : BlockShape} {j : Nat} (hj : j < q.members.length) :
     List.getD_eq_getElem?_getD, List.getElem?_eq_getElem hj]
   rfl
 
-/-- A unit-like member has no index. -/
-theorem blockCapsAt_unitlike_nIdx {q : BlockShape} {j : Nat} {isRec : Bool}
-    (hu : (ConLeche.blockCapsAt q j isRec).unitlike = true) :
+/-- An η member has no index. -/
+theorem blockCapsAt_eta_nIdx {q : BlockShape} {j : Nat} {isRec : Bool}
+    (he : (ConLeche.blockCapsAt q j isRec).eta = true) :
     (q.members.getD j default).nIdx = 0 := by
   rcases blockCapsAt_cases q j isRec with ⟨c, -, hc⟩ | hc
-  · rw [hc] at hu
-    simp only [Bool.and_eq_true, beq_iff_eq] at hu
-    exact hu.1.1
-  · rw [hc] at hu; exact nomatch hu
+  · rw [hc] at he
+    simp only [Bool.and_eq_true, beq_iff_eq] at he
+    exact he.1
+  · rw [hc] at he; exact nomatch he
 
 /-- **The DUMMY former pass**: the `k` formers consed with the EMPTY
 chain lists.  This is the carrier at which the members' constructors' readings are taken:
@@ -593,7 +593,7 @@ theorem blockDummyPass (mp : EnvModelM V env) {F : Nat} {p₀ : BlockShape} {isR
     intro ψ
     rw [hac]
     exact congrFun acvalWith_self ψ
-  refine ⟨fun he hfam => ?_, fun hu φ' => ?_⟩
+  refine ⟨fun he hfam => ?_, fun he hz φ' => ?_⟩
   · exfalso
     obtain ⟨-, ⟨cvC, cnP, cnF, hfC⟩, -⟩ := hfam
     rw [ConLeche.Env.find?_cons,
@@ -603,11 +603,11 @@ theorem blockDummyPass (mp : EnvModelM V env) {F : Nat} {p₀ : BlockShape} {isR
       hfreshC j cvTa hj he] at hfC
     exact nomatch hfC
   · refine fixEmptyUnitLaw hleaf (fun ψ => ?_)
-    rw [(blockCapsAt_unitlike hu).2.2, hFD₂.len ψ,
+    rw [(blockCapsAt_fieldless ⟨he, hz⟩).2, hFD₂.len ψ,
       blockNIdxs_getD (q := q) (j := j) (by
         have := (List.getElem?_eq_some_iff.mp hj).1
         rwa [hF.lenCv] at this),
-      blockCapsAt_unitlike_nIdx hu, Nat.add_zero]
+      blockCapsAt_eta_nIdx he, Nat.add_zero]
 
 /-! ## The members' index telescopes -/
 
@@ -776,9 +776,10 @@ theorem blockRealPass (mp : EnvModelM V env) {F : Nat} {p₀ : BlockShape} {isRe
       Sat V (((ppsOf j ψ).take q.nP)).reverse ρp →
       BlockChainsOkG q.k (q.resSort.eval ψ) ρp (fun c => uOf c ψ)
         (fun c => ((ppsOf c ψ).drop q.nP)) (Chs ψ))
-    -- a unit-like member's leaf folds to the one tagged empty tuple
+    -- a fieldless η member's leaf folds to the one tagged empty tuple
     (hfoldZ : ∀ (j : Nat) (cvTa : ConstantVal), formers[j]? = some cvTa →
-      (ConLeche.blockCapsAt q j isRec).unitlike = true →
+      (ConLeche.blockCapsAt q j isRec).eta = true ∧
+        (ConLeche.blockCapsAt q j isRec).etaFields = 0 →
       ∀ (ψ : Name → Nat) (ρ : Nat → V) (ts : List V),
         SpineFit ρ ((ppsOf j ψ)) ts →
         ts.foldl SetTheory.app (interp V ρ
@@ -862,7 +863,7 @@ theorem blockRealPass (mp : EnvModelM V env) {F : Nat} {p₀ : BlockShape} {isRe
       intro ψ
       rw [hac]
       exact congrFun acvalWith_self ψ
-    refine ⟨fun he hfam => ?_, fun hu φ' => ?_⟩
+    refine ⟨fun he hfam => ?_, fun he hz φ' => ?_⟩
     · exfalso
       obtain ⟨-, ⟨cvC, cnP, cnF, hfC⟩, -⟩ := hfam
       rw [ConLeche.Env.find?_cons,
@@ -871,12 +872,12 @@ theorem blockRealPass (mp : EnvModelM V env) {F : Nat} {p₀ : BlockShape} {isRe
           rw [← hn]; exact hh)),
         hfreshC j cvTa hj he] at hfC
       exact nomatch hfC
-    · refine fibreUnitLaw hleaf (fun ψ ρ ts hsp => hfoldZ j cvTa hj hu ψ ρ ts hsp)
+    · refine fibreUnitLaw hleaf (fun ψ ρ ts hsp => hfoldZ j cvTa hj ⟨he, hz⟩ ψ ρ ts hsp)
         (fun _ => ⟨_, rfl⟩) (fun ψ => ?_)
-      rw [(blockCapsAt_unitlike hu).2.2, hFD₂.len ψ,
+      rw [(blockCapsAt_fieldless ⟨he, hz⟩).2, hFD₂.len ψ,
         blockNIdxs_getD (q := q) (j := j) (by
           have := (List.getElem?_eq_some_iff.mp hj).1
           rwa [hF.lenCv] at this),
-        blockCapsAt_unitlike_nIdx hu, Nat.add_zero]
+        blockCapsAt_eta_nIdx he, Nat.add_zero]
 
 end ConLeche.Model

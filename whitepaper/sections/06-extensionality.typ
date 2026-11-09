@@ -152,7 +152,7 @@ not a rule of its relations.
   result. Whether a type has the rule at all is decided once, when it
   is installed, from its shape (one constructor, no index, in a block
   where no constructor is recursive), and
-  #src("ConLeche/Kernel/Inductives/BlockInstall.lean", 67, 78)[recorded with the type]\;
+  #src("ConLeche/Kernel/Inductives/BlockInstall.lean", 67, 76)[recorded with the type]\;
   the law itself is established there too, not at the use. It is the
   η law of the structure's _projection table_, the record of its
   fields' types that the checker stores for every one-constructor,
@@ -194,10 +194,10 @@ by the same argument.
   propositions or unit-like), with
   #src("ConLeche/Model/Rules/UnitSound.lean", 588, 588)[its soundness case].
   A structure with fields is unit-like by its η law and its fields'
-  unit-likeness. A family without fields is recorded at installation,
-  like η (one constructor, no index, no field, in a block where no
-  constructor is recursive), and its law is established there from the
-  fixed point
+  unit-likeness. A structure without fields (one constructor, no
+  index, no field, in a block where no constructor is recursive) is
+  unit-like outright, and its law is established at installation from
+  the fixed point
   (#src("ConLeche/Model/Inductives/FixKit.lean", 1796, 1797)[the fibre is the one tagged empty tuple]).
   Neither `PUnit` nor `True` is special to the checker: both are
   installed like any other block.

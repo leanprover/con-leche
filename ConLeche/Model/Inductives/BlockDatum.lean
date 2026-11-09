@@ -963,9 +963,10 @@ theorem blockTablesStage_of {F : Nat} {env envI : Env}
     obtain ⟨A, hA, hfa⟩ := blockAcc_of_run mpD hNZ hctxZ hPos rfl rfl rfl rfl rfl rfl hlenN.symm
       rfl hlenMemberCtors (fun c hc => hCA c hc) hclosedZ hnfZ hcovD ψ ρp hs hGw
     exact ⟨⟨A, hA, hfa.accTuple hfib⟩, A, hA, hfa⟩
-  -- a unit-like member's hole leaf folds to the one tagged empty tuple
+  -- a fieldless η member's hole leaf folds to the one tagged empty tuple
   have hfoldZH : ∀ (j : Nat) (cvTa : ConstantVal), q.formers[j]? = some cvTa →
-      (ConLeche.blockCapsAt q j isRec).unitlike = true →
+      (ConLeche.blockCapsAt q j isRec).eta = true ∧
+        (ConLeche.blockCapsAt q j isRec).etaFields = 0 →
       ∀ (ψ : Name → Nat) (ρ : Nat → V) (ts : List V),
         SpineFit ρ ((ppsOf j ψ)) ts →
         ts.foldl SetTheory.app (interp V ρ
@@ -979,10 +980,10 @@ theorem blockTablesStage_of {F : Nat} {env envI : Env}
       have := (List.getElem?_eq_some_iff.mp hcv).1; rwa [hF.lenCv] at this
     -- the member's shape: one constructor, no field, no index
     obtain ⟨c, hcs, -⟩ | hcaps := blockCapsAt_cases q j isRec
-    case inr => rw [hcaps] at hu; exact nomatch hu
+    case inr => rw [hcaps] at hu; exact nomatch hu.1
     have hnIdx0 : q.nIdxs.getD j 0 = 0 := by
       rw [blockNIdxs_getD (q := q) (j := j) hjk]
-      exact blockCapsAt_unitlike_nIdx hu
+      exact blockCapsAt_eta_nIdx hu.1
     have hlenA : (q.memberCtors.getD j []).length = 1 := by
       rw [(hfacts j cvTa hjk hcv).1.1, hcs]; rfl
     obtain ⟨ctor, hctor⟩ : ∃ ctor, (q.memberCtors.getD j [])[0]? = some ctor :=
@@ -992,7 +993,7 @@ theorem blockTablesStage_of {F : Nat} {env envI : Env}
       rw [hcs] at hc'
       obtain rfl : c = c' := by simpa using hc'
       rw [hnF]
-      have := blockCapsAt_unitlike hu
+      have := blockCapsAt_fieldless hu
       rcases blockCapsAt_cases q j isRec with ⟨c₂, hcs₂, hcaps₂⟩ | hcaps₂
       · rw [hcs] at hcs₂
         obtain rfl : c = c₂ := by simpa using hcs₂
@@ -1410,9 +1411,9 @@ theorem blockTablesStage_of {F : Nat} {env envI : Env}
       intro m hm cvTa hcv env' m' kk ctor hkk hu hcvC hlpsCA hreadCA hFD' hleaf' hleafC'
       have hnIdx0 : q.nIdxs.getD m 0 = 0 := by
         rw [blockNIdxs_getD (q := q) (j := m) hm]
-        exact blockCapsAt_unitlike_nIdx hu
+        exact blockCapsAt_eta_nIdx hu.1
       obtain ⟨c, hcs, hcaps⟩ | hcaps := blockCapsAt_cases q m isRec
-      case inr => rw [hcaps] at hu; exact nomatch hu
+      case inr => rw [hcaps] at hu; exact nomatch hu.1
       have hlenA : (q.memberCtors.getD m []).length = 1 := by
         rw [(hfacts m cvTa hm hcv).1.1, hcs]; rfl
       have hkk0 : kk = 0 := by
@@ -1423,7 +1424,7 @@ theorem blockTablesStage_of {F : Nat} {env envI : Env}
       rw [hcs] at hc'
       obtain rfl : c = c' := by simpa using hc'
       have hzA : ctor.2 = 0 := by
-        have hU := blockCapsAt_unitlike hu
+        have hU := blockCapsAt_fieldless hu
         rw [hcaps] at hU
         rw [hnF]
         exact hU.1
