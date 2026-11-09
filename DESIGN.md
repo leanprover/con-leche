@@ -111649,42 +111649,43 @@ unchanged.  Twin code 223 lines (`IndTail.lean`).
 19.3 → 134.6 MB and +110 … +166 M instructions of startup per run.  `openPisAtFvarsGoC_eq`,
 `openPisAtFvarsFGo_none` and `openPisAtFvarsC_eq` sit at the end of `IndWalksC.lean` (moved there
 by L4, landed first; the lane had made the same move); `nm … | grep -c ' initialize_Lean'` is 0 and
-the binary 19.34 MB (master 19.36 MB).
+the binary 19.22 MB (master 19.27 MB); `tests/binary-link.sh` (L3's) now guards it.
 
-**Reach.**  661 → 640 reached plain declarations (on L1's base 734 → 713); 21 allowlist entries
-out: the tail's
-specification (`checkBlockIdxSortsF`, `checkStructFieldSortsIF`, `blockRecInfosTF`,
-`generatedRules`, `generatedFire`, `auxRuleFire`, `Expr.abstractPrefix`, `recDomsAt`,
-`recTyOpened`, `recTyCheck`, `ruleAgree`, `streamNestedOk`, `streamRulesShape`,
-`streamRulesCheck`, `streamRecCompare`, `streamRecCheck`, `streamRecsCheck`,
-`checkStructProjTableF`, `checkBlockTablesF`) and the plain lift's memo walk
-(`liftLooseBVarsFast`, `liftLooseBVarsGo`).  **Deleted:** that walk (`liftLooseBVarsGo`,
-`liftLooseBVarsFast`, `LiftMemoInv`, `liftLooseBVarsGo_spec`) and its `@[csimp]`
-`liftLooseBVars_eq_liftLooseBVarsFast`; `Expr.liftLooseBVars` stays as the specification.  No other
-memo walk became unreached (`abstract1`, `instantiate1`, `constsResolveF`, `allLevelParamsDefined`
-and the plain opener are still run by the stages L2–L4 take over).
+**Reach.**  619 → 585 reached plain declarations on L3's master (on L1's base 734 → 713).  Out:
+the tail's specification (`blockRecInfosTF`, `generatedRules`, `generatedFire`, `auxRuleFire`,
+`Expr.abstractPrefix`, `recDomsAt`, `recTyOpened`, `recTyCheck`, `ruleAgree`, `streamNestedOk`,
+`streamRulesShape`, `streamRulesCheck`, `streamRecCompare`, `streamRecCheck`, `streamRecsCheck`,
+`checkStructProjTableF`, `checkBlockTablesF`, `unresolvedConstsError`), the plain openers
+(`openPisAtFvars`, `openPisAtFvarsF`, `openPisAtFvarsFGo`), and the memo walks below.
+
+**Deleted memo walks** (each with its `@[csimp]`, memo invariant and spec lemma; the definitions
+stay as the specification): `liftLooseBVars` (`liftLooseBVarsGo`/`Fast`, `LiftMemoInv`), unreached
+once the tail ran cached; and, once every stage of the inductive check runs cached (L2–L5
+together), `abstract1` (`abstract1Go`/`Fast`, `Abs1MemoInv`), `instantiateList`
+(`instantiateListGo`/`Fast`, `InstLMemoInv`), `allLevelParamsDefined` (`Go`/`Fast`, `LPMemoInv`)
+and `mentionsAnyConst` (`mentionsAnyGo`, `mentionsAnyConstFast`, `MentionsAnyMemoInv`).
 
 **Numbers** (`perf stat -e instructions:u`, one run each, `--jobs=1`, verified; master
-87574856e (after L2 and L4) → the merged lane):
+924aeb6d8 (after L2, L3, L4) → the merged lane):
 
 | run | master | lane | change |
 |---|---|---|---|
-| init-full | 374.319 G | 374.382 G | +0.017 % |
-| grind-ring-5 | 13.0945 G | 13.0909 G | −0.03 % |
-| `BvStruct` module | 430.790 G | 430.791 G | |
-| `Empty` module | 429.161 G | 429.105 G | |
-| `BvStruct` − `Empty` | 1.629 G | 1.686 G | the `Empty` run moved, `BvStruct` did not: run-to-run motion of the module runs (L1's record) |
-| e2e `prop_struct_proj_wide` | 271.03 M | 269.07 M | −0.7 % |
+| init-full | 374.131 G | 374.084 G | −0.013 % |
+| grind-ring-5 | 13.0855 G | 13.0849 G | −0.005 % |
+| `BvStruct` module | 430.708 G | 430.643 G | |
+| `Empty` module | 429.049 G | 429.038 G | |
+| `BvStruct` − `Empty` | 1.659 G | 1.606 G | −3.2 % (the module runs move by tens of M, L1's record) |
+| e2e `prop_struct_proj_wide` | 266.87 M | 265.10 M | −0.7 % |
 
-Against L4's master (ffe82da8f) the lane read init-full 374.375 → 374.345 G, `BvStruct` −
-`Empty` 2.071 → 2.039 G, `prop_struct_proj_wide` 427.2 → 425.0 M; against L1's (367faa1e9)
+Against the earlier masters the lane read about the same: against L4's (ffe82da8f) init-full
+374.375 → 374.345 G, `prop_struct_proj_wide` 427.2 → 425.0 M; against L1's (367faa1e9)
 init-full 374.786 → 374.693 G, `prop_struct_proj_wide` 492.7 → 490.7 M.
 The tail is a small share of the inductive check: its own walks are guards over closed
 recursor types and rules, and its time is the core's inference and comparison, which ran cached
 already.  The same verdicts everywhere.
 
 **Gates.**  `lake build`, `lake test` warning-free; `tests/arena.sh` passes on the merged tree
-(e2e 558/558, the reach gate at 640, the shake gate with one `public import` of `IndTailC.lean` kept public against
+(e2e 558/558, the reach gate at 585, the binary link gate, the shake gate with one `public import` of `IndTailC.lean` kept public against
 the plan script's census, measured, in its fallback list).  The link gates' expectations follow
 `streamRecsCheck`'s new signature (OVERVIEW and the whitepaper cite it; the cited text is the
 same function, the paragraphs need no change); the citations of `RecCheck.lean` and
