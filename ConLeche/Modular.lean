@@ -27,10 +27,10 @@ adds is what a module is for con-leche and what its checks are.
 * **Agreement** (`Agree dev i b n`): module `b`'s copy of a name of `i`'s context stands for the
   copy `i` reads, because `b` is the module `i` reads it from, or `b` reads it and an earlier
   module's copy agrees both with `b`'s and with `i`'s (one record, loaded through two paths), or
-  both copies are proofs of one
-  statement whose names agree: theorems where they come from, or a statement `i` infers to be a
-  proposition over the part of its context below the name (`Module.part`, the records before the
-  name's).  Every model gives agreeing copies one value; no module records anything about its
+  both copies are proofs of one statement whose names agree: a statement of which an earlier
+  module's copy, its names agreeing too, is a theorem (a theorem's type is a proposition), or else
+  one `i` infers to be a proposition over the part of its context below the name (`Module.part`,
+  the records before the name's).  Every model gives agreeing copies one value; no module records anything about its
   names for others to read.
 
 **The local checks** split by who runs them:
@@ -178,19 +178,6 @@ def Module.rank (m : Module) (n : Name) : Nat := m.ctx.findIdx fun d => (declNam
 /-- **The part of the context below a name**: the records before the one installing it. -/
 def Module.part (m : Module) (n : Name) : Env := streamEnv (m.ctx.take (m.rank n))
 
-/-- **Module `b`'s `n` is a theorem where it comes from**: `b` stores it as a theorem, or reads
-it from a module that does. -/
-def ThmAt (dev : Nat → Module) (b : Nat) (n : Name) : Prop :=
-  (∃ cv, (dev b).own.find? n = some (.thmInfo cv)) ∨
-    ((dev b).context.find? n).isSome = true ∧
-      ∃ cv, (dev ((dev b).src n)).own.find? n = some (.thmInfo cv)
-
-/-- **Module `b`'s copy of `n`, of type `ty`, is a proof for module `i`**: `i` infers `ty` to be a
-proposition over the part of its context below `n`, or it is a theorem where it comes from. -/
-def ProofSide (dev : Nat → Module) (i b : Nat) (n : Name) (ty : Expr) : Prop :=
-  (ty.constsResolve ((dev i).part n) = true ∧ TypeIsProp .verified ((dev i).part n) ty) ∨
-    ThmAt dev b n
-
 /-- **Module `b`'s copy of `n` agrees with the one module `i` reads** (see the module docstring). -/
 inductive Agree (dev : Nat → Module) : Nat → Nat → Name → Prop
   /-- `b` is the module `i` reads `n` from -/
@@ -199,13 +186,23 @@ inductive Agree (dev : Nat → Module) : Nat → Nat → Name → Prop
   record, loaded through two paths -/
   | via {i b t : Nat} {n : Name} : ((dev b).context.find? n).isSome = true → t < b →
       Agree dev b t n → Agree dev i t n → Agree dev i b n
-  /-- two proofs of one statement, whose names agree -/
+  /-- two proofs of one statement, whose names agree: `i` infers it to be a proposition over the
+  part of its context below `n` -/
   | proof {i b : Nat} {n : Name} {ci ci' : ConstantInfo} :
       (dev i).context.find? n = some ci → (dev b).own.find? n = some ci' →
       ci'.toConstantVal = ci.toConstantVal → ci.isStmtKind = true → ci'.isStmtKind = true →
       (∀ c ∈ ci.toConstantVal.type.readNames, Agree dev i b c) →
-      ProofSide dev i b n ci.toConstantVal.type →
-      ProofSide dev i ((dev i).src n) n ci.toConstantVal.type → Agree dev i b n
+      ci.toConstantVal.type.constsResolve ((dev i).part n) = true →
+      TypeIsProp .verified ((dev i).part n) ci.toConstantVal.type → Agree dev i b n
+  /-- two proofs of one statement, whose names agree: an earlier module `t` stores it as a
+  theorem, whose names agree too (a theorem's type is a proposition) -/
+  | thm {i b t : Nat} {n : Name} {ci ci' : ConstantInfo} {cv : ConstantVal} :
+      (dev i).context.find? n = some ci → (dev b).own.find? n = some ci' →
+      ci'.toConstantVal = ci.toConstantVal → ci.isStmtKind = true → ci'.isStmtKind = true →
+      (∀ c ∈ ci.toConstantVal.type.readNames, Agree dev i b c) →
+      ci.toConstantVal.type.constsResolve ((dev i).part n) = true →
+      t < i → (dev t).own.find? n = some (.thmInfo cv) → cv = ci.toConstantVal →
+      (∀ c ∈ ci.toConstantVal.type.readNames, Agree dev i t c) → Agree dev i b n
 
 open Classical in
 /-- **The part of module `b`'s own environment that module `i` reads as `b` does**: its constants

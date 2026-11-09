@@ -232,6 +232,7 @@ theorem stored_of_agree {M : Name} (hM : M ∈ R.names) {b : Nat} {y : Name}
     exact own_of_decl hp (presents_names hpr hyd)
   | via hb _ _ _ => exact own_of_context hb
   | proof _ h2 _ _ _ _ _ _ => rw [h2]; rfl
+  | thm _ h2 _ _ _ _ _ _ _ _ _ => rw [h2]; rfl
 
 /-- **`ImportOk.reads` from the agreement of every passed read.** -/
 theorem reads_of_agree (hall : ∀ M ∈ R.names, R.AgreeAll M) :

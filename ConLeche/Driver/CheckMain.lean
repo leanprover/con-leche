@@ -152,16 +152,19 @@ def oleanStep {μ : Type → Type} [CheckerIO μ] (mode : CheckMode) (run : Olea
 /-- **The check phase of an `--olean` run**: the jobs from position `start` on, on the worker
 map, in fold order; the first failure in that order is the result, whatever the workers'
 timing.  A run of a closure checks every record (`start = 0`); a module's worker its own
-records, after its context's (`checkModuleG`). -/
+records, after its context's (`checkModuleG`), every worker starting from the region the home
+read kept (`seed`), so that no worker reads the module's files again. -/
 def checkOleansG {μ : Type → Type} [CheckerIO μ] (mode : CheckMode)
     (pace : Pace) (t0 tIndex tParse jobs : Nat) (sp : Frontend.Olean.Roots)
     (values : Array Frontend.Olean.ModRef) {ds : Array Declaration} (J : Jobs ds)
-    (start : Nat := 0) (alone : Bool := true) : μ (Except (CheckError × Nat) Unit) := do
+    (start : Nat := 0) (alone : Bool := true) (seed : Frontend.Olean.ValueCache := {}) :
+    μ (Except (CheckError × Nat) Unit) := do
   let run ← CheckerIO.liftIO (OleanRun.new pace t0 tIndex tParse jobs alone)
   let n := ds.size - start
   let workers := max 1 (min jobs n)
-  let (pl, tStart) ← CheckerIO.liftIO (run.pool n workers values)
-  let (ss, res) ← CheckerIO.parMapWorkers jobs (fun w => ({ w } : OleanWorker))
+  -- the kept region every worker starts from is shared like the references (`OleanRun.pool`)
+  let (pl, tStart) ← CheckerIO.liftIO (run.pool n workers (values, seed))
+  let (ss, res) ← CheckerIO.parMapWorkers jobs (fun w => ({ w, cache := seed } : OleanWorker))
     (oleanStep mode run pl J sp values) (List.range' start n)
   let failure := match res with
     | .error e => some e

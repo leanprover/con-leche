@@ -68,7 +68,8 @@ theorem readModTable_ok {sp : Roots} {fs : FS} {e : Graph.Node} {t : ModTable} {
     (h : (readModTable sp e : ModelIO _) fs hs (.ok (.ok t)) hs') :
     t.name = e.1 ∧ t.imports = some e.2 ∧ ModelIO.CanGive (findModule sp e.1) fs (.ok t.loc) ∧
     (∀ p, t.priv = some p → ModelIO.CanGive (readPartNamesAt t.loc (e.1, .private)) fs (.ok p)) ∧
-    (∀ p, t.expo = some p → ModelIO.CanGive (readPartNamesAt t.loc (e.1, .exported)) fs (.ok p)) := by
+    (∀ p, t.expo = some p → ModelIO.CanGive (readPartNamesAt t.loc (e.1, .exported)) fs (.ok p)) ∧
+    t.files = none := by
   simp only [readModTable, ModelIO.bind_ok] at h
   obtain ⟨x, hs₁, hx, h⟩ := h
   rcases x with err | loc
@@ -85,7 +86,7 @@ theorem readModTable_ok {sp : Roots} {fs : FS} {e : Graph.Node} {t : ModTable} {
   obtain ⟨h, -⟩ := h
   subst h
   exact ⟨rfl, rfl, ⟨_, _, hx⟩, (fun p h => by cases h; exact ⟨_, _, hy⟩),
-    (fun p h => by cases h; exact ⟨_, _, hz⟩)⟩
+    (fun p h => by cases h; exact ⟨_, _, hz⟩), rfl⟩
 
 /-- The tables of the graph's modules, read off the snapshot. -/
 theorem tables_ok {sp : SearchPath} {R : Roots} {fs : FS} {C : List Graph.Node}
@@ -97,10 +98,10 @@ theorem tables_ok {sp : SearchPath} {R : Roots} {fs : FS} {C : List Graph.Node}
   intro t ht
   simp only [ModTables.ofArray, List.mem_toArray] at ht
   obtain ⟨e, he, _, _, hr⟩ := h t ht
-  obtain ⟨hn, hi, h1, h2, h3⟩ := readModTable_ok hr
+  obtain ⟨hn, hi, h1, h2, h3, h4⟩ := readModTable_ok hr
   rw [hn]
   exact ⟨(findModule_sub hR _).canGive h1, (fun is h => by rw [hi] at h; cases h; exact hC e he),
-    h2, h3⟩
+    h2, h3, fun f h => by rw [h4] at h; cases h⟩
 
 /-! ## The run -/
 

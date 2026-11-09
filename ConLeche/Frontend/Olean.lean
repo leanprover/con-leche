@@ -51,7 +51,7 @@ search path with the roots a run resolved, each once; a `SearchPath` is one with
 | `readFiles sp m level : μ (Except CheckError ModFiles)`: `findModule`, then `readFilesAt loc m level` | `readFiles_ok`, `readFiles_of_all`; through resolved roots, `readFiles_sub`, `readFiles_rev` |
 | `readView sp m level : μ (Except CheckError ModDecoded)` | `readView_of_all` |
 | `OleanReads μ`: a worker's reads of the files (a module's imports, a view's files, a part's name positions); `OleanReads.ofPath sp` on the search path | |
-| `readHome rd m : μ (Except CheckError (Loaded × Array Expo))`: `loadAt`, then `checkViews` | |
+| `homeOf m f : Except CheckError (Loaded × Array Expo)`: a module's home off its private part's files, `loadAt`, then `checkViews` | |
 | `readAllViews sp m : μ (Except CheckError (AllViews × Array Expo))`, for the tools | `readView_of_all` |
 | `moduleImports sp m : μ (Except CheckError (Array ImportRec))` | `moduleImports_of_view` |
 

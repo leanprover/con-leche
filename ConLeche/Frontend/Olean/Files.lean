@@ -313,15 +313,19 @@ def readView {μ : Type → Type} [CheckerIO μ] (sp : Roots) (m : Name) (level 
     | some d => pure (.ok d)
     | none => pure (.error (viewError m f level))
 
+/-- **A part's name positions, off its files** (`readNamePositions`, with the reason where they
+do not read). -/
+def namesOf (m : Name) (f : ModFiles) (level : OLeanLevel) : Except CheckError NamePositions :=
+  match readNamePositions f level with
+  | some ps => .ok ps
+  | none => .error (viewError m f level)
+
 /-- **One part's name positions**, read off its files at their location. -/
 def readPartNamesAt {μ : Type → Type} [CheckerIO μ] (loc : Located) (x : Name × OLeanLevel) :
     μ (Except CheckError NamePositions) := do
   match ← readFilesAt loc x.1 x.2 with
   | .error e => pure (.error e)
-  | .ok f =>
-    match readNamePositions f x.2 with
-    | some ps => pure (.ok ps)
-    | none => pure (.error (viewError x.1 f x.2))
+  | .ok f => pure (namesOf x.1 f x.2)
 
 /-- **One part's name positions**, located on the search path. -/
 def readPartNames {μ : Type → Type} [CheckerIO μ] (sp : Roots) (x : Name × OLeanLevel) :
@@ -349,20 +353,16 @@ def OleanReads.ofPath {μ : Type → Type} [CheckerIO μ] (sp : Roots) : OleanRe
   files := readFiles sp
   names := readPartNames sp
 
-/-- **A module's home read**: its private view loaded (`loadView`, its theorems' values
-left in the file; `i` its place in the order the references name), and its three parts
+/-- **A module's home, off its files**: its private view loaded (`loadView`, its theorems'
+values left in the file; `i` its place in the order the references name), and its three parts
 checked against each other (`checkViews`). -/
-def readHome {μ : Type → Type} [CheckerIO μ] (rd : OleanReads μ) (m : Name) (i : Nat := 0) :
-    μ (Except CheckError (Loaded × Array Expo)) := do
-  match ← rd.files m .private with
-  | .error e => pure (.error e)
-  | .ok f =>
-    match loadView i m f with
-    | .error e => pure (.error e)
-    | .ok l =>
-      match checkViews m f l with
-      | .ok expo => pure (.ok (l, expo))
-      | .error e => pure (.error e)
+def homeOf (m : Name) (f : ModFiles) (i : Nat := 0) : Except CheckError (Loaded × Array Expo) :=
+  match loadView i m f with
+  | .error e => .error e
+  | .ok l =>
+    match checkViews m f l with
+    | .ok expo => .ok (l, expo)
+    | .error e => .error e
 
 /-- **All three views of a module, each parsed whole, and the home's check of them**
 (`checkViews` over the load): for the tools that compare the views. -/

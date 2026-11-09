@@ -219,7 +219,7 @@ theorem modular_model_exists (V : Type w) [SetTheory V]
     rw [Model.Model.ofEnvModelM_cval]
     apply Model.cvalOf_prf
     rw [Classical.choose_spec (hex j hj) n (by rw [hn]; rfl)]
-    exact (mm j (by omega)).2.2.2.1 n _ hn rfl (.inl ⟨cv, rfl⟩)
+    exact Model.Modular.ProofLeaves.thm (mm j (by omega)).2.2.2.1 hn
 
 /-- **The modular corollary**: no module's own environment stores a constant of type `False`. -/
 theorem modular_no_False (V : Type w) [SetTheory V]

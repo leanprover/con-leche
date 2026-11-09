@@ -42,7 +42,7 @@ theorem readPartNames_of_all {sp : SearchPath} {m : Name} {fs : FS} {f : ModFile
   obtain ⟨y, hs₁, hy, h⟩ := h
   rcases y with e | loc
   · simp at h
-  simp only [readPartNamesAt, ModelIO.bind_ok] at h
+  simp only [readPartNamesAt, namesOf, ModelIO.bind_ok] at h
   obtain ⟨z, hs₂, hz, h⟩ := h
   have hz' : (readFiles sp m level : ModelIO _) fs hs₀ (.ok z) hs₂ := by
     simp only [readFiles, ModelIO.bind_ok]
@@ -342,12 +342,8 @@ theorem home_records {sp : SearchPath} {fs : FS} {h : Name} {jobs : Nat} {w : Wo
       ∀ loc s, loc ∈ sk.consts → constSkel r loc = some s → s.kind.skipped = false →
         ∃ E e₁, lazyEntry (nameP r) (exprP r) r 0 s = some E ∧
           (homeMerged w).map[E.name]? = some e₁ ∧ e₁.toCEntryF = E := by
-  obtain ⟨hs, _, hh⟩ := hw.home
-  simp only [readHome, OleanReads.ofPath, ModelIO.bind_ok] at hh
-  obtain ⟨x, hs₁, hx, hh⟩ := hh
-  rcases x with e | f
-  · simp at hh
-  simp only at hh
+  obtain ⟨f, hf, hh⟩ := hw.home
+  simp only [homeOf] at hh
   cases hl : loadView 0 h f with
   | error e => simp [hl] at hh
   | ok l =>
@@ -355,8 +351,8 @@ theorem home_records {sp : SearchPath} {fs : FS} {h : Name} {jobs : Nat} {w : Wo
   cases hc : checkViews h f l with
   | error e => simp [hc] at hh
   | ok expo =>
-  simp only [hc, ModelIO.pure_iff, Except.ok.injEq, Prod.mk.injEq] at hh
-  obtain ⟨⟨rfl, rfl⟩, -⟩ := hh
+  simp only [hc, Except.ok.injEq, Prod.mk.injEq] at hh
+  obtain ⟨rfl, rfl⟩ := hh
   have hload : loadAt 0 h f = some w.home := by
     simp only [loadView] at hl
     split at hl
@@ -370,7 +366,7 @@ theorem home_records {sp : SearchPath} {fs : FS} {h : Name} {jobs : Nat} {w : Wo
   | error e => simp [ownRecords, hb] at hown
   | ok u =>
   simp only [ownRecords, hb] at hown
-  refine ⟨f, r, a, sk, skels, ⟨hs, hs₁, hx⟩, hreg, hsk, hskels, hcn, hc, hload, hN, hO, hb, hown,
+  refine ⟨f, r, a, sk, skels, hf, hreg, hsk, hskels, hcn, hc, hload, hN, hO, hb, hown,
     fun loc s hloc hs hskp => ?_⟩
   obtain ⟨s', hs'mem, hs'⟩ := mapM_mem hskels hloc
   rw [hs] at hs'

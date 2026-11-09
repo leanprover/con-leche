@@ -481,6 +481,30 @@ theorem entryDecl_stmtRecord {e : CEntry} {p : Declaration} (hp : entryDecl e = 
     exact .inr (.inr (.inl ⟨_, rfl⟩))
   | _ => simp [CKindF.tag] at ht
 
+/-- **A context name of smaller rank than `y` is stored in the part below `y`.** -/
+theorem part_isSome {m : Module} {c y : Name} (hc : (m.context.find? c).isSome = true)
+    (hlt : m.rank c < m.rank y) : ((m.part y).find? c).isSome = true := by
+  obtain ⟨d, hd, hcd⟩ := streamEnv_find_mem hc
+  have hl : m.rank c < m.ctx.length :=
+    List.findIdx_lt_length_of_exists ⟨d, hd, by simpa using hcd⟩
+  have hp : (declNames m.ctx[m.rank c]).contains c = true := List.findIdx_getElem (w := hl)
+  obtain ⟨ci, hci, hn⟩ := List.mem_map.1 (List.contains_iff_mem.1 hp)
+  have hk : m.rank c < (m.ctx.take (m.rank y)).length := by
+    rw [List.length_take]; omega
+  have hmem : m.ctx[m.rank c] ∈ m.ctx.take (m.rank y) := by
+    rw [← List.getElem_take (h := hk)]; exact List.getElem_mem hk
+  show ((streamEnv (m.ctx.take (m.rank y))).find? c).isSome = true
+  simp only [Env.find?, List.find?_isSome]
+  exact ⟨ci, (mem_streamEnv_consts _ _).2 (.inl ⟨_, hmem, hci⟩), by simpa [ConstantInfo.name] using hn⟩
+
+/-- **The names of smaller rank than `y`, stored in the context, resolve below `y`.** -/
+theorem part_resolve {m : Module} {y : Name} {ty : Expr}
+    (h : ∀ c ∈ ty.readNames, m.rank c < m.rank y ∧ (m.context.find? c).isSome = true) :
+    ty.constsResolve (m.part y) = true :=
+  constsResolve_of_needs fun c hc => by
+    rw [needs_eq_readNames] at hc
+    exact part_isSome (h c hc).2 (h c hc).1
+
 namespace Run
 
 variable {sp : SearchPath} {fs : FS} (R : Run sp fs)
@@ -958,6 +982,31 @@ theorem reader_ctx {M : Name} (hM : M ∈ R.names) {h y : Name} (hP : (h, y) ∈
       · simp at h0
       · exact h0
     exact R.stored_of_own_const hhN (Env.find?_mem hfind) (by rw [hcv]; exact hyn') hl
+
+/-- **The names a context statement's type reads are passed as reads of its home**, the module
+of its copy, which is of smaller rank. -/
+theorem ctx_reads {M : Name} (hM : M ∈ R.names) {y : Name} {ci : ConstantInfo}
+    (hci : (R.dev (R.rk M)).context.find? y = some ci) {s : Spot}
+    (hs : copyOf (R.envOf M) (R.cap M).1 y = some s) :
+    s.part.mod ∈ R.names ∧ R.rk s.part.mod < R.rk M ∧
+      ∀ c ∈ ci.toConstantVal.type.readNames, R.Pr M (R.rk s.part.mod) c := by
+  have hw := R.facts M hM
+  have hci' := hci
+  rw [R.dev_rk hM] at hci'
+  obtain ⟨d, hd, hcd⟩ := ((mem_streamEnv_consts _ Env.empty).1 (Env.find?_mem hci')).resolve_right
+    (by simp [Env.empty])
+  obtain ⟨k, hm, hk, hh⟩ := worker_home hw hd
+  obtain ⟨-, hrec, -⟩ := R.cap_facts hM
+  obtain ⟨-, hall, hreads, -⟩ := hrec k d hm hk hh
+  have hyd : y ∈ declNames d := by
+    rw [← Env.find?_name hci]; exact List.mem_map_of_mem hcd
+  obtain ⟨s', hs', hmod⟩ := hall y hyd
+  rw [hs] at hs'
+  cases hs'
+  obtain ⟨hhm, hlt⟩ := R.home_rank hM hh
+  refine ⟨hmod ▸ hhm, hmod ▸ hlt, fun c hc => ⟨_, rfl, ?_⟩⟩
+  rw [hmod]
+  exact hreads c (recordReads_complete (.inl ⟨ci, hcd, .inl (by rw [needs_eq_readNames]; exact hc)⟩))
 
 end Run
 

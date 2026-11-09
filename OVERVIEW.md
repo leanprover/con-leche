@@ -337,9 +337,10 @@ module gives each name of its context the value the module it reads it
 from gives it, and every theorem the point. The local checks ask that
 every copy of a name a module's context reads agree with the one it
 reads: the same record (from the same module, perhaps through other
-modules), or two proofs of one statement, which the importer shows by
-inferring the statement a proposition over the part of its context
-below the name; no module records anything about its names for others.
+modules), or two proofs of one statement: a statement an earlier module
+stores as a theorem, or else one the importer infers to be a proposition
+over the part of its context below the name; no module records anything
+about its names for others.
 Hence no module's own environment stores a constant
 of type `False` (`modular_no_False`). An
 exit 0 of the binary at one module (`--olean --module`) establishes that
@@ -478,7 +479,7 @@ Read from the outside in:
    threads answered, every outcome that is an exit 0 is one where the
    file's bytes in the snapshot, as one chunk, parse to records the fold
    accepts
-   ([theorem `checkMainG_ndjson_accept` in `ConLeche/Driver/CheckMain.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Driver/CheckMain.lean#L409-L414)):
+   ([theorem `checkMainG_ndjson_accept` in `ConLeche/Driver/CheckMain.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Driver/CheckMain.lean#L412-L417)):
    the hypothesis of the main corollary about the file itself, read at
    the binary under the assumptions of the class's file.
    What the parser makes of a record
@@ -704,8 +705,10 @@ name is checked so too, as a read of that copy's module. Every name a group stor
 importer copy or one of the group's home. Else the module is
 rejected (name capture). A copy is a proof if it is a theorem,
 its home declares a theorem at an exported axiom, or it is a definition, opaque constant or axiom
-whose type the kernel infers to be a proposition at the context; every name two loaded modules hold
-must agree so, which merges every pair Lean's import merges. The context's records are sorted in
+whose type is a proposition; copies of one statement of which one is a theorem need no inference
+(a theorem's type is a proposition, and the copies read their one statement alike), and otherwise
+the kernel infers the type to be a proposition over the part of the context below the name. Every
+name two loaded modules hold must agree so, which merges every pair Lean's import merges. The context's records are sorted in
 read order (`readOrder`: each after the records storing what it reads; records that read each
 other are a reject, which Lean's output never has) and validated as untrusted input (`recordOk`).
 At every accepting outcome of `reach` in the IO model, every context record is `RecordScoped` in
@@ -726,12 +729,14 @@ from 581 of 4 092 modules, with one completion.
 
 **One module alone** (`ConLeche/Driver/Worker.lean`, `--olean --module`). The run first reads
 the worker's tables (`workerTables`, `ConLeche/Driver/Tables.lean`): the module located on the
-search path and its private part's name positions read, then its header fixpoint, each module it
+search path, its private view's files read and kept and their name positions read off them,
+then its header fixpoint, each module it
 loads located once and its header read there; every later read of a module's files is at the
 location found there (`ModTables.reads`, whose reads refine the search path's,
 `modTables_within`). `checkModuleG` reads
-the module's home (`readHome`: its private view loaded, its three parts checked against each
-other, a mismatch a reject), the reads above, its own records (the loaded constants emitted from
+the module's home (`homeOf` over its private part's files, the tables' own: its private view
+loaded, its three parts checked against each other, a mismatch a reject; the same files give the
+region its theorems' values are read from, so the module's files are read once), the reads above, its own records (the loaded constants emitted from
 every own constant, a name that is not the module's a context read; a pinned `Nat` operation's
 ground hoisted ahead of it), the context (`reach`, its names checked distinct), and then checks
 the own records alone over the index of the context's records followed by the own records
@@ -791,16 +796,16 @@ worker step to answer 0; a failure names the first failing module in the graph's
 code. The scheduler starts one `--olean --module --jobs=1` process of the binary per module, at
 most `--jobs` at once, staggered (`--schedule-stagger=MS`), within a memory budget over the
 running workers' resident sets (`--schedule-memory=SIZE`, a number with a unit `K`, `M`, `G` or
-`T`, such as `40G`: the largest is killed, by its own child handle, and run again alone once),
+`T`, such as `40G`: the first queued module whose known size (the largest resident set seen when it was killed, 0 if never) fits into the budget minus the running workers' peak sets starts; when their current sets exceed the budget the largest is protected, and stays so while it runs; each further overflow kills the youngest other worker by its own child handle and queues it again with its size; the protected one alone over the budget has the verdict `memory`),
 with a time limit per worker (`--schedule-timeout=S`) and an append-only log a restart resumes
 from (`--schedule-log=FILE`, one `<verdict>\t<module>` line per finished module); its verdict is
 its workers' exit codes, and no theorem is about it: the modular statement composes what each
 run's exit 0 says. A worker's three standard streams are pipes and it inherits no other
 descriptor; its stdout and stderr are read as it runs, and its stderr is passed on for a verdict
 other than 0. Each finished module gets a line on stdout,
-`con-leche: schedule: M: VERDICT t=Ss [done/total p %, k running, 1.2 GiB (max 0.6 GiB) of 40 GiB, eta D]`:
-`done` counts the modules a resumed run found logged, and the estimate is the remaining modules
-at the rate this run has finished them so far; the memory is the running workers' total resident
+`con-leche: schedule: M: VERDICT t=Ss rss=0.26 GiB [done/total p %, k running, 1.2 GiB (max 0.6 GiB) of 40 GiB, eta D]`:
+`rss` is the worker's own peak resident set (its `peak RSS` statistics line; `rss≥` the last value the scheduler sampled where the worker wrote none, as when killed), `done` counts the modules a resumed run found logged, and the estimate is the remaining modules
+at the rate of this run's last 200 finishes; the memory is the running workers' total resident
 set, the largest one's, and the budget when one is set (read every tick from `/proc`, left out
 where that cannot be read), and the final summary line gives the run's peak total. With
 `--progress=N` (milliseconds, at least a second) or `--progress=Ss`, a heartbeat on stderr after

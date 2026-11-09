@@ -424,15 +424,20 @@ stored before `y`.  Then every passed pair agrees (`agree_of_routes`), by induct
 context's order. -/
 
 /-- **`t`'s copy of `y` and the one module `i` reads are proofs of one statement** whose names
-`Pr` passed as reads of `t`, each of smaller rank than `y`. -/
+`Pr` passed as reads of `t`, each of smaller rank than `y`: `i` infers it to be a proposition over
+the part below `y`, or an earlier module `u`'s copy is a theorem of it whose names `Pr` passed as
+reads of `u`. -/
 @[expose] def ProofAt (dev : Nat → Module) (i : Nat) (Pr : Nat → Name → Prop) (t : Nat)
     (y : Name) : Prop :=
   ∃ ci ci', (dev i).context.find? y = some ci ∧ (dev t).own.find? y = some ci' ∧
     ci'.toConstantVal = ci.toConstantVal ∧ ci.isStmtKind = true ∧ ci'.isStmtKind = true ∧
     (∀ c ∈ ci.toConstantVal.type.readNames, Pr t c ∧ (dev i).rank c < (dev i).rank y ∧
       ((dev i).context.find? c).isSome = true) ∧
-    ProofSide dev i t y ci.toConstantVal.type ∧
-    ProofSide dev i ((dev i).src y) y ci.toConstantVal.type
+    ci.toConstantVal.type.constsResolve ((dev i).part y) = true ∧
+    (TypeIsProp .verified ((dev i).part y) ci.toConstantVal.type ∨
+      ∃ u cv, u < i ∧ (dev u).own.find? y = some (.thmInfo cv) ∧ cv = ci.toConstantVal ∧
+        ∀ c ∈ ci.toConstantVal.type.readNames, Pr u c ∧ (dev i).rank c < (dev i).rank y ∧
+          ((dev i).context.find? c).isSome = true)
 
 /-- **A route of a passed pair** (see the section docstring). -/
 @[expose] def Route (dev : Nat → Module) (i : Nat) (Pr : Nat → Name → Prop) (b : Nat) (y : Name) :
@@ -454,10 +459,14 @@ theorem agree_of_routes {dev : Nat → Module} {i : Nat} {Pr : Nat → Name → 
     intro b y hlt hp hy
     obtain ⟨t, htb, hts⟩ := hr b y hp hy
     have hit : Agree dev i t y := by
-      rcases hts with rfl | ⟨ci, ci', h1, h2, h3, h4, h5, h6, h7, h8⟩
+      rcases hts with rfl | ⟨ci, ci', h1, h2, h3, h4, h5, h6, hres, h7⟩
       · exact .same rfl
-      · exact .proof h1 h2 h3 h4 h5 (fun c hc =>
-          ih t c (by have := (h6 c hc).2.1; omega) (h6 c hc).1 (h6 c hc).2.2) h7 h8
+      · have hn : ∀ c ∈ ci.toConstantVal.type.readNames, Agree dev i t c := fun c hc =>
+          ih t c (by have := (h6 c hc).2.1; omega) (h6 c hc).1 (h6 c hc).2.2
+        rcases h7 with h7 | ⟨u, cv, hu, h8, h9, h10⟩
+        · exact .proof h1 h2 h3 h4 h5 hn hres h7
+        · exact .thm h1 h2 h3 h4 h5 hn hres hu h8 h9 fun c hc =>
+            ih u c (by have := (h10 c hc).2.1; omega) (h10 c hc).1 (h10 c hc).2.2
     rcases htb with rfl | ⟨hb, hlt', hbt⟩
     · exact hit
     · exact .via hb hlt' hbt hit

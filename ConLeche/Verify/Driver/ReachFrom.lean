@@ -6,6 +6,7 @@ import ConLeche.Verify.Frontend.Olean.Present
 import ConLeche.Verify.Driver.Reach
 import ConLeche.Verify.Frontend.Olean.Reads
 import ConLeche.Verify.Frontend.Olean.Equiv
+import ConLeche.Verify.Frontend.Olean.Files
 public import ConLeche.Verify.Frontend.Olean.Sparse
 
 /-!
@@ -601,8 +602,8 @@ theorem agreeCheck_ok (he : EnvOk sp fs env) {c : ReachCache} (hc : CacheOk sp f
   split
   · simpa using h4
   · split
-    · simpa using (h4.partners _).pending _
     · simpa using h4.partners _
+    · simpa using (h4.partners _).pending _
 
 theorem statuses_ok (he : EnvOk sp fs env) :
     ∀ (c : ReachCache) (xs : List (Spot × ConstantVal × CKindF Name Unit)) (acc : List ProofStatus),
@@ -634,10 +635,10 @@ theorem clashAgree_ok (he : EnvOk sp fs env) :
       split
       · simpa using h1
       · split
+        · exact clashAgree_ok he _ cls _ h1
         · split
           · exact clashAgree_ok he _ cls _ (h1.pending _)
           · exact clashAgree_ok he _ cls _ h1
-        · exact clashAgree_ok he _ cls _ h1
 
 theorem inExported_ok (he : EnvOk sp fs env) {c : ReachCache} (hc : CacheOk sp fs c) (m : Name)
     (level : OLeanLevel) (y : Name) :
@@ -893,6 +894,43 @@ theorem withPart_entries (he : EnvOk sp fs env) {c : ReachCache} (hc : CacheOk s
   withPart_ok (Q := fun r es => ls.mapM (entryAt r) = some es) he hc k
     (fun _ _ _ _ hG hf => entriesWith_spec hG hf)
 
+/-- **A part's region and table off one read** keep the caches the snapshot's: the region is
+the files' view region, the table the names the search path's read gives off the same files. -/
+theorem loadPart_ok (he : EnvOk sp fs env) {c : ReachCache} (hc : CacheOk sp fs c) (k : PartKey) :
+    ModelIO.AllOk (loadPart env c k) fs ho fun p => CacheOk sp fs p.1 := by
+  unfold loadPart
+  split
+  · simpa using hc
+  simp only [ModelIO.allOk_bind]
+  intro y _ hy
+  rw [he.rd] at hy
+  rcases y with e | fl
+  · simpa using hc
+  simp only []
+  split
+  · simpa using hc
+  rename_i r a hra
+  have hr : PartRegion sp fs k r := ⟨fl, a, ⟨_, _, hy⟩, hra⟩
+  have hc' : CacheOk sp fs { c with parts := c.parts.insert k (r, {}) } := by
+    refine { hc with parts := fun k' r' st' h => ?_ }
+    simp only [Std.HashMap.getElem?_insert] at h
+    split at h
+    · rename_i hk
+      simp only [Option.some.injEq, Prod.mk.injEq] at h
+      obtain ⟨rfl, rfl⟩ := h
+      exact ⟨eq_of_beq hk ▸ hr, SM.good_empty r⟩
+    · exact hc.parts k' r' st' h
+  split
+  · simpa using hc'
+  split
+  · rename_i t ht
+    simp only [ModelIO.allOk_pure]
+    refine hc'.insert_tables ?_
+    have hn := readPartNames_of_files (⟨_, _, hy⟩ : ModelIO.CanGive (readFiles sp k.mod k.level) fs (.ok fl))
+    simp only [namesOf, readNamePositions, hra, Option.bind_eq_bind, Option.bind_some, ht] at hn
+    exact hn
+  · simpa using hc'
+
 /-- **A group read from a part** is `GroupRead`. -/
 theorem groupAt_ok (he : EnvOk sp fs env) {c : ReachCache} (hc : CacheOk sp fs c) (k : PartKey)
     (n : Name) :
@@ -901,7 +939,14 @@ theorem groupAt_ok (he : EnvOk sp fs env) {c : ReachCache} (hc : CacheOk sp fs c
   unfold groupAt
   simp only [ModelIO.allOk_bind]
   intro x _ hx
-  obtain ⟨h1, h2⟩ := lookOf_ok he hc k x _ hx
+  have h0 := loadPart_ok he hc k x _ hx
+  obtain ⟨c₀, r⟩ := x
+  cases r with
+  | error e => simpa using h0
+  | ok u =>
+  simp only [ModelIO.allOk_bind]
+  intro x _ hx
+  obtain ⟨h1, h2⟩ := lookOf_ok he h0 k x _ hx
   obtain ⟨c₁, r⟩ := x
   cases r with
   | error e => simpa using h1

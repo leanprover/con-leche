@@ -114584,6 +114584,52 @@ text moved the definition from line 284 to 287).  Gates: `lake build`, `lake tes
 warning-free; trust surface, layering, overview links, quote gate; olean gate 321/321 under the
 guard.  No fixture pins the memory text: a tick may miss a short worker.
 
+## TASK #510: memory preemption in the scheduler (`Driver/ScheduleIO.lean`)
+
+Trigger: in the maintainer's run (239 685 modules, `--jobs=16`, `--schedule-memory=40G`) one
+kill queued a module "to run again alone", and the old start step then started nothing else
+while `solos` was non-empty: the workers drained from 11 to 1 and the run waited at one job for
+10+ minutes. Ruling (second version; deferral of the retries was dropped): the big module
+preempts the others.
+
+* Overflow (sum of `VmRSS` of the running workers over the budget): the worker with the largest
+  current RSS (ties: largest `VmHWM`) is protected; the youngest other worker is killed and
+  put at the FRONT of `pending` (no verdict, not logged); starts pause while the protected worker
+  runs; next tick still over: the next-youngest goes; the protected one alone over the budget
+  is killed with verdict `memory` (no retry). A different worker that becomes the largest takes
+  over the protection. Starts resume when the protected worker finishes. The solo queue is gone.
+* Admission (sawtooth profiles): a worker starts only while the sum of the running workers'
+  `VmHWM` (peaks so far, at least the current RSS) is under the budget, besides jobs, stagger and
+  pause. Nothing running: sum 0, a worker always starts, so no deadlock.
+* Status line / heartbeat: `k running, 67 MiB now (max 67 MiB), 67 MiB peaks of 0.1 GiB,
+  1 requeued, paused for M`; the summary adds the re-run count per run (kills, modules, most
+  kills of one module).
+
+Hand test (`--olean --schedule --jobs=4 --search-path=<toolchain lib> -- Init.Data.Nat.Lemmas`,
+84 modules, each worker 15..100 MiB; budget 60M is below single workers' peaks, so the budgets
+below are 90M and 120M; guard and `timeout`; one run each, wall time only an illustration):
+
+```
+old, 120M: Init.Data.Nat.Lemmas: killed at 105 MiB (running workers 168 MiB, budget 120 MiB); to run again alone
+           wall 18s (the old run at 60M: 68 kills, nothing but solos after the first; wall 23s)
+new, 120M: Init.Data.Nat.Bitwise.Basic: killed at 63 MiB to make room for Init.Data.Nat.Lemmas (0.1 GiB), queued again (running 0.1 GiB of 0.1 GiB); starts paused until Init.Data.Nat.Lemmas finishes
+           Init.Data.Nat.Lemmas: 0 t=0.8s [1/84 1.1 %, 0 running, 1 requeued, eta 1m10s]  (pause over, starts resume)
+           con-leche: schedule: 1 kills for memory put modules back in the queue (1 modules, at most 1 times each)
+           exit 0, wall 19s
+new,  90M: 6 kills of 6 different modules (at most 1 each), e.g.
+           Init.Data.Int.Basic: killed at 12 MiB to make room for Init.Omega.Coeffs (58 MiB), queued again (running 100 MiB of 90 MiB); starts paused until Init.Omega.Coeffs finishes
+           Init.Data.Nat.Lemmas: 97 MiB alone, over the budget of 90 MiB: memory     (case 4)
+           exit 3 (first not accepted: Init.Data.Nat.Lemmas (memory)), wall 19s; old: 3 kills, exit 3, wall 17s
+new,  30M: every module alone over the budget: 25 `memory` verdicts, 0 kills of others, no deadlock
+```
+
+Admission at 200M: peaks 0.1 GiB of 0.1 GiB with 2 running; the pool never filled to 4 where
+peaks filled the budget, and the run ended normally (wall 18s, as old). The protected worker is
+chosen by current RSS with VmHWM as tie-break. Gates: lake build/test clean, trust-surface,
+tests/olean.sh 321/321 under the guard, overview links. `tests/quote-gate.sh` reports
+`model_exists`, `main_no_False`, `main_oleans_no_False` on the unmodified `modular` tip too
+(not from this lane).
+
 ## TASK #509 — each module located once per worker; real paths only where compared (2026-11-08, agent/509-findmodule)
 
 #504 found 206 844 `readlink` and 155 263 `statx` calls in the `--olean --module` worker at
@@ -114678,6 +114724,316 @@ from Coxeter are about 0.5 G kernel cycles, of its 1.0–1.2 G.  Verdicts unchan
   closure's checks).  The worker's values phase: 8 lookups of its own module (one per job,
   `readValue` on the search path).
 * `--check-graph` already locates each module once; it gains the `readlink`s only.
+
+## TASK #506 — one theorem is enough: copies of one statement merge without inference (2026-11-08, agent/506-one-thm)
+
+**Ruling (maintainer).**  For copies of one name merged as proofs of one statement (`clashAgree`,
+`agreeCheck`), it is enough that one copy is a theorem.  Every theorem's type is a proposition,
+the copies have one statement, and its names are read alike (the partner and name checks), so no
+copy needs its type inferred.  Inference is needed only when no copy is a theorem.  Lean's merge
+agrees (`subsumesInfo`, `Lean/Environment.lean` of v4.35.0): theorem/theorem and theorem/axiom
+merge with no test of the type; only axiom/axiom asks `isPropCheap`.
+
+**The worker** (`ConLeche/Driver/Reach.lean`).  `agreeCheck`: where either copy's `proofStatus`
+is `.yes`, no pending inference (else, both being `.infer`, one is recorded as before).
+`clashAgree`: a clash with a `.yes` copy is passed with no inference and its name is not
+reached; otherwise as before.  Everything else stays: the partner and names reads, the unsafe or
+partial check of the view's copy, `.no` rejecting, and the index's clash rule (`subsumesF`,
+Lean's), which still refuses a theorem and a definition loaded together.
+
+**The specification** (`ConLeche/Modular.lean`).  `ThmAt` and `ProofSide` are gone.  `Agree` has
+two proof routes: `proof` (the statement inferred over the part below the name, as before) and
+`thm`: an earlier module `t` stores the statement as a theorem, `t`'s reading of its names agreeing
+too.  Both ask the statement's names to resolve in the part.  `t` is any earlier module, not only
+one of the two copies: at a clash with three copies one theorem passes the other two
+(`clashAgree`), and its names are agreed through the clash partner reads.
+
+**The generic theorem** (`ConLeche/Modular/Generic.lean`, the fragment's `ModularSemantics.lean`).
+The interface trades `IsThm`/`thm_val` for `ProofBy C E E' n` and `proofBy_val`: a copy of the
+statement of `E'`'s theorem `n`, read alike over `C`, gets the proofs' value in every model of
+`E` that agrees on `C` with a model of `C` that agrees on `C` with one of `E'`.  `ProofSide` is
+`ProofIn` over the part, or `ProofBy` over the part with some source's view as `E'`; the
+generic `ThmAt` goes.  The proof amalgamates the part's model once and applies either law.
+
+**The model.**  `ProofLeaves` (`Model/Modular/Proofs.lean`) now says two things of every stored
+statement kind: a theorem's type reads as a truth value (`SemPropType`), and a type that reads so
+gives the leaf `.prf` (`ProofLeaves.thm` composes them).  The step gives the first at a new
+theorem from its record's own check (`new_thm_prop`, `Model/Modular/Step.lean`:
+`semPropType_of_run` of the run's `PropTypeRun`, carried past the push by
+`pushChain_denote_old`; `thm_of_record` says a theorem constant is its theorem record's, so no
+case at `Quot.sound` is needed); old names keep both by their readings, amalgamation reads both
+off the sources (`Instance.lean`), and `AcceptsX.step` by `ProofLeaves.of_alike`.  In the
+instance, `ReadsX` (a type's names stored by `C`, exposed by `E`, alike) factors `ProofInX`,
+and `ProofByX`'s law `proofByX_val` transfers the theorem's `SemPropType` to the part's model and
+to the copy's (`ReadsX.denote_eq`).  No new fact beyond the model's own: the theorem's
+propositionality was in its record's run all along.  `toDev_valid` (`Main.lean`) translates
+`Agree.thm` with the theorem's module as the source `w`; `agree_alike`/`agree_home`
+(`Valid.lean`) share `stmt_alike`.  `MainTheorem`'s theorem clause uses `ProofLeaves.thm`.
+
+**The worker's proofs** (`Verify/Driver/`).  `AgreeOk` ends in `p₁ = .yes ∨ p₂ = .yes ∨ ∃ w,
+pend …`; `ClashOk` is every copy's status not `.no`, and, where a copy is in the index, a `.yes`
+copy or a recorded inference (`statuses_st` now also says every status comes from a copy).
+`Compose.ProofAt` keeps the names' facts and asks the statement resolved in the part, then
+`TypeIsProp` or a theorem at an earlier module whose names were passed.  `Routes.lean`:
+`side_of_status` and `side_of_clash` are replaced by `thm_of_status` (a `.yes` copy is a theorem of
+its module's own environment) and `prop_of_pending`; `agree_loaded` takes the clash's `.yes` copy
+(any of them) or its inference; `proofAt_of` the context's copy's theorem (names by its record's
+reads, `ctx_reads`), the view's, or the inference.  `part_isSome`/`part_resolve` (`RouteCtx.lean`):
+names of smaller rank resolve in the part.  Axiom pins unchanged.
+
+**Fixtures** (`tests/olean.sh`, 321 → 327).  `TdA` (`def td : id True`), `TdB` (`theorem td`),
+`TdH` (loads `TdB` privately; the gate patches its exported `ty` to `(fun _ => True) td`, Lean
+writing no exported statement that reads a privately imported name), `TdM` (loads `TdA`, reads
+`ty`): `TdH`'s view locates `td` as `TdB`'s theorem, `agreeCheck` meets a definition and a
+theorem of `id True` (no `isPropCheap` shape).  The base binary: 0, "1 flags inferred"; this lane:
+0, "0 flags inferred".  Lean, importing the patched files, compares nothing (it never loads `TdB`'s
+`td` at `TdM`).  `PdN` (`import all PdA`, `public import PdB`: the definition and the theorem loaded
+together): exit 1, "modules PdA and PdB store different constants named pd", as Lean's import
+refuses it; compiled against a stand-in `PdA`.  So the worker does not accept more than Lean on a
+loaded pair: the one-theorem rule applies where the clash rule (Lean's) already merges and where
+two copies meet through a home's view, which Lean never compares.  `PdM` (a definition exported as
+an axiom and a theorem) and `AxIM` (an axiom and a theorem) now infer nothing: 0 flags (1 before).
+
+**Cost** (`perf stat -e instructions:u`, `--jobs=8`, one run each, under the guard; base the
+binary of `modular` 39ec8fd13): worker `Init.Data.Nat.Lemmas` 9.1871 G → 9.1840 G (−0.03 %),
+`Mathlib.GroupTheory.Coxeter.Basic` 8.9190 G → 8.9198 G (+0.01 %),
+`Mathlib.Analysis.SpecialFunctions.Gamma.Basic` 15.5178 G → 15.5130 G (−0.03 %),
+`Mathlib.RingTheory.WittVector.MulP` 8.9890 G → 8.9876 G (−0.02 %); all exit 0, records unchanged
+(898, 2 268, 6 326, 2 078), 0 flags inferred on all four in both (the part inference of #501
+cont. 8 had already left nothing pending there), so the change is noise on these streams.
+
+**Documents.**  §7: the interface's proof laws (`By` in place of `Thm`), the proof side, "one
+theorem among the copies is enough", the proof's amalgamated part, the fragment's `ProofBy`, and
+con-leche's checks; anchors repointed.  OVERVIEW: the rule in §1 and §8.
+
+## TASK #512 — sticky protection, terser scheduler lines, a windowed ETA (2026-11-08, agent/512-sticky)
+
+Trigger: the maintainer's run (239 685 modules, `--jobs=32`, `--schedule-memory=40G`): with
+sawtooth profiles the largest-now worker changed every tick, so the protection moved and the
+previously protected worker (10 GiB, 40 s in) was killed as "youngest other"; every kill line
+repeated the protected module and the pause; the ETA swung from 16 h to 58 h in one pause.
+
+* **Sticky protection.** On an overflow with no protected worker the largest (current RSS, then
+  `VmHWM`) becomes protected, as in #510.  While it runs it stays protected, even when another
+  grows larger; every overflow kills the youngest other worker.  The protection ends when the
+  protected worker finishes or is killed alone with `memory`.  Peak admission, front-of-queue
+  requeue, no verdict, not logged: unchanged.
+* **Size-aware admission (maintainer's addendum; replaces the blanket pause).**  Pausing every
+  start while a worker is protected wasted capacity (live: 27.6 GiB running of 40, 11 GiB free,
+  nothing starting).  Every module has a known size: the largest RSS seen when it was killed, a
+  lower bound of its peak; never killed: unknown, counted 0.  The room is the budget minus the
+  running workers' `VmHWM` sum.  The first module in queue order whose known size fits starts
+  (jobs and stagger as before); one that does not fit stays in its place and the scan goes on.
+  With nothing running the first one always starts (and the `memory` verdict decides if it is
+  over the whole budget).  Only killed modules have a size, so they are a separate ordered
+  list `front` (O(requeued) per tick) before the `pending` list of unknown ones, which is never
+  scanned: its head starts when the room is above 0.  A kill puts the module at the head of
+  `front` with its size raised to the killed RSS; newly admitted workers are the youngest, so
+  they are what a growing protected worker kills, and each kill teaches a size, so the module
+  is not restarted until it fits: thrashing is bounded.
+* **Output.** Kill: `M: killed at 63 MiB, requeued`.  One line when a protection begins, one when
+  it ends.  The status line has `protecting M` and `n waiting for room` (killed modules that do
+  not fit yet); there is no `paused`.
+* **ETA.** `remaining × ms ÷ n` over the last `n ≤ 200` finishes (`etaWindow`), `ms` their active
+  time: the time from the finish before the window (or the start) to the last finish, minus the
+  last finish: a quiet stretch does not grow the estimate until a module finishes (no pause exists
+  any more to leave out).
+
+Examples (`--olean --schedule --jobs=4 --search-path=<toolchain lib> -- Init.Data.Nat.Lemmas`):
+```
+120M: memory over 0.1 GiB: protecting Init.Data.Nat.Lemmas (91 MiB)
+      Init.Data.Nat.Bitwise.Basic: killed at 63 MiB, requeued
+      Init.TacticsExtra: 0 t=0.0s [2/84 2.3 %, 1 running, 91 MiB now (max 91 MiB), 91 MiB peaks
+        of 0.1 GiB, 1 requeued, protecting Init.Data.Nat.Lemmas, 1 waiting for room, eta 26s]
+      Init.Data.Nat.Lemmas finished, protection over          exit 0
+90M:  Init.Data.Array.Basic: 93 MiB alone, over the budget of 90 MiB: memory   exit 3
+```
+Starts under protection: Init.Data.Nat.Log2 and Init.TacticsExtra were started and finished
+while Lemmas was protected (above); the requeued Bitwise.Basic (known size 63 MiB) waited in the
+queue (`1 waiting for room`) until Lemmas had finished and the room was there.  The protection staying put while another worker grows larger could not be provoked at this
+scale (the workers peak at 100 MiB within milliseconds); the rule is the code's `findIdx?` on
+the protected module before the largest is looked at.
+
+## TASK #508 — a worker's re-reads: the home's files and a group's part read once (2026-11-08, agent/508-rereads)
+
+#504 found a `--olean --module` worker reading files in full several times (`Init/Prelude.olean`
+four to seven times).  The question: which phase re-reads what, and can each file be read at most
+once per worker, as #468 says?  Off `modular` at be22ced8e; the "before" figures are `modular`
+at 3bb1a00d7 (after #509's tables and #510, #506), "after" the lane with it merged.  The reads
+are the same at be22ced8e and at 3bb1a00d7 (#509 changed where a module is located, not what is
+read; its worker tables read the own private part's names, where `workerReads` read them).
+
+**Method.**  `strace -f -k -e trace=openat` on the four workers of #501 (`--jobs=8`), every open of
+an `.olean*` file attributed to the innermost function of its stack naming a phase
+(`_tmp/508/scripts/kparse.py`, `ktab.py`); a whole-file read is an open under `readBinFile` (it
+reads the whole file), a header read one under `foldChunks` (4 KiB).  The byte counts are file
+sizes per open.  #504's byte counts are lower bounds: its reader (`an2.py`) loses the reads of
+multi-threaded strace's split lines (`<unfinished ...>`), and part of the reads go through the
+runtime's `io_uring` (no `read` call to see); counted by opens, the excess is larger than #504
+said (Coxeter: 224 MiB of 748, not 114 of 394).
+
+**1. Who reads what, before** (`.olean*` whole-file reads; MiB; "again" = the file was read in
+full before in the same worker).  `names` is `workerReads`' name index (every loaded part, at its
+level), `infos` the clash rule's statements (`readInfos`), `reach.part` the reach's regions
+(`withPart`), `reach.table` its name tables off the index (`tableOf`: `privSpot`, `groupAt`), `home`
+`readHome`, `value` `readValue` in the check phase.  Measured at be22ced8e; at 3bb1a00d7 the
+figures are the same, the own names read first (in `workerTables`) and the home second, and the
+few header reads of a view's fixpoint gone (#509's tables answer them).
+
+| phase | file | Nat.Lemmas reads / MiB / again | Coxeter | Gamma | MulP |
+|---|---|---|---|---|---|
+| home (`readHome`) | own, all three | 3 / 3.5 / 0 | 3 / 1.7 / 0 | 3 / 1.1 / 0 | 3 / 0.3 / 0 |
+| names, the own part | own, all three | 3 / 3.5 / 3.5 | 3 / 1.7 / 1.7 | 3 / 1.1 / 1.1 | 3 / 0.3 / 0.3 |
+| names, the loaded parts | `.olean` | 80 / 19.3 / 0 | 2 479 / 465.5 / 0 | 4 092 / 814.7 / 0 | 3 239 / 633.0 / 0 |
+| infos | `.olean` | 5 / 3.8 / 3.8 | 161 / 61.9 / 61.9 | 290 / 121.3 / 121.3 | 233 / 93.1 / 93.1 |
+| reach.part | `.olean` | 48 / 18.7 / 18.7 | 212 / 79.8 / 79.8 | 815 / 283.6 / 283.6 | 195 / 77.8 / 77.8 |
+| reach.part | `.server`, `.private` | 28 / 5.1 / 5.1 | 122 / 26.8 / 26.8 | 468 / 120.8 / 120.8 | 100 / 21.8 / 21.8 |
+| reach.table | `.olean` | 15 / 8.5 / 8.5 | 103 / 40.0 / 40.0 | 319 / 141.1 / 141.1 | 114 / 55.5 / 55.5 |
+| reach.table | `.server`, `.private` | 28 / 5.8 / 0 | 206 / 57.1 / 0 | 638 / 188.6 / 0 | 228 / 73.7 / 0 |
+| value (8 job threads) | own, all three | 24 / 27.8 / 27.8 | 24 / 13.7 / 13.7 | 24 / 8.7 / 8.7 | 24 / 2.7 / 2.7 |
+| **whole-file reads** | | 234 / 96.0 / 67.4 (70 %) | 3 313 / 748.3 / 224.0 (30 %) | 6 652 / 1 680.8 / 676.4 (40 %) | 4 139 / 958.2 / 251.1 (26 %) |
+
+(Plus the header reads: one 4 KiB read per loaded module in the header fixpoint, and a few in a
+view's fixpoint (`viewOf`).)
+
+**The causes.**
+* **The own module's files, 1 + 1 + up to 8 times**: the own part's names were read off them
+  (`workerReads`, since #509 `workerTables`), `readHome` read them again, and in the check phase
+  every job thread's `ValueCache` started
+  empty, so each of the eight read the module's three files again for its first theorem's value
+  (`regionFor`).  Nat.Lemmas: 31 of its 67 MiB of re-reads.
+* **A group's part, twice**: `groupAt` asked the part's name table first (`lookOf` → `tableOf`,
+  which reads the files for the names and keeps only the table) and its region next (`withPart`,
+  which reads the files again and keeps the region).  Every private part a group is read from was
+  read twice: the `.server`/`.private` re-reads of `reach.part`.
+* **The name index's files, again**: `workerReads` reads every loaded part in full for its names
+  and keeps the names only; the clash rule then reads the clashing copies' modules again for their
+  statements, and the reach reads the exported parts it takes records from, and the `.olean` of
+  every private part it reads (privSpot, groups), again.  This is the rest: Coxeter 158 MiB, Gamma
+  455 MiB, MulP 201 MiB, Nat.Lemmas 23 MiB.
+
+No re-read is needed for soundness: on one snapshot every read of a file gives one value (the
+trust assumption), which the proofs already use (`readFiles_unique`).
+
+**2. The fix** (what is clearly a win).
+* **The home's files, once** (`ConLeche/Driver/Worker.lean`, `ConLeche/Driver/Tables.lean`): the
+  worker's tables read the own private view's files and keep them (`ModTable.files`), the own
+  part's names off them (`namesOf`); `ModTables.reads` answers the private view's files from the
+  table.  `workerRead` takes the files (`rd.files m .private`) and the home off them (`homeOf`,
+  the pure half of the former `readHome`, which is gone), and keeps the region the theorems'
+  values are read from: `WorkerRead.values`, a `ValueCache` every check-phase worker starts from
+  (`checkOleansG`'s `seed`, marked persistent with the references in `OleanRun.pool`, so that the
+  eight threads share one region without atomic counting).  In the model: `TablesOk` says a
+  held file read is `readFilesAt`'s at the table's location (`workerTables_ok`,
+  `modTables_within`); `WorkerFacts.home` states the files and `homeOf`; `WorkerFacts.values` the
+  kept region (`CacheOK`, `cacheOK_files`); `oleanWorker_reach`, `checkOleansG_jobs` take the
+  seed's `CacheOK`.  The one-process mode keeps no files in its tables (a closure's worth).
+* **A group's part, once** (`ConLeche/Driver/Reach.lean`): `groupAt` starts with `loadPart`, which
+  reads the part's files once and keeps both the region (empty memo) and, where none is kept yet,
+  the name table off that region (`namePositionsAt`, what `readNamePositions` reads); the
+  lookups and region reads after it are hits.  A part whose table alone is asked (`privSpot`) still
+  keeps only its table: no memory for a region nobody reads.  `loadPart_ok` (the caches stay the
+  snapshot's, the table by `readPartNames_of_files`), `loadPart_fr`, `loadPart_within`.
+
+**After** (the same strace, whole-file reads):
+
+| worker | reads | MiB read | re-read | `Init/Prelude.olean` |
+|---|---|---|---|---|
+| `Init.Data.Nat.Lemmas` | 234 → 174 | 96.0 → 51.9 (−46 %) | 67.4 → 23.3 | 5 → 4 |
+| `Mathlib.GroupTheory.Coxeter.Basic` | 3 313 → 3 112 | 748.3 → 682.4 (−9 %) | 224.0 → 158.1 | 5 → 4 |
+| `Mathlib.Analysis.SpecialFunctions.Gamma.Basic` | 6 652 → 5 941 | 1 680.8 → 1 459.1 (−13 %) | 676.4 → 454.7 | 5 → 4 |
+| `Mathlib.RingTheory.WittVector.MulP` | 4 139 → 3 971 | 958.2 → 908.2 (−5 %) | 251.1 → 201.2 | 5 → 4 |
+
+**3. Measurements** (`_tmp/508/scripts/inter.sh`: `--jobs=8`, `modular` at 3bb1a00d7 and the
+lane run interleaved, three runs each under the guard; `instructions:u` agree to 0.05 % within a
+binary; peak RSS by `getrusage`).
+
+| worker | `instructions:u` | `cycles:u` | peak RSS |
+|---|---|---|---|
+| `Init.Data.Nat.Lemmas` | 9.128 G → 9.114 G (−0.15 %) | 4.56 4.51 4.42 G → 4.66 4.55 4.47 G | 172 173 170 MB → 111 116 122 MB (−32 %) |
+| `Mathlib.GroupTheory.Coxeter.Basic` | 7.793 G → 7.772 G (−0.27 %) | 3.18 3.20 3.21 G → 3.38 3.21 3.31 G | 282 277 279 MB → 282 276 319 MB |
+| `Mathlib.Analysis.SpecialFunctions.Gamma.Basic` | 13.341 G → 13.272 G (−0.52 %) | 5.61 5.81 5.92 G → 5.73 5.76 5.74 G | 690 686 686 MB → 700 698 690 MB |
+| `Mathlib.RingTheory.WittVector.MulP` | 7.538 G → 7.524 G (−0.19 %) | 3.06 3.01 3.03 G → 3.05 2.98 2.97 G | 316 314 296 MB → 310 292 288 MB |
+
+Fewer instructions (the copies of the bytes not read), the peak lower where the eight check
+threads each kept a copy of a large own region (Nat.Lemmas), unchanged elsewhere; the cycles do
+not separate from the noise (the machine is loaded; the kernel's copy of 50-220 MiB is, by #504's
+attribution, about 1-2 % of these workers' cycles at most).  Before the seed was marked
+persistent, the shared region's atomic reference counts showed as a few per cent more cycles on
+Nat.Lemmas in single samples; with the mark, ten interleaved runs gave 4.78 G before against
+4.74 G after (means).
+
+**4. Not done: the name index's files, kept** (a memory/time choice, reported).  What is left
+(Coxeter 158 MiB, Gamma 455 MiB, MulP 201 MiB, Nat.Lemmas 23 MiB) is every re-read of a file first
+read for the name index.  Which loaded parts the clash rule and the reach read again is known only
+after the index is complete (the clashes) or the reach has run (the reached names), so the only way
+to read them once is to keep every loaded part's bytes from the index to the end of the reach: all
+of `names`' `.olean` bytes (Coxeter 466 MiB, Gamma 815 MiB, MulP 633 MiB) against a peak RSS of
+0.3-0.7 GB today, which is at the reach's end; roughly double or triple the peak, to save the
+kernel's copy of 158-455 MiB (by #504's attribution under 3 % of the cycles and well under 1 % of
+the instructions).  Two smaller variants: keep the clash rule's files for the reach (it re-reads
+Coxeter 25 MiB, Gamma 71 MiB, MulP 37 MiB of them, holding Coxeter 37 MiB, Gamma 50 MiB, MulP
+56 MiB the reach never reads: a higher peak); read the clashing copies' statements while the
+later copies' bytes are at hand in the index's fold (the first copy's module would still be read
+again).  Not done; the maintainer's call.  So #468's "reads each part's files once per module" is
+true of the module's own files and of the reach's parts among themselves, not of the index's.
+
+Gates: `lake build`, `lake test` warning-free (after merging `modular` at 3bb1a00d7); `tests/arena.sh` in full under the guard; shake,
+layering, trust surface, the olean-compare tool (`--home` now `readFiles` then `homeOf`), links (`OVERVIEW.md`'s `checkMainG_ndjson_accept` anchor repointed),
+quotes.  Files: `_tmp/508/scripts/` (the strace readers, `measure.sh`), `_tmp/508/logs/`
+(`k-{modtip,final3}-*.txt` the traces, `inter-f3.txt` the measurements).
+
+### TASK #512 addendum — typical peak, doubled sizes, one kill line per tick
+
+The maintainer's CFSG run thrashed under size-aware admission: modules killed at 32 MiB (a lower
+bound of the peak, taken while the worker was still ramping up) came back at once and died
+again (up to four times), 30 young workers each counted at their small `VmHWM` overshot 40 GiB a
+few seconds later, finishes fell to 4 in 40 kills, ETA 24 h to 44 h.  Changes, `ScheduleIO.lean`
+only:
+
+* **Typical peak** `typ`: the 90th percentile of the peaks (largest set seen, per tick) of the
+  last 200 finished workers; the budget ÷ jobs until 8 have finished.  Admission counts every
+  running worker at `max(peak, typ)`, and a never-killed module at `typ` (it starts only if
+  `typ` fits the room).  A young worker thus reserves the growth it has not shown yet.
+* **Known size on a kill** = `max(RSS at the kill, typ, 2 × previous known size)`: a module killed
+  twice never comes back at the same size, so thrashing is bounded by log(size) kills.
+* **One kill line per burst**: an overflow kills the youngest non-protected workers until the
+  sampled sets sum to the budget at most (one tick, the killed sets subtracted), and prints
+  `killed 8 workers (A 0.1 GiB, B 2.1 GiB, …), requeued`, or the single-kill line.
+* No hysteresis (the typical-peak reservation makes admission count the growth).
+
+Hand test (`--jobs=8`, Init.Data.Nat.Lemmas closure): 200M no kill, exit 0; 120M 3 kills, the
+protection lines as before, Lemmas (about the budget alone) `memory`, exit 3.
+
+### TASK #512 addendum 2 — the known size survives a start
+
+The CFSG run still thrashed (9597 killed 7 times, each at 0.1–0.5 GiB).  The bug: the known
+size lived in the `front` list entry, and a start removed the entry, so the next kill saw no
+previous size: `max(RSS, typ, 2 × 0)`, never the doubling.  Sizes now live in a map `sizes`
+that a start keeps; `front` holds only the names in order.  Also: admission counts a RUNNING
+worker at `max(peak, typ, its known size)` (a restarted big module is counted at what it
+reached before, not at its small current set), and a burst of kills (one tick) continues until
+the sampled sets sum to the budget at most.  The repeated single-kill lines of the run were
+successive overflows after re-admissions (the bug above), not an early end of a burst.
+No sizes are stored in the log (maintainer's ruling): a resumed run starts again knowing
+nothing.  Hand test (`--jobs=12 --schedule-stagger=0`, Init.Data.Nat.Lemmas closure): 100M and
+140M, every killed module killed at most once (`at most 1 times each`), the killed ones shown as
+`2 waiting for room` while the protected worker ran at 79 of 100 MiB.
+
+## TASK #513 — the worker's own peak on each finish line (`Driver/ScheduleIO.lean`)
+
+Each per-module finish line now shows the worker's peak resident set next to its time.  The
+number is the worker's own `con-leche: stats: peak RSS X.YZ GiB` line (read from the stderr the
+scheduler drains anyway; exact to 0.01 GiB, `reportedPeak`).  Where a worker wrote none (killed,
+crashed, timed out) the scheduler's last sampled `VmHWM`/`VmRSS` maximum is shown as a lower
+bound, `rss≥`.  The same value (`pk` in `finish`) replaces the sampled one in the typical-peak
+window (#512), so the percentile is exact; running workers keep their sampled value.  The log
+format is unchanged; no pinned gate output contained the finish line.
+
+    con-leche: schedule: Init.Data.Nat.Bitwise.Basic: 0 t=0.6s rss=0.07 GiB [3/84 3.5 %, 2 running, 0.1 GiB now (max 0.1 GiB), 0.1 GiB peaks, eta 23s]
+    con-leche: schedule: Init.Data.Nat.Lemmas: 0 t=0.9s rss=0.11 GiB [4/84 4.7 %, 0 running, eta 18s]
+
+Hand test: `--olean --schedule --jobs=4` on Init.Data.Nat.Lemmas, 84 modules, exit 0, under the guard.
 
 ## TASK #511 — a module located by its root, as Lean does; each root resolved once per run (2026-11-08, agent/511-root-lookup)
 

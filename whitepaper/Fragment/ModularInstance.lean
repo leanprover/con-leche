@@ -21,9 +21,10 @@ modular theorem (`modular`) read off the generic one
 * **Assembly** is `Assembled` (`ModularModel.lean`), **amalgamation**
   its model (`Assembled.model`, `Assembled.proofsPt`).
 * **Proofs**: `ProofIn C E n`, the checker's inference at `C` that the
-  type of `E`'s `n` is a proposition, and `IsThm E n`, the same inference
-  at `E` itself; a model keeping proofs the point gives such a constant
-  the point (`ProofIn.eq_dflt`).
+  type of `E`'s `n` is a proposition, and `ProofBy C E E' n`, a copy of
+  the type of `E'`'s `n`, which `E'` infers to be a proposition itself;
+  a model keeping proofs the point gives such a constant the point
+  (`ProofIn.eq_dflt`, `ProofBy.eq_dflt`).
 * **The step** is the installation of a checked list
   (`Checks.blockModel`): every constant of the context keeps its set,
   and proofs stay the point.
@@ -77,8 +78,9 @@ variable (V) in
     exact ⟨⟨mC, h.proofsPt _ (fun i => (m i).2) mC.M hmC⟩, fun i n hn _ hs => hmC n i hn hs⟩
   ProofIn := ProofIn
   proof_val h mC m hag := h.eq_dflt mC.1.toEnvModel m.1.M m.2 fun c hC hE => hag c hC hC hE
-  IsThm E n := ProofIn E E n
-  thm_val h m := h.eq_dflt m.1.toEnvModel m.1.M m.2 fun _ _ _ => rfl
+  ProofBy := ProofBy
+  proofBy_val h mC m m' hag hag' := h.eq_dflt mC.1.M m.1.M m'.1.toEnvModel m.2
+    (fun c hC hE => hag c hC hC hE) fun c hC hE => hag' c hC hC hE
   Decls := List Decl
   Accepts := FAccepts
   step h m := by
@@ -143,7 +145,7 @@ theorem modular (dev : Nat → Module) (k : Nat) (h : ∀ i < k, Valid dev i) :
   refine ⟨fun i hi => (m i hi).1, fun j hj n hn => ?_, fun j hj n hp ls => ?_⟩
   · obtain ⟨h', he, -⟩ := hc j hj n hn
     exact ⟨h', he⟩
-  · exact congrFun ((fragmentSemantics V).thm_val (E := (dev j).own) hp (m j hj)) ls
+  · exact congrFun (hp.eq_dflt (m j hj).1.toEnvModel (m j hj).1.M (m j hj).2 fun _ _ _ => rfl) ls
 
 variable (V) in
 /-- **Every validated module's own environment has a model.** -/
