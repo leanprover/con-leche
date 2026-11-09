@@ -13,9 +13,9 @@ calling the cached core (`coreKnotI`) directly and the cached walks of
 `ConLeche/Cached/ExprOpsC.lean` where the specification runs the plain
 ones.  Each is the specification at the shared operations
 (`whnfTelescopeC_eq`, `reducedFormerC_eq`,
-`ConLeche/Verify/Cached/WalkersC.lean`; the family readers
-`familyTelescopeC`, `checkSpineAtC`, `familyKeyCheckC`:
-`ConLeche/Verify/Cached/IndPassC.lean`).
+`familyTelescopeC_eq`, `ConLeche/Verify/Cached/WalkersC.lean`;
+`checkSpineAtC_eq`, `familyKeyCheckC_eq`,
+`ConLeche/Verify/Cached/IndBlockC.lean`).
 -/
 
 namespace ConLeche.Cached
@@ -48,8 +48,8 @@ def reducedFormerC (fe : FEnv) (cv : ConstantVal) (n : Nat) : CheckCM ConstantVa
   let (bs, s) ← whnfTelescopeC mode fe 0 n cv.type
   pure { cv with type := Expr.closeTelescopeC bs 0 (.sort s) }
 
-/-- The cached `familyTelescope`: a definition-headed family at its
-reduct by `reducedFormerC`, any other at its stored type. -/
+/-- The cached `familyTelescope`: a definition-headed former's reduct
+by `reducedFormerC` (`familyTelescopeC_eq`). -/
 def familyTelescopeC (fe : FEnv) (cv : ConstantVal) (caps : IndCaps) : CheckCM Expr :=
   if formerDefHeaded cv then do
     let cvR ← reducedFormerC mode fe cv (caps.nparams + caps.nIdx)

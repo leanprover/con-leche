@@ -1,12 +1,13 @@
 module
 
-import ConLeche.Verify.Cached.IndPassC
+import ConLeche.Verify.Cached.IndBlockC
 import ConLeche.Verify.Denote.IndFrame
 import ConLeche.Verify.Inductives.BlockShapeInv
 public import ConLeche.Verify.Cached.TargetRecC
 public import ConLeche.Kernel.Inductives.GenRec
 import ConLeche.Verify.Inductives.RecCheckScope
 import ConLeche.Verify.Cached.WalkersC
+import ConLeche.Verify.Cached.IndRecC
 public import ConLeche.Verify.Cached.NestPosC
 public import ConLeche.Verify.Inductives.NestScope
 import ConLeche.Verify.Cached.DeclPushes
@@ -22,8 +23,9 @@ public section
 The generated recursor stage `genRecCheck`
 (`ConLeche/Kernel/Inductives/GenRec.lean`) is written once over
 `ShadowOps`: the pure install runs it at `ShadowOps.ofOps`
-(`checkBlockRec`), the cached driver at `shadowOpsC` (`checkBlockTailS`).
-This file proves the cached run reproduced by the pure fueled one
+(`checkBlockRec`); the cached driver (`checkBlockTailS`) runs its twin
+`genRecCheckC`, which is `genRecCheck` at `shadowOpsC` (`genRecCheckC_eq`,
+`IndRecC.lean`).  This file proves the cached run reproduced by the pure fueled one
 (`genRecCheckS_spec`, `genRecCheckS_run`), reusing the class kit's
 per-operation simulations (`TargetRecC.lean`), the pass's classes
 (`checkBlockClassesS_spec`), and with them the cached uniform install
@@ -656,10 +658,10 @@ theorem classRuleCheckS_spec {envR : Env} (henvR : EnvWF envR)
     (envT : Env) {cvR : ConstantVal} {n : Nat} {gen : Expr} {s₀ : CState}
     (hs : CSOKAll .verified s₀) :
     ⦃fun s => s = s₀⦄
-      classRuleCheck (sharedOpsRuleR .verified (mkFEnv envR)) .plain (mkFEnv envT) (mkFEnv envR) cvR n
+      classRuleCheck (sharedOpsRuleR .verified (mkFEnv envR)) (mkFEnv envT) (mkFEnv envR) cvR n
         gen
     ⦃fun v s' => CSOKAll .verified s' ∧
-      Runs (classRuleCheck (fueledOpsM .verified) .plain (mkFEnv envT) (mkFEnv envR) cvR n gen) v;
+      Runs (classRuleCheck (fueledOpsM .verified) (mkFEnv envT) (mkFEnv envR) cvR n gen) v;
       ⊤⦄ := by
   sym only [conleche_grind, classRuleCheck.eq_1, unwrapOr.eq_1, → wscoped_of_closed] =>
     vcgen [classRuleCheck, unwrapOr, ruleR_infer_spec henvR] <;> finish
@@ -672,9 +674,9 @@ theorem classRuleOkS_spec {envR : Env} (henvR : EnvWF envR)
     (envT : Env) {cvR : ConstantVal} {n : Nat} {gen : Expr} {s₀ : CState}
     (hs : CSOKAll .verified s₀) :
     ⦃fun s => s = s₀⦄
-      classRuleOk (sharedOpsRuleR .verified (mkFEnv envR)) .plain (mkFEnv envT) (mkFEnv envR) cvR n gen
+      classRuleOk (sharedOpsRuleR .verified (mkFEnv envR)) (mkFEnv envT) (mkFEnv envR) cvR n gen
     ⦃fun v s' => CSOKAll .verified s' ∧
-      Runs (classRuleOk (fueledOpsM .verified) .plain (mkFEnv envT) (mkFEnv envR) cvR n gen) v; ⊤⦄ := by
+      Runs (classRuleOk (fueledOpsM .verified) (mkFEnv envT) (mkFEnv envR) cvR n gen) v; ⊤⦄ := by
   sym only [conleche_grind, classRuleOk.eq_1] =>
     vcgen [classRuleOk, classRuleCheckS_spec henvR envT hs] <;> finish
 
@@ -683,10 +685,10 @@ theorem classRulesOkS_spec {envR envT : Env}
     {c : Nat} :
     ∀ (xs : List ClassCtor) {s₀ : CState}, CSOKAll .verified s₀ →
       ⦃fun s => s = s₀⦄
-        classRulesOk (sharedOpsRuleR .verified (mkFEnv envR)) .plain (mkFEnv envT) (mkFEnv envR) g
+        classRulesOk (sharedOpsRuleR .verified (mkFEnv envR)) (mkFEnv envT) (mkFEnv envR) g
           recOf cvR c xs
       ⦃fun v s' => CSOKAll .verified s' ∧
-        Runs (classRulesOk (fueledOpsM .verified) .plain (mkFEnv envT) (mkFEnv envR) g recOf cvR c xs)
+        Runs (classRulesOk (fueledOpsM .verified) (mkFEnv envT) (mkFEnv envR) g recOf cvR c xs)
           v; ⊤⦄ := by
   intro xs
   induction xs with
@@ -703,10 +705,10 @@ theorem classRecsRulesOkS_spec {envR envT : Env}
     {g : ClassGen} {recOf : Nat → Option Name} :
     ∀ (cvs : List ConstantVal) (cs : List Nat) {s₀ : CState}, EnvWF envR → CSOKAll .verified s₀ →
       ⦃fun s => s = s₀⦄
-        classRecsRulesOk (sharedOpsRuleR .verified (mkFEnv envR)) .plain (mkFEnv envT) (mkFEnv envR)
+        classRecsRulesOk (sharedOpsRuleR .verified (mkFEnv envR)) (mkFEnv envT) (mkFEnv envR)
           g recOf cvs cs
       ⦃fun v s' => CSOKAll .verified s' ∧
-        Runs (classRecsRulesOk (fueledOpsM .verified) .plain (mkFEnv envT) (mkFEnv envR) g recOf cvs
+        Runs (classRecsRulesOk (fueledOpsM .verified) (mkFEnv envT) (mkFEnv envR) g recOf cvs
           cs) v; ⊤⦄ := by
   intro cvs
   induction cvs with
@@ -1014,7 +1016,7 @@ theorem genRecCheckS_spec {env₂ : Env}
   unfold genRecCheck
   dsimp only [shadowOpsC, ShadowOps.ofOps]
   simp only [classRecsRulesOk_classFeROvl .verified (fe := mkFEnv env₂) rfl]
-  simp only [structWalkersC_eq_plain, classFeR_mkFEnv, mkFEnv_env]
+  simp only [classFeR_mkFEnv, mkFEnv_env]
   -- `gen`: the pure side, evaluated bind by bind, through eleven binds and three guards
   sym only [conleche_grind, unwrapOr.eq_1, mkFEnv_env, listAll_targetMajScoped hMs₀,
       → csok_residue, → CSOKAll.residue] =>
@@ -1102,7 +1104,7 @@ theorem genRecCheck_outFacts {env₂ : Env} {p : BlockShape}
       ∃ rc c cvG, rd.recCls[i]? = some c ∧ R.cvGs[i]? = some cvG ∧
         o = (cvG, R.Ms.getD c default, o.2.2) ∧
         Nonempty (ClassRecTyRun mode F (mkFEnv env₂) R.g p.k rc c cvG) ∧
-        classRulesOk (fueledOps mode F) .plain (mkFEnv env₂)
+        classRulesOk (fueledOps mode F) (mkFEnv env₂)
           (classFeR p R.Ms R.cvGs rd.recCls (mkFEnv env₂)) R.g
           (classRecOf rd.recCls R.cvGs) cvG
           c (R.ctors.getD c []) = .ok o.2.2 := by
@@ -1149,7 +1151,7 @@ theorem genRecCheck_outFacts {env₂ : Env} {p : BlockShape}
   obtain rfl := Option.some.inj hrhs'
   have hres := Q.hres
   rw [hfeR] at hres
-  simp only [StructWalkers.plain, constsResolveF_eq] at hres
+  simp only [constsResolveF_eq] at hres
   refine ⟨by rw [Q.hout]; exact Q.hfv, Q.hlp, hres, by rw [Q.hout]; exact Q.hbv⟩
 
 theorem genRecCheck_recsWF {env₂ : Env} (henv₂ : EnvWF env₂) {p : BlockShape}
@@ -1355,6 +1357,7 @@ theorem checkBlockTailS_run
         = .ok () := by
   unfold checkBlockTailS at h
   dsimp only at h
+  rw [genRecCheckC_eq] at h
   simp only [checkBlockIdxSortsC_eq] at h
   rw [checkBlockIdxSortsF_eqC] at h
   obtain ⟨isorts, sS, hsorts, h⟩ := bindC_ok h

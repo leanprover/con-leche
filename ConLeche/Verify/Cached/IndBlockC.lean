@@ -2,6 +2,7 @@ module
 
 public import ConLeche.Cached.CheckerC
 import ConLeche.Verify.Cached.WalkersC
+import ConLeche.Verify.Cached.IndRecC
 import ConLeche.Verify.Cached.IndWalksC
 import ConLeche.Verify.Cached.OpsC
 import ConLeche.Verify.Cached.GuardsC
@@ -12,7 +13,7 @@ public section
 /-!
 # The block pass's and the classes' twins are the specification (task #498)
 
-The twins of `ConLeche/Cached/IndPass.lean` (and the family readers
+The twins of `ConLeche/Cached/IndBlock.lean` (and the family readers
 they share with positivity, `ConLeche/Cached/IndPositivity.lean`) mirror
 their specifications at the shared operations `sharedOpsC`: each
 equation unfolds both sides, rewrites the cached walks by their spec
@@ -26,21 +27,9 @@ namespace ConLeche.Cached
 
 open ConLeche
 
-/-- **The cached parameter instantiation is `instPisWith`.** -/
-theorem instPisWithC_eq (as : List Expr) : ∀ e, instPisWithC as e = instPisWith as e := by
-  induction as with
-  | nil => intro e; rfl
-  | cons a as ih =>
-    intro e
-    cases e <;> simp only [instPisWithC, instPisWith, Expr.instantiate1C_spec, ih]
-
 variable (mode : CheckMode)
 
 /-! ## The family readers -/
-
-theorem familyTelescopeC_eq (fe : FEnv) (cv : ConstantVal) (caps : IndCaps) :
-    familyTelescopeC mode fe cv caps = familyTelescope (sharedOpsC mode fe) fe.env cv caps := by
-  simp only [familyTelescopeC, familyTelescope, reducedFormerC_eq]
 
 theorem checkSpineAtC_eq (fe : FEnv) (d : Nat) (as : List Expr) :
     ∀ t, checkSpineAtC mode fe d t as = checkSpineAt (sharedOpsC mode fe) fe.env d t as := by
@@ -171,20 +160,16 @@ theorem classReadC_eq (nP : Nat) (nPc : Name → Nat) (recs : List RecShape) :
   simp only [classReadC, classRead, openPisAtFvarsC_eq, classReadSlotsC_eq]
   rfl
 
-theorem targetCanonParamsC_eq (pfvs : List Expr) :
-    targetCanonParamsC pfvs = targetCanonParams pfvs := by
-  funext e
-  simp only [targetCanonParamsC, targetCanonParams, Expr.replaceFVarsC_spec]
-
 theorem classKeyOfC_eq (nP : Nat) (params : List Expr) :
     classKeyOfC nP params = classKeyOf (m := CheckCM) nP params := by
+  have hc : targetCanonParamsC params = targetCanonParams params := funext (targetCanonParamsC_eq params)
   funext k
-  simp only [classKeyOfC, classKeyOf, classKeyCanonC, classKeyCanon, targetCanonParamsC_eq]
+  simp only [classKeyOfC, classKeyOf, classKeyCanonC, classKeyCanon, hc]
   rfl
 
 theorem targetOutsideInstC_eq (fe : FEnv) (I : Name) (us : List Level) (ds : List Expr) :
     targetOutsideInstC mode fe I us ds = targetOutsideInst (sharedOpsC mode fe) fe I us ds := by
-  simp only [targetOutsideInstC, targetOutsideInst, familyTelescopeC_eq, instPisWithC_eq,
+  simp only [targetOutsideInstC, targetOutsideInst, familyTelescopeC_eq, Expr.instPisWithC_eq,
     Expr.instLevelParams_spec]
   rfl
 

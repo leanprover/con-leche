@@ -1,7 +1,7 @@
 module
 
 public import ConLeche.Cached.IndPass
-import Std.Data.HashMap.Lemmas
+public import ConLeche.Kernel.Inductives.BlockInstallF
 
 public section
 

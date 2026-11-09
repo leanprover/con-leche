@@ -111340,29 +111340,106 @@ lines (OVERVIEW and the whitepaper, re-pointed, no cited text changed).  Two `pu
 of `Verify/Cached/IndWalksC.lean` are kept public against the plan script's census, measured, in
 its fallback list.
 
+## TASK #498 — L4: the recursor stage's cached twin (2026-11-09, agent/498-l4)
+
+**The twin.**  `genRecCheckC` (new module `Cached/IndRec.lean`) is the recursor stage
+`genRecCheck` at the cached core and walks, monomorphic in `(mode)` and the index, calling
+`coreKnotI`'s `infer`/`defeq`/`ensureSortI` directly; `checkBlockTailS` runs it.  Its parts, one
+twin per specification function: `classStreamRecsC` (over `checkConstantValC`), `classesNfsC` →
+`targetMajorNfsC` → `targetClassMatchC` → `targetParamsDefEqC` (member abstraction by the new
+walk `targetAbsC`, canonical parameters by `replaceFVarsC`), `targetK53C` (`eraseFVarTysC` =
+`replaceFVarsC`, `nestOccC`, `getAppArgsC`), `classesCtorsC` → `classCtorsOfC` → `classCtorOfC`
+→ `classFieldsAgreeC` → `classNodesAgreeC` (over `targetPiDomsWithC`), `classFieldsOfC`,
+`classFormerTyC` (over `familyTelescopeC` and the cached `instLevelParams`), `classConstOkC`,
+`classRecTyCheckC`/`classRecTyOkC`/`classRecTysOkC`, `classRuleCheckC`/`classRulesOkC`/
+`classRecsRulesOkC` (the rule typed at the rule-less recursors' overlay with `sharedOpsRuleR`'s
+two flushes inline), and the pure generators `ClassGen.{major,motiveTy,ihParts,minorTy,
+prefixBinders}C`, `classGenRecTyC`, `classGenRuleC` over `openPisAtFvarsC`, `instPisWithC`,
+`targetPiDomsWithC`, `closeTelescopeC` and `closeLamsC` (each domain abstracted once instead of
+the whole remaining telescope per binder).  `classFeROvl` and `blockRecInfosBare` moved to the
+cached tier with it.
+
+**The walk.**  `targetAbsC names lvls holes` (`Cached/ExprOpsC.lean`): the section's idiom with
+no cutoff (no field records which constants a node mentions), like `nestOccC`: the leaves decided
+directly, a compound node probed `withExclusive`, the pointer-keyed memo; `targetAbsP_spec`,
+`targetAbsC_spec` (`IndWalksC.lean`).  The pure loops `instPisWithC` and `targetPiDomsWithC` open
+by `instantiate1C` (`instPisWithC_eq`, `targetPiDomsWithC_eq`).  `familyTelescopeC` joins
+`Cached/IndPositivity.lean` (`familyTelescopeC_eq`, `WalkersC.lean`); `checkConstantValC`,
+`opSIxC` and `unresolvedConstsErrorLC` move from `CheckerC` to the new `Cached/IndPass.lean`
+(L3's placement, so the merge is a dedup).
+
+**The relation is an equation.**  The twin mirrors the specification step for step, so
+`genRecCheckC_eq : genRecCheckC mode fe … = genRecCheck (shadowOpsC mode) fe …`
+(`Verify/Cached/IndRecC.lean`, 262 lines, 32 lemmas bottom up), each closed by `simp only` with
+the callees' equations and the walks' spec lemmas, plus `rfl` where the two `match`es are
+different auxiliary matchers; the rule check needs `bind_assoc`/`pure_bind` for the inlined
+flushes.  `checkBlockTailS_run` (`GenRecC.lean`), `checkBlockTailS_twin` (`ViewCongr.lean`) and
+`genRecCheck_recFresh` (`PushChain.lean`, now stated about the twin) rewrite by it once;
+`genRecCheckS_spec` is unchanged.  The one-pass opener's equations (`openPisAtFvarsGoC_eq`,
+`openPisAtFvarsFGo_none`, `openPisAtFvarsC_eq`) move from `DiscC4.lean` to `IndWalksC.lean`:
+importing `DiscC4` from a module the driver reaches links `Grind` and `Lean.Meta` into the binary
+(19 → 135 MB).  The binary stays at 19.3 MB, no `initialize_Lean*` symbol.
+
+**The specification made simpler.**  The rule stage (`classRuleCheck`, `classRuleOk`,
+`classRulesOk`, `classRecsRulesOk`) drops its `StructWalkers` argument and calls
+`Expr.constsResolveF`; `ClassRuleRun` drops it too.  `ShadowOps.walkers` is now read by nothing;
+`StructWalkers` itself stays for the stream-recursor check and the tables (L5's), and goes with
+whichever of L4/L5 lands second.  `targetAbs`'s plain memo walk (`targetAbsGo`, `targetAbsFast`,
+`TargetAbsMemoInv`, its `@[csimp]`) was unreached and is deleted; the definition stays as the
+specification.
+
+**The reach gate.**  734 → 697 reached plain declarations: the recursor stage's specification
+(`genRecCheck` and its callees, the generators, `closeLams`, `targetPiDomsWith`,
+`eraseFVarTys`, `targetCtorAt`, …) and `targetAbsFast`/`targetAbsGo` left the allowlist (37
+entries); no new reach.
+
+**Numbers** (`perf stat -e instructions:u`, one run each, `--jobs=1`, verified; master
+367faa1e9 → the lane; the same verdicts everywhere):
+
+| run | master | lane | change |
+|---|---|---|---|
+| init-full | 374.904 G | 374.538 G | −0.10 % |
+| grind-ring-5 | 13.148 G | 13.115 G | −0.25 % |
+| `BvStruct` module | 431.950 G | 431.371 G | |
+| `Empty` module | 429.648 G | 429.284 G | |
+| `BvStruct` − `Empty` | 2.301 G | 2.087 G | −9.3 % |
+| e2e `prop_struct_proj_wide` | 492.9 M | 427.1 M | −13.3 % |
+
+`abstract1Go`'s share of `prop_struct_proj_wide` (frame-pointer builds of both trees,
+`perf record -e instructions:u --call-graph fp`, inclusive): 9.9 % on master, absent on the lane
+(the stage's closers now run `abstractRangeC`, 0.17 % inclusive).  The recursor stage itself
+went from 12.0 % (`genRecCheck`) to 5.7 % (`genRecCheckC`); `depthGo` (positivity, L2/L7) is now
+the largest plain walk at 24 %.
+
+**Gates.**  `lake build`, `lake test` warning-free; `tests/arena.sh` passes (e2e 558/558, arena
+tutorial 90/92 as on master, the reach gate at 697, the shake gate with one measured fallback
+`IndRecC` → `CheckerC`); the OVERVIEW and whitepaper citations of `RecCheck.lean`, `GenRec.lean`
+and `ViewCongr.lean` repointed (moved lines; `classRuleCheck`'s signature lost its walker).
+
 ## TASK #498 — L3: the block pass and the classes run cached twins (2026-11-09, agent/498-l3)
 
-**The twins** (new module `Cached/IndPass.lean`, monomorphic `(mode) (fe)` `CheckCM`
-definitions over `coreKnotI` and the cached walks, no operations record):
+**The twins** (new module `Cached/IndBlock.lean`, above L4's `IndRec.lean`; monomorphic
+`(mode) (fe)` `CheckCM` definitions over `coreKnotI` and the cached walks, no operations record):
 
 | twin | specification | cached walks it runs |
 |---|---|---|
 | `checkBlockIndsC` → `checkBlockTeleC`/`checkBlockTelesC`, `checkBlockAgreeC`, `checkBlockDomsAtC` | `checkBlockIndsF` & co. | `checkConstantValC`, `openPisAtFvarsC`, the core's `defeq` |
 | `checkBlockCtorsC` → `checkSumCtorsC` → `checkSumCtorC`, `checkStructDomsAtC`, `checkStructFieldSortsC` | `checkBlockCtorsF`, `checkSumCtor(s)F`, `checkStructDomsAtFA`, `checkStructFieldSortsIFA` | `checkConstantValC`, `openPisAtFvarsC`, `getAppArgsC` (the residual's spine read once, the specification reads it three times), `constsResolveFC` |
 | `checkBlockIdxSortsC` (the tail's first step) | `checkBlockIdxSortsF` | `openPisAtFvarsC`, the array field-sort walk (`checkStructFieldSortsIFA_eq`) |
-| `checkBlockClassesC` → `classReadC` (`classReadSlotsC`, `classReadMinorC`), `classKeyOfC` (`classKeyCanonC`, `targetCanonParamsC`), `classMajorsC` → `targetMajorOfC`, `targetOutsideInstC`, `targetMajorPinsC`, `targetPinTysC` | `checkBlockClasses` & co. (`ClassRead.lean`, `GenRec.lean`, `RecCheck.lean`) | `openPisAtFvarsC`, `instantiate1C`, `getAppArgsC`, `replaceFVarsC`, `nestOccC`, `instLevelParams`, `instPisWithC` |
-| `familyTelescopeC`, `checkSpineAtC`, `familyKeyCheckC` (in `Cached/IndPositivity.lean`, the `Positivity.lean` twins, where positivity can use them too) | `familyTelescope`, `checkSpineAt`, `familyKeyCheck` | `reducedFormerC`, `instantiate1C`, `instLevelParams` |
-| `instPisWithC` (`Cached/ExprOpsC.lean`, a pure loop) | `instPisWith` | `instantiate1C` |
+| `checkBlockClassesC` → `classReadC` (`classReadSlotsC`, `classReadMinorC`), `classKeyOfC` (`classKeyCanonC`), `classMajorsC` → `targetMajorOfC`, `targetOutsideInstC`, `targetMajorPinsC`, `targetPinTysC` | `checkBlockClasses` & co. (`ClassRead.lean`, `GenRec.lean`, `RecCheck.lean`) | `openPisAtFvarsC`, `instantiate1C`, `getAppArgsC`, L4's `targetCanonParamsC` (`replaceFVarsC`), `nestOccC`, `instLevelParams`, `instPisWithC` |
+| `checkSpineAtC`, `familyKeyCheckC` (in `Cached/IndPositivity.lean`, next to L4's `familyTelescopeC`, where positivity can use them) | `checkSpineAt`, `familyKeyCheck` | `familyTelescopeC`, `instantiate1C`, `instLevelParams` |
 
-Shared and unchanged: `consBlockIndsF`, `consBlockCtorsF`, `consSumCtorsF`, `blockCapsAt`,
-`structCtorResidOk`, `structPsAt`, `checkSumTele`, `classNPcOf`, `classOfMotiveVar` (no `Expr`
-walk; spines and lists).  `checkConstantValC` with `unresolvedConstsErrorLC` and `opSIxC` moved
-from `CheckerC.lean` to the head of `IndPass.lean` (the twins sit below the driver).
+Shared with L4 (landed first, the same names and places both lanes chose): `checkConstantValC`
+with `unresolvedConstsErrorLC` and `opSIxC` (`Cached/IndPass.lean`), `instPisWithC`
+(`ExprOpsC`), `familyTelescopeC`, `targetCanonParamsC`, and the move of the opener's equations
+from `DiscC4.lean` to `IndWalksC.lean` (below).  Shared and unchanged: `consBlockIndsF`,
+`consBlockCtorsF`, `consSumCtorsF`, `blockCapsAt`, `structCtorResidOk`, `structPsAt`,
+`checkSumTele`, `classNPcOf`, `classOfMotiveVar` (no `Expr` walk; spines and lists).
 `checkBlockPassS` runs `checkBlockIndsC`, `checkBlockCtorsC`, `checkBlockClassesC`;
 `checkBlockTailS` runs `checkBlockIdxSortsC`.
 
 **The relation.**  Every twin mirrors its specification at `sharedOpsC`, so each is an
-equation (`Verify/Cached/IndPassC.lean`, 221 lines, 26 equations): unfold both sides,
+equation (`Verify/Cached/IndBlockC.lean`, 23 equations, ≈ 200 lines): unfold both sides,
 rewrite the walks by their spec lemmas and the callees by their equations, close by `rfl`
 (where the two sides' `match`es compile to different matchers).  The driver proofs
 (`checkBlockPassS_run`, `checkBlockPassS_twin`, `checkBlockPassS_push`, `checkBlockTailS_run`,
@@ -111375,23 +111452,26 @@ against `openPisAtFvarsC_eq` by importing `Verify/Cached/DiscC4.lean`; through `
 `ViewCongr` (which the driver imports) the binary then linked `DiscC1`–`DiscC4`, `Grind`,
 `GrindAttr` and with them `Lean.Meta`: 19 → 135 MB, and every run paid their module
 initialisers, +110 … +160 M instructions (`prop_struct_proj_wide` +33 %, grind-ring-5 +1.2 %).
-`openPisAtFvarsGoC_eq`, `openPisAtFvarsFGo_none` and `openPisAtFvarsC_eq` moved to the end of
-`Verify/Cached/IndWalksC.lean` (`DiscC4` imports it).  The new gate `tests/binary-link.sh` (in
-`tests/arena.sh`) fails when the built binary carries any `initialize_Lean…` symbol.
+The opener's equations moved to `IndWalksC.lean` (L4 made the same move).  The new gate
+`tests/binary-link.sh` (in `tests/arena.sh`, OVERVIEW §12) fails when the built binary carries
+any `initialize_Lean…` symbol.
 
-**The reach gate.**  734 → 711 reached plain declarations; removed: `checkBlockIndsF`,
-`checkBlockTeleF`, `checkBlockTelesF`, `checkBlockAgreeF`, `checkBlockDomsAtF`,
-`checkBlockCtorsF`, `checkSumCtorF`, `checkSumCtorsF`, `checkStructDomsAtFA`,
-`checkStructFieldSortsIF`, `checkStructFieldSortsIFA`, `checkBlockIdxSortsF`,
+**The reach gate and the memo walks.**  On L1's tree 734 → 711 (the pass's and the classes'
+specification: `checkBlockIndsF`, `checkBlockTeleF`, `checkBlockTelesF`, `checkBlockAgreeF`,
+`checkBlockDomsAtF`, `checkBlockCtorsF`, `checkSumCtorF`, `checkSumCtorsF`,
+`checkStructDomsAtFA`, `checkStructFieldSortsIF(A)`, `checkBlockIdxSortsF`,
 `checkBlockClasses`, `classRead`, `classReadSlots`, `classReadMinor`, `classKeyOf`,
 `classKeyCanon`, `classMajors`, `targetMajorOf`, `targetOutsideInst`, `targetMajorPins`,
-`targetPinTys`.  No `@[csimp]` memo walk became unreached: `openPisAtFvars`, `instantiate1`,
-`replaceFVars` (`targetParamsDefEq`), `nestOcc`, `instantiateLevelParams`, `familyTelescope`,
-`checkSpineAt`, `familyKeyCheck` and `instPisWith` are still run by positivity and the recursor
-stage (L2, L4); no memo walk is deleted by this lane.
+`targetPinTys`).  Merged with L4 (697 on master): 668.  With both stages cached nothing executed
+reaches `Expr.constsResolveF` any more, nor `checkConstantValF`, `unresolvedConstsErrorL` and
+`targetCanonParams`: the `constsResolveF` memo walk (`constsResolveFGo`, `constsResolveFFast`,
+`CRFMemoInv`, its `@[csimp]`, `Kernel/DeclCheck.lean`) is deleted; the definition stays as the
+specification.  The other memo walks (`openPisAtFvars`, `instantiate1`, `nestOcc`,
+`replaceFVars`, `instantiateLevelParams`, `mentionsAnyConst`) are still run by positivity (L2)
+and the tail (L5).
 
-**Numbers** (`perf stat -e instructions:u`, one run each, `--jobs=1`, verified; master
-367faa1e9 → the lane):
+**Numbers** (`perf stat -e instructions:u`, one run each, `--jobs=1`, verified; L1's master
+367faa1e9 → the lane before the merge with L4):
 
 | run | master | lane | change |
 |---|---|---|---|
@@ -111402,6 +111482,11 @@ stage (L2, L4); no memo walk is deleted by this lane.
 | `BvStruct` − `Empty` | 2.266 G | 2.280 G | (the module runs move by ~20 M run to run, L1's record) |
 | e2e `prop_struct_proj_wide` | 492.78 M | 488.76 M | −0.8 % |
 
-The pass and the classes were cheap already (the cost of the inductive check is in positivity,
-the recursor stage and the tables: L2, L4, L5); the lane is about the reach, not speed.  The same
-verdicts everywhere.
+The pass and the classes were cheap already (the inductive check's cost is in positivity, the
+recursor stage and the tables); the lane is about the reach, not speed.  The same verdicts
+everywhere.
+
+**Gates.**  `lake build`, `lake test` warning-free; `tests/arena.sh` passes on the merged tree
+(e2e 558/558, arena tutorial 90/92 as on master, the reach gate at 668, the binary link gate);
+the shake gate with one measured fallback (`IndBlockC` → `CheckerC`); one OVERVIEW link
+repointed.

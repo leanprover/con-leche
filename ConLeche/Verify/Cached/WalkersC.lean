@@ -100,6 +100,12 @@ theorem reducedFormerC_eq (mode : CheckMode) (fe : FEnv) (cv : ConstantVal) (n :
     reducedFormerC mode fe cv n = reducedFormer (sharedOpsC mode fe) fe.env cv n := by
   simp only [reducedFormerC, reducedFormer, whnfTelescopeC_eq, Expr.closeTelescopeC_eq]
 
+/-- **The cached family telescope is `familyTelescope` at the shared
+operations.** -/
+theorem familyTelescopeC_eq (mode : CheckMode) (fe : FEnv) (cv : ConstantVal) (caps : IndCaps) :
+    familyTelescopeC mode fe cv caps = familyTelescope (sharedOpsC mode fe) fe.env cv caps := by
+  simp only [familyTelescopeC, familyTelescope, reducedFormerC_eq]
+
 /-- **The cached `is_rec` is `blockIsRec`.** -/
 theorem blockIsRecC_eq (p : BlockShape) : blockIsRecC p = blockIsRec p := by
   simp only [blockIsRecC, blockIsRec, Expr.piDomsMentionAnyC_spec]

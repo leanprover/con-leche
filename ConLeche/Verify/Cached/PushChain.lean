@@ -1,6 +1,6 @@
 module
 
-import ConLeche.Verify.Cached.IndPassC
+import ConLeche.Verify.Cached.IndBlockC
 import ConLeche.Verify.Inductives.BlockShapeInv
 import ConLeche.Verify.Inductives.DirectInv
 public import ConLeche.Verify.Cached.DeclPushes
@@ -8,6 +8,7 @@ public import ConLeche.Verify.EnvBound
 import ConLeche.Verify.EnvWF
 import ConLeche.Verify.CheckerF
 import ConLeche.Verify.Cached.WalkersC
+import ConLeche.Verify.Cached.IndRecC
 
 public section
 
@@ -336,14 +337,16 @@ theorem blockRecNameSetOk_nodup {p : BlockShape} (h : blockRecNameSetOk p = true
   intro x hx
   exact List.elem_iff.mp (List.all_eq_true.mp hwant x hx)
 
-/-- The generated stage's run says the records' names are distinct and fresh at the constructors'
-index (the generated constant's lookup and the record pins). -/
+/-- The cached generated stage's run says the records' names are distinct and fresh at the
+constructors' index (the generated constant's lookup and the record pins; through
+`genRecCheckC_eq`). -/
 theorem genRecCheck_recFresh (mode : CheckMode) (fe : FEnv)
     (p : BlockShape) (nested : Bool) (params : List Expr) (tbl : List NestCtorNf)
     (rd : ClassRead) (Ms₀ : List TargetMajor)
     (block : List ConstantInfo) :
-    Yields (genRecCheck (shadowOpsC mode) fe p nested params tbl rd Ms₀ block)
+    Yields (genRecCheckC mode fe p nested params tbl rd Ms₀ block)
       (fun _ => (p.recs.map (·.cvR.name)).Nodup ∧ ∀ rc ∈ p.recs, fe.find? rc.cvR.name = none) := by
+  rw [genRecCheckC_eq]
   refine Yields.mono (genRecCheck_names (shadowOpsC mode) fe
     p nested params tbl rd Ms₀ block) fun out hout => ?_
   obtain ⟨hnd, -, hall⟩ := hout

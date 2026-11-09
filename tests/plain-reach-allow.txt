@@ -141,7 +141,6 @@ ConLeche.divModTypePins
 # ConLeche.Kernel.CheckerBase — small helpers shared with the cached driver
 ConLeche.Expr.hasStrLitGo
 ConLeche.unresolvedConstsError
-ConLeche.unresolvedConstsErrorL
 
 # ConLeche.Kernel.Core — O(1)/O(spine) readers and fuel constants shared with the cached knot
 ConLeche.Expr.headIsProj
@@ -212,10 +211,6 @@ ConLeche.stringTyOk
 ConLeche.teleArityOk
 
 # ConLeche.Kernel.DeclCheck — index guards over environment lookups and pinned names
-ConLeche.Expr.constsResolveF
-ConLeche.Expr.constsResolveFFast
-ConLeche.Expr.constsResolveFGo
-ConLeche.checkConstantValF
 ConLeche.divModEnvGuardF
 ConLeche.installBasisDeclF
 ConLeche.natOpCodF
@@ -505,42 +500,14 @@ ConLeche.classOfMotiveVar  # ConLeche.Kernel.Inductives.ClassRead
 ConLeche.instInhabitedClassKey.default  # ConLeche.Kernel.Inductives.ClassRead
 ConLeche.instInhabitedClassSlot.default  # ConLeche.Kernel.Inductives.ClassRead
 ConLeche.Expr.piBinders  # ConLeche.Kernel.Inductives.FieldTele
-ConLeche.ClassGen.ihParts  # ConLeche.Kernel.Inductives.GenRec
-ConLeche.ClassGen.major  # ConLeche.Kernel.Inductives.GenRec
-ConLeche.ClassGen.minorTy  # ConLeche.Kernel.Inductives.GenRec
 ConLeche.ClassGen.motVar  # ConLeche.Kernel.Inductives.GenRec
-ConLeche.ClassGen.motiveTy  # ConLeche.Kernel.Inductives.GenRec
-ConLeche.ClassGen.prefixBinders  # ConLeche.Kernel.Inductives.GenRec
 ConLeche.ClassGen.slotVar  # ConLeche.Kernel.Inductives.GenRec
 ConLeche.ClassSlot.isMinor  # ConLeche.Kernel.Inductives.GenRec
-ConLeche.blockRecInfosBare  # ConLeche.Kernel.Inductives.GenRec
-ConLeche.classConstOk  # ConLeche.Kernel.Inductives.GenRec
-ConLeche.classCtorOf  # ConLeche.Kernel.Inductives.GenRec
-ConLeche.classCtorsOf  # ConLeche.Kernel.Inductives.GenRec
-ConLeche.classFeROvl  # ConLeche.Kernel.Inductives.GenRec
-ConLeche.classFieldsAgree  # ConLeche.Kernel.Inductives.GenRec
-ConLeche.classFieldsOf  # ConLeche.Kernel.Inductives.GenRec
-ConLeche.classFormerTy  # ConLeche.Kernel.Inductives.GenRec
-ConLeche.classGenRecTy  # ConLeche.Kernel.Inductives.GenRec
-ConLeche.classGenRule  # ConLeche.Kernel.Inductives.GenRec
 ConLeche.classLeafAt  # ConLeche.Kernel.Inductives.GenRec
 ConLeche.classMinorSlot  # ConLeche.Kernel.Inductives.GenRec
 ConLeche.classNPcOf  # ConLeche.Kernel.Inductives.GenRec
-ConLeche.classNodesAgree  # ConLeche.Kernel.Inductives.GenRec
 ConLeche.classRecOf  # ConLeche.Kernel.Inductives.GenRec
-ConLeche.classRecTyCheck  # ConLeche.Kernel.Inductives.GenRec
-ConLeche.classRecTyOk  # ConLeche.Kernel.Inductives.GenRec
-ConLeche.classRecTysOk  # ConLeche.Kernel.Inductives.GenRec
-ConLeche.classRecsRulesOk  # ConLeche.Kernel.Inductives.GenRec
-ConLeche.classRuleCheck  # ConLeche.Kernel.Inductives.GenRec
-ConLeche.classRuleOk  # ConLeche.Kernel.Inductives.GenRec
-ConLeche.classRulesOk  # ConLeche.Kernel.Inductives.GenRec
 ConLeche.classSeeds  # ConLeche.Kernel.Inductives.GenRec
-ConLeche.classStreamRecs  # ConLeche.Kernel.Inductives.GenRec
-ConLeche.classesCtors  # ConLeche.Kernel.Inductives.GenRec
-ConLeche.classesNfs  # ConLeche.Kernel.Inductives.GenRec
-ConLeche.closeLams  # ConLeche.Kernel.Inductives.GenRec
-ConLeche.genRecCheck  # ConLeche.Kernel.Inductives.GenRec
 ConLeche.Expr.appHole?  # ConLeche.Kernel.Inductives.Positivity
 ConLeche.Expr.depth  # ConLeche.Kernel.Inductives.Positivity
 ConLeche.Expr.depthGo  # ConLeche.Kernel.Inductives.Positivity
@@ -603,24 +570,14 @@ ConLeche.reducedFormer  # ConLeche.Kernel.Inductives.Positivity
 ConLeche.whnfTelescope  # ConLeche.Kernel.Inductives.Positivity
 ConLeche.whnfWalkFuel  # ConLeche.Kernel.Inductives.Positivity
 ConLeche.Expr.abstractPrefix  # ConLeche.Kernel.Inductives.RecCheck
-ConLeche.Expr.eraseFVarTys  # ConLeche.Kernel.Inductives.RecCheck
 ConLeche.auxRuleFire  # ConLeche.Kernel.Inductives.RecCheck
 ConLeche.blockNestedBit  # ConLeche.Kernel.Inductives.RecCheck
 ConLeche.blockRecInfosTF  # ConLeche.Kernel.Inductives.RecCheck
 ConLeche.generatedRules  # ConLeche.Kernel.Inductives.RecCheck
 ConLeche.instInhabitedTargetMajor.default  # ConLeche.Kernel.Inductives.RecCheck
 ConLeche.recKExpected  # ConLeche.Kernel.Inductives.RecCheck
-ConLeche.targetAbsFast  # ConLeche.Kernel.Inductives.RecCheck
-ConLeche.targetAbsGo  # ConLeche.Kernel.Inductives.RecCheck
-ConLeche.targetCanonParams  # ConLeche.Kernel.Inductives.RecCheck
-ConLeche.targetClassMatch  # ConLeche.Kernel.Inductives.RecCheck
-ConLeche.targetCtorAt  # ConLeche.Kernel.Inductives.RecCheck
 ConLeche.targetCtorsOf  # ConLeche.Kernel.Inductives.RecCheck
 ConLeche.targetHoles  # ConLeche.Kernel.Inductives.RecCheck
-ConLeche.targetK53  # ConLeche.Kernel.Inductives.RecCheck
-ConLeche.targetMajorNfs  # ConLeche.Kernel.Inductives.RecCheck
-ConLeche.targetParamsDefEq  # ConLeche.Kernel.Inductives.RecCheck
-ConLeche.targetPiDomsWith  # ConLeche.Kernel.Inductives.RecCheck
 ConLeche.targetRecPins  # ConLeche.Kernel.Inductives.RecCheck
 ConLeche.generatedFire  # ConLeche.Kernel.Inductives.StreamRecs
 ConLeche.recDomsAt  # ConLeche.Kernel.Inductives.StreamRecs
