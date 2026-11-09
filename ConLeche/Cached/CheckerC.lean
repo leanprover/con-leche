@@ -1,7 +1,7 @@
 module
 
 public import ConLeche.Kernel.Inductives.BlockTail
-public import ConLeche.Cached.IndRec
+public import ConLeche.Cached.IndBlock
 public import ConLeche.Cached.IndTail
 
 @[expose] public section
@@ -169,11 +169,11 @@ environment, the classes, and the positivity check walking every class
 (the members' root frame first). -/
 def checkBlockPassS (fe : FEnv) (p₀ : BlockShape) (isRec : Bool) :
     CheckCM (BlockPass FEnv) := do
-  let (fe₁, p₁) ← checkBlockIndsF (sharedOpsC mode fe) fe p₀ isRec
+  let (fe₁, p₁) ← checkBlockIndsC mode fe p₀ isRec
   flushC
-  checkBlockCtorsF (sharedOpsC mode fe₁) fe₁ fe₁ p₁ p₁.members
+  checkBlockCtorsC mode fe₁ fe₁ p₁ p₁.members
   let (ctx, holes) ← blockNestCtxC p₁ fe₁.find?
-  let (rd, Ms) ← checkBlockClasses (sharedOpsC mode fe₁) fe₁ p₁ ctx.params
+  let (rd, Ms) ← checkBlockClassesC mode fe₁ p₁ ctx.params
   let (outs, pos) ← checkBlockPositivityC mode fe₁ fe₁.find? p₁
   let st ← nestSeedsC mode fe₁ ctx (classSeedsC ctx holes Ms) pos
   pure ⟨fe₁, p₁, nestOutKinds outs, ctx.params, rd, Ms, st.ctorNfs⟩

@@ -11,7 +11,7 @@ public section
 # The cached tail of the inductive check is the specification's (task #498)
 
 The twins of `ConLeche/Cached/IndTail.lean` mirror the specification
-(`checkBlockIdxSortsF`, `blockRecInfosTF`, `streamRecsCheck`,
+(`blockRecInfosTF`, `streamRecsCheck`,
 `checkBlockTablesF`) step by step at the shared operations `sharedOpsC`,
 with the cached walks in place of the plain ones; each is equal to it, by
 the walks' equations and unfolding.  The cached driver's lemmas
@@ -24,25 +24,6 @@ namespace ConLeche.Cached
 open ConLeche
 
 variable (mode : CheckMode)
-
-/-! ## The index sorts -/
-
-theorem checkStructFieldSortsIC_eqF (fe : FEnv) (isProp large : Bool) (s : Level) (nP : Nat)
-    (fvs idxArgs : List Expr) : ∀ j,
-      checkStructFieldSortsIC mode fe isProp large s nP fvs idxArgs j =
-        checkStructFieldSortsIF (sharedOpsC mode fe) fe isProp large s nP fvs idxArgs j
-  | 0 => rfl
-  | j + 1 => by
-    simp only [checkStructFieldSortsIC, checkStructFieldSortsIF,
-      checkStructFieldSortsIC_eqF fe isProp large s nP fvs idxArgs j]
-    rfl
-
-theorem checkBlockIdxSortsC_eq (fe : FEnv) (p : BlockShape) :
-    ∀ ms, checkBlockIdxSortsC mode fe p ms = checkBlockIdxSortsF (sharedOpsC mode fe) fe p ms
-  | [] => rfl
-  | ms :: rest => by
-    simp only [checkBlockIdxSortsC, checkBlockIdxSortsF, openPisAtFvarsC_eq,
-      checkStructFieldSortsIC_eqF, checkBlockIdxSortsC_eq fe p rest]
 
 /-! ## The generated recursors' records -/
 

@@ -221,6 +221,10 @@ if tests/shake.sh; then :; else fail=1; fi
 # binary reaches is allowlisted with its reason.  Needs the built tree.
 if tests/plain-reach.sh; then :; else fail=1; fi
 
+# THE BINARY LINK GATE (task #498 L3): the binary links no module of the `Lean`
+# package (a proof module the driver imports must not bring `Lean.Meta` along).
+if tests/binary-link.sh; then :; else fail=1; fi
+
 # THE OLEAN GATE: `--olean` on the committed fixtures of tests/olean/lib and
 # on corrupted copies of them, every verdict pinned.
 if tests/olean.sh; then :; else fail=1; fi

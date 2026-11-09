@@ -1,5 +1,6 @@
 module
 
+import ConLeche.Verify.Cached.IndBlockC
 import ConLeche.Verify.Inductives.BlockShapeInv
 import ConLeche.Verify.Inductives.DirectInv
 public import ConLeche.Verify.Cached.DeclPushes
@@ -246,7 +247,8 @@ theorem checkBlockPassS_push (mode : CheckMode) {env : Env} {fe : FEnv}
         (∀ ms ∈ p₀.members, fe.find? ms.cvT.name = none) ∧
         ∀ n, r.env₁.find? n = none → n ∉ p₀.members.map (·.cvT.name) ∧ fe.find? n = none) := by
   unfold checkBlockPassS
-  simp only [blockNestCtxC_eq, checkBlockPositivityC_eq, nestSeedsC_eq, classSeedsC_eq]
+  simp only [checkBlockIndsC_eq, checkBlockCtorsC_eq, checkBlockClassesC_eq, blockNestCtxC_eq,
+    checkBlockPositivityC_eq, nestSeedsC_eq, classSeedsC_eq]
   refine Yields.bind' (checkBlockIndsF_fresh _ fe p₀ isRec) fun r₁ h₁ => ?_
   obtain ⟨fe₁, p₁⟩ := r₁
   obtain ⟨⟨s, hps⟩, hfe₁, hfr⟩ := h₁

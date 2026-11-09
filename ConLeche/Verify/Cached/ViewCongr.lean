@@ -1,6 +1,7 @@
 module
 
 public import ConLeche.Cached.ParsedC
+import ConLeche.Verify.Cached.IndBlockC
 import ConLeche.Verify.Cached.KnotCongr
 import ConLeche.Verify.Cached.PinOverlay
 import ConLeche.Verify.Cached.PinsC
@@ -1143,7 +1144,8 @@ theorem checkBlockPassS_twin {fe₁ fe₂ : FEnv} (ht : Twin fe₁ fe₂)
     RelRun (PassRel fe₁ fe₂) (checkBlockPassS mode fe₁ p₀ isRec)
       (checkBlockPassS mode fe₂ p₀ isRec) := by
   unfold checkBlockPassS
-  simp only [blockNestCtxC_eq, checkBlockPositivityC_eq, nestSeedsC_eq, classSeedsC_eq]
+  simp only [checkBlockIndsC_eq, checkBlockCtorsC_eq, checkBlockClassesC_eq, blockNestCtxC_eq,
+    checkBlockPositivityC_eq, nestSeedsC_eq, classSeedsC_eq]
   refine RelRun.bind (checkBlockIndsF_twin ht.find ht.findTable p₀ isRec) ?_
   rintro ⟨a₁, p₁⟩ ⟨a₂, p₁'⟩ ⟨⟨L, Q, rfl, rfl⟩, he⟩
   simp only at he
@@ -1168,7 +1170,8 @@ theorem checkBlockTailS_twin {fe₁ fe₂ : FEnv} (ht : Twin fe₁ fe₂)
   subst hq₂
   unfold checkBlockTailS
   dsimp only
-  simp only [checkBlockIdxSortsC_eq, streamRecsCheckC_eq, checkBlockTablesC_eq, genRecCheckC_eq]
+  simp only [streamRecsCheckC_eq, checkBlockTablesC_eq, genRecCheckC_eq]
+  simp only [checkBlockIdxSortsC_eq]
   generalize p.memberCtors = memberCtors
   have htL := ht.pushDelta L Q
   have h := sharedOpsC_envFree mode (FEnv.pushDelta L Q fe₂)

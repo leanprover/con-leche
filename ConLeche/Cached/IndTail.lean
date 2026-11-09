@@ -1,7 +1,7 @@
 module
 
 public import ConLeche.Cached.IndPass
-public import ConLeche.Cached.IndPositivity
+public import ConLeche.Kernel.Inductives.RecCheck
 
 @[expose] public section
 
@@ -10,8 +10,8 @@ public import ConLeche.Cached.IndPositivity
 
 The production twins of the block check's tail (`checkBlockTail`,
 `ConLeche/Kernel/Inductives/BlockTail.lean`) that the cached driver
-(`checkBlockTailS`, `ConLeche/Cached/CheckerC.lean`) runs: the index
-binders' sorts (`checkBlockIdxSortsF`), the generated recursors' records
+(`checkBlockTailS`, `ConLeche/Cached/CheckerC.lean`) runs after the
+recursor stage: the generated recursors' records
 (`blockRecInfosTF`), the stream's recursors against the generated ones
 (`streamRecsCheck`, `ConLeche/Kernel/Inductives/StreamRecs.lean`) and the
 projection tables' checks (`checkBlockTablesF`).  Monomorphic `CheckCM`
@@ -27,19 +27,6 @@ namespace ConLeche.Cached
 open ConLeche
 
 variable (mode : CheckMode)
-
-/-! ## The index binders' sorts -/
-
-/-- The cached `checkBlockIdxSortsF`: each member's telescope opened by
-`openPisAtFvarsC`, the index binders' sorts by `checkStructFieldSortsIC`
-(`IndPositivity.lean`). -/
-def checkBlockIdxSortsC (fe₁ : FEnv) (p : BlockShape) : List MemberShape → CheckCM Unit
-  | [] => pure ()
-  | ms :: rest => do
-    let tq ← unwrapOr (openPisAtFvarsC (p.nP + ms.nIdx) ms.cvT.type 0)
-      (.internal "direct rec: type former telescope")
-    checkStructFieldSortsIC mode fe₁ true false p.resSort p.nP (tq.1.drop p.nP) [] ms.nIdx
-    checkBlockIdxSortsC fe₁ p rest
 
 /-! ## The generated recursors' records -/
 

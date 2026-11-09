@@ -1968,7 +1968,7 @@ def piResidual (e : Expr) (args : List Expr) : Option Expr :=
 
 /-- The cached tier's one-pass opening loop: `openPisAtFvarsFGo` with
 each domain and the residual instantiated by `instantiateListC`
-(`openPisAtFvarsGoC_eq`, `ConLeche/Verify/Cached/DiscC4.lean`). -/
+(`openPisAtFvarsGoC_eq`, `ConLeche/Verify/Cached/IndWalksC.lean`). -/
 def _root_.ConLeche.openPisAtFvarsGoC (acc : List Expr) :
     Nat → Expr → Nat → Option (List Expr × Expr)
   | 0, e, _ => some ([], instantiateListC e acc)
