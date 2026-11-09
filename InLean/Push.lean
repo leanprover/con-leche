@@ -29,6 +29,11 @@ def addConst (env : Kernel.Environment) (ci : ConstantInfo) : Kernel.Environment
 def markQuot (env : Kernel.Environment) : Kernel.Environment :=
   env.markQuotInit
 
+/-- Is the quotient package declared (core's private `isQuotInit`, the flag
+`markQuot` sets)? -/
+def quotInitialized (env : Kernel.Environment) : Bool :=
+  env.isQuotInit
+
 /-- Twin of `FEnv.push`. -/
 def FEnv.push (fe : FEnv) (ci : ConstantInfo) : FEnv := { fe with env := addConst fe.env ci }
 

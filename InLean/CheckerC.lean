@@ -415,8 +415,12 @@ of the environment is `Eq`. -/
 def quotPredsOk (fe : FEnv) : Bool := (fe.find? eqName).isSome
 
 /-- Twin of `checkQuotRecordC` for Lean's `quotDecl`: the four quotient
-constants, the pins at the official kernel's level names (`quot.cpp`). -/
+constants, the pins at the official kernel's level names (`quot.cpp`).  A
+quotient declaration in an environment whose quotient package is declared
+adds nothing, as official's `environment::add_quot` (`Lean.Replay` sends one
+per quotient constant). -/
 def checkQuotC (fe : FEnv) : CheckCM Added := do
+  if quotInitialized fe.env then return { quot := true }
   unless quotPredsOk fe do
     throw (.notImplemented "quotient declaration before what it needs")
   for p in [quotPin, quotMkPin, quotLiftPin, quotIndPin] do

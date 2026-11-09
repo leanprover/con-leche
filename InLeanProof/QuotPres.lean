@@ -160,14 +160,22 @@ theorem presI_congr {fe fe' : InLean.FEnv} {L : ConLeche.Env} (hP : EnvPresI fe 
     .quotInfo ⟨⟨quotLiftPin.name, quotLiftPin.lps, quotLiftPin.type⟩, .lift⟩,
     .quotInfo ⟨⟨quotIndPin.name, quotIndPin.lps, quotIndPin.type⟩, .ind⟩]
 
-/-- **What an accepted `checkQuotC` says**: the four names fresh, the four
-pinned constants added. -/
+/-- **What an accepted `checkQuotC` says**: nothing added (the package
+declared already), or the four names fresh and the four pinned constants
+added. -/
 theorem checkQuotC_ok {fe : FEnv} {s s' : CState} {a : Added}
     (h : (checkQuotC fe).run s = .ok (a, s')) :
-    fe.env.find? quotPin.name = none ∧ fe.env.find? quotMkPin.name = none ∧
+    a.consts = #[] ∨
+    (fe.env.find? quotPin.name = none ∧ fe.env.find? quotMkPin.name = none ∧
     fe.env.find? quotLiftPin.name = none ∧ fe.env.find? quotIndPin.name = none ∧
-    a.consts = quotConstsI := by
+    a.consts = quotConstsI) := by
   simp only [checkQuotC] at h
+  cases hi : quotInitialized fe.env
+  rotate_left
+  · simp [hi, StateT.run, pure, StateT.pure, Except.pure] at h
+    exact .inl (by rw [← h.1])
+  refine .inr ?_
+  simp only [hi, Bool.false_eq_true, ↓reduceIte] at h
   cases hq : quotPredsOk fe <;>
   cases h1 : fe.env.find? quotPin.name <;> cases h2 : fe.env.find? quotMkPin.name <;>
   cases h3 : fe.env.find? quotLiftPin.name <;> cases h4 : fe.env.find? quotIndPin.name <;>
@@ -367,7 +375,14 @@ theorem markQuot_find (hlaws : EnvLaws) (E : Kernel.Environment) (n : Name) :
 /-- **The quotient group keeps the relation.** -/
 theorem quotGroupPres : QuotGroupPres := by
   intro hlaws fe L s s' a ds hP hrun hds
-  obtain ⟨h1, h2, h3, h4, ha⟩ := checkQuotC_ok hrun
+  rcases checkQuotC_ok hrun with ha | ⟨h1, h2, h3, h4, ha⟩
+  · rw [ha] at hds ⊢
+    simp only [List.mapM_nil, Option.pure_def, Option.some.injEq] at hds
+    subst hds
+    refine presI_congr hP rfl rfl rfl ?_
+    intro n
+    show (InLean.markQuot _).find? n = _
+    rw [markQuot_find hlaws]; rfl
   rw [ha] at hds ⊢
   have hfold := presI_quotFold hlaws quotConstsI.toList ds fe L (fun _ h => h) hds hP ?_
     (List.Pairwise.of_map (S := fun a b => a ≠ b) toName

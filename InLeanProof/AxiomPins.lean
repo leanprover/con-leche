@@ -709,12 +709,7 @@ info: 'InLeanProof.pinArgsI_TrS' depends on axioms: [propext,
 #print axioms InLeanProof.pinArgsI_TrS
 
 /--
-info: 'InLeanProof.wscopedBC_of_WScoped' depends on axioms: [propext,
- Classical.choice,
- Quot.sound,
- InLeanProof.Expr.mkAppData_fields,
- InLeanProof.Expr.mkData_eq,
- InLeanProof.Level.mkData_eq]
+info: 'InLeanProof.wscopedBC_of_WScoped' depends on axioms: [propext, Classical.choice, Quot.sound]
 -/
 #guard_msgs in
 #print axioms InLeanProof.wscopedBC_of_WScoped

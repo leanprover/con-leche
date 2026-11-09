@@ -475,15 +475,22 @@ theorem checkAxiomC_sorry_sim {fe : InLean.FEnv} {L : ConLeche.Env} (hJ : JobEnv
 
 /-! ## The quotient package -/
 
-/-- **What an accepted `checkQuotC` read**: `Eq` stored, the four names fresh;
-no state change. -/
+/-- **What an accepted `checkQuotC` read**: the package declared already
+(nothing added), or `Eq` stored and the four names fresh; no state change. -/
 theorem checkQuotC_run {fe : FEnv} {s s' : InLean.CState} {a : Added}
     (h : InLean.checkQuotC fe s = .ok (a, s')) :
-    InLean.quotPredsOk fe = true ∧
+    (a = { quot := true } ∧ s' = s) ∨
+    (InLean.quotPredsOk fe = true ∧
     fe.env.find? quotPin.name = none ∧ fe.env.find? quotMkPin.name = none ∧
     fe.env.find? quotLiftPin.name = none ∧ fe.env.find? quotIndPin.name = none ∧
-    a = { consts := quotConstsI, quot := true } ∧ s' = s := by
+    a = { consts := quotConstsI, quot := true } ∧ s' = s) := by
   simp only [checkQuotC] at h
+  cases hi : quotInitialized fe.env
+  rotate_left
+  · simp [hi, pure, StateT.pure, Except.pure] at h
+    exact .inl ⟨h.1.symm, h.2.symm⟩
+  refine .inr ?_
+  simp only [hi, Bool.false_eq_true, ↓reduceIte] at h
   cases hq : quotPredsOk fe <;>
   cases h1 : fe.env.find? quotPin.name <;> cases h2 : fe.env.find? quotMkPin.name <;>
   cases h3 : fe.env.find? quotLiftPin.name <;> cases h4 : fe.env.find? quotIndPin.name <;>
@@ -529,13 +536,13 @@ steps). -/
 theorem checkQuotC_sim {fe : InLean.FEnv} {L : ConLeche.Env} (hP : EnvPresI fe L)
     {pins : List ConLeche.NatOpPinSet} {a : InLean.Added} {s₀ s' : InLean.CState}
     (h : InLean.checkQuotC fe s₀ = .ok (a, s')) :
-    s' = s₀ ∧ a = { consts := quotConstsI, quot := true } ∧
-      a.consts.toList.mapM (fun ci => toDecl [ci]) = some quotRecords ∧
-      ∀ F, ∃ L', quotRecords.foldlM (ConLeche.checkDecl .verified (ConLeche.fueledOps .verified F) pins)
+    s' = s₀ ∧ ∃ ds, a.consts.toList.mapM (fun ci => toDecl [ci]) = some ds ∧
+      ∀ F, ∃ L', ds.foldlM (ConLeche.checkDecl .verified (ConLeche.fueledOps .verified F) pins)
         L = .ok L' := by
-  obtain ⟨hq, h1, h2, h3, h4, rfl, rfl⟩ := checkQuotC_run h
+  rcases checkQuotC_run h with ⟨rfl, rfl⟩ | ⟨hq, h1, h2, h3, h4, rfl, rfl⟩
+  · exact ⟨rfl, [], rfl, fun _ => ⟨L, rfl⟩⟩
   obtain ⟨-, -, -, -, -, -, -, c8, -, -⟩ := cl_axNames
-  refine ⟨rfl, rfl, quotRecords_eq, fun F => quotFold_ok ?_ ?_ ?_ ?_ ?_⟩
+  refine ⟨rfl, _, quotRecords_eq, fun F => quotFold_ok ?_ ?_ ?_ ?_ ?_⟩
   · have := find_isSome_of_pres hP (n := InLean.eqName) hq
     rwa [c8] at this
   · exact hP.none _ (FEnv_find_none h1)
@@ -632,7 +639,7 @@ theorem checkDeclKindC_sim {fe : InLean.FEnv} {L : ConLeche.Env} (hJ : JobEnvI f
     exact ⟨h1, h2, [d], by rw [h3]; exact single_mapM hd',
       single_fold hR (by rw [basisNamesOk_toDecl (fun _ h => by cases h) hd']; exact hbn)⟩
   | quotDecl =>
-    obtain ⟨rfl, rfl, hm, hF⟩ := checkQuotC_sim (pins := pins) hJ.pres h
+    obtain ⟨rfl, _, hm, hF⟩ := checkQuotC_sim (pins := pins) hJ.pres h
     obtain ⟨L', hL'⟩ := hF 0
     exact ⟨hs, TabLe.refl _, _, hm, 0, L', hL'⟩
   | mutualDefnDecl vs => exact hd.elim

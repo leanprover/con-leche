@@ -461,7 +461,9 @@ theorem quot_step {V : Type w} [ConLeche.SetTheory V] (hlaws : EnvLaws)
     checkDecl_sim_nk (decl := .quotDecl) (jobEnvI_of hlaws hR hM) (natKinds_of_modelOk hM) trivial trivial
       (fun _ _ _ _ h => by cases h) ha
   have hpres := quotGroupPres hlaws _ L {} s' a ds hR.presL hK hds
-  obtain ⟨-, h1, h2, h3, h4, rfl, -⟩ := checkQuotC_run hK
+  rcases checkQuotC_run hK with ⟨rfl, -⟩ | ⟨-, h1, h2, h3, h4, rfl, -⟩
+  · refine ⟨rfl, L, ⟨presI_congr hR.pres rfl rfl rfl fun n => markQuot_find hlaws E n,
+      projBodiesInRange_congr (fun n => markQuot_find hlaws E n) hR.proj⟩, hM, [], rfl⟩
   refine ⟨rfl, ?_⟩
   have hfresh : ∀ ci ∈ quotConstsI.toList, E.find? ci.name = none := by
     rw [quotConstsI_eq]
