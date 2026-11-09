@@ -54,6 +54,19 @@ DIR   = os.environ.get('PUBPLAN_DIR', '_tmp/m3')
 # a tree whose `rfl`s stop closing, so they stay public and the gate must not
 # ask for them again.
 FALLBACK = {
+    # task #521: the uniform install's well-formedness lemmas' public statements
+    # name `DeclBlockRun`, `BlockRun`, `MemberDeclaredWF`, `EnvWF`; the census
+    # attributes them elsewhere.  Measured by demoting both (unknown identifier
+    # `Env`, `EnvWF`, `BlockShape`, `DeclBlockWF.lean:40`).
+    ('ConLeche.Semantics.Inductives.DeclBlockWF', 'ConLeche.Semantics.Inductives.DeclBlock'),
+    ('ConLeche.Semantics.Inductives.DeclBlockWF', 'ConLeche.Verify.Inductives.BlockWF'),
+    # task #521: the axiom installs read `nonempty_shapes`, `ofReducePin_type`,
+    # `reduceElem_sort` (`Verify/StdAxiomPin`) through these two re-exports, in
+    # proofs the census does not attribute.  Measured by demoting each (unknown
+    # identifier `nonempty_shapes`, `AxiomPin.lean:179`; `ofReducePin_type`,
+    # `AxiomReduce.lean:60`).
+    ('ConLeche.Model.AxiomMem', 'ConLeche.Verify.StdAxiomPin'),
+    ('ConLeche.Model.AxiomPin', 'ConLeche.Model.AxiomMem'),
     # task #498 L4: the recursor stage's equations state the twins (`genRecCheckC`,
     # `targetCtorAtC`, …) against the specification at `sharedOpsC`.
     # Measured: demoting the edge breaks the file (unknown identifier `TargetMajor`,

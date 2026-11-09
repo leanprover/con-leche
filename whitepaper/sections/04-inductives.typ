@@ -1011,7 +1011,7 @@ assumed of the environment they extend.
   environment. Then #src("whitepaper/Fragment/Consistency.lean", 89, 98)[no closed term $e$ has] $tack e => I$; in
   particular no stored constant has type $I$
   (#src("whitepaper/Fragment/Consistency.lean", 134, 138)[at the block `inductive False : Prop`]\;
-  #src("ConLeche/Model/Fold.lean", 431, 438)[as in con-leche]).
+  #src("ConLeche/Model/Fold.lean", 435, 442)[as in con-leche]).
 ] <cor:consistency>
 
 #proof[
@@ -1039,7 +1039,7 @@ assumed of the environment they extend.
   name `False` and say that it denotes the empty set and `Eq` set
   equality, with no hypothesis about the stream (#overview(1)); and
   its acceptance is the run of a program,
-  #src("ConLeche/Model/Fold.lean", 360, 362)[the declaration fold],
+  #src("ConLeche/Model/Fold.lean", 364, 366)[the declaration fold],
   rather than a relation, so a bridge theorem turns each accepting
   run into the derivations §3 and §4 consume (@sec:left-out). The
   argument in between is the one above.

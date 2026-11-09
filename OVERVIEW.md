@@ -319,7 +319,7 @@ way.
 built-in pin, and a stream that declares `False` or `False.rec`
 differently is rejected. The theorems use exactly Lean's three standard
 axioms, `propext`, `Classical.choice` and `Quot.sound`, which the
-[axiom pin in `tests/ConLecheTests/Axioms.lean`](https://github.com/leanprover/con-leche/blob/master/tests/ConLecheTests/Axioms.lean#L95-L99)
+[axiom pin in `tests/ConLecheTests/Axioms.lean`](https://github.com/leanprover/con-leche/blob/master/tests/ConLecheTests/Axioms.lean#L97-L101)
 checks with `#print axioms` guards under `lake test`.
 
 Everything below explains how those theorems are reached.
@@ -523,6 +523,11 @@ Read from the outside in:
    ([theorem `no_proof_of_False_cached` in `ConLeche/Verify/Cached/MainC.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Verify/Cached/MainC.lean#L55-L59))
    is that model read through `checkDecls_run`
    ([theorem `checkDecls_sound` in the same file](https://github.com/leanprover/con-leche/blob/master/ConLeche/Verify/Cached/MainC.lean#L34-L37)).
+   The same run carries the environment's syntactic well-formedness
+   (`EnvWF`: stored constants closed, their level parameters declared,
+   the constants they mention stored) without the model, so that fact
+   about what the fold accepts needs no set theory
+   ([theorem `checkDecls_envWF` in `ConLeche/Semantics/DeclWF.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Semantics/DeclWF.lean#L300-L301)).
    A job's check at a view is the fold's step because the cached core
    reads its environment through the lookups alone
    ([theorem `coreKnotI_congr` in `ConLeche/Verify/Cached/KnotCongr.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Verify/Cached/KnotCongr.lean#L480-L482)).
@@ -532,13 +537,13 @@ Read from the outside in:
    recursion on a fuel parameter
    ([the entry points in `ConLeche/Kernel/TypeChecker.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/TypeChecker.lean#L29-L54));
    on exhaustion every operation throws
-   ([the fuel recursion's base case in `ConLeche/Kernel/Core.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/Core.lean#L1777-L1782)).
+   ([the fuel recursion's base case in `ConLeche/Kernel/Core.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/Core.lean#L1783-L1788)).
    Its declaration fold is what the model tier proves things about
-   ([theorem `no_proof_of_False_pure` in `ConLeche/Model/Fold.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Model/Fold.lean#L431-L438)).
+   ([theorem `no_proof_of_False_pure` in `ConLeche/Model/Fold.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Model/Fold.lean#L435-L442)).
 5. **The model tier** (`ConLeche/Model/*`, the set model of the checker)
    shows that each declaration step preserves an invariant on the
    environment
-   ([theorem `declStep_preserves` in `ConLeche/Model/Fold.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Model/Fold.lean#L289)),
+   ([theorem `declStep_preserves` in `ConLeche/Model/Fold.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Model/Fold.lean#L290)),
    and that the invariant forbids a constant of type `False`, whose
    pinned denotation is the empty set
    ([theorem `no_constant_of_False` in `ConLeche/Model/Capstone.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Model/Capstone.lean#L137-L143)).
@@ -709,7 +714,7 @@ presentation and matter for the proof:
   ([function `inferBodyIO` in `ConLeche/Kernel/Core.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/Core.lean#L1244)).
   Beyond the official kernel, the verified mode compares the opened
   bodies' full-grade types at the innermost level of a λ/λ comparison
-  ([function `defeqLams` in `ConLeche/Kernel/Core.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/Core.lean#L1387))
+  ([function `defeqBindersInner` in `ConLeche/Kernel/Core.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/Core.lean#L1371))
   and at η; the proof consumes them. Three cheap guards are the proof's
   too and never change a verdict on well-typed input: η is tried only
   against a term whose head is no λ and no `let` (a weak-head normal
@@ -737,7 +742,7 @@ presentation and matter for the proof:
   runtime's 1 GiB stack, a level costs at most about 1.2 KB of it, and
   a recursion of about a million levels or more aborts with a stack
   overflow, an error
-  ([definition `checkFuel` in `ConLeche/Kernel/Core.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/Core.lean#L1824)).
+  ([definition `checkFuel` in `ConLeche/Kernel/Core.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/Core.lean#L1830)).
   Reduction *chains* are not bounded by it: the
   `whnf` loop's δ steps, the `whnfCore` loop's β, ι and projection steps
   and the lazy-delta loop each iterate in constant native stack, a
@@ -1129,7 +1134,7 @@ own check read: a run does not see an extension of the environment. On a term wh
 constants and literals resolve at the smaller environment, the fuelled knot at the
 two environments is one run, at every entry point and every fuel, and what it returns
 resolves at the smaller one
-([theorem `knot_ext` in `ConLeche/Verify/EnvExt.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Verify/EnvExt.lean#L457-L459)).
+([theorem `knot_ext` in `ConLeche/Verify/EnvExt.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Verify/EnvExt.lean#L463-L465)).
 All the knot reads past the term is what a stored constant's record names, and a
 declaration boundary has it stored
 ([structure `StoredFacts` in `ConLeche/Verify/EnvExt/Reads.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Verify/EnvExt/Reads.lean#L28-L29)).

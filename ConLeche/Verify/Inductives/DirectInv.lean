@@ -115,16 +115,21 @@ theorem checkStructProjTable_mono {env env' : Env} {t : ProjTable}
   simp only [pure, Except.pure, bind, Except.bind]
   rw [ite_eq_left ⟨hsize, hall'⟩, ite_eq_left hTs', ite_eq_left (by rw [hT]; rfl)]
 
-/-- A table the stage checked keeps an environment well-formed. -/
-theorem direct_table_wf {env : Env} (henv : EnvWF env) {t : ProjTable}
-    (h : checkStructProjTable (m := CheckM) t env = .ok ()) :
-    EnvWF ⟨env.consts, t :: env.tables⟩ := by
+/-- **A projection table's check makes the table well formed** where it ran. -/
+theorem checkStructProjTable_tableWF {env : Env} {t : ProjTable}
+    (h : checkStructProjTable (m := CheckM) t env = .ok ()) : TableWF env t := by
   obtain ⟨⟨hsize, hall⟩, hT, -⟩ := checkStructProjTable_inv h
-  refine EnvWF.pushTable henv ⟨hT, hsize, fun i b hb => ?_⟩
+  refine ⟨hT, hsize, fun i b hb => ?_⟩
   have hmem : b ∈ t.bodies := Array.mem_of_getElem? hb
   have hb' := (Array.all_eq_true_iff_forall_mem.mp hall) b hmem
   simp only [Bool.and_eq_true, Bool.not_eq_eq_eq_not, Bool.not_true] at hb'
   exact ⟨hb'.1.1.1, hb'.1.1.2, hb'.1.2, hb'.2⟩
+
+/-- A table the stage checked keeps an environment well-formed. -/
+theorem direct_table_wf {env : Env} (henv : EnvWF env) {t : ProjTable}
+    (h : checkStructProjTable (m := CheckM) t env = .ok ()) :
+    EnvWF ⟨env.consts, t :: env.tables⟩ :=
+  EnvWF.pushTable henv (checkStructProjTable_tableWF h)
 
 
 /-! ## The block's tables -/
@@ -467,6 +472,26 @@ theorem direct_sum_ctor_typeWF {env₀ env : Env} {T : Name} {lps : List Name}
   obtain ⟨g1, g2, g3, g4⟩ := checkConstantVal_typeWF hccv
   exact ⟨g1, g2, g3, g4, checkConstantVal_litShapeAt hccv⟩
 
+/-- **One constructor's cons keeps well-formedness**: the stored constructor is a closed,
+resolving constant. -/
+theorem envWF_cons_ctor {env : Env} {cv : ConstantVal} {nP nF : Nat} (henv : EnvWF env)
+    (h1 : cv.type.hasFvar = false) (h2 : cv.type.allLevelParamsDefined cv.levelParams = true)
+    (h3 : cv.type.constsResolve env = true) (h4 : cv.type.looseBVarsBounded 0 = true)
+    (hs : LitShapeAt cv) : EnvWF ⟨.ctorInfo cv nP nF :: env.consts, env.tables⟩ :=
+  EnvWF.cons (hs _ rfl) henv (structConstWF h1 h2 (Expr.constsResolve_mono h3) h4
+    (fun _ _ _ heq => nomatch heq) (fun _ _ _ _ _ heq => nomatch heq))
+
+/-- **A checked constructor's cons keeps well-formedness**, at any well-formed environment its
+type resolves at (the constructor stage's step). -/
+theorem SumCtorRun.envWF_cons {env₀ env₁ : Env} {T : Name} {lps : List Name}
+    {nP nIdx : Nat} {resSort : Level} {isProp large : Bool} {cvC cvTa cvCa : ConstantVal}
+    {nF : Nat} {F : Nat} {sorts : List Level}
+    (h : SumCtorRun mode F env₀ env₁ T lps nP nIdx resSort isProp large cvC nF cvTa cvCa sorts)
+    {env : Env} (henv : EnvWF env) (hres : cvCa.type.constsResolve env = true) :
+    EnvWF ⟨.ctorInfo cvCa nP nF :: env.consts, env.tables⟩ := by
+  obtain ⟨g1, g2, -, g4, g5⟩ := direct_sum_ctor_typeWF h
+  exact envWF_cons_ctor henv g1 g2 hres g4 g5
+
 /-- A name fresh above the constructors' conses is fresh below them
 (#210). -/
 theorem consSumCtors_find?_none {nP : Nat} {n : Name} :
@@ -496,8 +521,7 @@ theorem envWF_consSumCtors {nP : Nat} :
     simp only [consSumCtors]
     obtain ⟨htf, htp, htr, htb, hts⟩ := hall c List.mem_cons_self
     refine envWF_consSumCtors ?_ ?_
-    · exact EnvWF.cons (hts _ rfl) henv (structConstWF htf htp (Expr.constsResolve_mono htr) htb
-        (fun _ _ _ heq => nomatch heq) (fun _ _ _ _ _ heq => nomatch heq))
+    · exact envWF_cons_ctor henv htf htp htr htb hts
     · intro c' hc'
       obtain ⟨h1, h2, h3, h4, h5⟩ := hall c' (List.mem_cons_of_mem _ hc')
       exact ⟨h1, h2, Expr.constsResolve_mono h3, h4, h5⟩
