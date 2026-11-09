@@ -116157,3 +116157,117 @@ one pass over every big literal built) and saves cycles on CCK4, where the probe
 collided: 219 G instructions, 145 G cycles against the probe's 382 G and 674 G.  Memory
 unchanged (ck318 peak 12.4 GiB both).  The remaining gaps to Lean (ck318 1.4× net instructions,
 CCK4 2.7×, McLEnumA 2×) are ground-reduction speed (#423), not the hash.
+
+## TASK #548 — a fixed queue with a head slot; protection and the growth gate removed (2026-11-09, agent/548-queue-rank)
+
+`Driver/ScheduleIO.lean` (plain IO, outside every theorem), `Driver/Cli.lean` (usage),
+`scripts/schedsim.py`, OVERVIEW, `tests/ConLecheTests/ScheduleTests.lean`.  The maintainer's goal:
+local rules in place of the stateful protection, and no starvation of large killed modules (in
+CFSG-like runs a killed giant's known size never fit while a stream of small modules kept the
+room filled, so it waited until the stream ended).
+
+**The rule (maintainer's ruling, after the simulations below).**
+* **The queue is fixed**: the start order (`shuffle`, or the graph's) gives every module its
+  position for the run.  A killed module is unstarted again at its own position (`insertAt`), not
+  moved to the front.  A resumed run's killed modules (#546) keep their positions too (so
+  `Logged.killOrder` is gone).
+* **The head slot**: one worker, whenever it has none, runs the unstarted module of the lowest
+  position (`nextHead`), whether it fits or not; it is never killed for memory.  It starts first in a
+  tick, counts against the jobs, and a slot it frees goes to its next module.
+* **The other slots** take the unstarted module of the lowest position that fits into the room
+  (`nextFit`; admission as before: reservations against the planning budget, known sizes, the
+  typical peak).
+* **An overflow** (current sets above the hard limit) kills the youngest workers by start time,
+  the head slot's left out (`victims`), until the sets fit.  A worker alone over the limit, the
+  head's or another's, gets `memory`.
+* No protection, no growth gate (`--schedule-growth` and `Opts.growth` gone, no shim), no drain;
+  #544's threads (and one thread after a threaded kill), #546's seeding, the learned sizes, the
+  hard limit with the learned plan and the estimate unchanged.  No module starves: each one in
+  turn becomes the lowest unstarted position, and the head slot then starts it.
+* Output: the kill lines as before; `head slot starts 99 MiB into a room of 82 MiB: M` where the
+  head starts a killed module that does not fit (one never started that does not fit is routine:
+  at Mathlib scale a third of the head's starts); the statistics' `protections …, starts held by
+  the growth gate` became `the head slot started N modules beyond the room`; the memory line lost
+  `protecting M (growing)`.
+
+**The simulations** (`schedsim.py --rank-compare`, `RANK_RULES`, `--rank-rules`; `_tmp/548/sim/`:
+`rank1.md`, `rank2.md`, `summary.txt`, `head.md`, `headf.md`, `headp.md`, `headp7.md`).  Data
+sets as in #545: Mathlib (`real`, profiles, tick 50 ms), `heavy`, `heavy30`, `cfsg` (the
+maintainer's CFSG log, 5 copies, tick 100 ms), `restart` (20 giants at the head), and the new
+`starve`: the CFSG modules with the 20 giants spread over the middle half of the queue, so that
+they meet, are killed and come back while the stream runs.  Columns: makespan, mean running
+workers, kills (modules), worker time lost, and the longest wait of one killed giant (at least
+1/8 of the limit) from its kill to its restart.
+
+1. *The briefed variants*: A = kills by queue position (rank, a requeued module keeping its own)
+   without protection, plus the growth gate keyed on any worker above its reservation whose peak
+   rose within 10 s; B = A plus a drain for the head of the killed modules (no other start until
+   it fits, once it has waited T = 0, 2, 10 min).  Both lost everywhere, by 1.3–4.5× (real 1.5G
+   j8 45 vs 35 min, heavy30 24G j16 140 vs 53, cfsg 52 h vs 18 h): the reservation is at least the
+   typical peak, the median, so half the workers are above it, and they grow for most of their
+   run; the gate held starts 60–98 % of the time.  B equals A wherever the gate dominates.
+2. *Diagnostics*: the same per-worker gate only while the current sets exceed the plan
+   ("tight"), or no gate.  Rank + tight gate: Mathlib equal, heavy up to +8 %, CFSG-like data 1–24 %
+   faster than #512's rule with fewer kills, but the starve case's longest giant wait rose from
+   14 h to 35 h (killed giants starve worse without protection).  The drain cut that to 3–9 h at a
+   makespan cost of up to 28 % (T = 0) or 4–12 % (T = 2, 10 min); no T won clearly.  Kills by start
+   time and by rank gave bit-identical results in all 11 cases: whenever an overflow got as far as
+   a re-admitted giant, the workers started after it, which both orders kill first, had already
+   gone.  #512's rule without its gate: cfsg 13h02 vs 18h26, restart j32 33h01 vs 38h37.
+3. *The head slot* (the maintainer's proposal, first simulated with killed modules at the front
+   as before).  As fast as rank + tight gate and faster than #512's rule in 9 of 11 cases, but it
+   did not bound the waits: the starve case's longest giant wait 33–37 h.  The cause: killed
+   modules went to the front newest first, so every later kill jumped ahead of an earlier one.
+   Requeued in the order of the kills (5f) the wait fell to 7–9 h at the same makespans.  The head
+   held a giant 33–92 % of the CFSG-like runs; while it did, other slots were memory-starved
+   (a slot and a queued module free, nothing fitting) 46–60 % of that time with the tight gate,
+   80–99 % without.  Its starts into a room too small for the module did not cause bursts (every
+   overflow killed one worker; 17–48 of 37–115 kills fell while such a start ran); no gate was as
+   good as the tight gate or better (heavy 8G j16 49 vs 56 min), so the shipped rule has none.
+4. *The fixed queue* (the ruling; a killed module at its own position):
+
+| case | #512's rule | head slot, kill order (5f) | **head slot, fixed queue** |
+|---|---|---|---|
+| real 1.5G j8 | 35m04, 4.37, 14 (14), 0.2 % | 34m56, 4.38, 22 (22), 0.3 % | 34m45, 4.40, 18 (18), 0.2 % |
+| real 3G j16 | 15m20, 10.02, 1 (1), 0.0 % | 14m58, 10.35, 4 (4), 0.1 % | 14m57, 10.36, 4 (4), 0.1 % |
+| heavy 8G j16 | 56m31, 5.60, 21 (19), 4.6 %, 8m | 53m52, 6.23, 49 (38), 11.0 %, 5m | 54m33, 6.16, 54 (39), 10.8 %, 6m |
+| heavy 16G j32 | 26m51, 11.54, 20 (15), 1.7 %, 2m | 25m39, 12.09, 22 (18), 2.3 %, 1m | 25m20, 12.18, 19 (16), 2.0 %, 1m |
+| heavy30 24G j16 | 52m49, 6.30, 39 (36), 7.5 %, 8m | 48m50, 6.99, 56 (47), 9.7 %, 3m | 53m15, 6.59, 64 (51), 12.6 %, 6m |
+| heavy30 47G j32 | 26m02, 11.91, 22 (15), 1.6 %, 1m | 25m24, 12.54, 30 (21), 2.9 %, 1m | 25m59, 12.22, 27 (20), 2.9 %, 2m |
+| cfsg 45G j32 | 18h26, 7.92, 86 (62), 21.5 %, 8h38 | 13h37, 10.66, 86 (58), 20.7 %, 2h59 | 15h36, 9.31, 83 (50), 20.6 %, 4h41 |
+| restart 45G j32 | 38h37, 5.06, 86 (50), 20.7 %, 35h29 | 33h40, 5.76, 70 (51), 20.3 %, 20h41 | 38h53, 5.24, 69 (52), 22.6 %, 22h09 |
+| restart 45G j16 | 37h18, 5.25, 72 (48), 15.7 %, 11h33 | 42h00, 5.26, 67 (46), 23.2 %, 16h05 | 41h51, 5.22, 63 (50), 22.1 %, 16h51 |
+| starve 45G j32 | 39h19, 5.52, 102 (73), 26.6 %, 14h23 | 33h38, 6.39, 107 (69), 26.3 %, 7h29 | 33h59, 6.09, 94 (71), 21.7 %, 12h53 |
+| starve 45G j16 | 44h54, 4.98, 89 (64), 25.9 %, 16h05 | 42h14, 5.89, 126 (68), 32.2 %, 9h08 | 41h23, 5.63, 103 (60), 27.5 %, 10h06 |
+| restart j32, seed 7 | 29h12, 5.77, 90 (60), 15.3 %, 16h48 | 26h20, 6.33, 55 (43), 13.0 %, 13h25 | 30h41, 5.75, 74 (60), 15.7 %, 10h55 |
+| restart j16, seed 7 | 31h31, 6.04, 73 (49), 18.0 %, 12h31 | 30h16, 6.11, 58 (46), 19.4 %, 7h16 | 34h14, 5.51, 63 (54), 16.9 %, 6h46 |
+| starve j32, seed 7 | 33h18, 5.83, 111 (74), 24.9 %, 19h32 | 26h05, 7.21, 90 (69), 21.3 %, 8h03 | 33h42, 6.15, 89 (61), 28.0 %, 9h15 |
+| starve j16, seed 7 | 35h13, 5.29, 76 (54), 19.2 %, 27h48 | 29h51, 6.80, 112 (72), 23.2 %, 8h44 | 26h59, 7.45, 91 (68), 23.4 %, 6h20 |
+
+   The fixed queue against 5f: the same on Mathlib and the heavy sets (heavy30 24G +9 %); on the
+   CFSG-like data slower in 7 of 10 cases, the sums of the makespans +4 % (seed 518) and +12 %
+   (seed 7), up to +29 % in one case (starve j32, seed 7), with the longest giant wait as short or
+   shorter in 4 of 9.  Against #512's rule: faster or equal in 11 of 15, the sums −4 % and −3 %;
+   the longest giant wait shorter in 10 of 11 cases with giants (14h23 → 12h53 and 16h05 → 10h06 in
+   starve, 19h32 → 9h15 and 27h48 → 6h20 at seed 7).  Not clearly worse than 5f, so the ruling was
+   implemented.  The simulator's single replay defaults to it (`--kill-by head --gate none
+   --requeue position`); `simulate`'s keyword defaults stay #512's rule so that the tables of
+   #518–#546 replay as they were.
+
+**Tests** (`ScheduleTests`): `nextHead` (a killed module before the never started ones, a never
+started one before a killed one, nothing), `nextFit` (the lowest position that fits, a killed one
+at the larger of its size and the typical peak, nothing where the typical peak does not fit),
+`insertAt`, `victims` (the youngest first, the head never, even when youngest; the head alone:
+nobody; ties: the later in the list; within the limit: nobody).
+
+**Hand tests** (`--olean --schedule --jobs=8 --progress=2s`, `Std.Tactic.BVDecide`, v4.35.0,
+under the guard and `timeout`; one run each, wall time an illustration).  At 250M: 739 modules 0,
+1m35s, 1.9 running, 9 kills (1.6 % lost), 56 head starts beyond the room:
+```
+con-leche: schedule: killed 2 workers, requeued: Init.Data.Array.Perm 50 MiB after 0s, Init.Data.Iterators.Lemmas.Combinators.Monadic.FilterMap 58 MiB after 0s
+con-leche: schedule: head slot starts 58 MiB into a room of 41 MiB: Init.Data.Iterators.Lemmas.Combinators.Monadic.FilterMap
+con-leche: schedule: killed at 99 MiB after 0s, requeued: Init.Data.SInt.Bitwise
+con-leche: schedule: head slot starts 99 MiB into a room of 82 MiB: Init.Data.SInt.Bitwise
+  kills: 9 (9 modules), 2.9s lost = 1.6 % of the worker time 3m01s; the head slot started 56 modules beyond the room
+```
+At 300M: 56.7 s, 1.6 running, 6 kills (1.0 %), all 0 (#545 at 300M: 53.6 s, 1.5, 5 kills).
