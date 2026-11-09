@@ -1289,7 +1289,7 @@
 # tower_struct (task #215, wired by task #210 Part B): the tower in a
 # structure's constructor field type.  The block installs through the
 # fixpoint route, where every walk the install asks of the field type
-# is DAG-safe (`@[csimp]` memos: `Expr.mentionsConst`,
+# is DAG-safe (`@[csimp]` memos: `Expr.mentionsAnyConst`,
 # `liftLooseBVars`, `instantiateList`, `allLevelParamsDefined`,
 # `constsResolveF`; the range-field reads `looseBVarsBounded`,
 # `hasFvar`) and the constant walks go through `constsResolveFC`

@@ -842,8 +842,8 @@ function; the depth-60 fixture is `tests/e2e/tower_usedlater.ndjson`
 FIRST field, asked about the SECOND).
 
 The cutoff and the memo are complementary — this keeps both.  As with
-`mentionsConst` below and `instantiate1` (`ConLeche/Kernel/ExprOps.lean`,
-task #215), the memoized walk is swapped in by `@[csimp]`:
+`mentionsAnyConst` (`Kernel/Inductives/StructParts.lean`) and
+`instantiate1` (`ConLeche/Kernel/ExprOps.lean`, task #215), the memoized walk is swapped in by `@[csimp]`:
 kernel-checked, no trust point, and the pure definition stays what
 every proof consumes (`Expr.hasLooseBVarB_eq`,
 `ConLeche/Verify/LooseBVar.lean`, is unchanged).  The memo

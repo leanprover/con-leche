@@ -416,7 +416,7 @@ theorem checkBlockKS_push (mode : CheckMode) {env : Env} {fe : FEnv}
     (hd : ∀ ms ∈ p.members, ms.declared = ms.cvT) :
     Yields (checkBlockKS mode fe block p) (fun fe' => PushChain env fe') := by
   unfold checkBlockKS
-  rw [blockTablesC_eq]
+  rw [blockTablesC_eq, blockIsRecC_eq, blockConstantsC_eq]
   try apply Yields.letFun
   refine Yields.ofDecCases (fun _ => Yields.ofThrowBind) (fun hnd => ?nb)
   case nb =>

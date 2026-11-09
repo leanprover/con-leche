@@ -5,6 +5,7 @@ import ConLeche.Verify.Cached.KnotCongr
 import ConLeche.Verify.Cached.PinOverlay
 import ConLeche.Verify.Cached.PinsC
 import ConLeche.Verify.Cached.BlockOverlay
+import ConLeche.Verify.Cached.WalkersC
 
 /-!
 # A record's check reads its index only through `find?`
@@ -1211,9 +1212,9 @@ theorem reduceMemberS_congr {fe₁ fe₂ : FEnv} (hfe : fe₁.find? = fe₂.find
     (htb : fe₁.findTable? = fe₂.findTable?) (nP : Nat) (ms : MemberShape) :
     reduceMemberS mode fe₁ ms nP = reduceMemberS mode fe₂ ms nP := by
   have h := sharedOpsC_envFree mode fe₂
-  unfold reduceMemberS reducedFormer
-  simp only [sharedOpsC_congr hfe htb, checkConstantValC_congr hfe htb,
-    whnfTelescope_env h fe₁.env, whnfTelescope_env h fe₂.env, h.isDefEq fe₁.env, h.isDefEq fe₂.env]
+  simp only [reduceMemberS, reducedFormerC_eq, reducedFormer, coreKnotI_congr hfe htb,
+    sharedOpsC_congr hfe htb, checkConstantValC_congr hfe htb,
+    whnfTelescope_env h fe₁.env, whnfTelescope_env h fe₂.env]
 
 theorem reduceMembersS_congr {fe₁ fe₂ : FEnv} (hfe : fe₁.find? = fe₂.find?)
     (htb : fe₁.findTable? = fe₂.findTable?) (nP : Nat) :

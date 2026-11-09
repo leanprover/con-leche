@@ -497,7 +497,7 @@ theorem reduceMemberS_same (mode : CheckMode) (fe : FEnv) (ms : MemberShape) (nP
     · exact Yields.ofThrow
     refine Yields.bind fun _ => ?_
     refine Yields.bind' (Q := fun cvR => cvR.name = ms.cvT.name) ?_ fun cvR hc => ?_
-    · unfold reducedFormer
+    · unfold reducedFormerC
       refine Yields.bind fun _ => ?_
       exact Yields.pure rfl
     · refine Yields.bind fun _ => ?_
@@ -637,7 +637,7 @@ theorem checkBlockKS_pushes (mode : CheckMode) (fe : FEnv) (block : List Constan
     Yields (checkBlockKS mode fe block p)
       (· = FEnv.pushDelta (blockConstants p) ((blockTables p p.members).getD []) fe) := by
   unfold checkBlockKS
-  rw [blockTablesC_eq]
+  rw [blockTablesC_eq, blockConstantsC_eq]
   cases blockTables p p.members <;> simp only [unwrapOr, Option.getD, pure_bind] <;> yields
   all_goals first | exact Yields.pure rfl | exact Yields.ofThrow
 
