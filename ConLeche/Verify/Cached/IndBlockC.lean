@@ -7,6 +7,7 @@ import ConLeche.Verify.Cached.IndPositivityC
 import ConLeche.Verify.Cached.IndWalksC
 import ConLeche.Verify.Cached.OpsC
 import ConLeche.Verify.Cached.GuardsC
+import ConLeche.Verify.CheckerF
 
 public section
 
@@ -14,12 +15,14 @@ public section
 # The block pass's and the classes' twins are the specification (task #498)
 
 The twins of `ConLeche/Cached/IndBlock.lean` mirror
-their specifications at the shared operations `sharedOpsC`: each
+their (`Env`-level) specifications at the shared operations `sharedOpsC`: each
 equation unfolds both sides, rewrites the cached walks by their spec
 lemmas and the callees by their equations, and closes by `rfl` (the
 shared operations are that core).  The drivers' proofs enter through
 `checkBlockIndsC_eq`, `checkBlockCtorsC_eq`, `checkBlockClassesC_eq` and
-`checkBlockIdxSortsC_eq`.
+`checkBlockIdxSortsC_eq`.  A stage that reads its environment (the constant check, the
+resolution gates) is related at the index `mkFEnv env` of the specification's `env`; a stage that
+reads it only through the operations, at any index and its `env`.
 -/
 
 namespace ConLeche.Cached
@@ -28,106 +31,134 @@ open ConLeche
 
 variable (mode : CheckMode)
 
+/-! ## The pushes -/
+
+theorem consBlockIndsF_mkFEnv (p₁ : BlockShape) (isRec : Bool) :
+    ∀ (formers : List ConstantVal) (i : Nat) (env : Env),
+      consBlockIndsF p₁ isRec formers i (mkFEnv env) = mkFEnv (consBlockInds p₁ isRec formers i env)
+  | [], _, _ => rfl
+  | cvTa :: rest, i, env => by
+    simp only [consBlockIndsF, consBlockInds, push_mkFEnv]
+    exact consBlockIndsF_mkFEnv p₁ isRec rest (i + 1) _
+
+/-- The constructors' pushes onto `mkFEnv env` are the index of the consed environment. -/
+theorem consSumCtorsF_mkFEnv (nP : Nat) :
+    ∀ (cs : List (ConstantVal × Nat)) (env : Env),
+      consSumCtorsF nP cs (mkFEnv env) = mkFEnv (consSumCtors nP cs env)
+  | [], _ => rfl
+  | c :: cs, env => by
+    simp only [consSumCtorsF, consSumCtors, push_mkFEnv,
+      consSumCtorsF_mkFEnv nP cs ⟨.ctorInfo c.1 nP c.2 :: env.consts, env.tables⟩]
+
+theorem consBlockCtorsF_mkFEnv (nP : Nat) :
+    ∀ (memberCtors : List (List (ConstantVal × Nat))) (env : Env),
+      consBlockCtorsF nP memberCtors (mkFEnv env) = mkFEnv (consBlockCtors nP memberCtors env)
+  | [], _ => rfl
+  | ctorList :: rest, env => by
+    simp only [consBlockCtorsF, consBlockCtors, consSumCtorsF_mkFEnv]
+    exact consBlockCtorsF_mkFEnv nP rest _
+
 /-! ## Stage 1: the formers -/
 
-theorem checkBlockTeleC_eq (fe : FEnv) (nP : Nat) (ms : MemberShape) :
-    checkBlockTeleC mode fe nP ms = checkBlockTeleF (sharedOpsC mode fe) fe nP ms := by
-  simp only [checkBlockTeleC, checkBlockTeleF, checkConstantValC_eq]
+theorem checkBlockTeleC_eq (env : Env) (nP : Nat) (ms : MemberShape) :
+    checkBlockTeleC mode (mkFEnv env) nP ms =
+      checkBlockTele (sharedOpsC mode (mkFEnv env)) env nP ms := by
+  simp only [checkBlockTeleC, checkBlockTele, checkConstantValC_eq, checkConstantValF_eq]
 
-theorem checkBlockTelesC_eq (fe : FEnv) (nP : Nat) :
-    ∀ ms, checkBlockTelesC mode fe nP ms = checkBlockTelesF (sharedOpsC mode fe) fe nP ms
+theorem checkBlockTelesC_eq (env : Env) (nP : Nat) :
+    ∀ ms, checkBlockTelesC mode (mkFEnv env) nP ms =
+      checkBlockTeles (sharedOpsC mode (mkFEnv env)) env nP ms
   | [] => rfl
   | ms :: rest => by
-    simp only [checkBlockTelesC, checkBlockTelesF, checkBlockTeleC_eq,
-      checkBlockTelesC_eq fe nP rest]
+    simp only [checkBlockTelesC, checkBlockTeles, checkBlockTeleC_eq,
+      checkBlockTelesC_eq env nP rest]
 
 theorem checkBlockDomsAtC_eq (fe : FEnv) (off : Nat) (fvs doms : List Expr) :
     ∀ j, checkBlockDomsAtC mode fe off fvs doms j =
-      checkBlockDomsAtF (sharedOpsC mode fe) fe off fvs doms j
+      checkBlockDomsAt (sharedOpsC mode fe) fe.env off fvs doms j
   | 0 => rfl
   | j + 1 => by
-    simp only [checkBlockDomsAtC, checkBlockDomsAtF, checkBlockDomsAtC_eq fe off fvs doms j]
+    simp only [checkBlockDomsAtC, checkBlockDomsAt, checkBlockDomsAtC_eq fe off fvs doms j]
     rfl
 
 theorem checkBlockAgreeC_eq (fe : FEnv) (nP : Nat) (cvTa0 : ConstantVal) (s0 : Level) :
     ∀ cvs, checkBlockAgreeC mode fe nP cvTa0 s0 cvs =
-      checkBlockAgreeF (sharedOpsC mode fe) fe nP cvTa0 s0 cvs
+      checkBlockAgree (sharedOpsC mode fe) fe.env nP cvTa0 s0 cvs
   | [] => rfl
   | (cvTa, s) :: rest => by
-    simp only [checkBlockAgreeC, checkBlockAgreeF, openPisAtFvarsC_eq, checkBlockDomsAtC_eq,
+    simp only [checkBlockAgreeC, checkBlockAgree, openPisAtFvarsC_eq, checkBlockDomsAtC_eq,
       checkBlockAgreeC_eq fe nP cvTa0 s0 rest]
 
-/-- **The cached formers' stage is `checkBlockIndsF` at the shared operations.** -/
-theorem checkBlockIndsC_eq (fe : FEnv) (p : BlockShape) (isRec : Bool) :
-    checkBlockIndsC mode fe p isRec = checkBlockIndsF (sharedOpsC mode fe) fe p isRec := by
-  unfold checkBlockIndsC checkBlockIndsF
-  simp only [checkBlockTeleC_eq, checkBlockTelesC_eq, checkBlockAgreeC_eq]
-  rfl
+/-- **The cached formers' stage is `checkBlockInds` at the shared operations**, its
+environment pushed onto the index. -/
+theorem checkBlockIndsC_eq (env : Env) (p : BlockShape) (isRec : Bool) :
+    checkBlockIndsC mode (mkFEnv env) p isRec =
+      checkBlockInds (sharedOpsC mode (mkFEnv env)) env p isRec >>=
+        fun r => pure (mkFEnv r.1, r.2) := by
+  unfold checkBlockIndsC checkBlockInds
+  rcases p.members with _ | ⟨ms0, rest⟩
+  · rfl
+  · simp only [checkBlockTeleC_eq, checkBlockTelesC_eq, checkBlockAgreeC_eq, mkFEnv_env,
+      bind_assoc, pure_bind, consBlockIndsF_mkFEnv]
 
 /-! ## Stage 1b: the constructors -/
 
 theorem checkStructDomsAtC_eq (fe : FEnv) (off : Nat) (fvs doms : List Expr) :
     ∀ j, checkStructDomsAtC mode fe off fvs.toArray doms.toArray j =
-      checkStructDomsAtF (sharedOpsC mode fe) fe off fvs doms j
+      checkStructDomsAt (sharedOpsC mode fe) fe.env off fvs doms j
   | 0 => rfl
   | j + 1 => by
-    simp only [checkStructDomsAtC, checkStructDomsAtF, List.getElem?_toArray,
+    simp only [checkStructDomsAtC, checkStructDomsAt, List.getElem?_toArray,
       checkStructDomsAtC_eq fe off fvs doms j]
     rfl
 
 theorem checkStructFieldSortsC_eq (fe : FEnv) (isProp large : Bool) (s : Level) (nP : Nat)
     (fvs idxArgs : List Expr) :
     ∀ j, checkStructFieldSortsC mode fe isProp large s nP fvs.toArray idxArgs j =
-      checkStructFieldSortsIF (sharedOpsC mode fe) fe isProp large s nP fvs idxArgs j
+      checkStructFieldSortsI (sharedOpsC mode fe) fe.env isProp large s nP fvs idxArgs j
   | 0 => rfl
   | j + 1 => by
-    simp only [checkStructFieldSortsC, checkStructFieldSortsIF, List.getElem?_toArray,
+    simp only [checkStructFieldSortsC, checkStructFieldSortsI, List.getElem?_toArray,
       checkStructFieldSortsC_eq fe isProp large s nP fvs idxArgs j]
     rfl
 
-theorem checkSumCtorC_eq (fe₀ fe : FEnv) (T : Name) (lps : List Name) (nP nIdx : Nat)
+theorem checkSumCtorC_eq (env₀ env : Env) (T : Name) (lps : List Name) (nP nIdx : Nat)
     (resSort : Level) (isProp large : Bool) (cvC : ConstantVal) (nF : Nat) (cvTa : ConstantVal) :
-    checkSumCtorC mode fe₀ fe T lps nP nIdx resSort isProp large cvC nF cvTa =
-      checkSumCtorF (sharedOpsC mode fe) fe₀ fe T lps nP nIdx resSort isProp large cvC nF cvTa := by
-  simp only [checkSumCtorC, checkSumCtorF, checkConstantValC_eq, openPisAtFvarsC_eq,
-    checkStructDomsAtC_eq, Expr.getAppArgsC_spec, constsResolveFC_spec,
-    checkStructFieldSortsC_eq]
+    checkSumCtorC mode (mkFEnv env₀) (mkFEnv env) T lps nP nIdx resSort isProp large cvC nF cvTa =
+      checkSumCtor (sharedOpsC mode (mkFEnv env)) env₀ env T lps nP nIdx resSort isProp large
+        cvC nF cvTa := by
+  simp only [checkSumCtorC, checkSumCtor, checkConstantValC_eq, checkConstantValF_eq,
+    openPisAtFvarsC_eq, checkStructDomsAtC_eq, Expr.getAppArgsC_spec, constsResolveFC_spec,
+    constsResolveF_eq, checkStructFieldSortsC_eq, mkFEnv_env]
 
-theorem checkSumCtorsC_eq (fe₀ fe : FEnv) (T : Name) (lps : List Name) (nP nIdx : Nat)
+theorem checkSumCtorsC_eq (env₀ env : Env) (T : Name) (lps : List Name) (nP nIdx : Nat)
     (resSort : Level) (isProp large : Bool) (cvTa : ConstantVal) :
-    ∀ cs, checkSumCtorsC mode fe₀ fe T lps nP nIdx resSort isProp large cvTa cs =
-      checkSumCtorsF (sharedOpsC mode fe) fe₀ fe T lps nP nIdx resSort isProp large cvTa cs
+    ∀ cs, checkSumCtorsC mode (mkFEnv env₀) (mkFEnv env) T lps nP nIdx resSort isProp large
+        cvTa cs =
+      checkSumCtors (sharedOpsC mode (mkFEnv env)) env₀ env T lps nP nIdx resSort isProp large
+        cvTa cs
   | [] => rfl
   | c :: cs => by
-    simp only [checkSumCtorsC, checkSumCtorsF, checkSumCtorC_eq,
-      checkSumCtorsC_eq fe₀ fe T lps nP nIdx resSort isProp large cvTa cs]
+    simp only [checkSumCtorsC, checkSumCtors, checkSumCtorC_eq,
+      checkSumCtorsC_eq env₀ env T lps nP nIdx resSort isProp large cvTa cs]
 
-/-- **The cached constructors' stage is `checkBlockCtorsF` at the shared operations.** -/
-theorem checkBlockCtorsC_eq (fe₀ fe : FEnv) (p : BlockShape) :
-    ∀ ms, checkBlockCtorsC mode fe₀ fe p ms = checkBlockCtorsF (sharedOpsC mode fe) fe₀ fe p ms
+/-- **The cached constructors' stage is `checkBlockCtors` at the shared operations.** -/
+theorem checkBlockCtorsC_eq (env₀ env : Env) (p : BlockShape) :
+    ∀ ms, checkBlockCtorsC mode (mkFEnv env₀) (mkFEnv env) p ms =
+      checkBlockCtors (sharedOpsC mode (mkFEnv env)) env₀ env p ms
   | [] => rfl
   | ms :: rest => by
-    simp only [checkBlockCtorsC, checkBlockCtorsF, checkSumCtorsC_eq,
-      checkBlockCtorsC_eq fe₀ fe p rest]
+    simp only [checkBlockCtorsC, checkBlockCtors, checkSumCtorsC_eq,
+      checkBlockCtorsC_eq env₀ env p rest]
 
-/-- The index mirror of the field-sort walk is the `Env` one at the index's environment. -/
-theorem checkStructFieldSortsIF_env (ops : CheckerOps CheckCM) (fe : FEnv) (isProp large : Bool)
-    (s : Level) (nP : Nat) (fvs idxArgs : List Expr) : ∀ j,
-      checkStructFieldSortsIF ops fe isProp large s nP fvs idxArgs j =
-        checkStructFieldSortsI ops fe.env isProp large s nP fvs idxArgs j
-  | 0 => rfl
-  | j + 1 => by
-    simp only [checkStructFieldSortsIF, checkStructFieldSortsI,
-      checkStructFieldSortsIF_env ops fe isProp large s nP fvs idxArgs j]
-
-/-- **The cached index sorts are `checkBlockIdxSortsF` at the shared operations.** -/
+/-- **The cached index sorts are `checkBlockIdxSorts` at the shared operations.** -/
 theorem checkBlockIdxSortsC_eq (fe₁ : FEnv) (p : BlockShape) :
     ∀ ms, checkBlockIdxSortsC mode fe₁ p ms =
-      checkBlockIdxSortsF (sharedOpsC mode fe₁) fe₁ p ms
+      checkBlockIdxSorts (sharedOpsC mode fe₁) fe₁.env p ms
   | [] => rfl
   | ms :: rest => by
-    simp only [checkBlockIdxSortsC, checkBlockIdxSortsF, openPisAtFvarsC_eq,
-      checkStructFieldSortsIC_eq, checkStructFieldSortsIF_env, checkBlockIdxSortsC_eq fe₁ p rest]
+    simp only [checkBlockIdxSortsC, checkBlockIdxSorts, openPisAtFvarsC_eq,
+      checkStructFieldSortsIC_eq, checkBlockIdxSortsC_eq fe₁ p rest]
 
 /-! ## The classes -/
 

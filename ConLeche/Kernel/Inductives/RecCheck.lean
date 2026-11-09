@@ -1,5 +1,7 @@
 module
-public import ConLeche.Kernel.Inductives.BlockInstallF
+public import ConLeche.Kernel.FEnv
+public import ConLeche.Kernel.Inductives.BlockShape
+public import ConLeche.Kernel.Inductives.SumInstall
 
 
 @[expose] public section
@@ -111,6 +113,14 @@ structure TargetMajor where
   first), the context the class is compared in (`targetClassMatch`) -/
   pfvs : List Expr := []
   deriving Inhabited
+
+/-- The `k` rule-less recursors pushed onto the index in block order (`consBlockRecsBare`
+through the index): the environment a rule's right-hand side is resolved and typed at. -/
+def consBlockRecsBareF (p : BlockShape) : Nat → List (ConstantVal × Nat) → FEnv → FEnv
+  | _, [], fe => fe
+  | m, (cvRa, _nIdx) :: rest, fe =>
+    consBlockRecsBareF p (m + 1) rest
+      (fe.push (.recInfo cvRa (p.majorIdxAt m) (p.rulePrefixAt m) false []))
 
 /-- The rule-less generated recursors consed onto the constructors'
 environment `fe`. -/

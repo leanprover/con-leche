@@ -7,9 +7,10 @@ public import ConLeche.Cached.IndRec
 /-!
 # The cached twin of the inductive check: the block pass and the classes (task #498)
 
-The production twins of the pass's stages (`checkBlockIndsF`,
-`checkBlockCtorsF`, `ConLeche/Kernel/Inductives/BlockInstallF.lean`,
-`SumInstallF.lean`, `StructInstallF.lean`) and of the classes
+The production twins of the pass's stages (`checkBlockInds`,
+`checkBlockCtors`, `ConLeche/Kernel/Inductives/BlockInstall.lean`,
+`SumInstall.lean`, `StructInstall.lean`), with the pushes onto the index
+their conses are (`consBlockIndsF`, `consSumCtorsF`, `consBlockCtorsF`), and of the classes
 (`checkBlockClasses`, `GenRec.lean`, with `classRead`, `ClassRead.lean`,
 and the major's resolution, `RecCheck.lean`): monomorphic `CheckCM`
 definitions at a mode and an environment index, calling the cached core
@@ -20,8 +21,9 @@ definitions at a mode and an environment index, calling the cached core
 constant check `checkConstantValC` (`IndPass.lean`).  Each mirrors its
 specification at the shared operations, so the relation is an equation
 (`checkBlockIndsC_eq`, `checkBlockCtorsC_eq`, `checkBlockClassesC_eq`,
-`checkBlockIdxSortsC_eq`, `ConLeche/Verify/Cached/IndBlockC.lean`); the
-cached drivers (`checkBlockPassS`, `checkBlockTailS`) run them.
+`checkBlockIdxSortsC_eq`, `ConLeche/Verify/Cached/IndBlockC.lean`; a stage
+that reads the environment, at the index `mkFEnv env` of the specification's
+`env`); the cached drivers (`checkBlockPassS`, `checkBlockTailS`) run them.
 -/
 
 namespace ConLeche.Cached
@@ -30,9 +32,28 @@ open ConLeche
 
 variable (mode : CheckMode)
 
+/-! ## The pushes onto the index -/
+
+/-- `consSumCtors` through the index. -/
+def consSumCtorsF (nP : Nat) : List (ConstantVal × Nat) → FEnv → FEnv
+  | [], fe => fe
+  | c :: cs, fe => consSumCtorsF nP cs (fe.push (.ctorInfo c.1 nP c.2))
+
+/-- `consBlockInds` through the index. -/
+def consBlockIndsF (p₁ : BlockShape) (isRec : Bool) :
+    List ConstantVal → Nat → FEnv → FEnv
+  | [], _, fe => fe
+  | cvTa :: rest, i, fe =>
+    consBlockIndsF p₁ isRec rest (i + 1) (fe.push (.indInfo cvTa (blockCapsAt p₁ i isRec)))
+
+/-- `consBlockCtors` through the index. -/
+def consBlockCtorsF (nP : Nat) : List (List (ConstantVal × Nat)) → FEnv → FEnv
+  | [], fe => fe
+  | ctorList :: rest, fe => consBlockCtorsF nP rest (consSumCtorsF nP ctorList fe)
+
 /-! ## Stage 1: the formers -/
 
-/-- The cached `checkBlockTeleF`. -/
+/-- The cached `checkBlockTele`. -/
 def checkBlockTeleC (fe : FEnv) (nP : Nat) (ms : MemberShape) :
     CheckCM (ConstantVal × Level) := do
   checkConstantValC mode fe ms.cvT
@@ -43,7 +64,7 @@ def checkBlockTeleC (fe : FEnv) (nP : Nat) (ms : MemberShape) :
     throw (.internal "direct sum: type former result sort")
   pure (cvTa, s)
 
-/-- The cached `checkBlockTelesF`. -/
+/-- The cached `checkBlockTeles`. -/
 def checkBlockTelesC (fe : FEnv) (nP : Nat) :
     List MemberShape → CheckCM (List (ConstantVal × Level))
   | [] => pure []
@@ -52,7 +73,7 @@ def checkBlockTelesC (fe : FEnv) (nP : Nat) :
     let rs ← checkBlockTelesC fe nP rest
     pure (r :: rs)
 
-/-- The cached `checkBlockDomsAtF`. -/
+/-- The cached `checkBlockDomsAt`. -/
 def checkBlockDomsAtC (fe : FEnv) (off : Nat) (fvs doms : List Expr) : Nat → CheckCM Unit
   | 0 => pure ()
   | j + 1 => do
@@ -62,7 +83,7 @@ def checkBlockDomsAtC (fe : FEnv) (off : Nat) (fvs doms : List Expr) : Nat → C
       throw (.invalid "parameters of all inductive datatypes must match")
     checkBlockDomsAtC fe off fvs doms j
 
-/-- The cached `checkBlockAgreeF`: the telescopes opened by
+/-- The cached `checkBlockAgree`: the telescopes opened by
 `openPisAtFvarsC`. -/
 def checkBlockAgreeC (fe : FEnv) (nP : Nat) (cvTa0 : ConstantVal) (s0 : Level) :
     List (ConstantVal × Level) → CheckCM Unit
@@ -79,8 +100,7 @@ def checkBlockAgreeC (fe : FEnv) (nP : Nat) (cvTa0 : ConstantVal) (s0 : Level) :
       throw (.invalid "mutually inductive types must live in the same universe")
     checkBlockAgreeC fe nP cvTa0 s0 rest
 
-/-- The cached `checkBlockIndsF`; the formers are consed by the shared
-`consBlockIndsF`. -/
+/-- The cached `checkBlockInds`; the formers are pushed by `consBlockIndsF`. -/
 def checkBlockIndsC (fe : FEnv) (p : BlockShape) (isRec : Bool) :
     CheckCM (FEnv × BlockShape) :=
   match p.members with
@@ -94,7 +114,7 @@ def checkBlockIndsC (fe : FEnv) (p : BlockShape) (isRec : Bool) :
 
 /-! ## Stage 1b: the constructors -/
 
-/-- The cached `checkStructDomsAtF`, over arrays. -/
+/-- The cached `checkStructDomsAt`, over arrays. -/
 def checkStructDomsAtC (fe : FEnv) (off : Nat) (fvs doms : Array Expr) : Nat → CheckCM Unit
   | 0 => pure ()
   | j + 1 => do
@@ -104,7 +124,7 @@ def checkStructDomsAtC (fe : FEnv) (off : Nat) (fvs doms : Array Expr) : Nat →
       throw (.notImplemented "direct structure: binder domain mismatch")
     checkStructDomsAtC fe off fvs doms j
 
-/-- The cached `checkStructFieldSortsIF`, over an array of field variables. -/
+/-- The cached `checkStructFieldSortsI`, over an array of field variables. -/
 def checkStructFieldSortsC (fe : FEnv) (isProp large : Bool) (s : Level) (nP : Nat)
     (fvs : Array Expr) (idxArgs : List Expr) : Nat → CheckCM Unit
   | 0 => pure ()
@@ -121,7 +141,7 @@ def checkStructFieldSortsC (fe : FEnv) (isProp large : Bool) (s : Level) (nP : N
           field outside the indices")
     checkStructFieldSortsC fe isProp large s nP fvs idxArgs j
 
-/-- The cached `checkSumCtorF`: the telescopes opened by
+/-- The cached `checkSumCtor`: the telescopes opened by
 `openPisAtFvarsC`, the residual's spine read once by `getAppArgsC`,
 the resolution gates by `constsResolveFC`. -/
 def checkSumCtorC (fe₀ fe : FEnv) (T : Name) (lps : List Name) (nP nIdx : Nat)
@@ -149,7 +169,7 @@ def checkSumCtorC (fe₀ fe : FEnv) (T : Name) (lps : List Name) (nP nIdx : Nat)
     throw (.invalid "direct sum: index expression mentions the block")
   checkStructFieldSortsC mode fe isProp large resSort nP xq.1.toArray (args.drop nP) nF
 
-/-- The cached `checkSumCtorsF`. -/
+/-- The cached `checkSumCtors`. -/
 def checkSumCtorsC (fe₀ fe : FEnv) (T : Name) (lps : List Name) (nP nIdx : Nat)
     (resSort : Level) (isProp large : Bool) (cvTa : ConstantVal) :
     List (ConstantVal × Nat) → CheckCM Unit
@@ -158,7 +178,7 @@ def checkSumCtorsC (fe₀ fe : FEnv) (T : Name) (lps : List Name) (nP nIdx : Nat
     checkSumCtorC mode fe₀ fe T lps nP nIdx resSort isProp large c.1 c.2 cvTa
     checkSumCtorsC fe₀ fe T lps nP nIdx resSort isProp large cvTa cs
 
-/-- The cached `checkBlockCtorsF`. -/
+/-- The cached `checkBlockCtors`. -/
 def checkBlockCtorsC (fe₀ fe : FEnv) (p : BlockShape) : List MemberShape → CheckCM Unit
   | [] => pure ()
   | ms :: rest => do
@@ -166,7 +186,7 @@ def checkBlockCtorsC (fe₀ fe : FEnv) (p : BlockShape) : List MemberShape → C
       p.resSort p.isProp p.large ms.cvT ms.ctors
     checkBlockCtorsC fe₀ fe p rest
 
-/-- The cached `checkBlockIdxSortsF` (the tail's index sorts), over
+/-- The cached `checkBlockIdxSorts` (the tail's index sorts), over
 positivity's `checkStructFieldSortsIC`. -/
 def checkBlockIdxSortsC (fe₁ : FEnv) (p : BlockShape) : List MemberShape → CheckCM Unit
   | [] => pure ()

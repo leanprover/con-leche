@@ -147,6 +147,18 @@ def pushTables : List ProjTable → FEnv → FEnv
   | [], fe => fe
   | t :: Q, fe => pushTables Q (fe.pushTable t)
 
+/-- Push a list of records, head first. -/
+def pushAll : List ConstantInfo → FEnv → FEnv
+  | [], fe => fe
+  | ci :: rest, fe => pushAll rest (fe.push ci)
+
+/-- **What an install step leaves behind**: the constants `L` pushed,
+then the tables `Q` installed, each in install order — a constant push
+and a table install touch different components, so every interleaving
+of the two is this one. -/
+def pushDelta (L : List ConstantInfo) (Q : List ProjTable) (fe : FEnv) : FEnv :=
+  pushTables Q (pushAll L fe)
+
 /-- **Cons `new` (newest first) as an overlay**: the environment `new` pushed onto `fe` would be
 (`find?_overlay`, for an `fe` without an overlay), with the index SHARED, not mutated -- two live
 environments, one bucket array.  Read-only: nothing pushes onto it. -/

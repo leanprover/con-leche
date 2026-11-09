@@ -11,8 +11,8 @@ public import ConLeche.Kernel.TrustAxioms
 The binder-domain walk and the checks of the projection TABLE the block install
 stores at a structure-like member (`checkStructProjTable`,
 run per table by `checkBlockTables`,
-`ConLeche/Kernel/Inductives/BlockTail.lean`).  The index-threaded twins
-are `ConLeche/Kernel/Inductives/StructInstallF.lean`.
+`ConLeche/Kernel/Inductives/BlockTail.lean`).  The cached driver runs
+the twins of `ConLeche/Cached/IndBlock.lean` and `ConLeche/Cached/IndTail.lean`.
 -/
 
 namespace ConLeche

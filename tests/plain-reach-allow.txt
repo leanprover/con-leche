@@ -431,13 +431,11 @@ ConLeche.formerDefHeaded  # ConLeche.Kernel.CoreDefs
 ConLeche.Expr.stripLams  # ConLeche.Kernel.ExprOps
 ConLeche.FEnv.pushTable  # ConLeche.Kernel.FEnv
 ConLeche.FEnv.pushTables  # ConLeche.Kernel.FEnv
+ConLeche.FEnv.pushAll  # ConLeche.Kernel.FEnv
+ConLeche.FEnv.pushDelta  # ConLeche.Kernel.FEnv
 ConLeche.BlockShape.nestCtx  # ConLeche.Kernel.Inductives.BlockInstall
 ConLeche.blockCapsAt  # ConLeche.Kernel.Inductives.BlockInstall
 ConLeche.nestOutKinds  # ConLeche.Kernel.Inductives.BlockInstall
-ConLeche.FEnv.pushAll  # ConLeche.Kernel.Inductives.BlockInstallF
-ConLeche.FEnv.pushDelta  # ConLeche.Kernel.Inductives.BlockInstallF
-ConLeche.consBlockCtorsF  # ConLeche.Kernel.Inductives.BlockInstallF
-ConLeche.consBlockIndsF  # ConLeche.Kernel.Inductives.BlockInstallF
 ConLeche.blockLargeElimAllowed  # ConLeche.Kernel.Inductives.BlockRec
 ConLeche.BlockShape.allCtors  # ConLeche.Kernel.Inductives.BlockShape
 ConLeche.BlockShape.formers  # ConLeche.Kernel.Inductives.BlockShape
@@ -515,7 +513,6 @@ ConLeche.structProjPs  # ConLeche.Kernel.Inductives.StructParts
 ConLeche.structPsAt  # ConLeche.Kernel.Inductives.StructParts
 ConLeche.checkSumTele  # ConLeche.Kernel.Inductives.SumInstall
 ConLeche.sumRules  # ConLeche.Kernel.Inductives.SumInstall
-ConLeche.consSumCtorsF  # ConLeche.Kernel.Inductives.SumInstallF
 ConLeche.blockCtors  # ConLeche.Kernel.Install
 ConLeche.blockFormers  # ConLeche.Kernel.Install
 ConLeche.Level.isEquivList  # ConLeche.Kernel.Level
