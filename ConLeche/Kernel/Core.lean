@@ -1361,46 +1361,55 @@ def defeqSpine (r : CoreFns m) (env : Env) (depth : Nat) (a b : Expr) :
     | _ => pure false
   | _ => pure false
 
-/-- Descent budget of the λ-telescope comparison (`defeqLams`).
+/-- Descent budget of the binder-telescope comparison (`defeqBinders`).
 Exhaustion is not an error: the level reached is compared as the
 innermost one, which is always sound. -/
-@[irreducible, noinline] def lamsFuel : Nat := 4611686018427387904  -- 2^62
+@[irreducible, noinline] def bindersFuel : Nat := 4611686018427387904  -- 2^62
 
-/-- The innermost level of `defeqLams`: the opened bodies, and at the
-verified mode their FULL-grade types. -/
-def defeqLamsInner (r : CoreFns m) (depth : Nat) (b₁ b₂ : Expr) : m Bool := do
+/-- The innermost level of `defeqBinders`: the opened bodies, and for
+two λ-telescopes at the verified mode their FULL-grade types. -/
+def defeqBindersInner (r : CoreFns m) (lam : Bool) (depth : Nat) (b₁ b₂ : Expr) : m Bool := do
   unless ← r.defeq (depth + 1) b₁ b₂ do return false
-  if mode.verifiedChecks then
+  if lam && mode.verifiedChecks then
     unless ← r.defeq (depth + 1) (← r.infer (depth + 1) b₁)
         (← r.infer (depth + 1) b₂) do return false
   pure true
 
-/-- **λ-telescope congruence** (task #342, #349; the rules tier's
-`DefEqLams`): two λs compare their domains; while both opened bodies
-are λs (and not syntactically equal) the comparison descends into them
-directly, comparing domains only; at the innermost level the opened
-bodies are compared and, at the verified mode, so are their FULL-grade
-types (the λ check).  The descent is the λ arm's own, not a recursive
-`defeq` call: a recursive call could answer two λs by proof
-irrelevance or the memo, which skips the type comparison that the
-outer levels rely on. -/
-def defeqLams (r : CoreFns m) :
-    Nat → Nat → Expr → Expr → Expr → Expr → m Bool
-  | fuel, depth, ty₁, body₁, ty₂, body₂ => do
-    unless ← r.defeq depth ty₁ ty₂ do return false
-    let b₁ := body₁.instantiate1 (.fvar depth ty₂)
-    let b₂ := body₂.instantiate1 (.fvar depth ty₂)
-    match fuel, Expr.lamPair? b₁ b₂ with
+/-- One level's domains in `defeqBinders`: syntactically equal raw
+domains are equal; otherwise the left one, opened over the variables so
+far, against the opened right one `dom₂`. -/
+def defeqDomain (r : CoreFns m) (depth : Nat) (fvs : List Expr) (ty₁ ty₂ dom₂ : Expr) : m Bool :=
+  if ty₁ == ty₂ then pure true else r.defeq depth (ty₁.instantiateList fvs) dom₂
+
+/-- **Binder-telescope congruence** (the official kernel's
+`is_def_eq_binding`; the rules tier's `DefEq.forallE` and `DefEqLams`):
+two ∀-telescopes (`lam = false`) or two λ-telescopes (`lam = true`) are
+peeled together while both bodies are binders of that kind.  At each
+level the domains are compared, unless they are syntactically equal,
+each opened in one bulk pass over the variables so far (`fvs`,
+innermost first); the level's variable takes the RIGHT domain.  The two
+bodies are compared once, at the innermost level, each opened in one
+bulk pass — and, for λs at the verified mode, so are their FULL-grade
+types (the λ check).  No intermediate body is opened or compared: a
+recursive `defeq` call could answer two λs by proof irrelevance or the
+memo, which skips the type comparison that the outer levels rely on. -/
+def defeqBinders (r : CoreFns m) (lam : Bool) :
+    Nat → Nat → List Expr → Expr → Expr → Expr → Expr → m Bool
+  | fuel, depth, fvs, ty₁, body₁, ty₂, body₂ => do
+    let dom₂ := ty₂.instantiateList fvs
+    unless ← defeqDomain r depth fvs ty₁ ty₂ dom₂ do return false
+    let fvs' := Expr.fvar depth dom₂ :: fvs
+    match fuel, Expr.binderPair? lam body₁ body₂ with
     | fuel + 1, some (ty₁', body₁', ty₂', body₂') =>
-      if b₁ == b₂ then pure true
-      else defeqLams r fuel (depth + 1) ty₁' body₁' ty₂' body₂'
-    | _, _ => defeqLamsInner mode r depth b₁ b₂
+      defeqBinders r lam fuel (depth + 1) fvs' ty₁' body₁' ty₂' body₂'
+    | _, _ =>
+      defeqBindersInner mode r lam depth (body₁.instantiateList fvs')
+        (body₂.instantiateList fvs')
 
 /-- **The easy cases** (the official kernel's `quick_is_def_eq`): the
 syntactic fast path, and the pairs whose verdict is decided on the spot
 — two sorts (level equivalence), two literals, two `∀`s and two `λ`s
-(binder congruence: domains, then bodies opened at the RIGHT domain;
-two λs by `defeqLams`).
+(binder-telescope congruence, `defeqBinders`).
 `none` is "not an easy case".  `defeqBody` runs it on the unreduced
 pair and again after the cheap head normalization, and
 `lazyDeltaStep` after every unfolding.  (The
@@ -1414,13 +1423,10 @@ def quickDefEq (r : CoreFns m) (depth : Nat) (a b : Expr) : m (Option Bool) :=
     pure (some ok)
   | .lit l₁, .lit l₂ => pure (some (l₁ == l₂))
   | .forallE ty₁ body₁, .forallE ty₂ body₂ => do
-    unless ← r.defeq depth ty₁ ty₂ do return some false
-    unless ← r.defeq (depth + 1)
-        (body₁.instantiate1 (.fvar depth ty₂))
-        (body₂.instantiate1 (.fvar depth ty₂)) do return some false
-    pure (some true)
+    let ok ← defeqBinders mode r false bindersFuel depth [] ty₁ body₁ ty₂ body₂
+    pure (some ok)
   | .lam ty₁ body₁, .lam ty₂ body₂ => do
-    let ok ← defeqLams mode r lamsFuel depth ty₁ body₁ ty₂ body₂
+    let ok ← defeqBinders mode r true bindersFuel depth [] ty₁ body₁ ty₂ body₂
     pure (some ok)
   | _, _ => pure none
 

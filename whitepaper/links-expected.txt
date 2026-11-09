@@ -2251,11 +2251,11 @@
    546  -/
 
 == ConLeche/Kernel/Core.lean#L1369-L1375
-  1369  /-- The innermost level of `defeqLams`: the opened bodies, and at the
-  1370  verified mode their FULL-grade types. -/
-  1371  def defeqLamsInner (r : CoreFns m) (depth : Nat) (b₁ b₂ : Expr) : m Bool := do
+  1369  /-- The innermost level of `defeqBinders`: the opened bodies, and for
+  1370  two λ-telescopes at the verified mode their FULL-grade types. -/
+  1371  def defeqBindersInner (r : CoreFns m) (lam : Bool) (depth : Nat) (b₁ b₂ : Expr) : m Bool := do
   1372    unless ← r.defeq (depth + 1) b₁ b₂ do return false
-  1373    if mode.verifiedChecks then
+  1373    if lam && mode.verifiedChecks then
   1374      unless ← r.defeq (depth + 1) (← r.infer (depth + 1) b₁)
   1375          (← r.infer (depth + 1) b₂) do return false
 
@@ -6538,7 +6538,7 @@
    499  (task #349; the fragment's `DefEqLams`).  Two λ-telescopes are compared
    500  level by level: the domains at every level, the opened bodies' FULL-grade
    501  types only where the comparison stops descending through two λs — where
-   502  the checker's `Expr.lamPair?` fails (`defeqLams`, `Kernel/Core.lean`).
+   502  the checker's `Expr.binderPair?` fails (`defeqBinders`, `Kernel/Core.lean`).
    503  
    504  *Why the outer levels need no type comparison.*  The type comparison is
    505  what makes λ-congruence's claim **unconditional** — `DefEq`'s claim says

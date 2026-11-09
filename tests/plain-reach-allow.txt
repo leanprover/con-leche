@@ -149,7 +149,7 @@ ConLeche.Expr.isStrLit
 ConLeche.Expr.natPred?
 ConLeche.checkFuel
 ConLeche.defeqLoopFuel
-ConLeche.lamsFuel
+ConLeche.bindersFuel
 ConLeche.liftFueled
 ConLeche.projIndexedStructLike
 ConLeche.projMissError
@@ -279,7 +279,7 @@ ConLeche.Expr.fvarRangeMemo
 ConLeche.Expr.getAppFn
 ConLeche.Expr.hasFvarFast
 ConLeche.Expr.isForallE
-ConLeche.Expr.lamPair?
+ConLeche.Expr.binderPair?
 ConLeche.Expr.looseBVarsBoundedFast
 ConLeche.Expr.mkAppN
 ConLeche.Expr.piResult

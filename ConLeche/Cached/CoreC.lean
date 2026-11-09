@@ -1280,28 +1280,39 @@ def boolTrueShortcutI (r : CoreFnsI) (depth : Nat) (a : Expr) : CheckCM Bool := 
   let w ← r.whnf depth a
   pure (Expr.isBoolTrue w)
 
-/-- Twin of `defeqLamsInner`. -/
-def defeqLamsInnerI (r : CoreFnsI) (depth : Nat) (b₁ b₂ : Expr) : CheckCM Bool := do
+/-- Twin of `defeqBindersInner`. -/
+def defeqBindersInnerI (r : CoreFnsI) (lam : Bool) (depth : Nat) (b₁ b₂ : Expr) :
+    CheckCM Bool := do
   unless ← r.defeq (depth + 1) b₁ b₂ do return false
-  if mode.verifiedChecks then do
+  if lam && mode.verifiedChecks then do
     let t₁ ← r.infer (depth + 1) b₁
     let t₂ ← r.infer (depth + 1) b₂
     unless ← r.defeq (depth + 1) t₁ t₂ do return false
   pure true
 
-/-- Twin of `defeqLams`. -/
-def defeqLamsI (r : CoreFnsI) :
-    Nat → Nat → Expr → Expr → Expr → Expr → CheckCM Bool
-  | fuel, depth, ty₁, body₁, ty₂, body₂ => do
-    unless ← r.defeq depth ty₁ ty₂ do return false
-    let fv ← pure (Expr.fvar depth ty₂)
-    let b₁ ← inst1M body₁ fv
-    let b₂ ← inst1M body₂ fv
-    match fuel, Expr.lamPair? b₁ b₂ with
+/-- Twin of `defeqDomain`. -/
+def defeqDomainI (r : CoreFnsI) (depth : Nat) (fvs : Array Expr) (ty₁ ty₂ dom₂ : Expr) :
+    CheckCM Bool :=
+  if ty₁ == ty₂ then pure true else do
+    let dom₁ ← instListRevM ty₁ fvs
+    r.defeq depth dom₁ dom₂
+
+/-- Twin of `defeqBinders`: the variables so far are an `Array`,
+outermost first (the spec's list reversed), so that each opening is
+one `instantiateRev` walk over it. -/
+def defeqBindersI (r : CoreFnsI) (lam : Bool) :
+    Nat → Nat → Array Expr → Expr → Expr → Expr → Expr → CheckCM Bool
+  | fuel, depth, fvs, ty₁, body₁, ty₂, body₂ => do
+    let dom₂ ← instListRevM ty₂ fvs
+    unless ← defeqDomainI r depth fvs ty₁ ty₂ dom₂ do return false
+    let fvs' ← pure (fvs.push (Expr.fvar depth dom₂))
+    match fuel, Expr.binderPair? lam body₁ body₂ with
     | fuel + 1, some (ty₁', body₁', ty₂', body₂') =>
-      if b₁ == b₂ then pure true
-      else defeqLamsI r fuel (depth + 1) ty₁' body₁' ty₂' body₂'
-    | _, _ => defeqLamsInnerI mode r depth b₁ b₂
+      defeqBindersI r lam fuel (depth + 1) fvs' ty₁' body₁' ty₂' body₂'
+    | _, _ => do
+      let b₁ ← instListRevM body₁ fvs'
+      let b₂ ← instListRevM body₂ fvs'
+      defeqBindersInnerI mode r lam depth b₁ b₂
 
 /-- Twin of `quickDefEq`. -/
 def quickDefEqI (r : CoreFnsI) (depth : Nat) (a b : Expr) :
@@ -1313,14 +1324,10 @@ def quickDefEqI (r : CoreFnsI) (depth : Nat) (a b : Expr) :
     pure (some ok)
   | .lit l₁, .lit l₂ => pure (some (l₁ == l₂))
   | .forallE ty₁ body₁, .forallE ty₂ body₂ => do
-    unless ← r.defeq depth ty₁ ty₂ do return some false
-    let fv ← pure (Expr.fvar depth ty₂)
-    let b₁ ← inst1M body₁ fv
-    let b₂ ← inst1M body₂ fv
-    unless ← r.defeq (depth + 1) b₁ b₂ do return some false
-    pure (some true)
+    let ok ← defeqBindersI mode r false bindersFuel depth #[] ty₁ body₁ ty₂ body₂
+    pure (some ok)
   | .lam ty₁ body₁, .lam ty₂ body₂ => do
-    let ok ← defeqLamsI mode r lamsFuel depth ty₁ body₁ ty₂ body₂
+    let ok ← defeqBindersI mode r true bindersFuel depth #[] ty₁ body₁ ty₂ body₂
     pure (some ok)
   | _, _ => pure none
 
