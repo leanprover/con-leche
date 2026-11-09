@@ -111017,6 +111017,10 @@ verified, against `agent/496-cutoff` 6741ad769):
 | B6 | `projGuardRowsGoC` over the new address-memoised `hasLooseBVarBC` and `instantiate1C` (`projGuardRowsGoC_eq`, `hasLooseBVarBC_spec`) | (with B5) | | | | |
 | B7 | `etaCtorShapeC` counts the spine with `getAppArgsC` (the plain `getAppArgs` appends per step) | ±0 | ±0 | ±0 | ±0 | ±0 |
 
+B3 overlaps `agent/495-once` (unmerged), which builds the projection tables once, in the plain
+tier, checked and pushed; this lane does not rebase onto it.  Whichever lands second keeps one
+construction: #495's single build, over `structProjBodiesC` in the cached driver.
+
 The lane against the base, every stream (one run each):
 
 | run | base | lane | change |
