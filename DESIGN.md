@@ -115309,3 +115309,55 @@ declines (lean4 issue #14977); `completion7`/`completionEOF` use `Duo` for the p
 InLean's text.  Open: in `kernelQuotNameCollision`'s situation the elaborator keeps the
 rejected axiom in its environment and `init_quot` then panics in `AsyncConsts.add` (an
 elaborator issue official's kernel can meet too).
+
+### Lane rebase: the lean4 branch on master, InLean on both toolchains (2026-11-09, task #451, agent/451-inlean2)
+
+The lean4 branch `joachim/inlean-kernel` is rebased from `releases/v4.35.0` (eb6cafb) onto
+`downstream-green` (da4295ad, master on 2026-11-09); the draft PR targets master.  The old
+branch stays locally as `joachim/inlean-kernel-v4.35`.  The four "regenerate InLean" commits
+are dropped for one at the end; `test: delete kernel_is_prop_issue` is dropped (master deleted
+the test, lean4 #15103/#15371).  con-leche stays on v4.35.0.
+
+**What master changed under InLean, bridged in source** (2e24aaf8a):
+* `Init.Util` has `withIsExclusive` (`k false` in the logic, `k (isExclusiveUnsafe a)`
+  compiled, obligation `k true = k false`, `a : @& α`): InLean's `withExclusive` exactly.
+  `InLean/Exclusive.lean` now copies it under master's name and signature; sync rule 5
+  (`STDLIB_STANDINS`) drops the file and its import lines from the copy, which then uses
+  `Init`'s.  `withExcl` moves to `ExprEq`.
+* `withPtrEqDecEq` now takes the `withPtrEq` to use (master's `withPtrEq` is `noncomputable`,
+  compiled after a type check): `ptrDec` is written out with `withPtrEq`.
+* lean4 #16107: the `Expr.data` hash reads a `let`'s `nonDep` (and gives `lam`/`forallE`
+  distinct tags, drops the depth, combines with `mixHash32`).  `eraseK` erased `nonDep`, so
+  `data_eraseK` (and with it the memo keys' `LawfulHashable`) failed on master: `eraseK` keeps
+  `nonDep`, `keyGoX` compares the flags.  Keys that differ only in `nonDep` are two entries (a
+  miss where con-leche hits, never the converse).  `Expr.mkData` takes a 32-bit hash on master:
+  the lean4 branch's Lean bodies and `expr_mkData_bodies` follow; con-leche's three axioms stay
+  stated for v4.35.0.
+* Core glue: `updateBaseAfterKernelAdd` lost its `decl` argument.
+
+con-agua's patches (`vendor/patches/con-leche`) concern `ConLeche.withPtrEq` and two proof
+scripts on its nightly; InLean needs none of them.
+
+**Upstream kernel changes since v4.35.0** (`src/kernel/{type_checker,inductive,quot}.cpp`):
+#15103 (proof irrelevance before whnf in `is_def_eq_core`: InLean does so already), #15371
+(η-expanded recursor majors of subsingleton structures: its tests pass), #15372 (unit-like η
+for structures of proofs/unit-like fields and for function types into them: InLean lacks it),
+#15373 (η for partially applied structure constructors: InLean lacks it), #16279 (counts and
+indices as `size_t`: InLean's are `Nat`; its test passes up to message text); performance
+only: #15268, #15928, #15929, #15930, #15933, #16046, #16107.
+
+A stage2 build (the stdlib checked by InLean) succeeds.
+
+**lean4 tests** (stage1, 4843): all pass but `async_systems_info` (sandbox) and five that need
+kernel features InLean lacks: `2258` (#15372), `match4` and `13371` (the elaborator's
+`noConfusion` for `Bla`/`Hom` now relies on #15372's unit-like rule), `12520_1` (#15373),
+`sym_arith_kron_bounds` (new in #15999: `1 ^ 4000000000`; InLean, like con-leche, evaluates
+`Nat.pow` only up to the exponent `2^24`, the bound lean4 #14849 removed before v4.35.0).  New
+expectations: `issue12746` (message text), `grind_nestedDecidable_kernel_issue` (its control
+with a `regular` wrapper times out on the C++ kernel, not on InLean, which does not reduce the
+`reflects_decide` proofs), `expr_mkData_bodies` (32-bit hash; its field lemmas now use
+`Classical.choice`), `csimpCore`.
+
+**con-leche gates**: build, test, `InLean InLeanProof inlean-replay` warning-free; layering,
+trust-surface, shake, inlean-sync check pass; `addDeclSound`'s axioms unchanged; Init replay
+`--compare`: 64530 accepted, 0 mismatches.
