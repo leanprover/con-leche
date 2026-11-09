@@ -22,15 +22,15 @@ open ConLeche
 /-- **A run's request**: the driver and its configuration. -/
 inductive Req where
   /-- a lean4export stream (`checkMainG` on `.ndjson`) -/
-  | stream (file : String) (mode : CheckMode) (budget : Nat) (pace : Pace) (jobs : Nat)
+  | stream (file : String) (mode : CheckMode) (maxNatSize : Nat) (pace : Pace) (jobs : Nat)
   /-- the import closure of root modules (`checkMainG` on `.oleans`) -/
   | oleans (searchPath : List System.FilePath) (roots : Array Name)
-      (constants : Option (Array Name)) (mode : CheckMode) (budget : Nat) (pace : Pace) (jobs : Nat)
+      (constants : Option (Array Name)) (mode : CheckMode) (maxNatSize : Nat) (pace : Pace) (jobs : Nat)
 
 /-- **A request run** by its driver. -/
 def runReq {μ : Type → Type} [CheckerIO μ] : Req → μ UInt8
-  | .stream file mode budget pace jobs => checkMainG (.ndjson file) mode budget pace jobs
-  | .oleans sp roots cs mode budget pace jobs =>
-    checkMainG (.oleans sp roots cs) mode budget pace jobs
+  | .stream file mode maxNatSize pace jobs => checkMainG (.ndjson file) mode maxNatSize pace jobs
+  | .oleans sp roots cs mode maxNatSize pace jobs =>
+    checkMainG (.oleans sp roots cs) mode maxNatSize pace jobs
 
 end ConLeche.Driver

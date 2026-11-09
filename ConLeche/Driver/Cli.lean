@@ -101,16 +101,16 @@ def jobsCount (v : String) : Except String Nat :=
       (a decimal numeral of at least 1), got {Display.str v}"
 
 
-/-- The numeral budget, read off the `--nat-max-size=<bytes>` flag: a
+/-- The maximum `Nat` size, read off the `--max-nat-size=<bytes>` flag: a
 decimal byte count, the official kernel's `LEAN_NAT_MAX_SIZE` (the
 largest `Nat` numeral the checker takes in or computes; a larger one
 rejects the declaration).  A non-numeral is a usage error (exit 3).
-Without the flag the budget is the official default, 128 MiB
-(`Cached.natMaxSizeDefault`). -/
-def natMaxSizeArg (v : String) : Except String Nat :=
+Without the flag the maximum size is the official default, 128 MiB
+(`Cached.maxNatSizeDefault`). -/
+def maxNatSizeArg (v : String) : Except String Nat :=
   match v.toNat? with
   | some n => .ok n
-  | none => .error s!"--nat-max-size takes a byte count \
+  | none => .error s!"--max-nat-size takes a byte count \
       (a decimal numeral), got {Display.str v}"
 
 /-- The invocation forms, printed on their own when there are no arguments. -/
@@ -132,7 +132,7 @@ def helpText : String := String.intercalate "\n" [
   "  --verified          Check in the mode the soundness theorem covers (default)",
   "  --trusted           Skip the checks only the proof needs; outside the theorem",
   "  --jobs=N            Worker threads (default: one per hardware thread)",
-  "  --nat-max-size=N    Largest Nat numeral in bytes the checker takes in or",
+  "  --max-nat-size=N    Largest Nat numeral in bytes the checker takes in or",
   "                      computes; a larger one is rejected (default 134217728)",
   "  --progress[=PACE]   Report progress on stderr: PACE is N declarations",
   "                      (default 1), P% of each phase, or Ss seconds",
@@ -162,8 +162,8 @@ structure Args where
   /-- The check phase's worker count (`--jobs=<n>`); `none` is "no flag
   given": one worker per hardware thread. -/
   jobs : Option Nat := none
-  /-- The numeral budget in bytes (`--nat-max-size=<n>`). -/
-  natMax : Nat := Cached.natMaxSizeDefault
+  /-- The maximum `Nat` size in bytes (`--max-nat-size=<n>`). -/
+  maxNatSize : Nat := Cached.maxNatSizeDefault
   /-- `--olean`: the positional arguments are root module names, read
   with their import closure from `.olean` files. -/
   olean : Bool := false
@@ -213,9 +213,9 @@ def parseArgs : List String → Args → Args
       match jobsCount v with
       | .ok n => parseArgs rest { a with jobs := some n }
       | .error msg => { a with bad := some msg }
-    else if let some v := flagValue "--nat-max-size=" s then
-      match natMaxSizeArg v with
-      | .ok n => parseArgs rest { a with natMax := n }
+    else if let some v := flagValue "--max-nat-size=" s then
+      match maxNatSizeArg v with
+      | .ok n => parseArgs rest { a with maxNatSize := n }
       | .error msg => { a with bad := some msg }
     else if s == "--jobs" then
       { a with bad := some "--jobs takes a worker count: --jobs=<n>; omit the \
@@ -293,7 +293,7 @@ def runArgs {m : Type → Type} [CheckerIO m] (args : List String) : m UInt8 :=
           (let hw := (System.Platform.Internal.getHardwareConcurrency ()).toNat
            if hw = 0 then 1 else hw)
         return ← runReq (.oleans a.searchPath (a.files.filterMap Frontend.Olean.parseModName)
-          a.rootConstants a.mode a.natMax a.progress jobs)
+          a.rootConstants a.mode a.maxNatSize a.progress jobs)
       if !a.searchPath.isEmpty || !a.constants.isEmpty then
         eprintln "con-leche: --search-path and --constant take --olean"
         eprintln tryHelp
@@ -309,7 +309,7 @@ def runArgs {m : Type → Type} [CheckerIO m] (args : List String) : m UInt8 :=
         let jobs := a.jobs.getD
           (let hw := (System.Platform.Internal.getHardwareConcurrency ()).toNat
            if hw = 0 then 1 else hw)
-        runReq (.stream file a.mode a.natMax a.progress jobs)
+        runReq (.stream file a.mode a.maxNatSize a.progress jobs)
       | [] =>
         eprintln synopsis
         eprintln tryHelp

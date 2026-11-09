@@ -44,13 +44,13 @@ In [`ConLeche/MainTheorem.lean`](./ConLeche/MainTheorem.lean) we prove that an e
 ```lean
 open Frontend in
 theorem no_False_declaration (V : Type w) [SetTheory V]
-    (pins : List NatOpPinSet) (budget : Nat) (chunks : List ByteArray)
+    (pins : List NatOpPinSet) (maxNatSize : Nat) (chunks : List ByteArray)
     (h : jsonWithTheoremFalse chunks) :
     ∃ e, (do
       let pre ← builtinPreludeE
       let r ← parseChunks chunks
       let ds := preparePrelude pre r.decls
-      checkDecls .verified pins budget ds) = .error e
+      checkDecls .verified pins maxNatSize ds) = .error e
 ```
 
 The meaning of [`False`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/Basis/False.lean#L50-L51) is hard-coded, so no tricks involving odd definitions for `False` will confuse the checker. This is a meaningful theorem if you assume that worrisome kernel implementation bugs or flaws in the theory are those that can be used to prove anything, in particular `False`.
@@ -61,8 +61,8 @@ The theorem [`no_False_declaration`](https://github.com/leanprover/con-leche/blo
 
 ```lean
 theorem model_exists (V : Type w) [SetTheory V]
-    (pins : List NatOpPinSet) (budget : Nat) (ds : Array Declaration) (env : Env)
-    (accepted : checkDecls .verified pins budget ds = .ok env) :
+    (pins : List NatOpPinSet) (maxNatSize : Nat) (ds : Array Declaration) (env : Env)
+    (accepted : checkDecls .verified pins maxNatSize ds = .ok env) :
     Nonempty (Model V env)
 ```
 

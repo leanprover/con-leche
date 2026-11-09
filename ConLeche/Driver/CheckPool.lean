@@ -75,17 +75,17 @@ def markShared {α : Type} (x : α) : IO Unit := do
   let _ ← unsafe Runtime.markPersistent x
 
 /-- What the check phase establishes: every job passes. -/
-abbrev JAll (mode : ConLeche.CheckMode) (budget : Nat) {ds : Array Declaration} (J : Jobs ds) : Prop :=
-  ∀ k (hk : k < ds.size), ConLeche.Cached.recordJob mode ConLeche.natOpPinSets budget J.I k ds[k] = .ok ()
+abbrev JAll (mode : ConLeche.CheckMode) (maxNatSize : Nat) {ds : Array Declaration} (J : Jobs ds) : Prop :=
+  ∀ k (hk : k < ds.size), ConLeche.Cached.recordJob mode ConLeche.natOpPinSets maxNatSize J.I k ds[k] = .ok ()
 
 /-- A job that passed: its position, with the evidence. -/
-abbrev JPass (mode : ConLeche.CheckMode) (budget : Nat) {ds : Array Declaration} (J : Jobs ds) : Type :=
+abbrev JPass (mode : ConLeche.CheckMode) (maxNatSize : Nat) {ds : Array Declaration} (J : Jobs ds) : Type :=
   { t : Nat // ∀ ht : t < ds.size,
-      ConLeche.Cached.recordJob mode ConLeche.natOpPinSets budget J.I t ds[t] = .ok () }
+      ConLeche.Cached.recordJob mode ConLeche.natOpPinSets maxNatSize J.I t ds[t] = .ok () }
 
 /-- A job's result: the position whose job passed, or the failure with its position. -/
-abbrev JRes (mode : ConLeche.CheckMode) (budget : Nat) {ds : Array Declaration} (J : Jobs ds) : Type :=
-  Except (ConLeche.CheckError × Nat) (JPass mode budget J)
+abbrev JRes (mode : ConLeche.CheckMode) (maxNatSize : Nat) {ds : Array Declaration} (J : Jobs ds) : Type :=
+  Except (ConLeche.CheckError × Nat) (JPass mode maxNatSize J)
 
 /-- Job `t`'s label for the statistics: kind, name and fold position. -/
 def jobLabel (ds : Array Declaration) (t : Nat) : String :=
@@ -114,25 +114,25 @@ def checkHeartbeat (err : IO.FS.Stream) (pace : Pace) (t0 : Nat) (ds : Array Dec
     err.flush
 
 /-- Job `t`, run. -/
-def runAt (mode : ConLeche.CheckMode) (budget : Nat) {ds : Array Declaration} (J : Jobs ds) (t : Nat) :
-    JRes mode budget J :=
+def runAt (mode : ConLeche.CheckMode) (maxNatSize : Nat) {ds : Array Declaration} (J : Jobs ds) (t : Nat) :
+    JRes mode maxNatSize J :=
   if ht : t < ds.size then
-    match h : ConLeche.Cached.recordJob mode ConLeche.natOpPinSets budget J.I t ds[t] with
+    match h : ConLeche.Cached.recordJob mode ConLeche.natOpPinSets maxNatSize J.I t ds[t] with
     | .ok () => .ok ⟨t, fun _ => h⟩
     | .error e => .error (e, t)
   else .error (.internal s!"check phase: no job {t}", t)
 
 /-- The results walked in position order, from `k`: the first failure, or every job's pass. -/
-def collectFrom (mode : ConLeche.CheckMode) (budget : Nat) {ds : Array Declaration} (J : Jobs ds)
-    (tab : Array (JPass mode budget J)) (k : Nat)
+def collectFrom (mode : ConLeche.CheckMode) (maxNatSize : Nat) {ds : Array Declaration} (J : Jobs ds)
+    (tab : Array (JPass mode maxNatSize J)) (k : Nat)
     (acc : ∀ j (hj : j < ds.size), j < k →
-      ConLeche.Cached.recordJob mode ConLeche.natOpPinSets budget J.I j ds[j] = .ok ()) :
-    Except (ConLeche.CheckError × Nat) (PLift (JAll mode budget J)) :=
+      ConLeche.Cached.recordJob mode ConLeche.natOpPinSets maxNatSize J.I j ds[j] = .ok ()) :
+    Except (ConLeche.CheckError × Nat) (PLift (JAll mode maxNatSize J)) :=
   if hk : k < ds.size then
     match tab[k]? with
     | some ⟨t, h⟩ =>
       if ht : t = k then
-        collectFrom mode budget J tab (k + 1) fun j hj hlt =>
+        collectFrom mode maxNatSize J tab (k + 1) fun j hj hlt =>
           if hjk : j = k then by subst hjk; subst ht; exact h hk
           else acc j hj (by omega)
       else .error (.internal s!"check phase: job {k} answered for {t}", k)
@@ -141,9 +141,9 @@ def collectFrom (mode : ConLeche.CheckMode) (budget : Nat) {ds : Array Declarati
   termination_by ds.size - k
 
 /-- The results, in job order, walked into the check phase's fact. -/
-def collect (mode : ConLeche.CheckMode) (budget : Nat) {ds : Array Declaration} (J : Jobs ds)
-    (rs : List (JPass mode budget J)) : Except (ConLeche.CheckError × Nat) (PLift (JAll mode budget J)) :=
-  collectFrom mode budget J rs.toArray 0 (fun _ _ h => absurd h (Nat.not_lt_zero _))
+def collect (mode : ConLeche.CheckMode) (maxNatSize : Nat) {ds : Array Declaration} (J : Jobs ds)
+    (rs : List (JPass mode maxNatSize J)) : Except (ConLeche.CheckError × Nat) (PLift (JAll mode maxNatSize J)) :=
+  collectFrom mode maxNatSize J rs.toArray 0 (fun _ _ h => absurd h (Nat.not_lt_zero _))
 
 /-! ### The pool -/
 
@@ -184,11 +184,11 @@ def jobEnd (err : IO.FS.Stream) (pace : Pace) (t0 : Nat) (ds : Array Declaration
 
 /-- One job of the pool, on worker `s.1`: run and timed (the job is forced before the clock, by
 the branch on its result). -/
-def checkStep (mode : ConLeche.CheckMode) (budget : Nat) (err : IO.FS.Stream) (pace : Pace) (t0 : Nat)
+def checkStep (mode : ConLeche.CheckMode) (maxNatSize : Nat) (err : IO.FS.Stream) (pace : Pace) (t0 : Nat)
     {ds : Array Declaration} (J : Jobs ds) (pl : PoolLive) (s : Nat × WStats) (t : Nat) :
-    IO ((Nat × WStats) × JRes mode budget J) := do
+    IO ((Nat × WStats) × JRes mode maxNatSize J) := do
   let ts ← jobBegin pl pace s.1 t
-  let r := runAt mode budget J t
+  let r := runAt mode maxNatSize J t
   let st ← jobEnd err pace t0 ds pl s.1 t ts (r matches .ok _) s.2
   return ((s.1, st), r)
 
@@ -205,22 +205,22 @@ freed temporaries scattered through it, which costs a factor of two in wall time
 for the same instructions.  A worker that fails as an `IO` action (not a check failing) is an
 internal error, exit 3, never a verdict.  Beside the result, the pool's timing report (`PoolRep`,
 performance-only). -/
-def checkPool (mode : ConLeche.CheckMode) (budget : Nat) (err : IO.FS.Stream) (pace : Pace) (t0 jobs : Nat)
+def checkPool (mode : ConLeche.CheckMode) (maxNatSize : Nat) (err : IO.FS.Stream) (pace : Pace) (t0 jobs : Nat)
     {ds : Array Declaration} (J : Jobs ds) :
-    IO (PoolRep × Except (ConLeche.CheckError × Nat) (PLift (JAll mode budget J))) := do
+    IO (PoolRep × Except (ConLeche.CheckError × Nat) (PLift (JAll mode maxNatSize J))) := do
   let m := ds.size
   let workers := max 1 (min jobs m)
   let pl ← PoolLive.new pace workers
   let tStart ← IO.monoNanosNow
   try
     let (ss, res) ← parMapWorkersIO jobs (fun w => (w, ({} : WStats)))
-      (checkStep mode budget err pace t0 J pl) (List.range m)
+      (checkStep mode maxNatSize err pace t0 J pl) (List.range m)
     let tEnd ← IO.monoNanosNow
     let rep : PoolRep := { name := poolName workers, workers, tStart, tEnd,
                            stats := (ss.map (·.2)).toArray }
     match res with
     | .error e => return (rep, .error e)
-    | .ok rs => return (rep, collect mode budget J rs)
+    | .ok rs => return (rep, collect mode maxNatSize J rs)
   catch ioe =>
     let tEnd ← IO.monoNanosNow
     let rep : PoolRep := { name := poolName workers, workers, tStart, tEnd, stats := #[] }

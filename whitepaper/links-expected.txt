@@ -13,8 +13,8 @@
 
 == ConLeche/MainTheorem.lean#L102-L105
    102  theorem model_exists (V : Type w) [SetTheory V]
-   103      (pins : List NatOpPinSet) (budget : Nat) (ds : Array Declaration) (env : Env)
-   104      (accepted : checkDecls .verified pins budget ds = .ok env) :
+   103      (pins : List NatOpPinSet) (maxNatSize : Nat) (ds : Array Declaration) (env : Env)
+   104      (accepted : checkDecls .verified pins maxNatSize ds = .ok env) :
    105      Nonempty (Model V env) := by
 
 == whitepaper/Fragment/Sound.lean#L2322-L2326
@@ -28,8 +28,8 @@
 
 == ConLeche/MainTheorem.lean#L102-L105
    102  theorem model_exists (V : Type w) [SetTheory V]
-   103      (pins : List NatOpPinSet) (budget : Nat) (ds : Array Declaration) (env : Env)
-   104      (accepted : checkDecls .verified pins budget ds = .ok env) :
+   103      (pins : List NatOpPinSet) (maxNatSize : Nat) (ds : Array Declaration) (env : Env)
+   104      (accepted : checkDecls .verified pins maxNatSize ds = .ok env) :
    105      Nonempty (Model V env) := by
 
 == ConLeche/Denotes.lean#L248-L268
@@ -5226,8 +5226,8 @@
 
 == ConLeche/MainTheorem.lean#L102-L105
    102  theorem model_exists (V : Type w) [SetTheory V]
-   103      (pins : List NatOpPinSet) (budget : Nat) (ds : Array Declaration) (env : Env)
-   104      (accepted : checkDecls .verified pins budget ds = .ok env) :
+   103      (pins : List NatOpPinSet) (maxNatSize : Nat) (ds : Array Declaration) (env : Env)
+   104      (accepted : checkDecls .verified pins maxNatSize ds = .ok env) :
    105      Nonempty (Model V env) := by
 
 == whitepaper/Fragment/Install.lean#L176-L181
@@ -6449,8 +6449,8 @@
 
 == ConLeche/Verify/Cached/StreamIndex.lean#L491-L493
    491  theorem checkDecls_of_jobs {ds : Array Declaration}
-   492      (h : ∀ k (hk : k < ds.size), recordJob mode pins budget (buildIndex ds) k ds[k] = .ok ()) :
-   493      checkDecls mode pins budget ds = .ok (streamEnv ds.toList) := by
+   492      (h : ∀ k (hk : k < ds.size), recordJob mode pins maxNatSize (buildIndex ds) k ds[k] = .ok ()) :
+   493      checkDecls mode pins maxNatSize ds = .ok (streamEnv ds.toList) := by
 
 == ConLeche/Kernel/Expr.lean#L315-L317
    315  inductive Expr where

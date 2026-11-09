@@ -720,7 +720,7 @@ theorem checkDeclStepC_pushes (mode : CheckMode) (fe : FEnv) (pd : Declaration) 
   ds.foldl (fun e pd => e.pushDelta (declConstants pd) (declTables pd)) env
 
 theorem declsRun_env (mode : CheckMode) {ds : List Declaration}
-    {p q : Nat × FEnv} (h : DeclsRun mode pins budget ds p q) :
+    {p q : Nat × FEnv} (h : DeclsRun mode pins maxNatSize ds p q) :
     q.2.env = streamEnv ds p.2.env := by
   induction h with
   | nil p => rfl
@@ -734,13 +734,13 @@ theorem declsRun_env (mode : CheckMode) {ds : List Declaration}
 
 /-- **An accepted stream's environment is a function of the stream**, at every mode. -/
 theorem checkDecls_env {mode : CheckMode} {ds : Array Declaration} {env : Env}
-    (h : checkDecls mode pins budget ds = .ok env) : env = streamEnv ds.toList := by
+    (h : checkDecls mode pins maxNatSize ds = .ok env) : env = streamEnv ds.toList := by
   obtain ⟨n, fe, r, rfl⟩ := checkDecls_run mode h
   exact declsRun_env mode r
 
 /-- **Two modes that both accept a stream end in the same environment.** -/
 theorem checkDecls_agree {μ₁ μ₂ : CheckMode} {ds : Array Declaration} {env₁ env₂ : Env}
-    (h₁ : checkDecls μ₁ pins budget ds = .ok env₁) (h₂ : checkDecls μ₂ pins budget ds = .ok env₂) :
+    (h₁ : checkDecls μ₁ pins maxNatSize ds = .ok env₁) (h₂ : checkDecls μ₂ pins maxNatSize ds = .ok env₂) :
     env₁ = env₂ :=
   (checkDecls_env h₁).trans (checkDecls_env h₂).symm
 

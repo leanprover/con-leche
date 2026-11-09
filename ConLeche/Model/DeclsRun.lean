@@ -44,7 +44,7 @@ theorem checkDeclStepC_model {fe fe₁ : FEnv} {pd : Declaration} {s s₁ : CSta
 
 /-- **The model along the run.** -/
 theorem declsRun_model {ds : List Declaration} {p q : Nat × FEnv}
-    (hrun : DeclsRun .verified pins budget ds p q) :
+    (hrun : DeclsRun .verified pins maxNatSize ds p q) :
     p.2 = mkFEnv p.2.env → EnvModelOk V p.2.env → EnvModelOk V q.2.env := by
   induction hrun with
   | nil p => exact fun _ hm => hm

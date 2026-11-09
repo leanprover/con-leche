@@ -298,8 +298,8 @@ structure CSOKF (s : CState) : Prop where
 theorem CSOK.residue {env : Env} {s : CState} (h : CSOK mode eager env s) :
     CSOKF s := ⟨h.lsimp, h.lnz, h.eqv⟩
 
-/-- A declaration's fresh state, empty memos at a numeral budget, carries the residue. -/
-theorem CSOKF.fresh (budget : Nat) : CSOKF ({ natMax := budget } : CState) := by
+/-- A declaration's fresh state, empty memos at a maximum `Nat` size, carries the residue. -/
+theorem CSOKF.fresh (maxNatSize : Nat) : CSOKF ({ maxNatSize := maxNatSize } : CState) := by
   refine ⟨?_, ?_, ?_⟩ <;> (intros; simp_all)
 
 /-! ## Flush

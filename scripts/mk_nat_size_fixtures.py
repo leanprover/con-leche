@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Derive the numeral-budget e2e fixtures (task #519) from two raw exports.
+"""Derive the maximum-Nat-size e2e fixtures (task #519) from two raw exports.
 
 The elaborator cannot state the theorems these fixtures are about (it
 would compute `1 ^ 4000000000` or `2 ^ 4294967296` itself), so the
@@ -10,9 +10,9 @@ value the fixture is about:
   tests/e2e/nat_size.ndjson (tests/e2e/src/nat_size.lean):
     nat_size_ok.ndjson            201,202 -> 4000000000, 203 -> 4294967295,
                                   204 -> 16777216, 205 -> 100000000
-    nat_pow_over_budget.ndjson    204 -> 16777217
+    nat_pow_over_max_size.ndjson    204 -> 16777217
     nat_pow_exp_32bit.ndjson      203 -> 4294967296
-    nat_shift_over_budget.ndjson  205 -> 1073741760
+    nat_shift_over_max_size.ndjson  205 -> 1073741760
     nat_shift_exp_32bit.ndjson    205 -> 4294967296
   tests/e2e/nat_size_limit_pow_huge_exp.ndjson:
     nat_size_limit_pow_32bit.ndjson  206 -> 4294967296
@@ -26,9 +26,9 @@ E2E = "tests/e2e/"
 FIXTURES = {
     "nat_size_ok": ("nat_size", {201: 4000000000, 202: 4000000000, 203: 4294967295,
                                  204: 16777216, 205: 100000000}),
-    "nat_pow_over_budget": ("nat_size", {204: 16777217}),
+    "nat_pow_over_max_size": ("nat_size", {204: 16777217}),
     "nat_pow_exp_32bit": ("nat_size", {203: 4294967296}),
-    "nat_shift_over_budget": ("nat_size", {205: 1073741760}),
+    "nat_shift_over_max_size": ("nat_size", {205: 1073741760}),
     "nat_shift_exp_32bit": ("nat_size", {205: 4294967296}),
     "nat_size_limit_pow_32bit": ("nat_size_limit_pow_huge_exp", {206: 4294967296}),
 }

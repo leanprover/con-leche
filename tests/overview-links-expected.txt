@@ -18,8 +18,8 @@
 
 == ConLeche/MainTheorem.lean#L102-L105
    102  theorem model_exists (V : Type w) [SetTheory V]
-   103      (pins : List NatOpPinSet) (budget : Nat) (ds : Array Declaration) (env : Env)
-   104      (accepted : checkDecls .verified pins budget ds = .ok env) :
+   103      (pins : List NatOpPinSet) (maxNatSize : Nat) (ds : Array Declaration) (env : Env)
+   104      (accepted : checkDecls .verified pins maxNatSize ds = .ok env) :
    105      Nonempty (Model V env) := by
 
 == ConLeche/Denotes.lean#L123-L124
@@ -51,13 +51,13 @@
 
 == ConLeche/MainTheorem.lean#L116-L123
    116  theorem no_False_declaration (V : Type w) [SetTheory V]
-   117      (pins : List NatOpPinSet) (budget : Nat) (chunks : List ByteArray)
+   117      (pins : List NatOpPinSet) (maxNatSize : Nat) (chunks : List ByteArray)
    118      (h : jsonWithTheoremFalse chunks) :
    119      ∃ e, (do
    120        let pre ← builtinPreludeE
    121        let r ← parseChunks chunks
    122        let ds := preparePrelude pre r.decls
-   123        checkDecls .verified pins budget ds) = .error e := by
+   123        checkDecls .verified pins maxNatSize ds) = .error e := by
 
 == ConLeche/Accepts.lean#L62-L72
     62  def jsonWithTheoremFalse (chunks : List ByteArray) : Prop :=
@@ -81,7 +81,7 @@
    103  theorem no_False_theorem_accepted (V : Type w) [SetTheory V]
    104      (ds : Array Declaration) (cv : ConstantVal) (v : Expr)
    105      (hmem : Declaration.thmDecl cv v ∈ ds) (hty : cv.type = .const falseName []) :
-   106      ∀ env, Cached.checkDecls .verified pins budget ds ≠ .ok env := by
+   106      ∀ env, Cached.checkDecls .verified pins maxNatSize ds ≠ .ok env := by
 
 == ConLeche/Verify/Frontend/Chunks.lean#L363
    363  theorem parseChunks_ok_parseBytes {cs : List ByteArray}
@@ -94,7 +94,7 @@
 
 == ConLeche/Model/StreamConsts.lean#L220-L225
    220  theorem checkDecls_consts (V : Type w) [SetTheory V]
-   221      {ds : Array Declaration} {env : Env} (accepted : checkDecls .verified pins budget ds = .ok env)
+   221      {ds : Array Declaration} {env : Env} (accepted : checkDecls .verified pins maxNatSize ds = .ok env)
    222      {pd : Declaration} (hmem : pd ∈ ds) {cv : ConstantVal} (hcv : Declaration.Declares pd cv) :
    223      ∃ c, env.find? cv.name = some c ∧
    224        c.toConstantVal.levelParams = cv.levelParams ∧
@@ -110,7 +110,7 @@
     95    | .quotDecl _ _, _ => False
 
 == ConLeche/Cached/Decls.lean#L89-L90
-    89  def checkDecls (mode : CheckMode) (pins : List NatOpPinSet) (budget : Nat) (ds : Array Declaration) :
+    89  def checkDecls (mode : CheckMode) (pins : List NatOpPinSet) (maxNatSize : Nat) (ds : Array Declaration) :
     90      Except (CheckError × Nat) Env := do
 
 == tests/ConLecheTests/Axioms.lean#L95-L99
@@ -134,7 +134,7 @@
    189      (h : (runArgs ["--", file] : ModelIO _) fs hs (.ok 0) hs') :
    190      ∃ pre b r env, builtinPreludeE = .ok pre ∧ fs.file file = some b ∧
    191        parseChunks [b] = .ok r ∧
-   192        Cached.checkDecls .verified natOpPinSets Cached.natMaxSizeDefault (preparePrelude pre r.decls) = .ok env := by
+   192        Cached.checkDecls .verified natOpPinSets Cached.maxNatSizeDefault (preparePrelude pre r.decls) = .ok env := by
 
 == ConLeche/Driver/StreamParse.lean#L118-L119
    118  def parseStreamG {μ : Type → Type} [CheckerIO μ] (file : String) (jobs : Nat) :
@@ -179,15 +179,15 @@
   1749        g.total + (bs.map ByteArray.size).sum⟩ := by
 
 == ConLeche/Driver/CheckMain.lean#L405-L410
-   405  theorem checkMainG_ndjson_accept {file : String} {mode : CheckMode} {budget : Nat}
+   405  theorem checkMainG_ndjson_accept {file : String} {mode : CheckMode} {maxNatSize : Nat}
    406      {pace : Pace} {jobs : Nat} {fs : FS} {hs hs' : HS}
-   407      (h : (checkMainG (.ndjson file) mode budget pace jobs : ModelIO _) fs hs (.ok 0) hs') :
+   407      (h : (checkMainG (.ndjson file) mode maxNatSize pace jobs : ModelIO _) fs hs (.ok 0) hs') :
    408      ∃ pre b r env, Frontend.builtinPreludeE = .ok pre ∧ fs.file file = some b ∧
    409        Frontend.parseChunks [b] = .ok r ∧
-   410        Cached.checkDecls mode natOpPinSets budget (Frontend.preparePrelude pre r.decls) = .ok env := by
+   410        Cached.checkDecls mode natOpPinSets maxNatSize (Frontend.preparePrelude pre r.decls) = .ok env := by
 
 == ConLeche/Cached/Decls.lean#L52-L53
-    52  def declStep (pins : List NatOpPinSet) (budget : Nat) (p : Nat × FEnv) (pd : Declaration) :
+    52  def declStep (pins : List NatOpPinSet) (maxNatSize : Nat) (p : Nat × FEnv) (pd : Declaration) :
     53      Except (CheckError × Nat) (Nat × FEnv) :=
 
 == ConLeche/Kernel/Install.lean#L83-L95
@@ -213,7 +213,7 @@
     65  def buildIndex (ds : Array Declaration) : StreamIndex :=
 
 == ConLeche/Cached/StreamIndex.lean#L75-L76
-    75  def recordJob (mode : CheckMode) (pins : List NatOpPinSet) (budget : Nat) (I : StreamIndex) (k : Nat)
+    75  def recordJob (mode : CheckMode) (pins : List NatOpPinSet) (maxNatSize : Nat) (I : StreamIndex) (k : Nat)
     76      (pd : Declaration) : Except CheckError Unit :=
 
 == ConLeche/Verify/Cached/ViewCongr.lean#L1335-L1339
@@ -225,57 +225,57 @@
 
 == ConLeche/Verify/Cached/StreamIndex.lean#L491-L493
    491  theorem checkDecls_of_jobs {ds : Array Declaration}
-   492      (h : ∀ k (hk : k < ds.size), recordJob mode pins budget (buildIndex ds) k ds[k] = .ok ()) :
-   493      checkDecls mode pins budget ds = .ok (streamEnv ds.toList) := by
+   492      (h : ∀ k (hk : k < ds.size), recordJob mode pins maxNatSize (buildIndex ds) k ds[k] = .ok ()) :
+   493      checkDecls mode pins maxNatSize ds = .ok (streamEnv ds.toList) := by
 
 == ConLeche/Driver/CheckPool.lean#L66
     66  def Jobs.build (ds : Array Declaration) : IO (Jobs ds) := do
 
 == ConLeche/Driver/CheckPool.lean#L208-L210
-   208  def checkPool (mode : ConLeche.CheckMode) (budget : Nat) (err : IO.FS.Stream) (pace : Pace) (t0 jobs : Nat)
+   208  def checkPool (mode : ConLeche.CheckMode) (maxNatSize : Nat) (err : IO.FS.Stream) (pace : Pace) (t0 jobs : Nat)
    209      {ds : Array Declaration} (J : Jobs ds) :
-   210      IO (PoolRep × Except (ConLeche.CheckError × Nat) (PLift (JAll mode budget J))) := do
+   210      IO (PoolRep × Except (ConLeche.CheckError × Nat) (PLift (JAll mode maxNatSize J))) := do
 
 == ConLeche/Driver/CheckPool.lean#L144-L145
-   144  def collect (mode : ConLeche.CheckMode) (budget : Nat) {ds : Array Declaration} (J : Jobs ds)
-   145      (rs : List (JPass mode budget J)) : Except (ConLeche.CheckError × Nat) (PLift (JAll mode budget J)) :=
+   144  def collect (mode : ConLeche.CheckMode) (maxNatSize : Nat) {ds : Array Declaration} (J : Jobs ds)
+   145      (rs : List (JPass mode maxNatSize J)) : Except (ConLeche.CheckError × Nat) (PLift (JAll mode maxNatSize J)) :=
 
 == ConLeche/Driver/Run.lean#L85-L88
-    85  def checkDeclsIO (mode : ConLeche.CheckMode) (budget : Nat) (err : IO.FS.Stream) (pace : Pace) (t0 tIndex tParse jobs : Nat)
+    85  def checkDeclsIO (mode : ConLeche.CheckMode) (maxNatSize : Nat) (err : IO.FS.Stream) (pace : Pace) (t0 tIndex tParse jobs : Nat)
     86      {ds : Array ConLeche.Declaration} (J : Jobs ds) :
     87      IO (Except (ConLeche.CheckError × Nat)
-    88        (PLift (∃ env, ConLeche.Cached.checkDecls mode ConLeche.natOpPinSets budget ds = .ok env))) := do
+    88        (PLift (∃ env, ConLeche.Cached.checkDecls mode ConLeche.natOpPinSets maxNatSize ds = .ok env))) := do
 
 == ConLeche/Cached/Decls.lean#L61-L62
-    61  inductive DeclsRun (pins : List NatOpPinSet) (budget : Nat) :
+    61  inductive DeclsRun (pins : List NatOpPinSet) (maxNatSize : Nat) :
     62      List Declaration → Nat × FEnv → Nat × FEnv → Prop where
 
 == ConLeche/Cached/Decls.lean#L130-L132
-   130  theorem checkDecls_run {pins : List NatOpPinSet} {budget : Nat} {ds : Array Declaration} {env : Env}
-   131      (h : checkDecls mode pins budget ds = .ok env) :
-   132      ∃ n fe, DeclsRun mode pins budget ds.toList (0, mkFEnv Env.empty) (n, fe) ∧ fe.env = env := by
+   130  theorem checkDecls_run {pins : List NatOpPinSet} {maxNatSize : Nat} {ds : Array Declaration} {env : Env}
+   131      (h : checkDecls mode pins maxNatSize ds = .ok env) :
+   132      ∃ n fe, DeclsRun mode pins maxNatSize ds.toList (0, mkFEnv Env.empty) (n, fe) ∧ fe.env = env := by
 
 == ConLeche/Cached/Decls.lean#L144-L146
-   144  theorem checkDecls_of_run {pins : List NatOpPinSet} {budget : Nat} {ds : Array Declaration} {n : Nat} {fe : FEnv}
-   145      (h : DeclsRun mode pins budget ds.toList (0, mkFEnv Env.empty) (n, fe)) :
-   146      checkDecls mode pins budget ds = .ok fe.env := by
+   144  theorem checkDecls_of_run {pins : List NatOpPinSet} {maxNatSize : Nat} {ds : Array Declaration} {n : Nat} {fe : FEnv}
+   145      (h : DeclsRun mode pins maxNatSize ds.toList (0, mkFEnv Env.empty) (n, fe)) :
+   146      checkDecls mode pins maxNatSize ds = .ok fe.env := by
 
 == ConLeche/Model/DeclsRun.lean#L46-L48
     46  theorem declsRun_model {ds : List Declaration} {p q : Nat × FEnv}
-    47      (hrun : DeclsRun .verified pins budget ds p q) :
+    47      (hrun : DeclsRun .verified pins maxNatSize ds p q) :
     48      p.2 = mkFEnv p.2.env → EnvModelOk V p.2.env → EnvModelOk V q.2.env := by
 
 == ConLeche/Verify/Cached/MainC.lean#L55-L59
     55  theorem no_proof_of_False_cached (V : Type w) [SetTheory V]
     56      {ds : Array Declaration} {env' : Env}
-    57      (h : checkDecls .verified pins budget ds = .ok env') :
+    57      (h : checkDecls .verified pins maxNatSize ds = .ok env') :
     58      ∀ c ∈ env'.consts,
     59        c.toConstantVal.type = .const falseName [] → False := by
 
 == ConLeche/Verify/Cached/MainC.lean#L34-L37
     34  theorem checkDecls_sound
     35      {ds : Array Declaration} {env' : Env}
-    36      (h : checkDecls .verified pins budget ds = .ok env') :
+    36      (h : checkDecls .verified pins maxNatSize ds = .ok env') :
     37      Nonempty (EnvModelM V env') := by
 
 == ConLeche/Verify/Cached/KnotCongr.lean#L480-L482
@@ -1091,17 +1091,17 @@
   1978  theorem divMod_install {F : Nat} (mp : EnvModelM V env)
 
 == ConLeche/Cached/StateC.lean#L160-L172
-   160  def natOpRefusal (budget : Nat) (c : Name) (a b : Nat) : Option CheckError :=
+   160  def natOpRefusal (maxNatSize : Nat) (c : Name) (a b : Nat) : Option CheckError :=
    161    if c = natPowName then
    162      if b > natCountMax then some (natCountTooBig "Nat.pow")
-   163      else if a > 1 && b != 0 && natSizeBytes a > budget / b then
+   163      else if a > 1 && b != 0 && natSizeBytes a > maxNatSize / b then
    164        some (.invalid "the kernel refused to evaluate `Nat.pow` because the result would \
-   165          exceed the maximum numeral size; raise it with --nat-max-size")
+   165          exceed the maximum numeral size; raise it with --max-nat-size")
    166      else none
    167    else if c = natShiftLeftName then
    168      if a = 0 then none
    169      else if b > natCountMax then some (natCountTooBig "Nat.shiftLeft")
-   170      else if natSizeBytes a + b / 8 + 1 > budget then some natNumeralTooBig
+   170      else if natSizeBytes a + b / 8 + 1 > maxNatSize then some natNumeralTooBig
    171      else none
    172    else none
 
@@ -1323,13 +1323,13 @@
 
 == ConLeche/MainTheorem.lean#L116-L123
    116  theorem no_False_declaration (V : Type w) [SetTheory V]
-   117      (pins : List NatOpPinSet) (budget : Nat) (chunks : List ByteArray)
+   117      (pins : List NatOpPinSet) (maxNatSize : Nat) (chunks : List ByteArray)
    118      (h : jsonWithTheoremFalse chunks) :
    119      ∃ e, (do
    120        let pre ← builtinPreludeE
    121        let r ← parseChunks chunks
    122        let ds := preparePrelude pre r.decls
-   123        checkDecls .verified pins budget ds) = .error e := by
+   123        checkDecls .verified pins maxNatSize ds) = .error e := by
 
 == ConLeche/Denotes.lean#L248-L268
    248  structure Model (V : Type w) [SetTheory V] (env : Env) where
@@ -1359,7 +1359,7 @@
    124      (BVarIdx → V) → Expr → V → Prop
 
 == ConLeche/Cached/Decls.lean#L89-L90
-    89  def checkDecls (mode : CheckMode) (pins : List NatOpPinSet) (budget : Nat) (ds : Array Declaration) :
+    89  def checkDecls (mode : CheckMode) (pins : List NatOpPinSet) (maxNatSize : Nat) (ds : Array Declaration) :
     90      Except (CheckError × Nat) Env := do
 
 == ConLeche/Frontend/Prepare.lean#L168-L175
@@ -1382,7 +1382,7 @@
 
 == ConLeche/Model/StreamConsts.lean#L220-L225
    220  theorem checkDecls_consts (V : Type w) [SetTheory V]
-   221      {ds : Array Declaration} {env : Env} (accepted : checkDecls .verified pins budget ds = .ok env)
+   221      {ds : Array Declaration} {env : Env} (accepted : checkDecls .verified pins maxNatSize ds = .ok env)
    222      {pd : Declaration} (hmem : pd ∈ ds) {cv : ConstantVal} (hcv : Declaration.Declares pd cv) :
    223      ∃ c, env.find? cv.name = some c ∧
    224        c.toConstantVal.levelParams = cv.levelParams ∧

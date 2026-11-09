@@ -581,7 +581,7 @@ def natOpEquations (d : Nat) (c : Name) : List (Expr × Expr) :=
 
 /-- The reduct of op `c` on literal arguments (`pred` ignores the
 second slot): the computation itself, at any size.  The official
-kernel's numeral budget, which refuses a computation that would be too
+kernel's maximum `Nat` size, which refuses a computation that would be too
 large, is the cached core's (`natOpRefusal`,
 `ConLeche/Cached/StateC.lean`). -/
 def natOpResult (c : Name) (a b : Nat) : Option Expr :=

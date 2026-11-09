@@ -110,9 +110,9 @@ structure ModeMemos where
   inferIOC : Std.HashMap Expr Expr := {}
   defeqC : Std.HashMap (Expr × Expr) Bool := {}
 
-/-! ## The numeral budget
+/-! ## The maximum `Nat` size
 
-The official kernel refuses a `Nat` numeral larger than a byte budget
+The official kernel refuses a `Nat` numeral larger than a byte bound
 (`g_nat_max_size`, `LEAN_NAT_MAX_SIZE`, default 128 MiB;
 `src/kernel/type_checker.cpp`, lean4#14849) at the four places one
 enters or grows: a literal it infers (`infer_lit`), the results of
@@ -130,8 +130,8 @@ itself, and a refusal only makes the cached run throw where the
 specification goes on, which the simulation's exception
 postcondition (`⊤`) admits. -/
 
-/-- The official kernel's default numeral budget, 128 MiB. -/
-def natMaxSizeDefault : Nat := 134217728
+/-- The official kernel's default maximum `Nat` size, 128 MiB. -/
+def maxNatSizeDefault : Nat := 134217728
 
 /-- The official kernel's size of a numeral in bytes
 (`lean_nat_size_in_bytes`): one machine word for a scalar, the limbs
@@ -145,39 +145,39 @@ def natCountMax : Nat := 4294967295
 /-- Official's `check_nat_size` message. -/
 def natNumeralTooBig : CheckError :=
   .invalid "the kernel refused a `Nat` numeral because its size exceeds the maximum; \
-    raise it with --nat-max-size"
+    raise it with --max-nat-size"
 
 /-- Official's `get_count_arg` message. -/
 def natCountTooBig (op : String) : CheckError :=
   .invalid s!"the kernel refused to evaluate `{op}` because its second argument does not fit \
     in a 32-bit unsigned integer"
 
-/-- **The refusal before computing** `c a b` at budget `budget`
+/-- **The refusal before computing** `c a b` at the maximum size `maxNatSize`
 (official `reduce_pow`, `reduce_shiftLeft`): `none` lets the operation
 compute.  `a ^ b` has at most `natSizeBytes a * b` bytes, and a base
 `≤ 1` gives `0` or `1`; `a <<< b` has about `natSizeBytes a + b / 8`
 bytes, and `0 <<< b = 0`. -/
-def natOpRefusal (budget : Nat) (c : Name) (a b : Nat) : Option CheckError :=
+def natOpRefusal (maxNatSize : Nat) (c : Name) (a b : Nat) : Option CheckError :=
   if c = natPowName then
     if b > natCountMax then some (natCountTooBig "Nat.pow")
-    else if a > 1 && b != 0 && natSizeBytes a > budget / b then
+    else if a > 1 && b != 0 && natSizeBytes a > maxNatSize / b then
       some (.invalid "the kernel refused to evaluate `Nat.pow` because the result would \
-        exceed the maximum numeral size; raise it with --nat-max-size")
+        exceed the maximum numeral size; raise it with --max-nat-size")
     else none
   else if c = natShiftLeftName then
     if a = 0 then none
     else if b > natCountMax then some (natCountTooBig "Nat.shiftLeft")
-    else if natSizeBytes a + b / 8 + 1 > budget then some natNumeralTooBig
+    else if natSizeBytes a + b / 8 + 1 > maxNatSize then some natNumeralTooBig
     else none
   else none
 
 /-- **The refusal after computing** (official `reduce_bin_nat_op`'s
 `check_size`): the result `x` of `c`, a `Nat.add`, `Nat.sub` or
-`Nat.mul`, is a numeral above the budget. -/
-def natResultRefused (budget : Nat) (c : Name) (x : Expr) : Bool :=
+`Nat.mul`, is a numeral above the maximum size. -/
+def natResultRefused (maxNatSize : Nat) (c : Name) (x : Expr) : Bool :=
   (c = natAddName || c = natSubName || c = natMulName) &&
     match x with
-    | .lit (.natVal n) => natSizeBytes n > budget
+    | .lit (.natVal n) => natSizeBytes n > maxNatSize
     | _ => false
 
 /-- Per-declaration state: the memo caches for the five entry points
@@ -218,11 +218,11 @@ structure CState where
   ones, and apart from them: an eager entry never serves a plain query,
   nor the other way round. -/
   eagerMemos : ModeMemos := {}
-  /-- **The numeral budget**, in bytes (`natMaxSizeDefault` unless the
-  run sets it, `--nat-max-size`): the largest `Nat` numeral the core
+  /-- **The maximum `Nat` size**, in bytes (`maxNatSizeDefault` unless the
+  run sets it, `--max-nat-size`): the largest `Nat` numeral the core
   takes in or computes (`natOpRefusal`).  Not a memo: set when the
   declaration's state is made (`Cached.declStep`) and only read. -/
-  natMax : Nat := natMaxSizeDefault
+  maxNatSize : Nat := maxNatSizeDefault
 
 instance : Inhabited CState := ⟨{}⟩
 
@@ -241,11 +241,11 @@ def peelFuel : Nat := 16777216
 
 @[inline] def peelFuelM : CheckCM Nat := pure peelFuel
 
-/-- The declaration's numeral budget (`CState.natMax`), read off the
+/-- The declaration's maximum `Nat` size (`CState.maxNatSize`), read off the
 state, which it leaves as it is. -/
-@[inline] def natMaxM : CheckCM Nat := do
+@[inline] def maxNatSizeM : CheckCM Nat := do
   let s ← get
-  pure s.natMax
+  pure s.maxNatSize
 
 /-! ## Syntactic operations (the `*M` wrappers) -/
 
