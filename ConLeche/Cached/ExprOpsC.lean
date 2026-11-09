@@ -1966,9 +1966,11 @@ decreasing_by
 def piResidual (e : Expr) (args : List Expr) : Option Expr :=
   piResidualAcc [] e args
 
-/-- The cached tier's one-pass opening loop: `openPisAtFvarsFGo` with
-each domain and the residual instantiated by `instantiateListC`
-(`openPisAtFvarsGoC_eq`, `ConLeche/Verify/Cached/IndWalksC.lean`). -/
+/-- The cached tier's one-pass opening loop: `acc` holds the
+already-created free variables, innermost binder first; each domain and
+the residual are instantiated by them in one `instantiateListC` pass,
+where `openPisAtFvars` re-instantiates the whole remaining body at every
+binder (`openPisAtFvarsGoC_eq`, `ConLeche/Verify/Cached/IndWalksC.lean`). -/
 def _root_.ConLeche.openPisAtFvarsGoC (acc : List Expr) :
     Nat → Expr → Nat → Option (List Expr × Expr)
   | 0, e, _ => some ([], instantiateListC e acc)

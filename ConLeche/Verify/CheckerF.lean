@@ -187,7 +187,7 @@ theorem checkSumCtorF_eq (ops : CheckerOps m) (env₀ env : Env) (T : Name)
       = checkSumCtor ops env₀ env T lps nP nIdx resSort isProp large cvC nF
         cvTa := by
   simp only [checkSumCtorF, checkSumCtor, checkConstantValF_eq,
-    checkStructDomsAtFA_eq, checkStructDomsAtF_eq, openPisAtFvarsF_eq,
+    checkStructDomsAtFA_eq, checkStructDomsAtF_eq,
     checkStructFieldSortsIFA_eq, checkStructFieldSortsIF_eq, constsResolveF_eq]
 
 theorem checkSumCtorsF_eq (ops : CheckerOps m) (env₀ env : Env) (T : Name)

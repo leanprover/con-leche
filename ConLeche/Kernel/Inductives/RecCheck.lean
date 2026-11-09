@@ -55,9 +55,8 @@ the carrier, and the separated tuple lies below it), so a hole occurs
 in the abstract term only where the term itself names a member, and a
 hole-free abstract term IS a concrete one.  The cached twin `targetAbsC`
 (`ConLeche/Cached/ExprOpsC.lean`) is memoised on the node (tower-shaped DAG fields,
-`tower_struct`).  It is NOT `replaceConsts`
-(`Kernel/ExprOps.lean`) at the member map, on purpose: that one
-rewrites free variables' annotations too, and here the frame's fields
+`tower_struct`).  It is NOT a constant replacement at the member map
+that descends into free variables' annotations, on purpose: here the frame's fields
 must keep their concrete types (see below) — an abstracted annotation
 would make every domain that names an earlier recursive field look
 holed. -/

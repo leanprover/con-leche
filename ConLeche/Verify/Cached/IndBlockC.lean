@@ -89,7 +89,7 @@ theorem checkSumCtorC_eq (fe₀ fe : FEnv) (T : Name) (lps : List Name) (nP nIdx
     checkSumCtorC mode fe₀ fe T lps nP nIdx resSort isProp large cvC nF cvTa =
       checkSumCtorF (sharedOpsC mode fe) fe₀ fe T lps nP nIdx resSort isProp large cvC nF cvTa := by
   simp only [checkSumCtorC, checkSumCtorF, checkConstantValC_eq, openPisAtFvarsC_eq,
-    openPisAtFvarsF_eq, checkStructDomsAtC_eq, Expr.getAppArgsC_spec, constsResolveFC_spec,
+    checkStructDomsAtC_eq, Expr.getAppArgsC_spec, constsResolveFC_spec,
     checkStructFieldSortsC_eq]
 
 theorem checkSumCtorsC_eq (fe₀ fe : FEnv) (T : Name) (lps : List Name) (nP nIdx : Nat)

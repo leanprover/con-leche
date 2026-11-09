@@ -67,12 +67,12 @@ def checkSumCtorF (ops : CheckerOps m) (fe₀ fe : FEnv) (T : Name)
   -- further arguments
   unless structCtorResidOk T lps nP nF nIdx cbody do
     throw (.invalid "direct sum: invalid constructor return type")
-  let cq ← unwrapOr (openPisAtFvarsF nP cvC.type 0)
+  let cq ← unwrapOr (openPisAtFvars nP cvC.type 0)
     (.notImplemented "direct sum: constructor telescope")
-  let tq ← unwrapOr (openPisAtFvarsF nP cvTa.type 0)
+  let tq ← unwrapOr (openPisAtFvars nP cvTa.type 0)
     (.notImplemented "direct sum: type former telescope")
   checkStructDomsAtFA ops fe 0 cq.1.toArray (tq.1.map Expr.fvarTypeD).toArray nP
-  let xq ← unwrapOr (openPisAtFvarsF nF cq.2 nP)
+  let xq ← unwrapOr (openPisAtFvars nF cq.2 nP)
     (.notImplemented "direct sum: constructor field telescope")
   unless xq.2.getAppFn == Expr.const T (lps.map .param) &&
       xq.2.getAppArgs.take nP == cq.1 && xq.2.getAppArgs.length == nP + nIdx do

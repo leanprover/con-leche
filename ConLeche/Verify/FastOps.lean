@@ -10,11 +10,7 @@ public section
 The structure install's hot loop runs the `*A` variant
 `checkStructDomsAtFA`; the lemma here identifies it
 **unconditionally** with the
-sequential function the Model/Verify layers keep seeing.  The one-pass
-telescope openers (`instPisAtF`, `instLamsAtF`, `openPisAtFvarsF`) are
-not here: their equalities are `@[csimp]`s beside the definitions
-(`ConLeche/Kernel/ExprOps.lean`, `ConLeche/Kernel/CheckerBase.lean`),
-so every caller runs them.
+sequential function the Model/Verify layers keep seeing.
 -/
 
 namespace ConLeche

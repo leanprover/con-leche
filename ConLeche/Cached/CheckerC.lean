@@ -68,10 +68,38 @@ constructors' syntactic domains scanned by `mentionsAnyConstC`
 def blockIsRecC (p : BlockShape) : Bool :=
   p.members.any fun ms => ms.ctors.any fun c => Expr.piDomsMentionAnyC p.memberNames c.1.type
 
-/-- `blockConstants` at `blockIsRecC`: the constants the index records
+/-- The cached `Expr.dropVars`: each variable dropped by `instantiate1C`
+(`dropVarsC_eq`). -/
+def Expr.dropVarsC : Nat → Expr → Expr
+  | 0, e => e
+  | n + 1, e => Expr.dropVarsC n (Expr.instantiate1C e (.sort .zero))
+
+/-- The cached `recFire`: a nested recursor's container parameters
+moved by `dropVarsC` (`recFireC_eq`). -/
+def recFireC (p : BlockShape) (rc : RecShape) : RecRuleFire :=
+  if rc.tgt < p.k then .plain
+  else
+    match rc.cvR.type.stripPis rc.mI with
+    | some (_, .forallE dom _) =>
+      match dom.getAppFn with
+      | .const _ us =>
+        let nI := rc.mI - rc.rP
+        let args := dom.getAppArgs
+        .nested us ((args.take (args.length - nI)).map (Expr.dropVarsC nI))
+      | _ => .plain
+    | _ => .plain
+
+/-- The cached `blockRecs`, over `recFireC` (`blockRecsC_eq`). -/
+def blockRecsC (p : BlockShape) : List RecShape → List ConstantInfo
+  | [] => []
+  | rc :: rest =>
+    .recInfo rc.cvR rc.mI rc.rP rc.isK (rc.rules.map ({ · with fire := recFireC p rc })) ::
+      blockRecsC p rest
+
+/-- `blockConstants` at `blockIsRecC` and `blockRecsC`: the constants the index records
 (`declConstantsC`) and the block's install pushes (`checkBlockKS`). -/
 def blockConstantsC (p : BlockShape) : List ConstantInfo :=
-  blockFormers p (blockIsRecC p) ++ blockCtors p ++ blockRecs p p.recs
+  blockFormers p (blockIsRecC p) ++ blockCtors p ++ blockRecsC p p.recs
 
 /-- `declConstants` over `blockConstantsC`. -/
 def declConstantsC : Declaration → List ConstantInfo
