@@ -224,13 +224,13 @@ motive and a recursor ($T.sans("rec")$ for the type being defined,
 $T.sans("rec")_1, T.sans("rec")_2, dots$ for the others), and each
 constructor of each class a minor premise. All recursors share one
 prefix, made of the parameters, the motives and the minor premises.
-#src("ConLeche/Kernel/Inductives/GenRec.lean", 138, 158)[A minor premise]
+#src("ConLeche/Kernel/Inductives/GenRec.lean", 139, 159)[A minor premise]
 is generated as in @sec:ind-checks from the constructor's fields at
 the instantiation, with one inductive hypothesis per recursive or
 nested field: the motive of the class where the field lands, under the
 field's $forall$s, read off the walk's recorded type
-(#src("ConLeche/Kernel/Inductives/GenRec.lean", 175, 182)[a recursor's type],
-#src("ConLeche/Kernel/Inductives/GenRec.lean", 184, 207)[a rule]).
+(#src("ConLeche/Kernel/Inductives/GenRec.lean", 176, 183)[a recursor's type],
+#src("ConLeche/Kernel/Inductives/GenRec.lean", 185, 208)[a rule]).
 
 #example(name: [$Tree$'s recursors])[
   With $C$ the motive for $Tree thick alpha$ and $C_1$ the motive for
@@ -276,7 +276,7 @@ not the recursor's $alpha$, and $List$'s level names, not $Tree$'s. So
 #src("ConLeche/Kernel/Env.lean", 106, 112)[each rule of a recursor at a container class stores the instantiation],
 that is, the class's levels and parameters as terms in the recursor's
 level parameters and parameters
-(#src("ConLeche/Kernel/Inductives/RecCheck.lean", 434, 445)[the stored rules at a container class]).
+(#src("ConLeche/Kernel/Inductives/RecCheck.lean", 444, 455)[the stored rules at a container class]).
 In the certified case of $iota$ (@sec:iota-cases), the
 constructor application's levels and parameters are compared with
 #src("ConLeche/Kernel/CoreDefs.lean", 884, 896)[the stored ones, instantiated at the recursor's levels and parameter arguments]
@@ -287,7 +287,7 @@ are what follows its own parameters.
 
 *Large elimination.* A nested block may eliminate into every sort only
 if #src("ConLeche/Kernel/Inductives/BlockRec.lean", 82, 84)[its sort is never zero]
-(#src("ConLeche/Kernel/Inductives/GenRec.lean", 557, 561)[where the checker enforces it]),
+(#src("ConLeche/Kernel/Inductives/GenRec.lean", 558, 562)[where the checker enforces it]),
 as in the official kernel. A nested proposition eliminates only into
 $sans("Prop")$, and the subsingleton criterion is never asked of a
 nested block.
@@ -298,17 +298,17 @@ nested block.
   #src("ConLeche/Kernel/Inductives/ClassRead.lean", 15, 32)[an unverified pre-pass],
   and each class is then checked: the type being defined at the
   block's levels and parameters, or
-  #src("ConLeche/Kernel/Inductives/RecCheck.lean", 243, 280)[a stored inductive type, not the quotient, whose parameters mention the type being defined and nothing but the block's parameters, in the block's sort].
+  #src("ConLeche/Kernel/Inductives/RecCheck.lean", 253, 290)[a stored inductive type, not the quotient, whose parameters mention the type being defined and nothing but the block's parameters, in the block's sort].
   #src("ConLeche/Kernel/Inductives/Positivity.lean", 1086, 1094)[Every class other than the type being defined is walked]
   as a container met at the root, so every class is an instantiation
   the walk visited. A field landing at a class for which the stream
-  gives #src("ConLeche/Kernel/Inductives/GenRec.lean", 451, 454)[no recursor]
+  gives #src("ConLeche/Kernel/Inductives/GenRec.lean", 452, 455)[no recursor]
   is rejected. One class may be visited at several places. In
   #src("tests/e2e/src/corner_nestind_f13_listrose.lean", 12, 15)[a block with a field of type $List thick (sans("RL") thick sans("TL"))$],
   with $sans("RL") thick alpha$ a rose tree over lists, that
   instantiation is met at the block's field and again inside
   $sans("RL") thick sans("TL")$, and the generator checks that
-  #src("ConLeche/Kernel/Inductives/GenRec.lean", 251, 265)[every visit gives each field the same inductive hypothesis].
+  #src("ConLeche/Kernel/Inductives/GenRec.lean", 252, 266)[every visit gives each field the same inductive hypothesis].
 ]
 
 == The model, as a sketch <sec:nest-model>
