@@ -111860,3 +111860,75 @@ arena perf stream accepted).
 
 **Gates** (the merged tree).  `lake build`, `lake test` warning-free; `tests/arena.sh` exit 0
 (e2e 571/571, plain-reach 585 all allowlisted, binary-link: no Lean package module linked).
+
+## TASK #498 — L6: the specification becomes plain specification (2026-11-09, agent/498-l6)
+
+**`ShadowOps` leaves the specification.**  `genRecCheck` (`Kernel/Inductives/GenRec.lean`) takes
+a checker's operations, runs the rule stage at `classFeR` and has no flush; `ShadowOps`,
+`ShadowOps.ofOps`/`.fueled` and `shadowOpsC` are deleted, the model reads `fueledOps .verified F`
+(`BlockRunFacts`, `DeclBlockStep`, `GenRecRun`, `BlockPushes`).  The cached stage `genRecCheckC`
+(flushes around the rule stage, the rule-less recursors as the overlay `classFeROvl`) is no longer
+an equation to the specification but a triple in the core's idiom:
+
+```
+genRecCheckS_spec : ⦃fun s => s = s₀⦄ genRecCheckC .verified (mkFEnv env₂) p nestedBit params tbl rd Ms₀ block
+  ⦃fun v s' => CSOKF s' ∧ Runs (genRecCheck (fueledOpsM .verified) (mkFEnv env₂) p nestedBit params tbl rd Ms₀ block) v; ⊤⦄
+```
+
+(`Verify/Cached/GenRecC.lean`): unfold the twin, enter its parts by their equations
+(`classStreamRecsC_eq` … `classRecsRulesOkC_eq`, `IndRecC.lean`) and the overlay by
+`classRecsRulesOk_classFeROvl`, then one `sym only [conleche_grind, genRecCheck.eq_1, …] =>
+vcgen [genRecCheck, unwrapOr, flushC, <the parts' triples>] <;> finish (gen := 12)`, the same
+list as before.  `genRecCheckC_eq` goes; `genRecCheck_names` becomes `genRecCheckC_names`
+(`DeclPushes`), `genRecCheck_twin` becomes `genRecCheckC_twin` (`ViewCongr`), and
+`checkBlockTailS_run`, `genRecCheck_recFresh` use them directly.
+
+**The last plain memo layers.**  With the reach gate's listing: the `instantiate1` memo walk was
+reached only through `blockConstantsC` → `blockRecs` → `recFire` → `Expr.dropVars` (the stored
+recursors' firing modes, at `StreamIndex.add` and the block's push).  `blockConstantsC` now runs
+`blockRecsC` → `recFireC` → `Expr.dropVarsC` (over `instantiate1C`; `blockRecsC_eq`,
+`recFireC_eq`, `dropVarsC_eq` in `WalkersC.lean`), and `instantiate1Go`/`Fast`, `Inst1MemoInv`, the
+`@[csimp]` and `instantiate1_of_bvarB_le` are deleted.  Unreached and deleted with their
+`@[csimp]`s: the plain one-pass openers `openPisAtFvarsF`/`FGo` (the specification uses
+`openPisAtFvars`; `openPisAtFvarsGoC_eq` now states L7's raw loop, substituted, against
+`openPisAtFvars` of the instantiated term directly, which also absorbs `openPisAtFvarsFGo_none`)
+and `instPisAtF`/`instLamsAtF` with their `Go`s and soundness lemmas.  Used by nothing at all,
+deleted with their memo walks: `Expr.renameConsts`, `Expr.replaceConsts`, `Expr.mentionsFvar`
+(the frontend comments that still named the first were corrected).  No `HashMap` memo walk is left
+in `Kernel/` outside the allowlisted reached ones.
+
+**The specification made simpler.**  `checkSumCtorF` called the array loops
+`checkStructDomsAtFA`/`checkStructFieldSortsIFA` so that the driver could run it; it now calls the
+list loops `checkStructDomsAtF`/`checkStructFieldSortsIF`.  The array variants, their `toArray`
+equations and congruences go; the twins keep their arrays and their equations state them at
+`List.toArray`.  `Verify/FastOps.lean` then held only `instPisAtLift_append`, which nothing uses,
+and is deleted.  Not done, reported: the `FEnv`-indexed `…F` layer of the inductive check
+(`checkSumCtorF` beside `checkSumCtor`, …) exists because the cached driver once ran the
+specification on an `FEnv`; the twins now relate to it, so removing it means re-relating the twins
+to the `Env` specification and moving the index congruences (`ViewCongr`) — a lane of its own.
+
+**Lines** (lane against master 604e9e70a): `Kernel/` +27 −1057 (net −1030; most of it the memo
+walks with their invariants and proofs), `Verify/` and `Model/` +139 −255 (net −116), `Cached/`
++45 −24 (the three firing-mode twins), `Frontend/` comments −1.
+
+**Reach.**  585 → 580 reached plain declarations; out: `Expr.dropVars`, `instantiate1Fast`,
+`instantiate1Go`, `blockRecs`, `recFire`.  The allowlist's former "pending task #498" section now
+says what its entries are: the inductive check's shared helpers the twins call as they are
+(shapes, counts, lists, pushes, `O(spine)`/`O(telescope)` reads); none walks a term's DAG.
+
+**Numbers** (`perf stat -e instructions:u`, one run each, `--jobs=1`, verified).  Before the
+merges (master 351602a56 → the lane): init-full 374.220 → 374.209 G, grind-ring-5 13.0833 →
+13.0836 G, `BvStruct` − `Empty` 1.633 → 1.605 G (module runs move by tens of M),
+`prop_struct_proj_wide` 264.97 → 264.98 M.  Merged (master 604e9e70a → the lane): init-full
+374.439 → 374.551 G (+0.03 %; a second pair 374.461 → 374.552 G), grind-ring-5 13.1049 →
+13.1046 G, `BvStruct` − `Empty` 1.267 → 1.262 G, `prop_struct_proj_wide` 222.98 → 222.99 M.  Flat,
+as expected: nothing deleted ran on these streams except the firing-mode walk.  The same verdicts.
+Binary 19.26 → 19.25 MB.
+
+**Gates** (the merged tree).  `lake build`, `lake test` warning-free; `tests/arena.sh` exit 0
+(e2e 571/571, arena tutorial 90/92 as on master, plain-reach 580 all allowlisted, binary-link,
+shake with the imports the deletions freed removed, whitepaper links).  OVERVIEW §11 (`Kernel/` is
+the specification; `Cached/` holds the twins of the whole inductive check) and §12 (the reach
+gate fails on stale entries; a definition with a twin is not listed); citations repointed in
+OVERVIEW and the whitepaper (moved lines; `genRecCheck`'s cited signature lost `ShadowOps`, the
+paragraph needs no change).
