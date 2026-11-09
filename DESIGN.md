@@ -112225,3 +112225,15 @@ grind-ring-5 13.1065 → 13.1058 G, `BvStruct` − `Empty` 1.273 → 1.253 G (mo
 (e2e 574/574, arena tutorial 90/92 as on master, plain-reach at 577 all allowlisted, binary-link:
 no Lean package module linked, shake); citations repointed in OVERVIEW and
 the whitepaper (moved lines only, the cited text unchanged).
+
+## Task #543: the wide-telescope e2e fixture (2026-11-09)
+
+`tests/e2e/ind_mutual_wide_telescope.ndjson` (source
+`tests/e2e/src/ind_mutual_wide_telescope.lean`): a 25-member mutual block
+whose recursors close telescopes of 25 motives and 49 minors. Found in
+task #451: a checker whose abstraction has no free-variable-range cutoff
+(InLean on `Lean.Expr`) closes a telescope binder by binder in time
+quadratic in its length, while con-leche's `abstract1` stops at the cached
+range. Verdict 0 (accept); `perf stat -e instructions:u` 316.7 M. The
+stream is raw `lean4export` output, regenerated identically by
+`scripts/export-fixture.sh ind_mutual_wide_telescope`.
