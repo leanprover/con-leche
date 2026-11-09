@@ -315,13 +315,13 @@
     53  def ensureSortCore (env : Env) (fuel depth : Nat) (e : Expr) : CheckM Level :=
     54    ensureSort (pureFns mode eager env fuel) env depth e
 
-== ConLeche/Kernel/Core.lean#L1864-L1869
-  1864    | 0 =>
-  1865      { whnfCore := fun _ _ _ => throw (.internal "fuel exhausted: whnfCore")
-  1866        whnf := fun _ _ => throw (.internal "fuel exhausted: whnf")
-  1867        infer := fun _ _ => throw (.internal "fuel exhausted: infer")
-  1868        defeq := fun _ _ _ => throw (.internal "fuel exhausted: defeq")
-  1869        defeqE := fun _ _ _ => throw (.internal "fuel exhausted: defeq")
+== ConLeche/Kernel/Core.lean#L1863-L1868
+  1863    | 0 =>
+  1864      { whnfCore := fun _ _ _ => throw (.internal "fuel exhausted: whnfCore")
+  1865        whnf := fun _ _ => throw (.internal "fuel exhausted: whnf")
+  1866        infer := fun _ _ => throw (.internal "fuel exhausted: infer")
+  1867        defeq := fun _ _ _ => throw (.internal "fuel exhausted: defeq")
+  1868        defeqE := fun _ _ _ => throw (.internal "fuel exhausted: defeq")
 
 == ConLeche/Model/Fold.lean#L435-L442
    435  theorem no_proof_of_False_pure (V : Type w) [SetTheory V]
@@ -364,23 +364,23 @@
 == ConLeche/Kernel/Env.lean#L55
     55  inductive CheckMode where
 
-== ConLeche/Kernel/Core.lean#L1141
-  1141  def whnfBody (r : CoreFns m) (env : Env) : Nat → Expr → m Expr :=
+== ConLeche/Kernel/Core.lean#L1140
+  1140  def whnfBody (r : CoreFns m) (env : Env) : Nat → Expr → m Expr :=
 
-== ConLeche/Kernel/Core.lean#L1430
-  1430  def defeqSpine (r : CoreFns m) (env : Env) (depth : Nat) (a b : Expr) :
+== ConLeche/Kernel/Core.lean#L1429
+  1429  def defeqSpine (r : CoreFns m) (env : Env) (depth : Nat) (a b : Expr) :
 
-== ConLeche/Kernel/Core.lean#L1325
-  1325  def inferBodyIO (r : CoreFns m) (env : Env) : Nat → Expr → m Expr :=
+== ConLeche/Kernel/Core.lean#L1324
+  1324  def inferBodyIO (r : CoreFns m) (env : Env) : Nat → Expr → m Expr :=
 
-== ConLeche/Kernel/Core.lean#L1452
-  1452  def defeqBindersInner (r : CoreFns m) (lam : Bool) (depth : Nat) (b₁ b₂ : Expr) : m Bool := do
+== ConLeche/Kernel/Core.lean#L1451
+  1451  def defeqBindersInner (r : CoreFns m) (lam : Bool) (depth : Nat) (b₁ b₂ : Expr) : m Bool := do
 
 == ConLeche/Verify/Cached/BridgeC.lean#L284
    284  theorem checkDeclStepC_run {env : Env} (henv : EnvWF env) {pd : Declaration}
 
-== ConLeche/Kernel/Core.lean#L1911
-  1911  @[irreducible, noinline] def checkFuel : Nat := 4611686018427387904  -- 2^62
+== ConLeche/Kernel/Core.lean#L1910
+  1910  @[irreducible, noinline] def checkFuel : Nat := 4611686018427387904  -- 2^62
 
 == ConLeche/Kernel/Exclusive.lean#L6-L42
      6  # `withExclusive`: the reference-count read behind the walk memo
@@ -1308,9 +1308,9 @@
     37  record installs nothing and any use of it declines
     38  (`sorryAxName`, `ConLeche/Kernel/Basis/Names.lean`).
 
-== ConLeche/Kernel/Core.lean#L1189-L1190
-  1189  def checkProjGuard (inf wh : Nat → Expr → m Expr) (env : Env) (entry : ProjEntry)
-  1190      (us : List Level) : m Unit :=
+== ConLeche/Kernel/Core.lean#L1188-L1189
+  1188  def checkProjGuard (inf wh : Nat → Expr → m Expr) (env : Env) (entry : ProjEntry)
+  1189      (us : List Level) : m Unit :=
 
 >>> README.md
 

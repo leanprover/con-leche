@@ -279,7 +279,7 @@ theorem unitLikeStructI_congr (hfe : fe₁.find? = fe₂.find?)
     unitLikeStructI r ul fe₁ = unitLikeStructI r ul fe₂ := by
   have hsh : unitLikeShapeF fe₁ = unitLikeShapeF fe₂ := by
     funext w; unfold unitLikeShapeF
-    simp only [hfe, towerSlotsAllF_congr hfe htb, findProj?_congr hfe htb]
+    simp only [hfe, htb]
   funext depth w; unfold unitLikeStructI
   simp only [hsh]
 

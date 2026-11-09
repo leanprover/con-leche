@@ -5,19 +5,19 @@ import ConLeche.Kernel.Inductives.BlockInstall
 public section
 
 /-!
-# A block member's capability laws
+# A block member's capability law
 
 `blockCapsAt p₁ mi isRec` is the record every member's former carries,
 and it claims a capability only at a member with EXACTLY ONE
-constructor: η at no index, unit-likeness at no index and no field.
-The P tier owes the laws from the member's cons on, and reads exactly
+constructor: η at no index.
+The P tier owes the fieldless η law from the member's cons on, and reads exactly
 two things of the member's leaf — its FOLD at the fieldless shape, and
-(for η) the constructor's — so `fibreUnitLaw`/`fibreEtaLaw0`
-(`FixKit.lean`, leaf-abstract) discharge them at the member's hole
+the constructor's — so `fibreEtaLaw0`
+(`FixKit.lean`, leaf-abstract) discharges it at the member's hole
 leaf (`blockTyG`), given its fold.
 
 Off the fieldless structure-like arm the record claims nothing that is
-not vacuous: both laws are premised on having no field
+not vacuous: the law is premised on having no field
 (`capsLawsAt_vacuous`).
 -/
 
@@ -80,7 +80,7 @@ theorem blockCapsAt_fieldless {p₁ : BlockShape} {mi : Nat} {isRec : Bool}
 
 /-! ## The laws -/
 
-/-- **A block member's capability laws**, both arms — `blockCtorsLoop`'s
+/-- **A block member's capability law**, both arms — `blockCtorsLoop`'s
 `hTlawsOf` at a member of a block.  On the structure-like arm the
 member's leaf enters only through its FOLD at the fieldless shape
 (`hfoldZ`); off it the record is
@@ -115,10 +115,8 @@ theorem blockCapsLawsAt {env' : Env} (m' : EnvModel V env')
   by_cases hu : (ConLeche.blockCapsAt p₁ mi isRec).eta = true ∧
       (ConLeche.blockCapsAt p₁ mi isRec).etaFields = 0
   · have hpE := (blockCapsAt_fieldless hu).2
-    exact ⟨fun _ _ _ => fibreEtaLaw0 hleaf (hfoldZ hu) (hleafC hu) hlam hfit
-        (fun ψ => by rw [hpE]; exact hpar ψ) (hreadC hu),
-      fun _ _ _ => fibreUnitLaw hleaf (hfoldZ hu) hlam
-        (fun ψ => by rw [hpE]; exact hpar ψ)⟩
+    exact fun _ _ _ => fibreEtaLaw0 hleaf (hfoldZ hu) (hleafC hu) hlam hfit
+      (fun ψ => by rw [hpE]; exact hpar ψ) (hreadC hu)
   · exact capsLawsAt_vacuous m' fun he => Nat.pos_of_ne_zero fun hz => hu ⟨he, hz⟩
 
 end ConLeche.Model

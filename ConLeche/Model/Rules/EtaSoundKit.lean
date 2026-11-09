@@ -20,8 +20,7 @@ The parameter spine is NOT certified: the reduced type is a graded type
 that is not the point ("not pt" source (1)), so its spine fits the
 former's ∀-telescope in the graph regime (`teleFitPA_of_graded_ne_pt`).
 The laws are read at that fit: a tower-backed family's through its
-slot `0` entry (`TowerEntryLaw` (C)), a fieldless η family's through
-`CapsOk`.
+table (`TowerTableLaw`), a fieldless η family's through `CapsOk`.
 -/
 
 namespace ConLeche.Model.Rules
@@ -92,11 +91,11 @@ theorem etaSide (hin : RulesInputs V m φ) {d : Nat} {Δa : List Term}
   have hlenTs : ∀ ρ : Nat → V, (tsa.map (interp V ρ)).length = caps.etaParams := by
     intro ρ; rw [List.length_map, ← hspt.length, htlen]
   by_cases hkind : ConLeche.towerSlotsAll env T caps.etaFields = true ∧ 0 < caps.etaFields
-  · -- TOWER-BACKED SLOTS: `.proj T j b` nodes, the slot-0 entry's laws
+  · -- TOWER-BACKED SLOTS: `.proj T j b` nodes, the table's laws
     obtain ⟨htow, h0⟩ := hkind
     obtain ⟨e0, hfe0⟩ := ConLeche.towerSlotsAll_slot htow 0 h0
-    obtain ⟨-, -, -, ⟨cvT', capsT', hfT', hlpsT', himp'⟩,
-      -, -, -, -, hetaL⟩ := hin.tower_ok T 0 e0 hfe0
+    obtain ⟨tbl, hT, -, rfl⟩ := ConLeche.Env.findProj?_some hfe0
+    obtain ⟨⟨cvT', capsT', hfT', hlpsT', himp'⟩, hetaL⟩ := hin.tower_ok.table T tbl hT
     obtain ⟨rfl, rfl⟩ : cvT = cvT' ∧ caps = capsT' := by
       rw [hind] at hfT'
       exact ConstantInfo.indInfo.inj (Option.some.inj hfT')
@@ -124,10 +123,10 @@ theorem etaSide (hin : RulesInputs V m φ) {d : Nat} {Δa : List Term}
     · have hfit : FamFit V ρ _ (tsa.map (interp V ρ)) := ⟨tsa, rfl, hokW, hneW⟩
       have hmemFam : interp V ρ ba
           ∈ˢ (tsa.map (interp V ρ)).foldl SetTheory.app
-              (interp V ρ (m.acval T (Level.substFn φ e0.levelParams us'))) := by
+              (interp V ρ (m.acval T (Level.substFn φ tbl.levelParams us'))) := by
         have h := hmemB
         rwa [interp_mkAppN, hfold, hlpsT'] at h
-      have hlenP : (tsa.map (interp V ρ)).length = e0.numParams := by
+      have hlenP : (tsa.map (interp V ρ)).length = tbl.numParams := by
         rw [hlenTs, hpar']
       have hb := hlaw ρ (tsa.map (interp V ρ)) (interp V ρ ba) hlenP
         (by rw [hlpsT'] at hfit; exact hfit) hmemFam
@@ -135,7 +134,7 @@ theorem etaSide (hin : RulesInputs V m φ) {d : Nat} {Δa : List Term}
         hlenP (by rw [hlpsT'] at hfit; exact hfit) hmemFam hneB
       have hps : ((List.range caps.etaFields).map fun j => projNV (j + 1) ba).map
             (interp V ρ)
-          = (List.range e0.numFields).map fun j =>
+          = (List.range tbl.numFields).map fun j =>
               ConLeche.SetTheory.Tower.projS (j + 1) (interp V ρ ba) := by
         rw [List.map_map, hfld']
         refine List.map_congr_left fun j _ => ?_
@@ -147,7 +146,7 @@ theorem etaSide (hin : RulesInputs V m φ) {d : Nat} {Δa : List Term}
       · obtain ⟨j, hj, rfl⟩ := List.mem_map.mp hx
         obtain ⟨entry, hfe⟩ := hslotE j (List.mem_range.mp hj)
         obtain ⟨-, -, -, ⟨cvTj, capsTj, hfTj, hlpsTj, himpj⟩, cvCj,
-          -, -, hlawj, -⟩ := hin.tower_ok T j entry hfe
+          -, -, hlawj⟩ := hin.tower_ok.entry T j entry hfe
         rw [hind] at hfTj
         obtain ⟨hcvTj, hcapsTj⟩ := ConstantInfo.indInfo.inj (Option.some.inj hfTj)
         rw [← hcvTj] at hlpsTj
@@ -173,7 +172,7 @@ theorem etaSide (hin : RulesInputs V m φ) {d : Nat} {Δa : List Term}
       rw [etaProjs_eq, h0]; rfl
     have hfam : ConLeche.EtaFamilyStored env T caps := ⟨hresC, ⟨cvC, nPc, nFc, hfC⟩, h0⟩
     obtain ⟨hlaw, hcoh⟩ :=
-      hin.caps_ok.1 T cvT caps hind heta hresT hfam φ us' hlv
+      hin.caps_ok T cvT caps hind heta hresT hfam φ us' hlv
     obtain ⟨TCa, hTCa, hfitC⟩ := hcoh cvC nPc nFc hfC
     refine ⟨[], ?_, ?_, TCa, hTCa, fun ρ _ _ _ hokW hneW _ hmemB hneB => ?_⟩
     · rw [hetaP]; exact DenoteSpine.nil

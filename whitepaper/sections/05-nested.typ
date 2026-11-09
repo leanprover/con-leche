@@ -279,7 +279,7 @@ level parameters and parameters
 (#src("ConLeche/Kernel/Inductives/RecCheck.lean", 444, 455)[the stored rules at a container class]).
 In the certified case of $iota$ (@sec:iota-cases), the
 constructor application's levels and parameters are compared with
-#src("ConLeche/Kernel/CoreDefs.lean", 953, 965)[the stored ones, instantiated at the recursor's levels and parameter arguments]
+#src("ConLeche/Kernel/CoreDefs.lean", 946, 958)[the stored ones, instantiated at the recursor's levels and parameter arguments]
 (#src("ConLeche/Rules/Rel.lean", 218, 229)[the levels by the level oracle, the parameters definitionally]),
 and the index comparison is as before. In the other cases the rule
 fires comparing nothing, as for a simple block. The constructor's fields

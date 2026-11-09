@@ -859,11 +859,11 @@ theorem Infer.proj_soundFull (hin : RulesInputs V m φ) {d : Nat}
     hte htpef (hCpe.of_subset htpesub) htpea
   obtain ⟨hwte', hbte, hLte⟩ := htef
   -- the tower law's typing clause
-  obtain ⟨-, -, -, ⟨cvT, capsT, hfT, hlpsT, -⟩, cvC, hfC, hlpsC, hlaw, -⟩ :=
-    hin.tower_ok sn i entry hent
+  obtain ⟨-, -, -, ⟨cvT, capsT, hfT, hlpsT, -⟩, cvC, hfC, hlpsC, hlaw⟩ :=
+    hin.tower_ok.entry sn i entry hent
   have hguard : TowerGuardAt m φ entry us cvC := hg _ _ _ hfC (by rw [hlpsC]; exact hus)
     (fun cvT' caps' hT' => by
-      obtain ⟨hsn₀, -⟩ := hin.tower_ok sn i entry hent
+      obtain ⟨hsn₀, -⟩ := hin.tower_ok.entry sn i entry hent
       rw [hsn₀, hfT] at hT'
       obtain rfl : cvT = cvT' := by
         injection hT' with h'; injection h' with a b
@@ -964,11 +964,11 @@ theorem Infer.proj_soundIO (hin : RulesInputs V m φ) {d : Nat}
     hte htpef (hCpe.of_subset htpesub) htpea
   obtain ⟨hwte', hbte, hLte⟩ := htef
   -- the tower law's typing clause
-  obtain ⟨-, -, -, ⟨cvT, capsT, hfT, hlpsT, -⟩, cvC, hfC, hlpsC, hlaw, -⟩ :=
-    hin.tower_ok sn i entry hent
+  obtain ⟨-, -, -, ⟨cvT, capsT, hfT, hlpsT, -⟩, cvC, hfC, hlpsC, hlaw⟩ :=
+    hin.tower_ok.entry sn i entry hent
   have hguard : TowerGuardAt m φ entry us cvC := hg _ _ _ hfC (by rw [hlpsC]; exact hus)
     (fun cvT' caps' hT' => by
-      obtain ⟨hsn₀, -⟩ := hin.tower_ok sn i entry hent
+      obtain ⟨hsn₀, -⟩ := hin.tower_ok.entry sn i entry hent
       rw [hsn₀, hfT] at hT'
       obtain rfl : cvT = cvT' := by
         injection hT' with h'; injection h' with a b

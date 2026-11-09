@@ -39,7 +39,7 @@ variable {V : Type w} [SetTheory V] {env : Env}
 well-formedness and head data added. -/
 @[expose] def EnvModel.pushTable (m : EnvModel V env) {t : ProjTable}
     (hwf : ConLeche.EnvWF ⟨env.consts, t :: env.tables⟩)
-    (hhead : ∀ i, i < t.numFields → ConLeche.TowerHead env (t.entry i)) :
+    (hhead : ConLeche.TableHead env t) :
     EnvModel V ⟨env.consts, t :: env.tables⟩ where
   wf := hwf
   acval := m.acval
@@ -80,31 +80,29 @@ theorem capsOk_pushTable (mp : EnvModelM V env) {t : ProjTable}
     (hT : env.findTable? t.structName = none)
     {m₂ : EnvModel V ⟨env.consts, t :: env.tables⟩} (hac : m₂.acval = mp.base2.acval) :
     CapsOk m₂ := by
-  constructor
-  · intro T cvT caps hf hcape hres hfam φ' us hlen
-    obtain ⟨hlaw, hcoh⟩ :=
-      mp.caps_ok.1 T cvT caps hf hcape hres hfam φ' us hlen
-    refine ⟨?_, ?_⟩
-    · rw [hac]
-      exact hlaw
-    · refine hcoh.transport (fun cvC nPc nFc hf₂ => hf₂)
-        (fun cvC nPc nFc TCa hf hTCa => ?_) (by rw [hac]) (fun _ _ _ => rfl)
-      rw [hac]
-      exact denote_pushTable_mono hT _ 0
-        (constsBound_instType mp.base2.wf (ConLeche.Env.find?_mem hf) us) hTCa
-  · intro T cvT caps hf hcape hz hres φ' us hlen
-    have hlaw := mp.caps_ok.2 T cvT caps hf hcape hz hres φ' us hlen
-    rw [hac]
+  intro T cvT caps hf hcape hres hfam φ' us hlen
+  obtain ⟨hlaw, hcoh⟩ :=
+    mp.caps_ok T cvT caps hf hcape hres hfam φ' us hlen
+  refine ⟨?_, ?_⟩
+  · rw [hac]
     exact hlaw
+  · refine hcoh.transport (fun cvC nPc nFc hf₂ => hf₂)
+      (fun cvC nPc nFc TCa hf hTCa => ?_) (by rw [hac]) (fun _ _ _ => rfl)
+    rw [hac]
+    exact denote_pushTable_mono hT _ 0
+      (constsBound_instType mp.base2.wf (ConLeche.Env.find?_mem hf) us) hTCa
 
 /-- **The P step at a projection table's install.**  The structure has
-no table yet, the table is well formed and carries its head data at
-every field, and the fields' projection laws are supplied.  The leaf
+no table yet, the table is well formed and carries its head data, and
+the table's law and its fields' projection laws are supplied.  The leaf
 valuation is the prefix's; everything else transports. -/
 theorem declStep_preserves_of_pushTable (mp : EnvModelM V env) {t : ProjTable}
     (hT : env.findTable? t.structName = none)
     (hwf : ConLeche.EnvWF ⟨env.consts, t :: env.tables⟩)
-    (hhead : ∀ i, i < t.numFields → ConLeche.TowerHead env (t.entry i))
+    (hhead : ConLeche.TableHead env t)
+    (htlaw : ∀ m₂ : EnvModel V ⟨env.consts, t :: env.tables⟩,
+      m₂.acval = mp.base2.acval →
+      ∀ φ : Name → Nat, TowerTableLaw m₂ φ t.structName t)
     (hlaw : ∀ m₂ : EnvModel V ⟨env.consts, t :: env.tables⟩,
       m₂.acval = mp.base2.acval →
       ∀ (φ : Name → Nat) (i : Nat), i < t.numFields →
@@ -144,7 +142,14 @@ theorem declStep_preserves_of_pushTable (mp : EnvModelM V env) {t : ProjTable}
     rec_rules := fun φ n cv mI rP isK rules hf rl hmem =>
       recRuleLaw_ext mp hx φ hf hmem
     reduce_ops := mp.reduce_ops
-    tower_ok := fun φ T i entry hf => by
+    tower_ok := fun φ => ⟨fun T tbl hf => by
+      by_cases hh : t.structName = T ∧ (env.find? T).isSome = true
+      · rw [ConLeche.Env.findTable?_pushTable, ite_eq_left hh] at hf
+        obtain rfl := Option.some.inj hf
+        rw [← hh.1]
+        exact htlaw m₂ hac φ
+      · rw [ConLeche.Env.findTable?_pushTable, ite_eq_right hh] at hf
+        exact towerTableLaw_ext mp hx φ hf, fun T i entry hf => by
       by_cases hh : t.structName = T ∧ (env.find? T).isSome = true
       · obtain ⟨tbl, hft, hi, rfl⟩ := ConLeche.Env.findProj?_some hf
         rw [ConLeche.Env.findTable?_pushTable, ite_eq_left hh] at hft
@@ -155,7 +160,7 @@ theorem declStep_preserves_of_pushTable (mp : EnvModelM V env) {t : ProjTable}
           unfold Env.findProj?
           rw [ConLeche.Env.findTable?_pushTable, ite_eq_right hh]
         rw [hP] at hf
-        exact towerEntryLaw_ext mp hx φ hf
+        exact towerEntryLaw_ext mp hx φ hf⟩
     lfpBlocks := mp.lfpBlocks
     lfp_ok := mp.lfp_ok_transport (fun _ _ hf _ => hf) (fun _ _ _ _ => rfl)
       (fun ψ d _ _ hb hta => hx.denote hb hta)

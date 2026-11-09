@@ -139,7 +139,6 @@ theorem defEqExpand_sound (hin : RulesInputs V m φ) :
 theorem unitLike_sound (hin : RulesInputs V m φ) :
     ∀ {d : Nat} {T : Expr}, UnitLike env d T → UnitLikeSem m φ d T
   | _, _, .pi hr h => UnitLike.pi_sound (red_sound hin hr) (unitLike_sound hin h)
-  | _, _, .unit hr hsh => UnitLike.unit_sound hin (red_sound hin hr) hsh
   | _, _, .struct hr hsh hf =>
     UnitLike.struct_sound hin (red_sound hin hr) hsh (unitFields_sound hin hf)
 

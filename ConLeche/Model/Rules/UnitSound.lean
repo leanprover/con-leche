@@ -24,14 +24,15 @@ partially applied constructor (lean4#15373), at the conditional motive.
   (`lamV_eta`).  The ∀ arm of `UnitLike` and the expansion step of
   `DefEqExpand` both open the ∀ at a fresh variable and read the claim at
   every value of it.
-* **An instance of an η family with fields** is the constructor at the
-  parameters and its own projections (the tower's η law), and that spine fits
-  the constructor's telescope (the coherence law).  Two members fit it at the
+* **An instance of an η family** is the constructor at the parameters and
+  its own projections (its table's η law, at every field count), and that
+  spine fits the constructor's telescope (the coherence law).  Two members fit it at the
   same parameters, so their projections fit the field telescope the checker
   walks (`unitFieldTele`, the parameters substituted; `unitTele_fit`), whose
   fields are propositions (every proof is the point) or unit-like: the
-  projections coincide field by field, and so do the members.
-* **A family without fields** is the stored unit law (`CapsOk`).
+  projections coincide field by field, and so do the members (at a fieldless
+  family there is nothing to compare: both members are the constructor at the
+  parameters).
 -/
 
 namespace ConLeche.Model.Rules
@@ -382,84 +383,6 @@ theorem unitTele_fit {d : Nat} :
         exact hfit ρ L r hwBi (fun x hx => hwts x (List.mem_cons_of_mem _ hx)) hfit'
     | _ => simp [unitFieldTele_eq, Expr.peelPis] at h
 
-/-! ## The shape of an instance, inverted -/
-
-/-- A family without fields. -/
-theorem unitLikeShape_none_inv {w : Expr} (h : unitLikeShape env w = some none) :
-    ∃ (S : Name) (us : List Level) (cvS : ConstantVal) (caps : IndCaps),
-      w.getAppFn = .const S us ∧ env.find? S = some (.indInfo cvS caps) ∧
-      caps.eta = true ∧ caps.etaFields = 0 ∧ ConLeche.reservedBasisNames.contains S = false ∧
-      w.getAppArgs.length = caps.etaParams ∧ us.length = cvS.levelParams.length := by
-  unfold unitLikeShape at h
-  revert h
-  split
-  · rename_i S us hfn
-    split
-    · rename_i cvS caps hfS
-      split
-      · rename_i hc
-        intro _
-        exact ⟨S, us, cvS, caps, hfn, hfS, hc⟩
-      · split
-        · split
-          · split
-            · split
-              · intro h
-                cases ht : unitFieldTele _ _ w.getAppArgs with
-                | none => rw [ht] at h; exact nomatch h
-                | some t => rw [ht] at h; exact nomatch h
-              · intro h; exact nomatch h
-            · intro h; exact nomatch h
-          · intro h; exact nomatch h
-        · intro h; exact nomatch h
-    · intro h; exact nomatch h
-  · intro h; exact nomatch h
-
-/-- An η family with fields, read through its table's first entry. -/
-theorem unitLikeShape_some_inv {w tele : Expr} {n : Nat}
-    (h : unitLikeShape env w = some (some (tele, n))) :
-    ∃ (S : Name) (us : List Level) (cvS : ConstantVal) (caps : IndCaps) (e0 : ProjEntry)
-      (cvC : ConstantVal) (nPc nFc : Nat),
-      w.getAppFn = .const S us ∧ env.find? S = some (.indInfo cvS caps) ∧
-      caps.eta = true ∧ ConLeche.reservedBasisNames.contains S = false ∧
-      w.getAppArgs.length = caps.etaParams ∧ us.length = cvS.levelParams.length ∧
-      ConLeche.towerSlotsAll env S caps.etaFields = true ∧
-      env.findProj? S 0 = some e0 ∧ env.find? e0.ctor = some (.ctorInfo cvC nPc nFc) ∧
-      cvC.levelParams = cvS.levelParams ∧ n = caps.etaFields ∧
-      unitFieldTele (cvC.type.instantiateLevelParams cvC.levelParams us) caps.etaParams
-        w.getAppArgs = some tele := by
-  unfold unitLikeShape at h
-  revert h
-  split
-  · rename_i S us hfn
-    split
-    · rename_i cvS caps hfS
-      split
-      · intro h; exact nomatch h
-      · split
-        · rename_i _ hc
-          split
-          · rename_i e0 he0
-            split
-            · rename_i cvC nPc nFc hfC
-              split
-              · rename_i hl
-                intro h
-                cases ht : unitFieldTele (cvC.type.instantiateLevelParams cvC.levelParams us)
-                    caps.etaParams w.getAppArgs with
-                | none => rw [ht] at h; exact nomatch h
-                | some t =>
-                  rw [ht] at h
-                  obtain ⟨rfl, rfl⟩ := Prod.mk.inj (Option.some.inj (Option.some.inj h))
-                  exact ⟨S, us, cvS, caps, e0, cvC, nPc, nFc, hfn, hfS, hc.1, hc.2.1, hc.2.2.1,
-                    hc.2.2.2.1, hc.2.2.2.2, he0, hfC, hl, rfl, ht⟩
-              · intro h; exact nomatch h
-            · intro h; exact nomatch h
-          · intro h; exact nomatch h
-        · intro h; exact nomatch h
-    · intro h; exact nomatch h
-  · intro h; exact nomatch h
-
 /-! ## A unit-like family instance -/
 
 /-- A reduction of a type, at a valuation where the type is graded: the
@@ -474,57 +397,34 @@ theorem red_ty_at {d : Nat} {T w : Expr} (hr : RedSem m φ d T w) {Δa : List Te
   obtain ⟨hokW, heqW⟩ := hY ρ hρ hLT hokT.1 hokT.2.ne_pt
   exact ⟨hfW, hCT.of_subset hsubW, hLT.of_subset hsubW, wa, hwa, hokW, heqW⟩
 
-/-- **A family without fields**: the stored unit law. -/
-theorem UnitLike.unit_sound (hin : RulesInputs V m φ) {d : Nat} {T w : Expr}
-    (hr : RedSem m φ d T w) (hsh : unitLikeShape env w = some none) :
-    UnitLikeSem m φ d T := by
-  intro hfT Δa Ta hCT hdT ρ hρ hLT hokT x y hx hy
-  obtain ⟨-, -, -, wa, hwa, hokW, heqW⟩ := red_ty_at hr hfT hCT hdT hρ hLT hokT
-  obtain ⟨S, us, cvS, caps, hfn, hfS, he, hz, hres, hlen, hus⟩ := unitLikeShape_none_inv hsh
-  rw [show w = Expr.mkAppN w.getAppFn w.getAppArgs from
-    (ConLeche.Expr.mkAppN_getApp w).symm, hfn] at hwa
-  obtain ⟨vT, tsa, hvT, hspt, rfl⟩ := denote_mkAppN_inv hwa
-  rw [denote, hfS] at hvT
-  dsimp only at hvT
-  split at hvT
-  case isFalse => exact nomatch hvT
-  case isTrue =>
-  obtain rfl : vT = m.acval S (Level.substFn φ cvS.levelParams us) :=
-    (Option.some.inj hvT).symm
-  have hfold : ∀ (l : List Term) (z : V),
-      l.foldl (fun r y => SetTheory.app r (interp V ρ y)) z
-        = (l.map (interp V ρ)).foldl SetTheory.app z := by
-    intro l z; rw [List.foldl_map]
-  have hfit : FamFit V ρ _ (tsa.map (interp V ρ)) :=
-    ⟨tsa, rfl, hokW, by rw [← heqW]; exact hokT.2.ne_pt⟩
-  rw [heqW, interp_mkAppN, hfold] at hx hy
-  exact hin.caps_ok.2 S cvS caps hfS he hz hres φ us hus ρ (tsa.map (interp V ρ)) x y
-    (by rw [List.length_map, ← hspt.length, hlen]) hfit hx hy
-
-/-- **An η family with fields**: two members that are not the point are the
-constructor at the parameters and their projections, which fit the field
-telescope (`unitTele_fit`) and so coincide (`UnitFieldsSem`). -/
+/-- **An η family**: two members that are not the point are the
+constructor at the parameters and their projections (none at a fieldless
+family), which fit the field telescope (`unitTele_fit`) and so coincide
+(`UnitFieldsSem`). -/
 theorem UnitLike.struct_sound (hin : RulesInputs V m φ) {d n : Nat} {T w tele : Expr}
-    (hr : RedSem m φ d T w) (hsh : unitLikeShape env w = some (some (tele, n)))
+    (hr : RedSem m φ d T w) (hsh : unitLikeShape env w = some (tele, n))
     (hf : UnitFieldsSem m φ d tele n) :
     UnitLikeSem m φ d T := by
   intro hfT Δa Ta hCT hdT ρ hρ hLT hokT x y hx hy
   obtain ⟨hfW, hCW, hLW, wa, hwa, hokW, heqW⟩ := red_ty_at hr hfT hCT hdT hρ hLT hokT
-  obtain ⟨S, us, cvS, caps, e0, cvC, nPc, nFc, hfn, hfS, heta, hres, hlen, hus, htow, he0,
-    hfC, hlps, rfl, htele⟩ := unitLikeShape_some_inv hsh
-  -- the tower's laws at the first entry
-  obtain ⟨-, -, -, ⟨cvT', capsT', hfT', hlpsT', himp'⟩, -, -, -, -, hetaL⟩ :=
-    hin.tower_ok S 0 e0 he0
+  obtain ⟨S, us, cvS, caps, tbl, cvC, nPc, nFc, hfn, hfS, heta, hus, hT, hlen, hfC, rfl,
+    htele⟩ := ConLeche.unitLikeShape_some hsh
+  -- the table's laws, at every field count
+  obtain ⟨⟨cvT', capsT', hfT', hlpsT', -⟩, hetaL⟩ := hin.tower_ok.table S tbl hT
   obtain ⟨rfl, rfl⟩ : cvS = cvT' ∧ caps = capsT' := by
     rw [hfS] at hfT'
     exact ConstantInfo.indInfo.inj (Option.some.inj hfT')
-  obtain ⟨-, hpar', hfld'⟩ := himp' heta
   obtain ⟨hlaw, hcoh⟩ := hetaL cvS caps hfS us (by rw [← hlpsT']; exact hus)
   obtain ⟨TCa, hTCa, hfitC⟩ := hcoh heta cvC nPc nFc hfC
+  -- the table's constructor is stored at the table's levels
+  obtain ⟨-, -, -, -, cvC', hfC', hlpsC, -⟩ := m.proj_ok S tbl hT
+  obtain rfl : cvC = cvC' := by
+    rw [hfC] at hfC'
+    exact (ConstantInfo.ctorInfo.inj (Option.some.inj hfC')).1
   -- the constructor type's reading, at every depth
   obtain ⟨tc, htc, hoktc, -, -, -⟩ :=
     constTy_pkg hin.const_ty hfC (show us.length = _ by
-      show us.length = cvC.levelParams.length; rw [hlps]; exact hus)
+      show us.length = cvC.levelParams.length; rw [hlpsC, ← hlpsT']; exact hus)
   dsimp only [ConLeche.ConstantInfo.toConstantVal] at htc hoktc
   obtain rfl : TCa = tc := Option.some.inj (hTCa.symm.trans (htc 0))
   -- the instance: the family at its parameters
@@ -548,10 +448,10 @@ theorem UnitLike.struct_sound (hin : RulesInputs V m φ) {d n : Nat} {T w tele :
   refine IsTy.eq_of_ne_pt hTy hx hy fun hnx hny => ?_
   rw [interp_mkAppN, hfold] at hx hy
   rw [hlpsT'] at hx hy
-  have hfit : FamFit V ρ (m.acval S (Level.substFn φ e0.levelParams us)) (tsa.map (interp V ρ)) :=
+  have hfit : FamFit V ρ (m.acval S (Level.substFn φ tbl.levelParams us)) (tsa.map (interp V ρ)) :=
     ⟨tsa, rfl, by rw [← hlpsT']; exact hokW, by rw [← hlpsT', ← heqW]; exact hokT.2.ne_pt⟩
-  have hlenP : (tsa.map (interp V ρ)).length = e0.numParams := by
-    rw [List.length_map, ← hspt.length, hlen, hpar']
+  have hlenP : (tsa.map (interp V ρ)).length = tbl.numParams := by
+    rw [List.length_map, ← hspt.length, hlen]
   -- each member: the constructor at the parameters and its projections, fitting
   obtain ⟨rx, hfx⟩ := hfitC ρ _ x hlenP hfit hx hnx
   obtain ⟨ry, hfy⟩ := hfitC ρ _ y hlenP hfit hy hny
@@ -577,7 +477,7 @@ theorem UnitLike.struct_sound (hin : RulesInputs V m φ) {d n : Nat} {T w tele :
     ⟨unitFieldTele_WScoped hcl (fun a ha => (hargs a ha).1) htele', hbt,
       fun l hl => hfW.2.2 l (hsubt l hl)⟩
   have hproj := hf hfte (hCW.of_subset hsubt) hdt ρ hρ (hLW.of_subset hsubt) hwt _ _ _ _
-    (by simp [hfld']) (by simp [hfld']) hfx' hfy'
+    (by simp) (by simp) hfx' hfy'
   rw [hlaw ρ _ x hlenP hfit hx, hlaw ρ _ y hlenP hfit hy, hproj]
 
 /-! ## Unit-likeness -/

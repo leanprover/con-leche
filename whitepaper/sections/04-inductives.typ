@@ -782,7 +782,7 @@ uniqueness the two have one domain, which holds the argument.
   kernel. The law there is proved without the comparisons: when the
   redex is not the point, the major is a tagged tuple, which ties the
   constructor application to the recursor's levels and parameters
-  (#src("ConLeche/Model/Env/Laws.lean", 496, 530)[what the law
+  (#src("ConLeche/Model/Env/Laws.lean", 475, 509)[what the law
   provides instead]).
 ]
 

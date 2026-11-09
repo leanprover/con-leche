@@ -192,13 +192,13 @@ by the same argument.
   #src("ConLeche/Rules/Rel.lean", 490, 490)[any unit-like type] (Lean's:
   a Π-type whose codomain is unit-like, or a structure whose fields are
   propositions or unit-like), with
-  #src("ConLeche/Model/Rules/UnitSound.lean", 588, 588)[its soundness case].
-  A structure with fields is unit-like by its η law and its fields'
-  unit-likeness. A structure without fields (one constructor, no
-  index, no field, in a block where no constructor is recursive) is
-  unit-like outright, and its law is established at installation from
-  the fixed point
-  (#src("ConLeche/Model/Inductives/FixKit.lean", 1796, 1797)[the fibre is the one tagged empty tuple]).
+  #src("ConLeche/Model/Rules/UnitSound.lean", 488, 488)[its soundness case].
+  A structure is unit-like by its η law and its fields'
+  unit-likeness; a structure without fields has no field to check. The
+  η law is its projection table's, which every structure-like block
+  member has, whatever its field count, and it is established at
+  installation from the fixed point
+  (#src("ConLeche/Model/Inductives/FixKit.lean", 1383, 1383)[the table's η law, at every field count]).
   Neither `PUnit` nor `True` is special to the checker: both are
   installed like any other block.
 ]

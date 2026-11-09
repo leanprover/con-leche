@@ -8,7 +8,7 @@ public section
 # The structure-capability laws across a fresh cons (task #161, caps
 tier)
 
-The statements (`TeleFit`, `EtaLaw`, `UnitLaw`, `CapsOk`) live in `Env/Laws.lean` beside `NatOps`,
+The statements (`TeleFit`, `EtaLaw`, `CapsOk`) live in `Env/Laws.lean` beside `NatOps`,
 `DivMod` and `EqLaw` — the `EnvModelM` field `caps_ok` must mention
 them.  This file is the *preservation* half: `capsOk_cons_fresh`, the obligation every
 value-kind harvest discharges.
@@ -96,20 +96,6 @@ theorem etaFamilyStored_descend {c₀ : ConstantInfo} {T : Name}
   exact ⟨by rwa [hdown _ hnT] at hf,
     ⟨hCres, ⟨cvC, cnP, cnF, by rwa [hdown _ hnC] at hfC⟩, hfP⟩, hnT, hnC⟩
 
-/-! ## Why the unit half of `CapsOk` carries no `EtaFamilyStored` premise
-
-`UnitLike.unit` (`Rules/Rel.lean`) keys the unit law on exactly
-`find? = indInfo`, `eta`, no field, `¬reserved` (`unitLikeShape`'s
-fieldless arm), and an `EtaFamilyStored env T caps` premise would make
-the field **unusable by its own consumer**: the arm never looks at a
-constructor, so nothing it reads mentions `caps.etaCtor`.  Nor is the
-premise derivable from the environment: `EtaFamilyStored` is a
-statement about what is *stored* under a name that an `indInfo` entry's
-`caps` record merely *names*, and `EnvWF` relates the two not at all.
-The unit law is therefore owed at every fieldless η family, stored
-constructor or not; the η law (the first half) only once the
-constructor is stored. -/
-
 /-! ## The crossing -/
 
 /-- **`CapsOk` at a fresh value-kind cons** — every `defnInfo`,
@@ -125,42 +111,23 @@ theorem capsOk_cons_fresh (mp : EnvModelM V env)
     (m₂ : EnvModel V ⟨c₀ :: env.consts, env.tables⟩)
     (hac : m₂.acval = acvalWith mp.base2.acval c₀.name A) :
     CapsOk m₂ := by
-  constructor
-  · -- the η half
-    intro T cvT caps hf hcape hres hfam φ' us hlen
-    obtain ⟨hfE, hfam₀, hnT, hnC⟩ :=
-      etaFamilyStored_descend hnotind hnotctor hf hfam
-    obtain ⟨hlaw, hcoh⟩ :=
-      hprev.1 T cvT caps hfE hcape hres hfam₀ φ' us hlen
-    refine ⟨?_, ?_⟩
-    · intro ρ ts x hlents hfit hmem
-      rw [hac, acvalWith_ne hnT] at hmem hfit
-      rw [hac, acvalWith_ne hnC]
-      exact hlaw ρ ts x hlents hfit hmem
-    · refine hcoh.transport (fun cvC nPc nFc hf₂ => ?_)
-        (fun cvC nPc nFc TCa hf hTCa => ?_) (by rw [hac, acvalWith_ne hnT])
-        (fun _ _ _ => rfl)
-      · rwa [ConLeche.Env.find?_cons, ite_eq_right (fun hh => hnC hh.symm)] at hf₂
-      · rw [hac]
-        exact denote_cons_mono hfresh _ 0
-          (constsBound_instType mp.base2.wf
-            (ConLeche.Env.find?_mem hf) us) hTCa
-  · -- the unit-like half: no fabricated spine, one leaf to move
-    -- (and, post-repair, no family premise: the former's freshness
-    -- disequality comes from the cons head's non-inductive kind)
-    intro T cvT caps hf hcape hz hres φ' us hlen
-    have hnT : T ≠ c₀.name := by
-      intro hh
-      subst hh
-      have h0 := (ConLeche.Env.find?_cons_self c₀ env).symm.trans hf
-      exact hnotind cvT caps (Option.some.inj h0)
-    have hfE : env.find? T = some (.indInfo cvT caps) := by
-      rw [ConLeche.Env.find?_cons, ite_eq_right (fun hh => hnT hh.symm)] at hf
-      exact hf
-    have hlaw :=
-      hprev.2 T cvT caps hfE hcape hz hres φ' us hlen
-    intro ρ ts x y hlents hfit hmx hmy
-    rw [hac, acvalWith_ne hnT] at hmx hmy hfit
-    exact hlaw ρ ts x y hlents hfit hmx hmy
+  intro T cvT caps hf hcape hres hfam φ' us hlen
+  obtain ⟨hfE, hfam₀, hnT, hnC⟩ :=
+    etaFamilyStored_descend hnotind hnotctor hf hfam
+  obtain ⟨hlaw, hcoh⟩ :=
+    hprev T cvT caps hfE hcape hres hfam₀ φ' us hlen
+  refine ⟨?_, ?_⟩
+  · intro ρ ts x hlents hfit hmem
+    rw [hac, acvalWith_ne hnT] at hmem hfit
+    rw [hac, acvalWith_ne hnC]
+    exact hlaw ρ ts x hlents hfit hmem
+  · refine hcoh.transport (fun cvC nPc nFc hf₂ => ?_)
+      (fun cvC nPc nFc TCa hf hTCa => ?_) (by rw [hac, acvalWith_ne hnT])
+      (fun _ _ _ => rfl)
+    · rwa [ConLeche.Env.find?_cons, ite_eq_right (fun hh => hnC hh.symm)] at hf₂
+    · rw [hac]
+      exact denote_cons_mono hfresh _ 0
+        (constsBound_instType mp.base2.wf
+          (ConLeche.Env.find?_mem hf) us) hTCa
 
 end ConLeche.Model

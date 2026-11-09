@@ -57,8 +57,8 @@ unit-η (`is_def_eq_unit_like`, `type_checker.cpp:1162`) are gated on
 `is_non_rec_structure`, so η carries `!isRec` (unit-η at a member of a
 recursive block would be an accept-superset, stream
 `whnfswap_unitpost_bad`).  There is no separate unit-like bit, as
-official has none: a family is unit-like at a fieldless constructor,
-`eta ∧ etaFields = 0` (`unitLikeShape`); the recursor's major-premise
+official has none: an η family is unit-like where its constructor's
+fields are (`unitLikeShape`, none at a fieldless one); the recursor's major-premise
 rescue (`Core.lean`, its η arm at a fieldless constructor — arena
 `073_typeSingletonRecReduction`) keys on η as well.  (Granting η at a recursive structure-like is sound in the model
 but not in practice: at a reflexive `W1 α = sup (a : α) (f : Nat →

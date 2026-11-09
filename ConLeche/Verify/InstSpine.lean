@@ -284,5 +284,40 @@ theorem unitFieldTele_WScoped {d : Nat} {cty tele : Expr} {n : Nat} {args : List
     obtain rfl := Option.some.inj h
     exact instSpine_WScoped _ (WScoped.of_not_hasFvar (hasFvar_peelPis hc hb)) hargs
 
+/-- **The shape of a unit-like instance, inverted**: the head family is a
+stored η family at its levels, its projection table's constructor is a
+stored constructor, and the telescope is that constructor's at the
+instance's parameters, with the table's field count. -/
+theorem unitLikeShape_some {env : Env} {w tele : Expr} {n : Nat}
+    (h : unitLikeShape env w = some (tele, n)) :
+    ∃ (S : Name) (us : List Level) (cvS : ConstantVal) (caps : IndCaps) (tbl : ProjTable)
+      (cvC : ConstantVal) (nPc nFc : Nat),
+      w.getAppFn = .const S us ∧ env.find? S = some (.indInfo cvS caps) ∧
+      caps.eta = true ∧ us.length = cvS.levelParams.length ∧
+      env.findTable? S = some tbl ∧ w.getAppArgs.length = tbl.numParams ∧
+      env.find? tbl.ctor = some (.ctorInfo cvC nPc nFc) ∧ n = tbl.numFields ∧
+      unitFieldTele (cvC.type.instantiateLevelParams cvC.levelParams us) tbl.numParams
+        w.getAppArgs = some tele := by
+  unfold unitLikeShape at h
+  split at h <;> try contradiction
+  rename_i S us hfn
+  split at h <;> try contradiction
+  rename_i cvS caps hfS
+  split at h <;> try contradiction
+  rename_i hc
+  split at h <;> try contradiction
+  rename_i tbl hT
+  split at h <;> try contradiction
+  rename_i hlen
+  split at h <;> try contradiction
+  rename_i cvC nPc nFc hfC
+  cases ht : unitFieldTele (cvC.type.instantiateLevelParams cvC.levelParams us) tbl.numParams
+      w.getAppArgs with
+  | none => rw [ht] at h; exact nomatch h
+  | some t =>
+    rw [ht] at h
+    obtain ⟨rfl, rfl⟩ := Prod.mk.inj (Option.some.inj h)
+    exact ⟨S, us, cvS, caps, tbl, cvC, nPc, nFc, hfn, hfS, hc.1, hc.2, hT, hlen, hfC, rfl, ht⟩
+
 end ConLeche
 

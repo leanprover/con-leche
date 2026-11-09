@@ -15,7 +15,7 @@ field of a structure value. For every inductive type with one
 constructor and no index the checker stores #src("ConLeche/Kernel/Install.lean", 67, 74)[a
 projection table], the fields' types read off the constructor. The
 real checker #src("ConLeche/Rules/Rel.lean", 175, 190)[reduces a projection of a
-constructor application to that field] and #src("ConLeche/Rules/Rel.lean", 686, 694)[infers its type from
+constructor application to that field] and #src("ConLeche/Rules/Rel.lean", 684, 692)[infers its type from
 the table]\; in the model a structure value is the tagged tuple of
 @sec:ext-eta and a projection reads a component, which
 #src("ConLeche/Model/Inductives/BlockStageTables.lean", 10, 12)[the
@@ -128,10 +128,10 @@ denotation on the terms themselves.
 
 *Six relations, and a mode index.* Beside reduction,
 definitional equality and inference the real description has three
-more: #src("ConLeche/Rules/Rel.lean", 755, 764)[the certification of an argument spine against
+more: #src("ConLeche/Rules/Rel.lean", 753, 762)[the certification of an argument spine against
 a binder telescope] (the certified case of $iota$),
-#src("ConLeche/Rules/Rel.lean", 766, 771)[pairwise definitional equality], and
-#src("ConLeche/Rules/Rel.lean", 557, 596)[the congruence of two lambda telescopes]
+#src("ConLeche/Rules/Rel.lean", 764, 769)[pairwise definitional equality], and
+#src("ConLeche/Rules/Rel.lean", 555, 594)[the congruence of two lambda telescopes]
 (@sec:tax). A rule with a premise about a list or a telescope needs a
 relation of its own in a mutual block; the paper inlines them into the
 rules that use them. Inference also carries a

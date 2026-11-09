@@ -457,16 +457,15 @@ the answer is "not unit-like", which is always sound. -/
 @[irreducible, noinline] def unitLikeFuel : Nat := 4611686018427387904  -- 2^62
 
 /-- **The structure arm of official's `is_unit_like`**: `w`, a head
-normal form that is no ∀, is an instance of a stored family without
-fields, or of a stored η family every field of whose constructor, at the
-instance's parameters, has a proposition or a unit-like type
-(`unitLikeFields`, with `ul` official's recursive `is_unit_like`); the
+normal form that is no ∀, is an instance of a stored η family every
+field of whose constructor, at the instance's parameters, has a
+proposition or a unit-like type (`unitLikeFields`, with `ul` official's
+recursive `is_unit_like`; a fieldless family has none to check); the
 shape is read off the stored records (`unitLikeShape`). -/
 def unitLikeStruct (r : CoreFns m) (ul : Nat → Expr → m Bool) (env : Env)
     (depth : Nat) (w : Expr) : m Bool :=
   match unitLikeShape env w with
-  | some none => pure true
-  | some (some (tele, n)) => unitLikeFields r ul n depth tele
+  | some (tele, n) => unitLikeFields r ul n depth tele
   | none => pure false
 
 /-- **Is a type unit-like** (official's `is_unit_like`, lean4#15372): its

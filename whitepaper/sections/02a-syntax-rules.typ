@@ -235,7 +235,7 @@ reductions: it reduces a side, then continues (red-l).
 === Inference <sec:infer>
 
 A variable's type is #src("whitepaper/Fragment/Rules.lean", 740, 748)[read off the context], and a sort
-#src("ConLeche/Rules/Rel.lean", 599, 615)[has the next sort]. The rules
+#src("ConLeche/Rules/Rel.lean", 597, 613)[has the next sort]. The rules
 of this subsection are the checker's _full inference_. The checker
 also has a cheaper mode, `infer_only`, which skips some of their
 checks; @sec:io presents it.
@@ -264,7 +264,7 @@ the sort of that type is not computed.
 )
 
 An #src("whitepaper/Fragment/Rules.lean", 772, 781)[application infers the head's type], reduces it to a $forall$,
-infers the argument's type and #src("ConLeche/Rules/Rel.lean", 667, 671)[compares it with the domain].
+infers the argument's type and #src("ConLeche/Rules/Rel.lean", 665, 669)[compares it with the domain].
 A #src("whitepaper/Fragment/Rules.lean", 782, 796)[let-expression] checks that its type has a
 sort and that its value's type agrees with it, as Lean does, and then
 infers the type of the body with the value substituted.
@@ -308,8 +308,8 @@ itself in place of the variable.
 
 #real[
   The checker substitutes the value in the same way, both when it
-  #src("ConLeche/Kernel/Core.lean", 1068, 1070)[reduces] and when it
-  #src("ConLeche/Kernel/Core.lean", 1302, 1307)[infers]\; it keeps no
+  #src("ConLeche/Kernel/Core.lean", 1067, 1069)[reduces] and when it
+  #src("ConLeche/Kernel/Core.lean", 1301, 1306)[infers]\; it keeps no
   variables bound to values.
   The official kernel opens the body at such a variable instead, which
   avoids copying the value when the body uses it many times; for

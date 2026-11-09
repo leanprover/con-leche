@@ -291,9 +291,9 @@ theorem recSwapFacts3 {envSelf env₃ : Env} {cval : (Name → (Name → Nat) �
         · rw [← heq]; exact hx
         · rw [h₃] at hx; exact nomatch hx), hp.2.2⟩)
   · -- `ProjOkT`: projection tables are untouched
-    intro n tbl hf i hi
-    exact ConLeche.TowerHead.mono (fun n ci hnr hf' => (hsame n ci hnr).mpr hf')
-      (hprojS n tbl ((hcg.tableEq n).trans hf) i hi)
+    intro n tbl hf
+    exact ConLeche.TableHead.mono (fun n ci hnr hf' => (hsame n ci hnr).mpr hf')
+      (hprojS n tbl ((hcg.tableEq n).trans hf))
 
 /-! ## The names the conses do not touch -/
 

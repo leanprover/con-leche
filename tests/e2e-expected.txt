@@ -3361,6 +3361,11 @@
 1 unitlike_wide_foo_nat_bad.ndjson
 1 unitlike_wide_boolwrap_bad.ndjson
 1 unitlike_wide_pi_bad.ndjson
+# The unit-like test at fieldless structures with parameters, alone, behind a
+# ∀ and inside unit-like structures (task #515 review round 2: the
+# constructor and the field count are read off the projection table, which a
+# fieldless structure has too).  Official 0; today 0.
+0 unitlike_fieldless.ndjson
 # η for a partially applied structure constructor (task #515; official's
 # `try_eta_struct_core` since lean4#15373, ported from lean4's
 # `tests/elab/12520_1.lean`), and its two must-reject controls.

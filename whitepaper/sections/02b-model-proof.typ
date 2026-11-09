@@ -630,9 +630,9 @@ take from typing. The two kinds are:
 
 #real[
   The checks are the checker's
-  #src("ConLeche/Kernel/Core.lean", 1450, 1456)[innermost lambda level],
-  #src("ConLeche/Kernel/Core.lean", 523, 528)[its $eta$] and
-  #src("ConLeche/Kernel/Core.lean", 891, 905)[the case of ι]. On real
+  #src("ConLeche/Kernel/Core.lean", 1449, 1455)[innermost lambda level],
+  #src("ConLeche/Kernel/Core.lean", 522, 527)[its $eta$] and
+  #src("ConLeche/Kernel/Core.lean", 890, 904)[the case of ι]. On real
   input neither kind ever fails: they never change a verdict on a
   stream the official kernel accepts. Both run at `--verified` only;
   `--trusted` skips them.
@@ -723,7 +723,7 @@ keeps the results of the two modes apart.
 
 #real[
   The checker's cheaper mode is
-  #src("ConLeche/Kernel/Core.lean", 1311, 1316)[`infer_only` exactly]. Like it,
+  #src("ConLeche/Kernel/Core.lean", 1310, 1315)[`infer_only` exactly]. Like it,
   the mode does not check a let-binding's value against its type
   (full inference does, @sec:infer); the soundness proof needs no
   such check, since the value is substituted.

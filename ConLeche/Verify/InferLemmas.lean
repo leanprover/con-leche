@@ -1937,20 +1937,17 @@ theorem unitLikeFields_succ_inv {env : Env} {fuel n d : Nat} {t : Expr}
       | true => exact ⟨Or.inr rfl, h⟩
   | _ => simp [unitLikeFields, pure, Except.pure] at h
 
-/-- Inversion of the structure arm of the unit-like test: a family
-without fields, or an η family whose field telescope passes the field
-loop. -/
+/-- Inversion of the structure arm of the unit-like test: an η family
+whose field telescope passes the field loop. -/
 theorem unitLikeStruct_inv {env : Env} {fuel d : Nat} {w : Expr}
     {ul : Nat → Expr → CheckM Bool}
     (h : unitLikeStruct (pureFns mode eager env fuel) ul env d w = .ok true) :
-    unitLikeShape env w = some none ∨
-      ∃ tele n, unitLikeShape env w = some (some (tele, n)) ∧
-        unitLikeFields (pureFns mode eager env fuel) ul n d tele = .ok true := by
+    ∃ tele n, unitLikeShape env w = some (tele, n) ∧
+      unitLikeFields (pureFns mode eager env fuel) ul n d tele = .ok true := by
   unfold unitLikeStruct at h
   revert h
   split
-  · rename_i hsh; intro _; exact Or.inl hsh
-  · rename_i tele n hsh; intro h; exact Or.inr ⟨tele, n, hsh, h⟩
+  · rename_i tele n hsh; intro h; exact ⟨tele, n, hsh, h⟩
   · intro h; exact nomatch h
 
 /-- Inversion of a successful unit-like test at `f + 1`: the reduct is

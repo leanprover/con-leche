@@ -771,35 +771,28 @@ def unitFieldTele (cty : Expr) (nP : Nat) (targs : List Expr) : Option Expr :=
 
 /-- **The shape of an instance in official's `is_unit_like`**, read off
 the stored records: `w`, a head normal form, is an instance of a stored
-η family (one constructor, no index, not recursive) without fields
-(`some none`: nothing to check), or of one whose constructor's field
-telescope at the instance's parameters is `tele` with `n` fields to
-check (`some (some (tele, n))`), or neither (`none`).  A family with
-fields is read through its projection table, as the η certificate reads
-it (`structEtaCertWith`): every field slot an entry, the constructor the
-first entry's.  A fieldless family has no table, and needs no
-constructor: its arm reads the record alone. -/
-def unitLikeShape (env : Env) (w : Expr) : Option (Option (Expr × Nat)) :=
+η family (one constructor, no index, not recursive) at its parameters,
+whose constructor's field telescope at the instance's parameters is
+`tele` with `n` fields to check (`some (tele, n)`), or not (`none`).
+The constructor and the field count are the family's projection table's
+(official takes the constructor from the family's constructor list): a
+structure-like family has a table whatever its field count, and the
+table's constructor is a stored constructor (`TableHead`). -/
+def unitLikeShape (env : Env) (w : Expr) : Option (Expr × Nat) :=
   match w.getAppFn with
   | .const S us =>
     match env.find? S with
     | some (.indInfo cvS caps) =>
-      if caps.eta = true ∧ caps.etaFields = 0 ∧ reservedBasisNames.contains S = false ∧
-          w.getAppArgs.length = caps.etaParams ∧
-          us.length = cvS.levelParams.length then some none
-      else if caps.eta = true ∧ reservedBasisNames.contains S = false ∧
-          w.getAppArgs.length = caps.etaParams ∧
-          us.length = cvS.levelParams.length ∧
-          towerSlotsAll env S caps.etaFields = true then
-        match env.findProj? S 0 with
-        | some e0 =>
-          match env.find? e0.ctor with
-          | some (.ctorInfo cvC _ _) =>
-            if cvC.levelParams = cvS.levelParams then
+      if caps.eta = true ∧ us.length = cvS.levelParams.length then
+        match env.findTable? S with
+        | some tbl =>
+          if w.getAppArgs.length = tbl.numParams then
+            match env.find? tbl.ctor with
+            | some (.ctorInfo cvC _ _) =>
               (unitFieldTele (cvC.type.instantiateLevelParams cvC.levelParams us)
-                caps.etaParams w.getAppArgs).map fun tele => some (tele, caps.etaFields)
-            else none
-          | _ => none
+                tbl.numParams w.getAppArgs).map fun tele => (tele, tbl.numFields)
+            | _ => none
+          else none
         | none => none
       else none
     | _ => none

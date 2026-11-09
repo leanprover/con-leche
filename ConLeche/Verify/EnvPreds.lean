@@ -65,26 +65,47 @@ the bodies' scoping is `EnvWF`'s table clause.) -/
     cvC.levelParams = entry.levelParams ∧
     (cvC.type.stripPis (entry.numParams + entry.numFields)).isSome = true)
 
+/-- **A table's syntactic head data**: `TowerHead` at the table, for
+every field count (a fieldless structure's table has no entry, and its
+constructor is still read: `unitLikeShape`). -/
+@[expose] def TableHead (env : Env) (tbl : ProjTable) : Prop :=
+  reservedBasisNames.contains tbl.structName = false ∧
+  reservedBasisNames.contains (tbl.structName.str "rec") = false ∧
+  reservedBasisNames.contains tbl.ctor = false ∧
+  (∃ (cvT : ConstantVal) (caps : IndCaps),
+    env.find? tbl.structName = some (.indInfo cvT caps) ∧
+    cvT.levelParams = tbl.levelParams) ∧
+  (∃ cvC : ConstantVal,
+    env.find? tbl.ctor = some (.ctorInfo cvC tbl.numParams tbl.numFields) ∧
+    cvC.levelParams = tbl.levelParams ∧
+    (cvC.type.stripPis (tbl.numParams + tbl.numFields)).isSome = true)
+
+/-- A table's head data is each of its entries'. -/
+theorem TableHead.entry {env : Env} {tbl : ProjTable} (h : TableHead env tbl) {i : Nat}
+    (hi : i < tbl.numFields) : TowerHead env (tbl.entry i) := by
+  obtain ⟨h2, h3, h4, hT, hC⟩ := h
+  exact ⟨h2, h3, h4, hi, hT, hC⟩
+
 /-- The head data survives any extension that keeps the two lookups. -/
-theorem TowerHead.mono {env env' : Env} {entry : ProjEntry}
+theorem TableHead.mono {env env' : Env} {tbl : ProjTable}
     (hkeep : ∀ (n : Name) (ci : ConstantInfo),
       (∀ cv mI rP isK rules, ci ≠ .recInfo cv mI rP isK rules) →
       env.find? n = some ci → env'.find? n = some ci)
-    (h : TowerHead env entry) : TowerHead env' entry := by
-  obtain ⟨h2, h3, h4, h5, ⟨cvT, caps, hT, hlT⟩, ⟨cvC, hC, hlC, hstrip⟩⟩ := h
-  exact ⟨h2, h3, h4, h5,
+    (h : TableHead env tbl) : TableHead env' tbl := by
+  obtain ⟨h2, h3, h4, ⟨cvT, caps, hT, hlT⟩, ⟨cvC, hC, hlC, hstrip⟩⟩ := h
+  exact ⟨h2, h3, h4,
     ⟨cvT, caps, hkeep _ _ (fun _ _ _ _ _ hh => ConstantInfo.noConfusion hh) hT, hlT⟩,
     ⟨cvC, hkeep _ _ (fun _ _ _ _ _ hh => ConstantInfo.noConfusion hh) hC, hlC, hstrip⟩⟩
 
-/-- **The projection-table discipline**: every stored table carries,
-at each of its fields, the syntactic head data (`TowerHead`).
+/-- **The projection-table discipline**: every stored table carries
+the syntactic head data (`TableHead`), and so each of its entries
+(`TowerHead`).
 
 **Purely syntactic**: it mentions no values, no interpretation and
 no derivations.  The
 discipline is uniform over every stored table (task #175). -/
 @[expose] def ProjOkT (env : Env) : Prop :=
-  ∀ T tbl, env.findTable? T = some tbl →
-    ∀ i, i < tbl.numFields → TowerHead env (tbl.entry i)
+  ∀ T tbl, env.findTable? T = some tbl → TableHead env tbl
 
 theorem ProjOkT.empty : ProjOkT Env.empty := by
   intro T tbl h; simp [Env.findTable?, Env.find?, Env.empty] at h
@@ -95,7 +116,7 @@ theorem ProjOkT.towerHead {env : Env} (h : ProjOkT env)
     (hf : env.findProj? sn i = some entry) :
     TowerHead env entry := by
   obtain ⟨tbl, hf', hi, rfl⟩ := Env.findProj?_some hf
-  exact h _ _ hf' i hi
+  exact (h _ _ hf').entry hi
 
 /-! ## The pinned blocks as the install stores them
 

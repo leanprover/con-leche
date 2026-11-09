@@ -393,11 +393,10 @@ theorem towerEntryLaw_ext (mp : EnvModelM V env) {env' : Env}
     (φ : Name → Nat) {T : Name} {i : Nat} {entry : ProjEntry}
     (hfP : env.findProj? T i = some entry) :
     TowerEntryLaw m₂ φ T i entry := by
-  obtain ⟨tbl, hfP0, hi, hentry⟩ := ConLeche.Env.findProj?_some hfP
   obtain ⟨hsn, hidx, hlt, ⟨cvT, capsT, hfT, hlpsT⟩, cvC, hfC, hlpsC,
-    hlaw, hetaL⟩ := mp.tower_ok φ T i entry hfP
+    hlaw⟩ := (mp.tower_ok φ).entry T i entry hfP
   refine ⟨hsn, hidx, hlt, ⟨cvT, capsT, ?_, hlpsT⟩, cvC, ?_, hlpsC,
-    fun us hus => ?_, ?_⟩
+    fun us hus => ?_⟩
   · exact hx.find hfT
   · exact hx.find hfC
   · obtain ⟨⟨Ta, hTa, hA⟩, ⟨TCa, hTCa, hB⟩⟩ := hlaw us hus
@@ -425,36 +424,48 @@ theorem towerEntryLaw_ext (mp : EnvModelM V env) {env' : Env}
     · intro ρ ys rest hlen hok hfit hne
       rw [hx.leafOf hfC] at hok hne ⊢
       exact hB ρ ys rest hlen hok hfit hne
-  · -- (C) the η law crosses (task #175 W4c): the former's lookup is a
-    -- prefix lookup, its type reading is closed, the leaves are prefix
-    -- leaves
-    intro cvT' capsT' hfT' us hus
-    have hfT'' : env.find? T = some (.indInfo cvT' capsT') := by
-      exact hx.back (by rw [hfT]; rfl) hfT'
-    obtain ⟨hlaw', hcoh⟩ := hetaL cvT' capsT' hfT'' us hus
-    refine ⟨?_, fun he => (hcoh he).transport
-      (fun cvC nPc nFc hf₂ => ?_) (fun cvC nPc nFc TCa hf hTCa => ?_)
-      (by rw [hx.leafOf hfT]) (fun _ _ _ => rfl)⟩
-    · intro ρ ts x hlen hfit hmem
-      rw [hx.leafOf hfT] at hmem hfit
-      rw [hx.leafOf hfC]
-      exact hlaw' ρ ts x hlen hfit hmem
-    · exact hx.back (by rw [hfC]; rfl) hf₂
-    · exact hx.denote
-        (constsBound_instType mp.base2.wf
-          (ConLeche.Env.find?_mem hf) us) hTCa
 
-/-- **`TowerOk` at a fresh cons**: every stored entry is a prefix entry
-(a constant's install adds no table), and its law crosses. -/
+/-- **A prefix table's law crosses an extension keeping the prefix's
+readings**: the η law crosses (task #175 W4c) — the former's lookup is a
+prefix lookup, the constructor's (a stored one, `TableHead`) too, its type
+reading is closed, the leaves are prefix leaves. -/
+theorem towerTableLaw_ext (mp : EnvModelM V env) {env' : Env}
+    {m₂ : EnvModel V env'} (hx : ModelExt mp env' m₂.acval)
+    (φ : Name → Nat) {T : Name} {tbl : ProjTable}
+    (hfT0 : env.findTable? T = some tbl) :
+    TowerTableLaw m₂ φ T tbl := by
+  obtain ⟨⟨cvT, capsT, hfT, hlpsT, himp⟩, hetaL⟩ := (mp.tower_ok φ).table T tbl hfT0
+  obtain ⟨-, -, -, -, cvC, hfC, -⟩ := mp.base2.proj_ok T tbl hfT0
+  refine ⟨⟨cvT, capsT, hx.find hfT, hlpsT, himp⟩, ?_⟩
+  intro cvT' capsT' hfT' us hus
+  have hfT'' : env.find? T = some (.indInfo cvT' capsT') := by
+    exact hx.back (by rw [hfT]; rfl) hfT'
+  obtain ⟨hlaw', hcoh⟩ := hetaL cvT' capsT' hfT'' us hus
+  refine ⟨?_, fun he => (hcoh he).transport
+    (fun cvC nPc nFc hf₂ => ?_) (fun cvC nPc nFc TCa hf hTCa => ?_)
+    (by rw [hx.leafOf hfT]) (fun _ _ _ => rfl)⟩
+  · intro ρ ts x hlen hfit hmem
+    rw [hx.leafOf hfT] at hmem hfit
+    rw [hx.leafOf hfC]
+    exact hlaw' ρ ts x hlen hfit hmem
+  · exact hx.back (by rw [hfC]; rfl) hf₂
+  · exact hx.denote
+      (constsBound_instType mp.base2.wf
+        (ConLeche.Env.find?_mem hf) us) hTCa
+
+/-- **`TowerOk` at a fresh cons**: every stored table and entry is a
+prefix one (a constant's install adds no table), and its law crosses. -/
 theorem towerOk_cons_fresh (mp : EnvModelM V env)
     {c₀ : ConstantInfo} {A : (Name → Nat) → Term}
     (hfresh : env.find? c₀.name = none)
     (m₂ : EnvModel V ⟨c₀ :: env.consts, env.tables⟩)
     (hac : m₂.acval = acvalWith mp.base2.acval c₀.name A)
     (φ : Name → Nat) : TowerOk m₂ φ := by
-  intro T i entry hf
-  -- the entry is a prefix entry: a constant's install adds no table
-  rw [mp.base2.wf.findProj?_cons hfresh] at hf
-  exact towerEntryLaw_ext mp (ModelExt.consOf mp hfresh hac) φ hf
+  -- every table and entry is a prefix one: a constant's install adds no table
+  refine ⟨fun T tbl hf => ?_, fun T i entry hf => ?_⟩
+  · rw [mp.base2.wf.findTable?_cons hfresh] at hf
+    exact towerTableLaw_ext mp (ModelExt.consOf mp hfresh hac) φ hf
+  · rw [mp.base2.wf.findProj?_cons hfresh] at hf
+    exact towerEntryLaw_ext mp (ModelExt.consOf mp hfresh hac) φ hf
 
 end ConLeche.Model

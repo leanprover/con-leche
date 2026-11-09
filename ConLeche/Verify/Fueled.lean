@@ -399,7 +399,6 @@ theorem unitLikeStruct_atF {ul : Nat → Expr → FueledM Bool}
       unitLikeStruct (pureFns mode eager env F) ul' env d w := by
   unfold unitLikeStruct
   split
-  · rfl
   · exact unitLikeFields_atF F hul _ _ _
   · rfl
 

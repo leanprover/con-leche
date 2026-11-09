@@ -299,7 +299,6 @@ theorem EnvModelM.swapP {env₀ env₃ : Env}
     exact mp.eq_law ci p ((hsame eqName ci
       (eqCopy_not_rec (hbp₃ eqName ci hf (by decide)).1)).mp hf) hp
   · -- `caps_ok`
-    obtain ⟨he, hu⟩ := mp.caps_ok
     have hfam : ∀ (T : Name) (caps : IndCaps),
         ConLeche.EtaFamilyStored env₃ T caps →
         ConLeche.EtaFamilyStored env₀ T caps := by
@@ -307,21 +306,16 @@ theorem EnvModelM.swapP {env₀ env₃ : Env}
       obtain ⟨h1, ⟨cvC, cnP, cnF, hC⟩, h3⟩ := hst
       exact ⟨h1, ⟨cvC, cnP, cnF, (hsame _ _
         (fun _ _ _ _ _ h => ConstantInfo.noConfusion h)).mp hC⟩, h3⟩
-    refine ⟨?_, ?_⟩
-    · intro T cvT caps hf hcap hres hfamS φ' us hus
-      obtain ⟨hlaw, hcoh⟩ :=
-        he T cvT caps ((hsame _ _
-          (fun _ _ _ _ _ h => ConstantInfo.noConfusion h)).mp hf) hcap
-          hres (hfam T caps hfamS) φ' us hus
-      refine ⟨hlaw,
-        hcoh.transport (fun cvC nPc nFc hf₂ => (hsame _ _
-          (fun _ _ _ _ _ h => ConstantInfo.noConfusion h)).mp hf₂)
-        (fun cvC nPc nFc TCa _ hTCa => by rw [← hde]; exact hTCa) rfl
-        (fun _ _ _ => rfl)⟩
-    · intro T cvT caps hf hcap hz hres φ' us hus
-      exact hu T cvT caps ((hsame _ _
-          (fun _ _ _ _ _ h => ConstantInfo.noConfusion h)).mp hf) hcap hz
-          hres φ' us hus
+    intro T cvT caps hf hcap hres hfamS φ' us hus
+    obtain ⟨hlaw, hcoh⟩ :=
+      mp.caps_ok T cvT caps ((hsame _ _
+        (fun _ _ _ _ _ h => ConstantInfo.noConfusion h)).mp hf) hcap
+        hres (hfam T caps hfamS) φ' us hus
+    refine ⟨hlaw,
+      hcoh.transport (fun cvC nPc nFc hf₂ => (hsame _ _
+        (fun _ _ _ _ _ h => ConstantInfo.noConfusion h)).mp hf₂)
+      (fun cvC nPc nFc TCa _ hTCa => by rw [← hde]; exact hTCa) rfl
+      (fun _ _ _ => rfl)⟩
   · -- `reduce_ops`
     intro c hc cv hf hpin
     obtain ⟨hs, hlaw⟩ := mp.reduce_ops c hc cv
@@ -331,24 +325,15 @@ theorem EnvModelM.swapP {env₀ env₃ : Env}
   · -- `tower_ok` (task #175 wiring W5): a table entry, a former and a
     -- constructor are never recursors, so every lookup the law reads
     -- is unchanged by the swap, and the readings are `hde`
-    intro φ T i entry hf
-    have hfP : env₀.findProj? T i = some entry := by
-      rw [hcg.projEq]; exact hf
-    obtain ⟨hsn, hidx, hlt, ⟨cvT, capsT, hfT, hlpsT⟩, cvC, hfC, hlpsC,
-      hlaw, hetaL⟩ := mp.tower_ok φ T i entry hfP
-    refine ⟨hsn, hidx, hlt, ⟨cvT, capsT, (hsame _ _
-        (fun _ _ _ _ _ h => ConstantInfo.noConfusion h)).mpr hfT, hlpsT⟩,
-      cvC, (hsame _ _
-        (fun _ _ _ _ _ h => ConstantInfo.noConfusion h)).mpr hfC, hlpsC,
-      fun us hus => ?_, ?_⟩
-    · obtain ⟨⟨Ta, hTa, hA⟩, ⟨TCa, hTCa, hB⟩⟩ := hlaw us hus
-      exact ⟨⟨Ta, by rw [← hde]; exact hTa, fun ρ vs x rest h₁ h₂ h₃ h₄ h₅ h₆ hg =>
-          hA ρ vs x rest h₁ h₂ h₃ h₄ h₅ h₆ (hg.imp_left (TowerGuardAt.mono
-            (by rw [hsn, (hsame _ _ (fun _ _ _ _ _ h => ConstantInfo.noConfusion h)).mpr hfT, hfT])
-            (fun _ _ _ _ h => by rw [← hde]; exact h) fun _ h => by rw [← hde]; exact h))⟩,
-        ⟨TCa, by rw [← hde]; exact hTCa, hB⟩⟩
-    · -- (C) the η law (task #175 W4c): the former's lookup is unchanged
-      -- by the swap, and the reading is `hde`
+    intro φ
+    refine ⟨fun T tbl hf => ?_, fun T i entry hf => ?_⟩
+    · -- the table's η law (task #175 W4c): the former's lookup is
+      -- unchanged by the swap, and the reading is `hde`
+      have hfT0 : env₀.findTable? T = some tbl := by
+        rw [hcg.tableEq]; exact hf
+      obtain ⟨⟨cvT, capsT, hfT, hlpsT, himp⟩, hetaL⟩ := (mp.tower_ok φ).table T tbl hfT0
+      refine ⟨⟨cvT, capsT, (hsame _ _
+        (fun _ _ _ _ _ h => ConstantInfo.noConfusion h)).mpr hfT, hlpsT, himp⟩, ?_⟩
       intro cvT' capsT' hfT' us hus
       obtain ⟨hlaw', hcoh⟩ := hetaL cvT' capsT' ((hsame _ _
         (fun _ _ _ _ _ h => ConstantInfo.noConfusion h)).mp hfT') us hus
@@ -357,5 +342,20 @@ theorem EnvModelM.swapP {env₀ env₃ : Env}
           (fun _ _ _ _ _ h => ConstantInfo.noConfusion h)).mp hf₂)
         (fun cvC nPc nFc TCa _ hTCa => by rw [← hde]; exact hTCa) rfl
         (fun _ _ _ => rfl)⟩
+    have hfP : env₀.findProj? T i = some entry := by
+      rw [hcg.projEq]; exact hf
+    obtain ⟨hsn, hidx, hlt, ⟨cvT, capsT, hfT, hlpsT⟩, cvC, hfC, hlpsC,
+      hlaw⟩ := (mp.tower_ok φ).entry T i entry hfP
+    refine ⟨hsn, hidx, hlt, ⟨cvT, capsT, (hsame _ _
+        (fun _ _ _ _ _ h => ConstantInfo.noConfusion h)).mpr hfT, hlpsT⟩,
+      cvC, (hsame _ _
+        (fun _ _ _ _ _ h => ConstantInfo.noConfusion h)).mpr hfC, hlpsC,
+      fun us hus => ?_⟩
+    obtain ⟨⟨Ta, hTa, hA⟩, ⟨TCa, hTCa, hB⟩⟩ := hlaw us hus
+    exact ⟨⟨Ta, by rw [← hde]; exact hTa, fun ρ vs x rest h₁ h₂ h₃ h₄ h₅ h₆ hg =>
+        hA ρ vs x rest h₁ h₂ h₃ h₄ h₅ h₆ (hg.imp_left (TowerGuardAt.mono
+          (by rw [hsn, (hsame _ _ (fun _ _ _ _ _ h => ConstantInfo.noConfusion h)).mpr hfT, hfT])
+          (fun _ _ _ _ h => by rw [← hde]; exact h) fun _ h => by rw [← hde]; exact h))⟩,
+      ⟨TCa, by rw [← hde]; exact hTCa, hB⟩⟩
 
 end ConLeche.Model

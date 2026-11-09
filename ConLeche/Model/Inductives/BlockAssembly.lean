@@ -581,33 +581,19 @@ theorem blockDummyPass (mp : EnvModelM V env) {F : Nat} {p₀ : BlockShape} {isR
     (fun j _ _ ψ ρ => sumTyAV_wellDenoted (hwalks j ψ ρ))
     (fun j _ _ ψ ρ => sumTyAV_mem (hwalks j ψ ρ))
     hetaNe hetaFresh ?_
-  -- the capability laws at the DUMMY leaf: η is vacuous (no
-  -- constructor is stored), unit-likeness folds the empty-chain leaf
-  -- to the one tagged empty tuple
+  -- the capability law at the DUMMY leaf: η is vacuous (no
+  -- constructor is stored)
   intro j cvS cvTa hjS hj env' m' hFD' hfreshT hcb hfreshC m₂ hac
   have hn := (hF.declOf j cvS cvTa hjS hj).name
-  have hFD₂ : FormerData m₂ cvTa (q.nP + q.nIdxs.getD j 0) q.resSort (ppsOf j) :=
-    hFD'.cross (c₀ := .indInfo cvS (ConLeche.blockCapsAt q j isRec))
-      (by show env'.find? cvS.name = none; rw [hn]; exact hfreshT) hcb m₂ hac
-  have hleaf : ∀ ψ, m₂.acval cvS.name ψ = sumTyAV (q.resSort.eval ψ) (ppsOf j ψ) [] := by
-    intro ψ
-    rw [hac]
-    exact congrFun acvalWith_self ψ
-  refine ⟨fun he hfam => ?_, fun he hz φ' => ?_⟩
-  · exfalso
-    obtain ⟨-, ⟨cvC, cnP, cnF, hfC⟩, -⟩ := hfam
-    rw [ConLeche.Env.find?_cons,
-      ite_eq_right (fun hh => hetaNe j j cvTa cvTa hj hj he (by
-        show cvTa.name = (ConLeche.blockCapsAt q j isRec).etaCtor
-        rw [← hn]; exact hh)),
-      hfreshC j cvTa hj he] at hfC
-    exact nomatch hfC
-  · refine fixEmptyUnitLaw hleaf (fun ψ => ?_)
-    rw [(blockCapsAt_fieldless ⟨he, hz⟩).2, hFD₂.len ψ,
-      blockNIdxs_getD (q := q) (j := j) (by
-        have := (List.getElem?_eq_some_iff.mp hj).1
-        rwa [hF.lenCv] at this),
-      blockCapsAt_eta_nIdx he, Nat.add_zero]
+  intro he hfam
+  exfalso
+  obtain ⟨-, ⟨cvC, cnP, cnF, hfC⟩, -⟩ := hfam
+  rw [ConLeche.Env.find?_cons,
+    ite_eq_right (fun hh => hetaNe j j cvTa cvTa hj hj he (by
+      show cvTa.name = (ConLeche.blockCapsAt q j isRec).etaCtor
+      rw [← hn]; exact hh)),
+    hfreshC j cvTa hj he] at hfC
+  exact nomatch hfC
 
 /-! ## The members' index telescopes -/
 
@@ -736,9 +722,8 @@ theorem blockCtorFunsAt {F : Nat}
 leaves the dummy pass's readings build.  The block operator's premise bundle
 at the LEAF's chains (`hIdxAll`, `hXAll`) is what `blockLeafWalks`
 turns into the leaf's hereditary premise, and the `blockTyG` capstones
-into its currency facts.  A unit-like
-member's law comes through its leaf's FOLD alone (`hfoldZ`), which is
-a statement about the leaf TERM and therefore crosses every cons. -/
+into its currency facts.  The members' capability law is vacuous here:
+no constructor is stored yet. -/
 theorem blockRealPass (mp : EnvModelM V env) {F : Nat} {p₀ : BlockShape} {isRec : Bool}
     {formers : List ConstantVal} {q : BlockShape} {envI : Env}
     {ppsOf : Nat → (Name → Nat) → List Term} {sOf : Nat → Level}
@@ -775,18 +760,7 @@ theorem blockRealPass (mp : EnvModelM V env) {F : Nat} {p₀ : BlockShape} {isRe
     (hXAll : ∀ (j : Nat), j < q.k → ∀ (ψ : Name → Nat) (ρp : Nat → V),
       Sat V (((ppsOf j ψ).take q.nP)).reverse ρp →
       BlockChainsOkG q.k (q.resSort.eval ψ) ρp (fun c => uOf c ψ)
-        (fun c => ((ppsOf c ψ).drop q.nP)) (Chs ψ))
-    -- a fieldless η member's leaf folds to the one tagged empty tuple
-    (hfoldZ : ∀ (j : Nat) (cvTa : ConstantVal), formers[j]? = some cvTa →
-      (ConLeche.blockCapsAt q j isRec).eta = true ∧
-        (ConLeche.blockCapsAt q j isRec).etaFields = 0 →
-      ∀ (ψ : Name → Nat) (ρ : Nat → V) (ts : List V),
-        SpineFit ρ ((ppsOf j ψ)) ts →
-        ts.foldl SetTheory.app (interp V ρ
-            (blockTyG q.k (q.resSort.eval ψ) (fun c => uOf c ψ)
-              (fun c => ((ppsOf c ψ).drop q.nP)) (Chs ψ) (ppsOf j ψ) j))
-          = sumSet (q.resSort.eval ψ) (sumFibre (q.resSort.eval ψ) (consList ts ρ)
-              [[] ++ [idxEqAV []]])) :
+        (fun c => ((ppsOf c ψ).drop q.nP)) (Chs ψ)) :
     ∃ mp' : EnvModelM V envI,
       ConLeche.EtaFamiliesClosedExceptL envI q.memberNames ∧
       (∀ (j : Nat) (cvTa : ConstantVal), formers[j]? = some cvTa →
@@ -851,33 +825,18 @@ theorem blockRealPass (mp : EnvModelM V env) {F : Nat} {p₀ : BlockShape} {isRe
     have hjk : j < q.k := by
       have := (List.getElem?_eq_some_iff.mp hj).1; rwa [hF.lenCv] at this
     exact blockTyG_mem hjk (hwalks j cvTa hj hjk ρ ψ)
-  · -- the capability laws at the FIXPOINT leaf
+  · -- the capability law at the FIXPOINT leaf: η is vacuous (the
+    -- constructor is not stored yet)
     intro j cvS cvTa hjS hj env' m' hFD' hfreshT hcb hfreshC m₂ hac
     have hn := (hF.declOf j cvS cvTa hjS hj).name
-    have hFD₂ : FormerData m₂ cvTa (q.nP + q.nIdxs.getD j 0) q.resSort (ppsOf j) :=
-      hFD'.cross (c₀ := .indInfo cvS (ConLeche.blockCapsAt q j isRec))
-        (by show env'.find? cvS.name = none; rw [hn]; exact hfreshT) hcb m₂ hac
-    have hleaf : ∀ ψ, m₂.acval cvS.name ψ
-        = blockTyG q.k (q.resSort.eval ψ) (fun c => uOf c ψ)
-            (fun c => ((ppsOf c ψ).drop q.nP)) (Chs ψ) (ppsOf j ψ) j := by
-      intro ψ
-      rw [hac]
-      exact congrFun acvalWith_self ψ
-    refine ⟨fun he hfam => ?_, fun he hz φ' => ?_⟩
-    · exfalso
-      obtain ⟨-, ⟨cvC, cnP, cnF, hfC⟩, -⟩ := hfam
-      rw [ConLeche.Env.find?_cons,
-        ite_eq_right (fun hh => hetaNe j j cvTa cvTa hj hj he (by
-          show cvTa.name = (ConLeche.blockCapsAt q j isRec).etaCtor
-          rw [← hn]; exact hh)),
-        hfreshC j cvTa hj he] at hfC
-      exact nomatch hfC
-    · refine fibreUnitLaw hleaf (fun ψ ρ ts hsp => hfoldZ j cvTa hj ⟨he, hz⟩ ψ ρ ts hsp)
-        (fun _ => ⟨_, rfl⟩) (fun ψ => ?_)
-      rw [(blockCapsAt_fieldless ⟨he, hz⟩).2, hFD₂.len ψ,
-        blockNIdxs_getD (q := q) (j := j) (by
-          have := (List.getElem?_eq_some_iff.mp hj).1
-          rwa [hF.lenCv] at this),
-        blockCapsAt_eta_nIdx he, Nat.add_zero]
+    intro he hfam
+    exfalso
+    obtain ⟨-, ⟨cvC, cnP, cnF, hfC⟩, -⟩ := hfam
+    rw [ConLeche.Env.find?_cons,
+      ite_eq_right (fun hh => hetaNe j j cvTa cvTa hj hj he (by
+        show cvTa.name = (ConLeche.blockCapsAt q j isRec).etaCtor
+        rw [← hn]; exact hh)),
+      hfreshC j cvTa hj he] at hfC
+    exact nomatch hfC
 
 end ConLeche.Model

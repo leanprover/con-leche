@@ -839,7 +839,7 @@ field telescope from closed constructor types: it commutes with the
 shift. -/
 theorem unitLikeShape_shiftFrom (henv : EnvWF env) (p : Nat) (w : Expr) :
     unitLikeShape env (shiftFrom p w) =
-      (unitLikeShape env w).map (Option.map fun x => (shiftFrom p x.1, x.2)) := by
+      (unitLikeShape env w).map fun x => (shiftFrom p x.1, x.2) := by
   unfold unitLikeShape
   rw [getAppFn_shiftFrom]
   cases hfn : w.getAppFn <;> try rfl
@@ -853,68 +853,37 @@ theorem unitLikeShape_shiftFrom (henv : EnvWF env) (p : Nat) (w : Expr) :
     case indInfo cvS caps =>
     dsimp only
     rw [getAppArgs_shiftFrom, List.length_map]
-    by_cases h1 : caps.eta = true ∧ caps.etaFields = 0 ∧
-        reservedBasisNames.contains S = false ∧
-        w.getAppArgs.length = caps.etaParams ∧ us.length = cvS.levelParams.length
-    · rw [ite_eq_left h1, ite_eq_left h1]; rfl
-    rw [ite_eq_right h1, ite_eq_right h1]
-    by_cases h2 : caps.eta = true ∧ reservedBasisNames.contains S = false ∧
-        w.getAppArgs.length = caps.etaParams ∧ us.length = cvS.levelParams.length ∧
-        towerSlotsAll env S caps.etaFields = true
-    · rw [ite_eq_left h2, ite_eq_left h2]
-      cases he0 : env.findProj? S 0 with
+    by_cases h1 : caps.eta = true ∧ us.length = cvS.levelParams.length
+    · rw [ite_eq_left h1, ite_eq_left h1]
+      cases hT : env.findTable? S with
       | none => rfl
-      | some e0 =>
+      | some tbl =>
       dsimp only
-      cases hfC : env.find? e0.ctor with
-      | none => rfl
-      | some ci =>
-        cases ci <;> try rfl
-        case ctorInfo cvC nPc nFc =>
-        dsimp only
-        by_cases hl : cvC.levelParams = cvS.levelParams
-        · rw [ite_eq_left hl, ite_eq_left hl]
+      by_cases h2 : w.getAppArgs.length = tbl.numParams
+      · rw [ite_eq_left h2, ite_eq_left h2]
+        cases hfC : env.find? tbl.ctor with
+        | none => rfl
+        | some ci =>
+          cases ci <;> try rfl
+          case ctorInfo cvC nPc nFc =>
+          dsimp only
           have hc : (cvC.type.instantiateLevelParams cvC.levelParams us).hasFvar = false := by
             rw [hasFvar_instantiateLevelParams]
             exact (henv.consts _ (Env.find?_mem hfC)).1
           rw [unitFieldTele_shiftFrom hc]
           cases unitFieldTele (cvC.type.instantiateLevelParams cvC.levelParams us)
-            caps.etaParams w.getAppArgs <;> rfl
-        · rw [ite_eq_right hl, ite_eq_right hl]; rfl
-    · rw [ite_eq_right h2, ite_eq_right h2]; rfl
+            tbl.numParams w.getAppArgs <;> rfl
+      · rw [ite_eq_right h2, ite_eq_right h2]; rfl
+    · rw [ite_eq_right h1, ite_eq_right h1]; rfl
 
 /-- The field telescope of a well-scoped instance is well-scoped. -/
 theorem unitLikeShape_WScoped (henv : EnvWF env) {d : Nat} {w tele : Expr} {n : Nat}
-    (hw : WScoped d w) (h : unitLikeShape env w = some (some (tele, n))) : WScoped d tele := by
-  unfold unitLikeShape at h
-  revert h
-  split
-  · rename_i S us _
-    split
-    · split
-      · intro h; exact nomatch h
-      · split
-        · split
-          · split
-            · rename_i cvC _ _ hfC
-              split
-              · intro h
-                have hc : (cvC.type.instantiateLevelParams cvC.levelParams us).hasFvar = false := by
-                  rw [hasFvar_instantiateLevelParams]
-                  exact (henv.consts _ (Env.find?_mem hfC)).1
-                cases ht : unitFieldTele (cvC.type.instantiateLevelParams cvC.levelParams us) _
-                    w.getAppArgs with
-                | none => rw [ht] at h; exact nomatch h
-                | some t =>
-                  rw [ht] at h
-                  obtain ⟨rfl, -⟩ := Prod.mk.inj (Option.some.inj (Option.some.inj h))
-                  exact unitFieldTele_WScoped hc (fun x hx => WScoped.getAppArgs hw x hx) ht
-              · intro h; exact nomatch h
-            · intro h; exact nomatch h
-          · intro h; exact nomatch h
-        · intro h; exact nomatch h
-    · intro h; exact nomatch h
-  · intro h; exact nomatch h
+    (hw : WScoped d w) (h : unitLikeShape env w = some (tele, n)) : WScoped d tele := by
+  obtain ⟨S, us, _, _, _, cvC, _, _, -, -, -, -, -, -, hfC, -, ht⟩ := unitLikeShape_some h
+  have hc : (cvC.type.instantiateLevelParams cvC.levelParams us).hasFvar = false := by
+    rw [hasFvar_instantiateLevelParams]
+    exact (henv.consts _ (Env.find?_mem hfC)).1
+  exact unitFieldTele_WScoped hc (fun x hx => WScoped.getAppArgs hw x hx) ht
 
 private theorem unitLikeStruct_shift (henv : EnvWF env)
     (ih : ShiftClaims mode eager env fuel) {p : Nat} {ul : Nat → Expr → CheckM Bool}
@@ -927,12 +896,9 @@ private theorem unitLikeStruct_shift (henv : EnvWF env)
   rw [unitLikeShape_shiftFrom henv]
   cases hsh : unitLikeShape env w with
   | none => rfl
-  | some o =>
-    cases o with
-    | none => rfl
-    | some x =>
-      obtain ⟨tele, n⟩ := x
-      exact unitLikeFields_shift henv ih hul n d hpd (unitLikeShape_WScoped henv hww hsh)
+  | some x =>
+    obtain ⟨tele, n⟩ := x
+    exact unitLikeFields_shift henv ih hul n d hpd (unitLikeShape_WScoped henv hww hsh)
 
 private theorem unitLikeLoop_shift (henv : EnvWF env)
     (ih : ShiftClaims mode eager env fuel) {p : Nat} :

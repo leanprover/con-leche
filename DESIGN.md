@@ -112419,3 +112419,81 @@ Gates: `lake build`, `lake test` warning-free; `tests/arena.sh` (e2e 583/583, ar
 sweeps without divergence, axioms pinned at `[propext, Classical.choice, Quot.sound]`, the link,
 quote and whitepaper gates; the shake gate after dropping `BlockStageCtors`' now unused import of
 `BlockCaps`).
+
+**Review round 2 (2026-11-09): one path for every structure.**  Official's `is_unit_like`
+(`type_checker.cpp:1128`) has one path for every non-recursive structure: the constructor from
+the family's constructor list, its parameters dropped and instantiated with the type's
+arguments, then the field loop, empty at a fieldless structure.  Round 1 still had two arms (a
+fieldless one keyed on `eta ∧ etaFields = 0`, sound by a separate unit law, and one reading the
+constructor off projection-table entry 0).  But every structure-like block member gets a table
+(`blockTables`/`blockTablesC`: one constructor, no index, any field count), and `ProjTable`
+carries the constructor and the field count at the table level.  Now:
+
+* *Checker* (`unitLikeShape`, `Kernel/CoreDefs.lean`; `unitLikeShapeF`, `Cached/CoreC.lean`):
+  the head is a stored η family at its levels; its table (`findTable?`) gives the parameter
+  count (the instance's argument count), the constructor (a stored constructor, matched as
+  before) and the field count; the telescope is the constructor's type at the instance's levels,
+  the table's parameters dropped and instantiated (`unitFieldTele`), and the field loop runs
+  over `tbl.numFields` fields, possibly none.  The result is `Option (Expr × Nat)`, one arm
+  (`UnitLike.struct`; `UnitLike.unit` is gone).  `towerSlotsAll`, the reserved-name test and the
+  level-parameter comparison of the constructor are no longer read: the table has no slots to
+  check, a table is never at a reserved name, and its constructor's level parameters are the
+  table's (`TableHead`, below), so none of them could fail.  Verdicts unchanged.
+* *Model*: the structural-η law is restated at the table (`TowerEtaLaw m φ T tbl`), with the
+  table's η record (`TowerTableLaw`: the former stored, its level parameters the table's, its
+  η record naming the table's constructor and counts).  `TowerOk` is now a structure of two
+  fields: `table` (every stored table's `TowerTableLaw`, at every field count) and `entry` (each
+  entry's typing and iota laws, `TowerEntryLaw` minus its old clause (C)).  The install
+  (`stageFixTable`, `FixKit.lean`) proves the table law with the old clause (C) proof, which
+  never read the field index; the transports (`towerTableLaw_ext`, `Swap`, `StreamRecsSwap`,
+  `BasisRename`, `TableInstall`) are the old (C) transports moved to the table.  The structure-η
+  certificate's tower arm (`etaSide`) reads the table law of the slot-0 entry's table; the
+  unit-like arm (`UnitLike.struct_sound`) reads it at the head's table directly, at any `n`.
+* *Removed*: `UnitLaw`, `CapsOk`'s second half (`CapsOk` is now the fieldless η law alone,
+  `EtaLaw` under `EtaFamilyStored`), `CapsLawsAt`'s second half, `fixEmptyUnitLaw`,
+  `fibreUnitLaw`, the unit arms of `blockCapsLawsAt` and of the two former passes
+  (`blockRealPass` loses its `hfoldZ` premise; `blockCapsLawsAt` still reads the fold for
+  `fibreEtaLaw0`), `UnitLike.unit_sound` and the shape inversions in `UnitSound` (one inversion,
+  `unitLikeShape_some`, `Verify/InstSpine.lean`).  No other user of the unit law existed:
+  `CapsOk`'s η half is read only by the structure-η certificate at a fieldless family (`etaSide`'s
+  no-field arm, which serves the recursor's major-premise rescue too — `corner_punit_unit_eta`
+  and arena `073_typeSingletonRecReduction` go through it, unchanged).  That arm could read the
+  table law as well, which would retire `CapsOk` altogether; it is not done here
+  (`structEtaCertWith` would have to read the table at zero fields).
+* *Invariants*: no new fact, two restated at the table.  The table invariants were all per
+  entry, so vacuous at a fieldless table: `ProjOkT` now carries `TableHead` per table (the
+  entry's `TowerHead` minus its index bound, `TableHead.entry` gives it back), and
+  `StoredFacts.entryCtors` (a table entry's constructor is stored, what lets a run ignore later
+  additions, `Verify/EnvExt`) is `tableCtors`, per table (`StoredFacts.entryCtors` derives the
+  entry form).  Both were already established for every table, fieldless ones included (the
+  install's head data is table-level: `stageFixTable`'s `hhead`); only their statements were
+  per field.  The checker's read of `tbl.ctor` needs `tableCtors` for the extension argument.
+
+*Official's `whnf` of the constructor type vs con-leche's syntactic telescope.*  Official's loop
+is `while (is_pi(ctor_ty))`, with `ctor_ty = whnf(instantiate(binding_body(ctor_ty), fvar))`
+after each field; con-leche's `unitLikeFields` walks exactly `tbl.numFields` syntactic
+`forallE`s.  They agree on every stored constructor of a table: the block install checks each
+constructor (`checkSumCtor`, `Kernel/Inductives/SumInstall.lean`) by `stripPis (nP + nF)`
+followed by `structCtorResidOk` (official's `is_valid_ind_app`): exactly `nP + nF` syntactic
+binders, then the family applied to its parameters and indices, a constant head and so no ∀.
+Instantiating the parameters (and, along the walk, the fields) at closed-over values leaves
+that head in place, so after the `nF` fields official's `whnf` of `T args` is stuck at an
+inductive and the loop stops at the same count; before that each rest is a syntactic ∀, which
+`whnf` leaves unchanged.  The table's `numFields` is the constructor record's `nF`, which that
+check pins to the telescope.  No verdict difference.
+
+*Fixture* `unitlike_fieldless` (0; official 0): fieldless structures with a parameter (`E α`,
+universe-polymorphic `EU.{u} α`), behind a ∀ (`Nat → E Bool`), and inside unit-like structures
+(`W α` with fields `E α`, `EU α`, `True`; `WD α` with `e : E α`, `h : e = e`).  A fieldless
+structure inside a unit-like one was already covered (`unitlike_wide`'s `Foo`, whose `bar :
+Unit` is `PUnit`, a fieldless structure); with parameters it was not.  The round-1 binary
+(`d220352d8`) accepts it too, through its fieldless arm.
+
+*Performance* (`perf stat -e instructions:u`, one run each, `--verified --jobs=1`, against
+`d220352d8`): `init-full` 373 232 519 413 → 373 045 147 743 (−0.050 %), `grind-ring-5`
+13 056 834 071 → 13 052 689 847 (−0.032 %); verdicts unchanged.
+Gates: `lake build`, `lake test` warning-free; `tests/arena.sh` (e2e 584/584, arena tutorial
+90/92, plain-reach 578 all allowlisted, self-check 54 060 declarations, trusted and `--jobs`
+sweeps without divergence, axioms pinned at `[propext, Classical.choice, Quot.sound]`, layering,
+shake, trust surface, the link, quote and whitepaper gates; OVERVIEW's and the whitepaper's
+unit-likeness paragraphs now say the law is the table's at every field count).

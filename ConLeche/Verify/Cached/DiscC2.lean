@@ -137,7 +137,7 @@ theorem towerSlotsAllF_mkFEnv (env : Env) (T : Name) (n : Nat) :
 theorem unitLikeShapeF_mkFEnv (env : Env) (w : Expr) :
     unitLikeShapeF (mkFEnv env) w = unitLikeShape env w := by
   unfold unitLikeShapeF unitLikeShape unitFieldTele
-  simp only [mkFEnv_find?, towerSlotsAllF_mkFEnv, mkFEnv_findProj?, Expr.getAppArgsC_spec,
+  simp only [mkFEnv_find?, mkFEnv_findTable?, Expr.getAppArgsC_spec,
     Expr.instLevelParams_spec, Expr.instantiateListC_spec, Option.map_map]
   rfl
 
@@ -156,12 +156,9 @@ theorem unitLikeStructC_spec (ih : SSimC mode eager env f) (henv : EnvWF env)
   rw [unitLikeShapeF_mkFEnv]
   cases hsh : unitLikeShape env w with
   | none => sym only [conleche_grind] => vcgen <;> finish
-  | some o =>
-    cases o with
-    | none => sym only [conleche_grind] => vcgen <;> finish
-    | some x =>
-      obtain ⟨tele, n⟩ := x
-      exact unitLikeFieldsC_spec ih hul hs (unitLikeShape_WScoped henv hw hsh)
+  | some x =>
+    obtain ⟨tele, n⟩ := x
+    exact unitLikeFieldsC_spec ih hul hs (unitLikeShape_WScoped henv hw hsh)
 
 /-- The unit-like test simulates its fueled original. -/
 theorem unitLikeLoopC_spec (ih : SSimC mode eager env f) (henv : EnvWF env) :

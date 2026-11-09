@@ -44,7 +44,7 @@ Nor does it have a typing judgement. In its place is a description of
 what the checker _does_: three inductively defined relations, one for
 #src("ConLeche/Rules/Rel.lean", 107)[reduction], one for the verdicts
 of the #src("ConLeche/Rules/Rel.lean", 354)[definitional-equality test]
-and one for #src("ConLeche/Rules/Rel.lean", 599)[type inference] (six
+and one for #src("ConLeche/Rules/Rel.lean", 597)[type inference] (six
 in the real proof, where premises about lists get relations of their
 own; @sec:left-out). Their rules are exactly the moves the checker
 makes, and each rule's premises are what the checker verified at that

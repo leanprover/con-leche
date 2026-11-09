@@ -28,7 +28,7 @@ This file supplies the two replacements.
 (`Verify/EnvGuards.lean:49`) says the capability constructor is
 never a reserved name, and its docstring says why it is there: "which
 keeps the basis installs' head obligations vacuous by computation".
-`CapsOk`'s two halves both carry `reservedBasisNames.contains T =
+`CapsOk` carries `reservedBasisNames.contains T =
 false`.  So at a cons whose name *is* reserved, the disequalities
 `capsOk_cons_fresh` derives from the cons's kind come instead from
 the name, and the body transposes unchanged — `capsOk_cons_basis`.
@@ -137,8 +137,8 @@ theorem etaFamilyStored_descend_reserved {c₀ : ConstantInfo} {T : Name}
 
 /-- **`CapsOk` at a fresh cons whose name is reserved** —
 `capsOk_cons_fresh`'s basis twin.  Every basis block's constant is a
-reserved name (`BasisKind.decls` ⊆ `reservedBasisNames`), and both
-`CapsOk` halves are premised on a *non*-reserved family, so no
+reserved name (`BasisKind.decls` ⊆ `reservedBasisNames`), and
+`CapsOk` is premised on a *non*-reserved family, so no
 stored family can be completed here and the law's leaves are all
 prefix leaves. -/
 theorem capsOk_cons_basis (mp : EnvModelM V env)
@@ -149,38 +149,23 @@ theorem capsOk_cons_basis (mp : EnvModelM V env)
     (m₂ : EnvModel V ⟨c₀ :: env.consts, env.tables⟩)
     (hac : m₂.acval = acvalWith mp.base2.acval c₀.name A) :
     CapsOk m₂ := by
-  constructor
-  · -- the η half
-    intro T cvT caps hf hcape hres hfam φ' us hlen
-    obtain ⟨hfE, hfam₀, hnT, hnC⟩ :=
-      etaFamilyStored_descend_reserved hres₀ hres hf hfam
-    obtain ⟨hlaw, hcoh⟩ :=
-      hprev.1 T cvT caps hfE hcape hres hfam₀ φ' us hlen
-    refine ⟨?_, ?_⟩
-    · intro ρ ts x hlents hfit hmem
-      rw [hac, acvalWith_ne hnT] at hmem hfit
-      rw [hac, acvalWith_ne hnC]
-      exact hlaw ρ ts x hlents hfit hmem
-    · refine hcoh.transport (fun cvC nPc nFc hf₂ => ?_)
-        (fun cvC nPc nFc TCa hf hTCa => ?_) (by rw [hac, acvalWith_ne hnT])
-        (fun _ _ _ => rfl)
-      · rwa [ConLeche.Env.find?_cons, ite_eq_right (fun hh => hnC hh.symm)] at hf₂
-      · rw [hac]
-        exact denote_cons_mono hfresh _ 0
-          (constsBound_instType mp.base2.wf
-            (ConLeche.Env.find?_mem hf) us) hTCa
-  · -- the unit-like half: one leaf to move, the disequality off the
-    -- law's own non-reserved premise
-    intro T cvT caps hf hcape hz hres φ' us hlen
-    have hnT : T ≠ c₀.name := fun hh => by
-      rw [hh, hres₀] at hres; exact nomatch hres
-    have hfE : env.find? T = some (.indInfo cvT caps) := by
-      rw [ConLeche.Env.find?_cons, ite_eq_right (fun hh => hnT hh.symm)] at hf
-      exact hf
-    have hlaw :=
-      hprev.2 T cvT caps hfE hcape hz hres φ' us hlen
-    intro ρ ts x y hlents hfit hx hy
-    rw [hac, acvalWith_ne hnT] at hx hy hfit
-    exact hlaw ρ ts x y hlents hfit hx hy
+  intro T cvT caps hf hcape hres hfam φ' us hlen
+  obtain ⟨hfE, hfam₀, hnT, hnC⟩ :=
+    etaFamilyStored_descend_reserved hres₀ hres hf hfam
+  obtain ⟨hlaw, hcoh⟩ :=
+    hprev T cvT caps hfE hcape hres hfam₀ φ' us hlen
+  refine ⟨?_, ?_⟩
+  · intro ρ ts x hlents hfit hmem
+    rw [hac, acvalWith_ne hnT] at hmem hfit
+    rw [hac, acvalWith_ne hnC]
+    exact hlaw ρ ts x hlents hfit hmem
+  · refine hcoh.transport (fun cvC nPc nFc hf₂ => ?_)
+      (fun cvC nPc nFc TCa hf hTCa => ?_) (by rw [hac, acvalWith_ne hnT])
+      (fun _ _ _ => rfl)
+    · rwa [ConLeche.Env.find?_cons, ite_eq_right (fun hh => hnC hh.symm)] at hf₂
+    · rw [hac]
+      exact denote_cons_mono hfresh _ 0
+        (constsBound_instType mp.base2.wf
+          (ConLeche.Env.find?_mem hf) us) hTCa
 
 end ConLeche.Model

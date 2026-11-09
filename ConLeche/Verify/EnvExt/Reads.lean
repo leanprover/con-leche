@@ -33,10 +33,16 @@ structure StoredFacts (env : Env) : Prop where
     (env.find? natName).isSome = true ∧ (env.find? natZeroName).isSome = true ∧
       (env.find? natSuccName).isSome = true
   recCtors : RecCtorsStored env
-  entryCtors : ∀ T i e, env.findProj? T i = some e → (env.find? e.ctor).isSome = true
+  tableCtors : ∀ T tbl, env.findTable? T = some tbl → (env.find? tbl.ctor).isSome = true
   boolCtors : isDefinitionAt env natBeqName = true ∨ isDefinitionAt env natBleName = true →
     (env.find? boolTrueName).isSome = true ∧ (env.find? boolFalseName).isSome = true
   opDefn : OpDefn env
+
+/-- An entry's constructor is its table's. -/
+theorem StoredFacts.entryCtors {env : Env} (h : StoredFacts env) {T : Name} {i : Nat}
+    {e : ProjEntry} (hf : env.findProj? T i = some e) : (env.find? e.ctor).isSome = true := by
+  obtain ⟨tbl, hT, -, rfl⟩ := Env.findProj?_some hf
+  exact h.tableCtors T tbl hT
 
 /-- **`env₂` extends `env₁`**: every stored constant stays and a stored structure's table stays. -/
 structure EnvExt (env₁ env₂ : Env) : Prop where
@@ -300,8 +306,8 @@ theorem towerSlotsAll_ext {T : Name} (hT : (env₁.find? T).isSome = true) (nF :
   unfold towerSlotsAll
   simp only [hx.findProj hT]
 
-/-- `unitLikeShape` reads the head family, its table's first entry and that
-entry's constructor, all resolved. -/
+/-- `unitLikeShape` reads the head family, its table and the table's
+constructor, all stored. -/
 theorem unitLikeShape_ext {w : Expr} (hw : Res env₁ w) :
     unitLikeShape env₂ w = unitLikeShape env₁ w := by
   unfold unitLikeShape
@@ -309,55 +315,20 @@ theorem unitLikeShape_ext {w : Expr} (hw : Res env₁ w) :
   rename_i S us
   dsimp only
   have hS := res_head hw hft
-  rw [hx.find_of_isSome hS]
-  cases hfS : env₁.find? S with
+  rw [hx.find_of_isSome hS, hx.table S hS]
+  cases hT : env₁.findTable? S with
   | none => rfl
-  | some ci =>
-    cases ci <;> try rfl
-    rename_i cvS caps
+  | some tbl =>
     dsimp only
-    rw [towerSlotsAll_ext hx hS, hx.findProj hS]
-    split
-    case isTrue => rfl
-    split
-    case isFalse => rfl
-    cases he0 : env₁.findProj? S 0 with
-    | none => rfl
-    | some e0 =>
-      dsimp only
-      rw [hx.find_of_isSome (hx.facts.entryCtors S 0 e0 he0)]
+    rw [hx.find_of_isSome (hx.facts.tableCtors S tbl hT)]
 
 /-- The field telescope of a resolved instance resolves. -/
 theorem res_unitLikeShape {w tele : Expr} {n : Nat} (hw : Res env₁ w)
-    (h : unitLikeShape env₁ w = some (some (tele, n))) : Res env₁ tele := by
-  unfold unitLikeShape at h
-  revert h
-  split
-  · rename_i S us _
-    split
-    · split
-      · intro h; exact nomatch h
-      · split
-        · split
-          · split
-            · rename_i cvC _ _ hfC
-              split
-              · intro h
-                have hc : Res env₁ (cvC.type.instantiateLevelParams cvC.levelParams us) :=
-                  res_inst _ _ (hx.facts.wf.consts _ (Env.find?_mem hfC)).2.2.1
-                cases ht : unitFieldTele (cvC.type.instantiateLevelParams cvC.levelParams us) _
-                    w.getAppArgs with
-                | none => rw [ht] at h; exact nomatch h
-                | some t =>
-                  rw [ht] at h
-                  obtain ⟨rfl, -⟩ := Prod.mk.inj (Option.some.inj (Option.some.inj h))
-                  exact res_unitFieldTele hc (res_getAppArgs hw) ht
-              · intro h; exact nomatch h
-            · intro h; exact nomatch h
-          · intro h; exact nomatch h
-        · intro h; exact nomatch h
-    · intro h; exact nomatch h
-  · intro h; exact nomatch h
+    (h : unitLikeShape env₁ w = some (tele, n)) : Res env₁ tele := by
+  obtain ⟨S, us, _, _, _, cvC, _, _, -, -, -, -, -, -, hfC, -, ht⟩ := unitLikeShape_some h
+  have hc : Res env₁ (cvC.type.instantiateLevelParams cvC.levelParams us) :=
+    res_inst _ _ (hx.facts.wf.consts _ (Env.find?_mem hfC)).2.2.1
+  exact res_unitFieldTele hc (res_getAppArgs hw) ht
 
 theorem natLit_ext (hn : (env₁.find? natName).isSome = true ∨
     (env₁.find? natZeroName).isSome = true ∨ (env₁.find? natSuccName).isSome = true) :

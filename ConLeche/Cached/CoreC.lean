@@ -423,29 +423,22 @@ def unitLikeFieldsI (r : CoreFnsI) (ul : Nat → Expr → CheckCM Bool) :
 
 /-- Twin of `unitLikeShape` (pure: the index's reads and the cached
 operation-free instantiations). -/
-def unitLikeShapeF (fe : FEnv) (w : Expr) : Option (Option (Expr × Nat)) :=
+def unitLikeShapeF (fe : FEnv) (w : Expr) : Option (Expr × Nat) :=
   match Expr.getAppFn w with
   | .const S us =>
     match fe.find? S with
     | some (.indInfo cvS caps) =>
-      if caps.eta = true ∧ caps.etaFields = 0 ∧ reservedBasisNames.contains S = false ∧
-          (Expr.getAppArgsC w).length = caps.etaParams ∧
-          us.length = cvS.levelParams.length then some none
-      else if caps.eta = true ∧ reservedBasisNames.contains S = false ∧
-          (Expr.getAppArgsC w).length = caps.etaParams ∧
-          us.length = cvS.levelParams.length ∧
-          fe.towerSlotsAllF S caps.etaFields = true then
-        match fe.findProj? S 0 with
-        | some e0 =>
-          match fe.find? e0.ctor with
-          | some (.ctorInfo cvC _ _) =>
-            if cvC.levelParams = cvS.levelParams then
-              (Expr.peelPis caps.etaParams (Expr.instLevelParams cvC.levelParams us cvC.type)).map
+      if caps.eta = true ∧ us.length = cvS.levelParams.length then
+        match fe.findTable? S with
+        | some tbl =>
+          if (Expr.getAppArgsC w).length = tbl.numParams then
+            match fe.find? tbl.ctor with
+            | some (.ctorInfo cvC _ _) =>
+              (Expr.peelPis tbl.numParams (Expr.instLevelParams cvC.levelParams us cvC.type)).map
                 fun body =>
-                  some (Expr.instantiateListC body (Expr.getAppArgsC w).reverse 0,
-                    caps.etaFields)
-            else none
-          | _ => none
+                  (Expr.instantiateListC body (Expr.getAppArgsC w).reverse 0, tbl.numFields)
+            | _ => none
+          else none
         | none => none
       else none
     | _ => none
@@ -455,8 +448,7 @@ def unitLikeShapeF (fe : FEnv) (w : Expr) : Option (Option (Expr × Nat)) :=
 def unitLikeStructI (r : CoreFnsI) (ul : Nat → Expr → CheckCM Bool) (fe : FEnv)
     (depth : Nat) (w : Expr) : CheckCM Bool :=
   match unitLikeShapeF fe w with
-  | some none => pure true
-  | some (some (tele, n)) => unitLikeFieldsI r ul n depth tele
+  | some (tele, n) => unitLikeFieldsI r ul n depth tele
   | none => pure false
 
 /-- Twin of `unitLikeLoop`. -/

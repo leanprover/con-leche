@@ -648,7 +648,7 @@ theorem checkProjGuard_rel (K : KR env₁ r₂ r₁) (hx : EnvExt env₁ env₂)
   have hst : (env₁.find? entry.structName).isSome = true := by
     obtain ⟨tbl, hT, -, rfl⟩ := Env.findProj?_some hfp
     exact (hx.facts.wf.table hT).1
-  rw [hx.find_of_isSome hst, projGuardRows_ext hx (hx.facts.entryCtors T i entry hfp)]
+  rw [hx.find_of_isSome hst, projGuardRows_ext hx (hx.facts.entryCtors hfp)]
   cases hfs : env₁.find? entry.structName with
   | none => exact Rel.err _
   | some ci =>

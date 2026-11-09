@@ -521,20 +521,18 @@ inductive DefEqExpand (env : Env) : Nat → Expr → Expr → Expr → Prop wher
       DefEqExpand env d a b (.forallE dom body)
 
 /-- **A unit-like type** (`unitLikeLoop`, `Kernel/Core.lean`; official's
-`is_unit_like`): its reduct is a ∀ whose opened codomain is unit-like, an
-instance of a stored η family without fields, or an instance of one
-whose constructor's fields, at the instance's parameters, are
-propositions or unit-like (`UnitFields`); the shape is read off the
-stored records (`unitLikeShape`). -/
+`is_unit_like`): its reduct is a ∀ whose opened codomain is unit-like, or
+an instance of a stored η family whose constructor's fields, at the
+instance's parameters, are propositions or unit-like (`UnitFields`; a
+fieldless family has none); the shape is read off the stored records
+(`unitLikeShape`). -/
 inductive UnitLike (env : Env) : Nat → Expr → Prop where
   | pi {d : Nat} {T dom body : Expr} :
       Red env d T (.forallE dom body) →
       UnitLike env (d + 1) (body.instantiate1 (.fvar d dom)) →
       UnitLike env d T
-  | unit {d : Nat} {T w : Expr} :
-      Red env d T w → unitLikeShape env w = some none → UnitLike env d T
   | struct {d n : Nat} {T w tele : Expr} :
-      Red env d T w → unitLikeShape env w = some (some (tele, n)) →
+      Red env d T w → unitLikeShape env w = some (tele, n) →
       UnitFields env d tele n → UnitLike env d T
 
 /-- **The fields of a unit-like instance** (`unitLikeFields`,

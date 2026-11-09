@@ -166,7 +166,7 @@ exactly `op a = a`. -/
 
 /-! ## The structure-capability laws (task #161, caps tier)
 
-The stored families' fired η and unit-like laws at the
+The stored fieldless families' fired η law at the
 `denote` currency, value-level, keyed on the stored
 `indInfo`, the capability flag, the non-reserved name, and the
 completed family (`EtaFamilyStored`).  They live here because the
@@ -187,16 +187,16 @@ completed family (`EtaFamilyStored`).  They live here because the
   reading by determinism.  The equality-form crossing is refutable
   at support-completing installs, so no backward transfer ever
   appears.
-* **The fired content is value-level**: `ts`, `x`, `y` are bare `V`s.
-  The η half is owed only for a fieldless family (`EtaFamilyStored`'s
+* **The fired content is value-level**: `ts`, `x` are bare `V`s.
+  The law is owed only for a fieldless family (`EtaFamilyStored`'s
   `etaFields = 0`), so its fabricated spine is the parameters `ts`; a
-  family with fields reads its η law off its projection table's tower
-  entries (`TowerEtaLaw`).
+  family with fields reads its η law off its projection table
+  (`TowerEtaLaw`), as the unit-like test does at every field count.
 
 **Establishment**: at the inductive install, which re-runs its defeq
-certificates through the claims.  Consumers: the structure-η and
-unit-like rules' soundness (`DefEq.structEta_sound`/
-`DefEq.structUnit_sound`, `Model/Rules/DefEqSound.lean`). -/
+certificates through the claims.  Consumer: the structure-η rule's
+soundness at a fieldless family (`etaSide`,
+`Model/Rules/EtaSoundKit.lean`). -/
 
 /-- **The telescope fit**: each argument value inhabits its progressively-peeled domain, the
 peeled body read under the extended environment.  No positivity — the
@@ -223,7 +223,7 @@ theorem teleFit_nil_inv {ρ : Nat → V} {T : Term} {rest : V}
 end
 
 /-- **A graded spine at a family's leaf**: the values `ts` are a spine of terms whose
-application to the leaf `L` is graded and not the point.  What the η and unit laws ask
+application to the leaf `L` is graded and not the point.  What the η laws ask
 of the parameters; it reads no type, and at a recorded block it gives the fit of the
 telescope (`spineFit_of_wellDenoted_mkAppN_lam`). -/
 @[expose] def FamFit (V : Type w) [SetTheory V] (ρ : Nat → V) (L : Term) (ts : List V) : Prop :=
@@ -302,36 +302,15 @@ telescope coherence (`EtaCoherent`). -/
     EtaCoherent m φ' T caps.etaCtor cvT.levelParams us caps.etaParams
       (fun _ ts _ => ts)
 
-/-- **The fired unit-like law of a fieldless η family**: all its
-inhabitants are equal. -/
-@[expose] def UnitLaw {V : Type w} [SetTheory V] {env : Env}
-    (m : EnvModel V env) (φ' : Name → Nat) (T : Name)
-    (cvT : ConstantVal) (caps : IndCaps) : Prop :=
-  ∀ us : List Level, us.length = cvT.levelParams.length →
-    ∀ (ρ : Nat → V) (ts : List V) (x y : V),
-      ts.length = caps.etaParams →
-      FamFit V ρ (m.acval T (Level.substFn φ' cvT.levelParams us)) ts →
-      x ∈ˢ ts.foldl SetTheory.app
-        (interp V ρ (m.acval T (Level.substFn φ' cvT.levelParams us))) →
-      y ∈ˢ ts.foldl SetTheory.app
-        (interp V ρ (m.acval T (Level.substFn φ' cvT.levelParams us))) →
-      x = y
-
-/-- **The stored families' capability laws at `interp`**
+/-- **The stored families' capability law at `interp`**
 (established at the inductive install). -/
 @[expose] def CapsOk {V : Type w} [SetTheory V] {env : Env}
     (m : EnvModel V env) : Prop :=
-  (∀ (T : Name) (cvT : ConstantVal) (caps : IndCaps),
+  ∀ (T : Name) (cvT : ConstantVal) (caps : IndCaps),
     env.find? T = some (.indInfo cvT caps) → caps.eta = true →
     ConLeche.reservedBasisNames.contains T = false →
     ConLeche.EtaFamilyStored env T caps →
-    ∀ φ' : Name → Nat, EtaLaw m φ' T cvT caps) ∧
-  -- The unit half carries NO `EtaFamilyStored` premise: its consumer
-  -- (`unitLikeShape`'s fieldless arm) reads no constructor.
-  (∀ (T : Name) (cvT : ConstantVal) (caps : IndCaps),
-    env.find? T = some (.indInfo cvT caps) → caps.eta = true → caps.etaFields = 0 →
-    ConLeche.reservedBasisNames.contains T = false →
-    ∀ φ' : Name → Nat, UnitLaw m φ' T cvT caps)
+    ∀ φ' : Name → Nat, EtaLaw m φ' T cvT caps
 
 /-! ## The fibres of a stored family (task #342 L7)
 
@@ -819,31 +798,47 @@ theorem TeleFitPA.peelPis {V : Type w} [SetTheory V] {ρ : Nat → V} :
   | cons _ _ ih => exact ih
 
 /-- **The structural-η law of a tower-backed family** (task #175 W4c;
-`EtaLaw`'s twin at the tower kind, keyed on the entry): a member of
+`EtaLaw`'s twin at the tower kind, keyed on the table): a member of
 the family instance is the constructor at the parameters and the tower
 readings (`projS`) of its own projections — the value-level content of
 the η certificate's `.proj T j b` fabrication (`etaProjs`).  Keyed on
-the entry so that the direct install alone answers it; the η row reads it through slot `0` of
-an all-tower family. -/
+the table so that the direct install alone answers it, at every field
+count: a fieldless structure's table has no entry, and its law says
+that every member is the constructor at the parameters (the unit-like
+test's structure arm reads it at any field count). -/
 @[expose] def TowerEtaLaw {V : Type w} [SetTheory V] {env : Env}
     (m : EnvModel V env) (φ : Name → Nat) (T : Name)
-    (entry : ProjEntry) : Prop :=
+    (tbl : ProjTable) : Prop :=
   ∀ (cvT : ConstantVal) (capsT : IndCaps),
     env.find? T = some (.indInfo cvT capsT) →
-    ∀ us : List Level, us.length = entry.levelParams.length →
+    ∀ us : List Level, us.length = tbl.levelParams.length →
       (∀ (ρ : Nat → V) (ts : List V) (x : V),
-        ts.length = entry.numParams →
-        FamFit V ρ (m.acval T (Level.substFn φ entry.levelParams us)) ts →
+        ts.length = tbl.numParams →
+        FamFit V ρ (m.acval T (Level.substFn φ tbl.levelParams us)) ts →
         x ∈ˢ ts.foldl SetTheory.app
-          (interp V ρ (m.acval T (Level.substFn φ entry.levelParams us))) →
-        x = (ts ++ (List.range entry.numFields).map fun j =>
+          (interp V ρ (m.acval T (Level.substFn φ tbl.levelParams us))) →
+        x = (ts ++ (List.range tbl.numFields).map fun j =>
               ConLeche.SetTheory.Tower.projS (j + 1) x).foldl SetTheory.app
             (interp V ρ
-              (m.acval entry.ctor (Level.substFn φ entry.levelParams us)))) ∧
+              (m.acval tbl.ctor (Level.substFn φ tbl.levelParams us)))) ∧
       (capsT.eta = true →
-        EtaCoherent m φ T entry.ctor entry.levelParams us entry.numParams
-          (fun _ ts x => ts ++ (List.range entry.numFields).map fun j =>
+        EtaCoherent m φ T tbl.ctor tbl.levelParams us tbl.numParams
+          (fun _ ts x => ts ++ (List.range tbl.numFields).map fun j =>
             ConLeche.SetTheory.Tower.projS (j + 1) x))
+
+/-- **One stored table's law**: the table's data agrees with the stored
+former (whose η record, if it claims η, names this table's shape), and
+the family's structural-η law holds (`TowerEtaLaw`). -/
+@[expose] def TowerTableLaw {V : Type w} [SetTheory V] {env : Env}
+    (m : EnvModel V env) (φ : Name → Nat) (T : Name) (tbl : ProjTable) : Prop :=
+  (∃ (cvT : ConstantVal) (capsT : IndCaps),
+    env.find? T = some (.indInfo cvT capsT) ∧
+    cvT.levelParams = tbl.levelParams ∧
+    (capsT.eta = true →
+      capsT.etaCtor = tbl.ctor ∧
+      capsT.etaParams = tbl.numParams ∧
+      capsT.etaFields = tbl.numFields)) ∧
+  TowerEtaLaw m φ T tbl
 
 /-- **The rows of a projection's guard, read** (task #480): over a reading
 `ds` of the constructor's telescope, the projected field's domain and that
@@ -904,9 +899,9 @@ theorem TowerGuardAt.mono {V : Type w} [SetTheory V] {env₁ env₂ : Env}
 docstring): the entry's stored data agrees with the stored former and
 constructor (whose η capability is the entry's at a non-`Prop` family
 — task #175 W4c/O4), and at every level instantiation the typing law
-holds under the guard at the use (`TowerGuardAt`), the iota law where the
-redex is not the point, and the family's structural-η law holds (clause
-(C), `TowerEtaLaw`).
+holds under the guard at the use (`TowerGuardAt`) and the iota law where the
+redex is not the point.  The family's structural-η law is its table's
+(`TowerTableLaw`).
 
 Task #175 S1: the entry stores a *body* scoped at the parameters and
 the subject, not a type; the typing law is stated over the reading
@@ -975,16 +970,18 @@ dummy binders carry the reading only; the law never reads them. -/
             (m.acval entry.ctor (Level.substFn φ entry.levelParams us)) ys)) ≠ pt →
         interp V ρ (projNV (i + 1) (Term.mkAppN
             (m.acval entry.ctor (Level.substFn φ entry.levelParams us)) ys))
-          = interp V ρ (ys.getD (entry.numParams + i) default)))) ∧
-    -- (C) the structural-η law (task #175 W4c)
-    TowerEtaLaw m φ T entry
+          = interp V ρ (ys.getD (entry.numParams + i) default))))
 
-/-- **The tower projection law, keyed on every stored entry**
-(`RecRules`'s sibling).  Task #175 tower-flag: every stored table is
-a real one, so the law is uniform — no flag premise. -/
-@[expose] def TowerOk {V : Type w} [SetTheory V] {env : Env}
-    (m : EnvModel V env) (φ : Name → Nat) : Prop :=
-  ∀ (T : Name) (i : Nat) (entry : ProjEntry),
+/-- **The tower projection law, keyed on every stored table and every
+stored entry** (`RecRules`'s sibling).  Task #175 tower-flag: every
+stored table is a real one, so the law is uniform — no flag premise. -/
+structure TowerOk {V : Type w} [SetTheory V] {env : Env}
+    (m : EnvModel V env) (φ : Name → Nat) : Prop where
+  /-- each table's η law, whatever its field count -/
+  table : ∀ (T : Name) (tbl : ProjTable), env.findTable? T = some tbl →
+    TowerTableLaw m φ T tbl
+  /-- each entry's typing and iota laws -/
+  entry : ∀ (T : Name) (i : Nat) (entry : ProjEntry),
     env.findProj? T i = some entry →
     TowerEntryLaw m φ T i entry
 

@@ -188,22 +188,22 @@ theorem ProjOkT.cons {env : Env} {c₀ : ConstantInfo} (h : ProjOkT env) (hwf : 
       env.find? n = some ci → (⟨c₀ :: env.consts, env.tables⟩ : Env).find? n = some ci := by
     intro n ci _ hf
     rw [Env.find?_cons_of_isSome hfresh (by rw [hf]; rfl)]; exact hf
-  intro T tbl hf i hi
+  intro T tbl hf
   rw [hwf.findTable?_cons hfresh] at hf
-  exact TowerHead.mono hkeep (h T tbl hf i hi)
+  exact TableHead.mono hkeep (h T tbl hf)
 
 /-- **The projection-table discipline survives a table's install**
 (task #362): the new table supplies its own head data, the others keep
 theirs (a table install leaves the constants alone). -/
 theorem ProjOkT.pushTable {env : Env} {t : ProjTable} (h : ProjOkT env)
-    (hhead : ∀ i, i < t.numFields → TowerHead env (t.entry i)) :
+    (hhead : TableHead env t) :
     ProjOkT ⟨env.consts, t :: env.tables⟩ := by
-  intro T tbl hf i hi
+  intro T tbl hf
   rw [Env.findTable?_pushTable] at hf
   split at hf
   · cases hf
-    exact hhead i hi
-  · exact h T tbl hf i hi
+    exact hhead
+  · exact h T tbl hf
 
 /-! ## The one-name update -/
 

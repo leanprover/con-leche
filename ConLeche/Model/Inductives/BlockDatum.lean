@@ -1047,7 +1047,6 @@ theorem blockTablesStage_of {F : Nat} {env envI : Env}
       (fun j hj ψ ρp hρp c hc => hIdxOf c (hcvOf c hc).choose (hcvOf c hc).choose_spec ψ ρp
           (hρpOf ψ ρp j hj hρp c hc))
       (fun j hj ψ ρp hρp => (hchZ ψ).1 ρp (hρpOf ψ ρp j hj hρp 0 hk0))
-      hfoldZH
   have hfindR := formerInEnv_of hF.lenDcl hdclR hfindR₀
   -- ## the constructors, read again at the REAL carrier
   obtain ⟨pk, hpk, habsR⟩ : ∃ pk : Nat → BlockMemberPick, (∀ m : Nat, m < q.k →

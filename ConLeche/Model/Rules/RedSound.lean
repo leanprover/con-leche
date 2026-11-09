@@ -448,7 +448,7 @@ theorem Red.proj_sound (hin : RulesInputs V m φ) {d : Nat} {sn : Name} {i : Nat
   have hCe : CtxOkS m φ d Δa e := hC.of_subset hsube
   obtain ⟨vp, -, hvp, -, rfl⟩ := denote_proj_inv hea
   -- the tower entry's laws
-  obtain ⟨-, -, -, -, cvC₀, hfC, hlpsC, hlaw, -⟩ := hin.tower_ok sn i entry hent
+  obtain ⟨-, -, -, -, cvC₀, hfC, hlpsC, hlaw⟩ := hin.tower_ok.entry sn i entry hent
   obtain rfl : cvC₀ = cvC := by
     obtain ⟨rfl, -, -⟩ :=
       ConstantInfo.ctorInfo.inj (Option.some.inj (hfC.symm.trans hctor))

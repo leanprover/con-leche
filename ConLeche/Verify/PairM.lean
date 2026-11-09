@@ -835,7 +835,6 @@ theorem unitLikeStruct_fst_proj {ul : Nat → Expr → PairM rel Bool}
       unitLikeStruct r₁ ul' env d w := by
   unfold unitLikeStruct
   split
-  · rfl
   · exact unitLikeFields_fst_proj hul _ _ _
   · rfl
 
@@ -859,7 +858,6 @@ theorem unitLikeStruct_snd_proj {ul : Nat → Expr → PairM rel Bool}
       unitLikeStruct r₂ ul' env d w := by
   unfold unitLikeStruct
   split
-  · rfl
   · exact unitLikeFields_snd_proj hul _ _ _
   · rfl
 
