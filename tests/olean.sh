@@ -943,6 +943,9 @@ case_grep "--schedule: the log resumed" 0 "5 modules logged, 0 to run" --olean \
   --schedule --schedule-log="$d/log" --jobs=2 --search-path=$MSP -- NlM
 case_grep "--schedule: the first failing module, its code" 1 "the first in the graph's order: NpAx (1)" \
   --olean --schedule --search-path=$LIB -- NpAx
+# (task #551: a non-zero finish line is marked FAILED, an accepted one shows no verdict)
+case_grep "--schedule: a failing module's finish line" 1 "s .*FAILED 1  NpAx" \
+  --olean --schedule --search-path=$LIB -- NpAx
 case_ "--schedule: an unknown option" 3 --olean --schedule-frobnicate --search-path=$LIB -- Tiny
 # (task #505: the module lines carry the counts; a budget takes a unit; a heartbeat in ms or s)
 case_grep "--schedule: the last module's line, its counts" 0 "\[4 (100.0%)  0 wrkr" \

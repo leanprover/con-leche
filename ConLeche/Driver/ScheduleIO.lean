@@ -108,9 +108,11 @@ it plain `IO`:
   a verdict (a resumed run's logged ones included) and their percentage; the running workers; the
   threads they hold; the running workers' resident sets now, summed (`tot`), and the largest
   one's (`biggest`), left out where `/proc` cannot be read; the estimate.  A finish line goes on
-  with `VERDICT  t=Ss  rss=X GiB  ×T  M`: the verdict padded to 7, the time to 6, `X` the worker's
+  with `t=Ss  rss=X GiB  ×T  [FAILED V  ]M`: the time padded to 6, `X` the worker's
   own peak from its stats line (`rss≥X` the last sampled one where it wrote none), `×T` the
-  worker's threads where above 1 (blank, and absent at `--jobs=1`, otherwise), the module last.
+  worker's threads where above 1 (blank, and absent at `--jobs=1`, otherwise), then, only for a
+  non-zero verdict (`1`, `2`, `3`, `timeout`, `memory`, `signal`), `FAILED V` (grep `FAILED`;
+  an accepted module shows no verdict), the module last.  The log keeps every verdict.
   With a heartbeat (`heartbeat` ms), after that long without a line, ONE line on stderr: the
   status part and what explains the wait, `waiting: longest M 7m01s (+2 more), 13 requeued, 5
   waiting for room: reserved 43.4 GiB of plan 40.5 GiB`: the longest-running worker and how many
@@ -682,9 +684,6 @@ def padL (w : Nat) (s : String) : String := "".pushn ' ' (w - s.length) ++ s
 /-- `s` padded with spaces on the right to `w` characters. -/
 def padR (w : Nat) (s : String) : String := s.pushn ' ' (w - s.length)
 
-/-- The longest verdict word (`timeout`): the width of the verdict column. -/
-def verdictWidth : Nat := 7
-
 /-- A size in KiB as GiB with one decimal (two where `dec` is 2), without the unit, padded to a
 fixed width, for the status part's columns. -/
 def gibCol (dec : Nat) (kib : Nat) : String :=
@@ -835,8 +834,10 @@ def run (parse : String → Option Name) (app : System.FilePath) (args : Name �
     -- column where the budget is one thread
     let thr := if jobs ≤ 1 then "" else
       padR ((toString jobs).length + 3) (if r.threads > 1 then s!"  ×{r.threads}" else "")
-    out.putStrLn s!"{status st now}  {padR verdictWidth w}  \
-      t={padL 6 (ConLeche.Cached.msSecs (now - r.start))}s  {rssText}{thr}  {r.m}"
+    -- only a non-zero outcome is marked, just before the module: `FAILED 1`, `FAILED timeout`
+    let mark := if w == "0" then "" else s!"FAILED {w}  "
+    out.putStrLn s!"{status st now}  \
+      t={padL 6 (ConLeche.Cached.msSecs (now - r.start))}s  {rssText}{thr}  {mark}{r.m}"
     out.flush
     let lines := (msg.splitOn "\n").filter fun l => l != "" && !l.startsWith "con-leche: stats:"
     if w != "0" then

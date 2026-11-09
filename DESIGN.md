@@ -116311,3 +116311,10 @@ Hand test, `--olean --schedule --jobs=8 --schedule-memory=300M --progress=2000 -
 [712 ( 96.3%)  1 wrkr  1 thds  RSS   0.11G tot   0.11G biggest       0s eta]  waiting: longest Init.Data.BitVec.Lemmas 2s, 7 requeued
 [712 ( 96.3%)  1 wrkr  1 thds  RSS   0.09G tot   0.09G biggest       0s eta]  waiting: longest Init.Data.BitVec.Lemmas 4s, 7 requeued
 ```
+
+## TASK #551 — the finish line shows only failures (2026-11-09, agent/551-verdict)
+
+The scheduler's finish line no longer carries the verdict column: `t=` and `rss=` start right
+after the status part, in the same columns on every line.  A non-zero outcome (`1`, `2`, `3`,
+`timeout`, `memory`, `signal`) is marked `FAILED V` just before the module name (grep `FAILED`).
+The log file keeps its verdict field, which resume needs.  `verdictWidth` is gone.
