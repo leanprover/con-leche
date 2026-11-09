@@ -1272,9 +1272,9 @@
 
 >>> README.md
 
-== ConLeche/Cached/ParsedC.lean#L318-L319
-   318    let fe₂ ← checkDeclKindC mode pins fe pd
-   319    unless basisNamesOk pd do
+== ConLeche/Cached/ParsedC.lean#L320-L321
+   320    let fe₂ ← checkDeclKindC mode pins fe pd
+   321    unless basisNamesOk pd do
 
 == ConLeche/Driver/Cli.lean#L122
    122    "  --jobs=N            Worker threads (default: one per hardware thread)",
