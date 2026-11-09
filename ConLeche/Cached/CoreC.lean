@@ -991,21 +991,17 @@ def checkProjRowsI (inf wh : Nat → Expr → CheckCM Expr) (fe : FEnv) (entry :
   match fe.find? entry.ctor with
   | some _ => do
     let cty ← constTyAtM fe entry.ctor entry.ctor us
-    match openPisAtFvarsC entry.numParams cty 0 with
-    | some (_, r) =>
-      match projGuardRowsGoC entry.idx entry.numParams r with
-      | some rows => checkGuardRowsI inf wh guardSort rows
-      | none =>
-        throw (.invalid "projection from a propositional structure must be a proposition")
+    match projGuardRowsC entry.numParams entry.idx cty with
+    | some rows => checkGuardRowsI inf wh guardSort rows
     | none =>
       throw (.invalid "projection from a propositional structure must be a proposition")
   | none =>
     throw (.invalid "projection from a propositional structure must be a proposition")
 
 /-- Twin of `checkProjGuard`: the constructor's type at the use's levels
-through the per-declaration memo (`constTyAtM`), its parameters opened in
-one pass (`openPisAtFvarsC`), then its fields stepped
-(`projGuardRowsGoC`). -/
+through the per-declaration memo (`constTyAtM`), then its rows
+(`projGuardRowsC`: the parameters opened in one pass, the field
+telescope read before it is rebuilt). -/
 def checkProjGuardI (inf wh : Nat → Expr → CheckCM Expr) (fe : FEnv) (entry : ProjEntry)
     (us : List Level) : CheckCM Unit := do
   match fe.find? entry.structName with

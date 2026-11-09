@@ -111770,3 +111770,93 @@ init-full 374.915 → 375.246 G (+0.09 %), grind-ring-5 13.149 → 13.170 G (+0.
 22.080 → 22.080 G, beta-ladder 4.848 → 4.850 G, let-ladder 2.569 → 2.569 G; the other arena perf
 streams (all under 0.4 G) within +0.1 %.  The cost is the size measure (`Nat.log2`) at every
 inferred literal and every folded `add`/`sub`/`mul`/`succ`.
+
+## TASK #498 — L7: measured follow-ups; the projection guard reads before it rebuilds (2026-11-09, agent/498-l7)
+
+**Profile before** (frame-pointer build of master 351602a56, scratch copy only, `perf record -e
+instructions:u --call-graph fp`, `--jobs=1`, verified; a sample attributed to its innermost
+con-leche frame, library and runtime frames transparent).  `prop_struct_proj_wide` (265.1 M):
+the projection guard `checkProjRowsI` 36.7 % inclusive, all of it `openPisAtFvarsGoC`, i.e.
+substituting the parameter into the whole 150-field telescope (`instantiateListXP` 14.6 %, its
+memo table 7.5 %, freeing the copy 7.4 %); the inductive check of `WideRel` (`checkBlockKS`)
+25 %.  `BvStruct` minus `Empty` (1.63 G): `checkProjRowsI` about 0.62 G, again the opening; the
+rest is spread over the `.olean` reader and the shared inference/defeq paths.
+
+**What official does per use, what con-leche repeated.**  Official's `infer_proj` instantiates
+the constructor type at each parameter (`nparams` passes over the whole field telescope) and
+then steps the fields, `has_loose_bvars` deciding in O(1).  con-leche did one pass, so it
+repeated nothing official does not; the cost is the copy itself, at every `.proj` on a `Prop`
+structure.  On both workloads every guard call is in its own declaration (a projection
+theorem), so a per-declaration memo of the opened telescope (keyed by constructor and levels)
+would have nothing to hit; a cross-declaration one is ruled out.  The stepped fields are
+already the official's cheap loop.
+
+**The change** (`Cached/ExprOpsC.lean`, `Cached/CoreC.lean`).  `checkProjRowsI` calls
+`projGuardRowsC nP idx cty`: the parameters are opened with the residual left raw
+(`openPisRawGoC`, which `openPisAtFvarsC` now also uses, substituting the residual after it);
+then `projGuardFastC` asks of the RAW telescope whether some field's type up to the projected
+one, or the telescope after it, mentions an earlier field — each a read-only window query
+`hasLooseBVarInC d w` (loose index in `d ..< d + w`; a new proof-carrying walk over `MemoB`
+with the `bvarB ≤ d` cutoff, beside `hasLooseBVarBC`).  Where nothing is mentioned the
+specification's loop steps over every field and its one row is the projected field's domain,
+which alone is substituted (`instantiateListC dom acc idx`).  Otherwise the residual is
+substituted and `projGuardRowsGoC` steps as before.  The specification (`projGuardRows`) is
+unchanged.  Fixtures: `prop_struct_proj_wide` runs the fast case, `proj_guard_used_data_bad`
+and `proj_guard_past_used_data_bad` the substituting one.
+
+**Proofs** (`Verify/Cached/DiscC4.lean`, about 230 lines; `IndWalksC.lean`).
+`projGuardRowsC_none`/`projGuardRowsC_some` state the cached rows as the specification's after
+`openPisAtFvars`; `projRowsC_spec` takes them in place of `openPisAtFvarsC_eq` and
+`projGuardRowsGoC_eq`.  Underneath: `projGuardFastC_rows` (over the telescope with the
+parameters substituted at the free variables, the loop steps every field and returns the
+projected domain), `projGuardFastC_below`, `hasLooseBVarInP_false` (the reference's `false`
+excludes the window), `hasLooseBVarInC_spec`, and
+`hasLooseBVar_instantiateList_fvars_lt` (substituting free variables at and above an offset
+leaves a lower index's occurrence alone, through `instantiateList_cons` and
+`hasLooseBVar_instantiate1_lt`).  The opener: `openPisAtFvarsGoC_eq` restated for the raw loop,
+`openPisRawGoC_fvars` (its substitution is free variables).
+
+**Profile after.**  `prop_struct_proj_wide`: the guard 32.8 %, now `hasLooseBVarInXP` and its
+memo; a read-only walk costs about 0.75 of the copy per node here, because each node still
+returns a fresh result pair and shared nodes go through the memo table.  The fast case reads
+the whole telescope, as it must: whether an earlier field is used depends on everything after
+it.  Going below that per use would need the used-field facts stored with the structure's
+projection table (a design change against #480's "computed where it is read"), not done.
+
+**Item 2, measured, not done.**  `whnfWalkFuel`: L2 computes it once per root constructor
+(`nestCtorsC`); the per-key fold (`nestKeyMap`) and `depthC` are below 0.01 % on every workload
+(0 samples on `prop_struct_proj_wide`, `BvStruct`).  `instPisWithC` (one `instantiate1C` per
+binder): 0.46 % of `prop_struct_proj_wide`, at most 0.015 % elsewhere; a bulk version would not
+show.  No block-scoped memo was added.
+
+**Remaining hot spots** (lane profiles).  `prop_struct_proj_wide`: the guard (33 %, above), the
+`WideRel` inductive check `checkBlockKS` (31 %: the tail `checkBlockTailS` 16 %, of which
+`genRecCheckC` 14 % — the recursor's rules against the stored ones; the block pass 13 %).
+`BvStruct` minus `Empty`: the guard still the largest single piece (≈ 0.55 G of 1.25 G); the
+rest is the `.olean` reader for the module and the defeq/whnf of the 200 projections' and
+`casesOn`'s types, without a single dominating frame.  init-full and grind-ring-5: unchanged
+shapes — inference through `defeqBodyI`/`lazyDeltaReductionI` (58–65 %), `whnfCoreLoopI` with
+`iotaRecI`/`prepareMajorI` (23 % / 47 % on grind-ring-5), substitution `instantiateListXP`
+(9–11 % self) and its memo tables; the reader 3–4 %.  No new single hot spot.
+
+**Numbers** (`perf stat -e instructions:u`, one run each, `--jobs=1`, verified; master
+2db5b8afd → the lane merged with it):
+
+| run | master | lane | change |
+|---|---|---|---|
+| e2e `prop_struct_proj_wide` | 265.10 M | 222.98 M | −15.9 % |
+| `BvStruct` module | 431.000 G | 430.649 G | |
+| `Empty` module | 429.354 G | 429.400 G | |
+| `BvStruct` − `Empty` | 1.646 G | 1.248 G | −24.2 % |
+| init-full | 374.495 G | 374.435 G | −0.02 % |
+| grind-ring-5 | 13.106 G | 13.110 G | +0.03 % |
+| app-lam | 22.072 G | 22.074 G | 0 |
+| beta-ladder | 4.865 G | 4.865 G | 0 |
+| let-ladder | 2.568 G | 2.568 G | 0 |
+| the 12 other arena perf streams (22–300 M) | | | −0.02 … +0.12 % (tens of thousands of instructions) |
+
+The same verdicts everywhere (171, 64 366, 63 937, 57 977 and 2 185 declarations accepted; every
+arena perf stream accepted).
+
+**Gates** (the merged tree).  `lake build`, `lake test` warning-free; `tests/arena.sh` exit 0
+(e2e 571/571, plain-reach 585 all allowlisted, binary-link: no Lean package module linked).

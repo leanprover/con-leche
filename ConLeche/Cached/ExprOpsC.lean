@@ -1491,6 +1491,105 @@ cutoff, then the walk (`hasLooseBVarBC_spec`,
 def hasLooseBVarBC (i : Nat) (e : Expr) : Bool :=
   if hcut : e.bvarB ≤ i then false else resBool (hasLooseBVarBXP none e i hcut)
 
+/-! ### `hasLooseBVarInC` (task #498, L7)
+
+Does a loose bound variable of index `d ..< d + w` occur?  The
+projection guard's question of a raw constructor telescope: does a
+field's type, or the rest of the telescope, mention a field before it
+(`projGuardFastC`).  Read only, no node is built.  The cutoff is the
+packed bound (`bvarB ≤ d`: no loose variable at or above `d`); under a
+binder the window moves up by one. -/
+
+/-- The plain descent of `hasLooseBVarInC`, the cutoff included: the
+reference `hasLooseBVarInXP` carries its own proof against
+(`hasLooseBVarInP_false`, `ConLeche/Verify/Cached/DiscC4.lean`). -/
+def hasLooseBVarInP (w : Nat) (e : Expr) (d : Nat) : Bool :=
+  if e.bvarB ≤ d then false else
+  match e with
+  | .bvar j => decide (d ≤ j) && decide (j < d + w)
+  | .fvar .. | .sort _ | .const .. | .lit _ => false
+  | .app f a => hasLooseBVarInP w f d || hasLooseBVarInP w a d
+  | .lam ty b => hasLooseBVarInP w ty d || hasLooseBVarInP w b (d + 1)
+  | .forallE ty b => hasLooseBVarInP w ty d || hasLooseBVarInP w b (d + 1)
+  | .letE t v b =>
+    hasLooseBVarInP w t d || hasLooseBVarInP w v d || hasLooseBVarInP w b (d + 1)
+  | .proj _ _ s => hasLooseBVarInP w s d
+
+theorem hasLooseBVarInP_cut {w : Nat} {e : Expr} {d : Nat} (h : e.bvarB ≤ d) :
+    hasLooseBVarInP w e d = false := by
+  rw [hasLooseBVarInP.eq_def]; simp [h]
+
+/-- The child step of `hasLooseBVarInXP`: the cutoff, the compound test,
+the exclusivity read. -/
+@[inline] def enterLIP (w : Nat) (e : @& Expr) (d : Nat) (memo : MemoB (hasLooseBVarInP w))
+    (rec : (hcut : ¬ e.bvarB ≤ d) → Squash (ResB (hasLooseBVarInP w) e d)) :
+    Squash (ResB (hasLooseBVarInP w) e d) :=
+  if hcut : e.bvarB ≤ d then Squash.mk (⟨false, (hasLooseBVarInP_cut hcut).symm⟩, memo)
+  else if !isCompound e then rec hcut
+  else withExcl e fun excl =>
+    if excl then rec hcut else memo.shared e d fun _ => rec hcut
+
+/-- The walk of `hasLooseBVarInC` (the node is past the cutoff). -/
+def hasLooseBVarInXP (w : Nat) (memo : MemoB (hasLooseBVarInP w)) (e : @& Expr) (d : Nat)
+    (hcut : ¬ e.bvarB ≤ d) : Squash (ResB (hasLooseBVarInP w) e d) :=
+  match e with
+  | .bvar j .. =>
+    Squash.mk (⟨decide (d ≤ j) && decide (j < d + w), by
+      rw [hasLooseBVarInP.eq_def]; simp [hcut]⟩, memo)
+  | .fvar .. => Squash.mk (⟨false, by rw [hasLooseBVarInP.eq_def]; simp [hcut]⟩, memo)
+  | .sort .. => Squash.mk (⟨false, by rw [hasLooseBVarInP.eq_def]; simp [hcut]⟩, memo)
+  | .const .. => Squash.mk (⟨false, by rw [hasLooseBVarInP.eq_def]; simp [hcut]⟩, memo)
+  | .lit .. => Squash.mk (⟨false, by rw [hasLooseBVarInP.eq_def]; simp [hcut]⟩, memo)
+  | .app f a .. =>
+    enterLIP w f d memo (fun h => hasLooseBVarInXP w memo f d h) |>.lift fun (⟨rf, hf⟩, memo) =>
+    match rf, hf with
+    | true, hf =>
+      Squash.mk (⟨true, by rw [hasLooseBVarInP.eq_def]; simp [hcut, ← hf]⟩, memo)
+    | false, hf =>
+      enterLIP w a d memo (fun h => hasLooseBVarInXP w memo a d h) |>.lift fun (⟨ra, ha⟩, memo) =>
+      Squash.mk (⟨ra, by rw [hasLooseBVarInP.eq_def]; simp [hcut, ← hf, ← ha]⟩, memo)
+  | .lam ty body .. =>
+    enterLIP w ty d memo (fun h => hasLooseBVarInXP w memo ty d h) |>.lift fun (⟨rt, ht⟩, memo) =>
+    match rt, ht with
+    | true, ht =>
+      Squash.mk (⟨true, by rw [hasLooseBVarInP.eq_def]; simp [hcut, ← ht]⟩, memo)
+    | false, ht =>
+      enterLIP w body (d + 1) memo (fun h => hasLooseBVarInXP w memo body (d + 1) h)
+        |>.lift fun (⟨rb, hb⟩, memo) =>
+      Squash.mk (⟨rb, by rw [hasLooseBVarInP.eq_def]; simp [hcut, ← ht, ← hb]⟩, memo)
+  | .forallE ty body .. =>
+    enterLIP w ty d memo (fun h => hasLooseBVarInXP w memo ty d h) |>.lift fun (⟨rt, ht⟩, memo) =>
+    match rt, ht with
+    | true, ht =>
+      Squash.mk (⟨true, by rw [hasLooseBVarInP.eq_def]; simp [hcut, ← ht]⟩, memo)
+    | false, ht =>
+      enterLIP w body (d + 1) memo (fun h => hasLooseBVarInXP w memo body (d + 1) h)
+        |>.lift fun (⟨rb, hb⟩, memo) =>
+      Squash.mk (⟨rb, by rw [hasLooseBVarInP.eq_def]; simp [hcut, ← ht, ← hb]⟩, memo)
+  | .letE ty val body .. =>
+    enterLIP w ty d memo (fun h => hasLooseBVarInXP w memo ty d h) |>.lift fun (⟨rt, ht⟩, memo) =>
+    match rt, ht with
+    | true, ht =>
+      Squash.mk (⟨true, by rw [hasLooseBVarInP.eq_def]; simp [hcut, ← ht]⟩, memo)
+    | false, ht =>
+      enterLIP w val d memo (fun h => hasLooseBVarInXP w memo val d h) |>.lift fun (⟨rv, hv⟩, memo) =>
+      match rv, hv with
+      | true, hv =>
+        Squash.mk (⟨true, by rw [hasLooseBVarInP.eq_def]; simp [hcut, ← ht, ← hv]⟩, memo)
+      | false, hv =>
+        enterLIP w body (d + 1) memo (fun h => hasLooseBVarInXP w memo body (d + 1) h)
+          |>.lift fun (⟨rb, hb⟩, memo) =>
+        Squash.mk (⟨rb, by rw [hasLooseBVarInP.eq_def]; simp [hcut, ← ht, ← hv, ← hb]⟩, memo)
+  | .proj _ _ sub .. =>
+    enterLIP w sub d memo (fun h => hasLooseBVarInXP w memo sub d h) |>.lift fun (⟨rs, hs⟩, memo) =>
+    Squash.mk (⟨rs, by rw [hasLooseBVarInP.eq_def]; simp [hcut, ← hs]⟩, memo)
+
+/-- The cached window query (one memoized DAG walk): the cutoff, then
+the walk; an empty window asks nothing. -/
+def hasLooseBVarInC (d w : Nat) (e : @& Expr) : Bool :=
+  if w = 0 then false else
+  if hcut : e.bvarB ≤ d then false else resBool (hasLooseBVarInXP w none e d hcut)
+
 /-! ## Occurrence queries of the inductive check (task #498)
 
 `Expr.nestOcc` (a member constant or a hole variable `lo ..< hi`; a
@@ -1966,24 +2065,36 @@ decreasing_by
 def piResidual (e : Expr) (args : List Expr) : Option Expr :=
   piResidualAcc [] e args
 
-/-- The cached tier's one-pass opening loop: `acc` holds the
-already-created free variables, innermost binder first; each domain and
-the residual are instantiated by them in one `instantiateListC` pass,
+/-- The cached tier's one-pass opening loop, the residual left raw:
+`acc` holds the already-created free variables, innermost binder first,
+and each domain is instantiated by them in one `instantiateListC` pass,
 where `openPisAtFvars` re-instantiates the whole remaining body at every
-binder (`openPisAtFvarsGoC_eq`, `ConLeche/Verify/Cached/IndWalksC.lean`). -/
-def _root_.ConLeche.openPisAtFvarsGoC (acc : List Expr) :
-    Nat → Expr → Nat → Option (List Expr × Expr)
-  | 0, e, _ => some ([], instantiateListC e acc)
+binder; returns the free variables, the substitution they make
+(innermost first) and the residual before it.  The projection guard reads
+the raw residual (`projGuardRowsC`); `openPisAtFvarsC` substitutes it. -/
+def _root_.ConLeche.openPisRawGoC (acc : List Expr) :
+    Nat → Expr → Nat → Option (List Expr × List Expr × Expr)
+  | 0, e, _ => some ([], acc, e)
   | n + 1, .forallE dom body, i =>
     let fv : Expr := .fvar i (instantiateListC dom acc)
-    match openPisAtFvarsGoC (fv :: acc) n body (i + 1) with
-    | some (fvs, e) => some (fv :: fvs, e)
+    match openPisRawGoC (fv :: acc) n body (i + 1) with
+    | some (fvs, acc', e) => some (fv :: fvs, acc', e)
     | none => none
   | _ + 1, _, _ => none
 
+/-- The raw opening from the substitution `acc`, its residual
+substituted (`openPisAtFvarsGoC_eq`, `ConLeche/Verify/Cached/IndWalksC.lean`:
+the sequential opening of the substituted term). -/
+def _root_.ConLeche.openPisAtFvarsGoC (acc : List Expr) (n : Nat) (e : Expr) (i : Nat) :
+    Option (List Expr × Expr) :=
+  match openPisRawGoC acc n e i with
+  | some (fvs, acc', r) => some (fvs, instantiateListC r acc')
+  | none => none
+
 /-- The cached `openPisAtFvars` (task #496: on a projection's guard the
 residual is the constructor's whole field telescope; task #497: its own
-loop).  No fallback: instantiating at free variables never makes a
+loop): the raw opening, then the residual in one `instantiateListC`
+pass.  No fallback: instantiating at free variables never makes a
 binder appear, so where the one pass finds no `∀` the sequential
 opening finds none either (`openPisAtFvarsC_eq`). -/
 def _root_.ConLeche.openPisAtFvarsC (n : Nat) (e : Expr) (i : Nat) :
@@ -2051,6 +2162,37 @@ def _root_.ConLeche.projGuardRowsGoC : Nat → Nat → Expr → Option (List (Na
       | none => none
     else projGuardRowsGoC k (d + 1) body
   | _, _, _ => none
+
+/-- The projection guard's fast case (task #498, L7), on the RAW field
+telescope (the parameters not substituted): `some` the projected
+field's raw domain where no field's type up to the projected one, and
+nothing after it, mentions a field before it — then no earlier field
+is used and the projected field's domain is the one row.  `none`
+otherwise, and where the telescope binds too few fields.  `j` counts
+the fields passed; every query is the read-only `hasLooseBVarInC`
+over the window of the fields, the parameters above it. -/
+def _root_.ConLeche.projGuardFastC : Nat → Nat → Expr → Option Expr
+  | 0, j, e@(.forallE dom _) => if hasLooseBVarInC 0 j e then none else some dom
+  | k + 1, j, .forallE dom body =>
+    if hasLooseBVarInC 0 j dom then none else projGuardFastC k (j + 1) body
+  | _, _, _ => none
+
+/-- The cached `projGuardRows` after the constructor's type
+(`projGuardRowsC_eq`, `ConLeche/Verify/Cached/DiscC4.lean`): the
+parameters opened with the residual left raw (`openPisRawGoC`).  Where
+no field before the projected one is mentioned after it
+(`projGuardFastC`), the one row is the projected field's domain, its
+parameters substituted — the rest of the telescope is read, not
+rebuilt.  Otherwise the residual is substituted and its fields
+stepped (`projGuardRowsGoC`). -/
+def _root_.ConLeche.projGuardRowsC (nP idx : Nat) (cty : Expr) :
+    Option (List (Nat × Expr)) :=
+  match openPisRawGoC [] nP cty 0 with
+  | some (_, acc, r) =>
+    match projGuardFastC idx 0 r with
+    | some dom => some [(nP + idx, instantiateListC dom acc idx)]
+    | none => projGuardRowsGoC idx nP (instantiateListC r acc)
+  | none => none
 
 /-! ## Level-parameter definedness (the parsed-index driver's guard) -/
 
