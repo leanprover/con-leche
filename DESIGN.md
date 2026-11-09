@@ -110993,3 +110993,108 @@ telescope, and `closeTelescope`/`closeLams` re-abstract the whole body once per 
 
 B1, B2 (through `StructWalkers`, which `checkConstantValF` would then take), B3, B5, B6 and B7
 need no ruling.
+
+### Task #497, the rulings and the twins
+
+**Rulings (maintainer, relayed 2026-11-09).**  (1) B4 gets a cached TWIN of the inductive
+check (naive specification in `Kernel/Inductives/*`, simulation proof to an optimised cached
+production twin), not a walker record threaded through the specification; it is its own task
+(#498), and `StructWalkers` is not extended (it goes with #498).  (2) Specification code changes
+its algorithm only where that makes it simpler, never for speed.  (3) Specification-only
+operations should not be runnable by accident: `noncomputable` where possible, else the reach
+gate catches them.  (4) The `@[csimp]` memo walks stay for now; the record lists those that
+would become unnecessary.
+
+**The twins** (one commit each; numbers `perf stat -e instructions:u`, one run, `--jobs=1`,
+verified, against `agent/496-cutoff` 6741ad769):
+
+| group | what | init-full | grind-ring-5 | `BvStruct` | `BvStruct` − `Empty` | `prop_struct_proj_wide` |
+|---|---|---|---|---|---|---|
+| B1 | `checkDivModPinC`: each pin variant's certificate proofs substituted once by the new sharing-preserving, address-memoised `substConstAllC`, the guards over `constsResolveFC`/`allLevelParamsDefinedC`; `checkDivModPinC_eq` | −6.67 G (−1.75 %) | −2.12 G (−13.9 %) | −7.10 G | ±0 | ±0 |
+| B3 | `blockTablesC`/`declTablesC` over `structProjBodiesC` at `StreamIndex.add` and `checkBlockKS`; `blockTablesC_eq`, `declTablesC_eq` | −0.07 G | −0.01 G | −0.44 G | 3.00 → 2.63 G | 681 → 595 M (−12.7 %) |
+| B2 | `checkReducePinC` (`reducePinGuardC`, `checkReducePinC_eq`); `reduceMemberS` calls `checkConstantValC` (moved to `CheckerC` with `opSIxC`; `checkConstantValC_eq`) | ±0 | ±0 | ±0 | ±0 | ±0 |
+| B5 | `openPisAtFvarsC` its own loop `openPisAtFvarsGoC` over `instantiateListC` (`openPisAtFvarsGoC_eq`); the kernel's `openPisAtFvarsFGo` lost its `inst` parameter | ±0 | ±0 | ±0 | ±0 | −1.5 M |
+| B6 | `projGuardRowsGoC` over the new address-memoised `hasLooseBVarBC` and `instantiate1C` (`projGuardRowsGoC_eq`, `hasLooseBVarBC_spec`) | (with B5) | | | | |
+| B7 | `etaCtorShapeC` counts the spine with `getAppArgsC` (the plain `getAppArgs` appends per step) | ±0 | ±0 | ±0 | ±0 | ±0 |
+
+The lane against the base, every stream (one run each):
+
+| run | base | lane | change |
+|---|---|---|---|
+| init-full | 381.499 G | 374.896 G | −6.60 G (−1.73 %) |
+| grind-ring-5 | 15.294 G | 13.161 G | −2.13 G (−13.9 %) |
+| `BvStruct` module | 439.856 G | 432.307 G | −7.55 G (−1.72 %) |
+| `Empty` module (the `Init` closure) | 436.840 G | 429.701 G | −7.14 G |
+| `BvStruct` − `Empty` | 3.016 G | 2.606 G | −13.6 % |
+| e2e `prop_struct_proj_wide` | 681.4 M | 593.2 M | −12.9 % |
+| app-lam | 22.073 G | 22.082 G | +0.04 % |
+| beta-ladder / let-ladder | 4.848 / 2.569 G | 4.848 / 2.569 G | 0 |
+| the 12 other arena perf streams (23–301 M) | | | −0.4 … +0.02 % each |
+
+The same verdicts everywhere (57 977 declarations for init-full, 64 366 for `BvStruct`, 63 937
+for `Empty`, 171 for `prop_struct_proj_wide`, every arena perf stream accepted).
+
+**Deleted.**  After B3 nothing executed reaches `instantiate1Lift`; its HashMap walk
+(`instantiate1LiftGo`, `instantiate1LiftFast`, `Inst1LMemoInv`) with its `@[csimp]` and proofs is
+gone, the definition stays as the specification.  (Done before ruling (4) arrived; it is the one
+memo walk this lane removed.)
+
+**`noncomputable` (ruling 3).**  Marked: `checkDivModPinF`, `checkDivModPinLoopF`,
+`checkDivModPinAtF`, `checkDivModCertsF`, `divModCertGuardF`, `divModCertsGuardF`,
+`divModPinGuardF`, `checkReducePinF`, `reducePinGuardF` (`Kernel/DeclCheck.lean`).  What blocked
+the rest, found by propagating `noncomputable` from the other specification-only definitions until
+the build compiled (scratch; reverted):
+
+* `Expr.substConstAll` — the cached walk `substConstAllC` takes it as its memo's reference (the
+  implicit `s` of `MemoXP0`), a runtime argument the compiler does not erase; every walk of the
+  section has that shape, its reference computable.
+* `projGuardRowsGo`, `instantiate1Lift`, `instPisAtLift`, `structProjBodies(Go)`, `blockTables`,
+  `declTables` — `noncomputable` propagates to `projGuardRows` → `checkProjGuard` → `inferBody`
+  → `coreKnot` → `pureFns`/`whnf`/`inferTypeCore`/`isDefEqCore`, to `checkStructProjTable` →
+  `checkBlockTail` → `checkBlock` → `checkDeclKind` → `checkDeclsPure`, and to `streamEnv`,
+  `recsTables`, `fueledFns`, `fueledOpsM` and the `Verify/Knot` abbreviations.  `lake build`
+  compiles with all of them `noncomputable` (≈ 60 definitions); `lake test` does not: its `#guard`s
+  run the pure checker as the oracle (`RecCheckTests`, `NestedTests`: `checkDecl`, `pureOps`;
+  `JobsTests`: `streamEnv` against the cached fold).  Making the specification checker
+  non-runnable means those tests compare against something else (or are proved instead); that is
+  a question for the maintainer, not done here.  The reach gate covers them meanwhile.
+
+**The gate (ruling 3).**  `tests/plain-reach.sh` (in `tests/arena.sh`) runs
+`scripts/plain-reach.py --allow tests/plain-reach-allow.txt`: every reached plain declaration must
+be listed; an entry nothing reaches fails too.  The allowlist at the lane's head: 742 reached,
+124 of them the Nat-op pin data (`module:ConLeche.Kernel.NatOpPins`), 369 class (a) grouped by
+module with the reason, 10 named walks with a note each (`liftLooseBVarsFast` inside the cached
+`instantiate1LiftXP`, on projection arguments of a few nodes; `instantiate1Fast` and
+`openPisAtFvars` as `openPisAtFvarsC`'s fallback; `getAppArgs` through `PropRead.unwrapIdDefs`;
+`substConst0` on the Nat-op statements' spines; …), and 239 "PENDING TASK #498" — the inductive
+check and the walks reached only through it, with the measured costs (`prop_struct_proj_wide`
+≈ 45 %, `BvStruct` ≈ 0.75 G of the module's 2.63 G, grind-ring-5 ≈ 0.3 %, init-full < 0.1 %).
+Caveat of the instrument: a closed term shared between a cached and a plain definition
+(an error message's string) shows as an edge between them, so a cached entry can be listed for a
+walk it never calls (`checkConstantValC` → `checkConstantValF`'s closed terms).
+
+**The `@[csimp]`s that become unnecessary (ruling 4).**  Once #498's twin runs the inductive
+check, nothing executed reaches the memo walks of `instantiate1`, `instantiateList`, `abstract1`,
+`instantiateLevelParams`, `liftLooseBVars` (with a cached lift in `instantiate1LiftXP`),
+`constsResolveF`, `allLevelParamsDefined`, `mentionsConst`, `mentionsAnyConst`, `nestOcc`,
+`replaceFVars`, `replaceApps`, `targetAbs`, `hasLooseBVarB` and the one-pass `openPisAtFvars`.
+Already unreached today, before this lane too: `mentionsFvar`, `instPisAt`, `instLamsAt`,
+`renameConsts`, `replaceConsts`.  The field-read csimps (`bvarB`, `fvarB`, `hasFvar`,
+`looseBVarsBounded`), the pointer-first equalities (`Name`/`Level`/`Expr.beq`) and the basis'
+`canonEq` stay: they are the executed code.
+
+**The generic form.**  `checkDivModPinC` and `checkReducePinC` are generic over the operations
+(`ops : CheckerOps m`), like the `F` mirrors they twin: that is what makes `checkDivModPinC_eq` an
+equation at any operations and monad, so the existing bridges (`checkDivModPinF_overlay`,
+`checkDivModPinF_congr`) carry over by one rewrite and no new simulation proof is needed.  #498's
+plan proposes monomorphic `(mode) (fe)` `CheckCM` twins in `CoreC`'s style; these two stay generic
+until then.
+
+`tests/scale.sh` reads as on the base: `dag` n=1600 48.69 M (base 48.76 M), `spine` n=400
+33.52 M (33.65 M), `lparams` n=800 94.21 M (93.75 M); `lparams` exceeds its gate as on master
+(1.89 > 1.65), every other shape passes.
+
+Gates at the lane's head: `lake build`, `lake test` warning-free; `tests/arena.sh` (e2e 558/558,
+arena tutorial 90/92 as on the base, the new reach gate); the link gates repointed; one
+`public import` (`ViewCongr` → `ParsedC`) kept public against the plan script's census, measured,
+in its fallback list.
