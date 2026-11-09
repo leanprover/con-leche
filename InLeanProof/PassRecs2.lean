@@ -858,15 +858,15 @@ theorem classFormerTyI_run {fe : InLean.FEnv} {L : ConLeche.Env} (hJ : JobEnvI f
 
 /-! ## A recorded normal form's field domains -/
 
-/-- **The domains of a telescope at given variables** (`targetPiDomsWith`), read. -/
+/-- **The domains of a telescope at given variables** (`targetPiDomsWithC`), read. -/
 theorem targetPiDomsWith_tr {s : InLean.CState} :
     ∀ (xs : List Lean.Expr) (e : Lean.Expr), OkSL s xs = true →
       (∀ x ∈ xs, (TrS s x).looseBVarsBounded 0 = true) → OkS s e = true →
       (∀ ds, InLean.targetPiDomsWith xs e = some ds → OkSL s ds = true) ∧
-        ConLeche.targetPiDomsWith (TrSL s xs) (TrS s e) =
+        ConLeche.Expr.targetPiDomsWithC (TrSL s xs) (TrS s e) =
           (InLean.targetPiDomsWith xs e).map (TrSL s)
   | [], e, _, _, _ => by
-    refine ⟨fun ds h => ?_, by simp [InLean.targetPiDomsWith, ConLeche.targetPiDomsWith, TrSL]⟩
+    refine ⟨fun ds h => ?_, by simp [InLean.targetPiDomsWith, ConLeche.Expr.targetPiDomsWithC, TrSL]⟩
     simp only [InLean.targetPiDomsWith, Option.some.injEq] at h
     subst h; rfl
   | x :: xs, .forallE n d b bi, hx, hc, he => by
@@ -885,7 +885,8 @@ theorem targetPiDomsWith_tr {s : InLean.CState} :
         simp only [Option.map_eq_map, Option.map_some, Option.some.injEq] at h
         subst h
         simp only [OkSL_cons, he.1, ih1 ds' hr, Bool.and_self]
-    · simp only [TrSL_cons, TrS_forallE, ConLeche.targetPiDomsWith, InLean.targetPiDomsWith]
+    · simp only [TrSL_cons, TrS_forallE, ConLeche.Expr.targetPiDomsWithC,
+        ConLeche.Expr.instantiate1C_spec, InLean.targetPiDomsWith]
       rw [← inst1I_eq] at htb
       rw [← htb, ih2]
       cases InLean.targetPiDomsWith xs (b.inst1I x) <;> rfl
@@ -900,12 +901,12 @@ theorem targetPiDomsWith_tr {s : InLean.CState} :
   | x :: xs, .letE _ _ _ _ _, _, _, _ | x :: xs, .lit _, _, _, _
   | x :: xs, .proj _ _ _, _, _, _ => by
     refine ⟨fun ds h => by simp [InLean.targetPiDomsWith] at h, ?_⟩
-    simp [InLean.targetPiDomsWith, ConLeche.targetPiDomsWith, TrS_bvar, TrS_sort, TrS_const,
+    simp [InLean.targetPiDomsWith, ConLeche.Expr.targetPiDomsWithC, TrS_bvar, TrS_sort, TrS_const,
       TrS_app, TrS_lam, TrS_letE, TrS_lit, TrS_proj, TrSL_cons]
   | x :: xs, .mvar _, _, _, he => by simp [OkS, okE] at he
   | x :: xs, .fvar id, _, _, he => by
     refine ⟨fun ds h => by simp [InLean.targetPiDomsWith] at h, ?_⟩
     rw [TrS_fvar he]
-    simp [InLean.targetPiDomsWith, ConLeche.targetPiDomsWith, TrSL_cons]
+    simp [InLean.targetPiDomsWith, ConLeche.Expr.targetPiDomsWithC, TrSL_cons]
 
 end InLeanProof

@@ -432,7 +432,7 @@ theorem piDomAt_tr {s : InLean.CState} {fvs : List Lean.Expr} {ty f : Lean.Expr}
     (hty : OkS s ty = true)
     (h : ((InLean.targetPiDomsWith fvs ty).getD [])[i]? = some f) :
     OkS s f = true ∧
-      ((ConLeche.targetPiDomsWith (TrSL s fvs) (TrS s ty)).getD [])[i]? = some (TrS s f) := by
+      ((ConLeche.Expr.targetPiDomsWithC (TrSL s fvs) (TrS s ty)).getD [])[i]? = some (TrS s f) := by
   obtain ⟨h1, h2⟩ := targetPiDomsWith_tr fvs ty hfv hfc hty
   rw [h2]
   cases hd : InLean.targetPiDomsWith fvs ty with
@@ -472,6 +472,7 @@ theorem classNodesAgreeI_run {fe : InLean.FEnv} {L : ConLeche.Env} (hO : OpsSimI
     | some f =>
       rw [hd] at h
       obtain ⟨hfo', hfC⟩ := piDomAt_tr hfv hfc hty hd
+      rw [ConLeche.Expr.targetPiDomsWithC_eq] at hfC
       simp only [List.map_cons, trNf]
       rw [hfC]
       simp only
@@ -843,6 +844,7 @@ theorem classCtorOfI_run {fe : InLean.FEnv} {L : ConLeche.Env} (hO : OpsSimI fe 
       have hds := hMc.2.1
       simp only [OkSL, List.all_eq_true] at hds
       rw [TrS_of_tabLe ht₀₇ (hds a ha)]; exact hdsc a ha) hpw
+  rw [ConLeche.Expr.instPisWithC_eq] at htDC
   rw [TrSL_of_tabLe ht₀₇ hMc.2.1, htyt, hMc₆.2] at htDC
   refine ⟨hs₇, ht₀₇, ⟨hct, htDo, okS_of_tabLe ht₀₇ he0o⟩, ⟨?_, ?_⟩, ?_⟩
   · refine lbb_instPisWith _ _ (fun a ha => ?_) ?_ htDC
@@ -1048,6 +1050,7 @@ theorem majorI_run {mode : ConLeche.CheckMode} {eager : Bool} {env : ConLeche.En
     rw [hpw] at h
     simp only at h
     obtain ⟨htyo, htyC⟩ := instPisWithI_tr _ _ hft hMn.2.1 hdsc hpw
+    rw [ConLeche.Expr.instPisWithC_eq] at htyC
     have htyc : (TrS s₀ ty).looseBVarsBounded 0 = true :=
       lbb_instPisWith _ _ (fun a ha => by
         simp only [TrSL, List.mem_map] at ha

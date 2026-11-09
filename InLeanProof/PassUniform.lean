@@ -2,6 +2,7 @@ module
 
 public import InLeanProof.PassNest
 public import InLeanProof.QuotPres
+import ConLeche.Verify.Cached.IndWalksC
 
 /-!
 # O7-stages: the canonical crest and the uniform-occurrence check (task #451, lane O7-stages)
@@ -15,7 +16,7 @@ translations.  Below it:
   free variable has a reading, master's `instantiateLevelParams` on it: a
   parameter is `0` deep, so no level passes C's bound and no `rangePoison`
   is written (`emvarS_instantiateLevelParams` at `LvFits 0`).
-* `instPisWithI_map`: InLean's `instPisWith` is master's on the reading, as
+* `instPisWithI_map`: InLean's `instPisWith` is master's `instPisWithC` on the reading, as
   an equation of options (`instPisWithI_tr` gives the `some` half).
 * `mapM_mkFVarM_run`: a list of interned placeholders of type `Sort 0`
   (`nestPhs`, `nestCanonVars`) reads as master's free variables.
@@ -95,15 +96,16 @@ readings. -/
 theorem instPisWithI_map {s : InLean.CState} :
     ∀ (as : List Lean.Expr) (e : Lean.Expr), OkS s e = true → OkSL s as = true →
       (∀ a ∈ as, (TrS s a).looseBVarsBounded 0 = true) →
-      (InLean.instPisWith as e).map (TrS s) = ConLeche.instPisWith (TrSL s as) (TrS s e)
-  | [], e, _, _, _ => by simp [InLean.instPisWith, ConLeche.instPisWith, TrSL]
+      (InLean.instPisWith as e).map (TrS s) = ConLeche.Expr.instPisWithC (TrSL s as) (TrS s e)
+  | [], e, _, _, _ => by simp [InLean.instPisWith, ConLeche.Expr.instPisWithC, TrSL]
   | a :: as, .forallE n t b bi, he, ha, hc => by
     simp only [OkS_forallE, Bool.and_eq_true] at he
     simp only [OkSL_cons, Bool.and_eq_true] at ha
     have hca := hc a List.mem_cons_self
     have hb' := OkS_inst1 he.2 ha.1 hca
     simp only [InLean.instPisWith]
-    rw [TrS_forallE, TrSL_cons, ConLeche.instPisWith, ← TrS_inst1_eq he.2 ha.1 hca, ← inst1I_eq]
+    rw [TrS_forallE, TrSL_cons, ConLeche.Expr.instPisWithC, ConLeche.Expr.instantiate1C_spec,
+      ← TrS_inst1_eq he.2 ha.1 hca, ← inst1I_eq]
     exact instPisWithI_map as _ hb' ha.2 (fun x hx => hc x (List.mem_cons_of_mem _ hx))
   | a :: as, .mdata m e, he, ha, hc => by
     rw [OkS_mdata] at he
@@ -111,14 +113,14 @@ theorem instPisWithI_map {s : InLean.CState} :
     rw [TrS_mdata]
     exact instPisWithI_map (a :: as) e he ha hc
   | _ :: _, .fvar _, he, _, _ => by
-    rw [TrS_fvar he]; simp [InLean.instPisWith, TrSL, ConLeche.instPisWith]
+    rw [TrS_fvar he]; simp [InLean.instPisWith, TrSL, ConLeche.Expr.instPisWithC]
   | _ :: _, .mvar _, he, _, _ => by simp [OkS, okE] at he
   | _ :: _, .bvar _, _, _, _ | _ :: _, .sort _, _, _, _
   | _ :: _, .const _ _, _, _, _ | _ :: _, .app _ _, _, _, _
   | _ :: _, .lam _ _ _ _, _, _, _ | _ :: _, .letE _ _ _ _ _, _, _, _
   | _ :: _, .lit _, _, _, _ | _ :: _, .proj _ _ _, _, _, _ => by
     simp [InLean.instPisWith, TrSL, TrS_bvar, TrS_sort, TrS_const, TrS_app, TrS_lam, TrS_letE,
-      TrS_lit, TrS_proj, ConLeche.instPisWith]
+      TrS_lit, TrS_proj, ConLeche.Expr.instPisWithC]
 
 /-! ## Interned placeholders -/
 
@@ -227,6 +229,7 @@ theorem nestCanonCrestI_run {names : List Lean.Name} {us : List Lean.Level} {n :
     rw [← he]; rfl
   have hR := nestCanonSub_rel (s := s₂) (names := names) n hus hokv htrv
   have hmap := instPisWithI_map phs cty hokc hokp₂ hclp
+  rw [ConLeche.Expr.instPisWithC_eq] at hmap
   rw [htrp₂, TrS_of_tabLe ht12 hok] at hmap
   unfold ConLeche.nestCanonCrest
   rw [← hmap]

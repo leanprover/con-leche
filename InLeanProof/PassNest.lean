@@ -42,12 +42,12 @@ variable {mode : ConLeche.CheckMode} {eager : Bool} {env : ConLeche.Env}
 /-! ## Instantiating a telescope's leading binders -/
 
 /-- **InLean's `instPisWith`, read**: at arguments with a closed reading, the
-result has a reading, and it is master's `instPisWith` at the readings. -/
+result has a reading, and it is master's `instPisWithC` at the readings. -/
 theorem instPisWithI_tr {s : InLean.CState} :
     ∀ (as : List Lean.Expr) (e : Lean.Expr) {r : Lean.Expr}, OkS s e = true → OkSL s as = true →
       (∀ a ∈ as, (TrS s a).looseBVarsBounded 0 = true) →
       InLean.instPisWith as e = some r →
-      OkS s r = true ∧ ConLeche.instPisWith (TrSL s as) (TrS s e) = some (TrS s r)
+      OkS s r = true ∧ ConLeche.Expr.instPisWithC (TrSL s as) (TrS s e) = some (TrS s r)
   | [], e, r, he, _, _, h => by
     simp only [InLean.instPisWith, Option.some.injEq] at h
     subst h
@@ -61,7 +61,8 @@ theorem instPisWithI_tr {s : InLean.CState} :
     rw [inst1I_eq] at h
     obtain ⟨h1, h2⟩ := instPisWithI_tr as _ hb' ha.2 (fun x hx => hc x (List.mem_cons_of_mem _ hx)) h
     refine ⟨h1, ?_⟩
-    rw [TrS_forallE, TrSL_cons, ConLeche.instPisWith, ← TrS_inst1_eq he.2 ha.1 hca]
+    rw [TrS_forallE, TrSL_cons, ConLeche.Expr.instPisWithC, ConLeche.Expr.instantiate1C_spec,
+      ← TrS_inst1_eq he.2 ha.1 hca]
     exact h2
   | a :: as, .mdata m e, r, he, ha, hc, h => by
     simp only [InLean.instPisWith] at h
@@ -446,6 +447,7 @@ theorem nestHolesLoopI_run {sI : InLean.CState} {ctx : InLean.NestCtx} {cctx : C
         obtain ⟨hokty, hty⟩ := instPisWithI_tr ctx.params cv.type (OkS_of_okC _ hokcv) hP.okParams
           hP.clParams hi
         rw [TrS_of_okC _ hokcv] at hty
+        rw [ConLeche.Expr.instPisWithC_eq] at hty
         have hclty : (TrS sI ty).looseBVarsBounded 0 = true :=
           ConLeche.looseBVarsBounded_instPisWith (fun a ha => by
             obtain ⟨b, hb, rfl⟩ := List.mem_map.1 ha

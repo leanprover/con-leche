@@ -2,6 +2,7 @@ module
 
 public import InLeanProof.BlockRecogRun
 public import InLeanProof.Range
+import ConLeche.Verify.Cached.WalkersC
 
 /-!
 # A recursor's firing mode through the translation (task #451, lane P3r)
@@ -106,7 +107,8 @@ theorem getAppFnT_not_mdata : ∀ (e : Expr) (m : MData) (b : Expr), Expr.getApp
 `Sort 0` keeps a term in range and reads as con-leche's. -/
 theorem dropVars_tr : ∀ (n : Nat) {e : Expr} {c : ConLeche.Expr}, Expr.RangeOk e →
     toExprC e = some c →
-    Expr.RangeOk (InLean.dropVars n e) ∧ toExprC (InLean.dropVars n e) = some (ConLeche.Expr.dropVars n c)
+    Expr.RangeOk (InLean.dropVars n e) ∧
+      toExprC (InLean.dropVars n e) = some (ConLeche.Cached.Expr.dropVarsC n c)
   | 0, e, c, hr, h => ⟨hr, h⟩
   | n + 1, e, c, hr, h => by
     have hsr : Expr.RangeOk (Expr.sort Level.zero) := by simp [Expr.RangeOk, depthS]
@@ -120,7 +122,7 @@ theorem dropVars_tr : ∀ (n : Nat) {e : Expr} {c : ConLeche.Expr}, Expr.RangeOk
         subst this; exact hcl)
     have h' : toExprC (e.inst1I (.sort .zero)) = some (c.instantiate1 (.sort .zero) 0) :=
       toExpr_instantiate1 fvarsOnly_none hr hsr h rfl rfl
-    simp only [InLean.dropVars, ConLeche.Expr.dropVars]
+    simp only [InLean.dropVars, ConLeche.Cached.Expr.dropVarsC, ConLeche.Expr.instantiate1C_spec]
     exact dropVars_tr n hr' h'
 
 theorem LRel_map {α β γ : Type} {R : β → γ → Prop} {f : α → β} {g : α → γ} :
@@ -201,6 +203,7 @@ theorem fire_head (names : List Name) (nI : Nat) {dom : Expr} (hokd : okC dom = 
         intro a ha
         have haok := getAppArgsT_ok hokd a (List.mem_of_mem_take ha)
         obtain ⟨h1, h2⟩ := dropVars_tr nI (RangeOk_of_okE haok) (toExpr_of_okE _ haok)
+        rw [ConLeche.Cached.Expr.dropVarsC_eq] at h2
         exact StoredT_of h1 h2
   | .mdata m b, _, hm => absurd rfl (hm m b)
   | .bvar _, _, _ | .fvar _, _, _ | .mvar _, _, _ | .sort _, _, _ | .app _ _, _, _

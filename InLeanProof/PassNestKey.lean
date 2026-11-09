@@ -2,6 +2,7 @@ module
 
 public import InLeanProof.PassUniform
 import ConLeche.Verify.Inductives.NestScope
+import ConLeche.Verify.Cached.IndWalksC
 
 /-!
 # O7-stages: a container instantiation's type against master's (task #451, lane O7-stages)
@@ -331,6 +332,7 @@ theorem nestInstTypeI_run {fe : InLean.FEnv} {L : ConLeche.Env} (hJ : JobEnvI fe
         rw [TrS_of_tabLe ht13 (by simp only [OkSL, List.all_eq_true] at hokds; exact hokds a ha)]
         exact hcds a ha
       have hmap := instPisWithI_map key.ds r hokr hokds₃ hcds₃
+      rw [ConLeche.Expr.instPisWithC_eq] at hmap
       rw [htrr, TrSL_of_tabLe ht13 hokds] at hmap
       obtain ⟨ty', s₄, h4, h⟩ := bind_run h
       cases hi' : InLean.instPisWith key.ds r with
@@ -359,7 +361,7 @@ theorem nestInstTypeI_run {fe : InLean.FEnv} {L : ConLeche.Env} (hJ : JobEnvI fe
           obtain ⟨b, hb, rfl⟩ := List.mem_map.1 ha
           exact hcds₃ b hb
         · rw [htrr, ConLeche.Expr.looseBVarsBounded_instantiateLevelParams]; exact hclC
-        · rw [← (instPisWithI_tr key.ds r hokr hokds₃ hcds₃ hi').2]
+        · rw [← ConLeche.Expr.instPisWithC_eq, ← (instPisWithI_tr key.ds r hokr hokds₃ hcds₃ hi').2]
       obtain ⟨hpb, hokbs, hokend, hnm⟩ := piBinders_TrS ty0 hokty
       rw [hpb]
       simp only

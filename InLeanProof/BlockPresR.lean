@@ -5,6 +5,7 @@ public import InLeanProof.ProjBodiesTr
 public import InLeanProof.StepPres
 /- `ConstantInfo.name`/`isInductive`/`isCtor` are read through their bodies. -/
 import all Lean.Declaration
+import ConLeche.Verify.Cached.WalkersC
 
 /-!
 # `BlockPresObl` and the block's step (task #451, lanes P3r and follow-master)
@@ -560,7 +561,7 @@ theorem RecogCtx.entry (C : RecogCtx block p nP cvTs cs rs) (hpend : fe'.pending
         simp [trMember, C.decl _ (List.getElem_mem hi), hiv]
       rw [hdecl]
       refine ⟨CVRel_trCV hokT, ?_, .inr ?_⟩
-      · rw [blockIsRec_tr]
+      · rw [← ConLeche.Cached.blockIsRecC_eq, blockIsRec_tr]
         refine (toCaps_capsOf (mi := i) ?_ ?_ ?_ ?_ hrec ?_).symm
         · rw [trShape_members_getD p hi, hctors]
           simp [trMember, trCtor]

@@ -1,6 +1,7 @@
 module
 
 public import InLeanProof.PassRecs8
+import ConLeche.Verify.Cached.IndWalksC
 
 /-!
 # O7-recursors: the stored recursors' firing data (task #451, round 7)
@@ -101,9 +102,9 @@ theorem toExpr_abstractPrefix {fv : FVarId → Option ConLeche.Expr} (hfd : FvDe
     (k c : Nat) {e : Lean.Expr} {ce : ConLeche.Expr} (hr : Expr.RangeOk e) (h : toExpr fv e = some ce)
     (hm : emvarS (InLean.abstractPrefix k c e) = false) :
     Expr.RangeOk (InLean.abstractPrefix k c e) ∧
-      toExpr fv (InLean.abstractPrefix k c e) = some (ConLeche.Expr.abstractPrefix k c ce) := by
+      toExpr fv (InLean.abstractPrefix k c e) = some (ConLeche.Expr.abstractPrefixC k c ce) := by
   unfold InLean.abstractPrefix at hm ⊢
-  rw [ConLeche.abstractPrefix_eq]
+  rw [ConLeche.Expr.abstractPrefixC, ConLeche.Expr.abstractRangeC_spec]
   exact ⟨RangeOk_abstractDepthsFrom hr 0 k c, toExpr_abstractDepthsFrom hfd hr h 0 k c hm⟩
 
 /-! ## The guard -/
@@ -178,6 +179,7 @@ theorem mapM_pins {s : InLean.CState} (rP n : Nat) :
     have hm := emvarS_of_liftLooseBVars (emvarS_of_toExpr ha)
     obtain ⟨hr1, h1⟩ := toExpr_abstractPrefix (FVarTable.trans_depthOK _) rP 0 (RangeOk_of_OkS hok.1)
       (TransS_of_ok hok.1) hm
+    rw [ConLeche.Expr.abstractPrefixC_eq] at h1
     rw [toExpr_liftLooseBVars hfv hr1 h1 0 n] at ha
     cases ha
     rw [mapM_pins rP n hok.2 hl]

@@ -4,6 +4,8 @@ public import InLeanProof.IndDecl
 public import ConLeche.Verify.Cached.BridgeCS4
 public import ConLeche.Verify.Inductives.BlockWF
 import all Lean.Declaration
+import ConLeche.Verify.Cached.IndWalksC
+import ConLeche.Verify.Cached.WalkersC
 
 /-!
 # O7: the recognised block's job against master's (task #451, lane O7)
@@ -116,26 +118,26 @@ theorem anySpec_mentions (names : List Lean.Name) (p : Lean.Expr → Bool)
   | lit l => intro k; simp [anySpec, ho (.lit l), trC, trE, ConLeche.Expr.mentionsAnyConst]
 
 theorem piDomsMentionAny_tr (names : List Lean.Name) : ∀ (e : Lean.Expr),
-    ConLeche.Expr.piDomsMentionAny (names.map toName) (trC e) = InLean.piDomsMentionAny names e
+    ConLeche.Expr.piDomsMentionAnyC (names.map toName) (trC e) = InLean.piDomsMentionAny names e
   | .forallE _ ty b _ => by
     simp only [InLean.piDomsMentionAny, EO.any, anyNode_spec]
     rw [anySpec_mentions names _ (fun _ _ => rfl) (fun _ _ _ => rfl)
       (fun x h1 h2 => by cases x <;> simp_all)]
-    simp only [trC, trE, ConLeche.Expr.piDomsMentionAny]
+    simp only [trC, trE, ConLeche.Expr.piDomsMentionAnyC, ConLeche.Expr.mentionsAnyConstC_spec]
     rw [show trE (fun _ => none) b = trC b from rfl, piDomsMentionAny_tr names b]
   | .mdata _ e => by simp only [InLean.piDomsMentionAny]; exact piDomsMentionAny_tr names e
   | .bvar _ | .fvar _ | .mvar _ | .sort _ | .const _ _ | .app _ _ | .lam _ _ _ _
   | .letE _ _ _ _ _ | .lit _ | .proj _ _ _ => by
-    simp [InLean.piDomsMentionAny, ConLeche.Expr.piDomsMentionAny, trC, trE]
+    simp [InLean.piDomsMentionAny, ConLeche.Expr.piDomsMentionAnyC, trC, trE]
 
 theorem trShape_memberNames (p : InLean.BlockShape) :
     (trShape p).memberNames = p.memberNames.map toName := by
   simp [trShape, ConLeche.BlockShape.memberNames, InLean.BlockShape.memberNames, trMember]
 
-/-- **Official's `is_rec`** at the translation. -/
+/-- **Official's `is_rec`** at the translation (master's `blockIsRecC`). -/
 theorem blockIsRec_tr (p : InLean.BlockShape) :
-    ConLeche.blockIsRec (trShape p) = InLean.blockIsRec p := by
-  unfold ConLeche.blockIsRec InLean.blockIsRec
+    ConLeche.Cached.blockIsRecC (trShape p) = InLean.blockIsRec p := by
+  unfold ConLeche.Cached.blockIsRecC InLean.blockIsRec
   rw [trShape_memberNames]
   simp only [trShape, List.any_map, Function.comp_def, trMember, trCtor, trCV_type,
     piDomsMentionAny_tr]
@@ -882,7 +884,8 @@ theorem blockKSSimI_of (hR : ReduceMemberSimI) (hPT : PassTailSimI)
     exact FueledM.up (Nat.le_max_left _ _) (by rw [ConLeche.reduceMembers_datF]; exact hF₁)
   have g₂ : ConLeche.checkBlockPass (ConLeche.fueledOps .verified (max F₁ F₂)) L
       { trShape p with members := ms.map trMember } (ConLeche.blockIsRec (trShape p)) = .ok q := by
-    rw [blockIsRec_tr, ← trShape_withMembers, ← ConLeche.checkBlockPass_datF]
+    rw [← ConLeche.Cached.blockIsRecC_eq, blockIsRec_tr, ← trShape_withMembers,
+      ← ConLeche.checkBlockPass_datF]
     exact FueledM.up (Nat.le_max_right _ _) (by rw [ConLeche.checkBlockPass_datF]; exact hP)
   have g₃ : ConLeche.checkBlockTail (ConLeche.fueledOps .verified (max F₁ F₂)) (block.map trCI) q cQ =
       .ok () := by

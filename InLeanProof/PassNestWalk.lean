@@ -5,6 +5,7 @@ public import InLeanProof.NestDepth
 import ConLeche.Verify.Inductives.NestScope
 import ConLeche.Verify.Cached.NestPosC
 import ConLeche.Verify.Cached.IndWalksC
+import ConLeche.Verify.Cached.IndPositivityC
 import ConLeche.Verify.Cached.Erase
 import ConLeche.Verify.Inductives.NestCallSyn
 /- `Expr.isFVar`'s body (`nestResHead_tr`). -/
@@ -65,9 +66,9 @@ theorem peelPis_tr (s : InLean.CState) : ∀ (n : Nat) (t : Lean.Expr), OkS s t 
 
 /-- **U4's occurrence test** (`structUsedLater`), read. -/
 theorem structUsedLater_tr {s : InLean.CState} {t : Lean.Expr} (h : OkS s t = true) (nP j : Nat) :
-    InLean.structUsedLater t nP j = ConLeche.structUsedLater (TrS s t) nP j := by
+    InLean.structUsedLater t nP j = ConLeche.Cached.structUsedLaterC (TrS s t) nP j := by
   obtain ⟨h1, h2⟩ := peelPis_tr s (nP + j + 1) t h
-  unfold InLean.structUsedLater ConLeche.structUsedLater
+  unfold InLean.structUsedLater ConLeche.Cached.structUsedLaterC
   cases hp : InLean.peelPis (nP + j + 1) t with
   | none =>
     rw [hp] at h2
@@ -82,7 +83,7 @@ theorem structUsedLater_tr {s : InLean.CState} {t : Lean.Expr} (h : OkS s t = tr
       rw [hc] at h2
       simp only [Option.map_some, Option.some.injEq] at h2
       simp only
-      rw [h2, hasLooseBVarI_TrS (h1 r hp)]
+      rw [h2, hasLooseBVarI_TrS (h1 r hp), ConLeche.Cached.hasLooseBVarBC_spec]
 
 /-! ## The out-of-range marker of a closed telescope -/
 
@@ -409,7 +410,8 @@ theorem nestCtorsI_run {fe : InLean.FEnv} {L : ConLeche.Env} {ctx : InLean.NestC
       · refine Runs.bind (Runs.pure _) (Runs.bind hRty (Runs.bind hRu (Runs.bind hR5 ?_)))
         simp only
         rw [← hTC]
-        simp only [getD_trNK, ← structUsedLater_tr hokT, hu, Bool.false_eq_true, ↓reduceIte]
+        simp only [getD_trNK, ← ConLeche.Cached.structUsedLaterC_eq, ← structUsedLater_tr hokT, hu,
+          Bool.false_eq_true, ↓reduceIte]
         rw [← nestResHead_tr hcur.1, ← TrSL_appArgs, hW.canon.names, hW.canon.nP,
           all_nestOcc_tr _ _ _ hokArgs, hr]
         simp only [↓reduceIte]

@@ -351,6 +351,7 @@ theorem minorTyI_run {s₀ s' : InLean.CState} {g : InLean.ClassGen} {c d : Nat}
     rwa [TrSL_length] at this
   have hxN₁ := okS_of_tabLe ht₁ hxNo
   obtain ⟨hwo, hwC⟩ := targetPiDomsWith_tr fvs x.tyN hfo hfv.lbb hxN₁
+  rw [ConLeche.Expr.targetPiDomsWithC_eq] at hwC
   rw [TrS_of_tabLe ht₁ hxNo] at hwC
   simp only [trCC]
   rw [hopC]
@@ -1032,6 +1033,7 @@ theorem classGenRuleI_run {s₀ s' : InLean.CState} {g : InLean.ClassGen}
     rwa [TrSL_length] at this
   have hxN₁ := okS_of_tabLe ht₁ hxNo
   obtain ⟨hwo, hwC⟩ := targetPiDomsWith_tr fvs x.tyN hfo hfv.lbb hxN₁
+  rw [ConLeche.Expr.targetPiDomsWithC_eq] at hwC
   rw [TrS_of_tabLe ht₁ hxNo] at hwC
   simp only [trCC]
   rw [hopC]

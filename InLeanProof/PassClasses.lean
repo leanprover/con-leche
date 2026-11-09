@@ -1261,6 +1261,7 @@ theorem targetOutsideInstI_run {fe : InLean.FEnv} {L : ConLeche.Env} (hJ : JobEn
     rw [TrS_of_tabLe ht13 (by simp only [OkSL, List.all_eq_true] at hokds; exact hokds a ha)]
     exact hcds a ha
   have hmap := instPisWithI_map ds r hokr hokds₃ hcds₃
+  rw [ConLeche.Expr.instPisWithC_eq] at hmap
   rw [htrr, TrSL_of_tabLe ht13 hokds] at hmap
   simp only [trCV_levelParams]
   cases hi : InLean.instPisWith ds r with
