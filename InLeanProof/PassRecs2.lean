@@ -674,6 +674,7 @@ theorem classStreamRecsI_run (hC : CheckConstantValFSimI) {fe : InLean.FEnv} {L 
     unfold InLean.classStreamRecs at h
     obtain ⟨_, s₁, h1, h⟩ := bind_run h
     obtain ⟨hs₁, ht₁, -, hR1⟩ := hC fe L rc.cvR s₀ s₁ hJ hs (hok rc List.mem_cons_self) h1
+    replace hR1 := hR1.runs
     obtain ⟨cvs, s₂, h2, h⟩ := bind_run h
     obtain ⟨hs₂, ht₂, rfl, hR2⟩ :=
       classStreamRecsI_run hC hJ rcs hs₁ (fun r hr => hok r (List.mem_cons_of_mem _ hr)) h2

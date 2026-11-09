@@ -399,6 +399,7 @@ theorem checkSumCtorFI_run (hC : CheckConstantValFSimI) {fe fe₀ : InLean.FEnv}
   unfold InLean.checkSumCtorC at h
   obtain ⟨_, s₁, h1, h⟩ := bindI_ok h
   obtain ⟨hs₁, ht₁, hcl, hR1⟩ := hC fe L cvC s₀ s₁ hJ hs hokC h1
+  replace hR1 := hR1.runs
   have hres : (trC cvC.type).constsResolve L = true := by
     obtain ⟨F, hF⟩ := hR1
     rw [ConLeche.checkConstantVal_datF] at hF

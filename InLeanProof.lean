@@ -28,6 +28,7 @@ public import InLeanProof.QuotPres
 public import InLeanProof.IndPres
 public import InLeanProof.StepPres
 public import InLeanProof.IndShape
+public import InLeanProof.CRuns
 public import InLeanProof.IndOps
 public import InLeanProof.IndDecl
 public import InLeanProof.IndBlockKS

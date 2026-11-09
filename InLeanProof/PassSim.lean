@@ -530,6 +530,7 @@ theorem passSimI (hC : CheckConstantValFSimI) (hRF : ReducedFormerSimI) :
   have hfr := checkBlockIndsF_fresh h1
   obtain ⟨hs₁, -, s0, hl0, rfl, hfe₁, hclF, hR1⟩ :=
     checkBlockIndsFI_run hC hJ hs (fun ms hms' => (hms ms hms').1) h1
+  replace hR1 := hR1.runs
   have hJ₁ := jobEnvI_formers hJ hpre hms hfr hR1
   have hpend : ∃ rest, fe₁.pending = InLean.blockMarks (p₀.withSort s0) ++ rest :=
     ⟨fe.pending, by rw [hfe₁, consBlockIndsF_pending]⟩

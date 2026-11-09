@@ -63,16 +63,19 @@ theorem bindI_ite_throw {β : Type} {c : Bool} {e : InLean.CheckError} {k : Unit
 
 theorem runs_atF {α : Type} {x : ConLeche.FueledM α} {a : α} (h : Runs x a) : ∃ F, x.val F = .ok a := h
 
-/-- **The constant check** (`checkConstantValC`, `checkConstantValS_spec`'s
-twin): accepted at `fe` against `L`, master's `checkConstantVal` runs on the
-translated constant, at any `allowOp`. -/
-theorem checkConstantValC_sim {fe : InLean.FEnv} {L : ConLeche.Env} (hJ : JobEnvI fe L)
+/-- **The constant check** (`checkConstantValC`, the twin of master's cached
+`ConLeche.Cached.checkConstantValC`): accepted at `fe` against `L`, master's cached check at the
+index `mkFEnv L` runs on the translated constant in step with `checkConstantVal`, at any
+`allowOp`. -/
+theorem checkConstantValC_crun {fe : InLean.FEnv} {L : ConLeche.Env} (hJ : JobEnvI fe L)
     {n : Name} {lps : List Name} {ty : Expr} {a : Bool} {s₀ s' : InLean.CState}
     (hs : CSOKI .verified false L s₀) (hr : Expr.RangeOk ty)
     (h : InLean.checkConstantValC .verified fe n lps ty a s₀ = .ok ((), s')) :
     CSOKI .verified false L s' ∧ TabLe s₀ s' ∧ okC ty = true ∧
       (trC ty).looseBVarsBounded 0 = true ∧
-      Runs (ConLeche.checkConstantVal (ConLeche.fueledOpsM .verified) L (trCVn n lps ty) a) () := by
+      CRuns .verified (ConLeche.Cached.checkConstantValC .verified (ConLeche.mkFEnv L)
+          (trCVn n lps ty) a)
+        (ConLeche.checkConstantVal (ConLeche.fueledOpsM .verified) L (trCVn n lps ty) a) () () := by
   unfold InLean.checkConstantValC at h
   split at h
   · exact (throw_bindI_ok h).elim
@@ -116,15 +119,28 @@ theorem checkConstantValC_sim {fe : InLean.FEnv} {L : ConLeche.Env} (hJ : JobEnv
   have g5 : ConLeche.Name.nodup (lps.map toName) = true := by rw [nodup_tr]; exact h5
   obtain ⟨F, hF⟩ := runs_atF hRI
   have g6 : (trC ty).constsResolve L = true := constsResolve_of_infer hfv hF
-  unfold ConLeche.checkConstantVal
-  simp only [trCVn, g1, g3, g4, g5, hlbb, hfv, hlp, g6, Bool.false_eq_true, ↓reduceIte]
-  exact Runs.bind hRI (Runs.bind hRS (Runs.pure _))
+  unfold ConLeche.Cached.checkConstantValC ConLeche.checkConstantVal
+  simp only [trCVn, ConLeche.mkFEnv_find?, ConLeche.Expr.allLevelParamsDefinedC_spec,
+    ConLeche.Cached.constsResolveFC_spec, ConLeche.constsResolveF_eq, g1, g3, g4, g5, hlbb, hfv,
+    hlp, g6, Bool.false_eq_true, ↓reduceIte]
+  exact CRuns.bind (CRuns.infer hRI) (CRuns.bind (CRuns.sort hRS) (CRuns.pure' _ _))
+
+/-- `checkConstantValC_crun`, read as master's specification alone. -/
+theorem checkConstantValC_sim {fe : InLean.FEnv} {L : ConLeche.Env} (hJ : JobEnvI fe L)
+    {n : Name} {lps : List Name} {ty : Expr} {a : Bool} {s₀ s' : InLean.CState}
+    (hs : CSOKI .verified false L s₀) (hr : Expr.RangeOk ty)
+    (h : InLean.checkConstantValC .verified fe n lps ty a s₀ = .ok ((), s')) :
+    CSOKI .verified false L s' ∧ TabLe s₀ s' ∧ okC ty = true ∧
+      (trC ty).looseBVarsBounded 0 = true ∧
+      Runs (ConLeche.checkConstantVal (ConLeche.fueledOpsM .verified) L (trCVn n lps ty) a) () :=
+  let ⟨h1, h2, h3, h4, h5⟩ := checkConstantValC_crun hJ hs hr h
+  ⟨h1, h2, h3, h4, h5.runs⟩
 
 /-- **O7's former constant check, discharged** (`CheckConstantValFSimI`): the
 job's `checkConstantValF` over `sharedOpsC` is `checkConstantValC`. -/
 theorem checkConstantValFSimI : CheckConstantValFSimI := by
   intro fe L cv s₀ s' hJ hs hok h
-  obtain ⟨h1, h2, -, h4, h5⟩ := checkConstantValC_sim (a := false) hJ hs (RangeOk_of_okE hok) h
+  obtain ⟨h1, h2, -, h4, h5⟩ := checkConstantValC_crun (a := false) hJ hs (RangeOk_of_okE hok) h
   exact ⟨h1, h2, h4, h5⟩
 
 /-! ## The value check -/
