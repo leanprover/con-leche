@@ -827,6 +827,68 @@ def instLevelParams (ks : List Name) (us : List Level) (e : @& Expr) : Expr :=
   if hcut : (!e.hasLP) = true then e else
   resTerm (instLevelParamsXP ks us none e hcut)
 
+/-! ## Constant substitution (task #497)
+
+`Expr.substConstAll n r` replaces the level-monomorphic constant `n` by
+the closed term `r` everywhere — the `Nat.div`/`Nat.mod` certificates'
+references to the pinned operation (`checkDivModPinC`,
+`ConLeche/Cached/ParsedC.lean`).  The specification is a tree walk:
+on a certificate proof (a DAG of a few thousand nodes) it rebuilt every
+occurrence of a shared subterm separately, and every guard and the
+inference after it then walked the unshared copy.  The twin is the
+section's walk without a cutoff (no flag says whether `n` occurs): the
+compound children through the exclusivity read, the shared ones memoised
+by address, so the result keeps the input's sharing.  It is its own
+reference: an entry proves its node's image under `Expr.substConstAll`
+itself (`substConstAllC_spec`, `ConLeche/Verify/Cached/OpsC.lean`). -/
+
+/-- The child step of `substConstAllXP`: the compound test, the
+exclusivity read. -/
+@[inline] def enterSCA (n : @& Name) (r : @& Expr) (e : @& Expr)
+    (memo : MemoXP0 (Expr.substConstAll n r))
+    (rec : Unit → Squash (ResXP0 (Expr.substConstAll n r) e)) :
+    Squash (ResXP0 (Expr.substConstAll n r) e) :=
+  if !isCompound e then rec ()
+  else withExcl e fun excl =>
+    if excl then rec () else memo.shared e fun _ => rec ()
+
+/-- The walk of `substConstAllC`. -/
+def substConstAllXP (n : @& Name) (r : @& Expr) (memo : MemoXP0 (Expr.substConstAll n r))
+    (e : @& Expr) : Squash (ResXP0 (Expr.substConstAll n r) e) :=
+  match e with
+  | .const c us .. =>
+    Squash.mk (⟨if c == n && us.isEmpty then r else .const c us, by
+      simp only [Expr.substConstAll, beq_iff_eq, List.isEmpty_iff, Bool.and_eq_true]⟩, memo)
+  | .app f a .. =>
+    enterSCA n r f memo (fun _ => substConstAllXP n r memo f) |>.lift fun (⟨f', hf⟩, memo) =>
+    enterSCA n r a memo (fun _ => substConstAllXP n r memo a) |>.lift fun (⟨a', ha⟩, memo) =>
+    Squash.mk (⟨.app f' a', by rw [hf, ha]; rfl⟩, memo)
+  | .lam ty body .. =>
+    enterSCA n r ty memo (fun _ => substConstAllXP n r memo ty) |>.lift fun (⟨ty', ht⟩, memo) =>
+    enterSCA n r body memo (fun _ => substConstAllXP n r memo body) |>.lift fun (⟨b', hb⟩, memo) =>
+    Squash.mk (⟨.lam ty' b', by rw [ht, hb]; rfl⟩, memo)
+  | .forallE ty body .. =>
+    enterSCA n r ty memo (fun _ => substConstAllXP n r memo ty) |>.lift fun (⟨ty', ht⟩, memo) =>
+    enterSCA n r body memo (fun _ => substConstAllXP n r memo body) |>.lift fun (⟨b', hb⟩, memo) =>
+    Squash.mk (⟨.forallE ty' b', by rw [ht, hb]; rfl⟩, memo)
+  | .letE ty val body .. =>
+    enterSCA n r ty memo (fun _ => substConstAllXP n r memo ty) |>.lift fun (⟨ty', ht⟩, memo) =>
+    enterSCA n r val memo (fun _ => substConstAllXP n r memo val) |>.lift fun (⟨v', hv⟩, memo) =>
+    enterSCA n r body memo (fun _ => substConstAllXP n r memo body) |>.lift fun (⟨b', hb⟩, memo) =>
+    Squash.mk (⟨.letE ty' v' b', by rw [ht, hv, hb]; rfl⟩, memo)
+  | .proj sn i sub .. =>
+    enterSCA n r sub memo (fun _ => substConstAllXP n r memo sub) |>.lift fun (⟨s', hs⟩, memo) =>
+    Squash.mk (⟨.proj sn i s', by rw [hs]; rfl⟩, memo)
+  | .bvar i .. => Squash.mk (⟨.bvar i, rfl⟩, memo)
+  | .fvar idx ty .. => Squash.mk (⟨.fvar idx ty, rfl⟩, memo)
+  | .sort u .. => Squash.mk (⟨.sort u, rfl⟩, memo)
+  | .lit l .. => Squash.mk (⟨.lit l, rfl⟩, memo)
+
+/-- The cached `Expr.substConstAll`: sharing-preserving, the shared
+nodes memoised by address. -/
+def substConstAllC (n : Name) (r : Expr) (e : @& Expr) : Expr :=
+  resTerm (substConstAllXP n r none e)
+
 /-- The cached `ProjEntry.typeAt`: the same two instantiations through
 the memoized, **sharing-preserving** `instLevelParams` and
 `instantiateListC` (`ProjEntry.typeAtI_eq`, `ConLeche/Verify/Cached/

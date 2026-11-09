@@ -3,6 +3,7 @@ module
 public import ConLeche.Cached.ParsedC
 import ConLeche.Verify.Cached.KnotCongr
 import ConLeche.Verify.Cached.PinOverlay
+import ConLeche.Verify.Cached.PinsC
 import ConLeche.Verify.Cached.BlockOverlay
 
 /-!
@@ -1286,7 +1287,7 @@ theorem checkDeclKindC_twin (pins : List NatOpPinSet) {fe₁ fe₂ : FEnv} (ht :
     have h := sharedOpsC_envFree mode fe₂
     simp only [natOpGuardF_congr hov, natOpStoredOkF_congr hov, hov,
       sharedOpsC_congr hfe htb, certifyNatEqs_envFree h fe₁.env, certifyNatEqs_envFree h fe₂.env,
-      checkDivModPinF_congr h hfe hov]
+      checkDivModPinC_eq, checkDivModPinF_congr h hfe hov]
     relrun
     all_goals exact RelRun.pure (PushedFrom.push _ _ _)
   | thmDecl cv value =>

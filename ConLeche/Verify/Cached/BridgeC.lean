@@ -1,6 +1,7 @@
 module
 
 import ConLeche.Verify.Cached.PinOverlay
+import ConLeche.Verify.Cached.PinsC
 import ConLeche.Cached.ParsedC
 public import ConLeche.Verify.Cached.GenRecC
 
@@ -120,6 +121,13 @@ theorem checkDivModPinF_overlay (ops : CheckerOps CheckCM) (env : Env) (ci : Con
       = checkDivModPin ops pins env ⟨ci :: env.consts, env.tables⟩ c := by
   rw [checkDivModPinF_congr2 _ _ _ (find?_overlay_push (fe := mkFEnv env) rfl ci), push_mkFEnv,
     checkDivModPinF_eq]
+
+/-- The cached pin check at the arm's overlay (`checkDivModPinC_eq`, task #497). -/
+theorem checkDivModPinC_overlay (ops : CheckerOps CheckCM) (env : Env) (ci : ConstantInfo)
+    (c : Name) :
+    checkDivModPinC ops pins (mkFEnv env) ((mkFEnv env).overlay [ci]) c
+      = checkDivModPin ops pins env ⟨ci :: env.consts, env.tables⟩ c := by
+  rw [checkDivModPinC_eq, checkDivModPinF_overlay]
 
 /-- The structural-`Nat` recurrences at a closed stored value (at the
 cached arm's `(mkFEnv env).env`). -/
@@ -258,7 +266,7 @@ theorem checkDeclKindC_spec (henv : EnvWF env)
         natOpStoredOkF_overlay, find?_overlay_mkFEnv, Env.find?_cons, ConstantInfo.name,
         ConstantInfo.toConstantVal] =>
       vcgen [checkDeclKindC, checkConstantValC_spec henv hs, checkDefnValCI_spec henv,
-        checkDivModPinF_overlay, certifyNatOpEqsS_spec henv,
+        checkDivModPinC_overlay, certifyNatOpEqsS_spec henv,
         checkDivModPinConsS_spec henv (cv := cv) (value := value) (hint := hint)] <;> finish
 
 /-- One step of the converted-declaration fold: a successful run from a
