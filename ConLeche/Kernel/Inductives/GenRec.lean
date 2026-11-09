@@ -422,50 +422,50 @@ output a verdict): closed, at the recursor's level parameters, resolved
 and typed at the rule-less recursors' environment `feR`, its
 λ-telescope over the prefix and the fields `n` long, its λ-domains
 resolving at the constructors' environment `feT`. -/
-def classRuleCheck (ops : CheckerOps m) (w : StructWalkers) (feT feR : FEnv)
+def classRuleCheck (ops : CheckerOps m) (feT feR : FEnv)
     (cvR : ConstantVal) (n : Nat) (gen : Expr) : m Unit := do
   unless gen.looseBVarsBounded 0 && !gen.hasFvar do
     throw (.internal s!"generated recursor: a rule of {cvR.name} is not closed")
   unless gen.allLevelParamsDefined cvR.levelParams do
     throw (.internal s!"generated recursor: a rule of {cvR.name} names an undeclared universe \
       parameter")
-  unless w.resolve feR gen do
+  unless gen.constsResolveF feR do
     throw (unresolvedConstsError s!"generated rule of {cvR.name}" gen)
   let _ ← ops.inferType feR.env 0 gen
   let (rbs, _) ← unwrapOr (gen.stripLams n)
     (.internal s!"generated recursor: a rule of {cvR.name} is not a λ-telescope over the \
       recursor's prefix and the constructor's fields")
-  unless rbs.all (fun b => w.resolve feT b) do
+  unless rbs.all (fun b => b.constsResolveF feT) do
     throw (unresolvedConstsError s!"the domains of a generated rule of {cvR.name}" gen)
 
 /-- **One generated rule, installed** (as generated), after its check
 (`classRuleCheck`).  Returns the rule (stored). -/
-def classRuleOk (ops : CheckerOps m) (w : StructWalkers) (feT feR : FEnv)
+def classRuleOk (ops : CheckerOps m) (feT feR : FEnv)
     (cvR : ConstantVal) (n : Nat) (gen : Expr) : m Expr := do
-  classRuleCheck ops w feT feR cvR n gen
+  classRuleCheck ops feT feR cvR n gen
   pure gen
 
 /-- A recursor's generated rules, one per constructor of its class. -/
-def classRulesOk (ops : CheckerOps m) (w : StructWalkers)
-    (feT feR : FEnv) (g : ClassGen) (recOf : Nat → Option Name) (cvR : ConstantVal) (c : Nat) :
+def classRulesOk (ops : CheckerOps m) (feT feR : FEnv) (g : ClassGen)
+    (recOf : Nat → Option Name) (cvR : ConstantVal) (c : Nat) :
     List ClassCtor → m (List Expr)
   | [] => pure []
   | x :: xs => do
     let gen ← unwrapOr (classGenRule g recOf (cvR.levelParams.map .param) c x)
       (.invalid s!"generated recursor: the rule of {x.cv.name} calls a class whose recursor the \
         stream omits (official: unknown constant)")
-    let r ← classRuleOk ops w feT feR cvR (g.nP + g.slots.length + x.nF) gen
-    let rs ← classRulesOk ops w feT feR g recOf cvR c xs
+    let r ← classRuleOk ops feT feR cvR (g.nP + g.slots.length + x.nF) gen
+    let rs ← classRulesOk ops feT feR g recOf cvR c xs
     pure (r :: rs)
 
 /-- Every recursor's generated rules, at the rule-less recursors'
 environment `feR`, with its class. -/
-def classRecsRulesOk (ops : CheckerOps m) (w : StructWalkers)
-    (feT feR : FEnv) (g : ClassGen) (recOf : Nat → Option Name) :
+def classRecsRulesOk (ops : CheckerOps m) (feT feR : FEnv) (g : ClassGen)
+    (recOf : Nat → Option Name) :
     List ConstantVal → List Nat → m (List (ConstantVal × TargetMajor × List Expr))
   | cvG :: cvs, c :: cs => do
-    let rhss ← classRulesOk ops w feT feR g recOf cvG c (g.ctors.getD c [])
-    let xs ← classRecsRulesOk ops w feT feR g recOf cvs cs
+    let rhss ← classRulesOk ops feT feR g recOf cvG c (g.ctors.getD c [])
+    let xs ← classRecsRulesOk ops feT feR g recOf cvs cs
     pure ((cvG, g.cls.getD c default, rhss) :: xs)
   | _, _ => pure []
 
@@ -578,27 +578,9 @@ def genRecCheck (so : ShadowOps m) (fe : FEnv) (p : BlockShape) (nestedBit : Boo
   let cvGs ← classRecTysOk ops fe g p.k p.recs cvRis rd.recCls
   let feR := so.ruleEnv p Ms cvGs rd.recCls fe
   so.flush
-  let out ← classRecsRulesOk (so.opsRuleR feR) so.walkers fe feR g
+  let out ← classRecsRulesOk (so.opsRuleR feR) fe feR g
     (classRecOf rd.recCls cvGs) cvGs rd.recCls
   so.flush
   pure out
-
-/-- The records `consBlockRecsBareF` pushes, in push order. -/
-def blockRecInfosBare (p : BlockShape) : Nat → List (ConstantVal × Nat) → List ConstantInfo
-  | _, [] => []
-  | m, (cvRa, _nIdx) :: rest =>
-    .recInfo cvRa (p.majorIdxAt m) (p.rulePrefixAt m) false [] :: blockRecInfosBare p (m + 1) rest
-
-/-- **`classFeR` as an overlay** (task #329): the rule-less generated
-recursors consed onto `fe` WITHOUT entering its index (`FEnv.overlay`,
-newest first).  The rule stage needs `fe` and `classFeR … fe` at once,
-so `classFeR`'s pushes ran on a shared index and copied its whole bucket
-array, once per inductive block; the overlay shares it.  Same `find?`
-and `env` as `classFeR` on an `fe` without an overlay
-(`classFeROvl_find?`, `ConLeche/Verify/Cached/BlockOverlay.lean`). -/
-def classFeROvl (p : BlockShape) (Ms : List TargetMajor) (cvGs : List ConstantVal)
-    (recCls : List Nat) (fe : FEnv) : FEnv :=
-  fe.overlay (blockRecInfosBare p 0
-    ((cvGs.zip recCls).map fun (cv, c) => (cv, (Ms.getD c default).nIdx))).reverse
 
 end ConLeche

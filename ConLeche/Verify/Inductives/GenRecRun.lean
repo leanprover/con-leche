@@ -565,7 +565,7 @@ theorem classRecTysOk_run {fe : FEnv} {g : ClassGen} {k : Nat} {F : Nat} :
 parameters the recursor's, resolved and inferred at the rule-less
 recursors' environment; its λ-telescope `n` long, the λ-domains
 resolving at the constructors' environment. -/
-structure ClassRuleRun (mode : CheckMode) (F : Nat) (w : StructWalkers) (feT feR : FEnv)
+structure ClassRuleRun (mode : CheckMode) (F : Nat) (feT feR : FEnv)
     (cvR : ConstantVal) (n : Nat) (gen out : Expr) : Type where
   rbs : List Expr
   body : Expr
@@ -574,16 +574,16 @@ structure ClassRuleRun (mode : CheckMode) (F : Nat) (w : StructWalkers) (feT feR
   hfv : gen.hasFvar = false
   hout : out = gen
   hlp : out.allLevelParamsDefined cvR.levelParams = true
-  hres : w.resolve feR out = true
+  hres : out.constsResolveF feR = true
   htyR : (fueledOps mode F).inferType feR.env 0 out = .ok tyR
   hstrip : out.stripLams n = some (rbs, body)
-  hdoms : ∀ b ∈ rbs, w.resolve feT b = true
+  hdoms : ∀ b ∈ rbs, b.constsResolveF feT = true
 
 /-- **`classRuleOk`, inverted.** -/
-theorem classRuleOk_run {w : StructWalkers} {feT feR : FEnv} {cvR : ConstantVal} 
+theorem classRuleOk_run {feT feR : FEnv} {cvR : ConstantVal} 
     {n : Nat} {gen out : Expr} {F : Nat}
-    (h : classRuleOk (fueledOps mode F) w feT feR cvR n gen = .ok out) :
-    Nonempty (ClassRuleRun mode F w feT feR cvR n gen out) := by
+    (h : classRuleOk (fueledOps mode F) feT feR cvR n gen = .ok out) :
+    Nonempty (ClassRuleRun mode F feT feR cvR n gen out) := by
   unfold classRuleOk at h
   obtain ⟨u, hc, h⟩ := exceptBind_ok h
   simp only [pure, Except.pure, Except.ok.injEq] at h
@@ -596,13 +596,13 @@ theorem classRuleOk_run {w : StructWalkers} {feT feR : FEnv} {cvR : ConstantVal}
   by_cases hlp : gen.allLevelParamsDefined cvR.levelParams = true
   case neg => rw [ite_eq_right hlp] at hc; close_throw hc
   rw [ite_eq_left hlp] at hc
-  by_cases hres : w.resolve feR gen = true
+  by_cases hres : gen.constsResolveF feR = true
   case neg => rw [ite_eq_right hres] at hc; close_throw hc
   rw [ite_eq_left hres] at hc
   obtain ⟨tyR, htyR, hc⟩ := exceptBind_ok hc
   obtain ⟨⟨rbs, body⟩, hstrip, hc⟩ := exceptBind_ok hc
   simp only at hc
-  by_cases hdoms : (rbs.all fun b => w.resolve feT b) = true
+  by_cases hdoms : (rbs.all fun b => b.constsResolveF feT) = true
   case neg => rw [ite_eq_right hdoms] at hc; close_throw hc
   simp only [Bool.and_eq_true, Bool.not_eq_true'] at hcl
   simp only [List.all_eq_true] at hdoms
@@ -612,15 +612,15 @@ theorem classRuleOk_run {w : StructWalkers} {feT feR : FEnv} {cvR : ConstantVal}
 
 /-- **`classRulesOk`, inverted**: one generated rule per constructor of
 the class. -/
-theorem classRulesOk_run {w : StructWalkers} {feT feR : FEnv} {g : ClassGen}
+theorem classRulesOk_run {feT feR : FEnv} {g : ClassGen}
     {recOf : Nat → Option Name} {cvR : ConstantVal} {c : Nat} {F : Nat} :
     ∀ {xs : List ClassCtor} {rhss : List Expr},
-      classRulesOk (fueledOps mode F) w feT feR g recOf cvR c xs = .ok rhss →
+      classRulesOk (fueledOps mode F) feT feR g recOf cvR c xs = .ok rhss →
       rhss.length = xs.length ∧
       ∀ (j : Nat) (x : ClassCtor), xs[j]? = some x →
         ∃ gen rhs, rhss[j]? = some rhs ∧
           classGenRule g recOf (cvR.levelParams.map .param) c x = some gen ∧
-          Nonempty (ClassRuleRun mode F w feT feR cvR (g.nP + g.slots.length + x.nF)
+          Nonempty (ClassRuleRun mode F feT feR cvR (g.nP + g.slots.length + x.nF)
             gen rhs)
   | [], rhss, h => by
     simp only [classRulesOk, pure, Except.pure, Except.ok.injEq] at h
@@ -643,15 +643,15 @@ theorem classRulesOk_run {w : StructWalkers} {feT feR : FEnv} {g : ClassGen}
 
 /-- **`classRecsRulesOk`, inverted**: per recursor, its generated constant,
 its class and its rules. -/
-theorem classRecsRulesOk_run {w : StructWalkers} {feT feR : FEnv} {g : ClassGen}
+theorem classRecsRulesOk_run {feT feR : FEnv} {g : ClassGen}
     {recOf : Nat → Option Name} {F : Nat} :
     ∀ {cvGs : List ConstantVal} {cls : List Nat}
       {out : List (ConstantVal × TargetMajor × List Expr)},
-      classRecsRulesOk (fueledOps mode F) w feT feR g recOf cvGs cls = .ok out →
+      classRecsRulesOk (fueledOps mode F) feT feR g recOf cvGs cls = .ok out →
       out.length = min cvGs.length cls.length ∧
       ∀ (i : Nat) (cvG : ConstantVal) (c : Nat), cvGs[i]? = some cvG → cls[i]? = some c →
         ∃ rhss, out[i]? = some (cvG, g.cls.getD c default, rhss) ∧
-          classRulesOk (fueledOps mode F) w feT feR g recOf cvG c (g.ctors.getD c [])
+          classRulesOk (fueledOps mode F) feT feR g recOf cvG c (g.ctors.getD c [])
             = .ok rhss
   | [], _, out, h => by
     simp only [classRecsRulesOk, pure, Except.pure, Except.ok.injEq] at h
@@ -721,7 +721,7 @@ structure GenStageRun (mode : CheckMode) (F : Nat) (fe : FEnv) (p : BlockShape)
   hcvGs : classRecTysOk (fueledOps mode F) fe (genRecGen p params Ms formerTysC rd ctors pre)
     p.k p.recs cvRis rd.recCls = .ok cvGs
   /-- the generated rules -/
-  hrules : classRecsRulesOk (fueledOps mode F) .plain fe (classFeR p Ms cvGs rd.recCls fe)
+  hrules : classRecsRulesOk (fueledOps mode F) fe (classFeR p Ms cvGs rd.recCls fe)
     (genRecGen p params Ms formerTysC rd ctors pre) (classRecOf rd.recCls cvGs)
     cvGs rd.recCls = .ok out
 
@@ -831,7 +831,7 @@ structure GenRecRun (mode : CheckMode) (F : Nat) (fe₁ : FEnv) (env₁ : Env) (
   hcvGs : classRecTysOk (fueledOps mode F) fe (genRecGen p ctx.params Ms formerTysC rd ctors pre)
     p.k p.recs cvRis rd.recCls = .ok cvGs
   /-- the generated rules -/
-  hrules : classRecsRulesOk (fueledOps mode F) .plain fe (classFeR p Ms cvGs rd.recCls fe)
+  hrules : classRecsRulesOk (fueledOps mode F) fe (classFeR p Ms cvGs rd.recCls fe)
     (genRecGen p ctx.params Ms formerTysC rd ctors pre) (classRecOf rd.recCls cvGs)
     cvGs rd.recCls = .ok out
 

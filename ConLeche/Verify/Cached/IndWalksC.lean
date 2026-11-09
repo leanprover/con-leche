@@ -126,4 +126,54 @@ theorem abstractPrefixC_eq : ∀ (k c : Nat) (e : Expr),
     rw [abstractPrefix, ← abstractPrefixC_eq k (c + 1), abstractPrefixC, abstractPrefixC,
       abstractRangeC_spec, abstractRangeC_spec, abstractRange_succ, Nat.zero_add]
 
+/-! ## The member abstraction -/
+
+/-- **The plain descent computes `targetAbs`.** -/
+theorem targetAbsP_spec {names : List Name} {lvls : List Level} {holes : List Expr} :
+    ∀ e : Expr, targetAbsP names lvls holes e = targetAbs names lvls holes e := by
+  intro e
+  induction e with
+  | const n us =>
+    simp only [targetAbsP, targetAbs, targetAbsConst]
+    cases List.findIdx? (· == n) names <;> rfl
+  | _ => simp_all [targetAbsP, targetAbs]
+
+/-- **The cached member abstraction computes `targetAbs`.** -/
+theorem targetAbsC_spec {names : List Name} {lvls : List Level} {holes : List Expr} {e : Expr} :
+    targetAbsC names lvls holes e = targetAbs names lvls holes e := by
+  rw [targetAbsC, resTerm_eq, targetAbsP_spec]
+
+/-! ## Opening telescopes at given arguments -/
+
+/-- **The cached `instPisWith` is `instPisWith`.** -/
+theorem instPisWithC_eq : ∀ (as : List Expr) (e : Expr), instPisWithC as e = instPisWith as e
+  | [], _ => rfl
+  | a :: as, .forallE _ body => by
+    rw [instPisWithC, instPisWith, instantiate1C_spec, instPisWithC_eq as]
+  | _ :: _, .bvar _ => rfl
+  | _ :: _, .fvar .. => rfl
+  | _ :: _, .sort _ => rfl
+  | _ :: _, .const .. => rfl
+  | _ :: _, .app .. => rfl
+  | _ :: _, .lam .. => rfl
+  | _ :: _, .letE .. => rfl
+  | _ :: _, .lit _ => rfl
+  | _ :: _, .proj .. => rfl
+
+/-- **The cached `targetPiDomsWith` is `targetPiDomsWith`.** -/
+theorem targetPiDomsWithC_eq :
+    ∀ (xs : List Expr) (e : Expr), targetPiDomsWithC xs e = targetPiDomsWith xs e
+  | [], _ => rfl
+  | x :: xs, .forallE _ body => by
+    rw [targetPiDomsWithC, targetPiDomsWith, instantiate1C_spec, targetPiDomsWithC_eq xs]
+  | _ :: _, .bvar _ => rfl
+  | _ :: _, .fvar .. => rfl
+  | _ :: _, .sort _ => rfl
+  | _ :: _, .const .. => rfl
+  | _ :: _, .app .. => rfl
+  | _ :: _, .lam .. => rfl
+  | _ :: _, .letE .. => rfl
+  | _ :: _, .lit _ => rfl
+  | _ :: _, .proj .. => rfl
+
 end ConLeche.Expr
