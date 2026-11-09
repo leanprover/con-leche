@@ -3,6 +3,7 @@ module
 public import ConLeche.Verify.Cached.BinderLoopC
 import ConLeche.Verify.BetaSpine
 import ConLeche.Verify.Cached.IndWalksC
+import ConLeche.Verify.LooseBVar
 public import ConLeche.Verify.ProjGuard
 
 public section
@@ -452,6 +453,233 @@ theorem projGuardRowsGoC_eq :
   | _ + 1, _, .app .. | _ + 1, _, .lam .. | _ + 1, _, .letE .. | _ + 1, _, .lit _
   | _ + 1, _, .proj .. => rfl
 
+/-! ### The guard's fast case (task #498, L7)
+
+`projGuardRowsC` reads the raw field telescope through `projGuardFastC`
+before it rebuilds it.  Where the fast case answers, no field before the
+projected one is mentioned after it, so the specification's loop steps
+over every one of them and its one row is the projected field's domain
+(`projGuardFastC_rows`). -/
+
+/-- A window the reference answers `false` for holds no loose variable. -/
+theorem Expr.hasLooseBVarInP_false :
+    ∀ (e : Expr) {w d i : Nat}, Expr.hasLooseBVarInP w e d = false → d ≤ i → i < d + w →
+      e.hasLooseBVar i = false := by
+  have cut : ∀ (e : Expr) {d i : Nat}, e.bvarB ≤ d → d ≤ i → e.hasLooseBVar i = false :=
+    fun e d i h hi => Expr.hasLooseBVar_eq_false_of_bound e i (by rw [← Expr.bvarB_eq]; omega)
+  intro e
+  induction e with
+  | bvar k =>
+    intro w d i h hd hw
+    by_cases hc : (Expr.bvar k).bvarB ≤ d
+    · exact cut _ hc hd
+    · rw [Expr.hasLooseBVarInP.eq_def] at h
+      simp only [hc, ite_false, Bool.and_eq_false_iff, decide_eq_false_iff_not] at h
+      simp only [Expr.hasLooseBVar, beq_eq_false_iff_ne]
+      omega
+  | fvar _ _ _ => intro _ _ _ _ _ _; rfl
+  | sort _ => intro _ _ _ _ _ _; rfl
+  | const _ _ => intro _ _ _ _ _ _; rfl
+  | lit _ => intro _ _ _ _ _ _; rfl
+  | app f a ihf iha =>
+    intro w d i h hd hw
+    by_cases hc : (Expr.app f a).bvarB ≤ d
+    · exact cut _ hc hd
+    · rw [Expr.hasLooseBVarInP.eq_def] at h
+      simp only [hc, ite_false, Bool.or_eq_false_iff] at h
+      simp only [Expr.hasLooseBVar, ihf h.1 hd hw, iha h.2 hd hw, Bool.or_false]
+  | lam ty b iht ihb =>
+    intro w d i h hd hw
+    by_cases hc : (Expr.lam ty b).bvarB ≤ d
+    · exact cut _ hc hd
+    · rw [Expr.hasLooseBVarInP.eq_def] at h
+      simp only [hc, ite_false, Bool.or_eq_false_iff] at h
+      simp only [Expr.hasLooseBVar, iht h.1 hd hw, ihb (i := i + 1) h.2 (by omega) (by omega), Bool.or_false]
+  | forallE ty b iht ihb =>
+    intro w d i h hd hw
+    by_cases hc : (Expr.forallE ty b).bvarB ≤ d
+    · exact cut _ hc hd
+    · rw [Expr.hasLooseBVarInP.eq_def] at h
+      simp only [hc, ite_false, Bool.or_eq_false_iff] at h
+      simp only [Expr.hasLooseBVar, iht h.1 hd hw, ihb (i := i + 1) h.2 (by omega) (by omega), Bool.or_false]
+  | letE t v b iht ihv ihb =>
+    intro w d i h hd hw
+    by_cases hc : (Expr.letE t v b).bvarB ≤ d
+    · exact cut _ hc hd
+    · rw [Expr.hasLooseBVarInP.eq_def] at h
+      simp only [hc, ite_false, Bool.or_eq_false_iff] at h
+      simp only [Expr.hasLooseBVar, iht h.1.1 hd hw, ihv h.1.2 hd hw,
+        ihb (i := i + 1) h.2 (by omega) (by omega), Bool.or_false]
+  | proj sn ix s ih =>
+    intro w d i h hd hw
+    by_cases hc : (Expr.proj sn ix s).bvarB ≤ d
+    · exact cut _ hc hd
+    · rw [Expr.hasLooseBVarInP.eq_def] at h
+      simp only [hc, ite_false] at h
+      simp only [Expr.hasLooseBVar, ih h hd hw]
+
+/-- The empty window holds nothing. -/
+theorem Expr.hasLooseBVarInP_zero : ∀ (e : Expr) (d : Nat), Expr.hasLooseBVarInP 0 e d = false := by
+  intro e
+  induction e with
+  | bvar k =>
+    intro d; rw [Expr.hasLooseBVarInP.eq_def]
+    split
+    · rfl
+    · simp only [Nat.add_zero, Bool.and_eq_false_iff, decide_eq_false_iff_not]; omega
+  | fvar _ _ _ | sort _ | const _ _ | lit _ =>
+    intro d; rw [Expr.hasLooseBVarInP.eq_def]; split <;> rfl
+  | app f a ihf iha =>
+    intro d; rw [Expr.hasLooseBVarInP.eq_def]; split
+    · rfl
+    · simp only [ihf, iha, Bool.or_false]
+  | lam ty b iht ihb =>
+    intro d; rw [Expr.hasLooseBVarInP.eq_def]; split
+    · rfl
+    · simp only [iht, ihb, Bool.or_false]
+  | forallE ty b iht ihb =>
+    intro d; rw [Expr.hasLooseBVarInP.eq_def]; split
+    · rfl
+    · simp only [iht, ihb, Bool.or_false]
+  | letE t v b iht ihv ihb =>
+    intro d; rw [Expr.hasLooseBVarInP.eq_def]; split
+    · rfl
+    · simp only [iht, ihv, ihb, Bool.or_false]
+  | proj _ _ s ih =>
+    intro d; rw [Expr.hasLooseBVarInP.eq_def]; split
+    · rfl
+    · simp only [ih]
+
+/-- The cached window query is its reference. -/
+theorem Expr.hasLooseBVarInC_spec {d w : Nat} {e : Expr} :
+    Expr.hasLooseBVarInC d w e = Expr.hasLooseBVarInP w e d := by
+  unfold Expr.hasLooseBVarInC
+  split
+  · next hw => subst hw; exact (Expr.hasLooseBVarInP_zero e d).symm
+  · split
+    · next h => exact (Expr.hasLooseBVarInP_cut h).symm
+    · rw [Expr.resBool_eq]
+
+/-- Substituting free variables at and above `off` leaves an index below
+it occurring as it did. -/
+theorem Expr.hasLooseBVar_instantiateList_fvars_lt :
+    ∀ (acc : List Expr), (∀ a ∈ acc, ∃ k t, a = .fvar k t) →
+      ∀ (e : Expr) {off i : Nat}, i < off →
+        (e.instantiateList acc off).hasLooseBVar i = e.hasLooseBVar i
+  | [], _, e, off, _, _ => by rw [Expr.instantiateList_nil]
+  | v :: vs, hacc, e, off, i, hi => by
+    obtain ⟨k, t, rfl⟩ := hacc v (List.mem_cons_self ..)
+    rw [Expr.instantiateList_cons,
+      Expr.hasLooseBVar_instantiate1_lt (v := .fvar k t) rfl _ hi,
+      Expr.hasLooseBVar_instantiateList_fvars_lt vs
+        (fun a ha => hacc a (List.mem_cons_of_mem _ ha)) e (by omega)]
+
+/-- Where the fast case answers, the telescope mentions no field before
+the window's top. -/
+theorem projGuardFastC_below :
+    ∀ (k j : Nat) (e : Expr) {dom : Expr}, projGuardFastC k j e = some dom →
+      ∀ i, i < j → e.hasLooseBVar i = false
+  | 0, j, .forallE dom' b, dom, h, i, hi => by
+    simp only [projGuardFastC] at h
+    split at h
+    · exact nomatch h
+    · next hc =>
+      rw [Bool.not_eq_true, Expr.hasLooseBVarInC_spec] at hc
+      exact Expr.hasLooseBVarInP_false _ hc (Nat.zero_le i) (by omega)
+  | k + 1, j, .forallE dom0 body, dom, h, i, hi => by
+    simp only [projGuardFastC] at h
+    split at h
+    · exact nomatch h
+    · next hc =>
+      rw [Bool.not_eq_true, Expr.hasLooseBVarInC_spec] at hc
+      simp only [Expr.hasLooseBVar,
+        Expr.hasLooseBVarInP_false _ hc (Nat.zero_le i) (by omega),
+        projGuardFastC_below k (j + 1) body h (i + 1) (by omega), Bool.or_false]
+  | 0, _, .bvar _, _, h, _, _ | 0, _, .fvar .., _, h, _, _ | 0, _, .sort _, _, h, _, _
+  | 0, _, .const .., _, h, _, _ | 0, _, .app .., _, h, _, _ | 0, _, .lam .., _, h, _, _
+  | 0, _, .letE .., _, h, _, _ | 0, _, .lit _, _, h, _, _ | 0, _, .proj .., _, h, _, _
+  | _ + 1, _, .bvar _, _, h, _, _ | _ + 1, _, .fvar .., _, h, _, _
+  | _ + 1, _, .sort _, _, h, _, _ | _ + 1, _, .const .., _, h, _, _
+  | _ + 1, _, .app .., _, h, _, _ | _ + 1, _, .lam .., _, h, _, _
+  | _ + 1, _, .letE .., _, h, _, _ | _ + 1, _, .lit _, _, h, _, _
+  | _ + 1, _, .proj .., _, h, _, _ => by simp [projGuardFastC] at h
+
+/-- **The fast case is the loop's answer**: over the telescope with the
+parameters substituted, the specification steps over every field before
+the projected one and returns its domain as the one row. -/
+theorem projGuardFastC_rows {acc : List Expr} (hacc : ∀ a ∈ acc, ∃ k t, a = .fvar k t) :
+    ∀ (k j d : Nat) (e : Expr) {dom : Expr}, projGuardFastC k j e = some dom →
+      projGuardRowsGo k d (e.instantiateList acc j)
+        = some [(d + k, dom.instantiateList acc (j + k))]
+  | 0, j, d, .forallE dom' b, dom, h => by
+    have hd : dom' = dom := by
+      simp only [projGuardFastC] at h
+      split at h
+      · exact nomatch h
+      · exact Option.some.inj h
+    subst hd
+    rw [Expr.instantiateList]
+    rfl
+  | k + 1, j, d, .forallE dom0 body, dom, h => by
+    have hb : projGuardFastC k (j + 1) body = some dom := by
+      simp only [projGuardFastC] at h
+      split at h
+      · exact nomatch h
+      · exact h
+    have hu : (body.instantiateList acc (j + 1)).hasLooseBVarB 0 = false := by
+      rw [Expr.hasLooseBVarB_eq,
+        Expr.hasLooseBVar_instantiateList_fvars_lt acc hacc body (by omega)]
+      exact projGuardFastC_below k (j + 1) body hb 0 (by omega)
+    rw [Expr.instantiateList]
+    have e1 : d + 1 + k = d + (k + 1) := by omega
+    have e2 : j + 1 + k = j + (k + 1) := by omega
+    simp only [projGuardRowsGo, hu, Bool.false_eq_true, ite_false,
+      projGuardFastC_rows hacc k (j + 1) (d + 1) body hb, e1, e2]
+  | 0, _, _, .bvar _, _, h | 0, _, _, .fvar .., _, h | 0, _, _, .sort _, _, h
+  | 0, _, _, .const .., _, h | 0, _, _, .app .., _, h | 0, _, _, .lam .., _, h
+  | 0, _, _, .letE .., _, h | 0, _, _, .lit _, _, h | 0, _, _, .proj .., _, h
+  | _ + 1, _, _, .bvar _, _, h | _ + 1, _, _, .fvar .., _, h
+  | _ + 1, _, _, .sort _, _, h | _ + 1, _, _, .const .., _, h
+  | _ + 1, _, _, .app .., _, h | _ + 1, _, _, .lam .., _, h
+  | _ + 1, _, _, .letE .., _, h | _ + 1, _, _, .lit _, _, h
+  | _ + 1, _, _, .proj .., _, h => by simp [projGuardFastC] at h
+
+/-- The cached rows where the parameters do not open: none. -/
+theorem projGuardRowsC_none {nP idx : Nat} {cty : Expr}
+    (h : openPisAtFvars nP cty 0 = none) : projGuardRowsC nP idx cty = none := by
+  unfold projGuardRowsC
+  cases hraw : openPisRawGoC [] nP cty 0 with
+  | none => rfl
+  | some p =>
+    obtain ⟨fvs, acc, r⟩ := p
+    have ho := openPisAtFvarsC_eq nP cty 0
+    simp only [openPisAtFvarsC, openPisAtFvarsGoC, hraw, h] at ho
+    exact nomatch ho
+
+/-- The cached rows where the parameters open: the loop over the opened
+residual. -/
+theorem projGuardRowsC_some {nP idx : Nat} {cty r : Expr} {fvs : List Expr}
+    (h : openPisAtFvars nP cty 0 = some (fvs, r)) :
+    projGuardRowsC nP idx cty = projGuardRowsGo idx nP r := by
+  unfold projGuardRowsC
+  cases hraw : openPisRawGoC [] nP cty 0 with
+  | none =>
+    have ho := openPisAtFvarsC_eq nP cty 0
+    simp only [openPisAtFvarsC, openPisAtFvarsGoC, hraw, h] at ho
+    exact nomatch ho
+  | some p =>
+    obtain ⟨fvs', acc, R⟩ := p
+    have ho := openPisAtFvarsC_eq nP cty 0
+    simp only [openPisAtFvarsC, openPisAtFvarsGoC, hraw, h, Expr.instantiateListC_spec,
+      Option.some.injEq, Prod.mk.injEq] at ho
+    obtain ⟨-, rfl⟩ := ho
+    have hacc := openPisRawGoC_fvars [] nP cty 0 (by simp) hraw
+    simp only
+    split
+    · next dom hf =>
+      rw [Expr.instantiateListC_spec, projGuardFastC_rows hacc idx 0 nP R hf, Nat.zero_add]
+    · rw [Expr.instantiateListC_spec, projGuardRowsGoC_eq]
+
 /-- The rows at a guardSort simulate their fueled original. -/
 theorem projRowsC_spec (ih : SSimC mode eager env f) (henv : EnvWF env)
     {entry : ProjEntry} {us : List Level} {guardSort : Level} {s₀ : CState}
@@ -468,7 +696,7 @@ theorem projRowsC_spec (ih : SSimC mode eager env f) (henv : EnvWF env)
   | none =>
     have hp : projGuardRows env.find? entry us = none := by
       simp only [projGuardRows, hc]
-    sym only [conleche_grind, constTyOf, Option.isSome_some, openPisAtFvarsC_eq, projGuardRowsGoC_eq] =>
+    sym only [conleche_grind, constTyOf, Option.isSome_some] =>
       vcgen [checkProjRowsI, constTyAtM_spec (mode := mode) (eager := eager) (env := env),
         checkGuardRowsC_spec ih] <;> finish
   | some ci =>
@@ -477,16 +705,18 @@ theorem projRowsC_spec (ih : SSimC mode eager env f) (henv : EnvWF env)
     | none =>
       have hp : projGuardRows env.find? entry us = none := by
         simp only [projGuardRows, hc, ho]
-      sym only [conleche_grind, constTyOf, Option.isSome_some, openPisAtFvarsC_eq, projGuardRowsGoC_eq] =>
+      have hr := projGuardRowsC_none (idx := entry.idx) ho
+      sym only [conleche_grind, constTyOf, Option.isSome_some] =>
         vcgen [checkProjRowsI, constTyAtM_spec (mode := mode) (eager := eager) (env := env),
           checkGuardRowsC_spec ih] <;> finish
     | some p =>
       obtain ⟨fvsP, r⟩ := p
+      have hr := projGuardRowsC_some (idx := entry.idx) ho
       cases hg : projGuardRowsGo entry.idx entry.numParams r with
       | none =>
         have hp : projGuardRows env.find? entry us = none := by
           simp only [projGuardRows, hc, ho, hg]
-        sym only [conleche_grind, constTyOf, Option.isSome_some, openPisAtFvarsC_eq, projGuardRowsGoC_eq] =>
+        sym only [conleche_grind, constTyOf, Option.isSome_some] =>
           vcgen [checkProjRowsI, constTyAtM_spec (mode := mode) (eager := eager) (env := env),
             checkGuardRowsC_spec ih] <;> finish
       | some rows =>
@@ -494,7 +724,7 @@ theorem projRowsC_spec (ih : SSimC mode eager env f) (henv : EnvWF env)
           simp only [projGuardRows, hc, ho, hg]
         have hws : GuardRowsWS rows :=
           projGuardRows_ws (fun ci' hc' => (henv.consts _ (Env.find?_mem hc')).1) hp
-        sym only [conleche_grind, constTyOf, Option.isSome_some, openPisAtFvarsC_eq, projGuardRowsGoC_eq] =>
+        sym only [conleche_grind, constTyOf, Option.isSome_some] =>
           vcgen [checkProjRowsI, constTyAtM_spec (mode := mode) (eager := eager) (env := env),
             checkGuardRowsC_spec ih] <;> finish
 
