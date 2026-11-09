@@ -478,6 +478,46 @@ theorem openPisAtFvarsGoC_eq :
   | _, _ + 1, .lit _, _ => rfl
   | _, _ + 1, .proj .., _ => rfl
 
+/-- **The one pass misses no binder**: instantiating at free variables
+never makes a `∀` appear, so where `openPisAtFvarsFGo` finds none, the
+sequential opening of the instantiated term finds none either. -/
+theorem openPisAtFvarsFGo_none :
+    ∀ (n : Nat) (e : Expr) (i : Nat) (acc : List Expr),
+      (∀ a ∈ acc, ∃ k t, a = .fvar k t) → openPisAtFvarsFGo acc n e i = none →
+      openPisAtFvars n (e.instantiateList acc) i = none
+  | 0, _, _, _, _, h => by simp [openPisAtFvarsFGo] at h
+  | n + 1, .forallE dom body, i, acc, hacc, h => by
+    simp only [openPisAtFvarsFGo] at h
+    split at h
+    case _ => exact nomatch h
+    case _ hgo =>
+      have ih := openPisAtFvarsFGo_none n body (i + 1)
+        (Expr.fvar i (dom.instantiateList acc) :: acc)
+        (fun a ha => by
+          rcases List.mem_cons.mp ha with rfl | ha
+          · exact ⟨_, _, rfl⟩
+          · exact hacc a ha) hgo
+      rw [Expr.instantiateList_cons] at ih
+      simp only [Expr.instantiateList, openPisAtFvars, ih]
+  | n + 1, .bvar j, i, acc, hacc, _ => by
+    rw [Expr.instantiateList]
+    split
+    · rfl
+    · split
+      · rename_i hj
+        obtain ⟨k, t, hk⟩ := hacc _ (List.getElem_mem hj)
+        rw [hk, Expr.instantiateList]
+        rfl
+      · rfl
+  | _ + 1, .fvar .., _, _, _, _ => by rw [Expr.instantiateList]; rfl
+  | _ + 1, .sort _, _, _, _, _ => by rw [Expr.instantiateList]; rfl
+  | _ + 1, .const .., _, _, _, _ => by rw [Expr.instantiateList]; rfl
+  | _ + 1, .app .., _, _, _, _ => by rw [Expr.instantiateList]; rfl
+  | _ + 1, .lam .., _, _, _, _ => by rw [Expr.instantiateList]; rfl
+  | _ + 1, .letE .., _, _, _, _ => by rw [Expr.instantiateList]; rfl
+  | _ + 1, .lit _, _, _, _, _ => by rw [Expr.instantiateList]; rfl
+  | _ + 1, .proj .., _, _, _, _ => by rw [Expr.instantiateList]; rfl
+
 /-- The cached one-pass telescope opening is `openPisAtFvars`. -/
 theorem openPisAtFvarsC_eq (n : Nat) (e : Expr) (i : Nat) :
     openPisAtFvarsC n e i = openPisAtFvars n e i := by
@@ -488,7 +528,10 @@ theorem openPisAtFvarsC_eq (n : Nat) (e : Expr) (i : Nat) :
     have := openPisAtFvarsFGo_sound n e i [] h
     rw [Expr.instantiateList_nil] at this
     exact this.symm
-  | none => rfl
+  | none =>
+    have := openPisAtFvarsFGo_none n e i [] (by simp) h
+    rw [Expr.instantiateList_nil] at this
+    exact this.symm
 
 /-- The rows at a guardSort simulate their fueled original. -/
 theorem projRowsC_spec (ih : SSimC mode eager env f) (henv : EnvWF env)
