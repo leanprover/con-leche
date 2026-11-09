@@ -9,7 +9,7 @@ The stages after the pass, each InLean's twin against master's pure stage on
 the translated block:
 
 * `checkBlockIdxSortsFI_run`: every member's index binders have sorts
-  (`checkBlockIdxSortsF` against master's `checkBlockIdxSorts`, through
+  (`checkBlockIdxSortsC` against master's `checkBlockIdxSorts`, through
   `checkStructFieldSortsIFI_run`).
 * `streamKCheckI_run`: the records' K flags against the generated family's
   (`recKExpected` on the translated majors, `trOut`).
@@ -27,23 +27,23 @@ open Lean InLean Std.WP ConLeche.Cached
 
 /-! ## The index sorts -/
 
-/-- **Every member's index binders have sorts** (`checkBlockIdxSortsF`):
+/-- **Every member's index binders have sorts** (`checkBlockIdxSortsC`):
 InLean's check passing means master's passes on the translated members. -/
 theorem checkBlockIdxSortsFI_run {fe : InLean.FEnv} {L : ConLeche.Env} (hO : OpsSimI fe L)
     {p : InLean.BlockShape} (hsr : okL p.resSort = true) :
     ∀ {l : List InLean.MemberShape} {s₀ s' : InLean.CState} {u : Unit},
       CSOKI .verified false L s₀ →
       (∀ ms ∈ l, okC ms.cvT.type = true ∧ (trC ms.cvT.type).looseBVarsBounded 0 = true) →
-      InLean.checkBlockIdxSortsF (sharedOpsC .verified fe) fe p l s₀ = .ok (u, s') →
+      InLean.checkBlockIdxSortsC (sharedOpsC .verified fe) fe p l s₀ = .ok (u, s') →
       CSOKI .verified false L s' ∧ TabLe s₀ s' ∧
         Runs (ConLeche.checkBlockIdxSorts (ConLeche.fueledOpsM .verified) L (trShape p)
           (l.map trMember)) ()
   | [], s₀, s', u, hs, _, h => by
-    unfold InLean.checkBlockIdxSortsF at h
+    unfold InLean.checkBlockIdxSortsC at h
     obtain ⟨-, rfl⟩ := pure_run h
     exact ⟨hs, TabLe.refl _, by unfold ConLeche.checkBlockIdxSorts; exact Runs.pure _⟩
   | ms :: rest, s₀, s', u, hs, hok, h => by
-    unfold InLean.checkBlockIdxSortsF at h
+    unfold InLean.checkBlockIdxSortsC at h
     obtain ⟨hk1, hk2⟩ := hok ms List.mem_cons_self
     obtain ⟨o, s₁, h1, h⟩ := bind_run h
     obtain ⟨tq, s₂, h2, h⟩ := bind_run h

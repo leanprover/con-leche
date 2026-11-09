@@ -100,7 +100,7 @@ structure FEnv where
   block's install); InLean's at-use readers read a marked member as those
   environments do: its capabilities at the shape's field count (`capsOf`), no
   projection table (`findProj?`, `hasTable`, `tableFields?`).  Set where the
-  formers are pushed (`checkBlockIndsF`); the job's environments are dropped
+  formers are pushed (`checkBlockIndsC`); the job's environments are dropped
   with it, so the installed block is read off its entries. -/
   pending : List (Name × Nat) := []
   /-- The resource limits (`Limits`). -/

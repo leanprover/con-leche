@@ -56,7 +56,7 @@ def structCtorResidOk (T : Name) (lps : List Name) (nP o nIdx : Nat) (cbody : Ex
   cbody.getAppNumArgsT == nP + nIdx &&
   (appArgs cbody).take nP == structPsAt o nP
 
-/-- Twin of `Expr.mentionsConst`. -/
+/-- Twin of `Expr.mentionsConst` (`mentionsAnyConstC` at one name). -/
 def mentionsConst (T : Name) (e : Expr) : CheckCM Bool := mentionsAnyConst [T] e
 
 /-! ## Sums (twins of `ConLeche.Kernel.Inductives.SumInstall`, `ConLeche.Kernel.Inductives.SumInstallF`) -/
@@ -68,8 +68,8 @@ def checkSumTele (n : Nat) (cvTa₀ : ConstantVal) : CheckCM (ConstantVal × Lev
   | _ => throw (.invalid "direct sum: type former does not reduce to a sort after its \
       parameters and indices")
 
-/-- Twin of `checkStructFieldSortsIF`. -/
-def checkStructFieldSortsIF (ops : CheckerOps) (fe : FEnv) (isProp large : Bool) (s : Level)
+/-- Twin of `checkStructFieldSortsIC`. -/
+def checkStructFieldSortsIC (ops : CheckerOps) (fe : FEnv) (isProp large : Bool) (s : Level)
     (nP : Nat) (fvs idxArgs : List Expr) : Nat → CheckCM Unit
   | 0 => pure ()
   | j + 1 => do
@@ -83,9 +83,9 @@ def checkStructFieldSortsIF (ops : CheckerOps) (fe : FEnv) (isProp large : Bool)
       unless Lvl.isEquiv u .zero == some true || idxArgs.contains fv do
         throw (.invalid "direct sum: large eliminator with a non-propositional \
           field outside the indices")
-    checkStructFieldSortsIF ops fe isProp large s nP fvs idxArgs j
+    checkStructFieldSortsIC ops fe isProp large s nP fvs idxArgs j
 
-/-- Twin of `checkStructDomsAtFA` (on lists). -/
+/-- Twin of `checkStructDomsAtC` (on lists). -/
 def checkStructDomsAtF (ops : CheckerOps) (fe : FEnv) (off : Nat) (fvs doms : List Expr) :
     Nat → CheckCM Unit
   | 0 => pure ()
@@ -96,8 +96,8 @@ def checkStructDomsAtF (ops : CheckerOps) (fe : FEnv) (off : Nat) (fvs doms : Li
       throw (.notImplemented "direct structure: binder domain mismatch")
     checkStructDomsAtF ops fe off fvs doms j
 
-/-- Twin of `checkSumCtorF`. -/
-def checkSumCtorF (ops : CheckerOps) (fe₀ fe : FEnv) (T : Name) (lps : List Name) (nP nIdx : Nat)
+/-- Twin of `checkSumCtorC`. -/
+def checkSumCtorC (ops : CheckerOps) (fe₀ fe : FEnv) (T : Name) (lps : List Name) (nP nIdx : Nat)
     (resSort : Level) (isProp large : Bool) (cvC : ConstantVal) (nF : Nat) (cvTa : ConstantVal) :
     CheckCM Unit := do
   checkConstantValF ops fe cvC
@@ -120,16 +120,16 @@ def checkSumCtorF (ops : CheckerOps) (fe₀ fe : FEnv) (T : Name) (lps : List Na
     throw (.notImplemented "direct sum: field domain after the block")
   unless ← ((appArgs xq.2).drop nP).allM (constsResolveF fe₀) do
     throw (.invalid "direct sum: index expression mentions the block")
-  checkStructFieldSortsIF ops fe isProp large resSort nP xq.1 ((appArgs xq.2).drop nP) nF
+  checkStructFieldSortsIC ops fe isProp large resSort nP xq.1 ((appArgs xq.2).drop nP) nF
 
-/-- Twin of `checkSumCtorsF`. -/
-def checkSumCtorsF (ops : CheckerOps) (fe₀ fe : FEnv) (T : Name) (lps : List Name) (nP nIdx : Nat)
+/-- Twin of `checkSumCtorsC`. -/
+def checkSumCtorsC (ops : CheckerOps) (fe₀ fe : FEnv) (T : Name) (lps : List Name) (nP nIdx : Nat)
     (resSort : Level) (isProp large : Bool) (cvTa : ConstantVal) :
     List (ConstantVal × Nat) → CheckCM Unit
   | [] => pure ()
   | c :: cs => do
-    checkSumCtorF ops fe₀ fe T lps nP nIdx resSort isProp large c.1 c.2 cvTa
-    checkSumCtorsF ops fe₀ fe T lps nP nIdx resSort isProp large cvTa cs
+    checkSumCtorC ops fe₀ fe T lps nP nIdx resSort isProp large c.1 c.2 cvTa
+    checkSumCtorsC ops fe₀ fe T lps nP nIdx resSort isProp large cvTa cs
 
 /-- Twin of `consSumCtorsF`: each constructor pushed with its counts (its
 family `T` and its position recorded as Lean's entry has them). -/
@@ -197,8 +197,8 @@ def piDomsMentionAny (names : List Name) : Expr → Bool
 def blockIsRec (p : BlockShape) : Bool :=
   p.members.any fun ms => ms.ctors.any fun c => piDomsMentionAny p.memberNames c.1.type
 
-/-- Twin of `checkBlockTeleF`. -/
-def checkBlockTeleF (ops : CheckerOps) (fe : FEnv) (nP : Nat) (ms : MemberShape) :
+/-- Twin of `checkBlockTeleC`. -/
+def checkBlockTeleC (ops : CheckerOps) (fe : FEnv) (nP : Nat) (ms : MemberShape) :
     CheckCM (ConstantVal × Level) := do
   checkConstantValF ops fe ms.cvT
   let (cvTa, s) ← checkSumTele (nP + ms.nIdx) ms.cvT
@@ -207,17 +207,17 @@ def checkBlockTeleF (ops : CheckerOps) (fe : FEnv) (nP : Nat) (ms : MemberShape)
   unless tbody == Expr.sort s do throw (.internal "direct sum: type former result sort")
   pure (cvTa, s)
 
-/-- Twin of `checkBlockTelesF`. -/
-def checkBlockTelesF (ops : CheckerOps) (fe : FEnv) (nP : Nat) :
+/-- Twin of `checkBlockTelesC`. -/
+def checkBlockTelesC (ops : CheckerOps) (fe : FEnv) (nP : Nat) :
     List MemberShape → CheckCM (List (ConstantVal × Level))
   | [] => pure []
   | ms :: rest => do
-    let r ← checkBlockTeleF ops fe nP ms
-    let rs ← checkBlockTelesF ops fe nP rest
+    let r ← checkBlockTeleC ops fe nP ms
+    let rs ← checkBlockTelesC ops fe nP rest
     pure (r :: rs)
 
-/-- Twin of `checkBlockDomsAtF`. -/
-def checkBlockDomsAtF (ops : CheckerOps) (fe : FEnv) (off : Nat) (fvs doms : List Expr) :
+/-- Twin of `checkBlockDomsAtC`. -/
+def checkBlockDomsAtC (ops : CheckerOps) (fe : FEnv) (off : Nat) (fvs doms : List Expr) :
     Nat → CheckCM Unit
   | 0 => pure ()
   | j + 1 => do
@@ -225,10 +225,10 @@ def checkBlockDomsAtF (ops : CheckerOps) (fe : FEnv) (off : Nat) (fvs doms : Lis
     let b ← unwrapOr doms[j]? (.internal "block: domain index")
     unless ← ops.isDefEq fe (off + j) (← fvarTypeD a) b do
       throw (.invalid "parameters of all inductive datatypes must match")
-    checkBlockDomsAtF ops fe off fvs doms j
+    checkBlockDomsAtC ops fe off fvs doms j
 
-/-- Twin of `checkBlockAgreeF`. -/
-def checkBlockAgreeF (ops : CheckerOps) (fe : FEnv) (nP : Nat) (cvTa0 : ConstantVal) (s0 : Level) :
+/-- Twin of `checkBlockAgreeC`. -/
+def checkBlockAgreeC (ops : CheckerOps) (fe : FEnv) (nP : Nat) (cvTa0 : ConstantVal) (s0 : Level) :
     List (ConstantVal × Level) → CheckCM Unit
   | [] => pure ()
   | (cvTa, s) :: rest => do
@@ -237,10 +237,10 @@ def checkBlockAgreeF (ops : CheckerOps) (fe : FEnv) (nP : Nat) (cvTa0 : Constant
       (.invalid "parameters of all inductive datatypes must match")
     unless tq.1.length == tq0.1.length do
       throw (.invalid "parameters of all inductive datatypes must match")
-    checkBlockDomsAtF ops fe 0 tq.1 (← tq0.1.mapM fvarTypeD) nP
+    checkBlockDomsAtC ops fe 0 tq.1 (← tq0.1.mapM fvarTypeD) nP
     unless ← liftFueled "level comparison" (Lvl.isEquiv s s0) do
       throw (.invalid "mutually inductive types must live in the same universe")
-    checkBlockAgreeF ops fe nP cvTa0 s0 rest
+    checkBlockAgreeC ops fe nP cvTa0 s0 rest
 
 /-- Twin of `consBlockIndsF`: each former pushed as the entry `blockCapsAt`
 reads back (`all`, counts, constructors, `isRec`). -/
@@ -266,40 +266,40 @@ each pushed former's name with its one constructor's field count, which
 def blockMarks (p : BlockShape) : List (Name × Nat) :=
   p.members.map fun ms => (ms.declared.name, match ms.ctors with | [c] => c.2 | _ => 0)
 
-/-- Twin of `checkBlockIndsF`.  The formers are pushed onto `fe` marked with
+/-- Twin of `checkBlockIndsC`.  The formers are pushed onto `fe` marked with
 the block (`blockMarks`): from here to the end of the job InLean reads the
 members' capabilities and projection tables as master's staged
 environments hold them. -/
-def checkBlockIndsF (ops : CheckerOps) (fe : FEnv) (p : BlockShape) (isRec : Bool) :
+def checkBlockIndsC (ops : CheckerOps) (fe : FEnv) (p : BlockShape) (isRec : Bool) :
     CheckCM (FEnv × BlockShape) :=
   match p.members with
   | [] => throw (.internal "block: no type former")
   | ms0 :: rest => do
-    let (cvTa0, s0) ← checkBlockTeleF ops fe p.nP ms0
-    let cvs ← checkBlockTelesF ops fe p.nP rest
-    checkBlockAgreeF ops fe p.nP cvTa0 s0 cvs
+    let (cvTa0, s0) ← checkBlockTeleC ops fe p.nP ms0
+    let cvs ← checkBlockTelesC ops fe p.nP rest
+    checkBlockAgreeC ops fe p.nP cvTa0 s0 cvs
     let p₁ := p.withSort s0
     pure (consBlockIndsF p₁ isRec (p.members.map (·.declared)) 0
       { fe with pending := blockMarks p₁ ++ fe.pending }, p₁)
 
-/-- Twin of `checkBlockCtorsF`. -/
-def checkBlockCtorsF (ops : CheckerOps) (fe₀ fe : FEnv) (p : BlockShape) :
+/-- Twin of `checkBlockCtorsC`. -/
+def checkBlockCtorsC (ops : CheckerOps) (fe₀ fe : FEnv) (p : BlockShape) :
     List MemberShape → CheckCM Unit
   | [] => pure ()
   | ms :: rest => do
-    checkSumCtorsF ops fe₀ fe ms.cvT.name p.lps p.nP ms.nIdx p.resSort p.isProp p.large ms.cvT
+    checkSumCtorsC ops fe₀ fe ms.cvT.name p.lps p.nP ms.nIdx p.resSort p.isProp p.large ms.cvT
       ms.ctors
-    checkBlockCtorsF ops fe₀ fe p rest
+    checkBlockCtorsC ops fe₀ fe p rest
 
-/-- Twin of `checkBlockIdxSortsF`. -/
-def checkBlockIdxSortsF (ops : CheckerOps) (fe₁ : FEnv) (p : BlockShape) :
+/-- Twin of `checkBlockIdxSortsC`. -/
+def checkBlockIdxSortsC (ops : CheckerOps) (fe₁ : FEnv) (p : BlockShape) :
     List MemberShape → CheckCM Unit
   | [] => pure ()
   | ms :: rest => do
     let tq ← unwrapOr (← openPisAtFvars (p.nP + ms.nIdx) ms.cvT.type 0)
       (.internal "direct rec: type former telescope")
-    checkStructFieldSortsIF ops fe₁ true false p.resSort p.nP (tq.1.drop p.nP) [] ms.nIdx
-    checkBlockIdxSortsF ops fe₁ p rest
+    checkStructFieldSortsIC ops fe₁ true false p.resSort p.nP (tq.1.drop p.nP) [] ms.nIdx
+    checkBlockIdxSortsC ops fe₁ p rest
 
 /-- Twin of `consBlockCtorsF`. -/
 def consBlockCtorsF (p : BlockShape) : FEnv → FEnv :=

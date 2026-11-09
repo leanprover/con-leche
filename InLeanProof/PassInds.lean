@@ -7,7 +7,7 @@ import ConLeche.Verify.Denote.IndFrame
 # O7-stages: the formers' stage against master's (task #451, lane O7-stages)
 
 `checkBlockIndsFSimI` (`checkBlockIndsS_spec`'s twin): InLean's
-`checkBlockIndsF` at `fe` answers master's `checkBlockInds` at `L` on the
+`checkBlockIndsC` at `fe` answers master's `checkBlockInds` at `L` on the
 translated shape, from the former's constant check (`CheckConstantValFSimI`,
 O6's) and the job's operations (`OpsSimI`).  Below it: the variable's type
 (`fvarTypeDI_run`), the result sort (`checkSumTele_tr`), and the members'
@@ -69,12 +69,12 @@ theorem checkBlockTeleFI_run (hC : CheckConstantValFSimI) {fe : InLean.FEnv} {L 
     (hJ : JobEnvI fe L) {nP : Nat} {ms : InLean.MemberShape} {s₀ s' : InLean.CState}
     {r : Lean.ConstantVal × Lean.Level}
     (hs : CSOKI .verified false L s₀) (hok : okC ms.cvT.type = true)
-    (h : InLean.checkBlockTeleF (sharedOpsC .verified fe) fe nP ms s₀ = .ok (r, s')) :
+    (h : InLean.checkBlockTeleC (sharedOpsC .verified fe) fe nP ms s₀ = .ok (r, s')) :
     CSOKI .verified false L s' ∧ TabLe s₀ s' ∧ r.1 = ms.cvT ∧ okL r.2 = true ∧
       (trC ms.cvT.type).looseBVarsBounded 0 = true ∧
       Runs (ConLeche.checkBlockTele (ConLeche.fueledOpsM .verified) L nP (trMember ms))
         (trCV r.1, trL r.2) := by
-  unfold InLean.checkBlockTeleF at h
+  unfold InLean.checkBlockTeleC at h
   obtain ⟨_, s₁, h1, h⟩ := bindI_ok h
   obtain ⟨hs₁, ht₁, hcl, hR1⟩ := hC fe L ms.cvT s₀ s₁ hJ hs hok h1
   obtain ⟨⟨cvTa, u⟩, s₂, h2, h⟩ := bindI_ok h
@@ -130,18 +130,18 @@ theorem checkBlockTelesFI_run (hC : CheckConstantValFSimI) {fe : InLean.FEnv} {L
     ∀ {mss : List InLean.MemberShape} {s₀ s' : InLean.CState}
       {r : List (Lean.ConstantVal × Lean.Level)},
       CSOKI .verified false L s₀ → (∀ ms ∈ mss, okC ms.cvT.type = true) →
-      InLean.checkBlockTelesF (sharedOpsC .verified fe) fe nP mss s₀ = .ok (r, s') →
+      InLean.checkBlockTelesC (sharedOpsC .verified fe) fe nP mss s₀ = .ok (r, s') →
       CSOKI .verified false L s' ∧ TabLe s₀ s' ∧ r.map Prod.fst = mss.map (·.cvT) ∧
         (∀ x ∈ r, okC x.1.type = true ∧ (trC x.1.type).looseBVarsBounded 0 = true ∧
           okL x.2 = true) ∧
         Runs (ConLeche.checkBlockTeles (ConLeche.fueledOpsM .verified) L nP (mss.map trMember))
           (r.map trTele)
   | [], s₀, s', r, hs, _, h => by
-    unfold InLean.checkBlockTelesF at h
+    unfold InLean.checkBlockTelesC at h
     obtain ⟨rfl, rfl⟩ := pureI_ok h
     exact ⟨hs, TabLe.refl _, rfl, by simp, Runs.pure _⟩
   | ms :: rest, s₀, s', r, hs, hok, h => by
-    unfold InLean.checkBlockTelesF at h
+    unfold InLean.checkBlockTelesC at h
     obtain ⟨x, s₁, h1, h⟩ := bindI_ok h
     obtain ⟨hs₁, ht₁, hx1, hl, hcl, hR1⟩ :=
       checkBlockTeleFI_run hC hJ hs (hok ms (List.mem_cons_self ..)) h1
@@ -206,15 +206,15 @@ theorem checkBlockDomsAtFI_run {fe : InLean.FEnv} {L : ConLeche.Env} (hO : OpsSi
     ∀ (j : Nat) {s₀ s' : InLean.CState} {u : Unit},
       CSOKI .verified false L s₀ → OkSL s₀ fvs = true → OkSL s₀ doms = true →
       TrSL s₀ fvs = cfvs → TrSL s₀ doms = cdoms →
-      InLean.checkBlockDomsAtF (sharedOpsC .verified fe) fe off fvs doms j s₀ = .ok (u, s') →
+      InLean.checkBlockDomsAtC (sharedOpsC .verified fe) fe off fvs doms j s₀ = .ok (u, s') →
       CSOKI .verified false L s' ∧ TabLe s₀ s' ∧
         Runs (ConLeche.checkBlockDomsAt (ConLeche.fueledOpsM .verified) L off cfvs cdoms j) ()
   | 0, s₀, s', u, hs, _, _, _, _, h => by
-    unfold InLean.checkBlockDomsAtF at h
+    unfold InLean.checkBlockDomsAtC at h
     obtain ⟨-, rfl⟩ := pureI_ok h
     exact ⟨hs, TabLe.refl _, Runs.pure _⟩
   | j + 1, s₀, s', u, hs, hokf, hokd, htf, htd, h => by
-    unfold InLean.checkBlockDomsAtF at h
+    unfold InLean.checkBlockDomsAtC at h
     obtain ⟨a, s₁, h1, hk1⟩ := bindI_ok h
     cases ha : fvs[j]? with
     | none => simp only [ha, InLean.unwrapOr] at h1; exact (throwI_ok h1).elim
@@ -291,17 +291,17 @@ theorem checkBlockAgreeFI_run {fe : InLean.FEnv} {L : ConLeche.Env} (hO : OpsSim
       CSOKI .verified false L s₀ →
       (∀ x ∈ cvs, okC x.1.type = true ∧ (trC x.1.type).looseBVarsBounded 0 = true ∧
         okL x.2 = true) →
-      InLean.checkBlockAgreeF (sharedOpsC .verified fe) fe nP cvTa0 s0 cvs s₀ = .ok (u, s') →
+      InLean.checkBlockAgreeC (sharedOpsC .verified fe) fe nP cvTa0 s0 cvs s₀ = .ok (u, s') →
       CSOKI .verified false L s' ∧ TabLe s₀ s' ∧
         Runs (ConLeche.checkBlockAgree (ConLeche.fueledOpsM .verified) L nP (trCV cvTa0) (trL s0)
           (cvs.map trTele)) ()
   | [], s₀, s', u, hs, _, h => by
-    unfold InLean.checkBlockAgreeF at h
+    unfold InLean.checkBlockAgreeC at h
     obtain ⟨-, rfl⟩ := pureI_ok h
     exact ⟨hs, TabLe.refl _, Runs.pure _⟩
   | (cvTa, sx) :: rest, s₀, s', u, hs, hall, h => by
     obtain ⟨hokx, hcx, hlx⟩ := hall _ (List.mem_cons_self ..)
-    unfold InLean.checkBlockAgreeF at h
+    unfold InLean.checkBlockAgreeC at h
     obtain ⟨r0, s₁, h1, hk1⟩ := bindI_ok h
     obtain ⟨tq0, s₁', h1', hk1'⟩ := bindI_ok hk1
     cases r0 with
@@ -392,7 +392,7 @@ theorem checkBlockIndsFI_run (hC : CheckConstantValFSimI) {fe : InLean.FEnv} {L 
     (hJ : JobEnvI fe L) {p : InLean.BlockShape} {isRec : Bool} {s₀ s' : InLean.CState}
     {fe₁ : InLean.FEnv} {p₁ : InLean.BlockShape}
     (hs : CSOKI .verified false L s₀) (hok : ∀ ms ∈ p.members, okC ms.cvT.type = true)
-    (h : InLean.checkBlockIndsF (sharedOpsC .verified fe) fe p isRec s₀ = .ok ((fe₁, p₁), s')) :
+    (h : InLean.checkBlockIndsC (sharedOpsC .verified fe) fe p isRec s₀ = .ok ((fe₁, p₁), s')) :
     CSOKI .verified false L s' ∧ TabLe s₀ s' ∧ ∃ s0, okL s0 = true ∧ p₁ = p.withSort s0 ∧
       fe₁ = InLean.consBlockIndsF p₁ isRec (p.members.map (·.declared)) 0
         { fe with pending := InLean.blockMarks p₁ ++ fe.pending } ∧
@@ -400,7 +400,7 @@ theorem checkBlockIndsFI_run (hC : CheckConstantValFSimI) {fe : InLean.FEnv} {L 
       Runs (ConLeche.checkBlockInds (ConLeche.fueledOpsM .verified) L (trShape p) isRec)
         (ConLeche.consBlockInds (trShape p₁) isRec ((trShape p).members.map (·.declared)) 0 L,
           trShape p₁) := by
-  unfold InLean.checkBlockIndsF at h
+  unfold InLean.checkBlockIndsC at h
   generalize hm : p.members = mems at h hok
   cases mems with
   | nil => exact (throwI_ok h).elim

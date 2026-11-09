@@ -18,7 +18,7 @@ functionally (`bindI_ok`), without the walks' simulation:
   constructor grouping with the block's constructors, so every constructor
   of the block is in exactly one member's group, in order; and the members'
   and recursors' counts are the block's.  The stages in front of it
-  (`reduceMembersS`, `checkBlockPassS`, `checkBlockIdxSortsF`) keep the
+  (`reduceMembersS`, `checkBlockPassS`, `checkBlockIdxSortsC`) keep the
   shape's constructors and recursors.
 -/
 
@@ -178,9 +178,9 @@ variable {μ : CheckMode} {fe : InLean.FEnv}
 
 theorem checkBlockIndsF_shape {ops : InLean.CheckerOps} {p : InLean.BlockShape} {isRec : Bool}
     {r : InLean.FEnv × InLean.BlockShape} {s s' : InLean.CState}
-    (h : (checkBlockIndsF ops fe p isRec) s = .ok (r, s')) :
+    (h : (InLean.checkBlockIndsC ops fe p isRec) s = .ok (r, s')) :
     r.2.members = p.members ∧ r.2.recs = p.recs := by
-  unfold checkBlockIndsF at h
+  unfold InLean.checkBlockIndsC at h
   cases hm : p.members with
   | nil => simp only [hm] at h; exact (throwI_ok h).elim
   | cons ms0 rest =>

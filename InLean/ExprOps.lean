@@ -784,7 +784,7 @@ def stripMDataGo : Expr → Memo → Expr × Memo
 
 def stripMData (e : Expr) : Expr := (stripMDataGo e (freshFor e)).1
 
-/-- Twin of `Expr.depthGo` (memoised), on the reading: an `mdata` node is read
+/-- Twin of `Expr.depthC` (memoised), on the reading: an `mdata` node is read
 through. -/
 def depthGo : Expr → Std.HashMap Expr Nat → Nat × Std.HashMap Expr Nat
   | e, memo =>

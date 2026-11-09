@@ -38,9 +38,9 @@ variable (mode : CheckMode)
 
 /-- Twin of `checkBlockPassS`. -/
 def checkBlockPassS (fe : FEnv) (p₀ : BlockShape) (isRec : Bool) : CheckCM BlockPass := do
-  let (fe₁, p₁) ← checkBlockIndsF (sharedOpsC mode fe) fe p₀ isRec
+  let (fe₁, p₁) ← checkBlockIndsC (sharedOpsC mode fe) fe p₀ isRec
   flushC
-  checkBlockCtorsF (sharedOpsC mode fe₁) fe₁ fe₁ p₁ p₁.members
+  checkBlockCtorsC (sharedOpsC mode fe₁) fe₁ fe₁ p₁ p₁.members
   let (ctx, holes) ← blockNestCtx p₁ fe₁
   let (rd, Ms) ← checkBlockClasses (sharedOpsC mode fe₁) fe₁ p₁ ctx.params
   let (outs, pos) ← checkBlockPositivity (sharedOpsC mode fe₁) fe₁ p₁
@@ -52,7 +52,7 @@ def checkBlockTailS (block : List ConstantInfo) (q : BlockPass) (Q : List ProjTa
     CheckCM Unit :=
   match q with
   | ⟨env₁, p, kinds, params, rd, cls, tbl⟩ => do
-  checkBlockIdxSortsF (sharedOpsC mode env₁) env₁ p p.members
+  checkBlockIdxSortsC (sharedOpsC mode env₁) env₁ p p.members
   let fe₂ := consBlockCtorsF p env₁
   flushC
   let out ← genRecCheck mode fe₂ p

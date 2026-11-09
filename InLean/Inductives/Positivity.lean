@@ -544,7 +544,7 @@ def checkAbsCtorSorts (ops : CheckerOps) (env : FEnv) (ctx : NestCtx) :
         parameters")
     let xq ← unwrapOr (← openPisAtFvars c.2 o.2 (ctx.hiAt 0))
       (.internal "direct rec: abstracted constructor fields")
-    checkStructFieldSortsIF ops env (Lvl.isEquiv ctx.sort .zero == some true) false ctx.sort
+    checkStructFieldSortsIC ops env (Lvl.isEquiv ctx.sort .zero == some true) false ctx.sort
       (ctx.hiAt 0) xq.1 [] c.2
     checkAbsCtorSorts ops env ctx cs os
   | _, _ => pure ()

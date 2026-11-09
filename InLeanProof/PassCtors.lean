@@ -8,7 +8,7 @@ import ConLeche.Verify.BridgeWfImp
 # O7-stages: the constructors' stage against master's (task #451, lane O7-stages)
 
 `checkBlockCtorsFI_run` (`checkBlockCtorsS_spec`'s twin): InLean's
-`checkBlockCtorsF` at the formers' environment answers master's pure
+`checkBlockCtorsC` at the formers' environment answers master's pure
 `checkBlockCtors` at its formers' environment, from the constructor's constant
 check (`CheckConstantValFSimI`, O6's) and the job's operations (`OpsSimI`,
 from `JobEnvI` at the formers' push, `jobEnvI_formers`).
@@ -272,17 +272,17 @@ theorem checkStructFieldSortsIFI_run {fe : InLean.FEnv} {L : ConLeche.Env} (hO :
     ∀ (j : Nat) {s₀ s' : InLean.CState} {u : Unit},
       CSOKI .verified false L s₀ → OkSL s₀ fvs = true → OkSL s₀ idx = true →
       TrSL s₀ fvs = cfvs → TrSL s₀ idx = cidx →
-      InLean.checkStructFieldSortsIF (sharedOpsC .verified fe) fe isProp large sr nP fvs idx j s₀ =
+      InLean.checkStructFieldSortsIC (sharedOpsC .verified fe) fe isProp large sr nP fvs idx j s₀ =
         .ok (u, s') →
       CSOKI .verified false L s' ∧ TabLe s₀ s' ∧
         Runs (ConLeche.checkStructFieldSortsI (ConLeche.fueledOpsM .verified) L isProp large (trL sr)
           nP cfvs cidx j) ()
   | 0, s₀, s', u, hs, _, _, _, _, h => by
-    unfold InLean.checkStructFieldSortsIF at h
+    unfold InLean.checkStructFieldSortsIC at h
     obtain ⟨-, rfl⟩ := pureI_ok h
     exact ⟨hs, TabLe.refl _, Runs.pure _⟩
   | j + 1, s₀, s', u, hs, hokf, hoki, htf, hti, h => by
-    unfold InLean.checkStructFieldSortsIF at h
+    unfold InLean.checkStructFieldSortsIC at h
     obtain ⟨a, s₁, h1, hk1⟩ := bindI_ok h
     cases ha : fvs[j]? with
     | none => simp only [ha, InLean.unwrapOr] at h1; exact (throwI_ok h1).elim
@@ -307,7 +307,7 @@ theorem checkStructFieldSortsIFI_run {fe : InLean.FEnv} {L : ConLeche.Env} (hO :
     have hwl : okL w = true := okL_of_okLv_level hokw
     have ht04 : TabLe s₀ s₄ := ht₂.trans ht₄
     have hrec : ∀ {s₅ : InLean.CState}, CSOKI .verified false L s₅ → TabLe s₄ s₅ →
-        InLean.checkStructFieldSortsIF (sharedOpsC .verified fe) fe isProp large sr nP fvs idx j s₅ =
+        InLean.checkStructFieldSortsIC (sharedOpsC .verified fe) fe isProp large sr nP fvs idx j s₅ =
           .ok (u, s') →
         CSOKI .verified false L s' ∧ TabLe s₀ s' ∧
           Runs (ConLeche.checkStructFieldSortsI (ConLeche.fueledOpsM .verified) L isProp large
@@ -390,12 +390,12 @@ theorem checkSumCtorFI_run (hC : CheckConstantValFSimI) {fe fe₀ : InLean.FEnv}
     {cvTa : Lean.ConstantVal} (hokC : okC cvC.type = true) (hokT : okC cvTa.type = true)
     (hcT : (trC cvTa.type).looseBVarsBounded 0 = true)
     {s₀ s' : InLean.CState} {u : Unit} (hs : CSOKI .verified false L s₀)
-    (h : InLean.checkSumCtorF (sharedOpsC .verified fe) fe₀ fe T lps nP nIdx sr isProp large cvC nF
+    (h : InLean.checkSumCtorC (sharedOpsC .verified fe) fe₀ fe T lps nP nIdx sr isProp large cvC nF
       cvTa s₀ = .ok (u, s')) :
     CSOKI .verified false L s' ∧ TabLe s₀ s' ∧
       Runs (ConLeche.checkSumCtor (ConLeche.fueledOpsM .verified) L L (toName T) (lps.map toName)
         nP nIdx (trL sr) isProp large (trCV cvC) nF (trCV cvTa)) () := by
-  unfold InLean.checkSumCtorF at h
+  unfold InLean.checkSumCtorC at h
   obtain ⟨_, s₁, h1, h⟩ := bindI_ok h
   obtain ⟨hs₁, ht₁, hcl, hR1⟩ := hC fe L cvC s₀ s₁ hJ hs hokC h1
   have hres : (trC cvC.type).constsResolve L = true := by
@@ -564,17 +564,17 @@ theorem checkSumCtorsFI_run (hC : CheckConstantValFSimI) {fe fe₀ : InLean.FEnv
     (hokT : okC cvTa.type = true) (hcT : (trC cvTa.type).looseBVarsBounded 0 = true) :
     ∀ {cs : List (Lean.ConstantVal × Nat)} {s₀ s' : InLean.CState} {u : Unit},
       CSOKI .verified false L s₀ → (∀ c ∈ cs, okC c.1.type = true) →
-      InLean.checkSumCtorsF (sharedOpsC .verified fe) fe₀ fe T lps nP nIdx sr isProp large cvTa cs s₀ =
+      InLean.checkSumCtorsC (sharedOpsC .verified fe) fe₀ fe T lps nP nIdx sr isProp large cvTa cs s₀ =
         .ok (u, s') →
       CSOKI .verified false L s' ∧ TabLe s₀ s' ∧
         Runs (ConLeche.checkSumCtors (ConLeche.fueledOpsM .verified) L L (toName T) (lps.map toName)
           nP nIdx (trL sr) isProp large (trCV cvTa) (cs.map trCtor)) ()
   | [], s₀, s', u, hs, _, h => by
-    unfold InLean.checkSumCtorsF at h
+    unfold InLean.checkSumCtorsC at h
     obtain ⟨-, rfl⟩ := pureI_ok h
     exact ⟨hs, TabLe.refl _, Runs.pure _⟩
   | c :: cs, s₀, s', u, hs, hok, h => by
-    unfold InLean.checkSumCtorsF at h
+    unfold InLean.checkSumCtorsC at h
     obtain ⟨_, s₁, h1, h⟩ := bindI_ok h
     obtain ⟨hs₁, ht₁, hR1⟩ := checkSumCtorFI_run hC hJ hsr (hok c List.mem_cons_self) hokT hcT hs h1
     obtain ⟨hs', ht', hR⟩ := checkSumCtorsFI_run hC hJ hsr hokT hcT hs₁
@@ -597,16 +597,16 @@ theorem checkBlockCtorsFI_run (hC : CheckConstantValFSimI) {fe fe₀ : InLean.FE
       CSOKI .verified false L s₀ →
       (∀ ms ∈ l, okC ms.cvT.type = true ∧ (trC ms.cvT.type).looseBVarsBounded 0 = true ∧
         ∀ c ∈ ms.ctors, okC c.1.type = true) →
-      InLean.checkBlockCtorsF (sharedOpsC .verified fe) fe₀ fe p l s₀ = .ok (u, s') →
+      InLean.checkBlockCtorsC (sharedOpsC .verified fe) fe₀ fe p l s₀ = .ok (u, s') →
       CSOKI .verified false L s' ∧ TabLe s₀ s' ∧
         Runs (ConLeche.checkBlockCtors (ConLeche.fueledOpsM .verified) L L (trShape p)
           (l.map trMember)) ()
   | [], s₀, s', u, hs, _, h => by
-    unfold InLean.checkBlockCtorsF at h
+    unfold InLean.checkBlockCtorsC at h
     obtain ⟨-, rfl⟩ := pureI_ok h
     exact ⟨hs, TabLe.refl _, Runs.pure _⟩
   | ms :: rest, s₀, s', u, hs, hok, h => by
-    unfold InLean.checkBlockCtorsF at h
+    unfold InLean.checkBlockCtorsC at h
     obtain ⟨hk1, hk2, hk3⟩ := hok ms List.mem_cons_self
     obtain ⟨_, s₁, h1, h⟩ := bindI_ok h
     obtain ⟨hs₁, ht₁, hR1⟩ := checkSumCtorsFI_run hC hJ hsr hk1 hk2 hs hk3 h1

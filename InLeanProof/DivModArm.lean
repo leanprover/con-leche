@@ -742,11 +742,10 @@ theorem divModCertGuard_eq {fe : InLean.FEnv} {L : ConLeche.Env} (hP : EnvPresI 
     (hv : okC annVal = true) (hp : okC proof = true) (hh : ∀ h ∈ hyps, StmtOk s L h)
     (he : StmtOk s L eqE) :
     ConLeche.divModCertGuard L (toName c) (trC annVal) (hyps.map (TrS s)) (TrS s eqE) (trC proof) =
-      InLean.divModCertGuard fe c annVal hyps eqE proof := by
+      InLean.divModCertGuard fe c annVal hyps eqE (InLean.substConstAll c annVal proof) := by
   obtain ⟨o, t⟩ := substConstAll_trC (n := c) hv hp
   obtain ⟨f1, f2, f3⟩ := flags_trC o
   unfold ConLeche.divModCertGuard InLean.divModCertGuard
-  simp only []
   rw [← t, f1, f3, trC_hasFvar, f2, constsResolve_eqC hP o, constsResolve_subst_eq hP hv he,
     List.map_map, List.all_map, List.all_map]
   congr 2
@@ -763,12 +762,13 @@ theorem divModCertsGuard_eq {fe : InLean.FEnv} {L : ConLeche.Env} (hP : EnvPresI
     (hc : InLean.natDivModNames.contains c = true) (hop : ps.op? c = some op)
     (hv : okC annVal = true) (hpr : ∀ p ∈ op.proofs, okC p = true) :
     ConLeche.divModCertsGuard (trPinSet ps) L (toName c) (trC annVal) =
-      ((InLean.divModCertStmts x y c).zip op.proofs.toList).all
+      ((InLean.divModCertStmts x y c).zip (op.proofs.toList.map (InLean.substConstAll c annVal))).all
         (fun p => InLean.divModCertGuard fe c annVal p.1.1 p.1.2 p.2) := by
   obtain ⟨-, e2, -⟩ := trPinSet_fields ps hc
   have hp2 : trOpProofs ps c = op.proofs.toList.map trC := by simp [trOpProofs, hop]
   unfold ConLeche.divModCertsGuard
-  rw [e2, hp2, ← divModCertStmts_tr hx hy hc, List.zip_map, List.all_map]
+  rw [e2, hp2, ← divModCertStmts_tr hx hy hc, List.zip_map, List.all_map, List.zip_map_right,
+    List.all_map]
   refine list_all_congr fun p hp => ?_
   obtain ⟨⟨hyps, eqE⟩, proof⟩ := p
   have hm1 := List.of_mem_zip hp
@@ -941,7 +941,8 @@ theorem checkDivModCerts_sim {fe : InLean.FEnv} {L : ConLeche.Env} (hJ : JobEnvI
     ∀ (S : List (List Expr × Expr)) (P : List Expr) {s₀ s' : InLean.CState} {b : Bool},
       CSOKI .verified false L s₀ → VarsOk s₀ x y → (∀ p ∈ S, p ∈ InLean.divModCertStmts x y c) →
       (∀ p ∈ P, okC p = true) →
-      InLean.checkDivModCerts .verified fe c annVal x y S P s₀ = .ok (b, s') →
+      InLean.checkDivModCerts .verified fe c annVal x y S (P.map (InLean.substConstAll c annVal)) s₀ =
+        .ok (b, s') →
       CSOKI .verified false L s' ∧ TabLe s₀ s' ∧
         Runs (ConLeche.checkDivModCerts (ConLeche.fueledOpsM .verified) L (toName c) (trC annVal)
           (S.map fun p => (p.1.map (TrS s₀), TrS s₀ p.2)) (P.map trC)) b := by
@@ -951,10 +952,12 @@ theorem checkDivModCerts_sim {fe : InLean.FEnv} {L : ConLeche.Env} (hJ : JobEnvI
     intro P s₀ s' b hs _ _ _ h
     cases P with
     | nil =>
+      simp only [List.map_nil] at h
       unfold InLean.checkDivModCerts at h
       obtain ⟨rfl, rfl⟩ := pureI_ok h
       exact ⟨hs, TabLe.refl _, by simp only [List.map_nil, ConLeche.checkDivModCerts]; exact Runs.pure _⟩
     | cons =>
+      simp only [List.map_cons] at h
       unfold InLean.checkDivModCerts at h
       obtain ⟨rfl, rfl⟩ := pureI_ok h
       exact ⟨hs, TabLe.refl _, by simp only [List.map_nil, List.map_cons, ConLeche.checkDivModCerts]; exact Runs.pure _⟩
@@ -963,6 +966,7 @@ theorem checkDivModCerts_sim {fe : InLean.FEnv} {L : ConLeche.Env} (hJ : JobEnvI
     obtain ⟨hyps, eqE⟩ := q
     cases P with
     | nil =>
+      simp only [List.map_nil] at h
       unfold InLean.checkDivModCerts at h
       obtain ⟨rfl, rfl⟩ := pureI_ok h
       exact ⟨hs, TabLe.refl _, by simp only [List.map_nil, List.map_cons, ConLeche.checkDivModCerts]; exact Runs.pure _⟩
@@ -979,6 +983,7 @@ theorem checkDivModCerts_sim {fe : InLean.FEnv} {L : ConLeche.Env} (hJ : JobEnvI
         fun p hp => stmtOk_all hox hoy hx hy hN c _ (hSrest p hp)
       simp only [List.map_cons, ConLeche.checkDivModCerts]
       rw [hG]
+      simp only [List.map_cons] at h
       unfold InLean.checkDivModCerts at h
       split at h
       rotate_left
@@ -1005,7 +1010,9 @@ theorem checkDivModCerts_sim {fe : InLean.FEnv} {L : ConLeche.Env} (hJ : JobEnvI
           (do
             let tp ← InLean.opInfer .verified fe 4 applied
             let l ← InLean.opDefeq .verified fe 4 tp (InLean.substConst0 c annVal eqE)
-            if l = true then InLean.checkDivModCerts .verified fe c annVal x y srest prest
+            if l = true then
+              (InLean.checkDivModCerts .verified fe c annVal x y srest
+                (prest.map (InLean.substConstAll c annVal)))
             else pure false : InLean.CheckCM Bool) s₁ = .ok (b, s') := by
         simp only [] at h
         generalize hHS : hyps.map (InLean.substConst0 c annVal) = HS at hhs h
@@ -1112,7 +1119,8 @@ theorem checkDivModPinAt_sim {fe : InLean.FEnv} {L : ConLeche.Env} (hJ : JobEnvI
     (hv : okC value = true) (hvl : (trC value).looseBVarsBounded 0 = true)
     (hN : (L.find? ConLeche.natName).isSome = true) (hg : InLean.divModPinGuard fe op = true)
     {s₀ s' : InLean.CState} {b : Bool} (hs : CSOKI .verified false L s₀) (hV : VarsOk s₀ x y)
-    (h : InLean.checkDivModPinAt .verified fe c value x y op s₀ = .ok (b, s')) :
+    (h : InLean.checkDivModPinAt .verified fe c value x y op
+      (op.proofs.toList.map (InLean.substConstAll c value)) s₀ = .ok (b, s')) :
     CSOKI .verified false L s' ∧ TabLe s₀ s' ∧
       Runs (ConLeche.checkDivModPinAt (ConLeche.fueledOpsM .verified) L (toName c) (trC value)
         (trPinSet ps)) b := by

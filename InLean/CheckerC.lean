@@ -238,7 +238,7 @@ def divModEnvGuard (fe2 : FEnv) (c : Name) : Bool :=
     | some ci => tyIs ci.type (.const boolName [])
     | none => false)
 
-/-- Twin of `divModPinGuardF`. -/
+/-- Twin of `divModPinGuardC`. -/
 def divModPinGuard (fe : FEnv) (op : PinOp) : Bool :=
   !op.pin.hasLooseBVars && !op.pin.hasFVar && !op.pin.hasLevelParam && constsResolve fe op.pin &&
   op.typePins.all fun (n, ty) =>
@@ -246,24 +246,23 @@ def divModPinGuard (fe : FEnv) (op : PinOp) : Bool :=
     | some ci => !ci.type.hasFVar && !ty.hasLooseBVars && !ty.hasFVar && constsResolve fe ty
     | none => false
 
-/-- Twin of `divModCertGuardF`. -/
+/-- Twin of `divModCertGuardC`: at the certificate's proof `sp` with the
+operation substituted (`checkDivModPinLoop` substitutes each once). -/
 def divModCertGuard (fe : FEnv) (c : Name) (annVal : Expr) (hyps : List Expr)
-    (eqE proof : Expr) : Bool :=
-  let p := substConstAll c annVal proof
-  !p.hasLooseBVars && !p.hasFVar && !p.hasLevelParam && constsResolve fe p &&
+    (eqE sp : Expr) : Bool :=
+  !sp.hasLooseBVars && !sp.hasFVar && !sp.hasLevelParam && constsResolve fe sp &&
     (hyps.map (substConst0 c annVal)).all (constsResolve fe) &&
     constsResolve fe (substConst0 c annVal eqE)
 
-/-- Twin of `checkDivModCertsF` (at depth 4: the two variables and the
-hypotheses). -/
+/-- Twin of `checkDivModCertsC` (at depth 4: the two variables and the
+hypotheses), at the substituted proofs. -/
 def checkDivModCerts (fe : FEnv) (c : Name) (annVal : Expr) (x y : Expr) :
     List (List Expr × Expr) → List Expr → CheckCM Bool
   | [], [] => pure true
-  | (hyps, eqE) :: srest, proof :: prest => do
-    if divModCertGuard fe c annVal hyps eqE proof then
-      let p := substConstAll c annVal proof
+  | (hyps, eqE) :: srest, sp :: prest => do
+    if divModCertGuard fe c annVal hyps eqE sp then
       let hs := hyps.map (substConst0 c annVal)
-      let base := mkApp2 p x y
+      let base := mkApp2 sp x y
       let applied ← match hs with
         | [h1] => pure (.app base (← mkFVarM 2 h1))
         | [h1, h2] => pure (mkApp2 base (← mkFVarM 2 h1) (← mkFVarM 3 h2))
@@ -275,7 +274,7 @@ def checkDivModCerts (fe : FEnv) (c : Name) (annVal : Expr) (x y : Expr) :
     else pure false
   | _, _ => pure false
 
-/-- Twin of `checkTypePinsF`. -/
+/-- Twin of `checkTypePinsC`. -/
 def checkTypePins (fe : FEnv) : List (Name × Expr) → CheckCM Bool
   | [] => pure true
   | (n, ty) :: rest => do
@@ -284,16 +283,17 @@ def checkTypePins (fe : FEnv) : List (Name × Expr) → CheckCM Bool
       | none => .sort .zero
     if ← opDefeq mode fe 0 stored ty then checkTypePins fe rest else pure false
 
-/-- Twin of `checkDivModPinAtF`: the type pins, then the pin, then the
-certificates. -/
-def checkDivModPinAt (fe : FEnv) (c : Name) (value' x y : Expr) (op : PinOp) : CheckCM Bool := do
+/-- Twin of `checkDivModPinAtC`: the type pins, then the pin, then the
+certificates at the substituted proofs `sps`. -/
+def checkDivModPinAt (fe : FEnv) (c : Name) (value' x y : Expr) (op : PinOp) (sps : List Expr) :
+    CheckCM Bool := do
   if ← checkTypePins mode fe op.typePins.toList then
     if ← opDefeq mode fe 0 value' op.pin then
-      checkDivModCerts mode fe c value' x y (divModCertStmts x y c) op.proofs.toList
+      checkDivModCerts mode fe c value' x y (divModCertStmts x y c) sps
     else pure false
   else pure false
 
-/-- Twin of `checkDivModPinLoopF`. -/
+/-- Twin of `checkDivModPinLoopC`: each variant's proofs substituted once. -/
 def checkDivModPinLoop (fe : FEnv) (c : Name) (value' x y : Expr) :
     List PinSet → List String → CheckCM Unit
   | [], tried =>
@@ -303,9 +303,10 @@ def checkDivModPinLoop (fe : FEnv) (c : Name) (value' x y : Expr) :
     match ps.op? c with
     | none => checkDivModPinLoop fe c value' x y rest (tried ++ [s!"{ps.toolchain}: no pin"])
     | some op =>
-      if divModPinGuard fe op && ((divModCertStmts x y c).zip op.proofs.toList).all
+      let sps := op.proofs.toList.map (substConstAll c value')
+      if divModPinGuard fe op && ((divModCertStmts x y c).zip sps).all
           (fun p => divModCertGuard fe c value' p.1.1 p.1.2 p.2) then do
-        if ← checkDivModPinAt mode fe c value' x y op then pure ()
+        if ← checkDivModPinAt mode fe c value' x y op sps then pure ()
         else
           checkDivModPinLoop fe c value' x y rest (tried ++ [s!"{ps.toolchain}: a type pin or \
             the pin not definitionally equal, or a certificate failed"])
@@ -313,7 +314,7 @@ def checkDivModPinLoop (fe : FEnv) (c : Name) (value' x y : Expr) :
         checkDivModPinLoop fe c value' x y rest
           (tried ++ [s!"{ps.toolchain}: pin or certificate ground constants absent"])
 
-/-- Twin of `checkDivModPinF` over the committed pin variants. -/
+/-- Twin of `checkDivModPinC` over the committed pin variants. -/
 def checkDivModPin (fe fe2 : FEnv) (c : Name) (value' : Expr) : CheckCM Unit := do
   unless divModEnvGuard fe2 c do
     throw (.notImplemented s!"unsupported Nat.div/mod environment ({c})")
@@ -363,7 +364,7 @@ def reduceStoredOk (fe : FEnv) (c : Name) : Bool :=
   | some ci@(.axiomInfo _) => (reduceOpPin c).matchesExact ci
   | _ => false
 
-/-- Twin of `checkReducePinF`. -/
+/-- Twin of `checkReducePinC`. -/
 def checkReducePin (fe fe2 : FEnv) (c : Name) (value : Expr) : CheckCM Unit := do
   unless reduceStoredOk fe2 c && reduceElemOk fe c do
     throw (.notImplemented s!"unsupported compiler-trust opaque declaration ({c})")

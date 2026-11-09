@@ -79,15 +79,15 @@ theorem checkSumCtorsF_fresh {ops : InLean.CheckerOps} {fe₀ fe : InLean.FEnv} 
     {lps : List Lean.Name} {nP nIdx : Nat} {sr : Lean.Level} {isProp large : Bool}
     {cvTa : Lean.ConstantVal} :
     ∀ {l : List (Lean.ConstantVal × Nat)} {s₀ s' : InLean.CState} {u : Unit},
-      InLean.checkSumCtorsF ops fe₀ fe T lps nP nIdx sr isProp large cvTa l s₀ = .ok (u, s') →
+      InLean.checkSumCtorsC ops fe₀ fe T lps nP nIdx sr isProp large cvTa l s₀ = .ok (u, s') →
       ∀ c ∈ l, fe.env.find? c.1.name = none
   | [], _, _, _, _ => by simp
   | c :: cs, s₀, s', u, h => by
-    unfold InLean.checkSumCtorsF at h
+    unfold InLean.checkSumCtorsC at h
     obtain ⟨_, _, h1, h⟩ := bindI_ok h
     intro c' hc'
     rcases List.mem_cons.1 hc' with rfl | hc'
-    · unfold InLean.checkSumCtorF at h1
+    · unfold InLean.checkSumCtorC at h1
       obtain ⟨_, _, h0, _⟩ := bindI_ok h1
       exact checkConstantValF_fresh h0
     · exact checkSumCtorsF_fresh h c' hc'
@@ -97,11 +97,11 @@ accepted constructors' stage (each constructor's `checkConstantValF`). -/
 theorem checkBlockCtorsF_fresh {ops : InLean.CheckerOps} {fe₀ fe : InLean.FEnv}
     {p : InLean.BlockShape} :
     ∀ {l : List InLean.MemberShape} {s₀ s' : InLean.CState} {u : Unit},
-      InLean.checkBlockCtorsF ops fe₀ fe p l s₀ = .ok (u, s') →
+      InLean.checkBlockCtorsC ops fe₀ fe p l s₀ = .ok (u, s') →
       ∀ ms ∈ l, ∀ c ∈ ms.ctors, fe.env.find? c.1.name = none
   | [], _, _, _, _ => by simp
   | ms :: rest, s₀, s', u, h => by
-    unfold InLean.checkBlockCtorsF at h
+    unfold InLean.checkBlockCtorsC at h
     obtain ⟨_, _, h1, h⟩ := bindI_ok h
     intro m hm
     rcases List.mem_cons.1 hm with rfl | hm
