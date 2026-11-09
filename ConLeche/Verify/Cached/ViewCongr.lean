@@ -1,10 +1,15 @@
 module
 
 public import ConLeche.Cached.ParsedC
+import ConLeche.Verify.Cached.IndBlockC
 import ConLeche.Verify.Cached.KnotCongr
 import ConLeche.Verify.Cached.PinOverlay
 import ConLeche.Verify.Cached.PinsC
 import ConLeche.Verify.Cached.BlockOverlay
+import ConLeche.Verify.Cached.WalkersC
+import ConLeche.Verify.Cached.IndTailC
+import ConLeche.Verify.Cached.IndPositivityC
+import ConLeche.Verify.Cached.IndRecC
 
 /-!
 # A record's check reads its index only through `find?`
@@ -931,20 +936,22 @@ theorem consBlockCtorsF_eq_pushAll (nP : Nat) :
 
 section Rules
 
-variable {ops : CheckerOps m} {w : StructWalkers}
+variable {ops : CheckerOps m}
 
 theorem classRuleOk_twin (h : EnvFree ops) {feT₁ feT₂ feR₁ feR₂ : FEnv}
-    (hT : w.resolve feT₁ = w.resolve feT₂) (hR : w.resolve feR₁ = w.resolve feR₂)
+    (hT : Expr.constsResolveF feT₁ = Expr.constsResolveF feT₂)
+    (hR : Expr.constsResolveF feR₁ = Expr.constsResolveF feR₂)
     (cvR : ConstantVal) (n : Nat) (gen : Expr) :
-    classRuleOk ops w feT₁ feR₁ cvR n gen = classRuleOk ops w feT₂ feR₂ cvR n gen := by
+    classRuleOk ops feT₁ feR₁ cvR n gen = classRuleOk ops feT₂ feR₂ cvR n gen := by
   unfold classRuleOk classRuleCheck
   simp only [hT, hR, h.inferType feR₁.env, h.inferType feR₂.env]
 
 theorem classRulesOk_twin (h : EnvFree ops) {feT₁ feT₂ feR₁ feR₂ : FEnv}
-    (hT : w.resolve feT₁ = w.resolve feT₂) (hR : w.resolve feR₁ = w.resolve feR₂)
+    (hT : Expr.constsResolveF feT₁ = Expr.constsResolveF feT₂)
+    (hR : Expr.constsResolveF feR₁ = Expr.constsResolveF feR₂)
     (g : ClassGen) (recOf : Nat → Option Name) (cvR : ConstantVal) (c : Nat) :
-    ∀ xs, classRulesOk ops w feT₁ feR₁ g recOf cvR c xs =
-      classRulesOk ops w feT₂ feR₂ g recOf cvR c xs
+    ∀ xs, classRulesOk ops feT₁ feR₁ g recOf cvR c xs =
+      classRulesOk ops feT₂ feR₂ g recOf cvR c xs
   | [] => rfl
   | x :: xs => by
     have ih := classRulesOk_twin h hT hR g recOf cvR c xs
@@ -952,10 +959,11 @@ theorem classRulesOk_twin (h : EnvFree ops) {feT₁ feT₂ feR₁ feR₂ : FEnv}
     simp only [classRuleOk_twin h hT hR, ih]
 
 theorem classRecsRulesOk_twin (h : EnvFree ops) {feT₁ feT₂ feR₁ feR₂ : FEnv}
-    (hT : w.resolve feT₁ = w.resolve feT₂) (hR : w.resolve feR₁ = w.resolve feR₂)
+    (hT : Expr.constsResolveF feT₁ = Expr.constsResolveF feT₂)
+    (hR : Expr.constsResolveF feR₁ = Expr.constsResolveF feR₂)
     (g : ClassGen) (recOf : Nat → Option Name) :
-    ∀ cvs cs, classRecsRulesOk ops w feT₁ feR₁ g recOf cvs cs =
-      classRecsRulesOk ops w feT₂ feR₂ g recOf cvs cs
+    ∀ cvs cs, classRecsRulesOk ops feT₁ feR₁ g recOf cvs cs =
+      classRecsRulesOk ops feT₂ feR₂ g recOf cvs cs
   | cvG :: cvs, c :: cs => by
     have ih := classRecsRulesOk_twin h hT hR g recOf cvs cs
     unfold classRecsRulesOk
@@ -979,15 +987,15 @@ theorem recTyOpened_envFree (h : EnvFree ops) (env₁ env₂ : Env) (rec : Name)
   | some (_, _), none => rfl
 
 /-- The stored recursors' check (task #431) reads its index through
-`resolve` alone, and through operations that ignore their environment. -/
+the constant-resolution gate alone, and through operations that ignore their environment. -/
 theorem streamRecsCheck_twin (h : EnvFree ops) {fe₁ fe₂ : FEnv}
-    (hR : w.resolve fe₁ = w.resolve fe₂) :
-    ∀ recs out, streamRecsCheck ops w fe₁ recs out = streamRecsCheck ops w fe₂ recs out
+    (hR : ∀ e : Expr, e.constsResolveF fe₁ = e.constsResolveF fe₂) :
+    ∀ recs out, streamRecsCheck ops fe₁ recs out = streamRecsCheck ops fe₂ recs out
   | [], [] => rfl
   | rc :: rcs, g :: gs => by
     have ih := streamRecsCheck_twin h hR rcs gs
-    have hrules : ∀ lps rec rs gs', streamRulesCheck ops w fe₁ rec lps rs gs'
-        = streamRulesCheck ops w fe₂ rec lps rs gs' := by
+    have hrules : ∀ lps rec rs gs', streamRulesCheck ops fe₁ rec lps rs gs'
+        = streamRulesCheck ops fe₂ rec lps rs gs' := by
       intro lps rec rs
       induction rs with
       | nil => intro gs'; cases gs' <;> rfl
@@ -1042,24 +1050,18 @@ theorem genRecCheck_twin {fe₁ fe₂ : FEnv} (ht : Twin fe₁ fe₂) (p : Block
   have hfe := ht.find
   have key : ∀ (Ms' : List TargetMajor) (cvGs : List ConstantVal) (recCls : List Nat)
       (g : ClassGen) (recOf : Nat → Option Name) ,
-      classRecsRulesOk
-          ((shadowOpsC mode).opsRuleR (classFeROvl p Ms' cvGs recCls fe₁))
-          (shadowOpsC mode).walkers fe₁ (classFeROvl p Ms' cvGs recCls fe₁) g recOf cvGs
-          recCls
-        = classRecsRulesOk
-          ((shadowOpsC mode).opsRuleR (classFeROvl p Ms' cvGs recCls fe₂))
-          (shadowOpsC mode).walkers fe₂ (classFeROvl p Ms' cvGs recCls fe₂) g recOf
-          cvGs recCls := by
+      classRecsRulesOk ((shadowOpsC mode).opsRuleR (classFeROvl p Ms' cvGs recCls fe₁))
+          fe₁ (classFeROvl p Ms' cvGs recCls fe₁) g recOf cvGs recCls
+        = classRecsRulesOk ((shadowOpsC mode).opsRuleR (classFeROvl p Ms' cvGs recCls fe₂))
+          fe₂ (classFeROvl p Ms' cvGs recCls fe₂) g recOf cvGs recCls := by
     intro Ms' cvGs recCls g recOf
     have hR := classFeROvl_find?_twin ht p Ms' cvGs recCls
     have hRt := classFeROvl_findTable?_twin ht p Ms' cvGs recCls
-    show classRecsRulesOk (sharedOpsRuleR mode _) structWalkersC fe₁ _ g recOf cvGs
-        recCls
-      = classRecsRulesOk (sharedOpsRuleR mode _) structWalkersC fe₂ _ g recOf cvGs
-        recCls
+    show classRecsRulesOk (sharedOpsRuleR mode _) fe₁ _ g recOf cvGs recCls
+      = classRecsRulesOk (sharedOpsRuleR mode _) fe₂ _ g recOf cvGs recCls
     rw [sharedOpsRuleR_congr mode hR hRt]
     exact classRecsRulesOk_twin (sharedOpsRuleR_envFree mode _)
-      (constsResolveFC_congr hfe) (constsResolveFC_congr hR) g recOf cvGs recCls
+      (funext (constsResolveF_congr hfe)) (funext (constsResolveF_congr hR)) g recOf cvGs recCls
   have hops : (shadowOpsC mode).opsAt fe₁ = sharedOpsC mode fe₂ :=
     sharedOpsC_congr hfe ht.findTable
   have hops₂ : (shadowOpsC mode).opsAt fe₂ = sharedOpsC mode fe₂ := rfl
@@ -1098,17 +1100,15 @@ theorem RelRun.bind_push {β : Type} {R' : β → β → Prop} {fe₁ fe₂ : FE
   RelRun.bind hx fun _ _ ⟨L, Q, h₁, h₂⟩ => h₁ ▸ h₂ ▸ hk L Q (ht.pushDelta L Q)
 
 theorem checkStructProjTableF_twin {fe₁ fe₂ : FEnv} (ht : Twin fe₁ fe₂) (t : ProjTable) :
-    checkStructProjTableF (m := CheckCM) structWalkersC t fe₁
-      = checkStructProjTableF (m := CheckCM) structWalkersC t fe₂ := by
+    checkStructProjTableF (m := CheckCM) t fe₁
+      = checkStructProjTableF (m := CheckCM) t fe₂ := by
   unfold checkStructProjTableF
-  have hres : structWalkersC.resolve fe₁ = structWalkersC.resolve fe₂ :=
-    constsResolveFC_congr ht.find
-  simp only [hres, ht.find, ht.findTable]
+  simp only [constsResolveF_congr ht.find, ht.find, ht.findTable]
 
 theorem checkBlockTablesF_twin {fe₁ fe₂ : FEnv} (ht : Twin fe₁ fe₂) :
     ∀ Q : List ProjTable,
-      checkBlockTablesF (m := CheckCM) structWalkersC fe₁ Q
-        = checkBlockTablesF (m := CheckCM) structWalkersC fe₂ Q
+      checkBlockTablesF (m := CheckCM) fe₁ Q
+        = checkBlockTablesF (m := CheckCM) fe₂ Q
   | [] => rfl
   | t :: rest => by
     unfold checkBlockTablesF
@@ -1144,6 +1144,8 @@ theorem checkBlockPassS_twin {fe₁ fe₂ : FEnv} (ht : Twin fe₁ fe₂)
     RelRun (PassRel fe₁ fe₂) (checkBlockPassS mode fe₁ p₀ isRec)
       (checkBlockPassS mode fe₂ p₀ isRec) := by
   unfold checkBlockPassS
+  simp only [checkBlockIndsC_eq, checkBlockCtorsC_eq, checkBlockClassesC_eq, blockNestCtxC_eq,
+    checkBlockPositivityC_eq, nestSeedsC_eq, classSeedsC_eq]
   refine RelRun.bind (checkBlockIndsF_twin ht.find ht.findTable p₀ isRec) ?_
   rintro ⟨a₁, p₁⟩ ⟨a₂, p₁'⟩ ⟨⟨L, Q, rfl, rfl⟩, he⟩
   simp only at he
@@ -1168,6 +1170,8 @@ theorem checkBlockTailS_twin {fe₁ fe₂ : FEnv} (ht : Twin fe₁ fe₂)
   subst hq₂
   unfold checkBlockTailS
   dsimp only
+  simp only [streamRecsCheckC_eq, checkBlockTablesC_eq, genRecCheckC_eq]
+  simp only [checkBlockIdxSortsC_eq]
   generalize p.memberCtors = memberCtors
   have htL := ht.pushDelta L Q
   have h := sharedOpsC_envFree mode (FEnv.pushDelta L Q fe₂)
@@ -1179,11 +1183,11 @@ theorem checkBlockTailS_twin {fe₁ fe₂ : FEnv} (ht : Twin fe₁ fe₂)
   have hO : ∀ X : List ConstantInfo,
       streamRecsCheck
           (sharedOpsC mode ((consBlockCtorsF p.nP memberCtors (FEnv.pushDelta L Q fe₁)).overlay
-            X.reverse)) structWalkersC
+            X.reverse))
           ((consBlockCtorsF p.nP memberCtors (FEnv.pushDelta L Q fe₁)).overlay X.reverse)
         = streamRecsCheck
           (sharedOpsC mode ((consBlockCtorsF p.nP memberCtors (FEnv.pushDelta L Q fe₂)).overlay
-            X.reverse)) structWalkersC
+            X.reverse))
           ((consBlockCtorsF p.nP memberCtors (FEnv.pushDelta L Q fe₂)).overlay X.reverse) := by
     intro X
     have hf : ((consBlockCtorsF p.nP memberCtors (FEnv.pushDelta L Q fe₁)).overlay X.reverse).find?
@@ -1199,7 +1203,7 @@ theorem checkBlockTailS_twin {fe₁ fe₂ : FEnv} (ht : Twin fe₁ fe₂)
     funext recs out
     rw [sharedOpsC_congr hf htb]
     exact streamRecsCheck_twin (sharedOpsC_envFree mode _)
-      (constsResolveFC_congr hf) recs out
+      (constsResolveF_congr hf) recs out
   simp only [sharedOpsC_congr htL.find htL.findTable, checkBlockIdxSortsF_congr h (FEnv.pushDelta L Q fe₁)
       (FEnv.pushDelta L Q fe₂), genRecCheck_twin ht₂, hO]
   rw [hL₂, hL₂, checkBlockTablesF_twin (htL.pushAll L₂)]
@@ -1211,9 +1215,9 @@ theorem reduceMemberS_congr {fe₁ fe₂ : FEnv} (hfe : fe₁.find? = fe₂.find
     (htb : fe₁.findTable? = fe₂.findTable?) (nP : Nat) (ms : MemberShape) :
     reduceMemberS mode fe₁ ms nP = reduceMemberS mode fe₂ ms nP := by
   have h := sharedOpsC_envFree mode fe₂
-  unfold reduceMemberS reducedFormer
-  simp only [sharedOpsC_congr hfe htb, checkConstantValC_congr hfe htb,
-    whnfTelescope_env h fe₁.env, whnfTelescope_env h fe₂.env, h.isDefEq fe₁.env, h.isDefEq fe₂.env]
+  simp only [reduceMemberS, reducedFormerC_eq, reducedFormer, coreKnotI_congr hfe htb,
+    sharedOpsC_congr hfe htb, checkConstantValC_congr hfe htb,
+    whnfTelescope_env h fe₁.env, whnfTelescope_env h fe₂.env]
 
 theorem reduceMembersS_congr {fe₁ fe₂ : FEnv} (hfe : fe₁.find? = fe₂.find?)
     (htb : fe₁.findTable? = fe₂.findTable?) (nP : Nat) :

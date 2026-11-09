@@ -12,7 +12,8 @@ Everything the installer decides about WHERE the block occurs in a
 constructor field lives here, and nothing about it anywhere else:
 
 * **the occurrence test** at the block's whole member list
-  (`Expr.mentionsAnyConst`, memoized by `@[csimp]`);
+  (`Expr.mentionsAnyConst`, `ConLeche/Kernel/Inductives/StructParts.lean`,
+  memoized by `@[csimp]`);
 * **the normalisation** official's `check_positivity` classifies on:
   the positivity function's own normal form (the root frame's output,
   `nestRoot`; OUTPUT only — the install stores every constructor as
@@ -36,167 +37,6 @@ syntactic (`blockIsRec`).  There is no second classifier.
 set_option linter.unusedSimpArgs false
 
 namespace ConLeche
-
-/-! ## `mentionsAnyConst`: the positivity walk's question at k names -/
-
-/-- Does any of the constants `names` occur in `e`?  A syntactic walk
-(`fvar` annotations included; a `.proj` node names its structure) —
-`Expr.mentionsConst` at a list, so that the k-ary positivity walk does
-ONE traversal per field domain and not one per member. -/
-def Expr.mentionsAnyConst (names : List Name) : Expr → Bool
-  | .bvar _ | .sort _ | .lit _ => false
-  | .const n _ => names.contains n
-  | .fvar _ ty => ty.mentionsAnyConst names
-  | .app f a => f.mentionsAnyConst names || a.mentionsAnyConst names
-  | .lam ty b | .forallE ty b => ty.mentionsAnyConst names || b.mentionsAnyConst names
-  | .letE ty v b =>
-    ty.mentionsAnyConst names || v.mentionsAnyConst names || b.mentionsAnyConst names
-  | .proj s _ e => names.contains s || e.mentionsAnyConst names
-
-/-! ### `mentionsAnyConst`, memoized
-
-`Expr.mentionsConst`'s arrangement (`ConLeche/Kernel/Inductives/StructParts.lean`):
-the tree walk does not finish on a DAG-shared field type, the memoized
-walk is swapped in by `@[csimp]`, and the pure definition stays what
-every proof consumes.  The memo is keyed by the node and dropped after
-each call (the answer depends on `names`). -/
-
-/-- The memo's invariant: every recorded answer is the real one. -/
-def MentionsAnyMemoInv (names : List Name) (memo : Std.HashMap Expr Bool) : Prop :=
-  ∀ (k : Expr) (r : Bool), memo[k]? = some r → r = k.mentionsAnyConst names
-
-theorem MentionsAnyMemoInv.empty {names : List Name} : MentionsAnyMemoInv names {} := by
-  intro k r h; simp at h
-
-theorem MentionsAnyMemoInv.insert {names : List Name} {memo : Std.HashMap Expr Bool}
-    (hm : MentionsAnyMemoInv names memo) {e : Expr} {r : Bool}
-    (heq : r = e.mentionsAnyConst names) :
-    MentionsAnyMemoInv names (memo.insert e r) := by
-  intro e' r' hk
-  rw [Std.HashMap.getElem?_insert] at hk
-  split at hk
-  · rename_i hbeq
-    cases hk
-    rw [← eq_of_beq hbeq]
-    exact heq
-  · exact hm e' r' hk
-
-/-- Memoized `mentionsAnyConst`. -/
-def Expr.mentionsAnyGo (names : List Name) (memo : Std.HashMap Expr Bool) :
-    Expr → Bool × Std.HashMap Expr Bool
-  | .bvar _ => (false, memo)
-  | .sort _ => (false, memo)
-  | .lit _ => (false, memo)
-  | .const n _ => (names.contains n, memo)
-  | e =>
-    match memo[e]? with
-    | some r => (r, memo)
-    | none =>
-      let (r, memo) : Bool × Std.HashMap Expr Bool :=
-        match e with
-        | .fvar _ ty => mentionsAnyGo names memo ty
-        | .app f a =>
-          let (b₁, memo) := mentionsAnyGo names memo f
-          let (b₂, memo) := mentionsAnyGo names memo a
-          (b₁ || b₂, memo)
-        | .lam ty body =>
-          let (b₁, memo) := mentionsAnyGo names memo ty
-          let (b₂, memo) := mentionsAnyGo names memo body
-          (b₁ || b₂, memo)
-        | .forallE ty body =>
-          let (b₁, memo) := mentionsAnyGo names memo ty
-          let (b₂, memo) := mentionsAnyGo names memo body
-          (b₁ || b₂, memo)
-        | .letE ty val body =>
-          let (b₁, memo) := mentionsAnyGo names memo ty
-          let (b₂, memo) := mentionsAnyGo names memo val
-          let (b₃, memo) := mentionsAnyGo names memo body
-          (b₁ || b₂ || b₃, memo)
-        | .proj s _ sub =>
-          let (b, memo) := mentionsAnyGo names memo sub
-          (names.contains s || b, memo)
-        | e => (e.mentionsAnyConst names, memo)
-      (r, memo.insert e r)
-
-/-- **The memoized walk is `mentionsAnyConst`.** -/
-theorem Expr.mentionsAnyGo_spec {names : List Name} :
-    ∀ (e : Expr) (memo : Std.HashMap Expr Bool), MentionsAnyMemoInv names memo →
-      (mentionsAnyGo names memo e).1 = e.mentionsAnyConst names ∧
-        MentionsAnyMemoInv names (mentionsAnyGo names memo e).2 := by
-  intro e
-  induction e with
-  | bvar i => intro memo hm; exact ⟨rfl, hm⟩
-  | sort u => intro memo hm; exact ⟨rfl, hm⟩
-  | const n us => intro memo hm; exact ⟨rfl, hm⟩
-  | lit l => intro memo hm; exact ⟨rfl, hm⟩
-  | fvar i ty ih =>
-    intro memo hm
-    rw [mentionsAnyGo]
-    split
-    · rename_i r hhit
-      exact ⟨(hm _ _ hhit).symm ▸ rfl, hm⟩
-    · obtain ⟨h1, h2⟩ := ih memo hm
-      refine ⟨by simp [mentionsAnyConst, h1], ?_⟩
-      exact h2.insert (by simp [mentionsAnyConst, h1])
-  | app a b iha ihb =>
-    intro memo hm
-    rw [mentionsAnyGo]
-    split
-    · rename_i r hhit
-      exact ⟨(hm _ _ hhit).symm ▸ rfl, hm⟩
-    · obtain ⟨h1, h2⟩ := iha memo hm
-      obtain ⟨h3, h4⟩ := ihb _ h2
-      refine ⟨by simp [mentionsAnyConst, h1, h3], ?_⟩
-      exact h4.insert (by simp [mentionsAnyConst, h1, h3])
-  | lam ty body iht ihb =>
-    intro memo hm
-    rw [mentionsAnyGo]
-    split
-    · rename_i r hhit
-      exact ⟨(hm _ _ hhit).symm ▸ rfl, hm⟩
-    · obtain ⟨h1, h2⟩ := iht memo hm
-      obtain ⟨h3, h4⟩ := ihb _ h2
-      refine ⟨by simp [mentionsAnyConst, h1, h3], ?_⟩
-      exact h4.insert (by simp [mentionsAnyConst, h1, h3])
-  | forallE ty body iht ihb =>
-    intro memo hm
-    rw [mentionsAnyGo]
-    split
-    · rename_i r hhit
-      exact ⟨(hm _ _ hhit).symm ▸ rfl, hm⟩
-    · obtain ⟨h1, h2⟩ := iht memo hm
-      obtain ⟨h3, h4⟩ := ihb _ h2
-      refine ⟨by simp [mentionsAnyConst, h1, h3], ?_⟩
-      exact h4.insert (by simp [mentionsAnyConst, h1, h3])
-  | letE ty val body iht ihv ihb =>
-    intro memo hm
-    rw [mentionsAnyGo]
-    split
-    · rename_i r hhit
-      exact ⟨(hm _ _ hhit).symm ▸ rfl, hm⟩
-    · obtain ⟨h1, h2⟩ := iht memo hm
-      obtain ⟨h3, h4⟩ := ihv _ h2
-      obtain ⟨h5, h6⟩ := ihb _ h4
-      refine ⟨by simp [mentionsAnyConst, h1, h3, h5], ?_⟩
-      exact h6.insert (by simp [mentionsAnyConst, h1, h3, h5])
-  | proj s i sub ih =>
-    intro memo hm
-    rw [mentionsAnyGo]
-    split
-    · rename_i r hhit
-      exact ⟨(hm _ _ hhit).symm ▸ rfl, hm⟩
-    · obtain ⟨h1, h2⟩ := ih memo hm
-      refine ⟨by simp [mentionsAnyConst, h1], ?_⟩
-      exact h2.insert (by simp [mentionsAnyConst, h1])
-
-/-- The executed `mentionsAnyConst` (one memoized DAG walk). -/
-def Expr.mentionsAnyConstFast (names : List Name) (e : Expr) : Bool :=
-  (mentionsAnyGo names {} e).1
-
-@[csimp] theorem Expr.mentionsAnyConst_eq_mentionsAnyConstFast :
-    @Expr.mentionsAnyConst = @Expr.mentionsAnyConstFast := by
-  funext names e
-  exact (mentionsAnyGo_spec e {} MentionsAnyMemoInv.empty).1.symm
 
 /-- Which member of the block a head expression names, at the block's
 own level parameters (official's `m_ind_cnsts` lookup): `none` at any
@@ -401,8 +241,7 @@ variable {m : Type -> Type} [Monad m] [MonadExceptOf CheckError m]
 member constants, and here also the hole variables `lo ..< hi` — a free
 variable's annotation is NOT looked into (a local's type lives in the
 local context, not in the term) and a `.proj` node's structure name is
-no occurrence.  The pure definition; the executed walk is memoised
-(`nestOccGo`, swapped in by `@[csimp]`). -/
+no occurrence.  The specification; the cached tier runs `nestOccC`. -/
 def Expr.nestOcc (names : List Name) (lo hi : Nat) : Expr → Bool
   | .bvar _ => false
   | .sort _ => false
@@ -415,173 +254,6 @@ def Expr.nestOcc (names : List Name) (lo hi : Nat) : Expr → Bool
   | .letE ty val body =>
     nestOcc names lo hi ty || nestOcc names lo hi val || nestOcc names lo hi body
   | .proj _ _ sub => nestOcc names lo hi sub
-
-/-- The occurrence walk, memoised on the node. -/
-def Expr.nestOccGo (names : List Name) (lo hi : Nat) (memo : Std.HashMap Expr Bool) :
-    Expr → Bool × Std.HashMap Expr Bool
-  | .bvar _ => (false, memo)
-  | .sort _ => (false, memo)
-  | .lit _ => (false, memo)
-  | .fvar i _ => (decide (lo ≤ i ∧ i < hi), memo)
-  | .const n _ => (names.contains n, memo)
-  | e =>
-    match memo[e]? with
-    | some r => (r, memo)
-    | none =>
-      let (r, memo) : Bool × Std.HashMap Expr Bool :=
-        match e with
-        | .app f a =>
-          let (b₁, memo) := nestOccGo names lo hi memo f
-          if b₁ then (true, memo) else nestOccGo names lo hi memo a
-        | .lam ty body =>
-          let (b₁, memo) := nestOccGo names lo hi memo ty
-          if b₁ then (true, memo) else nestOccGo names lo hi memo body
-        | .forallE ty body =>
-          let (b₁, memo) := nestOccGo names lo hi memo ty
-          if b₁ then (true, memo) else nestOccGo names lo hi memo body
-        | .letE ty val body =>
-          let (b₁, memo) := nestOccGo names lo hi memo ty
-          if b₁ then (true, memo) else
-          let (b₂, memo) := nestOccGo names lo hi memo val
-          if b₂ then (true, memo) else nestOccGo names lo hi memo body
-        | .proj _ _ sub => nestOccGo names lo hi memo sub
-        | _ => (false, memo)
-      (r, memo.insert e r)
-
-/-- The memo's invariant: every recorded answer is the real one. -/
-def NestOccMemoInv (names : List Name) (lo hi : Nat) (memo : Std.HashMap Expr Bool) : Prop :=
-  ∀ (k : Expr) (v : Bool), memo[k]? = some v → v = Expr.nestOcc names lo hi k
-
-theorem NestOccMemoInv.insert {names : List Name} {lo hi : Nat} {memo : Std.HashMap Expr Bool}
-    (hm : NestOccMemoInv names lo hi memo) {e : Expr} {r : Bool}
-    (heq : r = e.nestOcc names lo hi) : NestOccMemoInv names lo hi (memo.insert e r) := by
-  intro k v hk
-  rw [Std.HashMap.getElem?_insert] at hk
-  split at hk
-  · rename_i hbeq
-    cases hk
-    rw [← eq_of_beq hbeq]
-    exact heq
-  · exact hm k v hk
-
-/-- **The memoised walk is `nestOcc`.** -/
-theorem Expr.nestOccGo_spec {names : List Name} {lo hi : Nat} :
-    ∀ (e : Expr) {memo : Std.HashMap Expr Bool}, NestOccMemoInv names lo hi memo →
-      (e.nestOccGo names lo hi memo).1 = e.nestOcc names lo hi ∧
-        NestOccMemoInv names lo hi (e.nestOccGo names lo hi memo).2 := by
-  intro e
-  induction e with
-  | bvar i => intro memo hm; exact ⟨rfl, hm⟩
-  | sort u => intro memo hm; exact ⟨rfl, hm⟩
-  | lit l => intro memo hm; exact ⟨rfl, hm⟩
-  | const n us => intro memo hm; exact ⟨rfl, hm⟩
-  | fvar i ty _ => intro memo hm; exact ⟨rfl, hm⟩
-  | app a b iha ihb =>
-    intro memo hm
-    rw [Expr.nestOccGo]
-    split
-    · rename_i r hhit
-      exact ⟨(hm _ _ hhit), hm⟩
-    · obtain ⟨h1, h2⟩ := iha hm
-      obtain ⟨h3, h4⟩ := ihb h2
-      dsimp only
-      by_cases hb : (a.nestOccGo names lo hi memo).1 = true
-      · rw [ite_eq_left hb]
-        have : Expr.nestOcc names lo hi (.app a b) = true := by
-          simp [Expr.nestOcc, ← h1, hb]
-        exact ⟨this.symm, h2.insert this.symm⟩
-      · rw [ite_eq_right hb]
-        have ha : a.nestOcc names lo hi = false := by rw [← h1]; simpa using hb
-        have : Expr.nestOcc names lo hi (.app a b) = (b.nestOccGo names lo hi (a.nestOccGo names lo hi memo).2).1 := by
-          simp [Expr.nestOcc, ha, h3]
-        exact ⟨this.symm, h4.insert this.symm⟩
-  | lam ty body iht ihb =>
-    intro memo hm
-    rw [Expr.nestOccGo]
-    split
-    · rename_i r hhit
-      exact ⟨(hm _ _ hhit), hm⟩
-    · obtain ⟨h1, h2⟩ := iht hm
-      obtain ⟨h3, h4⟩ := ihb h2
-      dsimp only
-      by_cases hb : (ty.nestOccGo names lo hi memo).1 = true
-      · rw [ite_eq_left hb]
-        have : Expr.nestOcc names lo hi (.lam ty body) = true := by
-          simp [Expr.nestOcc, ← h1, hb]
-        exact ⟨this.symm, h2.insert this.symm⟩
-      · rw [ite_eq_right hb]
-        have ha : ty.nestOcc names lo hi = false := by rw [← h1]; simpa using hb
-        have : Expr.nestOcc names lo hi (.lam ty body) = (body.nestOccGo names lo hi (ty.nestOccGo names lo hi memo).2).1 := by
-          simp [Expr.nestOcc, ha, h3]
-        exact ⟨this.symm, h4.insert this.symm⟩
-  | forallE ty body iht ihb =>
-    intro memo hm
-    rw [Expr.nestOccGo]
-    split
-    · rename_i r hhit
-      exact ⟨(hm _ _ hhit), hm⟩
-    · obtain ⟨h1, h2⟩ := iht hm
-      obtain ⟨h3, h4⟩ := ihb h2
-      dsimp only
-      by_cases hb : (ty.nestOccGo names lo hi memo).1 = true
-      · rw [ite_eq_left hb]
-        have : Expr.nestOcc names lo hi (.forallE ty body) = true := by
-          simp [Expr.nestOcc, ← h1, hb]
-        exact ⟨this.symm, h2.insert this.symm⟩
-      · rw [ite_eq_right hb]
-        have ha : ty.nestOcc names lo hi = false := by rw [← h1]; simpa using hb
-        have : Expr.nestOcc names lo hi (.forallE ty body)
-            = (body.nestOccGo names lo hi (ty.nestOccGo names lo hi memo).2).1 := by
-          simp [Expr.nestOcc, ha, h3]
-        exact ⟨this.symm, h4.insert this.symm⟩
-  | letE ty v body iht ihv ihb =>
-    intro memo hm
-    rw [Expr.nestOccGo]
-    split
-    · rename_i r hhit
-      exact ⟨(hm _ _ hhit), hm⟩
-    · obtain ⟨h1, h2⟩ := iht hm
-      dsimp only
-      by_cases hb : (ty.nestOccGo names lo hi memo).1 = true
-      · rw [ite_eq_left hb]
-        have : Expr.nestOcc names lo hi (.letE ty v body) = true := by
-          simp [Expr.nestOcc, ← h1, hb]
-        exact ⟨this.symm, h2.insert this.symm⟩
-      · rw [ite_eq_right hb]
-        have ha : ty.nestOcc names lo hi = false := by rw [← h1]; simpa using hb
-        obtain ⟨h3, h4⟩ := ihv h2
-        by_cases hb2 : (v.nestOccGo names lo hi (ty.nestOccGo names lo hi memo).2).1 = true
-        · rw [ite_eq_left hb2]
-          have : Expr.nestOcc names lo hi (.letE ty v body) = true := by
-            simp [Expr.nestOcc, ha, ← h3, hb2]
-          exact ⟨this.symm, h4.insert this.symm⟩
-        · rw [ite_eq_right hb2]
-          have hv : v.nestOcc names lo hi = false := by rw [← h3]; simpa using hb2
-          obtain ⟨h5, h6⟩ := ihb h4
-          have : Expr.nestOcc names lo hi (.letE ty v body)
-              = (body.nestOccGo names lo hi
-                (v.nestOccGo names lo hi (ty.nestOccGo names lo hi memo).2).2).1 := by
-            simp [Expr.nestOcc, ha, hv, h5]
-          exact ⟨this.symm, h6.insert this.symm⟩
-  | proj s i sub ih =>
-    intro memo hm
-    rw [Expr.nestOccGo]
-    split
-    · rename_i r hhit
-      exact ⟨(hm _ _ hhit), hm⟩
-    · obtain ⟨h1, h2⟩ := ih hm
-      dsimp only
-      have : Expr.nestOcc names lo hi (.proj s i sub) = (sub.nestOccGo names lo hi memo).1 := by
-        simp [Expr.nestOcc, h1]
-      exact ⟨this.symm, h2.insert this.symm⟩
-
-/-- `nestOccGo` from an empty memo: the executed `nestOcc`. -/
-def Expr.nestOccFast (names : List Name) (lo hi : Nat) (e : Expr) : Bool :=
-  (e.nestOccGo names lo hi {}).1
-
-@[csimp] theorem Expr.nestOcc_eq_nestOccFast : @Expr.nestOcc = @Expr.nestOccFast := by
-  funext names lo hi e
-  exact (Expr.nestOccGo_spec e (fun k v h => by simp at h)).1.symm
 
 /-- Instantiate the leading `Π` binders of `e` at `args`, in order
 (the parameters of a constructor or a type former). -/
@@ -627,43 +299,16 @@ the value: the functions' theorems hold at every fuel. -/
 /-- The fuel's slack above the term's depth (see the section header). -/
 def fuelSlack : Nat := 1024
 
-/-- `Expr.depth`'s memoised walk: every node is visited once (the memo
-is keyed by the node), so a DAG costs its distinct nodes, never its
-unfolding. -/
-def Expr.depthGo (memo : Std.HashMap Expr Nat) : Expr → Nat × Std.HashMap Expr Nat
-  | .bvar _ => (1, memo)
-  | .fvar .. => (1, memo)
-  | .sort _ => (1, memo)
-  | .const .. => (1, memo)
-  | .lit _ => (1, memo)
-  | e =>
-    match memo[e]? with
-    | some r => (r, memo)
-    | none =>
-      let (r, memo) : Nat × Std.HashMap Expr Nat :=
-        match e with
-        | .app f a =>
-          let (d₁, memo) := depthGo memo f
-          let (d₂, memo) := depthGo memo a
-          (max d₁ d₂ + 1, memo)
-        | .lam ty body | .forallE ty body =>
-          let (d₁, memo) := depthGo memo ty
-          let (d₂, memo) := depthGo memo body
-          (max d₁ d₂ + 1, memo)
-        | .letE ty v body =>
-          let (d₁, memo) := depthGo memo ty
-          let (d₂, memo) := depthGo memo v
-          let (d₃, memo) := depthGo memo body
-          (max (max d₁ d₂) d₃ + 1, memo)
-        | .proj _ _ x =>
-          let (d, memo) := depthGo memo x
-          (d + 1, memo)
-        | _ => (1, memo)
-      (r, memo.insert e r)
-
-/-- A term's depth (the longest root-to-leaf path; `fvar` annotations
-not descended), memoised. -/
-def Expr.depth (e : Expr) : Nat := (e.depthGo {}).1
+/-- A term's depth: the longest root-to-leaf path (`fvar` annotations
+not descended).  The executed form is the cached tier's memoised
+`Expr.depthC` (`depthC_spec`). -/
+def Expr.depth : Expr → Nat
+  | .app f a => max f.depth a.depth + 1
+  | .lam ty body => max ty.depth body.depth + 1
+  | .forallE ty body => max ty.depth body.depth + 1
+  | .letE ty v body => max (max ty.depth v.depth) body.depth + 1
+  | .proj _ _ x => x.depth + 1
+  | _ => 1
 
 /-- **The fuel of a walk through whnf** starting at `e`: its depth plus
 the slack (see the section header). -/
@@ -832,131 +477,6 @@ def Expr.replaceFVars (f : Nat → Option Expr) : Expr → Expr
   | .lit l => .lit l
   | .proj s i e => .proj s i (replaceFVars f e)
 
-/-- The memo's invariant: every recorded answer is the real one. -/
-def ReplaceFVarsMemoInv (f : Nat → Option Expr) (memo : Std.HashMap Expr Expr) : Prop :=
-  ∀ k v, memo[k]? = some v → v = Expr.replaceFVars f k
-
-theorem ReplaceFVarsMemoInv.insert {f : Nat → Option Expr} {memo : Std.HashMap Expr Expr}
-    (hm : ReplaceFVarsMemoInv f memo) {e r : Expr} (heq : r = Expr.replaceFVars f e) :
-    ReplaceFVarsMemoInv f (memo.insert e r) := by
-  intro k v hk
-  rw [Std.HashMap.getElem?_insert] at hk
-  split at hk
-  · rename_i hbeq
-    cases hk
-    rw [← eq_of_beq hbeq]
-    exact heq
-  · exact hm k v hk
-
-/-- Memoized `replaceFVars`. -/
-def Expr.replaceFVarsGo (f : Nat → Option Expr) (memo : Std.HashMap Expr Expr) :
-    Expr → Expr × Std.HashMap Expr Expr
-  | e@(.bvar _) => (e, memo)
-  | e@(.sort _) => (e, memo)
-  | e@(.lit _) => (e, memo)
-  | e@(.const ..) => (e, memo)
-  | .fvar i ty => ((f i).getD (.fvar i ty), memo)
-  | e =>
-    match memo[e]? with
-    | some r => (r, memo)
-    | none =>
-      let (r, memo) : Expr × Std.HashMap Expr Expr :=
-        match e with
-        | .app a b =>
-          let (a', memo) := replaceFVarsGo f memo a
-          let (b', memo) := replaceFVarsGo f memo b
-          (.app a' b', memo)
-        | .lam ty body =>
-          let (t, memo) := replaceFVarsGo f memo ty
-          let (b, memo) := replaceFVarsGo f memo body
-          (.lam t b, memo)
-        | .forallE ty body =>
-          let (t, memo) := replaceFVarsGo f memo ty
-          let (b, memo) := replaceFVarsGo f memo body
-          (.forallE t b, memo)
-        | .letE ty v body =>
-          let (t, memo) := replaceFVarsGo f memo ty
-          let (v', memo) := replaceFVarsGo f memo v
-          let (b, memo) := replaceFVarsGo f memo body
-          (.letE t v' b, memo)
-        | .proj s i sub =>
-          let (u, memo) := replaceFVarsGo f memo sub
-          (.proj s i u, memo)
-        | e => (e, memo)
-      (r, memo.insert e r)
-
-/-- **The memoized walk is `replaceFVars`.** -/
-theorem Expr.replaceFVarsGo_spec {f : Nat → Option Expr} :
-    ∀ (e : Expr) {memo : Std.HashMap Expr Expr}, ReplaceFVarsMemoInv f memo →
-      (Expr.replaceFVarsGo f memo e).1 = Expr.replaceFVars f e ∧
-        ReplaceFVarsMemoInv f (Expr.replaceFVarsGo f memo e).2 := by
-  intro e
-  induction e with
-  | bvar i => intro memo hm; exact ⟨rfl, hm⟩
-  | sort u => intro memo hm; exact ⟨rfl, hm⟩
-  | lit l => intro memo hm; exact ⟨rfl, hm⟩
-  | const n us => intro memo hm; exact ⟨rfl, hm⟩
-  | fvar i ty _ => intro memo hm; exact ⟨rfl, hm⟩
-  | app a b iha ihb =>
-    intro memo hm
-    rw [Expr.replaceFVarsGo]
-    split
-    · rename_i r hhit
-      exact ⟨(hm _ _ hhit).symm ▸ rfl, hm⟩
-    · obtain ⟨h1, h2⟩ := iha hm
-      obtain ⟨h3, h4⟩ := ihb h2
-      refine ⟨by simp [Expr.replaceFVars, h1, h3], ?_⟩
-      exact h4.insert (by simp [Expr.replaceFVars, h1, h3])
-  | lam ty body iht ihb =>
-    intro memo hm
-    rw [Expr.replaceFVarsGo]
-    split
-    · rename_i r hhit
-      exact ⟨(hm _ _ hhit).symm ▸ rfl, hm⟩
-    · obtain ⟨h1, h2⟩ := iht hm
-      obtain ⟨h3, h4⟩ := ihb h2
-      refine ⟨by simp [Expr.replaceFVars, h1, h3], ?_⟩
-      exact h4.insert (by simp [Expr.replaceFVars, h1, h3])
-  | forallE ty body iht ihb =>
-    intro memo hm
-    rw [Expr.replaceFVarsGo]
-    split
-    · rename_i r hhit
-      exact ⟨(hm _ _ hhit).symm ▸ rfl, hm⟩
-    · obtain ⟨h1, h2⟩ := iht hm
-      obtain ⟨h3, h4⟩ := ihb h2
-      refine ⟨by simp [Expr.replaceFVars, h1, h3], ?_⟩
-      exact h4.insert (by simp [Expr.replaceFVars, h1, h3])
-  | letE ty v body iht ihv ihb =>
-    intro memo hm
-    rw [Expr.replaceFVarsGo]
-    split
-    · rename_i r hhit
-      exact ⟨(hm _ _ hhit).symm ▸ rfl, hm⟩
-    · obtain ⟨h1, h2⟩ := iht hm
-      obtain ⟨h3, h4⟩ := ihv h2
-      obtain ⟨h5, h6⟩ := ihb h4
-      refine ⟨by simp [Expr.replaceFVars, h1, h3, h5], ?_⟩
-      exact h6.insert (by simp [Expr.replaceFVars, h1, h3, h5])
-  | proj s i sub ih =>
-    intro memo hm
-    rw [Expr.replaceFVarsGo]
-    split
-    · rename_i r hhit
-      exact ⟨(hm _ _ hhit).symm ▸ rfl, hm⟩
-    · obtain ⟨h1, h2⟩ := ih hm
-      refine ⟨by simp [Expr.replaceFVars, h1], ?_⟩
-      exact h2.insert (by simp [Expr.replaceFVars, h1])
-
-/-- The executed `replaceFVars` (one memoized DAG walk). -/
-def Expr.replaceFVarsFast (f : Nat → Option Expr) (e : Expr) : Expr :=
-  (Expr.replaceFVarsGo f {} e).1
-
-@[csimp] theorem Expr.replaceFVars_eq_replaceFVarsFast :
-    @Expr.replaceFVars = @Expr.replaceFVarsFast := by
-  funext f e
-  exact (Expr.replaceFVarsGo_spec e (fun k v h => by simp at h)).1.symm
-
 /-- **The holes read back** under the frames `prog` (innermost first):
 every hole stands for its entry's WHOLE application — member `m`'s hole
 `nP + m` for `T_m.{lps} p⃗` (the canonical parameters), a frame's hole
@@ -1006,8 +526,8 @@ def Expr.appHole? (f : Name → List Level → Option Expr) (b n : Nat) (e : Exp
 /-- **The whole-application replacement**, pre-order: a subterm that is a
 whole application `f` maps is replaced by its image, not descended into;
 free variables are leaves (their annotations are not descended into).
-The executed walk is memoised (`replaceAppsGo`, swapped in by
-`@[csimp]`). -/
+The executed walk is the cached tier's memoised `Expr.replaceAppsC`
+(`replaceAppsC_spec`). -/
 def Expr.replaceApps (f : Name → List Level → Option Expr) (b n : Nat) : Expr → Expr
   | .app a x => ((Expr.app a x).appHole? f b n).getD
       (.app (replaceApps f b n a) (replaceApps f b n x))
@@ -1021,143 +541,6 @@ def Expr.replaceApps (f : Name → List Level → Option Expr) (b n : Nat) : Exp
   | .fvar i ty => .fvar i ty
   | .sort u => .sort u
   | .lit l => .lit l
-
-/-- The memo's invariant: every recorded answer is the real one. -/
-def ReplaceAppsMemoInv (f : Name → List Level → Option Expr) (b n : Nat)
-    (memo : Std.HashMap Expr Expr) : Prop :=
-  ∀ k v, memo[k]? = some v → v = Expr.replaceApps f b n k
-
-theorem ReplaceAppsMemoInv.insert {f : Name → List Level → Option Expr} {b n : Nat}
-    {memo : Std.HashMap Expr Expr} (hm : ReplaceAppsMemoInv f b n memo) {e r : Expr}
-    (heq : r = Expr.replaceApps f b n e) : ReplaceAppsMemoInv f b n (memo.insert e r) := by
-  intro k v hk
-  rw [Std.HashMap.getElem?_insert] at hk
-  split at hk
-  · rename_i hbeq
-    cases hk
-    rw [← eq_of_beq hbeq]
-    exact heq
-  · exact hm k v hk
-
-/-- The memoised `replaceApps`. -/
-def Expr.replaceAppsGo (f : Name → List Level → Option Expr) (b n : Nat)
-    (memo : Std.HashMap Expr Expr) : Expr → Expr × Std.HashMap Expr Expr
-  | e@(.bvar _) => (e, memo)
-  | e@(.sort _) => (e, memo)
-  | e@(.lit _) => (e, memo)
-  | e@(.fvar ..) => (e, memo)
-  | .const c us => (((Expr.const c us).appHole? f b n).getD (.const c us), memo)
-  | e =>
-    match memo[e]? with
-    | some r => (r, memo)
-    | none =>
-      let (r, memo) : Expr × Std.HashMap Expr Expr :=
-        match e with
-        | .app a x =>
-          match (Expr.app a x).appHole? f b n with
-          | some h => (h, memo)
-          | none =>
-            let (a', memo) := replaceAppsGo f b n memo a
-            let (x', memo) := replaceAppsGo f b n memo x
-            (.app a' x', memo)
-        | .lam t body =>
-          let (t', memo) := replaceAppsGo f b n memo t
-          let (body', memo) := replaceAppsGo f b n memo body
-          (.lam t' body', memo)
-        | .forallE t body =>
-          let (t', memo) := replaceAppsGo f b n memo t
-          let (body', memo) := replaceAppsGo f b n memo body
-          (.forallE t' body', memo)
-        | .letE t v body =>
-          let (t', memo) := replaceAppsGo f b n memo t
-          let (v', memo) := replaceAppsGo f b n memo v
-          let (body', memo) := replaceAppsGo f b n memo body
-          (.letE t' v' body', memo)
-        | .proj s i x =>
-          let (x', memo) := replaceAppsGo f b n memo x
-          (.proj s i x', memo)
-        | e => (e, memo)
-      (r, memo.insert e r)
-
-/-- **The memoised walk is `replaceApps`.** -/
-theorem Expr.replaceAppsGo_spec {f : Name → List Level → Option Expr} {b n : Nat} :
-    ∀ (e : Expr) {memo : Std.HashMap Expr Expr}, ReplaceAppsMemoInv f b n memo →
-      (Expr.replaceAppsGo f b n memo e).1 = Expr.replaceApps f b n e ∧
-        ReplaceAppsMemoInv f b n (Expr.replaceAppsGo f b n memo e).2 := by
-  intro e
-  induction e with
-  | bvar i => intro memo hm; exact ⟨rfl, hm⟩
-  | sort u => intro memo hm; exact ⟨rfl, hm⟩
-  | lit l => intro memo hm; exact ⟨rfl, hm⟩
-  | const c us => intro memo hm; exact ⟨rfl, hm⟩
-  | fvar i ty _ => intro memo hm; exact ⟨rfl, hm⟩
-  | app a x iha ihx =>
-    intro memo hm
-    rw [Expr.replaceAppsGo]
-    split
-    · rename_i r hhit
-      exact ⟨(hm _ _ hhit).symm ▸ rfl, hm⟩
-    · dsimp only
-      split
-      · rename_i h hh
-        have : Expr.replaceApps f b n (.app a x) = h := by simp [Expr.replaceApps, hh]
-        exact ⟨this.symm, hm.insert this.symm⟩
-      · rename_i hh
-        obtain ⟨h1, h2⟩ := iha hm
-        obtain ⟨h3, h4⟩ := ihx h2
-        have : Expr.replaceApps f b n (.app a x) = .app (Expr.replaceAppsGo f b n memo a).1
-            (Expr.replaceAppsGo f b n (Expr.replaceAppsGo f b n memo a).2 x).1 := by
-          simp [Expr.replaceApps, hh, h1, h3]
-        exact ⟨this.symm, h4.insert this.symm⟩
-  | lam t body iht ihb =>
-    intro memo hm
-    rw [Expr.replaceAppsGo]
-    split
-    · rename_i r hhit
-      exact ⟨(hm _ _ hhit).symm ▸ rfl, hm⟩
-    · obtain ⟨h1, h2⟩ := iht hm
-      obtain ⟨h3, h4⟩ := ihb h2
-      refine ⟨by simp [Expr.replaceApps, h1, h3], ?_⟩
-      exact h4.insert (by simp [Expr.replaceApps, h1, h3])
-  | forallE t body iht ihb =>
-    intro memo hm
-    rw [Expr.replaceAppsGo]
-    split
-    · rename_i r hhit
-      exact ⟨(hm _ _ hhit).symm ▸ rfl, hm⟩
-    · obtain ⟨h1, h2⟩ := iht hm
-      obtain ⟨h3, h4⟩ := ihb h2
-      refine ⟨by simp [Expr.replaceApps, h1, h3], ?_⟩
-      exact h4.insert (by simp [Expr.replaceApps, h1, h3])
-  | letE t v body iht ihv ihb =>
-    intro memo hm
-    rw [Expr.replaceAppsGo]
-    split
-    · rename_i r hhit
-      exact ⟨(hm _ _ hhit).symm ▸ rfl, hm⟩
-    · obtain ⟨h1, h2⟩ := iht hm
-      obtain ⟨h3, h4⟩ := ihv h2
-      obtain ⟨h5, h6⟩ := ihb h4
-      refine ⟨by simp [Expr.replaceApps, h1, h3, h5], ?_⟩
-      exact h6.insert (by simp [Expr.replaceApps, h1, h3, h5])
-  | proj s i x ih =>
-    intro memo hm
-    rw [Expr.replaceAppsGo]
-    split
-    · rename_i r hhit
-      exact ⟨(hm _ _ hhit).symm ▸ rfl, hm⟩
-    · obtain ⟨h1, h2⟩ := ih hm
-      refine ⟨by simp [Expr.replaceApps, h1], ?_⟩
-      exact h2.insert (by simp [Expr.replaceApps, h1])
-
-/-- The executed `replaceApps` (one memoised DAG walk). -/
-def Expr.replaceAppsFast (f : Name → List Level → Option Expr) (b n : Nat) (e : Expr) : Expr :=
-  (Expr.replaceAppsGo f b n {} e).1
-
-@[csimp] theorem Expr.replaceApps_eq_replaceAppsFast :
-    @Expr.replaceApps = @Expr.replaceAppsFast := by
-  funext f b n e
-  exact (Expr.replaceAppsGo_spec e (fun k v h => by simp at h)).1.symm
 
 /-- The canonical parameter variables `fvar 0, …, fvar (n - 1)`. -/
 def nestPhs (n : Nat) : List Expr := (List.range n).map fun i => .fvar i (.sort .zero)

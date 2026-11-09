@@ -2,6 +2,7 @@ module
 
 public import ConLeche.Verify.Cached.BinderLoopC
 import ConLeche.Verify.BetaSpine
+import ConLeche.Verify.Cached.IndWalksC
 public import ConLeche.Verify.ProjGuard
 
 public section
@@ -437,14 +438,6 @@ theorem projGuardSortC_spec (ih : SSimC mode eager env f) {cvT : ConstantVal} {c
   sym only [conleche_grind, projGuardSort] =>
     vcgen [projGuardSortI, instLevelParamsM, formerSortLoopC_spec ih] <;> finish
 
-/-- The cached occurrence test is `Expr.hasLooseBVarB` (task #497). -/
-theorem hasLooseBVarBC_spec {i : Nat} {e : Expr} :
-    Expr.hasLooseBVarBC i e = Expr.hasLooseBVarB i e := by
-  unfold Expr.hasLooseBVarBC
-  split
-  · next h => exact (Expr.hasLooseBVarBP_cut h).symm
-  · rw [Expr.resBool_eq]; rfl
-
 /-- The cached guard rows are the kernel's (task #497). -/
 theorem projGuardRowsGoC_eq :
     ∀ (k d : Nat) (e : Expr), projGuardRowsGoC k d e = projGuardRowsGo k d e
@@ -458,37 +451,6 @@ theorem projGuardRowsGoC_eq :
   | _ + 1, _, .bvar _ | _ + 1, _, .fvar .. | _ + 1, _, .sort _ | _ + 1, _, .const ..
   | _ + 1, _, .app .. | _ + 1, _, .lam .. | _ + 1, _, .letE .. | _ + 1, _, .lit _
   | _ + 1, _, .proj .. => rfl
-
-/-- The cached opening loop is the kernel's. -/
-theorem openPisAtFvarsGoC_eq :
-    ∀ (acc : List Expr) (n : Nat) (e : Expr) (i : Nat),
-      openPisAtFvarsGoC acc n e i = openPisAtFvarsFGo acc n e i
-  | _, 0, _, _ => by simp only [openPisAtFvarsGoC, openPisAtFvarsFGo, Expr.instantiateListC_spec]
-  | acc, n + 1, .forallE dom body, i => by
-    simp only [openPisAtFvarsGoC, openPisAtFvarsFGo, Expr.instantiateListC_spec,
-      openPisAtFvarsGoC_eq _ n body (i + 1)]
-    cases openPisAtFvarsFGo (.fvar i (dom.instantiateList acc) :: acc) n body (i + 1) <;> rfl
-  | _, _ + 1, .bvar _, _ => rfl
-  | _, _ + 1, .fvar .., _ => rfl
-  | _, _ + 1, .sort _, _ => rfl
-  | _, _ + 1, .const .., _ => rfl
-  | _, _ + 1, .app .., _ => rfl
-  | _, _ + 1, .lam .., _ => rfl
-  | _, _ + 1, .letE .., _ => rfl
-  | _, _ + 1, .lit _, _ => rfl
-  | _, _ + 1, .proj .., _ => rfl
-
-/-- The cached one-pass telescope opening is `openPisAtFvars`. -/
-theorem openPisAtFvarsC_eq (n : Nat) (e : Expr) (i : Nat) :
-    openPisAtFvarsC n e i = openPisAtFvars n e i := by
-  unfold openPisAtFvarsC
-  rw [openPisAtFvarsGoC_eq]
-  match h : openPisAtFvarsFGo [] n e i with
-  | some r =>
-    have := openPisAtFvarsFGo_sound n e i [] h
-    rw [Expr.instantiateList_nil] at this
-    exact this.symm
-  | none => rfl
 
 /-- The rows at a guardSort simulate their fueled original. -/
 theorem projRowsC_spec (ih : SSimC mode eager env f) (henv : EnvWF env)

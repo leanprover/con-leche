@@ -1322,7 +1322,7 @@
 # tower_struct (task #215, wired by task #210 Part B): the tower in a
 # structure's constructor field type.  The block installs through the
 # fixpoint route, where every walk the install asks of the field type
-# is DAG-safe (`@[csimp]` memos: `Expr.mentionsConst`,
+# is DAG-safe (`@[csimp]` memos: `Expr.mentionsAnyConst`,
 # `liftLooseBVars`, `instantiateList`, `allLevelParamsDefined`,
 # `constsResolveF`; the range-field reads `looseBVarsBounded`,
 # `hasFvar`) and the constant walks go through `constsResolveFC`
@@ -1375,7 +1375,7 @@
 # (`Kernel/Inductives/StructParts.lean`) and, once past it, the pure
 # rebuild inside `abstract1Fast`, whose fvar-range cutoff cannot fire
 # either when the tower is built OVER the fvar being abstracted.  Both
-# carry a memoized twin now (`hasLooseBVarBGo`, `abstract1Go`,
+# run memoized walks now (`hasLooseBVarBC`, task #498; `abstract1Go`,
 # `@[csimp]`).
 0 tower_usedlater.ndjson
 # tower_beqpair (task #240): two structurally equal depth-60 towers

@@ -202,7 +202,7 @@ theorem IndexSpec.add {ds : List Declaration} {I : StreamIndex} (h : IndexSpec d
   have ht := insertTables_spec ds.length (A := recsTables 0 ds) (declTables pd) I.base.tbls h.tbls
   have hsz := h.size
   constructor
-  · simp only [StreamIndex.add, hnext]
+  · simp only [StreamIndex.add, hnext, declConstantsC_eq]
     rw [hc.1, recsConsts_snoc, List.length_append]
   · intro k hk
     simp only [StreamIndex.add, List.length_append, List.length_cons, List.length_nil] at hk ⊢
@@ -214,7 +214,7 @@ theorem IndexSpec.add {ds : List Declaration} {I : StreamIndex} (h : IndexSpec d
       rw [ite_eq_right (by omega), h.firsts k hlt, List.take_append_of_le_length (by omega)]
   · simp [StreamIndex.add, hsz]
   · intro n
-    simp only [StreamIndex.add, hnext]
+    simp only [StreamIndex.add, hnext, declConstantsC_eq]
     rw [hc.2 n, recsConsts_snoc]
   · intro T
     simp only [StreamIndex.add, hsz, declTablesC_eq]

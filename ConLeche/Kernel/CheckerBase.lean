@@ -54,14 +54,13 @@ positively detected unsupported feature, never a malformed stream.
 Anything else is an unknown constant, and rejects with the message
 unchanged.  `where_` names the slot, e.g. `"type of Foo"`.
 
-`Expr.mentionsConst` is the same walk `constsResolve` just ran (the
-`.proj` struct name included) and is memoized by `@[csimp]`
-(`ConLeche/Kernel/Inductives/StructParts.lean`), so a DAG-shared term
-does not unfold here.  The companion `unknownConstError`
+`Expr.mentionsAnyConst` at the one name is the same walk `constsResolve`
+just ran (the `.proj` struct name included); the cached driver runs its
+memoized twin (`unresolvedConstsErrorLC`, `ConLeche/Cached/CheckerC.lean`).  The companion `unknownConstError`
 (`ConLeche/Kernel/Core.lean`) decides the same question inside
 inference, which runs after this guard. -/
 def unresolvedConstsError (where_ : String) (e : Expr) : CheckError :=
-  if e.mentionsConst sorryAxName then
+  if e.mentionsAnyConst [sorryAxName] then
     .notImplemented s!"use of the sorryAx axiom in {where_}"
   else .invalid s!"unknown constant in {where_}"
 
