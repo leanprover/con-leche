@@ -1,6 +1,7 @@
 module
 
 public import ConLeche.Cached.IndPass
+public import ConLeche.Cached.IndPositivity
 public import ConLeche.Kernel.Inductives.GenRec
 
 @[expose] public section

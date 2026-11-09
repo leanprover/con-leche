@@ -1,6 +1,6 @@
 module
 
-public import ConLeche.Cached.IndPositivity
+public import ConLeche.Cached.CoreC
 public import ConLeche.Kernel.CheckerBase
 
 @[expose] public section
