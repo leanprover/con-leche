@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""schedsim.py -- replay a `--schedule-log` offline under a scheduling policy (DESIGN task #518).
+"""schedsim.py -- replay a `--schedule-log` offline under a scheduling policy (DESIGN #518, #540).
 
 The input is a scheduler log (`<verdict>\\t<module>\\t<ms>\\t<rss KiB>\\t<at>\\t<decls>\\t<parse>\\t
 <check>\\t<busy>\\t<slowest>`, `ConLeche/Driver/ScheduleIO.lean`) of a real run, each module's
@@ -10,25 +10,33 @@ ramps linearly to its peak (`--shape ramp`, the default) or follows the mean pro
 (`--shape mean`).
 
 The policy replayed is the scheduler's of `ScheduleIO.run`, at a fixed tick (`--tick`, s):
-at most `--jobs` workers, starts `--stagger` ms apart, one start per tick; admission by size (the
-budget minus the running workers counted at max(peak so far, typical peak, known size); killed
-modules first by known size, then the queue's head at the typical peak; nothing running: the first
-always starts); the typical peak the `--typ-q` quantile (0.5, the median) of the last 200 finished
-peaks from 20 finishes on, budget / jobs before; on an overflow the largest worker protected
-(sticky), the youngest others killed until the current sets fit, each requeued at the front with
-known size max(set at the kill, typical, 2 x previous); the protected worker alone over the budget
-gets the verdict `memory`; the growth gate (`--growth`, s, 0 off) holds starts while the protected
+at most `--jobs` workers; `--budget` the hard limit, admission planning against a lower planning
+budget: the limit minus a margin, the margin the larger of `--margin-init` (0.10) x the limit and
+the `--margin-stat` (p99; `max`, `pNN`) of the last `--margin-window` (200; 0 all) nonzero
+surprises, the plan at least `--margin-floor` (0.5) x the limit; a surprise is the largest, over
+the ticks between two starts, of the running workers' current sets minus what admission reserved
+for them at the earlier start.  Admission by size (the planning budget minus the running workers
+counted at max(peak so far, typical peak, known size); killed modules first by known size, then
+the queue in order at the typical peak, every module that fits in one tick, each taking its
+reservation off the room; nothing running: the first always starts); the typical peak the
+`--typ-q` quantile (0.5, the median) of the last 200 finished peaks from 20 finishes on, limit /
+jobs before; when the current sets exceed the hard limit the largest worker protected (sticky),
+the youngest others killed until the current sets fit, each requeued at the front with known size
+max(set at the kill, typical, 2 x previous); the protected worker alone over the limit gets the
+verdict `memory`; the growth gate (`--growth`, s, 0 off) holds starts while the protected
 worker's peak rose within that long.
+
+`--old` replays the policy before #540 (the one of #518's runs): admission against the limit
+itself (no planning budget), at most one start per tick and starts at least 200 ms apart (the
+stagger, since removed from the scheduler).
 
 Variants: `--order graph|shuffled` (graph needs `--graph-order FILE`, one module per line, the
 order of `Graph.graphOf`); `--threads-k K --threads-cap C --thread-budget B`: a worker starts at
 threads = max(1, min(C, free threads, decls // K)), its time install + max(slowest, busy / t)
 (install = wall - busy at one thread, scaled by s + (1 - s) / t, s = `--install-serial`,
 1 by default, 0.56 measured) and its peak scaled by 1 + `--thread-mem` x (t - 1);
-`--stagger MS` (the scheduler's `--schedule-stagger`, 200 by default; with modules of about a
-second it, not memory, bounds a Mathlib run: N x stagger); `--burst N`: up to N starts per tick
-(the scheduler: one); `--read-cap R`: a start only while fewer than R workers are in their read
-phase (the stagger's purpose, kept without a fixed delay); `--reserve now|60`: a killed module
+`--read-cap R`: a start only while fewer than R workers are in their read
+phase; `--reserve now|60`: a killed module
 waits at the head of the queue and the scheduler drains for it (no other start until it fits;
 `60`: only once it has waited 60 s); `--heavy F --heavy-time X --heavy-mem Y --seed S`: a
 random fraction F of the modules made X times longer and Y times
@@ -36,7 +44,10 @@ larger (a CFSG-like tail).
 
 Output (one line, or `--json`): the makespan, the mean running workers, the mean memory in use,
 the kills and the worker time they lost, the time the growth gate held starts, the `memory`
-verdicts.  `--grid` runs the variant table of DESIGN #518.
+verdicts.  `--grid` runs the variant table of DESIGN #518 (on the old policy, with its stagger
+variants); `--compare` the table of DESIGN #540 (the old policy at 0.85 x and 1 x the limit, the
+new one at the limit, at `--compare-cases`, `data:limit GiB:jobs`, data `real`, `heavy`: 1 % at
+100x time and 10x memory, `heavy30`: the same at 30x memory).
 """
 import argparse, bisect, json, os, random
 
@@ -167,14 +178,38 @@ def quantile(sorted_xs, q):
 
 
 class W:
-    __slots__ = ("mod", "start", "dur", "pk", "hwm", "cur", "threads", "read_end")
+    __slots__ = ("mod", "start", "dur", "pk", "hwm", "cur", "threads", "read_end", "resv")
 
 
-def simulate(mods, order, budget_kib, jobs, tick=0.1, stagger=200, growth=10, typ_q=0.5,
+def simulate(mods, order, budget_kib, jobs, tick=0.1, growth=10, typ_q=0.5,
              threads_k=0, threads_cap=1, thread_budget=0, thread_mem=0.0, reserve=None,
-             burst=1, install_serial=1.0, read_cap=0, max_time=10 ** 10):
-    """Returns the statistics of one replay.  Times in ms internally."""
+             install_serial=1.0, read_cap=0, max_time=10 ** 10, plan=True,
+             margin_init=0.10, margin_floor=0.5, margin_stat="p99", margin_window=200,
+             margin_nonzero=True, stagger=0, burst=0):
+    """Returns the statistics of one replay.  Times in ms internally.  `budget_kib` is the hard
+    limit (kills only above it); with `plan` admission plans against `hard - margin` (DESIGN
+    #540): margin = max(margin_init x hard, the `margin_stat` of the last `margin_window`
+    surprises), the plan at least `margin_floor` x hard.  A surprise is a stretch's largest
+    max(0, the running workers' sets - what admission reserved for them when it last started
+    one); a stretch ends at a start.  `stagger` (ms) and `burst` (starts per tick, 0: all that
+    fit) only for the old policy (`OLD`)."""
     dt = int(tick * 1000)
+    surprises, ep_max, surprise_n = [], 0, 0
+    hard = budget_kib
+
+    def margin_of():
+        base = int(margin_init * hard)
+        xs = surprises[-margin_window:] if margin_window else surprises
+        if not xs:
+            return base
+        v = sorted(xs)
+        st = max(xs) if margin_stat == "max" else quantile(v, float(margin_stat[1:]) / 100)
+        return max(base, st)
+
+    def plan_of():
+        if not plan or not hard:
+            return budget_kib
+        return max(int(margin_floor * hard), hard - margin_of())
     pending = [m for m in order if m in mods]
     pending.reverse()  # pop() from the end = the head
     front = []  # killed modules, head first
@@ -235,6 +270,8 @@ def simulate(mods, order, budget_kib, jobs, tick=0.1, stagger=200, growth=10, ty
             prot = None
         cur_total = sum(w.cur for w in running)
         reserved = sum(eff(w) for w in running)
+        if plan and running:
+            ep_max = max(ep_max, cur_total - sum(w.resv for w in running))
         run_ms += len(running) * dt
         mem_ms += cur_total * dt
         res_ms += reserved * dt
@@ -290,13 +327,17 @@ def simulate(mods, order, budget_kib, jobs, tick=0.1, stagger=200, growth=10, ty
             gate_ms += dt
         if growing:
             continue
-        for _ in range(burst):
+        started = False
+        budget_plan = plan_of()
+        for _ in range(burst or 10 ** 9):
             if now - last_start < stagger or len(running) >= jobs or threads_used >= tb:
+                break
+            if started and stagger > 0:
                 break
             # the read gate: at most `read_cap` workers in their read (install) phase at once
             if read_cap and sum(1 for w in running if now < w.read_end) >= read_cap:
                 break
-            room = (budget_kib - min(budget_kib, sum(eff(w) for w in running))) \
+            room = (budget_plan - min(budget_plan, sum(eff(w) for w in running))) \
                 if budget_kib else 1 << 60
             pick = None
             for m in front:
@@ -320,9 +361,21 @@ def simulate(mods, order, budget_kib, jobs, tick=0.1, stagger=200, growth=10, ty
             w.dur = max(w.dur, 1)
             w.read_end = now + int((mod.ms - mod.busy) * w.dur / max(1, mod.ms))
             w.hwm = w.cur = 0
+            w.resv = 0
             threads_used += t
             running.append(w)
             last_start = now
+            started = True
+        if started and plan:
+            # the episode ends: its surprise recorded, the reservations as admission saw them
+            if ep_max > 0 or not margin_nonzero:
+                surprises.append(max(0, ep_max))
+                surprise_n += 1
+                if len(surprises) > 10000:
+                    surprises.pop(0)
+            ep_max = 0
+            for w in running:
+                w.resv = eff(w)
     span = max(1, now)
     # a lower bound at one thread per worker: the work over the jobs, the memory-time over the
     # budget (each module at the mean of its shape), the longest module
@@ -331,7 +384,10 @@ def simulate(mods, order, budget_kib, jobs, tick=0.1, stagger=200, growth=10, ty
                for x in ms)
     lb = max(sum(x.ms for x in ms) / jobs, area / budget_kib if budget_kib else 0,
              max(x.ms for x in ms))
-    return dict(makespan_s=now / 1000, lower_bound_s=lb / 1000, modules=total, done=done,
+    return dict(plan_end_gib=plan_of() / 2 ** 20,
+                surprises=surprise_n,
+                surprise_max_gib=(max(surprises) if surprises else 0) / 2 ** 20,
+                makespan_s=now / 1000, lower_bound_s=lb / 1000, modules=total, done=done,
                 running=run_ms / span, mem_gib=mem_ms / span / 2 ** 20,
                 reserved_gib=res_ms / span / 2 ** 20, kills=kill_n, kill_modules=len(kills_by),
                 lost_s=kill_ms / 1000, lost_pct=100 * kill_ms / max(1, work_ms),
@@ -359,25 +415,28 @@ def fmt(r):
             f"gate {hms(r['gate_s'])}  memory {r['memory_verdicts']}")
 
 
+# the policy before #540: no planning budget, one start per tick, 200 ms apart
+OLD = dict(plan=False, stagger=200, burst=1)
+
 VARIANTS = [
-    ("a current", {}),
-    ("b threads k=10 cap=4", dict(threads_k=10, threads_cap=4)),
-    ("b threads k=30 cap=4", dict(threads_k=30, threads_cap=4)),
-    ("b threads k=30 cap=8", dict(threads_k=30, threads_cap=8)),
-    ("b threads k=100 cap=8", dict(threads_k=100, threads_cap=8)),
-    ("b threads k=30 cap=4, stagger 0, all starts", dict(threads_k=30, threads_cap=4, stagger=0,
-                                                       burst=64)),
-    ("c graph order", dict(order="graph")),
-    ("d reserve now", dict(reserve=0)),
-    ("d reserve 60s", dict(reserve=60)),
-    ("e typical p75", dict(typ_q=0.75)),
-    ("f growth gate off", dict(growth=0)),
-    ("g stagger 50ms", dict(stagger=50)),
-    ("g stagger 10ms", dict(stagger=10)),
-    ("g stagger 0", dict(stagger=0)),
-    ("h stagger 0, all starts per tick", dict(stagger=0, burst=64)),
-    ("i stagger 0, at most 2 reading", dict(stagger=0, burst=64, read_cap=2)),
-    ("i stagger 0, at most 4 reading", dict(stagger=0, burst=64, read_cap=4)),
+    ("a current", OLD),
+    ("b threads k=10 cap=4", dict(OLD, threads_k=10, threads_cap=4)),
+    ("b threads k=30 cap=4", dict(OLD, threads_k=30, threads_cap=4)),
+    ("b threads k=30 cap=8", dict(OLD, threads_k=30, threads_cap=8)),
+    ("b threads k=100 cap=8", dict(OLD, threads_k=100, threads_cap=8)),
+    ("b threads k=30 cap=4, stagger 0, all starts",
+     dict(OLD, threads_k=30, threads_cap=4, stagger=0, burst=64)),
+    ("c graph order", dict(OLD, order="graph")),
+    ("d reserve now", dict(OLD, reserve=0)),
+    ("d reserve 60s", dict(OLD, reserve=60)),
+    ("e typical p75", dict(OLD, typ_q=0.75)),
+    ("f growth gate off", dict(OLD, growth=0)),
+    ("g stagger 50ms", dict(OLD, stagger=50)),
+    ("g stagger 10ms", dict(OLD, stagger=10)),
+    ("g stagger 0", dict(OLD, stagger=0)),
+    ("h stagger 0, all starts per tick", dict(OLD, stagger=0, burst=64)),
+    ("i stagger 0, at most 2 reading", dict(OLD, stagger=0, burst=64, read_cap=2)),
+    ("i stagger 0, at most 4 reading", dict(OLD, stagger=0, burst=64, read_cap=4)),
 ]
 
 _G = {}
@@ -388,8 +447,41 @@ def _one(job):
     mods, orders, base = _G[data]
     kw = dict(base, **kw)
     order = orders[kw.pop("order", "shuffled")]
-    r = simulate(mods, order, int(budget * 2 ** 20), jobs, **kw)
+    scale = kw.pop("scale", 1.0)
+    r = simulate(mods, order, int(budget * scale * 2 ** 20), jobs, **kw)
     return (data, budget, jobs, name, r)
+
+
+# DESIGN #540's comparison: the old policy at 0.85 x the limit (the maintainer's 40 of 47 GiB) and
+# at the limit, the new one at the limit (and margin statistics)
+COMPARE = [
+    ("old at 0.85 x limit", dict(OLD, scale=0.85)),
+    ("old at the limit", dict(OLD)),
+    ("no stagger, plan = limit", dict(plan=False)),
+    ("new, margin p95", dict(margin_stat="p95")),
+    ("new, margin p99 (shipped)", dict()),
+    ("new, margin max", dict(margin_stat="max")),
+]
+
+
+def compare(a, log, prof, default, base):
+    import multiprocessing
+    cases = [c.split(":") for c in a.compare_cases.split(",")]
+    for name, h, hm in [("real", 0.0, 1), ("heavy", 0.01, 10), ("heavy30", 0.01, 30)]:
+        if any(c[0] == name for c in cases):
+            mods, _ = build_mods(log, prof, default, h, a.heavy_time, hm, a.seed)
+            _G[name] = (mods, {"shuffled": make_order(mods, "shuffled", None)}, base)
+    jobs = [(d, float(b), int(j), n, kw) for d, b, j in cases for n, kw in COMPARE]
+    with multiprocessing.get_context("fork").Pool(a.procs) as pool:
+        res = pool.map(_one, jobs, chunksize=1)
+    print("| data | limit | jobs | policy | makespan | running | kills (modules) | lost | "
+          "plan at the end |")
+    print("|---|---|---|---|---|---|---|---|---|")
+    for d, b, j, n, r in res:
+        pl = f"{r['plan_end_gib']:.1f}" if not n.startswith("old") else ""
+        print(f"| {d} | {b:g} | {j} | {n} | {hms(r['makespan_s'])} | {r['running']:.2f} | "
+              f"{r['kills']} ({r['kill_modules']}) | {hms(r['lost_s'])} = {r['lost_pct']:.1f} % | "
+              f"{pl} |")
 
 
 def grid(a, datasets, budgets, jobss, variants, procs):
@@ -419,12 +511,15 @@ def main():
     ap.add_argument("--budget", type=float, default=16, help="GiB, 0 for none")
     ap.add_argument("--jobs", type=int, default=8)
     ap.add_argument("--tick", type=float, default=0.1)
-    ap.add_argument("--stagger", type=int, default=200)
+    ap.add_argument("--old", action="store_true",
+                    help="the policy before #540: no planning budget, starts 200 ms apart")
+    ap.add_argument("--margin-init", type=float, default=0.10)
+    ap.add_argument("--margin-floor", type=float, default=0.5)
+    ap.add_argument("--margin-stat", default="p99", help="max or pNN")
+    ap.add_argument("--margin-window", type=int, default=200)
     ap.add_argument("--growth", type=int, default=10)
     ap.add_argument("--read-cap", type=int, default=0,
                     help="at most this many workers in their read phase (0: no such gate)")
-    ap.add_argument("--burst", type=int, default=1,
-                    help="starts per tick at most (the scheduler: 1)")
     ap.add_argument("--typ-q", type=float, default=0.5)
     ap.add_argument("--order", choices=["shuffled", "graph"], default="shuffled")
     ap.add_argument("--graph-order")
@@ -445,13 +540,20 @@ def main():
     ap.add_argument("--grid-budgets", default="8,16,32")
     ap.add_argument("--grid-jobs", default="8,16,32")
     ap.add_argument("--grid-variants", default="", help="comma-separated prefixes, empty for all")
+    ap.add_argument("--compare", action="store_true", help="the comparison of DESIGN #540")
+    ap.add_argument("--compare-cases",
+                    default="real:1.5:8,real:3:16,heavy:8:16,heavy:16:32,heavy30:24:16,"
+                            "heavy30:47:16,heavy30:47:32")
     ap.add_argument("--procs", type=int, default=8)
     a = ap.parse_args()
     log, _ = read_log(a.log)
     prof = read_profiles(a.profiles)
     default = Shape(mean_shape(prof)) if a.shape == "mean" and prof else None
-    base = dict(tick=a.tick, stagger=a.stagger, growth=a.growth, typ_q=a.typ_q,
-                thread_mem=a.thread_mem, install_serial=a.install_serial, burst=a.burst)
+    base = dict(tick=a.tick, growth=a.growth, typ_q=a.typ_q,
+                thread_mem=a.thread_mem, install_serial=a.install_serial)
+    if a.compare:
+        compare(a, log, prof, default, base)
+        return
     if a.grid:
         sets = [("real", 0.0)] + ([("heavy", a.heavy or 0.01)])
         for name, h in sets:
@@ -468,9 +570,11 @@ def main():
         return
     mods, _ = build_mods(log, prof, default, a.heavy, a.heavy_time, a.heavy_mem, a.seed)
     order = make_order(mods, a.order, a.graph_order)
-    r = simulate(mods, order, int(a.budget * 2 ** 20), a.jobs, a.tick, a.stagger, a.growth,
+    kw = dict(OLD) if a.old else dict(margin_init=a.margin_init, margin_floor=a.margin_floor,
+                                       margin_stat=a.margin_stat, margin_window=a.margin_window)
+    r = simulate(mods, order, int(a.budget * 2 ** 20), a.jobs, a.tick, a.growth,
                  a.typ_q, a.threads_k, a.threads_cap, a.thread_budget, a.thread_mem, a.reserve,
-                 a.burst, a.install_serial, a.read_cap)
+                 a.install_serial, a.read_cap, **kw)
     print(json.dumps(r) if a.json else fmt(r))
 
 

@@ -115476,3 +115476,107 @@ Code: `Driver/ScheduleIO.lean` (`secsMs`, `WorkerStats`, `workerStats`, `Running
 line), `scripts/schedsim.py`; OVERVIEW's log format.  Gates: `lake build`, `lake test` warning-free;
 trust surface, layering, overview links, quote gate (the three README quotes reported as on the
 `modular` tip, exit 0), no-local-paths; olean gate 332/332 under the guard.
+
+## TASK #540 — a hard memory limit with a learned planning budget; the stagger removed (2026-11-09, agent/540-limit)
+
+`Driver/ScheduleIO.lean` (plain IO, outside every theorem), `Driver/Cli.lean` (usage),
+`scripts/schedsim.py`, OVERVIEW.  Maintainer's rulings.
+
+**One memory option.**  The maintainer's machine has a 50 GB per-user cgroup.  His CFSG run at
+`--schedule-memory=40G` had 8 kills costing 2h10m (12.8 % of the worker time), mostly overflows of a
+few GiB that admission could not foresee; a budget below the real ceiling was his only lever.  Now
+`--schedule-memory=SIZE` is the HARD limit (he passes the real ceiling, e.g. 47G): workers are
+killed only when their current sets sum to more than it.  Admission plans against an internal,
+lower planning budget (`planOf`), so that unforeseen growth lands in the gap:
+
+* A **surprise** is how far the running workers' current sets ended above what admission had
+  reserved for them when it last started one: at every start the reservation of each running
+  worker (`resv`: max(peak so far, typical peak, known size), the new ones at their known size or the
+  typical peak) is the reference; every tick `epMax` = max(epMax, current total − Σ resv of the
+  running ones); the next start pushes `epMax`, if nonzero, into `surprises` (the last 200,
+  `surpriseWindow`) and resets it.  (Without the "at the last start" the difference is never
+  positive: each worker's reservation is at least its peak so far.)
+* **margin** = max(10 % of the limit, the 99th percentile of `surprises`); **plan** = max(limit ÷ 2,
+  limit − margin).  With 200 surprises the 99th percentile is the second largest.
+* The heartbeat's memory line: `reserved 35.7 GiB, plan 42.3 GiB of 47 GiB (typical …)`; the
+  statistics add `plan X at the end, largest surprise Y`.
+
+**The stagger is removed** (ruling: `--schedule-stagger`, its `Opts` field, its parse branch,
+`lastStart`, gone; no shim).  #518 measured that it capped Mathlib at 5 starts per second (41m42s
+with it, 13m28s without, at 8 jobs, no kill either way, peak 2.7 GB of 16), and its original purpose
+(#468, read phases not peaking together) is memory admission's now.  Starts are limited only by
+the jobs, admission and the growth gate, and every module admission lets in starts in the tick it is
+admitted: the scan goes on, each started module taking its known size (or the typical peak) off the
+room.  The simulator keeps a stagger only to replay the old policy (`--old`, `OLD`).
+
+**The simulator** replays the new policy by default; `--old` the one before (no planning budget,
+one start per tick, 200 ms apart; it reproduces #518's numbers exactly); `--margin-stat pNN|max`,
+`--margin-window`, `--margin-init`, `--margin-floor`; `--compare` prints the table below.
+
+**Comparison** (`schedsim.py _tmp/518/mathlib.log --profiles _tmp/518/prof-j1 --tick 0.05
+--install-serial 0.56 --thread-mem 0.01 --compare`; makespan in minutes, then kills and the worker
+time they lost; `real` the 16G Mathlib log, `heavy` a random 1 % (seed 518) at 100× time and 10×
+memory, `heavy30` the same at 30× memory, peaks up to 22 GiB like CFSG's; "old at 0.85 × limit" is
+the maintainer's practice, 40 of 47 GiB; "no stagger, plan = limit" is the new start step without
+the planning budget):
+
+| case | old at 0.85 × limit | old at the limit | no stagger, plan = limit | new, margin p95 | **new, margin p99** | new, margin max |
+|---|---|---|---|---|---|---|
+| real 1.5G j8 | 48 (133, 1.7%) | 45 (68, 1.0%) | 28 (217, 1.6%) | 42 (6, 0.0%) | 51 (1, 0.0%) | 54 (1, 0.0%) |
+| real 3G j16 | 39 (16, 0.3%) | 38 (6, 0.1%) | 14 (24, 0.2%) | 17 (1, 0.0%) | 18 (0, 0.0%) | 20 (0, 0.0%) |
+| heavy 8G j16 | 68 (70, 9.6%) | 59 (59, 6.1%) | 51 (103, 9.3%) | 58 (27, 5.9%) | 63 (17, 4.4%) | 65 (17, 4.5%) |
+| heavy 16G j32 | 45 (7, 1.5%) | 44 (4, 0.4%) | 26 (79, 5.5%) | 28 (15, 1.7%) | 31 (12, 1.0%) | 32 (11, 0.9%) |
+| heavy30 24G j16 | 69 (82, 9.8%) | 59 (62, 6.9%) | 48 (114, 11.8%) | 59 (28, 6.0%) | 58 (20, 4.8%) | 58 (20, 4.8%) |
+| heavy30 47G j16 | 46 (9, 1.3%) | 45 (5, 0.5%) | 29 (40, 2.4%) | 30 (18, 2.1%) | 31 (10, 1.2%) | 32 (7, 1.1%) |
+| heavy30 47G j32 | 45 (11, 1.3%) | 44 (6, 0.5%) | 25 (89, 5.4%) | 28 (29, 2.6%) | 30 (20, 1.6%) | 30 (20, 1.6%) |
+
+Mean running workers (new p99 / old at 0.85): 3.3 / 3.5, 9.1 / 4.3, 5.3 / 5.1, 10.4 / 7.1, 5.8 / 5.1,
+10.3 / 7.0, 10.7 / 7.2.
+
+Readings:
+* Against the old policy at 0.85 × the limit (the maintainer's setting) the new one at the limit is
+  faster in every case but `real 1.5G j8` (8 jobs in a limit of about 7 typical workers, the most
+  memory-bound case: 51 vs 48 min, 1 kill vs 133), 1.1–2.2× in the others.  Where memory binds it
+  kills far less (133 → 1, 70 → 17, 82 → 20); where the old policy had few kills (heavy 16G, the
+  47G columns) the new one has as many or more (7 → 12, 9 → 10, 11 → 20), because it runs 10–11
+  workers instead of 7: the stagger, not memory, held the old one back.
+* The planning budget against none (both without the stagger): kills fall 4–200× (89 → 20,
+  103 → 17, 217 → 1), the makespan rises 7–30 % (80 % in `real 1.5G j8`, where the plan sits at
+  half the limit).  The simulator counts about half the real kills (#518) and a real kill costs
+  more (CFSG: 12.8 % of the worker time for 8 kills), so the makespan here favours the variant with
+  many kills.
+* **The statistic: the 99th percentile of the last 200 nonzero surprises.**  p95 is up to 18 %
+  faster (once 2 % slower) but has 1.25–6× the kills of p99 (6 vs 1, 27 vs 17, 29 vs 20, 18 vs 10);
+  with the simulator undercounting kills, robustness weighs more.  The maximum equals p99 in two
+  cases and is 3–11 % slower in the others for at most 3 fewer kills; one exceptional module would
+  hold the plan at its floor for the next 200 surprises.  A window of 20 forgot the big modules'
+  surprises (heavy 8G j16: 37 kills vs 17, no faster); 200 and 1000 gave the same.  On the heavy sets
+  the plan often ends at its floor (half the limit): a 1 % tail of modules 10–30× the typical peak
+  cannot be foreseen, and the remaining kills are theirs.
+* Only nonzero surprises are kept: most stretches between two starts see no growth above the
+  reservation, and with the zeros the percentile would be about 0.
+
+**Hand tests** (`--olean --schedule`, v4.35.0, under the guard and `timeout`; one run each, the
+machine shared, wall time only an illustration).  `Std.Tactic.BVDecide` (739 modules, `--jobs=8`),
+the new binary against #518's:
+
+| limit | old: wall, running, kills | new: wall, running, kills | new: plan at the end, largest surprise |
+|---|---|---|---|
+| 250M | 2m44s, 0.8, 7 (2.0 s lost) | 1m54s, 1.1, 8 (0.7 s lost) | 0.1 GiB (the floor), 0.2 GiB |
+| 400M | 2m30s, 0.8, 0 | 51.6s, 2.3, 2 (0.1 s lost) | 0.2 GiB, 0.2 GiB |
+
+All 739 modules 0; the heartbeat showed `mem 95 MiB (largest 95 MiB), reserved 0.1 GiB, plan 0.1 GiB of
+0.2 GiB (typical 71 MiB)`.  At 250M a worker is a third of the limit, so one young worker's growth is
+a surprise of half the limit and the plan sits at its floor.
+
+Mathlib, `--jobs=8 --schedule-memory=1500M` (#518's old run: 79 kills, 41m47s): stopped by the
+maintainer's instruction at 5 160 of 10 976 modules (SIGINT to the scheduler, 3 workers killed, log
+flushed, exit 130); the simulator is the comparison.  Partial observation: 21m40s for the 5 160, 3 kills
+(5.4 s lost, 0.1 %), 2.8 workers running on average, the plan 0.8 of 1.4 GiB at the end, the largest
+surprise 0.9 GiB.  The old run had its 5 160th finish at 21m31s with 63 kills: about the same pace,
+a twentieth of the kills.
+
+Gates: `lake build`, `lake test` warning-free (usage width); trust surface; olean gate
+332/332 under the guard (no fixture passed the stagger; no pinned output changed); overview links
+(README's two `runArgs` links repointed, the usage grew by two lines); quote gate (the three README
+quotes reported as on the `modular` tip, exit 0).

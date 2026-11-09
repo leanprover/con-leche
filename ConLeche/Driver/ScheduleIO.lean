@@ -15,32 +15,42 @@ is about a `--schedule` run, and nothing here reads a file the checks read.  Wha
 it plain `IO`:
 
 * **one worker per module, in any order** (the workers depend on the files only, never on each
-  other's results), at most `jobs` at once, each started at least `stagger` milliseconds after
-  the one before (**staggered starts**: the workers' read phases do not all peak together);
+  other's results), at most `jobs` at once; every module that admission lets in starts in the tick
+  it is admitted;
 * **workers that inherit nothing but their three standard streams**, all pipes: stdin closed at
   the start, stdout and stderr each read to the end by a thread of its own (so no worker blocks
   on a full pipe), stderr passed on for a verdict other than 0 (`WCfg`, `spawnW`);
-* **a memory budget** (`memory`, KiB, 0 for none; `--schedule-memory=40G`): every tick the
+* **a memory limit** (`memory`, KiB, 0 for none; `--schedule-memory=47G`): every tick the
   resident sets of the running workers are read (`workerRss`: the scheduler's children in `/proc/self/task/*/children`, each
-  by its last argument, `/proc/<pid>/status`'s `VmRSS` and `VmHWM`, the peak so far).
+  by its last argument, `/proc/<pid>/status`'s `VmRSS` and `VmHWM`, the peak so far).  The limit
+  is **hard**: workers are killed only when their current sets sum to more than it.  Admission
+  plans against a lower **planning budget** (`planOf`), so that growth admission could not foresee
+  lands in the gap instead of causing a kill.  The gap is learned in the run: a **surprise** is how
+  far the running workers' current sets ended above what admission had reserved for them when it
+  last started one (the largest over the ticks until the next start; `epMax`, `surprises`); the
+  margin is the larger of 10 % of the limit and the 99th percentile of the last 200 surprises
+  (`surpriseWindow`, the nonzero ones), and the planning budget the limit minus the margin, at
+  least half the limit.
   **Admission by size**: every module has a known size: the largest resident set seen when it was
   killed, at least double its previous known size and at least the typical peak (a kill sees a
   lower bound only); a module never killed counts as the typical peak.  The typical peak is the
-  median of the peaks of the last 200 finished workers (the budget divided by the jobs
+  median of the peaks of the last 200 finished workers (the limit divided by the jobs
   until 20 have finished; the median, not a high percentile, so that a few outliers do not make
-  every running and unknown module count as huge and starve the start of workers).  The room is the budget minus the running workers' peaks, each counted
+  every running and unknown module count as huge and starve the start of workers).  The room is the planning budget minus the running workers' peaks, each counted
   at least at the typical peak (a young worker has not shown its growth yet); the first module of the queue (the killed ones, in order, then the
   others) whose size fits into the room starts, the ones that do not fit stay in their place
   (only the killed modules have an own size, so the scan is over them alone); with nothing running the
-  first one always starts, and then the verdict `memory` decides if it is over the budget.  **Preemption**: when the current resident sets sum to more than
-  the budget and no worker is protected, **the largest worker becomes protected** (the largest
+  first one always starts, and then the verdict `memory` decides if it is over the limit.  Each
+  started module takes its own size (or the typical peak) off the room, and the scan goes on while
+  the jobs and the room allow.  **Preemption**: when the current resident sets sum to more than
+  the hard limit and no worker is protected, **the largest worker becomes protected** (the largest
   current set, then the largest peak).  **The protection is sticky**: the protected worker stays
   protected while it runs, even when another grows larger.  Every overflow kills the youngest
   worker other than the protected one (by its own process, `Child.kill` of the child this
   scheduler started, never by a name) and puts it again at the front of the pending queue: not
   a verdict, not logged, its size updated.  Workers still start while the protected one runs,
   as the room allows (the newest are the youngest, so the first to be killed).  The protection
-  ends when the protected worker finishes, or when it is killed, alone over the budget, with the
+  ends when the protected worker finishes, or when it is killed, alone over the limit, with the
   verdict `memory` (running alone could not help).
   Output: one line when a protection begins, one when it ends, and a short line per kill (the module named last);
 * **a timeout per worker** (`timeout`, seconds, 0 for none): a worker running longer is killed,
@@ -77,10 +87,11 @@ it plain `IO`:
   modules finished in this run, none skipped from the log (`progressText`; `n requeued` follows `k running`
   once a kill has put modules back); with a heartbeat (`heartbeat` ms), after that long without a
   line, three lines on stderr: `schedule: ` and the same padded counts; the memory (`memLine`):
-  `mem 1.2 GiB (largest 0.6 GiB), reserved 3.0 GiB of 40 GiB (typical 0.8 GiB)`, the running workers' total
-  resident set now and the biggest one's, then what admission has reserved for them (each at the
-  most of its peak so far, the typical peak and its known size; not their current use) and the
-  budget when set and the typical peak admission assumes, then `protecting M` while a worker is protected and `n waiting for room` for
+  `mem 1.2 GiB (largest 0.6 GiB), reserved 3.0 GiB, plan 42.3 GiB of 47 GiB (typical 0.8 GiB)`,
+  the running workers' total resident set now and the biggest one's, then what admission has
+  reserved for them (each at the most of its peak so far, the typical peak and its known size; not
+  their current use), the planning budget and the hard limit when set, and the typical peak
+  admission assumes, then `protecting M` while a worker is protected and `n waiting for room` for
   the killed modules that do not fit yet; and `longest: M 7m01s`, the longest-running worker.  The
   memory is read every tick through the same `/proc` files as the budget and shown only where it
   can be read; the run's peak total ends the summary line;
@@ -113,12 +124,10 @@ open ConLeche
 structure Opts where
   /-- the append-only log, resumed from -/
   log : Option System.FilePath := none
-  /-- the memory budget for all running workers, KiB (0: none) -/
+  /-- the hard memory limit for all running workers, KiB (0: none) -/
   memory : Nat := 0
   /-- the time limit of one worker, seconds (0: none) -/
   timeout : Nat := 0
-  /-- the least time between two starts, milliseconds -/
-  stagger : Nat := 200
   /-- the heartbeat: a line after this many milliseconds without one (0: none) -/
   heartbeat : Nat := 0
   /-- the growth gate, seconds (0: none): while a worker is protected, nothing starts until its
@@ -142,7 +151,7 @@ def parseSize (v : String) : Option Nat :=
   | _, _ => none
 
 /-- The settings, from the values of the `--schedule[-OPT=VALUE]` flags (`""` for the bare
-flag, `-log=FILE`, `-memory=SIZE` (`parseSize`), `-timeout=S`, `-stagger=MS`, `-growth=S`, `-order=shuffled|graph`). -/
+flag, `-log=FILE`, `-memory=SIZE` (`parseSize`), `-timeout=S`, `-growth=S`, `-order=shuffled|graph`). -/
 def Opts.parse : List String → Opts → Except String Opts
   | [], o => .ok o
   | v :: vs, o =>
@@ -160,7 +169,6 @@ def Opts.parse : List String → Opts → Except String Opts
       num "-memory=" parseSize "a size with a unit, K, M, G or T (e.g. 512M, 40G)"
         fun n => { o with memory := n }
     else if v.startsWith "-timeout=" then num "-timeout=" String.toNat? n fun n => { o with timeout := n }
-    else if v.startsWith "-stagger=" then num "-stagger=" String.toNat? n fun n => { o with stagger := n }
     else if v.startsWith "-growth=" then num "-growth=" String.toNat? n fun n => { o with growth := n }
     else if v == "-order=shuffled" then Opts.parse vs { o with shuffled := true }
     else if v == "-order=graph" then Opts.parse vs { o with shuffled := false }
@@ -407,7 +415,6 @@ structure St where
   sizes : Std.HashMap Name Nat := {}
   running : Array Running := #[]
   verdicts : Std.HashMap Name String
-  lastStart : Nat := 0
   /-- modules with a verdict, the logged ones of a resumed run included -/
   nDone : Nat := 0
   /-- modules finished in this run -/
@@ -435,10 +442,19 @@ structure St where
   /-- the peaks of the last `typWindow` finished workers, KiB -/
   peaks : Array Nat := #[]
   /-- the typical peak of a worker, KiB: the median of `peaks`; before `typMin` finishes,
-  the budget divided by the jobs -/
+  the limit divided by the jobs -/
   typ : Nat := 0
   /-- the running workers' peaks each at least `typ`, at the last tick: what admission counts -/
   effPk : Nat := 0
+  /-- what admission had reserved for each running worker (KiB) when it last started one -/
+  resv : Std.HashMap Name Nat := {}
+  /-- the largest surprise since the last start, KiB: the running workers' current sets minus
+  `resv` of them -/
+  epMax : Nat := 0
+  /-- the last `surpriseWindow` nonzero surprises, KiB, one per stretch between two starts -/
+  surprises : Array Nat := #[]
+  /-- the largest surprise of the run, KiB (statistics) -/
+  surpriseTop : Nat := 0
   /-- this run's finished workers (statistics) -/
   recs : Array Rec := #[]
   /-- the time of the last tick; the sums below are weighted by the ms between ticks -/
@@ -475,6 +491,21 @@ def pushPeak (peaks : Array Nat) (typ pk : Nat) : Array Nat × Nat :=
   let w := if w.size > typWindow then w.extract 1 w.size else w
   if w.size < typMin then (w, typ)
   else (w, ((w.qsort (· < ·))[w.size / 2]?).getD typ)
+
+/-- How many surprises the margin looks at, and its quantile (99 %: with 200, the second largest;
+the largest of all kept the planning budget at its floor for long after one big module). -/
+def surpriseWindow : Nat := 200
+def surpriseQ : Nat := 99
+
+/-- **The planning budget** (KiB) under the hard limit `hard`: `hard - margin`, the margin the
+larger of 10 % of `hard` and the `surpriseQ` percentile of the recent `surprises`, the result at
+least half of `hard`.  Admission fits the running workers' reservations into it; the gap to
+`hard` takes the growth admission could not foresee.  No limit: 0. -/
+def planOf (hard : Nat) (surprises : Array Nat) : Nat :=
+  let q := if surprises.isEmpty then 0 else
+    let v := surprises.qsort (· < ·)
+    (v[min (v.size - 1) (v.size * surpriseQ / 100)]?).getD 0
+  max (hard / 2) (hard - min hard (max (hard / 10) q))
 
 /-- `s` padded with spaces on the left to `w` characters. -/
 def padL (w : Nat) (s : String) : String := "".pushn ' ' (w - s.length) ++ s
@@ -531,7 +562,10 @@ def statsLines (st : St) (wall jobs budget skipped : Nat) (signal : Option Strin
   let sig := match signal with | some s => s!", interrupted by {s} ({st.intrN} running workers killed)" | none => ""
   let memL := if !st.memSeen then [] else
     let of := if budget > 0 then s!" of {gibBudget budget}" else ""
-    [s!"  memory: {gib (st.memMs / w)} in use and {gib (st.resMs / w)} reserved on average{of}"]
+    let pl := if budget > 0 then
+        s!"; plan {gib (planOf budget st.surprises)} at the end, largest surprise {gib st.surpriseTop}"
+      else ""
+    [s!"  memory: {gib (st.memMs / w)} in use and {gib (st.resMs / w)} reserved on average{of}{pl}"]
   let kinds := st.kills.size
   let work := max 1 st.workMs
   let lost := st.killMs * 1000 / work
@@ -546,18 +580,20 @@ def statsLines (st : St) (wall jobs budget skipped : Nat) (signal : Option Strin
     s!"  verdicts: {st.memVerdicts} memory, {st.nonzero} not 0" ]
 
 /-- The memory line of the heartbeat, `none` where nothing runs or `/proc` could not be read:
-`mem 9.6 GiB (largest 9.1 GiB), reserved 28.5 GiB of 40 GiB (typical 0.8 GiB)`.  `mem` is the running workers'
-total resident set now and `largest` the biggest one's now; `reserved` is what admission counts,
-each running worker at the most of its peak so far, the typical peak and its known size (not
-their current use), `of` the budget (KiB, 0 for none: left out).  Then `protecting M` (`prot`)
+`mem 9.6 GiB (largest 9.1 GiB), reserved 28.5 GiB, plan 42.3 GiB of 47 GiB (typical 0.8 GiB)`.
+`mem` is the running workers' total resident set now and `largest` the biggest one's now;
+`reserved` is what admission counts, each running worker at the most of its peak so far, the
+typical peak and its known size (not their current use), `plan` the planning budget it fits them
+into (`plan`, `planOf`) and `of` the hard limit (KiB, `budget`, 0 for none: both left out).  Then `protecting M` (`prot`)
 and `n waiting for room` (`waiting`) where they apply. -/
 def memLine (running : Nat) (mem : Option (Nat × Nat × Nat)) (typ : Nat) (budget : Nat := 0)
-    (prot : Option Name := none) (waiting : Nat := 0) (growing : Bool := false) : Option String :=
+    (prot : Option Name := none) (waiting : Nat := 0) (growing : Bool := false) (plan : Nat := 0) :
+    Option String :=
   match mem with
   | some (t, m, pk) =>
     if running = 0 then none
     else
-      let of := if budget > 0 then s!" of {gibBudget budget}" else ""
+      let of := if budget > 0 then s!", plan {gib plan} of {gibBudget budget}" else ""
       let pz := match prot with | some p => s!", protecting {p}{if growing then " (growing)" else ""}" | none => ""
       let wt := if waiting = 0 then "" else s!", {waiting} waiting for room"
       some s!"mem {gib t} (largest {gib m}), reserved {gib pk}{of} (typical {gib typ}){pz}{wt}"
@@ -585,16 +621,18 @@ def run (parse : String → Option Name) (app : System.FilePath) (args : Name �
     | some p => some <$> IO.FS.Handle.mk p .append
     | none => pure none
   let t0 ← IO.monoMsNow
-  -- the room: the budget minus the running workers' peaks (no budget: unbounded)
-  let roomOf (pk : Nat) : Nat :=
-    if o.memory = 0 then 1 <<< 60 else o.memory - min o.memory pk
+  -- the room: the planning budget minus the running workers' peaks (no limit: unbounded)
+  let planNow (st : St) : Nat := planOf o.memory st.surprises
+  let roomOf (st : St) (pk : Nat) : Nat :=
+    if o.memory = 0 then 1 <<< 60 else planNow st - min (planNow st) pk
   let progress (st : St) (now : Nat) : String :=
     progressText total st.nDone st.running.size
       (st.nDone - (total - todo.length), now - t0) st.requeued jobs
   let memory (st : St) (growing : Bool) : Option String :=
     memLine st.running.size st.mem st.typ o.memory st.prot
-      (if st.running.isEmpty then 0 else (st.front.filter (st.sizes.getD · 0 > roomOf st.effPk)).length)
-      growing
+      (if st.running.isEmpty then 0
+       else (st.front.filter (st.sizes.getD · 0 > roomOf st st.effPk)).length)
+      growing (planNow st)
   let finish (st : St) (r : Running) (w : String) : IO St := do
     let (outText, msg) ← r.texts
     let now ← IO.monoMsNow
@@ -631,7 +669,7 @@ def run (parse : String → Option Name) (app : System.FilePath) (args : Name �
   let jobs := max 1 jobs
   let start (st : St) (m : Name) (now : Nat) : IO St := do
     match ← (spawnW app m (args m) now).toBaseIO with
-    | .ok r => return { st with lastStart := now, running := st.running.push r }
+    | .ok r => return { st with running := st.running.push r }
     | .error e =>
       err.putStrLn s!"con-leche: schedule: {m}: 3: no worker started: {e}; no further \
         worker starts, the running ones are waited for"
@@ -662,10 +700,12 @@ def run (parse : String → Option Name) (app : System.FilePath) (args : Name �
     st := { st with seen := st.running.foldl (fun m r =>
       let (k, h) := look (rss.getD []) r
       m.insert r.m (max (m.getD r.m 0) (max k h))) st.seen }
-    -- what admission counts per running worker: its peak, at least the typical peak
-    let eff (rs : Array Running) : Nat := rs.foldl (fun a r =>
+    -- what admission counts per running worker: its peak, at least the typical peak and its
+    -- known size (a worker started in this tick has no sample yet: the latter two)
+    let eff1 (st : St) (r : Running) : Nat :=
       let (k, h) := look (rss.getD []) r
-      a + max (max k h) (max st.typ (st.sizes.getD r.m 0))) 0
+      max (max k h) (max st.typ (st.sizes.getD r.m 0))
+    let eff (st : St) (rs : Array Running) : Nat := rs.foldl (fun a r => a + eff1 st r) 0
     let mut still : Array Running := #[]
     let mut ended : Array (Running × String) := #[]
     for r in st.running do
@@ -677,7 +717,12 @@ def run (parse : String → Option Name) (app : System.FilePath) (args : Name �
           let _ ← r.child.wait
           ended := ended.push (r, "timeout")
         else still := still.push r
-    st := { st with running := still, mem := sample still, effPk := eff still }
+    st := { st with running := still, mem := sample still, effPk := eff st still }
+    -- the surprise: how far the current sets are above what admission reserved at its last start
+    if o.memory > 0 then
+      if let some (t, _, _) := st.mem then
+        let r := st.running.foldl (fun a w => a + st.resv.getD w.m 0) 0
+        st := { st with epMax := max st.epMax (t - min t r) }
     -- the protected worker finished: starts resume
     let mut resumed : Option Name := none
     if let some p := st.prot then
@@ -712,7 +757,7 @@ def run (parse : String → Option Name) (app : System.FilePath) (args : Name �
               -- the protected worker alone: running alone could not help
               p.child.kill
               let _ ← p.child.wait
-              err.putStrLn s!"con-leche: schedule: memory: {gib k} alone, over the budget of \
+              err.putStrLn s!"con-leche: schedule: memory: {gib k} alone, over the limit of \
                 {gibBudget o.memory}: {p.m}"
               err.flush
               st := { st with running := st.running.eraseIdx i, prot := none }
@@ -723,7 +768,7 @@ def run (parse : String → Option Name) (app : System.FilePath) (args : Name �
                 err.putStrLn s!"con-leche: schedule: memory over {gibBudget o.memory}: \
                   protecting {gib k}: {p.m}"
                 err.flush
-              -- the youngest other workers make room, until the sets sum to the budget at most,
+              -- the youngest other workers make room, until the sets sum to the limit at most,
               -- and are queued again at the front; one line for the burst
               let mut left := total
               let mut killed : Array (Name × Nat) := #[]
@@ -765,10 +810,10 @@ def run (parse : String → Option Name) (app : System.FilePath) (args : Name �
                 err.putStrLn s!"con-leche: schedule: killed {killed.size} workers, \
                   requeued: {items}"
               err.flush
-    -- starts: the first module of the queue whose known size fits into the room (the budget
-    -- minus the running workers' peaks); nothing running: the first one always starts
+    -- starts: every module of the queue, in order, whose known size fits into the room (the
+    -- planning budget minus the running workers' reservations), each taking its size off the
+    -- room, while the jobs allow; nothing running: the first one always starts
     let now ← IO.monoMsNow
-    let room := roomOf (eff st.running)
     -- the growth gate: the protected worker's peak (`VmHWM`) and when it last rose; while it
     -- rose within the last `growth` seconds nothing starts
     let mut growing := false
@@ -794,15 +839,32 @@ def run (parse : String → Option Name) (app : System.FilePath) (args : Name �
                                    && !(st.front.isEmpty && st.pending.isEmpty) }
     if st.stopped then
       st := { st with pending := [], front := [] }
-    else if growing then pure ()
-    else if now - st.lastStart ≥ o.stagger && st.running.size < jobs then
-      match st.front.find? (fun m => st.running.isEmpty || st.sizes.getD m 0 ≤ room) with
-      | some m => st ← start { st with front := st.front.filter (· != m) } m now
-      | none =>
-        match st.pending with
-        | m :: ms =>
-          if st.running.isEmpty || st.typ ≤ room then st ← start { st with pending := ms } m now
-        | [] => pure ()
+    else if !growing then
+      let mut room := roomOf st (eff st st.running)
+      let mut started := false
+      for _ in [0:jobs] do
+        if st.stopped || st.running.size ≥ jobs then break
+        match st.front.find? (fun m => st.running.isEmpty || st.sizes.getD m 0 ≤ room) with
+        | some m =>
+          room := room - min room (max st.typ (st.sizes.getD m 0))
+          st ← start { st with front := st.front.filter (· != m) } m now
+          started := true
+        | none =>
+          match st.pending with
+          | m :: ms =>
+            if st.running.isEmpty || st.typ ≤ room then
+              room := room - min room st.typ
+              st ← start { st with pending := ms } m now
+              started := true
+            else break
+          | [] => break
+      -- a start ends the stretch: its surprise is kept, and what admission reserved now is the
+      -- new reference
+      if started && o.memory > 0 then
+        let ws := if st.epMax > 0 then st.surprises.push st.epMax else st.surprises
+        let ws := if ws.size > surpriseWindow then ws.extract (ws.size - surpriseWindow) ws.size else ws
+        st := { st with surprises := ws, surpriseTop := max st.surpriseTop st.epMax, epMax := 0,
+                        resv := st.running.foldl (fun m r => m.insert r.m (eff1 st r)) {} }
     -- the heartbeat: after `heartbeat` ms without a line, the counts and the longest runs
     if o.heartbeat > 0 && now - st.lastLine ≥ o.heartbeat && !st.running.isEmpty then
       let longest := (st.running.qsort (fun a b => a.start < b.start)).toList.take 1
