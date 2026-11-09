@@ -252,25 +252,14 @@ theorem axiomOfReduce
     (mp : EnvModelM V env) {cv : ConstantVal} {type' : Expr}
     (hopn : natOpName cv.name = false)
     (hcv : ConstantValRun F env cv type')
+    (hwf₂ : ConLeche.EnvWF ⟨.axiomInfo ⟨cv.name, cv.levelParams, type'⟩ :: env.consts, env.tables⟩)
     (hor : cv.name = ConLeche.ofReduceNatName ∨
       cv.name = ConLeche.ofReduceBoolName)
     (hok : ConLeche.ofReduceAxOk env ⟨cv.name, cv.levelParams, type'⟩
       = true) :
     CoverStep mp
       ⟨.axiomInfo ⟨cv.name, cv.levelParams, type'⟩ :: env.consts, env.tables⟩ := by
-  have hcv' := hcv
-  obtain ⟨hfind, hnd, hlbt, hitf, hann, htp, htr,
-    -, hcvShape⟩ := hcv'
-  obtain ⟨htf', hbt'⟩ := stored_syntax hann hitf hlbt
-  have hfresh : env.find? cv.name = none :=
-    Option.isNone_iff_eq_none.mp hfind
-  have hwfc : ConLeche.EnvWF ⟨.axiomInfo ⟨cv.name, cv.levelParams, type'⟩ ::
-      env.consts, env.tables⟩ := by
-    refine ConLeche.EnvWF.cons (hcvShape _ (by rw [hann]; rfl)) mp.base2.wf
-      ⟨htf', htp, Expr.constsResolve_mono htr, hbt', ?_, ?_⟩
-    · intro cv2 value2 hint2 heq; exact nomatch heq
-    · intro cv2 mI rP isK rules heq; exact nomatch heq
-  refine harvestAxiom (V := V) mp hopn hcv
+  refine harvestAxiom (V := V) (hwf₂ := hwf₂) mp hopn hcv
     (by rcases hor with h | h <;> rw [h] <;> decide)
     (A := fun _ => Term.prf) (fun _ => trivial)
     (fun _ _ _ => rfl) (fun _ _ => by simp) ?_

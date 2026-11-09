@@ -144,6 +144,7 @@ theorem harvestDefn
     {env₂ : Env}
     (hR : DeclDefnRun F env cv value hint env₂)
     -- the reserved names' check (`basisNamesOk`)
+    (hwf₂ : EnvWF env₂)
     (hnres : ConLeche.reservedBasisNames.contains cv.name = false) :
     CoverStep mp env₂ := by
   obtain ⟨type', value', hcv, hvfr, rfl, hnatc, hdmc⟩ := hR
@@ -302,12 +303,7 @@ theorem harvestDefn
     (c₀ := .defnInfo ⟨cv.name, cv.levelParams, type'⟩ value' hint)
     (A := A) hfresh (fun _ => ⟨_, _, _, rfl⟩)
     (ConsHead.ofFresh
-      (EnvWF.cons (hcvShape _ (by rw [hann]; rfl)) mp.base2.wf ⟨htf', htp,
-        Expr.constsResolve_mono htr, hbt',
-        (fun _ _ _ heq => by
-          obtain ⟨rfl, rfl, rfl⟩ := ConstantInfo.defnInfo.inj heq
-          exact ⟨hvf', hvp, Expr.constsResolve_mono hvr, hbv'⟩),
-        (fun _ _ _ _ _ heq => nomatch heq)⟩)
+      (hwf₂)
       (fun ψ => denote_closed mp.base2.cval_closed hvf' hbv'
         (hA ψ))
       hnres
@@ -522,6 +518,7 @@ theorem harvestThm
     {cv : ConstantVal} {value : Expr} {env₂ : Env}
     (hR : DeclThmRun F env cv value env₂)
     -- the reserved names' check (`basisNamesOk`)
+    (hwf₂ : EnvWF env₂)
     (hnres : ConLeche.reservedBasisNames.contains cv.name = false) :
     CoverStep mp env₂ := by
   obtain ⟨hopn, type', value', hcv, -, hvfr, rfl⟩ := hR
@@ -674,10 +671,7 @@ theorem harvestThm
     (c₀ := .thmInfo ⟨cv.name, cv.levelParams, type'⟩)
     (A := A) hfresh (fun hn => Bool.noConfusion ((show natOpName cv.name = true from hn).symm.trans hopn))
     (ConsHead.ofFresh
-      (EnvWF.cons (hcvShape _ (by rw [hann]; rfl)) mp.base2.wf ⟨htf', htp,
-        Expr.constsResolve_mono htr, hbt',
-        (fun _ _ _ heq => nomatch heq),
-        (fun _ _ _ _ _ heq => nomatch heq)⟩)
+      (hwf₂)
       (fun ψ => denote_closed mp.base2.cval_closed hvf' hbv'
         (hA ψ))
       hnres
@@ -781,6 +775,7 @@ theorem harvestAxiom
     {cv : ConstantVal} {type' : Expr} {A : (Name → Nat) → Term}
     (hopn : natOpName cv.name = false)
     (hcv : ConstantValRun F env cv type')
+    (hwf₂ : EnvWF ⟨.axiomInfo ⟨cv.name, cv.levelParams, type'⟩ :: env.consts, env.tables⟩)
     -- the reserved names' check (`basisNamesOk`)
     (hnres : ConLeche.reservedBasisNames.contains cv.name = false)
     (hAvclosed : ∀ ψ : Name → Nat, Term.Closed (A ψ))
@@ -861,10 +856,7 @@ theorem harvestAxiom
     (c₀ := .axiomInfo ⟨cv.name, cv.levelParams, type'⟩)
     (A := A) hfresh (fun hn => Bool.noConfusion ((show natOpName cv.name = true from hn).symm.trans hopn))
     (ConsHead.ofFresh
-      (EnvWF.cons (hcvShape _ (by rw [hann]; rfl)) mp.base2.wf ⟨htf', htp,
-        Expr.constsResolve_mono htr, hbt',
-        (fun _ _ _ heq => nomatch heq),
-        (fun _ _ _ _ _ heq => nomatch heq)⟩)
+      (hwf₂)
       hAvclosed hnres
       (fun _ _ _ _ _ heq => nomatch heq))
     hAparams hAok ?_ ?_ ?_ ?_ ?_ ?_ ?_ ?_ ?_ ?_ ?_ ?_)
@@ -956,6 +948,7 @@ theorem harvestOpaque
     {cv : ConstantVal} {value : Expr} {env₂ : Env}
     (hR : DeclOpaqueRun F env cv value env₂)
     -- the reserved names' check (`basisNamesOk`)
+    (hwf₂ : EnvWF env₂)
     (hnres : ConLeche.reservedBasisNames.contains cv.name = false) :
     CoverStep mp env₂ := by
   obtain ⟨hopn, type', value', hcv, hvfr, rfl, hred⟩ := hR
@@ -1112,10 +1105,7 @@ theorem harvestOpaque
     (c₀ := .axiomInfo ⟨cv.name, cv.levelParams, type'⟩)
     (A := A) hfresh (fun hn => Bool.noConfusion ((show natOpName cv.name = true from hn).symm.trans hopn))
     (ConsHead.ofFresh
-      (EnvWF.cons (hcvShape _ (by rw [hann]; rfl)) mp.base2.wf ⟨htf', htp,
-        Expr.constsResolve_mono htr, hbt',
-        (fun _ _ _ heq => nomatch heq),
-        (fun _ _ _ _ _ heq => nomatch heq)⟩)
+      (hwf₂)
       (fun ψ => denote_closed mp.base2.cval_closed hvf' hbv'
         (hA ψ))
       hnres

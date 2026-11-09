@@ -5,7 +5,6 @@ import ConLeche.Model.Inductives.FormerInEnv
 public import ConLeche.Model.Inductives.BlockLeafOk
 import ConLeche.Model.Inductives.FixKit
 import ConLeche.Verify.Inductives.BlockInv
-import ConLeche.Verify.Inductives.BlockWF
 public section
 
 /-!
@@ -348,7 +347,12 @@ theorem stageBlockFormers {p₁ : BlockShape} {isRec : Bool} {names : List Name}
         env'.find? (ConLeche.blockCapsAt p₁ j' isRec).etaCtor = none) →
       ∀ m₂ : EnvModel V ⟨.indInfo cvS (ConLeche.blockCapsAt p₁ j isRec) :: env'.consts, env'.tables⟩,
       m₂.acval = acvalWith m'.acval cvS.name (A j) →
-      CapsLawsAt m₂ cvS.name cvS (ConLeche.blockCapsAt p₁ j isRec)) :
+      CapsLawsAt m₂ cvS.name cvS (ConLeche.blockCapsAt p₁ j isRec))
+    -- **the stage's step** (`checkBlockInds_cons_envWF`): a declared former's cons keeps a
+    -- well-formed environment its type resolves at well formed
+    (hwfOf : ∀ (j : Nat) (cvS : ConstantVal), declAll[j]? = some cvS → ∀ {env' : Env},
+      ConLeche.EnvWF env' → cvS.type.constsResolve env' = true →
+      ConLeche.EnvWF ⟨.indInfo cvS (ConLeche.blockCapsAt p₁ j isRec) :: env'.consts, env'.tables⟩) :
     ∀ (rest : List ConstantVal) (i : Nat) (env : Env) (mp : EnvModelM V env),
       (∀ j, rest[j]? = declAll[i + j]?) → i + rest.length = declAll.length →
       ConLeche.EtaFamiliesClosedExceptL env names →
@@ -398,7 +402,7 @@ theorem stageBlockFormers {p₁ : BlockShape} {isRec : Bool} {names : List Name}
       constsBound_of_constsResolve _ (hres i cvTa hi)
     have hwfI : ConLeche.EnvWF
         ⟨.indInfo cvS (ConLeche.blockCapsAt p₁ i isRec) :: env.consts, env.tables⟩ :=
-      ConLeche.envWF_cons_blockInd mp.base2.wf hD.fvar hD.defined hD.resolve hD.bounded hD.shape
+      hwfOf i cvS hiS mp.base2.wf hD.resolve
     obtain ⟨mpI, hacI⟩ := stageBlockFormer mp (names := names) hE hfresh
       (by rw [hD.name]; exact hnresOf i cvTa hi) (by rw [hD.name]; exact hopOf i cvTa hi) hD hwfI
       (hFD i cvTa hi)
@@ -473,7 +477,7 @@ theorem stageBlockFormers {p₁ : BlockShape} {isRec : Bool} {names : List Name}
       exact hfreshC j cvTb hj he
     obtain ⟨mp', hE₂, hFD₂, hDS₂, hcons₂, hag₂⟩ :=
       stageBlockFormers hlenD hnames hndN hnresOf hopOf hAbelowOf hAparamsOf hAokOf
-        hAmemOf hetaNe hTlawsOf rest (i + 1) _ mpI hrest' (by simp at hk; omega) hE'
+        hAmemOf hetaNe hTlawsOf hwfOf rest (i + 1) _ mpI hrest' (by simp at hk; omega) hE'
         hres' hfreshOf' hfreshC' hFD' hDS' hcons'
     refine ⟨mp', hE₂, hFD₂, hDS₂, hcons₂, fun n hn => ?_⟩
     rw [hag₂ n (fun cvTb hcvTb => hn cvTb (List.mem_cons_of_mem _ hcvTb)), hacI]

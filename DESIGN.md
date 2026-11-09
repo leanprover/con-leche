@@ -112097,3 +112097,68 @@ self-check).  OVERVIEW's λ-check link now points at `defeqBindersInner`; three 
 `Core.lean`/`EnvExt.lean`.  The whitepaper's two citations (the innermost λ level, the
 `DefEqLams` rule) cite the same lines, whose text changed (renamed, prose still true); its link
 expectation regenerated.
+
+## TASK #521 — the accepted environment is well formed, model-free (2026-11-09, agent/521-envwf)
+
+**Why.** A downstream project's acceptance bridge needs only `EnvWF` (`Verify/EnvWF.lean`) of the
+environment the checker accepts, and so far obtained it from the graded model
+(`EnvModelM.toEnvFacts.wf`), which drags `[SetTheory V]` into a statement that has nothing to do
+with sets.
+
+**The theorems** (`Semantics/DeclWF.lean`, `Semantics/Inductives/DeclBlockWF.lean`), none with a
+`SetTheory` argument and none importing `Model/*`, `SetTheory/*` or `SetModel/*`:
+
+* `declWFStepRun` — `EnvWF env → DeclKindRun F Ind env d env₂ → EnvWF env₂`, the inductive kind a
+  premise at `Ind` (the shape of `declEtaStepRun`); `declRun_envWF` discharges it at
+  `DeclIndRunDispatchK` with `blockRun_envWF`;
+* `checkDecl_envWF` — `EnvWF env → checkDecl .verified (fueledOps .verified F) pins env d = .ok env₂
+  → EnvWF env₂`, through the run bridge `checkDeclRun_ofEnvFactsK`;
+* `checkDeclsPure_envWF` (the pure fold from `Env.empty`), `declsRun_envWF` and `checkDecls_envWF`
+  (the fold the binary returns the accept of; each record's cached check is a pure `checkDecl` run by
+  `checkDeclStepC_run`, which itself takes the environment's `EnvWF`).
+
+**No model fact is needed anywhere.** Each kind's step reads its guards: `ConstantValRun` /
+`ValueFrontRun` for the value kinds (`ConstantValRun.envWF_axiom`/`_thm`/`_defn`); a quotient
+record stores its pin at its own level names, whose closedness, bounds and rule shapes are decided
+on the pin and whose resolution is decided at a stub environment holding exactly what
+`quotPredsOk` and the record supply (`quotStub`, `constWF_atLps`); a block runs the existing Verify
+stage lemmas — formers `direct_block_inds_wf` (with `MemberAt.declaredWF`), constructors
+`direct_block_ctors_wf`, recursors `declBlockRun_recsWF` (the stage's parameter count and outside
+classes, then `streamRecs_recsWF`), tables: each table's check at the constructors'
+environment (`checkStructProjTable_tableWF`), carried to the recursors' environment, and
+`EnvWF.pushTables`. A pinned basis block is a `BlockRun` like any other (#493), so it needs no case.
+
+**Tier.** `Semantics/`: the step is stated on the run records (`DeclRun`, `BlockRun`), which live
+there; no `Verify/*` module imports `Semantics/*`, and the theorem is not needed by the driver.
+`checkStructProjTable_tableWF` and `EnvWF.pushTables` are kernel-function facts and went to
+`Verify/` (`direct_table_wf` now reads the former).
+
+**What the model consumes** (maintainer ruling: `EnvModel` keeps its `wf` field, and the model's
+preservation builds on the model-free one instead of re-deriving it):
+
+* `declStep_preserves` (`Model/Fold.lean`) reads `EnvWF env₂` once, from `declRun_envWF`, and hands
+  it down: to the harvests (definitions, theorems, opaques; axioms through `axiomStepPB_of`), to
+  the quotient record and to the pinned blocks, whose rename to the record's level names
+  (`EnvModelM.renameCore`, `coverStep_keep`/`_eq`/`_head`) now takes the target's `EnvWF` instead
+  of renaming the canonical install's (`envWF_ren`, `constWF_ren`, `litShapeOk_pinCopy` deleted).
+* The block install keeps one model per intermediate environment, so it needs `EnvWF` at each;
+  each comes from a lemma about that stage's run, which the Verify/Semantics compositions are
+  built from too: a former's cons `checkBlockInds_cons_envWF` (passed down to
+  `stageBlockFormers` as its step), a constructor's `SumCtorRun.envWF_cons` (both stage
+  compositions share `envWF_cons_ctor`), a rule-less recursor's `recStage_bareCons_envWF` (the
+  bare chain's step), the recursors with their rules `recStage_envWF_consR`, the stream's
+  recursors `declBlockRun_recsWF`, and a projection table's `direct_table_wf` (the table's check).
+
+Construction sites in `Model/*` (an `EnvWF` built from `EnvWF.cons`, `structConstWF`,
+`envWF_cons_blockInd`, `envWF_consBlockRecsR`, `streamRecs_recsWF`, a rename, …): 29 before the
+task — the four harvests, the two axiom files (one unused), the 16 canonical basis installs,
+`envWF_ren`, the former, constructor, two recursor and table steps and the stream recursors —
+and 16 after. **The 16 left** are the pinned blocks' canonical installs at the pins' own level
+names (`BasisEq` 3, `BasisFalse` 2, `BasisEmpty` 2, `BasisBlocks` 4, `BasisQuot` 5), each a
+`EnvWF.cons (by decide) … ⟨rfl, …⟩` on a concrete pin: no run passes through those environments
+(the model reaches the record's names by renaming, and the uniform install the checker runs
+stores the pins in another order), and their facts are computed on the pin, not read off a check.
+
+**Tests.** `tests/ConLecheTests/Axioms.lean` pins `checkDecls_envWF` and `checkDeclsPure_envWF` at
+the three standard axioms, and states `checkDecls_envWF` in an `example` with no `SetTheory`
+instance in scope.

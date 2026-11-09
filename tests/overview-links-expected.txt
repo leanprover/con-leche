@@ -113,12 +113,12 @@
     89  def checkDecls (mode : CheckMode) (pins : List NatOpPinSet) (maxNatSize : Nat) (ds : Array Declaration) :
     90      Except (CheckError × Nat) Env := do
 
-== tests/ConLecheTests/Axioms.lean#L95-L99
-    95  /--
-    96  info: 'ConLeche.model_exists' depends on axioms: [propext, Classical.choice, Quot.sound]
-    97  -/
-    98  #guard_msgs in
-    99  #print axioms ConLeche.model_exists
+== tests/ConLecheTests/Axioms.lean#L97-L101
+    97  /--
+    98  info: 'ConLeche.model_exists' depends on axioms: [propext, Classical.choice, Quot.sound]
+    99  -/
+   100  #guard_msgs in
+   101  #print axioms ConLeche.model_exists
 
 == ConLeche/Driver/Dispatch.lean#L31
     31  def runReq {μ : Type → Type} [CheckerIO μ] : Req → μ UInt8
@@ -278,6 +278,10 @@
     36      (h : checkDecls .verified pins maxNatSize ds = .ok env') :
     37      Nonempty (EnvModelM V env') := by
 
+== ConLeche/Semantics/DeclWF.lean#L300-L301
+   300  theorem checkDecls_envWF {maxNatSize : Nat} {ds : Array Declaration} {env' : Env}
+   301      (h : checkDecls .verified pins maxNatSize ds = .ok env') : EnvWF env' := by
+
 == ConLeche/Verify/Cached/KnotCongr.lean#L481-L483
    481  theorem coreKnotI_congr (hfe : fe₁.find? = fe₂.find?)
    482      (htb : fe₁.findTable? = fe₂.findTable?) :
@@ -319,18 +323,18 @@
   1787        defeq := fun _ _ _ => throw (.internal "fuel exhausted: defeq")
   1788        defeqE := fun _ _ _ => throw (.internal "fuel exhausted: defeq")
 
-== ConLeche/Model/Fold.lean#L431-L438
-   431  theorem no_proof_of_False_pure (V : Type w) [SetTheory V]
-   432      {F : Nat}
-   433      {ds : List Declaration} {env' : Env}
-   434      (h : checkDeclsPure .verified (fueledOps .verified F) pins ds = .ok env') :
-   435      ∀ c ∈ env'.consts,
-   436        c.toConstantVal.type = .const falseName [] → False := by
-   437    obtain ⟨mp⟩ := checkDeclsPure_sound_of (V := V) h
-   438    exact fun c hc hty => no_constant_of_False mp c hc hty
+== ConLeche/Model/Fold.lean#L435-L442
+   435  theorem no_proof_of_False_pure (V : Type w) [SetTheory V]
+   436      {F : Nat}
+   437      {ds : List Declaration} {env' : Env}
+   438      (h : checkDeclsPure .verified (fueledOps .verified F) pins ds = .ok env') :
+   439      ∀ c ∈ env'.consts,
+   440        c.toConstantVal.type = .const falseName [] → False := by
+   441    obtain ⟨mp⟩ := checkDeclsPure_sound_of (V := V) h
+   442    exact fun c hc hty => no_constant_of_False mp c hc hty
 
-== ConLeche/Model/Fold.lean#L289
-   289  theorem declStep_preserves
+== ConLeche/Model/Fold.lean#L290
+   290  theorem declStep_preserves
 
 == ConLeche/Model/Capstone.lean#L137-L143
    137  theorem no_constant_of_False (mp : EnvModelM V env)
