@@ -253,8 +253,9 @@ info: 'ConLeche.Semantics.checkDeclsPure_envWF' depends on axioms: [propext, Cla
 #guard_msgs in
 #print axioms ConLeche.Semantics.checkDeclsPure_envWF
 
-example {pins : List ConLeche.NatOpPinSet} {ds : Array ConLeche.Declaration} {env' : ConLeche.Env}
-    (h : ConLeche.Cached.checkDecls .verified pins ds = .ok env') : ConLeche.EnvWF env' :=
+example {pins : List ConLeche.NatOpPinSet} {maxNatSize : Nat} {ds : Array ConLeche.Declaration}
+    {env' : ConLeche.Env} (h : ConLeche.Cached.checkDecls .verified pins maxNatSize ds = .ok env') :
+    ConLeche.EnvWF env' :=
   ConLeche.Semantics.checkDecls_envWF h
 
 /-! ## The driver's jobs and the fold (`ConLeche/Verify/Cached/StreamIndex.lean`) -/

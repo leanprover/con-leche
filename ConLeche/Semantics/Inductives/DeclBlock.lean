@@ -16,8 +16,8 @@ official's telescope loop, the result sort, and — from member 1 on —
 official's two agreements), the constructors' runs per member at the
 environment holding ALL the formers, the kinds classified against the
 whole member list, every member's index binders' sorts, the recursor stage, the stream's recursors
-against the generated ones, the projection tables' checks, and the install (`blockConstants`,
-`blockTables`).
+against the generated ones, the projection tables read off the block and their checks, and the
+install (`blockConstants`, those tables).
 
 **The recursor stage is one opaque conjunct** — `checkBlockRec … =
 .ok rs`, the generated recursor stage (`genRecCheck`, on the raw
@@ -27,7 +27,7 @@ against the generated ones, the projection tables' checks, and the install (`blo
 namespace ConLeche.Semantics
 
 open ConLeche (Env Expr Name Level CheckMode ConstantVal ConstantInfo
-  BlockShape BlockShape MemberShape NestFieldKind RecRule fueledOps
+  BlockShape BlockShape MemberShape NestFieldKind RecRule ProjTable fueledOps
   checkBlockInds checkBlockCtors checkBlockPositivity checkBlockIdxSorts
   checkBlockRec checkBlockTables checkBlockPass checkBlockTail checkBlock
   consBlockCtors consBlockRecs consBlockRecsT blockCapsAt
@@ -47,7 +47,7 @@ def DeclBlockRun (F : Nat) (env : Env) (block : List ConstantInfo)
     (ctx : NestCtx) (holes : List Expr) (rd : ClassRead) (Ms : List TargetMajor)
     (kinds : List (List (List NestFieldKind))) (nfs : List (List Expr)) (pos st : NestState)
     (isorts : List (List Level))
-    (out : List (ConstantVal × TargetMajor × List Expr)),
+    (out : List (ConstantVal × TargetMajor × List Expr)) (Q : List ProjTable),
     -- 1  the k formers: the constant check, official's telescope loop, the
     --    sort, official's two agreements from member 1 on, then all k consed
     checkBlockInds (m := ConLeche.CheckM) (fueledOps .verified F) env p₀ isRec
@@ -81,15 +81,15 @@ def DeclBlockRun (F : Nat) (env : Env) (block : List ConstantInfo)
     -- 8  the stream's recursors against the generated ones: their K flags, then the
     --    rest at the environment holding the generated ones
     streamKCheck (m := ConLeche.CheckM) p₁ p₁.recs out = .ok () ∧
-    streamRecsCheck (m := ConLeche.CheckM) (fueledOps .verified F) .plain
+    streamRecsCheck (m := ConLeche.CheckM) (fueledOps .verified F)
       (mkFEnv (consBlockRecsT p₁ 0 out
         (consBlockCtors p₁.nP p₁.memberCtors env₁))) p₁.recs out = .ok () ∧
-    -- 9  the projection tables' checks
-    checkBlockTables (m := ConLeche.CheckM) p₁ (consBlockCtors p₁.nP p₁.memberCtors env₁)
-      p₁.members = .ok () ∧
+    -- 9  the projection tables, read off the block, and their checks
+    blockTables p₁ p₁.members = some Q ∧
+    checkBlockTables (m := ConLeche.CheckM) (consBlockCtors p₁.nP p₁.memberCtors env₁) Q = .ok () ∧
     -- 10 the install: the formers and constructors above, the stream's recursors, the tables
     env₂ = (consBlockRecsT p₁ 0 (ConLeche.streamRecs p₁.recs out)
-      (consBlockCtors p₁.nP p₁.memberCtors env₁)).pushDelta [] (blockTables p₁ p₁.members)
+      (consBlockCtors p₁.nP p₁.memberCtors env₁)).pushDelta [] Q
 
 /-- **The block's run**: each member at its telescope, then the stages at those members. -/
 def BlockRun (F : Nat) (env : Env) (block : List ConstantInfo)
@@ -146,47 +146,53 @@ theorem blockRun_of {F : Nat} {env env₂ : Env}
   dsimp only at h
   obtain ⟨sortsss, nfs, ctx, holes, pos, st, hInd, hCtors, hctx, hcls, hP', hst, hpar, htbl⟩ :=
     ConLeche.checkBlockPass_inv hP
-  cases hTail : ConLeche.checkBlockTail (m := ConLeche.CheckM) (fueledOps .verified F) block q with
+  cases hQ₀ : blockTables p₀ p₀.members with
+  | none =>
+    rw [hQ₀] at h
+    exact absurd h (by simp [ConLeche.unwrapOr, throw, throwThe, MonadExceptOf.throw])
+  | some Q =>
+  rw [hQ₀] at h
+  simp only [ConLeche.unwrapOr, pure, Except.pure] at h
+  cases hTail : ConLeche.checkBlockTail (m := ConLeche.CheckM) (fueledOps .verified F) block q Q with
   | error e => rw [hTail] at h; exact nomatch h
   | ok u =>
   cases u
   rw [hTail] at h
-  simp only [pure, Except.pure, Except.ok.injEq] at h
+  simp only [Except.ok.injEq] at h
   obtain ⟨isorts, rs, hsorts, hRec, hK, hS, hTbl⟩ := ConLeche.checkBlockTail_inv hTail
   rw [hpar, htbl] at hRec
+  obtain ⟨e₁, e₂⟩ := ConLeche.blockInstall_reduced hd hms
+  have hInd' := hInd
+  rw [← hraw] at hInd'
+  obtain ⟨hmem⟩ : PLift (q.p.members = ms) := ⟨ConLeche.checkBlockInds_members hInd'⟩
+  have hlps : q.p.lps = ({ p₀ with members := ms } : BlockShape).lps := by
+    obtain ⟨_, _, _, _, _, -, hq, -⟩ := ConLeche.checkBlockInds_shape hInd'
+    rw [hq]
+    rfl
+  have hnP : q.p.nP = ({ p₀ with members := ms } : BlockShape).nP := by
+    obtain ⟨_, _, _, _, _, -, hq, -⟩ := ConLeche.checkBlockInds_shape hInd'
+    rw [hq]
+    rfl
+  have hQ : blockTables q.p q.p.members = some Q := by
+    rw [← hQ₀, ← e₂, hmem]
+    exact ConLeche.blockTables_congr hnP hlps rfl rfl rfl
   refine ⟨ms, hms, hall, hdecl, ?_, ?_, ?_, blockIsRec p₀, q.env₁, q.p,
-    sortsss, ctx, holes, q.rd, q.cls, q.kinds, nfs, pos, st, isorts, rs, hInd, hCtors, hctx,
-    hcls, hP', hst, hraw.symm, hsorts, hRec, hK, hS, hTbl, ?_⟩
+    sortsss, ctx, holes, q.rd, q.cls, q.kinds, nfs, pos, st, isorts, rs, Q, hInd, hCtors, hctx,
+    hcls, hP', hst, hraw.symm, hsorts, hRec, hK, hS, hQ, hTbl, ?_⟩
   · rw [hcs]; exact hnd.1
   · rw [hnm]; exact hnd.2
   · rw [hnm]; exact hbool
-  · obtain ⟨e₁, e₂⟩ := ConLeche.blockInstall_reduced hd hms
-    have hInd' := hInd
-    rw [← hraw] at hInd'
-    obtain ⟨hmem⟩ : PLift (q.p.members = ms) := ⟨ConLeche.checkBlockInds_members hInd'⟩
-    have hlps : q.p.lps = ({ p₀ with members := ms } : BlockShape).lps := by
-      obtain ⟨_, _, _, _, _, -, hq, -⟩ := ConLeche.checkBlockInds_shape hInd'
-      rw [hq]
-      rfl
-    have hnP : q.p.nP = ({ p₀ with members := ms } : BlockShape).nP := by
-      obtain ⟨_, _, _, _, _, -, hq, -⟩ := ConLeche.checkBlockInds_shape hInd'
-      rw [hq]
-      rfl
-    have hQ : blockTables q.p q.p.members = blockTables p₀ p₀.members := by
-      rw [← e₂, hmem]
-      exact ConLeche.blockTables_congr hnP hlps rfl rfl rfl
-    rw [hQ, ← h, ← e₁]
-    exact ConLeche.blockInstall_of_checks (Q := blockTables p₀ p₀.members)
-      hInd' hcls hRec hK hS
+  · rw [← h, ← e₁]
+    exact ConLeche.blockInstall_of_checks (Q := Q) hInd' hcls hRec hK hS
 
 /-- **What a block's run installs**: the block's constants and tables, read off the group
 (`blockConstants`, `blockTables`). -/
 theorem blockRun_env {F : Nat} {env env₂ : Env} {block : List ConstantInfo} {p₀ : BlockShape}
     (hd : ∀ m ∈ p₀.members, m.declared = m.cvT) (h : BlockRun F env block p₀ env₂) :
-    env₂ = env.pushDelta (blockConstants p₀) (blockTables p₀ p₀.members) := by
+    env₂ = env.pushDelta (blockConstants p₀) ((blockTables p₀ p₀.members).getD []) := by
   obtain ⟨ms, hms, -, -, hR⟩ := h
   obtain ⟨-, -, -, isRec, env₁, p₁, sortsss, ctx, holes, rd, Ms, kinds, nfs, pos, st, isorts, out,
-    hInd, -, -, hcls, -, -, hraw, -, hRec, hK, hS, -, hfin⟩ := hR
+    Q, hInd, -, -, hcls, -, -, hraw, -, hRec, hK, hS, hQ₁, -, hfin⟩ := hR
   subst hraw
   obtain ⟨e₁, e₂⟩ := ConLeche.blockInstall_reduced hd hms
   obtain ⟨hmem⟩ : PLift (p₁.members = ms) := ⟨ConLeche.checkBlockInds_members hInd⟩
@@ -201,7 +207,7 @@ theorem blockRun_env {F : Nat} {env env₂ : Env} {block : List ConstantInfo} {p
   have hQ : blockTables p₁ p₁.members = blockTables p₀ p₀.members := by
     rw [← e₂, hmem]
     exact ConLeche.blockTables_congr hnP hlps rfl rfl rfl
-  rw [hfin, ← hQ, ← e₁]
-  exact (ConLeche.blockInstall_of_checks (Q := blockTables p₁ p₁.members) hInd hcls hRec hK hS).symm
+  rw [hfin, ← hQ, hQ₁, Option.getD_some, ← e₁]
+  exact (ConLeche.blockInstall_of_checks (Q := Q) hInd hcls hRec hK hS).symm
 
 end ConLeche.Semantics

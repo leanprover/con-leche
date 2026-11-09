@@ -273,7 +273,7 @@ theorem natOpResult_const {c : Name} {a b : Nat} {bn : Name}
   · rw [ite_eq_left h3] at h; simp at h
   rw [ite_eq_right h3] at h
   by_cases h4 : c = natPowName
-  · rw [ite_eq_left h4] at h; split at h <;> simp at h
+  · rw [ite_eq_left h4] at h; simp at h
   rw [ite_eq_right h4] at h
   by_cases h5 : c = natDivName
   · rw [ite_eq_left h5] at h; simp at h

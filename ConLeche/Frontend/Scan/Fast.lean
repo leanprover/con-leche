@@ -15,7 +15,7 @@ begins; `ConLeche/Frontend/ExportC.lean` applies the record.
 
 **The shape is chosen so that the equality with a naive reference
 recogniser is STATEABLE** (the `@[csimp]` twin the tree uses for
-`canonEq`/`canonEqFast` and for `Expr.renameConsts`): every function
+`canonEq`/`canonEqFast`): every function
 here is total, first-order and explicitly recursive, with no
 `partial`, no `IO`, no `for`, no local closure, and errors as a
 position and a static tag rather than a formatted message.

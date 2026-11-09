@@ -24,6 +24,14 @@ current fact changed.
     (no `public import` individually demotable).
   - `tests/trust-surface.sh` — no `unsafe`/`implemented_by`/
     `native_decide` outside the allowlisted files.
+  - `tests/plain-reach.sh` — the spec tier (`Kernel/*`) the shipped binary
+    runs, against `tests/plain-reach-allow.txt` (every entry with its
+    reason). The plain tier is specification: a reach is allowed only where
+    the spec code is the best code; otherwise the caller needs a cached
+    twin. A naive spec definition is never allowlisted.
+  - `tests/binary-link.sh` — the shipped binary links no `Lean` elaborator
+    code (no `initialize_Lean…` symbol): a proof module the driver imports
+    must not pull in `grind`/`Lean.Meta` (e.g. `Verify/Cached/DiscC4`).
   - `tests/overview-links.sh` — line-anchored links in `OVERVIEW.md` and
     `README.md`. If you move or change linked lines, re-read the citing
     paragraph, then `tests/overview-links.sh --update`.

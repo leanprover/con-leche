@@ -87,8 +87,8 @@ theorem declBlockAt {F : Nat} {env env₂ : Env}
     ∃ mp' : EnvModelM V env₂, LfpCover mp' [] ∧ FamilyRan mp' := by
   classical
   obtain ⟨hndC₀, hndM₀, hbool₀, isRec, env₁, p₁, sortsss, ctx, holes, rd, Ms, kinds,
-    nfs, nodes, st, isorts, outR, hInd, hCtors, hctxR, hcls, hPos, hst, -, hsorts, hRec,
-    -, hSt, hTbl, hfin⟩ := hrun
+    nfs, nodes, st, isorts, outR, Q, hInd, hCtors, hctxR, hcls, hPos, hst, -, hsorts, hRec,
+    -, hSt, hQ, hTbl, hfin⟩ := hrun
   -- ## the recogniser's facts, moved to the shape the formers' stage completed
   obtain ⟨ms0, mrest, cvTa0, s0, cvs, hmem0, hq, hcons, htele0, hteles, -⟩ :=
     ConLeche.checkBlockInds_shape hInd
@@ -777,7 +777,7 @@ theorem declBlockAt {F : Nat} {env env₂ : Env}
       (by rw [show p₁.recs = p₀.recs by rw [hq]; rfl]; exact hresR)
   -- ## the STORED recursors (task #431): the generated install's stage
   -- carried to the install of the records' types and right-hand sides
-  have hRec' : ConLeche.genRecCheck (ConLeche.ShadowOps.fueled .verified F)
+  have hRec' : ConLeche.genRecCheck (ConLeche.fueledOps .verified F)
       (mkFEnv (ConLeche.consBlockCtors p₁.nP p₁.memberCtors env₁)) p₁
       (ConLeche.blockNestedBit p₁ kinds) ctx.params st.ctorNfs.toList
       rd Ms block = .ok outR := hRec
@@ -826,7 +826,7 @@ theorem declBlockAt {F : Nat} {env env₂ : Env}
   have hmem₁ : p₁.members = p₀.members := by rw [hq]; rfl
   rw [hfin]
   refine stageBlockTables (E := ConLeche.consBlockCtors p₁.nP p₁.memberCtors env₁) hN hS rfl rfl
-    p₁.members 0 _ mpR ?_ hndM hfindMono ?_ hcoreT
+    p₁.members Q 0 _ mpR ?_ hndM hfindMono hQ ?_ hcoreT
   · intro c e hce
     have hck : c < p₁.k := (List.getElem?_eq_some_iff.mp hce).1
     obtain rfl : e = p₁.members.getD c default := by
@@ -843,10 +843,10 @@ theorem declBlockAt {F : Nat} {env env₂ : Env}
     · rw [Nat.zero_add]
       show _ = (p₁.members.map (·.ctors)).getD c []
       simp [List.getD_eq_getElem?_getD, List.getElem?_eq_getElem hck]
-  · intro e he c hc
-    have hchk := ConLeche.checkBlockTables_inv hTbl e he c hc
+  · intro t ht
+    have hchk := ConLeche.checkBlockTables_inv hTbl t ht
     refine ⟨hchk, ?_⟩
-    obtain ⟨-, -, -, hTs, hT0⟩ := ConLeche.checkStructProjTable_inv hchk
+    obtain ⟨-, hTs, hT0⟩ := ConLeche.checkStructProjTable_inv hchk
     obtain ⟨ci, hci⟩ := Option.isSome_iff_exists.mp hTs
     unfold Env.findTable? at hT0 ⊢
     rw [hci] at hT0

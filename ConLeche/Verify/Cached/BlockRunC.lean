@@ -359,29 +359,22 @@ theorem envWF_consBlockRecsBare {q : BlockShape} {cvRas : List (ConstantVal × N
 
 /-- The projection tables' checks at the cached driver: operation-free, the state unchanged, the
 verdict the pure stage's. -/
-theorem checkBlockTablesS_run (p : BlockShape) (env : Env) :
-    ∀ (l : List MemberShape) {s₀ : CState} {u : Unit} {s' : CState},
-      checkBlockTablesF (m := CheckCM) .plain p (mkFEnv env) l s₀ = .ok (u, s') →
-      s' = s₀ ∧ checkBlockTables (m := CheckM) p env l = .ok ()
+theorem checkBlockTablesS_run (env : Env) :
+    ∀ (Q : List ProjTable) {s₀ : CState} {u : Unit} {s' : CState},
+      checkBlockTablesF (m := CheckCM) (mkFEnv env) Q s₀ = .ok (u, s') →
+      s' = s₀ ∧ checkBlockTables (m := CheckM) env Q = .ok ()
   | [], s₀, u, s', h => by
     simp only [checkBlockTablesF] at h
     obtain ⟨-, rfl⟩ := pureC_ok h
     exact ⟨rfl, rfl⟩
-  | ms :: rest, s₀, u, s', h => by
+  | t :: rest, s₀, u, s', h => by
     unfold checkBlockTablesF at h
     unfold checkBlockTables
     obtain ⟨u₁, s₁, h₁, h⟩ := bindC_ok h
-    obtain ⟨rfl, hrest⟩ := checkBlockTablesS_run p env rest h
-    cases hc : ms.structCtor? with
-    | none =>
-      rw [hc] at h₁
-      obtain ⟨-, rfl⟩ := pureC_ok h₁
-      exact ⟨rfl, hrest⟩
-    | some c =>
-      rw [hc] at h₁
-      obtain ⟨rfl, hT⟩ := checkStructProjTableS_run env h₁
-      refine ⟨rfl, ?_⟩
-      simp only [hT, bind, Except.bind, hrest]
+    obtain ⟨rfl, hrest⟩ := checkBlockTablesS_run env rest h
+    obtain ⟨rfl, hT⟩ := checkStructProjTableS_run env h₁
+    refine ⟨rfl, ?_⟩
+    simp only [hT, bind, Except.bind, hrest]
 
 /-- The constructors' stage stores fvar-free constructor types. -/
 theorem checkBlockCtors_types {env₀ env : Env} {q : BlockShape} {F : Nat}

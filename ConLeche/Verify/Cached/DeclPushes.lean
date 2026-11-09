@@ -2,6 +2,8 @@ module
 
 public import ConLeche.Cached.Decls
 import ConLeche.Verify.Cached.BlockOverlay
+import ConLeche.Verify.Cached.WalkersC
+import ConLeche.Verify.Cached.IndRecC
 
 public section
 
@@ -400,32 +402,33 @@ theorem classRecTysOk_names (ops : CheckerOps CheckCM) (fe : FEnv) (g : ClassGen
 
 /-- Every recursor's generated rules: the generated constants kept, in
 order. -/
-theorem classRecsRulesOk_fst (ops : CheckerOps CheckCM) (w : StructWalkers) (feT feR : FEnv)
+theorem classRecsRulesOk_fst (ops : CheckerOps CheckCM) (feT feR : FEnv)
     (g : ClassGen) (recOf : Nat → Option Name) :
     ∀ (cvGs : List ConstantVal) (cs : List Nat), cvGs.length ≤ cs.length →
-      Yields (classRecsRulesOk ops w feT feR g recOf cvGs cs)
+      Yields (classRecsRulesOk ops feT feR g recOf cvGs cs)
         (fun out => out.map (·.1) = cvGs)
   | [], _, _ => by unfold classRecsRulesOk; exact Yields.pure rfl
   | _ :: _, [], h => by simp at h
   | cvG :: cvs, c :: cs, h => by
     unfold classRecsRulesOk
     refine Yields.bind fun _ => ?_
-    refine Yields.bind' (classRecsRulesOk_fst ops w feT feR g recOf cvs cs
+    refine Yields.bind' (classRecsRulesOk_fst ops feT feR g recOf cvs cs
       (by simpa using h)) fun xs hxs => ?_
     exact Yields.pure (by simp [hxs])
 
-/-- **The generated stage at the skeleton level**: one stored recursor
+/-- **The cached generated stage at the skeleton level**: one stored recursor
 per record, in order, under the record's name (fresh at the stage's
 index), the family's names distinct. -/
-theorem genRecCheck_names (so : ShadowOps CheckCM) (fe : FEnv)
+theorem genRecCheckC_names (mode : CheckMode) (fe : FEnv)
     (p : BlockShape) (nestedBit : Bool) (params : List Expr) (tbl : List NestCtorNf)
     (rd : ClassRead) (Ms₀ : List TargetMajor)
     (block : List ConstantInfo) :
-    Yields (genRecCheck so fe p nestedBit params tbl rd Ms₀ block)
+    Yields (genRecCheckC mode fe p nestedBit params tbl rd Ms₀ block)
       (fun out => (p.recs.map (·.cvR.name)).Nodup ∧ out.length = p.recs.length ∧
         ∀ (j : Nat) (rc : RecShape), p.recs[j]? = some rc →
           ∃ o, out[j]? = some o ∧ o.1.name = rc.cvR.name ∧ fe.find? rc.cvR.name = none) := by
-  unfold genRecCheck
+  unfold genRecCheckC
+  simp only [classRecTysOkC_eq, classRecsRulesOkC_eq]
   refine Yields.bind' (Q := fun _ => (p.recs.map (·.cvR.name)).Nodup) ?_ fun _ hnd => ?_
   · unfold targetRecPins
     dsimp only
@@ -463,7 +466,7 @@ theorem genRecCheck_names (so : ShadowOps CheckCM) (fe : FEnv)
   refine Yields.bind fun pre => ?_
   refine Yields.bind' (classRecTysOk_names _ fe _ p.k p.recs cvRis _) fun cvGs hG => ?_
   refine Yields.bind fun _ => ?_
-  refine Yields.bind' (classRecsRulesOk_fst _ _ fe _ _ _ cvGs _ (by omega))
+  refine Yields.bind' (classRecsRulesOk_fst _ fe _ _ _ cvGs _ (by omega))
     fun out hout => ?_
   refine Yields.bind fun _ => ?_
   refine Yields.pure ?_
@@ -496,7 +499,7 @@ theorem reduceMemberS_same (mode : CheckMode) (fe : FEnv) (ms : MemberShape) (nP
     · exact Yields.ofThrow
     refine Yields.bind fun _ => ?_
     refine Yields.bind' (Q := fun cvR => cvR.name = ms.cvT.name) ?_ fun cvR hc => ?_
-    · unfold reducedFormer
+    · unfold reducedFormerC
       refine Yields.bind fun _ => ?_
       exact Yields.pure rfl
     · refine Yields.bind fun _ => ?_
@@ -634,10 +637,11 @@ theorem checkQuotRecordC_pushes (fe : FEnv) (k : QuotKind) (cv : ConstantVal) :
 theorem checkBlockKS_pushes (mode : CheckMode) (fe : FEnv) (block : List ConstantInfo)
     (p : BlockShape) :
     Yields (checkBlockKS mode fe block p)
-      (· = FEnv.pushDelta (blockConstants p) (blockTables p p.members) fe) := by
+      (· = FEnv.pushDelta (blockConstants p) ((blockTables p p.members).getD []) fe) := by
   unfold checkBlockKS
-  yields
-  all_goals exact Yields.pure rfl
+  rw [blockTablesC_eq, blockConstantsC_eq]
+  cases blockTables p p.members <;> simp only [unwrapOr, Option.getD, pure_bind] <;> yields
+  all_goals first | exact Yields.pure rfl | exact Yields.ofThrow
 
 /-- **A declaration's own checks push what it installs**, at every mode. -/
 theorem checkDeclKindC_pushes (mode : CheckMode) (fe : FEnv) (pd : Declaration) :
@@ -718,13 +722,13 @@ theorem checkDeclStepC_pushes (mode : CheckMode) (fe : FEnv) (pd : Declaration) 
   ds.foldl (fun e pd => e.pushDelta (declConstants pd) (declTables pd)) env
 
 theorem declsRun_env (mode : CheckMode) {ds : List Declaration}
-    {p q : Nat × FEnv} (h : DeclsRun mode pins ds p q) :
+    {p q : Nat × FEnv} (h : DeclsRun mode pins maxNatSize ds p q) :
     q.2.env = streamEnv ds p.2.env := by
   induction h with
   | nil p => rfl
   | @cons pd ds p p₁ q hstep rest ih =>
     obtain ⟨fe₁, s₁, rfl, hstepC⟩ := declStep_ok hstep
-    have h₁ := checkDeclStepC_pushes (pins := pins) mode p.2 pd {} fe₁ s₁ hstepC
+    have h₁ := checkDeclStepC_pushes (pins := pins) mode p.2 pd _ fe₁ s₁ hstepC
     rw [ih]
     simp only at h₁
     rw [h₁, pushDelta_env]
@@ -732,13 +736,13 @@ theorem declsRun_env (mode : CheckMode) {ds : List Declaration}
 
 /-- **An accepted stream's environment is a function of the stream**, at every mode. -/
 theorem checkDecls_env {mode : CheckMode} {ds : Array Declaration} {env : Env}
-    (h : checkDecls mode pins ds = .ok env) : env = streamEnv ds.toList := by
+    (h : checkDecls mode pins maxNatSize ds = .ok env) : env = streamEnv ds.toList := by
   obtain ⟨n, fe, r, rfl⟩ := checkDecls_run mode h
   exact declsRun_env mode r
 
 /-- **Two modes that both accept a stream end in the same environment.** -/
 theorem checkDecls_agree {μ₁ μ₂ : CheckMode} {ds : Array Declaration} {env₁ env₂ : Env}
-    (h₁ : checkDecls μ₁ pins ds = .ok env₁) (h₂ : checkDecls μ₂ pins ds = .ok env₂) :
+    (h₁ : checkDecls μ₁ pins maxNatSize ds = .ok env₁) (h₂ : checkDecls μ₂ pins maxNatSize ds = .ok env₂) :
     env₁ = env₂ :=
   (checkDecls_env h₁).trans (checkDecls_env h₂).symm
 

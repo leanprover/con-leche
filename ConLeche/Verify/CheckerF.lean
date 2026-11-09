@@ -1,9 +1,7 @@
 module
 
-import ConLeche.Verify.FastOps
 public import ConLeche.Verify.EnvBound
 public import ConLeche.Kernel.Inductives.SumInstallF
-import ConLeche.Kernel.DeclCheck
 
 public section
 
@@ -168,17 +166,6 @@ theorem checkStructFieldSortsIF_eq (ops : CheckerOps m) (env : Env)
     simp only [checkStructFieldSortsIF, checkStructFieldSortsI, mkFEnv_env,
       checkStructFieldSortsIF_eq ops env isProp large s nP fvs idxArgs j]
 
-/-- `checkStructFieldSortsIFA` (task #175 indexed) at `List.toArray`. -/
-theorem checkStructFieldSortsIFA_eq (ops : CheckerOps m) (fe : FEnv)
-    (isProp large : Bool) (s : Level) (nP : Nat) (fvs idxArgs : List Expr) :
-    ∀ j, checkStructFieldSortsIFA ops fe isProp large s nP fvs.toArray idxArgs j
-      = checkStructFieldSortsIF ops fe isProp large s nP fvs idxArgs j
-  | 0 => rfl
-  | j + 1 => by
-    simp only [checkStructFieldSortsIFA, checkStructFieldSortsIF,
-      List.getElem?_toArray,
-      checkStructFieldSortsIFA_eq ops fe isProp large s nP fvs idxArgs j]
-
 theorem checkSumCtorF_eq (ops : CheckerOps m) (env₀ env : Env) (T : Name)
     (lps : List Name) (nP nIdx : Nat) (resSort : Level) (isProp large : Bool)
     (cvC : ConstantVal) (nF : Nat) (cvTa : ConstantVal) :
@@ -187,8 +174,7 @@ theorem checkSumCtorF_eq (ops : CheckerOps m) (env₀ env : Env) (T : Name)
       = checkSumCtor ops env₀ env T lps nP nIdx resSort isProp large cvC nF
         cvTa := by
   simp only [checkSumCtorF, checkSumCtor, checkConstantValF_eq,
-    checkStructDomsAtFA_eq, checkStructDomsAtF_eq, openPisAtFvarsF_eq,
-    checkStructFieldSortsIFA_eq, checkStructFieldSortsIF_eq, constsResolveF_eq]
+    checkStructDomsAtF_eq, checkStructFieldSortsIF_eq, constsResolveF_eq]
 
 theorem checkSumCtorsF_eq (ops : CheckerOps m) (env₀ env : Env) (T : Name)
     (lps : List Name) (nP nIdx : Nat) (resSort : Level) (isProp large : Bool)

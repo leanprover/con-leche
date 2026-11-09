@@ -283,8 +283,8 @@ theorem checkDeclsPure_envWF {F : Nat} {ds : List Declaration} {env' : Env}
 
 /-- **The fold's run keeps the environment well formed**: each record's cached check is a pure
 `checkDecl` run (`checkDeclStepC_run`, which itself reads the environment's well-formedness). -/
-theorem declsRun_envWF {ds : List Declaration} {p q : Nat × FEnv}
-    (hrun : DeclsRun .verified pins ds p q) :
+theorem declsRun_envWF {maxNatSize : Nat} {ds : List Declaration} {p q : Nat × FEnv}
+    (hrun : DeclsRun .verified pins maxNatSize ds p q) :
     p.2 = mkFEnv p.2.env → EnvWF p.2.env → EnvWF q.2.env := by
   induction hrun with
   | nil p => exact fun _ hw => hw
@@ -292,13 +292,13 @@ theorem declsRun_envWF {ds : List Declaration} {p q : Nat × FEnv}
     intro hfe hw
     obtain ⟨fe₁, s₁, rfl, hstepC⟩ := declStep_ok hstep
     rw [hfe] at hstepC
-    obtain ⟨-, hfe₁, F, hF⟩ := checkDeclStepC_run hw CSOKF.empty hstepC
+    obtain ⟨-, hfe₁, F, hF⟩ := checkDeclStepC_run hw (CSOKF.fresh _) hstepC
     exact ih hfe₁ (checkDecl_envWF hw hF)
 
 /-- **What the fold the binary runs accepts is well formed** (`checkDecls`, the subject of the
 main theorem), model-free. -/
-theorem checkDecls_envWF {ds : Array Declaration} {env' : Env}
-    (h : checkDecls .verified pins ds = .ok env') : EnvWF env' := by
+theorem checkDecls_envWF {maxNatSize : Nat} {ds : Array Declaration} {env' : Env}
+    (h : checkDecls .verified pins maxNatSize ds = .ok env') : EnvWF env' := by
   obtain ⟨n, fe, r, rfl⟩ := checkDecls_run .verified h
   exact declsRun_envWF r rfl EnvWF.empty
 

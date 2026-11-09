@@ -7,7 +7,7 @@ import ConLeche.Verify.InstLevels
 public import ConLeche.Verify.EnvWF
 import ConLeche.Verify.Knot
 public import ConLeche.Verify.StrLitExpr
-public import ConLeche.Verify.InstList
+import ConLeche.Verify.InstList
 public import ConLeche.Verify.InstSpine
 
 public section
@@ -2290,9 +2290,7 @@ theorem natOpResult_shape {c : Name} {a b : Nat} {e₂ : Expr}
   rw [ite_eq_right h4] at h
   by_cases h5 : c = natPowName
   · rw [ite_eq_left h5] at h
-    split at h
-    · exact nomatch h
-    · exact Or.inl ⟨_, (Option.some.inj h).symm⟩
+    exact Or.inl ⟨_, (Option.some.inj h).symm⟩
   rw [ite_eq_right h5] at h
   by_cases h6 : c = natDivName
   · rw [ite_eq_left h6] at h

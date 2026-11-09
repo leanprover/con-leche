@@ -1,7 +1,8 @@
 module
 
 public import ConLeche.Kernel.Inductives.BlockTail
-public import ConLeche.Cached.CoreC
+public import ConLeche.Cached.IndBlock
+public import ConLeche.Cached.IndTail
 
 @[expose] public section
 
@@ -22,34 +23,98 @@ namespace ConLeche.Cached
 
 open ConLeche
 
-/-! ### The direct installers' walkers (task #214) -/
+/-! ### The direct installers' walker (task #214) -/
 
-/-- `Expr.instPisAtLift` at the memoised substitution. -/
-def instPisAtLiftC : List Expr → Expr → Option Expr
-  | [], e => some e
-  | a :: as, .forallE _ body => instPisAtLiftC as (Expr.instantiate1LiftC body a)
-  | _ :: _, _ => none
-
-/-- `structProjBodiesGo` at the memoised substitution. -/
-def structProjBodiesGoC (T : Name) : Nat → Nat → Expr → Option (List Expr)
+/-- `structProjBodiesGo` at the memoised substitution
+(`structProjBodiesGoC_eq`). -/
+def structProjBodiesGoC (T : Name) (vs : List Expr) : Nat → Nat → Expr → Option (List Expr)
   | 0, _, _ => some []
   | k + 1, i, .forallE fdom body =>
-    (structProjBodiesGoC T k (i + 1) (Expr.instantiate1LiftC body (structProjArgP T i))).map
-      (fdom :: ·)
+    (structProjBodiesGoC T (structProjArgP T i :: vs) k (i + 1) body).map
+      (Expr.instantiateLiftC fdom vs :: ·)
   | _ + 1, _, _ => none
 
-/-- `structProjBodies` at the memoised substitution
-(`structProjBodiesC_eq`). -/
+/-- `structProjBodies` at the memoised substitution: each field's raw
+domain substituted once by `instantiateLiftC` (`structProjBodiesC_eq`). -/
 def structProjBodiesC (T : Name) (nP nF : Nat) (cty : Expr) : Option (Array Expr) :=
-  match instPisAtLiftC (structProjPs nP) cty with
-  | some r => (structProjBodiesGoC T nF 0 r).map List.toArray
+  match cty.stripPis nP with
+  | some (_, r) => (structProjBodiesGoC T (structProjPs nP).reverse nF 0 r).map List.toArray
   | none => none
 
-/-- **The cached driver's walkers**: the memoised constant-resolution
-gate (`constsResolveFC`, verified at `constsResolveFC_spec`) and the
-memoised projection-body builder; equal to `StructWalkers.plain`
-(`structWalkersC_eq_plain`). -/
-def structWalkersC : StructWalkers := ⟨constsResolveFC, structProjBodiesC⟩
+/-- `blockTables` over the memoised projection bodies (task #497;
+`blockTablesC_eq`, `ConLeche/Verify/Cached/WalkersC.lean`): the tables
+the index records (`declTablesC`, `StreamIndex.add`) and the tables the
+block's install checks and pushes (`checkBlockKS`). -/
+def blockTablesC (p : BlockShape) : List MemberShape → Option (List ProjTable)
+  | [] => some []
+  | ms :: rest =>
+    match ms.structCtor? with
+    | some c =>
+      (structProjBodiesC ms.declared.name p.nP c.2 c.1.type).bind fun bodies =>
+        (blockTablesC p rest).map (⟨ms.declared.name, p.lps, p.nP, c.1.name, c.2, bodies⟩ :: ·)
+    | none => blockTablesC p rest
+
+/-- `declTables` over `blockTablesC`. -/
+def declTablesC : Declaration → List ProjTable
+  | .indDecl block nP =>
+    match readBlock nP block with
+    | .ok p => (blockTablesC p p.members).getD []
+    | .error _ => []
+  | _ => []
+
+/-- The cached `blockIsRec` (official's `is_rec`): the declared
+constructors' syntactic domains scanned by `mentionsAnyConstC`
+(`blockIsRecC_eq`). -/
+def blockIsRecC (p : BlockShape) : Bool :=
+  p.members.any fun ms => ms.ctors.any fun c => Expr.piDomsMentionAnyC p.memberNames c.1.type
+
+/-- The cached `Expr.dropVars`: each variable dropped by `instantiate1C`
+(`dropVarsC_eq`). -/
+def Expr.dropVarsC : Nat → Expr → Expr
+  | 0, e => e
+  | n + 1, e => Expr.dropVarsC n (Expr.instantiate1C e (.sort .zero))
+
+/-- The cached `recFire`: a nested recursor's container parameters
+moved by `dropVarsC` (`recFireC_eq`). -/
+def recFireC (p : BlockShape) (rc : RecShape) : RecRuleFire :=
+  if rc.tgt < p.k then .plain
+  else
+    match rc.cvR.type.stripPis rc.mI with
+    | some (_, .forallE dom _) =>
+      match dom.getAppFn with
+      | .const _ us =>
+        let nI := rc.mI - rc.rP
+        let args := dom.getAppArgs
+        .nested us ((args.take (args.length - nI)).map (Expr.dropVarsC nI))
+      | _ => .plain
+    | _ => .plain
+
+/-- The cached `blockRecs`, over `recFireC` (`blockRecsC_eq`). -/
+def blockRecsC (p : BlockShape) : List RecShape → List ConstantInfo
+  | [] => []
+  | rc :: rest =>
+    .recInfo rc.cvR rc.mI rc.rP rc.isK (rc.rules.map ({ · with fire := recFireC p rc })) ::
+      blockRecsC p rest
+
+/-- `blockConstants` at `blockIsRecC` and `blockRecsC`: the constants the index records
+(`declConstantsC`) and the block's install pushes (`checkBlockKS`). -/
+def blockConstantsC (p : BlockShape) : List ConstantInfo :=
+  blockFormers p (blockIsRecC p) ++ blockCtors p ++ blockRecsC p p.recs
+
+/-- `declConstants` over `blockConstantsC`. -/
+def declConstantsC : Declaration → List ConstantInfo
+  | .defnDecl cv value hint => [.defnInfo cv value hint]
+  | .thmDecl cv _ => [.thmInfo cv]
+  | .opaqueDecl cv _ => [.axiomInfo cv]
+  | .axiomDecl cv =>
+    if cv.name = quotSoundName then [quotAt .sound cv]
+    else if cv.name = sorryAxName then []
+    else [.axiomInfo cv]
+  | .quotDecl k cv => [quotAt k cv]
+  | .indDecl block nP =>
+    match readBlock nP block with
+    | .ok p => blockConstantsC p
+    | .error _ => []
 
 variable (mode : CheckMode)
 
@@ -115,15 +180,6 @@ def sharedOpsRuleR (fe : FEnv) : CheckerOps CheckCM :=
       flushC
       pure t }
 
-/-- **The shadow operations of the cached driver**: the index-bound
-operations `sharedOpsC`, the rule variant `sharedOpsRuleR` (a flush at
-each of a rule's two environment transitions), `flushC` at every
-environment change, the memoised walkers, and the rule-less recursors
-as an overlay sharing the constructors' index (`classFeROvl`).  The
-recursor stage (`checkBlockTailS`) runs `genRecCheck` at them. -/
-def shadowOpsC : ShadowOps CheckCM :=
-  ⟨sharedOpsC mode, sharedOpsRuleR mode, flushC, structWalkersC, classFeROvl⟩
-
 /-- **`checkBlockPass` through the index**: the k
 formers checked and consed — one flush entering the environment that
 holds them all — then the constructors per member at that
@@ -131,36 +187,36 @@ environment, the classes, and the positivity check walking every class
 (the members' root frame first). -/
 def checkBlockPassS (fe : FEnv) (p₀ : BlockShape) (isRec : Bool) :
     CheckCM (BlockPass FEnv) := do
-  let (fe₁, p₁) ← checkBlockIndsF (sharedOpsC mode fe) fe p₀ isRec
+  let (fe₁, p₁) ← checkBlockIndsC mode fe p₀ isRec
   flushC
-  checkBlockCtorsF (sharedOpsC mode fe₁) fe₁ fe₁ p₁ p₁.members
-  let (ctx, holes) ← blockNestCtx p₁ fe₁.find?
-  let (rd, Ms) ← checkBlockClasses (sharedOpsC mode fe₁) fe₁ p₁ ctx.params
-  let (outs, pos) ← checkBlockPositivity (sharedOpsC mode fe₁) fe₁.env fe₁.find? p₁
-  let st ← nestSeeds (sharedOpsC mode fe₁) fe₁.env ctx (classSeeds ctx holes Ms) pos
+  checkBlockCtorsC mode fe₁ fe₁ p₁ p₁.members
+  let (ctx, holes) ← blockNestCtxC p₁ fe₁.find?
+  let (rd, Ms) ← checkBlockClassesC mode fe₁ p₁ ctx.params
+  let (outs, pos) ← checkBlockPositivityC mode fe₁ fe₁.find? p₁
+  let st ← nestSeedsC mode fe₁ ctx (classSeedsC ctx holes Ms) pos
   pure ⟨fe₁, p₁, nestOutKinds outs, ctx.params, rd, Ms, st.ctorNfs⟩
 
 /-- **`checkBlockTail` through the index**: one flush entering the recursors' environment.  The
 constructors' index `fe₂` is read at once by the rule-less recursors (the rule stage reads `fe₂` and
-them) and by the generated recursors, so both are overlays sharing it (`shadowOpsC`'s `ruleEnv`,
-`classFeROvl`; `blockRecInfosTF`): a push onto `fe₂` while it is alive would copy the whole bucket
+them) and by the generated recursors, so both are overlays sharing it (`classFeROvl`,
+`genRecCheckC`; `blockRecInfosTC`): a push onto `fe₂` while it is alive would copy the whole bucket
 array, once per inductive block. -/
-def checkBlockTailS (block : List ConstantInfo) (q : BlockPass FEnv) : CheckCM Unit :=
+def checkBlockTailS (block : List ConstantInfo) (q : BlockPass FEnv) (Q : List ProjTable) :
+    CheckCM Unit :=
   match q with
   | ⟨env₁, p, kinds, params, rd, cls, tbl⟩ => do
-  checkBlockIdxSortsF (sharedOpsC mode env₁) env₁ p p.members
+  checkBlockIdxSortsC mode env₁ p p.members
   let fe₂ := consBlockCtorsF p.nP p.memberCtors env₁
   flushC
-  let out ← genRecCheck (shadowOpsC mode) fe₂ p
-    (blockNestedBit p kinds) params tbl.toList rd cls block
+  let out ← genRecCheckC mode fe₂ p (blockNestedBit p kinds) params tbl.toList rd cls block
   -- the stream's recursors against the generated ones, at the generated recursors as an OVERLAY on
   -- the constructors' index (read-only, sharing it), a flush entering and leaving that environment
   streamKCheck p p.recs out
-  let feG := fe₂.overlay (blockRecInfosTF p 0 out).reverse
+  let feG := fe₂.overlay (blockRecInfosTC p 0 out).reverse
   flushC
-  streamRecsCheck (sharedOpsC mode feG) structWalkersC feG p.recs out
+  streamRecsCheckC mode feG p.recs out
   flushC
-  checkBlockTablesF (m := CheckCM) structWalkersC p fe₂ p.members
+  checkBlockTablesC fe₂ Q
 
 /-- Twin of `reduceMember`. -/
 def reduceMemberS (fe : FEnv) (ms : MemberShape) (nP : Nat) : CheckCM MemberShape :=
@@ -168,9 +224,9 @@ def reduceMemberS (fe : FEnv) (ms : MemberShape) (nP : Nat) : CheckCM MemberShap
     if declinedAtDefinition.contains ms.cvT.name then
       throw (.notImplemented s!"this family stored at a definition ({ms.cvT.name})")
     else do
-      checkConstantValF (sharedOpsC mode fe) fe ms.cvT
-      let cvR ← reducedFormer (sharedOpsC mode fe) fe.env ms.cvT (nP + ms.nIdx)
-      unless ← (sharedOpsC mode fe).isDefEq fe.env 0 ms.cvT.type cvR.type do
+      checkConstantValC mode fe ms.cvT
+      let cvR ← reducedFormerC mode fe ms.cvT (nP + ms.nIdx)
+      unless ← (coreKnotI mode false fe checkFuel).defeq 0 ms.cvT.type cvR.type do
         throw (.invalid "direct sum: a type former's declared type and its reduct differ")
       pure { ms with cvT := cvR }
   else pure ms
@@ -193,8 +249,9 @@ def checkBlockKS (fe : FEnv) (block : List ConstantInfo) (p₀ : BlockShape) :
     throw (.invalid "direct rec: a family at a `Bool` constructor's name")
   let ms ← reduceMembersS mode fe p₀.nP p₀.members
   flushC
-  let q ← checkBlockPassS mode fe { p₀ with members := ms } (blockIsRec p₀)
-  checkBlockTailS mode block q
-  pure (FEnv.pushDelta (blockConstants p₀) (blockTables p₀ p₀.members) fe)
+  let q ← checkBlockPassS mode fe { p₀ with members := ms } (blockIsRecC p₀)
+  let Q ← unwrapOr (blockTablesC p₀ p₀.members) (.internal "direct structure: projection bodies")
+  checkBlockTailS mode block q Q
+  pure (FEnv.pushDelta (blockConstantsC p₀) Q fe)
 
 end ConLeche.Cached

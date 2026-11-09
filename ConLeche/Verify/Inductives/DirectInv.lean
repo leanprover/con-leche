@@ -2,7 +2,6 @@ module
 
 public import ConLeche.Verify.BridgeWfImp
 public import ConLeche.Verify.ExceptBind
-import ConLeche.Verify.FastOps
 import ConLeche.Verify.Extend.Inversions
 import ConLeche.Kernel.Inductives.SumInstall
 
@@ -74,42 +73,33 @@ theorem structConstWF {env : Env} {c : ConstantInfo}
 
 /-! ## The projection table (#175) -/
 
-/-- The table stage's run, inverted: the bodies are the generator's,
-they pass the scoping guard, the structure is stored and has no table
-yet. -/
-theorem checkStructProjTable_inv {env : Env} {T : Name}
-    {lps : List Name} {nP nF : Nat}
-    {cvCa : ConstantVal}
-    (h : checkStructProjTable (m := CheckM) T lps nP nF cvCa env = .ok ()) :
-    ∃ bodies : Array Expr,
-      structProjBodies T nP nF cvCa.type = some bodies ∧
-      (bodies.size = nF ∧ bodies.all (fun b => !b.hasFvar &&
-        b.allLevelParamsDefined lps && b.constsResolve env &&
-        b.looseBVarsBounded (nP + 1)) = true) ∧
-      (env.find? T).isSome = true ∧ env.findTable? T = none := by
+/-- The table stage's run, inverted: the bodies pass the scoping guard, the structure is stored and
+has no table yet. -/
+theorem checkStructProjTable_inv {env : Env} {t : ProjTable}
+    (h : checkStructProjTable (m := CheckM) t env = .ok ()) :
+    (t.bodies.size = t.numFields ∧ t.bodies.all (fun b => !b.hasFvar &&
+        b.allLevelParamsDefined t.levelParams && b.constsResolve env &&
+        b.looseBVarsBounded (t.numParams + 1)) = true) ∧
+      (env.find? t.structName).isSome = true ∧ env.findTable? t.structName = none := by
   unfold checkStructProjTable at h
-  obtain ⟨bodies, hb, h⟩ := exceptBind_ok h
-  have hb' := unwrapOr_ok hb
   repeat' first
     | (obtain ⟨_, _, h⟩ := exceptBind_ok h)
     | split at h
   all_goals first
-    | exact ⟨bodies, hb', by assumption, by assumption,
-        Option.isNone_iff_eq_none.mp (by assumption)⟩
+    | exact ⟨by assumption, by assumption, Option.isNone_iff_eq_none.mp (by assumption)⟩
     | close_throw
 
 /-- **A table's checks at a later environment**: the structure and everything the bodies mention
 are still stored there, and the structure still has no table. -/
-theorem checkStructProjTable_mono {env env' : Env} {T : Name} {lps : List Name} {nP nF : Nat}
-    {cvCa : ConstantVal}
+theorem checkStructProjTable_mono {env env' : Env} {t : ProjTable}
     (hfind : ∀ n ci, env.find? n = some ci → env'.find? n = some ci)
-    (hT : env'.findTable? T = none)
-    (h : checkStructProjTable (m := CheckM) T lps nP nF cvCa env = .ok ()) :
-    checkStructProjTable (m := CheckM) T lps nP nF cvCa env' = .ok () := by
-  obtain ⟨bodies, hb, ⟨hsize, hall⟩, hTs, -⟩ := checkStructProjTable_inv h
-  have hall' : bodies.all (fun b => !b.hasFvar &&
-      b.allLevelParamsDefined lps && b.constsResolve env' &&
-      b.looseBVarsBounded (nP + 1)) = true := by
+    (hT : env'.findTable? t.structName = none)
+    (h : checkStructProjTable (m := CheckM) t env = .ok ()) :
+    checkStructProjTable (m := CheckM) t env' = .ok () := by
+  obtain ⟨⟨hsize, hall⟩, hTs, -⟩ := checkStructProjTable_inv h
+  have hall' : t.bodies.all (fun b => !b.hasFvar &&
+      b.allLevelParamsDefined t.levelParams && b.constsResolve env' &&
+      b.looseBVarsBounded (t.numParams + 1)) = true := by
     refine Array.all_eq_true_iff_forall_mem.mpr fun b hbm => ?_
     have hb' := (Array.all_eq_true_iff_forall_mem.mp hall) b hbm
     simp only [Bool.and_eq_true] at hb' ⊢
@@ -117,37 +107,71 @@ theorem checkStructProjTable_mono {env env' : Env} {T : Name} {lps : List Name} 
     obtain ⟨ci, hci⟩ := Option.isSome_iff_exists.mp hn
     rw [hfind _ _ hci]
     rfl
-  have hTs' : (env'.find? T).isSome = true := by
+  have hTs' : (env'.find? t.structName).isSome = true := by
     obtain ⟨ci, hci⟩ := Option.isSome_iff_exists.mp hTs
     rw [hfind _ _ hci]
     rfl
   unfold checkStructProjTable
-  simp only [hb, unwrapOr, pure, Except.pure, bind, Except.bind]
+  simp only [pure, Except.pure, bind, Except.bind]
   rw [ite_eq_left ⟨hsize, hall'⟩, ite_eq_left hTs', ite_eq_left (by rw [hT]; rfl)]
 
 /-- **A projection table's check makes the table well formed** where it ran. -/
-theorem checkStructProjTable_tableWF {env : Env} {T C : Name} {lps : List Name} {nP nF : Nat}
-    {cvCa : ConstantVal}
-    (h : checkStructProjTable (m := CheckM) T lps nP nF cvCa env = .ok ())
-    {bodies : Array Expr} (hb : structProjBodies T nP nF cvCa.type = some bodies) :
-    TableWF env ⟨T, lps, nP, C, nF, bodies⟩ := by
-  obtain ⟨bodies', hb', ⟨hsize, hall⟩, hT, -⟩ := checkStructProjTable_inv h
-  obtain rfl : bodies' = bodies := Option.some.inj (hb'.symm.trans hb)
+theorem checkStructProjTable_tableWF {env : Env} {t : ProjTable}
+    (h : checkStructProjTable (m := CheckM) t env = .ok ()) : TableWF env t := by
+  obtain ⟨⟨hsize, hall⟩, hT, -⟩ := checkStructProjTable_inv h
   refine ⟨hT, hsize, fun i b hb => ?_⟩
-  have hmem : b ∈ bodies' := Array.mem_of_getElem? hb
+  have hmem : b ∈ t.bodies := Array.mem_of_getElem? hb
   have hb' := (Array.all_eq_true_iff_forall_mem.mp hall) b hmem
   simp only [Bool.and_eq_true, Bool.not_eq_eq_eq_not, Bool.not_true] at hb'
   exact ⟨hb'.1.1.1, hb'.1.1.2, hb'.1.2, hb'.2⟩
 
 /-- A table the stage checked keeps an environment well-formed. -/
-theorem direct_table_wf {env : Env} (henv : EnvWF env)
-    {T : Name} {lps : List Name} {nP nF : Nat}
-    {cvCa : ConstantVal}
-    (h : checkStructProjTable (m := CheckM) T lps nP nF cvCa env = .ok ())
-    {bodies : Array Expr} (hb : structProjBodies T nP nF cvCa.type = some bodies) (C : Name) :
-    EnvWF ⟨env.consts, ⟨T, lps, nP, C, nF, bodies⟩ :: env.tables⟩ :=
-  EnvWF.pushTable henv (checkStructProjTable_tableWF h hb)
+theorem direct_table_wf {env : Env} (henv : EnvWF env) {t : ProjTable}
+    (h : checkStructProjTable (m := CheckM) t env = .ok ()) :
+    EnvWF ⟨env.consts, t :: env.tables⟩ :=
+  EnvWF.pushTable henv (checkStructProjTable_tableWF h)
 
+
+/-! ## The block's tables -/
+
+/-- **A block's tables at a structure-like member**: its table, read off its constructor, then the
+rest's. -/
+theorem blockTables_cons_some {p : BlockShape} {ms : MemberShape} {rest : List MemberShape}
+    {c : ConstantVal × Nat} (hc : ms.structCtor? = some c) {Q : List ProjTable}
+    (h : blockTables p (ms :: rest) = some Q) :
+    ∃ bodies Qr, structProjBodies ms.declared.name p.nP c.2 c.1.type = some bodies ∧
+      blockTables p rest = some Qr ∧
+      Q = ⟨ms.declared.name, p.lps, p.nP, c.1.name, c.2, bodies⟩ :: Qr := by
+  simp only [blockTables, hc] at h
+  obtain ⟨bodies, hb, h⟩ := Option.bind_eq_some_iff.mp h
+  obtain ⟨Qr, hQr, rfl⟩ := Option.map_eq_some_iff.mp h
+  exact ⟨bodies, Qr, hb, hQr, rfl⟩
+
+/-- A block's tables at any other member: the rest's. -/
+theorem blockTables_cons_none {p : BlockShape} {ms : MemberShape} {rest : List MemberShape}
+    (hc : ms.structCtor? = none) : blockTables p (ms :: rest) = blockTables p rest := by
+  simp only [blockTables, hc]
+
+/-- Every table of a block is at a member's declared name. -/
+theorem blockTables_names (p : BlockShape) :
+    ∀ (l : List MemberShape) (Q : List ProjTable), blockTables p l = some Q →
+      ∀ t ∈ Q, ∃ ms ∈ l, t.structName = ms.declared.name
+  | [], Q, h, t, ht => by
+    simp only [blockTables, Option.some.injEq] at h
+    subst h
+    nomatch ht
+  | ms :: rest, Q, h, t, ht => by
+    have hrest : ∀ Qr, blockTables p rest = some Qr → t ∈ Qr →
+        ∃ m ∈ ms :: rest, t.structName = m.declared.name := fun Qr hQr hr => by
+      obtain ⟨m, hm, hn⟩ := blockTables_names p rest Qr hQr t hr
+      exact ⟨m, List.mem_cons_of_mem _ hm, hn⟩
+    cases hc : ms.structCtor? with
+    | none => exact hrest Q (by rw [← blockTables_cons_none hc]; exact h) ht
+    | some c =>
+      obtain ⟨bodies, Qr, -, hQr, rfl⟩ := blockTables_cons_some hc h
+      rcases List.mem_cons.mp ht with rfl | hr
+      · exact ⟨ms, List.mem_cons_self, rfl⟩
+      · exact hrest Qr hQr hr
 
 /-! ## The frame walks: binder-domain pins and field sorts -/
 
