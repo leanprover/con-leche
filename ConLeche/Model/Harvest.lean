@@ -8,7 +8,6 @@ import ConLeche.Model.RecRulesCons
 public import ConLeche.Model.ReduceOps
 public import ConLeche.Model.Cover
 import ConLeche.Semantics.DeclRun
-import ConLeche.Semantics.DeclWF
 import ConLeche.Model.Reading.Levels
 
 public section
@@ -145,10 +144,10 @@ theorem harvestDefn
     {env₂ : Env}
     (hR : DeclDefnRun F env cv value hint env₂)
     -- the reserved names' check (`basisNamesOk`)
+    (hwf₂ : EnvWF env₂)
     (hnres : ConLeche.reservedBasisNames.contains cv.name = false) :
     CoverStep mp env₂ := by
   obtain ⟨type', value', hcv, hvfr, rfl, hnatc, hdmc⟩ := hR
-  have hwf₂ := ConstantValRun.envWF_defn hint mp.base2.wf hcv hvfr
   obtain ⟨hfind, hnd, hlbt, hitf, hann, htp, htr,
     hrunT, hcvShape⟩ := hcv
   obtain ⟨hvlb, hvhf, hannv, hvp, hvr, ⟨vtype, hvrun, hvde⟩⟩ := hvfr
@@ -519,10 +518,10 @@ theorem harvestThm
     {cv : ConstantVal} {value : Expr} {env₂ : Env}
     (hR : DeclThmRun F env cv value env₂)
     -- the reserved names' check (`basisNamesOk`)
+    (hwf₂ : EnvWF env₂)
     (hnres : ConLeche.reservedBasisNames.contains cv.name = false) :
     CoverStep mp env₂ := by
   obtain ⟨hopn, type', value', hcv, -, hvfr, rfl⟩ := hR
-  have hwf₂ := ConstantValRun.envWF_thm mp.base2.wf hcv
   obtain ⟨hfind, hnd, hlbt, hitf, hann, htp, htr,
     hrunT, hcvShape⟩ := hcv
   obtain ⟨hvlb, hvhf, hannv, hvp, hvr, ⟨vtype, hvrun, hvde⟩⟩ := hvfr
@@ -776,6 +775,7 @@ theorem harvestAxiom
     {cv : ConstantVal} {type' : Expr} {A : (Name → Nat) → Term}
     (hopn : natOpName cv.name = false)
     (hcv : ConstantValRun F env cv type')
+    (hwf₂ : EnvWF ⟨.axiomInfo ⟨cv.name, cv.levelParams, type'⟩ :: env.consts, env.tables⟩)
     -- the reserved names' check (`basisNamesOk`)
     (hnres : ConLeche.reservedBasisNames.contains cv.name = false)
     (hAvclosed : ∀ ψ : Name → Nat, Term.Closed (A ψ))
@@ -793,7 +793,6 @@ theorem harvestAxiom
     (hnotreduce : cv.name ∉ ConLeche.reduceOpNames) :
     CoverStep mp
       ⟨.axiomInfo ⟨cv.name, cv.levelParams, type'⟩ :: env.consts, env.tables⟩ := by
-  have hwf₂ := ConstantValRun.envWF_axiom mp.base2.wf hcv
   obtain ⟨hfind, hnd, hlbt, hitf, hann, htp, htr,
     hrunT, hcvShape⟩ := hcv
   obtain ⟨htf', hbt'⟩ := stored_syntax hann hitf hlbt
@@ -949,10 +948,10 @@ theorem harvestOpaque
     {cv : ConstantVal} {value : Expr} {env₂ : Env}
     (hR : DeclOpaqueRun F env cv value env₂)
     -- the reserved names' check (`basisNamesOk`)
+    (hwf₂ : EnvWF env₂)
     (hnres : ConLeche.reservedBasisNames.contains cv.name = false) :
     CoverStep mp env₂ := by
   obtain ⟨hopn, type', value', hcv, hvfr, rfl, hred⟩ := hR
-  have hwf₂ := ConstantValRun.envWF_axiom mp.base2.wf hcv
   obtain ⟨hfind, hnd, hlbt, hitf, hann, htp, htr,
     hrunT, hcvShape⟩ := hcv
   obtain ⟨hvlb, hvhf, hannv, hvp, hvr, ⟨vtype, hvrun, hvde⟩⟩ := hvfr
