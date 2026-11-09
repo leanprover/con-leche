@@ -15,7 +15,7 @@ module with its import closure from its `.olean` files, and prints one
 verdict line:
 
 ```
-con-leche [--verified|--trusted] [--jobs=<n>]
+con-leche [--verified|--trusted] [--jobs=<n>] [--nat-max-size=<bytes>]
           [--progress[=<stride>]] [--] FILE.ndjson
 con-leche [flags] --olean --search-path=DIR[:DIR...] [--constant=NAME]... [--] MODULE...
 con-leche --help
@@ -25,7 +25,10 @@ That is every flag the binary takes. `--verified` is the default and
 the mode the theorem is about; `--trusted` runs the same checker bodies
 with the certification-only work switched off, is faster, and is
 outside the theorem; `--jobs=<n>` sets the check phase's worker count
-(below);
+(below); `--nat-max-size=<bytes>` sets the largest `Nat` numeral the
+checker takes in or computes, as the official kernel's
+`LEAN_NAT_MAX_SIZE` does (default 128 MiB; a larger numeral rejects the
+declaration, §6);
 `--progress[=<stride>]` turns on a heartbeat on stderr
 (below); `--olean` takes module names (`Init`, `Mathlib`) in place of the
 file, looked up in the directories `--search-path` lists, and checks every constant of their
@@ -33,7 +36,7 @@ import closure, or with `--constant` only the named constants and what they ment
 `.olean` reader); `--` ends the options, every argument after it being a
 file or a module, whatever it is called; `--help` before any `--` prints a summary of all this
 and exits 0
-([`helpText` in `ConLeche/Driver/Cli.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Driver/Cli.lean#L114)).
+([`helpText` in `ConLeche/Driver/Cli.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Driver/Cli.lean#L126)).
 Any other option is a usage error: the run reports it, points at
 `--help` and exits 3 without reading its input, so a verdict's
 provenance can be read off the invocation.
@@ -150,11 +153,11 @@ The statement is two theorems: one about the declaration fold
 `checkDecls`, the function whose result the `con-leche` binary's
 driver returns for a parsed export stream, and one about the chunks
 the binary reads. The main theorem,
-[`model_exists` in `ConLeche/MainTheorem.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/MainTheorem.lean#L98-L101):
+[`model_exists` in `ConLeche/MainTheorem.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/MainTheorem.lean#L102-L105):
 
 > For every model `V` of the `SetTheory` interface, every
-> `Nat.div`/`Nat.mod` pin list `pins` and every list of declarations
-> `ds`: if `checkDecls`, in the default `--verified` mode, accepts `ds`
+> `Nat.div`/`Nat.mod` pin list `pins`, every numeral budget `budget`
+> and every list of declarations `ds`: if `checkDecls`, in the default `--verified` mode, accepts `ds`
 > with the environment `env`, then `env` has a model in `V` — one set
 > per stored constant and universe assignment under which every stored
 > constant is a member of what its type denotes, whatever the built-in
@@ -168,7 +171,10 @@ large constant the checker carries, and the theorem quantifies over
 it, so consistency does not depend on it at all — the theorem holds at
 the empty list too, under which a stream declaring `Nat.div` simply
 declines. The shipped binary runs the fold at `natOpPinSets`, the
-variants this toolchain committed.
+variants this toolchain committed. `budget`, the third argument, is the
+largest `Nat` numeral in bytes the fold takes in or computes (§6); a
+numeral above it only ever makes the fold reject, so the theorem holds
+at every budget.
 
 What a term denotes, and what a model is, are one short module a
 reader can take in at one sitting: the relation
@@ -192,7 +198,7 @@ and a truth value with a member is `{pt}`. So the two sides of every
 accepted equation denote the same set.
 
 The main corollary,
-[`no_False_declaration` in the same file](https://github.com/leanprover/con-leche/blob/master/ConLeche/MainTheorem.lean#L112-L119):
+[`no_False_declaration` in the same file](https://github.com/leanprover/con-leche/blob/master/ConLeche/MainTheorem.lean#L116-L123):
 
 > … if the chunks are a `jsonWithTheoremFalse` file — a name entry for
 > `False`, an expression entry for the constant `False`, a name entry
@@ -237,7 +243,7 @@ default mode, which is the verified one, and the default worker count;
 nothing is said about `--help` or the other flags. On a snapshot where
 the file's bytes are a `jsonWithTheoremFalse` file, no outcome of
 `runArgs` is an exit 0
-([theorem `main_no_False` in the same file](https://github.com/leanprover/con-leche/blob/master/ConLeche/MainTheorem.lean#L148-L150)).
+([theorem `main_no_False` in the same file](https://github.com/leanprover/con-leche/blob/master/ConLeche/MainTheorem.lean#L152-L154)).
 This is a theorem about the outcomes of `runArgs` in the model; that a
 run of the binary that exits 0 is one of those outcomes is assumed, not
 proved, and §2 states what the assumption is.
@@ -300,7 +306,7 @@ constructors are stored as declared, but they are installed with their
 block and are left out with it.
 
 `checkDecls`
-([function `checkDecls` in `ConLeche/Cached/Decls.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Cached/Decls.lean#L83-L84))
+([function `checkDecls` in `ConLeche/Cached/Decls.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Cached/Decls.lean#L89-L90))
 checks every declaration of `ds` in order, each against the environment
 of the declarations before it, and pushes what the declaration says.
 The driver runs the same checks independently, against views of an index
@@ -360,7 +366,7 @@ Read from the outside in:
    the escape, whose outcomes would otherwise allow any code. On every
    snapshot, every outcome of `runArgs` at the arguments `-- <file>` that
    is an exit 0 establishes the file's chain to the fold's accept
-   ([theorem `runArgs_accept` in `ConLeche/Verify/Driver/Main.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Verify/Driver/Main.lean#L178-L182)),
+   ([theorem `runArgs_accept` in `ConLeche/Verify/Driver/Main.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Verify/Driver/Main.lean#L188-L192)),
    whose corollary is `main_no_False` in
    `ConLeche/MainTheorem.lean` (§1). That a run of the binary that
    exits 0 is one of those outcomes is assumed, not proved, and the class's file states
@@ -439,7 +445,7 @@ Read from the outside in:
    — index resolution, the smart constructors — is the
    semantic layer the main corollary's line lemmas are about. The fold
    checks every record, each from a fresh memo state, by its step
-   ([function `declStep` in `ConLeche/Cached/Decls.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Cached/Decls.lean#L46-L47))
+   ([function `declStep` in `ConLeche/Cached/Decls.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Cached/Decls.lean#L52-L53))
    and pushes what the record says: a definition or opaque as declared, a
    theorem by its statement alone (the stored constant carrying
    no value: a theorem is opaque to reduction), an axiom or a
@@ -496,11 +502,11 @@ Read from the outside in:
    ([function `checkDeclsIO` in `ConLeche/Driver/Run.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Driver/Run.lean#L85-L88))
    returns the proof that `checkDecls` accepts.
 2. **The fold's run**
-   ([inductive `DeclsRun` in `ConLeche/Cached/Decls.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Cached/Decls.lean#L55-L56))
+   ([inductive `DeclsRun` in `ConLeche/Cached/Decls.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Cached/Decls.lean#L61-L62))
    is stated over the executable steps: a chain of accepting `declStep`s.
    An accept of `checkDecls` is exactly such a run from the empty index
-   ([theorem `checkDecls_run` in the same file](https://github.com/leanprover/con-leche/blob/master/ConLeche/Cached/Decls.lean#L124-L126),
-   [theorem `checkDecls_of_run` in the same file](https://github.com/leanprover/con-leche/blob/master/ConLeche/Cached/Decls.lean#L138-L140)),
+   ([theorem `checkDecls_run` in the same file](https://github.com/leanprover/con-leche/blob/master/ConLeche/Cached/Decls.lean#L130-L132),
+   [theorem `checkDecls_of_run` in the same file](https://github.com/leanprover/con-leche/blob/master/ConLeche/Cached/Decls.lean#L144-L146)),
    which is how the theorem about the fold is read off the argument
    of step 3.
 3. **The cached checker** (`ConLeche/Cached/*`) is the implementation
@@ -1383,13 +1389,30 @@ instead of trusting the operation's name.
   [theorem `divMod_install` in `ConLeche/Model/DivModCert.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Model/DivModCert.lean#L1978).
   That is why the two statements of §1 quantify over the list: the pins
   buy accepted `Nat.div` streams, never consistency.
+* **The numeral budget.** As the official kernel does, the checker
+  refuses a `Nat` numeral larger than a byte budget (128 MiB unless
+  `--nat-max-size` says otherwise), measured as the official kernel
+  measures it: 8 bytes per started 64 bits, at least 8. A literal is
+  refused where it is inferred, the result of `Nat.succ`, `Nat.add`,
+  `Nat.sub` or `Nat.mul` once computed, and `Nat.pow` and
+  `Nat.shiftLeft` before computing, from their operands: `a ^ b` when
+  `a > 1` and the size of `a` times `b` exceeds the budget, `a <<< b`
+  when `a > 0` and the size of `a` plus `b / 8` plus 1 does; both also
+  refuse a second argument that does not fit in 32 bits. A refusal
+  rejects the declaration
+  ([function `natOpRefusal` in `ConLeche/Cached/StateC.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Cached/StateC.lean#L160-L172)).
+  Within the budget every operation folds, whatever the exponent:
+  the specification's reduct is the computation itself
+  ([function `natOpResult` in `ConLeche/Kernel/CoreDefs.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/CoreDefs.lean#L587-L607)),
+  and the budget is the cached core's alone, since a refusal only
+  throws.
 * **`Bool`.** `Nat.beq` and `Nat.ble` return `Bool.true` or
   `Bool.false`, and the well-founded operations' certificates are
   guarded by `Nat.ble`, so these operations install only once `Bool`
   and its two constructors are stored, with no universe parameters,
   the constructors at the type `Bool` itself, and with `Bool : Type`
-  ([function `natOpGuard` in `ConLeche/Kernel/CoreDefs.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/CoreDefs.lean#L605-L619),
-  [function `natOpCod` in the same file](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/CoreDefs.lean#L662-L669)).
+  ([function `natOpGuard` in `ConLeche/Kernel/CoreDefs.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/CoreDefs.lean#L604-L618),
+  [function `natOpCod` in the same file](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/CoreDefs.lean#L661-L668)).
   That is the only reason the checker knows the name. `Bool` is not
   pinned: it is the stream's own block, installed like any other, and
   nothing depends on what it denotes — the fast path's result is the
