@@ -441,14 +441,92 @@ theorem occF_depth {s : InLean.CState} {d : Nat} {a : FVarId} :
 
 /-- **The scope guard holds on a scoped term** (`Expr.wscopedBC`, read off the
 ids). -/
+theorem wscopedOut_anyP {s : InLean.CState} {d : Nat} :
+    ∀ {e : Expr} (k : Nat), OkS s e = true → ConLeche.Expr.WScoped d (TrS s e) →
+      EO.anyP (InLean.wscopedOut d) e k = false := by
+  intro e
+  induction e with
+  | fvar id =>
+    intro k he hw
+    cases hg : (Expr.fvar id).hasFVar
+    · exact EO.anyP_some (by simp [InLean.wscopedOut, hg])
+    · obtain ⟨i, n, rfl, hi⟩ := occF_depth (a := id) he hw (by simp [OccF])
+      exact EO.anyP_some (by simp [InLean.wscopedOut, hg, fvDepth_fvId, hi])
+  | app f x ihf ihx =>
+    intro k he hw
+    rw [OkS_app, Bool.and_eq_true] at he
+    rw [TrS_app] at hw; simp only [ConLeche.Expr.WScoped] at hw
+    cases hg : (Expr.app f x).hasFVar
+    · exact EO.anyP_some (by simp [InLean.wscopedOut, hg])
+    · rw [EO.anyP_app (by simp [InLean.wscopedOut, hg])]
+      simp [ihf k he.1 hw.1, ihx k he.2 hw.2]
+  | lam n t b bi iht ihb =>
+    intro k he hw
+    rw [OkS_lam, Bool.and_eq_true] at he
+    rw [TrS_lam] at hw; simp only [ConLeche.Expr.WScoped] at hw
+    cases hg : (Expr.lam n t b bi).hasFVar
+    · exact EO.anyP_some (by simp [InLean.wscopedOut, hg])
+    · rw [EO.anyP_lam (by simp [InLean.wscopedOut, hg])]
+      simp [iht k he.1 hw.1, ihb (k + 1) he.2 hw.2]
+  | forallE n t b bi iht ihb =>
+    intro k he hw
+    rw [OkS_forallE, Bool.and_eq_true] at he
+    rw [TrS_forallE] at hw; simp only [ConLeche.Expr.WScoped] at hw
+    cases hg : (Expr.forallE n t b bi).hasFVar
+    · exact EO.anyP_some (by simp [InLean.wscopedOut, hg])
+    · rw [EO.anyP_forallE (by simp [InLean.wscopedOut, hg])]
+      simp [iht k he.1 hw.1, ihb (k + 1) he.2 hw.2]
+  | letE n t v b nd iht ihv ihb =>
+    intro k he hw
+    simp only [OkS, okE, Bool.and_eq_true] at he
+    rw [TrS_letE] at hw; simp only [ConLeche.Expr.WScoped] at hw
+    cases hg : (Expr.letE n t v b nd).hasFVar
+    · exact EO.anyP_some (by simp [InLean.wscopedOut, hg])
+    · rw [EO.anyP_letE (by simp [InLean.wscopedOut, hg])]
+      simp [iht k he.1.1 hw.1, ihv k he.1.2 hw.2.1, ihb (k + 1) he.2 hw.2.2]
+  | mdata m x ih =>
+    intro k he hw
+    cases hg : (Expr.mdata m x).hasFVar
+    · exact EO.anyP_some (by simp [InLean.wscopedOut, hg])
+    · rw [EO.anyP_mdata (by simp [InLean.wscopedOut, hg])]
+      exact ih k he hw
+  | proj sn i x ih =>
+    intro k he hw
+    rw [TrS_proj] at hw; simp only [ConLeche.Expr.WScoped] at hw
+    cases hg : (Expr.proj sn i x).hasFVar
+    · exact EO.anyP_some (by simp [InLean.wscopedOut, hg])
+    · rw [EO.anyP_proj (by simp [InLean.wscopedOut, hg])]
+      exact ih k he hw
+  | bvar j =>
+    intro k _ _
+    cases hg : (Expr.bvar j).hasFVar
+    · exact EO.anyP_some (by simp [InLean.wscopedOut, hg])
+    · exact EO.anyP_leaf (by simp [InLean.wscopedOut, hg]) rfl
+  | mvar j =>
+    intro k _ _
+    cases hg : (Expr.mvar j).hasFVar
+    · exact EO.anyP_some (by simp [InLean.wscopedOut, hg])
+    · exact EO.anyP_leaf (by simp [InLean.wscopedOut, hg]) rfl
+  | sort j =>
+    intro k _ _
+    cases hg : (Expr.sort j).hasFVar
+    · exact EO.anyP_some (by simp [InLean.wscopedOut, hg])
+    · exact EO.anyP_leaf (by simp [InLean.wscopedOut, hg]) rfl
+  | const j us =>
+    intro k _ _
+    cases hg : (Expr.const j us).hasFVar
+    · exact EO.anyP_some (by simp [InLean.wscopedOut, hg])
+    · exact EO.anyP_leaf (by simp [InLean.wscopedOut, hg]) rfl
+  | lit j =>
+    intro k _ _
+    cases hg : (Expr.lit j).hasFVar
+    · exact EO.anyP_some (by simp [InLean.wscopedOut, hg])
+    · exact EO.anyP_leaf (by simp [InLean.wscopedOut, hg]) rfl
+
 theorem wscopedBC_of_WScoped {s : InLean.CState} {e : Expr} {d : Nat} (he : OkS s e = true)
     (hw : ConLeche.Expr.WScoped d (TrS s e)) : InLean.Expr.wscopedBC d e = true := by
   unfold InLean.Expr.wscopedBC
-  rw [Bool.or_eq_true]; right
-  rw [Array.all_eq_true_iff_forall_mem]
-  intro a ha
-  obtain ⟨i, n, rfl, hi⟩ := occF_depth he hw ((mem_fvarIds (RangeOk_of_OkS he) a).1 ha)
-  rw [fvDepth_fvId]; exact decide_eq_true hi
+  rw [EO.anyNode_eq, wscopedOut_anyP 0 he hw]; rfl
 
 /-- A translation bounded at `k` comes from a term whose range is at most `k`. -/
 theorem rangeS_le_of_lbb {s : InLean.CState} : ∀ {e : Expr} {k : Nat},

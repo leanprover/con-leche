@@ -189,14 +189,22 @@ def sameConstHeadsC (a b : Expr) : Bool :=
     | _, _ => false
   | _, _ => false
 
+/-- The node test of `Expr.wscopedBC`: a subterm without free variables is
+scoped, a free variable is out of scope unless its depth is below `d`. -/
+def wscopedOut (d : Nat) (x : Expr) (_ : Nat) : Option Bool :=
+  if !x.hasFVar then some false else
+  match x with
+  | .fvar id => some (match EO.fvDepth? id with
+    | some i => !decide (i < d)
+    | none => true)
+  | _ => none
+
 /-- Twin of `Expr.wscopedBC d e`: every free variable of `e` is at a depth
-below `d` (read off the interned ids; an interned variable's type is
-scoped below its own depth by construction). -/
+below `d`, one walk stopping at the first variable out of scope and below
+no subterm without free variables (an interned variable's type is scoped
+below its own depth by construction). -/
 def Expr.wscopedBC (d : Nat) (e : Expr) : Bool :=
-  !e.hasFVar || (EO.fvarIds e).all fun id =>
-    match EO.fvDepth? id with
-    | some i => i < d
-    | none => false
+  !EO.anyNode (wscopedOut d) e 0
 
 /-- Twin of `Expr.looseBVarsBounded 0`. -/
 @[inline] def Expr.closedBV (e : Expr) : Bool := !e.hasLooseBVars
