@@ -117942,3 +117942,133 @@ stage2 in CI and update stage0 on merge` (lean4#16146, cherry-picked, no conflic
   `deriving_mutual_block`'s `#mutual_block` takes 179.6 M heartbeats (`IO.getNumHeartbeats`
   around the command; lane mono recorded 182.2 M; limit 200 M); `leanchecker --fresh Init`
   passes (536.0 G instructions); radar's part 2 (`make bench-part2` at stage1, stale measurement files removed first) runs through, 539 measurements.
+
+## TASK #547 — a `Nat` literal's hash reads all its bits: lean4#16146 vendored (2026-11-09, agent/547-lit-hash)
+
+The bug (#543): `Literal` derived `Hashable`, so `.natVal n` hashed as `n mod 2^64` and an
+`Expr.lit` node's packed hash read nothing else of the number.  Memo keys that differ only in
+literals agreeing in their low 64 bits shared one bucket, and lookups among them walked the
+chain with structural comparisons.  The same weakness is reported upstream as lean4#15686
+("Kernel check slows down quadratically for `Nat` that are multiples of `2^64`"), and fixed by
+the open PR lean4#16146.
+
+**The hash** (`natHash`, `ConLeche/Kernel/Expr.lean`) is lean4#16146's `Literal.natHash`: the
+number itself below `2^64`; above, its 64-bit words `w₀ … wₖ` (least significant first, `wₖ ≠
+0`) folded as `mixHash (… mixHash (mixHash w₀ w₁) …) wₖ`, independent of the limb size.  Strings
+were never weak: `String.hash` is `lean_string_hash`, a hash of all the bytes.  Below `2^62`
+(a scalar) the hash is the inline scalar comparison and `UInt64.ofNat`, in Lean; between `2^62`
+and `2^64` also Lean (one out-of-line comparison against the hoisted `2^64`); from `2^64` on,
+the vendored C.  An `Expr` node computes it once, at construction (the computed field
+`Expr.data`); a lookup reads the stored word.  Everything that hashes an `Expr` reads that
+word: `Expr.hash`, `Hashable Expr`, every memo key; nothing is interned.
+
+**Why C: the maintainer's one deliberate exception to "no C".**  Lean has no word access to a big
+`Nat`: reading the words by `% 2^64` and `>>> 64` costs a copy per word (the runtime's `shiftr`
+copies its argument), quadratic in the literal.  A bounded Lean hash was possible (the size, the
+low word, and an O(size) residue modulo a prime, or #543's probe of the size and the top 64
+bits: both a constant number of O(size) copies), but the maintainer ruled to vendor upstream's
+fix, so that our value is upstream's and the copy goes when the toolchain has it.
+`native/nat_hash.c` is the PR's `hash_digits` and `lean_nat_big_hash` under upstream's own symbol
+and signature (`uint64_t lean_nat_big_hash(b_lean_obj_arg)`, a big `Nat` only).  The v4.35.0
+runtime does not export it (`nm` over `libleanrt.a` and `libleanshared*.so`: no such symbol); a
+toolchain that ships lean4#16146 does, and then the link fails on the duplicate definition.  That
+failure is the wanted reminder: delete `native/nat_hash.c`, `ConLeche/Kernel/NatHash.lean` and
+the lakefile's native section, and call the toolchain's `Literal.natHash`.  The toolchain ships
+no `gmp.h`, so the C restates the `mpz_object` layout (the header, GMP's `int _mp_alloc`, `int
+_mp_size`, the limb pointer): the layout the `.olean` compactor writes and `Region.mpzAt` reads;
+a 64-bit platform is asserted statically.
+* Build: `lakefile.lean` again (#450's, with the `read_range` target replaced), since a custom
+  target needs code.  The C is compiled by the toolchain's own compiler (`buildLeanO`: the
+  toolchain's include directory and C flags, `-fPIC -O3`), so the build needs no system `cc`
+  (#450's needed one for `fcntl.h`); a static library through `moreLinkObjs`; its module the
+  library `ConLecheNative`, declared last, `precompileModules`, so that the interpreter
+  (elaboration-time code, the test library's `#guard`s) finds it.  CI's cache keys hash
+  `lakefile.lean` and `native/**` again.
+* Trust surface (`tests/trust-surface.sh`): `ConLeche/Kernel/NatHash.lean` allowlisted for
+  `extern` with its reason; `lakefile.lean` and `native/nat_hash.c` pinned by SHA-256.
+* Proofs: `natBigHash` is an `opaque` function of the number, so equal literals have equal
+  hashes whatever the C computes, which is all `LawfulHashable Expr` (`eq_of_beq`, then `rfl`)
+  and the memo proofs use.  No proof changed; no new axiom (the capstones' pinned axioms in
+  `tests/ConLecheTests/Axioms.lean` pass unchanged).  The assumption the C adds is that it is a
+  function (deterministic, no effects), stated in OVERVIEW's trust paragraph.
+* The `.olean` reader never reads a cached data word (`Frontend/Olean/Region.lean`: `Name`'s
+  hash, `Level`'s and `Expr`'s data words are skipped and recomputed), so our hash is internal:
+  it may differ from the stored one, today's or lean4#16146's.  It does not differ from the
+  latter.
+
+**Tests.**  `tests/ConLecheTests/LitHashTests.lean`: lean4#16146's own checks on our hash
+(4 000 different hashes for `65536 ^ i`; the number itself at `12345`, `2^63`, `2^64 - 1`;
+`2^64 ≠ 2^65`), the word fold on two and three words, the fixture's literals.  The e2e fixture
+`lit_hash_low_bits` (source in `tests/e2e/src/`, raw `lean4export` stream): `run 10000 (2^64)`,
+each step matching its accumulator `a + 1` against a literal, so the kernel continues with the
+literal `k * 2^64 - 1`; every memo key holding one differs from the others in it alone.
+
+| `lit_hash_low_bits` | instructions:u | time |
+|---|---|---|
+| con-leche, the low-bits hash (4becd8346) | 1 182.8 G | 223 s |
+| con-leche, the hash of all words | 3.01 G | 0.4 s |
+| official kernel (`leanchecker` v4.35.0), at 20 000 steps | | 308 s |
+| con-leche, the low-bits hash, at 20 000 steps | | over 600 s (timeout) |
+
+Linear with the new hash (1.53 / 3.01 / 4.52 G at 5 000 / 10 000 / 15 000 steps), quadratic
+without (34 s at 5 000, 223 s at 10 000).  `tests/arena.sh` runs it under a 10 s timeout, so a
+hash of the low bits fails the battery (exit 124).
+
+**Why the official kernel does not pay this on C20 — found in part.**  It has the same hash
+(`Literal.hash` is `hash v`, `n mod 2^64`), and where its memo keys hold such literals it pays
+the same: `leanchecker` takes 308 s on the fixture at 20 000 steps, as lean4#15686 reports.  So
+the difference on C20 (Lean 23 G cycles on ck318, con-leche 839 G before the fix) is in which
+terms reach the memos, not in the hash.  The official `whnf` caches its input term and returns
+literals without a lookup (`type_checker.cpp`, `whnf`: `Lit` is an "easy case"), and its terms
+carry the unreduced arguments (call by name), so its keys mostly hold structure, not the
+computed literals; con-leche's eager tower (`knotEagerI`, #353/#423) and the memos without an
+official counterpart (`defeqC`, `instC`) key terms whose arguments are already literals.  Which
+memo held C20's colliding chains was not isolated.
+
+**Gates.**  `lake build` and `lake test` warning-free; `tests/arena.sh` in full under the guard
+(arena tutorial 90/92, e2e 561/561, the trusted and `--jobs` sweeps unchanged, pindump with the
+pinners rebuilt on v4.33.0 and v4.34.0-rc2); shake, layering, trust surface, links and quotes.
+The pinners build `Expr.lean`, so they are `lakefile.lean`s with the same native section.
+
+**Measurements.**  4becd8346 (modular) → the lane, `perf stat -e instructions:u,cycles:u`, under
+the guard; instructions from the first run, cycles of three runs (sorted; the machine is
+loaded).  Streams at `--jobs=8`, init-full and CFSG at `--jobs=1`, the Mathlib workers
+`--olean --module --jobs=8`.  Verdicts identical on every run.
+
+| run | base G instr | lane G instr | change | base G cycles | lane G cycles |
+|---|---|---|---|---|---|
+| init-prelude | 2.010 | 2.011 | +0.03 % | 1.02 / 1.02 / 1.11 | 1.03 / 1.08 / 1.09 |
+| grind-ring-5 | 15.602 | 15.618 | +0.10 % | 8.29 / 8.37 / 8.50 | 8.43 / 8.53 / 8.89 |
+| app-lam | 22.073 | 22.063 | -0.04 % | 11.70 / 11.70 / 11.78 | 11.47 / 11.57 / 11.65 |
+| let-ladder | 2.599 | 2.599 | +0.01 % | 0.78 / 0.78 / 0.79 | 0.74 / 0.74 / 0.76 |
+| beta-ladder | 4.868 | 4.870 | +0.05 % | 1.52 / 1.53 / 1.56 | 1.50 / 1.53 / 1.55 |
+| init-full | 381.849 | 382.049 | +0.05 % | 161.35 / 162.03 / 165.68 | 162.86 / 163.70 / 165.99 |
+| `Init.Data.Nat.Lemmas` | 9.089 | 9.097 | +0.09 % | 4.19 / 4.47 / 4.60 | 4.24 / 4.39 / 4.48 |
+| `Mathlib.GroupTheory.Coxeter.Basic` | 6.892 | 6.898 | +0.09 % | 2.92 / 2.99 / 3.04 | 2.94 / 2.98 / 3.05 |
+| `Mathlib.Analysis.SpecialFunctions.Gamma.Basic` | 11.779 | 11.780 | +0.01 % | 5.30 / 5.32 / 5.48 | 5.21 / 5.33 / 5.39 |
+| `Mathlib.RingTheory.WittVector.MulP` | 6.365 | 6.364 | -0.02 % | 2.66 / 2.74 / 2.76 | 2.66 / 2.69 / 2.80 |
+
+No stream moves by more than 0.1 % in instructions (grind-ring-5 +0.10 %: the `natHash` branch
+and call instead of the derived hash's one `UInt64.ofNat`; init-full +0.05 %); the cycles move
+within their spread.
+
+CFSG (`_tmp/543/olean`, search path `_tmp/543/rev/sp.txt`, `--jobs=1`; ck318 as #543 isolated
+it, `--olean --constant=CFSG.KD.F24S.ck318 -- Certificates.Kernel.Sporadic.Fi24Seven.C20`, "net"
+subtracting the run at `--constant=CFSG.KD.F24S.CK`: base 225.04 G instructions, 55.78 G cycles;
+lane 225.44 G, 55.35 G).  The base runs of CCK4 and McLEnumA are #543's (over 1 800 s CPU,
+stopped by `timeout`; the kernel code is unchanged since); the probe is #543's (size and top 64
+bits), Lean is #543's `replay1.lean`.
+
+| module / theorem | base | #543 probe | lane | Lean |
+|---|---|---|---|---|
+| ck318, net: G instr; G cycles (3 runs); peak | 336.0; 212.9 / 219.5 / 224.9; 12.4 GiB | 75.4; 35.6; 11.9 GiB | 82.4; 32.4 / 32.7 / 33.2; 12.4 GiB | 57.8; 22.9; 12.6 GiB |
+| CCK4 (module) | over 1 800 s CPU (`timeout`) | 382.1; 674.5; 1.9 GiB | 219.5; 141.5 / 144.9 / 147.6; 2.0 GiB | 82.7; 70.2; 2.1 GiB |
+| McLEnumA (module) | over 1 800 s CPU (`timeout`) | 3 719; 2 971; 1.4 GiB | 3 726; 2 444 / 2 461 / 2 510; 1.4 GiB | 1 819; 1 552; 1.3 GiB |
+
+Base ck318's cycles here (213–225 G net) are a quarter of #543's 839 G: the colliding walk is
+memory-bound, and its cycles follow the machine's load and cache; its instructions are #543's to
+the 0.01 %.  The hash of all words costs ck318 7 G instructions more than the probe (82.4 against 75.4 G net:
+one pass over every big literal built) and saves cycles on CCK4, where the probe's hash still
+collided: 219 G instructions, 145 G cycles against the probe's 382 G and 674 G.  Memory
+unchanged (ck318 peak 12.4 GiB both).  The remaining gaps to Lean (ck318 1.4× net instructions,
+CCK4 2.7×, McLEnumA 2×) are ground-reduction speed (#423), not the hash.
