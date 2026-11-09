@@ -744,7 +744,7 @@ $c_j.\{arrow(ell)'\} thick arrow(a)' thick arrow(f)$ for which $r$ has
 a rule with right-hand side $R_j$. The reduct is
 $R_j[arrow(p) := arrow(ell)]$ applied to the parameters, motive and
 minors from $arrow(a)$ and to the fields $arrow(f)$
-(#src("ConLeche/Rules/Rel.lean", 185, 243)[as in con-leche]). Besides
+(#src("ConLeche/Rules/Rel.lean", 191, 249)[as in con-leche]). Besides
 finding $r$, $c_j$ and the rule in the environment, the fragment's
 rule has three _comparisons_ as premises:
 

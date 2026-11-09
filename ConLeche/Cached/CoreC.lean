@@ -352,8 +352,8 @@ def structEtaCertWithI (r : CoreFnsI) (fe : FEnv) (depth : Nat)
     | _ => pure false
   | _ => pure false
 
-/-- Twin of `structEtaCert`. -/
-def structEtaCertI (r : CoreFnsI) (fe : FEnv) (depth : Nat) (a b : Expr) :
+/-- Twin of `structEtaFull`. -/
+def structEtaFullI (r : CoreFnsI) (fe : FEnv) (depth : Nat) (a b : Expr) :
     CheckCM Bool := do
   -- the constructor-shape gate first (D13), as in the spec
   let sh ← pure (etaCtorShapeC fe a)
@@ -363,30 +363,115 @@ def structEtaCertI (r : CoreFnsI) (fe : FEnv) (depth : Nat) (a b : Expr) :
     structEtaCertWithI r fe depth a b wtb
   else pure false
 
+/-- Twin of `structEtaExpand`. -/
+def structEtaExpandI (r : CoreFnsI) (fe : FEnv) :
+    Nat → Nat → Expr → Expr → Expr → CheckCM Bool
+  | 0, depth, a, b, _ => structEtaFullI r fe depth a b
+  | k + 1, depth, a, b, .forallE dom body => do
+    let fv ← pure (Expr.fvar depth dom)
+    let body' ← inst1M body fv
+    structEtaExpandI r fe k (depth + 1) (.app a fv) (.app b fv) body'
+  | _ + 1, _, _, _, _ => pure false
+
+/-- Twin of `structEtaCert`. -/
+def structEtaCertI (r : CoreFnsI) (fe : FEnv) (depth : Nat) (a b : Expr) :
+    CheckCM Bool := do
+  let sh ← pure (etaCtorShapeC fe a)
+  if sh then structEtaFullI r fe depth a b else
+  match etaCtorPartialC fe a with
+  | some k =>
+    if !b.ioNeutral then pure false else
+    let ta ← r.inferIO depth a
+    let tb ← r.inferIO depth b
+    if ← r.defeq depth tb ta then structEtaExpandI r fe k depth a b ta
+    else pure false
+  | none => pure false
+
+/-- Twin of `isPropType`. -/
+def isPropTypeI (r : CoreFnsI) (depth : Nat) (T : Expr) : CheckCM Bool := do
+  let tt ← r.inferIO depth T
+  let w ← r.whnf depth tt
+  match w with
+  | .sort u => do
+    let z ← pure .zero
+    liftFueled "level comparison" (← isEquivLM u z)
+  | _ => pure false
+
+/-- Twin of `unitLikeFields`. -/
+def unitLikeFieldsI (r : CoreFnsI) (ul : Nat → Expr → CheckCM Bool) :
+    Nat → Nat → Expr → CheckCM Bool
+  | 0, _, _ => pure true
+  | n + 1, depth, .forallE dom body => do
+    if ← isPropTypeI r depth dom then do
+      let body' ← inst1M body (.fvar depth dom)
+      unitLikeFieldsI r ul n (depth + 1) body'
+    else if ← ul depth dom then do
+      let body' ← inst1M body (.fvar depth dom)
+      unitLikeFieldsI r ul n (depth + 1) body'
+    else pure false
+  | _ + 1, _, _ => pure false
+
+/-- Twin of `unitLikeShape` (pure: the index's reads and the cached
+operation-free instantiations). -/
+def unitLikeShapeF (fe : FEnv) (w : Expr) : Option (Option (Expr × Nat)) :=
+  match Expr.getAppFn w with
+  | .const S us =>
+    match fe.find? S with
+    | some (.indInfo cvS caps) =>
+      if caps.unitlike = true ∧ reservedBasisNames.contains S = false ∧
+          (Expr.getAppArgsC w).length = caps.unitParams ∧
+          us.length = cvS.levelParams.length then some none
+      else if caps.eta = true ∧ reservedBasisNames.contains S = false ∧
+          (Expr.getAppArgsC w).length = caps.etaParams ∧
+          us.length = cvS.levelParams.length ∧
+          fe.towerSlotsAllF S caps.etaFields = true then
+        match fe.findProj? S 0 with
+        | some e0 =>
+          match fe.find? e0.ctor with
+          | some (.ctorInfo cvC _ _) =>
+            if cvC.levelParams = cvS.levelParams then
+              (Expr.peelPis caps.etaParams (Expr.instLevelParams cvC.levelParams us cvC.type)).map
+                fun body =>
+                  some (Expr.instantiateListC body (Expr.getAppArgsC w).reverse 0,
+                    caps.etaFields)
+            else none
+          | _ => none
+        | none => none
+      else none
+    | _ => none
+  | _ => none
+
+/-- Twin of `unitLikeStruct`. -/
+def unitLikeStructI (r : CoreFnsI) (ul : Nat → Expr → CheckCM Bool) (fe : FEnv)
+    (depth : Nat) (w : Expr) : CheckCM Bool :=
+  match unitLikeShapeF fe w with
+  | some none => pure true
+  | some (some (tele, n)) => unitLikeFieldsI r ul n depth tele
+  | none => pure false
+
+/-- Twin of `unitLikeLoop`. -/
+def unitLikeLoopI (r : CoreFnsI) (fe : FEnv) : Nat → Nat → Expr → CheckCM Bool
+  | 0, _, _ => pure false
+  | fuel + 1, depth, T => do
+    let w ← r.whnf depth T
+    match w with
+    | .forallE dom body => do
+      let body' ← inst1M body (.fvar depth dom)
+      unitLikeLoopI r fe fuel (depth + 1) body'
+    | _ => unitLikeStructI r (unitLikeLoopI r fe fuel) fe depth w
+
 /-- Twin of `structUnitCert`. -/
 def structUnitCertI (r : CoreFnsI) (fe : FEnv) (depth : Nat) (a b : Expr) :
     CheckCM Bool := do
   let ta ← r.inferIO depth a
   let wta ← r.whnf depth ta
-  match Expr.getAppFn wta with
-  | .const T us' => do
-    let Tn ← pure T
-    match fe.find? Tn with
-    | some (.indInfo cvT caps) => do
-      let targs ← pure (Expr.getAppArgsC wta)
-      if caps.unitlike = true ∧
-          reservedBasisNames.contains Tn = false ∧
-          targs.length = caps.unitParams ∧
-          us'.length = cvT.levelParams.length then do
-        let tb ← r.inferIO depth b
-        let wtb ← r.whnf depth tb
-        -- no type-application certificate (task #342 L11b), as
-        -- official's `is_def_eq_unit_like`; no ∀ (task #342 L18)
-        if wtb.isForallE then pure false else
-        r.defeq depth wta wtb
-      else pure false
-    | _ => pure false
-  | _ => pure false
+  if wta.isForallE && !a.ioNeutral then pure false else
+  if ← unitLikeLoopI r fe unitLikeFuel depth wta then
+    let tb ← r.inferIO depth b
+    let wtb ← r.whnf depth tb
+    if wtb.isForallE && !b.ioNeutral then pure false else
+    r.defeq depth wta wtb
+  else pure false
 
 /-- Twin of `etaCert` (the λ's pieces come pre-destructured, as in the
 spec). -/

@@ -370,8 +370,8 @@ def structEtaCertWith (r : CoreFns m) (env : Env) (depth : Nat)
     | _ => pure false
   | _ => pure false
 
-/-- Structural eta certification for a stored eta-capable structure:
-`a` is a fully applied constructor of a structure whose recorded
+/-- **Structure η at a fully applied constructor**: `a` is a fully
+applied constructor of a structure whose recorded
 capabilities include eta, `b` inhabits that structure type, the
 constructor's parameters are the type's arguments, and every field is
 the corresponding projection (`.proj T j b`) of `b`.  The
@@ -379,7 +379,7 @@ parameter and field counts the certificate works at are the
 capability RECORD's, which is what the stored law speaks; the
 constructor's own counts gate the redex's shape and nothing else
 (`etaCtorShape`). -/
-def structEtaCert (r : CoreFns m) (env : Env) (depth : Nat) (a b : Expr) :
+def structEtaFull (r : CoreFns m) (env : Env) (depth : Nat) (a b : Expr) :
     m Bool := do
   -- The constructor-shape test FIRST (the divergence audit's D13):
   -- official `try_eta_struct_core` (`type_checker.cpp:824-829`) reads
@@ -393,33 +393,114 @@ def structEtaCert (r : CoreFns m) (env : Env) (depth : Nat) (a b : Expr) :
     structEtaCertWith r env depth a b wtb
   else pure false
 
-/-- Unit-likeness certification: `a` and `b` inhabit the same stored
-unit-like family (the types are definitionally equal and the type
-application is certified against the family's telescope), so their
-values coincide by the stored unit law. -/
+/-- **The η-expansion of a partially applied constructor** (official's
+`try_eta_struct_core` since lean4#15373): both sides applied to fresh
+variables along the constructor side's type `ta`, one binder per missing
+argument, read syntactically (official: the type of a constructor
+application is the rest of the constructor's telescope, so it needs no
+head normalization); at the full application, `structEtaFull`. -/
+def structEtaExpand (r : CoreFns m) (env : Env) :
+    Nat → Nat → Expr → Expr → Expr → m Bool
+  | 0, depth, a, b, _ => structEtaFull r env depth a b
+  | k + 1, depth, a, b, .forallE dom body =>
+    structEtaExpand r env k (depth + 1) (.app a (.fvar depth dom))
+      (.app b (.fvar depth dom)) (body.instantiate1 (.fvar depth dom))
+  | _ + 1, _, _, _, _ => pure false
+
+/-- Structural eta certification (official's `try_eta_struct_core`):
+`a` is a constructor application of a stored η family.  Fully applied,
+`structEtaFull`.  Partially applied (`etaCtorPartial`), as official: the
+two sides' io-inferred types are compared (official's
+`is_def_eq(t_type, s_type)`), then both sides are η-expanded to the full
+application (`structEtaExpand`).  The other side is then neutral (its
+head no λ, no `let`): a λ meets the constructor through `etaCert` first,
+and its io claim is not a membership. -/
+def structEtaCert (r : CoreFns m) (env : Env) (depth : Nat) (a b : Expr) :
+    m Bool := do
+  if etaCtorShape env a then structEtaFull r env depth a b else
+  match etaCtorPartial env a with
+  | some k =>
+    if !b.ioNeutral then pure false else
+    let ta ← r.inferIO depth a
+    let tb ← r.inferIO depth b
+    if ← r.defeq depth tb ta then structEtaExpand r env k depth a b ta
+    else pure false
+  | none => pure false
+
+/-- **Is a proposition** (official's `is_prop`): `T`'s io-inferred type
+head-normalises to a sort equivalent to `Prop`. -/
+def isPropType (r : CoreFns m) (depth : Nat) (T : Expr) : m Bool := do
+  match ← r.whnf depth (← r.inferIO depth T) with
+  | .sort u => liftFueled "level comparison" (Level.isEquiv u .zero)
+  | _ => pure false
+
+/-- **The field loop of official's `is_unit_like`**: each of the `n`
+field binders of an η family's instance telescope has a proposition or
+a unit-like type (`ul`, official's recursive `is_unit_like`), the field
+opened at a fresh variable before the next.  The telescope is the
+constructor's, so its binders are syntactic (official head-normalises
+each rest, which leaves a `∀` unchanged). -/
+def unitLikeFields (r : CoreFns m) (ul : Nat → Expr → m Bool) :
+    Nat → Nat → Expr → m Bool
+  | 0, _, _ => pure true
+  | n + 1, depth, .forallE dom body => do
+    if ← isPropType r depth dom then
+      unitLikeFields r ul n (depth + 1) (body.instantiate1 (.fvar depth dom))
+    else if ← ul depth dom then
+      unitLikeFields r ul n (depth + 1) (body.instantiate1 (.fvar depth dom))
+    else pure false
+  | _ + 1, _, _ => pure false
+
+/-- Recursion budget of the unit-like test (`unitLikeLoop`): the nesting
+of ∀ codomains and field types it descends.  Exhaustion is not an error:
+the answer is "not unit-like", which is always sound. -/
+@[irreducible, noinline] def unitLikeFuel : Nat := 4611686018427387904  -- 2^62
+
+/-- **The structure arm of official's `is_unit_like`**: `w`, a head
+normal form that is no ∀, is an instance of a stored family without
+fields, or of a stored η family every field of whose constructor, at the
+instance's parameters, has a proposition or a unit-like type
+(`unitLikeFields`, with `ul` official's recursive `is_unit_like`); the
+shape is read off the stored records (`unitLikeShape`). -/
+def unitLikeStruct (r : CoreFns m) (ul : Nat → Expr → m Bool) (env : Env)
+    (depth : Nat) (w : Expr) : m Bool :=
+  match unitLikeShape env w with
+  | some none => pure true
+  | some (some (tele, n)) => unitLikeFields r ul n depth tele
+  | none => pure false
+
+/-- **Is a type unit-like** (official's `is_unit_like`, lean4#15372): its
+head normal form is a ∀ whose codomain, opened at a fresh variable, is
+unit-like, or an instance of a stored η family every field of whose
+constructor is a proposition or unit-like (`unitLikeStruct`).  All
+inhabitants of such a type are definitionally equal. -/
+def unitLikeLoop (r : CoreFns m) (env : Env) : Nat → Nat → Expr → m Bool
+  | 0, _, _ => pure false
+  | fuel + 1, depth, T => do
+    let w ← r.whnf depth T
+    match w with
+    | .forallE dom body =>
+      unitLikeLoop r env fuel (depth + 1) (body.instantiate1 (.fvar depth dom))
+    | _ => unitLikeStruct r (unitLikeLoop r env fuel) env depth w
+
+/-- **Unit-likeness** (official's `is_def_eq_unit_like`): `a`'s
+io-inferred type, head-normalised, is unit-like (`unitLikeLoop`), and
+`b`'s type is definitionally equal to it, so their values coincide.  A
+side whose type is a ∀ must be neutral (its head no λ, no `let`): only
+then is its io claim a membership (task #342 L18; a λ meets the other
+side through `etaCert` first). -/
 def structUnitCert (r : CoreFns m) (env : Env) (depth : Nat) (a b : Expr) :
     m Bool := do
   -- task #172 B4: io grade
   let ta ← r.inferIO depth a
   let wta ← r.whnf depth ta
-  match wta.getAppFn with
-  | .const T us' =>
-    match env.find? T with
-    | some (.indInfo cvT caps) =>
-      if caps.unitlike = true ∧
-          reservedBasisNames.contains T = false ∧
-          wta.getAppArgs.length = caps.unitParams ∧
-          us'.length = cvT.levelParams.length then
-        let tb ← r.inferIO depth b
-        let wtb ← r.whnf depth tb
-        -- no certificate on the type application (task #342 L11b); a ∀
-        -- is never a family's application (task #342 L18: `b`'s io
-        -- claim is then a membership)
-        if wtb.isForallE then pure false else
-        r.defeq depth wta wtb
-      else pure false
-    | _ => pure false
-  | _ => pure false
+  if wta.isForallE && !a.ioNeutral then pure false else
+  if ← unitLikeLoop r env unitLikeFuel depth wta then
+    let tb ← r.inferIO depth b
+    let wtb ← r.whnf depth tb
+    if wtb.isForallE && !b.ioNeutral then pure false else
+    r.defeq depth wta wtb
+  else pure false
 
 /-- Eta certification for a one-sided λ against a stuck term `b`: `b`'s
 type whnfs to a `∀` whose domain is defeq to the λ's, and the λ's body

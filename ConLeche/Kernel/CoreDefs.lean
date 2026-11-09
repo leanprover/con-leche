@@ -739,6 +739,74 @@ def etaCtorShape (env : Env) (a : Expr) : Bool :=
     | _ => false
   | _ => false
 
+/-- **A partially applied η constructor** (official's `try_eta_struct_core`
+since lean4#15373): the candidate's head is a stored constructor applied
+to fewer than its parameters and fields, and the family its type ends in
+is a stored η family whose η constructor it is.  `some k`, `k > 0`
+the arguments it lacks.  Read off the stored records alone, before any
+inference, as official's `is_non_rec_structure` gate is. -/
+def etaCtorPartial (env : Env) (a : Expr) : Option Nat :=
+  match a.getAppFn with
+  | .const c _ =>
+    match env.find? c with
+    | some (.ctorInfo cvc cnP cnF) =>
+      if a.getAppArgs.length < cnP + cnF then
+        match cvc.type.piResult.getAppFn with
+        | .const T _ =>
+          match env.find? T with
+          | some (.indInfo _ caps) =>
+            if caps.eta = true ∧ caps.etaCtor = c then
+              some (cnP + cnF - a.getAppArgs.length)
+            else none
+          | _ => none
+        | _ => none
+      else none
+    | _ => none
+  | _ => none
+
+/-- **The field telescope of an η family's instance** (the opening of
+official's `is_unit_like` field loop): the η constructor's type at the
+levels `us`, its `nP` parameter binders dropped and instantiated with the
+type's arguments `targs` in one pass (official's `binding_body` ×`nP`,
+then `instantiate_rev`). -/
+def unitFieldTele (cty : Expr) (nP : Nat) (targs : List Expr) : Option Expr :=
+  (Expr.peelPis nP cty).map fun body => body.instantiateList targs.reverse
+
+/-- **The shape of an instance in official's `is_unit_like`**, read off
+the stored records: `w`, a head normal form, is an instance of a stored
+family without fields (its `unitlike` capability; `some none`), or of a
+stored η family (one constructor, no index, not recursive) whose
+constructor's field telescope at the instance's parameters is `tele`
+with `n` fields to check (`some (some (tele, n))`), or neither (`none`).
+A family with fields is read through its projection table, as the η
+certificate reads it (`structEtaCertWith`): every field slot an entry,
+the constructor the first entry's. -/
+def unitLikeShape (env : Env) (w : Expr) : Option (Option (Expr × Nat)) :=
+  match w.getAppFn with
+  | .const S us =>
+    match env.find? S with
+    | some (.indInfo cvS caps) =>
+      if caps.unitlike = true ∧ reservedBasisNames.contains S = false ∧
+          w.getAppArgs.length = caps.unitParams ∧
+          us.length = cvS.levelParams.length then some none
+      else if caps.eta = true ∧ reservedBasisNames.contains S = false ∧
+          w.getAppArgs.length = caps.etaParams ∧
+          us.length = cvS.levelParams.length ∧
+          towerSlotsAll env S caps.etaFields = true then
+        match env.findProj? S 0 with
+        | some e0 =>
+          match env.find? e0.ctor with
+          | some (.ctorInfo cvC _ _) =>
+            if cvC.levelParams = cvS.levelParams then
+              (unitFieldTele (cvC.type.instantiateLevelParams cvC.levelParams us)
+                caps.etaParams w.getAppArgs).map fun tele => some (tele, caps.etaFields)
+            else none
+          | _ => none
+        | none => none
+      else none
+    | _ => none
+  | _ => none
+
 /-- The eta-rescue fabrication's argument spine: the major's type's
 arguments, then the major's projections (`etaProjs`). -/
 def etaFabArgsE (T : Name) (targs : List Expr) (major : Expr) (nF : Nat) :

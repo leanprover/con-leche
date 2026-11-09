@@ -17,7 +17,8 @@ public section
 
 One lemma per constructor of `DefEq`: the structural rules, the
 recursive-structure rule, η, the two proof-irrelevance arms, and the
-capability rules `structEta`, `structUnit`.
+capability rule `structEta` (unit-likeness and the partial-constructor
+η are `UnitSound.lean`'s).
 
 The rules are proved at the conditional motive `DefEqSem` (task #342,
 L9, L11).  A few leaf rules read no claim and are proved unconditionally
@@ -285,88 +286,6 @@ theorem DefEq.proofIrrel_sound {d : Nat} {a ta b : Expr}
   obtain ⟨hfta, hsub, taa, htaa, hrow⟩ := hta hfa hCa haa
   exact absurd (hpt hfta (hCa.of_subset hsub) htaa ρ _ hρ (hLa.of_subset hsub)
     (hrow ρ hρ hLa hwa).1) hna
-
-/-- Unit-like structure: the two inferred types and their reducts are
-types ("not pt" source (1)), so their reductions and the certificate's
-comparison are equations; the stored unit law then equates any two
-members, the point or not. -/
-theorem DefEq.structUnit_sound (hin : RulesInputs V m φ) {d : Nat}
-    {a ta wta b tb wtb : Expr} {T : Name} {us' : List Level}
-    {cvT : ConstantVal} {caps : IndCaps}
-    (hta : InferSemIO m φ d a ta) (hwta : RedSem m φ d ta wta)
-    (hwtar : Red env d ta wta)
-    (hthead : wta.getAppFn = .const T us')
-    (hind : env.find? T = some (.indInfo cvT caps))
-    (hunit : caps.unitlike = true)
-    (hresT : ConLeche.reservedBasisNames.contains T = false)
-    (htlen : wta.getAppArgs.length = caps.unitParams)
-    (hlv : us'.length = cvT.levelParams.length)
-    (htb : InferSemIO m φ d b tb) (hwtb : RedSem m φ d tb wtb)
-    (hwtbr : Red env d tb wtb) (hwtbF : wtb.isForallE = false)
-    (hd : DefEqSem m φ d wta wtb) :
-    DefEqSem m φ d a b := by
-  intro hfa hfb Δa aa ba hCa hCb hda hdb ρ hρ hLa hLb hokA hokB hna hnb
-  -- the two sides' inferred types, reduced, with their readings
-  obtain ⟨hfta, hsuba, taa, htaa, hXA⟩ := hta hfa hCa hda
-  -- neither side is the point, and their types reduce to non-∀s
-  -- (`Red.rigid`): the io claims are memberships
-  obtain ⟨hokTa, hmemA⟩ := (IORel.mem_of_red (hXA ρ hρ hLa hokA).1 hna hwtar
-    (not_forallE_of_getAppFn hthead)).of_reading htaa
-  have hCta : CtxOkS m φ d Δa ta := hCa.of_subset hsuba
-  have hLtaρ : LeavesGr m φ d ta ρ := hLa.of_subset hsuba
-  obtain ⟨hfWA, hsubWA, wtaa, hwtaa, hYA⟩ := hwta hfta hCta htaa
-  obtain ⟨hokWA, heqWA⟩ := hYA ρ hρ hLtaρ hokTa.1 hokTa.ne_pt
-  have hCwa : CtxOkS m φ d Δa wta := hCta.of_subset hsubWA
-  have hLwaρ : LeavesGr m φ d wta ρ := hLtaρ.of_subset hsubWA
-  obtain ⟨hftb, hsubb, tba, htba, hXB⟩ := htb hfb hCb hdb
-  obtain ⟨hokTb, hmemB⟩ := (IORel.mem_of_red (hXB ρ hρ hLb hokB).1 hnb hwtbr
-    (fun ty body h => by rw [h] at hwtbF; exact nomatch hwtbF)).of_reading htba
-  have hCtb : CtxOkS m φ d Δa tb := hCb.of_subset hsubb
-  have hLtbρ : LeavesGr m φ d tb ρ := hLb.of_subset hsubb
-  obtain ⟨hfWB, hsubWB, wtba, hwtba, hYB⟩ := hwtb hftb hCtb htba
-  obtain ⟨hokWB, heqWB⟩ := hYB ρ hρ hLtbρ hokTb.1 hokTb.ne_pt
-  have hCwb : CtxOkS m φ d Δa wtb := hCtb.of_subset hsubWB
-  have hLwbρ : LeavesGr m φ d wtb ρ := hLtbρ.of_subset hsubWB
-  have hmemAW : interp V ρ aa ∈ˢ interp V ρ wtaa := by rw [← heqWA]; exact hmemA
-  have hmemBW : interp V ρ ba ∈ˢ interp V ρ wtba := by rw [← heqWB]; exact hmemB
-  -- the certificate's defeq identifies the two family instances: types
-  have hEq : interp V ρ wtaa = interp V ρ wtba :=
-    hd hfWA hfWB hCwa hCwb hwtaa hwtba ρ hρ hLwaρ hLwbρ hokWA hokWB
-      (heqWA ▸ hokTa.ne_pt) (heqWB ▸ hokTb.ne_pt)
-  -- side a's reduct is the family applied to its parameters
-  rw [show wta = Expr.mkAppN wta.getAppFn wta.getAppArgs from
-    (ConLeche.Expr.mkAppN_getApp wta).symm, hthead] at hwtaa
-  obtain ⟨vT, tsa, hvT, hspt, rfl⟩ := denote_mkAppN_inv hwtaa
-  rw [denote, hind] at hvT
-  dsimp only at hvT
-  split at hvT
-  case isFalse => exact nomatch hvT
-  case isTrue =>
-  obtain rfl : vT = m.acval T (Level.substFn φ cvT.levelParams us') :=
-    (Option.some.inj hvT).symm
-  have hlaw := hin.caps_ok.2 T cvT caps hind hunit hresT φ us' hlv
-  -- the parameter spine is graded: the reduct is a type, not the point
-  -- ("not pt" source (1))
-  have hfitT : FamFit V ρ _ (tsa.map (interp V ρ)) :=
-    ⟨tsa, rfl, hokWA, by rw [← heqWA]; exact hokTa.2.ne_pt⟩
-  have hfold : ∀ (l : List Term) (x : V),
-      l.foldl (fun r y => SetTheory.app r (interp V ρ y)) x
-        = (l.map (interp V ρ)).foldl SetTheory.app x := by
-    intro l x; rw [List.foldl_map]
-  have hmx : interp V ρ aa
-      ∈ˢ (tsa.map (interp V ρ)).foldl SetTheory.app
-          (interp V ρ (m.acval T (Level.substFn φ cvT.levelParams us'))) := by
-    have h := hmemAW
-    rwa [interp_mkAppN, hfold] at h
-  have hmy : interp V ρ ba
-      ∈ˢ (tsa.map (interp V ρ)).foldl SetTheory.app
-          (interp V ρ (m.acval T (Level.substFn φ cvT.levelParams us'))) := by
-    have h := hEq ▸ hmemBW
-    rwa [interp_mkAppN, hfold] at h
-  have hlenTs : (tsa.map (interp V ρ)).length = caps.unitParams := by
-    rw [List.length_map, ← hspt.length, htlen]
-  exact hlaw ρ (tsa.map (interp V ρ)) (interp V ρ aa)
-    (interp V ρ ba) hlenTs hfitT hmx hmy
 
 /-! ## λ-congruence and η at the value reading (task #342 S4)
 

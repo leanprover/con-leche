@@ -75,6 +75,14 @@ FALLBACK = {
     # Measured: demoting it breaks the file (unknown identifier `SetTheory`,
     # `OpenedCtx.lean:29`).
     ('ConLeche.Model.OpenedCtx', 'ConLeche.Model.Currency'),
+    # task #515: each MEASURED by demoting it alone.  `UnitSound`'s `variable`s
+    # name `SetTheory` through `Inputs` (unknown identifier `SetTheory`,
+    # `UnitSound.lean:47`); the certificate bridges' statements name
+    # `iotaCertsFullFueled` (`Knot`, `Certs.lean:38`) and `DefEqBridge`
+    # (`Defs`, `Certs.lean:35`); the census attributes them to the private imports.
+    ('ConLeche.Model.Rules.UnitSound', 'ConLeche.Model.Rules.Inputs'),
+    ('ConLeche.Verify.Rules.Certs', 'ConLeche.Verify.Knot'),
+    ('ConLeche.Verify.Rules.Certs', 'ConLeche.Verify.Rules.Defs'),
     # task #480: each MEASURED by demoting it alone (the module stops building).
     ('ConLeche.Verify.Cached.PushChain', 'ConLeche.Verify.Cached.DeclPushes'),
     ('ConLeche.Verify.Inductives.NestNfScope', 'ConLeche.Verify.Inductives.PositivityInv'),

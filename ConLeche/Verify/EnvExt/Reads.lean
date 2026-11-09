@@ -5,6 +5,7 @@ import ConLeche.Verify.InferLemmas
 public import ConLeche.Verify.EnvPreds
 import ConLeche.Verify.PropRead
 import ConLeche.Verify.StrLitExpr
+import ConLeche.Verify.InstSpine
 
 /-!
 # A run does not see an extension of the environment: the reads (task #480)
@@ -216,6 +217,55 @@ theorem etaCtorShape_ext {e : Expr} (he : Res env₁ e) :
   dsimp only
   rw [hx.find_of_isSome (res_head he hfn)]
 
+/-- `etaCtorPartial` reads the head constructor and the family its stored
+type ends in, both resolved. -/
+theorem etaCtorPartial_ext {e : Expr} (he : Res env₁ e) :
+    etaCtorPartial env₂ e = etaCtorPartial env₁ e := by
+  unfold etaCtorPartial
+  cases hfn : e.getAppFn <;> try rfl
+  rename_i c us
+  dsimp only
+  have hc := res_head he hfn
+  rw [hx.find_of_isSome hc]
+  cases hfc : env₁.find? c with
+  | none => rfl
+  | some ci =>
+    cases ci <;> try rfl
+    rename_i cvc cnP cnF
+    dsimp only
+    have hty : Res env₁ cvc.type :=
+      (hx.facts.wf.consts _ (Env.find?_mem hfc)).2.2.1
+    split
+    case isFalse => rfl
+    cases hft : cvc.type.piResult.getAppFn <;> try rfl
+    dsimp only
+    rw [hx.find_of_isSome (res_head (res_piResult hty) hft)]
+
+omit hx in
+/-- A peel of a resolved telescope resolves. -/
+theorem res_peelPis : ∀ {n : Nat} {e r : Expr}, Res env₁ e → Expr.peelPis n e = some r →
+    Res env₁ r
+  | 0, e, r, he, h => by
+    simp only [Expr.peelPis, Option.some.injEq] at h; exact h ▸ he
+  | n + 1, .forallE _ b, r, he, h => res_peelPis (res_forall.mp he).2 h
+  | _ + 1, .bvar _, _, _, h | _ + 1, .fvar _ _, _, _, h | _ + 1, .sort _, _, _, h
+  | _ + 1, .const _ _, _, _, h | _ + 1, .app _ _, _, _, h | _ + 1, .lam _ _, _, _, h
+  | _ + 1, .letE _ _ _, _, _, h | _ + 1, .lit _, _, _, h
+  | _ + 1, .proj _ _ _, _, _, h => nomatch h
+
+omit hx in
+/-- The field telescope of a resolved constructor type at resolved
+arguments resolves. -/
+theorem res_unitFieldTele {cty tele : Expr} {n : Nat} {args : List Expr}
+    (hc : Res env₁ cty) (hargs : ∀ a ∈ args, Res env₁ a)
+    (h : unitFieldTele cty n args = some tele) : Res env₁ tele := by
+  rw [unitFieldTele_eq] at h
+  cases hb : Expr.peelPis n cty with
+  | none => rw [hb] at h; exact nomatch h
+  | some body =>
+    rw [hb] at h
+    obtain rfl := Option.some.inj h
+    exact res_instSpine _ (res_peelPis hc hb) hargs
 theorem unfoldDefinition_ext {e : Expr} (he : Res env₁ e) :
     unfoldDefinition env₂ e = unfoldDefinition env₁ e := by
   unfold unfoldDefinition
@@ -240,6 +290,65 @@ theorem towerSlotsAll_ext {T : Name} (hT : (env₁.find? T).isSome = true) (nF :
     towerSlotsAll env₂ T nF = towerSlotsAll env₁ T nF := by
   unfold towerSlotsAll
   simp only [hx.findProj hT]
+
+/-- `unitLikeShape` reads the head family, its table's first entry and that
+entry's constructor, all resolved. -/
+theorem unitLikeShape_ext {w : Expr} (hw : Res env₁ w) :
+    unitLikeShape env₂ w = unitLikeShape env₁ w := by
+  unfold unitLikeShape
+  cases hft : w.getAppFn <;> try rfl
+  rename_i S us
+  dsimp only
+  have hS := res_head hw hft
+  rw [hx.find_of_isSome hS]
+  cases hfS : env₁.find? S with
+  | none => rfl
+  | some ci =>
+    cases ci <;> try rfl
+    rename_i cvS caps
+    dsimp only
+    rw [towerSlotsAll_ext hx hS, hx.findProj hS]
+    split
+    case isTrue => rfl
+    split
+    case isFalse => rfl
+    cases he0 : env₁.findProj? S 0 with
+    | none => rfl
+    | some e0 =>
+      dsimp only
+      rw [hx.find_of_isSome (hx.facts.entryCtors S 0 e0 he0)]
+
+/-- The field telescope of a resolved instance resolves. -/
+theorem res_unitLikeShape {w tele : Expr} {n : Nat} (hw : Res env₁ w)
+    (h : unitLikeShape env₁ w = some (some (tele, n))) : Res env₁ tele := by
+  unfold unitLikeShape at h
+  revert h
+  split
+  · rename_i S us _
+    split
+    · split
+      · intro h; exact nomatch h
+      · split
+        · split
+          · split
+            · rename_i cvC _ _ hfC
+              split
+              · intro h
+                have hc : Res env₁ (cvC.type.instantiateLevelParams cvC.levelParams us) :=
+                  res_inst _ _ (hx.facts.wf.consts _ (Env.find?_mem hfC)).2.2.1
+                cases ht : unitFieldTele (cvC.type.instantiateLevelParams cvC.levelParams us) _
+                    w.getAppArgs with
+                | none => rw [ht] at h; exact nomatch h
+                | some t =>
+                  rw [ht] at h
+                  obtain ⟨rfl, -⟩ := Prod.mk.inj (Option.some.inj (Option.some.inj h))
+                  exact res_unitFieldTele hc (res_getAppArgs hw) ht
+              · intro h; exact nomatch h
+            · intro h; exact nomatch h
+          · intro h; exact nomatch h
+        · intro h; exact nomatch h
+    · intro h; exact nomatch h
+  · intro h; exact nomatch h
 
 theorem natLit_ext (hn : (env₁.find? natName).isSome = true ∨
     (env₁.find? natZeroName).isSome = true ∨ (env₁.find? natSuccName).isSome = true) :

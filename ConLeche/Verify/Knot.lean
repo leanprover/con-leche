@@ -223,6 +223,18 @@ abbrev structUnitCertFueled (mode : CheckMode) (eager : Bool) (env : Env) (fuel 
     → Expr →
     CheckM Bool := structUnitCert (pureFns mode eager env fuel) env
 
+abbrev structEtaFullFueled (mode : CheckMode) (eager : Bool) (env : Env) (fuel : Nat) : Nat → Expr
+    → Expr → CheckM Bool := structEtaFull (pureFns mode eager env fuel) env
+
+abbrev structEtaExpandFueled (mode : CheckMode) (eager : Bool) (env : Env) (fuel : Nat) : Nat →
+    Nat → Expr → Expr → Expr → CheckM Bool := structEtaExpand (pureFns mode eager env fuel) env
+
+abbrev isPropTypeFueled (mode : CheckMode) (eager : Bool) (env : Env) (fuel : Nat) : Nat → Expr →
+    CheckM Bool := isPropType (pureFns mode eager env fuel)
+
+abbrev unitLikeLoopFueled (mode : CheckMode) (eager : Bool) (env : Env) (fuel : Nat) : Nat → Nat →
+    Expr → CheckM Bool := unitLikeLoop (pureFns mode eager env fuel) env
+
 abbrev etaCertFueled (mode : CheckMode) (eager : Bool) (env : Env) (fuel : Nat) (d : Nat)
     (ty body : Expr) (b : Expr) : CheckM Bool :=
   etaCert mode (pureFns mode eager env fuel) env d ty body b
@@ -325,6 +337,15 @@ theorem structEtaCertWith_fold (env : Env) (fuel : Nat) :
 theorem structUnitCert_fold (env : Env) (fuel : Nat) :
     structUnitCert (pureFns mode eager env fuel) env = structUnitCertFueled mode eager env fuel :=
         rfl
+theorem structEtaFull_fold (env : Env) (fuel : Nat) :
+    structEtaFull (pureFns mode eager env fuel) env = structEtaFullFueled mode eager env fuel := rfl
+theorem structEtaExpand_fold (env : Env) (fuel : Nat) :
+    structEtaExpand (pureFns mode eager env fuel) env = structEtaExpandFueled mode eager env fuel :=
+        rfl
+theorem isPropType_fold (env : Env) (fuel : Nat) :
+    isPropType (pureFns mode eager env fuel) = isPropTypeFueled mode eager env fuel := rfl
+theorem unitLikeLoop_fold (env : Env) (fuel : Nat) :
+    unitLikeLoop (pureFns mode eager env fuel) env = unitLikeLoopFueled mode eager env fuel := rfl
 theorem etaCert_fold (env : Env) (fuel : Nat) :
     etaCert mode (pureFns mode eager env fuel) env = etaCertFueled mode eager env fuel := rfl
 theorem majorToCtor_fold (env : Env) (fuel : Nat) :
