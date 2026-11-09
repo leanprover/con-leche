@@ -1,8 +1,6 @@
 module
 
 public import ConLeche.Driver.Reach
-public import ConLeche.Verify.Frontend.ModelIO
-import ConLeche.Verify.Frontend.Olean.Files
 public import ConLeche.Verify.Frontend.Olean.Roots
 
 /-!

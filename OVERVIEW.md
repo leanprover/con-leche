@@ -54,11 +54,15 @@ A name's component in `«»` is taken literally
 (`Challenge.«12.34».«5»`); in a `--constant` name, an unescaped component of
 digits is a number (`_private.M.0.foo`). A `--constant` the closure does not hold is
 an error (exit 3). `--search-path` takes the directories as `LEAN_PATH` lists them
-and may be repeated; every module is looked up in all of them. Its files
-(`M.olean` and, for a module of the module system, exactly `M.olean.server`
-and `M.olean.private` beside it) must be in one directory, counted once
-however often it is reached; a module in two places or a missing, stray or
-split part is an error (exit 3).
+and may be repeated. A module is looked up as Lean does: in the directory
+holding its root (the first component of its name) as a directory `Root/`
+or a file `Root.olean`; each root is looked up once per run in every
+directory, and a root in two directories is an error (exit 3), a directory
+counted once however often it is listed or reached through a symbolic link.
+There its files are `M.olean` and, for a module of the module system, exactly
+`M.olean.server` and `M.olean.private` beside it; another directory is never
+looked at for them. A root on no directory, a module missing in its root's
+directory, and a missing or stray part are errors (exit 3).
 
 The exit code follows the lean kernel arena convention
 ([the exit-code mapping in `ConLeche/Driver/CheckMain.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Driver/CheckMain.lean#L37)):
@@ -376,10 +380,10 @@ Read from the outside in:
    All of it — the argument parse, the prelude, the input, the
    preparation, the fold, the verdict and the exit code — is written against
    a type class of the file operations the checker needs — whether a
-   path names something, its real path, a file's bytes, a file opened
+   path names something, whether it is a directory, its real path, a file's bytes, a file opened
    and read in order, and its size — and one escape, `liftIO`, which runs
    an `IO` action
-   ([class `CheckerIO` in `ConLeche/Frontend/CheckerIO.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Frontend/CheckerIO.lean#L140)).
+   ([class `CheckerIO` in `ConLeche/Frontend/CheckerIO.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Frontend/CheckerIO.lean#L141)).
    Everything else the binary does goes through the escape, spelled at
    every call: the output, the clock, the persistent mark,
    and every thread — the rounds of the parallel parse and the fold's
@@ -397,7 +401,7 @@ Read from the outside in:
    operation's outcome is determined by the snapshot and the open files,
    and the escape may have every outcome and leaves the open files as
    they were
-   ([type `ModelIO` in the same file](https://github.com/leanprover/con-leche/blob/master/ConLeche/Frontend/CheckerIO.lean#L302)).
+   ([type `ModelIO` in the same file](https://github.com/leanprover/con-leche/blob/master/ConLeche/Frontend/CheckerIO.lean#L310)).
    The exit code is computed by the generic code and returned outside
    the escape, whose outcomes would otherwise allow any code. On every
    snapshot, every outcome of `runArgs` at the arguments `-- <file>` that
@@ -634,7 +638,7 @@ value. So the load
 ([function `loadAt` in `ConLeche/Frontend/Olean/Lazy.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Frontend/Olean/Lazy.lean#L294))
 reads everything of a module except those values, and a theorem's record holds a reference to
 where its value is stored. The check reads it
-([function `readValue` in `ConLeche/Frontend/Olean/Records.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Frontend/Olean/Records.lean#L152-L153)),
+([function `readValue` in `ConLeche/Frontend/Olean/Records.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Frontend/Olean/Records.lean#L154-L155)),
 with a memo of its own, and drops it at the end. A worker keeps the region of the module it
 read last, and the checks of one module are next to each other in the records. Two things the
 load keeps for this. What each constant mentions is read off the file without building

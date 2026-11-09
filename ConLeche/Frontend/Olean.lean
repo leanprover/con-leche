@@ -13,7 +13,7 @@ public import ConLeche.Frontend.Olean.Present
 **Import this module.**  Outside `ConLeche/Frontend/Olean/` and its proofs
 `ConLeche/Verify/Frontend/Olean/`, nothing imports the tree's other modules
 (`tests/layering.sh`).  The names below are the interface; everything else the
-tree declares (`moduleSkel`, `parseAt`, `runPasses`, `sGo`, `locateHits`, `findModule`,
+tree declares (`moduleSkel`, `parseAt`, `runPasses`, `sGo`, `rootAt`, `findModule`,
 `readPart`, `readImportsAt`, ...) is public only because checker code
 is exposed and its proofs unfold it: a definition an exposed definition mentions
 cannot be `private`.  It is not an interface, and may change at will.
@@ -42,12 +42,13 @@ them).  A view is named by its level, `OLeanLevel`: `.exported`, `.server`, `.pr
 | `readKinds f level cs : Option (List (CKindF Name Unit))`, no expression | |
 | `importsPre bytes : Option (Array ImportRec)`, on a prefix of `M.olean` | `importsPre_extract`, `importsPre_prefix` |
 
-**Through the IO class** (`CheckerIO`), by module name along a search path.
+**Through the IO class** (`CheckerIO`), by module name along a search path (`Roots`: the
+search path with the roots a run resolved, each once; a `SearchPath` is one with none).
 
 | name | theorem (in the model, on a snapshot) |
 |---|---|
 | `parseModName string : Option Name` | |
-| `readFiles sp m level : μ (Except CheckError ModFiles)`: `findModule`, then `readFilesAt loc m level` | `readFiles_ok`, `readFiles_of_all` |
+| `readFiles sp m level : μ (Except CheckError ModFiles)`: `findModule`, then `readFilesAt loc m level` | `readFiles_ok`, `readFiles_of_all`; through resolved roots, `readFiles_sub`, `readFiles_rev` |
 | `readView sp m level : μ (Except CheckError ModDecoded)` | `readView_of_all` |
 | `OleanReads μ`: a worker's reads of the files (a module's imports, a view's files, a part's name positions); `OleanReads.ofPath sp` on the search path | |
 | `readHome rd m : μ (Except CheckError (Loaded × Array Expo))`: `loadAt`, then `checkViews` | |
@@ -58,8 +59,8 @@ them).  A view is named by its level, `OLeanLevel`: `.exported`, `.server`, `.pr
 
 | name | theorem |
 |---|---|
-| `closureOrder sp roots : μ (Except CheckError (Array Name))` | `closureOrder_ok`: holds the roots, each module after its imports |
-| `loadClosure sp n roots jobs : μ (Except CheckError (Array Loaded))`, a theorem's value left in the file | `loadAt_spec`, through `readOleans_ok` |
+| `closureOrder sp roots : μ (Except CheckError (Array Name × Roots))` | `closureOrder_ok`: holds the roots, each module after its imports; the roots it resolved read off the snapshot |
+| `loadClosure sp n roots jobs : μ (Except CheckError (Array Loaded × Roots))`, a theorem's value left in the file | `loadAt_spec`, through `readOleans_ok` |
 | `mergeAll ls : Except CheckError Merged` | `mergeAll_ok`: every constant stands in the merge |
 | `blocksOk mg : Except CheckError Unit` | `blocksOk_good`: the stored constants' blocks agree |
 | `emitAll mg rs : Emit`, `declsOf em` | `emitAll_spec`, `emitAll_covers` (visited means declared), `declsOf_thm`, `declsOf_from` |

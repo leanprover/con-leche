@@ -1,7 +1,6 @@
 module
 
 public import ConLeche.Frontend.Olean.Closure
-public import ConLeche.Verify.Frontend.ModelIO
 public import ConLeche.Verify.Frontend.Olean.Roots
 import Std.Data.HashSet.Lemmas
 
