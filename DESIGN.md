@@ -115194,3 +115194,46 @@ built and asked for (30 per module and lookup before).
 **Not done.**  `--compare` (olean-compare) may later need a different search-path policy; not
 now.  README's "File access (existence, reading)" does not name the directory test; reported,
 not changed.
+
+## TASK #515 — scheduler columns, a growth gate, a shuffled start order (2026-11-09, agent/515-columns)
+
+`Driver/ScheduleIO.lean` (plain IO, outside every theorem), `Driver/Cli.lean`; log format unchanged.
+
+**Columns.** The finish line puts the module name last so the statistics keep their columns:
+`VERDICT  t=Ss  rss=X GiB  [done/total p %, k running(, n requeued), eta D]  M`. Widths: the verdict
+7 (`timeout`), the time 6, the rss 9 (the `≥` fallback marker takes the place of `=`), `done` the
+width of `total`, the percentage 5, `k` the width of `jobs`; the optional `n requeued` and the
+variable-width eta come last in the bracket. The heartbeat's first line pads the same counts; the
+event lines (protection, kills) name the module last (`killed at 29 MiB, requeued: M`). Real output
+(`--jobs=4 --progress=2000`, `Std.Tactic.BVDecide`, shuffled order):
+
+```
+0        t=   0.1s  rss= 0.11 GiB  [100/739  13.5 %, 0 running, eta 2m08s]  Std.Data.DTreeMap.AdditionalOperations
+0        t=   0.0s  rss= 0.05 GiB  [101/739  13.6 %, 0 running, eta 2m07s]  Init.Grind.Homo
+0        t=   0.0s  rss= 0.07 GiB  [102/739  13.8 %, 0 running, eta 2m07s]  Init.Data.Array.TakeDrop
+0        t=   0.1s  rss= 0.06 GiB  [103/739  13.9 %, 0 running, eta 2m07s]  Init.Data.SInt.Basic
+0        t=   0.2s  rss= 0.10 GiB  [104/739  14.0 %, 0 running, eta 2m08s]  Std.Tactic.BVDecide.Bitblast.BVExpr.Circuit.Impl.Operations.Add
+0        t=   0.0s  rss= 0.04 GiB  [105/739  14.2 %, 0 running, eta 2m06s]  Init.SizeOf
+0        t=   0.0s  rss= 0.06 GiB  [106/739  14.3 %, 0 running, eta 2m06s]  Init.Data.Nat.Compare
+```
+
+**Growth gate.** `--schedule-growth=S` (default 10, 0 off). The maintainer's run: the protected
+Certificate12640 grew from 8.3 to 23.4 GiB in about 75 s; admission counted it at its peak so far,
+so every lull let small and requeued modules start into memory it took moments later; the same
+small modules were killed 3-4 times each, and the cascade killed older mid-sized and big workers
+(7242 at 17.5 GiB after over a minute, 9305 at 8.8, 13657 at 7.5). Now, while a worker is
+protected, nothing starts as long as its `VmHWM` rose within the last S seconds (tracked per
+protected worker: `protTrack`, its last `VmHWM` and when it rose); the heartbeat's memory line says
+`protecting M (growing)`. Once flat, admission as before (killed modules first by known size, then
+unknown ones at the typical peak). Hand test, `Std.Tactic.BVDecide`, `--schedule-memory=250M
+--jobs=8`, graph order: the gate engaged (`protecting Std.Sat.AIG.CNF (growing), 2 waiting for
+room`); the closure's modules are 0.1 GiB, so a protection lasts too briefly to show the
+effect on kill counts (21 kills with the gate, 14 without, one run each, noise); the run that
+the gate was written for needs the big modules and is not reproduced here.
+
+**Order.** `--schedule-order=shuffled|graph` (default `shuffled`): the pending modules sorted by the
+FNV-1a 64-bit hash of the spelled name (name breaking ties), the same on every run and machine, so a
+resumed run has the same order and skips the logged modules; killed modules still go to the front.
+Neighbours in the graph's order are alike in size (a run of 14963..14977 small, a run of 12640.. big),
+so memory pressure came in waves and the estimate's recent window was unrepresentative. The
+verdicts, the first-failing-module report and the log are as before (the graph's order).

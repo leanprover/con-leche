@@ -794,7 +794,7 @@ closure and, at every module of it, `WorkerAccepted` (`checkModularG_accept`,
 `--module` at every module of the closure would give, from one run. Exit 0 needs every module's
 worker step to answer 0; a failure names the first failing module in the graph's order, with its
 code. The scheduler starts one `--olean --module --jobs=1` process of the binary per module, at
-most `--jobs` at once, staggered (`--schedule-stagger=MS`), within a memory budget over the
+most `--jobs` at once, staggered (`--schedule-stagger=MS`), started in a fixed shuffled order (a hash of the names; `--schedule-order=graph` for the graph's), with a growth gate (while a worker is protected, nothing starts until its peak has been flat for `--schedule-growth=S` seconds, default 10), within a memory budget over the
 running workers' resident sets (`--schedule-memory=SIZE`, a number with a unit `K`, `M`, `G` or
 `T`, such as `40G`: the first queued module whose known size (the largest resident set seen when it was killed, 0 if never) fits into the budget minus the running workers' peak sets starts; when their current sets exceed the budget the largest is protected, and stays so while it runs; each further overflow kills the youngest other worker by its own child handle and queues it again with its size; the protected one alone over the budget has the verdict `memory`),
 with a time limit per worker (`--schedule-timeout=S`) and an append-only log a restart resumes
@@ -803,7 +803,7 @@ its workers' exit codes, and no theorem is about it: the modular statement compo
 run's exit 0 says. A worker's three standard streams are pipes and it inherits no other
 descriptor; its stdout and stderr are read as it runs, and its stderr is passed on for a verdict
 other than 0. Each finished module gets a line on stdout,
-`M: VERDICT t=Ss rss=0.26 GiB [done/total p %, k running, eta D]`:
+`VERDICT  t=Ss  rss=0.26 GiB  [done/total p %, k running, eta D]  M`, the module last and every field padded to a fixed width so the statistics keep their columns:
 `rss` is the worker's own peak resident set (its `peak RSS` statistics line; `rss≥` the last value the scheduler sampled where the worker wrote none, as when killed), `done` counts the modules a resumed run found logged, and the estimate is the remaining modules
 at the rate of this run's last 200 finishes (in days and hours past 48 hours, in hours from 10, else with minutes). With
 `--progress=N` (milliseconds, at least a second) or `--progress=Ss`, a heartbeat on stderr after
