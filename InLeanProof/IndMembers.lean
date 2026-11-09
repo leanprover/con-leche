@@ -2,7 +2,6 @@ module
 
 public import InLeanProof.IndBlockKS
 public import InLeanProof.WalksIota
-public import InLeanProof.CRuns
 import ConLeche.Verify.Inductives.BlockInv
 
 /-!
@@ -81,8 +80,7 @@ guards are `checkConstantValC`'s (O6), its operations the job's. -/
     JobEnvI fe L → CSOKI .verified false L s₀ → okC cv.type = true →
     InLean.checkConstantValF (sharedOpsC .verified fe) fe cv false s₀ = .ok ((), s') →
     CSOKI .verified false L s' ∧ TabLe s₀ s' ∧ (trC cv.type).looseBVarsBounded 0 = true ∧
-      CRuns .verified (ConLeche.Cached.checkConstantValC .verified (ConLeche.mkFEnv L) (trCV cv))
-        (ConLeche.checkConstantVal (ConLeche.fueledOpsM .verified) L (trCV cv)) () ()
+      Runs (ConLeche.checkConstantVal (ConLeche.fueledOpsM .verified) L (trCV cv)) ()
 
 /-- **A former's reduct** (`reducedFormerWS_spec`'s twin): the whnf telescope
 walk (`whnfTelescope`, interned variables) and its closing. -/
@@ -120,7 +118,6 @@ theorem reduceMemberSimI_of (hC : CheckConstantValFSimI) (hRF : ReducedFormerSim
   rw [ite_eq_right (by rw [hdec]; exact Bool.false_ne_true)] at h
   obtain ⟨_, s₁, h1, h⟩ := bindI_ok h
   obtain ⟨hs₁, ht₁, hcl, hR1⟩ := hC fe L ms.cvT s₀ s₁ hJ hs hok.1 h1
-  replace hR1 := hR1.runs
   obtain ⟨cvR, s₂, h2, h⟩ := bindI_ok h
   obtain ⟨hs₂, ht₂, hokR, hclR, hR2⟩ := hRF fe L ms.cvT cvR (nP + ms.nIdx) s₁ s₂ hJ hs₁ hok.1 hcl h2
   obtain ⟨b, s₃, h3, h⟩ := bindI_ok h

@@ -1,7 +1,6 @@
 module
 
 public import InLeanProof.IndBasis
-public import InLeanProof.CRuns
 import ConLeche.Verify.Denote.IndFrame
 import ConLeche.Verify.Cached.IndWalksC
 
@@ -74,9 +73,8 @@ theorem checkBlockTeleFI_run (hC : CheckConstantValFSimI) {fe : InLean.FEnv} {L 
     (h : InLean.checkBlockTeleC (sharedOpsC .verified fe) fe nP ms s₀ = .ok (r, s')) :
     CSOKI .verified false L s' ∧ TabLe s₀ s' ∧ r.1 = ms.cvT ∧ okL r.2 = true ∧
       (trC ms.cvT.type).looseBVarsBounded 0 = true ∧
-      CRuns .verified (ConLeche.Cached.checkBlockTeleC .verified (ConLeche.mkFEnv L) nP (trMember ms))
-        (ConLeche.checkBlockTele (ConLeche.fueledOpsM .verified) L nP (trMember ms))
-        (trCV r.1, trL r.2) (trCV r.1, trL r.2) := by
+      Runs (ConLeche.checkBlockTele (ConLeche.fueledOpsM .verified) L nP (trMember ms))
+        (trCV r.1, trL r.2) := by
   unfold InLean.checkBlockTeleC at h
   obtain ⟨_, s₁, h1, h⟩ := bindI_ok h
   obtain ⟨hs₁, ht₁, hcl, hR1⟩ := hC fe L ms.cvT s₀ s₁ hJ hs hok h1
@@ -112,15 +110,15 @@ theorem checkBlockTeleFI_run (hC : CheckConstantValFSimI) {fe : InLean.FEnv} {L 
       refine ⟨hs₁, ht₁, rfl, hokw, hcl, ?_⟩
       have hsp' : (trC ms.cvT.type).stripPis (nP + ms.nIdx) = some (ds.map trC, .sort (trL w)) := by
         rw [stripPis_tr, hsp]; simp [hrb]
-      unfold ConLeche.Cached.checkBlockTeleC ConLeche.checkBlockTele
-      refine CRuns.bind hR1 ?_
+      unfold ConLeche.checkBlockTele
+      refine Runs.bind hR1 ?_
       simp only [trMember_cvT, trMember_nIdx, ConLeche.checkSumTele, trCV_type, hsp']
-      refine CRuns.bind (CRuns.pure' _ _) ?_
+      refine Runs.bind (Runs.pure _) ?_
       simp only [trCV_type, hsp', ConLeche.unwrapOr]
-      refine CRuns.bind (CRuns.pure' _ _) ?_
+      refine Runs.bind (Runs.pure _) ?_
       have hbe : (ConLeche.Expr.sort (trL w) == ConLeche.Expr.sort (trL w)) = true := by simp
       simp only [hbe, ↓reduceIte]
-      exact CRuns.pure' _ _
+      exact Runs.pure _
     | _ => exact (throwI_ok h2).elim
 
 /-- The formers' results, translated. -/
@@ -137,14 +135,12 @@ theorem checkBlockTelesFI_run (hC : CheckConstantValFSimI) {fe : InLean.FEnv} {L
       CSOKI .verified false L s' ∧ TabLe s₀ s' ∧ r.map Prod.fst = mss.map (·.cvT) ∧
         (∀ x ∈ r, okC x.1.type = true ∧ (trC x.1.type).looseBVarsBounded 0 = true ∧
           okL x.2 = true) ∧
-        CRuns .verified
-          (ConLeche.Cached.checkBlockTelesC .verified (ConLeche.mkFEnv L) nP (mss.map trMember))
-          (ConLeche.checkBlockTeles (ConLeche.fueledOpsM .verified) L nP (mss.map trMember))
-          (r.map trTele) (r.map trTele)
+        Runs (ConLeche.checkBlockTeles (ConLeche.fueledOpsM .verified) L nP (mss.map trMember))
+          (r.map trTele)
   | [], s₀, s', r, hs, _, h => by
     unfold InLean.checkBlockTelesC at h
     obtain ⟨rfl, rfl⟩ := pureI_ok h
-    exact ⟨hs, TabLe.refl _, rfl, by simp, CRuns.pure' _ _⟩
+    exact ⟨hs, TabLe.refl _, rfl, by simp, Runs.pure _⟩
   | ms :: rest, s₀, s', r, hs, hok, h => by
     unfold InLean.checkBlockTelesC at h
     obtain ⟨x, s₁, h1, h⟩ := bindI_ok h
@@ -159,8 +155,8 @@ theorem checkBlockTelesFI_run (hC : CheckConstantValFSimI) {fe : InLean.FEnv} {L
       rcases List.mem_cons.1 hy with rfl | hy
       · rw [hx1]; exact ⟨hok ms (List.mem_cons_self ..), hcl, hl⟩
       · exact hall y hy
-    · unfold ConLeche.Cached.checkBlockTelesC ConLeche.checkBlockTeles
-      exact CRuns.bind hR1 (CRuns.bind hR2 (CRuns.pure' _ _))
+    · unfold ConLeche.checkBlockTeles
+      exact Runs.bind hR1 (Runs.bind hR2 (Runs.pure _))
 
 /-! ## The members' agreement -/
 
@@ -213,13 +209,11 @@ theorem checkBlockDomsAtFI_run {fe : InLean.FEnv} {L : ConLeche.Env} (hO : OpsSi
       TrSL s₀ fvs = cfvs → TrSL s₀ doms = cdoms →
       InLean.checkBlockDomsAtC (sharedOpsC .verified fe) fe off fvs doms j s₀ = .ok (u, s') →
       CSOKI .verified false L s' ∧ TabLe s₀ s' ∧
-        CRuns .verified (ConLeche.Cached.checkBlockDomsAtC .verified (ConLeche.mkFEnv L) off cfvs
-            cdoms j)
-          (ConLeche.checkBlockDomsAt (ConLeche.fueledOpsM .verified) L off cfvs cdoms j) () ()
+        Runs (ConLeche.checkBlockDomsAt (ConLeche.fueledOpsM .verified) L off cfvs cdoms j) ()
   | 0, s₀, s', u, hs, _, _, _, _, h => by
     unfold InLean.checkBlockDomsAtC at h
     obtain ⟨-, rfl⟩ := pureI_ok h
-    exact ⟨hs, TabLe.refl _, CRuns.pure' _ _⟩
+    exact ⟨hs, TabLe.refl _, Runs.pure _⟩
   | j + 1, s₀, s', u, hs, hokf, hokd, htf, htd, h => by
     unfold InLean.checkBlockDomsAtC at h
     obtain ⟨a, s₁, h1, hk1⟩ := bindI_ok h
@@ -259,14 +253,14 @@ theorem checkBlockDomsAtFI_run {fe : InLean.FEnv} {L : ConLeche.Env} (hO : OpsSi
       (okSL_of_tabLe ht₃ hokd) (by rw [TrSL_of_tabLe ht₃ hokf, htf])
       (by rw [TrSL_of_tabLe ht₃ hokd, htd]) hk3
     refine ⟨hs', ht₃.trans ht', ?_⟩
-    unfold ConLeche.Cached.checkBlockDomsAtC ConLeche.checkBlockDomsAt
+    unfold ConLeche.checkBlockDomsAt
     simp only [hca, hcb, ConLeche.unwrapOr]
-    refine CRuns.bind (CRuns.pure' _ _) (CRuns.bind (CRuns.pure' _ _) ?_)
+    refine Runs.bind (Runs.pure _) (Runs.bind (Runs.pure _) ?_)
     rw [hfa]
     simp only [ConLeche.Expr.fvarTypeD]
-    refine CRuns.bind (CRuns.defeq hR3) ?_
+    refine Runs.bind hR3 ?_
     simp only [↓reduceIte]
-    exact CRuns.bind (CRuns.pure' _ _) hR
+    exact Runs.bind (Runs.pure _) hR
 
 /-- A closed term's telescope, opened by InLean, read at a later state. -/
 theorem openClosedI_run {s₀ s' s'' : InLean.CState} {n : Nat} {e : Lean.Expr}
@@ -301,14 +295,12 @@ theorem checkBlockAgreeFI_run {fe : InLean.FEnv} {L : ConLeche.Env} (hO : OpsSim
         okL x.2 = true) →
       InLean.checkBlockAgreeC (sharedOpsC .verified fe) fe nP cvTa0 s0 cvs s₀ = .ok (u, s') →
       CSOKI .verified false L s' ∧ TabLe s₀ s' ∧
-        CRuns .verified (ConLeche.Cached.checkBlockAgreeC .verified (ConLeche.mkFEnv L) nP
-            (trCV cvTa0) (trL s0) (cvs.map trTele))
-          (ConLeche.checkBlockAgree (ConLeche.fueledOpsM .verified) L nP (trCV cvTa0) (trL s0)
-            (cvs.map trTele)) () ()
+        Runs (ConLeche.checkBlockAgree (ConLeche.fueledOpsM .verified) L nP (trCV cvTa0) (trL s0)
+          (cvs.map trTele)) ()
   | [], s₀, s', u, hs, _, h => by
     unfold InLean.checkBlockAgreeC at h
     obtain ⟨-, rfl⟩ := pureI_ok h
-    exact ⟨hs, TabLe.refl _, CRuns.pure' _ _⟩
+    exact ⟨hs, TabLe.refl _, Runs.pure _⟩
   | (cvTa, sx) :: rest, s₀, s', u, hs, hall, h => by
     obtain ⟨hokx, hcx, hlx⟩ := hall _ (List.mem_cons_self ..)
     unfold InLean.checkBlockAgreeC at h
@@ -337,9 +329,7 @@ theorem checkBlockAgreeFI_run {fe : InLean.FEnv} {L : ConLeche.Env} (hO : OpsSim
     -- the two telescopes, read at the state after the second
     obtain ⟨hs₁, ht₁, hokf0, hm0, hfv0⟩ := openClosedI_run hs h0 hc0 h1 (TabLe.refl _)
     obtain ⟨hs₂, ht₂, hokf, hm, hfv⟩ := openClosedI_run hs₁ hokx hcx h2 (TabLe.refl _)
-    have hm0' := hm0
-    have hm' := hm
-    rw [ConLeche.Cached.openPisAtFvarsC_eq] at hm0' hm'
+    rw [ConLeche.Cached.openPisAtFvarsC_eq] at hm0 hm
     have hT0 : TrSL s₂ fvs0 = TrSL s₁ fvs0 := TrSL_of_tabLe ht₂ hokf0
     have hokf0₂ : OkSL s₂ fvs0 = true := okSL_of_tabLe ht₂ hokf0
     obtain ⟨hs42, hokds, htds⟩ := mapM_fvarTypeDI_run hs₂ hokf0₂
@@ -382,13 +372,13 @@ theorem checkBlockAgreeFI_run {fe : InLean.FEnv} {L : ConLeche.Env} (hO : OpsSim
       simpa [TrSL] using hlen
     have heq : ConLeche.Level.isEquiv (trL sx) (trL s0) = some true := by
       rw [← isEquiv_trL hlx hl0]; exact hb'
-    unfold ConLeche.Cached.checkBlockAgreeC ConLeche.checkBlockAgree
-    simp only [List.map_cons, trTele, trCV_type, hm0, hm, hm0', hm', ConLeche.unwrapOr, heq,
+    unfold ConLeche.checkBlockAgree
+    simp only [List.map_cons, trTele, trCV_type, hm0, hm, ConLeche.unwrapOr, heq,
       ConLeche.liftFueled]
-    refine CRuns.bind (CRuns.pure' _ _) (CRuns.bind (CRuns.pure' _ _) ?_)
+    refine Runs.bind (Runs.pure _) (Runs.bind (Runs.pure _) ?_)
     dsimp only
     simp only [hlen', ↓reduceIte]
-    refine CRuns.bind hR5 (CRuns.bind (CRuns.pure' _ _) ?_)
+    refine Runs.bind hR5 (Runs.bind (Runs.pure _) ?_)
     simp only [↓reduceIte]
     exact hR
 
@@ -410,10 +400,7 @@ theorem checkBlockIndsFI_run (hC : CheckConstantValFSimI) {fe : InLean.FEnv} {L 
       fe₁ = InLean.consBlockIndsF p₁ isRec (p.members.map (·.declared)) 0
         { fe with pending := InLean.blockMarks p₁ ++ fe.pending } ∧
       (∀ ms ∈ p.members, (trC ms.cvT.type).looseBVarsBounded 0 = true) ∧
-      CRuns .verified (ConLeche.Cached.checkBlockIndsC .verified (ConLeche.mkFEnv L) (trShape p) isRec)
-        (ConLeche.checkBlockInds (ConLeche.fueledOpsM .verified) L (trShape p) isRec)
-        (ConLeche.Cached.consBlockIndsF (trShape p₁) isRec ((trShape p).members.map (·.declared)) 0
-          (ConLeche.mkFEnv L), trShape p₁)
+      Runs (ConLeche.checkBlockInds (ConLeche.fueledOpsM .verified) L (trShape p) isRec)
         (ConLeche.consBlockInds (trShape p₁) isRec ((trShape p).members.map (·.declared)) 0 L,
           trShape p₁) := by
   unfold InLean.checkBlockIndsC at h
@@ -446,11 +433,11 @@ theorem checkBlockIndsFI_run (hC : CheckConstantValFSimI) {fe : InLean.FEnv} {L 
   refine ⟨hs₃, ht₁.trans (ht₂.trans ht₃), s0, hl0, rfl, rfl, hclAll, ?_⟩
   have hmC : (trShape p).members = trMember ms0 :: rest.map trMember := by
     simp [trShape, hm]
-  unfold ConLeche.Cached.checkBlockIndsC ConLeche.checkBlockInds
+  unfold ConLeche.checkBlockInds
   rw [hmC]
   simp only
-  refine CRuns.bind hR1 (CRuns.bind hR2 (CRuns.bind hR3 ?_))
+  refine Runs.bind hR1 (Runs.bind hR2 (Runs.bind hR3 ?_))
   rw [← trShape_withSort p hl0]
-  exact CRuns.pure' _ _
+  exact Runs.pure _
 
 end InLeanProof

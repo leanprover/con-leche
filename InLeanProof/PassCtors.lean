@@ -1,8 +1,6 @@
 module
 
 public import InLeanProof.PassEnv
-import ConLeche.Verify.Cached.IndBlockC
-import ConLeche.Verify.Cached.IndPositivityC
 import ConLeche.Verify.Denote.IndFrame
 import ConLeche.Verify.BridgeWfImp
 import ConLeche.Verify.Cached.IndWalksC
@@ -205,13 +203,11 @@ theorem checkStructDomsAtFI_run {fe : InLean.FEnv} {L : ConLeche.Env} (hO : OpsS
       InLean.checkStructDomsAtF (sharedOpsC .verified fe) fe off fvs.toArray doms.toArray j s₀ =
         .ok (u, s') →
       CSOKI .verified false L s' ∧ TabLe s₀ s' ∧
-        CRuns .verified (ConLeche.Cached.checkStructDomsAtC .verified (ConLeche.mkFEnv L) off
-            cfvs.toArray cdoms.toArray j)
-          (ConLeche.checkStructDomsAt (ConLeche.fueledOpsM .verified) L off cfvs cdoms j) () ()
+        Runs (ConLeche.checkStructDomsAt (ConLeche.fueledOpsM .verified) L off cfvs cdoms j) ()
   | 0, s₀, s', u, hs, _, _, _, _, h => by
     unfold InLean.checkStructDomsAtF at h
     obtain ⟨-, rfl⟩ := pureI_ok h
-    exact ⟨hs, TabLe.refl _, CRuns.pure' _ _⟩
+    exact ⟨hs, TabLe.refl _, Runs.pure _⟩
   | j + 1, s₀, s', u, hs, hokf, hokd, htf, htd, h => by
     unfold InLean.checkStructDomsAtF at h
     obtain ⟨a, s₁, h1, hk1⟩ := bindI_ok h
@@ -251,14 +247,14 @@ theorem checkStructDomsAtFI_run {fe : InLean.FEnv} {L : ConLeche.Env} (hO : OpsS
       (okSL_of_tabLe ht₃ hokd) (by rw [TrSL_of_tabLe ht₃ hokf, htf])
       (by rw [TrSL_of_tabLe ht₃ hokd, htd]) hk3
     refine ⟨hs', ht₃.trans ht', ?_⟩
-    unfold ConLeche.Cached.checkStructDomsAtC ConLeche.checkStructDomsAt
-    simp only [List.getElem?_toArray, hca, hcb, ConLeche.unwrapOr]
-    refine CRuns.bind (CRuns.pure' _ _) (CRuns.bind (CRuns.pure' _ _) ?_)
+    unfold ConLeche.checkStructDomsAt
+    simp only [hca, hcb, ConLeche.unwrapOr]
+    refine Runs.bind (Runs.pure _) (Runs.bind (Runs.pure _) ?_)
     rw [hfa]
     simp only [ConLeche.Expr.fvarTypeD]
-    refine CRuns.bind (CRuns.defeq hR3) ?_
+    refine Runs.bind hR3 ?_
     simp only [↓reduceIte]
-    exact CRuns.bind (CRuns.pure' _ _) hR
+    exact Runs.bind (Runs.pure _) hR
 
 /-! ## The fields' sorts -/
 
@@ -281,14 +277,12 @@ theorem checkStructFieldSortsIFI_run {fe : InLean.FEnv} {L : ConLeche.Env} (hO :
       InLean.checkStructFieldSortsIC (sharedOpsC .verified fe) fe isProp large sr nP fvs idx j s₀ =
         .ok (u, s') →
       CSOKI .verified false L s' ∧ TabLe s₀ s' ∧
-        CRuns .verified (ConLeche.Cached.checkStructFieldSortsIC .verified (ConLeche.mkFEnv L) isProp
-            large (trL sr) nP cfvs cidx j)
-          (ConLeche.checkStructFieldSortsI (ConLeche.fueledOpsM .verified) L isProp large (trL sr)
-            nP cfvs cidx j) () ()
+        Runs (ConLeche.checkStructFieldSortsI (ConLeche.fueledOpsM .verified) L isProp large (trL sr)
+          nP cfvs cidx j) ()
   | 0, s₀, s', u, hs, _, _, _, _, h => by
     unfold InLean.checkStructFieldSortsIC at h
     obtain ⟨-, rfl⟩ := pureI_ok h
-    exact ⟨hs, TabLe.refl _, CRuns.pure' _ _⟩
+    exact ⟨hs, TabLe.refl _, Runs.pure _⟩
   | j + 1, s₀, s', u, hs, hokf, hoki, htf, hti, h => by
     unfold InLean.checkStructFieldSortsIC at h
     obtain ⟨a, s₁, h1, hk1⟩ := bindI_ok h
@@ -318,10 +312,8 @@ theorem checkStructFieldSortsIFI_run {fe : InLean.FEnv} {L : ConLeche.Env} (hO :
         InLean.checkStructFieldSortsIC (sharedOpsC .verified fe) fe isProp large sr nP fvs idx j s₅ =
           .ok (u, s') →
         CSOKI .verified false L s' ∧ TabLe s₀ s' ∧
-          CRuns .verified (ConLeche.Cached.checkStructFieldSortsIC .verified (ConLeche.mkFEnv L)
-              isProp large (trL sr) nP cfvs cidx j)
-            (ConLeche.checkStructFieldSortsI (ConLeche.fueledOpsM .verified) L isProp large
-              (trL sr) nP cfvs cidx j) () () := by
+          Runs (ConLeche.checkStructFieldSortsI (ConLeche.fueledOpsM .verified) L isProp large
+            (trL sr) nP cfvs cidx j) () := by
       intro s₅ hs₅ ht₅ hk
       have ht05 := ht04.trans ht₅
       obtain ⟨hs', ht', hR⟩ := checkStructFieldSortsIFI_run hO hsr hcf j hs₅
@@ -342,15 +334,15 @@ theorem checkStructFieldSortsIFI_run {fe : InLean.FEnv} {L : ConLeche.Env} (hO :
         simp only [↓reduceIte] at hk6
         obtain ⟨hs', ht', hR⟩ := hrec hs₆ ht₆ hk6
         refine ⟨hs', ht', ?_⟩
-        unfold ConLeche.Cached.checkStructFieldSortsIC ConLeche.checkStructFieldSortsI
+        unfold ConLeche.checkStructFieldSortsI
         simp only [hca, ConLeche.unwrapOr, hfa]
-        refine CRuns.bind (CRuns.pure' _ _) ?_
+        refine Runs.bind (Runs.pure _) ?_
         try dsimp only
-        refine CRuns.bind (CRuns.infer hRt) (CRuns.bind (CRuns.sort hRw) ?_)
+        refine Runs.bind hRt (Runs.bind hRw ?_)
         simp only [Bool.not_false, ↓reduceIte]
         rw [leq_trL hwl hsr] at hb
-        refine CRuns.bind (b := true) (a := true) ?_ ?_
-        · rw [hb]; exact CRuns.pure' _ _
+        refine Runs.bind (a := true) ?_ ?_
+        · rw [hb]; exact Runs.pure _
         · simpa using hR
     | true =>
       cases large with
@@ -358,11 +350,11 @@ theorem checkStructFieldSortsIFI_run {fe : InLean.FEnv} {L : ConLeche.Env} (hO :
         simp only [Bool.not_true, Bool.false_eq_true, ↓reduceIte] at hk4 ⊢
         obtain ⟨hs', ht', hR⟩ := hrec hs₄ (TabLe.refl _) hk4
         refine ⟨hs', ht', ?_⟩
-        unfold ConLeche.Cached.checkStructFieldSortsIC ConLeche.checkStructFieldSortsI
+        unfold ConLeche.checkStructFieldSortsI
         simp only [hca, ConLeche.unwrapOr, hfa]
-        refine CRuns.bind (CRuns.pure' _ _) ?_
+        refine Runs.bind (Runs.pure _) ?_
         try dsimp only
-        refine CRuns.bind (CRuns.infer hRt) (CRuns.bind (CRuns.sort hRw) ?_)
+        refine Runs.bind hRt (Runs.bind hRw ?_)
         simpa using hR
       | true =>
         simp only [Bool.not_true, Bool.false_eq_true, ↓reduceIte] at hk4 ⊢
@@ -370,11 +362,11 @@ theorem checkStructFieldSortsIFI_run {fe : InLean.FEnv} {L : ConLeche.Env} (hO :
         · rename_i hc
           obtain ⟨hs', ht', hR⟩ := hrec hs₄ (TabLe.refl _) hk4
           refine ⟨hs', ht', ?_⟩
-          unfold ConLeche.Cached.checkStructFieldSortsIC ConLeche.checkStructFieldSortsI
+          unfold ConLeche.checkStructFieldSortsI
           simp only [hca, ConLeche.unwrapOr, hfa]
-          refine CRuns.bind (CRuns.pure' _ _) ?_
+          refine Runs.bind (Runs.pure _) ?_
           try dsimp only
-          refine CRuns.bind (CRuns.infer hRt) (CRuns.bind (CRuns.sort hRw) ?_)
+          refine Runs.bind hRt (Runs.bind hRw ?_)
           have hc' : (ConLeche.Level.isEquiv (trL w) .zero == some true ||
               cidx.contains (TrS s₀ a')) = true := by
             simp only [Bool.or_eq_true] at hc ⊢
@@ -399,15 +391,6 @@ theorem checkStructFieldSortsC_toArray (ops : InLean.CheckerOps) (fe : InLean.FE
     simp only [InLean.checkStructFieldSortsC, InLean.checkStructFieldSortsIC, List.getElem?_toArray,
       checkStructFieldSortsC_toArray ops fe isProp large sr nP fvs idx j]
 
-/-- Master's two cached field loops, over an array (the constructors') and over a list (the
-indices' and positivity's), are one loop: both are the specification's at the shared
-operations. -/
-theorem cachedFieldSorts_toArray (fe : ConLeche.FEnv) (isProp large : Bool) (s : ConLeche.Level)
-    (nP : Nat) (fvs idx : List ConLeche.Expr) (j : Nat) :
-    ConLeche.Cached.checkStructFieldSortsC .verified fe isProp large s nP fvs.toArray idx j =
-      ConLeche.Cached.checkStructFieldSortsIC .verified fe isProp large s nP fvs idx j := by
-  rw [ConLeche.Cached.checkStructFieldSortsC_eq, ConLeche.Cached.checkStructFieldSortsIC_eq]
-
 /-! ## One constructor -/
 
 /-- **One constructor** (`checkSumCtorS_spec`'s twin), at master's `env₀ = env`
@@ -422,15 +405,13 @@ theorem checkSumCtorFI_run (hC : CheckConstantValFSimI) {fe fe₀ : InLean.FEnv}
     (h : InLean.checkSumCtorC (sharedOpsC .verified fe) fe₀ fe T lps nP nIdx sr isProp large cvC nF
       cvTa s₀ = .ok (u, s')) :
     CSOKI .verified false L s' ∧ TabLe s₀ s' ∧
-      CRuns .verified (ConLeche.Cached.checkSumCtorC .verified (ConLeche.mkFEnv L) (ConLeche.mkFEnv L)
-          (toName T) (lps.map toName) nP nIdx (trL sr) isProp large (trCV cvC) nF (trCV cvTa))
-        (ConLeche.checkSumCtor (ConLeche.fueledOpsM .verified) L L (toName T) (lps.map toName)
-          nP nIdx (trL sr) isProp large (trCV cvC) nF (trCV cvTa)) () () := by
+      Runs (ConLeche.checkSumCtor (ConLeche.fueledOpsM .verified) L L (toName T) (lps.map toName)
+        nP nIdx (trL sr) isProp large (trCV cvC) nF (trCV cvTa)) () := by
   unfold InLean.checkSumCtorC at h
   obtain ⟨_, s₁, h1, h⟩ := bindI_ok h
   obtain ⟨hs₁, ht₁, hcl, hR1⟩ := hC fe L cvC s₀ s₁ hJ hs hokC h1
   have hres : (trC cvC.type).constsResolve L = true := by
-    obtain ⟨F, hF⟩ := hR1.runs
+    obtain ⟨F, hF⟩ := hR1
     rw [ConLeche.checkConstantVal_datF] at hF
     exact (ConLeche.checkConstantVal_typeWF hF).2.2.1
   obtain ⟨q, s₂, h2, h⟩ := bindI_ok h
@@ -460,8 +441,7 @@ theorem checkSumCtorFI_run (hC : CheckConstantValFSimI) {fe fe₀ : InLean.FEnv}
   | some cq =>
   simp only [InLean.unwrapOr] at h4
   obtain ⟨rfl, rfl⟩ := pureI_ok h4
-  obtain ⟨hs₃, ht₃, hokq, hmCc, hfvC⟩ := openClosedI_run hs₁ hokC hcl h3 (TabLe.refl _)
-  have hmC := hmCc
+  obtain ⟨hs₃, ht₃, hokq, hmC, hfvC⟩ := openClosedI_run hs₁ hokC hcl h3 (TabLe.refl _)
   rw [ConLeche.Cached.openPisAtFvarsC_eq] at hmC
   -- the former's telescope
   obtain ⟨r2, s₅, h5, h⟩ := bindI_ok h
@@ -471,8 +451,7 @@ theorem checkSumCtorFI_run (hC : CheckConstantValFSimI) {fe fe₀ : InLean.FEnv}
   | some tq =>
   simp only [InLean.unwrapOr] at h6
   obtain ⟨rfl, rfl⟩ := pureI_ok h6
-  obtain ⟨hs₅, ht₅, hokt, hmTc, hfvT⟩ := openClosedI_run hs₃ hokT hcT h5 (TabLe.refl _)
-  have hmT := hmTc
+  obtain ⟨hs₅, ht₅, hokt, hmT, hfvT⟩ := openClosedI_run hs₃ hokT hcT h5 (TabLe.refl _)
   rw [ConLeche.Cached.openPisAtFvarsC_eq] at hmT
   have hokq₅ : OkSL s₅ cq.1 = true := okSL_of_tabLe ht₅ hokq
   have hTq₅ : TrSL s₅ cq.1 = TrSL s₃ cq.1 := TrSL_of_tabLe ht₅ hokq
@@ -524,7 +503,6 @@ theorem checkSumCtorFI_run (hC : CheckConstantValFSimI) {fe fe₀ : InLean.FEnv}
   obtain ⟨rfl, rfl⟩ := pureI_ok h10
   obtain ⟨hokx, hokxb, hmX⟩ := hR9 xq.1 xq.2 rfl
   rw [TrS_of_tabLe ht38 hokb₃] at hmX
-  have hmXc := hmX
   rw [ConLeche.Cached.openPisAtFvarsC_eq] at hmX
   have hfvX : ∀ (i : Nat) (x : ConLeche.Expr), (TrSL s₉ xq.1)[i]? = some x →
       (∃ k ty, x = .fvar k ty) ∧ ConLeche.Expr.WScoped (nP + i) x.fvarTypeD ∧
@@ -582,17 +560,15 @@ theorem checkSumCtorFI_run (hC : CheckConstantValFSimI) {fe fe₀ : InLean.FEnv}
   refine ⟨hs', ht₁.trans (ht₃.trans (ht38.trans (ht₉.trans ht'))), ?_⟩
   rw [TrSL_drop, TrSL_appArgs] at hR
   -- master's run
-  unfold ConLeche.Cached.checkSumCtorC ConLeche.checkSumCtor
-  refine CRuns.bind hR1 ?_
+  unfold ConLeche.checkSumCtor
+  refine Runs.bind hR1 ?_
   simp only [trCV_type, hsp', ConLeche.unwrapOr]
-  refine CRuns.bind (CRuns.pure' _ _) ?_
-  simp only [hresid', ↓reduceIte, hmC, hmT, hmCc, hmTc]
-  refine CRuns.bind (CRuns.pure' _ _) (CRuns.bind (CRuns.pure' _ _) (CRuns.bind hR8 ?_))
-  simp only [hmX, hmXc]
-  refine CRuns.bind (CRuns.pure' _ _) ?_
-  simp only [ConLeche.Expr.getAppArgsC_spec, ConLeche.Cached.constsResolveFC_spec,
-    ConLeche.constsResolveF_eq, hres2', hfields, hidx, ↓reduceIte]
-  rw [cachedFieldSorts_toArray]
+  refine Runs.bind (Runs.pure _) ?_
+  simp only [hresid', ↓reduceIte, hmC, hmT]
+  refine Runs.bind (Runs.pure _) (Runs.bind (Runs.pure _) (Runs.bind hR8 ?_))
+  simp only [hmX]
+  refine Runs.bind (Runs.pure _) ?_
+  simp only [hres2', hfields, hidx, ↓reduceIte]
   exact hR
 
 /-! ## The constructors -/
@@ -607,15 +583,12 @@ theorem checkSumCtorsFI_run (hC : CheckConstantValFSimI) {fe fe₀ : InLean.FEnv
       InLean.checkSumCtorsC (sharedOpsC .verified fe) fe₀ fe T lps nP nIdx sr isProp large cvTa cs s₀ =
         .ok (u, s') →
       CSOKI .verified false L s' ∧ TabLe s₀ s' ∧
-        CRuns .verified (ConLeche.Cached.checkSumCtorsC .verified (ConLeche.mkFEnv L)
-            (ConLeche.mkFEnv L) (toName T) (lps.map toName) nP nIdx (trL sr) isProp large
-            (trCV cvTa) (cs.map trCtor))
-          (ConLeche.checkSumCtors (ConLeche.fueledOpsM .verified) L L (toName T) (lps.map toName)
-            nP nIdx (trL sr) isProp large (trCV cvTa) (cs.map trCtor)) () ()
+        Runs (ConLeche.checkSumCtors (ConLeche.fueledOpsM .verified) L L (toName T) (lps.map toName)
+          nP nIdx (trL sr) isProp large (trCV cvTa) (cs.map trCtor)) ()
   | [], s₀, s', u, hs, _, h => by
     unfold InLean.checkSumCtorsC at h
     obtain ⟨-, rfl⟩ := pureI_ok h
-    exact ⟨hs, TabLe.refl _, CRuns.pure' _ _⟩
+    exact ⟨hs, TabLe.refl _, Runs.pure _⟩
   | c :: cs, s₀, s', u, hs, hok, h => by
     unfold InLean.checkSumCtorsC at h
     obtain ⟨_, s₁, h1, h⟩ := bindI_ok h
@@ -624,8 +597,8 @@ theorem checkSumCtorsFI_run (hC : CheckConstantValFSimI) {fe fe₀ : InLean.FEnv
       (fun c' hc' => hok c' (List.mem_cons_of_mem _ hc')) h
     refine ⟨hs', ht₁.trans ht', ?_⟩
     simp only [List.map_cons]
-    unfold ConLeche.Cached.checkSumCtorsC ConLeche.checkSumCtors
-    exact CRuns.bind hR1 hR
+    unfold ConLeche.checkSumCtors
+    exact Runs.bind hR1 hR
 
 theorem trShape_lps (p : InLean.BlockShape) : (trShape p).lps = p.lps.map toName := by
   unfold ConLeche.BlockShape.lps InLean.BlockShape.lps trShape
@@ -642,14 +615,12 @@ theorem checkBlockCtorsFI_run (hC : CheckConstantValFSimI) {fe fe₀ : InLean.FE
         ∀ c ∈ ms.ctors, okC c.1.type = true) →
       InLean.checkBlockCtorsC (sharedOpsC .verified fe) fe₀ fe p l s₀ = .ok (u, s') →
       CSOKI .verified false L s' ∧ TabLe s₀ s' ∧
-        CRuns .verified (ConLeche.Cached.checkBlockCtorsC .verified (ConLeche.mkFEnv L)
-            (ConLeche.mkFEnv L) (trShape p) (l.map trMember))
-          (ConLeche.checkBlockCtors (ConLeche.fueledOpsM .verified) L L (trShape p)
-            (l.map trMember)) () ()
+        Runs (ConLeche.checkBlockCtors (ConLeche.fueledOpsM .verified) L L (trShape p)
+          (l.map trMember)) ()
   | [], s₀, s', u, hs, _, h => by
     unfold InLean.checkBlockCtorsC at h
     obtain ⟨-, rfl⟩ := pureI_ok h
-    exact ⟨hs, TabLe.refl _, CRuns.pure' _ _⟩
+    exact ⟨hs, TabLe.refl _, Runs.pure _⟩
   | ms :: rest, s₀, s', u, hs, hok, h => by
     unfold InLean.checkBlockCtorsC at h
     obtain ⟨hk1, hk2, hk3⟩ := hok ms List.mem_cons_self
@@ -659,8 +630,8 @@ theorem checkBlockCtorsFI_run (hC : CheckConstantValFSimI) {fe fe₀ : InLean.FE
       (fun m hm => hok m (List.mem_cons_of_mem _ hm)) h
     refine ⟨hs', ht₁.trans ht', ?_⟩
     simp only [List.map_cons]
-    unfold ConLeche.Cached.checkBlockCtorsC ConLeche.checkBlockCtors
+    unfold ConLeche.checkBlockCtors
     rw [trShape_lps]
-    exact CRuns.bind hR1 hR
+    exact Runs.bind hR1 hR
 
 end InLeanProof

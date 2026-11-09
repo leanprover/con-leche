@@ -162,7 +162,6 @@ theorem tailSimI (hC : CheckConstantValFSimI) (hRF : ReducedFormerSimI) :
   have hmem : ∀ ms ∈ p.members, okC ms.cvT.type = true ∧ (trC ms.cvT.type).looseBVarsBounded 0 = true :=
     fun ms hm => ⟨(D.members ms hm).1.1, (D.members ms hm).2⟩
   obtain ⟨hs₁, ht₁, hR1⟩ := checkBlockIdxSortsFI_run hJ.ops D.sortOk hs hmem h1
-  replace hR1 := hR1.runs
   -- the constructors' environment, the flush
   have hJ₂ := jobEnvI_ctors hJ p D.ctorsFresh D.ctorsNodup D.ctorsSorry
     (fun m hm c hc => (D.ctors _ (List.mem_map_of_mem hm) c hc).1) D.ctorsWF

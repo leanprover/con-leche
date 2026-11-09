@@ -37,16 +37,12 @@ theorem checkBlockIdxSortsFI_run {fe : InLean.FEnv} {L : ConLeche.Env} (hO : Ops
       (∀ ms ∈ l, okC ms.cvT.type = true ∧ (trC ms.cvT.type).looseBVarsBounded 0 = true) →
       InLean.checkBlockIdxSortsC (sharedOpsC .verified fe) fe p l s₀ = .ok (u, s') →
       CSOKI .verified false L s' ∧ TabLe s₀ s' ∧
-        CRuns .verified (ConLeche.Cached.checkBlockIdxSortsC .verified (ConLeche.mkFEnv L) (trShape p)
-            (l.map trMember))
-          (ConLeche.checkBlockIdxSorts (ConLeche.fueledOpsM .verified) L (trShape p)
-            (l.map trMember)) () ()
+        Runs (ConLeche.checkBlockIdxSorts (ConLeche.fueledOpsM .verified) L (trShape p)
+          (l.map trMember)) ()
   | [], s₀, s', u, hs, _, h => by
     unfold InLean.checkBlockIdxSortsC at h
     obtain ⟨-, rfl⟩ := pure_run h
-    exact ⟨hs, TabLe.refl _, by
-      unfold ConLeche.Cached.checkBlockIdxSortsC ConLeche.checkBlockIdxSorts
-      exact CRuns.pure' _ _⟩
+    exact ⟨hs, TabLe.refl _, by unfold ConLeche.checkBlockIdxSorts; exact Runs.pure _⟩
   | ms :: rest, s₀, s', u, hs, hok, h => by
     unfold InLean.checkBlockIdxSortsC at h
     obtain ⟨hk1, hk2⟩ := hok ms List.mem_cons_self
@@ -58,8 +54,7 @@ theorem checkBlockIdxSortsFI_run {fe : InLean.FEnv} {L : ConLeche.Env} (hO : Ops
     simp only [InLean.unwrapOr] at h2
     obtain ⟨rfl, rfl⟩ := pure_run h2
     obtain ⟨fvs, b⟩ := q
-    obtain ⟨hs₁, ht₁, hokf, hopc, hfv⟩ := openClosedI_run hs hk1 hk2 h1 (TabLe.refl _)
-    have hop := hopc
+    obtain ⟨hs₁, ht₁, hokf, hop, hfv⟩ := openClosedI_run hs hk1 hk2 h1 (TabLe.refl _)
     rw [ConLeche.Cached.openPisAtFvarsC_eq] at hop
     obtain ⟨_, s₃, h3, h⟩ := bind_run h
     have hcf : ∀ (i : Nat) (x : ConLeche.Expr), ((TrSL s₁ fvs).drop p.nP)[i]? = some x →
@@ -76,9 +71,9 @@ theorem checkBlockIdxSortsFI_run {fe : InLean.FEnv} {L : ConLeche.Env} (hO : Ops
       (fun m hm => hok m (List.mem_cons_of_mem _ hm)) h
     refine ⟨hs', ht₁.trans (ht₃.trans ht'), ?_⟩
     simp only [List.map_cons]
-    unfold ConLeche.Cached.checkBlockIdxSortsC ConLeche.checkBlockIdxSorts
-    simp only [trMember_cvT, trCV_type, trMember_nIdx, trShape_nP, hop, hopc, ConLeche.unwrapOr]
-    exact CRuns.bind (CRuns.pure' _ _) (CRuns.bind hR3 hR)
+    unfold ConLeche.checkBlockIdxSorts
+    simp only [trMember_cvT, trCV_type, trMember_nIdx, trShape_nP, hop, ConLeche.unwrapOr]
+    exact Runs.bind (Runs.pure _) (Runs.bind hR3 hR)
 
 /-! ## The K flags -/
 
