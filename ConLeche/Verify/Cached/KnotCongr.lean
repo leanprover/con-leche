@@ -1,6 +1,7 @@
 module
 
-public import ConLeche.Cached.CheckerC
+public import ConLeche.Cached.IndPass
+import Std.Data.HashMap.Lemmas
 
 public section
 

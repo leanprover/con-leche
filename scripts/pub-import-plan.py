@@ -61,6 +61,10 @@ FALLBACK = {
     # field `replaceFVars`, `IndWalksC.lean:32`).
     ('ConLeche.Verify.Cached.IndWalksC', 'ConLeche.Cached.ExprOpsC'),
     ('ConLeche.Verify.Cached.IndWalksC', 'ConLeche.Kernel.Inductives.GenRec'),
+    # task #498 L3: the pass's and the classes' twin equations state the twins
+    # against the specification at `sharedOpsC`.  Measured: demoting the import
+    # breaks the file (unknown identifier `instPisWithC`, `IndPassC.lean:30`).
+    ('ConLeche.Verify.Cached.IndPassC', 'ConLeche.Cached.CheckerC'),
     # task #492: the guard-row lemmas' public statements name `projGuardRowsGo`,
     # `GuardRowsWS`'s `WScoped`; the census attributes them to the private imports
     # (`LooseBVar`, `Subst`).  Measured: demoting either breaks the file (unknown

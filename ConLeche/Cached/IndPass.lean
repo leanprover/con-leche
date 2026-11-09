@@ -1,6 +1,6 @@
 module
 
-public import ConLeche.Kernel.Inductives.BlockTail
+public import ConLeche.Kernel.Inductives.GenRec
 public import ConLeche.Cached.IndPositivity
 
 @[expose] public section
