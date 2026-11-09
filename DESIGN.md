@@ -111001,8 +111001,7 @@ check (naive specification in `Kernel/Inductives/*`, simulation proof to an opti
 production twin), not a walker record threaded through the specification; it is its own task
 (#498), and `StructWalkers` is not extended (it goes with #498).  (2) Specification code changes
 its algorithm only where that makes it simpler, never for speed.  (3) Specification-only
-operations should not be runnable by accident: `noncomputable` where possible, else the reach
-gate catches them.  (4) The `@[csimp]` memo walks stay for now; the record lists those that
+operations should not be runnable by accident: the reach gate catches them.  (4) The `@[csimp]` memo walks stay for now; the record lists those that
 would become unnecessary.
 
 **The twins** (one commit each; numbers `perf stat -e instructions:u`, one run, `--jobs=1`,
@@ -111043,25 +111042,8 @@ for `Empty`, 171 for `prop_struct_proj_wide`, every arena perf stream accepted).
 gone, the definition stays as the specification.  (Done before ruling (4) arrived; it is the one
 memo walk this lane removed.)
 
-**`noncomputable` (ruling 3).**  Marked: `checkDivModPinF`, `checkDivModPinLoopF`,
-`checkDivModPinAtF`, `checkDivModCertsF`, `divModCertGuardF`, `divModCertsGuardF`,
-`divModPinGuardF`, `checkReducePinF`, `reducePinGuardF` (`Kernel/DeclCheck.lean`).  What blocked
-the rest, found by propagating `noncomputable` from the other specification-only definitions until
-the build compiled (scratch; reverted):
-
-* `Expr.substConstAll` — the cached walk `substConstAllC` takes it as its memo's reference (the
-  implicit `s` of `MemoXP0`), a runtime argument the compiler does not erase; every walk of the
-  section has that shape, its reference computable.
-* `projGuardRowsGo`, `instantiate1Lift`, `instPisAtLift`, `structProjBodies(Go)`, `blockTables`,
-  `declTables` — `noncomputable` propagates to `projGuardRows` → `checkProjGuard` → `inferBody`
-  → `coreKnot` → `pureFns`/`whnf`/`inferTypeCore`/`isDefEqCore`, to `checkStructProjTable` →
-  `checkBlockTail` → `checkBlock` → `checkDeclKind` → `checkDeclsPure`, and to `streamEnv`,
-  `recsTables`, `fueledFns`, `fueledOpsM` and the `Verify/Knot` abbreviations.  `lake build`
-  compiles with all of them `noncomputable` (≈ 60 definitions); `lake test` does not: its `#guard`s
-  run the pure checker as the oracle (`RecCheckTests`, `NestedTests`: `checkDecl`, `pureOps`;
-  `JobsTests`: `streamEnv` against the cached fold).  Making the specification checker
-  non-runnable means those tests compare against something else (or are proved instead); that is
-  a question for the maintainer, not done here.  The reach gate covers them meanwhile.
+**No `noncomputable` guard (ruling).**  The reach gate below is the guard against running
+specification code; definitions are not marked `noncomputable` for it.
 
 **The gate (ruling 3).**  `tests/plain-reach.sh` (in `tests/arena.sh`) runs
 `scripts/plain-reach.py --allow tests/plain-reach-allow.txt`: every reached plain declaration must
