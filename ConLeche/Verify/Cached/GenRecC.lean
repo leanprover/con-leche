@@ -1662,7 +1662,7 @@ theorem checkBlockKS_run
     exact FueledM.up (Nat.le_trans (Nat.le_max_right F₂ F₃) (Nat.le_max_right F₁ _)) hF₃
   unfold checkBlock
   simp only [ite_eq_left hnd, ite_eq_left hbool, Bind.bind, Except.bind, g₁, g₂, g₃]
-  rw [pushDelta_mkFEnv, mkFEnv_env]
+  rw [pushDelta_mkFEnv, mkFEnv_env, blockTablesC_eq]
   rfl
 
 variable {pins : List NatOpPinSet}

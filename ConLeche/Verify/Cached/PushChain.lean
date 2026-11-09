@@ -5,6 +5,7 @@ public import ConLeche.Verify.Cached.DeclPushes
 public import ConLeche.Verify.EnvBound
 import ConLeche.Verify.EnvWF
 import ConLeche.Verify.CheckerF
+import ConLeche.Verify.Cached.WalkersC
 
 public section
 
@@ -515,7 +516,7 @@ theorem checkBlockKS_push (mode : CheckMode) {env : Env} {fe : FEnv}
         exact (hC _ (hfrR rc hrc)).2.2
     rw [← h.find?]
     exact hfe
-  · obtain ⟨m, hm, hn⟩ := blockTables_names _ _ t ht
+  · obtain ⟨m, hm, hn⟩ := blockTables_names _ _ t (blockTablesC_eq _ _ ▸ ht)
     rw [hn, hd m hm]
     have hm' : m.cvT.name ∈ ms.map (·.cvT.name) := by rw [e₁]; exact List.mem_map_of_mem hm
     obtain ⟨m', hm'm, he⟩ := List.mem_map.mp hm'

@@ -45,6 +45,29 @@ def structProjBodiesC (T : Name) (nP nF : Nat) (cty : Expr) : Option (Array Expr
   | some r => (structProjBodiesGoC T nF 0 r).map List.toArray
   | none => none
 
+/-- `blockTables` over the memoised projection bodies (task #497;
+`blockTablesC_eq`, `ConLeche/Verify/Cached/WalkersC.lean`): the tables
+the index records (`StreamIndex.add`) and the block's install pushes
+(`checkBlockKS`). -/
+def blockTablesC (p : BlockShape) : List MemberShape → List ProjTable
+  | [] => []
+  | ms :: rest =>
+    match ms.structCtor? with
+    | some c =>
+      match structProjBodiesC ms.declared.name p.nP c.2 c.1.type with
+      | some bodies =>
+        ⟨ms.declared.name, p.lps, p.nP, c.1.name, c.2, bodies⟩ :: blockTablesC p rest
+      | none => blockTablesC p rest
+    | none => blockTablesC p rest
+
+/-- `declTables` over `blockTablesC`. -/
+def declTablesC : Declaration → List ProjTable
+  | .indDecl block nP =>
+    match readBlock nP block with
+    | .ok p => blockTablesC p p.members
+    | .error _ => []
+  | _ => []
+
 /-- **The cached driver's walkers**: the memoised constant-resolution
 gate (`constsResolveFC`, verified at `constsResolveFC_spec`) and the
 memoised projection-body builder; equal to `StructWalkers.plain`
@@ -195,6 +218,6 @@ def checkBlockKS (fe : FEnv) (block : List ConstantInfo) (p₀ : BlockShape) :
   flushC
   let q ← checkBlockPassS mode fe { p₀ with members := ms } (blockIsRec p₀)
   checkBlockTailS mode block q
-  pure (FEnv.pushDelta (blockConstants p₀) (blockTables p₀ p₀.members) fe)
+  pure (FEnv.pushDelta (blockConstants p₀) (blockTablesC p₀ p₀.members) fe)
 
 end ConLeche.Cached

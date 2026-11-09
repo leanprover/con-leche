@@ -68,4 +68,21 @@ theorem structWalkersC_eq_plain : structWalkersC = StructWalkers.plain := by
   · funext fe e; exact constsResolveFC_spec
   · funext T nP nF cty; exact structProjBodiesC_eq T nP nF cty
 
+/-- **The cached tables are the plain ones** (task #497). -/
+theorem blockTablesC_eq (p : BlockShape) :
+    ∀ ms : List MemberShape, blockTablesC p ms = blockTables p ms
+  | [] => rfl
+  | ms :: rest => by
+    simp only [blockTablesC, blockTables, structProjBodiesC_eq, blockTablesC_eq p rest]
+    cases ms.structCtor? with
+    | none => rfl
+    | some c => cases structProjBodies ms.declared.name p.nP c.2 c.1.type <;> rfl
+
+theorem declTablesC_eq (pd : Declaration) : declTablesC pd = declTables pd := by
+  cases pd with
+  | indDecl block nP =>
+    simp only [declTablesC, declTables, blockTablesC_eq]
+    cases readBlock nP block <;> rfl
+  | _ => rfl
+
 end ConLeche.Cached
