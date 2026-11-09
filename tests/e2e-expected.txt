@@ -3352,3 +3352,9 @@
 0 defeq_binding_pi.ndjson
 0 defeq_binding_lam.ndjson
 0 defeq_binding_mutual.ndjson
+# lit_hash_low_bits.ndjson (lean4#15686): ten thousand Nat literals that
+# agree in their low 64 bits, each in memo keys that differ in it alone.
+# Accepted in about 0.4 s with the literal hash of all the words; a hash of
+# the low 64 bits alone puts every key in one bucket and takes minutes,
+# which the 10 s timeout in tests/arena.sh turns into a failure (exit 124).
+0 lit_hash_low_bits.ndjson
