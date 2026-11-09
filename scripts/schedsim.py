@@ -55,6 +55,11 @@ waits at the head of the queue and the scheduler drains for it (no other start u
 random fraction F of the modules made X times longer and Y times
 larger (a CFSG-like tail).
 
+The single replay's kill rule is the shipped one of DESIGN #548 (`--kill-by head --gate none
+--requeue position`: a fixed queue, a head slot, the youngest others killed); the comparison
+tables pass their rules explicitly (`simulate`'s defaults are the rule of #512 with #515's gate,
+so that the tables of #518-#546 replay as they were).
+
 Output (one line, or `--json`): the makespan, the mean running workers, the mean memory in use,
 the kills and the worker time they lost, the time the growth gate held starts, the `memory`
 verdicts.  `--grid` runs the variant table of DESIGN #518 (on the old policy, with its stagger
@@ -237,7 +242,7 @@ def simulate(mods, order, budget_kib, jobs, tick=0.1, growth=10, typ_q=0.5,
              margin_nonzero=True, stagger=0, burst=0, threads_spare=False,
              threads_drain=0, drain_d=0, margin_excl="largest", seed_peaks=None,
              seed_sizes=None, seed_single=(), kill_by="sticky", gate="prot", drain=None,
-             giant_kib=None, front_fifo=False):
+             giant_kib=None, front_fifo=False, front_pos=False):
     """Returns the statistics of one replay.  Times in ms internally.  `budget_kib` is the hard
     limit (kills only above it); with `plan` admission plans against `hard - margin` (DESIGN
     #540): margin = max(margin_init x hard, the `margin_stat` of the last `margin_window`
@@ -267,7 +272,9 @@ def simulate(mods, order, budget_kib, jobs, tick=0.1, growth=10, typ_q=0.5,
     known size)) whose peak rose within `growth` s, `"local-tight"` the same only while the current
     sets exceed the plan (for the head slot: the gate holds the other slots only), `"none"`; `drain` (s, None: none) the head of the killed
     modules, waiting that long and not fitting, holds every other start until it fits or nothing
-    runs.  `front_fifo`: a killed module goes behind the killed ones already waiting (the order
+    runs.  `front_pos` (the shipped rule of DESIGN #548): the queue is fixed, a killed module is
+    unstarted again at its own position (the head takes the lowest unstarted position, the other
+    slots the lowest that fits).  `front_fifo`: a killed module goes behind the killed ones already waiting (the order
     of the kills), not before them.  `giant_kib`: the waits (kill to restart) of modules at least that large are reported
     apart (`giant_wait_*`)."""
     dt = int(tick * 1000)
@@ -365,7 +372,10 @@ def simulate(mods, order, budget_kib, jobs, tick=0.1, growth=10, typ_q=0.5,
         sizes[v.mod.m] = max(v.cur, typ, 2 * sizes.get(v.mod.m, 0))
         if v.mod.m in front:
             front.remove(v.mod.m)
-        if front_fifo:
+        if front_pos:
+            # the fixed queue: unstarted again at its own position
+            bisect.insort(front, v.mod.m, key=lambda m: rank_of.get(m, len(rank_of)))
+        elif front_fifo:
             front.append(v.mod.m)  # the killed modules in the order of their kills
         else:
             front.insert(0, v.mod.m)
@@ -514,7 +524,11 @@ def simulate(mods, order, budget_kib, jobs, tick=0.1, growth=10, typ_q=0.5,
             if head is None and (front or pending) and len(running) < jobs and threads_used < tb:
                 room = (budget_plan - min(budget_plan, sum(eff(w) for w in running))) \
                     if budget_kib else 1 << 60
-                pick = front.pop(0) if front else pending.pop()
+                if front_pos and front and pending and \
+                        rank_of.get(pending[-1], 0) < rank_of.get(front[0], 0):
+                    pick = pending.pop()
+                else:
+                    pick = front.pop(0) if front else pending.pop()
                 need = max(typ, sizes.get(pick, 0))
                 head_forced = bool(running) and need > room
                 head = launch(pick, room)
@@ -545,7 +559,10 @@ def simulate(mods, order, budget_kib, jobs, tick=0.1, growth=10, typ_q=0.5,
                 if not running or sizes.get(m, 0) <= room:
                     pick = m
                     break
-            if pick is not None:
+            if front_pos and pick is not None and pending and (not running or typ <= room) \
+                    and rank_of.get(pending[-1], 0) < rank_of.get(pick, 0):
+                pick = pending.pop()  # the fixed queue: the lowest position that fits
+            elif pick is not None:
                 front.remove(pick)
             elif front and reserve is not None and running and \
                     (reserve == 0 or now - waited_since.get(front[0], now) >= reserve * 1000):
@@ -765,7 +782,9 @@ RANK_RULES = [("today: sticky protection, youngest by start", "sticky", "prot", 
               ("Hf: head slot, tight gate, killed in kill order", "head", "local-tight", None,
                dict(front_fifo=True)),
               ("Hf0: head slot, no gate, killed in kill order", "head", "none", None,
-               dict(front_fifo=True))]
+               dict(front_fifo=True)),
+              ("Hp0: head slot, no gate, fixed queue", "head", "none", None,
+               dict(front_pos=True))]
 
 
 def rank_compare(a, log, prof, default, base):
@@ -1001,6 +1020,13 @@ def main():
     ap.add_argument("--resume-compare", action="store_true", help="the table of DESIGN #546")
     ap.add_argument("--kill-frac", type=float, default=0.6,
                     help="the giants' set at their logged kill, as a fraction of their peak")
+    ap.add_argument("--kill-by", default="head", choices=["head", "sticky", "rank", "start"],
+                    help="the single replay's kill rule (DESIGN #548; head: the shipped one)")
+    ap.add_argument("--gate", default="none", choices=["none", "prot", "local", "local-tight"],
+                    help="the single replay's growth gate (none: the shipped rule)")
+    ap.add_argument("--requeue", default="position", choices=["position", "front", "kills"],
+                    help="where a killed module waits: its own position (shipped), the front "
+                         "(newest kill first), or behind the killed ones (kill order)")
     ap.add_argument("--rank-compare", action="store_true", help="the table of DESIGN #548")
     ap.add_argument("--rank-rules", default="", help="comma-separated indices of RANK_RULES")
     ap.add_argument("--rank-cases",
@@ -1048,7 +1074,9 @@ def main():
     kw = dict(OLD) if a.old else dict(margin_init=a.margin_init, margin_floor=a.margin_floor,
                                        margin_stat=a.margin_stat, margin_window=a.margin_window,
                                        threads_spare=not a.threads_greedy,
-                                       margin_excl=a.margin_excl)
+                                       margin_excl=a.margin_excl, kill_by=a.kill_by,
+                                       gate=a.gate, front_pos=a.requeue == "position",
+                                       front_fifo=a.requeue == "kills")
     kw.pop("threads_d", None)
     r = simulate(mods, order, int(a.budget * 2 ** 20), a.jobs, a.tick, a.growth,
                  a.typ_q, 0 if a.old else a.threads_d, a.threads_cap, a.thread_budget, a.thread_mem, a.reserve,

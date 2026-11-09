@@ -12,7 +12,7 @@ public section
 # The scheduler's pure parts on examples
 
 `surpriseOf` (the planning budget's surprise leaves the worker furthest above its reservation
-out) and `parseLog` with `etaMs` on a log mixing the three verdict-line formats (`<verdict>
+out), the fixed queue and its head slot (`nextHead`, `nextFit`, `insertAt`, `victims`) and `parseLog` with `etaMs` on a log mixing the three verdict-line formats (`<verdict>
 <module>`, the five fields of the ms/rss/at format, the eleven of the statistics and threads
 format) and `killed` lines.
 -/
@@ -51,12 +51,11 @@ def mixedLog : String :=
 #guard (parseLog ConLeche.Frontend.Olean.parseModName mixedLog).workers = 2500
 
 -- the seeded state: the exact peaks in log order (the `≥` one left out), the largest set of each
--- module's kills, the latest kill first, the module that ran with threads
+-- module's kills, the module that ran with threads
 #guard (parseLog ConLeche.Frontend.Olean.parseModName mixedLog).peaks = #[400000, 400000, 400000]
 #guard (parseLog ConLeche.Frontend.Olean.parseModName mixedLog).killSize.toList.length = 2
 #guard ((parseLog ConLeche.Frontend.Olean.parseModName mixedLog).killSize.get? (nm "C")) = some 12000000
 #guard ((parseLog ConLeche.Frontend.Olean.parseModName mixedLog).killSize.get? (nm "F")) = some 1000000
-#guard (parseLog ConLeche.Frontend.Olean.parseModName mixedLog).killOrder = [nm "C", nm "F"]
 #guard (parseLog ConLeche.Frontend.Olean.parseModName mixedLog).killMulti.contains (nm "F")
 -- C's old four-field line and its one-thread line: not multi-threaded
 #guard !(parseLog ConLeche.Frontend.Olean.parseModName mixedLog).killMulti.contains (nm "C")
@@ -80,5 +79,46 @@ def mixedLog : String :=
 
 -- previous runs that averaged fewer than one worker: their average, not the jobs
 #guard etaMs 1000 100000 4 0 0 500 16 = some 50000000
+
+/-- The queue of the head-slot examples: A B C D E F at positions 0 to 5. -/
+def q : List ConLeche.Name := ["A", "B", "C", "D", "E", "F"].map nm
+
+/-- A module's position in `q`. -/
+def qpos (m : ConLeche.Name) : Nat := (q.findIdx? (· == m)).getD 99
+
+/-- Known sizes: B (killed) 10, D (killed) 3. -/
+def qsize (m : ConLeche.Name) : Nat := if m == nm "B" then 10 else if m == nm "D" then 3 else 0
+
+-- the head slot: the lowest unstarted position, fitting or not (B killed, unstarted again before
+-- the never started E F; then a never started C before the killed D)
+#guard nextHead qpos [nm "B", nm "D"] [nm "E", nm "F"] = some (nm "B")
+#guard nextHead qpos [nm "D"] [nm "C", nm "E"] = some (nm "C")
+#guard nextHead qpos [] [] = none
+-- another slot: the lowest position that fits; B (10) does not fit a room of 5, D (3, typical 2)
+-- does and is before E
+#guard nextFit qpos qsize 2 5 [nm "B", nm "D"] [nm "E", nm "F"] = some (nm "D")
+-- a never started module before the fitting killed one
+#guard nextFit qpos qsize 2 5 [nm "D"] [nm "C"] = some (nm "C")
+-- the typical peak does not fit: only killed modules that fit (none here)
+#guard nextFit qpos qsize 4 3 [nm "B"] [nm "C"] = none
+-- D at the typical peak 4 (above its known 3) fits a room of 4
+#guard nextFit qpos qsize 4 4 [nm "B", nm "D"] [nm "E"] = some (nm "D")
+-- a killed module back at its own position
+#guard insertAt qpos (nm "C") [nm "B", nm "E"] = [nm "B", nm "C", nm "E"]
+#guard insertAt qpos (nm "F") [nm "B"] = [nm "B", nm "F"]
+#guard insertAt qpos (nm "A") [] = [nm "A"]
+
+-- the victims: the youngest by start first, the head slot's never; (module, start, set), 30 of a
+-- limit of 20: E (started at 9) goes, 22 left, then C (started at 5), 17
+#guard victims [(nm "A", 1, 10), (nm "C", 5, 5), (nm "E", 9, 8), (nm "B", 3, 7)] (some (nm "A"))
+  30 20 = [nm "E", nm "C"]
+-- the head is the youngest: still never killed
+#guard victims [(nm "A", 9, 25), (nm "C", 5, 5)] (some (nm "A")) 30 20 = [nm "C"]
+-- only the head left: nobody (alone over the limit it is the verdict `memory`)
+#guard victims [(nm "A", 1, 25)] (some (nm "A")) 25 20 = []
+-- a tie in start time: the later in the list first
+#guard victims [(nm "C", 5, 5), (nm "D", 5, 5)] none 12 10 = [nm "D"]
+-- within the limit: nobody
+#guard victims [(nm "C", 5, 5)] none 5 10 = []
 
 end ConLecheTests.ScheduleTests
