@@ -115972,3 +115972,58 @@ Disk: at most 28 GB in `_tmp/543`: the CFSG clone 17 GB (5.9 GB of it `.git`), t
 `.olean` files 7.0 GB, archives 0.9 GB, IR 0.6 GB, dependency sources 0.3 GB.  Kept for the ground
 evaluation engine session: `_tmp/543/olean`, `_tmp/543/CFSG`, and the base binary in
 `_tmp/543/wt`.
+## TASK #546 — a resumed run reads the log's peaks and kill sizes back (2026-11-09, agent/546-seed)
+
+`Driver/ScheduleIO.lean` (plain IO, outside every theorem), `scripts/schedsim.py`, OVERVIEW,
+`tests/ConLecheTests/ScheduleTests.lean`.  **This reverses part of #512's "the logged sizes are not
+read back" ruling, by the maintainer's decision.**  Trigger: after a restart of the CFSG run the
+typical peak sat at the start value, 2.8 GiB (45 GiB ÷ 16), for hours while the log's median peak
+was 0.58 GiB, so small modules were reserved at about 5× their size exactly when giants crowded
+the memory.
+
+* **Typical peak.**  `parseLog` collects the exact `<rss>` of the verdict lines (not the `≥`
+  fallbacks) in log order, the last `typWindow` (200) of them (`Logged.peaks`).  `seedPeaks` makes
+  that the window of the run, with its median as the typical peak where there are at least
+  `typMin` (20), so the median holds from the first tick; with fewer, this run's finishes fill the
+  window and the start value (limit ÷ jobs) applies until 20 are known in total (`pushPeak` as
+  before, on the seeded window).
+* **Known sizes.**  `killed` lines now end in the worker's threads
+  (`killed\t<module>\t<ms>\t<rss>\t<threads>`; old lines have four fields and read as one thread).
+  `parseLog` keeps per module the largest `<rss>` of its kills (`killSize`), the latest kill first
+  (`killOrder`), and whether a kill ran with more than one thread (`killMulti`).  A module that
+  still has to run (no verdict line) starts at the front of the queue, as a module killed in this
+  run does, with the known size `max(largest kill set, typical peak)` (no doubling per logged
+  kill), and with one thread where a kill ran with more (#544's rule).  A module with a verdict
+  is not touched.  Stderr says at the start how many peaks and killed modules were read.
+* Nothing else of admission is read from the log (the planning budget's surprises, the protection
+  and the gate start fresh).
+* **Tests**: a mixed-format log with `killed` lines with and without the threads field (peaks,
+  largest kill set per module, the latest kill first, multi-threaded kills), the 200-peak window
+  and `seedPeaks` at 19 and 20 peaks, and the first finish after a 19-peak seed.
+* **Simulator**: `simulate(seed_peaks, seed_sizes, seed_single)` and `--resume-compare`.
+* **Simulator result** (`--resume-compare`, the restart scenario of #545: the maintainer's CFSG
+  log, 5 copies, 20 synthetic giants at the head, 45 GiB; the log's last 200 exact peaks seed the
+  window; the giants' logged kill sets taken as 0.6 of their peaks; ramp shapes, tick 100 ms).
+  Makespan, mean running workers, kills (modules), worker time lost; seed 518 / seed 7:
+
+| case | unseeded | typical peak seeded | peak and kill sizes seeded |
+|---|---|---|---|
+| j32, 518 | 39h00, 5.09, 90 (54), 22.5 % | 37h01, 5.16, 89 (55), 19.1 % | 39h00, 5.01, 95 (57), 19.0 % |
+| j16, 518 | 37h18, 5.25, 72 (48), 15.6 % | 43h29, 4.50, 73 (40), 19.5 % | 37h34, 5.29, 78 (44), 18.1 % |
+| j32, 7 | 30h42, 5.76, 86 (55), 19.2 % | 30h42, 5.76, 86 (55), 19.2 % | 37h24, 4.92, 69 (40), 19.9 % |
+| j16, 7 | 31h32, 6.04, 73 (49), 18.0 % | 33h09, 5.66, 67 (41), 18.0 % | 32h41, 5.72, 76 (44), 19.5 % |
+
+  The replay is dominated by hour-long giants (memory-bound, as in #545), and in it the typical
+  peak is the median of 20 finishes within minutes, so seeding changes little and the sign varies
+  with the giants' seed: no systematic gain or loss in the simulator.  What the real run showed
+  (eight finishes in hours, the start value 2.8 GiB) is what the seeding removes; the simulator
+  starts the giants first and finishes 20 modules fast, so it does not reproduce that stall.
+* **Hand test** (`--olean --schedule --jobs=8 --schedule-memory=300M --progress=1s`,
+  `Std.Tactic.BVDecide`, v4.35.0, under the guard and `timeout`): a first run interrupted by
+  SIGINT after 25 s left 396 verdict lines and 6 `killed` lines (with the threads field, one
+  `5`).  The resumed run printed `from the log: 200 peaks (typical peak 71 MiB), 2 killed modules
+  to run again` (the start value would be 300M ÷ 8 = 37.5 MiB), and its first heartbeat's memory
+  line says `(typical 71 MiB)`; 343 modules run, 0 not accepted.
+
+Gates: `lake build`, `lake test` warning-free; trust surface; olean gate 332/332 under the guard;
+overview links; quote gate.
