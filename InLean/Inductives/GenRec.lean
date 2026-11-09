@@ -328,7 +328,7 @@ def classRecTysOk (ops : CheckerOps) (fe : FEnv) (g : ClassGen) (k : Nat) :
 
 /-- Twin of `classRuleCheck`; a rule `EO.inRange` refuses is an error, as in
 `classConstOk`. -/
-def classRuleCheck (ops : CheckerOps) (w : StructWalkers) (feT feR : FEnv) (cvR : ConstantVal)
+def classRuleCheck (ops : CheckerOps) (feT feR : FEnv) (cvR : ConstantVal)
     (n : Nat) (gen : Expr) : CheckCM Unit := do
   unless !gen.hasLooseBVars && !gen.hasFVar do
     throw (.internal s!"generated recursor: a rule of {cvR.name} is not closed")
@@ -336,40 +336,40 @@ def classRuleCheck (ops : CheckerOps) (w : StructWalkers) (feT feR : FEnv) (cvR 
   unless ← allLevelParamsDefined cvR.levelParams gen do
     throw (.internal s!"generated recursor: a rule of {cvR.name} names an undeclared universe \
       parameter")
-  unless ← w.resolve feR gen do
+  unless ← constsResolveF feR gen do
     throw (unresolvedConstsErrorL feR true s!"generated rule of {cvR.name}" gen)
   let _ ← ops.inferType feR 0 gen
   let (rbs, _) ← unwrapOr (stripLams n gen)
     (.internal s!"generated recursor: a rule of {cvR.name} is not a λ-telescope over the \
       recursor's prefix and the constructor's fields")
-  unless ← rbs.allM (w.resolve feT) do
+  unless ← rbs.allM (constsResolveF feT) do
     throw (unresolvedConstsErrorL feT true s!"the domains of a generated rule of {cvR.name}" gen)
 
 /-- Twin of `classRuleOk`. -/
-def classRuleOk (ops : CheckerOps) (w : StructWalkers) (feT feR : FEnv) (cvR : ConstantVal)
+def classRuleOk (ops : CheckerOps) (feT feR : FEnv) (cvR : ConstantVal)
     (n : Nat) (gen : Expr) : CheckCM Expr := do
-  classRuleCheck ops w feT feR cvR n gen
+  classRuleCheck ops feT feR cvR n gen
   pure gen
 
 /-- Twin of `classRulesOk`. -/
-def classRulesOk (ops : CheckerOps) (w : StructWalkers) (feT feR : FEnv) (g : ClassGen)
+def classRulesOk (ops : CheckerOps) (feT feR : FEnv) (g : ClassGen)
     (recOf : Nat → Option Name) (cvR : ConstantVal) (c : Nat) : List ClassCtor → CheckCM (List Expr)
   | [] => pure []
   | x :: xs => do
     let gen ← unwrapOr (← (classGenRule g recOf (cvR.levelParams.map .param) c x).run)
       (.invalid s!"generated recursor: the rule of {x.cv.name} calls a class whose recursor the \
         stream omits (official: unknown constant)")
-    let r ← classRuleOk ops w feT feR cvR (g.nP + g.slots.length + x.nF) gen
-    let rs ← classRulesOk ops w feT feR g recOf cvR c xs
+    let r ← classRuleOk ops feT feR cvR (g.nP + g.slots.length + x.nF) gen
+    let rs ← classRulesOk ops feT feR g recOf cvR c xs
     pure (r :: rs)
 
 /-- Twin of `classRecsRulesOk`. -/
-def classRecsRulesOk (ops : CheckerOps) (w : StructWalkers) (feT feR : FEnv) (g : ClassGen)
+def classRecsRulesOk (ops : CheckerOps) (feT feR : FEnv) (g : ClassGen)
     (recOf : Nat → Option Name) :
     List ConstantVal → List Nat → CheckCM (List (ConstantVal × TargetMajor × List Expr))
   | cvG :: cvs, c :: cs => do
-    let rhss ← classRulesOk ops w feT feR g recOf cvG c (g.ctors.getD c [])
-    let xs ← classRecsRulesOk ops w feT feR g recOf cvs cs
+    let rhss ← classRulesOk ops feT feR g recOf cvG c (g.ctors.getD c [])
+    let xs ← classRecsRulesOk ops feT feR g recOf cvs cs
     pure ((cvG, g.cls.getD c default, rhss) :: xs)
   | _, _ => pure []
 
@@ -424,12 +424,38 @@ def classRecOf (recCls : List Nat) (cvGs : List ConstantVal) (t : Nat) : Option 
   ((List.range cvGs.length).find? fun r => recCls.getD r 0 == t).map fun r =>
     (cvGs.getD r default).name
 
-/-- Twin of `genRecCheck`. -/
-def genRecCheck (so : ShadowOps) (fe : FEnv) (p : BlockShape) (nestedBit : Bool)
+/-- Twin of `classFeROvl`: the rule-less generated recursors pushed (a kernel
+environment is persistent, so a push shares the rest). -/
+def classFeROvl (p : BlockShape) (Ms : List TargetMajor) (cvGs : List ConstantVal)
+    (recCls : List Nat) (fe : FEnv) : FEnv :=
+  classFeR p Ms cvGs recCls fe
+
+/-- Twin of `sharedOpsC`: the core at `fe` (the environment argument is the
+one the ops were built at). -/
+def sharedOpsC (mode : CheckMode) (fe : FEnv) : CheckerOps where
+  inferType _ d e := opInfer mode fe d e
+  isDefEq _ d a b := opDefeq mode fe d a b
+  ensureSort _ d e := opSort mode fe d e
+  whnf _ d e := opWhnf mode fe d e
+
+/-- The rule stage's operations (`classRuleCheckC`'s inference): a flush
+entering and leaving each inference at the rule-less recursors' `fe`. -/
+def sharedOpsRuleR (mode : CheckMode) (fe : FEnv) : CheckerOps :=
+  { sharedOpsC mode fe with
+    inferType := fun _ d e => do
+      flushC
+      let t ← opInfer mode fe d e
+      flushC
+      pure t }
+
+/-- Twin of `genRecCheckC`: the stage at the shared operations, the
+rule-less recursors pushed (`classFeROvl`), a flush entering and leaving the
+rule stage, whose inference flushes around each rule (`sharedOpsRuleR`). -/
+def genRecCheck (mode : CheckMode) (fe : FEnv) (p : BlockShape) (nestedBit : Bool)
     (params : List Expr) (tbl : List NestCtorNf) (rd : ClassRead) (Ms : List TargetMajor)
     (block : List ConstantInfo) : CheckCM (List (ConstantVal × TargetMajor × List Expr)) := do
   targetRecPins p block
-  let ops := so.opsAt fe
+  let ops := sharedOpsC mode fe
   let cvRis ← classStreamRecs ops fe p.recs
   unless 0 < p.k do throw (.invalid "generated recursor: the block declares no family")
   if p.large && !blockLargeElimAllowed p (nestedBit || Ms.any (·.member.isNone)) then
@@ -447,17 +473,11 @@ def genRecCheck (so : ShadowOps) (fe : FEnv) (p : BlockShape) (nestedBit : Bool)
   let pre ← unwrapOr (← g0.prefixBinders.run) (.internal "generated recursor: recursor prefix")
   let g := { g0 with pre := pre }
   let cvGs ← classRecTysOk ops fe g p.k p.recs cvRis rd.recCls
-  let feR := so.ruleEnv p Ms cvGs rd.recCls fe
-  so.flush
-  let out ← classRecsRulesOk (so.opsRuleR feR) so.walkers fe feR g (classRecOf rd.recCls cvGs)
+  let feR := classFeROvl p Ms cvGs rd.recCls fe
+  flushC
+  let out ← classRecsRulesOk (sharedOpsRuleR mode feR) fe feR g (classRecOf rd.recCls cvGs)
     cvGs rd.recCls
-  so.flush
+  flushC
   pure out
-
-/-- Twin of `classFeROvl`: the rule-less generated recursors pushed (a kernel
-environment is persistent, so a push shares the rest). -/
-def classFeROvl (p : BlockShape) (Ms : List TargetMajor) (cvGs : List ConstantVal)
-    (recCls : List Nat) (fe : FEnv) : FEnv :=
-  classFeR p Ms cvGs recCls fe
 
 end InLean

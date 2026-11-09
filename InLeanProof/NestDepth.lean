@@ -7,11 +7,11 @@ public import ConLeche.Kernel.Inductives.Positivity
 /-!
 # The walk's fuel against master's (task #451, lane O7-positivity)
 
-`whnfWalkFuel` is a term's depth plus the slack on both sides.  Both depths
-are memoised walks; each computes its plain structural depth (the memo
-invariant: every entry is the plain depth of its key), and InLean's, which
-reads through `mdata`, is master's on the reading: `depth_TrS`, so
-`whnfWalkFuel_TrS`.
+`whnfWalkFuel` is a term's depth plus the slack on both sides.  Master's
+`Expr.depth` is the plain structural depth; InLean's is a memoised walk
+computing its plain depth (the memo invariant: every entry is the plain depth
+of its key), which reads through `mdata`, and is master's on the reading:
+`depth_TrS`, so `whnfWalkFuel_TrS`.
 -/
 
 public section
@@ -19,94 +19,6 @@ public section
 namespace InLeanProof
 
 open Lean InLean
-
-/-! ## Master's depth -/
-
-/-- Master's `Expr.depth`, unmemoised. -/
-@[expose] def cdepth : ConLeche.Expr → Nat
-  | .app f a => max (cdepth f) (cdepth a) + 1
-  | .lam t b | .forallE t b => max (cdepth t) (cdepth b) + 1
-  | .letE t v b => max (max (cdepth t) (cdepth v)) (cdepth b) + 1
-  | .proj _ _ x => cdepth x + 1
-  | _ => 1
-
-/-- The memo invariant of master's walk. -/
-@[expose] def CDepthMemoInv (memo : Std.HashMap ConLeche.Expr Nat) : Prop :=
-  ∀ k r, memo[k]? = some r → r = cdepth k
-
-theorem CDepthMemoInv.insert {memo : Std.HashMap ConLeche.Expr Nat} (hm : CDepthMemoInv memo)
-    {e : ConLeche.Expr} {r : Nat} (hr : r = cdepth e) : CDepthMemoInv (memo.insert e r) := by
-  intro k r' h
-  rw [Std.HashMap.getElem?_insert] at h
-  split at h
-  · rename_i heq
-    have : e = k := eq_of_beq heq
-    subst this
-    simp only [Option.some.injEq] at h
-    exact h ▸ hr
-  · exact hm k r' h
-
-/-- **Master's memoised depth is the plain one** (and keeps the invariant). -/
-theorem cdepthGo_spec : ∀ (e : ConLeche.Expr) (memo : Std.HashMap ConLeche.Expr Nat),
-    CDepthMemoInv memo →
-      (e.depthGo memo).1 = cdepth e ∧ CDepthMemoInv (e.depthGo memo).2 := by
-  intro e
-  induction e with
-  | bvar | fvar | sort | const | lit => intro memo hm; exact ⟨rfl, hm⟩
-  | app f a ihf iha =>
-    intro memo hm
-    rw [ConLeche.Expr.depthGo]
-    split
-    · rename_i r hhit; exact ⟨hm _ _ hhit, hm⟩
-    · obtain ⟨h1, h2⟩ := ihf memo hm
-      obtain ⟨h3, h4⟩ := iha _ h2
-      have hv : max (f.depthGo memo).1 (a.depthGo (f.depthGo memo).2).1 + 1 = cdepth (.app f a) := by
-        rw [h1, h3]; rfl
-      exact ⟨hv, h4.insert hv⟩
-  | lam t b iht ihb =>
-    intro memo hm
-    rw [ConLeche.Expr.depthGo]
-    split
-    · rename_i r hhit; exact ⟨hm _ _ hhit, hm⟩
-    · obtain ⟨h1, h2⟩ := iht memo hm
-      obtain ⟨h3, h4⟩ := ihb _ h2
-      have hv : max (t.depthGo memo).1 (b.depthGo (t.depthGo memo).2).1 + 1 = cdepth (.lam t b) := by
-        rw [h1, h3]; rfl
-      exact ⟨hv, h4.insert hv⟩
-  | forallE t b iht ihb =>
-    intro memo hm
-    rw [ConLeche.Expr.depthGo]
-    split
-    · rename_i r hhit; exact ⟨hm _ _ hhit, hm⟩
-    · obtain ⟨h1, h2⟩ := iht memo hm
-      obtain ⟨h3, h4⟩ := ihb _ h2
-      have hv : max (t.depthGo memo).1 (b.depthGo (t.depthGo memo).2).1 + 1 =
-          cdepth (.forallE t b) := by
-        rw [h1, h3]; rfl
-      exact ⟨hv, h4.insert hv⟩
-  | letE t v b iht ihv ihb =>
-    intro memo hm
-    rw [ConLeche.Expr.depthGo]
-    split
-    · rename_i r hhit; exact ⟨hm _ _ hhit, hm⟩
-    · obtain ⟨h1, h2⟩ := iht memo hm
-      obtain ⟨h3, h4⟩ := ihv _ h2
-      obtain ⟨h5, h6⟩ := ihb _ h4
-      have hv : max (max (t.depthGo memo).1 (v.depthGo (t.depthGo memo).2).1)
-          (b.depthGo (v.depthGo (t.depthGo memo).2).2).1 + 1 = cdepth (.letE t v b) := by
-        rw [h1, h3, h5]; rfl
-      exact ⟨hv, h6.insert hv⟩
-  | proj n i x ih =>
-    intro memo hm
-    rw [ConLeche.Expr.depthGo]
-    split
-    · rename_i r hhit; exact ⟨hm _ _ hhit, hm⟩
-    · obtain ⟨h1, h2⟩ := ih memo hm
-      have hv : (x.depthGo memo).1 + 1 = cdepth (.proj n i x) := by rw [h1]; rfl
-      exact ⟨hv, h2.insert hv⟩
-
-theorem cdepth_eq (e : ConLeche.Expr) : e.depth = cdepth e :=
-  (cdepthGo_spec e {} (by intro k r h; simp at h)).1
 
 /-! ## InLean's depth -/
 
@@ -225,7 +137,7 @@ theorem ldepth_eq (e : Expr) : EO.depth e = ldepth e :=
 /-! ## The reading -/
 
 theorem ldepth_trE {fv : FVarId → Option ConLeche.Expr} (hfv : FVarsOnly fv) :
-    ∀ e : Expr, ldepth e = cdepth (trE fv e) := by
+    ∀ e : Expr, ldepth e = (trE fv e).depth := by
   intro e
   induction e with
   | fvar id =>
@@ -234,16 +146,16 @@ theorem ldepth_trE {fv : FVarId → Option ConLeche.Expr} (hfv : FVarsOnly fv) :
     | none => rfl
     | some c => obtain ⟨i, ty, rfl⟩ := hfv id c h; rfl
   | bvar | mvar | sort | const | lit => rfl
-  | app f a ihf iha => simp only [ldepth, trE, cdepth, ihf, iha]
-  | lam n t b bi iht ihb => simp only [ldepth, trE, cdepth, iht, ihb]
-  | forallE n t b bi iht ihb => simp only [ldepth, trE, cdepth, iht, ihb]
-  | letE n t v b nd iht ihv ihb => simp only [ldepth, trE, cdepth, iht, ihv, ihb]
+  | app f a ihf iha => simp only [ldepth, trE, ConLeche.Expr.depth, ihf, iha]
+  | lam n t b bi iht ihb => simp only [ldepth, trE, ConLeche.Expr.depth, iht, ihb]
+  | forallE n t b bi iht ihb => simp only [ldepth, trE, ConLeche.Expr.depth, iht, ihb]
+  | letE n t v b nd iht ihv ihb => simp only [ldepth, trE, ConLeche.Expr.depth, iht, ihv, ihb]
   | mdata m x ih => simp only [ldepth, trE, ih]
-  | proj n i x ih => simp only [ldepth, trE, cdepth, ih]
+  | proj n i x ih => simp only [ldepth, trE, ConLeche.Expr.depth, ih]
 
 /-- **InLean's depth is master's on the reading.** -/
 theorem depth_TrS (s : InLean.CState) (e : Expr) : EO.depth e = (TrS s e).depth := by
-  rw [ldepth_eq, cdepth_eq, TrS, ldepth_trE (FVarTable.trans_fvarsOnly _)]
+  rw [ldepth_eq, TrS, ldepth_trE (FVarTable.trans_fvarsOnly _)]
 
 /-- **The walk's fuel is master's on the reading.** -/
 theorem whnfWalkFuel_TrS (s : InLean.CState) (e : Expr) :

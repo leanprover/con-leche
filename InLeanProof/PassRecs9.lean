@@ -250,9 +250,9 @@ theorem streamRecCheckI_run {fe : InLean.FEnv} {L : ConLeche.Env} (hJ : JobEnvI 
     (hokG : okC g.1.type = true) (hlbbG : (trC g.1.type).looseBVarsBounded 0 = true)
     (hgr : ∀ r ∈ g.2.2, okC r = true ∧ (trC r).looseBVarsBounded 0 = true)
     (hds : OkSL sx g.2.1.ds = true)
-    (h : InLean.streamRecCheck (sharedOpsC .verified fe) structWalkersC fe rc g s₀ = .ok ((), s')) :
+    (h : InLean.streamRecCheck (sharedOpsC .verified fe) fe rc g s₀ = .ok ((), s')) :
     CSOKI .verified false L s' ∧ TabLe s₀ s' ∧
-      Runs (ConLeche.streamRecCheck (ConLeche.fueledOpsM .verified) .plain (ConLeche.mkFEnv L)
+      Runs (ConLeche.streamRecCheck (ConLeche.fueledOpsM .verified) (ConLeche.mkFEnv L)
         (trRec rc) (trOut sx g)) () := by
   unfold InLean.streamRecCheck at h
   obtain ⟨_, s₁, h1, hA⟩ := bind_run h
@@ -281,9 +281,9 @@ theorem streamRecsCheckI_run {fe : InLean.FEnv} {L : ConLeche.Env} (hJ : JobEnvI
       (∀ g ∈ gs, okC g.1.type = true ∧ (trC g.1.type).looseBVarsBounded 0 = true ∧
         (∀ r ∈ g.2.2, okC r = true ∧ (trC r).looseBVarsBounded 0 = true) ∧
         OkSL sx g.2.1.ds = true) →
-      InLean.streamRecsCheck (sharedOpsC .verified fe) structWalkersC fe rcs gs s₀ = .ok ((), s') →
+      InLean.streamRecsCheck (sharedOpsC .verified fe) fe rcs gs s₀ = .ok ((), s') →
       CSOKI .verified false L s' ∧ TabLe s₀ s' ∧
-        Runs (ConLeche.streamRecsCheck (ConLeche.fueledOpsM .verified) .plain (ConLeche.mkFEnv L)
+        Runs (ConLeche.streamRecsCheck (ConLeche.fueledOpsM .verified) (ConLeche.mkFEnv L)
           (rcs.map trRec) (gs.map (trOut sx))) ()
   | rc :: rcs, g :: gs, s₀, s', hs, hrc, hg, h => by
     unfold InLean.streamRecsCheck at h
@@ -307,14 +307,14 @@ theorem streamRecsCheckI_run {fe : InLean.FEnv} {L : ConLeche.Env} (hJ : JobEnvI
 /-! ## The generated recursors' environment, master's side -/
 
 /-- **Master's generated install is well formed** (`genRecCheck_recsWF`) at
-a run of the stage at `ShadowOps.ofOps (fueledOpsM .verified)`, the run
+a run of the stage at `fueledOpsM .verified`, the run
 `genRecCheckI_run` gives: the well-formedness part of `JobEnvI` at the
 stored recursors' check (`fe₂.pushAll (blockRecInfosTF p 0 out)`). -/
 theorem envWF_genRecs {L₂ : ConLeche.Env} (hwf : ConLeche.EnvWF L₂) {p : ConLeche.BlockShape}
     {nestedBit : Bool} {params : List ConLeche.Expr} {tbl : List ConLeche.NestCtorNf}
     {rd : ConLeche.ClassRead} {Ms : List ConLeche.TargetMajor} {block : List ConLeche.ConstantInfo}
     {out : List (ConLeche.ConstantVal × ConLeche.TargetMajor × List ConLeche.Expr)}
-    (hR : Runs (ConLeche.genRecCheck (ConLeche.ShadowOps.ofOps (ConLeche.fueledOpsM .verified))
+    (hR : Runs (ConLeche.genRecCheck (ConLeche.fueledOpsM .verified)
       (ConLeche.mkFEnv L₂) p nestedBit params tbl rd Ms block) out)
     (hpl : params.length = p.nP) (hMs : ∀ M ∈ Ms, ConLeche.ClassOutParams p.nP M) :
     ConLeche.EnvWF (ConLeche.consBlockRecsT p 0 out L₂) := by

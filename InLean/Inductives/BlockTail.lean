@@ -6,10 +6,8 @@ public import InLean.CheckerC
 /-!
 # InLean's inductive check: the block job
 
-Twin of `ConLeche.Kernel.Inductives.BlockTail` and of its cached
-instantiation in `ConLeche.Cached.CheckerC` (`sharedOpsC`,
-`shadowOpsC`, `checkBlockPassS`, `checkBlockTailS`, `reduceMembersS`,
-`checkBlockKS`): the members reduced, the formers and constructors checked,
+Twin of the cached block driver in `ConLeche.Cached.CheckerC`
+(`checkBlockPassS`, `checkBlockTailS`, `reduceMembersS`, `checkBlockKS`): the members reduced, the formers and constructors checked,
 the classes read, nested positivity and its seeds, the index sorts, every
 recursor regenerated and the block's compared with it, the K flags, the
 projection tables.  The core's memos are flushed where con-leche's are.
@@ -35,32 +33,8 @@ structure BlockPass where
 def declinedAtDefinition : List Name :=
   [stringOfListName, listNilName, listConsName, charOfNatName, boolName]
 
-/-- Twin of `structWalkersC`. -/
-def structWalkersC : StructWalkers := ⟨constsResolveF, structProjBodies⟩
-
 section
 variable (mode : CheckMode)
-
-/-- Twin of `sharedOpsC`: the core at `fe` (the environment argument is the
-one the ops were built at). -/
-def sharedOpsC (fe : FEnv) : CheckerOps where
-  inferType _ d e := opInfer mode fe d e
-  isDefEq _ d a b := opDefeq mode fe d a b
-  ensureSort _ d e := opSort mode fe d e
-  whnf _ d e := opWhnf mode fe d e
-
-/-- Twin of `sharedOpsRuleR`. -/
-def sharedOpsRuleR (fe : FEnv) : CheckerOps :=
-  { sharedOpsC mode fe with
-    inferType := fun _ d e => do
-      flushC
-      let t ← opInfer mode fe d e
-      flushC
-      pure t }
-
-/-- Twin of `shadowOpsC`. -/
-def shadowOpsC : ShadowOps :=
-  ⟨sharedOpsC mode, sharedOpsRuleR mode, flushC, structWalkersC, classFeROvl⟩
 
 /-- Twin of `checkBlockPassS`. -/
 def checkBlockPassS (fe : FEnv) (p₀ : BlockShape) (isRec : Bool) : CheckCM BlockPass := do
@@ -74,20 +48,21 @@ def checkBlockPassS (fe : FEnv) (p₀ : BlockShape) (isRec : Bool) : CheckCM Blo
   pure ⟨fe₁, p₁, nestOutKinds outs, ctx.params, rd, Ms, st.ctorNfs⟩
 
 /-- Twin of `checkBlockTailS`. -/
-def checkBlockTailS (block : List ConstantInfo) (q : BlockPass) : CheckCM Unit :=
+def checkBlockTailS (block : List ConstantInfo) (q : BlockPass) (Q : List ProjTable) :
+    CheckCM Unit :=
   match q with
   | ⟨env₁, p, kinds, params, rd, cls, tbl⟩ => do
   checkBlockIdxSortsF (sharedOpsC mode env₁) env₁ p p.members
   let fe₂ := consBlockCtorsF p env₁
   flushC
-  let out ← genRecCheck (shadowOpsC mode) fe₂ p
+  let out ← genRecCheck mode fe₂ p
     (blockNestedBit p kinds) params tbl.toList rd cls block
   streamKCheck p p.recs out
   let feG := fe₂.pushAll (blockRecInfosTF p 0 out)
   flushC
-  streamRecsCheck (sharedOpsC mode feG) structWalkersC feG p.recs out
+  streamRecsCheck (sharedOpsC mode feG) feG p.recs out
   flushC
-  checkBlockTablesF structWalkersC p fe₂ p.members
+  checkBlockTablesC fe₂ Q
 
 /-- Twin of `reduceMemberS`. -/
 def reduceMemberS (fe : FEnv) (ms : MemberShape) (nP : Nat) : CheckCM MemberShape :=
@@ -122,7 +97,8 @@ def checkBlockKS (fe : FEnv) (block : List ConstantInfo) (p₀ : BlockShape) : C
   let ms ← reduceMembersS mode fe p₀.nP p₀.members
   flushC
   let q ← checkBlockPassS mode fe { p₀ with members := ms } (blockIsRec p₀)
-  checkBlockTailS mode block q
+  let Q ← unwrapOr (blockTables p₀ p₀.members) (.internal "direct structure: projection bodies")
+  checkBlockTailS mode block q Q
 
 end
 

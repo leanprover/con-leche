@@ -144,7 +144,7 @@ theorem structCtor_eq {ms : InLean.MemberShape} {c : Lean.ConstantVal × Nat}
 relation `PassRelI PassDataI`. -/
 theorem tailSimI (hC : CheckConstantValFSimI) (hRF : ReducedFormerSimI) :
     TailSimI (PassRelI PassDataI) := by
-  intro block q cq s₀ s' hR hs hr hcl hk h
+  intro block q cq Q s₀ s' hR hs hr hcl hk hQ h
   obtain ⟨⟨⟨rest, hpend⟩, hcp, hJ⟩, hpar, D⟩ := hR
   obtain ⟨env₁, p, kinds, params, rd, cls, tbl⟩ := q
   obtain ⟨cenv₁, cp, ckinds, cparams, crd, ccls, ctbl⟩ := cq
@@ -254,24 +254,30 @@ theorem tailSimI (hC : CheckConstantValFSimI) (hRF : ReducedFormerSimI) :
   injection hfl3 with hfl3
   obtain rfl : s₅.flushed = sD := congrArg Prod.snd hfl3
   -- the projection tables
-  have hTM : ∀ ms ∈ p.members, TableMemberOk (InLean.consBlockCtorsF p env₁) p.nP ms := by
+  have hTM : ∀ ms ∈ p.members, TableMemberOk p.nP ms := by
     intro ms hms c hc
     have hcs := structCtor_eq hc
     refine ⟨(D.members ms hms).1.2.2 c (by rw [hcs]; exact List.mem_singleton_self c),
-      fun i hi => ?_, fun v hv => ?_⟩
-    · rw [D.names ms hms]; exact D.shape.steps ms hms c hcs i hi
-    · rw [find?_ind_name hJ₂.pres hv]
-      unfold InLean.FEnv.isPending InLean.FEnv.pendingFields?
-      rw [consBlockCtorsF_pending, hpend, D.names ms hms]
-      apply pendingFields_go_isSome
-      apply List.mem_append_left
-      exact List.mem_map_of_mem (f := fun ms : InLean.MemberShape =>
-        (ms.declared.name, match ms.ctors with | [c] => c.2 | _ => 0)) hms
-  obtain ⟨rfl, hRT⟩ := checkBlockTablesFI_run hJ₂.pres p p.members hTM hD'
+      fun i hi => ?_⟩
+    exact D.shape.steps ms hms c hcs i hi
+  obtain ⟨cQ, hcQ, hrelQ⟩ := blockTables_tr p p.members hTM hQ
+  have hTpend : ∀ t ∈ Q, ∀ v, (InLean.consBlockCtorsF p env₁).find? t.structName =
+      some (.inductInfo v) → (InLean.consBlockCtorsF p env₁).isPending v.name = true := by
+    intro t ht v hv
+    obtain ⟨ms, hms, hn⟩ := blockTables_mem p p.members hQ t ht
+    rw [find?_ind_name hJ₂.pres hv]
+    unfold InLean.FEnv.isPending InLean.FEnv.pendingFields?
+    rw [consBlockCtorsF_pending, hpend, hn]
+    apply pendingFields_go_isSome
+    apply List.mem_append_left
+    exact List.mem_map_of_mem (f := fun ms : InLean.MemberShape =>
+      (ms.declared.name, match ms.ctors with | [c] => c.2 | _ => 0)) hms
+  obtain ⟨rfl, hRT⟩ := checkBlockTablesCI_run hJ₂.pres hrelQ hTpend hD'
   refine ⟨hs₅.residue.flushed, ?_⟩
+  have hcQ' : ConLeche.blockTables (trShape p) (trShape p).members = some cQ := hcQ
   -- master's tail
   have hRun : Runs (ConLeche.checkBlockTail (ConLeche.fueledOpsM .verified) (block.map trCI)
-      ⟨cenv₁, trShape p, ckinds, params.map (TrS s₀), crd, ccls, ctbl⟩) () := by
+      ⟨cenv₁, trShape p, ckinds, params.map (TrS s₀), crd, ccls, ctbl⟩ cQ) () := by
     unfold ConLeche.checkBlockTail
     refine Runs.bind hR1 ?_
     dsimp only
@@ -287,7 +293,7 @@ theorem tailSimI (hC : CheckConstantValFSimI) (hRF : ReducedFormerSimI) :
     exact hRT
   obtain ⟨F, hF⟩ := runs_atF hRun
   rw [ConLeche.checkBlockTail_datF] at hF
-  exact ⟨F, hF⟩
+  exact ⟨F, cQ, hcQ', hF⟩
 
 /-! ## The shape facts the tail reads -/
 

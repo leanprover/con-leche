@@ -142,27 +142,46 @@ def consSumCtorsF (T : Name) (nP : Nat) : Nat → List (ConstantVal × Nat) → 
 
 /-! ## Structures (twin of `ConLeche.Kernel.Inductives.StructInstallF`) -/
 
-/-- Twin of `StructWalkers`. -/
-structure StructWalkers where
-  resolve : FEnv → Expr → CheckCM Bool
-  projBodies : Name → Nat → Nat → Expr → Option (Array Expr)
+/-- Twin of `ProjTable`: a structure's projection table as the block's check
+builds it.  InLean reads the tables off Lean's entries at use (`FEnv.findProj?`);
+this one is built only to be checked. -/
+structure ProjTable where
+  structName : Name
+  levelParams : List Name
+  numParams : Nat
+  ctor : Name
+  numFields : Nat
+  bodies : Array Expr
+  deriving Inhabited
 
-/-- Twin of `StructWalkers.plain`. -/
-def StructWalkers.plain : StructWalkers := ⟨constsResolveF, structProjBodies⟩
+/-- Twin of `blockTablesC`: every structure member's table, its bodies by
+`structProjBodies`. -/
+def blockTables (p : BlockShape) : List MemberShape → Option (List ProjTable)
+  | [] => some []
+  | ms :: rest =>
+    match ms.structCtor? with
+    | some c =>
+      (structProjBodies ms.declared.name p.nP c.2 c.1.type).bind fun bodies =>
+        (blockTables p rest).map (⟨ms.declared.name, p.lps, p.nP, c.1.name, c.2, bodies⟩ :: ·)
+    | none => blockTables p rest
 
-/-- Twin of `checkStructProjTableF`.  A projection table is read off its
+/-- Twin of `checkStructProjTableC`.  A projection table is read off its
 structure (`FEnv.findProj?`), so the "table taken" refusal has nothing to
 find: the structure's name is fresh (`checkConstantValF`). -/
-def checkStructProjTableF (w : StructWalkers) (T : Name) (lps : List Name) (nP nF : Nat)
-    (cvCa : ConstantVal) (fe : FEnv) : CheckCM Unit := do
-  let bodies ← unwrapOr (w.projBodies T nP nF cvCa.type)
-    (.internal "direct structure: projection bodies")
-  unless bodies.size = nF ∧ (← bodies.allM fun b => do
-      pure (!b.hasFVar) <&&> allLevelParamsDefined lps b <&&> w.resolve fe b <&&>
-        pure (b.looseBVarRange ≤ nP + 1)) do
+def checkStructProjTableC (t : ProjTable) (fe : FEnv) : CheckCM Unit := do
+  unless t.bodies.size = t.numFields ∧ (← t.bodies.allM fun b => do
+      pure (!b.hasFVar) <&&> allLevelParamsDefined t.levelParams b <&&> constsResolveF fe b <&&>
+        pure (b.looseBVarRange ≤ t.numParams + 1)) do
     throw (.internal "direct structure: projection body scoping")
-  unless (fe.find? T).isSome do
+  unless (fe.find? t.structName).isSome do
     throw (.internal "direct structure: projection table before its structure")
+
+/-- Twin of `checkBlockTablesC`. -/
+def checkBlockTablesC (fe : FEnv) : List ProjTable → CheckCM Unit
+  | [] => pure ()
+  | t :: rest => do
+    checkStructProjTableC t fe
+    checkBlockTablesC fe rest
 
 /-! ## The block (twins of `ConLeche.Kernel.Inductives.BlockInstall`, `ConLeche.Kernel.Inductives.BlockInstallF`) -/
 
@@ -298,15 +317,5 @@ def consBlockRecsBareF (p : BlockShape) : Nat → List (ConstantVal × Nat) → 
   | m, (cvRa, _nIdx) :: rest, fe =>
     consBlockRecsBareF p (m + 1) rest
       (fe.push (recEntry p cvRa (p.majorIdxAt m) (p.rulePrefixAt m) false []))
-
-/-- Twin of `checkBlockTablesF`. -/
-def checkBlockTablesF (w : StructWalkers) (p : BlockShape) (fe : FEnv) :
-    List MemberShape → CheckCM Unit
-  | [] => pure ()
-  | ms :: rest => do
-    (match ms.structCtor? with
-     | some c => checkStructProjTableF w ms.cvT.name p.lps p.nP c.2 c.1 fe
-     | none => pure ())
-    checkBlockTablesF w p fe rest
 
 end InLean

@@ -7,8 +7,8 @@ public import InLeanProof.PassRecs6
 
 * `targetRecPins_not_sorryAx`: every recursor name the pins accept is a
   member's `T.rec` or the block's `T.rec_i`, so none is `sorryAx`.
-* `genRecCheckI_run`: InLean's `genRecCheck` at `shadowOpsC .verified`
-  against master's at `ShadowOps.ofOps (fueledOpsM .verified)`, from the
+* `genRecCheckI_run`: InLean's `genRecCheck` (the twin of `genRecCheckC`)
+  against master's at `fueledOpsM .verified`, from the
   earlier rounds' pieces in the stage's order.
 -/
 
@@ -88,8 +88,8 @@ theorem okSL_of_okC (s : InLean.CState) {l : List Lean.Expr} (h : ∀ e ∈ l, o
     OkSL s l = true := by
   simp only [OkSL, List.all_eq_true]; exact fun e he => OkS_of_okC s (h e he)
 
-/-- **The generated recursor stage** (`genRecCheck`): InLean's at
-`shadowOpsC .verified` answers master's at `ShadowOps.ofOps (fueledOpsM
+/-- **The generated recursor stage** (`genRecCheck`): InLean's (with the
+flushes of `genRecCheckC`) answers master's at `(fueledOpsM
 .verified)` on the readings.  The steps in order: the pins, the stream's
 recursor types, the guards, the classes' normal forms (`ClassOk` of their
 output), their constructors, the minors' guard, the former types; the
@@ -120,14 +120,14 @@ theorem genRecCheckI_run (hC : CheckConstantValFSimI) (hRF : ReducedFormerSimI)
     (hmc : ∀ s < rd.slots.length, ∀ k, rd.slots.getD s default = .motive k →
       ((List.range s).filter fun s' =>
         match rd.slots.getD s' default with | .motive _ => true | _ => false).length < Ms.length)
-    (h : InLean.genRecCheck (shadowOpsC .verified) fe p nestedBit params tbl rd Ms block s₀ =
+    (h : InLean.genRecCheck .verified fe p nestedBit params tbl rd Ms block s₀ =
       .ok (out, s')) :
     CSOKI .verified false L s' ∧ TabLe s₀ s' ∧
       (∀ o ∈ out, okC o.1.type = true ∧ (trC o.1.type).looseBVarsBounded 0 = true ∧
         (∀ r ∈ o.2.2, okC r = true ∧ (trC r).looseBVarsBounded 0 = true) ∧ OkTMN s' o.2.1 ∧
         fe.env.find? o.1.name = none ∧ (o.1.name = InLean.sorryAxName → fe.coreAxioms = true)) ∧
       (p.recs.map (·.cvR.name)).Nodup ∧
-      Runs (ConLeche.genRecCheck (ConLeche.ShadowOps.ofOps (ConLeche.fueledOpsM .verified))
+      Runs (ConLeche.genRecCheck (ConLeche.fueledOpsM .verified)
         (ConLeche.mkFEnv L) (trShape p) nestedBit (TrSL s₀ params) (tbl.map (trNf s₀))
         (trCR s₀ rd) (Ms.map (trTM s₀)) (block.map trCI)) (out.map (trOut s')) := by
   unfold InLean.genRecCheck at h
@@ -153,7 +153,7 @@ theorem genRecCheckI_run (hC : CheckConstantValFSimI) (hRF : ReducedFormerSimI)
   obtain ⟨formerTysC, s₅, h5, hA⟩ := bind_run h
   obtain ⟨pre?, s₆, h6, hB⟩ := bind_run hA
   obtain ⟨pre, s₆', h6', hC'⟩ := bind_run hB
-  obtain ⟨hpre, hs₆⟩ := unwrapOr_run h6'
+  obtain ⟨hpre, hs₆⟩ := unwrapOrI_run h6'
   subst hs₆ hpre
   obtain ⟨cvGs, s₇, h7, hD⟩ := bind_run hC'
   obtain ⟨u, s₈, h8, hE⟩ := bind_run hD
@@ -161,8 +161,6 @@ theorem genRecCheckI_run (hC : CheckConstantValFSimI) (hRF : ReducedFormerSimI)
   obtain ⟨u, s₁₀, h10, hG⟩ := bind_run hF
   obtain ⟨rfl, rfl⟩ := pure_run hG
   clear h hA hB hC' hD hE hF hG h6'
-  have hops : (InLean.shadowOpsC .verified).opsAt fe = sharedOpsC .verified fe := rfl
-  rw [hops] at h2 h3 h4 h5 h7
   have hO := hJ.ops
   -- the pins
   obtain ⟨hs₁, hR1⟩ := targetRecPinsI_run h1
@@ -284,10 +282,6 @@ theorem genRecCheckI_run (hC : CheckConstantValFSimI) (hRF : ReducedFormerSimI)
     have ht' := ht₅.trans (ht₆.trans ht₆₈)
     have hl := CtorLbb.mono ht' (hxss xs hxs x hx).1 (hxss xs hxs x hx).2
     exact ⟨(OkCC.mono ht' (hxss xs hxs x hx).1).1, hl.1, hl.2⟩
-  have hshadow : ∀ feR, (InLean.shadowOpsC .verified).opsRuleR feR = sharedOpsRuleR .verified feR :=
-    fun _ => rfl
-  rw [hshadow, show (InLean.shadowOpsC .verified).walkers = InLean.structWalkersC from rfl,
-    show (InLean.shadowOpsC .verified).ruleEnv = InLean.classFeROvl from rfl] at h9
   unfold InLean.classFeROvl at h9
   obtain ⟨hs₉, ht₉, hout, hR9⟩ := classRecsRulesOkI_run (feT := fe) hJ.pres hJR
     (recOfM := ConLeche.classRecOf rd.recCls (cvGs.map trCV)) (fun t => classRecOf_tr _ _ t) hpl
@@ -345,7 +339,7 @@ theorem genRecCheckI_run (hC : CheckConstantValFSimI) (hRF : ReducedFormerSimI)
     have hM : OkTMN s₇.flushed o.2.1 := by rw [hc]; exact getD_of_all hg8.2.1 (okTMN_default _) c
     simp only [trOut, TrSL_of_okC _ fun r h => (hr r h).1, (OkTMN.mono ht₉' hM).2]
   rw [hout']
-  unfold ConLeche.genRecCheck ConLeche.ShadowOps.ofOps
+  unfold ConLeche.genRecCheck
   dsimp only
   refine Runs.bind hR1 (Runs.bind hR2 ?_)
   rw [ite_eq_left (by rw [trShape_k]; exact hk), ite_eq_right (by
@@ -356,7 +350,6 @@ theorem genRecCheckI_run (hC : CheckConstantValFSimI) (hRF : ReducedFormerSimI)
   rw [hpreC]
   refine Runs.bind (Runs.pure _) ?_
   rw [trShape_k]
-  refine Runs.bind hR7 (Runs.bind (Runs.pure ()) (Runs.bind hR9 (Runs.bind (Runs.pure ()) ?_)))
-  exact Runs.pure _
+  exact Runs.bind hR7 hR9
 
 end InLeanProof

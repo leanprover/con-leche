@@ -201,48 +201,79 @@ theorem blockRecs_mem (p : ConLeche.BlockShape) : ∀ {rcs : List ConLeche.RecSh
       ⟨ms.declared.name, p.lps, p.nP, c.1.name, c.2, bodies⟩
   | none => none
 
-theorem blockTables_names (p : ConLeche.BlockShape) : ∀ (Ms : List ConLeche.MemberShape),
-    ((ConLeche.blockTables p Ms).map (·.structName)).Sublist (Ms.map (·.declared.name))
-  | [] => by simp [ConLeche.blockTables]
-  | ms :: rest => by
-    have ih := blockTables_names p rest
-    simp only [ConLeche.blockTables, List.map_cons]
-    split
-    · split
-      · simp only [List.map_cons]; exact ih.cons_cons _
-      · exact ih.cons _
-    · exact ih.cons _
+theorem blockTables_names (p : ConLeche.BlockShape) : ∀ {Ms : List ConLeche.MemberShape}
+    {Q : List ConLeche.ProjTable}, ConLeche.blockTables p Ms = some Q →
+    (Q.map (·.structName)).Sublist (Ms.map (·.declared.name))
+  | [], Q, h => by simp only [ConLeche.blockTables, Option.some.injEq] at h; subst h; simp
+  | ms :: rest, Q, h => by
+    simp only [ConLeche.blockTables, List.map_cons] at h ⊢
+    split at h
+    · cases hb : ConLeche.structProjBodies ms.declared.name p.nP _ _ with
+      | none => rw [hb] at h; cases h
+      | some bodies =>
+        rw [hb] at h
+        simp only [Option.bind_some, Option.map_eq_some_iff] at h
+        obtain ⟨Q', hQ', rfl⟩ := h
+        simp only [List.map_cons]; exact (blockTables_names p hQ').cons_cons _
+    · exact (blockTables_names p h).cons _
 
-theorem blockTables_find (p : ConLeche.BlockShape) : ∀ {Ms : List ConLeche.MemberShape},
+theorem blockTables_find (p : ConLeche.BlockShape) : ∀ {Ms : List ConLeche.MemberShape}
+    {Q : List ConLeche.ProjTable}, ConLeche.blockTables p Ms = some Q →
     (Ms.map (·.declared.name)).Nodup → ∀ {ms}, ms ∈ Ms →
-      (ConLeche.blockTables p Ms).find? (·.structName == ms.declared.name) = blockTableOf p ms
-  | [], _, _, h => absurd h List.not_mem_nil
-  | x :: rest, hnd, ms, hms => by
+      Q.find? (·.structName == ms.declared.name) = blockTableOf p ms
+  | [], _, _, _, _, h => absurd h List.not_mem_nil
+  | x :: rest, Q, hQ, hnd, ms, hms => by
     simp only [List.map_cons, List.nodup_cons] at hnd
     have hnone : ∀ y, y ∈ rest → y.declared.name ≠ x.declared.name := by
       intro y hy he; exact hnd.1 (he ▸ List.mem_map_of_mem hy)
-    have hrest : (ConLeche.blockTables p rest).find? (·.structName == x.declared.name) = none := by
+    -- the rest's tables, and the head's
+    have hsplit : ∃ Q', ConLeche.blockTables p rest = some Q' ∧
+        Q = (match blockTableOf p x with | some t => [t] | none => []) ++ Q' := by
+      simp only [ConLeche.blockTables] at hQ
+      unfold blockTableOf
+      split at hQ
+      · rename_i c hc
+        rw [hc]
+        cases hb : ConLeche.structProjBodies x.declared.name p.nP c.2 c.1.type with
+        | none => rw [hb] at hQ; cases hQ
+        | some bodies =>
+          rw [hb] at hQ
+          simp only [Option.bind_some, Option.map_eq_some_iff] at hQ
+          obtain ⟨Q', hQ', rfl⟩ := hQ
+          exact ⟨Q', hQ', by simp [hb]⟩
+      · rename_i hc
+        rw [hc]
+        exact ⟨Q, hQ, by simp⟩
+    obtain ⟨Q', hQ', rfl⟩ := hsplit
+    have hrest : Q'.find? (·.structName == x.declared.name) = none := by
       apply find?_key_none
       intro hm
-      exact hnd.1 ((blockTables_names p rest).subset hm)
+      exact hnd.1 ((blockTables_names p hQ').subset hm)
     rcases List.mem_cons.1 hms with rfl | hms
-    · unfold blockTableOf
-      cases hsc : ms.structCtor? with
-      | none => simp only [ConLeche.blockTables, hsc]; exact hrest
-      | some c =>
-        cases hb : ConLeche.structProjBodies ms.declared.name p.nP c.2 c.1.type with
-        | none => simp only [ConLeche.blockTables, hsc, hb, Option.map_none]; exact hrest
-        | some bodies => simp [ConLeche.blockTables, hsc, hb]
-    · have ih := blockTables_find p hnd.2 hms
+    · cases hb : blockTableOf p ms with
+      | none => simp only [List.nil_append]; exact hrest
+      | some t =>
+        have ht : t.structName = ms.declared.name := by
+          unfold blockTableOf at hb
+          split at hb
+          · simp only [Option.map_eq_some_iff] at hb
+            obtain ⟨_, -, rfl⟩ := hb; rfl
+          · cases hb
+        simp [ht]
+    · have ih := blockTables_find p hQ' hnd.2 hms
       have hne : ms.declared.name ≠ x.declared.name := hnone ms hms
-      simp only [ConLeche.blockTables]
-      split
-      · split
-        · simp only [List.find?_cons]
-          rw [show (x.declared.name == ms.declared.name) = false by simpa using hne.symm]
-          exact ih
-        · exact ih
-      · exact ih
+      cases hb : blockTableOf p x with
+      | none => simpa using ih
+      | some t =>
+        have ht : t.structName = x.declared.name := by
+          unfold blockTableOf at hb
+          split at hb
+          · simp only [Option.map_eq_some_iff] at hb
+            obtain ⟨_, -, rfl⟩ := hb; rfl
+          · cases hb
+        simp only [List.cons_append, List.nil_append, List.find?_cons, ht]
+        rw [show (x.declared.name == ms.declared.name) = false by simpa using hne.symm]
+        exact ih
 
 theorem find?_reverse_key {α β : Type} [BEq β] [LawfulBEq β] (f : α → β) {l : List α}
     (hnd : (l.map f).Nodup) (y : β) :
@@ -593,6 +624,51 @@ theorem RecogCtx.entry (C : RecogCtx block p nP cvTs cs rs) (hpend : fe'.pending
           (v.toConstantVal, majorIdxOf v, rulePrefixOf v, v.k, v.rules)) hok.1 (hall.trans C.memberNames)
         (by simp [ConLeche.BlockShape.k, trShape, ← C.cvT]) rfl rfl rfl rfl
 
+theorem structCtor_ctors {ms : InLean.MemberShape} {c : Lean.ConstantVal × Nat}
+    (h : ms.structCtor? = some c) : ms.ctors = [c] := by
+  unfold InLean.MemberShape.structCtor? at h
+  split at h
+  · rename_i c' hc
+    split at h
+    · cases h; exact hc
+    · cases h
+  · cases h
+
+/-- **InLean's tables built means master's are**: per structure member,
+InLean's `structProjBodies` succeeds exactly where its telescope test does
+(`hasPis`), which is master's bodies succeeding (`hasPis_iff_structProjBodies`). -/
+theorem cblockTables_isSome (p : InLean.BlockShape) :
+    ∀ (l : List InLean.MemberShape),
+      (∀ ms ∈ l, ∀ c, ms.structCtor? = some c → toExprC c.1.type = some (trC c.1.type)) →
+      (InLean.blockTables p l).isSome →
+      (ConLeche.blockTables (trShape p) (l.map trMember)).isSome
+  | [], _, _ => rfl
+  | ms :: rest, hok, h => by
+    have ih := cblockTables_isSome p rest (fun m hm => hok m (List.mem_cons_of_mem _ hm))
+    simp only [List.map_cons, ConLeche.blockTables, structCtor_tr]
+    simp only [InLean.blockTables] at h
+    cases hsc : ms.structCtor? with
+    | none =>
+      simp only [hsc] at h
+      exact ih h
+    | some c =>
+      have hc := hok ms List.mem_cons_self c hsc
+      cases hb : InLean.structProjBodies ms.declared.name p.nP c.2 c.1.type with
+      | none => simp only [hsc, hb, Option.bind_none] at h; cases h
+      | some bodies =>
+        simp only [hsc, hb, Option.bind_some, Option.isSome_map] at h
+        have hpis : hasPis (p.nP + c.2) c.1.type = true := by
+          unfold InLean.structProjBodies at hb
+          split at hb
+          · assumption
+          · cases hb
+        rw [hasPis_iff_structProjBodies (S := (trMember ms).declared.name) hc] at hpis
+        obtain ⟨cb, hcb⟩ := Option.isSome_iff_exists.1 hpis
+        simp only [Option.map_some, trCtor, trCV] at hcb ⊢
+        rw [show (trShape p).nP = p.nP from rfl, hcb]
+        simp only [Option.bind_some, Option.isSome_map]
+        exact ih h
+
 /-- **Every generated constant's table is related**: con-leche's table at its
 name (`blockTables`, found by name) against what InLean reads off the former
 and its constructor. -/
@@ -600,18 +676,18 @@ theorem RecogCtx.table (C : RecogCtx block p nP cvTs cs rs) (hpend : fe'.pending
     (hfind : ∀ ci ∈ block, fe'.find? ci.name = some ci)
     (hsteps : ∀ v cv, Lean.ConstantInfo.inductInfo v ∈ block → v.ctors = [cv.name] →
       Lean.ConstantInfo.ctorInfo cv ∈ block →
-      ∀ i < cv.numFields, projBodyOk v.name v.numParams i cv.type = true) :
+      ∀ i < cv.numFields, projBodyOk v.name v.numParams i cv.type = true)
+    {cQ : List ConLeche.ProjTable}
+    (hcQ : ConLeche.blockTables (trShape p) (trShape p).members = some cQ) :
     ∀ ci ∈ block, TableRelI fe' ci.name
-      ((ConLeche.blockTables (trShape p) (trShape p).members).find?
-        (·.structName == toName ci.name)) := by
+      (cQ.find? (·.structName == toName ci.name)) := by
   obtain ⟨htn, htnd⟩ := C.tab_names
   have hnotab : ∀ ci ∈ block, (∀ v, ci ≠ .inductInfo v) →
-      (ConLeche.blockTables (trShape p) (trShape p).members).find?
-        (·.structName == toName ci.name) = none := by
+      cQ.find? (·.structName == toName ci.name) = none := by
     intro ci hci hk
     apply find?_key_none
     intro hm
-    have hm' := (blockTables_names _ _).subset hm
+    have hm' := (blockTables_names _ hcQ).subset hm
     rw [htn] at hm'
     obtain ⟨n, hn, hne⟩ := List.mem_map.1 hm'
     obtain ⟨cvT, hcvT, rfl⟩ := List.mem_map.1 hn
@@ -633,7 +709,7 @@ theorem RecogCtx.table (C : RecogCtx block p nP cvTs cs rs) (hpend : fe'.pending
         ((trShape p).members[i]'hiP).declared.name := by
       rw [trShape_members_getElem p hi]
       simp [trMember, C.decl _ hmsm, hiv]; rfl
-    rw [hname, blockTables_find _ htnd (List.getElem_mem hiP), trShape_members_getElem p hi]
+    rw [hname, blockTables_find _ hcQ htnd (List.getElem_mem hiP), trShape_members_getElem p hi]
     have hfv := hfind _ hci
     unfold blockTableOf
     rw [structCtor_tr]
@@ -850,9 +926,16 @@ theorem blockPresOblP : BlockPresOblP := by
   have hdc : ConLeche.declConstants (.indDecl cb nP) =
       ConLeche.blockConstants (trShape p) := by
     simp only [ConLeche.declConstants, hsh]
-  have hdt : ConLeche.declTables (.indDecl cb nP) =
-      ConLeche.blockTables (trShape p) (trShape p).members := by
+  obtain ⟨cQ, hcQ0⟩ := Option.isSome_iff_exists.1
+    (cblockTables_isSome p p.members (fun ms hms c hc => by
+      obtain ⟨ci, hci, hce⟩ := readBlock_ctors hp ms hms c (by rw [structCtor_ctors hc]; exact List.mem_singleton_self c)
+      rw [← hce]; exact toExpr_of_okE _ (C.okT ci hci))
+      (checkBlockKS_tables hks))
+  have hcQ : ConLeche.blockTables (trShape p) (trShape p).members = some cQ := hcQ0
+  have hdt : ConLeche.declTables (.indDecl cb nP) = cQ := by
     simp only [ConLeche.declTables, hsh]
+    show (ConLeche.blockTables (trShape p) (trShape p).members).getD [] = cQ
+    rw [hcQ]; rfl
   simp only [L', hdc, hdt]
   -- InLean's lookups after the group
   have hfind : ∀ ci ∈ storedBlock consts,
@@ -868,23 +951,20 @@ theorem blockPresOblP : BlockPresOblP := by
     rw [C.news_names]
     exact List.Pairwise.map _ (fun a b hab he => hab (toName_inj he)) hndB
   have hLfind : ∀ c ∈ ConLeche.blockConstants (trShape p),
-      (L.pushDelta (ConLeche.blockConstants (trShape p))
-        (ConLeche.blockTables (trShape p) (trShape p).members)).find? c.name = some c := by
+      (L.pushDelta (ConLeche.blockConstants (trShape p)) cQ).find? c.name = some c := by
     intro c hc
     rw [pushDelta_find, find?_name_news hndN hc]
   have hentry := C.entry (fe' := { fe with env := E' }) hpend hfind
   have hEntry : ∀ ci ∈ consts.toList, ∃ cci,
-      (L.pushDelta (ConLeche.blockConstants (trShape p))
-        (ConLeche.blockTables (trShape p) (trShape p).members)).find? (toName ci.name) = some cci ∧
+      (L.pushDelta (ConLeche.blockConstants (trShape p)) cQ).find? (toName ci.name) = some cci ∧
       EntryRelI { fe with env := E' } ci cci := by
     intro ci hci
     obtain ⟨cci, hcc, hn, hrel⟩ := hentry ci ((hmemB ci).2 hci)
     exact ⟨cci, hn ▸ hLfind cci hcc, hrel⟩
   obtain ⟨htn, htnd⟩ := C.tab_names
-  have htabName : ∀ t ∈ ConLeche.blockTables (trShape p) (trShape p).members,
-      ∃ ci ∈ consts.toList, t.structName = toName ci.name := by
+  have htabName : ∀ t ∈ cQ, ∃ ci ∈ consts.toList, t.structName = toName ci.name := by
     intro t ht
-    have hm := (blockTables_names _ _).subset (List.mem_map_of_mem (f := (·.structName)) ht)
+    have hm := (blockTables_names _ hcQ).subset (List.mem_map_of_mem (f := (·.structName)) ht)
     rw [htn] at hm
     obtain ⟨n, hn, hne⟩ := List.mem_map.1 hm
     obtain ⟨cvT, hcvT, rfl⟩ := List.mem_map.1 hn
@@ -910,12 +990,11 @@ theorem blockPresOblP : BlockPresOblP := by
       · have h := hP.tabNames tbl ht
         rw [eq_of_beq hb, hP.none _ (by simp only [FEnv.find?_eq_filter, hfresh ci hci, Option.filter_none])] at h
         cases h
-    have htnd' : ((ConLeche.blockTables (trShape p) (trShape p).members).map (·.structName)).Nodup :=
-      htnd.sublist (blockTables_names _ _)
+    have htnd' : (cQ.map (·.structName)).Nodup := htnd.sublist (blockTables_names _ hcQ)
     have hrev := find?_reverse_key (fun t : ConLeche.ProjTable => t.structName) htnd' (toName ci.name)
     rw [hLnone, hrev, Option.or_none]
     exact C.table (fe' := { fe with env := E' }) hpend hfind (fun v cv h1 h2 h3 => hsteps v cv ((hmemB _).1 h1) h2 ((hmemB _).1 h3))
-      ci ((hmemB ci).2 hci)
+      hcQ ci ((hmemB ci).2 hci)
   · intro t ht
     obtain ⟨ci, hci, hn⟩ := htabName t ht
     obtain ⟨cci, hcf, -⟩ := hEntry ci hci

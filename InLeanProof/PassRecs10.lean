@@ -28,9 +28,10 @@ import all InLean.Push
   premises at the generated recursors pushed
   (`fe₂.pushAll (blockRecInfosTF p 0 out)`) against master's
   `consBlockRecsT`, from `genRecCheckI_run`'s outputs and master's run.
-* `checkBlockTablesFI_run`: the projection tables' check against master's
-  `checkBlockTables` (the bodies read as master's, `projBodyAt_tr`; master's
-  "table taken" guard from the members' mark).
+* `blockTables_tr`, `checkBlockTablesCI_run`: the projection tables InLean
+  builds once (`blockTables`) read as master's (the bodies by `projBodyAt_tr`),
+  and their check against master's `checkBlockTables` (master's "table taken"
+  guard from the members' mark).
 -/
 
 public section
@@ -123,7 +124,7 @@ theorem genRecCheck_majorHead {mode : ConLeche.CheckMode} {F : Nat} {env : ConLe
     {tbl : List ConLeche.NestCtorNf} {rd : ConLeche.ClassRead} {Ms₀ : List ConLeche.TargetMajor}
     {block : List ConLeche.ConstantInfo}
     {out : List (ConLeche.ConstantVal × ConLeche.TargetMajor × List ConLeche.Expr)}
-    (h : ConLeche.genRecCheck (ConLeche.ShadowOps.fueled mode F) (ConLeche.mkFEnv env) p nestedBit
+    (h : ConLeche.genRecCheck (ConLeche.fueledOps mode F) (ConLeche.mkFEnv env) p nestedBit
       params tbl rd Ms₀ block = .ok out)
     (hpl : params.length = p.nP) (hMs₀ : ∀ M ∈ Ms₀, ClassHead p M)
     (hrc : ∀ c ∈ rd.recCls, c < Ms₀.length)
@@ -362,7 +363,7 @@ theorem genEntryOk_of_run {L : ConLeche.Env} {p : InLean.BlockShape} {s : InLean
     {nestedBit : Bool} {params : List ConLeche.Expr} {tbl : List ConLeche.NestCtorNf}
     {rd : ConLeche.ClassRead} {Ms : List ConLeche.TargetMajor} {block : List ConLeche.ConstantInfo}
     {out : List (Lean.ConstantVal × InLean.TargetMajor × List Lean.Expr)}
-    (hR : Runs (ConLeche.genRecCheck (ConLeche.ShadowOps.ofOps (ConLeche.fueledOpsM .verified))
+    (hR : Runs (ConLeche.genRecCheck (ConLeche.fueledOpsM .verified)
       (ConLeche.mkFEnv L) (trShape p) nestedBit params tbl rd Ms block) (out.map (trOut s)))
     (hpl : params.length = (trShape p).nP) (hMsO : ∀ M ∈ Ms, ConLeche.ClassOutParams (trShape p).nP M)
     (hMsH : ∀ M ∈ Ms, ClassHead (trShape p) M) (hrc : ∀ c ∈ rd.recCls, c < Ms.length)
@@ -410,7 +411,7 @@ theorem genRecs_names {fe : ConLeche.FEnv} {p : InLean.BlockShape} {s : InLean.C
     {nestedBit : Bool} {params : List ConLeche.Expr} {tbl : List ConLeche.NestCtorNf}
     {rd : ConLeche.ClassRead} {Ms : List ConLeche.TargetMajor} {block : List ConLeche.ConstantInfo}
     {out : List (Lean.ConstantVal × InLean.TargetMajor × List Lean.Expr)}
-    (hR : Runs (ConLeche.genRecCheck (ConLeche.ShadowOps.ofOps (ConLeche.fueledOpsM .verified))
+    (hR : Runs (ConLeche.genRecCheck (ConLeche.fueledOpsM .verified)
       fe (trShape p) nestedBit params tbl rd Ms block) (out.map (trOut s))) :
     out.map (·.1.name) = p.recs.map (·.cvR.name) := by
   obtain ⟨F, hF⟩ := hR
@@ -445,7 +446,7 @@ theorem jobEnvI_genRecs_of_run {fe : InLean.FEnv} {L : ConLeche.Env} (hJ : JobEn
     {nestedBit : Bool} {params : List ConLeche.Expr} {tbl : List ConLeche.NestCtorNf}
     {rd : ConLeche.ClassRead} {Ms : List ConLeche.TargetMajor} {block : List ConLeche.ConstantInfo}
     {out : List (Lean.ConstantVal × InLean.TargetMajor × List Lean.Expr)}
-    (hR : Runs (ConLeche.genRecCheck (ConLeche.ShadowOps.ofOps (ConLeche.fueledOpsM .verified))
+    (hR : Runs (ConLeche.genRecCheck (ConLeche.fueledOpsM .verified)
       (ConLeche.mkFEnv L) (trShape p) nestedBit params tbl rd Ms block) (out.map (trOut s)))
     (hpl : params.length = (trShape p).nP) (hMsO : ∀ M ∈ Ms, ConLeche.ClassOutParams (trShape p).nP M)
     (hMsH : ∀ M ∈ Ms, ClassHead (trShape p) M) (hrc : ∀ c ∈ rd.recCls, c < Ms.length)
@@ -470,17 +471,36 @@ theorem projBodyAt_range {T : Name} {nP i : Nat} {cty b : Lean.Expr}
   simp only [Bool.and_eq_true, Option.all_some] at hok
   exact (RangeOk_of_inRange hok.2).1
 
+/-- An `Option` `mapM` that succeeds: one result per element, each the
+function's. -/
+theorem mapM_option_spec {α β : Type} {f : α → Option β} :
+    ∀ {l : List α} {bl : List β}, l.mapM f = some bl →
+      bl.length = l.length ∧ ∀ i (h : i < l.length), f l[i] = bl[i]?
+  | [], bl, h => by
+    simp only [List.mapM_nil, Option.pure_def, Option.some.injEq] at h
+    subst h; exact ⟨rfl, fun i h => absurd h (by simp)⟩
+  | a :: l, bl, h => by
+    rw [List.mapM_cons] at h
+    simp only [Option.bind_eq_bind, Option.bind_eq_some_iff, Option.pure_def,
+      Option.some.injEq] at h
+    obtain ⟨y, hy, ys, hys, rfl⟩ := h
+    obtain ⟨hl, he⟩ := mapM_option_spec hys
+    refine ⟨by simp [hl], fun i hi => ?_⟩
+    cases i with
+    | zero => simpa using hy
+    | succ i => simpa using he i (by simpa using hi)
+
 theorem structProjBodiesGo_length (S : ConLeche.Name) :
-    ∀ (k i : Nat) (r : ConLeche.Expr) (l : List ConLeche.Expr),
-      ConLeche.structProjBodiesGo S k i r = some l → l.length = k
-  | 0, _, _, l, h => by simp only [ConLeche.structProjBodiesGo, Option.some.injEq] at h; subst h; rfl
-  | k + 1, i, .forallE d body, l, h => by
+    ∀ (vs : List ConLeche.Expr) (k i : Nat) (r : ConLeche.Expr) (l : List ConLeche.Expr),
+      ConLeche.structProjBodiesGo S vs k i r = some l → l.length = k
+  | _, 0, _, _, l, h => by simp only [ConLeche.structProjBodiesGo, Option.some.injEq] at h; subst h; rfl
+  | vs, k + 1, i, .forallE d body, l, h => by
     simp only [ConLeche.structProjBodiesGo, Option.map_eq_some_iff] at h
     obtain ⟨l', h', rfl⟩ := h
-    simp [structProjBodiesGo_length S k _ _ l' h']
-  | _ + 1, _, .bvar _, _, h | _ + 1, _, .fvar _ _, _, h | _ + 1, _, .sort _, _, h
-  | _ + 1, _, .const _ _, _, h | _ + 1, _, .app _ _, _, h | _ + 1, _, .lam _ _, _, h
-  | _ + 1, _, .letE _ _ _, _, h | _ + 1, _, .lit _, _, h | _ + 1, _, .proj _ _ _, _, h => by
+    simp [structProjBodiesGo_length S _ k _ _ l' h']
+  | _, _ + 1, _, .bvar _, _, h | _, _ + 1, _, .fvar _ _, _, h | _, _ + 1, _, .sort _, _, h
+  | _, _ + 1, _, .const _ _, _, h | _, _ + 1, _, .app _ _, _, h | _, _ + 1, _, .lam _ _, _, h
+  | _, _ + 1, _, .letE _ _ _, _, h | _, _ + 1, _, .lit _, _, h | _, _ + 1, _, .proj _ _ _, _, h => by
     simp [ConLeche.structProjBodiesGo] at h
 
 theorem structProjBodies_size {S : ConLeche.Name} {nP nF : Nat} {cty : ConLeche.Expr}
@@ -490,7 +510,7 @@ theorem structProjBodies_size {S : ConLeche.Name} {nP nF : Nat} {cty : ConLeche.
   split at h
   · simp only [Option.map_eq_some_iff] at h
     obtain ⟨l, hl, rfl⟩ := h
-    simpa using structProjBodiesGo_length S _ _ _ l hl
+    simpa using structProjBodiesGo_length S _ _ _ _ l hl
   · cases h
 
 theorem andM_true {x y : InLean.CheckCM Bool} {s s' : InLean.CState}
@@ -531,39 +551,163 @@ theorem option_mapM_mem {α β : Type} {f : α → Option β} :
     · obtain ⟨z, hz, hfz⟩ := option_mapM_mem hys x hx
       exact ⟨z, List.mem_cons_of_mem _ hz, hfz⟩
 
-/-- InLean's table check of one structure (`checkStructProjTableF` at
-`structWalkersC`): accepted, master's `checkStructProjTable` passes on the
-translated constructor at a related environment.  The bodies: InLean's
-built at use (`projBodyAt`) read as master's (`projBodyAt_tr`, given the
-bodies and their parameter variables in range, `projBodyOk`), so the scoping guard carries over
-(`constsResolveF_tr`, `allLevelParamsDefined_of_guard`, the range as the
-bound).  Master's "table taken" guard, which InLean does not test: a table
-at `T` in `L` would be one InLean reads off a former at `T` not pending
-(`TableRelI`), and every former at `T` is pending. -/
-theorem checkStructProjTableI_run {fe : InLean.FEnv} {L : ConLeche.Env} (hP : EnvPresI fe L)
-    {T : Name} {lps : List Name} {nP nF : Nat} {cv : Lean.ConstantVal}
-    (hok : okC cv.type = true) (hsteps : ∀ i < nF, projBodyOk T nP i cv.type = true)
-    (hpend : ∀ v, fe.find? T = some (.inductInfo v) → fe.isPending v.name = true)
-    {s₀ s' : InLean.CState}
-    (h : InLean.checkStructProjTableF structWalkersC T lps nP nF cv fe s₀ = .ok ((), s')) :
-    s' = s₀ ∧ Runs (ConLeche.checkStructProjTable (m := ConLeche.FueledM) (toName T)
-      (lps.map toName) nP nF (trCV cv) L) () := by
-  have hc : toExprC cv.type = some (trC cv.type) := toExpr_of_okE _ hok
-  unfold InLean.checkStructProjTableF at h
-  obtain ⟨bs, s₁, h1, hk⟩ := bindI_ok h
-  obtain ⟨hbs, rfl⟩ := unwrapOr_run h1
-  have hbs' : InLean.structProjBodies T nP nF cv.type = some bs := hbs
+/-- **A projection table InLean built, read as master's** (`blockTables`'
+entries): the names and counts translated, every body with a closed reading
+in range, the bodies read as master's. -/
+@[expose] def ProjTableRelI (t : InLean.ProjTable) (ct : ConLeche.ProjTable) : Prop :=
+  ct.structName = toName t.structName ∧ ct.levelParams = t.levelParams.map toName ∧
+    ct.numParams = t.numParams ∧ ct.numFields = t.numFields ∧
+    ct.bodies.toList = t.bodies.toList.map trC ∧
+    ∀ b ∈ t.bodies.toList, okC b = true ∧ Expr.RangeOk b
+
+/-- Two lists of tables related entry by entry (`ProjTableRelI`). -/
+inductive ProjTablesRelI : List InLean.ProjTable → List ConLeche.ProjTable → Prop where
+  | nil : ProjTablesRelI [] []
+  | cons {t ct Q cQ} : ProjTableRelI t ct → ProjTablesRelI Q cQ → ProjTablesRelI (t :: Q) (ct :: cQ)
+
+/-- What a structure-like member needs for its table to be read as master's:
+a closed reading of its constructor's type and the projection bodies in range
+(`projBodyOk`, which InLean's inductive check runs). -/
+@[expose] def TableMemberOk (nP : Nat) (ms : InLean.MemberShape) : Prop :=
+  ∀ c, ms.structCtor? = some c → okC c.1.type = true ∧
+    ∀ i < c.2, projBodyOk ms.declared.name nP i c.1.type = true
+
+/-- One structure's bodies (`structProjBodies`): InLean's, built field by
+field at use (`projBodyAt`), read as master's (`projBodyAt_tr`). -/
+theorem structProjBodies_tr {T : Name} {nP nF : Nat} {cty : Lean.Expr} (hok : okC cty = true)
+    (hsteps : ∀ i < nF, projBodyOk T nP i cty = true) {bs : Array Lean.Expr}
+    (h : InLean.structProjBodies T nP nF cty = some bs) :
+    ∃ cbs, ConLeche.structProjBodies (toName T) nP nF (trC cty) = some cbs ∧
+      cbs.toList = bs.toList.map trC ∧ ∀ b ∈ bs.toList, okC b = true ∧ Expr.RangeOk b := by
+  have hc : toExprC cty = some (trC cty) := toExpr_of_okE _ hok
+  have hbs' := h
   unfold InLean.structProjBodies at hbs'
-  cases hpis : hasPis (nP + nF) cv.type
+  cases hpis : hasPis (nP + nF) cty
   · rw [hpis] at hbs'; cases hbs'
   simp only [hpis, ↓reduceIte] at hbs'
   have hcis := (hasPis_iff_structProjBodies (S := toName T) hc).symm.trans hpis
   obtain ⟨cbs, hcbs⟩ := Option.isSome_iff_exists.1 hcis
   have hcsz := structProjBodies_size hcbs
-  obtain ⟨r, s₂, h2, h3⟩ := bindI_ok hk
+  rw [List.mapM_toArray] at hbs'
+  obtain ⟨bl, hbl, rfl⟩ : ∃ bl, (List.range nF).mapM (fun i => projBodyAt T nP i cty) = some bl ∧
+      bs = bl.toArray := by
+    cases hm : (List.range nF).mapM (fun i => projBodyAt T nP i cty) with
+    | none => rw [hm] at hbs'; cases hbs'
+    | some bl => rw [hm] at hbs'; exact ⟨bl, rfl, (Option.some.inj hbs').symm⟩
+  obtain ⟨hlen0, hent0⟩ := mapM_option_spec hbl
+  have hlen : bl.length = nF := by simpa using hlen0
+  have hent : ∀ i (hi : i < nF), ∃ b, bl[i]? = some b ∧ projBodyAt T nP i cty = some b := by
+    intro i hi
+    have hi' : i < (List.range nF).length := by simpa using hi
+    refine ⟨bl[i]'(by rw [hlen0]; exact hi'), List.getElem?_eq_getElem _, ?_⟩
+    have := hent0 i hi'
+    simp only [List.getElem_range] at this
+    rw [this]
+    exact List.getElem?_eq_getElem _
+  refine ⟨cbs, hcbs, ?_, ?_⟩
+  · apply List.ext_getElem
+    · simp [hcsz, hlen]
+    · intro i h1 h2
+      have hi : i < nF := by simpa [hcsz] using h1
+      obtain ⟨b, hb1, hb2⟩ := hent i hi
+      obtain ⟨b', hb'1, -, hb'2⟩ := projBodyAt_tr (hsteps i hi) (RangeOk_of_okE hok) hc hcbs hi
+      rw [hb2, Option.some.injEq] at hb'1
+      subst hb'1
+      have hr := projBodyAt_range (hsteps i hi) hb2
+      obtain ⟨-, htr⟩ := trC_of_toExprC hb'2 hr
+      have hbi : bl[i]'(hlen ▸ hi) = b := by
+        rw [List.getElem?_eq_getElem (hlen ▸ hi)] at hb1; exact Option.some.inj hb1
+      simp only [Array.getElem_toList, List.getElem_map, hbi]
+      rw [htr]
+      have h1' : i < cbs.size := by simpa using h1
+      simp [Array.getD_eq_getD_getElem?, h1']
+  · intro b hb
+    simp only at hb
+    obtain ⟨i, hi, rfl⟩ := List.getElem_of_mem hb
+    have hi' : i < nF := hlen ▸ hi
+    obtain ⟨b, hb1, hb2⟩ := hent i hi'
+    rw [List.getElem?_eq_getElem hi, Option.some.injEq] at hb1
+    subst hb1
+    obtain ⟨b', hb'1, -, hb'2⟩ := projBodyAt_tr (hsteps i hi') (RangeOk_of_okE hok) hc hcbs hi'
+    rw [hb2, Option.some.injEq] at hb'1
+    subst hb'1
+    have hr := projBodyAt_range (hsteps i hi') hb2
+    exact ⟨(trC_of_toExprC hb'2 hr).1, hr⟩
+
+/-- **The block's tables, InLean's read as master's** (`blockTables`). -/
+theorem blockTables_tr (p : InLean.BlockShape) :
+    ∀ (l : List InLean.MemberShape) {Q : List InLean.ProjTable},
+      (∀ ms ∈ l, TableMemberOk p.nP ms) → InLean.blockTables p l = some Q →
+      ∃ cQ, ConLeche.blockTables (trShape p) (l.map trMember) = some cQ ∧
+        ProjTablesRelI Q cQ
+  | [], Q, _, h => by
+    simp only [InLean.blockTables, Option.some.injEq] at h
+    subst h
+    exact ⟨[], rfl, ProjTablesRelI.nil⟩
+  | ms :: rest, Q, hms, h => by
+    simp only [InLean.blockTables] at h
+    simp only [List.map_cons, ConLeche.blockTables, structCtor_tr]
+    cases hsc : ms.structCtor? with
+    | none =>
+      simp only [hsc] at h
+      exact blockTables_tr p rest (fun m hm => hms m (List.mem_cons_of_mem _ hm)) h
+    | some c =>
+      obtain ⟨hok, hst⟩ := hms ms List.mem_cons_self c hsc
+      cases hb : InLean.structProjBodies ms.declared.name p.nP c.2 c.1.type with
+      | none => simp only [hsc, hb, Option.bind_none] at h; cases h
+      | some bodies =>
+        simp only [hsc, hb, Option.bind_some, Option.map_eq_some_iff] at h
+        obtain ⟨Q', hQ', rfl⟩ := h
+        obtain ⟨cQ', hcQ', hrel⟩ := blockTables_tr p rest (fun m hm => hms m (List.mem_cons_of_mem _ hm)) hQ'
+        obtain ⟨cbs, hcbs, hcl, hrb⟩ := structProjBodies_tr hok hst hb
+        refine ⟨⟨toName ms.declared.name, p.lps.map toName, p.nP, toName c.1.name, c.2, cbs⟩ :: cQ',
+          ?_, ProjTablesRelI.cons ⟨rfl, rfl, rfl, rfl, hcl, hrb⟩ hrel⟩
+        simp only [Option.map_some, trCtor, trCV, trMember]
+        rw [show (trShape p).nP = p.nP from rfl, hcbs]
+        simp only [Option.bind_some, hcQ', Option.map_some, trShape_lps]
+
+/-- A table InLean built is at a member's declared name. -/
+theorem blockTables_mem (p : InLean.BlockShape) :
+    ∀ (l : List InLean.MemberShape) {Q : List InLean.ProjTable}, InLean.blockTables p l = some Q →
+      ∀ t ∈ Q, ∃ ms ∈ l, t.structName = ms.declared.name
+  | [], Q, h, t, ht => by
+    simp only [InLean.blockTables, Option.some.injEq] at h; subst h; cases ht
+  | ms :: rest, Q, h, t, ht => by
+    simp only [InLean.blockTables] at h
+    split at h
+    · cases hb : InLean.structProjBodies ms.declared.name p.nP _ _ with
+      | none => rw [hb] at h; cases h
+      | some bodies =>
+        rw [hb] at h
+        simp only [Option.bind_some, Option.map_eq_some_iff] at h
+        obtain ⟨Q', hQ', rfl⟩ := h
+        rcases List.mem_cons.1 ht with rfl | ht
+        · exact ⟨ms, List.mem_cons_self, rfl⟩
+        · obtain ⟨m, hm, he⟩ := blockTables_mem p rest hQ' t ht
+          exact ⟨m, List.mem_cons_of_mem _ hm, he⟩
+    · obtain ⟨m, hm, he⟩ := blockTables_mem p rest h t ht
+      exact ⟨m, List.mem_cons_of_mem _ hm, he⟩
+
+/-- InLean's table check of one structure (`checkStructProjTableC`):
+accepted, master's `checkStructProjTable` passes on the related table at a
+related environment.  The bodies read as master's (`ProjTableRelI`), so the
+scoping guard carries over (`constsResolveF_tr`,
+`allLevelParamsDefined_of_guard`, the range as the bound).  Master's "table
+taken" guard, which InLean does not test: a table at `T` in `L` would be one
+InLean reads off a former at `T` not pending (`ProjTableRelI`'s environment
+clause), and every former at `T` is pending. -/
+theorem checkStructProjTableCI_run {fe : InLean.FEnv} {L : ConLeche.Env} (hP : EnvPresI fe L)
+    {t : InLean.ProjTable} {ct : ConLeche.ProjTable} (hrel : ProjTableRelI t ct)
+    (hpend : ∀ v, fe.find? t.structName = some (.inductInfo v) → fe.isPending v.name = true)
+    {s₀ s' : InLean.CState}
+    (h : InLean.checkStructProjTableC t fe s₀ = .ok ((), s')) :
+    s' = s₀ ∧ Runs (ConLeche.checkStructProjTable (m := ConLeche.FueledM) ct L) () := by
+  obtain ⟨hn, hl, hnp, hnf, hb, hbok⟩ := hrel
+  unfold InLean.checkStructProjTableC at h
+  obtain ⟨r, s₂, h2, h3⟩ := bindI_ok h
   have hf : ∀ b : Lean.Expr, NoSt ((fun b => pure !b.hasFVar <&&>
-      InLean.allLevelParamsDefined lps b <&&>
-        structWalkersC.resolve fe b <&&> pure (decide (b.looseBVarRange ≤ nP + 1))) b) :=
+      InLean.allLevelParamsDefined t.levelParams b <&&>
+        InLean.constsResolveF fe b <&&> pure (decide (b.looseBVarRange ≤ t.numParams + 1))) b) :=
     fun b => NoSt.andM (NoSt.pure _) (NoSt.andM (allLevelParamsDefined_noSt _ _)
       (NoSt.andM (constsResolveF_noSt _ _) (NoSt.pure _)))
   rw [← Array.allM_toList] at h2
@@ -572,118 +716,86 @@ theorem checkStructProjTableI_run {fe : InLean.FEnv} {L : ConLeche.Env} (hP : En
     obtain ⟨_, _, h4, -⟩ := bindI_ok h3
     exact (throwI_ok h4).elim
   obtain ⟨rfl, hall⟩ := allM_true hf _ h2
-  simp only [and_true] at h3
-  split at h3
-  rotate_left
-  · obtain ⟨_, _, h4, -⟩ := bindI_ok h3
+  by_cases hsz : t.bodies.size = t.numFields
+  case neg =>
+    simp only [hsz, false_and, ↓reduceIte] at h3
+    obtain ⟨_, _, h4, -⟩ := bindI_ok h3
     exact (throwI_ok h4).elim
-  split at h3
-  rotate_left
-  · exact (throwI_ok h3).elim
-  rename_i hfind
+  by_cases hfind : (fe.find? t.structName).isSome = true
+  case neg =>
+    simp only [hsz, hfind, and_self, ↓reduceIte, Bool.false_eq_true] at h3
+    exact (throwI_ok h3).elim
+  simp only [hsz, hfind, and_self, ↓reduceIte] at h3
   obtain ⟨-, rfl⟩ := pureI_ok h3
   refine ⟨rfl, ?_⟩
-  -- master's guards
-  have hbody : ∀ i (hi : i < cbs.size), (!cbs[i].hasFvar &&
-      cbs[i].allLevelParamsDefined (lps.map toName) && cbs[i].constsResolve L &&
-      cbs[i].looseBVarsBounded (nP + 1)) = true := by
-    intro i hi
-    have hiF : i < nF := hcsz ▸ hi
-    obtain ⟨b, hb1, -, hb2⟩ := projBodyAt_tr (hsteps i hiF) (RangeOk_of_okE hok) hc hcbs hiF
-    have hr := projBodyAt_range (hsteps i hiF) hb1
-    obtain ⟨hokb, htrb⟩ := trC_of_toExprC hb2 hr
-    have hget : cbs.getD i default = cbs[i] := by simp [Array.getD_eq_getD_getElem?, hi]
-    rw [hget] at htrb hb2
-    rw [List.mapM_toArray] at hbs'
-    obtain ⟨bl, hbl, rfl⟩ : ∃ bl, (List.range nF).mapM (fun i => projBodyAt T nP i cv.type) = some bl ∧
-        bs = bl.toArray := by
-      cases hm : (List.range nF).mapM (fun i => projBodyAt T nP i cv.type) with
-      | none => rw [hm] at hbs'; cases hbs'
-      | some bl => rw [hm] at hbs'; exact ⟨bl, rfl, (Option.some.inj hbs').symm⟩
-    obtain ⟨b', hb'm, hb'⟩ := option_mapM_mem hbl i (List.mem_range.2 hiF)
-    rw [hb1, Option.some.injEq] at hb'
-    subst hb'
-    have hb := hall b (by simpa using hb'm)
-    obtain ⟨_, ha1, hb⟩ := andM_true hb
+  have hsize : ct.bodies.size = ct.numFields := by
+    rw [hnf, ← hsz, ← Array.length_toList, ← Array.length_toList, hb, List.length_map]
+  have hbody : ∀ cb ∈ ct.bodies.toList, (!cb.hasFvar && cb.allLevelParamsDefined ct.levelParams &&
+      cb.constsResolve L && cb.looseBVarsBounded (ct.numParams + 1)) = true := by
+    intro cb hcb
+    rw [hb] at hcb
+    obtain ⟨b, hbm, rfl⟩ := List.mem_map.1 hcb
+    obtain ⟨hokb, hr⟩ := hbok b hbm
+    have hbt := hall b hbm
+    obtain ⟨_, ha1, hbt⟩ := andM_true hbt
     obtain ⟨hx1, rfl⟩ := pureI_ok ha1
-    obtain ⟨_, ha2, hb⟩ := andM_true hb
-    have hnf : b.hasFVar = false := by simpa using hx1
-    obtain ⟨rfl, hlp⟩ := allLevelParamsDefined_noFVar hnf ha2
-    obtain ⟨_, ha3, ha4⟩ := andM_true hb
-    have ha3' : InLean.constsResolveF fe b _ = .ok (true, _) := ha3
+    obtain ⟨_, ha2, hbt⟩ := andM_true hbt
+    have hnfv : b.hasFVar = false := by simpa using hx1
+    obtain ⟨rfl, hlp⟩ := allLevelParamsDefined_noFVar hnfv ha2
+    obtain ⟨_, ha3, ha4⟩ := andM_true hbt
     obtain ⟨ha4, -⟩ := pureI_ok ha4
-    have hres := constsResolveF_tr hP hokb ha3'
-    have hlpC := allLevelParamsDefined_of_guard (lps := lps) hr fun hh => by
+    have hres := constsResolveF_tr hP hokb ha3
+    have hlpC := allLevelParamsDefined_of_guard (lps := t.levelParams) hr fun hh => by
       simpa [hh] using hlp.symm
-    have hbnd : cbs[i].looseBVarsBounded (nP + 1) = true := by
-      rw [ConLeche.Expr.looseBVarsBounded_iff, bvarBound_toExpr fvarsOnly_none b _ hb2,
+    have hbnd : (trC b).looseBVarsBounded (t.numParams + 1) = true := by
+      have hcb : toExprC b = some (trC b) := toExpr_of_okE _ hokb
+      rw [ConLeche.Expr.looseBVarsBounded_iff, bvarBound_toExpr fvarsOnly_none b (trC b) hcb,
         ← Expr.looseBVarRange_eq hr]
       simpa using ha4.symm
-    rw [← htrb] at hbnd ⊢
-    simp only [trC_hasFvar, Bool.not_false, hlpC, hres, Bool.and_self, Bool.true_and]
-    rw [htrb] at hbnd ⊢
-    exact hbnd
-  have hfindL : (L.find? (toName T)).isSome = true := find_isSome_tr hP hfind
-  have htab : (L.findTable? (toName T)).isNone = true := by
-    have ht := hP.table T
-    cases hL : L.findTable? (toName T) with
+    rw [hl, hnp]
+    simp only [trC_hasFvar, Bool.not_false, hlpC, hres, Bool.and_self, hbnd]
+  have hfindL : (L.find? ct.structName).isSome = true := by rw [hn]; exact find_isSome_tr hP hfind
+  have htab : (L.findTable? ct.structName).isNone = true := by
+    rw [hn]
+    have ht := hP.table t.structName
+    cases hL : L.findTable? (toName t.structName) with
     | none => rfl
     | some tbl =>
       rw [hL] at ht
       obtain ⟨v, c, cv', hv, hpv, -⟩ := ht
       have := hpend v hv
       rw [hpv] at this; cases this
-  have hallC : (cbs.all fun b => !b.hasFvar && b.allLevelParamsDefined (lps.map toName) &&
-      b.constsResolve L && b.looseBVarsBounded (nP + 1)) = true := Array.all_eq_true.2 hbody
+  have hallC : (ct.bodies.all fun b => !b.hasFvar && b.allLevelParamsDefined ct.levelParams &&
+      b.constsResolve L && b.looseBVarsBounded (ct.numParams + 1)) = true := by
+    rw [Array.all_eq_true_iff_forall_mem]
+    intro cb hcb
+    exact hbody cb (Array.mem_toList_iff.2 hcb)
   unfold ConLeche.checkStructProjTable
-  simp only [trCV, hcbs, ConLeche.unwrapOr]
-  refine Runs.bind (Runs.pure _) ?_
   simp only [hallC]
-  simp only [hcsz, and_self, ↓reduceIte, hfindL, htab]
-  exact Runs.pure _
+  simp only [hsize, and_self, ↓reduceIte, hfindL, htab]
+  exact Runs.bind (Runs.pure _) (Runs.bind (Runs.pure _) (Runs.pure _))
 
-/-- What a structure-like member needs for its table's check: a closed
-reading of its constructor's type, the projection bodies in range
-(`projBodyOk`, which InLean's inductive check runs), and the former at its
-name pending (the block's mark). -/
-@[expose] def TableMemberOk (fe : InLean.FEnv) (nP : Nat) (ms : InLean.MemberShape) : Prop :=
-  ∀ c, ms.structCtor? = some c → okC c.1.type = true ∧
-    (∀ i < c.2, projBodyOk ms.cvT.name nP i c.1.type = true) ∧
-    ∀ v, fe.find? ms.cvT.name = some (.inductInfo v) → fe.isPending v.name = true
-
-/-- **The block's projection tables** (`checkBlockTablesF` at
-`structWalkersC`): InLean's check passing means master's
-`checkBlockTables` passes on the translated members, member by member
-(`checkStructProjTableI_run`); the state is unchanged. -/
-theorem checkBlockTablesFI_run {fe : InLean.FEnv} {L : ConLeche.Env} (hP : EnvPresI fe L)
-    (p : InLean.BlockShape) :
-    ∀ (l : List InLean.MemberShape) {s₀ s' : InLean.CState}, (∀ ms ∈ l, TableMemberOk fe p.nP ms) →
-      InLean.checkBlockTablesF structWalkersC p fe l s₀ = .ok ((), s') →
-      s' = s₀ ∧ Runs (ConLeche.checkBlockTables (m := ConLeche.FueledM) (trShape p) L
-        (l.map trMember)) ()
-  | [], s₀, s', _, h => by
-    unfold InLean.checkBlockTablesF at h
+/-- **The block's projection tables** (`checkBlockTablesC`): InLean's check
+passing on its tables means master's `checkBlockTables` passes on the related
+ones, table by table (`checkStructProjTableCI_run`); the state is unchanged. -/
+theorem checkBlockTablesCI_run {fe : InLean.FEnv} {L : ConLeche.Env} (hP : EnvPresI fe L) :
+    ∀ {Q : List InLean.ProjTable} {cQ : List ConLeche.ProjTable} {s₀ s' : InLean.CState},
+      ProjTablesRelI Q cQ →
+      (∀ t ∈ Q, ∀ v, fe.find? t.structName = some (.inductInfo v) → fe.isPending v.name = true) →
+      InLean.checkBlockTablesC fe Q s₀ = .ok ((), s') →
+      s' = s₀ ∧ Runs (ConLeche.checkBlockTables (m := ConLeche.FueledM) L cQ) ()
+  | [], [], s₀, s', ProjTablesRelI.nil, _, h => by
+    unfold InLean.checkBlockTablesC at h
     obtain ⟨-, rfl⟩ := pureI_ok h
     exact ⟨rfl, by unfold ConLeche.checkBlockTables; exact Runs.pure _⟩
-  | ms :: rest, s₀, s', hms, h => by
-    unfold InLean.checkBlockTablesF at h
+  | t :: Q, ct :: cQ, s₀, s', ProjTablesRelI.cons hr hrs, hpend, h => by
+    unfold InLean.checkBlockTablesC at h
     obtain ⟨u, s₁, h1, h2⟩ := bindI_ok h
-    obtain ⟨hs', hR⟩ := checkBlockTablesFI_run hP p rest
-      (fun m hm => hms m (List.mem_cons_of_mem _ hm)) h2
-    have hm := hms ms List.mem_cons_self
-    simp only [List.map_cons]
+    obtain ⟨rfl, hR1⟩ := checkStructProjTableCI_run hP hr (hpend t List.mem_cons_self) h1
+    obtain ⟨rfl, hR⟩ := checkBlockTablesCI_run hP hrs
+      (fun t' ht' => hpend t' (List.mem_cons_of_mem _ ht')) h2
+    refine ⟨rfl, ?_⟩
     unfold ConLeche.checkBlockTables
-    rw [structCtor_tr]
-    cases hc : ms.structCtor? with
-    | none =>
-      rw [hc] at h1
-      obtain ⟨-, rfl⟩ := pureI_ok h1
-      exact ⟨hs', Runs.bind (Runs.pure _) hR⟩
-    | some c =>
-      rw [hc] at h1
-      obtain ⟨g1, g2, g3⟩ := hm c hc
-      obtain ⟨rfl, hR1⟩ := checkStructProjTableI_run hP g1 g2 g3 h1
-      refine ⟨hs', Runs.bind (a := ()) ?_ hR⟩
-      simpa only [Option.map_some, trMember_cvT, trCV, trShape_lps, trShape_nP, trCtor] using hR1
+    exact Runs.bind hR1 hR
 
 end InLeanProof

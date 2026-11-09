@@ -208,11 +208,96 @@ InLean's pass at `fe` followed by its tail on the block is master's pure pass at
     (∀ ci ∈ block, isBlockKind ci = true ∧ okC ci.toConstantVal.type = true) →
     (∀ ms ∈ p₀.members, MemberOk ms) →
     (∀ rc ∈ p₀.recs, okC rc.cvR.type = true ∧ (trC rc.cvR.type).looseBVarsBounded 0 = true) →
-    PassPremI fe L p₀ →
-    (do let q ← InLean.checkBlockPassS .verified fe p₀ isRec; InLean.checkBlockTailS .verified block q)
+    PassPremI fe L p₀ → ∀ (Q : List InLean.ProjTable), InLean.blockTables p₀ p₀.members = some Q →
+    (do let q ← InLean.checkBlockPassS .verified fe p₀ isRec; InLean.checkBlockTailS .verified block q Q)
       s₀ = .ok ((), s') →
-    CSOKIF s' ∧ ∃ F q, ConLeche.checkBlockPass (ConLeche.fueledOps .verified F) L (trShape p₀) isRec
-        = .ok q ∧ ConLeche.checkBlockTail (ConLeche.fueledOps .verified F) (block.map trCI) q = .ok ()
+    CSOKIF s' ∧ ∃ F q cQ, ConLeche.checkBlockPass (ConLeche.fueledOps .verified F) L (trShape p₀) isRec
+        = .ok q ∧ ConLeche.blockTables (trShape p₀) (trShape p₀).members = some cQ ∧
+      ConLeche.checkBlockTail (ConLeche.fueledOps .verified F) (block.map trCI) q cQ = .ok ()
+
+theorem unwrapOrI_run {α : Type} {o : Option α} {err : InLean.CheckError} {s₀ s' : InLean.CState}
+    {v : α} (h : InLean.unwrapOr o err s₀ = .ok (v, s')) : o = some v ∧ s' = s₀ := by
+  unfold InLean.unwrapOr at h
+  cases o with
+  | none => exact (throwI_ok h).elim
+  | some a => obtain ⟨rfl, rfl⟩ := pureI_ok h; exact ⟨rfl, rfl⟩
+
+/-! ## The projection tables across the members' reduction
+
+`blockTables` reads a member's declared constant, constructors and index
+count, and the shape's parameter count and level parameters (the first
+member's); the members' reduction keeps all of them. -/
+
+/-- What `blockTables` reads of a member. -/
+@[expose] def tableKey (ms : InLean.MemberShape) :
+    Lean.ConstantVal × List (Lean.ConstantVal × Nat) × Nat × List Name :=
+  (ms.declared, ms.ctors, ms.nIdx, ms.cvT.levelParams)
+
+theorem lps_congr {p p' : InLean.BlockShape} (h : p.members.map tableKey = p'.members.map tableKey) :
+    p.lps = p'.lps := by
+  unfold InLean.BlockShape.lps
+  cases hm : p.members with
+  | nil => cases hm' : p'.members with
+    | nil => rfl
+    | cons _ _ => rw [hm, hm'] at h; cases h
+  | cons a as => cases hm' : p'.members with
+    | nil => rw [hm, hm'] at h; cases h
+    | cons b bs =>
+      rw [hm, hm'] at h
+      simp only [List.map_cons, List.cons.injEq, tableKey, Prod.mk.injEq] at h
+      simp [h.1.2.2.2]
+
+theorem blockTables_congr {p p' : InLean.BlockShape} (hn : p.nP = p'.nP) (hl : p.lps = p'.lps) :
+    ∀ {l l' : List InLean.MemberShape}, l.map tableKey = l'.map tableKey →
+      InLean.blockTables p l = InLean.blockTables p' l'
+  | [], [], _ => rfl
+  | [], _ :: _, h => by cases h
+  | _ :: _, [], h => by cases h
+  | a :: as, b :: bs, h => by
+    simp only [List.map_cons, List.cons.injEq, tableKey, Prod.mk.injEq] at h
+    obtain ⟨⟨hd, hc, hi, -⟩, hrest⟩ := h
+    have ih := blockTables_congr hn hl hrest
+    have hs : a.structCtor? = b.structCtor? := by
+      simp only [InLean.MemberShape.structCtor?, hc, hi]
+    simp only [InLean.blockTables, hs, hd, hn, hl, ih]
+
+theorem trMember_structCtor (ms : InLean.MemberShape) :
+    (trMember ms).structCtor? = ms.structCtor?.map trCtor := by
+  unfold ConLeche.MemberShape.structCtor? InLean.MemberShape.structCtor?
+  simp only [trMember]
+  cases h : ms.ctors with
+  | nil => rfl
+  | cons c rest =>
+    cases rest with
+    | nil =>
+      simp only [List.map_cons, List.map_nil]
+      by_cases hn : (ms.nIdx == 0) = true <;> simp [hn]
+    | cons _ _ => rfl
+
+theorem trShape_lps' (p : InLean.BlockShape) : (trShape p).lps = p.lps.map toName := by
+  unfold ConLeche.BlockShape.lps InLean.BlockShape.lps trShape
+  cases p.members <;> simp [trMember, trCV]
+
+theorem cblockTables_congr {p p' : InLean.BlockShape} (hn : p.nP = p'.nP) (hl : p.lps = p'.lps) :
+    ∀ {l l' : List InLean.MemberShape}, l.map tableKey = l'.map tableKey →
+      ConLeche.blockTables (trShape p) (l.map trMember) =
+        ConLeche.blockTables (trShape p') (l'.map trMember)
+  | [], [], _ => rfl
+  | [], _ :: _, h => by cases h
+  | _ :: _, [], h => by cases h
+  | a :: as, b :: bs, h => by
+    simp only [List.map_cons, List.cons.injEq, tableKey, Prod.mk.injEq] at h
+    obtain ⟨⟨hd, hc, hi, -⟩, hrest⟩ := h
+    have ih := cblockTables_congr hn hl hrest
+    have hs : (trMember a).structCtor? = (trMember b).structCtor? := by
+      rw [trMember_structCtor, trMember_structCtor]
+      simp only [InLean.MemberShape.structCtor?, hc, hi]
+    have hlps : (trShape p).lps = (trShape p').lps := by
+      rw [trShape_lps' p, trShape_lps' p', hl]
+    have hdn : (trMember a).declared = (trMember b).declared := by simp only [trMember, hd]
+    have hnP : (trShape p).nP = (trShape p').nP := hn
+    simp only [List.map_cons, ConLeche.blockTables]
+    rw [hs, hdn, hlps, hnP, ih]
 
 /-- **The members' reduction** (`reduceMembersS_run`'s twin), from one member's. -/
 theorem reduceMembersSimI_of (hR : ReduceMemberSimI) {fe : InLean.FEnv} {L : ConLeche.Env}
@@ -597,6 +682,46 @@ theorem reduceMembersS_ctors {μ : CheckMode} {fe : InLean.FEnv} {nP : Nat} :
 
 /-- The members' reduction keeps every member's declared former and constructors,
 together. -/
+theorem reduceMemberS_key {μ : CheckMode} {fe : InLean.FEnv} {ms ms' : InLean.MemberShape}
+    {nP : Nat} {s₀ s' : InLean.CState} (h : InLean.reduceMemberS μ fe ms nP s₀ = .ok (ms', s')) :
+    tableKey ms' = tableKey ms := by
+  unfold InLean.reduceMemberS at h
+  split at h
+  · split at h
+    · exact (throwI_ok h).elim
+    · obtain ⟨_, _, _, h⟩ := bindI_ok h
+      obtain ⟨cvR, _, hR, h⟩ := bindI_ok h
+      obtain ⟨b, _, _, h⟩ := bindI_ok h
+      dsimp only at h
+      split at h
+      · obtain ⟨rfl, -⟩ := pureI_ok h
+        have hl : cvR.levelParams = ms.cvT.levelParams := by
+          unfold InLean.reducedFormer at hR
+          obtain ⟨_, _, _, hR⟩ := bindI_ok hR
+          dsimp only at hR
+          split at hR
+          · obtain ⟨rfl, -⟩ := pureI_ok hR; rfl
+          · exact (throwI_ok hR).elim
+        simp [tableKey, hl]
+      · obtain ⟨_, _, h1, -⟩ := bindI_ok h
+        exact (throwI_ok h1).elim
+  · obtain ⟨rfl, -⟩ := pureI_ok h
+    rfl
+
+theorem reduceMembersS_key {μ : CheckMode} {fe : InLean.FEnv} {nP : Nat} :
+    ∀ {l l' : List InLean.MemberShape} {s₀ s' : InLean.CState},
+      InLean.reduceMembersS μ fe nP l s₀ = .ok (l', s') → l'.map tableKey = l.map tableKey
+  | [], l', s₀, s', h => by
+    obtain ⟨rfl, -⟩ := pureI_ok h
+    rfl
+  | ms :: rest, l', s₀, s', h => by
+    unfold InLean.reduceMembersS at h
+    obtain ⟨_, _, _, h⟩ := bindI_ok h
+    obtain ⟨m', _, hm, h⟩ := bindI_ok h
+    obtain ⟨r', _, hr, h⟩ := bindI_ok h
+    obtain ⟨rfl, -⟩ := pureI_ok h
+    simp only [List.map_cons, reduceMemberS_key hm, reduceMembersS_key hr]
+
 theorem reduceMemberS_dc {μ : CheckMode} {fe : InLean.FEnv} {ms ms' : InLean.MemberShape}
     {nP : Nat} {s₀ s' : InLean.CState} (h : InLean.reduceMemberS μ fe ms nP s₀ = .ok (ms', s')) :
     ms'.declared = ms.declared ∧ ms'.ctors = ms.ctors := by
@@ -724,12 +849,23 @@ theorem blockKSSimI_of (hR : ReduceMemberSimI) (hPT : PassTailSimI)
       obtain ⟨m0, hm0, he⟩ := List.mem_map.1 this
       obtain ⟨ci, hci, hce⟩ := readBlock_ctors hsh m0 hm0 c (he ▸ hc)
       exact hso ci hci (by rw [ci_cv_name, hce]; exact hn)
-  obtain ⟨hs', F₂, q, hP, hT⟩ := hPT fe L block { p with members := ms } (InLean.blockIsRec p)
-    s₁.flushed s' hJ (flushI_csoki hs₁ .verified false L) hr hcl hk hokms
-    (recsClosed_of_block (p := p) hk hcl hsh) hpre h
-  refine ⟨hs', max F₁ F₂,
-    L.pushDelta (ConLeche.blockConstants (trShape p)) (ConLeche.blockTables (trShape p) (trShape p).members),
-    ?_⟩
+  -- the projection tables, built from the declared members
+  obtain ⟨q₀, sQ, hq₀, h⟩ := bindI_ok h
+  obtain ⟨Q, sQ', hQu, hTl⟩ := bindI_ok h
+  obtain ⟨hQ, rfl⟩ := unwrapOrI_run hQu
+  have hkey := reduceMembersS_key hms
+  have hQ' : InLean.blockTables { p with members := ms } ms = some Q := by
+    rw [← hQ]
+    exact blockTables_congr (p := { p with members := ms }) (p' := p) rfl (lps_congr hkey) hkey
+  have hrun := bindI_of_ok (k := fun q => InLean.checkBlockTailS .verified block q Q) hq₀ hTl
+  obtain ⟨hs', F₂, q, cQ, hP, hcQ, hT⟩ := hPT fe L block { p with members := ms }
+    (InLean.blockIsRec p) s₁.flushed s' hJ (flushI_csoki hs₁ .verified false L) hr hcl hk hokms
+    (recsClosed_of_block (p := p) hk hcl hsh) hpre Q hQ' hrun
+  have hcQ' : ConLeche.blockTables (trShape p) (trShape p).members = some cQ := by
+    rw [← hcQ]
+    exact cblockTables_congr (p := p) (p' := { p with members := ms }) rfl (lps_congr hkey.symm)
+      hkey.symm
+  refine ⟨hs', max F₁ F₂, L.pushDelta (ConLeche.blockConstants (trShape p)) cQ, ?_⟩
   simp only [Bool.and_eq_true] at hnd hbool
   have hnd' : ((trShape p).allCtors.map (·.1.name)).Nodup ∧ (trShape p).memberNames.Nodup := by
     rw [trShape_allCtorNames, trShape_memberNames]
@@ -748,12 +884,12 @@ theorem blockKSSimI_of (hR : ReduceMemberSimI) (hPT : PassTailSimI)
       { trShape p with members := ms.map trMember } (ConLeche.blockIsRec (trShape p)) = .ok q := by
     rw [blockIsRec_tr, ← trShape_withMembers, ← ConLeche.checkBlockPass_datF]
     exact FueledM.up (Nat.le_max_right _ _) (by rw [ConLeche.checkBlockPass_datF]; exact hP)
-  have g₃ : ConLeche.checkBlockTail (ConLeche.fueledOps .verified (max F₁ F₂)) (block.map trCI) q =
+  have g₃ : ConLeche.checkBlockTail (ConLeche.fueledOps .verified (max F₁ F₂)) (block.map trCI) q cQ =
       .ok () := by
     rw [← ConLeche.checkBlockTail_datF]
     exact FueledM.up (Nat.le_max_right _ _) (by rw [ConLeche.checkBlockTail_datF]; exact hT)
   unfold ConLeche.checkBlock
-  simp only [hnd', hbool', and_self, ↓reduceIte, Bind.bind, Except.bind, g₁, g₂, g₃]
-  rfl
+  simp only [hnd', hbool', and_self, ↓reduceIte, Bind.bind, Except.bind, g₁, g₂, hcQ',
+    ConLeche.unwrapOr, not_false_eq_true, pure, Except.pure, g₃]
 
 end InLeanProof

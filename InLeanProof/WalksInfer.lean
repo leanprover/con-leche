@@ -34,47 +34,6 @@ variable {mode : ConLeche.CheckMode} {eager : Bool} {env : ConLeche.Env}
 
 /-! ## Lists along the run -/
 
-/-! ## The accumulator arrays through the translation -/
-
-section Arrays
-variable (s : InLean.CState)
-
-@[conleche_grind =] theorem TrSL_push_rev (fvs : Array Expr) (a : Expr) :
-    (TrSL s (fvs.push a).toList).reverse = TrS s a :: (TrSL s fvs.toList).reverse := by
-  simp [TrSL]
-
-@[conleche_grind =] theorem OkSL_push (fvs : Array Expr) (a : Expr) :
-    OkSL s (fvs.push a).toList = (OkSL s fvs.toList && OkS s a) := by
-  simp [OkSL, List.all_append, Bool.and_comm]
-
-@[conleche_grind =] theorem AllClosed_push (fvs : Array Expr) (a : Expr) :
-    AllClosed (TrSL s (fvs.push a).toList) =
-      (AllClosed (TrSL s fvs.toList) && (TrS s a).looseBVarsBounded 0) := by
-  simp [AllClosed, TrSL, List.all_append]
-
-@[conleche_grind =] theorem TrSL_singleton_rev (a : Expr) :
-    (TrSL s (#[a] : Array Expr).toList).reverse = [TrS s a] := by
-  simp [TrSL]
-
-@[conleche_grind =] theorem TrSL_empty_rev :
-    (TrSL s (#[] : Array Expr).toList).reverse = [] := by
-  simp [TrSL]
-
-@[conleche_grind =] theorem OkSL_singleton (a : Expr) :
-    OkSL s (#[a] : Array Expr).toList = OkS s a := by
-  simp [OkSL]
-
-@[conleche_grind =] theorem OkSL_empty : OkSL s (#[] : Array Expr).toList = true := by
-  simp [OkSL]
-
-@[conleche_grind =] theorem AllClosed_singleton (a : Expr) :
-    AllClosed (TrSL s (#[a] : Array Expr).toList) = (TrS s a).looseBVarsBounded 0 := by
-  simp [AllClosed, TrSL]
-
-@[conleche_grind =] theorem AllClosed_empty : AllClosed (TrSL s (#[] : Array Expr).toList) = true := by
-  simp [AllClosed, TrSL]
-
-end Arrays
 
 /-! ## Closedness, one constructor at a time, and through the walks' operations -/
 
@@ -88,14 +47,6 @@ open ConLeche.Expr
 @[conleche_grind =] theorem lbb_bvar (k i : Nat) :
     (ConLeche.Expr.bvar i).looseBVarsBounded k = decide (i < k) := rfl
 
-/-- One binder opened at a closed value: the body, instantiated with it in
-front of the accumulator, is closed (`wscoped_open_binder`'s twin). -/
-theorem lbb_open_binder {a body : ConLeche.Expr} {ws : List ConLeche.Expr}
-    (ha : a.looseBVarsBounded 0 = true) (hb : (body.instantiateList ws 1).looseBVarsBounded 1 = true) :
-    (body.instantiateList (a :: ws)).looseBVarsBounded 0 = true := by
-  rw [ConLeche.Expr.instantiateList_cons]
-  exact looseBVarsBounded_instantiate1_gen ha hb
-grind_pattern [conleche_grind] lbb_open_binder => body.instantiateList (a :: ws)
 
 /-- Abstracting a closed term at a depth leaves one loose index. -/
 theorem lbb_abstract1 {d : Nat} {e : ConLeche.Expr} (h : e.looseBVarsBounded 0 = true) :

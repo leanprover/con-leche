@@ -152,7 +152,7 @@ theorem ensureSortI_by_square (henv : ConLeche.EnvWF env) {r : InLean.CoreFnsI}
     Runs (ConLeche.ensureSort (ConLeche.fueledFns mode eager env) env d (TrS s₀ i)) (trL u) := by
   obtain ⟨F, hsq⟩ := ensureSort_square ih hs hok hw hc hrun
   have hc₀ : CSOK mode eager env ({} : ConLeche.Cached.CState).flushed :=
-    flushC_csok CSOKF.empty
+    flushC_csok (CSOKF.fresh _)
   exact (triple_iff_run.1 (ensureSortC_spec_gen (oracle_whnfSpec henv F) hc₀ hw)
     (trL u) _ (hsq _)).2
 

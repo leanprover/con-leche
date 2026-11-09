@@ -38,6 +38,12 @@ open scoped Lean.Order
 
 /-! ## Runs of `CheckCM` programs -/
 
+theorem bindI_of_ok {α β : Type} {x : InLean.CheckCM α} {k : α → InLean.CheckCM β}
+    {s₀ s₁ s' : InLean.CState} {a : α} {v : β}
+    (h₁ : x s₀ = .ok (a, s₁)) (h₂ : k a s₁ = .ok (v, s')) : (x >>= k) s₀ = .ok (v, s') := by
+  simp only [Bind.bind, StateT.bind, h₁]
+  exact h₂
+
 theorem bindI_ok {α β : Type} {x : InLean.CheckCM α} {k : α → InLean.CheckCM β}
     {s₀ : InLean.CState} {v : β} {s' : InLean.CState}
     (h : (x >>= k) s₀ = .ok (v, s')) :

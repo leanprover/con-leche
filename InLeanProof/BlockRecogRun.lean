@@ -222,7 +222,8 @@ theorem targetRecPins_split {p : InLean.BlockShape} {block : List Lean.ConstantI
     exact ⟨cvTs, cs, rs, rfl, hc.1.1, hc.1.2, hc.2⟩
 
 theorem checkBlockTailS_pins {block : List Lean.ConstantInfo} {q : InLean.BlockPass}
-    {s s' : InLean.CState} (h : (checkBlockTailS μ block q) s = .ok ((), s')) :
+    {Q : List InLean.ProjTable} {s s' : InLean.CState}
+    (h : (checkBlockTailS μ block q Q) s = .ok ((), s')) :
     ∃ s₁ s₂, (targetRecPins q.p block) s₁ = .ok ((), s₂) := by
   obtain ⟨env₁, p, kinds, params, rd, cls, tbl⟩ := q
   unfold checkBlockTailS at h
@@ -232,6 +233,21 @@ theorem checkBlockTailS_pins {block : List Lean.ConstantInfo} {q : InLean.BlockP
   unfold genRecCheck at h
   obtain ⟨u, s₂, h, -⟩ := bindI_ok h
   exact ⟨_, _, by cases u; exact h⟩
+
+/-- **The block check's projection tables are built**: an accepted
+`checkBlockKS` built every structure member's table (`blockTables`). -/
+theorem checkBlockKS_tables {block : List Lean.ConstantInfo} {p : InLean.BlockShape}
+    {s s' : InLean.CState} (h : (checkBlockKS μ fe block p) s = .ok ((), s')) :
+    (InLean.blockTables p p.members).isSome := by
+  unfold checkBlockKS at h
+  obtain ⟨-, h⟩ := iteJ_ok h
+  obtain ⟨-, h⟩ := iteJ_ok h
+  obtain ⟨_, _, -, h⟩ := bindI_ok h
+  obtain ⟨_, _, -, h⟩ := bindI_ok h
+  obtain ⟨_, _, -, h⟩ := bindI_ok h
+  obtain ⟨Q, _, hQ, -⟩ := bindI_ok h
+  rw [(unwrapOrI_run hQ).1]
+  rfl
 
 /-- **The block check's constructor grouping**: an accepted `checkBlockKS`
 splits the block into as many formers as the shape has members, as many
@@ -248,6 +264,7 @@ theorem checkBlockKS_cover {block : List Lean.ConstantInfo} {p : InLean.BlockSha
   obtain ⟨ms, _, h1, h⟩ := bindI_ok h
   obtain ⟨_, _, -, h⟩ := bindI_ok h
   obtain ⟨q, _, h2, h⟩ := bindI_ok h
+  obtain ⟨_, _, -, h⟩ := bindI_ok h
   have hms := reduceMembersS_ctors h1
   have hq := checkBlockPassS_shape h2
   obtain ⟨_, _, h3⟩ := checkBlockTailS_pins h

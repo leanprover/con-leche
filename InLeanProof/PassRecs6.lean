@@ -287,7 +287,7 @@ theorem zip_fst_sublist {α β : Type} : ∀ (l₁ : List α) (l₂ : List β),
     exact (zip_fst_sublist l₁ l₂).cons_cons a
 
 /-- **`JobEnvI` at the rule-less recursors' environment** (`classFeR`, which
-InLean's `classFeROvl` is; master's `ShadowOps.ofOps` pushes by `classFeR`
+InLean's `classFeROvl` is; master's `genRecCheck` pushes by `classFeR`
 on `mkFEnv L`, which is `mkFEnv (ruleEnv …)`, `classFeR_mkFEnv`).
 Well-formedness is master's `envWF_ruleEnv` from master's checked recursor
 types. -/
@@ -535,7 +535,7 @@ theorem classRecTyOk_facts {ops : InLean.CheckerOps} {fe : InLean.FEnv} {g : InL
   simp only [↓reduceIte] at h
   obtain ⟨gty?, s₁, -, h⟩ := bindI_ok h
   obtain ⟨gty, s₂, h2, h⟩ := bindI_ok h
-  obtain ⟨-, rfl⟩ := unwrapOr_run h2
+  obtain ⟨-, rfl⟩ := unwrapOrI_run h2
   obtain ⟨_, s₃, -, h⟩ := bindI_ok h
   obtain ⟨_, s₄, h3, h⟩ := bindI_ok h
   have hx := (pureI_ok h).1

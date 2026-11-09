@@ -950,13 +950,13 @@ info: 'InLeanProof.stuckIrrelI_spec' depends on axioms: [propext,
 #print axioms InLeanProof.stuckIrrelI_spec
 
 /--
-info: 'InLeanProof.defeqLamsInnerI_spec' depends on axioms: [propext, Classical.choice, Quot.sound]
+info: 'InLeanProof.defeqBindersInnerI_spec' depends on axioms: [propext, Classical.choice, Quot.sound]
 -/
 #guard_msgs in
-#print axioms InLeanProof.defeqLamsInnerI_spec
+#print axioms InLeanProof.defeqBindersInnerI_spec
 
 /--
-info: 'InLeanProof.lamsStepL_spec' depends on axioms: [propext,
+info: 'InLeanProof.bindersStepL_spec' depends on axioms: [propext,
  Classical.choice,
  Quot.sound,
  InLeanProof.Expr.mkAppData_fields,
@@ -964,10 +964,10 @@ info: 'InLeanProof.lamsStepL_spec' depends on axioms: [propext,
  InLeanProof.Level.mkData_eq]
 -/
 #guard_msgs in
-#print axioms InLeanProof.lamsStepL_spec
+#print axioms InLeanProof.bindersStepL_spec
 
 /--
-info: 'InLeanProof.lamsSpecI_all' depends on axioms: [propext,
+info: 'InLeanProof.bindersSpecI_all' depends on axioms: [propext,
  Classical.choice,
  Quot.sound,
  InLeanProof.Expr.mkAppData_fields,
@@ -975,7 +975,40 @@ info: 'InLeanProof.lamsSpecI_all' depends on axioms: [propext,
  InLeanProof.Level.mkData_eq]
 -/
 #guard_msgs in
-#print axioms InLeanProof.lamsSpecI_all
+#print axioms InLeanProof.bindersSpecI_all
+
+/--
+info: 'InLeanProof.defeqDomainI_spec' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound,
+ InLeanProof.Expr.mkAppData_fields,
+ InLeanProof.Expr.mkData_eq,
+ InLeanProof.Level.mkData_eq]
+-/
+#guard_msgs in
+#print axioms InLeanProof.defeqDomainI_spec
+
+/--
+info: 'InLeanProof.bindersLeafL_spec' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound,
+ InLeanProof.Expr.mkAppData_fields,
+ InLeanProof.Expr.mkData_eq,
+ InLeanProof.Level.mkData_eq]
+-/
+#guard_msgs in
+#print axioms InLeanProof.bindersLeafL_spec
+
+/--
+info: 'InLeanProof.defeqBindersI_spec' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound,
+ InLeanProof.Expr.mkAppData_fields,
+ InLeanProof.Expr.mkData_eq,
+ InLeanProof.Level.mkData_eq]
+-/
+#guard_msgs in
+#print axioms InLeanProof.defeqBindersI_spec
 
 /--
 info: 'InLeanProof.quickDefEqI_spec' depends on axioms: [propext,
@@ -1188,16 +1221,16 @@ info: 'InLeanProof.clBeq_TrS' depends on axioms: [propext,
 #print axioms InLeanProof.clBeq_TrS
 
 /--
-info: 'InLeanProof.lamPairI_some' depends on axioms: [propext, Classical.choice, Quot.sound]
+info: 'InLeanProof.binderPairI_some' depends on axioms: [propext, Classical.choice, Quot.sound]
 -/
 #guard_msgs in
-#print axioms InLeanProof.lamPairI_some
+#print axioms InLeanProof.binderPairI_some
 
 /--
-info: 'InLeanProof.lamPairI_none' depends on axioms: [propext, Classical.choice, Quot.sound]
+info: 'InLeanProof.binderPairI_none' depends on axioms: [propext, Classical.choice, Quot.sound]
 -/
 #guard_msgs in
-#print axioms InLeanProof.lamPairI_none
+#print axioms InLeanProof.binderPairI_none
 
 /--
 info: 'InLeanProof.natPredI_TrS' depends on axioms: [propext, Classical.choice, Quot.sound]
@@ -3358,18 +3391,6 @@ info: 'InLeanProof.hasLooseBVars_of_closed' depends on axioms: [propext,
 #guard_msgs in
 #print axioms InLeanProof.hasLooseBVars_of_closed
 
-/-- info: 'InLeanProof.CDepthMemoInv.insert' depends on axioms: [propext, Classical.choice, Quot.sound] -/
-#guard_msgs in
-#print axioms InLeanProof.CDepthMemoInv.insert
-
-/-- info: 'InLeanProof.cdepthGo_spec' depends on axioms: [propext, Classical.choice, Quot.sound] -/
-#guard_msgs in
-#print axioms InLeanProof.cdepthGo_spec
-
-/-- info: 'InLeanProof.cdepth_eq' depends on axioms: [propext, Classical.choice, Quot.sound] -/
-#guard_msgs in
-#print axioms InLeanProof.cdepth_eq
-
 /-- info: 'InLeanProof.LDepthMemoInv.insert' depends on axioms: [propext, Classical.choice, Quot.sound] -/
 #guard_msgs in
 #print axioms InLeanProof.LDepthMemoInv.insert
@@ -4669,10 +4690,10 @@ info: 'InLeanProof.classNodesAgreeI_run' depends on axioms: [propext,
 #print axioms InLeanProof.classNodesAgreeI_run
 
 /--
-info: 'InLeanProof.unwrapOr_run' depends on axioms: [propext, Classical.choice, Quot.sound]
+info: 'InLeanProof.unwrapOrI_run' depends on axioms: [propext, Classical.choice, Quot.sound]
 -/
 #guard_msgs in
-#print axioms InLeanProof.unwrapOr_run
+#print axioms InLeanProof.unwrapOrI_run
 
 /--
 info: 'InLeanProof.trTM_default' depends on axioms: [propext, Classical.choice, Quot.sound]
@@ -5948,7 +5969,7 @@ info: 'InLeanProof.jobEnvI_genRecs_of_run' depends on axioms: [propext,
 #print axioms InLeanProof.option_mapM_mem
 
 /--
-info: 'InLeanProof.checkStructProjTableI_run' depends on axioms: [propext,
+info: 'InLeanProof.checkStructProjTableCI_run' depends on axioms: [propext,
  Classical.choice,
  Quot.sound,
  InLeanProof.Expr.mkAppData_fields,
@@ -5956,10 +5977,10 @@ info: 'InLeanProof.checkStructProjTableI_run' depends on axioms: [propext,
  InLeanProof.Level.mkData_eq]
 -/
 #guard_msgs in
-#print axioms InLeanProof.checkStructProjTableI_run
+#print axioms InLeanProof.checkStructProjTableCI_run
 
 /--
-info: 'InLeanProof.checkBlockTablesFI_run' depends on axioms: [propext,
+info: 'InLeanProof.checkBlockTablesCI_run' depends on axioms: [propext,
  Classical.choice,
  Quot.sound,
  InLeanProof.Expr.mkAppData_fields,
@@ -5967,7 +5988,29 @@ info: 'InLeanProof.checkBlockTablesFI_run' depends on axioms: [propext,
  InLeanProof.Level.mkData_eq]
 -/
 #guard_msgs in
-#print axioms InLeanProof.checkBlockTablesFI_run
+#print axioms InLeanProof.checkBlockTablesCI_run
+
+/--
+info: 'InLeanProof.structProjBodies_tr' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound,
+ InLeanProof.Expr.mkAppData_fields,
+ InLeanProof.Expr.mkData_eq,
+ InLeanProof.Level.mkData_eq]
+-/
+#guard_msgs in
+#print axioms InLeanProof.structProjBodies_tr
+
+/--
+info: 'InLeanProof.blockTables_tr' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound,
+ InLeanProof.Expr.mkAppData_fields,
+ InLeanProof.Expr.mkData_eq,
+ InLeanProof.Level.mkData_eq]
+-/
+#guard_msgs in
+#print axioms InLeanProof.blockTables_tr
 
 /-! ## Lane TailSim: the tail composed, the inductive declaration step -/
 

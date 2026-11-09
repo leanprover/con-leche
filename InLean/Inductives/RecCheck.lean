@@ -49,14 +49,6 @@ def classFeR (p : BlockShape) (Ms : List TargetMajor) (cvGs : List ConstantVal)
     (recCls : List Nat) (fe : FEnv) : FEnv :=
   consBlockRecsBareF p 0 ((cvGs.zip recCls).map fun (cv, c) => (cv, (Ms.getD c default).nIdx)) fe
 
-/-- Twin of `ShadowOps CheckCM`. -/
-structure ShadowOps where
-  opsAt : FEnv → CheckerOps
-  opsRuleR : FEnv → CheckerOps
-  flush : CheckCM Unit
-  walkers : StructWalkers
-  ruleEnv : BlockShape → List TargetMajor → List ConstantVal → List Nat → FEnv → FEnv
-
 /-- Twin of `targetCanonParams`. -/
 def targetCanonParams (pfvs : List Expr) (e : Expr) : Expr :=
   replaceFVars (fun i => pfvs[i]?) e

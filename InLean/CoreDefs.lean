@@ -168,11 +168,13 @@ def Expr.isEagerReduce (e : Expr) : Bool :=
     | .const c _ => c == eagerReduceName
     | _ => false
 
-/-- Twin of `Expr.lamPair?`. -/
-def Expr.lamPair? : Expr → Expr → Option (Expr × Expr × Expr × Expr)
-  | .mdata _ a, b => Expr.lamPair? a b
-  | a, .mdata _ b => Expr.lamPair? a b
-  | .lam _ t₁ b₁ _, .lam _ t₂ b₂ _ => some (t₁, b₁, t₂, b₂)
+/-- Twin of `Expr.binderPair?`: two λs (`lam = true`) or two ∀s
+(`lam = false`), read through `mdata`. -/
+def Expr.binderPair? (lam : Bool) : Expr → Expr → Option (Expr × Expr × Expr × Expr)
+  | .mdata _ a, b => Expr.binderPair? lam a b
+  | a, .mdata _ b => Expr.binderPair? lam a b
+  | .lam _ t₁ b₁ _, .lam _ t₂ b₂ _ => if lam then some (t₁, b₁, t₂, b₂) else none
+  | .forallE _ t₁ b₁ _, .forallE _ t₂ b₂ _ => if lam then none else some (t₁, b₁, t₂, b₂)
   | _, _ => none
 
 /-- Twin of `rawNatLitC?`. -/
@@ -220,7 +222,8 @@ def strLitToConstructor (s : String) : Expr :=
         .app (.app (.app (.const listConsName [.zero]) (.const charName []))
           (.app (.const charOfNatName []) (.lit (.natVal c.toNat)))) e
 
-/-- **A numeral's size in bytes**, as the runtime's
+/-- Twin of `natSizeBytes` (the same value; the scalar case without the
+logarithm): **a numeral's size in bytes**, as the runtime's
 `lean_nat_size_in_bytes` reports it on a 64-bit platform: a scalar (below
 `2 ^ 63`) occupies one word, a big number its 64-bit limbs. -/
 def natSizeBytes (n : Nat) : Nat :=
@@ -231,14 +234,12 @@ def natTooBigMsg : String :=
   "the kernel refused a `Nat` numeral because its size exceeds the maximum; increase the \
   LEAN_NAT_MAX_SIZE environment variable to allow it"
 
-/-- **The official kernel's guards on a literal computation**
-(`reduce_pow`, `reduce_shiftLeft`), before the result is computed, at the
-size bound `maxBytes` (`Limits.natMaxBytes`): an exponent or shift past
-32 bits, a power whose size bound (the base's size times the exponent)
-exceeds the bound, a shift whose result would.  A deviation from con-leche:
-a literal computation the official kernel refuses is an error here too;
-without them a huge exponent or shift falls through to unfolding the
-operation and exhausts the native stack. -/
+/-- Twin of `natOpRefusal`: **the official kernel's guards on a literal
+computation** (`reduce_pow`, `reduce_shiftLeft`), before the result is
+computed, at the size bound `maxBytes` (`Limits.maxNatSize`): an exponent or
+shift past 32 bits, a power whose size bound (the base's size times the
+exponent) exceeds the bound, a shift whose result would.  The messages are
+the official kernel's. -/
 def natOpRefusal (maxBytes : Nat) (c : Name) (a b : Nat) : Option String :=
   if c == natPowName then
     if b ≥ 2 ^ 32 then
@@ -255,7 +256,7 @@ def natOpRefusal (maxBytes : Nat) (c : Name) (a b : Nat) : Option String :=
     else none
   else none
 
-/-- **The official kernel's guard on a computed numeral**
+/-- Twin of `natResultRefused`: **the official kernel's guard on a computed numeral**
 (`reduce_bin_nat_op`'s `check_size`): the result of `Nat.add`, `Nat.sub`
 and `Nat.mul` past the size bound. -/
 def natResultRefused (maxBytes : Nat) (c : Name) : Option Expr → Bool
@@ -269,8 +270,7 @@ def natOpResult (c : Name) (a b : Nat) : Option Expr :=
   else if c == natAddName then some (.lit (.natVal (a + b)))
   else if c == natSubName then some (.lit (.natVal (a - b)))
   else if c == natMulName then some (.lit (.natVal (a * b)))
-  else if c == natPowName then
-    if b > 16777216 then none else some (.lit (.natVal (a ^ b)))
+  else if c == natPowName then some (.lit (.natVal (a ^ b)))
   else if c == natDivName then some (.lit (.natVal (a / b)))
   else if c == natModName then some (.lit (.natVal (a % b)))
   else if c == natGcdName then some (.lit (.natVal (Nat.gcd a b)))

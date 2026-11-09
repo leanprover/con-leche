@@ -201,7 +201,7 @@ theorem classRecTyOkI_run {fe : InLean.FEnv} {L : ConLeche.Env} (hJ : JobEnvI fe
   obtain ⟨r, s₁, h1, h⟩ := bindI_ok h
   obtain ⟨hs₁, ht₁, hgen⟩ := classGenRecTyI_run hs hM (okS_getD hg.2.2.1 hc) hftc hc hg.2.2.2.2.2 h1
   obtain ⟨gty, s₂, h2, hA⟩ := bindI_ok h
-  obtain ⟨hr, rfl⟩ := unwrapOr_run h2
+  obtain ⟨hr, rfl⟩ := unwrapOrI_run h2
   obtain ⟨_, s₃, h3, hB⟩ := bindI_ok hA
   obtain ⟨rfl, rfl⟩ := pureI_ok hB
   have hem := classRecTyCheck_emvar h3
@@ -502,9 +502,9 @@ theorem allM_true {α : Type} {f : α → InLean.CheckCM Bool} (hf : ∀ a, NoSt
         · exact hl x hx⟩
 
 /-- A generated rule accepted by `classRuleCheck` is marker-free. -/
-theorem classRuleCheck_emvar {ops : InLean.CheckerOps} {w : InLean.StructWalkers}
+theorem classRuleCheck_emvar {ops : InLean.CheckerOps}
     {feT feR : InLean.FEnv} {cvR : Lean.ConstantVal} {n : Nat} {gen : Lean.Expr}
-    {s₀ s' : InLean.CState} (h : InLean.classRuleCheck ops w feT feR cvR n gen s₀ = .ok ((), s')) :
+    {s₀ s' : InLean.CState} (h : InLean.classRuleCheck ops feT feR cvR n gen s₀ = .ok ((), s')) :
     emvarS gen = false := by
   unfold InLean.classRuleCheck at h
   have hth : ∀ {α : Type} {e : InLean.CheckError} {k : α → InLean.CheckCM Unit},
@@ -523,11 +523,11 @@ constructors' (`EnvPresI feT LT`). -/
 theorem classRuleCheckI_run {feT feR : InLean.FEnv} {LT LR : ConLeche.Env}
     (hPT : EnvPresI feT LT) (hJR : JobEnvI feR LR) {cvR : Lean.ConstantVal} {n : Nat}
     {gen : Lean.Expr} {s₀ s' : InLean.CState} (hs : CSOKIF s₀) (hok : OkS s₀ gen = true)
-    (h : InLean.classRuleCheck (sharedOpsRuleR .verified feR) structWalkersC feT feR cvR n gen s₀ =
+    (h : InLean.classRuleCheck (sharedOpsRuleR .verified feR) feT feR cvR n gen s₀ =
       .ok ((), s')) :
     (∀ m e L', CSOKI m e L' s') ∧ TabLe s₀ s' ∧ okC gen = true ∧
       (trC gen).looseBVarsBounded 0 = true ∧
-      Runs (ConLeche.classRuleCheck (ConLeche.fueledOpsM .verified) .plain (ConLeche.mkFEnv LT)
+      Runs (ConLeche.classRuleCheck (ConLeche.fueledOpsM .verified) (ConLeche.mkFEnv LT)
         (ConLeche.mkFEnv LR) (trCV cvR) n (trC gen)) () := by
   unfold InLean.classRuleCheck at h
   have hth : ∀ {α : Type} {e : InLean.CheckError} {k : α → InLean.CheckCM Unit},
@@ -569,7 +569,7 @@ theorem classRuleCheckI_run {feT feR : InLean.FEnv} {LT LR : ConLeche.Env}
   obtain ⟨rfl, rfl⟩ := pureI_ok hI
   -- the telescope and its domains
   obtain ⟨⟨rbs, r⟩, s₇, hU, h⟩ := bindI_ok h
-  obtain ⟨hU2, rfl⟩ := unwrapOr_run hU
+  obtain ⟨hU2, rfl⟩ := unwrapOrI_run hU
   obtain ⟨hsl, hrbs⟩ := stripLams_tr n gen hokc hU2
   obtain ⟨d, s₈, hD, h⟩ := bindI_ok h
   have hD' : rbs.allM (InLean.constsResolveF feT) s₅.flushed = .ok (d, s₈) := hD
@@ -586,7 +586,7 @@ theorem classRuleCheckI_run {feT feR : InLean.FEnv} {LT LR : ConLeche.Env}
     obtain ⟨b', hb', rfl⟩ := List.mem_map.1 hb
     exact constsResolveF_tr hPT (hrbs b' hb') (hall b' hb')
   unfold ConLeche.classRuleCheck
-  simp only [ConLeche.StructWalkers.plain, ConLeche.mkFEnv_env, ConLeche.constsResolveF_eq, hlbb,
+  simp only [ConLeche.mkFEnv_env, ConLeche.constsResolveF_eq, hlbb,
     trC_hasFvar, trCV, hlp, gR, hsl, Bool.not_false, Bool.and_self, ↓reduceIte]
   refine Runs.bind hRI (Runs.bind (Runs.pure _) ?_)
   simp only [List.all_eq_true.2 gT, ↓reduceIte]
@@ -617,11 +617,11 @@ theorem classRulesOkI_run {feT feR : InLean.FEnv} {LT LR : ConLeche.Env}
     {cvR : Lean.ConstantVal} {c : Nat} :
     ∀ (xs : List InLean.ClassCtor) {s₀ s' : InLean.CState} {v : List Lean.Expr},
       (∀ m e L', CSOKI m e L' s₀) → CGOk s₀ g → (∀ x ∈ xs, RuleCtorOk s₀ x) →
-      InLean.classRulesOk (sharedOpsRuleR .verified feR) structWalkersC feT feR g recOf cvR c xs s₀ =
+      InLean.classRulesOk (sharedOpsRuleR .verified feR) feT feR g recOf cvR c xs s₀ =
         .ok (v, s') →
       (∀ m e L', CSOKI m e L' s') ∧ TabLe s₀ s' ∧
         (∀ r ∈ v, okC r = true ∧ (trC r).looseBVarsBounded 0 = true) ∧
-        Runs (ConLeche.classRulesOk (ConLeche.fueledOpsM .verified) .plain (ConLeche.mkFEnv LT)
+        Runs (ConLeche.classRulesOk (ConLeche.fueledOpsM .verified) (ConLeche.mkFEnv LT)
           (ConLeche.mkFEnv LR) (trCG s₀ g) recOfM (trCV cvR) c (xs.map (trCC s₀))) (v.map trC)
   | [], s₀, s', v, hs, _, _, h => by
     unfold InLean.classRulesOk at h
@@ -636,7 +636,7 @@ theorem classRulesOkI_run {feT feR : InLean.FEnv} {LT LR : ConLeche.Env}
     obtain ⟨hs₁, ht₁, hgen⟩ := classGenRuleI_run (mode := .verified) (eager := false) (env := LR)
       (hs .verified false LR) hx hxD hxN hg.2.2.2.2.2 hg.1 hpl hrec (all_okLv_param _) h1
     obtain ⟨gen, s₂, h2, hB⟩ := bindI_ok hA
-    obtain ⟨hr, rfl⟩ := unwrapOr_run h2
+    obtain ⟨hr, rfl⟩ := unwrapOrI_run h2
     obtain ⟨r', s₃, h3, hC⟩ := bindI_ok hB
     unfold InLean.classRuleOk at h3
     obtain ⟨_, s₄, h4, h5⟩ := bindI_ok h3
@@ -686,12 +686,12 @@ theorem classRecsRulesOkI_run {feT feR : InLean.FEnv} {LT LR : ConLeche.Env}
     ∀ (cvs : List Lean.ConstantVal) (cs : List Nat) {s₀ s' : InLean.CState}
       {v : List (Lean.ConstantVal × InLean.TargetMajor × List Lean.Expr)},
       (∀ m e L', CSOKI m e L' s₀) → CGOk s₀ g → (∀ xs ∈ g.ctors, ∀ x ∈ xs, RuleCtorOk s₀ x) →
-      InLean.classRecsRulesOk (sharedOpsRuleR .verified feR) structWalkersC feT feR g recOf cvs cs s₀ =
+      InLean.classRecsRulesOk (sharedOpsRuleR .verified feR) feT feR g recOf cvs cs s₀ =
         .ok (v, s') →
       (∀ m e L', CSOKI m e L' s') ∧ TabLe s₀ s' ∧
         (∀ o ∈ v, o.1 ∈ cvs ∧ (∀ r ∈ o.2.2, okC r = true ∧ (trC r).looseBVarsBounded 0 = true) ∧
           ∃ c, o.2.1 = g.cls.getD c default) ∧
-        Runs (ConLeche.classRecsRulesOk (ConLeche.fueledOpsM .verified) .plain (ConLeche.mkFEnv LT)
+        Runs (ConLeche.classRecsRulesOk (ConLeche.fueledOpsM .verified) (ConLeche.mkFEnv LT)
           (ConLeche.mkFEnv LR) (trCG s₀ g) recOfM (cvs.map trCV) cs) (v.map (trOut s₀))
   | cvG :: cvs, c :: cs, s₀, s', v, hs, hg, hct, h => by
     unfold InLean.classRecsRulesOk at h
@@ -778,7 +778,7 @@ theorem classRecTyOk_pre_emvar {ops : InLean.CheckerOps} {fe : InLean.FEnv} {g :
     simp only [g2, Bool.false_eq_true, ↓reduceIte] at h <;> try exact absurd h hth
   obtain ⟨r, s₁, h1, h⟩ := bindI_ok h
   obtain ⟨gty, s₂, h2, hA⟩ := bindI_ok h
-  obtain ⟨hr, rfl⟩ := unwrapOr_run h2
+  obtain ⟨hr, rfl⟩ := unwrapOrI_run h2
   subst hr
   obtain ⟨_, s₃, h3, -⟩ := bindI_ok hA
   have hem := classRecTyCheck_emvar h3

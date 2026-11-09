@@ -497,13 +497,6 @@ theorem classNodesAgreeI_run {fe : InLean.FEnv} {L : ConLeche.Env} (hO : OpsSimI
 
 /-! ## Node agreement at every recursive field -/
 
-theorem unwrapOr_run {α : Type} {o : Option α} {err : InLean.CheckError} {s₀ s' : InLean.CState}
-    {v : α} (h : InLean.unwrapOr o err s₀ = .ok (v, s')) : o = some v ∧ s' = s₀ := by
-  unfold InLean.unwrapOr at h
-  cases o with
-  | none => exact (throw_run h).elim
-  | some a => obtain ⟨rfl, rfl⟩ := pure_run h; exact ⟨rfl, rfl⟩
-
 theorem trTM_default (s : InLean.CState) : trTM s default = default := rfl
 
 theorem getD_map_trTM (s : InLean.CState) (Ms : List InLean.TargetMajor) (t : Nat) :
@@ -602,7 +595,7 @@ theorem classFieldsAgreeI_run {fe : InLean.FEnv} {L : ConLeche.Env} (hO : OpsSim
     obtain ⟨w, s₁, h1, hA⟩ := bind_run h
     obtain ⟨rfl, hwo, hwt, -⟩ := fvarTypeDI_run hs hxo hxt h1
     obtain ⟨q, s₂, h2, h⟩ := bind_run hA
-    obtain ⟨hsp, rfl⟩ := unwrapOr_run h2
+    obtain ⟨hsp, rfl⟩ := unwrapOrI_run h2
     obtain ⟨teleB, leaf⟩ := q
     obtain ⟨hsp1, hsp2⟩ := stripPis_TrS tele w hwo
     obtain ⟨htbo, hlo⟩ := hsp1 teleB leaf hsp
@@ -779,7 +772,7 @@ theorem classCtorOfI_run {fe : InLean.FEnv} {L : ConLeche.Env} (hO : OpsSimI fe 
   simp only [trTM]
   rw [filter_ctor_trNf]
   obtain ⟨e0, s₁, h1, h⟩ := bind_run h
-  obtain ⟨he0, hst⟩ := unwrapOr_run h1
+  obtain ⟨he0, hst⟩ := unwrapOrI_run h1
   subst s₁
   have he0m : e0 ∈ (Ms.getD c default).nfs := by
     have := List.mem_of_mem_head? he0
@@ -799,7 +792,7 @@ theorem classCtorOfI_run {fe : InLean.FEnv} {L : ConLeche.Env} (hO : OpsSimI fe 
   unfold InLean.openPisAtFvars at h3
   obtain ⟨hs₃, ht₃, hop⟩ := openPisAtFvarsI_run ctor.2 (p.nP + p.k) hs he0o he0c h3
   obtain ⟨q, s₄, h4, h⟩ := bind_run h
-  obtain ⟨hr, hst⟩ := unwrapOr_run h4
+  obtain ⟨hr, hst⟩ := unwrapOrI_run h4
   subst s₄
   obtain ⟨fvs, b⟩ := q
   obtain ⟨hfvo, hbo, hopC⟩ := hop fvs b hr
@@ -838,7 +831,7 @@ theorem classCtorOfI_run {fe : InLean.FEnv} {L : ConLeche.Env} (hO : OpsSimI fe 
   have hMc₆ := (OkTMN.mono (ht₃.trans ht₆) hMc)
   obtain ⟨hs₇, ht₇, htyo, htyt⟩ := targetCtorAtI_run hs₆ hMc.1 hct h7
   obtain ⟨tyD, s₈, h8, h⟩ := bind_run h
-  obtain ⟨hpw, hst⟩ := unwrapOr_run h8
+  obtain ⟨hpw, hst⟩ := unwrapOrI_run h8
   subst s₈
   obtain ⟨rfl, rfl⟩ := pure_run h
   have ht₀₇ := ht₃.trans (ht₆.trans ht₇)

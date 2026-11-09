@@ -304,7 +304,7 @@ theorem targetMajorOf_ctors {ops : InLean.CheckerOps} {fe : InLean.FEnv} {p : In
     | some t =>
       simp only [hfi] at h
       obtain ⟨ms, s₁, h1, h⟩ := bind_run h
-      obtain ⟨hms, -⟩ := unwrapOr_run h1
+      obtain ⟨hms, -⟩ := unwrapOrI_run h1
       split at h
       · obtain ⟨rfl, -⟩ := pure_run h
         refine ⟨fun h => by simp at h, fun t' ht' => ?_⟩
@@ -699,7 +699,7 @@ theorem passSimI (hC : CheckConstantValFSimI) (hRF : ReducedFormerSimI) :
     exact Runs.pure _
   obtain ⟨F, hF⟩ := hRun
   rw [ConLeche.checkBlockPass_datF] at hF
-  refine ⟨F, _, hF, hs₇, ⟨hpend, rfl, hJ₁⟩, ?_, ?_⟩
+  refine ⟨F, _, hF, hs₇, ⟨⟨hpend, rfl, hJ₁⟩, ?_, ?_⟩, hmem, by rw [← hp₁]; rfl⟩
   · show cctx.params = fvs.map (TrS s₇)
     rw [hcp]; exact (TrSL_of_tabLe ht37 hokf).symm
   have ht47 := ht₅.trans (ht₆.trans ht₇)

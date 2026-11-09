@@ -391,14 +391,14 @@ grind_pattern [conleche_grind] clBeq_TrS => OkS s b, @BEq.beq Expr InLean.instBE
   | .strVal n, .natVal m => by
     show false = _; rw [Bool.eq_iff_iff]; simp [toLit]
 
-theorem lamsFuel_eq : InLean.lamsFuel = ConLeche.lamsFuel := by
-  unfold InLean.lamsFuel ConLeche.lamsFuel; rfl
+theorem bindersFuel_eq : InLean.bindersFuel = ConLeche.bindersFuel := by
+  unfold InLean.bindersFuel ConLeche.bindersFuel; rfl
 theorem defeqLoopFuel_eq : InLean.defeqLoopFuel = ConLeche.defeqLoopFuel := by
   unfold InLean.defeqLoopFuel ConLeche.defeqLoopFuel; rfl
 
 end Eq
 
-section LamPair
+section BinderPair
 variable (s : InLean.CState)
 
 theorem stripTop_of_ne_mdata {x : Expr} (h : ∀ (m : MData) (y : Expr), x = .mdata m y → False) :
@@ -407,31 +407,45 @@ theorem stripTop_of_ne_mdata {x : Expr} (h : ∀ (m : MData) (y : Expr), x = .md
   | mdata m y => exact absurd rfl (h m y)
   | _ => rfl
 
-/-- A pair of λs, read through `mdata`, translates to the translations' pair. -/
-theorem lamPairI_some (a b : Expr) : ∀ {q : Expr × Expr × Expr × Expr},
-    InLean.Expr.lamPair? a b = some q →
-    TrS s a = .lam (TrS s q.1) (TrS s q.2.1) ∧ TrS s b = .lam (TrS s q.2.2.1) (TrS s q.2.2.2) ∧
-      OkS s a = (OkS s q.1 && OkS s q.2.1) ∧ OkS s b = (OkS s q.2.2.1 && OkS s q.2.2.2) ∧
-      (TrS s a).lamPair? (TrS s b) = some (TrS s q.1, TrS s q.2.1, TrS s q.2.2.1, TrS s q.2.2.2) := by
-  induction a, b using InLean.Expr.lamPair?.induct with
-  | case1 _ a b ih => intro q h; rw [InLean.Expr.lamPair?] at h; exact ih h
+/-- A pair of binders, read through `mdata`, translates to the translations'
+pair. -/
+theorem binderPairI_some (lam : Bool) (a b : Expr) : ∀ {q : Expr × Expr × Expr × Expr},
+    InLean.Expr.binderPair? lam a b = some q →
+    OkS s a = (OkS s q.1 && OkS s q.2.1) ∧ OkS s b = (OkS s q.2.2.1 && OkS s q.2.2.2) ∧
+      ConLeche.Expr.binderPair? lam (TrS s a) (TrS s b) =
+        some (TrS s q.1, TrS s q.2.1, TrS s q.2.2.1, TrS s q.2.2.2) := by
+  induction a, b using InLean.Expr.binderPair?.induct lam with
+  | case1 _ a b ih => intro q h; rw [InLean.Expr.binderPair?] at h; exact ih h
   | case2 a _ b hna ih =>
-    intro q h; rw [InLean.Expr.lamPair?.eq_2 _ _ _ hna] at h; exact ih h
-  | case3 =>
-    intro q h; simp only [InLean.Expr.lamPair?, Option.some.injEq] at h; subst h
-    exact ⟨rfl, rfl, rfl, rfl, rfl⟩
-  | case4 x y h1 h2 h3 =>
-    intro q h; rw [InLean.Expr.lamPair?.eq_4 _ _ h1 h2 h3] at h; simp at h
-grind_pattern [conleche_grind] lamPairI_some => InLean.Expr.lamPair? a b, TrS s a, some q
+    intro q h; rw [InLean.Expr.binderPair?.eq_2 _ _ _ _ hna] at h; exact ih h
+  | case3 _ _ _ _ _ _ _ _ hl =>
+    intro q h; simp only [InLean.Expr.binderPair?, hl, ↓reduceIte, Option.some.injEq] at h; subst h
+    subst hl
+    exact ⟨rfl, rfl, rfl⟩
+  | case4 _ _ _ _ _ _ _ _ hl =>
+    intro q h; simp [InLean.Expr.binderPair?, hl] at h
+  | case5 _ _ _ _ _ _ _ _ hl =>
+    intro q h; simp [InLean.Expr.binderPair?, hl] at h
+  | case6 _ _ _ _ _ _ _ _ hl =>
+    intro q h; simp only [InLean.Expr.binderPair?, hl, Bool.false_eq_true, ↓reduceIte,
+      Option.some.injEq] at h; subst h
+    simp only [Bool.not_eq_true] at hl; subst hl
+    exact ⟨rfl, rfl, rfl⟩
+  | case7 x y h1 h2 h3 h4 =>
+    intro q h; rw [InLean.Expr.binderPair?.eq_5 _ _ _ h1 h2 h3 h4] at h; simp at h
 
-theorem lamPairI_none (a b : Expr) : InLean.Expr.lamPair? a b = none →
-    (TrS s a).lamPair? (TrS s b) = none := by
-  induction a, b using InLean.Expr.lamPair?.induct with
-  | case1 _ a b ih => intro h; rw [InLean.Expr.lamPair?] at h; exact ih h
+theorem binderPairI_none (lam : Bool) (a b : Expr) : InLean.Expr.binderPair? lam a b = none →
+    ConLeche.Expr.binderPair? lam (TrS s a) (TrS s b) = none := by
+  induction a, b using InLean.Expr.binderPair?.induct lam with
+  | case1 _ a b ih => intro h; rw [InLean.Expr.binderPair?] at h; exact ih h
   | case2 a _ b hna ih =>
-    intro h; rw [InLean.Expr.lamPair?.eq_2 _ _ _ hna] at h; exact ih h
-  | case3 => intro h; simp [InLean.Expr.lamPair?] at h
-  | case4 x y h1 h2 h3 =>
+    intro h; rw [InLean.Expr.binderPair?.eq_2 _ _ _ _ hna] at h; exact ih h
+  | case3 _ _ _ _ _ _ _ _ hl => intro h; simp [InLean.Expr.binderPair?, hl] at h
+  | case4 _ _ _ _ _ _ _ _ hl =>
+    intro _; simp only [Bool.not_eq_true] at hl; subst hl; rfl
+  | case5 _ _ _ _ _ _ _ _ hl => intro _; subst hl; rfl
+  | case6 _ _ _ _ _ _ _ _ hl => intro h; simp [InLean.Expr.binderPair?, hl] at h
+  | case7 x y h1 h2 h3 h4 =>
     intro _
     cases hx : TrS s x with
     | lam t b =>
@@ -442,11 +456,19 @@ theorem lamPairI_none (a b : Expr) : InLean.Expr.lamPair? a b = none →
         obtain ⟨n₂, t₂', b₂', bi₂, hy'⟩ := stripTop_of_TrS_lam s hy
         rw [stripTop_of_ne_mdata h2] at hy'
         exact (h3 _ _ _ _ _ _ _ _ hx' hy').elim
-      | _ => rfl
-    | _ => rfl
-grind_pattern [conleche_grind] lamPairI_none => InLean.Expr.lamPair? a b, TrS s a, TrS s b
+      | _ => cases lam <;> rfl
+    | forallE t b =>
+      obtain ⟨n, t', b', bi, hx'⟩ := stripTop_of_TrS_forallE s hx
+      rw [stripTop_of_ne_mdata h1] at hx'
+      cases hy : TrS s y with
+      | forallE t₂ b₂ =>
+        obtain ⟨n₂, t₂', b₂', bi₂, hy'⟩ := stripTop_of_TrS_forallE s hy
+        rw [stripTop_of_ne_mdata h2] at hy'
+        exact (h4 _ _ _ _ _ _ _ _ hx' hy').elim
+      | _ => cases lam <;> rfl
+    | _ => cases lam <;> rfl
 
-end LamPair
+end BinderPair
 
 /-! ## The `Nat` offset readers through the translation -/
 
@@ -1881,113 +1903,302 @@ theorem stuckIrrelI_spec {fe : InLean.FEnv} (ih : KnotSpecI mode eager env r)
 
 end Walks
 
+/-! ## The accumulator arrays through the translation -/
+
+section Arrays
+variable (s : InLean.CState)
+
+@[conleche_grind =] theorem TrSL_push_rev (fvs : Array Expr) (a : Expr) :
+    (TrSL s (fvs.push a).toList).reverse = TrS s a :: (TrSL s fvs.toList).reverse := by
+  simp [TrSL]
+
+@[conleche_grind =] theorem OkSL_push (fvs : Array Expr) (a : Expr) :
+    OkSL s (fvs.push a).toList = (OkSL s fvs.toList && OkS s a) := by
+  simp [OkSL, List.all_append, Bool.and_comm]
+
+@[conleche_grind =] theorem AllClosed_push (fvs : Array Expr) (a : Expr) :
+    AllClosed (TrSL s (fvs.push a).toList) =
+      (AllClosed (TrSL s fvs.toList) && (TrS s a).looseBVarsBounded 0) := by
+  simp [AllClosed, TrSL, List.all_append]
+
+@[conleche_grind =] theorem TrSL_singleton_rev (a : Expr) :
+    (TrSL s (#[a] : Array Expr).toList).reverse = [TrS s a] := by
+  simp [TrSL]
+
+@[conleche_grind =] theorem TrSL_empty_rev :
+    (TrSL s (#[] : Array Expr).toList).reverse = [] := by
+  simp [TrSL]
+
+@[conleche_grind =] theorem OkSL_singleton (a : Expr) :
+    OkSL s (#[a] : Array Expr).toList = OkS s a := by
+  simp [OkSL]
+
+@[conleche_grind =] theorem OkSL_empty : OkSL s (#[] : Array Expr).toList = true := by
+  simp [OkSL]
+
+@[conleche_grind =] theorem AllClosed_singleton (a : Expr) :
+    AllClosed (TrSL s (#[a] : Array Expr).toList) = (TrS s a).looseBVarsBounded 0 := by
+  simp [AllClosed, TrSL]
+
+@[conleche_grind =] theorem AllClosed_empty : AllClosed (TrSL s (#[] : Array Expr).toList) = true := by
+  simp [AllClosed, TrSL]
+
+end Arrays
+
+section ClosedBinders
+open ConLeche.Expr
+
+/-- One binder opened at a closed value: the body, instantiated with it in
+front of the accumulator, is closed (`wscoped_open_binder`'s twin). -/
+theorem lbb_open_binder {a body : ConLeche.Expr} {ws : List ConLeche.Expr}
+    (ha : a.looseBVarsBounded 0 = true) (hb : (body.instantiateList ws 1).looseBVarsBounded 1 = true) :
+    (body.instantiateList (a :: ws)).looseBVarsBounded 0 = true := by
+  rw [ConLeche.Expr.instantiateList_cons]
+  exact looseBVarsBounded_instantiate1_gen ha hb
+grind_pattern [conleche_grind] lbb_open_binder => body.instantiateList (a :: ws)
+
+/-- Both sides of a pair of binders, opened over the accumulator `vs`, are
+closed where present (`OptBinderPairWS`'s companion: InLean's knot takes
+closed terms). -/
+@[expose] def OptBinderPairCl (vs : List ConLeche.Expr) :
+    Option (ConLeche.Expr × ConLeche.Expr × ConLeche.Expr × ConLeche.Expr) → Prop
+  | none => True
+  | some q =>
+    (q.1.instantiateList vs).looseBVarsBounded 0 = true ∧
+      (q.2.1.instantiateList vs 1).looseBVarsBounded 1 = true ∧
+      (q.2.2.1.instantiateList vs).looseBVarsBounded 0 = true ∧
+      (q.2.2.2.instantiateList vs 1).looseBVarsBounded 1 = true
+
+@[conleche_grind =] theorem OptBinderPairCl.some_eq (vs : List ConLeche.Expr)
+    (q : ConLeche.Expr × ConLeche.Expr × ConLeche.Expr × ConLeche.Expr) :
+    OptBinderPairCl vs (some q) = ((q.1.instantiateList vs).looseBVarsBounded 0 = true ∧
+      (q.2.1.instantiateList vs 1).looseBVarsBounded 1 = true ∧
+      (q.2.2.1.instantiateList vs).looseBVarsBounded 0 = true ∧
+      (q.2.2.2.instantiateList vs 1).looseBVarsBounded 1 = true) := rfl
+
+theorem lbb_binderPair? {lam : Bool} {b₁ b₂ : ConLeche.Expr} {vs : List ConLeche.Expr}
+    (h₁ : (b₁.instantiateList vs).looseBVarsBounded 0 = true)
+    (h₂ : (b₂.instantiateList vs).looseBVarsBounded 0 = true) :
+    OptBinderPairCl vs (ConLeche.Expr.binderPair? lam b₁ b₂) := by
+  cases h : ConLeche.Expr.binderPair? lam b₁ b₂ with
+  | none => trivial
+  | some q =>
+    obtain ⟨t₁, c₁, t₂, c₂⟩ := q
+    obtain ⟨rfl, rfl⟩ := ConLeche.Expr.binderPair?_some h
+    cases lam <;>
+      simp only [ConLeche.Expr.binderOf, instList_lam_eq, instList_forallE_eq,
+        ConLeche.Expr.looseBVarsBounded, Bool.and_eq_true] at h₁ h₂ <;>
+      exact ⟨h₁.1, h₁.2, h₂.1, h₂.2⟩
+grind_pattern [conleche_grind] lbb_binderPair? =>
+  (b₁.instantiateList vs).looseBVarsBounded 0, (b₂.instantiateList vs).looseBVarsBounded 0,
+    ConLeche.Expr.binderPair? lam b₁ b₂
+
+end ClosedBinders
+
+grind_pattern [conleche_grind] binderPairI_some =>
+  InLean.Expr.binderPair? lam a b, TrS s a, some q
+grind_pattern [conleche_grind] binderPairI_none =>
+  InLean.Expr.binderPair? lam a b, TrS s a, TrS s b
+
 /-! ## DiscC5's twins: definitional equality -/
 
 section Walks5
 
 variable {r : InLean.CoreFnsI}
 
-/-- The innermost level of the λ-telescope comparison
-(`defeqLamsInnerC_spec`'s twin). -/
-theorem defeqLamsInnerI_spec (ih : KnotSpecI .verified eager env r) {d : Nat} {b₁ b₂ : Expr}
-    {s₀ : InLean.CState} (hs : CSOKI .verified eager env s₀) (hok1 : OkS s₀ b₁ = true)
-    (hok2 : OkS s₀ b₂ = true) (h1 : ConLeche.Expr.WScoped (d + 1) (TrS s₀ b₁))
-    (h2 : ConLeche.Expr.WScoped (d + 1) (TrS s₀ b₂)) (hc1 : (TrS s₀ b₁).looseBVarsBounded 0 = true)
-    (hc2 : (TrS s₀ b₂).looseBVarsBounded 0 = true) :
-    ⦃fun s => s = s₀⦄ InLean.defeqLamsInnerI .verified r d b₁ b₂
+/-- The innermost level of the binder-telescope comparison
+(`defeqBindersInnerC_spec`'s twin). -/
+theorem defeqBindersInnerI_spec (ih : KnotSpecI .verified eager env r) {lam : Bool} {d : Nat}
+    {b₁ b₂ : Expr} {s₀ : InLean.CState} (hs : CSOKI .verified eager env s₀)
+    (hok1 : OkS s₀ b₁ = true) (hok2 : OkS s₀ b₂ = true)
+    (h1 : ConLeche.Expr.WScoped (d + 1) (TrS s₀ b₁)) (h2 : ConLeche.Expr.WScoped (d + 1) (TrS s₀ b₂))
+    (hc1 : (TrS s₀ b₁).looseBVarsBounded 0 = true) (hc2 : (TrS s₀ b₂).looseBVarsBounded 0 = true) :
+    ⦃fun s => s = s₀⦄ InLean.defeqBindersInnerI .verified r lam d b₁ b₂
     ⦃fun v s' => CSOKI .verified eager env s' ∧ TabLe s₀ s' ∧
-      Runs (ConLeche.defeqLamsInner .verified (ConLeche.fueledFns .verified eager env) d
+      Runs (ConLeche.defeqBindersInner .verified (ConLeche.fueledFns .verified eager env) lam d
         (TrS s₀ b₁) (TrS s₀ b₂)) v; ⊤⦄ := by
-  sym only [conleche_grind, ConLeche.defeqLamsInner] =>
-    vcgen [InLean.defeqLamsInnerI, ih.defeq, ih.infer] <;> finish
+  sym only [conleche_grind, ConLeche.defeqBindersInner] =>
+    vcgen [InLean.defeqBindersInnerI, ih.defeq, ih.infer] <;> finish
 
-/-- InLean's λ-telescope comparison past the opened bodies (`lamsStepI`'s
+/-- One level's domain comparison (`defeqDomainC_spec`'s twin). -/
+theorem defeqDomainI_spec (ih : KnotSpecI .verified eager env r) {d : Nat} {fvs : Array Expr}
+    {ty₁ ty₂ dom₂ : Expr} {s₀ : InLean.CState} (hs : CSOKI .verified eager env s₀)
+    (hok1 : OkS s₀ ty₁ = true) (hok2 : OkS s₀ ty₂ = true) (hokd : OkS s₀ dom₂ = true)
+    (hfv : OkSL s₀ fvs.toList = true) (hfc : AllClosed (TrSL s₀ fvs.toList) = true)
+    (h1 : ConLeche.Expr.WScoped d ((TrS s₀ ty₁).instantiateList (TrSL s₀ fvs.toList).reverse))
+    (h2 : ConLeche.Expr.WScoped d (TrS s₀ dom₂))
+    (hc1 : ((TrS s₀ ty₁).instantiateList (TrSL s₀ fvs.toList).reverse).looseBVarsBounded 0 = true)
+    (hc2 : (TrS s₀ dom₂).looseBVarsBounded 0 = true) :
+    ⦃fun s => s = s₀⦄ InLean.defeqDomainI r d fvs ty₁ ty₂ dom₂
+    ⦃fun v s' => CSOKI .verified eager env s' ∧ TabLe s₀ s' ∧
+      Runs (ConLeche.defeqDomain (ConLeche.fueledFns .verified eager env) d
+        (TrSL s₀ fvs.toList).reverse (TrS s₀ ty₁) (TrS s₀ ty₂) (TrS s₀ dom₂)) v; ⊤⦄ := by
+  sym only [conleche_grind, ConLeche.defeqDomain] =>
+    vcgen [InLean.defeqDomainI, instListRevM_specI (mode := .verified) (eager := eager) (env := env), ih.defeq] <;> finish
+
+/-- InLean's innermost level on the bulk-opened bodies (`bindersLeafI`'s
 twin). -/
-@[expose] def lamsStepL (r : InLean.CoreFnsI) (n d : Nat) (b₁ b₂ : Expr) : InLean.CheckCM Bool :=
-  match InLean.Expr.lamPair? b₁ b₂ with
-  | some q =>
-    if b₁ == b₂ then pure true
-    else InLean.defeqLamsI .verified r n (d + 1) q.1 q.2.1 q.2.2.1 q.2.2.2
-  | none => InLean.defeqLamsInnerI .verified r d b₁ b₂
+@[expose] def bindersLeafL (r : InLean.CoreFnsI) (lam : Bool) (d : Nat) (fvs : Array Expr)
+    (b₁ b₂ : Expr) : InLean.CheckCM Bool := do
+  let o₁ ← instListRevM b₁ fvs
+  let o₂ ← instListRevM b₂ fvs
+  InLean.defeqBindersInnerI .verified r lam d o₁ o₂
 
-theorem defeqLamsL_zero (r : InLean.CoreFnsI) (d : Nat) (ty₁ body₁ ty₂ body₂ : Expr) :
-    InLean.defeqLamsI .verified r 0 d ty₁ body₁ ty₂ body₂ = (do
-      unless ← r.defeq d ty₁ ty₂ do return false
-      let fv ← mkFVarM d ty₂
-      InLean.defeqLamsInnerI .verified r d (body₁.inst1I fv) (body₂.inst1I fv) :
-        InLean.CheckCM Bool) := rfl
+/-- InLean's binder-telescope comparison past the domains (`bindersStepI`'s
+twin). -/
+@[expose] def bindersStepL (r : InLean.CoreFnsI) (lam : Bool) (n d : Nat) (fvs : Array Expr)
+    (b₁ b₂ : Expr) : InLean.CheckCM Bool :=
+  match InLean.Expr.binderPair? lam b₁ b₂ with
+  | some q => InLean.defeqBindersI .verified r lam n (d + 1) fvs q.1 q.2.1 q.2.2.1 q.2.2.2
+  | none => bindersLeafL r lam d fvs b₁ b₂
+
+theorem defeqBindersL_zero (r : InLean.CoreFnsI) (lam : Bool) (d : Nat) (fvs : Array Expr)
+    (ty₁ body₁ ty₂ body₂ : Expr) :
+    InLean.defeqBindersI .verified r lam 0 d fvs ty₁ body₁ ty₂ body₂ = (do
+      let dom₂ ← instListRevM ty₂ fvs
+      unless ← InLean.defeqDomainI r d fvs ty₁ ty₂ dom₂ do return false
+      let fv ← mkFVarM d dom₂
+      let fvs' ← pure (fvs.push fv)
+      bindersLeafL r lam d fvs' body₁ body₂ : InLean.CheckCM Bool) := rfl
 
 set_option smartUnfolding false in
-/-- `defeqLamsI`'s step (as `defeqLamsI_succ`: the structural recursion sits
-under the binds, where no equation is generated). -/
-theorem defeqLamsL_succ (r : InLean.CoreFnsI) (n d : Nat) (ty₁ body₁ ty₂ body₂ : Expr) :
-    InLean.defeqLamsI .verified r (n + 1) d ty₁ body₁ ty₂ body₂ = (do
-      unless ← r.defeq d ty₁ ty₂ do return false
-      let fv ← mkFVarM d ty₂
-      lamsStepL r n d (body₁.inst1I fv) (body₂.inst1I fv) : InLean.CheckCM Bool) := by
-  refine congrArg (r.defeq d ty₁ ty₂ >>= ·) (funext fun x => ?_)
+/-- `defeqBindersI`'s step (as `defeqBindersI_succ`: the structural recursion
+sits under the binds, where no equation is generated). -/
+theorem defeqBindersL_succ (r : InLean.CoreFnsI) (lam : Bool) (n d : Nat) (fvs : Array Expr)
+    (ty₁ body₁ ty₂ body₂ : Expr) :
+    InLean.defeqBindersI .verified r lam (n + 1) d fvs ty₁ body₁ ty₂ body₂ = (do
+      let dom₂ ← instListRevM ty₂ fvs
+      unless ← InLean.defeqDomainI r d fvs ty₁ ty₂ dom₂ do return false
+      let fv ← mkFVarM d dom₂
+      let fvs' ← pure (fvs.push fv)
+      bindersStepL r lam n d fvs' body₁ body₂ : InLean.CheckCM Bool) := by
+  refine congrArg (instListRevM ty₂ fvs >>= ·) (funext fun dom₂ => ?_)
+  refine congrArg (InLean.defeqDomainI r d fvs ty₁ ty₂ dom₂ >>= ·) (funext fun x => ?_)
   cases x
   · rfl
-  · refine congrArg (mkFVarM d ty₂ >>= ·) (funext fun fv => ?_)
-    unfold lamsStepL
-    dsimp only
-    cases InLean.Expr.lamPair? (body₁.inst1I fv) (body₂.inst1I fv) <;> rfl
+  · refine congrArg (mkFVarM d dom₂ >>= ·) (funext fun fv => ?_)
+    refine congrArg (pure (fvs.push fv) >>= ·) (funext fun fvs' => ?_)
+    unfold bindersStepL
+    cases InLean.Expr.binderPair? lam body₁ body₂ with
+    | none => rfl
+    | some q => rfl
 
-/-- The λ-telescope comparison at fuel `n` (`LamsSpec`'s twin, a named
-predicate: an atom in `grind`'s context). -/
-@[expose] def LamsSpecI (eager : Bool) (env : ConLeche.Env) (r : InLean.CoreFnsI) (n : Nat) :
+/-- The binder-telescope comparison at fuel `n` (`BindersSpec`'s twin, a
+named predicate: an atom in `grind`'s context).  The scope and closedness
+facts are the level's parts opened over the accumulator. -/
+@[expose] def BindersSpecI (eager : Bool) (env : ConLeche.Env) (r : InLean.CoreFnsI) (n : Nat) :
     Prop :=
-  ∀ {d : Nat} {ty₁ body₁ ty₂ body₂ : Expr} {s₀ : InLean.CState}, CSOKI .verified eager env s₀ →
+  ∀ {lam : Bool} {d : Nat} {fvs : Array Expr} {ty₁ body₁ ty₂ body₂ : Expr} {s₀ : InLean.CState},
+    CSOKI .verified eager env s₀ →
     OkS s₀ ty₁ = true → OkS s₀ body₁ = true → OkS s₀ ty₂ = true → OkS s₀ body₂ = true →
-    ConLeche.Expr.WScoped d (TrS s₀ ty₁) → ConLeche.Expr.WScoped d (TrS s₀ body₁) →
-    ConLeche.Expr.WScoped d (TrS s₀ ty₂) → ConLeche.Expr.WScoped d (TrS s₀ body₂) →
-    (TrS s₀ ty₁).looseBVarsBounded 0 = true → (TrS s₀ body₁).looseBVarsBounded 1 = true →
-    (TrS s₀ ty₂).looseBVarsBounded 0 = true → (TrS s₀ body₂).looseBVarsBounded 1 = true →
-    ⦃fun s => s = s₀⦄ InLean.defeqLamsI .verified r n d ty₁ body₁ ty₂ body₂
+    OkSL s₀ fvs.toList = true → AllClosed (TrSL s₀ fvs.toList) = true →
+    ConLeche.Expr.WScoped d ((TrS s₀ ty₁).instantiateList (TrSL s₀ fvs.toList).reverse) →
+    ConLeche.Expr.WScoped d ((TrS s₀ body₁).instantiateList (TrSL s₀ fvs.toList).reverse 1) →
+    ConLeche.Expr.WScoped d ((TrS s₀ ty₂).instantiateList (TrSL s₀ fvs.toList).reverse) →
+    ConLeche.Expr.WScoped d ((TrS s₀ body₂).instantiateList (TrSL s₀ fvs.toList).reverse 1) →
+    ((TrS s₀ ty₁).instantiateList (TrSL s₀ fvs.toList).reverse).looseBVarsBounded 0 = true →
+    ((TrS s₀ body₁).instantiateList (TrSL s₀ fvs.toList).reverse 1).looseBVarsBounded 1 = true →
+    ((TrS s₀ ty₂).instantiateList (TrSL s₀ fvs.toList).reverse).looseBVarsBounded 0 = true →
+    ((TrS s₀ body₂).instantiateList (TrSL s₀ fvs.toList).reverse 1).looseBVarsBounded 1 = true →
+    ⦃fun s => s = s₀⦄ InLean.defeqBindersI .verified r lam n d fvs ty₁ body₁ ty₂ body₂
     ⦃fun v s' => CSOKI .verified eager env s' ∧ TabLe s₀ s' ∧
-      Runs (ConLeche.defeqLams .verified (ConLeche.fueledFns .verified eager env) n d (TrS s₀ ty₁)
-        (TrS s₀ body₁) (TrS s₀ ty₂) (TrS s₀ body₂)) v; ⊤⦄
+      Runs (ConLeche.defeqBinders .verified (ConLeche.fueledFns .verified eager env) lam n d
+        (TrSL s₀ fvs.toList).reverse (TrS s₀ ty₁) (TrS s₀ body₁) (TrS s₀ ty₂) (TrS s₀ body₂)) v; ⊤⦄
 
-theorem LamsSpecI.triple {n : Nat} (h : LamsSpecI eager env r n) {d : Nat}
-    {ty₁ body₁ ty₂ body₂ : Expr} {s₀ : InLean.CState} (hs : CSOKI .verified eager env s₀)
+theorem BindersSpecI.triple {n : Nat} (h : BindersSpecI eager env r n) {lam : Bool} {d : Nat}
+    {fvs : Array Expr} {ty₁ body₁ ty₂ body₂ : Expr} {s₀ : InLean.CState}
+    (hs : CSOKI .verified eager env s₀)
+    (o1 : OkS s₀ ty₁ = true) (o2 : OkS s₀ body₁ = true) (o3 : OkS s₀ ty₂ = true)
+    (o4 : OkS s₀ body₂ = true) (ofv : OkSL s₀ fvs.toList = true)
+    (ofc : AllClosed (TrSL s₀ fvs.toList) = true)
+    (w1 : ConLeche.Expr.WScoped d ((TrS s₀ ty₁).instantiateList (TrSL s₀ fvs.toList).reverse))
+    (w2 : ConLeche.Expr.WScoped d ((TrS s₀ body₁).instantiateList (TrSL s₀ fvs.toList).reverse 1))
+    (w3 : ConLeche.Expr.WScoped d ((TrS s₀ ty₂).instantiateList (TrSL s₀ fvs.toList).reverse))
+    (w4 : ConLeche.Expr.WScoped d ((TrS s₀ body₂).instantiateList (TrSL s₀ fvs.toList).reverse 1))
+    (c1 : ((TrS s₀ ty₁).instantiateList (TrSL s₀ fvs.toList).reverse).looseBVarsBounded 0 = true)
+    (c2 : ((TrS s₀ body₁).instantiateList (TrSL s₀ fvs.toList).reverse 1).looseBVarsBounded 1 = true)
+    (c3 : ((TrS s₀ ty₂).instantiateList (TrSL s₀ fvs.toList).reverse).looseBVarsBounded 0 = true)
+    (c4 : ((TrS s₀ body₂).instantiateList (TrSL s₀ fvs.toList).reverse 1).looseBVarsBounded 1 = true) :
+    ⦃fun s => s = s₀⦄ InLean.defeqBindersI .verified r lam n d fvs ty₁ body₁ ty₂ body₂
+    ⦃fun v s' => CSOKI .verified eager env s' ∧ TabLe s₀ s' ∧
+      Runs (ConLeche.defeqBinders .verified (ConLeche.fueledFns .verified eager env) lam n d
+        (TrSL s₀ fvs.toList).reverse (TrS s₀ ty₁) (TrS s₀ body₁) (TrS s₀ ty₂) (TrS s₀ body₂)) v; ⊤⦄ :=
+  h hs o1 o2 o3 o4 ofv ofc w1 w2 w3 w4 c1 c2 c3 c4
+
+theorem bindersLeafL_spec (ih : KnotSpecI .verified eager env r) {lam : Bool} {d : Nat}
+    {fvs : Array Expr} {b₁ b₂ : Expr} {s₀ : InLean.CState} (hs : CSOKI .verified eager env s₀)
+    (hok1 : OkS s₀ b₁ = true) (hok2 : OkS s₀ b₂ = true) (hfv : OkSL s₀ fvs.toList = true)
+    (hfc : AllClosed (TrSL s₀ fvs.toList) = true)
+    (h1 : ConLeche.Expr.WScoped (d + 1) ((TrS s₀ b₁).instantiateList (TrSL s₀ fvs.toList).reverse))
+    (h2 : ConLeche.Expr.WScoped (d + 1) ((TrS s₀ b₂).instantiateList (TrSL s₀ fvs.toList).reverse))
+    (hc1 : ((TrS s₀ b₁).instantiateList (TrSL s₀ fvs.toList).reverse).looseBVarsBounded 0 = true)
+    (hc2 : ((TrS s₀ b₂).instantiateList (TrSL s₀ fvs.toList).reverse).looseBVarsBounded 0 = true) :
+    ⦃fun s => s = s₀⦄ bindersLeafL r lam d fvs b₁ b₂
+    ⦃fun v s' => CSOKI .verified eager env s' ∧ TabLe s₀ s' ∧
+      Runs (bindersLeafP (ConLeche.fueledFns .verified eager env) .verified lam d
+        (TrSL s₀ fvs.toList).reverse (TrS s₀ b₁) (TrS s₀ b₂)) v; ⊤⦄ := by
+  sym only [conleche_grind, bindersLeafP] =>
+    vcgen [bindersLeafL, instListRevM_specI (mode := .verified) (eager := eager) (env := env), defeqBindersInnerI_spec ih] <;> finish
+
+theorem bindersStepL_spec (ih : KnotSpecI .verified eager env r) {n : Nat}
+    (hn : BindersSpecI eager env r n) {lam : Bool} {d : Nat} {fvs : Array Expr} {b₁ b₂ : Expr}
+    {s₀ : InLean.CState} (hs : CSOKI .verified eager env s₀)
+    (hok1 : OkS s₀ b₁ = true) (hok2 : OkS s₀ b₂ = true) (hfv : OkSL s₀ fvs.toList = true)
+    (hfc : AllClosed (TrSL s₀ fvs.toList) = true)
+    (h1 : ConLeche.Expr.WScoped (d + 1) ((TrS s₀ b₁).instantiateList (TrSL s₀ fvs.toList).reverse))
+    (h2 : ConLeche.Expr.WScoped (d + 1) ((TrS s₀ b₂).instantiateList (TrSL s₀ fvs.toList).reverse))
+    (hc1 : ((TrS s₀ b₁).instantiateList (TrSL s₀ fvs.toList).reverse).looseBVarsBounded 0 = true)
+    (hc2 : ((TrS s₀ b₂).instantiateList (TrSL s₀ fvs.toList).reverse).looseBVarsBounded 0 = true) :
+    ⦃fun s => s = s₀⦄ bindersStepL r lam n d fvs b₁ b₂
+    ⦃fun v s' => CSOKI .verified eager env s' ∧ TabLe s₀ s' ∧
+      Runs (bindersStepP (ConLeche.fueledFns .verified eager env) .verified lam n d
+        (TrSL s₀ fvs.toList).reverse (TrS s₀ b₁) (TrS s₀ b₂)) v; ⊤⦄ := by
+  sym only [conleche_grind, bindersStepP] =>
+    vcgen [bindersStepL, bindersLeafL_spec ih, hn.triple] <;> finish
+
+/-- By induction on the descent budget (`bindersSpec_all`'s twin). -/
+theorem bindersSpecI_all (ih : KnotSpecI .verified eager env r) (fuel : Nat) :
+    BindersSpecI eager env r fuel := by
+  induction fuel with
+  | zero =>
+    intro lam d fvs ty₁ body₁ ty₂ body₂ s₀ hs _ _ _ _ _ _ _ _ _ _ _ _ _ _
+    sym only [conleche_grind, defeqBinders_zero] =>
+      vcgen [defeqBindersL_zero, instListRevM_specI (mode := .verified) (eager := eager) (env := env), defeqDomainI_spec ih,
+        mkFVarM_specI (mode := .verified) (eager := eager) (env := env),
+        bindersLeafL_spec ih] <;> finish
+  | succ n ihn =>
+    intro lam d fvs ty₁ body₁ ty₂ body₂ s₀ hs _ _ _ _ _ _ _ _ _ _ _ _ _ _
+    sym only [conleche_grind, defeqBinders_succ] =>
+      vcgen [defeqBindersL_succ, instListRevM_specI (mode := .verified) (eager := eager) (env := env), defeqDomainI_spec ih,
+        mkFVarM_specI (mode := .verified) (eager := eager) (env := env),
+        bindersStepL_spec ih ihn] <;> finish
+
+/-- The binder-telescope comparison from the empty accumulator
+(`defeqBindersC_spec`'s twin). -/
+theorem defeqBindersI_spec (ih : KnotSpecI .verified eager env r) (fuel : Nat) {lam : Bool}
+    {d : Nat} {ty₁ body₁ ty₂ body₂ : Expr} {s₀ : InLean.CState} (hs : CSOKI .verified eager env s₀)
     (o1 : OkS s₀ ty₁ = true) (o2 : OkS s₀ body₁ = true) (o3 : OkS s₀ ty₂ = true)
     (o4 : OkS s₀ body₂ = true)
     (w1 : ConLeche.Expr.WScoped d (TrS s₀ ty₁)) (w2 : ConLeche.Expr.WScoped d (TrS s₀ body₁))
     (w3 : ConLeche.Expr.WScoped d (TrS s₀ ty₂)) (w4 : ConLeche.Expr.WScoped d (TrS s₀ body₂))
     (c1 : (TrS s₀ ty₁).looseBVarsBounded 0 = true) (c2 : (TrS s₀ body₁).looseBVarsBounded 1 = true)
     (c3 : (TrS s₀ ty₂).looseBVarsBounded 0 = true) (c4 : (TrS s₀ body₂).looseBVarsBounded 1 = true) :
-    ⦃fun s => s = s₀⦄ InLean.defeqLamsI .verified r n d ty₁ body₁ ty₂ body₂
+    ⦃fun s => s = s₀⦄ InLean.defeqBindersI .verified r lam fuel d #[] ty₁ body₁ ty₂ body₂
     ⦃fun v s' => CSOKI .verified eager env s' ∧ TabLe s₀ s' ∧
-      Runs (ConLeche.defeqLams .verified (ConLeche.fueledFns .verified eager env) n d (TrS s₀ ty₁)
-        (TrS s₀ body₁) (TrS s₀ ty₂) (TrS s₀ body₂)) v; ⊤⦄ :=
-  h hs o1 o2 o3 o4 w1 w2 w3 w4 c1 c2 c3 c4
-
-theorem lamsStepL_spec (ih : KnotSpecI .verified eager env r) {n : Nat} (hn : LamsSpecI eager env r n)
-    {d : Nat} {b₁ b₂ : Expr} {s₀ : InLean.CState} (hs : CSOKI .verified eager env s₀)
-    (hok1 : OkS s₀ b₁ = true) (hok2 : OkS s₀ b₂ = true)
-    (h1 : ConLeche.Expr.WScoped (d + 1) (TrS s₀ b₁)) (h2 : ConLeche.Expr.WScoped (d + 1) (TrS s₀ b₂))
-    (hc1 : (TrS s₀ b₁).looseBVarsBounded 0 = true) (hc2 : (TrS s₀ b₂).looseBVarsBounded 0 = true) :
-    ⦃fun s => s = s₀⦄ lamsStepL r n d b₁ b₂
-    ⦃fun v s' => CSOKI .verified eager env s' ∧ TabLe s₀ s' ∧
-      Runs (lamsStepP (ConLeche.fueledFns .verified eager env) .verified n d (TrS s₀ b₁)
-        (TrS s₀ b₂)) v; ⊤⦄ := by
-  sym only [conleche_grind, lamsStepP] =>
-    vcgen [lamsStepL, defeqLamsInnerI_spec ih, hn.triple] <;> finish
-
-/-- By induction on the descent budget (`lamsSpec_all`'s twin). -/
-theorem lamsSpecI_all (ih : KnotSpecI .verified eager env r) (fuel : Nat) :
-    LamsSpecI eager env r fuel := by
-  induction fuel with
-  | zero =>
-    intro d ty₁ body₁ ty₂ body₂ s₀ hs _ _ _ _ _ _ _ _ _ _ _ _
-    sym only [conleche_grind, defeqLams_zero] =>
-      vcgen [defeqLamsL_zero, ih.defeq, mkFVarM_specI (mode := .verified) (eager := eager)
-          (env := env), defeqLamsInnerI_spec ih] <;> finish
-  | succ n ihn =>
-    intro d ty₁ body₁ ty₂ body₂ s₀ hs _ _ _ _ _ _ _ _ _ _ _ _
-    sym only [conleche_grind, defeqLams_succ] =>
-      vcgen [defeqLamsL_succ, ih.defeq, mkFVarM_specI (mode := .verified) (eager := eager)
-          (env := env), lamsStepL_spec ih ihn] <;> finish
+      Runs (ConLeche.defeqBinders .verified (ConLeche.fueledFns .verified eager env) lam fuel d []
+        (TrS s₀ ty₁) (TrS s₀ body₁) (TrS s₀ ty₂) (TrS s₀ body₂)) v; ⊤⦄ := by
+  have he : (TrSL s₀ (#[] : Array Expr).toList).reverse = [] := TrSL_empty_rev s₀
+  have h := BindersSpecI.triple (bindersSpecI_all ih fuel) (lam := lam) (fvs := #[]) hs o1 o2 o3 o4
+    (OkSL_empty s₀) (AllClosed_empty s₀)
+    (by rw [he, ConLeche.Expr.instantiateList_nil]; exact w1)
+    (by rw [he, ConLeche.Expr.instantiateList_nil]; exact w2)
+    (by rw [he, ConLeche.Expr.instantiateList_nil]; exact w3)
+    (by rw [he, ConLeche.Expr.instantiateList_nil]; exact w4)
+    (by rw [he, ConLeche.Expr.instantiateList_nil]; exact c1)
+    (by rw [he, ConLeche.Expr.instantiateList_nil]; exact c2)
+    (by rw [he, ConLeche.Expr.instantiateList_nil]; exact c3)
+    (by rw [he, ConLeche.Expr.instantiateList_nil]; exact c4)
+  rwa [he] at h
 
 /-- The easy cases (`quickDefEqC_spec`'s twin). -/
 theorem quickDefEqI_spec (ih : KnotSpecI .verified eager env r) {d : Nat} {a b : Expr}
@@ -1999,11 +2210,11 @@ theorem quickDefEqI_spec (ih : KnotSpecI .verified eager env r) {d : Nat} {a b :
     ⦃fun v s' => CSOKI .verified eager env s' ∧ TabLe s₀ s' ∧
       Runs (ConLeche.quickDefEq .verified (ConLeche.fueledFns .verified eager env) d (TrS s₀ a)
         (TrS s₀ b)) v; ⊤⦄ := by
-  sym only [conleche_grind, ConLeche.quickDefEq.eq_def, lamsFuel_eq] =>
+  sym only [conleche_grind, ConLeche.quickDefEq.eq_def, bindersFuel_eq] =>
     vcgen [InLean.quickDefEqI, ih.defeq, mkFVarM_specI (mode := .verified) (eager := eager)
         (env := env), isEquivLM_specI (mode := .verified) (eager := eager) (env := env),
       liftFueled_specI (mode := .verified) (eager := eager) (env := env),
-      LamsSpecI.triple (lamsSpecI_all ih InLean.lamsFuel)] <;> finish
+      defeqBindersI_spec ih InLean.bindersFuel] <;> finish
 
 /-- Offsets (`defeqOffsetC_spec`'s twin). -/
 theorem defeqOffsetI_spec (ih : KnotSpecI mode eager env r) {d : Nat} {a b : Expr}

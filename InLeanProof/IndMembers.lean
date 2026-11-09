@@ -2,6 +2,7 @@ module
 
 public import InLeanProof.IndBlockKS
 public import InLeanProof.WalksIota
+import ConLeche.Verify.Inductives.BlockInv
 
 /-!
 # O7: one member's reduction against master's (task #451, lane O7)
@@ -172,18 +173,22 @@ invariant at `L` (after the job's flush) and ends in it at the formers' environm
     PassPremI fe L p₀ →
     InLean.checkBlockPassS .verified fe p₀ isRec s₀ = .ok (q, s') →
     ∃ F cq, ConLeche.checkBlockPass (ConLeche.fueledOps .verified F) L (trShape p₀) isRec
-      = .ok cq ∧ CSOKI .verified false cq.env₁ s' ∧ R s' q cq
+      = .ok cq ∧ CSOKI .verified false cq.env₁ s' ∧ R s' q cq ∧
+      q.p.members = p₀.members ∧ q.p.nP = p₀.nP
 
-/-- **The stages after the pass** (`checkBlockTailS_run`'s twin), from `R`. -/
+/-- **The stages after the pass** (`checkBlockTailS_run`'s twin), from `R`, at the
+projection tables built from the pass's members (`blockTables`). -/
 @[expose] def TailSimI (R : InLean.CState → InLean.BlockPass → ConLeche.BlockPass ConLeche.Env → Prop) :
     Prop :=
   ∀ (block : List Lean.ConstantInfo) (q : InLean.BlockPass) (cq : ConLeche.BlockPass ConLeche.Env)
-    (s₀ s' : InLean.CState),
+    (Q : List InLean.ProjTable) (s₀ s' : InLean.CState),
     R s₀ q cq → CSOKI .verified false cq.env₁ s₀ → (∀ ci ∈ block, CIRange ci) →
     (∀ ci ∈ block, CIClosed ci) →
     (∀ ci ∈ block, isBlockKind ci = true ∧ okC ci.toConstantVal.type = true) →
-    InLean.checkBlockTailS .verified block q s₀ = .ok ((), s') →
-    CSOKIF s' ∧ ∃ F, ConLeche.checkBlockTail (ConLeche.fueledOps .verified F) (block.map trCI) cq = .ok ()
+    InLean.blockTables q.p q.p.members = some Q →
+    InLean.checkBlockTailS .verified block q Q s₀ = .ok ((), s') →
+    CSOKIF s' ∧ ∃ F cQ, ConLeche.blockTables cq.p cq.p.members = some cQ ∧
+      ConLeche.checkBlockTail (ConLeche.fueledOps .verified F) (block.map trCI) cq cQ = .ok ()
 
 /-- **The formers' environment after the pass**, the relation's environment
 part (rulings of 2026-11-08).  InLean's `env₁` is `fe` with the block's
@@ -207,14 +212,32 @@ stages): the environment and shape by `PassEnvRelI`, the parameters by `TrS`. -/
     (s : InLean.CState) (q : InLean.BlockPass) (cq : ConLeche.BlockPass ConLeche.Env) : Prop :=
   PassEnvRelI q cq ∧ cq.params = q.params.map (TrS s) ∧ D s q cq
 
+/-- Master's `blockTables` reads of the shape only its parameter count and level parameters. -/
+theorem cblockTables_shape {p p' : ConLeche.BlockShape} (hn : p.nP = p'.nP) (hl : p.lps = p'.lps) :
+    ∀ l, ConLeche.blockTables p l = ConLeche.blockTables p' l
+  | [] => rfl
+  | ms :: rest => by simp only [ConLeche.blockTables, hn, hl, cblockTables_shape hn hl rest]
+
 /-- **The pass and the tail together** from the two, at any relation. -/
 theorem passTailSimI_of {R : InLean.CState → InLean.BlockPass → ConLeche.BlockPass ConLeche.Env → Prop}
     (hP : PassSimI R) (hT : TailSimI R) : PassTailSimI := by
-  intro fe L block p₀ isRec s₀ s' hJ hs hr hcl hk hms hrecs hpre h
+  intro fe L block p₀ isRec s₀ s' hJ hs hr hcl hk hms hrecs hpre Q hQ h
   obtain ⟨q, s₁, h1, h2⟩ := bindI_ok h
-  obtain ⟨F₁, cq, hF₁, hs₁, hR⟩ := hP fe L p₀ isRec q s₀ s₁ hJ hs hms hrecs hpre h1
-  obtain ⟨hs', F₂, hF₂⟩ := hT block q cq s₁ s' hR hs₁ hr hcl hk h2
-  refine ⟨hs', max F₁ F₂, cq, ?_, ?_⟩
+  obtain ⟨F₁, cq, hF₁, hs₁, hR, hqm, hqn⟩ := hP fe L p₀ isRec q s₀ s₁ hJ hs hms hrecs hpre h1
+  have hQq : InLean.blockTables q.p q.p.members = some Q := by
+    rw [← hQ]
+    exact blockTables_congr hqn (lps_congr (by rw [hqm])) (by rw [hqm])
+  obtain ⟨hs', F₂, cQ, hcQ, hF₂⟩ := hT block q cq Q s₁ s' hR hs₁ hr hcl hk hQq h2
+  -- master's pass keeps the members and the parameter count
+  obtain ⟨-, -, -, -, -, -, hInd, -⟩ := ConLeche.checkBlockPass_inv hF₁
+  have hcm := ConLeche.checkBlockInds_members hInd
+  obtain ⟨-, -, -, s0, -, -, hp1, -⟩ := ConLeche.checkBlockInds_shape hInd
+  have hcn : cq.p.nP = (trShape p₀).nP := by rw [hp1]; rfl
+  have hcl' : cq.p.lps = (trShape p₀).lps := by
+    unfold ConLeche.BlockShape.lps; rw [hcm]
+  have hcQ' : ConLeche.blockTables (trShape p₀) (trShape p₀).members = some cQ := by
+    rw [← hcQ, ← hcm, cblockTables_shape hcn hcl']
+  refine ⟨hs', max F₁ F₂, cq, cQ, ?_, hcQ', ?_⟩
   · rw [← ConLeche.checkBlockPass_datF]
     exact FueledM.up (Nat.le_max_left _ _) (by rw [ConLeche.checkBlockPass_datF]; exact hF₁)
   · rw [← ConLeche.checkBlockTail_datF]

@@ -25,9 +25,9 @@ What differs, and why:
 * Inference of a constant checks the declaration's safety against the
   constant's (official `infer_constant`); con-leche checks safe
   declarations only.
-* A `Nat` literal computation the official kernel refuses (`natOpRefusal`,
-  `natResultRefused`) is an error here too, and so is the inference of a
-  literal past the size bound (`Limits.natMaxBytes`).
+* The refusals at the maximum `Nat` size (`natOpRefusal`,
+  `natResultRefused`, the inference of a literal past `Limits.maxNatSize`)
+  carry the official kernel's messages.
 * The official kernel's resource limits (`Limits`): the knot's fuel is the
   recursion bound, and every body runs behind the poll (`pollC`).
 -/
@@ -59,8 +59,8 @@ inductive LazyRes where
 @[irreducible, noinline] def whnfCoreLoopFuel : Nat := 4611686018427387904  -- 2^62
 /-- Twin of `whnfLoopFuel`. -/
 @[irreducible, noinline] def whnfLoopFuel : Nat := 4611686018427387904  -- 2^62
-/-- Twin of `lamsFuel`. -/
-@[irreducible, noinline] def lamsFuel : Nat := 4611686018427387904  -- 2^62
+/-- Twin of `bindersFuel`. -/
+@[irreducible, noinline] def bindersFuel : Nat := 4611686018427387904  -- 2^62
 /-- Twin of `unitLikeFuel`. -/
 @[irreducible, noinline] def unitLikeFuel : Nat := 4611686018427387904  -- 2^62
 /-- Twin of `defeqLoopFuel`. -/
@@ -207,7 +207,7 @@ def reduceNatI (r : CoreFnsI) (fe : FEnv) (depth : Nat) (e : Expr) :
           let w ← r.whnf depth b
           match rawNatLitC? w with
           | some n =>
-            if natSizeBytes (n + 1) > fe.limits.natMaxBytes then throw (.invalid natTooBigMsg)
+            if natSizeBytes (n + 1) > fe.limits.maxNatSize then throw (.invalid natTooBigMsg)
             pure (some (.lit (.natVal (n + 1))))
           | none => pure none
         else pure none
@@ -230,10 +230,10 @@ def reduceNatI (r : CoreFnsI) (fe : FEnv) (depth : Nat) (e : Expr) :
               let w₂ ← r.whnf depth b
               match rawNatLitC? w₂ with
               | some n₂ =>
-                if let some msg := natOpRefusal fe.limits.natMaxBytes cn n₁ n₂ then
+                if let some msg := natOpRefusal fe.limits.maxNatSize cn n₁ n₂ then
                   throw (.invalid msg)
                 let res := natOpResult cn n₁ n₂
-                if natResultRefused fe.limits.natMaxBytes cn res then throw (.invalid natTooBigMsg)
+                if natResultRefused fe.limits.maxNatSize cn res then throw (.invalid natTooBigMsg)
                 pure res
               | none => pure none
             | none => pure none
@@ -1101,7 +1101,7 @@ def inferBodyI (r : CoreFnsI) (fe : FEnv) : Nat → Expr → CheckCM Expr :=
         checkConstSafety fe n ci
         constTyAtM fe n us
     | .lit (.natVal n) => do
-      if natSizeBytes n > fe.limits.natMaxBytes then throw (.invalid natTooBigMsg)
+      if natSizeBytes n > fe.limits.maxNatSize then throw (.invalid natTooBigMsg)
       if natLitStoredF fe then pure (.const natName [])
       else throw (.invalid "Nat literal without the Nat basis declarations")
     | .lit (.strVal _) => do
@@ -1186,27 +1186,40 @@ def inferBodyIOI (r : CoreFnsI) (fe : FEnv) : Nat → Expr → CheckCM Expr :=
 section
 variable (mode : CheckMode)
 
-/-- Twin of `defeqLamsInnerI`. -/
-def defeqLamsInnerI (r : CoreFnsI) (depth : Nat) (b₁ b₂ : Expr) : CheckCM Bool := do
+/-- Twin of `defeqBindersInnerI`. -/
+def defeqBindersInnerI (r : CoreFnsI) (lam : Bool) (depth : Nat) (b₁ b₂ : Expr) :
+    CheckCM Bool := do
   unless ← r.defeq (depth + 1) b₁ b₂ do return false
-  if mode.verifiedChecks then do
+  if lam && mode.verifiedChecks then do
     let t₁ ← r.infer (depth + 1) b₁
     let t₂ ← r.infer (depth + 1) b₂
     unless ← r.defeq (depth + 1) t₁ t₂ do return false
   pure true
 
-/-- Twin of `defeqLamsI`. -/
-def defeqLamsI (r : CoreFnsI) : Nat → Nat → Expr → Expr → Expr → Expr → CheckCM Bool
-  | fuel, depth, ty₁, body₁, ty₂, body₂ => do
-    unless ← r.defeq depth ty₁ ty₂ do return false
-    let fv ← mkFVarM depth ty₂
-    let b₁ := body₁.inst1I fv
-    let b₂ := body₂.inst1I fv
-    match fuel, Expr.lamPair? b₁ b₂ with
+/-- Twin of `defeqDomainI`. -/
+def defeqDomainI (r : CoreFnsI) (depth : Nat) (fvs : Array Expr) (ty₁ ty₂ dom₂ : Expr) :
+    CheckCM Bool :=
+  if ty₁ == ty₂ then pure true else do
+    let dom₁ ← instListRevM ty₁ fvs
+    r.defeq depth dom₁ dom₂
+
+/-- Twin of `defeqBindersI` (the official `is_def_eq_binding`): the
+variables so far are an `Array`, outermost first, so that each opening is
+one `instantiateRev` walk over it. -/
+def defeqBindersI (r : CoreFnsI) (lam : Bool) :
+    Nat → Nat → Array Expr → Expr → Expr → Expr → Expr → CheckCM Bool
+  | fuel, depth, fvs, ty₁, body₁, ty₂, body₂ => do
+    let dom₂ ← instListRevM ty₂ fvs
+    unless ← defeqDomainI r depth fvs ty₁ ty₂ dom₂ do return false
+    let fv ← mkFVarM depth dom₂
+    let fvs' ← pure (fvs.push fv)
+    match fuel, Expr.binderPair? lam body₁ body₂ with
     | fuel + 1, some (ty₁', body₁', ty₂', body₂') =>
-      if b₁ == b₂ then pure true
-      else defeqLamsI r fuel (depth + 1) ty₁' body₁' ty₂' body₂'
-    | _, _ => defeqLamsInnerI mode r depth b₁ b₂
+      defeqBindersI r lam fuel (depth + 1) fvs' ty₁' body₁' ty₂' body₂'
+    | _, _ => do
+      let b₁ ← instListRevM body₁ fvs'
+      let b₂ ← instListRevM body₂ fvs'
+      defeqBindersInnerI mode r lam depth b₁ b₂
 
 /-- Twin of `quickDefEqI`. -/
 def quickDefEqI (r : CoreFnsI) (depth : Nat) (a b : Expr) : CheckCM (Option Bool) :=
@@ -1215,12 +1228,11 @@ def quickDefEqI (r : CoreFnsI) (depth : Nat) (a b : Expr) : CheckCM (Option Bool
   | .sort u, .sort v => do pure (some (← liftFueled "level comparison" (← isEquivLM u v)))
   | .lit l₁, .lit l₂ => pure (some (l₁ == l₂))
   | .forallE _ ty₁ body₁ _, .forallE _ ty₂ body₂ _ => do
-    unless ← r.defeq depth ty₁ ty₂ do return some false
-    let fv ← mkFVarM depth ty₂
-    unless ← r.defeq (depth + 1) (body₁.inst1I fv) (body₂.inst1I fv) do return some false
-    pure (some true)
+    let ok ← defeqBindersI mode r false bindersFuel depth #[] ty₁ body₁ ty₂ body₂
+    pure (some ok)
   | .lam _ ty₁ body₁ _, .lam _ ty₂ body₂ _ => do
-    pure (some (← defeqLamsI mode r lamsFuel depth ty₁ body₁ ty₂ body₂))
+    let ok ← defeqBindersI mode r true bindersFuel depth #[] ty₁ body₁ ty₂ body₂
+    pure (some ok)
   | _, _ => pure none
 
 /-- Twin of `deltaQuickI`. -/

@@ -30,10 +30,10 @@ theorem ruleAgreeI_run {fe : InLean.FEnv} {L : ConLeche.Env} (hJ : JobEnvI fe L)
     {rec ctor : Lean.Name} {lps : List Lean.Name} {sr g : Lean.Expr} {s₀ s' : InLean.CState}
     (hs : CSOKI .verified false L s₀) (hokS : okC sr = true) (hokG : okC g = true)
     (hlbbG : (trC g).looseBVarsBounded 0 = true)
-    (h : InLean.ruleAgree (sharedOpsC .verified fe) structWalkersC fe rec ctor lps sr g s₀ =
+    (h : InLean.ruleAgree (sharedOpsC .verified fe) fe rec ctor lps sr g s₀ =
       .ok ((), s')) :
     CSOKI .verified false L s' ∧ TabLe s₀ s' ∧
-      Runs (ConLeche.ruleAgree (ConLeche.fueledOpsM .verified) .plain (ConLeche.mkFEnv L)
+      Runs (ConLeche.ruleAgree (ConLeche.fueledOpsM .verified) (ConLeche.mkFEnv L)
         (toName rec) (toName ctor) (lps.map toName) (trC sr) (trC g)) () := by
   unfold InLean.ruleAgree at h
   have hth : ∀ {α : Type} {e : InLean.CheckError} {k : α → InLean.CheckCM Unit} {s : InLean.CState},
@@ -91,7 +91,7 @@ theorem ruleAgreeI_run {fe : InLean.FEnv} {L : ConLeche.Env} (hJ : JobEnvI fe L)
   obtain ⟨-, rfl⟩ := pureI_ok h
   refine ⟨hs₅, ht₂.trans (ht₃.trans (ht₄.trans ht₅)), ?_⟩
   unfold ConLeche.ruleAgree
-  simp only [ConLeche.StructWalkers.plain, ConLeche.mkFEnv_env, ConLeche.constsResolveF_eq, hlbb,
+  simp only [ConLeche.mkFEnv_env, ConLeche.constsResolveF_eq, hlbb,
     trC_hasFvar, hlp, gR, Bool.not_false, Bool.and_self, ↓reduceIte]
   refine Runs.bind hR2 (Runs.bind hR3 (Runs.bind hR4 ?_))
   simp only [↓reduceIte]
@@ -107,10 +107,10 @@ theorem streamRulesCheckI_run {fe : InLean.FEnv} {L : ConLeche.Env} (hJ : JobEnv
     ∀ (rs : List Lean.RecursorRule) (gs : List Lean.Expr) {s₀ s' : InLean.CState},
       CSOKI .verified false L s₀ → (∀ r ∈ rs, okC r.rhs = true) →
       (∀ g ∈ gs, okC g = true ∧ (trC g).looseBVarsBounded 0 = true) →
-      InLean.streamRulesCheck (sharedOpsC .verified fe) structWalkersC fe rec lps rs gs s₀ =
+      InLean.streamRulesCheck (sharedOpsC .verified fe) fe rec lps rs gs s₀ =
         .ok ((), s') →
       CSOKI .verified false L s' ∧ TabLe s₀ s' ∧
-        Runs (ConLeche.streamRulesCheck (ConLeche.fueledOpsM .verified) .plain (ConLeche.mkFEnv L)
+        Runs (ConLeche.streamRulesCheck (ConLeche.fueledOpsM .verified) (ConLeche.mkFEnv L)
           (toName rec) (lps.map toName) (rs.map trRule) (gs.map trC)) ()
   | r :: rs, g :: gs, s₀, s', hs, hr, hg, h => by
     unfold InLean.streamRulesCheck at h
@@ -209,10 +209,10 @@ theorem recDomsAtI_run {fe : InLean.FEnv} {L : ConLeche.Env} (hJ : JobEnvI fe L)
     unfold InLean.recDomsAt at h
     unfold ConLeche.recDomsAt
     obtain ⟨a, s₁, h1, hA⟩ := bind_run h
-    obtain ⟨ha, e1⟩ := unwrapOr_run h1
+    obtain ⟨ha, e1⟩ := unwrapOrI_run h1
     subst s₁
     obtain ⟨b, s₂, h2, hB⟩ := bind_run hA
-    obtain ⟨hb, e2⟩ := unwrapOr_run h2
+    obtain ⟨hb, e2⟩ := unwrapOrI_run h2
     subst s₂
     obtain ⟨ta, s₃, h3, hC⟩ := bind_run hB
     have hoa : OkS s₀ a = true := by
@@ -266,10 +266,10 @@ theorem recTyCheckI_run {fe : InLean.FEnv} {L : ConLeche.Env} (hJ : JobEnvI fe L
     {rec : Lean.Name} {lps : List Lean.Name} {n : Nat} {sT gT : Lean.Expr} {s₀ s' : InLean.CState}
     (hs : CSOKI .verified false L s₀) (hokS : okC sT = true) (hokG : okC gT = true)
     (hlbbG : (trC gT).looseBVarsBounded 0 = true)
-    (h : InLean.recTyCheck (sharedOpsC .verified fe) structWalkersC fe rec lps n sT gT s₀ =
+    (h : InLean.recTyCheck (sharedOpsC .verified fe) fe rec lps n sT gT s₀ =
       .ok ((), s')) :
     CSOKI .verified false L s' ∧ TabLe s₀ s' ∧
-      Runs (ConLeche.recTyCheck (ConLeche.fueledOpsM .verified) .plain (ConLeche.mkFEnv L)
+      Runs (ConLeche.recTyCheck (ConLeche.fueledOpsM .verified) (ConLeche.mkFEnv L)
         (toName rec) (lps.map toName) n (trC sT) (trC gT)) () := by
   unfold InLean.recTyCheck at h
   have hth : ∀ {α : Type} {e : InLean.CheckError} {k : α → InLean.CheckCM Unit} {s : InLean.CState},
@@ -346,7 +346,7 @@ theorem recTyCheckI_run {fe : InLean.FEnv} {L : ConLeche.Env} (hJ : JobEnvI fe L
   obtain ⟨-, rfl⟩ := pureI_ok h
   refine ⟨hs₇, ht₂.trans (ht₃.trans (ht₄.trans (ht46.trans ht₇))), ?_⟩
   unfold ConLeche.recTyCheck
-  simp only [ConLeche.StructWalkers.plain, ConLeche.mkFEnv_env, ConLeche.constsResolveF_eq, hlbb,
+  simp only [ConLeche.mkFEnv_env, ConLeche.constsResolveF_eq, hlbb,
     trC_hasFvar, hlp, gR, Bool.not_false, Bool.and_self, ↓reduceIte]
   refine Runs.bind hR2 (Runs.bind hR3 ?_)
   rw [hopS, hopG]
@@ -364,9 +364,9 @@ theorem streamRecCompareI_run {fe : InLean.FEnv} {L : ConLeche.Env} (hJ : JobEnv
     (hokS : okC rc.cvR.type = true) (hrl : ∀ r ∈ rc.rules, okC r.rhs = true)
     (hokG : okC g.1.type = true) (hlbbG : (trC g.1.type).looseBVarsBounded 0 = true)
     (hgr : ∀ r ∈ g.2.2, okC r = true ∧ (trC r).looseBVarsBounded 0 = true)
-    (h : InLean.streamRecCompare (sharedOpsC .verified fe) structWalkersC fe rc g s₀ = .ok ((), s')) :
+    (h : InLean.streamRecCompare (sharedOpsC .verified fe) fe rc g s₀ = .ok ((), s')) :
     CSOKI .verified false L s' ∧ TabLe s₀ s' ∧
-      Runs (ConLeche.streamRecCompare (ConLeche.fueledOpsM .verified) .plain (ConLeche.mkFEnv L)
+      Runs (ConLeche.streamRecCompare (ConLeche.fueledOpsM .verified) (ConLeche.mkFEnv L)
         (trRec rc) (trOut sx g)) () := by
   unfold InLean.streamRecCompare at h
   unfold ConLeche.streamRecCompare

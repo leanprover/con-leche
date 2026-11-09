@@ -69,12 +69,14 @@ exit, so the checker's soundness holds whatever they are.
   unfolding (`Event`); a limit it answers is the error.  The heartbeat
   budget, the cancellation token and the diagnostics' unfold counter live
   behind it (core's glue reads and writes the runtime).
-* `natMaxBytes`: the largest numeral the core computes or infers, in
-  bytes (`natSizeBytes`), official `LEAN_NAT_MAX_SIZE`. -/
+* `maxNatSize`: twin of con-leche's `maxNatSize` (the run's parameter,
+  `CState.maxNatSize`): the largest numeral the core computes or infers, in
+  bytes (`natSizeBytes`), official `LEAN_NAT_MAX_SIZE` (default 128 MiB,
+  `maxNatSizeDefault`). -/
 structure Limits where
   recDepth : Option Nat := none
   poll : Option (Event → Option Limit) := none
-  natMaxBytes : Nat := 128 * 1024 * 1024
+  maxNatSize : Nat := 134217728
 
 instance : Inhabited Limits := ⟨{}⟩
 

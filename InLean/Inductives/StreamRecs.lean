@@ -43,20 +43,20 @@ def recTyOpened (ops : CheckerOps) (env : FEnv) (rec : Name) (n : Nat) :
     throw (.internal s!"the generated type of the recursor {rec} has fewer than {n} binders")
 
 /-- Twin of `recTyCheck`. -/
-def recTyCheck (ops : CheckerOps) (w : StructWalkers) (fe : FEnv) (rec : Name)
+def recTyCheck (ops : CheckerOps) (fe : FEnv) (rec : Name)
     (lps : List Name) (n : Nat) (s g : Expr) : CheckCM Unit := do
   unless !s.hasLooseBVars && !s.hasFVar && !g.hasFVar do
     throw (.invalid s!"the type of the recursor {rec} is not closed")
   unless ← allLevelParamsDefined lps s do
     throw (.invalid s!"undeclared universe parameter in the type of the recursor {rec}")
-  unless ← w.resolve fe s do
+  unless ← constsResolveF fe s do
     throw (unresolvedConstsErrorL fe true s!"the type of the recursor {rec}" s)
   let st ← ops.inferType fe 0 s
   let _ ← ops.ensureSort fe 0 st
   recTyOpened ops fe rec n (← openPisAtFvars n s 0) (← openPisAtFvars n g 0)
 
 /-- Twin of `ruleAgree`. -/
-def ruleAgree (ops : CheckerOps) (w : StructWalkers) (fe : FEnv) (rec ctor : Name)
+def ruleAgree (ops : CheckerOps) (fe : FEnv) (rec ctor : Name)
     (lps : List Name) (s g : Expr) : CheckCM Unit := do
   unless !s.hasLooseBVars && !s.hasFVar && !g.hasFVar do
     throw (.invalid s!"the recursor {rec}'s rule for {ctor} has a right-hand side that is \
@@ -64,7 +64,7 @@ def ruleAgree (ops : CheckerOps) (w : StructWalkers) (fe : FEnv) (rec ctor : Nam
   unless ← allLevelParamsDefined lps s do
     throw (.invalid s!"the recursor {rec}'s rule for {ctor} has an undeclared universe \
       parameter")
-  unless ← w.resolve fe s do
+  unless ← constsResolveF fe s do
     throw (unresolvedConstsErrorL fe true s!"the recursor {rec}'s rule for {ctor}" s)
   let ts ← ops.inferType fe 0 s
   let tg ← ops.inferType fe 0 g
@@ -109,37 +109,37 @@ def streamRulesShape (rec : Name) : List RecursorRule → List (ConstantVal × N
       generated one ({cs.length} unmatched)")
 
 /-- Twin of `streamRulesCheck`. -/
-def streamRulesCheck (ops : CheckerOps) (w : StructWalkers) (fe : FEnv) (rec : Name)
+def streamRulesCheck (ops : CheckerOps) (fe : FEnv) (rec : Name)
     (lps : List Name) : List RecursorRule → List Expr → CheckCM Unit
   | r :: rs, g :: gs => do
     unless r.rhs == g do
-      ruleAgree ops w fe rec r.ctor lps r.rhs g
-    streamRulesCheck ops w fe rec lps rs gs
+      ruleAgree ops fe rec r.ctor lps r.rhs g
+    streamRulesCheck ops fe rec lps rs gs
   | [], [] => pure ()
   | _, _ => throw (.internal s!"the recursor {rec}: the generated rules are not one per stored rule")
 
 /-- Twin of `streamRecCompare`. -/
-def streamRecCompare (ops : CheckerOps) (w : StructWalkers) (fe : FEnv) (rc : RecShape)
+def streamRecCompare (ops : CheckerOps) (fe : FEnv) (rc : RecShape)
     (g : ConstantVal × TargetMajor × List Expr) : CheckCM Unit := do
   unless rc.cvR.type == g.1.type do
-    recTyCheck ops w fe g.1.name g.1.levelParams (rc.mI + 1) rc.cvR.type g.1.type
-  streamRulesCheck ops w fe g.1.name g.1.levelParams rc.rules g.2.2
+    recTyCheck ops fe g.1.name g.1.levelParams (rc.mI + 1) rc.cvR.type g.1.type
+  streamRulesCheck ops fe g.1.name g.1.levelParams rc.rules g.2.2
 
 /-- Twin of `streamRecCheck`. -/
-def streamRecCheck (ops : CheckerOps) (w : StructWalkers)
+def streamRecCheck (ops : CheckerOps)
     (fe : FEnv) (rc : RecShape) (g : ConstantVal × TargetMajor × List Expr) : CheckCM Unit := do
   streamRulesShape rc.cvR.name rc.rules g.2.1.ctors
   unless streamNestedOk rc.cvR.type rc.mI rc.rP (generatedFire g.2.1 rc.rP) do
     throw (.invalid s!"the recursor {rc.cvR.name}'s stored type does not apply its \
       major's container at the generated firing data")
-  streamRecCompare ops w fe rc g
+  streamRecCompare ops fe rc g
 
 /-- Twin of `streamRecsCheck`. -/
-def streamRecsCheck (ops : CheckerOps) (w : StructWalkers)
+def streamRecsCheck (ops : CheckerOps)
     (fe : FEnv) : List RecShape → List (ConstantVal × TargetMajor × List Expr) → CheckCM Unit
   | rc :: rcs, g :: gs => do
-    streamRecCheck ops w fe rc g
-    streamRecsCheck ops w fe rcs gs
+    streamRecCheck ops fe rc g
+    streamRecsCheck ops fe rcs gs
   | [], [] => pure ()
   | _, _ => throw (.internal "stored recursors: the generated family is not the records'")
 
