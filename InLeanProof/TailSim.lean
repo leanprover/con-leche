@@ -6,6 +6,7 @@ public import InLeanProof.DeclStep
 public import InLeanProof.StepPres
 /- `FEnv.push` (not exposed in `InLean/Push.lean`). -/
 import all InLean.Push
+import ConLeche.Verify.Cached.WalkersC
 /- `ConstantInfo.name` is read as a projection of `toConstantVal`. -/
 import all Lean.Declaration
 
@@ -261,6 +262,7 @@ theorem tailSimI (hC : CheckConstantValFSimI) (hRF : ReducedFormerSimI) :
       fun i hi => ?_⟩
     exact D.shape.steps ms hms c hcs i hi
   obtain ⟨cQ, hcQ, hrelQ⟩ := blockTables_tr p p.members hTM hQ
+  rw [ConLeche.Cached.blockTablesC_eq] at hcQ
   have hTpend : ∀ t ∈ Q, ∀ v, (InLean.consBlockCtorsF p env₁).find? t.structName =
       some (.inductInfo v) → (InLean.consBlockCtorsF p env₁).isPending v.name = true := by
     intro t ht v hv

@@ -5,6 +5,7 @@ public import InLeanProof.PassSim
 public import InLeanProof.RecFireTr
 public import ConLeche.Verify.Inductives.TargetAuxFire
 import ConLeche.Verify.Cached.BlockPushes
+import ConLeche.Verify.Cached.WalkersC
 import ConLeche.Verify.Denote.TeleOpen
 /- `ConstantInfo.name` is read as a projection of `toConstantVal`. -/
 import all Lean.Declaration
@@ -572,16 +573,18 @@ a closed reading of its constructor's type and the projection bodies in range
   ∀ c, ms.structCtor? = some c → okC c.1.type = true ∧
     ∀ i < c.2, projBodyOk ms.declared.name nP i c.1.type = true
 
-/-- One structure's bodies (`structProjBodies`): InLean's, built field by
-field at use (`projBodyAt`), read as master's (`projBodyAt_tr`). -/
+/-- One structure's bodies (`structProjBodies`, the twin of master's cached
+`structProjBodiesC`): InLean's one walk, entry by entry the body `projBodyAt` builds
+(`structProjBodies_eq_fields`), read as master's (`projBodyAt_tr`). -/
 theorem structProjBodies_tr {T : Name} {nP nF : Nat} {cty : Lean.Expr} (hok : okC cty = true)
     (hsteps : ∀ i < nF, projBodyOk T nP i cty = true) {bs : Array Lean.Expr}
     (h : InLean.structProjBodies T nP nF cty = some bs) :
-    ∃ cbs, ConLeche.structProjBodies (toName T) nP nF (trC cty) = some cbs ∧
+    ∃ cbs, ConLeche.Cached.structProjBodiesC (toName T) nP nF (trC cty) = some cbs ∧
       cbs.toList = bs.toList.map trC ∧ ∀ b ∈ bs.toList, okC b = true ∧ Expr.RangeOk b := by
+  rw [ConLeche.Cached.structProjBodiesC_eq]
   have hc : toExprC cty = some (trC cty) := toExpr_of_okE _ hok
   have hbs' := h
-  unfold InLean.structProjBodies at hbs'
+  rw [structProjBodies_eq_fields] at hbs'
   cases hpis : hasPis (nP + nF) cty
   · rw [hpis] at hbs'; cases hbs'
   simp only [hpis, ↓reduceIte] at hbs'
@@ -634,11 +637,11 @@ theorem structProjBodies_tr {T : Name} {nP nF : Nat} {cty : Lean.Expr} (hok : ok
     have hr := projBodyAt_range (hsteps i hi') hb2
     exact ⟨(trC_of_toExprC hb'2 hr).1, hr⟩
 
-/-- **The block's tables, InLean's read as master's** (`blockTables`). -/
+/-- **The block's tables, InLean's read as master's cached `blockTablesC`**. -/
 theorem blockTables_tr (p : InLean.BlockShape) :
     ∀ (l : List InLean.MemberShape) {Q : List InLean.ProjTable},
       (∀ ms ∈ l, TableMemberOk p.nP ms) → InLean.blockTables p l = some Q →
-      ∃ cQ, ConLeche.blockTables (trShape p) (l.map trMember) = some cQ ∧
+      ∃ cQ, ConLeche.Cached.blockTablesC (trShape p) (l.map trMember) = some cQ ∧
         ProjTablesRelI Q cQ
   | [], Q, _, h => by
     simp only [InLean.blockTables, Option.some.injEq] at h
@@ -646,7 +649,7 @@ theorem blockTables_tr (p : InLean.BlockShape) :
     exact ⟨[], rfl, ProjTablesRelI.nil⟩
   | ms :: rest, Q, hms, h => by
     simp only [InLean.blockTables] at h
-    simp only [List.map_cons, ConLeche.blockTables, structCtor_tr]
+    simp only [List.map_cons, ConLeche.Cached.blockTablesC, structCtor_tr]
     cases hsc : ms.structCtor? with
     | none =>
       simp only [hsc] at h

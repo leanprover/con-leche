@@ -395,6 +395,13 @@ def FEnv.hasTable (fe : FEnv) (T : Name) : Bool :=
     | _ => false
   | _ => false
 
+/-- Twin of `Expr.peelPis`. -/
+def peelPis : Nat → Expr → Option Expr
+  | 0, e => some e
+  | k + 1, .forallE _ _ b _ => peelPis k b
+  | k + 1, .mdata _ e => peelPis (k + 1) e
+  | _ + 1, _ => none
+
 /-- Twin of `Expr.binderDom`. -/
 def binderDom : Nat → Expr → Option Expr
   | k, .mdata _ e => binderDom k e
@@ -416,12 +423,25 @@ a time, to the same term). -/
 def projBodyAt (T : Name) (nP i : Nat) (cty : Expr) : Option Expr :=
   (binderDom (nP + i) cty).map (·.instRevI (projBodyArgs T nP i))
 
-/-- Twin of `structProjBodies`: every field's body (the block check's
-`checkBlockTablesF` reads them all). -/
+/-- **Twin of `structProjBodiesGoC`**: one walk of the field telescope, threading the values
+the next domain is instantiated at (`vs`: the parameters' variables, then the earlier fields'
+projections, in telescope order, `projBodyArgs`); field `i`'s domain instantiated once. -/
+def structProjBodiesGo (T : Name) (vs : Array Expr) : Nat → Nat → Expr → Option (List Expr)
+  | 0, _, _ => some []
+  | k + 1, i, .forallE _ fdom body _ =>
+    (structProjBodiesGo T (vs.push (.proj T i (mkBvar 0))) k (i + 1) body).map
+      (fdom.instRevI vs :: ·)
+  | k + 1, i, .mdata _ e => structProjBodiesGo T vs (k + 1) i e
+  | _ + 1, _, _ => none
+
+/-- **Twin of `structProjBodiesC`**: every field's body in one walk of the constructor's
+telescope (the block check's `checkBlockTablesC` reads them all); field `i`'s is
+`projBodyAt T nP i` (`structProjBodies_eq_fields`). -/
 def structProjBodies (T : Name) (nP nF : Nat) (cty : Expr) : Option (Array Expr) :=
-  if hasPis (nP + nF) cty then
-    (List.range nF).toArray.mapM fun i => projBodyAt T nP i cty
-  else none
+  match peelPis nP cty with
+  | some r =>
+    (structProjBodiesGo T ((Array.range nP).map fun k => mkBvar (nP - k)) nF 0 r).map List.toArray
+  | none => none
 
 /-- **Every projection body of `T`'s table is in range** (`EO.inRange`), the
 table read as `findProj?` reads it.  Not a twin: `projBodyAt` instantiates

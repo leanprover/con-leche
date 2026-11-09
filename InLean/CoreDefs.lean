@@ -84,13 +84,6 @@ def piResult : Expr → Expr
   | .forallE _ _ b _ => piResult b
   | e => e
 
-/-- Twin of `Expr.peelPis`. -/
-def peelPis : Nat → Expr → Option Expr
-  | 0, e => some e
-  | k + 1, .forallE _ _ b _ => peelPis k b
-  | k + 1, .mdata _ e => peelPis (k + 1) e
-  | _ + 1, _ => none
-
 /-- Twin of `teleArityOk`. -/
 def teleArityOk (ty : Expr) (args : List Expr) : Bool := (peelPis args.length ty).isSome
 

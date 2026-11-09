@@ -659,7 +659,7 @@ theorem cblockTables_isSome (p : InLean.BlockShape) :
       | some bodies =>
         simp only [hsc, hb, Option.bind_some, Option.isSome_map] at h
         have hpis : hasPis (p.nP + c.2) c.1.type = true := by
-          unfold InLean.structProjBodies at hb
+          rw [structProjBodies_eq_fields] at hb
           split at hb
           · assumption
           · cases hb

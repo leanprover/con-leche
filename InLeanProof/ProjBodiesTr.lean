@@ -404,4 +404,129 @@ theorem projBodyAt_tr {T : Name} {nP nF i : Nat} {cty : Expr} {ccty : ConLeche.E
   rw [Array.getD_eq_getD_getElem?, List.getElem?_toArray, ← List.getD_eq_getElem?_getD, hent]
   simp [List.reverse_append]
 
+/-! ## InLean's one walk is its field-by-field reading
+
+`structProjBodies` walks the field telescope once (`structProjBodiesGo`, master's
+`structProjBodiesGoC`'s twin); field `i`'s entry is the body `projBodyAt` builds for that field
+alone, which the readings above are stated for. -/
+
+/-- The subject's projections of fields `i, …, i + j - 1`. -/
+@[expose] def projsFrom (T : Name) (i j : Nat) : Array Expr :=
+  (Array.range j).map fun t => .proj T (i + t) (.bvar 0)
+
+theorem projsFrom_zero (T : Name) (i : Nat) : projsFrom T i 0 = #[] := by simp [projsFrom]
+
+theorem projsFrom_succ (T : Name) (i j : Nat) (vs : Array Expr) :
+    vs ++ projsFrom T i (j + 1) = vs.push (.proj T i (.bvar 0)) ++ projsFrom T (i + 1) j := by
+  apply Array.ext_getElem?
+  intro n
+  simp only [projsFrom, Array.getElem?_append, Array.size_push,
+    Array.getElem?_map, Array.getElem?_range, Array.getElem?_push]
+  by_cases h1 : n < vs.size
+  · have : n < vs.size + 1 := by omega
+    simp [h1, this, Nat.ne_of_lt h1]
+  · by_cases h2 : n = vs.size
+    · subst h2; simp
+    · have h3 : ¬ n < vs.size + 1 := by omega
+      simp only [h1, ↓reduceIte, h3]
+      have e1 : n - vs.size = (n - (vs.size + 1)) + 1 := by omega
+      rw [e1]
+      by_cases h4 : n - (vs.size + 1) < j
+      · simp [h4, show n - (vs.size + 1) + 1 < j + 1 by omega]; omega
+      · simp [h4, show ¬ n - (vs.size + 1) + 1 < j + 1 by omega]
+
+/-- **The walk, entry by entry**: from field `i` at the values `vs`, the walk over `k` fields
+of `e` answers each field's domain instantiated at `vs` and the subject's projections of the
+fields before it, where `e` binds `k` `∀`s. -/
+theorem structProjBodiesGo_eq (T : Name) : ∀ (k i : Nat) (e : Expr) (vs : Array Expr),
+    InLean.structProjBodiesGo T vs k i e =
+      if hasPis k e then
+        (List.range k).mapM fun j => (binderDom j e).map (·.instRevI (vs ++ projsFrom T i j))
+      else none
+  | 0, i, e, vs => by simp [InLean.structProjBodiesGo, hasPis]
+  | k + 1, i, .forallE n fdom body bi, vs => by
+    rw [InLean.structProjBodiesGo, structProjBodiesGo_eq T k (i + 1) body]
+    simp only [hasPis]
+    by_cases hk : hasPis k body = true
+    · simp only [hk, ↓reduceIte]
+      rw [List.range_succ_eq_map, List.mapM_cons, List.mapM_map]
+      have h0 : (binderDom 0 (.forallE n fdom body bi)).map (·.instRevI (vs ++ projsFrom T i 0)) =
+          some (fdom.instRevI vs) := by simp [binderDom, projsFrom_zero]
+      have hs : ((fun j => (binderDom j (.forallE n fdom body bi)).map
+            (·.instRevI (vs ++ projsFrom T i j))) ∘ Nat.succ) =
+          fun j => (binderDom j body).map
+            (·.instRevI (vs.push (.proj T i (mkBvar 0)) ++ projsFrom T (i + 1) j)) := by
+        funext j; simp [binderDom, projsFrom_succ]
+      rw [h0, hs]
+      generalize List.mapM (fun j => (binderDom j body).map
+        (·.instRevI (vs.push (.proj T i (mkBvar 0)) ++ projsFrom T (i + 1) j))) (List.range k) = X
+      cases X <;> rfl
+    · simp [hk]
+  | k + 1, i, .mdata m e, vs => by
+    rw [InLean.structProjBodiesGo, structProjBodiesGo_eq T (k + 1) i e]
+    have hb : (fun j => (binderDom j (.mdata m e)).map (·.instRevI (vs ++ projsFrom T i j))) =
+        fun j => (binderDom j e).map (·.instRevI (vs ++ projsFrom T i j)) := by
+      funext j; simp only [binderDom]
+    rw [hb]
+    by_cases hk : hasPis (k + 1) e = true <;> simp [hk, hasPis]
+  | _ + 1, _, .bvar _, _ | _ + 1, _, .fvar _, _ | _ + 1, _, .mvar _, _ | _ + 1, _, .sort _, _
+  | _ + 1, _, .const _ _, _ | _ + 1, _, .app _ _, _ | _ + 1, _, .lam _ _ _ _, _
+  | _ + 1, _, .letE _ _ _ _ _, _ | _ + 1, _, .lit _, _ | _ + 1, _, .proj _ _ _, _ => by
+    simp [InLean.structProjBodiesGo, hasPis]
+
+theorem peelPis_hasPis : ∀ (n k : Nat) (e : Expr),
+    hasPis (n + k) e = match peelPis n e with | some r => hasPis k r | none => false
+  | 0, k, e => by simp [peelPis]
+  | n + 1, k, .forallE _ _ b _ => by
+    rw [show n + 1 + k = (n + k) + 1 by omega]
+    simp only [hasPis, peelPis]; exact peelPis_hasPis n k b
+  | n + 1, k, .mdata _ e => by
+    have := peelPis_hasPis (n + 1) k e
+    rw [show n + 1 + k = (n + k) + 1 by omega] at this ⊢
+    simp only [hasPis, peelPis]; exact this
+  | n + 1, k, .bvar _ | n + 1, k, .fvar _ | n + 1, k, .mvar _ | n + 1, k, .sort _
+  | n + 1, k, .const _ _ | n + 1, k, .app _ _ | n + 1, k, .lam _ _ _ _
+  | n + 1, k, .letE _ _ _ _ _ | n + 1, k, .lit _ | n + 1, k, .proj _ _ _ => by
+    rw [show n + 1 + k = (n + k) + 1 by omega]; simp [hasPis, peelPis]
+
+theorem peelPis_binderDom : ∀ (n k : Nat) (e r : Expr), peelPis n e = some r →
+    binderDom (n + k) e = binderDom k r
+  | 0, k, e, r, h => by simp only [peelPis, Option.some.injEq] at h; subst h; simp
+  | n + 1, k, .forallE _ _ b _, r, h => by
+    rw [show n + 1 + k = (n + k) + 1 by omega]
+    simp only [peelPis] at h; simp only [binderDom]; exact peelPis_binderDom n k b r h
+  | n + 1, k, .mdata _ e, r, h => by
+    simp only [peelPis] at h; simp only [binderDom]; exact peelPis_binderDom (n + 1) k e r h
+  | _ + 1, _, .bvar _, _, h | _ + 1, _, .fvar _, _, h | _ + 1, _, .mvar _, _, h
+  | _ + 1, _, .sort _, _, h | _ + 1, _, .const _ _, _, h | _ + 1, _, .app _ _, _, h
+  | _ + 1, _, .lam _ _ _ _, _, h | _ + 1, _, .letE _ _ _ _ _, _, h | _ + 1, _, .lit _, _, h
+  | _ + 1, _, .proj _ _ _, _, h => by simp [peelPis] at h
+
+theorem projBodyArgs_eq (T : Name) (nP i : Nat) :
+    projBodyArgs T nP i = (Array.range nP).map (fun k => mkBvar (nP - k)) ++ projsFrom T 0 i := by
+  simp [projBodyArgs, projsFrom]
+
+/-- **InLean's one walk is its field-by-field reading** (`projBodyAt` at every field), where
+the constructor's type binds the parameters and the fields. -/
+theorem structProjBodies_eq_fields (T : Name) (nP nF : Nat) (cty : Expr) :
+    InLean.structProjBodies T nP nF cty =
+      if hasPis (nP + nF) cty then (List.range nF).toArray.mapM fun i => projBodyAt T nP i cty
+      else none := by
+  unfold InLean.structProjBodies
+  rw [peelPis_hasPis]
+  cases hp : peelPis nP cty with
+  | none => rfl
+  | some r =>
+    simp only
+    rw [structProjBodiesGo_eq]
+    split
+    · rw [List.mapM_toArray]
+      have : ((List.range nF).mapM fun j => (binderDom j r).map
+            (·.instRevI ((Array.range nP).map (fun k => mkBvar (nP - k)) ++ projsFrom T 0 j))) =
+          (List.range nF).mapM fun i => projBodyAt T nP i cty := by
+        congr 1; funext j
+        simp only [projBodyAt, peelPis_binderDom nP j cty r hp, projBodyArgs_eq]
+      rw [this]; rfl
+    · rfl
+
 end InLeanProof
