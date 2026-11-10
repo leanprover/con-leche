@@ -3012,6 +3012,11 @@
 # k_skip_open_cast_lit: an unchecked cast puts a `Nat` literal at
 # `Bool.rec`'s major; reject at every switch value.
 1 k_skip_open_cast_lit.ndjson
+# k_skip_open_eta: structure η at `h ▸ p` under `h : a = b`; an honest
+# export.  `.skipAll` reduces the cast, the reduct's type is `Fin a × Nat`,
+# η's type comparison fails: it REJECTS what official accepts (the shape
+# of its Mathlib rejection).  Target: accept.
+0 k_skip_open_eta.ndjson
 # acc_major_reduce (task #333 audit): the one place a proof is still
 # head-normalized — the major premise of a large eliminator over a
 # non-K inductive proposition (`Acc'.rec` into `Nat` on a `def`-proved
