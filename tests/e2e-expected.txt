@@ -3409,3 +3409,36 @@
 # against `Fin (n + 1)` under a binder); `.skipClosed` and `.skipAll`
 # reject what official accepts.  Target: accept.
 0 k_skip_closed_eta.ndjson
+# -- task #423 completeness: the ground engine's steps for the incumbent's whnf
+# at the `t =?= Bool.true` site, and no fallback (groundMode 10).  Verdicts at
+# the default build (engine off); each source states the engine-on verdict.
+# ground_eta_neutral: structure η at a closed neutral (Classical.choice) major.
+# Accepted (official too); engine on: the engine's η step.  Target 0.
+0 ground_eta_neutral.ndjson
+# ground_and_rescue: And.rec on a theorem (the incumbent's And rescue).
+# Accepted (official v4.29.1 too); engine on: the engine's And fabrication.
+# Target 0.
+0 ground_and_rescue.ndjson
+# ground_case3: And.rec on And.intro (case 3, accepted) and Acc.rec on the
+# elaborator's abstracted proof kAcc._proof_1 (a theorem, never unfolded:
+# stuck, rejected; official unfolds it and accepts).  Engine on: case 3 at
+# And.intro; t_acc handed back to the incumbent, rejected.
+# Target 1 (con-leche does not reduce proofs).
+1 ground_case3.ndjson
+# ground_nat_pow: Nat.pow 1 / 0 at exponent 2^25 (the maximum-size bound,
+# lean4#14849, task #519; the v4.29.1 kernel rejects by its old 2^24 bound).
+# Accepted; engine on: computed by the engine.  Target 0.
+0 ground_nat_pow.ndjson
+# ground_nat_pow_refused: Nat.pow 2 (2^32): the exponent does not fit in 32
+# bits, refused, rejected (official too).  Engine on: the engine's refusal
+# hands back to the incumbent, which raises it.  Target 1.
+1 ground_nat_pow_refused.ndjson
+# ground_stuck_bool: Classical.choice ⟨true⟩ = true: stuck, rejected (official
+# too).  Engine on: the engine's stuck value answers false, no fallback.
+# Target 1.
+1 ground_stuck_bool.ndjson
+# ground_acc_def: Acc.rec on a proof argument a definition reduces to
+# Acc.intro: the incumbent fires case 3 and accepts (official too).  Engine on:
+# the erased major has no η, the engine hands back ("struct-eta major") and the
+# incumbent accepts; without the hand-back it would answer false.  Target 0.
+0 ground_acc_def.ndjson

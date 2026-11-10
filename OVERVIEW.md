@@ -1407,7 +1407,7 @@ instead of trusting the operation's name.
   when `a > 0` and the size of `a` plus `b / 8` plus 1 does; both also
   refuse a second argument that does not fit in 32 bits. A refusal
   rejects the declaration
-  ([function `natOpRefusal` in `ConLeche/Cached/StateC.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Cached/StateC.lean#L160-L172)).
+  ([function `natOpRefusal` in `ConLeche/Cached/StateC.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Cached/StateC.lean#L154-L166)).
   Within the maximum size every operation folds, whatever the exponent:
   the specification's reduct is the computation itself
   ([function `natOpResult` in `ConLeche/Kernel/CoreDefs.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/CoreDefs.lean#L585-L605)),

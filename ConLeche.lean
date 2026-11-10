@@ -40,5 +40,6 @@ public import ConLeche.Verify.Denote.AcvalCongr
 public import ConLeche.Verify.Denote.EnvExtend
 public import ConLeche.Verify.Denote.ErasedEq
 public import ConLeche.Verify.Denote.ConstsBound
+public import ConLeche.Verify.GroundComplete
 
 @[expose] public section

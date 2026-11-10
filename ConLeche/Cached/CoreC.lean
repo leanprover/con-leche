@@ -1522,8 +1522,9 @@ incumbent path) at `groundMode = 0`; the compiled program is threaded
 through `CState.ground3`. -/
 @[inline] def groundGateM (eager : Bool) (fe : FEnv) (a b : Expr) : CheckCM (Option Bool) :=
   if groundMode == 0 then pure none else do
+    let maxNat ← maxNatSizeM
     let P ← modifyGet fun s => ((s.ground3, s.ground4), { s with ground3 := {}, ground4 := {} })
-    let (r, P) := groundShortcut eager fe P a b
+    let (r, P) := groundShortcut eager fe maxNat P a b
     modify fun s => { s with ground3 := P.1, ground4 := P.2 }
     pure r
 

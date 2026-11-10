@@ -113126,3 +113126,110 @@ Estimate: 0.05–0.1 k lines (one transition lemma), on top of round 4's 4.7–7
 #### K.7 Gates (engine off)
 
 `lake build` and `lake test` are warning-free.  `tests/arena.sh --no-sweeps` is green: e2e 586/586, tutorial 90/92 as on master, olean 122/122, self-check accepted.  The exception is the `plain-reach` report the base `agent/423-hash` already carries (`03822f5e0`, the vendored literal hash: `Literal.hash`, `natHash`, `natHashWordBound` and `natBigHash` are reached from `checkDeclKindC`, `defeqOffsetI`, `gRun` and `litToCtorIfNatI`), which belongs to that lane.
+
+### #423 completeness: the engine without fallback, and what completeness needs (2026-11-10, agent/423-kmajor)
+
+**The task** (maintainer, via the coordinator):
+* Make the ground engine complete for the steps the incumbent's `whnf` takes at the `t =?= Bool.true` site (`t` closed, of type `Bool`), and drop the fallback.  Completeness is enough there: `true` accepts, while `false` or a stuck closed neutral means "not definitionally equal", since `Bool` has no η, unit-like or proof-irrelevance rule.
+* State completeness against the incumbent's deterministic `whnf`, plan its proof, and prove what is feasible now.
+
+**The verdict, first.**
+* **No aborts** on any measured input: 11 296 site calls on the 20 grind streams and 463 on the four CFSG modules, all `Bool.true`.
+* **No verdict differences** against the fallback version (the previous commit's engine) on 778 inputs: every e2e fixture, including the new ones, and every arena test.
+* **Cost** against the fallback version: the 20 streams +0.00–0.14 %; SpanChk +0.07 %, CCK4 +0.08 %, McLEnumA +0.54 %; Adj56 293.07 G (was 292.97).
+* **One corner hands back** to the incumbent (§C.2).  The incumbent's own errors are handed back too, so that it raises them.  Everything else is the engine's answer.
+* **Completeness is stated in Lean** (`ConLeche/Verify/GroundComplete.lean`), with the answer map and the literal fragment proved (no `sorry`).  The simulation is planned, about 3–4.5 k lines beyond what the soundness proof shares (§C.5).
+
+#### C.1 The steps added (`ConLeche/Cached/Ground4.lean`, `groundMode` 10–12; round 4 stays at 13/14)
+
+| R2.4's abort | now | mirrors |
+|---|---|---|
+| K major | the K step (previous record) | `Red.iotaK` (#552) |
+| structure-η major (non-`Prop`) | at a neutral major of a single-rule recursor, the constructor on the recursor's leading arguments (the parameters) with neutral fields (a stuck major's projections are stuck), then ι.  The condition `g4EtaFab` is read at table time, at the rule's comparand levels: `etaRescueOk`, the reserved names, every field a projection slot, the parameter count, and a family sort never zero there, read off its type.  The entry is in the recursor's `kCode` slot. | the incumbent's η rescue, without inference: the family and parameters come from the recursor, not the major's type |
+| `And` major (not a constructor) | the same fabrication (`andRescueSlotsOf`; the proof fields neutral) | the incumbent's `And` rescue; the official v4.29.1 kernel accepts the fixture too |
+| ι case 3 (a family that may be `Prop`) at a constructor major | fired without the incumbent's certificates | official's `inductive_reduce_rec`, which checks nothing |
+| `Nat.pow` beyond 2^24 | official's maximum-size bound (`g4NatPreRefuses` for `pow`/`shiftLeft` before computing; `g4SizeOver` on the `add`/`sub`/`mul` result).  A refusal hands back, and the incumbent raises the same error. | `natOpRefusal`, `natResultRefused` (task #519) |
+| a well-founded `Nat` operation | the engine already accelerates all fourteen certified operations (`natBin14`: `div`, `mod`, `gcd`, `land`, `lor`, `xor` and the shifts included).  The "wf" path is only the capability-absent safety net, where the incumbent declines: hand back. | `natOpWfNames` |
+| the fallback | `g4SiteAnswer`: a computed `Bool` is the answer; any other outcome is `false`, except the hand-back reasons | — |
+
+* **Case 3 does not fall away for today's Lean.**  "Proofs never reduce" holds in con-leche for theorems: a theorem has no value for `whnf`.  It does not hold for proofs built by definitions or written as constructor applications.  Two cases remain:
+  - ι at a family that may be `Prop`, at a constructor major: `And.rec (And.intro p q)`, `Acc.rec (Acc.intro x h)`.  The engine fires these as official does.  After the renovation (§ the #337/#349 table: `Acc` without large elimination, `And` on the η path) only the η-path families remain, and the engine fabricates for them anyway.
+  - `Acc`-like families (large elimination, not K, not η) on a major the engine erased as a proof argument, while the incumbent reduces it by δ to `Acc.intro` (`ground_acc_def`).  This is the hand-back corner (§C.2).
+* **The cost was the size test at first**: computing the result twice and taking `Nat.log2` of every result put McLEnumA at +0.85 % and CCK4 at +0.75 %.  Each result is now computed once, with a one-word fast path (`g4Word`, hoisted).  That brought them to +0.54 % and +0.08 %.  The remaining McLEnumA difference has identical transition and dispatch counts (4 266.5 M / 345.0 M).  On CCK4, `perf record` put most of the binary-to-binary difference in the olean reader (`Region.locGo`, `usesGo`, `frontierWalk`), code both binaries share, so part of it is layout.
+
+#### C.2 What hands back (`g4SiteAnswer`)
+
+1. **"refuse"**: the maximum `Nat` size; the incumbent raises the error.
+2. **"wf nat op"**: the capability-absent safety net; the incumbent declines.
+3. **"fuel", "black hole"**: termination devices; never reached at `groundFuel = 2^62`.
+4. **"struct-eta major"**: a stuck major at a single-rule recursor with no η fabrication.  That is an `Acc`-like family whose major the engine erased as a proof (the incumbent may reduce it by δ), or a structure whose sort is not read off its type (the incumbent walks it with `whnf`).  Answering `false` here was a real regression: `ground_acc_def` went from accepted to rejected, so it hands back.
+
+Everything else that is not `Bool.true` answers `false`.  That covers `Bool.false`, a stuck neutral (`ground_stuck_bool`) and shapes no rule reads ("no rule", "ctor arity", "proj shape", a literal without the `Nat`/`String` basis).  In each of these the incumbent is stuck too.
+
+#### C.3 Fixtures (`tests/e2e/src/ground_*.lean`; today = engine off, the recorded verdict)
+
+| fixture | today | engine on (`c3`) | fallback engine | official (v4.29.1) |
+|---|---|---|---|---|
+| `ground_eta_neutral` (`Prod.rec`/`Wrap.rec` on `Classical.choice …`) | 0 | 0 (η step) | 0 (abort → incumbent) | 0 |
+| `ground_and_rescue` (`And.rec` on a theorem) | 0 | 0 (fabrication) | 0 (abort) | 0 |
+| `ground_case3` (`And.rec (And.intro …)`; `Acc.rec` on the elaborator's abstracted `kAcc._proof_1`) | 1 | 1 (case 3 fired; `t_acc` handed back) | 1 | 0 (official unfolds the theorem) |
+| `ground_nat_pow` (`Nat.pow 1/0 (2^25)`) | 0 | 0 (computed) | 0 (abort "nat pow bound") | 1 (its old 2^24 bound, "deep recursion"; lean4#14849's bound accepts) |
+| `ground_nat_pow_refused` (`Nat.pow 2 (2^32)`) | 1 | 1 (refusal handed back) | 1 | 1 |
+| `ground_stuck_bool` (`Classical.choice ⟨true⟩ = true`) | 1 | 1 (`false`, no fallback) | 1 | 1 |
+| `ground_acc_def` (`Acc.rec` on a definition reducing to `Acc.intro`, passed as a proof argument) | 0 | 0 (handed back) | 0 | 0 |
+
+The four `ground_k_*` fixtures of the K record are unchanged.
+
+#### C.4 Measurements (G instructions:u, one run each; fallback = the previous commit's engine, `v4k`)
+
+| | round 4 | fallback | **no fallback (`c3`)** | site calls / not `true` | K steps |
+|---|---|---|---|---|---|
+| SpanChk | 212.6 | 212.85 | **213.00** | 13 / 0 | 0 |
+| CCK4 | 676.5 | 676.66 | **677.23** | 47 / 0 | 0 |
+| McLEnumA | 1979.0 | 1988.20 | **1998.90** | 264 / 0 | 0 |
+| Adj56 | 643.2 | 292.97 | **293.07** | 139 / 0 | 86 766 |
+
+* Adj56, no fallback: wall 48.1 s median [43.9–49.1], at load 9.5, 11.7, 20.0, 14.3, 12.6 (the fallback version's 33.7 s ran at load 8.6–12.7; the instructions are the measure).  VmHWM 8.18 GiB; `adjCheckL_six` 34.9 s [32.3–37.6], `adjCheckL_five` 2.3 s [1.5–3.4]; 503.95 M transitions.
+* The 20 grind streams (nightly 2026-10-30 exports, `--jobs=1`): all accepted in both versions.  Against the fallback version: +0.00 to +0.14 % (grind_field_kernel_cancel +0.14 %, all others ≤ +0.04 %).  11 296 site calls, all `Bool.true`.
+
+#### C.5 Completeness: the statement, the plan, the estimate
+
+**The statement** (`ConLeche/Verify/GroundComplete.lean`):
+* `siteEval fe maxNat fuel t`: the engine at the site, a fresh program, an explicit fuel (the engine core is `ground4BoolCoreF`, and `ground4BoolCore` is it at `groundFuel`).
+* `IncumbentWhnfTrue mode fe fuel depth t s`: the cached core's plain-tower `whnf` of `t` from state `s` returns `Bool.true`.
+* **`SiteNeverFalse`**: for closed `t` (`hasFvar = false`, `looseBVarsBounded 0`), `IncumbentWhnfTrue … → siteEval fe s.maxNatSize groundFuel t ≠ some false`.  This is the property the fallback's removal needs.
+* **`SiteComplete`**: with `NoHandBack` (the engine's run stops at no hand-back reason) besides, `∃ n, siteEval fe s.maxNatSize n t = some true`.
+
+Both are stated against the incumbent's `whnf`, not against `Red`, so no standardisation argument is needed.  Going from the comparison `t =?= Bool.true` returning `true` to `whnf t = Bool.true` is a lemma about the incumbent alone: its `defeq` against a constructor of a type with neither η nor proof irrelevance.
+
+**Proved now** (no `sorry`):
+* `g4SiteAnswer_eq_some_true`: the site answers `true` only where the engine computed `true`.  The no-fallback map never manufactures a `true`; that is the soundness half of dropping the fallback.
+* The literal fragment: `g4NatVal_natOpResult` and `g4NatBool_natOpResult` (the engine's operation on two literals is official's `natOpResult`, all 14 operations), `g4NatPreRefuses_iff`, `natOpRefusal_other` and `g4SizeOver_natResultRefused` (its refusals are the cached core's), and `g4SizeOver_eq` (the fast path).
+
+**The plan** (the template is the reduction correspondence lemma of Felicissimo et al., 2026, §6: every typed step `t ⇝ u` gives `|t| ↦ |u|` or `|t| = |u|`; we start from the incumbent's actual successful run, so their canonicity is not needed):
+1. **The incumbent's run as a trace**: `whnf t = v` (cached; transported to the spec by the existing `Verify/Cached` simulation) gives a finite sequence of head steps `HeadStep env t t'`:
+   - β, ζ, δ (`unfoldDefinition`, levels checked);
+   - projection on a constructor;
+   - ι with the prepared major (K rescue, structure-η rescue, `And` rescue, case 3 with its certificates);
+   - `Nat` literal operations, literal ↔ constructor, string literals.
+
+   Its length is bounded by the fuel consumed.  About 0.8–1.2 k lines.
+2. **The relation** `σ ≈ t` between an engine state and a term: the read-back of the control, stack and heap under the origin denotation, **the same abstraction the soundness proof needs** (§R2.5, §R3.6: compiler correctness, flat arrays → structured state, ghost origins for erased positions).  It holds up to erased positions: an erased cell matches any term of the erased kind, a proof or a type.  A neutral cell matches any term whose `whnf` is stuck.  About 0.3–0.5 k lines beyond the shared part.
+3. **The simulation, one direction**: `HeadStep t t'` and `σ ≈ t` give `σ ⟶* σ'` with `σ' ≈ t'`, in zero or more transitions:
+   - zero transitions for steps the engine has already done: a shared cell (call-by-need), a memo hit on equal argument cells, steps inside erased content;
+   - one or more otherwise, one lemma per head step.
+
+   The engine reduces more than the incumbent (K without the index check, case 3 without certificates, η without the major's type), so the relation is not a bisimulation.  On the incumbent's path to `Bool.true` every head K redex passes the index check (otherwise the incumbent is stuck), so the reducts agree.  About 1.5–2.5 k lines.
+4. **The site**: the trace ends in `Bool.true`, so the engine reaches the `kTrue` constructor value with an empty stack: `.done`, `some true`.  `SiteNeverFalse` follows because the engine's run is deterministic and passes through the simulated states.  About 0.2 k lines.
+5. **A concrete fuel bound** falls out of the counting: each head step costs at most `c · (s + 1)` transitions, `s` the spine length the step pushes, so `n ≤ c · (steps + total spine)`.  Not attempted.
+
+**Estimate**: completeness about 3–4.5 k lines on top of the abstraction and compiler-correctness layers (2–3.5 k) that soundness needs anyway.  **Order**: soundness first.  It builds those layers, and every soundness transition lemma (engine step ⇒ `Red`, now with `Red.iotaK`) is forward and local.  Completeness then reuses the relation and adds the backward-direction lemmas per incumbent step.  The two cannot share one lemma per transition, since the engine reduces more.
+
+#### C.6 Gates (engine off)
+
+`lake build` and `lake test` are warning-free.  `tests/arena.sh --no-sweeps` is green: e2e 593/593 (the seven new fixtures included), tutorial 90/92, olean 122/122, self-check accepted, shake (`GroundComplete` imports `StateC` publicly and `CoreC` privately, as `lake shake` proposed), and the links.  `natSizeBytes`/`natCountMax` moved from `StateC` to `Ground4`, and `OVERVIEW.md`'s `natOpRefusal` citation was repointed for the shift.  The exception is the `plain-reach` report the base branch carries (§K.7).
+
+#### C.7 Rulings needed
+
+1. **Case 3 without certificates**: the engine fires it as official does.  The soundness proof needs a rule for it, or a restriction to the η-path families once the renovation lands.
+2. **The hand-back corner** (§C.2 item 4) is the one remaining fallback.  It disappears with the renovation for `Acc`, or with un-erasing proofs of `Acc`-like families.

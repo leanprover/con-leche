@@ -133,14 +133,8 @@ postcondition (`⊤`) admits. -/
 /-- The official kernel's default maximum `Nat` size, 128 MiB. -/
 def maxNatSizeDefault : Nat := 134217728
 
-/-- The official kernel's size of a numeral in bytes
-(`lean_nat_size_in_bytes`): one machine word for a scalar, the limbs
-for a GMP number — 8 bytes per started 64 bits, and at least 8. -/
-def natSizeBytes (n : Nat) : Nat := 8 * (n.log2 / 64 + 1)
-
-/-- The largest exponent / shift amount the official kernel evaluates
-(`get_count_arg`: it must fit in a 32-bit unsigned integer). -/
-def natCountMax : Nat := 4294967295
+/- `natSizeBytes` and `natCountMax` live in `Ground4.lean` (the ground
+engine mirrors the refusals). -/
 
 /-- Official's `check_nat_size` message. -/
 def natNumeralTooBig : CheckError :=

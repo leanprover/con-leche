@@ -1094,20 +1094,20 @@
 == ConLeche/Model/DivModCert.lean#L1978
   1978  theorem divMod_install {F : Nat} (mp : EnvModelM V env)
 
-== ConLeche/Cached/StateC.lean#L160-L172
-   160  def natOpRefusal (maxNatSize : Nat) (c : Name) (a b : Nat) : Option CheckError :=
-   161    if c = natPowName then
-   162      if b > natCountMax then some (natCountTooBig "Nat.pow")
-   163      else if a > 1 && b != 0 && natSizeBytes a > maxNatSize / b then
-   164        some (.invalid "the kernel refused to evaluate `Nat.pow` because the result would \
-   165          exceed the maximum numeral size; raise it with --max-nat-size")
-   166      else none
-   167    else if c = natShiftLeftName then
-   168      if a = 0 then none
-   169      else if b > natCountMax then some (natCountTooBig "Nat.shiftLeft")
-   170      else if natSizeBytes a + b / 8 + 1 > maxNatSize then some natNumeralTooBig
-   171      else none
-   172    else none
+== ConLeche/Cached/StateC.lean#L154-L166
+   154  def natOpRefusal (maxNatSize : Nat) (c : Name) (a b : Nat) : Option CheckError :=
+   155    if c = natPowName then
+   156      if b > natCountMax then some (natCountTooBig "Nat.pow")
+   157      else if a > 1 && b != 0 && natSizeBytes a > maxNatSize / b then
+   158        some (.invalid "the kernel refused to evaluate `Nat.pow` because the result would \
+   159          exceed the maximum numeral size; raise it with --max-nat-size")
+   160      else none
+   161    else if c = natShiftLeftName then
+   162      if a = 0 then none
+   163      else if b > natCountMax then some (natCountTooBig "Nat.shiftLeft")
+   164      else if natSizeBytes a + b / 8 + 1 > maxNatSize then some natNumeralTooBig
+   165      else none
+   166    else none
 
 == ConLeche/Kernel/CoreDefs.lean#L585-L605
    585  def natOpResult (c : Name) (a b : Nat) : Option Expr :=
