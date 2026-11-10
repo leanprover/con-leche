@@ -117776,3 +117776,78 @@ stage1 suite (4844 tests) all pass but `async/elab/async_systems_info` (sandbox)
 `tests/elab_bench/*.lean` (93 files) at `TEST_BENCH=1` passes; `deriving_mutual_block`'s
 `#mutual_block` takes 182.2 M heartbeats (182.2 M before; limit 200 M); `leanchecker --fresh Init`
 and the new test pass.
+
+### Lane mono: InLean's inductive stages monomorphic, as master's cached ones (2026-11-10, task #451, agent/451-mono)
+
+**Ruling (maintainer, 2026-11-10).**  "Monomorphise! We want this to be a close twin of
+con-leche's production code."  This settles the open choice of lane retro.  No master merge;
+**last synced master unchanged: 49d2fa3fd**.
+
+**The code.**  Every inductive stage of InLean is a monomorphic `CheckCM` definition at a mode,
+as master's cached stages (`ConLeche/Cached/IndBlock.lean`, `IndPositivity.lean`, `IndRec.lean`,
+`IndTail.lean`): each file opens `variable (mode : CheckMode)` and a stage calls InLean's core
+directly at the environment it runs at (`opInfer`, `opDefeq`, `opSort`, `opWhnf`, InLean's
+`coreKnotI` at the recursion limit's fuel; master calls `coreKnotI … checkFuel`, `opSIxC` for the
+sort); a recursive call leaves the mode out, as master's.  Per file:
+
+* `Install`: `checkStructFieldSortsIC`, `checkStructFieldSortsC`, `checkStructDomsAtF`,
+  `checkSumCtorC`, `checkSumCtorsC`, `checkBlockTeleC`, `checkBlockTelesC`, `checkBlockDomsAtC`,
+  `checkBlockAgreeC`, `checkBlockIndsC`, `checkBlockCtorsC`, `checkBlockIdxSortsC`.
+* `Positivity`: `whnfTelescope`, `reducedFormer`, `familyTelescope`, `checkSpineAt`,
+  `familyKeyCheck`, `nestInstType`, `nestCtors`, `nestGrowGroup`, `nestFrame`, `nestContNew`,
+  `nestContKey`, `nestCont`, `nestPos`, `nestRoot`, `nestSeeds`, `checkAbsCtorSorts`,
+  `checkAbsCtorSortsAll`, `checkBlockPositivity`.
+* `RecCheck`: `targetParamsDefEq`, `targetClassMatch`, `targetMajorNfs`, `targetOutsideInst`,
+  `targetMajorOf`, `targetPinTys`, `targetMajorPins`, `targetK53`.
+* `GenRec`: `classNodesAgree`, `classFieldsAgree`, `classCtorOf`, `classCtorsOf`,
+  `classesCtors`, `classMajors`, `classesNfs`, `classFormerTy`, `classConstOk`,
+  `classRecTyCheck`, `classRecTyOk`, `classRecTysOk`, `classRuleCheck`, `classRuleOk`,
+  `classRulesOk`, `classRecsRulesOk`, `classStreamRecs`, `checkBlockClasses`, `genRecCheck`
+  (its explicit mode is now the file's variable).  `classRuleCheck` flushes entering and
+  leaving the rule's inference inline, as master's `classRuleCheckC`.
+* `StreamRecs`: `recDomsAt`, `recTyOpened`, `recTyCheck`, `ruleAgree`, `streamRulesCheck`,
+  `streamRecCompare`, `streamRecCheck`, `streamRecsCheck`.
+* `BlockTail` (the drivers `checkBlockPassS`, `checkBlockTailS`, `reduceMemberS`): the stages
+  at `mode`; `reduceMemberS` runs `checkConstantValC` and `opDefeq`.
+
+**Removed layers.**  The record `CheckerOps` (`Inductives/BlockShape.lean`), `sharedOpsC` and
+`sharedOpsRuleR` (`Inductives/GenRec.lean`), and the second constant check `checkConstantValF`
+(`Inductives/Install.lean`).  The one constant check is `checkConstantValC` (`CheckerC.lean`),
+which now takes the `ConstantVal`, as master's: the declaration kinds pass `v.toConstantVal`,
+`checkUnsafeBlock` `ci.toConstantVal`, the generator's `checkConstantVal` builds the value.
+The algorithm is unchanged: at every call site the environment a stage passed to the record's
+operations was the one the record was built at.
+
+**Proofs.**  The stage lemmas state InLean's stages at `.verified` (`InLean.foo .verified fe …`
+where they read `InLean.foo (sharedOpsC .verified fe) fe …`) and still conclude `Runs` of master's
+specification stages at `fueledOpsM .verified`; the guard lemmas that were generic in the record
+(`checkBlockIndsF_shape`, `checkBlockTeleF_fresh`, `checkSumCtorsF_fresh`,
+`checkBlockCtorsF_fresh`, `reducedFormer_emvar`, `classConstOk_emvar`, `classRecTyCheck_emvar`,
+`classRuleCheck_emvar`, `classRecTyOk_pre_emvar`, `targetMajorNfs_sub`, `classesNfs_sub`,
+`classRecTyOk_facts`, `targetMajorOf_ctors`, `classMajors_ctors`, `checkBlockClasses_ctors`, …)
+are generic in the mode.  `classRuleCheckI_run` reads the two flushes in the stage's own bind
+chain.  `checkConstantValC_sim` is stated over the `ConstantVal`; the two freshness lemmas (one
+per constant check) are one, `checkConstantValC_fresh` (`IndMembers`, any mode); the stages'
+callee is `CheckConstantValCSimI` (was `CheckConstantValFSimI`), discharged by
+`checkConstantValCSimI`.  `OpsSimI` stays: it is not a record hypothesis but the core's
+simulation at an environment, its four fields stated about `opInfer`/`opWhnf`/`opDefeq`/`opSort`.
+`addDeclSound` unconditional, axioms unchanged (`propext`, `Classical.choice`, `Quot.sound`, the
+three `mkData` stop-gaps); no `sorry`.
+
+**Gates.**  `lake build`, `lake test`, `lake build InLean InLeanProof inlean-replay`
+warning-free; layering, trust-surface, shake (662 allowlisted), inlean-sync (23 files),
+plain-reach (577, all allowlisted).
+
+**Init** (`perf stat -e instructions:u`, one run each, InLean verified).  Replay `--compare`:
+64530 accepted, 0 exact and 0 cosmetic mismatches.  Cost: 6417841a6 450 967 238 059, the lane's
+head 450 958 730 273 (−0.002 %); con-leche at master 49d2fa3fd (`--olean --jobs=1`, lane sync4's
+run) 427 526 786 231 (InLean +5.5 %).
+
+**lean4** (`joachim/inlean-kernel`, remote at c19e9cc2 = the local head before this lane).  One
+commit, `refactor: InLean's inductive stages call the core directly` (1867de70, the
+regeneration); `inlean-sync.py check` OK.
+Stage1 suite (4844 tests): all pass but `async/elab/async_systems_info` (sandbox); every
+`tests/elab_bench/*.lean` (93 files) at `TEST_BENCH=1` passes; `deriving_mutual_block`'s
+`#mutual_block` takes 182.2 M heartbeats (182.2 M before; limit 200 M); `leanchecker --fresh
+Init` and `tests/elab/inleanQuotTwice.lean` pass; radar's part 2 (`make bench-part2` at stage1)
+runs through.
