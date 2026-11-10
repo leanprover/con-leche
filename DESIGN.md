@@ -114229,3 +114229,27 @@ Not built: a black-hole input (a closed term that needs its own value is a non-t
 
 **Estimate**, unchanged: (b)+(c) 2.7–4.5 k lines in all, of which about 0.7 k are now done in Bind and Machine; (d) with the independence lemma +0.6–1.0 k.
 
+
+#### S.10 Continuation (2026-11-10, second lane): the machine invariant
+
+**Done** (no `sorry`; `lake build` warning-free at every commit):
+* **Sharing slots** (`Compile.lean`, now 1 109 lines).  A shared node's `Den` requires it to be registered in `closedNode`, and `Inv.slots` gives every slot one term: `Owns P sl t` (the registered shared node whose slot word is `sl`, or the table entry whose `kSlot` is `sl`), `∃ σ, Owns P sl t → sl < nslots ∧ σ sl = t`.  Why: a code word sequence `[9, sl, a]` can parse as a node inside another node's operands, so a slot cannot be tied to "a node naming it"; it is tied to its registered owner.  `Den.unique` (a node denotes one term), `Ext` keeps `closedNode` and `kSlot`, `KeyEq` keeps `kSlot` and `nslots`.
+* **References** (`Refs.lean`, 263 lines): `EvRef`, `ArgRef`, `FrOK` (frames name allocated cells, spans inside `argA`, entries and projections the program has), `Agree`/`ocExt` (an origin assignment fixed only below the cell count, extended at a new cell); the congruence of `NodeTerm`, `ValDen` and `K` under agreement, and `K.grow`/`FlOK.grow` under program and array growth.  `NodeTerm` now carries the read-back's loose-variable bound (`Machine.lean`).
+* **The invariant** (`Run.lean`, 419 lines).  `MS` bundles `g4Run`'s arguments (`MS.run`).  `SInv env oc s`: `Inv P`, array shapes, cell 0 and value 0 the neutral (`oc 0 = bot`, `val[0] = 5`), closed origins, `CellOK` for every cell, value cells name allocated values, `EvRef`, `ArgRef`, the slots (`g4SlotGet … = c ≠ 0 → c < N ∧ Owns P sl (oc c)`), the memo records (`MemoOK`: the record's cell's origin is `spanTerm` of its key; no invariant on `mH` is needed, since `g4MemoFind` checks the key).  `Focus` by mode (0: a `NodeTerm` in focus; 1: a value; 2: a cell's origin; 3: an entry's term; 4: `SpineAt`, the head on the arguments not yet pushed).  `MInv = SInv ∧ FS ∧ FlOK ∧ Focus`.  Tools: `SInv.same` (the store unchanged), `SInv.setCell` (a cell's state word set), `SInv.grow` (program extended, arrays appended, new cells with their invariants, `oc` extended), `FS.top_upd`.
+* **Transitions proved**: mode 2 (enter a value cell, enter a thunk; the busy cell is a decline, no obligation), the update-frame pop, and mode 0 at a variable, a constant, a spine and the neutral node.  `Den` inversions `inv0`, `inv1`, `inv4`, `inv8`.
+
+**Engine changes** (both compile-time; measured below):
+* `g4CompShared` re-checks `closedNode` after compiling the term (never taken: compiling a term registers only its proper subterms); `closedNode` then only grows without proving that.
+* A projection without a projection table compiles to the neutral node instead of `[7, 0, e]`: its read-back `bot` bounds nothing about `e`, whose evaluation the machine's reading needs; the projection is stuck either way.  `Den.projNone` is gone.  The run loop's `pi == 0` branch of the projection frame is now unreachable; `FrOK` still admits it, so removing it (a run-loop edit, under the RC skill) is a follow-up.
+
+Measured together (instructions:u, one run each, `groundMode = 10` probe build, against the build of `d6bbf536a`): grind_ring_5 +0.01 %, groebner_hard +0.02 %, lia_oss_verify_2 +0.05 %, grind_field_kernel_cancel +0.05 %, CFSG SpanChk −0.01 % (all verdicts unchanged).
+
+**Remaining, in order** (the shapes above fix the statements):
+1. Mode 0: λ (the known call: `g4CountArgs`, `FS.argsTop`, `bindFrames_spec`, `Den.lamWalk`, `betaN_env`; the closure value), `let` (`ocExt`, `EvRef.push2`, `zeta_env`), literals (value pushes via `SInv.grow`), projection (frame push, `FS.proj`), shared (slot hit: `Inv.owns_unique` with `Den.unique`; miss: a thunk at env 0, `g4SlotSet`).  An unknown tag has no `Den` (vacuous).
+2. Mode 4: every argument kind, each pushing `.arg c` with `oc c` the argument's term (`DenArgs` at index `x - 1`; constants' slots via `kSlot`, `Owns` `.inr`).
+3. The **table invariant** `TInv env P`, needed from mode 3 on: tags, arities, `kB/kC/kD/kE`, rule rows and `ruleCode`, `kCode` (a compiled body denotes an approximation of the stored value at the levels), projection rows, `kTrue/kFalse/kZero/kSucc`, `natOk`/`strOk` against `natLitStored`/`strLitStored`, name ids injective.  It is a second program invariant, kept by `g4Entry`, `g4Comp` and the run's `kCode`/`ruleCode` stores.
+4. Mode 3 (dispatch), mode 1 frames (argument, ι, projection, `Nat.succ` packing, literal), the in-run compiles (δ body, rule right-hand side, string expansion: `g4Comp_spec` then `SInv.grow`).
+5. The fuel induction: `∀ n s oc fl, MInv env t₀ oc s fl → ∀ …, s.run n = .done v val P' … → ERed env t₀ (term of v)`, one case per `g4Run` branch, each a transition lemma.
+6. The site check (`Bool.true`'s entry a constructor) and layer (d) with the independence lemma (ruling 1).
+
+**Estimate**: of (b)+(c)'s 2.7–4.5 k lines, about 1.5 k are now done (Bind, Machine, Refs, Run, the slot part of Compile).

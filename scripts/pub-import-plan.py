@@ -54,6 +54,10 @@ DIR   = os.environ.get('PUBPLAN_DIR', '_tmp/m3')
 # a tree whose `rfl`s stop closing, so they stay public and the gate must not
 # ask for them again.
 FALLBACK = {
+    # task #423 soundness: binding under environments states `Expr`, `ERed` and
+    # `Env`, which the census attributes elsewhere.  Measured by demoting it
+    # (unknown identifier `Expr`, `Bind.lean:30`).
+    ('ConLeche.Verify.Ground.Bind', 'ConLeche.Verify.Ground.Erased'),
     # task #423 soundness: the completeness statement's defs (`siteEval`,
     # `SiteNeverFalse`, …) state the engine's outcome type at `FEnv`, `Expr`,
     # `G4Stop`, `CheckMode`, `CState`, which the census attributes elsewhere.
