@@ -57,6 +57,10 @@ inductive G4Info where
   /-- `kEta`: the single rule of a structure-like recursor; `kK`: K -/
   | recr (lps : List Name) (us : List Level) (mI rP ruleBase nRules : Nat) (kK kEta : Bool)
   | neutral
+  /-- a typed neutral head (a theorem, an axiom, an inductive type):
+  applied, it keeps its argument cells (value tag `6`), so that the K
+  step can read the application's declared type (task #423 K) -/
+  | head (name : Name) (lps : List Name) (us : List Level)
   deriving Inhabited
 
 /-- A recursor rule of the table. -/
@@ -98,7 +102,11 @@ structure G4Prog where
   kInfo : Array G4Info := #[]
   nids : Std.HashMap Name Nat := {}
   /-- the erasure mask of each constant applied (§ erasure) -/
-  masks : Std.HashMap Name (Array Bool) := {}
+  masks : Std.HashMap Name (Array Nat) := {}
+  /-- the deferred proof arguments (code `[11, i, node + 1 or 0]`): a
+  proof of a K-like family's instance, compiled on first force (§ the K
+  step) -/
+  defer : Array Expr := #[]
   /-- per definition name: the strict-parameter bitmask and the λ arity
   (§ strictness) -/
   stricts : Std.HashMap Name (Nat × Nat) := {}
@@ -169,22 +177,59 @@ def g4PiBody : Expr → Expr
   | .forallE _ b => g4PiBody b
   | e => e
 
+/-- Is `c` a K-like inductive family (its recursor carries the K flag)? -/
+def g4KLike (find? : Name → Option ConstantInfo) (c : Name) : Bool :=
+  match find? c with
+  | some (.indInfo ..) => match find? (.str c "rec") with
+    | some (.recInfo _ _ _ isK _) => isK
+    | _ => false
+  | _ => false
+
 /-- **Erasure** (task #423 round 3): the argument positions of a constant
 whose argument is never scrutinised by the machine — a type former (the
 domain is, after its Π-binders, a sort: types, motives) and, except at a
 recursor, a proof (the domain's head constant's type ends in `Prop`).
-Such an argument is bound to the neutral cell and never compiled. -/
-def g4Mask (find? : Name → Option ConstantInfo) (isRec : Bool) : Expr → Array Bool → Array Bool
+Such an argument (`1`) is bound to the neutral cell and never compiled.
+A proof of a K-like family's instance (`2`, task #423 K) may become a
+K major, whose declared type the K step reads: it is kept, as a
+deferred node compiled on first force.  `0`: compiled. -/
+def g4Mask (find? : Name → Option ConstantInfo) (isRec : Bool) : Expr → Array Nat → Array Nat
   | .forallE d b, acc =>
     let tf := match g4PiBody d with | .sort _ => true | _ => false
-    let pf := !isRec && (match (g4PiBody d).getAppFn with
+    let hd := (g4PiBody d).getAppFn
+    let pf := !isRec && (match hd with
       | .const c _ => match find? c with
         | some ci => (match g4PiBody ci.toConstantVal.type with
           | .sort .zero => true | _ => false)
         | none => false
       | _ => false)
-    g4Mask find? isRec b (acc.push (tf || pf))
+    let kf := pf && (match hd with | .const c _ => g4KLike find? c | _ => false)
+    g4Mask find? isRec b (acc.push (if tf then 1 else if kf then 2 else if pf then 1 else 0))
   | _, acc => acc
+
+/-- Does `e` (under `d` binders) mention one of the `k` innermost
+variables outside it?  (An index's type mentioning an earlier index.) -/
+def g4MentionsBelow (k : Nat) : Nat → Expr → Bool
+  | d, .bvar i => d ≤ i && i < d + k
+  | d, .app f a => g4MentionsBelow k d f || g4MentionsBelow k d a
+  | d, .lam t b => g4MentionsBelow k d t || g4MentionsBelow k (d + 1) b
+  | d, .forallE t b => g4MentionsBelow k d t || g4MentionsBelow k (d + 1) b
+  | d, .letE t v b => g4MentionsBelow k d t || g4MentionsBelow k d v || g4MentionsBelow k (d + 1) b
+  | d, .proj _ _ e => g4MentionsBelow k d e
+  | _, _ => false
+
+/-- Strip exactly `n` Π-binders (`none`: fewer). -/
+def g4StripPis : Nat → Expr → Option Expr
+  | 0, e => some e
+  | n + 1, .forallE _ b => g4StripPis n b
+  | _ + 1, _ => none
+
+/-- The common-type flags of a family's indices (§ the K step): index
+`j`'s type mentions no earlier index, so two values of index `j` have
+one type, fixed by the parameters. -/
+def g4IdxFlags : Nat → Expr → Array Nat → Array Nat
+  | j, .forallE d b, acc => g4IdxFlags (j + 1) b (acc.push (if g4MentionsBelow j 0 d then 0 else 1))
+  | _, _, acc => acc
 
 /-- **Strictness** (task #423 round 4), exact for direct `.rec` code: a
 parameter of a definition is strict if the body (under its λ telescope)
@@ -226,7 +271,9 @@ variable (find? : Name → Option ConstantInfo) (findProj? : Name → Nat → Op
 /-- The table entry of the constant `c` at levels `us`, created on first
 use.  Kinds: `0` definition, `1` constructor, `2` recursor, `3` an
 accelerated `Nat` operation (a definition too), `4` a well-founded
-`Nat` operation (a definition too), `5` neutral. -/
+`Nat` operation (a definition too), `5` neutral, `6` a typed neutral
+head (`G4Info.head`; `kArity` its type's Π count, `kCode` its type's
+body compiled, on first K use). -/
 def g4Resolve (P : G4Prog) (c : Name) (us : List Level) : Nat × G4Prog :=
   match P.kMap[(c, us)]? with
   | some k => (k, P)
@@ -243,7 +290,13 @@ def g4Resolve (P : G4Prog) (c : Name) (us : List Level) : Nat × G4Prog :=
           (tag, 0, 0, 0, 0, op, .defn c cv.levelParams us v, P)
       | some (.ctorInfo cv nP nF) =>
         let (ni, P) := P.nid c
-        (1, g4Pis cv.type 0, ni, 0, us.length, 0, .ctor c us nP nF, P)
+        -- `kE`: the constructor's family has indices (§ the K step)
+        let idxd := match cv.type.piResult.getAppFn with
+          | .const T _ => match find? T with
+            | some (.indInfo _ caps) => if caps.nIdx > 0 then 1 else 0
+            | _ => 1
+          | _ => 1
+        (1, g4Pis cv.type 0, ni, 0, us.length, idxd, .ctor c us nP nF, P)
       | some (.recInfo cv mI rP isK rules) =>
         if us.length != cv.levelParams.length || !(Expr.peelPis (mI + 1) cv.type).isSome then
           (5, 0, 0, 0, 0, 0, .neutral, P)
@@ -265,6 +318,9 @@ def g4Resolve (P : G4Prog) (c : Name) (us : List Level) : Nat × G4Prog :=
           let fl := (if isK then 1 else 0) + (if isEta then 2 else 0)
           (2, mI, rP, base, rules.length, fl,
             .recr cv.levelParams us mI rP base rules.length (isK) isEta, P)
+      | some (.thmInfo cv) | some (.axiomInfo cv) | some (.indInfo cv _) =>
+        if us.length != cv.levelParams.length then (5, 0, 0, 0, 0, 0, .neutral, P)
+        else (6, g4Pis cv.type 0, 0, 0, 0, 0, .head c cv.levelParams us, P)
       | _ => (5, 0, 0, 0, 0, 0, .neutral, P)
     let (t1, t2, t3, t4, t5, t6, ns) := (P.kTag, P.kCode, P.kArity, P.kSlot, P.kInfo, P.kMap, P.nslots)
     let (u1, u2, u3, u4) := (P.kB, P.kC, P.kD, P.kE)
@@ -281,7 +337,8 @@ the result is the node's offset.  Code tags: `0` bvar `[0, i]`, `1`
 spine `[1, head, n, a₁ … aₙ]`, `2` λ `[2, body]`, `3` let `[3, v, body]`,
 `4` constant `[4, entry]`, `5` `Nat` literal `[5, n]`, `6` string `[6,
 s]`, `7` projection `[7, proj + 1 or 0, e]`, `8` neutral `[8]`, `9`
-shared closed argument `[9, slot, e]`. -/
+shared closed argument `[9, slot, e]`, `10` strict argument `[10, e]`,
+`11` deferred K-like proof `[11, i, e + 1 or 0]` (§ the K step). -/
 def g4Comp : Nat → G4Prog → Expr → Nat × G4Prog
   | 0, P, _ => let o := P.code.size; (o, P.emit (fun c => c.push 8))
   | f + 1, P, e =>
@@ -326,7 +383,7 @@ def g4Comp : Nat → G4Prog → Expr → Nat × G4Prog
       let o := P.code.size; (o, P.emit (fun c => ((c.push 7).push pi).push so))
     | .app .. =>
       let (hd, args) := (e.getAppFn, e.getAppArgs)
-      let (mask, P) : Array Bool × G4Prog := match hd with
+      let (mask, P) : Array Nat × G4Prog := match hd with
         | .const c _ =>
           match P.masks[c]? with
           | some m => (m, P)
@@ -353,8 +410,17 @@ def g4Comp : Nat → G4Prog → Expr → Nat × G4Prog
       let smask := if args.length ≥ sn then smask else 0
       let (ho, P) := g4Comp f P hd
       let (aos, P) := args.foldl (fun (acc : Array Nat × G4Prog) a =>
-        if g4Erase && mask.getD acc.1.size false then
+        let mk := if g4Erase then mask.getD acc.1.size 0 else 0
+        if mk == 1 then
           let o := acc.2.code.size; (acc.1.push o, acc.2.emit (fun c => c.push 8))
+        else if mk == 2 then
+          -- a K-like proof: deferred, compiled on first force
+          let P := acc.2
+          let o := P.code.size
+          let di := P.defer.size
+          let P := P.emit (fun c => ((c.push 11).push di).push 0)
+          let ds := P.defer; let P := { P with defer := #[] }
+          (acc.1.push o, { P with defer := ds.push a })
         else
         let (ao, P) := g4CompArg f acc.2 a
         -- a strict argument that would become a thunk: `[10, ao]`, evaluated
@@ -531,6 +597,90 @@ def g4FindRule (rNid : Array Nat) (c : Nat) : Nat → Nat → Nat
   | 0, i => i
   | n + 1, i => if rNid[i]! == c then i else g4FindRule rNid c n (i + 1)
 
+
+/-! ## The K step (task #423 K): a K-like recursor on a typed neutral major
+
+At a K-flagged recursor whose major evaluates to a typed neutral `c a₁ … aₙ`
+(value tag `6`: a theorem, an axiom; `n` the Π count of `c`'s type), the
+machine evaluates `c`'s declared type's body under the argument cells (the
+type's whnf, on the machine), checks that it is the family `T` of the rule's
+constructor at a level list of the constructor's length, with the
+constructor's parameters and the family's indices, and compares each index
+with the constructor's index expression under those parameters (official
+`to_cnstr_when_K`'s `is_def_eq(app_type, new_type)`, decided by evaluation).
+All equal: the major is the constructor applied to the parameters, and ι
+fires.  Different first-order values: official refuses too, abort.  Anything
+else (closures over other environments, types, proofs, erased positions):
+abort, a completeness gap only.
+
+Frames: `[11]` the type is being evaluated; `[c₁, c₂, common, 12]` compare
+two cells; `[ctor entry, argStart, nP, 13]` all compared, fabricate.  Mode
+`5` runs the comparisons.  `common`: the two sides have one type, fixed by
+the parameters, so a non-indexed constructor's parameters need no
+comparison (they are fixed by it; erased ones could not be compared). -/
+
+/-- Fresh thunk cells for the constructor's non-variable index nodes. -/
+def g4KCells (code : Array Nat) (e tab nI : Nat) : Nat → Nat → Array Nat → Array Nat
+  | 0, _, cel => cel
+  | r + 1, j, cel =>
+    let node := code[tab + 1 + nI + j]!
+    if code[node]! == 0 then g4KCells code e tab nI r (j + 1) cel
+    else g4KCells code e tab nI r (j + 1) ((((cel.push 0).push node).push e).push 0)
+
+/-- The comparison frames of the indices: the major's type's index `j`
+against the constructor's (a variable: its environment cell; else the
+next fresh cell from `c`). -/
+def g4KFrames (code ev argA : Array Nat) (e tab nI mS : Nat) : Nat → Nat → Nat → Array Nat → Array Nat
+  | 0, _, _, fs => fs
+  | r + 1, j, c, fs =>
+    let node := code[tab + 1 + nI + j]!
+    let isV := code[node]! == 0
+    let cC := if isV then g4EnvGet ev e code[node + 1]! else c
+    g4KFrames code ev argA e tab nI mS r (j + 1) (if isV then c else c + 1)
+      ((((fs.push argA[mS + j]!).push cC).push code[tab + 1 + j]!).push 12)
+
+/-- The comparison frames of two constructor values' arguments from
+position `skip` on (the fields have one type each once the parameters
+agree). -/
+def g4KArgs (argA : Array Nat) (s1 s2 skip : Nat) : Nat → Nat → Array Nat → Array Nat
+  | 0, _, fs => fs
+  | r + 1, j, fs =>
+    if j < skip then g4KArgs argA s1 s2 skip r (j + 1) fs
+    else g4KArgs argA s1 s2 skip r (j + 1) ((((fs.push argA[s1 + j]!).push argA[s2 + j]!).push 1).push 12)
+
+/-- Two environments bind the same cells (none of them an erased
+position's neutral cell). -/
+def g4EnvEq (ev : Array Nat) : Nat → Nat → Nat → Bool
+  | 0, _, _ => false
+  | f + 1, e1, e2 =>
+    if e1 == e2 then true else if e1 == 0 || e2 == 0 then false else
+    let a := e1 - 1; let b := e2 - 1
+    let c1 := ev[a + a]!
+    c1 == ev[b + b]! && c1 != 0 && g4EnvEq ev f ev[a + a + 1]! ev[b + b + 1]!
+
+/-- Compare two values: `0` equal, `1` different first-order values, `2`
+unknown, `3` one constructor at the same levels (compare the arguments),
+`4`/`5` a literal `n + 1` (first/second) against `Nat.succ c`. -/
+def g4KCmp (P : G4Prog) (val ev : Array Nat) (v1 v2 : Nat) : Nat :=
+  let b1 := g4X4 v1; let b2 := g4X4 v2
+  let t1 := val[b1]!; let t2 := val[b2]!
+  let natCtor (n k len : Nat) : Nat :=
+    if n == 0 then (if k == P.kZero && len == 0 then 0 else if k == P.kSucc then 1 else 2)
+    else if k == P.kSucc && len == 1 then 4 else if k == P.kZero then 1 else 2
+  if t1 == 2 && t2 == 2 then (if val[b1 + 1]! == val[b2 + 1]! then 0 else 1)
+  else if t1 == 3 && t2 == 3 then
+    (if P.strs[val[b1 + 1]!]! == P.strs[val[b2 + 1]!]! then 0 else 1)
+  else if t1 == 1 && t2 == 1 then
+    let k1 := val[b1 + 1]!; let k2 := val[b2 + 1]!
+    if k1 == k2 && val[b1 + 3]! == val[b2 + 3]! then 3
+    else if P.kB[k1]! != P.kB[k2]! then 1 else 2
+  else if t1 == 2 && t2 == 1 then natCtor val[b1 + 1]! val[b2 + 1]! val[b2 + 3]!
+  else if t1 == 1 && t2 == 2 then
+    (match natCtor val[b2 + 1]! val[b1 + 1]! val[b1 + 3]! with | 4 => 5 | r => r)
+  else if t1 == 0 && t2 == 0 then
+    (if val[b1 + 1]! == val[b2 + 1]! && g4EnvEq ev ev.size val[b1 + 2]! val[b2 + 2]! then 0 else 2)
+  else 2
+
 /-- The application memo switch (task #423 probe): `0` none, `1`
 recursor applications only, `2` recursors and definitions. -/
 @[noinline] def g4Memo : Nat := 2
@@ -595,7 +745,62 @@ def g4Run : Nat → G4Prog → (cel val ev fs argA slots mem mH : Array Nat) →
           let c := (cel.size >>> 2)
           g4Run n P ((((cel.push 0).push P.code[pc + 2]!).push 0).push 0) val ev fs argA (g4SlotSet slots s (P.epBase + c))
             mem mH 2 0 0 c st
+      | 11 => -- a deferred K-like proof: compiled on first force
+        let d := P.code[pc + 2]!
+        if d != 0 then g4Run n P cel val ev fs argA slots mem mH 0 (d - 1) env 0 st
+        else
+          let (o, P) := g4CompArg find? findProj? g4CompFuel P P.defer[P.code[pc + 1]!]!
+          let P := P.emit (fun c => c.set! (pc + 2) (o + 1))
+          g4Run n P cel val ev fs argA slots mem mH 0 o env 0 st
       | _ => g4Run n P cel val ev fs argA slots mem mH 1 0 0 0 st
+    | 5 => -- the K step's comparisons
+      let t := fs[fs.size - 1]!
+      if t == 13 then
+        -- all indices agree: the major is the constructor on the parameters
+        let cnP := fs[fs.size - 2]!
+        let tvS := fs[fs.size - 3]!
+        let kC := fs[fs.size - 4]!
+        let fs := g4PopN fs 4
+        let w := (val.size >>> 2)
+        let r := if groundMode == 11 then dbgTrace "KSTEP" fun _ => w else w
+        g4Run n P cel ((((val.push 1).push kC).push tvS).push cnP) ev fs argA slots mem mH 1 0 0 r st
+      else if t != 12 then .abort "K frame" st else
+      let fl := fs[fs.size - 2]!
+      let c2 := fs[fs.size - 3]!
+      let c1 := fs[fs.size - 4]!
+      if c1 == c2 && c1 != 0 then g4Run n P cel val ev (g4PopN fs 4) argA slots mem mH 5 0 0 0 st else
+      let s1 := cel[g4X4 c1]!
+      if s1 < 2 then g4Run n P cel val ev fs argA slots mem mH 2 0 0 c1 st else
+      let s2 := cel[g4X4 c2]!
+      if s2 < 2 then g4Run n P cel val ev fs argA slots mem mH 2 0 0 c2 st else
+      let v1 := s1 - 2
+      let v2 := s2 - 2
+      if v1 == v2 && v1 != 0 then g4Run n P cel val ev (g4PopN fs 4) argA slots mem mH 5 0 0 0 st else
+      match g4KCmp P val ev v1 v2 with
+      | 0 => g4Run n P cel val ev (g4PopN fs 4) argA slots mem mH 5 0 0 0 st
+      | 1 => .abort "K indices differ" st
+      | 3 =>
+        let kc := val[g4X4 v1 + 1]!
+        let nP := match P.kInfo[kc]! with | .ctor _ _ nP _ => nP | _ => 0
+        let skip := if fl == 1 && P.kE[kc]! == 0 then nP else 0
+        g4Run n P cel val ev
+          (g4KArgs argA val[g4X4 v1 + 2]! val[g4X4 v2 + 2]! skip val[g4X4 v1 + 3]! 0 (g4PopN fs 4))
+          argA slots mem mH 5 0 0 0 st
+      | 4 =>
+        let w := (val.size >>> 2)
+        let c := (cel.size >>> 2)
+        g4Run n P ((((cel.push (w + 2)).push 0).push 0).push 0)
+          ((((val.push 2).push (val[g4X4 v1 + 1]! - 1)).push 0).push 0) ev
+          (((((g4PopN fs 4).push c).push argA[val[g4X4 v2 + 2]!]!).push 1).push 12) argA slots mem mH
+          5 0 0 0 st
+      | 5 =>
+        let w := (val.size >>> 2)
+        let c := (cel.size >>> 2)
+        g4Run n P ((((cel.push (w + 2)).push 0).push 0).push 0)
+          ((((val.push 2).push (val[g4X4 v2 + 1]! - 1)).push 0).push 0) ev
+          (((((g4PopN fs 4).push argA[val[g4X4 v1 + 2]!]!).push c).push 1).push 12) argA slots mem mH
+          5 0 0 0 st
+      | _ => .abort "K indices unknown" st
     | 4 => -- push the spine's arguments, the last first
       match x with
       | 0 => g4Run n P cel val ev fs argA slots mem mH 0 P.code[pc + 1]! env 0 st
@@ -692,6 +897,14 @@ def g4Run : Nat → G4Prog → (cel val ev fs argA slots mem mH : Array Nat) →
       | 5 =>
         let na := g4CountArgs fs fs.size 0
         g4Run n P cel val ev (g4PopN fs na) argA slots mem mH 1 0 0 0 st
+      | 6 =>
+        -- a typed neutral head: keep the argument cells (§ the K step)
+        let na := g4CountArgs fs fs.size 0
+        let start := argA.size
+        let v := (val.size >>> 2)
+        let argA := g4CopyArgs fs argA na 0
+        g4Run n P cel ((((val.push 6).push k).push start).push na) ev (g4PopN fs na)
+          argA slots mem mH 1 0 0 v st
       | t =>
         -- a definition; tags 3 and 4 try literal acceleration first
         let na := g4CountArgs fs fs.size 0
@@ -767,6 +980,15 @@ def g4Run : Nat → G4Prog → (cel val ev fs argA slots mem mH : Array Nat) →
         | 4 =>
           g4Run n P cel val ev (g4PushArgs argA val[g4X4 v + 2]! fs val[g4X4 v + 3]!) argA slots mem mH
             3 0 0 val[g4X4 v + 1]! st
+        | 6 =>
+          let na := g4CountArgs fs fs.size 0
+          let start := argA.size
+          let len := val[g4X4 v + 3]!
+          let argA := g4CopyArgs fs (g4CopyFrom argA val[g4X4 v + 2]! len 0) na 0
+          let w := (val.size >>> 2)
+          let kc := val[g4X4 v + 1]!
+          g4Run n P cel ((((val.push 6).push kc).push start).push (len + na)) ev
+            (g4PopN fs na) argA slots mem mH 1 0 0 w st
         | _ =>
           let na := g4CountArgs fs fs.size 0
           g4Run n P cel val ev (g4PopN fs na) argA slots mem mH 1 0 0 0 st
@@ -833,12 +1055,112 @@ def g4Run : Nat → G4Prog → (cel val ev fs argA slots mem mH : Array Nat) →
               let fs := g4PushArgs argA (ms + cp) fs nf
               let fs := g4PushArgs argA start fs rP
               g4Run n P cel val ev fs argA slots mem mH 0 rhs 0 0 st
+        | 6 =>
+          let fl := P.kE[k]!
+          if fl % 2 == 1 then
+            -- the K step: evaluate the major's declared type (§ the K step)
+            let kc := val[g4X4 v + 1]!
+            let s := val[g4X4 v + 2]!
+            let len := val[g4X4 v + 3]!
+            if len != P.kArity[kc]! then .abort "K type arity" st
+            else if P.kCode[kc]! == 0 then
+              match P.kInfo[kc]! with
+              | .head c lps us =>
+                match find? c with
+                | some ci =>
+                  match g4StripPis len (ci.toConstantVal.type.instantiateLevelParams lps us) with
+                  | some b =>
+                    -- the type is a saturated application of a constant whose
+                    -- type ends in `Prop` (so the major is a proof: rescueK's
+                    -- sort premises, by io inference alone)
+                    let propOk := match b.getAppFn with
+                      | .const h _ => match find? h with
+                        | some hi => (match g4PiBody hi.toConstantVal.type with
+                            | .sort .zero => true | _ => false) &&
+                          b.getAppArgs.length == g4Pis hi.toConstantVal.type 0
+                        | none => false
+                      | _ => false
+                    if !propOk then .abort "K type sort" st else
+                    let (o, P) := g4Comp find? findProj? g4CompFuel P b
+                    let P := let kc' := P.kCode; let P := { P with kCode := #[] }
+                      { P with kCode := kc'.set! kc (o + 1) }
+                    g4Run n P cel val ev fs argA slots mem mH 1 0 0 v st
+                  | none => .abort "K type arity" st
+                | none => .abort "K type" st
+              | _ => .abort "K type" st
+            else
+              let ev := g4BindSpan argA s ev len 0 0
+              let e := if len == 0 then 0 else ev.size >>> 1
+              g4Run n P cel val ev (fs.push 11) argA slots mem mH 0 (P.kCode[kc]! - 1) e 0 st
+          else if fl / 2 % 2 == 1 then .abort "struct-eta major" st
+          else g4Run n P cel val ev (g4PopN fs 4) argA slots mem mH 1 0 0 0 st
         | 5 =>
           let fl := P.kE[k]!
           if fl % 2 == 1 then .abort "K major" st
           else if fl / 2 % 2 == 1 then .abort "struct-eta major" st
           else g4Run n P cel val ev (g4PopN fs 4) argA slots mem mH 1 0 0 0 st
         | _ => g4Run n P cel val ev (g4PopN fs 4) argA slots mem mH 1 0 0 0 st
+      | 12 => -- a comparison's cell is forced: compare again
+        g4Run n P cel val ev fs argA slots mem mH 5 0 0 0 st
+      | 11 =>
+        -- the K major's type, evaluated: the family at the constructor's
+        -- parameters and indices?
+        let fs := fs.pop
+        let k := fs[fs.size - 4]!
+        let tv := v
+        if val[g4X4 tv]! != 6 then .abort "K type" st else
+        let kT := val[g4X4 tv + 1]!
+        let tvS := val[g4X4 tv + 2]!
+        let tvL := val[g4X4 tv + 3]!
+        let base := P.kC[k]!
+        let cnP := P.rCP[base]!
+        let ctor := P.rules[base]!.ctor
+        match P.kInfo[kT]!, find? ctor with
+        | .head T' _ ust, some (.ctorInfo cvj _ nF) =>
+          let okT := match cvj.type.piResult.getAppFn with
+            | .const T _ => T == T'
+            | _ => false
+          if !okT || ust.length != cvj.levelParams.length || nF != 0 || P.kD[k]! != 1 then
+            .abort "K type" st else
+          let (kC, P) := g4Resolve find? P ctor ust
+          if P.kCode[kC]! == 0 then
+            -- the constructor's index table `[nI, common flags…, index nodes…]`
+            match g4StripPis cnP (cvj.type.instantiateLevelParams cvj.levelParams ust), find? T' with
+            | some R, some (.indInfo cvT _) =>
+              let rargs := R.getAppArgs.toArray
+              let idx := (R.getAppArgs.drop cnP).toArray
+              -- the constructor's result type applies the family to its own
+              -- parameters (so the fabrication's type agrees with the major's
+              -- type at the parameters syntactically)
+              let parOk := rargs.size ≥ cnP && (List.range cnP).all (fun i =>
+                match rargs[i]! with | .bvar b => b + i + 1 == cnP | _ => false)
+              if !parOk then .abort "K type" st else
+              let flags := match g4StripPis cnP cvT.type with
+                | some it => g4IdxFlags 0 it #[]
+                | none => #[]
+              if flags.size != idx.size then .abort "K type" st else
+              let (nodes, P) := idx.foldl (fun (acc : Array Nat × G4Prog) a =>
+                let (o, P) := g4CompArg find? findProj? g4CompFuel acc.2 a
+                (acc.1.push o, P)) (#[], P)
+              let tab := P.code.size
+              let P := P.emit (fun c => nodes.foldl (fun c x => c.push x)
+                (flags.foldl (fun c x => c.push x) (c.push idx.size)))
+              let P := let kc' := P.kCode; let P := { P with kCode := #[] }
+                { P with kCode := kc'.set! kC (tab + 1) }
+              g4Run n P cel val ev (fs.push 11) argA slots mem mH 1 0 0 tv st
+            | _, _ => .abort "K type" st
+          else
+          let tab := P.kCode[kC]! - 1
+          let nI := P.code[tab]!
+          if tvL != cnP + nI then .abort "K type" st else
+          let ev := g4BindSpan argA tvS ev cnP 0 0
+          let e := if cnP == 0 then 0 else ev.size >>> 1
+          let c0 := (cel.size >>> 2)
+          let cel := g4KCells P.code e tab nI nI 0 cel
+          let fs := (((fs.push kC).push tvS).push cnP).push 13
+          let fs := g4KFrames P.code ev argA e tab nI (tvS + cnP) nI 0 c0 fs
+          g4Run n P cel val ev fs argA slots mem mH 5 0 0 0 st
+        | _, _ => .abort "K type" st
       | 10 =>
         -- a strict argument's value: a value cell, pushed, and the spine goes on
         let j := fs[fs.size - 2]!

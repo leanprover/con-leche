@@ -3358,3 +3358,24 @@
 # the low 64 bits alone puts every key in one bucket and takes minutes,
 # which the 10 s timeout in tests/arena.sh turns into a failure (exit 124).
 0 lit_hash_low_bits.ndjson
+# -- task #423 K, the ground engine's K step on a typed neutral major (a theorem
+# or axiom application), at the `t =?= Bool.true` site.  The verdicts are the
+# default build's (engine off: the incumbent's K rescue); official the same.
+# With the engine on (groundMode 10) the engine decides the first two files' K
+# steps itself; the rest abort to the incumbent, with the same verdicts.
+# ground_k_theorem_major: Eq.rec on a theorem, on a theorem application passed
+# through a definition's proof argument, and Quot.recOnSubsingleton's
+# Eq.ndrecOn (Quot.liftIndepPr1 …) (CFSG's Multiset shape); equal indices.
+# Accepted; engine on: K step, accepted.  Target 0.
+0 ground_k_theorem_major.ndjson
+# ground_k_indexed_family: IsDouble n (n + n), PairSwap p (p.2, p.1) (K step,
+# accepted with the engine on) and HEq (a type index: "K indices unknown",
+# abort, incumbent accepts).  Target 0.
+0 ground_k_indexed_family.ndjson
+# ground_k_closure_index: (fun x => x + 0) = (fun x => x): closures of different
+# code, "K indices unknown", abort, incumbent accepts.  Target 0.
+0 ground_k_closure_index.ndjson
+# ground_k_index_differ: Eq.rec on a theorem Quot.mk r 1 = Quot.mk r 2: official's K check
+# fails, the redex is stuck, rejected; engine on: "K indices differ", abort,
+# incumbent rejects.  Target 1.
+1 ground_k_index_differ.ndjson
