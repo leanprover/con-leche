@@ -62,20 +62,22 @@ theorem EnvL.push {ev : Array Nat} (x : Nat) : ∀ {e : Nat} {cs : List Nat},
     rw [h1]; exact EnvL.push x h
 
 /-- **A node under an environment** denotes its read-back instantiated at the
-environment's cells' origins (`bvar 0` the innermost). -/
-def NodeTerm (P : G4Prog) (ev : Array Nat) (oc : Nat → Expr) (pc e : Nat) (u : Expr) : Prop :=
-  ∃ s cs, Den P pc s ∧ EnvL ev e cs ∧ u = s.instantiateList (cs.map oc)
+environment's cells' origins (`bvar 0` the innermost); the read-back's loose
+variables are bound by the environment. -/
+@[expose] def NodeTerm (P : G4Prog) (ev : Array Nat) (oc : Nat → Expr) (pc e : Nat) (u : Expr) : Prop :=
+  ∃ s cs, Den P pc s ∧ EnvL ev e cs ∧ s.looseBVarsBounded cs.length = true ∧
+    u = s.instantiateList (cs.map oc)
 
 /-! ## Values -/
 
 /-- The term of a table entry (`bot` past the table). -/
-def entryTerm (P : G4Prog) (k : Nat) : Expr :=
+@[expose] def entryTerm (P : G4Prog) (k : Nat) : Expr :=
   match P.kInfo[k]? with
   | some info => infoTerm info
   | none => bot
 
 /-- The cells of an argument span. -/
-def span (argA : Array Nat) (start len : Nat) : List Nat :=
+@[expose] def span (argA : Array Nat) (start len : Nat) : List Nat :=
   (List.range len).map fun j => argA[start + j]!
 
 /-- **A value's term**: a closure is its λ node under its environment; a
@@ -133,15 +135,15 @@ section
 variable (env : Env) (t₀ : Expr) (P : G4Prog) (argA : Array Nat) (oc : Nat → Expr)
 
 /-- The term of a literal operation's redex: entry `k` on cells `a`, `b`. -/
-def opTerm (k a b : Nat) : Expr := .app (.app (entryTerm P k) (oc a)) (oc b)
+@[expose] def opTerm (k a b : Nat) : Expr := .app (.app (entryTerm P k) (oc a)) (oc b)
 
 /-- The term of a recursor redex: entry `k` on the span. -/
-def spanTerm (k start len : Nat) : Expr :=
+@[expose] def spanTerm (k start len : Nat) : Expr :=
   Expr.mkAppN (entryTerm P k) ((span argA start len).map oc)
 
 /-- **The machine's claim** for the frames `fl` (top first) and the term in
 focus `u`. -/
-def K : List Fr → Expr → Prop
+@[expose] def K : List Fr → Expr → Prop
   | [], u => ERed env t₀ u
   | .arg c :: fl, u => K fl (.app u (oc c))
   | .upd c :: fl, u => ERed env (oc c) u ∧ K fl (oc c)
@@ -265,7 +267,7 @@ theorem FS.pushArg {fs : Array Nat} {fl : List Fr} (h : FS fs fs.size fl) (c : N
 /-! ## Prefix extension: every reading survives appending -/
 
 /-- `b` extends `a`: what `a` holds, `b` holds at the same index. -/
-def Pre (a b : Array Nat) : Prop := a.size ≤ b.size ∧ ∀ i, i < a.size → b[i]! = a[i]!
+@[expose] def Pre (a b : Array Nat) : Prop := a.size ≤ b.size ∧ ∀ i, i < a.size → b[i]! = a[i]!
 
 theorem Pre.refl (a : Array Nat) : Pre a a := ⟨Nat.le_refl _, fun _ _ => rfl⟩
 
@@ -287,8 +289,8 @@ theorem EnvL.pre {ev ev' : Array Nat} (hp : Pre ev ev') : ∀ {e : Nat} {cs : Li
 
 theorem NodeTerm.pre {P P' : G4Prog} {ev ev' : Array Nat} {oc : Nat → Expr} {pc e : Nat} {u : Expr}
     (hx : Ext P P') (hp : Pre ev ev') (h : NodeTerm P ev oc pc e u) : NodeTerm P' ev' oc pc e u := by
-  obtain ⟨s, cs, hd, he, rfl⟩ := h
-  exact ⟨s, cs, hd.ext hx, he.pre hp, rfl⟩
+  obtain ⟨s, cs, hd, he, hb, rfl⟩ := h
+  exact ⟨s, cs, hd.ext hx, he.pre hp, hb, rfl⟩
 
 theorem entryTerm_ext {P P' : G4Prog} (hx : Ext P P') {k : Nat} (hk : k < P.kInfo.size) :
     entryTerm P' k = entryTerm P k := by
@@ -439,7 +441,7 @@ theorem FS.argsTop {fs : Array Nat} : ∀ (n : Nat) {t : Nat} {cs : List Nat} {f
         rw [hcs j (by omega)]; congr 2; omega
 
 /-- The cell of the `j`-th argument frame from the top. -/
-def frameCell (fs : Array Nat) (j : Nat) : Nat := fs[fs.size - 1 - j]! >>> 4
+@[expose] def frameCell (fs : Array Nat) (j : Nat) : Nat := fs[fs.size - 1 - j]! >>> 4
 
 /-- One new environment record over `env`. -/
 theorem EnvL.record {ev : Array Nat} {env : Nat} {cs : List Nat} (h2 : ev.size % 2 = 0)
@@ -503,7 +505,7 @@ variable (env : Env) (t₀ : Expr) (P : G4Prog) (val ev argA : Array Nat) (oc : 
 /-- **A cell's invariant** (`[state, code, env, _]` at `4 c`): a thunk is its
 node under its environment; a busy cell's claim is on the stack (its update
 frame); a value cell's origin reduces to its value's term. -/
-def CellOK (cel : Array Nat) (c : Nat) : Prop :=
+@[expose] def CellOK (cel : Array Nat) (c : Nat) : Prop :=
   match cel[4 * c]! with
   | 0 => NodeTerm P ev oc cel[4 * c + 1]! cel[4 * c + 2]! (oc c)
   | 1 => True

@@ -45,5 +45,7 @@ public import ConLeche.Verify.Ground.Erased
 public import ConLeche.Verify.Ground.Compile
 public import ConLeche.Verify.Ground.Bind
 public import ConLeche.Verify.Ground.Machine
+public import ConLeche.Verify.Ground.Refs
+public import ConLeche.Verify.Ground.Run
 
 @[expose] public section

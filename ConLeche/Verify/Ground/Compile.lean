@@ -30,7 +30,7 @@ open ConLeche ConLeche.Cached
 
 /-- The term a table entry's information denotes: the constant, or `bot`
 for a neutral entry. -/
-def infoTerm : G4Info → Expr
+@[expose] def infoTerm : G4Info → Expr
   | .defn c _ us _ => .const c us
   | .ctor c us _ _ => .const c us
   | .recr c _ us .. => .const c us
@@ -300,7 +300,7 @@ theorem Ext.emit (P : G4Prog) (ws : Array Nat) : Ext P (P.emit (· ++ ws)) where
 
 /-- **A sharing slot's owner** and the term it denotes: the shared node
 registered for a closed term, or a table entry (its constant). -/
-def Owns (P : G4Prog) (sl : Nat) (t : Expr) : Prop :=
+@[expose] def Owns (P : G4Prog) (sl : Nat) (t : Expr) : Prop :=
   (∃ (a : Expr) (o : Nat), P.closedNode[a]? = some o ∧ P.code[o + 1]? = some sl ∧ Den P o t) ∨
   (∃ (k : Nat) (info : G4Info), P.kSlot[k]? = some sl ∧ P.kInfo[k]? = some info ∧ t = infoTerm info)
 

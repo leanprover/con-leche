@@ -47,7 +47,7 @@ open ConLeche ConLeche.Rules
 /-- **The forgotten term.**  A sort: the engine compiles types to the
 neutral, so the term it forgets most often is one.  No `ERed` rule fires
 on a sort. -/
-def bot : Expr := .sort .zero
+@[expose] def bot : Expr := .sort .zero
 
 /-- **`s` approximates `t`**: `t` with some subterms replaced by `bot`. -/
 inductive Approx : Expr → Expr → Prop where

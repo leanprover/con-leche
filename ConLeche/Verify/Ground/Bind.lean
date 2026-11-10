@@ -27,7 +27,7 @@ namespace ConLeche.Verify.Ground
 open ConLeche ConLeche.Rules
 
 /-- All terms of a list are closed. -/
-def AllClosed (vs : List Expr) : Prop := ∀ v ∈ vs, v.looseBVarsBounded 0 = true
+@[expose] def AllClosed (vs : List Expr) : Prop := ∀ v ∈ vs, v.looseBVarsBounded 0 = true
 
 theorem AllClosed.cons {v : Expr} {vs : List Expr} (hv : v.looseBVarsBounded 0 = true)
     (h : AllClosed vs) : AllClosed (v :: vs) := by
