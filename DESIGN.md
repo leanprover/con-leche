@@ -118602,3 +118602,110 @@ ground engine (task #423): skipping the check only on the demand path of a close
 `t =?= true` evaluation, never inside nested checks, cannot turn an accepting run into a
 loop — where the check fails the incumbent either reduces the proof to the constructor
 (same reduct, later) or is stuck and rejects.
+
+
+## modular: master merged (2) (2026-11-10, agent/modular-merge-master-2)
+
+`master` at c3c892904 merged into `modular` (58946bef5), in two merges on the lane (f42051579,
+then the two commits master gained meanwhile).  What master brought: #494 (an unreadable block is
+rejected with the reason, `readBlock`, `checkShapeless` gone), #495, #496, #497 and #498 L1–L8
+(the shipped checker runs the cached tier, the inductive check's cached twins related to one
+specification per stage, `Verify/FastOps` gone, the plain-reach and binary-link gates), #519
+(`maxNatSize`, `--max-nat-size`, `Nat.pow` at any exponent), #520 (Π/lambda congruence in the
+`is_def_eq_binding` shape), #521 (the accepted environment is well formed, model-free), #515
+(master's: the wider unit-like η, the η of a partially applied constructor; `CapsOk`,
+`EtaFamiliesClosed` and the η fields of `IndCaps` gone, the η constructor read off the projection
+table), #543 (master's: the e2e fixture `ind_mutual_wide_telescope`), #550 (master's: the easy
+cases before the memo), #551 (master's: name, level and literal equality pointer first), #552
+(master's: the K rule's index check kept, the `k_skip_*` fixtures).  Both branches have records
+#515, #543, #550, #551 and #552 for different tasks; both are kept, unrenumbered.
+
+**Textual conflicts.** `Cached/ParsedC.lean` (master moved the constant check to
+`Cached/IndPass.lean`); `Driver/Cli.lean`, `Dispatch.lean`, `CheckMain.lean`,
+`Verify/Driver/Oleans.lean`, `Verify/Cached/StreamIndex.lean` (modular's statements and
+`start`/`seed`, master's `maxNatSize`); the model fold and its leaves (`Model/Fold.lean`,
+`Harvest.lean`, `AxiomPin.lean`, `AxiomReduce.lean`, `BasisAtBlock.lean`, `BasisStep.lean`,
+`BasisRename.lean`, `DeclsRun.lean`, `Env/EnvModelM.lean`, `Install.lean`, `Swap.lean`,
+`Inductives/*`: below); `Verify/Cached/DeclPushes.lean`, `PushChain.lean` (the fresh-name lemma
+moved, with modular's three flags); `Verify/EnvExt/Reads.lean` (master's `tableCtors`, modular's
+`boolCtors`); `Verify/Denote/Install.lean` (`public import` of `EnvGuards`: modular's statements
+name `natOpPinnedOk`); `Kernel/Expr.lean` (master's pointer-first `Literal.decEqPtr` beside
+#547's `natHash` instance, deriving neither `DecidableEq` nor `Hashable`); `scripts/pub-import-plan.py`,
+`tests/e2e-expected.txt` (both sides); `tests/shake-allowlist.txt` (master's, two lines no longer
+proposed removed); the documents' anchors (relocated by the cited text, the expectations
+regenerated; OVERVIEW's module map takes both sides' rows, its block paragraph master's);
+DESIGN.md (both sides' records).
+
+**Adaptations.**
+* **#519 in modular.**  `maxNatSize` is threaded through `Req.module`/`.modular`/`.schedule`,
+  `checkModuleG`, `modularStep`, `checkModularG`, `checkOleansG`, `oleanStep`, `oleanJobRun`;
+  `scheduleG` passes `--max-nat-size=<n>` to every worker process.  The specification's
+  `ImportOk` and `LocalOk` take it (their `accepted` is a `DeclsRun … maxNatSize` run), and so do
+  `conlecheSemantics`, `toDev`, `AcceptsX`, `WorkerAccepted`, `OwnRun`, `Compose.Run`;
+  `modular_model_exists` and `modular_no_False` (MainTheorem, Challenge, the `Modular.lean`
+  quote) gain `(maxNatSize : Nat)` like `model_exists`; `run_no_False` takes it implicitly;
+  `main_modular_no_False`, `main_modular_one_no_False` and `runArgs_module_accept`/
+  `runArgs_modular_accept` are at `Cached.maxNatSizeDefault`, like `main_no_False`.  The CLI
+  lemmas `parseArgs_graph`/`_module`/`_modular` read the flag off with
+  `flagValue_natMax_searchPath`.  **Not threaded:** the worker's inferred-flag check
+  (`inferFlags`, `typeIsPropC … {}`) runs at the default maximum size whatever `--max-nat-size`
+  says; a refusal there only throws, so no theorem is affected (a follow-up if wanted).
+* **#498 in modular.**  Modular's `allowReduce`/`allowSorry` guards (compiler-trust names,
+  `sorryAx`'s name) moved with the constant check into `IndPass.checkConstantValC`;
+  `checkConstantValC_eq` and `checkConstantValC_fresh` take the three flags.  Modular's #443
+  change to the specification's container frame (`familyKeyChecks`: every group mate typed at the
+  key) is now the cached twin's too (`familyKeyChecksC`, `familyKeyChecksC_eq`).
+* **Master's plain-reach gate on modular's driver.**  The reach's record reads compile to the
+  cached twins through `@[csimp]` lemmas (`Verify/Cached/DeclNames.lean`, imported by
+  `Driver/Reach.lean` and `Driver/Worker.lean`: `declConstants`, `declTables`, `Modular.declNames`,
+  `streamEnv` to `declConstantsC`, `declTablesC`, `declNamesC`, `streamEnvC`); `inferFlags`
+  guards with `constsResolveFC`, `nestedOk` lifts with `liftLooseBVarsC`.  The allowlist gains
+  `Modular.pinFootprint`, `reduceElemName`, `sorryAxNameAt`, the literal hash (`Literal.hash`,
+  `natHash`, `natHashWordBound`, the vendored `natBigHash`) and the inferred-flag environment's
+  index build (`mkFEnv`, `mkIdxGo`, `mkTblsGo`, `Env.pushDelta`, `Env.empty`); the derived
+  `instHashableLiteral.hash` entry is gone (#547's instance replaces it).
+* **#521 in the model fold.**  `declStep_agrees` (modular's leaf-keeping step) takes `EnvWF env₂`
+  from `declRun_envWF` and hands it to the leaf harvests (`hhOf` builds `ConsHead.ofFresh hwf₂`),
+  to `AxiomStepPB` (whose leaf statement gains master's `EnvWF` premise), to `declQuotPB_at`,
+  `declBasisPB_at` and the renames (`renameCore`, `coverStep_keep`/`_eq`/`_head`).
+* **#515 in the fold and the modular model.**  `EnvModelOk` is `(∃ mp, LfpCover mp []) ∧
+  NatFacts env` (modular dropped `FamilyRan`, master `EtaFamiliesClosed`); `EnvModelM` has neither
+  `op_defn` (modular) nor `caps_ok` (master); `declBlock`, `blockTablesStage_of` lose `hE`.  With
+  `IndCaps.etaCtor` gone, a former's laws read no η constructor: `EntryScoped`, `EntryScopedP`,
+  `ConstCovered`, `ConstReads`, `NeedsSt.const` lose that clause (the table's constructor is among
+  `RecordScoped`'s table reads).  The modular model loses `CtxSrc.eta`, `etaClosed`, `caps_ok` and
+  the η closure of `CtxModel`, `MMod` and `declsRun_proofs`; `proj_ok` is stated at master's
+  `TableHead`, `tower_ok` at master's two-part `TowerOk` (the table's η law, each entry's laws).
+* **#515 and #520 in the rules at a refinement** (`Rules/Refine.lean`, #469): `rescueEta` and
+  `structEta` read the projection table (`EnvRefines.etaRescueTable`, `.table`), `unitLike` and
+  `etaExpand` replace `structUnit`, and `DefEqExpand`, `UnitLike`, `UnitFields` join the mutual
+  recursion (`EnvRefines.unitLikeShape`); `towerSlotsAll` is gone.
+* **#494.**  `blockShape?_names` is `readBlock_names`; a record's tables are
+  `(blockTables p p.members).getD []`, read by `blockTables_getD_names`
+  (`Verify/Inductives/DirectInv.lean`), which replaces modular's `blockTables_member`.
+* #550 and #547 meet nowhere in the code: the easy cases return before the memo, the hash is
+  computed at node construction.  Nothing of the modular capstones read the η or numeral changes
+  beyond the above.
+
+**Measurements** (`instructions:u`, one run each, under the guard; arena streams `--jobs=8`,
+init-full `--jobs=1`, Coxeter `--olean --module --jobs=8`; every run accepts the same count):
+
+| run | modular 58946bef5 | master c3c892904 | merged | vs modular | vs master |
+|---|---|---|---|---|---|
+| init-prelude | 2 011 143 958 | 1 467 788 623 | 1 468 284 459 | −26.99 % | +0.03 % |
+| grind-ring-5 | 15 591 684 590 | 12 662 223 408 | 12 660 520 179 | −18.80 % | −0.01 % |
+| init-full | 381 834 432 176 | 355 752 411 795 | 355 673 977 948 | −6.85 % | −0.02 % |
+| `Mathlib.GroupTheory.Coxeter.Basic` | 6 893 972 790 | (no `--module`) | 6 682 231 010 | −3.07 % | |
+
+The merged tree runs at master's speed on the streams (#550 with #547's hash costs nothing
+measurable), and the Mathlib worker gains master's speed-ups.  `lit_hash_low_bits` accepts in
+0.5 s (timeout 10 s).
+
+Gates on the merged tree: `lake build` and `lake test` warning-free; `tests/arena.sh` exit 0
+under the RSS guard (peak 4.5 GB): layering, pindump, trust surface (the build and native
+surface: `lakefile.lean`, `native/nat_hash.c`), overview links (164), whitepaper links (530),
+fragment, quote gate, no-local-paths, challenge, shake (672/672 allowlisted, none demotable),
+plain-reach (589, all allowlisted), binary-link, olean gate 333/333, selfcheck (58 846
+declarations), axioms pinned (71 theorems), arena tutorial 90/92, e2e 600/600, the trusted and
+`--jobs` sweeps without divergence; the whitepaper builds (`nix develop ./whitepaper -c
+whitepaper/build.sh`).  No `sorry`, no new axiom, no new `unsafe`, `implemented_by` or C.

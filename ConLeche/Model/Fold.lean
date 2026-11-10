@@ -106,8 +106,8 @@ ones included); a block `readBlock` cannot read never installs
 (its error is the check's), so there is no other inductive
 step and coverage is unconditional. -/
 
-/-- **A step's carrier against the input's**: covered, with the η-family run, keeping the leaf
-of every name the input stores; `P` is what the step says of the leaves it adds. -/
+/-- **A step's carrier against the input's**: covered, keeping the leaf of every name the input
+stores; `P` is what the step says of the leaves it adds. -/
 @[expose] def CoveredRel {env : Env} (mp : EnvModelM V env) (env' : Env)
     (P : (Name → (Name → Nat) → Term) → Prop) : Prop :=
   ∃ mp' : EnvModelM V env',

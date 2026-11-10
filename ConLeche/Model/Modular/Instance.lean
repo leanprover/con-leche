@@ -20,7 +20,7 @@ con-leche's graded models (`conlecheSemantics`), so that the modular theorem is 
   what the reader reads alike.  Nothing is renamed.
 * **A model** (`MMod`) is a leaf assignment, closed and graded, giving every proof the canonical
   proof `.prf` (`ProofLeaves`), under which the environment has a covered model (`EnvModelM`, with
-  the η-family run and closure and the `Nat` facts) reading its leaves; a name's **value** is its
+  the `Nat` facts) reading its leaves; a name's **value** is its
   leaf, and every proof's is `.prf`.
 * **Assembly** (`AssembledX`): the environment is a member's, exposing no more names, or every name
   of it is exposed and read from a member exposing what it reads (`CtxRead`, `Read.lean`).
