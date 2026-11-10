@@ -16,6 +16,8 @@ namespace InLean
 
 open Lean
 
+variable (mode : CheckMode)
+
 /-- Twin of `targetAbs`: a member at the block's levels to its hole. -/
 def targetAbs (names : List Name) (lvls : List Level) (holes : List Expr) (e : Expr) : Expr :=
   EO.replace (fun
@@ -54,18 +56,18 @@ def targetCanonParams (pfvs : List Expr) (e : Expr) : Expr :=
   replaceFVars (fun i => pfvs[i]?) e
 
 /-- Twin of `targetParamsDefEq`. -/
-def targetParamsDefEq (ops : CheckerOps) (env : FEnv) (d : Nat) (absM : Expr → Expr)
+def targetParamsDefEq (env : FEnv) (d : Nat) (absM : Expr → Expr)
     (pfvs : List Expr) : List Expr → List Expr → CheckCM Bool
   | [], [] => pure true
   | a :: as, b :: bs => do
     if !a.hasLooseBVars && !b.hasLooseBVars && fvarB a ≤ pfvs.length && fvarB b ≤ pfvs.length then
       let a' := absM (targetCanonParams pfvs a)
       let b' := absM (targetCanonParams pfvs b)
-      if a' == b' then targetParamsDefEq ops env d absM pfvs as bs
+      if a' == b' then targetParamsDefEq env d absM pfvs as bs
       else
-        let _ ← ops.inferType env d a'
-        let _ ← ops.inferType env d b'
-        if ← ops.isDefEq env d a' b' then targetParamsDefEq ops env d absM pfvs as bs
+        let _ ← opInfer mode env d a'
+        let _ ← opInfer mode env d b'
+        if ← opDefeq mode env d a' b' then targetParamsDefEq env d absM pfvs as bs
         else pure false
     else pure false
   | _, _ => pure false
@@ -80,23 +82,23 @@ def isEquivList : List Level → List Level → Option Bool
   | _, _ => some false
 
 /-- Twin of `targetClassMatch`. -/
-def targetClassMatch (ops : CheckerOps) (env : FEnv) (p : BlockShape) (formerTys : List Expr)
+def targetClassMatch (env : FEnv) (p : BlockShape) (formerTys : List Expr)
     (pfvs : List Expr) (us : List Level) (ds : List Expr) (lvls : List Level) (eds : List Expr) :
     CheckCM Bool := do
   unless isEquivList us lvls == some true do return false
   let holes ← targetHoles formerTys pfvs.length
-  targetParamsDefEq ops env (pfvs.length + formerTys.length)
+  targetParamsDefEq mode env (pfvs.length + formerTys.length)
     (targetAbs p.memberNames (p.lps.map .param) holes) pfvs ds eds
 
 /-- Twin of `targetMajorNfs`. -/
-def targetMajorNfs (ops : CheckerOps) (env : FEnv) (p : BlockShape) (formerTys : List Expr)
+def targetMajorNfs (env : FEnv) (p : BlockShape) (formerTys : List Expr)
     (pfvs : List Expr) (us : List Level) (ds : List Expr) (ctors : List (ConstantVal × Nat)) :
     List NestCtorNf → CheckCM (List NestCtorNf)
   | [] => pure []
   | e :: es => do
-    let rest ← targetMajorNfs ops env p formerTys pfvs us ds ctors es
+    let rest ← targetMajorNfs env p formerTys pfvs us ds ctors es
     if ctors.any (·.1.name == e.ctor) then
-      if ← targetClassMatch ops env p formerTys pfvs us ds e.lvls e.ds then pure (e :: rest)
+      if ← targetClassMatch mode env p formerTys pfvs us ds e.lvls e.ds then pure (e :: rest)
       else pure rest
     else pure rest
 
@@ -105,11 +107,11 @@ def targetCtorsOf (fe : FEnv) (I : Name) : Option (Nat × List (ConstantVal × N
   nestContainer ⟨[], [], 0, [], [], .zero, fe, []⟩ I
 
 /-- Twin of `targetOutsideInst`. -/
-def targetOutsideInst (ops : CheckerOps) (fe : FEnv) (I : Name) (us : List Level) (ds : List Expr) :
+def targetOutsideInst (fe : FEnv) (I : Name) (us : List Level) (ds : List Expr) :
     CheckCM (Nat × Level) := do
   let some (cvI, capsI) := fe.indView? I
     | throw (.invalid "target rec: the recursor's major is not a stored inductive")
-  let tyI ← familyTelescope ops fe cvI capsI
+  let tyI ← familyTelescope mode fe cvI capsI
   let some ty := instPisWith ds (← instLevelParamsM cvI.levelParams us tyI)
     | throw (.invalid "target rec: the major's type former does not bind its parameters \
         (official: ill-formed inductive type)")
@@ -120,7 +122,7 @@ def targetOutsideInst (ops : CheckerOps) (fe : FEnv) (I : Name) (us : List Level
   pure (ibs.length, s)
 
 /-- Twin of `targetMajorOf`. -/
-def targetMajorOf (ops : CheckerOps) (fe : FEnv) (p : BlockShape) (pfvs fvs : List Expr)
+def targetMajorOf (fe : FEnv) (p : BlockShape) (pfvs fvs : List Expr)
     (mty : Expr) : CheckCM TargetMajor := do
   let args := appArgs mty
   match mty.getAppFnT with
@@ -146,7 +148,7 @@ def targetMajorOf (ops : CheckerOps) (fe : FEnv) (p : BlockShape) (pfvs fvs : Li
         throw (.invalid "target rec: the recursor's major is an outside inductive at an \
           instantiation that is no auxiliary type of the block (official generates no such \
           auxiliary recursor: `elim_nested_inductive`, `is_nested`)")
-      let (nIdx, sI) ← targetOutsideInst ops fe I us ds
+      let (nIdx, sI) ← targetOutsideInst mode fe I us ds
       unless ← liftFueled "level comparison" (Lvl.isEquiv sI p.resSort) do
         throw (.invalid "target rec: the recursor's major lives in another universe than \
           the block (Q1)")
@@ -156,17 +158,17 @@ def targetMajorOf (ops : CheckerOps) (fe : FEnv) (p : BlockShape) (pfvs fvs : Li
       application")
 
 /-- Twin of `targetPinTys`. -/
-def targetPinTys (ops : CheckerOps) (env : FEnv) (d : Nat) : List Expr → CheckCM Unit
+def targetPinTys (env : FEnv) (d : Nat) : List Expr → CheckCM Unit
   | [] => pure ()
   | x :: xs => do
-    let _ ← ops.inferType env d x
-    targetPinTys ops env d xs
+    let _ ← opInfer mode env d x
+    targetPinTys env d xs
 
 /-- Twin of `targetMajorPins`. -/
-def targetMajorPins (ops : CheckerOps) (fe : FEnv) (rP : Nat) (M : TargetMajor) : CheckCM Unit :=
+def targetMajorPins (fe : FEnv) (rP : Nat) (M : TargetMajor) : CheckCM Unit :=
   if M.member.isNone then do
-    targetPinTys ops fe rP M.ds
-    familyKeyCheck ops fe rP M.ind M.lvls M.ds
+    targetPinTys mode fe rP M.ds
+    familyKeyCheck mode fe rP M.ind M.lvls M.ds
   else pure ()
 
 /-- Twin of `targetRecPins`. -/
@@ -205,7 +207,7 @@ def targetCtorAt (M : TargetMajor) (c : ConstantVal) : CheckCM Expr :=
   | none => instLevelParamsM c.levelParams M.lvls c.type
 
 /-- Twin of `targetK53`. -/
-def targetK53 (ops : CheckerOps) (env : FEnv) (p : BlockShape) (formerTys : List Expr)
+def targetK53 (env : FEnv) (p : BlockShape) (formerTys : List Expr)
     (Mc : TargetMajor) (tele : List Expr) (majDom f : Expr) : CheckCM Bool := do
   match stripPis tele.length f with
   | none => pure false
@@ -218,7 +220,7 @@ def targetK53 (ops : CheckerOps) (env : FEnv) (p : BlockShape) (formerTys : List
             (← ((appArgs leafW).drop Mc.nPc).mapM eraseFVarTys)
               == (← ((appArgs majDom).drop Mc.nPc).mapM eraseFVarTys) &&
             nestOcc p.memberNames 0 0 (mkAppL (.const I' us') ((appArgs leafW).take Mc.nPc)) then
-          targetClassMatch ops env p formerTys Mc.pfvs Mc.lvls Mc.ds us'
+          targetClassMatch mode env p formerTys Mc.pfvs Mc.lvls Mc.ds us'
             ((appArgs leafW).take Mc.nPc)
         else pure false
       | _, _ => pure false

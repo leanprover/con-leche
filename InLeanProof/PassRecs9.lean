@@ -252,7 +252,7 @@ theorem streamRecCheckI_run {fe : InLean.FEnv} {L : ConLeche.Env} (hJ : JobEnvI 
     (hokG : okC g.1.type = true) (hlbbG : (trC g.1.type).looseBVarsBounded 0 = true)
     (hgr : ∀ r ∈ g.2.2, okC r = true ∧ (trC r).looseBVarsBounded 0 = true)
     (hds : OkSL sx g.2.1.ds = true)
-    (h : InLean.streamRecCheck (sharedOpsC .verified fe) fe rc g s₀ = .ok ((), s')) :
+    (h : InLean.streamRecCheck .verified fe rc g s₀ = .ok ((), s')) :
     CSOKI .verified false L s' ∧ TabLe s₀ s' ∧
       Runs (ConLeche.streamRecCheck (ConLeche.fueledOpsM .verified) (ConLeche.mkFEnv L)
         (trRec rc) (trOut sx g)) () := by
@@ -283,7 +283,7 @@ theorem streamRecsCheckI_run {fe : InLean.FEnv} {L : ConLeche.Env} (hJ : JobEnvI
       (∀ g ∈ gs, okC g.1.type = true ∧ (trC g.1.type).looseBVarsBounded 0 = true ∧
         (∀ r ∈ g.2.2, okC r = true ∧ (trC r).looseBVarsBounded 0 = true) ∧
         OkSL sx g.2.1.ds = true) →
-      InLean.streamRecsCheck (sharedOpsC .verified fe) fe rcs gs s₀ = .ok ((), s') →
+      InLean.streamRecsCheck .verified fe rcs gs s₀ = .ok ((), s') →
       CSOKI .verified false L s' ∧ TabLe s₀ s' ∧
         Runs (ConLeche.streamRecsCheck (ConLeche.fueledOpsM .verified) (ConLeche.mkFEnv L)
           (rcs.map trRec) (gs.map (trOut sx))) ()

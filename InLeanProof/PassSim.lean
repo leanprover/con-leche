@@ -75,11 +75,11 @@ theorem ctorNamesOf_allCtors (p : InLean.BlockShape) :
   simp only [ctorNamesOf, InLean.BlockShape.allCtors, List.flatMap, List.map_flatten, List.map_map]
   rfl
 
-theorem checkSumCtorsF_fresh {ops : InLean.CheckerOps} {fe₀ fe : InLean.FEnv} {T : Lean.Name}
+theorem checkSumCtorsF_fresh {mode : InLean.CheckMode} {fe₀ fe : InLean.FEnv} {T : Lean.Name}
     {lps : List Lean.Name} {nP nIdx : Nat} {sr : Lean.Level} {isProp large : Bool}
     {cvTa : Lean.ConstantVal} :
     ∀ {l : List (Lean.ConstantVal × Nat)} {s₀ s' : InLean.CState} {u : Unit},
-      InLean.checkSumCtorsC ops fe₀ fe T lps nP nIdx sr isProp large cvTa l s₀ = .ok (u, s') →
+      InLean.checkSumCtorsC mode fe₀ fe T lps nP nIdx sr isProp large cvTa l s₀ = .ok (u, s') →
       ∀ c ∈ l, fe.env.find? c.1.name = none
   | [], _, _, _, _ => by simp
   | c :: cs, s₀, s', u, h => by
@@ -89,15 +89,15 @@ theorem checkSumCtorsF_fresh {ops : InLean.CheckerOps} {fe₀ fe : InLean.FEnv} 
     rcases List.mem_cons.1 hc' with rfl | hc'
     · unfold InLean.checkSumCtorC at h1
       obtain ⟨_, _, h0, _⟩ := bindI_ok h1
-      exact checkConstantValF_fresh h0
+      exact checkConstantValC_fresh h0
     · exact checkSumCtorsF_fresh h c' hc'
 
 /-- **The constructors' names are fresh in Lean's environment**, read off an
-accepted constructors' stage (each constructor's `checkConstantValF`). -/
-theorem checkBlockCtorsF_fresh {ops : InLean.CheckerOps} {fe₀ fe : InLean.FEnv}
+accepted constructors' stage (each constructor's `checkConstantValC`). -/
+theorem checkBlockCtorsF_fresh {mode : InLean.CheckMode} {fe₀ fe : InLean.FEnv}
     {p : InLean.BlockShape} :
     ∀ {l : List InLean.MemberShape} {s₀ s' : InLean.CState} {u : Unit},
-      InLean.checkBlockCtorsC ops fe₀ fe p l s₀ = .ok (u, s') →
+      InLean.checkBlockCtorsC mode fe₀ fe p l s₀ = .ok (u, s') →
       ∀ ms ∈ l, ∀ c ∈ ms.ctors, fe.env.find? c.1.name = none
   | [], _, _, _, _ => by simp
   | ms :: rest, s₀, s', u, h => by
@@ -288,9 +288,9 @@ theorem targetCtorsOf_ctorOk {fe : InLean.FEnv} {L : ConLeche.Env} (hJ : JobEnvI
 
 /-- **A major's constructors** (InLean's `targetMajorOf`): a member's are the
 member's, an outside inductive's its stored ones. -/
-theorem targetMajorOf_ctors {ops : InLean.CheckerOps} {fe : InLean.FEnv} {p : InLean.BlockShape}
+theorem targetMajorOf_ctors {mode : InLean.CheckMode} {fe : InLean.FEnv} {p : InLean.BlockShape}
     {pfvs fvs : List Lean.Expr} {mty : Lean.Expr} {s₀ s' : InLean.CState} {M : InLean.TargetMajor}
-    (h : InLean.targetMajorOf ops fe p pfvs fvs mty s₀ = .ok (M, s')) :
+    (h : InLean.targetMajorOf mode fe p pfvs fvs mty s₀ = .ok (M, s')) :
     (M.member = none → ∃ I q, InLean.targetCtorsOf fe I = some q ∧ M.ctors = q.2) ∧
       ∀ t, M.member = some t → ∃ ms, p.members[t]? = some ms ∧ M.ctors = ms.ctors := by
   have hth : ∀ {α : Type} {e : InLean.CheckError} {k : α → InLean.CheckCM InLean.TargetMajor}
@@ -334,10 +334,10 @@ theorem targetMajorOf_ctors {ops : InLean.CheckerOps} {fe : InLean.FEnv} {p : In
   | _ => simp only [hg] at h; exact (throw_run h).elim
 
 /-- **The classes' constructors and member indices** (InLean's `classMajors`). -/
-theorem classMajors_ctors {ops : InLean.CheckerOps} {fe : InLean.FEnv} {p : InLean.BlockShape}
+theorem classMajors_ctors {mode : InLean.CheckMode} {fe : InLean.FEnv} {p : InLean.BlockShape}
     {pfvs : List Lean.Expr} :
     ∀ {keys : List InLean.ClassKey} {s₀ s' : InLean.CState} {Ms : List InLean.TargetMajor},
-      InLean.classMajors ops fe p pfvs keys s₀ = .ok (Ms, s') → ∀ M ∈ Ms,
+      InLean.classMajors mode fe p pfvs keys s₀ = .ok (Ms, s') → ∀ M ∈ Ms,
         (M.member = none → ∃ I q, InLean.targetCtorsOf fe I = some q ∧ M.ctors = q.2) ∧
         ∀ t, M.member = some t → ∃ ms, p.members[t]? = some ms ∧ M.ctors = ms.ctors
   | [], s₀, s', Ms, h => by
@@ -357,10 +357,10 @@ theorem classMajors_ctors {ops : InLean.CheckerOps} {fe : InLean.FEnv} {p : InLe
 
 /-- **The classes' constructors and member indices** (InLean's
 `checkBlockClasses`). -/
-theorem checkBlockClasses_ctors {ops : InLean.CheckerOps} {fe : InLean.FEnv}
+theorem checkBlockClasses_ctors {mode : InLean.CheckMode} {fe : InLean.FEnv}
     {p : InLean.BlockShape} {params : List Lean.Expr} {s₀ s' : InLean.CState}
     {rd : InLean.ClassRead} {Ms : List InLean.TargetMajor}
-    (h : InLean.checkBlockClasses ops fe p params s₀ = .ok ((rd, Ms), s')) : ∀ M ∈ Ms,
+    (h : InLean.checkBlockClasses mode fe p params s₀ = .ok ((rd, Ms), s')) : ∀ M ∈ Ms,
       (M.member = none → ∃ I q, InLean.targetCtorsOf fe I = some q ∧ M.ctors = q.2) ∧
       ∀ t, M.member = some t → ∃ ms, p.members[t]? = some ms ∧ M.ctors = ms.ctors := by
   unfold InLean.checkBlockClasses at h
@@ -521,7 +521,7 @@ theorem PassDataI.frameOk {s : InLean.CState} {q : InLean.BlockPass}
 
 /-- **The pass** (`checkBlockPassS_run`'s twin) at `PassRelI PassDataI`, from
 the former's constant check and its reduct. -/
-theorem passSimI (hC : CheckConstantValFSimI) (hRF : ReducedFormerSimI) :
+theorem passSimI (hC : CheckConstantValCSimI) (hRF : ReducedFormerSimI) :
     PassSimI (PassRelI PassDataI) := by
   intro fe L p₀ isRec q s₀ s' hJ hs hms hrecs hpre h
   unfold InLean.checkBlockPassS at h

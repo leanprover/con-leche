@@ -6,9 +6,9 @@ public import InLeanProof.EnvBodiesPres
 /-!
 # O7: the inductive job's operations and its state residue (task #451, lane O7)
 
-The inductive job (`InLean/Inductives/*`) calls the core through one record,
-`sharedOpsC .verified fe` (`InLean/Inductives/BlockTail.lean`), at the
-environment the stage runs at, and flushes the core's memos at every
+The inductive job (`InLean/Inductives/*`) calls the core directly, at
+`.verified` and the environment the stage runs at (`opInfer`, `opDefeq`,
+`opSort`, `opWhnf`), and flushes the core's memos at every
 environment transition (`flushC`), where master's cached job flushes.
 
 * `CSOKIF s`: the part of `CSOKI` no flush drops (the free-variable table and

@@ -7,7 +7,7 @@ import ConLeche.Verify.Cached.IndWalksC
 /-!
 # O7-recursors: the stream's recursors against the generated ones (task #451, round 6)
 
-`streamRecsCheck` (InLean's at `sharedOpsC .verified`) against master's at
+`streamRecsCheck` (InLean's at `.verified`) against master's at
 `fueledOpsM .verified`, bottom-up:
 
 * `ruleAgreeI_run`: one stored rule against the generated one (closed
@@ -31,7 +31,7 @@ theorem ruleAgreeI_run {fe : InLean.FEnv} {L : ConLeche.Env} (hJ : JobEnvI fe L)
     {rec ctor : Lean.Name} {lps : List Lean.Name} {sr g : Lean.Expr} {s₀ s' : InLean.CState}
     (hs : CSOKI .verified false L s₀) (hokS : okC sr = true) (hokG : okC g = true)
     (hlbbG : (trC g).looseBVarsBounded 0 = true)
-    (h : InLean.ruleAgree (sharedOpsC .verified fe) fe rec ctor lps sr g s₀ =
+    (h : InLean.ruleAgree .verified fe rec ctor lps sr g s₀ =
       .ok ((), s')) :
     CSOKI .verified false L s' ∧ TabLe s₀ s' ∧
       Runs (ConLeche.ruleAgree (ConLeche.fueledOpsM .verified) (ConLeche.mkFEnv L)
@@ -108,7 +108,7 @@ theorem streamRulesCheckI_run {fe : InLean.FEnv} {L : ConLeche.Env} (hJ : JobEnv
     ∀ (rs : List Lean.RecursorRule) (gs : List Lean.Expr) {s₀ s' : InLean.CState},
       CSOKI .verified false L s₀ → (∀ r ∈ rs, okC r.rhs = true) →
       (∀ g ∈ gs, okC g = true ∧ (trC g).looseBVarsBounded 0 = true) →
-      InLean.streamRulesCheck (sharedOpsC .verified fe) fe rec lps rs gs s₀ =
+      InLean.streamRulesCheck .verified fe rec lps rs gs s₀ =
         .ok ((), s') →
       CSOKI .verified false L s' ∧ TabLe s₀ s' ∧
         Runs (ConLeche.streamRulesCheck (ConLeche.fueledOpsM .verified) (ConLeche.mkFEnv L)
@@ -198,7 +198,7 @@ theorem recDomsAtI_run {fe : InLean.FEnv} {L : ConLeche.Env} (hJ : JobEnvI fe L)
     {rec : Lean.Name} {sfvs gfvs : List Lean.Expr} :
     ∀ (k j : Nat) {s₀ s' : InLean.CState},
       CSOKI .verified false L s₀ → FvAt s₀ sfvs → FvAt s₀ gfvs →
-      InLean.recDomsAt (sharedOpsC .verified fe) fe rec sfvs gfvs j k s₀ = .ok ((), s') →
+      InLean.recDomsAt .verified fe rec sfvs gfvs j k s₀ = .ok ((), s') →
       CSOKI .verified false L s' ∧ TabLe s₀ s' ∧
         Runs (ConLeche.recDomsAt (ConLeche.fueledOpsM .verified) L (toName rec) (TrSL s₀ sfvs)
           (TrSL s₀ gfvs) j k) ()
@@ -267,7 +267,7 @@ theorem recTyCheckI_run {fe : InLean.FEnv} {L : ConLeche.Env} (hJ : JobEnvI fe L
     {rec : Lean.Name} {lps : List Lean.Name} {n : Nat} {sT gT : Lean.Expr} {s₀ s' : InLean.CState}
     (hs : CSOKI .verified false L s₀) (hokS : okC sT = true) (hokG : okC gT = true)
     (hlbbG : (trC gT).looseBVarsBounded 0 = true)
-    (h : InLean.recTyCheck (sharedOpsC .verified fe) fe rec lps n sT gT s₀ =
+    (h : InLean.recTyCheck .verified fe rec lps n sT gT s₀ =
       .ok ((), s')) :
     CSOKI .verified false L s' ∧ TabLe s₀ s' ∧
       Runs (ConLeche.recTyCheck (ConLeche.fueledOpsM .verified) (ConLeche.mkFEnv L)
@@ -366,7 +366,7 @@ theorem streamRecCompareI_run {fe : InLean.FEnv} {L : ConLeche.Env} (hJ : JobEnv
     (hokS : okC rc.cvR.type = true) (hrl : ∀ r ∈ rc.rules, okC r.rhs = true)
     (hokG : okC g.1.type = true) (hlbbG : (trC g.1.type).looseBVarsBounded 0 = true)
     (hgr : ∀ r ∈ g.2.2, okC r = true ∧ (trC r).looseBVarsBounded 0 = true)
-    (h : InLean.streamRecCompare (sharedOpsC .verified fe) fe rc g s₀ = .ok ((), s')) :
+    (h : InLean.streamRecCompare .verified fe rc g s₀ = .ok ((), s')) :
     CSOKI .verified false L s' ∧ TabLe s₀ s' ∧
       Runs (ConLeche.streamRecCompare (ConLeche.fueledOpsM .verified) (ConLeche.mkFEnv L)
         (trRec rc) (trOut sx g)) () := by

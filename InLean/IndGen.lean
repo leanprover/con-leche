@@ -114,7 +114,7 @@ def isEquivListL (ls rs : List Level) : M Bool := do
 
 /-- A constant's check (`checkConstantValC`), at the context. -/
 def checkConstantVal (μ : CheckMode) (n : Name) (lps : List Name) (ty : Expr) : M Unit := do
-  (checkConstantValC μ (← read).fe n lps ty : CheckCM Unit)
+  (checkConstantValC μ (← read).fe { name := n, levelParams := lps, type := ty } : CheckCM Unit)
 
 /-- A term's syntactic gates (`checkTermWF`). -/
 def checkExprWF (what : String) (lps : List Name) (e : Expr) : M Unit := do

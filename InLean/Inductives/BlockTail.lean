@@ -38,13 +38,13 @@ variable (mode : CheckMode)
 
 /-- Twin of `checkBlockPassS`. -/
 def checkBlockPassS (fe : FEnv) (p₀ : BlockShape) (isRec : Bool) : CheckCM BlockPass := do
-  let (fe₁, p₁) ← checkBlockIndsC (sharedOpsC mode fe) fe p₀ isRec
+  let (fe₁, p₁) ← checkBlockIndsC mode fe p₀ isRec
   flushC
-  checkBlockCtorsC (sharedOpsC mode fe₁) fe₁ fe₁ p₁ p₁.members
+  checkBlockCtorsC mode fe₁ fe₁ p₁ p₁.members
   let (ctx, holes) ← blockNestCtx p₁ fe₁
-  let (rd, Ms) ← checkBlockClasses (sharedOpsC mode fe₁) fe₁ p₁ ctx.params
-  let (outs, pos) ← checkBlockPositivity (sharedOpsC mode fe₁) fe₁ p₁
-  let st ← nestSeeds (sharedOpsC mode fe₁) fe₁ ctx (← classSeeds ctx holes Ms) pos
+  let (rd, Ms) ← checkBlockClasses mode fe₁ p₁ ctx.params
+  let (outs, pos) ← checkBlockPositivity mode fe₁ p₁
+  let st ← nestSeeds mode fe₁ ctx (← classSeeds ctx holes Ms) pos
   pure ⟨fe₁, p₁, nestOutKinds outs, ctx.params, rd, Ms, st.ctorNfs⟩
 
 /-- Twin of `checkBlockTailS`. -/
@@ -52,7 +52,7 @@ def checkBlockTailS (block : List ConstantInfo) (q : BlockPass) (Q : List ProjTa
     CheckCM Unit :=
   match q with
   | ⟨env₁, p, kinds, params, rd, cls, tbl⟩ => do
-  checkBlockIdxSortsC (sharedOpsC mode env₁) env₁ p p.members
+  checkBlockIdxSortsC mode env₁ p p.members
   let fe₂ := consBlockCtorsF p env₁
   flushC
   let out ← genRecCheck mode fe₂ p
@@ -60,7 +60,7 @@ def checkBlockTailS (block : List ConstantInfo) (q : BlockPass) (Q : List ProjTa
   streamKCheck p p.recs out
   let feG := fe₂.pushAll (blockRecInfosTF p 0 out)
   flushC
-  streamRecsCheck (sharedOpsC mode feG) feG p.recs out
+  streamRecsCheck mode feG p.recs out
   flushC
   checkBlockTablesC fe₂ Q
 
@@ -70,9 +70,9 @@ def reduceMemberS (fe : FEnv) (ms : MemberShape) (nP : Nat) : CheckCM MemberShap
     if declinedAtDefinition.contains ms.cvT.name then
       throw (.notImplemented s!"this family stored at a definition ({ms.cvT.name})")
     else do
-      checkConstantValF (sharedOpsC mode fe) fe ms.cvT
-      let cvR ← reducedFormer (sharedOpsC mode fe) fe ms.cvT (nP + ms.nIdx)
-      unless ← (sharedOpsC mode fe).isDefEq fe 0 ms.cvT.type cvR.type do
+      checkConstantValC mode fe ms.cvT
+      let cvR ← reducedFormer mode fe ms.cvT (nP + ms.nIdx)
+      unless ← opDefeq mode fe 0 ms.cvT.type cvR.type do
         throw (.invalid "direct sum: a type former's declared type and its reduct differ")
       pure { ms with cvT := cvR }
   else pure ms

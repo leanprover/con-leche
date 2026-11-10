@@ -180,7 +180,7 @@ theorem checkAbsCtorSortsI_run {fe : InLean.FEnv} {L : ConLeche.Env} (hJ : JobEn
     ∀ (cs : List (Lean.ConstantVal × Nat)) (os : List (List InLean.NestFieldKind × Lean.Expr))
       {s₀ s' : InLean.CState} {u : Unit},
       CSOKI .verified false L s₀ → WalkRel fe L s₀ ctx cctx → (∀ o ∈ os, OutOk s₀ (ctx.hiAt 0) o) →
-      InLean.checkAbsCtorSorts (sharedOpsC .verified fe) fe ctx cs os s₀ = .ok (u, s') →
+      InLean.checkAbsCtorSorts .verified fe ctx cs os s₀ = .ok (u, s') →
       CSOKI .verified false L s' ∧ TabLe s₀ s' ∧
         Runs (ConLeche.checkAbsCtorSorts (ConLeche.fueledOpsM .verified) L cctx (trCtorL cs)
           (trOuts s₀ os)) ()
@@ -248,7 +248,7 @@ theorem checkAbsCtorSortsAllI_run {fe : InLean.FEnv} {L : ConLeche.Env} (hJ : Jo
       (oss : List (List (List InLean.NestFieldKind × Lean.Expr))) {s₀ s' : InLean.CState} {u : Unit},
       CSOKI .verified false L s₀ → WalkRel fe L s₀ ctx cctx →
       (∀ os ∈ oss, ∀ o ∈ os, OutOk s₀ (ctx.hiAt 0) o) →
-      InLean.checkAbsCtorSortsAll (sharedOpsC .verified fe) fe ctx css oss s₀ = .ok (u, s') →
+      InLean.checkAbsCtorSortsAll .verified fe ctx css oss s₀ = .ok (u, s') →
       CSOKI .verified false L s' ∧ TabLe s₀ s' ∧
         Runs (ConLeche.checkAbsCtorSortsAll (ConLeche.fueledOpsM .verified) L cctx
           (css.map trCtorL) (oss.map (trOuts s₀))) ()
@@ -304,7 +304,7 @@ theorem checkBlockPositivityI_run {fe : InLean.FEnv} {L : ConLeche.Env} (hJ : Jo
     (hs : CSOKI .verified false L s₀)
     (hok : ∀ ms ∈ p.members, okC ms.cvT.type = true ∧ (trC ms.cvT.type).looseBVarsBounded 0 = true)
     (hct : ∀ cs ∈ p.memberCtors, ∀ c ∈ cs, CtorOkI c) (hsort : okL p.resSort = true)
-    (h : InLean.checkBlockPositivity (sharedOpsC .verified fe) fe p s₀ = .ok (v, s')) :
+    (h : InLean.checkBlockPositivity .verified fe p s₀ = .ok (v, s')) :
     CSOKI .verified false L s' ∧ TabLe s₀ s' ∧
       (∀ os ∈ v.1, ∀ o ∈ os, OutOk s' (p.nP + p.memberNames.length) o) ∧ StOk s' v.2 ∧
       Runs (ConLeche.checkBlockPositivity (ConLeche.fueledOpsM .verified) L L.find? (trShape p))

@@ -9,7 +9,7 @@ import ConLeche.Verify.Inductives.BlockInv
 
 `reduceMemberSimI_of`: `ReduceMemberSimI` (`reduceMemberS_spec`'s twin) from the
 specs of its two callees, named: the former's constant check
-(`CheckConstantValFSimI`, `checkConstantValS_spec`'s twin; its guards are
+(`CheckConstantValCSimI`, `checkConstantValS_spec`'s twin; its guards are
 `checkConstantValC`'s, O6's) and the whnf telescope's reduct
 (`ReducedFormerSimI`, `reducedFormerWS_spec`'s twin), with the job's `defeq`
 operation (`OpsSimI`).  `blockKSSimI_of_stages`: the recognised block's job from
@@ -73,12 +73,26 @@ theorem declinedAtDefinition_tr :
 
 /-! ## The callees, named -/
 
+/-- An accepted constant check read its name fresh in Lean's environment
+(official's `check_name`). -/
+theorem checkConstantValC_fresh {mode : InLean.CheckMode} {fe : InLean.FEnv} {cv : Lean.ConstantVal}
+    {b : Bool} {s₀ s' : InLean.CState} {r : Unit}
+    (h : InLean.checkConstantValC mode fe cv b s₀ = .ok (r, s')) : fe.env.find? cv.name = none := by
+  unfold InLean.checkConstantValC at h
+  cases hf : fe.env.find? cv.name with
+  | none => rfl
+  | some ci =>
+    rw [hf] at h
+    obtain ⟨_, _, h1, _⟩ := bindI_ok h
+    exact (throwI_ok h1).elim
+
+
 /-- **A former's constant check** (`checkConstantValS_spec`'s twin): its
 guards are `checkConstantValC`'s (O6), its operations the job's. -/
-@[expose] def CheckConstantValFSimI : Prop :=
+@[expose] def CheckConstantValCSimI : Prop :=
   ∀ (fe : InLean.FEnv) (L : ConLeche.Env) (cv : Lean.ConstantVal) (s₀ s' : InLean.CState),
     JobEnvI fe L → CSOKI .verified false L s₀ → okC cv.type = true →
-    InLean.checkConstantValF (sharedOpsC .verified fe) fe cv false s₀ = .ok ((), s') →
+    InLean.checkConstantValC .verified fe cv false s₀ = .ok ((), s') →
     CSOKI .verified false L s' ∧ TabLe s₀ s' ∧ (trC cv.type).looseBVarsBounded 0 = true ∧
       Runs (ConLeche.checkConstantVal (ConLeche.fueledOpsM .verified) L (trCV cv)) ()
 
@@ -89,7 +103,7 @@ walk (`whnfTelescope`, interned variables) and its closing. -/
     (s₀ s' : InLean.CState),
     JobEnvI fe L → CSOKI .verified false L s₀ → okC cv.type = true →
     (trC cv.type).looseBVarsBounded 0 = true →
-    InLean.reducedFormer (sharedOpsC .verified fe) fe cv n s₀ = .ok (cvR, s') →
+    InLean.reducedFormer .verified fe cv n s₀ = .ok (cvR, s') →
     CSOKI .verified false L s' ∧ TabLe s₀ s' ∧ okC cvR.type = true ∧
       (trC cvR.type).looseBVarsBounded 0 = true ∧
       Runs (ConLeche.reducedFormer (ConLeche.fueledOpsM .verified) L (trCV cv) n) (trCV cvR)
@@ -98,7 +112,7 @@ walk (`whnfTelescope`, interned variables) and its closing. -/
 
 /-- **One member's reduction** from its callees' specs (`reduceMemberS_spec`'s
 twin). -/
-theorem reduceMemberSimI_of (hC : CheckConstantValFSimI) (hRF : ReducedFormerSimI) :
+theorem reduceMemberSimI_of (hC : CheckConstantValCSimI) (hRF : ReducedFormerSimI) :
     ReduceMemberSimI := by
   intro fe L nP ms ms' s₀ s' hJ hs hok h
   unfold InLean.reduceMemberS at h
@@ -146,7 +160,7 @@ theorem reduceMemberSimI_of (hC : CheckConstantValFSimI) (hRF : ReducedFormerSim
 
 /-- **The recognised block's job** from the member callees and the pass with its
 tail. -/
-theorem blockKSSimI_of_stages (hC : CheckConstantValFSimI) (hRF : ReducedFormerSimI)
+theorem blockKSSimI_of_stages (hC : CheckConstantValCSimI) (hRF : ReducedFormerSimI)
     (hPT : PassTailSimI) : BlockKSSimI :=
   blockKSSimI_of (reduceMemberSimI_of hC hRF) hPT fun _ _ _ hk h => readBlock_memberOk hk h
 
@@ -248,10 +262,10 @@ variable {pins : List ConLeche.NatOpPinSet}
 
 /-- **InLean's inductive declaration simulates master's pure declaration kind
 check** on the translated block, from the remaining named stages: the
-former's constant check (`CheckConstantValFSimI`), its reduct
+former's constant check (`CheckConstantValCSimI`), its reduct
 (`ReducedFormerSimI`), the pass and the tail at a relation of the prover's
 choice (`PassSimI R`, `TailSimI R`). -/
-theorem checkIndDeclC_sim_stages (hC : CheckConstantValFSimI)
+theorem checkIndDeclC_sim_stages (hC : CheckConstantValCSimI)
     (hRF : ReducedFormerSimI)
     {R : InLean.CState → InLean.BlockPass → ConLeche.BlockPass ConLeche.Env → Prop}
     (hP : PassSimI R) (hT : TailSimI R)

@@ -193,7 +193,7 @@ theorem trShape_memberCtors_trCtor (p : InLean.BlockShape) :
 
 /-- **`JobEnvI` at the constructors' push** (`consBlockCtorsF`, the recursor
 stage's input): the constructors' names fresh and distinct (the
-constructors' stage's `checkConstantValF`), their types with a reading;
+constructors' stage's `checkConstantValC`), their types with a reading;
 well-formedness is master's (`checkBlockPassS_run`'s `consBlockCtors`
 conjunct). -/
 theorem jobEnvI_ctors (hJ : JobEnvI fe L) (p : InLean.BlockShape)
@@ -423,7 +423,7 @@ theorem classFormerTysI_run {fe : InLean.FEnv} {L : ConLeche.Env} (hJ : JobEnvI 
     ∀ (Ms : List InLean.TargetMajor) {s₀ s' : InLean.CState} {v : List Lean.Expr},
       CSOKI .verified false L s₀ →
       (∀ M ∈ Ms, OkTMN s₀ M ∧ ∀ t, M.member = some t → t < formers.length) →
-      Ms.mapM (InLean.classFormerTy (sharedOpsC .verified fe) fe formers) s₀ = .ok (v, s') →
+      Ms.mapM (InLean.classFormerTy .verified fe formers) s₀ = .ok (v, s') →
       CSOKI .verified false L s' ∧ TabLe s₀ s' ∧ OkSL s' v = true ∧ v.length = Ms.length ∧
         (∀ f ∈ v, (TrS s' f).looseBVarsBounded 0 = true) ∧
         RunsAll (ConLeche.classFormerTy (ConLeche.fueledOpsM .verified) (ConLeche.mkFEnv L)
@@ -459,11 +459,11 @@ theorem classFormerTysI_run {fe : InLean.FEnv} {L : ConLeche.Env} (hJ : JobEnvI 
 
 /-! ## What the stage's runs give beside their readings -/
 
-theorem targetMajorNfs_sub {ops : InLean.CheckerOps} {fe : InLean.FEnv} {p : InLean.BlockShape}
+theorem targetMajorNfs_sub {mode : InLean.CheckMode} {fe : InLean.FEnv} {p : InLean.BlockShape}
     {formerTys pfvs : List Lean.Expr} {us : List Lean.Level} {ds : List Lean.Expr}
     {ctors : List (Lean.ConstantVal × Nat)} :
     ∀ (tbl : List InLean.NestCtorNf) {s₀ s' : InLean.CState} {r : List InLean.NestCtorNf},
-      InLean.targetMajorNfs ops fe p formerTys pfvs us ds ctors tbl s₀ = .ok (r, s') →
+      InLean.targetMajorNfs mode fe p formerTys pfvs us ds ctors tbl s₀ = .ok (r, s') →
       ∀ e ∈ r, e ∈ tbl
   | [], s₀, s', r, h => by
     unfold InLean.targetMajorNfs at h
@@ -487,10 +487,10 @@ theorem targetMajorNfs_sub {ops : InLean.CheckerOps} {fe : InLean.FEnv} {p : InL
       exact fun x hx => List.mem_cons_of_mem _ (ih x hx)
 
 /-- **The classes' entries come from the positivity table.** -/
-theorem classesNfs_sub {ops : InLean.CheckerOps} {fe : InLean.FEnv} {p : InLean.BlockShape}
+theorem classesNfs_sub {mode : InLean.CheckMode} {fe : InLean.FEnv} {p : InLean.BlockShape}
     {formerTys : List Lean.Expr} {tbl : List InLean.NestCtorNf} :
     ∀ (Ms : List InLean.TargetMajor) {s₀ s' : InLean.CState} {v : List InLean.TargetMajor},
-      InLean.classesNfs ops fe p formerTys tbl Ms s₀ = .ok (v, s') →
+      InLean.classesNfs mode fe p formerTys tbl Ms s₀ = .ok (v, s') →
       ∀ M ∈ v, ∀ e ∈ M.nfs, e ∈ tbl
   | [], s₀, s', v, h => by
     unfold InLean.classesNfs at h
@@ -506,8 +506,8 @@ theorem classesNfs_sub {ops : InLean.CheckerOps} {fe : InLean.FEnv} {p : InLean.
     · exact targetMajorNfs_sub tbl h1
     · exact classesNfs_sub Ms h2 M' hM'
 
-theorem classConstOk_fresh {ops : InLean.CheckerOps} {fe : InLean.FEnv} {cv : Lean.ConstantVal}
-    {s₀ s' : InLean.CState} {r : Unit} (h : InLean.classConstOk ops fe cv s₀ = .ok (r, s')) :
+theorem classConstOk_fresh {mode : InLean.CheckMode} {fe : InLean.FEnv} {cv : Lean.ConstantVal}
+    {s₀ s' : InLean.CState} {r : Unit} (h : InLean.classConstOk mode fe cv s₀ = .ok (r, s')) :
     fe.env.find? cv.name = none := by
   unfold InLean.classConstOk at h
   cases hf : fe.env.find? cv.name with
@@ -518,9 +518,9 @@ theorem classConstOk_fresh {ops : InLean.CheckerOps} {fe : InLean.FEnv} {cv : Le
     obtain ⟨_, _, h1, _⟩ := bindI_ok h
     exact (throwI_ok h1).elim
 
-theorem classRecTyOk_facts {ops : InLean.CheckerOps} {fe : InLean.FEnv} {g : InLean.ClassGen}
+theorem classRecTyOk_facts {mode : InLean.CheckMode} {fe : InLean.FEnv} {g : InLean.ClassGen}
     {k : Nat} {rc : InLean.RecShape} {cvRi : Lean.ConstantVal} {c : Nat} {s₀ s' : InLean.CState}
-    {x : Lean.ConstantVal} (h : InLean.classRecTyOk ops fe g k rc cvRi c s₀ = .ok (x, s')) :
+    {x : Lean.ConstantVal} (h : InLean.classRecTyOk mode fe g k rc cvRi c s₀ = .ok (x, s')) :
     rc.rP ≤ rc.mI ∧ fe.env.find? x.name = none ∧ x.name = rc.cvR.name := by
   unfold InLean.classRecTyOk at h
   have hth : ∀ {α : Type} {e : InLean.CheckError} {k' : α → InLean.CheckCM Lean.ConstantVal}
@@ -546,11 +546,11 @@ theorem classRecTyOk_facts {ops : InLean.CheckerOps} {fe : InLean.FEnv} {g : InL
 
 /-- **The recursor types' run**: each record's rule prefix below its major
 index, every generated constant fresh and at its record's name. -/
-theorem classRecTysOk_facts {ops : InLean.CheckerOps} {fe : InLean.FEnv} {g : InLean.ClassGen}
+theorem classRecTysOk_facts {mode : InLean.CheckMode} {fe : InLean.FEnv} {g : InLean.ClassGen}
     {k : Nat} :
     ∀ (rcs : List InLean.RecShape) (cvs : List Lean.ConstantVal) (cs : List Nat)
       {s₀ s' : InLean.CState} {v : List Lean.ConstantVal},
-      InLean.classRecTysOk ops fe g k rcs cvs cs s₀ = .ok (v, s') →
+      InLean.classRecTysOk mode fe g k rcs cvs cs s₀ = .ok (v, s') →
       (∀ rc ∈ rcs, rc.rP ≤ rc.mI) ∧ (∀ x ∈ v, fe.env.find? x.name = none) ∧
         v.map (·.name) = rcs.map (·.cvR.name)
   | [], cvs, cs, s₀, s', v, h => by

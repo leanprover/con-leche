@@ -58,7 +58,9 @@ structure Added where
 section
 variable (mode : CheckMode)
 
-/-- The core's entry points at the plain tower (twin of `sharedOpsC`). -/
+/-- The core's entry points at the plain tower: `coreKnotI` at the recursion
+limit's fuel, which master's cached stages call directly (`opSort` is its
+`opSIxC`). -/
 @[inline] def opInfer (fe : FEnv) (d : Nat) (e : Expr) : CheckCM Expr :=
   (coreKnotI mode false fe (fe.limits.recDepth.getD checkFuel)).infer d e
 @[inline] def opDefeq (fe : FEnv) (d : Nat) (a b : Expr) : CheckCM Bool :=
@@ -151,17 +153,21 @@ def natOpName (n : Name) : Bool := natOpNames.contains n || natDivModNames.conta
 section
 variable (mode : CheckMode)
 
-/-- Twin of `checkConstantValC`. -/
-def checkConstantValC (fe : FEnv) (n : Name) (lps : List Name) (ty : Expr)
-    (allowOp : Bool := false) : CheckCM Unit := do
-  if (fe.env.find? n).isSome then throw (alreadyDeclared n)
-  if natOpName n && !allowOp then
-    throw (.invalid s!"a certified Nat operation's name, not a definition: {n}")
-  unless litShapeOk n lps ty do
-    throw (.notImplemented s!"a declaration at a literal's name with another shape ({n})")
-  unless namesNodup lps do throw (.invalid s!"duplicate universe parameters in {n}")
-  checkTermWF fe s!"type of {n}" lps ty
-  let _ ← opSort mode fe 0 (← opInfer mode fe 0 ty)
+/-- Twin of `checkConstantValC`; the name's freshness read off the
+environment itself, as official's `check_name` (`FEnv.find?` hides
+constants a check does not see). -/
+def checkConstantValC (fe : FEnv) (cv : ConstantVal) (allowOp : Bool := false) :
+    CheckCM Unit := do
+  if (fe.env.find? cv.name).isSome then throw (alreadyDeclared cv.name)
+  if natOpName cv.name && !allowOp then
+    throw (.invalid s!"a certified Nat operation's name, not a definition: {cv.name}")
+  unless litShapeOk cv.name cv.levelParams cv.type do
+    throw (.notImplemented s!"a declaration at a literal's name with another shape ({cv.name})")
+  unless namesNodup cv.levelParams do
+    throw (.invalid s!"duplicate universe parameters in {cv.name}")
+  checkTermWF fe s!"type of {cv.name}" cv.levelParams cv.type
+  let stype ← opInfer mode fe 0 cv.type
+  let _u ← opSort mode fe 0 stype
 
 /-- Twin of the value half of `checkDefnValCI`/`checkThmValCI`/`checkOpaqueValCI`. -/
 def checkValueC (fe : FEnv) (kind : String) (n : Name) (lps : List Name) (ty v : Expr) :
@@ -439,11 +445,11 @@ def checkDefnC (cfg : Config) (fe : FEnv) (v : DefinitionVal) : CheckCM Added :=
   let ci := ConstantInfo.defnInfo v
   if v.safety == .unsafe then
     let fe := { fe with safety := .unsafe }
-    checkConstantValC mode fe v.name v.levelParams v.type true
+    checkConstantValC mode fe v.toConstantVal true
     checkValueC mode (fe.push ci) "definition" v.name v.levelParams
       v.type v.value
     return { consts := #[ci] }
-  checkConstantValC mode fe v.name v.levelParams v.type true
+  checkConstantValC mode fe v.toConstantVal true
   checkValueC mode fe "definition" v.name v.levelParams v.type v.value
   if natOpNames.contains v.name || natDivModNames.contains v.name then
     let fe2 : FEnv := fe.push ci
@@ -468,7 +474,7 @@ def checkDefnC (cfg : Config) (fe : FEnv) (v : DefinitionVal) : CheckCM Added :=
 /-- A theorem (twin of `checkThmValCI`; stored with its value, which the core
 never unfolds). -/
 def checkThmC (fe : FEnv) (v : TheoremVal) : CheckCM Added := do
-  checkConstantValC mode fe v.name v.levelParams v.type
+  checkConstantValC mode fe v.toConstantVal
   let u ← opSort mode fe 0 (← opInfer mode fe 0 v.type)
   unless ← liftFueled "level comparison" (Lvl.isEquiv u .zero) do
     throw (.invalid s!"type of theorem {v.name} is not a proposition")
@@ -478,7 +484,7 @@ def checkThmC (fe : FEnv) (v : TheoremVal) : CheckCM Added := do
 /-- An opaque (twin of `checkOpaqueValCI`; official `add_opaque` checks at
 the safe safety even for an unsafe one). -/
 def checkOpaqueC (fe : FEnv) (v : OpaqueVal) : CheckCM Added := do
-  checkConstantValC mode fe v.name v.levelParams v.type
+  checkConstantValC mode fe v.toConstantVal
   checkValueC mode fe "opaque" v.name v.levelParams v.type v.value
   let ci := ConstantInfo.opaqueInfo v
   if reduceOpNames.contains v.name then
@@ -503,7 +509,7 @@ def checkAxiomC (cfg : Config) (fe : FEnv) (v : AxiomVal) : CheckCM Added := do
   -- the official policy (`coreAxioms`) admits an axiom at a certified `Nat`
   -- operation's name: the elaborator adds a recursive definition as an axiom
   -- while it elaborates it (`addAsAxiom`); any other declaration there is checked
-  checkConstantValC mode fe' v.name v.levelParams v.type (allowOp := fe.coreAxioms)
+  checkConstantValC mode fe' v.toConstantVal (allowOp := fe.coreAxioms)
   if v.isUnsafe then return { consts := #[ci] }
   if stdAxiomOk fe v.name v.levelParams v.type then return { consts := #[ci] }
   if v.name == trustCompilerName then
@@ -535,7 +541,7 @@ def checkMutualC (fe : FEnv) (vs : List DefinitionVal) : CheckCM Added := do
     if found.contains v.name then
       throw (.invalid s!"invalid mutual definition, duplicate declaration name '{v.name}'")
     found := found.push v.name
-    checkConstantValC mode fe v.name v.levelParams v.type true
+    checkConstantValC mode fe v.toConstantVal true
   let fe' := fe.pushAll (vs.map ConstantInfo.defnInfo)
   for v in vs do
     checkValueC mode fe' "definition" v.name v.levelParams v.type v.value

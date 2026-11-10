@@ -176,9 +176,9 @@ theorem genEntriesAgree_facts {p : InLean.BlockShape} {block : List Lean.Constan
 section
 variable {μ : CheckMode} {fe : InLean.FEnv}
 
-theorem checkBlockIndsF_shape {ops : InLean.CheckerOps} {p : InLean.BlockShape} {isRec : Bool}
+theorem checkBlockIndsF_shape {mode : InLean.CheckMode} {p : InLean.BlockShape} {isRec : Bool}
     {r : InLean.FEnv × InLean.BlockShape} {s s' : InLean.CState}
-    (h : (InLean.checkBlockIndsC ops fe p isRec) s = .ok (r, s')) :
+    (h : (InLean.checkBlockIndsC mode fe p isRec) s = .ok (r, s')) :
     r.2.members = p.members ∧ r.2.recs = p.recs := by
   unfold InLean.checkBlockIndsC at h
   cases hm : p.members with

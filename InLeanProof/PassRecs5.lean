@@ -53,8 +53,8 @@ theorem constsResolveF_state {fe : InLean.FEnv} {e : Lean.Expr} {s s' : InLean.C
 /-! ## A generated constant -/
 
 /-- **A generated constant accepted is marker-free** (the `EO.inRange` guard). -/
-theorem classConstOk_emvar {ops : InLean.CheckerOps} {fe : InLean.FEnv} {cv : Lean.ConstantVal}
-    {s₀ s' : InLean.CState} (h : InLean.classConstOk ops fe cv s₀ = .ok ((), s')) :
+theorem classConstOk_emvar {mode : InLean.CheckMode} {fe : InLean.FEnv} {cv : Lean.ConstantVal}
+    {s₀ s' : InLean.CState} (h : InLean.classConstOk mode fe cv s₀ = .ok ((), s')) :
     Expr.RangeOk cv.type ∧ emvarS cv.type = false := by
   unfold InLean.classConstOk at h
   have hth : ∀ {α : Type} {e : InLean.CheckError} {k : α → InLean.CheckCM Unit},
@@ -80,7 +80,7 @@ twin): at a term with a reading, accepted at the job's operations, master's
 theorem classConstOkI_run {fe : InLean.FEnv} {L : ConLeche.Env} (hJ : JobEnvI fe L)
     {cv : Lean.ConstantVal} {s₀ s' : InLean.CState}
     (hs : CSOKI .verified false L s₀) (hok : OkS s₀ cv.type = true)
-    (h : InLean.classConstOk (sharedOpsC .verified fe) fe cv s₀ = .ok ((), s')) :
+    (h : InLean.classConstOk .verified fe cv s₀ = .ok ((), s')) :
     CSOKI .verified false L s' ∧ TabLe s₀ s' ∧ okC cv.type = true ∧
       (trC cv.type).looseBVarsBounded 0 = true ∧
       Runs (ConLeche.classConstOk (ConLeche.fueledOpsM .verified) (ConLeche.mkFEnv L) (trCV cv))
@@ -141,7 +141,7 @@ theorem classRecTyCheckI_run {fe : InLean.FEnv} {L : ConLeche.Env} (hJ : JobEnvI
     {cvRi cvG : Lean.ConstantVal} {s₀ s' : InLean.CState}
     (hs : CSOKI .verified false L s₀) (hokR : okC cvRi.type = true)
     (hlbbR : (trC cvRi.type).looseBVarsBounded 0 = true) (hok : OkS s₀ cvG.type = true)
-    (h : InLean.classRecTyCheck (sharedOpsC .verified fe) fe cvRi cvG s₀ = .ok ((), s')) :
+    (h : InLean.classRecTyCheck .verified fe cvRi cvG s₀ = .ok ((), s')) :
     CSOKI .verified false L s' ∧ TabLe s₀ s' ∧ okC cvG.type = true ∧
       (trC cvG.type).looseBVarsBounded 0 = true ∧
       Runs (ConLeche.classRecTyCheck (ConLeche.fueledOpsM .verified) (ConLeche.mkFEnv L)
@@ -166,9 +166,9 @@ theorem classRecTyCheckI_run {fe : InLean.FEnv} {L : ConLeche.Env} (hJ : JobEnvI
   exact Runs.pure _
 
 /-- A generated recursor type accepted by `classRecTyCheck` is marker-free. -/
-theorem classRecTyCheck_emvar {ops : InLean.CheckerOps} {fe : InLean.FEnv}
+theorem classRecTyCheck_emvar {mode : InLean.CheckMode} {fe : InLean.FEnv}
     {cvRi cvG : Lean.ConstantVal} {s₀ s' : InLean.CState}
-    (h : InLean.classRecTyCheck ops fe cvRi cvG s₀ = .ok ((), s')) : emvarS cvG.type = false := by
+    (h : InLean.classRecTyCheck mode fe cvRi cvG s₀ = .ok ((), s')) : emvarS cvG.type = false := by
   unfold InLean.classRecTyCheck at h
   obtain ⟨_, _, h1, -⟩ := bindI_ok h
   exact (classConstOk_emvar h1).2
@@ -185,7 +185,7 @@ theorem classRecTyOkI_run {fe : InLean.FEnv} {L : ConLeche.Env} (hJ : JobEnvI fe
     (hM : ClassOk s₀ (g.cls.getD c default))
     (hftc : (TrS s₀ (g.formerTys.getD c default)).looseBVarsBounded 0 = true)
     (hc : c < g.formerTys.length)
-    (h : InLean.classRecTyOk (sharedOpsC .verified fe) fe g k rc cvRi c s₀ = .ok (v, s')) :
+    (h : InLean.classRecTyOk .verified fe g k rc cvRi c s₀ = .ok (v, s')) :
     CSOKI .verified false L s' ∧ TabLe s₀ s' ∧ v = { rc.cvR with type := v.type } ∧
       okC v.type = true ∧ (trC v.type).looseBVarsBounded 0 = true ∧
       Runs (ConLeche.classRecTyOk (ConLeche.fueledOpsM .verified) (ConLeche.mkFEnv L)
@@ -247,7 +247,7 @@ theorem classRecTysOkI_run {fe : InLean.FEnv} {L : ConLeche.Env} (hJ : JobEnvI f
       CSOKI .verified false L s₀ → CGOk s₀ g →
       (∀ cvRi ∈ cvs, okC cvRi.type = true ∧ (trC cvRi.type).looseBVarsBounded 0 = true) →
       (∀ c ∈ cs, GenCls s₀ g c) →
-      InLean.classRecTysOk (sharedOpsC .verified fe) fe g k rcs cvs cs s₀ = .ok (v, s') →
+      InLean.classRecTysOk .verified fe g k rcs cvs cs s₀ = .ok (v, s') →
       CSOKI .verified false L s' ∧ TabLe s₀ s' ∧ GenCVs v rcs ∧
         Runs (ConLeche.classRecTysOk (ConLeche.fueledOpsM .verified) (ConLeche.mkFEnv L)
           (trCG s₀ g) k (rcs.map trRec) (cvs.map trCV) cs) (v.map trCV)
@@ -502,9 +502,9 @@ theorem allM_true {α : Type} {f : α → InLean.CheckCM Bool} (hf : ∀ a, NoSt
         · exact hl x hx⟩
 
 /-- A generated rule accepted by `classRuleCheck` is marker-free. -/
-theorem classRuleCheck_emvar {ops : InLean.CheckerOps}
+theorem classRuleCheck_emvar {mode : InLean.CheckMode}
     {feT feR : InLean.FEnv} {cvR : Lean.ConstantVal} {n : Nat} {gen : Lean.Expr}
-    {s₀ s' : InLean.CState} (h : InLean.classRuleCheck ops feT feR cvR n gen s₀ = .ok ((), s')) :
+    {s₀ s' : InLean.CState} (h : InLean.classRuleCheck mode feT feR cvR n gen s₀ = .ok ((), s')) :
     emvarS gen = false := by
   unfold InLean.classRuleCheck at h
   have hth : ∀ {α : Type} {e : InLean.CheckError} {k : α → InLean.CheckCM Unit},
@@ -523,7 +523,7 @@ constructors' (`EnvPresI feT LT`). -/
 theorem classRuleCheckI_run {feT feR : InLean.FEnv} {LT LR : ConLeche.Env}
     (hPT : EnvPresI feT LT) (hJR : JobEnvI feR LR) {cvR : Lean.ConstantVal} {n : Nat}
     {gen : Lean.Expr} {s₀ s' : InLean.CState} (hs : CSOKIF s₀) (hok : OkS s₀ gen = true)
-    (h : InLean.classRuleCheck (sharedOpsRuleR .verified feR) feT feR cvR n gen s₀ =
+    (h : InLean.classRuleCheck .verified feT feR cvR n gen s₀ =
       .ok ((), s')) :
     (∀ m e L', CSOKI m e L' s') ∧ TabLe s₀ s' ∧ okC gen = true ∧
       (trC gen).looseBVarsBounded 0 = true ∧
@@ -553,20 +553,17 @@ theorem classRuleCheckI_run {feT feR : InLean.FEnv} {LT LR : ConLeche.Env}
   rw [constsResolveF_state hc'] at h
   cases c <;> simp only [Bool.false_eq_true, ↓reduceIte] at h <;> try exact absurd h hth
   -- the inference, between two flushes
-  obtain ⟨v, s₂, hI, h⟩ := bindI_ok h
-  simp only [InLean.sharedOpsRuleR] at hI
-  obtain ⟨_, s₄, hf1, hI⟩ := bindI_ok hI
+  obtain ⟨_, s₄, hf1, h⟩ := bindI_ok h
   rw [flushI_run] at hf1
   cases hf1
-  obtain ⟨t, s₅, hI1, hI⟩ := bindI_ok hI
+  obtain ⟨t, s₅, hI1, h⟩ := bindI_ok h
   obtain ⟨hs₅, ht₅, -, hRI, -, -⟩ := tripleI_iff_run.1 (hJR.ops.infer (s₀ := s₀.flushed) (d := 0)
     (i := gen) (flushI_csoki hs _ _ _) (by rw [OkS_flushed]; exact hok)
     (by rw [TrS_flushed, hTr]; exact trC_wscoped 0 _) (by rw [TrS_flushed, hTr]; exact hlbb))
     t s₅ hI1
-  obtain ⟨_, s₆, hf2, hI⟩ := bindI_ok hI
+  obtain ⟨_, s₆, hf2, h⟩ := bindI_ok h
   rw [flushI_run] at hf2
   cases hf2
-  obtain ⟨rfl, rfl⟩ := pureI_ok hI
   -- the telescope and its domains
   obtain ⟨⟨rbs, r⟩, s₇, hU, h⟩ := bindI_ok h
   obtain ⟨hU2, rfl⟩ := unwrapOrI_run hU
@@ -617,7 +614,7 @@ theorem classRulesOkI_run {feT feR : InLean.FEnv} {LT LR : ConLeche.Env}
     {cvR : Lean.ConstantVal} {c : Nat} :
     ∀ (xs : List InLean.ClassCtor) {s₀ s' : InLean.CState} {v : List Lean.Expr},
       (∀ m e L', CSOKI m e L' s₀) → CGOk s₀ g → (∀ x ∈ xs, RuleCtorOk s₀ x) →
-      InLean.classRulesOk (sharedOpsRuleR .verified feR) feT feR g recOf cvR c xs s₀ =
+      InLean.classRulesOk .verified feT feR g recOf cvR c xs s₀ =
         .ok (v, s') →
       (∀ m e L', CSOKI m e L' s') ∧ TabLe s₀ s' ∧
         (∀ r ∈ v, okC r = true ∧ (trC r).looseBVarsBounded 0 = true) ∧
@@ -686,7 +683,7 @@ theorem classRecsRulesOkI_run {feT feR : InLean.FEnv} {LT LR : ConLeche.Env}
     ∀ (cvs : List Lean.ConstantVal) (cs : List Nat) {s₀ s' : InLean.CState}
       {v : List (Lean.ConstantVal × InLean.TargetMajor × List Lean.Expr)},
       (∀ m e L', CSOKI m e L' s₀) → CGOk s₀ g → (∀ xs ∈ g.ctors, ∀ x ∈ xs, RuleCtorOk s₀ x) →
-      InLean.classRecsRulesOk (sharedOpsRuleR .verified feR) feT feR g recOf cvs cs s₀ =
+      InLean.classRecsRulesOk .verified feT feR g recOf cvs cs s₀ =
         .ok (v, s') →
       (∀ m e L', CSOKI m e L' s') ∧ TabLe s₀ s' ∧
         (∀ o ∈ v, o.1 ∈ cvs ∧ (∀ r ∈ o.2.2, okC r = true ∧ (trC r).looseBVarsBounded 0 = true) ∧
@@ -764,9 +761,9 @@ theorem classGenRecTy_shape {g : InLean.ClassGen} {c : Nat} {s₀ s' : InLean.CS
 /-- **The prefix is marker-free once one recursor type is checked**: every
 recursor type closes the prefix (`classGenRecTy_shape`), and `classConstOk`
 refuses a type `EO.inRange` refuses. -/
-theorem classRecTyOk_pre_emvar {ops : InLean.CheckerOps} {fe : InLean.FEnv} {g : InLean.ClassGen}
+theorem classRecTyOk_pre_emvar {mode : InLean.CheckMode} {fe : InLean.FEnv} {g : InLean.ClassGen}
     {k c : Nat} {rc : InLean.RecShape} {cvRi : Lean.ConstantVal} {s₀ s' : InLean.CState}
-    {v : Lean.ConstantVal} (h : InLean.classRecTyOk ops fe g k rc cvRi c s₀ = .ok (v, s')) :
+    {v : Lean.ConstantVal} (h : InLean.classRecTyOk mode fe g k rc cvRi c s₀ = .ok (v, s')) :
     ∀ b ∈ g.pre, emvarS b = false := by
   unfold InLean.classRecTyOk at h
   have hth : ∀ {α : Type} {e : InLean.CheckError} {k : α → InLean.CheckCM Lean.ConstantVal},
@@ -786,10 +783,10 @@ theorem classRecTyOk_pre_emvar {ops : InLean.CheckerOps} {fe : InLean.FEnv} {g :
   exact fun b hb => (emvarS_closeTelescope_all _ 0 body hem).1 b (List.mem_append_left _ hb)
 
 /-- The same, at the first recursor of a non-empty family (`classRecTysOk`). -/
-theorem classRecTysOk_pre_emvar {ops : InLean.CheckerOps} {fe : InLean.FEnv} {g : InLean.ClassGen}
+theorem classRecTysOk_pre_emvar {mode : InLean.CheckMode} {fe : InLean.FEnv} {g : InLean.ClassGen}
     {k : Nat} {rc : InLean.RecShape} {rcs : List InLean.RecShape} {cvs : List Lean.ConstantVal}
     {cs : List Nat} {s₀ s' : InLean.CState} {v : List Lean.ConstantVal}
-    (h : InLean.classRecTysOk ops fe g k (rc :: rcs) cvs cs s₀ = .ok (v, s')) :
+    (h : InLean.classRecTysOk mode fe g k (rc :: rcs) cvs cs s₀ = .ok (v, s')) :
     ∀ b ∈ g.pre, emvarS b = false := by
   match cvs, cs, h with
   | cvRi :: cvs, c :: cs, h =>

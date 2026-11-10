@@ -54,7 +54,7 @@ theorem nestSeedsI_run {fe : InLean.FEnv} {L : ConLeche.Env} {ctx : InLean.NestC
       {v : InLean.NestState},
       CSOKI .verified false L s₀ → WalkRel fe L s₀ ctx cctx → StOk s₀ st →
       (∀ q ∈ ks, SeedOkI s₀ (ctx.hiAt 0) q) →
-      InLean.nestSeeds (sharedOpsC .verified fe) fe ctx ks st s₀ = .ok (v, s') →
+      InLean.nestSeeds .verified fe ctx ks st s₀ = .ok (v, s') →
       CSOKI .verified false L s' ∧ TabLe s₀ s' ∧ StOk s' v ∧
         Runs (ConLeche.nestSeeds (ConLeche.fueledOpsM .verified) L cctx
           (ks.map fun q => (trKey s₀ q.1, q.2)) (trSt s₀ st)) (trSt s' v)

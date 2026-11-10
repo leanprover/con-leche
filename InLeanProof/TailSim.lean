@@ -129,7 +129,7 @@ theorem structCtor_eq {ms : InLean.MemberShape} {c : Lean.ConstantVal × Nat}
 
 /-- **The stages after the pass** (`checkBlockTailS_run`'s twin) at the pass's
 relation `PassRelI PassDataI`. -/
-theorem tailSimI (hC : CheckConstantValFSimI) (hRF : ReducedFormerSimI) :
+theorem tailSimI (hC : CheckConstantValCSimI) (hRF : ReducedFormerSimI) :
     TailSimI (PassRelI PassDataI) := by
   intro block q cq Q s₀ s' hR hs hr hcl hk hQ h
   obtain ⟨⟨⟨rest, hpend⟩, hcp, hJ⟩, hpar, D⟩ := hR
@@ -509,9 +509,9 @@ theorem checkIndDeclC_sim {fe : InLean.FEnv} {L : ConLeche.Env} (hJ : JobEnvI fe
     (h : InLean.checkIndDeclC .verified fe block nP s₀ = .ok ((), s')) :
     CSOKIF s' ∧ ∃ F L', ConLeche.checkDeclKind (ConLeche.fueledOps .verified F) pins L
       (.indDecl cb nP) = .ok L' :=
-  checkIndDeclC_sim_stages checkConstantValFSimI reducedFormerSimI
-    (passSimI checkConstantValFSimI reducedFormerSimI)
-    (tailSimI checkConstantValFSimI reducedFormerSimI) hJ hso hs hr hcl hb
+  checkIndDeclC_sim_stages checkConstantValCSimI reducedFormerSimI
+    (passSimI checkConstantValCSimI reducedFormerSimI)
+    (tailSimI checkConstantValCSimI reducedFormerSimI) hJ hso hs hr hcl hb
     (fun _ _ hsh hg => tailShapeOkI_of hb hr hst hsh hg) h
 
 end InLeanProof

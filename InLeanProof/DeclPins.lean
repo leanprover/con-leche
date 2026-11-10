@@ -571,17 +571,6 @@ theorem checkReducePin_sim {fe fe2 : InLean.FEnv} {L env2 : ConLeche.Env} (hJ : 
   simp only [↓reduceIte]
   exact Runs.pure _
 
-/-- An accepted constant check read its name fresh in Lean's environment. -/
-theorem checkConstantValC_fresh {fe : InLean.FEnv} {n : Name} {lps : List Name} {ty : Expr}
-    {a : Bool} {s₀ s' : InLean.CState} {u : Unit}
-    (h : InLean.checkConstantValC .verified fe n lps ty a s₀ = .ok (u, s')) :
-    fe.env.find? n = none := by
-  unfold InLean.checkConstantValC at h
-  split at h
-  · exact (throw_bindI_ok h).elim
-  rename_i h1
-  simpa using h1
-
 /-- **A safe opaque at a compiler-trust name** (`checkOpaqueC` with
 `checkReducePin`, master's `.opaqueDecl` arm with its pin). -/
 theorem checkOpaqueC_reduce_sim {fe : InLean.FEnv} {L : ConLeche.Env} (hJ : JobEnvI fe L)

@@ -105,7 +105,7 @@ def checkUnsafeBlock (fe : FEnv) (consts : Array ConstantInfo) : CheckCM Unit :=
   let fe := { fe with safety := .unsafe }
   let _ ← consts.foldlM (fun (fe : FEnv) ci => do
     match ci with
-    | .inductInfo _ | .ctorInfo _ => checkConstantValC mode fe ci.name ci.levelParams ci.type
+    | .inductInfo _ | .ctorInfo _ => checkConstantValC mode fe ci.toConstantVal
     | _ => pure ()
     pure (fe.push ci)) fe
 

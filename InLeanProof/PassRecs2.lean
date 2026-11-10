@@ -68,7 +68,7 @@ theorem targetParamsDefEqI_run {fe : InLean.FEnv} {L : ConLeche.Env} (hO : OpsSi
         (absC (ConLeche.targetCanonParams (TrSL sb pfvs) x)).looseBVarsBounded 0 = true) :
     ∀ (as bs : List Lean.Expr) {s₀ s' : InLean.CState} {v : Bool},
       CSOKI .verified false L s₀ → TabLe sb s₀ → OkSL s₀ as = true → OkSL s₀ bs = true →
-      InLean.targetParamsDefEq (sharedOpsC .verified fe) fe d absM pfvs as bs s₀ = .ok (v, s') →
+      InLean.targetParamsDefEq .verified fe d absM pfvs as bs s₀ = .ok (v, s') →
       CSOKI .verified false L s' ∧ TabLe s₀ s' ∧
         Runs (ConLeche.targetParamsDefEq (ConLeche.fueledOpsM .verified) L d absC (TrSL sb pfvs)
           (TrSL s₀ as) (TrSL s₀ bs)) v
@@ -118,7 +118,7 @@ theorem targetParamsDefEqI_run {fe : InLean.FEnv} {L : ConLeche.Env} (hO : OpsSi
       rw [← hAT] at hWa hLa
       rw [← hBT] at hWb hLb
       have hrec : ∀ {s₁ : InLean.CState} {w : Bool}, CSOKI .verified false L s₁ → TabLe s₀ s₁ →
-          InLean.targetParamsDefEq (sharedOpsC .verified fe) fe d absM pfvs as bs s₁ =
+          InLean.targetParamsDefEq .verified fe d absM pfvs as bs s₁ =
             .ok (w, s') →
           CSOKI .verified false L s' ∧ TabLe s₀ s' ∧
             Runs (ConLeche.targetParamsDefEq (ConLeche.fueledOpsM .verified) L d absC
@@ -292,7 +292,7 @@ theorem targetClassMatchI_run {fe : InLean.FEnv} {L : ConLeche.Env} (hO : OpsSim
     (hF : FrameOk (TrSL s₀ pfvs) (TrSL s₀ formerTys))
     (hus : us.all okLv = true) (hlv : lvls.all okLv = true)
     (hds : OkSL s₀ ds = true) (heds : OkSL s₀ eds = true)
-    (h : InLean.targetClassMatch (sharedOpsC .verified fe) fe p formerTys pfvs us ds lvls eds s₀ =
+    (h : InLean.targetClassMatch .verified fe p formerTys pfvs us ds lvls eds s₀ =
       .ok (v, s')) :
     CSOKI .verified false L s' ∧ TabLe s₀ s' ∧
       Runs (ConLeche.targetClassMatch (ConLeche.fueledOpsM .verified) L (trShape p)
@@ -400,7 +400,7 @@ theorem targetMajorNfsI_run {fe : InLean.FEnv} {L : ConLeche.Env} (hO : OpsSimI 
     ∀ (es : List InLean.NestCtorNf) {s₀ s' : InLean.CState} {v : List InLean.NestCtorNf},
       CSOKI .verified false L s₀ → OkSL s₀ formerTys = true → OkSL s₀ pfvs = true →
       FrameOk (TrSL s₀ pfvs) (TrSL s₀ formerTys) → OkSL s₀ ds = true → (∀ e ∈ es, OkNf s₀ e) →
-      InLean.targetMajorNfs (sharedOpsC .verified fe) fe p formerTys pfvs us ds ctors es s₀ =
+      InLean.targetMajorNfs .verified fe p formerTys pfvs us ds ctors es s₀ =
         .ok (v, s') →
       CSOKI .verified false L s' ∧ TabLe s₀ s' ∧ (∀ e ∈ v, e ∈ es) ∧
         Runs (ConLeche.targetMajorNfs (ConLeche.fueledOpsM .verified) L (trShape p)
@@ -478,7 +478,7 @@ theorem classesNfsI_run {fe : InLean.FEnv} {L : ConLeche.Env} (hO : OpsSimI fe L
     ∀ (Ms : List InLean.TargetMajor) {s₀ s' : InLean.CState} {v : List InLean.TargetMajor},
       CSOKI .verified false L s₀ → OkSL s₀ formerTys = true → (∀ e ∈ tbl, OkNf s₀ e) →
       (∀ M ∈ Ms, OkTM s₀ M ∧ FrameOk (TrSL s₀ M.pfvs) (TrSL s₀ formerTys)) →
-      InLean.classesNfs (sharedOpsC .verified fe) fe p formerTys tbl Ms s₀ = .ok (v, s') →
+      InLean.classesNfs .verified fe p formerTys tbl Ms s₀ = .ok (v, s') →
       CSOKI .verified false L s' ∧ TabLe s₀ s' ∧ (∀ M ∈ v, OkTMN s' M) ∧
         v.map (fun M => { M with nfs := [] }) = Ms ∧
         Runs (ConLeche.classesNfs (ConLeche.fueledOpsM .verified) L (trShape p)
@@ -657,12 +657,12 @@ theorem targetRecPinsI_run {p : InLean.BlockShape} {block : List Lean.ConstantIn
 /-! ## The stream's recursor types -/
 
 /-- **The stream's recursor types checked** (`classStreamRecs`): each
-record's constant through the former's constant check (`CheckConstantValFSimI`). -/
-theorem classStreamRecsI_run (hC : CheckConstantValFSimI) {fe : InLean.FEnv} {L : ConLeche.Env}
+record's constant through the former's constant check (`CheckConstantValCSimI`). -/
+theorem classStreamRecsI_run (hC : CheckConstantValCSimI) {fe : InLean.FEnv} {L : ConLeche.Env}
     (hJ : JobEnvI fe L) :
     ∀ (rcs : List InLean.RecShape) {s₀ s' : InLean.CState} {v : List Lean.ConstantVal},
       CSOKI .verified false L s₀ → (∀ rc ∈ rcs, okC rc.cvR.type = true) →
-      InLean.classStreamRecs (sharedOpsC .verified fe) fe rcs s₀ = .ok (v, s') →
+      InLean.classStreamRecs .verified fe rcs s₀ = .ok (v, s') →
       CSOKI .verified false L s' ∧ TabLe s₀ s' ∧ v = rcs.map (·.cvR) ∧
         Runs (ConLeche.classStreamRecs (ConLeche.fueledOpsM .verified) (ConLeche.mkFEnv L)
           (rcs.map trRec)) (v.map trCV)
@@ -812,7 +812,7 @@ theorem classFormerTyI_run {fe : InLean.FEnv} {L : ConLeche.Env} (hJ : JobEnvI f
     {s₀ s' : InLean.CState} {v : Lean.Expr} (hs : CSOKI .verified false L s₀)
     (hlv : M.lvls.all okLv = true) (hfo : ∀ cv ∈ formers, okC cv.type = true)
     (hmem : ∀ t, M.member = some t → t < formers.length)
-    (h : InLean.classFormerTy (sharedOpsC .verified fe) fe formers M s₀ = .ok (v, s')) :
+    (h : InLean.classFormerTy .verified fe formers M s₀ = .ok (v, s')) :
     CSOKI .verified false L s' ∧ TabLe s₀ s' ∧ OkS s' v = true ∧
       Runs (ConLeche.classFormerTy (ConLeche.fueledOpsM .verified) (ConLeche.mkFEnv L)
         (formers.map trCV) (trTM s₀ M)) (TrS s' v) := by

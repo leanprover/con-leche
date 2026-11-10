@@ -9,7 +9,7 @@ import ConLeche.Verify.Cached.IndWalksC
 
 `checkBlockIndsFSimI` (`checkBlockIndsS_spec`'s twin): InLean's
 `checkBlockIndsC` at `fe` answers master's `checkBlockInds` at `L` on the
-translated shape, from the former's constant check (`CheckConstantValFSimI`,
+translated shape, from the former's constant check (`CheckConstantValCSimI`,
 O6's) and the job's operations (`OpsSimI`).  Below it: the variable's type
 (`fvarTypeDI_run`), the result sort (`checkSumTele_tr`), and the members'
 agreement (`checkBlockDomsAtFI_run`, `checkBlockAgreeFI_run`).
@@ -66,11 +66,11 @@ theorem trMember_cvT (ms : InLean.MemberShape) : (trMember ms).cvT = trCV ms.cvT
 theorem trMember_nIdx (ms : InLean.MemberShape) : (trMember ms).nIdx = ms.nIdx := rfl
 
 /-- **One member's former** (`checkBlockTeleS_spec`'s twin). -/
-theorem checkBlockTeleFI_run (hC : CheckConstantValFSimI) {fe : InLean.FEnv} {L : ConLeche.Env}
+theorem checkBlockTeleFI_run (hC : CheckConstantValCSimI) {fe : InLean.FEnv} {L : ConLeche.Env}
     (hJ : JobEnvI fe L) {nP : Nat} {ms : InLean.MemberShape} {s₀ s' : InLean.CState}
     {r : Lean.ConstantVal × Lean.Level}
     (hs : CSOKI .verified false L s₀) (hok : okC ms.cvT.type = true)
-    (h : InLean.checkBlockTeleC (sharedOpsC .verified fe) fe nP ms s₀ = .ok (r, s')) :
+    (h : InLean.checkBlockTeleC .verified fe nP ms s₀ = .ok (r, s')) :
     CSOKI .verified false L s' ∧ TabLe s₀ s' ∧ r.1 = ms.cvT ∧ okL r.2 = true ∧
       (trC ms.cvT.type).looseBVarsBounded 0 = true ∧
       Runs (ConLeche.checkBlockTele (ConLeche.fueledOpsM .verified) L nP (trMember ms))
@@ -126,12 +126,12 @@ theorem checkBlockTeleFI_run (hC : CheckConstantValFSimI) {fe : InLean.FEnv} {L 
   (trCV x.1, trL x.2)
 
 /-- **The other members' formers** (`checkBlockTelesS_spec`'s twin). -/
-theorem checkBlockTelesFI_run (hC : CheckConstantValFSimI) {fe : InLean.FEnv} {L : ConLeche.Env}
+theorem checkBlockTelesFI_run (hC : CheckConstantValCSimI) {fe : InLean.FEnv} {L : ConLeche.Env}
     (hJ : JobEnvI fe L) {nP : Nat} :
     ∀ {mss : List InLean.MemberShape} {s₀ s' : InLean.CState}
       {r : List (Lean.ConstantVal × Lean.Level)},
       CSOKI .verified false L s₀ → (∀ ms ∈ mss, okC ms.cvT.type = true) →
-      InLean.checkBlockTelesC (sharedOpsC .verified fe) fe nP mss s₀ = .ok (r, s') →
+      InLean.checkBlockTelesC .verified fe nP mss s₀ = .ok (r, s') →
       CSOKI .verified false L s' ∧ TabLe s₀ s' ∧ r.map Prod.fst = mss.map (·.cvT) ∧
         (∀ x ∈ r, okC x.1.type = true ∧ (trC x.1.type).looseBVarsBounded 0 = true ∧
           okL x.2 = true) ∧
@@ -207,7 +207,7 @@ theorem checkBlockDomsAtFI_run {fe : InLean.FEnv} {L : ConLeche.Env} (hO : OpsSi
     ∀ (j : Nat) {s₀ s' : InLean.CState} {u : Unit},
       CSOKI .verified false L s₀ → OkSL s₀ fvs = true → OkSL s₀ doms = true →
       TrSL s₀ fvs = cfvs → TrSL s₀ doms = cdoms →
-      InLean.checkBlockDomsAtC (sharedOpsC .verified fe) fe off fvs doms j s₀ = .ok (u, s') →
+      InLean.checkBlockDomsAtC .verified fe off fvs doms j s₀ = .ok (u, s') →
       CSOKI .verified false L s' ∧ TabLe s₀ s' ∧
         Runs (ConLeche.checkBlockDomsAt (ConLeche.fueledOpsM .verified) L off cfvs cdoms j) ()
   | 0, s₀, s', u, hs, _, _, _, _, h => by
@@ -293,7 +293,7 @@ theorem checkBlockAgreeFI_run {fe : InLean.FEnv} {L : ConLeche.Env} (hO : OpsSim
       CSOKI .verified false L s₀ →
       (∀ x ∈ cvs, okC x.1.type = true ∧ (trC x.1.type).looseBVarsBounded 0 = true ∧
         okL x.2 = true) →
-      InLean.checkBlockAgreeC (sharedOpsC .verified fe) fe nP cvTa0 s0 cvs s₀ = .ok (u, s') →
+      InLean.checkBlockAgreeC .verified fe nP cvTa0 s0 cvs s₀ = .ok (u, s') →
       CSOKI .verified false L s' ∧ TabLe s₀ s' ∧
         Runs (ConLeche.checkBlockAgree (ConLeche.fueledOpsM .verified) L nP (trCV cvTa0) (trL s0)
           (cvs.map trTele)) ()
@@ -391,11 +391,11 @@ theorem trShape_withSort (p : InLean.BlockShape) {s : Lean.Level} (h : okL s = t
 /-- **The formers' stage** (`checkBlockIndsS_spec`'s twin): InLean's run at
 `fe` answers master's `checkBlockInds` at `L` on the translated shape; the
 formers' environment is `fe` marked with the block and the formers pushed. -/
-theorem checkBlockIndsFI_run (hC : CheckConstantValFSimI) {fe : InLean.FEnv} {L : ConLeche.Env}
+theorem checkBlockIndsFI_run (hC : CheckConstantValCSimI) {fe : InLean.FEnv} {L : ConLeche.Env}
     (hJ : JobEnvI fe L) {p : InLean.BlockShape} {isRec : Bool} {s₀ s' : InLean.CState}
     {fe₁ : InLean.FEnv} {p₁ : InLean.BlockShape}
     (hs : CSOKI .verified false L s₀) (hok : ∀ ms ∈ p.members, okC ms.cvT.type = true)
-    (h : InLean.checkBlockIndsC (sharedOpsC .verified fe) fe p isRec s₀ = .ok ((fe₁, p₁), s')) :
+    (h : InLean.checkBlockIndsC .verified fe p isRec s₀ = .ok ((fe₁, p₁), s')) :
     CSOKI .verified false L s' ∧ TabLe s₀ s' ∧ ∃ s0, okL s0 = true ∧ p₁ = p.withSort s0 ∧
       fe₁ = InLean.consBlockIndsF p₁ isRec (p.members.map (·.declared)) 0
         { fe with pending := InLean.blockMarks p₁ ++ fe.pending } ∧

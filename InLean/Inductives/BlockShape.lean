@@ -8,7 +8,15 @@ public import InLean.CheckerC
 Twins of `ConLeche.Kernel.Inductives.BlockShape` (the block's
 reader and its records), the parts of `ConLeche.Kernel.Inductives.FieldTele`,
 `ConLeche.Kernel.Inductives.Positivity` and `ConLeche.Kernel.ExprOps` the block check reads
-(telescopes, the free-variable walks), and `CheckerOps`.
+(telescopes, the free-variable walks).
+
+The stages (`Install`, `Positivity`, `RecCheck`, `GenRec`, `StreamRecs`) are
+monomorphic `CheckCM` definitions at a mode, as master's cached stages
+(`ConLeche.Cached.IndBlock`, `ConLeche.Cached.IndPositivity`,
+`ConLeche.Cached.IndRec`, `ConLeche.Cached.IndTail`): each calls the core
+directly (`opInfer`, `opDefeq`, `opSort`, `opWhnf`, `coreKnotI` at the
+environment the stage runs at) and runs the one constant check
+`checkConstantValC`.
 
 A block is a list of Lean constants (`inductInfo`, `ctorInfo`, `recInfo`, in
 that order), the twin of the stream's records: the inductive generator's
@@ -28,13 +36,6 @@ namespace InLean
 open Lean
 
 /-! ## The operations -/
-
-/-- Twin of `CheckerOps CheckCM`: the core's entry points at an environment. -/
-structure CheckerOps where
-  inferType : FEnv → Nat → Expr → CheckCM Expr
-  isDefEq : FEnv → Nat → Expr → Expr → CheckCM Bool
-  ensureSort : FEnv → Nat → Expr → CheckCM Level
-  whnf : FEnv → Nat → Expr → CheckCM Expr
 
 /-- Twin of `unwrapOr`. -/
 def unwrapOr (o : Option α) (err : CheckError) : CheckCM α :=

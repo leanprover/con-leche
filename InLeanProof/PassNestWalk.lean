@@ -287,7 +287,7 @@ theorem nestCtorsI_run {fe : InLean.FEnv} {L : ConLeche.Env} {ctx : InLean.NestC
       CSOKI .verified false L s₀ → WalkRel fe L s₀ ctx cctx → ProgOk s₀ prog → StOk s₀ st →
       OkSL s₀ ds = true → (∀ a ∈ ds, TOk s₀ hi a) →
       OkSL s₀ holes = true → (∀ a ∈ holes, TOk s₀ hi a) → (∀ c ∈ cs, CtorOkI c) →
-      InLean.nestCtors ctx (sharedOpsC .verified fe) fe fuelOf rec prog hi us ds names holes cs st
+      InLean.nestCtors .verified ctx fe fuelOf rec prog hi us ds names holes cs st
         s₀ =
         .ok (v, s') →
       CSOKI .verified false L s' ∧ TabLe s₀ s' ∧ (∀ o ∈ v.1, OutOk s' hi o) ∧ StOk s' v.2 ∧
@@ -481,7 +481,7 @@ theorem nestFrameI_run {fe : InLean.FEnv} {L : ConLeche.Env} {ctx : InLean.NestC
     (hus : us.all okLv = true) (hs : CSOKI .verified false L s₀) (hW : WalkRel fe L s₀ ctx cctx)
     (hp : ProgOk s₀ prog) (hst : StOk s₀ st) (hds : OkSL s₀ ds = true)
     (hdsT : ∀ a ∈ ds, TOk s₀ hi a) (hg : GrpOk s₀ ds grp)
-    (h : InLean.nestFrame ctx (sharedOpsC .verified fe) fe rec prog hi us ds nPc grp st s₀ =
+    (h : InLean.nestFrame .verified ctx fe rec prog hi us ds nPc grp st s₀ =
       .ok (v, s')) :
     CSOKI .verified false L s' ∧ TabLe s₀ s' ∧ StOk s' v ∧
       Runs (ConLeche.nestFrame cctx (ConLeche.fueledOpsM .verified) L rec' (prog.map (trHole s₀)) hi
@@ -621,7 +621,7 @@ theorem nestContNewI_run {fe : InLean.FEnv} {L : ConLeche.Env} {ctx : InLean.Nes
     (hus : us.all okLv = true) (hs : CSOKI .verified false L s₀) (hW : WalkRel fe L s₀ ctx cctx)
     (hp : ProgOk s₀ prog) (hst : StOk s₀ st) (hds : OkSL s₀ ds = true)
     (hdsT : ∀ a ∈ ds, TOk s₀ (ctx.hiAt prog.length) a) (hcty : GrpOk s₀ ds [(n, cty)])
-    (h : InLean.nestContNew ctx (sharedOpsC .verified fe) fe rec prog kb n us ds nPc cty st s₀ =
+    (h : InLean.nestContNew .verified ctx fe rec prog kb n us ds nPc cty st s₀ =
       .ok (v, s')) :
     CSOKI .verified false L s' ∧ TabLe s₀ s' ∧ StOk s' v.2 ∧
       Runs (ConLeche.nestContNew cctx (ConLeche.fueledOpsM .verified) L rec' (prog.map (trHole s₀))
@@ -699,7 +699,7 @@ theorem nestContKeyI_run {fe : InLean.FEnv} {L : ConLeche.Env} {ctx : InLean.Nes
     (hus : us.all okLv = true) (hs : CSOKI .verified false L s₀) (hW : WalkRel fe L s₀ ctx cctx)
     (hp : ProgOk s₀ prog) (hst : StOk s₀ st) (hds : OkSL s₀ ds = true)
     (hdsT : ∀ a ∈ ds, TOk s₀ (ctx.hiAt prog.length) a) (hcty : GrpOk s₀ ds [(n, cty)])
-    (h : InLean.nestContKey ctx (sharedOpsC .verified fe) fe rec prog kb n us ds nPc cty st s₀ =
+    (h : InLean.nestContKey .verified ctx fe rec prog kb n us ds nPc cty st s₀ =
       .ok (v, s')) :
     CSOKI .verified false L s' ∧ TabLe s₀ s' ∧ StOk s' v.2 ∧
       Runs (ConLeche.nestContKey cctx (ConLeche.fueledOpsM .verified) L rec' (prog.map (trHole s₀))
@@ -759,7 +759,7 @@ theorem nestContI_run {fe : InLean.FEnv} {L : ConLeche.Env} {ctx : InLean.NestCt
     (hus : us.all okLv = true) (hs : CSOKI .verified false L s₀) (hW : WalkRel fe L s₀ ctx cctx)
     (hp : ProgOk s₀ prog) (hst : StOk s₀ st) (hargs : OkSL s₀ args = true)
     (hargsW : ∀ a ∈ args, ConLeche.Expr.WScoped dep (TrS s₀ a))
-    (h : InLean.nestCont ctx (sharedOpsC .verified fe) fe rec prog kb n us args st s₀ =
+    (h : InLean.nestCont .verified ctx fe rec prog kb n us args st s₀ =
       .ok (v, s')) :
     CSOKI .verified false L s' ∧ TabLe s₀ s' ∧ StOk s' v.2 ∧
       Runs (ConLeche.nestCont cctx (ConLeche.fueledOpsM .verified) L rec' (prog.map (trHole s₀))
@@ -893,7 +893,7 @@ theorem TrS_eq_forallE {s : InLean.CState} (x : Lean.Expr) : ∀ {a b : ConLeche
 readings (the twin of master's `RecSpec` for the walk itself). -/
 theorem nestPosI_run {fe : InLean.FEnv} {L : ConLeche.Env} {ctx : InLean.NestCtx}
     {cctx : ConLeche.NestCtx} (hJ : JobEnvI fe L) (hRF : ReducedFormerSimI) :
-    ∀ fuel : Nat, RecSpecI fe L ctx cctx (InLean.nestPos (sharedOpsC .verified fe) fe ctx fuel)
+    ∀ fuel : Nat, RecSpecI fe L ctx cctx (InLean.nestPos .verified fe ctx fuel)
       (ConLeche.nestPos (ConLeche.fueledOpsM .verified) L cctx fuel) := by
   intro fuel
   induction fuel with
@@ -1099,7 +1099,7 @@ theorem nestRootI_run {fe : InLean.FEnv} {L : ConLeche.Env} {ctx : InLean.NestCt
       OkSL s₀ holes = true → (∀ a ∈ holes, TOk s₀ (ctx.hiAt 0) a) →
       (∀ a ∈ ctx.params, ConLeche.Expr.WScoped (ctx.hiAt 0) (TrS s₀ a)) →
       ctx.names.length ≤ holes.length → (∀ cs ∈ css, ∀ c ∈ cs, CtorOkI c) →
-      InLean.nestRoot (sharedOpsC .verified fe) fe ctx holes css st s₀ = .ok (v, s') →
+      InLean.nestRoot .verified fe ctx holes css st s₀ = .ok (v, s') →
       CSOKI .verified false L s' ∧ TabLe s₀ s' ∧ (∀ o ∈ v.1, ∀ x ∈ o, OutOk s' (ctx.hiAt 0) x) ∧
         StOk s' v.2 ∧
         Runs (ConLeche.nestRoot (ConLeche.fueledOpsM .verified) L cctx (TrSL s₀ holes)
@@ -1119,7 +1119,7 @@ theorem nestRootI_run {fe : InLean.FEnv} {L : ConLeche.Env} {ctx : InLean.NestCt
       exact ⟨hok a ha, hpW a ha, hW.paramsCl a ha⟩
     have hrec : ∀ (s : InLean.CState) (x : Lean.Expr), OkS s x = true →
         RecSpecI fe L ctx cctx
-          (InLean.nestPos (sharedOpsC .verified fe) fe ctx (InLean.whnfWalkFuel x))
+          (InLean.nestPos .verified fe ctx (InLean.whnfWalkFuel x))
           ((fun crest => ConLeche.nestPos (ConLeche.fueledOpsM .verified) L cctx
             (ConLeche.whnfWalkFuel crest)) (TrS s x)) := by
       intro s x _
@@ -1127,7 +1127,7 @@ theorem nestRootI_run {fe : InLean.FEnv} {L : ConLeche.Env} {ctx : InLean.NestCt
       rw [← whnfWalkFuel_TrS s x]
       exact nestPosI_run hJ hRF _
     obtain ⟨hs₁, ht₁, ho, hst₁, hR1⟩ := nestCtorsI_run hJ
-      (fuelOf := InLean.whnfWalkFuel) (rec := InLean.nestPos (sharedOpsC .verified fe) fe ctx)
+      (fuelOf := InLean.whnfWalkFuel) (rec := InLean.nestPos .verified fe ctx)
       (rec' := fun crest => ConLeche.nestPos (ConLeche.fueledOpsM .verified) L cctx
         (ConLeche.whnfWalkFuel crest)) hrec [] (ctx.hiAt 0) (ctx.lps.map .param)
       ctx.params ctx.names holes (params_okLv _) hlen cs st hs hW (fun _ h => nomatch h) hst

@@ -11,7 +11,7 @@ import ConLeche.Verify.Cached.IndWalksC
 `checkBlockCtorsFI_run` (`checkBlockCtorsS_spec`'s twin): InLean's
 `checkBlockCtorsC` at the formers' environment answers master's pure
 `checkBlockCtors` at its formers' environment, from the constructor's constant
-check (`CheckConstantValFSimI`, O6's) and the job's operations (`OpsSimI`,
+check (`CheckConstantValCSimI`, O6's) and the job's operations (`OpsSimI`,
 from `JobEnvI` at the formers' push, `jobEnvI_formers`).
 
 * **The resolution guards** (`constsResolveF` on the field domains and the
@@ -200,7 +200,7 @@ theorem checkStructDomsAtFI_run {fe : InLean.FEnv} {L : ConLeche.Env} (hO : OpsS
     ∀ (j : Nat) {s₀ s' : InLean.CState} {u : Unit},
       CSOKI .verified false L s₀ → OkSL s₀ fvs = true → OkSL s₀ doms = true →
       TrSL s₀ fvs = cfvs → TrSL s₀ doms = cdoms →
-      InLean.checkStructDomsAtF (sharedOpsC .verified fe) fe off fvs.toArray doms.toArray j s₀ =
+      InLean.checkStructDomsAtF .verified fe off fvs.toArray doms.toArray j s₀ =
         .ok (u, s') →
       CSOKI .verified false L s' ∧ TabLe s₀ s' ∧
         Runs (ConLeche.checkStructDomsAt (ConLeche.fueledOpsM .verified) L off cfvs cdoms j) ()
@@ -274,7 +274,7 @@ theorem checkStructFieldSortsIFI_run {fe : InLean.FEnv} {L : ConLeche.Env} (hO :
     ∀ (j : Nat) {s₀ s' : InLean.CState} {u : Unit},
       CSOKI .verified false L s₀ → OkSL s₀ fvs = true → OkSL s₀ idx = true →
       TrSL s₀ fvs = cfvs → TrSL s₀ idx = cidx →
-      InLean.checkStructFieldSortsIC (sharedOpsC .verified fe) fe isProp large sr nP fvs idx j s₀ =
+      InLean.checkStructFieldSortsIC .verified fe isProp large sr nP fvs idx j s₀ =
         .ok (u, s') →
       CSOKI .verified false L s' ∧ TabLe s₀ s' ∧
         Runs (ConLeche.checkStructFieldSortsI (ConLeche.fueledOpsM .verified) L isProp large (trL sr)
@@ -309,7 +309,7 @@ theorem checkStructFieldSortsIFI_run {fe : InLean.FEnv} {L : ConLeche.Env} (hO :
     have hwl : okL w = true := okL_of_okLv_level hokw
     have ht04 : TabLe s₀ s₄ := ht₂.trans ht₄
     have hrec : ∀ {s₅ : InLean.CState}, CSOKI .verified false L s₅ → TabLe s₄ s₅ →
-        InLean.checkStructFieldSortsIC (sharedOpsC .verified fe) fe isProp large sr nP fvs idx j s₅ =
+        InLean.checkStructFieldSortsIC .verified fe isProp large sr nP fvs idx j s₅ =
           .ok (u, s') →
         CSOKI .verified false L s' ∧ TabLe s₀ s' ∧
           Runs (ConLeche.checkStructFieldSortsI (ConLeche.fueledOpsM .verified) L isProp large
@@ -382,27 +382,27 @@ theorem checkStructFieldSortsIFI_run {fe : InLean.FEnv} {L : ConLeche.Env} (hO :
           exact (throwI_ok h7).elim
 
 /-- InLean's field loop over an array is its loop over the list. -/
-theorem checkStructFieldSortsC_toArray (ops : InLean.CheckerOps) (fe : InLean.FEnv)
+theorem checkStructFieldSortsC_toArray (mode : InLean.CheckMode) (fe : InLean.FEnv)
     (isProp large : Bool) (sr : Lean.Level) (nP : Nat) (fvs idx : List Lean.Expr) :
-    ∀ j, InLean.checkStructFieldSortsC ops fe isProp large sr nP fvs.toArray idx j =
-      InLean.checkStructFieldSortsIC ops fe isProp large sr nP fvs idx j
+    ∀ j, InLean.checkStructFieldSortsC mode fe isProp large sr nP fvs.toArray idx j =
+      InLean.checkStructFieldSortsIC mode fe isProp large sr nP fvs idx j
   | 0 => rfl
   | j + 1 => by
     simp only [InLean.checkStructFieldSortsC, InLean.checkStructFieldSortsIC, List.getElem?_toArray,
-      checkStructFieldSortsC_toArray ops fe isProp large sr nP fvs idx j]
+      checkStructFieldSortsC_toArray mode fe isProp large sr nP fvs idx j]
 
 /-! ## One constructor -/
 
 /-- **One constructor** (`checkSumCtorS_spec`'s twin), at master's `env₀ = env`
 (the pass checks the constructors at the formers' environment on both
 sides). -/
-theorem checkSumCtorFI_run (hC : CheckConstantValFSimI) {fe fe₀ : InLean.FEnv} {L : ConLeche.Env}
+theorem checkSumCtorFI_run (hC : CheckConstantValCSimI) {fe fe₀ : InLean.FEnv} {L : ConLeche.Env}
     (hJ : JobEnvI fe L) {T : Lean.Name} {lps : List Lean.Name} {nP nIdx : Nat} {sr : Lean.Level}
     (hsr : okL sr = true) {isProp large : Bool} {cvC : Lean.ConstantVal} {nF : Nat}
     {cvTa : Lean.ConstantVal} (hokC : okC cvC.type = true) (hokT : okC cvTa.type = true)
     (hcT : (trC cvTa.type).looseBVarsBounded 0 = true)
     {s₀ s' : InLean.CState} {u : Unit} (hs : CSOKI .verified false L s₀)
-    (h : InLean.checkSumCtorC (sharedOpsC .verified fe) fe₀ fe T lps nP nIdx sr isProp large cvC nF
+    (h : InLean.checkSumCtorC .verified fe₀ fe T lps nP nIdx sr isProp large cvC nF
       cvTa s₀ = .ok (u, s')) :
     CSOKI .verified false L s' ∧ TabLe s₀ s' ∧
       Runs (ConLeche.checkSumCtor (ConLeche.fueledOpsM .verified) L L (toName T) (lps.map toName)
@@ -574,13 +574,13 @@ theorem checkSumCtorFI_run (hC : CheckConstantValFSimI) {fe fe₀ : InLean.FEnv}
 /-! ## The constructors -/
 
 /-- **One member's constructors** (`checkSumCtorsS_spec`'s twin). -/
-theorem checkSumCtorsFI_run (hC : CheckConstantValFSimI) {fe fe₀ : InLean.FEnv} {L : ConLeche.Env}
+theorem checkSumCtorsFI_run (hC : CheckConstantValCSimI) {fe fe₀ : InLean.FEnv} {L : ConLeche.Env}
     (hJ : JobEnvI fe L) {T : Lean.Name} {lps : List Lean.Name} {nP nIdx : Nat} {sr : Lean.Level}
     (hsr : okL sr = true) {isProp large : Bool} {cvTa : Lean.ConstantVal}
     (hokT : okC cvTa.type = true) (hcT : (trC cvTa.type).looseBVarsBounded 0 = true) :
     ∀ {cs : List (Lean.ConstantVal × Nat)} {s₀ s' : InLean.CState} {u : Unit},
       CSOKI .verified false L s₀ → (∀ c ∈ cs, okC c.1.type = true) →
-      InLean.checkSumCtorsC (sharedOpsC .verified fe) fe₀ fe T lps nP nIdx sr isProp large cvTa cs s₀ =
+      InLean.checkSumCtorsC .verified fe₀ fe T lps nP nIdx sr isProp large cvTa cs s₀ =
         .ok (u, s') →
       CSOKI .verified false L s' ∧ TabLe s₀ s' ∧
         Runs (ConLeche.checkSumCtors (ConLeche.fueledOpsM .verified) L L (toName T) (lps.map toName)
@@ -607,13 +607,13 @@ theorem trShape_lps (p : InLean.BlockShape) : (trShape p).lps = p.lps.map toName
 /-- **The constructors' stage** (`checkBlockCtorsS_spec`'s twin): InLean's
 run at `fe` answers master's pure `checkBlockCtors` at `L`, both at the one
 environment (the pass checks the constructors at the formers'). -/
-theorem checkBlockCtorsFI_run (hC : CheckConstantValFSimI) {fe fe₀ : InLean.FEnv} {L : ConLeche.Env}
+theorem checkBlockCtorsFI_run (hC : CheckConstantValCSimI) {fe fe₀ : InLean.FEnv} {L : ConLeche.Env}
     (hJ : JobEnvI fe L) {p : InLean.BlockShape} (hsr : okL p.resSort = true) :
     ∀ {l : List InLean.MemberShape} {s₀ s' : InLean.CState} {u : Unit},
       CSOKI .verified false L s₀ →
       (∀ ms ∈ l, okC ms.cvT.type = true ∧ (trC ms.cvT.type).looseBVarsBounded 0 = true ∧
         ∀ c ∈ ms.ctors, okC c.1.type = true) →
-      InLean.checkBlockCtorsC (sharedOpsC .verified fe) fe₀ fe p l s₀ = .ok (u, s') →
+      InLean.checkBlockCtorsC .verified fe₀ fe p l s₀ = .ok (u, s') →
       CSOKI .verified false L s' ∧ TabLe s₀ s' ∧
         Runs (ConLeche.checkBlockCtors (ConLeche.fueledOpsM .verified) L L (trShape p)
           (l.map trMember)) ()

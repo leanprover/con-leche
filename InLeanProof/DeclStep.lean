@@ -18,7 +18,7 @@ lemmas (`presI_*`, `quotGroupPres`).  The core calls are the knot's specs
 (`bindI_ok`, master's `Runs`), as O7's.
 
 * `checkConstantValC_sim` (every kind's constant check) and its job twin
-  `checkConstantValFSimI` (O7's named callee, discharged): the guards by the
+  `checkConstantValCSimI` (O7's named callee, discharged): the guards by the
   translation (`DeclGuards.lean`), master's resolution guard from the
   inference InLean ran (`constsResolve_of_infer`).
 * `checkValueC_sim` with `checkDefnVal_runs`/`checkOpaqueVal_runs`, and
@@ -67,12 +67,13 @@ theorem runs_atF {α : Type} {x : ConLeche.FueledM α} {a : α} (h : Runs x a) :
 twin): accepted at `fe` against `L`, master's `checkConstantVal` runs on the
 translated constant, at any `allowOp`. -/
 theorem checkConstantValC_sim {fe : InLean.FEnv} {L : ConLeche.Env} (hJ : JobEnvI fe L)
-    {n : Name} {lps : List Name} {ty : Expr} {a : Bool} {s₀ s' : InLean.CState}
-    (hs : CSOKI .verified false L s₀) (hr : Expr.RangeOk ty)
-    (h : InLean.checkConstantValC .verified fe n lps ty a s₀ = .ok ((), s')) :
-    CSOKI .verified false L s' ∧ TabLe s₀ s' ∧ okC ty = true ∧
-      (trC ty).looseBVarsBounded 0 = true ∧
-      Runs (ConLeche.checkConstantVal (ConLeche.fueledOpsM .verified) L (trCVn n lps ty) a) () := by
+    {cv : Lean.ConstantVal} {a : Bool} {s₀ s' : InLean.CState}
+    (hs : CSOKI .verified false L s₀) (hr : Expr.RangeOk cv.type)
+    (h : InLean.checkConstantValC .verified fe cv a s₀ = .ok ((), s')) :
+    CSOKI .verified false L s' ∧ TabLe s₀ s' ∧ okC cv.type = true ∧
+      (trC cv.type).looseBVarsBounded 0 = true ∧
+      Runs (ConLeche.checkConstantVal (ConLeche.fueledOpsM .verified) L
+        (trCVn cv.name cv.levelParams cv.type) a) () := by
   unfold InLean.checkConstantValC at h
   split at h
   · exact (throw_bindI_ok h).elim
@@ -97,9 +98,9 @@ theorem checkConstantValC_sim {fe : InLean.FEnv} {L : ConLeche.Env} (hJ : JobEnv
   subst s₁
   try simp only [] at h
   obtain ⟨v, s₂, hI, h⟩ := bindI_ok h
-  have hTr : TrS s₀ ty = trC ty := TrS_of_okC _ hok
+  have hTr : TrS s₀ cv.type = trC cv.type := TrS_of_okC _ hok
   obtain ⟨hs₂, ht₂, hokv, hRI, hwv, hcv⟩ := tripleI_iff_run.1 (hJ.ops.infer (s₀ := s₀) (d := 0)
-    (i := ty) hs (OkS_of_okC _ hok) (by rw [hTr]; exact trC_wscoped 0 _) (by rw [hTr]; exact hlbb))
+    (i := cv.type) hs (OkS_of_okC _ hok) (by rw [hTr]; exact trC_wscoped 0 _) (by rw [hTr]; exact hlbb))
     v s₂ hI
   obtain ⟨u, s₃, hS, h⟩ := bindI_ok h
   obtain ⟨hs₃, ht₃, -, hRS⟩ := tripleI_iff_run.1 (hJ.ops.sort (s₀ := s₂) (d := 0) (i := v) hs₂ hokv
@@ -108,21 +109,21 @@ theorem checkConstantValC_sim {fe : InLean.FEnv} {L : ConLeche.Env} (hJ : JobEnv
   refine ⟨hs₃, ht₂.trans ht₃, hok, hlbb, ?_⟩
   rw [hTr] at hRI
   -- master's guards, read off InLean's
-  have g1 : (L.find? (toName n)).isSome = false := by
-    rw [hJ.pres.none n (FEnv_find_none (by simpa using h1))]; rfl
-  have g3 : (ConLeche.natOpName (toName n) && !a) = false := by
+  have g1 : (L.find? (toName cv.name)).isSome = false := by
+    rw [hJ.pres.none cv.name (FEnv_find_none (by simpa using h1))]; rfl
+  have g3 : (ConLeche.natOpName (toName cv.name) && !a) = false := by
     rw [natOpName_tr]; simpa using h3
   have g4 := litShapeOk_tr hok h4
-  have g5 : ConLeche.Name.nodup (lps.map toName) = true := by rw [nodup_tr]; exact h5
+  have g5 : ConLeche.Name.nodup (cv.levelParams.map toName) = true := by rw [nodup_tr]; exact h5
   obtain ⟨F, hF⟩ := runs_atF hRI
-  have g6 : (trC ty).constsResolve L = true := constsResolve_of_infer hfv hF
+  have g6 : (trC cv.type).constsResolve L = true := constsResolve_of_infer hfv hF
   unfold ConLeche.checkConstantVal
   simp only [trCVn, g1, g3, g4, g5, hlbb, hfv, hlp, g6, Bool.false_eq_true, ↓reduceIte]
   exact Runs.bind hRI (Runs.bind hRS (Runs.pure _))
 
-/-- **O7's former constant check, discharged** (`CheckConstantValFSimI`): the
-job's `checkConstantValF` over `sharedOpsC` is `checkConstantValC`. -/
-theorem checkConstantValFSimI : CheckConstantValFSimI := by
+/-- **The stages' constant check, discharged** (`CheckConstantValCSimI`):
+`checkConstantValC_sim` at `allowOp := false`. -/
+theorem checkConstantValCSimI : CheckConstantValCSimI := by
   intro fe L cv s₀ s' hJ hs hok h
   obtain ⟨h1, h2, -, h4, h5⟩ := checkConstantValC_sim (a := false) hJ hs (RangeOk_of_okE hok) h
   exact ⟨h1, h2, h4, h5⟩

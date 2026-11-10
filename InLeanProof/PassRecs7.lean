@@ -101,7 +101,7 @@ mono lemmas).  Of every output it also gives its name fresh in `fe` and
 `sorryAx` only under `coreAxioms` (it is a generated constant's), and the
 stream's recursor names distinct (the pins), what the generated family's
 push needs (`jobEnvI_genRecs`). -/
-theorem genRecCheckI_run (hC : CheckConstantValFSimI) (hRF : ReducedFormerSimI)
+theorem genRecCheckI_run (hC : CheckConstantValCSimI) (hRF : ReducedFormerSimI)
     {fe : InLean.FEnv} {L : ConLeche.Env} (hJ : JobEnvI fe L)
     {p : InLean.BlockShape} {nestedBit : Bool} {params : List Lean.Expr}
     {tbl : List InLean.NestCtorNf} {rd : InLean.ClassRead} {Ms : List InLean.TargetMajor}

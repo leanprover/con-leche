@@ -255,30 +255,19 @@ theorem presI_formers (hlaws : EnvLaws) (hP : EnvPresI fe L) {p : InLean.BlockSh
 
 /-! ## Freshness, read off the formers' run
 
-`checkBlockTeleC` runs `checkConstantValF` on each member's former, whose
+`checkBlockTeleC` runs `checkConstantValC` on each member's former, whose
 first guard is the name's freshness in Lean's environment. -/
 
-theorem checkConstantValF_fresh {ops : InLean.CheckerOps} {fe : InLean.FEnv} {cv : Lean.ConstantVal}
-    {b : Bool} {s₀ s' : InLean.CState} {r : Unit}
-    (h : InLean.checkConstantValF ops fe cv b s₀ = .ok (r, s')) : fe.env.find? cv.name = none := by
-  unfold InLean.checkConstantValF at h
-  cases hf : fe.env.find? cv.name with
-  | none => rfl
-  | some ci =>
-    rw [hf] at h
-    obtain ⟨_, _, h1, _⟩ := bindI_ok h
-    exact (throwI_ok h1).elim
-
-theorem checkBlockTeleF_fresh {ops : InLean.CheckerOps} {fe : InLean.FEnv} {nP : Nat}
+theorem checkBlockTeleF_fresh {mode : InLean.CheckMode} {fe : InLean.FEnv} {nP : Nat}
     {ms : InLean.MemberShape} {s₀ s' : InLean.CState} {r : Lean.ConstantVal × Lean.Level}
-    (h : InLean.checkBlockTeleC ops fe nP ms s₀ = .ok (r, s')) : fe.env.find? ms.cvT.name = none := by
+    (h : InLean.checkBlockTeleC mode fe nP ms s₀ = .ok (r, s')) : fe.env.find? ms.cvT.name = none := by
   unfold InLean.checkBlockTeleC at h
   obtain ⟨_, _, h1, _⟩ := bindI_ok h
-  exact checkConstantValF_fresh h1
+  exact checkConstantValC_fresh h1
 
-theorem checkBlockTelesF_fresh {ops : InLean.CheckerOps} {fe : InLean.FEnv} {nP : Nat} :
+theorem checkBlockTelesF_fresh {mode : InLean.CheckMode} {fe : InLean.FEnv} {nP : Nat} :
     ∀ {l : List InLean.MemberShape} {s₀ s' : InLean.CState} {r : List (Lean.ConstantVal × Lean.Level)},
-      InLean.checkBlockTelesC ops fe nP l s₀ = .ok (r, s') → ∀ ms ∈ l, fe.env.find? ms.cvT.name = none
+      InLean.checkBlockTelesC mode fe nP l s₀ = .ok (r, s') → ∀ ms ∈ l, fe.env.find? ms.cvT.name = none
   | [], _, _, _, _ => by simp
   | ms :: rest, s₀, s', r, h => by
     unfold InLean.checkBlockTelesC at h
@@ -291,9 +280,9 @@ theorem checkBlockTelesF_fresh {ops : InLean.CheckerOps} {fe : InLean.FEnv} {nP 
 
 /-- **The formers' names are fresh in Lean's environment**, read off an
 accepted formers' stage. -/
-theorem checkBlockIndsF_fresh {ops : InLean.CheckerOps} {fe : InLean.FEnv} {p : InLean.BlockShape}
+theorem checkBlockIndsF_fresh {mode : InLean.CheckMode} {fe : InLean.FEnv} {p : InLean.BlockShape}
     {isRec : Bool} {s₀ s' : InLean.CState} {r : InLean.FEnv × InLean.BlockShape}
-    (h : InLean.checkBlockIndsC ops fe p isRec s₀ = .ok (r, s')) :
+    (h : InLean.checkBlockIndsC mode fe p isRec s₀ = .ok (r, s')) :
     ∀ ms ∈ p.members, fe.env.find? ms.cvT.name = none := by
   unfold InLean.checkBlockIndsC at h
   generalize hm : p.members = mems at h

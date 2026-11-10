@@ -32,7 +32,7 @@ theorem whnfTelescopeI_run {fe : InLean.FEnv} {L : ConLeche.Env} (hO : OpsSimI f
       {s' : InLean.CState},
       CSOKI .verified false L s₀ → OkS s₀ e = true → ConLeche.Expr.WScoped i (TrS s₀ e) →
       (TrS s₀ e).looseBVarsBounded 0 = true →
-      InLean.whnfTelescope (sharedOpsC .verified fe) fe i n e s₀ = .ok ((bs, u), s') →
+      InLean.whnfTelescope .verified fe i n e s₀ = .ok ((bs, u), s') →
       CSOKI .verified false L s' ∧ TabLe s₀ s' ∧ OkSL s' bs = true ∧ okLv u = true ∧
         AllClosed (TrSL s' bs) = true ∧
         Runs (ConLeche.whnfTelescope (ConLeche.fueledOpsM .verified) L i n (TrS s₀ e))
@@ -242,9 +242,9 @@ theorem closeTelescope_tr (s : InLean.CState) (bs : List Lean.Expr) (i : Nat) (b
 through `EO.abstractDepthsFrom`, which writes `EO.rangePoison` where the bound
 index would pass C's bound (`maxBVarIdx`); `reducedFormer` refuses a reduct
 `EO.inRange` refuses. -/
-theorem reducedFormer_emvar {ops : InLean.CheckerOps} {fe : InLean.FEnv}
+theorem reducedFormer_emvar {mode : InLean.CheckMode} {fe : InLean.FEnv}
     {cv cvR : Lean.ConstantVal} {n : Nat} {s₀ s' : InLean.CState}
-    (h : InLean.reducedFormer ops fe cv n s₀ = .ok (cvR, s')) :
+    (h : InLean.reducedFormer mode fe cv n s₀ = .ok (cvR, s')) :
     emvarS cvR.type = false := by
   unfold InLean.reducedFormer at h
   obtain ⟨⟨bs, u⟩, s₁, _, h⟩ := bindI_ok h

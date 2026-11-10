@@ -1232,7 +1232,7 @@ theorem targetOutsideInstI_run {fe : InLean.FEnv} {L : ConLeche.Env} (hJ : JobEn
     {s₀ s' : InLean.CState} {k : Nat} {sI : Lean.Level} (hs : CSOKI .verified false L s₀)
     (hlv : us.all okLv = true) (hokds : OkSL s₀ ds = true)
     (hcds : ∀ a ∈ ds, (TrS s₀ a).looseBVarsBounded 0 = true)
-    (h : InLean.targetOutsideInst (sharedOpsC .verified fe) fe I us ds s₀ = .ok ((k, sI), s')) :
+    (h : InLean.targetOutsideInst .verified fe I us ds s₀ = .ok ((k, sI), s')) :
     CSOKI .verified false L s' ∧ TabLe s₀ s' ∧ okL sI = true ∧
       Runs (ConLeche.targetOutsideInst (ConLeche.fueledOpsM .verified) (ConLeche.mkFEnv L)
         (toName I) (us.map trL) (TrSL s₀ ds)) (k, trL sI) := by
@@ -1330,7 +1330,7 @@ theorem targetMajorOfI_run {fe : InLean.FEnv} {L : ConLeche.Env} (hJ : JobEnvI f
     (hs : CSOKI .verified false L s₀) (hokp : OkSL s₀ pfvs = true) (hokf : OkSL s₀ fvs = true)
     (hokm : OkS s₀ mty = true)
     (hcl : ∀ a ∈ appArgs mty, (TrS s₀ a).looseBVarsBounded 0 = true)
-    (h : InLean.targetMajorOf (sharedOpsC .verified fe) fe p pfvs fvs mty s₀ = .ok (M, s')) :
+    (h : InLean.targetMajorOf .verified fe p pfvs fvs mty s₀ = .ok (M, s')) :
     CSOKI .verified false L s' ∧ TabLe s₀ s' ∧ OkTM s' M ∧
       (M.member = none → ∀ x ∈ TrSL s' M.ds, x.bvarB = 0 ∧ x.fvarB ≤ p.nP) ∧
       (M.member = none → ∀ x ∈ M.ds, x ∈ appArgs mty) ∧
@@ -1463,7 +1463,7 @@ theorem targetPinTysI_run {fe : InLean.FEnv} {L : ConLeche.Env} (hO : OpsSimI fe
     ∀ (xs : List Lean.Expr) {s₀ s' : InLean.CState} {v : Unit},
       CSOKI .verified false L s₀ → OkSL s₀ xs = true →
       (∀ a ∈ xs, ConLeche.Expr.WScoped d (TrS s₀ a) ∧ (TrS s₀ a).looseBVarsBounded 0 = true) →
-      InLean.targetPinTys (sharedOpsC .verified fe) fe d xs s₀ = .ok (v, s') →
+      InLean.targetPinTys .verified fe d xs s₀ = .ok (v, s') →
       CSOKI .verified false L s' ∧ TabLe s₀ s' ∧
         Runs (ConLeche.targetPinTys (ConLeche.fueledOpsM .verified) L d (TrSL s₀ xs)) ()
   | [], s₀, s', v, hs, _, _, h => by
@@ -1499,7 +1499,7 @@ theorem targetMajorPinsI_run {fe : InLean.FEnv} {L : ConLeche.Env} (hJ : JobEnvI
     (hRF : ReducedFormerSimI) {rP : Nat} {M : InLean.TargetMajor} {s₀ s' : InLean.CState} {v : Unit}
     (hs : CSOKI .verified false L s₀) (hM : OkTM s₀ M)
     (hw : M.member = none → ∀ a ∈ TrSL s₀ M.ds, ConLeche.Expr.WScoped rP a ∧ a.bvarB = 0)
-    (h : InLean.targetMajorPins (sharedOpsC .verified fe) fe rP M s₀ = .ok (v, s')) :
+    (h : InLean.targetMajorPins .verified fe rP M s₀ = .ok (v, s')) :
     CSOKI .verified false L s' ∧ TabLe s₀ s' ∧
       Runs (ConLeche.targetMajorPins (ConLeche.fueledOpsM .verified) (ConLeche.mkFEnv L) rP
         (trTM s₀ M)) () := by
@@ -1555,7 +1555,7 @@ theorem classMajorsI_run {fe : InLean.FEnv} {L : ConLeche.Env} (hJ : JobEnvI fe 
       CSOKI .verified false L s₀ → OkSL s₀ pfvs = true →
       (∀ k ∈ keys, k.lvls.all okLv = true ∧ OkSL s₀ k.ds = true ∧
         ∀ x ∈ TrSL s₀ k.ds, ConLeche.Expr.WScoped p.nP x ∧ x.bvarB = 0) →
-      InLean.classMajors (sharedOpsC .verified fe) fe p pfvs keys s₀ = .ok (Ms, s') →
+      InLean.classMajors .verified fe p pfvs keys s₀ = .ok (Ms, s') →
       CSOKI .verified false L s' ∧ TabLe s₀ s' ∧ (∀ M ∈ Ms, OkTM s' M) ∧
         Runs (ConLeche.classMajors (ConLeche.fueledOpsM .verified) (ConLeche.mkFEnv L) (trShape p)
           (TrSL s₀ pfvs) (keys.map (trCK s₀))) (Ms.map (trTM s'))
@@ -1646,7 +1646,7 @@ theorem checkBlockClassesI_run {fe : InLean.FEnv} {L : ConLeche.Env} (hJ : JobEn
     {Ms : List InLean.TargetMajor} (hs : CSOKI .verified false L s₀) (hokp : OkSL s₀ params = true)
     (hpar : ∀ (i : Nat) x, (TrSL s₀ params)[i]? = some x → ConLeche.Expr.WScoped p.nP x)
     (hlen : p.nP ≤ params.length)
-    (h : InLean.checkBlockClasses (sharedOpsC .verified fe) fe p params s₀ = .ok ((rd, Ms), s')) :
+    (h : InLean.checkBlockClasses .verified fe p params s₀ = .ok ((rd, Ms), s')) :
     CSOKI .verified false L s' ∧ TabLe s₀ s' ∧ (∀ x ∈ rd.slots, OkSlot s' x) ∧
       (∀ M ∈ Ms, OkTM s' M) ∧
       Runs (ConLeche.checkBlockClasses (ConLeche.fueledOpsM .verified) (ConLeche.mkFEnv L) (trShape p)

@@ -2665,7 +2665,7 @@ info: 'InLeanProof.checkConstantValC_sim' depends on axioms: [propext,
 #print axioms InLeanProof.checkConstantValC_sim
 
 /--
-info: 'InLeanProof.checkConstantValFSimI' depends on axioms: [propext,
+info: 'InLeanProof.checkConstantValCSimI' depends on axioms: [propext,
  Classical.choice,
  Quot.sound,
  InLeanProof.Expr.mkAppData_fields,
@@ -2673,7 +2673,7 @@ info: 'InLeanProof.checkConstantValFSimI' depends on axioms: [propext,
  InLeanProof.Level.mkData_eq]
 -/
 #guard_msgs in
-#print axioms InLeanProof.checkConstantValFSimI
+#print axioms InLeanProof.checkConstantValCSimI
 
 /--
 info: 'InLeanProof.checkValueC_sim' depends on axioms: [propext,

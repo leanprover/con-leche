@@ -35,7 +35,7 @@ theorem checkBlockIdxSortsFI_run {fe : InLean.FEnv} {L : ConLeche.Env} (hO : Ops
     ∀ {l : List InLean.MemberShape} {s₀ s' : InLean.CState} {u : Unit},
       CSOKI .verified false L s₀ →
       (∀ ms ∈ l, okC ms.cvT.type = true ∧ (trC ms.cvT.type).looseBVarsBounded 0 = true) →
-      InLean.checkBlockIdxSortsC (sharedOpsC .verified fe) fe p l s₀ = .ok (u, s') →
+      InLean.checkBlockIdxSortsC .verified fe p l s₀ = .ok (u, s') →
       CSOKI .verified false L s' ∧ TabLe s₀ s' ∧
         Runs (ConLeche.checkBlockIdxSorts (ConLeche.fueledOpsM .verified) L (trShape p)
           (l.map trMember)) ()

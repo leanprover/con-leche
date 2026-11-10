@@ -315,7 +315,7 @@ theorem targetK53I_run {fe : InLean.FEnv} {L : ConLeche.Env} (hO : OpsSimI fe L)
     (hfo : OkSL s₀ formerTys = true) (hM : OkTMN s₀ Mc)
     (hF : FrameOk (TrSL s₀ Mc.pfvs) (TrSL s₀ formerTys))
     (htele : OkSL s₀ tele = true) (hmaj : OkS s₀ majDom = true) (hf : OkS s₀ f = true)
-    (h : InLean.targetK53 (sharedOpsC .verified fe) fe p formerTys Mc tele majDom f s₀ =
+    (h : InLean.targetK53 .verified fe p formerTys Mc tele majDom f s₀ =
       .ok (true, s')) :
     CSOKI .verified false L s' ∧ TabLe s₀ s' ∧
       Runs (ConLeche.targetK53 (ConLeche.fueledOpsM .verified) L (trShape p)
@@ -453,7 +453,7 @@ theorem classNodesAgreeI_run {fe : InLean.FEnv} {L : ConLeche.Env} (hO : OpsSimI
       FrameOk (TrSL s₀ Mc.pfvs) (TrSL s₀ formerTys) →
       OkSL s₀ tele = true → OkS s₀ leaf = true → OkSL s₀ fvs = true →
       (∀ x ∈ fvs, (TrS s₀ x).looseBVarsBounded 0 = true) → (∀ e ∈ es, OkNf s₀ e) →
-      InLean.classNodesAgree (sharedOpsC .verified fe) fe p formerTys Mc tele leaf fvs i ctor es
+      InLean.classNodesAgree .verified fe p formerTys Mc tele leaf fvs i ctor es
         s₀ = .ok (u, s') →
       CSOKI .verified false L s' ∧ TabLe s₀ s' ∧
         Runs (ConLeche.classNodesAgree (ConLeche.fueledOpsM .verified) L (trShape p)
@@ -565,7 +565,7 @@ theorem classFieldsAgreeI_run {fe : InLean.FEnv} {L : ConLeche.Env} (hO : OpsSim
       (∀ t, OkTMN s₀ (Ms.getD t default)) →
       (∀ t, FrameOk (TrSL s₀ (Ms.getD t default).pfvs) (TrSL s₀ formerTys)) →
       FvsOk s₀ fvs → i + ks.length ≤ fvs.length → (∀ e ∈ E, OkNf s₀ e) →
-      InLean.classFieldsAgree (sharedOpsC .verified fe) fe p formerTys Ms fvs ctor E i ks s₀ =
+      InLean.classFieldsAgree .verified fe p formerTys Ms fvs ctor E i ks s₀ =
         .ok (u, s') →
       CSOKI .verified false L s' ∧ TabLe s₀ s' ∧
         Runs (ConLeche.classFieldsAgree (ConLeche.fueledOpsM .verified) L (trShape p)
@@ -763,7 +763,7 @@ theorem classCtorOfI_run {fe : InLean.FEnv} {L : ConLeche.Env} (hO : OpsSimI fe 
     (hfo : OkSL s₀ formerTys = true) (hMs : ∀ t, ClassOk s₀ (Ms.getD t default))
     (hFr : ∀ t, FrameOk (TrSL s₀ (Ms.getD t default).pfvs) (TrSL s₀ formerTys))
     (hct : okC ctor.1.type = true) (hctl : (trC ctor.1.type).looseBVarsBounded 0 = true)
-    (h : InLean.classCtorOf (sharedOpsC .verified fe) fe p formerTys rd Ms c ctor s₀ = .ok (x, s')) :
+    (h : InLean.classCtorOf .verified fe p formerTys rd Ms c ctor s₀ = .ok (x, s')) :
     CSOKI .verified false L s' ∧ TabLe s₀ s' ∧ OkCC s' x ∧ CtorLbb s' x ∧
       Runs (ConLeche.classCtorOf (ConLeche.fueledOpsM .verified) L (trShape p) (TrSL s₀ formerTys)
         (trCR sr rd) (Ms.map (trTM s₀)) c (trCtor ctor)) (trCC s' x) := by
@@ -890,7 +890,7 @@ theorem classCtorsOfI_run {fe : InLean.FEnv} {L : ConLeche.Env} (hO : OpsSimI fe
       (∀ t, FrameOk (TrSL s₀ (Ms.getD t default).pfvs) (TrSL s₀ formerTys)) →
       (∀ ctor ∈ ctors, okC ctor.1.type = true) →
       (∀ ctor ∈ ctors, (trC ctor.1.type).looseBVarsBounded 0 = true) →
-      InLean.classCtorsOf (sharedOpsC .verified fe) fe p formerTys rd Ms c ctors s₀ = .ok (xs, s') →
+      InLean.classCtorsOf .verified fe p formerTys rd Ms c ctors s₀ = .ok (xs, s') →
       CSOKI .verified false L s' ∧ TabLe s₀ s' ∧ (∀ x ∈ xs, OkCC s' x ∧ CtorLbb s' x) ∧
         Runs (ConLeche.classCtorsOf (ConLeche.fueledOpsM .verified) L (trShape p) (TrSL s₀ formerTys)
           (trCR sr rd) (Ms.map (trTM s₀)) c (ctors.map trCtor)) (xs.map (trCC s'))
@@ -933,7 +933,7 @@ theorem classesCtorsI_run {fe : InLean.FEnv} {L : ConLeche.Env} (hO : OpsSimI fe
       (∀ t, FrameOk (TrSL s₀ (Ms.getD t default).pfvs) (TrSL s₀ formerTys)) →
       (∀ M ∈ rest, ClassOk s₀ M) →
       (∀ M ∈ rest, ∀ ctor ∈ M.ctors, (trC ctor.1.type).looseBVarsBounded 0 = true) →
-      InLean.classesCtors (sharedOpsC .verified fe) fe p formerTys rd Ms c rest s₀ = .ok (xss, s') →
+      InLean.classesCtors .verified fe p formerTys rd Ms c rest s₀ = .ok (xss, s') →
       CSOKI .verified false L s' ∧ TabLe s₀ s' ∧ (∀ xs ∈ xss, ∀ x ∈ xs, OkCC s' x ∧ CtorLbb s' x) ∧
         Runs (ConLeche.classesCtors (ConLeche.fueledOpsM .verified) L (trShape p) (TrSL s₀ formerTys)
           (trCR sr rd) (Ms.map (trTM s₀)) c (rest.map (trTM s₀))) (xss.map (·.map (trCC s')))

@@ -297,7 +297,7 @@ theorem nestGrowGroupI_run {fe : InLean.FEnv} {L : ConLeche.Env} {sW : InLean.CS
       {v : List (Lean.Name × Lean.Expr)},
       CSOKI .verified false L s₀ → OkSL s₀ ds = true →
       (∀ a ∈ ds, (TrS s₀ a).looseBVarsBounded 0 = true) → GrpOk s₀ ds grp →
-      InLean.nestGrowGroup ctx (sharedOpsC .verified fe) fe hi us ds cs grp s₀ = .ok (v, s') →
+      InLean.nestGrowGroup .verified ctx fe hi us ds cs grp s₀ = .ok (v, s') →
       CSOKI .verified false L s' ∧ TabLe s₀ s' ∧ GrpOk s' ds v ∧
         Runs (ConLeche.nestGrowGroup cctx (ConLeche.fueledOpsM .verified) L hi (us.map trL)
           (TrSL s₀ ds) (cs.map toName) (trGrp s₀ grp)) (trGrp s' v)

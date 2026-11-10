@@ -17,6 +17,8 @@ namespace InLean
 
 open Lean
 
+variable (mode : CheckMode)
+
 /-- An `Option` in `OptionT CheckCM`. -/
 @[inline] def liftOpt (o : Option α) : OptionT CheckCM α := OptionT.mk (pure o)
 
@@ -174,17 +176,17 @@ def classFieldsOf (p : BlockShape) (ctor : Name) (ihs : List (Nat × Nat)) :
     pure (k' :: ks')
 
 /-- Twin of `classNodesAgree`. -/
-def classNodesAgree (ops : CheckerOps) (env : FEnv) (p : BlockShape) (formerTys : List Expr)
+def classNodesAgree (env : FEnv) (p : BlockShape) (formerTys : List Expr)
     (Mc : TargetMajor) (tele : List Expr) (leaf : Expr) (fvs : List Expr) (i : Nat) (ctor : Name) :
     List NestCtorNf → CheckCM Unit
   | [] => pure ()
   | e :: es => do
     let some f := ((targetPiDomsWith fvs e.ty).getD [])[i]?
       | throw (.invalid s!"generated recursor: a recorded normal form of {ctor} is too short")
-    unless ← targetK53 ops env p formerTys Mc tele leaf f do
+    unless ← targetK53 mode env p formerTys Mc tele leaf f do
       throw (.invalid s!"generated recursor: field {i} of {ctor} does not land at its inductive \
         hypothesis's class at every node of the positivity check (official: invalid recursor)")
-    classNodesAgree ops env p formerTys Mc tele leaf fvs i ctor es
+    classNodesAgree env p formerTys Mc tele leaf fvs i ctor es
 
 /-- Twin of `classLeafAt`. -/
 def classLeafAt (M : TargetMajor) (leaf : Expr) : Bool :=
@@ -193,22 +195,22 @@ def classLeafAt (M : TargetMajor) (leaf : Expr) : Bool :=
   | _ => false
 
 /-- Twin of `classFieldsAgree`. -/
-def classFieldsAgree (ops : CheckerOps) (env : FEnv) (p : BlockShape) (formerTys : List Expr)
+def classFieldsAgree (env : FEnv) (p : BlockShape) (formerTys : List Expr)
     (Ms : List TargetMajor) (fvs : List Expr) (ctor : Name) (E : List NestCtorNf) :
     Nat → List ClassField → CheckCM Unit
   | _, [] => pure ()
-  | i, .ordinary :: ks => classFieldsAgree ops env p formerTys Ms fvs ctor E (i + 1) ks
+  | i, .ordinary :: ks => classFieldsAgree env p formerTys Ms fvs ctor E (i + 1) ks
   | i, .recursive t tele :: ks => do
     let (teleB, leaf) ← unwrapOr (stripPis tele (← fvarTypeD (fvs.getD i default)))
       (.internal "generated recursor: field telescope")
     unless classLeafAt (Ms.getD t default) leaf do
       throw (.invalid s!"generated recursor: field {i} of {ctor} does not end in its inductive \
         hypothesis's class (official: invalid recursor)")
-    classNodesAgree ops env p formerTys (Ms.getD t default) teleB leaf fvs i ctor E
-    classFieldsAgree ops env p formerTys Ms fvs ctor E (i + 1) ks
+    classNodesAgree mode env p formerTys (Ms.getD t default) teleB leaf fvs i ctor E
+    classFieldsAgree env p formerTys Ms fvs ctor E (i + 1) ks
 
 /-- Twin of `classCtorOf`. -/
-def classCtorOf (ops : CheckerOps) (env : FEnv) (p : BlockShape) (formerTys : List Expr)
+def classCtorOf (env : FEnv) (p : BlockShape) (formerTys : List Expr)
     (rd : ClassRead) (Ms : List TargetMajor) (c : Nat) (ctor : ConstantVal × Nat) :
     CheckCM ClassCtor := do
   let E := (Ms.getD c default).nfs.filter (·.ctor == ctor.1.name)
@@ -218,66 +220,66 @@ def classCtorOf (ops : CheckerOps) (env : FEnv) (p : BlockShape) (formerTys : Li
   let (fvs, _) ← unwrapOr (← openPisAtFvars ctor.2 e0.ty (p.nP + p.k))
     (.internal "generated recursor: datum telescope")
   let kinds ← classFieldsOf p ctor.1.name ihs 0 fvs
-  classFieldsAgree ops env p formerTys Ms fvs ctor.1.name E 0 kinds
+  classFieldsAgree mode env p formerTys Ms fvs ctor.1.name E 0 kinds
   let M := Ms.getD c default
   let tyD ← unwrapOr (instPisWith M.ds (← targetCtorAt M ctor.1))
     (.internal "generated recursor: constructor parameter telescope")
   pure ⟨ctor.1, ctor.2, kinds, tyD, e0.ty⟩
 
 /-- Twin of `classCtorsOf`. -/
-def classCtorsOf (ops : CheckerOps) (env : FEnv) (p : BlockShape) (formerTys : List Expr)
+def classCtorsOf (env : FEnv) (p : BlockShape) (formerTys : List Expr)
     (rd : ClassRead) (Ms : List TargetMajor) (c : Nat) :
     List (ConstantVal × Nat) → CheckCM (List ClassCtor)
   | [] => pure []
   | ctor :: cs => do
-    let x ← classCtorOf ops env p formerTys rd Ms c ctor
-    let xs ← classCtorsOf ops env p formerTys rd Ms c cs
+    let x ← classCtorOf mode env p formerTys rd Ms c ctor
+    let xs ← classCtorsOf env p formerTys rd Ms c cs
     pure (x :: xs)
 
 /-- Twin of `classesCtors`. -/
-def classesCtors (ops : CheckerOps) (env : FEnv) (p : BlockShape) (formerTys : List Expr)
+def classesCtors (env : FEnv) (p : BlockShape) (formerTys : List Expr)
     (rd : ClassRead) (Ms : List TargetMajor) : Nat → List TargetMajor → CheckCM (List (List ClassCtor))
   | _, [] => pure []
   | c, M :: rest => do
-    let xs ← classCtorsOf ops env p formerTys rd Ms c M.ctors
-    let xss ← classesCtors ops env p formerTys rd Ms (c + 1) rest
+    let xs ← classCtorsOf mode env p formerTys rd Ms c M.ctors
+    let xss ← classesCtors env p formerTys rd Ms (c + 1) rest
     pure (xs :: xss)
 
 /-- Twin of `classMajors`. -/
-def classMajors (ops : CheckerOps) (fe : FEnv) (p : BlockShape) (pfvs : List Expr) :
+def classMajors (fe : FEnv) (p : BlockShape) (pfvs : List Expr) :
     List ClassKey → CheckCM (List TargetMajor)
   | [] => pure []
   | key :: keys => do
-    let M ← targetMajorOf ops fe p pfvs pfvs (mkAppL (.const key.ind key.lvls) key.ds)
-    targetMajorPins ops fe p.nP M
-    let Ms ← classMajors ops fe p pfvs keys
+    let M ← targetMajorOf mode fe p pfvs pfvs (mkAppL (.const key.ind key.lvls) key.ds)
+    targetMajorPins mode fe p.nP M
+    let Ms ← classMajors fe p pfvs keys
     pure (M :: Ms)
 
 /-- Twin of `classesNfs`. -/
-def classesNfs (ops : CheckerOps) (env : FEnv) (p : BlockShape) (formerTys : List Expr)
+def classesNfs (env : FEnv) (p : BlockShape) (formerTys : List Expr)
     (tbl : List NestCtorNf) : List TargetMajor → CheckCM (List TargetMajor)
   | [] => pure []
   | M :: Ms => do
-    let es ← targetMajorNfs ops env p formerTys M.pfvs M.lvls M.ds M.ctors tbl
-    let rest ← classesNfs ops env p formerTys tbl Ms
+    let es ← targetMajorNfs mode env p formerTys M.pfvs M.lvls M.ds M.ctors tbl
+    let rest ← classesNfs env p formerTys tbl Ms
     pure ({ M with nfs := es } :: rest)
 
 /-- Twin of `classFormerTy`. -/
-def classFormerTy (ops : CheckerOps) (fe : FEnv) (formers : List ConstantVal) (M : TargetMajor) :
+def classFormerTy (fe : FEnv) (formers : List ConstantVal) (M : TargetMajor) :
     CheckCM Expr :=
   match M.member with
   | some t => pure (formers.getD t default).type
   | none => match fe.indView? M.ind with
     | some (cv, caps) => do
-      let ty ← familyTelescope ops fe cv caps
+      let ty ← familyTelescope mode fe cv caps
       instLevelParamsM cv.levelParams M.lvls ty
     | none => throw (.internal "generated recursor: a class's former vanished")
 
 /-- Twin of `classConstOk`; the name's freshness read off the environment
-itself (`checkConstantValF`).  The generated type was closed by depth
+itself (`checkConstantValC`).  The generated type was closed by depth
 (`EO.abstractDepthsFrom`), which may write `EO.rangePoison`: a type
 `EO.inRange` refuses is an error, as in `reducedFormer`. -/
-def classConstOk (ops : CheckerOps) (fe : FEnv) (cv : ConstantVal) : CheckCM Unit := do
+def classConstOk (fe : FEnv) (cv : ConstantVal) : CheckCM Unit := do
   if (fe.env.find? cv.name).isSome then throw (alreadyDeclared cv.name)
   unless litShapeOk cv.name cv.levelParams cv.type do
     throw (.notImplemented s!"a declaration at a literal's name with another shape ({cv.name})")
@@ -292,18 +294,18 @@ def classConstOk (ops : CheckerOps) (fe : FEnv) (cv : ConstantVal) : CheckCM Uni
     throw (.invalid s!"undeclared universe parameter in type of {cv.name}")
   unless ← constsResolveF fe cv.type do
     throw (unresolvedConstsErrorL fe true s!"type of {cv.name}" cv.type)
-  let stype ← ops.inferType fe 0 cv.type
-  let _u ← ops.ensureSort fe 0 stype
+  let stype ← opInfer mode fe 0 cv.type
+  let _u ← opSort mode fe 0 stype
 
 /-- Twin of `classRecTyCheck`. -/
-def classRecTyCheck (ops : CheckerOps) (fe : FEnv) (cvRi cvG : ConstantVal) : CheckCM Unit := do
-  classConstOk ops fe cvG
-  unless ← ops.isDefEq fe 0 cvRi.type cvG.type do
+def classRecTyCheck (fe : FEnv) (cvRi cvG : ConstantVal) : CheckCM Unit := do
+  classConstOk mode fe cvG
+  unless ← opDefeq mode fe 0 cvRi.type cvG.type do
     throw (.invalid s!"generated recursor: the type of {cvG.name} is not the generated one \
       (official: invalid recursor)")
 
 /-- Twin of `classRecTyOk`. -/
-def classRecTyOk (ops : CheckerOps) (fe : FEnv) (g : ClassGen) (k : Nat) (rc : RecShape)
+def classRecTyOk (fe : FEnv) (g : ClassGen) (k : Nat) (rc : RecShape)
     (cvRi : ConstantVal) (c : Nat) : CheckCM ConstantVal := do
   let ci := g.cls.getD c default
   unless rc.tgt == ci.member.getD k do
@@ -313,22 +315,23 @@ def classRecTyOk (ops : CheckerOps) (fe : FEnv) (g : ClassGen) (k : Nat) (rc : R
       not the generated one")
   let gty ← unwrapOr (← (classGenRecTy g c).run) (.internal "generated recursor: recursor type")
   let cvG := { rc.cvR with type := gty }
-  classRecTyCheck ops fe cvRi cvG
+  classRecTyCheck mode fe cvRi cvG
   pure cvG
 
 /-- Twin of `classRecTysOk`. -/
-def classRecTysOk (ops : CheckerOps) (fe : FEnv) (g : ClassGen) (k : Nat) :
+def classRecTysOk (fe : FEnv) (g : ClassGen) (k : Nat) :
     List RecShape → List ConstantVal → List Nat → CheckCM (List ConstantVal)
   | rc :: rcs, cvRi :: cvs, c :: cs => do
-    let x ← classRecTyOk ops fe g k rc cvRi c
-    let xs ← classRecTysOk ops fe g k rcs cvs cs
+    let x ← classRecTyOk mode fe g k rc cvRi c
+    let xs ← classRecTysOk fe g k rcs cvs cs
     pure (x :: xs)
   | [], _, _ => pure []
   | _, _, _ => throw (.internal "generated recursor: recursor list")
 
-/-- Twin of `classRuleCheck`; a rule `EO.inRange` refuses is an error, as in
-`classConstOk`. -/
-def classRuleCheck (ops : CheckerOps) (feT feR : FEnv) (cvR : ConstantVal)
+/-- Twin of `classRuleCheckC`: the rule typed at the rule-less recursors'
+environment `feR`, a flush entering and leaving it; a rule `EO.inRange`
+refuses is an error, as in `classConstOk`. -/
+def classRuleCheck (feT feR : FEnv) (cvR : ConstantVal)
     (n : Nat) (gen : Expr) : CheckCM Unit := do
   unless !gen.hasLooseBVars && !gen.hasFVar do
     throw (.internal s!"generated recursor: a rule of {cvR.name} is not closed")
@@ -338,7 +341,9 @@ def classRuleCheck (ops : CheckerOps) (feT feR : FEnv) (cvR : ConstantVal)
       parameter")
   unless ← constsResolveF feR gen do
     throw (unresolvedConstsErrorL feR true s!"generated rule of {cvR.name}" gen)
-  let _ ← ops.inferType feR 0 gen
+  flushC
+  let _ ← opInfer mode feR 0 gen
+  flushC
   let (rbs, _) ← unwrapOr (stripLams n gen)
     (.internal s!"generated recursor: a rule of {cvR.name} is not a λ-telescope over the \
       recursor's prefix and the constructor's fields")
@@ -346,39 +351,39 @@ def classRuleCheck (ops : CheckerOps) (feT feR : FEnv) (cvR : ConstantVal)
     throw (unresolvedConstsErrorL feT true s!"the domains of a generated rule of {cvR.name}" gen)
 
 /-- Twin of `classRuleOk`. -/
-def classRuleOk (ops : CheckerOps) (feT feR : FEnv) (cvR : ConstantVal)
+def classRuleOk (feT feR : FEnv) (cvR : ConstantVal)
     (n : Nat) (gen : Expr) : CheckCM Expr := do
-  classRuleCheck ops feT feR cvR n gen
+  classRuleCheck mode feT feR cvR n gen
   pure gen
 
 /-- Twin of `classRulesOk`. -/
-def classRulesOk (ops : CheckerOps) (feT feR : FEnv) (g : ClassGen)
+def classRulesOk (feT feR : FEnv) (g : ClassGen)
     (recOf : Nat → Option Name) (cvR : ConstantVal) (c : Nat) : List ClassCtor → CheckCM (List Expr)
   | [] => pure []
   | x :: xs => do
     let gen ← unwrapOr (← (classGenRule g recOf (cvR.levelParams.map .param) c x).run)
       (.invalid s!"generated recursor: the rule of {x.cv.name} calls a class whose recursor the \
         stream omits (official: unknown constant)")
-    let r ← classRuleOk ops feT feR cvR (g.nP + g.slots.length + x.nF) gen
-    let rs ← classRulesOk ops feT feR g recOf cvR c xs
+    let r ← classRuleOk mode feT feR cvR (g.nP + g.slots.length + x.nF) gen
+    let rs ← classRulesOk feT feR g recOf cvR c xs
     pure (r :: rs)
 
 /-- Twin of `classRecsRulesOk`. -/
-def classRecsRulesOk (ops : CheckerOps) (feT feR : FEnv) (g : ClassGen)
+def classRecsRulesOk (feT feR : FEnv) (g : ClassGen)
     (recOf : Nat → Option Name) :
     List ConstantVal → List Nat → CheckCM (List (ConstantVal × TargetMajor × List Expr))
   | cvG :: cvs, c :: cs => do
-    let rhss ← classRulesOk ops feT feR g recOf cvG c (g.ctors.getD c [])
-    let xs ← classRecsRulesOk ops feT feR g recOf cvs cs
+    let rhss ← classRulesOk mode feT feR g recOf cvG c (g.ctors.getD c [])
+    let xs ← classRecsRulesOk feT feR g recOf cvs cs
     pure ((cvG, g.cls.getD c default, rhss) :: xs)
   | _, _ => pure []
 
 /-- Twin of `classStreamRecs`. -/
-def classStreamRecs (ops : CheckerOps) (fe : FEnv) : List RecShape → CheckCM (List ConstantVal)
+def classStreamRecs (fe : FEnv) : List RecShape → CheckCM (List ConstantVal)
   | [] => pure []
   | rc :: rcs => do
-    checkConstantValF ops fe rc.cvR
-    let cvs ← classStreamRecs ops fe rcs
+    checkConstantValC mode fe rc.cvR
+    let cvs ← classStreamRecs fe rcs
     pure (rc.cvR :: cvs)
 
 /-- Twin of `classKeyCanon`. -/
@@ -407,13 +412,13 @@ def classKeyOf (nP : Nat) (params : List Expr) (k : ClassKey) : CheckCM ClassKey
   pure k
 
 /-- Twin of `checkBlockClasses`. -/
-def checkBlockClasses (ops : CheckerOps) (fe₁ : FEnv) (p : BlockShape) (params : List Expr) :
+def checkBlockClasses (fe₁ : FEnv) (p : BlockShape) (params : List Expr) :
     CheckCM (ClassRead × List TargetMajor) := do
   let rd ← unwrapOr (← classRead p.nP (classNPcOf p fe₁) p.recs)
     (.invalid "generated recursor: the recursor family is not of the generated shape \
       (official: invalid recursor)")
   let keys ← rd.classes.mapM (classKeyOf p.nP params)
-  let Ms ← classMajors ops fe₁ p params keys
+  let Ms ← classMajors mode fe₁ p params keys
   unless (List.range p.k).all (fun t => (Ms.filter (·.member == some t)).length == 1) do
     throw (.invalid "generated recursor: the recursor family does not have exactly one class \
       per member (official: invalid recursor)")
@@ -430,52 +435,32 @@ def classFeROvl (p : BlockShape) (Ms : List TargetMajor) (cvGs : List ConstantVa
     (recCls : List Nat) (fe : FEnv) : FEnv :=
   classFeR p Ms cvGs recCls fe
 
-/-- Twin of `sharedOpsC`: the core at `fe` (the environment argument is the
-one the ops were built at). -/
-def sharedOpsC (mode : CheckMode) (fe : FEnv) : CheckerOps where
-  inferType _ d e := opInfer mode fe d e
-  isDefEq _ d a b := opDefeq mode fe d a b
-  ensureSort _ d e := opSort mode fe d e
-  whnf _ d e := opWhnf mode fe d e
-
-/-- The rule stage's operations (`classRuleCheckC`'s inference): a flush
-entering and leaving each inference at the rule-less recursors' `fe`. -/
-def sharedOpsRuleR (mode : CheckMode) (fe : FEnv) : CheckerOps :=
-  { sharedOpsC mode fe with
-    inferType := fun _ d e => do
-      flushC
-      let t ← opInfer mode fe d e
-      flushC
-      pure t }
-
-/-- Twin of `genRecCheckC`: the stage at the shared operations, the
-rule-less recursors pushed (`classFeROvl`), a flush entering and leaving the
-rule stage, whose inference flushes around each rule (`sharedOpsRuleR`). -/
-def genRecCheck (mode : CheckMode) (fe : FEnv) (p : BlockShape) (nestedBit : Bool)
+/-- Twin of `genRecCheckC`: the rule-less recursors pushed (`classFeROvl`),
+a flush entering and leaving the rule stage. -/
+def genRecCheck (fe : FEnv) (p : BlockShape) (nestedBit : Bool)
     (params : List Expr) (tbl : List NestCtorNf) (rd : ClassRead) (Ms : List TargetMajor)
     (block : List ConstantInfo) : CheckCM (List (ConstantVal × TargetMajor × List Expr)) := do
   targetRecPins p block
-  let ops := sharedOpsC mode fe
-  let cvRis ← classStreamRecs ops fe p.recs
+  let cvRis ← classStreamRecs mode fe p.recs
   unless 0 < p.k do throw (.invalid "generated recursor: the block declares no family")
   if p.large && !blockLargeElimAllowed p (nestedBit || Ms.any (·.member.isNone)) then
     throw (.invalid "generated recursor: large eliminator on a block whose sort may be Prop \
       (official: elim_only_at_universe_zero)")
   let formerTys := p.formers.map (·.type)
-  let Ms ← classesNfs ops fe p formerTys tbl Ms
-  let ctors ← classesCtors ops fe p formerTys rd Ms 0 Ms
+  let Ms ← classesNfs mode fe p formerTys tbl Ms
+  let ctors ← classesCtors mode fe p formerTys rd Ms 0 Ms
   unless (rd.slots.filter ClassSlot.isMinor).length == (ctors.map List.length).sum do
     throw (.invalid "generated recursor: the recursors' prefix has a minor premise for no \
       constructor of a class (official: invalid recursor)")
-  let formerTysC ← Ms.mapM (classFormerTy ops fe p.formers)
+  let formerTysC ← Ms.mapM (classFormerTy mode fe p.formers)
   let elim := structElimLevel p.elim p.large
   let g0 : ClassGen := ⟨p.nP, params, Ms, formerTysC, rd.slots, ctors, elim, []⟩
   let pre ← unwrapOr (← g0.prefixBinders.run) (.internal "generated recursor: recursor prefix")
   let g := { g0 with pre := pre }
-  let cvGs ← classRecTysOk ops fe g p.k p.recs cvRis rd.recCls
+  let cvGs ← classRecTysOk mode fe g p.k p.recs cvRis rd.recCls
   let feR := classFeROvl p Ms cvGs rd.recCls fe
   flushC
-  let out ← classRecsRulesOk (sharedOpsRuleR mode feR) fe feR g (classRecOf rd.recCls cvGs)
+  let out ← classRecsRulesOk mode fe feR g (classRecOf rd.recCls cvGs)
     cvGs rd.recCls
   flushC
   pure out

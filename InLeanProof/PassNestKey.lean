@@ -65,7 +65,7 @@ theorem familyTelescopeI_run {fe : InLean.FEnv} {L : ConLeche.Env} (hJ : JobEnvI
     (hRF : ReducedFormerSimI) {cv : Lean.ConstantVal} {caps : InLean.IndCaps}
     (hok : okC cv.type = true) (hcl : (trC cv.type).looseBVarsBounded 0 = true)
     {s₀ s' : InLean.CState} {ty : Lean.Expr} (hs : CSOKI .verified false L s₀)
-    (h : InLean.familyTelescope (sharedOpsC .verified fe) fe cv caps s₀ = .ok (ty, s')) :
+    (h : InLean.familyTelescope .verified fe cv caps s₀ = .ok (ty, s')) :
     CSOKI .verified false L s' ∧ TabLe s₀ s' ∧ okC ty = true ∧
       (trC ty).looseBVarsBounded 0 = true ∧
       Runs (ConLeche.familyTelescope (ConLeche.fueledOpsM .verified) L (trCV cv) (toCaps caps))
@@ -92,7 +92,7 @@ theorem checkSpineAtI_run {fe : InLean.FEnv} {L : ConLeche.Env} (hO : OpsSimI fe
       CSOKI .verified false L s₀ → OkS s₀ T = true → OkSL s₀ ds = true →
       ConLeche.Expr.WScoped d (TrS s₀ T) → (TrS s₀ T).looseBVarsBounded 0 = true →
       (∀ a ∈ ds, ConLeche.Expr.WScoped d (TrS s₀ a) ∧ (TrS s₀ a).looseBVarsBounded 0 = true) →
-      InLean.checkSpineAt (sharedOpsC .verified fe) fe d T ds s₀ = .ok (v, s') →
+      InLean.checkSpineAt .verified fe d T ds s₀ = .ok (v, s') →
       CSOKI .verified false L s' ∧ TabLe s₀ s' ∧
         Runs (ConLeche.checkSpineAt (ConLeche.fueledOpsM .verified) L d (TrS s₀ T) (TrSL s₀ ds)) ()
   | [], T, s₀, s', v, hs, _, _, _, _, _, h => by
@@ -171,7 +171,7 @@ theorem familyKeyCheckI_run {fe : InLean.FEnv} {L : ConLeche.Env} (hJ : JobEnvI 
     {ds : List Lean.Expr} {s₀ s' : InLean.CState} {v : Unit} (hs : CSOKI .verified false L s₀)
     (hus : us.all okLv = true) (hokds : OkSL s₀ ds = true)
     (hds : ∀ a ∈ ds, ConLeche.Expr.WScoped d (TrS s₀ a) ∧ (TrS s₀ a).looseBVarsBounded 0 = true)
-    (h : InLean.familyKeyCheck (sharedOpsC .verified fe) fe d c us ds s₀ = .ok (v, s')) :
+    (h : InLean.familyKeyCheck .verified fe d c us ds s₀ = .ok (v, s')) :
     CSOKI .verified false L s' ∧ TabLe s₀ s' ∧
       Runs (ConLeche.familyKeyCheck (ConLeche.fueledOpsM .verified) L L.find? d (toName c)
         (us.map trL) (TrSL s₀ ds)) () := by
@@ -288,7 +288,7 @@ theorem nestInstTypeI_run {fe : InLean.FEnv} {L : ConLeche.Env} (hJ : JobEnvI fe
     {key : InLean.NestKey} {s₀ s' : InLean.CState} {k : Nat} {ty : Lean.Expr}
     (hs : CSOKI .verified false L s₀) (hlv : key.lvls.all okLv = true)
     (hokds : OkSL s₀ key.ds = true) (hcds : ∀ a ∈ key.ds, (TrS s₀ a).looseBVarsBounded 0 = true)
-    (h : InLean.nestInstType ctx (sharedOpsC .verified fe) fe hi key s₀ = .ok ((k, ty), s')) :
+    (h : InLean.nestInstType .verified ctx fe hi key s₀ = .ok ((k, ty), s')) :
     CSOKI .verified false L s' ∧ TabLe s₀ s' ∧ OkS s' ty = true ∧
       (TrS s' ty).looseBVarsBounded 0 = true ∧
       (∀ d, (∀ a ∈ key.ds, ConLeche.Expr.WScoped d (TrS s₀ a)) →
