@@ -42,5 +42,6 @@ public import ConLeche.Verify.Denote.ErasedEq
 public import ConLeche.Verify.Denote.ConstsBound
 public import ConLeche.Verify.GroundComplete
 public import ConLeche.Verify.Ground.Erased
+public import ConLeche.Verify.Ground.Compile
 
 @[expose] public section

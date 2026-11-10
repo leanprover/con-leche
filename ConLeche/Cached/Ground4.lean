@@ -71,6 +71,8 @@ structure G4Rule where
 
 /-- A projection of the table (`none`: no projection table, stuck). -/
 structure G4Proj where
+  /-- the structure the projection names (the node's `.proj sn i _`) -/
+  sn : Name
   ctor : Name
   idx : Nat
   numParams : Nat
@@ -127,7 +129,10 @@ structure G4Prog where
   nslots : Nat := 1
   /-- the sharing slots, kept with the program across the declaration's
   runs; an entry is `epBase + cell`, valid only in the run whose
-  `epBase` it carries (no per-run clearing) -/
+  `epBase` it carries (no per-run clearing).  A run's `epBase` is the
+  previous run's plus that run's cell count, so it is above every entry
+  an earlier run wrote (task #423 soundness: a fixed epoch step would
+  misread an earlier run's cell past the step as a current one) -/
   slotA : Array Nat := #[]
   epBase : Nat := 0
   natOk : Bool := false
@@ -261,6 +266,54 @@ comparison baseline) a K major that is not a constructor declines.  Read
 at table time only. -/
 @[noinline] def g4KSkip : Bool := !(groundMode == 13)
 
+/-- A new table entry for the constant `c` at levels `us` (`kfab`: the K
+step's constructor entry plus one, or `0`), appended to every table
+array. -/
+def g4Entry (P : G4Prog) (c : Name) (us : List Level) (kfab : Nat) : Nat × G4Prog :=
+  let k := P.kTag.size
+  let (tag, ar, b, c', d, e', info, P) : Nat × Nat × Nat × Nat × Nat × Nat × G4Info × G4Prog :=
+    match find? c with
+    | some (.defnInfo cv v _) =>
+      if us.length != cv.levelParams.length then (5, 0, 0, 0, 0, 0, .neutral, P)
+      else
+        let tag := if us.isEmpty && P.natOk && natBin14 c then 3
+          else if us.isEmpty && natOpWfNames.contains c then 4 else 0
+        let op := (natBin14Names.idxOf? c).getD 0
+        (tag, 0, 0, 0, 0, op, .defn c cv.levelParams us v, P)
+    | some (.ctorInfo cv nP nF) =>
+      let (ni, P) := P.nid c
+      (1, g4Pis cv.type 0, ni, 0, us.length, 0, .ctor c us nP nF, P)
+    | some (.recInfo cv mI rP isK rules) =>
+      if us.length != cv.levelParams.length || !(Expr.peelPis (mI + 1) cv.type).isSome then
+        (5, 0, 0, 0, 0, 0, .neutral, P)
+      else
+        let base := P.rules.size
+        let P := rules.foldl (fun P rl =>
+          let case3 := match find? rl.ctor with
+            | some (.ctorInfo cvj _ _) =>
+              gCase3 find? isK cvj (gCmpLevels rl cv.levelParams us cvj.levelParams)
+            | _ => true
+          let (ni, P) := P.nid rl.ctor
+          let (r1, r2, r3, r4, r5, r6) := (P.rules, P.ruleCode, P.rNid, P.rNF, P.rCP, P.rC3)
+          let P := { P with rules := #[], ruleCode := #[], rNid := #[], rNF := #[], rCP := #[],
+                            rC3 := #[] }
+          { P with rules := r1.push ⟨rl.ctor, rl.nfields, (gCtorParams find? rl.ctor), case3, rl.rhs⟩,
+                   ruleCode := r2.push 0, rNid := r3.push ni, rNF := r4.push rl.nfields,
+                   rCP := r5.push (gCtorParams find? rl.ctor), rC3 := r6.push (if case3 then 1 else 0) }) P
+        let isEta := match rules with | [_] => !isK | _ => false
+        let fl := (if isK then 1 else 0) + (if isEta then 2 else 0)
+        (2, mI, rP, base, rules.length, fl + 4 * kfab,
+          .recr c cv.levelParams us mI rP base rules.length (isK) isEta, P)
+    | _ => (5, 0, 0, 0, 0, 0, .neutral, P)
+  let (t1, t2, t3, t4, t5, t6, ns) := (P.kTag, P.kCode, P.kArity, P.kSlot, P.kInfo, P.kMap, P.nslots)
+  let (u1, u2, u3, u4) := (P.kB, P.kC, P.kD, P.kE)
+  let P := { P with kTag := #[], kCode := #[], kArity := #[], kSlot := #[], kInfo := #[], kMap := {},
+                    kB := #[], kC := #[], kD := #[], kE := #[] }
+  (k, { P with kTag := t1.push tag, kCode := t2.push 0, kArity := t3.push ar,
+               kSlot := t4.push ns, nslots := ns + 1,
+               kInfo := t5.push info, kMap := t6.insert (c, us) k,
+               kB := u1.push b, kC := u2.push c', kD := u3.push d, kE := u4.push e' })
+
 /-- The table entry of the constant `c` at levels `us`, created on first
 use.  Kinds: `0` definition, `1` constructor, `2` recursor, `3` an
 accelerated `Nat` operation (a definition too), `4` a well-founded
@@ -286,53 +339,86 @@ def g4ResolveF (findProj? : Name → Nat → Option ProjEntry) : Nat → G4Prog 
           | _ => (0, P)
         else (0, P)
       | _, _ => (0, P)
-    let k := P.kTag.size
-    let (tag, ar, b, c', d, e', info, P) : Nat × Nat × Nat × Nat × Nat × Nat × G4Info × G4Prog :=
-      match find? c with
-      | some (.defnInfo cv v _) =>
-        if us.length != cv.levelParams.length then (5, 0, 0, 0, 0, 0, .neutral, P)
-        else
-          let tag := if us.isEmpty && P.natOk && natBin14 c then 3
-            else if us.isEmpty && natOpWfNames.contains c then 4 else 0
-          let op := (natBin14Names.idxOf? c).getD 0
-          (tag, 0, 0, 0, 0, op, .defn c cv.levelParams us v, P)
-      | some (.ctorInfo cv nP nF) =>
-        let (ni, P) := P.nid c
-        (1, g4Pis cv.type 0, ni, 0, us.length, 0, .ctor c us nP nF, P)
-      | some (.recInfo cv mI rP isK rules) =>
-        if us.length != cv.levelParams.length || !(Expr.peelPis (mI + 1) cv.type).isSome then
-          (5, 0, 0, 0, 0, 0, .neutral, P)
-        else
-          let base := P.rules.size
-          let P := rules.foldl (fun P rl =>
-            let case3 := match find? rl.ctor with
-              | some (.ctorInfo cvj _ _) =>
-                gCase3 find? isK cvj (gCmpLevels rl cv.levelParams us cvj.levelParams)
-              | _ => true
-            let (ni, P) := P.nid rl.ctor
-            let (r1, r2, r3, r4, r5, r6) := (P.rules, P.ruleCode, P.rNid, P.rNF, P.rCP, P.rC3)
-            let P := { P with rules := #[], ruleCode := #[], rNid := #[], rNF := #[], rCP := #[],
-                              rC3 := #[] }
-            { P with rules := r1.push ⟨rl.ctor, rl.nfields, (gCtorParams find? rl.ctor), case3, rl.rhs⟩,
-                     ruleCode := r2.push 0, rNid := r3.push ni, rNF := r4.push rl.nfields,
-                     rCP := r5.push (gCtorParams find? rl.ctor), rC3 := r6.push (if case3 then 1 else 0) }) P
-          let isEta := match rules with | [_] => !isK | _ => false
-          let fl := (if isK then 1 else 0) + (if isEta then 2 else 0)
-          (2, mI, rP, base, rules.length, fl + 4 * kfab,
-            .recr c cv.levelParams us mI rP base rules.length (isK) isEta, P)
-      | _ => (5, 0, 0, 0, 0, 0, .neutral, P)
-    let (t1, t2, t3, t4, t5, t6, ns) := (P.kTag, P.kCode, P.kArity, P.kSlot, P.kInfo, P.kMap, P.nslots)
-    let (u1, u2, u3, u4) := (P.kB, P.kC, P.kD, P.kE)
-    let P := { P with kTag := #[], kCode := #[], kArity := #[], kSlot := #[], kInfo := #[], kMap := {},
-                      kB := #[], kC := #[], kD := #[], kE := #[] }
-    (k, { P with kTag := t1.push tag, kCode := t2.push 0, kArity := t3.push ar,
-                 kSlot := t4.push ns, nslots := ns + 1,
-                 kInfo := t5.push info, kMap := t6.insert (c, us) k,
-                 kB := u1.push b, kC := u2.push c', kD := u3.push d, kE := u4.push e' })
+    g4Entry find? P c us kfab
 
 /-- `g4ResolveF` with room for the K constructor's resolution. -/
 def g4Resolve (P : G4Prog) (c : Name) (us : List Level) : Nat × G4Prog :=
   g4ResolveF find? findProj? 1 P c us
+
+/-- The erasure mask of a spine's head constant (`g4Mask`), memoised per
+name. -/
+def g4MaskOf (P : G4Prog) (hd : Expr) : Array Bool × G4Prog :=
+  match hd with
+  | .const c _ =>
+    match P.masks[c]? with
+    | some m => (m, P)
+    | none =>
+      let m := match find? c with
+        | some ci => g4Mask find? (match ci with | .recInfo .. => true | _ => false)
+            ci.toConstantVal.type #[]
+        | none => #[]
+      let ms := P.masks; let P := { P with masks := {} }
+      (m, { P with masks := ms.insert c m })
+  | _ => (#[], P)
+
+/-- The strict-parameter bitmask and λ arity of a spine's head constant
+(`g4Strict`), memoised per name. -/
+def g4StrictOf (P : G4Prog) (hd : Expr) : (Nat × Nat) × G4Prog :=
+  match hd with
+  | .const c _ =>
+    if !g4StrictOn then ((0, 0), P) else
+    match P.stricts[c]? with
+    | some r => (r, P)
+    | none =>
+      let r := match find? c with
+        | some (.defnInfo _ v _) => g4Strict find? v
+        | _ => (0, 0)
+      let ms := P.stricts; let P := { P with stricts := {} }
+      (r, { P with stricts := ms.insert c r })
+  | _ => ((0, 0), P)
+
+/-- One argument of a spine (`acc`: the argument nodes so far and the
+program): an erased argument is the neutral node; otherwise `compArg`
+compiles it, and a strict argument that would become a thunk is wrapped
+as `[10, a]`, evaluated before the call. -/
+def g4ArgStep (compArg : G4Prog → Expr → Nat × G4Prog) (mask : Array Bool) (smask : Nat)
+    (acc : Array Nat × G4Prog) (a : Expr) : Array Nat × G4Prog :=
+  if g4Erase && mask.getD acc.1.size false then
+    let o := acc.2.code.size; (acc.1.push o, acc.2.emit (fun c => c.push 8))
+  else
+  let (ao, P) := compArg acc.2 a
+  if Nat.testBit smask acc.1.size && (P.code[ao]! == 1 || P.code[ao]! == 3 ||
+      P.code[ao]! == 7) then
+    let o := P.code.size; (acc.1.push o, P.emit (fun c => (c.push 10).push ao))
+  else (acc.1.push ao, P)
+
+/-- A spine `hd args` with its head's mask and strict bits: the head and
+the arguments compiled by `comp` and `compArg` (the compiler at the
+fuel below), then the spine node `[1, head, n, a₁ … aₙ]`.  An erased
+argument is the neutral node; a strict argument that would become a
+thunk is wrapped as `[10, a]`. -/
+def g4CompSpine (comp compArg : G4Prog → Expr → Nat × G4Prog) (P : G4Prog) (hd : Expr)
+    (args : List Expr) (mask : Array Bool) (smask : Nat) : Nat × G4Prog :=
+  let (ho, P) := comp P hd
+  let (aos, P) := args.foldl (g4ArgStep compArg mask smask) (#[], P)
+  let o := P.code.size
+  (o, P.emit (fun c => aos.foldl (fun c a => c.push a) (((c.push 1).push ho).push aos.size)))
+
+/-- A closed application, `let` or projection in argument position (`comp`:
+the compiler at the fuel below): one node per closed term in the program,
+`[9, slot, e]`, with a sharing slot (`closedNode`, keyed pointer-first). -/
+def g4CompShared (comp : G4Prog → Expr → Nat × G4Prog) (P : G4Prog) (a : Expr) : Nat × G4Prog :=
+  if a.bvarBRaw == 0 then
+    match P.closedNode[a]? with
+    | some o => (o, P)
+    | none =>
+      let (ao, P) := comp P a
+      let o := P.code.size
+      let ns := P.nslots
+      let P := { P.emit (fun c => ((c.push 9).push ns).push ao) with nslots := ns + 1 }
+      let cm := P.closedNode; let P := { P with closedNode := {} }
+      (o, { P with closedNode := cm.insert a o })
+  else comp P a
 
 mutual
 /-- Compile `e` (closed under the binders the code will be run under);
@@ -370,8 +456,8 @@ def g4Comp : Nat → G4Prog → Expr → Nat × G4Prog
       let (so, P) := g4Comp f P s
       let (pi, P) := match findProj? sn i with
         | some en =>
-          let pj : G4Proj := ⟨en.ctor, i, en.numParams, en.numFields, en.levelParams.length,
-             true, en⟩
+          let pj : G4Proj := ⟨sn, en.ctor, i, en.numParams, en.numFields,
+             en.levelParams.length, true, en⟩
           let (ni, P) := P.nid en.ctor
           let (q1, q2, q3, q4, q5, q6, q7) := (P.projs, P.pNid, P.pIdx, P.pNP, P.pNF, P.pNl, P.pAlw)
           let P := { P with projs := #[], pNid := #[], pIdx := #[], pNP := #[], pNF := #[],
@@ -385,45 +471,10 @@ def g4Comp : Nat → G4Prog → Expr → Nat × G4Prog
       let o := P.code.size; (o, P.emit (fun c => ((c.push 7).push pi).push so))
     | .app .. =>
       let (hd, args) := (e.getAppFn, e.getAppArgs)
-      let (mask, P) : Array Bool × G4Prog := match hd with
-        | .const c _ =>
-          match P.masks[c]? with
-          | some m => (m, P)
-          | none =>
-            let m := match find? c with
-              | some ci => g4Mask find? (match ci with | .recInfo .. => true | _ => false)
-                  ci.toConstantVal.type #[]
-              | none => #[]
-            let ms := P.masks; let P := { P with masks := {} }
-            (m, { P with masks := ms.insert c m })
-        | _ => (#[], P)
-      let ((smask, sn), P) : (Nat × Nat) × G4Prog := match hd with
-        | .const c _ =>
-          if !g4StrictOn then ((0, 0), P) else
-          match P.stricts[c]? with
-          | some r => (r, P)
-          | none =>
-            let r := match find? c with
-              | some (.defnInfo _ v _) => g4Strict find? v
-              | _ => (0, 0)
-            let ms := P.stricts; let P := { P with stricts := {} }
-            (r, { P with stricts := ms.insert c r })
-        | _ => ((0, 0), P)
+      let (mask, P) := g4MaskOf find? P hd
+      let ((smask, sn), P) := g4StrictOf find? P hd
       let smask := if args.length ≥ sn then smask else 0
-      let (ho, P) := g4Comp f P hd
-      let (aos, P) := args.foldl (fun (acc : Array Nat × G4Prog) a =>
-        if g4Erase && mask.getD acc.1.size false then
-          let o := acc.2.code.size; (acc.1.push o, acc.2.emit (fun c => c.push 8))
-        else
-        let (ao, P) := g4CompArg f acc.2 a
-        -- a strict argument that would become a thunk: `[10, ao]`, evaluated
-        -- before the call
-        if Nat.testBit smask acc.1.size && (P.code[ao]! == 1 || P.code[ao]! == 3 ||
-            P.code[ao]! == 7) then
-          let o := P.code.size; (acc.1.push o, P.emit (fun c => (c.push 10).push ao))
-        else (acc.1.push ao, P)) (#[], P)
-      let o := P.code.size
-      (o, P.emit (fun c => aos.foldl (fun c a => c.push a) (((c.push 1).push ho).push aos.size)))
+      g4CompSpine (g4Comp f) (g4CompArg f) P hd args mask smask
     | .sort _ | .forallE .. | .fvar .. => let o := P.code.size; (o, P.emit (fun c => c.push 8))
 
 /-- An argument position: a closed application, `let` or projection
@@ -432,18 +483,7 @@ def g4CompArg : Nat → G4Prog → Expr → Nat × G4Prog
   | 0, P, _ => let o := P.code.size; (o, P.emit (fun c => c.push 8))
   | f + 1, P, a =>
     match a with
-    | .app .. | .letE .. | .proj .. =>
-      if a.bvarBRaw == 0 then
-        match P.closedNode[a]? with
-        | some o => (o, P)
-        | none =>
-          let (ao, P) := g4Comp f P a
-          let o := P.code.size
-          let ns := P.nslots
-          let P := { P.emit (fun c => ((c.push 9).push ns).push ao) with nslots := ns + 1 }
-          let cm := P.closedNode; let P := { P with closedNode := {} }
-          (o, { P with closedNode := cm.insert a o })
-      else g4Comp f P a
+    | .app .. | .letE .. | .proj .. => g4CompShared (g4Comp f) P a
     | _ => g4Comp f P a
 end
 end
@@ -510,9 +550,6 @@ def g4Grow (a : Array Nat) (n : Nat) : Array Nat :=
 where g4GrowGo (a : Array Nat) : Nat → Array Nat
   | 0 => a
   | k + 1 => g4GrowGo (a.push 0) k
-
-/-- One run's epoch step (above every cell index of a run). -/
-@[noinline] def g4EpochStep : Nat := 4294967296  -- 2^32
 
 @[inline] def g4SlotGet (slots : Array Nat) (ep s : Nat) : Nat :=
   if s < slots.size then (let w := slots[s]!; if w > ep then w - ep else 0) else 0
@@ -642,7 +679,7 @@ def g4DeclineWf (c : Name) : G4Stop :=
 /-- The machine's outcome: a value (with the value array to read it),
 or a stop; the constant dispatches and the fuel left. -/
 inductive G4Out where
-  | done (v : Nat) (val : Array Nat) (P : G4Prog) (slots : Array Nat) (steps left : Nat)
+  | done (v : Nat) (val : Array Nat) (P : G4Prog) (slots : Array Nat) (cells steps left : Nat)
   | stop (why : G4Stop) (steps : Nat)
 
 /-- **The machine.**  Modes: `0` evaluate node `pc` under `env`, `1`
@@ -848,7 +885,7 @@ def g4Run : Nat → G4Prog → (cel val ev fs argA slots mem mH : Array Nat) →
           else g4Run n P cel val ev fs argA slots mem mH 0 body 0 0 st
     | _ => -- return value `x`
       let v := x
-      if fs.size == 0 then .done v val P slots st n else
+      if fs.size == 0 then .done v val P slots (cel.size >>> 2) st n else
       match fs[fs.size - 1]! &&& 15 with
       | 2 =>
         let c := fs[fs.size - 1]! >>> 4
@@ -1087,11 +1124,13 @@ def ground4BoolCoreF (find? : Name → Option ConstantInfo)
   let (o, P) := g4Comp find? findProj? g4CompFuel P e
   let r : Except G4Stop Bool × (Nat × Nat) × G4Prog :=
     let sl := P.slotA
-    let P := { P with slotA := #[], epBase := P.epBase + g4EpochStep }
+    let P := { P with slotA := #[] }
     match g4Run find? findProj? fuel P #[2, 0, 0, 0] #[5, 0, 0, 0] #[] #[] #[] sl #[]
       (Array.replicate 1024 0) 0 o 0 0 0 with
-  | .done v val P sl st left =>
-    let P := { P with slotA := sl }
+  | .done v val P sl cells st left =>
+    -- the next run's epoch is above every slot entry this run wrote
+    -- (`epBase + c`, `c` a cell of this run)
+    let P := { P with slotA := sl, epBase := P.epBase + cells }
     let tr := fuel - left
     -- `Bool.true` is the answer `true`; any other value (`Bool.false`, a
     -- stuck neutral, an ill-typed constructor) is `false`: `Bool` has no η,
