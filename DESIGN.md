@@ -117851,3 +117851,94 @@ Stage1 suite (4844 tests): all pass but `async/elab/async_systems_info` (sandbox
 `#mutual_block` takes 182.2 M heartbeats (182.2 M before; limit 200 M); `leanchecker --fresh
 Init` and `tests/elab/inleanQuotTwice.lean` pass; radar's part 2 (`make bench-part2` at stage1)
 runs through.
+
+### Lane pins: one pin entry decoded per declared operation; lean4#16146 in the fork (2026-11-10, task #451, agent/451-pins)
+
+**Why.**  An analysis lane (`_tmp/451/wt/_tmp/bits/`) traced the fork's worst radar outliers
+(fork f1b97eac against lean4 master: `elab/trailingZeros` 6.46×, `elab/bitvec_zero_counts` 5.40×,
+`build/module/Init.Data.Nat.Bitwise.Basic` 3.21×) to two causes.  No master merge; **last synced
+master unchanged: 49d2fa3fd**.
+
+**1. The pin dumps (InLean only).**  `checkDivModPin` called `loadPinSets ()`, which JSON-parsed
+all three embedded dumps (~2 MB), decoded every share table and range-checked every term.  The
+compiler hoists the closed call into a once-initialised constant, so this ran once per process,
+at the first pin-certified declaration: 0.86 G instructions (parse 0.40 G, decode 0.18 G,
+`inRange` 0.28 G), a third of compiling `Init.Data.Nat.Bitwise.Basic`.  con-leche splices its
+pins at compile time and pays nothing; that does not fit the lean4 copy (the splice of the
+three dumps is 26 MB of generated C in con-leche, too much for lean4's shared library), so
+InLean now decodes only the entry it needs:
+
+* `PinSet` is one dump (`pinSets`, the three `include_str`s, in con-leche's order); `PinSet.op? c`
+  finds operation `c`'s object by a byte search (`PinScan`: the key `"ops":`, then each
+  `"op":"…"` key until the name matches, the object's end by bracket depth with strings
+  skipped), `Json.parse`s that span, decodes it (`PinDecode.opDump`, unchanged) and range-checks
+  it (`PinOp.inRange`).  In valid JSON the bytes `"op":"` only occur as a key `op` with a string
+  value; the search reads no value, so a span it gets wrong fails to parse or decode, or
+  decodes to terms the checks refuse: it is not part of what the checker trusts.
+* `checkDivModPinLoop` decodes a variant's entry when it tries the variant: an entry that does
+  not decode is an internal error, a variant without the operation is skipped ("no pin"), as
+  before.  Nothing is decoded at process start or for any other declaration, nothing is
+  memoised (each of the eight names is declared once per environment); no `Thunk`, no new
+  `unsafe`.
+* Proofs: `op?_decoded` (an entry is an `opDump` result that passed the range check),
+  `op?_range` (was `loadPinSets_range`, `CertDivMod`), `op?_okC` (was `loadPinSets_okC`,
+  `DivModArm`).  `loadedPins` is `pinSets` translated; `trOpPin`/`trOpProofs`/`trOpTypePins`
+  read `opOf ps c` (the decoded entry, `none` where there is none or it does not decode, which
+  maps to a pin master's guard refuses).  `checkDivModPinLoop_sim` cases on the entry (the
+  error case is InLean's throw) and loses its per-variant hypothesis; `checkDefnC_divMod_sim`
+  loses the `loadPinSets` case split and `loadedPins_of`.  `trPinSet_fields`'s axiom pin gains
+  `Classical.choice` (the `opOf` match).  `addDeclSound` unconditional, axioms unchanged
+  (`propext`, `Classical.choice`, `Quot.sound`, the three `mkData` stop-gaps); no `sorry`.
+
+**2. `Nat` literal hashes (lean4#16146, fork only).**  `Literal.hash` hashed `n % 2^64`;
+`Nat.trailingZeros` shifts a 65537-bit literal right by 64 per step, every intermediate has its
+low 64 bits zero, and all of them collide in InLean's memo maps (bucket-chain scans in
+`keyEqMemo`, the `knotEagerI` lookups).  The open upstream PR adds `Literal.natHash` (all 64-bit
+words mixed, the number itself below `2^64`); its two commits are cherry-picked onto the fork's
+branch as they are (author Jason Gross).  InLean reads no hash value: `EO.clHash` takes Lean's
+cached hash at a leaf and the proofs (`clHashS`) treat it as an opaque value, and the `mkData`
+stop-gaps and `tests/elab/expr_mkData_bodies.lean` take the hash as an argument and claim nothing
+about it.  Nothing changed in InLean, its proofs or the body test; con-leche (toolchain without
+#16146) needs nothing.
+
+**Gates.**  `lake build`, `lake test`, `lake build InLean InLeanProof inlean-replay`
+warning-free; layering, trust-surface, shake, inlean-sync (23 files), plain-reach (577, all
+allowlisted); `_tmp/axcheck.lean` as above.
+
+**Init** (`perf stat -e instructions:u`, one run each, InLean verified).  Replay `--compare`:
+64530 accepted, 0 exact and 0 cosmetic mismatches.  Cost: e3e7737ce 450 958 730 273, the lane's
+head 450 648 056 786 (−0.07 %: Init declares all eight operations, and the first variant's
+entries are most of that dump).  `inlean-replay --kernel=inlean Init.Data.Nat.Bitwise.Basic`
+(v4.35.0 oleans): 1.893 G → 1.083 G (`--kernel=none` 0.373 G).
+
+**lean4** (`joachim/inlean-kernel`, remote at c19e9cc2, local head before this lane 1867de70).
+Commits: 463c971a `perf: hash all bits of large Nat literals in Expr` and 5338352e `chore: test
+stage2 in CI and update stage0 on merge` (lean4#16146, cherry-picked, no conflict), 6bec6f45
+`perf: InLean decodes one pin entry when its operation is declared` (the regeneration;
+`inlean-sync.py check` OK).  Stage1 rebuilt.
+
+* Compiling `Init/Data/Nat/Bitwise/Basic.lean` with stage1 (`lean -R .`): c19e9cc2 2.809 G,
+  1867de70 2.813 G (`debug.skipKernelTC` 0.686 G), the lane 1.962 G (skip 0.686 G): the kernel
+  2.13 G → 1.28 G.
+* `tests/elab_bench` at `TEST_BENCH=1` (`lean -Dlinter.all=false -DElab.inServer=true`,
+  instructions:u; c19e9cc2 the analysis lane's runs → the lane):
+
+  | file | c19e9cc2 | lane | |
+  |---|---:|---:|---:|
+  | `trailingZeros` | 146.89 G | 50.48 G | −65.6 % |
+  | `bitvec_zero_counts` | 109.13 G | 45.97 G | −57.9 % |
+  | `grind_field_kernel_cancel` | 79.45 G | 79.54 G | +0.1 % |
+  | `cbv_aes` | 36.35 G | 35.17 G | −3.2 % |
+  | `grind_ring_5` | 2.647 G | 2.431 G | −8.2 % |
+  | `cbv_divisors` | 57.54 G | 57.52 G | −0.0 % |
+  | `cbv_leroy` | 63.44 G | 63.43 G | −0.0 % |
+
+  The first two are the hash fix (they declare no pinned operation); the base also moved
+  c19e9cc2 → 1867de70 (lane mono), which is not separated here.  In `trailingZeros` the largest
+  single cost is now `mpz::hash64` (14 %), the hash of each fresh 65537-bit literal, which the
+  stock kernel pays as well.
+* Stage1 suite (4845 tests): all pass but `async/elab/async_systems_info` (sandbox); every
+  `tests/elab_bench/*.lean` (93 files, `run_bench.sh`, `TEST_BENCH=1`) passes;
+  `deriving_mutual_block`'s `#mutual_block` takes 179.6 M heartbeats (`IO.getNumHeartbeats`
+  around the command; lane mono recorded 182.2 M; limit 200 M); `leanchecker --fresh Init`
+  passes (536.0 G instructions); radar's part 2 (`make bench-part2` at stage1, stale measurement files removed first) runs through, 539 measurements.
