@@ -102,7 +102,7 @@ the same proposition, so they are the same decision, whatever
 runtime pointer test answers `isTrue` only on one object).  `Level`,
 `Literal` and `Expr` are substituted the same way
 (`Level.decEq_eq_decEqPtr`, `Literal.decEq_eq_decEqPtr`,
-`Expr.beq_eq_beqMemo`), so no equality in the tree is an escape. -/
+`Expr.decEq_eq_decEqPtr`, `Expr.beq_eq_beqMemo`), so no equality in the tree is an escape. -/
 @[csimp] theorem Name.decEq_eq_decEqPtr : @Name.decEq = @Name.decEqPtr := by
   funext a b; exact Subsingleton.elim _ _
 

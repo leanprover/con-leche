@@ -239,7 +239,7 @@ ConLeche.instDecidableEqReducibilityHint.decEq
 ConLeche.instInhabitedConstantVal.default
 ConLeche.instInhabitedDeclaration.default
 
-# ConLeche.Kernel.Expr — the Expr/Level data structure: constructors and computed fields, the executed equality (beqMemo, its pointer and hash guards; Level.decEqPtr and Literal's pointer-first instance at the leaves, the derived Expr DecidableEq at constructor mismatches)
+# ConLeche.Kernel.Expr — the Expr/Level data structure: constructors and computed fields, the executed equality (beqMemo, its pointer and hash guards; Level.decEqPtr and Literal's pointer-first instance at the leaves; Expr's instance, which runs decEqPtr; the structural Expr.decEq only as ptrDecStruct's fallback, behind a pointer test that answers true at both its sites)
 ConLeche.Expr.BeqMap.record
 ConLeche.Expr.EqPair.dflt
 ConLeche.Expr.app
@@ -248,9 +248,10 @@ ConLeche.Expr.beqGoX
 ConLeche.Expr.bvar
 ConLeche.Expr.bvarPool
 ConLeche.Expr.const
-ConLeche.Expr.ctorIdx
+ConLeche.Expr.decEq
 ConLeche.Expr.forallE
 ConLeche.Expr.fvar
+ConLeche.Expr.instDecidableEq
 ConLeche.Expr.lam
 ConLeche.Expr.letE
 ConLeche.Expr.lit
@@ -261,8 +262,6 @@ ConLeche.Level.imax
 ConLeche.Level.max
 ConLeche.Level.param
 ConLeche.Level.succ
-ConLeche.instDecidableEqExpr
-ConLeche.instDecidableEqExpr.decEq
 ConLeche.instDecidableEqLevel
 ConLeche.Level.decEqPtr
 ConLeche.instDecidableEqLiteral

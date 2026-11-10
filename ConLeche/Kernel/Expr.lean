@@ -457,7 +457,7 @@ with
       packData (hash32 (mixHash 37 (mixHash (Hashable.hash s)
           (mixHash (Hashable.hash i) (hashOfData e.data)))))
         (bvarOfData e.data) (fvarOfData e.data) (lpOfData e.data)
-deriving DecidableEq, Repr, Inhabited
+deriving Repr, Inhabited
 
 /-! ## The packed word's accessors
 
@@ -739,7 +739,9 @@ different mechanism.
 
 **The specification is plain decidable equality**, `beq a b =
 decide (a = b)`, and the executed function is **proved** equal to it
-(`beqMemo_eq`) and substituted by `@[csimp]` — the same arrangement
+(`beqMemo_eq`) and substituted by `@[csimp]`; the structural
+`DecidableEq` instance (`Expr.decEq`) is substituted by the decision
+read off it (`decEqPtr`, `decEq_eq_decEqPtr`) — the same arrangement
 as `Name.decEq`/`Level.decEq`/`Literal.decEq`, with no `implemented_by` and nothing
 `unsafe` anywhere on the path.  The two runtime facts a pointer test
 rests on — an address names one immutable object, so pointer-equal
@@ -824,21 +826,134 @@ continuation's result does not depend on the address — is then
     (k : USize → β) : β :=
   withPtrAddr a k (fun _ _ => Subsingleton.elim _ _)
 
-/-- Identity, decided: the pointer test at runtime, the derived
-structural decision in the pure model. -/
-@[inline] def ptrDec (a b : Expr) : Decidable (a = b) :=
-  withPtrEqDecEq a b (fun _ => instDecidableEqExpr a b)
+/-- **The specification of expression equality**: the structural
+decision, the one the kernel, `by decide` and `#guard` reduce (the
+instance below).  No `deriving DecidableEq` (task #554): compiled code
+runs `decEqPtr` in its place (`decEq_eq_decEqPtr`), and the only
+compiled reference to this body is `ptrDecStruct`'s pure-model fallback,
+which compiled code never reaches. -/
+def decEq : (a b : Expr) → Decidable (a = b)
+  | .bvar x0, .bvar y0 =>
+    if h0 : x0 = y0 then
+      isTrue (by subst h0; rfl)
+    else isFalse (fun e => h0 (by injection e <;> assumption))
+  | .fvar x0 x1, .fvar y0 y1 =>
+    if h0 : x0 = y0 then
+      match decEq x1 y1 with
+      | isFalse h => isFalse (fun e => h (by injection e <;> assumption))
+      | isTrue h1 =>
+        isTrue (by subst h0; subst h1; rfl)
+    else isFalse (fun e => h0 (by injection e <;> assumption))
+  | .sort x0, .sort y0 =>
+    if h0 : x0 = y0 then
+      isTrue (by subst h0; rfl)
+    else isFalse (fun e => h0 (by injection e <;> assumption))
+  | .const x0 x1, .const y0 y1 =>
+    if h0 : x0 = y0 then
+      if h1 : x1 = y1 then
+        isTrue (by subst h0; subst h1; rfl)
+      else isFalse (fun e => h1 (by injection e <;> assumption))
+    else isFalse (fun e => h0 (by injection e <;> assumption))
+  | .app x0 x1, .app y0 y1 =>
+    match decEq x0 y0 with
+    | isFalse h => isFalse (fun e => h (by injection e <;> assumption))
+    | isTrue h0 =>
+      match decEq x1 y1 with
+      | isFalse h => isFalse (fun e => h (by injection e <;> assumption))
+      | isTrue h1 =>
+        isTrue (by subst h0; subst h1; rfl)
+  | .lam x0 x1, .lam y0 y1 =>
+    match decEq x0 y0 with
+    | isFalse h => isFalse (fun e => h (by injection e <;> assumption))
+    | isTrue h0 =>
+      match decEq x1 y1 with
+      | isFalse h => isFalse (fun e => h (by injection e <;> assumption))
+      | isTrue h1 =>
+        isTrue (by subst h0; subst h1; rfl)
+  | .forallE x0 x1, .forallE y0 y1 =>
+    match decEq x0 y0 with
+    | isFalse h => isFalse (fun e => h (by injection e <;> assumption))
+    | isTrue h0 =>
+      match decEq x1 y1 with
+      | isFalse h => isFalse (fun e => h (by injection e <;> assumption))
+      | isTrue h1 =>
+        isTrue (by subst h0; subst h1; rfl)
+  | .letE x0 x1 x2, .letE y0 y1 y2 =>
+    match decEq x0 y0 with
+    | isFalse h => isFalse (fun e => h (by injection e <;> assumption))
+    | isTrue h0 =>
+      match decEq x1 y1 with
+      | isFalse h => isFalse (fun e => h (by injection e <;> assumption))
+      | isTrue h1 =>
+        match decEq x2 y2 with
+        | isFalse h => isFalse (fun e => h (by injection e <;> assumption))
+        | isTrue h2 =>
+          isTrue (by subst h0; subst h1; subst h2; rfl)
+  | .lit x0, .lit y0 =>
+    if h0 : x0 = y0 then
+      isTrue (by subst h0; rfl)
+    else isFalse (fun e => h0 (by injection e <;> assumption))
+  | .proj x0 x1 x2, .proj y0 y1 y2 =>
+    if h0 : x0 = y0 then
+      if h1 : x1 = y1 then
+        match decEq x2 y2 with
+        | isFalse h => isFalse (fun e => h (by injection e <;> assumption))
+        | isTrue h2 =>
+          isTrue (by subst h0; subst h1; subst h2; rfl)
+      else isFalse (fun e => h1 (by injection e <;> assumption))
+    else isFalse (fun e => h0 (by injection e <;> assumption))
+  | .bvar .., .fvar .. | .bvar .., .sort .. | .bvar .., .const ..
+  | .bvar .., .app .. | .bvar .., .lam .. | .bvar .., .forallE ..
+  | .bvar .., .letE .. | .bvar .., .lit .. | .bvar .., .proj ..
+  | .fvar .., .bvar .. | .fvar .., .sort .. | .fvar .., .const ..
+  | .fvar .., .app .. | .fvar .., .lam .. | .fvar .., .forallE ..
+  | .fvar .., .letE .. | .fvar .., .lit .. | .fvar .., .proj ..
+  | .sort .., .bvar .. | .sort .., .fvar .. | .sort .., .const ..
+  | .sort .., .app .. | .sort .., .lam .. | .sort .., .forallE ..
+  | .sort .., .letE .. | .sort .., .lit .. | .sort .., .proj ..
+  | .const .., .bvar .. | .const .., .fvar .. | .const .., .sort ..
+  | .const .., .app .. | .const .., .lam .. | .const .., .forallE ..
+  | .const .., .letE .. | .const .., .lit .. | .const .., .proj ..
+  | .app .., .bvar .. | .app .., .fvar .. | .app .., .sort ..
+  | .app .., .const .. | .app .., .lam .. | .app .., .forallE ..
+  | .app .., .letE .. | .app .., .lit .. | .app .., .proj ..
+  | .lam .., .bvar .. | .lam .., .fvar .. | .lam .., .sort ..
+  | .lam .., .const .. | .lam .., .app .. | .lam .., .forallE ..
+  | .lam .., .letE .. | .lam .., .lit .. | .lam .., .proj ..
+  | .forallE .., .bvar .. | .forallE .., .fvar .. | .forallE .., .sort ..
+  | .forallE .., .const .. | .forallE .., .app .. | .forallE .., .lam ..
+  | .forallE .., .letE .. | .forallE .., .lit .. | .forallE .., .proj ..
+  | .letE .., .bvar .. | .letE .., .fvar .. | .letE .., .sort ..
+  | .letE .., .const .. | .letE .., .app .. | .letE .., .lam ..
+  | .letE .., .forallE .. | .letE .., .lit .. | .letE .., .proj ..
+  | .lit .., .bvar .. | .lit .., .fvar .. | .lit .., .sort ..
+  | .lit .., .const .. | .lit .., .app .. | .lit .., .lam ..
+  | .lit .., .forallE .. | .lit .., .letE .. | .lit .., .proj ..
+  | .proj .., .bvar .. | .proj .., .fvar .. | .proj .., .sort ..
+  | .proj .., .const .. | .proj .., .app .. | .proj .., .lam ..
+  | .proj .., .forallE .. | .proj .., .letE .. | .proj .., .lit .. =>
+    isFalse (fun e => Expr.noConfusion e)
+
+/-- Identity, decided, inside the equality itself: the pointer test at
+runtime, the structural decision in the pure model.  The equality's own
+probes (`enterBeq`'s `pa == pb`, `probeHit`'s passed filter) reach it
+on equal addresses only, where the runtime pointer test answers
+`isTrue` and the fallback is not run; it is the one compiled reference
+to the structural `decEq`, which `decEqPtr` does not exist yet to
+replace.  Code outside the equality uses `ptrDec`. -/
+@[inline] def ptrDecStruct (a b : Expr) : Decidable (a = b) :=
+  withPtrEqDecEq a b (fun _ => decEq a b)
 
 /-- Does the entry at `key` identify the pair `(a, b)`?  The stored
 addresses are the filter; the stored objects, tested by identity, are
 the verification, and the proof behind a `true` is the entry's own.
-At runtime a passed filter is an identity match, so `ptrDec` decides
+At runtime a passed filter is an identity match, so `ptrDecStruct` decides
 by pointer and never walks. -/
 @[inline] def probeHit (m : BeqMap) (key : Nat) (pa pb : USize) (a b : Expr) :
     { h : Bool // h = true → a = b } :=
   let p := m.getD key EqPair.dflt
   if p.pa == pa && p.pb == pb then
-    match ptrDec p.fst a, ptrDec p.snd b with
+    match ptrDecStruct p.fst a, ptrDecStruct p.snd b with
     | isTrue h1, isTrue h2 => ⟨true, fun _ => h1 ▸ h2 ▸ p.eq⟩
     | _, _ => ⟨false, fun h => Bool.noConfusion h⟩
   else ⟨false, fun h => Bool.noConfusion h⟩
@@ -908,7 +1023,7 @@ the references inside the terms (the requirement stated in
 @[inline] def enterBeq (map : Option BeqMap) (a b : @& Expr)
     (rec : Option BeqMap → BeqOutX a b) : BeqOutX a b :=
   withAddr a fun pa => withAddr b fun pb =>
-  if pa == pb then .mk (ptrDec a b) map
+  if pa == pb then .mk (ptrDecStruct a b) map
   else if h : a.data != b.data then
     .mk (isFalse (fun e => by subst e; simp at h)) map
   else if !beqRecursive a then rec map
@@ -1021,7 +1136,37 @@ def beqGoX (map : Option BeqMap) (a b : @& Expr) : BeqOutX a b :=
     else .mk (isFalse (fun e => h (by
       obtain ⟨h1, h2, _⟩ := Expr.proj.inj e
       subst h1; subst h2; simp))) map
-  | a', b' => .mk (instDecidableEqExpr a' b') map
+  | .bvar .., .fvar .. | .bvar .., .sort .. | .bvar .., .const ..
+  | .bvar .., .app .. | .bvar .., .lam .. | .bvar .., .forallE ..
+  | .bvar .., .letE .. | .bvar .., .lit .. | .bvar .., .proj ..
+  | .fvar .., .bvar .. | .fvar .., .sort .. | .fvar .., .const ..
+  | .fvar .., .app .. | .fvar .., .lam .. | .fvar .., .forallE ..
+  | .fvar .., .letE .. | .fvar .., .lit .. | .fvar .., .proj ..
+  | .sort .., .bvar .. | .sort .., .fvar .. | .sort .., .const ..
+  | .sort .., .app .. | .sort .., .lam .. | .sort .., .forallE ..
+  | .sort .., .letE .. | .sort .., .lit .. | .sort .., .proj ..
+  | .const .., .bvar .. | .const .., .fvar .. | .const .., .sort ..
+  | .const .., .app .. | .const .., .lam .. | .const .., .forallE ..
+  | .const .., .letE .. | .const .., .lit .. | .const .., .proj ..
+  | .app .., .bvar .. | .app .., .fvar .. | .app .., .sort ..
+  | .app .., .const .. | .app .., .lam .. | .app .., .forallE ..
+  | .app .., .letE .. | .app .., .lit .. | .app .., .proj ..
+  | .lam .., .bvar .. | .lam .., .fvar .. | .lam .., .sort ..
+  | .lam .., .const .. | .lam .., .app .. | .lam .., .forallE ..
+  | .lam .., .letE .. | .lam .., .lit .. | .lam .., .proj ..
+  | .forallE .., .bvar .. | .forallE .., .fvar .. | .forallE .., .sort ..
+  | .forallE .., .const .. | .forallE .., .app .. | .forallE .., .lam ..
+  | .forallE .., .letE .. | .forallE .., .lit .. | .forallE .., .proj ..
+  | .letE .., .bvar .. | .letE .., .fvar .. | .letE .., .sort ..
+  | .letE .., .const .. | .letE .., .app .. | .letE .., .lam ..
+  | .letE .., .forallE .. | .letE .., .lit .. | .letE .., .proj ..
+  | .lit .., .bvar .. | .lit .., .fvar .. | .lit .., .sort ..
+  | .lit .., .const .. | .lit .., .app .. | .lit .., .lam ..
+  | .lit .., .forallE .. | .lit .., .letE .. | .lit .., .proj ..
+  | .proj .., .bvar .. | .proj .., .fvar .. | .proj .., .sort ..
+  | .proj .., .const .. | .proj .., .app .. | .proj .., .lam ..
+  | .proj .., .forallE .. | .proj .., .letE .. | .proj .., .lit .. =>
+    .mk (isFalse (fun e => Expr.noConfusion e)) map
 termination_by structural a
 
 /-- The descent's decision, from a fresh state (no table: the first
@@ -1030,21 +1175,48 @@ def beqDec (a b : Expr) : Decidable (a = b) :=
   Squash.lift (beqGoX none a b) fun r => r.dec
 
 /-- The executed equality: pointer test, computed-word test, then the
-memoised descent.  The implementation of `beq`; `beqMemo_eq` proves
-it is `decide (a = b)`. -/
+memoised descent.  What both `==` (`beq_eq_beqMemo`) and every
+`DecidableEq` use (`decEqPtr`, `decEq_eq_decEqPtr`) run. -/
 @[inline] def beqMemo (a b : Expr) : Bool :=
   withPtrEq a b (fun _ => if a.data == b.data then @decide (a = b) (beqDec a b) else false)
     (fun h => by subst h; simp)
 
-/-- The executed equality is the specification: `withPtrEq a b k h`
-is *defined* as `k ()`, the word guard cannot reject an equal pair,
-and `beqDec` is *a* decision of `a = b`, hence *the* decision. -/
-theorem beqMemo_eq (a b : Expr) : beqMemo a b = decide (a = b) := by
-  show (if a.data == b.data then @decide (a = b) (beqDec a b) else false) = decide (a = b)
-  rw [Subsingleton.elim (beqDec a b) (instDecidableEqExpr a b)]
+/-- The executed equality decides `a = b`: `withPtrEq a b k h` is
+*defined* as `k ()`, the word guard cannot reject an equal pair, and
+`beqDec` is a decision of `a = b`. -/
+theorem beqMemo_iff (a b : Expr) : beqMemo a b = true ↔ a = b := by
+  show (if a.data == b.data then @decide (a = b) (beqDec a b) else false) = true ↔ a = b
   by_cases h : a = b
   · subst h; simp
   · simp [h]
+
+/-- Expression equality as it runs (task #554): the decision read off
+the pointer-first, memoised `beqMemo`, as `Name.decEqPtr`,
+`Level.decEqPtr` and `Literal.decEqPtr` are for theirs. -/
+@[inline] def decEqPtr (a b : Expr) : Decidable (a = b) :=
+  decidable_of_iff (beqMemo a b = true) (beqMemo_iff a b)
+
+/-- The `Expr` twin of `Name.decEq_eq_decEqPtr`: `@[csimp]`, not
+`@[implemented_by]`, on `Decidable`'s subsingleton property. -/
+@[csimp] theorem decEq_eq_decEqPtr : @Expr.decEq = @Expr.decEqPtr := by
+  funext a b; exact Subsingleton.elim _ _
+
+/-- Every expression equality — `=` in an `if`, a derived instance of a
+type with an `Expr` field — runs `Expr.decEqPtr`. -/
+instance : DecidableEq Expr := Expr.decEq
+
+/-- Identity, decided: the pointer test at runtime, the instance in the
+pure model.  The memo tables' hit validation (`Cached/ExprOpsC.lean`);
+a fallback that compiled code would run is `decEqPtr`, never the
+structural walk. -/
+@[inline] def ptrDec (a b : Expr) : Decidable (a = b) :=
+  withPtrEqDecEq a b (fun _ => inferInstance)
+
+/-- The executed equality is the specification. -/
+theorem beqMemo_eq (a b : Expr) : beqMemo a b = decide (a = b) := by
+  by_cases h : a = b
+  · simp [h, (beqMemo_iff b b).mpr rfl]
+  · simp [h, show beqMemo a b ≠ true from fun h' => h ((beqMemo_iff a b).mp h')]
 
 /-- The executed structural equality.  Definitionally `decide (a = b)`,
 hence definitionally the `BEq` any `DecidableEq` type has, with
@@ -1052,8 +1224,8 @@ hence definitionally the `BEq` any `DecidableEq` type has, with
 below. -/
 def beq (a b : Expr) : Bool := decide (a = b)
 
-/-- The `Expr` twin of `Name.decEq_eq_decEqPtr`: `@[csimp]` on a
-kernel-checked equality, not `@[implemented_by]`. -/
+/-- `==` runs `beqMemo` directly: `@[csimp]` on a kernel-checked
+equality, not `@[implemented_by]`. -/
 @[csimp] theorem beq_eq_beqMemo : @Expr.beq = @Expr.beqMemo := by
   funext a b; exact (beqMemo_eq a b).symm
 

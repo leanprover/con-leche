@@ -58,12 +58,12 @@ enumerated here by hand and this list is the pin.  It has ONE row.
 
 **Why the equalities are not rows.**  The pointer-first
 `Name.decEqPtr`/`Level.decEqPtr`/`Literal.decEqPtr` and the
-pointer-first, memoised `Expr.beqMemo` (`ConLeche/Kernel/Name.lean`,
+pointer-first, memoised `Expr.beqMemo` and `Expr.decEqPtr` (`ConLeche/Kernel/Name.lean`,
 `ConLeche/Kernel/Expr.lean`) replace the structural
-`Name.decEq`/`Level.decEq`/`Literal.decEq` and `Expr.beq` in compiled
+`Name.decEq`/`Level.decEq`/`Literal.decEq`/`Expr.decEq` and `Expr.beq` in compiled
 code through **`@[csimp]`**, i.e. on the strength of a *kernel-checked
 equality* (`Name.decEq_eq_decEqPtr`, `Level.decEq_eq_decEqPtr`,
-`Literal.decEq_eq_decEqPtr`, `Expr.beq_eq_beqMemo`) —
+`Literal.decEq_eq_decEqPtr`, `Expr.decEq_eq_decEqPtr`, `Expr.beq_eq_beqMemo`) —
 **USER RULING, 2026-09-05, verbatim:** *"do *not* use
 `implemented_by`.  If you can prove them equal, use `csimp`."*  A
 `csimp` substitution is not an escape at all: the compiler's substitution is

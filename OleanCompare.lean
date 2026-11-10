@@ -46,10 +46,12 @@ def normalize : Declaration → Declaration
 
 /-! The records are compared field by field with every `Expr` compared
 by its `BEq` instance (`Expr.beq`: pointer-equality first, memoized on
-pointer pairs), never by the derived `DecidableEq Declaration`, whose
-`Expr` comparison is the derived tree walk: exponential on the sharing
-in Mathlib's proof terms (a full-Mathlib compare spent more than 20
-minutes in `instDecidableEqExpr` without finishing a record pass). -/
+pointer pairs).  The derived `DecidableEq Declaration` once compared
+`Expr`s by the derived tree walk, exponential on the sharing in
+Mathlib's proof terms (a full-Mathlib compare spent more than 20
+minutes in it without finishing a record pass); since task #554 that
+instance reaches `Expr.decEqPtr`, but the field-by-field comparison
+stays explicit. -/
 
 def valEq (a b : ConstantVal) : Bool :=
   a.name == b.name && a.levelParams == b.levelParams && a.type == b.type
