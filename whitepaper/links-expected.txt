@@ -176,13 +176,13 @@
     42    | param (n : Name)
     43    deriving DecidableEq, Repr
 
-== ConLeche/Kernel/Expr.lean#L40-L45
-    40  inductive Level where
-    41    | zero
-    42    | succ (u : Level)
-    43    | max (u v : Level)
-    44    | imax (u v : Level)
-    45    | param (n : Name)
+== ConLeche/Kernel/Expr.lean#L39-L44
+    39  inductive Level where
+    40    | zero
+    41    | succ (u : Level)
+    42    | max (u v : Level)
+    43    | imax (u v : Level)
+    44    | param (n : Name)
 
 == whitepaper/Fragment/Level.lean#L50-L56
     50  /-- The value of a level under a *valuation* `φ` of its parameters. -/
@@ -2560,18 +2560,18 @@
     35    /-- A constant of the environment at a level instantiation. -/
     36    | const (c : Name) (ls : List Level)
 
-== ConLeche/Kernel/Expr.lean#L349-L359
-   349  inductive Expr where
-   350    | bvar (i : Nat)
-   351    | fvar (idx : Nat) (type : Expr)
-   352    | sort (u : Level)
-   353    | const (n : Name) (us : List Level)
-   354    | app (f a : Expr)
-   355    | lam (type body : Expr)
-   356    | forallE (type body : Expr)
-   357    | letE (type value body : Expr)
-   358    | lit (l : Literal)
-   359    | proj (structName : Name) (idx : Nat) (e : Expr)
+== ConLeche/Kernel/Expr.lean#L434-L444
+   434  inductive Expr where
+   435    | bvar (i : Nat)
+   436    | fvar (idx : Nat) (type : Expr)
+   437    | sort (u : Level)
+   438    | const (n : Name) (us : List Level)
+   439    | app (f a : Expr)
+   440    | lam (type body : Expr)
+   441    | forallE (type body : Expr)
+   442    | letE (type value body : Expr)
+   443    | lit (l : Literal)
+   444    | proj (structName : Name) (idx : Nat) (e : Expr)
 
 == whitepaper/Fragment/Syntax.lean#L112-L121
    112  /-- Instantiate the level parameters `ps` at the levels `ls`, in
@@ -4649,10 +4649,10 @@
    241    /-- **The K rescue** (`majorToCtor`'s K branch, `Kernel/Core.lean`;
    242    official `to_cnstr_when_K`): at a K-flagged single-rule recursor the
    243    parameters-only constructor application is fabricated from the
-   244    major's io-inferred, head-normalised type, scope-guarded,
-   245    type-checked against the major's type (official's check; it decides
-   246    whether the rescue fires), and equated to the major by proof
-   247    irrelevance.  The last four premises are the major's half of that
+   244    major's io-inferred, head-normalised type, scope-guarded, type-checked against the
+   245    major's type (official's check; it decides whether the rescue fires; its two `tf`
+   246    premises are not needed for consistency, `Red.rescueK_sound` reads neither, task #552),
+   247    and equated to the major by proof irrelevance.  The last four premises are the major's half of that
    248    `proofIrrel` run: its io type's io sort reduces to `Prop`, so the
 
 == whitepaper/Fragment/Sound.lean#L821-L835
@@ -6431,10 +6431,10 @@
    492      (h : ∀ k (hk : k < ds.size), recordJob mode pins maxNatSize (buildIndex ds) k ds[k] = .ok ()) :
    493      checkDecls mode pins maxNatSize ds = .ok (streamEnv ds.toList) := by
 
-== ConLeche/Kernel/Expr.lean#L349-L351
-   349  inductive Expr where
-   350    | bvar (i : Nat)
-   351    | fvar (idx : Nat) (type : Expr)
+== ConLeche/Kernel/Expr.lean#L434-L436
+   434  inductive Expr where
+   435    | bvar (i : Nat)
+   436    | fvar (idx : Nat) (type : Expr)
 
 == ConLeche/Rules/Rel.lean#L371-L372
    371    | fvar {d i : Nat} {ty₁ ty₂ : Expr} :

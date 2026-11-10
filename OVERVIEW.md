@@ -133,7 +133,7 @@ covered exactly as a run without it, and so is a run on the pool.
 
 Every name and raw string these messages print comes from the input,
 so it is printed through one rendering
-([`Name.render` in `ConLeche/Kernel/Name.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/Name.lean#L207)).
+([`Name.render` in `ConLeche/Kernel/Name.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/Name.lean#L235)).
 A name component that is an identifier prints bare, as in Lean
 (`Nat.add_comm`, `α₁.ℕ`); any other is wrapped in `«…»` (`x.«3»`,
 `«a.b»`), with `\` doubled and with `»` and every control, format and

@@ -107,7 +107,7 @@ subterm and termination is the walk's own.
 
 Nothing here adds to the trust surface beyond the one allowlisted
 escape: `withPtrAddr` and `withPtrEq` are `Init.Util`'s (and the tree
-already relies on both, in `Expr.beqGoX` and `Name.beq`), and
+already relies on both, in `Expr.beqGoX` and `Name.decEqPtr`), and
 `withExclusive` is `ConLeche/Kernel/Exclusive.lean`'s — the walks' one
 `unsafe`-implemented primitive, whose module docstring is the
 justification `tests/trust-surface.sh` points at. -/
