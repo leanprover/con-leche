@@ -113071,3 +113071,265 @@ allowlisted, plain-reach 576 all allowlisted, binary-link, olean gate 122/122, a
 moved one line by the new axioms-table row.
 
 Scripts and logs: `_tmp/554/scripts`, `_tmp/554/logs`.
+
+## TASK #549 — why Lean's kernel suffers less on C20: con-leche memoizes literals, Lean does not (2026-11-09, agent/549-c20-vs-lean)
+
+Question (maintainer): "Why does Lean's kernel suffer less on C20?"  Investigation only: the
+branch carries the cherry-picked hash fix of #547 (`modular` ef48c627c, 6044be245; DESIGN
+"TASK #543" and "TASK #547" are on `modular`), this record, and no kernel change.
+
+**Answer.**  The official kernel never looks a literal up in a cache.  Its `whnf_core` and
+`whnf` return a literal, a sort, a Π-type (and, in `whnf_core`, a lambda-expression and a
+constant) before the cache lookup.  Con-leche's memo wrapper (`memoEI`) looks up and inserts
+every argument, so each literal a `Nat` operation computes gets an entry `lit ↦ lit` in
+`whnfCoreC`.  On ck318 these are 201 711 literals of 72 KB on average, 14.5 GB of keys.  With
+the old hash (the low 64 bits, which Lean has too) all of them went to a few buckets of that
+one table: 1.24 G structural key comparisons, 86 % of the theorem's time.  Lean has the same
+hash, but it never puts a bare literal in a table, so on C20 it never walks such a chain.
+After the #547 fix, ck318's remaining gap is the fix itself: hashing all words of each of
+199 276 computed literals, 1.65 G words, costs 16 % of the time and 16.5 G instructions.
+Lean's v4.35.0 hash reads one word.  With the official kernel's "easy cases", the old
+low-bits hash is enough for C20: 64.2 G instructions net, Lean 57.8 G (1.11×), against 336 G
+before the fix and 82.5 G after it.
+
+### Measurements
+
+CFSG as in #543 (`_tmp/543/olean`, search path `_tmp/543/rev/sp.txt`), toolchain
+`v4.35.0-rc3`, `--jobs=1`, one run each under the guard (30 GB) and `timeout`, `perf stat -e
+instructions:u,cycles:u`.  Cycles are only a rough guide: the machine is loaded.  ck318 "net"
+is the `--olean --constant=CFSG.KD.F24S.ck318 -- …Fi24Seven.C20` run minus the
+`--constant=CFSG.KD.F24S.CK` run of the same binary, as in #543.  Lean is #543's `replay1.lean`
+(leanchecker's `replayFromImports`, one thread), minus the replay of no constant (3.38 G).
+CCK4 is the module's 34 declarations against its imports.  The master base has no `--module`,
+so these runs use a build of `modular` 549c0937f, which has the fix.  Lean's numbers for CCK4
+include its import, 5.45 G.  Every run accepts what the base accepts (3 676 / 3 675 / 34 / 22 569
+declarations).
+
+| ck318, net | G instructions | G cycles:u |
+|---|---|---|
+| con-leche before #547 (low-bits hash; #547's figure) | 336.0 | 213–225 |
+| con-leche with #547 (this branch) | 82.5 | 32.6 |
+| + easy cases skip the memos (prototype P1) | 80.7 | 34.0 |
+| + P1, low-bits hash (the pre-#547 hash) | 64.2 | 26.7 |
+| + P1, an O(1) hash of four words (prototype P4) | 64.2 | 23.9 |
+| Lean v4.35.0-rc3 | 57.8 | 21.4 |
+
+| CCK4 (module) | G instructions | G cycles:u |
+|---|---|---|
+| con-leche `modular` with #547 | 219.5 | 138.8 |
+| + P1 | 205.6 | 123.4 |
+| + P1, low-bits hash | 216.4 | 194.6 |
+| + P1, P4 | 205.1 | 133.9 |
+| + P1, P2 (name equality pointer and hash first) | 192.7 | 116.3 |
+| + P1, P2, P3 (`natHash`'s bounds hoisted) | 186.6 | 113.3 |
+| Lean v4.35.0-rc3 (import 5.45 G included) | 82.7 | 62.4–85.8 |
+
+| McLEnumA (module, 87 748 declarations) | G instructions |
+|---|---|
+| con-leche `modular` with #547 (#547's figure) | 3 726 |
+| + P1, P2, P3 (instruction-sampled, period 20 M) | 3 134 |
+| Lean v4.35.0-rc3 (sampled the same way) | 1 821 |
+
+### The memo tables, ck318 (probe)
+
+A temporary probe (`_tmp/549/probe-memo.diff`, not on the branch) wraps every memo lookup
+and insert, counting per table and timing with `rdtsc`.  It wraps `memoEI`, `memoBI`,
+`instListM` and `withEagerMemos` via `implemented_by`, so no proof changes.  It also counts
+each `Expr.beq` call made inside a lookup (`beqMemo`) and each literal compare in `beqGoX`.  An
+environment switch in the vendored C gives the old hash.  Net of the CK run; "lit keys" are
+lookups whose key is a bare literal, "lit-arg keys" lookups whose key's application spine has
+a literal argument; "key GB" the literal bytes those keys hold; "deep" the key comparisons
+that pass the pointer and hash tests and descend; "share" the probe's time in the table's
+lookups and inserts as a share of the run's net time (34.7 G ticks with the fix, 210 G
+without).  The eager tower's memos stayed empty: ck318's `CK 318 =?= true` is the plain
+tower's shortcut.
+
+| table | lookups | hits | inserts | lit keys | lit-arg keys | key GB | deep compares | equal-size literal compares | share |
+|---|---|---|---|---|---|---|---|---|---|
+| `whnfCoreC` | 752 856 | 305 960 | 446 896 | 201 711 | 17 538 | 14.5 | 126 594 | 17 349 (1.3 GB) | 1.8 % |
+| `whnfC` | 377 397 | 175 473 | 201 924 | 27 630 | 62 141 | 6.0 | 65 971 | 32 802 (2.5 GB) | 7.8 % |
+| `instC` | 118 919 | 16 | 118 903 | 56 612 | 71 753 | 6.6 | 13 | 3 | 0.6 % |
+| `whnfCoreCheapC`, `inferC`, `inferIOC`, `defeqC` | ≤ 104 | | | | | | | | 0.0 % |
+| **old hash:** `whnfCoreC` | same | same | same | same | same | same | **1 241 728 720** | 259 745 558 (+ 981 873 907 of different size) | **85.7 %** |
+| **old hash:** `whnfC` | same | same | same | same | same | same | 116 844 | 82 198 | 2.1 % |
+
+The literal hash, with the fix: 199 276 big literals hashed at construction, 1 653 M words,
+16.2 % of the net time (instruction-sampled flat profile of the ck318 window:
+`lean_nat_big_hash` 22.5 %, next to GMP's `addmul_1` 21.8 %, the matrix products, which Lean
+computes too).
+
+* **Before the fix the colliding chains were in `whnfCoreC`**, and only there.  Its keys are the
+  literals that `whnfStepI` hands back to the loop after `reduceNatI`
+  (`k e₂` → `r.whnfCore` on the literal): one miss and one insert per computed literal.  The
+  matrix intermediates agree in their low 64 bits, so with the old hash all of them shared a few
+  buckets.  The average lookup or insert compared about 990 keys (1.24 G for 1.2 M operations),
+  each a literal compare (`mpz_cmp`) on a cold object.  `whnfC` held literal-*argument* keys
+  (`Nat.land (lit) CI`, `Nat.succ (lit)`): their hashes mix the other arguments and the head in,
+  so they did not collide (117 k deep compares).
+* With the fix, the memos cost 10 % of ck318 (`whnfC` 7.8 %, mostly comparing equal literals of
+  76 KB in distinct objects: 2.5 GB compared; Lean does this too, `expr_eq_fn` compares literal
+  values) and the hash 16 %.
+* `instC` (the bulk-instantiation memo, no official counterpart) inserts 118 903 keys holding
+  6.6 GB of literals and hits 16 times.  It costs 0.6 %, so it is not a time problem here.
+* CCK4 (the 34 constants in a merged master run, with their 22 535 dependencies; parse included
+  in the ticks; no subtraction): `whnfCoreC` 27.7 M lookups, 14.2 M inserts, 8.0 M of the
+  lookups on bare literals, 5.6 % of the whole run (about 14 % of the check phase); `whnfC` 17.0 M
+  lookups, 3.1 %; literals are small there (7.1 M hashed, 53 M words: 0.1 %).
+
+### `Nat.succ ⟨literal⟩` (the coordinator's question)
+
+CFSG's `strictN y k := Nat.rec (k 0) (fun n _ => k (Nat.succ n)) y` binds the variable to
+`Nat.succ (lit (y-1))`.  It does not bind it to the literal.  Both kernels make that term the
+same way: the official `inductive_reduce_rec` converts a literal major with
+`nat_lit_to_constructor` (`src/kernel/inductive.h:94-95`), con-leche with `litToCtorIfNatI` /
+`natLitToConstructor` (`Kernel/CoreDefs.lean:159`).  Each makes one fresh `y-1` per ι step and
+caches nothing.  The instantiated body shares the one node at every use, by reference.  The
+first `whnf` of it folds it to the literal `y` (one fresh bignum).  The later uses hit `whnfC` on
+the same node, so the pointer test answers.  On ck318: 60 917 `whnf` lookups on
+`<constant> (lit)` keys, 43 717 hits (72 %), 17 200 misses.  The misses are the 17 200
+`whnfCore` lookups on such keys, all misses: one fold per node.  Official `whnf` does the same:
+the key is an application, so it caches the node.  So the
+bignum `y` is built once per binding, not per use, in both kernels, and no key holds it in one
+form here and the other form there beyond what the official kernel does.  What con-leche
+pays on top: both fresh bignums (`y-1`, `y`) are hashed in full at construction (2 of the
+~11.6 hashed literals per such binding), and the folded `y` gets a `whnfCoreC` entry.
+
+### What the official kernel does (v4.35.0, `src/kernel/type_checker.cpp`, read via the GitHub API)
+
+* `whnf_core` (468–553): `BVar, Sort, MVar, Pi, Const, Lambda, Lit` return at once ("handle easy
+  cases"), before the lookup in `m_whnf_core` (491).  It inserts only when
+  `!cheap_rec && !cheap_proj` (547).  The cheap-projection mode reads the cache and never writes
+  it.  Con-leche keeps a separate memo for that mode (`whnfCoreCheapC`), which it reads and
+  writes.
+* `whnf` (706–744): `BVar, Sort, MVar, Pi, Lit` return without a lookup ("Do not cache easy
+  cases").  The key is the input term.  A `reduce_nat` result is inserted under the input and
+  returned at once (733); con-leche's loop instead continues with the literal (`whnfStepI`'s
+  `k e₂`), so the literal goes through one more `whnfCore` call and its memo.
+* `infer_type_core` (325–358): caches every kind, `Lit` included, per `infer_only` flag (as
+  con-leche's `inferC`/`inferIOC`); computed literals are not inferred on C20's path.
+* `is_def_eq` (1209–1214): positive and negative caches `m_success` / `m_failure`
+  (`type_checker.h:33-41`), plain pair sets of the two terms, consulted in `quick_is_def_eq`
+  (802) and the lazy-delta step.  The equiv manager is gone at v4.35.0.  `quick_is_def_eq`
+  compares two literals by value (820).  So `defeqC` does have an official counterpart.
+* `reduce_nat` (672–704) and `reduce_bin_nat_op` (614): `whnf` of each argument, then GMP on the
+  values; `Nat.succ` adds one.  The result is a fresh `mk_lit`, no lookup.  The head test is
+  `f == *g_nat_add`, an expression comparison that starts with the pointer
+  (`expr_eq_fn::apply`: `is_eqp`, then the hash).
+* `instantiate` has no persistent cache.  Its `replace_rec_fn` cache lives for one call.
+* Equality (`src/kernel/expr_eq_fn.cpp`): pointer, hash, kind, then for `Lit` `lit_value(a) ==
+  lit_value(b)`, i.e. `lean_nat_big_eq`, a GMP compare with no pointer test (as con-leche's
+  `Nat.decEq`).  Expression pairs are cached only when both are shared (con-leche's `beqGoX`
+  ported that guard).
+* The hash: `Literal.hash` is `hash v`, `n mod 2^64` (`src/Lean/Expr.lean:25-27`), computed at
+  `mkLit` (`lean_expr_mk_lit`, which the C++ `mk_lit` calls).  O(1).  lean4#16146, still open,
+  makes it all words; then upstream would pay at every kernel literal what con-leche pays now.
+
+Lean's flat profile on ck318 (`perf record` on the replay): GMP 43 % (`addmul_1` 25.8 %,
+`copyi` 12.6 %, `mul_2` 4.2 %), the hash tables and `expr_eq_fn` about 5 %, `__gmpz_cmp`
+1.1 %, nothing that hashes a literal.
+
+### The remaining gaps
+
+* **ck318** after the fix (82.5 G against 57.8 G, 1.43×): the hash of all words (16.5 G
+  instructions, P4's saving), the literal entries in `whnfCoreC` and the literal lookups in
+  `whnfC` (1.8 G, P1's saving; 10 % of the time with the hash, little of it instructions),
+  and 6 G left (64.2 against 57.8 G, 1.11×).
+* **CCK4** (219.5 G against 82.7 G, 2.7×; literals small, the hash irrelevant: P4 changes
+  nothing):
+  - about 52 G is con-leche's parse of the closure into its own terms (the first 22 % of the run,
+    instruction-sampled), which Lean does not do (it maps the compacted regions: 5.45 G with
+    the import).  The check alone is about 167 G against Lean's 77 G, 2.2×.
+  - The memo traffic on easy cases: P1 −14 G (−6.3 %).
+  - Name comparisons: `reduceNatI` dispatches on the head with `cn = natAddName ∨ …` (14
+    `Decidable` equalities in a row), and `natOpResult` again.  `DecidableEq Name` is the derived
+    structural walk, a `memcmp` per component, with no pointer or hash test.  `Name.beq`'s
+    `@[csimp]` (`Name.beqPtr`) applies to `==`, not to `=`.  `instDecidableEqName.decEq` and
+    `memcmp` take 12.7 % of the check phase.  From gdb at the function: 155 k top-level calls
+    from `reduceNatI`, 143 k from `natOpResult`, 36 k from `FBase.find?`, each recursing.  The
+    official kernel compares the head expression, pointer first.  P2 −12.9 G (−6.3 %).
+  - `natHash`'s bounds: `natHashScalarBound` (2^62) and `natHashWordBound` are top-level `def`s,
+    but the compiler inlines them, so every `Expr.lit` construction runs
+    `lean_cstr_to_nat("4611686018427387904")`, a GMP decimal parse and free (#547's code; the
+    skill's §6 trap).  On CCK4, 264 k parses in 60 s of a gdb-slowed run.  P3 −6.1 G (−3.1 %).
+  - What is left (186.6 G total, about 131 G check against 77 G): allocation and freeing
+    (`lean_dec_ref_cold`, `lean_free_object`, `mi_free`, `lean_alloc_small_object_core` about
+    36 % of the check), memo-map growth (`expand_go` 4.6 %), the knot's closures
+    (`knotPlainI` lambdas, `lean_apply_*`).  The literal-to-ctor and instantiation walks build
+    and drop terms the official kernel also builds, but in C++ with its own allocator.  No
+    single cause found.
+  - The cycles do not track the instructions here: Lean's replay spends a large and variable
+    share in kernel mode (`cycles:k` 21–76 G against 62–86 G user, `page-faults` 0.86 M,
+    VmHWM 7–8.6 GB of mapped `.olean` files), con-leche little (3–10 G).  In task-clock
+    the two are close (Lean 18.8–39.3 s, con-leche 26–35 s).
+* **McLEnumA** (3 726 G against 1 819 G, 2.0×): no big literals; many small `decide`-style
+  checks.  P1+P2+P3 save 592 G (−15.9 %; 1.72× left).  The rest has CCK4's profile.  Allocation
+  and freeing take 37 % (`lean_dec_ref_cold` 12.3 %, `lean_free_object` 8.6 %,
+  `lean_alloc_small_object_core` 6.3 %, `mi_free` 5.6 %, `lean_del_core_other` 4.7 %).  Name
+  comparisons of equal names take 4.9 %.  The knot closures, `instantiateListXP` and the memo
+  maps take most of the remainder.  Lean's profile on the same module is mostly its caches:
+  `unordered_map` lookups and inserts about 35 %, `expr_eq_fn` 6 %, `replace_rec_fn` 6 %.  Its
+  allocation shows less (`lean_dec_ref_cold` 5.2 %).  So con-leche's remaining factor here is
+  object churn (terms and closures built per call and dropped) rather than any memo the
+  official kernel lacks.  Not analysed further.
+
+### Proposals (not landed; each needs the maintainer's ruling)
+
+Prototypes are in `_tmp/549/proto-bypass-hash.diff` (master) and `_tmp/549/proto-modular-all.diff`
+(`modular`, P1+P2+P3+P4).  All are `implemented_by` on copies, so the proofs stay unchanged.  A
+landing would change the definitions and repair the proofs.
+
+1. **P1: the official easy cases skip the memos.**  `whnfCore` returns
+   `sort, fvar, forallE, lam, const, lit` and `whnf` returns `sort, forallE, lit` without a memo
+   lookup or insert (official `whnf_core` / `whnf`).  The result is the input in all these
+   cases (`whnfCoreStepI`'s `.done e` arm; `whnf` of them is `whnfCore` then no reduction).  So
+   only the memo traffic changes, not the reduction order.  Measured: ck318 −1.8 G (−2.2 %),
+   CCK4 −13.9 G (−6.3 %).  It also takes the bare literals out of the memos for good: with the
+   old low-bits hash, ck318 runs in 64.2 G instead of 336 G.  It does not make the #547 hash
+   unnecessary: with P1 and the old hash CCK4 still takes 216.4 G and 195 G cycles (against
+   205.6 G / 123 G with the new hash), because literal-argument keys collide there.  The proof
+   work is the memo wrapper's simulation lemma: one more arm in which the result is the input.
+   I expect it to be small, but have not checked.
+2. **P2: name dispatch by pointer, then hash.**  Either compare with `==` (`Name.beqPtr`) where
+   the code now writes `=`, or (as prototyped) make the executed `DecidableEq Name` test
+   pointer, then hash, then structure at every level, as `Name.beqPtr` does at the top.  The
+   prototype is a hand-written structural `decEqSpec` (the kernel-reducible definition) plus an
+   `implemented_by`.  Landed, it would be the `@[csimp]` route the 2026-09-05 ruling asks for
+   (`decEqSpec = decEqFast`, proved like `Name.beqPtr_eq`).  Measured: CCK4 −12.9 G
+   (−6.3 %).  Mathlib-like streams should gain too (every `FBase.find?` hit walks the name):
+   to be measured on init-full and the perf streams.
+3. **P3: hoist `natHash`'s bounds for real** (`@[noinline]` on the two `def`s, or a test that
+   needs no big constant, e.g. the scalar bit).  This is a clear fix of #547's own code, not a
+   design choice.  CCK4 −6.1 G (−3.1 %).  Every stream that builds literals gains a little
+   (#547's +0.1 % on grind-ring-5 is probably this).
+4. **P4: an O(1) big-literal hash.**  The prototype mixes the size and the low, middle and top
+   words.  ck318 −16.5 G instructions (82.5 → 64.2 G with P1; cycles 32.6 → 23.9 G, Lean's
+   level).  It departs from lean4#16146's value, against #547's ruling to vendor upstream's hash.
+   It can collide again on literals that differ only in words it does not read: an adversarial
+   input is easy to build (the analogue of lean4#15686 for the middle words).  The full hash is
+   the robust choice.  P1 already removes the bare-literal keys, so with the full hash the
+   remaining cost is the hash itself.  My recommendation: P1 + P2 + P3 now; keep the full hash
+   (no P4) unless the maintainer prefers C20's 16 % to robustness.  If upstream merges
+   lean4#16146, Lean's kernel pays the same cost on C20.
+5. Not proposed: dropping `instC` (0.6 % on ck318, and 6.6 GB of literal references it holds,
+   but the memory peak equals Lean's anyway, 11.9 against 12.6 GiB) or the cheap-mode memo
+   `whnfCoreCheapC` (official writes no cheap results).  Neither showed in time; both are
+   candidates if a memory measurement asks for them.
+
+Combined, P1+P2+P3 (`modular` prototype): CCK4 219.5 → 186.6 G (−15 %; Lean 82.7 G); ck318 net
+80.2 G with the full hash, 63.7 G with P4 (the `modular` build's CK base is 224.8 G).
+
+### Method notes
+
+* DWARF call graphs (`perf record --call-graph=dwarf`) did not unwind past the leaf on this
+  binary (frames `[unknown]`).  Callers were taken with gdb instead.  I attached to the running
+  checker after the parse, put a breakpoint with `info symbol *(void**)$rsp` on the function,
+  and kept the run going (`_tmp/549/scripts/gdbargs.sh`).  The parse phase's
+  `lean_copy_expand_array` (26 % of the parse) is array growth.  In the check phase it is the
+  first insert into a fresh map, which copies the persistent 16-bucket empty-map constant
+  (`beqGoX`'s `BeqMap` 1.0 M times, `instantiate1LiftXP`'s memo 0.44 M).  That is cheap, and it
+  is not lost linearity (no RC-2 copy: every copied array had RC 0).
+* The probe's sentinel trick: `memoEIProbe` names the table by applying the getter to a
+  `CState` whose maps are distinct objects.  Equal-capacity empty maps were merged by the
+  compiler, so the capacities must differ by bucket count.
+* Scripts, logs, profiles and the three diffs are in `_tmp/549`; the probe, prototype and
+  `modular` worktrees are removed.
