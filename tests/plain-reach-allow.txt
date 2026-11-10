@@ -239,7 +239,7 @@ ConLeche.instDecidableEqReducibilityHint.decEq
 ConLeche.instInhabitedConstantVal.default
 ConLeche.instInhabitedDeclaration.default
 
-# ConLeche.Kernel.Expr — the Expr/Level data structure: constructors and computed fields, the executed equality (beqMemo, its pointer and hash guards, the derived DecidableEq at leaves)
+# ConLeche.Kernel.Expr — the Expr/Level data structure: constructors and computed fields, the executed equality (beqMemo, its pointer and hash guards; Level.decEqPtr and Literal's pointer-first instance at the leaves, the derived Expr DecidableEq at constructor mismatches)
 ConLeche.Expr.BeqMap.record
 ConLeche.Expr.EqPair.dflt
 ConLeche.Expr.app
@@ -264,8 +264,8 @@ ConLeche.Level.succ
 ConLeche.instDecidableEqExpr
 ConLeche.instDecidableEqExpr.decEq
 ConLeche.instDecidableEqLevel
-ConLeche.instDecidableEqLevel.decEq
-ConLeche.instDecidableEqLiteral.decEq
+ConLeche.Level.decEqPtr
+ConLeche.instDecidableEqLiteral
 ConLeche.instHashableLiteral.hash
 ConLeche.instInhabitedExpr.default
 ConLeche.levelHasParam
@@ -320,7 +320,7 @@ ConLeche.Level.zeroWhereZero
 ConLeche.Level.zeronessOf
 ConLeche.Name.nodup
 
-# ConLeche.Kernel.Name — the Name data structure: constructors, hashData, beqPtr, rendering
+# ConLeche.Kernel.Name — the Name data structure: constructors, hashData, decEqPtr, beq, rendering
 ConLeche.Display.Acc.chars
 ConLeche.Display.Acc.component
 ConLeche.Display.Acc.escaped
@@ -330,13 +330,14 @@ ConLeche.Display.codeEscape
 ConLeche.Display.idShaped
 ConLeche.Display.str
 ConLeche.Display.unsafeChar
+ConLeche.Name.beq
 ConLeche.Name.componentList
+ConLeche.Name.decEqPtr
 ConLeche.Name.hashData
 ConLeche.Name.num
 ConLeche.Name.render
 ConLeche.Name.str
 ConLeche.instDecidableEqName
-ConLeche.instDecidableEqName.decEq
 
 # ConLeche.Kernel.PropRead — propIrrelI's fast arms: head-only reads of spines and telescopes (they are that fast path)
 ConLeche.Expr.binderDom
@@ -517,4 +518,3 @@ ConLeche.blockCtors  # ConLeche.Kernel.Install
 ConLeche.blockFormers  # ConLeche.Kernel.Install
 ConLeche.Level.isEquivList  # ConLeche.Kernel.Level
 ConLeche.Level.isNeverZero  # ConLeche.Kernel.Level
-ConLeche.Name.beqPtr  # ConLeche.Kernel.Name
