@@ -117943,6 +117943,50 @@ stage2 in CI and update stage0 on merge` (lean4#16146, cherry-picked, no conflic
   around the command; lane mono recorded 182.2 M; limit 200 M); `leanchecker --fresh Init`
   passes (536.0 G instructions); radar's part 2 (`make bench-part2` at stage1, stale measurement files removed first) runs through, 539 measurements.
 
+### Lane nathash: task #547's literal hash on the InLean branch (2026-11-10, task #451, agent/451-nathash)
+
+**What.**  Task #547 (a `Nat` literal's hash reads all its bits, lean4#16146's C vendored as
+`native/nat_hash.c`) cherry-picked (`-x`) from its lane: ef48c627c (the code), 6044be245 (the
+fixture `lit_hash_low_bits`), 02cc10ef4 (its DESIGN record), then task #553's fixture commit
+c0cdd1620 (`natlit_chain_tz`, the `Nat.trailingZeros` shape).  No master merge; **last synced
+master unchanged: 49d2fa3fd**.  #547's lane sat on top of the modular work (task #460, the
+scheduler, `ModularTests`, `RefineTests`), which this branch does not have; every conflict was
+resolved by keeping this branch's side and adding only #547's own lines:
+
+* `lakefile.toml` → `lakefile.lean`: #547's file plus the InLean targets, as they were in the toml
+  (`InLean` and `InLeanProof` libraries rooted at their own names, the executable
+  `inlean-replay` at `InLeanReplay`, none a default target, same comments), placed before the
+  native section, which stays the last library declared.  `tests/trust-surface.sh` re-pins the
+  lakefile's SHA-256; its `ALLOW` keeps the three InLean entries and gains `NatHash`'s `extern`.
+* `scripts/pub-import-plan.py`: the file filter excludes both `InLean*` and #547's
+  `pinners/`/`lakefile.lean`.  `OVERVIEW.md`: this branch's `runArgs` sentence (no scheduler, no
+  modular flags) followed by #547's sentence on the C function.  `tests/ConLecheTests.lean`: only
+  `LitHashTests` added.  `tests/e2e-expected.txt`: only the two fixtures' rows (not #460's
+  `reduce_name_*`/`sorry_name_def`).  DESIGN.md: #547's record after this section, without the
+  modular record's tail that preceded it there.  `.github/workflows/ci.yml` merged cleanly (the
+  cache key; the InLean step stays).
+* One change of this lane's own: `tests/plain-reach-allow.txt`, which #547's base did not have
+  (task #497 is on master only): `instHashableLiteral.hash` (no longer reached) replaced by
+  `Literal.hash`, `natHash`, `natHashWordBound` and `natBigHash`, the computed field's code.  And
+  `natlit_chain_tz`'s row comment now reads for a tree with #547.
+
+**InLean** needed nothing: it imports no `ConLeche.*` module and hashes `Lean.Expr` with the
+toolchain's hash; `InLeanProof` imports `ConLeche.Kernel.Expr` and builds unchanged (to the proofs
+`natBigHash` is opaque); `inlean-replay` links no con-leche code.  `inlean-sync.py check` against
+the lean4 clone (6bec6f45): OK; no regeneration.
+
+**Fixture** `natlit_chain_tz` at `--jobs=1` (`perf stat -e instructions:u`, one run each): the
+binary before the lane 4.840 G, with #547 3.572 G (the row's 4.8 G and 3.6 G).
+
+**Gates.**  `lake build`, `lake test`, `lake build InLean InLeanProof inlean-replay` warning-free;
+`tests/arena.sh`: e2e 587/587 (both fixtures), tutorial 90/92, trust surface, pindump (two pinners
+reproduced with their `lakefile.lean`, the nightly one skipped as before: not installed), layering,
+shake, binary link, overview and whitepaper links, quote gate, the sweeps; plain-reach failed on the
+hash's names and passes after the allowlist change (580 reached, all allowlisted);
+`tests/inlean-sync.sh` OK (23 files).  Init replay `inlean-replay --kernel=inlean --compare`:
+64530 accepted, 0 exact and 0 cosmetic mismatches, 450 867 473 080 instructions (lane pins
+450 648 056 786, +0.05 %).
+
 ## TASK #547 — a `Nat` literal's hash reads all its bits: lean4#16146 vendored (2026-11-09, agent/547-lit-hash)
 
 The bug (#543): `Literal` derived `Hashable`, so `.natVal n` hashed as `n mod 2^64` and an
