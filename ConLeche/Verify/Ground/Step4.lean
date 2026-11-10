@@ -277,7 +277,8 @@ theorem step_arg_nat {j ao : Nat} (h : MInv env t₀ oc s fl) (hm : s.mode = 4) 
   exact .refl
 
 /-- A constant argument's entry and slot. -/
-theorem const_slot {P : G4Prog} (hI : Inv P) {ao : Nat} {sa : Expr} (hda : Den P ao sa)
+theorem const_slot {P : G4Prog} {find? : Name → Option ConstantInfo}
+    {findProj? : Name → Nat → Option ProjEntry} (hI : Inv find? findProj? P) {ao : Nat} {sa : Expr} (hda : Den P ao sa)
     (ht : P.code[ao]! = 4) :
     ∃ k info, P.code[ao + 1]? = some k ∧ P.kInfo[k]? = some info ∧ sa = infoTerm info ∧
       P.kSlot[k]? = some P.kSlot[k]! := by

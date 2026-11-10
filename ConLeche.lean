@@ -48,6 +48,7 @@ public import ConLeche.Verify.Ground.Machine
 public import ConLeche.Verify.Ground.Refs
 public import ConLeche.Verify.Ground.Run
 public import ConLeche.Verify.Ground.Step0
+public import ConLeche.Verify.Ground.Step3
 public import ConLeche.Verify.Ground.Step4
 
 @[expose] public section

@@ -232,7 +232,8 @@ theorem Approx.bounded {s t : Expr} (h : Approx s t) : ∀ {d : Nat}, t.looseBVa
   | proj _ ih => intro _ h; simp only [Expr.looseBVarsBounded] at h ⊢; exact ih h
 
 /-- A registered shared node denotes a closed term. -/
-theorem Inv.shared_closed {P : G4Prog} (hI : Inv P) {a : Expr} {o : Nat} {s : Expr}
+theorem Inv.shared_closed {P : G4Prog} {find? : Name → Option ConstantInfo} {findProj? : Name → Nat → Option ProjEntry}
+    (hI : Inv find? findProj? P) {a : Expr} {o : Nat} {s : Expr}
     (ho : P.closedNode[a]? = some o) (hd : Den P o s) : s.looseBVarsBounded 0 = true := by
   obtain ⟨s', -, -, hd', ha, hc⟩ := hI.closed a o ho
   rw [Den.unique hd hd']; exact ha.bounded hc

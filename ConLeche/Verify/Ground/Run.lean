@@ -59,7 +59,7 @@ end
 
 /-- **The store invariant.** -/
 structure SInv (env : Env) (oc : Nat → Expr) (s : MS) : Prop where
-  prog : Inv s.P
+  prog : Inv env.find? env.findProj? s.P
   celSz : s.cel.size % 4 = 0
   valSz : s.val.size % 4 = 0
   evSz : s.ev.size % 2 = 0
@@ -195,7 +195,7 @@ theorem CellOK.grow {env : Env} {P P' : G4Prog} {cel cel' val val' ev ev' argA a
 appended to, new cells with their invariants, and the origin assignment
 extended. -/
 theorem SInv.grow {env : Env} {oc oc' : Nat → Expr} {s s' : MS} (h : SInv env oc s)
-    (hI : Inv s'.P) (hx : Ext s.P s'.P) (hep : s'.P.epBase = s.P.epBase)
+    (hI : Inv env.find? env.findProj? s'.P) (hx : Ext s.P s'.P) (hep : s'.P.epBase = s.P.epBase)
     (hcel : Pre s.cel s'.cel) (hcs : s'.cel.size % 4 = 0) (hval : Pre s.val s'.val)
     (hvs : s'.val.size % 4 = 0) (hev : Pre s.ev s'.ev) (hes : s'.ev.size % 2 = 0)
     (harg : Pre s.argA s'.argA) (hsl : s'.slots = s.slots) (hmem : s'.mem = s.mem)
@@ -336,7 +336,7 @@ theorem DenArgs.length {P : G4Prog} : ∀ {o p n : Nat} {ss : List Expr}, DenArg
   | _, _, _, _, .cons _ _ _ hr => by simp [DenArgs.length hr]
 
 theorem infoTerm_closed : ∀ (info : G4Info), (infoTerm info).looseBVarsBounded 0 = true
-  | .defn .. | .ctor .. | .recr .. | .neutral => by simp [infoTerm, bot, Expr.looseBVarsBounded]
+  | .defn .. | .ctor .. | .recr .. | .neutral .. => by simp [infoTerm, Expr.looseBVarsBounded]
 
 /-- The cells of an environment have closed origins. -/
 theorem SInv.allClosed {env : Env} {oc : Nat → Expr} {s : MS} (h : SInv env oc s) {e : Nat}

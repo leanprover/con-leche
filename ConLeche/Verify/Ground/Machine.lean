@@ -147,8 +147,10 @@ focus `u`. -/
   | [], u => ERed env t₀ u
   | .arg c :: fl, u => K fl (.app u (oc c))
   | .upd c :: fl, u => ERed env (oc c) u ∧ K fl (oc c)
+  -- the major reduces to the focus, or the recursor takes the K step
+  -- (`kE ≥ 4`: the major is never read)
   | .iota k start len :: fl, u =>
-    ERed env (oc argA[start + len - 1]!) u ∧ K fl (spanTerm P argA oc k start len)
+    (ERed env (oc argA[start + len - 1]!) u ∨ 4 ≤ P.kE[k]!) ∧ K fl (spanTerm P argA oc k start len)
   | .proj pi :: fl, u =>
     match pi with
     | 0 => K fl bot
@@ -168,7 +170,7 @@ theorem K.step : ∀ (fl : List Fr) {u u' : Expr}, K env t₀ P argA oc fl u →
   | [], _, _, h, hr => h.trans hr
   | .arg _ :: fl, _, _, h, hr => K.step fl h (.appFn hr)
   | .upd _ :: _, _, _, h, hr => ⟨h.1.trans hr, h.2⟩
-  | .iota .. :: _, _, _, h, hr => ⟨h.1.trans hr, h.2⟩
+  | .iota .. :: _, _, _, h, hr => ⟨h.1.imp (fun h => h.trans hr) id, h.2⟩
   | .proj pi :: fl, _, _, h, hr => by
     cases pi with
     | zero => exact h

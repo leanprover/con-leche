@@ -137,12 +137,16 @@ theorem ValDen.congr {P : G4Prog} {val ev argA : Array Nat} {oc oc' : Nat → Ex
   | pap h0 hk hs => rw [map_agree ha (span_mem_lt hg hs)]; exact .pap h0 hk hs
   | other h0 => exact .other h0
 
+theorem get!_congr {a b : Array Nat} {i : Nat} (h : a[i]? = b[i]?) : a[i]! = b[i]! := by
+  rw [getElem!_def, getElem!_def, h]
+
 /-- **A frame names allocated cells**, a span inside the argument array, a
 table entry and a projection the program has. -/
 @[expose] def FrOK (P : G4Prog) (argA : Array Nat) (N : Nat) : Fr → Prop
   | .arg c => c < N
   | .upd c => c < N
-  | .iota k start len => k < P.kInfo.size ∧ 0 < len ∧ start + len ≤ argA.size
+  | .iota k start len => k < P.kInfo.size ∧ 0 < len ∧ start + len ≤ argA.size ∧
+      P.kTag[k]? = some 2 ∧ P.kArity[k]? = some (len - 1)
   | .proj pi => pi = 0 ∨ pi - 1 < P.projs.size
   | .natA k a b => k < P.kInfo.size ∧ a < N ∧ b < N
   | .natB k _ a b => k < P.kInfo.size ∧ a < N ∧ b < N
@@ -168,7 +172,7 @@ theorem K.congr (env : Env) (t₀ : Expr) (P : G4Prog) (argA : Array Nat) {oc oc
     exact ⟨h.1, K.congr env t₀ P argA hg ha fl hf.2 h.2⟩
   | .iota k start len :: fl, _, hf, h => by
     rw [FlOK.cons] at hf
-    obtain ⟨-, hl, hs⟩ := hf.1
+    obtain ⟨-, hl, hs, -⟩ := hf.1
     simp only [K, spanTerm] at h ⊢
     rw [← ha _ (hg _ (by omega)), ← map_agree ha (span_mem_lt hg hs)]
     have := K.congr env t₀ P argA hg ha fl hf.2 h.2
@@ -204,7 +208,8 @@ theorem FrOK.grow {P P' : G4Prog} {argA argA' : Array Nat} {N N' : Nat} (hx : Ex
     (hp : Pre argA argA') (hN : N ≤ N') : ∀ {f : Fr}, FrOK P argA N f → FrOK P' argA' N' f
   | .arg _, h => Nat.lt_of_lt_of_le h hN
   | .upd _, h => Nat.lt_of_lt_of_le h hN
-  | .iota .., ⟨h₁, h₂, h₃⟩ => ⟨Nat.lt_of_lt_of_le h₁ hx.kInfoSize, h₂, Nat.le_trans h₃ hp.1⟩
+  | .iota .., ⟨h₁, h₂, h₃, h₄, h₅⟩ => ⟨Nat.lt_of_lt_of_le h₁ hx.kInfoSize, h₂, Nat.le_trans h₃ hp.1,
+      by rw [(entW_eq (hx.ent _ h₁)).1]; exact h₄, by rw [(entW_eq (hx.ent _ h₁)).2.2.1]; exact h₅⟩
   | .proj pi, h => by
     rcases h with h | h
     · exact .inl h
@@ -231,9 +236,10 @@ theorem K.grow (env : Env) (t₀ : Expr) {P P' : G4Prog} {argA argA' : Array Nat
   | .arg _ :: fl, _, hf, h => K.grow env t₀ oc hx hp fl (FlOK.cons.mp hf).2 h
   | .upd _ :: fl, _, hf, h => ⟨h.1, K.grow env t₀ oc hx hp fl (FlOK.cons.mp hf).2 h.2⟩
   | .iota k start len :: fl, _, hf, h => by
-    obtain ⟨⟨hk, hl, hs⟩, hf⟩ := FlOK.cons.mp hf
+    obtain ⟨⟨hk, hl, hs, -⟩, hf⟩ := FlOK.cons.mp hf
     simp only [K, spanTerm] at h ⊢
-    rw [hp.2 _ (by omega), span_pre hp hs, entryTerm_ext hx hk]
+    rw [hp.2 _ (by omega), span_pre hp hs, entryTerm_ext hx hk,
+      get!_congr (entW_eq (hx.ent k hk)).2.2.2.2.2.2]
     have := K.grow env t₀ oc hx hp fl hf h.2
     exact ⟨h.1, this⟩
   | .proj pi :: fl, _, hf, h => by

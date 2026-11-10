@@ -65,7 +65,10 @@ inductive G4Info where
   /-- `kEta`: the single rule of a structure-like recursor; `kK`: K -/
   | recr (name : Name) (lps : List Name) (us : List Level) (mI rP ruleBase nRules : Nat)
       (kK kEta : Bool)
-  | neutral
+  /-- an entry the machine never unfolds (an axiom, a theorem, an inductive
+  type, `Quot`, a wrong level count, an unknown name): still its constant,
+  so every entry reads back as the term it was resolved for -/
+  | neutral (name : Name) (us : List Level)
   deriving Inhabited
 
 /-- A recursor rule of the table. -/
@@ -245,6 +248,21 @@ comparison baseline) a K major that is not a constructor declines.  Read
 at table time only. -/
 @[noinline] def g4KSkip : Bool := !(groundMode == 13)
 
+/-- A recursor rule's row of the table, appended to every rule array (the
+rule at the recursor's levels `us`; its body compiled on first use). -/
+def g4RuleRow (isK : Bool) (lps : List Name) (us : List Level) (P : G4Prog) (rl : RecRule) : G4Prog :=
+  let case3 := match find? rl.ctor with
+    | some (.ctorInfo cvj _ _) =>
+      gCase3 find? isK cvj (gCmpLevels rl lps us cvj.levelParams)
+    | _ => true
+  let (ni, P) := P.nid rl.ctor
+  let (r1, r2, r3, r4, r5, r6) := (P.rules, P.ruleCode, P.rNid, P.rNF, P.rCP, P.rC3)
+  let P := { P with rules := #[], ruleCode := #[], rNid := #[], rNF := #[], rCP := #[],
+                    rC3 := #[] }
+  { P with rules := r1.push ⟨rl.ctor, rl.nfields, (gCtorParams find? rl.ctor), case3, rl.rhs⟩,
+           ruleCode := r2.push 0, rNid := r3.push ni, rNF := r4.push rl.nfields,
+           rCP := r5.push (gCtorParams find? rl.ctor), rC3 := r6.push (if case3 then 1 else 0) }
+
 /-- A new table entry for the constant `c` at levels `us` (`kfab`: the K
 step's constructor entry plus one, or `0`), appended to every table
 array. -/
@@ -253,7 +271,7 @@ def g4Entry (P : G4Prog) (c : Name) (us : List Level) (kfab : Nat) : Nat × G4Pr
   let (tag, ar, b, c', d, e', info, P) : Nat × Nat × Nat × Nat × Nat × Nat × G4Info × G4Prog :=
     match find? c with
     | some (.defnInfo cv v _) =>
-      if us.length != cv.levelParams.length then (5, 0, 0, 0, 0, 0, .neutral, P)
+      if us.length != cv.levelParams.length then (5, 0, 0, 0, 0, 0, .neutral c us, P)
       else
         let tag := if us.isEmpty && P.natOk && natBin14 c then 3 else 0
         let op := (natBin14Names.idxOf? c).getD 0
@@ -263,26 +281,15 @@ def g4Entry (P : G4Prog) (c : Name) (us : List Level) (kfab : Nat) : Nat × G4Pr
       (1, g4Pis cv.type 0, ni, 0, us.length, 0, .ctor c us nP nF, P)
     | some (.recInfo cv mI rP isK rules) =>
       if us.length != cv.levelParams.length || !(Expr.peelPis (mI + 1) cv.type).isSome then
-        (5, 0, 0, 0, 0, 0, .neutral, P)
+        (5, 0, 0, 0, 0, 0, .neutral c us, P)
       else
         let base := P.rules.size
-        let P := rules.foldl (fun P rl =>
-          let case3 := match find? rl.ctor with
-            | some (.ctorInfo cvj _ _) =>
-              gCase3 find? isK cvj (gCmpLevels rl cv.levelParams us cvj.levelParams)
-            | _ => true
-          let (ni, P) := P.nid rl.ctor
-          let (r1, r2, r3, r4, r5, r6) := (P.rules, P.ruleCode, P.rNid, P.rNF, P.rCP, P.rC3)
-          let P := { P with rules := #[], ruleCode := #[], rNid := #[], rNF := #[], rCP := #[],
-                            rC3 := #[] }
-          { P with rules := r1.push ⟨rl.ctor, rl.nfields, (gCtorParams find? rl.ctor), case3, rl.rhs⟩,
-                   ruleCode := r2.push 0, rNid := r3.push ni, rNF := r4.push rl.nfields,
-                   rCP := r5.push (gCtorParams find? rl.ctor), rC3 := r6.push (if case3 then 1 else 0) }) P
+        let P := rules.foldl (g4RuleRow find? isK cv.levelParams us) P
         let isEta := match rules with | [_] => !isK | _ => false
         let fl := (if isK then 1 else 0) + (if isEta then 2 else 0)
         (2, mI, rP, base, rules.length, fl + 4 * kfab,
           .recr c cv.levelParams us mI rP base rules.length (isK) isEta, P)
-    | _ => (5, 0, 0, 0, 0, 0, .neutral, P)
+    | _ => (5, 0, 0, 0, 0, 0, .neutral c us, P)
   let (t1, t2, t3, t4, t5, t6, ns) := (P.kTag, P.kCode, P.kArity, P.kSlot, P.kInfo, P.kMap, P.nslots)
   let (u1, u2, u3, u4) := (P.kB, P.kC, P.kD, P.kE)
   let P := { P with kTag := #[], kCode := #[], kArity := #[], kSlot := #[], kInfo := #[], kMap := {},
@@ -313,7 +320,10 @@ def g4ResolveF (findProj? : Name → Nat → Option ProjEntry) : Nat → G4Prog 
           match find? rl.ctor with
           | some (.ctorInfo cvj _ 0) =>
             let (kc, P) := g4ResolveF findProj? f P rl.ctor (gCmpLevels rl cv.levelParams us cvj.levelParams)
-            (kc + 1, P)
+            -- the rule binds no field, and the constructor's arguments are
+            -- among the recursor's leading ones (always so for a K-like
+            -- family; checked, so the step needs no premise about the types)
+            if rl.nfields == 0 && P.kArity[kc]! ≤ mI + 1 then (kc + 1, P) else (0, P)
           | _ => (0, P)
         else (0, P)
       | _, _ => (0, P)
@@ -617,8 +627,8 @@ inductive G4Stop where
 /-- The name of a table entry, for messages. -/
 def G4Prog.entryName (P : G4Prog) (k : Nat) : Name :=
   match P.kInfo[k]? with
-  | some (.defn c ..) | some (.ctor c ..) | some (.recr c ..) => c
-  | _ => .anonymous
+  | some (.defn c ..) | some (.ctor c ..) | some (.recr c ..) | some (.neutral c _) => c
+  | none => .anonymous
 
 /-- The declines (task #423 soundness, ruling 4): each names the step and
 the constant. -/
