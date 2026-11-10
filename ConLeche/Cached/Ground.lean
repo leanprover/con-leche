@@ -49,11 +49,10 @@ probe builds only), `3` the round-2 flat machine (`Ground2.lean`), `4`
 as 3 with the trace, `5`/`6` as 1/3 with the engine run twice (its own
 cost is the difference), `7` the round-3 machine (`Ground3.lean`), `8`
 as 7 with the trace, `9` as 7 run twice, `10` the round-4 machine
-(`Ground4.lean`) with the faithful K step, `11` as 10 with the trace,
-`12` as 10 run twice, `13` the round-4 machine without a K step (a K
-major that is not a constructor aborts), `14` as 13 with the trace, `15`
-the round-4 machine with K without the index check (`Red.iotaK`), `16`
-as 15 with the trace (`g4KMode`, `Ground4.lean`). -/
+(`Ground4.lean`) with the K step (`g4KSkip`), `11` as 10 with the trace,
+`12` as 10 run twice, `13` the round-4 machine without the K step (a K
+major that is not a constructor aborts; the comparison baseline), `14`
+as 13 with the trace. -/
 @[noinline] def groundMode : Nat := 0
 
 /-- A weak head value of the ground machine. -/

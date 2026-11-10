@@ -3,10 +3,9 @@
    up to a closure.  `fun_eq : (fun x => x + 0) = (fun x => x)` holds by
    `rfl`; the K rule's index check compares two lambdas of different code.
 
-   Accepted (official too).  With the ground engine on, the engine's index
-   comparison answers "don't know" for closures of different code ("K
-   indices unknown", a completeness gap only), aborts, and the incumbent
-   accepts by its own K rescue. -/
+   Accepted (official too: its index check compares the two lambdas by
+   defeq).  With the ground engine on, the engine's K step does not look
+   at the indices and accepts. -/
 
 theorem fun_eq : (fun x : Nat => x + 0) = (fun x => x) := rfl
 

@@ -2,20 +2,15 @@
 /- End-to-end fixture (task #423 K): K-like families with indices beyond
    `Eq`'s.
 
-   * `IsDouble n : Nat → Prop`, one constructor `mk : IsDouble n (n + n)`:
-     the K step evaluates the constructor's index `n + n` at `n := 3` and
-     compares it with the theorem's index `6`;
+   * `IsDouble n : Nat → Prop`, one constructor `mk : IsDouble n (n + n)`,
+     at `3, 6`;
    * `PairSwap p : Nat × Nat → Prop`, `mk : PairSwap p (p.2, p.1)`: the
-     index is a constructor value, compared field by field (its erased
-     type parameters are fixed by the index's type, which mentions no
-     other index);
-   * `HEq`: the indices are a type and a value of that type, so the
-     index's type is not fixed by the parameters; the engine answers
-     "don't know" ("K indices unknown") and leaves it to the incumbent.
+     index is a constructor value;
+   * `HEq`: the indices are a type and a value of that type.
 
-   All accepted (official too).  With the ground engine on, `t_double`
-   and `t_pair` are decided by the engine's K step, `t_heq` by the
-   incumbent after the abort. -/
+   All accepted (official too).  With the ground engine on, all three are
+   decided by the engine's K step, which reads neither the major nor the
+   indices. -/
 
 inductive IsDouble (n : Nat) : Nat → Prop
   | mk : IsDouble n (n + n)

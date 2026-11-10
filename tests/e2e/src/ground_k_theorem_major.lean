@@ -13,10 +13,9 @@
    The K rule needs the major's type: official `to_cnstr_when_K` infers
    it, whnfs it to `@Eq α a b` and checks `a ≡ b`.  All three are
    accepted (official too).  With the ground engine on (`groundMode = 10`),
-   the engine does the K step itself (the major's declared type evaluated
-   on the machine, the indices compared as values) and accepts; before
-   the K step it aborted with "K major" and left the comparison to the
-   incumbent. -/
+   the engine's K step reduces each `Eq.rec` to its minor premise without
+   reading the major (`Red.iotaK`) and accepts; round 4 (`groundMode = 13`)
+   aborted with "K major" and left the comparison to the incumbent. -/
 
 theorem two_add_two : 2 + 2 = 4 := rfl
 theorem add_comm' (a b : Nat) : a + b = b + a := Nat.add_comm a b

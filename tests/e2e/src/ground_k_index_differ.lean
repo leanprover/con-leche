@@ -7,9 +7,12 @@
    rejected (official too: this source without `debug.skipKernelTC`
    fails with the kernel's type mismatch).
 
-   With the ground engine on, the engine's index comparison finds one
-   constructor with two different literal fields ("K indices differ"),
-   aborts, and the incumbent rejects.  Today 1; target 1.
+   Engine off: rejected, as official.  **Engine on: ACCEPTED, beyond
+   official**: the engine's K step (`groundMode = 10`, task #423) reduces
+   `Eq.rec` to its minor premise without the index check (`Red.iotaK`,
+   task #552), so `kBad` evaluates to `true`.  The claim holds in the
+   model (the major is a proof of an equation between equal values of the
+   quotient); it is not a definitional equality official accepts.
 
    `t_bad` is added with `addDecl` under `debug.skipKernelTC`; the stream
    is checked by the checkers that read it. -/
