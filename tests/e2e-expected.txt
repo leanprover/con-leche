@@ -3388,3 +3388,14 @@
 # the low 64 bits alone puts every key in one bucket and takes minutes,
 # which the 10 s timeout in tests/arena.sh turns into a failure (exit 124).
 0 lit_hash_low_bits.ndjson
+# A fuel-driven trailing-zero count over 65537-bit literals shifted right
+# by 64 bits per step (the shape of `Nat.trailingZeros`, lean4#15264; task
+# #553).  Every shifted literal has its low 64 bits zero, so under
+# `Hashable Nat` they share one `Expr` hash and the whnf caches chain them:
+# a number of literal comparisons quadratic in the step count (lean4#15686).
+# Verdict today and target: 0.  The cost is what this row records, at
+# `--jobs=1`: 4.8 G instructions on master, 3.6 G with the hash of lean4#16146
+# (task #547, not yet on master), of which 1.1 G is the install (the Nat
+# operations' certificates).  The official kernel needs ~0.09 G per theorem
+# of the first kind, master ~0.44 G.
+0 natlit_chain_tz.ndjson
