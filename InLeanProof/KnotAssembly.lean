@@ -267,13 +267,28 @@ variable {fe : InLean.FEnv} {f : Nat}
 
 theorem coreKnotI_whnfCore_succ (c : Bool) (d : Nat) (i : Expr) :
     (coreKnotI .verified eager fe (f + 1)).whnfCore c d i =
-      if c then
+      if InLean.whnfCoreEasy i then pure i
+      else if c then
         memoEI (·.whnfCoreCheapC) (fun st mp => { st with whnfCoreCheapC := mp })
           (fun d e => pollC fe (.body d) (whnfCoreBodyI .verified (coreKnotI .verified eager fe f) fe true d e)) d i
       else
         memoEI (·.whnfCoreC) (fun st mp => { st with whnfCoreC := mp })
           (fun d e => pollC fe (.body d) (whnfCoreBodyI .verified (coreKnotI .verified eager fe f) fe false d e)) d i := by
   cases eager <;> cases c <;> rfl
+
+/-- An easy case of InLean's `whnfCore` translates to an easy case of
+con-leche's (a free variable with a reading is con-leche's free variable). -/
+theorem whnfCoreEasy_TrS {s : InLean.CState} {i : Expr} (h : InLean.whnfCoreEasy i = true)
+    (hok : OkS s i = true) : ConLeche.Cached.whnfCoreEasy (TrS s i) = true := by
+  cases i <;> first | rfl | (rw [TrS_fvar hok]; rfl) | simp [InLean.whnfCoreEasy] at h
+
+/-- An easy case is its own whnfCore answer. -/
+theorem Runs.whnfCore_easyI {c : Bool} {s : InLean.CState} {d : Nat} {i : Expr}
+    (h : InLean.whnfCoreEasy i = true) (hok : OkS s i = true) :
+    Runs ((ConLeche.fueledFns .verified eager env).whnfCore c d (TrS s i)) (TrS s i) :=
+  Runs.whnfCore_easy (whnfCoreEasy_TrS h hok)
+grind_pattern [conleche_grind] Runs.whnfCore_easyI =>
+  InLean.whnfCoreEasy i, (ConLeche.fueledFns .verified eager env).whnfCore c d (TrS s i)
 
 theorem CSOKI.whnfCore_hit (henv : ConLeche.EnvWF env) {s : InLean.CState} {d : Nat} {i r : Expr}
     (hs : CSOKI .verified eager env s) (hl : s.whnfCoreC[EKey.mk i]? = some r) (hok : OkS s i = true)
@@ -359,9 +374,24 @@ variable {fe : InLean.FEnv} {f : Nat}
 
 theorem coreKnotI_whnf_succ (d : Nat) (i : Expr) :
     (coreKnotI .verified eager fe (f + 1)).whnf d i =
-      memoEI (·.whnfC) (fun st mp => { st with whnfC := mp })
+      if InLean.whnfEasy i then pure i
+      else memoEI (·.whnfC) (fun st mp => { st with whnfC := mp })
         (fun d e => pollC fe (.body d) (whnfBodyI (coreKnotI .verified eager fe f) fe d e)) d i := by
   cases eager <;> rfl
+
+/-- An easy case of InLean's `whnf` translates to an easy case of
+con-leche's. -/
+theorem whnfEasy_TrS {s : InLean.CState} {i : Expr} (h : InLean.whnfEasy i = true)
+    (hok : OkS s i = true) : ConLeche.Cached.whnfEasy (TrS s i) = true := by
+  cases i <;> first | rfl | (rw [TrS_fvar hok]; rfl) | simp [InLean.whnfEasy] at h
+
+/-- An easy case is its own whnf answer. -/
+theorem Runs.whnf_easyI {s : InLean.CState} {d : Nat} {i : Expr}
+    (h : InLean.whnfEasy i = true) (hok : OkS s i = true) :
+    Runs ((ConLeche.fueledFns .verified eager env).whnf d (TrS s i)) (TrS s i) :=
+  Runs.whnf_easy (whnfEasy_TrS h hok)
+grind_pattern [conleche_grind] Runs.whnf_easyI =>
+  InLean.whnfEasy i, (ConLeche.fueledFns .verified eager env).whnf d (TrS s i)
 
 theorem CSOKI.whnf_hit (henv : ConLeche.EnvWF env) {s : InLean.CState} {d : Nat} {i r : Expr}
     (hs : CSOKI .verified eager env s) (hl : s.whnfC[EKey.mk i]? = some r) (hok : OkS s i = true)

@@ -1436,16 +1436,37 @@ end
       pure r
 
 
-/-- Twin of `knotLevelI`; every body runs behind the poll (`pollC`). -/
+/-- Twin of `whnfCoreEasy` (official `whnf_core`'s easy cases): the kinds
+`whnfCoreStepI` answers with `.done e` at the node itself.  The knot returns
+them before the memo and the poll.  An `mdata` node is not easy: it goes
+through the memo, keyed with its wrapper, as before. -/
+@[inline] def whnfCoreEasy : Expr → Bool
+  | .sort _ | .fvar .. | .forallE .. | .lam .. | .const .. | .lit _ => true
+  | _ => false
+
+/-- Twin of `whnfEasy` (official `whnf`'s easy cases): sorts, free
+variables, Π-types and literals.  A constant or a lambda-expression still
+goes through the memo, as in official `whnf`. -/
+@[inline] def whnfEasy : Expr → Bool
+  | .sort _ | .fvar .. | .forallE .. | .lit _ => true
+  | _ => false
+
+/-- Twin of `knotLevelI`; every body runs behind the poll (`pollC`).  The
+easy cases (`whnfCoreEasy`, `whnfEasy`) return before the memo, in both
+modes, as official. -/
 @[inline] def knotLevelI (mode : CheckMode) (eager : Bool) (fe : FEnv)
     (prev prevE : Unit → CoreFnsI) : CoreFnsI :=
-  { whnfCore := fun c => if c then
+  { whnfCore := fun c d e =>
+      if whnfCoreEasy e then pure e
+      else if c then
         memoEI (·.whnfCoreCheapC) (fun st mp => { st with whnfCoreCheapC := mp })
-          (fun d e => pollC fe (.body d) (whnfCoreBodyI mode (prev ()) fe true d e))
+          (fun d e => pollC fe (.body d) (whnfCoreBodyI mode (prev ()) fe true d e)) d e
       else memoEI (·.whnfCoreC) (fun st mp => { st with whnfCoreC := mp })
-        (fun d e => pollC fe (.body d) (whnfCoreBodyI mode (prev ()) fe false d e))
-    whnf := memoEI (·.whnfC) (fun st mp => { st with whnfC := mp })
-      (fun d e => pollC fe (.body d) (whnfBodyI (prev ()) fe d e))
+        (fun d e => pollC fe (.body d) (whnfCoreBodyI mode (prev ()) fe false d e)) d e
+    whnf := fun d e =>
+      if whnfEasy e then pure e
+      else memoEI (·.whnfC) (fun st mp => { st with whnfC := mp })
+        (fun d e => pollC fe (.body d) (whnfBodyI (prev ()) fe d e)) d e
     infer := memoEI (·.inferC) (fun st mp => { st with inferC := mp })
       (fun d e => pollC fe (.body d) (inferBodyI (prev ()) fe d e))
     defeq := memoBI (fun d a b => pollC fe (.body d) (defeqBodyI mode eager (prev ()) fe d a b))
