@@ -3,12 +3,11 @@ module
 public import ConLeche.Kernel.Name
 public import ConLeche.Kernel.Exclusive
 /- `withPtrEq` is `public` but not `@[expose]`, and its whole point here
-is that it is *definitionally* `k ()` — which is what
-`Level.beqPtr_eq` and `Expr.beqMemo_eq` prove.  `import all` makes that
-body visible **in this module only**; those theorems are the public
-relays, so no importer needs it, and the executed `Level.beq` and
-`Expr.beq` stay the plain `decide (· = ·)` that the kernel can still
-reduce. -/
+is that it is *definitionally* `k ()` — which is what `Expr.beqMemo_eq`
+proves.  `import all` makes that body visible **in this module only**;
+that theorem is the public relay, so no importer needs it, and the
+executed `Expr.beq` stays the plain `decide (· = ·)` that the kernel
+can still reduce. -/
 import all Init.Util
 
 /-!
@@ -50,37 +49,88 @@ with
     | .max u v => mixHash 5 (mixHash u.hashData v.hashData)
     | .imax u v => mixHash 7 (mixHash u.hashData v.hashData)
     | .param n => mixHash 11 (hash n)
-deriving DecidableEq, Repr, Inhabited
+deriving Repr, Inhabited
 
 /-- Hashing a level is an `O(1)` field read (the memo maps keyed by
 `Level` — `lsimpC`, `lnzC`, `eqvC` — probe with this). -/
 instance : Hashable Level := ⟨Level.hashData⟩
 
-/-- Level equality in the official kernel's shape (task #176 P2):
-the cached **hash** and the **pointer** before the structural walk —
-`level.cpp:125` is `kind` → `hash` → `is_eqp` → structural.  The
-implementation of `Level.beq`; `Level.beqPtr_eq` proves both guards
-redundant. -/
-@[inline] def Level.beqPtr (a b : Level) : Bool :=
-  withPtrEq a b (fun _ => a.hashData == b.hashData && decide (a = b))
-    (fun h => by subst h; simp)
+/-- The specification of level equality: the structural decision. -/
+def Level.decEq : (a b : Level) → Decidable (a = b)
+  | .zero, .zero => isTrue rfl
+  | .succ u, .succ v =>
+    match Level.decEq u v with
+    | isTrue h => isTrue (by rw [h])
+    | isFalse h => isFalse (fun e => h (Level.succ.inj e))
+  | .max u v, .max u' v' =>
+    match Level.decEq u u', Level.decEq v v' with
+    | isTrue h, isTrue h' => isTrue (by rw [h, h'])
+    | isFalse h, _ => isFalse (fun e => h (Level.max.inj e).1)
+    | _, isFalse h' => isFalse (fun e => h' (Level.max.inj e).2)
+  | .imax u v, .imax u' v' =>
+    match Level.decEq u u', Level.decEq v v' with
+    | isTrue h, isTrue h' => isTrue (by rw [h, h'])
+    | isFalse h, _ => isFalse (fun e => h (Level.imax.inj e).1)
+    | _, isFalse h' => isFalse (fun e => h' (Level.imax.inj e).2)
+  | .param n, .param m =>
+    if h : n = m then isTrue (by rw [h])
+    else isFalse (fun e => h (Level.param.inj e))
+  | .zero, .succ .. | .zero, .max .. | .zero, .imax .. | .zero, .param ..
+  | .succ .., .zero | .succ .., .max .. | .succ .., .imax .. | .succ .., .param ..
+  | .max .., .zero | .max .., .succ .. | .max .., .imax .. | .max .., .param ..
+  | .imax .., .zero | .imax .., .succ .. | .imax .., .max .. | .imax .., .param ..
+  | .param .., .zero | .param .., .succ .. | .param .., .max .. | .param .., .imax .. =>
+    isFalse (fun e => Level.noConfusion e)
 
-/-- Both guards are redundant (see `Name.beqPtr_eq`). -/
-theorem Level.beqPtr_eq (a b : Level) : Level.beqPtr a b = decide (a = b) := by
-  show (a.hashData == b.hashData && decide (a = b)) = decide (a = b)
-  by_cases h : a = b
-  · subst h; simp
-  · simp [h]
+/-- Level equality in the official kernel's shape (task #176 P2, at
+every level since task #551): the **pointer** and the cached **hash**
+before the structural step, at every node — `level.cpp:125` is `kind` →
+`hash` → `is_eqp` → structural.  The children start over with the
+pointer, the parameter with `Name.decEqPtr`. -/
+def Level.decEqPtr (a b : Level) : Decidable (a = b) :=
+  withPtrEqDecEq a b fun _ =>
+    if hh : a.hashData = b.hashData then
+      match a, b with
+      | .zero, .zero => isTrue rfl
+      | .succ u, .succ v =>
+        match Level.decEqPtr u v with
+        | isTrue h => isTrue (by rw [h])
+        | isFalse h => isFalse (fun e => h (Level.succ.inj e))
+      | .max u v, .max u' v' =>
+        match Level.decEqPtr u u' with
+        | isFalse h => isFalse (fun e => h (Level.max.inj e).1)
+        | isTrue h =>
+          match Level.decEqPtr v v' with
+          | isTrue h' => isTrue (by rw [h, h'])
+          | isFalse h' => isFalse (fun e => h' (Level.max.inj e).2)
+      | .imax u v, .imax u' v' =>
+        match Level.decEqPtr u u' with
+        | isFalse h => isFalse (fun e => h (Level.imax.inj e).1)
+        | isTrue h =>
+          match Level.decEqPtr v v' with
+          | isTrue h' => isTrue (by rw [h, h'])
+          | isFalse h' => isFalse (fun e => h' (Level.imax.inj e).2)
+      | .param n, .param m =>
+        if h : n = m then isTrue (by rw [h])
+        else isFalse (fun e => h (Level.param.inj e))
+      | .zero, .succ .. | .zero, .max .. | .zero, .imax .. | .zero, .param ..
+      | .succ .., .zero | .succ .., .max .. | .succ .., .imax .. | .succ .., .param ..
+      | .max .., .zero | .max .., .succ .. | .max .., .imax .. | .max .., .param ..
+      | .imax .., .zero | .imax .., .succ .. | .imax .., .max .. | .imax .., .param ..
+      | .param .., .zero | .param .., .succ .. | .param .., .max .. | .param .., .imax .. =>
+        isFalse (fun e => Level.noConfusion e)
+    else isFalse (fun e => hh (by rw [e]))
 
-/-- The executed level equality: definitionally `decide (a = b)`, with
-`beqPtr` substituted by the compiler on the `@[csimp]` equation below
-(see `Name.beq_eq_beqPtr` for why this is not an escape). -/
+/-- The `Level` twin of `Name.decEq_eq_decEqPtr`: `@[csimp]`, not
+`@[implemented_by]`, on `Decidable`'s subsingleton property. -/
+@[csimp] theorem Level.decEq_eq_decEqPtr : @Level.decEq = @Level.decEqPtr := by
+  funext a b; exact Subsingleton.elim _ _
+
+/-- Every level equality runs `Level.decEqPtr`. -/
+instance : DecidableEq Level := Level.decEq
+
+/-- The executed level equality: definitionally `decide (a = b)`. -/
 def Level.beq (a b : Level) : Bool := decide (a = b)
-
-/-- The `Level` twin of `Name.beq_eq_beqPtr`: `@[csimp]`, not
-`@[implemented_by]`, on a kernel-checked equality. -/
-@[csimp] theorem Level.beq_eq_beqPtr : @Level.beq = @Level.beqPtr := by
-  funext a b; exact (Level.beqPtr_eq a b).symm
 
 instance : BEq Level := ⟨Level.beq⟩
 
@@ -93,7 +143,42 @@ instance : LawfulBEq Level where
 inductive Literal where
   | natVal (n : Nat)
   | strVal (s : String)
-  deriving DecidableEq, Repr, Inhabited, Hashable
+  deriving Repr, Inhabited, Hashable
+
+/-- The specification of literal equality: the structural decision. -/
+def Literal.decEq : (a b : Literal) → Decidable (a = b)
+  | .natVal n, .natVal m =>
+    if h : n = m then isTrue (by rw [h]) else isFalse (fun e => h (Literal.natVal.inj e))
+  | .strVal s, .strVal t =>
+    if h : s = t then isTrue (by rw [h]) else isFalse (fun e => h (Literal.strVal.inj e))
+  | .natVal _, .strVal _ | .strVal _, .natVal _ => isFalse (fun e => Literal.noConfusion e)
+
+/-- Literal equality, pointer first (task #551): the `Literal` object,
+then the number or string object, then the value.  `Nat.decEq` on two
+big numbers is a GMP comparison with no pointer test (`lean_nat_eq`), so
+the value's pointer is tested here; `lean_string_eq` tests it itself.
+The hash comes before all this, one level up: an `Expr.lit` pair reaches
+the literal comparison only past the nodes' computed words, which hold
+the literal's hash (`Expr.beqMemo`, `enterBeq`).  A memo hit on a
+literal that was found again in a new node is then one pointer test,
+not a walk over the number's words. -/
+@[inline] def Literal.decEqPtr (a b : Literal) : Decidable (a = b) :=
+  withPtrEqDecEq a b fun _ =>
+    match a, b with
+    | .natVal n, .natVal m =>
+      match withPtrEqDecEq n m (fun _ => Nat.decEq n m) with
+      | isTrue h => isTrue (by rw [h])
+      | isFalse h => isFalse (fun e => h (Literal.natVal.inj e))
+    | .strVal s, .strVal t =>
+      if h : s = t then isTrue (by rw [h]) else isFalse (fun e => h (Literal.strVal.inj e))
+    | .natVal _, .strVal _ | .strVal _, .natVal _ => isFalse (fun e => Literal.noConfusion e)
+
+/-- The `Literal` twin of `Name.decEq_eq_decEqPtr`. -/
+@[csimp] theorem Literal.decEq_eq_decEqPtr : @Literal.decEq = @Literal.decEqPtr := by
+  funext a b; exact Subsingleton.elim _ _
+
+/-- Every literal equality runs `Literal.decEqPtr`. -/
+instance : DecidableEq Literal := Literal.decEq
 
 /-- Does the level mention a parameter (the official kernel's
 `level.has_param`)?  There is no interned level table here, so this is
@@ -655,7 +740,7 @@ different mechanism.
 **The specification is plain decidable equality**, `beq a b =
 decide (a = b)`, and the executed function is **proved** equal to it
 (`beqMemo_eq`) and substituted by `@[csimp]` — the same arrangement
-as `Name.beq`/`Level.beq`, with no `implemented_by` and nothing
+as `Name.decEq`/`Level.decEq`/`Literal.decEq`, with no `implemented_by` and nothing
 `unsafe` anywhere on the path.  The two runtime facts a pointer test
 rests on — an address names one immutable object, so pointer-equal
 means equal — enter only through `Init.Util`'s `withPtrEq` and
@@ -967,7 +1052,7 @@ hence definitionally the `BEq` any `DecidableEq` type has, with
 below. -/
 def beq (a b : Expr) : Bool := decide (a = b)
 
-/-- The `Expr` twin of `Name.beq_eq_beqPtr`: `@[csimp]` on a
+/-- The `Expr` twin of `Name.decEq_eq_decEqPtr`: `@[csimp]` on a
 kernel-checked equality, not `@[implemented_by]`. -/
 @[csimp] theorem beq_eq_beqMemo : @Expr.beq = @Expr.beqMemo := by
   funext a b; exact (beqMemo_eq a b).symm

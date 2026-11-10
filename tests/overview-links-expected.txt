@@ -13,8 +13,8 @@
 == ConLeche/Driver/CheckMain.lean#L37
     37    | .notImplemented _ => 2
 
-== ConLeche/Kernel/Name.lean#L207
-   207  def render (n : Name) : String :=
+== ConLeche/Kernel/Name.lean#L235
+   235  def render (n : Name) : String :=
 
 == ConLeche/MainTheorem.lean#L102-L105
    102  theorem model_exists (V : Type w) [SetTheory V]

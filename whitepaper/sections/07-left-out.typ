@@ -106,7 +106,7 @@ which is what the one-declaration-at-a-time argument of §3 and §4 needs.]
 *Free variables carry their types.* The paper uses named variables and a
 context. The real checker keeps no context at all. When it opens a binder it
 substitutes a free variable that carries its own type,
-#src("ConLeche/Kernel/Expr.lean", 315, 317)[`fvar idx type`], identified by the depth at which it was opened\; so a variable is never
+#src("ConLeche/Kernel/Expr.lean", 400, 402)[`fvar idx type`], identified by the depth at which it was opened\; so a variable is never
 looked up, the relations are indexed by the opening depth in place of a
 context, and two free variables are #src("ConLeche/Rules/Rel.lean", 371, 372)[compared by depth alone]. Stored types are closed
 terms, and `Denotes`, the relation the main theorem is stated over

@@ -46,7 +46,7 @@ No rule in this paper needs index arithmetic in its named form.
 == Levels <sec:levels>
 
 #src("whitepaper/Fragment/Level.lean", 29, 43)[Universe levels] are Lean's,
-#src("ConLeche/Kernel/Expr.lean", 39, 44)[without metavariables]:
+#src("ConLeche/Kernel/Expr.lean", 38, 43)[without metavariables]:
 
 $
   u colon.double.eq 0 | u + 1 | max(u, v) | imax(u, v) | p
