@@ -118082,6 +118082,72 @@ hash's names and passes after the allowlist change (580 reached, all allowlisted
 64530 accepted, 0 exact and 0 cosmetic mismatches, 450 867 473 080 instructions (lane pins
 450 648 056 786, +0.05 %).
 
+### Lane sync5: master's #550 (the easy cases before the memo), InLean follows (2026-11-10, task #451, agent/451-sync5)
+
+**Merge.**  `master` (f42051579: task #550, ea194eb48 and its DESIGN record) into the lane from
+agent/451-nathash (39b4f32b7), `--no-ff`.  One conflict, DESIGN.md, by hand: master's #550
+record, then the #451 lane records and the cherry-picked #547 record.  The cherry-picks of #547
+and #553 stay.  **Last synced master: f42051579** (was 49d2fa3fd).
+
+**The checklist** (`scripts/inlean-cached-diff.sh 49d2fa3fd f42051579` and `git log -p`):
+
+* `whnfCoreEasy` (new, `Cached/CoreC`) — ported: `InLean.whnfCoreEasy`, the same six kinds
+  (sort, free variable, Π-type, lambda-expression, constant, literal).  It tests the node itself:
+  an `mdata` node is not easy and goes through the memo, keyed with its wrapper, as before.
+  (`whnfCoreStepI`'s `.done e` arm reads through `mdata`; reading through it here too would add
+  a strip at every call for a node the memo answers anyway.)
+* `whnfEasy` (new) — ported: `InLean.whnfEasy` (sort, free variable, Π-type, literal).
+* `knotLevelI` — ported: `whnfCore` and `whnf` return an easy input before the memo, in both
+  `whnfCore` modes; the test also comes before InLean's poll (`pollC`, which InLean runs at every
+  body: an easy case runs no body).  InLean's free variables are never let-variables either.
+* `defeqBodyI` — listed by the script (the new definitions follow it), unchanged: nothing to port.
+* `coreKnotI_whnfCore_succ`, `coreKnotI_whnf_succ`, `Runs.whnfCore_easy`, `Runs.whnf_easy`
+  (`Verify/Cached/KnotC`) — proof-only; InLean's twins follow (below).
+
+**Proofs** (`InLeanProof/KnotAssembly.lean`).  `coreKnotI_whnfCore_succ` and
+`coreKnotI_whnf_succ` state the new slots (still `rfl`).  `whnfCoreEasy_TrS` and
+`whnfEasy_TrS`: an easy InLean term with a reading translates to an easy con-leche term (a free
+variable by `TrS_fvar`); `Runs.whnfCore_easyI` and `Runs.whnf_easyI` (in `conleche_grind`) read
+master's `Runs.whnfCore_easy`/`Runs.whnf_easy` through them.  The memo triples
+`memoEI_whnfCore_specI` and `memoEI_whnf_specI` are unchanged: `vcgen` splits the new `if` and
+`finish` closes the easy branch.  `addDeclSound` unconditional, axioms unchanged (`propext`,
+`Classical.choice`, `Quot.sound`, the three `mkData` stop-gaps); no `sorry`.
+
+**Gates.**  `lake build`, `lake test`, `lake build InLean InLeanProof inlean-replay`
+warning-free; layering, trust-surface, shake, inlean-sync (23 files), plain-reach (580, all
+allowlisted), overview links, quote gate; `_tmp/axcheck.lean` as above.  The merge touched no
+fixture.
+
+**Init** (`perf stat -e instructions:u`, one run each, InLean verified).  Replay `--compare`:
+64530 accepted, 0 exact and 0 cosmetic mismatches.  Cost: 39b4f32b7 450 643 057 698, the lane's
+head 433 040 777 371 (−3.91 %; master's #550 measured −4.44 % on init-full); con-leche at master
+f42051579 (`--olean --jobs=1`, 63937 declarations) 410 470 691 237 (InLean +5.5 %, as before).
+
+**lean4** (`joachim/inlean-kernel`, remote at c19e9cc2, an ancestor of the local head 6bec6f45).
+One commit, 81f8efe3 `perf: InLean returns whnfCore's and whnf's easy cases before the memo`
+(the regeneration, `CoreC.lean` only); `inlean-sync.py check` OK.  Stage1 rebuilt.
+
+* Stage1 suite (4845 tests): all pass but `async/elab/async_systems_info` (sandbox); every
+  `tests/elab_bench/*.lean` (93 files, `run_bench.sh`, `TEST_BENCH=1`) passes;
+  `deriving_mutual_block`'s `#mutual_block` takes 181.8 M heartbeats (two runs 181.79 / 181.86 M;
+  lane pins 179.6 M, lanes sync4 to mono 182.2 M; limit 200 M), not attributed;
+  `leanchecker --fresh Init` passes (514.3 G instructions; lane pins 536.0 G, −4.0 %), as does
+  `tests/elab/inleanQuotTwice.lean`; radar's part 2 (`make bench-part2` at stage1, stale
+  measurement files removed first, `bench/vcgen/measurements.jsonl` included) runs through, 539
+  measurements.
+* The radar outliers at `TEST_BENCH=1` (`lean -Dlinter.all=false -DElab.inServer=true`,
+  instructions:u, one run each; lane pins' runs at 6bec6f45 → the lane):
+
+  | file | 6bec6f45 | lane | |
+  |---|---:|---:|---:|
+  | `trailingZeros` | 50.48 G | 47.29 G | −6.3 % |
+  | `bitvec_zero_counts` | 45.97 G | 42.56 G | −7.4 % |
+  | `grind_field_kernel_cancel` | 79.54 G | 77.29 G | −2.8 % |
+  | `cbv_aes` | 35.17 G | 35.06 G | −0.3 % |
+  | `grind_ring_5` | 2.431 G | 2.298 G | −5.5 % |
+  | `cbv_divisors` | 57.52 G | 57.10 G | −0.7 % |
+  | `cbv_leroy` | 63.43 G | 62.40 G | −1.6 % |
+
 ## TASK #547 — a `Nat` literal's hash reads all its bits: lean4#16146 vendored (2026-11-09, agent/547-lit-hash)
 
 The bug (#543): `Literal` derived `Hashable`, so `.natVal n` hashed as `n mod 2^64` and an
