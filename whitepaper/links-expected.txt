@@ -4649,10 +4649,10 @@
    241    /-- **The K rescue** (`majorToCtor`'s K branch, `Kernel/Core.lean`;
    242    official `to_cnstr_when_K`): at a K-flagged single-rule recursor the
    243    parameters-only constructor application is fabricated from the
-   244    major's io-inferred, head-normalised type, scope-guarded,
-   245    type-checked against the major's type (official's check; it decides
-   246    whether the rescue fires), and equated to the major by proof
-   247    irrelevance.  The last four premises are the major's half of that
+   244    major's io-inferred, head-normalised type, scope-guarded, type-checked against the
+   245    major's type (official's check; it decides whether the rescue fires; its two `tf`
+   246    premises are not needed for consistency, `Red.rescueK_sound` reads neither, task #552),
+   247    and equated to the major by proof irrelevance.  The last four premises are the major's half of that
    248    `proofIrrel` run: its io type's io sort reduces to `Prop`, so the
 
 == whitepaper/Fragment/Sound.lean#L821-L835
