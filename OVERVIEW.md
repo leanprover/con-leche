@@ -752,6 +752,11 @@ presentation and matter for the proof:
   calling the loop. A reduction that does not terminate (a proof built
   from Coquand's paradox, in a position nothing lets the checker skip)
   runs until the external timeout, as in the official kernel.
+  As in the official kernel, the head-normalization memos skip the easy
+  cases: `whnfCore` returns a sort, a free variable, a Π-type, a
+  lambda-expression, a constant or a literal, and `whnf` a sort, a free
+  variable, a Π-type or a literal, before any lookup, so a computed
+  literal never becomes a memo entry.
   Binder names and binder infos are not stored at all; `Expr` carries a
   packed hash and loose-variable bounds as computed fields, which is
   what makes traversals of shared terms (DAGs) cheap. The
