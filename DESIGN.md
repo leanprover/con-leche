@@ -112772,3 +112772,25 @@ failure was the whitepaper link gate (the moved `Level`/`Expr` lines), repointed
 since.
 
 Measurement scripts and logs: `_tmp/551/scripts`, `_tmp/551/logs`.
+
+**After merging master (#550, f42051579).**  `lake build`, `lake test`, plain-reach (577) and
+binary-link pass again.  One run each, instructions:u, against master 49d2fa3fd: init-prelude
+1 567 008 615 → 1 467 845 413 (−6.33 %; #550 alone −6.16 %), grind-ring-5 13 318 174 175 →
+12 659 258 121 (−4.95 %; #550 alone −4.37 %), init-full 373 036 797 806 → 355 675 379 942
+(−4.65 %; #550 alone −4.44 %).  The two gains add up.  Verdicts unchanged.
+
+**Why a structural instance plus `@[csimp]`, and not the pointer-first decision as the only
+instance** (the maintainer's question, 2026-11-10).  Tried: `Name`, `Level` and `Literal`
+with `decEqPtr` as the instance, and `Expr` without its derived instance, its one
+`DecidableEq` being `withPtrEqDecEq`, then the computed-word test, then `beqDec`.  A plain,
+hand-written structural `Expr.decEqStruct` is kept as `ptrDec`'s logical fallback and as the
+answer on different constructors.  `Kernel/Expr.lean` builds this way and needs no lemma.  The
+proofs that decide concrete names do not: `by decide` cannot reduce the instance.  In an
+importing module `withPtrEqDecEq`'s body is hidden (`Init.Util` does not expose it), and the
+hash test stops at `mixHash`, which is opaque.  Eight such `decide`s fail in the first two
+modules that have one (`Verify/EnvWF.lean`'s natOp/reserved-name disjointness,
+`Verify/Cached/DeclPushes.lean`'s tolerated-axiom name inequalities), and their dependents
+were not built.  The tree has 582 `by decide` sites.  So the single instance is a follow-up:
+it means dropping the hash test from the instance, or not, and replacing each concrete-name
+`decide` with a proof that needs no reduction of the instance.  The attempt is in
+`_tmp/551/scratch/onlyinstance.diff`.
