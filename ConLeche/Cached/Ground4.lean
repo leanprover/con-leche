@@ -370,6 +370,11 @@ def g4CompShared (comp : G4Prog → Expr → Nat × G4Prog) (P : G4Prog) (a : Ex
     | some o => (o, P)
     | none =>
       let (ao, P) := comp P a
+      -- (never taken: compiling `a` registers only its proper subterms;
+      -- the check keeps `closedNode` growing without that proof)
+      match P.closedNode[a]? with
+      | some o => (o, P)
+      | none =>
       let o := P.code.size
       let ns := P.nslots
       let P := { P.emit (fun c => ((c.push 9).push ns).push ao) with nslots := ns + 1 }
