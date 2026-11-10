@@ -3017,6 +3017,10 @@
 # η's type comparison fails: it REJECTS what official accepts (the shape
 # of its Mathlib rejection).  Target: accept.
 0 k_skip_open_eta.ndjson
+# k_skip_closed_eta: the same at a CLOSED `funext` major (`Fin (0 + n + 1)`
+# against `Fin (n + 1)` under a binder); `.skipClosed` and `.skipAll`
+# reject what official accepts.  Target: accept.
+0 k_skip_closed_eta.ndjson
 # acc_major_reduce (task #333 audit): the one place a proof is still
 # head-normalized — the major premise of a large eliminator over a
 # non-K inductive proposition (`Acc'.rec` into `Nat` on a `def`-proved
