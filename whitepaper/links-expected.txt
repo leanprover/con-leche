@@ -1290,13 +1290,13 @@
   1066        -- Task #342 S0: ζ
   1067        r.whnfCore cheap depth (b.instantiate1 v)
 
-== ConLeche/Kernel/Core.lean#L1299-L1304
-  1299      | .letE ty v b => do
-  1300        -- Task #342 S0: official `infer_let`
-  1301        let _ ← ensureSort r env depth (← r.infer depth ty)
-  1302        unless ← r.defeq depth (← r.infer depth v) ty do
-  1303          throw (.invalid "let value type mismatch")
-  1304        r.infer depth (b.instantiate1 v)
+== ConLeche/Kernel/Core.lean#L1309-L1314
+  1309      | .letE ty v b => do
+  1310        -- Task #342 S0: official `infer_let`
+  1311        let _ ← ensureSort r env depth (← r.infer depth ty)
+  1312        unless ← r.defeq depth (← r.infer depth v) ty do
+  1313          throw (.invalid "let value type mismatch")
+  1314        r.infer depth (b.instantiate1 v)
 
 >>> whitepaper/sections/02b-model-proof.typ
 
@@ -2250,14 +2250,14 @@
    545  "reduce, then continue": `redL`.
    546  -/
 
-== ConLeche/Kernel/Core.lean#L1447-L1453
-  1447  /-- The innermost level of `defeqBinders`: the opened bodies, and for
-  1448  two λ-telescopes at the verified mode their FULL-grade types. -/
-  1449  def defeqBindersInner (r : CoreFns m) (lam : Bool) (depth : Nat) (b₁ b₂ : Expr) : m Bool := do
-  1450    unless ← r.defeq (depth + 1) b₁ b₂ do return false
-  1451    if lam && mode.verifiedChecks then
-  1452      unless ← r.defeq (depth + 1) (← r.infer (depth + 1) b₁)
-  1453          (← r.infer (depth + 1) b₂) do return false
+== ConLeche/Kernel/Core.lean#L1457-L1463
+  1457  /-- The innermost level of `defeqBinders`: the opened bodies, and for
+  1458  two λ-telescopes at the verified mode their FULL-grade types. -/
+  1459  def defeqBindersInner (r : CoreFns m) (lam : Bool) (depth : Nat) (b₁ b₂ : Expr) : m Bool := do
+  1460    unless ← r.defeq (depth + 1) b₁ b₂ do return false
+  1461    if lam && mode.verifiedChecks then
+  1462      unless ← r.defeq (depth + 1) (← r.infer (depth + 1) b₁)
+  1463          (← r.infer (depth + 1) b₂) do return false
 
 == ConLeche/Kernel/Core.lean#L523-L528
    523        -- Task #342 S0: the λ/η tax (T2)
@@ -2463,13 +2463,13 @@
    481      (hA : DefEqSem m φ Γ A₂ A₁)
    482      (hbody : DefEqSem m φ (A₁ :: Γ) b₁ (.app (b.liftN 1) (.bvar 0)))
 
-== ConLeche/Kernel/Core.lean#L1308-L1313
-  1308  /-- **The io inference body** (tasks #161, #170, #346): official's
-  1309  `infer_type_core` with `infer_only = true`.  It differs from
-  1310  `inferBody` at three clauses: an application's argument is not
-  1311  checked against the domain, a λ's domain is not checked to be a type,
-  1312  and a `let`'s type and value are not checked (the body is inferred at
-  1313  the value).  The computed types and the "function expected" rejection
+== ConLeche/Kernel/Core.lean#L1318-L1323
+  1318  /-- **The io inference body** (tasks #161, #170, #346): official's
+  1319  `infer_type_core` with `infer_only = true`.  It differs from
+  1320  `inferBody` at three clauses: an application's argument is not
+  1321  checked against the domain, a λ's domain is not checked to be a type,
+  1322  and a `let`'s type and value are not checked (the body is inferred at
+  1323  the value).  The computed types and the "function expected" rejection
 
 >>> whitepaper/sections/03-definitions.typ
 
