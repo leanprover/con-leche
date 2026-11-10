@@ -84,8 +84,42 @@ theorem span_pre' {a b : Array Nat} (hp : Pre a b) {start len : Nat} (h : start 
   rw [List.mem_range] at hj
   exact hp.2 _ (by omega)
 
+theorem FS.top_iota {fs : Array Nat} {fl : List Fr} (h : FS fs fs.size fl) (hn : 0 < fs.size)
+    (ht : fs[fs.size - 1]! &&& 15 = 3) :
+    ∃ k start len fl', fl = .iota k start len :: fl' ∧ 4 ≤ fs.size ∧ FS fs (fs.size - 4) fl' := by
+  generalize hsz : fs.size = t at h hn ht
+  cases h with
+  | nil => omega
+  | iota _ h' => exact ⟨_, _, _, _, rfl, by omega, by simpa using h'⟩
+  | arg h₀ _ | upd h₀ _ | succ h₀ _ => simp only [Nat.add_sub_cancel] at ht; rw [h₀] at ht; cases ht
+  | natA h₀ _ => simp only [show ∀ t, t + 4 - 1 = t + 3 from fun _ => rfl] at ht; rw [h₀] at ht; cases ht
+  | proj h₀ _ => simp only [show ∀ t, t + 2 - 1 = t + 1 from fun _ => rfl] at ht; rw [h₀] at ht; cases ht
+  | natB h₀ _ => simp only [show ∀ t, t + 5 - 1 = t + 4 from fun _ => rfl] at ht; rw [h₀] at ht; cases ht
+
+theorem FS.top_proj {fs : Array Nat} {fl : List Fr} (h : FS fs fs.size fl) (hn : 0 < fs.size)
+    (ht : fs[fs.size - 1]! &&& 15 = 4) :
+    ∃ pi fl', fl = .proj pi :: fl' ∧ 2 ≤ fs.size ∧ FS fs (fs.size - 2) fl' := by
+  generalize hsz : fs.size = t at h hn ht
+  cases h with
+  | nil => omega
+  | proj _ h' => exact ⟨_, _, rfl, by omega, by simpa using h'⟩
+  | arg h₀ _ | upd h₀ _ | succ h₀ _ => simp only [Nat.add_sub_cancel] at ht; rw [h₀] at ht; cases ht
+  | iota h₀ _ | natA h₀ _ => simp only [show ∀ t, t + 4 - 1 = t + 3 from fun _ => rfl] at ht
+                             rw [h₀] at ht; cases ht
+  | natB h₀ _ => simp only [show ∀ t, t + 5 - 1 = t + 4 from fun _ => rfl] at ht; rw [h₀] at ht; cases ht
+
 section
 variable {env : Env} {t₀ : Expr} {oc : Nat → Expr} {s : MS} {fl : List Fr}
+
+/-- The neutral value under frames `fl'` whose claim holds of some term. -/
+theorem MInv.neutral (h : MInv env t₀ oc s fl) {fs : Array Nat} {fl' : List Fr}
+    (hfs : FS fs fs.size fl') (hfl : ∀ f ∈ fl', f ∈ fl) {u : Expr} (hK : K env t₀ s.P s.argA oc fl' u) :
+    MInv env t₀ oc { s with fs := fs, mode := 1, pc := 0, env := 0, x := 0 } fl' := by
+  refine ⟨h.store.same rfl rfl rfl rfl rfl rfl rfl, hfs, fun f hf => h.frames f (hfl f hf), ?_⟩
+  show 0 < s.val.size / 4 ∧ ∃ t, ValDen s.P s.val s.ev s.argA oc 0 t ∧ _
+  have h0 := h.store.val0
+  refine ⟨by omega, bot, .other (by simp only [Nat.mul_zero]; omega), ?_⟩
+  exact K.step env t₀ s.P s.argA oc fl' hK (.forget .refl (.bot _))
 
 /-- The value in focus. -/
 theorem MInv.val1 (h : MInv env t₀ oc s fl) (hm : s.mode = 1) :
@@ -136,14 +170,8 @@ theorem step_arg_pop (h : MInv env t₀ oc s fl) (hm : s.mode = 1) :
   obtain ⟨-, hfs, -⟩ := FS.argsTop ca.length h.stack rfl
   rw [K.args] at hK
   rw [hca]
-  refine ⟨fl', h.store.same rfl rfl rfl rfl rfl rfl rfl, ?_,
-    fun f hf => h.frames f (List.mem_append_right _ hf), ?_⟩
-  · show FS (g4PopN s.fs ca.length) (g4PopN s.fs ca.length).size fl'
-    rw [g4PopN_size]; exact FS.popN _ (Nat.le_refl _) hfs
-  · show 0 < s.val.size / 4 ∧ ∃ t, ValDen s.P s.val s.ev s.argA oc 0 t ∧ _
-    have h0 := h.store.val0
-    refine ⟨by omega, bot, .other (by simp only [Nat.mul_zero]; omega), ?_⟩
-    exact K.step env t₀ s.P s.argA oc fl' hK (.forget .refl (.bot _))
+  refine ⟨fl', h.neutral ?_ (fun f hf => List.mem_append_right _ hf) hK⟩
+  rw [g4PopN_size]; exact FS.popN _ (Nat.le_refl _) hfs
 
 /-- **A constructor value at argument frames**: its span and the frames'
 cells are copied into one new span, the frames popped (a stutter). -/
@@ -209,6 +237,37 @@ theorem step_arg_ctor (h : MInv env t₀ oc s fl) (hm : s.mode = 1) (h1 : s.val[
     rw [hv1, hv2, hv3, hspan, ← K.args, List.map_append, List.append_assoc, K.args]
     refine K.grow env t₀ oc (ExtR.refl _) hpre _ (fun f hf => h.frames f hf) ?_
     rw [K.args] at hK ⊢; exact hK
+
+/-- **A value the ι frame does not reduce on** (a neutral major at a
+recursor that needs no rescue, any other value): the frame is popped and the
+focus is the neutral (`forget`). -/
+theorem step_iota_pop (h : MInv env t₀ oc s fl) (hm : s.mode = 1) (hn : 0 < s.fs.size)
+    (ht : s.fs[s.fs.size - 1]! &&& 15 = 3) :
+    ∃ fl', MInv env t₀ oc { s with fs := g4PopN s.fs 4, mode := 1, pc := 0, env := 0, x := 0 } fl' := by
+  obtain ⟨-, t, -, hK⟩ := h.val1 hm
+  obtain ⟨k, start, len, fl', rfl, h4, hfs⟩ := FS.top_iota h.stack hn ht
+  refine ⟨fl', h.neutral ?_ (fun f hf => List.mem_cons_of_mem _ hf) hK.2⟩
+  rw [g4PopN_size]; exact FS.popN 4 (Nat.le_refl _) hfs
+
+/-- **A value the projection frame does not reduce on** (no projection
+table, any value other than a constructor or a string): the frame is popped
+and the focus is the neutral (`forget`). -/
+theorem step_proj_pop (h : MInv env t₀ oc s fl) (hm : s.mode = 1) (hn : 0 < s.fs.size)
+    (ht : s.fs[s.fs.size - 1]! &&& 15 = 4) :
+    ∃ fl', MInv env t₀ oc { s with fs := s.fs.pop.pop, mode := 1, pc := 0, env := 0, x := 0 } fl' := by
+  obtain ⟨-, t, -, hK⟩ := h.val1 hm
+  obtain ⟨pi, fl', rfl, h2, hfs⟩ := FS.top_proj h.stack hn ht
+  have hfs' : FS s.fs.pop.pop s.fs.pop.pop.size fl' := by
+    show FS (g4PopN s.fs 2) (g4PopN s.fs 2).size fl'
+    rw [g4PopN_size]; exact FS.popN 2 (Nat.le_refl _) hfs
+  have hfl : ∀ f ∈ fl', f ∈ Fr.proj pi :: fl' := fun f hf => List.mem_cons_of_mem _ hf
+  simp only [K] at hK
+  cases pi with
+  | zero => exact ⟨fl', h.neutral hfs' hfl hK⟩
+  | succ q =>
+    cases hq : s.P.projs[q]? with
+    | none => simp only [hq] at hK; exact ⟨fl', h.neutral hfs' hfl hK⟩
+    | some pj => simp only [hq] at hK; exact ⟨fl', h.neutral hfs' hfl hK⟩
 
 end
 
