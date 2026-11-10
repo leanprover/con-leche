@@ -272,6 +272,13 @@ theorem Den.inv9 {P : G4Prog} {o : Nat} {s : Expr} (h : Den P o s) (h0 : P.code[
   | shared _ h₁ h₂ _ ha hc => exact ⟨_, _, h₁, h₂, ha, hc⟩
   | _ => simp_all
 
+/-- A node's tag is one of `g4Comp`'s ten: the run loop's catch-all at mode 0
+is the neutral node (tag `8`). -/
+theorem Den.tag_le {P : G4Prog} {o : Nat} {s : Expr} (h : Den P o s) : P.code[o]! ≤ 9 :=
+  match h with
+  | .bvar h₀ _ | .spine h₀ .. | .lam h₀ .. | .letE h₀ .. | .const h₀ .. | .natLit h₀ _
+  | .strLit h₀ .. | .proj h₀ .. | .neutral h₀ | .shared h₀ .. => by rw [get!_of_some h₀]; decide
+
 /-! ## Mode 0 -/
 
 section
