@@ -112576,3 +112576,98 @@ deleted modules' lines out, `Laws`/`Denote/Install`'s `EnvGuards` import recorde
 compensation; `BlockConsFind`'s public `BlockInstall` import a measured model exception in
 `scripts/pub-import-plan.py`), trust surface, the link, quote and whitepaper gates; OVERVIEW's
 `IndCaps` row says `eta` alone and the table's reading).
+
+## TASK #550 — `whnfCore` and `whnf` return the official easy cases before the memo (2026-11-10, agent/550-easy-skip)
+
+Proposal P1 of task #549, ruled "a clear win in general".  (Note: `modular` already has a
+commit titled "Task #550" for a scheduler change, 190aa5b83; the two are unrelated.)
+
+**What changed.**  The knot's `whnfCore` and `whnf` slots (`knotLevelI`,
+`ConLeche/Cached/CoreC.lean`) test the input's kind before the memo, as the official kernel
+(v4.35.0 `type_checker.cpp`) does:
+
+* `whnfCoreEasy`: a sort, a free variable, a Π-type, a lambda-expression, a constant or a
+  literal (official `whnf_core`, 472–489, before the lookup at 490).  These are exactly `whnfCoreStepI`'s `.done e` arm.
+* `whnfEasy`: a sort, a free variable, a Π-type or a literal (official `whnf`, 707–723, before the lookup at 724).  A
+  constant and a lambda-expression still go through the memo, as in official.
+
+An easy input is returned at once: no lookup, no insert, in both `whnfCore` modes (official
+returns the easy cases before the lookup whatever the cheap flags).  Free variables: official
+skips only a non-let free variable; con-leche's free variables are never let-variables (lets are
+ζ-reduced by instantiation), so every one is easy.  A bound variable is not easy: it is outside
+the supported fragment and still reaches the body's error.
+
+**Reduction order.**  Unchanged: each skipped input was answered with itself by the memo or by
+the body (`whnfCoreBody`'s value arms; `whnf` of a sort, free variable, Π-type or literal
+head-normalizes to itself, is no literal operation and does not unfold).  One difference to
+official stays, in cost only: official `whnf` returns a `reduce_nat` result at once (733); our
+loop continues with the literal for one more step (`whnfStepI`'s `k e₂`).  That step is now cheap:
+`whnfCore` returns the literal before its memo, `reduceNatI` and `unfoldDefinitionI` answer
+`none` at the head.
+
+**Proofs** (`ConLeche/Verify/Cached/KnotC.lean`).  `coreKnotI_whnfCore_succ` and
+`coreKnotI_whnf_succ` state the new slots (still `rfl`).  Two facts about the pure side join
+`conleche_grind`: `Runs.whnfCore_easy` (fuel 1: `whnfCoreBody`'s value arm) and
+`Runs.whnf_easy` (fuel 2: one `whnfStep`, with `whnfLoopFuel_succ`).  The memo triples
+`memoEI_whnfCore_spec` and `memoEI_whnf_spec` are unchanged: `vcgen` splits the new `if` and
+`finish` closes the easy branch with these facts and the input's scope.  `coreKnotI_congr`
+(`KnotCongr.lean`) is unchanged.  No other proof moved.
+
+**The cheap-mode memo (`whnfCoreCheapC`).**  Official `whnf_core` in cheap mode *reads* the full
+cache `m_whnf_core` and writes nothing (547–548: only `!cheap_rec && !cheap_proj` inserts).  So a
+cheap call can return a full-mode answer, which is more reduced on a stuck projection whose
+scrutinee needs δ.  Con-leche keeps cheap answers in their own memo, read and written only by
+cheap calls, so a cheap call always returns the cheap `whnfCoreBody` answer, which the pure
+specification states.  Neither alignment is the same rule:
+* reading `whnfCoreC` in cheap mode changes results; the specification of cheap `whnfCore`
+  would have to allow either answer;
+* dropping `whnfCoreCheapC` (official's "no write") also drops a read official does have (of
+  full answers), so it is a different cost profile, not official's.
+Not changed.  Task #549's probe saw at most 104 cheap lookups on ck318; a probe on CCK4 and
+init-full would tell whether dropping it is worth a ruling.
+
+**Measurements.**  `perf stat -e instructions:u,cycles:u`; instructions from round 1 (they
+agree across rounds within 0.03 %, app-lam's lane 0.34 %); cycles the median of 3 runs (the
+machine is loaded; three lanes were measuring CFSG at the same time).  Each run waited for the
+session's anonymous memory to be below 20 GiB.  All verdicts unchanged (exit 0 everywhere).
+Binaries: master 49d2fa3fd ("base") and the lane; the four Mathlib workers, CCK4 and McLEnumA
+need `--module`, which master does not have, so they ran on `modular` f5bd306b6 and on
+`modular` with this commit cherry-picked (it applies cleanly).  `modular` has the #547 literal
+hash.  ck318 ran on master as is (the low-bits literal hash) and with the hash fix `cf2bda002`
+cherry-picked onto both ("+hash").  ck318 is net of the `--constant=CFSG.KD.F24S.CK` run of the
+same binary (as #543); its cycles are the difference of the medians.
+
+| stream | G instructions before | after | Δ | G cycles before | after |
+|---|---|---|---|---|---|
+| init-prelude (`--jobs=8`) | 1.567 | 1.471 | −6.16 % | 0.91 | 0.85 |
+| grind-ring-5 | 13.325 | 12.743 | −4.37 % | 7.72 | 7.40 |
+| app-lam | 22.072 | 22.072 | −0.00 % | 11.94 | 11.95 |
+| let-ladder | 2.594 | 2.596 | +0.08 % | 0.75 | 0.74 |
+| beta-ladder | 4.869 | 4.863 | −0.11 % | 1.56 | 1.53 |
+| init-full (`--jobs=1`) | 373.194 | 356.621 | −4.44 % | 164.0 | 164.4 |
+| Init.Data.Nat.Lemmas (`modular`, `--olean --module --jobs=8`) | 9.096 | 8.742 | −3.90 % | 4.63 | 4.41 |
+| Mathlib.GroupTheory.Coxeter.Basic | 6.896 | 6.828 | −0.99 % | 3.20 | 3.02 |
+| Mathlib.Analysis.SpecialFunctions.Gamma.Basic | 11.783 | 11.736 | −0.40 % | 5.61 | 5.35 |
+| Mathlib.RingTheory.WittVector.MulP | 6.363 | 6.356 | −0.10 % | 2.77 | 2.68 |
+| ck318 net, master (low-bits hash) | 336.468 | 64.178 | −80.9 % | 224.4 | 26.1 |
+| ck318 net, +hash | 82.486 | 80.730 | −2.13 % | 32.4 | 31.4 |
+| CCK4 (`modular`, `--olean --module --jobs=1`) | 219.467 | 205.512 | −6.36 % | 144.6 | 123.1 |
+| McLEnumA (`modular`, same) | 3 726.6 | 3 538.4 | −5.05 % | 2 553 | 2 486 |
+
+* No regression above 1 %.  let-ladder's +0.08 % is within its own run-to-run spread (0.11 %
+  on the base).  init-full's cycles do not follow its instructions here (min 159.0 → 150.5 G):
+  load noise.
+* The figures reproduce #549's prototype: ck318 net 336.5 / 64.2 / 82.5 / 80.7 G (#549:
+  336.0 / 64.2 / 82.5 / 80.7), CCK4 219.5 → 205.5 G (#549: 205.6).
+* With the change, master's low-bits hash is enough for C20 (64.2 G, against 80.7 G with the
+  full hash, which hashes every word of each computed literal): the bare literals that collided
+  are no longer keys.  CCK4 still needs the full hash (#549: literal-argument keys collide).
+* The gain is general, not only on literals: init-prelude, grind-ring-5 and init-full save
+  4–6 %, the lookups and inserts of constants, sorts, Π-types and lambda-expressions.  app-lam,
+  let-ladder and beta-ladder have few easy-case calls.
+
+Logs: `_tmp/550/logs/v2/` (the battery `_tmp/550/scripts/v2.sh`).
+
+Gates: `lake build`, `lake test` warning-free; `tests/arena.sh` in full (under the guard);
+layering, shake, trust surface, plain-reach (577, all allowlisted), binary-link, links and
+quotes.  The commit also builds on `modular` (`lake build`, warning-free).
