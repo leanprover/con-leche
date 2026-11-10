@@ -35,7 +35,7 @@ stored at most once.
 
 *Constants.* The grammar of @sec:terms gains one form: a #src("whitepaper/Fragment/Syntax.lean", 35, 36)[constant $c$]
 of the environment, used at a list of levels $arrow(ell)$,
-#src("ConLeche/Kernel/Expr.lean", 315, 325)[one per level parameter] of its declaration.
+#src("ConLeche/Kernel/Expr.lean", 400, 410)[one per level parameter] of its declaration.
 
 $
   e & colon.double.eq dots | c.\{arrow(ell)\}

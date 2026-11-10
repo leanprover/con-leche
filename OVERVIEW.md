@@ -133,7 +133,7 @@ covered exactly as a run without it, and so is a run on the pool.
 
 Every name and raw string these messages print comes from the input,
 so it is printed through one rendering
-([`Name.render` in `ConLeche/Kernel/Name.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/Name.lean#L207)).
+([`Name.render` in `ConLeche/Kernel/Name.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/Name.lean#L235)).
 A name component that is an identifier prints bare, as in Lean
 (`Nat.add_comm`, `α₁.ℕ`); any other is wrapped in `«…»` (`x.«3»`,
 `«a.b»`), with `\` doubled and with `»` and every control, format and
@@ -752,6 +752,11 @@ presentation and matter for the proof:
   calling the loop. A reduction that does not terminate (a proof built
   from Coquand's paradox, in a position nothing lets the checker skip)
   runs until the external timeout, as in the official kernel.
+  As in the official kernel, the head-normalization memos skip the easy
+  cases: `whnfCore` returns a sort, a free variable, a Π-type, a
+  lambda-expression, a constant or a literal, and `whnf` a sort, a free
+  variable, a Π-type or a literal, before any lookup, so a computed
+  literal never becomes a memo entry.
   Binder names and binder infos are not stored at all; `Expr` carries a
   packed hash and loose-variable bounds as computed fields, which is
   what makes traversals of shared terms (DAGs) cheap. The

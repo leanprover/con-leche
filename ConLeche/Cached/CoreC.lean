@@ -1624,6 +1624,24 @@ def defeqBodyI (eager : Bool) (r : CoreFnsI) (fe : FEnv) : Nat → Expr → Expr
 
 /-! ## The memoized knot -/
 
+/-- **`whnfCore`'s easy cases** (official `whnf_core`, "handle easy
+cases"): the kinds that are their own head normal form
+(`whnfCoreStepI`'s `.done e` arm).  The knot returns them before the
+memo: no lookup, no insert.  A free variable is never a let-variable
+here (lets are ζ-reduced by instantiation), so it is easy, as
+official's non-let `FVar`. -/
+@[inline] def whnfCoreEasy : Expr → Bool
+  | .sort _ | .fvar .. | .forallE .. | .lam .. | .const .. | .lit _ => true
+  | _ => false
+
+/-- **`whnf`'s easy cases** (official `whnf`, "Do not cache easy
+cases"): sorts, free variables, Π-types and literals, which neither
+head-normalize, reduce as literals nor unfold.  A constant or a
+lambda-expression still goes through the memo, as in official `whnf`. -/
+@[inline] def whnfEasy : Expr → Bool
+  | .sort _ | .fvar .. | .forallE .. | .lit _ => true
+  | _ => false
+
 /-- Memoize a unary entry point under its node (`O(1)` key).
 
 `@[inline]`: after
@@ -1687,17 +1705,24 @@ tower's level below (`prevE`). -/
   -- enum passed down once per *driver* — nothing is built per knot
   -- level or per call (at B2 a record allocation at every
   -- head-normalization entry cost +0.155 % on `init-prelude`).
-  -- The two modes of `whnfCore` (official `cheap_proj`) under two
+  -- The easy cases (`whnfCoreEasy`, `whnfEasy`) return before the memo,
+  -- in both modes, as official: each computed literal would otherwise
+  -- become a `lit ↦ lit` entry (task #549: 14.5 GB of keys on CFSG's
+  -- C20).  The two modes of `whnfCore` (official `cheap_proj`) under two
   -- memos: their results differ on a stuck projection.
-  { whnfCore := fun c => if c then
+  { whnfCore := fun c d e =>
+      if whnfCoreEasy e then pure e
+      else if c then
         memoEI (·.whnfCoreCheapC)
           (fun st mp => { st with whnfCoreCheapC := mp })
-          (fun d e => whnfCoreBodyI mode (prev ()) fe true d e)
+          (fun d e => whnfCoreBodyI mode (prev ()) fe true d e) d e
       else memoEI (·.whnfCoreC)
         (fun st mp => { st with whnfCoreC := mp })
-        (fun d e => whnfCoreBodyI mode (prev ()) fe false d e)
-    whnf := memoEI (·.whnfC) (fun st mp => { st with whnfC := mp })
-      (fun d e => whnfBodyI (prev ()) fe d e)
+        (fun d e => whnfCoreBodyI mode (prev ()) fe false d e) d e
+    whnf := fun d e =>
+      if whnfEasy e then pure e
+      else memoEI (·.whnfC) (fun st mp => { st with whnfC := mp })
+        (fun d e => whnfBodyI (prev ()) fe d e) d e
     infer := memoEI (·.inferC) (fun st mp => { st with inferC := mp })
       (fun d e => inferBodyI (prev ()) fe d e)
     defeq := memoBI

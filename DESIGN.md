@@ -112577,6 +112577,224 @@ compensation; `BlockConsFind`'s public `BlockInstall` import a measured model ex
 `scripts/pub-import-plan.py`), trust surface, the link, quote and whitepaper gates; OVERVIEW's
 `IndCaps` row says `eta` alone and the table's reading).
 
+## TASK #550 — `whnfCore` and `whnf` return the official easy cases before the memo (2026-11-10, agent/550-easy-skip)
+
+Proposal P1 of task #549, ruled "a clear win in general".  (Note: `modular` already has a
+commit titled "Task #550" for a scheduler change, 190aa5b83; the two are unrelated.)
+
+**What changed.**  The knot's `whnfCore` and `whnf` slots (`knotLevelI`,
+`ConLeche/Cached/CoreC.lean`) test the input's kind before the memo, as the official kernel
+(v4.35.0 `type_checker.cpp`) does:
+
+* `whnfCoreEasy`: a sort, a free variable, a Π-type, a lambda-expression, a constant or a
+  literal (official `whnf_core`, 472–489, before the lookup at 490).  These are exactly `whnfCoreStepI`'s `.done e` arm.
+* `whnfEasy`: a sort, a free variable, a Π-type or a literal (official `whnf`, 707–723, before the lookup at 724).  A
+  constant and a lambda-expression still go through the memo, as in official.
+
+An easy input is returned at once: no lookup, no insert, in both `whnfCore` modes (official
+returns the easy cases before the lookup whatever the cheap flags).  Free variables: official
+skips only a non-let free variable; con-leche's free variables are never let-variables (lets are
+ζ-reduced by instantiation), so every one is easy.  A bound variable is not easy: it is outside
+the supported fragment and still reaches the body's error.
+
+**Reduction order.**  Unchanged: each skipped input was answered with itself by the memo or by
+the body (`whnfCoreBody`'s value arms; `whnf` of a sort, free variable, Π-type or literal
+head-normalizes to itself, is no literal operation and does not unfold).  One difference to
+official stays, in cost only: official `whnf` returns a `reduce_nat` result at once (733); our
+loop continues with the literal for one more step (`whnfStepI`'s `k e₂`).  That step is now cheap:
+`whnfCore` returns the literal before its memo, `reduceNatI` and `unfoldDefinitionI` answer
+`none` at the head.
+
+**Proofs** (`ConLeche/Verify/Cached/KnotC.lean`).  `coreKnotI_whnfCore_succ` and
+`coreKnotI_whnf_succ` state the new slots (still `rfl`).  Two facts about the pure side join
+`conleche_grind`: `Runs.whnfCore_easy` (fuel 1: `whnfCoreBody`'s value arm) and
+`Runs.whnf_easy` (fuel 2: one `whnfStep`, with `whnfLoopFuel_succ`).  The memo triples
+`memoEI_whnfCore_spec` and `memoEI_whnf_spec` are unchanged: `vcgen` splits the new `if` and
+`finish` closes the easy branch with these facts and the input's scope.  `coreKnotI_congr`
+(`KnotCongr.lean`) is unchanged.  No other proof moved.
+
+**The cheap-mode memo (`whnfCoreCheapC`).**  Official `whnf_core` in cheap mode *reads* the full
+cache `m_whnf_core` and writes nothing (547–548: only `!cheap_rec && !cheap_proj` inserts).  So a
+cheap call can return a full-mode answer, which is more reduced on a stuck projection whose
+scrutinee needs δ.  Con-leche keeps cheap answers in their own memo, read and written only by
+cheap calls, so a cheap call always returns the cheap `whnfCoreBody` answer, which the pure
+specification states.  Neither alignment is the same rule:
+* reading `whnfCoreC` in cheap mode changes results; the specification of cheap `whnfCore`
+  would have to allow either answer;
+* dropping `whnfCoreCheapC` (official's "no write") also drops a read official does have (of
+  full answers), so it is a different cost profile, not official's.
+Not changed.  Task #549's probe saw at most 104 cheap lookups on ck318; a probe on CCK4 and
+init-full would tell whether dropping it is worth a ruling.
+
+**Measurements.**  `perf stat -e instructions:u,cycles:u`; instructions from round 1 (they
+agree across rounds within 0.03 %, app-lam's lane 0.34 %); cycles the median of 3 runs (the
+machine is loaded; three lanes were measuring CFSG at the same time).  Each run waited for the
+session's anonymous memory to be below 20 GiB.  All verdicts unchanged (exit 0 everywhere).
+Binaries: master 49d2fa3fd ("base") and the lane; the four Mathlib workers, CCK4 and McLEnumA
+need `--module`, which master does not have, so they ran on `modular` f5bd306b6 and on
+`modular` with this commit cherry-picked (it applies cleanly).  `modular` has the #547 literal
+hash.  ck318 ran on master as is (the low-bits literal hash) and with the hash fix `cf2bda002`
+cherry-picked onto both ("+hash").  ck318 is net of the `--constant=CFSG.KD.F24S.CK` run of the
+same binary (as #543); its cycles are the difference of the medians.
+
+| stream | G instructions before | after | Δ | G cycles before | after |
+|---|---|---|---|---|---|
+| init-prelude (`--jobs=8`) | 1.567 | 1.471 | −6.16 % | 0.91 | 0.85 |
+| grind-ring-5 | 13.325 | 12.743 | −4.37 % | 7.72 | 7.40 |
+| app-lam | 22.072 | 22.072 | −0.00 % | 11.94 | 11.95 |
+| let-ladder | 2.594 | 2.596 | +0.08 % | 0.75 | 0.74 |
+| beta-ladder | 4.869 | 4.863 | −0.11 % | 1.56 | 1.53 |
+| init-full (`--jobs=1`) | 373.194 | 356.621 | −4.44 % | 164.0 | 164.4 |
+| Init.Data.Nat.Lemmas (`modular`, `--olean --module --jobs=8`) | 9.096 | 8.742 | −3.90 % | 4.63 | 4.41 |
+| Mathlib.GroupTheory.Coxeter.Basic | 6.896 | 6.828 | −0.99 % | 3.20 | 3.02 |
+| Mathlib.Analysis.SpecialFunctions.Gamma.Basic | 11.783 | 11.736 | −0.40 % | 5.61 | 5.35 |
+| Mathlib.RingTheory.WittVector.MulP | 6.363 | 6.356 | −0.10 % | 2.77 | 2.68 |
+| ck318 net, master (low-bits hash) | 336.468 | 64.178 | −80.9 % | 224.4 | 26.1 |
+| ck318 net, +hash | 82.486 | 80.730 | −2.13 % | 32.4 | 31.4 |
+| CCK4 (`modular`, `--olean --module --jobs=1`) | 219.467 | 205.512 | −6.36 % | 144.6 | 123.1 |
+| McLEnumA (`modular`, same) | 3 726.6 | 3 538.4 | −5.05 % | 2 553 | 2 486 |
+
+* No regression above 1 %.  let-ladder's +0.08 % is within its own run-to-run spread (0.11 %
+  on the base).  init-full's cycles do not follow its instructions here (min 159.0 → 150.5 G):
+  load noise.
+* The figures reproduce #549's prototype: ck318 net 336.5 / 64.2 / 82.5 / 80.7 G (#549:
+  336.0 / 64.2 / 82.5 / 80.7), CCK4 219.5 → 205.5 G (#549: 205.6).
+* With the change, master's low-bits hash is enough for C20 (64.2 G, against 80.7 G with the
+  full hash, which hashes every word of each computed literal): the bare literals that collided
+  are no longer keys.  CCK4 still needs the full hash (#549: literal-argument keys collide).
+* The gain is general, not only on literals: init-prelude, grind-ring-5 and init-full save
+  4–6 %, the lookups and inserts of constants, sorts, Π-types and lambda-expressions.  app-lam,
+  let-ladder and beta-ladder have few easy-case calls.
+
+Logs: `_tmp/550/logs/v2/` (the battery `_tmp/550/scripts/v2.sh`).
+
+Gates: `lake build`, `lake test` warning-free; `tests/arena.sh` in full (under the guard);
+layering, shake, trust surface, plain-reach (577, all allowlisted), binary-link, links and
+quotes.  The commit also builds on `modular` (`lake build`, warning-free).
+
+## TASK #551 — name, level and literal equality pointer first at every level (2026-11-10, agent/551-ptr-eq)
+
+DESIGN #549's proposal P2, as the maintainer ruled it: `Name` equality on executed paths tests
+the pointer, then the cached hash, then the structure; literal equality tests the pointer
+before GMP; no derived `DecidableEq` on these executed paths.
+
+**What was there.**  `Name.beqPtr` (pointer, hash, then `decide (a = b)`) was `@[csimp]`'s
+replacement for `Name.beq`, so `==` was guarded at the top, but the guarded call was the derived
+structural `DecidableEq Name`, which recursed with no guard.  And every `=` in an `if` went to
+the derived instance without any guard: the Nat-operation dispatch (`reduceNatI`'s fourteen
+`cn = natAddName ∨ …`, `natOpResult`'s chain), `Name` fields in derived instances of other
+types.  On CCK4 the derived `instDecidableEqName.decEq` and its `memcmp` took 12.7 % of the
+check phase (#549).  `Level` had the same shape (`Level.beqPtr`).  `Literal` derived
+`DecidableEq`; `lean_nat_dec_eq` on two big numbers is `mpz_cmp`, no pointer test, so a memo hit
+on a literal found again in a new node compared the whole number.
+
+**What is there now** (`ConLeche/Kernel/Name.lean`, `ConLeche/Kernel/Expr.lean`).  For each of
+`Name`, `Level`, `Literal`:
+* `T.decEq`: the structural decision, written out (the instance: what the kernel, `by decide` and
+  `#guard` reduce).  No `deriving DecidableEq`.
+* `T.decEqPtr`: what runs.  `withPtrEqDecEq` on the two objects; for `Name` and `Level`, the cached
+  hash (`hashData`); then one structural step, whose children start over at `decEqPtr`.  So a
+  prefix shared by reference costs one pointer test at any depth, and two different names almost
+  always differ in hash at the top, as in `lean_name_eq`.  A `Name.num` component and a `.natVal`
+  literal test the number's pointer (`withPtrEqDecEq n m (fun _ => Nat.decEq n m)`) before GMP.
+  Strings need no wrapper: `lean_string_eq` tests `s1 == s2` itself.  A literal has no hash
+  test of its own: `Expr.beqMemo` and `enterBeq` compare the nodes' computed words, which carry
+  the literal's hash, before the `.lit` arm is reached.
+* `@[csimp] T.decEq_eq_decEqPtr : @T.decEq = @T.decEqPtr`, proved by `funext; Subsingleton.elim`:
+  both sides decide the same proposition.  No `import all` is needed for this (the old
+  `Name.beqPtr_eq` needed `withPtrEq`'s body); `Name.lean` drops its `import all Init.Util`.
+  `Expr.lean` keeps its own for `beqMemo_eq`.
+* `Name.beq`/`Level.beq` stay `decide (a = b)` with their lawful `BEq`.  `beqPtr`, `beqPtr_eq`
+  and `beq_eq_beqPtr` are gone: `==` reaches `decEqPtr` through the instance.
+
+The generated C bears this out: `instDecidableEqName` is one call to `Name_decEqPtr`, which
+takes both names borrowed (no reference counting), and `Expr.beqGoX`'s `.const` and `.proj` arms
+call `Name_decEqPtr`, the `.sort` arm and the level lists call `Level_decEqPtr`, and the `.lit` arm
+calls the pointer-first `instDecidableEqLiteral`.  The derived `DecidableEq Expr` is still there.
+It runs only where `beqGoX`'s arms already disagree on the constructor, and in `ptrDec`'s
+pure-model fallback, which compiled code never reaches.  So it is not on a memo-key path.
+
+No proof changed.  `plain-reach`'s allowlist trades `Name.beqPtr` and the three derived
+`….decEq` for `Name.decEqPtr`, `Level.decEqPtr`, `instDecidableEqLiteral` and `Name.beq` (now
+compiled itself, no longer replaced).  `OVERVIEW.md`'s `Name.render` link and three whitepaper
+`#src` ranges are repointed: the lines moved.
+
+**Orthogonal to #550**: only the equality functions changed, no memo control flow.
+
+### Measurements
+
+`perf stat -e instructions:u,cycles:u`, three runs each, one at a time, under the guard and
+`timeout`.  The instruction column is the first run (the three agree to within 0.1 %; `app-lam`
+at `--jobs=8` varies by 0.3 % from run to run).  Cycles are the three runs, in G; the
+machine was loaded, other lanes ran CFSG modules at the same time, so cycles are only a rough
+guide.  Arena perf streams `--jobs=8` and `init-full` `--jobs=1`: master 49d2fa3fd against the
+lane.  Master has no `--module` and no #547 hash, so the Mathlib workers (`_tmp/501/measure.sh`'s
+four modules, `--olean --module --jobs=8`) and CFSG (closure `_tmp/543/olean`, `--jobs=1`, as
+#549) ran on `modular` 549c0937f (#549's base) against 549c0937f with this lane's commit
+cherry-picked (one conflict, the `Literal` block next to #547's hash; resolved keeping both).
+Every run accepts the same count as its base.
+
+| run | base instructions | lane instructions | Δ | base G cycles | lane G cycles |
+|---|---|---|---|---|---|
+| `init-prelude` | 1 567 008 615 | 1 563 846 995 | −0.20 % | 1.4 / 1.4 / 1.3 | 1.1 / 1.0 / 1.0 |
+| `grind-ring-5` | 13 318 174 175 | 13 243 407 671 | −0.56 % | 14.4 / 13.9 / 14.2 | 8.3 / 7.8 / 7.9 |
+| `app-lam` | 22 041 695 999 | 22 071 067 665 | +0.13 % | 16.4 / 15.8 / 16.1 | 11.7 / 12.1 / 12.1 |
+| `let-ladder` | 2 594 251 151 | 2 594 066 822 | −0.01 % | 1.2 / 1.2 / 1.2 | 0.8 / 0.9 / 0.8 |
+| `beta-ladder` | 4 868 788 580 | 4 857 297 714 | −0.24 % | 2.2 / 2.2 / 2.2 | 1.5 / 1.6 / 1.6 |
+| `init-full` | 373 036 797 806 | 372 358 085 321 | −0.18 % | 243.6 / 184.2 / 170.0 | 172.7 / 173.7 / 170.4 |
+| `Init.Data.Nat.Lemmas` | 9 095 902 805 | 9 022 839 731 | −0.80 % | 4.4 / 5.0 / 4.6 | 6.1 / 6.3 / 6.0 |
+| `Mathlib.GroupTheory.Coxeter.Basic` | 6 896 417 449 | 6 878 029 331 | −0.27 % | 3.2 / 3.1 / 3.3 | 3.7 / 4.3 / 3.9 |
+| `Mathlib.Analysis.SpecialFunctions.Gamma.Basic` | 11 782 328 353 | 11 758 679 168 | −0.20 % | 6.0 / 7.4 / 6.8 | 6.3 / 6.3 / 5.8 |
+| `Mathlib.RingTheory.WittVector.MulP` | 6 364 914 727 | 6 356 466 604 | −0.13 % | 3.7 / 3.5 / 3.7 | 3.0 / 2.8 / 2.6 |
+| CFSG `--constant=CK` | 225 298 209 852 | 225 005 677 417 | −0.13 % | 56.3 / 56.4 / 56.5 | 55.5 / 56.1 / 56.0 |
+| CFSG `--constant=ck318` | 307 660 450 946 | 307 100 202 476 | −0.18 % | 89.0 / 143.0 / 110.8 | 92.0 / 91.5 / 90.0 |
+| ck318 net (ck318 − CK) | 82 362 241 094 | 82 094 525 059 | −0.33 % | | |
+| CCK4 (module) | 219 467 884 527 | 206 529 063 816 | −5.90 % | 148.1 / 164.1 / 155.3 | 157.4 / 141.8 / 147.6 |
+| McLEnumA (module), one run each | 3 726 846 630 371 | 3 434 189 376 846 | −7.85 % | 2 573.8 | 2 518.3 |
+
+* **CCK4 −12.9 G (−5.9 %)**, which is the #549 prototype's figure (−12.9 G): the name dispatch.
+* **McLEnumA −293 G (−7.9 %)**: #549 put "name comparisons of equal names" at 4.9 % of its
+  profile, and the environment lookups (`FBase.find?`) walk names on every hit.  One run per
+  binary: a run is 15–20 minutes and holds the machine.
+* **ck318 −0.27 G net.**  The equal literals `whnfC` compared on ck318 (#549's probe: 2.5 GB)
+  were not mostly the same number object: the pointer test spares few of them.  The comparison is
+  a memory-bound `mpz_cmp`, so it costs few instructions.  The cycles cannot be read here.
+* Nothing regresses beyond noise: `app-lam` +0.13 % is inside its own run-to-run spread
+  (22.006–22.073 G for the base).  No regression above 1 %.
+
+Gates: `lake build` (799 jobs) and `lake test` warning-free; `tests/arena.sh` in full under the
+guard (layering, pindump, trust surface 11 escapes in 6 allowlisted files, overview links,
+whitepaper fragment, quote gate, no-local-paths, challenge, shake 662/662 allowlisted and no
+public import demotable, plain-reach 577 all allowlisted, binary-link, olean gate 122/122,
+self-check 53 950 declarations, axioms pinned at 32 theorems over the three standard ones, arena
+tutorial 90/92, e2e 585/585, the trusted and `--jobs` sweeps without divergence).  Its one
+failure was the whitepaper link gate (the moved `Level`/`Expr` lines), repointed and green
+since.
+
+Measurement scripts and logs: `_tmp/551/scripts`, `_tmp/551/logs`.
+
+**After merging master (#550, f42051579).**  `lake build`, `lake test`, plain-reach (577) and
+binary-link pass again.  One run each, instructions:u, against master 49d2fa3fd: init-prelude
+1 567 008 615 → 1 467 845 413 (−6.33 %; #550 alone −6.16 %), grind-ring-5 13 318 174 175 →
+12 659 258 121 (−4.95 %; #550 alone −4.37 %), init-full 373 036 797 806 → 355 675 379 942
+(−4.65 %; #550 alone −4.44 %).  The two gains add up.  Verdicts unchanged.
+
+**Why a structural instance plus `@[csimp]`, and not the pointer-first decision as the only
+instance** (the maintainer's question, 2026-11-10).  Tried: `Name`, `Level` and `Literal`
+with `decEqPtr` as the instance, and `Expr` without its derived instance, its one
+`DecidableEq` being `withPtrEqDecEq`, then the computed-word test, then `beqDec`.  A plain,
+hand-written structural `Expr.decEqStruct` is kept as `ptrDec`'s logical fallback and as the
+answer on different constructors.  `Kernel/Expr.lean` builds this way and needs no lemma.  The
+proofs that decide concrete names do not: `by decide` cannot reduce the instance.  In an
+importing module `withPtrEqDecEq`'s body is hidden (`Init.Util` does not expose it), and the
+hash test stops at `mixHash`, which is opaque.  Eight such `decide`s fail in the first two
+modules that have one (`Verify/EnvWF.lean`'s natOp/reserved-name disjointness,
+`Verify/Cached/DeclPushes.lean`'s tolerated-axiom name inequalities), and their dependents
+were not built.  The tree has 582 `by decide` sites.  So the single instance is a follow-up:
+it means dropping the hash test from the instance, or not, and replacing each concrete-name
+`decide` with a proof that needs no reduction of the instance.  The attempt is in
+`_tmp/551/scratch/onlyinstance.diff`.
+
 ## TASK #552 — the K rule without the index check, closed and open majors (2026-11-10, agent/552-kskip)
 
 **The question (maintainer).** Official's `to_cnstr_when_K` reduces a K-like recursor
