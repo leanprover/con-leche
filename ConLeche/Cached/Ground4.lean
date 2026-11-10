@@ -177,6 +177,19 @@ def g4PiBody : Expr → Expr
   | .forallE _ b => g4PiBody b
   | e => e
 
+/-- **The K treatment** (task #423), by `groundMode`: `0` round 4 (`13`,
+`14`: a K major that is not a constructor aborts), `1` the faithful K
+step (`10`–`12`: the major's declared type evaluated, the indices
+compared), `2` K without the index check (`15`, `16`: a K-like recursor
+reduces to its rule's right-hand side at its own parameters, the major
+never read; `Red.iotaK`, task #552). -/
+@[noinline] def g4KMode : Nat :=
+  if groundMode == 13 || groundMode == 14 then 0
+  else if groundMode == 15 || groundMode == 16 then 2 else 1
+
+/-- The trace modes of the round-4 machine. -/
+@[noinline] def g4Traced : Bool := groundMode == 11 || groundMode == 14 || groundMode == 16
+
 /-- Is `c` a K-like inductive family (its recursor carries the K flag)? -/
 def g4KLike (find? : Name → Option ConstantInfo) (c : Name) : Bool :=
   match find? c with
@@ -203,7 +216,7 @@ def g4Mask (find? : Name → Option ConstantInfo) (isRec : Bool) : Expr → Arra
           | .sort .zero => true | _ => false)
         | none => false
       | _ => false)
-    let kf := pf && (match hd with | .const c _ => g4KLike find? c | _ => false)
+    let kf := g4KMode == 1 && pf && (match hd with | .const c _ => g4KLike find? c | _ => false)
     g4Mask find? isRec b (acc.push (if tf then 1 else if kf then 2 else if pf then 1 else 0))
   | _, acc => acc
 
@@ -319,7 +332,7 @@ def g4Resolve (P : G4Prog) (c : Name) (us : List Level) : Nat × G4Prog :=
           (2, mI, rP, base, rules.length, fl,
             .recr cv.levelParams us mI rP base rules.length (isK) isEta, P)
       | some (.thmInfo cv) | some (.axiomInfo cv) | some (.indInfo cv _) =>
-        if us.length != cv.levelParams.length then (5, 0, 0, 0, 0, 0, .neutral, P)
+        if us.length != cv.levelParams.length || g4KMode != 1 then (5, 0, 0, 0, 0, 0, .neutral, P)
         else (6, g4Pis cv.type 0, 0, 0, 0, 0, .head c cv.levelParams us, P)
       | _ => (5, 0, 0, 0, 0, 0, .neutral, P)
     let (t1, t2, t3, t4, t5, t6, ns) := (P.kTag, P.kCode, P.kArity, P.kSlot, P.kInfo, P.kMap, P.nslots)
@@ -762,7 +775,7 @@ def g4Run : Nat → G4Prog → (cel val ev fs argA slots mem mH : Array Nat) →
         let kC := fs[fs.size - 4]!
         let fs := g4PopN fs 4
         let w := (val.size >>> 2)
-        let r := if groundMode == 11 then dbgTrace "KSTEP" fun _ => w else w
+        let r := if g4Traced then dbgTrace "KSTEP" fun _ => w else w
         g4Run n P cel ((((val.push 1).push kC).push tvS).push cnP) ev fs argA slots mem mH 1 0 0 r st
       else if t != 12 then .abort "K frame" st else
       let fl := fs[fs.size - 2]!
@@ -876,6 +889,33 @@ def g4Run : Nat → G4Prog → (cel val ev fs argA slots mem mH : Array Nat) →
             let argA := g4CopyArgs fs argA na 0
             g4Run n P cel ((((val.push 4).push k).push start).push na) ev (g4PopN fs na)
               argA slots mem mH 1 0 0 v st
+          else if g4KMode == 2 && P.kE[k]! % 2 == 1 && P.kD[k]! == 1 then
+            -- K without the index check (`Red.iotaK`): the single rule's
+            -- right-hand side at the recursor's own leading arguments; the
+            -- major is never read
+            let base := P.kC[k]!
+            if P.ruleCode[base]! == 0 then
+              match P.kInfo[k]! with
+              | .recr lps us _ _ _ _ _ _ =>
+                let rhsE := P.rules[base]!.rhs.instantiateLevelParams lps us
+                let (o, P) := g4Comp find? findProj? g4CompFuel P rhsE
+                let P := let rc := P.ruleCode; let P := { P with ruleCode := #[] }
+                  { P with ruleCode := rc.set! base (o + 1) }
+                g4Run n P cel val ev fs argA slots mem mH 3 pc env k st
+              | _ => .abort "iota info" st
+            else
+            let rhs := P.ruleCode[base]! - 1
+            let rP := P.kB[k]!
+            let start := argA.size
+            let argA := g4CopyArgs fs argA rP 0
+            let fs := g4PopN fs (mI + 1)
+            let rhs := if g4Traced then dbgTrace "KSKIP" fun _ => rhs else rhs
+            if P.code[rhs]! == 2 && P.code[rhs + 2]! == rP then
+              let ev := g4BindSpan argA start ev rP 0 0
+              let e := if rP == 0 then 0 else ev.size >>> 1
+              g4Run n P cel val ev fs argA slots mem mH 0 P.code[rhs + 3]! e 0 st
+            else
+              g4Run n P cel val ev (g4PushArgs argA start fs rP) argA slots mem mH 0 rhs 0 0 st
           else
             let h := g4Hash fs k (mI + 1) 0 (UInt64.ofNat k)
             let hit := if g4Memo ≥ 1 then
@@ -1337,7 +1377,8 @@ def groundShortcut (eager : Bool) (fe : FEnv) (P : G3Prog × G4Prog) (a b : Expr
     let (r, P) := if groundMode == 5 || groundMode == 6 || groundMode == 9 || groundMode == 12 then
         let ((r', _, _), P) := eng P (dbgTrace "" fun _ => t)
         (if r' == r then r else none, P) else (r, P)
-    if groundMode == 2 || groundMode == 4 || groundMode == 8 || groundMode == 11 then
+    if groundMode == 2 || groundMode == 4 || groundMode == 8 || groundMode == 11 ||
+        groundMode == 14 || groundMode == 16 then
       (dbgTrace s!"GROUND {repr r} {steps.1} {steps.2} {why}" fun _ => r, P)
     else (r, P)
 

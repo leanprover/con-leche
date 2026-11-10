@@ -113046,7 +113046,7 @@ All 11 296 site calls on the 20 streams evaluate to `Bool.true`; 0 aborts.
 **The task** (maintainer, approved): on CFSG's `Certificates.Kernel.Census.AE117.Adj56` the round-4 engine aborted 9 times with "K major" on `Eq.rec`, and the incumbent did all the work (643.2 G, 0 % gain).  The chain is `ord5G` → `Fintype.decidablePiFintype` → `Multiset.decidable(D)forallMultiset` → `Quotient.recOnSubsingleton` → `Quot.rec`, whose body is `Eq.ndrecOn (Quot.liftIndepPr1 f h q) (…).2`: a K major that is a theorem application.  Implement K for a closed neutral major, faithful to official's index check (`to_cnstr_when_K`), decided by evaluation.  Implementation and measurement only; no proof.
 
 **The verdict, first.**
-* **Adj56: 643.2 G → 298.4 G instructions:u (−54 %), below official's 310.6 G.**  139 site calls, all `Bool.true`, **0 aborts** (before: 9 "K major"), 86 766 K steps.  Wall 39.8 s median [37.8–56.7] against the incumbent's 135.8 s and official's 79.3 s; RSS 8.70 GiB (incumbent 11.45, official 9.57).
+* **Adj56: 643.2 G → 298.4 G instructions:u (−54 %), below official's 310.6 G.**  139 site calls, all `Bool.true`, **0 aborts** (before: 9 "K major"), 86 766 K steps.  Wall 39.8 s median [37.8–56.7] against the incumbent's 135.8 s and official's 79.3 s; RSS 8.30 GiB (incumbent 11.45, official 9.57).
 * **SpanChk, CCK4, McLEnumA** reach no K step (0 K steps, transitions and dispatches identical to round 4); instructions +1.4 %, +0.2 %, +1.9 % (§K.4).
 * At the default (engine off) all gates are green apart from a `plain-reach` report that the base branch already carries (§K.6).
 
@@ -113074,7 +113074,7 @@ All 11 296 site calls on the 20 streams evaluate to `Bool.true`; 0 aborts.
 |---|---|---|---|---|---|---|---|---|
 | incumbent (engine off, hash fix) | 643.2 | 146.2 [132.7–163.7] | 7.1–20.6 | 11.45 | – | – | – | – |
 | round 4 (`eng`, `_tmp/423-hash`) | 643.2 | 135.8 [113.4–160.7] | 8.9–15.8 | 11.45 | 113.8 | 11.6 | 139 / 9 "K major" | 0.12 M |
-| **K step** | **298.4** | **39.8 [37.8–56.7]** | 30.4, 34.3, 28.8, 21.2, 15.0 | **8.70** | **28.0** [26.6–42.7] | **1.56** [1.45–1.57] | **139 / 0** | **512.3 M** (40.5 M dispatches, 86 766 K steps) |
+| **K step** | **298.4** | **39.8 [37.8–56.7]** | 30.4, 34.3, 28.8, 21.2, 15.0 | **8.30** | **28.0** [26.6–42.7] | **1.56** [1.45–1.57] | **139 / 0** | **512.3 M** (40.5 M dispatches, 86 766 K steps) |
 | official (leanchecker v4.35.0-rc3) | 310.6 | 79.3 [66.4–113.8] | 3.7–16.0 | 9.57 | replay of both 67.8 | | | |
 
 The verdict is "accepted 4459 declarations" in every run.  The walls ran on a loaded machine (load 15–34); instructions are the measure.
@@ -113134,3 +113134,99 @@ The transition and dispatch counts are identical, so the extra cost is per trans
    *Recommendation:* (a), if the model side agrees.
 2. **The deferred K-like proofs** (un-erasure, §K.1) cost +0.2–1.9 % where no K step fires.  *Recommendation:* probe the cost split (§K.4) before landing.
 3. **The base branch's `plain-reach` report** (§K.6) is the hash lane's to fix.
+
+### #423 K without the index check (2026-11-10, agent/423-kmajor)
+
+**The task** (maintainer, via the coordinator): inside the ground engine only, let a K-like recursor reduce to its minor premise without looking at the major at all: no type of the major, no index comparison.  The branch is experimental, so accepting more than official at this site is allowed for the exploration.  The incumbent is unchanged and keeps official's check.  Task #552 (`agent/552-kskip`) proved the rule `Red.iotaK` sound in the model.
+
+**Correction to the record above.**  The K step's Adj56 RSS is **8.30 GiB** (8 701 188 KB), not 8.70.  The same unit as the 11.45 and 9.57 of the other rows; fixed in place.
+
+**The verdict, first.**
+* **Adj56: 294.5 G** against the faithful step's 298.4 G (−1.3 %) and official's 310.6 G.  139 site calls, all `Bool.true`, 0 aborts, 86 766 K steps (the same redexes as the faithful step's).
+* **The regression does not go away.**  SpanChk/CCK4/McLEnumA are +0.9/+0.1/+1.4 % over the 423-hash round-4 binary.  The round-4 mode (13) of this branch's code gives the same figures.  So the cost is the larger machine loop (more cases in the hot `match`es, the K-mode test at each recursor dispatch), not K work.  The faithful step's deferred K-like proofs add a further +0.5 % on SpanChk and McLEnumA (§S.3).
+* **Beyond official**: among the arena tests, the 7 #552 fixtures and the four `ground_k_*` fixtures, exactly one input is accepted that official rejects: `ground_k_index_differ` (`Eq.rec` on the theorem `Quot.mk r 1 = Quot.mk r 2`).  **No hang.**  `bad/tutorial/098_ruleKbad` is still rejected: its major is the hypothesis `h`, so its term is open and the engine's site never sees the K redex.  Each #552 fixture's K redex is open or not at a `Bool.true` comparison, so the engine changes none of their verdicts.
+
+#### S.1 The modes (`groundMode`, `ConLeche/Cached/Ground.lean`; `g4KMode`, `Ground4.lean`)
+
+| `groundMode` | machine | K major that is not a constructor |
+|---|---|---|
+| `13` (`14` traced) | round 4 | abort "K major" (typed heads drop their arguments; K-like proofs erased) |
+| `10` (`11` traced, `12` run twice) | round 4 + the faithful K step (§K.1) | the declared type evaluated, the indices compared |
+| `15` (`16` traced, `KSKIP` per step) | round 4 + K without the index check | never looked at |
+
+At mode 15, a recursor dispatch whose recursor carries the K flag and has one rule, applied to at least its telescope, binds the rule's right-hand side to the recursor's first `rulePrefix` argument cells and continues at its body.  The major cell is never entered, and no memo record is made (the step forces nothing).  K-like proofs stay erased and typed heads drop their arguments, as in round 4.  Rounds 1–3 (modes 1–9) are unchanged.
+
+#### S.2 Adj56 (one `--jobs=1 --verified` olean run per row; protocol as in §K.2)
+
+| | instr:u (G) | wall s, median [min–max] of 5 | load1 per run | VmHWM GiB | `adjCheckL_six` s | `adjCheckL_five` s | site calls / aborts | K steps | transitions / dispatches |
+|---|---|---|---|---|---|---|---|---|---|
+| round 4 (`_tmp/423-hash`) | 643.2 | 135.8 [113.4–160.7] | 8.9–15.8 | 11.45 | 113.8 | 11.6 | 139 / 9 | 0 | 0.12 M / 0.01 M |
+| faithful K (mode 10) | 298.4 | 39.8 [37.8–56.7] | 30.4, 34.3, 28.8, 21.2, 15.0 | 8.30 | 28.0 [26.6–42.7] | 1.56 [1.45–1.57] | 139 / 0 | 86 766 | 512.3 M / 40.46 M |
+| **K skip (mode 15)** | **294.5** | **43.0 [32.7–61.7]** | 19.7, 19.0, 27.7, 38.8, 31.9 | **8.22** | **28.2** [21.5–44.4] | **1.89** [1.46–5.12] | **139 / 0** | **86 766** | 503.8 M / 39.85 M |
+| official | 310.6 | 79.3 [66.4–113.8] | 3.7–16.0 | 9.57 | replay of both 67.8 | | | | |
+
+The faithful step costs Adj56 only 1.3 % more than the skip: 8.5 M transitions for 86 766 type evaluations and comparisons, about 100 per K step.  The walls are on a loaded machine; the two K variants are within its noise.
+
+#### S.3 Regressions (G instructions:u, one run each)
+
+| module | round 4 (423-hash binary) | round 4, this code (mode 13) | faithful K (10) | K skip (15) |
+|---|---|---|---|---|
+| SpanChk | 212.6 | 214.4 (+0.8 %) | 215.5 (+1.4 %) | 214.4 (+0.9 %) |
+| CCK4 | 676.5 | – | 677.9 (+0.2 %) | 677.5 (+0.1 %) |
+| McLEnumA | 1979.0 | 2006.2 (+1.4 %) | 2015.9 (+1.9 %) | 2006.7 (+1.4 %) |
+
+None of the three reaches a K step in any mode, and the transition counts are identical.  The skip equals this code's round-4 mode, so §K.4's hypothesis (deferred proofs) explains only the faithful step's last +0.5 %.  The rest (+0.8–1.4 %) is the compiled loop's shape.  Recovering it would mean moving the K cases out of the hot `match` (a separate function for the cold K frames), not measured.
+
+#### S.4 What the engine accepts beyond official (exit codes; off = engine off; r4 = the 423-hash round-4 binary; 60 s timeout; `_tmp/423-kmajor/matrix*.tsv`)
+
+* **Arena** (`tests/arena-expected.txt`'s tutorial, perf and undecidability sets, 158 inputs): identical verdicts in all four columns.  Only `bad/tutorial/098_ruleKbad` (1 site call), `bad/perf/refute-cheap-first` (2) and `good/perf/grind-ring-5` (425) reach the site at all, none with a K step.  098 stays rejected (exit 1) in every mode, because its K redex is on an open major.
+* **Fixtures**:
+
+| fixture | off | r4 | faithful K | K skip | official | K skips (mode 16) |
+|---|---|---|---|---|---|---|
+| `ground_k_theorem_major` | 0 | 0 | 0 | 0 | 0 | 3 |
+| `ground_k_indexed_family` | 0 | 0 | 0 | 0 | 0 | 3 (the `HEq` one included) |
+| `ground_k_closure_index` | 0 | 0 | 0 | 0 | 0 | 1 |
+| **`ground_k_index_differ`** | 1 | 1 | 1 | **0** | 1 | 1 |
+| `k_skip_funext_rfl` | 1 | 1 | 1 | 1 | 1 | 0 |
+| `k_skip_omega_closed` | 1 | 1 | 1 | 1 | 1 | 0 |
+| `k_skip_omega_open` | 1 | 1 | 1 | 1 | 1 | 0 |
+| `k_skip_open_contra` | 1 | 1 | 1 | 1 | 1 | 0 |
+| `k_skip_open_cast_lit` | 1 | 1 | 1 | 1 | 1 | 0 |
+| `k_skip_open_eta` | 0 | 0 | 0 | 0 | 0 | 0 |
+| `k_skip_closed_eta` | 0 | 0 | 0 | 0 | 0 | 0 |
+| `k_rescue_stuck`, `k_major_raw`, `omega_kloop`, `omega_demo2` | 1, 0, 0, 0 | same | same | same | – | 0 |
+
+The **one input accepted beyond official** is `ground_k_index_differ`: `Eq.rec` on `Quot.mk r 1 = Quot.mk r 2`, whose endpoints are propositionally but not definitionally equal.  **Hangs: none.**  #552's closed Ω (`k_skip_omega_closed`) is forced by `Acc.rec` outside a `Bool.true` comparison, so the engine never runs on it.  The engine has no depth bound beyond `groundFuel` (2⁶²), so a non-terminating evaluation at the site would run until the caller's timeout.
+
+The 7 #552 fixtures and `scripts/splice-rfl.py` are copied onto this branch (verdicts at the default build, as on `agent/552-kskip`).
+
+#### S.5 Proof mapping
+
+The transition is `Red.iotaK` (#552, `Rules/Rel.lean` on `agent/552-kskip`).  Its premises are all decided at table time and at dispatch, as in round 4's ι transition:
+* the head is a recursor with the K flag and the single rule `[rl]`;
+* the redex's spine has exactly `majorIdx + 1` arguments (the dispatch takes `mI + 1` argument frames; extra frames stay on the stack as an application, `Red.appFn`);
+* the level count is checked in `g4Resolve`;
+* `peelPis (mI + 1)` of the instantiated type is checked in `g4Resolve`.
+
+The reduct is `rl.rhs` at the levels applied to `args.take rulePrefix`: the bound cells.  What else is needed:
+* **Nothing new for the machine invariant.**  The step forces nothing, so no `Red` premise position is read.
+* **Erasure gets simpler.**  Round 3's relevance lemma (§R3.6: the machine never reads a type, motive or proof argument "except at a K-like or `Acc` major") loses its K exception, since a K major is never read.
+* **No memo case**: the step makes no record.
+* **Termination** is outside soundness: the fuel already handles it.
+
+Estimate: about 0.05–0.1 k lines (one transition lemma against `Red.iotaK`), against 1.0–1.5 k for the faithful step plus its open `DefEq` question (§K.7, ruling 1).  The rule itself must first land from #552.
+
+#### S.6 Gates
+
+* **Engine off**: `lake build` and `lake test` are warning-free.  `tests/arena.sh --no-sweeps` passes: e2e 586/586 (the seven #552 fixtures included), tutorial 90/92, olean 122/122, self-check accepted.  Its one failure is the inherited `plain-reach` report (§K.6).
+* **Engine on** (one `tests/arena.sh --no-sweeps` at mode 15 with the probe's `DiscC5` sorry), reported as is:
+  - tutorial 90/92 (no arena verdict change);
+  - e2e 585/586: `ground_k_index_differ` expected 1, got 0, the acceptance beyond official above;
+  - the probe's `sorry` fails the trust surface, the axiom pins (`sorryAx`) and the self-check (con-leche declines `sorryAx`);
+  - the inherited `plain-reach` report.
+
+#### S.7 Rulings needed
+
+1. **Which K step, if either, goes on.**  The skip is 1.3 % cheaper on Adj56 than the faithful step, needs about 0.1 k proof lines against 1.0–1.5 k plus an open `DefEq` rule, and accepts `ground_k_index_differ`, which official rejects.  *Recommendation:* the skip, if the maintainer accepts that acceptance at the `Bool.true` site (and lands #552's `Red.iotaK`).  Otherwise the faithful step, which needs §K.7's ruling 1.
+2. **The +0.8–1.4 % loop-shape cost** where no K step fires.  *Recommendation:* move the cold K cases out of `g4Run`'s hot `match` before landing either variant, and re-measure.
