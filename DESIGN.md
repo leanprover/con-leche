@@ -114079,3 +114079,136 @@ Both are stated against the incumbent's `whnf`, not against `Red`, so no standar
 
 1. **Case 3 without certificates**: the engine fires it as official does.  The soundness proof needs a rule for it, or a restriction to the η-path families once the renovation lands.
 2. **The hand-back corner** (§C.2 item 4) is the one remaining fallback.  It disappears with the renovation for `Acc`, or with un-erasing proofs of `Acc`-like families.
+
+### #423 soundness: no hand-back, the audit, and the proof's first layers (2026-11-10, agent/423-sound)
+
+**The rulings** (maintainer, 2026-11-10):
+1. Merge local `master` into the lane first, so the proof is written against today's kernel API.
+2. Soundness first; completeness waits.
+3. Bring in `Red.iotaK` from `agent/552-kskip`.
+4. No hand-back on this branch: a step the engine does not support, or one with no proved rule, fails the check as a decline (exit 2) that names the step and the constant.  Refusals the incumbent raises as the same error (`maxNatSize`) keep their verdict.
+5. An e2e fixture for every case that aborts or hands back, with today's verdict, the target verdict, and official's.
+
+**The verdict, first.**
+* **The engine is now exactly the steps with proved rules** (§S.1): β, ζ, δ, ι outside case 3, the K step (`Red.iotaK`, ported), the projection, the literal rules, the two congruences.  Everything else declines (§S.2) or answers `false` where the incumbent is stuck too.
+* **0 declines** on the 20 nightly grind streams (11 296 site calls) and the four CFSG modules (463 calls): every call answers `Bool.true` (§S.3).
+* **The proof reading changed, for the better** (§S.5): the engine's state denotes *erased* terms, and an erased reduction lifts to `Red` (`ERed.lift`).  This replaces the plan's ghost origins for erased positions, which do not survive a memo hit on argument cells that differ in erased content.
+* **Proved, no `sorry`**: layer (c0), erased reduction and its lifting (428 lines), and layer (a), the compiler correct up to erasure (≈ 900 lines).  Layers (b)+(c), the machine invariant over the flat arrays, and (d), the site, are not done (§S.6).
+* **Engine changes for the proof** (§S.4): the slot epoch is exact (a fixed `2^32` step was a real, if unreachable, unsoundness); strictness and the well-founded `Nat` net are gone (measured −0.3 % to −1.0 %); compile-time helpers are named functions.
+
+#### S.1 The audit: every transition of `g4Run` and its rule
+
+The reading is erased reduction (`ConLeche/Verify/Ground/Erased.lean`): a node denotes its compiled term with binder domains, types, erased arguments and neutral constants as `bot`; a cell denotes its origin; the neutral value is `bot`.  "Stutter" means the denoted term does not change; "claim" means the frame records a `ERed` premise that the frame's pop discharges.
+
+| mode / case | transition | rule (`ERed`, lifted to `Red`) |
+|---|---|---|
+| 0 bvar `[0,i]` | enter the env's `i`-th cell | stutter (`instantiateList` at `bvar i`) |
+| 0 spine `[1,h,n,…]` | push the arguments (mode 4) | stutter |
+| 0 λ, argument frames on top | bind `min(na, tn)` arguments at once | `beta` × k under `appFn` |
+| 0 λ, no argument | closure value | stutter |
+| 0 let `[3,v,b]` | value as a cell, body under it | `zeta` |
+| 0 const `[4,k]` | dispatch | stutter |
+| 0 literal / string | value | stutter |
+| 0 projection `[7,p,e]` | push the projection frame, evaluate `e` | congruence frame (`projArg`) |
+| 0 shared `[9,s,e]` | the slot's cell, or a new thunk on it | stutter (one closed term, one origin) |
+| 0 neutral `[8]` | the neutral | `forget` (`bot`) |
+| 4 arguments | a cell per argument: an env cell, a value cell (λ, literal), the neutral cell (erased), a constant's slot cell, a closed term's slot cell, a thunk | stutter (each cell's origin is the argument's term) |
+| 2 enter | a value cell returns its value; a thunk pushes an update frame | the cell invariant; claim frame |
+| 2 enter a busy cell | — | decline ("needed to compute itself") |
+| 3 constructor | collect the arguments | stutter |
+| 3 recursor, short of its major | partial application value | stutter |
+| 3 recursor, memo hit | enter the recorded cell | stutter (equal argument cells, equal origins) |
+| 3 recursor, K step (`kE ≥ 4`) | the rule's constructor on the leading arguments, to the ι frame | `iotaK` (the major never read) |
+| 3 recursor, otherwise | memo record, update and ι frames, enter the major | claim frames |
+| 3 neutral entry (axiom, theorem, inductive type, `Quot`, wrong level count) | pop the arguments, the neutral | `forget` |
+| 3 accelerated `Nat` operation, two arguments | literal frame, enter the first | claim frame (`natOp`'s first premise) |
+| 3 definition, memo hit / miss | enter the recorded cell / update frame, push the arguments, the body | stutter / `delta` (then `forget` to the compiled body) |
+| 1 update frame | store the value | the claim discharged: the cell invariant |
+| 1 argument frame, closure | bind at once | `beta` × k |
+| 1 argument frame, constructor / partial application | extend the spine / re-dispatch | stutter |
+| 1 argument frame, neutral or literal | the neutral | `forget` |
+| 1 ι frame, `Nat` literal major | `Nat.zero` / `Nat.succ` (literal) | `natLit` |
+| 1 ι frame, string major | its constructor form | `strLit` |
+| 1 ι frame, constructor major, rule found, case 1/2 | bind leading arguments and fields (or push them) | `iota` with `IotaCase.k`/`.never` (`gCase3 = false`), then `beta` × k |
+| 1 ι frame, constructor major, case 3 | — | decline (§S.2) |
+| 1 ι frame, no rule / wrong arity / no `Nat` or `String` basis | — | `false` (stuck; the incumbent is stuck too) |
+| 1 ι frame, neutral major, single-rule recursor | — | decline (§S.2) |
+| 1 ι frame, neutral major, otherwise | the neutral | `forget` |
+| 1 projection frame, constructor | the field's cell | `proj` (table, arity, levels and telescope checked) |
+| 1 projection frame, string | constructor form, again | `strLit` under `projArg` |
+| 1 projection frame, no table / other value | the neutral; wrong shape: `false` | `forget` / stuck |
+| 1 frame 7 (`Nat.succ` packing) | literal `m` → `m + 1`; `Nat.succ c` → enter `c` | `natSucc` |
+| 1 literal frames | the first argument's reading, then the second's; both literals: `natOpResult`; no literal: δ | `natOp` / `delta` |
+| 1 literal frames, maximum size | — | the incumbent's own error (`natOpRefusal`, `natNumeralTooBig`) |
+| site | `Bool.true` constructor value | `ERed.lift_const`: `Red env d t (.const boolTrueName [])` |
+
+`Quot`: `Quot.lift` and `Quot.ind` are stored recursors with a `.levels` firing rule, so they are the ι rows above (case 3 at `Quot.{0}`).
+
+#### S.2 The steps without a proved rule, now declines
+
+| step | why no rule | after Lean's kernel renovation (DESIGN #350: lean4#14977, #15023, #15371) | fixtures |
+|---|---|---|---|
+| ι case 3 at a constructor major (a family that may be `Prop`: `And`, `Acc`, `PUnit.{0}`, `Quot.{0}`) | `Red.iota`'s case 3 carries the constructor's full-grade certificate, the level and parameter comparisons and the index comparison; at a `Prop` instance the constructor denotes the point (#349's `Quot.lift.{0,1} f h (Quot.mk r n)` witness) | disappears: `Acc` has no large elimination (no `Bool`-valued `Acc.rec` reaches the site), `Quot` is never `Prop`, and a may-be-`Prop` family large-eliminates only with no constructor, K, or structure η via projections | `ground_case3` (`And.rec`), `ground_case3_quot`, `ground_case3_punit`, `ground_case3_acc_ctor` |
+| a neutral major at a single-rule, non-K recursor: structure η (`Prod.rec` on `Classical.choice …`), the `And` rescue (`And.rec` on a theorem), an `Acc`-like erased proof (`ground_acc_def`) | `Red.rescueEta`/`rescueAnd` read the major's type (`Infer`); the engine has no types | η via projections, expanded as the major stands, needs no certificate; that is a new rule (`T.rec … h ⇝ rhs … (h.1) … (h.n)` for a structure-like `T`), sound by the family's η law, not in the tier today.  `Acc`'s case disappears with its large elimination | `ground_eta_neutral`, `ground_and_rescue`, `ground_acc_def` |
+| a neutral major at a K-flagged recursor without the K step's entry (`kE < 4`) | `Red.rescueK` reads the major's type | unchanged (the K step covers every K recursor whose constructor resolves) | — (not reached) |
+| a busy cell entered (a term that needs its own value), the fuel (`2^62`) | termination devices | unchanged | — (not reached) |
+
+The well-founded `Nat` net (tag 4) no longer exists (§S.4).  The maximum-`Nat`-size refusals raise the incumbent's own errors at the site, so their verdicts are unchanged.
+
+#### S.3 Decline counts (`groundMode = 11`, the traced build; `_tmp/423-sound/counts.tsv`)
+
+| input | site calls | `true` | declines | refusals | exit |
+|---|---|---|---|---|---|
+| the 20 nightly grind streams (`_tmp/422-bench/streams/*.nightly-2026-10-30`) | 11 296 | 11 296 | 0 | 0 | 0 each |
+| SpanChk | 13 | 13 | 0 | 0 | 0 |
+| CCK4 | 47 | 47 | 0 | 0 | 0 |
+| Adj56 | 139 | 139 | 0 | 0 | 0 |
+| McLEnumA | 264 | 264 | 0 | 0 | 0 |
+
+(The CFSG modules at `_tmp/423-ground/scr/cfsg-mods.sh`'s `--constant` sets, search path `_tmp/543/olean` and the v4.35.0-rc3 library, `--jobs=1 --verified`.)
+
+#### S.4 Fixtures (`tests/e2e/src/ground_*.lean`; today = the default build, engine off)
+
+| fixture | today | engine on | official v4.35 | official nightly-2026-10-30 | target |
+|---|---|---|---|---|---|
+| `ground_case3` (`And.rec (And.intro …)`; `Acc.rec` on the abstracted theorem `kAcc._proof_1`) | 1 | **2** (case 3, `And.rec`) | 0 | 1 | 1 |
+| `ground_case3_quot` (`Quot.lift` on `Quot.mk` at `Quot.{0}`) | 0 | **2** (case 3) | 0 | 0 | 0 |
+| `ground_case3_punit` (`PUnit.rec` at `PUnit.{0}`) | 0 | **2** (case 3) | 0 | 0 | 0 |
+| `ground_case3_acc_ctor` (`Acc.rec` on an explicit `Acc.intro`) | 0 | **2** (case 3) | 0 | 0 | 0 |
+| `ground_eta_neutral` (structure η at `Classical.choice`) | 0 | **2** (`Prod.rec`) | 0 | 0 | 0 |
+| `ground_and_rescue` (`And.rec` on a theorem) | 0 | **2** (`And.rec`) | 0 | 0 | 0 |
+| `ground_acc_def` (`Acc.rec` on an erased proof a definition reduces to `Acc.intro`) | 0 | **2** (`Acc.rec`) | 0 | 1 | 0 |
+| `ground_nat_pow` (`Nat.pow` at 2^25) | 0 | 0 | 0 | 0 | 0 |
+| `ground_nat_pow_refused` (exponent over 32 bits) | 1 | 1 | 1 | 1 | 1 |
+| `ground_nat_mul_refused`, `ground_nat_shl_refused`, `ground_nat_pow_size_refused` (`--max-nat-size=16`; official at `LEAN_NAT_MAX_SIZE=16`) | 1 | 1 | 1 | 1 | 1 |
+| `ground_stuck_bool` | 1 | 1 (`false`) | 1 | 1 | 1 |
+| the four `ground_k_*` (the K step) | 0, 0, 0, 1 | 0, 0, 0, **0** (`ground_k_index_differ`, beyond official) | as today | as today | as today |
+
+Not built: a black-hole input (a closed term that needs its own value is a non-terminating proof, as `k_skip_omega_*`, which never reaches the `Bool.true` site), and the wf `Nat` net (gone).
+
+#### S.5 The proof: erased reduction instead of ghost origins
+
+**Why the plan changed.**  §R3.6 planned ghost origins for erased positions (the abstraction maps each erased argument to its source term).  That does not survive the application memo: two calls `f x e₁` and `f x e₂` with erased `e₁ ≠ e₂` share cell 0 at that position, so they hit one memo record, whose origin is `f x e₁`.  Under ghost origins the hit is a derivation about the wrong term.  The erased reading makes it an equality: both calls denote `f x bot`.
+
+**The layers.**
+* **(c0) erased reduction, done** (`ConLeche/Verify/Ground/Erased.lean`, 428 lines).  `Approx s t` (`s` is `t` with subterms replaced by `bot`), `ERed env` (the rules of §S.1 on such terms, each with its `Red` rule's premises, plus `forget`), and `ERed.lift`: an erased reduction of `s` lifts to a `Red` reduction of every `t` that `s` approximates, with an approximated reduct (β by `Approx.instantiate1`, δ by `unfoldDefinition_approx`, ι by the spine inversion `Approx.spine`, whose head and argument count fix every premise; case 1/2's `IotaCase` reads only the comparand levels, which do not depend on the arguments).  `ERed.lift_const` is the site's corollary.  No new rule, no model work.
+* **(a) the compiler, done** (`ConLeche/Verify/Ground/Compile.lean`, ≈ 900 lines).  `Den P o s`: node `o` reads back as `s`.  `g4Comp_spec`: the returned node denotes an approximation of the compiled term, the program only grows (`Ext`), and `Inv` holds (the closed-term memo and the constant table denote what they key).  Estimate was 0.6–1.0 k.
+* **(b)+(c) the machine, not done.**  The design, from the audit: one invariant over the flat arrays (merging the planned abstraction and transition layers): ghost cell origins `oc`; the cell invariant (thunk: its node under its environment; value: `ERed (oc c) ⟦v⟧`); value, environment, span, slot and memo-record well-formedness; and the stack claim `K frames focus`, defined by recursion on the parsed frames: an argument or projection frame is congruence, an update, ι, literal or packing frame carries its `ERed` premise, and `K [] u` is `ERed t₀ u` for the compiled site term `t₀`.  `K` is closed under `ERed` of the focus, which is what every stuttering and reducing transition uses.  Estimate unchanged: 2.7–4.5 k lines.
+* **(d) the site, not done**, and it needs a ruling (§S.7, 1).
+
+#### S.6 Engine changes for the proof
+
+* **The slot epoch** (`ground4BoolCoreF`): a run's base is now the previous base plus that run's cell count.  With the fixed `2^32` step an earlier run's cell index at or past `2^32` would have read as a current cell: unreachable in memory, but not provable.
+* **Strictness and the well-founded `Nat` net removed** (commit `d6bbf536a`): strictness changed no transition count (§R4.2); the wf net is a plain definition (δ).  groebner_hard −0.30 %, grind_ring_5 −0.30 %, grind_field_kernel_cancel −0.30 %, lia_oss_verify_2 −1.04 % (instructions:u, one run each); the 17 `ground_*` verdicts unchanged.
+* **Named compile-time helpers** (`g4Entry`, `g4MaskOf`, `g4CompSpine`, `g4ArgStep`, `g4CompShared`) and the structure name in `G4Proj`: no transition changed (±0.1 %).
+* **No fallback**: `G4Stop` (`stuck`, `decline`, `refuse`, `internal`) replaces the abort strings; `groundGateM` raises it.
+
+#### S.7 Rulings needed
+
+1. **Where the engine sits in the specification** (layer (d)).  The cached core keeps the compiled program for the declaration (`CState.ground4`); the pure spec's `defeqBody` must call the same engine for the cached simulation to be the identity at the site, and it has no state to keep a program in.  Options: (a) the proved build runs the engine with a fresh program per site call (round 3 measured the cost: init-full +0.5 %; the CFSG modules not measured); (b) a layout-independence lemma (a run's answer does not depend on the kept program; a bisimulation between two code layouts, est. +0.6–1.0 k lines); (c) a spec site parameterised by the program, with `CSOK` relating the state's program to a valid one.  *Recommendation:* (a) first, measured; (b) only if (a) costs.
+2. **η via projections as a new rule** (§S.2): `Red.iotaEta`, `T.rec … h ⇝ rhs … (.proj T 0 h) … (.proj T (n-1) h)` at a structure-like, never-`Prop` `T`, sound by the family's η law.  It would turn the structure-η declines into steps and matches the renovated kernel.  *Recommendation:* not now; 0 occurrences measured.
+3. **Strictness** stays out of the engine to be proved (§S.6), as R4.7.2 recommended.
+
+#### S.8 Gates
+
+`lake build` and `lake test` warning-free at every commit.  `tests/arena.sh --no-sweeps` at the decline commit: e2e 610/610 (the six new fixtures included), tutorial 90/92, olean 122/122, self-check accepted, binary-link, trust surface, quotes, layering; the plain-reach report the base carried (the literal-hash functions) is fixed (the four hash functions allowlisted with their reason, the stale `instHashableLiteral.hash` entry removed); the whitepaper's `Rules/Rel.lean` citations moved by `Red.iotaK` (the ι citation repointed to the ι rule alone); shake asked to keep `GroundComplete`'s `StateC` re-export (a census fallback, measured).  The engine-on build is still the probe build (`DiscC5.defeqBodyI_eq` swapped for `sorry`, `_tmp/423-sound/scr/mkon.sh`), so the full battery with the engine on is not run.
