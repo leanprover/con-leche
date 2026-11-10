@@ -93,11 +93,14 @@ def stmtsAt (r : Region) (cs : List Nat) : Option (List ConstantVal) :=
 
 /-! ### Several constants, one memo -/
 
-/-- One root read into a memo shared by several constants (`sGo`, no frontier); a root
-that does not read leaves the memo as it was, and the build reads it again on its own. -/
+/-- One root read into a memo shared by several constants (`sGo`, no frontier).  The memo
+is consumed by the read and handed back by it, also where the root does not read (with what
+was read of it): no second reference to the memo is kept across the read, so its inserts
+are in place (task #565).  A root that does not read is read again by the build, on its
+own. -/
 def memoAdd (r : Region) (k : UInt8) (st : SM) (v : UInt64) : SM :=
   match r.loc v with
-  | some c => (sGo r {} k c st).getD st
+  | some c => (sGo r {} k c st).1
   | none => st
 
 /-- The roots of a constant's skeleton into the memo: its names, then its expressions. -/

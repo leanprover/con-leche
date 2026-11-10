@@ -118719,3 +118719,73 @@ plain-reach (589, all allowlisted), binary-link, olean gate 333/333, selfcheck (
 declarations), axioms pinned (71 theorems), arena tutorial 90/92, e2e 600/600, the trusted and
 `--jobs` sweeps without divergence; the whitepaper builds (`nix develop ./whitepaper -c
 whitepaper/build.sh`).  No `sorry`, no new axiom, no new `unsafe`, `implemented_by` or C.
+
+## TASK #565 — the part memo consumed once on every path of a read (2026-11-10, agent/565-part-memo)
+
+The finding is task #555's (`agent/555-cck4-gap`, its record "TASK #555"): the reach's read
+of a part kept the part's memo alive across the read at two sites, so the memo was at RC 2
+when `SM.buildIn` first inserted, and each root's first insert copied the bucket arrays of all
+four maps (`lean_copy_expand_array` and `lean_del_core_other`, 60 % of CCK4's read phase).
+
+* `withPart` (`ConLeche/Driver/Reach.lean`) kept `st` for its failure branch, which stored the
+  memo back as it was;
+* `memoAdd` (`ConLeche/Frontend/Olean/Reads.lean`) kept `st` for its `.getD st` fallback.
+
+Either reference alone keeps the memo shared, so both go (the skill's §1 rule 1, use then
+consume).  #555's prototype did it by `implemented_by` copies; the landed form changes the
+functions themselves:
+
+* `sGo`, `kidsGo` and `SM.buildIn` (`ConLeche/Frontend/Olean/Sparse.lean`) return `SM × Bool`:
+  the memo is handed back on failure too, with what was read before the failure (every entry
+  is a node read right, so the memo stays good).  `frontierExpr` and `sparseNameP` read the
+  flag.
+* `memoAdd` takes the memo `sGo` returns, whatever the flag.  A root that does not read is
+  read again by the build on its own, as before.
+* `withPart` stores an empty memo for the part where `f` fails (the memo was consumed by `f`).
+
+**Proofs.**  `SGoSpec` and `SM.build_spec` (`Verify/Frontend/Olean/Sparse.lean`) are stated at
+the new shape: for `sGo … st = (st', ok)`, `st'` is good and holds all `st` held, `ok = true`
+gives the object held, `ok = false` refutes `KindOK`.  `kidsGo_spec` the same.
+`frontierExpr_eq`, `sparseNameP_eq` and `memoAdd_good` (now one line: the memo is good on both
+outcomes) follow; `withPart_ok`'s failure branch is closed by `SM.good_empty`.  No `sorry`, no
+new axiom, no `unsafe`/`implemented_by`.
+
+**Linearity**, read in the generated C: `memoAdd` passes `st` to `sGo` with no
+`lean_inc_ref` before it (the base had one); in `withPart`'s lambda the memo is passed to `f`
+with no surviving `lean_inc` (the base incremented it and reinserted the pair on failure); in
+`SM.buildIn` the node function takes the memo borrowed and the insert follows an
+`lean_is_exclusive` reuse of it; `sGo`/`kidsGo` project the memo out of the returned pair and
+free the pair before the next call.  In the read thread's profile `lean_copy_expand_array`
+(9.2 % of all CCK4 samples before) no longer appears among the top symbols.
+
+**Measurements** (base: `modular` 09b310a1b; `instructions:u` from the first run, `cycles:u`
+three runs, the median's Δ; CCK4 `--olean --module --jobs=1` over `_tmp/543/olean`, the Mathlib
+workers `--olean --module --jobs=8`, the streams `--jobs=8`; G = 10⁹; every run accepts as the
+base does):
+
+| run | base instr | new instr | Δ | base cycles | new cycles | Δ (median) |
+|---|---|---|---|---|---|---|
+| CCK4 | 188.804 | 156.491 | −17.11 % | 140.48 / 125.53 / 116.89 | 115.99 / 109.62 / 99.92 | −12.7 % |
+| `Init.Data.Nat.Lemmas` | 8.653 | 8.630 | −0.27 % | 4.80 / 4.09 / 6.76 | 3.98 / 4.48 / 4.12 | −14.2 % |
+| `Mathlib.GroupTheory.Coxeter.Basic` | 6.678 | 6.529 | −2.23 % | 3.02 / 3.05 / 3.78 | 2.76 / 2.80 / 2.91 | −8.3 % |
+| `Mathlib.Analysis.SpecialFunctions.Gamma.Basic` | 11.231 | 10.879 | −3.13 % | 5.52 / 5.58 / 5.60 | 4.90 / 4.89 / 4.78 | −12.3 % |
+| `Mathlib.RingTheory.WittVector.MulP` | 6.180 | 6.033 | −2.38 % | 2.73 / 2.54 / 2.74 | 2.54 / 2.54 / 2.59 | −6.8 % |
+| init-prelude | 1.468 | 1.468 | +0.01 % | 0.87 / 0.84 / 0.86 | 0.86 / 0.84 / 0.78 | −1.9 % |
+| grind-ring-5 | 12.659 | 12.658 | −0.01 % | 8.03 / 7.27 / 7.48 | 7.55 / 9.29 / 7.41 | +1.0 % |
+
+CCK4's phase split (`perf record -e instructions:u -c 10000000`, samples per thread): read
+55.45 G → 23.10 G, check 133.35 G → 133.27 G, as #555's prototype P-R measured.  The streams
+do not read `.olean` files and do not move (their cycle deltas are noise).  Peak RSS is
+unchanged: CCK4 1.94–1.97 GiB both, the Mathlib workers and streams within ±0.03 GiB.
+
+**Follow-ups** (#555's other proposals, not in this task): `ModSet.union` byte by byte in
+`pubClosures` (2.8 G on CCK4, about 0.4 G on 64-bit words); reading the name tables only of the
+modules the reach enters (about 10 G of the 23 G left); the official kernel arms (P-A, P-A2,
+P-W, P-N) and the knot restructuring (P-C), done by other sessions on `master`.
+
+Gates: `lake build` and `lake test` warning-free; `tests/arena.sh` exit 0 under the guard (peak
+4.5 GB): layering, pindump, trust surface, overview links (164), whitepaper links (530),
+fragment, quote gate, no-local-paths, challenge, shake (672/672 allowlisted, none demotable),
+plain-reach (589), binary-link, olean gate 333/333, selfcheck (58 849 declarations), axioms
+pinned (71 theorems), arena tutorial 90/92, e2e 600/600, the trusted and `--jobs` sweeps
+without divergence.

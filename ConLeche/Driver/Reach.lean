@@ -322,7 +322,8 @@ def lookOf (env : ReachEnv μ) (c : ReachCache) (k : PartKey) :
       pure ({ c with looks := c.looks.insert k l }, .ok l)
 
 /-- **A pure read of a part with its memo** (`entryWith`, `stmtWith`): the part's files read
-once, its memo taken out while it is extended. -/
+once, its memo taken out while it is extended.  A read that fails leaves an empty memo: the
+memo is consumed by `f`, no reference to it is kept for the failure branch (task #565). -/
 def withPart {α : Type} (env : ReachEnv μ) (c : ReachCache) (k : PartKey)
     (f : Region → SM → Option (SM × α)) : μ (ReachCache × Except CheckError (α)) := do
   let got : Except CheckError (Region × SM) ← match c.parts[k]? with
@@ -340,7 +341,7 @@ def withPart {α : Type} (env : ReachEnv μ) (c : ReachCache) (k : PartKey)
     let c := { c with parts := c.parts.erase k }
     match f r st with
     | some (st, a) => pure ({ c with parts := c.parts.insert k (r, st) }, .ok a)
-    | none => pure ({ c with parts := c.parts.insert k (r, st) }, .error (undecodable k.mod))
+    | none => pure ({ c with parts := c.parts.insert k (r, {}) }, .error (undecodable k.mod))
 
 /-- **A part's region and name table off one read of its files** (task #508): for `groupAt`,
 which reads both.  The region is kept with an empty memo; the table is the region's
