@@ -219,7 +219,7 @@ theorem classRuleCheckC_eq (mode : CheckMode) (feT feR : FEnv) (cvR : ConstantVa
     classRuleCheckC mode feT feR cvR n gen
       = classRuleCheck (sharedOpsRuleR mode feR) feT feR cvR n gen := by
   simp only [classRuleCheckC, classRuleCheck, Expr.allLevelParamsDefinedC_spec, constsResolveFC_spec,
-    unresolvedConstsErrorLC_true, sharedOpsRuleR, sharedOpsC, opE, bind_assoc, pure_bind]
+    unresolvedConstsErrorLC_true, sharedOpsRuleR, sharedOpsC, opI, bind_assoc, pure_bind]
 
 theorem classRulesOkC_eq (mode : CheckMode) (feT feR : FEnv) (g : ClassGen)
     (recOf : Nat → Option Name) (cvR : ConstantVal) (c : Nat) :

@@ -479,7 +479,7 @@ def CState.leaveEager (s : CState) : Option ModeMemos → CState
              defeqC := saved.defeqC }
 
 /-- **Run on the eager tower's memos** (task #361; task #353 ran it on
-fresh, empty ones): the eager comparison (`CoreFnsI.defeqE`) runs on
+fresh, empty ones): the eager comparison (`defeqEI`) runs on
 the eager set stored in the state, which keeps what it learned for the
 next eager comparison of the declaration — the task-#170 memo ruling
 ("since caching has no access to semantic reasoning we need two memos,

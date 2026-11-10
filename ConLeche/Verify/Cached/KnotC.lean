@@ -10,7 +10,7 @@ public section
 
 `SSimC mode eager env f` (task #163; declared in
 `ConLeche/Verify/Cached/DiscC1.lean`): at fuel `f`, every cached entry point
-(`ConLeche.Cached.coreKnotI mode (mkFEnv env) f`) simulates the
+(`whnfI mode (mkFEnv env) eager f`, …) simulates the
 corresponding fueled family on well-scoped inputs.  This module
 proves the *memo-wrapper step*: from per-body simulation walks at fuel
 `f` (`ConLeche/Verify/Cached/DiscC4-5.lean`), each entry point simulates
@@ -44,21 +44,6 @@ The easy cases return before either memo (`whnfCoreEasy`,
 `Runs.whnfCore_easy`).  The two modes of `whnfCore` (official
 `cheap_proj`) under two memos; one triple covers both (`vcgen` splits the
 knot's `if c`). -/
-
-theorem coreKnotI_whnfCore_succ (c : Bool) (d : Nat) (i : Expr) :
-    (coreKnotI mode eager (mkFEnv env) (f + 1)).whnfCore c d i =
-      if whnfCoreEasy i then pure i
-      else if c then
-        memoEI (·.whnfCoreCheapC) (fun st mp => { st with whnfCoreCheapC := mp })
-          (fun d e => whnfCoreBodyI mode (coreKnotI mode eager (mkFEnv env) f) (mkFEnv env) true d
-              e)
-          d i
-      else
-        memoEI (·.whnfCoreC) (fun st mp => { st with whnfCoreC := mp })
-          (fun d e => whnfCoreBodyI mode (coreKnotI mode eager (mkFEnv env) f) (mkFEnv env) false d
-              e)
-          d i := by
-  cases eager <;> cases c <;> rfl
 
 /-- An easy case is its own whnfCore answer (`whnfCoreBody`'s value arms). -/
 theorem Runs.whnfCore_easy {c : Bool} {d : Nat} {i : Expr} (h : whnfCoreEasy i = true) :
@@ -122,15 +107,15 @@ theorem CSOK.whnfCoreCheap_insert (henv : EnvWF env) {s : CState} {d : Nat} {i r
 more than their bodies. -/
 theorem memoEI_whnfCore_spec (henv : EnvWF env)
     (hbody : ∀ c, BodySpec mode eager env
-      (whnfCoreBodyI mode (coreKnotI mode eager (mkFEnv env) f) (mkFEnv env) c)
+      (whnfCoreBodyI mode (mkFEnv env) eager f c)
       (whnfCoreBody mode (fueledFns mode eager env) env c))
     {c : Bool} {s₀ : CState} {d : Nat} {i : Expr} (hs : CSOK mode eager env s₀)
     (hw : Expr.WScoped d i) :
-    ⦃fun s => s = s₀⦄ (coreKnotI mode eager (mkFEnv env) (f + 1)).whnfCore c d i
+    ⦃fun s => s = s₀⦄ whnfCoreI mode (mkFEnv env) eager (f + 1) c d i
     ⦃fun r s' => CSOK mode eager env s' ∧ Runs ((fueledFns mode eager env).whnfCore c d i) r ∧
       Expr.WScoped d r; ⊤⦄ := by
   sym only [conleche_grind, CSOK.whnfCore_insert henv, CSOK.whnfCoreCheap_insert henv] =>
-    vcgen [coreKnotI_whnfCore_succ, memoEI, BodySpec.triple (hbody true),
+    vcgen [whnfCoreI.eq_def, memoEI, BodySpec.triple (hbody true),
       BodySpec.triple (hbody false)] <;> finish
 
 /-! ### The whnf memo, by `vcgen` and `grind`
@@ -139,13 +124,6 @@ A hit reads the backed `CSOK.whnfC` clause at the query (`CSOK.whnf_hit`);
 a miss runs the body and inserts its answer, backed one fuel up by the
 depth-invariant run (`CSOK.whnf_insert`, `Runs.whnf_of_body`); an easy
 case returns before the memo (`whnfEasy`, `Runs.whnf_easy`). -/
-
-theorem coreKnotI_whnf_succ (d : Nat) (i : Expr) :
-    (coreKnotI mode eager (mkFEnv env) (f + 1)).whnf d i =
-      if whnfEasy i then pure i
-      else memoEI (·.whnfC) (fun st mp => { st with whnfC := mp })
-        (fun d e => whnfBodyI (coreKnotI mode eager (mkFEnv env) f) (mkFEnv env) d e) d i := by
-  cases eager <;> rfl
 
 /-- An easy case is its own whnf answer: it head-normalizes to itself,
 is no literal operation and does not unfold. -/
@@ -195,22 +173,16 @@ theorem CSOK.whnf_insert (henv : EnvWF env) {s : CState} {d : Nat} {i r : Expr}
 than its body.  `CSOK.whnf_insert` is in the `sym` list instantiated at
 `henv`: its pattern is the inserted state, which every miss builds. -/
 theorem memoEI_whnf_spec (henv : EnvWF env)
-    (hbody : BodySpec mode eager env (whnfBodyI (coreKnotI mode eager (mkFEnv env) f) (mkFEnv env))
+    (hbody : BodySpec mode eager env (whnfBodyI mode (mkFEnv env) eager f)
       (whnfBody (fueledFns mode eager env) env))
     {s₀ : CState} {d : Nat} {i : Expr} (hs : CSOK mode eager env s₀) (hw : Expr.WScoped d i) :
-    ⦃fun s => s = s₀⦄ (coreKnotI mode eager (mkFEnv env) (f + 1)).whnf d i
+    ⦃fun s => s = s₀⦄ whnfI mode (mkFEnv env) eager (f + 1) d i
     ⦃fun r s' => CSOK mode eager env s' ∧ Runs ((fueledFns mode eager env).whnf d i) r ∧
       Expr.WScoped d r; ⊤⦄ := by
   sym only [conleche_grind, CSOK.whnf_insert henv] =>
-    vcgen [coreKnotI_whnf_succ, memoEI, hbody.triple] <;> finish
+    vcgen [whnfI.eq_def, memoEI, hbody.triple] <;> finish
 
 /-! ### The infer memo -/
-
-theorem coreKnotI_infer_succ (d : Nat) (i : Expr) :
-    (coreKnotI mode eager (mkFEnv env) (f + 1)).infer d i =
-      memoEI (·.inferC) (fun st mp => { st with inferC := mp })
-        (fun d e => inferBodyI (coreKnotI mode eager (mkFEnv env) f) (mkFEnv env) d e) d i := by
-  cases eager <;> rfl
 
 /-- An infer memo hit answers the fueled infer, well scoped. -/
 theorem CSOK.infer_hit (henv : EnvWF env) {s : CState} {d : Nat} {i r : Expr}
@@ -245,29 +217,20 @@ theorem CSOK.infer_insert (henv : EnvWF env) {s : CState} {d : Nat} {i r : Expr}
 /-- The infer memo wrapper simulates the fueled infer at one fuel more
 than its body. -/
 theorem memoEI_infer_spec (henv : EnvWF env)
-    (hbody : BodySpec mode eager env (inferBodyI (coreKnotI mode eager (mkFEnv env) f) (mkFEnv env))
+    (hbody : BodySpec mode eager env (inferBodyI mode (mkFEnv env) eager f false)
       (inferBody (fueledFns mode eager env) env))
     {s₀ : CState} {d : Nat} {i : Expr} (hs : CSOK mode eager env s₀) (hw : Expr.WScoped d i) :
-    ⦃fun s => s = s₀⦄ (coreKnotI mode eager (mkFEnv env) (f + 1)).infer d i
+    ⦃fun s => s = s₀⦄ inferI mode (mkFEnv env) eager (f + 1) false d i
     ⦃fun r s' => CSOK mode eager env s' ∧ Runs ((fueledFns mode eager env).infer d i) r ∧
       Expr.WScoped d r; ⊤⦄ := by
   sym only [conleche_grind, CSOK.infer_insert henv] =>
-    vcgen [coreKnotI_infer_succ, memoEI, hbody.triple] <;> finish
+    vcgen [inferI.eq_def, memoEI, hbody.triple] <;> finish
 
 /-! ### The io memo (task #172 B4)
 
 The slot is the io body under its own memo (`CState.inferIOC`); a hit
 consumes the io clause — the weaker one — and a miss re-inserts in
 depth-universal form through `inferTypeIO_depth_inv`. -/
-
-theorem coreKnotI_inferIO_succ (d : Nat) (i : Expr) :
-    (coreKnotI mode eager (mkFEnv env) (f + 1)).inferIO d i =
-      memoEI (·.inferIOC) (fun st mp => { st with inferIOC := mp })
-        (fun d e => inferBodyIOI (CoreFnsI.ioView (coreKnotI mode eager (mkFEnv env) f))
-          (mkFEnv env) d e) d i := by
-  -- the knot's previous level is a `Unit` closure (task #179), which
-  -- beta-reduces to `coreKnotI … f`
-  cases eager <;> rfl
 
 /-- An io memo hit answers the fueled io slot, well scoped. -/
 theorem CSOK.inferIO_hit (henv : EnvWF env) {s : CState} {d : Nat} {i r : Expr}
@@ -304,23 +267,16 @@ theorem CSOK.inferIO_insert (henv : EnvWF env) {s : CState} {d : Nat} {i r : Exp
 than its body. -/
 theorem memoEI_inferIO_spec (henv : EnvWF env)
     (hbody : BodySpec mode eager env
-      (inferBodyIOI (CoreFnsI.ioView (coreKnotI mode eager (mkFEnv env) f)) (mkFEnv env))
+      (inferBodyIOI mode (mkFEnv env) eager f)
       (inferBodyIO (CoreFns.ioView (fueledFns mode eager env)) env))
     {s₀ : CState} {d : Nat} {i : Expr} (hs : CSOK mode eager env s₀) (hw : Expr.WScoped d i) :
-    ⦃fun s => s = s₀⦄ (coreKnotI mode eager (mkFEnv env) (f + 1)).inferIO d i
+    ⦃fun s => s = s₀⦄ inferI mode (mkFEnv env) eager (f + 1) true d i
     ⦃fun r s' => CSOK mode eager env s' ∧ Runs ((fueledFns mode eager env).inferIO d i) r ∧
       Expr.WScoped d r; ⊤⦄ := by
   sym only [conleche_grind, CSOK.inferIO_insert henv] =>
-    vcgen [coreKnotI_inferIO_succ, memoEI, hbody.triple] <;> finish
+    vcgen [inferI.eq_def, memoEI, hbody.triple] <;> finish
 
 /-! ### The defeq memo -/
-
-theorem coreKnotI_defeq_succ (d : Nat) (a b : Expr) :
-    (coreKnotI mode eager (mkFEnv env) (f + 1)).defeq d a b =
-      memoBI (fun d a b => defeqBodyI mode eager (coreKnotI mode eager (mkFEnv env) f) (mkFEnv env)
-          d a b)
-        d a b := by
-  cases eager <;> rfl
 
 /-- A defeq memo hit answers the fueled defeq. -/
 theorem CSOK.defeq_hit {s : CState} {d : Nat} {a b : Expr} {r : Bool}
@@ -361,15 +317,14 @@ theorem CSOK.defeq_insert (henv : EnvWF env) {s : CState} {d : Nat} {a b : Expr}
 /-- The defeq memo wrapper simulates the fueled defeq at one fuel more
 than its body. -/
 theorem memoBI_defeq_spec (henv : EnvWF env)
-    (hbody : BodySpecB mode eager env (defeqBodyI mode eager (coreKnotI mode eager (mkFEnv env) f)
-        (mkFEnv env))
+    (hbody : BodySpecB mode eager env (defeqBodyI mode (mkFEnv env) eager f)
       (defeqBody mode eager (fueledFns mode eager env) env))
     {s₀ : CState} {d : Nat} {a b : Expr} (hs : CSOK mode eager env s₀) (hwa : Expr.WScoped d a)
     (hwb : Expr.WScoped d b) :
-    ⦃fun s => s = s₀⦄ (coreKnotI mode eager (mkFEnv env) (f + 1)).defeq d a b
+    ⦃fun s => s = s₀⦄ defeqI mode (mkFEnv env) eager (f + 1) d a b
     ⦃fun r s' => CSOK mode eager env s' ∧ Runs ((fueledFns mode eager env).defeq d a b) r; ⊤⦄ := by
   sym only [conleche_grind, CSOK.defeq_insert henv] =>
-    vcgen [coreKnotI_defeq_succ, memoBI, hbody.triple] <;> finish
+    vcgen [defeqI.eq_def, memoBI, hbody.triple] <;> finish
 
 end Wrappers
 
@@ -404,9 +359,9 @@ private theorem ssimC_all (env : Env) (henv : EnvWF env) :
       defeqE := fun {s₀ d i j a b} hs hdena hdenb hwa hwb => by
         refine SimC.congr_fueled (p := (fueledFns .verified true env).defeq d a b)
           (fun F => defeqE_def env F d a b) ?_
-        have hE : (coreKnotI .verified eager (mkFEnv env) (f + 1)).defeqE d i j =
-            withEagerMemos eager ((coreKnotI .verified true (mkFEnv env) (f + 1)).defeq d i j) := by
-          cases eager <;> rfl
+        have hE : defeqEI .verified (mkFEnv env) eager (f + 1) d i j =
+            withEagerMemos eager (defeqI .verified (mkFEnv env) true (f + 1) d i j) := by
+          rw [defeqEI.eq_def, defeqI.eq_def]
         rw [hE]
         obtain rfl := hdena
         obtain rfl := hdenb
