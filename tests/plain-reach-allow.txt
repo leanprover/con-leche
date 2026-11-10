@@ -267,7 +267,6 @@ ConLeche.instDecidableEqExpr.decEq
 ConLeche.instDecidableEqLevel
 ConLeche.Level.decEqPtr
 ConLeche.instDecidableEqLiteral
-ConLeche.instHashableLiteral.hash
 ConLeche.instInhabitedExpr.default
 ConLeche.levelHasParam
 ConLeche.levelsHash
