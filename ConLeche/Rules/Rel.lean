@@ -241,10 +241,10 @@ inductive Red (env : Env) : Nat → Expr → Expr → Prop where
   /-- **The K rescue** (`majorToCtor`'s K branch, `Kernel/Core.lean`;
   official `to_cnstr_when_K`): at a K-flagged single-rule recursor the
   parameters-only constructor application is fabricated from the
-  major's io-inferred, head-normalised type, scope-guarded,
-  type-checked against the major's type (official's check; it decides
-  whether the rescue fires), and equated to the major by proof
-  irrelevance.  The last four premises are the major's half of that
+  major's io-inferred, head-normalised type, scope-guarded, type-checked against the
+  major's type (official's check; it decides whether the rescue fires; its two `tf`
+  premises are not needed for consistency, `Red.rescueK_sound` reads neither, task #552),
+  and equated to the major by proof irrelevance.  The last four premises are the major's half of that
   `proofIrrel` run: its io type's io sort reduces to `Prop`, so the
   major is a proof — the point at every valuation, about which a
   reduction claims nothing (task #342 L18). -/

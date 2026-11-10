@@ -62,7 +62,7 @@ nor nested; nested blocks are the subject of @sec:nested. The block is given by 
   $arrow(e)_j$ of its result $I thick arrow(x) thick arrow(e)_j$.
 
 A field is one of #src("whitepaper/Fragment/Spec.lean", 28, 42)[two kinds]
-(#src("ConLeche/Kernel/Inductives/Positivity.lean", 686, 696)[as in con-leche]):
+(#src("ConLeche/Kernel/Inductives/Positivity.lean", 331, 341)[as in con-leche]):
 
 - _ordinary_: its domain does not mention $I$;
 - _reflexive_: its domain is
@@ -78,7 +78,7 @@ mentions $I$ anywhere else; this is
 #src("whitepaper/Fragment/Decl.lean", 641, 655)[strict positivity].
 And nothing after a reflexive field
 #src("whitepaper/Fragment/Decl.lean", 658, 663)[may depend on its value]
-(#src("ConLeche/Kernel/Inductives/Positivity.lean", 1338, 1341)[as in con-leche] and the
+(#src("ConLeche/Kernel/Inductives/Positivity.lean", 721, 724)[as in con-leche] and the
 official kernel), so that the model can read a constructor's domains
 without knowing the values of its reflexive fields.
 
@@ -89,7 +89,7 @@ without knowing the values of its reflexive fields.
   domain after weak head normal form, with $I$ at the block's
   parameters replaced by a variable standing for the family being
   defined; @sec:nested uses the same check
-  (#src("ConLeche/Kernel/Inductives/Positivity.lean", 1527, 1528)[positivity]).
+  (#src("ConLeche/Kernel/Inductives/Positivity.lean", 910, 911)[positivity]).
 ]
 
 Reflexive fields with a non-empty telescope matter to the model. A
@@ -782,7 +782,7 @@ uniqueness the two have one domain, which holds the argument.
   kernel. The law there is proved without the comparisons: when the
   redex is not the point, the major is a tagged tuple, which ties the
   constructor application to the recursor's levels and parameters
-  (#src("ConLeche/Model/Env/Laws.lean", 505, 539)[what the law
+  (#src("ConLeche/Model/Env/Laws.lean", 439, 473)[what the law
   provides instead]).
 ]
 
@@ -989,7 +989,7 @@ assumed of the environment they extend.
 #theorem(name: "Every accepted environment has a model")[
   For every model of the extended theory, every accepted environment
   #src("whitepaper/Fragment/Consistency.lean", 62, 79)[has a model in it]
-  (#src("ConLeche/MainTheorem.lean", 104, 107)[con-leche's main theorem]).
+  (#src("ConLeche/MainTheorem.lean", 110, 113)[con-leche's main theorem]).
 ] <thm:accepted-model>
 
 #proof[
@@ -1012,7 +1012,7 @@ assumed of the environment they extend.
   environment. Then #src("whitepaper/Fragment/Consistency.lean", 139, 149)[no closed term $e$ has] $tack e => I$; in
   particular no stored constant has type $I$
   (#src("whitepaper/Fragment/Consistency.lean", 155, 159)[at the block `inductive False : Prop`]\;
-  #src("ConLeche/Model/Fold.lean", 576, 583)[as in con-leche]).
+  #src("ConLeche/Model/Fold.lean", 564, 571)[as in con-leche]).
 ] <cor:consistency>
 
 #proof[
@@ -1040,7 +1040,7 @@ assumed of the environment they extend.
   name `False` and say that it denotes the empty set and `Eq` set
   equality, with no hypothesis about the stream (#overview(1)); and
   its acceptance is the run of a program,
-  #src("ConLeche/Model/Fold.lean", 505, 507)[the declaration fold],
+  #src("ConLeche/Model/Fold.lean", 493, 495)[the declaration fold],
   rather than a relation, so a bridge theorem turns each accepting
   run into the derivations §3 and §4 consume (@sec:left-out). The
   argument in between is the one above.

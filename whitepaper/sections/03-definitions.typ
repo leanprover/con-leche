@@ -22,7 +22,7 @@ corollary follow in @sec:ind.
 
 *The environment* $E$, fixed throughout like the valuation, is a
 #src("whitepaper/Fragment/Env.lean", 116, 132)[list of the constants] accepted so far,
-#src("ConLeche/Kernel/Env.lean", 461)[most recent first]. A
+#src("ConLeche/Kernel/Env.lean", 451)[most recent first]. A
 #src("whitepaper/Fragment/Env.lean", 66, 107)[stored constant] has its level parameters $arrow(p)$, its type (a closed
 term over $arrow(p)$) and #src("ConLeche/Kernel/Env.lean", 293, 311)[its _kind_]. We write
 $(c.\{arrow(p)\} : T) in E$ for "$c$ is stored with parameters
@@ -36,7 +36,7 @@ stored at most once.
 
 *Constants.* The grammar of @sec:terms gains one form: a #src("whitepaper/Fragment/Syntax.lean", 35, 36)[constant $c$]
 of the environment, used at a list of levels $arrow(ell)$,
-#src("ConLeche/Kernel/Expr.lean", 349, 359)[one per level parameter] of its declaration.
+#src("ConLeche/Kernel/Expr.lean", 434, 444)[one per level parameter] of its declaration.
 
 $
   e & colon.double.eq dots | c.\{arrow(ell)\}
@@ -79,7 +79,7 @@ head rule of @sec:rules, an applied definition unfolds at its head.
 *What a definition must satisfy.* Before the checker stores a
 definition $c$ with parameters $arrow(p)$, type $T$ and value $v$, it
 #src("whitepaper/Fragment/Decl.lean", 592, 606)[checks four things]
-(in con-leche: #src("ConLeche/Kernel/CheckerBase.lean", 108, 132)[the common checks]
+(in con-leche: #src("ConLeche/Kernel/CheckerBase.lean", 107, 131)[the common checks]
 and #src("ConLeche/Kernel/Checker.lean", 34, 47)[the value check]):
 
 - the name $c$ is fresh;

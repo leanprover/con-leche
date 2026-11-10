@@ -118292,3 +118292,313 @@ Logs: `_tmp/550/logs/v2/` (the battery `_tmp/550/scripts/v2.sh`).
 Gates: `lake build`, `lake test` warning-free; `tests/arena.sh` in full (under the guard);
 layering, shake, trust surface, plain-reach (577, all allowlisted), binary-link, links and
 quotes.  The commit also builds on `modular` (`lake build`, warning-free).
+
+## TASK #551 — name, level and literal equality pointer first at every level (2026-11-10, agent/551-ptr-eq)
+
+DESIGN #549's proposal P2, as the maintainer ruled it: `Name` equality on executed paths tests
+the pointer, then the cached hash, then the structure; literal equality tests the pointer
+before GMP; no derived `DecidableEq` on these executed paths.
+
+**What was there.**  `Name.beqPtr` (pointer, hash, then `decide (a = b)`) was `@[csimp]`'s
+replacement for `Name.beq`, so `==` was guarded at the top, but the guarded call was the derived
+structural `DecidableEq Name`, which recursed with no guard.  And every `=` in an `if` went to
+the derived instance without any guard: the Nat-operation dispatch (`reduceNatI`'s fourteen
+`cn = natAddName ∨ …`, `natOpResult`'s chain), `Name` fields in derived instances of other
+types.  On CCK4 the derived `instDecidableEqName.decEq` and its `memcmp` took 12.7 % of the
+check phase (#549).  `Level` had the same shape (`Level.beqPtr`).  `Literal` derived
+`DecidableEq`; `lean_nat_dec_eq` on two big numbers is `mpz_cmp`, no pointer test, so a memo hit
+on a literal found again in a new node compared the whole number.
+
+**What is there now** (`ConLeche/Kernel/Name.lean`, `ConLeche/Kernel/Expr.lean`).  For each of
+`Name`, `Level`, `Literal`:
+* `T.decEq`: the structural decision, written out (the instance: what the kernel, `by decide` and
+  `#guard` reduce).  No `deriving DecidableEq`.
+* `T.decEqPtr`: what runs.  `withPtrEqDecEq` on the two objects; for `Name` and `Level`, the cached
+  hash (`hashData`); then one structural step, whose children start over at `decEqPtr`.  So a
+  prefix shared by reference costs one pointer test at any depth, and two different names almost
+  always differ in hash at the top, as in `lean_name_eq`.  A `Name.num` component and a `.natVal`
+  literal test the number's pointer (`withPtrEqDecEq n m (fun _ => Nat.decEq n m)`) before GMP.
+  Strings need no wrapper: `lean_string_eq` tests `s1 == s2` itself.  A literal has no hash
+  test of its own: `Expr.beqMemo` and `enterBeq` compare the nodes' computed words, which carry
+  the literal's hash, before the `.lit` arm is reached.
+* `@[csimp] T.decEq_eq_decEqPtr : @T.decEq = @T.decEqPtr`, proved by `funext; Subsingleton.elim`:
+  both sides decide the same proposition.  No `import all` is needed for this (the old
+  `Name.beqPtr_eq` needed `withPtrEq`'s body); `Name.lean` drops its `import all Init.Util`.
+  `Expr.lean` keeps its own for `beqMemo_eq`.
+* `Name.beq`/`Level.beq` stay `decide (a = b)` with their lawful `BEq`.  `beqPtr`, `beqPtr_eq`
+  and `beq_eq_beqPtr` are gone: `==` reaches `decEqPtr` through the instance.
+
+The generated C bears this out: `instDecidableEqName` is one call to `Name_decEqPtr`, which
+takes both names borrowed (no reference counting), and `Expr.beqGoX`'s `.const` and `.proj` arms
+call `Name_decEqPtr`, the `.sort` arm and the level lists call `Level_decEqPtr`, and the `.lit` arm
+calls the pointer-first `instDecidableEqLiteral`.  The derived `DecidableEq Expr` is still there.
+It runs only where `beqGoX`'s arms already disagree on the constructor, and in `ptrDec`'s
+pure-model fallback, which compiled code never reaches.  So it is not on a memo-key path.
+
+No proof changed.  `plain-reach`'s allowlist trades `Name.beqPtr` and the three derived
+`….decEq` for `Name.decEqPtr`, `Level.decEqPtr`, `instDecidableEqLiteral` and `Name.beq` (now
+compiled itself, no longer replaced).  `OVERVIEW.md`'s `Name.render` link and three whitepaper
+`#src` ranges are repointed: the lines moved.
+
+**Orthogonal to #550**: only the equality functions changed, no memo control flow.
+
+### Measurements
+
+`perf stat -e instructions:u,cycles:u`, three runs each, one at a time, under the guard and
+`timeout`.  The instruction column is the first run (the three agree to within 0.1 %; `app-lam`
+at `--jobs=8` varies by 0.3 % from run to run).  Cycles are the three runs, in G; the
+machine was loaded, other lanes ran CFSG modules at the same time, so cycles are only a rough
+guide.  Arena perf streams `--jobs=8` and `init-full` `--jobs=1`: master 49d2fa3fd against the
+lane.  Master has no `--module` and no #547 hash, so the Mathlib workers (`_tmp/501/measure.sh`'s
+four modules, `--olean --module --jobs=8`) and CFSG (closure `_tmp/543/olean`, `--jobs=1`, as
+#549) ran on `modular` 549c0937f (#549's base) against 549c0937f with this lane's commit
+cherry-picked (one conflict, the `Literal` block next to #547's hash; resolved keeping both).
+Every run accepts the same count as its base.
+
+| run | base instructions | lane instructions | Δ | base G cycles | lane G cycles |
+|---|---|---|---|---|---|
+| `init-prelude` | 1 567 008 615 | 1 563 846 995 | −0.20 % | 1.4 / 1.4 / 1.3 | 1.1 / 1.0 / 1.0 |
+| `grind-ring-5` | 13 318 174 175 | 13 243 407 671 | −0.56 % | 14.4 / 13.9 / 14.2 | 8.3 / 7.8 / 7.9 |
+| `app-lam` | 22 041 695 999 | 22 071 067 665 | +0.13 % | 16.4 / 15.8 / 16.1 | 11.7 / 12.1 / 12.1 |
+| `let-ladder` | 2 594 251 151 | 2 594 066 822 | −0.01 % | 1.2 / 1.2 / 1.2 | 0.8 / 0.9 / 0.8 |
+| `beta-ladder` | 4 868 788 580 | 4 857 297 714 | −0.24 % | 2.2 / 2.2 / 2.2 | 1.5 / 1.6 / 1.6 |
+| `init-full` | 373 036 797 806 | 372 358 085 321 | −0.18 % | 243.6 / 184.2 / 170.0 | 172.7 / 173.7 / 170.4 |
+| `Init.Data.Nat.Lemmas` | 9 095 902 805 | 9 022 839 731 | −0.80 % | 4.4 / 5.0 / 4.6 | 6.1 / 6.3 / 6.0 |
+| `Mathlib.GroupTheory.Coxeter.Basic` | 6 896 417 449 | 6 878 029 331 | −0.27 % | 3.2 / 3.1 / 3.3 | 3.7 / 4.3 / 3.9 |
+| `Mathlib.Analysis.SpecialFunctions.Gamma.Basic` | 11 782 328 353 | 11 758 679 168 | −0.20 % | 6.0 / 7.4 / 6.8 | 6.3 / 6.3 / 5.8 |
+| `Mathlib.RingTheory.WittVector.MulP` | 6 364 914 727 | 6 356 466 604 | −0.13 % | 3.7 / 3.5 / 3.7 | 3.0 / 2.8 / 2.6 |
+| CFSG `--constant=CK` | 225 298 209 852 | 225 005 677 417 | −0.13 % | 56.3 / 56.4 / 56.5 | 55.5 / 56.1 / 56.0 |
+| CFSG `--constant=ck318` | 307 660 450 946 | 307 100 202 476 | −0.18 % | 89.0 / 143.0 / 110.8 | 92.0 / 91.5 / 90.0 |
+| ck318 net (ck318 − CK) | 82 362 241 094 | 82 094 525 059 | −0.33 % | | |
+| CCK4 (module) | 219 467 884 527 | 206 529 063 816 | −5.90 % | 148.1 / 164.1 / 155.3 | 157.4 / 141.8 / 147.6 |
+| McLEnumA (module), one run each | 3 726 846 630 371 | 3 434 189 376 846 | −7.85 % | 2 573.8 | 2 518.3 |
+
+* **CCK4 −12.9 G (−5.9 %)**, which is the #549 prototype's figure (−12.9 G): the name dispatch.
+* **McLEnumA −293 G (−7.9 %)**: #549 put "name comparisons of equal names" at 4.9 % of its
+  profile, and the environment lookups (`FBase.find?`) walk names on every hit.  One run per
+  binary: a run is 15–20 minutes and holds the machine.
+* **ck318 −0.27 G net.**  The equal literals `whnfC` compared on ck318 (#549's probe: 2.5 GB)
+  were not mostly the same number object: the pointer test spares few of them.  The comparison is
+  a memory-bound `mpz_cmp`, so it costs few instructions.  The cycles cannot be read here.
+* Nothing regresses beyond noise: `app-lam` +0.13 % is inside its own run-to-run spread
+  (22.006–22.073 G for the base).  No regression above 1 %.
+
+Gates: `lake build` (799 jobs) and `lake test` warning-free; `tests/arena.sh` in full under the
+guard (layering, pindump, trust surface 11 escapes in 6 allowlisted files, overview links,
+whitepaper fragment, quote gate, no-local-paths, challenge, shake 662/662 allowlisted and no
+public import demotable, plain-reach 577 all allowlisted, binary-link, olean gate 122/122,
+self-check 53 950 declarations, axioms pinned at 32 theorems over the three standard ones, arena
+tutorial 90/92, e2e 585/585, the trusted and `--jobs` sweeps without divergence).  Its one
+failure was the whitepaper link gate (the moved `Level`/`Expr` lines), repointed and green
+since.
+
+Measurement scripts and logs: `_tmp/551/scripts`, `_tmp/551/logs`.
+
+**After merging master (#550, f42051579).**  `lake build`, `lake test`, plain-reach (577) and
+binary-link pass again.  One run each, instructions:u, against master 49d2fa3fd: init-prelude
+1 567 008 615 → 1 467 845 413 (−6.33 %; #550 alone −6.16 %), grind-ring-5 13 318 174 175 →
+12 659 258 121 (−4.95 %; #550 alone −4.37 %), init-full 373 036 797 806 → 355 675 379 942
+(−4.65 %; #550 alone −4.44 %).  The two gains add up.  Verdicts unchanged.
+
+**Why a structural instance plus `@[csimp]`, and not the pointer-first decision as the only
+instance** (the maintainer's question, 2026-11-10).  Tried: `Name`, `Level` and `Literal`
+with `decEqPtr` as the instance, and `Expr` without its derived instance, its one
+`DecidableEq` being `withPtrEqDecEq`, then the computed-word test, then `beqDec`.  A plain,
+hand-written structural `Expr.decEqStruct` is kept as `ptrDec`'s logical fallback and as the
+answer on different constructors.  `Kernel/Expr.lean` builds this way and needs no lemma.  The
+proofs that decide concrete names do not: `by decide` cannot reduce the instance.  In an
+importing module `withPtrEqDecEq`'s body is hidden (`Init.Util` does not expose it), and the
+hash test stops at `mixHash`, which is opaque.  Eight such `decide`s fail in the first two
+modules that have one (`Verify/EnvWF.lean`'s natOp/reserved-name disjointness,
+`Verify/Cached/DeclPushes.lean`'s tolerated-axiom name inequalities), and their dependents
+were not built.  The tree has 582 `by decide` sites.  So the single instance is a follow-up:
+it means dropping the hash test from the instance, or not, and replacing each concrete-name
+`decide` with a proof that needs no reduction of the instance.  The attempt is in
+`_tmp/551/scratch/onlyinstance.diff`.
+
+## TASK #552 — the K rule without the index check, closed and open majors (2026-11-10, agent/552-kskip)
+
+**The question (maintainer).** Official's `to_cnstr_when_K` reduces a K-like recursor
+(`Eq.rec` and friends) on a non-constructor major by inferring the major's type,
+head-normalising it, fabricating the parameters-only constructor (`@Eq.refl α a` from
+`@Eq α a b`), checking the two types defeq (the *index check*, `a ≡ b`), then ι-reducing to the
+minor.  May the check be skipped for CLOSED majors, and (addition) for every major?  Implement,
+prove, report what breaks.  A spike: measured, not landed.
+
+**Analysis: what the proof uses the index check for — nothing.**
+
+* `Red.rescueK_sound` (`Model/Rules/IotaSound.lean`) never took the `DefEq tmaj tf` premise nor
+  the fabrication's inferred type: the major is a proof (the major's half of the `proofIrrel`
+  run, `PropPt`), so it is the point at every valuation, and a reduction's claim about the point
+  is vacuous.  The premises were in `Red.rescueK` only because the rule mirrored the checker.
+* The ι step at a K recursor (`Red.iota_sound`'s K branch) fires the K law (`RecRuleExtra`,
+  `Model/Env/Laws.lean`) at the recursor's OWN parameters, for ANY major value `a` whose spine
+  `xs ++ [a]` fits the recursor's telescope.  The fit comes from the recursor's arity
+  certificate at a redex that is graded and not the point — that is, from the redex's SEMANTIC
+  typing, which the conditional claim (`RedSem`'s `hg`, `hne`) supplies.  The major's reduction
+  is read only for the field count (`nfields = 0`, which the K law itself gives).  So the
+  semantic typing of the major (`⟦h⟧ ∈ ⟦a = b⟧` forces `⟦a⟧ = ⟦b⟧`) is exactly what the model
+  uses, and the syntactic index check adds nothing.
+* Closedness is not needed for soundness: the proof is the same for open majors (no valuation
+  of an inconsistent context is ever read, and none is needed).  Closedness matters only for
+  termination and for agreement with official.
+
+**Variants.**
+
+* Implemented in both cores: the skip of the `DefEq` premise (and of the fabrication's type
+  inference), behind a build-time switch `kIndexMode` (`ConLeche/Kernel/KIndex.lean`): `.check`
+  (default, the incumbent), `.skipClosed` (skip at a major with no fvar and no loose bvar:
+  `!hasFvar && looseBVarsBounded 0`, both `O(1)` field reads), `.skipAll`.  The definition is
+  public but not exposed, so no proof reads its value: every theorem holds at all three, and a
+  comparison is an edit of one line and a rebuild.  The fabrication and the verified mode's
+  proof-irrelevance certificate stay.
+* Proved, not wired: the inference-free rule `Red.iotaK` (`T.rec ps m minor is h ⇝ minor`, the
+  rule's right-hand side at the recursor's parameters, with only the arity check as premise) and
+  `Red.iotaK_sound`: `Red.iota_sound`'s K branch without the major.  No checker path produces it.
+
+**Proof status.** Complete, no `sorry`, no new axiom; `lake build` and `lake test` warning-free,
+capstone axiom pins unchanged.  Changes: `Red.rescueK` loses `Infer env .io d fab tf` and
+`DefEq env d tmaj tf` (`Rules/Rel.lean`, `Model/Rules/Sound.lean`, `Verify/Rules/RedBridge.lean`);
+`majorToCtor_inv` (`Verify/InferLemmas.lean`) no longer reports the check's run; the shift
+lemma (`Verify/Deep.lean`, `kIndexSkip_shiftFrom`), the environment-extension relation
+(`Verify/EnvExt/Whnf.lean`) and the cached simulation (`Verify/Cached/DiscC3.lean`: the gate named
+on both sides, `kIndexGateI`/`kIndexGateP`, its own triple `kIndexGateC_spec`, one
+`sym … => vcgen … <;> finish`) take the switch generically.  `Red.iotaK` adds one case to
+`red_sound` and to `Rules/Rigid.lean`.
+
+**Practice** (one binary per switch value, `_tmp/552-kskip/bin/`; `--verified`).
+
+*(a) How often the skip fires where the check would fail.*  A probe build at `.check` (the
+incumbent's run, every K rescue that reaches the index check traced with the major's
+closedness and the check's outcome; `--jobs=8`); every such visit with a failing check is one
+where the skip fires instead:
+
+| stream | closed, passes | closed, **fails** | open, passes | open, **fails** |
+|---|---|---|---|---|
+| init-full | 35 | 0 | 215 | 384 |
+| mathlib-prefix | 456 | 0 | 1 300 | 734 |
+| mathlib-full | 11 456 | **8** | 43 857 | **10 007** |
+
+(A second probe at `.skipAll`, the old check run beside the skip: init-full 35 / 0 / 215 / 432,
+mathlib-prefix 456 / 0 / 1 300 / 765, grind-ring-5 13 / 0 / 2 / 16 — more visits, as the
+reductions the skip enables reach further K redexes.)  At a closed major the check fails 8
+times in all of Mathlib (and never in Init); at an open major one visit in five fails: an
+`Eq.rec`/`cast`/`▸` on a hypothesis `h : a = b` whose endpoints differ, met while comparing
+inside a proof or a definition body.
+
+*(b) Verdict changes against official.*
+
+* The arena rows (138) and the 585 pre-existing e2e fixtures: `.skipClosed` changes only
+  `k_rescue_stuck` (reject → accept; official loops there).  `.skipAll` additionally accepts
+  arena **`bad/098_ruleKbad`** (`h : true = false ⊢ Eq.rec b h = b` by `rfl`): a bad test
+  accepted, which the arena counts as a soundness failure, though the claim is true under an
+  inconsistent hypothesis and the model proves it.  `bad/099_ruleKAcc`, `bad/114_etaRuleK`,
+  `good/097_ruleK`: unchanged.
+* init-full (57 977), mathlib-prefix (131 902), the 16 perf tests: all accept at every value.
+* mathlib-full (691 203 records): `.check` and `.skipClosed` accept all (so the 8 closed
+  fires change no verdict).  **`.skipAll` rejects** `_private.Mathlib.CategoryTheory.IsConnected.0.
+  CategoryTheory.IsPreconnected.IsoConstantAux.liftToDiscrete._proof_6` ("application type
+  mismatch", after 29.6 s; the run stops at its first rejection, so more may follow) — a
+  theorem official accepts (`.skipClosed` accepts it, so an open major is involved).  Not
+  traced to the step; the class (lost subject reduction) is reproduced by `k_skip_open_eta`.
+
+*(c) Performance* (`instructions:u`, one run each, `--jobs=1`; mathlib-full `--jobs=8`):
+
+| stream | `.check` | `.skipClosed` | `.skipAll` |
+|---|---|---|---|
+| init-full | 373.022 G | +0.019 % | +0.047 % |
+| mathlib-prefix | 512.466 G | −0.024 % | −0.049 % |
+| grind-ring-5 | 13.052 G | −0.011 % | −0.013 % |
+| the other 15 perf tests | 0.020–22.07 G | within ±0.03 % | within ±0.04 % |
+| mathlib-full (`--jobs=8`) | 6 664.998 G | 6 673.232 G (+0.12 %) | stops at the rejection (615.2 G) |
+
+Noise level throughout: the check is cheap where it runs (the fabrication's type is one
+inference; the comparison usually succeeds by pointer or a few steps).
+
+*(d) Adversarial fixtures* (new, `tests/e2e/src/k_skip_*.lean`, pinned at today's verdict, which
+is official's; the five that need it are hand-patched with `scripts/splice-rfl.py`, which
+replaces the `sorry` value by `fun xs => Eq.refl rhs`, as the elaborator runs the same index
+check; the two η fixtures are honest exports):
+
+| fixture | `.check` (= official) | `.skipClosed` | `.skipAll` |
+|---|---|---|---|
+| `k_skip_funext_rfl` (closed `funext` major, `0 + x` vs `x`) | 1 | **0** (accepts a `rfl` official rejects) | **0** |
+| `k_skip_omega_closed` (closed Ω via `propext`, forced by `Acc.rec`) | 1 | **timeout** | **timeout** |
+| `k_skip_omega_open` (Ω under `h : (A → A) = A`, `A : Type`) | 1 | 1 | **timeout** |
+| `k_skip_open_contra` (`Eq.rec` under `h : 0 = 1`) | 1 | 1 | **0** |
+| `k_skip_open_cast_lit` (`Bool.rec` on `cast h 5`, `h : Nat = Bool`) | 1 | 1 | 1 |
+| `k_skip_open_eta` (η at `h ▸ p`, `h : a = b`; honest `rfl` export) | 0 | 0 | **1** (rejects what official accepts) |
+| `k_skip_closed_eta` (η at a cast on a closed `funext` major) | 0 | **1** (rejects what official accepts) | **1** |
+| `k_rescue_stuck` (existing, task #334) | 1 | **0** | **0** |
+| `k_major_raw`, `omega_kloop`, `omega_demo2` (existing) | 0 | 0 | 0 |
+
+The two loops run in constant memory (16 MB anon) until the 60–120 s timeout: no fuel or depth
+bound stops them (the loop is a whnf iteration, each round a β step and two K steps).  The
+cast-literal fixture shows the checker stays well-behaved when an unchecked cast puts a term at
+a type it does not inhabit (the literal's constructor has no rule in `Bool.rec`: stuck).
+
+**Why each change.**  `k_skip_funext_rfl`, `k_skip_open_contra`, `bad/098_ruleKbad`,
+`k_rescue_stuck`: the skip reduces a K redex whose endpoints are propositionally but not
+definitionally equal (closed: by `funext`/`propext`; open: by an inconsistent or unused
+hypothesis), so a comparison official decides `false` becomes `true`.  The two Ω fixtures: the
+skip makes casts between `X` and `X → X` vanish, so the self-application has no head normal
+form; with the check the cast is stuck.  The two η fixtures and the Mathlib rejection: **the
+skip breaks subject reduction** — the reduct of `Eq.rec (motive := M) m b h` is `m : M a rfl`,
+not of the redex's type `M b h`, and with `a ≢ b` a later step that reads the reduct's type
+(structure η's type comparison, an argument's type against a domain) fails a comparison
+official, which never forms that reduct, passes.  Sound (a rejection), but a rejection of
+correct developments: with a closed major as well as an open one.
+
+**Gates** (default `.check`): `lake build`, `lake test` warning-free (axioms pinned at
+`[propext, Classical.choice, Quot.sound]`); `tests/arena.sh`: e2e 590/590 (the two η fixtures,
+added after, pass at `.check`), arena tutorial 90/92 good accepted (as on master), self-check
+54 008 declarations, olean gate 122/122, trusted and `--jobs` sweeps without divergence,
+layering, shake, trust surface, binary-link OK.  `tests/plain-reach-allow.txt` gains `ConLeche.kIndexSkip`.  The OVERVIEW and
+whitepaper line-anchored links into `Rules/Rel.lean`/`Kernel/Core.lean` shifted (not updated: a
+spike; to do if it lands).
+
+**Answer.**  Sound: yes, at closed and open majors alike, and the proof agrees with the
+sketch — the model never needed the index check, and closedness plays no part in it.  But the
+index check is not there for soundness: it keeps reduction type-preserving, and without it the
+checker (i) accepts `rfl` proofs official rejects, (ii) loops where official terminates,
+reachable with a closed term built from `propext`, and (iii) REJECTS correct proofs official
+accepts (subject reduction lost), at closed majors (`k_skip_closed_eta`) and in Mathlib at
+open ones.  Closed-only skipping fires 8 times in all of Mathlib with no verdict change and no
+measurable speed-up.
+
+**Rulings needed.**
+
+1. *Skip the index check at closed majors?*  Recommendation: **no**.  Sound (proved), but it
+   buys nothing (8 fires in Mathlib, +0.02 %/−0.02 % on init-full/mathlib-prefix, noise), and
+   it makes con-leche accept closed `rfl` proofs official rejects (`k_skip_funext_rfl`),
+   reject ones official accepts (`k_skip_closed_eta`), and loop without bound where official
+   terminates (`k_skip_omega_closed`).
+2. *Skip it at every major?*  Recommendation: **no**.  It rejects a Mathlib theorem official
+   accepts (subject reduction lost, `k_skip_open_eta`), accepts arena `bad/098_ruleKbad`
+   (scored as a soundness failure by the arena), loops under `(A → A) = A`
+   (`k_skip_omega_open`), and is no faster.
+3. *Simplify the rules tier anyway?*  Recommendation: **yes**, land the `Red.rescueK` premise
+   removal: the model never read the fabrication's type or the index check, so the rule
+   states what the proof needs, and the check (official's, deciding whether the branch
+   fires) stays in both cores unconditionally.  With the switch removed (`KIndex.lean`, the
+   gate blocks in `DiscC3`, the `if` in the cores, the shift lemma, the allowlist row) and
+   the OVERVIEW/whitepaper anchors re-synced.
+4. *The inference-free rule `Red.iotaK`?*  Recommendation: **drop it** (no checker path,
+   and as a checker path it would inherit 1–2 and also fire on majors that are not proofs);
+   this record keeps the answer: `T.rec … h ⇝ minor` is sound, by `Red.iota_sound`'s K
+   branch without the major.
+5. *The fixtures.*  Recommendation: land the seven `k_skip_*` fixtures and
+   `scripts/splice-rfl.py` with ruling 3, verdicts as pinned (official's): they guard the
+   index check against a future simplification.
+
+**Maintainer's rulings (2026-11-10).**  1–2: no skip in the checker; the index check stays
+unconditional in both cores, and the spike's switch (`KIndex.lean` and everything behind
+it) stays on `agent/552-kskip`.  3: not now — `Red.rescueK` keeps its two `tf` premises,
+its docstring saying that `Red.rescueK_sound` reads neither (they are not needed for
+consistency).  4: `Red.iotaK` stays on the spike branch.  5: all seven fixtures and
+`scripts/splice-rfl.py` land on master (the kernel arena's tests may change, so the
+fixtures guard the check on their own), pinned at official's verdicts.  Follow-up, in the
+ground engine (task #423): skipping the check only on the demand path of a closed
+`t =?= true` evaluation, never inside nested checks, cannot turn an accepting run into a
+loop — where the check fails the incumbent either reduces the proof to the constructor
+(same reduct, later) or is stuck and rejects.
