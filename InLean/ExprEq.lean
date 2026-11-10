@@ -26,8 +26,8 @@ nothing `unsafe`; the runtime facts enter only through `Init.Util`'s
 `withPtrEq`/`withPtrAddr`.
 
 Decidable equality of `Lean.Expr` needs it for every component; core
-provides it for `Name` only.  The rest is derived here (`Level`,
-`Literal`, `BinderInfo`, the ids, `SourceInfo`, `DataValue`, `KVMap`,
+provides it for `Name` only.  `Level` and `Literal` get a structural
+decision executed pointer first (below); the rest is derived here (`BinderInfo`, the ids, `SourceInfo`, `DataValue`, `KVMap`,
 `Expr`); `Syntax` (an `mdata` payload can hold one) is a nested
 inductive the deriving handler refuses, and gets a structural equality
 with its two lemmas.
@@ -53,8 +53,157 @@ deriving instance DecidableEq for LevelMVarId
 deriving instance DecidableEq for FVarId
 deriving instance DecidableEq for MVarId
 deriving instance DecidableEq for BinderInfo
-deriving instance DecidableEq for Literal
-deriving instance DecidableEq for Level
+
+/-! ## Level and literal equality, pointer first at every level (twin of
+`Level.decEq`/`decEqPtr`, `Literal.decEq`/`decEqPtr`)
+
+Core's `BEq Level` is `Level.beq`, an `@[extern] opaque` (`lean_level_eq`,
+`level.cpp`'s `operator==`: kind, hash, pointer, structure, at every node);
+core's `BEq Literal` is derived (no pointer test; `lean_nat_dec_eq` on two big
+numbers is `mpz_cmp`).  As con-leche's, the instance is the structural
+decision and the executed function the pointer-first one, substituted by
+`@[csimp]` on `Decidable`'s subsingleton property.  `Name` needs nothing:
+core's `DecidableEq Name` is `Name.beq`, the C `lean_name_eq` (pointer, hash,
+then the components, the pointer again at every prefix). -/
+
+/-! Twins of `withPtrEqDecEq`: the pointer test, then `k`.  Written out (as
+`ptrDec` below), since `withPtrEqDecEq`'s signature differs between Lean
+v4.35.0 and later toolchains, and one per type, since later toolchains compile
+`withPtrEq` only at a type they can see is free of types. -/
+
+@[inline] def ptrDecNat (a b : Nat) (k : Unit → Decidable (a = b)) : Decidable (a = b) :=
+  match h : withPtrEq a b (fun _ => toBoolUsing (k ())) (toBoolUsing_eq_true (k ())) with
+  | true => isTrue (of_toBoolUsing_eq_true (d := k ()) (by simpa [withPtrEq] using h))
+  | false => isFalse (of_toBoolUsing_eq_false (d := k ()) (by simpa [withPtrEq] using h))
+
+@[inline] def ptrDecLiteral (a b : Literal) (k : Unit → Decidable (a = b)) : Decidable (a = b) :=
+  match h : withPtrEq a b (fun _ => toBoolUsing (k ())) (toBoolUsing_eq_true (k ())) with
+  | true => isTrue (of_toBoolUsing_eq_true (d := k ()) (by simpa [withPtrEq] using h))
+  | false => isFalse (of_toBoolUsing_eq_false (d := k ()) (by simpa [withPtrEq] using h))
+
+@[inline] def ptrDecLevel (a b : Level) (k : Unit → Decidable (a = b)) : Decidable (a = b) :=
+  match h : withPtrEq a b (fun _ => toBoolUsing (k ())) (toBoolUsing_eq_true (k ())) with
+  | true => isTrue (of_toBoolUsing_eq_true (d := k ()) (by simpa [withPtrEq] using h))
+  | false => isFalse (of_toBoolUsing_eq_false (d := k ()) (by simpa [withPtrEq] using h))
+
+/-- The specification of literal equality: the structural decision. -/
+def Literal.decEqI : (a b : Literal) → Decidable (a = b)
+  | .natVal n, .natVal m =>
+    if h : n = m then isTrue (by rw [h]) else isFalse (fun e => h (Literal.natVal.inj e))
+  | .strVal s, .strVal t =>
+    if h : s = t then isTrue (by rw [h]) else isFalse (fun e => h (Literal.strVal.inj e))
+  | .natVal _, .strVal _ | .strVal _, .natVal _ => isFalse (fun e => Literal.noConfusion e)
+
+/-- Twin of `Literal.decEqPtr`: the `Literal` object, then the number's
+object, then the value (`lean_string_eq` tests a string's pointer itself).  The
+hash comes one level up: an `Expr.lit` pair is compared past the nodes' data
+words, which hold the literal's hash. -/
+@[inline] def Literal.decEqPtrI (a b : Literal) : Decidable (a = b) :=
+  ptrDecLiteral a b fun _ =>
+    match a, b with
+    | .natVal n, .natVal m =>
+      match ptrDecNat n m (fun _ => Nat.decEq n m) with
+      | isTrue h => isTrue (by rw [h])
+      | isFalse h => isFalse (fun e => h (Literal.natVal.inj e))
+    | .strVal s, .strVal t =>
+      if h : s = t then isTrue (by rw [h]) else isFalse (fun e => h (Literal.strVal.inj e))
+    | .natVal _, .strVal _ | .strVal _, .natVal _ => isFalse (fun e => Literal.noConfusion e)
+
+@[csimp] theorem Literal.decEqI_eq_decEqPtrI : @Literal.decEqI = @Literal.decEqPtrI := by
+  funext a b; exact Subsingleton.elim _ _
+
+/-- Every literal equality in InLean runs `Literal.decEqPtrI`. -/
+instance instDecidableEqLiteralI : DecidableEq Literal := Literal.decEqI
+
+/-- A level's cached data word (Lean's computed field: hash, depth, flags). -/
+@[inline] def levelWord (l : Level) : UInt64 := l.data
+
+/-- The specification of level equality: the structural decision. -/
+def Level.decEqI : (a b : Level) → Decidable (a = b)
+  | .zero, .zero => isTrue rfl
+  | .succ u, .succ v =>
+    match Level.decEqI u v with
+    | isTrue h => isTrue (by rw [h])
+    | isFalse h => isFalse (fun e => h (Level.succ.inj e))
+  | .max u v, .max u' v' =>
+    match Level.decEqI u u', Level.decEqI v v' with
+    | isTrue h, isTrue h' => isTrue (by rw [h, h'])
+    | isFalse h, _ => isFalse (fun e => h (Level.max.inj e).1)
+    | _, isFalse h' => isFalse (fun e => h' (Level.max.inj e).2)
+  | .imax u v, .imax u' v' =>
+    match Level.decEqI u u', Level.decEqI v v' with
+    | isTrue h, isTrue h' => isTrue (by rw [h, h'])
+    | isFalse h, _ => isFalse (fun e => h (Level.imax.inj e).1)
+    | _, isFalse h' => isFalse (fun e => h' (Level.imax.inj e).2)
+  | .param n, .param m =>
+    if h : n = m then isTrue (by rw [h]) else isFalse (fun e => h (Level.param.inj e))
+  | .mvar n, .mvar m =>
+    if h : n = m then isTrue (by rw [h]) else isFalse (fun e => h (Level.mvar.inj e))
+  | .zero, .succ .. | .zero, .max .. | .zero, .imax .. | .zero, .param .. | .zero, .mvar ..
+  | .succ .., .zero | .succ .., .max .. | .succ .., .imax .. | .succ .., .param ..
+  | .succ .., .mvar ..
+  | .max .., .zero | .max .., .succ .. | .max .., .imax .. | .max .., .param ..
+  | .max .., .mvar ..
+  | .imax .., .zero | .imax .., .succ .. | .imax .., .max .. | .imax .., .param ..
+  | .imax .., .mvar ..
+  | .param .., .zero | .param .., .succ .. | .param .., .max .. | .param .., .imax ..
+  | .param .., .mvar ..
+  | .mvar .., .zero | .mvar .., .succ .. | .mvar .., .max .. | .mvar .., .imax ..
+  | .mvar .., .param .. =>
+    isFalse (fun e => Level.noConfusion e)
+
+/-- Twin of `Level.decEqPtr`: the pointer and the cached data word before the
+structural step, at every node; the children start over with the pointer, the
+parameter goes to core's `lean_name_eq`.  (con-leche compares the hash; Lean's
+word also holds the depth and the flags, and is read without a shift.) -/
+def Level.decEqPtrI (a b : Level) : Decidable (a = b) :=
+  ptrDecLevel a b fun _ =>
+    if hh : levelWord a = levelWord b then
+      match a, b with
+      | .zero, .zero => isTrue rfl
+      | .succ u, .succ v =>
+        match Level.decEqPtrI u v with
+        | isTrue h => isTrue (by rw [h])
+        | isFalse h => isFalse (fun e => h (Level.succ.inj e))
+      | .max u v, .max u' v' =>
+        match Level.decEqPtrI u u' with
+        | isFalse h => isFalse (fun e => h (Level.max.inj e).1)
+        | isTrue h =>
+          match Level.decEqPtrI v v' with
+          | isTrue h' => isTrue (by rw [h, h'])
+          | isFalse h' => isFalse (fun e => h' (Level.max.inj e).2)
+      | .imax u v, .imax u' v' =>
+        match Level.decEqPtrI u u' with
+        | isFalse h => isFalse (fun e => h (Level.imax.inj e).1)
+        | isTrue h =>
+          match Level.decEqPtrI v v' with
+          | isTrue h' => isTrue (by rw [h, h'])
+          | isFalse h' => isFalse (fun e => h' (Level.imax.inj e).2)
+      | .param n, .param m =>
+        if h : n = m then isTrue (by rw [h]) else isFalse (fun e => h (Level.param.inj e))
+      | .mvar n, .mvar m =>
+        if h : n = m then isTrue (by rw [h]) else isFalse (fun e => h (Level.mvar.inj e))
+      | .zero, .succ .. | .zero, .max .. | .zero, .imax .. | .zero, .param .. | .zero, .mvar ..
+      | .succ .., .zero | .succ .., .max .. | .succ .., .imax .. | .succ .., .param ..
+      | .succ .., .mvar ..
+      | .max .., .zero | .max .., .succ .. | .max .., .imax .. | .max .., .param ..
+      | .max .., .mvar ..
+      | .imax .., .zero | .imax .., .succ .. | .imax .., .max .. | .imax .., .param ..
+      | .imax .., .mvar ..
+      | .param .., .zero | .param .., .succ .. | .param .., .max .. | .param .., .imax ..
+      | .param .., .mvar ..
+      | .mvar .., .zero | .mvar .., .succ .. | .mvar .., .max .. | .mvar .., .imax ..
+      | .mvar .., .param .. =>
+        isFalse (fun e => Level.noConfusion e)
+    else isFalse (fun e => hh (by rw [e]))
+
+@[csimp] theorem Level.decEqI_eq_decEqPtrI : @Level.decEqI = @Level.decEqPtrI := by
+  funext a b; exact Subsingleton.elim _ _
+
+/-- Every level equality in InLean (`=` in an `if`, the derived `Expr`
+instance's `.sort` and `.const` arms, `Level.beqI`) runs `Level.decEqPtrI`. -/
+instance instDecidableEqLevelI : DecidableEq Level := Level.decEqI
+
 deriving instance DecidableEq for Substring.Raw
 deriving instance DecidableEq for SourceInfo
 deriving instance DecidableEq for Syntax.Preresolved

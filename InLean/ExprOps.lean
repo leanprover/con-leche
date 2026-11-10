@@ -38,15 +38,12 @@ namespace InLean
 
 open Lean
 
-/-! ## Level equality (twin of `Level.beq`/`beqPtr`) -/
+/-! ## Level equality (twin of `Level.beq`)
+
+`decide` runs `Level.decEqPtrI` (`InLean.ExprEq`), pointer first at every
+node. -/
 
 def Level.beqI (a b : Level) : Bool := decide (a = b)
-
-@[inline] def Level.beqPtrI (a b : Level) : Bool :=
-  withPtrEq a b (fun _ => decide (a = b)) (fun h => by subst h; simp)
-
-@[csimp] theorem Level.beqI_eq_beqPtrI : @Level.beqI = @Level.beqPtrI := by
-  funext a b; rfl
 
 scoped instance instBEqLevelI : BEq Level := ⟨Level.beqI⟩
 
