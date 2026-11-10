@@ -2991,6 +2991,36 @@
 # correctly, and quickly, rejected.  The official kernel would loop
 # here too (its whnf-after-rescue is unconditional); see DESIGN.md.
 1 k_rescue_stuck.ndjson
+# k_skip_* (task #552, the K rule without the index check; the
+# build-time switch `kIndexMode`, ConLeche/Kernel/KIndex.lean; verdicts
+# at the default `.check`, which is official's; each source states the
+# verdict at the other two switch values).
+# k_skip_funext_rfl: a closed `funext` major, `0 + x` against `x`
+# under the binder; `.skipClosed`/`.skipAll` accept a `rfl` official
+# rejects.  Target: reject.
+1 k_skip_funext_rfl.ndjson
+# k_skip_omega_closed: a closed Ω (`propext` makes `(X → X) = X`)
+# forced by `Acc.rec`'s major; `.skipClosed`/`.skipAll` do not
+# terminate.  Target: reject.
+1 k_skip_omega_closed.ndjson
+# k_skip_omega_open: Ω under `h : (A → A) = A` for a type `A`;
+# `.skipAll` does not terminate.  Target: reject.
+1 k_skip_omega_open.ndjson
+# k_skip_open_contra: `Eq.rec` under `h : 0 = 1` (arena
+# bad/098_ruleKbad's shape); `.skipAll` accepts.  Target: reject.
+1 k_skip_open_contra.ndjson
+# k_skip_open_cast_lit: an unchecked cast puts a `Nat` literal at
+# `Bool.rec`'s major; reject at every switch value.
+1 k_skip_open_cast_lit.ndjson
+# k_skip_open_eta: structure η at `h ▸ p` under `h : a = b`; an honest
+# export.  `.skipAll` reduces the cast, the reduct's type is `Fin a × Nat`,
+# η's type comparison fails: it REJECTS what official accepts (the shape
+# of its Mathlib rejection).  Target: accept.
+0 k_skip_open_eta.ndjson
+# k_skip_closed_eta: the same at a CLOSED `funext` major (`Fin (0 + n + 1)`
+# against `Fin (n + 1)` under a binder); `.skipClosed` and `.skipAll`
+# reject what official accepts.  Target: accept.
+0 k_skip_closed_eta.ndjson
 # acc_major_reduce (task #333 audit): the one place a proof is still
 # head-normalized — the major premise of a large eliminator over a
 # non-K inductive proposition (`Acc'.rec` into `Nat` on a `def`-proved
