@@ -1230,7 +1230,7 @@ def quickDefEqI (r : CoreFnsI) (depth : Nat) (a b : Expr) : CheckCM (Option Bool
   if a == b then pure (some true) else
   match EO.stripTop a, EO.stripTop b with
   | .sort u, .sort v => do pure (some (← liftFueled "level comparison" (← isEquivLM u v)))
-  | .lit l₁, .lit l₂ => pure (some (l₁ == l₂))
+  | .lit l₁, .lit l₂ => pure (some (Literal.beqI l₁ l₂))
   | .forallE _ ty₁ body₁ _, .forallE _ ty₂ body₂ _ => do
     let ok ← defeqBindersI mode r false bindersFuel depth #[] ty₁ body₁ ty₂ body₂
     pure (some ok)

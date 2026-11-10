@@ -51,6 +51,13 @@ scoped instance : LawfulBEq Level where
   eq_of_beq h := of_decide_eq_true h
   rfl := by simp [BEq.beq, Level.beqI]
 
+/-! ## Literal equality (twin of con-leche's `l₁ == l₂` on literals, its `DecidableEq`)
+
+Core's `BEq Literal` is derived, with no pointer test; InLean compares literals
+by `decide`, which runs `Literal.decEqPtrI` (`InLean.ExprEq`). -/
+
+def Literal.beqI (a b : Literal) : Bool := decide (a = b)
+
 namespace Lvl
 
 /-- Twin of `Level.subst.go`. -/

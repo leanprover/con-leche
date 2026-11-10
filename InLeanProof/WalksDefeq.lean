@@ -4,9 +4,6 @@ public import InLeanProof.StateOpsI
 public import ConLeche.Verify.Cached.DiscC5
 public import InLeanProof.WalksIota
 import InLeanProof.WalksIotaRec
-/- `Literal`'s derived `BEq` is not exposed by `Lean.Expr`; `lit_beq_toLit`
-reads it. -/
-import all Lean.Expr
 
 /-!
 # The definitional-equality walks (task #451, lane P2-defeq)
@@ -381,15 +378,9 @@ theorem clBeq_TrS {s : InLean.CState} (hs : FVTableOK s) {a b : Expr} (ha : OkS 
 grind_pattern [conleche_grind] clBeq_TrS => OkS s a, @BEq.beq Expr InLean.instBEqExprI a b
 grind_pattern [conleche_grind] clBeq_TrS => OkS s b, @BEq.beq Expr InLean.instBEqExprI a b
 
-@[conleche_grind =] theorem lit_beq_toLit : ∀ (a b : Literal), (a == b) = (toLit a == toLit b)
-  | .natVal n, .natVal m => by
-    show (n == m) = _; rw [Bool.eq_iff_iff]; simp [toLit]
-  | .strVal n, .strVal m => by
-    show (n == m) = _; rw [Bool.eq_iff_iff]; simp [toLit]
-  | .natVal n, .strVal m => by
-    show false = _; rw [Bool.eq_iff_iff]; simp [toLit]
-  | .strVal n, .natVal m => by
-    show false = _; rw [Bool.eq_iff_iff]; simp [toLit]
+@[conleche_grind =] theorem lit_beq_toLit (a b : Literal) :
+    Literal.beqI a b = (toLit a == toLit b) := by
+  cases a <;> cases b <;> simp only [Literal.beqI, toLit] <;> rw [Bool.eq_iff_iff] <;> simp
 
 theorem bindersFuel_eq : InLean.bindersFuel = ConLeche.bindersFuel := by
   unfold InLean.bindersFuel ConLeche.bindersFuel; rfl
