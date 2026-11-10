@@ -342,7 +342,7 @@ theorem withPart_ok {α : Type} (he : EnvOk sp fs env) {c : ReachCache} (hc : Ca
       simp only [ModelIO.allOk_pure]
       exact ⟨hc.insert_parts hr hst', fun a' h => by cases h; exact ⟨r, hr, hq⟩⟩
     · simp only [ModelIO.allOk_pure]
-      exact ⟨hc.insert_parts hr hst, fun a' h => by cases h⟩
+      exact ⟨hc.insert_parts hr (SM.good_empty r), fun a' h => by cases h⟩
   · simp only [ModelIO.allOk_bind]
     intro y _ hy
     rw [he.rd] at hy

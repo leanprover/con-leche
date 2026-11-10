@@ -425,10 +425,7 @@ theorem memoAdd_good {r : Region} {k : UInt8} (hk : IsKind k) {st : SM} (hG : st
   · rename_i c _
     have hs := sGo_spec r (Frontier.good_empty r) c
     unfold SGoSpec at hs
-    obtain ⟨h1, -⟩ := hs k st hk hG
-    cases e : sGo r {} k c st with
-    | none => exact hG
-    | some st' => exact (h1 st' e).1
+    exact (hs k st hk hG _ _ rfl).1
   · exact hG
 
 theorem foldl_memoAdd_good {r : Region} {k : UInt8} (hk : IsKind k)

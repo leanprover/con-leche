@@ -158,23 +158,28 @@ def Frontier.has (b : Frontier) (k : UInt8) (g : Nat) : Bool :=
 
 /-- **The object at `g`, read as kind `k`**, by the specification's node
 function, its kids' values from the memo or the frontier, and added to the
-memo. -/
-def SM.buildIn (r : Region) (b : Frontier) (k : UInt8) (g : Nat) (st : SM) : Option SM :=
+memo; the flag says whether it was read.  The memo is handed back either way
+(it is consumed once: no second reference survives to the insert). -/
+def SM.buildIn (r : Region) (b : Frontier) (k : UInt8) (g : Nat) (st : SM) : SM × Bool :=
   if k = kName then
-    (nameNode r g fun c _ => lookup st.names b.names c).map fun v =>
-      { st with names := st.names.insert g v }
+    match nameNode r g fun c _ => lookup st.names b.names c with
+    | some v => ({ st with names := st.names.insert g v }, true)
+    | none => (st, false)
   else if k = kLevel then
-    (levelNode r g (fun c _ => lookup st.levels b.levels c)
-      (fun c _ => lookup st.names b.names c)).map fun v =>
-      { st with levels := st.levels.insert g v }
+    match levelNode r g (fun c _ => lookup st.levels b.levels c)
+      (fun c _ => lookup st.names b.names c) with
+    | some v => ({ st with levels := st.levels.insert g v }, true)
+    | none => (st, false)
   else if k = kLevels then
-    (levelsNode r g (fun c _ => lookup st.lists b.lists c)
-      (fun c _ => lookup st.levels b.levels c)).map fun v =>
-      { st with lists := st.lists.insert g v }
+    match levelsNode r g (fun c _ => lookup st.lists b.lists c)
+      (fun c _ => lookup st.levels b.levels c) with
+    | some v => ({ st with lists := st.lists.insert g v }, true)
+    | none => (st, false)
   else
-    (exprNode r g (fun c _ => lookup st.exprs b.exprs c) (fun c _ => lookup st.names b.names c)
-      (fun c _ => lookup st.levels b.levels c) (fun c _ => lookup st.lists b.lists c)).map fun v =>
-      { st with exprs := st.exprs.insert g v }
+    match exprNode r g (fun c _ => lookup st.exprs b.exprs c) (fun c _ => lookup st.names b.names c)
+      (fun c _ => lookup st.levels b.levels c) (fun c _ => lookup st.lists b.lists c) with
+    | some v => ({ st with exprs := st.exprs.insert g v }, true)
+    | none => (st, false)
 
 /-! ## The recursion -/
 
@@ -183,30 +188,34 @@ set_option linter.unusedVariables false in
 mutual
 /-- **The object at `g` read as kind `k`, into the memo**: nothing to do
 if the memo or the frontier holds it; else its kids (`kidsGo`), then the
-object itself. -/
-def sGo (r : Region) (b : Frontier) (k : UInt8) (g : Nat) (st : SM) : Option SM :=
-  if st.holds b k g then some st
+object itself.  The flag says whether it was read; on failure the memo is
+handed back with what was read before the failure (each entry a node read
+right), so a caller sharing the memo across roots keeps no second reference
+to it (task #565). -/
+def sGo (r : Region) (b : Frontier) (k : UInt8) (g : Nat) (st : SM) : SM × Bool :=
+  if st.holds b k g then (st, true)
   else if r.fits g then
     match kidTable k (r.tag g) (r.nobjs g) with
-    | none => none
+    | none => (st, false)
     | some fs =>
       match kidsGo r b g fs st with
-      | some st => SM.buildIn r b k g st
-      | none => none
-  else none
+      | (st, true) => SM.buildIn r b k g st
+      | (st, false) => (st, false)
+  else (st, false)
 termination_by (g, 1, 0)
 
-/-- The kids the fields `fs` of the object at `g` lead to, into the memo. -/
-def kidsGo (r : Region) (b : Frontier) (g : Nat) : List (Nat × UInt8 × Bool) → SM → Option SM
-  | [], st => some st
+/-- The kids the fields `fs` of the object at `g` lead to, into the memo
+(the flag as `sGo`'s). -/
+def kidsGo (r : Region) (b : Frontier) (g : Nat) : List (Nat × UInt8 × Bool) → SM → SM × Bool
+  | [], st => (st, true)
   | (i, k', nil) :: fs, st =>
     if nil && r.fld g i == 1 then kidsGo r b g fs st
     else match hd : r.down g (r.fld g i) with
       | some c =>
         match sGo r b k' c st with
-        | some st => kidsGo r b g fs st
-        | none => none
-      | none => none
+        | (st, true) => kidsGo r b g fs st
+        | (st, false) => (st, false)
+      | none => (st, false)
 termination_by fs => (g, 0, fs.length)
 decreasing_by
   all_goals first
@@ -218,13 +227,18 @@ end
 
 /-- **The `Expr` at location `c`**, read with a memo of its own over a frontier. -/
 def frontierExpr (r : Region) (b : Frontier) (c : Nat) : Option Expr :=
-  (sGo r b kExpr c {}).bind fun st => lookup st.exprs b.exprs c
+  match sGo r b kExpr c {} with
+  | (st, true) => lookup st.exprs b.exprs c
+  | (_, false) => none
 
 /-- **The `Name` a pointer stands for**, read sparsely (`nameP`). -/
 def sparseNameP (r : Region) (v : UInt64) : Option Name :=
   if v == 1 then some .anonymous
   else match r.loc v with
-    | some c => (sGo r {} kName c {}).bind fun st => lookup st.names ({} : Frontier).names c
+    | some c =>
+      match sGo r {} kName c {} with
+      | (st, true) => lookup st.names ({} : Frontier).names c
+      | (_, false) => none
     | none => none
 
 /-- **The `Expr` a pointer stands for**, read sparsely (`exprP`). -/
