@@ -12,7 +12,7 @@ public import ConLeche.Kernel.Inductives.GenRec
 The production twins of `ConLeche/Kernel/Inductives/GenRec.lean` and of
 the class kit of `ConLeche/Kernel/Inductives/RecCheck.lean` it runs:
 monomorphic `CheckCM` definitions at a mode and an environment index,
-calling the cached core (`coreKnotI`) directly and the cached walks of
+calling the cached core (`inferI`, `defeqI` at `checkFuel`) directly and the cached walks of
 `ConLeche/Cached/ExprOpsC.lean` where the specification runs the plain
 ones — the member abstraction `targetAbsC`, the free-variable
 replacement `replaceFVarsC` (the canonical parameters, the erased
@@ -173,9 +173,9 @@ def targetParamsDefEqC (fe : FEnv) (d : Nat) (names : List Name) (lvls : List Le
       let b' := Expr.targetAbsC names lvls holes (targetCanonParamsC pfvs b)
       if a' == b' then targetParamsDefEqC fe d names lvls holes pfvs as bs
       else
-        let _ ← (coreKnotI mode false fe checkFuel).infer d a'
-        let _ ← (coreKnotI mode false fe checkFuel).infer d b'
-        if ← (coreKnotI mode false fe checkFuel).defeq d a' b' then
+        let _ ← inferI mode fe false checkFuel false d a'
+        let _ ← inferI mode fe false checkFuel false d b'
+        if ← defeqI mode fe false checkFuel d a' b' then
           targetParamsDefEqC fe d names lvls holes pfvs as bs
         else pure false
     else pure false
@@ -341,13 +341,13 @@ def classConstOkC (fe : FEnv) (cv : ConstantVal) : CheckCM Unit := do
     throw (.invalid s!"undeclared universe parameter in type of {cv.name}")
   unless constsResolveFC fe cv.type do
     throw (unresolvedConstsErrorLC true s!"type of {cv.name}" cv.type)
-  let stype ← (coreKnotI mode false fe checkFuel).infer 0 cv.type
-  let _u ← ensureSortI (coreKnotI mode false fe checkFuel) 0 stype
+  let stype ← inferI mode fe false checkFuel false 0 cv.type
+  let _u ← ensureSortI mode fe false checkFuel 0 stype
 
 /-- The cached `classRecTyCheck`. -/
 def classRecTyCheckC (fe : FEnv) (cvRi cvG : ConstantVal) : CheckCM Unit := do
   classConstOkC mode fe cvG
-  unless ← (coreKnotI mode false fe checkFuel).defeq 0 cvRi.type cvG.type do
+  unless ← defeqI mode fe false checkFuel 0 cvRi.type cvG.type do
     throw (.invalid s!"generated recursor: the type of {cvG.name} is not the generated one \
       (official: invalid recursor)")
 
@@ -389,7 +389,7 @@ def classRuleCheckC (feT feR : FEnv) (cvR : ConstantVal) (n : Nat) (gen : Expr) 
     throw (unresolvedConstsErrorLC true s!"generated rule of {cvR.name}" gen)
   -- the flush entering the `feR` half
   flushC
-  let _ ← (coreKnotI mode false feR checkFuel).infer 0 gen
+  let _ ← inferI mode feR false checkFuel false 0 gen
   flushC
   let (rbs, _) ← unwrapOr (gen.stripLams n)
     (.internal s!"generated recursor: a rule of {cvR.name} is not a λ-telescope over the \
