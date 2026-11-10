@@ -96,20 +96,21 @@ inductive Literal where
   | strVal (s : String)
   deriving DecidableEq, Repr, Inhabited
 
-/-- `2^62`: below it a `Nat` is a scalar, and `natHash`'s test is the
-inline scalar comparison.  A top-level constant, so the literal is
-parsed once, not at every comparison. -/
-def natHashScalarBound : Nat := 4611686018427387904
-
-/-- `2^64`: from it on `natHash` calls the C. -/
-def natHashWordBound : Nat := 18446744073709551616
+/-- `2^64`: from it on `natHash` calls the C.  `@[noinline]`: the compiler
+emits a `Nat` literal of 2^32 or more as `lean_cstr_to_nat("…")`, a GMP
+decimal parse and an allocation at every evaluation, and it inlines a
+plain top-level constant too (lean4#16007); as a `@[noinline]` constant
+it is parsed once.  (A shift test, `n >>> 64 == 0`, has no parse but
+allocates the shifted `Nat` for a big `n`: +18 % instructions on the
+big-literal walk of C20's ck318.) -/
+@[noinline] def natHashWordBound : Nat := 18446744073709551616
 
 /-- **The hash of a `Nat` literal** (task #547): lean4#16146's
 `Literal.natHash`, the number itself below `2^64`, all its 64-bit words
 mixed above (fixes lean4#15686).  `Hashable Nat` is `n mod 2^64` alone,
 so literals that agree in their low 64 bits shared one hash (DESIGN
-#543).  Below `2^64` the hash is computed here (below `2^62`, where the
-number is a scalar, by the inline scalar comparison alone); above, by
+#543).  Below `2^64` the hash is computed here (by the inline scalar
+comparison and conversion); above, by
 the vendored C `natBigHash` (`Kernel/NatHash.lean`; remove once the
 toolchain provides `Literal.natHash`).  An `Expr` node
 computes it once, at construction (the computed field `Expr.data`).  The
@@ -117,9 +118,7 @@ computes it once, at construction (the computed field `Expr.data`).  The
 (`Frontend/Olean/Region.lean`), so this hash is ours alone; it is
 upstream's value all the same. -/
 def natHash (n : Nat) : UInt64 :=
-  if n < natHashScalarBound then UInt64.ofNat n
-  else if n < natHashWordBound then UInt64.ofNat n
-  else natBigHash n
+  if n < natHashWordBound then UInt64.ofNat n else natBigHash n
 
 /-- A literal's hash: `natHash` for numbers, the string's own hash
 (`lean_string_hash`, over all its bytes) for strings. -/

@@ -116318,3 +116318,40 @@ The scheduler's finish line no longer carries the verdict column: `t=` and `rss=
 after the status part, in the same columns on every line.  A non-zero outcome (`1`, `2`, `3`,
 `timeout`, `memory`, `signal`) is marked `FAILED V` just before the module name (grep `FAILED`).
 The log file keeps its verdict field, which resume needs.  `verdictWidth` is gone.
+
+## TASK #552 — no `Nat` literal parse at run time in `natHash` (2026-11-10, agent/552-nathash-bounds)
+
+lean4#16007: the compiler emits a `Nat` literal of 2^32 or more as `lean_cstr_to_nat("…")`, a GMP
+decimal parse and an allocation at every evaluation, and it inlines a plain top-level constant
+too.  #549 found it in `natHash` (`Kernel/Expr.lean`): `natHashScalarBound` (2^62) and
+`natHashWordBound` (2^64) were parsed at every `Expr.lit` construction.
+
+**Fix.**  `natHash n = if n < natHashWordBound then UInt64.ofNat n else natBigHash n`, with
+`natHashWordBound` `@[noinline]` (parsed once, in its initializer; `Expr.c` has the one parse
+there).  The 2^62 test was redundant (both branches were `UInt64.ofNat n`) and is gone.  Values
+unchanged: the number itself below 2^64, the vendored C above.  The shift form `n >>> 64 == 0`
+was tried first: no parse, but for a big `n` it allocates the shifted `Nat`; ck318's big-literal
+walk went from 82.4 G to 97.4 G net instructions (+18 %).  A comparison against a constant does
+not allocate.  No proof mentions the bounds (`LitHashTests` pins the values).
+
+**Other sites** (grep of `lean_cstr_to_nat` in `.lake/build/ir/ConLeche`, 21 sites): the five
+`2^62` fuels in `Kernel/Core.c`, `closureFuel`, `levelFuel`, `oldestAge`, `Part.ofBytes`'s closed
+term and `refBase`'s own initializer are `_init_` functions (once per process).  Executed per
+use: `refBase` (`Frontend/Olean/Lazy.lean`, `1 <<< 32`, inlined into `valueRef`, `refModule`,
+`lazyEntry`: per theorem reference) is now `@[noinline]`.  Left, not hot: `1 <<< 40` in
+`headerFixpoint`, `closureOrder`, `graphOf` (once per call), `1 <<< 60` in
+`Schedule.run`/`parseLog` (per scheduler step), `10^10` in `checkHeartbeat` (per heartbeat).
+
+**Measurements** (`perf stat -e instructions:u`, one run each, G instructions; base = modular
+f5bd306b6):
+
+| run | base | lane | change |
+|---|---|---|---|
+| init-prelude | 2.0103 | 2.0105 | +0.01 % |
+| grind-ring-5 | 15.621 | 15.594 | -0.17 % |
+| init-full | 382.066 | 381.868 | -0.05 % |
+| CCK4 (module) | 219.452 | 213.309 | -2.8 % |
+| ck318 net of CK | 82.4 | 82.2 | -0.2 % |
+
+CCK4 gains because its literals are small (the parse was all of the cost); ck318's are big, so
+the parse was a small share.
