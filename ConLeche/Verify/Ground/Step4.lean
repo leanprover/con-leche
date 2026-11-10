@@ -230,7 +230,7 @@ theorem step_arg_thunk {j ao : Nat} (h : MInv env t₀ oc s fl) (hm : s.mode = 4
 
 /-- **A λ argument**: a new closure value and its value cell. -/
 theorem step_arg_lam {j ao : Nat} (h : MInv env t₀ oc s fl) (hm : s.mode = 4) (hx : s.x = j + 1)
-    (hao : s.P.code[s.pc + 3 + j]! = ao) :
+    (hao : s.P.code[s.pc + 3 + j]! = ao) (ht : s.P.code[ao]! = 2) :
     ∃ oc', MInv env t₀ oc' { s with
       cel := (((s.cel.push ((s.val.size >>> 2) + 2)).push ao).push s.env).push 0
       val := (((s.val.push 0).push ao).push s.env).push 0
@@ -247,7 +247,8 @@ theorem step_arg_lam {j ao : Nat} (h : MInv env t₀ oc s fl) (hm : s.mode = 4) 
     rfl rfl (.inl rfl) rfl rfl hm rfl rfl rfl ?_ (fun _ => by rw [hvsz]; omega)⟩
   show CellOK env s.P _ s.ev s.argA _ _ (s.cel.size / 4)
   unfold CellOK; rw [hc0]
-  refine ⟨sa.instantiateList (cs.map (ocExt oc s.N (sa.instantiateList (cs.map oc)))), .closure hv0 ?_, ?_⟩
+  refine ⟨sa.instantiateList (cs.map (ocExt oc s.N (sa.instantiateList (cs.map oc)))), .closure hv0
+    (by rw [hv1]; exact ht) ?_, ?_⟩
   · rw [hv1, hv2]; exact ⟨sa, cs, hda, he, hb, rfl⟩
   · rw [show s.cel.size / 4 = s.N from rfl, ocExt_self, ← map_agree ha (EnvL.mem_lt h.store.evRef he)]
     exact .refl

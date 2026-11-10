@@ -84,8 +84,8 @@ variables are bound by the environment. -/
 constructor or a partial application is its entry's constant on its span's
 origins; a literal is itself; anything else (the neutral) is `bot`. -/
 inductive ValDen (P : G4Prog) (val ev argA : Array Nat) (oc : Nat → Expr) (v : Nat) : Expr → Prop where
-  | closure {u : Expr} : val[4 * v]! = 0 → NodeTerm P ev oc val[4 * v + 1]! val[4 * v + 2]! u →
-      ValDen P val ev argA oc v u
+  | closure {u : Expr} : val[4 * v]! = 0 → P.code[val[4 * v + 1]!]! = 2 →
+      NodeTerm P ev oc val[4 * v + 1]! val[4 * v + 2]! u → ValDen P val ev argA oc v u
   | ctor : val[4 * v]! = 1 → val[4 * v + 1]! < P.kInfo.size →
       val[4 * v + 2]! + val[4 * v + 3]! ≤ argA.size →
       ValDen P val ev argA oc v
@@ -306,6 +306,9 @@ theorem span_pre {a a' : Array Nat} (hp : Pre a a') {start len : Nat} (h : start
   rw [List.mem_range] at hj
   exact hp.2 _ (by omega)
 
+theorem get!_congr {a b : Array Nat} {i : Nat} (h : a[i]? = b[i]?) : a[i]! = b[i]! := by
+  rw [getElem!_def, getElem!_def, h]
+
 /-- A value keeps its term when the arrays and the program are extended. -/
 theorem ValDen.pre {P P' : G4Prog} {val val' ev ev' argA argA' : Array Nat} {oc : Nat → Expr}
     {v : Nat} {t : Expr} (hx : ExtR P P') (hval : Pre val val') (hev : Pre ev ev')
@@ -316,7 +319,10 @@ theorem ValDen.pre {P P' : G4Prog} {val val' ev ev' argA argA' : Array Nat} {oc 
   have r2 := hval.2 (4 * v + 2) (by omega)
   have r3 := hval.2 (4 * v + 3) hv
   cases h with
-  | closure h0 hn => exact .closure (by rw [r0]; exact h0) (by rw [r1, r2]; exact hn.pre hx hev)
+  | closure h0 h2 hn =>
+    obtain ⟨_, _, hd, -⟩ := id hn
+    exact .closure (by rw [r0]; exact h0) (by rw [r1, get!_congr (hx.code _ hd.lt_size)]; exact h2)
+      (by rw [r1, r2]; exact hn.pre hx hev)
   | ctor h0 hk hs =>
     have := ValDen.ctor (P := P') (val := val') (ev := ev') (argA := argA') (oc := oc) (v := v)
       (by rw [r0]; exact h0) (by rw [r1]; exact Nat.lt_of_lt_of_le hk hx.kInfoSize)

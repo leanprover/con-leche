@@ -130,15 +130,12 @@ theorem ValDen.congr {P : G4Prog} {val ev argA : Array Nat} {oc oc' : Nat → Ex
     {t : Expr} (hr : EvRef ev N) (hg : ArgRef argA N) (ha : Agree oc oc' N)
     (h : ValDen P val ev argA oc v t) : ValDen P val ev argA oc' v t := by
   cases h with
-  | closure h0 hn => exact .closure h0 (hn.congr hr ha)
+  | closure h0 h2 hn => exact .closure h0 h2 (hn.congr hr ha)
   | ctor h0 hk hs => rw [map_agree ha (span_mem_lt hg hs)]; exact .ctor h0 hk hs
   | natLit h0 => exact .natLit h0
   | strLit h0 hs => exact .strLit h0 hs
   | pap h0 hk hs => rw [map_agree ha (span_mem_lt hg hs)]; exact .pap h0 hk hs
   | other h0 => exact .other h0
-
-theorem get!_congr {a b : Array Nat} {i : Nat} (h : a[i]? = b[i]?) : a[i]! = b[i]! := by
-  rw [getElem!_def, getElem!_def, h]
 
 /-- **A frame names allocated cells**, a span inside the argument array, a
 table entry and a projection the program has. -/

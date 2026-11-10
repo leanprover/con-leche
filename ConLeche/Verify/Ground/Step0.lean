@@ -375,7 +375,7 @@ theorem step_lam_call (h : MInv env t₀ oc s fl) (hm : s.mode = 0) (ht : s.P.co
       rwa [← List.map_reverse, ← List.map_append] at this
 
 /-- **A closure value**: a λ with no argument frame on top is a value. -/
-theorem step_lam_value (h : MInv env t₀ oc s fl) (hm : s.mode = 0) :
+theorem step_lam_value (h : MInv env t₀ oc s fl) (hm : s.mode = 0) (ht : s.P.code[s.pc]! = 2) :
     MInv env t₀ oc { s with
       val := (((s.val.push 0).push s.pc).push s.env).push 0
       mode := 1
@@ -398,9 +398,12 @@ theorem step_lam_value (h : MInv env t₀ oc s fl) (hm : s.mode = 0) :
   refine ⟨hst.same rfl rfl rfl rfl rfl rfl rfl, h.stack, h.frames, ?_⟩
   show _ < _ ∧ ∃ t, ValDen s.P _ s.ev s.argA oc _ t ∧ _
   rw [hshr]
-  refine ⟨by simp; omega, u, .closure ?_ ?_, hK⟩
+  refine ⟨by simp; omega, u, .closure ?_ ?_ ?_, hK⟩
   · rw [hi, getElem!_push_lt' (by simp only [Array.size_push]; omega), getElem!_push_lt' (by simp only [Array.size_push]; omega), getElem!_push_lt' (by simp only [Array.size_push]; omega),
       getElem!_push_eq']
+  · rw [hi, getElem!_push_lt' (by simp only [Array.size_push]; omega), getElem!_push_lt' (by simp only [Array.size_push]; omega),
+      show s.val.size + 1 = (s.val.push 0).size by simp, getElem!_push_eq']
+    exact ht
   · rw [hi, getElem!_push_lt' (by simp only [Array.size_push]; omega), getElem!_push_lt' (by simp only [Array.size_push]; omega),
       show s.val.size + 1 = (s.val.push 0).size by simp, getElem!_push_eq', getElem!_push_lt' (by simp only [Array.size_push]; omega),
       show s.val.size + 2 = ((s.val.push 0).push s.pc).size by simp, getElem!_push_eq']
