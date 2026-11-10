@@ -341,7 +341,7 @@ theorem Den.lam_inv {P : G4Prog} {o : Nat} {s : Expr} (h : Den P o s) (h2 : P.co
   match h with
   | .lam _ h₁ h₂ h₃ _ hb htel => ⟨_, _, _, _, h₁, h₂, h₃, hb, rfl, htel⟩
   | .bvar h₀ _ | .spine h₀ .. | .letE h₀ .. | .const h₀ .. | .natLit h₀ _ | .strLit h₀ ..
-  | .projNone h₀ _ | .proj h₀ .. | .neutral h₀ | .shared h₀ .. => by rw [h₀] at h2; cases h2
+  | .proj h₀ .. | .neutral h₀ | .shared h₀ .. => by rw [h₀] at h2; cases h2
 
 /-- **The machine's λ walk** (`g4LamWalk`): `k ≤ tn` binders down a λ
 telescope node is a node whose read-back is the telescope's body under the

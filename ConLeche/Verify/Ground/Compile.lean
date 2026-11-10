@@ -62,8 +62,6 @@ inductive Den (P : G4Prog) : Nat → Expr → Prop where
       Den P o (.lit (.natVal n))
   | strLit {o si : Nat} {s : String} : P.code[o]? = some 6 → P.code[o + 1]? = some si →
       P.strs[si]? = some s → Den P o (.lit (.strVal s))
-  /-- a projection with no table (`[7, 0, e]`) is stuck: `bot` -/
-  | projNone {o : Nat} : P.code[o]? = some 7 → P.code[o + 1]? = some 0 → Den P o bot
   | proj {o q e : Nat} {pj : G4Proj} {se : Expr} :
       P.code[o]? = some 7 → P.code[o + 1]? = some (q + 1) → P.projs[q]? = some pj →
       P.code[o + 2]? = some e → e < o → Den P e se → Den P o (.proj pj.sn pj.idx se)
@@ -161,7 +159,7 @@ theorem Ext.strs_some {P P' : G4Prog} (h : Ext P P') {i : Nat} {x : String}
 /-- A node that denotes has a tag. -/
 theorem Den.tag {P : G4Prog} {o : Nat} {s : Expr} : Den P o s → ∃ x, P.code[o]? = some x
   | .bvar h₀ _ | .spine h₀ .. | .lam h₀ .. | .letE h₀ .. | .const h₀ .. | .natLit h₀ _
-  | .strLit h₀ .. | .projNone h₀ _ | .proj h₀ .. | .neutral h₀ | .shared h₀ .. =>
+  | .strLit h₀ .. | .proj h₀ .. | .neutral h₀ | .shared h₀ .. =>
     ⟨_, h₀⟩
 
 mutual
@@ -188,7 +186,6 @@ theorem Den.ext {P P' : G4Prog} (hx : Ext P P') {o : Nat} {s : Expr} : Den P o s
   | .const h₀ h₁ h₂ => .const (hx.code_some h₀) (hx.code_some h₁) (hx.kInfo_some h₂)
   | .natLit h₀ h₁ => .natLit (hx.code_some h₀) (hx.code_some h₁)
   | .strLit h₀ h₁ h₂ => .strLit (hx.code_some h₀) (hx.code_some h₁) (hx.strs_some h₂)
-  | .projNone h₀ h₁ => .projNone (hx.code_some h₀) (hx.code_some h₁)
   | .proj h₀ h₁ h₂ h₃ hlt he =>
     .proj (hx.code_some h₀) (hx.code_some h₁) (hx.projs_some h₂) (hx.code_some h₃) hlt (Den.ext hx he)
   | .neutral h₀ => .neutral (hx.code_some h₀)
@@ -237,14 +234,8 @@ theorem Den.unique {P : G4Prog} : ∀ {o : Nat} {s s' : Expr}, Den P o s → Den
     cases h' with
     | strLit _ h₁' h₂' => rw [h₁] at h₁'; cases h₁'; rw [h₂] at h₂'; cases h₂'; rfl
     | _ => simp_all
-  | _, _, _, .projNone h₀ h₁, h' => by
-    cases h' with
-    | projNone _ _ => rfl
-    | proj _ h₁' _ _ _ _ => rw [h₁] at h₁'; cases h₁'
-    | _ => simp_all
   | _, _, _, .proj h₀ h₁ h₂ h₃ _ he, h' => by
     cases h' with
-    | projNone _ h₁' => rw [h₁] at h₁'; cases h₁'
     | proj _ h₁' h₂' h₃' _ he' =>
       rw [h₁] at h₁'; cases h₁'; rw [h₂] at h₂'; cases h₂'; rw [h₃] at h₃'; cases h₃'
       rw [Den.unique he he']
@@ -662,7 +653,7 @@ theorem Den.lam_fields {P : G4Prog} {b : Nat} {s : Expr} (h : Den P b s) (h2 : P
   | .lam _ _ h₂ h₃ _ _ htel => ⟨_, _, h₂, h₃, by
       rcases htel with ⟨-, -, -, h⟩ | ⟨-, h, -⟩ <;> omega⟩
   | .bvar h₀ _ | .spine h₀ .. | .letE h₀ .. | .const h₀ .. | .natLit h₀ _ | .strLit h₀ ..
-  | .projNone h₀ _ | .proj h₀ .. | .neutral h₀ | .shared h₀ .. => by
+  | .proj h₀ .. | .neutral h₀ | .shared h₀ .. => by
     rw [h₀] at h2; cases h2
 
 theorem getD_append_left {l l' : List Expr} {i : Nat} (d : Expr) (h : i < l.length) :
@@ -1071,12 +1062,12 @@ theorem g4Comp_spec : ∀ (f : Nat),
         · show (P₁.code ++ _)[P₁.code.size + 1]? = _; rw [rdR]; rfl
       | proj sn i e =>
         unfold g4Comp; dsimp only
-        obtain ⟨hI₁, hx₁, se, hde, hae⟩ := ihC P e hI
-        generalize g4Comp find? findProj? f P e = r at hI₁ hx₁ hde ⊢
-        obtain ⟨so, P₁⟩ := r
-        dsimp only at hI₁ hx₁ hde ⊢
         split
         · rename_i en _
+          obtain ⟨hI₁, hx₁, se, hde, hae⟩ := ihC P e hI
+          generalize g4Comp find? findProj? f P e = r at hI₁ hx₁ hde ⊢
+          obtain ⟨so, P₁⟩ := r
+          dsimp only at hI₁ hx₁ hde ⊢
           generalize hn : P₁.nid en.ctor = rn
           obtain ⟨ni, P₂⟩ := rn
           have hk : KeyEq P₁ P₂ := by have := KeyEq.nid P₁ en.ctor; rw [hn] at this; exact this
@@ -1094,12 +1085,7 @@ theorem g4Comp_spec : ∀ (f : Nat),
           · exact hk.nslots
           · show P₂.projs.push _ = _; rw [hk.projs]
           · rw [hk.projs]
-        · dsimp only
-          rw [emit_append3]
-          have hx := Ext.emit P₁ #[7, 0, so]
-          refine ⟨hI₁.emit _, hx₁.trans hx, _, .projNone ?_ ?_, .bot _⟩
-          · show (P₁.code ++ _)[P₁.code.size]? = _; rw [rd0]; rfl
-          · show (P₁.code ++ _)[P₁.code.size + 1]? = _; rw [rdR]; rfl
+        · exact CompOK.neutral hI _
       | app fn arg =>
         unfold g4Comp; dsimp only
         have hk₁ := g4MaskOf_key find? P (Expr.app fn arg).getAppFn

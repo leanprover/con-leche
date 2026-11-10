@@ -387,7 +387,7 @@ mutual
 the result is the node's offset.  Code tags: `0` bvar `[0, i]`, `1`
 spine `[1, head, n, a₁ … aₙ]`, `2` λ `[2, body]`, `3` let `[3, v, body]`,
 `4` constant `[4, entry]`, `5` `Nat` literal `[5, n]`, `6` string `[6,
-s]`, `7` projection `[7, proj + 1 or 0, e]`, `8` neutral `[8]`, `9`
+s]`, `7` projection `[7, proj + 1, e]` (with no projection table, the neutral), `8` neutral `[8]`, `9`
 shared closed argument `[9, slot, e]`. -/
 def g4Comp : Nat → G4Prog → Expr → Nat × G4Prog
   | 0, P, _ => let o := P.code.size; (o, P.emit (fun c => c.push 8))
@@ -415,22 +415,23 @@ def g4Comp : Nat → G4Prog → Expr → Nat × G4Prog
       let ss := P.strs; let P := { P with strs := #[] }
       (o, { P with strs := ss.push s })
     | .proj sn i s =>
-      let (so, P) := g4Comp f P s
-      let (pi, P) := match findProj? sn i with
-        | some en =>
-          let pj : G4Proj := ⟨sn, en.ctor, i, en.numParams, en.numFields,
-             en.levelParams.length, true, en⟩
-          let (ni, P) := P.nid en.ctor
-          let (q1, q2, q3, q4, q5, q6, q7) := (P.projs, P.pNid, P.pIdx, P.pNP, P.pNF, P.pNl, P.pAlw)
-          let P := { P with projs := #[], pNid := #[], pIdx := #[], pNP := #[], pNF := #[],
-                            pNl := #[], pAlw := #[] }
-          let P := { P with projs := q1.push pj, pNid := q2.push ni, pIdx := q3.push i }
-          let P := { P with pNP := q4.push en.numParams, pNF := q5.push en.numFields }
-          let P := { P with pNl := q6.push en.levelParams.length,
-                            pAlw := q7.push (if pj.always then 1 else 0) }
-          (q1.size + 1, P)
-        | none => (0, P)
-      let o := P.code.size; (o, P.emit (fun c => ((c.push 7).push pi).push so))
+      match findProj? sn i with
+      | some en =>
+        let (so, P) := g4Comp f P s
+        let pj : G4Proj := ⟨sn, en.ctor, i, en.numParams, en.numFields,
+           en.levelParams.length, true, en⟩
+        let (ni, P) := P.nid en.ctor
+        let (q1, q2, q3, q4, q5, q6, q7) := (P.projs, P.pNid, P.pIdx, P.pNP, P.pNF, P.pNl, P.pAlw)
+        let P := { P with projs := #[], pNid := #[], pIdx := #[], pNP := #[], pNF := #[],
+                          pNl := #[], pAlw := #[] }
+        let P := { P with projs := q1.push pj, pNid := q2.push ni, pIdx := q3.push i }
+        let P := { P with pNP := q4.push en.numParams, pNF := q5.push en.numFields }
+        let P := { P with pNl := q6.push en.levelParams.length,
+                          pAlw := q7.push (if pj.always then 1 else 0) }
+        let pi := q1.size + 1
+        let o := P.code.size; (o, P.emit (fun c => ((c.push 7).push pi).push so))
+      -- no projection table: the projection is stuck, the neutral
+      | none => let o := P.code.size; (o, P.emit (fun c => c.push 8))
     | .app .. =>
       let (hd, args) := (e.getAppFn, e.getAppArgs)
       let (mask, P) := g4MaskOf find? P hd
