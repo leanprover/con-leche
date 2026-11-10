@@ -75,6 +75,8 @@ theorem red_sound (hin : RulesInputs V m φ) :
       hrule hmlen (iotaCase_sound hin hcase) hlv (fun hc => defEqList_sound hin (hparams hc))
       (teleArity_sound hcertR) (fun h3 => certsF_sound hin (hcertC h3)) hres
       (fun h3 hne => defEqList_sound hin (hidx h3 hne))
+  | _, _, _, .iotaK hhead hrec hlen hus hcertR =>
+    Red.iotaK_sound hin hhead hrec hlen hus (teleArity_sound hcertR)
   | _, _, _, .rescueK hrec hk hctor hres hind htm htmaj hthead hlv hnP hfab hws
       hb hlv' _ _ htp http hv hv0 =>
     Red.rescueK_sound hin hrec hk hctor hres hind (infer_sound hin htm)

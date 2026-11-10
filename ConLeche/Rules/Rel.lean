@@ -238,6 +238,26 @@ inductive Red (env : Env) : Nat → Expr → Expr → Prop where
       Red env d e
         (Expr.mkAppN (rl.rhs.instantiateLevelParams cv.levelParams us)
           (e.getAppArgs.take rP ++ major.getAppArgs.drop cnP))
+  /-- **The inference-free K rule** (task #552; the ground engine's K
+  step, task #423): at a K-flagged single-rule recursor the redex
+  reduces to its minor premise — the rule's right-hand side at the
+  recursor's parameters — whatever the major.  No inference, no
+  fabrication, no index check: the K law fires at the recursor's own
+  parameters for any major value that fits the recursor's telescope,
+  and the arity check is all the soundness proof needs
+  (`Red.iotaK_sound`).  The incumbent never produces it (it keeps
+  official's index check, `rescueK`); the ground engine does. -/
+  | iotaK {d : Nat} {e : Expr} {c : Name} {us : List Level} {cv : ConstantVal}
+      {mI rP : Nat} {rl : RecRule} :
+      e.getAppFn = .const c us →
+      env.find? c = some (.recInfo cv mI rP true [rl]) →
+      e.getAppArgs.length = mI + 1 →
+      us.length = cv.levelParams.length →
+      (Expr.peelPis e.getAppArgs.length
+        (cv.type.instantiateLevelParams cv.levelParams us)).isSome = true →
+      Red env d e
+        (Expr.mkAppN (rl.rhs.instantiateLevelParams cv.levelParams us)
+          (e.getAppArgs.take rP))
   /-- **The K rescue** (`majorToCtor`'s K branch, `Kernel/Core.lean`;
   official `to_cnstr_when_K`): at a K-flagged single-rule recursor the
   parameters-only constructor application is fabricated from the
