@@ -112576,3 +112576,104 @@ deleted modules' lines out, `Laws`/`Denote/Install`'s `EnvGuards` import recorde
 compensation; `BlockConsFind`'s public `BlockInstall` import a measured model exception in
 `scripts/pub-import-plan.py`), trust surface, the link, quote and whitepaper gates; OVERVIEW's
 `IndCaps` row says `eta` alone and the table's reading).
+
+## TASK #551 — name, level and literal equality pointer first at every level (2026-11-10, agent/551-ptr-eq)
+
+DESIGN #549's proposal P2, as the maintainer ruled it: `Name` equality on executed paths tests
+the pointer, then the cached hash, then the structure; literal equality tests the pointer
+before GMP; no derived `DecidableEq` on these executed paths.
+
+**What was there.**  `Name.beqPtr` (pointer, hash, then `decide (a = b)`) was `@[csimp]`'s
+replacement for `Name.beq`, so `==` was guarded at the top, but the guarded call was the derived
+structural `DecidableEq Name`, which recursed with no guard.  And every `=` in an `if` went to
+the derived instance without any guard: the Nat-operation dispatch (`reduceNatI`'s fourteen
+`cn = natAddName ∨ …`, `natOpResult`'s chain), `Name` fields in derived instances of other
+types.  On CCK4 the derived `instDecidableEqName.decEq` and its `memcmp` took 12.7 % of the
+check phase (#549).  `Level` had the same shape (`Level.beqPtr`).  `Literal` derived
+`DecidableEq`; `lean_nat_dec_eq` on two big numbers is `mpz_cmp`, no pointer test, so a memo hit
+on a literal found again in a new node compared the whole number.
+
+**What is there now** (`ConLeche/Kernel/Name.lean`, `ConLeche/Kernel/Expr.lean`).  For each of
+`Name`, `Level`, `Literal`:
+* `T.decEq`: the structural decision, written out (the instance: what the kernel, `by decide` and
+  `#guard` reduce).  No `deriving DecidableEq`.
+* `T.decEqPtr`: what runs.  `withPtrEqDecEq` on the two objects; for `Name` and `Level`, the cached
+  hash (`hashData`); then one structural step, whose children start over at `decEqPtr`.  So a
+  prefix shared by reference costs one pointer test at any depth, and two different names almost
+  always differ in hash at the top, as in `lean_name_eq`.  A `Name.num` component and a `.natVal`
+  literal test the number's pointer (`withPtrEqDecEq n m (fun _ => Nat.decEq n m)`) before GMP.
+  Strings need no wrapper: `lean_string_eq` tests `s1 == s2` itself.  A literal has no hash
+  test of its own: `Expr.beqMemo` and `enterBeq` compare the nodes' computed words, which carry
+  the literal's hash, before the `.lit` arm is reached.
+* `@[csimp] T.decEq_eq_decEqPtr : @T.decEq = @T.decEqPtr`, proved by `funext; Subsingleton.elim`:
+  both sides decide the same proposition.  No `import all` is needed for this (the old
+  `Name.beqPtr_eq` needed `withPtrEq`'s body); `Name.lean` drops its `import all Init.Util`.
+  `Expr.lean` keeps its own for `beqMemo_eq`.
+* `Name.beq`/`Level.beq` stay `decide (a = b)` with their lawful `BEq`.  `beqPtr`, `beqPtr_eq`
+  and `beq_eq_beqPtr` are gone: `==` reaches `decEqPtr` through the instance.
+
+The generated C bears this out: `instDecidableEqName` is one call to `Name_decEqPtr`, which
+takes both names borrowed (no reference counting), and `Expr.beqGoX`'s `.const` and `.proj` arms
+call `Name_decEqPtr`, the `.sort` arm and the level lists call `Level_decEqPtr`, and the `.lit` arm
+calls the pointer-first `instDecidableEqLiteral`.  The derived `DecidableEq Expr` is still there.
+It runs only where `beqGoX`'s arms already disagree on the constructor, and in `ptrDec`'s
+pure-model fallback, which compiled code never reaches.  So it is not on a memo-key path.
+
+No proof changed.  `plain-reach`'s allowlist trades `Name.beqPtr` and the three derived
+`….decEq` for `Name.decEqPtr`, `Level.decEqPtr`, `instDecidableEqLiteral` and `Name.beq` (now
+compiled itself, no longer replaced).  `OVERVIEW.md`'s `Name.render` link and three whitepaper
+`#src` ranges are repointed: the lines moved.
+
+**Orthogonal to #550**: only the equality functions changed, no memo control flow.
+
+### Measurements
+
+`perf stat -e instructions:u,cycles:u`, three runs each, one at a time, under the guard and
+`timeout`.  The instruction column is the first run (the three agree to within 0.1 %; `app-lam`
+at `--jobs=8` varies by 0.3 % from run to run).  Cycles are the three runs, in G; the
+machine was loaded, other lanes ran CFSG modules at the same time, so cycles are only a rough
+guide.  Arena perf streams `--jobs=8` and `init-full` `--jobs=1`: master 49d2fa3fd against the
+lane.  Master has no `--module` and no #547 hash, so the Mathlib workers (`_tmp/501/measure.sh`'s
+four modules, `--olean --module --jobs=8`) and CFSG (closure `_tmp/543/olean`, `--jobs=1`, as
+#549) ran on `modular` 549c0937f (#549's base) against 549c0937f with this lane's commit
+cherry-picked (one conflict, the `Literal` block next to #547's hash; resolved keeping both).
+Every run accepts the same count as its base.
+
+| run | base instructions | lane instructions | Δ | base G cycles | lane G cycles |
+|---|---|---|---|---|---|
+| `init-prelude` | 1 567 008 615 | 1 563 846 995 | −0.20 % | 1.4 / 1.4 / 1.3 | 1.1 / 1.0 / 1.0 |
+| `grind-ring-5` | 13 318 174 175 | 13 243 407 671 | −0.56 % | 14.4 / 13.9 / 14.2 | 8.3 / 7.8 / 7.9 |
+| `app-lam` | 22 041 695 999 | 22 071 067 665 | +0.13 % | 16.4 / 15.8 / 16.1 | 11.7 / 12.1 / 12.1 |
+| `let-ladder` | 2 594 251 151 | 2 594 066 822 | −0.01 % | 1.2 / 1.2 / 1.2 | 0.8 / 0.9 / 0.8 |
+| `beta-ladder` | 4 868 788 580 | 4 857 297 714 | −0.24 % | 2.2 / 2.2 / 2.2 | 1.5 / 1.6 / 1.6 |
+| `init-full` | 373 036 797 806 | 372 358 085 321 | −0.18 % | 243.6 / 184.2 / 170.0 | 172.7 / 173.7 / 170.4 |
+| `Init.Data.Nat.Lemmas` | 9 095 902 805 | 9 022 839 731 | −0.80 % | 4.4 / 5.0 / 4.6 | 6.1 / 6.3 / 6.0 |
+| `Mathlib.GroupTheory.Coxeter.Basic` | 6 896 417 449 | 6 878 029 331 | −0.27 % | 3.2 / 3.1 / 3.3 | 3.7 / 4.3 / 3.9 |
+| `Mathlib.Analysis.SpecialFunctions.Gamma.Basic` | 11 782 328 353 | 11 758 679 168 | −0.20 % | 6.0 / 7.4 / 6.8 | 6.3 / 6.3 / 5.8 |
+| `Mathlib.RingTheory.WittVector.MulP` | 6 364 914 727 | 6 356 466 604 | −0.13 % | 3.7 / 3.5 / 3.7 | 3.0 / 2.8 / 2.6 |
+| CFSG `--constant=CK` | 225 298 209 852 | 225 005 677 417 | −0.13 % | 56.3 / 56.4 / 56.5 | 55.5 / 56.1 / 56.0 |
+| CFSG `--constant=ck318` | 307 660 450 946 | 307 100 202 476 | −0.18 % | 89.0 / 143.0 / 110.8 | 92.0 / 91.5 / 90.0 |
+| ck318 net (ck318 − CK) | 82 362 241 094 | 82 094 525 059 | −0.33 % | | |
+| CCK4 (module) | 219 467 884 527 | 206 529 063 816 | −5.90 % | 148.1 / 164.1 / 155.3 | 157.4 / 141.8 / 147.6 |
+| McLEnumA (module), one run each | 3 726 846 630 371 | 3 434 189 376 846 | −7.85 % | 2 573.8 | 2 518.3 |
+
+* **CCK4 −12.9 G (−5.9 %)**, which is the #549 prototype's figure (−12.9 G): the name dispatch.
+* **McLEnumA −293 G (−7.9 %)**: #549 put "name comparisons of equal names" at 4.9 % of its
+  profile, and the environment lookups (`FBase.find?`) walk names on every hit.  One run per
+  binary: a run is 15–20 minutes and holds the machine.
+* **ck318 −0.27 G net.**  The equal literals `whnfC` compared on ck318 (#549's probe: 2.5 GB)
+  were not mostly the same number object: the pointer test spares few of them.  The comparison is
+  a memory-bound `mpz_cmp`, so it costs few instructions.  The cycles cannot be read here.
+* Nothing regresses beyond noise: `app-lam` +0.13 % is inside its own run-to-run spread
+  (22.006–22.073 G for the base).  No regression above 1 %.
+
+Gates: `lake build` (799 jobs) and `lake test` warning-free; `tests/arena.sh` in full under the
+guard (layering, pindump, trust surface 11 escapes in 6 allowlisted files, overview links,
+whitepaper fragment, quote gate, no-local-paths, challenge, shake 662/662 allowlisted and no
+public import demotable, plain-reach 577 all allowlisted, binary-link, olean gate 122/122,
+self-check 53 950 declarations, axioms pinned at 32 theorems over the three standard ones, arena
+tutorial 90/92, e2e 585/585, the trusted and `--jobs` sweeps without divergence).  Its one
+failure was the whitepaper link gate (the moved `Level`/`Expr` lines), repointed and green
+since.
+
+Measurement scripts and logs: `_tmp/551/scripts`, `_tmp/551/logs`.
