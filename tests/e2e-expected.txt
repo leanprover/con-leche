@@ -1204,6 +1204,10 @@
 # --- as a β-redex, the third through `id` with sort `max 1 1` and an
 # --- index; and a Prop pair `Prop` / `Sort (max 0 0)`.  Official 0.
 0 ind_mutual_three.ndjson
+# ind_mutual_wide_telescope.ndjson (task #543): a 25-member mutual block whose
+# recursors close long telescopes; a performance fixture for checkers whose
+# abstraction has no free-variable-range cutoff (see its source).
+0 ind_mutual_wide_telescope.ndjson
 # --- task #227: mutual and nested blocks whose INDEX DOMAINS' sorts are
 # --- not syntactically readable (`(x : α)` at `α : id Type`, an index at
 # --- a constant whose declared type is that same stuck application, a
@@ -2987,6 +2991,36 @@
 # correctly, and quickly, rejected.  The official kernel would loop
 # here too (its whnf-after-rescue is unconditional); see DESIGN.md.
 1 k_rescue_stuck.ndjson
+# k_skip_* (task #552, the K rule without the index check; the
+# build-time switch `kIndexMode`, ConLeche/Kernel/KIndex.lean; verdicts
+# at the default `.check`, which is official's; each source states the
+# verdict at the other two switch values).
+# k_skip_funext_rfl: a closed `funext` major, `0 + x` against `x`
+# under the binder; `.skipClosed`/`.skipAll` accept a `rfl` official
+# rejects.  Target: reject.
+1 k_skip_funext_rfl.ndjson
+# k_skip_omega_closed: a closed Ω (`propext` makes `(X → X) = X`)
+# forced by `Acc.rec`'s major; `.skipClosed`/`.skipAll` do not
+# terminate.  Target: reject.
+1 k_skip_omega_closed.ndjson
+# k_skip_omega_open: Ω under `h : (A → A) = A` for a type `A`;
+# `.skipAll` does not terminate.  Target: reject.
+1 k_skip_omega_open.ndjson
+# k_skip_open_contra: `Eq.rec` under `h : 0 = 1` (arena
+# bad/098_ruleKbad's shape); `.skipAll` accepts.  Target: reject.
+1 k_skip_open_contra.ndjson
+# k_skip_open_cast_lit: an unchecked cast puts a `Nat` literal at
+# `Bool.rec`'s major; reject at every switch value.
+1 k_skip_open_cast_lit.ndjson
+# k_skip_open_eta: structure η at `h ▸ p` under `h : a = b`; an honest
+# export.  `.skipAll` reduces the cast, the reduct's type is `Fin a × Nat`,
+# η's type comparison fails: it REJECTS what official accepts (the shape
+# of its Mathlib rejection).  Target: accept.
+0 k_skip_open_eta.ndjson
+# k_skip_closed_eta: the same at a CLOSED `funext` major (`Fin (0 + n + 1)`
+# against `Fin (n + 1)` under a binder); `.skipClosed` and `.skipAll`
+# reject what official accepts.  Target: accept.
+0 k_skip_closed_eta.ndjson
 # acc_major_reduce (task #333 audit): the one place a proof is still
 # head-normalized — the major premise of a large eliminator over a
 # non-K inductive proposition (`Acc'.rec` into `Nat` on a `def`-proved
@@ -3378,37 +3412,6 @@
 # official).  Engine on: ACCEPTED, beyond official (the K step skips the index
 # check).  Target 1 engine off.
 1 ground_k_index_differ.ndjson
-# (as on master, task #552; copied for task #423's K-step measurement.)
-# k_skip_* (task #552, the K rule without the index check; the
-# build-time switch `kIndexMode`, ConLeche/Kernel/KIndex.lean; verdicts
-# at the default `.check`, which is official's; each source states the
-# verdict at the other two switch values).
-# k_skip_funext_rfl: a closed `funext` major, `0 + x` against `x`
-# under the binder; `.skipClosed`/`.skipAll` accept a `rfl` official
-# rejects.  Target: reject.
-1 k_skip_funext_rfl.ndjson
-# k_skip_omega_closed: a closed Ω (`propext` makes `(X → X) = X`)
-# forced by `Acc.rec`'s major; `.skipClosed`/`.skipAll` do not
-# terminate.  Target: reject.
-1 k_skip_omega_closed.ndjson
-# k_skip_omega_open: Ω under `h : (A → A) = A` for a type `A`;
-# `.skipAll` does not terminate.  Target: reject.
-1 k_skip_omega_open.ndjson
-# k_skip_open_contra: `Eq.rec` under `h : 0 = 1` (arena
-# bad/098_ruleKbad's shape); `.skipAll` accepts.  Target: reject.
-1 k_skip_open_contra.ndjson
-# k_skip_open_cast_lit: an unchecked cast puts a `Nat` literal at
-# `Bool.rec`'s major; reject at every switch value.
-1 k_skip_open_cast_lit.ndjson
-# k_skip_open_eta: structure η at `h ▸ p` under `h : a = b`; an honest
-# export.  `.skipAll` reduces the cast, the reduct's type is `Fin a × Nat`,
-# η's type comparison fails: it REJECTS what official accepts (the shape
-# of its Mathlib rejection).  Target: accept.
-0 k_skip_open_eta.ndjson
-# k_skip_closed_eta: the same at a CLOSED `funext` major (`Fin (0 + n + 1)`
-# against `Fin (n + 1)` under a binder); `.skipClosed` and `.skipAll`
-# reject what official accepts.  Target: accept.
-0 k_skip_closed_eta.ndjson
 # -- task #423 completeness: the ground engine's steps for the incumbent's whnf
 # at the `t =?= Bool.true` site, and no fallback (groundMode 10).  Verdicts at
 # the default build (engine off); each source states the engine-on verdict.
@@ -3442,3 +3445,29 @@
 # the erased major has no η, the engine hands back ("struct-eta major") and the
 # incumbent accepts; without the hand-back it would answer false.  Target 0.
 0 ground_acc_def.ndjson
+# The wider unit-like η (task #515; official's `is_unit_like` since
+# lean4#15372, ported from lean4's `tests/elab/2258.lean`): ∀s with a
+# unit-like codomain and non-recursive structures whose fields are
+# propositions or unit-like (`unitlike_wide`), and the three negative
+# controls (a `Nat` field, a `Bool` field, a `Bool` codomain).
+0 unitlike_wide.ndjson
+1 unitlike_wide_foo_nat_bad.ndjson
+1 unitlike_wide_boolwrap_bad.ndjson
+1 unitlike_wide_pi_bad.ndjson
+# The unit-like test at fieldless structures with parameters, alone, behind a
+# ∀ and inside unit-like structures (task #515 review round 2: the
+# constructor and the field count are read off the projection table, which a
+# fieldless structure has too).  Official 0; today 0.
+0 unitlike_fieldless.ndjson
+# η for a partially applied structure constructor (task #515; official's
+# `try_eta_struct_core` since lean4#15373, ported from lean4's
+# `tests/elab/12520_1.lean`), and its two must-reject controls.
+0 eta_partial_ctor.ndjson
+1 eta_partial_ctor_bad.ndjson
+1 eta_partial_ctor_alias_bad.ndjson
+# lean4's tests whose master elaboration needs the wider unit-like η
+# (task #515): `tests/elab/13371.lean` and the family of
+# `tests/elab/match4.lean`, exported from a lean4 master build (the
+# sources carry the recipe).
+0 unitlike_lean4_13371.ndjson
+0 unitlike_lean4_match4.ndjson

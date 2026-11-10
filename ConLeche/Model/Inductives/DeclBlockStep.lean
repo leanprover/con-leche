@@ -12,7 +12,7 @@ import ConLeche.Model.Inductives.BlockHoleGrade
 import ConLeche.Model.Inductives.BlockCtorReads
 import ConLeche.Model.Inductives.BlockCover
 import ConLeche.Model.Inductives.BlockStageRec
-import ConLeche.Semantics.Inductives.DeclBlockEta
+import ConLeche.Semantics.Inductives.BlockConsFind
 import ConLeche.Semantics.Inductives.DeclBlockWF
 import ConLeche.Model.Inductives.BlockRecData
 import ConLeche.Verify.Inductives.RecStage
@@ -73,7 +73,6 @@ the recursors' stage `genRecStage` (conjunct ⑧), and the tables
 theorem declBlockAt {F : Nat} {env env₂ : Env}
     {block : List ConstantInfo} {p₀ : BlockShape}
     (mp : EnvModelM V env)
-    (hE : ConLeche.EtaFamiliesClosed env)
     (hlps₀ : ∀ ms ∈ p₀.members, ms.cvT.levelParams = p₀.lps)
     (hAt : ∀ ms ∈ p₀.members, ConLeche.MemberAt F env p₀.nP ms)
     (hClps₀ : ∀ c ∈ p₀.allCtors, c.1.levelParams = p₀.lps ∧
@@ -130,8 +129,8 @@ theorem declBlockAt {F : Nat} {env env₂ : Env}
     exact find?_append_of_fresh (fun c hc => by
       obtain ⟨cv, hcv, -, rfl⟩ := hnewI₀all c hc
       exact hndDcl cv hcv) hf
-  obtain ⟨pk, uOf, ppsOf, mpI, hN, hS, hcore, hEtaI, hfreshC, hnfs, hagI⟩ :=
-    blockTablesStage_of mp hE hlps₀ hAt hndM (by rw [hq]; exact hbool₀) hndC hClps hresM hInd hCtors hsorts
+  obtain ⟨pk, uOf, ppsOf, mpI, hN, hS, hcore, hfreshC, hnfs, hagI⟩ :=
+    blockTablesStage_of mp hlps₀ hAt hndM (by rw [hq]; exact hbool₀) hndC hClps hresM hInd hCtors hsorts
       (posKs := (kinds, nfs, nodes)) hPos hcov hRan hxI
   have hlenMemberCtors : p₁.memberCtors.length = p₁.k := hlenMemberCtors₀
   have hnames := hnames₀
@@ -234,9 +233,9 @@ theorem declBlockAt {F : Nat} {env env₂ : Env}
     show p₁.memberCtors[c]? = some (p₁.memberCtors.getD c [])
     rw [List.getD_eq_getElem?_getD, List.getElem?_eq_getElem hc]
     rfl
-  obtain ⟨mpC₀', hEtaC, hcoreC', hagC⟩ :=
+  obtain ⟨mpC₀', hcoreC', hagC⟩ :=
     stageBlockCtors hN hN.2.2 hS.toBlockCtorsStage hlenMemberCtors hmemberCtors p₁.memberCtors 0 env₁ mpI
-      (fun c => by rw [Nat.zero_add]) (Nat.zero_add _) hEtaI hcore
+      (fun c => by rw [Nat.zero_add]) (Nat.zero_add _) hcore
       (fun c _ j ctor hj => hfreshC c j ctor hj)
   -- ## coverage across the formers' and the constructors' conses:
   -- the stage's carrier, rebuilt with the input's recorded list; the block's

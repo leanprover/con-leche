@@ -319,7 +319,47 @@ second spine. -/
       ∀ p ∈ (asa.map (interp V ρ)).zip (bsa.map (interp V ρ)),
         p.1 ≠ pt → p.2 ≠ pt → p.1 = p.2
 
+/-- **The unit-like motive** (`UnitLike`): at a valuation where the type
+is graded, any two of its members are equal. -/
+@[expose] def UnitLikeSem {env : Env} (m : EnvModel V env) (φ : Name → Nat)
+    (d : Nat) (T : Expr) : Prop :=
+  Frame d T →
+  ∀ {Δa : List Term} {Ta : Term},
+    CtxOkS m φ d Δa T →
+    denote m.acval env φ d T = some Ta →
+    ∀ ρ : Nat → V, Sat V Δa ρ → LeavesGr m φ d T ρ → WellDenotedTy V ρ Ta →
+      ∀ x y : V, x ∈ˢ interp V ρ Ta → y ∈ˢ interp V ρ Ta → x = y
+
+/-- **The field motive** (`UnitFields`): two spines of `n` values fitting
+the graded telescope are equal. -/
+@[expose] def UnitFieldsSem {env : Env} (m : EnvModel V env) (φ : Name → Nat)
+    (d : Nat) (tele : Expr) (n : Nat) : Prop :=
+  Frame d tele →
+  ∀ {Δa : List Term} {telea : Term},
+    CtxOkS m φ d Δa tele →
+    denote m.acval env φ d tele = some telea →
+    ∀ ρ : Nat → V, Sat V Δa ρ → LeavesGr m φ d tele ρ → WellDenoted V ρ telea →
+      ∀ (xs ys : List V) (rx ry : V), xs.length = n → ys.length = n →
+        TeleFit V ρ telea xs rx → TeleFit V ρ telea ys ry → xs = ys
+
+/-- **The η-expansion's motive** (`DefEqExpand`): two members of the
+graded type are equal. -/
+@[expose] def DefEqExpandSem {env : Env} (m : EnvModel V env) (φ : Name → Nat)
+    (d : Nat) (a b T : Expr) : Prop :=
+  Frame d a → Frame d b → Frame d T →
+  ∀ {Δa : List Term} {aa ba Ta : Term},
+    CtxOkS m φ d Δa a → CtxOkS m φ d Δa b → CtxOkS m φ d Δa T →
+    denote m.acval env φ d a = some aa →
+    denote m.acval env φ d b = some ba →
+    denote m.acval env φ d T = some Ta →
+    ∀ ρ : Nat → V, Sat V Δa ρ → LeavesGr m φ d a ρ → LeavesGr m φ d b ρ →
+      LeavesGr m φ d T ρ →
+      WellDenoted V ρ aa → WellDenoted V ρ ba → WellDenotedTy V ρ Ta →
+      interp V ρ aa ∈ˢ interp V ρ Ta → interp V ρ ba ∈ˢ interp V ρ Ta →
+      interp V ρ aa = interp V ρ ba
+
 /-! ### The unconditional motives weaken to the conditional ones -/
+
 
 theorem RedSemU.cond {env : Env} {m : EnvModel V env} {φ : Name → Nat}
     {d : Nat} {e e' : Expr} (h : RedSemU m φ d e e') : RedSem m φ d e e' := by

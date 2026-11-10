@@ -603,13 +603,14 @@ theorem defeqProjPairC_spec (ih : SSimC mode eager env f) (henv : EnvWF env) {d 
     vcgen [defeqProjPairI, lazyDeltaProjReductionC_spec ih henv] <;> finish
 
 /-- The stuck comparison simulates its specification. -/
-theorem defeqStuckC_spec (ih : SSimC mode eager env f) {d : Nat} {a b : Expr} {s₀ : CState}
+theorem defeqStuckC_spec (ih : SSimC mode eager env f) (henv : EnvWF env) {d : Nat} {a b : Expr}
+    {s₀ : CState}
     (hs : CSOK mode eager env s₀) (hwa : Expr.WScoped d a) (hwb : Expr.WScoped d b) :
     ⦃fun s => s = s₀⦄ defeqStuckI mode (coreKnotI mode eager (mkFEnv env) f) (mkFEnv env) d a b
     ⦃fun v s' => CSOK mode eager env s' ∧
       Runs (defeqStuck mode (fueledFns mode eager env) env d a b) v; ⊤⦄ := by
   sym only [conleche_grind, defeqStuck, strLitStoredF_eq, strLitToConstructor_WScoped] =>
-    vcgen [defeqStuckI, ih.defeq_spec, stuckIrrelC_spec ih, etaCertC_spec ih, defEqListC_spec ih,
+    vcgen [defeqStuckI, ih.defeq_spec, stuckIrrelC_spec ih henv, etaCertC_spec ih, defEqListC_spec ih,
       isEquivListLM_spec (mode := mode) (eager := eager) (env := env),
       liftFueled_spec (mode := mode) (eager := eager) (env := env)] <;> finish
 
@@ -722,7 +723,7 @@ theorem bodyTailC_spec (ih : SSimC mode eager env f) (henv : EnvWF env) {d : Nat
     ⦃fun v s' => CSOK mode eager env s' ∧
       Runs (bodyTailP (fueledFns mode eager env) env d mode a b) v; ⊤⦄ := by
   sym only [conleche_grind, bodyTailP] =>
-    vcgen [bodyTailI, defeqProjPairC_spec ih henv, defeqStuckC_spec ih, ih.whnfCore_spec,
+    vcgen [bodyTailI, defeqProjPairC_spec ih henv, defeqStuckC_spec ih henv, ih.whnfCore_spec,
       ih.defeq_spec] <;> finish
 
 theorem bodyLazyC_spec (ih : SSimC mode eager env f) (henv : EnvWF env) {d : Nat} {s₀ : CState}

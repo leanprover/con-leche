@@ -144,7 +144,7 @@ this (`nodeListFacts_of`, `dynCtx_of`). -/
     = pp.members.map (fun ms => ms.ctors.map (fun c => (c.1.name, c.2))) ∧
   pp.memberNames.Nodup ∧
   BlockNamesOk (V := V) dR pp.formers ∧
-  BlockCtorsStage (V := V) F dR pp.lps pp.formers pp isRecR A envI pp.ctorNamesAt ∧
+  BlockCtorsStage (V := V) F dR pp.lps pp.formers pp isRecR A envI ∧
   BlockCtorsCore mpC.base2 dR pp.lps pp.formers pp isRecR A dR.k ∧
   (∀ c, c < pp.memberCtors.length → pp.memberCtors[c]? = some (dR.ctorsM c)) ∧
   (∃ (pk : Nat → BlockMemberPick) (uOfD : Nat → (Name → Nat) → Nat)

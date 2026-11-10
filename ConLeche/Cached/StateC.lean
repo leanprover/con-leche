@@ -94,6 +94,29 @@ def etaCtorShapeC (fe : FEnv) (e : Expr) : Bool :=
     | _ => false
   | _ => false
 
+/-- Twin of `etaCtorPartial`. -/
+def etaCtorPartialC (fe : FEnv) (e : Expr) : Option Nat :=
+  match Expr.getAppFn e with
+  | .const c _ =>
+    match fe.find? c with
+    | some (.ctorInfo cvc cnP cnF) =>
+      if (Expr.getAppArgs e).length < cnP + cnF then
+        match cvc.type.piResult.getAppFn with
+        | .const T _ =>
+          match fe.find? T with
+          | some (.indInfo _ caps) =>
+            match fe.findTable? T with
+            | some tbl =>
+              if caps.eta = true ∧ tbl.ctor = c then
+                some (cnP + cnF - (Expr.getAppArgs e).length)
+              else none
+            | none => none
+          | _ => none
+        | _ => none
+      else none
+    | _ => none
+  | _ => none
+
 /-! ## The state -/
 
 /-- **The mode-dependent memos** (task #353): the six entry-point

@@ -183,8 +183,9 @@ inductive BasisKind where
 
 /-- Definitional capabilities of a stored inductive type that its block
 alone decides, read off the block's records at its check: structure-likeness
-for its (single-constructor) values, unit-like collapse (all inhabitants
-definitionally equal), and the family's names and counts.  The family's
+for its (single-constructor) values (official's `is_non_rec_structure`; with
+no field, all inhabitants are definitionally equal), and the family's names
+and counts.  The family's
 result sort is on no record, so what depends on it is computed where it is
 read, from the former's type (`formerResSort`, `formerNeverZero`). -/
 structure IndCaps where
@@ -192,17 +193,6 @@ structure IndCaps where
   is not recursive.  A proposition may have it: a proof is the point, and the
   η laws speak of what is not. -/
   eta : Bool := false
-  /-- The single constructor the eta law reconstructs through
-  (meaningful only when `eta`). -/
-  etaCtor : Name := .anonymous
-  /-- Its parameter count (meaningful only when `eta`). -/
-  etaParams : Nat := 0
-  /-- Its field count (meaningful only when `eta`). -/
-  etaFields : Nat := 0
-  unitlike : Bool := false
-  /-- The parameter count of the unit-like family (meaningful only
-  when `unitlike`). -/
-  unitParams : Nat := 0
   /-- **The block's members** (official's `all`): the formers installed
   together with this one, in block
   order, itself included.  Read by nested positivity alone — a container

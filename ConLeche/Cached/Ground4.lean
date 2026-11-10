@@ -271,13 +271,10 @@ recursor instead. -/
 def g4EtaFab (find? : Name → Option ConstantInfo) (findProj? : Name → Nat → Option ProjEntry)
     (ctor : Name) (cvj : ConstantVal) (cnP : Nat) (ul : List Level) : Bool :=
   match ctorFamily find? cvj with
-  | some (cvT, caps) =>
+  | some (cvT, _) =>
     let T := cvT.name
-    (etaRescueOk ctor cvj cvT caps && !reservedBasisNames.contains T &&
-      !reservedBasisNames.contains caps.etaCtor &&
-      (List.range caps.etaFields).all (fun j => (findProj? T j).isSome) &&
-      cnP == caps.etaParams && ul.length == cvT.levelParams.length &&
-      (formerResSort cvT.type).isSome && formerNeverZero cvT ul) ||
+    -- (the structure-η half went with master's task #515 `IndCaps`; the
+    -- step is a decline on this branch, task #423 soundness)
     (T == andName && andRescueSlotsOf findProj? ctor cnP && cvj.levelParams.length == ul.length)
   | none => false
 
