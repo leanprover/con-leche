@@ -7,8 +7,8 @@ public section
 /-!
 # The k-ary block recogniser, inverted
 
-`blockShape?` reads a block into a `BlockShape` at ANY number of
-members and `blockShape?` adds the recursor records' structural pin
+`readBlock` reads a block into a `BlockShape` at ANY number of
+members and adds the recursor records' structural pin
 (`ConLeche/Kernel/Inductives/BlockShape.lean`).  The inversions here
 read back: the `isProp` pin, the block's level parameters carried by
 every member and every constructor, the reserved-name exclusions, the
@@ -28,29 +28,29 @@ namespace ConLeche
 /-! ## The members' counts -/
 
 /-- The member-counts loop yields one count per member. -/
-theorem blockMemberCounts?_length {nPd k nC : Nat} {names : List Name}
+theorem blockMemberCounts_length {nPd k nC : Nat} {names : List Name}
     {rs : List (ConstantVal × Nat × Nat × Bool × List RecRule)} :
     ∀ {cvTs : List ConstantVal} {m : Nat} {nIdxs : List Nat},
-      blockMemberCounts? nPd k nC names rs m cvTs = some nIdxs →
+      blockMemberCounts nPd k nC names rs m cvTs = .ok nIdxs →
       nIdxs.length = cvTs.length
   | [], _, _, h => by
-    simp only [blockMemberCounts?, Option.some.injEq] at h
+    simp only [blockMemberCounts, Except.ok.injEq] at h
     subst h; rfl
   | cvT :: ts, m, nIdxs, h => by
-    rw [blockMemberCounts?] at h
-    cases hc : blockCounts? nPd k nC rs.length cvT
+    rw [blockMemberCounts] at h
+    cases hc : blockCounts nPd k nC rs.length cvT
         ((rs.find? fun q => recTargetOf names q.2.1 q.1.type == m).map
-          fun q => (q.2.1, q.2.2.1)) with
-    | none => rw [hc] at h; exact nomatch h
-    | some c =>
+          fun q => (q.1.name, q.2.1, q.2.2.1)) with
+    | error e => rw [hc] at h; exact nomatch h
+    | ok c =>
     rw [hc] at h
-    cases hm : blockMemberCounts? nPd k nC names rs (m + 1) ts with
-    | none => rw [hm] at h; exact nomatch h
-    | some ns =>
+    cases hm : blockMemberCounts nPd k nC names rs (m + 1) ts with
+    | error e => rw [hm] at h; exact nomatch h
+    | ok ns =>
       rw [hm] at h
-      simp only [Option.map_some, Option.some.injEq] at h
+      simp only [Except.map, Except.ok.injEq] at h
       subst h
-      simp [blockMemberCounts?_length hm]
+      simp [blockMemberCounts_length hm]
 
 /-! ## The grouping -/
 
@@ -122,7 +122,7 @@ theorem blockMembers_proj {cvTs : List ConstantVal} :
 
 /-! ## The recogniser -/
 
-/-- **What `blockShape?` pins of the block's data** (`blockShape?_inv`).
+/-- **What `readBlock` pins of the block's data** (`readBlock_inv`).
 The existential is the recogniser's
 reading, verbatim: the split into type formers, constructors and recursor records, the
 members' index counts, the members as the formers zipped with their
@@ -145,7 +145,7 @@ abbrev BlockShapeOk (nPd : Nat) (block : List ConstantInfo) (p : BlockShape) : P
     (rs : List (ConstantVal × Nat × Nat × Bool × List RecRule)) (nIdxs : List Nat),
     blockSplit block = some (cvTs, cs, rs) ∧
     cvTs.length = p.k ∧ rs.length = p.recs.length ∧ nIdxs.length = p.k ∧
-    blockMemberCounts? nPd p.k cs.length p.memberNames rs 0 cvTs = some nIdxs ∧
+    blockMemberCounts nPd p.k cs.length p.memberNames rs 0 cvTs = .ok nIdxs ∧
     (∀ c ∈ cs, c.2.1 = p.nP) ∧
     p.members = ((cvTs.zip nIdxs).zip
         (blockGroups p.memberNames p.lps p.nP p.k
@@ -155,16 +155,16 @@ abbrev BlockShapeOk (nPd : Nat) (block : List ConstantInfo) (p : BlockShape) : P
       ⟨r.1, r.2.2.1, r.2.1, recTargetOf p.memberNames r.2.1 r.1.type,
         r.2.2.2.2, r.2.2.2.1⟩)
 
-/-- The shared tail of `blockShape?_inv`: everything below the
+/-- The shared tail of `readBlock_inv`: everything below the
 eliminator reading, which the two branches differ in only by `elim`
 and `large`. -/
-private theorem blockShape?_inv_aux {nPd : Nat} {block : List ConstantInfo}
+private theorem readBlock_inv_aux {nPd : Nat} {block : List ConstantInfo}
     {p : BlockShape} {cvT0 : ConstantVal} {cvTs' : List ConstantVal}
     {cs : List (ConstantVal × Nat × Nat)}
     {rs : List (ConstantVal × Nat × Nat × Bool × List RecRule)} {nIdxs : List Nat}
     (hsp : blockSplit block = some (cvT0 :: cvTs', cs, rs))
-    (hmc : blockMemberCounts? nPd (cvT0 :: cvTs').length cs.length
-      ((cvT0 :: cvTs').map (·.name)) rs 0 (cvT0 :: cvTs') = some nIdxs)
+    (hmc : blockMemberCounts nPd (cvT0 :: cvTs').length cs.length
+      ((cvT0 :: cvTs').map (·.name)) rs 0 (cvT0 :: cvTs') = .ok nIdxs)
     (hlpsAll : ∀ c ∈ cvT0 :: cvTs', c.levelParams = cvT0.levelParams)
     (hcs : ∀ c ∈ cs, c.2.1 = nPd ∧ c.1.levelParams = cvT0.levelParams)
     (hnP : p.nP = nPd)
@@ -179,7 +179,7 @@ private theorem blockShape?_inv_aux {nPd : Nat} {block : List ConstantInfo}
       ⟨r.1, r.2.2.1, r.2.1, recTargetOf ((cvT0 :: cvTs').map (·.name)) r.2.1 r.1.type,
         r.2.2.2.2, r.2.2.2.1⟩) :
     BlockShapeOk nPd block p := by
-  have hlenN := blockMemberCounts?_length hmc
+  have hlenN := blockMemberCounts_length hmc
   obtain ⟨e1, e2, e3⟩ := blockMembers_proj (cvTs := cvT0 :: cvTs') (nIdxs := nIdxs)
     (groups := blockGroups ((cvT0 :: cvTs').map (·.name)) cvT0.levelParams nPd
       (cvT0 :: cvTs').length (cs.map fun c => (c.1, c.2.2)))
@@ -226,11 +226,11 @@ private theorem blockShape?_inv_aux {nPd : Nat} {block : List ConstantInfo}
   · rw [hnames, hlpsP, hnP, hk]; exact hmembers
   · rw [hnames]; exact hrecs
 
-/-- **`blockShape?` pins the block's data** (`BlockShapeOk`). -/
-theorem blockShape?_inv {nPd : Nat} {block : List ConstantInfo} {p : BlockShape}
-    (h : blockShape? nPd block = some p) :
+/-- **`readBlock` pins the block's data** (`BlockShapeOk`). -/
+theorem readBlock_inv {nPd : Nat} {block : List ConstantInfo} {p : BlockShape}
+    (h : readBlock nPd block = .ok p) :
     BlockShapeOk nPd block p := by
-  unfold blockShape? at h
+  unfold readBlock at h
   obtain ⟨cvTs, cs, rs, hsp⟩ :
       ∃ cvTs cs rs, blockSplit block = some (cvTs, cs, rs) := by
     cases hs : blockSplit block with
@@ -245,22 +245,36 @@ theorem blockShape?_inv {nPd : Nat} {block : List ConstantInfo} {p : BlockShape}
   | cons r0 rs' =>
   obtain ⟨cvR0, mI0, rP0, rules0⟩ := r0
   simp only at h
-  cases hmc : blockMemberCounts? nPd (cvT0 :: cvTs').length cs.length
+  cases hmc : blockMemberCounts nPd (cvT0 :: cvTs').length cs.length
       ((cvT0 :: cvTs').map (·.name)) ((cvR0, mI0, rP0, rules0) :: rs') 0
       (cvT0 :: cvTs') with
-  | none => rw [hmc] at h; exact nomatch h
-  | some nIdxs =>
+  | error e => rw [hmc] at h; exact nomatch h
+  | ok nIdxs =>
   rw [hmc] at h
   simp only at h
   split at h
-  case isFalse => exact nomatch h
-  case isTrue hif =>
-  simp only [Bool.and_eq_true, List.all_eq_true, beq_iff_eq] at hif
-  obtain ⟨hlpsAll, hcs⟩ := hif
+  · exact nomatch h
+  next hf1 =>
+  split at h
+  · exact nomatch h
+  next hf2 =>
+  split at h
+  · exact nomatch h
+  next hf3 =>
+  have hlpsAll : ∀ c ∈ cvT0 :: cvTs', c.levelParams = cvT0.levelParams := by
+    intro c hc
+    have := List.find?_eq_none.mp hf1 c hc
+    simpa using this
+  have hcs : ∀ c ∈ cs, c.2.1 = nPd ∧ c.1.levelParams = cvT0.levelParams := by
+    intro c hc
+    have h2 := List.find?_eq_none.mp hf2 c hc
+    have h3 := List.find?_eq_none.mp hf3 c hc
+    simp only [bne_iff_ne, ne_eq, Classical.not_not] at h2 h3
+    exact ⟨h2, h3⟩
   split at h
   · next elim helim =>
-    have hp := Option.some.inj h
-    refine blockShape?_inv_aux hsp hmc hlpsAll hcs ?_ ?_ ?_ ?_ ?_ ?_
+    have hp := Except.ok.inj h
+    refine readBlock_inv_aux hsp hmc hlpsAll hcs ?_ ?_ ?_ ?_ ?_ ?_
     · rw [← hp]
     · rw [← hp]
     · -- the large eliminator's level parameter is fresh
@@ -285,8 +299,8 @@ theorem blockShape?_inv {nPd : Nat} {block : List ConstantInfo} {p : BlockShape}
     · rw [← hp]
     · rw [← hp]
   · next helim =>
-    have hp := Option.some.inj h
-    refine blockShape?_inv_aux hsp hmc hlpsAll hcs ?_ ?_ ?_ ?_ ?_ ?_
+    have hp := Except.ok.inj h
+    refine readBlock_inv_aux hsp hmc hlpsAll hcs ?_ ?_ ?_ ?_ ?_ ?_
     · rw [← hp]
     · rw [← hp]
     · rw [← hp]; intro hh; exact nomatch hh
@@ -295,10 +309,10 @@ theorem blockShape?_inv {nPd : Nat} {block : List ConstantInfo} {p : BlockShape}
     · rw [← hp]
 
 /-- The recogniser's members stand at their declared formers. -/
-theorem blockShape?_declared {nPd : Nat} {block : List ConstantInfo} {p : BlockShape}
-    (h : blockShape? nPd block = some p) : ∀ ms ∈ p.members, ms.declared = ms.cvT := by
+theorem readBlock_declared {nPd : Nat} {block : List ConstantInfo} {p : BlockShape}
+    (h : readBlock nPd block = .ok p) : ∀ ms ∈ p.members, ms.declared = ms.cvT := by
   obtain ⟨-, -, -, -, -, -, -, _, _, _, _, -, -, -, -, -, -, hmem, -⟩ :=
-    blockShape?_inv h
+    readBlock_inv h
   intro ms hms
   rw [show p.members = _ from hmem] at hms
   obtain ⟨a, -, rfl⟩ := List.mem_map.mp hms
@@ -376,14 +390,14 @@ theorem blockSplit_names :
 
 /-- **The recogniser's names are the block's**: every member, constructor and recursor it reads is
 a record of the block, by name. -/
-theorem blockShape?_names {nPd : Nat} {block : List ConstantInfo} {p : BlockShape}
-    (h : blockShape? nPd block = some p) :
+theorem readBlock_names {nPd : Nat} {block : List ConstantInfo} {p : BlockShape}
+    (h : readBlock nPd block = .ok p) :
     (∀ ms ∈ p.members, ∃ b ∈ block, b.name = ms.declared.name) ∧
     (∀ c ∈ p.allCtors, ∃ b ∈ block, b.name = c.1.name) ∧
     (∀ rc ∈ p.recs, ∃ b ∈ block, b.name = rc.cvR.name) := by
-  have hd := blockShape?_declared h
+  have hd := readBlock_declared h
   obtain ⟨-, -, -, -, -, -, -, cvTs, cs, rs, nIdxs, hsp, -, -, -, -, -, hmem, hrecs⟩ :=
-    blockShape?_inv h
+    readBlock_inv h
   obtain ⟨hT, hc, hr⟩ := blockSplit_names hsp
   refine ⟨fun ms hms => ?_, fun c hc' => ?_, fun rc hrc => ?_⟩
   · rw [hd ms hms]

@@ -48,9 +48,9 @@ open ConLeche ConLeche.Modular ConLeche.Frontend ConLeche.Frontend.Olean ConLech
   streamEnv (ownDeclsOf sp fs M w) (streamEnv w.reach.ctx.toList)
 
 /-- **The own records accepted from the context** (`worker_local`'s run). -/
-@[expose] def OwnRun (mode : CheckMode) (sp : SearchPath) (fs : FS) (M : Name) (w : WorkerRead) :
+@[expose] def OwnRun (mode : CheckMode) (maxNatSize : Nat) (sp : SearchPath) (fs : FS) (M : Name) (w : WorkerRead) :
     Prop :=
-  ∃ q, DeclsRun mode natOpPinSets (ownDeclsOf sp fs M w)
+  ∃ q, DeclsRun mode natOpPinSets maxNatSize (ownDeclsOf sp fs M w)
     (w.reach.ctx.size, mkFEnv (streamEnv w.reach.ctx.toList)) q
 
 theorem find?_of_nodup {E : Env} (hn : NodupNames E) {ci : ConstantInfo} (h : ci ∈ E.consts) :
@@ -71,8 +71,8 @@ theorem find?_of_nodup {E : Env} (hn : NodupNames E) {ci : ConstantInfo} (h : ci
       exact ih hn.2 h'
 
 /-- **An accepted module's own environment names each constant once.** -/
-theorem ownEnv_nodup {mode : CheckMode} {sp : SearchPath} {fs : FS} {M : Name} {jobs : Nat}
-    {w : WorkerRead} (hw : WorkerFacts sp fs M jobs w) (hr : OwnRun mode sp fs M w) :
+theorem ownEnv_nodup {mode : CheckMode} {maxNatSize : Nat} {sp : SearchPath} {fs : FS} {M : Name} {jobs : Nat}
+    {w : WorkerRead} (hw : WorkerFacts sp fs M jobs w) (hr : OwnRun mode maxNatSize sp fs M w) :
     NodupNames (ownEnvOf sp fs M w) := by
   obtain ⟨q, hq⟩ := hr
   have hc := declsRun_chain mode hq (PushChain.refl _)
@@ -315,8 +315,8 @@ theorem checkDeclStepC_stmt {mode : CheckMode} {pins : List NatOpPinSet} {fe : F
     exact Yields.bind' (checkConstantValC_fresh_res mode fe cv) fun _ h => Yields.const h
 
 /-- **An accepted statement record's type does not read its own name.** -/
-theorem declsRun_stmt_fresh {mode : CheckMode} {pins : List NatOpPinSet} {ds : List Declaration}
-    {p q : Nat × FEnv} (h : DeclsRun mode pins ds p q) :
+theorem declsRun_stmt_fresh {mode : CheckMode} {maxNatSize : Nat} {pins : List NatOpPinSet} {ds : List Declaration}
+    {p q : Nat × FEnv} (h : DeclsRun mode pins maxNatSize ds p q) :
     ∀ d ∈ ds, ∀ cv, StmtRecord d cv → cv.name ∉ cv.type.readNames := by
   induction h with
   | nil => exact fun _ h => nomatch h
@@ -333,8 +333,8 @@ theorem declsRun_stmt_fresh {mode : CheckMode} {pins : List NatOpPinSet} {ds : L
     · exact ih d hd cv hcv
 
 /-- **An own statement record's type does not read its own name**, at an accepted worker. -/
-theorem own_stmt_fresh {mode : CheckMode} {sp : SearchPath} {fs : FS} {M : Name}
-    {w : WorkerRead} (hrun : OwnRun mode sp fs M w) {d : Declaration}
+theorem own_stmt_fresh {mode : CheckMode} {maxNatSize : Nat} {sp : SearchPath} {fs : FS} {M : Name}
+    {w : WorkerRead} (hrun : OwnRun mode maxNatSize sp fs M w) {d : Declaration}
     (hd : d ∈ ownDeclsOf sp fs M w) {cv : ConstantVal} (hcv : StmtRecord d cv) :
     cv.name ∉ cv.type.readNames := by
   obtain ⟨q, hq⟩ := hrun
@@ -351,8 +351,8 @@ theorem find?_isSome_append {E E' : Env} {new : List ConstantInfo}
   exact ⟨c, by rw [h]; exact List.mem_append_right _ hc, he⟩
 
 /-- **The names an accepted statement record's type reads are stored after the run.** -/
-theorem declsRun_stmt_stored {mode : CheckMode} {pins : List NatOpPinSet} {ds : List Declaration}
-    {p q : Nat × FEnv} (h : DeclsRun mode pins ds p q) (hp : p.2 = mkFEnv p.2.env) :
+theorem declsRun_stmt_stored {mode : CheckMode} {maxNatSize : Nat} {pins : List NatOpPinSet} {ds : List Declaration}
+    {p q : Nat × FEnv} (h : DeclsRun mode pins maxNatSize ds p q) (hp : p.2 = mkFEnv p.2.env) :
     ∀ d ∈ ds, ∀ cv, StmtRecord d cv → ∀ n ∈ cv.type.readNames, (q.2.env.find? n).isSome = true := by
   induction h with
   | nil => exact fun _ h => nomatch h
@@ -375,8 +375,8 @@ theorem declsRun_stmt_stored {mode : CheckMode} {pins : List NatOpPinSet} {ds : 
     · exact ih h₁.canon d hd cv hcv
 
 /-- **The names an own statement record's type reads are stored** in the own environment. -/
-theorem own_type_stored {mode : CheckMode} {sp : SearchPath} {fs : FS} {M : Name}
-    {w : WorkerRead} (hrun : OwnRun mode sp fs M w) {d : Declaration}
+theorem own_type_stored {mode : CheckMode} {maxNatSize : Nat} {sp : SearchPath} {fs : FS} {M : Name}
+    {w : WorkerRead} (hrun : OwnRun mode maxNatSize sp fs M w) {d : Declaration}
     (hd : d ∈ ownDeclsOf sp fs M w) {cv : ConstantVal} (hcv : StmtRecord d cv) :
     ∀ n ∈ cv.type.readNames, ((ownEnvOf sp fs M w).find? n).isSome = true := by
   obtain ⟨q, hq⟩ := hrun
@@ -861,7 +861,7 @@ theorem needsGo_sound :
   (∃ cv v h, ci = .defnInfo cv v h ∧ n ∈ v.needs) ∨
   (∃ cv mI rP isK rules, ci = .recInfo cv mI rP isK rules ∧ ∃ r ∈ rules,
     n ∈ r.rhs.needs ∨ n = r.ctor ∨ ∃ lvls pins, r.fire = .nested lvls pins ∧ ∃ p ∈ pins, n ∈ p.needs) ∨
-  (∃ cv caps, ci = .indInfo cv caps ∧ (n ∈ caps.all ∨ (caps.eta = true ∧ n = caps.etaCtor))) ∨
+  (∃ cv caps, ci = .indInfo cv caps ∧ n ∈ caps.all) ∨
   n ∈ pinFootprint ci.toConstantVal.name
 
 /-- **The names a table reads** (`TableCovered`'s, exactly). -/
@@ -950,14 +950,7 @@ theorem const_sound (x : NeedsSt) (ci : ConstantInfo) :
   | indInfo cv caps =>
     rcases mem_appendList.1 hn with h | h
     · exact hty n h
-    · simp only [List.mem_append] at h
-      refine .inr (.inr (.inr (.inr (.inl ⟨cv, caps, rfl, ?_⟩))))
-      rcases h with h | h
-      · exact .inl h
-      · split at h
-        · rename_i he
-          exact .inr ⟨he, by simpa using h⟩
-        · simp at h
+    · exact .inr (.inr (.inr (.inr (.inl ⟨cv, caps, rfl, h⟩))))
   | axiomInfo cv => exact hty n hn
   | thmInfo cv => exact hty n hn
   | ctorInfo cv i n' => exact hty n hn
@@ -1026,9 +1019,7 @@ theorem recordReads_complete {d : Declaration} {n : Name} (h : RecordReads d n) 
       · exact r1 n h
       · exact r2
       · exact r3 lvls pins hf p hp n h
-    · rcases h with h | ⟨he, rfl⟩
-      · exact (c4 cv caps rfl).1 n h
-      · exact (c4 cv caps rfl).2 he
+    · exact c4 cv caps rfl n h
     · exact c5 n h
   · obtain ⟨t1, t2, t3⟩ := ht t hti
     rcases h with rfl | rfl | ⟨b, hb, h⟩

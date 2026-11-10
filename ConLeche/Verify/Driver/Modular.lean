@@ -108,11 +108,11 @@ theorem tables_ok {sp : SearchPath} {R : Roots} {fs : FS} {C : List Graph.Node}
 /-- **An exit 0 of the one-process mode, in the model**: the closure is the graph check's
 accepting outcome, and every module of it is an accepted worker (`WorkerAccepted`, at one job),
 whatever the `liftIO` actions answered. -/
-theorem checkModularG_accept {sp : SearchPath} {root : Name} {mode : CheckMode} {pace : Pace}
+theorem checkModularG_accept {sp : SearchPath} {root : Name} {mode : CheckMode} {maxNatSize : Nat} {pace : Pace}
     {jobs : Nat} {fs : FS} {hs hs' : HS}
-    (h : (checkModularG sp root mode pace jobs : ModelIO _) fs hs (.ok 0) hs') :
+    (h : (checkModularG sp root mode maxNatSize pace jobs : ModelIO _) fs hs (.ok 0) hs') :
     ∃ C T, ModelIO.CanGive (Graph.graphOf sp [root] jobs) fs (.ok (C, T)) ∧
-      ∀ e ∈ C.toList, WorkerAccepted mode sp fs e.1 1 := by
+      ∀ e ∈ C.toList, WorkerAccepted mode maxNatSize sp fs e.1 1 := by
   simp only [checkModularG, clockMs, diagLine, outLine, ModelIO.bind_ok] at h
   obtain ⟨t0, _, -, x, _, hx, h⟩ := h
   rcases x with e | ⟨C, R⟩

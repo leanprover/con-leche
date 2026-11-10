@@ -196,70 +196,78 @@ theorem rec_rules (φ : Name → Nat) : RecRules S.base φ := by
 /-! ## The projection entries -/
 
 theorem tower_ok (φ : Name → Nat) : TowerOk S.base φ := by
-  intro T i entry hfP
-  obtain ⟨tbl, ht, hi, rfl⟩ := Env.findProj?_some hfP
-  obtain ⟨-, hsn, hT⟩ := Env.findTable?_mem ht
-  have hR := S.read.self T hT
-  have hfPE : (E T).findProj? T i = some (tbl.entry i) := by
-    rw [← S.findProj_eq hT hR]; exact hfP
-  obtain ⟨h1, h2, h3, ⟨cvT, capsT, hfT, hlT, hetaT⟩, cvC, hfC, hlC, hlaw, heta⟩ :=
-    (S.m T).tower_ok φ T i _ hfPE
-  have hfTC := S.findC hT hR hfT rfl
-  obtain ⟨-, -, -, hind, -⟩ := S.scopeR hfTC
-  obtain ⟨hcR, hbR⟩ := (hind cvT capsT rfl).2.2 tbl ht
-  have hctor : (tbl.entry i).ctor = tbl.ctor := rfl
-  rw [hctor] at hfC
-  have hfCC := S.findC hT hcR hfC rfl
-  have hsnT : (tbl.entry i).structName = T := hsn
-  have hTy : ∀ (cv' : ConstantVal) (caps' : IndCaps), (E T).find? T = some (.indInfo cv' caps') →
-      ∀ us, denote aC C φ 0 (cv'.type.instantiateLevelParams cv'.levelParams us)
-        = denote (S.m T).base2.acval (E T) φ 0 (cv'.type.instantiateLevelParams cv'.levelParams us) :=
-    fun cv' caps' h us => S.denote_inst hT (S.deepType hT hR (S.findC hT hR h rfl) rfl) φ 0 _ us
-  have hCy : ∀ us, denote aC C φ 0 (cvC.type.instantiateLevelParams cvC.levelParams us)
-      = denote (S.m T).base2.acval (E T) φ 0 (cvC.type.instantiateLevelParams cvC.levelParams us) :=
-    fun us => S.denote_inst hT (S.deepType hT hcR hfCC rfl) φ 0 _ us
-  have hlT' : aC T = (S.m T).base2.acval T := S.leaf T hT T hR
-  have hlC' : aC tbl.ctor = (S.m T).base2.acval tbl.ctor := S.leaf T hT _ hcR
-  have hsz := ((S.m T).base2.wf.table (by
-    rw [← S.table_eq hT hR]; exact ht)).2.1
-  have hbmem : tbl.bodies.getD i default ∈ tbl.bodies.toList := by
-    rw [Array.getD_eq_getD_getElem?, Array.getElem?_eq_getElem (by rw [hsz]; exact hi)]
-    exact Array.mem_toList_iff.mpr (Array.getElem_mem _)
-  have hbody : ∀ us, denote aC C φ 0 (projTele (tbl.numParams + 1)
-        ((tbl.bodies.getD i default).instantiateLevelParams tbl.levelParams us))
-      = denote (S.m T).base2.acval (E T) φ 0 (projTele (tbl.numParams + 1)
-        ((tbl.bodies.getD i default).instantiateLevelParams tbl.levelParams us)) := fun us =>
-    S.denote_eq hT φ 0 _ (by
-      rw [projTele_constsResolve, Expr.constsResolve_instantiateLevelParams]
-      exact resR (hbR _ hbmem))
-  have hguard : ∀ us, TowerGuardAt S.base φ (tbl.entry i) us cvC →
-      TowerGuardAt (S.m T).base2 φ (tbl.entry i) us cvC := fun us =>
-    TowerGuardAt.mono (by rw [hsnT, hfT, hfTC])
-      (fun cv' caps' t h hrd => by
-        rw [hsnT] at h; rw [base_acval, hTy cv' caps' h us]; exact hrd)
-      (fun t hrd => by rw [base_acval, hCy us]; exact hrd)
-  refine ⟨h1, h2, h3, ⟨cvT, capsT, hfTC, hlT, hetaT⟩, cvC, by rw [hctor]; exact hfCC, hlC,
-    fun us hus => ?_, ?_⟩
-  · obtain ⟨⟨Ta, hTa, hA⟩, ⟨TCa, hTCa, hB⟩⟩ := hlaw us hus
-    refine ⟨⟨Ta, by rw [base_acval]; exact (hbody us).trans hTa,
-      fun ρ vs x rest hvs hw hne hwx hmem hpeel hg => ?_⟩,
-      ⟨TCa, by rw [base_acval]; exact (hCy us).trans hTCa, fun ρ ys rest hys hw hfit hne => ?_⟩⟩
-    · rw [base_acval, hlT'] at hw hne hmem
-      exact hA ρ vs x rest hvs hw hne hwx hmem hpeel (hg.imp_left (hguard us))
-    · rw [base_acval, hctor, hlC'] at hw hne ⊢
-      exact hB ρ ys rest hys hw hfit hne
-  · intro cv' caps' hf' us hus
+  refine ⟨fun T tbl ht => ?_, fun T i entry hfP => ?_⟩
+  · obtain ⟨-, -, hT⟩ := Env.findTable?_mem ht
+    have hR := S.read.self T hT
+    have htE : (E T).findTable? T = some tbl := by rw [← S.table_eq hT hR]; exact ht
+    obtain ⟨⟨cvT, capsT, hfT, hlT⟩, heta⟩ := ((S.m T).tower_ok φ).table T tbl htE
+    have hfTC := S.findC hT hR hfT rfl
+    obtain ⟨-, -, -, hind, -⟩ := S.scopeR hfTC
+    obtain ⟨hcR, -⟩ := (hind cvT capsT rfl).2 tbl ht
+    have hlT' : aC T = (S.m T).base2.acval T := S.leaf T hT T hR
+    have hlC' : aC tbl.ctor = (S.m T).base2.acval tbl.ctor := S.leaf T hT _ hcR
+    refine ⟨⟨cvT, capsT, hfTC, hlT⟩, fun cv' caps' hf' us hus => ?_⟩
     have hf'E := S.findE hT hR hf' rfl
     obtain ⟨hl1, hl2⟩ := heta cv' caps' hf'E us hus
     refine ⟨fun ρ ts x hlen hfit hmem => ?_, fun he => ?_⟩
     · rw [base_acval, hlT'] at hfit hmem
-      rw [base_acval, hctor, hlC']
+      rw [base_acval, hlC']
       exact hl1 ρ ts x hlen hfit hmem
     · refine (hl2 he).transport (fun cvC' nPc nFc h₂ => ?_) (fun cvC' nPc nFc TCa h hTCa => ?_)
         (by rw [base_acval, hlT']) (fun _ _ _ => rfl)
-      · rw [hctor] at h₂ ⊢; exact S.findE hT hcR h₂ rfl
-      · rw [hctor] at h
-        exact (S.denote_inst hT (S.deepType hT hcR (S.findC hT hcR h rfl) rfl) φ 0 _ us).trans hTCa
+      · exact S.findE hT hcR h₂ rfl
+      · exact (S.denote_inst hT (S.deepType hT hcR (S.findC hT hcR h rfl) rfl) φ 0 _ us).trans hTCa
+  · obtain ⟨tbl, ht, hi, rfl⟩ := Env.findProj?_some hfP
+    obtain ⟨-, hsn, hT⟩ := Env.findTable?_mem ht
+    have hR := S.read.self T hT
+    have hfPE : (E T).findProj? T i = some (tbl.entry i) := by
+      rw [← S.findProj_eq hT hR]; exact hfP
+    obtain ⟨h1, h2, h3, ⟨cvT, capsT, hfT, hlT⟩, cvC, hfC, hlC, hlaw⟩ :=
+      ((S.m T).tower_ok φ).entry T i _ hfPE
+    have hfTC := S.findC hT hR hfT rfl
+    obtain ⟨-, -, -, hind, -⟩ := S.scopeR hfTC
+    obtain ⟨hcR, hbR⟩ := (hind cvT capsT rfl).2 tbl ht
+    have hctor : (tbl.entry i).ctor = tbl.ctor := rfl
+    rw [hctor] at hfC
+    have hfCC := S.findC hT hcR hfC rfl
+    have hsnT : (tbl.entry i).structName = T := hsn
+    have hTy : ∀ (cv' : ConstantVal) (caps' : IndCaps), (E T).find? T = some (.indInfo cv' caps') →
+        ∀ us, denote aC C φ 0 (cv'.type.instantiateLevelParams cv'.levelParams us)
+          = denote (S.m T).base2.acval (E T) φ 0 (cv'.type.instantiateLevelParams cv'.levelParams us) :=
+      fun cv' caps' h us => S.denote_inst hT (S.deepType hT hR (S.findC hT hR h rfl) rfl) φ 0 _ us
+    have hCy : ∀ us, denote aC C φ 0 (cvC.type.instantiateLevelParams cvC.levelParams us)
+        = denote (S.m T).base2.acval (E T) φ 0 (cvC.type.instantiateLevelParams cvC.levelParams us) :=
+      fun us => S.denote_inst hT (S.deepType hT hcR hfCC rfl) φ 0 _ us
+    have hlT' : aC T = (S.m T).base2.acval T := S.leaf T hT T hR
+    have hlC' : aC tbl.ctor = (S.m T).base2.acval tbl.ctor := S.leaf T hT _ hcR
+    have hsz := ((S.m T).base2.wf.table (by
+      rw [← S.table_eq hT hR]; exact ht)).2.1
+    have hbmem : tbl.bodies.getD i default ∈ tbl.bodies.toList := by
+      rw [Array.getD_eq_getD_getElem?, Array.getElem?_eq_getElem (by rw [hsz]; exact hi)]
+      exact Array.mem_toList_iff.mpr (Array.getElem_mem _)
+    have hbody : ∀ us, denote aC C φ 0 (projTele (tbl.numParams + 1)
+          ((tbl.bodies.getD i default).instantiateLevelParams tbl.levelParams us))
+        = denote (S.m T).base2.acval (E T) φ 0 (projTele (tbl.numParams + 1)
+          ((tbl.bodies.getD i default).instantiateLevelParams tbl.levelParams us)) := fun us =>
+      S.denote_eq hT φ 0 _ (by
+        rw [projTele_constsResolve, Expr.constsResolve_instantiateLevelParams]
+        exact resR (hbR _ hbmem))
+    have hguard : ∀ us, TowerGuardAt S.base φ (tbl.entry i) us cvC →
+        TowerGuardAt (S.m T).base2 φ (tbl.entry i) us cvC := fun us =>
+      TowerGuardAt.mono (by rw [hsnT, hfT, hfTC])
+        (fun cv' caps' t h hrd => by
+          rw [hsnT] at h; rw [base_acval, hTy cv' caps' h us]; exact hrd)
+        (fun t hrd => by rw [base_acval, hCy us]; exact hrd)
+    refine ⟨h1, h2, h3, ⟨cvT, capsT, hfTC, hlT⟩, cvC, by rw [hctor]; exact hfCC, hlC,
+      fun us hus => ?_⟩
+    · obtain ⟨⟨Ta, hTa, hA⟩, ⟨TCa, hTCa, hB⟩⟩ := hlaw us hus
+      refine ⟨⟨Ta, by rw [base_acval]; exact (hbody us).trans hTa,
+        fun ρ vs x rest hvs hw hne hwx hmem hpeel hg => ?_⟩,
+        ⟨TCa, by rw [base_acval]; exact (hCy us).trans hTCa, fun ρ ys rest hys hw hfit hne => ?_⟩⟩
+      · rw [base_acval, hlT'] at hw hne hmem
+        exact hA ρ vs x rest hvs hw hne hwx hmem hpeel (hg.imp_left (hguard us))
+      · rw [base_acval, hctor, hlC'] at hw hne ⊢
+        exact hB ρ ys rest hys hw hfit hne
 
 end CtxSrc
 

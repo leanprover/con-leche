@@ -3,6 +3,7 @@ module
 public import ConLeche.Frontend.Olean
 public import ConLeche.Modular
 import ConLeche.Cached.ParsedC
+import ConLeche.Verify.Cached.DeclNames
 
 @[expose] public section
 
@@ -157,7 +158,7 @@ def NeedsSt.const (x : NeedsSt) (ci : ConstantInfo) : NeedsSt :=
   let x := match ci with
     | .defnInfo _ v _ => x.expr v
     | .recInfo _ _ _ _ rules => rules.foldl NeedsSt.rule x
-    | .indInfo _ caps => x.names (caps.all ++ if caps.eta then [caps.etaCtor] else [])
+    | .indInfo _ caps => x.names caps.all
     | _ => x
   x.names (pinFootprint ci.toConstantVal.name)
 
@@ -187,7 +188,7 @@ def nestedOk (lps : List Name) (ty : Expr) (mI rP : Nat) (lvls : List Level)
     | some (_, .forallE dom _) =>
       match dom.getAppFn with
       | .const _ ls =>
-        ls == lvls && dom.getAppArgs == pins.map (Expr.liftLooseBVars (mI - rP) 0) ++
+        ls == lvls && dom.getAppArgs == pins.map (fun e => Expr.liftLooseBVarsC (mI - rP) e 0) ++
           (List.range (mI - rP)).map fun i => Expr.bvar (mI - rP - 1 - i)
       | _ => false
     | _ => false
@@ -908,7 +909,7 @@ def inferFlags (ctx : List Declaration) : List (String × Name × ConstantVal) �
   | [] => .ok ()
   | (what, y, cv) :: rest =>
     let fe := mkFEnv (streamEnv (ctxPart ctx y))
-    if !(exprOk cv.levelParams 0 cv.type && cv.type.constsResolveF fe) then
+    if !(exprOk cv.levelParams 0 cv.type && constsResolveFC fe cv.type) then
       .error (.invalid s!"the statement of {y} reads a name the context does not store before it")
     else
       match (typeIsPropC fe cv).run' {} with

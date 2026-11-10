@@ -42,7 +42,8 @@ def Schedule.declCount {μ : Type → Type} [CheckerIO μ] (sp : Roots) (m : Nam
 /-- **The scheduler**, generic in the IO class (see the module docstring); `opts` the values of
 its `--schedule` flags. -/
 def scheduleG {μ : Type → Type} [CheckerIO μ] (sp : SearchPath) (root : Name)
-    (opts : List String) (mode : CheckMode) (pace : Pace) (jobs : Nat) : μ UInt8 := do
+    (opts : List String) (mode : CheckMode) (maxNatSize : Nat) (pace : Pace) (jobs : Nat) :
+    μ UInt8 := do
   let modeTag : String := match mode with
     | .verified => "--verified"
     | .trusted => "--trusted"
@@ -67,7 +68,8 @@ def scheduleG {μ : Type → Type} [CheckerIO μ] (sp : SearchPath) (root : Name
       let mods := C.map (·.1)
       let dirs := ":".intercalate (sp.map toString)
       let args (m : Name) (t : Nat) : Array String :=
-        #["--olean", "--module", s!"--jobs={t}", modeTag, "--search-path=" ++ dirs, "--",
+        #["--olean", "--module", s!"--jobs={t}", modeTag, s!"--max-nat-size={maxNatSize}",
+          "--search-path=" ++ dirs, "--",
           Schedule.spell m]
       CheckerIO.liftIO (Schedule.runAll parseModName args (Schedule.declCount (μ := IO) ↑sp) mods
         o jobs modeTag)

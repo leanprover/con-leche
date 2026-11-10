@@ -173,10 +173,10 @@ theorem workerFacts_good {sp : SearchPath} {fs : FS} {m : Name} {jobs : Nat} {w 
 records, with their theorems' values in place (`fillOf` over the home's frontier), accepted one
 after another from the context's environment at position `ctx.size`, ending at the own
 environment (`ImportOk.accepted`). -/
-@[expose] def WorkerAccepted (mode : CheckMode) (sp : SearchPath) (fs : FS) (m : Name) (jobs : Nat) :
+@[expose] def WorkerAccepted (mode : CheckMode) (maxNatSize : Nat) (sp : SearchPath) (fs : FS) (m : Name) (jobs : Nat) :
     Prop :=
   ∃ w, WorkerFacts sp fs m jobs w ∧
-    DeclsRun mode natOpPinSets
+    DeclsRun mode natOpPinSets maxNatSize
       (w.own.toList.map (fillDecl (fillOf sp fs #[⟨m, w.home.frontier⟩])))
       (w.reach.ctx.size, mkFEnv (streamEnv w.reach.ctx.toList))
       (w.reach.ctx.size + w.own.size, mkFEnv (streamEnv
@@ -184,14 +184,14 @@ environment (`ImportOk.accepted`). -/
         (streamEnv w.reach.ctx.toList)))
 
 /-- The check phase and the verdict of an accepted worker: an exit 0 is `WorkerAccepted`. -/
-theorem worker_tail {sp : SearchPath} {R : Roots} {m : Name} {mode : CheckMode} {pace : Pace}
+theorem worker_tail {sp : SearchPath} {R : Roots} {m : Name} {mode : CheckMode} {maxNatSize : Nat} {pace : Pace}
     {jobs : Nat} {fs : FS} {w : WorkerRead} (hR : R.Ok fs) (hp : R.path = sp)
     (hw : WorkerFacts sp fs m jobs w) (tag who : String)
     (alone : Bool) (t0 tIndex tParse : Nat) (J : Jobs (w.reach.ctx ++ w.own)) :
-    ∀ v hs hs', (checkOleansG mode pace t0 tIndex tParse jobs R #[⟨m, w.home.frontier⟩] J
+    ∀ v hs hs', (checkOleansG mode maxNatSize pace t0 tIndex tParse jobs R #[⟨m, w.home.frontier⟩] J
         w.reach.ctx.size alone w.values : ModelIO _) fs hs (.ok v) hs' →
       ModelIO.AllOk (verdictG tag w.own.size t0 (w.reach.ctx ++ w.own) v who) fs hs'
-        (fun c => c = 0 → WorkerAccepted mode sp fs m jobs) := by
+        (fun c => c = 0 → WorkerAccepted mode maxNatSize sp fs m jobs) := by
   subst hp
   intro v _ _ hv c _ hc h0
   obtain rfl := verdictG_ok hc h0
@@ -203,7 +203,7 @@ theorem worker_tail {sp : SearchPath} {R : Roots} {m : Name} {mode : CheckMode} 
   have hjobs := checkOleansG_jobs hgood (hw.values.roots hR) hv
   rw [fillOf_roots hR] at hjobs
   refine ⟨w, hw, ?_⟩
-  have hrun := checkDecls_of_jobs_from (mode := mode) (pins := natOpPinSets)
+  have hrun := checkDecls_of_jobs_from (mode := mode) (pins := natOpPinSets) (maxNatSize := maxNatSize)
     (ctx := w.reach.ctx.map (fillDecl (fillOf (R.path : Roots) fs #[⟨m, w.home.frontier⟩])))
     (own := w.own.map (fillDecl (fillOf (R.path : Roots) fs #[⟨m, w.home.frontier⟩])))
     ?_ ?_
@@ -222,12 +222,12 @@ snapshot `fs` that is an exit 0 is `WorkerAccepted`, at any `--jobs`, pace and `
 the `liftIO` actions answered, for any reads `rd` that refine the search path's (the search
 path's own, `OleanReads.Within.ofPath`, or the one-process mode's tables). -/
 theorem checkModuleG_accept {rd : OleanReads ModelIO} {sp : SearchPath} {R : Roots} {m : Name}
-    {mode : CheckMode} {pace : Pace} {jobs : Nat} {alone : Bool} {fs : FS}
+    {mode : CheckMode} {maxNatSize : Nat} {pace : Pace} {jobs : Nat} {alone : Bool} {fs : FS}
     (hrd : OleanReads.Within fs rd sp) (hR : R.Ok fs) (hRp : R.path = sp) {hs hs' : HS}
-    (h : (checkModuleG rd R m mode pace jobs alone : ModelIO _) fs hs (.ok 0) hs') :
-    WorkerAccepted mode sp fs m jobs := by
-  suffices H : ModelIO.AllOk (checkModuleG rd R m mode pace jobs alone) fs hs
-      (fun c => c = 0 → WorkerAccepted mode sp fs m jobs) from H 0 hs' h rfl
+    (h : (checkModuleG rd R m mode maxNatSize pace jobs alone : ModelIO _) fs hs (.ok 0) hs') :
+    WorkerAccepted mode maxNatSize sp fs m jobs := by
+  suffices H : ModelIO.AllOk (checkModuleG rd R m mode maxNatSize pace jobs alone) fs hs
+      (fun c => c = 0 → WorkerAccepted mode maxNatSize sp fs m jobs) from H 0 hs' h rfl
   simp only [checkModuleG, clockMs, diagLine, ModelIO.allOk_bind, ModelIO.liftIO_iff]
   rintro t0 _ rfl - _ rfl x _ hx
   rcases x with ⟨e, _⟩ | w
@@ -490,9 +490,9 @@ record's names have one source (`one_src`), the own records are accepted from th
 context record is closed in the context, which is well formed.  What
 is left of `ImportOk` relates `i` to other modules (`below`, `src_lt`, `presented`, `reads`,
 the agreement): the composition's (task #467). -/
-theorem worker_local {mode : CheckMode} {sp : SearchPath} {fs : FS} {m : Name} {jobs : Nat}
+theorem worker_local {mode : CheckMode} {maxNatSize : Nat} {sp : SearchPath} {fs : FS} {m : Name} {jobs : Nat}
     {w : WorkerRead} (hw : WorkerFacts sp fs m jobs w)
-    (hrun : DeclsRun mode natOpPinSets
+    (hrun : DeclsRun mode natOpPinSets maxNatSize
       (w.own.toList.map (fillDecl (fillOf sp fs #[⟨m, w.home.frontier⟩])))
       (w.reach.ctx.size, mkFEnv (streamEnv w.reach.ctx.toList))
       (w.reach.ctx.size + w.own.size, mkFEnv (streamEnv
@@ -503,7 +503,7 @@ theorem worker_local {mode : CheckMode} {sp : SearchPath} {fs : FS} {m : Name} {
     (srcOf : Declaration → Nat) (hsrc : ∀ d ∈ (dev i).ctx, ∀ n ∈ declNames d, (dev i).src n = srcOf d) :
     ((dev i).context.consts.map (·.toConstantVal.name)).Nodup ∧
     (∀ d ∈ (dev i).ctx, ∀ n ∈ declNames d, ∀ n' ∈ declNames d, (dev i).src n = (dev i).src n') ∧
-    (∃ q, DeclsRun mode natOpPinSets (dev i).decls ((dev i).ctx.length, mkFEnv (dev i).context) q) ∧
+    (∃ q, DeclsRun mode natOpPinSets maxNatSize (dev i).decls ((dev i).ctx.length, mkFEnv (dev i).context) q) ∧
     (∀ k (hk : k < (dev i).ctx.length),
       RecordScoped (streamEnv ((dev i).ctx.take (k + 1))) (dev i).ctx[k]) ∧
     (∀ d ∈ (dev i).ctx, RecordScoped (dev i).context d) ∧ EnvWF (dev i).context := by

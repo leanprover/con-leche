@@ -239,7 +239,7 @@ private def emptyModelAuxName : Name :=
 -- … and the shipped driver accepts them as ordinary definitions.
 #guard match Frontend.parseExportD basisModelExport with
   | .ok ⟨ds⟩ =>
-    (ConLeche.Cached.checkDecls .verified natOpPinSets ds).toBool
+    (ConLeche.Cached.checkDecls .verified natOpPinSets ConLeche.Cached.maxNatSizeDefault ds).toBool
   | .error _ => false
 
 /-! ## Frontend: `sorryAx` is the fold's
@@ -288,7 +288,7 @@ private def sorryAxExport : String := String.intercalate "\n" [
 -- name it mentions is `sorryAx`.
 #guard match Frontend.parseExportD sorryAxExport with
   | .ok r =>
-    match ConLeche.Cached.checkDecls .verified natOpPinSets r.decls with
+    match ConLeche.Cached.checkDecls .verified natOpPinSets ConLeche.Cached.maxNatSizeDefault r.decls with
     | .error (.notImplemented _, _) => true
     | _ => false
   | .error _ => false
@@ -297,7 +297,7 @@ private def sorryAxExport : String := String.intercalate "\n" [
 -- prefix up to the first use folds clean.
 #guard match Frontend.parseExportD sorryAxExport with
   | .ok r =>
-    (ConLeche.Cached.checkDecls .verified natOpPinSets (r.decls.take 1)).toBool
+    (ConLeche.Cached.checkDecls .verified natOpPinSets ConLeche.Cached.maxNatSizeDefault (r.decls.take 1)).toBool
   | .error _ => false
 
 
@@ -401,7 +401,7 @@ private def zBlock (T : Name) (rhs : Expr) : List ConstantInfo :=
 a one-member block, after the pass over the formers, the constructors
 and the classes: the number of recursors it stores. -/
 private def zRecK (block : List ConstantInfo) : Except CheckError Nat := do
-  let some p₀ := blockShape? 0 block | throw (.internal "blockShape?")
+  let p₀ ← readBlock 0 block
   let q ← checkBlockPass (pureOps .verified) Env.empty p₀ false
   let env₂ := consBlockCtors q.p.nP q.p.memberCtors q.env₁
   let out ← checkBlockRec (pureOps .verified) env₂ q.p false q.params q.tbl.toList q.rd q.cls

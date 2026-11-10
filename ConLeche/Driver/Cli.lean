@@ -101,6 +101,18 @@ def jobsCount (v : String) : Except String Nat :=
       (a decimal numeral of at least 1), got {Display.str v}"
 
 
+/-- The maximum `Nat` size, read off the `--max-nat-size=<bytes>` flag: a
+decimal byte count, the official kernel's `LEAN_NAT_MAX_SIZE` (the
+largest `Nat` numeral the checker takes in or computes; a larger one
+rejects the declaration).  A non-numeral is a usage error (exit 3).
+Without the flag the maximum size is the official default, 128 MiB
+(`Cached.maxNatSizeDefault`). -/
+def maxNatSizeArg (v : String) : Except String Nat :=
+  match v.toNat? with
+  | some n => .ok n
+  | none => .error s!"--max-nat-size takes a byte count \
+      (a decimal numeral), got {Display.str v}"
+
 /-- The invocation forms, printed on their own when there are no arguments. -/
 def synopsis : String := String.intercalate "\n" [
   "Usage:",
@@ -124,6 +136,8 @@ def helpText : String := String.intercalate "\n" [
   "  --verified          Check in the mode the soundness theorem covers (default)",
   "  --trusted           Skip the checks only the proof needs; outside the theorem",
   "  --jobs=N            Worker threads (default: one per hardware thread)",
+  "  --max-nat-size=N    Largest Nat numeral in bytes the checker takes in or",
+  "                      computes; a larger one is rejected (default 134217728)",
   "  --progress[=PACE]   Report progress on stderr: PACE is N declarations",
   "                      (default 1), P% of each phase, or Ss seconds",
   "  --help              Print this help and exit",
@@ -188,6 +202,8 @@ structure Args where
   /-- The check phase's worker count (`--jobs=<n>`); `none` is "no flag
   given": one worker per hardware thread. -/
   jobs : Option Nat := none
+  /-- The maximum `Nat` size in bytes (`--max-nat-size=<n>`). -/
+  maxNatSize : Nat := Cached.maxNatSizeDefault
   /-- `--olean`: the positional arguments are root module names, read
   with their import closure from `.olean` files. -/
   olean : Bool := false
@@ -253,6 +269,10 @@ def parseArgs : List String → Args → Args
     else if let some v := flagValue "--jobs=" s then
       match jobsCount v with
       | .ok n => parseArgs rest { a with jobs := some n }
+      | .error msg => { a with bad := some msg }
+    else if let some v := flagValue "--max-nat-size=" s then
+      match maxNatSizeArg v with
+      | .ok n => parseArgs rest { a with maxNatSize := n }
       | .error msg => { a with bad := some msg }
     else if s == "--jobs" then
       { a with bad := some "--jobs takes a worker count: --jobs=<n>; omit the \
@@ -357,7 +377,8 @@ def runArgs {m : Type → Type} [CheckerIO m] (args : List String) : m UInt8 :=
           match a.files.toList.filterMap Frontend.Olean.parseModName, a.constants.isEmpty,
               a.module || a.modular with
           | [m], true, false =>
-            return ← runReq (.schedule a.searchPath m a.schedule.toList a.mode a.progress jobs)
+            return ← runReq (.schedule a.searchPath m a.schedule.toList a.mode a.maxNatSize
+              a.progress jobs)
           | _, _, _ =>
             eprintln "con-leche: --schedule takes one module name, and none of --constant, \
               --module and --modular"
@@ -367,7 +388,8 @@ def runArgs {m : Type → Type} [CheckerIO m] (args : List String) : m UInt8 :=
           -- `--modular`: every module of one root's closure, each as its worker checks it
           match a.files.toList.filterMap Frontend.Olean.parseModName, a.constants.isEmpty,
               a.module with
-          | [m], true, false => return ← runReq (.modular a.searchPath m a.mode a.progress jobs)
+          | [m], true, false =>
+            return ← runReq (.modular a.searchPath m a.mode a.maxNatSize a.progress jobs)
           | _, _, _ =>
             eprintln "con-leche: --modular takes one module name, and neither --constant nor \
               --module"
@@ -376,13 +398,14 @@ def runArgs {m : Type → Type} [CheckerIO m] (args : List String) : m UInt8 :=
         if a.module then
           -- `--module`: one module, checked alone (`checkModuleG`)
           match a.files.toList.filterMap Frontend.Olean.parseModName, a.constants.isEmpty with
-          | [m], true => return ← runReq (.module a.searchPath m a.mode a.progress jobs)
+          | [m], true =>
+            return ← runReq (.module a.searchPath m a.mode a.maxNatSize a.progress jobs)
           | _, _ =>
             eprintln "con-leche: --module takes one module name and no --constant"
             eprintln tryHelp
             return 3
         return ← runReq (.oleans a.searchPath (a.files.filterMap Frontend.Olean.parseModName)
-          a.rootConstants a.mode a.progress jobs)
+          a.rootConstants a.mode a.maxNatSize a.progress jobs)
       if !a.searchPath.isEmpty || !a.constants.isEmpty || a.module || a.modular ||
           a.scheduled then
         eprintln "con-leche: --search-path, --constant, --module, --modular and --schedule take \
@@ -400,7 +423,7 @@ def runArgs {m : Type → Type} [CheckerIO m] (args : List String) : m UInt8 :=
         let jobs := a.jobs.getD
           (let hw := (System.Platform.Internal.getHardwareConcurrency ()).toNat
            if hw = 0 then 1 else hw)
-        runReq (.stream file a.mode a.progress jobs)
+        runReq (.stream file a.mode a.maxNatSize a.progress jobs)
       | [] =>
         eprintln synopsis
         eprintln tryHelp

@@ -55,13 +55,14 @@ def readModTable {μ : Type → Type} [CheckerIO μ] (sp : Roots) (e : Graph.Nod
 
 /-- One module of the run: its worker's steps over the tables, its code. -/
 def modularStep {μ : Type → Type} [CheckerIO μ] (sp : Roots) (T : ModTables)
-    (mode : CheckMode) (_ : Unit) (m : Name) : μ (Unit × Except Empty (Name × UInt8)) := do
-  let c ← checkModuleG (T.reads sp) sp m mode .off 1 false
+    (mode : CheckMode) (maxNatSize : Nat) (_ : Unit) (m : Name) :
+    μ (Unit × Except Empty (Name × UInt8)) := do
+  let c ← checkModuleG (T.reads sp) sp m mode maxNatSize .off 1 false
   pure ((), .ok (m, c))
 
 /-- **The one-process mode**, generic in the IO class (see the module docstring). -/
 def checkModularG {μ : Type → Type} [CheckerIO μ] (sp : Roots) (root : Name)
-    (mode : CheckMode) (pace : Pace) (jobs : Nat) : μ UInt8 := do
+    (mode : CheckMode) (maxNatSize : Nat) (pace : Pace) (jobs : Nat) : μ UInt8 := do
   let t0 ← clockMs
   let modeTag : String := match mode with
     | .verified => "--verified"
@@ -85,7 +86,7 @@ def checkModularG {μ : Type → Type} [CheckerIO μ] (sp : Roots) (root : Name)
       CheckerIO.liftIO (markShared T)
       say s!"tables read: {T.mods.size} modules, \
         {T.mods.foldl (fun n t => n + (t.priv.map (·.consts.size)).getD 0) 0} names"
-      let (_, res) ← CheckerIO.parMapWorkers jobs (fun _ => ()) (modularStep sp T mode)
+      let (_, res) ← CheckerIO.parMapWorkers jobs (fun _ => ()) (modularStep sp T mode maxNatSize)
         (C.toList.map (·.1))
       match res with
       | .error e => nomatch e

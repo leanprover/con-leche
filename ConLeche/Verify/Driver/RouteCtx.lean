@@ -94,8 +94,8 @@ theorem checkDeclStepC_basis {mode : CheckMode} {pins : List NatOpPinSet} {fe : 
   all_goals exact Yields.pure (by assumption)
 
 /-- **Every record of an accepted run passed the reserved names' check.** -/
-theorem declsRun_basis {mode : CheckMode} {pins : List NatOpPinSet} {ds : List Declaration}
-    {p q : Nat × FEnv} (h : DeclsRun mode pins ds p q) : ∀ d ∈ ds, basisNamesOk d = true := by
+theorem declsRun_basis {mode : CheckMode} {maxNatSize : Nat} {pins : List NatOpPinSet} {ds : List Declaration}
+    {p q : Nat × FEnv} (h : DeclsRun mode pins maxNatSize ds p q) : ∀ d ∈ ds, basisNamesOk d = true := by
   induction h with
   | nil => exact fun _ h => nomatch h
   | @cons pd ds p p₁ q hstep rest ih =>
@@ -213,8 +213,8 @@ theorem checkDeclStepC_defn_sorry {mode : CheckMode} {pins : List NatOpPinSet} {
   unfold checkDeclKindC
   exact Yields.bind' checkConstantValC_sorry fun _ h => Yields.const h
 
-theorem declsRun_defn_sorry {mode : CheckMode} {pins : List NatOpPinSet} {ds : List Declaration}
-    {p q : Nat × FEnv} (h : DeclsRun mode pins ds p q) {cv : ConstantVal} {v : Expr}
+theorem declsRun_defn_sorry {mode : CheckMode} {maxNatSize : Nat} {pins : List NatOpPinSet} {ds : List Declaration}
+    {p q : Nat × FEnv} (h : DeclsRun mode pins maxNatSize ds p q) {cv : ConstantVal} {v : Expr}
     {hh : ReducibilityHint} (hd : .defnDecl cv v hh ∈ ds) : cv.name ≠ sorryAxName := by
   induction h with
   | nil => exact nomatch hd
@@ -341,7 +341,7 @@ theorem declOfF_ind_names {em : Emit} {ts : List Frontend.IndTypeRec}
   simp only [declNames, declConstants] at hn
   split at hn
   · rename_i p hp
-    obtain ⟨hm, hc, hr⟩ := blockShape?_names hp
+    obtain ⟨hm, hc, hr⟩ := readBlock_names hp
     have : n ∈ (blockConstants p).map (·.name) := hn
     rw [blockConstants_names] at this
     simp only [List.mem_append, List.mem_map] at this
@@ -363,8 +363,8 @@ theorem checkDeclStepC_quot {mode : CheckMode} {pins : List NatOpPinSet} {fe : F
   yields
   all_goals exact Yields.const (by assumption)
 
-theorem declsRun_quot {mode : CheckMode} {pins : List NatOpPinSet} {ds : List Declaration}
-    {p q : Nat × FEnv} (h : DeclsRun mode pins ds p q) {k : QuotKind} {cv : ConstantVal}
+theorem declsRun_quot {mode : CheckMode} {maxNatSize : Nat} {pins : List NatOpPinSet} {ds : List Declaration}
+    {p q : Nat × FEnv} (h : DeclsRun mode pins maxNatSize ds p q) {k : QuotKind} {cv : ConstantVal}
     (hd : .quotDecl k cv ∈ ds) : quotPinHit k cv = true := by
   induction h with
   | nil => exact nomatch hd
@@ -507,7 +507,7 @@ theorem part_resolve {m : Module} {y : Name} {ty : Expr}
 
 namespace Run
 
-variable {sp : SearchPath} {fs : FS} (R : Run sp fs)
+variable {sp : SearchPath} {fs : FS} {maxNatSize : Nat} (R : Run sp fs maxNatSize)
 
 /-- **An emitted record of a module of the run passed the reserved names' check.** -/
 theorem own_basis {h : Name} (hh : h ∈ R.names) {p : Declaration} (hp : p ∈ (R.w h).emitted) :
@@ -694,7 +694,7 @@ theorem ctx_stmt {M : Name} (hM : M ∈ R.names) {y : Name}
   cases hs''
   obtain ⟨hhm, -⟩ := R.home_rank hM hh
   have hwm := R.facts hm hhm
-  have hrun : OwnRun .verified sp fs hm (R.w hm) := ⟨_, R.run hm hhm⟩
+  have hrun : OwnRun .verified maxNatSize sp fs hm (R.w hm) := ⟨_, R.run hm hhm⟩
   obtain ⟨f, r0, a, sk, skels, hf, -⟩ := home_records hwm
   have hf' : ModelIO.CanGive (readFiles sp s.part.mod .private) fs (.ok f) := by
     rw [hmod]; exact hf

@@ -11,9 +11,7 @@ public section
 The literal-support guards `natLitSupported` / `strLitSupported` are
 `Bool`s the kernel computes from the environment; their inversion
 (`_inv`) and their read-set (`_congr`) are facts about `Env.find?`
-alone.  `EtaFamilyStored` is the kind- and arity-pinned premise under
-which an eta capability is owed, and `EtaFamiliesClosed` its closure
-over a block — again statements about what the environment stores.
+alone.
 
 None of them mentions a valuation, so every consumer takes them from
 here: this module and `ConLeche/Verify/EnvPreds.lean` are the single
@@ -24,26 +22,6 @@ set_option linter.unusedVariables false
 set_option linter.defProp false
 
 namespace ConLeche
-
-/-- The eta family whose η law `CapsOk` owes: a FIELDLESS η-capable
-family whose capability constructor is stored as a constructor.  This
-is the *premise* under which `CapsOk` owes the eta law: mid-block — the
-former is installed first, its constructor after it — the premise fails
-and the law is not yet owed; the constructor's install discharges it.
-The constructor premise is deliberately **kind-pinned**: an
-installation of a non-constructor under the constructor's name never
-completes the family, which is what keeps the `CapsOk.cons` head
-obligations dischargeable at every install site.  A family with fields
-owes nothing here: its η law is its projection table's (`TowerEtaLaw`).
-The constructor's own parameter and field counts are NOT pinned to the
-record's: the law is stated at the record's counts. -/
-@[expose] def EtaFamilyStored (env : Env) (T : Name) (caps : IndCaps) : Prop :=
-  -- name-only conjunct (static in `caps`): a reserved-named capability
-  -- constructor never completes a family, which keeps the basis
-  -- installs' head obligations vacuous by computation
-  reservedBasisNames.contains caps.etaCtor = false ∧
-  (∃ cvC cnP cnF, env.find? caps.etaCtor = some (.ctorInfo cvC cnP cnF)) ∧
-  caps.etaFields = 0
 
 /-- **A literal's constants stored are at their shapes**: what the declarations' own check says,
 at the kinds the `Nat` names hold. -/
@@ -254,161 +232,6 @@ theorem strLitSupported_inv {env : Env} (hs : strLitSupported env = true) :
   · rw [heqTN, hN.1.1, hN.1.2, hN.2]
   · rw [heqTC, hC.1.1.1.1, hC.1.1.1.2, hC.1.1.2, hC.1.2, hC.2]
   · rw [heqTF, hF2.1, hF2.2]
-
-/-- Every stored non-reserved eta-capable type former's constructor is
-stored, at exactly the capability record's arities.  **Not** an
-`EnvModel` clause: inside a block's install derivation the former is
-stored before its constructor, so the intermediate models live in the
-window where this fails for the freshly installed former.  It holds at
-every declaration boundary and is threaded through the consistency
-fold *next to* the model; constructor-installing sites consume it to
-refute a fresh constructor completing an *older* former's eta family
-(the older family's constructor slot is already taken). -/
-@[expose] def EtaFamiliesClosed (env : Env) : Prop :=
-  ∀ (T : Name) (cvT : ConstantVal) (caps : IndCaps),
-    env.find? T = some (.indInfo cvT caps) → caps.eta = true →
-    reservedBasisNames.contains T = false →
-    ∃ cvC, env.find? caps.etaCtor =
-      some (.ctorInfo cvC caps.etaParams caps.etaFields)
-
-theorem EtaFamiliesClosed.empty : EtaFamiliesClosed Env.empty := by
-  intro T cvT caps h
-  simp [Env.find?, Env.empty] at h
-
-/-- Prepending one fresh constant that is not a non-reserved
-eta-capable former keeps the stored eta families closed. -/
-theorem EtaFamiliesClosed.cons_nonind {env : Env} {c₀ : ConstantInfo}
-    (hE1 : EtaFamiliesClosed env)
-    (hfresh : env.find? c₀.name = none)
-    (hknd : ∀ cv caps, c₀ = .indInfo cv caps → caps.eta = true →
-      reservedBasisNames.contains c₀.name = true) :
-    EtaFamiliesClosed (⟨c₀ :: env.consts, env.tables⟩ : Env) := by
-  intro T cvT caps hf he hr
-  rw [Env.find?_cons] at hf
-  split at hf
-  · next hh =>
-    obtain rfl := Option.some.inj hf
-    rw [← hh] at hr
-    rw [hknd cvT caps rfl he] at hr
-    exact nomatch hr
-  · obtain ⟨cvC, hfC⟩ := hE1 T cvT caps hf he hr
-    refine ⟨cvC, ?_⟩
-    rw [Env.find?_cons_of_isSome hfresh (by rw [hfC]; rfl)]
-    exact hfC
-
-/-- **`EtaFamiliesClosed` for every stored family outside `names`**:
-the shape a block's
-install carries between its FORMERS' conses and the last member's
-constructors.  `checkBlockInds` stores all `k` formers before any
-constructor is looked at, so between those two points there are up to
-`k` families whose capability constructor is still pending. -/
-@[expose] def EtaFamiliesClosedExceptL (env : Env) (names : List Name) : Prop :=
-  ∀ (T' : Name) (cvT : ConstantVal) (caps : IndCaps),
-    env.find? T' = some (.indInfo cvT caps) → T' ∉ names → caps.eta = true →
-    reservedBasisNames.contains T' = false →
-    ∃ cvC, env.find? caps.etaCtor =
-      some (.ctorInfo cvC caps.etaParams caps.etaFields)
-
-theorem EtaFamiliesClosed.exceptL {env : Env} (h : EtaFamiliesClosed env)
-    (names : List Name) : EtaFamiliesClosedExceptL env names :=
-  fun T' cvT caps hf _ he hr => h T' cvT caps hf he hr
-
-/-- Prepending one fresh constant that is neither a non-reserved
-η-capable former nor named outside `names` keeps the other families
-closed. -/
-theorem EtaFamiliesClosedExceptL.cons {env : Env} {names : List Name} {c₀ : ConstantInfo}
-    (hE1 : EtaFamiliesClosedExceptL env names)
-    (hfresh : env.find? c₀.name = none)
-    (hknd : ∀ cv caps, c₀ = .indInfo cv caps → caps.eta = true →
-      reservedBasisNames.contains c₀.name = true ∨ c₀.name ∈ names) :
-    EtaFamiliesClosedExceptL (⟨c₀ :: env.consts, env.tables⟩ : Env) names := by
-  intro T' cvT caps hf hne he hr
-  rw [Env.find?_cons] at hf
-  split at hf
-  · next hh =>
-    obtain rfl := Option.some.inj hf
-    rcases hknd cvT caps rfl he with hres | hT
-    · rw [← hh] at hr; rw [hres] at hr; exact nomatch hr
-    · exact absurd (hh ▸ hT) hne
-  · obtain ⟨cvC, hfC⟩ := hE1 T' cvT caps hf hne he hr
-    refine ⟨cvC, ?_⟩
-    rw [Env.find?_cons_of_isSome hfresh (by rw [hfC]; rfl)]
-    exact hfC
-
-/-- **The η invariant a BLOCK's constructor conses carry**
-(`ctorsLoopEta`'s `EtaInv` at `k` members): every stored family outside
-the block is closed, and every stored MEMBER's η constructor is one of
-THAT MEMBER's OWN constructors (`ctorsOf` at the member's name).  The
-second conjunct is what refutes "a fresh constructor completes an older
-member's η family", which at one family was refuted by closure alone:
-at a block the older member is still η-pending, so its η constructor is
-not stored and closure says nothing — what says it is that the block's
-constructor names are distinct, which the consumer supplies as the
-disjointness premise `hout` of `.other`. -/
-@[expose] def BlockEtaInv (env : Env) (names : List Name)
-    (ctorsOf : Name → List Name) : Prop :=
-  EtaFamiliesClosedExceptL env names ∧
-  ∀ (T' : Name) (cvT : ConstantVal) (caps : IndCaps),
-    env.find? T' = some (.indInfo cvT caps) → T' ∈ names → caps.eta = true →
-    caps.etaCtor ∈ ctorsOf T'
-
-/-- **`ctorsLoopEta`'s `hEtaCons` at a block**: a constructor's cons
-keeps the invariant — it is no former, so it completes no family
-outside the block and changes no member's record. -/
-theorem BlockEtaInv.cons {env : Env} {names : List Name} {ctorsOf : Name → List Name}
-    {cvC : ConstantVal} {nP nF : Nat}
-    (h : BlockEtaInv env names ctorsOf) (hfresh : env.find? cvC.name = none) :
-    BlockEtaInv (⟨.ctorInfo cvC nP nF :: env.consts, env.tables⟩ : Env) names ctorsOf := by
-  refine ⟨h.1.cons hfresh (fun _ _ heq => nomatch heq), ?_⟩
-  intro T' cvT caps hf hmem hcape
-  rw [Env.find?_cons] at hf
-  split at hf
-  · exact nomatch (Option.some.inj hf)
-  · exact h.2 T' cvT caps hf hmem hcape
-
-/-- **`ctorsLoopEta`'s `hEtaOther` at a block**: the head is no stored
-family's η constructor.  Outside the block the family is CLOSED, so its
-η constructor is stored and the head is fresh; inside the block the
-η constructor of a member OTHER than the one being consed is one of
-that member's own constructors, and `hout` — the block's distinct
-constructor names — says the head is none of those. -/
-theorem BlockEtaInv.other {env : Env} {names : List Name} {ctorsOf : Name → List Name}
-    {cvC : ConstantVal} {nP nF : Nat} {T T' : Name}
-    {cvT' : ConstantVal} {caps' : IndCaps}
-    (h : BlockEtaInv env names ctorsOf) (hfresh : env.find? cvC.name = none)
-    (hout : ∀ T'' ∈ names, T'' ≠ T → cvC.name ∉ ctorsOf T'')
-    (hf : env.find? T' = some (.indInfo cvT' caps')) (hne : T' ≠ T)
-    (_hres : reservedBasisNames.contains T' = false) (hcape : caps'.eta = true) :
-    caps'.etaCtor ≠ cvC.name := by
-  by_cases hmem : T' ∈ names
-  · intro hh
-    exact hout T' hmem hne (hh ▸ h.2 T' cvT' caps' hf hmem hcape)
-  · obtain ⟨cvC', hfC'⟩ := h.1 T' cvT' caps' hf hmem hcape _hres
-    intro hh
-    rw [hh, hfresh] at hfC'
-    exact nomatch hfC'
-
-/-- The extension shape every phase after a block's member fold has:
-non-recursor entries survive verbatim (the recursor swap replaces its
-own provisional entries), and no new former appears. -/
-@[expose] def ExtEta (env env' : Env) : Prop :=
-  (∀ (n : Name) (ci : ConstantInfo), env.find? n = some ci →
-    (∀ cv mI rP isK rules, ci ≠ .recInfo cv mI rP isK rules) →
-    env'.find? n = some ci) ∧
-  (∀ (T : Name) (cvT : ConstantVal) (caps : IndCaps),
-    env'.find? T = some (.indInfo cvT caps) →
-    env.find? T = some (.indInfo cvT caps))
-
-theorem ExtEta.refl (env : Env) : ExtEta env env :=
-  ⟨fun _ _ h _ => h, fun _ _ _ h => h⟩
-
-/-- Closure transfers along `ExtEta`. -/
-theorem EtaFamiliesClosed.keep {env env' : Env}
-    (hE : EtaFamiliesClosed env) (hx : ExtEta env env') :
-    EtaFamiliesClosed env' := by
-  intro T cvT caps hf he hr
-  obtain ⟨cvC, hfC⟩ := hE T cvT caps (hx.2 T cvT caps hf) he hr
-  exact ⟨cvC, hx.1 _ _ hfC (fun _ _ _ _ _ hh => nomatch hh)⟩
 
 /-! ## The guard, inverted -/
 

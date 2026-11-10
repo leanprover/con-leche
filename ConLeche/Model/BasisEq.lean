@@ -222,7 +222,7 @@ theorem extendEq (mp : EnvModelM V env)
   refine coverA_pend hfresh <| declStep_preserves_of_basis_cons_eqrow mp (A := eqValT) hfresh (by decide)
     (fun _ _ _ h => nomatch h)
     (by decide) (by decide) (by decide)
-    (fun _ _ _ _ _ h => nomatch h) (by decide)
+    (fun _ _ _ _ _ h => nomatch h)
     (Or.inl (fun _ h => nomatch h))
     (ConsHead.ofBasis hwf
       (fun ψ => by exact eqValT_closed ψ)
@@ -267,7 +267,7 @@ theorem extendEqRefl (mp : EnvModelM V env)
     (fun _ _ _ h => nomatch h)
     (by decide) (by decide) (by decide) (by decide)
     (fun _ _ _ _ _ h => nomatch h)
-    (Or.inl (by decide)) (Or.inl (fun _ h => nomatch h))
+    (Or.inl (fun _ h => nomatch h))
     (ConsHead.ofBasis hwf
       (fun ψ => by exact eqReflValT_closed ψ)
       rfl
@@ -1182,7 +1182,7 @@ theorem extendEqRec (mp : EnvModelM V env)
     declStep_preserves_of_basis_rec_cons mp (A := eqRecValT) hfresh (by decide)
     (fun _ _ _ h => nomatch h)
     (by decide) (by decide) (by decide) (by decide)
-    (by decide) (Or.inl (fun _ h => nomatch h))
+    (Or.inl (fun _ h => nomatch h))
     (ConsHead.ofBasis hwf
       (fun ψ => by exact eqRecValT_closed ψ)
       rfl

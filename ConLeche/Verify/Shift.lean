@@ -395,6 +395,26 @@ theorem shiftFrom_abstract1 {p d : Nat} (hpd : p ≤ d) :
         simp [abstract1, shiftFrom, hi, hp, hi1]
   | _ => intro k; simp_all [abstract1, shiftFrom]
 
+/-- Bulk instantiation with well-scoped terms preserves well-scopedness. -/
+theorem WScoped.instantiateList {n : Nat} :
+    ∀ {vs : List Expr}, (∀ v ∈ vs, WScoped n v) → ∀ {e : Expr} (d : Nat), WScoped n e →
+      WScoped n (e.instantiateList vs d)
+  | [], _, e, d, he => by rw [instantiateList_nil]; exact he
+  | v :: vs, hvs, e, d, he => by
+    rw [instantiateList_cons]
+    exact WScoped.instantiate1_gen (hvs v (by simp)) d
+      (WScoped.instantiateList (fun w hw => hvs w (by simp [hw])) (d + 1) he)
+
+/-- Shifting commutes with bulk instantiation. -/
+theorem shiftFrom_instantiateList {p : Nat} :
+    ∀ (vs : List Expr) (e : Expr) (d : Nat),
+      shiftFrom p (e.instantiateList vs d) =
+        (shiftFrom p e).instantiateList (vs.map (shiftFrom p)) d
+  | [], e, d => by simp [instantiateList_nil]
+  | v :: vs, e, d => by
+    rw [instantiateList_cons, shiftFrom_instantiate1_gen, shiftFrom_instantiateList vs,
+      List.map_cons, instantiateList_cons]
+
 /-- Shifting commutes with taking the application head. -/
 theorem getAppFn_shiftFrom {p : Nat} :
     ∀ (e : Expr), (shiftFrom p e).getAppFn = shiftFrom p e.getAppFn := by

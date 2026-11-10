@@ -84,7 +84,7 @@ private theorem inferFlags_head {ctx : List Declaration} {w : String} {y : Name}
   · exact nomatch h
   · next hok =>
     have hok' : (exprOk cv.levelParams 0 cv.type && cv.type.constsResolveF (mkFEnv E)) = true := by
-      simpa using hok
+      simpa [constsResolveFC_spec] using hok
     rw [Bool.and_eq_true] at hok'
     cases hrun : typeIsPropC (mkFEnv E) cv {} with
     | error e =>
@@ -220,7 +220,7 @@ theorem declTables_names {d : Declaration} {t : ProjTable} (h : t ∈ declTables
     simp only [declTables] at h
     split at h
     · next p hp =>
-      obtain ⟨ms, hms, hn⟩ := blockTables_names p p.members t h
+      obtain ⟨ms, hms, hn⟩ := blockTables_getD_names p h
       simp only [declNames, declConstants, hp]
       have := blockConstants_names p
       simp only [ConstantInfo.name] at this

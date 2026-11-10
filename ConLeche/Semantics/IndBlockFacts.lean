@@ -1,6 +1,5 @@
 module
 
-import ConLeche.Semantics.DeclEta
 
 
 import ConLeche.Verify.Subst

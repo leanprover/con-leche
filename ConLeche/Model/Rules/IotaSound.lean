@@ -704,24 +704,21 @@ family's application, no ∀, so its io claim is a membership there
 theorem Red.rescueEta_sound (hin : RulesInputs V m φ) {d : Nat}
     {major tm tmaj fab : Expr} {recName : Name} {cv : ConstantVal}
     {mI rP : Nat} {isK : Bool} {rl : RecRule} {cvj : ConstantVal} {cnP cnF : Nat} {T : Name}
-    {tus ust : List Level} {cvT : ConstantVal} {caps : IndCaps}
+    {tus ust : List Level} {cvT : ConstantVal} {caps : IndCaps} {tbl : ProjTable}
     (_hrec : env.find? recName = some (.recInfo cv mI rP isK [rl]))
-    (heta : ConLeche.etaRescueOk rl.ctor cvj cvT caps = true)
     (hctor : env.find? rl.ctor = some (.ctorInfo cvj cnP cnF))
     (_hres : (cvj.type.piResult).getAppFn = .const T tus)
     (hind : env.find? T = some (.indInfo cvT caps))
+    (heta : ConLeche.etaRescueTable? (env.findTable? T) rl.ctor cvj cvT caps = some tbl)
     (htm : InferSemIO m φ d major tm) (htmaj : RedSem m φ d tm tmaj)
     (htmajr : Red env d tm tmaj)
     (hthead : tmaj.getAppFn = .const T ust)
-    (hlen : tmaj.getAppArgs.length = caps.etaParams)
+    (hlen : tmaj.getAppArgs.length = tbl.numParams)
     (hlv : ust.length = cvT.levelParams.length)
-        (hfab : fab = Expr.mkAppN (.const caps.etaCtor ust)
-      (ConLeche.etaFabArgsE T tmaj.getAppArgs major caps.etaFields))
+    (hfab : fab = Expr.mkAppN (.const tbl.ctor ust)
+      (ConLeche.etaFabArgsE T tmaj.getAppArgs major tbl.numFields))
     (hws : fab.wscopedB d = true) (hb : fab.looseBVarsBounded 0 = true)
-    (hlv' : fab.fvarLeaves.all (fun l => major.fvarLeaves.contains l) = true)
-    (hresT : ConLeche.reservedBasisNames.contains T = false)
-    (hresC : ConLeche.reservedBasisNames.contains caps.etaCtor = false)
-    (htow : ConLeche.towerSlotsAll env T caps.etaFields = true) :
+    (hlv' : fab.fvarLeaves.all (fun l => major.fvarLeaves.contains l) = true) :
     RedSem m φ d major fab := by
   intro hfM Δa ea hCM hea
   have hsub : LeavesSub fab major := fun l hl => by
@@ -729,10 +726,10 @@ theorem Red.rescueEta_sound (hin : RulesInputs V m φ) {d : Nat}
     simpa using this
   have hfF : Frame d fab :=
     ⟨Expr.WScoped.of_wscopedB hws, hb, fun l hl => hfM.2.2 l (hsub l hl)⟩
-  -- the family's η record: the rule's constructor IS the family's, and
-  -- carries the former's level parameters (`etaRescueOk`)
-  obtain ⟨hcapseta, hectr, hlpsE⟩ := ConLeche.etaRescueOk_inv heta
-  have hfC : env.find? caps.etaCtor = some (.ctorInfo cvj cnP cnF) := by
+  -- the family's table: the rule's constructor IS the table's, and
+  -- carries the former's level parameters (`etaRescueTable?`)
+  obtain ⟨htbl, hcapseta, hectr, hlpsE⟩ := ConLeche.etaRescueTable?_inv heta
+  have hfC : env.find? tbl.ctor = some (.ctorInfo cvj cnP cnF) := by
     rw [hectr]; exact hctor
   have hlpj : ust.length = cvj.levelParams.length := by
     rw [hlpsE]; exact hlv
@@ -752,21 +749,21 @@ theorem Red.rescueEta_sound (hin : RulesInputs V m φ) {d : Nat}
     exact (Option.some.inj hvT).symm
   subst hvT'
   -- the stuck side's facts
-  obtain ⟨ps, hsps, hfps, TCa, hTCa, hside⟩ := etaSide hin hind hcapseta hresT hresC
-    hfC hlv hlen htow hfM hCM hea hspt
+  obtain ⟨ps, hsps, hfps, TCa, hTCa, hside⟩ := etaSide hin hind hcapseta htbl
+    hfC hlv hlen hfM hCM hea hspt
   -- the fabrication reads
-  have hheadC : denote m.acval env φ d (.const caps.etaCtor ust)
-      = some (m.acval caps.etaCtor (Level.substFn φ cvT.levelParams ust)) := by
+  have hheadC : denote m.acval env φ d (.const tbl.ctor ust)
+      = some (m.acval tbl.ctor (Level.substFn φ cvT.levelParams ust)) := by
     have h := denote_const (acval := m.acval) (φ := φ) (d := d) hfC
       (show ust.length = _ from hlpj)
     dsimp only [ConLeche.ConstantInfo.toConstantVal] at h
     rw [h, hlpsE]
   have hspF : DenoteSpine m.acval env φ d
-      (ConLeche.etaFabArgsE T tmaj.getAppArgs major caps.etaFields)
+      (ConLeche.etaFabArgsE T tmaj.getAppArgs major tbl.numFields)
       (tsa ++ ps) := hspt.append hsps
   have hdF : denote m.acval env φ d fab
       = some (Term.mkAppN
-        (m.acval caps.etaCtor (Level.substFn φ cvT.levelParams ust)) (tsa ++ ps)) := by
+        (m.acval tbl.ctor (Level.substFn φ cvT.levelParams ust)) (tsa ++ ps)) := by
     rw [hfab]; exact denote_mkAppN hspF hheadC
   -- the constructor's type reading holds its leaf
   obtain ⟨tc, htc, hoktc, hmemC, -, -⟩ :=
@@ -797,7 +794,7 @@ theorem Red.rescueEta_sound (hin : RulesInputs V m φ) {d : Nat}
     rcases List.mem_append.mp hx with hx' | hx'
     · exact hoTs x hx'
     · exact hokps x hx'
-  have hmemC' : interp V ρ (m.acval caps.etaCtor (Level.substFn φ cvT.levelParams ust))
+  have hmemC' : interp V ρ (m.acval tbl.ctor (Level.substFn φ cvT.levelParams ust))
       ∈ˢ interp V ρ TCa := by
     rw [← hlpsE]; exact hmemC ρ
   have hgF := (mkAppN_of_fitA (tsa ++ ps) (hoktc ρ)

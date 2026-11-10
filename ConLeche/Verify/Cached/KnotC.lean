@@ -40,12 +40,15 @@ variable {env : Env} {f : Nat}
 
 /-! ### The whnfCore memos
 
-The two modes of `whnfCore` (official `cheap_proj`) under two memos; one
-triple covers both (`vcgen` splits the knot's `if c`). -/
+The easy cases return before either memo (`whnfCoreEasy`,
+`Runs.whnfCore_easy`).  The two modes of `whnfCore` (official
+`cheap_proj`) under two memos; one triple covers both (`vcgen` splits the
+knot's `if c`). -/
 
 theorem coreKnotI_whnfCore_succ (c : Bool) (d : Nat) (i : Expr) :
     (coreKnotI mode eager (mkFEnv env) (f + 1)).whnfCore c d i =
-      if c then
+      if whnfCoreEasy i then pure i
+      else if c then
         memoEI (·.whnfCoreCheapC) (fun st mp => { st with whnfCoreCheapC := mp })
           (fun d e => whnfCoreBodyI mode (coreKnotI mode eager (mkFEnv env) f) (mkFEnv env) true d
               e)
@@ -56,6 +59,13 @@ theorem coreKnotI_whnfCore_succ (c : Bool) (d : Nat) (i : Expr) :
               e)
           d i := by
   cases eager <;> cases c <;> rfl
+
+/-- An easy case is its own whnfCore answer (`whnfCoreBody`'s value arms). -/
+theorem Runs.whnfCore_easy {c : Bool} {d : Nat} {i : Expr} (h : whnfCoreEasy i = true) :
+    Runs ((fueledFns mode eager env).whnfCore c d i) i :=
+  ⟨1, by cases i <;> first | rfl | exact nomatch h⟩
+grind_pattern [conleche_grind] Runs.whnfCore_easy =>
+  Runs ((fueledFns mode eager env).whnfCore c d i) i
 
 /-- A full whnfCore memo hit answers the fueled whnfCore, well scoped. -/
 theorem CSOK.whnfCore_hit (henv : EnvWF env) {s : CState} {d : Nat} {i r : Expr}
@@ -127,13 +137,27 @@ theorem memoEI_whnfCore_spec (henv : EnvWF env)
 
 A hit reads the backed `CSOK.whnfC` clause at the query (`CSOK.whnf_hit`);
 a miss runs the body and inserts its answer, backed one fuel up by the
-depth-invariant run (`CSOK.whnf_insert`, `Runs.whnf_of_body`). -/
+depth-invariant run (`CSOK.whnf_insert`, `Runs.whnf_of_body`); an easy
+case returns before the memo (`whnfEasy`, `Runs.whnf_easy`). -/
 
 theorem coreKnotI_whnf_succ (d : Nat) (i : Expr) :
     (coreKnotI mode eager (mkFEnv env) (f + 1)).whnf d i =
-      memoEI (·.whnfC) (fun st mp => { st with whnfC := mp })
+      if whnfEasy i then pure i
+      else memoEI (·.whnfC) (fun st mp => { st with whnfC := mp })
         (fun d e => whnfBodyI (coreKnotI mode eager (mkFEnv env) f) (mkFEnv env) d e) d i := by
   cases eager <;> rfl
+
+/-- An easy case is its own whnf answer: it head-normalizes to itself,
+is no literal operation and does not unfold. -/
+theorem Runs.whnf_easy {d : Nat} {i : Expr} (h : whnfEasy i = true) :
+    Runs ((fueledFns mode eager env).whnf d i) i := by
+  obtain ⟨n, hn⟩ := whnfLoopFuel_succ
+  refine ⟨2, ?_⟩
+  show whnfLoop (pureFns mode eager env 1) env d whnfLoopFuel i = .ok i
+  rw [hn]
+  cases i <;> first | rfl | exact nomatch h
+grind_pattern [conleche_grind] Runs.whnf_easy =>
+  Runs ((fueledFns mode eager env).whnf d i) i
 
 /-- A whnf memo hit answers the fueled whnf, well scoped. -/
 theorem CSOK.whnf_hit (henv : EnvWF env) {s : CState} {d : Nat} {i r : Expr}

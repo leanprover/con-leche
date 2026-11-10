@@ -25,31 +25,34 @@ open ConLeche
 /-- **A run's request**: the driver and its configuration. -/
 inductive Req where
   /-- a lean4export stream (`checkMainG` on `.ndjson`) -/
-  | stream (file : String) (mode : CheckMode) (pace : Pace) (jobs : Nat)
+  | stream (file : String) (mode : CheckMode) (maxNatSize : Nat) (pace : Pace) (jobs : Nat)
   /-- the import closure of root modules (`checkMainG` on `.oleans`) -/
   | oleans (searchPath : List System.FilePath) (roots : Array Name)
-      (constants : Option (Array Name)) (mode : CheckMode) (pace : Pace) (jobs : Nat)
+      (constants : Option (Array Name)) (mode : CheckMode) (maxNatSize : Nat) (pace : Pace)
+      (jobs : Nat)
   /-- the import graph of root modules' closure (`Graph.checkGraphG`) -/
   | graph (searchPath : List System.FilePath) (roots : List Name) (jobs : Nat)
   /-- every module of a closure, each against its context, in one process (`checkModularG`) -/
-  | modular (searchPath : List System.FilePath) (root : Name) (mode : CheckMode) (pace : Pace)
-      (jobs : Nat)
+  | modular (searchPath : List System.FilePath) (root : Name) (mode : CheckMode)
+      (maxNatSize : Nat) (pace : Pace) (jobs : Nat)
   /-- every module of a closure, one worker process each (`scheduleG`, outside the theorem) -/
   | schedule (searchPath : List System.FilePath) (root : Name) (opts : List String)
-      (mode : CheckMode) (pace : Pace) (jobs : Nat)
+      (mode : CheckMode) (maxNatSize : Nat) (pace : Pace) (jobs : Nat)
   /-- one module against its context (`checkModuleG`) -/
-  | module (searchPath : List System.FilePath) (m : Name) (mode : CheckMode) (pace : Pace)
-      (jobs : Nat)
+  | module (searchPath : List System.FilePath) (m : Name) (mode : CheckMode) (maxNatSize : Nat)
+      (pace : Pace) (jobs : Nat)
 
 /-- **A request run** by its driver. -/
 def runReq {μ : Type → Type} [CheckerIO μ] : Req → μ UInt8
-  | .stream file mode pace jobs => checkMainG (.ndjson file) mode pace jobs
-  | .oleans sp roots cs mode pace jobs => checkMainG (.oleans sp roots cs) mode pace jobs
+  | .stream file mode maxNatSize pace jobs => checkMainG (.ndjson file) mode maxNatSize pace jobs
+  | .oleans sp roots cs mode maxNatSize pace jobs =>
+    checkMainG (.oleans sp roots cs) mode maxNatSize pace jobs
   | .graph sp roots jobs => Graph.checkGraphG sp roots jobs
-  | .modular sp root mode pace jobs => checkModularG sp root mode pace jobs
-  | .schedule sp root opts mode pace jobs => scheduleG sp root opts mode pace jobs
-  | .module sp m mode pace jobs => do
+  | .modular sp root mode maxNatSize pace jobs => checkModularG sp root mode maxNatSize pace jobs
+  | .schedule sp root opts mode maxNatSize pace jobs =>
+    scheduleG sp root opts mode maxNatSize pace jobs
+  | .module sp m mode maxNatSize pace jobs => do
     let (R, T) ← workerTables sp m
-    checkModuleG (T.reads R) R m mode pace jobs
+    checkModuleG (T.reads R) R m mode maxNatSize pace jobs
 
 end ConLeche.Driver

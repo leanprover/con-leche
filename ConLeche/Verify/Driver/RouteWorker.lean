@@ -397,8 +397,8 @@ theorem checkDeclStepC_quot {mode : CheckMode} {pins : List NatOpPinSet} {fe : F
   simp only [hq, ↓reduceIte]
   exact checkQuotRecordC_hit _ _ _
 
-theorem declsRun_quot_hit {mode : CheckMode} {pins : List NatOpPinSet} {ds : List Declaration}
-    {p q : Nat × FEnv} (h : DeclsRun mode pins ds p q) :
+theorem declsRun_quot_hit {mode : CheckMode} {maxNatSize : Nat} {pins : List NatOpPinSet} {ds : List Declaration}
+    {p q : Nat × FEnv} (h : DeclsRun mode pins maxNatSize ds p q) :
     ∀ cv, Declaration.axiomDecl cv ∈ ds → cv.name = quotSoundName → quotPinHit .sound cv = true := by
   induction h with
   | nil => exact fun _ h _ => nomatch h
@@ -438,8 +438,8 @@ theorem readNames_instantiateLevelParams (ks : List Name) (us : List Level) (e :
 load reads, of a statement kind, not filtered out, at no `sorryAx`, has in `M`'s own environment
 a statement-kind constant of the copy's statement, a theorem where the copy or the private
 constant behind it is one; and the statement's type does not read its own name. -/
-theorem copy_own {mode : CheckMode} {M : Name} {jobs : Nat}
-    {w : WorkerRead} (hw : WorkerFacts sp fs M jobs w) (hrun : OwnRun mode sp fs M w)
+theorem copy_own {mode : CheckMode} {maxNatSize : Nat} {M : Name} {jobs : Nat}
+    {w : WorkerRead} (hw : WorkerFacts sp fs M jobs w) (hrun : OwnRun mode maxNatSize sp fs M w)
     {s : Spot} (hmod : s.part.mod = M) (hs : CopyAt sp fs s) (hl : s.part.level ≠ .server)
     {r : Region} (hr : PartRegion sp fs s.part r) {cv : ConstantVal} {k : CKindF Name Unit}
     (hst : StmtSkel r s.pos.loc cv k) (hsk0 : s.pos.skipped = false) (htag : k.tag < 4)

@@ -293,6 +293,10 @@ theorem blockRecStaged_runR {envC : Env}
       blockRecAcv mpC.base2.acval envC rs s eqs n = mpC.base2.acval n :=
     fun _ => blockRecAcv_of_notin
   have hL := fun r (hr : r ∈ rs) => hleaf.stored hnd hr
+  have hwf₃ := ConLeche.recStage_envWF_consR mpC.base2.wf h hshape
+    (fun j r hr lvls pins hf => by
+      obtain ⟨n1, n2, n3, pre, dom, body, D, e1, e2, e3⟩ := hnest j r hr lvls pins hf
+      exact ⟨n1, n2, n3, pre, dom, body, D, e1, e2, e3, rfl⟩)
   exact blockRecStaged_of mpC hnd
     (fun r hr => hcv r hr) hres
     (fun r hr => ConLeche.recStage_opName h r hr)
@@ -303,8 +307,8 @@ theorem blockRecStaged_runR {envC : Env}
     (hrd_of_pre mpC h rfl
       (fun i r hr ψ => by obtain ⟨-, -, -, hread, -⟩ := recStage_tyPis mpC h hr ψ; exact hread)
       (fun i r hr ψ => blockRecAcv_at hnd hr ψ) hleaf.pre)
-    (fun r hr rhs hrhs => (hfacts r hr).2.2.2.2 rhs hrhs)
-    hctorsIn hshape hnest
+    (fun r hr m' _ henv hres => ConLeche.recStage_bareCons_envWF h hr m' henv hres) hwf₃
+    hctorsIn hshape
     (hrecP_ofR mpC hshape (fun r hr => hcv r hr) hag hnew)
     (ConLeche.recStage_reserved h)
 

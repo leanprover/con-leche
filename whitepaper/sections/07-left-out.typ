@@ -12,15 +12,15 @@ architecture differs from the fragment's on the features they share.
 
 #left-out[Projections][Lean's primitive projection `e.i`, the `i`-th
 field of a structure value. For every inductive type with one
-constructor and no index the checker stores #src("ConLeche/Kernel/Install.lean", 64, 73)[a
+constructor and no index the checker stores #src("ConLeche/Kernel/Install.lean", 67, 74)[a
 projection table], the fields' types read off the constructor. The
-real checker #src("ConLeche/Rules/Rel.lean", 169, 184)[reduces a projection of a
-constructor application to that field] and #src("ConLeche/Rules/Rel.lean", 627, 635)[infers its type from
+real checker #src("ConLeche/Rules/Rel.lean", 174, 189)[reduces a projection of a
+constructor application to that field] and #src("ConLeche/Rules/Rel.lean", 677, 685)[infers its type from
 the table]\; in the model a structure value is the tagged tuple of
 @sec:ext-eta and a projection reads a component, which
 #src("ConLeche/Model/Inductives/BlockStageTables.lean", 10, 12)[the
 install of the table] establishes
-(#src("ConLeche/Model/Inductives/FixKit.lean", 716, 721)[its typing
+(#src("ConLeche/Model/Inductives/FixKit.lean", 671, 676)[its typing
 and ι laws]).]
 
 #left-out[Mutual inductive types][Several types declared together,
@@ -34,8 +34,8 @@ more indices, so this document skips it.]
 #left-out[Nat and String literals, and the fast Nat path][Numerals and
 strings are terms of their own; the checker expands a literal to its
 constructor form when reduction needs it
-(#src("ConLeche/Rules/Rel.lean", 144, 146)[natLit],
-#src("ConLeche/Rules/Rel.lean", 151, 153)[strLit]) and folds #src("ConLeche/Rules/Rel.lean", 156, 159)[`Nat.succ`] and #src("ConLeche/Rules/Rel.lean", 163, 168)[the
+(#src("ConLeche/Rules/Rel.lean", 149, 151)[natLit],
+#src("ConLeche/Rules/Rel.lean", 156, 158)[strLit]) and folds #src("ConLeche/Rules/Rel.lean", 161, 164)[`Nat.succ`] and #src("ConLeche/Rules/Rel.lean", 168, 173)[the
 binary `Nat` operations] on literals with machine arithmetic. The folding is sound only for
 the operations as the toolchain defines them, so the checker compares
 each stream's definition against #src("ConLeche/Kernel/NatOpPins.lean", 8, 21)[a pinned copy] and the model
@@ -74,18 +74,18 @@ accepted as pinned definitions of their own types.]
 
 #left-out[Opaques][The fragment has definitions and theorems
 (@sec:modular), the latter stored as their statements. The real
-checker never unfolds a theorem or an opaque: #src("ConLeche/Rules/Rel.lean", 138, 141)[only a definition
+checker never unfolds a theorem or an opaque: #src("ConLeche/Rules/Rel.lean", 143, 146)[only a definition
 unfolds].]
 
 #left-out[Structure η and unit-likeness][The checker has
-#src("ConLeche/Rules/Rel.lean", 457, 460)[structure η] and
-#src("ConLeche/Rules/Rel.lean", 485, 490)[unit-likeness] as Lean has them;
+#src("ConLeche/Rules/Rel.lean", 458, 461)[structure η] and
+#src("ConLeche/Rules/Rel.lean", 522, 522)[unit-likeness] as Lean has them;
 @sec:ext-eta and @sec:ext-unit derive both from extensionality.]
 
 #left-out[Recursors on stuck proofs of `A ∧ B`][The checker never
 unfolds a theorem, while the official kernel does. Some elaborated
 terms rely on that, with a case split on a stuck proof `h` of `A ∧ B`.
-There the recursor #src("ConLeche/Rules/Rel.lean", 297, 322)[fires on `And.intro h.1 h.2`],
+There the recursor #src("ConLeche/Rules/Rel.lean", 298, 323)[fires on `And.intro h.1 h.2`],
 the constructor applied to `h`'s two projections, built from `h`'s
 type.]
 
@@ -99,7 +99,7 @@ one by one, each against the environment of those before it\; the binary builds
 #src("ConLeche/Cached/StreamIndex.lean", 65, 65)[one index of the whole stream] from the declarations alone
 and runs the checks on a pool of workers, each against the index's view of the declarations before
 it, walking the results in fold order, so its verdict is the fold's.
-#src("ConLeche/Verify/Cached/StreamIndex.lean", 510, 512)[Every check passing is an accept of the fold],
+#src("ConLeche/Verify/Cached/StreamIndex.lean", 520, 522)[Every check passing is an accept of the fold],
 which is what the one-declaration-at-a-time argument of §3 and §4 needs.]
 
 == How the real proof differs from the fragment <sec:differs>
@@ -107,9 +107,9 @@ which is what the one-declaration-at-a-time argument of §3 and §4 needs.]
 *Free variables carry their types.* The paper uses named variables and a
 context. The real checker keeps no context at all. When it opens a binder it
 substitutes a free variable that carries its own type,
-#src("ConLeche/Kernel/Expr.lean", 349, 351)[`fvar idx type`], identified by the depth at which it was opened\; so a variable is never
+#src("ConLeche/Kernel/Expr.lean", 433, 435)[`fvar idx type`], identified by the depth at which it was opened\; so a variable is never
 looked up, the relations are indexed by the opening depth in place of a
-context, and two free variables are #src("ConLeche/Rules/Rel.lean", 370, 371)[compared by depth alone]. Stored types are closed
+context, and two free variables are #src("ConLeche/Rules/Rel.lean", 371, 372)[compared by depth alone]. Stored types are closed
 terms, and `Denotes`, the relation the main theorem is stated over
 (below), reads them with de Bruijn indices under binders, with no
 opening at all.
@@ -129,10 +129,10 @@ denotation on the terms themselves.
 
 *Six relations, and a mode index.* Beside reduction,
 definitional equality and inference the real description has three
-more: #src("ConLeche/Rules/Rel.lean", 696, 705)[the certification of an argument spine against
+more: #src("ConLeche/Rules/Rel.lean", 746, 755)[the certification of an argument spine against
 a binder telescope] (the certified case of $iota$),
-#src("ConLeche/Rules/Rel.lean", 707, 712)[pairwise definitional equality], and
-#src("ConLeche/Rules/Rel.lean", 498, 537)[the congruence of two lambda telescopes]
+#src("ConLeche/Rules/Rel.lean", 757, 762)[pairwise definitional equality], and
+#src("ConLeche/Rules/Rel.lean", 548, 587)[the congruence of two lambda telescopes]
 (@sec:tax). A rule with a premise about a list or a telescope needs a
 relation of its own in a mutual block; the paper inlines them into the
 rules that use them. Inference also carries a
@@ -142,7 +142,7 @@ states as a relation of its own.
 *The bridge and the recomposition.* Because the real checker is a
 program, its proof has three parts where the paper has one. #src("ConLeche/Verify/Rules/Bridge.lean", 29, 32)[The bridge] turns an accepting
 run at any fuel into a derivation, by one induction on fuel in which
-each checker site lands on one rule. #src("ConLeche/Model/Rules/Sound.lean", 51, 52)[The soundness] is the paper's
+each checker site lands on one rule. #src("ConLeche/Model/Rules/Sound.lean", 52, 53)[The soundness] is the paper's
 induction: one structural induction over the six relations, each case a
 lemma about one rule, never mentioning the implementation. #src("ConLeche/Model/Rules/Recompose.lean", 50, 55)[The
 recomposition] puts them together, claim by claim. It bridges the run,
@@ -167,18 +167,18 @@ theorem #src("ConLeche/Verify/Cached/MainC.lean", 32, 35)[composes it with the f
 *Modular checking.* In the fragment, a module's context, views and
 the module each context name is read from are given, and the local
 checks of @sec:mod-local say what they must satisfy. Con-leche states
-#src("ConLeche/Modular.lean", 222, 239)[the same checks] over its own
+#src("ConLeche/Modular.lean", 220, 240)[the same checks] over its own
 records, a context being a list of the records its imports present, in
 an order in which every record reads only itself and earlier records, and
 carries #src("ConLeche/Modular/Generic.lean", 278, 279)[the theorem]
 over the interface of @sec:mod-iface, and its instance for con-leche's
-models gives #src("ConLeche/MainTheorem.lean", 195, 202)[the modular
+models gives #src("ConLeche/MainTheorem.lean", 199, 206)[the modular
 theorem]. Con-leche
 computes a module's context from the `.olean` files and checks the
 module's own records against it, one module per run, and
 #src("ConLeche/Verify/Driver/Routes.lean", 340, 341)[the runs at every module
 of an import closure together give the local checks]. Hence
-#src("ConLeche/MainTheorem.lean", 262, 272)[no module of the closure holds a
+#src("ConLeche/MainTheorem.lean", 267, 277)[no module of the closure holds a
 theorem of type `False`] where the graph check and every module's run exit 0
 on one snapshot.
 

@@ -1,51 +1,28 @@
 module
 
-public import ConLeche.Verify.FastOps
 public import ConLeche.Verify.ProjTele
-import ConLeche.Kernel.Inductives.StructParts
 import ConLeche.Verify.Cached.Erase
 public import ConLeche.Verify.Level
-import ConLeche.Kernel.Inductives.SumInstall
+public import ConLeche.Kernel.Inductives.SumInstall
 
 public section
 
 /-!
 # Generated projection bodies and recursors, opened
 
-The incremental projection residual agrees with the generator; the
-projection bodies opened; the generated recursor opened, at one
+The projection bodies opened; the generated recursor opened, at one
 constructor, at a constructor list, and with recursive fields.
 -/
 
-/-!
-## The incremental projection residual agrees with the generator
-
-`structProjResidP` peels the constructor telescope one
-earlier-projection substitute at a time; it agrees with the
-whole-spine `instPisAtLift`.
--/
-
 namespace ConLeche
-
-theorem structProjResidP_eq (T : Name) (nP : Nat) (cty : Expr) :
-    ∀ i, structProjResidP T nP cty i
-      = Expr.instPisAtLift
-          (structProjPs nP ++ (List.range i).map (structProjArgP T)) cty
-  | 0 => by simp [structProjResidP, List.range_zero, List.map_nil, List.append_nil]
-  | i + 1 => by
-    rw [structProjResidP, structProjResidP_eq T nP cty i, List.range_succ,
-      List.map_append, List.map_singleton, ← List.append_assoc,
-      instPisAtLift_append (structProjPs nP ++ (List.range i).map (structProjArgP T))
-        [structProjArgP T i]]
-
 
 /-!
 ## The projection bodies, opened
 
 The direct install's table stores `bodies[i] = F_i[p⃗ ↦ bvars, f_j ↦
-.proj T j (bvar 0)]` (`structProjBodies`, the domain of field `i` of
-the constructor telescope peeled at the loose parameter variables and
-the earlier projections of the subject — `structProjResidP`).  The
+.proj T j (bvar 0)]` (`structProjBodies`: the raw domain of field `i`
+instantiated in one walk at the loose parameter variables and the
+earlier projections of the subject — `structProjBodies_spec`).  The
 reading side opens a body at fresh variables (`projTele`'s reading),
 and what it needs is the syntactic identity between that opened body
 and the constructor telescope peeled at the **variables** themselves:
@@ -57,8 +34,9 @@ and the constructor telescope peeled at the **variables** themselves:
 of a capture-avoiding instantiation at open arguments followed by a
 closed instantiation of the ambient variables into the plain
 instantiation at the already-instantiated arguments — applied to the
-raw binder domain, with `instPisAtLift_head`/`instPisAt_head`
-identifying the two walks' head domains.
+raw binder domain, with `instSeqLift_eq_instantiateLift` reading the
+one walk as the binder-by-binder fold and `instPisAt_head` identifying
+the variable peel's head domain.
 -/
 
 
@@ -230,74 +208,94 @@ theorem stripPis_binder_bounded :
 
 /-! ## The generator -/
 
+/-- Two peels in a row are one. -/
+theorem stripPis_append : ∀ (n : Nat) {e r : Expr} {ps : List Expr},
+    e.stripPis n = some (ps, r) → ∀ {m : Nat} {ds : List Expr} {body : Expr},
+      r.stripPis m = some (ds, body) → e.stripPis (n + m) = some (ps ++ ds, body)
+  | 0, e, r, ps, h, m, ds, body, hr => by
+    simp only [Expr.stripPis, Option.some.injEq, Prod.mk.injEq] at h
+    obtain ⟨rfl, rfl⟩ := h
+    simpa using hr
+  | n + 1, e, r, ps, h, m, ds, body, hr => by
+    match e, h with
+    | .forallE d bo, h =>
+      simp only [Expr.stripPis] at h
+      cases hs : bo.stripPis n with
+      | none => rw [hs] at h; exact nomatch h
+      | some q =>
+        rw [hs] at h
+        simp only [Option.map_some, Option.some.injEq] at h
+        obtain ⟨rfl, rfl⟩ : d :: q.1 = ps ∧ q.2 = r := by cases h; exact ⟨rfl, rfl⟩
+        rw [show n + 1 + m = (n + m) + 1 from by omega]
+        simp only [Expr.stripPis, stripPis_append n (e := bo) (ps := q.1) (by rw [hs]) hr,
+          Option.map_some, List.cons_append]
+
 theorem structProjBodiesGo_spec (T : Name) :
-    ∀ (k i : Nat) (r : Expr) (bs : List Expr),
-      structProjBodiesGo T k i r = some bs →
+    ∀ (k i : Nat) (vs : List Expr) (r : Expr) (bs : List Expr),
+      structProjBodiesGo T vs k i r = some bs →
       bs.length = k ∧
-      ∀ j, j < k → ∃ b',
-        ((List.range j).foldl
-            (fun acc jj => acc.bind (Expr.instPisAtLift [structProjArgP T (i + jj)]))
-            (some r))
-          = some (.forallE (bs.getD j default) b')
-  | 0, i, r, bs, h => by
+      ∀ j, j < k → ∃ (ds : List Expr) (body b : Expr),
+        r.stripPis (j + 1) = some (ds, body) ∧ ds[j]? = some b ∧
+        bs.getD j default = b.instantiateLift
+          (((List.range j).map fun jj => structProjArgP T (i + jj)).reverse ++ vs)
+  | 0, i, vs, r, bs, h => by
     simp only [structProjBodiesGo, Option.some.injEq] at h
     subst h
     exact ⟨rfl, fun j hj => absurd hj (Nat.not_lt_zero _)⟩
-  | k + 1, i, r, bs, h => by
+  | k + 1, i, vs, r, bs, h => by
     match r, h with
     | .forallE fdom body, h =>
       simp only [structProjBodiesGo, Option.map_eq_some_iff] at h
       obtain ⟨bs', hrec, rfl⟩ := h
-      obtain ⟨hlen, hrest⟩ := structProjBodiesGo_spec T k (i + 1) _ bs' hrec
+      obtain ⟨hlen, hrest⟩ := structProjBodiesGo_spec T k (i + 1) _ _ bs' hrec
       refine ⟨by simp [hlen], fun j hj => ?_⟩
       cases j with
-      | zero => exact ⟨body, rfl⟩
+      | zero => exact ⟨[fdom], body, fdom, rfl, rfl, by simp⟩
       | succ j =>
-        obtain ⟨b', hj'⟩ := hrest j (by omega)
-        refine ⟨b', ?_⟩
-        rw [List.range_succ_eq_map, List.foldl_cons, List.foldl_map]
-        simp only [List.getD_cons_succ, Option.bind_some, Expr.instPisAtLift,
-          Nat.add_zero]
-        rw [← hj']
-        congr 1
-        funext acc jj
-        rw [show i + (jj + 1) = i + 1 + jj from by omega]
+        obtain ⟨ds, body', b, hs, hb, hbj⟩ := hrest j (by omega)
+        refine ⟨fdom :: ds, body', b, ?_, by simpa using hb, ?_⟩
+        · simp only [Expr.stripPis, hs, Option.map_some]
+        · rw [List.getD_cons_succ, hbj, List.range_succ_eq_map, List.map_cons, List.map_map,
+            List.reverse_cons, List.append_assoc, Nat.add_zero, List.singleton_append]
+          congr 3
+          apply List.map_congr_left
+          intro jj _
+          simp only [Function.comp, Nat.succ_eq_add_one, Nat.add_assoc, Nat.add_comm 1 jj]
     | .bvar _, h | .fvar _ _, h | .sort _, h | .const _ _, h | .app _ _, h
     | .lam _ _, h | .letE _ _ _, h | .lit _, h | .proj _ _ _, h =>
       exact nomatch h
 
-/-- **The bodies are the peel's domains**: body `i` is the head domain
-of the constructor telescope peeled at the loose parameters and the
-first `i` subject projections (`structProjResidP`), and there is one
-per field. -/
+/-- **The bodies are the substituted raw domains**: body `i` is the
+constructor telescope's binder `nP + i`, instantiated in one walk at
+the loose parameters and the first `i` subject projections, innermost
+first; there is one per field. -/
 theorem structProjBodies_spec {T : Name} {nP nF : Nat} {cty : Expr}
     {bodies : Array Expr} (h : structProjBodies T nP nF cty = some bodies) :
     bodies.size = nF ∧
-    ∀ i, i < nF → ∃ b',
-      structProjResidP T nP cty i
-        = some (.forallE (bodies.getD i default) b') := by
+    ∀ i, i < nF → ∃ (ds : List Expr) (body b : Expr),
+      cty.stripPis (nP + i + 1) = some (ds, body) ∧ ds[nP + i]? = some b ∧
+      bodies.getD i default = b.instantiateLift
+        (structProjPs nP ++ (List.range i).map (structProjArgP T)).reverse := by
   unfold structProjBodies at h
-  cases hr : Expr.instPisAtLift (structProjPs nP) cty with
+  cases hr : cty.stripPis nP with
   | none => rw [hr] at h; exact nomatch h
-  | some r =>
+  | some pr =>
+    obtain ⟨ps, r⟩ := pr
     rw [hr] at h
     simp only [Option.map_eq_some_iff] at h
     obtain ⟨bs, hgo, rfl⟩ := h
-    obtain ⟨hlen, hspec⟩ := structProjBodiesGo_spec T nF 0 r bs hgo
+    obtain ⟨hlen, hspec⟩ := structProjBodiesGo_spec T nF 0 _ r bs hgo
     refine ⟨by simp [hlen], fun i hi => ?_⟩
-    obtain ⟨b', hfold⟩ := hspec i hi
-    refine ⟨b', ?_⟩
-    have hgetD : bs.toArray.getD i default = bs.getD i default := by
-      simp [Array.getD, List.getD_eq_getElem?_getD]
-      split <;> simp_all
-    rw [hgetD, ← hfold]
-    clear hfold hgetD hspec hlen hgo
-    -- the incremental residual is the fold of the single-step peels
-    induction i with
-    | zero => simp [structProjResidP, hr]
-    | succ i ih =>
-      rw [structProjResidP, ih (by omega), List.range_succ, List.foldl_append,
-        List.foldl_cons, List.foldl_nil, Nat.zero_add]
+    obtain ⟨ds, body, b, hs, hb, hbi⟩ := hspec i hi
+    have hpsLen : ps.length = nP := stripPis_length _ hr
+    refine ⟨ps ++ ds, body, b, ?_, ?_, ?_⟩
+    · rw [Nat.add_assoc]; exact stripPis_append nP hr hs
+    · rw [List.getElem?_append_right (by omega), hpsLen, Nat.add_sub_cancel_left]; exact hb
+    · have hgetD : bs.toArray.getD i default = bs.getD i default := by
+        simp [Array.getD, List.getD_eq_getElem?_getD]
+        split <;> simp_all
+      rw [hgetD, hbi, List.reverse_append]
+      simp only [Nat.zero_add]
 
 /-! ## The opened body -/
 
@@ -404,22 +402,12 @@ theorem structProjBody_open {T : Name} {nP nF : Nat} {cty : Expr}
         = some (cds, .forallE
             (Expr.instSpine (fvsD nP ++ [tfvD nP]) nP (bodies.getD i default)) bodyC) := by
   obtain ⟨-, hspec⟩ := structProjBodies_spec h
-  obtain ⟨b', hres⟩ := hspec i hi
-  rw [structProjResidP_eq] at hres
-  -- the raw telescope's binder `nP + i`
+  obtain ⟨bs, body0, b, hs, hb, hbody⟩ := hspec i hi
+  rw [← instSeqLift_eq_instantiateLift] at hbody
   have hlenB : (structProjPs nP ++ (List.range i).map (structProjArgP T)).length = nP + i := by
     simp [structProjPs]
   have hlenF : (fvsD nP ++ projArgsD T i nP).length = nP + i := by
     simp [fvsD_length, projArgsD_length]
-  obtain ⟨⟨bs, body0⟩, hs⟩ := Option.isSome_iff_exists.mp
-    (stripPis_isSome_of_le (k := nP + i + 1) (by omega) hstrip)
-  have hbsLen : bs.length = nP + i + 1 := stripPis_length _ hs
-  obtain ⟨b, hb⟩ : ∃ b, bs[nP + i]? = some b :=
-    ⟨bs[nP + i]'(by omega), List.getElem?_eq_getElem (by omega)⟩
-  -- the bvar peel's head: the body is the domain's capture-avoiding sequence
-  obtain ⟨bodyR, hhead⟩ := instPisAtLift_head _ (mrem := 0) hres
-    (by rw [hlenB]; exact hs) (by rw [hlenB]; exact hb)
-  obtain ⟨hbody, -⟩ := Expr.forallE.inj hhead
   -- the fvar peel exists, and its head is the domain's plain sequence
   obtain ⟨⟨cds, rest⟩, hpa⟩ := Option.isSome_iff_exists.mp
     (instPisAt_isSome_of_stripPis (fvsD nP ++ projArgsD T i nP)

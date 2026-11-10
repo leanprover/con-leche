@@ -220,9 +220,9 @@ theorem checkDeclStepC_unreserved {mode : CheckMode} {pins : List NatOpPinSet} {
   rcases hd with ⟨v, hint, rfl⟩ | ⟨v, rfl⟩ | ⟨v, rfl⟩ <;> simpa [basisNamesOk] using hb
 
 /-- **Every record of an accepting run passed its check.** -/
-theorem declsRun_checked {mode : CheckMode} {pins : List NatOpPinSet} {ds : List Declaration}
-    {p q : Nat × FEnv} (h : DeclsRun mode pins ds p q) :
-    ∀ d ∈ ds, ∃ fe r, checkDeclStepC mode pins fe d {} = .ok r := by
+theorem declsRun_checked {mode : CheckMode} {maxNatSize : Nat} {pins : List NatOpPinSet} {ds : List Declaration}
+    {p q : Nat × FEnv} (h : DeclsRun mode pins maxNatSize ds p q) :
+    ∀ d ∈ ds, ∃ fe r, checkDeclStepC mode pins fe d { maxNatSize := maxNatSize } = .ok r := by
   induction h with
   | nil => exact fun _ h => nomatch h
   | @cons pd ds p p₁ q hstep rest ih =>
@@ -233,15 +233,15 @@ theorem declsRun_checked {mode : CheckMode} {pins : List NatOpPinSet} {ds : List
     · exact ih d hd
 
 /-- **An accepting run pushes a fresh chain.** -/
-theorem declsRun_chain {mode : CheckMode} {pins : List NatOpPinSet} {ds : List Declaration}
-    {p q : Nat × FEnv} (h : DeclsRun mode pins ds p q) {env : Env} :
+theorem declsRun_chain {mode : CheckMode} {maxNatSize : Nat} {pins : List NatOpPinSet} {ds : List Declaration}
+    {p q : Nat × FEnv} (h : DeclsRun mode pins maxNatSize ds p q) {env : Env} :
     PushChain env p.2 → PushChain env q.2 := by
   induction h with
   | nil => exact id
   | @cons pd ds p p₁ q hstep rest ih =>
     intro hc
     obtain ⟨fe₁, s₁, rfl, hC⟩ := declStep_ok hstep
-    exact ih (checkDeclStepC_push (pins := pins) mode hc pd {} fe₁ s₁ hC)
+    exact ih (checkDeclStepC_push (pins := pins) mode hc pd { maxNatSize := maxNatSize } fe₁ s₁ hC)
 
 /-! ## A module's environments -/
 
@@ -256,10 +256,10 @@ theorem Module.context_eq (m : Module) : m.context = streamEnv m.ctx := rfl
 
 /-- **An importer's own records are fresh**: its own environment pushes them, name-unique and
 fresh, on its context. -/
-theorem ImportOk.chain {j : Nat} (h : ImportOk mode pins dev j) :
+theorem ImportOk.chain {j : Nat} (h : ImportOk mode pins maxNatSize dev j) :
     NodupNames (dev j).own ∧
       (∀ ci ∈ recsC (dev j).decls, (dev j).context.find? ci.name = none) ∧
-      ∀ d ∈ (dev j).decls, ∃ fe r, checkDeclStepC mode pins fe d {} = .ok r := by
+      ∀ d ∈ (dev j).decls, ∃ fe r, checkDeclStepC mode pins fe d { maxNatSize := maxNatSize } = .ok r := by
   obtain ⟨q, hq⟩ := h.accepted
   have hch := declsRun_chain hq (PushChain.refl (dev j).context)
   have henv : q.2.env = (dev j).own := by
@@ -294,7 +294,7 @@ theorem own_find?_of_decl {j : Nat} (hnd : NodupNames (dev j).own) {d : Declarat
   exact streamEnv_find?_of_mem hnd (List.mem_append_right _ hd) hci
 
 /-- **A stored own name is a context name or an own record's.** -/
-theorem own_find?_cases {mode : CheckMode} {j : Nat} (hok : ImportOk mode pins dev j)
+theorem own_find?_cases {mode : CheckMode} {maxNatSize : Nat} {j : Nat} (hok : ImportOk mode pins maxNatSize dev j)
     {x : Name} {ci : ConstantInfo} (h : (dev j).own.find? x = some ci) :
     (dev j).context.find? x = some ci ∨
       ((dev j).context.find? x = none ∧ ∃ d ∈ (dev j).decls, ci ∈ declConstants d) := by
@@ -308,8 +308,8 @@ theorem own_find?_cases {mode : CheckMode} {j : Nat} (hok : ImportOk mode pins d
 
 /-- **The owner of a context name**: the module it is read from declared it among its own
 records; the context's copy refines the owner's constant, with its table. -/
-theorem owner {i : Nat} (hi : ImportOk .verified pins dev i) {x : Name} {ciC : ConstantInfo}
-    (hsI : InterfaceOk dev ((dev i).src x)) (hsK : ImportOk .verified pins dev ((dev i).src x))
+theorem owner {i : Nat} (hi : ImportOk .verified pins maxNatSize dev i) {x : Name} {ciC : ConstantInfo}
+    (hsI : InterfaceOk dev ((dev i).src x)) (hsK : ImportOk .verified pins maxNatSize dev ((dev i).src x))
     (hx : (dev i).context.find? x = some ciC) :
     ∃ ciO, (dev ((dev i).src x)).own.find? x = some ciO ∧
       (dev ((dev i).src x)).context.find? x = none ∧
@@ -480,23 +480,6 @@ theorem declConstants_ctors {e : Declaration} {cv : ConstantVal} {caps : IndCaps
       exact absurd hx (List.not_mem_nil)
     · split at h <;> simp at h
 
-theorem blockTables_member (p : BlockShape) :
-    ∀ (l : List MemberShape) {t : ProjTable}, t ∈ blockTables p l →
-      ∃ ms ∈ l, t.structName = ms.declared.name
-  | [], _, h => nomatch h
-  | ms :: rest, t, h => by
-    simp only [blockTables] at h
-    split at h
-    · split at h
-      · rcases List.mem_cons.mp h with rfl | h
-        · exact ⟨ms, List.mem_cons_self, rfl⟩
-        · obtain ⟨m, hm, he⟩ := blockTables_member p rest h
-          exact ⟨m, List.mem_cons_of_mem _ hm, he⟩
-      · obtain ⟨m, hm, he⟩ := blockTables_member p rest h
-        exact ⟨m, List.mem_cons_of_mem _ hm, he⟩
-    · obtain ⟨m, hm, he⟩ := blockTables_member p rest h
-      exact ⟨m, List.mem_cons_of_mem _ hm, he⟩
-
 /-- **A record's table is one of its formers'.** -/
 theorem declTables_former {e : Declaration} {t : ProjTable} (ht : t ∈ declTables e) :
     ∃ cv caps, .indInfo cv caps ∈ declConstants e ∧ cv.name = t.structName := by
@@ -505,7 +488,7 @@ theorem declTables_former {e : Declaration} {t : ProjTable} (ht : t ∈ declTabl
     simp only [declTables, declConstants] at ht ⊢
     split at ht
     · next p hp =>
-      obtain ⟨ms, hms, he⟩ := blockTables_member p p.members ht
+      obtain ⟨ms, hms, he⟩ := blockTables_getD_names p ht
       obtain ⟨i, hi⟩ := List.getElem_of_mem hms
       refine ⟨ms.declared, blockCapsAt p i (blockIsRec p), ?_, he.symm⟩
       simp only [blockConstants, blockFormers, List.mem_append]
@@ -580,7 +563,7 @@ theorem findTable_none_of_stmt {L : List Declaration} (hnd : NodupNames (streamE
     exact nomatch hk
 
 /-- **Two statement-kind copies of one statement are alike**, with no table. -/
-theorem stmt_alike {i : Nat} (hok : ∀ j ≤ i, LocalOk .verified pins dev j) {j b : Nat} {x : Name}
+theorem stmt_alike {i : Nat} (hok : ∀ j ≤ i, LocalOk .verified pins maxNatSize dev j) {j b : Nat} {x : Name}
     (hj : j ≤ i) (hb : b ≤ i) {ci ci' : ConstantInfo} (hC' : (dev j).context.find? x = some ci)
     (hB' : (dev b).own.find? x = some ci') (hcv : ci'.toConstantVal = ci.toConstantVal)
     (hk : ci.isStmtKind = true) (hk' : ci'.isStmtKind = true) :
@@ -596,7 +579,7 @@ theorem stmt_alike {i : Nat} (hok : ∀ j ≤ i, LocalOk .verified pins dev j) {
 
 /-- **Agreeing copies are alike, with one table**: the copy module `b` holds of a name that agrees
 with module `j`'s is stored, alike with `j`'s, with its table. -/
-theorem agree_alike {i : Nat} (hok : ∀ j ≤ i, LocalOk .verified pins dev j) :
+theorem agree_alike {i : Nat} (hok : ∀ j ≤ i, LocalOk .verified pins maxNatSize dev j) :
     ∀ {j b : Nat} {x : Name}, Agree dev j b x → j ≤ i → b ≤ i →
       ∀ {ciC : ConstantInfo}, (dev j).context.find? x = some ciC →
         ∃ ciB, (dev b).own.find? x = some ciB ∧ Alike ciC ciB ∧
@@ -639,7 +622,7 @@ itself. -/
   if ((dev j).context.find? x).isSome = true then (dev j).src x else j
 
 /-- **Agreeing copies of an inductive kind come from one module.** -/
-theorem agree_home {i : Nat} (hok : ∀ j ≤ i, LocalOk .verified pins dev j) :
+theorem agree_home {i : Nat} (hok : ∀ j ≤ i, LocalOk .verified pins maxNatSize dev j) :
     ∀ {j b : Nat} {x : Name}, Agree dev j b x → j ≤ i → b ≤ i →
       ∀ {ciC : ConstantInfo}, (dev j).context.find? x = some ciC → ciC.isStmtKind = false →
         homeOf dev b x = homeOf dev j x := by
@@ -675,7 +658,7 @@ theorem agree_home {i : Nat} (hok : ∀ j ≤ i, LocalOk .verified pins dev j) :
     rw [hk] at hk'; exact nomatch hk'
 
 /-- **Copies from one module agree.** -/
-theorem agree_of_home {i : Nat} (hok : ∀ j ≤ i, LocalOk .verified pins dev j) {j s : Nat}
+theorem agree_of_home {i : Nat} (hok : ∀ j ≤ i, LocalOk .verified pins maxNatSize dev j) {j s : Nat}
     {c : Name} (hs : s ≤ i) (hc : ((dev j).context.find? c).isSome = true)
     (hh : homeOf dev s c = homeOf dev j c) : Agree dev j s c := by
   have hKs := (hok s hs).importOk
@@ -705,7 +688,7 @@ theorem readsAlike_find? {i b : Nat} {d : Name} :
 
 /-- **The reading at a module passing the local checks** (the fields of `CtxRead` that need no
 record). -/
-theorem reading_basic {i : Nat} (hok : ∀ j ≤ i, LocalOk .verified pins dev j) :
+theorem reading_basic {i : Nat} (hok : ∀ j ≤ i, LocalOk .verified pins maxNatSize dev j) :
     let E := fun n => (dev ((dev i).src n)).own
     let R := fun n => readsAlike dev i ((dev i).src n)
     (∀ n ci, (dev i).context.find? n = some ci → ∃ ci', (E n).find? n = some ci' ∧ Refines ci ci') ∧
@@ -745,7 +728,7 @@ theorem reading_basic {i : Nat} (hok : ∀ j ≤ i, LocalOk .verified pins dev j
 
 /-- **What a context constant's laws read is read alike** (`CtxRead.scope`): its record's reads
 (`ImportOk.reads`), with the former's table its record's. -/
-theorem reading_scope {i : Nat} (hK : ImportOk .verified pins dev i) {n : Name} {ci : ConstantInfo}
+theorem reading_scope {i : Nat} (hK : ImportOk .verified pins maxNatSize dev i) {n : Name} {ci : ConstantInfo}
     (h : (dev i).context.find? n = some ci) :
     EntryScopedP (fun d => ((readsAlike dev i ((dev i).src n)).find? d).isSome = true)
       (dev i).context n ci := by
@@ -759,8 +742,7 @@ theorem reading_scope {i : Nat} (hK : ImportOk .verified pins dev i) {n : Name} 
     fun cv mI rP isK rules he' r hr => ?_, fun cv caps he' => ?_, ?_⟩
   · obtain ⟨a, b, c⟩ := h3 cv mI rP isK rules he' r hr
     exact ⟨hR a, b, fun lvls pins hf q hq => hR (c lvls pins hf q hq)⟩
-  · obtain ⟨a, b⟩ := h4 cv caps he'
-    refine ⟨a, b, fun t ht => ?_⟩
+  · refine ⟨h4 cv caps he', fun t ht => ?_⟩
     have ht' : (declTables e).find? (·.structName == n) = some t := by
       rw [← streamEnv_findTable? hK.nodup he hxe]; exact ht
     obtain ⟨c1, c2⟩ := htabs t (List.mem_of_find?_eq_some ht')
@@ -768,7 +750,7 @@ theorem reading_scope {i : Nat} (hK : ImportOk .verified pins dev i) {n : Name} 
   · intro d hd; rw [← hnm] at hd; exact h5 d hd
 
 /-- **A context constant at a `reduce*` name is its source's.** -/
-theorem reading_reduce {i : Nat} (hok : ∀ j ≤ i, LocalOk .verified pins dev j) {n : Name}
+theorem reading_reduce {i : Nat} (hok : ∀ j ≤ i, LocalOk .verified pins maxNatSize dev j) {n : Name}
     {ci : ConstantInfo} (h : (dev i).context.find? n = some ci) (hr : n ∈ reduceOpNames) :
     (dev ((dev i).src n)).own.find? n = some ci := by
   have hK := (hok i (Nat.le_refl i)).importOk
@@ -784,7 +766,7 @@ theorem not_ind_of_stmt {ci : ConstantInfo} (h : ci.isStmtKind = true) : ci.isIn
 /-- **The record of an inductive copy**: a module's copy of an inductive kind is installed by a
 record equal (in constants and tables) to its owner's own record, every constant of which it
 holds from the owner; a context record also reads what it reads as the owner. -/
-theorem indRecord {i : Nat} (hok : ∀ j ≤ i, LocalOk .verified pins dev j) {j : Nat} (hj : j ≤ i)
+theorem indRecord {i : Nat} (hok : ∀ j ≤ i, LocalOk .verified pins maxNatSize dev j) {j : Nat} (hj : j ≤ i)
     {x : Name} {ci : ConstantInfo} (hx : (dev j).own.find? x = some ci) (hk : ci.isIndKind = true) :
     ∃ t ≤ j, ∃ p ∈ (dev t).decls, ∃ r : Declaration, ci ∈ declConstants r ∧
       (declConstants r).Perm (declConstants p) ∧ declTables r = declTables p ∧
@@ -860,9 +842,9 @@ theorem EntryScopedP.and {p q : Name → Prop} {C : Env} {n : Name} {ci : Consta
     obtain ⟨y1, y2, y3⟩ := b3 cv mI rP isK rules he r hr
     exact ⟨Expr.constsAll_and x1 y1, ⟨x2, y2⟩, fun lv ps hf q hq' =>
       Expr.constsAll_and (x3 lv ps hf q hq') (y3 lv ps hf q hq')⟩
-  · obtain ⟨x1, x2, x3⟩ := a4 cv caps he
-    obtain ⟨y1, y2, y3⟩ := b4 cv caps he
-    exact ⟨fun m hm => ⟨x1 m hm, y1 m hm⟩, fun h => ⟨x2 h, y2 h⟩, fun t ht =>
+  · obtain ⟨x1, x3⟩ := a4 cv caps he
+    obtain ⟨y1, y3⟩ := b4 cv caps he
+    exact ⟨fun m hm => ⟨x1 m hm, y1 m hm⟩, fun t ht =>
       ⟨⟨(x3 t ht).1, (y3 t ht).1⟩, fun b hb => Expr.constsAll_and ((x3 t ht).2 b hb) ((y3 t ht).2 b hb)⟩⟩
 
 /-- **A record's reads, as a constant's**: what a record reads, its constant reads, with the
@@ -878,14 +860,13 @@ theorem recordScopedP {R C : Env} {r : Declaration} (hR : RecordScoped R r) {ci 
     fun cv mI rP isK rules he' r hr => ?_, fun cv caps he' => ?_, ?_⟩
   · obtain ⟨a, b, c⟩ := h3 cv mI rP isK rules he' r hr
     exact ⟨hc a, b, fun lvls pins hf q hq => hc (c lvls pins hf q hq)⟩
-  · obtain ⟨a, b⟩ := h4 cv caps he'
-    refine ⟨a, b, fun t ht => ?_⟩
+  · refine ⟨h4 cv caps he', fun t ht => ?_⟩
     obtain ⟨c1, c2⟩ := htabs t (htab t ht)
     exact ⟨c1, fun b hb => hc (c2 b hb)⟩
   · intro y hy; rw [← hd] at hy; exact h5 y hy
 
 /-- The two records of an inductive name read alike, at the importer and at the source. -/
-theorem indReadAlike {i : Nat} (hok : ∀ j ≤ i, LocalOk .verified pins dev j) {n d : Name}
+theorem indReadAlike {i : Nat} (hok : ∀ j ≤ i, LocalOk .verified pins maxNatSize dev j) {n d : Name}
     {ci : ConstantInfo} (hn : ((dev i).context.find? n).isSome = true)
     (hd : ((readsAlike dev i ((dev i).src n)).find? d).isSome = true)
     (hci : (dev i).context.find? d = some ci) (hk : ci.isIndKind = true) :
@@ -950,7 +931,7 @@ theorem indReadAlike {i : Nat} (hok : ∀ j ≤ i, LocalOk .verified pins dev j)
   · exact nomatch hd'
 
 /-- **What an inductive kind read alike reads is read alike** (`CtxRead.deep`). -/
-theorem reading_deep {i : Nat} (hok : ∀ j ≤ i, LocalOk .verified pins dev j) {n d : Name}
+theorem reading_deep {i : Nat} (hok : ∀ j ≤ i, LocalOk .verified pins maxNatSize dev j) {n d : Name}
     {ci : ConstantInfo} (hn : ((dev i).context.find? n).isSome = true)
     (hd : ((readsAlike dev i ((dev i).src n)).find? d).isSome = true)
     (hci : (dev i).context.find? d = some ci) (hk : ci.isIndKind = true) :
@@ -995,7 +976,7 @@ theorem reading_deep {i : Nat} (hok : ∀ j ≤ i, LocalOk .verified pins dev j)
   · exact hPi
 
 /-- **A former read alike has its constructors read alike** (`CtxRead.ctors`). -/
-theorem reading_ctors {i : Nat} (hok : ∀ j ≤ i, LocalOk .verified pins dev j) {n d : Name}
+theorem reading_ctors {i : Nat} (hok : ∀ j ≤ i, LocalOk .verified pins maxNatSize dev j) {n d : Name}
     {cv : ConstantVal} {caps : IndCaps} (hn : ((dev i).context.find? n).isSome = true)
     (hd : ((readsAlike dev i ((dev i).src n)).find? d).isSome = true)
     (hci : (dev i).context.find? d = some (.indInfo cv caps)) :
@@ -1022,7 +1003,7 @@ theorem reading_ctors {i : Nat} (hok : ∀ j ≤ i, LocalOk .verified pins dev j
   if ((dev i).context.find? n).isSome then readsAlike dev i ((dev i).src n) else Env.empty
 
 /-- **The local checks give a context read from its sources.** -/
-theorem reading {i : Nat} (hok : ∀ j ≤ i, LocalOk .verified pins dev j) :
+theorem reading {i : Nat} (hok : ∀ j ≤ i, LocalOk .verified pins maxNatSize dev j) :
     CtxRead (dev i).context (srcOwn dev i) (srcReads dev i) := by
   have hK := (hok i (Nat.le_refl i)).importOk
   obtain ⟨hentry, hRsub, hself, halike⟩ := reading_basic hok
@@ -1129,8 +1110,8 @@ theorem EntryScopedP.congrC {p : Name → Prop} {C C' : Env} {n : Name} {ci : Co
     EntryScopedP p C' n ci := by
   obtain ⟨h1, h2, h3, h4, h5⟩ := h
   refine ⟨h1, h2, h3, fun cv caps he => ?_, h5⟩
-  obtain ⟨a, b, c⟩ := h4 cv caps he
-  exact ⟨a, b, fun t htt => c t (ht t htt)⟩
+  obtain ⟨a, c⟩ := h4 cv caps he
+  exact ⟨a, fun t htt => c t (ht t htt)⟩
 
 /-- The part of a source read alike, below a prefix of the context. -/
 @[expose] noncomputable def srcReadsTake (dev : Nat → Module) (i r : Nat) (n : Name) : Env :=
@@ -1159,7 +1140,7 @@ theorem srcReadsTake_isSome {i r : Nat} {n d : Name} :
 
 /-- **A closed prefix of a context is read from its sources** (the reach's lemma, at the
 instance): the part of the context below a name, with the sources' reads restricted to it. -/
-theorem reading_part {i : Nat} (hok : ∀ j ≤ i, LocalOk .verified pins dev j) (r : Nat) :
+theorem reading_part {i : Nat} (hok : ∀ j ≤ i, LocalOk .verified pins maxNatSize dev j) (r : Nat) :
     CtxRead (streamEnv ((dev i).ctx.take r)) (srcOwn dev i) (srcReadsTake dev i r) := by
   have hK := (hok i (Nat.le_refl i)).importOk
   have hnd : NodupNames (streamEnv (dev i).ctx) := hK.nodup

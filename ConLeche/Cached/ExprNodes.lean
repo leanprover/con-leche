@@ -57,17 +57,20 @@ enumerated here by hand and this list is the pin.  It has ONE row.
    feature `Lean.Expr` itself is built from.
 
 **Why the equalities are not rows.**  The pointer-first
-`Name.beqPtr`/`Level.beqPtr` and the pointer-first, memoised
-`Expr.beqMemo` (`ConLeche/Kernel/Name.lean`, `ConLeche/Kernel/Expr.lean`)
-replace `Name.beq`/`Level.beq`/`Expr.beq` in compiled code through
-**`@[csimp]`**, i.e. on the strength of a *kernel-checked equality*
-(`Name.beq_eq_beqPtr`, `Level.beq_eq_beqPtr`, `Expr.beq_eq_beqMemo`) —
+`Name.decEqPtr`/`Level.decEqPtr`/`Literal.decEqPtr` and the
+pointer-first, memoised `Expr.beqMemo` (`ConLeche/Kernel/Name.lean`,
+`ConLeche/Kernel/Expr.lean`) replace the structural
+`Name.decEq`/`Level.decEq`/`Literal.decEq` and `Expr.beq` in compiled
+code through **`@[csimp]`**, i.e. on the strength of a *kernel-checked
+equality* (`Name.decEq_eq_decEqPtr`, `Level.decEq_eq_decEqPtr`,
+`Literal.decEq_eq_decEqPtr`, `Expr.beq_eq_beqMemo`) —
 **USER RULING, 2026-09-05, verbatim:** *"do *not* use
 `implemented_by`.  If you can prove them equal, use `csimp`."*  A
 `csimp` substitution is not an escape at all: the compiler's substitution is
 justified by a theorem this repository proves, not by an unchecked attribute.
-The address reads behind them go through `Init.Util`'s `withPtrEq` and
-`withPtrAddr`, whose side conditions those files discharge, and the
+The address reads behind them go through `Init.Util`'s `withPtrEq`,
+`withPtrEqDecEq` and `withPtrAddr`, whose side conditions those files
+discharge, and the
 equality memo carries its invariant in its value type (`Expr.EqPair`)
 and verifies every hit by identity.  The tree's compiler-escape scan
 (`tests/trust-surface.sh`) is the gate that keeps the census at this

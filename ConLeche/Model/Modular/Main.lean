@@ -29,16 +29,16 @@ open ConLeche.Term (Term)
 
 universe w
 
-variable {V : Type w} [SetTheory V] {pins : List NatOpPinSet}
+variable {V : Type w} [SetTheory V] {pins : List NatOpPinSet} {maxNatSize : Nat}
 
 /-- The view module `i` reads of module `b`: `b`'s own environment, exposing what `i` reads alike
 from it. -/
 @[expose] def viewOf (dev : Nat → Module) (i b : Nat) : XEnv :=
   ((dev b).own, fun n => ((dev i).context.find? n).isSome = true ∧ Agree dev i b n)
 
-variable (V pins) in
+variable (V pins maxNatSize) in
 /-- **A development of modules over the instance.** -/
-@[expose] noncomputable def toDev (dev : Nat → Module) : Development (conlecheSemantics V pins) where
+@[expose] noncomputable def toDev (dev : Nat → Module) : Development (conlecheSemantics V pins maxNatSize) where
   ctx j := ((dev j).context, fun _ => True)
   decls j := (dev j).decls
   own j := ((dev j).own, fun _ => True)
@@ -60,20 +60,20 @@ theorem findIdx_le {α : Type} {p : α → Bool} :
 
 /-- **A part of the context read from the sources is assembled from them**: a part `C` of the
 context, read from the sources' own environments at parts of what is read alike. -/
-theorem assembled_reads {dev : Nat → Module} {i : Nat} (hK : ImportOk .verified pins dev i)
+theorem assembled_reads {dev : Nat → Module} {i : Nat} (hK : ImportOk .verified pins maxNatSize dev i)
     {C : Env} {R : Name → Env}
     (hC : ∀ n, (C.find? n).isSome = true → ((dev i).context.find? n).isSome = true)
     (hR : ∀ n d, ((dev i).context.find? n).isSome = true → ((R n).find? d).isSome = true →
       ((srcReads dev i n).find? d).isSome = true)
     (hread : CtxRead C (srcOwn dev i) R) :
-    AssembledX (C, fun _ => True) (fun x : (toDev V pins dev).Src i => x.1.2) := by
+    AssembledX (C, fun _ => True) (fun x : (toDev V pins maxNatSize dev).Src i => x.1.2) := by
   classical
-  let srcOf : Name → Option ((toDev V pins dev).Src i) := fun n =>
+  let srcOf : Name → Option ((toDev V pins maxNatSize dev).Src i) := fun n =>
     if h : ((dev i).context.find? n).isSome = true then
       some ⟨((dev i).src n, viewOf dev i ((dev i).src n)),
         List.mem_map.mpr ⟨(dev i).src n, List.mem_range.mpr (hK.src_lt n h), rfl⟩⟩
     else none
-  have hsE : srcEnv (fun x : (toDev V pins dev).Src i => x.1.2) srcOf = srcOwn dev i := by
+  have hsE : srcEnv (fun x : (toDev V pins maxNatSize dev).Src i => x.1.2) srcOf = srcOwn dev i := by
     funext n
     by_cases h : ((dev i).context.find? n).isSome = true
     · simp [srcEnv, srcOf, srcOwn, h, viewOf]
@@ -96,17 +96,17 @@ theorem assembled_reads {dev : Nat → Module} {i : Nat} (hK : ImportOk .verifie
   · simp [srcOf, h] at hx
 
 /-- **A module passing the local checks is valid.** -/
-theorem toDev_valid {dev : Nat → Module} {i : Nat} (hok : ∀ j ≤ i, LocalOk .verified pins dev j) :
-    (toDev V pins dev).Valid i := by
+theorem toDev_valid {dev : Nat → Module} {i : Nat} (hok : ∀ j ≤ i, LocalOk .verified pins maxNatSize dev j) :
+    (toDev V pins maxNatSize dev).Valid i := by
   classical
   have hK := (hok i (Nat.le_refl i)).importOk
   have hnd : NodupNames (streamEnv (dev i).ctx) := hK.nodup
   obtain ⟨q, hq⟩ := hK.accepted
   -- the sources
-  have hsrcs : ∀ x ∈ (toDev V pins dev).sources i, ∃ b < i, x = (b, viewOf dev i b) := fun x hx => by
+  have hsrcs : ∀ x ∈ (toDev V pins maxNatSize dev).sources i, ∃ b < i, x = (b, viewOf dev i b) := fun x hx => by
     obtain ⟨b, hb, rfl⟩ := List.mem_map.mp hx
     exact ⟨b, List.mem_range.mp hb, rfl⟩
-  have hmem : ∀ {j b}, b < j → (b, viewOf dev j b) ∈ (toDev V pins dev).sources j := fun h =>
+  have hmem : ∀ {j b}, b < j → (b, viewOf dev j b) ∈ (toDev V pins maxNatSize dev).sources j := fun h =>
     List.mem_map.mpr ⟨_, List.mem_range.mpr h, rfl⟩
   -- an agreeing copy is stored
   have hstored : ∀ {j b x}, Agree dev j b x → j ≤ i → b ≤ i →
@@ -207,14 +207,14 @@ theorem toDev_valid {dev : Nat → Module} {i : Nat} (hok : ∀ j ≤ i, LocalOk
 
 /-- A context name is stored in the module's own environment. -/
 theorem own_stored_of_context {dev : Nat → Module} {i j : Nat}
-    (hok : ∀ j ≤ i, LocalOk .verified pins dev j) (hj : j ≤ i) {n : Name}
+    (hok : ∀ j ≤ i, LocalOk .verified pins maxNatSize dev j) (hj : j ≤ i) {n : Name}
     (hn : ((dev j).context.find? n).isSome = true) : ((dev j).own.find? n).isSome = true := by
   obtain ⟨c, hc⟩ := Option.isSome_iff_exists.mp hn
   rw [own_find?_of_context (ImportOk.chain (hok j hj).importOk).1 hc]; rfl
 
 /-- A context name is stored by the module it is read from. -/
 theorem src_stored {dev : Nat → Module} {i j : Nat}
-    (hok : ∀ j ≤ i, LocalOk .verified pins dev j) (hj : j ≤ i) {n : Name}
+    (hok : ∀ j ≤ i, LocalOk .verified pins maxNatSize dev j) (hj : j ≤ i) {n : Name}
     (hn : ((dev j).context.find? n).isSome = true) :
     ((dev ((dev j).src n)).own.find? n).isSome = true := by
   obtain ⟨c, hc⟩ := Option.isSome_iff_exists.mp hn
@@ -224,10 +224,10 @@ theorem src_stored {dev : Nat → Module} {i j : Nat}
 
 /-- **The compatible family of models**, over the instance. -/
 theorem modularModels {dev : Nat → Module} {i : Nat}
-    (hok : ∀ j ≤ i, LocalOk .verified pins dev j) :
+    (hok : ∀ j ≤ i, LocalOk .verified pins maxNatSize dev j) :
     ∃ m : (j : Nat) → j < i + 1 → MMod V ((dev j).own, fun _ => True),
-      (toDev V pins dev).Compatible (i + 1) m :=
-  (toDev V pins dev).modular (i + 1) fun j hj =>
+      (toDev V pins maxNatSize dev).Compatible (i + 1) m :=
+  (toDev V pins maxNatSize dev).modular (i + 1) fun j hj =>
     toDev_valid fun k hk => hok k (by omega)
 
 end ConLeche.Model.Modular

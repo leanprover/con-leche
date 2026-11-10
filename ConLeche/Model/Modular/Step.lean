@@ -27,7 +27,7 @@ open ConLeche.Term (Term)
 
 universe w
 
-variable {V : Type w} [SetTheory V] {pins : List NatOpPinSet}
+variable {V : Type w} [SetTheory V] {pins : List NatOpPinSet} {maxNatSize : Nat}
 
 /-- A name stored, or pushed, is stored after a push. -/
 theorem find?_pushDelta_isSome {E : Env} {L : List ConstantInfo} {Q : List ProjTable} {n : Name}
@@ -154,33 +154,34 @@ theorem new_proof_leaf {F : Nat} {env env₂ : Env} {d : Declaration}
     rcases hrec with ⟨_, _, _, h, -⟩ | ⟨_, _, h, -⟩ | ⟨_, _, h, -⟩ | ⟨_, h, -⟩ <;> cases h
 
 /-- **A module's own records, installed on its context's model** (see the module docstring): a
-covered carrier at the context, with the η-family closure, the `Nat` facts and every proof's leaf
+covered carrier at the context, with the `Nat` facts and every proof's leaf
 the canonical proof, carries to one at the own environment that keeps every context leaf. -/
 theorem declsRun_proofs :
-    ∀ {ds : List Declaration} {p q : Nat × FEnv}, DeclsRun .verified pins ds p q →
+    ∀ {ds : List Declaration} {p q : Nat × FEnv}, DeclsRun .verified pins maxNatSize ds p q →
     ∀ {E : Env}, p.2 = mkFEnv E →
-    ∀ mp : EnvModelM V E, LfpCover mp [] → EtaFamiliesClosed E → NatFacts E →
+    ∀ mp : EnvModelM V E, LfpCover mp [] → NatFacts E →
       ProofLeaves V E mp.base2.acval →
     ∃ mp' : EnvModelM V q.2.env,
       (∀ n, (E.find? n).isSome = true → mp'.base2.acval n = mp.base2.acval n) ∧
-      LfpCover mp' [] ∧ EtaFamiliesClosed q.2.env ∧ NatFacts q.2.env ∧
+      LfpCover mp' [] ∧ NatFacts q.2.env ∧
       ProofLeaves V q.2.env mp'.base2.acval := by
   intro ds p q hrun
   induction hrun with
   | nil p =>
-    intro E hp mp hcov hE hN hPL
+    intro E hp mp hcov hN hPL
     rw [hp]
-    exact ⟨mp, fun _ _ => rfl, hcov, hE, hN, hPL⟩
+    exact ⟨mp, fun _ _ => rfl, hcov, hN, hPL⟩
   | @cons pd ds p p₁ q hstep rest ih =>
-    intro E hp mp hcov hE hN hPL
+    intro E hp mp hcov hN hPL
     obtain ⟨fe₁, s₁, rfl, hstepC⟩ := declStep_ok hstep
     rw [hp] at hstepC
     have henv : EnvWF E := mp.base2.wf
-    obtain ⟨-, hcanon, F, hF⟩ := checkDeclStepC_run henv CSOKF.empty hstepC
+    obtain ⟨-, hcanon, F, hF⟩ := checkDeclStepC_run henv (CSOKF.fresh _) hstepC
     have hrunD := checkDeclRun_ofEnvFactsK hF
-    obtain ⟨⟨mp₁, hleaf₁, hcov₁, hPL₁⟩, hE₁, hN₁⟩ := declStep_agrees mp hcov hE hN hrunD
+    obtain ⟨⟨mp₁, hleaf₁, hcov₁, hPL₁⟩, hN₁⟩ := declStep_agrees mp hcov hN hrunD
     have hch : PushChain E fe₁ :=
-      checkDeclStepC_push (pins := pins) .verified (PushChain.refl E) pd {} fe₁ s₁ hstepC
+      checkDeclStepC_push (pins := pins) .verified (PushChain.refl E) pd { maxNatSize := maxNatSize } fe₁ s₁
+        hstepC
     -- every proof's leaf, after the record
     have hPLn : ProofLeaves V fe₁.env mp₁.base2.acval := by
       intro n ci hf hk
@@ -198,7 +199,8 @@ theorem declsRun_proofs :
           | none => rfl
           | some _ => rw [h] at hold; exact absurd rfl hold
         have hfe₁ : fe₁.env = streamEnv [pd] E := by
-          have h₁ := checkDeclStepC_pushes (pins := pins) .verified (mkFEnv E) pd {} fe₁ s₁ hstepC
+          have h₁ := checkDeclStepC_pushes (pins := pins) .verified (mkFEnv E) pd { maxNatSize := maxNatSize } fe₁
+            s₁ hstepC
           simp only at h₁
           rw [h₁, pushDelta_env]
           rfl
@@ -213,10 +215,10 @@ theorem declsRun_proofs :
         by_cases hqs : n = quotSoundName
         · subst hqs; exact quotSound_leaf mp₁ hf
         exact new_proof_leaf hrunD hch rfl hmem hleaf₁ hPL₁ hf hnew hk hqs hc
-    obtain ⟨mp', hleaf', hcov', hE', hN', hPL'⟩ :=
-      ih (E := fe₁.env) hcanon mp₁ hcov₁ hE₁ hN₁ hPLn
+    obtain ⟨mp', hleaf', hcov', hN', hPL'⟩ :=
+      ih (E := fe₁.env) hcanon mp₁ hcov₁ hN₁ hPLn
     have hst : ∀ n, (E.find? n).isSome = true → (fe₁.env.find? n).isSome = true := fun n h => by
       rw [pushChain_find_old hch h]; exact h
-    exact ⟨mp', fun n hn => (hleaf' n (hst n hn)).trans (hleaf₁ n hn), hcov', hE', hN', hPL'⟩
+    exact ⟨mp', fun n hn => (hleaf' n (hst n hn)).trans (hleaf₁ n hn), hcov', hN', hPL'⟩
 
 end ConLeche.Model.Modular

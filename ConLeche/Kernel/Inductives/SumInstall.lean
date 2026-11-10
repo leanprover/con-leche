@@ -22,8 +22,8 @@ Every constructor's type is checked at the environment holding the
 type former alone and the constructors are consed afterwards: they
 never mention each other, and this order keeps the install soundness
 one-pass (each constructor's reading is taken at the one environment,
-and crossed).  The index-threaded twins are
-`ConLeche/Kernel/Inductives/SumInstallF.lean`.
+and crossed).  The cached driver runs the twins of
+`ConLeche/Cached/IndBlock.lean`.
 -/
 
 namespace ConLeche

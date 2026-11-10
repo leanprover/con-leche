@@ -1,6 +1,7 @@
 module
 
 public import ConLeche.Cached.StreamIndex
+import ConLeche.Verify.Cached.WalkersC
 
 public section
 
@@ -32,7 +33,8 @@ theorem declTables_fillDecl (d : Declaration) : declTables (fillDecl F d) = decl
 
 theorem StreamIndex.add_fillDecl (I : StreamIndex) (d : Declaration) :
     I.add (fillDecl F d) = I.add d := by
-  simp only [StreamIndex.add, declConstants_fillDecl, declTables_fillDecl]
+  simp only [StreamIndex.add, declConstantsC_eq, declConstants_fillDecl, declTablesC_eq,
+    declTables_fillDecl]
 
 /-- **The index, at any theorems' values.** -/
 theorem buildIndex_fill (ds : Array Declaration) :

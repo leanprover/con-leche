@@ -2,6 +2,7 @@ module
 
 public import ConLeche.Driver.CheckMain
 public import ConLeche.Driver.Reach
+import ConLeche.Verify.Cached.DeclNames
 
 @[expose] public section
 
@@ -168,7 +169,8 @@ the verdict.  `alone`: the process's one check (`--module`); else one module of 
 mode, whose data is freed with it (nothing marked persistent, no statistics) and whose verdict
 line names it. -/
 def checkModuleG {μ : Type → Type} [CheckerIO μ] (rd : OleanReads μ) (sp : Roots) (m : Name)
-    (mode : CheckMode) (pace : Pace) (jobs : Nat) (alone : Bool := true) : μ UInt8 := do
+    (mode : CheckMode) (maxNatSize : Nat) (pace : Pace) (jobs : Nat) (alone : Bool := true) :
+    μ UInt8 := do
   let t0 ← clockMs
   let modeTag : String := match mode with
     | .verified => "--verified"
@@ -192,7 +194,7 @@ def checkModuleG {μ : Type → Type} [CheckerIO μ] (rd : OleanReads μ) (sp : 
         {w.reach.ctx.size} context records t={ConLeche.Cached.msSecs (tParse - t0)}s \
         (parse {ConLeche.Cached.msSecs (tParse - t0)}s)"
     verdictG modeTag w.own.size t0 ds
-      (← checkOleansG mode pace t0 tIndex tParse jobs sp #[⟨m, w.home.frontier⟩] J
+      (← checkOleansG mode maxNatSize pace t0 tIndex tParse jobs sp #[⟨m, w.home.frontier⟩] J
         w.reach.ctx.size alone w.values)
       (if alone then "" else s!"module {m}: ")
 

@@ -3,6 +3,7 @@ module
 public import ConLeche.Cached.StreamIndex
 public import ConLeche.Verify.Cached.ViewCongr
 public import ConLeche.Verify.Cached.PushChain
+import ConLeche.Verify.Cached.WalkersC
 
 /-!
 # Every job passing is an accept of the fold
@@ -201,7 +202,7 @@ theorem IndexSpec.add {ds : List Declaration} {I : StreamIndex} (h : IndexSpec d
   have ht := insertTables_spec ds.length (A := recsTables 0 ds) (declTables pd) I.base.tbls h.tbls
   have hsz := h.size
   constructor
-  · simp only [StreamIndex.add, hnext]
+  · simp only [StreamIndex.add, hnext, declConstantsC_eq]
     rw [hc.1, recsConsts_snoc, List.length_append]
   · intro k hk
     simp only [StreamIndex.add, List.length_append, List.length_cons, List.length_nil] at hk ⊢
@@ -213,10 +214,10 @@ theorem IndexSpec.add {ds : List Declaration} {I : StreamIndex} (h : IndexSpec d
       rw [ite_eq_right (by omega), h.firsts k hlt, List.take_append_of_le_length (by omega)]
   · simp [StreamIndex.add, hsz]
   · intro n
-    simp only [StreamIndex.add, hnext]
+    simp only [StreamIndex.add, hnext, declConstantsC_eq]
     rw [hc.2 n, recsConsts_snoc]
   · intro T
-    simp only [StreamIndex.add, hsz]
+    simp only [StreamIndex.add, hsz, declTablesC_eq]
     rw [ht T, recsTables_snoc]
     simp
 
@@ -319,15 +320,21 @@ theorem streamEnv_tables (ds : List Declaration) (env : Env) :
 
 theorem blockTables_sublist (p : BlockShape) :
     ∀ l : List MemberShape,
-      ((blockTables p l).map (·.structName)).Sublist (l.map (·.declared.name))
+      (((blockTables p l).getD []).map (·.structName)).Sublist (l.map (·.declared.name))
   | [] => .refl _
   | ms :: rest => by
     have ih := blockTables_sublist p rest
     simp only [blockTables, List.map_cons]
     split
-    · split
-      · exact ih.cons_cons _
-      · exact ih.cons _
+    · rename_i c _
+      cases structProjBodies ms.declared.name p.nP c.2 c.1.type with
+      | none => exact List.nil_sublist _
+      | some bodies =>
+        cases h : blockTables p rest with
+        | none => exact List.nil_sublist _
+        | some Qr =>
+          rw [h] at ih
+          exact ih.cons_cons _
     · exact ih.cons _
 
 theorem declTables_sublist (pd : Declaration) :
@@ -335,9 +342,9 @@ theorem declTables_sublist (pd : Declaration) :
   cases pd with
   | indDecl block nP =>
     simp only [declTables, declConstants]
-    cases blockShape? nP block with
-    | none => simp
-    | some p =>
+    cases readBlock nP block with
+    | error _ => simp
+    | ok p =>
       simp only
       rw [blockConstants_names, List.append_assoc]
       exact (blockTables_sublist p p.members).trans (List.sublist_append_left _ _)
@@ -448,9 +455,11 @@ theorem viewTwin {pre rest : List Declaration} {I : StreamIndex} (hI : IndexSpec
 records before `s`**, position by position, where the names of those records are distinct. -/
 theorem jobs_run_from {ds : Array Declaration} {s : Nat}
     (hnd : NodupNames (streamEnv (ds.toList.take s)))
-    (h : ∀ k (hk : k < ds.size), s ≤ k → recordJob mode pins (buildIndex ds) k ds[k] = .ok ()) :
+    (h : ∀ k (hk : k < ds.size), s ≤ k →
+      recordJob mode pins maxNatSize (buildIndex ds) k ds[k] = .ok ()) :
     ∀ k, s ≤ k → k ≤ ds.size → ∃ fe,
-      DeclsRun mode pins ((ds.toList.take k).drop s) (s, mkFEnv (streamEnv (ds.toList.take s)))
+      DeclsRun mode pins maxNatSize ((ds.toList.take k).drop s)
+        (s, mkFEnv (streamEnv (ds.toList.take s)))
         (k, fe) ∧
       PushChain (streamEnv (ds.toList.take s)) fe ∧ fe = mkFEnv (streamEnv (ds.toList.take k)) := by
   intro k hsk
@@ -486,11 +495,11 @@ theorem jobs_run_from {ds : Array Declaration} {s : Nat}
     split at hjob
     case isFalse => exact nomatch hjob
     rename_i hand
-    rcases checkDeclStepC_twin (mode := mode) pins ht ds[k] {} with
+    rcases checkDeclStepC_twin (mode := mode) pins ht ds[k] { maxNatSize := maxNatSize } with
       ⟨e, -, h₂⟩ | ⟨a₁, a₂, s', h₁, h₂, L', Q', rfl, rfl⟩
     · rw [h₂] at hjob; exact nomatch hjob
-    · have hpush := checkDeclStepC_pushes (pins := pins) mode fe ds[k] {} _ s' h₁
-      have hstep : declStep mode pins (k, fe) ds[k] = .ok (k + 1, FEnv.pushDelta L' Q' fe) := by
+    · have hpush := checkDeclStepC_pushes (pins := pins) mode fe ds[k] { maxNatSize := maxNatSize } _ s' h₁
+      have hstep : declStep mode pins maxNatSize (k, fe) ds[k] = .ok (k + 1, FEnv.pushDelta L' Q' fe) := by
         unfold declStep
         simp only [hand, ↓reduceIte, h₁]
       have hL : ds.toList.take (k + 1) = ds.toList.take k ++ [ds[k]] := by
@@ -498,7 +507,8 @@ theorem jobs_run_from {ds : Array Declaration} {s : Nat}
         simp [Array.getElem?_eq_getElem hk']
       have hD : (ds.toList.take (k + 1)).drop s = (ds.toList.take k).drop s ++ [ds[k]] := by
         rw [hL, List.drop_append_of_le_length (by omega)]
-      have hchain' := checkDeclStepC_push (pins := pins) mode hchain ds[k] {} _ s' h₁
+      have hchain' :=
+        checkDeclStepC_push (pins := pins) mode hchain ds[k] { maxNatSize := maxNatSize } _ s' h₁
       have hfe' : FEnv.pushDelta L' Q' fe = mkFEnv (streamEnv (ds.toList.take (k + 1))) := by
         rw [hpush, hfe, pushDelta_mkFEnv, hL]
         congr 1
@@ -508,8 +518,8 @@ theorem jobs_run_from {ds : Array Declaration} {s : Nat}
 
 /-- **Every job passing is an accept of the fold**, at the environment the records denote. -/
 theorem checkDecls_of_jobs {ds : Array Declaration}
-    (h : ∀ k (hk : k < ds.size), recordJob mode pins (buildIndex ds) k ds[k] = .ok ()) :
-    checkDecls mode pins ds = .ok (streamEnv ds.toList) := by
+    (h : ∀ k (hk : k < ds.size), recordJob mode pins maxNatSize (buildIndex ds) k ds[k] = .ok ()) :
+    checkDecls mode pins maxNatSize ds = .ok (streamEnv ds.toList) := by
   obtain ⟨fe, hrun, -, hfe⟩ := jobs_run_from (s := 0) (by simp [NodupNames, streamEnv, Env.empty])
     (fun k hk _ => h k hk) ds.size (Nat.zero_le _) (Nat.le_refl _)
   rw [List.take_of_length_le (by simp)] at hrun hfe
@@ -524,8 +534,8 @@ run of the own records from the context's environment, ending at the own environ
 theorem checkDecls_of_jobs_from {ctx own : Array Declaration}
     (hnd : NodupNames (streamEnv ctx.toList))
     (h : ∀ k (hk : k < (ctx ++ own).size), ctx.size ≤ k →
-      recordJob mode pins (buildIndex (ctx ++ own)) k (ctx ++ own)[k] = .ok ()) :
-    DeclsRun mode pins own.toList (ctx.size, mkFEnv (streamEnv ctx.toList))
+      recordJob mode pins maxNatSize (buildIndex (ctx ++ own)) k (ctx ++ own)[k] = .ok ()) :
+    DeclsRun mode pins maxNatSize own.toList (ctx.size, mkFEnv (streamEnv ctx.toList))
       (ctx.size + own.size, mkFEnv (streamEnv own.toList (streamEnv ctx.toList))) := by
   have htk : (ctx ++ own).toList.take ctx.size = ctx.toList := by simp
   obtain ⟨fe, hrun, -, hfe⟩ := jobs_run_from (ds := ctx ++ own) (s := ctx.size)

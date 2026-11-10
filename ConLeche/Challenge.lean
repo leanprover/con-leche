@@ -67,6 +67,11 @@ equation of the two sides' denotations.
   that declares `Nat.div` simply declines).  The shipped `con-leche`
   binary runs the fold at `ConLeche.natOpPinSets`, the variants this
   toolchain committed.
+* `maxNatSize : Nat` is the largest `Nat` numeral, in bytes, the fold
+  takes in or computes; a larger one makes it reject, as the official
+  kernel does.  The statements hold at every `maxNatSize`.  The shipped
+  binary runs the fold at the official default, 128 MiB, unless
+  `--max-nat-size` sets another.
 * `Model V env` (`ConLeche/Denotes.lean`) is a model of `env` in `V`,
   built on `Denotes`, the reading of a checker term as a set; that
   file is the whole of what the main theorem's meaning rests on beyond
@@ -120,7 +125,7 @@ the process, and `--trusted` mode is outside both.  See README.md.
 * `dev : Nat → Modular.Module` is the development (`ConLeche/Modular.lean`):
   per module its context records, its own records, and for every name
   the module it is read from and its key (its home module, or for a
-  proof its statement).  `LocalOk .verified pins dev j` are module `j`'s
+  proof its statement).  `LocalOk .verified pins maxNatSize dev j` are module `j`'s
   local checks: its interface presents its own records, and as an
   importer its context is made of presented records read as their
   homes read them, its own records are accepted from it by the fold's
@@ -143,8 +148,8 @@ universe w
 /-- **The main theorem.**  Every environment the checker accepts has a
 model in every set theory. -/
 theorem model_exists (V : Type w) [SetTheory V]
-    (pins : List NatOpPinSet) (ds : Array Declaration) (env : Env)
-    (accepted : checkDecls .verified pins ds = .ok env) :
+    (pins : List NatOpPinSet) (maxNatSize : Nat) (ds : Array Declaration) (env : Env)
+    (accepted : checkDecls .verified pins maxNatSize ds = .ok env) :
     Nonempty (Model V env) :=
   sorry
 
@@ -152,21 +157,21 @@ open Frontend in
 /-- **The main corollary.**  A file declaring a theorem of type `False`
 in the shape `jsonWithTheoremFalse` describes is rejected. -/
 theorem no_False_declaration (V : Type w) [SetTheory V]
-    (pins : List NatOpPinSet) (chunks : List ByteArray)
+    (pins : List NatOpPinSet) (maxNatSize : Nat) (chunks : List ByteArray)
     (h : jsonWithTheoremFalse chunks) :
     ∃ e, (do
       let pre ← builtinPreludeE
       let r ← parseChunks chunks
       let ds := preparePrelude pre r.decls
-      checkDecls .verified pins ds) = .error e :=
+      checkDecls .verified pins maxNatSize ds) = .error e :=
   sorry
 
 
 open Modular in
 /-- **The modular theorem.** -/
 theorem modular_model_exists (V : Type w) [SetTheory V]
-    (pins : List NatOpPinSet) (dev : Nat → Modular.Module) (i : Nat)
-    (hok : ∀ j ≤ i, Modular.LocalOk .verified pins dev j) :
+    (pins : List NatOpPinSet) (maxNatSize : Nat) (dev : Nat → Modular.Module) (i : Nat)
+    (hok : ∀ j ≤ i, Modular.LocalOk .verified pins maxNatSize dev j) :
     ∃ m : ∀ j ≤ i, Model V (dev j).own,
       (∀ j hj n, ((dev j).context.find? n).isSome = true →
         ∃ h : (dev j).src n ≤ i, (m j hj).cval n = (m ((dev j).src n) h).cval n) ∧
@@ -176,8 +181,8 @@ theorem modular_model_exists (V : Type w) [SetTheory V]
 
 /-- **The modular corollary**: no module's own environment stores a constant of type `False`. -/
 theorem modular_no_False (V : Type w) [SetTheory V]
-    (pins : List NatOpPinSet) (dev : Nat → Modular.Module) (i : Nat)
-    (hok : ∀ j ≤ i, Modular.LocalOk .verified pins dev j) :
+    (pins : List NatOpPinSet) (maxNatSize : Nat) (dev : Nat → Modular.Module) (i : Nat)
+    (hok : ∀ j ≤ i, Modular.LocalOk .verified pins maxNatSize dev j) :
     ∀ j ≤ i, ∀ c ∈ (dev j).own.consts, c.toConstantVal.type = .const falseName [] → False :=
   sorry
 

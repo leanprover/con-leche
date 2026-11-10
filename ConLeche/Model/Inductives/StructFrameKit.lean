@@ -27,8 +27,7 @@ public section
 # Block library: a constructor's frames and the former's stage data
 
 The single-constructor readings the block stages are built from, one
-section per topic: the Π-prefix walk; `CapsOk` across the
-member conses; the stored types' readings; the opened frames, their
+section per topic: the Π-prefix walk; the stored types' readings; the opened frames, their
 rows and telescope walks; the two parameter frames identified; fits;
 the former's stage data.
 -/
@@ -248,21 +247,6 @@ theorem openPisAtFvars_of_stripPis_sort :
       simp [Expr.stripPis] at h
 
 
-/-!
-## `CapsOk` across the block's member conses
-
-The block's three non-entry conses — the former, the constructor and
-the recursor — are exactly the head kinds `capsOk_cons_fresh`
-refutes, because a head of those kinds can *complete* a stored family
-(`EtaFamilyStored`).  Here the only family a block cons can complete
-is the block's own (`T`): every other stored family's capability
-constructor is stored already (the fold's `EtaFamiliesClosed` at the
-pre-block environment).  So the prefix families' laws cross as at any
-fresh cons, and the block's own family's laws are the check's
-premise.
--/
-
-
 open ConLeche.Term ConLeche.Verify SetTheory
 
 open ConLeche (Env Expr Name Level ConstantInfo ConstantVal IndCaps)
@@ -270,125 +254,6 @@ open ConLeche (Env Expr Name Level ConstantInfo ConstantVal IndCaps)
 universe w
 
 variable {V : Type w} [SetTheory V] {env : Env}
-
-/-- **The block's own capability laws at a carrier** (task #210 Part
-A): what `capsOk_cons_native` asks of the family being installed at
-each of its conses — the η law where the family claims η and is
-stored complete, the unit law where it claims unit-likeness.  A stage
-takes it as a hypothesis about the carrier it builds; the assembly
-discharges it from the leaves (or vacuously: `capsLawsAt_vacuous`). -/
-@[expose] def CapsLawsAt {env : Env} (m : EnvModel V env) (T : Name) (cvT : ConstantVal)
-    (caps : IndCaps) : Prop :=
-  (caps.eta = true → ConLeche.EtaFamilyStored env T caps →
-    ∀ φ' : Name → Nat, EtaLaw m φ' T cvT caps) ∧
-  (caps.unitlike = true → ∀ φ' : Name → Nat, UnitLaw m φ' T cvT caps)
-
-/-- A record claiming η at a family with a field and no unit-likeness
-owes nothing: the η half's premise `EtaFamilyStored` asks for no
-field. -/
-theorem capsLawsAt_vacuous {env : Env} (m : EnvModel V env) {T : Name} {cvT : ConstantVal}
-    {caps : IndCaps} (hU : caps.unitlike = false)
-    (hE : caps.eta = true → 0 < caps.etaFields) :
-    CapsLawsAt m T cvT caps := by
-  refine ⟨fun he hfam => ?_, fun hu => absurd (hU.symm.trans hu) Bool.false_ne_true⟩
-  exfalso
-  obtain ⟨-, -, h0⟩ := hfam
-  exact absurd h0 (Nat.pos_iff_ne_zero.mp (hE he))
-
-/-- A family whose capability constructor is stored in the prefix does
-not have this cons's head as that constructor — `hother`'s shape at a
-prefix where every other stored family is CLOSED. -/
-theorem etaCtor_ne_of_closed {env : Env} {c₀ : ConstantInfo} {caps' : IndCaps}
-    (hfresh : env.find? c₀.name = none)
-    (h : ∃ cvC', env.find? caps'.etaCtor
-      = some (.ctorInfo cvC' caps'.etaParams caps'.etaFields)) :
-    caps'.etaCtor ≠ c₀.name := by
-  obtain ⟨cvC', hfC'⟩ := h
-  intro hh
-  rw [hh, hfresh] at hfC'
-  exact nomatch hfC'
-
-/-- **`CapsOk` at a block-member cons.**  The head is fresh, and
-either the block's former itself or not an inductive at all; every other stored family's capability constructor
-is NOT this head (`hother`, which may consume the family's storedness
-AT THE EXTENSION — so that a block's still-pending members are refuted
-from the head's KIND rather than from closure); the block's own
-family's laws at the extension are supplied (`hTlaws`). -/
-theorem capsOk_cons_native (mp : EnvModelM V env)
-    {c₀ : ConstantInfo} {A : (Name → Nat) → Term} {T : Name}
-    (hfresh : env.find? c₀.name = none)
-    (hkind : (∃ cvT caps, c₀ = .indInfo cvT caps ∧ c₀.name = T) ∨
-      ∀ cv caps, c₀ ≠ .indInfo cv caps)
-    (hother : ∀ (T' : Name) (cvT' : ConstantVal) (caps' : IndCaps),
-      env.find? T' = some (.indInfo cvT' caps') → T' ≠ T →
-      ConLeche.reservedBasisNames.contains T' = false →
-      caps'.eta = true →
-      ConLeche.EtaFamilyStored ⟨c₀ :: env.consts, env.tables⟩ T' caps' →
-      caps'.etaCtor ≠ c₀.name)
-    (m₂ : EnvModel V ⟨c₀ :: env.consts, env.tables⟩)
-    (hac : m₂.acval = acvalWith mp.base2.acval c₀.name A)
-    (hTlaws : ∀ (cvT : ConstantVal) (caps : IndCaps),
-      (⟨c₀ :: env.consts, env.tables⟩ : Env).find? T = some (.indInfo cvT caps) →
-      ConLeche.reservedBasisNames.contains T = false →
-      (caps.eta = true → ConLeche.EtaFamilyStored ⟨c₀ :: env.consts, env.tables⟩ T caps →
-        ∀ φ' : Name → Nat, EtaLaw m₂ φ' T cvT caps) ∧
-      (caps.unitlike = true → ∀ φ' : Name → Nat, UnitLaw m₂ φ' T cvT caps)) :
-    CapsOk m₂ := by
-  -- a stored family other than the block's is a prefix lookup
-  have hdown : ∀ n : Name, n ≠ c₀.name →
-      (⟨c₀ :: env.consts, env.tables⟩ : Env).find? n = env.find? n := by
-    intro n hn
-    rw [ConLeche.Env.find?_cons, ite_eq_right (fun hh => hn hh.symm)]
-  have hneT : ∀ (T' : Name) (cvT' : ConstantVal) (caps' : IndCaps),
-      (⟨c₀ :: env.consts, env.tables⟩ : Env).find? T' = some (.indInfo cvT' caps') →
-      T' ≠ T → T' ≠ c₀.name := by
-    intro T' cvT' caps' hf hne hh
-    rcases hkind with ⟨cvT₀, caps₀, rfl, hname⟩ | hnotind
-    · exact hne (hh.trans hname)
-    · rw [hh, ConLeche.Env.find?_cons_self] at hf
-      exact hnotind cvT' caps' (Option.some.inj hf)
-  constructor
-  · -- the η half
-    intro T' cvT' caps' hf hcape hres hfam φ' us hlen
-    by_cases hTT : T' = T
-    · subst hTT
-      exact (hTlaws cvT' caps' hf hres).1 hcape hfam φ' us hlen
-    have hnT' : T' ≠ c₀.name := hneT T' cvT' caps' hf hTT
-    have hfE : env.find? T' = some (.indInfo cvT' caps') := by
-      rwa [hdown _ hnT'] at hf
-    -- the family's names are all prefix lookups
-    have hnC : caps'.etaCtor ≠ c₀.name := hother T' cvT' caps' hfE hTT hres hcape hfam
-    have hfam₀ : ConLeche.EtaFamilyStored env T' caps' := by
-      obtain ⟨hCres, ⟨cvC'', hfC''⟩, hfP⟩ := hfam
-      exact ⟨hCres, ⟨cvC'', by rwa [hdown _ hnC] at hfC''⟩, hfP⟩
-    obtain ⟨hlaw, hcoh⟩ :=
-      mp.caps_ok.1 T' cvT' caps' hfE hcape hres hfam₀ φ' us hlen
-    refine ⟨?_, ?_⟩
-    · intro ρ ts x hlents hfit hmem
-      rw [hac, acvalWith_ne hnT'] at hmem hfit
-      rw [hac, acvalWith_ne hnC]
-      exact hlaw ρ ts x hlents hfit hmem
-    · refine hcoh.transport (fun cvC nPc nFc hf₂ => ?_)
-        (fun cvC nPc nFc TCa hf hTCa => ?_) (by rw [hac, acvalWith_ne hnT'])
-        (fun _ _ _ => rfl)
-      · rwa [hdown _ hnC] at hf₂
-      · rw [hac]
-        exact denote_cons_mono hfresh _ 0
-          (constsBound_instType mp.base2.wf
-            (ConLeche.Env.find?_mem hf) us) hTCa
-  · -- the unit-like half
-    intro T' cvT' caps' hf hcapu hres φ' us hlen
-    by_cases hTT : T' = T
-    · subst hTT
-      exact (hTlaws cvT' caps' hf hres).2 hcapu φ' us hlen
-    have hnT' : T' ≠ c₀.name := hneT T' cvT' caps' hf hTT
-    have hfE : env.find? T' = some (.indInfo cvT' caps') := by
-      rwa [hdown _ hnT'] at hf
-    have hlaw :=
-      mp.caps_ok.2 T' cvT' caps' hfE hcapu hres φ' us hlen
-    intro ρ ts x y hlents hfit hmx hmy
-    rw [hac, acvalWith_ne hnT'] at hmx hmy hfit
-    exact hlaw ρ ts x y hlents hfit hmx hmy
 
 
 /-!

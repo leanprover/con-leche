@@ -111,25 +111,26 @@ they return.  What the phase establishes is then a theorem about the run in the
 model (`ConLeche/Verify/Driver/Oleans.lean`), not a value's type. -/
 
 /-- Record `d`'s check at position `t`, its error tagged with the position. -/
-def jobRun (mode : CheckMode) {ds : Array Declaration} (J : Jobs ds) (t : Nat) (d : Declaration) :
+def jobRun (mode : CheckMode) (maxNatSize : Nat) {ds : Array Declaration} (J : Jobs ds) (t : Nat) (d : Declaration) :
     Except (CheckError × Nat) Unit :=
-  match Cached.recordJob mode natOpPinSets J.I t d with
+  match Cached.recordJob mode natOpPinSets maxNatSize J.I t d with
   | .ok () => .ok ()
   | .error e => .error (e, t)
 
 /-- **One job's run**, from the region a worker kept: a theorem whose value is still in its
 file reads it and is checked with it in place, any other record as it stands.  The value is
 dropped when the check ends. -/
-def oleanJobRun {μ : Type → Type} [CheckerIO μ] (mode : CheckMode) {ds : Array Declaration}
-    (J : Jobs ds) (sp : Frontend.Olean.Roots) (values : Array Frontend.Olean.ModRef)
+def oleanJobRun {μ : Type → Type} [CheckerIO μ] (mode : CheckMode) (maxNatSize : Nat)
+    {ds : Array Declaration} (J : Jobs ds) (sp : Frontend.Olean.Roots)
+    (values : Array Frontend.Olean.ModRef)
     (c : Frontend.Olean.ValueCache) (t : Nat) :
     μ (Frontend.Olean.ValueCache × Except (CheckError × Nat) Unit) :=
   match ds[t]? with
   | some (.thmDecl cv (.bvar code)) => do
     match ← Frontend.Olean.readValue sp values c code with
     | (c, .error e) => pure (c, .error (e, t))
-    | (c, .ok v) => pure (c, jobRun mode J t (.thmDecl cv v))
-  | some d => pure (c, jobRun mode J t d)
+    | (c, .ok v) => pure (c, jobRun mode maxNatSize J t (.thmDecl cv v))
+  | some d => pure (c, jobRun mode maxNatSize J t d)
   | none => pure (c, .error (.internal s!"check phase: no job {t}", t))
 
 /-- A worker of an `--olean` run's check phase: which one, its statistics, and the
@@ -140,12 +141,13 @@ structure OleanWorker where
   cache : Frontend.Olean.ValueCache := {}
 
 /-- **One job of the pool**: timed, with the heartbeat. -/
-def oleanStep {μ : Type → Type} [CheckerIO μ] (mode : CheckMode) (run : OleanRun) (pl : PoolLive)
-    {ds : Array Declaration} (J : Jobs ds) (sp : Frontend.Olean.Roots)
+def oleanStep {μ : Type → Type} [CheckerIO μ] (mode : CheckMode) (maxNatSize : Nat)
+    (run : OleanRun) (pl : PoolLive) {ds : Array Declaration} (J : Jobs ds)
+    (sp : Frontend.Olean.Roots)
     (values : Array Frontend.Olean.ModRef) (s : OleanWorker) (t : Nat) :
     μ (OleanWorker × Except (CheckError × Nat) Unit) := do
   let ts ← CheckerIO.liftIO (jobBegin pl run.pace s.w t)
-  let (c, r) ← oleanJobRun mode J sp values s.cache t
+  let (c, r) ← oleanJobRun mode maxNatSize J sp values s.cache t
   let st ← CheckerIO.liftIO (jobEnd run.err run.pace run.t0 ds pl s.w t ts (r matches .ok _) s.st)
   pure ({ s with st, cache := c }, r)
 
@@ -154,7 +156,7 @@ map, in fold order; the first failure in that order is the result, whatever the 
 timing.  A run of a closure checks every record (`start = 0`); a module's worker its own
 records, after its context's (`checkModuleG`), every worker starting from the region the home
 read kept (`seed`), so that no worker reads the module's files again. -/
-def checkOleansG {μ : Type → Type} [CheckerIO μ] (mode : CheckMode)
+def checkOleansG {μ : Type → Type} [CheckerIO μ] (mode : CheckMode) (maxNatSize : Nat)
     (pace : Pace) (t0 tIndex tParse jobs : Nat) (sp : Frontend.Olean.Roots)
     (values : Array Frontend.Olean.ModRef) {ds : Array Declaration} (J : Jobs ds)
     (start : Nat := 0) (alone : Bool := true) (seed : Frontend.Olean.ValueCache := {}) :
@@ -165,7 +167,7 @@ def checkOleansG {μ : Type → Type} [CheckerIO μ] (mode : CheckMode)
   -- the kept region every worker starts from is shared like the references (`OleanRun.pool`)
   let (pl, tStart) ← CheckerIO.liftIO (run.pool n workers (values, seed))
   let (ss, res) ← CheckerIO.parMapWorkers jobs (fun w => ({ w, cache := seed } : OleanWorker))
-    (oleanStep mode run pl J sp values) (List.range' start n)
+    (oleanStep mode maxNatSize run pl J sp values) (List.range' start n)
   let failure := match res with
     | .error e => some e
     | .ok _ => none
@@ -256,14 +258,14 @@ parse, established from the good entries its rounds built
 are proved invisible (`parseStreamG_model`: the file's bytes as one
 chunk).  `Frontend.prepareD` is `Frontend.preparePrelude` plus the
 receipts printed below.  `checkDeclsIO` returns the evidence
-`∃ env, checkDecls mode natOpPinSets ds = .ok env`.  What the driver adds is
+`∃ env, checkDecls mode natOpPinSets maxNatSize ds = .ok env`.  What the driver adds is
 IO — the heartbeat, the parallel check pool, the diagnostics that say
 which step failed and with what exit code — and none of it touches
 the verdict.  The three steps fail in ONE error type, the checker's
 `CheckError` with the failure's position, which is why the
 chain is one `do` block up there and why the exit code below is
 `CheckError.exitCode` whichever step produced it. -/
-def checkMainG {μ : Type → Type} [CheckerIO μ] (input : Input) (mode : CheckMode)
+def checkMainG {μ : Type → Type} [CheckerIO μ] (input : Input) (mode : CheckMode) (maxNatSize : Nat)
     (pace : Pace) (jobs : Nat) : μ UInt8 := do
     -- The opt-in progress heartbeat (`--progress[=<pace>]`):
     -- validated by the argument parse, before any work is done, and
@@ -372,7 +374,7 @@ def checkMainG {μ : Type → Type} [CheckerIO μ] (input : Input) (mode : Check
       match src with
       | none =>
         let verdict ← CheckerIO.liftIO do
-          checkDeclsIO mode (← IO.getStderr) pace t0 tIndex tParse jobs J
+          checkDeclsIO mode maxNatSize (← IO.getStderr) pace t0 tIndex tParse jobs J
         verdictG modeTag parsed.size t0 decls (match verdict with
           | .ok _ => .ok ()
           | .error e => .error e)
@@ -380,7 +382,7 @@ def checkMainG {μ : Type → Type} [CheckerIO μ] (input : Input) (mode : Check
         -- the theorems' values are read in their checks, on the search path with the
         -- closure's roots resolved, and what the read kept of the merge is dropped here
         verdictG modeTag parsed.size t0 decls
-          (← checkOleansG mode pace t0 tIndex tParse jobs rd.roots rd.values J)
+          (← checkOleansG mode maxNatSize pace t0 tIndex tParse jobs rd.roots rd.values J)
 
 /-- **An exit 0 is the fold's accept**: the verdict's code is 0 only on an `.ok`. -/
 theorem verdictG_ok {modeTag : String} {size t0 : Nat} {decls : Array Declaration} {who : String}
@@ -409,17 +411,17 @@ the chunks `[b]`) about the file's own bytes, at any `--jobs`, whatever
 the `liftIO` actions answered.  Under the assumptions of
 `ConLeche/Frontend/CheckerIO.lean` the binary's run is one of these
 outcomes. -/
-theorem checkMainG_ndjson_accept {file : String} {mode : CheckMode}
+theorem checkMainG_ndjson_accept {file : String} {mode : CheckMode} {maxNatSize : Nat}
     {pace : Pace} {jobs : Nat} {fs : FS} {hs hs' : HS}
-    (h : (checkMainG (.ndjson file) mode pace jobs : ModelIO _) fs hs (.ok 0) hs') :
+    (h : (checkMainG (.ndjson file) mode maxNatSize pace jobs : ModelIO _) fs hs (.ok 0) hs') :
     ∃ pre b r env, Frontend.builtinPreludeE = .ok pre ∧ fs.file file = some b ∧
       Frontend.parseChunks [b] = .ok r ∧
-      Cached.checkDecls mode natOpPinSets (Frontend.preparePrelude pre r.decls) = .ok env := by
+      Cached.checkDecls mode natOpPinSets maxNatSize (Frontend.preparePrelude pre r.decls) = .ok env := by
   -- every value outcome `c` of the run: `c = 0` gives the chain
-  suffices H : ModelIO.AllOk (checkMainG (.ndjson file) mode pace jobs) fs hs
+  suffices H : ModelIO.AllOk (checkMainG (.ndjson file) mode maxNatSize pace jobs) fs hs
       (fun c => c = 0 → ∃ pre b r env, Frontend.builtinPreludeE = .ok pre ∧
         fs.file file = some b ∧ Frontend.parseChunks [b] = .ok r ∧
-        Cached.checkDecls mode natOpPinSets (Frontend.preparePrelude pre r.decls) = .ok env) from
+        Cached.checkDecls mode natOpPinSets maxNatSize (Frontend.preparePrelude pre r.decls) = .ok env) from
     H 0 hs' h rfl
   cases hp : Frontend.builtinPreludeE with
   | error x =>
