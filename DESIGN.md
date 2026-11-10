@@ -118458,6 +118458,100 @@ One commit, 81f8efe3 `perf: InLean returns whnfCore's and whnf's easy cases befo
   | `cbv_divisors` | 57.52 G | 57.10 G | −0.7 % |
   | `cbv_leroy` | 63.43 G | 62.40 G | −1.6 % |
 
+### Lane sync6: master's #551 (pointer-first equality at every level) and #552, InLean follows (2026-11-10, task #451, agent/451-sync6)
+
+**Merge.**  `master` (c3c892904: task #551, merge c1ea57128; task #552, merge c3c892904) into
+the lane from agent/451-sync5 (f8385c900), `--no-ff`.  Master had not moved past c3c892904.
+Conflicts by hand: `ConLeche/Kernel/Expr.lean` keeps master's `Literal.decEq`/`decEqPtr` and its
+instance beside the cherry-picked #547 hash (`natHash`, `Literal.hash`; no derived `Hashable`,
+so master's `instHashableLiteral.hash` row leaves the plain-reach allowlist); the whitepaper
+`#src` ranges of `Level` and `Expr` repointed at the merged lines (`whitepaper/links-gate.sh
+--update`); DESIGN.md has master's #551 and #552 records, then the #451 lane records.  The
+cherry-picks of #547 and #553 stay (master still has neither).  **Last synced master:
+c3c892904** (was f42051579).
+
+**The checklist** (`scripts/inlean-cached-diff.sh f42051579 c3c892904` and `git log -p`):
+
+* `Level.decEqPtr`, `Level.decEq` (plain, `Kernel/Expr`) — ported: `InLean.Level.decEqI` (the
+  structural decision, the instance `instDecidableEqLevelI`, replacing the derived one) and
+  `Level.decEqPtrI` (the pointer, then the cached data word, then one structural step whose
+  children start over), substituted by `@[csimp]` on `Decidable`'s subsingleton property, as
+  master.  The word is Lean's whole `Level.data` (hash, depth, flags), not the hash alone: one
+  comparison, no shift.  `Lean.Level` has a `mvar` constructor; its arm compares the ids.
+* `Literal.decEqPtr`, `Literal.decEq` (plain, `Kernel/Expr`) — ported: `Literal.decEqI`,
+  `Literal.decEqPtrI` (the literal's pointer, then the number's pointer before `Nat.decEq`;
+  `lean_string_eq` tests a string's pointer itself), `instDecidableEqLiteralI`.  The derived
+  `DecidableEq Expr` reaches both at its `.sort`, `.const` and `.lit` arms (the generated C calls
+  `Level_decEqPtrI` and `instDecidableEqLiteralI`), and so do `beqGoX`, `keyGoX` and `clGoX`
+  at their leaves.
+* `quickDefEq`'s `l₁ == l₂` (plain specification and cached `quickDefEqC`, unchanged text, but its
+  `BEq` is now the pointer-first `DecidableEq`) — ported: InLean's `==` there was core's derived
+  `BEq Literal` (no pointer test); `quickDefEqI` calls `Literal.beqI` (`decide`, run by
+  `Literal.decEqPtrI`).  `lit_beq_toLit` is restated over `Literal.beqI` (a `decide` pattern is
+  not a valid grind pattern) and no longer needs `import all Lean.Expr`.
+* `Level.beq`/`beqPtr`/`beq_eq_beqPtr` (removed in master) — followed: `Level.beqPtrI` and
+  `Level.beqI_eq_beqPtrI` are gone, `Level.beqI` is `decide` alone (the instance tests the
+  pointer).
+* `Name.decEqPtr`, `Name.decEq`, `Name.beq` (plain, `Kernel/Name`) — not applicable: InLean's
+  names are `Lean.Name`, and core's `DecidableEq Name` is `Name.beq`, the C `lean_name_eq`
+  (pointer, hash, then the components, the pointer again at every prefix: master's shape; it
+  tests the hash once, at the top, and a `num` component without its pointer).
+* `Expr.getAppArgsC` (`Cached/ExprOpsC`), the `ExprNodes` preamble — comments only.
+* #552 (`Rules/Rel.lean`'s `Red.rescueK` docstring, seven `k_skip_*` e2e fixtures) — nothing
+  to port: no executed code changed.
+
+`ptrDecNat`, `ptrDecLiteral` and `ptrDecLevel` are `withPtrEqDecEq` written out, one per type: the
+signature of `withPtrEqDecEq` differs between v4.35.0 and the fork's toolchain (as `ptrDec`'s
+note says), and the fork's `withPtrEq` is `noncomputable`, compiled only at a type the compiler
+sees is free of types, so a polymorphic helper does not compile there (the first stage1 build
+failed on it).
+
+**Proofs.**  One lemma restated (`lit_beq_toLit`, `InLeanProof/WalksDefeq.lean`, above); the
+rest read `decide (a = b)` and `LawfulBEq`, which the new instances give as the derived ones did.  `addDeclSound` unconditional, axioms unchanged
+(`propext`, `Classical.choice`, `Quot.sound`, the three `mkData` stop-gaps); no `sorry`.
+
+**Gates.**  `lake build`, `lake test`, `lake build InLean InLeanProof inlean-replay`
+warning-free; layering, trust-surface, shake, inlean-sync, plain-reach (all allowlisted), overview
+links, quote gate, whitepaper links; `_tmp/axcheck.lean` as above.  The e2e fixtures (the merge
+added #552's seven): 594/594 as expected.
+
+**Init** (`perf stat -e instructions:u`, one run each, InLean verified).  Replay `--compare`:
+64530 accepted, 0 exact and 0 cosmetic mismatches.  Cost: f8385c900 433 037 533 937 (sync5's
+run: 433 040 777 371), the lane's head 433 489 968 435 (+0.10 %; before the `quickDefEqI` port 433 495 385 946); con-leche at master c3c892904
+(`--olean --jobs=1`, 63937 declarations) 408 062 347 834 (−0.59 % from f42051579's
+410 470 691 237; InLean +6.2 %).  InLean gains nothing here: its names were already compared by
+`lean_name_eq`, the part of #551 that gave master its gain.  The +0.46 G is not attributed: a
+sampled profile puts `Level.decEqPtrI` (0.13 %) beside the derived instance it replaces
+(0.12 % + 0.05 % boxed) and the out-of-line `Level.data` read at 0.08 %; a probe that reads the
+word only at a `succ`/`max`/`imax` pair (leaves by constructor alone) measured 433 461 986 663,
+33 M less, and was not kept (it departs from master's shape for 0.01 %).
+
+**lean4** (`joachim/inlean-kernel`, remote at c19e9cc2, an ancestor of the local head 81f8efe3).
+One commit, cf1c79fa `perf: InLean compares levels and literals pointer first at every level`
+(the regeneration, `ExprEq.lean`, `ExprOps.lean`, `CoreC.lean`; and `tests/elab/csimpCore.lean`,
+which lists every `@[csimp]` on a computable definition: the two new pairs replace
+`Level.beqI`'s); `inlean-sync.py check` OK.  Stage1 rebuilt.
+
+* Stage1 suite (4845 tests): all pass but `async/elab/async_systems_info` (sandbox); every
+  `tests/elab_bench/*.lean` (93 files, `run_bench.sh`, `TEST_BENCH=1`) passes;
+  `deriving_mutual_block`'s `#mutual_block` takes 181.79 M heartbeats (unchanged);
+  `leanchecker --fresh Init` passes (514.9 G instructions; sync5 514.3 G), as does
+  `tests/elab/inleanQuotTwice.lean`; radar's part 2 (`make bench-part2` at stage1, stale
+  measurement files removed first, `bench/vcgen/measurements.jsonl` included) runs through, 539
+  measurements.
+* The radar outliers at `TEST_BENCH=1` (`lean -Dlinter.all=false -DElab.inServer=true`,
+  instructions:u, one run each; sync5's runs at 81f8efe3 → the lane):
+
+  | file | 81f8efe3 | lane | |
+  |---|---:|---:|---:|
+  | `trailingZeros` | 47.29 G | 47.31 G | +0.05 % |
+  | `bitvec_zero_counts` | 42.56 G | 42.58 G | +0.05 % |
+  | `grind_field_kernel_cancel` | 77.29 G | 77.31 G | +0.03 % |
+  | `cbv_aes` | 35.06 G | 34.99 G | −0.2 % |
+  | `grind_ring_5` | 2.298 G | 2.300 G | +0.07 % |
+  | `cbv_divisors` | 57.10 G | 57.19 G | +0.2 % |
+  | `cbv_leroy` | 62.40 G | 62.49 G | +0.15 % |
+
 ## TASK #547 — a `Nat` literal's hash reads all its bits: lean4#16146 vendored (2026-11-09, agent/547-lit-hash)
 
 The bug (#543): `Literal` derived `Hashable`, so `.natVal n` hashed as `n mod 2^64` and an
