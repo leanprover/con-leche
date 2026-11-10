@@ -518,7 +518,3 @@ ConLeche.blockFormers  # ConLeche.Kernel.Install
 ConLeche.Level.isEquivList  # ConLeche.Kernel.Level
 ConLeche.Level.isNeverZero  # ConLeche.Kernel.Level
 ConLeche.Name.beqPtr  # ConLeche.Kernel.Name
-
-# ConLeche.Kernel.KIndex — task #552's build-time switch for the K rescue's
-# index check: one match on a constant and two O(1) field reads (spike)
-ConLeche.kIndexSkip

@@ -112751,3 +112751,15 @@ measurable speed-up.
 5. *The fixtures.*  Recommendation: land the seven `k_skip_*` fixtures and
    `scripts/splice-rfl.py` with ruling 3, verdicts as pinned (official's): they guard the
    index check against a future simplification.
+
+**Maintainer's rulings (2026-11-10).**  1–2: no skip in the checker; the index check stays
+unconditional in both cores, and the spike's switch (`KIndex.lean` and everything behind
+it) stays on `agent/552-kskip`.  3: not now — `Red.rescueK` keeps its two `tf` premises,
+its docstring saying that `Red.rescueK_sound` reads neither (they are not needed for
+consistency).  4: `Red.iotaK` stays on the spike branch.  5: all seven fixtures and
+`scripts/splice-rfl.py` land on master (the kernel arena's tests may change, so the
+fixtures guard the check on their own), pinned at official's verdicts.  Follow-up, in the
+ground engine (task #423): skipping the check only on the demand path of a closed
+`t =?= true` evaluation, never inside nested checks, cannot turn an accepting run into a
+loop — where the check fails the incumbent either reduces the proof to the constructor
+(same reduct, later) or is stuck and rejects.
