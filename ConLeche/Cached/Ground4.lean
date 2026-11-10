@@ -55,7 +55,8 @@ inductive G4Info where
   | defn (name : Name) (lps : List Name) (us : List Level) (v : Expr)
   | ctor (name : Name) (us : List Level) (nP nF : Nat)
   /-- `kEta`: the single rule of a structure-like recursor; `kK`: K -/
-  | recr (lps : List Name) (us : List Level) (mI rP ruleBase nRules : Nat) (kK kEta : Bool)
+  | recr (name : Name) (lps : List Name) (us : List Level) (mI rP ruleBase nRules : Nat)
+      (kK kEta : Bool)
   | neutral
   deriving Inhabited
 
@@ -255,28 +256,10 @@ variable (find? : Name → Option ConstantInfo) (findProj? : Name → Nat → Op
 
 /-- **The K step** (task #423), `groundMode` `10`–`12`: a K-like recursor
 reduces to its rule's right-hand side at its own leading arguments, the
-major never read (`Red.iotaK`, task #552).  At `13`/`14` (round 4, the
-comparison baseline) a K major that is not a constructor aborts.  Read
+major never read (`Red.iotaK`, task #552).  At `13` (round 4, the
+comparison baseline) a K major that is not a constructor declines.  Read
 at table time only. -/
-@[noinline] def g4KSkip : Bool := !(groundMode == 13 || groundMode == 14)
-
-/-- **The η fabrication's condition** (task #423 completeness), read off
-the declarations at the rule's comparand levels `ul`: the incumbent's
-structure-η rescue (`etaRescueOk`, the reserved names, every field a
-projection-table slot, the parameter count, and a family sort that is
-never zero at `ul`, read off its type) or its `And` rescue
-(`andRescueSlotsOf`).  The incumbent's rescues fire on the major's
-inferred type; the engine reads the family and its parameters off the
-recursor instead. -/
-def g4EtaFab (find? : Name → Option ConstantInfo) (findProj? : Name → Nat → Option ProjEntry)
-    (ctor : Name) (cvj : ConstantVal) (cnP : Nat) (ul : List Level) : Bool :=
-  match ctorFamily find? cvj with
-  | some (cvT, _) =>
-    let T := cvT.name
-    -- (the structure-η half went with master's task #515 `IndCaps`; the
-    -- step is a decline on this branch, task #423 soundness)
-    (T == andName && andRescueSlotsOf findProj? ctor cnP && cvj.levelParams.length == ul.length)
-  | none => false
+@[noinline] def g4KSkip : Bool := !(groundMode == 13)
 
 /-- The table entry of the constant `c` at levels `us`, created on first
 use.  Kinds: `0` definition, `1` constructor, `2` recursor, `3` an
@@ -300,22 +283,6 @@ def g4ResolveF (findProj? : Name → Nat → Option ProjEntry) : Nat → G4Prog 
           | some (.ctorInfo cvj _ 0) =>
             let (kc, P) := g4ResolveF findProj? f P rl.ctor (gCmpLevels rl cv.levelParams us cvj.levelParams)
             (kc + 1, P)
-          | _ => (0, P)
-        else (0, P)
-      | _, _ => (0, P)
-    -- the structure-η / `And` fabrication at a neutral major (§ completeness):
-    -- the rule's constructor entry, when the incumbent's rescue conditions
-    -- hold at the rule's comparand levels, read off the declarations
-    let (keta, P) : Nat × G4Prog := match fuel, find? c with
-      | f + 1, some (.recInfo cv mI _ false [rl]) =>
-        if g4KSkip && us.length == cv.levelParams.length && (Expr.peelPis (mI + 1) cv.type).isSome then
-          match find? rl.ctor with
-          | some (.ctorInfo cvj cnP _) =>
-            let ul := gCmpLevels rl cv.levelParams us cvj.levelParams
-            if g4EtaFab find? findProj? rl.ctor cvj cnP ul then
-              let (kc, P) := g4ResolveF findProj? f P rl.ctor ul
-              (kc + 1, P)
-            else (0, P)
           | _ => (0, P)
         else (0, P)
       | _, _ => (0, P)
@@ -352,13 +319,13 @@ def g4ResolveF (findProj? : Name → Nat → Option ProjEntry) : Nat → G4Prog 
           let isEta := match rules with | [_] => !isK | _ => false
           let fl := (if isK then 1 else 0) + (if isEta then 2 else 0)
           (2, mI, rP, base, rules.length, fl + 4 * kfab,
-            .recr cv.levelParams us mI rP base rules.length (isK) isEta, P)
+            .recr c cv.levelParams us mI rP base rules.length (isK) isEta, P)
       | _ => (5, 0, 0, 0, 0, 0, .neutral, P)
     let (t1, t2, t3, t4, t5, t6, ns) := (P.kTag, P.kCode, P.kArity, P.kSlot, P.kInfo, P.kMap, P.nslots)
     let (u1, u2, u3, u4) := (P.kB, P.kC, P.kD, P.kE)
     let P := { P with kTag := #[], kCode := #[], kArity := #[], kSlot := #[], kInfo := #[], kMap := {},
                       kB := #[], kC := #[], kD := #[], kE := #[] }
-    (k, { P with kTag := t1.push tag, kCode := t2.push keta, kArity := t3.push ar,
+    (k, { P with kTag := t1.push tag, kCode := t2.push 0, kArity := t3.push ar,
                  kSlot := t4.push ns, nslots := ns + 1,
                  kInfo := t5.push info, kMap := t6.insert (c, us) k,
                  kB := u1.push b, kC := u2.push c', kD := u3.push d, kE := u4.push e' })
@@ -630,18 +597,60 @@ recursor applications only, `2` recursors and definitions. -/
 section
 variable (find? : Name → Option ConstantInfo) (findProj? : Name → Nat → Option ProjEntry)
 
+/-- **Why the machine stopped without a value** (task #423 soundness,
+ruling 4: no hand-back to the incumbent). -/
+inductive G4Stop where
+  /-- a stuck redex the incumbent is stuck at too (a constructor no rule
+  reads, a projection of the wrong shape, a literal without its basis):
+  the site answers `false` -/
+  | stuck (why : String)
+  /-- a step the engine does not do, or has no proved rule for: the check
+  declines (exit 2) with this message, which names the step and the
+  constant -/
+  | decline (msg : String)
+  /-- the maximum `Nat` size refuses operation `op` (index of
+  `natBin14Names`) on `a`, `b` (`post`: the result's size, after
+  computing): the incumbent's own refusal, raised at the site -/
+  | refuse (op a b : Nat) (post : Bool)
+  /-- an invariant of the machine does not hold (exit 3) -/
+  | internal (msg : String)
+  deriving Inhabited
+
+/-- The name of a table entry, for messages. -/
+def G4Prog.entryName (P : G4Prog) (k : Nat) : Name :=
+  match P.kInfo[k]? with
+  | some (.defn c ..) | some (.ctor c ..) | some (.recr c ..) => c
+  | _ => .anonymous
+
+/-- The declines (task #423 soundness, ruling 4): each names the step and
+the constant. -/
+def g4DeclineCase3 (c : Name) : G4Stop :=
+  .decline s!"ground evaluation of `{c}`: the major premise is a constructor of a type that \
+    may be a proposition (ι case 3), and reducing it needs typing certificates the evaluator \
+    does not build"
+
+def g4DeclineStuckMajor (c : Name) (k : Bool) : G4Stop :=
+  .decline s!"ground evaluation of `{c}`: the major premise does not evaluate to a \
+    constructor (it is stuck, or a proof the evaluator does not evaluate), and \
+    {if k then "the K rule" else "expanding it by its one constructor (structure η, the `And` rescue)"} \
+    on it needs its type, which the evaluator does not compute"
+
+def g4DeclineWf (c : Name) : G4Stop :=
+  .decline s!"ground evaluation of `{c}` on two literals: the operation has no certified \
+    `Nat` acceleration here"
+
 /-- The machine's outcome: a value (with the value array to read it),
-or an abort; the constant dispatches and the fuel left. -/
+or a stop; the constant dispatches and the fuel left. -/
 inductive G4Out where
   | done (v : Nat) (val : Array Nat) (P : G4Prog) (slots : Array Nat) (steps left : Nat)
-  | abort (why : String) (steps : Nat)
+  | stop (why : G4Stop) (steps : Nat)
 
 /-- **The machine.**  Modes: `0` evaluate node `pc` under `env`, `1`
 return value `x`, `2` enter cell `x`, `3` dispatch constant entry `x` (`pc = 1`: as a plain definition),
 `4` push the arguments of spine `pc` from the `x`-th down. -/
 def g4Run : Nat → G4Prog → (cel val ev fs argA slots mem mH : Array Nat) →
     (mode pc env x st : Nat) → G4Out
-  | 0, _, _, _, _, _, _, _, _, _, _, _, _, _, st => .abort "fuel" st
+  | 0, _, _, _, _, _, _, _, _, _, _, _, _, _, st => .stop (.decline "ground evaluation did not finish within its step budget") st
   | n + 1, P, cel, val, ev, fs, argA, slots, mem, mH, mode, pc, env, x, st =>
     match mode with
     | 0 => -- evaluate
@@ -742,7 +751,7 @@ def g4Run : Nat → G4Prog → (cel val ev fs argA slots mem mH : Array Nat) →
         let co := cel[g4X4 x + 1]!
         let ce := cel[g4X4 x + 2]!
         g4Run n P (cel.set! (g4X4 x) 1) val ev (fs.push (g4Tag x 2)) argA slots mem mH 0 co ce 0 st
-      else .abort "black hole" st
+      else .stop (.decline "ground evaluation: a term's value is needed to compute itself") st
     | 3 => -- dispatch a constant
       let k := x
       -- `pc = 1`: a plain δ (an accelerated operation whose argument read no literal)
@@ -818,7 +827,7 @@ def g4Run : Nat → G4Prog → (cel val ev fs argA slots mem mH : Array Nat) →
               let P := let kc := P.kCode; let P := { P with kCode := #[] }
                 { P with kCode := kc.set! k (o + 1) }
               g4Run n P cel val ev fs argA slots mem mH 3 pc env k st
-            | _ => .abort "defn info" st
+            | _ => .stop (.internal "ground evaluation: a definition entry without its value") st
           else
           let body := P.kCode[k]! - 1
           if g4Memo ≥ 2 && na > 0 then
@@ -878,7 +887,7 @@ def g4Run : Nat → G4Prog → (cel val ev fs argA slots mem mH : Array Nat) →
         let k := fs[fs.size - 4]!
         match val[g4X4 v]! with
         | 2 =>
-          if !P.natOk then .abort "nat literal" st else
+          if !P.natOk then .stop (.stuck "nat literal") st else
           let m := val[g4X4 v + 1]!
           match m with
           | 0 =>
@@ -894,7 +903,7 @@ def g4Run : Nat → G4Prog → (cel val ev fs argA slots mem mH : Array Nat) →
               ((((((((val.push 2).push m).push 0).push 0).push 1).push P.kSucc).push sa).push 1)
               ev fs (argA.push c) slots mem mH 1 0 0 w st
         | 3 =>
-          if !P.strOk then .abort "string literal" st else
+          if !P.strOk then .stop (.stuck "string literal") st else
           let sE := strLitToConstructor P.strs[val[g4X4 v + 1]!]!
           let (o, P) := g4Comp find? findProj? g4CompFuel P sE
           g4Run n P cel val ev fs argA slots mem mH 0 o 0 0 st
@@ -903,25 +912,25 @@ def g4Run : Nat → G4Prog → (cel val ev fs argA slots mem mH : Array Nat) →
           let base := P.kC[k]!
           let nr := P.kD[k]!
           let ri := g4FindRule P.rNid P.kB[kc]! nr base
-          if P.kTag[kc]! != 1 || ri == base + nr then .abort "no rule" st else
+          if P.kTag[kc]! != 1 || ri == base + nr then .stop (.stuck "no rule") st else
           let nf := P.rNF[ri]!
           let cp := P.rCP[ri]!
           let ms := val[g4X4 v + 2]!
-          if val[g4X4 v + 3]! != cp + nf then .abort "ctor arity" st
-          -- case 3 (a family that may be `Prop`): fired without the
-          -- incumbent's certificates, as official does, under the K step's
-          -- modes (§ completeness); round 4 aborts
-          else if P.rC3[ri]! != 0 && !g4KSkip then .abort "case 3" st
+          if val[g4X4 v + 3]! != cp + nf then .stop (.stuck "ctor arity") st
+          -- case 3 (a family that may be `Prop`): `Red.iota` asks for the
+          -- constructor's full-grade certificates, which the engine does not
+          -- build: a decline (task #423 soundness, ruling 4)
+          else if P.rC3[ri]! != 0 then .stop (g4DeclineCase3 (P.entryName k)) st
           else if P.ruleCode[ri]! == 0 then
             -- compile the rule's right-hand side, then return again
             match P.kInfo[k]! with
-            | .recr lps us _ _ _ _ _ _ =>
+            | .recr _ lps us _ _ _ _ _ _ =>
               let rhsE := P.rules[ri]!.rhs.instantiateLevelParams lps us
               let (o, P) := g4Comp find? findProj? g4CompFuel P rhsE
               let P := let rc := P.ruleCode; let P := { P with ruleCode := #[] }
                 { P with ruleCode := rc.set! ri (o + 1) }
               g4Run n P cel val ev fs argA slots mem mH 1 0 0 v st
-            | _ => .abort "iota info" st
+            | _ => .stop (.internal "ground evaluation: a recursor entry without its rules") st
           else
             let rhs := P.ruleCode[ri]! - 1
             let rP := P.kB[k]!
@@ -939,22 +948,14 @@ def g4Run : Nat → G4Prog → (cel val ev fs argA slots mem mH : Array Nat) →
               let fs := g4PushArgs argA start fs rP
               g4Run n P cel val ev fs argA slots mem mH 0 rhs 0 0 st
         | 5 =>
+          -- a neutral major (stuck, or a proof the compiler erased): at a
+          -- single-rule recursor the incumbent's K, structure-η or `And`
+          -- rescue would read its type, which the engine does not compute;
+          -- the K step (`kE`) never gets here.  A decline (task #423
+          -- soundness, ruling 4); elsewhere the redex is stuck.
           let fl := P.kE[k]!
-          let ec := P.kCode[k]!
-          if ec != 0 then
-            -- structure η / `And` at a neutral major: the constructor on the
-            -- recursor's parameters and neutral fields (stuck projections of a
-            -- neutral; proofs for `And`), and ι again
-            let base := P.kC[k]!
-            let cp := P.rCP[base]!
-            let nf := P.rNF[base]!
-            let sa := argA.size
-            let argA := g4Grow.g4GrowGo (g4CopyFrom argA start cp 0) nf
-            let w := (val.size >>> 2)
-            g4Run n P cel ((((val.push 1).push (ec - 1)).push sa).push (cp + nf)) ev fs argA slots
-              mem mH 1 0 0 w st
-          else if fl % 2 == 1 then .abort "K major" st
-          else if fl / 2 % 2 == 1 then .abort "struct-eta major" st
+          if fl % 2 == 1 then .stop (g4DeclineStuckMajor (P.entryName k) true) st
+          else if fl / 2 % 2 == 1 then .stop (g4DeclineStuckMajor (P.entryName k) false) st
           else g4Run n P cel val ev (g4PopN fs 4) argA slots mem mH 1 0 0 0 st
         | _ => g4Run n P cel val ev (g4PopN fs 4) argA slots mem mH 1 0 0 0 st
       | 10 =>
@@ -984,9 +985,9 @@ def g4Run : Nat → G4Prog → (cel val ev fs argA slots mem mH : Array Nat) →
                 | .ctor _ _ _ _ => true
                 | _ => false)) then
             g4Run n P cel val ev fs argA slots mem mH 2 0 0 argA[val[g4X4 v + 2]! + np + idx]! st
-          else .abort "proj shape" st
+          else .stop (.stuck "proj shape") st
         | 3 =>
-          if !P.strOk then .abort "string literal" st else
+          if !P.strOk then .stop (.stuck "string literal") st else
           let sE := strLitToConstructor P.strs[val[g4X4 v + 1]!]!
           let (o, P) := g4Comp find? findProj? g4CompFuel P sE
           g4Run n P cel val ev ((fs.push pi).push 4) argA slots mem mH 0 o 0 0 st
@@ -1034,13 +1035,13 @@ def g4Run : Nat → G4Prog → (cel val ev fs argA slots mem mH : Array Nat) →
             let k := fs[fs.size - 5]!
             let m₁ := fs[fs.size - 4]!
             let fs := g4PopN fs 5
-            if wf then .abort "wf nat op" st else
+            if wf then .stop (g4DeclineWf (P.entryName k)) st else
             let op := P.kE[k]!
-            if (op == 3 || op == 12) && g4NatPreRefuses P.maxNat op m₁ m then .abort "refuse" st else
+            if (op == 3 || op == 12) && g4NatPreRefuses P.maxNat op m₁ m then .stop (.refuse op m₁ m false) st else
             match g4NatKind op with
             | 0 =>
               let r := g4NatVal op m₁ m
-              if op ≤ 2 && g4SizeOver P.maxNat r then .abort "refuse" st else
+              if op ≤ 2 && g4SizeOver P.maxNat r then .stop (.refuse op m₁ m true) st else
               let w := (val.size >>> 2)
               g4Run n P cel ((((val.push 2).push r).push 0).push 0) ev fs argA slots
                 mem mH 1 0 0 w st
@@ -1049,7 +1050,7 @@ def g4Run : Nat → G4Prog → (cel val ev fs argA slots mem mH : Array Nat) →
               let w := (val.size >>> 2)
               g4Run n P cel ((((val.push 1).push kb).push 0).push 0) ev fs argA slots mem mH
                 1 0 0 w st
-            | _ => .abort "nat kind" st
+            | _ => .stop (.internal "ground evaluation: an operation of no kind") st
         | _ =>
           -- no literal: unfold the operation (`reduceNat` fails, δ)
           let k := fs[fs.size - (if first then 4 else 5)]!
@@ -1074,7 +1075,7 @@ environment-dependent memos).  The result carries the program back. -/
 def ground4BoolCoreF (find? : Name → Option ConstantInfo)
     (findProj? : Name → Nat → Option ProjEntry) (natOk strOk : Bool) (maxNat : Nat) (fuel : Nat)
     (P₀ : G4Prog) (e : Expr) :
-    (Option Bool × (Nat × Nat) × String) × G4Prog :=
+    (Except G4Stop Bool × (Nat × Nat)) × G4Prog :=
   let P : G4Prog := if P₀.kTag.size == 0 then
       let P : G4Prog := { natOk := natOk, strOk := strOk, maxNat := maxNat }
       let (kT, P) := g4Resolve find? findProj? P boolTrueName []
@@ -1084,7 +1085,7 @@ def ground4BoolCoreF (find? : Name → Option ConstantInfo)
       { P with kTrue := kT, kFalse := kF, kZero := kZ, kSucc := kS }
     else P₀
   let (o, P) := g4Comp find? findProj? g4CompFuel P e
-  let r : Option Bool × (Nat × Nat) × String × G4Prog :=
+  let r : Except G4Stop Bool × (Nat × Nat) × G4Prog :=
     let sl := P.slotA
     let P := { P with slotA := #[], epBase := P.epBase + g4EpochStep }
     match g4Run find? findProj? fuel P #[2, 0, 0, 0] #[5, 0, 0, 0] #[] #[] #[] sl #[]
@@ -1092,51 +1093,56 @@ def ground4BoolCoreF (find? : Name → Option ConstantInfo)
   | .done v val P sl st left =>
     let P := { P with slotA := sl }
     let tr := fuel - left
-    if val[g4X4 v]! == 1 && val[g4X4 v + 3]! == 0 then
-      let k := val[g4X4 v + 1]!
-      if k == P.kTrue then (some true, (st, tr), "", P)
-      else if k == P.kFalse then (some false, (st, tr), "", P)
-      else (none, (st, tr), "not a Bool", P)
-    else (none, (st, tr), "not a constructor", P)
-  -- (an abort drops the program: keeping the pre-run one alive across the
+    -- `Bool.true` is the answer `true`; any other value (`Bool.false`, a
+    -- stuck neutral, an ill-typed constructor) is `false`: `Bool` has no η,
+    -- unit or proof-irrelevance rule
+    if val[g4X4 v]! == 1 && val[g4X4 v + 3]! == 0 && val[g4X4 v + 1]! == P.kTrue then
+      (.ok true, (st, tr), P)
+    else (.ok false, (st, tr), P)
+  -- (a stop drops the program: keeping the pre-run one alive across the
   -- run would share it, and every compile during the run would copy it)
-  | .abort why st => (none, (st, 0), why, {})
-  ((r.1, r.2.1, r.2.2.1), r.2.2.2)
+  | .stop (.stuck _) st => (.ok false, (st, 0), {})
+  | .stop why st => (.error why, (st, 0), {})
+  ((r.1, r.2.1), r.2.2)
 
 /-- `ground4BoolCoreF` at the engine's fuel (`groundFuel`). -/
 def ground4BoolCore (find? : Name → Option ConstantInfo)
     (findProj? : Name → Nat → Option ProjEntry) (natOk strOk : Bool) (maxNat : Nat) (P₀ : G4Prog)
     (e : Expr) :
-    (Option Bool × (Nat × Nat) × String) × G4Prog :=
+    (Except G4Stop Bool × (Nat × Nat)) × G4Prog :=
   ground4BoolCoreF find? findProj? natOk strOk maxNat groundFuel P₀ e
 
-/-- **The site's answer without fallback** (task #423 completeness): the
-engine's `Bool`, `false` for a value that is not `Bool.true` (a stuck
-neutral, a shape no rule reads: `Bool` has no η, unit or
-proof-irrelevance rule), and `none` (hand back to the incumbent) only at
-the refusals and declines the incumbent raises again, the termination
-devices, and a neutral major with no η fabrication (`Acc`-like
-families, a structure whose sort is not read off its type). -/
-def g4SiteAnswer (r : Option Bool) (why : String) : Option Bool :=
-  match r with
-  | some b => some b
-  | none =>
-    if why == "refuse" || why == "wf nat op" || why == "fuel" || why == "black hole" ||
-        why == "struct-eta major" then none else some false
+/-- Two site answers agree (the run-twice probe). -/
+def g4SameAnswer : Option (Except G4Stop Bool) → Option (Except G4Stop Bool) → Bool
+  | some (.ok b), some (.ok b') => b == b'
+  | some (.error _), some (.error _) => true
+  | none, none => true
+  | _, _ => false
+
+/-- A site answer, for the trace. -/
+def g4AnswerTag : Option (Except G4Stop Bool) → String
+  | some (.ok true) => "true"
+  | some (.ok false) => "false"
+  | some (.error (.decline m)) => s!"decline {m}"
+  | some (.error (.refuse op _ _ post)) => s!"refuse {op} {post}"
+  | some (.error (.internal m)) => s!"internal {m}"
+  | some (.error (.stuck w)) => s!"stuck {w}"
+  | none => "none"
 
 def ground4Bool (fe : FEnv) (maxNat : Nat) (P₀ : G4Prog) (e : Expr) :
-    (Option Bool × (Nat × Nat) × String) × G4Prog :=
+    (Except G4Stop Bool × (Nat × Nat)) × G4Prog :=
   ground4BoolCore fe.find? fe.findProj? (natLitStoredF fe) (strLitStoredF fe) maxNat P₀ e
 
 /-- **The ground shortcut** (task #423, spike; `groundMode ≠ 0`): a
 comparison with `Bool.true` on either side whose other side is closed
-evaluates that side on the ground machine: `Bool.true` answers `true`,
-`Bool.false` answers `false` (the two constructors are not
-definitionally equal), anything else (an abort) leaves the comparison
-to the incumbent path (`none`).  Read by `defeqBodyI`
-(`ConLeche/Cached/CoreC.lean`). -/
+evaluates that side on the ground machine.  Rounds 4 and later
+(`groundMode ≥ 10`) answer every such comparison, with no fallback
+(task #423 soundness, ruling 4): `true` or `false`, or a stop the caller
+raises (a decline, the maximum-`Nat`-size refusal, an internal error).
+Rounds 1–3 (the probes below 10) answer `none`, the incumbent path, where
+they abort.  Read by `groundGateM` (`ConLeche/Cached/CoreC.lean`). -/
 def groundShortcut (eager : Bool) (fe : FEnv) (maxNat : Nat) (P : G3Prog × G4Prog) (a b : Expr) :
-    Option Bool × (G3Prog × G4Prog) :=
+    Option (Except G4Stop Bool) × (G3Prog × G4Prog) :=
   let t? : Option Expr :=
     if Expr.isBoolTrue b && (eager || !(Expr.hasFvar a)) then some a
     else if Expr.isBoolTrue a && (eager || !(Expr.hasFvar b)) then some b
@@ -1145,23 +1151,24 @@ def groundShortcut (eager : Bool) (fe : FEnv) (maxNat : Nat) (P : G3Prog × G4Pr
   | none => (none, P)
   | some t =>
     if Expr.hasFvar t then (none, P) else
-    let eng : G3Prog × G4Prog → Expr → (Option Bool × (Nat × Nat) × String) × (G3Prog × G4Prog) :=
+    let eng : G3Prog × G4Prog → Expr →
+        (Option (Except G4Stop Bool) × (Nat × Nat) × String) × (G3Prog × G4Prog) :=
       fun P t =>
-      if groundMode ≥ 10 then (let (r, P4) := ground4Bool fe maxNat P.2 t; (r, (P.1, P4)))
-      else if groundMode ≥ 7 then (let (r, P3) := ground3Bool fe P.1 t; (r, (P3, P.2)))
-      else if groundMode ≥ 3 && groundMode != 5 then (ground2Bool fe t, P)
-      else (groundBool fe t, P)
+      if groundMode ≥ 10 then
+        (let ((r, st), P4) := ground4Bool fe maxNat P.2 t; ((some r, st, ""), (P.1, P4)))
+      else
+        let ((r, st, why), P) : (Option Bool × (Nat × Nat) × String) × (G3Prog × G4Prog) :=
+          if groundMode ≥ 7 then (let (r, P3) := ground3Bool fe P.1 t; (r, (P3, P.2)))
+          else if groundMode ≥ 3 && groundMode != 5 then (ground2Bool fe t, P)
+          else (groundBool fe t, P)
+        ((r.map .ok, st, why), P)
     let ((r, steps, why), P) := eng P t
-    -- probes 5, 6 and 9: the engine twice (its own cost is the difference)
+    -- probes 5, 6, 9 and 12: the engine twice (its own cost is the difference)
     let (r, P) := if groundMode == 5 || groundMode == 6 || groundMode == 9 || groundMode == 12 then
         let ((r', _, _), P) := eng P (dbgTrace "" fun _ => t)
-        (if r' == r then r else none, P) else (r, P)
-    -- **no fallback** (task #423 completeness; `groundMode` 10–12): the
-    -- engine's answer is the comparison's (`g4SiteAnswer`)
-    let r := if groundMode ≥ 10 && groundMode ≤ 12 then g4SiteAnswer r why else r
-    if groundMode == 2 || groundMode == 4 || groundMode == 8 || groundMode == 11 ||
-        groundMode == 14 then
-      (dbgTrace s!"GROUND {repr r} {steps.1} {steps.2} {why}" fun _ => r, P)
+        (if g4SameAnswer r' r then r else none, P) else (r, P)
+    if groundMode == 2 || groundMode == 4 || groundMode == 8 || groundMode == 11 then
+      (dbgTrace s!"GROUND {g4AnswerTag r} {steps.1} {steps.2} {why}" fun _ => r, P)
     else (r, P)
 
 /-- The ground shortcut reads `fe` only through `find?` and

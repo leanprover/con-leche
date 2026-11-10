@@ -9,7 +9,11 @@
    Accepted (official too).  With the ground engine on (`groundMode =
    10`), the engine does the η step itself: the constructor on the
    recursor's parameters and the major's (stuck) projections; before,
-   it aborted with "struct-eta major" and the incumbent did the work. -/
+   it aborted with "struct-eta major" and the incumbent did the work.
+
+   Task #423 soundness (ruling 4): structure η on a stuck major needs the
+   major's type (`Red.rescueEta`), so with the engine on this is a
+   decline (2), naming `Prod.rec`. -/
 
 noncomputable def p : Nat × Nat := Classical.choice ⟨(0, 0)⟩
 noncomputable def kProd : Bool := Prod.rec (motive := fun _ => Bool) (fun _ _ => true) p

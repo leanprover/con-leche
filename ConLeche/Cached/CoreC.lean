@@ -1592,16 +1592,31 @@ def defeqStuckI (r : CoreFnsI) (fe : FEnv) (depth : Nat) (a b : Expr) :
     else stuckIrrelI r fe depth a b
   | _, _ => stuckIrrelI r fe depth a b
 
+/-- The ground engine's stop, raised (task #423 soundness, ruling 4): a
+decline names the step and the constant; the maximum `Nat` size raises
+the cached core's own refusal (`natOpRefusal`, `natResultRefused`). -/
+def groundStopError (maxNat : Nat) : G4Stop → CheckError
+  | .decline msg => .notImplemented msg
+  | .refuse op a b post =>
+    if post then natNumeralTooBig
+    else (natOpRefusal maxNat (natBin14Names.getD op .anonymous) a b).getD natNumeralTooBig
+  | .internal msg => .internal msg
+  | .stuck why => .internal s!"ground evaluation: a stuck shape raised ({why})"
+
 /-- The ground shortcut behind the switch (task #423): `none` (the
 incumbent path) at `groundMode = 0`; the compiled program is threaded
-through `CState.ground3`. -/
+through `CState.ground3`/`ground4`.  An engine stop is raised here, so the
+comparison is never handed to the incumbent (`groundMode ≥ 10`). -/
 @[inline] def groundGateM (eager : Bool) (fe : FEnv) (a b : Expr) : CheckCM (Option Bool) :=
   if groundMode == 0 then pure none else do
     let maxNat ← maxNatSizeM
     let P ← modifyGet fun s => ((s.ground3, s.ground4), { s with ground3 := {}, ground4 := {} })
     let (r, P) := groundShortcut eager fe maxNat P a b
     modify fun s => { s with ground3 := P.1, ground4 := P.2 }
-    pure r
+    match r with
+    | none => pure none
+    | some (.ok v) => pure (some v)
+    | some (.error e) => throw (groundStopError maxNat e)
 
 /-- The gate reads `fe` only through `find?` and `findTable?` (for
 `ConLeche/Verify/Cached/KnotCongr.lean`). -/

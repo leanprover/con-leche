@@ -265,7 +265,6 @@ ConLeche.Level.succ
 ConLeche.instDecidableEqLevel
 ConLeche.Level.decEqPtr
 ConLeche.instDecidableEqLiteral
-ConLeche.instHashableLiteral.hash
 ConLeche.instInhabitedExpr.default
 ConLeche.levelHasParam
 ConLeche.levelsHash
@@ -517,3 +516,12 @@ ConLeche.blockCtors  # ConLeche.Kernel.Install
 ConLeche.blockFormers  # ConLeche.Kernel.Install
 ConLeche.Level.isEquivList  # ConLeche.Kernel.Level
 ConLeche.Level.isNeverZero  # ConLeche.Kernel.Level
+
+# ConLeche.Kernel.Expr / Kernel.NatHash — the literal hash (task #547, lean4#16146's
+# `Literal.natHash`): the hash every `Expr.lit` node computes once, at construction
+# (the computed field), for the memo keys; it is the hash itself, so the spec code
+# is the best code (the vendored C `natBigHash` above 2^64)
+ConLeche.Literal.hash
+ConLeche.natHash
+ConLeche.natHashWordBound
+ConLeche.natBigHash

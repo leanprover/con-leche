@@ -9,7 +9,10 @@
    hands the comparison back to the incumbent, which raises the error:
    rejected.  Today 1; target 1.
 
-   `t_pow_refused` is added with `addDecl` under `debug.skipKernelTC`. -/
+   `t_pow_refused` is added with `addDecl` under `debug.skipKernelTC`.
+
+   Task #423 soundness (no hand-back): the engine raises the cached
+   core's own refusal itself; still rejected (1). -/
 import Lean
 open Lean Elab Command
 

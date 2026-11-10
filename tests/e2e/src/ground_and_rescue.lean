@@ -12,7 +12,11 @@
    recursor, the proof fields neutral) and accepts; before, it aborted
    ("struct-eta major") to the incumbent.
 
-   `t_and_thm` is added with `addDecl` under `debug.skipKernelTC`. -/
+   `t_and_thm` is added with `addDecl` under `debug.skipKernelTC`.
+
+   Task #423 soundness (no hand-back, ruling 4): the fabrication has no
+   proved rule without the incumbent's certificates, so with the engine on
+   this is a decline (2), naming `And.rec`. -/
 import Lean
 open Lean Elab Command
 

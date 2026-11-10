@@ -54,6 +54,12 @@ DIR   = os.environ.get('PUBPLAN_DIR', '_tmp/m3')
 # a tree whose `rfl`s stop closing, so they stay public and the gate must not
 # ask for them again.
 FALLBACK = {
+    # task #423 soundness: the completeness statement's defs (`siteEval`,
+    # `SiteNeverFalse`, …) state the engine's outcome type at `FEnv`, `Expr`,
+    # `G4Stop`, `CheckMode`, `CState`, which the census attributes elsewhere.
+    # Measured by demoting it (unknown identifier `FEnv`, `Expr`, `G4Stop`,
+    # `GroundComplete.lean:40`).
+    ('ConLeche.Verify.GroundComplete', 'ConLeche.Cached.StateC'),
     # task #521: the uniform install's well-formedness lemmas' public statements
     # name `DeclBlockRun`, `BlockRun`, `MemberDeclaredWF`, `EnvWF`; the census
     # attributes them elsewhere.  Measured by demoting both (unknown identifier

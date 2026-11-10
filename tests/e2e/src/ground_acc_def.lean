@@ -12,7 +12,10 @@
    erasure loses a step the incumbent takes.  The engine hands the
    comparison back to the incumbent there ("struct-eta major"), which
    accepts.  Without that hand-back the engine would answer `false`.
-   Target 0. -/
+   Target 0.
+
+   Task #423 soundness (no hand-back, ruling 4): with the engine on this
+   is a decline (2), naming `Acc.rec`. -/
 
 def accDef : Acc (fun _ _ : Nat => False) 0 := Acc.intro 0 (fun _ h => h.elim)
 

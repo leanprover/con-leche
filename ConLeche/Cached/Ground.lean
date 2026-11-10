@@ -51,8 +51,9 @@ cost is the difference), `7` the round-3 machine (`Ground3.lean`), `8`
 as 7 with the trace, `9` as 7 run twice, `10` the round-4 machine
 (`Ground4.lean`) with the K step (`g4KSkip`), `11` as 10 with the trace,
 `12` as 10 run twice, `13` the round-4 machine without the K step (a K
-major that is not a constructor aborts; the comparison baseline), `14`
-as 13 with the trace. -/
+major that is not a constructor declines; the comparison baseline).
+From `10` on there is no fallback: a step the engine does not do is a
+decline (task #423 soundness). -/
 @[noinline] def groundMode : Nat := 0
 
 /-- A weak head value of the ground machine. -/

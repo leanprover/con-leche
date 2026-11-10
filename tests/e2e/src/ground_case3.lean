@@ -15,7 +15,11 @@
    certificates (official's shape) and hands `t_acc` back to the
    incumbent (a stuck major at a single-rule recursor with no η,
    "struct-eta major"), which rejects: 1.  Before, it aborted ("case 3",
-   "struct-eta major") to the incumbent. -/
+   "struct-eta major") to the incumbent.
+
+   Task #423 soundness (ruling 4): ι case 3 has no proved rule without
+   the certificates, so with the engine on this is a decline (2), naming
+   `And.rec`. -/
 
 noncomputable def kAndC : Bool := And.rec (motive := fun _ => Bool) (fun _ _ => true) (And.intro trivial trivial)
 

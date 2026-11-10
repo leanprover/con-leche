@@ -349,6 +349,8 @@ declare -A E2E_TIMEOUT=(
 # nat_size_limit_*: the port of lean4's tests/elab/nat_size_limit.lean,
 # which runs at LEAN_NAT_MAX_SIZE=16 so that the maximum `Nat` size trips on
 # small numerals; the flag is con-leche's spelling of that bound.
+# ground_nat_{mul,shl,pow_size}_refused: the same bound, at the ground
+# engine's `Bool.true` site (task #423 soundness).
 declare -A E2E_FLAGS=(
   [nat_size_limit_mul_ok.ndjson]=--max-nat-size=16
   [nat_size_limit_mul_big.ndjson]=--max-nat-size=16
@@ -357,6 +359,9 @@ declare -A E2E_FLAGS=(
   [nat_size_limit_pow_32bit.ndjson]=--max-nat-size=16
   [nat_size_limit_shift_big.ndjson]=--max-nat-size=16
   [nat_size_limit_big_lit.ndjson]=--max-nat-size=16
+  [ground_nat_mul_refused.ndjson]=--max-nat-size=16
+  [ground_nat_shl_refused.ndjson]=--max-nat-size=16
+  [ground_nat_pow_size_refused.ndjson]=--max-nat-size=16
 )
 
 e2e_half() {

@@ -10,7 +10,7 @@ public section
 
 The ground engine (`ConLeche/Cached/Ground4.lean`) answers the comparison
 `t =?= Bool.true`, `t` closed, by evaluating `t`.  Without the fallback,
-its answer is the comparison's (`g4SiteAnswer`).  Removing the fallback is
+its answer is the comparison's, and a step it does not do is a decline.  Removing the fallback is
 safe exactly when the engine never answers `false` where the incumbent's
 reduction reaches `Bool.true`; this file states that property and proves
 the parts that need no simulation.
@@ -19,11 +19,9 @@ the parts that need no simulation.
 * `SiteNeverFalse`: the incumbent's (cached, deterministic) `whnf` of a
   closed `t` reaching `Bool.true` excludes the engine's answer `false`.
 * `SiteComplete`: the strong form — some fuel gives `true` — under the
-  hypothesis that the incumbent's run meets no hand-back corner, phrased
-  as `NoHandBack` (an engine run that does not stop at a hand-back
-  reason).
-* Proved here: the engine's answer is never a manufactured `true`
-  (`g4SiteAnswer_eq_some_true`), and the literal fragment: the engine's
+  hypothesis that the engine does not stop (`NoStop`: no decline,
+  refusal or internal error).
+* Proved here: the literal fragment: the engine's
   `Nat` operation on two literals computes official's result
   (`g4NatVal_natOpResult`, `g4NatBool_natOpResult`), and its refusals are
   the cached core's (`g4NatPreRefuses_iff`, `g4SizeOver_natResultRefused`).
@@ -37,18 +35,11 @@ namespace ConLeche.Verify.Ground
 
 open ConLeche ConLeche.Cached
 
-/-- **The engine at the site**: a fresh program (`{}`), fuel `fuel`, and the
-answer without fallback (`none`: hand back to the incumbent). -/
-def siteEval (fe : FEnv) (maxNat fuel : Nat) (t : Expr) : Option Bool :=
-  let r := ground4BoolCoreF fe.find? fe.findProj? (natLitStoredF fe) (strLitStoredF fe) maxNat fuel
-    {} t
-  g4SiteAnswer r.1.1 r.1.2.2
-
-/-- The engine's raw outcome (value or abort reason) at fuel `fuel`. -/
-def siteRaw (fe : FEnv) (maxNat fuel : Nat) (t : Expr) : Option Bool × String :=
-  let r := ground4BoolCoreF fe.find? fe.findProj? (natLitStoredF fe) (strLitStoredF fe) maxNat fuel
-    {} t
-  (r.1.1, r.1.2.2)
+/-- **The engine at the site**: a fresh program (`{}`), fuel `fuel`, and its
+answer (no fallback: a stop is raised at the site). -/
+def siteEval (fe : FEnv) (maxNat fuel : Nat) (t : Expr) : Except G4Stop Bool :=
+  (ground4BoolCoreF fe.find? fe.findProj? (natLitStoredF fe) (strLitStoredF fe) maxNat fuel
+    {} t).1.1
 
 /-- The incumbent's `whnf` of `t` (the cached core's plain tower at fuel
 `fuel`) reaches `Bool.true` from state `s`. -/
@@ -56,44 +47,30 @@ def IncumbentWhnfTrue (mode : CheckMode) (fe : FEnv) (fuel depth : Nat) (t : Exp
     (s : CState) : Prop :=
   ∃ s', ((coreKnotI mode false fe fuel).whnf depth t).run s = .ok (.const boolTrueName [], s')
 
-/-- **Completeness, weak form** (the property the fallback's removal
-needs): where the incumbent's `whnf` of a closed `t` reaches `Bool.true`,
-the engine at its own fuel does not answer `false` (it answers `true`, or
-hands back). -/
+/-- **Completeness, weak form**: where the incumbent's `whnf` of a closed
+`t` reaches `Bool.true`, the engine at its own fuel does not answer `false`
+(it answers `true`, or stops with a decline the check raises). -/
 def SiteNeverFalse : Prop :=
   ∀ (mode : CheckMode) (fe : FEnv) (fuel depth : Nat) (t : Expr) (s : CState),
     Expr.hasFvar t = false → Expr.looseBVarsBounded 0 t = true →
     IncumbentWhnfTrue mode fe fuel depth t s →
-    siteEval fe s.maxNatSize groundFuel t ≠ some false
+    siteEval fe s.maxNatSize groundFuel t ≠ .ok false
 
-/-- The engine's run at fuel `n` stops at no hand-back reason. -/
-def NoHandBack (fe : FEnv) (maxNat : Nat) (t : Expr) : Prop :=
-  ∀ n, (siteRaw fe maxNat n t).2 ∉ ["refuse", "wf nat op", "black hole", "struct-eta major"]
+/-- The engine's run at fuel `n` does not stop (no decline, refusal or
+internal error). -/
+def NoStop (fe : FEnv) (maxNat : Nat) (t : Expr) : Prop :=
+  ∀ n, ∀ e, siteEval fe maxNat n t ≠ .error e
 
 /-- **Completeness, strong form**: where the incumbent's `whnf` of a closed
-`t` reaches `Bool.true` and the engine meets no hand-back corner, some fuel
-makes the engine answer `true`. -/
+`t` reaches `Bool.true` and the engine does not stop, some fuel makes the
+engine answer `true`. -/
 def SiteComplete : Prop :=
   ∀ (mode : CheckMode) (fe : FEnv) (fuel depth : Nat) (t : Expr) (s : CState),
     Expr.hasFvar t = false → Expr.looseBVarsBounded 0 t = true →
-    IncumbentWhnfTrue mode fe fuel depth t s → NoHandBack fe s.maxNatSize t →
-    ∃ n, siteEval fe s.maxNatSize n t = some true
+    IncumbentWhnfTrue mode fe fuel depth t s → NoStop fe s.maxNatSize t →
+    ∃ n, siteEval fe s.maxNatSize n t = .ok true
 
-/-! ## Proved: the answer map and the literal fragment -/
-
-/-- The site's answer is `true` only where the engine computed `true`:
-the no-fallback map turns aborts into `false` or a hand-back, never into
-`true`. -/
-theorem g4SiteAnswer_eq_some_true (r : Option Bool) (why : String) :
-    g4SiteAnswer r why = some true ↔ r = some true := by
-  cases r with
-  | some b => simp [g4SiteAnswer]
-  | none =>
-    simp only [g4SiteAnswer, reduceCtorEq, iff_false]
-    split <;> simp
-
-/-- A value the engine computed is the site's answer. -/
-theorem g4SiteAnswer_some (b : Bool) (why : String) : g4SiteAnswer (some b) why = some b := rfl
+/-! ## Proved: the literal fragment -/
 
 /-- The literal fragment, the `Nat`-valued operations: on two literals the
 engine's `g4NatVal` is official's `natOpResult` (`reduce_bin_nat_op`), for
