@@ -54,14 +54,14 @@ the parsed driver calls the knot directly, not through `sharedOpsC`. -/
 
 theorem inferK_spec (henv : EnvWF env) {d : Nat} {e : Expr}
     (hs : CSOK .verified false env s₀) (hw : Expr.WScoped d e) :
-    ⦃fun s => s = s₀⦄ (coreKnotI .verified false (mkFEnv env) checkFuel).infer d e
+    ⦃fun s => s = s₀⦄ inferI .verified (mkFEnv env) false checkFuel false d e
     ⦃fun v s' => CSOK .verified false env s' ∧ Runs ((fueledOpsM .verified).inferType env d e) v ∧
       Expr.WScoped d v; ⊤⦄ :=
-  opE_infer_spec henv hs hw
+  opI_spec henv hs hw
 
 theorem defeqK_spec (henv : EnvWF env) {d : Nat}
     {a b : Expr} (hs : CSOK .verified false env s₀) (hwa : Expr.WScoped d a) (hwb : Expr.WScoped d b) :
-    ⦃fun s => s = s₀⦄ (coreKnotI .verified false (mkFEnv env) checkFuel).defeq d a b
+    ⦃fun s => s = s₀⦄ defeqI .verified (mkFEnv env) false checkFuel d a b
     ⦃fun v s' => CSOK .verified false env s' ∧ Runs ((fueledOpsM .verified).isDefEq env d a b) v; ⊤⦄ :=
   opB_spec henv hs hwa hwb
 

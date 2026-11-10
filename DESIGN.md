@@ -113333,3 +113333,114 @@ Combined, P1+P2+P3 (`modular` prototype): CCK4 219.5 → 186.6 G (−15 %; Lean 
   compiler, so the capacities must differ by bucket count.
 * Scripts, logs, profiles and the three diffs are in `_tmp/549`; the probe, prototype and
   `modular` worktrees are removed.
+
+## TASK #558 — the cached knot as mutually recursive functions, no record of closures (2026-11-10, agent/558-knot)
+
+Ruling (maintainer, after #555's P-C): restructure the knot properly; try (b), the knot as
+mutually recursive top-level functions with the fuel as an argument, before (a), the slots
+taking the record.  Done as (b).
+
+**Before.**  `CoreFnsI` was a record of six closures (`whnfCore`, `whnf`, `infer`, `defeq`,
+`defeqE`, `inferIO`); about 45 helpers took `r : CoreFnsI` and four more took slot closures
+(`formerSortLoopI wh`, `checkProjGuardI inf wh`, `iotaCase3I wh`, `unitLikeFieldsI ul`).
+`knotLevelI` built level `n + 1` from `Unit →` closures for level `n`, and every memo miss
+called `prev ()`, which built a fresh record: seven objects per miss (CCK4: 17.1 M records,
+120 M objects, 78 M closure calls).  The fuel is `checkFuel = 2^62`, so the levels had to be
+built lazily, and a level built once needs a cell (P-C's cycle).
+
+**After.**  `ConLeche/Cached/CoreC.lean` is one `mutual` block of 68 definitions: the five
+entry points `whnfCoreI`, `whnfI`, `inferI` (with `io : Bool`: the full or the io grade, its
+own memo each, as `cheap` selects `whnfCore`'s), `defeqI`, `defeqEI` (the eager tower), and
+every body and helper that calls them.  Each takes the knot's address: the mode and the index
+(`variable (mode : CheckMode) (fe : FEnv)`), the tower flag `eager` and the level `lv`; an
+entry point at `lv + 1` runs its body at `lv`, at `0` it throws.  `r.whnf d e` is now
+`whnfI eager lv d e`.  The grade view `CoreFnsI.ioView` became the `io` flag of `inferBodyI`
+and its helpers (`inferSpineI`, `inferLamsI`, `inferPisI` and their leaves).  The four
+closure-taking helpers take the address; `unitLikeFieldsI` takes the loop's remaining fuel
+and calls `unitLikeLoopI` itself.  `whnfStepI` (whose continuation was a closure, inlined
+away before) is now `whnfLoopI`'s own step: in a mutual block `@[inline]` does not inline (a
+`pap` closure per step, checked in the IR), so the step lives in the loop.  `whnfCoreStepI`
+and `defeqArgI` lose their `@[inline]` (no effect in the block).  `memoEI`/`memoBI` stay
+outside the block and `@[inline]`: they inline into the entry points with no closure (IR
+checked).  Callers outside the knot call the entry points at `checkFuel`; `opE` (which took a
+record selector) became `opI`/`opW`.
+
+Termination: `termination_by (lv, rank, a, b)`.  Entry points are rank 0; a helper's rank is
+its place in the block (file order is a call order at one level: a helper calls only helpers
+above it and the entry points); `a`/`b` are a helper's own loop measure.  The unit-like trio
+(loop → structure → fields → loop at the fuel below) shares one rank with `a = 2·fuel (+1)`,
+`b = n + 1` for the field count.  Lean proves every obligation with its default tactic.  The
+block needs `maxHeartbeats 4000000` and `maxRecDepth 8000`: both count per command, and the
+block is one command (elaboration 72 s against about 15 s before).  The compiled code is the
+plain recursion; no `WellFounded.fix` at run time.  The reduction order is unchanged:
+every body is the old body with `r.slot` replaced by the entry point at the same level.
+
+No record, no closure, no cell, no `Thunk` on the hot path; no `implemented_by`, no unsafe.
+
+### The proofs
+
+The pure side (`CoreFns`, `coreKnot`, `fueledFns`, `Runs`) is unchanged.  The simulation's
+shape is unchanged too: `SSimC mode eager env f` states that each entry point at `f`
+simulates the fueled slot, now as `whnfI mode (mkFEnv env) eager f d i` where it was
+`(coreKnotI mode eager (mkFEnv env) f).whnf d i`; the io field is `inferI … true`.
+
+* Body walks (`DiscC1`-`DiscC5`, `BinderLoopC`): the same statements with the address for
+  the record.  Every helper is now recursive, so each `vcgen [h]` became `vcgen [h.eq_def]`;
+  the `rfl` restatements of a body with its blocks named (`majorToCtorI_eq`, `iotaRecI_eq`,
+  `defeqBodyI_eq`, `defeqBindersI_zero`) became `rw [h.eq_def]; rfl` (a well-founded
+  definition does not unfold by `rfl`).  The block-named Verify definitions (`mtcKI`,
+  `mtcEtaI`, `iotaCertI`, `ldrStepI`, `bodyTailI`, …) take the address.  The unit-like walks
+  take the loop's fuel in place of an abstract field test.  The io-view restatements
+  `SSimC.ioWhnf_spec`/`ioInfer_spec` were the knot's own specs again and are gone.
+* `KnotC`: the memo-wrapper triples (`memoEI_*_spec`, `memoBI_defeq_spec`) pass the entry
+  point's `eq_def` to `vcgen` (`vcgen` splits the `match` on `f + 1`); the five
+  `coreKnotI_*_succ` unfolding lemmas are gone.  `ssimC` by induction on `f`, as before.
+* `KnotCongr`: a congruence lemma per function of the block, now under `SlotsEq mode fe₁ fe₂ lv`
+  (the five entry points agree at `lv`) instead of for an arbitrary record; `slotsEq` by
+  induction on `lv`; `knotI_congr` (the entry points and `ensureSortI`, every tower and level)
+  replaces `coreKnotI_congr` in `ViewCongr` and `BlockOverlay`.  The self-recursive helpers
+  are by induction on their own measure; `iotaCertsFullIAux.induct` cannot be derived for the
+  mutual block ("Cannot derive functional induction principle"), so that one is by induction
+  on the arguments, first at the empty accumulator.
+* A Lean observation: for some block functions the equation lemma `f.eq_1` is the
+  definitional unfolding to the packed fixpoint (`reduceNatI._mutual …`), not the equation, so
+  `rw [whnfI]` does not work; `f.eq_def` is right everywhere.  Every proof uses `eq_def`.
+
+### Measurements
+
+`perf stat -e instructions:u`, one run each (the 3-run batches agree to 0.1 %); `cycles:u`,
+median of 3.  Streams at `--jobs=8` (`_tmp/558/scripts/streams3.sh`); base is master
+`eb2c5939b`.  CFSG as #555 did: `--olean --module --jobs=1` on a scratch copy of `modular`
+with master merged (base) and with this lane merged (new), one run each.
+
+| stream | instructions base | new | Δ | cycles base | new |
+|---|---|---|---|---|---|
+| init-prelude | 1.467 G | 1.311 G | −10.7 % | 1.015 G | 0.972 G |
+| grind-ring-5 | 12.657 G | 11.724 G | −7.4 % | 9.196 G | 8.971 G |
+| app-lam | 22.059 G | 21.978 G | −0.4 % | 12.51 G | 12.66 G (interleaved) |
+| let-ladder | 2.596 G | 2.586 G | −0.4 % | 0.873 G | 0.858 G (interleaved) |
+| beta-ladder | 4.863 G | 4.845 G | −0.4 % | 1.75 G | 1.66 G (interleaved) |
+| init-full | 361.66 G | 328.60 G | −9.1 % | 219.3 G | 212.3 G (interleaved) |
+| CFSG CCK4 | 156.42 G | 132.00 G | −15.6 % | 124.8 G | 90.1 G (1 run; wall 48 → 26 s) |
+| CFSG McLEnumA | 3 176.2 G | 2 679.0 G | −15.7 % | 2 485.7 G | 2 163.9 G (1 run; wall 709 → 566 s) |
+
+Every run accepts what the base accepts (CCK4 34, McLEnumA 87 748 declarations; every stream
+exit 0).  Peak RSS unchanged (CCK4 1.93 → 1.97 GiB, McLEnumA 1.36 → 1.43 GiB).  The first
+cycles batch (base's three runs, then new's) showed app-lam, let-ladder, beta-ladder and
+init-full 5-21 % slower in cycles at fewer instructions; the load average was 60 on 96 cores
+and changed between the two halves.  Interleaved base/new runs (`scripts/inter.sh`, `--jobs=1`
+for the three small streams, 4-6 pairs; init-full at `--jobs=8`, 3 pairs) show no regression:
+the numbers in the table are their medians.
+
+The CCK4 gain (24.4 G) is more than P-C's 16.5 G: P-C still built the six closures once per
+knot and called through them; here the calls are direct and nothing is allocated.  The base
+here (156.4 G) is lower than #555's 188.8 G because `modular` now has #565 (P-R).
+
+### Gates
+
+`lake build`, `lake test` warning-free; `tests/arena.sh` in full under the guard (exit 0:
+layering, shake and pub-imports, trust surface, plain-reach 576 reached all allowlisted,
+binary-link, overview links, quote gate, e2e, trusted and `--jobs` sweeps, self-check,
+axioms pinned).
+
+Plan: `_tmp/558/PLAN.md`; scripts and logs in `_tmp/558`.
