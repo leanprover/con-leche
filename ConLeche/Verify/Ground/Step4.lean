@@ -98,13 +98,13 @@ theorem step_args_frame {s' : MS} {oc' : Nat → Expr} {j c : Nat} (h : MInv env
   have hf := h.focus
   simp only [Focus, hm, hx] at hf
   have hf' := hf.mono h.store.evRef ha (fun u hu =>
-    K.move h.store.argRef ha (Ext.refl _) (Pre.refl _) h.frames hu)
+    K.move h.store.argRef ha (ExtR.refl _) (Pre.refl _) h.frames hu)
   obtain ⟨ao, sa, cs, hao, hda, he, hb, hnext⟩ := hf'.next
   refine ⟨hst, by rw [hfs]; exact FS.pushArg h.stack c, ?_, ?_⟩
   · intro f hf''
     rcases List.mem_cons.mp hf'' with rfl | hf''
     · exact hc
-    · rw [hP, harg]; exact (h.frames f hf'').grow (Ext.refl _) (Pre.refl _) hN
+    · rw [hP, harg]; exact (h.frames f hf'').grow (ExtR.refl _) (Pre.refl _) hN
   · show Focus env t₀ oc' s' _
     unfold Focus; rw [hm', hP, hev, hpc, henv, hx', harg]
     exact hnext c (horig ao sa cs hao hda he hb)

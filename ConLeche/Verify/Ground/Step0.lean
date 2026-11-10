@@ -69,7 +69,7 @@ theorem bindFrames_ref (fs : Array Nat) {N : Nat} : ∀ (k j env : Nat) (ev : Ar
 theorem SInv.withEv {env : Env} {oc : Nat → Expr} {s : MS} (h : SInv env oc s) {ev' : Array Nat}
     (hp : Pre s.ev ev') (h2 : ev'.size % 2 = 0) (hr : EvRef ev' s.N) :
     SInv env oc { s with ev := ev' } :=
-  h.grow (s' := { s with ev := ev' }) h.prog (Ext.refl _) rfl (Pre.refl _) h.celSz (Pre.refl _)
+  h.grow (s' := { s with ev := ev' }) h.prog (ExtR.refl _) rfl (Pre.refl _) h.celSz (Pre.refl _)
     h.valSz hp h2 (Pre.refl _) rfl rfl (Agree.refl _ _) hr h.argRef
     (fun c h₁ h₂ => absurd h₂ (by simp only [MS.N] at h₁ ⊢; omega))
 
@@ -125,7 +125,7 @@ theorem SInv.alloc {env : Env} {oc : Nat → Expr} {s s' : MS} (h : SInv env oc 
     (hv : 2 ≤ w0 → w0 - 2 < s'.val.size / 4) : SInv env (ocExt oc s.N t) s' := by
   obtain ⟨hsz, h0, -, -, hpre⟩ := push4_spec s.cel w0 w1 w2 0 h.celSz
   have hN : s'.N = s.N + 1 := by simp only [MS.N]; rw [hcel, hsz]; have := h.celSz; omega
-  refine h.grow (by rw [hP]; exact h.prog) (by rw [hP]; exact Ext.refl _) (by rw [hP])
+  refine h.grow (by rw [hP]; exact h.prog) (by rw [hP]; exact ExtR.refl _) (by rw [hP])
     (by rw [hcel]; exact hpre) (by rw [hcel, hsz]; have := h.celSz; omega) hval hvs hev hes
     (by rw [harg]; exact Pre.refl _) hsl hmem (Agree.ext oc s.N t) (by rw [hN]; exact hr)
     (by rw [harg, hN]; exact h.argRef.mono (Nat.le_succ _)) (fun c h₁ h₂ => ?_)
@@ -135,7 +135,7 @@ theorem SInv.alloc {env : Env} {oc : Nat → Expr} {s s' : MS} (h : SInv env oc 
 
 /-- The frames' claim under a grown store and an agreeing origin assignment. -/
 theorem K.move {env : Env} {t₀ : Expr} {P P' : G4Prog} {argA argA' : Array Nat} {oc oc' : Nat → Expr}
-    {N : Nat} {fl : List Fr} {u : Expr} (hg : ArgRef argA N) (ha : Agree oc oc' N) (hx : Ext P P')
+    {N : Nat} {fl : List Fr} {u : Expr} (hg : ArgRef argA N) (ha : Agree oc oc' N) (hx : ExtR P P')
     (hp : Pre argA argA') (hf : FlOK P argA N fl) (hK : K env t₀ P argA oc fl u) :
     K env t₀ P' argA' oc' fl u :=
   K.grow env t₀ oc' hx hp fl hf (K.congr env t₀ P argA hg ha fl hf hK)
@@ -143,7 +143,7 @@ theorem K.move {env : Env} {t₀ : Expr} {P P' : G4Prog} {argA argA' : Array Nat
 /-- The store invariant with more value words. -/
 theorem SInv.withVal {env : Env} {oc : Nat → Expr} {s : MS} (h : SInv env oc s) {val' : Array Nat}
     (hp : Pre s.val val') (h4 : val'.size % 4 = 0) : SInv env oc { s with val := val' } :=
-  h.grow (s' := { s with val := val' }) h.prog (Ext.refl _) rfl (Pre.refl _) h.celSz hp h4
+  h.grow (s' := { s with val := val' }) h.prog (ExtR.refl _) rfl (Pre.refl _) h.celSz hp h4
     (Pre.refl _) h.evSz (Pre.refl _) rfl rfl (Agree.refl _ _) h.evRef h.argRef
     (fun c h₁ h₂ => absurd h₂ (by simp only [MS.N] at h₁ ⊢; omega))
 
@@ -391,7 +391,7 @@ theorem step_lam_value (h : MInv env t₀ oc s fl) (hm : s.mode = 0) :
     (((Pre.push _ _).trans (Pre.push _ _)).trans (Pre.push _ _)).trans (Pre.push _ _)
   have hst : SInv env oc { s with val := (((s.val.push 0).push s.pc).push s.env).push 0 } :=
     h.store.grow (s' := { s with val := (((s.val.push 0).push s.pc).push s.env).push 0 }) h.store.prog
-      (Ext.refl _) rfl (Pre.refl _) h.store.celSz hpre (by simp; omega) (Pre.refl _) h.store.evSz
+      (ExtR.refl _) rfl (Pre.refl _) h.store.celSz hpre (by simp; omega) (Pre.refl _) h.store.evSz
       (Pre.refl _) rfl rfl (Agree.refl _ _) h.store.evRef h.store.argRef
       (fun c h₁ h₂ => absurd h₂ (by simp only [MS.N] at h₁ ⊢; omega))
   have hi : 4 * (s.val.size / 4) = s.val.size := by omega
@@ -442,12 +442,12 @@ theorem step_let (h : MInv env t₀ oc s fl) (hm : s.mode = 0) (ht : s.P.code[s.
     show CellOK env s.P s.val _ s.argA _ _ (s.cel.size / 4)
     unfold CellOK; rw [hc0, hc1, hc2]
     exact ⟨sv, cs, hv, he.pre hpre2, hb.1, by rw [show s.cel.size / 4 = s.N from rfl, ocExt_self, hmap]⟩
-  · exact FlOK.grow (Ext.refl _) (Pre.refl _) (by simp only [MS.N]; rw [hcsz]; omega) h.frames
+  · exact FlOK.grow (ExtR.refl _) (Pre.refl _) (by simp only [MS.N]; rw [hcsz]; omega) h.frames
   · show ∃ u, NodeTerm s.P _ _ b _ u ∧ _
     refine ⟨_, ⟨sb, _, hdb, hrec, by simpa using hb.2, rfl⟩, ?_⟩
     have := hK.step env t₀ s.P s.argA oc fl (zeta_env env bot sv sb (cs.map oc))
     rw [List.map_cons, ocExt_self, hmap]
-    exact K.move h.store.argRef ha (Ext.refl _) (Pre.refl _) h.frames this
+    exact K.move h.store.argRef ha (ExtR.refl _) (Pre.refl _) h.frames this
 
 /-- **A `Nat` literal**: a literal value. -/
 theorem step_natLit (h : MInv env t₀ oc s fl) (hm : s.mode = 0) (ht : s.P.code[s.pc]! = 5) :
@@ -589,12 +589,12 @@ theorem step_shared_miss (h : MInv env t₀ oc s fl) (hm : s.mode = 0) (ht : s.P
       obtain ⟨hlt, how⟩ := h.store.slotsOK sl' hne
       rw [← ha _ hlt]
       exact ⟨Nat.lt_succ_of_lt hlt, how⟩
-  · exact FlOK.grow (Ext.refl _) (Pre.refl _) (by simp only [MS.N]; rw [hcsz]; omega) h.frames
+  · exact FlOK.grow (ExtR.refl _) (Pre.refl _) (by simp only [MS.N]; rw [hcsz]; omega) h.frames
   · show _ < (((((s.cel.push 0).push a).push 0).push 0).size / 4) ∧ _
     rw [hcsz, ← hN]
     refine ⟨Nat.lt_succ_self _, ?_⟩
     rw [ocExt_self]
-    exact K.move h.store.argRef ha (Ext.refl _) (Pre.refl _) h.frames hK
+    exact K.move h.store.argRef ha (ExtR.refl _) (Pre.refl _) h.frames hK
 
 end
 

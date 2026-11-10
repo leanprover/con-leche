@@ -172,7 +172,7 @@ theorem SInv.setCell {env : Env} {oc : Nat → Expr} {s s' : MS} (h : SInv env o
 /-- A cell's invariant survives growth of the program and the arrays and an
 origin assignment that agrees below the cell count. -/
 theorem CellOK.grow {env : Env} {P P' : G4Prog} {cel cel' val val' ev ev' argA argA' : Array Nat}
-    {oc oc' : Nat → Expr} {N c : Nat} (hx : Ext P P') (hcel : Pre cel cel') (hval : Pre val val')
+    {oc oc' : Nat → Expr} {N c : Nat} (hx : ExtR P P') (hcel : Pre cel cel') (hval : Pre val val')
     (hev : Pre ev ev') (harg : Pre argA argA') (hr : EvRef ev N) (hg : ArgRef argA N)
     (ha : Agree oc oc' N) (hc : c < N) (hcs : 4 * c + 3 < cel.size)
     (hv : 2 ≤ cel[4 * c]! → 4 * (cel[4 * c]! - 2) + 3 < val.size)
@@ -195,7 +195,7 @@ theorem CellOK.grow {env : Env} {P P' : G4Prog} {cel cel' val val' ev ev' argA a
 appended to, new cells with their invariants, and the origin assignment
 extended. -/
 theorem SInv.grow {env : Env} {oc oc' : Nat → Expr} {s s' : MS} (h : SInv env oc s)
-    (hI : Inv env.find? env.findProj? s'.P) (hx : Ext s.P s'.P) (hep : s'.P.epBase = s.P.epBase)
+    (hI : Inv env.find? env.findProj? s'.P) (hx : ExtR s.P s'.P) (hep : s'.P.epBase = s.P.epBase)
     (hcel : Pre s.cel s'.cel) (hcs : s'.cel.size % 4 = 0) (hval : Pre s.val s'.val)
     (hvs : s'.val.size % 4 = 0) (hev : Pre s.ev s'.ev) (hes : s'.ev.size % 2 = 0)
     (harg : Pre s.argA s'.argA) (hsl : s'.slots = s.slots) (hmem : s'.mem = s.mem)

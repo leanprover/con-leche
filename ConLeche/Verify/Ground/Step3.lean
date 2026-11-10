@@ -136,7 +136,7 @@ theorem push4_get3 (a : Array Nat) (w0 w1 w2 w3 : Nat) (h : a.size % 4 = 0) :
 theorem SInv.withValArg {env : Env} {oc : Nat → Expr} {s : MS} (h : SInv env oc s)
     {val' argA' : Array Nat} (hp : Pre s.val val') (h4 : val'.size % 4 = 0) (ha : Pre s.argA argA')
     (hr : ArgRef argA' s.N) : SInv env oc { s with val := val', argA := argA' } :=
-  h.grow (s' := { s with val := val', argA := argA' }) h.prog (Ext.refl _) rfl (Pre.refl _) h.celSz
+  h.grow (s' := { s with val := val', argA := argA' }) h.prog (ExtR.refl _) rfl (Pre.refl _) h.celSz
     hp h4 (Pre.refl _) h.evSz ha rfl rfl (Agree.refl _ _) h.evRef hr
     (fun c h₁ h₂ => absurd h₂ (by simp only [MS.N] at h₁ ⊢; omega))
 
@@ -268,10 +268,10 @@ theorem step_collect (h : MInv env t₀ oc s fl) (hm : s.mode = 3) {w0 : Nat} (h
   refine ⟨fl', hst.same rfl rfl rfl rfl rfl rfl rfl, ?_, ?_, ?_⟩
   · show FS (g4PopN s.fs ca.length) (g4PopN s.fs ca.length).size fl'
     rw [g4PopN_size]; exact FS.popN _ (Nat.le_refl _) hfs
-  · exact fun f hf => (h.frames f (List.mem_append_right _ hf)).grow (Ext.refl _) hpre (Nat.le_refl _)
+  · exact fun f hf => (h.frames f (List.mem_append_right _ hf)).grow (ExtR.refl _) hpre (Nat.le_refl _)
   · show _ < _ ∧ ∃ t, ValDen s.P _ s.ev _ oc _ t ∧ _
     rw [hshr, vsz]
-    have hK' := K.move h.store.argRef (Agree.refl oc s.N) (Ext.refl _) hpre
+    have hK' := K.move h.store.argRef (Agree.refl oc s.N) (ExtR.refl _) hpre
       (fun f hf => h.frames f (List.mem_append_right _ hf)) hK
     have hsp := copy_span (argA := s.argA) hcells
     have e : Expr.mkAppN (entryTerm s.P s.x) (ca.map oc) =
@@ -345,10 +345,97 @@ theorem step_memo_hit (h : MInv env t₀ oc s fl) (hm : s.mode = 3) {n f i : Nat
     unfold spanTerm
     rw [hspan]; exact hK
 
-/-- **A recursor redex, not in the memo**: the top `mI + 1` argument cells are
-copied, a busy cell is allocated for the result, its memo record, update and
-ι frames pushed (the claims: the cell's origin is the redex; the frames
-below see the redex). -/
+/-- **A redex recorded in the memo**: the top `n` argument cells are copied,
+a busy cell is allocated for the result, its memo record and update frame
+pushed (the claims: the cell's origin is the redex; the frames below see the
+redex). -/
+theorem memo_core (h : MInv env t₀ oc s fl) (hm : s.mode = 3) {n : Nat}
+    (hle : n ≤ g4CountArgs s.fs s.fs.size 0) (mH' : Array Nat) :
+    ∃ fl', SInv env (ocExt oc s.N (spanTerm s.P (g4CopyArgs s.fs s.argA n 0) oc s.x s.argA.size n))
+      { s with
+        cel := (((s.cel.push 1).push 0).push 0).push 0,
+        argA := g4CopyArgs s.fs s.argA n 0,
+        mem := (((s.mem.push s.x).push s.argA.size).push n).push (s.cel.size >>> 2),
+        mH := mH' } ∧
+    FS ((g4PopN s.fs n).push (g4Tag (s.cel.size >>> 2) 2))
+      ((g4PopN s.fs n).push (g4Tag (s.cel.size >>> 2) 2)).size (.upd s.N :: fl') ∧
+    FlOK s.P (g4CopyArgs s.fs s.argA n 0) (s.N + 1) (.upd s.N :: fl') ∧
+    K env t₀ s.P (g4CopyArgs s.fs s.argA n 0)
+      (ocExt oc s.N (spanTerm s.P (g4CopyArgs s.fs s.argA n 0) oc s.x s.argA.size n))
+      (.upd s.N :: fl')
+      (spanTerm s.P (g4CopyArgs s.fs s.argA n 0)
+        (ocExt oc s.N (spanTerm s.P (g4CopyArgs s.fs s.argA n 0) oc s.x s.argA.size n))
+        s.x s.argA.size n) := by
+  obtain ⟨ca, fl', rfl, hca, hk, -, -, -, hcells, hN⟩ := h.topArgs hm
+  rw [hca] at hle
+  have hf := h.focus
+  simp only [Focus, hm] at hf
+  obtain ⟨-, hK⟩ := hf
+  have hsplit : ca.map Fr.arg ++ fl' =
+      (ca.take n).map Fr.arg ++ ((ca.drop n).map Fr.arg ++ fl') := by
+    rw [← List.append_assoc, ← List.map_append, List.take_append_drop]
+  have htl : (ca.take n).length = n := by rw [List.length_take]; omega
+  rw [hsplit, K.args] at hK
+  obtain ⟨-, hfs, -⟩ := FS.argsTop n (hsplit ▸ h.stack) htl
+  generalize hA : g4CopyArgs s.fs s.argA n 0 = argA'
+  obtain ⟨hsz, hpre, -⟩ := copyArgs_spec s.fs n 0 s.argA
+  rw [hA] at hsz hpre
+  have hsp : span argA' s.argA.size n = ca.take n := by
+    rw [← hA]; exact copy_span_take (by omega) hcells
+  have hcellN : ∀ c ∈ ca.take n, c < s.N := fun c hc => hN c (List.mem_of_mem_take hc)
+  have href : ArgRef argA' s.N := by
+    rw [← hA]
+    refine h.store.argRef.copy (fun i hi => ?_)
+    have h' := hcells i (by omega)
+    rw [List.getD_eq_getElem?_getD, List.getElem?_eq_getElem (by omega), Option.getD_some] at h'
+    show s.fs[s.fs.size - 1 - i]! >>> 4 < s.N
+    rw [← h']; exact hN _ (List.getElem_mem _)
+  generalize ht : spanTerm s.P argA' oc s.x s.argA.size n = t
+  have hshr : s.cel.size >>> 2 = s.N := Nat.shiftRight_eq_div_pow _ _
+  rw [hshr]
+  -- the store: the copy, the busy cell, the record
+  have hs1 := h.store.withValArg (Pre.refl _) h.store.valSz hpre href
+  have hclosed : t.looseBVarsBounded 0 = true := by
+    rw [← ht]; unfold spanTerm
+    refine (mkAppN_bounded _ _).mpr ⟨by unfold entryTerm; split <;> simp [infoTerm_closed, bot,
+      Expr.looseBVarsBounded], fun a ha => ?_⟩
+    obtain ⟨c, hc, rfl⟩ := List.mem_map.mp ha
+    rw [hsp] at hc
+    exact h.store.closed c (hcellN c hc)
+  have hs2 := hs1.alloc (s' := { s with
+      cel := (((s.cel.push 1).push 0).push 0).push 0, argA := argA' }) (w0 := 1) (w1 := 0) (w2 := 0) (t := t) rfl rfl (Pre.refl _) h.store.valSz
+    (Pre.refl _) h.store.evSz rfl rfl rfl (h.store.evRef.mono (Nat.le_succ _)) hclosed
+    (by unfold CellOK; dsimp only [MS.N]; rw [(push4_spec s.cel 1 0 0 0 h.store.celSz).2.1]; trivial)
+    (by omega)
+  have hN1 : ({ s with cel := (((s.cel.push 1).push 0).push 0).push 0, argA := argA' } : MS).N =
+      s.N + 1 := by
+    simp only [MS.N]; rw [(push4_spec s.cel 1 0 0 0 h.store.celSz).1]; have := h.store.celSz; omega
+  have hagree := Agree.ext oc s.N t
+  have ht' : t = Expr.mkAppN (entryTerm s.P s.x) ((ca.take n).map oc) := by
+    rw [← ht]; unfold spanTerm; rw [hsp]
+  have hspan' : spanTerm s.P argA' (ocExt oc s.N t) s.x s.argA.size n = t := by
+    have e := map_agree hagree hcellN
+    unfold spanTerm; rw [hsp, ← e]; exact ht'.symm
+  have hs3 := hs2.pushMemo (k := s.x) (start := s.argA.size) (len := n) (c := s.N)
+    (by rw [hN1]; omega) hk (by show _ ≤ argA'.size; rw [hsz]; exact Nat.le_refl _)
+    (by show ocExt oc s.N t s.N = _; rw [ocExt_self]; exact hspan'.symm) mH'
+  refine ⟨(ca.drop n).map Fr.arg ++ fl', hs3.same rfl rfl rfl rfl rfl rfl rfl, ?_, ?_, ?_⟩
+  · refine FS.pushUpd ?_ s.N
+    rw [g4PopN_size]; exact FS.popN _ (Nat.le_refl _) hfs
+  · intro f hf'
+    rcases List.mem_cons.mp hf' with rfl | hf'
+    · show s.N < s.N + 1; omega
+    · exact (h.frames f (by rw [hsplit]; exact List.mem_append_right _ hf')).grow (ExtR.refl _) hpre
+        (Nat.le_succ _)
+  · rw [hspan']
+    refine ⟨by rw [ocExt_self]; exact .refl, ?_⟩
+    rw [ocExt_self]
+    have := K.move h.store.argRef hagree (ExtR.refl _) hpre
+      (fun f hf => h.frames f (by rw [hsplit]; exact List.mem_append_right _ hf)) hK
+    rw [← ht'] at this; exact this
+
+/-- **A recursor redex, not in the memo**: `memo_core` on its `mI + 1`
+arguments, and the ι frame. -/
 theorem rec_core (h : MInv env t₀ oc s fl) (hm : s.mode = 3) {mI : Nat}
     (htag : s.P.kTag[s.x]? = some 2) (hmI : s.P.kArity[s.x]? = some mI)
     (hle : mI + 1 ≤ g4CountArgs s.fs s.fs.size 0) (mH' : Array Nat) :
@@ -373,78 +460,17 @@ theorem rec_core (h : MInv env t₀ oc s fl) (hm : s.mode = 3) {mI : Nat}
       (spanTerm s.P (g4CopyArgs s.fs s.argA (mI + 1) 0)
         (ocExt oc s.N (spanTerm s.P (g4CopyArgs s.fs s.argA (mI + 1) 0) oc s.x s.argA.size (mI + 1)))
         s.x s.argA.size (mI + 1)) := by
-  obtain ⟨ca, fl', rfl, hca, hk, -, -, -, hcells, hN⟩ := h.topArgs hm
-  rw [hca] at hle
-  have hf := h.focus
-  simp only [Focus, hm] at hf
-  obtain ⟨-, hK⟩ := hf
-  have hsplit : ca.map Fr.arg ++ fl' =
-      (ca.take (mI + 1)).map Fr.arg ++ ((ca.drop (mI + 1)).map Fr.arg ++ fl') := by
-    rw [← List.append_assoc, ← List.map_append, List.take_append_drop]
-  have htl : (ca.take (mI + 1)).length = mI + 1 := by rw [List.length_take]; omega
-  rw [hsplit, K.args] at hK
-  obtain ⟨-, hfs, -⟩ := FS.argsTop (mI + 1) (hsplit ▸ h.stack) htl
-  generalize hA : g4CopyArgs s.fs s.argA (mI + 1) 0 = argA'
-  obtain ⟨hsz, hpre, -⟩ := copyArgs_spec s.fs (mI + 1) 0 s.argA
-  rw [hA] at hsz hpre
-  have hsp : span argA' s.argA.size (mI + 1) = ca.take (mI + 1) := by
-    rw [← hA]; exact copy_span_take (by omega) hcells
-  have hcellN : ∀ c ∈ ca.take (mI + 1), c < s.N := fun c hc => hN c (List.mem_of_mem_take hc)
-  have href : ArgRef argA' s.N := by
-    rw [← hA]
-    refine h.store.argRef.copy (fun i hi => ?_)
-    have h' := hcells i (by omega)
-    rw [List.getD_eq_getElem?_getD, List.getElem?_eq_getElem (by omega), Option.getD_some] at h'
-    show s.fs[s.fs.size - 1 - i]! >>> 4 < s.N
-    rw [← h']; exact hN _ (List.getElem_mem _)
-  generalize ht : spanTerm s.P argA' oc s.x s.argA.size (mI + 1) = t
-  have hshr : s.cel.size >>> 2 = s.N := Nat.shiftRight_eq_div_pow _ _
-  rw [hshr]
-  -- the store: the copy, the busy cell, the record
-  have hs1 := h.store.withValArg (Pre.refl _) h.store.valSz hpre href
-  have hclosed : t.looseBVarsBounded 0 = true := by
-    rw [← ht]; unfold spanTerm
-    refine (mkAppN_bounded _ _).mpr ⟨by unfold entryTerm; split <;> simp [infoTerm_closed, bot,
-      Expr.looseBVarsBounded], fun a ha => ?_⟩
-    obtain ⟨c, hc, rfl⟩ := List.mem_map.mp ha
-    rw [hsp] at hc
-    exact h.store.closed c (hcellN c hc)
-  have hs2 := hs1.alloc (s' := { s with
-      cel := (((s.cel.push 1).push 0).push 0).push 0, argA := argA' }) (w0 := 1) (w1 := 0) (w2 := 0) (t := t) rfl rfl (Pre.refl _) h.store.valSz
-    (Pre.refl _) h.store.evSz rfl rfl rfl (h.store.evRef.mono (Nat.le_succ _)) hclosed
-    (by unfold CellOK; dsimp only [MS.N]; rw [(push4_spec s.cel 1 0 0 0 h.store.celSz).2.1]; trivial)
-    (by omega)
-  have hN1 : ({ s with cel := (((s.cel.push 1).push 0).push 0).push 0, argA := argA' } : MS).N =
-      s.N + 1 := by
-    simp only [MS.N]; rw [(push4_spec s.cel 1 0 0 0 h.store.celSz).1]; have := h.store.celSz; omega
-  have hagree := Agree.ext oc s.N t
-  have ht' : t = Expr.mkAppN (entryTerm s.P s.x) ((ca.take (mI + 1)).map oc) := by
-    rw [← ht]; unfold spanTerm; rw [hsp]
-  have hspan' : spanTerm s.P argA' (ocExt oc s.N t) s.x s.argA.size (mI + 1) = t := by
-    have e := map_agree hagree hcellN
-    unfold spanTerm; rw [hsp, ← e]; exact ht'.symm
-  have hs3 := hs2.pushMemo (k := s.x) (start := s.argA.size) (len := mI + 1) (c := s.N)
-    (by rw [hN1]; omega) hk (by show _ ≤ argA'.size; rw [hsz]; exact Nat.le_refl _)
-    (by show ocExt oc s.N t s.N = _; rw [ocExt_self]; exact hspan'.symm) mH'
-  refine ⟨(ca.drop (mI + 1)).map Fr.arg ++ fl', hs3.same rfl rfl rfl rfl rfl rfl rfl, ?_, ?_, ?_⟩
-  · refine FS.pushIota (FS.pushUpd ?_ s.N) _ _ _
-    rw [g4PopN_size]; exact FS.popN _ (Nat.le_refl _) hfs
-  · rw [show (((((s.cel.push 1).push 0).push 0).push 0).size / 4) = s.N + 1 from hN1]
-    intro f hf'
-    rcases List.mem_cons.mp hf' with rfl | hf'
-    · show FrOK s.P argA' (s.N + 1) (.iota s.x s.argA.size (mI + 1))
-      unfold FrOK
-      exact ⟨hk, by omega, by rw [hsz]; exact Nat.le_refl _, htag, by simpa using hmI⟩
-    rcases List.mem_cons.mp hf' with rfl | hf'
-    · show s.N < s.N + 1; omega
-    · exact (h.frames f (by rw [hsplit]; exact List.mem_append_right _ hf')).grow (Ext.refl _) hpre
-        (Nat.le_succ _)
-  · rw [hspan']
-    refine ⟨by rw [ocExt_self]; exact .refl, ?_⟩
-    rw [ocExt_self]
-    have := K.move h.store.argRef hagree (Ext.refl _) hpre
-      (fun f hf => h.frames f (by rw [hsplit]; exact List.mem_append_right _ hf)) hK
-    rw [← ht'] at this; exact this
+  obtain ⟨fl', hS, hFS, hFl, hK⟩ := memo_core h hm hle mH'
+  have hk : s.x < s.P.kInfo.size := by
+    have hf := h.focus; simp only [Focus, hm] at hf; exact hf.1
+  obtain ⟨hsz, -, -⟩ := copyArgs_spec s.fs (mI + 1) 0 s.argA
+  have hN1 : (((((s.cel.push 1).push 0).push 0).push 0).size / 4) = s.N + 1 := by
+    rw [(push4_spec s.cel 1 0 0 0 h.store.celSz).1]; simp only [MS.N]; have := h.store.celSz; omega
+  refine ⟨fl', hS.same rfl rfl rfl rfl rfl rfl rfl, FS.pushIota hFS _ _ _, ?_, hK⟩
+  rw [hN1]
+  refine FlOK.cons.mpr ⟨?_, hFl⟩
+  unfold FrOK
+  exact ⟨hk, by omega, by rw [hsz]; exact Nat.le_refl _, htag, by simpa using hmI⟩
 
 /-- **A recursor redex, not in the memo, without the K step**: its major is
 entered under the ι frame. -/
@@ -526,18 +552,15 @@ theorem step_natop_push (h : MInv env t₀ oc s fl) (hm : s.mode = 3)
       · exact h.frames f (List.mem_append_right _ hf')
     · exact ⟨hN a (by simp), .refl, hK⟩
 
-/-- **δ**: a definition entry with its body compiled; the body is evaluated
-under the empty environment, the argument frames left in place (`delta`,
-then `forget` to the compiled body).  The body is closed: the stored value
-is (`EnvWF`). -/
-theorem step_delta_body (hwf : EnvWF env) (h : MInv env t₀ oc s fl) (hm : s.mode = 3)
-    (ht : s.P.kTag[s.x]? = some 0 ∨ s.P.kTag[s.x]? = some 3) (hc : s.P.kCode[s.x]! ≠ 0) :
-    MInv env t₀ oc { s with mode := 0, pc := s.P.kCode[s.x]! - 1, env := 0, x := 0 } fl := by
-  have hf := h.focus
-  simp only [Focus, hm] at hf
-  obtain ⟨hk, hK⟩ := hf
+/-- **The δ rule at a compiled definition entry**: the entry's constant on
+any arguments reduces, up to erasure, to the compiled body on them; the body
+is closed, since the stored value is (`EnvWF`). -/
+theorem delta_red (hwf : EnvWF env) {P : G4Prog} (hI : Inv env.find? env.findProj? P) {k : Nat}
+    (hk : k < P.kInfo.size) (ht : P.kTag[k]? = some 0 ∨ P.kTag[k]? = some 3) (hc : P.kCode[k]! ≠ 0) :
+    ∃ sb, Den P (P.kCode[k]! - 1) sb ∧ sb.looseBVarsBounded 0 = true ∧
+      ∀ args : List Expr, ERed env (Expr.mkAppN (entryTerm P k) args) (Expr.mkAppN sb args) := by
   obtain ⟨c, lps, us, v, hinfo, ⟨cv, hh, hfind, rfl⟩, hlen, -, w, hw, hcode⟩ :=
-    (h.store.prog.ents s.x hk).tag03 hk ht
+    (hI.ents k hk).tag03 hk ht
   rcases hcode with rfl | ⟨o, sb, rfl, hd, ha⟩
   · rw [get!_of_some hw] at hc; exact absurd rfl hc
   rw [get!_of_some hw, Nat.add_sub_cancel]
@@ -545,22 +568,126 @@ theorem step_delta_body (hwf : EnvWF env) (h : MInv env t₀ oc s fl) (hm : s.mo
     ((hwf.consts _ (Env.find?_mem hfind)).2.2.2.2.1 cv v hh rfl).2.2.2
   have hsc : sb.looseBVarsBounded 0 = true :=
     Approx.bounded ha (by rw [Expr.looseBVarsBounded_instantiateLevelParams]; exact hvc)
-  refine ⟨h.store.same rfl rfl rfl rfl rfl rfl rfl, h.stack, h.frames, ?_⟩
-  show ∃ u, NodeTerm s.P s.ev oc o 0 u ∧ K env t₀ s.P s.argA oc fl u
-  refine ⟨sb, ⟨sb, [], hd, .nil, by simpa using hsc, by rw [Expr.instantiateList_eq_self hsc]⟩, ?_⟩
-  obtain ⟨ca, fl', rfl, -⟩ := FS.countArgs h.stack 0
-  rw [K.args] at hK ⊢
-  have he : entryTerm s.P s.x = .const c us := by unfold entryTerm; rw [hinfo]; rfl
-  rw [he] at hK
-  have hδ : ERed env (Expr.mkAppN (.const c us) (ca.map oc))
-      (Expr.mkAppN (v.instantiateLevelParams cv.levelParams us) (ca.map oc)) := by
+  refine ⟨sb, hd, hsc, fun args => ?_⟩
+  have he : entryTerm P k = .const c us := by unfold entryTerm; rw [hinfo]; rfl
+  rw [he]
+  have hδ : ERed env (Expr.mkAppN (.const c us) args)
+      (Expr.mkAppN (v.instantiateLevelParams cv.levelParams us) args) := by
     refine .delta ?_
     unfold unfoldDefinition
     rw [Expr.getAppFn_mkAppN]
     simp only [Expr.getAppFn, hfind, Expr.getAppArgs_mkAppN]
     rw [ite_eq_left hlen]
     simp [Expr.getAppArgs]
-  exact hK.step env t₀ s.P s.argA oc fl' (.forget hδ (Approx.mkAppN ha (Approx.Args.refl _)))
+  exact .forget hδ (Approx.mkAppN ha (Approx.Args.refl _))
+
+/-- **δ**: a definition entry with its body compiled; the body is evaluated
+under the empty environment, the argument frames left in place (`delta`,
+then `forget` to the compiled body). -/
+theorem step_delta_body (hwf : EnvWF env) (h : MInv env t₀ oc s fl) (hm : s.mode = 3)
+    (ht : s.P.kTag[s.x]? = some 0 ∨ s.P.kTag[s.x]? = some 3) (hc : s.P.kCode[s.x]! ≠ 0) :
+    MInv env t₀ oc { s with mode := 0, pc := s.P.kCode[s.x]! - 1, env := 0, x := 0 } fl := by
+  have hf := h.focus
+  simp only [Focus, hm] at hf
+  obtain ⟨hk, hK⟩ := hf
+  obtain ⟨sb, hd, hsc, hred⟩ := delta_red hwf h.store.prog hk ht hc
+  refine ⟨h.store.same rfl rfl rfl rfl rfl rfl rfl, h.stack, h.frames, ?_⟩
+  show ∃ u, NodeTerm s.P s.ev oc _ 0 u ∧ K env t₀ s.P s.argA oc fl u
+  refine ⟨sb, ⟨sb, [], hd, .nil, by simpa using hsc, by rw [Expr.instantiateList_eq_self hsc]⟩, ?_⟩
+  obtain ⟨ca, fl', rfl, -⟩ := FS.countArgs h.stack 0
+  rw [K.args] at hK ⊢
+  exact hK.step env t₀ s.P s.argA oc fl' (hred _)
+
+/-- **The δ compile**: a definition entry without its body compiles the
+stored value at the entry's levels, stores the node, and dispatches again
+(a stutter; the program grows up to the code column). -/
+theorem step_delta_compile (h : MInv env t₀ oc s fl) (hm : s.mode = 3) {c : Name} {lps : List Name}
+    {us : List Level} {v : Expr} (hi : s.P.kInfo[s.x]! = .defn c lps us v) :
+    MInv env t₀ oc { s with P :=
+      { (g4Comp env.find? env.findProj? g4CompFuel s.P (v.instantiateLevelParams lps us)).2 with
+        kCode := (g4Comp env.find? env.findProj? g4CompFuel s.P (v.instantiateLevelParams lps us)).2.kCode.set!
+          s.x ((g4Comp env.find? env.findProj? g4CompFuel s.P (v.instantiateLevelParams lps us)).1 + 1) } }
+      fl := by
+  have hf := h.focus
+  simp only [Focus, hm] at hf
+  obtain ⟨hk, hK⟩ := hf
+  have hi' : s.P.kInfo[s.x]? = some (.defn c lps us v) := by
+    rw [Array.getElem?_eq_getElem hk, ← hi, getElem!_pos s.P.kInfo s.x hk]
+  have hcomp :=
+    (g4Comp_spec env.find? env.findProj? g4CompFuel).1 s.P (v.instantiateLevelParams lps us) h.store.prog
+  generalize g4Comp env.find? env.findProj? g4CompFuel s.P (v.instantiateLevelParams lps us) = r at hcomp ⊢
+  obtain ⟨o, P1⟩ := r
+  obtain ⟨hI1, hx1, sb, hd, ha⟩ := hcomp
+  dsimp only at hI1 hx1 hd ⊢
+  have hI2 := hI1.setKCode (hx1.kInfo_some hi') hd ha
+  have hx : ExtR s.P { P1 with kCode := P1.kCode.set! s.x (o + 1) } :=
+    hx1.toExtR.trans (ExtR.codes P1 _ P1.ruleCode)
+  refine ⟨h.store.grow (s' := { s with P := _ }) hI2 hx hx.epBase (Pre.refl _) h.store.celSz (Pre.refl _)
+    h.store.valSz (Pre.refl _) h.store.evSz (Pre.refl _) rfl rfl (Agree.refl _ _) h.store.evRef
+    h.store.argRef (fun c h₁ h₂ => absurd h₂ (by simp only [MS.N] at h₁ ⊢; omega)), h.stack,
+    h.frames.grow hx (Pre.refl _) (Nat.le_refl _), ?_⟩
+  simp only [Focus, hm]
+  rw [entryTerm_ext hx hk]
+  exact ⟨Nat.lt_of_lt_of_le hk hx.kInfoSize, K.grow env t₀ oc hx (Pre.refl _) fl h.frames hK⟩
+
+/-- Argument frames for a span of cells, the first on top. -/
+theorem FS.pushArgs (argA : Array Nat) (start : Nat) : ∀ (len : Nat) {fs : Array Nat} {fl : List Fr},
+    FS fs fs.size fl →
+    FS (g4PushArgs argA start fs len) (g4PushArgs argA start fs len).size
+      ((span argA start len).map Fr.arg ++ fl)
+  | 0, _, _, h => by simpa [g4PushArgs, span] using h
+  | len + 1, _, fl, h => by
+    simp only [g4PushArgs]
+    have := FS.pushArgs argA start len (FS.pushArg h argA[start + len]!)
+    have e : span argA start (len + 1) = span argA start len ++ [argA[start + len]!] := by
+      simp [span, List.range_succ]
+    rw [e, List.map_append, List.append_assoc]; exact this
+
+/-- **δ, recorded in the memo**: the arguments are copied, a busy cell
+records the redex, its update frame and the arguments' frames are pushed, and
+the compiled body is evaluated under them. -/
+theorem step_delta_miss (hwf : EnvWF env) (h : MInv env t₀ oc s fl) (hm : s.mode = 3)
+    (ht : s.P.kTag[s.x]? = some 0 ∨ s.P.kTag[s.x]? = some 3) (hc : s.P.kCode[s.x]! ≠ 0)
+    (mH' : Array Nat) :
+    ∃ oc' fl', MInv env t₀ oc' { s with
+      cel := (((s.cel.push 1).push 0).push 0).push 0,
+      fs := g4PushArgs (g4CopyArgs s.fs s.argA (g4CountArgs s.fs s.fs.size 0) 0) s.argA.size
+        ((g4PopN s.fs (g4CountArgs s.fs s.fs.size 0)).push (g4Tag (s.cel.size >>> 2) 2))
+        (g4CountArgs s.fs s.fs.size 0),
+      argA := g4CopyArgs s.fs s.argA (g4CountArgs s.fs s.fs.size 0) 0,
+      mem := (((s.mem.push s.x).push s.argA.size).push (g4CountArgs s.fs s.fs.size 0)).push
+        (s.cel.size >>> 2),
+      mH := mH', mode := 0, pc := s.P.kCode[s.x]! - 1, env := 0, x := 0 } fl' := by
+  have hk : s.x < s.P.kInfo.size := by
+    have hf := h.focus; simp only [Focus, hm] at hf; exact hf.1
+  obtain ⟨sb, hd, hsc, hred⟩ := delta_red hwf h.store.prog hk ht hc
+  generalize hna : g4CountArgs s.fs s.fs.size 0 = na
+  obtain ⟨fl', hS, hFS, hFl, hK⟩ := memo_core h hm (Nat.le_of_eq hna.symm) mH'
+  generalize hA : g4CopyArgs s.fs s.argA na 0 = argA' at hS hFl hK
+  generalize ht' : spanTerm s.P argA' oc s.x s.argA.size na = t at hS hK
+  have hN1 : (((((s.cel.push 1).push 0).push 0).push 0).size / 4) = s.N + 1 := by
+    rw [(push4_spec s.cel 1 0 0 0 h.store.celSz).1]; simp only [MS.N]; have := h.store.celSz; omega
+  have hsz : argA'.size = s.argA.size + na := by rw [← hA]; exact (copyArgs_spec s.fs na 0 s.argA).1
+  refine ⟨_, (span argA' s.argA.size na).map Fr.arg ++ .upd s.N :: fl',
+    hS.same rfl rfl rfl rfl rfl rfl rfl, FS.pushArgs argA' s.argA.size na hFS, ?_, ?_⟩
+  · intro f hf'
+    rcases List.mem_append.mp hf' with hf' | hf'
+    · obtain ⟨c, hc', rfl⟩ := List.mem_map.mp hf'
+      show c < MS.N _
+      simp only [MS.N]; rw [hN1]
+      obtain ⟨j, hj, rfl⟩ := List.mem_map.mp hc'
+      have := hS.argRef (s.argA.size + j) (by
+        show s.argA.size + j < argA'.size; rw [List.mem_range] at hj; omega)
+      have hcs := h.store.celSz
+      simp only [MS.N, Array.size_push] at this ⊢
+      omega
+    · show FrOK s.P argA' (MS.N _) f
+      simp only [MS.N]; rw [hN1]; exact hFl f hf'
+  · show ∃ u, NodeTerm s.P s.ev _ _ 0 u ∧ K env t₀ s.P argA' _ _ u
+    refine ⟨sb, ⟨sb, [], hd, .nil, by simpa using hsc, by rw [Expr.instantiateList_eq_self hsc]⟩, ?_⟩
+    rw [K.args]
+    unfold spanTerm at hK
+    exact hK.step env t₀ s.P argA' _ _ (hred _)
 
 end
 

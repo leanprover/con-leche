@@ -204,12 +204,12 @@ theorem K.congr (env : Env) (t₀ : Expr) (P : G4Prog) (argA : Array Nat) {oc oc
 
 /-! ## Growth: the program and the arrays extended -/
 
-theorem FrOK.grow {P P' : G4Prog} {argA argA' : Array Nat} {N N' : Nat} (hx : Ext P P')
+theorem FrOK.grow {P P' : G4Prog} {argA argA' : Array Nat} {N N' : Nat} (hx : ExtR P P')
     (hp : Pre argA argA') (hN : N ≤ N') : ∀ {f : Fr}, FrOK P argA N f → FrOK P' argA' N' f
   | .arg _, h => Nat.lt_of_lt_of_le h hN
   | .upd _, h => Nat.lt_of_lt_of_le h hN
   | .iota .., ⟨h₁, h₂, h₃, h₄, h₅⟩ => ⟨Nat.lt_of_lt_of_le h₁ hx.kInfoSize, h₂, Nat.le_trans h₃ hp.1,
-      by rw [(entW_eq (hx.ent _ h₁)).1]; exact h₄, by rw [(entW_eq (hx.ent _ h₁)).2.2.1]; exact h₅⟩
+      by rw [(entR_eq (hx.ent _ h₁)).1]; exact h₄, by rw [(entR_eq (hx.ent _ h₁)).2.1]; exact h₅⟩
   | .proj pi, h => by
     rcases h with h | h
     · exact .inl h
@@ -224,12 +224,12 @@ theorem FrOK.grow {P P' : G4Prog} {argA argA' : Array Nat} {N N' : Nat} (hx : Ex
       Nat.lt_of_lt_of_le h₃ hN⟩
   | .succ, _ => trivial
 
-theorem FlOK.grow {P P' : G4Prog} {argA argA' : Array Nat} {N N' : Nat} (hx : Ext P P')
+theorem FlOK.grow {P P' : G4Prog} {argA argA' : Array Nat} {N N' : Nat} (hx : ExtR P P')
     (hp : Pre argA argA') (hN : N ≤ N') {fl : List Fr} (h : FlOK P argA N fl) :
     FlOK P' argA' N' fl := fun f hf => (h f hf).grow hx hp hN
 
 theorem K.grow (env : Env) (t₀ : Expr) {P P' : G4Prog} {argA argA' : Array Nat} (oc : Nat → Expr)
-    {N : Nat} (hx : Ext P P') (hp : Pre argA argA') :
+    {N : Nat} (hx : ExtR P P') (hp : Pre argA argA') :
     ∀ (fl : List Fr) {u : Expr}, FlOK P argA N fl →
     K env t₀ P argA oc fl u → K env t₀ P' argA' oc fl u
   | [], _, _, h => h
@@ -239,7 +239,7 @@ theorem K.grow (env : Env) (t₀ : Expr) {P P' : G4Prog} {argA argA' : Array Nat
     obtain ⟨⟨hk, hl, hs, -⟩, hf⟩ := FlOK.cons.mp hf
     simp only [K, spanTerm] at h ⊢
     rw [hp.2 _ (by omega), span_pre hp hs, entryTerm_ext hx hk,
-      get!_congr (entW_eq (hx.ent k hk)).2.2.2.2.2.2]
+      get!_congr (entR_eq (hx.ent k hk)).2.2.2.2.2]
     have := K.grow env t₀ oc hx hp fl hf h.2
     exact ⟨h.1, this⟩
   | .proj pi :: fl, _, hf, h => by

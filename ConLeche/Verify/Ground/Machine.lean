@@ -290,11 +290,11 @@ theorem EnvL.pre {ev ev' : Array Nat} (hp : Pre ev ev') : ∀ {e : Nat} {cs : Li
     rw [h1]; exact EnvL.pre hp h
 
 theorem NodeTerm.pre {P P' : G4Prog} {ev ev' : Array Nat} {oc : Nat → Expr} {pc e : Nat} {u : Expr}
-    (hx : Ext P P') (hp : Pre ev ev') (h : NodeTerm P ev oc pc e u) : NodeTerm P' ev' oc pc e u := by
+    (hx : ExtR P P') (hp : Pre ev ev') (h : NodeTerm P ev oc pc e u) : NodeTerm P' ev' oc pc e u := by
   obtain ⟨s, cs, hd, he, hb, rfl⟩ := h
   exact ⟨s, cs, hd.ext hx, he.pre hp, hb, rfl⟩
 
-theorem entryTerm_ext {P P' : G4Prog} (hx : Ext P P') {k : Nat} (hk : k < P.kInfo.size) :
+theorem entryTerm_ext {P P' : G4Prog} (hx : ExtR P P') {k : Nat} (hk : k < P.kInfo.size) :
     entryTerm P' k = entryTerm P k := by
   unfold entryTerm; rw [hx.kInfo k hk]
 
@@ -308,7 +308,7 @@ theorem span_pre {a a' : Array Nat} (hp : Pre a a') {start len : Nat} (h : start
 
 /-- A value keeps its term when the arrays and the program are extended. -/
 theorem ValDen.pre {P P' : G4Prog} {val val' ev ev' argA argA' : Array Nat} {oc : Nat → Expr}
-    {v : Nat} {t : Expr} (hx : Ext P P') (hval : Pre val val') (hev : Pre ev ev')
+    {v : Nat} {t : Expr} (hx : ExtR P P') (hval : Pre val val') (hev : Pre ev ev')
     (harg : Pre argA argA') (hv : 4 * v + 3 < val.size) (h : ValDen P val ev argA oc v t) :
     ValDen P' val' ev' argA' oc v t := by
   have r0 := hval.2 (4 * v) (by omega)
