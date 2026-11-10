@@ -112981,3 +112981,93 @@ ground engine (task #423): skipping the check only on the demand path of a close
 `t =?= true` evaluation, never inside nested checks, cannot turn an accepting run into a
 loop — where the check fails the incumbent either reduces the proof to the constructor
 (same reduct, later) or is stuck and rejects.
+
+## TASK #554 — `Expr` equality without a derived `DecidableEq` (2026-11-10, agent/554-expr-deceq)
+
+The maintainer's ruling after #551: `Expr` gets the treatment `Name`, `Level` and `Literal` got
+there — a hand-written structural instance as the logical meaning, a proved `@[csimp]` swap to
+the pointer-first decision in compiled code, and no derived `DecidableEq` on an executed path.
+
+**What was there.**  `Expr` had `deriving DecidableEq`.  `==` already ran the pointer-first,
+memoised `beqMemo` (`beq_eq_beqMemo`), but every `=` decided by the instance ran the derived
+structural walk: `if e = e'` in code, the derived `DecidableEq` of every type with an `Expr`
+field (`Kernel/Env.lean`'s records), `beqGoX`'s catch-all arm on different constructors, and
+`ptrDec`'s fallback.
+
+**What is there now** (`ConLeche/Kernel/Expr.lean`).
+* `Expr.decEq`: the structural decision, written out (one arm per constructor pair; the
+  computed field `data` is not compared, it is a function of the constructor's arguments).  It
+  is the instance: what the kernel, `by decide` and `#guard` reduce.  `deriving` keeps only
+  `Repr, Inhabited`.
+* `beqGoX`'s catch-all `| a', b' => instDecidableEqExpr a' b'` became the 90 explicit
+  constructor-mismatch arms, each `isFalse (fun e => Expr.noConfusion e)`: a mismatch is
+  answered on the spot, no call.
+* `beqMemo_iff : beqMemo a b = true ↔ a = b` (the old `beqMemo_eq` proof, read as an `iff`);
+  `Expr.decEqPtr a b := decidable_of_iff (beqMemo a b = true) (beqMemo_iff a b)`; and
+  `@[csimp] Expr.decEq_eq_decEqPtr : @Expr.decEq = @Expr.decEqPtr`, by
+  `funext; Subsingleton.elim` as in #551.  Then `instance : DecidableEq Expr := Expr.decEq`,
+  declared AFTER the `@[csimp]` lemma, so its compiled body is `decEqPtr` (an instance
+  declared before it would have been compiled with the structural body; `Name.lean` has the
+  same order).  `beqMemo_eq` (`beqMemo a b = decide (a = b)`) now follows from `beqMemo_iff`,
+  and `beq_eq_beqMemo` stays, so `==` runs `beqMemo` without the `Decidable` wrapper.
+* The identity test is split by where it is compiled.  `ptrDecStruct` (pointer test, then
+  `Expr.decEq` in the pure model) is the one used inside the equality (`enterBeq`'s `pa == pb`
+  arm, `probeHit`'s validation), compiled before `decEqPtr` exists.  `ptrDec` (pointer test,
+  then the instance) is declared after the instance and used by the memo tables' hit
+  validation (`Cached/ExprOpsC.lean`'s `PEnt.hit`, the `Nat` table's `NEnt.hit`, inlined into
+  `StateC`, `IndPositivity` and the substitution walks): its compiled fallback is
+  `decEqPtr`, not the structural walk.  At every one of these sites the addresses are known
+  equal (the key encodes the address exactly; the cursor is compared first), so the fallback
+  does not run either way.
+* No proof changed: nothing reasoned about the derived instance, `beqGoX`'s arms or
+  `ptrDec`'s body.  The axioms of `Expr.decEq_eq_decEqPtr` are pinned in
+  `tests/ConLecheTests/Axioms.lean` (`propext, Classical.choice, Quot.sound`, the same as
+  `beq_eq_beqMemo`: `decEqPtr` carries `beqMemo_iff`'s proof and the memo's quotient).
+
+**The generated C** (`.lake/build/ir/`, all `ConLeche/**/*.c` and `Main.c`):
+* `lp_con_x2dleche_ConLeche_Expr_decEq` (the structural walk) is called from `Kernel/Expr.c`
+  only: from itself (its recursion), its `___boxed` wrapper, `ptrDecStruct`, and the inlined
+  `ptrDecStruct` in `enterBeq` (3 sites), `probeHit` (2) and `beqGoX` (22).  Each of those 27
+  calls sits in the `lean_usize_dec_eq(lean_ptr_addr(a), lean_ptr_addr(b)) == 0` branch of
+  `withPtrEqDecEq`, inside a branch where the addresses were already found equal (checked
+  line by line for `beqGoX`: all 22 are preceded by the pointer test).  No other C file
+  calls it.
+* No derived `Expr` decision exists any more: `instDecidableEqExpr` and its `.decEq` are gone
+  from every `ConLeche` C file.  (`Fragment/*.c` and `ConLecheTests/ScanTests.c` have their own,
+  unrelated `Expr` types; `Model/Inductives/SumData.c` is a stale September artifact of a
+  removed module, not linked.)
+* `lp_con_x2dleche_ConLeche_Expr_instDecidableEq` is the pointer test, the computed-word
+  test and `beqGoX` (the inlined `decEqPtr`/`beqMemo`); it is what the derived instances of
+  `Env.lean`'s records and `ptrDec`'s fallback call.  `Expr.instBEq`'s closure is
+  `beqMemo___boxed`.
+
+**Plain reach.**  The allowlist trades `instDecidableEqExpr`, `instDecidableEqExpr.decEq` and
+`Expr.ctorIdx` (the derived instance's mismatch test) for `Expr.instDecidableEq` and
+`Expr.decEq`, the latter reached only as `ptrDecStruct`'s fallback: 576 declarations, all
+allowlisted.
+
+### Measurements
+
+`perf stat -e instructions:u`, one run each, under the guard and `timeout`: master c3c892904
+against the lane; `init-prelude` and `grind-ring-5` at `--jobs=8`, `init-full` at `--jobs=1`.
+Every run accepts the same count as its base (1 777, 2 185, 57 977).
+
+| run | master | lane | Δ |
+|---|---|---|---|
+| `init-prelude` | 1 468 060 740 | 1 467 520 827 | −0.04 % |
+| `grind-ring-5` | 12 658 619 626 | 12 661 186 890 | +0.02 % |
+| `init-full` | 355 859 172 651 | 355 653 228 598 | −0.06 % |
+
+Noise level, as expected: `==` already ran `beqMemo`, and the derived walk ran only at
+constructor mismatches inside `beqGoX` (a tag test there, one call now saved) and at the
+records' derived instances, which the checker rarely runs on hot paths.
+
+Gates: `lake build` (799 jobs) and `lake test` warning-free; `tests/arena.sh` in full under the
+guard (layering, pindump, trust surface 11 escapes in 6 allowlisted files, overview links 163,
+whitepaper links 467, fragment gate, quote gate, no-local-paths, challenge, shake 662/662
+allowlisted, plain-reach 576 all allowlisted, binary-link, olean gate 122/122, axioms pinned at
+33 theorems, arena tutorial 90/92, e2e 592/592, self-check 53 966 declarations, the trusted and
+`--jobs` sweeps without divergence).  The one repair: `OVERVIEW.md`'s `model_exists` pin link,
+moved one line by the new axioms-table row.
+
+Scripts and logs: `_tmp/554/scripts`, `_tmp/554/logs`.

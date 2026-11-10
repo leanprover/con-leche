@@ -113,12 +113,12 @@
     89  def checkDecls (mode : CheckMode) (pins : List NatOpPinSet) (maxNatSize : Nat) (ds : Array Declaration) :
     90      Except (CheckError × Nat) Env := do
 
-== tests/ConLecheTests/Axioms.lean#L97-L101
-    97  /--
-    98  info: 'ConLeche.model_exists' depends on axioms: [propext, Classical.choice, Quot.sound]
-    99  -/
-   100  #guard_msgs in
-   101  #print axioms ConLeche.model_exists
+== tests/ConLecheTests/Axioms.lean#L98-L102
+    98  /--
+    99  info: 'ConLeche.model_exists' depends on axioms: [propext, Classical.choice, Quot.sound]
+   100  -/
+   101  #guard_msgs in
+   102  #print axioms ConLeche.model_exists
 
 == ConLeche/Driver/Dispatch.lean#L31
     31  def runReq {μ : Type → Type} [CheckerIO μ] : Req → μ UInt8
