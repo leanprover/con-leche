@@ -114212,3 +114212,20 @@ Not built: a black-hole input (a closed term that needs its own value is a non-t
 #### S.8 Gates
 
 `lake build` and `lake test` warning-free at every commit.  `tests/arena.sh --no-sweeps` at the decline commit: e2e 610/610 (the six new fixtures included), tutorial 90/92, olean 122/122, self-check accepted, binary-link, trust surface, quotes, layering; the plain-reach report the base carried (the literal-hash functions) is fixed (the four hash functions allowlisted with their reason, the stale `instHashableLiteral.hash` entry removed); the whitepaper's `Rules/Rel.lean` citations moved by `Red.iotaK` (the ι citation repointed to the ι rule alone); shake asked to keep `GroundComplete`'s `StateC` re-export (a census fallback, measured).  The engine-on build is still the probe build (`DiscC5.defeqBodyI_eq` swapped for `sorry`, `_tmp/423-sound/scr/mkon.sh`), so the full battery with the engine on is not run.
+
+#### S.9 Continuation (2026-11-10, after the rulings)
+
+**The rulings on §S.7** (maintainer): (1) layer (d) by option (b), the honest fix: keep the program per declaration and prove that the site's answer does not depend on a kept program the compile invariant admits; (2) η via projections: not now, the declines stay; (3) strictness stays out.
+
+**Progress on (b)+(c)** (no `sorry`):
+* `ConLeche/Verify/Ground/Bind.lean` (100 lines): environments as substitutions.  A variable under closed origins is its origin (`lookup`), read-back under closed origins is closed (`bounded`), β under an environment and `k` arguments at once (`beta_env`, `betaN_env` over `lams k`), ζ under an environment (`zeta_env`).
+* `ConLeche/Verify/Ground/Machine.lean` (568 lines): prefix extension `Pre` and the readings' stability under it (`EnvL.pre`, `NodeTerm.pre`, `ValDen.pre`; constructor and partial-application values now carry their entry's bound); the λ walk (`Den.lamWalk`: `g4LamWalk` reads back the telescope's body); argument frames as the focus's spine (`K.args`); frame pops (`FS.pop`, `FS.popN`) and the top argument frames' cells (`FS.argsTop`); environment records and `g4BindFrames` (`EnvL.record`, `bindFrames_spec`).
+
+**What the remaining machine proof needs, found while writing it:**
+* cell origins closed (`oc c` with no loose bound variable), and a node's read-back bounded by its environment's length (`NodeTerm` with the bound).  `lookup` needs the first; the compiler provides the second, since `Approx` keeps a loose-variable bound and the compiled sources are closed (the site term, stored definition values, rule right-hand sides, string expansions);
+* a reference invariant: every cell an environment, span, frame, memo record or slot names is allocated, so that extending `oc` at a new cell leaves every reading unchanged;
+* the table invariant (each entry's tag, arity, rule rows, name ids and K entry agree with the declarations) and the projection rows; name ids injective;
+* `Bool.true`'s entry a constructor at the site: the site answers `true` only then (an engine check to add, once per run).
+
+**Estimate**, unchanged: (b)+(c) 2.7–4.5 k lines in all, of which about 0.7 k are now done in Bind and Machine; (d) with the independence lemma +0.6–1.0 k.
+

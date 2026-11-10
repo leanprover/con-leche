@@ -1,8 +1,7 @@
 module
 
-public import ConLeche.Cached.Ground4
-public import ConLeche.Verify.Ground.Erased
-import ConLeche.Verify.Ground.Compile
+public import ConLeche.Verify.Ground.Compile
+public import ConLeche.Verify.Ground.Bind
 
 public section
 
@@ -85,13 +84,15 @@ origins; a literal is itself; anything else (the neutral) is `bot`. -/
 inductive ValDen (P : G4Prog) (val ev argA : Array Nat) (oc : Nat → Expr) (v : Nat) : Expr → Prop where
   | closure {u : Expr} : val[4 * v]! = 0 → NodeTerm P ev oc val[4 * v + 1]! val[4 * v + 2]! u →
       ValDen P val ev argA oc v u
-  | ctor : val[4 * v]! = 1 → val[4 * v + 2]! + val[4 * v + 3]! ≤ argA.size →
+  | ctor : val[4 * v]! = 1 → val[4 * v + 1]! < P.kInfo.size →
+      val[4 * v + 2]! + val[4 * v + 3]! ≤ argA.size →
       ValDen P val ev argA oc v
         (Expr.mkAppN (entryTerm P val[4 * v + 1]!) ((span argA val[4 * v + 2]! val[4 * v + 3]!).map oc))
   | natLit : val[4 * v]! = 2 → ValDen P val ev argA oc v (.lit (.natVal val[4 * v + 1]!))
   | strLit {s : String} : val[4 * v]! = 3 → P.strs[val[4 * v + 1]!]? = some s →
       ValDen P val ev argA oc v (.lit (.strVal s))
-  | pap : val[4 * v]! = 4 → val[4 * v + 2]! + val[4 * v + 3]! ≤ argA.size →
+  | pap : val[4 * v]! = 4 → val[4 * v + 1]! < P.kInfo.size →
+      val[4 * v + 2]! + val[4 * v + 3]! ≤ argA.size →
       ValDen P val ev argA oc v
         (Expr.mkAppN (entryTerm P val[4 * v + 1]!) ((span argA val[4 * v + 2]! val[4 * v + 3]!).map oc))
   | other : val[4 * v]! ≥ 5 → ValDen P val ev argA oc v bot
@@ -260,6 +261,239 @@ theorem FS.pushArg {fs : Array Nat} {fl : List Fr} (h : FS fs fs.size fl) (c : N
     (by rw [getElem!_push_eq']; exact tag_and c 1 (by omega)) (FS.push _ (Nat.le_refl _) h)
   rw [getElem!_push_eq', tag_shr c 1 (by omega)] at this
   simpa using this
+
+/-! ## Prefix extension: every reading survives appending -/
+
+/-- `b` extends `a`: what `a` holds, `b` holds at the same index. -/
+def Pre (a b : Array Nat) : Prop := a.size ≤ b.size ∧ ∀ i, i < a.size → b[i]! = a[i]!
+
+theorem Pre.refl (a : Array Nat) : Pre a a := ⟨Nat.le_refl _, fun _ _ => rfl⟩
+
+theorem Pre.trans {a b c : Array Nat} (h₁ : Pre a b) (h₂ : Pre b c) : Pre a c :=
+  ⟨Nat.le_trans h₁.1 h₂.1, fun i hi => (h₂.2 i (Nat.lt_of_lt_of_le hi h₁.1)).trans (h₁.2 i hi)⟩
+
+theorem Pre.push (a : Array Nat) (x : Nat) : Pre a (a.push x) :=
+  ⟨by simp, fun _ hi => getElem!_push_lt' hi⟩
+
+theorem EnvL.pre {ev ev' : Array Nat} (hp : Pre ev ev') : ∀ {e : Nat} {cs : List Nat},
+    EnvL ev e cs → EnvL ev' e cs
+  | _, _, .nil => .nil
+  | _, _, @EnvL.cons _ i _ hlt hle h => by
+    have h1 := hp.2 (2 * i + 1) hlt
+    have h0 := hp.2 (2 * i) (by omega)
+    rw [← h0]
+    refine .cons (Nat.lt_of_lt_of_le hlt hp.1) (by rw [h1]; exact hle) ?_
+    rw [h1]; exact EnvL.pre hp h
+
+theorem NodeTerm.pre {P P' : G4Prog} {ev ev' : Array Nat} {oc : Nat → Expr} {pc e : Nat} {u : Expr}
+    (hx : Ext P P') (hp : Pre ev ev') (h : NodeTerm P ev oc pc e u) : NodeTerm P' ev' oc pc e u := by
+  obtain ⟨s, cs, hd, he, rfl⟩ := h
+  exact ⟨s, cs, hd.ext hx, he.pre hp, rfl⟩
+
+theorem entryTerm_ext {P P' : G4Prog} (hx : Ext P P') {k : Nat} (hk : k < P.kInfo.size) :
+    entryTerm P' k = entryTerm P k := by
+  unfold entryTerm; rw [hx.kInfo k hk]
+
+theorem span_pre {a a' : Array Nat} (hp : Pre a a') {start len : Nat} (h : start + len ≤ a.size) :
+    span a' start len = span a start len := by
+  unfold span
+  apply List.map_congr_left
+  intro j hj
+  rw [List.mem_range] at hj
+  exact hp.2 _ (by omega)
+
+/-- A value keeps its term when the arrays and the program are extended. -/
+theorem ValDen.pre {P P' : G4Prog} {val val' ev ev' argA argA' : Array Nat} {oc : Nat → Expr}
+    {v : Nat} {t : Expr} (hx : Ext P P') (hval : Pre val val') (hev : Pre ev ev')
+    (harg : Pre argA argA') (hv : 4 * v + 3 < val.size) (h : ValDen P val ev argA oc v t) :
+    ValDen P' val' ev' argA' oc v t := by
+  have r0 := hval.2 (4 * v) (by omega)
+  have r1 := hval.2 (4 * v + 1) (by omega)
+  have r2 := hval.2 (4 * v + 2) (by omega)
+  have r3 := hval.2 (4 * v + 3) hv
+  cases h with
+  | closure h0 hn => exact .closure (by rw [r0]; exact h0) (by rw [r1, r2]; exact hn.pre hx hev)
+  | ctor h0 hk hs =>
+    have := ValDen.ctor (P := P') (val := val') (ev := ev') (argA := argA') (oc := oc) (v := v)
+      (by rw [r0]; exact h0) (by rw [r1]; exact Nat.lt_of_lt_of_le hk hx.kInfoSize)
+      (by rw [r2, r3]; exact Nat.le_trans hs harg.1)
+    rwa [r1, r2, r3, entryTerm_ext hx hk, span_pre harg hs] at this
+  | natLit h0 => have := ValDen.natLit (P := P') (ev := ev') (argA := argA') (oc := oc)
+                   (by rw [r0]; exact h0); rwa [r1] at this
+  | strLit h0 hs => exact .strLit (by rw [r0]; exact h0) (by rw [r1]; exact hx.strs_some hs)
+  | pap h0 hk hs =>
+    have := ValDen.pap (P := P') (val := val') (ev := ev') (argA := argA') (oc := oc) (v := v)
+      (by rw [r0]; exact h0) (by rw [r1]; exact Nat.lt_of_lt_of_le hk hx.kInfoSize)
+      (by rw [r2, r3]; exact Nat.le_trans hs harg.1)
+    rwa [r1, r2, r3, entryTerm_ext hx hk, span_pre harg hs] at this
+  | other h0 => exact .other (by rw [r0]; exact h0)
+
+/-! ## λ telescopes -/
+
+/-- A λ node's read-back, inverted. -/
+theorem Den.lam_inv {P : G4Prog} {o : Nat} {s : Expr} (h : Den P o s) (h2 : P.code[o]? = some 2) :
+    ∃ b tn inner sb, P.code[o + 1]? = some b ∧ P.code[o + 2]? = some tn ∧
+      P.code[o + 3]? = some inner ∧ Den P b sb ∧ s = .lam bot sb ∧
+      ((P.code[b]? = some 2 ∧ P.code[b + 2]? = some (tn - 1) ∧ P.code[b + 3]? = some inner ∧
+          tn ≥ 2) ∨ (P.code[b]? ≠ some 2 ∧ tn = 1 ∧ inner = b)) :=
+  match h with
+  | .lam _ h₁ h₂ h₃ _ hb htel => ⟨_, _, _, _, h₁, h₂, h₃, hb, rfl, htel⟩
+  | .bvar h₀ _ | .spine h₀ .. | .letE h₀ .. | .const h₀ .. | .natLit h₀ _ | .strLit h₀ ..
+  | .projNone h₀ _ | .proj h₀ .. | .neutral h₀ | .shared h₀ .. => by rw [h₀] at h2; cases h2
+
+/-- **The machine's λ walk** (`g4LamWalk`): `k ≤ tn` binders down a λ
+telescope node is a node whose read-back is the telescope's body under the
+remaining binders; at `k = tn` it is the node's `inner` field. -/
+theorem Den.lamWalk {P : G4Prog} : ∀ (k : Nat) {o tn : Nat} {s : Expr}, Den P o s →
+    P.code[o]? = some 2 → P.code[o + 2]? = some tn → k ≤ tn →
+    ∃ sb, Den P (g4LamWalk P.code k o) sb ∧ s = lams k sb ∧
+      (k = tn → P.code[o + 3]? = some (g4LamWalk P.code k o))
+  | 0, o, tn, s, h, h2, htn, _ => by
+    refine ⟨s, h, rfl, fun hk => ?_⟩
+    obtain ⟨b, tn', inner, sb, -, htn', hin, -, -, htel⟩ := h.lam_inv h2
+    rw [htn] at htn'; cases htn'
+    rcases htel with ⟨-, -, -, h⟩ | ⟨-, h, -⟩ <;> omega
+  | k + 1, o, tn, s, h, h2, htn, hk => by
+    obtain ⟨b, tn', inner, sb, hb, htn', hin, hdb, rfl, htel⟩ := h.lam_inv h2
+    rw [htn] at htn'; cases htn'
+    have hwalk : g4LamWalk P.code (k + 1) o = g4LamWalk P.code k b := by
+      show g4LamWalk P.code k P.code[o + 1]! = _; rw [get!_of_some hb]
+    rw [hwalk]
+    rcases htel with ⟨hb2, hbtn, hbin, htn2⟩ | ⟨-, rfl, rfl⟩
+    · obtain ⟨sb', hd', rfl, hin'⟩ := Den.lamWalk k hdb hb2 hbtn (by omega)
+      refine ⟨sb', hd', rfl, fun hkt => ?_⟩
+      rw [hin, ← Option.some.inj (hbin.symm.trans (hin' (by omega)))]
+    · obtain rfl : k = 0 := by omega
+      exact ⟨sb, hdb, rfl, fun _ => hin⟩
+
+/-! ## Argument frames and the known call -/
+
+/-- Argument frames on top are the focus applied to their origins. -/
+theorem K.args (env : Env) (t₀ : Expr) (P : G4Prog) (argA : Array Nat) (oc : Nat → Expr) :
+    ∀ (cs : List Nat) (fl : List Fr) (u : Expr),
+      K env t₀ P argA oc (cs.map Fr.arg ++ fl) u ↔ K env t₀ P argA oc fl (Expr.mkAppN u (cs.map oc))
+  | [], _, _ => Iff.rfl
+  | c :: cs, fl, u => K.args env t₀ P argA oc cs fl (.app u (oc c))
+
+theorem getElem!_pop {a : Array Nat} {i : Nat} (h : i < a.size - 1) : a.pop[i]! = a[i]! := by
+  rw [getElem!_pos a.pop i (by simp; omega), getElem!_pos a i (by omega), Array.getElem_pop]
+
+/-- A parse reads only below its top: popping above it keeps it. -/
+theorem FS.pop {fs : Array Nat} : ∀ {t : Nat} {fl : List Fr}, t ≤ fs.size - 1 → FS fs t fl →
+    FS fs.pop t fl
+  | _, _, _, .nil => .nil
+  | _, _, hle, .arg h hr => by
+    rw [← getElem!_pop (by omega)] at h ⊢; exact .arg h (FS.pop (by omega) hr)
+  | _, _, hle, .upd h hr => by
+    rw [← getElem!_pop (by omega)] at h ⊢; exact .upd h (FS.pop (by omega) hr)
+  | _, _, hle, .iota h hr => by
+    rw [← getElem!_pop (by omega)] at h
+    rw [← getElem!_pop (a := fs) (by omega), ← getElem!_pop (a := fs) (i := _ + 1) (by omega),
+      ← getElem!_pop (a := fs) (i := _ + 2) (by omega)]
+    exact .iota h (FS.pop (by omega) hr)
+  | _, _, hle, .proj h hr => by
+    rw [← getElem!_pop (by omega)] at h
+    rw [← getElem!_pop (a := fs) (by omega)]
+    exact .proj h (FS.pop (by omega) hr)
+  | _, _, hle, .natA h hr => by
+    rw [← getElem!_pop (by omega)] at h
+    rw [← getElem!_pop (a := fs) (by omega), ← getElem!_pop (a := fs) (i := _ + 1) (by omega),
+      ← getElem!_pop (a := fs) (i := _ + 2) (by omega)]
+    exact .natA h (FS.pop (by omega) hr)
+  | _, _, hle, .natB h hr => by
+    rw [← getElem!_pop (by omega)] at h
+    rw [← getElem!_pop (a := fs) (by omega), ← getElem!_pop (a := fs) (i := _ + 1) (by omega),
+      ← getElem!_pop (a := fs) (i := _ + 2) (by omega), ← getElem!_pop (a := fs) (i := _ + 3) (by omega)]
+    exact .natB h (FS.pop (by omega) hr)
+  | _, _, hle, .succ h hr => by
+    rw [← getElem!_pop (by omega)] at h; exact .succ h (FS.pop (by omega) hr)
+
+theorem g4PopN_size : ∀ (fs : Array Nat) (k : Nat), (g4PopN fs k).size = fs.size - k
+  | _, 0 => by simp [g4PopN]
+  | fs, k + 1 => by simp only [g4PopN]; rw [g4PopN_size]; simp; omega
+
+/-- **Popping `k` words** above a parse keeps it. -/
+theorem FS.popN : ∀ (k : Nat) {fs : Array Nat} {t : Nat} {fl : List Fr}, t ≤ fs.size - k → FS fs t fl →
+    FS (g4PopN fs k) t fl
+  | 0, _, _, _, _, h => h
+  | k + 1, fs, _, _, hle, h => by
+    simp only [g4PopN]
+    exact FS.popN k (by simp; omega) (h.pop (by omega))
+
+/-- The top argument frames of a parse: `n` of them, read off their words. -/
+theorem FS.argsTop {fs : Array Nat} : ∀ (n : Nat) {t : Nat} {cs : List Nat} {fl : List Fr},
+    FS fs t (cs.map Fr.arg ++ fl) → cs.length = n → n ≤ t ∧ FS fs (t - n) fl ∧
+      ∀ j, j < n → cs.getD j 0 = fs[t - 1 - j]! >>> 4
+  | 0, t, cs, fl, h, hl => by
+    obtain rfl : cs = [] := List.eq_nil_of_length_eq_zero hl
+    exact ⟨Nat.zero_le _, by simpa using h, fun j hj => absurd hj (by omega)⟩
+  | n + 1, _, c :: cs, fl, h, hl => by
+    cases h with
+    | @arg t _ ht hr =>
+      obtain ⟨hn, hfs, hcs⟩ := FS.argsTop n hr (by simpa using hl)
+      refine ⟨by omega, by simpa [show t + 1 - (n + 1) = t - n by omega] using hfs, fun j hj => ?_⟩
+      cases j with
+      | zero => simp
+      | succ j =>
+        simp only [List.getD_cons_succ]
+        rw [hcs j (by omega)]; congr 2; omega
+
+/-- The cell of the `j`-th argument frame from the top. -/
+def frameCell (fs : Array Nat) (j : Nat) : Nat := fs[fs.size - 1 - j]! >>> 4
+
+/-- One new environment record over `env`. -/
+theorem EnvL.record {ev : Array Nat} {env : Nat} {cs : List Nat} (h2 : ev.size % 2 = 0)
+    (hle : env ≤ ev.size / 2) (h : EnvL ev env cs) (c : Nat) :
+    EnvL ((ev.push c).push env) (ev.size / 2 + 1) (c :: cs) := by
+  have hi : 2 * (ev.size / 2) = ev.size := by omega
+  have r1 : ((ev.push c).push env)[2 * (ev.size / 2) + 1]! = env := by
+    rw [hi, show ev.size + 1 = (ev.push c).size by simp]; exact getElem!_push_eq' _ _
+  have r0 : ((ev.push c).push env)[2 * (ev.size / 2)]! = c := by
+    rw [hi, getElem!_push_lt' (by simp), getElem!_push_eq']
+  have hsz : ((ev.push c).push env).size = ev.size + 2 := by simp
+  have hc := EnvL.cons (ev := (ev.push c).push env) (i := ev.size / 2) (cs := cs) (by rw [hsz]; omega)
+    (by rw [r1]; exact hle) (by rw [r1]; exact h.pre ((Pre.push _ _).trans (Pre.push _ _)))
+  rwa [r0] at hc
+
+theorem rev_range_succ (f : Nat → Nat) (k : Nat) :
+    (List.range (k + 1)).reverse.map f = (List.range k).reverse.map (fun i => f (i + 1)) ++ [f 0] := by
+  rw [List.range_succ_eq_map, List.reverse_cons, List.map_append, List.map_reverse, List.map_reverse,
+    List.map_map]
+  rfl
+
+/-- **Binding the top `k` argument frames** (`g4BindFrames`, from the `j`-th):
+the records extend the environment by those cells, the last innermost. -/
+theorem bindFrames_spec (fs : Array Nat) : ∀ (k j env : Nat) (ev : Array Nat) (cs : List Nat),
+    ev.size % 2 = 0 → env ≤ ev.size / 2 → EnvL ev env cs →
+    Pre ev (g4BindFrames fs ev k j env) ∧ (g4BindFrames fs ev k j env).size = ev.size + 2 * k ∧
+      EnvL (g4BindFrames fs ev k j env) (if k = 0 then env else (g4BindFrames fs ev k j env).size / 2)
+        ((List.range k).reverse.map (fun i => frameCell fs (j + i)) ++ cs)
+  | 0, _, _, ev, _, _, _, h => ⟨Pre.refl ev, by show ev.size = _; omega,
+      by show EnvL ev _ _; simpa using h⟩
+  | k + 1, j, env, ev, cs, h2, hle, h => by
+    simp only [g4BindFrames]
+    have hrec := EnvL.record h2 hle h (fs[fs.size - 1 - j]! >>> 4)
+    have hsz : ((ev.push (fs[fs.size - 1 - j]! >>> 4)).push env).size = ev.size + 2 := by simp
+    have hshr : ev.size >>> 1 = ev.size / 2 := Nat.shiftRight_eq_div_pow _ _
+    rw [hshr]
+    obtain ⟨hp, hs, he⟩ := bindFrames_spec fs k (j + 1) (ev.size / 2 + 1) _ _ (by rw [hsz]; omega)
+      (by rw [hsz]; omega) hrec
+    refine ⟨((Pre.push _ _).trans (Pre.push _ _)).trans hp, by rw [hs, hsz]; omega, ?_⟩
+    have hlist : (List.range k).reverse.map (fun i => frameCell fs (j + 1 + i)) ++
+        (fs[fs.size - 1 - j]! >>> 4) :: cs =
+        (List.range (k + 1)).reverse.map (fun i => frameCell fs (j + i)) ++ cs := by
+      rw [rev_range_succ (fun i => frameCell fs (j + i)) k, List.append_assoc]
+      simp only [frameCell, Nat.add_zero, List.singleton_append]
+      congr 2
+      funext i; congr 3; omega
+    rw [← hlist]
+    split at he
+    · rename_i hk0; subst hk0
+      simp only [Nat.add_one_ne_zero, ↓reduceIte]
+      rw [show (g4BindFrames fs ((ev.push (fs[fs.size - 1 - j]! >>> 4)).push env) 0 (j + 1)
+          (ev.size / 2 + 1)).size / 2 = ev.size / 2 + 1 by simp [g4BindFrames]; omega]
+      exact he
+    · simpa using he
 
 /-! ## Cells, and the first transitions -/
 

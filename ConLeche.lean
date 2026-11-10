@@ -43,6 +43,7 @@ public import ConLeche.Verify.Denote.ConstsBound
 public import ConLeche.Verify.GroundComplete
 public import ConLeche.Verify.Ground.Erased
 public import ConLeche.Verify.Ground.Compile
+public import ConLeche.Verify.Ground.Bind
 public import ConLeche.Verify.Ground.Machine
 
 @[expose] public section
