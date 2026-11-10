@@ -651,7 +651,7 @@ theorem checkDeclKindC_sim {fe : InLean.FEnv} {L : ConLeche.Env} (hJ : JobEnvI f
 A definition at a certified operation's name adds master's certification to
 the definition arm: the recurrence equations over two interned `Nat`
 variables (`certifyNatEqs`), resp. the pin variants (`checkDivModPin`, whose
-variants InLean loads at run time, `loadPinSets`; `pins` is master's list, so
+variants InLean decodes at run time, `PinSet.op?`; `pins` is master's list, so
 the statement is about the `pins` P4 relates to InLean's). -/
 
 /-- **The certified operations' arm** (named, not proved here). -/

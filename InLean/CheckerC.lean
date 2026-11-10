@@ -299,7 +299,8 @@ def checkDivModPinAt (fe : FEnv) (c : Name) (value' x y : Expr) (op : PinOp) (sp
     else pure false
   else pure false
 
-/-- Twin of `checkDivModPinLoopC`: each variant's proofs substituted once. -/
+/-- Twin of `checkDivModPinLoopC`: each variant's proofs substituted once.
+A variant's entry for `c` is decoded here, when it is tried. -/
 def checkDivModPinLoop (fe : FEnv) (c : Name) (value' x y : Expr) :
     List PinSet → List String → CheckCM Unit
   | [], tried =>
@@ -307,8 +308,9 @@ def checkDivModPinLoop (fe : FEnv) (c : Name) (value' x y : Expr) :
       {String.intercalate "; " tried})")
   | ps :: rest, tried =>
     match ps.op? c with
-    | none => checkDivModPinLoop fe c value' x y rest (tried ++ [s!"{ps.toolchain}: no pin"])
-    | some op =>
+    | .error e => throw (.internal s!"the Nat-operation pin dump {ps.toolchain} does not decode: {e}")
+    | .ok none => checkDivModPinLoop fe c value' x y rest (tried ++ [s!"{ps.toolchain}: no pin"])
+    | .ok (some op) =>
       let sps := op.proofs.toList.map (substConstAll c value')
       if divModPinGuard fe op && ((divModCertStmts x y c).zip sps).all
           (fun p => divModCertGuard fe c value' p.1.1 p.1.2 p.2) then do
@@ -324,11 +326,8 @@ def checkDivModPinLoop (fe : FEnv) (c : Name) (value' x y : Expr) :
 def checkDivModPin (fe fe2 : FEnv) (c : Name) (value' : Expr) : CheckCM Unit := do
   unless divModEnvGuard fe2 c do
     throw (.notImplemented s!"unsupported Nat.div/mod environment ({c})")
-  let sets ← match loadPinSets () with
-    | .ok s => pure s
-    | .error e => throw (.internal s!"the Nat-operation pin dumps do not decode: {e}")
   let (x, y) ← natVars
-  checkDivModPinLoop mode fe c value' x y sets.toList []
+  checkDivModPinLoop mode fe c value' x y pinSets.toList []
 
 /-! ## The compiler-trust opaques and axioms -/
 

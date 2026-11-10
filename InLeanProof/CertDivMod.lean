@@ -154,26 +154,34 @@ theorem constsResolve_trC {fe : InLean.FEnv} {L : ConLeche.Env} (hP : EnvPresI f
     (hok : okC e = true) (h : InLean.constsResolve fe e = true) : (trC e).constsResolve L = true :=
   constsResolve_tr hP _ (fun _ h => by simp [okE] at h) hok h
 
-/-! ## The decoded pin variants are in range -/
+/-! ## The decoded pin entries are in range -/
 
-/-- **Every term InLean decodes is in range**: the decoder refuses a dump
-with a term out of range (`PinSet.inRange`). -/
-theorem loadPinSets_range {sets : Array InLean.PinSet} (h : InLean.loadPinSets () = .ok sets) :
-    ∀ ps ∈ sets, ∀ op ∈ ps.ops, (Expr.RangeOk op.pin ∧ emvarS op.pin = false) ∧
+/-- **What a decoded entry is**: an `opDump` result the range check passed. -/
+theorem op?_decoded {ps : InLean.PinSet} {c : Name} {op : InLean.PinOp}
+    (h : ps.op? c = .ok (some op)) :
+    ∃ j, InLean.PinDecode.opDump j = .ok op ∧ op.inRange = true := by
+  unfold InLean.PinSet.op? at h
+  split at h
+  · simp [pure, Except.pure] at h
+  · obtain ⟨j, -, h⟩ := except_bind_ok h
+    obtain ⟨op', hop', h⟩ := except_bind_ok h
+    split at h
+    · rename_i hr
+      simp only [pure, Except.pure, Except.ok.injEq, Option.some.injEq] at h
+      subst h
+      exact ⟨j, hop', by simpa using hr⟩
+    · simp [bind, Except.bind, throw, throwThe, MonadExceptOf.throw] at h
+
+/-- **Every term InLean decodes is in range**: the decoder refuses an entry
+with a term out of range (`PinOp.inRange`). -/
+theorem op?_range {ps : InLean.PinSet} {c : Name} {op : InLean.PinOp}
+    (h : ps.op? c = .ok (some op)) :
+    (Expr.RangeOk op.pin ∧ emvarS op.pin = false) ∧
       (∀ p ∈ op.proofs, Expr.RangeOk p ∧ emvarS p = false) ∧
       ∀ t ∈ op.typePins, Expr.RangeOk t.2 ∧ emvarS t.2 = false := by
-  unfold InLean.loadPinSets at h
-  obtain ⟨sets', h1, h2⟩ := except_bind_ok h
-  split at h2
-  · rename_i hall
-    simp only [pure, Except.pure, Except.ok.injEq] at h2
-    subst h2
-    intro ps hps op hop
-    have h3 := Array.all_eq_true_iff_forall_mem.1 (by simpa using hall) ps hps
-    have h4 := Array.all_eq_true_iff_forall_mem.1 h3 op hop
-    simp only [InLean.PinOp.inRange, Bool.and_eq_true, Array.all_eq_true_iff_forall_mem] at h4
-    exact ⟨RangeOk_of_inRange h4.1.1, fun p hp => RangeOk_of_inRange (h4.1.2 p hp),
-      fun t ht => RangeOk_of_inRange (h4.2 t ht)⟩
-  · simp [bind, Except.bind, throw, throwThe, MonadExceptOf.throw] at h2
+  obtain ⟨-, -, h4⟩ := op?_decoded h
+  simp only [InLean.PinOp.inRange, Bool.and_eq_true, Array.all_eq_true_iff_forall_mem] at h4
+  exact ⟨RangeOk_of_inRange h4.1.1, fun p hp => RangeOk_of_inRange (h4.1.2 p hp),
+    fun t ht => RangeOk_of_inRange (h4.2 t ht)⟩
 
 end InLeanProof

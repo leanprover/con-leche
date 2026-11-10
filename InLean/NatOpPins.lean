@@ -10,11 +10,14 @@ public import InLean.ExprOps
 InLean does not import ConLeche, so it embeds the **same dumps**
 con-leche splices (one JSON file per toolchain, `ConLeche.Kernel.NatOpPins`,
 in the same order) with `include_str`, and decodes their share tables
-(`ConLeche.PinGen.Dump`'s encoding) into `Lean.Expr` when a
-pin-certified operation is declared — eight times per run, so the decode
-is not memoised.  Binder names are anonymous: the pins are compared by
-definitional equality.  Nothing here is generated from the compiling
-toolchain.
+(`ConLeche.PinGen.Dump`'s encoding) into `Lean.Expr` one operation at a
+time: when a pin-certified operation is declared, its entry in a variant is
+found by name (`PinScan.opText`) and only that entry is parsed, decoded and
+range-checked (`PinSet.op?`).  Nothing is decoded at process start or for
+any other declaration, and nothing is memoised: each of the eight names is
+declared once per environment.  Binder names are anonymous: the pins are
+compared by definitional equality.  Nothing here is generated from the
+compiling toolchain.
 -/
 
 @[expose] public section
@@ -31,21 +34,9 @@ structure PinOp where
   typePins : Array (Name × Expr)
   deriving Inhabited
 
-/-- One pin variant (twin of `NatOpPinSet`). -/
-structure PinSet where
-  toolchain : String
-  ops : Array PinOp
-  deriving Inhabited
-
-def PinSet.op? (ps : PinSet) (c : Name) : Option PinOp :=
-  ps.ops.find? (·.op == c)
-
 /-- Every term of one operation's pin data is in range (`EO.inRange`). -/
 def PinOp.inRange (op : PinOp) : Bool :=
   EO.inRange op.pin && op.proofs.all EO.inRange && op.typePins.all (EO.inRange ·.2)
-
-/-- Every term of a variant is in range. -/
-def PinSet.inRange (ps : PinSet) : Bool := ps.ops.all PinOp.inRange
 
 namespace PinDecode
 
@@ -125,26 +116,124 @@ def opDump (j : Json) : Except String PinOp := do
     pure ((← (← t.getObjVal? "name").getStr?).toName, ← blob (← t.getObjVal? "type"))
   return { op, pin, proofs, typePins }
 
-def pinSet (s : String) : Except String PinSet := do
-  let j ← Json.parse s
-  let tc ← (← j.getObjVal? "toolchain").getStr?
-  let ops ← (← (← j.getObjVal? "ops").getArr?).mapM opDump
-  return { toolchain := tc, ops }
-
 end PinDecode
 
-/-- The dumps, in con-leche's order (the dump of con-leche's toolchain
-first). -/
-def pinDumpTexts : Array String := #[
-  include_str "../pins/leanprover-lean4-nightly-nightly-2026-09-10.json",
-  include_str "../pins/leanprover-lean4-v4.33.0.json",
-  include_str "../pins/leanprover-lean4-v4.34.0-rc2.json"]
+/-! ## Finding one operation in a dump
 
-/-- Decode the pin variants (at use: a function, so nothing runs at
-process start). -/
-def loadPinSets (_ : Unit) : Except String (Array PinSet) := do
-  let sets ← pinDumpTexts.mapM PinDecode.pinSet
-  unless sets.all PinSet.inRange do throw "a pin dump term is out of range"
-  return sets
+A dump is one JSON object; its `ops` member, the last, is an array of one
+object per operation, whose first member `op` names it.  Only the operation
+being declared is decoded: `PinScan` finds its object by a byte search for
+the key (`"op":"<name>"`, after the `"ops":` key) and its end by bracket
+depth (strings skipped), and `Json.parse` reads that span alone.  In valid
+JSON the six bytes `"op":"` only occur as a key `op` with a string value
+(an unescaped quote neither occurs in a string nor follows one).  The search
+reads no value: a span it gets wrong fails to parse or to decode, or decodes
+to terms the checks refuse, so it is not part of what the checker trusts. -/
+
+namespace PinScan
+
+/-- Do the bytes of `key` from its index `j` on occur in `b` at `i + j`? -/
+def matchAt (b key : ByteArray) (i j : Nat) : Bool :=
+  if h : j < key.size then b[i + j]?.getD 0 == key[j] && matchAt b key i (j + 1) else true
+termination_by key.size - j
+
+/-- The first index from `i` at which `key` (starting with a quote) occurs. -/
+def findKey (b key : ByteArray) (i : Nat) : Option Nat :=
+  if h : i < b.size then
+    if b[i] == 34 && matchAt b key i 1 then some i else findKey b key (i + 1)
+  else none
+termination_by b.size - i
+
+/-- The index of the first quote from `i` (the end of a string with no
+escape, as names are). -/
+def quoteAt (b : ByteArray) (i : Nat) : Nat :=
+  if h : i < b.size then (if b[i] == 34 then i else quoteAt b (i + 1)) else b.size
+termination_by b.size - i
+
+/-- The index after the bracket closing depth `d` (`inStr`: inside a string). -/
+def nestEnd (b : ByteArray) (i d : Nat) (inStr : Bool) : Nat :=
+  if h : i < b.size then
+    let x := b[i]
+    if inStr then
+      if x == 92 then nestEnd b (i + 2) d true else nestEnd b (i + 1) d (x != 34)
+    else if x == 34 then nestEnd b (i + 1) d true
+    else if x == 123 || x == 91 then nestEnd b (i + 1) (d + 1) false
+    else if x == 125 || x == 93 then (if d ≤ 1 then i + 1 else nestEnd b (i + 1) (d - 1) false)
+    else nestEnd b (i + 1) d false
+  else b.size
+termination_by b.size - i
+
+/-- The last index at or before `i` that is not JSON whitespace. -/
+def backWs (b : ByteArray) : Nat → Nat
+  | 0 => 0
+  | i + 1 =>
+    let x := b[i + 1]?.getD 0
+    if x == 32 || x == 10 || x == 13 || x == 9 then backWs b i else i + 1
+
+/-- The dump's bytes `[s, e)` (`b` the dump's bytes; the indices are at
+ASCII bytes, so at character boundaries). -/
+def text (dump : String) (s e : Nat) : String := String.Pos.Raw.extract dump ⟨s⟩ ⟨e⟩
+
+/-- The string value of the key occurrence at `k` (`key` its bytes up to the
+value's opening quote). -/
+def strValue (dump : String) (b key : ByteArray) (k : Nat) : String :=
+  let v := k + key.size
+  text dump v (quoteAt b v)
+
+/-- The object of operation `c` among the `op` keys from `i` on (`f`: fuel,
+the dump's size, as every round moves past one byte at least). -/
+def opFrom (dump : String) (b : ByteArray) (c : Name) : Nat → Nat → Option String
+  | 0, _ => none
+  | f + 1, i =>
+    match findKey b "\"op\":\"".toByteArray i with
+    | none => none
+    | some k =>
+      if (strValue dump b "\"op\":\"".toByteArray k).toName == c then
+        let s := backWs b (k - 1)
+        if b[s]?.getD 0 == 123 then some (text dump s (nestEnd b s 0 false)) else none
+      else opFrom dump b c f (k + 1)
+
+/-- The text of operation `c`'s object in a dump, if it has one. -/
+def opText (dump : String) (c : Name) : Option String :=
+  let b := dump.toByteArray
+  match findKey b "\"ops\":".toByteArray 0 with
+  | some k => opFrom dump b c b.size (k + 1)
+  | none => none
+
+/-- A dump's `toolchain` member (for messages). -/
+def toolchain (dump : String) : String :=
+  let b := dump.toByteArray
+  match findKey b "\"toolchain\":\"".toByteArray 0 with
+  | some k => strValue dump b "\"toolchain\":\"".toByteArray k
+  | none => "?"
+
+end PinScan
+
+/-- One pin variant (twin of `NatOpPinSet`): one committed dump, read one
+operation at a time (`PinSet.op?`). -/
+structure PinSet where
+  dump : String
+  deriving Inhabited
+
+/-- The variant's toolchain (for messages). -/
+def PinSet.toolchain (ps : PinSet) : String := PinScan.toolchain ps.dump
+
+/-- **Operation `c`'s pin data in the variant**, decoded when `c` is
+declared and only then (the variant's other operations are not read), and
+in range; `none` where the variant has no pin for `c`. -/
+def PinSet.op? (ps : PinSet) (c : Name) : Except String (Option PinOp) := do
+  match PinScan.opText ps.dump c with
+  | none => return none
+  | some t =>
+    let op ← PinDecode.opDump (← Json.parse t)
+    unless op.inRange do throw s!"a pin term of {c} is out of range"
+    return some op
+
+/-- The variants, in con-leche's order (the dump of con-leche's toolchain
+first). -/
+def pinSets : Array PinSet := #[
+  ⟨include_str "../pins/leanprover-lean4-nightly-nightly-2026-09-10.json"⟩,
+  ⟨include_str "../pins/leanprover-lean4-v4.33.0.json"⟩,
+  ⟨include_str "../pins/leanprover-lean4-v4.34.0-rc2.json"⟩]
 
 end InLean

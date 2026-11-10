@@ -3849,13 +3849,13 @@ info: 'InLeanProof.checkDecl_sim_arm' depends on axioms: [propext,
 #guard_msgs in
 #print axioms InLeanProof.constsResolve_trC
 
-/-- info: 'InLeanProof.loadPinSets_range' depends on axioms: [propext, Classical.choice, Quot.sound] -/
+/-- info: 'InLeanProof.op?_range' depends on axioms: [propext, Classical.choice, Quot.sound] -/
 #guard_msgs in
-#print axioms InLeanProof.loadPinSets_range
+#print axioms InLeanProof.op?_range
 
-/-- info: 'InLeanProof.loadPinSets_okC' depends on axioms: [propext, Classical.choice, Quot.sound] -/
+/-- info: 'InLeanProof.op?_okC' depends on axioms: [propext, Classical.choice, Quot.sound] -/
 #guard_msgs in
-#print axioms InLeanProof.loadPinSets_okC
+#print axioms InLeanProof.op?_okC
 
 /-- info: 'InLeanProof.constsResolve_eqA' depends on axioms: [propext, Classical.choice, Quot.sound] -/
 #guard_msgs in
@@ -3869,7 +3869,7 @@ info: 'InLeanProof.checkDecl_sim_arm' depends on axioms: [propext,
 #guard_msgs in
 #print axioms InLeanProof.divModCertStmts_tr
 
-/-- info: 'InLeanProof.trPinSet_fields' depends on axioms: [propext, Quot.sound] -/
+/-- info: 'InLeanProof.trPinSet_fields' depends on axioms: [propext, Classical.choice, Quot.sound] -/
 #guard_msgs in
 #print axioms InLeanProof.trPinSet_fields
 

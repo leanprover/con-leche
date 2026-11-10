@@ -725,28 +725,36 @@ theorem divModEnvGuard_tr {fe : InLean.FEnv} {L : ConLeche.Env} (hP : EnvPresI f
 
 /-! ## The pin variants InLean loads, as master's
 
-InLean decodes its pin variants at run time (`loadPinSets ()`, the embedded
-dumps); master takes its list as a parameter (`pins`, task #304).  The
-statement instantiates `pins` with the translation of what InLean decodes:
-an operation a variant lacks maps to a pin master's guard refuses (a loose
-bound variable, `divModPinGuard`'s first conjunct), as InLean skips the
-variant. -/
+InLean decodes a variant's entry for an operation when that operation is
+declared (`PinSet.op?`, the embedded dumps); master takes its list as a
+parameter (`pins`, task #304).  The statement instantiates `pins` with the
+translation of what InLean decodes: an operation a variant lacks, or whose
+entry does not decode, maps to a pin master's guard refuses (a loose bound
+variable, `divModPinGuard`'s first conjunct); InLean skips the variant
+resp. stops with an internal error. -/
+
+/-- The operation's entry a variant decodes (`none` where it has none or the
+entry does not decode). -/
+@[expose] def opOf (ps : InLean.PinSet) (c : Name) : Option InLean.PinOp :=
+  match ps.op? c with
+  | .ok o => o
+  | .error _ => none
 
 /-- One operation's pin in a variant, translated (refused where absent). -/
 @[expose] def trOpPin (ps : InLean.PinSet) (c : Name) : ConLeche.Expr :=
-  match ps.op? c with
+  match opOf ps c with
   | some op => trC op.pin
   | none => .bvar 0
 
 /-- One operation's certificate proofs in a variant, translated. -/
 @[expose] def trOpProofs (ps : InLean.PinSet) (c : Name) : List ConLeche.Expr :=
-  match ps.op? c with
+  match opOf ps c with
   | some op => op.proofs.toList.map trC
   | none => []
 
 /-- One operation's type pins in a variant, translated. -/
 @[expose] def trOpTypePins (ps : InLean.PinSet) (c : Name) : List (ConLeche.Name × ConLeche.Expr) :=
-  match ps.op? c with
+  match opOf ps c with
   | some op => op.typePins.toList.map fun p => (toName p.1, trC p.2)
   | none => []
 
@@ -778,13 +786,8 @@ variant. -/
   shiftLeftTypePins := trOpTypePins ps InLean.natShiftLeftName
   shiftRightTypePins := trOpTypePins ps InLean.natShiftRightName
 
-/-- **The variants InLean runs with, as master's list.**  Where the dumps do
-not decode, InLean declines every pin-certified operation (an internal
-error), so any list serves; the empty one is taken. -/
-@[expose] def loadedPins : List ConLeche.NatOpPinSet :=
-  match InLean.loadPinSets () with
-  | .ok sets => sets.toList.map trPinSet
-  | .error _ => []
+/-- **The variants InLean runs with, as master's list.** -/
+@[expose] def loadedPins : List ConLeche.NatOpPinSet := InLean.pinSets.toList.map trPinSet
 
 /-! ## The certified operations' arm, from the WF operations' -/
 
