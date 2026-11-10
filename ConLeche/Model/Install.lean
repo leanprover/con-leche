@@ -385,8 +385,6 @@ theorem declStep_preserves_of_cons (mp : EnvModelM V env)
     (hdiv_mod : ∀ φ : Name → Nat,
       DivMod (V := V) ((coreCons mp.base2 A hfresh hh hAparams hAok) : EnvModel V _) φ)
     (heq_law : EqLaw (V := V) ((coreCons mp.base2 A hfresh hh hAparams hAok) : EnvModel V _))
-    (hcaps_ok : CapsOk (V := V)
-        ((coreCons mp.base2 A hfresh hh hAparams hAok) : EnvModel V _))
     (hrec_rules : ∀ φ : Name → Nat,
       RecRules (V := V) ((coreCons mp.base2 A hfresh hh hAparams hAok) : EnvModel V _) φ)
     (hreduce_ops : ReduceOps (V := V)
@@ -482,7 +480,6 @@ theorem declStep_preserves_of_cons (mp : EnvModelM V env)
     nat_ops := hnat_ops
     div_mod := hdiv_mod
     eq_law := heq_law
-    caps_ok := hcaps_ok
     rec_rules := hrec_rules
     reduce_ops := hreduce_ops
     tower_ok := htower_ok

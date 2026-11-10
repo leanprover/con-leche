@@ -44,7 +44,7 @@ open ConLeche ConLeche.Modular ConLeche.Cached ConLeche.Frontend.Olean
   w.own.toList.map (fillDecl (fillOf sp fs #[⟨M, w.home.frontier⟩]))
 
 /-- **An accepted run over a closure** (see the module docstring). -/
-structure Run (sp : SearchPath) (fs : FS) where
+structure Run (sp : SearchPath) (fs : FS) (maxNatSize : Nat) where
   C : List Graph.Node
   rk : Name → Nat
   good : ∀ e ∈ C, ModelIO.CanGive (moduleImports sp e.1) fs (.ok e.2)
@@ -53,20 +53,20 @@ structure Run (sp : SearchPath) (fs : FS) where
   w : Name → WorkerRead
   jobs : Name → Nat
   facts : ∀ M ∈ C.map (·.1), WorkerFacts sp fs M (jobs M) (w M)
-  run : ∀ M ∈ C.map (·.1), DeclsRun .verified natOpPinSets (ownDecls sp fs M (w M))
+  run : ∀ M ∈ C.map (·.1), DeclsRun .verified natOpPinSets maxNatSize (ownDecls sp fs M (w M))
     ((w M).reach.ctx.size, mkFEnv (streamEnv (w M).reach.ctx.toList))
     ((w M).reach.ctx.size + (w M).own.size,
       mkFEnv (streamEnv (ownDecls sp fs M (w M)) (streamEnv (w M).reach.ctx.toList)))
 
-variable {sp : SearchPath} {fs : FS}
+variable {sp : SearchPath} {fs : FS} {maxNatSize : Nat}
 
 /-- **The run of a closure every module of which has an accepted worker.** -/
 noncomputable def Run.ofAccepted (C : List Graph.Node) (rk : Name → Nat)
     (good : ∀ e ∈ C, ModelIO.CanGive (moduleImports sp e.1) fs (.ok e.2))
     (edges : ∀ e ∈ C, ∀ i ∈ e.2, i.module ∈ C.map (·.1) ∧ rk i.module < rk e.1)
     (inj : (C.map fun e => rk e.1).Nodup)
-    (acc : ∀ M ∈ C.map (·.1), ∃ jobs, WorkerAccepted .verified sp fs M jobs)
-    (dflt : WorkerRead) : Run sp fs := by
+    (acc : ∀ M ∈ C.map (·.1), ∃ jobs, WorkerAccepted .verified maxNatSize sp fs M jobs)
+    (dflt : WorkerRead) : Run sp fs maxNatSize := by
   classical
   exact
   { C, rk, good, edges, inj
@@ -77,7 +77,7 @@ noncomputable def Run.ofAccepted (C : List Graph.Node) (rk : Name → Nat)
 
 namespace Run
 
-variable (R : Run sp fs)
+variable (R : Run sp fs maxNatSize)
 
 /-- The run's modules. -/
 @[expose] def names : List Name := R.C.map (·.1)
@@ -87,7 +87,7 @@ theorem ofAccepted_names (C : List Graph.Node) (rk : Name → Nat)
     (good : ∀ e ∈ C, ModelIO.CanGive (moduleImports sp e.1) fs (.ok e.2))
     (edges : ∀ e ∈ C, ∀ i ∈ e.2, i.module ∈ C.map (·.1) ∧ rk i.module < rk e.1)
     (inj : (C.map fun e => rk e.1).Nodup)
-    (acc : ∀ M ∈ C.map (·.1), ∃ jobs, WorkerAccepted .verified sp fs M jobs) (dflt : WorkerRead) :
+    (acc : ∀ M ∈ C.map (·.1), ∃ jobs, WorkerAccepted .verified maxNatSize sp fs M jobs) (dflt : WorkerRead) :
     (Run.ofAccepted C rk good edges inj acc dflt).names = C.map (·.1) := by
   classical
   rfl
@@ -279,7 +279,7 @@ theorem localOk_of
     (hhome : ∀ M ∈ R.names, ∀ (k : Nat) h, (R.w M).reach.homes[k]? = some h → h ∈ R.names ∧ R.rk h < R.rk M)
     (hreads : ∀ M ∈ R.names, ∀ d ∈ R.ctx M, ∀ n ∈ declNames d,
       RecordScoped (readsAlike R.dev (R.rk M) ((R.dev (R.rk M)).src n)) d)
-    (j : Nat) : LocalOk .verified natOpPinSets R.dev j := by
+    (j : Nat) : LocalOk .verified natOpPinSets maxNatSize R.dev j := by
   cases hj : R.nameOf j with
   | none =>
     have hd : R.dev j = emptyMod := by simp [dev, hj]
@@ -475,7 +475,7 @@ theorem agree_of_routes {dev : Nat → Module} {i : Nat} {Pr : Nat → Name → 
 
 namespace Run
 
-variable (R : Run sp fs)
+variable (R : Run sp fs maxNatSize)
 
 /-- **What a module reaches by imports, from its own header.** -/
 theorem rootImports {M : Name} (hM : M ∈ R.names) {own : NamePositions}

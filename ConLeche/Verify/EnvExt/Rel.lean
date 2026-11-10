@@ -218,7 +218,11 @@ theorem structEtaCertWith_rel (hx : EnvExt env₁ env₂) {a b wtb : Expr} (ha :
             cases ci' with
             | indInfo cvT caps =>
               dsimp only
-              rw [towerSlotsAll_ext hx hT]
+              rw [hx.table T hT]
+              cases env₁.findTable? T with
+              | none => exact Rel.ok trivial
+              | some tbl =>
+              dsimp only
               refine Rel.ite (fun _ => ?_) fun _ => Rel.ok trivial
               refine Rel.bind Rel.triv fun v _ => ?_
               refine Rel.iteB v (fun _ => ?_) fun _ => Rel.ok trivial
@@ -232,35 +236,104 @@ theorem structEtaCertWith_rel (hx : EnvExt env₁ env₂) {a b wtb : Expr} (ha :
       | _ => exact Rel.ok trivial
   | _ => exact Rel.ok trivial
 
-theorem structEtaCert_rel (hx : EnvExt env₁ env₂) {a b : Expr} (ha : Res env₁ a)
+theorem structEtaFull_rel (hx : EnvExt env₁ env₂) {a b : Expr} (ha : Res env₁ a)
     (hb : Res env₁ b) :
-    Rel TT (structEtaCert r₂ env₂ d a b) (structEtaCert r₁ env₁ d a b) := by
-  unfold structEtaCert
+    Rel TT (structEtaFull r₂ env₂ d a b) (structEtaFull r₁ env₁ d a b) := by
+  unfold structEtaFull
   rw [etaCtorShape_ext hx ha]
   refine Rel.ite (fun _ => ?_) fun _ => Rel.ok trivial
   exact Rel.bind (K.inferIO d hb) fun tb htb => Rel.bind (K.whnf d htb) fun w hw =>
     structEtaCertWith_rel K d hx ha hb hw
+
+omit d in
+theorem structEtaExpand_rel (hx : EnvExt env₁ env₂) :
+    ∀ (k d : Nat) {a b t : Expr}, Res env₁ a → Res env₁ b → Res env₁ t →
+      Rel TT (structEtaExpand r₂ env₂ k d a b t) (structEtaExpand r₁ env₁ k d a b t)
+  | 0, d, _, _, _, ha, hb, _ => structEtaFull_rel K d hx ha hb
+  | k + 1, d, a, b, t, ha, hb, ht => by
+    cases t with
+    | forallE dom body =>
+      obtain ⟨hd, hbd⟩ := res_forall.mp ht
+      have hv : Res env₁ (Expr.fvar d dom) := res_fvar.mpr hd
+      exact structEtaExpand_rel hx k (d + 1) (res_app.mpr ⟨ha, hv⟩) (res_app.mpr ⟨hb, hv⟩)
+        (res_open hd hbd)
+    | _ => exact Rel.ok trivial
+
+theorem structEtaCert_rel (hx : EnvExt env₁ env₂) {a b : Expr} (ha : Res env₁ a)
+    (hb : Res env₁ b) :
+    Rel TT (structEtaCert r₂ env₂ d a b) (structEtaCert r₁ env₁ d a b) := by
+  unfold structEtaCert
+  rw [etaCtorShape_ext hx ha, etaCtorPartial_ext hx ha]
+  refine Rel.ite (fun _ => structEtaFull_rel K d hx ha hb) fun _ => ?_
+  cases etaCtorPartial env₁ a with
+  | none => exact Rel.ok trivial
+  | some k =>
+    dsimp only
+    refine Rel.ite (fun _ => Rel.ok trivial) fun _ => ?_
+    refine Rel.bind (K.inferIO d ha) fun ta hta => Rel.bind (K.inferIO d hb) fun tb htb => ?_
+    refine Rel.bind (K.defeq d htb hta) fun v _ => ?_
+    exact Rel.iteB v (fun _ => structEtaExpand_rel K hx k d ha hb hta) fun _ => Rel.ok trivial
+
+theorem isPropType_rel {T : Expr} (hT : Res env₁ T) :
+    Rel TT (isPropType r₂ d T) (isPropType r₁ d T) := by
+  unfold isPropType
+  refine Rel.bind (K.inferIO d hT) fun tt htt => Rel.bind (K.whnf d htt) fun w _ => ?_
+  cases w with
+  | sort u => exact Rel.triv
+  | _ => exact Rel.ok trivial
+
+omit d in
+theorem unitLikeFields_rel {ul₂ ul₁ : Nat → Expr → CheckM Bool}
+    (hul : ∀ d {e}, Res env₁ e → Rel TT (ul₂ d e) (ul₁ d e)) :
+    ∀ (n d : Nat) {t : Expr}, Res env₁ t →
+      Rel TT (unitLikeFields r₂ ul₂ n d t) (unitLikeFields r₁ ul₁ n d t)
+  | 0, d, _, _ => Rel.ok trivial
+  | n + 1, d, t, ht => by
+    cases t with
+    | forallE dom body =>
+      obtain ⟨hd, hbd⟩ := res_forall.mp ht
+      unfold unitLikeFields
+      have hrest := unitLikeFields_rel hul n (d + 1) (res_open (d := d) hd hbd)
+      refine Rel.bind (isPropType_rel K d hd) fun p _ => Rel.iteB p (fun _ => hrest) fun _ => ?_
+      exact Rel.bind (hul d hd) fun u _ => Rel.iteB u (fun _ => hrest) fun _ => Rel.ok trivial
+    | _ => exact Rel.ok trivial
+
+theorem unitLikeStruct_rel (hx : EnvExt env₁ env₂) {ul₂ ul₁ : Nat → Expr → CheckM Bool}
+    (hul : ∀ d {e}, Res env₁ e → Rel TT (ul₂ d e) (ul₁ d e)) {w : Expr} (hw : Res env₁ w) :
+    Rel TT (unitLikeStruct r₂ ul₂ env₂ d w) (unitLikeStruct r₁ ul₁ env₁ d w) := by
+  unfold unitLikeStruct
+  rw [unitLikeShape_ext hx hw]
+  cases hsh : unitLikeShape env₁ w with
+  | none => exact Rel.ok trivial
+  | some x =>
+    obtain ⟨tele, n⟩ := x
+    exact unitLikeFields_rel K hul n d (res_unitLikeShape hx hw hsh)
+
+omit d in
+theorem unitLikeLoop_rel (hx : EnvExt env₁ env₂) :
+    ∀ (f d : Nat) {T : Expr}, Res env₁ T →
+      Rel TT (unitLikeLoop r₂ env₂ f d T) (unitLikeLoop r₁ env₁ f d T)
+  | 0, _, _, _ => Rel.ok trivial
+  | f + 1, d, T, hT => by
+    unfold unitLikeLoop
+    refine Rel.bind (K.whnf d hT) fun w hw => ?_
+    cases w with
+    | forallE dom body =>
+      obtain ⟨hd, hbd⟩ := res_forall.mp hw
+      exact unitLikeLoop_rel hx f (d + 1) (res_open hd hbd)
+    | _ =>
+      exact unitLikeStruct_rel K d hx (fun d' _ he => unitLikeLoop_rel hx f d' he) hw
 
 theorem structUnitCert_rel (hx : EnvExt env₁ env₂) {a b : Expr} (ha : Res env₁ a)
     (hb : Res env₁ b) :
     Rel TT (structUnitCert r₂ env₂ d a b) (structUnitCert r₁ env₁ d a b) := by
   unfold structUnitCert
   refine Rel.bind (K.inferIO d ha) fun ta hta => Rel.bind (K.whnf d hta) fun wta hwta => ?_
-  cases hft : wta.getAppFn with
-  | const T us' =>
-    dsimp only
-    rw [hx.find_of_isSome (res_head hwta hft)]
-    cases env₁.find? T with
-    | none => exact Rel.ok trivial
-    | some ci =>
-      cases ci with
-      | indInfo cvT caps =>
-        dsimp only
-        refine Rel.ite (fun _ => ?_) fun _ => Rel.ok trivial
-        refine Rel.bind (K.inferIO d hb) fun tb htb => Rel.bind (K.whnf d htb) fun wtb hwtb => ?_
-        refine Rel.ite (fun _ => Rel.ok trivial) fun _ => K.defeq d hwta hwtb
-      | _ => exact Rel.ok trivial
-  | _ => exact Rel.ok trivial
+  refine Rel.ite (fun _ => Rel.ok trivial) fun _ => ?_
+  refine Rel.bind (unitLikeLoop_rel K hx unitLikeFuel d hwta) fun u _ => ?_
+  refine Rel.iteB u (fun _ => ?_) fun _ => Rel.ok trivial
+  refine Rel.bind (K.inferIO d hb) fun tb htb => Rel.bind (K.whnf d htb) fun wtb hwtb => ?_
+  exact Rel.ite (fun _ => Rel.ok trivial) fun _ => K.defeq d hwta hwtb
 
 theorem etaCert_rel (mode : CheckMode) {ty₁ body₁ b : Expr} (ht : Res env₁ ty₁)
     (hb₁ : Res env₁ body₁) (hb : Res env₁ b) :

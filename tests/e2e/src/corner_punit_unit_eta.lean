@@ -3,8 +3,8 @@
 /- Corner case (lane PUNIT, 2026-09-29): unit-η at the stream's `PUnit`,
    which is an ordinary installed structure since `PUnit` is not pinned
    (the pinned-name unit-like branch `isUnitLikeTy` is gone): any two
-   inhabitants are definitionally equal through the capability
-   certificate `structUnitCert` (`caps.unitlike`, official's
+   inhabitants are definitionally equal through the unit-like
+   certificate `structUnitCert` (a fieldless η family, official's
    `is_def_eq_unit_like`) at a concrete universe, at a universe
    variable, and — at `PUnit.{0}`, a proposition — through proof
    irrelevance.  Official 0.  Today 0. -/

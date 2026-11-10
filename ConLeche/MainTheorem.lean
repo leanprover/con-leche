@@ -81,6 +81,10 @@ term has at most one denotation — in `ConLeche/Denotes.lean`.
   accepted environment, which is all the model tier reads.  The
   shipped `con-leche` binary runs the fold at `natOpPinSets`, the
   variants this toolchain committed.
+* `maxNatSize` is the maximum `Nat` size: the largest `Nat` numeral, in bytes,
+  the fold takes in or computes.  A larger one only ever makes the fold
+  reject, so both statements hold at every `maxNatSize`; the binary runs at
+  128 MiB unless `--max-nat-size` sets another.
 * `SetTheory V` is the set theory the model lives in; the proof works
   for any `V` implementing that interface.
 
@@ -102,8 +106,8 @@ handed (the empty list included: under it every stream that declares
 `Nat.div` declines).  The shipped binary runs the fold at
 `natOpPinSets`. -/
 theorem model_exists (V : Type w) [SetTheory V]
-    (pins : List NatOpPinSet) (ds : Array Declaration) (env : Env)
-    (accepted : checkDecls .verified pins ds = .ok env) :
+    (pins : List NatOpPinSet) (maxNatSize : Nat) (ds : Array Declaration) (env : Env)
+    (accepted : checkDecls .verified pins maxNatSize ds = .ok env) :
     Nonempty (Model V env) := by
   obtain ⟨m⟩ := Cached.checkDecls_sound (V := V) accepted
   exact ⟨Model.Model.ofEnvModelM m⟩
@@ -116,13 +120,13 @@ the preparation keeps the record, and a stream holding it is never
 accepted.  At every pin list, as the main theorem: the shipped binary
 runs the fold at `natOpPinSets`. -/
 theorem no_False_declaration (V : Type w) [SetTheory V]
-    (pins : List NatOpPinSet) (chunks : List ByteArray)
+    (pins : List NatOpPinSet) (maxNatSize : Nat) (chunks : List ByteArray)
     (h : jsonWithTheoremFalse chunks) :
     ∃ e, (do
       let pre ← builtinPreludeE
       let r ← parseChunks chunks
       let ds := preparePrelude pre r.decls
-      checkDecls .verified pins ds) = .error e := by
+      checkDecls .verified pins maxNatSize ds) = .error e := by
   refine Except.exists_error_of_not_ok fun env hacc => ?_
   obtain ⟨pre, -, hacc⟩ := exceptBind_ok hacc
   obtain ⟨r, hparse, hcheck⟩ := exceptBind_ok hacc
@@ -157,7 +161,7 @@ theorem main_no_False (V : Type w) [SetTheory V] {file : String} {fs : FS} {b : 
   rintro ⟨_, _, h⟩
   obtain ⟨pre, b', r, env, hp, hb', hr, hc⟩ := Driver.runArgs_accept h
   obtain rfl : b = b' := Option.some.inj (hb.symm.trans hb')
-  obtain ⟨e, he⟩ := no_False_declaration V natOpPinSets [b] hF
+  obtain ⟨e, he⟩ := no_False_declaration V natOpPinSets Cached.maxNatSizeDefault [b] hF
   simp [hp, hr, hc, bind, Except.bind] at he
 
 open Frontend in
@@ -193,8 +197,8 @@ models: `ConLeche/Model/Modular/Instance.lean`). -/
 open Modular in
 /-- **The modular theorem.** -/
 theorem modular_model_exists (V : Type w) [SetTheory V]
-    (pins : List NatOpPinSet) (dev : Nat → Modular.Module) (i : Nat)
-    (hok : ∀ j ≤ i, Modular.LocalOk .verified pins dev j) :
+    (pins : List NatOpPinSet) (maxNatSize : Nat) (dev : Nat → Modular.Module) (i : Nat)
+    (hok : ∀ j ≤ i, Modular.LocalOk .verified pins maxNatSize dev j) :
     ∃ m : ∀ j ≤ i, Model V (dev j).own,
       (∀ j hj n, ((dev j).context.find? n).isSome = true →
         ∃ h : (dev j).src n ≤ i, (m j hj).cval n = (m ((dev j).src n) h).cval n) ∧
@@ -203,7 +207,7 @@ theorem modular_model_exists (V : Type w) [SetTheory V]
   obtain ⟨mm, hc⟩ := Model.Modular.modularModels (V := V) (pins := pins) hok
   have hex : ∀ j (hj : j ≤ i), ∃ mp : Model.EnvModelM V (dev j).own,
       ∀ n, ((dev j).own.find? n).isSome = true → mp.base2.acval n = (mm j (by omega)).1 n :=
-    fun j hj => (mm j (by omega)).2.2.2.2.elim fun mp h => ⟨mp, h.2.2.2⟩
+    fun j hj => (mm j (by omega)).2.2.2.2.elim fun mp h => ⟨mp, h.2.2⟩
   refine ⟨fun j hj => Model.Model.ofEnvModelM (Classical.choose (hex j hj)), ?_, ?_⟩
   · intro j hj n hn
     obtain ⟨hs, he, -⟩ := hc j (by omega) n ⟨hn, trivial⟩
@@ -223,8 +227,8 @@ theorem modular_model_exists (V : Type w) [SetTheory V]
 
 /-- **The modular corollary**: no module's own environment stores a constant of type `False`. -/
 theorem modular_no_False (V : Type w) [SetTheory V]
-    (pins : List NatOpPinSet) (dev : Nat → Modular.Module) (i : Nat)
-    (hok : ∀ j ≤ i, Modular.LocalOk .verified pins dev j) :
+    (pins : List NatOpPinSet) (maxNatSize : Nat) (dev : Nat → Modular.Module) (i : Nat)
+    (hok : ∀ j ≤ i, Modular.LocalOk .verified pins maxNatSize dev j) :
     ∀ j ≤ i, ∀ c ∈ (dev j).own.consts, c.toConstantVal.type = .const falseName [] → False := by
   intro j hj c hc hty
   obtain ⟨mm, -⟩ := Model.Modular.modularModels (V := V) (pins := pins) hok
@@ -239,11 +243,12 @@ and decreasing along every import) has an accepted worker, no module of `C` has 
 checks (`Driver.Compose.Run.localOk`), and the theorem is a constant of its module's own
 environment (`Driver.Compose.Run.thm_own`). -/
 theorem run_no_False (V : Type w) [SetTheory V] {sp : Olean.SearchPath} {fs : FS}
+    {maxNatSize : Nat}
     (C : List Driver.Graph.Node) (rk : Name → Nat)
     (good : ∀ e ∈ C, ModelIO.CanGive (Olean.moduleImports sp e.1) fs (.ok e.2))
     (edges : ∀ e ∈ C, ∀ i ∈ e.2, i.module ∈ C.map (·.1) ∧ rk i.module < rk e.1)
     (inj : (C.map fun e => rk e.1).Nodup)
-    (acc : ∀ M ∈ C.map (·.1), ∃ jobs, Driver.WorkerAccepted .verified sp fs M jobs)
+    (acc : ∀ M ∈ C.map (·.1), ∃ jobs, Driver.WorkerAccepted .verified maxNatSize sp fs M jobs)
     {m : Name} (hm : m ∈ C.map (·.1)) {d : Olean.ModDecoded} {c : Olean.CEntryF Name Expr}
     {v : Expr} {all : List Name} (hv : Olean.ViewOf sp fs m d) (hmem : c ∈ d.constants)
     (hk : c.kind = .thm v all) (hty : c.type = .const falseName []) : False := by
@@ -251,7 +256,7 @@ theorem run_no_False (V : Type w) [SetTheory V] {sp : Olean.SearchPath} {fs : FS
   let R := Driver.Compose.Run.ofAccepted C rk good edges inj acc w
   have hmR : m ∈ R.names := by rw [Driver.Compose.Run.ofAccepted_names]; exact hm
   obtain ⟨ci, hci, hcty⟩ := R.thm_own hmR hv hmem hk
-  exact modular_no_False V natOpPinSets R.dev (R.rk m) (fun j _ => R.localOk j) (R.rk m)
+  exact modular_no_False V natOpPinSets maxNatSize R.dev (R.rk m) (fun j _ => R.localOk j) (R.rk m)
     (Nat.le_refl _) ci hci (by rw [hcty, hty])
 
 open Frontend in
@@ -273,7 +278,8 @@ theorem main_modular_no_False (V : Type w) [SetTheory V] {dirs root : String} {r
   rintro ⟨_, _, h⟩
   obtain ⟨jobs, _, _, hg⟩ := Driver.runArgs_graph_accept hr h
   obtain ⟨C, rk, good, hroots, edges, inj, hhdr⟩ := Driver.Graph.checkGraphG_ok hg
-  refine run_no_False V C rk good edges inj (fun M hM => ?_)
+  refine run_no_False V (maxNatSize := Cached.maxNatSizeDefault) C rk good edges inj
+    (fun M hM => ?_)
     (Driver.Compose.hdrClosure_mem good hroots (fun e he i hi => (edges e he i hi).1) hcl)
     hv hmem hk hty
   obtain ⟨e, he, rfl⟩ := List.mem_map.1 hM
@@ -297,7 +303,8 @@ theorem main_modular_one_no_False (V : Type w) [SetTheory V] {dirs root : String
   rintro ⟨_, _, h⟩
   obtain ⟨m₀, hp, C, rk, good, hm₀, edges, inj, hacc⟩ := Driver.runArgs_modular_accept h
   obtain rfl : m₀ = r := Option.some.inj (hp.symm.trans hr)
-  refine run_no_False V C rk good edges inj (fun M hM => ?_)
+  refine run_no_False V (maxNatSize := Cached.maxNatSizeDefault) C rk good edges inj
+    (fun M hM => ?_)
     (Driver.Compose.hdrClosure_mem good (fun r' hr' => by
       rw [List.mem_singleton] at hr'; subst hr'; exact hm₀)
       (fun e he i hi => (edges e he i hi).1) hcl) hv hmem hk hty

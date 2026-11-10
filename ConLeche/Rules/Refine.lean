@@ -12,7 +12,7 @@ that name, or the axiom of its constant value (its statement: a definition, theo
 presented without its value), and every table `env₁` stores is `env₂`'s.  `env₂` may store more.
 
 **Every derivation at a refinement is a derivation at the refined environment**
-(`Red.refine` and its nine siblings, one mutual structural recursion).  Every premise of every
+(`Red.refine` and its twelve siblings, one mutual structural recursion).  Every premise of every
 rule reads the environment positively: a constant stored as a given kind (a definition to
 unfold, a recursor, a constructor, a family), a constant's stored type (which a statement keeps),
 a table entry, or a literal's constants stored.  A statement answers the kind-reads `none`, so
@@ -113,14 +113,54 @@ theorem strLitStored (h : EnvRefines env₁ env₂) (hs : ConLeche.strLitStored 
   exact ⟨⟨⟨⟨⟨⟨⟨h.natLitStored hn, h.find.isSome h1⟩, h.find.isSome h2⟩, h.find.isSome h3⟩,
     h.find.isSome h4⟩, h.find.isSome h5⟩, h.find.isSome h6⟩, h.find.isSome h7⟩
 
-theorem towerSlotsAll (h : EnvRefines env₁ env₂) {T : Name} {nF : Nat}
-    (hs : ConLeche.towerSlotsAll env₁ T nF = true) : ConLeche.towerSlotsAll env₂ T nF = true := by
-  simp only [ConLeche.towerSlotsAll, List.all_eq_true] at hs ⊢
-  intro j hj
-  have := hs j hj
-  cases hp : env₁.findProj? T j with
-  | none => rw [hp] at this; exact nomatch this
-  | some e => rw [h.findProj hp]; rfl
+theorem etaRescueTable (h : EnvRefines env₁ env₂) {T ctor : Name} {cvj cvT : ConstantVal}
+    {caps : IndCaps} {tbl : ProjTable}
+    (ht : etaRescueTable? (env₁.findTable? T) ctor cvj cvT caps = some tbl) :
+    etaRescueTable? (env₂.findTable? T) ctor cvj cvT caps = some tbl := by
+  rw [h.table T tbl (etaRescueTable?_inv ht).1]
+  rwa [(etaRescueTable?_inv ht).1] at ht
+
+theorem unitLikeShape (h : EnvRefines env₁ env₂) {w tele : Expr} {n : Nat}
+    (hs : ConLeche.unitLikeShape env₁ w = some (tele, n)) :
+    ConLeche.unitLikeShape env₂ w = some (tele, n) := by
+  unfold ConLeche.unitLikeShape at hs ⊢
+  cases hfn : w.getAppFn with
+  | const S us =>
+    rw [hfn] at hs
+    dsimp only at hs ⊢
+    cases hf : env₁.find? S with
+    | none => rw [hf] at hs; exact nomatch hs
+    | some ci =>
+      rw [hf] at hs
+      cases ci with
+      | indInfo cvS caps =>
+        rw [h.find.same hf (fun _ h => nomatch h)]
+        dsimp only at hs ⊢
+        split at hs
+        · rename_i hc
+          rw [ite_eq_left hc]
+          cases ht : env₁.findTable? S with
+          | none => rw [ht] at hs; exact nomatch hs
+          | some tbl =>
+            rw [ht] at hs
+            rw [h.table S tbl ht]
+            dsimp only at hs ⊢
+            split at hs
+            · rename_i hl
+              rw [ite_eq_left hl]
+              cases hc' : env₁.find? tbl.ctor with
+              | none => rw [hc'] at hs; exact nomatch hs
+              | some ci' =>
+                rw [hc'] at hs
+                cases ci' with
+                | ctorInfo cvC a b =>
+                  rw [h.find.same hc' (fun _ h => nomatch h)]
+                  exact hs
+                | _ => exact nomatch hs
+            · exact nomatch hs
+        · exact nomatch hs
+      | _ => exact nomatch hs
+  | _ => rw [hfn] at hs; exact nomatch hs
 
 theorem andRescueSlots (h : EnvRefines env₁ env₂) {c : Name} {nP : Nat}
     (hs : ConLeche.andRescueSlots env₁ c nP = true) : ConLeche.andRescueSlots env₂ c nP = true := by
@@ -383,12 +423,11 @@ theorem Red.refine (h : EnvRefines env₁ env₂) :
       (Infer.refine h htm) (Red.refine h htmaj) hthead hlv hnP hfab hws hb hlv'
       (Infer.refine h htf) (DefEq.refine h hdf) (Infer.refine h htp) (Infer.refine h http)
       (Red.refine h hv) hv0
-  | _, _, _, .rescueEta hrec heta hctor hres hind htm htmaj hthead hlen hlv
-      hfab hws hb hlv' hresT hresC htow =>
-    .rescueEta (h.find.same hrec (fun _ h => nomatch h)) heta
+  | _, _, _, .rescueEta hrec hctor hres hind htbl htm htmaj hthead hlen hlv hfab hws hb hlv' =>
+    .rescueEta (h.find.same hrec (fun _ h => nomatch h))
       (h.find.same hctor (fun _ h => nomatch h)) hres (h.find.same hind (fun _ h => nomatch h))
-      (Infer.refine h htm) (Red.refine h htmaj) hthead hlen hlv hfab hws hb hlv' hresT hresC
-      (h.towerSlotsAll htow)
+      (h.etaRescueTable htbl) (Infer.refine h htm) (Red.refine h htmaj) hthead hlen hlv hfab hws
+      hb hlv'
   | _, _, _, .rescueAnd hrec hctor hres hind htm htmaj hthead hlen hlv hslots
       hfab hws hb hlv' htf hdf htp http hv hv0 =>
     .rescueAnd (h.find.same hrec (fun _ h => nomatch h))
@@ -419,16 +458,34 @@ theorem DefEq.refine (h : EnvRefines env₁ env₂) :
   | _, _, _, .proofIrrel hta htta hu hu0 htb httb hv hv0 =>
     .proofIrrel (Infer.refine h hta) (Infer.refine h htta) (Red.refine h hu) hu0
       (Infer.refine h htb) (Infer.refine h httb) (Red.refine h hv) hv0
-  | _, _, _, .structEta htb hwtb hhead hctor hlen hthead hind heta hetaCtor hresT
-      hresc htlen hlv hlps hslots hus hparams hfields =>
+  | _, _, _, .structEta htb hwtb hhead hctor hlen hthead hind htbl heta hetaCtor hplen hus hlps
+      hlv hparams hfields =>
     .structEta (Infer.refine h htb) (Red.refine h hwtb) hhead
       (h.find.same hctor (fun _ h => nomatch h)) hlen hthead
-      (h.find.same hind (fun _ h => nomatch h)) heta hetaCtor hresT hresc htlen hlv hlps
-      (h.towerSlotsAll hslots) hus (DefEqList.refine h hparams) (DefEqList.refine h hfields)
-  | _, _, _, .structUnit hta hwta hthead hind hunit hresT htlen hlv htb hwtb hwtbF hd =>
-    .structUnit (Infer.refine h hta) (Red.refine h hwta) hthead
-      (h.find.same hind (fun _ h => nomatch h)) hunit hresT htlen hlv (Infer.refine h htb)
-      (Red.refine h hwtb) hwtbF (DefEq.refine h hd)
+      (h.find.same hind (fun _ h => nomatch h)) (h.table _ _ htbl) heta hetaCtor hplen hus hlps
+      hlv (DefEqList.refine h hparams) (DefEqList.refine h hfields)
+  | _, _, _, .unitLike hta hwta hna hu htb hwtb hnb hd =>
+    .unitLike (Infer.refine h hta) (Red.refine h hwta) hna (UnitLike.refine h hu)
+      (Infer.refine h htb) (Red.refine h hwtb) hnb (DefEq.refine h hd)
+  | _, _, _, .etaExpand hna hnb hta htb hd hx =>
+    .etaExpand hna hnb (Infer.refine h hta) (Infer.refine h htb) (DefEq.refine h hd)
+      (DefEqExpand.refine h hx)
+
+theorem DefEqExpand.refine (h : EnvRefines env₁ env₂) :
+    ∀ {d : Nat} {a b T : Expr}, DefEqExpand env₁ d a b T → DefEqExpand env₂ d a b T
+  | _, _, _, _, .done h₁ => .done (DefEq.refine h h₁)
+  | _, _, _, _, .step h₁ => .step (DefEqExpand.refine h h₁)
+
+theorem UnitLike.refine (h : EnvRefines env₁ env₂) :
+    ∀ {d : Nat} {T : Expr}, UnitLike env₁ d T → UnitLike env₂ d T
+  | _, _, .pi hr hu => .pi (Red.refine h hr) (UnitLike.refine h hu)
+  | _, _, .struct hr hs hf => .struct (Red.refine h hr) (h.unitLikeShape hs) (UnitFields.refine h hf)
+
+theorem UnitFields.refine (h : EnvRefines env₁ env₂) :
+    ∀ {d : Nat} {tele : Expr} {n : Nat}, UnitFields env₁ d tele n → UnitFields env₂ d tele n
+  | _, _, _, .nil => .nil
+  | _, _, _, .prop hi hr hz hf => .prop (Infer.refine h hi) (Red.refine h hr) hz (UnitFields.refine h hf)
+  | _, _, _, .unit hu hf => .unit (UnitLike.refine h hu) (UnitFields.refine h hf)
 
 theorem DefEqLams.refine (h : EnvRefines env₁ env₂) :
     ∀ {d : Nat} {a b : Expr}, DefEqLams env₁ d a b → DefEqLams env₂ d a b

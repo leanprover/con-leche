@@ -125,7 +125,7 @@ or $0$ (_small elimination_); the elimination rule below says which.
   parameters and the type, which must be definitionally equal to the
   generated one, and the record's two layout counts, which must equal
   the generated ones
-  (#src("ConLeche/Kernel/Inductives/GenRec.lean", 383, 405)[the comparison]).
+  (#src("ConLeche/Kernel/Inductives/GenRec.lean", 384, 406)[the comparison]).
   An unverified pre-pass reads off that type which type the recursor
   eliminates and how its motive and minor premises are laid out (the
   arguments named on $Nat$ in @ex:nat); a wrong reading can only make
@@ -135,7 +135,7 @@ or $0$ (_small elimination_); the elimination rule below says which.
   once they agree with the generated ones: the type binder by binder up
   to the major premise, each rule up to definitional equality, at the
   generated recursor's firing data
-  (#src("ConLeche/Kernel/Inductives/StreamRecs.lean", 182, 188)[the comparison]).
+  (#src("ConLeche/Kernel/Inductives/StreamRecs.lean", 183, 189)[the comparison]).
 ]
 
 Here is the recursor of the natural numbers.
@@ -294,7 +294,7 @@ generated type a well-denoted type.
 #real[
   The same steps run in this order, and each generated rule is
   type-checked in the environment holding the rule-less recursor
-  (#src("ConLeche/Kernel/Inductives/GenRec.lean", 424, 446)[a generated rule]).
+  (#src("ConLeche/Kernel/Inductives/GenRec.lean", 425, 447)[a generated rule]).
 ]
 
 === What is stored
@@ -744,7 +744,7 @@ $c_j.\{arrow(ell)'\} thick arrow(a)' thick arrow(f)$ for which $r$ has
 a rule with right-hand side $R_j$. The reduct is
 $R_j[arrow(p) := arrow(ell)]$ applied to the parameters, motive and
 minors from $arrow(a)$ and to the fields $arrow(f)$
-(#src("ConLeche/Rules/Rel.lean", 185, 243)[as in con-leche]). Besides
+(#src("ConLeche/Rules/Rel.lean", 190, 248)[as in con-leche]). Besides
 finding $r$, $c_j$ and the rule in the environment, the fragment's
 rule has three _comparisons_ as premises:
 
@@ -967,11 +967,11 @@ without a certificate, through the projections of the major.
 #real[
   The checker decides the case with one level test per redex: whether
   the constructor's family is
-  #src("ConLeche/Kernel/CoreDefs.lean", 83, 91)[never a proposition]
+  #src("ConLeche/Kernel/CoreDefs.lean", 81, 89)[never a proposition]
   at the levels the rule compares with, read off the family's type where
   the question is asked. A K rule and a family that is never
   a proposition fire with no check; every
-  #src("ConLeche/Kernel/CoreDefs.lean", 100, 102)[other rule] is the
+  #src("ConLeche/Kernel/CoreDefs.lean", 98, 100)[other rule] is the
   certified case, as in the fragment.
 ]
 
@@ -1002,7 +1002,7 @@ assumed of the environment they extend.
 
 #real[
   The block step is one theorem,
-  #src("ConLeche/Model/Inductives/DeclBlockStep.lean", 72, 77)[the install of a block],
+  #src("ConLeche/Model/Inductives/DeclBlockStep.lean", 72, 76)[the install of a block],
   read off the checker's run stage by stage.
 ]
 

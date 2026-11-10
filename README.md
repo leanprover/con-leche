@@ -44,13 +44,13 @@ In [`ConLeche/MainTheorem.lean`](./ConLeche/MainTheorem.lean) we prove that an e
 ```lean
 open Frontend in
 theorem no_False_declaration (V : Type w) [SetTheory V]
-    (pins : List NatOpPinSet) (chunks : List ByteArray)
+    (pins : List NatOpPinSet) (maxNatSize : Nat) (chunks : List ByteArray)
     (h : jsonWithTheoremFalse chunks) :
     ∃ e, (do
       let pre ← builtinPreludeE
       let r ← parseChunks chunks
       let ds := preparePrelude pre r.decls
-      checkDecls .verified pins ds) = .error e
+      checkDecls .verified pins maxNatSize ds) = .error e
 ```
 
 The meaning of [`False`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/Basis/False.lean#L50-L51) is hard-coded, so no tricks involving odd definitions for `False` will confuse the checker. This is a meaningful theorem if you assume that worrisome kernel implementation bugs or flaws in the theory are those that can be used to prove anything, in particular `False`.
@@ -61,8 +61,8 @@ The theorem [`no_False_declaration`](https://github.com/leanprover/con-leche/blo
 
 ```lean
 theorem model_exists (V : Type w) [SetTheory V]
-    (pins : List NatOpPinSet) (ds : Array Declaration) (env : Env)
-    (accepted : checkDecls .verified pins ds = .ok env) :
+    (pins : List NatOpPinSet) (maxNatSize : Nat) (ds : Array Declaration) (env : Env)
+    (accepted : checkDecls .verified pins maxNatSize ds = .ok env) :
     Nonempty (Model V env)
 ```
 
@@ -72,7 +72,7 @@ Denotation of terms and types is captured by the inductive relation [`Denotes`](
 
 The `Model` relation is *not* the strongest property proven (and carried through the induction) about the environment, but a simplified one. For example, it does not contain the delta and iota equations – but since they can easily be added as an explicit `theorem : lhs = rhs := rfl`, this is hopefully not an oversimplification.
 
-This theorem only talks about [`checkDecls`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Cached/Decls.lean#L83-L84) and its output `env`, which has the form that we define our semantics about. You may want to look through the code and consult additional theorems that relate this to your input in a meaningful way. You may want to check that
+This theorem only talks about [`checkDecls`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Cached/Decls.lean#L89-L90) and its output `env`, which has the form that we define our semantics about. You may want to look through the code and consult additional theorems that relate this to your input in a meaningful way. You may want to check that
 
 * The parser is faithful.
 * [`preparePrelude`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Frontend/Prepare.lean#L168-L175) only reorders declarations and adds missing prelude declarations, but does not drop any (see [`theorem Frontend.preparePrelude_perm`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Verify/Frontend/Prepare.lean#L171-L176)).

@@ -157,7 +157,7 @@ def NeedsSt.const (x : NeedsSt) (ci : ConstantInfo) : NeedsSt :=
   let x := match ci with
     | .defnInfo _ v _ => x.expr v
     | .recInfo _ _ _ _ rules => rules.foldl NeedsSt.rule x
-    | .indInfo _ caps => x.names (caps.all ++ if caps.eta then [caps.etaCtor] else [])
+    | .indInfo _ caps => x.names caps.all
     | _ => x
   x.names (pinFootprint ci.toConstantVal.name)
 

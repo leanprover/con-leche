@@ -3,7 +3,7 @@ module
 public import ConLeche.Model.Inductives.TargetNodeList
 import ConLeche.Model.Inductives.LfpCover
 import ConLeche.Verify.Inductives.NestContInv
-import ConLeche.Semantics.Inductives.DeclBlockEta
+import ConLeche.Semantics.Inductives.BlockConsFind
 import ConLeche.Model.Inductives.TargetNodeAdm
 import ConLeche.Model.Inductives.TargetCallEntry
 import ConLeche.Model.Inductives.StructRecKit

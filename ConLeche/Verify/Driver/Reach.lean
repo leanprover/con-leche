@@ -238,8 +238,7 @@ datum's pins'. -/
   Covers acc ci.toConstantVal.type ∧
   (∀ cv v h, ci = .defnInfo cv v h → Covers acc v) ∧
   (∀ cv mI rP isK rules, ci = .recInfo cv mI rP isK rules → ∀ r ∈ rules, RuleCovered acc r) ∧
-  (∀ cv caps, ci = .indInfo cv caps →
-    (∀ m ∈ caps.all, m ∈ acc) ∧ (caps.eta = true → caps.etaCtor ∈ acc)) ∧
+  (∀ cv caps, ci = .indInfo cv caps → ∀ m ∈ caps.all, m ∈ acc) ∧
   ∀ d ∈ pinFootprint ci.toConstantVal.name, d ∈ acc
 
 /-- **A table's names are among `acc`**: its structure, its constructor, its bodies'. -/
@@ -254,8 +253,7 @@ theorem ConstCovered.mono {a b : Array Name} {ci : ConstantInfo} (h : ConstCover
     (hs : ∀ n ∈ a, n ∈ b) : ConstCovered b ci :=
   ⟨h.1.mono hs, fun cv v hh e => (h.2.1 cv v hh e).mono hs,
     fun cv mI rP isK rules e r hr => (h.2.2.1 cv mI rP isK rules e r hr).mono hs,
-    fun cv caps e => ⟨fun m hm => hs _ ((h.2.2.2.1 cv caps e).1 m hm),
-      fun he => hs _ ((h.2.2.2.1 cv caps e).2 he)⟩,
+    fun cv caps e m hm => hs _ (h.2.2.2.1 cv caps e m hm),
     fun d hd => hs _ (h.2.2.2.2 d hd)⟩
 
 theorem TableCovered.mono {a b : Array Name} {t : ProjTable} (h : TableCovered a t)
@@ -302,8 +300,7 @@ theorem NeedsSt.const_spec {x : NeedsSt} (hi : NeedsInv x) (ci : ConstantInfo) :
       x.const ci = y.names (pinFootprint ci.toConstantVal.name) →
       (∀ cv v h, ci = .defnInfo cv v h → Covers y.2 v) →
       (∀ cv mI rP isK rules, ci = .recInfo cv mI rP isK rules → ∀ r ∈ rules, RuleCovered y.2 r) →
-      (∀ cv caps, ci = .indInfo cv caps →
-        (∀ m ∈ caps.all, m ∈ y.2) ∧ (caps.eta = true → caps.etaCtor ∈ y.2)) →
+      (∀ cv caps, ci = .indInfo cv caps → ∀ m ∈ caps.all, m ∈ y.2) →
       Grows x (x.const ci) ∧ ConstCovered (x.const ci).2 ci := by
     intro y m1 m2 hc m3 m4 m5
     obtain ⟨k1, k2, k3⟩ := y.names_spec m1 (pinFootprint ci.toConstantVal.name)
@@ -311,8 +308,7 @@ theorem NeedsSt.const_spec {x : NeedsSt} (hi : NeedsInv x) (ci : ConstantInfo) :
     exact ⟨⟨k1, fun n h => k2 n (m2 n (h2 n h))⟩, (h3.mono m2).mono k2,
       fun cv v hh e => (m3 cv v hh e).mono k2,
       fun cv mI rP isK rules e r hr => (m4 cv mI rP isK rules e r hr).mono k2,
-      fun cv caps e => ⟨fun m hm => k2 _ ((m5 cv caps e).1 m hm),
-        fun he => k2 _ ((m5 cv caps e).2 he)⟩, k3⟩
+      fun cv caps e m hm => k2 _ (m5 cv caps e m hm), k3⟩
   cases ci with
   | defnInfo cv v hh =>
     obtain ⟨g1, g2, g3⟩ := (x.expr _).expr_spec h1 v
@@ -327,15 +323,13 @@ theorem NeedsSt.const_spec {x : NeedsSt} (hi : NeedsInv x) (ci : ConstantInfo) :
     · intro _ _ _ _ _ e; cases e; exact g3
     · intro _ _ e; cases e
   | indInfo cv caps =>
-    obtain ⟨g1, g2, g3⟩ := (x.expr _).names_spec h1
-      (caps.all ++ if caps.eta then [caps.etaCtor] else [])
+    obtain ⟨g1, g2, g3⟩ := (x.expr _).names_spec h1 caps.all
     refine fin _ g1 g2 rfl ?_ ?_ ?_
     · intro _ _ _ e; cases e
     · intro _ _ _ _ _ e; cases e
     · intro _ _ e
       cases e
-      exact ⟨fun m hm => g3 m (List.mem_append_left _ hm),
-        fun he => g3 _ (List.mem_append_right _ (by simp [he]))⟩
+      exact g3
   | axiomInfo cv =>
     refine fin _ h1 (fun _ h => h) rfl ?_ ?_ ?_
     · intro _ _ _ e; cases e
@@ -406,7 +400,7 @@ theorem recordReads_scoped {R : Env} {d : Declaration}
     · intro cv mI rP isK rules e r hr
       obtain ⟨r1, r2, r3⟩ := c3 cv mI rP isK rules e r hr
       exact ⟨cov r1, h _ r2, fun lvls pins hf p hp => cov (r3 lvls pins hf p hp)⟩
-    · exact ⟨fun m hm => h m ((c4 cv caps e).1 m hm), fun he => h _ ((c4 cv caps e).2 he)⟩
+    · exact fun m hm => h m (c4 cv caps e m hm)
   · obtain ⟨t1, t2, t3⟩ := ht t hti
     exact ⟨h _ t2, fun b hb => cov (t3 b hb)⟩
 

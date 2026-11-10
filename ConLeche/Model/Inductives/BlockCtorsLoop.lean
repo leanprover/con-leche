@@ -7,16 +7,11 @@ public section
 /-!
 # The constructors' loop at a block member
 
-`ctorsLoopEta` (`FixKit.lean`) at the BLOCK's η invariant
-(`ConLeche.BlockEtaInv`, `ConLeche/Verify/EnvGuards.lean`): every
-stored family outside the block is closed, and every stored member's η
-constructor is one of THAT member's own constructors — so a constructor
-of the member being consed completes no other member's η family, which
-is what `hout` (the block's distinct constructor names) says.  The
-loop itself is member-local — it is already abstract in the former's
-leaf (`leafT`), in the fibre fold (`hfold`) and in the carried
-invariant (`Inv`) — so the block's member is the one-member loop at
-this invariant and nothing else changes.
+`ctorsLoopAt` (`FixKit.lean`) at a block member.  The loop is
+member-local — it is abstract in the former's leaf (`leafT`), in the
+fibre fold (`hfold`) and in the carried invariant (`Inv`) — so the
+block's member is the one-member loop at the member's one-family shape
+(`memberShapeI`) and nothing else changes.
 
 What stays the caller's at a block member, and is where the `k`
 members' data meet: `leafT` (the member's stored leaf) with `hfold` its
@@ -59,8 +54,6 @@ theorem blockCtorsLoop
     {F : Nat} {T : Name} {lps : List Name} {nP nIdx : Nat} {resSort : Level}
     {isProp large : Bool} {env₀ envI : Env} {cvTa : ConstantVal}
     {ctors ctorList : List (ConstantVal × Nat)} {sortss : List (List Level)} {cvS : ConstantVal}
-    {names : List Name} {ctorsOf : Name → List Name}
-    (hout : ∀ ctor ∈ ctorList, ∀ T'' ∈ names, T'' ≠ T → ctor.1.name ∉ ctorsOf T'')
     (hCtors : ConLeche.SumCtorsRun .verified F env₀ envI T
       lps nP nIdx resSort isProp large cvTa ctors ctorList sortss)
     (hnd : (ctorList.map (·.1.name)).Nodup)
@@ -91,19 +84,9 @@ theorem blockCtorsLoop
       (mC : EnvModel V ⟨.ctorInfo ctor.1 nP ctor.2 :: env'.consts, env'.tables⟩),
       ctor ∈ ctorList → env'.find? ctor.1.name = none →
       mC.acval = acvalWith m'.acval ctor.1.name A → Inv m' → Inv mC)
-    -- the block's capability record and its laws at every carrier the
-    -- invariant reaches (task #210 Part A)
+    -- the block's capability record and the former's leaf
     (caps : IndCaps)
     (leafT : (Name → Nat) → Term)
-    (hTlawsOf : ∀ {env' : Env} (m' : EnvModel V env') (k : Nat) (ctor : ConstantVal × Nat),
-      ctorList[k]? = some ctor → Inv m' →
-      (∀ cvC nPc nFc, env'.find? ctor.1.name = some (.ctorInfo cvC nPc nFc) → cvC = ctor.1) →
-      FormerData m' cvTa (nP + nIdx) resSort ppsAll →
-      (∀ ψ, m'.acval T ψ = leafT ψ) →
-      (∀ ψ, m'.acval ctor.1.name ψ
-        = sumMkAV (resSort.eval ψ) k (dsF k ψ) (((dsF k ψ).drop nP))
-            (uChains (fssOf nP (ctorDataList dsF esF ψ ctorList 0)))) →
-      CapsLawsAt m' T cvS caps)
     (hfold : ∀ j ctor, ctorList[j]? = some ctor → ∀ (ψ : Name → Nat) (ρ : Nat → V),
       Sat V (((ppsAll ψ).take nP)).reverse ρ →
       ∀ bs : List V, SpineFit ρ (((dsF j ψ).drop nP)) bs →
@@ -115,7 +98,6 @@ theorem blockCtorsLoop
                 (essOf (ctorDataList dsF esF ψ ctorList 0))))) :
     ∀ (rest : List (ConstantVal × Nat)) (k : Nat) (env : Env) (mp : EnvModelM V env),
       (∀ i, rest[i]? = ctorList[k + i]?) → k + rest.length = ctorList.length →
-      ConLeche.BlockEtaInv env names ctorsOf →
       env.find? T = some (.indInfo cvS caps) →
       cvTa.type.constsResolve env = true →
       FormerData mp.base2 cvTa (nP + nIdx) resSort ppsAll →
@@ -126,7 +108,6 @@ theorem blockCtorsLoop
         idxF dsF esF srcsF ctorList k →
       Inv mp.base2 →
       ∃ mp' : EnvModelM V (ConLeche.consSumCtors nP rest env),
-        ConLeche.BlockEtaInv (ConLeche.consSumCtors nP rest env) names ctorsOf ∧
         (ConLeche.consSumCtors nP rest env).find? T
           = some (.indInfo cvS caps) ∧
         FormerData mp'.base2 cvTa (nP + nIdx) resSort ppsAll ∧
@@ -134,12 +115,8 @@ theorem blockCtorsLoop
         ConsedAt mp'.base2 T lps nP nIdx resSort isProp large
           idxF dsF esF srcsF ctorList ctorList.length ∧
         Inv mp'.base2 :=
-  ctorsLoopEta (p := memberShapeI T lps nP nIdx resSort isProp large)
+  ctorsLoopAt (p := memberShapeI T lps nP nIdx resSort isProp large)
     hCtors hnd hlpsT hlpsA hresA hFssParams hFssBelow hiff hFssOkP hIdx Inv hInv
-    caps leafT hTlawsOf (fun e => ConLeche.BlockEtaInv e names ctorsOf)
-    (fun _ _ _ hfresh hE => hE.cons hfresh)
-    (fun _ ctor hctor hfresh hE _ _ _ hf hne hres hcape _ =>
-      hE.other (nP := nP) (nF := ctor.2) hfresh (hout ctor hctor) hf hne hres hcape)
-    hfold
+    caps leafT hfold
 
 end ConLeche.Model

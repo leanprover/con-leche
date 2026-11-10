@@ -147,6 +147,18 @@ def pushTables : List ProjTable → FEnv → FEnv
   | [], fe => fe
   | t :: Q, fe => pushTables Q (fe.pushTable t)
 
+/-- Push a list of records, head first. -/
+def pushAll : List ConstantInfo → FEnv → FEnv
+  | [], fe => fe
+  | ci :: rest, fe => pushAll rest (fe.push ci)
+
+/-- **What an install step leaves behind**: the constants `L` pushed,
+then the tables `Q` installed, each in install order — a constant push
+and a table install touch different components, so every interleaving
+of the two is this one. -/
+def pushDelta (L : List ConstantInfo) (Q : List ProjTable) (fe : FEnv) : FEnv :=
+  pushTables Q (pushAll L fe)
+
 /-- **Cons `new` (newest first) as an overlay**: the environment `new` pushed onto `fe` would be
 (`find?_overlay`, for an `fe` without an overlay), with the index SHARED, not mutated -- two live
 environments, one bucket array.  Read-only: nothing pushes onto it. -/
@@ -171,10 +183,6 @@ def findProj? (fe : FEnv) (T : Name) (i : Nat) : Option ProjEntry :=
   match fe.findTable? T with
   | some tbl => if i < tbl.numFields then some (tbl.entry i) else none
   | none => none
-
-/-- `towerSlotsAll` through the index. -/
-def towerSlotsAllF (fe : FEnv) (T : Name) (nF : Nat) : Bool :=
-  (List.range nF).all fun j => (fe.findProj? T j).isSome
 
 /-- `andRescueSlots` through the index. -/
 def andRescueSlotsF (fe : FEnv) (ctor : Name) (nP : Nat) : Bool :=

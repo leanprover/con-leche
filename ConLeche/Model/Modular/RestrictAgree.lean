@@ -226,7 +226,6 @@ structure CtxSrc (V : Type w) [SetTheory V] (C : Env) (E R : Name → Env)
   /-- each source's model -/
   m : (n : Name) → EnvModelM V (E n)
   cover : ∀ n, LfpCover (m n) []
-  eta : ∀ n, EtaFamiliesClosed (E n)
   nat : ∀ n, NatFacts (E n)
   /-- the context's leaf at a name read alike is its source's -/
   leaf : ∀ n, (C.find? n).isSome = true → ∀ d, ((R n).find? d).isSome = true →

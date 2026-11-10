@@ -175,7 +175,7 @@ theorem wf : EnvWF C := by
     refine ⟨hT, hsize, fun i b hb => ?_⟩
     obtain ⟨a, b', -, d⟩ := hbodies i b hb
     obtain ⟨-, -, -, hind, -⟩ := S.scopeR hfT
-    exact ⟨a, b', S.resC (resR (((hind cv caps rfl).2.2 t hft).2 b
+    exact ⟨a, b', S.resC (resR (((hind cv caps rfl).2 t hft).2 b
       (Array.mem_toList_iff.mpr (Array.mem_of_getElem? hb)))), d⟩
 
 /-- **The basis pins hold in the context.** -/
@@ -191,18 +191,17 @@ theorem basis_pinned : BasisPinnedTT C aC := by
 
 /-- **The context's tables are its sources'**, entry by entry. -/
 theorem proj_ok : ProjOkT C := by
-  intro T tbl ht i hi
+  intro T tbl ht
   obtain ⟨-, hsn, hT⟩ := Env.findTable?_mem ht
   have hR := S.read.self T hT
   have htE : (E T).findTable? T = some tbl := by rw [← S.table_eq hT hR]; exact ht
-  obtain ⟨r1, r2, r3, r4, ⟨cvT, capsT, hfT, hlpT⟩, ⟨cvC, hfC, hlpC, hstrip⟩⟩ :=
-    (S.m T).base2.proj_ok T tbl htE i hi
-  have hsnT : (tbl.entry i).structName = T := hsn
-  rw [hsnT] at hfT
+  obtain ⟨r1, r2, r3, ⟨cvT, capsT, hfT, hlpT⟩, ⟨cvC, hfC, hlpC, hstrip⟩⟩ :=
+    (S.m T).base2.proj_ok T tbl htE
+  rw [hsn] at hfT
   have hfTC := S.findC hT hR hfT rfl
   obtain ⟨-, -, -, hind, -⟩ := S.scopeR hfTC
-  have hcR : ((R T).find? tbl.ctor).isSome = true := ((hind cvT capsT rfl).2.2 tbl ht).1
-  refine ⟨r1, r2, r3, r4, ⟨cvT, capsT, by rw [hsnT]; exact hfTC, hlpT⟩,
+  have hcR : ((R T).find? tbl.ctor).isSome = true := ((hind cvT capsT rfl).2 tbl ht).1
+  refine ⟨r1, r2, r3, ⟨cvT, capsT, by rw [hsn]; exact hfTC, hlpT⟩,
     ⟨cvC, S.findC hT hcR hfC rfl, hlpC, hstrip⟩⟩
 
 /-- **The rules' constructors are stored in the context.** -/
@@ -342,30 +341,6 @@ theorem reduce_ops : ReduceOps S.base := by
   rw [base_acval, S.leafSelf hf]
   exact hlaw ψ ρ x hx
 
-theorem caps_ok : CapsOk S.base := by
-  refine ⟨fun T cvT caps hf he hr hst φ' us hus => ?_, fun T cvT caps hf hu hr φ' us hus => ?_⟩
-  · have hT := isSome_of hf
-    have hE := S.src_ind hf rfl
-    obtain ⟨hres, ⟨cvC, cnP, cnF, hfC⟩, hfl⟩ := hst
-    have hR := ((S.scopeR hf).2.2.2.1 cvT caps rfl).2.1 he
-    have hfCE := S.findE hT hR hfC rfl
-    obtain ⟨hlaw, hcoh⟩ :=
-      (S.m T).caps_ok.1 T cvT caps hE he hr ⟨hres, ⟨cvC, cnP, cnF, hfCE⟩, hfl⟩ φ' us hus
-    refine ⟨fun ρ ts x hlen hfit hmem => ?_, ?_⟩
-    · rw [base_acval, S.leafSelf hf] at hfit hmem
-      rw [base_acval, S.leaf T hT _ hR]
-      exact hlaw ρ ts x hlen hfit hmem
-    · refine hcoh.transport (fun cvC' nPc nFc h₂ => S.findE hT hR h₂ rfl)
-        (fun cvC' nPc nFc TCa h hTCa => ?_) (by rw [base_acval, S.leafSelf hf]) (fun _ _ _ => rfl)
-      have hfC' := S.findC hT hR h rfl
-      exact (S.denote_inst hT (S.deepType hT hR hfC' rfl) φ' 0 _ us).trans hTCa
-  · have hT := isSome_of hf
-    have hE := S.src_ind hf rfl
-    have hlaw := (S.m T).caps_ok.2 T cvT caps hE hu hr φ' us hus
-    intro ρ ts x y hlen hfit hx hy
-    rw [base_acval, S.leafSelf hf] at hfit hx hy
-    exact hlaw ρ ts x y hlen hfit hx hy
-
 omit [SetTheory V] S in
 theorem pinnedInfo_nat : pinnedInfo natName = natI := by simp (decide := true)
 
@@ -411,14 +386,6 @@ theorem natFacts : NatFacts C := by
     rw [hci, hpin]; rfl
   have hc := S.read.ctors natName natName _ _ hN (S.selfR hci) hci'
   exact ⟨hN, S.storedC (hc _ (by simp)), S.storedC (hc _ (by simp))⟩
-
-/-- **The context's η families are closed.** -/
-theorem etaClosed : EtaFamiliesClosed C := by
-  intro T cvT caps hf he hr
-  have hT := isSome_of hf
-  obtain ⟨cvC, hfC⟩ := S.eta T T cvT caps (S.src_ind hf rfl) he hr
-  have hR := ((S.scopeR hf).2.2.2.1 cvT caps rfl).2.1 he
-  exact ⟨cvC, S.findC hT hR hfC rfl⟩
 
 end CtxSrc
 

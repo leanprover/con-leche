@@ -144,7 +144,7 @@ theorem Expr.constsResolve_iff (R : Env) :
     Expr.constsAll p r.rhs ∧ p r.ctor ∧
     ∀ lvls pins, r.fire = .nested lvls pins → ∀ q ∈ pins, Expr.constsAll p q) ∧
   (∀ cv caps, ci = .indInfo cv caps →
-    (∀ m ∈ caps.all, p m) ∧ (caps.eta = true → p caps.etaCtor) ∧
+    (∀ m ∈ caps.all, p m) ∧
     ∀ t, C.findTable? n = some t → p t.ctor ∧ ∀ b ∈ t.bodies.toList, Expr.constsAll p b) ∧
   ∀ d ∈ pinFootprint n, p d
 
@@ -156,8 +156,8 @@ theorem EntryScopedP.mono {p q : Name → Prop} {C : Env} {n : Name} {ci : Const
   · obtain ⟨a, b, c⟩ := h3 cv mI rP isK rules he r hr
     exact ⟨Expr.constsAll_mono hpq a, hpq _ b, fun lvls pins hf x hx =>
       Expr.constsAll_mono hpq (c lvls pins hf x hx)⟩
-  · obtain ⟨a, c, d⟩ := h4 cv caps he
-    exact ⟨fun m hm => hpq m (a m hm), fun he' => hpq _ (c he'),
+  · obtain ⟨a, d⟩ := h4 cv caps he
+    exact ⟨fun m hm => hpq m (a m hm),
       fun t ht => ⟨hpq _ (d t ht).1, fun b hb => Expr.constsAll_mono hpq ((d t ht).2 b hb)⟩⟩
 
 /-! ## The reading -/
@@ -199,11 +199,11 @@ structure CtxRead (C : Env) (E R : Name → Env) : Prop where
   tables_src : ∀ n, ∀ t ∈ (E n).tables, (E n).findTable? t.structName = some t ∧
     ∃ cv caps, (E n).find? t.structName = some (.indInfo cv caps)
 
-/-- **A context's model** at the leaves `aC`: a covered carrier, with the η-family run, the
-η-family closure and the `Nat` facts, whose leaf at every stored name is `aC`'s. -/
+/-- **A context's model** at the leaves `aC`: a covered carrier with the `Nat` facts, whose leaf
+at every stored name is `aC`'s. -/
 @[expose] def CtxModel (V : Type w) [SetTheory V] (C : Env)
     (aC : Name → (Name → Nat) → Term.Term) : Prop :=
-  ∃ mp : EnvModelM V C, LfpCover mp [] ∧ EtaFamiliesClosed C ∧ NatFacts C ∧
+  ∃ mp : EnvModelM V C, LfpCover mp [] ∧ NatFacts C ∧
     ∀ n, (C.find? n).isSome = true → mp.base2.acval n = aC n
 
 end ConLeche.Model.Modular

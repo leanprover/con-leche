@@ -273,7 +273,7 @@ theorem natOpResult_const {c : Name} {a b : Nat} {bn : Name}
   · rw [ite_eq_left h3] at h; simp at h
   rw [ite_eq_right h3] at h
   by_cases h4 : c = natPowName
-  · rw [ite_eq_left h4] at h; split at h <;> simp at h
+  · rw [ite_eq_left h4] at h; simp at h
   rw [ite_eq_right h4] at h
   by_cases h5 : c = natDivName
   · rw [ite_eq_left h5] at h; simp at h
@@ -498,10 +498,10 @@ theorem majorToCtor_occDeep {env : Env} {names : List Name}
   have hctor : rl.ctor ∉ names := hN.2.2.2.2.1 _ _ _ _ hfc
   have htmaj : tmaj.occDeep names = false := hW hwt (hI hinf hm)
   have hargs := Expr.occDeep_getAppArgs htmaj
-  rcases hcase with ⟨-, -, -, rfl, -⟩ | ⟨heta, -, -, rfl, -⟩ | ⟨rfl, -, -, -, rfl, -⟩
+  rcases hcase with ⟨-, -, -, rfl, -⟩ | ⟨tbl, heta, -, -, rfl⟩ | ⟨rfl, -, -, -, rfl, -⟩
   · exact Expr.occDeep_mkAppN (Expr.occDeep_const hctor)
       (fun x hx => hargs x (List.mem_of_mem_take hx))
-  · obtain ⟨-, hec, -⟩ := etaRescueOk_inv heta
+  · obtain ⟨-, -, hec, -⟩ := etaRescueTable?_inv heta
     refine Expr.occDeep_mkAppN (Expr.occDeep_const (hec ▸ hctor)) ?_
     exact etaFabArgsE_occDeep hargs hm
   · refine Expr.occDeep_mkAppN (Expr.occDeep_const hctor) ?_

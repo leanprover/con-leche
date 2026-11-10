@@ -1,6 +1,7 @@
 module
 
 import ConLeche.Verify.Cached.PinOverlay
+import ConLeche.Verify.Cached.PinsC
 import ConLeche.Cached.ParsedC
 public import ConLeche.Verify.Cached.GenRecC
 
@@ -121,6 +122,20 @@ theorem checkDivModPinF_overlay (ops : CheckerOps CheckCM) (env : Env) (ci : Con
       = checkDivModPin ops pins env ⟨ci :: env.consts, env.tables⟩ c := by
   rw [checkDivModPinF_congr2 _ _ _ (find?_overlay_push (fe := mkFEnv env) rfl ci), push_mkFEnv,
     checkDivModPinF_eq]
+
+/-- The cached reduce-pin check at the arm's overlay (`checkReducePinC_eq`, task #497). -/
+theorem checkReducePinC_overlay (mode : CheckMode) (env : Env) (ci : ConstantInfo)
+    (c : Name) (value : Expr) :
+    checkReducePinC mode (mkFEnv env) ((mkFEnv env).overlay [ci]) c value
+      = checkReducePin (sharedOpsC mode (mkFEnv env)) env ⟨ci :: env.consts, env.tables⟩ c value := by
+  rw [checkReducePinC_eq, checkReducePinF_overlay]
+
+/-- The cached pin check at the arm's overlay (`checkDivModPinC_eq`, task #497). -/
+theorem checkDivModPinC_overlay (mode : CheckMode) (env : Env) (ci : ConstantInfo)
+    (c : Name) :
+    checkDivModPinC mode pins (mkFEnv env) ((mkFEnv env).overlay [ci]) c
+      = checkDivModPin (sharedOpsC mode (mkFEnv env)) pins env ⟨ci :: env.consts, env.tables⟩ c := by
+  rw [checkDivModPinC_eq, checkDivModPinF_overlay]
 
 /-- The structural-`Nat` recurrences at a closed stored value (at the
 cached arm's `(mkFEnv env).env`). -/
@@ -253,13 +268,13 @@ theorem checkDeclKindC_spec (henv : EnvWF env)
   | opaqueDecl cv value =>
     sym only [conleche_grind, checkDeclKind, push_mkFEnv, mkFEnv_env] =>
       vcgen [checkDeclKindC, checkConstantValC_spec henv hs, checkOpaqueValCI_spec henv,
-        checkReducePinF_overlay, checkReducePinS_spec henv] <;> finish
+        checkReducePinC_overlay, checkReducePinS_spec henv] <;> finish
   | defnDecl cv value hint =>
     sym only [conleche_grind, checkDeclKind, push_mkFEnv, mkFEnv_env, natOpGuardF_overlay,
         natOpStoredOkF_overlay, find?_overlay_mkFEnv, Env.find?_cons, ConstantInfo.name,
         ConstantInfo.toConstantVal] =>
       vcgen [checkDeclKindC, checkConstantValC_spec henv hs, checkDefnValCI_spec henv,
-        checkDivModPinF_overlay, certifyNatOpEqsS_spec henv,
+        checkDivModPinC_overlay, certifyNatOpEqsS_spec henv,
         checkDivModPinConsS_spec henv (cv := cv) (value := value) (hint := hint)] <;> finish
 
 /-- One step of the converted-declaration fold: a successful run from a
@@ -297,9 +312,9 @@ theorem checkDeclStepC_run {env : Env} (henv : EnvWF env) {pd : Declaration}
     -- the declared parameter count (task #228) is a guard whose `false`
     -- throws on both sides, so only the passing branch reaches the bridge
     have hd : (if indParamsOk nP block = true then
-          (match blockShape? nP block with
-            | some p => checkBlockKS .verified (mkFEnv env) block p
-            | none => checkShapelessS .verified (mkFEnv env) block)
+          (match readBlock nP block with
+            | .ok p => checkBlockKS .verified (mkFEnv env) block p
+            | .error e => throw e)
         else throw (CheckError.invalid "number of parameters mismatch"))
         s₀.flushed = .ok (fe₂, s₂) := hk
     by_cases hok : indParamsOk nP block = true

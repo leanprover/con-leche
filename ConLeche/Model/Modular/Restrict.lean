@@ -40,7 +40,6 @@ noncomputable def model : EnvModelM V C where
   nat_ops := S.nat_ops
   div_mod := S.div_mod
   eq_law := S.eq_law
-  caps_ok := S.caps_ok
   rec_rules := S.rec_rules
   reduce_ops := S.reduce_ops
   tower_ok := S.tower_ok
@@ -77,14 +76,14 @@ theorem ctxModel {V : Type w} [SetTheory V] {C : Env} {E R : Name → Env}
     {aC : Name → (Name → Nat) → Term}
     (hread : CtxRead C E R)
     (m : (n : Name) → EnvModelM V (E n)) (hcov : ∀ n, LfpCover (m n) [])
-    (heta : ∀ n, EtaFamiliesClosed (E n)) (hnat : ∀ n, NatFacts (E n))
+    (hnat : ∀ n, NatFacts (E n))
     (hleaf : ∀ n, (C.find? n).isSome = true → ∀ d, ((R n).find? d).isSome = true →
       aC d = (m n).base2.acval d)
     (hclosed : ∀ n ψ, Term.Closed (aC n ψ)) (hwd : ∀ n ψ (ρ : Nat → V), WellDenoted V ρ (aC n ψ)) :
     CtxModel V C aC := by
   let S : CtxSrc V C E R aC :=
-    ⟨hread, m, hcov, heta, hnat, hleaf, hclosed, hwd⟩
-  exact ⟨S.model, S.model_cover, S.etaClosed, S.natFacts, fun _ _ => by
+    ⟨hread, m, hcov, hnat, hleaf, hclosed, hwd⟩
+  exact ⟨S.model, S.model_cover, S.natFacts, fun _ _ => by
     rw [S.model_acval]⟩
 
 end ConLeche.Model.Modular

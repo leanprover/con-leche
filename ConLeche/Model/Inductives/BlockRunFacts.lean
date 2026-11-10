@@ -8,7 +8,7 @@ import ConLeche.Model.Inductives.BlockCover
 import ConLeche.Verify.Cached.PushChain
 import ConLeche.Verify.Cached.GenRecC
 import ConLeche.Verify.Cached.BlockPushes
-import ConLeche.Semantics.Inductives.DeclBlockEta
+import ConLeche.Semantics.Inductives.BlockConsFind
 
 public section
 
@@ -30,11 +30,11 @@ variable {V : Type w} [SetTheory V]
 omit [SetTheory V] in
 /-- **The block's constants are under its records' names.** -/
 theorem blockConstants_names_mem {nPd : Nat} {block : List ConstantInfo} {p₀ : BlockShape}
-    (hdp : ConLeche.blockShape? nPd block = some p₀) :
+    (hdp : ConLeche.readBlock nPd block = .ok p₀) :
     ∀ n ∈ (ConLeche.blockConstants p₀).map (·.name), ∃ b ∈ block, b.name = n := by
   intro n hn
   rw [ConLeche.Cached.blockConstants_names] at hn
-  obtain ⟨hM, hC, hR⟩ := ConLeche.blockShape?_names hdp
+  obtain ⟨hM, hC, hR⟩ := ConLeche.readBlock_names hdp
   rcases List.mem_append.mp hn with hn | hn
   · rcases List.mem_append.mp hn with hn | hn
     · obtain ⟨ms, hms, rfl⟩ := List.mem_map.mp hn
@@ -65,7 +65,7 @@ theorem blockRun_fresh {F : Nat} {env env₂ : Env} {block : List ConstantInfo} 
     ∀ n ∈ (ConLeche.blockConstants p₀).map (·.name), env.find? n = none := by
   obtain ⟨ms, hms, -, -, hR⟩ := hrun
   obtain ⟨-, -, -, isRec, env₁, p₁, sortsss, ctx, holes, rd, Ms, kinds,
-    nfs, nodes, st, isorts, outR, hInd, hCtors, -, -, -, -, -, -, hRec, -, -, -, -⟩ := hR
+    nfs, nodes, st, isorts, outR, -, hInd, hCtors, -, -, -, -, -, -, hRec, -, -, -, -, -⟩ := hR
   obtain ⟨ms0, mrest, cvTa0, s0, cvs, -, hq, hcons, -, -, -⟩ :=
     ConLeche.checkBlockInds_shape hInd
   obtain ⟨-, -, hname, -, hctors⟩ := ConLeche.reduceMembers_inv hd hms
@@ -75,7 +75,7 @@ theorem blockRun_fresh {F : Nat} {env env₂ : Env} {block : List ConstantInfo} 
   have hext₂ : ∀ n, (ConLeche.consBlockCtors p₁.nP p₁.memberCtors env₁).find? n = none →
       env₁.find? n = none := fun n hn =>
     find?_none_of_append (consBlockCtors_consts p₁.nP p₁.memberCtors env₁) hn
-  have hRec' : ConLeche.genRecCheck (ConLeche.ShadowOps.fueled .verified F)
+  have hRec' : ConLeche.genRecCheck (ConLeche.fueledOps .verified F)
       (mkFEnv (ConLeche.consBlockCtors p₁.nP p₁.memberCtors env₁)) p₁
       (ConLeche.blockNestedBit p₁ kinds) ctx.params st.ctorNfs.toList
       rd Ms block = .ok outR := hRec
@@ -114,10 +114,10 @@ theorem blockRun_fresh {F : Nat} {env env₂ : Env} {block : List ConstantInfo} 
 omit [SetTheory V] in
 /-- **`Nat`'s block is stored at once across an unreserved block's install.** -/
 theorem natFacts_block {F : Nat} {env env₂ : Env} {block : List ConstantInfo} {nPd : Nat}
-    {p₀ : BlockShape} (hN : NatFacts env) (hdp : ConLeche.blockShape? nPd block = some p₀)
+    {p₀ : BlockShape} (hN : NatFacts env) (hdp : ConLeche.readBlock nPd block = .ok p₀)
     (hres : ∀ c ∈ block, ConLeche.reservedBasisNames.contains c.name = false)
     (hrun : ConLeche.Semantics.BlockRun F env block p₀ env₂) : NatFacts env₂ := by
-  have henv := ConLeche.Semantics.blockRun_env (ConLeche.blockShape?_declared hdp) hrun
+  have henv := ConLeche.Semantics.blockRun_env (ConLeche.readBlock_declared hdp) hrun
   refine hN.append (new := (ConLeche.blockConstants p₀).reverse) (by rw [henv]; rfl) fun c hc => ?_
   obtain ⟨b, hb, hn⟩ :=
     blockConstants_names_mem hdp c.name (List.mem_map_of_mem (List.mem_reverse.mp hc))
@@ -125,8 +125,8 @@ theorem natFacts_block {F : Nat} {env env₂ : Env} {block : List ConstantInfo} 
 
 /-- **The uniform block step, at a recognised block whose records take no reserved name.** -/
 theorem declBlock {F : Nat} {env env₂ : Env} {block : List ConstantInfo} {nPd : Nat} {p₀ : BlockShape}
-    (mp : EnvModelM V env) (hE : ConLeche.EtaFamiliesClosed env)
-    (hdp : ConLeche.blockShape? nPd block = some p₀)
+    (mp : EnvModelM V env)
+    (hdp : ConLeche.readBlock nPd block = .ok p₀)
     -- the reserved names' check (`basisNamesOk`), at a block no pinned one's
     (hres : ∀ c ∈ block, ConLeche.reservedBasisNames.contains c.name = false)
     (hrun : ConLeche.Semantics.BlockRun F env block p₀ env₂) (hcov : LfpCover mp [])
@@ -137,9 +137,9 @@ theorem declBlock {F : Nat} {env env₂ : Env} {block : List ConstantInfo} {nPd 
   have hrun₀ := hrun
   obtain ⟨ms, hms, hAt, -, hR⟩ := hrun
   obtain ⟨-, -, -, hmembersOk, hClps₀, -, -, -⟩ :=
-    ConLeche.blockShape?_inv hdp
-  have hd := ConLeche.blockShape?_declared hdp
-  obtain ⟨hM, hC, hRc⟩ := ConLeche.blockShape?_names hdp
+    ConLeche.readBlock_inv hdp
+  have hd := ConLeche.readBlock_declared hdp
+  obtain ⟨hM, hC, hRc⟩ := ConLeche.readBlock_names hdp
   obtain ⟨-, hdc, hnm, -, hct⟩ := ConLeche.reduceMembers_inv hd hms
   have hlps : ∀ m ∈ ms, m.cvT.levelParams = p₀.lps := by
     intro m hm
@@ -182,7 +182,7 @@ theorem declBlock {F : Nat} {env env₂ : Env} {block : List ConstantInfo} {nPd 
   have hresR : ∀ rc ∈ ({ p₀ with members := ms } : BlockShape).recs,
       ConLeche.reservedBasisNames.contains rc.cvR.name = false :=
     fun rc hrc => by obtain ⟨b, hb, hn⟩ := hRc rc hrc; exact hn ▸ hres b hb
-  refine ⟨declBlockAt (p₀ := { p₀ with members := ms }) mp hE
+  refine ⟨declBlockAt (p₀ := { p₀ with members := ms }) mp
     (fun m hm => (hlps m hm).trans hlpsEq.symm) hAt
     (fun c hc => by rw [hlpsEq]; exact ⟨hClps₀ c (hctors c hc), hresC c (hctors c hc)⟩)
     hresM hresR hR hcov hNat,

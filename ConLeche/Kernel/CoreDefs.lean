@@ -1,8 +1,6 @@
 module
 
 public import ConLeche.Kernel.PropRead
-import ConLeche.Kernel.Level
-import ConLeche.Kernel.ExprOps
 public import ConLeche.Kernel.Basis
 
 @[expose] public section
@@ -19,7 +17,7 @@ the literal shapes and their guards (`natLitToConstructor`,
 reducts and pins (`natOpNames`, `natDivModNames`, `natOpEquations`,
 `natOpResult`, `natOpStoredOk`, …), the structure-η fabrications
 (`etaProjs`, `etaFabArgsE`, `andRescueSlots`), the rule
-data (`etaRescueOk`, `recFireComparands`), the ι case split
+data (`etaRescueTable?`, `recFireComparands`), the ι case split
 (`iotaCtorNeverProp`, `iotaCase3`) and the tower entry's readers
 (`projGuardRows`, `ProjEntry.typeAt`).
 
@@ -582,17 +580,16 @@ def natOpEquations (d : Nat) (c : Name) : List (Expr × Expr) :=
   else []
 
 /-- The reduct of op `c` on literal arguments (`pred` ignores the
-second slot). -/
+second slot): the computation itself, at any size.  The official
+kernel's maximum `Nat` size, which refuses a computation that would be too
+large, is the cached core's (`natOpRefusal`,
+`ConLeche/Cached/StateC.lean`). -/
 def natOpResult (c : Name) (a b : Nat) : Option Expr :=
   if c = natPredName then some (.lit (.natVal (a - 1)))
   else if c = natAddName then some (.lit (.natVal (a + b)))
   else if c = natSubName then some (.lit (.natVal (a - b)))
   else if c = natMulName then some (.lit (.natVal (a * b)))
-  else if c = natPowName then
-    -- the divergence audit's S2: official `reduce_pow` refuses exponents
-    -- above `ReducePowMaxExp = 1 << 24` (`type_checker.cpp:616-627`) and
-    -- lets `Nat.pow` unfold instead — the blow-up protection, mirrored
-    if b > 16777216 then none else some (.lit (.natVal (a ^ b)))
+  else if c = natPowName then some (.lit (.natVal (a ^ b)))
   else if c = natDivName then some (.lit (.natVal (a / b)))
   else if c = natModName then some (.lit (.natVal (a % b)))
   else if c = natGcdName then some (.lit (.natVal (Nat.gcd a b)))
@@ -720,17 +717,9 @@ def piResidual : Expr → List Expr → Option Expr
   | .forallE _ b, a :: as => piResidual (b.instantiate1 a) as
   | _, _ :: _ => none
 
-/-- Are all `nF` projection slots of `T` table entries — i.e. does
-`T`'s projection table exist and cover them?  (Task #175 tower-flag:
-a stored table always carries bodies, so "the entry exists" is the
-whole test.) -/
-def towerSlotsAll (env : Env) (T : Name) (nF : Nat) : Bool :=
-  (List.range nF).all fun j => (env.findProj? T j).isSome
-
 /-- The fabricated projections of a structure-eta spine: the
-`.proj T j b` nodes (every slot of an η family the checker uses has a
-table entry, `towerSlotsAll`; the node is what the table types and
-reduces). -/
+`.proj T j b` nodes, one per field of the family's projection table
+(the node is what the table types and reduces). -/
 def etaProjs (T : Name) (b : Expr) (nF : Nat) : List Expr :=
   (List.range nF).map fun j => Expr.proj T j b
 
@@ -746,6 +735,71 @@ def etaCtorShape (env : Env) (a : Expr) : Bool :=
     | some (.ctorInfo _ cnP cnF) => a.getAppArgs.length == cnP + cnF
     | _ => false
   | _ => false
+
+/-- **A partially applied η constructor** (official's `try_eta_struct_core`
+since lean4#15373): the candidate's head is a stored constructor applied
+to fewer than its parameters and fields, and the family its type ends in
+is a stored η family whose projection table's constructor it is.  `some k`, `k > 0`
+the arguments it lacks.  Read off the stored records alone, before any
+inference, as official's `is_non_rec_structure` gate is. -/
+def etaCtorPartial (env : Env) (a : Expr) : Option Nat :=
+  match a.getAppFn with
+  | .const c _ =>
+    match env.find? c with
+    | some (.ctorInfo cvc cnP cnF) =>
+      if a.getAppArgs.length < cnP + cnF then
+        match cvc.type.piResult.getAppFn with
+        | .const T _ =>
+          match env.find? T with
+          | some (.indInfo _ caps) =>
+            match env.findTable? T with
+            | some tbl =>
+              if caps.eta = true ∧ tbl.ctor = c then
+                some (cnP + cnF - a.getAppArgs.length)
+              else none
+            | none => none
+          | _ => none
+        | _ => none
+      else none
+    | _ => none
+  | _ => none
+
+/-- **The field telescope of an η family's instance** (the opening of
+official's `is_unit_like` field loop): the η constructor's type at the
+levels `us`, its `nP` parameter binders dropped and instantiated with the
+type's arguments `targs` in one pass (official's `binding_body` ×`nP`,
+then `instantiate_rev`). -/
+def unitFieldTele (cty : Expr) (nP : Nat) (targs : List Expr) : Option Expr :=
+  (Expr.peelPis nP cty).map fun body => body.instantiateList targs.reverse
+
+/-- **The shape of an instance in official's `is_unit_like`**, read off
+the stored records: `w`, a head normal form, is an instance of a stored
+η family (one constructor, no index, not recursive) at its parameters,
+whose constructor's field telescope at the instance's parameters is
+`tele` with `n` fields to check (`some (tele, n)`), or not (`none`).
+The constructor and the field count are the family's projection table's
+(official takes the constructor from the family's constructor list): a
+structure-like family has a table whatever its field count, and the
+table's constructor is a stored constructor (`TableHead`). -/
+def unitLikeShape (env : Env) (w : Expr) : Option (Expr × Nat) :=
+  match w.getAppFn with
+  | .const S us =>
+    match env.find? S with
+    | some (.indInfo cvS caps) =>
+      if caps.eta = true ∧ us.length = cvS.levelParams.length then
+        match env.findTable? S with
+        | some tbl =>
+          if w.getAppArgs.length = tbl.numParams then
+            match env.find? tbl.ctor with
+            | some (.ctorInfo cvC _ _) =>
+              (unitFieldTele (cvC.type.instantiateLevelParams cvC.levelParams us)
+                tbl.numParams w.getAppArgs).map fun tele => (tele, tbl.numFields)
+            | _ => none
+          else none
+        | none => none
+      else none
+    | _ => none
+  | _ => none
 
 /-- The eta-rescue fabrication's argument spine: the major's type's
 arguments, then the major's projections (`etaProjs`). -/
@@ -774,31 +828,6 @@ def openPisAtFvars : Nat → Expr → Nat → Option (List Expr × Expr)
     | some (fvs, e) => some (fv :: fvs, e)
     | none => none
   | _ + 1, _, _ => none
-
-/-- Core of `openPisAtFvarsF`: `acc` holds the already-created fvars,
-innermost binder first.  Computes
-`openPisAtFvars n (e.instantiateList acc) i` whenever `e` raw-strips
-`n` `∀`-binders (`openPisAtFvarsFGo_sound`), `none` otherwise —
-one `instantiateList` pass per domain instead of one whole-telescope
-`instantiate1` pass per binder. -/
-def openPisAtFvarsFGo (acc : List Expr) :
-    Nat → Expr → Nat → Option (List Expr × Expr)
-  | 0, e, _ => some ([], e.instantiateList acc)
-  | n + 1, .forallE dom body, i =>
-    let fv : Expr := .fvar i (dom.instantiateList acc)
-    match openPisAtFvarsFGo (fv :: acc) n body (i + 1) with
-    | some (fvs, e) => some (fv :: fvs, e)
-    | none => none
-  | _ + 1, _, _ => none
-
-/-- One-pass `openPisAtFvars` (equal to it: `openPisAtFvarsF_eq`; the
-fallback covers telescopes whose binders only appear after
-substitution). -/
-def openPisAtFvarsF (n : Nat) (e : Expr) (i : Nat) :
-    Option (List Expr × Expr) :=
-  match openPisAtFvarsFGo [] n e i with
-  | some r => some r
-  | none => openPisAtFvars n e i
 
 /-- Does `bvar i` occur loose in `e`?  (Not through fvar type
 annotations — the generated telescopes are fvar-free.) -/
@@ -834,247 +863,6 @@ def Expr.hasLooseBVarB (i : Nat) (e : Expr) : Bool :=
   | .letE t v b =>
     hasLooseBVarB i t || hasLooseBVarB i v || hasLooseBVarB (i + 1) b
   | .proj _ _ e => hasLooseBVarB i e
-
-/-! ### `hasLooseBVarB`, memoized (task #233)
-
-The cutoff above stops the walk where the variable **cannot** occur.
-It cannot stop it where a loose variable *above* `i` occurs but `i`
-itself does not: `bvarB` is the bound of the largest loose index, so a
-node holding `bvar 1` has `bvarB = 2` and the `bvarB ≤ 0` test fails at
-every node of a shared tower whose answer is `false` — and with no
-`true` to short-circuit the `||` on, each shared node is re-entered
-once per path.  A user's stream showed 99.5 % of a run inside this one
-function; the depth-60 fixture is `tests/e2e/tower_usedlater.ndjson`
-(a three-field structure whose last field's type is a tower over the
-FIRST field, asked about the SECOND).
-
-The cutoff and the memo are complementary — this keeps both.  As with
-`mentionsConst` below and `instantiate1` (`ConLeche/Kernel/ExprOps.lean`,
-task #215), the memoized walk is swapped in by `@[csimp]`:
-kernel-checked, no trust point, and the pure definition stays what
-every proof consumes (`Expr.hasLooseBVarB_eq`,
-`ConLeche/Verify/LooseBVar.lean`, is unchanged).  The memo
-is keyed by the *node and the index* — the index shifts under binders,
-so a node's answer is not a function of the node alone — and dropped
-after each call. -/
-
-/-- The memo's invariant: every recorded answer is the real one. -/
-def LooseBVarMemoInv (memo : Std.HashMap (Expr × Nat) Bool) : Prop :=
-  ∀ (k : Expr × Nat) (r : Bool), memo[k]? = some r → r = Expr.hasLooseBVarB k.2 k.1
-
-theorem LooseBVarMemoInv.empty : LooseBVarMemoInv {} := by
-  intro k r h; simp at h
-
-theorem LooseBVarMemoInv.insert {memo : Std.HashMap (Expr × Nat) Bool}
-    (hm : LooseBVarMemoInv memo) {e : Expr} {i : Nat} {r : Bool}
-    (heq : r = Expr.hasLooseBVarB i e) :
-    LooseBVarMemoInv (memo.insert (e, i) r) := by
-  intro k r' hk
-  rw [Std.HashMap.getElem?_insert] at hk
-  split at hk
-  · rename_i hbeq
-    cases hk
-    rw [← eq_of_beq hbeq]
-    exact heq
-  · exact hm k r' hk
-
-/-- Record one answer for `(e, i)` in the memo the walk hands back.
-Written with projections rather than a destructuring `let` so that the
-correctness proof can `split` the walk's own matches. -/
-@[inline] def Expr.hasLooseBVarBIns (e : Expr) (i : Nat)
-    (r : Bool × Std.HashMap (Expr × Nat) Bool) : Bool × Std.HashMap (Expr × Nat) Bool :=
-  (r.1, r.2.insert (e, i) r.1)
-
-/-- Memoized `hasLooseBVarB`. -/
-def Expr.hasLooseBVarBGo (memo : Std.HashMap (Expr × Nat) Bool) (i : Nat) (e : Expr) :
-    Bool × Std.HashMap (Expr × Nat) Bool :=
-  if e.bvarB ≤ i then (false, memo) else
-  match e with
-  | .bvar j => (i == j, memo)
-  | .fvar .. => (false, memo)
-  | .sort _ => (false, memo)
-  | .const .. => (false, memo)
-  | .lit _ => (false, memo)
-  | e =>
-    match memo[(e, i)]? with
-    | some r => (r, memo)
-    | none =>
-      Expr.hasLooseBVarBIns e i <|
-        match e with
-        | .app f a =>
-          match hasLooseBVarBGo memo i f with
-          | (true, memo) => (true, memo)
-          | (false, memo) => hasLooseBVarBGo memo i a
-        | .lam ty b =>
-          match hasLooseBVarBGo memo i ty with
-          | (true, memo) => (true, memo)
-          | (false, memo) => hasLooseBVarBGo memo (i + 1) b
-        | .forallE ty b =>
-          match hasLooseBVarBGo memo i ty with
-          | (true, memo) => (true, memo)
-          | (false, memo) => hasLooseBVarBGo memo (i + 1) b
-        | .letE t v b =>
-          match hasLooseBVarBGo memo i t with
-          | (true, memo) => (true, memo)
-          | (false, memo) =>
-            match hasLooseBVarBGo memo i v with
-            | (true, memo) => (true, memo)
-            | (false, memo) => hasLooseBVarBGo memo (i + 1) b
-        | .proj _ _ sub => hasLooseBVarBGo memo i sub
-        | _ => (false, memo)
-
-/-- **The memoized walk is `hasLooseBVarB`.** -/
-theorem Expr.hasLooseBVarBGo_spec :
-    ∀ (e : Expr) (i : Nat) (memo : Std.HashMap (Expr × Nat) Bool), LooseBVarMemoInv memo →
-      (hasLooseBVarBGo memo i e).1 = Expr.hasLooseBVarB i e ∧
-        LooseBVarMemoInv (hasLooseBVarBGo memo i e).2 := by
-  intro e
-  induction e with
-  | bvar j =>
-    intro i memo hm
-    rw [hasLooseBVarBGo, Expr.hasLooseBVarB]
-    split <;> exact ⟨rfl, hm⟩
-  | fvar idx ty _ =>
-    intro i memo hm
-    rw [hasLooseBVarBGo, Expr.hasLooseBVarB]
-    split <;> exact ⟨rfl, hm⟩
-  | sort u =>
-    intro i memo hm
-    rw [hasLooseBVarBGo, Expr.hasLooseBVarB]
-    split <;> exact ⟨rfl, hm⟩
-  | const n us =>
-    intro i memo hm
-    rw [hasLooseBVarBGo, Expr.hasLooseBVarB]
-    split <;> exact ⟨rfl, hm⟩
-  | lit l =>
-    intro i memo hm
-    rw [hasLooseBVarBGo, Expr.hasLooseBVarB]
-    split <;> exact ⟨rfl, hm⟩
-  | app f a ihf iha =>
-    intro i memo hm
-    rw [hasLooseBVarBGo]
-    split
-    · rename_i hcut
-      exact ⟨by rw [Expr.hasLooseBVarB, ite_eq_left hcut], hm⟩
-    · rename_i hcut
-      have hspec : Expr.hasLooseBVarB i (.app f a)
-          = (Expr.hasLooseBVarB i f || Expr.hasLooseBVarB i a) := by
-        rw [Expr.hasLooseBVarB, ite_eq_right hcut]
-      split
-      · rename_i r hhit
-        exact ⟨(hm _ _ hhit).symm ▸ rfl, hm⟩
-      · obtain ⟨h1, h2⟩ := ihf i memo hm
-        simp only [hasLooseBVarBIns]
-        split
-        · rename_i memo₁ heq
-          rw [heq] at h1 h2
-          exact ⟨by simp [hspec, ← h1], h2.insert (by simp [hspec, ← h1])⟩
-        · rename_i memo₁ heq
-          rw [heq] at h1 h2
-          obtain ⟨h3, h4⟩ := iha i memo₁ h2
-          exact ⟨by simp [hspec, ← h1, h3], h4.insert (by simp [hspec, ← h1, h3])⟩
-  | lam ty b iht ihb =>
-    intro i memo hm
-    rw [hasLooseBVarBGo]
-    split
-    · rename_i hcut
-      exact ⟨by rw [Expr.hasLooseBVarB, ite_eq_left hcut], hm⟩
-    · rename_i hcut
-      have hspec : Expr.hasLooseBVarB i (.lam ty b)
-          = (Expr.hasLooseBVarB i ty || Expr.hasLooseBVarB (i + 1) b) := by
-        rw [Expr.hasLooseBVarB, ite_eq_right hcut]
-      split
-      · rename_i r hhit
-        exact ⟨(hm _ _ hhit).symm ▸ rfl, hm⟩
-      · obtain ⟨h1, h2⟩ := iht i memo hm
-        simp only [hasLooseBVarBIns]
-        split
-        · rename_i memo₁ heq
-          rw [heq] at h1 h2
-          exact ⟨by simp [hspec, ← h1], h2.insert (by simp [hspec, ← h1])⟩
-        · rename_i memo₁ heq
-          rw [heq] at h1 h2
-          obtain ⟨h3, h4⟩ := ihb (i + 1) memo₁ h2
-          exact ⟨by simp [hspec, ← h1, h3], h4.insert (by simp [hspec, ← h1, h3])⟩
-  | forallE ty b iht ihb =>
-    intro i memo hm
-    rw [hasLooseBVarBGo]
-    split
-    · rename_i hcut
-      exact ⟨by rw [Expr.hasLooseBVarB, ite_eq_left hcut], hm⟩
-    · rename_i hcut
-      have hspec : Expr.hasLooseBVarB i (.forallE ty b)
-          = (Expr.hasLooseBVarB i ty || Expr.hasLooseBVarB (i + 1) b) := by
-        rw [Expr.hasLooseBVarB, ite_eq_right hcut]
-      split
-      · rename_i r hhit
-        exact ⟨(hm _ _ hhit).symm ▸ rfl, hm⟩
-      · obtain ⟨h1, h2⟩ := iht i memo hm
-        simp only [hasLooseBVarBIns]
-        split
-        · rename_i memo₁ heq
-          rw [heq] at h1 h2
-          exact ⟨by simp [hspec, ← h1], h2.insert (by simp [hspec, ← h1])⟩
-        · rename_i memo₁ heq
-          rw [heq] at h1 h2
-          obtain ⟨h3, h4⟩ := ihb (i + 1) memo₁ h2
-          exact ⟨by simp [hspec, ← h1, h3], h4.insert (by simp [hspec, ← h1, h3])⟩
-  | letE t v b iht ihv ihb =>
-    intro i memo hm
-    rw [hasLooseBVarBGo]
-    split
-    · rename_i hcut
-      exact ⟨by rw [Expr.hasLooseBVarB, ite_eq_left hcut], hm⟩
-    · rename_i hcut
-      have hspec : Expr.hasLooseBVarB i (.letE t v b)
-          = (Expr.hasLooseBVarB i t || Expr.hasLooseBVarB i v
-              || Expr.hasLooseBVarB (i + 1) b) := by
-        rw [Expr.hasLooseBVarB, ite_eq_right hcut]
-      split
-      · rename_i r hhit
-        exact ⟨(hm _ _ hhit).symm ▸ rfl, hm⟩
-      · obtain ⟨h1, h2⟩ := iht i memo hm
-        simp only [hasLooseBVarBIns]
-        split
-        · rename_i memo₁ heq
-          rw [heq] at h1 h2
-          exact ⟨by simp [hspec, ← h1], h2.insert (by simp [hspec, ← h1])⟩
-        · rename_i memo₁ heq
-          rw [heq] at h1 h2
-          obtain ⟨h3, h4⟩ := ihv i memo₁ h2
-          split
-          · rename_i memo₂ heq₂
-            rw [heq₂] at h3 h4
-            exact ⟨by simp [hspec, ← h1, ← h3], h4.insert (by simp [hspec, ← h1, ← h3])⟩
-          · rename_i memo₂ heq₂
-            rw [heq₂] at h3 h4
-            obtain ⟨h5, h6⟩ := ihb (i + 1) memo₂ h4
-            exact ⟨by simp [hspec, ← h1, ← h3, h5],
-              h6.insert (by simp [hspec, ← h1, ← h3, h5])⟩
-  | proj s j sub ih =>
-    intro i memo hm
-    rw [hasLooseBVarBGo]
-    split
-    · rename_i hcut
-      exact ⟨by rw [Expr.hasLooseBVarB, ite_eq_left hcut], hm⟩
-    · rename_i hcut
-      have hspec : Expr.hasLooseBVarB i (.proj s j sub) = Expr.hasLooseBVarB i sub := by
-        rw [Expr.hasLooseBVarB, ite_eq_right hcut]
-      split
-      · rename_i r hhit
-        exact ⟨(hm _ _ hhit).symm ▸ rfl, hm⟩
-      · obtain ⟨h1, h2⟩ := ih i memo hm
-        simp only [hasLooseBVarBIns]
-        exact ⟨by simp [hspec, h1], h2.insert (by simp [hspec, h1])⟩
-
-/-- The executed `hasLooseBVarB` (one memoized DAG walk). -/
-def Expr.hasLooseBVarBFast (i : Nat) (e : Expr) : Bool :=
-  (Expr.hasLooseBVarBGo {} i e).1
-
-@[csimp] theorem Expr.hasLooseBVarB_eq_hasLooseBVarBFast :
-    @Expr.hasLooseBVarB = @Expr.hasLooseBVarBFast := by
-  funext i e
-  exact (hasLooseBVarBGo_spec e i {} LooseBVarMemoInv.empty).1.symm
 
 /-- **Binder `nP + j` is used by the rest of the telescope**: its
 variable occurs in the remainder of `cty` after it (a later field's
@@ -1142,23 +930,39 @@ def andRescueSlots (env : Env) (ctor : Name) (nP : Nat) : Bool :=
   andRescueSlotsOf env.findProj? ctor nP
 
 /-- **The structure-η rescue's standing condition, at use**: the single
-rule's constructor `ctor` (stored as `cvj`) is the η constructor of its
-family `cvT`, which is structure-like (`IndCaps.eta`), and carries the family's
-level parameters.  The rescue asks this where it has just looked all three up;
-nothing about it is stored.
+rule's constructor `ctor` (stored as `cvj`) is the constructor of its
+family's projection table `tbl?` (the family `cvT` structure-like,
+`IndCaps.eta`), and carries the family's level parameters; the table, for
+the fabrication's counts.  The rescue asks this where it has just looked
+all of them up; nothing about it is stored.
 
 The level-parameter conjunct is what lets the rescue fabricate the
 constructor application at the major type's levels without comparing
 the two lists per call.  `And.intro` is left to `And`'s own rescue. -/
-def etaRescueOk (ctor : Name) (cvj cvT : ConstantVal) (caps : IndCaps) : Bool :=
-  caps.eta && caps.etaCtor == ctor && cvj.levelParams == cvT.levelParams && ctor != andIntroName
+def etaRescueTable? (tbl? : Option ProjTable) (ctor : Name) (cvj cvT : ConstantVal)
+    (caps : IndCaps) : Option ProjTable :=
+  match tbl? with
+  | some tbl =>
+    if caps.eta && tbl.ctor == ctor && cvj.levelParams == cvT.levelParams &&
+        ctor != andIntroName then some tbl
+    else none
+  | none => none
 
-/-- What `etaRescueOk` says. -/
-theorem etaRescueOk_inv {ctor : Name} {cvj cvT : ConstantVal} {caps : IndCaps}
-    (h : etaRescueOk ctor cvj cvT caps = true) :
-    caps.eta = true ∧ caps.etaCtor = ctor ∧ cvj.levelParams = cvT.levelParams := by
-  simp only [etaRescueOk, Bool.and_eq_true, beq_iff_eq] at h
-  exact ⟨h.1.1.1, h.1.1.2, h.1.2⟩
+/-- What `etaRescueTable?` says. -/
+theorem etaRescueTable?_inv {tbl? : Option ProjTable} {ctor : Name} {cvj cvT : ConstantVal}
+    {caps : IndCaps} {tbl : ProjTable}
+    (h : etaRescueTable? tbl? ctor cvj cvT caps = some tbl) :
+    tbl? = some tbl ∧ caps.eta = true ∧ tbl.ctor = ctor ∧
+      cvj.levelParams = cvT.levelParams := by
+  unfold etaRescueTable? at h
+  split at h
+  · split at h
+    · rename_i h'
+      simp only [Bool.and_eq_true, beq_iff_eq] at h'
+      cases h
+      exact ⟨rfl, h'.1.1.1, h'.1.1.2, h'.1.2⟩
+    · exact nomatch h
+  · exact nomatch h
 
 /-- The level and constructor-parameter comparands a firing rule's
 checks compare the major's constructor levels and parameters against:

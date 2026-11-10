@@ -220,7 +220,7 @@ theorem declTables_names {d : Declaration} {t : ProjTable} (h : t ∈ declTables
     simp only [declTables] at h
     split at h
     · next p hp =>
-      obtain ⟨ms, hms, hn⟩ := blockTables_names p p.members t h
+      obtain ⟨ms, hms, hn⟩ := blockTables_getD_names p h
       simp only [declNames, declConstants, hp]
       have := blockConstants_names p
       simp only [ConstantInfo.name] at this

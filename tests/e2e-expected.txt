@@ -128,6 +128,39 @@
 1 nat_pow_wrong.ndjson
 1 nat_pred_wrong.ndjson
 1 nat_beq_wrong.ndjson
+
+# The maximum `Nat` size (official lean4#14849; `natOpRefusal`,
+# ConLeche/Cached/StateC.lean): a `Nat` numeral above the maximum size
+# (default 128 MiB, `--max-nat-size`) rejects, refused before computing
+# for `Nat.pow` and `Nat.shiftLeft` (whose exponent / shift must also fit
+# in 32 bits), after computing for `Nat.add`/`sub`/`mul`/`succ`, and
+# where a literal is inferred.  nat_size is the raw export of
+# tests/e2e/src/nat_size.lean (placeholder exponents);
+# scripts/mk_nat_size_fixtures.py derives the others from it:
+#   nat_size_ok: 1^4000000000, 0^4000000000, 1^4294967295, 2^16777216
+#     (the largest power of two within the maximum size, and the old 2^24
+#     exponent cap's edge) and 1 <<< 100000000 fold;
+#   nat_pow_over_max_size: 2^16777217, refused (it used to unfold);
+#   nat_pow_exp_32bit: 1^4294967296, refused whatever the base;
+#   nat_shift_over_max_size: 1 <<< 1073741760, refused;
+#   nat_shift_exp_32bit: 1 <<< 4294967296, refused.
+0 nat_size.ndjson
+0 nat_size_ok.ndjson
+1 nat_pow_over_max_size.ndjson
+1 nat_pow_exp_32bit.ndjson
+1 nat_shift_over_max_size.ndjson
+1 nat_shift_exp_32bit.ndjson
+# The port of lean4's tests/elab/nat_size_limit.lean, at
+# --max-nat-size=16 (tests/arena.sh's E2E_FLAGS) as the original runs
+# at LEAN_NAT_MAX_SIZE=16; one source per case under tests/e2e/src/,
+# nat_size_limit_pow_32bit derived by scripts/mk_nat_size_fixtures.py.
+0 nat_size_limit_mul_ok.ndjson
+1 nat_size_limit_mul_big.ndjson
+1 nat_size_limit_pow_big.ndjson
+1 nat_size_limit_pow_huge_exp.ndjson
+1 nat_size_limit_pow_32bit.ndjson
+1 nat_size_limit_shift_big.ndjson
+1 nat_size_limit_big_lit.ndjson
 1 nat_ble_wrong.ndjson
 # A level-polymorphic definition under a fast-path name is positively
 # declined at install (the certification pins level-monomorphy).
@@ -1140,14 +1173,14 @@
 # --- official 0.  The twins of ind_defhead_fix by
 # --- scripts/mk_stored_install_fixtures.py, each followed by a record
 # --- that uses the block: ind_defhead_opaque_bad (`MyType` an opaque, so
-# --- the former does not reduce; official 1) and ind_shapeless_use (a
-# --- constructor with a level parameter the block lacks, so the
-# --- recogniser does not read it and nothing is pushed; TODO official 1,
-# --- con-leche declines, "shape not recognised").  The verdict is the
-# --- block's job's at every `--jobs`.
+# --- the former does not reduce; official 1) and ind_ctor_levels_use (a
+# --- constructor with a level parameter the block lacks, so nothing is
+# --- pushed; official 1, rejected for the constructor's universe
+# --- parameters, task #494).  The verdict is the block's job's at every
+# --- `--jobs`.
 0 ind_defhead_nested.ndjson
 1 ind_defhead_opaque_bad.ndjson
-2 ind_shapeless_use.ndjson
+1 ind_ctor_levels_use.ndjson
 0 ind_former_redex.ndjson
 #
 # --- A4 / crack C4: mutual members whose parameter telescopes (…param…)
@@ -1171,6 +1204,10 @@
 # --- as a β-redex, the third through `id` with sort `max 1 1` and an
 # --- index; and a Prop pair `Prop` / `Sort (max 0 0)`.  Official 0.
 0 ind_mutual_three.ndjson
+# ind_mutual_wide_telescope.ndjson (task #543): a 25-member mutual block whose
+# recursors close long telescopes; a performance fixture for checkers whose
+# abstraction has no free-variable-range cutoff (see its source).
+0 ind_mutual_wide_telescope.ndjson
 # --- task #227: mutual and nested blocks whose INDEX DOMAINS' sorts are
 # --- not syntactically readable (`(x : α)` at `α : id Type`, an index at
 # --- a constant whose declared type is that same stuck application, a
@@ -1289,7 +1326,7 @@
 # tower_struct (task #215, wired by task #210 Part B): the tower in a
 # structure's constructor field type.  The block installs through the
 # fixpoint route, where every walk the install asks of the field type
-# is DAG-safe (`@[csimp]` memos: `Expr.mentionsConst`,
+# is DAG-safe (`@[csimp]` memos: `Expr.mentionsAnyConst`,
 # `liftLooseBVars`, `instantiateList`, `allLevelParamsDefined`,
 # `constsResolveF`; the range-field reads `looseBVarsBounded`,
 # `hasFvar`) and the constant walks go through `constsResolveFC`
@@ -1342,7 +1379,7 @@
 # (`Kernel/Inductives/StructParts.lean`) and, once past it, the pure
 # rebuild inside `abstract1Fast`, whose fvar-range cutoff cannot fire
 # either when the tower is built OVER the fvar being abstracted.  Both
-# carry a memoized twin now (`hasLooseBVarBGo`, `abstract1Go`,
+# run memoized walks now (`hasLooseBVarBC`, task #498; `abstract1Go`,
 # `@[csimp]`).
 0 tower_usedlater.ndjson
 # tower_beqpair (task #240): two structurally equal depth-60 towers
@@ -1375,7 +1412,8 @@
 # `fvarLeaves` descends into the leaf's type annotation, so the range
 # cannot answer the question at all.  The fix is at the consumer:
 # `mentionsFvarGo` memoizes the `Bool` question, keyed by the node
-# (`q` is fixed for the walk), `@[csimp]`.
+# (`q` is fixed for the walk), `@[csimp]`.  (Task #498: that test and
+# its walk are gone; the fixture stays, a tower under a recursive field.)
 0 tower_recfield.ndjson
 # tower_mutual (task #246): a two-member MUTUAL block whose first
 # constructor carries a depth-60 tower over its own first field.  It
@@ -2629,7 +2667,7 @@
 # c02: a NESTED block whose own former is behind δ (`T : MyType`,
 # `MyType := Type`), `mk : List T → T`.  Today 2 (the modeller: "former
 # T is not a telescope ending in a sort"), TARGET 0 (was 2: "the
-# block's shape is not recognised" — `blockCounts?` read the index count
+# block's shape is not recognised" — `blockCounts` read the index count
 # off the recursor with the NON-nested prefix `nP + k + nC`, which the
 # auxiliary motives and minors break).  The non-nested twin is accepted
 # on every route.
@@ -3208,11 +3246,9 @@
 # recursor Eq.rec").
 1 basis_eq_rec_swapped_names_bad.ndjson
 # `Eq.refl.{v}` under `Eq.{w}`.  Official rejects ("invalid reference to undefined
-# universe level parameter 'v'").  Since task #493 the block takes the uniform route,
-# whose recogniser does not read a constructor at other level parameters than its
-# former: DECLINE (shape not recognised), as for any block with that defect; the
-# reserved names' check never runs.  Target verdict: 1 (official's reject).
-2 basis_eq_refl_other_name_bad.ndjson
+# universe level parameter 'v'").  Rejected here as well, for the constructor's
+# universe parameters, before the reserved names' check (task #494).
+1 basis_eq_refl_other_name_bad.ndjson
 # `Nat.rec`'s `Nat.zero` rule at the wrong right-hand side, from the job, at the
 # block's fold position.  Rejected, by official as well ("Invalid recursor Nat.rec").
 1 basis_nat_rule_bad.ndjson
@@ -3316,3 +3352,61 @@
 # the low 64 bits alone puts every key in one bucket and takes minutes,
 # which the 10 s timeout in tests/arena.sh turns into a failure (exit 124).
 0 lit_hash_low_bits.ndjson
+# --- Task #494: an inductive block whose records cannot be read as one is
+# --- an invalid input, rejected with the reason.  Derived from
+# --- corner_fuseloop_order_base (its block `W.{u} (α : Sort u)`, accepted) by
+# --- scripts/mk_block_defect_fixtures.py, one change each: block_no_type (no
+# --- inductive type; official 1), block_params_exceed (more parameters than
+# --- the type's binders; official 1), block_ctor_params (the constructor's
+# --- parameter count differs from the block's; official 1), block_ctor_levels
+# --- (the constructor declares no universe parameter, `W` declares `u`;
+# --- official 1) and block_no_rec (no recursor record).  The official kernel
+# --- accepts block_no_rec, because it takes inductive types and constructors
+# --- and generates the recursors itself; con-leche's input format carries
+# --- each block's recursors, so a block without them is an invalid input
+# --- here.
+1 block_no_type.ndjson
+1 block_params_exceed.ndjson
+1 block_ctor_params.ndjson
+1 block_ctor_levels.ndjson
+1 block_no_rec.ndjson
+# -- task #520, the cost of the binder-telescope congruence (scripts/mk_defeq_binding_fixtures.py).
+# defeq's ∀/λ congruence used to open one binder at a time, re-instantiating the whole remaining
+# body at each binder: n binders over a body of size m cost O(n·m).  It now has the official
+# `is_def_eq_binding` shape (`defeqBinders`): each domain and the two innermost bodies opened once,
+# in one bulk pass each (O(n + m)); these fixtures pin that shape.
+# defeq_binding_pi / defeq_binding_lam: two telescopes of 40 binders over 100 conjuncts, each
+# mentioning every binder, defeq only after a delta step in the last conjunct.
+# defeq_binding_mutual: a 10-structure mutual block nested through Array/Option/String (lean4's
+# deriving_mutual_block bench without `deriving`), its `brecOn` families (`go`, `eq`: long
+# telescopes over large bodies).  All accepted; official 0 (run); target 0.  They pin the shape,
+# not a cost: the scaling measurements are in DESIGN.md's task #520 record.
+0 defeq_binding_pi.ndjson
+0 defeq_binding_lam.ndjson
+0 defeq_binding_mutual.ndjson
+# The wider unit-like η (task #515; official's `is_unit_like` since
+# lean4#15372, ported from lean4's `tests/elab/2258.lean`): ∀s with a
+# unit-like codomain and non-recursive structures whose fields are
+# propositions or unit-like (`unitlike_wide`), and the three negative
+# controls (a `Nat` field, a `Bool` field, a `Bool` codomain).
+0 unitlike_wide.ndjson
+1 unitlike_wide_foo_nat_bad.ndjson
+1 unitlike_wide_boolwrap_bad.ndjson
+1 unitlike_wide_pi_bad.ndjson
+# The unit-like test at fieldless structures with parameters, alone, behind a
+# ∀ and inside unit-like structures (task #515 review round 2: the
+# constructor and the field count are read off the projection table, which a
+# fieldless structure has too).  Official 0; today 0.
+0 unitlike_fieldless.ndjson
+# η for a partially applied structure constructor (task #515; official's
+# `try_eta_struct_core` since lean4#15373, ported from lean4's
+# `tests/elab/12520_1.lean`), and its two must-reject controls.
+0 eta_partial_ctor.ndjson
+1 eta_partial_ctor_bad.ndjson
+1 eta_partial_ctor_alias_bad.ndjson
+# lean4's tests whose master elaboration needs the wider unit-like η
+# (task #515): `tests/elab/13371.lean` and the family of
+# `tests/elab/match4.lean`, exported from a lean4 master build (the
+# sources carry the recipe).
+0 unitlike_lean4_13371.ndjson
+0 unitlike_lean4_match4.ndjson

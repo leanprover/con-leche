@@ -228,23 +228,29 @@ theorem defEqList_snd (d : Nat) :
   | [], _ :: _ => rfl
   | _ :: _, [] => rfl
 
-theorem defeqLamsInner_fst (d : Nat) (b₁ b₂ : Expr) :
-    (defeqLamsInner mode (pairFns r₁ r₂ h) d b₁ b₂).val.1 =
-      defeqLamsInner mode r₁ d b₁ b₂ := by
-  unfold defeqLamsInner
+theorem defeqBindersInner_fst (lam : Bool) (d : Nat) (b₁ b₂ : Expr) :
+    (defeqBindersInner mode (pairFns r₁ r₂ h) lam d b₁ b₂).val.1 =
+      defeqBindersInner mode r₁ lam d b₁ b₂ := by
+  unfold defeqBindersInner
   repeat (first
     | rfl
     | ((rw [PairM.fst_bind]; congr 1 <;> try rfl) <;> try funext _)
     | (dsimp only [])
     | split)
 
-theorem defeqLams_fst :
-    ∀ (fuel d : Nat) (ty₁ body₁ ty₂ body₂ : Expr),
-      (defeqLams mode (pairFns r₁ r₂ h) fuel d ty₁ body₁ ty₂ body₂).val.1 =
-        defeqLams mode r₁ fuel d ty₁ body₁ ty₂ body₂
-  | fuel, d, ty₁, body₁, ty₂, body₂ => by
-    rw [defeqLams.eq_def, defeqLams.eq_def]
-    rw [PairM.fst_bind]
+theorem defeqDomain_fst (d : Nat) (fvs : List Expr) (ty₁ ty₂ dom₂ : Expr) :
+    (defeqDomain (pairFns r₁ r₂ h) d fvs ty₁ ty₂ dom₂).val.1 =
+      defeqDomain r₁ d fvs ty₁ ty₂ dom₂ := by
+  unfold defeqDomain
+  split <;> rfl
+
+theorem defeqBinders_fst (lam : Bool) :
+    ∀ (fuel d : Nat) (fvs : List Expr) (ty₁ body₁ ty₂ body₂ : Expr),
+      (defeqBinders mode (pairFns r₁ r₂ h) lam fuel d fvs ty₁ body₁ ty₂ body₂).val.1 =
+        defeqBinders mode r₁ lam fuel d fvs ty₁ body₁ ty₂ body₂
+  | fuel, d, fvs, ty₁, body₁, ty₂, body₂ => by
+    rw [defeqBinders.eq_def, defeqBinders.eq_def]
+    rw [PairM.fst_bind, defeqDomain_fst]
     congr 1
     funext ok
     cases ok with
@@ -252,28 +258,32 @@ theorem defeqLams_fst :
     | true =>
       simp only [↓reduceIte]
       split
-      · split
-        · rfl
-        · exact defeqLams_fst _ (d + 1) _ _ _ _
-      · exact defeqLamsInner_fst d _ _
+      · exact defeqBinders_fst lam _ (d + 1) _ _ _ _ _
+      · exact defeqBindersInner_fst lam d _ _
 
-theorem defeqLamsInner_snd (d : Nat) (b₁ b₂ : Expr) :
-    (defeqLamsInner mode (pairFns r₁ r₂ h) d b₁ b₂).val.2 =
-      defeqLamsInner mode r₂ d b₁ b₂ := by
-  unfold defeqLamsInner
+theorem defeqBindersInner_snd (lam : Bool) (d : Nat) (b₁ b₂ : Expr) :
+    (defeqBindersInner mode (pairFns r₁ r₂ h) lam d b₁ b₂).val.2 =
+      defeqBindersInner mode r₂ lam d b₁ b₂ := by
+  unfold defeqBindersInner
   repeat (first
     | rfl
     | ((rw [PairM.snd_bind]; congr 1 <;> try rfl) <;> try funext _)
     | (dsimp only [])
     | split)
 
-theorem defeqLams_snd :
-    ∀ (fuel d : Nat) (ty₁ body₁ ty₂ body₂ : Expr),
-      (defeqLams mode (pairFns r₁ r₂ h) fuel d ty₁ body₁ ty₂ body₂).val.2 =
-        defeqLams mode r₂ fuel d ty₁ body₁ ty₂ body₂
-  | fuel, d, ty₁, body₁, ty₂, body₂ => by
-    rw [defeqLams.eq_def, defeqLams.eq_def]
-    rw [PairM.snd_bind]
+theorem defeqDomain_snd (d : Nat) (fvs : List Expr) (ty₁ ty₂ dom₂ : Expr) :
+    (defeqDomain (pairFns r₁ r₂ h) d fvs ty₁ ty₂ dom₂).val.2 =
+      defeqDomain r₂ d fvs ty₁ ty₂ dom₂ := by
+  unfold defeqDomain
+  split <;> rfl
+
+theorem defeqBinders_snd (lam : Bool) :
+    ∀ (fuel d : Nat) (fvs : List Expr) (ty₁ body₁ ty₂ body₂ : Expr),
+      (defeqBinders mode (pairFns r₁ r₂ h) lam fuel d fvs ty₁ body₁ ty₂ body₂).val.2 =
+        defeqBinders mode r₂ lam fuel d fvs ty₁ body₁ ty₂ body₂
+  | fuel, d, fvs, ty₁, body₁, ty₂, body₂ => by
+    rw [defeqBinders.eq_def, defeqBinders.eq_def]
+    rw [PairM.snd_bind, defeqDomain_snd]
     congr 1
     funext ok
     cases ok with
@@ -281,10 +291,8 @@ theorem defeqLams_snd :
     | true =>
       simp only [↓reduceIte]
       split
-      · split
-        · rfl
-        · exact defeqLams_snd _ (d + 1) _ _ _ _
-      · exact defeqLamsInner_snd d _ _
+      · exact defeqBinders_snd lam _ (d + 1) _ _ _ _ _
+      · exact defeqBindersInner_snd lam d _ _
 
 theorem iotaIndexOk_fst (d : Nat) (mI rP cnP : Nat) (tyCtor : Expr)
     (margs idx : List Expr) :
@@ -433,7 +441,7 @@ macro "fst_step" : tactic =>
     | (rw [iotaCase3At_fst_proj])
     | (rw [formerNeverZeroAt_fst_proj])
     | (rw [iotaCertsFull_fst])
-    | (rw [defeqLams_fst])
+    | (rw [defeqBinders_fst])
     | (rw [iotaIndexOk_fst])
     | (rw [defEqList_fst])
     | ((rw [PairM.fst_bind]; congr 1 <;> try rfl) <;> try funext _)
@@ -453,7 +461,7 @@ macro "snd_step" : tactic =>
     | (rw [iotaCase3At_snd_proj])
     | (rw [formerNeverZeroAt_snd_proj])
     | (rw [iotaCertsFull_snd])
-    | (rw [defeqLams_snd])
+    | (rw [defeqBinders_snd])
     | (rw [iotaIndexOk_snd])
     | (rw [defEqList_snd])
     | ((rw [PairM.snd_bind]; congr 1 <;> try rfl) <;> try funext _)
@@ -644,18 +652,6 @@ theorem structEtaCertWith_snd_proj (d : Nat) (a b wtb : Expr) :
   unfold structEtaCertWith
   snd_tac
 
-theorem structUnitCert_fst_proj (d : Nat) (a b : Expr) :
-    (structUnitCert (pairFns r₁ r₂ h) env d a b).val.1 =
-      structUnitCert r₁ env d a b := by
-  unfold structUnitCert
-  fst_tac
-
-theorem structUnitCert_snd_proj (d : Nat) (a b : Expr) :
-    (structUnitCert (pairFns r₁ r₂ h) env d a b).val.2 =
-      structUnitCert r₂ env d a b := by
-  unfold structUnitCert
-  snd_tac
-
 theorem etaCert_fst_proj (d : Nat) (ty body : Expr) (b : Expr) :
     (etaCert mode (pairFns r₁ r₂ h) env d ty body b).val.1 =
       etaCert mode r₁ env d ty body b := by
@@ -675,7 +671,7 @@ macro "fst_step2" : tactic =>
     | (rw [iotaCase3At_fst_proj])
     | (rw [formerNeverZeroAt_fst_proj])
     | (rw [iotaCertsFull_fst])
-    | (rw [defeqLams_fst])
+    | (rw [defeqBinders_fst])
     | (rw [iotaIndexOk_fst])
     | (rw [defEqList_fst])
     | (rw [reduceNat_fst_proj])
@@ -683,7 +679,6 @@ macro "fst_step2" : tactic =>
     | (rw [proofIrrel_fst_proj])
     | (rw [propIrrel_fst_proj])
     | (rw [structEtaCertWith_fst_proj])
-    | (rw [structUnitCert_fst_proj])
     | (rw [etaCert_fst_proj])
     | ((rw [PairM.fst_bind]; congr 1 <;> try rfl) <;> try funext _)
     | (dsimp only [])
@@ -702,7 +697,7 @@ macro "snd_step2" : tactic =>
     | (rw [iotaCase3At_snd_proj])
     | (rw [formerNeverZeroAt_snd_proj])
     | (rw [iotaCertsFull_snd])
-    | (rw [defeqLams_snd])
+    | (rw [defeqBinders_snd])
     | (rw [iotaIndexOk_snd])
     | (rw [defEqList_snd])
     | (rw [reduceNat_snd_proj])
@@ -710,7 +705,6 @@ macro "snd_step2" : tactic =>
     | (rw [proofIrrel_snd_proj])
     | (rw [propIrrel_snd_proj])
     | (rw [structEtaCertWith_snd_proj])
-    | (rw [structUnitCert_snd_proj])
     | (rw [etaCert_snd_proj])
     | ((rw [PairM.snd_bind]; congr 1 <;> try rfl) <;> try funext _)
     | (dsimp only [])
@@ -722,17 +716,185 @@ macro "snd_tac2" : tactic =>
     snd_step2 <;> snd_step2 <;> snd_step2 <;> snd_step2 <;>
     snd_step2 <;> snd_step2 <;> snd_step2)
 
+theorem structEtaFull_fst_proj (d : Nat) (a b : Expr) :
+    (structEtaFull (pairFns r₁ r₂ h) env d a b).val.1 =
+      structEtaFull r₁ env d a b := by
+  unfold structEtaFull
+  fst_tac2
+
+theorem structEtaFull_snd_proj (d : Nat) (a b : Expr) :
+    (structEtaFull (pairFns r₁ r₂ h) env d a b).val.2 =
+      structEtaFull r₂ env d a b := by
+  unfold structEtaFull
+  snd_tac2
+
+theorem structEtaExpand_fst_proj :
+    ∀ (k d : Nat) (a b t : Expr),
+      (structEtaExpand (pairFns r₁ r₂ h) env k d a b t).val.1 =
+        structEtaExpand r₁ env k d a b t
+  | 0, d, a, b, t => structEtaFull_fst_proj d a b
+  | k + 1, d, a, b, t => by
+    cases t <;> try rfl
+    exact structEtaExpand_fst_proj k (d + 1) _ _ _
+
+theorem structEtaExpand_snd_proj :
+    ∀ (k d : Nat) (a b t : Expr),
+      (structEtaExpand (pairFns r₁ r₂ h) env k d a b t).val.2 =
+        structEtaExpand r₂ env k d a b t
+  | 0, d, a, b, t => structEtaFull_snd_proj d a b
+  | k + 1, d, a, b, t => by
+    cases t <;> try rfl
+    exact structEtaExpand_snd_proj k (d + 1) _ _ _
+
 theorem structEtaCert_fst_proj (d : Nat) (a b : Expr) :
     (structEtaCert (pairFns r₁ r₂ h) env d a b).val.1 =
       structEtaCert r₁ env d a b := by
   unfold structEtaCert
-  fst_tac2
+  split
+  · exact structEtaFull_fst_proj d a b
+  · split
+    · split
+      · rfl
+      · rw [PairM.fst_bind]; refine congrArg _ (funext fun ta => ?_)
+        rw [PairM.fst_bind]; refine congrArg _ (funext fun tb => ?_)
+        rw [PairM.fst_bind]; refine congrArg _ (funext fun ok => ?_)
+        cases ok
+        · rfl
+        · exact structEtaExpand_fst_proj _ d a b ta
+    · rfl
 
 theorem structEtaCert_snd_proj (d : Nat) (a b : Expr) :
     (structEtaCert (pairFns r₁ r₂ h) env d a b).val.2 =
       structEtaCert r₂ env d a b := by
   unfold structEtaCert
-  snd_tac2
+  split
+  · exact structEtaFull_snd_proj d a b
+  · split
+    · split
+      · rfl
+      · rw [PairM.snd_bind]; refine congrArg _ (funext fun ta => ?_)
+        rw [PairM.snd_bind]; refine congrArg _ (funext fun tb => ?_)
+        rw [PairM.snd_bind]; refine congrArg _ (funext fun ok => ?_)
+        cases ok
+        · rfl
+        · exact structEtaExpand_snd_proj _ d a b ta
+    · rfl
+
+theorem isPropType_fst_proj (d : Nat) (T : Expr) :
+    (isPropType (pairFns r₁ r₂ h) d T).val.1 = isPropType r₁ d T := by
+  unfold isPropType
+  fst_tac
+
+theorem isPropType_snd_proj (d : Nat) (T : Expr) :
+    (isPropType (pairFns r₁ r₂ h) d T).val.2 = isPropType r₂ d T := by
+  unfold isPropType
+  snd_tac
+
+theorem unitLikeFields_fst_proj {ul : Nat → Expr → PairM rel Bool}
+    {ul₁ : Nat → Expr → M₁ Bool} (hul : ∀ d e, (ul d e).val.1 = ul₁ d e) :
+    ∀ (n d : Nat) (t : Expr),
+      (unitLikeFields (pairFns r₁ r₂ h) ul n d t).val.1 = unitLikeFields r₁ ul₁ n d t
+  | 0, d, t => rfl
+  | n + 1, d, t => by
+    cases t <;> try rfl
+    unfold unitLikeFields
+    rw [PairM.fst_bind, isPropType_fst_proj]
+    refine congrArg _ (funext fun p => ?_)
+    cases p
+    · simp only [Bool.false_eq_true, ↓reduceIte]
+      rw [PairM.fst_bind, hul]
+      refine congrArg _ (funext fun u => ?_)
+      cases u
+      · rfl
+      · exact unitLikeFields_fst_proj hul n (d + 1) _
+    · exact unitLikeFields_fst_proj hul n (d + 1) _
+
+theorem unitLikeFields_snd_proj {ul : Nat → Expr → PairM rel Bool}
+    {ul₂ : Nat → Expr → M₂ Bool} (hul : ∀ d e, (ul d e).val.2 = ul₂ d e) :
+    ∀ (n d : Nat) (t : Expr),
+      (unitLikeFields (pairFns r₁ r₂ h) ul n d t).val.2 = unitLikeFields r₂ ul₂ n d t
+  | 0, d, t => rfl
+  | n + 1, d, t => by
+    cases t <;> try rfl
+    unfold unitLikeFields
+    rw [PairM.snd_bind, isPropType_snd_proj]
+    refine congrArg _ (funext fun p => ?_)
+    cases p
+    · simp only [Bool.false_eq_true, ↓reduceIte]
+      rw [PairM.snd_bind, hul]
+      refine congrArg _ (funext fun u => ?_)
+      cases u
+      · rfl
+      · exact unitLikeFields_snd_proj hul n (d + 1) _
+    · exact unitLikeFields_snd_proj hul n (d + 1) _
+
+theorem unitLikeStruct_fst_proj {ul : Nat → Expr → PairM rel Bool}
+    {ul' : Nat → Expr → M₁ Bool} (hul : ∀ d e, (ul d e).val.1 = ul' d e)
+    (d : Nat) (w : Expr) :
+    (unitLikeStruct (pairFns r₁ r₂ h) ul env d w).val.1 =
+      unitLikeStruct r₁ ul' env d w := by
+  unfold unitLikeStruct
+  split
+  · exact unitLikeFields_fst_proj hul _ _ _
+  · rfl
+
+theorem unitLikeLoop_fst_proj :
+    ∀ (fuel d : Nat) (T : Expr),
+      (unitLikeLoop (pairFns r₁ r₂ h) env fuel d T).val.1 =
+        unitLikeLoop r₁ env fuel d T
+  | 0, d, T => rfl
+  | fuel + 1, d, T => by
+    unfold unitLikeLoop
+    rw [PairM.fst_bind]
+    refine congrArg _ (funext fun w => ?_)
+    split
+    · exact unitLikeLoop_fst_proj fuel (d + 1) _
+    · exact unitLikeStruct_fst_proj (fun d e => unitLikeLoop_fst_proj fuel d e) d _
+
+theorem unitLikeStruct_snd_proj {ul : Nat → Expr → PairM rel Bool}
+    {ul' : Nat → Expr → M₂ Bool} (hul : ∀ d e, (ul d e).val.2 = ul' d e)
+    (d : Nat) (w : Expr) :
+    (unitLikeStruct (pairFns r₁ r₂ h) ul env d w).val.2 =
+      unitLikeStruct r₂ ul' env d w := by
+  unfold unitLikeStruct
+  split
+  · exact unitLikeFields_snd_proj hul _ _ _
+  · rfl
+
+theorem unitLikeLoop_snd_proj :
+    ∀ (fuel d : Nat) (T : Expr),
+      (unitLikeLoop (pairFns r₁ r₂ h) env fuel d T).val.2 =
+        unitLikeLoop r₂ env fuel d T
+  | 0, d, T => rfl
+  | fuel + 1, d, T => by
+    unfold unitLikeLoop
+    rw [PairM.snd_bind]
+    refine congrArg _ (funext fun w => ?_)
+    split
+    · exact unitLikeLoop_snd_proj fuel (d + 1) _
+    · exact unitLikeStruct_snd_proj (fun d e => unitLikeLoop_snd_proj fuel d e) d _
+
+theorem structUnitCert_fst_proj (d : Nat) (a b : Expr) :
+    (structUnitCert (pairFns r₁ r₂ h) env d a b).val.1 =
+      structUnitCert r₁ env d a b := by
+  unfold structUnitCert
+  repeat (first
+    | rfl
+    | (rw [unitLikeLoop_fst_proj])
+    | ((rw [PairM.fst_bind]; congr 1 <;> try rfl) <;> try funext _)
+    | (dsimp only [])
+    | split)
+
+theorem structUnitCert_snd_proj (d : Nat) (a b : Expr) :
+    (structUnitCert (pairFns r₁ r₂ h) env d a b).val.2 =
+      structUnitCert r₂ env d a b := by
+  unfold structUnitCert
+  repeat (first
+    | rfl
+    | (rw [unitLikeLoop_snd_proj])
+    | ((rw [PairM.snd_bind]; congr 1 <;> try rfl) <;> try funext _)
+    | (dsimp only [])
+    | split)
 
 -- The `majorToCtor` body outgrew the split-driven macros (the
 -- splitter's internal simp hits its step ceiling on the full match
@@ -768,10 +930,11 @@ theorem majorToCtor_fst_proj (d : Nat) (c : Name) (isK : Bool) (rules : List Rec
     · rw [ite_eq_left hK, ite_eq_left hK]
       fst_tac2
     rw [ite_eq_right hK, ite_eq_right hK]
-    by_cases hE : etaRescueOk rl.ctor cvj cvT caps = true
-    · rw [ite_eq_left hE, ite_eq_left hE]
+    cases etaRescueTable? (env.findTable? T) rl.ctor cvj cvT caps
+    case some tbl =>
+      dsimp only
       fst_tac2
-    rw [ite_eq_right hE, ite_eq_right hE]
+    dsimp only
     by_cases hA : T = andName
     · rw [ite_eq_left hA, ite_eq_left hA]
       fst_tac2
@@ -808,10 +971,11 @@ theorem majorToCtor_snd_proj (d : Nat) (c : Name) (isK : Bool) (rules : List Rec
     · rw [ite_eq_left hK, ite_eq_left hK]
       snd_tac2
     rw [ite_eq_right hK, ite_eq_right hK]
-    by_cases hE : etaRescueOk rl.ctor cvj cvT caps = true
-    · rw [ite_eq_left hE, ite_eq_left hE]
+    cases etaRescueTable? (env.findTable? T) rl.ctor cvj cvT caps
+    case some tbl =>
+      dsimp only
       snd_tac2
-    rw [ite_eq_right hE, ite_eq_right hE]
+    dsimp only
     by_cases hA : T = andName
     · rw [ite_eq_left hA, ite_eq_left hA]
       snd_tac2
@@ -882,7 +1046,7 @@ macro "fst_core3" x:tactic : tactic =>
     | (rw [iotaCase3At_fst_proj])
     | (rw [formerNeverZeroAt_fst_proj])
     | (rw [iotaCertsFull_fst])
-    | (rw [defeqLams_fst])
+    | (rw [defeqBinders_fst])
     | (rw [iotaIndexOk_fst])
     | (rw [defEqList_fst])
     | (rw [reduceNat_fst_proj])
@@ -916,7 +1080,7 @@ macro "snd_core3" x:tactic : tactic =>
     | (rw [iotaCase3At_snd_proj])
     | (rw [formerNeverZeroAt_snd_proj])
     | (rw [iotaCertsFull_snd])
-    | (rw [defeqLams_snd])
+    | (rw [defeqBinders_snd])
     | (rw [iotaIndexOk_snd])
     | (rw [defEqList_snd])
     | (rw [reduceNat_snd_proj])
@@ -1103,7 +1267,7 @@ macro "fst_core4" x:tactic : tactic =>
     | (rw [iotaCase3At_fst_proj])
     | (rw [formerNeverZeroAt_fst_proj])
     | (rw [iotaCertsFull_fst])
-    | (rw [defeqLams_fst])
+    | (rw [defeqBinders_fst])
     | (rw [iotaIndexOk_fst])
     | (rw [defEqList_fst])
     | (rw [reduceNat_fst_proj])
@@ -1163,7 +1327,7 @@ macro "snd_core4" x:tactic : tactic =>
     | (rw [iotaCase3At_snd_proj])
     | (rw [formerNeverZeroAt_snd_proj])
     | (rw [iotaCertsFull_snd])
-    | (rw [defeqLams_snd])
+    | (rw [defeqBinders_snd])
     | (rw [iotaIndexOk_snd])
     | (rw [defEqList_snd])
     | (rw [reduceNat_snd_proj])

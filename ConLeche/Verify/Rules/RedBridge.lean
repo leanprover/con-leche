@@ -174,7 +174,7 @@ theorem majorToCtor_bridge (hw : WhnfBridge .verified eager env fuel)
     tmaj₀, tmaj, T, us₀, ust, cvT, caps, rfl, hfj, hpi, hfT, hinf, hwh, hfn, harm⟩
   · exact .refl
   rcases harm with ⟨hk, hlps, hle, rfl, ⟨tf, htf, hdq⟩, hpirr⟩ |
-    ⟨heta, hlen, hlps, rfl, hguards⟩ |
+    ⟨tbl, heta, hlen, hlps, rfl⟩ |
     ⟨rfl, hlen, hlps, hslots, rfl, ⟨tf, htf, hdq⟩, hpirr⟩
   · -- the major's half of the `proofIrrel (fab, major)` run: a proof
     obtain ⟨-, -, -, tb, stb, vT, -, -, -, -, htb, hstb, hwstb, hvT⟩ :=
@@ -183,9 +183,8 @@ theorem majorToCtor_bridge (hw : WhnfBridge .verified eager env fuel)
       hlps hle rfl hsc1 hsc2 hsc3
       (inferTypeIO_bridge hio htf) (hd hdq) (inferTypeIO_bridge hio htb)
       (inferTypeIO_bridge hio hstb) (hw hwstb) hvT
-  · obtain ⟨hresT, hresc, htow⟩ := hguards
-    exact .rescueEta hfr heta hfj hpi hfT (inferTypeIO_bridge hio hinf) (hw hwh)
-      hfn hlen hlps rfl hsc1 hsc2 hsc3 hresT hresc htow
+  · exact .rescueEta hfr hfj hpi hfT heta (inferTypeIO_bridge hio hinf) (hw hwh)
+      hfn hlen hlps rfl hsc1 hsc2 hsc3
   · obtain ⟨-, -, -, tb, stb, vT, -, -, -, -, htb, hstb, hwstb, hvT⟩ :=
       proofIrrel_inv (hpirr rfl)
     exact .rescueAnd hfr hfj hpi hfT (inferTypeIO_bridge hio hinf) (hw hwh) hfn

@@ -51,8 +51,8 @@ records.
 
 ```
 theorem modular_model_exists (V : Type w) [SetTheory V]
-    (pins : List NatOpPinSet) (dev : Nat → Modular.Module) (i : Nat)
-    (hok : ∀ j ≤ i, Modular.LocalOk .verified pins dev j) :
+    (pins : List NatOpPinSet) (maxNatSize : Nat) (dev : Nat → Modular.Module) (i : Nat)
+    (hok : ∀ j ≤ i, Modular.LocalOk .verified pins maxNatSize dev j) :
     ∃ m : ∀ j ≤ i, Model V (dev j).own,
       (∀ j hj n, ((dev j).context.find? n).isSome = true →
         ∃ h : (dev j).src n ≤ i, (m j hj).cval n = (m ((dev j).src n) h).cval n) ∧
@@ -110,7 +110,7 @@ def pinFootprint (n : Name) : List Name :=
 
 /-- **What a constant's laws read is stored in `R`**: the constants of its type, a definition's
 value, a recursor's rules (right-hand sides, nested pins, constructors), a type former's block
-members and η constructor, and the names its fast path reads.  A projection's structure and a
+members, and the names its fast path reads.  A projection's structure and a
 literal's constants are among a term's constants (`Expr.constsResolve`). -/
 def EntryScoped (R : Env) (ci : ConstantInfo) : Prop :=
   ci.toConstantVal.type.constsResolve R = true ∧
@@ -118,9 +118,7 @@ def EntryScoped (R : Env) (ci : ConstantInfo) : Prop :=
   (∀ cv mI rP isK rules, ci = .recInfo cv mI rP isK rules → ∀ r ∈ rules,
     r.rhs.constsResolve R = true ∧ (R.find? r.ctor).isSome = true ∧
     ∀ lvls pins, r.fire = .nested lvls pins → ∀ p ∈ pins, p.constsResolve R = true) ∧
-  (∀ cv caps, ci = .indInfo cv caps →
-    (∀ m ∈ caps.all, (R.find? m).isSome = true) ∧
-    (caps.eta = true → (R.find? caps.etaCtor).isSome = true)) ∧
+  (∀ cv caps, ci = .indInfo cv caps → ∀ m ∈ caps.all, (R.find? m).isSome = true) ∧
   ∀ d ∈ pinFootprint ci.toConstantVal.name, (R.find? d).isSome = true
 
 /-- **What a record reads is stored in `R`**: its constants' laws and its tables (a table's
@@ -220,8 +218,8 @@ structure InterfaceOk (dev : Nat → Module) (b : Nat) : Prop where
   presents : ∀ e ∈ (dev b).iface, ∃ p ∈ (dev b).decls, Presents e p
 
 /-- **An importer's checks** (at module `i`; see the module docstring). -/
-structure ImportOk (mode : CheckMode) (pins : List NatOpPinSet) (dev : Nat → Module) (i : Nat) :
-    Prop where
+structure ImportOk (mode : CheckMode) (pins : List NatOpPinSet) (maxNatSize : Nat)
+    (dev : Nat → Module) (i : Nat) : Prop where
   below : ∀ b ∈ (dev i).imports, b < i
   src_lt : ∀ n, ((dev i).context.find? n).isSome = true → (dev i).src n < i
   nodup : ((dev i).context.consts.map (·.toConstantVal.name)).Nodup
@@ -236,13 +234,14 @@ structure ImportOk (mode : CheckMode) (pins : List NatOpPinSet) (dev : Nat → M
   ordered : ∀ k (h : k < (dev i).ctx.length),
     RecordScoped (streamEnv ((dev i).ctx.take (k + 1))) (dev i).ctx[k]
   /-- the own records, accepted from the context by the fold's step -/
-  accepted : ∃ q, DeclsRun mode pins (dev i).decls ((dev i).ctx.length, mkFEnv (dev i).context) q
+  accepted : ∃ q, DeclsRun mode pins maxNatSize (dev i).decls
+    ((dev i).ctx.length, mkFEnv (dev i).context) q
 
 /-- **The local checks at module `i`**: its own interface's, and its checks as an importer.  A
 development every module of which passes them is the hypothesis of the modular theorem. -/
-structure LocalOk (mode : CheckMode) (pins : List NatOpPinSet) (dev : Nat → Module) (i : Nat) :
-    Prop where
+structure LocalOk (mode : CheckMode) (pins : List NatOpPinSet) (maxNatSize : Nat)
+    (dev : Nat → Module) (i : Nat) : Prop where
   iface : InterfaceOk dev i
-  importOk : ImportOk mode pins dev i
+  importOk : ImportOk mode pins maxNatSize dev i
 
 end ConLeche.Modular

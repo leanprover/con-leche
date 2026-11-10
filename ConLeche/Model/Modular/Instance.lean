@@ -56,7 +56,7 @@ variable (V : Type w) [SetTheory V]
 @[expose] def MMod (E : XEnv) : Type :=
   { a : Name → (Name → Nat) → Term // (∀ n ψ, Term.Closed (a n ψ)) ∧
     (∀ n ψ (ρ : Nat → V), WellDenoted V ρ (a n ψ)) ∧ ProofLeaves V E.1 a ∧
-    ∃ mp : EnvModelM V E.1, LfpCover mp [] ∧ EtaFamiliesClosed E.1 ∧ NatFacts E.1 ∧
+    ∃ mp : EnvModelM V E.1, LfpCover mp [] ∧ NatFacts E.1 ∧
       ∀ n, (E.1.find? n).isSome = true → mp.base2.acval n = a n }
 
 variable {V}
@@ -106,19 +106,19 @@ theorem amalgamateX {C : XEnv} {ι : Type} {E : ι → XEnv} (h : AssembledX C E
   | reads src R hall hsrc hexp hread =>
     -- each name's source model
     have hex : ∀ n, ∃ mp : EnvModelM V (srcEnv E src n), LfpCover mp [] ∧
-        EtaFamiliesClosed (srcEnv E src n) ∧ NatFacts (srcEnv E src n) ∧
+        NatFacts (srcEnv E src n) ∧
         ∀ i, src n = some i → ∀ d, ((E i).1.find? d).isSome = true →
           mp.base2.acval d = (m i).1 d := by
       intro n
       cases hs : src n with
       | none =>
         rw [show srcEnv E src n = Env.empty by simp only [srcEnv, hs]]
-        obtain ⟨⟨mp, hcov⟩, heta, hnat⟩ := EnvModelOk.empty (V := V)
-        exact ⟨mp, hcov, heta, hnat, fun _ h => nomatch h⟩
+        obtain ⟨⟨mp, hcov⟩, hnat⟩ := EnvModelOk.empty (V := V)
+        exact ⟨mp, hcov, hnat, fun _ h => nomatch h⟩
       | some i =>
         rw [show srcEnv E src n = (E i).1 by simp only [srcEnv, hs]]
-        obtain ⟨mp, hcov, heta, hnat, hag⟩ := (m i).2.2.2.2
-        exact ⟨mp, hcov, heta, hnat, fun i' hi' d hd => by
+        obtain ⟨mp, hcov, hnat, hag⟩ := (m i).2.2.2.2
+        exact ⟨mp, hcov, hnat, fun i' hi' d hd => by
           obtain rfl := Option.some.inj hi'
           exact hag d hd⟩
     let mm := fun n => Classical.choose (hex n)
@@ -156,10 +156,10 @@ theorem amalgamateX {C : XEnv} {ι : Type} {E : ι → XEnv} (h : AssembledX C E
       obtain ⟨hEd, hCd⟩ := hread.R_sub n d ci hci
       rw [srcEnv_of hi] at hEd
       obtain ⟨i', hi', hs'⟩ := hown d hCd
-      rw [(hmm n).2.2.2 i hi d (by rw [hEd]; rfl), haC d i' hi']
+      rw [(hmm n).2.2 i hi d (by rw [hEd]; rfl), haC d i' hi']
       exact hc d i' i ⟨hCd, hall d⟩ hs' ⟨by rw [hEd]; rfl, hexp n i hi d hd⟩
-    obtain ⟨mp, hcov, heta, hnat, hac⟩ := ctxModel hread mm (fun n => (hmm n).1)
-      (fun n => (hmm n).2.1) (fun n => (hmm n).2.2.1) hleaf hclosed hwd
+    obtain ⟨mp, hcov, hnat, hac⟩ := ctxModel hread mm (fun n => (hmm n).1)
+      (fun n => (hmm n).2.1) hleaf hclosed hwd
     -- every proof's leaf, and every theorem's type, read off its source's
     have hPL : ProofLeaves V C.1 aC := by
       intro n ci hf hk
@@ -176,8 +176,7 @@ theorem amalgamateX {C : XEnv} {ι : Type} {E : ι → XEnv} (h : AssembledX C E
           denote aC C.1 ψ 0 ci.toConstantVal.type := by
         -- the type reads alike at the context and at its source
         let S : CtxSrc V C.1 (srcEnv E src) R aC :=
-          ⟨hread, mm, fun n => (hmm n).1, fun n => (hmm n).2.1, fun n => (hmm n).2.2.1, hleaf,
-            hclosed, hwd⟩
+          ⟨hread, mm, fun n => (hmm n).1, fun n => (hmm n).2.1, hleaf, hclosed, hwd⟩
         have hres : ci.toConstantVal.type.constsResolve (R n) = true :=
           (Expr.constsResolve_iff _).mpr (hread.scope n ci hf).1
         have hwf : EnvWF (E i).1 := by
@@ -192,7 +191,7 @@ theorem amalgamateX {C : XEnv} {ι : Type} {E : ι → XEnv} (h : AssembledX C E
           ψ 0 _ hresE
         · obtain ⟨c, hc⟩ := Option.isSome_iff_exists.mp hx
           exact ⟨c, c, hc, by rw [srcEnv_of hi]; exact hc, .inl rfl⟩
-        · exact ((hmm n).2.2.2 i hi x hx).symm
+        · exact ((hmm n).2.2 i hi x hx).symm
         · rw [srcEnv_of hi]
       rw [show ci'.toConstantVal.type = ci.toConstantVal.type by rw [hcv]] at h1 h2
       refine ⟨fun ⟨cv, hc⟩ => SemPropType.of_denote (fun ψ => (hden ψ).symm) (h1 ?_),
@@ -203,7 +202,7 @@ theorem amalgamateX {C : XEnv} {ι : Type} {E : ι → XEnv} (h : AssembledX C E
         · exact nomatch h
       · rw [haC n i hi]
         exact h2 (SemPropType.of_denote hden hc)
-    refine ⟨⟨aC, hclosed, hwd, hPL, mp, hcov, heta, hnat, hac⟩, fun n i hn hs => ?_⟩
+    refine ⟨⟨aC, hclosed, hwd, hPL, mp, hcov, hnat, hac⟩, fun n i hn hs => ?_⟩
     obtain ⟨i', hi', hs'⟩ := hown n hn.1
     show aC n = _
     rw [haC n i' hi']
@@ -212,9 +211,10 @@ theorem amalgamateX {C : XEnv} {ι : Type} {E : ι → XEnv} (h : AssembledX C E
 /-! ## Acceptance and the step -/
 
 /-- **Acceptance**: the fold's run from the context's canonical index, every name exposed. -/
-@[expose] def AcceptsX (pins : List NatOpPinSet) (Γ : XEnv) (D : List Declaration)
+@[expose] def AcceptsX (pins : List NatOpPinSet) (maxNatSize : Nat) (Γ : XEnv) (D : List Declaration)
     (Γ' : XEnv) : Prop :=
-  Γ'.1 = streamEnv D Γ.1 ∧ (∀ n, Γ'.2 n) ∧ ∃ k q, DeclsRun .verified pins D (k, mkFEnv Γ.1) q
+  Γ'.1 = streamEnv D Γ.1 ∧ (∀ n, Γ'.2 n) ∧
+    ∃ k q, DeclsRun .verified pins maxNatSize D (k, mkFEnv Γ.1) q
 
 theorem streamEnv_isSome_base : ∀ (D : List Declaration) {E : Env} {n : Name},
     (E.find? n).isSome = true → ((streamEnv D E).find? n).isSome = true
@@ -225,11 +225,11 @@ theorem streamEnv_isSome_base : ∀ (D : List Declaration) {E : Env} {n : Name},
 
 /-- **The step**: every model of the context extends to one of the own environment, with the
 same leaves on the context. -/
-theorem AcceptsX.step {pins : List NatOpPinSet} {Γ Γ' : XEnv} {D : List Declaration}
-    (h : AcceptsX pins Γ D Γ') (m : MMod V Γ) :
+theorem AcceptsX.step {pins : List NatOpPinSet} {maxNatSize : Nat} {Γ Γ' : XEnv} {D : List Declaration}
+    (h : AcceptsX pins maxNatSize Γ D Γ') (m : MMod V Γ) :
     ∃ m' : MMod V Γ', ∀ n, StoresX Γ n → StoresX Γ' n ∧ m'.1 n = m.1 n := by
   obtain ⟨hΓ', hall, k, q, hrun⟩ := h
-  obtain ⟨-, -, hPL, mp, hcov, heta, hnat, hag⟩ := m.2
+  obtain ⟨-, -, hPL, mp, hcov, hnat, hag⟩ := m.2
   have hPL' : ProofLeaves V Γ.1 mp.base2.acval := hPL.of_alike (fun n ci hf ψ =>
     denote_alike (R := Γ.1)
       (fun {x} hx => by
@@ -237,12 +237,12 @@ theorem AcceptsX.step {pins : List NatOpPinSet} {Γ Γ' : XEnv} {D : List Declar
         exact ⟨c, c, hc, hc, .inl rfl⟩)
       (fun x hx => hag x hx) (fun _ => rfl) ψ 0 _
       (mp.base2.wf.consts ci (ConLeche.Env.find?_mem hf)).2.2.1) hag
-  have key := declsRun_proofs hrun rfl mp hcov heta hnat hPL'
+  have key := declsRun_proofs hrun rfl mp hcov hnat hPL'
   have henv : q.2.env = Γ'.1 := by rw [declsRun_env .verified hrun, hΓ']; rfl
   rw [henv] at key
-  obtain ⟨mp', hleaf, hcov', heta', hnat', hPL''⟩ := key
+  obtain ⟨mp', hleaf, hcov', hnat', hPL''⟩ := key
   refine ⟨⟨mp'.base2.acval, mp'.base2.cval_closed, mp'.base2.acval_wellDenoted, hPL'', mp', hcov',
-    heta', hnat', fun _ _ => rfl⟩, fun n hn => ⟨⟨?_, hall n⟩, (hleaf n hn.1).trans (hag n hn.1)⟩⟩
+    hnat', fun _ _ => rfl⟩, fun n hn => ⟨⟨?_, hall n⟩, (hleaf n hn.1).trans (hag n hn.1)⟩⟩
   rw [hΓ']
   exact streamEnv_isSome_base D hn.1
 
@@ -297,8 +297,8 @@ theorem ReadsX.denote_eq {C E : XEnv} {ty : Expr} (h : ReadsX C E ty) (mC : MMod
 theorem proofInX_val {C E : XEnv} {n : Name} (h : ProofInX C E n) (mC : MMod V C) (m : MMod V E)
     (hag : ∀ c, StoresX C c → StoresX E c → mC.1 c = m.1 c) : m.1 n = fun _ => .prf := by
   obtain ⟨ci, hf, hk, hprop, hnames⟩ := h
-  obtain ⟨-, -, -, mpC, -, -, -, hagC⟩ := mC.2
-  obtain ⟨-, -, hPL, mpE, -, -, -, -⟩ := m.2
+  obtain ⟨-, -, -, mpC, -, -, hagC⟩ := mC.2
+  obtain ⟨-, -, hPL, mpE, -, -, -⟩ := m.2
   refine (hPL n ci hf hk).2 ?_
   -- the type's scoping, off the source's well-formedness
   have hwf := mpE.base2.wf.consts ci (ConLeche.Env.find?_mem hf)
@@ -331,7 +331,7 @@ theorem proofByX_val {C E E' : XEnv} {n : Name} (h : ProofByX C E E' n) (mC : MM
 
 variable (V) in
 /-- **Con-leche's models as a modular semantics.** -/
-@[expose, reducible] noncomputable def conlecheSemantics (pins : List NatOpPinSet) :
+@[expose, reducible] noncomputable def conlecheSemantics (pins : List NatOpPinSet) (maxNatSize : Nat) :
     ModularSemantics.{0, 0} where
   Env := XEnv
   Name := Name
@@ -351,7 +351,7 @@ variable (V) in
   proofBy_val h mC m m' hag hag' := proofByX_val h mC m m' (fun c hc hs => hag c hc hc hs)
     fun c hc hs => hag' c hc hc hs
   Decls := List Declaration
-  Accepts := AcceptsX pins
+  Accepts := AcceptsX pins maxNatSize
   step h m := h.step m
 
 end ConLeche.Model.Modular
