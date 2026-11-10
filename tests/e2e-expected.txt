@@ -3394,8 +3394,8 @@
 # `Hashable Nat` they share one `Expr` hash and the whnf caches chain them:
 # a number of literal comparisons quadratic in the step count (lean4#15686).
 # Verdict today and target: 0.  The cost is what this row records, at
-# `--jobs=1`: 4.8 G instructions on master, 3.6 G with the hash of lean4#16146
-# (task #547, not yet on master), of which 1.1 G is the install (the Nat
-# operations' certificates).  The official kernel needs ~0.09 G per theorem
-# of the first kind, master ~0.44 G.
+# `--jobs=1`: 3.6 G instructions with the hash of lean4#16146 (task #547),
+# 4.8 G with the hash of the low 64 bits alone, of which 1.1 G is the
+# install (the Nat operations' certificates).  The official kernel needs
+# ~0.09 G per theorem of the first kind, the low-bits hash ~0.44 G.
 0 natlit_chain_tz.ndjson
