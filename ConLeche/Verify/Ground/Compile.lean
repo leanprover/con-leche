@@ -317,7 +317,7 @@ structure Inv (P : G4Prog) : Prop where
   kMap : ∀ c us k, P.kMap[(c, us)]? = some k →
     ∃ info, P.kInfo[k]? = some info ∧ Approx (infoTerm info) (.const c us)
   closed : ∀ (a : Expr) (o : Nat), P.closedNode[a]? = some o →
-    ∃ s sl, P.code[o + 1]? = some sl ∧ Den P o s ∧ Approx s a
+    ∃ s sl, P.code[o + 1]? = some sl ∧ Den P o s ∧ Approx s a ∧ a.looseBVarsBounded 0 = true
   slots : ∃ σ : Nat → Expr, ∀ sl t, Owns P sl t → sl < P.nslots ∧ σ sl = t
 
 /-- A slot denotes one term. -/
@@ -343,7 +343,7 @@ theorem Inv.slots_new {P Q : G4Prog} (hI : Inv P) (hn : Q.nslots = P.nslots + 1)
 theorem Owns.back_node {P Q : G4Prog} (hI : Inv P) (hx : Ext P Q) {a : Expr} {o sl : Nat} {t : Expr}
     (h₁ : P.closedNode[a]? = some o) (h₂ : Q.code[o + 1]? = some sl) (h₃ : Den Q o t) :
     Owns P sl t := by
-  obtain ⟨s, sl', hsl', hd, -⟩ := hI.closed a o h₁
+  obtain ⟨s, sl', hsl', hd, -, -⟩ := hI.closed a o h₁
   rw [hx.code_some hsl'] at h₂
   obtain rfl : sl' = sl := Option.some.inj h₂
   obtain rfl := Den.unique (hd.ext hx) h₃
@@ -395,8 +395,8 @@ theorem Inv.ext {P P' : G4Prog} (hI : Inv P) (hx : Ext P P') (hs : P'.kTag.size 
     exact ⟨info, hx.kInfo_some hi, ha⟩
   closed a o h := by
     rw [hc] at h
-    obtain ⟨s, sl, hsl', hd, ha⟩ := hI.closed a o h
-    exact ⟨s, sl, hx.code_some hsl', hd.ext hx, ha⟩
+    obtain ⟨s, sl, hsl', hd, ha, hc0⟩ := hI.closed a o h
+    exact ⟨s, sl, hx.code_some hsl', hd.ext hx, ha, hc0⟩
   slots := hI.slots_ext hx (fun a o h => by rw [hc] at h; exact h) hsl (by rw [hn]; exact Nat.le_refl _)
 
 theorem Inv.emit {P : G4Prog} (hI : Inv P) (ws : Array Nat) : Inv (P.emit (· ++ ws)) :=
@@ -522,8 +522,8 @@ theorem g4Entry_spec (P : G4Prog) (c : Name) (us : List Level) (kfab : Nat) (hI 
       show (P'.kInfo.push info)[k₂]? = some i₂
       rw [hk.kInfo, push_lt hlt]; exact hi₂
   · intro a o h
-    obtain ⟨sa, sl, hsl, hd, ha⟩ := hI.closed a o (by rw [← hk.closedNode]; exact h)
-    exact ⟨sa, sl, hx.code_some hsl, hd.ext hx, ha⟩
+    obtain ⟨sa, sl, hsl, hd, ha, hc0⟩ := hI.closed a o (by rw [← hk.closedNode]; exact h)
+    exact ⟨sa, sl, hx.code_some hsl, hd.ext hx, ha, hc0⟩
   · refine Inv.slots_new (Q := _) hI (by show P'.nslots + 1 = _; rw [hk.nslots]) (infoTerm info) ?_
     intro sl t h
     rcases h with ⟨a, o, h₁, h₂, h₃⟩ | ⟨k, info', h₁, h₂, h₃⟩
@@ -879,15 +879,20 @@ theorem g4CompSpine_spec (comp compArg : G4Prog → Expr → Nat × G4Prog)
   · show (P₂.code ++ _)[P₂.code.size + 2]? = _
     rw [rdR, Array.getElem?_append_left (by simp)]; rfl
 
+theorem closed_of_bvarBRaw {a : Expr} (h : a.bvarBRaw = 0) : a.looseBVarsBounded 0 = true :=
+  Expr.looseBVarsBounded_iff.mpr (by
+    rw [← Expr.bvarBRaw_exact a (by rw [h]; unfold satRange; omega)]; omega)
+
 /-- **A shared closed argument** keeps the promise. -/
 theorem g4CompShared_spec (comp : G4Prog → Expr → Nat × G4Prog)
     (hcomp : ∀ P e, Inv P → CompOK P e (comp P e)) (P : G4Prog) (a : Expr) (hI : Inv P) :
     CompOK P a (g4CompShared comp P a) := by
   unfold g4CompShared
   split
-  · split
+  · rename_i hbr
+    split
     · rename_i o ho
-      obtain ⟨s, -, -, hd, ha⟩ := hI.closed a o ho
+      obtain ⟨s, -, -, hd, ha, -⟩ := hI.closed a o ho
       exact ⟨hI, Ext.refl P, s, hd, ha⟩
     · obtain ⟨hI₁, hx₁, s, hd, ha⟩ := hcomp P a hI
       generalize comp P a = r at hI₁ hx₁ hd ⊢
@@ -895,7 +900,7 @@ theorem g4CompShared_spec (comp : G4Prog → Expr → Nat × G4Prog)
       dsimp only at hI₁ hx₁ hd ⊢
       split
       · rename_i o ho
-        obtain ⟨s', -, -, hd', ha'⟩ := hI₁.closed a o ho
+        obtain ⟨s', -, -, hd', ha', -⟩ := hI₁.closed a o ho
         exact ⟨hI₁, hx₁, s', hd', ha'⟩
       rename_i hnone
       rw [emit_append3]
@@ -928,9 +933,9 @@ theorem g4CompShared_spec (comp : G4Prog → Expr → Nat × G4Prog)
         · rename_i heq
           obtain rfl := Option.some.inj h
           obtain rfl : a = a' := eq_of_beq heq
-          exact ⟨s, P₁.nslots, hc1, hden, ha⟩
-        · obtain ⟨sa, sl, hsl, hd', ha'⟩ := hI₁.closed a' o h
-          exact ⟨sa, sl, hx.code_some hsl, hd'.ext hx, ha'⟩
+          exact ⟨s, P₁.nslots, hc1, hden, ha, closed_of_bvarBRaw (by simpa using hbr)⟩
+        · obtain ⟨sa, sl, hsl, hd', ha', hc0⟩ := hI₁.closed a' o h
+          exact ⟨sa, sl, hx.code_some hsl, hd'.ext hx, ha', hc0⟩
       · refine Inv.slots_new hI₁ rfl s ?_
         intro sl t h
         rcases h with ⟨a', o, h₁, h₂, h₃⟩ | ⟨k, info, h₁, h₂, h₃⟩
