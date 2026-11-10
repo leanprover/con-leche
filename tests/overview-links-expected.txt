@@ -282,10 +282,10 @@
    300  theorem checkDecls_envWF {maxNatSize : Nat} {ds : Array Declaration} {env' : Env}
    301      (h : checkDecls .verified pins maxNatSize ds = .ok env') : EnvWF env' := by
 
-== ConLeche/Verify/Cached/KnotCongr.lean#L527-L529
-   527    induction F generalizing eager with
-   528    | zero => cases eager <;> rfl
-   529    | succ F ih =>
+== ConLeche/Verify/Cached/KnotCongr.lean#L539-L541
+   539    induction F generalizing eager with
+   540    | zero => cases eager <;> rfl
+   541    | succ F ih =>
 
 == ConLeche/Kernel/TypeChecker.lean#L29-L54
     29  def whnfCore (env : Env) (fuel depth : Nat) (e : Expr) (cheap : Bool := false) :
@@ -315,13 +315,13 @@
     53  def ensureSortCore (env : Env) (fuel depth : Nat) (e : Expr) : CheckM Level :=
     54    ensureSort (pureFns mode eager env fuel) env depth e
 
-== ConLeche/Kernel/Core.lean#L1863-L1868
-  1863        whnf := fun _ _ => throw (.internal "fuel exhausted: whnf")
-  1864        infer := fun _ _ => throw (.internal "fuel exhausted: infer")
-  1865        defeq := fun _ _ _ => throw (.internal "fuel exhausted: defeq")
-  1866        defeqE := fun _ _ _ => throw (.internal "fuel exhausted: defeq")
-  1867        inferIO := fun _ _ => throw (.internal "fuel exhausted: infer") }
-  1868    | fuel + 1 =>
+== ConLeche/Kernel/Core.lean#L1868-L1873
+  1868        whnf := fun _ _ => throw (.internal "fuel exhausted: whnf")
+  1869        infer := fun _ _ => throw (.internal "fuel exhausted: infer")
+  1870        defeq := fun _ _ _ => throw (.internal "fuel exhausted: defeq")
+  1871        defeqE := fun _ _ _ => throw (.internal "fuel exhausted: defeq")
+  1872        inferIO := fun _ _ => throw (.internal "fuel exhausted: infer") }
+  1873    | fuel + 1 =>
 
 == ConLeche/Model/Fold.lean#L421-L428
    421  theorem no_proof_of_False_pure (V : Type w) [SetTheory V]
@@ -364,23 +364,23 @@
 == ConLeche/Kernel/Env.lean#L55
     55  inductive CheckMode where
 
-== ConLeche/Kernel/Core.lean#L1140
-  1140  
+== ConLeche/Kernel/Core.lean#L1148
+  1148  def whnfBody (r : CoreFns m) (env : Env) : Nat → Expr → m Expr :=
 
-== ConLeche/Kernel/Core.lean#L1429
-  1429    match a.getAppFn with
+== ConLeche/Kernel/Core.lean#L1437
+  1437  def defeqSpine (r : CoreFns m) (env : Env) (depth : Nat) (a b : Expr) :
 
-== ConLeche/Kernel/Core.lean#L1324
-  1324      match e with
+== ConLeche/Kernel/Core.lean#L1332
+  1332  def inferBodyIO (r : CoreFns m) (env : Env) : Nat → Expr → m Expr :=
 
-== ConLeche/Kernel/Core.lean#L1451
-  1451    if lam && mode.verifiedChecks then
+== ConLeche/Kernel/Core.lean#L1459
+  1459  def defeqBindersInner (r : CoreFns m) (lam : Bool) (depth : Nat) (b₁ b₂ : Expr) : m Bool := do
 
 == ConLeche/Verify/Cached/BridgeC.lean#L284
    284  theorem checkDeclStepC_run {env : Env} (henv : EnvWF env) {pd : Declaration}
 
-== ConLeche/Kernel/Core.lean#L1910
-  1910  end ConLeche
+== ConLeche/Kernel/Core.lean#L1913
+  1913  @[irreducible, noinline] def checkFuel : Nat := 4611686018427387904  -- 2^62
 
 == ConLeche/Kernel/Exclusive.lean#L6-L42
      6  # `withExclusive`: the reference-count read behind the walk memo
@@ -1094,20 +1094,21 @@
 == ConLeche/Model/DivModCert.lean#L1978
   1978  theorem divMod_install {F : Nat} (mp : EnvModelM V env)
 
-== ConLeche/Cached/StateC.lean#L180-L192
-   180  compute.  `a ^ b` has at most `natSizeBytes a * b` bytes, and a base
-   181  `≤ 1` gives `0` or `1`; `a <<< b` has about `natSizeBytes a + b / 8`
-   182  bytes, and `0 <<< b = 0`. -/
-   183  def natOpRefusal (maxNatSize : Nat) (c : Name) (a b : Nat) : Option CheckError :=
-   184    if c = natPowName then
-   185      if b > natCountMax then some (natCountTooBig "Nat.pow")
-   186      else if a > 1 && b != 0 && natSizeBytes a > maxNatSize / b then
-   187        some (.invalid "the kernel refused to evaluate `Nat.pow` because the result would \
-   188          exceed the maximum numeral size; raise it with --max-nat-size")
-   189      else none
-   190    else if c = natShiftLeftName then
-   191      if a = 0 then none
-   192      else if b > natCountMax then some (natCountTooBig "Nat.shiftLeft")
+== ConLeche/Cached/StateC.lean#L239-L252
+   239  compute.  `a ^ b` has at most `natSizeBytes a * b` bytes, and a base
+   240  `≤ 1` gives `0` or `1`; `a <<< b` has about `natSizeBytes a + b / 8`
+   241  bytes, and `0 <<< b = 0`. -/
+   242  def natOpRefusal (maxNatSize : Nat) (op : NatBinOp) (a b : Nat) : Option CheckError :=
+   243    match op with
+   244    | .pow =>
+   245      if b > natCountMax then some (natCountTooBig "Nat.pow")
+   246      else if a > 1 && b != 0 && natSizeBytes a > maxNatSize / b then
+   247        some (.invalid "the kernel refused to evaluate `Nat.pow` because the result would \
+   248          exceed the maximum numeral size; raise it with --max-nat-size")
+   249      else none
+   250    | .shiftLeft =>
+   251      if a = 0 then none
+   252      else if b > natCountMax then some (natCountTooBig "Nat.shiftLeft")
 
 == ConLeche/Kernel/CoreDefs.lean#L585-L605
    585  def natOpResult (c : Name) (a b : Nat) : Option Expr :=
@@ -1308,9 +1309,9 @@
     37  record installs nothing and any use of it declines
     38  (`sorryAxName`, `ConLeche/Kernel/Basis/Names.lean`).
 
-== ConLeche/Kernel/Core.lean#L1188-L1189
-  1188    match env.find? entry.structName with
-  1189    | some (.indInfo cvT caps) => do
+== ConLeche/Kernel/Core.lean#L1198-L1199
+  1198    match env.find? entry.structName with
+  1199    | some (.indInfo cvT caps) => do
 
 >>> README.md
 

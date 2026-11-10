@@ -194,8 +194,6 @@ ConLeche.natOpDeps
 ConLeche.natOpEquations
 ConLeche.natOpName
 ConLeche.natOpNames
-ConLeche.natOpResult
-ConLeche.natOpWfNames
 ConLeche.natPowName
 ConLeche.natPredName
 ConLeche.natShiftLeftName
