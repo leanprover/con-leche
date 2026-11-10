@@ -117643,3 +117643,136 @@ regeneration); `inlean-sync.py check` OK.  Stage1 suite (4843 tests): all pass b
 `async/elab/async_systems_info` (sandbox).  Every `tests/elab_bench/*.lean` (93 files) at
 `TEST_BENCH=1` passes; `deriving_mutual_block`'s `#mutual_block` takes 182.2 M heartbeats
 (182.1 M before; limit 200 M).
+
+### Lane retro: master's cached installer (#495–#498) compared declaration by declaration, InLean follows (2026-11-09, task #451, agent/451-retro)
+
+**Why.**  The range 501589f56..8d11cda38 (tasks #495–#498, the cached twins of the inductive
+installer, `ConLeche/Cached/Ind*.lean`) was synced by lane sync3, before the procedure of lane
+spec-relation existed: only what broke a proof or was noticed got ported.  This lane runs the
+procedure over that range.  No master merge; **last synced master unchanged: 49d2fa3fd**.
+
+**The checklist.**  `scripts/inlean-cached-diff.sh 501589f56 8d11cda38` lists 291 rows (with
+`git log -p` beside it; master's `Cached/Ind*` have not changed since 8d11cda38, so InLean's
+code was compared with master's current code).  Every row was read on both sides (body against
+body: walk structure, passes, substitutions, early exits, loop shape, memo use, order of checks,
+guards, error kinds).  Decisions: **184 match**, **12 ported**, **13 differ and are kept** (reason
+below), **8 gone** on master and absent in InLean, **74 not applicable**.
+
+Ported (the code changes):
+
+| master | InLean twin | change |
+|---|---|---|
+| `nestCtorsC` | `nestCtors` | the walked telescope closed ONCE (`tel`: the U4 test, the record, the output; it was rebuilt up to four times, once per non-ordinary field inside the U4 test); the fields' walk is `rec F` at `F := fuelOf crest`, computed once per constructor (was `rec crest`, `whnfWalkFuel` applied at every field) |
+| `nestCtorNfC` | `nestCtorNf` | takes the closed telescope |
+| `nestRootC`, `nestFrameC` | `nestRoot`, `nestFrame` | pass `fuelOf`/`rec` as master (`whnfWalkFuel`/`nestPos`; `fun _ => 0`/`fun _ => rec`); `nestFrame`'s holes interned in one pass (`zipIdx.mapM`; was `List.range` with an O(n) `getD` per index) |
+| `nestInstTypeC` | `nestInstType` | the Π-binders read once (`pb`; were walked three times) |
+| `reducePinGuardC`, `checkReducePinC` | new `reducePinGuard`, `checkReducePin` | the guard's four conjuncts (closed, no free variable, no level parameter, constants stored); InLean tested only the last |
+| `instPisAtLiftC` (deleted, #495) | `instPisAtLift` | the dead alias deleted |
+| `wscopedBC` | `Expr.wscopedBC` | one `anyNode` walk (`wscopedOut`) stopping at the first variable out of scope and below every subterm without free variables; was a full `fvarIds` collection |
+| `mentionsAnyConstC`/`P` | `mentionsAnyConst` | the term itself tested before the annotation closure is built (master's walk stops at the first hit) |
+| `inferBodyI` (#519) | `inferBodyI` | literal arm: the `Nat` basis tested first, the numeral's size inside it |
+
+Kept (a difference with its reason): `classConstOkC` and `checkConstantValC`'s freshness test
+read the raw environment and throw official's `alreadyDeclared` (official's `check_name`);
+`unresolvedConstsErrorLC` names an unseen constant (official's message; error path only);
+`natNumeralTooBig` is official's message; `checkStructProjTableC`'s "table taken" refusal has
+nothing to find (tables are read off the structure, whose name is fresh); `eraseFVarTysC` is two
+walks because interning the re-annotated variables is monadic; `classFeROvl`,
+`blockRecInfosBare`, `blockRecInfosTC` push where master overlays (a kernel environment is
+persistent, a push shares); `opSIxC` takes its fuel from `fe.limits` (the official recursion
+limit); `sharedOpsRuleR` and `checkConstantValC`: see the open choice below.  Not a master
+difference, left: `nestRootCanon` levels in with the unchecked `instLvlParamsI` (a renaming of
+the block's own parameters), `nestPos` reads a depthless variable as depth 0 (unreachable).
+
+Gone on both sides: `shadowOpsC`, `structWalkersC`, `defeqLamsI`, `defeqLamsInnerI`,
+`instantiate1LiftC`/`P`/`P_cut`/`XP`.  Not applicable: the memo plumbing of `ExprOpsC` (36:
+`MemoN`, `NEnt`, `NTab`, `ResN`, `resNat`, every `enter…`, `…XP`, `…P_cut`, the memo `…P` walks;
+InLean's twin is Lean's own operation, whose cutoffs were checked: #496's bvar cutoff, the root
+cutoffs of `instantiateLiftC`/`replaceFVarsC`, the window exits of `hasLooseBVarInC` are all
+InLean's); the proof-only declarations (9: `DeclsRun*`, `checkDecls_run`, `checkDecls_of_run`,
+`declStep_ok`, `resNat_eq`, `liftLooseBVarsC_eqP`); `checkDecls` (Lean drives the fold);
+`StreamIndex.add` (no stream index); `declTablesC`, `declConstantsC`, `blockConstantsC`,
+`blockRecsC`, `generatedRulesC`, `recFireC` (constants from the generator, tables and firing
+modes read off Lean's entries at use); `CState`, `ModeMemos`, `maxNatSizeM` (state
+representation); `bvarBoundGo`/`Memo`, `fvarRangeGo`/`Memo`, `hasFvarFast`,
+`looseBVarsBoundedFast` (Lean's cached data); 9 module headers; 3 scan artefacts (`datatype`,
+`is`, `has`: words of docstrings).
+
+Matched (body read on both sides): `CheckerC` `dropVarsC`, `blockIsRecC`, `blockTablesC`,
+`checkBlockKS`, `checkBlockPassS`, `checkBlockTailS`, `reduceMemberS`, `structProjBodiesC`,
+`structProjBodiesGoC`; `CoreC` `boolTrueShortcutI`, `checkProjRowsI`, `defeqBindersI`,
+`defeqBindersInnerI`, `defeqDomainI`, `quickDefEqI`, `reduceNatI`; `Decls` `declStep`;
+`ExprOpsC` `abstractPrefixC`, `abstractRangeC`, `closeLamsC`/`GoC`, `closeTelescopeC`/`GoC`,
+`depthC`/`P`, `getAppArgsC`, `hasLooseBVarBC`/`P`, `hasLooseBVarInC`/`P`, `instLevelParams`,
+`instPisWithC`, `instantiateLiftC`, `liftLooseBVarsC`, `nestOccC`/`P`, `openPisAtFvarsC`/`GoC`,
+`openPisRawGoC`, `piDomsMentionAnyC`, `piResidual`, `projGuardFastC`, `projGuardRowsC`/`GoC`,
+`replaceFVarsC`/`P`, `substConstAllC`, `targetAbsC`/`P`, `targetAbsConst`, `targetPiDomsWithC`;
+`IndBlock` (25) every stage and helper (`checkBlockTeleC` … `checkBlockIdxSortsC`, the pushes,
+`classReadC`/`MinorC`/`SlotsC`, `classKeyCanonC`, `classKeyOfC`, `targetOutsideInstC`,
+`targetMajorOfC`, `targetPinTysC`, `targetMajorPinsC`, `classMajorsC`, `checkBlockClassesC`);
+`IndPositivity` (35) all but the five ported; `IndRec` (30) all but `classConstOkC`,
+`eraseFVarTysC` and the overlay (`targetK53` builds fewer spines than master: it counts with
+`getAppNumArgsT`); `IndTail` (13) all but `checkStructProjTableC` and `blockRecInfosTC`;
+`ParsedC` `checkDeclKindC`, `checkDefnValCI`, `checkThmValCI`, `checkOpaqueValCI`,
+`checkIndDeclC`, the `Nat.div`/`Nat.mod` pin guards, loop and checks, `checkTypePinsC`;
+`StateC` `etaCtorShapeC`, `maxNatSizeDefault`, `natCountMax`, `natCountTooBig`, `natOpRefusal`,
+`natResultRefused`, `natSizeBytes`, `peelFuelM`; `StreamIndex` `recordJob`; `Kernel/Core`
+`bindersFuel`, `unknownConstError`; `Kernel/CoreDefs` `natOpEquations`, `natOpResult`;
+`Kernel/ExprOps` `binderPair?`, `getAppFn`, `isForallE`, `mkAppN`, `piResult`, `stripPis`.
+The per-row list is `_tmp/retro/table.tsv` (lane aid).
+
+**Open design choice** (not decided here).  Master's cached stages are monomorphic at a mode
+and call the cached core directly (`coreKnotI`; one `checkConstantValC`, `classRuleCheckC`
+with its flushes inline).  InLean's inductive stages are parametric in a `CheckerOps` record of
+closures (`sharedOpsC`, `sharedOpsRuleR`), so InLean keeps two constant checks
+(`checkConstantValC` over the core, `checkConstantValF` over `CheckerOps`) and its stages call the
+core through closures.  Following master means monomorphising every inductive stage of InLean
+(and the stage lemmas' `ops` hypotheses); the algorithm is the same either way.  Also standing:
+InLean's projection inference rebuilds a field's body at every use (`ProjEntry.typeAtI` over
+`projBodyAt`) where master instantiates the table's stored body; InLean reads tables off Lean's
+entries, which have no slot for the bodies (lane sync3).
+
+**The quotient fix** (the coordinator's urgent item, its own commit).  Radar's `leanchecker
+--fresh Init` failed: `Lean.Replay` sends a `quotDecl` for each of the four quotient constants,
+the official kernel's `environment::add_quot` returns the environment unchanged once the quotient
+is initialized, InLean's `checkQuotC` rejected the second (`constant has already been declared
+'Quot'`).  `checkQuotC` now returns `{ quot := true }` with no constants when the kernel
+environment's flag is set (`quotInitialized`, core's private `isQuotInit`, in `InLean/Push.lean`),
+before any other test, as official.  Proofs: `checkQuotC_run`, `checkQuotC_ok`, `checkQuotC_sim`
+carry the no-op case; `quotGroupPres` and `quot_step` keep the relation and the model at the
+unchanged environment (`L' = L`, no new constants, through `markQuot_find`).  con-leche reads one
+record per quotient constant (`checkQuotRecord`) and installs each once by name; a repeated record
+is a duplicate declaration like any repeated constant, and no stream sends one per package
+member, so nothing changes there.
+
+**Proofs.**  `nestCtorsI_run` takes `fuelOf`/`rec` (its hypothesis states the walk at
+`rec (fuelOf x)`), `nestFrameI_run` reads the holes through `List.getElem_zipIdx` (the helper
+`mapM_mkFVarM_tys` is stated over any list), `wscopedOut_anyP` (new) proves the one-walk scope
+guard on a scoped term by induction, and its user `wscopedBC_of_WScoped` no longer needs the
+`mkData` stop-gaps (pin updated).  `addDeclSound` unconditional, axioms unchanged (`propext`,
+`Classical.choice`, `Quot.sound`, the three `mkData` stop-gaps); no `sorry`.
+
+**Gates.**  `lake build`, `lake test`, `lake build InLean InLeanProof inlean-replay`
+warning-free; layering, trust-surface, shake, inlean-sync, plain-reach.
+
+**Measurements** (`perf stat -e instructions:u`, one run each, InLean verified).  Init replay
+`--compare`: 64530 accepted, 0 exact and 0 cosmetic mismatches.  Init cost: 03fe61c95
+451 036 584 042, the lane's head 450 958 270 274 (−0.017 %); con-leche at master 49d2fa3fd
+(`--olean --jobs=1`, lane sync4's run) 427 526 786 231 (InLean +5.5 %).  The 42-member block
+(`_tmp/dmb/ol/Wide42`, the probe's import cost subtracted): InLean 1 659.6 M → 1 659.2 M
+instructions (5 509 870 → 5 509 620 heartbeats); con-leche 856.7 M, official 536.0 M (lane
+indlock's runs).  The block has no nested container and no projection, so the ported walks barely
+reach it; the difference to con-leche is not in the code this lane compared.
+
+**lean4** (`joachim/inlean-kernel`, remote at f1b97eac = the local head before this lane).  Two
+commits: `fix: a second quotient declaration is a no-op, as in the C++ kernel` (0571fa15: the
+quotient change alone, regenerated from 03fe61c95 plus that commit, and the test
+`tests/elab/inleanQuotTwice.lean`, a second `quotDecl` on the kernel environment succeeds and adds
+no constant), then `perf: InLean follows con-leche's cached positivity walk and guards` (c19e9cc2,
+the regeneration of the rest); `inlean-sync.py check` OK.  At 0571fa15: `leanchecker --fresh Init`
+passes, and radar's part 2 (`make bench-part2` at stage1: `misc_bench`, `compile_bench`,
+`compile`, `async/compile*`, `bench/vcgen`, `lake_bench/inundation`) runs through.  At c19e9cc2:
+stage1 suite (4844 tests) all pass but `async/elab/async_systems_info` (sandbox); every
+`tests/elab_bench/*.lean` (93 files) at `TEST_BENCH=1` passes; `deriving_mutual_block`'s
+`#mutual_block` takes 182.2 M heartbeats (182.2 M before; limit 200 M); `leanchecker --fresh Init`
+and the new test pass.
