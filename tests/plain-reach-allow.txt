@@ -68,7 +68,7 @@ ConLeche.falseA
 ConLeche.falseBasis
 ConLeche.falseRecA
 
-# ConLeche.Kernel.Basis.Names — basis names (constants)
+# ConLeche.Kernel.Basis.Names — basis names (constants) and the one name test on them
 ConLeche.andName
 ConLeche.charName
 ConLeche.charOfNatName
@@ -89,6 +89,7 @@ ConLeche.quotName
 ConLeche.quotSoundName
 ConLeche.reservedBasisNames
 ConLeche.sorryAxName
+ConLeche.sorryAxNameAt
 ConLeche.stringName
 ConLeche.stringOfListName
 
@@ -239,7 +240,7 @@ ConLeche.instDecidableEqReducibilityHint.decEq
 ConLeche.instInhabitedConstantVal.default
 ConLeche.instInhabitedDeclaration.default
 
-# ConLeche.Kernel.Expr — the Expr/Level data structure: constructors and computed fields, the executed equality (beqMemo, its pointer and hash guards; Level.decEqPtr and Literal's pointer-first instance at the leaves, the derived Expr DecidableEq at constructor mismatches)
+# ConLeche.Kernel.Expr — the Expr/Level data structure: constructors and computed fields, the executed equality (beqMemo, its pointer and hash guards; Level.decEqPtr and Literal's pointer-first instance at the leaves, the literal hash below 2^64, the derived Expr DecidableEq at constructor mismatches)
 ConLeche.Expr.BeqMap.record
 ConLeche.Expr.EqPair.dflt
 ConLeche.Expr.app
@@ -266,11 +267,13 @@ ConLeche.instDecidableEqExpr.decEq
 ConLeche.instDecidableEqLevel
 ConLeche.Level.decEqPtr
 ConLeche.instDecidableEqLiteral
-ConLeche.instHashableLiteral.hash
 ConLeche.instInhabitedExpr.default
+ConLeche.Literal.hash
 ConLeche.levelHasParam
 ConLeche.levelsHash
 ConLeche.levelsHaveParam
+ConLeche.natHash
+ConLeche.natHashWordBound
 
 # ConLeche.Kernel.ExprOps — O(spine) readers (getAppFn, mkAppN, piResult, stripPis, peelPis) and the field-read guards (bvarB, fvarB, looseBVarsBounded, hasFvar)
 ConLeche.Expr.bvarBoundGo
@@ -339,6 +342,9 @@ ConLeche.Name.render
 ConLeche.Name.str
 ConLeche.instDecidableEqName
 
+# ConLeche.Kernel.NatHash — the vendored C hash of a literal at or above 2^64 (`@[extern]`, lean4#16146), once per literal node at construction
+ConLeche.natBigHash
+
 # ConLeche.Kernel.PropRead — propIrrelI's fast arms: head-only reads of spines and telescopes (they are that fast path)
 ConLeche.Expr.binderDom
 ConLeche.Expr.numArgs
@@ -395,6 +401,7 @@ ConLeche.reduceBoolCvA
 ConLeche.reduceBoolName
 ConLeche.reduceCertVar
 ConLeche.reduceDeclPin
+ConLeche.reduceElemName
 ConLeche.reduceElemTy
 ConLeche.reduceNatCvA
 ConLeche.reduceNatName
@@ -411,6 +418,9 @@ ConLeche.trustCompilerName
 # ConLeche.Kernel.TrustPins — the trust pins (constants)
 ConLeche.reduceBoolDeclPin
 ConLeche.reduceNatDeclPin
+
+# ConLeche.Modular — a pinned constant's fast-path names (fixed name lists, the pin names' membership tests), read once per context constant by the worker's reach
+ConLeche.Modular.pinFootprint
 
 # ConLeche.Verify.Frontend.Rounds — the rounds driver's small helpers (proved here, executed by the frontend)
 ConLeche.Frontend.instInhabitedFinPart.default
@@ -518,3 +528,13 @@ ConLeche.blockCtors  # ConLeche.Kernel.Install
 ConLeche.blockFormers  # ConLeche.Kernel.Install
 ConLeche.Level.isEquivList  # ConLeche.Kernel.Level
 ConLeche.Level.isNeverZero  # ConLeche.Kernel.Level
+
+# The worker's inferred-flag check (Driver/Reach.lean's inferFlags): the environment of a context
+# part, `mkFEnv (streamEnvC part)` — list pushes and the index build's hash-map inserts, one per
+# constant and table; no term walk.
+ConLeche.Env.pushDelta  # ConLeche.Kernel.Install
+ConLeche.Env.empty  # ConLeche.Kernel.Env
+ConLeche.instInhabitedEnv.default  # ConLeche.Kernel.Env
+ConLeche.mkFEnv  # ConLeche.Kernel.FEnv
+ConLeche.mkIdxGo  # ConLeche.Kernel.FEnv
+ConLeche.mkTblsGo  # ConLeche.Kernel.FEnv

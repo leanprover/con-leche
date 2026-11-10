@@ -74,7 +74,7 @@ accepted as pinned definitions of their own types.]
 
 #left-out[Opaques][The fragment has definitions and theorems
 (@sec:modular), the latter stored as their statements. The real
-checker never unfolds a theorem or an opaque: #src("ConLeche/Rules/Rel.lean", 138, 141)[only a definition
+checker never unfolds a theorem or an opaque: #src("ConLeche/Rules/Rel.lean", 143, 146)[only a definition
 unfolds].]
 
 #left-out[Structure η and unit-likeness][The checker has
@@ -107,7 +107,7 @@ which is what the one-declaration-at-a-time argument of §3 and §4 needs.]
 *Free variables carry their types.* The paper uses named variables and a
 context. The real checker keeps no context at all. When it opens a binder it
 substitutes a free variable that carries its own type,
-#src("ConLeche/Kernel/Expr.lean", 434, 436)[`fvar idx type`], identified by the depth at which it was opened\; so a variable is never
+#src("ConLeche/Kernel/Expr.lean", 433, 435)[`fvar idx type`], identified by the depth at which it was opened\; so a variable is never
 looked up, the relations are indexed by the opening depth in place of a
 context, and two free variables are #src("ConLeche/Rules/Rel.lean", 371, 372)[compared by depth alone]. Stored types are closed
 terms, and `Denotes`, the relation the main theorem is stated over

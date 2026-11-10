@@ -24,7 +24,7 @@ corollary follow in @sec:ind.
 #src("whitepaper/Fragment/Env.lean", 116, 132)[list of the constants] accepted so far,
 #src("ConLeche/Kernel/Env.lean", 451)[most recent first]. A
 #src("whitepaper/Fragment/Env.lean", 66, 107)[stored constant] has its level parameters $arrow(p)$, its type (a closed
-term over $arrow(p)$) and #src("ConLeche/Kernel/Env.lean", 293, 311)[its _kind_]. We write
+term over $arrow(p)$) and #src("ConLeche/Kernel/Env.lean", 283, 301)[its _kind_]. We write
 $(c.\{arrow(p)\} : T) in E$ for "$c$ is stored with parameters
 $arrow(p)$ and type $T$", and $(c.\{arrow(p)\} : T := v) in E$ when
 it is a definition with value $v$. A
@@ -36,7 +36,7 @@ stored at most once.
 
 *Constants.* The grammar of @sec:terms gains one form: a #src("whitepaper/Fragment/Syntax.lean", 35, 36)[constant $c$]
 of the environment, used at a list of levels $arrow(ell)$,
-#src("ConLeche/Kernel/Expr.lean", 434, 444)[one per level parameter] of its declaration.
+#src("ConLeche/Kernel/Expr.lean", 433, 443)[one per level parameter] of its declaration.
 
 $
   e & colon.double.eq dots | c.\{arrow(ell)\}

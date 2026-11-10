@@ -4,6 +4,7 @@ public import ConLeche.Driver.Reach
 public import ConLeche.Verify.EnvWF
 import ConLeche.Verify.Frontend.ModelIO
 import ConLeche.Verify.Cached.GuardsC
+import ConLeche.Verify.Cached.OpsC
 
 /-!
 # The reach's context: closed, well formed
@@ -708,7 +709,7 @@ theorem nestedOk_read {res : Expr → Bool} {lps : List Name} {ty : Expr} {mI rP
     · rename_i pre dom body hs
       split at hm
       · rename_i D ls hD
-        simp only [Bool.and_eq_true, beq_iff_eq] at hm
+        simp only [Bool.and_eq_true, beq_iff_eq, Expr.liftLooseBVarsC_spec] at hm
         obtain ⟨rfl, ha⟩ := hm
         exact ⟨pre, dom, body, D, hs, hD, ha, rfl⟩
       · simp at hm

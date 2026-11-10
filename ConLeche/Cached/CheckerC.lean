@@ -116,6 +116,14 @@ def declConstantsC : Declaration → List ConstantInfo
     | .ok p => blockConstantsC p
     | .error _ => []
 
+/-- The names a record installs (`Modular.declNames`), over `declConstantsC`. -/
+def declNamesC (d : Declaration) : List Name :=
+  (declConstantsC d).map (·.toConstantVal.name)
+
+/-- `streamEnv` over `declConstantsC` and `declTablesC`. -/
+def streamEnvC (ds : List Declaration) (env : Env := Env.empty) : Env :=
+  ds.foldl (fun e pd => e.pushDelta (declConstantsC pd) (declTablesC pd)) env
+
 variable (mode : CheckMode)
 
 /-! ## The entry-point record over the cached core

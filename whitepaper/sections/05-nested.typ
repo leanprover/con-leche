@@ -280,7 +280,7 @@ level parameters and parameters
 In the certified case of $iota$ (@sec:iota-cases), the
 constructor application's levels and parameters are compared with
 #src("ConLeche/Kernel/CoreDefs.lean", 967, 977)[the stored ones, instantiated at the recursor's levels and parameter arguments]
-(#src("ConLeche/Rules/Rel.lean", 212, 223)[the levels by the level oracle, the parameters definitionally]),
+(#src("ConLeche/Rules/Rel.lean", 217, 228)[the levels by the level oracle, the parameters definitionally]),
 and the index comparison is as before. In the other cases the rule
 fires comparing nothing, as for a simple block. The constructor's fields
 are what follows its own parameters.
@@ -298,7 +298,7 @@ nested block.
   #src("ConLeche/Kernel/Inductives/ClassRead.lean", 15, 32)[an unverified pre-pass],
   and each class is then checked: the type being defined at the
   block's levels and parameters, or
-  #src("ConLeche/Kernel/Inductives/RecCheck.lean", 409, 446)[a stored inductive type, not the quotient, whose parameters mention the type being defined and nothing but the block's parameters, in the block's sort].
+  #src("ConLeche/Kernel/Inductives/RecCheck.lean", 253, 290)[a stored inductive type, not the quotient, whose parameters mention the type being defined and nothing but the block's parameters, in the block's sort].
   #src("ConLeche/Kernel/Inductives/Positivity.lean", 1101, 1109)[Every class other than the type being defined is walked]
   as a container met at the root, so every class is an instantiation
   the walk visited. A field landing at a class for which the stream

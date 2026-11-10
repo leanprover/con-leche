@@ -84,7 +84,7 @@ private theorem inferFlags_head {ctx : List Declaration} {w : String} {y : Name}
   · exact nomatch h
   · next hok =>
     have hok' : (exprOk cv.levelParams 0 cv.type && cv.type.constsResolveF (mkFEnv E)) = true := by
-      simpa using hok
+      simpa [constsResolveFC_spec] using hok
     rw [Bool.and_eq_true] at hok'
     cases hrun : typeIsPropC (mkFEnv E) cv {} with
     | error e =>

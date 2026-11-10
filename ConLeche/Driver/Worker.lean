@@ -2,6 +2,7 @@ module
 
 public import ConLeche.Driver.CheckMain
 public import ConLeche.Driver.Reach
+import ConLeche.Verify.Cached.DeclNames
 
 @[expose] public section
 

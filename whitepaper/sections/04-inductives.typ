@@ -196,8 +196,8 @@ indices and the major, and ends in $C thick arrow(y) thick t$.
 #src("whitepaper/Fragment/Decl.lean", 257, 266)[a minor premise],
 #src("whitepaper/Fragment/Decl.lean", 273, 278)[the recursor's type]
 and #src("whitepaper/Fragment/Decl.lean", 315, 322)[a rule's right-hand side]\;
-in con-leche: #src("ConLeche/Kernel/Inductives/GenRec.lean", 175, 182)[the type],
-#src("ConLeche/Kernel/Inductives/GenRec.lean", 188, 207)[a rule].)
+in con-leche: #src("ConLeche/Kernel/Inductives/GenRec.lean", 176, 183)[the type],
+#src("ConLeche/Kernel/Inductives/GenRec.lean", 189, 208)[a rule].)
 
 === The elimination rule
 
@@ -268,7 +268,7 @@ the checker answers each with the level oracle:
 === When a block is accepted
 
 A block #src("whitepaper/Fragment/Decl.lean", 732, 777)[is accepted] when
-(#src("ConLeche/Kernel/Inductives/BlockTail.lean", 154, 163)[as in con-leche]):
+(#src("ConLeche/Kernel/Inductives/BlockTail.lean", 153, 163)[as in con-leche]):
 
 - its names are distinct and fresh;
 - the specification is in scope, positivity included;
@@ -989,7 +989,7 @@ assumed of the environment they extend.
 #theorem(name: "Every accepted environment has a model")[
   For every model of the extended theory, every accepted environment
   #src("whitepaper/Fragment/Consistency.lean", 62, 79)[has a model in it]
-  (#src("ConLeche/MainTheorem.lean", 110, 113)[con-leche's main theorem]).
+  (#src("ConLeche/MainTheorem.lean", 108, 111)[con-leche's main theorem]).
 ] <thm:accepted-model>
 
 #proof[
