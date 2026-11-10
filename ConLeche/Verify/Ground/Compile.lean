@@ -13,7 +13,7 @@ The ground engine compiles every term it evaluates into a code array
 `Den P o s` says that the node at offset `o` of the program `P` denotes the
 erased term `s` (`ConLeche/Verify/Ground/Erased.lean`): binder domains, sorts,
 Π-types, erased arguments and neutral constants read back as `bot`, a shared
-closed term and a strict argument as the term they wrap.  The compiler's
+closed term as the term it wraps.  The compiler's
 correctness is `g4Comp_den`: the node it returns denotes a term that
 approximates (`Approx`) the term it compiled, and the program it returns
 extends the one it was given (`Ext`), so every node already compiled keeps its
@@ -70,8 +70,6 @@ inductive Den (P : G4Prog) : Nat → Expr → Prop where
   | neutral {o : Nat} : P.code[o]? = some 8 → Den P o bot
   | shared {o sl a : Nat} {s : Expr} : P.code[o]? = some 9 → P.code[o + 1]? = some sl →
       P.code[o + 2]? = some a → a < o → Den P a s → Den P o s
-  | strict {o a : Nat} {s : Expr} : P.code[o]? = some 10 → P.code[o + 1]? = some a →
-      a < o → Den P a s → Den P o s
 
 /-- The `n` argument nodes of a spine node `o`, read from offset `p`. -/
 inductive DenArgs (P : G4Prog) : Nat → Nat → Nat → List Expr → Prop where
@@ -150,7 +148,7 @@ theorem Ext.strs_some {P P' : G4Prog} (h : Ext P P') {i : Nat} {x : String}
 /-- A node that denotes has a tag. -/
 theorem Den.tag {P : G4Prog} {o : Nat} {s : Expr} : Den P o s → ∃ x, P.code[o]? = some x
   | .bvar h₀ _ | .spine h₀ .. | .lam h₀ .. | .letE h₀ .. | .const h₀ .. | .natLit h₀ _
-  | .strLit h₀ .. | .projNone h₀ _ | .proj h₀ .. | .neutral h₀ | .shared h₀ .. | .strict h₀ .. =>
+  | .strLit h₀ .. | .projNone h₀ _ | .proj h₀ .. | .neutral h₀ | .shared h₀ .. =>
     ⟨_, h₀⟩
 
 mutual
@@ -183,7 +181,6 @@ theorem Den.ext {P P' : G4Prog} (hx : Ext P P') {o : Nat} {s : Expr} : Den P o s
   | .neutral h₀ => .neutral (hx.code_some h₀)
   | .shared h₀ h₁ h₂ hlt ha => .shared (hx.code_some h₀) (hx.code_some h₁) (hx.code_some h₂) hlt
       (Den.ext hx ha)
-  | .strict h₀ h₁ hlt ha => .strict (hx.code_some h₀) (hx.code_some h₁) hlt (Den.ext hx ha)
 
 theorem DenArgs.ext {P P' : G4Prog} (hx : Ext P P') {o p n : Nat} {ss : List Expr} :
     DenArgs P o p n ss → DenArgs P' o p n ss
@@ -472,7 +469,7 @@ theorem Den.lam_fields {P : G4Prog} {b : Nat} {s : Expr} (h : Den P b s) (h2 : P
   | .lam _ _ h₂ h₃ _ _ htel => ⟨_, _, h₂, h₃, by
       rcases htel with ⟨-, -, -, h⟩ | ⟨-, h, -⟩ <;> omega⟩
   | .bvar h₀ _ | .spine h₀ .. | .letE h₀ .. | .const h₀ .. | .natLit h₀ _ | .strLit h₀ ..
-  | .projNone h₀ _ | .proj h₀ .. | .neutral h₀ | .shared h₀ .. | .strict h₀ .. => by
+  | .projNone h₀ _ | .proj h₀ .. | .neutral h₀ | .shared h₀ .. => by
     rw [h₀] at h2; cases h2
 
 theorem getD_append_left {l l' : List Expr} {i : Nat} (d : Expr) (h : i < l.length) :
@@ -613,15 +610,6 @@ theorem g4MaskOf_key (P : G4Prog) (hd : Expr) : KeyEq P (g4MaskOf find? P hd).2 
     · exact ⟨rfl, rfl, rfl, rfl, rfl, rfl, rfl⟩
   · exact KeyEq.refl P
 
-theorem g4StrictOf_key (P : G4Prog) (hd : Expr) : KeyEq P (g4StrictOf find? P hd).2 := by
-  unfold g4StrictOf; split
-  · split
-    · exact KeyEq.refl P
-    · split
-      · exact KeyEq.refl P
-      · exact ⟨rfl, rfl, rfl, rfl, rfl, rfl, rfl⟩
-  · exact KeyEq.refl P
-
 theorem emit_spine (P : G4Prog) (ho : Nat) (aos : Array Nat) :
     P.emit (fun c => aos.foldl (fun c a => c.push a) (((c.push 1).push ho).push aos.size)) =
       P.emit (· ++ (#[1, ho, aos.size] ++ aos)) := by
@@ -638,11 +626,11 @@ theorem emit_spine (P : G4Prog) (ho : Nat) (aos : Array Nat) :
 
 /-- One argument step keeps the fold's invariant. -/
 theorem g4ArgStep_spec (compArg : G4Prog → Expr → Nat × G4Prog)
-    (harg : ∀ P a, Inv P → CompOK P a (compArg P a)) (mask : Array Bool) (smask : Nat)
+    (harg : ∀ P a, Inv P → CompOK P a (compArg P a)) (mask : Array Bool)
     {P₁ : G4Prog} (acc : Array Nat × G4Prog) (done : List Expr) (a : Expr)
     (h₁ : Inv acc.2) (h₂ : Ext P₁ acc.2) (h₃ : ArgsOK acc.2 acc.1 done) :
-    Inv (g4ArgStep compArg mask smask acc a).2 ∧ Ext P₁ (g4ArgStep compArg mask smask acc a).2 ∧
-      ArgsOK (g4ArgStep compArg mask smask acc a).2 (g4ArgStep compArg mask smask acc a).1
+    Inv (g4ArgStep compArg mask acc a).2 ∧ Ext P₁ (g4ArgStep compArg mask acc a).2 ∧
+      ArgsOK (g4ArgStep compArg mask acc a).2 (g4ArgStep compArg mask acc a).1
         (done ++ [a]) := by
   unfold g4ArgStep
   split
@@ -655,43 +643,36 @@ theorem g4ArgStep_spec (compArg : G4Prog → Expr → Nat × G4Prog)
     generalize compArg acc.2 a = r at hI' hx' hd ⊢
     obtain ⟨ao, P'⟩ := r
     dsimp only at hI' hx' hd ⊢
-    split
-    · rw [emit_append2]
-      have hx := Ext.emit P' #[10, ao]
-      refine ⟨hI'.emit _, h₂.trans (hx'.trans hx), ((h₃.ext hx').ext hx).push
-        (by simp [G4Prog.emit]) (.strict ?_ ?_ hd.lt_size (hd.ext hx)) ha⟩
-      · show (P'.code ++ _)[P'.code.size]? = _; rw [rd0]; rfl
-      · show (P'.code ++ _)[P'.code.size + 1]? = _; rw [rdR]; rfl
-    · exact ⟨hI', h₂.trans hx', (h₃.ext hx').push hd.lt_size hd ha⟩
+    exact ⟨hI', h₂.trans hx', (h₃.ext hx').push hd.lt_size hd ha⟩
 
 theorem g4ArgFold_spec (compArg : G4Prog → Expr → Nat × G4Prog)
-    (harg : ∀ P a, Inv P → CompOK P a (compArg P a)) (mask : Array Bool) (smask : Nat)
+    (harg : ∀ P a, Inv P → CompOK P a (compArg P a)) (mask : Array Bool)
     {P₁ : G4Prog} : ∀ (l : List Expr) (acc : Array Nat × G4Prog) (done : List Expr),
       Inv acc.2 → Ext P₁ acc.2 → ArgsOK acc.2 acc.1 done →
-      Inv (l.foldl (g4ArgStep compArg mask smask) acc).2 ∧
-        Ext P₁ (l.foldl (g4ArgStep compArg mask smask) acc).2 ∧
-        ArgsOK (l.foldl (g4ArgStep compArg mask smask) acc).2
-          (l.foldl (g4ArgStep compArg mask smask) acc).1 (done ++ l)
+      Inv (l.foldl (g4ArgStep compArg mask) acc).2 ∧
+        Ext P₁ (l.foldl (g4ArgStep compArg mask) acc).2 ∧
+        ArgsOK (l.foldl (g4ArgStep compArg mask) acc).2
+          (l.foldl (g4ArgStep compArg mask) acc).1 (done ++ l)
   | [], acc, done, h₁, h₂, h₃ => by simpa using ⟨h₁, h₂, h₃⟩
   | a :: l, acc, done, h₁, h₂, h₃ => by
-    obtain ⟨h₁', h₂', h₃'⟩ := g4ArgStep_spec compArg harg mask smask acc done a h₁ h₂ h₃
-    have := g4ArgFold_spec compArg harg mask smask l _ _ h₁' h₂' h₃'
+    obtain ⟨h₁', h₂', h₃'⟩ := g4ArgStep_spec compArg harg mask acc done a h₁ h₂ h₃
+    have := g4ArgFold_spec compArg harg mask l _ _ h₁' h₂' h₃'
     simpa using this
 
 /-- **A spine** compiled by compilers that keep the promise keeps it. -/
 theorem g4CompSpine_spec (comp compArg : G4Prog → Expr → Nat × G4Prog)
     (hcomp : ∀ P e, Inv P → CompOK P e (comp P e))
     (harg : ∀ P a, Inv P → CompOK P a (compArg P a))
-    (P : G4Prog) (hd : Expr) (args : List Expr) (mask : Array Bool) (smask : Nat) (hI : Inv P) :
-    CompOK P (Expr.mkAppN hd args) (g4CompSpine comp compArg P hd args mask smask) := by
+    (P : G4Prog) (hd : Expr) (args : List Expr) (mask : Array Bool) (hI : Inv P) :
+    CompOK P (Expr.mkAppN hd args) (g4CompSpine comp compArg P hd args mask) := by
   unfold g4CompSpine
   obtain ⟨hI₁, hx₁, sh, hdh, hah⟩ := hcomp P hd hI
   generalize comp P hd = r at hI₁ hx₁ hdh ⊢
   obtain ⟨ho, P₁⟩ := r
   dsimp only at hI₁ hx₁ hdh ⊢
-  obtain ⟨hI₂, hx₂, hargs⟩ := g4ArgFold_spec compArg harg mask smask (P₁ := P₁) args (#[], P₁) []
+  obtain ⟨hI₂, hx₂, hargs⟩ := g4ArgFold_spec compArg harg mask (P₁ := P₁) args (#[], P₁) []
     hI₁ (Ext.refl _) ⟨rfl, fun j hj => absurd hj (by simp)⟩
-  generalize args.foldl (g4ArgStep compArg mask smask) (#[], P₁) = r at hI₂ hx₂ hargs ⊢
+  generalize args.foldl (g4ArgStep compArg mask) (#[], P₁) = r at hI₂ hx₂ hargs ⊢
   obtain ⟨aos, P₂⟩ := r
   dsimp only at hI₂ hx₂ hargs ⊢
   rw [List.nil_append] at hargs
@@ -910,16 +891,10 @@ theorem g4Comp_spec : ∀ (f : Nat),
         generalize g4MaskOf find? P (Expr.app fn arg).getAppFn = r at hk₁ ⊢
         obtain ⟨mask, P₁⟩ := r
         dsimp only at hk₁ ⊢
-        have hk₂ := g4StrictOf_key find? P₁ (Expr.app fn arg).getAppFn
-        generalize g4StrictOf find? P₁ (Expr.app fn arg).getAppFn = r at hk₂ ⊢
-        obtain ⟨⟨smask, sn⟩, P₂⟩ := r
-        dsimp only at hk₂ ⊢
-        have hk := hk₁.trans hk₂
-        have := g4CompSpine_spec (g4Comp find? findProj? f) (g4CompArg find? findProj? f) ihC ihA P₂
-          (Expr.app fn arg).getAppFn (Expr.app fn arg).getAppArgs mask
-          (if (Expr.app fn arg).getAppArgs.length ≥ sn then smask else 0) (hk.inv hI)
+        have := g4CompSpine_spec (g4Comp find? findProj? f) (g4CompArg find? findProj? f) ihC ihA P₁
+          (Expr.app fn arg).getAppFn (Expr.app fn arg).getAppArgs mask (hk₁.inv hI)
         rw [mkAppN_getApp'] at this
-        exact this.step hk.ext
+        exact this.step hk₁.ext
     refine ⟨hC, fun P a hI => ?_⟩
     have hdef : CompOK P a (g4Comp find? findProj? f P a) := ihC P a hI
     unfold g4CompArg

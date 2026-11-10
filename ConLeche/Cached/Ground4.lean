@@ -6,7 +6,7 @@ public import ConLeche.Cached.Ground3
 @[expose] public section
 
 /-!
-# The flat ground machine, round 4 (task #423): strictness, shared closed terms
+# The flat ground machine, round 4 (task #423): shared closed terms, the K step
 
 The machine of `Ground.lean` (round 1) with its state FLAT: no Lean
 object is allocated per transition.  Every definition body and rule
@@ -16,7 +16,7 @@ constant table, closed argument terms given a sharing slot), and the
 machine's state is a handful of `Array Nat`s threaded linearly through
 one tail-recursive loop (`g4Run`) and mutated in place:
 
-* `cel` — cells, stride 3: `[state, code, env]`; state `0` an
+* `cel` — cells, stride 4: `[state, code, env, _]`; state `0` an
   unevaluated thunk, `1` busy, `v + 2` evaluated to value `v`;
 * `val` — values, stride 4: `[tag, a, b, c]` (a closure `[0, lamNode,
   env, _]`, a constructor `[1, entry, argStart, argLen]`, a `Nat`
@@ -37,13 +37,21 @@ one tail-recursive loop (`g4Run`) and mutated in place:
   entry is a heap index, so it survives every in-place mutation.
 
 The moves are round 1's (`Ground.lean`'s docstring has the `Red` reading
-of each).  The differences: types (sorts, Π-types) are compiled to the
-neutral, binder domains are dropped (read-back is never needed: the
-answer is a `Bool` constructor), and a stuck scrutinee makes the
-redex stuck (the neutral) instead of aborting.  Aborts remain where
-the incumbent's answer needs type information (§ the K and η rules,
-case 3), a decline (a well-founded `Nat` operation on two literals), or
-an unknown constant.
+of each), with the K step (`Red.iotaK`).  The differences: types (sorts,
+Π-types) are compiled to the neutral, binder domains are dropped
+(read-back is never needed: the answer is a `Bool` constructor), and a
+stuck scrutinee makes the redex stuck (the neutral) instead of aborting.
+A step with no proved rule declines (task #423 soundness, `G4Stop`): ι
+case 3, and a neutral major at a single-constructor recursor (K,
+structure η, the `And` rescue read its type).  The soundness reading is
+erased reduction (`ConLeche/Verify/Ground/Erased.lean`): the neutral is
+the forgotten term.
+
+Round 4's strictness (a strict argument evaluated before a call) and the
+well-founded `Nat` net (tag `4`, the operations without the `Nat` basis)
+are gone (task #423 soundness): the first changed no transition count on
+any benchmark (§R4.2), and the second is a plain definition now (δ, a
+proved rule), so neither needs a proof of its own.
 -/
 
 namespace ConLeche.Cached
@@ -102,9 +110,6 @@ structure G4Prog where
   nids : Std.HashMap Name Nat := {}
   /-- the erasure mask of each constant applied (§ erasure) -/
   masks : Std.HashMap Name (Array Bool) := {}
-  /-- per definition name: the strict-parameter bitmask and the λ arity
-  (§ strictness) -/
-  stricts : Std.HashMap Name (Nat × Nat) := {}
   /-- the code node of each closed argument term compiled so far (one
   closed term, one node, one sharing slot) -/
   closedNode : Std.HashMap Expr Nat := {}
@@ -222,36 +227,10 @@ def g4Mask (find? : Name → Option ConstantInfo) (isRec : Bool) : Expr → Arra
     g4Mask find? isRec b (acc.push (tf || pf))
   | _, acc => acc
 
-/-- **Strictness** (task #423 round 4), exact for direct `.rec` code: a
-parameter of a definition is strict if the body (under its λ telescope)
-is a recursor application whose major is that parameter, or an
-accelerated `Nat` operation whose first operand is (the second is read
-only behind a literal).  A saturated call evaluates a strict argument
-before the call: it would be forced first anyway.  Result: the bitmask
-(bit `p` for the `p`-th parameter) and the telescope's length. -/
-def g4Strict (find? : Name → Option ConstantInfo) (v : Expr) : Nat × Nat :=
-  let rec peel : Expr → Nat → Expr × Nat
-    | .lam _ b, n => peel b (n + 1)
-    | e, n => (e, n)
-  let (b, n) := peel v 0
-  let args := b.getAppArgs.toArray
-  let bit (a : Expr) : Nat := match a with
-    | .bvar i => if i < n then Nat.shiftLeft 1 (n - 1 - i) else 0
-    | _ => 0
-  match b.getAppFn with
-  | .const r _ =>
-    match find? r with
-    | some (.recInfo _ mI _ _ _) => (if mI < args.size then bit args[mI]! else 0, n)
-    | _ => (if natBin14 r && args.size == 2 then bit args[0]! else 0, n)
-  | _ => (0, n)
-
 /-- The number of leading Π-binders of a type. -/
 def g4Pis : Expr → Nat → Nat
   | .forallE _ b, n => g4Pis b (n + 1)
   | _, n => n
-
-/-- The strictness switch (task #423 round 4 probe). -/
-@[noinline] def g4StrictOn : Bool := true
 
 /-- The erasure switch (task #423 round 3 probe). -/
 @[noinline] def g4Erase : Bool := true
@@ -276,8 +255,7 @@ def g4Entry (P : G4Prog) (c : Name) (us : List Level) (kfab : Nat) : Nat × G4Pr
     | some (.defnInfo cv v _) =>
       if us.length != cv.levelParams.length then (5, 0, 0, 0, 0, 0, .neutral, P)
       else
-        let tag := if us.isEmpty && P.natOk && natBin14 c then 3
-          else if us.isEmpty && natOpWfNames.contains c then 4 else 0
+        let tag := if us.isEmpty && P.natOk && natBin14 c then 3 else 0
         let op := (natBin14Names.idxOf? c).getD 0
         (tag, 0, 0, 0, 0, op, .defn c cv.levelParams us v, P)
     | some (.ctorInfo cv nP nF) =>
@@ -316,8 +294,8 @@ def g4Entry (P : G4Prog) (c : Name) (us : List Level) (kfab : Nat) : Nat × G4Pr
 
 /-- The table entry of the constant `c` at levels `us`, created on first
 use.  Kinds: `0` definition, `1` constructor, `2` recursor, `3` an
-accelerated `Nat` operation (a definition too), `4` a well-founded
-`Nat` operation (a definition too), `5` neutral.  A recursor's `kE`
+accelerated `Nat` operation (a definition too, with the `Nat` basis),
+`5` neutral.  A recursor's `kE`
 is `flags + 4 * (j + 1)` under the K step (`g4KSkip`; the K flag, one
 rule, arity, levels and `peelPis` checked), `j` the entry of its rule's
 constructor at the rule's comparand levels: the dispatch then returns
@@ -361,46 +339,25 @@ def g4MaskOf (P : G4Prog) (hd : Expr) : Array Bool × G4Prog :=
       (m, { P with masks := ms.insert c m })
   | _ => (#[], P)
 
-/-- The strict-parameter bitmask and λ arity of a spine's head constant
-(`g4Strict`), memoised per name. -/
-def g4StrictOf (P : G4Prog) (hd : Expr) : (Nat × Nat) × G4Prog :=
-  match hd with
-  | .const c _ =>
-    if !g4StrictOn then ((0, 0), P) else
-    match P.stricts[c]? with
-    | some r => (r, P)
-    | none =>
-      let r := match find? c with
-        | some (.defnInfo _ v _) => g4Strict find? v
-        | _ => (0, 0)
-      let ms := P.stricts; let P := { P with stricts := {} }
-      (r, { P with stricts := ms.insert c r })
-  | _ => ((0, 0), P)
-
 /-- One argument of a spine (`acc`: the argument nodes so far and the
 program): an erased argument is the neutral node; otherwise `compArg`
-compiles it, and a strict argument that would become a thunk is wrapped
-as `[10, a]`, evaluated before the call. -/
-def g4ArgStep (compArg : G4Prog → Expr → Nat × G4Prog) (mask : Array Bool) (smask : Nat)
+compiles it. -/
+def g4ArgStep (compArg : G4Prog → Expr → Nat × G4Prog) (mask : Array Bool)
     (acc : Array Nat × G4Prog) (a : Expr) : Array Nat × G4Prog :=
   if g4Erase && mask.getD acc.1.size false then
     let o := acc.2.code.size; (acc.1.push o, acc.2.emit (fun c => c.push 8))
   else
   let (ao, P) := compArg acc.2 a
-  if Nat.testBit smask acc.1.size && (P.code[ao]! == 1 || P.code[ao]! == 3 ||
-      P.code[ao]! == 7) then
-    let o := P.code.size; (acc.1.push o, P.emit (fun c => (c.push 10).push ao))
-  else (acc.1.push ao, P)
+  (acc.1.push ao, P)
 
-/-- A spine `hd args` with its head's mask and strict bits: the head and
-the arguments compiled by `comp` and `compArg` (the compiler at the
-fuel below), then the spine node `[1, head, n, a₁ … aₙ]`.  An erased
-argument is the neutral node; a strict argument that would become a
-thunk is wrapped as `[10, a]`. -/
+/-- A spine `hd args` with its head's erasure mask: the head and the
+arguments compiled by `comp` and `compArg` (the compiler at the fuel
+below), then the spine node `[1, head, n, a₁ … aₙ]`.  An erased
+argument is the neutral node. -/
 def g4CompSpine (comp compArg : G4Prog → Expr → Nat × G4Prog) (P : G4Prog) (hd : Expr)
-    (args : List Expr) (mask : Array Bool) (smask : Nat) : Nat × G4Prog :=
+    (args : List Expr) (mask : Array Bool) : Nat × G4Prog :=
   let (ho, P) := comp P hd
-  let (aos, P) := args.foldl (g4ArgStep compArg mask smask) (#[], P)
+  let (aos, P) := args.foldl (g4ArgStep compArg mask) (#[], P)
   let o := P.code.size
   (o, P.emit (fun c => aos.foldl (fun c a => c.push a) (((c.push 1).push ho).push aos.size)))
 
@@ -472,9 +429,7 @@ def g4Comp : Nat → G4Prog → Expr → Nat × G4Prog
     | .app .. =>
       let (hd, args) := (e.getAppFn, e.getAppArgs)
       let (mask, P) := g4MaskOf find? P hd
-      let ((smask, sn), P) := g4StrictOf find? P hd
-      let smask := if args.length ≥ sn then smask else 0
-      g4CompSpine (g4Comp f) (g4CompArg f) P hd args mask smask
+      g4CompSpine (g4Comp f) (g4CompArg f) P hd args mask
     | .sort _ | .forallE .. | .fvar .. => let o := P.code.size; (o, P.emit (fun c => c.push 8))
 
 /-- An argument position: a closed application, `let` or projection
@@ -672,10 +627,6 @@ def g4DeclineStuckMajor (c : Name) (k : Bool) : G4Stop :=
     {if k then "the K rule" else "expanding it by its one constructor (structure η, the `And` rescue)"} \
     on it needs its type, which the evaluator does not compute"
 
-def g4DeclineWf (c : Name) : G4Stop :=
-  .decline s!"ground evaluation of `{c}` on two literals: the operation has no certified \
-    `Nat` acceleration here"
-
 /-- The machine's outcome: a value (with the value array to read it),
 or a stop; the constant dispatches and the fuel left. -/
 inductive G4Out where
@@ -756,9 +707,6 @@ def g4Run : Nat → G4Prog → (cel val ev fs argA slots mem mH : Array Nat) →
             ((((val.push 2).push P.code[ao + 1]!).push 0).push 0) ev (fs.push (g4Tag c 1)) argA
             slots mem mH 4 pc env j st
         | 8 => g4Run n P cel val ev (fs.push 1) argA slots mem mH 4 pc env j st
-        | 10 => -- a strict argument: evaluate it now, then continue the spine
-          g4Run n P cel val ev ((((fs.push pc).push env).push j).push 10) argA slots mem mH 0
-            P.code[ao + 1]! env 0 st
         | 4 => -- a constant: its entry's shared cell
           let s := P.kSlot[P.code[ao + 1]!]!
           let c := g4SlotGet slots P.epBase s
@@ -843,10 +791,10 @@ def g4Run : Nat → G4Prog → (cel val ev fs argA slots mem mH : Array Nat) →
       | t =>
         -- a definition; tags 3 and 4 try literal acceleration first
         let na := g4CountArgs fs fs.size 0
-        if (t == 3 || t == 4) && na == 2 then
+        if t == 3 && na == 2 then
           let a := g4ArgAt fs 0
           let b := g4ArgAt fs 1
-          g4Run n P cel val ev ((((((g4PopN fs 2).push k).push a).push b).push (if t == 3 then 5 else 8)))
+          g4Run n P cel val ev ((((((g4PopN fs 2).push k).push a).push b).push 5))
             argA slots mem mH 2 0 0 a st
         else if t == 3 && na < 2 then
           let start := argA.size
@@ -995,16 +943,6 @@ def g4Run : Nat → G4Prog → (cel val ev fs argA slots mem mH : Array Nat) →
           else if fl / 2 % 2 == 1 then .stop (g4DeclineStuckMajor (P.entryName k) false) st
           else g4Run n P cel val ev (g4PopN fs 4) argA slots mem mH 1 0 0 0 st
         | _ => g4Run n P cel val ev (g4PopN fs 4) argA slots mem mH 1 0 0 0 st
-      | 10 =>
-        -- a strict argument's value: a value cell, pushed, and the spine goes on
-        let j := fs[fs.size - 2]!
-        let env' := fs[fs.size - 3]!
-        let pc' := fs[fs.size - 4]!
-        let fs := g4PopN fs 4
-        let c := (cel.size >>> 2)
-        let ao := P.code[P.code[pc' + 3 + j]! + 1]!
-        g4Run n P ((((cel.push (v + 2)).push ao).push env').push 0) val ev (fs.push (g4Tag c 1)) argA
-          slots mem mH 4 pc' env' j st
       | 4 =>
         let pi := fs[fs.size - 2]!
         let fs := fs.pop.pop
@@ -1046,10 +984,9 @@ def g4Run : Nat → G4Prog → (cel val ev fs argA slots mem mH : Array Nat) →
           else g4Run n P cel val ev fs.pop argA slots mem mH 1 0 0 0 st
         | _ => g4Run n P cel val ev fs.pop argA slots mem mH 1 0 0 0 st
       | t =>
-        -- literal acceleration: `[k, a, b, 5|15]` reads the first
-        -- argument, `[k, n₁, a, b, 6|16]` the second
-        let first := t == 5 || t == 8
-        let wf := t == 8 || t == 9
+        -- literal acceleration: `[k, a, b, 5]` reads the first
+        -- argument, `[k, n₁, a, b, 6]` the second
+        let first := t == 5
         -- the reading: `0` a literal `m`, `1` a `Nat.succ` of cell `m`, `2` none
         let tg := val[g4X4 v]!
         let kc := val[g4X4 v + 1]!
@@ -1066,13 +1003,12 @@ def g4Run : Nat → G4Prog → (cel val ev fs argA slots mem mH : Array Nat) →
             let a := fs[fs.size - 3]!
             let k := fs[fs.size - 4]!
             let fs := g4PopN fs 4
-            g4Run n P cel val ev (((((fs.push k).push m).push a).push b).push (if wf then 9 else 6))
+            g4Run n P cel val ev (((((fs.push k).push m).push a).push b).push 6)
               argA slots mem mH 2 0 0 b st
           else
             let k := fs[fs.size - 5]!
             let m₁ := fs[fs.size - 4]!
             let fs := g4PopN fs 5
-            if wf then .stop (g4DeclineWf (P.entryName k)) st else
             let op := P.kE[k]!
             if (op == 3 || op == 12) && g4NatPreRefuses P.maxNat op m₁ m then .stop (.refuse op m₁ m false) st else
             match g4NatKind op with
@@ -1094,7 +1030,7 @@ def g4Run : Nat → G4Prog → (cel val ev fs argA slots mem mH : Array Nat) →
           let a := fs[fs.size - 3]!
           let b := fs[fs.size - 2]!
           let fs := g4PopN fs (if first then 4 else 5)
-          -- the operation's tag is 3 or 4; dispatch it as a plain definition
+          -- the operation's tag is 3; dispatch it as a plain definition
           g4Run n P cel val ev
             ((fs.push (g4Tag b 1)).push (g4Tag a 1)) argA slots mem mH 3 1 0 k st
 end
