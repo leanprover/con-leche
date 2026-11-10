@@ -17,7 +17,7 @@ toolchain's `Literal.natHash`.
 Why C (task #547, the maintainer's one deliberate exception to "no C"):
 `Hashable Nat` is `n mod 2^64`, so literals that agree in their low 64
 bits — all multiples of `2^64` (lean4#15686), the packed matrices of
-CFSG's certificate computations (DESIGN #543) — shared one hash, and
+CFSG's certificate computations (DESIGN #561) — shared one hash, and
 every memo lookup among them walked one bucket.  A hash that reads every
 word is one linear pass in C; Lean has no word access to a big `Nat`,
 and reading the words with `% 2^64` and `>>> 64` costs a copy per word,

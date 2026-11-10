@@ -127,7 +127,7 @@
 #       PR fails the link on the duplicate symbol, and then the file, the
 #       module and this entry go.  Lean has no word access to a big
 #       `Nat`, and a hash of `n mod 2^64` alone put every literal sharing
-#       its low bits in one memo bucket (DESIGN #543).  To the proofs it
+#       its low bits in one memo bucket (DESIGN #561).  To the proofs it
 #       is an opaque function of the number: a hash, which no statement
 #       reads beyond "equal literals, equal hashes".
 #

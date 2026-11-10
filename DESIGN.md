@@ -115195,7 +115195,9 @@ built and asked for (30 per module and lookup before).
 now.  README's "File access (existence, reading)" does not name the directory test; reported,
 not changed.
 
-## TASK #515 — scheduler columns, a growth gate, a shuffled start order (2026-11-09, agent/515-columns)
+## TASK #560 — scheduler columns, a growth gate, a shuffled start order (2026-11-09, agent/515-columns)
+
+(numbered #515 on its lane branch and in its commit messages; renumbered because master has a task #515)
 
 `Driver/ScheduleIO.lean` (plain IO, outside every theorem), `Driver/Cli.lean`; log format unchanged.
 
@@ -115283,7 +115285,7 @@ Maintainer's ruling. The #512 estimate looked at the last 200 finishes; on the C
 swung from 17 d to 21 d within minutes. Module times there are heavy-tailed (most 1 to 3 s, a few
 30 to 50 min), so a long stretch with few finishes stays inside a 200-finish window until 200 more
 finishes push it out. The window existed to survive the blanket pause, which is gone, and with the
-shuffled start order (#515) the modules run so far are a random sample, so the cumulative rate is
+shuffled start order (#560) the modules run so far are a random sample, so the cumulative rate is
 the steady, unbiased estimate:
 
 `eta = (now - this run's start) × (total - done) ÷ (finished in this run)`
@@ -115669,7 +115671,7 @@ the simulator reads the field where present.
 both`; makespan in minutes, then the kills and the workers started with T > 1; `d=0` one thread per
 worker, the policy before; "greedy" the agreed rule (cap = the free threads), "spare" the
 shipped one; `real` the 16G Mathlib log, `heavy` a random 1 % at 100× time and 10× memory,
-`heavy30` the same at 30× memory, `mcl` the log plus 10 McLEnumA-like modules (CFSG, #543's
+`heavy30` the same at 30× memory, `mcl` the log plus 10 McLEnumA-like modules (CFSG, #561's
 `_tmp/543/logs/mcl.probe.err`: 87 748 declarations, 554 s at one thread of which 553.9 s check
 busy, slowest check 13.5 s, peak 1.41 GiB), `mclheavy30` both):
 
@@ -115840,7 +115842,9 @@ run in 32.5 s; the first estimate `eta 48s` (before: `eta 5s`, the jobs' 8 worke
 Gates: `lake build`, `lake test` warning-free; trust surface; olean gate 332/332 under the
 guard; overview links.
 
-## TASK #543 — CFSG's memory giants: inherent memory, one hash bug (2026-11-09, agent/543-cfsg-mem)
+## TASK #561 — CFSG's memory giants: inherent memory, one hash bug (2026-11-09, agent/543-cfsg-mem)
+
+(numbered #543 on its lane branch and in its commit messages; renumbered because master has a task #543)
 
 Question (maintainer): some CFSG modules (github.com/AxiomMath/CFSG) make a `--olean --module`
 worker take a great deal of memory or time: `Fi24Seven.C20` 27.6 GiB and still growing,
@@ -116030,7 +116034,7 @@ overview links; quote gate.
 
 ## TASK #547 — a `Nat` literal's hash reads all its bits: lean4#16146 vendored (2026-11-09, agent/547-lit-hash)
 
-The bug (#543): `Literal` derived `Hashable`, so `.natVal n` hashed as `n mod 2^64` and an
+The bug (#561): `Literal` derived `Hashable`, so `.natVal n` hashed as `n mod 2^64` and an
 `Expr.lit` node's packed hash read nothing else of the number.  Memo keys that differ only in
 literals agreeing in their low 64 bits shared one bucket, and lookups among them walked the
 chain with structural comparisons.  The same weakness is reported upstream as lean4#15686
@@ -116050,7 +116054,7 @@ word: `Expr.hash`, `Hashable Expr`, every memo key; nothing is interned.
 **Why C: the maintainer's one deliberate exception to "no C".**  Lean has no word access to a big
 `Nat`: reading the words by `% 2^64` and `>>> 64` costs a copy per word (the runtime's `shiftr`
 copies its argument), quadratic in the literal.  A bounded Lean hash was possible (the size, the
-low word, and an O(size) residue modulo a prime, or #543's probe of the size and the top 64
+low word, and an O(size) residue modulo a prime, or #561's probe of the size and the top 64
 bits: both a constant number of O(size) copies), but the maintainer ruled to vendor upstream's
 fix, so that our value is upstream's and the copy goes when the toolchain has it.
 `native/nat_hash.c` is the PR's `hash_digits` and `lean_nat_big_hash` under upstream's own symbol
@@ -116137,21 +116141,21 @@ No stream moves by more than 0.1 % in instructions (grind-ring-5 +0.10 %: the `n
 and call instead of the derived hash's one `UInt64.ofNat`; init-full +0.05 %); the cycles move
 within their spread.
 
-CFSG (`_tmp/543/olean`, search path `_tmp/543/rev/sp.txt`, `--jobs=1`; ck318 as #543 isolated
+CFSG (`_tmp/543/olean`, search path `_tmp/543/rev/sp.txt`, `--jobs=1`; ck318 as #561 isolated
 it, `--olean --constant=CFSG.KD.F24S.ck318 -- Certificates.Kernel.Sporadic.Fi24Seven.C20`, "net"
 subtracting the run at `--constant=CFSG.KD.F24S.CK`: base 225.04 G instructions, 55.78 G cycles;
-lane 225.44 G, 55.35 G).  The base runs of CCK4 and McLEnumA are #543's (over 1 800 s CPU,
-stopped by `timeout`; the kernel code is unchanged since); the probe is #543's (size and top 64
-bits), Lean is #543's `replay1.lean`.
+lane 225.44 G, 55.35 G).  The base runs of CCK4 and McLEnumA are #561's (over 1 800 s CPU,
+stopped by `timeout`; the kernel code is unchanged since); the probe is #561's (size and top 64
+bits), Lean is #561's `replay1.lean`.
 
-| module / theorem | base | #543 probe | lane | Lean |
+| module / theorem | base | #561 probe | lane | Lean |
 |---|---|---|---|---|
 | ck318, net: G instr; G cycles (3 runs); peak | 336.0; 212.9 / 219.5 / 224.9; 12.4 GiB | 75.4; 35.6; 11.9 GiB | 82.4; 32.4 / 32.7 / 33.2; 12.4 GiB | 57.8; 22.9; 12.6 GiB |
 | CCK4 (module) | over 1 800 s CPU (`timeout`) | 382.1; 674.5; 1.9 GiB | 219.5; 141.5 / 144.9 / 147.6; 2.0 GiB | 82.7; 70.2; 2.1 GiB |
 | McLEnumA (module) | over 1 800 s CPU (`timeout`) | 3 719; 2 971; 1.4 GiB | 3 726; 2 444 / 2 461 / 2 510; 1.4 GiB | 1 819; 1 552; 1.3 GiB |
 
-Base ck318's cycles here (213–225 G net) are a quarter of #543's 839 G: the colliding walk is
-memory-bound, and its cycles follow the machine's load and cache; its instructions are #543's to
+Base ck318's cycles here (213–225 G net) are a quarter of #561's 839 G: the colliding walk is
+memory-bound, and its cycles follow the machine's load and cache; its instructions are #561's to
 the 0.01 %.  The hash of all words costs ck318 7 G instructions more than the probe (82.4 against 75.4 G net:
 one pass over every big literal built) and saves cycles on CCK4, where the probe's hash still
 collided: 219 G instructions, 145 G cycles against the probe's 382 G and 674 G.  Memory
@@ -116272,7 +116276,9 @@ con-leche: schedule: head slot starts 99 MiB into a room of 82 MiB: Init.Data.SI
 ```
 At 300M: 56.7 s, 1.6 running, 6 kills (1.0 %), all 0 (#545 at 300M: 53.6 s, 1.5, 5 kills).
 
-## TASK #550 — one status part for every scheduler line (2026-11-09, agent/550-lines)
+## TASK #562 — one status part for every scheduler line (2026-11-09, agent/550-lines)
+
+(numbered #550 on its lane branch and in its commit messages; renumbered because master has a task #550)
 
 `Driver/ScheduleIO.lean`, plain IO, outside every theorem; log format unchanged.  Request: the
 first columns of every status output read the same down the terminal, after them either one
@@ -116312,14 +116318,18 @@ Hand test, `--olean --schedule --jobs=8 --schedule-memory=300M --progress=2000 -
 [712 ( 96.3%)  1 wrkr  1 thds  RSS   0.09G tot   0.09G biggest       0s eta]  waiting: longest Init.Data.BitVec.Lemmas 4s, 7 requeued
 ```
 
-## TASK #551 — the finish line shows only failures (2026-11-09, agent/551-verdict)
+## TASK #563 — the finish line shows only failures (2026-11-09, agent/551-verdict)
+
+(numbered #551 on its lane branch and in its commit messages; renumbered because master has a task #551)
 
 The scheduler's finish line no longer carries the verdict column: `t=` and `rss=` start right
 after the status part, in the same columns on every line.  A non-zero outcome (`1`, `2`, `3`,
 `timeout`, `memory`, `signal`) is marked `FAILED V` just before the module name (grep `FAILED`).
 The log file keeps its verdict field, which resume needs.  `verdictWidth` is gone.
 
-## TASK #552 — no `Nat` literal parse at run time in `natHash` (2026-11-10, agent/552-nathash-bounds)
+## TASK #564 — no `Nat` literal parse at run time in `natHash` (2026-11-10, agent/552-nathash-bounds)
+
+(numbered #552 on its lane branch and in its commit messages; renumbered because master has a task #552)
 
 lean4#16007: the compiler emits a `Nat` literal of 2^32 or more as `lean_cstr_to_nat("…")`, a GMP
 decimal parse and an allocation at every evaluation, and it inlines a plain top-level constant

@@ -194,7 +194,7 @@ big-literal walk of C20's ck318.) -/
 `Literal.natHash`, the number itself below `2^64`, all its 64-bit words
 mixed above (fixes lean4#15686).  `Hashable Nat` is `n mod 2^64` alone,
 so literals that agree in their low 64 bits shared one hash (DESIGN
-#543).  Below `2^64` the hash is computed here (by the inline scalar
+#561).  Below `2^64` the hash is computed here (by the inline scalar
 comparison and conversion); above, by
 the vendored C `natBigHash` (`Kernel/NatHash.lean`; remove once the
 toolchain provides `Literal.natHash`).  An `Expr` node

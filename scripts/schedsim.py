@@ -57,7 +57,7 @@ larger (a CFSG-like tail).
 
 The single replay's kill rule is the shipped one of DESIGN #548 (`--kill-by head --gate none
 --requeue position`: a fixed queue, a head slot, the youngest others killed); the comparison
-tables pass their rules explicitly (`simulate`'s defaults are the rule of #512 with #515's gate,
+tables pass their rules explicitly (`simulate`'s defaults are the rule of #512 with #560's gate,
 so that the tables of #518-#546 replay as they were).
 
 Output (one line, or `--json`): the makespan, the mean running workers, the mean memory in use,
@@ -267,7 +267,7 @@ def simulate(mods, order, budget_kib, jobs, tick=0.1, growth=10, typ_q=0.5,
     `head_*` statistics: the time the head holds a giant, the part of it in which a slot and a
     queued module were free and the gate open but nothing fit, the head's starts into a room too
     small for its reservation (`head_forced`), and the kills and overflows while such a start
-    runs; `gate="prot"` the growth gate of #515 (the
+    runs; `gate="prot"` the growth gate of #560 (the
     protected worker's peak), `"local"` any running worker above its reservation (max(typical,
     known size)) whose peak rose within `growth` s, `"local-tight"` the same only while the current
     sets exceed the plan (for the head slot: the gate holds the other slots only), `"none"`; `drain` (s, None: none) the head of the killed
