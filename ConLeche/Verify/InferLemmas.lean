@@ -78,9 +78,10 @@ theorem whnf_app_inv {env : Env} {fuel d : Nat} {f a e' : Expr} {c : Bool}
         exact Or.inr (Or.inr h.symm)
 
 /-- Inversion for one iteration of the reduction loop
-(`whnfStep`): head-normalize, then either the literal acceleration or
-one definition unfolding hands the reduct to the loop's continuation
-`k`, or the head normal form is final.  Task #106: the loop steps are
+(`whnfStep`): head-normalize, then either the literal acceleration
+(whose literal is final, any other reduct goes on) or one definition
+unfolding hands the reduct to the loop's continuation `k`, or the head
+normal form is final.  Task #106: the loop steps are
 iteration on `whnfLoop`'s own budget, so this is stated about the
 continuation-parameterized body; `whnfLoop … (n+1)` *is*
 `whnfStep … (whnfLoop … n)`, so consumers apply it after `cases` on
@@ -90,7 +91,7 @@ theorem whnfStep_inv {env : Env} {fuel d : Nat} {k : Expr → CheckM Expr}
     (h : whnfStep (pureFns mode eager env fuel) env d k e = .ok e') :
     ∃ e₁, whnfCore mode eager env fuel d e = .ok e₁ ∧
       ((∃ e₂, reduceNatFueled mode eager env fuel d e₁ = .ok (some e₂) ∧
-          k e₂ = .ok e') ∨
+          ((e₂.isLit = true ∧ e' = e₂) ∨ k e₂ = .ok e')) ∨
        (reduceNatFueled mode eager env fuel d e₁ = .ok none ∧
         ∃ e₂, unfoldDefinition env e₁ = some e₂ ∧
           k e₂ = .ok e') ∨
@@ -110,7 +111,15 @@ theorem whnfStep_inv {env : Env} {fuel d : Nat} {k : Expr → CheckM Expr}
   rw [hrn] at h
   dsimp only at h
   cases o with
-  | some e₂ => exact ⟨e₁, rfl, Or.inl ⟨e₂, hrn, h⟩⟩
+  | some e₂ =>
+    refine ⟨e₁, rfl, Or.inl ⟨e₂, hrn, ?_⟩⟩
+    dsimp only at h
+    by_cases hl : e₂.isLit = true
+    · rw [ite_eq_left hl] at h
+      simp only [pure, Except.pure, Except.ok.injEq] at h
+      exact Or.inl ⟨hl, h.symm⟩
+    · rw [ite_eq_right hl] at h
+      exact Or.inr h
   | none =>
   dsimp only at h
   cases hu : unfoldDefinition env e₁ with
@@ -2743,7 +2752,8 @@ theorem whnfPres_WScoped {env : Env} (henv : EnvWF env) :
           intro d e e' h hw
           obtain ⟨e₁, hwc, hcase⟩ := whnfStep_inv h
           have hwe₁ : WScoped d e₁ := ihCore hwc hw
-          rcases hcase with ⟨e₂, hrn, hcont⟩ | ⟨-, e₂, hu, hcont⟩ | ⟨-, -, rfl⟩
+          rcases hcase with ⟨e₂, hrn, ⟨-, rfl⟩ | hcont⟩ | ⟨-, e₂, hu, hcont⟩ | ⟨-, -, rfl⟩
+          · rcases reduceNat_inv hrn with ⟨k, rfl⟩ | ⟨bn, rfl⟩ <;> simp [WScoped]
           · rcases reduceNat_inv hrn with ⟨k, rfl⟩ | ⟨bn, rfl⟩ <;>
               exact ihN hcont (by simp [WScoped])
           · exact ihN hcont (unfoldDefinition_WScoped henv hu hwe₁)

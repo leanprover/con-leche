@@ -404,6 +404,124 @@ theorem reduceNat_nested {m : Type → Type} [Monad m] [MonadExceptOf CheckError
     | _ => rfl
   | _ => rfl
 
+/-! ### The binary operation, found once
+
+`reduceNatI` finds the operation by `NatBinOp.ofName?`; `reduceNat` tests the fourteen names
+in turn and computes `natOpResult`.  The three facts below identify the two: an operation
+found is one of the names, and its result is `natOpResult`'s; no operation found is none of
+them, nor one of `natOpWfNames` (all fourteen). -/
+
+theorem nameIsC_eq (c n : Name) : nameIsC c n = decide (c = n) := by
+  unfold nameIsC
+  by_cases h : c = n
+  · subst h; simp
+  · simp [h]
+
+theorem NatBinOp.ofName?_eq (c : Name) :
+    NatBinOp.ofName? c =
+      if c = natAddName then some .add else if c = natSubName then some .sub
+      else if c = natMulName then some .mul else if c = natPowName then some .pow
+      else if c = natBeqName then some .beq else if c = natBleName then some .ble
+      else if c = natDivName then some .div else if c = natModName then some .mod
+      else if c = natGcdName then some .gcd else if c = natLandName then some .land
+      else if c = natLorName then some .lor else if c = natXorName then some .xor
+      else if c = natShiftLeftName then some .shiftLeft
+      else if c = natShiftRightName then some .shiftRight else none := by
+  simp only [NatBinOp.ofName?, nameIsC_eq, decide_eq_true_eq]
+
+theorem NatBinOp.ofName?_some {c : Name} {op : NatBinOp} (h : NatBinOp.ofName? c = some op) :
+    (c = natAddName ∨ c = natSubName ∨ c = natMulName ∨
+        c = natPowName ∨ c = natBeqName ∨ c = natBleName ∨
+        c = natDivName ∨ c = natModName ∨ c = natGcdName ∨
+        c = natLandName ∨ c = natLorName ∨ c = natXorName ∨
+        c = natShiftLeftName ∨ c = natShiftRightName) ∧
+      ∀ a b, natOpResult c a b = some (op.result a b) := by
+  rw [NatBinOp.ofName?_eq] at h
+  by_cases h1 : c = natAddName
+  · rw [ite_eq_left h1] at h; cases h; subst h1; exact ⟨by simp, fun _ _ => rfl⟩
+  rw [ite_eq_right h1] at h
+  by_cases h2 : c = natSubName
+  · rw [ite_eq_left h2] at h; cases h; subst h2; exact ⟨by simp, fun _ _ => rfl⟩
+  rw [ite_eq_right h2] at h
+  by_cases h3 : c = natMulName
+  · rw [ite_eq_left h3] at h; cases h; subst h3; exact ⟨by simp, fun _ _ => rfl⟩
+  rw [ite_eq_right h3] at h
+  by_cases h4 : c = natPowName
+  · rw [ite_eq_left h4] at h; cases h; subst h4; exact ⟨by simp, fun _ _ => rfl⟩
+  rw [ite_eq_right h4] at h
+  by_cases h5 : c = natBeqName
+  · rw [ite_eq_left h5] at h; cases h; subst h5; exact ⟨by simp, fun _ _ => rfl⟩
+  rw [ite_eq_right h5] at h
+  by_cases h6 : c = natBleName
+  · rw [ite_eq_left h6] at h; cases h; subst h6; exact ⟨by simp, fun _ _ => rfl⟩
+  rw [ite_eq_right h6] at h
+  by_cases h7 : c = natDivName
+  · rw [ite_eq_left h7] at h; cases h; subst h7; exact ⟨by simp, fun _ _ => rfl⟩
+  rw [ite_eq_right h7] at h
+  by_cases h8 : c = natModName
+  · rw [ite_eq_left h8] at h; cases h; subst h8; exact ⟨by simp, fun _ _ => rfl⟩
+  rw [ite_eq_right h8] at h
+  by_cases h9 : c = natGcdName
+  · rw [ite_eq_left h9] at h; cases h; subst h9; exact ⟨by simp, fun _ _ => rfl⟩
+  rw [ite_eq_right h9] at h
+  by_cases h10 : c = natLandName
+  · rw [ite_eq_left h10] at h; cases h; subst h10; exact ⟨by simp, fun _ _ => rfl⟩
+  rw [ite_eq_right h10] at h
+  by_cases h11 : c = natLorName
+  · rw [ite_eq_left h11] at h; cases h; subst h11; exact ⟨by simp, fun _ _ => rfl⟩
+  rw [ite_eq_right h11] at h
+  by_cases h12 : c = natXorName
+  · rw [ite_eq_left h12] at h; cases h; subst h12; exact ⟨by simp, fun _ _ => rfl⟩
+  rw [ite_eq_right h12] at h
+  by_cases h13 : c = natShiftLeftName
+  · rw [ite_eq_left h13] at h; cases h; subst h13; exact ⟨by simp, fun _ _ => rfl⟩
+  rw [ite_eq_right h13] at h
+  by_cases h14 : c = natShiftRightName
+  · rw [ite_eq_left h14] at h; cases h; subst h14; exact ⟨by simp, fun _ _ => rfl⟩
+  rw [ite_eq_right h14] at h
+  cases h
+grind_pattern [conleche_grind] NatBinOp.ofName?_some => NatBinOp.ofName? c, some op
+
+theorem NatBinOp.ofName?_none {c : Name} (h : NatBinOp.ofName? c = none) :
+    ¬(c = natAddName ∨ c = natSubName ∨ c = natMulName ∨
+        c = natPowName ∨ c = natBeqName ∨ c = natBleName ∨
+        c = natDivName ∨ c = natModName ∨ c = natGcdName ∨
+        c = natLandName ∨ c = natLorName ∨ c = natXorName ∨
+        c = natShiftLeftName ∨ c = natShiftRightName) ∧
+      natOpWfNames.contains c = false := by
+  rw [NatBinOp.ofName?_eq] at h
+  have h1 : ¬c = natAddName := fun e => by rw [ite_eq_left e] at h; cases h
+  rw [ite_eq_right h1] at h
+  have h2 : ¬c = natSubName := fun e => by rw [ite_eq_left e] at h; cases h
+  rw [ite_eq_right h2] at h
+  have h3 : ¬c = natMulName := fun e => by rw [ite_eq_left e] at h; cases h
+  rw [ite_eq_right h3] at h
+  have h4 : ¬c = natPowName := fun e => by rw [ite_eq_left e] at h; cases h
+  rw [ite_eq_right h4] at h
+  have h5 : ¬c = natBeqName := fun e => by rw [ite_eq_left e] at h; cases h
+  rw [ite_eq_right h5] at h
+  have h6 : ¬c = natBleName := fun e => by rw [ite_eq_left e] at h; cases h
+  rw [ite_eq_right h6] at h
+  have h7 : ¬c = natDivName := fun e => by rw [ite_eq_left e] at h; cases h
+  rw [ite_eq_right h7] at h
+  have h8 : ¬c = natModName := fun e => by rw [ite_eq_left e] at h; cases h
+  rw [ite_eq_right h8] at h
+  have h9 : ¬c = natGcdName := fun e => by rw [ite_eq_left e] at h; cases h
+  rw [ite_eq_right h9] at h
+  have h10 : ¬c = natLandName := fun e => by rw [ite_eq_left e] at h; cases h
+  rw [ite_eq_right h10] at h
+  have h11 : ¬c = natLorName := fun e => by rw [ite_eq_left e] at h; cases h
+  rw [ite_eq_right h11] at h
+  have h12 : ¬c = natXorName := fun e => by rw [ite_eq_left e] at h; cases h
+  rw [ite_eq_right h12] at h
+  have h13 : ¬c = natShiftLeftName := fun e => by rw [ite_eq_left e] at h; cases h
+  rw [ite_eq_right h13] at h
+  have h14 : ¬c = natShiftRightName := fun e => by rw [ite_eq_left e] at h; cases h
+  rw [ite_eq_right h14] at h
+  refine ⟨by simp only [not_or]; exact ⟨h1, h2, h3, h4, h5, h6, h7, h8, h9, h10, h11, h12, h13, h14⟩, ?_⟩
+  simp [natOpWfNames, h7, h8, h9, h10, h11, h12, h13, h14]
+grind_pattern [conleche_grind] NatBinOp.ofName?_none => NatBinOp.ofName? c
+
 /-- `reduceNatI` simulates its fueled original. -/
 theorem reduceNatC_spec (ih : SSimC mode eager env f) {d : Nat} {i : Expr} {s₀ : CState}
     (hs : CSOK mode eager env s₀) (hw : Expr.WScoped d i) :

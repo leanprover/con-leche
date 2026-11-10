@@ -376,12 +376,24 @@ theorem reduceProjCoreI_congr (hfe : fe₁.find? = fe₂.find?)
   funext depth sn i c; unfold reduceProjCoreI
   simp only [projLitToCtorI_congr hfe, findProj?_congr hfe htb, projCertAtF_congr hfe]
 
+/-- `iotaTargetF` reads `fe` only through `find?`. -/
+theorem iotaTargetF_congr (hfe : fe₁.find? = fe₂.find?) :
+    iotaTargetF fe₁ = iotaTargetF fe₂ := by
+  funext h; unfold iotaTargetF; simp only [hfe]
+
+/-- `whnfStuckI` reads `fe` only through `find?` and `findTable?`. -/
+theorem whnfStuckI_congr (hfe : fe₁.find? = fe₂.find?)
+    (htb : fe₁.findTable? = fe₂.findTable?) (r : CoreFnsI) :
+    whnfStuckI mode r fe₁ = whnfStuckI mode r fe₂ := by
+  funext depth h e; unfold whnfStuckI
+  simp only [iotaTargetF_congr hfe, iotaRecI_congr hfe htb]
+
 /-- `whnfCoreStepI` reads `fe` only through `find?` and `findTable?`. -/
 theorem whnfCoreStepI_congr (hfe : fe₁.find? = fe₂.find?)
     (htb : fe₁.findTable? = fe₂.findTable?) (r : CoreFnsI) :
     whnfCoreStepI mode r fe₁ = whnfCoreStepI mode r fe₂ := by
   funext cheap depth e; unfold whnfCoreStepI
-  simp only [whnfAppI_congr hfe htb, reduceProjCoreI_congr hfe htb]
+  simp only [whnfAppI_congr hfe htb, whnfStuckI_congr hfe htb, reduceProjCoreI_congr hfe htb]
 
 /-- `whnfCoreLoopI` reads `fe` only through `find?` and `findTable?`. -/
 theorem whnfCoreLoopI_congr (hfe : fe₁.find? = fe₂.find?)
