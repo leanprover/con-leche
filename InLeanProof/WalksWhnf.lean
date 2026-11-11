@@ -1043,7 +1043,7 @@ theorem NatBinOp.ofName?_someI {c : Name} {op : InLean.NatBinOp}
   cases h
 grind_pattern [conleche_grind] NatBinOp.ofName?_someI => InLean.NatBinOp.ofName? c, some op
 
-/-- No operation: none of the fourteen names, nor one of `natOpWfNames`. -/
+/-- No operation: none of the fourteen names. -/
 theorem NatBinOp.ofName?_noneI {c : Name} (h : InLean.NatBinOp.ofName? c = none) :
     ¬(c = InLean.natAddName ∨
         c = InLean.natSubName ∨
@@ -1058,8 +1058,7 @@ theorem NatBinOp.ofName?_noneI {c : Name} (h : InLean.NatBinOp.ofName? c = none)
         c = InLean.natLorName ∨
         c = InLean.natXorName ∨
         c = InLean.natShiftLeftName ∨
-        c = InLean.natShiftRightName) ∧
-      ConLeche.natOpWfNames.contains (toName c) = false := by
+        c = InLean.natShiftRightName) := by
   rw [NatBinOp.ofName?_eqI] at h
   have h1 : ¬c = InLean.natAddName := fun e => by rw [ite_eq_left e] at h; cases h
   rw [ite_eq_right h1] at h
@@ -1089,16 +1088,7 @@ theorem NatBinOp.ofName?_noneI {c : Name} (h : InLean.NatBinOp.ofName? c = none)
   rw [ite_eq_right h13] at h
   have h14 : ¬c = InLean.natShiftRightName := fun e => by rw [ite_eq_left e] at h; cases h
   rw [ite_eq_right h14] at h
-  refine ⟨by simp only [not_or]; exact ⟨h1, h2, h3, h4, h5, h6, h7, h8, h9, h10, h11, h12, h13, h14⟩, ?_⟩
-  have hm : ConLeche.natOpWfNames = [InLean.natDivName, InLean.natModName, InLean.natGcdName,
-      InLean.natLandName, InLean.natLorName, InLean.natXorName, InLean.natShiftLeftName,
-      InLean.natShiftRightName].map toName := rfl
-  refine Bool.eq_false_iff.mpr fun hc => ?_
-  rw [List.contains_iff_mem, hm, List.mem_map] at hc
-  obtain ⟨x, hx, hxc⟩ := hc
-  obtain rfl := toName_inj hxc
-  simp only [List.mem_cons, List.not_mem_nil, or_false] at hx
-  rcases hx with h | h | h | h | h | h | h | h <;> contradiction
+  simp only [not_or]; exact ⟨h1, h2, h3, h4, h5, h6, h7, h8, h9, h10, h11, h12, h13, h14⟩
 grind_pattern [conleche_grind] NatBinOp.ofName?_noneI => InLean.NatBinOp.ofName? c
 
 @[conleche_grind =] theorem OkS_NatBinOp_result (s : InLean.CState) (op : InLean.NatBinOp)

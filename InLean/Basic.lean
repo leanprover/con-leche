@@ -297,7 +297,7 @@ def sorryAxName : Name := `sorryAx
 def natOpNames : List Name :=
   [natPredName, natAddName, natSubName, natMulName, natPowName, natBeqName, natBleName]
 
-/-- Twin of `natDivModNames` (= `natOpWfNames`). -/
+/-- Twin of `natDivModNames`. -/
 def natDivModNames : List Name :=
   [natDivName, natModName, natGcdName, natLandName, natLorName,
    natXorName, natShiftLeftName, natShiftRightName]
