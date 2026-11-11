@@ -119628,3 +119628,116 @@ run checks the plumbing only; the window acts in runs like CFSG's.
 
 Gates: `lake build` and `lake test` warning-free, `tests/trust-surface.sh`, `tests/olean.sh`
 under the guard (333/333), `tests/overview-links.sh` (164), `tests/quote-gate.sh`.
+## TASK #568 — the `signal` worker of the CFSG run: a stack overflow, not an OOM kill (2026-11-11, agent/568-signal)
+
+Investigation; nothing changed but this record.  Trigger: in the maintainer's CFSG `--schedule`
+run (`--jobs=32 --schedule-memory=45G`, binary of a273ed7ec, a 50 GB per-user cgroup limit) one
+worker ended `signal`: `Certificates.Kernel.Sporadic.Fi22.F3152Bind`, 36.3 s, RSS ≥ 4 908 124 kB,
+1 thread.  The hypothesis was an OOM kill by the cgroup (SIGKILL).  It is not: the worker overflows
+its thread stack, and Lean's `segv_handler` turns that into `abort()` (SIGABRT).  The maintainer's
+`systemd-coredump` trace says the same (a check-pool thread, the cycle
+`defeqBodyI → defEqListI → defeqStuckI → defeqBodyI`).
+
+**The declaration.**  The module has two: `CertificateChecks.KernelSpor.F3152.T.CH`, a `List (Nat × Nat)`
+of 3 510 literal pieces of 752 bytes, and the theorem `T.eq : fi22FormsText = String.ofList (charsOf T.CH)`
+by `Eq.refl`, where `fi22FormsText` is a 2 639 520-character ASCII string literal (`include_str`,
+`CFSG.Monster.B.Fischer.Fi22FormsData`).  It is made by CFSG's `#text_pieces_d` command
+(`CFSG/Certificates/Kernel/Common/TextPiecesD.lean`), which adds the theorem on a dedicated thread
+with a 4 GiB stack and `maxRecDepth` 2 000 000: its author knew the official kernel needs more than
+the default stack.  The check expands the literal to `String.ofList [c₁, …, cₙ]` (the string-literal
+arm of `defeqStuckI`, official `try_string_lit_expansion`) and compares the two `List.cons` spines by
+congruence (`defEqListI`, official `is_def_eq_app`/`is_def_eq_args`), unfolding `charsOf`/`decChunkC`
+on the right as it goes.  The tail is compared inside the comparison of its cell, so the recursion is
+2 639 520 levels deep, one per character, in both kernels.
+
+**Measurements** (the module alone: `--olean --module --jobs=1`, under `timeout` and the guard at
+30 GB, `VmRSS` sampled every 100 ms; the closure is 7 CFSG modules, none of Mathlib, fetched with
+#561's `closure.py`/`fetch.py`; one run each, wall times on the shared machine are illustrations).
+The stack use is the `Rss` of the thread's stack mapping in `/proc/<pid>/smaps` at the end of a
+run with 4 GiB stacks (stack pages, once touched, stay resident, so the last reading is the peak).
+
+| binary | 1 GiB stack (default) | 2 GiB | 4 GiB | stack used | per level |
+|---|---|---|---|---|---|
+| con-leche a273ed7ec | exit 134 "Stack overflow detected. Aborting.", peak 4.87 GB | — | accepts, 64 s, peak 7.36 GiB | 1.65 GiB | 672 B |
+| con-leche modular 1056b082f | exit 134, same message, after 34.6 s, peak 3.65 GB | accepts, 38 s, peak 4.85 GiB | accepts, 47 s, peak 4.85 GiB | 1.42 GiB | 576 B |
+| leanchecker (rc3) | exit 1: `(kernel) deep recursion detected` after 48 s, VmHWM 5.3 GB | accepts, 40 s, VmHWM 6.3 GB | accepts | 1.18 GiB | 480 B |
+
+(stack sizes set by `LEAN_STACK_SIZE_KB`.)  The a273ed7ec run reproduces the maintainer's line: the
+same abort at about the logged size.  The memory grows evenly, about 100 MB/s, with no spike, and
+the stack is part of it; 4.9 GB is far from the 45 GiB budget and the 50 GB limit, so the scheduler's
+memory accounting was not involved.  modular's tip (#558's mutual knot: no `lean_apply_4` closure
+frames) uses 14 % less stack per level than a273ed7ec, but still 1.2× the official kernel, and still
+more than 1 GiB.
+
+**Diagnosis.**  Not a con-leche bug in the reduction: the official kernel recurses just as deep here
+and does not fit into the default 1 GiB stack either.  The difference is the failure mode: the
+official kernel's `check_system` calls `check_stack`, which compares the stack pointer with the
+thread's saved stack base and throws `stack_space_exception` ("deep recursion"), a clean error;
+con-leche has no such check (Lean code cannot read its stack pointer), so it runs into the guard page
+and the process aborts.
+
+**Lean's thread stacks** (runtime source at v4.35.0, `src/runtime/thread.cpp`, `object.cpp`).  Every
+thread the runtime creates is an `lthread` with `pthread_attr_setstacksize(m_thread_stack_size)`:
+the thread `lean_run_main` starts for `main` (`run_with_thread_stack`) and each task-manager worker
+(`spawn_worker`, `spawn_dedicated_worker`) alike, so a check task does not have less stack than the
+main thread.  The default is 1 GiB on 64-bit (`LEAN_DEFAULT_THREAD_STACK_SIZE`).
+`lean_run_main` first reads `LEAN_STACK_SIZE_KB` from the environment and sets the size for all
+later threads (`set_thread_stack_size_from_env`); the Lean-level setter is
+`Lean.Internal.setThreadStackSize` (`@[extern "lean_internal_set_thread_stack_size"]`, in
+`Lean/Shell.lean`, so importing it would link the `Lean` package, which `tests/binary-link.sh`
+forbids).  Task workers are spawned lazily, when tasks are queued, so a size set at the start of
+`main` reaches the check pool.  A stack is reserved address space, committed as it is touched: a
+larger size costs nothing until a declaration uses it, and what it uses counts in the RSS like
+any other memory.
+
+**Recommendation (not implemented; the maintainer decides).**
+1. *Larger stacks* (the fix).  (a) The scheduler spawns each worker with `LEAN_STACK_SIZE_KB` in
+   its environment (`IO.Process.SpawnArgs.env`), e.g. 8 GiB: no new code escape, and every CFSG
+   worker gets it.  (b) For direct runs, OVERVIEW names the variable, with this case as the example.
+   (c) Optionally a larger built-in default: an `@[extern "lean_internal_set_thread_stack_size"]`
+   declaration in the driver, called first in `main`.  That is a new escape (a `tests/trust-surface.sh`
+   allowlist entry, like `Kernel/NatHash.lean`'s `lean_nat_big_hash`), so it needs a ruling;
+   (a) and (b) need none.  8 GiB covers this declaration about 5× over (1.42 GiB used).
+   Making the spine comparison iterative (the tail compared in a loop, the fallback of each
+   enclosing level kept on an explicit stack) would remove this one case, but it changes the knot's
+   shape away from `is_def_eq_app`, it means a large proof repair in `Verify/Cached`, and it would
+   still not bound the other recursions (whnf of deep terms, inference).  Not recommended now.
+2. *A bounded depth with a clean error* (the official `check_stack` analogue) would need a depth
+   counter threaded through the knot and a bound derived from the stack size, which Lean code
+   cannot read; I do not recommend it either.  The crash stays possible at any stack size, so the
+   scheduler must report it well (3).
+3. *The scheduler's report.*  `IO.Process.Child.tryWait` returns `128 + WTERMSIG` for a signalled
+   child (bash's convention, `src/runtime/process.cpp`), and a worker's own exit codes are 0–3, so a
+   code above 3 is a signal: `c − 128` is its number.  The tick already keeps `c` (`if c ≤ 3 then
+   toString c else "signal"`); keep it on the `Running` record's end, then:
+   * a code 134 (SIGABRT) whose stderr (already read to the end, `Running.texts`) contains
+     `Stack overflow detected` gets its own verdict `stack` in the finish line and the log
+     (rerunning it with the same stack fails again, so a resumed run should not retry it unless the
+     stack was raised), and the passed-on stderr line adds "rerun with a larger
+     `LEAN_STACK_SIZE_KB`";
+   * any other signal stays `signal`, but the finish line and the log's verdict field name it:
+     `signal 6 (SIGABRT)`, `signal 9 (SIGKILL)`, `signal 11 (SIGSEGV)` — a fixed table of the
+     usual names, the number otherwise;
+   * for SIGKILL, the scheduler reads the `oom_kill` counter of its cgroup's `memory.events`
+     (hierarchical, so a kill by an ancestor's limit counts too; readable here:
+     `/sys/fs/cgroup/user.slice/user-1001.slice/memory.events`, `oom_kill 13` at the time of
+     writing) at start and at each such finish; a rise says `(OOM kill)`.
+   `parseLog` and `scripts/schedsim.py` must then accept the new verdict spellings.
+4. *Watching the cgroup.*  Not the cause here, but the scheduler's sum of the workers' `VmRSS`
+   misses what the cgroup also counts: page cache (`file`, here 2.8 GB of 7.0 GB charged, most of it
+   reclaimable), kernel memory (`kernel` 0.47 GB: slab 0.33, page tables 0.11), the scheduler itself
+   and everything else the user runs (other sessions share the user slice).  The design, when
+   the files are readable (plain IO, outside the theorems, like `/proc`): find the cgroup from
+   `/proc/self/cgroup` (`0::/user.slice/user-1001.slice/session-22.scope`), walk up to the nearest
+   ancestor whose `memory.max` (or `memory.high`, whichever is lower) is not `max` (here the user
+   slice, 53 875 294 208 bytes; the session scope has none), and each tick read its `memory.current`
+   and from `memory.stat` the reclaimable part (`inactive_file`).  Pressure is
+   `current − inactive_file`; when it passes `limit − margin` (margin e.g. 2 GiB or 4 %), the
+   scheduler treats it as when the workers' sum passes the hard limit (the existing kill path,
+   `victims`: the youngest workers but the head slot killed and unstarted again), and admission
+   counts `limit − margin − pressure` as an extra upper bound on the room.  Where the files cannot
+   be read, the RSS sum alone applies, as today.  The heartbeat can show the cgroup figure next to
+   the sum.
+
+Measurement data in `_tmp/568/runs` (removed at the end of the lane; the numbers above are all that
+was kept).
