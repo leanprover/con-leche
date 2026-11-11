@@ -177,6 +177,10 @@ private theorem rawNatLit?_shiftFrom (p : Nat) (e : Expr) :
   cases e <;> try rfl
   case fvar => rw [shiftFrom_fvar]; rfl
 
+private theorem isLit_shiftFrom {p : Nat} {e : Expr} :
+    (shiftFrom p e).isLit = e.isLit := by
+  cases e <;> first | rfl | (rw [shiftFrom_fvar]; done) | (rw [shiftFrom_fvar]; rfl)
+
 /-- The constructor form of a literal is closed, hence shift-fixed. -/
 private theorem shiftFrom_natLitToConstructor (p n : Nat) :
     shiftFrom p (natLitToConstructor n) = natLitToConstructor n := by
@@ -1776,7 +1780,10 @@ theorem whnfLoop_shift (henv : EnvWF env)
     have hwe₂ : WScoped d e₂ := by
       rcases reduceNat_inv ho with ⟨k, rfl⟩ | ⟨bn, rfl⟩ <;>
         simp [WScoped]
-    exact ihN hpd hwe₂
+    rw [isLit_shiftFrom]
+    by_cases hl : e₂.isLit = true
+    · rw [ite_eq_left hl, ite_eq_left hl]; rfl
+    · rw [ite_eq_right hl, ite_eq_right hl]; exact ihN hpd hwe₂
   | none =>
     rw [unfoldDefinition_shiftFrom henv]
     cases hu : unfoldDefinition env e₁ with
@@ -2210,10 +2217,6 @@ private theorem headIsProj_shiftFrom {p : Nat} {e : Expr} :
 
 private theorem isNatZero_shiftFrom {p : Nat} {e : Expr} :
     (shiftFrom p e).isNatZero = e.isNatZero := by
-  cases e <;> first | rfl | (rw [shiftFrom_fvar]; done) | (rw [shiftFrom_fvar]; rfl)
-
-private theorem isLit_shiftFrom {p : Nat} {e : Expr} :
-    (shiftFrom p e).isLit = e.isLit := by
   cases e <;> first | rfl | (rw [shiftFrom_fvar]; done) | (rw [shiftFrom_fvar]; rfl)
 
 private theorem natPred?_shiftFrom {p : Nat} {e : Expr} :

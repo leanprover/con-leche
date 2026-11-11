@@ -13,7 +13,7 @@ The production twins of `ConLeche/Kernel/Inductives/Positivity.lean` and
 of the positivity stage of `BlockInstall.lean` (`checkBlockPositivity`,
 `blockNestCtx`) with the seeds (`classSeeds`, `GenRec.lean`):
 monomorphic `CheckCM` definitions at a mode and an environment index,
-calling the cached core (`coreKnotI`) directly and the cached walks of
+calling the cached core (`whnfI`, `inferI`, `defeqI` at `checkFuel`) directly and the cached walks of
 `ConLeche/Cached/ExprOpsC.lean` where the specification runs the plain
 ones (`instantiate1C`, `abstract1C`, `nestOccC`, `replaceFVarsC`,
 `closeTelescopeC`, `instLevelParams`, `depthC`, and `replaceAppsC`
@@ -130,13 +130,13 @@ variable (mode : CheckMode)
 reduced by the cached core and each binder opened by `instantiate1C`. -/
 def whnfTelescopeC (fe : FEnv) : Nat → Nat → Expr → CheckCM (List Expr × Level)
   | i, 0, e => do
-    let e' ← (coreKnotI mode false fe checkFuel).whnf i e
+    let e' ← whnfI mode fe false checkFuel i e
     match e' with
     | .sort s => pure ([], s)
     | _ => throw (.invalid "direct sum: type former does not reduce to a sort \
         after its parameters and indices")
   | i, n + 1, e => do
-    let e' ← (coreKnotI mode false fe checkFuel).whnf i e
+    let e' ← whnfI mode fe false checkFuel i e
     match e' with
     | .forallE dom body =>
       let (bs, s) ← whnfTelescopeC fe (i + 1) n (Expr.instantiate1C body (.fvar i dom))
@@ -165,8 +165,8 @@ def checkSpineAtC (fe : FEnv) (d : Nat) : Expr → List Expr → CheckCM Unit
   | t, a :: as =>
     match t with
     | .forallE ty body => do
-      let ta ← (coreKnotI mode false fe checkFuel).infer d a
-      unless ← (coreKnotI mode false fe checkFuel).defeq d ta ty do
+      let ta ← inferI mode fe false checkFuel false d a
+      unless ← defeqI mode fe false checkFuel d ta ty do
         throw (.invalid "application type mismatch at a family's parameters")
       checkSpineAtC fe d (Expr.instantiate1C body a) as
     | _ => throw (.invalid "function expected at a family's parameters")
@@ -299,8 +299,8 @@ def nestCtorsC (ctx : NestCtx) (fe : FEnv) (fuelOf : Expr → Nat)
       (nestCrestC names us ds holes (Expr.instLevelParams cv.levelParams us cv.type))
       (.invalid "nested positivity: invalid nested inductive datatype, its constructor type \
         does not bind the parameters (official: ill-formed constructor)")
-    let ty ← (coreKnotI mode false fe checkFuel).infer hi crest
-    let _ ← ensureSortI (coreKnotI mode false fe checkFuel) hi ty
+    let ty ← inferI mode fe false checkFuel false hi crest
+    let _ ← ensureSortI mode fe false checkFuel hi ty
     let F := fuelOf crest
     let (ks, nds, cur, st) ← nestFieldsC (rec F) prog hi
       (.invalid "nested positivity: invalid nested inductive datatype, its constructor type \
@@ -400,7 +400,7 @@ def nestPosC (fe : FEnv) (ctx : NestCtx) :
   | 0, _, _, _, _, _ => throw (.notImplemented "nested positivity: fuel")
   | fuel + 1, prog, dep, kb, e, st => do
     let hi := ctx.hiAt prog.length
-    let w ← (coreKnotI mode false fe checkFuel).whnf dep e
+    let w ← whnfI mode fe false checkFuel dep e
     if !Expr.nestOccC ctx.names ctx.nP hi w then
       return (.ordinary, (if Expr.nestOccC ctx.names ctx.nP hi e then w else e), st)
     match w with
@@ -501,8 +501,8 @@ def checkStructFieldSortsIC (fe : FEnv) (isProp large : Bool)
   | 0 => pure ()
   | j + 1 => do
     let fv ← unwrapOr fvs[j]? (.internal "direct sum: field index")
-    let ty ← (coreKnotI mode false fe checkFuel).infer (nP + j) fv.fvarTypeD
-    let u ← ensureSortI (coreKnotI mode false fe checkFuel) (nP + j) ty
+    let ty ← inferI mode fe false checkFuel false (nP + j) fv.fvarTypeD
+    let u ← ensureSortI mode fe false checkFuel (nP + j) ty
     if !isProp then
       unless ← liftFueled "level comparison" (Level.leq u s) do
         throw (.invalid "direct sum: field universe too large")

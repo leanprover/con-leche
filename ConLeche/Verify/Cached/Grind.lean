@@ -67,8 +67,8 @@ proofs".
    is an atom and its triple enters `vcgen`'s list as a term.
 
 What is NOT here, and why: the knot hypothesis `SSimC` and the triple
-forms of its fields (`DiscC1.lean`: they name the cached knot
-`coreKnotI`, which this module does not import), the memo wrappers'
+forms of its fields (`DiscC1.lean`: they name the cached knot's
+entry points (`whnfI`, …), which this module does not import), the memo wrappers'
 triples (`SimCEff.lean`, beside their `CSOK` hit and insert lemmas), and
 the shared operations' triples at the `sharedOpsC` projections
 (`SimCS.lean`, after the knot).

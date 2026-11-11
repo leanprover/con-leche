@@ -30,11 +30,11 @@ variable {env : Env} {f : Nat}
 same pure reads on both sides (`mkFEnv_find_fun`). -/
 theorem propIrrelC_spec (ih : SSimC mode eager env f) {d : Nat} {a b : Expr} {s₀ : CState}
     (hs : CSOK mode eager env s₀) (hwa : Expr.WScoped d a) (hwb : Expr.WScoped d b) :
-    ⦃fun s => s = s₀⦄ propIrrelI (coreKnotI mode eager (mkFEnv env) f) (mkFEnv env) d a b
+    ⦃fun s => s = s₀⦄ propIrrelI mode (mkFEnv env) eager f d a b
     ⦃fun v s' => CSOK mode eager env s' ∧ Runs (propIrrel (fueledFns mode eager env) env d a b) v;
         ⊤⦄ := by
   sym only [conleche_grind, propIrrel, mkFEnv_find_fun, mkFEnv_findTable_fun] =>
-    vcgen [propIrrelI, ih.inferIO_spec, ih.whnf_spec, isEquivLM_spec (mode := mode) (eager :=
+    vcgen [propIrrelI.eq_def, ih.inferIO_spec, ih.whnf_spec, isEquivLM_spec (mode := mode) (eager :=
         eager) (env := env),
       liftFueled_spec (mode := mode) (eager := eager) (env := env)] <;>
       -- the pure side is nine binds deep, one `Runs.bind_eq` generation each
@@ -44,20 +44,20 @@ theorem propIrrelC_spec (ih : SSimC mode eager env f) {d : Nat} {a b : Expr} {s�
 one `whnf`, then the store read of the head test. -/
 theorem boolTrueShortcutC_spec (ih : SSimC mode eager env f) {d : Nat} {a : Expr} {s₀ : CState}
     (hs : CSOK mode eager env s₀) (hw : Expr.WScoped d a) :
-    ⦃fun s => s = s₀⦄ boolTrueShortcutI (coreKnotI mode eager (mkFEnv env) f) d a
+    ⦃fun s => s = s₀⦄ boolTrueShortcutI mode (mkFEnv env) eager f d a
     ⦃fun v s' => CSOK mode eager env s' ∧ Runs (boolTrueShortcut (fueledFns mode eager env) d a) v;
         ⊤⦄ := by
   sym only [conleche_grind, boolTrueShortcut] =>
-    vcgen [boolTrueShortcutI, ih.whnf_spec] <;> finish
+    vcgen [boolTrueShortcutI.eq_def, ih.whnf_spec] <;> finish
 
 /-- `proofIrrelI` simulates its fueled original. -/
 theorem proofIrrelC_spec (ih : SSimC mode eager env f) {d : Nat} {a b : Expr} {s₀ : CState}
     (hs : CSOK mode eager env s₀) (hwa : Expr.WScoped d a) (hwb : Expr.WScoped d b) :
-    ⦃fun s => s = s₀⦄ proofIrrelI (coreKnotI mode eager (mkFEnv env) f) d a b
+    ⦃fun s => s = s₀⦄ proofIrrelI mode (mkFEnv env) eager f d a b
     ⦃fun v s' => CSOK mode eager env s' ∧ Runs (proofIrrel (fueledFns mode eager env) d a b) v; ⊤⦄
         := by
   sym only [conleche_grind, proofIrrel] =>
-    vcgen [proofIrrelI, ih.inferIO_spec, ih.whnf_spec, isEquivLM_spec (mode := mode) (eager :=
+    vcgen [proofIrrelI.eq_def, ih.inferIO_spec, ih.whnf_spec, isEquivLM_spec (mode := mode) (eager :=
         eager) (env := env),
       liftFueled_spec (mode := mode) (eager := eager) (env := env)] <;>
       -- the pure side is nine binds deep, one `Runs.bind_eq` generation each
@@ -73,11 +73,11 @@ variable {env : Env} {f : Nat}
 theorem etaCertC_spec (ih : SSimC mode eager env f) {d : Nat} {ty₁ body₁ b : Expr} {s₀ : CState}
     (hs : CSOK mode eager env s₀) (hwty : Expr.WScoped d ty₁) (hwbody : Expr.WScoped d body₁)
     (hwb : Expr.WScoped d b) :
-    ⦃fun s => s = s₀⦄ etaCertI mode (coreKnotI mode eager (mkFEnv env) f) (mkFEnv env) d ty₁ body₁ b
+    ⦃fun s => s = s₀⦄ etaCertI mode (mkFEnv env) eager f d ty₁ body₁ b
     ⦃fun v s' => CSOK mode eager env s' ∧
         Runs (etaCert mode (fueledFns mode eager env) env d ty₁ body₁ b) v; ⊤⦄ := by
   sym only [conleche_grind, etaCert] =>
-    vcgen [etaCertI, ih.inferIO_spec, ih.whnf_spec, ih.defeq_spec, ih.infer_spec,
+    vcgen [etaCertI.eq_def, ih.inferIO_spec, ih.whnf_spec, ih.defeq_spec, ih.infer_spec,
       inst1M_spec (mode := mode) (eager := eager) (env := env)] <;>
       -- the verified arm is seven binds deep, one `Runs.bind_eq` generation each
       finish (gen := 10)
@@ -92,23 +92,24 @@ theorem projCertAtF_mkFEnv (env : Env) (v : Bool) (c : Name) (args : List Expr) 
 /-- `isPropTypeI` simulates its fueled original. -/
 theorem isPropTypeC_spec (ih : SSimC mode eager env f) {d : Nat} {T : Expr} {s₀ : CState}
     (hs : CSOK mode eager env s₀) (hw : Expr.WScoped d T) :
-    ⦃fun s => s = s₀⦄ isPropTypeI (coreKnotI mode eager (mkFEnv env) f) d T
+    ⦃fun s => s = s₀⦄ isPropTypeI mode (mkFEnv env) eager f d T
     ⦃fun v s' => CSOK mode eager env s' ∧
         Runs (isPropType (fueledFns mode eager env) d T) v; ⊤⦄ := by
   sym only [conleche_grind, isPropType] =>
-    vcgen [isPropTypeI, ih.inferIO_spec, ih.whnf_spec,
+    vcgen [isPropTypeI.eq_def, ih.inferIO_spec, ih.whnf_spec,
       isEquivLM_spec (mode := mode) (eager := eager) (env := env),
       liftFueled_spec (mode := mode) (eager := eager) (env := env)] <;> finish
 
 /-- The field loop of the unit-like test simulates its fueled original,
-given the field test's simulation. -/
+given the field test's (the unit-like loop at its remaining fuel `ulf`)
+simulation. -/
 theorem unitLikeFieldsC_spec (ih : SSimC mode eager env f)
-    {ul : Nat → Expr → CheckCM Bool} {ul' : Nat → Expr → FueledM Bool}
+    {ulf : Nat} {ul' : Nat → Expr → FueledM Bool}
     (hul : ∀ {d : Nat} {e : Expr} {s₀ : CState}, CSOK mode eager env s₀ → Expr.WScoped d e →
-      ⦃fun s => s = s₀⦄ ul d e
+      ⦃fun s => s = s₀⦄ unitLikeLoopI mode (mkFEnv env) eager f ulf d e
       ⦃fun v s' => CSOK mode eager env s' ∧ Runs (ul' d e) v; ⊤⦄) :
     ∀ {n d : Nat} {t : Expr} {s₀ : CState}, CSOK mode eager env s₀ → Expr.WScoped d t →
-      ⦃fun s => s = s₀⦄ unitLikeFieldsI (coreKnotI mode eager (mkFEnv env) f) ul n d t
+      ⦃fun s => s = s₀⦄ unitLikeFieldsI mode (mkFEnv env) eager f ulf n d t
       ⦃fun v s' => CSOK mode eager env s' ∧
         Runs (unitLikeFields (fueledFns mode eager env) ul' n d t) v; ⊤⦄ := by
   intro n
@@ -116,16 +117,16 @@ theorem unitLikeFieldsC_spec (ih : SSimC mode eager env f)
   | zero =>
     intro d t s₀ hs hw
     sym only [conleche_grind, unitLikeFields] =>
-      vcgen [unitLikeFieldsI] <;> finish
+      vcgen [unitLikeFieldsI.eq_def] <;> finish
   | succ n ihn =>
     intro d t s₀ hs hw
     cases t with
     | forallE dom body =>
       sym only [conleche_grind, unitLikeFields] =>
-        vcgen [unitLikeFieldsI, isPropTypeC_spec ih, hul,
+        vcgen [unitLikeFieldsI.eq_def, isPropTypeC_spec ih, hul,
           inst1M_spec (mode := mode) (eager := eager) (env := env), ihn] <;> finish
     | _ =>
-      simp only [unitLikeFieldsI, unitLikeFields]
+      rw [unitLikeFieldsI.eq_def]; simp only [unitLikeFields]
       sym only [conleche_grind] => vcgen <;> finish
 /-- The cached shape read is the spec's (`mkFEnv`). -/
 theorem unitLikeShapeF_mkFEnv (env : Env) (w : Expr) :
@@ -138,15 +139,15 @@ theorem unitLikeShapeF_mkFEnv (env : Env) (w : Expr) :
 /-- The structure arm of the unit-like test simulates its fueled
 original, given the field test's simulation. -/
 theorem unitLikeStructC_spec (ih : SSimC mode eager env f) (henv : EnvWF env)
-    {ul : Nat → Expr → CheckCM Bool} {ul' : Nat → Expr → FueledM Bool}
+    {ulf : Nat} {ul' : Nat → Expr → FueledM Bool}
     (hul : ∀ {d : Nat} {e : Expr} {s₀ : CState}, CSOK mode eager env s₀ → Expr.WScoped d e →
-      ⦃fun s => s = s₀⦄ ul d e
+      ⦃fun s => s = s₀⦄ unitLikeLoopI mode (mkFEnv env) eager f ulf d e
       ⦃fun v s' => CSOK mode eager env s' ∧ Runs (ul' d e) v; ⊤⦄)
     {d : Nat} {w : Expr} {s₀ : CState} (hs : CSOK mode eager env s₀) (hw : Expr.WScoped d w) :
-    ⦃fun s => s = s₀⦄ unitLikeStructI (coreKnotI mode eager (mkFEnv env) f) ul (mkFEnv env) d w
+    ⦃fun s => s = s₀⦄ unitLikeStructI mode (mkFEnv env) eager f ulf d w
     ⦃fun v s' => CSOK mode eager env s' ∧
         Runs (unitLikeStruct (fueledFns mode eager env) ul' env d w) v; ⊤⦄ := by
-  unfold unitLikeStructI unitLikeStruct
+  rw [unitLikeStructI.eq_def]; unfold unitLikeStruct
   rw [unitLikeShapeF_mkFEnv]
   cases hsh : unitLikeShape env w with
   | none => sym only [conleche_grind] => vcgen <;> finish
@@ -157,7 +158,7 @@ theorem unitLikeStructC_spec (ih : SSimC mode eager env f) (henv : EnvWF env)
 /-- The unit-like test simulates its fueled original. -/
 theorem unitLikeLoopC_spec (ih : SSimC mode eager env f) (henv : EnvWF env) :
     ∀ {fuel d : Nat} {T : Expr} {s₀ : CState}, CSOK mode eager env s₀ → Expr.WScoped d T →
-      ⦃fun s => s = s₀⦄ unitLikeLoopI (coreKnotI mode eager (mkFEnv env) f) (mkFEnv env) fuel d T
+      ⦃fun s => s = s₀⦄ unitLikeLoopI mode (mkFEnv env) eager f fuel d T
       ⦃fun v s' => CSOK mode eager env s' ∧
         Runs (unitLikeLoop (fueledFns mode eager env) env fuel d T) v; ⊤⦄ := by
   intro fuel
@@ -165,22 +166,22 @@ theorem unitLikeLoopC_spec (ih : SSimC mode eager env f) (henv : EnvWF env) :
   | zero =>
     intro d T s₀ hs hw
     sym only [conleche_grind, unitLikeLoop] =>
-      vcgen [unitLikeLoopI] <;> finish
+      vcgen [unitLikeLoopI.eq_def] <;> finish
   | succ fuel ihf =>
     intro d T s₀ hs hw
     sym only [conleche_grind, unitLikeLoop] =>
-      vcgen [unitLikeLoopI, ih.whnf_spec,
+      vcgen [unitLikeLoopI.eq_def, ih.whnf_spec,
         inst1M_spec (mode := mode) (eager := eager) (env := env), ihf,
         unitLikeStructC_spec ih henv ihf] <;> finish
 /-- `structUnitCertI` simulates its fueled original. -/
 theorem structUnitCertC_spec (ih : SSimC mode eager env f) (henv : EnvWF env) {d : Nat}
     {a b : Expr} {s₀ : CState}
     (hs : CSOK mode eager env s₀) (hwa : Expr.WScoped d a) (hwb : Expr.WScoped d b) :
-    ⦃fun s => s = s₀⦄ structUnitCertI (coreKnotI mode eager (mkFEnv env) f) (mkFEnv env) d a b
+    ⦃fun s => s = s₀⦄ structUnitCertI mode (mkFEnv env) eager f d a b
     ⦃fun v s' => CSOK mode eager env s' ∧
         Runs (structUnitCert (fueledFns mode eager env) env d a b) v; ⊤⦄ := by
   sym only [conleche_grind, structUnitCert] =>
-    vcgen [structUnitCertI, ih.inferIO_spec, ih.whnf_spec, ih.defeq_spec,
+    vcgen [structUnitCertI.eq_def, ih.inferIO_spec, ih.whnf_spec, ih.defeq_spec,
       unitLikeLoopC_spec ih henv] <;> finish
 end Walks2
 
@@ -320,11 +321,11 @@ theorem structEtaCertWithC_spec (ih : SSimC mode eager env f) {d : Nat} {a b wtb
     {s₀ : CState} (hs : CSOK mode eager env s₀) (hwa : Expr.WScoped d a) (hwb : Expr.WScoped d b)
     (hwwtb : Expr.WScoped d wtb) :
     ⦃fun s => s = s₀⦄
-      structEtaCertWithI (coreKnotI mode eager (mkFEnv env) f) (mkFEnv env) d a b wtb
+      structEtaCertWithI mode (mkFEnv env) eager f d a b wtb
     ⦃fun v s' => CSOK mode eager env s' ∧
         Runs (structEtaCertWith (fueledFns mode eager env) env d a b wtb) v; ⊤⦄ := by
   sym only [conleche_grind, seta_notConst, setaBodyP] =>
-    vcgen [structEtaCertWithI, isEquivListLM_spec (mode := mode) (eager := eager) (env := env),
+    vcgen [structEtaCertWithI.eq_def, isEquivListLM_spec (mode := mode) (eager := eager) (env := env),
       liftFueled_spec (mode := mode) (eager := eager) (env := env), defEqListC_spec ih,
       projNodesC_spec (mode := mode) (eager := eager) (env := env)] <;> finish
 
@@ -338,18 +339,18 @@ theorem etaCtorPartialC_eq (env : Env) (e : Expr) :
 /-- `structEtaFullI` simulates its fueled original. -/
 theorem structEtaFullC_spec (ih : SSimC mode eager env f) {d : Nat} {a b : Expr} {s₀ : CState}
     (hs : CSOK mode eager env s₀) (hwa : Expr.WScoped d a) (hwb : Expr.WScoped d b) :
-    ⦃fun s => s = s₀⦄ structEtaFullI (coreKnotI mode eager (mkFEnv env) f) (mkFEnv env) d a b
+    ⦃fun s => s = s₀⦄ structEtaFullI mode (mkFEnv env) eager f d a b
     ⦃fun v s' => CSOK mode eager env s' ∧
         Runs (structEtaFull (fueledFns mode eager env) env d a b) v; ⊤⦄ := by
   sym only [conleche_grind, structEtaFull] =>
-    vcgen [structEtaFullI, ih.inferIO_spec, ih.whnf_spec, structEtaCertWithC_spec ih] <;>
+    vcgen [structEtaFullI.eq_def, ih.inferIO_spec, ih.whnf_spec, structEtaCertWithC_spec ih] <;>
       finish
 
 /-- The η-expansion simulates its fueled original. -/
 theorem structEtaExpandC_spec (ih : SSimC mode eager env f) :
     ∀ {k d : Nat} {a b t : Expr} {s₀ : CState}, CSOK mode eager env s₀ →
       Expr.WScoped d a → Expr.WScoped d b → Expr.WScoped d t →
-      ⦃fun s => s = s₀⦄ structEtaExpandI (coreKnotI mode eager (mkFEnv env) f) (mkFEnv env) k d a b t
+      ⦃fun s => s = s₀⦄ structEtaExpandI mode (mkFEnv env) eager f k d a b t
       ⦃fun v s' => CSOK mode eager env s' ∧
         Runs (structEtaExpand (fueledFns mode eager env) env k d a b t) v; ⊤⦄ := by
   intro k
@@ -357,13 +358,13 @@ theorem structEtaExpandC_spec (ih : SSimC mode eager env f) :
   | zero =>
     intro d a b t s₀ hs hwa hwb hwt
     sym only [conleche_grind, structEtaExpand] =>
-      vcgen [structEtaExpandI, structEtaFullC_spec ih] <;> finish
+      vcgen [structEtaExpandI.eq_def, structEtaFullC_spec ih] <;> finish
   | succ k ihk =>
     intro d a b t s₀ hs hwa hwb hwt
     cases t with
     | forallE dom body =>
       sym only [conleche_grind, structEtaExpand] =>
-        vcgen [structEtaExpandI, inst1M_spec (mode := mode) (eager := eager) (env := env),
+        vcgen [structEtaExpandI.eq_def, inst1M_spec (mode := mode) (eager := eager) (env := env),
           ihk] <;> finish
     | _ =>
       simp only [structEtaExpandI, structEtaExpand]
@@ -372,22 +373,22 @@ theorem structEtaExpandC_spec (ih : SSimC mode eager env f) :
 /-- `structEtaCertI` simulates its fueled original. -/
 theorem structEtaCertC_spec (ih : SSimC mode eager env f) {d : Nat} {a b : Expr} {s₀ : CState}
     (hs : CSOK mode eager env s₀) (hwa : Expr.WScoped d a) (hwb : Expr.WScoped d b) :
-    ⦃fun s => s = s₀⦄ structEtaCertI (coreKnotI mode eager (mkFEnv env) f) (mkFEnv env) d a b
+    ⦃fun s => s = s₀⦄ structEtaCertI mode (mkFEnv env) eager f d a b
     ⦃fun v s' => CSOK mode eager env s' ∧
         Runs (structEtaCert (fueledFns mode eager env) env d a b) v; ⊤⦄ := by
   sym only [conleche_grind, structEtaCert, etaCtorPartialC_eq] =>
-    vcgen [structEtaCertI, structEtaFullC_spec ih, ih.inferIO_spec, ih.defeq_spec,
+    vcgen [structEtaCertI.eq_def, structEtaFullC_spec ih, ih.inferIO_spec, ih.defeq_spec,
       structEtaExpandC_spec ih] <;> finish
 
 /-- `stuckIrrelI` simulates its fueled original. -/
 theorem stuckIrrelC_spec (ih : SSimC mode eager env f) (henv : EnvWF env) {d : Nat} {a b : Expr}
     {s₀ : CState}
     (hs : CSOK mode eager env s₀) (hwa : Expr.WScoped d a) (hwb : Expr.WScoped d b) :
-    ⦃fun s => s = s₀⦄ stuckIrrelI (coreKnotI mode eager (mkFEnv env) f) (mkFEnv env) d a b
+    ⦃fun s => s = s₀⦄ stuckIrrelI mode (mkFEnv env) eager f d a b
     ⦃fun v s' => CSOK mode eager env s' ∧
         Runs (stuckIrrel (fueledFns mode eager env) env d a b) v; ⊤⦄ := by
   sym only [conleche_grind, stuckIrrel] =>
-    vcgen [stuckIrrelI, structEtaCertC_spec ih, structUnitCertC_spec ih henv,
+    vcgen [stuckIrrelI.eq_def, structEtaCertC_spec ih, structUnitCertC_spec ih henv,
       proofIrrelC_spec ih] <;> finish
 
 end Walks4

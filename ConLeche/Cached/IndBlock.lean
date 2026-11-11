@@ -14,7 +14,7 @@ their conses are (`consBlockIndsF`, `consSumCtorsF`, `consBlockCtorsF`), and of 
 (`checkBlockClasses`, `GenRec.lean`, with `classRead`, `ClassRead.lean`,
 and the major's resolution, `RecCheck.lean`): monomorphic `CheckCM`
 definitions at a mode and an environment index, calling the cached core
-(`coreKnotI`) directly and the cached walks of
+(`inferI`, `defeqI`, … at `checkFuel`) directly and the cached walks of
 `ConLeche/Cached/ExprOpsC.lean` (`openPisAtFvarsC`, `constsResolveFC`,
 `getAppArgsC`, `instantiate1C`, `replaceFVarsC`, `nestOccC`,
 `instPisWithC`) where the specification runs the plain ones, and the
@@ -79,7 +79,7 @@ def checkBlockDomsAtC (fe : FEnv) (off : Nat) (fvs doms : List Expr) : Nat → C
   | j + 1 => do
     let a ← unwrapOr fvs[j]? (.internal "block: domain index")
     let b ← unwrapOr doms[j]? (.internal "block: domain index")
-    unless ← (coreKnotI mode false fe checkFuel).defeq (off + j) a.fvarTypeD b do
+    unless ← defeqI mode fe false checkFuel (off + j) a.fvarTypeD b do
       throw (.invalid "parameters of all inductive datatypes must match")
     checkBlockDomsAtC fe off fvs doms j
 
@@ -120,7 +120,7 @@ def checkStructDomsAtC (fe : FEnv) (off : Nat) (fvs doms : Array Expr) : Nat →
   | j + 1 => do
     let a ← unwrapOr fvs[j]? (.internal "direct structure: domain index")
     let b ← unwrapOr doms[j]? (.internal "direct structure: domain index")
-    unless ← (coreKnotI mode false fe checkFuel).defeq (off + j) a.fvarTypeD b do
+    unless ← defeqI mode fe false checkFuel (off + j) a.fvarTypeD b do
       throw (.notImplemented "direct structure: binder domain mismatch")
     checkStructDomsAtC fe off fvs doms j
 
@@ -130,8 +130,8 @@ def checkStructFieldSortsC (fe : FEnv) (isProp large : Bool) (s : Level) (nP : N
   | 0 => pure ()
   | j + 1 => do
     let fv ← unwrapOr fvs[j]? (.internal "direct sum: field index")
-    let ty ← (coreKnotI mode false fe checkFuel).infer (nP + j) fv.fvarTypeD
-    let u ← ensureSortI (coreKnotI mode false fe checkFuel) (nP + j) ty
+    let ty ← inferI mode fe false checkFuel false (nP + j) fv.fvarTypeD
+    let u ← ensureSortI mode fe false checkFuel (nP + j) ty
     if !isProp then
       unless ← liftFueled "level comparison" (Level.leq u s) do
         throw (.invalid "direct sum: field universe too large")
@@ -326,7 +326,7 @@ def targetMajorOfC (fe : FEnv) (p : BlockShape) (pfvs fvs : List Expr) (mty : Ex
 def targetPinTysC (fe : FEnv) (d : Nat) : List Expr → CheckCM Unit
   | [] => pure ()
   | x :: xs => do
-    let _ ← (coreKnotI mode false fe checkFuel).infer d x
+    let _ ← inferI mode fe false checkFuel false d x
     targetPinTysC fe d xs
 
 /-- The cached `targetMajorPins`. -/

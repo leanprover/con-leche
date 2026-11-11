@@ -381,7 +381,7 @@ theorem checkConstantValC_congr {fe₁ fe₂ : FEnv} (hfe : fe₁.find? = fe₂.
     (htb : fe₁.findTable? = fe₂.findTable?)
     (cv : ConstantVal) {a : Bool} : checkConstantValC mode fe₁ cv a = checkConstantValC mode fe₂ cv a := by
   unfold checkConstantValC
-  simp only [coreKnotI_congr hfe htb, constsResolveFC_congr hfe, opSIxC_congr hfe htb, hfe,
+  simp only [knotI_congr hfe htb, constsResolveFC_congr hfe, opSIxC_congr hfe htb, hfe,
     strLitStoredF_congr hfe]
 
 /-- A definition's value check reads its index only through `find?`. -/
@@ -390,7 +390,7 @@ theorem checkDefnValCI_congr {fe₁ fe₂ : FEnv} (hfe : fe₁.find? = fe₂.fin
     (value : Expr) (hint : ReducibilityHint) :
     checkDefnValCI mode fe₁ cv value hint = checkDefnValCI mode fe₂ cv value hint := by
   unfold checkDefnValCI
-  simp only [coreKnotI_congr hfe htb, constsResolveFC_congr hfe, strLitStoredF_congr hfe]
+  simp only [knotI_congr hfe htb, constsResolveFC_congr hfe, strLitStoredF_congr hfe]
 
 /-- A theorem's value check reads its index only through `find?`. -/
 theorem checkThmValCI_congr {fe₁ fe₂ : FEnv} (hfe : fe₁.find? = fe₂.find?)
@@ -398,7 +398,7 @@ theorem checkThmValCI_congr {fe₁ fe₂ : FEnv} (hfe : fe₁.find? = fe₂.find
     (value : Expr) :
     checkThmValCI mode fe₁ cv value = checkThmValCI mode fe₂ cv value := by
   unfold checkThmValCI
-  simp only [coreKnotI_congr hfe htb, opSIxC_congr hfe htb, constsResolveFC_congr hfe,
+  simp only [knotI_congr hfe htb, opSIxC_congr hfe htb, constsResolveFC_congr hfe,
     strLitStoredF_congr hfe]
 
 /-- An opaque's value check reads its index only through `find?`. -/
@@ -407,7 +407,7 @@ theorem checkOpaqueValCI_congr {fe₁ fe₂ : FEnv} (hfe : fe₁.find? = fe₂.f
     (value : Expr) :
     checkOpaqueValCI mode fe₁ cv value = checkOpaqueValCI mode fe₂ cv value := by
   unfold checkOpaqueValCI
-  simp only [coreKnotI_congr hfe htb, constsResolveFC_congr hfe, strLitStoredF_congr hfe]
+  simp only [knotI_congr hfe htb, constsResolveFC_congr hfe, strLitStoredF_congr hfe]
 
 theorem installBasisDeclF_twin {fe₁ fe₂ : FEnv} (hfe : fe₁.find? = fe₂.find?)
     (ci : ConstantInfo) :
@@ -800,7 +800,7 @@ theorem checkStructDomsAtC_congr (hfe : fe₁.find? = fe₂.find?)
   | j + 1 => by
     have ih := checkStructDomsAtC_congr hfe htb off fvs doms j
     unfold checkStructDomsAtC
-    simp only [coreKnotI_congr hfe htb]
+    simp only [knotI_congr hfe htb]
     rw [ih]
 
 theorem checkBlockDomsAtC_congr (hfe : fe₁.find? = fe₂.find?)
@@ -810,7 +810,7 @@ theorem checkBlockDomsAtC_congr (hfe : fe₁.find? = fe₂.find?)
   | j + 1 => by
     have ih := checkBlockDomsAtC_congr hfe htb off fvs doms j
     unfold checkBlockDomsAtC
-    simp only [coreKnotI_congr hfe htb]
+    simp only [knotI_congr hfe htb]
     rw [ih]
 
 theorem checkStructFieldSortsC_congr (hfe : fe₁.find? = fe₂.find?)
@@ -822,7 +822,7 @@ theorem checkStructFieldSortsC_congr (hfe : fe₁.find? = fe₂.find?)
   | j + 1 => by
     have ih := checkStructFieldSortsC_congr hfe htb isProp large sl nP fvs idxArgs j
     unfold checkStructFieldSortsC
-    simp only [coreKnotI_congr hfe htb]
+    simp only [knotI_congr hfe htb]
     rw [ih]
 
 theorem checkStructFieldSortsIC_congr (hfe : fe₁.find? = fe₂.find?)
@@ -834,7 +834,7 @@ theorem checkStructFieldSortsIC_congr (hfe : fe₁.find? = fe₂.find?)
   | j + 1 => by
     have ih := checkStructFieldSortsIC_congr hfe htb isProp large sl nP fvs idxArgs j
     unfold checkStructFieldSortsIC
-    simp only [coreKnotI_congr hfe htb]
+    simp only [knotI_congr hfe htb]
     rw [ih]
 
 theorem checkBlockTeleC_congr (hfe : fe₁.find? = fe₂.find?)
@@ -1206,7 +1206,7 @@ theorem reduceMemberS_congr {fe₁ fe₂ : FEnv} (hfe : fe₁.find? = fe₂.find
     (htb : fe₁.findTable? = fe₂.findTable?) (nP : Nat) (ms : MemberShape) :
     reduceMemberS mode fe₁ ms nP = reduceMemberS mode fe₂ ms nP := by
   have h := sharedOpsC_envFree mode fe₂
-  simp only [reduceMemberS, reducedFormerC_eq, reducedFormer, coreKnotI_congr hfe htb,
+  simp only [reduceMemberS, reducedFormerC_eq, reducedFormer, knotI_congr hfe htb,
     sharedOpsC_congr hfe htb, checkConstantValC_congr hfe htb,
     whnfTelescope_env h fe₁.env, whnfTelescope_env h fe₂.env]
 

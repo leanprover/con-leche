@@ -120,29 +120,33 @@ variable (mode : CheckMode)
 
 /-! ## The entry-point record over the cached core
 
-`opE`/`opB`/`opS` pass their `Expr` arguments through: there is one
+`opI`/`opW`/`opB`/`opS` pass their `Expr` arguments through: there is one
 expression type (task #172 B3a). -/
 
-/-- Shared-state unary entry point: run the cached knot. -/
-def opE (fe : FEnv) (pick : CoreFnsI → Nat → Expr → CheckCM Expr)
-    (d : Nat) (e : Expr) : CheckCM Expr := do
-  pick (coreKnotI mode false fe checkFuel) d e
+/-- Shared-state inference entry point: the cached knot's full-grade
+`inferI`. -/
+def opI (fe : FEnv) (d : Nat) (e : Expr) : CheckCM Expr :=
+  inferI mode fe false checkFuel false d e
+
+/-- Shared-state head-normalization entry point. -/
+def opW (fe : FEnv) (d : Nat) (e : Expr) : CheckCM Expr :=
+  whnfI mode fe false checkFuel d e
 
 /-- Shared-state definitional-equality entry point. -/
 def opB (fe : FEnv) (d : Nat) (a b : Expr) : CheckCM Bool :=
-  (coreKnotI mode false fe checkFuel).defeq d a b
+  defeqI mode fe false checkFuel d a b
 
 /-- Shared-state sort-ensuring entry point. -/
 def opS (fe : FEnv) (d : Nat) (e : Expr) : CheckCM Level :=
-  ensureSortI (coreKnotI mode false fe checkFuel) d e
+  ensureSortI mode fe false checkFuel d e
 
 /-- The per-declaration shared operations at a fixed environment
 index. -/
 def sharedOpsC (fe : FEnv) : CheckerOps CheckCM where
-  inferType _ d e := opE mode fe (·.infer) d e
+  inferType _ d e := opI mode fe d e
   isDefEq _ d a b := opB mode fe d a b
   ensureSort _ d e := opS mode fe d e
-  whnf _ d e := opE mode fe (·.whnf) d e
+  whnf _ d e := opW mode fe d e
 
 
 /-! ## Thin phase drivers (one `CState` per declaration)
@@ -176,7 +180,7 @@ def sharedOpsRuleR (fe : FEnv) : CheckerOps CheckCM :=
     inferType := fun _ d e => do
       -- the flush entering the `feR` half
       flushC
-      let t ← opE mode fe (·.infer) d e
+      let t ← opI mode fe d e
       flushC
       pure t }
 
@@ -226,7 +230,7 @@ def reduceMemberS (fe : FEnv) (ms : MemberShape) (nP : Nat) : CheckCM MemberShap
     else do
       checkConstantValC mode fe ms.cvT
       let cvR ← reducedFormerC mode fe ms.cvT (nP + ms.nIdx)
-      unless ← (coreKnotI mode false fe checkFuel).defeq 0 ms.cvT.type cvR.type do
+      unless ← defeqI mode fe false checkFuel 0 ms.cvT.type cvR.type do
         throw (.invalid "direct sum: a type former's declared type and its reduct differ")
       pure { ms with cvT := cvR }
   else pure ms

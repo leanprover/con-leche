@@ -23,7 +23,7 @@ acceptance at `.verified` is covered by the main corollary `no_False_declaration
 environment (`checkDecls_agree`, `ConLeche/Verify/Cached/DeclPushes.lean`).
 
 The driver's parameter is the `CheckMode` itself (task #185): the knot it
-ties (`coreKnotI mode`) and the block's stages all take the same
+enters (`inferI mode`, `defeqI mode`) and the block's stages all take the same
 mode.
 -/
 
@@ -49,8 +49,8 @@ def checkDefnValCI (fe : FEnv) (cv : ConstantVal)
     throw (.invalid s!"undeclared universe parameter in value of {cv.name}")
   unless constsResolveFC fe jv do
     throw (unresolvedConstsErrorLC (strLitStoredF fe) s!"value of {cv.name}" jv)
-  let jvt ← (coreKnotI mode false fe checkFuel).infer 0 jv
-  unless ← (coreKnotI mode false fe checkFuel).defeq 0 jvt cv.type do
+  let jvt ← inferI mode fe false checkFuel false 0 jv
+  unless ← defeqI mode fe false checkFuel 0 jvt cv.type do
     throw (.invalid s!"type mismatch in definition {cv.name}")
   pure (.defnInfo cv jv hint)
 
@@ -58,7 +58,7 @@ def checkDefnValCI (fe : FEnv) (cv : ConstantVal)
 record to install, unpushed: its statement alone, a theorem being opaque
 to reduction. -/
 def checkThmValCI (fe : FEnv) (cv : ConstantVal) (value : Expr) : CheckCM ConstantInfo := do
-  let jsty ← (coreKnotI mode false fe checkFuel).infer 0 cv.type
+  let jsty ← inferI mode fe false checkFuel false 0 cv.type
   let u ← opSIxC mode fe 0 jsty
   unless (← liftFueled "level comparison" (Level.isEquiv u .zero)) do
     throw (.invalid s!"type of theorem {cv.name} is not a proposition")
@@ -71,8 +71,8 @@ def checkThmValCI (fe : FEnv) (cv : ConstantVal) (value : Expr) : CheckCM Consta
     throw (.invalid s!"undeclared universe parameter in value of {cv.name}")
   unless constsResolveFC fe jv do
     throw (unresolvedConstsErrorLC (strLitStoredF fe) s!"value of {cv.name}" jv)
-  let jvt ← (coreKnotI mode false fe checkFuel).infer 0 jv
-  unless ← (coreKnotI mode false fe checkFuel).defeq 0 jvt cv.type do
+  let jvt ← inferI mode fe false checkFuel false 0 jv
+  unless ← defeqI mode fe false checkFuel 0 jvt cv.type do
     throw (.invalid s!"type mismatch in theorem {cv.name}")
   pure (.thmInfo cv)
 
@@ -89,8 +89,8 @@ def checkOpaqueValCI (fe : FEnv) (cv : ConstantVal)
     throw (.invalid s!"undeclared universe parameter in value of {cv.name}")
   unless constsResolveFC fe jv do
     throw (unresolvedConstsErrorLC (strLitStoredF fe) s!"value of {cv.name}" jv)
-  let jvt ← (coreKnotI mode false fe checkFuel).infer 0 jv
-  unless ← (coreKnotI mode false fe checkFuel).defeq 0 jvt cv.type do
+  let jvt ← inferI mode fe false checkFuel false 0 jv
+  unless ← defeqI mode fe false checkFuel 0 jvt cv.type do
     throw (.invalid s!"type mismatch in opaque {cv.name}")
   pure (.axiomInfo cv)
 
@@ -132,7 +132,7 @@ proofs are substituted ONCE, by the sharing-preserving `substConstAllC`,
 and the substituted proofs feed both the guard and the check; the guards
 are the cached tier's (`constsResolveFC`, `allLevelParamsDefinedC`).
 The twins are monomorphic in `CheckCM` and call the cached core
-(`coreKnotI`) directly; `checkDivModPinC_eq` and `checkReducePinC_eq`
+(`inferI`, `defeqI` at `checkFuel`) directly; `checkDivModPinC_eq` and `checkReducePinC_eq`
 (`ConLeche/Verify/Cached/PinsC.lean`) are their equations to the
 specification at the shared operations (`sharedOpsC`). -/
 
@@ -157,7 +157,7 @@ def divModPinGuardC (ps : NatOpPinSet) (fe : FEnv) (c : Name) : Bool :=
 def checkTypePinsC (fe : FEnv) : List (Name × Expr) → CheckCM Bool
   | [] => pure true
   | p :: rest => do
-    if ← (coreKnotI mode false fe checkFuel).defeq 0 (typePinStoredF fe p.1) p.2 then
+    if ← defeqI mode fe false checkFuel 0 (typePinStoredF fe p.1) p.2 then
       checkTypePinsC fe rest
     else pure false
 
@@ -167,9 +167,9 @@ def checkDivModCertsC (fe : FEnv) (c : Name) (annVal : Expr) :
   | [], [] => pure true
   | (hyps, eqE) :: srest, sp :: prest => do
     if divModCertGuardC fe c annVal hyps eqE sp then
-      let tp ← (coreKnotI mode false fe checkFuel).infer 4
+      let tp ← inferI mode fe false checkFuel false 4
         (divModCertApplied sp (hyps.map (Expr.substConst0 c annVal)))
-      if ← (coreKnotI mode false fe checkFuel).defeq 4 tp (Expr.substConst0 c annVal eqE) then
+      if ← defeqI mode fe false checkFuel 4 tp (Expr.substConst0 c annVal eqE) then
         checkDivModCertsC fe c annVal srest prest
       else pure false
     else pure false
@@ -179,7 +179,7 @@ def checkDivModCertsC (fe : FEnv) (c : Name) (annVal : Expr) :
 def checkDivModPinAtC (fe : FEnv) (c : Name) (value' : Expr) (ps : NatOpPinSet)
     (sps : List Expr) : CheckCM Bool := do
   if ← checkTypePinsC mode fe (divModTypePins ps c) then
-    if ← (coreKnotI mode false fe checkFuel).defeq 0 value' (divModDeclPin ps c) then
+    if ← defeqI mode fe false checkFuel 0 value' (divModDeclPin ps c) then
       checkDivModCertsC mode fe c value' (divModCertStmts c) sps
     else pure false
   else pure false
@@ -226,10 +226,10 @@ def checkReducePinC (fe fe2 : FEnv) (c : Name) (value : Expr) : CheckCM Unit := 
     if reducePinGuardC fe c then do
       let valA := value
       let pinA := (reduceDeclPin c)
-      let okPin ← (coreKnotI mode false fe checkFuel).defeq 0 valA pinA
+      let okPin ← defeqI mode fe false checkFuel 0 valA pinA
       if okPin then do
         let x := reduceCertVar c
-        let ok ← (coreKnotI mode false fe checkFuel).defeq 1 (.app valA x) x
+        let ok ← defeqI mode fe false checkFuel 1 (.app valA x) x
         if ok then pure ()
         else throw (.internal
           s!"pinned compiler-trust opaque is not the identity ({c})")

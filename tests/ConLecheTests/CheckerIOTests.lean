@@ -183,21 +183,32 @@ example : (ConLeche.Driver.parseArgs ["--", "--help"] {}).files = #["--help"] :=
 #guard ConLeche.Cached.natSizeBytes (2 ^ 64) == 16
 #guard ConLeche.Cached.natSizeBytes (2 ^ 128) == 24
 -- `2 ^ k` at the default maximum size: 8 bytes per unit of the exponent, so `2 ^ 2^24` and no further
-#guard (ConLeche.Cached.natOpRefusal 134217728 ConLeche.natPowName 2 16777216).isNone
-#guard (ConLeche.Cached.natOpRefusal 134217728 ConLeche.natPowName 2 16777217).isSome
+#guard (ConLeche.Cached.natOpRefusal 134217728 .pow 2 16777216).isNone
+#guard (ConLeche.Cached.natOpRefusal 134217728 .pow 2 16777217).isSome
 -- a base `≤ 1` at any 32-bit exponent; a larger exponent never
-#guard (ConLeche.Cached.natOpRefusal 134217728 ConLeche.natPowName 1 4294967295).isNone
-#guard (ConLeche.Cached.natOpRefusal 134217728 ConLeche.natPowName 0 4294967295).isNone
-#guard (ConLeche.Cached.natOpRefusal 134217728 ConLeche.natPowName 1 4294967296).isSome
+#guard (ConLeche.Cached.natOpRefusal 134217728 .pow 1 4294967295).isNone
+#guard (ConLeche.Cached.natOpRefusal 134217728 .pow 0 4294967295).isNone
+#guard (ConLeche.Cached.natOpRefusal 134217728 .pow 1 4294967296).isSome
 -- `a <<< b`: `0` shifts freely; otherwise size + b / 8 + 1 within the maximum size, b in 32 bits
-#guard (ConLeche.Cached.natOpRefusal 0 ConLeche.natShiftLeftName 0 (2 ^ 40)).isNone
-#guard (ConLeche.Cached.natOpRefusal 134217728 ConLeche.natShiftLeftName 1 1073741759).isNone
-#guard (ConLeche.Cached.natOpRefusal 134217728 ConLeche.natShiftLeftName 1 1073741760).isSome
-#guard (ConLeche.Cached.natOpRefusal 134217728 ConLeche.natShiftLeftName 1 4294967296).isSome
+#guard (ConLeche.Cached.natOpRefusal 0 .shiftLeft 0 (2 ^ 40)).isNone
+#guard (ConLeche.Cached.natOpRefusal 134217728 .shiftLeft 1 1073741759).isNone
+#guard (ConLeche.Cached.natOpRefusal 134217728 .shiftLeft 1 1073741760).isSome
+#guard (ConLeche.Cached.natOpRefusal 134217728 .shiftLeft 1 4294967296).isSome
 -- add/sub/mul are measured after computing; the others are not refused
-#guard ConLeche.Cached.natResultRefused 16 ConLeche.natMulName (.lit (.natVal (2 ^ 128)))
-#guard !ConLeche.Cached.natResultRefused 16 ConLeche.natMulName (.lit (.natVal (2 ^ 64)))
-#guard !ConLeche.Cached.natResultRefused 16 ConLeche.natDivName (.lit (.natVal (2 ^ 128)))
+#guard ConLeche.Cached.natResultRefused 16 .mul (.lit (.natVal (2 ^ 128)))
+#guard !ConLeche.Cached.natResultRefused 16 .mul (.lit (.natVal (2 ^ 64)))
+#guard !ConLeche.Cached.natResultRefused 16 .div (.lit (.natVal (2 ^ 128)))
+
+-- the binary operation is found from its name (`NatBinOp.ofName?`), each of the fourteen,
+-- and no other name
+#guard [ConLeche.natAddName, ConLeche.natSubName, ConLeche.natMulName, ConLeche.natPowName,
+    ConLeche.natBeqName, ConLeche.natBleName, ConLeche.natDivName, ConLeche.natModName,
+    ConLeche.natGcdName, ConLeche.natLandName, ConLeche.natLorName, ConLeche.natXorName,
+    ConLeche.natShiftLeftName, ConLeche.natShiftRightName].all fun n =>
+  ((ConLeche.Cached.NatBinOp.ofName? n).map (·.name)) == some n
+#guard (ConLeche.Cached.NatBinOp.ofName? ConLeche.natSuccName).isNone
+#guard (ConLeche.Cached.NatBinOp.ofName? ConLeche.natPredName).isNone
+#guard (ConLeche.Cached.NatBinOp.ofName? (ConLeche.natName.str "addd")).isNone
 /-- No flag: the verified mode. -/
 example : (ConLeche.Driver.parseArgs ["--", "x"] {}).mode = .verified := by
   simp [ConLeche.Driver.parseArgs]
