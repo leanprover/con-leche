@@ -53,5 +53,6 @@ public import ConLeche.Verify.Ground.Step1N
 public import ConLeche.Verify.Ground.Step1I
 public import ConLeche.Verify.Ground.Step3
 public import ConLeche.Verify.Ground.Step4
+public import ConLeche.Verify.Ground.Sound
 
 @[expose] public section

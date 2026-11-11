@@ -436,11 +436,12 @@ theorem step_natA_lit (hR : RunOK env s.P) (h : MInv env t₀ oc s fl) (hm : s.m
 δ dispatch (a stutter). -/
 theorem lit_delta (h : MInv env t₀ oc s fl) {k a b d : Nat} {fl' : List Fr}
     (hfs : FS s.fs (s.fs.size - d) fl') (hk : k < s.P.kInfo.size) (ha : a < s.N) (hb : b < s.N)
-    (hfl : FlOK s.P s.argA s.N fl') (hK : K env t₀ s.P s.argA oc fl' (opTerm s.P oc k a b)) :
+    (hfl : FlOK s.P s.argA s.N fl') (h3 : s.P.kTag[k]? = some 3)
+    (hK : K env t₀ s.P s.argA oc fl' (opTerm s.P oc k a b)) :
     ∃ fl'', MInv env t₀ oc { s with
       fs := ((g4PopN s.fs d).push (g4Tag b 1)).push (g4Tag a 1), mode := 3, pc := 1, env := 0, x := k } fl'' := by
   refine ⟨.arg a :: .arg b :: fl', h.store.same rfl rfl rfl rfl rfl rfl rfl,
-    FS.pushArg (FS.pushArg hfs.popK _) _, ?_, hk, hK⟩
+    FS.pushArg (FS.pushArg hfs.popK _) _, ?_, hk, fun _ => h3, hK⟩
   intro f hf
   rcases List.mem_cons.mp hf with rfl | hf
   · exact ha
@@ -457,8 +458,8 @@ theorem step_natA_delta (h : MInv env t₀ oc s fl) (hm : s.mode = 1) (hn : 0 < 
       mode := 3, pc := 1, env := 0, x := s.fs[s.fs.size - 4]! } fl' := by
   obtain ⟨-, t, -, hK⟩ := h.val1 hm
   obtain ⟨fl', rfl, -, hfs⟩ := FS.top_natA h.stack hn ht
-  obtain ⟨hk, ha, hb, -⟩ := h.frames _ (List.mem_cons_self ..)
-  exact lit_delta h hfs hk ha hb (fun f hf => h.frames f (List.mem_cons_of_mem _ hf)) hK.2
+  obtain ⟨hk, ha, hb, h3⟩ := h.frames _ (List.mem_cons_self ..)
+  exact lit_delta h hfs hk ha hb (fun f hf => h.frames f (List.mem_cons_of_mem _ hf)) h3 hK.2
 
 /-- **No literal reading at the second literal frame**: the operation is
 unfolded. -/
@@ -469,8 +470,8 @@ theorem step_natB_delta (h : MInv env t₀ oc s fl) (hm : s.mode = 1) (hn : 0 < 
       mode := 3, pc := 1, env := 0, x := s.fs[s.fs.size - 5]! } fl' := by
   obtain ⟨-, t, -, hK⟩ := h.val1 hm
   obtain ⟨fl', rfl, -, hfs⟩ := FS.top_natB h.stack hn ht
-  obtain ⟨hk, ha, hb, -⟩ := h.frames _ (List.mem_cons_self ..)
-  exact lit_delta h hfs hk ha hb (fun f hf => h.frames f (List.mem_cons_of_mem _ hf)) hK.2.2
+  obtain ⟨hk, ha, hb, h3⟩ := h.frames _ (List.mem_cons_self ..)
+  exact lit_delta h hfs hk ha hb (fun f hf => h.frames f (List.mem_cons_of_mem _ hf)) h3 hK.2.2
 
 /-- The operation's redex at the second literal frame reduces to the
 operation's result on the two readings. -/

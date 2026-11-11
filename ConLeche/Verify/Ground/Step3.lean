@@ -246,7 +246,7 @@ theorem MInv.topArgs (h : MInv env t₀ oc s fl) (hm : s.mode = 3) :
       (∀ c ∈ ca, c < s.N) := by
   have hf := h.focus
   simp only [Focus, hm] at hf
-  obtain ⟨hk, hK⟩ := hf
+  obtain ⟨hk, -, hK⟩ := hf
   obtain ⟨ca, fl', rfl, hca⟩ := FS.countArgs h.stack 0
   rw [Nat.zero_add] at hca
   obtain ⟨hle, hfs, hcells⟩ := FS.argsTop ca.length h.stack rfl
@@ -328,7 +328,7 @@ theorem step_memo_hit (h : MInv env t₀ oc s fl) (hm : s.mode = 3) {n f i : Nat
   rw [hca] at hle
   have hf := h.focus
   simp only [Focus, hm] at hf
-  obtain ⟨-, hK⟩ := hf
+  obtain ⟨-, -, hK⟩ := hf
   have hsplit : ca.map Fr.arg ++ fl' = (ca.take n).map Fr.arg ++ ((ca.drop n).map Fr.arg ++ fl') := by
     rw [← List.append_assoc, ← List.map_append, List.take_append_drop]
   have htl : (ca.take n).length = n := by rw [List.length_take]; omega
@@ -381,7 +381,7 @@ theorem memo_core (h : MInv env t₀ oc s fl) (hm : s.mode = 3) {n : Nat}
   rw [hca] at hle
   have hf := h.focus
   simp only [Focus, hm] at hf
-  obtain ⟨-, hK⟩ := hf
+  obtain ⟨-, -, hK⟩ := hf
   have hsplit : ca.map Fr.arg ++ fl' =
       (ca.take n).map Fr.arg ++ ((ca.drop n).map Fr.arg ++ fl') := by
     rw [← List.append_assoc, ← List.map_append, List.take_append_drop]
@@ -601,7 +601,7 @@ theorem step_delta_body (hwf : EnvWF env) (h : MInv env t₀ oc s fl) (hm : s.mo
     MInv env t₀ oc { s with mode := 0, pc := s.P.kCode[s.x]! - 1, env := 0, x := 0 } fl := by
   have hf := h.focus
   simp only [Focus, hm] at hf
-  obtain ⟨hk, hK⟩ := hf
+  obtain ⟨hk, -, hK⟩ := hf
   obtain ⟨sb, hd, hsc, hred⟩ := delta_red hwf h.store.prog hk ht hc
   refine ⟨h.store.same rfl rfl rfl rfl rfl rfl rfl, h.stack, h.frames, ?_⟩
   show ∃ u, NodeTerm s.P s.ev oc _ 0 u ∧ K env t₀ s.P s.argA oc fl u
@@ -622,7 +622,7 @@ theorem step_delta_compile (h : MInv env t₀ oc s fl) (hm : s.mode = 3) {c : Na
       fl := by
   have hf := h.focus
   simp only [Focus, hm] at hf
-  obtain ⟨hk, hK⟩ := hf
+  obtain ⟨hk, h3, hK⟩ := hf
   have hi' : s.P.kInfo[s.x]? = some (.defn c lps us v) := by
     rw [Array.getElem?_eq_getElem hk, ← hi, getElem!_pos s.P.kInfo s.x hk]
   have hcomp :=
@@ -639,8 +639,8 @@ theorem step_delta_compile (h : MInv env t₀ oc s fl) (hm : s.mode = 3) {c : Na
     h.store.argRef (fun c h₁ h₂ => absurd h₂ (by simp only [MS.N] at h₁ ⊢; omega)), h.stack,
     h.frames.grow hx (Pre.refl _) (Nat.le_refl _), ?_⟩
   simp only [Focus, hm]
-  rw [entryTerm_ext hx hk]
-  exact ⟨Nat.lt_of_lt_of_le hk hx.kInfoSize, K.grow env t₀ oc hx (Pre.refl _) fl h.frames hK⟩
+  rw [entryTerm_ext hx hk, (entR_eq (hx.ent _ hk)).1]
+  exact ⟨Nat.lt_of_lt_of_le hk hx.kInfoSize, h3, K.grow env t₀ oc hx (Pre.refl _) fl h.frames hK⟩
 
 /-- Argument frames for a span of cells, the first on top. -/
 theorem FS.pushArgs (argA : Array Nat) (start : Nat) : ∀ (len : Nat) {fs : Array Nat} {fl : List Fr},

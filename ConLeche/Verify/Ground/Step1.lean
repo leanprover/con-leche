@@ -155,8 +155,8 @@ theorem step_arg_pap (h : MInv env t₀ oc s fl) (hm : s.mode = 1) (h4 : s.val[g
       rw [List.mem_range] at hj
       exact h.store.argRef _ (by omega)
     · exact h.frames f hf
-  · show _ < _ ∧ K env t₀ s.P s.argA oc _ (entryTerm s.P _)
-    exact ⟨hk, (K.args env t₀ s.P s.argA oc _ _ _).mpr hK⟩
+  · show _ < _ ∧ (0 = 1 → _) ∧ K env t₀ s.P s.argA oc _ (entryTerm s.P _)
+    exact ⟨hk, fun h => absurd h (by decide), (K.args env t₀ s.P s.argA oc _ _ _).mpr hK⟩
 
 /-- **Any other value at argument frames** (a neutral, a literal; the
 engine's catch-all): the frames are popped and the focus is the neutral

@@ -103,7 +103,8 @@ pushed: the claim `k` holds of the head on the first `x` arguments. -/
   | 1 => s.x < s.val.size / 4 ∧
       ∃ t, ValDen s.P s.val s.ev s.argA oc s.x t ∧ K env t₀ s.P s.argA oc fl t
   | 2 => s.x < s.N ∧ K env t₀ s.P s.argA oc fl (oc s.x)
-  | 3 => s.x < s.P.kInfo.size ∧ K env t₀ s.P s.argA oc fl (entryTerm s.P s.x)
+  | 3 => s.x < s.P.kInfo.size ∧ (s.pc = 1 → s.P.kTag[s.x]? = some 3) ∧
+      K env t₀ s.P s.argA oc fl (entryTerm s.P s.x)
   | 4 => SpineAt s.P s.ev oc s.pc s.env s.x (K env t₀ s.P s.argA oc fl)
   | _ => False
 
@@ -382,10 +383,10 @@ theorem step_const (h : MInv env t₀ oc s fl) (hm : s.mode = 0) (ht : s.P.code[
     · exact h'
     · rw [Array.getElem?_eq_none h'] at hinfo; cases hinfo
   refine ⟨h.store.same rfl rfl rfl rfl rfl rfl rfl, h.stack, h.frames, ?_⟩
-  show s.P.code[s.pc + 1]! < s.P.kInfo.size ∧
+  show s.P.code[s.pc + 1]! < s.P.kInfo.size ∧ (0 = 1 → _) ∧
     K env t₀ s.P s.argA oc fl (entryTerm s.P s.P.code[s.pc + 1]!)
   rw [get!_of_some hk]
-  exact ⟨hkl, by unfold entryTerm; rw [hinfo]; exact hK⟩
+  exact ⟨hkl, fun h => absurd h (by decide), by unfold entryTerm; rw [hinfo]; exact hK⟩
 
 /-- **A spine**: push its arguments, the last first. -/
 theorem step_spine (h : MInv env t₀ oc s fl) (hm : s.mode = 0) (ht : s.P.code[s.pc]! = 1) :
