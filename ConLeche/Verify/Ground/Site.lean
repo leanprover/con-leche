@@ -166,9 +166,9 @@ theorem site_run (hwf : EnvWF env) {P : G4Prog} (hK : KeptOK env P) {e : Expr}
     (he : e.looseBVarsBounded 0 = true) {fuel v : Nat} {val : Array Nat} {P' : G4Prog}
     {sl : Array Nat} {cells st left : Nat}
     (hrun : g4Run env.find? env.findProj? fuel
-      { (g4Comp env.find? env.findProj? g4CompFuel P e).2 with slotA := #[] } #[2, 0, 0, 0]
-      #[5, 0, 0, 0] #[] #[] #[] (g4Comp env.find? env.findProj? g4CompFuel P e).2.slotA #[]
-      (Array.replicate 1024 0) 0 (g4Comp env.find? env.findProj? g4CompFuel P e).1 0 0 0 =
+      { (g4Comp env.find? env.findProj? P e).2 with slotA := #[] } #[2, 0, 0, 0]
+      #[5, 0, 0, 0] #[] #[] #[] (g4Comp env.find? env.findProj? P e).2.slotA #[]
+      (Array.replicate 1024 0) 0 (g4Comp env.find? env.findProj? P e).1 0 0 0 =
         .done v val P' sl cells st left) :
     KeptOK env { P' with slotA := sl, epBase := P'.epBase + cells } ∧
     ((val[g4X4 v]! == 1 && val[g4X4 v + 3]! == 0 && val[g4X4 v + 1]! == P'.kTrue) = true →
@@ -176,11 +176,11 @@ theorem site_run (hwf : EnvWF env) {P : G4Prog} (hK : KeptOK env P) {e : Expr}
   -- compile the term at the pre-state
   have h₁ := (preMS_minv hK e).enterCompiled (fs := #[]) (fl' := []) .nil (fun _ h => (nomatch h)) he
     (ERed.refl : K env e (preMS P).P (preMS P).argA (fun _ => bot) [] e)
-  have hc := (g4Comp_spec env.find? env.findProj? g4CompFuel).1 P e hK.inv
+  have hc := g4Comp_spec env.find? env.findProj? P e hK.inv
   change MInv env e (fun _ => bot) { preMS P with
-    P := (g4Comp env.find? env.findProj? g4CompFuel P e).2, fs := #[], mode := 0,
-    pc := (g4Comp env.find? env.findProj? g4CompFuel P e).1, env := 0, x := 0 } [] at h₁
-  generalize g4Comp env.find? env.findProj? g4CompFuel P e = r at hc hrun h₁
+    P := (g4Comp env.find? env.findProj? P e).2, fs := #[], mode := 0,
+    pc := (g4Comp env.find? env.findProj? P e).1, env := 0, x := 0 } [] at h₁
+  generalize g4Comp env.find? env.findProj? P e = r at hc hrun h₁
   obtain ⟨o, P₂⟩ := r
   obtain ⟨hI₂, hx₂, -⟩ := hc
   dsimp only at hI₂ hx₂ hrun h₁

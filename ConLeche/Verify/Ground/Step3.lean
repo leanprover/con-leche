@@ -616,9 +616,9 @@ stored value at the entry's levels, stores the node, and dispatches again
 theorem step_delta_compile (h : MInv env t₀ oc s fl) (hm : s.mode = 3) {c : Name} {lps : List Name}
     {us : List Level} {v : Expr} (hi : s.P.kInfo[s.x]! = .defn c lps us v) :
     MInv env t₀ oc { s with P :=
-      { (g4Comp env.find? env.findProj? g4CompFuel s.P (v.instantiateLevelParams lps us)).2 with
-        kCode := (g4Comp env.find? env.findProj? g4CompFuel s.P (v.instantiateLevelParams lps us)).2.kCode.set!
-          s.x ((g4Comp env.find? env.findProj? g4CompFuel s.P (v.instantiateLevelParams lps us)).1 + 1) } }
+      { (g4Comp env.find? env.findProj? s.P (v.instantiateLevelParams lps us)).2 with
+        kCode := (g4Comp env.find? env.findProj? s.P (v.instantiateLevelParams lps us)).2.kCode.set!
+          s.x ((g4Comp env.find? env.findProj? s.P (v.instantiateLevelParams lps us)).1 + 1) } }
       fl := by
   have hf := h.focus
   simp only [Focus, hm] at hf
@@ -626,8 +626,8 @@ theorem step_delta_compile (h : MInv env t₀ oc s fl) (hm : s.mode = 3) {c : Na
   have hi' : s.P.kInfo[s.x]? = some (.defn c lps us v) := by
     rw [Array.getElem?_eq_getElem hk, ← hi, getElem!_pos s.P.kInfo s.x hk]
   have hcomp :=
-    (g4Comp_spec env.find? env.findProj? g4CompFuel).1 s.P (v.instantiateLevelParams lps us) h.store.prog
-  generalize g4Comp env.find? env.findProj? g4CompFuel s.P (v.instantiateLevelParams lps us) = r at hcomp ⊢
+    g4Comp_spec env.find? env.findProj? s.P (v.instantiateLevelParams lps us) h.store.prog
+  generalize g4Comp env.find? env.findProj? s.P (v.instantiateLevelParams lps us) = r at hcomp ⊢
   obtain ⟨o, P1⟩ := r
   obtain ⟨hI1, hx1, sb, hd, ha⟩ := hcomp
   dsimp only at hI1 hx1 hd ⊢

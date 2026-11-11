@@ -266,12 +266,12 @@ theorem run_mode3 (hwf : EnvWF env) (ih : RunSound env t₀ n) (hR : RunOK env s
           split at hrun
           next c lps us v hi =>
             have h' := step_delta_compile h hm hi
-            have hc := (g4Comp_spec env.find? env.findProj? g4CompFuel).1 s.P
+            have hc := g4Comp_spec env.find? env.findProj? s.P
               (v.instantiateLevelParams lps us) h.store.prog
             have hR' := (hR.ext hc.2.1.toExtR hc.2.1.site).ext (ExtR.codes _
-              ((g4Comp env.find? env.findProj? g4CompFuel s.P (v.instantiateLevelParams lps us)).2.kCode.set! s.x
-                ((g4Comp env.find? env.findProj? g4CompFuel s.P (v.instantiateLevelParams lps us)).1 + 1))
-              (g4Comp env.find? env.findProj? g4CompFuel s.P (v.instantiateLevelParams lps us)).2.ruleCode) rfl
+              ((g4Comp env.find? env.findProj? s.P (v.instantiateLevelParams lps us)).2.kCode.set! s.x
+                ((g4Comp env.find? env.findProj? s.P (v.instantiateLevelParams lps us)).1 + 1))
+              (g4Comp env.find? env.findProj? s.P (v.instantiateLevelParams lps us)).2.ruleCode) rfl
             exact ih.app h' hR' hrun hm
           next => exact nomatch hrun
         next hc0 =>
@@ -358,7 +358,7 @@ theorem run_mode1 (hwf : EnvWF env) (ih : RunSound env t₀ n) (hR : RunOK env s
       next hok =>
         have hok' : s.P.strOk = true := by simpa using hok
         have h' := step_iota_str hR h hm hv hok'
-        have hc := (g4Comp_spec env.find? env.findProj? g4CompFuel).1 s.P
+        have hc := g4Comp_spec env.find? env.findProj? s.P
           (strLitToConstructor s.P.strs[s.val[g4X4 s.x + 1]!]!) h.store.prog
         exact ih.app h' (hR.ext hc.2.1.toExtR hc.2.1.site) hrun rfl
     next hv =>
@@ -381,14 +381,14 @@ theorem run_mode1 (hwf : EnvWF env) (ih : RunSound env t₀ n) (hR : RunOK env s
               split at hrun
               next c lps us mI rP base nr isK isEta hik =>
                 have h' := step_iota_compile hwf h hm hn ht hv hk hc1.1 hri hc1.2 hcl' hc3' hik
-                have hcp := (g4Comp_spec env.find? env.findProj? g4CompFuel).1 s.P
+                have hcp := g4Comp_spec env.find? env.findProj? s.P
                   ((s.P.rules[ri]!).rhs.instantiateLevelParams lps us) h.store.prog
                 have hR' := (hR.ext hcp.2.1.toExtR hcp.2.1.site).ext (ExtR.codes _
-                  (g4Comp env.find? env.findProj? g4CompFuel s.P
+                  (g4Comp env.find? env.findProj? s.P
                     ((s.P.rules[ri]!).rhs.instantiateLevelParams lps us)).2.kCode
-                  ((g4Comp env.find? env.findProj? g4CompFuel s.P
+                  ((g4Comp env.find? env.findProj? s.P
                     ((s.P.rules[ri]!).rhs.instantiateLevelParams lps us)).2.ruleCode.set! ri
-                    ((g4Comp env.find? env.findProj? g4CompFuel s.P
+                    ((g4Comp env.find? env.findProj? s.P
                       ((s.P.rules[ri]!).rhs.instantiateLevelParams lps us)).1 + 1))) rfl
                 exact ih.app (h'.setPcEnv hm 0 0) hR' hrun hm
               next => exact nomatch hrun
@@ -441,7 +441,7 @@ theorem run_mode1 (hwf : EnvWF env) (ih : RunSound env t₀ n) (hR : RunOK env s
         next hok =>
           have hok' : s.P.strOk = true := by simpa using hok
           obtain ⟨fl', h'⟩ := step_proj_str hR h hm hn ht hv hok'
-          have hc := (g4Comp_spec env.find? env.findProj? g4CompFuel).1 s.P
+          have hc := g4Comp_spec env.find? env.findProj? s.P
             (strLitToConstructor s.P.strs[s.val[g4X4 s.x + 1]!]!) h.store.prog
           exact ih.app h' (hR.ext hc.2.1.toExtR hc.2.1.site) hrun rfl
       next =>

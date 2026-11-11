@@ -273,10 +273,10 @@ theorem MInv.enterCompiled (h : MInv env t₀ oc s fl) {fs : Array Nat} {fl' : L
     (hfs : FS fs fs.size fl') (hfl : FlOK s.P s.argA s.N fl') {e : Expr}
     (hc : e.looseBVarsBounded 0 = true) (hK : K env t₀ s.P s.argA oc fl' e) :
     MInv env t₀ oc { s with
-      P := (g4Comp env.find? env.findProj? g4CompFuel s.P e).2, fs := fs, mode := 0,
-      pc := (g4Comp env.find? env.findProj? g4CompFuel s.P e).1, env := 0, x := 0 } fl' := by
-  have hcomp := (g4Comp_spec env.find? env.findProj? g4CompFuel).1 s.P e h.store.prog
-  generalize g4Comp env.find? env.findProj? g4CompFuel s.P e = r at hcomp ⊢
+      P := (g4Comp env.find? env.findProj? s.P e).2, fs := fs, mode := 0,
+      pc := (g4Comp env.find? env.findProj? s.P e).1, env := 0, x := 0 } fl' := by
+  have hcomp := g4Comp_spec env.find? env.findProj? s.P e h.store.prog
+  generalize g4Comp env.find? env.findProj? s.P e = r at hcomp ⊢
   obtain ⟨o, P1⟩ := r
   obtain ⟨hI1, hx1, sb, hd, ha⟩ := hcomp
   dsimp only at hI1 hx1 hd ⊢
@@ -351,10 +351,10 @@ theorem step_proj_str (hR : RunOK env s.P) (h : MInv env t₀ oc s fl) (hm : s.m
     (hn : 0 < s.fs.size) (ht : s.fs[s.fs.size - 1]! &&& 15 = 4) (h3 : s.val[g4X4 s.x]! = 3)
     (hok : s.P.strOk = true) :
     ∃ fl', MInv env t₀ oc { s with
-      P := (g4Comp env.find? env.findProj? g4CompFuel s.P
+      P := (g4Comp env.find? env.findProj? s.P
         (strLitToConstructor s.P.strs[s.val[g4X4 s.x + 1]!]!)).2,
       fs := (s.fs.pop.pop.push s.fs[s.fs.size - 2]!).push 4, mode := 0,
-      pc := (g4Comp env.find? env.findProj? g4CompFuel s.P
+      pc := (g4Comp env.find? env.findProj? s.P
         (strLitToConstructor s.P.strs[s.val[g4X4 s.x + 1]!]!)).1, env := 0, x := 0 } fl' := by
   rw [g4X4_eq] at h3 ⊢
   obtain ⟨-, t, hv, hK⟩ := h.val1 hm
@@ -496,19 +496,19 @@ theorem step_iota_compile (hwf : EnvWF env) (h : MInv env t₀ oc s fl) (hm : s.
     {c' : Name} {lps : List Name} {us : List Level} {mI' rP' base' nr' : Nat} {isK' isEta' : Bool}
     (hik : s.P.kInfo[k]! = .recr c' lps us mI' rP' base' nr' isK' isEta') :
     MInv env t₀ oc { s with P :=
-      { (g4Comp env.find? env.findProj? g4CompFuel s.P ((s.P.rules[ri]!).rhs.instantiateLevelParams lps us)).2 with
-        ruleCode := (g4Comp env.find? env.findProj? g4CompFuel s.P
+      { (g4Comp env.find? env.findProj? s.P ((s.P.rules[ri]!).rhs.instantiateLevelParams lps us)).2 with
+        ruleCode := (g4Comp env.find? env.findProj? s.P
           ((s.P.rules[ri]!).rhs.instantiateLevelParams lps us)).2.ruleCode.set! ri
-          ((g4Comp env.find? env.findProj? g4CompFuel s.P
+          ((g4Comp env.find? env.findProj? s.P
             ((s.P.rules[ri]!).rhs.instantiateLevelParams lps us)).1 + 1) } } fl := by
   obtain ⟨fl', c, lps₀, us₀, mI, rP, base, nr, isK, isEta, rhs, -, -, -, hi, hb₁, hb₂, -⟩ :=
     h.iotaFire hwf hm hn ht h1 hk hkc hri hne hcl hc3
   rw [getElem!_of_getElem? hi] at hik
   simp only [G4Info.recr.injEq] at hik
   obtain ⟨-, rfl, rfl, -, -, -, -, -, -⟩ := hik
-  have hcomp := (g4Comp_spec env.find? env.findProj? g4CompFuel).1 s.P
+  have hcomp := g4Comp_spec env.find? env.findProj? s.P
     ((s.P.rules[ri]!).rhs.instantiateLevelParams lps₀ us₀) h.store.prog
-  generalize g4Comp env.find? env.findProj? g4CompFuel s.P
+  generalize g4Comp env.find? env.findProj? s.P
     ((s.P.rules[ri]!).rhs.instantiateLevelParams lps₀ us₀) = r at hcomp ⊢
   obtain ⟨o, P1⟩ := r
   obtain ⟨hI1, hx1, sb, hd, ha⟩ := hcomp
@@ -647,9 +647,9 @@ the ι frame (`ERed.strLit`). -/
 theorem step_iota_str (hR : RunOK env s.P) (h : MInv env t₀ oc s fl) (hm : s.mode = 1)
     (h3 : s.val[g4X4 s.x]! = 3) (hok : s.P.strOk = true) :
     MInv env t₀ oc { s with
-      P := (g4Comp env.find? env.findProj? g4CompFuel s.P
+      P := (g4Comp env.find? env.findProj? s.P
         (strLitToConstructor s.P.strs[s.val[g4X4 s.x + 1]!]!)).2, mode := 0,
-      pc := (g4Comp env.find? env.findProj? g4CompFuel s.P
+      pc := (g4Comp env.find? env.findProj? s.P
         (strLitToConstructor s.P.strs[s.val[g4X4 s.x + 1]!]!)).1, env := 0, x := 0 } fl := by
   rw [g4X4_eq] at h3 ⊢
   obtain ⟨-, t, hv, hK⟩ := h.val1 hm

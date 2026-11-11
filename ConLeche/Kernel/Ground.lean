@@ -397,34 +397,34 @@ def g4MaskOf (P : G4Prog) (hd : Expr) : Array Bool × G4Prog :=
 /-- One argument of a spine (`acc`: the argument nodes so far and the
 program): an erased argument is the neutral node; otherwise `compArg`
 compiles it. -/
-def g4ArgStep (compArg : G4Prog → Expr → Nat × G4Prog) (mask : Array Bool)
-    (acc : Array Nat × G4Prog) (a : Expr) : Array Nat × G4Prog :=
+def g4ArgStep {α : Type} (compArg : G4Prog → α → Nat × G4Prog) (mask : Array Bool)
+    (acc : Array Nat × G4Prog) (a : α) : Array Nat × G4Prog :=
   if mask.getD acc.1.size false then
     let o := acc.2.code.size; (acc.1.push o, acc.2.emit (fun c => c.push 8))
   else
   let (ao, P) := compArg acc.2 a
   (acc.1.push ao, P)
 
-/-- A spine `hd args` with its head's erasure mask: the head and the
-arguments compiled by `comp` and `compArg` (the compiler at the fuel
-below), then the spine node `[1, head, n, a₁ … aₙ]`.  An erased
-argument is the neutral node. -/
-def g4CompSpine (comp compArg : G4Prog → Expr → Nat × G4Prog) (P : G4Prog) (hd : Expr)
-    (args : List Expr) (mask : Array Bool) : Nat × G4Prog :=
-  let (ho, P) := comp P hd
+/-- A spine `hd args` with its head's erasure mask: the head compiled by
+`comp`, the arguments by `compArg` (the compiler on the subterms), then
+the spine node `[1, head, n, a₁ … aₙ]`.  An erased argument is the
+neutral node. -/
+def g4CompSpine {α : Type} (comp : G4Prog → Nat × G4Prog) (compArg : G4Prog → α → Nat × G4Prog)
+    (P : G4Prog) (args : List α) (mask : Array Bool) : Nat × G4Prog :=
+  let (ho, P) := comp P
   let (aos, P) := args.foldl (g4ArgStep compArg mask) (#[], P)
   let o := P.code.size
   (o, P.emit (fun c => aos.foldl (fun c a => c.push a) (((c.push 1).push ho).push aos.size)))
 
-/-- A closed application, `let` or projection in argument position (`comp`:
-the compiler at the fuel below): one node per closed term in the program,
+/-- A closed application, `let` or projection `a` in argument position
+(`comp`: the compiler on `a`): one node per closed term in the program,
 `[9, slot, e]`, with a sharing slot (`closedNode`, keyed pointer-first). -/
-def g4CompShared (comp : G4Prog → Expr → Nat × G4Prog) (P : G4Prog) (a : Expr) : Nat × G4Prog :=
+def g4CompShared (comp : G4Prog → Nat × G4Prog) (P : G4Prog) (a : Expr) : Nat × G4Prog :=
   if a.bvarBRaw == 0 then
     match P.closedNode[a]? with
     | some o => (o, P)
     | none =>
-      let (ao, P) := comp P a
+      let (ao, P) := comp P
       -- (never taken: compiling `a` registers only its proper subterms;
       -- the check keeps `closedNode` growing without that proof)
       match P.closedNode[a]? with
@@ -435,7 +435,27 @@ def g4CompShared (comp : G4Prog → Expr → Nat × G4Prog) (P : G4Prog) (a : Ex
       let P := { P.emit (fun c => ((c.push 9).push ns).push ao) with nslots := ns + 1 }
       let cm := P.closedNode; let P := { P with closedNode := {} }
       (o, { P with closedNode := cm.insert a o })
-  else comp P a
+  else comp P
+
+/-- The head of a spine is smaller than the spine. -/
+theorem Expr.sizeOf_getAppFn_le : ∀ (e : Expr), sizeOf e.getAppFn ≤ sizeOf e
+  | .app f a => by
+    have := Expr.sizeOf_getAppFn_le f
+    simp only [Expr.getAppFn, Expr.app.sizeOf_spec]; omega
+  | .bvar _ | .fvar .. | .sort _ | .const .. | .lam .. | .forallE .. | .letE .. | .lit _
+  | .proj .. => by simp only [Expr.getAppFn]; omega
+
+/-- A spine's argument is smaller than the spine. -/
+theorem Expr.sizeOf_lt_of_mem_getAppArgs : ∀ {e a : Expr}, a ∈ e.getAppArgs → sizeOf a < sizeOf e
+  | .app f x, a, h => by
+    simp only [Expr.getAppArgs, List.mem_append, List.mem_singleton] at h
+    simp only [Expr.app.sizeOf_spec]
+    rcases h with h | rfl
+    · have := Expr.sizeOf_lt_of_mem_getAppArgs h; omega
+    · omega
+  | .bvar _, _, h | .fvar .., _, h | .sort _, _, h | .const .., _, h | .lam .., _, h
+  | .forallE .., _, h | .letE .., _, h | .lit _, _, h | .proj .., _, h => by
+    simp [Expr.getAppArgs] at h
 
 mutual
 /-- Compile `e` (closed under the binders the code will be run under);
@@ -444,20 +464,18 @@ spine `[1, head, n, a₁ … aₙ]`, `2` λ `[2, body]`, `3` let `[3, v, body]`,
 `4` constant `[4, entry]`, `5` `Nat` literal `[5, n]`, `6` string `[6,
 s]`, `7` projection `[7, proj + 1, e]` (with no projection table, the neutral), `8` neutral `[8]`, `9`
 shared closed argument `[9, slot, e]`. -/
-def g4Comp : Nat → G4Prog → Expr → Nat × G4Prog
-  | 0, P, _ => let o := P.code.size; (o, P.emit (fun c => c.push 8))
-  | f + 1, P, e =>
+def g4Comp (P : G4Prog) (e : Expr) : Nat × G4Prog :=
     match e with
     | .bvar i => let o := P.code.size; (o, P.emit (fun c => (c.push 0).push i))
     | .lam _ b =>
       -- `[2, body, n, inner]`: `n` the λ-telescope's length from here,
       -- `inner` the innermost body (all of them bound in one step)
-      let (bo, P) := g4Comp f P b
+      let (bo, P) := g4Comp P b
       let (tn, inner) := if P.code[bo]! == 2 then (P.code[bo + 2]! + 1, P.code[bo + 3]!) else (1, bo)
       let o := P.code.size; (o, P.emit (fun c => (((c.push 2).push bo).push tn).push inner))
     | .letE _ v b =>
-      let (vo, P) := g4CompArg f P v
-      let (bo, P) := g4Comp f P b
+      let (vo, P) := g4CompArg P v
+      let (bo, P) := g4Comp P b
       let o := P.code.size; (o, P.emit (fun c => ((c.push 3).push vo).push bo))
     | .const c us =>
       let (k, P) := g4Resolve find? findProj? P c us
@@ -472,7 +490,7 @@ def g4Comp : Nat → G4Prog → Expr → Nat × G4Prog
     | .proj sn i s =>
       match findProj? sn i with
       | some en =>
-        let (so, P) := g4Comp f P s
+        let (so, P) := g4Comp P s
         let pj : G4Proj := ⟨sn, en.ctor, i, en.numParams, en.numFields,
            en.levelParams.length, true, en⟩
         let (ni, P) := P.nid en.ctor
@@ -487,26 +505,30 @@ def g4Comp : Nat → G4Prog → Expr → Nat × G4Prog
         let o := P.code.size; (o, P.emit (fun c => ((c.push 7).push pi).push so))
       -- no projection table: the projection is stuck, the neutral
       | none => let o := P.code.size; (o, P.emit (fun c => c.push 8))
-    | .app .. =>
-      let (hd, args) := (e.getAppFn, e.getAppArgs)
-      let (mask, P) := g4MaskOf find? P hd
-      g4CompSpine (g4Comp f) (g4CompArg f) P hd args mask
+    | .app f x =>
+      let (mask, P) := g4MaskOf find? P (Expr.app f x).getAppFn
+      g4CompSpine (fun P => g4Comp P (Expr.app f x).getAppFn)
+        (fun P (a : {a // a ∈ (Expr.app f x).getAppArgs}) => g4CompArg P a.1)
+        P (Expr.app f x).getAppArgs.attach mask
     | .sort _ | .forallE .. | .fvar .. => let o := P.code.size; (o, P.emit (fun c => c.push 8))
+termination_by 2 * sizeOf e
+decreasing_by
+  all_goals first
+    | (simp only [Expr.lam.sizeOf_spec, Expr.letE.sizeOf_spec, Expr.proj.sizeOf_spec]; omega)
+    | (have := Expr.sizeOf_getAppFn_le f
+       simp only [Expr.getAppFn, Expr.app.sizeOf_spec]; omega)
+    | (have := Expr.sizeOf_lt_of_mem_getAppArgs a.2; omega)
 
 /-- An argument position: a closed application, `let` or projection
 gets a sharing slot. -/
-def g4CompArg : Nat → G4Prog → Expr → Nat × G4Prog
-  | 0, P, _ => let o := P.code.size; (o, P.emit (fun c => c.push 8))
-  | f + 1, P, a =>
-    match a with
-    | .app .. | .letE .. | .proj .. => g4CompShared (g4Comp f) P a
-    | _ => g4Comp f P a
+def g4CompArg (P : G4Prog) (a : Expr) : Nat × G4Prog :=
+    match _h : a with
+    | .app .. | .letE .. | .proj .. => g4CompShared (fun P => g4Comp P a) P a
+    | _ => g4Comp P a
+termination_by 2 * sizeOf a + 1
+decreasing_by all_goals (subst _h; omega)
 end
 end
-
-/-- The compiler's recursion budget (a termination device, as
-`checkFuel`). -/
-@[irreducible, noinline] def g4CompFuel : Nat := 4611686018427387904  -- 2^62
 
 /-! ## Flat-state helpers (each returns one array: no tuple per call) -/
 
@@ -863,7 +885,7 @@ def g4Run : Nat → G4Prog → (cel val ev fs argA slots mem mH : Array Nat) →
           if P.kCode[k]! == 0 then
             match P.kInfo[k]! with
             | .defn _ lps us v =>
-              let (o, P) := g4Comp find? findProj? g4CompFuel P (v.instantiateLevelParams lps us)
+              let (o, P) := g4Comp find? findProj? P (v.instantiateLevelParams lps us)
               let P := let kc := P.kCode; let P := { P with kCode := #[] }
                 { P with kCode := kc.set! k (o + 1) }
               g4Run n P cel val ev fs argA slots mem mH 3 pc env k st
@@ -945,7 +967,7 @@ def g4Run : Nat → G4Prog → (cel val ev fs argA slots mem mH : Array Nat) →
         | 3 =>
           if !P.strOk then .stop (.stuck "string literal") st else
           let sE := strLitToConstructor P.strs[val[g4X4 v + 1]!]!
-          let (o, P) := g4Comp find? findProj? g4CompFuel P sE
+          let (o, P) := g4Comp find? findProj? P sE
           g4Run n P cel val ev fs argA slots mem mH 0 o 0 0 st
         | 1 =>
           let kc := val[g4X4 v + 1]!
@@ -966,7 +988,7 @@ def g4Run : Nat → G4Prog → (cel val ev fs argA slots mem mH : Array Nat) →
             match P.kInfo[k]! with
             | .recr _ lps us _ _ _ _ _ _ =>
               let rhsE := P.rules[ri]!.rhs.instantiateLevelParams lps us
-              let (o, P) := g4Comp find? findProj? g4CompFuel P rhsE
+              let (o, P) := g4Comp find? findProj? P rhsE
               let P := let rc := P.ruleCode; let P := { P with ruleCode := #[] }
                 { P with ruleCode := rc.set! ri (o + 1) }
               g4Run n P cel val ev fs argA slots mem mH 1 0 0 v st
@@ -1019,7 +1041,7 @@ def g4Run : Nat → G4Prog → (cel val ev fs argA slots mem mH : Array Nat) →
         | 3 =>
           if !P.strOk then .stop (.stuck "string literal") st else
           let sE := strLitToConstructor P.strs[val[g4X4 v + 1]!]!
-          let (o, P) := g4Comp find? findProj? g4CompFuel P sE
+          let (o, P) := g4Comp find? findProj? P sE
           g4Run n P cel val ev ((fs.push pi).push 4) argA slots mem mH 0 o 0 0 st
         | _ => g4Run n P cel val ev fs argA slots mem mH 1 0 0 0 st
       | 7 =>
@@ -1115,7 +1137,7 @@ def ground4BoolCoreF (find? : Name → Option ConstantInfo)
     (P₀ : G4Prog) (e : Expr) :
     (Except G4Stop Bool × (Nat × Nat)) × G4Prog :=
   let P : G4Prog := g4Setup find? findProj? natOk strOk maxNat P₀
-  let (o, P) := g4Comp find? findProj? g4CompFuel P e
+  let (o, P) := g4Comp find? findProj? P e
   let r : Except G4Stop Bool × (Nat × Nat) × G4Prog :=
     let sl := P.slotA
     let P := { P with slotA := #[] }

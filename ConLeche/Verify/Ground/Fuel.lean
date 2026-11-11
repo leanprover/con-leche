@@ -106,7 +106,7 @@ theorem ground4BoolCoreF_mono {find? : Name → Option ConstantInfo}
       ground4BoolCoreF find? findProj? natOk strOk maxNat n P₀ e := by
   unfold ground4BoolCoreF at h ⊢
   generalize g4Setup find? findProj? natOk strOk maxNat P₀ = P at h ⊢
-  rcases hc : g4Comp find? findProj? g4CompFuel P e with ⟨o, P⟩
+  rcases hc : g4Comp find? findProj? P e with ⟨o, P⟩
   simp only [hc] at h ⊢
   generalize hr : g4Run find? findProj? n { P with slotA := #[] } #[2, 0, 0, 0] #[5, 0, 0, 0] #[] #[]
     #[] P.slotA #[] (Array.replicate 1024 0) 0 o 0 0 0 = r at h ⊢

@@ -1403,19 +1403,19 @@ theorem emit_spine (P : G4Prog) (ho : Nat) (aos : Array Nat) :
   rfl
 
 /-- One argument step keeps the fold's invariant. -/
-theorem g4ArgStep_spec (compArg : G4Prog → Expr → Nat × G4Prog)
-    (harg : ∀ P a, Inv find? findProj? P → CompOK find? findProj? P a (compArg P a)) (mask : Array Bool)
-    {P₁ : G4Prog} (acc : Array Nat × G4Prog) (done : List Expr) (a : Expr)
+theorem g4ArgStep_spec {α : Type} (ev : α → Expr) (compArg : G4Prog → α → Nat × G4Prog)
+    (harg : ∀ P a, Inv find? findProj? P → CompOK find? findProj? P (ev a) (compArg P a)) (mask : Array Bool)
+    {P₁ : G4Prog} (acc : Array Nat × G4Prog) (done : List Expr) (a : α)
     (h₁ : Inv find? findProj? acc.2) (h₂ : Ext P₁ acc.2) (h₃ : ArgsOK acc.2 acc.1 done) :
     Inv find? findProj? (g4ArgStep compArg mask acc a).2 ∧ Ext P₁ (g4ArgStep compArg mask acc a).2 ∧
       ArgsOK (g4ArgStep compArg mask acc a).2 (g4ArgStep compArg mask acc a).1
-        (done ++ [a]) := by
+        (done ++ [ev a]) := by
   unfold g4ArgStep
   split
   · dsimp only
     rw [emit_append1]
     have hx := Ext.emit acc.2 #[8]
-    refine ⟨h₁.emit _, h₂.trans hx, (h₃.ext hx).push (by simp [G4Prog.emit]) (.neutral ?_) (.bot a)⟩
+    refine ⟨h₁.emit _, h₂.trans hx, (h₃.ext hx).push (by simp [G4Prog.emit]) (.neutral ?_) (.bot (ev a))⟩
     show (acc.2.code ++ #[8])[acc.2.code.size]? = some 8; rw [rd0]; rfl
   · obtain ⟨hI', hx', s, hd, ha⟩ := harg acc.2 a h₁
     generalize compArg acc.2 a = r at hI' hx' hd ⊢
@@ -1423,32 +1423,33 @@ theorem g4ArgStep_spec (compArg : G4Prog → Expr → Nat × G4Prog)
     dsimp only at hI' hx' hd ⊢
     exact ⟨hI', h₂.trans hx', (h₃.ext hx').push hd.lt_size hd ha⟩
 
-theorem g4ArgFold_spec (compArg : G4Prog → Expr → Nat × G4Prog)
-    (harg : ∀ P a, Inv find? findProj? P → CompOK find? findProj? P a (compArg P a)) (mask : Array Bool)
-    {P₁ : G4Prog} : ∀ (l : List Expr) (acc : Array Nat × G4Prog) (done : List Expr),
+theorem g4ArgFold_spec {α : Type} (ev : α → Expr) (compArg : G4Prog → α → Nat × G4Prog)
+    (harg : ∀ P a, Inv find? findProj? P → CompOK find? findProj? P (ev a) (compArg P a)) (mask : Array Bool)
+    {P₁ : G4Prog} : ∀ (l : List α) (acc : Array Nat × G4Prog) (done : List Expr),
       Inv find? findProj? acc.2 → Ext P₁ acc.2 → ArgsOK acc.2 acc.1 done →
       Inv find? findProj? (l.foldl (g4ArgStep compArg mask) acc).2 ∧
         Ext P₁ (l.foldl (g4ArgStep compArg mask) acc).2 ∧
         ArgsOK (l.foldl (g4ArgStep compArg mask) acc).2
-          (l.foldl (g4ArgStep compArg mask) acc).1 (done ++ l)
+          (l.foldl (g4ArgStep compArg mask) acc).1 (done ++ l.map ev)
   | [], acc, done, h₁, h₂, h₃ => by simpa using ⟨h₁, h₂, h₃⟩
   | a :: l, acc, done, h₁, h₂, h₃ => by
-    obtain ⟨h₁', h₂', h₃'⟩ := g4ArgStep_spec find? findProj? compArg harg mask acc done a h₁ h₂ h₃
-    have := g4ArgFold_spec compArg harg mask l _ _ h₁' h₂' h₃'
+    obtain ⟨h₁', h₂', h₃'⟩ := g4ArgStep_spec find? findProj? ev compArg harg mask acc done a h₁ h₂ h₃
+    have := g4ArgFold_spec ev compArg harg mask l _ _ h₁' h₂' h₃'
     simpa using this
 
 /-- **A spine** compiled by compilers that keep the promise keeps it. -/
-theorem g4CompSpine_spec (comp compArg : G4Prog → Expr → Nat × G4Prog)
-    (hcomp : ∀ P e, Inv find? findProj? P → CompOK find? findProj? P e (comp P e))
-    (harg : ∀ P a, Inv find? findProj? P → CompOK find? findProj? P a (compArg P a))
-    (P : G4Prog) (hd : Expr) (args : List Expr) (mask : Array Bool) (hI : Inv find? findProj? P) :
-    CompOK find? findProj? P (Expr.mkAppN hd args) (g4CompSpine comp compArg P hd args mask) := by
+theorem g4CompSpine_spec {α : Type} (ev : α → Expr) (hd : Expr) (comp : G4Prog → Nat × G4Prog)
+    (compArg : G4Prog → α → Nat × G4Prog)
+    (hcomp : ∀ P, Inv find? findProj? P → CompOK find? findProj? P hd (comp P))
+    (harg : ∀ P a, Inv find? findProj? P → CompOK find? findProj? P (ev a) (compArg P a))
+    (P : G4Prog) (args : List α) (mask : Array Bool) (hI : Inv find? findProj? P) :
+    CompOK find? findProj? P (Expr.mkAppN hd (args.map ev)) (g4CompSpine comp compArg P args mask) := by
   unfold g4CompSpine
-  obtain ⟨hI₁, hx₁, sh, hdh, hah⟩ := hcomp P hd hI
-  generalize comp P hd = r at hI₁ hx₁ hdh ⊢
+  obtain ⟨hI₁, hx₁, sh, hdh, hah⟩ := hcomp P hI
+  generalize comp P = r at hI₁ hx₁ hdh ⊢
   obtain ⟨ho, P₁⟩ := r
   dsimp only at hI₁ hx₁ hdh ⊢
-  obtain ⟨hI₂, hx₂, hargs⟩ := g4ArgFold_spec find? findProj? compArg harg mask (P₁ := P₁) args (#[], P₁) []
+  obtain ⟨hI₂, hx₂, hargs⟩ := g4ArgFold_spec find? findProj? ev compArg harg mask (P₁ := P₁) args (#[], P₁) []
     hI₁ (Ext.refl _) ⟨rfl, fun j hj => absurd hj (by simp)⟩
   generalize args.foldl (g4ArgStep compArg mask) (#[], P₁) = r at hI₂ hx₂ hargs ⊢
   obtain ⟨aos, P₂⟩ := r
@@ -1479,8 +1480,8 @@ theorem closed_of_bvarBRaw {a : Expr} (h : a.bvarBRaw = 0) : a.looseBVarsBounded
     rw [← Expr.bvarBRaw_exact a (by rw [h]; unfold satRange; omega)]; omega)
 
 /-- **A shared closed argument** keeps the promise. -/
-theorem g4CompShared_spec (comp : G4Prog → Expr → Nat × G4Prog)
-    (hcomp : ∀ P e, Inv find? findProj? P → CompOK find? findProj? P e (comp P e)) (P : G4Prog) (a : Expr) (hI : Inv find? findProj? P) :
+theorem g4CompShared_spec (a : Expr) (comp : G4Prog → Nat × G4Prog)
+    (hcomp : ∀ P, Inv find? findProj? P → CompOK find? findProj? P a (comp P)) (P : G4Prog) (hI : Inv find? findProj? P) :
     CompOK find? findProj? P a (g4CompShared comp P a) := by
   unfold g4CompShared
   split
@@ -1489,8 +1490,8 @@ theorem g4CompShared_spec (comp : G4Prog → Expr → Nat × G4Prog)
     · rename_i o ho
       obtain ⟨s, -, -, hd, ha, -⟩ := hI.closed a o ho
       exact ⟨hI, Ext.refl P, s, hd, ha⟩
-    · obtain ⟨hI₁, hx₁, s, hd, ha⟩ := hcomp P a hI
-      generalize comp P a = r at hI₁ hx₁ hd ⊢
+    · obtain ⟨hI₁, hx₁, s, hd, ha⟩ := hcomp P hI
+      generalize comp P = r at hI₁ hx₁ hd ⊢
       obtain ⟨ao, P₁⟩ := r
       dsimp only at hI₁ hx₁ hd ⊢
       split
@@ -1548,24 +1549,24 @@ theorem g4CompShared_spec (comp : G4Prog → Expr → Nat × G4Prog)
             exact .inr ⟨(Option.some.inj h₂).symm, (Den.unique h₃ hden)⟩
           · exact .inl (Owns.back_node hI₁ hx h₁ h₂ h₃)
         · exact .inl (Owns.back_entry hI₁ hx h₁ h₂ h₃)
-  · exact hcomp P a hI
+  · exact hcomp P hI
 
 /-- **The compiler is correct up to erasure**: the node it returns denotes a
 term approximating the one it compiled, in a program that extends the one
 it was given, with the invariant kept. -/
-theorem g4Comp_spec : ∀ (f : Nat),
-    (∀ (P : G4Prog) (e : Expr), Inv find? findProj? P → CompOK find? findProj? P e (g4Comp find? findProj? f P e)) ∧
-    (∀ (P : G4Prog) (a : Expr), Inv find? findProj? P → CompOK find? findProj? P a (g4CompArg find? findProj? f P a)) := by
-  intro f
-  induction f with
-  | zero =>
-    refine ⟨fun P e hI => ?_, fun P a hI => ?_⟩
-    · unfold g4Comp; exact CompOK.neutral hI e
-    · unfold g4CompArg; exact CompOK.neutral hI a
-  | succ f ih =>
+theorem g4Comp_spec_lt : ∀ (n : Nat),
+    (∀ (P : G4Prog) (e : Expr), sizeOf e < n → Inv find? findProj? P →
+      CompOK find? findProj? P e (g4Comp find? findProj? P e)) ∧
+    (∀ (P : G4Prog) (a : Expr), sizeOf a < n → Inv find? findProj? P →
+      CompOK find? findProj? P a (g4CompArg find? findProj? P a)) := by
+  intro n
+  induction n with
+  | zero => exact ⟨fun _ _ h => absurd h (Nat.not_lt_zero _), fun _ _ h => absurd h (Nat.not_lt_zero _)⟩
+  | succ n ih =>
     obtain ⟨ihC, ihA⟩ := ih
-    have hC : ∀ (P : G4Prog) (e : Expr), Inv find? findProj? P → CompOK find? findProj? P e (g4Comp find? findProj? (f + 1) P e) := by
-      intro P e hI
+    have hC : ∀ (P : G4Prog) (e : Expr), sizeOf e < n + 1 → Inv find? findProj? P →
+        CompOK find? findProj? P e (g4Comp find? findProj? P e) := by
+      intro P e hs hI
       cases e with
       | bvar i =>
         unfold g4Comp; dsimp only
@@ -1600,8 +1601,8 @@ theorem g4Comp_spec : ∀ (f : Nat),
           · show (P.strs.push str)[P.strs.size]? = some str; exact Array.getElem?_push_size
       | lam ty b =>
         unfold g4Comp; dsimp only
-        obtain ⟨hI₁, hx₁, sb, hdb, hab⟩ := ihC P b hI
-        generalize g4Comp find? findProj? f P b = r at hI₁ hx₁ hdb ⊢
+        obtain ⟨hI₁, hx₁, sb, hdb, hab⟩ := ihC P b (by simp only [Expr.lam.sizeOf_spec] at hs; omega) hI
+        generalize g4Comp find? findProj? P b = r at hI₁ hx₁ hdb ⊢
         obtain ⟨bo, P₁⟩ := r
         dsimp only at hI₁ hx₁ hdb ⊢
         have hbo : bo < P₁.code.size := hdb.lt_size
@@ -1641,12 +1642,12 @@ theorem g4Comp_spec : ∀ (f : Nat),
             intro h; apply h2; rw [Option.some.inj h]; rfl
       | letE ty v b =>
         unfold g4Comp; dsimp only
-        obtain ⟨hI₁, hx₁, sv, hdv, hav⟩ := ihA P v hI
-        generalize g4CompArg find? findProj? f P v = r at hI₁ hx₁ hdv ⊢
+        obtain ⟨hI₁, hx₁, sv, hdv, hav⟩ := ihA P v (by simp only [Expr.letE.sizeOf_spec] at hs; omega) hI
+        generalize g4CompArg find? findProj? P v = r at hI₁ hx₁ hdv ⊢
         obtain ⟨vo, P₁⟩ := r
         dsimp only at hI₁ hx₁ hdv ⊢
-        obtain ⟨hI₂, hx₂, sb, hdb, hab⟩ := ihC P₁ b hI₁
-        generalize g4Comp find? findProj? f P₁ b = r at hI₂ hx₂ hdb ⊢
+        obtain ⟨hI₂, hx₂, sb, hdb, hab⟩ := ihC P₁ b (by simp only [Expr.letE.sizeOf_spec] at hs; omega) hI₁
+        generalize g4Comp find? findProj? P₁ b = r at hI₂ hx₂ hdb ⊢
         obtain ⟨bo, P₂⟩ := r
         dsimp only at hI₂ hx₂ hdb ⊢
         rw [emit_append3]
@@ -1672,8 +1673,8 @@ theorem g4Comp_spec : ∀ (f : Nat),
         unfold g4Comp; dsimp only
         split
         · rename_i en _
-          obtain ⟨hI₁, hx₁, se, hde, hae⟩ := ihC P e hI
-          generalize g4Comp find? findProj? f P e = r at hI₁ hx₁ hde ⊢
+          obtain ⟨hI₁, hx₁, se, hde, hae⟩ := ihC P e (by simp only [Expr.proj.sizeOf_spec] at hs; omega) hI
+          generalize g4Comp find? findProj? P e = r at hI₁ hx₁ hde ⊢
           obtain ⟨so, P₁⟩ := r
           dsimp only at hI₁ hx₁ hde ⊢
           generalize hn : P₁.nid en.ctor = rn
@@ -1733,17 +1734,30 @@ theorem g4Comp_spec : ∀ (f : Nat),
         generalize g4MaskOf find? P (Expr.app fn arg).getAppFn = r at hk₁ hn₁ ⊢
         obtain ⟨mask, P₁⟩ := r
         dsimp only at hk₁ ⊢
-        have := g4CompSpine_spec find? findProj? (g4Comp find? findProj? f) (g4CompArg find? findProj? f) ihC ihA P₁
-          (Expr.app fn arg).getAppFn (Expr.app fn arg).getAppArgs mask (hk₁.inv hI (by unfold NidOK; rw [hn₁]; exact hI.nidOK))
-        rw [mkAppN_getApp'] at this
+        have hsf := Expr.sizeOf_getAppFn_le fn
+        simp only [Expr.app.sizeOf_spec] at hs
+        have := g4CompSpine_spec find? findProj? Subtype.val (Expr.app fn arg).getAppFn
+          (fun P => g4Comp find? findProj? P (Expr.app fn arg).getAppFn)
+          (fun P (a : {a // a ∈ (Expr.app fn arg).getAppArgs}) => g4CompArg find? findProj? P a.1)
+          (fun P hI => ihC P _ (by simp only [Expr.getAppFn]; omega) hI)
+          (fun P a hI => ihA P a.1 (by
+            have := Expr.sizeOf_lt_of_mem_getAppArgs a.2
+            simp only [Expr.app.sizeOf_spec] at this; omega) hI) P₁
+          (Expr.app fn arg).getAppArgs.attach mask (hk₁.inv hI (by unfold NidOK; rw [hn₁]; exact hI.nidOK))
+        rw [List.attach_map_subtype_val, mkAppN_getApp'] at this
         exact CompOK.step find? findProj? this (hk₁.ext hI.szs)
-    refine ⟨hC, fun P a hI => ?_⟩
-    have hdef : CompOK find? findProj? P a (g4Comp find? findProj? f P a) := ihC P a hI
+    refine ⟨hC, fun P a hs hI => ?_⟩
+    have hdef : CompOK find? findProj? P a (g4Comp find? findProj? P a) := hC P a hs hI
     unfold g4CompArg
     split
     all_goals first
-      | exact g4CompShared_spec find? findProj? _ ihC P _ hI
+      | exact g4CompShared_spec find? findProj? _ _ (fun P hI => hC P _ (by assumption) hI) P hI
       | exact hdef
+
+/-- **The compiler is correct up to erasure** (`g4Comp_spec_lt` at the term's size). -/
+theorem g4Comp_spec (P : G4Prog) (e : Expr) (hI : Inv find? findProj? P) :
+    CompOK find? findProj? P e (g4Comp find? findProj? P e) :=
+  (g4Comp_spec_lt find? findProj? (sizeOf e + 1)).1 P e (Nat.lt_succ_self _) hI
 
 end
 
