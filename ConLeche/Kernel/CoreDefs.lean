@@ -627,18 +627,6 @@ def natOpGuard (env : Env) (c : Name) : Bool :=
       | none => false)
    else true)
 
-/-- The pin-certified WF-recursive `Nat` operations, as a *safety
-net*: the preceding certified branches normally intercept literal
-applications, so this list only fires when a capability is absent
-(op not stored, or a dependency missing — a mismatching declaration
-already declined at its check); such a *literal application* is then
-positively declined (arena exit 2) rather than ground unary through
-the fuel recursion.  Declaring the functions themselves is
-unaffected: only the reduction path declines. -/
-def natOpWfNames : List Name :=
-  [natDivName, natModName, natGcdName, natLandName, natLorName,
-   natXorName, natShiftLeftName, natShiftRightName]
-
 /-- Substitute the level-monomorphic constant `n` by `r` through an
 application spine (the certification equations' self-references; the
 equation sides are binder-free, so only `app` recurses). -/

@@ -1285,18 +1285,18 @@
    795        Infer env Γ (b.inst v) B →
    796        Infer env Γ (letE T v b) B
 
-== ConLeche/Kernel/Core.lean#L1065-L1067
-  1065      | .letE _ v b =>
-  1066        -- Task #342 S0: ζ
-  1067        r.whnfCore cheap depth (b.instantiate1 v)
+== ConLeche/Kernel/Core.lean#L1057-L1059
+  1057      | .letE _ v b =>
+  1058        -- Task #342 S0: ζ
+  1059        r.whnfCore cheap depth (b.instantiate1 v)
 
-== ConLeche/Kernel/Core.lean#L1309-L1314
-  1309      | .letE ty v b => do
-  1310        -- Task #342 S0: official `infer_let`
-  1311        let _ ← ensureSort r env depth (← r.infer depth ty)
-  1312        unless ← r.defeq depth (← r.infer depth v) ty do
-  1313          throw (.invalid "let value type mismatch")
-  1314        r.infer depth (b.instantiate1 v)
+== ConLeche/Kernel/Core.lean#L1301-L1306
+  1301      | .letE ty v b => do
+  1302        -- Task #342 S0: official `infer_let`
+  1303        let _ ← ensureSort r env depth (← r.infer depth ty)
+  1304        unless ← r.defeq depth (← r.infer depth v) ty do
+  1305          throw (.invalid "let value type mismatch")
+  1306        r.infer depth (b.instantiate1 v)
 
 >>> whitepaper/sections/02b-model-proof.typ
 
@@ -2250,39 +2250,39 @@
    545  "reduce, then continue": `redL`.
    546  -/
 
-== ConLeche/Kernel/Core.lean#L1457-L1463
-  1457  /-- The innermost level of `defeqBinders`: the opened bodies, and for
-  1458  two λ-telescopes at the verified mode their FULL-grade types. -/
-  1459  def defeqBindersInner (r : CoreFns m) (lam : Bool) (depth : Nat) (b₁ b₂ : Expr) : m Bool := do
-  1460    unless ← r.defeq (depth + 1) b₁ b₂ do return false
-  1461    if lam && mode.verifiedChecks then
-  1462      unless ← r.defeq (depth + 1) (← r.infer (depth + 1) b₁)
-  1463          (← r.infer (depth + 1) b₂) do return false
+== ConLeche/Kernel/Core.lean#L1449-L1455
+  1449  /-- The innermost level of `defeqBinders`: the opened bodies, and for
+  1450  two λ-telescopes at the verified mode their FULL-grade types. -/
+  1451  def defeqBindersInner (r : CoreFns m) (lam : Bool) (depth : Nat) (b₁ b₂ : Expr) : m Bool := do
+  1452    unless ← r.defeq (depth + 1) b₁ b₂ do return false
+  1453    if lam && mode.verifiedChecks then
+  1454      unless ← r.defeq (depth + 1) (← r.infer (depth + 1) b₁)
+  1455          (← r.infer (depth + 1) b₂) do return false
 
-== ConLeche/Kernel/Core.lean#L523-L528
-   523        -- Task #342 S0: the λ/η tax (T2)
-   524        if mode.verifiedChecks then
-   525          unless ← r.defeq (depth + 1)
-   526              (← r.infer (depth + 1)
-   527                (body₁.instantiate1 (.fvar depth ty₁)))
-   528              (cod₂.instantiate1 (.fvar depth ty₁)) do return false
+== ConLeche/Kernel/Core.lean#L515-L520
+   515        -- Task #342 S0: the λ/η tax (T2)
+   516        if mode.verifiedChecks then
+   517          unless ← r.defeq (depth + 1)
+   518              (← r.infer (depth + 1)
+   519                (body₁.instantiate1 (.fvar depth ty₁)))
+   520              (cod₂.instantiate1 (.fvar depth ty₁)) do return false
 
-== ConLeche/Kernel/Core.lean#L888-L902
-   888      | some (.recInfo cv mI rP isK rules) =>
-   889        let args := e.getAppArgs
-   890        -- checker change #9: the recursor's level arity, guarded as
-   891        -- `unfoldDefinition` guards it (`Core.lean:174`).  The official
-   892        -- kernel tests this immediately before instantiating the rule's
-   893        -- RHS (`src/kernel/inductive.h:105`, present since v4.0.0);
-   894        -- lean4lean does the same (`Inductive/Reduce.lean:98`) and
-   895        -- nanoda's `subst_expr_levels` asserts it.  Without it
-   896        -- `rl.rhs.instantiateLevelParams cv.levelParams us` can leak a
-   897        -- level parameter the subject never had.  Ungated: the reference has it
-   898        -- unconditionally, so a mode gate would break parity.
-   899        -- task #342 L18: the stored type's syntactic arity, which the
-   900        -- uncertified recursor spine is read against
-   901        if args.length = mI + 1 ∧ us.length = cv.levelParams.length ∧
-   902            (Expr.peelPis (mI + 1) cv.type).isSome = true then
+== ConLeche/Kernel/Core.lean#L880-L894
+   880      | some (.recInfo cv mI rP isK rules) =>
+   881        let args := e.getAppArgs
+   882        -- checker change #9: the recursor's level arity, guarded as
+   883        -- `unfoldDefinition` guards it (`Core.lean:174`).  The official
+   884        -- kernel tests this immediately before instantiating the rule's
+   885        -- RHS (`src/kernel/inductive.h:105`, present since v4.0.0);
+   886        -- lean4lean does the same (`Inductive/Reduce.lean:98`) and
+   887        -- nanoda's `subst_expr_levels` asserts it.  Without it
+   888        -- `rl.rhs.instantiateLevelParams cv.levelParams us` can leak a
+   889        -- level parameter the subject never had.  Ungated: the reference has it
+   890        -- unconditionally, so a mode gate would break parity.
+   891        -- task #342 L18: the stored type's syntactic arity, which the
+   892        -- uncertified recursor spine is read against
+   893        if args.length = mI + 1 ∧ us.length = cv.levelParams.length ∧
+   894            (Expr.peelPis (mI + 1) cv.type).isSome = true then
 
 == whitepaper/Fragment/ValueReading.lean#L177-L184
    177  /-- **Untyped lambda congruence is unsound** in the value-driven model: the
@@ -2463,13 +2463,13 @@
    481      (hA : DefEqSem m φ Γ A₂ A₁)
    482      (hbody : DefEqSem m φ (A₁ :: Γ) b₁ (.app (b.liftN 1) (.bvar 0)))
 
-== ConLeche/Kernel/Core.lean#L1318-L1323
-  1318  /-- **The io inference body** (tasks #161, #170, #346): official's
-  1319  `infer_type_core` with `infer_only = true`.  It differs from
-  1320  `inferBody` at three clauses: an application's argument is not
-  1321  checked against the domain, a λ's domain is not checked to be a type,
-  1322  and a `let`'s type and value are not checked (the body is inferred at
-  1323  the value).  The computed types and the "function expected" rejection
+== ConLeche/Kernel/Core.lean#L1310-L1315
+  1310  /-- **The io inference body** (tasks #161, #170, #346): official's
+  1311  `infer_type_core` with `infer_only = true`.  It differs from
+  1312  `inferBody` at three clauses: an application's argument is not
+  1313  checked against the domain, a λ's domain is not checked to be a type,
+  1314  and a `let`'s type and value are not checked (the body is inferred at
+  1315  the value).  The computed types and the "function expected" rejection
 
 >>> whitepaper/sections/03-definitions.typ
 
@@ -5688,17 +5688,17 @@
    455    | some _ => rules
 
 == ConLeche/Kernel/CoreDefs.lean#L959-L969
-   959  /-- The level and constructor-parameter comparands a firing rule's
-   960  checks compare the major's constructor levels and parameters against:
-   961  for a `.plain` rule the constructor's levels link to the recursor's by
-   962  name and its parameters are the recursor's leading arguments; for a
-   963  `.nested` rule both are the stored instantiations (the class the
-   964  auxiliary recursor's type was generated from, `auxRuleFire`), at the
-   965  recursor's level instantiation and (for the parameters) instantiated at
-   966  the recursor's leading-argument spine (the stored pins live in the
-   967  `rP`-binder prefix context; index arguments never occur in them); a
-   968  `.levels` rule's levels are stored and its parameters a `.plain` rule's. -/
-   969  def recFireComparands (rl : RecRule) (cnP : Nat) (lps : List Name)
+   959      (rP : Nat) : List Level × List Expr :=
+   960    match rl.fire with
+   961    | .nested lvls pins =>
+   962      (lvls.map (Level.subst lps us),
+   963       pins.map fun p => Expr.instSpine (args.take rP) (rP - 1)
+   964         (p.instantiateLevelParams lps us))
+   965    | .plain =>
+   966      (cvjLps.map fun p => Level.subst lps us (.param p),
+   967       args.take cnP)
+   968    | .levels lvls =>
+   969      (lvls.map (Level.subst lps us), args.take cnP)
 
 == ConLeche/Rules/Rel.lean#L217-L228
    217        IotaCase env isK cvj (recFireComparands rl cnP cv.levelParams us cvj.levelParams

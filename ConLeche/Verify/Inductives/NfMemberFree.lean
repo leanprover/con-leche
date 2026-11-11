@@ -400,30 +400,7 @@ theorem reduceNat_inv_bool {env : Env} {fuel d : Nat} {e e₂ : Expr}
             · obtain ⟨-, hb⟩ := natOpResult_const hres
               exact Or.inr ⟨bn, rfl, hb⟩
         | none => intro h; simp [pure, Except.pure] at h
-    · split
-      · intro h
-        revert h
-        cases hw1 : whnf mode false env fuel d a with
-        | error err => intro h; exact nomatch h
-        | ok a' =>
-        intro h
-        dsimp only at h
-        revert h
-        match rawNatLit? a' with
-        | none => intro h; simp [pure, Except.pure] at h
-        | some _ =>
-          intro h
-          revert h
-          cases hw2 : whnf mode false env fuel d b with
-          | error err => intro h; exact nomatch h
-          | ok b' =>
-          intro h
-          dsimp only at h
-          revert h
-          match rawNatLit? b' with
-          | some _ => intro h; exact nomatch h
-          | none => intro h; simp [pure, Except.pure] at h
-      · intro h; simp [pure, Except.pure] at h
+    · intro h; simp [pure, Except.pure] at h
 
 /-! ## The reduction steps -/
 

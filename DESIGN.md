@@ -113564,3 +113564,18 @@ landed meanwhile and the lane was merged with it: `whnfStuckI` joined the block 
 new signatures.
 
 Logs and scripts: `_tmp/556/logs` (`b2/` is the table above), `_tmp/556/*.sh`.
+
+## TASK #557: the dead `natOpWfNames` branch leaves the specification
+
+Maintainer's ruling: remove it.  `reduceNat`'s binary arm tested the fourteen official
+operation names first; its second branch, on `natOpWfNames` (div, mod, gcd, land, lor, xor,
+shiftLeft, shiftRight), could only fire for a name among those fourteen and so never did.
+#556 had already removed the matching branch from `reduceNatI`.
+
+* Deleted: the branch (the arm now ends `… else pure none`) and `natOpWfNames` with its
+  docstring (`Kernel/CoreDefs`).
+* Proofs that split on the branch, each one case shorter: `reduceNat_shift` (`Verify/Deep`),
+  `reduceNat_rel` (`Verify/EnvExt/Whnf`), the `reduceNat` inversions in
+  `Verify/InferLemmas`, `Verify/Inductives/NfMemberFree` and `Verify/Rules/RedBridge`.
+  `NatBinOp.ofName?_none` (`Verify/Cached/DiscC1`) loses its second conjunct.
+* No behaviour change: the dropped branch was unreachable; verdicts are identical.

@@ -433,7 +433,7 @@ theorem reduceNat_rel {e : Expr} (he : Res env₁ e) :
           obtain ⟨hcf, ha'⟩ := res_app.mp hf
           have hc := res_const.mp hcf
           simp only [reduceNat]
-          refine Rel.ite (fun hop => ?_) fun _ => Rel.ite (fun _ => ?_) fun _ => Rel.ok resO_none
+          refine Rel.ite (fun hop => ?_) fun _ => Rel.ok resO_none
           · refine Rel.bind (K.whnf d ha') fun w₁ hw₁ => ?_
             cases hr₁ : rawNatLit? w₁ with
             | none => exact Rel.ok resO_none
@@ -446,15 +446,6 @@ theorem reduceNat_rel {e : Expr} (he : Res env₁ e) :
                 exact Rel.ok fun x h => res_natOpResult hx.facts
                   (hx.facts.opDefn c (natOpName_of_bin hop) hc)
                   (nat_of_rawNatLit hw₁ hr₁) h
-          · refine Rel.bind (K.whnf d ha') fun w₁ _ => ?_
-            cases rawNatLit? w₁ with
-            | none => exact Rel.ok resO_none
-            | some n₁ =>
-              dsimp only
-              refine Rel.bind (K.whnf d ha) fun w₂ _ => ?_
-              cases rawNatLit? w₂ with
-              | none => exact Rel.ok resO_none
-              | some n₂ => exact Rel.err _
 
 theorem iotaRec_rel (mode : CheckMode) {e : Expr} (he : Res env₁ e) :
     Rel (ResO env₁) (iotaRec mode r₂ env₂ d e) (iotaRec mode r₁ env₁ d e) := by

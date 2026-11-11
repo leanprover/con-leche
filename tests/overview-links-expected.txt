@@ -316,13 +316,13 @@
     53  def ensureSortCore (env : Env) (fuel depth : Nat) (e : Expr) : CheckM Level :=
     54    ensureSort (pureFns mode eager env fuel) env depth e
 
-== ConLeche/Kernel/Core.lean#L1868-L1873
-  1868        whnf := fun _ _ => throw (.internal "fuel exhausted: whnf")
-  1869        infer := fun _ _ => throw (.internal "fuel exhausted: infer")
-  1870        defeq := fun _ _ _ => throw (.internal "fuel exhausted: defeq")
-  1871        defeqE := fun _ _ _ => throw (.internal "fuel exhausted: defeq")
-  1872        inferIO := fun _ _ => throw (.internal "fuel exhausted: infer") }
-  1873    | fuel + 1 =>
+== ConLeche/Kernel/Core.lean#L1860-L1865
+  1860        whnf := fun _ _ => throw (.internal "fuel exhausted: whnf")
+  1861        infer := fun _ _ => throw (.internal "fuel exhausted: infer")
+  1862        defeq := fun _ _ _ => throw (.internal "fuel exhausted: defeq")
+  1863        defeqE := fun _ _ _ => throw (.internal "fuel exhausted: defeq")
+  1864        inferIO := fun _ _ => throw (.internal "fuel exhausted: infer") }
+  1865    | fuel + 1 =>
 
 == ConLeche/Model/Fold.lean#L421-L428
    421  theorem no_proof_of_False_pure (V : Type w) [SetTheory V]
@@ -365,23 +365,23 @@
 == ConLeche/Kernel/Env.lean#L55
     55  inductive CheckMode where
 
-== ConLeche/Kernel/Core.lean#L1148
-  1148  def whnfBody (r : CoreFns m) (env : Env) : Nat → Expr → m Expr :=
+== ConLeche/Kernel/Core.lean#L1140
+  1140  def whnfBody (r : CoreFns m) (env : Env) : Nat → Expr → m Expr :=
 
-== ConLeche/Kernel/Core.lean#L1437
-  1437  def defeqSpine (r : CoreFns m) (env : Env) (depth : Nat) (a b : Expr) :
+== ConLeche/Kernel/Core.lean#L1429
+  1429  def defeqSpine (r : CoreFns m) (env : Env) (depth : Nat) (a b : Expr) :
 
-== ConLeche/Kernel/Core.lean#L1332
-  1332  def inferBodyIO (r : CoreFns m) (env : Env) : Nat → Expr → m Expr :=
+== ConLeche/Kernel/Core.lean#L1324
+  1324  def inferBodyIO (r : CoreFns m) (env : Env) : Nat → Expr → m Expr :=
 
-== ConLeche/Kernel/Core.lean#L1459
-  1459  def defeqBindersInner (r : CoreFns m) (lam : Bool) (depth : Nat) (b₁ b₂ : Expr) : m Bool := do
+== ConLeche/Kernel/Core.lean#L1451
+  1451  def defeqBindersInner (r : CoreFns m) (lam : Bool) (depth : Nat) (b₁ b₂ : Expr) : m Bool := do
 
 == ConLeche/Verify/Cached/BridgeC.lean#L284
    284  theorem checkDeclStepC_run {env : Env} (henv : EnvWF env) {pd : Declaration}
 
-== ConLeche/Kernel/Core.lean#L1913
-  1913  @[irreducible, noinline] def checkFuel : Nat := 4611686018427387904  -- 2^62
+== ConLeche/Kernel/Core.lean#L1905
+  1905  @[irreducible, noinline] def checkFuel : Nat := 4611686018427387904  -- 2^62
 
 == ConLeche/Kernel/Exclusive.lean#L6-L42
      6  # `withExclusive`: the reference-count read behind the walk memo
@@ -1152,14 +1152,14 @@
    616    (natOpDeps c).all (fun n => match env.find? n with
 
 == ConLeche/Kernel/CoreDefs.lean#L659-L666
-   659      .lam (Expr.substConstAll n r ty) (Expr.substConstAll n r b)
-   660    | .forallE ty b =>
-   661      .forallE (Expr.substConstAll n r ty) (Expr.substConstAll n r b)
-   662    | .letE ty v b =>
-   663      .letE (Expr.substConstAll n r ty) (Expr.substConstAll n r v)
-   664        (Expr.substConstAll n r b)
-   665    | .proj s i e => .proj s i (Expr.substConstAll n r e)
-   666    | e => e
+   659  def natOpCod (env : Env) (c : Name) (e : Expr) : Bool :=
+   660    if c = natBeqName || c = natBleName then
+   661      e == .const boolName [] &&
+   662      (match env.find? boolName with
+   663       | some ci => ci.toConstantVal.levelParams.isEmpty &&
+   664           ci.toConstantVal.type == .sort (.succ .zero)
+   665       | none => false)
+   666    else e == .const natName []
 
 == ConLeche/Frontend/Prepare.lean#L168-L175
    168  the prelude's declarations first (the stream's own copies where it has
@@ -1310,9 +1310,9 @@
     37  record installs nothing and any use of it declines
     38  (`sorryAxName`, `ConLeche/Kernel/Basis/Names.lean`).
 
-== ConLeche/Kernel/Core.lean#L1198-L1199
-  1198    match env.find? entry.structName with
-  1199    | some (.indInfo cvT caps) => do
+== ConLeche/Kernel/Core.lean#L1190-L1191
+  1190    match env.find? entry.structName with
+  1191    | some (.indInfo cvT caps) => do
 
 >>> README.md
 

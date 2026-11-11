@@ -417,7 +417,7 @@ private theorem reduceNat_shift (_henv : EnvWF env)
           show reduceNat _ env (d + 1)
             (.app (.app (.const c []) (shiftFrom p b)) (shiftFrom p a)) = _
           simp only [reduceNat]
-          refine ite_rel _ (fun _ => ?_) (fun _ => ?_)
+          refine ite_rel _ (fun _ => ?_) (fun _ => rfl)
           · -- first argument first; the second only behind a literal (D15)
             refine bind_rel _ _ (ih.whnf hpd hwgb.2) ?_
             intro w₁ _
@@ -437,17 +437,6 @@ private theorem reduceNat_shift (_henv : EnvWF env)
                 | some r =>
                   rcases natOpResult_shape hres with ⟨n', rfl⟩ | ⟨bn, rfl⟩ <;>
                     rfl
-          · refine ite_rel _ (fun _ => ?_) (fun _ => rfl)
-            refine bind_rel _ _ (ih.whnf hpd hwgb.2) ?_
-            intro w₁ _
-            rw [rawNatLit?_shiftFrom]
-            cases rawNatLit? w₁ with
-            | none => rfl
-            | some n₁ =>
-              refine bind_rel _ _ (ih.whnf hpd hwfa.2) ?_
-              intro w₂ _
-              rw [rawNatLit?_shiftFrom]
-              cases rawNatLit? w₂ <;> rfl
 
 /-- `reduceNat_shift` under the defeq-side fvar guard: the pruned
 branch is `pure none` on both sides. -/

@@ -2564,31 +2564,7 @@ theorem reduceNat_inv {env : Env} {fuel d : Nat} {e e₂ : Expr}
               Option.some.injEq] at h
             exact h ▸ natOpResult_shape hres
         | none => intro h; simp [pure, Except.pure] at h
-    · -- the WF-op decline branch never returns a reduct
-      split
-      · intro h
-        revert h
-        cases hw1 : whnf mode eager env fuel d a with
-        | error err => intro h; exact nomatch h
-        | ok a' =>
-        intro h
-        dsimp only at h
-        revert h
-        match rawNatLit? a' with
-        | none => intro h; simp [pure, Except.pure] at h
-        | some _ =>
-          intro h
-          revert h
-          cases hw2 : whnf mode eager env fuel d b with
-          | error err => intro h; exact nomatch h
-          | ok b' =>
-          intro h
-          dsimp only at h
-          revert h
-          match rawNatLit? b' with
-          | some _ => intro h; exact nomatch h
-          | none => intro h; simp [pure, Except.pure] at h
-      · intro h; simp [pure, Except.pure] at h
+    · intro h; simp [pure, Except.pure] at h
 
 /-- Unfolding a definition at the head preserves well-scopedness (the
 stored value is closed by environment well-formedness). -/
