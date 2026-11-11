@@ -26,9 +26,10 @@ nothing `unsafe`; the runtime facts enter only through `Init.Util`'s
 `withPtrEq`/`withPtrAddr`.
 
 Decidable equality of `Lean.Expr` needs it for every component; core
-provides it for `Name` only.  `Level` and `Literal` get a structural
-decision executed pointer first (below); the rest is derived here (`BinderInfo`, the ids, `SourceInfo`, `DataValue`, `KVMap`,
-`Expr`); `Syntax` (an `mdata` payload can hold one) is a nested
+provides it for `Name` only.  `Level`, `Literal` and `Expr` get a structural
+decision executed pointer first (below; `Expr`'s runs the memoised descent);
+the rest is derived here (`BinderInfo`, the ids, `SourceInfo`, `DataValue`,
+`KVMap`); `Syntax` (an `mdata` payload can hold one) is a nested
 inductive the deriving handler refuses, and gets a structural equality
 with its two lemmas.
 
@@ -200,8 +201,8 @@ def Level.decEqPtrI (a b : Level) : Decidable (a = b) :=
 @[csimp] theorem Level.decEqI_eq_decEqPtrI : @Level.decEqI = @Level.decEqPtrI := by
   funext a b; exact Subsingleton.elim _ _
 
-/-- Every level equality in InLean (`=` in an `if`, the derived `Expr`
-instance's `.sort` and `.const` arms, `Level.beqI`) runs `Level.decEqPtrI`. -/
+/-- Every level equality in InLean (`=` in an `if`, `beqGoX`'s `.sort` and
+`.const` arms, `Level.beqI`) runs `Level.decEqPtrI`. -/
 instance instDecidableEqLevelI : DecidableEq Level := Level.decEqI
 
 deriving instance DecidableEq for Substring.Raw
@@ -266,7 +267,127 @@ instance instDecidableEqSyntaxI : DecidableEq Syntax := fun a b =>
 
 deriving instance DecidableEq for DataValue
 deriving instance DecidableEq for KVMap
-deriving instance DecidableEq for Expr
+/-- Twin of `Expr.decEq`: **the specification of expression equality**,
+the structural decision (the instance below).  No derived `DecidableEq`:
+compiled code runs `Expr.decEqPtrI` in its place (`Expr.decEqI_eq_decEqPtrI`),
+and the only compiled references to this body are `ptrDecStruct`'s
+pure-model fallback, which compiled code never reaches, and its own
+recursion. -/
+def Expr.decEqI : (a b : Expr) → Decidable (a = b)
+  | .bvar x0, .bvar y0 =>
+    if h0 : x0 = y0 then isTrue (by subst h0; rfl)
+    else isFalse (fun e => h0 (by injection e <;> assumption))
+  | .fvar x0, .fvar y0 =>
+    if h0 : x0 = y0 then isTrue (by subst h0; rfl)
+    else isFalse (fun e => h0 (by injection e <;> assumption))
+  | .mvar x0, .mvar y0 =>
+    if h0 : x0 = y0 then isTrue (by subst h0; rfl)
+    else isFalse (fun e => h0 (by injection e <;> assumption))
+  | .sort x0, .sort y0 =>
+    if h0 : x0 = y0 then isTrue (by subst h0; rfl)
+    else isFalse (fun e => h0 (by injection e <;> assumption))
+  | .const x0 x1, .const y0 y1 =>
+    if h0 : x0 = y0 then
+      if h1 : x1 = y1 then isTrue (by subst h0; subst h1; rfl)
+      else isFalse (fun e => h1 (by injection e <;> assumption))
+    else isFalse (fun e => h0 (by injection e <;> assumption))
+  | .app x0 x1, .app y0 y1 =>
+    match Expr.decEqI x0 y0 with
+    | isFalse h => isFalse (fun e => h (by injection e <;> assumption))
+    | isTrue h0 =>
+      match Expr.decEqI x1 y1 with
+      | isFalse h => isFalse (fun e => h (by injection e <;> assumption))
+      | isTrue h1 => isTrue (by subst h0; subst h1; rfl)
+  | .lam x0 x1 x2 x3, .lam y0 y1 y2 y3 =>
+    if h0 : x0 = y0 ∧ x3 = y3 then
+      match Expr.decEqI x1 y1 with
+      | isFalse h => isFalse (fun e => h (by injection e <;> assumption))
+      | isTrue h1 =>
+        match Expr.decEqI x2 y2 with
+        | isFalse h => isFalse (fun e => h (by injection e <;> assumption))
+        | isTrue h2 => isTrue (by obtain ⟨rfl, rfl⟩ := h0; subst h1; subst h2; rfl)
+    else isFalse (fun e => h0 ⟨(Expr.lam.inj e).1, (Expr.lam.inj e).2.2.2⟩)
+  | .forallE x0 x1 x2 x3, .forallE y0 y1 y2 y3 =>
+    if h0 : x0 = y0 ∧ x3 = y3 then
+      match Expr.decEqI x1 y1 with
+      | isFalse h => isFalse (fun e => h (by injection e <;> assumption))
+      | isTrue h1 =>
+        match Expr.decEqI x2 y2 with
+        | isFalse h => isFalse (fun e => h (by injection e <;> assumption))
+        | isTrue h2 => isTrue (by obtain ⟨rfl, rfl⟩ := h0; subst h1; subst h2; rfl)
+    else isFalse (fun e => h0 ⟨(Expr.forallE.inj e).1, (Expr.forallE.inj e).2.2.2⟩)
+  | .letE x0 x1 x2 x3 x4, .letE y0 y1 y2 y3 y4 =>
+    if h0 : x0 = y0 ∧ x4 = y4 then
+      match Expr.decEqI x1 y1 with
+      | isFalse h => isFalse (fun e => h (by injection e <;> assumption))
+      | isTrue h1 =>
+        match Expr.decEqI x2 y2 with
+        | isFalse h => isFalse (fun e => h (by injection e <;> assumption))
+        | isTrue h2 =>
+          match Expr.decEqI x3 y3 with
+          | isFalse h => isFalse (fun e => h (by injection e <;> assumption))
+          | isTrue h3 => isTrue (by obtain ⟨rfl, rfl⟩ := h0; subst h1; subst h2; subst h3; rfl)
+    else isFalse (fun e => h0 ⟨(Expr.letE.inj e).1, (Expr.letE.inj e).2.2.2.2⟩)
+  | .lit x0, .lit y0 =>
+    if h0 : x0 = y0 then isTrue (by subst h0; rfl)
+    else isFalse (fun e => h0 (by injection e <;> assumption))
+  | .mdata x0 x1, .mdata y0 y1 =>
+    if h0 : x0 = y0 then
+      match Expr.decEqI x1 y1 with
+      | isFalse h => isFalse (fun e => h (by injection e <;> assumption))
+      | isTrue h1 => isTrue (by subst h0; subst h1; rfl)
+    else isFalse (fun e => h0 (by injection e <;> assumption))
+  | .proj x0 x1 x2, .proj y0 y1 y2 =>
+    if h0 : x0 = y0 ∧ x1 = y1 then
+      match Expr.decEqI x2 y2 with
+      | isFalse h => isFalse (fun e => h (by injection e <;> assumption))
+      | isTrue h2 => isTrue (by obtain ⟨rfl, rfl⟩ := h0; subst h2; rfl)
+    else isFalse (fun e => h0 ⟨(Expr.proj.inj e).1, (Expr.proj.inj e).2.1⟩)
+  | .bvar .., .fvar .. | .bvar .., .mvar .. | .bvar .., .sort ..
+  | .bvar .., .const .. | .bvar .., .app .. | .bvar .., .lam ..
+  | .bvar .., .forallE .. | .bvar .., .letE .. | .bvar .., .lit ..
+  | .bvar .., .mdata .. | .bvar .., .proj .. | .fvar .., .bvar ..
+  | .fvar .., .mvar .. | .fvar .., .sort .. | .fvar .., .const ..
+  | .fvar .., .app .. | .fvar .., .lam .. | .fvar .., .forallE ..
+  | .fvar .., .letE .. | .fvar .., .lit .. | .fvar .., .mdata ..
+  | .fvar .., .proj .. | .mvar .., .bvar .. | .mvar .., .fvar ..
+  | .mvar .., .sort .. | .mvar .., .const .. | .mvar .., .app ..
+  | .mvar .., .lam .. | .mvar .., .forallE .. | .mvar .., .letE ..
+  | .mvar .., .lit .. | .mvar .., .mdata .. | .mvar .., .proj ..
+  | .sort .., .bvar .. | .sort .., .fvar .. | .sort .., .mvar ..
+  | .sort .., .const .. | .sort .., .app .. | .sort .., .lam ..
+  | .sort .., .forallE .. | .sort .., .letE .. | .sort .., .lit ..
+  | .sort .., .mdata .. | .sort .., .proj .. | .const .., .bvar ..
+  | .const .., .fvar .. | .const .., .mvar .. | .const .., .sort ..
+  | .const .., .app .. | .const .., .lam .. | .const .., .forallE ..
+  | .const .., .letE .. | .const .., .lit .. | .const .., .mdata ..
+  | .const .., .proj .. | .app .., .bvar .. | .app .., .fvar ..
+  | .app .., .mvar .. | .app .., .sort .. | .app .., .const ..
+  | .app .., .lam .. | .app .., .forallE .. | .app .., .letE ..
+  | .app .., .lit .. | .app .., .mdata .. | .app .., .proj ..
+  | .lam .., .bvar .. | .lam .., .fvar .. | .lam .., .mvar ..
+  | .lam .., .sort .. | .lam .., .const .. | .lam .., .app ..
+  | .lam .., .forallE .. | .lam .., .letE .. | .lam .., .lit ..
+  | .lam .., .mdata .. | .lam .., .proj .. | .forallE .., .bvar ..
+  | .forallE .., .fvar .. | .forallE .., .mvar .. | .forallE .., .sort ..
+  | .forallE .., .const .. | .forallE .., .app .. | .forallE .., .lam ..
+  | .forallE .., .letE .. | .forallE .., .lit .. | .forallE .., .mdata ..
+  | .forallE .., .proj .. | .letE .., .bvar .. | .letE .., .fvar ..
+  | .letE .., .mvar .. | .letE .., .sort .. | .letE .., .const ..
+  | .letE .., .app .. | .letE .., .lam .. | .letE .., .forallE ..
+  | .letE .., .lit .. | .letE .., .mdata .. | .letE .., .proj ..
+  | .lit .., .bvar .. | .lit .., .fvar .. | .lit .., .mvar ..
+  | .lit .., .sort .. | .lit .., .const .. | .lit .., .app ..
+  | .lit .., .lam .. | .lit .., .forallE .. | .lit .., .letE ..
+  | .lit .., .mdata .. | .lit .., .proj .. | .mdata .., .bvar ..
+  | .mdata .., .fvar .. | .mdata .., .mvar .. | .mdata .., .sort ..
+  | .mdata .., .const .. | .mdata .., .app .. | .mdata .., .lam ..
+  | .mdata .., .forallE .. | .mdata .., .letE .. | .mdata .., .lit ..
+  | .mdata .., .proj .. | .proj .., .bvar .. | .proj .., .fvar ..
+  | .proj .., .mvar .. | .proj .., .sort .. | .proj .., .const ..
+  | .proj .., .app .. | .proj .., .lam .. | .proj .., .forallE ..
+  | .proj .., .letE .. | .proj .., .lit .. | .proj .., .mdata .. =>
+    isFalse (fun e => Expr.noConfusion e)
 
 /-! ## The memoised pointer-first descent (twin of `Expr.beqMemo`) -/
 
@@ -311,11 +432,13 @@ abbrev BeqMap := Std.HashMap Nat EqPair
 @[inline] def withAddr {α : Type u} {β : Type v} [Subsingleton β] (a : α) (k : USize → β) : β :=
   withPtrAddr a k (fun _ _ => Subsingleton.elim _ _)
 
-/-- Twin of `ptrDec`: the pointer test, then the structural decision.  Written
+/-- Twin of `ptrDecStruct`: the pointer test, then the structural decision
+(`Expr.decEqI`), inside the equality itself, which reaches it on equal
+addresses only.  Written
 out instead of by `withPtrEqDecEq`, whose signature differs between Lean
 v4.35.0 and later toolchains. -/
-@[inline] def ptrDec (a b : Expr) : Decidable (a = b) :=
-  let k : Decidable (a = b) := (inferInstance : DecidableEq Expr) a b
+@[inline] def ptrDecStruct (a b : Expr) : Decidable (a = b) :=
+  let k : Decidable (a = b) := Expr.decEqI a b
   match h : withPtrEq a b (fun _ => toBoolUsing k) (toBoolUsing_eq_true k) with
   | true => isTrue (of_toBoolUsing_eq_true (d := k) (by simpa [withPtrEq] using h))
   | false => isFalse (of_toBoolUsing_eq_false (d := k) (by simpa [withPtrEq] using h))
@@ -325,7 +448,7 @@ v4.35.0 and later toolchains. -/
     { h : Bool // h = true → a = b } :=
   let p := m.getD key EqPair.dflt
   if p.pa == pa && p.pb == pb then
-    match ptrDec p.fst a, ptrDec p.snd b with
+    match ptrDecStruct p.fst a, ptrDecStruct p.snd b with
     | isTrue h1, isTrue h2 => ⟨true, fun _ => h1 ▸ h2 ▸ p.eq⟩
     | _, _ => ⟨false, fun h => Bool.noConfusion h⟩
   else ⟨false, fun h => Bool.noConfusion h⟩
@@ -351,7 +474,7 @@ pair is probed, and recorded on a completed `true`. -/
 @[inline] def enterBeq (map : Option BeqMap) (a b : @& Expr) (rec : Option BeqMap → BeqOutX a b) :
     BeqOutX a b :=
   withAddr a fun pa => withAddr b fun pb =>
-  if pa == pb then .mk (ptrDec a b) map
+  if pa == pb then .mk (ptrDecStruct a b) map
   else if h : dataNe a b then
     .mk (isFalse (fun e => by subst e; simp [dataNe_self] at h)) map
   else if !beqRecursive a then rec map
@@ -374,6 +497,24 @@ pair is probed, and recorded on a completed `true`. -/
 through `enterBeq`; leaves decided by their components' equality. -/
 def beqGoX (map : Option BeqMap) (a b : @& Expr) : BeqOutX a b :=
   match a, b with
+  | .bvar i, .bvar j =>
+    .mk (if h : i = j then isTrue (by subst h; rfl)
+         else isFalse (fun e => h (Expr.bvar.inj e))) map
+  | .fvar i, .fvar j =>
+    .mk (if h : i = j then isTrue (by subst h; rfl)
+         else isFalse (fun e => h (Expr.fvar.inj e))) map
+  | .mvar i, .mvar j =>
+    .mk (if h : i = j then isTrue (by subst h; rfl)
+         else isFalse (fun e => h (Expr.mvar.inj e))) map
+  | .sort u, .sort v =>
+    .mk (if h : u = v then isTrue (by subst h; rfl)
+         else isFalse (fun e => h (Expr.sort.inj e))) map
+  | .const n us, .const m vs =>
+    .mk (if h : n = m ∧ us = vs then isTrue (by obtain ⟨rfl, rfl⟩ := h; rfl)
+         else isFalse (fun e => h ⟨(Expr.const.inj e).1, (Expr.const.inj e).2⟩)) map
+  | .lit l, .lit l' =>
+    .mk (if h : l = l' then isTrue (by subst h; rfl)
+         else isFalse (fun e => h (Expr.lit.inj e))) map
   | .app f x, .app g y =>
     Squash.lift (enterBeq map f g fun m => beqGoX m f g) fun r₁ =>
       match r₁.dec with
@@ -435,7 +576,51 @@ def beqGoX (map : Option BeqMap) (a b : @& Expr) : BeqOutX a b :=
           | isFalse h => isFalse (fun e => h (Expr.mdata.inj e).2))
           r.map
     else .mk (isFalse (fun e => hd (Expr.mdata.inj e).1)) map
-  | a, b => .mk ((inferInstance : DecidableEq Expr) a b) map
+  | .bvar .., .fvar .. | .bvar .., .mvar .. | .bvar .., .sort ..
+  | .bvar .., .const .. | .bvar .., .app .. | .bvar .., .lam ..
+  | .bvar .., .forallE .. | .bvar .., .letE .. | .bvar .., .lit ..
+  | .bvar .., .mdata .. | .bvar .., .proj .. | .fvar .., .bvar ..
+  | .fvar .., .mvar .. | .fvar .., .sort .. | .fvar .., .const ..
+  | .fvar .., .app .. | .fvar .., .lam .. | .fvar .., .forallE ..
+  | .fvar .., .letE .. | .fvar .., .lit .. | .fvar .., .mdata ..
+  | .fvar .., .proj .. | .mvar .., .bvar .. | .mvar .., .fvar ..
+  | .mvar .., .sort .. | .mvar .., .const .. | .mvar .., .app ..
+  | .mvar .., .lam .. | .mvar .., .forallE .. | .mvar .., .letE ..
+  | .mvar .., .lit .. | .mvar .., .mdata .. | .mvar .., .proj ..
+  | .sort .., .bvar .. | .sort .., .fvar .. | .sort .., .mvar ..
+  | .sort .., .const .. | .sort .., .app .. | .sort .., .lam ..
+  | .sort .., .forallE .. | .sort .., .letE .. | .sort .., .lit ..
+  | .sort .., .mdata .. | .sort .., .proj .. | .const .., .bvar ..
+  | .const .., .fvar .. | .const .., .mvar .. | .const .., .sort ..
+  | .const .., .app .. | .const .., .lam .. | .const .., .forallE ..
+  | .const .., .letE .. | .const .., .lit .. | .const .., .mdata ..
+  | .const .., .proj .. | .app .., .bvar .. | .app .., .fvar ..
+  | .app .., .mvar .. | .app .., .sort .. | .app .., .const ..
+  | .app .., .lam .. | .app .., .forallE .. | .app .., .letE ..
+  | .app .., .lit .. | .app .., .mdata .. | .app .., .proj ..
+  | .lam .., .bvar .. | .lam .., .fvar .. | .lam .., .mvar ..
+  | .lam .., .sort .. | .lam .., .const .. | .lam .., .app ..
+  | .lam .., .forallE .. | .lam .., .letE .. | .lam .., .lit ..
+  | .lam .., .mdata .. | .lam .., .proj .. | .forallE .., .bvar ..
+  | .forallE .., .fvar .. | .forallE .., .mvar .. | .forallE .., .sort ..
+  | .forallE .., .const .. | .forallE .., .app .. | .forallE .., .lam ..
+  | .forallE .., .letE .. | .forallE .., .lit .. | .forallE .., .mdata ..
+  | .forallE .., .proj .. | .letE .., .bvar .. | .letE .., .fvar ..
+  | .letE .., .mvar .. | .letE .., .sort .. | .letE .., .const ..
+  | .letE .., .app .. | .letE .., .lam .. | .letE .., .forallE ..
+  | .letE .., .lit .. | .letE .., .mdata .. | .letE .., .proj ..
+  | .lit .., .bvar .. | .lit .., .fvar .. | .lit .., .mvar ..
+  | .lit .., .sort .. | .lit .., .const .. | .lit .., .app ..
+  | .lit .., .lam .. | .lit .., .forallE .. | .lit .., .letE ..
+  | .lit .., .mdata .. | .lit .., .proj .. | .mdata .., .bvar ..
+  | .mdata .., .fvar .. | .mdata .., .mvar .. | .mdata .., .sort ..
+  | .mdata .., .const .. | .mdata .., .app .. | .mdata .., .lam ..
+  | .mdata .., .forallE .. | .mdata .., .letE .. | .mdata .., .lit ..
+  | .mdata .., .proj .. | .proj .., .bvar .. | .proj .., .fvar ..
+  | .proj .., .mvar .. | .proj .., .sort .. | .proj .., .const ..
+  | .proj .., .app .. | .proj .., .lam .. | .proj .., .forallE ..
+  | .proj .., .letE .. | .proj .., .lit .. | .proj .., .mdata .. =>
+    .mk (isFalse (fun e => Expr.noConfusion e)) map
 
 /-- Twin of `Expr.beqMemo`: the pointer test, the cached data word, then the
 memoised descent. -/
@@ -444,6 +629,39 @@ def Expr.beqMemo (a b : Expr) : Bool :=
       @decide (a = b) (Squash.lift (beqGoX none a b) (fun r => r.dec))
     else false)
     (fun h => by subst h; simp [dataNe_self])
+
+/-- Twin of `Expr.beqMemo_iff`: the executed equality decides `a = b`. -/
+theorem Expr.beqMemo_iff (a b : Expr) : Expr.beqMemo a b = true ↔ a = b := by
+  unfold Expr.beqMemo withPtrEq
+  by_cases h : a = b
+  · subst h; simp [dataNe_self]
+  · simp [h]
+
+/-- Twin of `Expr.decEqPtr`: expression equality as it runs, the decision
+read off the pointer-first, memoised `Expr.beqMemo`, as `Level.decEqPtrI` and
+`Literal.decEqPtrI` are for theirs. -/
+@[inline] def Expr.decEqPtrI (a b : Expr) : Decidable (a = b) :=
+  decidable_of_iff (Expr.beqMemo a b = true) (Expr.beqMemo_iff a b)
+
+/-- Twin of `Expr.decEq_eq_decEqPtr`: `@[csimp]` on `Decidable`'s
+subsingleton property. -/
+@[csimp] theorem Expr.decEqI_eq_decEqPtrI : @Expr.decEqI = @Expr.decEqPtrI := by
+  funext a b; exact Subsingleton.elim _ _
+
+/-- Every expression equality (`=` in an `if`, a derived instance of a type
+with an `Expr` field) runs `Expr.decEqPtrI`: the instance is declared after
+the `@[csimp]` lemma, so its compiled body is the substituted one. -/
+instance instDecidableEqExprI : DecidableEq Expr := Expr.decEqI
+
+/-- Twin of `ptrDec`: the pointer test, then the instance; for the memo
+tables' hit validation (`InLean.ExprOps`), where a fallback compiled code
+would run is `Expr.decEqPtrI`, never the structural walk.  Written out as
+`ptrDecStruct` is. -/
+@[inline] def ptrDec (a b : Expr) : Decidable (a = b) :=
+  let k : Decidable (a = b) := (inferInstance : DecidableEq Expr) a b
+  match h : withPtrEq a b (fun _ => toBoolUsing k) (toBoolUsing_eq_true k) with
+  | true => isTrue (of_toBoolUsing_eq_true (d := k) (by simpa [withPtrEq] using h))
+  | false => isFalse (of_toBoolUsing_eq_false (d := k) (by simpa [withPtrEq] using h))
 
 /-- **InLean's executed expression equality**: decidable equality,
 substituted by the memoised descent. -/
@@ -543,7 +761,7 @@ abbrev ClMap (R : Expr → Expr → Prop) := Std.HashMap Nat (ClPair R)
   match m.get? key with
   | some p =>
     if p.pa == pa && p.pb == pb then
-      match ptrDec p.fst a, ptrDec p.snd b with
+      match ptrDecStruct p.fst a, ptrDecStruct p.snd b with
       | isTrue h1, isTrue h2 => ⟨true, fun _ => h1 ▸ h2 ▸ p.rel⟩
       | _, _ => ⟨false, fun h => Bool.noConfusion h⟩
     else ⟨false, fun h => Bool.noConfusion h⟩
