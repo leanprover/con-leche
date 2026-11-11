@@ -20,7 +20,7 @@ whose origin is the same application (a stutter).
 
 namespace ConLeche.Verify.Ground
 
-open ConLeche ConLeche.Cached
+open ConLeche
 
 /-! ## Copying argument cells -/
 

@@ -1,11 +1,11 @@
 module
 
-public import ConLeche.Kernel.FEnv
+public import ConLeche.Kernel.Ground
 
 @[expose] public section
 
 /-!
-# The ground engine (task #423, spike)
+# The ground engine, round 1 (task #423, spike)
 
 A call-by-need abstract machine for closed terms, in the style of
 Sestoft's lazy machine: environments of heap addresses instead of
@@ -41,20 +41,6 @@ unbounded, as `checkFuel`).
 namespace ConLeche.Cached
 
 open ConLeche
-
-/-- **The spike's switch** (task #423): `0` the incumbent path only,
-`1` the round-1 machine (this file) at the `Bool.true` comparison (both
-orientations), `2` as 1 with a per-call trace on stderr (`dbgTrace`,
-probe builds only), `3` the round-2 flat machine (`Ground2.lean`), `4`
-as 3 with the trace, `5`/`6` as 1/3 with the engine run twice (its own
-cost is the difference), `7` the round-3 machine (`Ground3.lean`), `8`
-as 7 with the trace, `9` as 7 run twice, `10` the round-4 machine
-(`Ground4.lean`) with the K step (`g4KSkip`), `11` as 10 with the trace,
-`12` as 10 run twice, `13` the round-4 machine without the K step (a K
-major that is not a constructor declines; the comparison baseline).
-From `10` on there is no fallback: a step the engine does not do is a
-decline (task #423 soundness). -/
-@[noinline] def groundMode : Nat := 0
 
 /-- A weak head value of the ground machine. -/
 inductive GVal where
@@ -108,10 +94,6 @@ inductive GCtrl where
   /-- a constant at the head, its arguments still on the stack -/
   | const (c : Name) (us : List Level)
 
-/-- The effectively unbounded step budget of the ground machine (a
-termination device, as `checkFuel`). -/
-@[irreducible, noinline] def groundFuel : Nat := 4611686018427387904  -- 2^62
-
 /-- The machine's final state (`steps`: constant dispatches; `left`:
 the fuel left, so the transitions are `groundFuel - left`). -/
 inductive GOut where
@@ -146,57 +128,6 @@ structure GCache where
 cell per closed argument term, `2` as 1 and one cell per recursor or
 definition application on equal argument cells. -/
 @[noinline] def groundMemo : Nat := 2
-
-/-- The hashes of the fourteen accelerated operations' names and the
-well-founded ones: a cheap prefilter before the name comparisons. -/
-def natBin14Names : List Name :=
-  [natAddName, natSubName, natMulName, natPowName, natBeqName, natBleName,
-   natDivName, natModName, natGcdName, natLandName, natLorName, natXorName,
-   natShiftLeftName, natShiftRightName]
-
-def natOpHashes : Array UInt64 :=
-  (natBin14Names ++ natOpWfNames).toArray.map Name.hashData
-
-def natBin14Slow (c : Name) : Bool :=
-  c == natAddName || c == natSubName || c == natMulName ||
-    c == natPowName || c == natBeqName || c == natBleName ||
-    c == natDivName || c == natModName || c == natGcdName ||
-    c == natLandName || c == natLorName || c == natXorName ||
-    c == natShiftLeftName || c == natShiftRightName
-
-def natBin14 (c : Name) : Bool :=
-  natOpHashes.contains c.hashData && natBin14Slow c
-
-/-- The comparand levels of a firing rule (`recFireComparands`'s first
-component, which needs no arguments). -/
-def gCmpLevels (rl : RecRule) (lps : List Name) (us : List Level)
-    (cvjLps : List Name) : List Level :=
-  match rl.fire with
-  | .nested lvls _ => lvls.map (Level.subst lps us)
-  | .plain => cvjLps.map fun p => Level.subst lps us (.param p)
-  | .levels lvls => lvls.map (Level.subst lps us)
-
-/-- Case 3 of the ι split, decided without reduction (task #423, on
-master's `iotaCase3I`): `false` at K; at a family whose former's sort is
-syntactic, its never-zero test; `true` (the engine aborts) where the
-incumbent would need `whnf` to read the sort. -/
-def gCase3 (find? : Name → Option ConstantInfo) (isK : Bool) (cvj : ConstantVal)
-    (us : List Level) : Bool :=
-  if isK then false else
-  match ctorFamily find? cvj with
-  | some (cvT, _) =>
-    if cvT.levelParams.length == us.length then
-      match formerResSort cvT.type with
-      | some _ => !formerNeverZero cvT us
-      | none => true
-    else true
-  | none => true
-
-/-- The constructor's parameter count (master's rules no longer store it). -/
-def gCtorParams (find? : Name → Option ConstantInfo) (c : Name) : Nat :=
-  match find? c with
-  | some (.ctorInfo _ nP _) => nP
-  | _ => 0
 
 /-- The leading argument frames of a stack, at most `k` of them, in
 order, and the rest. -/

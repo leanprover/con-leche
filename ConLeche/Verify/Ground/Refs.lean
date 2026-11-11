@@ -18,7 +18,7 @@ program grow (`Pre`, `Ext`).
 
 namespace ConLeche.Verify.Ground
 
-open ConLeche ConLeche.Cached
+open ConLeche
 
 /-- Every environment record names an allocated cell and an older environment. -/
 @[expose] def EvRef (ev : Array Nat) (N : Nat) : Prop :=

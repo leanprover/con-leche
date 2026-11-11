@@ -1,7 +1,7 @@
 module
 
 public import ConLeche.Cached.ExprOpsC
-public import ConLeche.Cached.Ground4
+public import ConLeche.Cached.Ground3
 
 @[expose] public section
 
@@ -156,7 +156,7 @@ postcondition (`⊤`) admits. -/
 /-- The official kernel's default maximum `Nat` size, 128 MiB. -/
 def maxNatSizeDefault : Nat := 134217728
 
-/- `natSizeBytes` and `natCountMax` live in `Ground4.lean` (the ground
+/- `natSizeBytes` and `natCountMax` live in `ConLeche/Kernel/Ground.lean` (the ground
 engine mirrors the refusals). -/
 
 /-- Official's `check_nat_size` message. -/

@@ -278,9 +278,9 @@
     36      (h : checkDecls .verified pins maxNatSize ds = .ok env') :
     37      Nonempty (EnvModelM V env') := by
 
-== ConLeche/Semantics/DeclWF.lean#L300-L301
-   300  theorem checkDecls_envWF {maxNatSize : Nat} {ds : Array Declaration} {env' : Env}
-   301      (h : checkDecls .verified pins maxNatSize ds = .ok env') : EnvWF env' := by
+== ConLeche/Semantics/DeclWF.lean#L301-L302
+   301  theorem checkDecls_envWF {maxNatSize : Nat} {ds : Array Declaration} {env' : Env}
+   302      (h : checkDecls .verified pins maxNatSize ds = .ok env') : EnvWF env' := by
 
 == ConLeche/Verify/Cached/KnotCongr.lean#L527-L529
    527    induction F generalizing eager with

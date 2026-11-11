@@ -1,6 +1,7 @@
 module
 
 public import ConLeche.Cached.StateC
+public import ConLeche.Cached.GroundGate
 
 @[expose] public section
 

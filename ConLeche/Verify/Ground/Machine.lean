@@ -8,7 +8,7 @@ public section
 /-!
 # The ground machine's state, read as erased terms (task #423 soundness, layer (b))
 
-The machine `g4Run` (`ConLeche/Cached/Ground4.lean`) keeps its state in flat
+The machine `g4Run` (`ConLeche/Kernel/Ground.lean`) keeps its state in flat
 `Array Nat`s.  This file reads them: an environment record chain as a list of
 cells (`EnvL`), a code node under an environment as an erased term
 (`NodeTerm`), a value as an erased term (`ValDen`), and the frame stack as a
@@ -29,7 +29,7 @@ transition of `g4Run` and the induction over the fuel.
 
 namespace ConLeche.Verify.Ground
 
-open ConLeche ConLeche.Cached
+open ConLeche
 
 /-! ## Environments and node terms -/
 

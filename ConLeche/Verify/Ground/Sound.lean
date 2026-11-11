@@ -23,7 +23,7 @@ The induction (`run_sound`) is one case per branch of `g4Run`, by mode
 
 namespace ConLeche.Verify.Ground
 
-open ConLeche ConLeche.Cached ConLeche.Rules
+open ConLeche ConLeche.Rules
 
 /-- **The run's claim at fuel `n`**: from a state with the invariant, a run
 that finishes leaves a state with the invariant, in mode 1 at the empty

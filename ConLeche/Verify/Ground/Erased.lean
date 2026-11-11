@@ -7,7 +7,7 @@ public section
 /-!
 # Erased reduction and its lifting (task #423 soundness, layer (c0))
 
-The ground engine (`ConLeche/Cached/Ground4.lean`) evaluates a closed term
+The ground engine (`ConLeche/Kernel/Ground.lean`) evaluates a closed term
 with its types, motives and (outside recursor majors) proofs **erased**:
 such an argument is compiled to the neutral and never built, and a value
 the engine cannot read is the neutral too.  So the engine's state does not

@@ -1,18 +1,26 @@
 module
 
-public import ConLeche.Cached.Ground2
-public import ConLeche.Cached.Ground3
+public import ConLeche.Kernel.FEnv
 
 @[expose] public section
 
 /-!
-# The flat ground machine, round 4 (task #423): shared closed terms, the K step
+# The ground engine (task #423): a lazy abstract machine at `t =?= Bool.true`
 
-The machine of `Ground.lean` (round 1) with its state FLAT: no Lean
-object is allocated per transition.  Every definition body and rule
-right-hand side the site reaches is compiled once per run into a code
-array (`Array Nat`, constants resolved to entries of a per-run
-constant table, closed argument terms given a sharing slot), and the
+A call-by-need abstract machine for closed terms (Sestoft's lazy machine:
+environments of heap cells instead of substitution, thunks updated in
+place, an explicit continuation stack, weak head evaluation only), run
+where a comparison has `Bool.true` on one side and a closed term on the
+other.  It lives in the specification tier because the specification's
+`defeqBody` (`Kernel/Core.lean`) calls it at that site: it is the best
+code there is for the site, and there is no naive twin of it.  The cached
+core calls the same engine (`ConLeche/Cached/GroundGate.lean`), with the
+compiled program kept for the declaration.
+
+The state is FLAT: no Lean object is allocated per transition.  Every
+definition body and rule right-hand side the site reaches is compiled on
+first use into a code array (`Array Nat`, constants resolved to entries of
+a constant table, closed argument terms given a sharing slot), and the
 machine's state is a handful of `Array Nat`s threaded linearly through
 one tail-recursive loop (`g4Run`) and mutated in place:
 
@@ -36,27 +44,88 @@ one tail-recursive loop (`g4Run`) and mutated in place:
   argLen, cell, next]`, chained from a hash map of the key's hash.  An
   entry is a heap index, so it survives every in-place mutation.
 
-The moves are round 1's (`Ground.lean`'s docstring has the `Red` reading
-of each), with the K step (`Red.iotaK`).  The differences: types (sorts,
-Π-types) are compiled to the neutral, binder domains are dropped
-(read-back is never needed: the answer is a `Bool` constructor), and a
-stuck scrutinee makes the redex stuck (the neutral) instead of aborting.
-A step with no proved rule declines (task #423 soundness, `G4Stop`): ι
+Types (sorts, Π-types) are compiled to the neutral, binder domains are
+dropped (read-back is never needed: the answer is a `Bool` constructor),
+and a stuck scrutinee makes the redex stuck (the neutral).  The K step is
+`Red.iotaK`.  A step with no proved rule declines (task #423 soundness, `G4Stop`): ι
 case 3, and a neutral major at a single-constructor recursor (K,
 structure η, the `And` rescue read its type).  The soundness reading is
 erased reduction (`ConLeche/Verify/Ground/Erased.lean`): the neutral is
 the forgotten term.
 
-Round 4's strictness (a strict argument evaluated before a call) and the
-well-founded `Nat` net (tag `4`, the operations without the `Nat` basis)
-are gone (task #423 soundness): the first changed no transition count on
-any benchmark (§R4.2), and the second is a plain definition now (δ, a
-proved rule), so neither needs a proof of its own.
 -/
 
-namespace ConLeche.Cached
+namespace ConLeche
 
-open ConLeche
+/-- **The spike's switch** (task #423): `0` the incumbent path only,
+`1` the round-1 machine (`ConLeche/Cached/Ground.lean`) at the
+`Bool.true` comparison (both orientations), `2` as 1 with a per-call trace on stderr (`dbgTrace`,
+probe builds only), `3` the round-2 flat machine (`ConLeche/Cached/Ground2.lean`), `4`
+as 3 with the trace, `5`/`6` as 1/3 with the engine run twice (its own
+cost is the difference), `7` the round-3 machine (`ConLeche/Cached/Ground3.lean`), `8`
+as 7 with the trace, `9` as 7 run twice, `10` the round-4 machine
+(this file) with the K step (`g4KSkip`), `11` as 10 with the trace,
+`12` as 10 run twice, `13` the round-4 machine without the K step (a K
+major that is not a constructor declines; the comparison baseline).
+From `10` on there is no fallback: a step the engine does not do is a
+decline (task #423 soundness). -/
+@[noinline] def groundMode : Nat := 0
+
+/-- The effectively unbounded step budget of the ground machine (a
+termination device, as `checkFuel`). -/
+@[irreducible, noinline] def groundFuel : Nat := 4611686018427387904  -- 2^62
+
+/-- The hashes of the fourteen accelerated operations' names and the
+well-founded ones: a cheap prefilter before the name comparisons. -/
+def natBin14Names : List Name :=
+  [natAddName, natSubName, natMulName, natPowName, natBeqName, natBleName,
+   natDivName, natModName, natGcdName, natLandName, natLorName, natXorName,
+   natShiftLeftName, natShiftRightName]
+
+def natOpHashes : Array UInt64 :=
+  (natBin14Names ++ natOpWfNames).toArray.map Name.hashData
+
+def natBin14Slow (c : Name) : Bool :=
+  c == natAddName || c == natSubName || c == natMulName ||
+    c == natPowName || c == natBeqName || c == natBleName ||
+    c == natDivName || c == natModName || c == natGcdName ||
+    c == natLandName || c == natLorName || c == natXorName ||
+    c == natShiftLeftName || c == natShiftRightName
+
+def natBin14 (c : Name) : Bool :=
+  natOpHashes.contains c.hashData && natBin14Slow c
+
+/-- The comparand levels of a firing rule (`recFireComparands`'s first
+component, which needs no arguments). -/
+def gCmpLevels (rl : RecRule) (lps : List Name) (us : List Level)
+    (cvjLps : List Name) : List Level :=
+  match rl.fire with
+  | .nested lvls _ => lvls.map (Level.subst lps us)
+  | .plain => cvjLps.map fun p => Level.subst lps us (.param p)
+  | .levels lvls => lvls.map (Level.subst lps us)
+
+/-- Case 3 of the ι split, decided without reduction (task #423, on
+master's `iotaCase3I`): `false` at K; at a family whose former's sort is
+syntactic, its never-zero test; `true` (the engine aborts) where the
+incumbent would need `whnf` to read the sort. -/
+def gCase3 (find? : Name → Option ConstantInfo) (isK : Bool) (cvj : ConstantVal)
+    (us : List Level) : Bool :=
+  if isK then false else
+  match ctorFamily find? cvj with
+  | some (cvT, _) =>
+    if cvT.levelParams.length == us.length then
+      match formerResSort cvT.type with
+      | some _ => !formerNeverZero cvT us
+      | none => true
+    else true
+  | none => true
+
+/-- The constructor's parameter count (master's rules no longer store it). -/
+def gCtorParams (find? : Name → Option ConstantInfo) (c : Name) : Nat :=
+  match find? c with
+  | some (.ctorInfo _ nP _) => nP
+  | _ => 0
+
 
 /-- Per-entry information of the run's constant table. -/
 inductive G4Info where
@@ -1051,10 +1120,7 @@ def g4Run : Nat → G4Prog → (cel val ev fs argA slots mem mH : Array Nat) →
             ((fs.push (g4Tag b 1)).push (g4Tag a 1)) argA slots mem mH 3 1 0 k st
 end
 
-end ConLeche.Cached
 
-namespace ConLeche.Cached
-open ConLeche
 
 /-- The program a site run starts from: the kept one, or (none kept) a fresh
 one with the four basis entries resolved. -/
@@ -1110,84 +1176,8 @@ def ground4BoolCore (find? : Name → Option ConstantInfo)
     (Except G4Stop Bool × (Nat × Nat)) × G4Prog :=
   ground4BoolCoreF find? findProj? natOk strOk maxNat groundFuel P₀ e
 
-/-- Two site answers agree (the run-twice probe). -/
-def g4SameAnswer : Option (Except G4Stop Bool) → Option (Except G4Stop Bool) → Bool
-  | some (.ok b), some (.ok b') => b == b'
-  | some (.error _), some (.error _) => true
-  | none, none => true
-  | _, _ => false
-
-/-- A site answer, for the trace. -/
-def g4AnswerTag : Option (Except G4Stop Bool) → String
-  | some (.ok true) => "true"
-  | some (.ok false) => "false"
-  | some (.error (.decline m)) => s!"decline {m}"
-  | some (.error (.refuse op _ _ post)) => s!"refuse {op} {post}"
-  | some (.error (.internal m)) => s!"internal {m}"
-  | some (.error (.stuck w)) => s!"stuck {w}"
-  | none => "none"
-
 def ground4Bool (fe : FEnv) (maxNat : Nat) (P₀ : G4Prog) (e : Expr) :
     (Except G4Stop Bool × (Nat × Nat)) × G4Prog :=
   ground4BoolCore fe.find? fe.findProj? (natLitStoredF fe) (strLitStoredF fe) maxNat P₀ e
 
-/-- **The ground shortcut** (task #423, spike; `groundMode ≠ 0`): a
-comparison with `Bool.true` on either side whose other side is closed
-evaluates that side on the ground machine.  Rounds 4 and later
-(`groundMode ≥ 10`) answer every such comparison, with no fallback
-(task #423 soundness, ruling 4): `true` or `false`, or a stop the caller
-raises (a decline, the maximum-`Nat`-size refusal, an internal error).
-Rounds 1–3 (the probes below 10) answer `none`, the incumbent path, where
-they abort.  Read by `groundGateM` (`ConLeche/Cached/CoreC.lean`). -/
-def groundShortcut (eager : Bool) (fe : FEnv) (maxNat : Nat) (P : G3Prog × G4Prog) (a b : Expr) :
-    Option (Except G4Stop Bool) × (G3Prog × G4Prog) :=
-  let t? : Option Expr :=
-    if Expr.isBoolTrue b && (eager || !(Expr.hasFvar a)) then some a
-    else if Expr.isBoolTrue a && (eager || !(Expr.hasFvar b)) then some b
-    else none
-  match t? with
-  | none => (none, P)
-  | some t =>
-    if Expr.hasFvar t then (none, P) else
-    let eng : G3Prog × G4Prog → Expr →
-        (Option (Except G4Stop Bool) × (Nat × Nat) × String) × (G3Prog × G4Prog) :=
-      fun P t =>
-      if groundMode ≥ 10 then
-        (let ((r, st), P4) := ground4Bool fe maxNat P.2 t; ((some r, st, ""), (P.1, P4)))
-      else
-        let ((r, st, why), P) : (Option Bool × (Nat × Nat) × String) × (G3Prog × G4Prog) :=
-          if groundMode ≥ 7 then (let (r, P3) := ground3Bool fe P.1 t; (r, (P3, P.2)))
-          else if groundMode ≥ 3 && groundMode != 5 then (ground2Bool fe t, P)
-          else (groundBool fe t, P)
-        ((r.map .ok, st, why), P)
-    let ((r, steps, why), P) := eng P t
-    -- probes 5, 6, 9 and 12: the engine twice (its own cost is the difference)
-    let (r, P) := if groundMode == 5 || groundMode == 6 || groundMode == 9 || groundMode == 12 then
-        let ((r', _, _), P) := eng P (dbgTrace "" fun _ => t)
-        (if g4SameAnswer r' r then r else none, P) else (r, P)
-    if groundMode == 2 || groundMode == 4 || groundMode == 8 || groundMode == 11 then
-      (dbgTrace s!"GROUND {g4AnswerTag r} {steps.1} {steps.2} {why}" fun _ => r, P)
-    else (r, P)
-
-/-- The ground shortcut reads `fe` only through `find?` and
-`findTable?` (for `ConLeche/Verify/Cached/KnotCongr.lean`). -/
-theorem groundShortcut_congr {fe₁ fe₂ : FEnv} (hfe : fe₁.find? = fe₂.find?)
-    (htb : fe₁.findTable? = fe₂.findTable?) (eager : Bool) :
-    groundShortcut eager fe₁ = groundShortcut eager fe₂ := by
-  have hp : fe₁.findProj? = fe₂.findProj? := by
-    funext T i; unfold FEnv.findProj?; rw [htb]
-  have hg : groundBool fe₁ = groundBool fe₂ := by
-    funext e; unfold groundBool strLitStoredF natLitStoredF; rw [hfe, hp]
-  have hn : natLitStoredF fe₁ = natLitStoredF fe₂ := by
-    unfold natLitStoredF; rw [hfe]
-  have hs : strLitStoredF fe₁ = strLitStoredF fe₂ := by
-    unfold strLitStoredF; rw [hn, hfe]
-  have hg2 : ground2Bool fe₁ = ground2Bool fe₂ := by
-    funext e; unfold ground2Bool; rw [hfe, hp, hn, hs]
-  have hg3 : ground3Bool fe₁ = ground3Bool fe₂ := by
-    funext P e; unfold ground3Bool; rw [hfe, hp, hn, hs]
-  have hg4 : ground4Bool fe₁ = ground4Bool fe₂ := by
-    funext m P e; unfold ground4Bool; rw [hfe, hp, hn, hs]
-  funext m P a b; unfold groundShortcut; rw [hg, hg2, hg3, hg4]
-
-end ConLeche.Cached
+end ConLeche

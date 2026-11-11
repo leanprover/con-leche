@@ -17,7 +17,7 @@ the head is evaluated.
 
 namespace ConLeche.Verify.Ground
 
-open ConLeche ConLeche.Cached
+open ConLeche
 
 /-! ## Spines -/
 

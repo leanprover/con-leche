@@ -5,6 +5,12 @@
 # The Nat-op pin data: generated closed terms (constants).
 module:ConLeche.Kernel.NatOpPins
 
+# The ground engine (task #423): the lazy abstract machine at a closed term compared with
+# `Bool.true`, its compiler, constant table, run loop and site function.  The engine is the best
+# code for that site, and it has no naive specification twin (the specification is to run it on a
+# fresh program, the cached core runs it on its per-declaration program).
+module:ConLeche.Kernel.Ground
+
 # ConLeche.Kernel.Basis — the basis pins and their checks (fixed small terms, once per basis record)
 ConLeche.BasisKind.decls
 ConLeche.ConstantInfo.atLps

@@ -179,9 +179,9 @@ example : (ConLeche.Driver.parseArgs ["--", "--help"] {}).files = #["--help"] :=
 #guard (ConLeche.Driver.parseArgs ["--max-nat-size=16", "--", "f"] {}).maxNatSize == 16
 #guard (ConLeche.Driver.parseArgs ["--max-nat-size=lots", "--", "f"] {}).bad.isSome
 -- the official size measure: a word for a scalar, 8 bytes per started 64 bits
-#guard [0, 1, 2 ^ 63, 2 ^ 64 - 1].all (ConLeche.Cached.natSizeBytes · == 8)
-#guard ConLeche.Cached.natSizeBytes (2 ^ 64) == 16
-#guard ConLeche.Cached.natSizeBytes (2 ^ 128) == 24
+#guard [0, 1, 2 ^ 63, 2 ^ 64 - 1].all (ConLeche.natSizeBytes · == 8)
+#guard ConLeche.natSizeBytes (2 ^ 64) == 16
+#guard ConLeche.natSizeBytes (2 ^ 128) == 24
 -- `2 ^ k` at the default maximum size: 8 bytes per unit of the exponent, so `2 ^ 2^24` and no further
 #guard (ConLeche.Cached.natOpRefusal 134217728 ConLeche.natPowName 2 16777216).isNone
 #guard (ConLeche.Cached.natOpRefusal 134217728 ConLeche.natPowName 2 16777217).isSome

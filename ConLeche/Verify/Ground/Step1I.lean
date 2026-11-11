@@ -23,7 +23,7 @@ form compiled), and a string under a projection likewise.
 
 namespace ConLeche.Verify.Ground
 
-open ConLeche ConLeche.Cached ConLeche.Rules
+open ConLeche ConLeche.Rules
 
 theorem getElem!_of_getElem? {α : Type} [Inhabited α] {a : Array α} {i : Nat} {x : α}
     (h : a[i]? = some x) : a[i]! = x := by

@@ -24,7 +24,7 @@ entries the run names read back as their constants.
 
 namespace ConLeche.Verify.Ground
 
-open ConLeche ConLeche.Cached ConLeche.Rules
+open ConLeche ConLeche.Rules
 
 /-! ## The run's flag facts -/
 

@@ -25,7 +25,7 @@ never reads as a current one).
 
 namespace ConLeche.Verify.Ground
 
-open ConLeche ConLeche.Cached ConLeche.Rules
+open ConLeche ConLeche.Rules
 
 /-- **A program a run can start from.** -/
 structure KeptOK (env : Env) (P : G4Prog) : Prop where
@@ -48,7 +48,7 @@ section
 variable {find? : Name → Option ConstantInfo} {findProj? : Name → Nat → Option ProjEntry}
 
 /-- The program with the site's words set. -/
-@[expose] def _root_.ConLeche.Cached.G4Prog.setSite (P : G4Prog) (kT kF kZ kS ep : Nat)
+@[expose] def _root_.ConLeche.G4Prog.setSite (P : G4Prog) (kT kF kZ kS ep : Nat)
     (sa : Array Nat) : G4Prog :=
   { P with kTrue := kT, kFalse := kF, kZero := kZ, kSucc := kS, epBase := ep, slotA := sa }
 

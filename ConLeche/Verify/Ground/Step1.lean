@@ -17,7 +17,7 @@ any other value pops the argument frames and becomes the neutral (`forget`).
 
 namespace ConLeche.Verify.Ground
 
-open ConLeche ConLeche.Cached
+open ConLeche
 
 /-- A closure value is a λ node under its environment. -/
 theorem ValDen.inv0 {P : G4Prog} {val ev argA : Array Nat} {oc : Nat → Expr} {v : Nat} {t : Expr}

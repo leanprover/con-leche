@@ -21,7 +21,7 @@ Each transition lemma takes `MInv` of a state to `MInv` of the state
 
 namespace ConLeche.Verify.Ground
 
-open ConLeche ConLeche.Cached
+open ConLeche
 
 /-- **The machine's state**: `g4Run`'s arguments. -/
 structure MS where

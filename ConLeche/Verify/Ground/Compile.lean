@@ -1,6 +1,6 @@
 module
 
-public import ConLeche.Cached.Ground4
+public import ConLeche.Kernel.Ground
 public import ConLeche.Verify.Ground.Erased
 
 public section
@@ -9,7 +9,7 @@ public section
 # The ground engine's compiler, correct up to erasure (task #423 soundness, layer (a))
 
 The ground engine compiles every term it evaluates into a code array
-(`g4Comp`, `ConLeche/Cached/Ground4.lean`).  This file reads the code back:
+(`g4Comp`, `ConLeche/Kernel/Ground.lean`).  This file reads the code back:
 `Den P o s` says that the node at offset `o` of the program `P` denotes the
 erased term `s` (`ConLeche/Verify/Ground/Erased.lean`): binder domains, sorts,
 Π-types, erased arguments and neutral constants read back as `bot`, a shared
@@ -26,7 +26,7 @@ constant's table entry (`kMap`) one of that constant.
 
 namespace ConLeche.Verify.Ground
 
-open ConLeche ConLeche.Cached
+open ConLeche
 
 variable {find? : Name → Option ConstantInfo} {findProj? : Name → Nat → Option ProjEntry}
 
@@ -81,25 +81,25 @@ inductive DenArgs (P : G4Prog) : Nat → Nat → Nat → List Expr → Prop wher
 end
 
 /-- The words of table entry `k`. -/
-@[expose] def _root_.ConLeche.Cached.G4Prog.entW (P : G4Prog) (k : Nat) : List (Option Nat) :=
+@[expose] def _root_.ConLeche.G4Prog.entW (P : G4Prog) (k : Nat) : List (Option Nat) :=
   [P.kTag[k]?, P.kCode[k]?, P.kArity[k]?, P.kB[k]?, P.kC[k]?, P.kD[k]?, P.kE[k]?]
 
 /-- The words of rule row `r`. -/
-@[expose] def _root_.ConLeche.Cached.G4Prog.rowW (P : G4Prog) (r : Nat) : Option G4Rule × List (Option Nat) :=
+@[expose] def _root_.ConLeche.G4Prog.rowW (P : G4Prog) (r : Nat) : Option G4Rule × List (Option Nat) :=
   (P.rules[r]?, [P.ruleCode[r]?, P.rNid[r]?, P.rNF[r]?, P.rCP[r]?, P.rC3[r]?])
 
 /-- The words of projection row `q`. -/
-@[expose] def _root_.ConLeche.Cached.G4Prog.prjW (P : G4Prog) (q : Nat) : List (Option Nat) :=
+@[expose] def _root_.ConLeche.G4Prog.prjW (P : G4Prog) (q : Nat) : List (Option Nat) :=
   [P.pNid[q]?, P.pIdx[q]?, P.pNP[q]?, P.pNF[q]?, P.pNl[q]?, P.pAlw[q]?]
 
 /-- The run's flags: what the compiled code's meaning depends on. -/
-@[expose] def _root_.ConLeche.Cached.G4Prog.flags (P : G4Prog) : Bool × Bool × Nat :=
+@[expose] def _root_.ConLeche.G4Prog.flags (P : G4Prog) : Bool × Bool × Nat :=
   (P.natOk, P.strOk, P.maxNat)
 
 /-- The site's words: the four basis entries, the slot epoch and the slot
 array.  Growth (`ExtR`) does not fix them, so the site may set them; the
 compiler (`Ext`) leaves them alone. -/
-@[expose] def _root_.ConLeche.Cached.G4Prog.site (P : G4Prog) : Nat × Nat × Nat × Nat × Nat × Array Nat :=
+@[expose] def _root_.ConLeche.G4Prog.site (P : G4Prog) : Nat × Nat × Nat × Nat × Nat × Array Nat :=
   (P.kTrue, P.kFalse, P.kZero, P.kSucc, P.epBase, P.slotA)
 
 theorem size_le_of_get {α : Type} {a b : Array α} (h : ∀ i, i < a.size → b[i]? = a[i]?) :
@@ -110,11 +110,11 @@ theorem size_le_of_get {α : Type} {a b : Array α} (h : ∀ i, i < a.size → b
   · exact h'
 
 /-- The words of table entry `k` but its compiled body. -/
-@[expose] def _root_.ConLeche.Cached.G4Prog.entR (P : G4Prog) (k : Nat) : List (Option Nat) :=
+@[expose] def _root_.ConLeche.G4Prog.entR (P : G4Prog) (k : Nat) : List (Option Nat) :=
   [P.kTag[k]?, P.kArity[k]?, P.kB[k]?, P.kC[k]?, P.kD[k]?, P.kE[k]?]
 
 /-- The words of rule row `r` but its compiled right-hand side. -/
-@[expose] def _root_.ConLeche.Cached.G4Prog.rowR (P : G4Prog) (r : Nat) : Option G4Rule × List (Option Nat) :=
+@[expose] def _root_.ConLeche.G4Prog.rowR (P : G4Prog) (r : Nat) : Option G4Rule × List (Option Nat) :=
   (P.rules[r]?, [P.rNid[r]?, P.rNF[r]?, P.rCP[r]?, P.rC3[r]?])
 
 /-- **Program growth up to the code columns**: what a node's denotation and

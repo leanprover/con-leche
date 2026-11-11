@@ -13,7 +13,7 @@ closure value), `let`, the literals, the projection and the shared slot.
 
 namespace ConLeche.Verify.Ground
 
-open ConLeche ConLeche.Cached
+open ConLeche
 
 /-! ## Counting the top argument frames -/
 

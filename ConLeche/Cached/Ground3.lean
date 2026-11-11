@@ -1,6 +1,6 @@
 module
 
-public import ConLeche.Cached.Ground
+public import ConLeche.Kernel.Ground
 
 @[expose] public section
 

@@ -8,7 +8,7 @@ public section
 /-!
 # The ground engine's completeness at the `Bool.true` site (task #423)
 
-The ground engine (`ConLeche/Cached/Ground4.lean`) answers the comparison
+The ground engine (`ConLeche/Kernel/Ground.lean`) answers the comparison
 `t =?= Bool.true`, `t` closed, by evaluating `t`.  Without the fallback,
 its answer is the comparison's, and a step it does not do is a decline.  Removing the fallback is
 safe exactly when the engine never answers `false` where the incumbent's
