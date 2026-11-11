@@ -228,21 +228,18 @@ theorem run_mode3 (hwf : EnvWF env) (ih : RunSound env t₀ n) (hR : RunOK env s
       exact ih.app h' hR hrun rfl
     next hna =>
       split at hrun
+      next hhit =>
+        obtain ⟨fl', h'⟩ := step_memo_hit h hm (n := s.P.kArity[s.x]! + 1) (by omega) (by omega)
+          (by simpa using hhit)
+        exact ih.app h' hR hrun rfl
       next =>
         split at hrun
-        next hhit =>
-          obtain ⟨fl', h'⟩ := step_memo_hit h hm (n := s.P.kArity[s.x]! + 1) (by omega) (by omega)
-            (by simpa using hhit)
+        next h4 =>
+          obtain ⟨oc', fl', h'⟩ := step_rec_K h hm ht2 hmI (by omega) h4 _
           exact ih.app h' hR hrun rfl
         next =>
-          split at hrun
-          next h4 =>
-            obtain ⟨oc', fl', h'⟩ := step_rec_K h hm ht2 hmI (by omega) h4 _
-            exact ih.app h' hR hrun rfl
-          next =>
-            obtain ⟨oc', fl', h'⟩ := step_rec_miss h hm ht2 hmI (by omega) _
-            exact ih.app h' hR hrun rfl
-      next hg => exact absurd (by decide) hg
+          obtain ⟨oc', fl', h'⟩ := step_rec_miss h hm ht2 hmI (by omega) _
+          exact ih.app h' hR hrun rfl
   next =>
     obtain ⟨fl', h'⟩ := step_neutral_entry h hm
     exact ih.app h' hR hrun rfl
@@ -281,10 +278,9 @@ theorem run_mode3 (hwf : EnvWF env) (ih : RunSound env t₀ n) (hR : RunOK env s
           have hc : s.P.kCode[s.x]! ≠ 0 := by simpa using hc0
           split at hrun
           next hmemo =>
-            simp only [Bool.and_eq_true, decide_eq_true_eq] at hmemo
             split at hrun
             next hhit =>
-              obtain ⟨fl', h'⟩ := step_memo_hit h hm (n := g4CountArgs s.fs s.fs.size 0) hmemo.2
+              obtain ⟨fl', h'⟩ := step_memo_hit h hm (n := g4CountArgs s.fs s.fs.size 0) hmemo
                 (Nat.le_refl _) (by simpa using hhit)
               exact ih.app h' hR hrun rfl
             next =>

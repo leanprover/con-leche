@@ -290,9 +290,6 @@ def g4Pis : Expr → Nat → Nat
   | .forallE _ b, n => g4Pis b (n + 1)
   | _, n => n
 
-/-- The erasure switch (task #423 round 3 probe). -/
-@[noinline] def g4Erase : Bool := true
-
 section
 variable (find? : Name → Option ConstantInfo) (findProj? : Name → Nat → Option ProjEntry)
 
@@ -402,7 +399,7 @@ program): an erased argument is the neutral node; otherwise `compArg`
 compiles it. -/
 def g4ArgStep (compArg : G4Prog → Expr → Nat × G4Prog) (mask : Array Bool)
     (acc : Array Nat × G4Prog) (a : Expr) : Array Nat × G4Prog :=
-  if g4Erase && mask.getD acc.1.size false then
+  if mask.getD acc.1.size false then
     let o := acc.2.code.size; (acc.1.push o, acc.2.emit (fun c => c.push 8))
   else
   let (ao, P) := compArg acc.2 a
@@ -646,10 +643,6 @@ def g4FindRule (rNid : Array Nat) (c : Nat) : Nat → Nat → Nat
   | 0, i => i
   | n + 1, i => if rNid[i]! == c then i else g4FindRule rNid c n (i + 1)
 
-/-- The application memo switch (task #423 probe): `0` none, `1`
-recursor applications only, `2` recursors and definitions. -/
-@[noinline] def g4Memo : Nat := 2
-
 section
 variable (find? : Name → Option ConstantInfo) (findProj? : Name → Nat → Option ProjEntry)
 
@@ -823,8 +816,7 @@ def g4Run : Nat → G4Prog → (cel val ev fs argA slots mem mH : Array Nat) →
               argA slots mem mH 1 0 0 v st
           else
             let h := g4Hash fs k (mI + 1) 0 (UInt64.ofNat k)
-            let hit := if g4Memo ≥ 1 then
-                g4MemoFind mem mH fs argA k (mI + 1) mH.size (g4Slot h mH.size) else 0
+            let hit := g4MemoFind mem mH fs argA k (mI + 1) mH.size (g4Slot h mH.size)
             if hit != 0 then
               g4Run n P cel val ev (g4PopN fs (mI + 1)) argA slots mem mH 2 0 0 hit st
             else
@@ -834,8 +826,8 @@ def g4Run : Nat → G4Prog → (cel val ev fs argA slots mem mH : Array Nat) →
               let r := (cel.size >>> 2)
               let maj := argA[start + mI]!
               let rr := (mem.size >>> 2)
-              let mem := if g4Memo ≥ 1 then (((mem.push k).push start).push (mI + 1)).push r else mem
-              let mH := if g4Memo ≥ 1 then g4MemoIns mem argA mH rr h else mH
+              let mem := (((mem.push k).push start).push (mI + 1)).push r
+              let mH := g4MemoIns mem argA mH rr h
               let cel := (((cel.push 1).push 0).push 0).push 0
               let fs := ((((fs.push (g4Tag r 2)).push k).push start).push (mI + 1)).push 3
               let ef := P.kE[k]!
@@ -878,7 +870,7 @@ def g4Run : Nat → G4Prog → (cel val ev fs argA slots mem mH : Array Nat) →
             | _ => .stop (.internal "ground evaluation: a definition entry without its value") st
           else
           let body := P.kCode[k]! - 1
-          if g4Memo ≥ 2 && na > 0 then
+          if na > 0 then
             let h := g4Hash fs k na 0 (UInt64.ofNat k)
             let hit := g4MemoFind mem mH fs argA k na mH.size (g4Slot h mH.size)
             if hit != 0 then
