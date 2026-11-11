@@ -280,7 +280,8 @@ def g4Entry (P : G4Prog) (c : Name) (us : List Level) (kfab : Nat) : Nat × G4Pr
       let (ni, P) := P.nid c
       (1, g4Pis cv.type 0, ni, 0, us.length, 0, .ctor c us nP nF, P)
     | some (.recInfo cv mI rP isK rules) =>
-      if us.length != cv.levelParams.length || !(Expr.peelPis (mI + 1) cv.type).isSome then
+      -- (`rP ≤ mI`: the rule binds leading arguments the frame's span has)
+      if us.length != cv.levelParams.length || !(Expr.peelPis (mI + 1) cv.type).isSome || mI < rP then
         (5, 0, 0, 0, 0, 0, .neutral c us, P)
       else
         let base := P.rules.size

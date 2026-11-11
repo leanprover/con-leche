@@ -1,10 +1,12 @@
 module
 
-public import ConLeche.Verify.Ground.Run
 import ConLeche.Verify.Ground.Step0
 import ConLeche.Verify.Ground.Step1
+public import ConLeche.Verify.EnvWF
+import ConLeche.Verify.Ground.Step3
 public import ConLeche.Verify.Ground.Step1N
 import ConLeche.Verify.InferLemmas
+public import ConLeche.Verify.InstSpine
 import ConLeche.Verify.StrLitExpr
 
 public section
@@ -216,6 +218,51 @@ theorem span_rev (a : Array Nat) (start k : Nat) :
     (List.range k).reverse.map (fun i => a[start + (0 + i)]!) = (span a start k).reverse := by
   simp [span, List.map_reverse]
 
+/-- Level instantiation keeps a telescope's syntactic arity. -/
+theorem peelPis_inst (ks : List Name) (us : List Level) :
+    ∀ (k : Nat) {e : Expr}, (Expr.peelPis k e).isSome = true →
+      (Expr.peelPis k (e.instantiateLevelParams ks us)).isSome = true
+  | 0, _, _ => rfl
+  | k + 1, .forallE _ b, h => by
+    simp only [Expr.instantiateLevelParams, Expr.peelPis] at h ⊢
+    exact peelPis_inst ks us k h
+  | _ + 1, .bvar _, h | _ + 1, .fvar _ _, h | _ + 1, .sort _, h
+  | _ + 1, .const _ _, h | _ + 1, .app _ _, h | _ + 1, .lam _ _, h
+  | _ + 1, .letE _ _ _, h | _ + 1, .lit _, h | _ + 1, .proj _ _ _, h => by
+    simp [Expr.peelPis] at h
+
+theorem mkAppN_append (f : Expr) : ∀ (l₁ l₂ : List Expr),
+    Expr.mkAppN f (l₁ ++ l₂) = Expr.mkAppN (Expr.mkAppN f l₁) l₂
+  | [], _ => rfl
+  | a :: l₁, l₂ => mkAppN_append (.app f a) l₁ l₂
+
+theorem span_take (a : Array Nat) (start m n : Nat) (h : m ≤ n) : (span a start n).take m = span a start m := by
+  obtain ⟨d, rfl⟩ : ∃ d, n = m + d := ⟨n - m, by omega⟩
+  rw [span_append, List.take_append_of_le_length (by simp [span_length]),
+    List.take_of_length_le (by simp [span_length])]
+
+theorem span_drop (a : Array Nat) (start m n : Nat) : (span a start (m + n)).drop m = span a (start + m) n := by
+  rw [span_append, List.drop_append_of_le_length (by simp [span_length]),
+    List.drop_of_length_le (by simp [span_length]), List.nil_append]
+
+theorem FS.top_iota' {fs : Array Nat} {fl : List Fr} (h : FS fs fs.size fl) (hn : 0 < fs.size)
+    (ht : fs[fs.size - 1]! &&& 15 = 3) :
+    ∃ fl', fl = .iota fs[fs.size - 4]! fs[fs.size - 3]! fs[fs.size - 2]! :: fl' ∧ 4 ≤ fs.size ∧
+      FS fs (fs.size - 4) fl' := by
+  generalize hsz : fs.size = t at h hn ht
+  cases h with
+  | nil => omega
+  | @iota t' fl' _ h' => exact ⟨fl', by simp, by omega, by simpa using h'⟩
+  | arg h₀ _ | upd h₀ _ | succ h₀ _ => simp only [Nat.add_sub_cancel] at ht; rw [h₀] at ht; cases ht
+  | natA h₀ _ => simp only [show ∀ t, t + 4 - 1 = t + 3 from fun _ => rfl] at ht; rw [h₀] at ht; cases ht
+  | proj h₀ _ => simp only [show ∀ t, t + 2 - 1 = t + 1 from fun _ => rfl] at ht; rw [h₀] at ht; cases ht
+  | natB h₀ _ => simp only [show ∀ t, t + 5 - 1 = t + 4 from fun _ => rfl] at ht; rw [h₀] at ht; cases ht
+
+theorem recFireComparands_fst_eq (rl : RecRule) (cnP : Nat) (lps : List Name) (us : List Level)
+    (cl : List Name) (as : List Expr) (rP : Nat) :
+    (recFireComparands rl cnP lps us cl as rP).1 = gCmpLevels rl lps us cl := by
+  unfold recFireComparands gCmpLevels; split <;> rename_i heq <;> simp [heq]
+
 section
 variable {env : Env} {t₀ : Expr} {oc : Nat → Expr} {s : MS} {fl : List Fr}
 
@@ -317,6 +364,363 @@ theorem step_proj_str (hR : RunOK env s.P) (h : MInv env t₀ oc s fl) (hm : s.m
   refine ⟨_, h.enterCompiled (FS.pushProj hfs.pop2 _) (fun f hf => h.frames f hf)
     (strLitToConstructor_looseBVars str 0) ?_⟩
   exact K.step env t₀ s.P s.argA oc _ hK (.strLit (hR.str hok))
+
+/-! ## The ι frame at a constructor -/
+
+/-- **The rule fires**: at a constructor value whose rule the engine finds
+outside case 3, the frames below the ι frame accept the rule's right-hand
+side on the recursor's leading arguments and the constructor's fields
+(`ERed.iota`; after the K step, `ERed.iotaK`). -/
+theorem MInv.iotaFire (hwf : EnvWF env) (h : MInv env t₀ oc s fl) (hm : s.mode = 1) (hn : 0 < s.fs.size)
+    (ht : s.fs[s.fs.size - 1]! &&& 15 = 3) (h1 : s.val[g4X4 s.x]! = 1)
+    {k ri : Nat} (hk : s.fs[s.fs.size - 4]! = k)
+    (hkc : s.P.kTag[s.val[g4X4 s.x + 1]!]! = 1)
+    (hri : g4FindRule s.P.rNid s.P.kB[s.val[g4X4 s.x + 1]!]! s.P.kD[k]! s.P.kC[k]! = ri)
+    (hne : ri ≠ s.P.kC[k]! + s.P.kD[k]!)
+    (hcl : s.val[g4X4 s.x + 3]! = s.P.rCP[ri]! + s.P.rNF[ri]!) (hc3 : s.P.rC3[ri]! = 0) :
+    ∃ fl' c lps us mI rP base nr isK isEta rhs, fl = .iota k s.fs[s.fs.size - 3]! s.fs[s.fs.size - 2]! :: fl' ∧
+      FS s.fs (s.fs.size - 4) fl' ∧ FlOK s.P s.argA s.N fl' ∧
+      s.P.kInfo[k]? = some (.recr c lps us mI rP base nr isK isEta) ∧ base ≤ ri ∧ ri < base + nr ∧
+      (s.P.rules[ri]!).rhs = rhs ∧ s.P.kB[k]! = rP ∧
+      s.fs[s.fs.size - 3]! + rP ≤ s.argA.size ∧
+      s.val[g4X4 s.x + 2]! + s.P.rCP[ri]! + s.P.rNF[ri]! ≤ s.argA.size ∧
+      CodeOK s.P s.P.ruleCode[ri]! (rhs.instantiateLevelParams lps us) ∧
+      (rhs.instantiateLevelParams lps us).looseBVarsBounded 0 = true ∧
+      K env t₀ s.P s.argA oc fl' (Expr.mkAppN (rhs.instantiateLevelParams lps us)
+        ((span s.argA s.fs[s.fs.size - 3]! rP ++
+          span s.argA (s.val[g4X4 s.x + 2]! + s.P.rCP[ri]!) s.P.rNF[ri]!).map oc)) := by
+  rw [g4X4_eq] at h1 hkc hri hcl ⊢
+  obtain ⟨-, u, hv, hK⟩ := h.val1 hm
+  obtain ⟨hkcl, hs, rfl⟩ := hv.inv1 h1
+  obtain ⟨fl', hfl, -, hfs⟩ := FS.top_iota' h.stack hn ht
+  rw [hk] at hfl
+  have hfr : FrOK s.P s.argA s.N (.iota k s.fs[s.fs.size - 3]! s.fs[s.fs.size - 2]!) :=
+    h.frames _ (by rw [hfl]; exact List.mem_cons_self ..)
+  have hflr : FlOK s.P s.argA s.N fl' := fun f hf => h.frames f (by rw [hfl]; exact List.mem_cons_of_mem _ hf)
+  rw [hfl] at hK
+  have hI := h.store.prog
+  have hnid := hI.nidOK
+  have hargR := h.store.argRef
+  refine ⟨fl', ?_⟩
+  generalize s.fs[s.fs.size - 3]! = start at hfr hK hfl ⊢
+  generalize s.fs[s.fs.size - 2]! = len at hfr hK hfl ⊢
+  generalize s.val[4 * s.x + 1]! = kc at hkcl hkc hri hK
+  generalize s.val[4 * s.x + 2]! = ms at hs hK ⊢
+  generalize s.val[4 * s.x + 3]! = cl at hs hcl hK
+  obtain ⟨hkk, hlen0, hsl, htag, har⟩ := hfr
+  obtain ⟨c, lps, us, mI, rP, base, nr, isK, isEta, hi, he, cv, rules, hfind, hlps, hus, hpeel, hrPmI,
+    -, har', hkB, hkC, hkD, hnr, hbr, ⟨kfab, hkE, hkf⟩, hrows⟩ := recEntry hI hkk htag
+  rw [har'] at har
+  have hlen : len = mI + 1 := by have := Option.some.inj har; omega
+  subst hlen hlps hnr
+  rw [get!_of_some hkC, get!_of_some hkD] at hri hne
+  obtain ⟨cj, usj, nP, nF, cvj, hej, hfj, -, ⟨ij, hij, hkbj⟩, -⟩ := ctorEntry hI hkcl hkc
+  rw [hkbj] at hri
+  obtain ⟨j, hj, hrij, hfindr, hctor⟩ := findRule_find hnid hrows hij (by rw [hri]; exact hne)
+  rw [hri] at hrij; subst hrij
+  obtain ⟨hrow1, hnf, hcp, hc3', -, w, hw, hcode⟩ := hrows j hj
+  have hcpv : gCtorParams env.find? rules[j].ctor = nP := by rw [hctor]; simp [gCtorParams, hfj]
+  rw [get!_of_some hnf, get!_of_some hcp, hcpv] at hcl ⊢
+  rw [get!_of_some hc3'] at hc3
+  have hcase : ruleCase3 env.find? isK cv.levelParams us rules[j] = false := by
+    cases h' : ruleCase3 env.find? isK cv.levelParams us rules[j] <;> simp_all
+  have hg : gCase3 env.find? isK cvj (gCmpLevels rules[j] cv.levelParams us cvj.levelParams) = false := by
+    unfold ruleCase3 at hcase; rw [hctor, hfj] at hcase; exact hcase
+  have hrc : rules[j].rhs.looseBVarsBounded 0 = true :=
+    ((hwf.consts _ (Env.find?_mem hfind)).2.2.2.2.2 cv mI rP isK rules rfl rules[j]
+      (List.getElem_mem hj)).2.2.2.1
+  rw [hej] at hK
+  have hargs : (Expr.mkAppN (.const c us) ((span s.argA start (mI + 1)).map oc)).getAppArgs =
+      (span s.argA start (mI + 1)).map oc := by
+    rw [Expr.getAppArgs_mkAppN]; simp [Expr.getAppArgs]
+  have hpe : (Expr.peelPis (Expr.mkAppN (.const c us) ((span s.argA start (mI + 1)).map oc)).getAppArgs.length
+      (cv.type.instantiateLevelParams cv.levelParams us)).isSome = true := by
+    rw [hargs, List.length_map, span_length]; exact peelPis_inst _ _ _ hpeel
+  have htake : ((span s.argA start (mI + 1)).map oc).take rP = (span s.argA start rP).map oc := by
+    rw [← List.map_take, span_take _ _ _ _ (by omega)]
+  have hred : ERed env (spanTerm s.P s.argA oc k start (mI + 1))
+      (Expr.mkAppN (rules[j].rhs.instantiateLevelParams cv.levelParams us)
+        ((span s.argA start rP ++ span s.argA (ms + nP) rules[j].nfields).map oc)) := by
+    unfold spanTerm; rw [he]
+    rcases hK.1 with hmaj | h4
+    · have := ERed.iota (env := env) (e := Expr.mkAppN (.const c us) ((span s.argA start (mI + 1)).map oc))
+        (major := Expr.mkAppN (.const cj usj) ((span s.argA ms cl).map oc)) (rl := rules[j])
+        (by rw [Expr.getAppFn_mkAppN]; rfl) hfind (by rw [hargs, List.length_map, span_length]) hus
+        (by rw [hargs, span_getD (by omega)]; simpa using hmaj) (by rw [Expr.getAppFn_mkAppN]; rfl) hfj
+        hfindr (by rw [Expr.getAppArgs_mkAppN]; simp [Expr.getAppArgs, span_length, hcl])
+        (by rw [recFireComparands_fst_eq]; exact iotaCase_of_gCase3 hg) hpe
+      rw [hargs, htake, Expr.getAppArgs_mkAppN] at this
+      simp only [Expr.getAppArgs, List.nil_append] at this
+      rw [hcl, ← List.map_drop, span_drop, ← List.map_append] at this; exact this
+    · rw [get!_of_some hkE] at h4
+      rcases hkf with rfl | ⟨kc', rl, -, -, -, rfl, rfl, hnf0⟩
+      · exfalso; revert h4; split <;> split <;> omega
+      · obtain rfl : j = 0 := by simp at hj; omega
+        have := ERed.iotaK (env := env) (e := Expr.mkAppN (.const c us) ((span s.argA start (mI + 1)).map oc))
+          (by rw [Expr.getAppFn_mkAppN]; rfl) hfind (by rw [hargs, List.length_map, span_length]) hus hpe
+        rw [hargs, htake] at this
+        simp only [List.getElem_cons_zero] at hnf0 ⊢
+        rw [hnf0, span_zero, List.append_nil]; exact this
+  refine ⟨c, cv.levelParams, us, mI, rP, base, rules.length, isK, isEta, rules[j].rhs, hfl, hfs, hflr, hi,
+    by omega, by omega, ?_, get!_of_some hkB, by omega, by omega, by rw [get!_of_some hw]; exact hcode,
+    by rw [Expr.looseBVarsBounded_instantiateLevelParams]; exact hrc,
+    K.step env t₀ s.P s.argA oc fl' hK.2 hred⟩
+  rw [getElem!_of_getElem? hrow1]
+
+/-- The value in focus under an extended program. -/
+theorem MInv.withProg1 (h : MInv env t₀ oc s fl) (hm : s.mode = 1) {P' : G4Prog}
+    (hI : Inv env.find? env.findProj? P') (hx : ExtR s.P P') :
+    MInv env t₀ oc { s with P := P' } fl := by
+  obtain ⟨hxv, t, hv, hK⟩ := h.val1 hm
+  refine ⟨h.store.grow (s' := { s with P := P' }) hI hx hx.epBase (Pre.refl _) h.store.celSz (Pre.refl _)
+    h.store.valSz (Pre.refl _) h.store.evSz (Pre.refl _) rfl rfl (Agree.refl _ _) h.store.evRef
+    h.store.argRef (fun c h₁ h₂ => absurd h₂ (by simp only [MS.N] at h₁ ⊢; omega)), h.stack,
+    h.frames.grow hx (Pre.refl _) (Nat.le_refl _), ?_⟩
+  simp only [Focus, hm]
+  refine ⟨hxv, t, hv.pre hx (Pre.refl _) (Pre.refl _) (Pre.refl _) (by have := h.store.valSz; omega), ?_⟩
+  exact K.grow env t₀ oc hx (Pre.refl _) fl h.frames hK
+
+/-- **The rule's right-hand side not yet compiled**: it is compiled and
+stored in the rule's row, and the value returned again (a stutter). -/
+theorem step_iota_compile (hwf : EnvWF env) (h : MInv env t₀ oc s fl) (hm : s.mode = 1)
+    (hn : 0 < s.fs.size) (ht : s.fs[s.fs.size - 1]! &&& 15 = 3) (h1 : s.val[g4X4 s.x]! = 1)
+    {k ri : Nat} (hk : s.fs[s.fs.size - 4]! = k)
+    (hkc : s.P.kTag[s.val[g4X4 s.x + 1]!]! = 1)
+    (hri : g4FindRule s.P.rNid s.P.kB[s.val[g4X4 s.x + 1]!]! s.P.kD[k]! s.P.kC[k]! = ri)
+    (hne : ri ≠ s.P.kC[k]! + s.P.kD[k]!)
+    (hcl : s.val[g4X4 s.x + 3]! = s.P.rCP[ri]! + s.P.rNF[ri]!) (hc3 : s.P.rC3[ri]! = 0)
+    {c' : Name} {lps : List Name} {us : List Level} {mI' rP' base' nr' : Nat} {isK' isEta' : Bool}
+    (hik : s.P.kInfo[k]! = .recr c' lps us mI' rP' base' nr' isK' isEta') :
+    MInv env t₀ oc { s with P :=
+      { (g4Comp env.find? env.findProj? g4CompFuel s.P ((s.P.rules[ri]!).rhs.instantiateLevelParams lps us)).2 with
+        ruleCode := (g4Comp env.find? env.findProj? g4CompFuel s.P
+          ((s.P.rules[ri]!).rhs.instantiateLevelParams lps us)).2.ruleCode.set! ri
+          ((g4Comp env.find? env.findProj? g4CompFuel s.P
+            ((s.P.rules[ri]!).rhs.instantiateLevelParams lps us)).1 + 1) } } fl := by
+  obtain ⟨fl', c, lps₀, us₀, mI, rP, base, nr, isK, isEta, rhs, -, -, -, hi, hb₁, hb₂, -⟩ :=
+    h.iotaFire hwf hm hn ht h1 hk hkc hri hne hcl hc3
+  rw [getElem!_of_getElem? hi] at hik
+  simp only [G4Info.recr.injEq] at hik
+  obtain ⟨-, rfl, rfl, -, -, -, -, -, -⟩ := hik
+  have hcomp := (g4Comp_spec env.find? env.findProj? g4CompFuel).1 s.P
+    ((s.P.rules[ri]!).rhs.instantiateLevelParams lps₀ us₀) h.store.prog
+  generalize g4Comp env.find? env.findProj? g4CompFuel s.P
+    ((s.P.rules[ri]!).rhs.instantiateLevelParams lps₀ us₀) = r at hcomp ⊢
+  obtain ⟨o, P1⟩ := r
+  obtain ⟨hI1, hx1, sb, hd, ha⟩ := hcomp
+  dsimp only at hI1 hx1 hd ⊢
+  have hrl : ri < s.P.rules.size := by
+    have := h.store.prog.rows_lt (P := s.P) ⟨_, _, _, _, _, _, _, _, _, hi, hb₁, hb₂⟩; omega
+  have hrr : (P1.rules[ri]!) = (s.P.rules[ri]!) := by
+    simp only [getElem!_def, (rowR_eq (hx1.toExtR.row ri hrl)).1]
+  have hI2 := hI1.setRuleCode (hx1.toExtR.kInfo_some hi) hb₁ hb₂ hd (by rw [hrr]; exact ha)
+  exact h.withProg1 hm hI2 (hx1.toExtR.trans (ExtR.codes P1 P1.kCode _))
+
+/-- **The rule fires, its right-hand side not a λ of the bound arity**: the
+leading arguments and the fields are pushed as argument frames over the
+compiled right-hand side. -/
+theorem step_iota_frames (hwf : EnvWF env) (h : MInv env t₀ oc s fl) (hm : s.mode = 1)
+    (hn : 0 < s.fs.size) (ht : s.fs[s.fs.size - 1]! &&& 15 = 3) (h1 : s.val[g4X4 s.x]! = 1)
+    {k ri : Nat} (hk : s.fs[s.fs.size - 4]! = k)
+    (hkc : s.P.kTag[s.val[g4X4 s.x + 1]!]! = 1)
+    (hri : g4FindRule s.P.rNid s.P.kB[s.val[g4X4 s.x + 1]!]! s.P.kD[k]! s.P.kC[k]! = ri)
+    (hne : ri ≠ s.P.kC[k]! + s.P.kD[k]!)
+    (hcl : s.val[g4X4 s.x + 3]! = s.P.rCP[ri]! + s.P.rNF[ri]!) (hc3 : s.P.rC3[ri]! = 0)
+    (hrc : s.P.ruleCode[ri]! ≠ 0) :
+    ∃ fl', MInv env t₀ oc { s with
+      fs := g4PushArgs s.argA s.fs[s.fs.size - 3]!
+        (g4PushArgs s.argA (s.val[g4X4 s.x + 2]! + s.P.rCP[ri]!) (g4PopN s.fs 4) s.P.rNF[ri]!) s.P.kB[k]!,
+      mode := 0, pc := s.P.ruleCode[ri]! - 1, env := 0, x := 0 } fl' := by
+  obtain ⟨fl', c, lps, us, mI, rP, base, nr, isK, isEta, rhs, -, hfs, hfl, -, -, -, -, hkB, hs₁, hs₂, hcode,
+    hcl0, hK⟩ := h.iotaFire hwf hm hn ht h1 hk hkc hri hne hcl hc3
+  rcases hcode with h0 | ⟨o, sb, ho, hd, ha⟩
+  · exact absurd h0 hrc
+  rw [ho, Nat.add_sub_cancel, hkB]
+  generalize s.fs[s.fs.size - 3]! = start at hs₁ hK ⊢
+  generalize s.val[g4X4 s.x + 2]! + s.P.rCP[ri]! = ms at hs₂ hK ⊢
+  generalize s.P.rNF[ri]! = nf at hs₂ hK ⊢
+  have hcell : ∀ st n, st + n ≤ s.argA.size → ∀ c ∈ span s.argA st n, c < s.N := by
+    intro st n hle c hc
+    obtain ⟨j, hj, rfl⟩ := List.mem_map.mp hc
+    rw [List.mem_range] at hj
+    exact h.store.argRef _ (by omega)
+  refine ⟨_, h.store.same rfl rfl rfl rfl rfl rfl rfl,
+    FS.pushArgs _ _ _ (FS.pushArgs _ _ _ hfs.popK), ?_, ?_⟩
+  · intro f hf
+    rcases List.mem_append.mp hf with hf | hf
+    · obtain ⟨c, hc, rfl⟩ := List.mem_map.mp hf; exact hcell _ _ hs₁ c hc
+    rcases List.mem_append.mp hf with hf | hf
+    · obtain ⟨c, hc, rfl⟩ := List.mem_map.mp hf; exact hcell _ _ (by omega) c hc
+    · exact hfl f hf
+  · refine ⟨sb, ⟨sb, [], hd, .nil, Approx.bounded ha hcl0, by simp [Expr.instantiateList_nil]⟩, ?_⟩
+    rw [K.args, K.args, ← mkAppN_append, ← List.map_append]
+    exact K.step env t₀ s.P s.argA oc fl' hK (.forget .refl (Approx.mkAppN ha (Approx.Args.refl _)))
+
+/-- **The rule fires, its right-hand side a λ of the bound arity**: the
+leading arguments and the fields are bound at once, and the λ's body
+evaluated (`beta` × the arity). -/
+theorem step_iota_bind (hwf : EnvWF env) (h : MInv env t₀ oc s fl) (hm : s.mode = 1)
+    (hn : 0 < s.fs.size) (ht : s.fs[s.fs.size - 1]! &&& 15 = 3) (h1 : s.val[g4X4 s.x]! = 1)
+    {k ri : Nat} (hk : s.fs[s.fs.size - 4]! = k)
+    (hkc : s.P.kTag[s.val[g4X4 s.x + 1]!]! = 1)
+    (hri : g4FindRule s.P.rNid s.P.kB[s.val[g4X4 s.x + 1]!]! s.P.kD[k]! s.P.kC[k]! = ri)
+    (hne : ri ≠ s.P.kC[k]! + s.P.kD[k]!)
+    (hcl : s.val[g4X4 s.x + 3]! = s.P.rCP[ri]! + s.P.rNF[ri]!) (hc3 : s.P.rC3[ri]! = 0)
+    (hrc : s.P.ruleCode[ri]! ≠ 0) (hl2 : s.P.code[s.P.ruleCode[ri]! - 1]! = 2)
+    (htn : s.P.code[s.P.ruleCode[ri]! - 1 + 2]! = s.P.kB[k]! + s.P.rNF[ri]!) :
+    ∃ fl', MInv env t₀ oc { s with
+      ev := g4BindSpan s.argA (s.val[g4X4 s.x + 2]! + s.P.rCP[ri]!)
+        (g4BindSpan s.argA s.fs[s.fs.size - 3]! s.ev s.P.kB[k]! 0 0) s.P.rNF[ri]! 0
+        (if s.P.kB[k]! == 0 then 0 else (g4BindSpan s.argA s.fs[s.fs.size - 3]! s.ev s.P.kB[k]! 0 0).size >>> 1),
+      fs := g4PopN s.fs 4, mode := 0, pc := s.P.code[s.P.ruleCode[ri]! - 1 + 3]!,
+      env := if s.P.kB[k]! + s.P.rNF[ri]! == 0 then 0 else
+        (g4BindSpan s.argA (s.val[g4X4 s.x + 2]! + s.P.rCP[ri]!)
+          (g4BindSpan s.argA s.fs[s.fs.size - 3]! s.ev s.P.kB[k]! 0 0) s.P.rNF[ri]! 0
+          (if s.P.kB[k]! == 0 then 0 else
+            (g4BindSpan s.argA s.fs[s.fs.size - 3]! s.ev s.P.kB[k]! 0 0).size >>> 1)).size >>> 1,
+      x := 0 } fl' := by
+  obtain ⟨fl', c, lps, us, mI, rP, base, nr, isK, isEta, rhs, -, hfs, hfl, -, -, -, -, hkB, hs₁, hs₂, hcode,
+    hcl0, hK⟩ := h.iotaFire hwf hm hn ht h1 hk hkc hri hne hcl hc3
+  rcases hcode with h0 | ⟨o, sb, ho, hd, ha⟩
+  · exact absurd h0 hrc
+  rw [ho, Nat.add_sub_cancel] at hl2 htn ⊢
+  rw [hkB] at htn ⊢
+  generalize s.fs[s.fs.size - 3]! = start at hs₁ hK ⊢
+  generalize s.val[g4X4 s.x + 2]! + s.P.rCP[ri]! = ms at hs₂ hK ⊢
+  generalize s.P.rNF[ri]! = nf at hs₂ hK htn ⊢
+  have h2 : s.P.code[o]? = some 2 := by rw [some_of_lt hd.lt_size, hl2]
+  have htn' : s.P.code[o + 2]? = some (rP + nf) := by
+    obtain ⟨_, _, _, _, -, h', -⟩ := hd.lam_inv h2; rw [h', ← htn, get!_of_some h']
+  have htn1 : 1 ≤ rP + nf := by
+    obtain ⟨_, tn'', _, _, -, h', -, -, -, htel⟩ := hd.lam_inv h2
+    rw [htn'] at h'; cases h'
+    rcases htel with ⟨-, -, -, h⟩ | ⟨-, h, -⟩ <;> omega
+  obtain ⟨sb', hdb, rfl, hin⟩ := Den.lamWalk (rP + nf) hd h2 htn' (Nat.le_refl _)
+  rw [get!_of_some (hin rfl)]
+  have hev := h.store.evSz
+  obtain ⟨p1, sz1, el1⟩ := bindSpan_spec s.argA start rP 0 0 s.ev [] hev (Nat.zero_le _) .nil
+  generalize hE1 : g4BindSpan s.argA start s.ev rP 0 0 = EV1 at p1 sz1 el1 ⊢
+  have he1 : (if rP == 0 then 0 else EV1.size >>> 1) = (if rP = 0 then 0 else EV1.size / 2) := by
+    by_cases hr : rP = 0 <;> simp [hr, Nat.shiftRight_eq_div_pow]
+  rw [he1]
+  have hle1 : (if rP = 0 then 0 else EV1.size / 2) ≤ EV1.size / 2 := by split <;> omega
+  obtain ⟨p2, sz2, el2⟩ := bindSpan_spec s.argA ms nf 0 (if rP = 0 then 0 else EV1.size / 2) EV1 _
+    (by rw [sz1]; omega) hle1 el1
+  have hcell : ∀ st n, st + n ≤ s.argA.size → ∀ i, i < n → s.argA[st + (0 + i)]! < s.N :=
+    fun st n hle i hi => h.store.argRef _ (by omega)
+  have hr1 := bindSpan_ref s.argA start rP 0 0 s.ev h.store.evRef hev (Nat.zero_le _) (hcell _ _ hs₁)
+  rw [hE1] at hr1
+  have hr2 := bindSpan_ref s.argA ms nf 0 _ EV1 hr1 (by rw [sz1]; omega) hle1 (hcell _ _ (by omega))
+  have he2 : (if rP + nf == 0 then 0 else (g4BindSpan s.argA ms EV1 nf 0 (if rP = 0 then 0 else EV1.size / 2)).size >>> 1) =
+      (if nf = 0 then (if rP = 0 then 0 else EV1.size / 2) else
+        (g4BindSpan s.argA ms EV1 nf 0 (if rP = 0 then 0 else EV1.size / 2)).size / 2) := by
+    rw [show (rP + nf == 0) = false by simp; omega]
+    by_cases hnf : nf = 0
+    · subst hnf
+      have hr : rP ≠ 0 := by omega
+      simp [g4BindSpan, hr, Nat.shiftRight_eq_div_pow]
+    · simp [hnf, Nat.shiftRight_eq_div_pow]
+  rw [he2]
+  generalize g4BindSpan s.argA ms EV1 nf 0 (if rP = 0 then 0 else EV1.size / 2) = EV2 at p2 sz2 el2 hr2 ⊢
+  rw [span_rev, span_rev, List.append_nil, ← List.reverse_append] at el2
+  refine ⟨fl', (h.store.withEv (p1.trans p2) (by rw [sz2, sz1]; omega) hr2).same rfl rfl rfl rfl rfl rfl rfl,
+    hfs.popK, hfl, ?_⟩
+  refine ⟨_, ⟨sb', _, hdb, el2, ?_, rfl⟩, ?_⟩
+  · have := Approx.bounded ha hcl0
+    rw [lams_bounded] at this
+    simpa [span_length, Nat.add_comm] using this
+  · have hβ := betaN_env env ((span s.argA start rP ++ span s.argA ms nf).map oc) sb' []
+    rw [List.length_map, List.length_append, span_length, span_length, Expr.instantiateList_nil,
+      List.append_nil] at hβ
+    have h₁ := K.step env t₀ s.P s.argA oc fl' hK (.forget .refl (Approx.mkAppN ha (Approx.Args.refl _)))
+    have h₂ := K.step env t₀ s.P s.argA oc fl' h₁ hβ
+    rwa [← List.map_reverse] at h₂
+
+/-! ## The ι frame at a literal major -/
+
+/-- **A string major**: its constructor form is compiled and evaluated under
+the ι frame (`ERed.strLit`). -/
+theorem step_iota_str (hR : RunOK env s.P) (h : MInv env t₀ oc s fl) (hm : s.mode = 1)
+    (h3 : s.val[g4X4 s.x]! = 3) (hok : s.P.strOk = true) :
+    MInv env t₀ oc { s with
+      P := (g4Comp env.find? env.findProj? g4CompFuel s.P
+        (strLitToConstructor s.P.strs[s.val[g4X4 s.x + 1]!]!)).2, mode := 0,
+      pc := (g4Comp env.find? env.findProj? g4CompFuel s.P
+        (strLitToConstructor s.P.strs[s.val[g4X4 s.x + 1]!]!)).1, env := 0, x := 0 } fl := by
+  rw [g4X4_eq] at h3 ⊢
+  obtain ⟨-, t, hv, hK⟩ := h.val1 hm
+  obtain ⟨str, hstr, rfl⟩ := hv.inv3 h3
+  rw [getElem!_of_getElem? hstr]
+  exact h.enterCompiled h.stack h.frames (strLitToConstructor_looseBVars str 0)
+    (K.step env t₀ s.P s.argA oc fl hK (.strLit (hR.str hok)))
+
+/-- **The literal `0` as a major**: `Nat.zero` (`ERed.natLit`). -/
+theorem step_iota_zero (hR : RunOK env s.P) (h : MInv env t₀ oc s fl) (hm : s.mode = 1)
+    (h2 : s.val[g4X4 s.x]! = 2) (hok : s.P.natOk = true) (h0 : s.val[g4X4 s.x + 1]! = 0) :
+    MInv env t₀ oc { s with
+      val := (((s.val.push 1).push s.P.kZero).push 0).push 0, mode := 1, pc := 0, env := 0,
+      x := s.val.size >>> 2 } fl := by
+  rw [g4X4_eq] at h2 h0
+  obtain ⟨-, t, hv, hK⟩ := h.val1 hm
+  obtain rfl := hv.inv2 h2
+  rw [h0] at hK
+  have := h.pushCtor0 h.stack h.frames hR.zero.1 (by
+    rw [hR.zero.2]; exact K.step env t₀ s.P s.argA oc fl hK (.natLit (n := 0) (hR.nat hok)))
+  exact this
+
+/-- **The literal `m + 1` as a major**: `Nat.succ` on a new value cell
+holding the literal `m` (`ERed.natLit`). -/
+theorem step_iota_succ (hR : RunOK env s.P) (h : MInv env t₀ oc s fl) (hm : s.mode = 1)
+    (h2 : s.val[g4X4 s.x]! = 2) (hok : s.P.natOk = true) {m : Nat} (hm1 : s.val[g4X4 s.x + 1]! = m + 1) :
+    ∃ oc', MInv env t₀ oc' { s with
+      cel := (((s.cel.push ((s.val.size >>> 2) + 2)).push 0).push 0).push 0,
+      val := (((((((s.val.push 2).push m).push 0).push 0).push 1).push s.P.kSucc).push s.argA.size).push 1,
+      argA := s.argA.push (s.cel.size >>> 2), mode := 1, pc := 0, env := 0,
+      x := (s.val.size >>> 2) + 1 } fl := by
+  rw [g4X4_eq] at h2 hm1
+  obtain ⟨-, t, hv, hK⟩ := h.val1 hm
+  obtain rfl := hv.inv2 h2
+  rw [hm1] at hK
+  have hK' := K.step env t₀ s.P s.argA oc fl hK (.natLit (n := m + 1) (hR.nat hok))
+  have hshr : s.val.size >>> 2 = s.val.size / 4 := Nat.shiftRight_eq_div_pow _ _
+  have hshc : s.cel.size >>> 2 = s.N := Nat.shiftRight_eq_div_pow _ _
+  rw [hshr, hshc]
+  have hvs := h.store.valSz
+  obtain ⟨vz1, v0, v1, -, vp1⟩ := push4_spec s.val 2 m 0 0 hvs
+  generalize hV1 : (((s.val.push 2).push m).push 0).push 0 = V1 at vz1 v0 v1 vp1
+  obtain ⟨vz2, w0, w1, w2, vp2⟩ := push4_spec V1 1 s.P.kSucc s.argA.size 1 (by rw [vz1]; omega)
+  have w3 := push4_get3 V1 1 s.P.kSucc s.argA.size 1 (by rw [vz1]; omega)
+  have hV1u : V1.size / 4 = s.val.size / 4 + 1 := by rw [vz1]; omega
+  rw [hV1u] at w0 w1 w2 w3
+  generalize hV2 : (((V1.push 1).push s.P.kSucc).push s.argA.size).push 1 = V2 at vz2 w0 w1 w2 w3 vp2
+  have u0 : V2[4 * (s.val.size / 4)]! = 2 := by rw [vp2.2 _ (by rw [vz1]; omega)]; exact v0
+  have u1 : V2[4 * (s.val.size / 4) + 1]! = m := by rw [vp2.2 _ (by rw [vz1]; omega)]; exact v1
+  refine ⟨ocExt oc s.N (.lit (.natVal m)), ?_⟩
+  have hS1 := h.store.alloc (s' := { s with
+      cel := (((s.cel.push (s.val.size / 4 + 2)).push 0).push 0).push 0, val := V2 }) (w0 := s.val.size / 4 + 2) (w1 := 0) (w2 := 0) (t := .lit (.natVal m)) rfl rfl
+    (vp1.trans vp2) (by rw [vz2, vz1]; omega) (Pre.refl _) h.store.evSz rfl rfl rfl
+    (h.store.evRef.mono (Nat.le_succ _)) rfl ?_ (fun _ => by rw [vz2, vz1]; omega)
+  · have hN1 : ({ s with cel := (((s.cel.push (s.val.size / 4 + 2)).push 0).push 0).push 0, val := V2 } : MS).N =
+        s.N + 1 := by
+      simp only [MS.N, Array.size_push]; have := h.store.celSz; omega
+    have hS2 := hS1.withValArg (val' := V2) (argA' := s.argA.push s.N) (Pre.refl _) (by rw [vz2, vz1]; omega)
+      (Pre.push _ _) (by
+        rw [hN1]; exact (h.store.argRef.mono (Nat.le_succ _)).push (Nat.lt_succ_self _))
+    refine ⟨hS2.same rfl rfl rfl rfl rfl rfl rfl, h.stack, ?_, ?_⟩
+    · exact h.frames.grow (ExtR.refl _) (Pre.push _ _) (by simp only [MS.N, Array.size_push]; omega)
+    · show _ < _ ∧ ∃ t, ValDen s.P V2 s.ev (s.argA.push s.N) _ _ t ∧ _
+      refine ⟨show s.val.size / 4 + 1 < V2.size / 4 by rw [vz2, vz1]; omega, _, .ctor w0 (by rw [w1]; exact hR.succ.1)
+        (by rw [w2, w3]; simp), ?_⟩
+      rw [w1, w2, w3, span_one, getElem!_push_eq', List.map_cons, List.map_nil, ocExt_self]
+      change K env t₀ s.P _ _ fl (.app (entryTerm s.P s.P.kSucc) _)
+      rw [hR.succ.2]
+      exact K.move h.store.argRef (Agree.ext oc s.N _) (ExtR.refl _) (Pre.push _ _) h.frames hK'
+  · unfold CellOK
+    rw [show 4 * s.N = 4 * (s.cel.size / 4) from rfl]
+    obtain ⟨-, c0, -, -, -⟩ := push4_spec s.cel (s.val.size / 4 + 2) 0 0 0 h.store.celSz
+    rw [c0]
+    refine ⟨_, .natLit u0, ?_⟩
+    rw [u1, ocExt_self]; exact .refl
 
 end
 
