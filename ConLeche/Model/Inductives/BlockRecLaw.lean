@@ -136,7 +136,7 @@ theorem recRuleExtra_consBlockRecsR_prefix {R : Nat → RecDatum → Bool × Lis
   obtain ⟨-, hlaw0, hextra⟩ := mpC.rec_rules φ n cv mI rP isK rules hfE rl hmem
   obtain ⟨-, -, -, -, -, hrec'⟩ :=
     mpC.base2.wf.consts _ (ConLeche.Env.find?_mem hfE)
-  obtain ⟨-, -, hRres, -, hnest⟩ := hrec' cv mI rP isK rules rfl rl hmem
+  obtain ⟨-, -, hRres, -, -, hnest⟩ := hrec' cv mI rP isK rules rfl rl hmem
   intro us hlen TVa hTVa
   obtain ⟨TVa', hTVa', -, -⟩ := mpC.constType 0 n _ us hfE (by exact hlen)
   obtain rfl : TVa' = TVa :=
@@ -279,7 +279,7 @@ theorem recRuleLaw_consBlockRecsR_prefix {R : Nat → RecDatum → Bool × List 
   obtain ⟨Ra, hRa0, hokRa, hpinsOk, hlaw⟩ := hlaw0 us hlen
   obtain ⟨-, -, -, -, -, hrec'⟩ :=
     mpC.base2.wf.consts _ (ConLeche.Env.find?_mem hfE)
-  obtain ⟨-, -, hRres, -, hnest⟩ := hrec' cv mI rP isK rules rfl rl hmem
+  obtain ⟨-, -, hRres, -, -, hnest⟩ := hrec' cv mI rP isK rules rfl rl hmem
   -- a rule pin's subject resolves at the constructors' environment
   have hpinCB : ∀ (lvls : List Level) (pins : List Expr),
       RecRule.fire rl = .nested lvls pins → ∀ i : Nat,

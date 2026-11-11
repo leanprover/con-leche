@@ -115,6 +115,9 @@ theorem stripPis_isSome_of_le :
       (RecRule.rhs r).allLevelParamsDefined cv.levelParams = true ∧
       (RecRule.rhs r).constsResolve env = true ∧
       (RecRule.rhs r).looseBVarsBounded 0 = true ∧
+      -- a rule binds leading arguments the major's index bounds (every
+      -- install checks `mI = rP + nIdx`)
+      rP ≤ mI ∧
       -- a nested rule's datum reads off the recursor type
       -- (`NestedRead`: the pins are well formed in the rule-prefix
       -- context, and the major's domain applies the class's inductive
@@ -461,8 +464,8 @@ theorem EnvWF.cons {c : ConstantInfo} {env : Env} (hs : litShapeOk c = true)
       let ⟨g1, g2, g3, g4⟩ := h5 cv value hint heq
       ⟨g1, g2, Expr.constsResolve_mono g3, g4⟩, ?_⟩
     intro cv mI rP isK rules heq r hr
-    obtain ⟨g1, g2, g3, g4, g5⟩ := h6 cv mI rP isK rules heq r hr
-    refine ⟨g1, g2, Expr.constsResolve_mono g3, g4, ?_⟩
+    obtain ⟨g1, g2, g3, g4, g6, g5⟩ := h6 cv mI rP isK rules heq r hr
+    refine ⟨g1, g2, Expr.constsResolve_mono g3, g4, g6, ?_⟩
     intro lvls pins hfr
     obtain ⟨n1, n2, n3, n4⟩ := g5 lvls pins hfr
     exact ⟨n1, n2, fun pin hpin =>

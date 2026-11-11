@@ -1457,14 +1457,14 @@ theorem declBasisPB_natK {env₁ : Env} (mp : EnvModelM V env)
       subst h4'
       intro r hr
       rcases List.mem_cons.mp hr with rfl | hr'
-      · refine ⟨rfl, ?_, ?_, rfl, fun lvls pins heqf => nomatch heqf⟩
+      · refine ⟨rfl, ?_, ?_, rfl, by omega, fun lvls pins heqf => nomatch heqf⟩
         · subst h1'; rfl
         · show Expr.constsResolve _ natRecZeroRule.rhs = true
           rw [show natRecZeroRule.rhs = _ from rfl]
           simp only [natRecZeroRule, Expr.constsResolve, hfN, hfZ, hfS,
             Option.isSome_some, Bool.and_self]
       · rcases List.mem_cons.mp hr' with rfl | hr''
-        · refine ⟨rfl, ?_, ?_, rfl, fun lvls pins heqf => nomatch heqf⟩
+        · refine ⟨rfl, ?_, ?_, rfl, by omega, fun lvls pins heqf => nomatch heqf⟩
           · subst h1'; rfl
           · show Expr.constsResolve _ natRecSuccRule.rhs = true
             have hfR : (⟨natRecA :: natSuccA :: natZeroA :: natI

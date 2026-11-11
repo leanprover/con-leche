@@ -311,7 +311,11 @@ theorem recStage_envWF_consR (henv : EnvWF env) (h : RecStageG mode F env p rs)
   refine envWF_consBlockRecsR henv (recStage_facts h) (fun j r hr rl hrl => ?_)
     (fun r hr => litShapeAt_of_reservedRec (recStage_reserved h r hr))
   obtain ⟨i, ctor, rhs, -, hrhs', rfl⟩ := hshape j r hr rl hrl
-  exact ⟨List.mem_of_getElem? hrhs', fun lvls pins hf => hnest j r hr lvls pins hf⟩
+  obtain ⟨-, hlenR, hall⟩ := recStageG_recNames h
+  have hj : j < p.recs.length := by
+    have := (List.getElem?_eq_some_iff.mp hr).1; omega
+  obtain ⟨-, -, -, -, -, -, -, nIdx, hmI⟩ := hall j hj
+  exact ⟨List.mem_of_getElem? hrhs', by omega, fun lvls pins hf => hnest j r hr lvls pins hf⟩
 
 /-- **The stored recursors are fresh** at the constructors' environment, from the per-recursor
 check (`ConstChecked`). -/

@@ -365,7 +365,7 @@ projection:
 | `val_params` | `acval_params` |
 | `ty_denotes` | `type_reads` |
 | `defn_eq` | `defn_reads` (definitions only: a theorem is opaque to reduction, and the invariant keeps no equation for its value) |
-| `rec_rhs_denotes`, `rec_params_le` | `rec_rules`' `RecRuleLaw`, whose first two components are exactly those two facts |
+| `rec_rhs_denotes` | `rec_rules`' `RecRuleLaw` |
 | `nat_op_guard` | `nat_ops`/`div_mod` through `natOpStored_inv` |
 -/
 def toEnvFacts {V : Type w} [SetTheory V]
@@ -384,8 +384,6 @@ def toEnvFacts {V : Type w} [SetTheory V]
     obtain ⟨-, hus, -⟩ := m.rec_rules ψ n cv mI rP isK rules hf r hr
     obtain ⟨Ra, hRa, -, -⟩ := hus us hlen
     exact ⟨Ra, hRa⟩
-  rec_params_le := fun n cv mI rP isK rules hf r hr =>
-    (m.rec_rules (fun _ => 0) n cv mI rP isK rules hf r hr).1
   proj_ok := m.base2.proj_ok
   nat_op_guard := fun c hmem hst => by
     obtain ⟨cv, v, hh, hf⟩ := ConLeche.natOpStored_inv hst

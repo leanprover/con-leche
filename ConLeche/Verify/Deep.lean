@@ -1561,7 +1561,7 @@ private theorem iotaRec_shift (henv : EnvWF env)
         have hpins : ∀ lvls pins, rl.fire = .nested lvls pins →
             ∀ pin ∈ pins, pin.hasFvar = false := by
           intro lvls pins hf' pin hpin
-          obtain ⟨-, -, -, -, g5⟩ :=
+          obtain ⟨-, -, -, -, -, g5⟩ :=
             (henv.consts _ (Env.find?_mem hfc)).2.2.2.2.2 cv mI rP isK rules rfl rl
               (List.mem_of_find?_eq_some hrule)
           exact ((g5 lvls pins hf').2.2.1 pin hpin).1

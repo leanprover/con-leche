@@ -81,14 +81,6 @@ structure EnvFacts (env : Env) where
         us.length = cv.levelParams.length →
         ∃ R, denoteClosed cval env ψ
           (r.rhs.instantiateLevelParams cv.levelParams us) = some R
-  /-- **A stored recursor's parameter count does not exceed its major
-  index.**  `EnvWF` concludes `rP ≤ mI` only inside the `.nested`
-  branch, while the ι rule's *index* side condition needs it on
-  `.plain` fires too (its length disjunct is otherwise open at
-  `mI < rP`).  Backed by `rec_rules`' `RecRuleLaw`. -/
-  rec_params_le : ∀ n cv mI rP isK rules,
-    env.find? n = some (.recInfo cv mI rP isK rules) →
-    ∀ r ∈ rules, rP ≤ mI
   /-- Every stored native projection-table entry is a pinned pair entry
   with its block stored (`ProjOkT`).  Syntactic; the projection
   clauses need it to identify the entry's type as a *concrete* closed

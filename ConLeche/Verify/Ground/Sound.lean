@@ -172,7 +172,7 @@ theorem Inv.tag_cases {find? : Name → Option ConstantInfo} {findProj? : Name �
     · exact .inl h0
     · exact .inr (.inr (.inr (.inl h3)))
   · exact .inr (.inl he.2.1)
-  · obtain ⟨-, -, -, -, -, -, -, ht, -⟩ := he
+  · obtain ⟨-, -, -, -, -, -, ht, -⟩ := he
     exact .inr (.inr (.inl ht))
   · rename_i hn; rw [Array.getElem?_eq_getElem hk] at hn; cases hn
 

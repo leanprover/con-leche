@@ -118,7 +118,7 @@ theorem recRuleExtra_ext (mp : EnvModelM V env) {env' : Env}
   have hsC : (env.find? (RecRule.ctor rl)).isSome = true := by rw [hst]; rfl
   obtain ⟨-, -, -, -, -, hrec'⟩ :=
     mp.base2.wf.consts _ (ConLeche.Env.find?_mem hfE)
-  obtain ⟨-, -, hRres, -, hnest⟩ := hrec' cv mI rP isK rules rfl rl hmem
+  obtain ⟨-, -, hRres, -, -, hnest⟩ := hrec' cv mI rP isK rules rfl rl hmem
   intro us hlen TVa hTVa
   obtain ⟨TVa', hTVa', -, -⟩ := mp.constType 0 n _ us hfE (by exact hlen)
   obtain rfl : TVa' = TVa := by
@@ -262,7 +262,7 @@ theorem recRuleLaw_ext (mp : EnvModelM V env) {env' : Env}
   obtain ⟨Ra, hRa0, hokRa, hpinsOk, hlaw⟩ := hlaw0 us hlen
   obtain ⟨-, -, -, -, -, hrec'⟩ :=
     mp.base2.wf.consts _ (ConLeche.Env.find?_mem hfE)
-  obtain ⟨-, -, hRres, -, hnest⟩ := hrec' cv mI rP isK rules rfl rl hmem
+  obtain ⟨-, -, hRres, -, -, hnest⟩ := hrec' cv mI rP isK rules rfl rl hmem
   refine ⟨Ra, ?_, hokRa, ?_, ?_⟩
   · exact hx.denote
       (constsBound_of_constsResolve _ (by

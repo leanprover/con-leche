@@ -329,6 +329,7 @@ theorem envWF_consBlockRecsT {q : BlockShape}
       NestedRead (·.constsResolve env) t.1.levelParams t.1.type (q.majorIdxAt i)
         (q.rulePrefixAt i) t.2.1.nPc t.2.1.lvls
         (t.2.1.ds.map (Expr.abstractPrefix (q.rulePrefixAt i) 0)))
+    (hle : ∀ i t, out[i]? = some t → q.rulePrefixAt i ≤ q.majorIdxAt i)
     (hlit : ∀ t ∈ out, LitShapeAt t.1) :
     EnvWF (consBlockRecsT q 0 out env) := by
   have hdomEnv : ∀ n, (env.find? n).isSome = true →
@@ -361,7 +362,7 @@ theorem envWF_consBlockRecsT {q : BlockShape}
       rw [hM] at hrl
       obtain ⟨hmem, hfire⟩ := sumRules_mem hrl
       obtain ⟨g1, g2, g3, g4⟩ := h5 rl.rhs hmem
-      refine ⟨g1, g2, Expr.constsResolve_of_find hdomBare g3, g4, ?_⟩
+      refine ⟨g1, g2, Expr.constsResolve_of_find hdomBare g3, g4, hle i t hti, ?_⟩
       intro lvls pins hf
       exact absurd hf (hfire lvls pins)
     | none =>
@@ -369,7 +370,7 @@ theorem envWF_consBlockRecsT {q : BlockShape}
       obtain ⟨rl₀, hrl₀, rfl⟩ := List.mem_map.mp hrl
       obtain ⟨hmem, -⟩ := sumRules_mem hrl₀
       obtain ⟨g1, g2, g3, g4⟩ := h5 rl₀.rhs hmem
-      refine ⟨g1, g2, Expr.constsResolve_of_find hdomBare g3, g4, ?_⟩
+      refine ⟨g1, g2, Expr.constsResolve_of_find hdomBare g3, g4, hle i t hti, ?_⟩
       intro lvls pins hf
       simp only [auxRuleFire, RecRuleFire.nested.injEq] at hf
       obtain ⟨rfl, rfl⟩ := hf

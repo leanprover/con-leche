@@ -2656,13 +2656,13 @@ theorem declQuotPB {k : ConLeche.QuotKind} (mp : EnvModelM V env)
                           (.bvar 3)))))) from rfl]
         simp [Expr.constsResolve, hfQ, hfE]
       · intro cv mI rP isK rules heq
-        injection heq with h1' _ _ _ h4'
+        injection heq with h1' hmI hrP _ h4'
         subst h1'; subst h4'
         intro r hr
         rcases List.mem_cons.mp hr with rfl | hr'
         · exact ⟨rfl, rfl, by
             show Expr.constsResolve _ (RecRule.rhs quotLiftRule) = true
-            simp [Expr.constsResolve, quotLiftRule, hfE], rfl,
+            simp [Expr.constsResolve, quotLiftRule, hfE], rfl, by omega,
             fun lvls pins heqf => nomatch heqf⟩
         · exact nomatch hr'
     exact extendQuotLift mp hQ hM ⟨ciE, hfE0, hlE⟩ hf3 hwf3
@@ -2700,13 +2700,13 @@ theorem declQuotPB {k : ConLeche.QuotKind} (mp : EnvModelM V env)
                         (.app (.bvar 2) (.bvar 0)))))) from rfl]
         simp [Expr.constsResolve, hfQ, hfM]
       · intro cv mI rP isK rules heq
-        injection heq with h1' _ _ _ h4'
+        injection heq with h1' hmI hrP _ h4'
         subst h1'; subst h4'
         intro r hr
         rcases List.mem_cons.mp hr with rfl | hr'
         · exact ⟨rfl, rfl, by
             show Expr.constsResolve _ (RecRule.rhs quotIndRule) = true
-            simp [Expr.constsResolve, quotIndRule, hfQ, hfM], rfl,
+            simp [Expr.constsResolve, quotIndRule, hfQ, hfM], rfl, by omega,
             fun lvls pins heqf => nomatch heqf⟩
         · exact nomatch hr'
     exact extendQuotInd mp hQ hM hf4 hwf4

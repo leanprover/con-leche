@@ -66,7 +66,7 @@ theorem structConstWF {env : Env} {c : ConstantInfo}
         (RecRule.rhs r).hasFvar = false ∧
         (RecRule.rhs r).allLevelParamsDefined cv.levelParams = true ∧
         (RecRule.rhs r).constsResolve env = true ∧
-        (RecRule.rhs r).looseBVarsBounded 0 = true ∧
+        (RecRule.rhs r).looseBVarsBounded 0 = true ∧ rP ≤ mI ∧
         ∀ lvls pins, RecRule.fire r = .nested lvls pins →
           NestedRead (·.constsResolve env) cv.levelParams cv.type mI rP pins.length lvls pins) :
     ConstWF env c := ⟨h1, h2, h3, h4, h5, h6⟩

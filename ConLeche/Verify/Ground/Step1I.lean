@@ -408,7 +408,7 @@ theorem MInv.iotaFire (hwf : EnvWF env) (h : MInv env t₀ oc s fl) (hm : s.mode
   generalize s.val[4 * s.x + 2]! = ms at hs hK ⊢
   generalize s.val[4 * s.x + 3]! = cl at hs hcl hK
   obtain ⟨hkk, hlen0, hsl, htag, har⟩ := hfr
-  obtain ⟨c, lps, us, mI, rP, base, nr, isK, isEta, hi, he, cv, rules, hfind, hlps, hus, hpeel, hrPmI,
+  obtain ⟨c, lps, us, mI, rP, base, nr, isK, isEta, hi, he, cv, rules, hfind, hlps, hus, hpeel,
     -, har', hkB, hkC, hkD, hnr, hbr, ⟨kfab, hkE, hkf⟩, hrows⟩ := recEntry hI hkk htag
   rw [har'] at har
   have hlen : len = mI + 1 := by have := Option.some.inj har; omega
@@ -429,6 +429,10 @@ theorem MInv.iotaFire (hwf : EnvWF env) (h : MInv env t₀ oc s fl) (hm : s.mode
   have hrc : rules[j].rhs.looseBVarsBounded 0 = true :=
     ((hwf.consts _ (Env.find?_mem hfind)).2.2.2.2.2 cv mI rP isK rules rfl rules[j]
       (List.getElem_mem hj)).2.2.2.1
+  -- the rule binds leading arguments within the ι frame's span (`ConstWF`)
+  have hrPmI : rP ≤ mI :=
+    ((hwf.consts _ (Env.find?_mem hfind)).2.2.2.2.2 cv mI rP isK rules rfl rules[j]
+      (List.getElem_mem hj)).2.2.2.2.1
   rw [hej] at hK
   have hargs : (Expr.mkAppN (.const c us) ((span s.argA start (mI + 1)).map oc)).getAppArgs =
       (span s.argA start (mI + 1)).map oc := by

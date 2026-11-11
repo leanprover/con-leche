@@ -1158,38 +1158,6 @@ theorem genRecCheck_outFacts {env₂ : Env} {p : BlockShape}
   simp only [constsResolveF_eq] at hres
   refine ⟨by rw [Q.hout]; exact Q.hfv, Q.hlp, hres, by rw [Q.hout]; exact Q.hbv⟩
 
-theorem genRecCheck_recsWF {env₂ : Env} (henv₂ : EnvWF env₂) {p : BlockShape}
-    {nestedBit : Bool} {params : List Expr} {tbl : List NestCtorNf} {rd : ClassRead}
-    {Ms₀ : List TargetMajor} {block : List ConstantInfo}
-    {out : List (ConstantVal × TargetMajor × List Expr)} {F : Nat}
-    (h : genRecCheck (fueledOps mode F) (mkFEnv env₂) p nestedBit params tbl rd Ms₀
-      block = .ok out) (hpl : params.length = p.nP)
-    (hMs₀ : ∀ M ∈ Ms₀, ClassOutParams p.nP M) :
-    EnvWF (consBlockRecsT p 0 out env₂) :=
-  envWF_consBlockRecsT henv₂ (genRecCheck_outFacts h hpl hMs₀).1 (genRecCheck_outFacts h hpl hMs₀).2
-    (genRecCheck_outShape rfl h)
-
-/-- The stream's recursor constants, checked at the constructors'
-environment: each type closed, at its level parameters, resolving. -/
-theorem classStreamRecs_typeWF {env : Env} {F : Nat} :
-    ∀ {recs : List RecShape} {cvs : List ConstantVal},
-      classStreamRecs (fueledOps mode F) (mkFEnv env) recs = .ok cvs →
-      ∀ rc ∈ recs, rc.cvR.type.hasFvar = false ∧
-        rc.cvR.type.allLevelParamsDefined rc.cvR.levelParams = true ∧
-        rc.cvR.type.constsResolve env = true ∧
-        rc.cvR.type.looseBVarsBounded 0 = true
-  | [], _, _ => fun rc h => nomatch h
-  | rc :: rcs, cvs, h => by
-    unfold classStreamRecs at h
-    obtain ⟨u, hu, h⟩ := exceptBind_ok h
-    obtain ⟨xs, hxs, -⟩ := exceptBind_ok h
-    cases u
-    intro rc' hrc'
-    rcases List.mem_cons.mp hrc' with rfl | hm
-    · rw [checkConstantValF_eq] at hu
-      exact checkConstantVal_typeWF hu
-    · exact classStreamRecs_typeWF hxs rc' hm
-
 /-- Each generated recursor is its record's constant at the generated
 type. -/
 theorem genRecCheck_outCv {fe : FEnv} {p : BlockShape} {nestedBit : Bool} {params : List Expr}
@@ -1220,6 +1188,57 @@ theorem genRecCheck_outCv {fe : FEnv} {p : BlockShape} {nestedBit : Bool} {param
   have := T.hcvG
   simp only
   rw [this]
+
+/-- **Every record's rule prefix is at most its major index**: the stage
+checks `mI = rP + nIdx` against the generated counts (`classRecTyOk`). -/
+theorem genRecCheck_rPle {fe : FEnv} {p : BlockShape} {nestedBit : Bool} {params : List Expr}
+    {tbl : List NestCtorNf} {rd : ClassRead} {Ms₀ : List TargetMajor} {block : List ConstantInfo}
+    {out : List (ConstantVal × TargetMajor × List Expr)} {F : Nat}
+    (h : genRecCheck (fueledOps mode F) fe p nestedBit params tbl rd Ms₀ block
+      = .ok out) :
+    ∀ i, i < p.recs.length → p.rulePrefixAt i ≤ p.majorIdxAt i := by
+  obtain ⟨R⟩ := genRecCheck_run h
+  obtain ⟨-, hallG⟩ := classRecTysOk_run R.hcvGs
+  intro i hi
+  obtain ⟨c, cvG, -, -, ⟨T⟩⟩ := hallG i p.recs[i] (List.getElem?_eq_getElem hi)
+  have hrc : p.recs[i]? = some p.recs[i] := List.getElem?_eq_getElem hi
+  simp only [BlockShape.rulePrefixAt, BlockShape.majorIdxAt, List.getD_eq_getElem?_getD, hrc,
+    Option.getD_some]
+  rw [T.hmI]; omega
+
+theorem genRecCheck_recsWF {env₂ : Env} (henv₂ : EnvWF env₂) {p : BlockShape}
+    {nestedBit : Bool} {params : List Expr} {tbl : List NestCtorNf} {rd : ClassRead}
+    {Ms₀ : List TargetMajor} {block : List ConstantInfo}
+    {out : List (ConstantVal × TargetMajor × List Expr)} {F : Nat}
+    (h : genRecCheck (fueledOps mode F) (mkFEnv env₂) p nestedBit params tbl rd Ms₀
+      block = .ok out) (hpl : params.length = p.nP)
+    (hMs₀ : ∀ M ∈ Ms₀, ClassOutParams p.nP M) :
+    EnvWF (consBlockRecsT p 0 out env₂) :=
+  envWF_consBlockRecsT henv₂ (genRecCheck_outFacts h hpl hMs₀).1 (genRecCheck_outFacts h hpl hMs₀).2
+    (fun i t ht => genRecCheck_rPle h i (by
+      have := (List.getElem?_eq_some_iff.mp ht).1; rw [(genRecCheck_outCv h).1] at this; exact this))
+    (genRecCheck_outShape rfl h)
+
+/-- The stream's recursor constants, checked at the constructors'
+environment: each type closed, at its level parameters, resolving. -/
+theorem classStreamRecs_typeWF {env : Env} {F : Nat} :
+    ∀ {recs : List RecShape} {cvs : List ConstantVal},
+      classStreamRecs (fueledOps mode F) (mkFEnv env) recs = .ok cvs →
+      ∀ rc ∈ recs, rc.cvR.type.hasFvar = false ∧
+        rc.cvR.type.allLevelParamsDefined rc.cvR.levelParams = true ∧
+        rc.cvR.type.constsResolve env = true ∧
+        rc.cvR.type.looseBVarsBounded 0 = true
+  | [], _, _ => fun rc h => nomatch h
+  | rc :: rcs, cvs, h => by
+    unfold classStreamRecs at h
+    obtain ⟨u, hu, h⟩ := exceptBind_ok h
+    obtain ⟨xs, hxs, -⟩ := exceptBind_ok h
+    cases u
+    intro rc' hrc'
+    rcases List.mem_cons.mp hrc' with rfl | hm
+    · rw [checkConstantValF_eq] at hu
+      exact checkConstantVal_typeWF hu
+    · exact classStreamRecs_typeWF hxs rc' hm
 
 /-- The records' pins: no recursor takes a reserved name. -/
 theorem targetRecPins_unreserved {p : BlockShape} {block : List ConstantInfo}
@@ -1299,7 +1318,10 @@ theorem streamRecs_recsWF {env₂ : Env} (henv₂ : EnvWF env₂) {p : BlockShap
     show LitShapeAt ({ g.1 with type := rc.cvR.type } : ConstantVal)
     rw [e]
     exact hrcS
-  refine envWF_consBlockRecsT henv₂ (fun t ht => ?_) (fun i t ht hm => ?_) hshS
+  refine envWF_consBlockRecsT henv₂ (fun t ht => ?_) (fun i t ht hm => ?_)
+    (fun i t ht => genRecCheck_rPle h i (by
+      obtain ⟨rc, g, hrc, -, -⟩ := streamRecs_getElem? ht
+      exact (List.getElem?_eq_some_iff.mp hrc).1)) hshS
   · obtain ⟨i, hti⟩ := List.getElem?_of_mem ht
     obtain ⟨rc, g, hrc, hg, rfl⟩ := streamRecs_getElem? hti
     have hgcv := hcv i rc g hrc hg

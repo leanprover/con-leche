@@ -265,8 +265,8 @@ theorem ConstWF.mono {envA envB : Env}
     let ⟨g1, g2, g3, g4⟩ := h5 cv value hint heq
     ⟨g1, g2, Expr.constsResolve_of_find hf g3, g4⟩, ?_⟩
   intro cv mI rP isK rules heq r hr
-  obtain ⟨g1, g2, g3, g4, g5⟩ := h6 cv mI rP isK rules heq r hr
-  refine ⟨g1, g2, Expr.constsResolve_of_find hf g3, g4, ?_⟩
+  obtain ⟨g1, g2, g3, g4, g6, g5⟩ := h6 cv mI rP isK rules heq r hr
+  refine ⟨g1, g2, Expr.constsResolve_of_find hf g3, g4, g6, ?_⟩
   intro lvls pins hfr
   obtain ⟨n1, n2, n3, n4⟩ := g5 lvls pins hfr
   exact ⟨n1, n2, fun pin hpin =>
@@ -452,7 +452,7 @@ theorem envWF_consBlockRecsR
         rhs.looseBVarsBounded 0 = true)
     (hrules : ∀ (j : Nat) (r : ConstantVal × List Expr × Nat × List (ConstantVal × Nat)),
       rs[j]? = some r → ∀ rl ∈ (R j r).2,
-        rl.rhs ∈ r.2.1 ∧
+        rl.rhs ∈ r.2.1 ∧ q.rulePrefixAt j ≤ q.majorIdxAt j ∧
         ∀ lvls pins, rl.fire = .nested lvls pins →
           NestedRead (·.constsResolve env) r.1.levelParams r.1.type (q.majorIdxAt j)
             (q.rulePrefixAt j) pins.length lvls pins)
@@ -480,9 +480,9 @@ theorem envWF_consBlockRecsR
     intro cvR' mI' rP' isK' rules' heq rl hrl
     injection heq with e1 e2 e3 e4 e5
     subst e1 e2 e3 e4 e5
-    obtain ⟨hmem, hfire⟩ := hrules j r hr rl hrl
+    obtain ⟨hmem, hle, hfire⟩ := hrules j r hr rl hrl
     obtain ⟨g1, g2, g3, g4⟩ := h5 rl.rhs hmem
-    refine ⟨g1, g2, Expr.constsResolve_of_find hdomBare g3, g4, ?_⟩
+    refine ⟨g1, g2, Expr.constsResolve_of_find hdomBare g3, g4, hle, ?_⟩
     intro lvls pins hf
     obtain ⟨n1, n2, n3, n4⟩ := hfire lvls pins hf
     exact ⟨n1, n2, fun pin hpin =>
@@ -503,12 +503,13 @@ theorem envWF_consBlockRecs {q : BlockShape}
         rhs.allLevelParamsDefined r.1.levelParams = true ∧
         rhs.constsResolve (consBlockRecsBare q 0 (rs.map fun r => (r.1, r.2.2.1)) env) = true ∧
         rhs.looseBVarsBounded 0 = true)
+    (hle : ∀ j r, rs[j]? = some r → r.2.1 ≠ [] → q.rulePrefixAt j ≤ q.majorIdxAt j)
     (hlit : ∀ r ∈ rs, LitShapeAt r.1) :
     EnvWF (consBlockRecs q 0 rs env) := by
   rw [consBlockRecs_eq_R]
-  refine envWF_consBlockRecsR henv hall (fun j r _ rl hrl => ?_) hlit
+  refine envWF_consBlockRecsR henv hall (fun j r hr rl hrl => ?_) hlit
   obtain ⟨hmem, hfire⟩ := sumRules_mem hrl
-  exact ⟨hmem, fun lvls pins hf => absurd hf (hfire lvls pins)⟩
+  exact ⟨hmem, hle j r hr (List.ne_nil_of_mem hmem), fun lvls pins hf => absurd hf (hfire lvls pins)⟩
 
 /-! ## The literal guards across the recursors' cons
 

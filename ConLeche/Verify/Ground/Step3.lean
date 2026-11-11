@@ -213,7 +213,7 @@ theorem EntOK.tag03 {find? : Name → Option ConstantInfo} {P : G4Prog} {k : Nat
   · rcases ht with ht | ht <;> rw [ht] at h <;> cases h
   · rename_i heq; exact ⟨_, _, _, _, heq, h⟩
   · obtain ⟨-, h2, -⟩ := h; rcases ht with ht | ht <;> rw [ht] at h2 <;> cases h2
-  · obtain ⟨-, -, -, -, -, -, -, h2, -⟩ := h; rcases ht with ht | ht <;> rw [ht] at h2 <;> cases h2
+  · obtain ⟨-, -, -, -, -, -, h2, -⟩ := h; rcases ht with ht | ht <;> rw [ht] at h2 <;> cases h2
   · rename_i heq; rw [Array.getElem?_eq_getElem hk] at heq; cases heq
 
 /-- An entry tagged `3` is an accelerated operation's: a definition at no
@@ -523,7 +523,7 @@ theorem step_rec_K (h : MInv env t₀ oc s fl) (hm : s.mode = 3) {mI : Nat}
   obtain ⟨c, lps, us, mI₀, rP, base, nr, isK, isEta, hinfo, hrec⟩ :=
     (h.store.prog.ents s.x hk).tag2 hk htag
   obtain ⟨hkc, a, ha, hale⟩ := RecOK.kstep hrec h4
-  obtain ⟨-, -, -, -, -, -, -, -, hmI', -⟩ := hrec
+  obtain ⟨-, -, -, -, -, -, -, hmI', -⟩ := hrec
   rw [hmI] at hmI'; obtain rfl := Option.some.inj hmI'
   obtain ⟨fl', hS, hFS, hFl, hK⟩ := rec_core h hm htag hmI hle mH'
   obtain ⟨hsz, -, -⟩ := copyArgs_spec s.fs (mI + 1) 0 s.argA

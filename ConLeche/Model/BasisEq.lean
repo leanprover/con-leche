@@ -1363,13 +1363,13 @@ theorem declBasisPB_eqK {env₁ : Env} (mp : EnvModelM V env)
                         (.app (.app (.bvar 3) (.bvar 1)) (.bvar 0))))))) from rfl]
       simp [Expr.constsResolve, hfE, hfR]
     · intro cv mI rP isK rules heq
-      injection heq with h1' _ _ _ h4'
+      injection heq with h1' hmI hrP _ h4'
       subst h1'; subst h4'
       intro r hr
       rcases List.mem_cons.mp hr with rfl | hr'
       · exact ⟨rfl, rfl, by
           show Expr.constsResolve _ (RecRule.rhs eqRecRule) = true
-          simp [Expr.constsResolve, eqRecRule, hfE, hfR], rfl,
+          simp [Expr.constsResolve, eqRecRule, hfE, hfR], rfl, by omega,
           fun lvls pins heqf => nomatch heqf⟩
       · exact nomatch hr'
   obtain ⟨mp3, hac3, hr3, hc3⟩ := extendEqRec mp2' hE2 hR2 hEv2 hRv2 hf3 hwf3 (ex := [])

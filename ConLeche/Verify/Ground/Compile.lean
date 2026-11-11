@@ -446,7 +446,7 @@ step and its rule rows. -/
 @[expose] def RecOK (find? : Name → Option ConstantInfo) (P : G4Prog) (k : Nat) (c : Name)
     (lps : List Name) (us : List Level) (mI rP base nr : Nat) (isK isEta : Bool) : Prop :=
   ∃ cv rules, find? c = some (.recInfo cv mI rP isK rules) ∧ cv.levelParams = lps ∧
-    us.length = lps.length ∧ (Expr.peelPis (mI + 1) cv.type).isSome = true ∧ rP ≤ mI ∧
+    us.length = lps.length ∧ (Expr.peelPis (mI + 1) cv.type).isSome = true ∧
     P.kTag[k]? = some 2 ∧ P.kArity[k]? = some mI ∧ P.kB[k]? = some rP ∧ P.kC[k]? = some base ∧
     P.kD[k]? = some nr ∧ nr = rules.length ∧ base + nr ≤ P.rules.size ∧
     (∃ kfab, P.kE[k]? = some ((if isK then 1 else 0) + (if isEta then 2 else 0) + 4 * kfab) ∧
@@ -563,8 +563,8 @@ theorem EntOK.extR {P P' : G4Prog} (hx : ExtR P P') {k : Nat} (hk : k < P.kInfo.
   · obtain ⟨h₁, h₂, ⟨i, hi, hi'⟩, h₄⟩ := h
     exact ⟨h₁, h₂, ⟨i, hx.nids _ _ hi, hi'⟩, h₄⟩
   · rename_i heq
-    obtain ⟨cv, rules, h₁, h₂, h₃, h₄, h₄', h₅, h₆, h₇, h₈, h₉, h₁₀, h₁₁, ⟨kfab, hf, hf'⟩, hr⟩ := h
-    exact ⟨cv, rules, h₁, h₂, h₃, h₄, h₄', h₅, h₆, h₇, h₈, h₉, h₁₀, Nat.le_trans h₁₁ hx.rulesSize,
+    obtain ⟨cv, rules, h₁, h₂, h₃, h₄, h₅, h₆, h₇, h₈, h₉, h₁₀, h₁₁, ⟨kfab, hf, hf'⟩, hr⟩ := h
+    exact ⟨cv, rules, h₁, h₂, h₃, h₄, h₅, h₆, h₇, h₈, h₉, h₁₀, Nat.le_trans h₁₁ hx.rulesSize,
       ⟨kfab, hf, hf'.ext hx⟩, fun i hi => hrow _ _ _ _ _ _ _ _ _ heq i _ (by omega) (hr i hi)⟩
   · exact h
 
@@ -572,7 +572,7 @@ theorem EntOK.ext {P P' : G4Prog} (hx : Ext P P') {k : Nat} (hk : k < P.kInfo.si
     (h : EntOK find? P k) : EntOK find? P' k := by
   refine h.extR hx.toExtR hk (hx.kCode k hk) (fun c lps us mI rP base nr isK isEta hi i rl hi' hr => ?_)
   have hb : base + nr ≤ P.rules.size := by
-    unfold EntOK at h; rw [hi] at h; obtain ⟨_, _, -, -, -, -, -, -, -, -, -, -, -, h, -⟩ := h; exact h
+    unfold EntOK at h; rw [hi] at h; obtain ⟨_, _, -, -, -, -, -, -, -, -, -, -, h, -⟩ := h; exact h
   exact hr.ext hx (by omega)
 
 /-- An entry tagged `2` is a recursor's. -/
@@ -597,7 +597,7 @@ theorem EntOK.tag1 {P : G4Prog} {k : Nat} (h : EntOK find? P k) (hk : k < P.kInf
   · rw [ht] at h; cases h
   · obtain ⟨-, -, h3, -⟩ := h; rw [ht] at h3; rcases h3 with h3 | ⟨h3, -⟩ <;> cases h3
   · rename_i heq; exact ⟨_, _, _, _, heq, h⟩
-  · obtain ⟨-, -, -, -, -, -, -, h2, -⟩ := h; rw [ht] at h2; cases h2
+  · obtain ⟨-, -, -, -, -, -, h2, -⟩ := h; rw [ht] at h2; cases h2
   · rename_i heq; rw [Array.getElem?_eq_getElem hk] at heq; cases heq
 
 /-- **The K step's entry**: past the flags, `kE` names a constructor entry
@@ -606,7 +606,7 @@ theorem RecOK.kstep {P : G4Prog} {k : Nat} {c : Name} {lps : List Name} {us : Li
     {mI rP base nr : Nat} {isK isEta : Bool} (h : RecOK find? P k c lps us mI rP base nr isK isEta)
     (h4 : 4 ≤ P.kE[k]!) :
     P.kE[k]! / 4 - 1 < P.kInfo.size ∧ ∃ a, P.kArity[P.kE[k]! / 4 - 1]? = some a ∧ a ≤ mI + 1 := by
-  obtain ⟨cv, rules, -, -, -, -, -, -, -, -, -, -, -, -, ⟨kfab, he, hkf⟩, -⟩ := h
+  obtain ⟨cv, rules, -, -, -, -, -, -, -, -, -, -, -, ⟨kfab, he, hkf⟩, -⟩ := h
   rw [get!_of_some he] at h4 ⊢
   rcases hkf with rfl | ⟨kc, rl, rfl, hlt, ha, -⟩
   · exfalso; cases isK <;> cases isEta <;> simp at h4
@@ -688,7 +688,7 @@ theorem Inv.rows_lt {P : G4Prog} (hI : Inv find? findProj? P) {k r : Nat} (h : R
   obtain ⟨c, lps, us, mI, rP, base, nr, isK, isEta, hi, h₁, h₂⟩ := h
   have := hI.ents k (lt_of_some hi)
   unfold EntOK at this; rw [hi] at this
-  obtain ⟨_, _, -, -, -, -, -, -, -, -, -, -, -, hb, -⟩ := this; omega
+  obtain ⟨_, _, -, -, -, -, -, -, -, -, -, -, hb, -⟩ := this; omega
 
 /-- A slot denotes one term. -/
 theorem Inv.owns_unique {P : G4Prog} (hI : Inv find? findProj? P) {sl : Nat} {t t' : Expr} (h : Owns P sl t)
@@ -997,17 +997,16 @@ theorem g4Entry_spec (P : G4Prog) (c : Name) (us : List Level) (kfab : Nat) (hI 
         · rename_i hcond
           intro hm; simp only [Prod.mk.injEq] at hm; obtain ⟨rfl, rfl, rfl, rfl, rfl, rfl, rfl, rfl⟩ := hm
           have hcond' : us.length = cv.levelParams.length ∧
-              (Expr.peelPis (mI + 1) cv.type).isSome = true ∧ rP ≤ mI := by
+              (Expr.peelPis (mI + 1) cv.type).isSome = true := by
             simp only [Bool.or_eq_true, not_or] at hcond
-            exact ⟨by simpa using hcond.1.1, Option.isSome_iff_ne_none.mpr (by simpa using hcond.1.2),
-              by simpa using hcond.2⟩
+            exact ⟨by simpa using hcond.1, Option.isSome_iff_ne_none.mpr (by simpa using hcond.2)⟩
           obtain ⟨hk, hsz, hn, hrows⟩ := rows_fold find? (g4RuleRow find? isK cv.levelParams us)
             (fun P rl hs hn => g4RuleRow_spec find? isK cv.levelParams us P rl hs hn) rules P hI.szs hI.nidOK
           refine ⟨hk, Approx.refl _, hn, fun _ _ _ _ _ _ _ _ _ h => by
               simp only [G4Info.recr.injEq] at h; obtain ⟨-, -, -, -, -, h, -⟩ := h; omega,
             fun k Q hQ hi ht _ ha hb hc hd he => ?_⟩
           unfold EntOK; rw [hi]; dsimp only; unfold RecOK
-          refine ⟨cv, rules, hf, rfl, hcond'.1, hcond'.2.1, hcond'.2.2, ht, ha, hb, hc, hd, rfl, ?_,
+          refine ⟨cv, rules, hf, rfl, hcond'.1, hcond'.2, ht, ha, hb, hc, hd, rfl, ?_,
             ⟨kfab, he, (hkf cv mI rP isK rules hf).ext ((hk.ext hI.szs).trans hQ).toExtR⟩,
             fun i hi => (hrows i hi).ext hQ (by omega)⟩
           have := hQ.rulesSize; omega

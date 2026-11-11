@@ -117,11 +117,12 @@ def fireNotNestedB : RecRuleFire → Bool
   | _ => true
 
 /-- A recursor's rules' right-hand sides closed, at its level parameters, resolving at `E₀`,
-bounded, and none firing `.nested`, as a test (true at any other kind of constant). -/
+bounded, and none firing `.nested`, its rule prefix at most its major index, as a test (true at
+any other kind of constant). -/
 def recRulesOkB (E₀ : Env) : ConstantInfo → Bool
-  | .recInfo cv _ _ _ rules => rules.all fun r =>
+  | .recInfo cv mI rP _ rules => rules.all fun r =>
     !r.rhs.hasFvar && r.rhs.allLevelParamsDefined cv.levelParams && r.rhs.constsResolve E₀ &&
-      r.rhs.looseBVarsBounded 0 && fireNotNestedB r.fire
+      r.rhs.looseBVarsBounded 0 && decide (rP ≤ mI) && fireNotNestedB r.fire
   | _ => true
 
 /-- **A copy of a constant at other level-parameter names keeps its well-formedness**, read at
@@ -157,8 +158,8 @@ theorem constWF_atLps {E E₀ : Env}
       obtain ⟨rp, hrp, rfl⟩ := List.mem_map.mp hr
       have hg := (List.all_eq_true.mp h6) rp hrp
       simp only [Bool.and_eq_true, Bool.not_eq_eq_eq_not, Bool.not_true] at hg
-      obtain ⟨⟨⟨⟨g1, g2⟩, g3⟩, g4⟩, g5⟩ := hg
-      refine ⟨?_, expr_defined_ren hl _ g2, ?_, ?_, fun lvls pins hf => ?_⟩
+      obtain ⟨⟨⟨⟨⟨g1, g2⟩, g3⟩, g4⟩, g6⟩, g5⟩ := hg
+      refine ⟨?_, expr_defined_ren hl _ g2, ?_, ?_, by simpa using g6, fun lvls pins hf => ?_⟩
       · show (rp.rhs.instantiateLevelParams _ _).hasFvar = false
         rw [Expr.hasFvar_instantiateLevelParams]; exact g1
       · show (rp.rhs.instantiateLevelParams _ _).constsResolve E = true

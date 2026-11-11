@@ -599,7 +599,7 @@ theorem EnvWF.rules_ok (henv : EnvWF env) {c : Name} {cv : ConstantVal} {mI rP :
     AllRulesOK rules := by
   obtain ⟨-, -, -, -, -, hrules⟩ := henv.consts _ (Env.find?_mem hfc)
   intro rl hrl
-  obtain ⟨hrf, -, -, -, g5⟩ := hrules cv mI rP isK rules rfl rl hrl
+  obtain ⟨hrf, -, -, -, -, g5⟩ := hrules cv mI rP isK rules rfl rl hrl
   refine ⟨hrf, ?_⟩
   cases hf : rl.fire with
   | plain => trivial
