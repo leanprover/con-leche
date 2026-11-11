@@ -1269,7 +1269,7 @@ theorem getAppFn_not_app : ∀ (e : Expr), ∀ f a, e.getAppFn ≠ .app f a
 
 /-- The argument nodes of a fold: each denotes an approximation of its
 argument and lies below the code's end. -/
-def ArgsOK (P : G4Prog) (aos : Array Nat) (args : List Expr) : Prop :=
+@[expose] def ArgsOK (P : G4Prog) (aos : Array Nat) (args : List Expr) : Prop :=
   aos.size = args.length ∧
     ∀ j (hj : j < aos.size), aos[j] < P.code.size ∧ ∃ s, Den P aos[j] s ∧ Approx s (args.getD j bot)
 
