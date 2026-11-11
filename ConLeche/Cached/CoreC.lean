@@ -1604,16 +1604,21 @@ def groundStopError (maxNat : Nat) : G4Stop → CheckError
   | .internal msg => .internal msg
   | .stuck why => .internal s!"ground evaluation: a stuck shape raised ({why})"
 
-/-- The ground shortcut behind the switch (task #423): `none` (the
-incumbent path) at `groundMode = 0`; the compiled program is threaded
-through `CState.ground3`/`ground4`.  An engine stop is raised here, so the
-comparison is never handed to the incumbent (`groundMode ≥ 10`). -/
+/-- **Interim** (task #423 soundness): the cached gate stays off until the
+specification's `defeqBody` calls the engine too (layer (d), item 3), so
+that `defeqBodyI_eq` holds without the engine; item 3 removes this
+constant and the gate always runs. -/
+@[noinline] def groundGateOn : Bool := false
+
+/-- The ground shortcut (task #423), on the declaration's kept program
+(`CState.ground4`).  An engine stop is raised here, so the comparison is
+never handed to the incumbent. -/
 @[inline] def groundGateM (eager : Bool) (fe : FEnv) (a b : Expr) : CheckCM (Option Bool) :=
-  if groundMode == 0 then pure none else do
+  if !groundGateOn then pure none else do
     let maxNat ← maxNatSizeM
-    let P ← modifyGet fun s => ((s.ground3, s.ground4), { s with ground3 := {}, ground4 := {} })
+    let P ← modifyGet fun s => (s.ground4, { s with ground4 := {} })
     let (r, P) := groundShortcut eager fe maxNat P a b
-    modify fun s => { s with ground3 := P.1, ground4 := P.2 }
+    modify fun s => { s with ground4 := P }
     match r with
     | none => pure none
     | some (.ok v) => pure (some v)

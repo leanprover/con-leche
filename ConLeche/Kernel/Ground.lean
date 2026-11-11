@@ -57,20 +57,6 @@ the forgotten term.
 
 namespace ConLeche
 
-/-- **The spike's switch** (task #423): `0` the incumbent path only,
-`1` the round-1 machine (`ConLeche/Cached/Ground.lean`) at the
-`Bool.true` comparison (both orientations), `2` as 1 with a per-call trace on stderr (`dbgTrace`,
-probe builds only), `3` the round-2 flat machine (`ConLeche/Cached/Ground2.lean`), `4`
-as 3 with the trace, `5`/`6` as 1/3 with the engine run twice (its own
-cost is the difference), `7` the round-3 machine (`ConLeche/Cached/Ground3.lean`), `8`
-as 7 with the trace, `9` as 7 run twice, `10` the round-4 machine
-(this file) with the K step (`g4KSkip`), `11` as 10 with the trace,
-`12` as 10 run twice, `13` the round-4 machine without the K step (a K
-major that is not a constructor declines; the comparison baseline).
-From `10` on there is no fallback: a step the engine does not do is a
-decline (task #423 soundness). -/
-@[noinline] def groundMode : Nat := 0
-
 /-- The effectively unbounded step budget of the ground machine (a
 termination device, as `checkFuel`). -/
 @[irreducible, noinline] def groundFuel : Nat := 4611686018427387904  -- 2^62
@@ -310,13 +296,6 @@ def g4Pis : Expr → Nat → Nat
 section
 variable (find? : Name → Option ConstantInfo) (findProj? : Name → Nat → Option ProjEntry)
 
-/-- **The K step** (task #423), `groundMode` `10`–`12`: a K-like recursor
-reduces to its rule's right-hand side at its own leading arguments, the
-major never read (`Red.iotaK`, task #552).  At `13` (round 4, the
-comparison baseline) a K major that is not a constructor declines.  Read
-at table time only. -/
-@[noinline] def g4KSkip : Bool := !(groundMode == 13)
-
 /-- A recursor rule's row of the table, appended to every rule array (the
 rule at the recursor's levels `us`; its body compiled on first use). -/
 def g4RuleRow (isK : Bool) (lps : List Name) (us : List Level) (P : G4Prog) (rl : RecRule) : G4Prog :=
@@ -372,7 +351,7 @@ def g4Entry (P : G4Prog) (c : Name) (us : List Level) (kfab : Nat) : Nat × G4Pr
 use.  Kinds: `0` definition, `1` constructor, `2` recursor, `3` an
 accelerated `Nat` operation (a definition too, with the `Nat` basis),
 `5` neutral.  A recursor's `kE`
-is `flags + 4 * (j + 1)` under the K step (`g4KSkip`; the K flag, one
+is `flags + 4 * (j + 1)` under the K step (`Red.iotaK`; the K flag, one
 rule, arity, levels and `peelPis` checked), `j` the entry of its rule's
 constructor at the rule's comparand levels: the dispatch then returns
 that constructor on the recursor's leading arguments as the major,
@@ -385,7 +364,7 @@ def g4ResolveF (findProj? : Name → Nat → Option ProjEntry) : Nat → G4Prog 
   | none =>
     let (kfab, P) : Nat × G4Prog := match fuel, find? c with
       | f + 1, some (.recInfo cv mI _ true [rl]) =>
-        if g4KSkip && us.length == cv.levelParams.length && (Expr.peelPis (mI + 1) cv.type).isSome then
+        if us.length == cv.levelParams.length && (Expr.peelPis (mI + 1) cv.type).isSome then
           match find? rl.ctor with
           | some (.ctorInfo cvj _ 0) =>
             let (kc, P) := g4ResolveF findProj? f P rl.ctor (gCmpLevels rl cv.levelParams us cvj.levelParams)
@@ -866,7 +845,6 @@ def g4Run : Nat → G4Prog → (cel val ev fs argA slots mem mH : Array Nat) →
                 -- never read
                 let kc := ef / 4 - 1
                 let w := (val.size >>> 2)
-                let w := if groundMode == 11 then dbgTrace "KSTEP" fun _ => w else w
                 g4Run n P cel ((((val.push 1).push kc).push start).push P.kArity[kc]!) ev fs argA slots
                   mem mH 1 0 0 w st
               else g4Run n P cel val ev fs argA slots mem mH 2 0 0 maj st
@@ -1136,9 +1114,8 @@ one with the four basis entries resolved. -/
     { P with kTrue := kT, kFalse := kF, kZero := kZ, kSucc := kS }
   else P₀
 
-/-- The outcome of a round-3 evaluation at the `Bool.true` comparison,
-as `groundBool`'s.  **The compiled program is kept for the declaration** (task #423
-round 3): `P₀` is the program the declaration's earlier runs compiled
+/-- The engine's answer at the `Bool.true` comparison: `true`, `false`, or
+a stop.  **The compiled program can be kept for the declaration**: `P₀` is the program the declaration's earlier runs compiled
 (empty at the first; `CState.ground4`, flushed with the other
 environment-dependent memos).  The result carries the program back. -/
 def ground4BoolCoreF (find? : Name → Option ConstantInfo)
