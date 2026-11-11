@@ -1110,18 +1110,28 @@ Task #330: effectively unbounded for the same reason as
 master before the fuel patch). -/
 @[irreducible, noinline] def whnfLoopFuel : Nat := 4611686018427387904  -- 2^62
 
+/-- Is `e` a literal? -/
+def Expr.isLit : Expr → Bool
+  | .lit _ => true
+  | _ => false
+
 /-- One iteration of the reduction loop (the official kernel's `whnf`
 body, lean4lean's `whnf'` loop body): head-normalize, try literal
 acceleration, unfold one definition — and hand the reduct to the
-loop's continuation `k`.  As everywhere in this module, the body never
-calls itself: the continuation is abstracted exactly like the record
-`r`, so every lemma about the body is proven once, with a hypothesis
-about `k`, and the loop lemma is one induction on the budget. -/
+loop's continuation `k`.  A computed literal is the answer at once
+(official `whnf`: `if (auto v = reduce_nat(t)) return *v;`): it is its
+own head normal form.  A `Bool` constructor computed by `Nat.beq` or
+`Nat.ble` goes to `k`, which answers it unchanged unless the
+environment stores its name as a definition.  As everywhere in this
+module, the body never calls itself: the continuation is abstracted
+exactly like the record `r`, so every lemma about the body is proven
+once, with a hypothesis about `k`, and the loop lemma is one induction
+on the budget. -/
 def whnfStep (r : CoreFns m) (env : Env) (depth : Nat)
     (k : Expr → m Expr) (e : Expr) : m Expr := do
   let e₁ ← r.whnfCore false depth e
   match ← reduceNat r env depth e₁ with
-  | some e₂ => k e₂
+  | some e₂ => if e₂.isLit then pure e₂ else k e₂
   | none =>
     match unfoldDefinition env e₁ with
     | some e₂ => k e₂
@@ -1512,11 +1522,6 @@ def quickDefEq (r : CoreFns m) (depth : Nat) (a b : Expr) : m (Option Bool) :=
 def Expr.isNatZero : Expr → Bool
   | .lit (.natVal 0) => true
   | .const c [] => c == natZeroName
-  | _ => false
-
-/-- Is `e` a literal? -/
-def Expr.isLit : Expr → Bool
-  | .lit _ => true
   | _ => false
 
 /-- The predecessor of a successor form (official `is_nat_succ`): a

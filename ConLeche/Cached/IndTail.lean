@@ -16,7 +16,7 @@ recursor stage: the generated recursors' records
 (`streamRecsCheck`, `ConLeche/Kernel/Inductives/StreamRecs.lean`) and the
 projection tables' checks (`checkBlockTables`).  Monomorphic `CheckCM`
 definitions at a mode and an environment index, calling the cached core
-(`coreKnotI`) directly and the cached walks of
+(`inferI`, `defeqI` at `checkFuel`) directly and the cached walks of
 `ConLeche/Cached/ExprOpsC.lean` where the specification runs the plain
 ones.  Each is the specification at the shared operations
 (`ConLeche/Verify/Cached/IndTailC.lean`; the tables' checks, which read
@@ -86,7 +86,7 @@ def recDomsAtC (fe : FEnv) (rec : Name) (sfvs gfvs : List Expr) :
   | j, k + 1 => do
     let a ← unwrapOr sfvs[j]? (.internal "stored recursor: domain index")
     let b ← unwrapOr gfvs[j]? (.internal "stored recursor: domain index")
-    unless ← (coreKnotI mode false fe checkFuel).defeq j a.fvarTypeD b.fvarTypeD do
+    unless ← defeqI mode fe false checkFuel j a.fvarTypeD b.fvarTypeD do
       throw (.invalid s!"the type of the recursor {rec} is not the generated one: the \
         domain of binder {j} differs")
     recDomsAtC fe rec sfvs gfvs (j + 1) k
@@ -96,7 +96,7 @@ def recTyOpenedC (fe : FEnv) (rec : Name) (n : Nat) :
     Option (List Expr × Expr) → Option (List Expr × Expr) → CheckCM Unit
   | some (sfvs, srest), some (gfvs, grest) => do
     recDomsAtC mode fe rec sfvs gfvs 0 n
-    unless ← (coreKnotI mode false fe checkFuel).defeq n srest grest do
+    unless ← defeqI mode fe false checkFuel n srest grest do
       throw (.invalid s!"the type of the recursor {rec} is not the generated one: its body \
         after the major differs")
   | none, _ =>
@@ -115,8 +115,8 @@ def recTyCheckC (fe : FEnv) (rec : Name) (lps : List Name) (n : Nat) (s g : Expr
     throw (.invalid s!"undeclared universe parameter in the type of the recursor {rec}")
   unless constsResolveFC fe s do
     throw (unresolvedConstsErrorLC true s!"the type of the recursor {rec}" s)
-  let st ← (coreKnotI mode false fe checkFuel).infer 0 s
-  let _ ← ensureSortI (coreKnotI mode false fe checkFuel) 0 st
+  let st ← inferI mode fe false checkFuel false 0 s
+  let _ ← ensureSortI mode fe false checkFuel 0 st
   recTyOpenedC mode fe rec n (openPisAtFvarsC n s 0) (openPisAtFvarsC n g 0)
 
 /-- The cached `ruleAgree`. -/
@@ -130,12 +130,12 @@ def ruleAgreeC (fe : FEnv) (rec ctor : Name) (lps : List Name) (s g : Expr) :
       parameter")
   unless constsResolveFC fe s do
     throw (unresolvedConstsErrorLC true s!"the recursor {rec}'s rule for {ctor}" s)
-  let ts ← (coreKnotI mode false fe checkFuel).infer 0 s
-  let tg ← (coreKnotI mode false fe checkFuel).infer 0 g
-  unless ← (coreKnotI mode false fe checkFuel).defeq 0 ts tg do
+  let ts ← inferI mode fe false checkFuel false 0 s
+  let tg ← inferI mode fe false checkFuel false 0 g
+  unless ← defeqI mode fe false checkFuel 0 ts tg do
     throw (.invalid s!"the recursor {rec}'s rule for {ctor} has a right-hand side whose \
       type is not the generated one's")
-  unless ← (coreKnotI mode false fe checkFuel).defeq 0 s g do
+  unless ← defeqI mode fe false checkFuel 0 s g do
     throw (.invalid s!"the recursor {rec}'s rule for {ctor} has a right-hand side that is \
       not definitionally equal to the generated one")
 

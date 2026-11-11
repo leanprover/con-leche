@@ -13,7 +13,7 @@ The cached core simulation (`CSOK`/`SimC`, `ConLeche/Verify/Cached/SimC.lean`, k
 `ConLeche/Verify/Cached/KnotC.lean`) is stated for *arbitrary* initial
 states, so extending the cache lifetime from one entry call to one
 declaration needs no new state invariant: this file provides the shared
-entry points' triples (`opE_infer_spec`, `opE_whnf_spec`, `opB_spec`,
+entry points' triples (`opI_spec`, `opW_spec`, `opB_spec`,
 `opS_spec`) — a successful shared-state operation run from any `CSOK`
 state preserves the invariant and answers what the pure fueled family
 answers — and the same triples at the `sharedOpsC` projections a generic
@@ -31,7 +31,7 @@ Two facts the kit relies on live elsewhere:
   driver-directed flush at environment transitions sound.
 
 The runners pass their argument through, so a fabricated node is a
-plain `pure` and the `opE` result relation stays on `Expr` and is
+plain `pure` and the `opI`/`opW` result relation stays on `Expr` and is
 state-free.
 
 The driver-level walks composing these are in
@@ -53,17 +53,17 @@ section Runners
 variable {env : Env} {s₀ : CState}
 
 /-- Shared `inferType` simulates the fueled family. -/
-theorem opE_infer_spec (henv : EnvWF env) {d : Nat}
+theorem opI_spec (henv : EnvWF env) {d : Nat}
     {e : Expr} (hs : CSOK .verified false env s₀) (hw : Expr.WScoped d e) :
-    ⦃fun s => s = s₀⦄ opE .verified (mkFEnv env) (·.infer) d e
+    ⦃fun s => s = s₀⦄ opI .verified (mkFEnv env) d e
     ⦃fun v s' => CSOK .verified false env s' ∧ Runs ((fueledOpsM .verified).inferType env d e) v ∧
       Expr.WScoped d v; ⊤⦄ :=
   ((ssimC env henv checkFuel).infer hs rfl hw).triple relEC_inv
 
 /-- Shared `whnf` simulates the fueled family. -/
-theorem opE_whnf_spec (henv : EnvWF env) {d : Nat}
+theorem opW_spec (henv : EnvWF env) {d : Nat}
     {e : Expr} (hs : CSOK .verified false env s₀) (hw : Expr.WScoped d e) :
-    ⦃fun s => s = s₀⦄ opE .verified (mkFEnv env) (·.whnf) d e
+    ⦃fun s => s = s₀⦄ opW .verified (mkFEnv env) d e
     ⦃fun v s' => CSOK .verified false env s' ∧ Runs ((fueledOpsM .verified).whnf env d e) v ∧
       Expr.WScoped d v; ⊤⦄ :=
   ((ssimC env henv checkFuel).whnf hs rfl hw).triple relEC_inv
@@ -95,14 +95,14 @@ theorem inferS_spec (henv : EnvWF env) {d : Nat} {e : Expr}
     ⦃fun s => s = s₀⦄ (sharedOpsC .verified (mkFEnv env)).inferType env d e
     ⦃fun v s' => CSOK .verified false env s' ∧ Runs ((fueledOpsM .verified).inferType env d e) v ∧
       Expr.WScoped d v; ⊤⦄ :=
-  opE_infer_spec henv hs hw
+  opI_spec henv hs hw
 
 theorem whnfS_spec (henv : EnvWF env) {d : Nat} {e : Expr}
     {s₀ : CState} (hs : CSOK .verified false env s₀) (hw : Expr.WScoped d e) :
     ⦃fun s => s = s₀⦄ (sharedOpsC .verified (mkFEnv env)).whnf env d e
     ⦃fun v s' => CSOK .verified false env s' ∧ Runs ((fueledOpsM .verified).whnf env d e) v ∧
       Expr.WScoped d v; ⊤⦄ :=
-  opE_whnf_spec henv hs hw
+  opW_spec henv hs hw
 
 theorem defeqS_spec (henv : EnvWF env) {d : Nat}
     {a b : Expr} {s₀ : CState} (hs : CSOK .verified false env s₀) (hwa : Expr.WScoped d a)

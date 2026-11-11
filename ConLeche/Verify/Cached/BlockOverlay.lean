@@ -157,8 +157,8 @@ theorem classFeROvl_env {fe : FEnv} (h : fe.ovl = []) (p : BlockShape)
 theorem sharedOpsC_congr {mode : CheckMode} {fe₁ fe₂ : FEnv} (hfe : fe₁.find? = fe₂.find?)
     (htb : fe₁.findTable? = fe₂.findTable?) :
     sharedOpsC mode fe₁ = sharedOpsC mode fe₂ := by
-  unfold sharedOpsC opE opB opS
-  simp only [coreKnotI_congr hfe htb]
+  unfold sharedOpsC opI opW opB opS
+  simp only [knotI_congr hfe htb]
 
 /-- The resolution guard reads the index through `find?` alone. -/
 theorem constsResolveF_congr {fe₁ fe₂ : FEnv} (hfe : fe₁.find? = fe₂.find?) :
@@ -246,8 +246,8 @@ variable (mode : CheckMode)
 theorem sharedOpsRuleR_congr {fe₁ fe₂ : FEnv} (hfe : fe₁.find? = fe₂.find?)
     (htb : fe₁.findTable? = fe₂.findTable?) :
     sharedOpsRuleR mode fe₁ = sharedOpsRuleR mode fe₂ := by
-  unfold sharedOpsRuleR sharedOpsC opE opB opS
-  rw [coreKnotI_congr hfe htb]
+  unfold sharedOpsRuleR sharedOpsC opI opW opB opS
+  simp only [knotI_congr hfe htb]
 
 /-- **The rule stage at the overlay is the rule stage at the pushes**,
 at the cached operations, on an environment without an overlay. -/
