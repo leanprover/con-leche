@@ -100,10 +100,10 @@ theorem proofIrrelGate_of {m : Type → Type} [Monad m] [MonadExceptOf CheckErro
   simp [proofIrrelGate, CheckMode.verifiedChecks]
 
 /-- The cached K rescue. -/
-@[expose] def mtcKI (mode : CheckMode) (r : CoreFnsI) (depth : Nat) (major : Expr) (rl : RecRule)
+@[expose] def mtcKI (mode : CheckMode) (fe : FEnv) (eager : Bool) (lv : Nat) (depth : Nat) (major : Expr) (rl : RecRule)
     (cvj : ConstantVal) (cnP : Nat) (T : Name) : CheckCM Expr := do
-  let tmaj₀ ← r.inferIO depth major
-  let tmaj ← r.whnf depth tmaj₀
+  let tmaj₀ ← inferI mode fe eager lv true depth major
+  let tmaj ← whnfI mode fe eager lv depth tmaj₀
   match Expr.getAppFn tmaj with
   | .const T' ust =>
     if (← pure (T' == T)) ∧ cvj.levelParams.length = ust.length then do
@@ -115,9 +115,9 @@ theorem proofIrrelGate_of {m : Type → Type} [Monad m] [MonadExceptOf CheckErro
         if ← pure (Expr.wscopedBC depth fab &&
             Expr.looseBVarsBounded 0 fab &&
             Expr.leafGuard fab major) then do
-          let tfab ← r.inferIO depth fab
-          if ← r.defeq depth tmaj tfab then
-            if ← certAtI mode (proofIrrelI r depth fab major) then
+          let tfab ← inferI mode fe eager lv true depth fab
+          if ← defeqI mode fe eager lv depth tmaj tfab then
+            if ← certAtI mode (proofIrrelI mode fe eager lv depth fab major) then
               pure fab
             else pure major
           else pure major
@@ -127,17 +127,17 @@ theorem proofIrrelGate_of {m : Type → Type} [Monad m] [MonadExceptOf CheckErro
   | _ => pure major
 
 /-- The cached η rescue. -/
-@[expose] def mtcEtaI (r : CoreFnsI) (depth : Nat) (major : Expr) (T : Name)
+@[expose] def mtcEtaI (mode : CheckMode) (fe : FEnv) (eager : Bool) (lv : Nat) (depth : Nat) (major : Expr) (T : Name)
     (cvT : ConstantVal) (caps : IndCaps) (tbl : ProjTable) : CheckCM Expr := do
-  let tmaj₀ ← r.inferIO depth major
-  let tmaj ← r.whnf depth tmaj₀
+  let tmaj₀ ← inferI mode fe eager lv true depth major
+  let tmaj ← whnfI mode fe eager lv depth tmaj₀
   match Expr.getAppFn tmaj with
   | .const T' ust => do
     let margs ← pure (Expr.getAppArgsC tmaj)
     let ustL ← pure ust
     if (← pure (T' == T)) ∧ margs.length = tbl.numParams ∧
         ust.length = cvT.levelParams.length then do
-      if ← formerNeverZeroI r.whnf cvT caps ustL then do
+      if ← formerNeverZeroI mode fe eager lv cvT caps ustL then do
         let TI ← pure T
         let projs ← projNodesI TI major (List.range tbl.numFields)
         let ctorI ← pure tbl.ctor
@@ -153,10 +153,10 @@ theorem proofIrrelGate_of {m : Type → Type} [Monad m] [MonadExceptOf CheckErro
   | _ => pure major
 
 /-- The cached `And` rescue. -/
-@[expose] def mtcAndI (mode : CheckMode) (r : CoreFnsI) (fe : FEnv) (depth : Nat) (major : Expr) (rl : RecRule)
+@[expose] def mtcAndI (mode : CheckMode) (fe : FEnv) (eager : Bool) (lv : Nat) (depth : Nat) (major : Expr) (rl : RecRule)
     (cvj : ConstantVal) (cnP : Nat) (T : Name) : CheckCM Expr := do
-  let tmaj₀ ← r.inferIO depth major
-  let tmaj ← r.whnf depth tmaj₀
+  let tmaj₀ ← inferI mode fe eager lv true depth major
+  let tmaj ← whnfI mode fe eager lv depth tmaj₀
   match Expr.getAppFn tmaj with
   | .const T' ust => do
     let margs ← pure (Expr.getAppArgsC tmaj)
@@ -171,9 +171,9 @@ theorem proofIrrelGate_of {m : Type → Type} [Monad m] [MonadExceptOf CheckErro
       if ← pure (Expr.wscopedBC depth fab &&
           Expr.looseBVarsBounded 0 fab &&
           Expr.leafGuard fab major) then do
-        let tfab ← r.inferIO depth fab
-        if ← r.defeq depth tmaj tfab then
-          if ← certAtI mode (proofIrrelI r depth fab major) then
+        let tfab ← inferI mode fe eager lv true depth fab
+        if ← defeqI mode fe eager lv depth tmaj tfab then
+          if ← certAtI mode (proofIrrelI mode fe eager lv depth fab major) then
             pure fab
           else pure major
         else pure major
@@ -182,20 +182,20 @@ theorem proofIrrelGate_of {m : Type → Type} [Monad m] [MonadExceptOf CheckErro
   | _ => pure major
 
 /-- The cached rescue past its syntactic gates. -/
-@[expose] def mtcBodyI (mode : CheckMode) (r : CoreFnsI) (fe : FEnv) (depth : Nat) (major : Expr) (isK : Bool) (rl : RecRule)
+@[expose] def mtcBodyI (mode : CheckMode) (fe : FEnv) (eager : Bool) (lv : Nat) (depth : Nat) (major : Expr) (isK : Bool) (rl : RecRule)
     (cvj : ConstantVal) (cnP : Nat) (T : Name) (cvT : ConstantVal) (caps : IndCaps) :
     CheckCM Expr :=
-  if isK = true then mtcKI mode r depth major rl cvj cnP T
+  if isK = true then mtcKI mode fe eager lv depth major rl cvj cnP T
   else match etaRescueTable? (fe.findTable? T) rl.ctor cvj cvT caps with
-  | some tbl => mtcEtaI r depth major T cvT caps tbl
+  | some tbl => mtcEtaI mode fe eager lv depth major T cvT caps tbl
   | none =>
-    if T = andName then mtcAndI mode r fe depth major rl cvj cnP T
+    if T = andName then mtcAndI mode fe eager lv depth major rl cvj cnP T
     else pure major
 
 /-- `majorToCtorI` with its blocks named. -/
-theorem majorToCtorI_eq (r : CoreFnsI) (fe : FEnv) (depth : Nat) (recName : Name) (isK : Bool)
+theorem majorToCtorI_eq (fe : FEnv) (lv : Nat) (depth : Nat) (recName : Name) (isK : Bool)
     (rules : List RecRule) (major : Expr) :
-    majorToCtorI mode r fe depth recName isK rules major =
+    majorToCtorI mode fe eager lv depth recName isK rules major =
     (do
       if ← pure (isCtorAppC fe major) then pure major else
       match rules with
@@ -205,11 +205,12 @@ theorem majorToCtorI_eq (r : CoreFnsI) (fe : FEnv) (depth : Nat) (recName : Name
           match (cvj.type.piResult).getAppFn with
           | .const T _ =>
             match fe.find? T with
-            | some (.indInfo cvT caps) => mtcBodyI mode r fe depth major isK rl cvj cnP T cvT caps
+            | some (.indInfo cvT caps) => mtcBodyI mode fe eager lv depth major isK rl cvj cnP T cvT caps
             | _ => pure major
           | _ => pure major
         | _ => pure major
-      | _ => pure major) := rfl
+      | _ => pure major) := by
+  rw [majorToCtorI.eq_def]; rfl
 
 section PureMtc
 
@@ -399,7 +400,7 @@ end PureMtc
 theorem mtcKC_spec (ih : SSimC .verified eager env f) {d : Nat}
     {major : Expr} {rl : RecRule} {cvj : ConstantVal} {cnP : Nat} {T : Name} {s₀ : CState}
     (hs : CSOK .verified eager env s₀) (hw : Expr.WScoped d major) :
-    ⦃fun s => s = s₀⦄ mtcKI .verified (coreKnotI .verified eager (mkFEnv env) f) d major rl cvj cnP T
+    ⦃fun s => s = s₀⦄ mtcKI .verified (mkFEnv env) eager f d major rl cvj cnP T
     ⦃fun v s' => CSOK .verified eager env s' ∧
       Runs ((fueledFns .verified eager env).inferIO d major >>= fun tm => (fueledFns .verified eager
           env).whnf d tm >>=
@@ -412,7 +413,7 @@ theorem mtcKC_spec (ih : SSimC .verified eager env f) {d : Nat}
 /-- The walk to a family's sort simulates its fueled original. -/
 theorem formerSortLoopC_spec (ih : SSimC mode eager env f) :
     ∀ {n d : Nat} {e : Expr} {s₀ : CState}, CSOK mode eager env s₀ → Expr.WScoped d e →
-      ⦃fun s => s = s₀⦄ formerSortLoopI (coreKnotI mode eager (mkFEnv env) f).whnf d n e
+      ⦃fun s => s = s₀⦄ formerSortLoopI mode (mkFEnv env) eager f d n e
       ⦃fun v s' => CSOK mode eager env s' ∧
         Runs (formerSortLoop (fueledFns mode eager env).whnf d n e) v; ⊤⦄ := by
   intro n
@@ -420,23 +421,23 @@ theorem formerSortLoopC_spec (ih : SSimC mode eager env f) :
   | zero =>
     intro d e s₀ hs hw
     sym only [conleche_grind, formerSortLoop] =>
-      vcgen [formerSortLoopI, ih.whnf_spec] <;> finish
+      vcgen [formerSortLoopI.eq_def, ih.whnf_spec] <;> finish
   | succ n ihn =>
     intro d e s₀ hs hw
     sym only [conleche_grind, formerSortLoop] =>
-      vcgen [formerSortLoopI, ih.whnf_spec, inst1M_spec (mode := mode) (eager := eager) (env := env), ihn] <;> finish
+      vcgen [formerSortLoopI.eq_def, ih.whnf_spec, inst1M_spec (mode := mode) (eager := eager) (env := env), ihn] <;> finish
 
 /-- A family's sort at a use simulates its fueled original; the former is closed. -/
 theorem formerNeverZeroC_spec (ih : SSimC mode eager env f) {cvT : ConstantVal} {caps : IndCaps}
     {us : List Level} {s₀ : CState} (hcl : cvT.type.hasFvar = false)
     (hs : CSOK mode eager env s₀) :
-    ⦃fun s => s = s₀⦄ formerNeverZeroI (coreKnotI mode eager (mkFEnv env) f).whnf cvT caps us
+    ⦃fun s => s = s₀⦄ formerNeverZeroI mode (mkFEnv env) eager f cvT caps us
     ⦃fun v s' => CSOK mode eager env s' ∧
       Runs (formerNeverZeroAt (fueledFns mode eager env).whnf cvT caps us) v; ⊤⦄ := by
   have hw : Expr.WScoped 0 (cvT.type.instantiateLevelParams cvT.levelParams us) :=
     Expr.WScoped.of_not_hasFvar (by rw [hasFvar_instantiateLevelParams]; exact hcl)
   sym only [conleche_grind, formerNeverZeroAt] =>
-    vcgen [formerNeverZeroI, instLevelParamsM, formerSortLoopC_spec ih] <;> finish
+    vcgen [formerNeverZeroI.eq_def, instLevelParamsM, formerSortLoopC_spec ih] <;> finish
 
 theorem EnvWF.indTy_closed (henv : EnvWF env) {T : Name} {cvT : ConstantVal} {caps : IndCaps}
     (h : env.find? T = some (.indInfo cvT caps)) : cvT.type.hasFvar = false :=
@@ -446,7 +447,7 @@ theorem mtcEtaC_spec (ih : SSimC mode eager env f) {d : Nat} {major : Expr} {T :
     {cvT : ConstantVal} {caps : IndCaps} {tbl : ProjTable} {s₀ : CState}
     (hs : CSOK mode eager env s₀)
     (hw : Expr.WScoped d major) (hcl : cvT.type.hasFvar = false) :
-    ⦃fun s => s = s₀⦄ mtcEtaI (coreKnotI mode eager (mkFEnv env) f) d major T cvT caps tbl
+    ⦃fun s => s = s₀⦄ mtcEtaI mode (mkFEnv env) eager f d major T cvT caps tbl
     ⦃fun v s' => CSOK mode eager env s' ∧
       Runs ((fueledFns mode eager env).inferIO d major >>= fun tm => (fueledFns mode eager
           env).whnf d tm >>=
@@ -459,7 +460,7 @@ theorem mtcEtaC_spec (ih : SSimC mode eager env f) {d : Nat} {major : Expr} {T :
 theorem mtcAndC_spec (ih : SSimC .verified eager env f) {d : Nat}
     {major : Expr} {rl : RecRule} {cvj : ConstantVal} {cnP : Nat} {T : Name} {s₀ : CState}
     (hs : CSOK .verified eager env s₀) (hw : Expr.WScoped d major) :
-    ⦃fun s => s = s₀⦄ mtcAndI .verified (coreKnotI .verified eager (mkFEnv env) f) (mkFEnv env) d major rl
+    ⦃fun s => s = s₀⦄ mtcAndI .verified (mkFEnv env) eager f d major rl
         cvj cnP T
     ⦃fun v s' => CSOK .verified eager env s' ∧
       Runs ((fueledFns .verified eager env).inferIO d major >>= fun tm => (fueledFns .verified eager
@@ -477,7 +478,7 @@ theorem mtcBodyC_spec (ih : SSimC .verified eager env f) (henv : EnvWF env) {d :
     {caps : IndCaps} {s₀ : CState} (hs : CSOK .verified eager env s₀) (hw : Expr.WScoped d major)
     (hfT : env.find? T = some (.indInfo cvT caps)) :
     ⦃fun s => s = s₀⦄
-      mtcBodyI .verified (coreKnotI .verified eager (mkFEnv env) f) (mkFEnv env) d major isK rl cvj cnP T cvT caps
+      mtcBodyI .verified (mkFEnv env) eager f d major isK rl cvj cnP T cvT caps
     ⦃fun v s' => CSOK .verified eager env s' ∧
       Runs (mtcBodyP .verified (fueledFns .verified eager env) env d major isK rl cvj cnP T cvT caps) v ∧
       Expr.WScoped d v; ⊤⦄ := by
@@ -490,7 +491,7 @@ theorem majorToCtorC_spec (ih : SSimC .verified eager env f) (henv : EnvWF env)
     {d : Nat} {recName : Name} {isK : Bool} {rules : List RecRule} {i : Expr} {s₀ : CState}
     (hs : CSOK .verified eager env s₀) (hw : Expr.WScoped d i) :
     ⦃fun s => s = s₀⦄
-      majorToCtorI .verified (coreKnotI .verified eager (mkFEnv env) f) (mkFEnv env) d recName isK rules i
+      majorToCtorI .verified (mkFEnv env) eager f d recName isK rules i
     ⦃fun m s' => CSOK .verified eager env s' ∧
       Runs (majorToCtor .verified (fueledFns .verified eager env) env d recName isK rules i) m ∧
       Expr.WScoped d m; ⊤⦄ := by
@@ -504,12 +505,12 @@ theorem prepareMajorC_spec (ih : SSimC .verified eager env f) (henv : EnvWF env)
     {d : Nat} {recName : Name} {isK : Bool} {rules : List RecRule} {i : Expr} {s₀ : CState}
     (hs : CSOK .verified eager env s₀) (hw : Expr.WScoped d i) :
     ⦃fun s => s = s₀⦄
-      prepareMajorI .verified (coreKnotI .verified eager (mkFEnv env) f) (mkFEnv env) d recName isK rules i
+      prepareMajorI .verified (mkFEnv env) eager f d recName isK rules i
     ⦃fun m s' => CSOK .verified eager env s' ∧
       Runs (prepareMajor .verified (fueledFns .verified eager env) env d recName isK rules i) m ∧
       Expr.WScoped d m; ⊤⦄ := by
   sym only [conleche_grind, prepareMajor] =>
-    vcgen [prepareMajorI, majorToCtorC_spec (eager := eager) (env := env) ih henv,
+    vcgen [prepareMajorI.eq_def, majorToCtorC_spec (eager := eager) (env := env) ih henv,
       litMajorToCtorC_spec (eager := eager) (env := env) ih, ih.whnf_spec] <;> finish
 
 /-! ### The ι step's named pieces -/
@@ -637,7 +638,7 @@ grind_pattern [conleche_grind] ruleRhsOf_some =>
 
 /-- The cached ι certificate block (the argument of `certAtI` in
 `iotaRecI`). -/
-@[expose] def iotaCertI (r : CoreFnsI) (fe : FEnv) (depth : Nat) (cv : ConstantVal)
+@[expose] def iotaCertI (mode : CheckMode) (fe : FEnv) (eager : Bool) (lv : Nat) (depth : Nat) (cv : ConstantVal)
     (mI rP : Nat) (isK : Bool) (us : List Level) (args : List Expr) (cj cjn : Name) (usj : List Level)
     (cvj : ConstantVal) (cnP : Nat) (rl : RecRule) (margs : List Expr) : CheckCM Bool := do
   let cmpLvls : List Level ←
@@ -647,7 +648,7 @@ grind_pattern [conleche_grind] ruleRhsOf_some =>
       substLevelTreesM cv.levelParams us
         (cvj.levelParams.map Level.param)
     | .levels lvls => substLevelTreesM cv.levelParams us lvls
-  if ← iotaCase3I r.whnf fe.find? isK cvj cmpLvls then do
+  if ← iotaCase3I mode fe eager lv fe.find? isK cvj cmpLvls then do
     let oL ← isEquivListLM usj cmpLvls
     if ← liftFueled "level comparison" oL then do
       let cmpArgs : List Expr ←
@@ -656,10 +657,10 @@ grind_pattern [conleche_grind] ruleRhsOf_some =>
           pinArgsI cv.levelParams us (args.take rP) (rP - 1) pins
         | .plain => pure (args.take cnP)
         | .levels _ => pure (args.take cnP)
-      if ← defEqListI r fe depth (margs.take cnP) cmpArgs then do
+      if ← defEqListI mode fe eager lv depth (margs.take cnP) cmpArgs then do
         let tyCtor ← constTyAtM fe cj cjn usj
-        if ← iotaCertsFullI r fe depth tyCtor margs then
-          iotaIndexOkI r fe depth mI rP cnP tyCtor
+        if ← iotaCertsFullI mode fe eager lv depth tyCtor margs then
+          iotaIndexOkI mode fe eager lv depth mI rP cnP tyCtor
             margs ((args.take mI).drop rP)
         else pure false
       else pure false
@@ -724,8 +725,8 @@ grind_pattern [conleche_grind] ruleRhsOf_some =>
   | _ => pure none
 
 /-- `iotaRecI` with its certificate block named. -/
-theorem iotaRecI_eq (r : CoreFnsI) (fe : FEnv) (depth : Nat) (e : Expr) :
-    iotaRecI mode r fe depth e =
+theorem iotaRecI_eq (fe : FEnv) (lv : Nat) (depth : Nat) (e : Expr) :
+    iotaRecI mode fe eager lv depth e =
     (match Expr.getAppFn e with
     | .const c us => do
       let cn ← pure c
@@ -735,7 +736,7 @@ theorem iotaRecI_eq (r : CoreFnsI) (fe : FEnv) (depth : Nat) (e : Expr) :
         if args.length = mI + 1 ∧ us.length = cv.levelParams.length ∧
             (Expr.peelPis (mI + 1) cv.type).isSome = true then do
           let bvar0 ← pure (Expr.mkBvar 0)
-          let major ← prepareMajorI mode r fe depth cn isK rules (args.getD mI bvar0)
+          let major ← prepareMajorI mode fe eager lv depth cn isK rules (args.getD mI bvar0)
           match Expr.getAppFn major with
           | .const cj usj => do
             let cjn ← pure cj
@@ -746,7 +747,7 @@ theorem iotaRecI_eq (r : CoreFnsI) (fe : FEnv) (depth : Nat) (e : Expr) :
                 let margs ← pure (Expr.getAppArgsC major)
                 if margs.length = cnP + rl.nfields then do
                   if ← certAtI mode
-                      (iotaCertI r fe depth cv mI rP isK us args cj cjn usj cvj cnP rl margs) then do
+                      (iotaCertI mode fe eager lv depth cv mI rP isK us args cj cjn usj cvj cnP rl margs) then do
                     let rhs ← ruleRhsAtM fe c cj cn cjn us
                     let red ← mkAppNM rhs
                       (args.take rP ++ margs.drop cnP)
@@ -758,7 +759,8 @@ theorem iotaRecI_eq (r : CoreFnsI) (fe : FEnv) (depth : Nat) (e : Expr) :
           | _ => pure none
         else pure none
       | _ => pure none
-    | _ => pure none) := rfl
+    | _ => pure none) := by
+  rw [iotaRecI.eq_def]; rfl
 
 /-- `iotaRec` with its continuation past the major named. -/
 theorem iotaRec_eq {m : Type → Type} [Monad m] [MonadExceptOf CheckError m]
@@ -902,16 +904,16 @@ theorem iotaIndexOkC_spec (ih : SSimC mode eager env f) {d : Nat} {mI rP cnP : N
     {ty : Expr} {margs idx : List Expr} {s₀ : CState} (hs : CSOK mode eager env s₀)
     (hwty : Expr.WScoped d ty) (hwm : AllWS d margs) (hwi : AllWS d idx) :
     ⦃fun s => s = s₀⦄
-      iotaIndexOkI (coreKnotI mode eager (mkFEnv env) f) (mkFEnv env) d mI rP cnP ty margs idx
+      iotaIndexOkI mode (mkFEnv env) eager f d mI rP cnP ty margs idx
     ⦃fun b s' => CSOK mode eager env s' ∧
       Runs (iotaIndexOk (fueledFns mode eager env) env d mI rP cnP ty margs idx) b; ⊤⦄ := by
   sym only [conleche_grind, iotaIndexOk] =>
-    vcgen [iotaIndexOkI, piResidualM_spec hs, defEqListC_spec ih] <;> finish
+    vcgen [iotaIndexOkI.eq_def, piResidualM_spec hs, defEqListC_spec ih] <;> finish
 
 /-- The ι case split simulates its fueled original. -/
 theorem iotaCase3C_spec (ih : SSimC mode eager env f) (henv : EnvWF env) {isK : Bool}
     {cvj : ConstantVal} {us : List Level} {s₀ : CState} (hs : CSOK mode eager env s₀) :
-    ⦃fun s => s = s₀⦄ iotaCase3I (coreKnotI mode eager (mkFEnv env) f).whnf (mkFEnv env).find?
+    ⦃fun s => s = s₀⦄ iotaCase3I mode (mkFEnv env) eager f (mkFEnv env).find?
       isK cvj us
     ⦃fun v s' => CSOK mode eager env s' ∧
       Runs (iotaCase3At (fueledFns mode eager env).whnf env.find? isK cvj us) v; ⊤⦄ := by
@@ -942,7 +944,7 @@ theorem iotaCertC_spec (ih : SSimC mode eager env f) (henv : EnvWF env) {d : Nat
     {cvj : ConstantVal} (hfj : ctorVal? env cjn = some cvj) (cnP : Nat) {rl : RecRule}
     (hrl : OptRuleOK (some rl)) {margs : List Expr} (hm : AllWS d margs) :
     ⦃fun s => s = s₀⦄
-      iotaCertI (coreKnotI mode eager (mkFEnv env) f) (mkFEnv env) d cv mI rP isK us args cj cjn usj cvj
+      iotaCertI mode (mkFEnv env) eager f d cv mI rP isK us args cj cjn usj cvj
         cnP rl margs
     ⦃fun b s' => CSOK mode eager env s' ∧
       Runs (iotaCertP (fueledFns mode eager env) env d cv mI rP isK us args usj cvj cnP rl margs) b; ⊤⦄ :=
@@ -959,7 +961,7 @@ theorem iotaCertC_spec (ih : SSimC mode eager env f) (henv : EnvWF env) {d : Nat
 theorem iotaRecC_spec (ih : SSimC .verified eager env f)
     (henv : EnvWF env) {d : Nat} {i : Expr} {s₀ : CState} (hs : CSOK .verified eager env s₀)
     (hw : Expr.WScoped d i) :
-    ⦃fun s => s = s₀⦄ iotaRecI .verified (coreKnotI .verified eager (mkFEnv env) f) (mkFEnv env) d i
+    ⦃fun s => s = s₀⦄ iotaRecI .verified (mkFEnv env) eager f d i
     ⦃fun o s' => CSOK .verified eager env s' ∧ Runs (iotaRec .verified (fueledFns .verified eager env) env d i) o ∧
       OptWS d o; ⊤⦄ := by
   sym only [conleche_grind, iotaRec_notconst, iotaRecK_notconst, Option.isSome_some,

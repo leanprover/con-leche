@@ -392,8 +392,8 @@ theorem whnfCore_bridge_succ (hwc : WhnfCoreBridge .verified eager env fuel)
     · exact .trans hR (.trans (reduceProjCore_bridge hw hr) (hwc hcont))
 
 /-- One `whnfStep` under a bridged continuation is a `Red` chain
-(`whnfStep_inv`: `whnfCore`, then acceleration or δ into `k`, or the
-fixpoint). -/
+(`whnfStep_inv`: `whnfCore`, then acceleration (a literal is final) or δ
+into `k`, or the fixpoint). -/
 theorem whnfStep_bridge (hwc : WhnfCoreBridge μ eager env fuel) (hw : WhnfBridge μ eager env fuel)
     {d : Nat} {k : Expr → CheckM Expr}
     (hk : ∀ {e e' : Expr}, k e = .ok e' → Red env d e e')
@@ -402,7 +402,8 @@ theorem whnfStep_bridge (hwc : WhnfCoreBridge μ eager env fuel) (hw : WhnfBridg
     Red env d e e' := by
   obtain ⟨e₁, hwc₁, hrest⟩ := whnfStep_inv h
   have h₁ : Red env d e e₁ := hwc hwc₁
-  rcases hrest with ⟨e₂, hnat, hk₂⟩ | ⟨-, e₂, hδ, hk₂⟩ | ⟨-, -, rfl⟩
+  rcases hrest with ⟨e₂, hnat, ⟨-, rfl⟩ | hk₂⟩ | ⟨-, e₂, hδ, hk₂⟩ | ⟨-, -, rfl⟩
+  · exact .trans h₁ (reduceNat_bridge hw hnat)
   · exact .trans h₁ (.trans (reduceNat_bridge hw hnat) (hk hk₂))
   · exact .trans h₁ (.trans (.delta hδ) (hk hk₂))
   · exact h₁

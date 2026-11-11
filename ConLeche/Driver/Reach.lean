@@ -893,7 +893,7 @@ def validateCtx (ds : Array Declaration) (hs : Array Name) : Except CheckError U
 
 /-- **Is a statement's type a proposition**, by the kernel's inference at `fe`. -/
 def typeIsPropC (fe : FEnv) (cv : ConstantVal) : CheckCM Bool := do
-  let jsty ← (coreKnotI .verified false fe checkFuel).infer 0 cv.type
+  let jsty ← inferI .verified fe false checkFuel false 0 cv.type
   let u ← opSIxC .verified fe 0 jsty
   liftFueled "level comparison" (Level.isEquiv u .zero)
 

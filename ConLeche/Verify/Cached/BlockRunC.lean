@@ -239,7 +239,7 @@ theorem ruleR_infer_simG {envR : Env} (henvR : EnvWF envR)
   obtain rfl : s₀.flushed = s₀' := congrArg Prod.snd hfl₀
   have hs₀' : CSOK .verified false envR s₀.flushed := flushC_csok hs.residue
   obtain ⟨t, s₁, hinf, hr⟩ := bindC_ok hr
-  obtain ⟨hs₁, ⟨F, hF⟩, hwt⟩ := triple_iff_run.mp (opE_infer_spec henvR hs₀' hw) t s₁ hinf
+  obtain ⟨hs₁, ⟨F, hF⟩, hwt⟩ := triple_iff_run.mp (opI_spec henvR hs₀' hw) t s₁ hinf
   obtain ⟨u, s₂, hfl, hr⟩ := bindC_ok hr
   rw [flushC_run] at hfl
   injection hfl with hfl
