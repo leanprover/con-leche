@@ -44,7 +44,7 @@ theorem typeIsPropC_sound {E : Env} (henv : EnvWF E) {cv : ConstantVal}
   have hw : Expr.WScoped 0 cv.type := wscoped_of_hasFvar_false hfv
   unfold typeIsPropC at h
   simp only [bind, StateT.bind] at h
-  cases hi : (coreKnotI .verified false (mkFEnv E) checkFuel).infer 0 cv.type {} with
+  cases hi : inferI .verified (mkFEnv E) false checkFuel false 0 cv.type {} with
   | error e => rw [hi] at h; exact nomatch h
   | ok r =>
   obtain ⟨jsty, s₁⟩ := r

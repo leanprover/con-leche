@@ -630,7 +630,7 @@ take from typing. The two kinds are:
 
 #real[
   The checks are the checker's
-  #src("ConLeche/Kernel/Core.lean", 1447, 1453)[innermost lambda level],
+  #src("ConLeche/Kernel/Core.lean", 1457, 1463)[innermost lambda level],
   #src("ConLeche/Kernel/Core.lean", 523, 528)[its $eta$] and
   #src("ConLeche/Kernel/Core.lean", 888, 902)[the case of ι]. On real
   input neither kind ever fails: they never change a verdict on a
@@ -723,7 +723,7 @@ keeps the results of the two modes apart.
 
 #real[
   The checker's cheaper mode is
-  #src("ConLeche/Kernel/Core.lean", 1308, 1313)[`infer_only` exactly]. Like it,
+  #src("ConLeche/Kernel/Core.lean", 1318, 1323)[`infer_only` exactly]. Like it,
   the mode does not check a let-binding's value against its type
   (full inference does, @sec:infer); the soundness proof needs no
   such check, since the value is substituted.
