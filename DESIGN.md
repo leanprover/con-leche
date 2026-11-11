@@ -119741,3 +119741,43 @@ any other memory.
 
 Measurement data in `_tmp/568/runs` (removed at the end of the lane; the numbers above are all that
 was kept).
+
+## TASK #569 — the scheduler says why a worker died: `stack`, `oom-kill`, `signal N (NAME)` (2026-11-11, agent/569-signals)
+
+#568's recommendation 2 (its item 3), by the maintainer's ruling; the stack sizes are not changed
+(`LEAN_STACK_SIZE_KB` is the maintainer's to set).  All in `ConLeche/Driver/ScheduleIO.lean`, plain
+`IO` outside every theorem.
+
+* **The verdict** (`exitVerdict`, a pure function): the code of `Child.tryWait` is `128 + signal`
+  for a signalled child and a worker's own codes are 0–3, so above 128 the signal is `c − 128`.
+  SIGABRT with `Stack overflow detected` on the worker's stderr is `stack`; SIGKILL with a rise of
+  the OOM-kill counter is `oom-kill`; any other signal reads `signal 11 (SIGSEGV)` (names for
+  SIGHUP, INT, QUIT, ILL, ABRT, BUS, FPE, KILL, SEGV, PIPE, TERM; the number alone otherwise); a
+  code from 4 to 128 reads `exit N` (it was `signal` before).  Each is a verdict: the module is done
+  for a resumed run, the finish line shows `FAILED stack  M`, the run's exit is 3 as before.
+* **`stack`'s hint**: the passed-on stderr gets a line `con-leche: schedule: M: the worker
+  overflowed its stack; rerun with a larger LEAN_STACK_SIZE_KB (now X; a resumed run retries it once
+  the value differs)`.
+* **OOM kills** (`limitCgroup`, `oomKills`): the cgroup is read from `/proc/self/cgroup`
+  (`0::/path`), walked up to the first whose `memory.max` is not `max`; its `memory.events`
+  (hierarchical) `oom_kill` counter is read at the start and at every SIGKILL finish, a rise since
+  the last reading is `oom-kill`.  Unreadable files (or no limited ancestor): the plain `signal 9
+  (SIGKILL)`.  Only SIGKILL reads the file, so a run without such a worker never touches it again.
+* **Retry rule for `stack`: the stack size is logged.**  The twelfth field of every verdict line
+  is the scheduler's `LEAN_STACK_SIZE_KB` (`-` where unset; workers inherit it).  `parseLog` takes the
+  current value and does not count a `stack` line as a verdict unless its field equals it (a line
+  without the field, never; its peak and time still count for the estimates).  The alternative, "the
+  environment variable differs from the logged one" without a log field, cannot tell a logged
+  size from none, and the log is where the other per-run facts live.  Old logs resume as before: they
+  have no `stack` lines.  `signal …` and `oom-kill` lines are verdicts for any size (a resumed run
+  does not retry them, as for `memory`/`timeout`).
+* **`scripts/schedsim.py`** reads the verdict field as it stands and the optional twelfth field.
+* **Tests**: `ScheduleTests` (`exitVerdict` on each case, `parseLog` on a log with the new
+  verdicts at the current and another stack size); the olean gate: fixture `StackDeep` (prelude;
+  `add c14 z = c14` by `Same.refl`, 2^14 levels of recursion in the check, accepted at the default
+  1 GiB stack, overflows at `LEAN_STACK_SIZE_KB=1024`) with `--schedule` cases: the default stack
+  accepts, 1024 gives `FAILED stack  StackDeep` and the hint, the log line's last field is 1024,
+  a resume at 1024 skips it, at 2048 runs it again.
+* **Docs**: the module docstring, the usage text, OVERVIEW (the verdicts, the log's last field,
+  `LEAN_STACK_SIZE_KB` for large developments; CFSG's `#text_pieces_d` runs such theorems on 4 GiB
+  stacks).

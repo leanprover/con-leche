@@ -946,6 +946,24 @@ case_grep "--schedule: the first failing module, its code" 1 "the first in the g
 # (task #563: a non-zero finish line is marked FAILED, an accepted one shows no verdict)
 case_grep "--schedule: a failing module's finish line" 1 "s .*FAILED 1  NpAx" \
   --olean --schedule --search-path=$LIB -- NpAx
+# (task #569: a worker that overflows its thread stack is `stack`, not an anonymous signal; the
+# log holds the stack size, and a resumed run retries the module only at another size.
+# StackDeep needs a deeper stack than 1 MiB; the default 1 GiB takes it)
+case_ "--schedule: a deep module at the default stack" 0 --olean --schedule --search-path=$LIB -- StackDeep
+export LEAN_STACK_SIZE_KB=1024
+case_grep "--schedule: a stack overflow is the verdict stack" 3 "FAILED stack  StackDeep" --olean \
+  --schedule --schedule-log="$d/stack" --search-path=$LIB -- StackDeep
+case_grep "--schedule: …with the hint" 3 "rerun with a larger LEAN_STACK_SIZE_KB" --olean \
+  --schedule --schedule-log="$d/stack2" --search-path=$LIB -- StackDeep
+total=$((total+1))
+if grep -qP "^stack\t«StackDeep»\t.*\t1024$" "$d/stack"; then ok=$((ok+1))
+else echo "OLEAN FAIL (--schedule: the stack log line)"; fail=1; fi
+case_grep "--schedule: a stack verdict resumed at the same size" 3 "1 modules logged, 0 to run" --olean \
+  --schedule --schedule-log="$d/stack" --search-path=$LIB -- StackDeep
+export LEAN_STACK_SIZE_KB=2048
+case_grep "--schedule: …retried at another size" 3 "FAILED stack  StackDeep" --olean \
+  --schedule --schedule-log="$d/stack" --search-path=$LIB -- StackDeep
+unset LEAN_STACK_SIZE_KB
 case_ "--schedule: an unknown option" 3 --olean --schedule-frobnicate --search-path=$LIB -- Tiny
 # (task #505: the module lines carry the counts; a budget takes a unit; a heartbeat in ms or s)
 case_grep "--schedule: the last module's line, its counts" 0 "\[4 (100.0%)  0 wrkr" \

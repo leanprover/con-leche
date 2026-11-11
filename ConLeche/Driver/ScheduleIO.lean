@@ -83,13 +83,16 @@ it plain `IO`:
   this run's start, and what the worker printed (`workerStats`, `-` where it printed nothing):
   its declarations (stdout's `accepted N declarations`), its parse and check phases in ms (the
   `stats: phases:` line, to 0.1 s), its check pool's busy time and its slowest single check in
-  ms (the pool's `stats:` line and `slowest checks:`), and the threads the worker ran with.  The
+  ms (the pool's `stats:` line and `slowest checks:`), the threads the worker ran with, and the
+  `LEAN_STACK_SIZE_KB` of the scheduler's environment (`-` where unset).  The
   field order is fixed; new fields go at the end.  A kill (for memory, or by an
   interrupt): `killed\t<module>\t<ms>\t<rss KiB>\t<threads>`, the last sampled set and the threads the worker
   ran with (old logs have no threads field: one).  A restart with the same
   log skips every module that has a verdict line (the reader takes the first two fields, so
   old two-field logs work; a `killed` line is no verdict and is ignored), so a run interrupted
-  anywhere resumes where it stopped.  **A resumed run reads the log's state back into admission**
+  anywhere resumes where it stopped.  The verdict `stack` is the one exception: a resumed run
+  runs that module again where its logged stack size differs from the current `LEAN_STACK_SIZE_KB`
+  (a line without the field counts as different).  **A resumed run reads the log's state back into admission**
   (`parseLog`; DESIGN #546): the typical peak's window starts with the last 200 exact peaks of the
   verdict lines (`≥` fallbacks left out), so that the median holds from the first tick where the log
   gives 20 of them; a module with `killed` lines that still has to run keeps its position in the
@@ -115,7 +118,7 @@ it plain `IO`:
   with `t=Ss  rss=X GiB  ×T  [FAILED V  ]M`: the time padded to 6, `X` the worker's
   own peak from its stats line (`rss≥X` the last sampled one where it wrote none), `×T` the
   worker's threads where above 1 (blank, and absent at `--jobs=1`, otherwise), then, only for a
-  non-zero verdict (`1`, `2`, `3`, `timeout`, `memory`, `signal`), `FAILED V` (grep `FAILED`;
+  non-zero verdict (`1`, `2`, `3`, `timeout`, `memory`, `stack`, `oom-kill`, `signal 11 (SIGSEGV)`), `FAILED V` (grep `FAILED`;
   an accepted module shows no verdict), the module last.  The log keeps every verdict.
   With a heartbeat (`heartbeat` ms), after that long without a line, ONE line on stderr: the
   status part and what explains the wait, `waiting: longest M 7m01s (+2 more), 13 requeued, 5
@@ -146,7 +149,14 @@ it plain `IO`:
   error the running workers are killed before the error is passed on.
 
 A worker's verdict is its exit code (0 accept, 1 reject, 2 decline, 3 error), or `timeout`,
-`memory`, or `signal` (ended otherwise); its stderr, but the statistics lines, is passed on.
+`memory`, or what ended it otherwise (DESIGN #569): `Child.tryWait` returns 128 + the signal for a
+signalled child and a worker's own codes are 0 to 3, so a code above 128 is the signal `c - 128`
+(`exitVerdict`).  `stack` is SIGABRT with `Stack overflow detected` on the worker's stderr (Lean's
+`segv_handler`: the declaration needs a larger `LEAN_STACK_SIZE_KB`, which the workers inherit; the
+finish line adds the hint); `oom-kill` is SIGKILL while the `oom_kill` counter of the nearest
+cgroup with a memory limit (`memory.events`, found through `/proc/self/cgroup`) rose since the last
+look; any other signal reads `signal 11 (SIGSEGV)` (the number alone for an unnamed one), and a
+code between 4 and 128 `exit N`.  Its stderr, but the statistics lines, is passed on.
 -/
 
 namespace ConLeche.Driver.Schedule
@@ -318,6 +328,48 @@ def Running.diagText (r : Running) : IO String := do
 /-- A file's contents, `none` where it cannot be read. -/
 def readOpt (p : System.FilePath) : IO (Option String) := do
   try some <$> IO.FS.readFile p catch _ => pure none
+
+/-- The usual signals' names. -/
+def signalName (n : Nat) : Option String :=
+  match n with
+  | 1 => some "SIGHUP" | 2 => some "SIGINT" | 3 => some "SIGQUIT" | 4 => some "SIGILL"
+  | 6 => some "SIGABRT" | 7 => some "SIGBUS" | 8 => some "SIGFPE" | 9 => some "SIGKILL"
+  | 11 => some "SIGSEGV" | 13 => some "SIGPIPE" | 15 => some "SIGTERM"
+  | _ => none
+
+/-- **A worker's verdict** from its exit code `c` (`Child.tryWait`: 128 + the signal for a signalled
+child), its stderr `diag`, and whether the cgroup's OOM-kill counter rose (read only for SIGKILL):
+`0` to `3` as they are; above 128 `stack` (SIGABRT and `Stack overflow detected`), `oom-kill`
+(SIGKILL and a rise), else `signal N (NAME)`; `exit N` between. -/
+def exitVerdict (c : Nat) (diag : String) (oom : Bool) : String :=
+  if c ≤ 3 then toString c
+  else if c ≤ 128 then s!"exit {c}"
+  else
+    let s := c - 128
+    if s == 6 && (diag.splitOn "Stack overflow detected").length > 1 then "stack"
+    else if s == 9 && oom then "oom-kill"
+    else match signalName s with
+      | some n => s!"signal {s} ({n})"
+      | none => s!"signal {s}"
+
+/-- The cgroup the scheduler's memory is limited by: from `/proc/self/cgroup` (`0::/path`) up
+through the ancestors to the first whose `memory.max` is not `max`; `none` where the files cannot
+be read or no ancestor has a limit. -/
+def limitCgroup : IO (Option System.FilePath) := do
+  let some s ← readOpt "/proc/self/cgroup" | return none
+  let some l := (s.splitOn "\n").find? (·.startsWith "0::") | return none
+  let parts := ((l.drop 3).toString.splitOn "/").filter (· != "")
+  for i in [0:parts.length] do
+    let dir : System.FilePath := "/sys/fs/cgroup/" ++ "/".intercalate (parts.take (parts.length - i))
+    if let some m ← readOpt (dir / "memory.max") then
+      if m.trimAscii.toString != "max" then return some dir
+  return none
+
+/-- The `oom_kill` counter of a cgroup's `memory.events` (hierarchical), `none` where unreadable. -/
+def oomKills (dir : System.FilePath) : IO (Option Nat) := do
+  let some s ← readOpt (dir / "memory.events") | return none
+  return (s.splitOn "\n").findSome? fun l =>
+    if l.startsWith "oom_kill " then (l.drop 9).toString.trimAscii.toString.toNat? else none
 
 /-- A size field of a `/proc/<pid>/status` in KiB (`VmRSS:`, `VmHWM:`), 0 where it has none. -/
 def vmField (key : String) (s : String) : Nat :=
@@ -494,7 +546,7 @@ not `≥`) fill `peaks`, the last `typWindow` of them.  The `<ms>` of a verdict
 line (the third field; old two-field lines have none) is summed for the mean module time, and with
 the `<at>` (fifth field) of each run's last line gives the previous runs' average of running
 workers. -/
-def parseLog (parse : String → Option Name) (s : String) : Logged :=
+def parseLog (parse : String → Option Name) (s : String) (stackKb : String := "-") : Logged :=
   -- the fold's state: the log so far, the closed runs' span, the open run's last `at`
   let (lg, span, lastAt) := (s.splitOn "\n").foldl (fun (lg, span, lastAt) l =>
     match l.splitOn "\t" with
@@ -512,7 +564,9 @@ def parseLog (parse : String → Option Name) (s : String) : Logged :=
       match parse n with
       | none => (lg, span, lastAt)
       | some x =>
-        let lg := { lg with verdicts := lg.verdicts.insert x w }
+        -- a `stack` verdict (the twelfth field: the stack size) holds for that size only
+        let lg := if w == "stack" && rest[9]? != some stackKb then lg
+          else { lg with verdicts := lg.verdicts.insert x w }
         let lg := match rest[1]?.bind String.toNat? with
           | some k => { lg with peaks := lg.peaks.push k }
           | none => lg
@@ -530,9 +584,10 @@ def parseLog (parse : String → Option Name) (s : String) : Logged :=
               lg.peaks.extract (lg.peaks.size - typWindow) lg.peaks.size else lg.peaks }
 
 /-- `parseLog` of the log file `p`, nothing where there is none. -/
-def readLog (parse : String → Option Name) (p : System.FilePath) : IO Logged := do
+def readLog (parse : String → Option Name) (p : System.FilePath) (stackKb : String) :
+    IO Logged := do
   if !(← p.pathExists) then return {}
-  return parseLog parse (← IO.FS.readFile p)
+  return parseLog parse (← IO.FS.readFile p) stackKb
 
 /-- **The estimate** (ms) of the time left: `remaining × mean ÷ workers`, the mean module time
 `(logged sum + this run's sum) ÷ (logged count + this run's count)` over every finished module with
@@ -814,8 +869,19 @@ def run (parse : String → Option Name) (app : System.FilePath) (args : Name �
     IO (Std.HashMap Name String × Nat × Option (String × UInt8)) := do
   let err ← IO.getStderr
   let out ← IO.getStdout
+  -- the workers inherit the stack size; a `stack` verdict is logged with it
+  let stackKb := (← IO.getEnv "LEAN_STACK_SIZE_KB").getD "-"
+  -- the cgroup's OOM-kill counter, to tell a SIGKILL by the OOM killer from another
+  let cg ← limitCgroup
+  let oomRef ← IO.mkRef (← match cg with | some d => oomKills d | none => pure none)
+  let oomRose : IO Bool := do
+    let some d := cg | return false
+    let now ← oomKills d
+    let before ← oomRef.get
+    oomRef.set now
+    return match before, now with | some b, some n => n > b | _, _ => false
   let logged ← match o.log with
-    | some p => readLog parse p
+    | some p => readLog parse p stackKb
     | none => pure {}
   let todo := (mods.toList.filter (!logged.verdicts.contains ·))
   let todo := if o.shuffled then shuffle todo else todo
@@ -855,7 +921,7 @@ def run (parse : String → Option Name) (app : System.FilePath) (args : Name �
       | none => (sampled, s!"rss≥{padL 9 (gibText sampled)}", s!"≥{sampled}")
     if let some h := logH then
       h.putStrLn s!"{w}\t{spell r.m}\t{now - r.start}\t{logRss}\t{now - t0}\
-        {(workerStats outText msg).logText}\t{r.threads}"
+        {(workerStats outText msg).logText}\t{r.threads}\t{stackKb}"
       h.flush
     let (peaks, typ) := pushPeak st.peaks st.typ pk
     let st := { st with verdicts := st.verdicts.insert r.m w, finished := st.finished + 1, doneMs := st.doneMs + (now - r.start),
@@ -877,6 +943,10 @@ def run (parse : String → Option Name) (app : System.FilePath) (args : Name �
     let lines := (msg.splitOn "\n").filter fun l => l != "" && !l.startsWith "con-leche: stats:"
     if w != "0" then
       for l in lines do err.putStrLn l
+      if w == "stack" then
+        err.putStrLn s!"con-leche: schedule: {r.m}: the worker overflowed its stack; rerun with a \
+          larger LEAN_STACK_SIZE_KB (now {stackKb}; a resumed run retries it once the value \
+          differs)"
       err.flush
     return st
   -- a kill's log line: the module, the run time, the last sampled resident set
@@ -943,7 +1013,10 @@ def run (parse : String → Option Name) (app : System.FilePath) (args : Name �
     let mut ended : Array (Running × String) := #[]
     for r in st.running do
       match ← r.child.tryWait with
-      | some c => ended := ended.push (r, if c ≤ 3 then toString c else "signal")
+      | some c =>
+        let (_, msg) ← r.texts
+        let oom ← if c.toNat == 137 then oomRose else pure false
+        ended := ended.push (r, exitVerdict c.toNat msg oom)
       | none =>
         if o.timeout > 0 && now - r.start > o.timeout * 1000 then
           r.child.kill
@@ -1145,7 +1218,7 @@ def run (parse : String → Option Name) (app : System.FilePath) (args : Name �
   return (st.verdicts, st.peak, intr)
 
 /-- **The run's verdict**: 0 when every module's worker answered 0; else the first module in
-the graph's order that did not, its code (`timeout`, `memory`, `signal`: 3). -/
+the graph's order that did not, its code (`timeout`, `memory`, `stack`, `oom-kill`, `signal …`: 3). -/
 def summary (mods : Array Name) (vs : Std.HashMap Name String) (modeTag : String)
     (peak : Nat := 0) : IO UInt8 := do
   let peakText := if peak = 0 then "" else s!"; peak {gib peak} of the running workers"

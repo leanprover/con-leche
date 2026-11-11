@@ -14,7 +14,8 @@ public section
 `surpriseOf` (the planning budget's surprise leaves the worker furthest above its reservation
 out), the windowed peak (`pushMinute`, `windowPeak`), the fixed queue and its head slot (`nextHead`, `nextFit`, `insertAt`, `victims`) and `parseLog` with `etaMs` on a log mixing the three verdict-line formats (`<verdict>
 <module>`, the five fields of the ms/rss/at format, the eleven of the statistics and threads
-format) and `killed` lines.
+format) and `killed` lines; the new verdicts (`stack`, `oom-kill`, `signal N (NAME)`, DESIGN #569)
+with `exitVerdict` and `parseLog`'s retry rule for `stack`.
 -/
 
 namespace ConLecheTests.ScheduleTests
@@ -92,6 +93,43 @@ def mixedLog : String :=
 
 -- previous runs that averaged fewer than one worker: their average, not the jobs
 #guard etaMs 1000 100000 4 0 0 500 16 = some 50000000
+
+-- the verdicts of a signalled worker (`Child.tryWait`: 128 + the signal)
+#guard exitVerdict 0 "" false = "0"
+#guard exitVerdict 3 "" false = "3"
+#guard exitVerdict 134 "x\nStack overflow detected. Aborting.\n" false = "stack"
+#guard exitVerdict 134 "some other abort" false = "signal 6 (SIGABRT)"
+#guard exitVerdict 137 "" true = "oom-kill"
+#guard exitVerdict 137 "" false = "signal 9 (SIGKILL)"
+#guard exitVerdict 139 "" false = "signal 11 (SIGSEGV)"
+#guard exitVerdict 143 "" false = "signal 15 (SIGTERM)"
+#guard exitVerdict 168 "" false = "signal 40"
+-- an overflow message does not make another signal a stack overflow; a rise only counts for SIGKILL
+#guard exitVerdict 139 "Stack overflow detected" true = "signal 11 (SIGSEGV)"
+#guard exitVerdict 134 "" true = "signal 6 (SIGABRT)"
+#guard exitVerdict 7 "" false = "exit 7"
+
+/-- A log with the new verdicts: `stack` at 1 GiB (unset: `-`) and at 8 GiB, and the others. -/
+def sigLog : String :=
+  "stack\t«S1»\t1000\t400000\t1000\t-\t-\t-\t-\t-\t1\t-\n" ++
+  "stack\t«S2»\t1000\t400000\t2000\t-\t-\t-\t-\t-\t1\t8388608\n" ++
+  "stack\t«S3»\t1000\t400000\t3000\t-\t-\t-\t-\t-\t1\n" ++
+  "signal 9 (SIGKILL)\t«K1»\t1000\t400000\t4000\t-\t-\t-\t-\t-\t1\t-\n" ++
+  "oom-kill\t«K2»\t1000\t400000\t5000\t-\t-\t-\t-\t-\t1\t-\n"
+
+-- the signal and OOM verdicts are verdicts (the module is done), whatever the stack size
+#guard ((parseLog ConLeche.Frontend.Olean.parseModName sigLog).verdicts.get? (nm "K1"))
+  = some "signal 9 (SIGKILL)"
+#guard ((parseLog ConLeche.Frontend.Olean.parseModName sigLog "8388608").verdicts.get? (nm "K2"))
+  = some "oom-kill"
+-- `stack` holds for the logged size only; a line without the field never holds
+#guard ((parseLog ConLeche.Frontend.Olean.parseModName sigLog).verdicts.get? (nm "S1")) = some "stack"
+#guard ((parseLog ConLeche.Frontend.Olean.parseModName sigLog).verdicts.get? (nm "S2")) = none
+#guard ((parseLog ConLeche.Frontend.Olean.parseModName sigLog "8388608").verdicts.get? (nm "S1")) = none
+#guard ((parseLog ConLeche.Frontend.Olean.parseModName sigLog "8388608").verdicts.get? (nm "S2")) = some "stack"
+#guard ((parseLog ConLeche.Frontend.Olean.parseModName sigLog).verdicts.get? (nm "S3")) = none
+-- the retried module's peak still counts for the typical peak
+#guard (parseLog ConLeche.Frontend.Olean.parseModName sigLog).peaks.size = 5
 
 /-- The queue of the head-slot examples: A B C D E F at positions 0 to 5. -/
 def q : List ConLeche.Name := ["A", "B", "C", "D", "E", "F"].map nm

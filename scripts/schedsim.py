@@ -112,7 +112,12 @@ def num(x):
 
 
 def read_log(path):
-    """module -> dict(ms, pk, decls, parse, check, busy, slowest, verdict); also the kills."""
+    """module -> dict(ms, pk, decls, parse, check, busy, slowest, verdict); also the kills.
+    The verdict is the line's first field as it stands: an exit code, `timeout`, `memory`, or
+    (DESIGN #569) `stack`, `oom-kill`, `signal N (NAME)`; the optional twelfth field `stack` is
+    the `LEAN_STACK_SIZE_KB` of the run.  Every spelling is a finished module, as in the
+    scheduler (a `stack` one only counts for resume at the same stack size, which a replay
+    does not model)."""
     mods, kills = {}, []
     for line in open(path, encoding="utf-8"):
         f = line.rstrip("\n").split("\t")
@@ -127,7 +132,8 @@ def read_log(path):
         mods[unspell(f[1])] = dict(verdict=f[0], ms=num(g[2]), pk=num(g[3]), at=num(g[4]),
                                    decls=num(g[5]), parse=num(g[6]), check=num(g[7]),
                                    busy=num(g[8]), slowest=num(g[9]),
-                                   threads=num(g[10]) or 1)
+                                   threads=num(g[10]) or 1,
+                                   stack=g[11] if len(f) > 11 else None)
     return mods, kills
 
 
