@@ -119372,3 +119372,48 @@ landed meanwhile and the lane was merged with it: `whnfStuckI` joined the block 
 new signatures.
 
 Logs and scripts: `_tmp/556/logs` (`b2/` is the table above), `_tmp/556/*.sh`.
+
+## modular: master merged (3) (2026-11-11, agent/modular-merge-master-3)
+
+`master` at bdcd976e5 merged into `modular` (ab5e57b3b).  What master brought: #554 (`Expr`
+equality without a derived `DecidableEq`), #549 (a DESIGN record: why Lean's kernel suffers less
+on C20), #558 (the cached knot as one `mutual` block of entry points and helpers at a level; the
+record `CoreFnsI`, `knotLevelI` and `coreKnotI` gone), #556 (the official `whnf` arms: the stuck
+spine, no memo entry for an unchanged answer, the literal answer, the `Nat` dispatch).  No task
+number collides: master's new records are #549, #554, #556 and #558, none of which `modular` uses.
+
+**Textual conflicts.**  DESIGN.md (both sides' records, `modular`'s first); OVERVIEW.md and
+`tests/overview-links-expected.txt` (the axiom pin's anchor: it now cites the guard block,
+`Axioms.lean#L111-L115`, as on master, where `modular`'s had slid onto the lines above it); the
+plain-reach allowlist's comment on `ConLeche.Kernel.Expr` (both sides' clauses: the literal hash
+below 2^64, and Expr's instance through `decEqPtr`).  Everything else merged without conflict,
+among it `Kernel/Expr.lean` (#547's `natHash` instance beside #554's pointer-first `Expr`
+instance) and the core files #558 restructured.
+
+**Adaptations.**
+* **#558 in the worker.**  `typeIsPropC` (`Driver/Reach.lean`, the inferred-flag check) calls the
+  knot's entry point, `inferI .verified fe false checkFuel false 0 cv.type`, where it built the
+  record (`(coreKnotI .verified false fe checkFuel).infer 0 cv.type`).  `typeIsPropC_sound`
+  (`Verify/Driver/PropPart.lean`) cases on the same call; `inferK_spec`, already stated about it,
+  closes it unchanged.
+* Nothing else: the reader, worker, reach, scheduler and model build against master's knot
+  unchanged; #547/#564's literal hash, `lakefile.lean` and #565's memo linearity stay.
+
+**Measurements** (`perf stat -e instructions:u`, one run each; `_tmp/mmerge3/scripts/measure.sh`):
+
+| run | master bdcd976e5 | modular ab5e57b3b | merged | merged vs modular |
+|---|---|---|---|---|
+| init-prelude (`--jobs=8`) | 1.282 G | 1.468 G | 1.282 G | −12.7 % |
+| grind-ring-5 (`--jobs=8`) | 11.111 G | 12.660 G | 11.115 G | −12.2 % |
+| Coxeter worker (`--olean --module --jobs=8`) | — | 6.530 G | 6.305 G | −3.4 % |
+| CFSG CCK4 (`--olean --module --jobs=1`) | — | 156.51 G | 101.74 G | −35.0 % |
+
+The streams are master's within 0.05 %.  CCK4 accepts its 34 declarations, Coxeter its 159, as
+on `modular`; CCK4's peak RSS 1.96 → 1.46 GiB.  Master has no `--module`.
+
+**Gates.**  `lake build`, `lake test` warning-free; `tests/arena.sh` in full under the guard
+(exit 0: layering, shake 672/672 allowlisted, pub-imports, trust surface, plain-reach 586 all
+allowlisted, binary-link, overview and whitepaper links, fragment, quote gate, challenge,
+no-local-paths, olean gate 333/333, selfcheck 59 084 declarations, axioms pinned (72 theorems),
+arena tutorial 90/92, e2e 600/600 with `lit_hash_low_bits` inside its 10 s timeout (2.27 G
+instructions), the trusted and `--jobs` sweeps without divergence); the whitepaper build.
