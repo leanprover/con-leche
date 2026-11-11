@@ -356,9 +356,7 @@ def reduceNatI (eager : Bool) (lv : Nat) (depth : Nat) (e : Expr) :
         match us with
         | _ :: _ => pure none
         | [] => do
-          -- the operation found once (`NatBinOp.ofName?`); `reduceNat`'s
-          -- further name test (`natOpWfNames`) names operations of the
-          -- fourteen, so it never answers here
+          -- the operation found once (`NatBinOp.ofName?`)
           match NatBinOp.ofName? c with
           | some op => do
             -- first argument first; the second only behind a literal

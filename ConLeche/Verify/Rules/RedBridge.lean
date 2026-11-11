@@ -87,28 +87,7 @@ theorem reduceNat_bridge (hw : WhnfBridge μ eager env fuel)
           simp only [pure, Except.pure, Except.ok.injEq, Option.some.injEq] at h
           subst h
           exact .natOp hmem (hw hwa) hra (hw hwb) hrb hres
-    · split at h
-      · cases hwa : whnf μ eager env fuel d a with
-        | error err => rw [hwa] at h; exact nomatch h
-        | ok a0 =>
-        rw [hwa] at h
-        dsimp only at h
-        cases hra : rawNatLit? a0 with
-        | none => rw [hra] at h; simp [pure, Except.pure] at h
-        | some n₁ =>
-        rw [hra] at h
-        dsimp only at h
-        cases hwb : whnf μ eager env fuel d b with
-        | error err => rw [hwb] at h; exact nomatch h
-        | ok b0 =>
-        rw [hwb] at h
-        dsimp only at h
-        cases hrb : rawNatLit? b0 with
-        | none => rw [hrb] at h; simp [pure, Except.pure] at h
-        | some n₂ =>
-          rw [hrb] at h
-          simp [throw, throwThe, MonadExceptOf.throw] at h
-      · simp [pure, Except.pure] at h
+    · simp [pure, Except.pure] at h
   | .bvar _, h | .fvar _ _, h | .sort _, h | .lam _ _, h
   | .forallE _ _, h | .letE _ _ _, h | .lit _, h
   | .proj _ _ _, h | .const _ _, h =>
