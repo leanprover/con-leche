@@ -81,7 +81,7 @@ above its reservation, the same only while the current sets exceed the plan, or 
 drain for the head of the killed modules (`drain`, s); besides the columns above the waits of the
 killed giants (at least 1/8 of the limit) from their kill to their restart.
 """
-import argparse, bisect, json, os, random
+import argparse, bisect, collections, json, os, random
 
 FNV_OFF, FNV_PRIME = 14695981039346656037, 1099511628211
 
@@ -232,7 +232,7 @@ def quantile(sorted_xs, q):
 
 class W:
     __slots__ = ("mod", "start", "dur", "pk", "hwm", "cur", "threads", "read_end", "resv", "rank",
-                 "rose")
+                 "rose", "win")
 
 
 def simulate(mods, order, budget_kib, jobs, tick=0.1, growth=10, typ_q=0.5,
@@ -242,7 +242,8 @@ def simulate(mods, order, budget_kib, jobs, tick=0.1, growth=10, typ_q=0.5,
              margin_nonzero=True, stagger=0, burst=0, threads_spare=False,
              threads_drain=0, drain_d=0, margin_excl="largest", seed_peaks=None,
              seed_sizes=None, seed_single=(), kill_by="sticky", gate="prot", drain=None,
-             giant_kib=None, front_fifo=False, front_pos=False):
+             giant_kib=None, front_fifo=False, front_pos=False, size_rule="double",
+             window=0):
     """Returns the statistics of one replay.  Times in ms internally.  `budget_kib` is the hard
     limit (kills only above it); with `plan` admission plans against `hard - margin` (DESIGN
     #540): margin = max(margin_init x hard, the `margin_stat` of the last `margin_window`
@@ -276,7 +277,17 @@ def simulate(mods, order, budget_kib, jobs, tick=0.1, growth=10, typ_q=0.5,
     unstarted again at its own position (the head takes the lowest unstarted position, the other
     slots the lowest that fits).  `front_fifo`: a killed module goes behind the killed ones already waiting (the order
     of the kills), not before them.  `giant_kib`: the waits (kill to restart) of modules at least that large are reported
-    apart (`giant_wait_*`)."""
+    apart (`giant_wait_*`).  `size_rule` (DESIGN #566), a killed module's known size: `"double"`
+    the rule of #512, max(set at the kill, typical peak, 2 x previous known size); `"max"` the
+    largest set at any of its kills (admission takes it at least at the typical peak); `"relief"`
+    as `"max"`, and a running worker counts at max(peak so far, typical peak), its known size left
+    out, once it has run longer than at the kill that set the known size without reaching it;
+    `"hwm"` as `"max"`, and a running worker never counts at its known size (only the start
+    does).  The `res_*` statistics split the mean reservation into the current sets, the peaks
+    above them, the typical peak above the peaks, the known sizes above both, and the part of
+    the latter that only the doubling gives (`res_double_gib`).  `window` (s, 0: the whole run;
+    DESIGN #566's (e)): a running worker counts at the largest set of its last `window` seconds
+    (its current set included) in place of its peak so far."""
     dt = int(tick * 1000)
     rank_of = {m: i for i, m in enumerate(order)}
     wait_by = {}
@@ -300,6 +311,8 @@ def simulate(mods, order, budget_kib, jobs, tick=0.1, growth=10, typ_q=0.5,
     pending.reverse()  # pop() from the end = the head
     front = []  # killed modules, head first
     sizes, kills_by = {}, {}
+    # the largest set at any kill of each module, and the age of the run that reached it
+    maxkill, kill_age = {}, {}
     waited_since = {}
     running = []
     peaks, typ = [], (budget_kib // jobs if budget_kib else 0)
@@ -312,6 +325,9 @@ def simulate(mods, order, budget_kib, jobs, tick=0.1, growth=10, typ_q=0.5,
         front = again
         pending = [m for m in pending if m not in seed_sizes]
         sizes = {m: max(typ, seed_sizes[m]) for m in again}
+        maxkill = {m: seed_sizes[m] for m in again}
+        if size_rule != "double":
+            sizes = dict(maxkill)
     prot, prot_track = None, None
     # the head slot (`kill_by="head"`): its worker, whether it started into a room too small for
     # its reservation, and the statistics of DESIGN #548's head-slot question
@@ -320,6 +336,10 @@ def simulate(mods, order, budget_kib, jobs, tick=0.1, growth=10, typ_q=0.5,
               head_forced_giants=0, kills_forced=0, overflows_forced=0, overflows=0)
     now, last_start = 0, -10 ** 9
     run_ms = mem_ms = res_ms = gate_ms = 0
+    thr_ms = starved_ms = 0
+    # the reservation split up (time-weighted KiB x ms): current sets, peaks above them, the
+    # typical peak above the peaks, the known sizes above both, the doubling's part of those
+    rs_cur = rs_hwm = rs_typ = rs_known = rs_double = 0
     kill_n = kill_ms = work_ms = prot_n = mem_verdicts = 0
     done = 0
     tb = thread_budget or jobs
@@ -354,8 +374,15 @@ def simulate(mods, order, budget_kib, jobs, tick=0.1, growth=10, typ_q=0.5,
         s = f if w.mod.shape is None else w.mod.shape.at(f)
         return int(w.pk * min(1.0, max(0.0, s)))
 
+    def peak_of(w):
+        return w.win[0][1] if window and w.win else w.hwm
+
     def eff(w):
-        return max(w.hwm, typ, sizes.get(w.mod.m, 0))
+        k = sizes.get(w.mod.m, 0)
+        if size_rule == "hwm" or (size_rule == "relief" and w.hwm < k
+                                  and now - w.start > kill_age.get(w.mod.m, 0)):
+            k = 0
+        return max(peak_of(w), typ, k)
 
     def kill(v):
         nonlocal threads_used, kill_n, kill_ms, work_ms
@@ -369,7 +396,12 @@ def simulate(mods, order, budget_kib, jobs, tick=0.1, growth=10, typ_q=0.5,
         kills_by[v.mod.m] = kills_by.get(v.mod.m, 0) + 1
         if v.threads > 1:
             single.add(v.mod.m)
-        sizes[v.mod.m] = max(v.cur, typ, 2 * sizes.get(v.mod.m, 0))
+        if v.cur >= maxkill.get(v.mod.m, 0):
+            maxkill[v.mod.m], kill_age[v.mod.m] = v.cur, now - v.start
+        if size_rule == "double":
+            sizes[v.mod.m] = max(v.cur, typ, 2 * sizes.get(v.mod.m, 0))
+        else:
+            sizes[v.mod.m] = maxkill[v.mod.m]
         if v.mod.m in front:
             front.remove(v.mod.m)
         if front_pos:
@@ -401,6 +433,14 @@ def simulate(mods, order, budget_kib, jobs, tick=0.1, growth=10, typ_q=0.5,
                 w.cur = rss(w, now)
                 if w.cur > w.hwm:
                     w.hwm, w.rose = w.cur, now
+                if window:
+                    # the largest set of the last `window` s: a monotone queue, its head the max
+                    q = w.win
+                    while q and q[-1][1] <= w.cur:
+                        q.pop()
+                    q.append((now, w.cur))
+                    while q[0][0] <= now - window * 1000:
+                        q.popleft()
                 still.append(w)
         running = still
         if prot is not None and not any(w.mod.m == prot for w in running):
@@ -423,6 +463,16 @@ def simulate(mods, order, budget_kib, jobs, tick=0.1, growth=10, typ_q=0.5,
         run_ms += len(running) * dt
         mem_ms += cur_total * dt
         res_ms += reserved * dt
+        thr_ms += threads_used * dt
+        for w in running:
+            e = eff(w)
+            pw = peak_of(w)
+            ht = max(pw, typ)
+            rs_cur += w.cur * dt
+            rs_hwm += (pw - w.cur) * dt
+            rs_typ += (ht - pw) * dt
+            rs_known += (e - ht) * dt
+            rs_double += max(0, e - max(ht, maxkill.get(w.mod.m, 0))) * dt
         # the overflow
         if budget_kib and running and cur_total > budget_kib and kill_by != "sticky":
             if len(running) == 1:
@@ -504,6 +554,7 @@ def simulate(mods, order, budget_kib, jobs, tick=0.1, growth=10, typ_q=0.5,
             w.dur = max(w.dur, 1)
             w.read_end = now + int((mod.ms - mod.busy) * w.dur / max(1, mod.ms))
             w.hwm = w.cur = 0
+            w.win = collections.deque()
             w.resv = 0
             w.rank = rank_of.get(pick, len(rank_of))
             w.rose = now
@@ -582,6 +633,8 @@ def simulate(mods, order, budget_kib, jobs, tick=0.1, growth=10, typ_q=0.5,
                 break
             launch(pick, room)
             started = True
+        if not started and (front or pending) and len(running) < jobs and threads_used < tb:
+            starved_ms += dt  # a slot free, a module queued, and nothing started
         if kill_by == "head" and head is not None and head in running and giant_kib \
                 and head.mod.pk >= giant_kib:
             hs["head_giant_ms"] += dt
@@ -623,6 +676,10 @@ def simulate(mods, order, budget_kib, jobs, tick=0.1, growth=10, typ_q=0.5,
                 wait_sum_s=sum(wait_by.values()) / 1000,
                 giant_waited=len(gw), giant_wait_max_s=max(gw, default=0) / 1000,
                 giant_wait_sum_s=sum(gw) / 1000,
+                threads_running=thr_ms / span, starved_s=starved_ms / 1000,
+                res_cur_gib=rs_cur / span / 2 ** 20, res_hwm_gib=rs_hwm / span / 2 ** 20,
+                res_typ_gib=rs_typ / span / 2 ** 20, res_known_gib=rs_known / span / 2 ** 20,
+                res_double_gib=rs_double / span / 2 ** 20,
                 **{k: (v / 1000 if k.endswith("_ms") else v) for k, v in hs.items()})
 
 
@@ -722,7 +779,28 @@ DATASETS = {"real": (0.0, 1, 0), "heavy": (0.01, 10, 0), "heavy30": (0.01, 30, 0
             "mcl": (0.0, 1, 10), "mclheavy30": (0.01, 30, 10)}
 
 
-def restart_mods(cfsg_log, reps, giants, seed, prof, default, mid=False):
+def saw_shape(name):
+    """DESIGN #566's synthetic sawtooth: 2-6 teeth over the run (by the module's name), each
+    rising from 8 % of the peak to its level over 85 % of its stretch and falling back to 8 %
+    (the last one ends at its level); one tooth reaches the peak, the others 0.5-1.0 of it (the
+    CFSG workers seen going 13.5 -> 1.1 -> 11.4 GiB)."""
+    rng = random.Random(fnv1a(name))
+    k = rng.randint(2, 6)
+    lv = [rng.uniform(0.5, 1.0) for _ in range(k)]
+    lv[rng.randrange(k)] = 1.0
+    pts = [(0.0, 0.0)]
+    for i, l in enumerate(lv):
+        a = i / k
+        if i:
+            pts.append((a, 0.08))
+        pts.append((a + 0.85 / k, l))
+        if i < k - 1:
+            pts.append((a + 0.95 / k, 0.08))
+    pts.append((1.0, lv[-1]))
+    return Shape(pts)
+
+
+def restart_mods(cfsg_log, reps, giants, seed, prof, default, mid=False, saw=False):
     """DESIGN #545's CFSG-like data: the modules of a real CFSG log (`cfsg_log`), `reps` copies of
     each (names suffixed), in the shuffled order; with `giants` > 0 the queue begins with that many
     synthetic giants (peaks uniform in 10-35 GiB, times log-uniform in 30 min-5 h, seed `seed`),
@@ -736,6 +814,9 @@ def restart_mods(cfsg_log, reps, giants, seed, prof, default, mid=False):
         for n, v in log.items():
             big[n if r == 0 else f"{n}.Rep{r}"] = v
     mods, _ = build_mods(big, prof, default, 0.0, 1, 1, seed)
+    if saw:
+        for x in mods.values():
+            x.shape = saw_shape(x.m)
     order = make_order(mods, "shuffled", None)
     rng = random.Random(seed)
     head = []
@@ -745,6 +826,8 @@ def restart_mods(cfsg_log, reps, giants, seed, prof, default, mid=False):
         x.ms = int(1000 * 60 * math.exp(rng.uniform(math.log(30), math.log(300))))
         x.pk = int(rng.uniform(10, 35) * 2 ** 20)
         x.decls, x.busy, x.slowest, x.shape = 16, int(x.ms * 0.98), int(x.ms * 0.2), None
+        if saw:
+            x.shape = saw_shape(x.m)
         mods[x.m] = x
         head.append(x.m)
     if mid and giants:
@@ -826,6 +909,59 @@ def rank_compare(a, log, prof, default, base):
               f"{hms(r['gate_s'])} | {hms(r['drain_s'])} | {r['giant_waited']} | "
               f"{hms(r['giant_wait_max_s'])} | {hms(r['giant_wait_sum_s'])} | "
               f"{hms(r['wait_max_s'])} |")
+
+
+# DESIGN #566's known-size rules, all under the head slot with the fixed queue (DESIGN #548)
+SIZE_RULES = [("(a) doubled (#512)", "double", 0), ("(b) largest kill set", "max", 0),
+              ("(c) largest kill set, relief", "relief", 0),
+              ("(d) largest kill set, starts only", "hwm", 0),
+              ("(e5) (b), peak of the last 5 min", "max", 300),
+              ("(e10) (b), peak of the last 10 min", "max", 600),
+              ("(e30) (b), peak of the last 30 min", "max", 1800)]
+
+
+def size_compare(a, log, prof, default, base):
+    """DESIGN #566's table: each case `data:limit GiB:jobs` (data as in `rank_compare`; a
+    CFSG-like set with `-saw` has every module on a sawtooth, `saw_shape`, in place of the ramp)
+    under each known-size and window rule of `SIZE_RULES`, with the shipped head slot and fixed
+    queue."""
+    import multiprocessing
+    cases = [c.split(":") for c in a.size_cases.split(",")]
+    for name in {c[0] for c in cases}:
+        kw = {}
+        base_name, saw = (name[:-4], True) if name.endswith("-saw") else (name, False)
+        if base_name in ("cfsg", "restart", "starve"):
+            mods, order = restart_mods(a.cfsg_log, a.cfsg_reps,
+                                       0 if base_name == "cfsg" else a.giants, a.seed, prof,
+                                       default, mid=base_name == "starve", saw=saw)
+            kw = dict(tick=max(a.tick, 0.1))
+        else:
+            h, hm, mcl = DATASETS[name]
+            mods, _ = build_mods(log, prof, default, h, a.heavy_time, hm, a.seed, mcl)
+            order = make_order(mods, "shuffled", None)
+        _G[name] = (mods, {"shuffled": order}, dict(base, **kw))
+    jobs = [(d, float(b), int(j), n, dict(kill_by="head", gate="none", front_pos=True,
+                                          size_rule=r, window=wd, threads_d=a.threads_d,
+                                          threads_spare=True,
+                                          giant_kib=int(float(b) * 2 ** 20 / 8)))
+            for d, b, j in cases for i, (n, r, wd) in enumerate(SIZE_RULES)
+            if not a.size_rules or str(i) in a.size_rules.split(",")]
+    with multiprocessing.get_context("fork").Pool(a.procs) as pool:
+        res = pool.map(_one, jobs, chunksize=1)
+    if a.json:
+        json.dump([dict(data=d, budget=b, jobs=j, variant=n, **r) for d, b, j, n, r in res],
+                  open(a.json_out or "/dev/stdout", "w"))
+        return
+    print("| case | rule | makespan | workers | threads | kills (modules) | lost | "
+          "giant wait max | starved | reserved = cur + peak + typical + known (doubling) |")
+    print("|---|---|---|---|---|---|---|---|---|---|")
+    for d, b, j, n, r in res:
+        print(f"| {d} {b:g}G j{j} | {n} | {hms(r['makespan_s'])} | {r['running']:.2f} | "
+              f"{r['threads_running']:.2f} | {r['kills']} ({r['kill_modules']}) | "
+              f"{hms(r['lost_s'])} = {r['lost_pct']:.1f} % | {hms(r['giant_wait_max_s'])} | "
+              f"{100 * r['starved_s'] / max(1, r['makespan_s']):.0f} % | "
+              f"{r['reserved_gib']:.1f} = {r['res_cur_gib']:.1f} + {r['res_hwm_gib']:.1f} + "
+              f"{r['res_typ_gib']:.1f} + {r['res_known_gib']:.1f} ({r['res_double_gib']:.1f}) |")
 
 
 # DESIGN #545's margin rules: whose excess a surprise leaves out
@@ -1033,6 +1169,12 @@ def main():
                     default="real:1.5:8,real:3:16,heavy:8:16,heavy:16:32,heavy30:24:16,"
                             "heavy30:47:32,cfsg:45:32,restart:45:32,restart:45:16,"
                             "starve:45:32,starve:45:16")
+    ap.add_argument("--size-compare", action="store_true", help="the table of DESIGN #566")
+    ap.add_argument("--size-rules", default="", help="comma-separated indices of SIZE_RULES")
+    ap.add_argument("--size-cases",
+                    default="real:1.5:8,real:3:16,heavy:8:16,heavy:16:32,heavy30:24:16,"
+                            "heavy30:47:32,cfsg:45:32,restart:45:32,restart:45:16,"
+                            "starve:45:32,starve:45:16")
     ap.add_argument("--procs", type=int, default=8)
     a = ap.parse_args()
     log, _ = read_log(a.log)
@@ -1068,6 +1210,9 @@ def main():
         return
     if a.rank_compare:
         rank_compare(a, log, prof, default, base)
+        return
+    if a.size_compare:
+        size_compare(a, log, prof, default, base)
         return
     mods, _ = build_mods(log, prof, default, a.heavy, a.heavy_time, a.heavy_mem, a.seed, a.mcl)
     order = make_order(mods, a.order, a.graph_order)
