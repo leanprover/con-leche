@@ -14,7 +14,7 @@ The stages (`Install`, `Positivity`, `RecCheck`, `GenRec`, `StreamRecs`) are
 monomorphic `CheckCM` definitions at a mode, as master's cached stages
 (`ConLeche.Cached.IndBlock`, `ConLeche.Cached.IndPositivity`,
 `ConLeche.Cached.IndRec`, `ConLeche.Cached.IndTail`): each calls the core
-directly (`opInfer`, `opDefeq`, `opSort`, `opWhnf`, `coreKnotI` at the
+directly (`opInfer`, `opDefeq`, `opSort`, `opWhnf`, the knot at the
 environment the stage runs at) and runs the one constant check
 `checkConstantValC`.
 

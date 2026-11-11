@@ -25,7 +25,7 @@ namespace InLeanProof
 open Lean InLean Std.WP ConLeche.Cached
 open scoped Lean.Order
 
-variable {mode : ConLeche.CheckMode} {eager : Bool} {env : ConLeche.Env}
+variable {mode : ConLeche.CheckMode} {mi : InLean.CheckMode} {eager : Bool} {env : ConLeche.Env}
 
 /-! ## Vocabulary -/
 
@@ -45,37 +45,37 @@ theorem lbb_unfoldDefinition (henv : ConLeche.EnvWF env) {e e₂ : ConLeche.Expr
 
 section WhnfLoop
 
-variable {r : InLean.CoreFnsI} {fe : InLean.FEnv}
+variable {fe : InLean.FEnv} {lv : Nat}
 
 /-- **The reduction loop** (`whnfLoopC_spec`'s twin), by induction on the
 shared step budget. -/
-theorem whnfLoopI_specI (ih : KnotSpecI mode eager env r) (henv : ConLeche.EnvWF env)
+theorem whnfLoopI_specI (ih : KnotSpecI mode mi eager env fe lv) (henv : ConLeche.EnvWF env)
     (hfe : EnvRelI fe env) (hdom : EnvDomI fe env) (hdef : EnvDefnI fe env) {d : Nat} (n : Nat) :
     ∀ {i : Expr} {s₀ : InLean.CState}, CSOKI mode eager env s₀ → OkS s₀ i = true →
       ConLeche.Expr.WScoped d (TrS s₀ i) → (TrS s₀ i).looseBVarsBounded 0 = true →
-      ⦃fun s => s = s₀⦄ InLean.whnfLoopI r fe d n i
+      ⦃fun s => s = s₀⦄ InLean.whnfLoopI mi fe eager lv d n i
       ⦃fun v s' => CSOKI mode eager env s' ∧ TabLe s₀ s' ∧ OkS s' v = true ∧
         Runs (ConLeche.whnfLoop (ConLeche.fueledFns mode eager env) env d n (TrS s₀ i)) (TrS s' v) ∧
         ConLeche.Expr.WScoped d (TrS s' v) ∧ (TrS s' v).looseBVarsBounded 0 = true; ⊤⦄ := by
   induction n with
   | zero =>
     intro i s₀ hs hok hw hc
-    sym only [conleche_grind] => vcgen [InLean.whnfLoopI] <;> finish
+    sym only [conleche_grind] => vcgen [InLean.whnfLoopI.eq_def] <;> finish
   | succ n ihn =>
     intro i s₀ hs hok hw hc
     sym only [conleche_grind, ConLeche.whnfLoop, ConLeche.whnfStep,
         ConLeche.unfoldDefinition_WScoped henv, lbb_unfoldDefinition henv] =>
-      vcgen [InLean.whnfLoopI, InLean.whnfStepI, ih.whnfCore, reduceNatI_specI ih hdom,
+      vcgen [InLean.whnfLoopI.eq_def, ih.whnfCore, reduceNatI_specI ih hdom,
         unfoldDefinitionI_specI (mode := mode) (eager := eager) hfe hdef, ihn] <;> finish
 
 /-- **The reduction body** (`whnfBodyC_spec`'s twin). -/
-theorem whnfBodyI_specI (ih : KnotSpecI mode eager env r) (henv : ConLeche.EnvWF env)
+theorem whnfBodyI_specI (ih : KnotSpecI mode mi eager env fe lv) (henv : ConLeche.EnvWF env)
     (hfe : EnvRelI fe env) (hdom : EnvDomI fe env) (hdef : EnvDefnI fe env) :
-    BodySpecI mode eager env (InLean.whnfBodyI r fe)
+    BodySpecI mode eager env (InLean.whnfBodyI mi fe eager lv)
       (ConLeche.whnfBody (ConLeche.fueledFns mode eager env) env) := by
   intro s₀ d i hs hok hw hc
   sym only [conleche_grind, ConLeche.whnfBody, whnfLoopFuel_eq] =>
-    vcgen [InLean.whnfBodyI, whnfLoopI_specI ih henv hfe hdom hdef] <;> finish
+    vcgen [InLean.whnfBodyI.eq_def, whnfLoopI_specI ih henv hfe hdom hdef] <;> finish
 
 end WhnfLoop
 
@@ -83,7 +83,7 @@ end WhnfLoop
 
 section Peel
 
-variable {r : InLean.CoreFnsI} {fe : InLean.FEnv}
+variable {fe : InLean.FEnv} {lv : Nat}
 
 attribute [conleche_grind =] TrS_mkAppN OkS_mkAppN
 
@@ -144,7 +144,7 @@ theorem betaPeelI_specI {d : Nat} :
       ConLeche.Expr.WScoped d ((TrS s₀ t).instantiateList (TrSL s₀ acc)) →
       ((TrS s₀ t).instantiateList (TrSL s₀ acc)).looseBVarsBounded 0 = true →
       OkSL s₀ args = true → AllWS d (TrSL s₀ args) → AllClosed (TrSL s₀ args) = true →
-      ⦃fun s => s = s₀⦄ InLean.betaPeelI r fe d t acc args
+      ⦃fun s => s = s₀⦄ InLean.betaPeelI mi fe eager lv d t acc args
       ⦃fun w s' => CSOKI mode eager env s' ∧ TabLe s₀ s' ∧ OkStep s' w = true ∧
           Runs (ConLeche.betaPeelW mode (ConLeche.fueledFns mode eager env) env d (TrS s₀ t)
             (TrSL s₀ acc) (TrSL s₀ args)) (TrStep s' w) ∧
@@ -154,7 +154,7 @@ theorem betaPeelI_specI {d : Nat} :
   | nil =>
     intro _ _ _ hs _ _ _ _ _ _ _ _
     sym only [conleche_grind, ConLeche.betaPeelW.eq_1] =>
-      vcgen [InLean.betaPeelI, instListM_specI hs] <;> finish
+      vcgen [InLean.betaPeelI.eq_def, instListM_specI hs] <;> finish
   | cons _ rest ihr =>
     intro _ _ _ hs ht _ _ _ _ _ _ _
     sym only [conleche_grind, betaPeelW_TrS_cons _ _ _ ht] =>
@@ -166,16 +166,17 @@ end Peel
 
 section CoreLoop
 
-variable {r : InLean.CoreFnsI} {fe : InLean.FEnv}
+variable {fe : InLean.FEnv} {lv : Nat}
 
 /-- **The head-normalization loop** (`whnfCoreLoopC_spec`'s twin), over the
 step's callee specs. -/
-theorem whnfCoreLoopI_specI (ih : KnotSpecI .verified eager env r)
-    (happ : WhnfAppSpecI eager env r fe) (hproj : ReduceProjSpecI eager env r fe) {c : Bool}
+theorem whnfCoreLoopI_specI (ih : KnotSpecI .verified .verified eager env fe lv)
+    (happ : WhnfAppSpecI eager env fe lv) (hstuck : WhnfStuckSpecI eager env fe lv)
+    (hproj : ReduceProjSpecI eager env fe lv) {c : Bool}
     {d : Nat} (n : Nat) :
     ∀ {i : Expr} {s₀ : InLean.CState}, CSOKI .verified eager env s₀ → OkS s₀ i = true →
       ConLeche.Expr.WScoped d (TrS s₀ i) → (TrS s₀ i).looseBVarsBounded 0 = true →
-      ⦃fun s => s = s₀⦄ InLean.whnfCoreLoopI .verified r fe c d n i
+      ⦃fun s => s = s₀⦄ InLean.whnfCoreLoopI .verified fe eager lv c d n i
       ⦃fun v s' => CSOKI .verified eager env s' ∧ TabLe s₀ s' ∧ OkS s' v = true ∧
         Runs (ConLeche.whnfCoreLoopM .verified (ConLeche.fueledFns .verified eager env) env c d n
           (TrS s₀ i)) (TrS s' v) ∧
@@ -183,20 +184,21 @@ theorem whnfCoreLoopI_specI (ih : KnotSpecI .verified eager env r)
   induction n with
   | zero =>
     intro i s₀ hs hok hw hc
-    sym only [conleche_grind] => vcgen [InLean.whnfCoreLoopI] <;> finish
+    sym only [conleche_grind] => vcgen [InLean.whnfCoreLoopI.eq_def] <;> finish
   | succ n ihn =>
     intro i s₀ hs hok hw hc
     sym only [conleche_grind, ConLeche.whnfCoreLoopM] =>
-      vcgen [InLean.whnfCoreLoopI, whnfCoreStepI_spec ih happ hproj, ihn] <;> finish
+      vcgen [InLean.whnfCoreLoopI.eq_def, whnfCoreStepI_spec ih happ hstuck hproj, ihn] <;> finish
 
 /-- **The head-normalization body** (`whnfCoreBodyC_spec`'s twin). -/
-theorem whnfCoreBodyI_specI (ih : KnotSpecI .verified eager env r)
-    (happ : WhnfAppSpecI eager env r fe) (hproj : ReduceProjSpecI eager env r fe) (c : Bool) :
-    BodySpecI .verified eager env (InLean.whnfCoreBodyI .verified r fe c)
+theorem whnfCoreBodyI_specI (ih : KnotSpecI .verified .verified eager env fe lv)
+    (happ : WhnfAppSpecI eager env fe lv) (hstuck : WhnfStuckSpecI eager env fe lv)
+    (hproj : ReduceProjSpecI eager env fe lv) (c : Bool) :
+    BodySpecI .verified eager env (InLean.whnfCoreBodyI .verified fe eager lv c)
       (ConLeche.whnfCoreBody .verified (ConLeche.fueledFns .verified eager env) env c) := by
   intro s₀ d i hs hok hw hc
   sym only [conleche_grind, whnfCoreLoopFuel_eq] =>
-    vcgen [InLean.whnfCoreBodyI, whnfCoreLoopI_specI ih happ hproj] <;> finish
+    vcgen [InLean.whnfCoreBodyI.eq_def, whnfCoreLoopI_specI ih happ hstuck hproj] <;> finish
 
 end CoreLoop
 
@@ -204,16 +206,16 @@ end CoreLoop
 
 section AppLoop
 
-variable {r : InLean.CoreFnsI} {fe : InLean.FEnv}
+variable {fe : InLean.FEnv} {lv : Nat}
 
 /-- **The ι step's spec** (`iotaRecC_spec`'s twin), this lane's to prove
 (`WalksIota.lean`); the argument loop takes it as a named callee spec. -/
-abbrev IotaRecSpecI (eager : Bool) (env : ConLeche.Env) (r : InLean.CoreFnsI) (fe : InLean.FEnv) :
+abbrev IotaRecSpecI (eager : Bool) (env : ConLeche.Env) (fe : InLean.FEnv) (lv : Nat) :
     Prop :=
   ∀ {d : Nat} {i : Expr} {s₀ : InLean.CState},
     CSOKI .verified eager env s₀ → OkS s₀ i = true → ConLeche.Expr.WScoped d (TrS s₀ i) →
     (TrS s₀ i).looseBVarsBounded 0 = true →
-    ⦃fun s => s = s₀⦄ InLean.iotaRecI .verified r fe d i
+    ⦃fun s => s = s₀⦄ InLean.iotaRecI .verified fe eager lv d i
     ⦃fun o s' => CSOKI .verified eager env s' ∧ TabLe s₀ s' ∧ OkO s' o = true ∧
       Runs (ConLeche.iotaRec .verified (ConLeche.fueledFns .verified eager env) env d (TrS s₀ i))
         (TrO s' o) ∧
@@ -243,7 +245,7 @@ theorem recArity_of_recAt (n : Name) :
 /-- Where the arity pre-check fails, the ι step has nothing to do
 (`iotaRecI_of_arityOk_false`'s twin). -/
 theorem iotaRecI_of_arityOk_false {d : Nat} {e : Expr} (h : InLean.iotaArityOk fe e = false) :
-    InLean.iotaRecI .verified r fe d e = pure none := by
+    InLean.iotaRecI .verified fe eager lv d e = pure none := by
   unfold InLean.iotaArityOk at h
   unfold InLean.iotaRecI
   cases hg : Expr.getAppFnT e with
@@ -270,8 +272,8 @@ theorem iotaRecI_of_arityOk_false {d : Nat} {e : Expr} (h : InLean.iotaArityOk f
 
 /-- The pre-check in the spine loop changes no verdict. -/
 theorem iotaArityOk_guardI {d : Nat} {e : Expr} :
-    (if InLean.iotaArityOk fe e then InLean.iotaRecI .verified r fe d e else pure none)
-      = InLean.iotaRecI .verified r fe d e := by
+    (if InLean.iotaArityOk fe e then InLean.iotaRecI .verified fe eager lv d e else pure none)
+      = InLean.iotaRecI .verified fe eager lv d e := by
   by_cases h : InLean.iotaArityOk fe e = true
   · rw [ite_eq_left_iff.2 (fun hc => absurd h hc)]
   · rw [ite_eq_right_iff.2 (fun hc => absurd hc h), iotaRecI_of_arityOk_false (Bool.not_eq_true _ |>.mp h)]
@@ -300,26 +302,329 @@ theorem whnfAppW_TrS_cons {m : Type → Type} [Monad m] [MonadExceptOf ConLeche.
 
 /-- **The bulk-beta argument loop** (`whnfAppC_spec`'s twin): it discharges
 `WhnfAppSpecI` given the ι step's spec. -/
-theorem whnfAppI_specI (hiota : IotaRecSpecI eager env r fe) : WhnfAppSpecI eager env r fe := by
+theorem whnfAppI_specI (hiota : IotaRecSpecI eager env fe lv) : WhnfAppSpecI eager env fe lv := by
   intro d v args
   induction args generalizing v with
   | nil =>
     intro _ _ _ _ _ _ _
     sym only [conleche_grind, ConLeche.whnfAppW.eq_1] =>
-      vcgen [InLean.whnfAppI] <;> finish
+      vcgen [InLean.whnfAppI.eq_def] <;> finish
   | cons _ rest ihr =>
     intro _ hs hv _ _ _ _ _
     rw [InLean.whnfAppI.eq_def]; simp only [iotaArityOk_guardI]
     sym only [conleche_grind, whnfAppW_TrS_cons _ _ _ hv] =>
-      vcgen [InLean.mkAppNM, InLean.pollC, hiota, betaPeelI_specI (r := r) (fe := fe), ihr] <;> finish
+      vcgen [InLean.mkAppNM, InLean.pollC, hiota, betaPeelI_specI (lv := lv) (fe := fe), ihr] <;> finish
 
 end AppLoop
+
+/-! ### The stuck spine (`DiscC4.lean`'s stuck-spine lemmas' twins)
+
+`whnfStuckI` answers a spine whose head is its own head normal form
+(`isStuckHeadC`) with the ι step at the one prefix where it can fire, and
+otherwise with the input.  The spine loop `whnfAppI`, which the mirror
+follows, tries ι at every prefix and rebuilds the spine; `whnfStuckI_mkAppN`
+identifies the two on the rebuilt spine, prefix by prefix, and
+`whnfStuckI_relink` moves the stuck arm from the rebuilt spine to the input,
+whose `mdata` the translation does not see. -/
+
+section Stuck
+
+variable {fe : InLean.FEnv} {lv : Nat}
+
+/-- The stuck arm's answer, its finished term the input `e`. -/
+@[expose] def doneAs (e : Expr) : InLean.WhnfStep → InLean.WhnfStep
+  | .done _ => .done e
+  | .cont x => .cont x
+
+theorem isStuckHeadC_getAppFnT {h : Expr} (hh : InLean.isStuckHeadC h = true) :
+    Expr.getAppFnT h = h := by
+  cases h <;> first | rfl | simp [InLean.isStuckHeadC] at hh
+
+theorem isStuckHeadC_iotaNumArgs {h : Expr} (hh : InLean.isStuckHeadC h = true) :
+    InLean.iotaNumArgs h 0 = 0 := by
+  cases h <;> first | rfl | simp [InLean.isStuckHeadC] at hh
+
+theorem isStuckHeadC_appArgs_go {h : Expr} (hh : InLean.isStuckHeadC h = true) (acc : List Expr) :
+    appArgs.go h acc = acc := by
+  cases h <;> first | rfl | simp [InLean.isStuckHeadC] at hh
+
+theorem isStuckHeadC_stripTop {h : Expr} (hh : InLean.isStuckHeadC h = true) :
+    EO.stripTop h = h := by
+  cases h <;> first | rfl | simp [InLean.isStuckHeadC] at hh
+
+theorem appArgs_go_mkAppN : ∀ (xs : List Expr) (f : Expr) (acc : List Expr),
+    appArgs.go (mkAppN f xs.toArray) acc = appArgs.go f (xs ++ acc)
+  | [], f, acc => by rw [mkAppN_nil]; rfl
+  | x :: xs, f, acc => by
+    rw [mkAppN_cons, appArgs_go_mkAppN xs (.app f x) acc]
+    rfl
+
+theorem iotaNumArgs_mkAppN : ∀ (xs : List Expr) (f : Expr),
+    InLean.iotaNumArgs (mkAppN f xs.toArray) 0 = InLean.iotaNumArgs f 0 + xs.length
+  | [], f => by rw [mkAppN_nil]; rfl
+  | x :: xs, f => by
+    rw [mkAppN_cons, iotaNumArgs_mkAppN xs (.app f x)]
+    simp only [iotaNumArgs_eq, Expr.getAppNumArgsT, List.length_cons]
+    omega
+
+theorem getAppFnT_mkAppN : ∀ (xs : List Expr) (f : Expr),
+    Expr.getAppFnT (mkAppN f xs.toArray) = Expr.getAppFnT f
+  | [], f => by rw [mkAppN_nil]
+  | x :: xs, f => by rw [mkAppN_cons, getAppFnT_mkAppN xs (.app f x)]; rfl
+
+theorem iotaNumArgs_appArgs (e : Expr) : InLean.iotaNumArgs e 0 = (appArgs e).length := by
+  rw [iotaNumArgs_eq, appArgs, appArgs_go_length]; rfl
+
+theorem appArgs_mkAppN_stuck {h : Expr} (hh : InLean.isStuckHeadC h = true) (xs : List Expr) :
+    appArgs (mkAppN h xs.toArray) = xs := by
+  rw [appArgs, appArgs_go_mkAppN, isStuckHeadC_appArgs_go hh, List.append_nil]
+
+/-- The arity pre-check is the ι target read off the spine's head. -/
+theorem iotaArityOk_eq_target (x : Expr) :
+    InLean.iotaArityOk fe x = true ↔
+      InLean.iotaTargetF fe (Expr.getAppFnT x) = some (InLean.iotaNumArgs x 0) := by
+  unfold InLean.iotaArityOk InLean.iotaTargetF
+  cases Expr.getAppFnT x with
+  | const c us =>
+    dsimp only
+    cases fe.recArity? c with
+    | none => simp
+    | some p =>
+      obtain ⟨mI, nL⟩ := p
+      dsimp only
+      by_cases hl : us.length = nL
+      · simp only [hl, beq_self_eq_true, Bool.and_true, beq_iff_eq, ite_true, Option.some.injEq]
+        constructor <;> intro h <;> omega
+      · simp [hl]
+  | _ => simp
+
+theorem iotaTargetF_pos {h : Expr} {k : Nat} (hk : InLean.iotaTargetF fe h = some k) : 0 < k := by
+  unfold InLean.iotaTargetF at hk
+  split at hk
+  · split at hk
+    · split at hk
+      · cases hk; omega
+      · cases hk
+    · cases hk
+  · cases hk
+
+/-- `whnfAppI`'s step at a head that is not a lambda. -/
+theorem whnfAppI_cons_ne_lam {mi : InLean.CheckMode} {d : Nat} {v : Expr}
+    (hv : ∀ n t b bi, EO.stripTop v ≠ .lam n t b bi) (a : Expr) (rest : List Expr) :
+    InLean.whnfAppI mi fe eager lv d v (a :: rest) =
+      ((if InLean.iotaArityOk fe (.app v a) then InLean.iotaRecI mi fe eager lv d (.app v a)
+          else pure none) >>= fun o => match o with
+        | some e'' => do
+          let e' ← InLean.mkAppNM e'' rest
+          InLean.pollC fe (.unfold (InLean.headConstName (.app v a))) (pure (.cont e'))
+        | none => InLean.whnfAppI mi fe eager lv d (.app v a) rest) := by
+  rw [InLean.whnfAppI.eq_def]
+  dsimp only
+  split
+  · rename_i h; exact absurd h (hv _ _ _ _)
+  · rfl
+
+theorem stuck_ne_lam {v h : Expr} (hv : Expr.getAppFnT v = h) (hh : InLean.isStuckHeadC h = true)
+    (hm : ∀ m x, v ≠ .mdata m x) : ∀ n t b bi, EO.stripTop v ≠ .lam n t b bi := by
+  intro n t b bi hl
+  cases v with
+  | lam => subst hv; simp [Expr.getAppFnT, InLean.isStuckHeadC] at hh
+  | mdata m x => exact hm m x rfl
+  | _ => simp [EO.stripTop] at hl
+
+/-- Away from the ι target the spine loop only rebuilds the spine. -/
+theorem whnfAppI_noIota {mi : InLean.CheckMode} {d : Nat} {h : Expr}
+    (hh : InLean.isStuckHeadC h = true) :
+    ∀ (args : List Expr) (v : Expr), Expr.getAppFnT v = h → (∀ m x, v ≠ .mdata m x) →
+      (∀ k, InLean.iotaTargetF fe h = some k →
+        k ≤ InLean.iotaNumArgs v 0 ∨ InLean.iotaNumArgs v 0 + args.length < k) →
+      InLean.whnfAppI mi fe eager lv d v args = pure (.done (mkAppN v args.toArray))
+  | [], v, _, _, _ => by rw [InLean.whnfAppI.eq_def, mkAppN_nil]
+  | a :: rest, v, hv, hm, hk => by
+    have hoff : InLean.iotaArityOk fe (.app v a) = false := by
+      cases ho : InLean.iotaArityOk fe (.app v a) with
+      | false => rfl
+      | true =>
+        rw [iotaArityOk_eq_target] at ho
+        have hn1 : InLean.iotaNumArgs (.app v a) 0 = InLean.iotaNumArgs v 0 + 1 := by
+          simp only [iotaNumArgs_eq, Expr.getAppNumArgsT]
+        rw [show Expr.getAppFnT (.app v a) = Expr.getAppFnT v from rfl, hv, hn1] at ho
+        rcases hk _ ho with h₁ | h₁ <;> (try simp only [List.length_cons] at h₁) <;> omega
+    rw [whnfAppI_cons_ne_lam (stuck_ne_lam hv hh hm), hoff]
+    simp only [Bool.false_eq_true, ite_false, pure_bind]
+    rw [mkAppN_cons]
+    refine whnfAppI_noIota hh rest (.app v a) hv (fun _ _ h => nomatch h) ?_
+    intro k hk'
+    have hn1 : InLean.iotaNumArgs (.app v a) 0 = InLean.iotaNumArgs v 0 + 1 := by
+      simp only [iotaNumArgs_eq, Expr.getAppNumArgsT]
+    rw [hn1]
+    rcases hk k hk' with h₁ | h₁
+    · left; omega
+    · right; simp only [List.length_cons] at h₁; omega
+
+/-- Up to the ι target the spine loop tries ι there once, and then only
+rebuilds. -/
+theorem whnfAppI_iota {mi : InLean.CheckMode} {d : Nat} {h : Expr}
+    (hh : InLean.isStuckHeadC h = true) {k : Nat} (htk : InLean.iotaTargetF fe h = some k) :
+    ∀ (args : List Expr) (v : Expr), Expr.getAppFnT v = h → (∀ m x, v ≠ .mdata m x) →
+      InLean.iotaNumArgs v 0 < k → k ≤ InLean.iotaNumArgs v 0 + args.length →
+      InLean.whnfAppI mi fe eager lv d v args =
+        (InLean.iotaRecI mi fe eager lv d
+            (mkAppN v (args.take (k - InLean.iotaNumArgs v 0)).toArray) >>=
+          fun o => match o with
+            | some e'' => do
+              let e' ← InLean.mkAppNM e'' (args.drop (k - InLean.iotaNumArgs v 0))
+              InLean.pollC fe (.unfold (InLean.headConstName h)) (pure (.cont e'))
+            | none => pure (.done (mkAppN v args.toArray)))
+  | [], v, _, _, h₁, h₂ => by simp only [List.length_nil] at h₂; omega
+  | a :: rest, v, hv, hm, h₁, h₂ => by
+    have hnum : InLean.iotaNumArgs (.app v a) 0 = InLean.iotaNumArgs v 0 + 1 := by
+      simp only [iotaNumArgs_eq, Expr.getAppNumArgsT]
+    have hhd : InLean.headConstName (.app v a) = InLean.headConstName h := by
+      unfold InLean.headConstName
+      rw [show Expr.getAppFnT (.app v a) = h from hv, isStuckHeadC_getAppFnT hh]
+    rw [whnfAppI_cons_ne_lam (stuck_ne_lam hv hh hm), hhd]
+    by_cases hat : k = InLean.iotaNumArgs v 0 + 1
+    · have hon : InLean.iotaArityOk fe (.app v a) = true := by
+        rw [iotaArityOk_eq_target, show Expr.getAppFnT (.app v a) = Expr.getAppFnT v from rfl, hv,
+          hnum, htk, hat]
+      rw [hon, ite_eq_left rfl]
+      have hkm : k - InLean.iotaNumArgs v 0 = 1 := by omega
+      rw [hkm]
+      simp only [List.take_succ_cons, List.take_zero, List.drop_succ_cons, List.drop_zero]
+      rw [show mkAppN v [a].toArray = .app v a by rw [mkAppN_cons, mkAppN_nil]]
+      congr 1
+      funext o
+      cases o with
+      | some e'' => rfl
+      | none =>
+        rw [mkAppN_cons]
+        refine whnfAppI_noIota hh rest (.app v a) hv (fun _ _ h => nomatch h) ?_
+        intro k' hk'
+        rw [htk] at hk'; cases hk'
+        left; omega
+    · have hoff : InLean.iotaArityOk fe (.app v a) = false := by
+        cases ho : InLean.iotaArityOk fe (.app v a) with
+        | false => rfl
+        | true =>
+          rw [iotaArityOk_eq_target, show Expr.getAppFnT (.app v a) = Expr.getAppFnT v from rfl, hv,
+            hnum, htk] at ho
+          cases ho; omega
+      rw [hoff]
+      simp only [Bool.false_eq_true, ite_false, pure_bind]
+      have hkm : k - InLean.iotaNumArgs v 0 = (k - InLean.iotaNumArgs (.app v a) 0) + 1 := by
+        rw [hnum]; omega
+      rw [whnfAppI_iota hh htk rest (.app v a) hv (fun _ _ h => nomatch h) (by omega)
+        (by simp only [List.length_cons] at h₂; omega), hkm]
+      simp only [List.take_succ_cons, List.drop_succ_cons, mkAppN_cons]
+
+/-- **The stuck arm is the spine loop at its own head**, on the rebuilt
+spine (`whnfStuckI_mkAppN`'s twin). -/
+theorem whnfStuckI_mkAppN {mi : InLean.CheckMode} {d : Nat} {h : Expr}
+    (hh : InLean.isStuckHeadC h = true) (args : List Expr) :
+    InLean.whnfStuckI mi fe eager lv d h (mkAppN h args.toArray) =
+      InLean.whnfAppI mi fe eager lv d h args := by
+  have h0 := isStuckHeadC_iotaNumArgs hh
+  have hfn := isStuckHeadC_getAppFnT hh
+  have hm : ∀ m x, h ≠ .mdata m x := fun m x e => by subst e; simp [InLean.isStuckHeadC] at hh
+  rw [InLean.whnfStuckI.eq_def]
+  cases htk : InLean.iotaTargetF fe h with
+  | none =>
+    dsimp only
+    refine (whnfAppI_noIota hh args h hfn hm ?_).symm
+    intro k hk; rw [htk] at hk; cases hk
+  | some k =>
+    dsimp only
+    rw [iotaNumArgs_mkAppN, h0, appArgs_mkAppN_stuck hh]
+    by_cases hkn : k ≤ 0 + args.length
+    · rw [ite_eq_left hkn, whnfAppI_iota hh htk args h hfn hm (by rw [h0]; exact iotaTargetF_pos htk)
+        (by rw [h0]; exact hkn), h0, Nat.sub_zero]
+      rfl
+    · rw [ite_eq_right hkn]
+      refine (whnfAppI_noIota hh args h hfn hm ?_).symm
+      intro k' hk'; rw [htk] at hk'; cases hk'
+      right; omega
+
+
+/-- A throw is not continued. -/
+theorem throw_bind_I {α β : Type} (x : InLean.CheckError) (f : α → InLean.CheckCM β) :
+    (throw x : InLean.CheckCM α) >>= f = throw x := by
+  funext s₀
+  simp [throw, throwThe, MonadExceptOf.throw, StateT.lift, bind, StateT.bind, Except.bind]
+
+/-- **The stuck arm on the input is the stuck arm on the rebuilt spine**, its
+finished answer the input (whose `mdata` the translation does not see). -/
+theorem whnfStuckI_relink {mi : InLean.CheckMode} {d : Nat} {h : Expr}
+    (hh : InLean.isStuckHeadC h = true) (e : Expr) :
+    InLean.whnfStuckI mi fe eager lv d h e =
+      InLean.whnfStuckI mi fe eager lv d h (mkAppN h (appArgs e).toArray) >>=
+        fun w => pure (doneAs e w) := by
+  rw [InLean.whnfStuckI.eq_def, InLean.whnfStuckI.eq_def, iotaNumArgs_mkAppN,
+    isStuckHeadC_iotaNumArgs hh, Nat.zero_add, appArgs_mkAppN_stuck hh, ← iotaNumArgs_appArgs]
+  cases InLean.iotaTargetF fe h with
+  | none => simp [doneAs]
+  | some k =>
+    dsimp only
+    split
+    · simp only [bind_assoc]
+      congr 1
+      funext o
+      cases o with
+      | none => simp [doneAs]
+      | some e'' =>
+        simp only [InLean.mkAppNM, pure_bind]
+        unfold InLean.pollC
+        split
+        · simp [doneAs]
+        · split
+          · rw [throw_bind_I]
+          · simp [doneAs]
+    · simp [doneAs]
+
+
+/-- A finished stuck arm answers its input. -/
+theorem whnfStuckI_done {mi : InLean.CheckMode} {d : Nat} {h e x : Expr} {s₀ s' : InLean.CState}
+    (hr : InLean.whnfStuckI mi fe eager lv d h e s₀ = .ok (.done x, s')) : x = e := by
+  have hpure : ∀ {y : Expr} {s : InLean.CState},
+      (pure (.done y) : InLean.CheckCM InLean.WhnfStep) s = .ok (.done x, s') → x = y := by
+    intro y s hy
+    simp only [pure, StateT.pure, Except.pure, Except.ok.injEq, Prod.mk.injEq,
+      InLean.WhnfStep.done.injEq] at hy
+    exact hy.1.symm
+  rw [InLean.whnfStuckI.eq_def] at hr
+  cases htk : InLean.iotaTargetF fe h with
+  | none => rw [htk] at hr; exact hpure hr
+  | some k =>
+    rw [htk] at hr
+    dsimp only at hr
+    by_cases hk : k ≤ InLean.iotaNumArgs e 0
+    · rw [ite_eq_left hk] at hr
+      obtain ⟨o, s₁, _, hr⟩ := bind_run hr
+      cases o with
+      | none => exact hpure hr
+      | some e'' =>
+        simp only [InLean.mkAppNM, pure_bind] at hr
+        unfold InLean.pollC at hr
+        cases hp : fe.limits.poll with
+        | none => rw [hp] at hr; simp [pure, StateT.pure, Except.pure] at hr
+        | some p =>
+          rw [hp] at hr
+          dsimp only at hr
+          cases hpe : p (.unfold (InLean.headConstName h)) with
+          | none => rw [hpe] at hr; simp [pure, StateT.pure, Except.pure] at hr
+          | some l =>
+            rw [hpe] at hr
+            simp [throw, throwThe, MonadExceptOf.throw, StateT.lift, bind, Except.bind] at hr
+    · rw [ite_eq_right hk] at hr; exact hpure hr
+
+end Stuck
+
 
 /-! ## The projection rule -/
 
 section Proj
 
-variable {r : InLean.CoreFnsI} {fe : InLean.FEnv}
+variable {fe : InLean.FEnv} {lv : Nat}
 
 theorem peelPis_TrS (s : InLean.CState) : ∀ (n : Nat) (t : Expr),
     (ConLeche.Expr.peelPis n (TrS s t)).isSome = (InLean.peelPis n t).isSome
@@ -364,8 +669,8 @@ theorem TrS_getD (s : InLean.CState) (l : List Expr) (n : Nat) :
 
 /-- **The projection rule** (`reduceProjCoreC_spec`'s twin): it discharges
 `ReduceProjSpecI`. -/
-theorem reduceProjCoreI_specI (ih : KnotSpecI .verified eager env r) (hdom : EnvDomI fe env)
-    (hv : EnvViewI fe env) : ReduceProjSpecI eager env r fe := by
+theorem reduceProjCoreI_specI (ih : KnotSpecI .verified .verified eager env fe lv) (hdom : EnvDomI fe env)
+    (hv : EnvViewI fe env) : ReduceProjSpecI eager env fe lv := by
   intro d sn i c s₀ hs hok hw hcl
   refine tripleI_iff_run.2 fun o s' hr => ?_
   unfold InLean.reduceProjCoreI at hr

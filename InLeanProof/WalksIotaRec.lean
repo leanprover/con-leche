@@ -38,12 +38,12 @@ variable {eager : Bool} {env : ConLeche.Env}
 /-! ## Callee specs owned elsewhere -/
 
 /-- `proofIrrelI`'s spec (`proofIrrelC_spec`'s twin), P2-defeq's to prove. -/
-abbrev ProofIrrelSpecI (eager : Bool) (env : ConLeche.Env) (r : InLean.CoreFnsI) : Prop :=
+abbrev ProofIrrelSpecI (eager : Bool) (env : ConLeche.Env) (fe : InLean.FEnv) (lv : Nat) : Prop :=
   ∀ {d : Nat} {a b : Expr} {s₀ : InLean.CState},
     CSOKI .verified eager env s₀ → OkS s₀ a = true → OkS s₀ b = true →
     ConLeche.Expr.WScoped d (TrS s₀ a) → ConLeche.Expr.WScoped d (TrS s₀ b) →
     (TrS s₀ a).looseBVarsBounded 0 = true → (TrS s₀ b).looseBVarsBounded 0 = true →
-    ⦃fun s => s = s₀⦄ InLean.proofIrrelI r d a b
+    ⦃fun s => s = s₀⦄ InLean.proofIrrelI .verified fe eager lv d a b
     ⦃fun v s' => CSOKI .verified eager env s' ∧ TabLe s₀ s' ∧
       Runs (ConLeche.proofIrrel (ConLeche.fueledFns .verified eager env) d (TrS s₀ a) (TrS s₀ b))
         v; ⊤⦄
@@ -94,9 +94,9 @@ section Blocks
 variable (mode : InLean.CheckMode)
 
 /-- The K rescue past its syntactic gates (`majorToCtorI`'s K branch). -/
-@[expose] def mtcKIL (r : InLean.CoreFnsI) (depth : Nat) (major : Expr) (rl : RecursorRule)
+@[expose] def mtcKIL (fe : InLean.FEnv) (eager : Bool) (lv : Nat) (depth : Nat) (major : Expr) (rl : RecursorRule)
     (cvj : Lean.ConstantVal) (cnP : Nat) (T : Name) : InLean.CheckCM Expr := do
-  let tmaj ← r.whnf depth (← r.inferIO depth major)
+  let tmaj ← InLean.whnfI mode fe eager lv depth (← InLean.inferI mode fe eager lv true depth major)
   match tmaj.getAppFnT with
   | .const T' ust =>
     if T' == T ∧ cvj.levelParams.length = ust.length then do
@@ -104,9 +104,9 @@ variable (mode : InLean.CheckMode)
       if cnP ≤ margs.length then do
         let fab ← mkAppNM (.const rl.ctor ust) (margs.take cnP)
         if Expr.wscopedBC depth fab && (Expr.closedBV fab) && (← leafGuardM fab major) then do
-          let tfab ← r.inferIO depth fab
-          if ← r.defeq depth tmaj tfab then
-            if ← certAtI mode (proofIrrelI r depth fab major) then pure fab
+          let tfab ← InLean.inferI mode fe eager lv true depth fab
+          if ← InLean.defeqI mode fe eager lv depth tmaj tfab then
+            if ← certAtI mode (proofIrrelI mode fe eager lv depth fab major) then pure fab
             else pure major
           else pure major
         else pure major
@@ -115,16 +115,16 @@ variable (mode : InLean.CheckMode)
   | _ => pure major
 
 /-- The structure-η rescue past its syntactic gates. -/
-@[expose] def mtcEtaIL (r : InLean.CoreFnsI) (depth : Nat) (major : Expr) (T : Name)
+@[expose] def mtcEtaIL (fe : InLean.FEnv) (eager : Bool) (lv : Nat) (depth : Nat) (major : Expr) (T : Name)
     (cvT : Lean.ConstantVal) (caps : InLean.IndCaps) (tbl : InLean.TableView) :
     InLean.CheckCM Expr := do
-  let tmaj ← r.whnf depth (← r.inferIO depth major)
+  let tmaj ← InLean.whnfI mode fe eager lv depth (← InLean.inferI mode fe eager lv true depth major)
   match tmaj.getAppFnT with
   | .const T' ust => do
     let margs := appArgs tmaj
     if T' == T ∧ margs.length = tbl.numParams ∧
         ust.length = cvT.levelParams.length then do
-      if ← formerNeverZeroI r.whnf cvT caps ust then do
+      if ← formerNeverZeroI mode fe eager lv cvT caps ust then do
         let fab ← mkAppNM (.const tbl.ctor ust)
           (margs ++ projNodesI T major (List.range tbl.numFields))
         if Expr.wscopedBC depth fab && (Expr.closedBV fab) && (← leafGuardM fab major) then
@@ -135,9 +135,9 @@ variable (mode : InLean.CheckMode)
   | _ => pure major
 
 /-- The `And` rescue past its syntactic gates. -/
-@[expose] def mtcAndIL (r : InLean.CoreFnsI) (fe : InLean.FEnv) (depth : Nat) (major : Expr)
+@[expose] def mtcAndIL (fe : InLean.FEnv) (eager : Bool) (lv : Nat) (depth : Nat) (major : Expr)
     (rl : RecursorRule) (cvj : Lean.ConstantVal) (cnP : Nat) (T : Name) : InLean.CheckCM Expr := do
-  let tmaj ← r.whnf depth (← r.inferIO depth major)
+  let tmaj ← InLean.whnfI mode fe eager lv depth (← InLean.inferI mode fe eager lv true depth major)
   match tmaj.getAppFnT with
   | .const T' ust => do
     let margs := appArgs tmaj
@@ -146,9 +146,9 @@ variable (mode : InLean.CheckMode)
         fe.andRescueSlotsF rl.ctor cnP = true then do
       let fab ← mkAppNM (.const rl.ctor ust) (margs ++ projNodesI T major [0, 1])
       if Expr.wscopedBC depth fab && (Expr.closedBV fab) && (← leafGuardM fab major) then do
-        let tfab ← r.inferIO depth fab
-        if ← r.defeq depth tmaj tfab then
-          if ← certAtI mode (proofIrrelI r depth fab major) then pure fab
+        let tfab ← InLean.inferI mode fe eager lv true depth fab
+        if ← InLean.defeqI mode fe eager lv depth tmaj tfab then
+          if ← certAtI mode (proofIrrelI mode fe eager lv depth fab major) then pure fab
           else pure major
         else pure major
       else pure major
@@ -156,20 +156,20 @@ variable (mode : InLean.CheckMode)
   | _ => pure major
 
 /-- The rescue past its syntactic gates. -/
-@[expose] def mtcBodyIL (r : InLean.CoreFnsI) (fe : InLean.FEnv) (depth : Nat) (major : Expr) (isK : Bool)
+@[expose] def mtcBodyIL (fe : InLean.FEnv) (eager : Bool) (lv : Nat) (depth : Nat) (major : Expr) (isK : Bool)
     (rl : RecursorRule) (cvj : Lean.ConstantVal) (cnP : Nat) (T : Name) (cvT : Lean.ConstantVal)
     (caps : InLean.IndCaps) : InLean.CheckCM Expr :=
-  if isK = true then mtcKIL mode r depth major rl cvj cnP T
+  if isK = true then mtcKIL mode fe eager lv depth major rl cvj cnP T
   else match etaRescueTable? (fe.findTable? T) rl.ctor cvj cvT caps with
-  | some tbl => mtcEtaIL r depth major T cvT caps tbl
+  | some tbl => mtcEtaIL mode fe eager lv depth major T cvT caps tbl
   | none =>
-    if T == andName then mtcAndIL mode r fe depth major rl cvj cnP T
+    if T == andName then mtcAndIL mode fe eager lv depth major rl cvj cnP T
     else pure major
 
 /-- `majorToCtorI` with its blocks named. -/
-theorem majorToCtorI_eq (r : InLean.CoreFnsI) (fe : InLean.FEnv) (depth : Nat) (isK : Bool)
+theorem majorToCtorI_eq (fe : InLean.FEnv) (lv : Nat) (depth : Nat) (isK : Bool)
     (rules : List RecursorRule) (major : Expr) :
-    majorToCtorI mode r fe depth isK rules major =
+    majorToCtorI mode fe eager lv depth isK rules major =
     (if isCtorAppC fe major then pure major else
     match rules with
     | [rl] =>
@@ -178,11 +178,12 @@ theorem majorToCtorI_eq (r : InLean.CoreFnsI) (fe : InLean.FEnv) (depth : Nat) (
         match EO.stripTop ((piResult cvj.type).getAppFnT) with
         | .const T _ =>
           match fe.indView? T with
-          | some (cvT, caps) => mtcBodyIL mode r fe depth major isK rl cvj cnP T cvT caps
+          | some (cvT, caps) => mtcBodyIL mode fe eager lv depth major isK rl cvj cnP T cvT caps
           | none => pure major
         | _ => pure major
       | none => pure major
-    | _ => pure major) := rfl
+    | _ => pure major) := by
+  rw [InLean.majorToCtorI.eq_def]; rfl
 
 end Blocks
 
@@ -198,12 +199,12 @@ theorem post_of {mode : ConLeche.CheckMode} {s₀ s' : InLean.CState} {d : Nat} 
   rw [TrS_of_tabLe ht hok]; exact ⟨hs', ht, okS_of_tabLe ht hok, hP, hw, hc⟩
 
 /-- The K and `And` rescues' tail past the fabrication (InLean). -/
-@[expose] def fabTailIL (r : InLean.CoreFnsI) (depth : Nat) (tmaj fab major : Expr) :
+@[expose] def fabTailIL (fe : InLean.FEnv) (eager : Bool) (lv : Nat) (depth : Nat) (tmaj fab major : Expr) :
     InLean.CheckCM Expr := do
   if Expr.wscopedBC depth fab && (Expr.closedBV fab) && (← leafGuardM fab major) then do
-    let tfab ← r.inferIO depth fab
-    if ← r.defeq depth tmaj tfab then
-      if ← certAtI .verified (proofIrrelI r depth fab major) then pure fab
+    let tfab ← InLean.inferI .verified fe eager lv true depth fab
+    if ← InLean.defeqI .verified fe eager lv depth tmaj tfab then
+      if ← certAtI .verified (proofIrrelI .verified fe eager lv depth fab major) then pure fab
       else pure major
     else pure major
   else pure major
@@ -220,9 +221,9 @@ theorem post_of {mode : ConLeche.CheckMode} {s₀ s' : InLean.CState} {d : Nat} 
   else pure major
 
 section Walks
-variable {r : InLean.CoreFnsI} {fe : InLean.FEnv}
+variable {fe : InLean.FEnv} {lv : Nat}
 
-theorem fabTailIL_specI (ih : KnotSpecI .verified eager env r) (hpi : ProofIrrelSpecI eager env r)
+theorem fabTailIL_specI (ih : KnotSpecI .verified .verified eager env fe lv) (hpi : ProofIrrelSpecI eager env fe lv)
     {d : Nat}
     {tmaj fab major : Expr} {s₀ : InLean.CState} (hs : CSOKI .verified eager env s₀)
     (hokt : OkS s₀ tmaj = true) (hwt : ConLeche.Expr.WScoped d (TrS s₀ tmaj))
@@ -231,7 +232,7 @@ theorem fabTailIL_specI (ih : KnotSpecI .verified eager env r) (hpi : ProofIrrel
     (hcf : (TrS s₀ fab).looseBVarsBounded 0 = true)
     (hokm : OkS s₀ major = true) (hwm : ConLeche.Expr.WScoped d (TrS s₀ major))
     (hcm : (TrS s₀ major).looseBVarsBounded 0 = true) :
-    ⦃fun s => s = s₀⦄ fabTailIL r d tmaj fab major
+    ⦃fun s => s = s₀⦄ fabTailIL fe eager lv d tmaj fab major
     ⦃fun m s' => CSOKI .verified eager env s' ∧ TabLe s₀ s' ∧ OkS s' m = true ∧
       Runs (fabTailP (ConLeche.fueledFns .verified eager env) d (TrS s₀ tmaj) (TrS s₀ fab)
         (TrS s₀ major)) (TrS s' m) ∧
@@ -305,14 +306,14 @@ theorem fab_facts {s : InLean.CState} {d : Nat} {c : Name} {us : List Level} {xs
   rw [OkS_mkAppN, TrS_mkAppN, OkS_const, TrS_const, hus, hxs]
   exact ⟨rfl, rfl, wscoped_mkAppN_const hw, lbb_mkAppN_closed rfl hcl⟩
 
-theorem mtcKIL_specI (ih : KnotSpecI .verified eager env r) (hpi : ProofIrrelSpecI eager env r)
+theorem mtcKIL_specI (ih : KnotSpecI .verified .verified eager env fe lv) (hpi : ProofIrrelSpecI eager env fe lv)
     {d : Nat} {major : Expr}
     {rl : RecursorRule} {cvj : Lean.ConstantVal} {cnP : Nat} {T : Name} {crl : ConLeche.RecRule}
     {ccvj : ConLeche.ConstantVal} (hrl : crl.ctor = toName rl.ctor) (hcvj : CVRel cvj ccvj)
     {s₀ : InLean.CState} (hs : CSOKI .verified eager env s₀) (hok : OkS s₀ major = true)
     (hw : ConLeche.Expr.WScoped d (TrS s₀ major))
     (hc : (TrS s₀ major).looseBVarsBounded 0 = true) :
-    ⦃fun s => s = s₀⦄ mtcKIL .verified r d major rl cvj cnP T
+    ⦃fun s => s = s₀⦄ mtcKIL .verified fe eager lv d major rl cvj cnP T
     ⦃fun m s' => CSOKI .verified eager env s' ∧ TabLe s₀ s' ∧ OkS s' m = true ∧
       Runs ((ConLeche.fueledFns .verified eager env).inferIO d (TrS s₀ major) >>= fun tm =>
         (ConLeche.fueledFns .verified eager env).whnf d tm >>=
@@ -355,7 +356,7 @@ theorem mtcKIL_specI (ih : KnotSpecI .verified eager env r) (hpi : ProofIrrelSpe
         obtain ⟨hokf, htrf, hwf, hcf⟩ := fab_facts (c := rl.ctor) hust hxs
           (by rw [hTx]; exact (allWS_getAppArgs hw₂).take cnP)
           (by rw [hTx]; exact AllClosed_take (allClosed_getAppArgs hc₂) cnP)
-        have hr' : fabTailIL r d tmaj (mkAppN (.const rl.ctor ust) ((appArgs tmaj).take cnP).toArray)
+        have hr' : fabTailIL fe eager lv d tmaj (mkAppN (.const rl.ctor ust) ((appArgs tmaj).take cnP).toArray)
             major s₂ = .ok (m, s') := hr
         have hokm := okS_of_tabLe ht02 hok
         have htm := TrS_of_tabLe ht02 hok
@@ -410,7 +411,7 @@ theorem projNodesI_facts (s : InLean.CState) (T : Name) {b : Expr} {d : Nat} (hb
       · exact h3 x hx
     · rw [InLean.projNodesI, TrSL_cons, AllClosed_cons, h4, TrS_proj, lbb_proj, hc]; rfl
 
-theorem mtcEtaIL_specI (ih : KnotSpecI .verified eager env r) {d : Nat} {major : Expr} {T : Name}
+theorem mtcEtaIL_specI (ih : KnotSpecI .verified .verified eager env fe lv) {d : Nat} {major : Expr} {T : Name}
     {cvT : Lean.ConstantVal} {ccvT : ConLeche.ConstantVal} (hcvT : CVRel cvT ccvT)
     (hcl : ccvT.type.hasFvar = false) (hlbb : ccvT.type.looseBVarsBounded 0 = true)
     {caps : InLean.IndCaps} {tbl : InLean.TableView} {ct : ConLeche.ProjTable}
@@ -419,7 +420,7 @@ theorem mtcEtaIL_specI (ih : KnotSpecI .verified eager env r) {d : Nat} {major :
     {s₀ : InLean.CState} (hs : CSOKI .verified eager env s₀) (hok : OkS s₀ major = true)
     (hw : ConLeche.Expr.WScoped d (TrS s₀ major))
     (hc : (TrS s₀ major).looseBVarsBounded 0 = true) :
-    ⦃fun s => s = s₀⦄ mtcEtaIL r d major T cvT caps tbl
+    ⦃fun s => s = s₀⦄ mtcEtaIL .verified fe eager lv d major T cvT caps tbl
     ⦃fun m s' => CSOKI .verified eager env s' ∧ TabLe s₀ s' ∧ OkS s' m = true ∧
       Runs ((ConLeche.fueledFns .verified eager env).inferIO d (TrS s₀ major) >>= fun tm =>
         (ConLeche.fueledFns .verified eager env).whnf d tm >>=
@@ -526,14 +527,14 @@ theorem mtcEtaIL_specI (ih : KnotSpecI .verified eager env r) {d : Nat} {major :
     · rename_i c us' h'; exact absurd h' (hn c us')
     · exact post_of hs₂ ht02 hok hw hc (Runs.pure _)
 
-theorem mtcAndIL_specI (ih : KnotSpecI .verified eager env r) (hpi : ProofIrrelSpecI eager env r)
+theorem mtcAndIL_specI (ih : KnotSpecI .verified .verified eager env fe lv) (hpi : ProofIrrelSpecI eager env fe lv)
     (hv : EnvViewI fe env) {d : Nat} {major : Expr}
     {rl : RecursorRule} {cvj : Lean.ConstantVal} {cnP : Nat} {T : Name} {crl : ConLeche.RecRule}
     {ccvj : ConLeche.ConstantVal} (hrl : crl.ctor = toName rl.ctor) (hcvj : CVRel cvj ccvj)
     {s₀ : InLean.CState} (hs : CSOKI .verified eager env s₀) (hok : OkS s₀ major = true)
     (hw : ConLeche.Expr.WScoped d (TrS s₀ major))
     (hc : (TrS s₀ major).looseBVarsBounded 0 = true) :
-    ⦃fun s => s = s₀⦄ mtcAndIL .verified r fe d major rl cvj cnP T
+    ⦃fun s => s = s₀⦄ mtcAndIL .verified fe eager lv d major rl cvj cnP T
     ⦃fun m s' => CSOKI .verified eager env s' ∧ TabLe s₀ s' ∧ OkS s' m = true ∧
       Runs ((ConLeche.fueledFns .verified eager env).inferIO d (TrS s₀ major) >>= fun tm =>
         (ConLeche.fueledFns .verified eager env).whnf d tm >>=
@@ -589,7 +590,7 @@ theorem mtcAndIL_specI (ih : KnotSpecI .verified eager env r) (hpi : ProofIrrelS
       obtain ⟨hokf, htrf, hwf, hcf⟩ := fab_facts (c := rl.ctor) hust hxs
         (by rw [TrSL_append]; exact AllWS.append hws1 hp3)
         (by rw [TrSL_append]; exact AllClosed_append hcl1 hp4)
-      have hr' : fabTailIL r d tmaj
+      have hr' : fabTailIL fe eager lv d tmaj
           (mkAppN (.const rl.ctor ust) (appArgs tmaj ++ InLean.projNodesI T major [0, 1]).toArray)
           major s₂ = .ok (m, s') := hr
       obtain ⟨hs', ht', hokm', hrun', hw', hc'⟩ := tripleI_iff_run.1
@@ -622,7 +623,7 @@ theorem stored_closed (henv : ConLeche.EnvWF env) {n : ConLeche.Name} {ci : ConL
   have hw := henv.consts _ (ConLeche.Env.find?_mem h)
   exact ⟨hw.1, hw.2.2.2.1⟩
 
-theorem mtcBodyIL_specI (ih : KnotSpecI .verified eager env r) (hpi : ProofIrrelSpecI eager env r)
+theorem mtcBodyIL_specI (ih : KnotSpecI .verified .verified eager env fe lv) (hpi : ProofIrrelSpecI eager env fe lv)
     (henv : ConLeche.EnvWF env) (hv : EnvViewI fe env)
     {d : Nat} {major : Expr} {isK : Bool} {rl : RecursorRule} {cvj : Lean.ConstantVal} {cnP : Nat}
     {T : Name} {cvT : Lean.ConstantVal} {caps : InLean.IndCaps} {crl : ConLeche.RecRule}
@@ -631,7 +632,7 @@ theorem mtcBodyIL_specI (ih : KnotSpecI .verified eager env r) (hpi : ProofIrrel
     {s₀ : InLean.CState} (hs : CSOKI .verified eager env s₀) (hok : OkS s₀ major = true)
     (hw : ConLeche.Expr.WScoped d (TrS s₀ major))
     (hc : (TrS s₀ major).looseBVarsBounded 0 = true) :
-    ⦃fun s => s = s₀⦄ mtcBodyIL .verified r fe d major isK rl cvj cnP T cvT caps
+    ⦃fun s => s = s₀⦄ mtcBodyIL .verified fe eager lv d major isK rl cvj cnP T cvT caps
     ⦃fun m s' => CSOKI .verified eager env s' ∧ TabLe s₀ s' ∧ OkS s' m = true ∧
       Runs (mtcBodyP .verified (ConLeche.fueledFns .verified eager env) env d (TrS s₀ major) isK
         crl ccvj cnP (toName T) ccvT (toCaps caps)) (TrS s' m) ∧
@@ -664,14 +665,14 @@ theorem mtcBodyIL_specI (ih : KnotSpecI .verified eager env r) (hpi : ProofIrrel
         exact post_of hs (TabLe.refl _) hok hw hc (Runs.pure _)
 
 /-- **The stuck-major rescue** (`majorToCtorC_spec`'s twin). -/
-theorem majorToCtorI_specI (ih : KnotSpecI .verified eager env r) (hpi : ProofIrrelSpecI eager env r)
+theorem majorToCtorI_specI (ih : KnotSpecI .verified .verified eager env fe lv) (hpi : ProofIrrelSpecI eager env fe lv)
     (henv : ConLeche.EnvWF env) (hv : EnvViewI fe env)
     {d : Nat} {recName : ConLeche.Name} {isK : Bool} {fire : InLean.RecRuleFire}
     {rules : List RecursorRule} {crules : List ConLeche.RecRule}
     (hrules : LRel (RuleRel fire) rules crules)
     {i : Expr} {s₀ : InLean.CState} (hs : CSOKI .verified eager env s₀) (hok : OkS s₀ i = true)
     (hw : ConLeche.Expr.WScoped d (TrS s₀ i)) (hc : (TrS s₀ i).looseBVarsBounded 0 = true) :
-    ⦃fun s => s = s₀⦄ InLean.majorToCtorI .verified r fe d isK rules i
+    ⦃fun s => s = s₀⦄ InLean.majorToCtorI .verified fe eager lv d isK rules i
     ⦃fun m s' => CSOKI .verified eager env s' ∧ TabLe s₀ s' ∧ OkS s' m = true ∧
       Runs (ConLeche.majorToCtor .verified (ConLeche.fueledFns .verified eager env) env d recName
         isK crules (TrS s₀ i)) (TrS s' m) ∧
@@ -760,8 +761,8 @@ theorem isStrLitI_TrS (s : InLean.CState) : ∀ e : Expr,
   | .proj .. => rfl
 
 /-- The preparation off K past the first rescue. -/
-theorem prepTailI_specI (ih : KnotSpecI .verified eager env r)
-    (hpi : ProofIrrelSpecI eager env r)
+theorem prepTailI_specI (ih : KnotSpecI .verified .verified eager env fe lv)
+    (hpi : ProofIrrelSpecI eager env fe lv)
     (henv : ConLeche.EnvWF env) (hv : EnvViewI fe env) (hdom : EnvDomI fe env)
     {d : Nat} {recName : ConLeche.Name} {fire : InLean.RecRuleFire}
     {rules : List RecursorRule} {crules : List ConLeche.RecRule}
@@ -769,9 +770,9 @@ theorem prepTailI_specI (ih : KnotSpecI .verified eager env r)
     {me : Expr} {s₁ : InLean.CState} (hs₁ : CSOKI .verified eager env s₁) (hok₁ : OkS s₁ me = true)
     (hw₁ : ConLeche.Expr.WScoped d (TrS s₁ me)) (hc₁ : (TrS s₁ me).looseBVarsBounded 0 = true) :
     ⦃fun s => s = s₁⦄ (if InLean.isCtorAppC fe me = true then pure me else do
-        let major₀ ← r.whnf d me
-        let major₁ ← InLean.litMajorToCtorI r fe d major₀
-        InLean.majorToCtorI .verified r fe d false rules major₁ : InLean.CheckCM Expr)
+        let major₀ ← InLean.whnfI .verified fe eager lv d me
+        let major₁ ← InLean.litMajorToCtorI .verified fe eager lv d major₀
+        InLean.majorToCtorI .verified fe eager lv d false rules major₁ : InLean.CheckCM Expr)
     ⦃fun m s' => CSOKI .verified eager env s' ∧ TabLe s₁ s' ∧ OkS s' m = true ∧
       Runs (if ConLeche.isCtorApp env (TrS s₁ me) = true then pure (TrS s₁ me) else do
         let major₀ ← (ConLeche.fueledFns .verified eager env).whnf d (TrS s₁ me)
@@ -799,15 +800,15 @@ theorem prepTailI_specI (ih : KnotSpecI .verified eager env r)
     exact ⟨hs₄, ht₂.trans (ht₃.trans ht₄), hok₄, hrun₄, hw₄, hc₄⟩
 
 /-- **The major's preparation** (`prepareMajorC_spec`'s twin). -/
-theorem prepareMajorI_specI (ih : KnotSpecI .verified eager env r)
-    (hpi : ProofIrrelSpecI eager env r)
+theorem prepareMajorI_specI (ih : KnotSpecI .verified .verified eager env fe lv)
+    (hpi : ProofIrrelSpecI eager env fe lv)
     (henv : ConLeche.EnvWF env) (hv : EnvViewI fe env) (hdom : EnvDomI fe env)
     {d : Nat} {recName : ConLeche.Name} {isK : Bool} {fire : InLean.RecRuleFire}
     {rules : List RecursorRule} {crules : List ConLeche.RecRule}
     (hrules : LRel (RuleRel fire) rules crules)
     {i : Expr} {s₀ : InLean.CState} (hs : CSOKI .verified eager env s₀) (hok : OkS s₀ i = true)
     (hw : ConLeche.Expr.WScoped d (TrS s₀ i)) (hc : (TrS s₀ i).looseBVarsBounded 0 = true) :
-    ⦃fun s => s = s₀⦄ InLean.prepareMajorI .verified r fe d isK rules i
+    ⦃fun s => s = s₀⦄ InLean.prepareMajorI .verified fe eager lv d isK rules i
     ⦃fun m s' => CSOKI .verified eager env s' ∧ TabLe s₀ s' ∧ OkS s' m = true ∧
       Runs (ConLeche.prepareMajor .verified (ConLeche.fueledFns .verified eager env) env d recName
         isK crules (TrS s₀ i)) (TrS s' m) ∧
@@ -872,32 +873,32 @@ theorem prepareMajorI_specI (ih : KnotSpecI .verified eager env r)
   | .levels _ => pure (args.take cnP)
 
 /-- The certificate past the comparands. -/
-@[expose] def certRestIL (r : InLean.CoreFnsI) (fe : InLean.FEnv) (depth : Nat) (rv : RecursorVal)
+@[expose] def certRestIL (fe : InLean.FEnv) (eager : Bool) (lv : Nat) (depth : Nat) (rv : RecursorVal)
     (args : List Expr) (cj : Name) (usj : List Level) (cnP : Nat) (margs cmpArgs : List Expr) :
     InLean.CheckCM Bool := do
-  if ← defEqListI r depth (margs.take cnP) cmpArgs then do
+  if ← defEqListI .verified fe eager lv depth (margs.take cnP) cmpArgs then do
     let tyCtor ← constTyAtM fe cj usj
-    if ← iotaCertsFullI r depth tyCtor margs then
-      iotaIndexOkI r depth (majorIdxOf rv) (rulePrefixOf rv) cnP tyCtor margs
+    if ← iotaCertsFullI .verified fe eager lv depth tyCtor margs then
+      iotaIndexOkI .verified fe eager lv depth (majorIdxOf rv) (rulePrefixOf rv) cnP tyCtor margs
         ((args.take (majorIdxOf rv)).drop (rulePrefixOf rv))
     else pure false
   else pure false
 
 /-- The case-3 certificate block of `iotaRecI` (the argument of `certAtI`). -/
-@[expose] def iotaCertIL (r : InLean.CoreFnsI) (fe : InLean.FEnv) (depth : Nat) (rv : RecursorVal)
+@[expose] def iotaCertIL (fe : InLean.FEnv) (eager : Bool) (lv : Nat) (depth : Nat) (rv : RecursorVal)
     (isQuot : Bool) (us : List Level) (args : List Expr) (cj : Name) (usj : List Level)
     (cvj : Lean.ConstantVal) (cnP : Nat) (margs : List Expr) : InLean.CheckCM Bool := do
   let cmpLvls ← cmpLvlsIL rv us cvj (recFireAt rv isQuot)
-  if ← iotaCase3I r.whnf fe rv.k cvj cmpLvls then do
+  if ← iotaCase3I .verified fe eager lv rv.k cvj cmpLvls then do
     if ← liftFueled "level comparison" (← isEquivListLM usj cmpLvls) then do
       let cmpArgs ← cmpArgsIL rv us args cnP (recFireAt rv isQuot)
-      certRestIL r fe depth rv args cj usj cnP margs cmpArgs
+      certRestIL fe eager lv depth rv args cj usj cnP margs cmpArgs
     else pure false
   else pure true
 
 /-- The certificate block as `iotaRecI` writes it (the comparands' matches
 inline, which the elaborator splits the continuation over). -/
-@[expose] def iotaCertInline (r : InLean.CoreFnsI) (fe : InLean.FEnv) (depth : Nat)
+@[expose] def iotaCertInline (fe : InLean.FEnv) (eager : Bool) (lv : Nat) (depth : Nat)
     (rv : RecursorVal) (isQuot : Bool) (us : List Level) (args : List Expr) (cj : Name)
     (usj : List Level) (cvj : Lean.ConstantVal) (cnP : Nat) (margs : List Expr) :
     InLean.CheckCM Bool := do
@@ -908,7 +909,7 @@ inline, which the elaborator splits the continuation over). -/
     | .plain =>
       InLean.substLevelTreesM rv.levelParams us (cvj.levelParams.map Level.param)
     | .levels lvls => InLean.substLevelTreesM rv.levelParams us lvls
-  if ← iotaCase3I r.whnf fe rv.k cvj cmpLvls then do
+  if ← iotaCase3I .verified fe eager lv rv.k cvj cmpLvls then do
     if ← liftFueled "level comparison" (← isEquivListLM usj cmpLvls) then do
       let cmpArgs : List Expr ←
         match fire with
@@ -918,21 +919,21 @@ inline, which the elaborator splits the continuation over). -/
           | none => throw (.internal "universe level too deep")
         | .plain => pure (args.take cnP)
         | .levels _ => pure (args.take cnP)
-      if ← defEqListI r depth (margs.take cnP) cmpArgs then do
+      if ← defEqListI .verified fe eager lv depth (margs.take cnP) cmpArgs then do
         let tyCtor ← constTyAtM fe cj usj
-        if ← iotaCertsFullI r depth tyCtor margs then
-          iotaIndexOkI r depth (majorIdxOf rv) (rulePrefixOf rv) cnP tyCtor margs
+        if ← iotaCertsFullI .verified fe eager lv depth tyCtor margs then
+          iotaIndexOkI .verified fe eager lv depth (majorIdxOf rv) (rulePrefixOf rv) cnP tyCtor margs
             ((args.take (majorIdxOf rv)).drop (rulePrefixOf rv))
         else pure false
       else pure false
     else pure false
   else pure true
 
-theorem iotaCertInline_eq (r : InLean.CoreFnsI) (fe : InLean.FEnv) (depth : Nat)
+theorem iotaCertInline_eq (fe : InLean.FEnv) (eager : Bool) (lv : Nat) (depth : Nat)
     (rv : RecursorVal) (isQuot : Bool) (us : List Level) (args : List Expr) (cj : Name)
     (usj : List Level) (cvj : Lean.ConstantVal) (cnP : Nat) (margs : List Expr) :
-    iotaCertInline r fe depth rv isQuot us args cj usj cvj cnP margs =
-      iotaCertIL r fe depth rv isQuot us args cj usj cvj cnP margs := by
+    iotaCertInline fe eager lv depth rv isQuot us args cj usj cvj cnP margs =
+      iotaCertIL fe eager lv depth rv isQuot us args cj usj cvj cnP margs := by
   unfold iotaCertInline iotaCertIL cmpLvlsIL cmpArgsIL certRestIL
   generalize recFireAt rv isQuot = fire
   cases fire with
@@ -1067,7 +1068,7 @@ theorem cmpArgsIL_run {rv : RecursorVal} {us : List Level} (hus : us.all okLv = 
     else pure false
   else pure false
 
-theorem certRestIL_run (ih : KnotSpecI .verified eager env r) (henv : ConLeche.EnvWF env)
+theorem certRestIL_run (ih : KnotSpecI .verified .verified eager env fe lv) (henv : ConLeche.EnvWF env)
     (hfe : EnvRelI fe env) {d : Nat} {rv : RecursorVal} {args : List Expr} {cj : Name}
     {usj : List Level} (husj : usj.all okLv = true) {cnP nF : Nat} {ccvj : ConLeche.ConstantVal}
     (hfj : env.find? (toName cj) = some (.ctorInfo ccvj cnP nF))
@@ -1078,7 +1079,7 @@ theorem certRestIL_run (ih : KnotSpecI .verified eager env r) (henv : ConLeche.E
     (hcm : AllClosed (TrSL s₀ margs) = true)
     (hc : OkSL s₀ cmpArgs = true) (hwc : AllWS d (TrSL s₀ cmpArgs))
     (hcc : AllClosed (TrSL s₀ cmpArgs) = true) {b : Bool}
-    (h : certRestIL r fe d rv args cj usj cnP margs cmpArgs s₀ = .ok (b, s₁)) :
+    (h : certRestIL fe eager lv d rv args cj usj cnP margs cmpArgs s₀ = .ok (b, s₁)) :
     CSOKI .verified eager env s₁ ∧ TabLe s₀ s₁ ∧
       Runs (certRestP (ConLeche.fueledFns .verified eager env) env d (majorIdxOf rv)
         (rulePrefixOf rv) cnP (TrSL s₀ args) (usj.map trL) ccvj (TrSL s₀ margs)
@@ -1143,7 +1144,7 @@ theorem certRestIL_run (ih : KnotSpecI .verified eager env r) (henv : ConLeche.E
       exact ⟨hs₅, ht04.trans ht₅, hrun₅⟩
 
 /-- **The case-3 certificate block** (`iotaCertC_spec`'s twin). -/
-theorem iotaCertIL_specI (ih : KnotSpecI .verified eager env r) (henv : ConLeche.EnvWF env)
+theorem iotaCertIL_specI (ih : KnotSpecI .verified .verified eager env fe lv) (henv : ConLeche.EnvWF env)
     (hv : EnvViewI fe env) (hfe : EnvRelI fe env) {d : Nat} {rv : RecursorVal} {isQuot : Bool}
     {us : List Level} (hus : us.all okLv = true) {args : List Expr} {cj : Name}
     {usj : List Level} (husj : usj.all okLv = true) {cvj : Lean.ConstantVal} {cnP nF : Nat}
@@ -1159,7 +1160,7 @@ theorem iotaCertIL_specI (ih : KnotSpecI .verified eager env r) (henv : ConLeche
     (hca : AllClosed (TrSL s₀ args) = true)
     (hm : OkSL s₀ margs = true) (hwm : AllWS d (TrSL s₀ margs))
     (hcm : AllClosed (TrSL s₀ margs) = true) :
-    ⦃fun s => s = s₀⦄ iotaCertIL r fe d rv isQuot us args cj usj cvj cnP margs
+    ⦃fun s => s = s₀⦄ iotaCertIL fe eager lv d rv isQuot us args cj usj cvj cnP margs
     ⦃fun b s' => CSOKI .verified eager env s' ∧ TabLe s₀ s' ∧
       Runs (iotaCertP (ConLeche.fueledFns .verified eager env) env d ccv (majorIdxOf rv)
         (rulePrefixOf rv) rv.k (us.map trL) (TrSL s₀ args) (usj.map trL) ccvj cnP crl
@@ -1258,10 +1259,10 @@ theorem rules_facts (henv : ConLeche.EnvWF env) {n : ConLeche.Name} {ccv : ConLe
   exact ⟨a, b⟩
 
 /-- **The ι step** (`iotaRecC_spec`'s twin): it discharges `IotaRecSpecI`. -/
-theorem iotaRecI_specI (ih : KnotSpecI .verified eager env r) (hpi : ProofIrrelSpecI eager env r)
+theorem iotaRecI_specI (ih : KnotSpecI .verified .verified eager env fe lv) (hpi : ProofIrrelSpecI eager env fe lv)
     (henv : ConLeche.EnvWF env)
     (hv : EnvViewI fe env) (hrec : EnvRecI fe env) (hfe : EnvRelI fe env)
-    (hdom : EnvDomI fe env) : IotaRecSpecI eager env r fe := by
+    (hdom : EnvDomI fe env) : IotaRecSpecI eager env fe lv := by
   intro d i s₀ hs hok hw hc
   refine tripleI_iff_run.2 fun o s' hr => ?_
   unfold InLean.iotaRecI at hr
@@ -1347,14 +1348,14 @@ theorem iotaRecI_specI (ih : KnotSpecI .verified eager env r) (hpi : ProofIrrelS
               · simp only [hml, hlenm.1 hml, ↓reduceIte] at hr ⊢
                 obtain ⟨ok, s₂, h2, hr⟩ := bind_run hr
                 simp only [InLean.certAtI, InLean.CheckMode.verifiedChecks, ↓reduceIte] at h2
-                have h2' : iotaCertIL r fe d rv isQuot us (appArgs i) cj usj cvj cnP (appArgs maj) s₁
+                have h2' : iotaCertIL fe eager lv d rv isQuot us (appArgs i) cj usj cvj cnP (appArgs maj) s₁
                     = .ok (ok, s₂) := by
                   rw [← iotaCertInline_eq]; exact h2
                 have hargs₁ := okSL_of_tabLe ht₁ hargsOk
                 have hta₁ := TrSL_of_tabLe ht₁ hargsOk
                 have hmOk := OkSL_appArgs s₁ hok₁
                 obtain ⟨hs₂, ht₂, hrun₂⟩ := tripleI_iff_run.1
-                  (iotaCertIL_specI (r := r) ih henv hv hfe (d := d) (rv := rv) (isQuot := isQuot)
+                  (iotaCertIL_specI (lv := lv) ih henv hv hfe (d := d) (rv := rv) (isQuot := isQuot)
                     hus (args := appArgs i) (cj := cj) husj (cnP := cnP) (nF := nF) hcv.2.1 hcvj
                     hfj hrl.2.2 hpins (by rw [hcond.1, rulePrefixOf, majorIdxOf]; omega) hs₁
                     hargs₁ (hta₁ ▸ hwa) (hta₁ ▸ hca) hmOk
@@ -1450,11 +1451,10 @@ namespace InLeanProof
 
 /-- **The argument loop at the ι step's spec** (`whnfAppI_specI` with
 `IotaRecSpecI` discharged). -/
-theorem whnfAppI_specI_of {eager : Bool} {env : ConLeche.Env} {r : InLean.CoreFnsI}
-    {fe : InLean.FEnv} (ih : KnotSpecI .verified eager env r) (hpi : ProofIrrelSpecI eager env r)
+theorem whnfAppI_specI_of {eager : Bool} {env : ConLeche.Env} {fe : InLean.FEnv} {lv : Nat} (ih : KnotSpecI .verified .verified eager env fe lv) (hpi : ProofIrrelSpecI eager env fe lv)
     (henv : ConLeche.EnvWF env)
     (hv : EnvViewI fe env) (hrec : EnvRecI fe env) (hfe : EnvRelI fe env)
-    (hdom : EnvDomI fe env) : WhnfAppSpecI eager env r fe :=
+    (hdom : EnvDomI fe env) : WhnfAppSpecI eager env fe lv :=
   whnfAppI_specI (iotaRecI_specI ih hpi henv hv hrec hfe hdom)
 
 end InLeanProof

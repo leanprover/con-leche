@@ -26,11 +26,6 @@ open Lean
 
 /-! ## Names -/
 
-/-- Twin of `natOpWfNames`. -/
-def natOpWfNames : List Name :=
-  [natDivName, natModName, natGcdName, natLandName, natLorName,
-   natXorName, natShiftLeftName, natShiftRightName]
-
 /-! ## Errors -/
 
 /-- **The reject of a constant the check does not see** (`FEnv.sees`),
@@ -238,56 +233,96 @@ def natTooBigMsg : String :=
   "the kernel refused a `Nat` numeral because its size exceeds the maximum; increase the \
   LEAN_NAT_MAX_SIZE environment variable to allow it"
 
+/-! ## The binary `Nat` operations (twin of master's `NatBinOp`)
+
+`reduceNatI` finds the operation of `.app (.app (.const c []) a) b` once, by
+the name's cached hash and one structural confirmation (`NatBinOp.ofName?`),
+and dispatches on it: the operation's result and its size refusals. -/
+
+/-- Twin of `NatBinOp`: the fourteen binary `Nat` operations the kernel
+computes on literals, in the order of `reduceNat`'s name test. -/
+inductive NatBinOp where
+  | add | sub | mul | pow | beq | ble | div | mod | gcd | land | lor | xor
+  | shiftLeft | shiftRight
+
+/-- Twin of `NatBinOp.name`. -/
+def NatBinOp.name : NatBinOp → Name
+  | .add => natAddName | .sub => natSubName | .mul => natMulName | .pow => natPowName
+  | .beq => natBeqName | .ble => natBleName | .div => natDivName | .mod => natModName
+  | .gcd => natGcdName | .land => natLandName | .lor => natLorName | .xor => natXorName
+  | .shiftLeft => natShiftLeftName | .shiftRight => natShiftRightName
+
+/-- Twin of `nameIsC`: `c = n`, the cached hashes first. -/
+@[inline] def nameIsC (c n : Name) : Bool := c.hash == n.hash && c == n
+
+/-- Twin of `NatBinOp.ofName?`: the operation named `c`, if any. -/
+def NatBinOp.ofName? (c : Name) : Option NatBinOp :=
+  if nameIsC c natAddName then some .add
+  else if nameIsC c natSubName then some .sub
+  else if nameIsC c natMulName then some .mul
+  else if nameIsC c natPowName then some .pow
+  else if nameIsC c natBeqName then some .beq
+  else if nameIsC c natBleName then some .ble
+  else if nameIsC c natDivName then some .div
+  else if nameIsC c natModName then some .mod
+  else if nameIsC c natGcdName then some .gcd
+  else if nameIsC c natLandName then some .land
+  else if nameIsC c natLorName then some .lor
+  else if nameIsC c natXorName then some .xor
+  else if nameIsC c natShiftLeftName then some .shiftLeft
+  else if nameIsC c natShiftRightName then some .shiftRight
+  else none
+
+/-- Twin of `NatBinOp.result`: the operation's result on literals. -/
+def NatBinOp.result : NatBinOp → Nat → Nat → Expr
+  | .add, a, b => .lit (.natVal (a + b))
+  | .sub, a, b => .lit (.natVal (a - b))
+  | .mul, a, b => .lit (.natVal (a * b))
+  | .pow, a, b => .lit (.natVal (a ^ b))
+  | .beq, a, b => .const (if a = b then boolTrueName else boolFalseName) []
+  | .ble, a, b => .const (if a ≤ b then boolTrueName else boolFalseName) []
+  | .div, a, b => .lit (.natVal (a / b))
+  | .mod, a, b => .lit (.natVal (a % b))
+  | .gcd, a, b => .lit (.natVal (Nat.gcd a b))
+  | .land, a, b => .lit (.natVal (Nat.land a b))
+  | .lor, a, b => .lit (.natVal (Nat.lor a b))
+  | .xor, a, b => .lit (.natVal (Nat.xor a b))
+  | .shiftLeft, a, b => .lit (.natVal (Nat.shiftLeft a b))
+  | .shiftRight, a, b => .lit (.natVal (Nat.shiftRight a b))
+
 /-- Twin of `natOpRefusal`: **the official kernel's guards on a literal
 computation** (`reduce_pow`, `reduce_shiftLeft`), before the result is
 computed, at the size bound `maxBytes` (`Limits.maxNatSize`): an exponent or
 shift past 32 bits, a power whose size bound (the base's size times the
 exponent) exceeds the bound, a shift whose result would.  The messages are
 the official kernel's. -/
-def natOpRefusal (maxBytes : Nat) (c : Name) (a b : Nat) : Option String :=
-  if c == natPowName then
+def natOpRefusal (maxBytes : Nat) (op : NatBinOp) (a b : Nat) : Option String :=
+  match op with
+  | .pow =>
     if b ≥ 2 ^ 32 then
       some "the kernel refused to evaluate `Nat.pow` because its second argument does not fit in a 32-bit unsigned integer"
     else if a > 1 && b != 0 && natSizeBytes a > maxBytes / b then
       some "the kernel refused to evaluate `Nat.pow` because the result would exceed the maximum \
         numeral size; increase the LEAN_NAT_MAX_SIZE environment variable to allow it"
     else none
-  else if c == natShiftLeftName then
+  | .shiftLeft =>
     if a == 0 then none
     else if b ≥ 2 ^ 32 then
       some "the kernel refused to evaluate `Nat.shiftLeft` because its second argument does not fit in a 32-bit unsigned integer"
     else if natSizeBytes a + b / 8 + 1 > maxBytes then some natTooBigMsg
     else none
-  else none
+  | _ => none
 
 /-- Twin of `natResultRefused`: **the official kernel's guard on a computed numeral**
 (`reduce_bin_nat_op`'s `check_size`): the result of `Nat.add`, `Nat.sub`
 and `Nat.mul` past the size bound. -/
-def natResultRefused (maxBytes : Nat) (c : Name) : Option Expr → Bool
-  | some (.lit (.natVal r)) =>
-    (c == natAddName || c == natSubName || c == natMulName) && natSizeBytes r > maxBytes
+def natResultRefused (maxBytes : Nat) (op : NatBinOp) (x : Expr) : Bool :=
+  match op with
+  | .add | .sub | .mul =>
+    match x with
+    | .lit (.natVal r) => natSizeBytes r > maxBytes
+    | _ => false
   | _ => false
-
-/-- Twin of `natOpResult`. -/
-def natOpResult (c : Name) (a b : Nat) : Option Expr :=
-  if c == natPredName then some (.lit (.natVal (a - 1)))
-  else if c == natAddName then some (.lit (.natVal (a + b)))
-  else if c == natSubName then some (.lit (.natVal (a - b)))
-  else if c == natMulName then some (.lit (.natVal (a * b)))
-  else if c == natPowName then some (.lit (.natVal (a ^ b)))
-  else if c == natDivName then some (.lit (.natVal (a / b)))
-  else if c == natModName then some (.lit (.natVal (a % b)))
-  else if c == natGcdName then some (.lit (.natVal (Nat.gcd a b)))
-  else if c == natLandName then some (.lit (.natVal (Nat.land a b)))
-  else if c == natLorName then some (.lit (.natVal (Nat.lor a b)))
-  else if c == natXorName then some (.lit (.natVal (Nat.xor a b)))
-  else if c == natShiftLeftName then some (.lit (.natVal (Nat.shiftLeft a b)))
-  else if c == natShiftRightName then some (.lit (.natVal (Nat.shiftRight a b)))
-  else if c == natBeqName then
-    some (.const (if a == b then boolTrueName else boolFalseName) [])
-  else if c == natBleName then
-    some (.const (if a ≤ b then boolTrueName else boolFalseName) [])
-  else none
 
 /-! ## A family's sort, read at use -/
 

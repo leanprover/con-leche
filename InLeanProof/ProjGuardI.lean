@@ -39,7 +39,7 @@ namespace InLeanProof
 open Lean InLean Std.WP ConLeche.Cached
 open scoped Lean.Order
 
-variable {mode : ConLeche.CheckMode} {eager : Bool} {env : ConLeche.Env}
+variable {mode : ConLeche.CheckMode} {mi : InLean.CheckMode} {eager : Bool} {env : ConLeche.Env}
 
 /-! ## The window query (`hasLooseBVarInC`'s twin) -/
 
@@ -316,16 +316,16 @@ theorem projGuardRowsGoI_run :
 
 /-! ## The rows' sorts -/
 
-variable {r : InLean.CoreFnsI}
+variable {fe : InLean.FEnv} {lv : Nat}
 
 /-- **The rows of a projection's guard** (`checkGuardRowsC_spec`'s twin): each
 row's domain read at the starting state, master's rows on the readings. -/
-theorem checkGuardRowsI_run (ih : KnotSpecI mode eager env r) {g : Level} (hg : okL g = true) :
+theorem checkGuardRowsI_run (ih : KnotSpecI mode mi eager env fe lv) {g : Level} (hg : okL g = true) :
     ∀ (rows : List (Nat × Lean.Expr)) {s₀ s' : InLean.CState} {v : Unit},
       CSOKI mode eager env s₀ →
       (∀ p ∈ rows, OkS s₀ p.2 = true ∧ ConLeche.Expr.WScoped p.1 (TrS s₀ p.2) ∧
         (TrS s₀ p.2).looseBVarsBounded 0 = true) →
-      InLean.checkGuardRowsI r.inferIO r.whnf g rows s₀ = .ok (v, s') →
+      InLean.checkGuardRowsI mi fe eager lv g rows s₀ = .ok (v, s') →
       CSOKI mode eager env s' ∧ TabLe s₀ s' ∧
         Runs (ConLeche.checkGuardRows (ConLeche.fueledFns mode eager env).inferIO
           (ConLeche.fueledFns mode eager env).whnf (trL g)
@@ -389,12 +389,12 @@ theorem isAlwaysZero_trL (u : Level) :
 
 /-- **The sort a projection's rows answer to** (`projGuardSortC_spec`'s twin):
 the structure is a stored record, closed. -/
-theorem projGuardSortI_run (ih : KnotSpecI mode eager env r) {cvT : Lean.ConstantVal}
+theorem projGuardSortI_run (ih : KnotSpecI mode mi eager env fe lv) {cvT : Lean.ConstantVal}
     {ccvT : ConLeche.ConstantVal} (hcv : CVRel cvT ccvT) (hcl : ccvT.type.hasFvar = false)
     (hlbb : ccvT.type.looseBVarsBounded 0 = true) (caps : InLean.IndCaps) {us : List Level}
     (hus : us.all okLv = true) {s₀ s' : InLean.CState} {o : Option Level}
     (hs : CSOKI mode eager env s₀)
-    (hr : InLean.projGuardSortI r.whnf cvT caps us s₀ = .ok (o, s')) :
+    (hr : InLean.projGuardSortI mi fe eager lv cvT caps us s₀ = .ok (o, s')) :
     CSOKI mode eager env s' ∧ TabLe s₀ s' ∧ (∀ g, o = some g → okL g = true) ∧
       Runs (ConLeche.projGuardSort (ConLeche.fueledFns mode eager env).whnf ccvT (toCaps caps)
         (us.map trL)) (o.map trL) := by
@@ -790,11 +790,11 @@ theorem projGuardRowsGo_closed :
 /-- **The rows at a sort** (`projRowsC_spec`'s twin): the constructor's type at
 the use's levels, its parameters opened, its fields stepped; master's
 `projGuardRows` on the translated entry, then its rows' check. -/
-theorem checkProjRowsI_run (ih : KnotSpecI mode eager env r) (henv : ConLeche.EnvWF env)
+theorem checkProjRowsI_run (ih : KnotSpecI mode mi eager env fe lv) (henv : ConLeche.EnvWF env)
     (hfe : EnvRelI fe env) {e : InLean.ProjEntry} {ce : ConLeche.ProjEntry}
     (hrel : ProjEntryRel e ce) {us : List Level} (hus : us.all okLv = true) {g : Level}
     (hg : okL g = true) {s₀ s' : InLean.CState} {v : Unit} (hs : CSOKI mode eager env s₀)
-    (h : InLean.checkProjRowsI r.inferIO r.whnf fe e us g s₀ = .ok (v, s')) :
+    (h : InLean.checkProjRowsI mi fe eager lv e us g s₀ = .ok (v, s')) :
     CSOKI mode eager env s' ∧ TabLe s₀ s' ∧
       Runs (match ConLeche.projGuardRows env.find? ce (us.map trL) with
         | some rows => ConLeche.checkGuardRows (ConLeche.fueledFns mode eager env).inferIO
@@ -919,8 +919,8 @@ theorem checkProjRowsI_run (ih : KnotSpecI mode eager env r) (henv : ConLeche.En
 /-- **The projection guard's spec, proved** (`checkProjGuardC_spec`'s twin):
 from the knot's specs, the environment's well-formedness, the relation and
 the former view. -/
-theorem projGuardSpecI_of (ih : KnotSpecI .verified eager env r) (henv : ConLeche.EnvWF env)
-    (hfe : EnvRelI fe env) (hview : EnvViewI fe env) : ProjGuardSpecI eager env r fe := by
+theorem projGuardSpecI_of (ih : KnotSpecI .verified .verified eager env fe lv) (henv : ConLeche.EnvWF env)
+    (hfe : EnvRelI fe env) (hview : EnvViewI fe env) : ProjGuardSpecI eager env fe lv := by
   intro e ce us s₀ hs hrel hus
   refine tripleI_iff_run.2 fun v s' h => ?_
   unfold InLean.checkProjGuardI at h

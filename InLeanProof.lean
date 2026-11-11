@@ -65,7 +65,6 @@ public import InLeanProof.AddDeclProof
 public import InLeanProof.DeclGuards
 public import InLeanProof.DeclStep
 public import InLeanProof.DeclPins
-public import InLeanProof.SquarePilot
 public import InLeanProof.ProjBodiesTr
 public import InLeanProof.BlockRecogRun
 public import InLeanProof.RecFireTr

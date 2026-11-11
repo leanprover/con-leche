@@ -371,15 +371,15 @@ reads of a node go through `EO.stripTop` (which the translation does not
 see), and the conclusion is the pure body's answer at the translation. -/
 
 /-- InLean's `whnf` slot answers the pure `whnf` at the translation (the
-knot hypothesis the bodies take, at fuel `f`). -/
-@[expose] def WhnfOK (mode : ConLeche.CheckMode) (eager : Bool) (env : ConLeche.Env)
-    (r : CoreFnsI) : Prop :=
+knot hypothesis the bodies take, at level `lv`). -/
+@[expose] def WhnfOK (mode : ConLeche.CheckMode) (mi : InLean.CheckMode) (eager : Bool)
+    (env : ConLeche.Env) (fe : InLean.FEnv) (lv : Nat) : Prop :=
   ∀ (s : InLean.CState) (d : Nat) (i : Expr) (ci : ConLeche.Expr), CSOKI mode eager env s →
     TransS s i = some ci →
     RunOK (CSOKI mode eager env)
       (fun s' w => ∃ cw, TransS s' w = some cw ∧
         ConLeche.Cached.Runs ((ConLeche.fueledFns mode eager env).whnf d ci) cw)
-      (r.whnf d i) s
+      (InLean.whnfI mi fe eager lv d i) s
 
 /-- The translation of a sort is a sort, at the translated level. -/
 theorem TransS_sort {s : InLean.CState} {w : Expr} {cw : ConLeche.Expr}
@@ -397,21 +397,21 @@ theorem TransS_sort {s : InLean.CState} {w : Expr} {cw : ConLeche.Expr}
 /-- **Pilot: `ensureSortI` runs in lockstep with the pure `ensureSort`**:
 from a related input, its level translates to the pure one's. -/
 theorem ensureSortI_ok {mode : ConLeche.CheckMode} {eager : Bool} {env : ConLeche.Env}
-    {r : CoreFnsI} (hr : WhnfOK mode eager env r) {s₀ : InLean.CState} {d : Nat} {i : Expr}
+    {mi : InLean.CheckMode} {fe : InLean.FEnv} {lv : Nat} (hr : WhnfOK mode mi eager env fe lv) {s₀ : InLean.CState} {d : Nat} {i : Expr}
     {ci : ConLeche.Expr} (hs : CSOKI mode eager env s₀) (hi : TransS s₀ i = some ci) :
     RunOK (CSOKI mode eager env)
       (fun _ u => ∃ cu, toLevel u = some cu ∧
         ConLeche.Cached.Runs (ConLeche.ensureSort (ConLeche.fueledFns mode eager env) env d ci) cu)
-      (ensureSortI r d i) s₀ := by
+      (ensureSortI mi fe eager lv d i) s₀ := by
   intro u s' hrun
-  cases hw : r.whnf d i s₀ with
-  | error x => simp [ensureSortI, hw, bind, StateT.bind, Except.bind] at hrun
+  cases hw : InLean.whnfI mi fe eager lv d i s₀ with
+  | error x => simp [ensureSortI.eq_def, hw, bind, StateT.bind, Except.bind] at hrun
   | ok p =>
     obtain ⟨w, s₁⟩ := p
     obtain ⟨hs₁, cw, hcw, hrw⟩ := hr s₀ d i ci hs hi w s₁ hw
     cases hsw : EO.stripTop w
     case sort u' =>
-      simp [ensureSortI, hw, hsw, bind, StateT.bind, Except.bind, pure, StateT.pure,
+      simp [ensureSortI.eq_def, hw, hsw, bind, StateT.bind, Except.bind, pure, StateT.pure,
         Except.pure] at hrun
       obtain ⟨rfl, rfl⟩ := hrun
       obtain ⟨cu, hcu, rfl⟩ := TransS_sort hcw u' hsw
@@ -419,7 +419,7 @@ theorem ensureSortI_ok {mode : ConLeche.CheckMode} {eager : Bool} {env : ConLech
       unfold ConLeche.ensureSort
       exact ConLeche.Cached.Runs.bind hrw (ConLeche.Cached.Runs.pure _)
     all_goals
-      simp [ensureSortI, hw, hsw, bind, StateT.bind, Except.bind, throw, throwThe,
+      simp [ensureSortI.eq_def, hw, hsw, bind, StateT.bind, Except.bind, throw, throwThe,
         MonadExceptOf.throw, StateT.lift] at hrun
 
 end InLeanProof

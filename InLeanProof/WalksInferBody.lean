@@ -167,7 +167,7 @@ namespace InLeanProof
 open Lean InLean Std.WP ConLeche.Cached
 open scoped Lean.Order
 
-variable {mode : ConLeche.CheckMode} {eager : Bool} {env : ConLeche.Env}
+variable {mode : ConLeche.CheckMode} {mi : InLean.CheckMode} {eager : Bool} {env : ConLeche.Env}
 
 /-! ## The binder loops against the chained tails -/
 
@@ -184,13 +184,13 @@ theorem leavesBounded_TrS {s : InLean.CState} (hs : CSOKI mode eager env s) {e :
   exact hs.fvClosed n ty _ hty htr
 
 /-- The λ-loop from one opened binder answers `inferBody`'s λ tail. -/
-theorem inferLamsI_tail_spec {r : InLean.CoreFnsI} (ih : KnotSpecI mode eager env r)
+theorem inferLamsI_tail_spec {fe : InLean.FEnv} {lv : Nat} (ih : KnotSpecI mode mi eager env fe lv)
     (henv : ConLeche.EnvWF env) {d fuel : Nat} {b ty fv : Expr} {s₀ : InLean.CState}
     (hs : CSOKI mode eager env s₀) (hb : OkS s₀ b = true) (hty : OkS s₀ ty = true)
     (hfv : OkS s₀ fv = true) (hfvT : TrS s₀ fv = .fvar d (TrS s₀ ty))
     (hwty : ConLeche.Expr.WScoped d (TrS s₀ ty)) (hwb : ConLeche.Expr.WScoped d (TrS s₀ b))
     (hcty : (TrS s₀ ty).looseBVarsBounded 0 = true) (hcb : (TrS s₀ b).looseBVarsBounded 1 = true) :
-    ⦃fun s => s = s₀⦄ inferLamsI r d fuel b 1 #[fv] [ty]
+    ⦃fun s => s = s₀⦄ inferLamsI mi fe eager lv false d fuel b 1 #[fv] [ty]
     ⦃fun v s' => CSOKI mode eager env s' ∧ TabLe s₀ s' ∧ OkS s' v = true ∧
       Runs (do
         let bt ← (ConLeche.fueledFns mode eager env).infer (d + 1)
@@ -238,13 +238,13 @@ theorem fvTyE_of {s : InLean.CState} {e : Expr} {d : Nat} {c : ConLeche.Expr}
 grind_pattern [conleche_grind] fvTyE_of => fvTyE s e, ConLeche.Expr.fvar d c
 
 /-- The ∀-loop from one opened binder answers `inferBody`'s ∀ tail. -/
-theorem inferPisI_tail_spec {r : InLean.CoreFnsI} (ih : KnotSpecI mode eager env r)
+theorem inferPisI_tail_spec {fe : InLean.FEnv} {lv : Nat} (ih : KnotSpecI mode mi eager env fe lv)
     {d fuel : Nat} {b fv : Expr} {u : Level} {s₀ : InLean.CState}
     (hs : CSOKI mode eager env s₀) (hb : OkS s₀ b = true) (hu : okLv u = true)
     (hfv : OkS s₀ fv = true) (hfvT : TrS s₀ fv = .fvar d (fvTyE s₀ fv))
     (hwty : ConLeche.Expr.WScoped d (fvTyE s₀ fv)) (hwb : ConLeche.Expr.WScoped d (TrS s₀ b))
     (hcb : (TrS s₀ b).looseBVarsBounded 1 = true) :
-    ⦃fun s => s = s₀⦄ inferPisI r d fuel b 1 #[fv] [u]
+    ⦃fun s => s = s₀⦄ inferPisI mi fe eager lv false d fuel b 1 #[fv] [u]
     ⦃fun v s' => CSOKI mode eager env s' ∧ TabLe s₀ s' ∧ OkS s' v = true ∧
       Runs (do
         let v ← ConLeche.ensureSort (ConLeche.fueledFns mode eager env) env (d + 1)
@@ -280,15 +280,15 @@ theorem inferPisI_tail_spec {r : InLean.CoreFnsI} (ih : KnotSpecI mode eager env
 
 /-- **`ensureSortI` at the io view simulates the io `ensureSort`**
 (`ensureSortIOC_spec`'s twin). -/
-theorem ensureSortIOI_spec {r : InLean.CoreFnsI} (ih : KnotSpecI mode eager env r) {d : Nat}
+theorem ensureSortIOI_spec {fe : InLean.FEnv} {lv : Nat} (ih : KnotSpecI mode mi eager env fe lv) {d : Nat}
     {i : Expr} {s₀ : InLean.CState} (hs : CSOKI mode eager env s₀) (hok : OkS s₀ i = true)
     (hw : ConLeche.Expr.WScoped d (TrS s₀ i)) (hc : (TrS s₀ i).looseBVarsBounded 0 = true) :
-    ⦃fun s => s = s₀⦄ ensureSortI (CoreFnsI.ioView r) d i
+    ⦃fun s => s = s₀⦄ ensureSortI mi fe eager lv d i
     ⦃fun u s' => CSOKI mode eager env s' ∧ TabLe s₀ s' ∧ okLv u = true ∧
       Runs (ConLeche.ensureSort (ConLeche.CoreFns.ioView (ConLeche.fueledFns mode eager env)) env d
         (TrS s₀ i)) (trL u); ⊤⦄ := by
   sym only [conleche_grind, ConLeche.ensureSort, CoreFns.ioView_whnf] =>
-    vcgen [InLean.ensureSortI, ih.ioWhnf hs hok hw hc] <;> finish
+    vcgen [InLean.ensureSortI.eq_def, ih.whnf hs hok hw hc] <;> finish
 
 /-! ## A free variable's interned type -/
 
@@ -345,13 +345,13 @@ structure EnvProjI (fe : InLean.FEnv) (env : ConLeche.Env) : Prop where
     ∃ ce, env.findProj? (toName T) i = some ce ∧ ProjEntryRel e ce
 
 /-- **The projection guard's spec** (P3a's; proved as `projGuardSpecI_of`),
-at the knot's record; the io view's guard is the same program
-(`CoreFnsI.ioView` keeps `inferIO` and `whnf`). -/
-@[expose] def ProjGuardSpecI (eager : Bool) (env : ConLeche.Env) (r : InLean.CoreFnsI)
-    (fe : InLean.FEnv) : Prop :=
+at the knot's level; the full and the io inference run the same guard (it
+infers at the io grade). -/
+@[expose] def ProjGuardSpecI (eager : Bool) (env : ConLeche.Env) (fe : InLean.FEnv) (lv : Nat)
+    : Prop :=
   ∀ {e : InLean.ProjEntry} {ce : ConLeche.ProjEntry} {us : List Level} {s₀ : InLean.CState},
     CSOKI .verified eager env s₀ → ProjEntryRel e ce → us.all okLv = true →
-    ⦃fun s => s = s₀⦄ checkProjGuardI r.inferIO r.whnf fe e us
+    ⦃fun s => s = s₀⦄ checkProjGuardI .verified fe eager lv e us
     ⦃fun _ s' => CSOKI .verified eager env s' ∧ TabLe s₀ s' ∧
       Runs (ConLeche.checkProjGuard (ConLeche.fueledFns .verified eager env).inferIO
         (ConLeche.fueledFns .verified eager env).whnf env ce (us.map trL)) (); ⊤⦄
@@ -408,7 +408,7 @@ theorem toName_stringName : toName InLean.stringName = ConLeche.stringName := rf
 
 section Body
 
-variable {r : InLean.CoreFnsI} {fe : InLean.FEnv}
+variable {fe : InLean.FEnv} {lv : Nat}
 
 /-- The shapes `inferBodyI` answers without a binder or a spine (and where
 `inferBodyIOI` falls back to it). -/
@@ -418,12 +418,12 @@ variable {r : InLean.CoreFnsI} {fe : InLean.FEnv}
 
 /-- **`inferBodyI`'s leaf arms**, at any record whose `infer` and `whnf`
 slots simulate the pure record `R`'s (the knot's, or its io view's). -/
-theorem inferBodyI_leaf {R : ConLeche.CoreFns ConLeche.FueledM}
-    (hinf : BodySpecI .verified eager env r.infer R.infer)
-    (hwh : BodySpecI .verified eager env r.whnf R.whnf)
+theorem inferBodyI_leaf {R : ConLeche.CoreFns ConLeche.FueledM} {io : Bool}
+    (hinf : BodySpecI .verified eager env (InLean.inferI .verified fe eager lv io) R.infer)
+    (hwh : BodySpecI .verified eager env (InLean.whnfI .verified fe eager lv) R.whnf)
     (hguard : ∀ {e : InLean.ProjEntry} {ce : ConLeche.ProjEntry} {us : List Level}
       {s₀ : InLean.CState}, CSOKI .verified eager env s₀ → ProjEntryRel e ce → us.all okLv = true →
-      ⦃fun s => s = s₀⦄ checkProjGuardI r.inferIO r.whnf fe e us
+      ⦃fun s => s = s₀⦄ checkProjGuardI .verified fe eager lv e us
       ⦃fun _ s' => CSOKI .verified eager env s' ∧ TabLe s₀ s' ∧
         Runs (ConLeche.checkProjGuard R.inferIO R.whnf env ce (us.map trL)) (); ⊤⦄)
     (henv : ConLeche.EnvWF env) (hfe : EnvRelI fe env) (hdom : EnvDomI fe env)
@@ -431,7 +431,7 @@ theorem inferBodyI_leaf {R : ConLeche.CoreFns ConLeche.FueledM}
     (hs : CSOKI .verified eager env s₀) (hok : OkS s₀ i = true)
     (hw : ConLeche.Expr.WScoped d (TrS s₀ i)) (hc : (TrS s₀ i).looseBVarsBounded 0 = true)
     (hl : inferLeafI (EO.stripTop i) = true) :
-    ⦃fun s => s = s₀⦄ inferBodyI r fe d i
+    ⦃fun s => s = s₀⦄ inferBodyI .verified fe eager lv io d i
     ⦃fun v s' => CSOKI .verified eager env s' ∧ TabLe s₀ s' ∧ OkS s' v = true ∧
       Runs (ConLeche.inferBody R env d (TrS s₀ i)) (TrS s' v) ∧
       ConLeche.Expr.WScoped d (TrS s' v) ∧ (TrS s' v).looseBVarsBounded 0 = true; ⊤⦄ := by
@@ -559,11 +559,11 @@ theorem inferBodyI_leaf {R : ConLeche.CoreFns ConLeche.FueledM}
 /-- **`inferBodyI` simulates the pure `inferBody`** (`inferBodyC_spec`'s
 twin): the leaf arms by `inferBodyI_leaf`, the binder arms through the
 loops' tails, the application arm through the spine loop. -/
-theorem inferBodyI_spec (ih : KnotSpecI .verified eager env r)
-    (harg : DefeqArgSpecI .verified eager env r) (hpg : ProjGuardSpecI eager env r fe)
+theorem inferBodyI_spec (ih : KnotSpecI .verified .verified eager env fe lv)
+    (harg : DefeqArgSpecI .verified .verified eager env fe lv) (hpg : ProjGuardSpecI eager env fe lv)
     (henv : ConLeche.EnvWF env) (hfe : EnvRelI fe env) (hdom : EnvDomI fe env)
     (hproj : EnvProjI fe env) :
-    BodySpecI .verified eager env (inferBodyI r fe)
+    BodySpecI .verified eager env (inferBodyI .verified fe eager lv false)
       (ConLeche.inferBody (ConLeche.fueledFns .verified eager env) env) := by
   intro s₀ d i hs hok hw hc
   cases hl : inferLeafI (EO.stripTop i)
@@ -615,18 +615,18 @@ theorem inferBodyIO_leaf_eq (R : ConLeche.CoreFns ConLeche.FueledM) {s : InLean.
 /-- **`inferBodyIOI` simulates the pure io body** (`inferBodyIOC_spec`'s
 twin): its own application, binder and `let` arms, and `inferBodyI`'s leaf
 arms at the io view. -/
-theorem inferBodyIOI_spec (ih : KnotSpecI .verified eager env r)
-    (hpg : ProjGuardSpecI eager env r fe)
+theorem inferBodyIOI_spec (ih : KnotSpecI .verified .verified eager env fe lv)
+    (hpg : ProjGuardSpecI eager env fe lv)
     (henv : ConLeche.EnvWF env) (hfe : EnvRelI fe env) (hdom : EnvDomI fe env)
     (hproj : EnvProjI fe env) :
-    BodySpecI .verified eager env (inferBodyIOI (CoreFnsI.ioView r) fe)
+    BodySpecI .verified eager env (inferBodyIOI .verified fe eager lv)
       (ConLeche.inferBodyIO (ConLeche.CoreFns.ioView (ConLeche.fueledFns .verified eager env)) env) := by
   intro s₀ d i hs hok hw hc
   have hO : OkS s₀ (EO.stripTop i) = true := by rw [OkS_stripTop]; exact hok
   cases hl : inferLeafI (EO.stripTop i)
   case true =>
-    have hfb : inferBodyIOI (CoreFnsI.ioView r) fe d i = inferBodyI (CoreFnsI.ioView r) fe d i := by
-      unfold InLean.inferBodyIOI
+    have hfb : inferBodyIOI .verified fe eager lv d i = inferBodyI .verified fe eager lv true d i := by
+      rw [InLean.inferBodyIOI.eq_def]
       generalize hx : EO.stripTop i = x at hl
       cases x <;> simp [inferLeafI] at hl <;> rfl
     rw [hfb]
@@ -634,7 +634,7 @@ theorem inferBodyIOI_spec (ih : KnotSpecI .verified eager env r)
     rw [TrS_stripTop] at hio
     rw [hio]
     exact inferBodyI_leaf (R := ConLeche.CoreFns.ioView (ConLeche.fueledFns .verified eager env))
-      (fun hs hok hw hc => ih.ioInfer hs hok hw hc) (fun hs hok hw hc => ih.ioWhnf hs hok hw hc)
+      (fun hs hok hw hc => ih.inferIO hs hok hw hc) (fun hs hok hw hc => ih.whnf hs hok hw hc)
       (fun hs hrel hus => hpg hs hrel hus) henv hfe hdom hproj hs hok hw hc hl
   have hT : TrS s₀ i = TrS s₀ (EO.stripTop i) := (TrS_stripTop s₀ i).symm
   rw [hT] at hw hc ⊢
@@ -645,18 +645,18 @@ theorem inferBodyIOI_spec (ih : KnotSpecI .verified eager env r)
   | app f a =>
     have hTa : TrS s₀ i = .app (TrS s₀ f) (TrS s₀ a) := hT
     sym only [conleche_grind, CoreFns.ioView_infer, CoreFns.ioView_whnf] =>
-      vcgen [ih.ioInfer, SpineIOSpecI.triple (inferSpineIOI_spec ih _)] <;> finish
+      vcgen [ih.inferIO, SpineIOSpecI.triple (inferSpineIOI_spec ih _)] <;> finish
   | forallE _ ty b _ =>
     sym only [conleche_grind, ConLeche.inferBodyIO, CoreFns.ioView_infer, CoreFns.ioView_whnf] =>
-      vcgen [ih.ioInfer, ih.ioWhnf, mkFVarM_specI (mode := .verified) (eager := eager) (env := env),
+      vcgen [ih.inferIO, ih.whnf, mkFVarM_specI (mode := .verified) (eager := eager) (env := env),
         ensureSortIOI_spec ih] <;> finish
   | lam _ ty b _ =>
     sym only [conleche_grind, ConLeche.inferBodyIO, CoreFns.ioView_infer] =>
-      vcgen [ih.ioInfer, mkFVarM_specI (mode := .verified) (eager := eager) (env := env), InLean.abstract1M,
+      vcgen [ih.inferIO, mkFVarM_specI (mode := .verified) (eager := eager) (env := env), InLean.abstract1M,
         abstractRangeM_specI (mode := .verified) (eager := eager) (env := env)] <;> finish
   | letE _ ty v b _ =>
     sym only [conleche_grind, ConLeche.inferBodyIO, CoreFns.ioView_infer] =>
-      vcgen [ih.ioInfer] <;> finish
+      vcgen [ih.inferIO] <;> finish
   | _ => simp [inferLeafI] at hl
 
 end Body

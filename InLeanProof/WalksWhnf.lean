@@ -11,7 +11,7 @@ import all Lean.Expr
 
 The twins of `Verify/Cached/DiscC1.lean`'s walks: each InLean body
 (`InLean/CoreC.lean`) simulates con-leche's pure fueled original at the
-translation, under `KnotSpecI` of its callback record, proved by the cached
+translation, under `KnotSpecI` of the level it calls, proved by the cached
 twin's `sym … => vcgen … <;> finish` script with the translation's vocabulary
 (`InLeanProof/GrindI.lean`) in the `grind` set.  This module adds the
 vocabulary its walks need beyond `GrindI` (the spine's length, the
@@ -29,7 +29,7 @@ namespace InLeanProof
 open Lean InLean Std.WP ConLeche.Cached
 open scoped Lean.Order
 
-variable {mode : ConLeche.CheckMode} {eager : Bool} {env : ConLeche.Env}
+variable {mode : ConLeche.CheckMode} {mi : InLean.CheckMode} {eager : Bool} {env : ConLeche.Env}
 
 /-! ## Vocabulary -/
 
@@ -279,9 +279,9 @@ theorem litMajorToCtor_other {m : Type → Type} [Monad m] (r : ConLeche.CoreFns
 
 /-- The string-literal branch the two conversions share: a stored `String`
 support runs the knot's `whnf` on the constructor form. -/
-theorem strLit_whnf_run {r : InLean.CoreFnsI} (ih : KnotSpecI mode eager env r) {d : Nat}
+theorem strLit_whnf_run {fe : InLean.FEnv} {lv : Nat} (ih : KnotSpecI mode mi eager env fe lv) {d : Nat}
     {s₀ s' : InLean.CState} (hs : CSOKI mode eager env s₀) {t : String} {v : Expr}
-    (hrun : r.whnf d (InLean.strLitToConstructor t) s₀ = .ok (v, s')) :
+    (hrun : InLean.whnfI mi fe eager lv d (InLean.strLitToConstructor t) s₀ = .ok (v, s')) :
     CSOKI mode eager env s' ∧ TabLe s₀ s' ∧ OkS s' v = true ∧
       Runs ((ConLeche.fueledFns mode eager env).whnf d (ConLeche.strLitToConstructor t)) (TrS s' v) ∧
       ConLeche.Expr.WScoped d (TrS s' v) ∧ (TrS s' v).looseBVarsBounded 0 = true := by
@@ -293,11 +293,11 @@ theorem strLit_whnf_run {r : InLean.CoreFnsI} (ih : KnotSpecI mode eager env r) 
   exact h
 
 /-- **`projLitToCtorI`** (`projLitToCtorC_spec`'s twin). -/
-theorem projLitToCtorI_specI {r : InLean.CoreFnsI} (ih : KnotSpecI mode eager env r)
-    {fe : InLean.FEnv} (hdom : EnvDomI fe env) {d : Nat} {s₀ : InLean.CState}
+theorem projLitToCtorI_specI {fe : InLean.FEnv} {lv : Nat} (ih : KnotSpecI mode mi eager env fe lv)
+    (hdom : EnvDomI fe env) {d : Nat} {s₀ : InLean.CState}
     (hs : CSOKI mode eager env s₀) {e : Expr} (he : OkS s₀ e = true)
     (hw : ConLeche.Expr.WScoped d (TrS s₀ e)) (hc : (TrS s₀ e).looseBVarsBounded 0 = true) :
-    ⦃fun s => s = s₀⦄ InLean.projLitToCtorI r fe d e
+    ⦃fun s => s = s₀⦄ InLean.projLitToCtorI mi fe eager lv d e
     ⦃fun v s' => CSOKI mode eager env s' ∧ TabLe s₀ s' ∧ OkS s' v = true ∧
       Runs (ConLeche.projLitToCtor (ConLeche.fueledFns mode eager env) env d (TrS s₀ e)) (TrS s' v) ∧
       ConLeche.Expr.WScoped d (TrS s' v) ∧ (TrS s' v).looseBVarsBounded 0 = true; ⊤⦄ := by
@@ -320,7 +320,7 @@ theorem projLitToCtorI_specI {r : InLean.CoreFnsI} (ih : KnotSpecI mode eager en
         ↓reduceIte, hT]
       exact Runs.pure _
   · have hn' : ∀ t, EO.stripTop e ≠ .lit (.strVal t) := fun t h => hn ⟨t, h⟩
-    have hr' : InLean.projLitToCtorI r fe d e s₀ = .ok (e, s₀) := by
+    have hr' : InLean.projLitToCtorI mi fe eager lv d e s₀ = .ok (e, s₀) := by
       unfold InLean.projLitToCtorI
       generalize hx : EO.stripTop e = x at hn'
       cases x with
@@ -336,11 +336,11 @@ theorem projLitToCtorI_specI {r : InLean.CoreFnsI} (ih : KnotSpecI mode eager en
     exact Runs.pure _
 
 /-- **`litMajorToCtorI`** (`litMajorToCtorC_spec`'s twin). -/
-theorem litMajorToCtorI_specI {r : InLean.CoreFnsI} (ih : KnotSpecI mode eager env r)
-    {fe : InLean.FEnv} (hdom : EnvDomI fe env) {d : Nat} {s₀ : InLean.CState}
+theorem litMajorToCtorI_specI {fe : InLean.FEnv} {lv : Nat} (ih : KnotSpecI mode mi eager env fe lv)
+    (hdom : EnvDomI fe env) {d : Nat} {s₀ : InLean.CState}
     (hs : CSOKI mode eager env s₀) {e : Expr} (he : OkS s₀ e = true)
     (hw : ConLeche.Expr.WScoped d (TrS s₀ e)) (hc : (TrS s₀ e).looseBVarsBounded 0 = true) :
-    ⦃fun s => s = s₀⦄ InLean.litMajorToCtorI r fe d e
+    ⦃fun s => s = s₀⦄ InLean.litMajorToCtorI mi fe eager lv d e
     ⦃fun v s' => CSOKI mode eager env s' ∧ TabLe s₀ s' ∧ OkS s' v = true ∧
       Runs (ConLeche.litMajorToCtor (ConLeche.fueledFns mode eager env) env d (TrS s₀ e)) (TrS s' v) ∧
       ConLeche.Expr.WScoped d (TrS s' v) ∧ (TrS s' v).looseBVarsBounded 0 = true; ⊤⦄ := by
@@ -363,7 +363,7 @@ theorem litMajorToCtorI_specI {r : InLean.CoreFnsI} (ih : KnotSpecI mode eager e
         ↓reduceIte, hT]
       exact Runs.pure _
   · have hn' : ∀ t, EO.stripTop e ≠ .lit (.strVal t) := fun t h => hn ⟨t, h⟩
-    have hr' : InLean.litMajorToCtorI r fe d e s₀ = InLean.litToCtorIfNatI fe e s₀ := by
+    have hr' : InLean.litMajorToCtorI mi fe eager lv d e s₀ = InLean.litToCtorIfNatI fe e s₀ := by
       unfold InLean.litMajorToCtorI
       generalize hx : EO.stripTop e = x at hn'
       cases x with
@@ -386,30 +386,30 @@ theorem litMajorToCtorI_specI {r : InLean.CoreFnsI} (ih : KnotSpecI mode eager e
 
 section Walks
 
-variable {r : InLean.CoreFnsI}
+variable {fe : InLean.FEnv} {lv : Nat}
 
 /-- **The full-grade argument check** (`defeqArgC_spec`'s twin): the same
 argument, so the same tower. -/
-theorem defeqArgI_spec (ih : KnotSpecI mode eager env r) {s₀ : InLean.CState} {d : Nat}
+theorem defeqArgI_spec (ih : KnotSpecI mode mi eager env fe lv) {s₀ : InLean.CState} {d : Nat}
     {a ta ty : Expr} (hs : CSOKI mode eager env s₀) (hta : OkS s₀ ta = true)
     (hty : OkS s₀ ty = true) (hwta : ConLeche.Expr.WScoped d (TrS s₀ ta))
     (hwty : ConLeche.Expr.WScoped d (TrS s₀ ty)) (hcta : (TrS s₀ ta).looseBVarsBounded 0 = true)
     (hcty : (TrS s₀ ty).looseBVarsBounded 0 = true) :
-    ⦃fun s => s = s₀⦄ defeqArgI r d a ta ty
+    ⦃fun s => s = s₀⦄ defeqArgI mi fe eager lv d a ta ty
     ⦃fun v s' => CSOKI mode eager env s' ∧ TabLe s₀ s' ∧
       Runs (ConLeche.defeqArg (ConLeche.fueledFns mode eager env) d (TrS s₀ a) (TrS s₀ ta)
         (TrS s₀ ty)) v; ⊤⦄ := by
   sym only [conleche_grind, ConLeche.defeqArg] =>
-    vcgen [InLean.defeqArgI, ih.defeq hs hta hty hwta hwty hcta hcty,
+    vcgen [InLean.defeqArgI.eq_def, ih.defeq hs hta hty hwta hwty hcta hcty,
       ih.defeqE hs hta hty hwta hwty hcta hcty] <;> finish
 
 /-- **The pairwise definitional-equality helper** (`defEqListC_spec`'s twin). -/
-theorem defEqListI_spec (ih : KnotSpecI mode eager env r) {d : Nat} :
+theorem defEqListI_spec (ih : KnotSpecI mode mi eager env fe lv) {d : Nat} :
     ∀ {args brgs : List Expr} {s₀ : InLean.CState}, CSOKI mode eager env s₀ →
       OkSL s₀ args = true → OkSL s₀ brgs = true →
       AllWS d (TrSL s₀ args) → AllWS d (TrSL s₀ brgs) →
       AllClosed (TrSL s₀ args) = true → AllClosed (TrSL s₀ brgs) = true →
-      ⦃fun s => s = s₀⦄ defEqListI r d args brgs
+      ⦃fun s => s = s₀⦄ defEqListI mi fe eager lv d args brgs
       ⦃fun v s' => CSOKI mode eager env s' ∧ TabLe s₀ s' ∧
           Runs (ConLeche.defEqList (ConLeche.fueledFns mode eager env) env d (TrSL s₀ args)
             (TrSL s₀ brgs)) v; ⊤⦄ := by
@@ -421,7 +421,7 @@ theorem defEqListI_spec (ih : KnotSpecI mode eager env r) {d : Nat} :
     | nil =>
       intro _ _ _ _ _ _ _ _
       sym only [conleche_grind, ConLeche.defEqList.eq_1] =>
-        vcgen [InLean.defEqListI] <;> finish
+        vcgen [InLean.defEqListI.eq_def] <;> finish
     | cons _ _ =>
       intro _ _ _ _ _ _ _ _
       sym only [conleche_grind, ConLeche.defEqList] =>
@@ -436,7 +436,7 @@ theorem defEqListI_spec (ih : KnotSpecI mode eager env r) {d : Nat} :
     | cons b bs =>
       intro _ _ _ _ _ _ _ _
       sym only [conleche_grind, ConLeche.defEqList.eq_2] =>
-        vcgen [InLean.defEqListI, ih.defeq, ihA] <;> finish
+        vcgen [InLean.defEqListI.eq_def, ih.defeq, ihA] <;> finish
 
 /-- A `const` spine head translates to one. -/
 theorem TrS_getAppFn_const (s : InLean.CState) {e : Expr} {n : Name} {us : List Level}
@@ -481,12 +481,12 @@ theorem defeqSpine_notConstB {m : Type → Type} [Monad m] (r : ConLeche.CoreFns
   cases x <;> first | rfl | exact absurd rfl (h _ _)
 
 /-- **The same-head spine comparison** (`defeqSpineC_spec`'s twin). -/
-theorem defeqSpineI_specI (ih : KnotSpecI mode eager env r) {d : Nat} {a b : Expr}
+theorem defeqSpineI_specI (ih : KnotSpecI mode mi eager env fe lv) {d : Nat} {a b : Expr}
     {s₀ : InLean.CState} (hs : CSOKI mode eager env s₀) (hoka : OkS s₀ a = true)
     (hokb : OkS s₀ b = true) (hwa : ConLeche.Expr.WScoped d (TrS s₀ a))
     (hwb : ConLeche.Expr.WScoped d (TrS s₀ b)) (hca : (TrS s₀ a).looseBVarsBounded 0 = true)
     (hcb : (TrS s₀ b).looseBVarsBounded 0 = true) :
-    ⦃fun s => s = s₀⦄ InLean.defeqSpineI r d a b
+    ⦃fun s => s = s₀⦄ InLean.defeqSpineI mi fe eager lv d a b
     ⦃fun v s' => CSOKI mode eager env s' ∧ TabLe s₀ s' ∧
       Runs (ConLeche.defeqSpine (ConLeche.fueledFns mode eager env) env d (TrS s₀ a) (TrS s₀ b)) v;
         ⊤⦄ := by
@@ -578,7 +578,7 @@ theorem defeqSpineI_specI (ih : KnotSpecI mode eager env r) {d : Nat} {a b : Exp
         exact ⟨hs, TabLe.refl _, Runs.pure _⟩
     · have hB' : ∀ n us, Expr.getAppFnT b ≠ .const n us := fun n us h => hB ⟨n, us, h⟩
       rw [defeqSpine_notConstB _ _ (TrS_getAppFn_const s₀ hA) (TrS_getAppFn_notConst s₀ hB')]
-      have hr' : InLean.defeqSpineI r d a b s₀ = .ok (false, s₀) := by
+      have hr' : InLean.defeqSpineI mi fe eager lv d a b s₀ = .ok (false, s₀) := by
         unfold InLean.defeqSpineI
         rw [hA]; simp only
         generalize hx : Expr.getAppFnT b = x at hB'
@@ -591,7 +591,7 @@ theorem defeqSpineI_specI (ih : KnotSpecI mode eager env r) {d : Nat} {a b : Exp
       exact ⟨hs, TabLe.refl _, Runs.pure _⟩
   · have hA' : ∀ n us, Expr.getAppFnT a ≠ .const n us := fun n us h => hA ⟨n, us, h⟩
     rw [defeqSpine_notConstA _ _ (TrS_getAppFn_notConst s₀ hA')]
-    have hr' : InLean.defeqSpineI r d a b s₀ = .ok (false, s₀) := by
+    have hr' : InLean.defeqSpineI mi fe eager lv d a b s₀ = .ok (false, s₀) := by
       unfold InLean.defeqSpineI
       generalize hx : Expr.getAppFnT a = x at hA'
       cases x with
@@ -608,7 +608,7 @@ end Walks
 
 section DiscC1Rest
 
-variable {r : InLean.CoreFnsI}
+variable {fe : InLean.FEnv} {lv : Nat}
 
 theorem TrS_mkAppN (s : InLean.CState) : ∀ (args : List Expr) (f : Expr),
     TrS s (mkAppN f args.toArray) = ConLeche.Expr.mkAppN (TrS s f) (TrSL s args)
@@ -617,6 +617,13 @@ theorem TrS_mkAppN (s : InLean.CState) : ∀ (args : List Expr) (f : Expr),
     have := TrS_mkAppN s as (.app f a)
     simp only [Lean.mkAppN, List.foldl_toArray', List.foldl_cons, Lean.mkApp] at this ⊢
     rw [this]; rfl
+
+theorem mkAppN_nil (f : Expr) : mkAppN f ([] : List Expr).toArray = f := by
+  simp [Lean.mkAppN]
+
+theorem mkAppN_cons (f a : Expr) (xs : List Expr) :
+    mkAppN f (a :: xs).toArray = mkAppN (.app f a) xs.toArray := by
+  simp only [Lean.mkAppN, List.foldl_toArray', List.foldl_cons, Lean.mkApp]
 
 theorem OkS_mkAppN (s : InLean.CState) : ∀ (args : List Expr) (f : Expr),
     OkS s (mkAppN f args.toArray) = (OkS s f && OkSL s args)
@@ -781,14 +788,14 @@ theorem iotaCertsFull_TrS_cons {m : Type → Type} [Monad m] (r : ConLeche.CoreF
   | mdata _ y => exact (stripTop_ne_mdata hx).elim
   | _ => cases acc <;> simp [TrS, trE, ConLeche.Expr.instantiateList, ConLeche.iotaCertsFull]
 
-theorem iotaCertsFullIAux_specI (ih : KnotSpecI mode eager env r) {d : Nat} :
+theorem iotaCertsFullIAux_specI (ih : KnotSpecI mode mi eager env fe lv) {d : Nat} :
     ∀ {args : List Expr} {ty : Expr} {acc : List Expr} {s₀ : InLean.CState},
       CSOKI mode eager env s₀ → OkS s₀ ty = true → OkSL s₀ acc = true →
       AllClosed (TrSL s₀ acc) = true →
       ConLeche.Expr.WScoped d ((TrS s₀ ty).instantiateList (TrSL s₀ acc)) →
       ((TrS s₀ ty).instantiateList (TrSL s₀ acc)).looseBVarsBounded 0 = true →
       OkSL s₀ args = true → AllWS d (TrSL s₀ args) → AllClosed (TrSL s₀ args) = true →
-      ⦃fun s => s = s₀⦄ InLean.iotaCertsFullIAux r d ty acc args
+      ⦃fun s => s = s₀⦄ InLean.iotaCertsFullIAux mi fe eager lv d ty acc args
       ⦃fun v s' => CSOKI mode eager env s' ∧ TabLe s₀ s' ∧
           Runs (ConLeche.iotaCertsFull (ConLeche.fueledFns mode eager env) env d
             ((TrS s₀ ty).instantiateList (TrSL s₀ acc)) (TrSL s₀ args)) v; ⊤⦄
@@ -811,17 +818,17 @@ decreasing_by
     | (apply Prod.Lex.right' <;> simp)
 
 /-- **`iotaCertsFullI`** (`iotaCertsFullC_spec`'s twin). -/
-theorem iotaCertsFullI_specI (ih : KnotSpecI mode eager env r) {d : Nat} {args : List Expr}
+theorem iotaCertsFullI_specI (ih : KnotSpecI mode mi eager env fe lv) {d : Nat} {args : List Expr}
     {ty : Expr} {s₀ : InLean.CState} (hs : CSOKI mode eager env s₀) (hty : OkS s₀ ty = true)
     (hw : ConLeche.Expr.WScoped d (TrS s₀ ty)) (hc : (TrS s₀ ty).looseBVarsBounded 0 = true)
     (hargs : OkSL s₀ args = true) (hwa : AllWS d (TrSL s₀ args))
     (hca : AllClosed (TrSL s₀ args) = true) :
-    ⦃fun s => s = s₀⦄ InLean.iotaCertsFullI r d ty args
+    ⦃fun s => s = s₀⦄ InLean.iotaCertsFullI mi fe eager lv d ty args
     ⦃fun v s' => CSOKI mode eager env s' ∧ TabLe s₀ s' ∧
         Runs (ConLeche.iotaCertsFull (ConLeche.fueledFns mode eager env) env d (TrS s₀ ty)
           (TrSL s₀ args)) v; ⊤⦄ := by
   sym only [conleche_grind, ConLeche.Expr.instantiateList_nil] =>
-    vcgen [InLean.iotaCertsFullI, iotaCertsFullIAux_specI ih] <;> finish
+    vcgen [InLean.iotaCertsFullI.eq_def, iotaCertsFullIAux_specI ih] <;> finish
 
 /-! ### `reduceNat`'s vocabulary -/
 
@@ -867,65 +874,236 @@ theorem cl_boolFalseName : ConLeche.boolFalseName = toName InLean.boolFalseName 
   | mdata _ y => exact (stripTop_ne_mdata hx).elim
   | _ => rfl
 
-theorem natOpResult_TrO (s : InLean.CState) (c : Name) (a b : Nat) :
-    TrO s (InLean.natOpResult c a b) = ConLeche.natOpResult (toName c) a b ∧
-      OkO s (InLean.natOpResult c a b) = true := by
-  simp only [InLean.natOpResult, ConLeche.natOpResult, cl_natPredName, cl_natAddName, cl_natSubName, cl_natMulName, cl_natPowName, cl_natDivName, cl_natModName, cl_natGcdName, cl_natLandName, cl_natLorName, cl_natXorName, cl_natShiftLeftName, cl_natShiftRightName, cl_natBeqName, cl_natBleName, cl_boolTrueName, cl_boolFalseName, toName_eq_iff, beq_iff_eq]
-  refine ⟨?_, ?_⟩ <;> (
-    by_cases h0 : c = InLean.natPredName
-    · simp only [h0, ↓reduceIte]; first | rfl | (split <;> rfl)
-    simp only [h0, ↓reduceIte]
-    by_cases h1 : c = InLean.natAddName
-    · simp only [h1, ↓reduceIte]; first | rfl | (split <;> rfl)
-    simp only [h1, ↓reduceIte]
-    by_cases h2 : c = InLean.natSubName
-    · simp only [h2, ↓reduceIte]; first | rfl | (split <;> rfl)
-    simp only [h2, ↓reduceIte]
-    by_cases h3 : c = InLean.natMulName
-    · simp only [h3, ↓reduceIte]; first | rfl | (split <;> rfl)
-    simp only [h3, ↓reduceIte]
-    by_cases h4 : c = InLean.natPowName
-    · simp only [h4, ↓reduceIte]; first | rfl | (split <;> rfl)
-    simp only [h4, ↓reduceIte]
-    by_cases h5 : c = InLean.natDivName
-    · simp only [h5, ↓reduceIte]; first | rfl | (split <;> rfl)
-    simp only [h5, ↓reduceIte]
-    by_cases h6 : c = InLean.natModName
-    · simp only [h6, ↓reduceIte]; first | rfl | (split <;> rfl)
-    simp only [h6, ↓reduceIte]
-    by_cases h7 : c = InLean.natGcdName
-    · simp only [h7, ↓reduceIte]; first | rfl | (split <;> rfl)
-    simp only [h7, ↓reduceIte]
-    by_cases h8 : c = InLean.natLandName
-    · simp only [h8, ↓reduceIte]; first | rfl | (split <;> rfl)
-    simp only [h8, ↓reduceIte]
-    by_cases h9 : c = InLean.natLorName
-    · simp only [h9, ↓reduceIte]; first | rfl | (split <;> rfl)
-    simp only [h9, ↓reduceIte]
-    by_cases h10 : c = InLean.natXorName
-    · simp only [h10, ↓reduceIte]; first | rfl | (split <;> rfl)
-    simp only [h10, ↓reduceIte]
-    by_cases h11 : c = InLean.natShiftLeftName
-    · simp only [h11, ↓reduceIte]; first | rfl | (split <;> rfl)
-    simp only [h11, ↓reduceIte]
-    by_cases h12 : c = InLean.natShiftRightName
-    · simp only [h12, ↓reduceIte]; first | rfl | (split <;> rfl)
-    simp only [h12, ↓reduceIte]
-    by_cases h13 : c = InLean.natBeqName
-    · simp only [h13, ↓reduceIte]; first | rfl | (split <;> rfl)
-    simp only [h13, ↓reduceIte]
-    by_cases h14 : c = InLean.natBleName
-    · simp only [h14, ↓reduceIte]; first | rfl | (split <;> rfl)
-    simp only [h14, ↓reduceIte]
-    rfl)
+/-! ### The binary operation, found once (`NatBinOp.ofName?`, master's #556) -/
 
-@[conleche_grind =] theorem TrO_natOpResult (s : InLean.CState) (c : Name) (a b : Nat) :
-    TrO s (InLean.natOpResult c a b) = ConLeche.natOpResult (toName c) a b :=
-  (natOpResult_TrO s c a b).1
+theorem nameIsC_eqI (c n : Name) : InLean.nameIsC c n = decide (c = n) := by
+  unfold InLean.nameIsC
+  by_cases h : c = n
+  · subst h; simp
+  · simp [h]
 
-@[conleche_grind =] theorem OkO_natOpResult (s : InLean.CState) (c : Name) (a b : Nat) :
-    OkO s (InLean.natOpResult c a b) = true :=
-  (natOpResult_TrO s c a b).2
+theorem NatBinOp.ofName?_eqI (c : Name) :
+    InLean.NatBinOp.ofName? c =
+      if c = InLean.natAddName then some .add
+      else if c = InLean.natSubName then some .sub
+      else if c = InLean.natMulName then some .mul
+      else if c = InLean.natPowName then some .pow
+      else if c = InLean.natBeqName then some .beq
+      else if c = InLean.natBleName then some .ble
+      else if c = InLean.natDivName then some .div
+      else if c = InLean.natModName then some .mod
+      else if c = InLean.natGcdName then some .gcd
+      else if c = InLean.natLandName then some .land
+      else if c = InLean.natLorName then some .lor
+      else if c = InLean.natXorName then some .xor
+      else if c = InLean.natShiftLeftName then some .shiftLeft
+      else if c = InLean.natShiftRightName then some .shiftRight
+      else none := by
+  simp only [InLean.NatBinOp.ofName?, nameIsC_eqI, decide_eq_true_eq]
+
+private theorem natRes_add (s : InLean.CState) (a b : Nat) :
+    ConLeche.natOpResult (toName InLean.natAddName) a b =
+      some (TrS s (InLean.NatBinOp.result .add a b)) := by
+  rfl
+
+private theorem natRes_sub (s : InLean.CState) (a b : Nat) :
+    ConLeche.natOpResult (toName InLean.natSubName) a b =
+      some (TrS s (InLean.NatBinOp.result .sub a b)) := by
+  rfl
+
+private theorem natRes_mul (s : InLean.CState) (a b : Nat) :
+    ConLeche.natOpResult (toName InLean.natMulName) a b =
+      some (TrS s (InLean.NatBinOp.result .mul a b)) := by
+  rfl
+
+private theorem natRes_pow (s : InLean.CState) (a b : Nat) :
+    ConLeche.natOpResult (toName InLean.natPowName) a b =
+      some (TrS s (InLean.NatBinOp.result .pow a b)) := by
+  rfl
+
+private theorem natRes_beq (s : InLean.CState) (a b : Nat) :
+    ConLeche.natOpResult (toName InLean.natBeqName) a b =
+      some (TrS s (InLean.NatBinOp.result .beq a b)) := by
+  have e1 : ConLeche.natOpResult (toName InLean.natBeqName) a b =
+      some (.const (if a = b then ConLeche.boolTrueName else ConLeche.boolFalseName) []) := rfl
+  rw [e1]; unfold InLean.NatBinOp.result
+  by_cases h : a = b <;> simp only [h, ite_true, ite_false] <;> rfl
+
+private theorem natRes_ble (s : InLean.CState) (a b : Nat) :
+    ConLeche.natOpResult (toName InLean.natBleName) a b =
+      some (TrS s (InLean.NatBinOp.result .ble a b)) := by
+  have e1 : ConLeche.natOpResult (toName InLean.natBleName) a b =
+      some (.const (if a ≤ b then ConLeche.boolTrueName else ConLeche.boolFalseName) []) := rfl
+  rw [e1]; unfold InLean.NatBinOp.result
+  by_cases h : a ≤ b <;> simp only [h, ite_true, ite_false] <;> rfl
+
+private theorem natRes_div (s : InLean.CState) (a b : Nat) :
+    ConLeche.natOpResult (toName InLean.natDivName) a b =
+      some (TrS s (InLean.NatBinOp.result .div a b)) := by
+  rfl
+
+private theorem natRes_mod (s : InLean.CState) (a b : Nat) :
+    ConLeche.natOpResult (toName InLean.natModName) a b =
+      some (TrS s (InLean.NatBinOp.result .mod a b)) := by
+  rfl
+
+private theorem natRes_gcd (s : InLean.CState) (a b : Nat) :
+    ConLeche.natOpResult (toName InLean.natGcdName) a b =
+      some (TrS s (InLean.NatBinOp.result .gcd a b)) := by
+  rfl
+
+private theorem natRes_land (s : InLean.CState) (a b : Nat) :
+    ConLeche.natOpResult (toName InLean.natLandName) a b =
+      some (TrS s (InLean.NatBinOp.result .land a b)) := by
+  rfl
+
+private theorem natRes_lor (s : InLean.CState) (a b : Nat) :
+    ConLeche.natOpResult (toName InLean.natLorName) a b =
+      some (TrS s (InLean.NatBinOp.result .lor a b)) := by
+  rfl
+
+private theorem natRes_xor (s : InLean.CState) (a b : Nat) :
+    ConLeche.natOpResult (toName InLean.natXorName) a b =
+      some (TrS s (InLean.NatBinOp.result .xor a b)) := by
+  rfl
+
+private theorem natRes_shiftLeft (s : InLean.CState) (a b : Nat) :
+    ConLeche.natOpResult (toName InLean.natShiftLeftName) a b =
+      some (TrS s (InLean.NatBinOp.result .shiftLeft a b)) := by
+  rfl
+
+private theorem natRes_shiftRight (s : InLean.CState) (a b : Nat) :
+    ConLeche.natOpResult (toName InLean.natShiftRightName) a b =
+      some (TrS s (InLean.NatBinOp.result .shiftRight a b)) := by
+  rfl
+
+/-- A found operation is one of the fourteen, and its result translates to
+con-leche's `natOpResult`'s. -/
+theorem NatBinOp.ofName?_someI {c : Name} {op : InLean.NatBinOp}
+    (h : InLean.NatBinOp.ofName? c = some op) :
+    (c = InLean.natAddName ∨
+        c = InLean.natSubName ∨
+        c = InLean.natMulName ∨
+        c = InLean.natPowName ∨
+        c = InLean.natBeqName ∨
+        c = InLean.natBleName ∨
+        c = InLean.natDivName ∨
+        c = InLean.natModName ∨
+        c = InLean.natGcdName ∨
+        c = InLean.natLandName ∨
+        c = InLean.natLorName ∨
+        c = InLean.natXorName ∨
+        c = InLean.natShiftLeftName ∨
+        c = InLean.natShiftRightName) ∧
+      ∀ (s : InLean.CState) (a b : Nat),
+        ConLeche.natOpResult (toName c) a b = some (TrS s (op.result a b)) := by
+  rw [NatBinOp.ofName?_eqI] at h
+  by_cases h1 : c = InLean.natAddName
+  · rw [ite_eq_left h1] at h; cases h; subst h1; exact ⟨by simp, fun _ _ _ => natRes_add _ _ _⟩
+  rw [ite_eq_right h1] at h
+  by_cases h2 : c = InLean.natSubName
+  · rw [ite_eq_left h2] at h; cases h; subst h2; exact ⟨by simp, fun _ _ _ => natRes_sub _ _ _⟩
+  rw [ite_eq_right h2] at h
+  by_cases h3 : c = InLean.natMulName
+  · rw [ite_eq_left h3] at h; cases h; subst h3; exact ⟨by simp, fun _ _ _ => natRes_mul _ _ _⟩
+  rw [ite_eq_right h3] at h
+  by_cases h4 : c = InLean.natPowName
+  · rw [ite_eq_left h4] at h; cases h; subst h4; exact ⟨by simp, fun _ _ _ => natRes_pow _ _ _⟩
+  rw [ite_eq_right h4] at h
+  by_cases h5 : c = InLean.natBeqName
+  · rw [ite_eq_left h5] at h; cases h; subst h5; exact ⟨by simp, fun _ _ _ => natRes_beq _ _ _⟩
+  rw [ite_eq_right h5] at h
+  by_cases h6 : c = InLean.natBleName
+  · rw [ite_eq_left h6] at h; cases h; subst h6; exact ⟨by simp, fun _ _ _ => natRes_ble _ _ _⟩
+  rw [ite_eq_right h6] at h
+  by_cases h7 : c = InLean.natDivName
+  · rw [ite_eq_left h7] at h; cases h; subst h7; exact ⟨by simp, fun _ _ _ => natRes_div _ _ _⟩
+  rw [ite_eq_right h7] at h
+  by_cases h8 : c = InLean.natModName
+  · rw [ite_eq_left h8] at h; cases h; subst h8; exact ⟨by simp, fun _ _ _ => natRes_mod _ _ _⟩
+  rw [ite_eq_right h8] at h
+  by_cases h9 : c = InLean.natGcdName
+  · rw [ite_eq_left h9] at h; cases h; subst h9; exact ⟨by simp, fun _ _ _ => natRes_gcd _ _ _⟩
+  rw [ite_eq_right h9] at h
+  by_cases h10 : c = InLean.natLandName
+  · rw [ite_eq_left h10] at h; cases h; subst h10; exact ⟨by simp, fun _ _ _ => natRes_land _ _ _⟩
+  rw [ite_eq_right h10] at h
+  by_cases h11 : c = InLean.natLorName
+  · rw [ite_eq_left h11] at h; cases h; subst h11; exact ⟨by simp, fun _ _ _ => natRes_lor _ _ _⟩
+  rw [ite_eq_right h11] at h
+  by_cases h12 : c = InLean.natXorName
+  · rw [ite_eq_left h12] at h; cases h; subst h12; exact ⟨by simp, fun _ _ _ => natRes_xor _ _ _⟩
+  rw [ite_eq_right h12] at h
+  by_cases h13 : c = InLean.natShiftLeftName
+  · rw [ite_eq_left h13] at h; cases h; subst h13; exact ⟨by simp, fun _ _ _ => natRes_shiftLeft _ _ _⟩
+  rw [ite_eq_right h13] at h
+  by_cases h14 : c = InLean.natShiftRightName
+  · rw [ite_eq_left h14] at h; cases h; subst h14; exact ⟨by simp, fun _ _ _ => natRes_shiftRight _ _ _⟩
+  rw [ite_eq_right h14] at h
+  cases h
+grind_pattern [conleche_grind] NatBinOp.ofName?_someI => InLean.NatBinOp.ofName? c, some op
+
+/-- No operation: none of the fourteen names, nor one of `natOpWfNames`. -/
+theorem NatBinOp.ofName?_noneI {c : Name} (h : InLean.NatBinOp.ofName? c = none) :
+    ¬(c = InLean.natAddName ∨
+        c = InLean.natSubName ∨
+        c = InLean.natMulName ∨
+        c = InLean.natPowName ∨
+        c = InLean.natBeqName ∨
+        c = InLean.natBleName ∨
+        c = InLean.natDivName ∨
+        c = InLean.natModName ∨
+        c = InLean.natGcdName ∨
+        c = InLean.natLandName ∨
+        c = InLean.natLorName ∨
+        c = InLean.natXorName ∨
+        c = InLean.natShiftLeftName ∨
+        c = InLean.natShiftRightName) ∧
+      ConLeche.natOpWfNames.contains (toName c) = false := by
+  rw [NatBinOp.ofName?_eqI] at h
+  have h1 : ¬c = InLean.natAddName := fun e => by rw [ite_eq_left e] at h; cases h
+  rw [ite_eq_right h1] at h
+  have h2 : ¬c = InLean.natSubName := fun e => by rw [ite_eq_left e] at h; cases h
+  rw [ite_eq_right h2] at h
+  have h3 : ¬c = InLean.natMulName := fun e => by rw [ite_eq_left e] at h; cases h
+  rw [ite_eq_right h3] at h
+  have h4 : ¬c = InLean.natPowName := fun e => by rw [ite_eq_left e] at h; cases h
+  rw [ite_eq_right h4] at h
+  have h5 : ¬c = InLean.natBeqName := fun e => by rw [ite_eq_left e] at h; cases h
+  rw [ite_eq_right h5] at h
+  have h6 : ¬c = InLean.natBleName := fun e => by rw [ite_eq_left e] at h; cases h
+  rw [ite_eq_right h6] at h
+  have h7 : ¬c = InLean.natDivName := fun e => by rw [ite_eq_left e] at h; cases h
+  rw [ite_eq_right h7] at h
+  have h8 : ¬c = InLean.natModName := fun e => by rw [ite_eq_left e] at h; cases h
+  rw [ite_eq_right h8] at h
+  have h9 : ¬c = InLean.natGcdName := fun e => by rw [ite_eq_left e] at h; cases h
+  rw [ite_eq_right h9] at h
+  have h10 : ¬c = InLean.natLandName := fun e => by rw [ite_eq_left e] at h; cases h
+  rw [ite_eq_right h10] at h
+  have h11 : ¬c = InLean.natLorName := fun e => by rw [ite_eq_left e] at h; cases h
+  rw [ite_eq_right h11] at h
+  have h12 : ¬c = InLean.natXorName := fun e => by rw [ite_eq_left e] at h; cases h
+  rw [ite_eq_right h12] at h
+  have h13 : ¬c = InLean.natShiftLeftName := fun e => by rw [ite_eq_left e] at h; cases h
+  rw [ite_eq_right h13] at h
+  have h14 : ¬c = InLean.natShiftRightName := fun e => by rw [ite_eq_left e] at h; cases h
+  rw [ite_eq_right h14] at h
+  refine ⟨by simp only [not_or]; exact ⟨h1, h2, h3, h4, h5, h6, h7, h8, h9, h10, h11, h12, h13, h14⟩, ?_⟩
+  have hm : ConLeche.natOpWfNames = [InLean.natDivName, InLean.natModName, InLean.natGcdName,
+      InLean.natLandName, InLean.natLorName, InLean.natXorName, InLean.natShiftLeftName,
+      InLean.natShiftRightName].map toName := rfl
+  refine Bool.eq_false_iff.mpr fun hc => ?_
+  rw [List.contains_iff_mem, hm, List.mem_map] at hc
+  obtain ⟨x, hx, hxc⟩ := hc
+  obtain rfl := toName_inj hxc
+  simp only [List.mem_cons, List.not_mem_nil, or_false] at hx
+  rcases hx with h | h | h | h | h | h | h | h <;> contradiction
+grind_pattern [conleche_grind] NatBinOp.ofName?_noneI => InLean.NatBinOp.ofName? c
+
+@[conleche_grind =] theorem OkS_NatBinOp_result (s : InLean.CState) (op : InLean.NatBinOp)
+    (a b : Nat) : OkS s (op.result a b) = true := by
+  cases op <;> first | rfl | (simp only [InLean.NatBinOp.result]; split <;> rfl)
 
 @[conleche_grind =] theorem lbb_lit (k : Nat) (l : ConLeche.Literal) :
     (ConLeche.Expr.lit l).looseBVarsBounded k = true := rfl
@@ -937,12 +1115,6 @@ theorem natOpResult_TrO (s : InLean.CState) (c : Name) (a b : Nat) :
   | none => rfl
   | some e =>
     rcases ConLeche.natOpResult_shape h with ⟨n, rfl⟩ | ⟨bn, rfl⟩ <;> rfl
-
-theorem natOpWfNames_contains (c : Name) :
-    ConLeche.natOpWfNames.contains (toName c) = InLean.natOpWfNames.contains c := by
-  have hm : ConLeche.natOpWfNames = InLean.natOpWfNames.map toName := rfl
-  rw [hm, Bool.eq_iff_iff, List.contains_iff_mem, List.contains_iff_mem, List.mem_map]
-  exact ⟨fun ⟨a, ha, h⟩ => toName_inj h ▸ ha, fun h => ⟨c, h, rfl⟩⟩
 
 /-- `reduceNat` at a translation, in InLean's nested shape (one constructor
 per level, the head read through `stripTop`). -/
@@ -998,11 +1170,11 @@ theorem reduceNat_TrS {m : Type → Type} [Monad m] [MonadExceptOf ConLeche.Chec
   | _ => rfl
 
 /-- **`reduceNatI`** (`reduceNatC_spec`'s twin). -/
-theorem reduceNatI_specI (ih : KnotSpecI mode eager env r) {fe : InLean.FEnv}
+theorem reduceNatI_specI (ih : KnotSpecI mode mi eager env fe lv)
     (hdom : EnvDomI fe env) {d : Nat} {e : Expr} {s₀ : InLean.CState}
     (hs : CSOKI mode eager env s₀) (he : OkS s₀ e = true)
     (hw : ConLeche.Expr.WScoped d (TrS s₀ e)) (hc : (TrS s₀ e).looseBVarsBounded 0 = true) :
-    ⦃fun s => s = s₀⦄ InLean.reduceNatI r fe d e
+    ⦃fun s => s = s₀⦄ InLean.reduceNatI mi fe eager lv d e
     ⦃fun o s' => CSOKI mode eager env s' ∧ TabLe s₀ s' ∧ OkO s' o = true ∧
       Runs (ConLeche.reduceNat (ConLeche.fueledFns mode eager env) env d (TrS s₀ e)) (TrO s' o) ∧
       OptWS d (TrO s' o) ∧ OptClosed (TrO s' o) = true; ⊤⦄ := by
@@ -1010,12 +1182,34 @@ theorem reduceNatI_specI (ih : KnotSpecI mode eager env r) {fe : InLean.FEnv}
       ConLeche.reduceNat.eq_2, natLitStoredF_I hdom, cl_natSuccName, cl_natAddName, cl_natSubName,
       cl_natMulName, cl_natPowName, cl_natBeqName, cl_natBleName, cl_natDivName, cl_natModName,
       cl_natGcdName, cl_natLandName, cl_natLorName, cl_natXorName, cl_natShiftLeftName,
-      cl_natShiftRightName, toName_eq_iff, natOpWfNames_contains] =>
+      cl_natShiftRightName, toName_eq_iff] =>
     -- `gen := 10`: `reduceNat_TrS`'s three nested matches on InLean's `stripTop`
     -- are reduced by grind's match congruence, which names the arms' fields
     -- afresh and equates them with the split's by injectivity; the binary
     -- arm's comparands sit two generations past the default 8.
-    vcgen [InLean.reduceNatI, ih.whnf] <;> finish (gen := 10)
+    vcgen [InLean.reduceNatI.eq_def, ih.whnf] <;> finish (gen := 10)
+
+/-- A free variable's total translation is a free variable or `bvar 0`:
+no constant, no application. -/
+theorem trans_getD_cases (s : InLean.CState) (id : FVarId) :
+    (∃ i ty, (FVarTable.trans (tableOf s) id).getD (.bvar 0) = .fvar i ty) ∨
+      (FVarTable.trans (tableOf s) id).getD (.bvar 0) = .bvar 0 := by
+  cases h : FVarTable.trans (tableOf s) id with
+  | none => exact Or.inr rfl
+  | some c =>
+    obtain ⟨d, ty, rfl⟩ := FVarTable.trans_fvarsOnly _ id c h
+    exact Or.inl ⟨d, ty, rfl⟩
+
+/-- The literal test reads through `mdata`, as the translation does (the
+reduction loop's literal answer). -/
+theorem isLitI_TrS (s : InLean.CState) (e : Expr) : InLean.Expr.isLitI e = (TrS s e).isLit := by
+  induction e with
+  | mdata _ x ih => exact ih
+  | fvar id =>
+    rcases trans_getD_cases s id with ⟨i, ty, h⟩ | h <;>
+      simp [InLean.Expr.isLitI, TrS, trE, h, ConLeche.Expr.isLit]
+  | _ => rfl
+grind_pattern [conleche_grind] isLitI_TrS => InLean.Expr.isLitI e, TrS s e
 
 end DiscC1Rest
 

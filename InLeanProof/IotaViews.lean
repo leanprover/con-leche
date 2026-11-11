@@ -30,7 +30,7 @@ namespace InLeanProof
 open Lean InLean Std.WP ConLeche.Cached
 open scoped Lean.Order
 
-variable {mode : ConLeche.CheckMode} {eager : Bool} {env : ConLeche.Env}
+variable {mode : ConLeche.CheckMode} {mi : InLean.CheckMode} {eager : Bool} {env : ConLeche.Env}
 
 /-! ## Names -/
 

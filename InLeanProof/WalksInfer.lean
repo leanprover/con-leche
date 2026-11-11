@@ -10,7 +10,7 @@ public import ConLeche.Verify.Cached.DiscC4
 
 The twins of `Verify/Cached/BinderLoopC.lean` (the binder-telescope loops)
 and of the inference half of `DiscC4.lean` (the spine loops, the guard's
-rows), each a triple under `KnotSpecI` of its callback record, proved by its
+rows), each a triple under `KnotSpecI` of the level it calls, proved by its
 twin's `sym only [conleche_grind, …] => vcgen […] <;> finish` script.  The
 vocabulary added here: lists and the accumulator arrays along the run,
 closedness one constructor at a time and through the walks' operations
@@ -30,7 +30,7 @@ namespace InLeanProof
 open Lean InLean Std.WP ConLeche.Cached
 open scoped Lean.Order
 
-variable {mode : ConLeche.CheckMode} {eager : Bool} {env : ConLeche.Env}
+variable {mode : ConLeche.CheckMode} {mi : InLean.CheckMode} {eager : Bool} {env : ConLeche.Env}
 
 /-! ## Lists along the run -/
 
@@ -155,28 +155,28 @@ grind_pattern [conleche_grind] stripTop_of_TrS_forallE_binderOf => EO.stripTop e
 
 /-! ## The infer-λ loop walks (`BinderLoopC.lean`'s twins) -/
 
-theorem inferLamsLeafI_spec {r : InLean.CoreFnsI} (ih : KnotSpecI mode eager env r) {d : Nat}
+theorem inferLamsLeafI_spec {fe : InLean.FEnv} {lv : Nat} (ih : KnotSpecI mode mi eager env fe lv) {d : Nat}
     {t : Expr} {k : Nat} {fvs : Array Expr} {stk : List Expr} {s₀ : InLean.CState}
     (hs : CSOKI mode eager env s₀) (ht : OkS s₀ t = true) (hfv : OkSL s₀ fvs.toList = true)
     (hfc : AllClosed (TrSL s₀ fvs.toList) = true) (hstk : OkSL s₀ stk = true)
     (hw : ConLeche.Expr.WScoped (d + k) ((TrS s₀ t).instantiateList (TrSL s₀ fvs.toList).reverse))
     (hc : ((TrS s₀ t).instantiateList (TrSL s₀ fvs.toList).reverse).looseBVarsBounded 0 = true) :
-    ⦃fun s => s = s₀⦄ inferLamsLeafI r d t k fvs stk
+    ⦃fun s => s = s₀⦄ inferLamsLeafI mi fe eager lv false d t k fvs stk
     ⦃fun v s' => CSOKI mode eager env s' ∧ TabLe s₀ s' ∧ OkS s' v = true ∧
       Runs (ConLeche.inferLamsLeaf (ConLeche.fueledFns mode eager env) d (TrS s₀ t) k
         (TrSL s₀ fvs.toList).reverse (TrSL s₀ stk)) (TrS s' v); ⊤⦄ := by
   sym only [conleche_grind, ConLeche.inferLamsLeaf.eq_1] =>
-    vcgen [InLean.inferLamsLeafI, instListRevM_specI hs, ih.infer,
+    vcgen [InLean.inferLamsLeafI.eq_def, instListRevM_specI hs, ih.infer,
       abstractRangeM_specI (mode := mode) (eager := eager) (env := env),
       inferLamsOutI_spec (mode := mode) (eager := eager) (env := env)] <;> finish
 
-theorem inferLamsI_spec {r : InLean.CoreFnsI} (ih : KnotSpecI mode eager env r) {d : Nat} :
+theorem inferLamsI_spec {fe : InLean.FEnv} {lv : Nat} (ih : KnotSpecI mode mi eager env fe lv) {d : Nat} :
     ∀ (fuel : Nat) {t : Expr} {k : Nat} {fvs : Array Expr} {stk : List Expr} {s₀ : InLean.CState},
       CSOKI mode eager env s₀ → OkS s₀ t = true → OkSL s₀ fvs.toList = true →
       AllClosed (TrSL s₀ fvs.toList) = true → OkSL s₀ stk = true →
       ConLeche.Expr.WScoped (d + k) ((TrS s₀ t).instantiateList (TrSL s₀ fvs.toList).reverse) →
       ((TrS s₀ t).instantiateList (TrSL s₀ fvs.toList).reverse).looseBVarsBounded 0 = true →
-      ⦃fun s => s = s₀⦄ inferLamsI r d fuel t k fvs stk
+      ⦃fun s => s = s₀⦄ inferLamsI mi fe eager lv false d fuel t k fvs stk
       ⦃fun v s' => CSOKI mode eager env s' ∧ TabLe s₀ s' ∧ OkS s' v = true ∧
         Runs (ConLeche.inferLams (ConLeche.fueledFns mode eager env) d fuel (TrS s₀ t) k
           (TrSL s₀ fvs.toList).reverse (TrSL s₀ stk)) (TrS s' v); ⊤⦄ := by
@@ -185,7 +185,7 @@ theorem inferLamsI_spec {r : InLean.CoreFnsI} (ih : KnotSpecI mode eager env r) 
   | zero =>
     intro _ _ _ _ _ hs _ _ _ _ _ _
     sym only [conleche_grind, ConLeche.inferLams.eq_3] =>
-      vcgen [InLean.inferLamsI, inferLamsLeafI_spec ih] <;> finish
+      vcgen [InLean.inferLamsI.eq_def, inferLamsLeafI_spec ih] <;> finish
   | succ fuel ihFuel =>
     intro _ _ _ _ _ hs _ _ _ _ _ _
     sym only [conleche_grind, ConLeche.inferLams.eq_1, ConLeche.inferLams.eq_2] =>
@@ -262,26 +262,26 @@ theorem okLv_imax_of_fits {u v : Level} (hfit : EO.imaxChainFits [u] v = true) (
   okLv_inferPisOutI (stk := [u]) hfit hv (by simp [hu])
 grind_pattern [conleche_grind] okLv_imax_of_fits => okLv (.imax u v)
 
-theorem inferPisLeafI_spec {r : InLean.CoreFnsI} (ih : KnotSpecI mode eager env r) {d : Nat}
+theorem inferPisLeafI_spec {fe : InLean.FEnv} {lv : Nat} (ih : KnotSpecI mode mi eager env fe lv) {d : Nat}
     {t : Expr} {k : Nat} {fvs : Array Expr} {stk : List Level} {s₀ : InLean.CState}
     (hs : CSOKI mode eager env s₀) (ht : OkS s₀ t = true) (hfv : OkSL s₀ fvs.toList = true)
     (hfc : AllClosed (TrSL s₀ fvs.toList) = true) (hstk : stk.all okLv = true)
     (hw : ConLeche.Expr.WScoped (d + k) ((TrS s₀ t).instantiateList (TrSL s₀ fvs.toList).reverse))
     (hc : ((TrS s₀ t).instantiateList (TrSL s₀ fvs.toList).reverse).looseBVarsBounded 0 = true) :
-    ⦃fun s => s = s₀⦄ inferPisLeafI r d t k fvs stk
+    ⦃fun s => s = s₀⦄ inferPisLeafI mi fe eager lv false d t k fvs stk
     ⦃fun v s' => CSOKI mode eager env s' ∧ TabLe s₀ s' ∧ OkS s' v = true ∧
       Runs (ConLeche.inferPisLeaf (ConLeche.fueledFns mode eager env) d (TrS s₀ t) k
         (TrSL s₀ fvs.toList).reverse (stk.map trL)) (TrS s' v); ⊤⦄ := by
   sym only [conleche_grind, ConLeche.inferPisLeaf.eq_1, inferPisOut_trL] =>
-    vcgen [InLean.inferPisLeafI, instListRevM_specI hs, ih.infer, ih.whnf] <;> finish
+    vcgen [InLean.inferPisLeafI.eq_def, instListRevM_specI hs, ih.infer, ih.whnf] <;> finish
 
-theorem inferPisI_spec {r : InLean.CoreFnsI} (ih : KnotSpecI mode eager env r) {d : Nat} :
+theorem inferPisI_spec {fe : InLean.FEnv} {lv : Nat} (ih : KnotSpecI mode mi eager env fe lv) {d : Nat} :
     ∀ (fuel : Nat) {t : Expr} {k : Nat} {fvs : Array Expr} {stk : List Level} {s₀ : InLean.CState},
       CSOKI mode eager env s₀ → OkS s₀ t = true → OkSL s₀ fvs.toList = true →
       AllClosed (TrSL s₀ fvs.toList) = true → stk.all okLv = true →
       ConLeche.Expr.WScoped (d + k) ((TrS s₀ t).instantiateList (TrSL s₀ fvs.toList).reverse) →
       ((TrS s₀ t).instantiateList (TrSL s₀ fvs.toList).reverse).looseBVarsBounded 0 = true →
-      ⦃fun s => s = s₀⦄ inferPisI r d fuel t k fvs stk
+      ⦃fun s => s = s₀⦄ inferPisI mi fe eager lv false d fuel t k fvs stk
       ⦃fun v s' => CSOKI mode eager env s' ∧ TabLe s₀ s' ∧ OkS s' v = true ∧
         Runs (ConLeche.inferPis (ConLeche.fueledFns mode eager env) d fuel (TrS s₀ t) k
           (TrSL s₀ fvs.toList).reverse (stk.map trL)) (TrS s' v); ⊤⦄ := by
@@ -290,7 +290,7 @@ theorem inferPisI_spec {r : InLean.CoreFnsI} (ih : KnotSpecI mode eager env r) {
   | zero =>
     intro _ _ _ _ _ hs _ _ _ _ _ _
     sym only [conleche_grind, ConLeche.inferPis.eq_3] =>
-      vcgen [InLean.inferPisI, inferPisLeafI_spec ih] <;> finish
+      vcgen [InLean.inferPisI.eq_def, inferPisLeafI_spec ih] <;> finish
   | succ fuel ihFuel =>
     intro _ _ _ _ _ hs _ _ _ _ _ _
     sym only [conleche_grind, ConLeche.inferPis.eq_1, ConLeche.inferPis.eq_2, List.map_cons,
@@ -305,24 +305,24 @@ The argument check `defeqArgI` is P2-whnf's (`DiscC1`'s `defeqArgC_spec`):
 its spec is a named hypothesis here. -/
 
 /-- `defeqArgI`'s spec (`defeqArgC_spec`'s twin), P2-whnf's to prove. -/
-@[expose] def DefeqArgSpecI (mode : ConLeche.CheckMode) (eager : Bool) (env : ConLeche.Env)
-    (r : InLean.CoreFnsI) : Prop :=
+@[expose] def DefeqArgSpecI (mode : ConLeche.CheckMode) (mi : InLean.CheckMode) (eager : Bool) (env : ConLeche.Env)
+    (fe : InLean.FEnv) (lv : Nat) : Prop :=
   ∀ {s₀ : InLean.CState} {d : Nat} {a ta ty : Expr},
     CSOKI mode eager env s₀ → OkS s₀ a = true → OkS s₀ ta = true → OkS s₀ ty = true →
     ConLeche.Expr.WScoped d (TrS s₀ ta) → ConLeche.Expr.WScoped d (TrS s₀ ty) →
     (TrS s₀ ta).looseBVarsBounded 0 = true → (TrS s₀ ty).looseBVarsBounded 0 = true →
-    ⦃fun s => s = s₀⦄ defeqArgI r d a ta ty
+    ⦃fun s => s = s₀⦄ defeqArgI mi fe eager lv d a ta ty
     ⦃fun v s' => CSOKI mode eager env s' ∧ TabLe s₀ s' ∧
       Runs (ConLeche.defeqArg (ConLeche.fueledFns mode eager env) d (TrS s₀ a) (TrS s₀ ta)
         (TrS s₀ ty)) v; ⊤⦄
 
-theorem DefeqArgSpecI.triple {r : InLean.CoreFnsI} (h : DefeqArgSpecI mode eager env r)
+theorem DefeqArgSpecI.triple {fe : InLean.FEnv} {lv : Nat} (h : DefeqArgSpecI mode mi eager env fe lv)
     {s₀ : InLean.CState} {d : Nat} {a ta ty : Expr}
     (hs : CSOKI mode eager env s₀) (ha : OkS s₀ a = true) (hta : OkS s₀ ta = true)
     (hty : OkS s₀ ty = true) (hwta : ConLeche.Expr.WScoped d (TrS s₀ ta))
     (hwty : ConLeche.Expr.WScoped d (TrS s₀ ty)) (hcta : (TrS s₀ ta).looseBVarsBounded 0 = true)
     (hcty : (TrS s₀ ty).looseBVarsBounded 0 = true) :
-    ⦃fun s => s = s₀⦄ defeqArgI r d a ta ty
+    ⦃fun s => s = s₀⦄ defeqArgI mi fe eager lv d a ta ty
     ⦃fun v s' => CSOKI mode eager env s' ∧ TabLe s₀ s' ∧
       Runs (ConLeche.defeqArg (ConLeche.fueledFns mode eager env) d (TrS s₀ a) (TrS s₀ ta)
         (TrS s₀ ty)) v; ⊤⦄ :=
@@ -346,67 +346,67 @@ grind_pattern [conleche_grind] wscoped_peel_cons => ConLeche.Expr.WScoped d a, b
 twins, `rfl` restatements of `inferSpineI`'s arms). -/
 
 /-- The syntactic-∀ arm of `inferSpineI`. -/
-@[expose] def inferSpinePiI (r : InLean.CoreFnsI) (d : Nat) (dom body : Expr) (acc : Array Expr)
+@[expose] def inferSpinePiI (mi : InLean.CheckMode) (fe : InLean.FEnv) (eager : Bool) (lv : Nat) (d : Nat) (dom body : Expr) (acc : Array Expr)
     (a : Expr) (rest : List Expr) : InLean.CheckCM Expr := do
   let dom' ← instListRevM dom acc
-  let ta ← r.infer d a
-  unless ← defeqArgI r d a ta dom' do
+  let ta ← InLean.inferI mi fe eager lv false d a
+  unless ← defeqArgI mi fe eager lv d a ta dom' do
     throw (.invalid "application type mismatch")
-  inferSpineI r d body (acc.push a) rest
+  inferSpineI mi fe eager lv false d body (acc.push a) rest
 
 /-- The normalize-and-retry arm of `inferSpineI`. -/
-@[expose] def inferSpineWhnfI (r : InLean.CoreFnsI) (d : Nat) (ty : Expr) (acc : Array Expr)
+@[expose] def inferSpineWhnfI (mi : InLean.CheckMode) (fe : InLean.FEnv) (eager : Bool) (lv : Nat) (d : Nat) (ty : Expr) (acc : Array Expr)
     (a : Expr) (rest : List Expr) : InLean.CheckCM Expr := do
   let ty' ← instListRevM ty acc
-  match EO.stripTop (← r.whnf d ty') with
+  match EO.stripTop (← InLean.whnfI mi fe eager lv d ty') with
   | .forallE _ dom body _ => do
-    let ta ← r.infer d a
-    unless ← defeqArgI r d a ta dom do
+    let ta ← InLean.inferI mi fe eager lv false d a
+    unless ← defeqArgI mi fe eager lv d a ta dom do
       throw (.invalid "application type mismatch")
-    inferSpineI r d body #[a] rest
+    inferSpineI mi fe eager lv false d body #[a] rest
   | _ => throw (.invalid "function expected")
 
-theorem inferSpineI_cons (r : InLean.CoreFnsI) (d : Nat) (ty : Expr) (acc : Array Expr) (a : Expr)
+theorem inferSpineI_cons {fe : InLean.FEnv} (lv : Nat) (d : Nat) (ty : Expr) (acc : Array Expr) (a : Expr)
     (rest : List Expr) :
-    inferSpineI r d ty acc (a :: rest) =
+    inferSpineI mi fe eager lv false d ty acc (a :: rest) =
       match EO.stripTop ty with
-      | .forallE _ dom body _ => inferSpinePiI r d dom body acc a rest
-      | _ => inferSpineWhnfI r d ty acc a rest := by
-  rw [InLean.inferSpineI]; rfl
+      | .forallE _ dom body _ => inferSpinePiI mi fe eager lv d dom body acc a rest
+      | _ => inferSpineWhnfI mi fe eager lv d ty acc a rest := by
+  rw [InLean.inferSpineI.eq_def]; rfl
 
 /-- What the spine loop's spec states, for one argument list (the induction
 hypothesis the arms take). -/
-@[expose] def SpineSpecI (mode : ConLeche.CheckMode) (eager : Bool) (env : ConLeche.Env)
-    (r : InLean.CoreFnsI) (d : Nat) (args : List Expr) : Prop :=
+@[expose] def SpineSpecI (mode : ConLeche.CheckMode) (mi : InLean.CheckMode) (eager : Bool) (env : ConLeche.Env)
+    (fe : InLean.FEnv) (lv : Nat) (d : Nat) (args : List Expr) : Prop :=
   ∀ {ty : Expr} {acc : Array Expr} {s₀ : InLean.CState},
     CSOKI mode eager env s₀ → OkS s₀ ty = true → OkSL s₀ acc.toList = true →
     AllClosed (TrSL s₀ acc.toList) = true → OkSL s₀ args = true →
     AllClosed (TrSL s₀ args) = true → AllWS d (TrSL s₀ args) →
     ConLeche.Expr.WScoped d ((TrS s₀ ty).instantiateList (TrSL s₀ acc.toList).reverse) →
     ((TrS s₀ ty).instantiateList (TrSL s₀ acc.toList).reverse).looseBVarsBounded 0 = true →
-    ⦃fun s => s = s₀⦄ inferSpineI r d ty acc args
+    ⦃fun s => s = s₀⦄ inferSpineI mi fe eager lv false d ty acc args
     ⦃fun v s' => CSOKI mode eager env s' ∧ TabLe s₀ s' ∧ OkS s' v = true ∧
       Runs (ConLeche.inferSpine (ConLeche.fueledFns mode eager env) d (TrS s₀ ty)
         (TrSL s₀ acc.toList).reverse (TrSL s₀ args)) (TrS s' v) ∧
       ConLeche.Expr.WScoped d (TrS s' v) ∧ (TrS s' v).looseBVarsBounded 0 = true; ⊤⦄
 
-theorem SpineSpecI.triple {r : InLean.CoreFnsI} {d : Nat} {args : List Expr}
-    (h : SpineSpecI mode eager env r d args) {ty : Expr} {acc : Array Expr} {s₀ : InLean.CState}
+theorem SpineSpecI.triple {fe : InLean.FEnv} {lv : Nat} {d : Nat} {args : List Expr}
+    (h : SpineSpecI mode mi eager env fe lv d args) {ty : Expr} {acc : Array Expr} {s₀ : InLean.CState}
     (hs : CSOKI mode eager env s₀) (hty : OkS s₀ ty = true) (hacc : OkSL s₀ acc.toList = true)
     (hcacc : AllClosed (TrSL s₀ acc.toList) = true) (hargs : OkSL s₀ args = true)
     (hcargs : AllClosed (TrSL s₀ args) = true) (hwargs : AllWS d (TrSL s₀ args))
     (hw : ConLeche.Expr.WScoped d ((TrS s₀ ty).instantiateList (TrSL s₀ acc.toList).reverse))
     (hc : ((TrS s₀ ty).instantiateList (TrSL s₀ acc.toList).reverse).looseBVarsBounded 0 = true) :
-    ⦃fun s => s = s₀⦄ inferSpineI r d ty acc args
+    ⦃fun s => s = s₀⦄ inferSpineI mi fe eager lv false d ty acc args
     ⦃fun v s' => CSOKI mode eager env s' ∧ TabLe s₀ s' ∧ OkS s' v = true ∧
       Runs (ConLeche.inferSpine (ConLeche.fueledFns mode eager env) d (TrS s₀ ty)
         (TrSL s₀ acc.toList).reverse (TrSL s₀ args)) (TrS s' v) ∧
       ConLeche.Expr.WScoped d (TrS s' v) ∧ (TrS s' v).looseBVarsBounded 0 = true; ⊤⦄ :=
   h hs hty hacc hcacc hargs hcargs hwargs hw hc
 
-theorem inferSpinePiI_spec {r : InLean.CoreFnsI} (ih : KnotSpecI mode eager env r)
-    (harg : DefeqArgSpecI mode eager env r) {d : Nat} {rest : List Expr}
-    (ihr : SpineSpecI mode eager env r d rest) {dom body : Expr} {acc : Array Expr} {a : Expr}
+theorem inferSpinePiI_spec {fe : InLean.FEnv} {lv : Nat} (ih : KnotSpecI mode mi eager env fe lv)
+    (harg : DefeqArgSpecI mode mi eager env fe lv) {d : Nat} {rest : List Expr}
+    (ihr : SpineSpecI mode mi eager env fe lv d rest) {dom body : Expr} {acc : Array Expr} {a : Expr}
     {s₀ : InLean.CState} (hs : CSOKI mode eager env s₀) (hdom : OkS s₀ dom = true)
     (hbody : OkS s₀ body = true) (hacc : OkSL s₀ acc.toList = true)
     (hcacc : AllClosed (TrSL s₀ acc.toList) = true) (ha : OkS s₀ a = true)
@@ -417,7 +417,7 @@ theorem inferSpinePiI_spec {r : InLean.CoreFnsI} (ih : KnotSpecI mode eager env 
       ((ConLeche.Expr.forallE (TrS s₀ dom) (TrS s₀ body)).instantiateList (TrSL s₀ acc.toList).reverse))
     (hc : ((ConLeche.Expr.forallE (TrS s₀ dom) (TrS s₀ body)).instantiateList
       (TrSL s₀ acc.toList).reverse).looseBVarsBounded 0 = true) :
-    ⦃fun s => s = s₀⦄ inferSpinePiI r d dom body acc a rest
+    ⦃fun s => s = s₀⦄ inferSpinePiI mi fe eager lv d dom body acc a rest
     ⦃fun v s' => CSOKI mode eager env s' ∧ TabLe s₀ s' ∧ OkS s' v = true ∧
       Runs (ConLeche.inferSpinePi (ConLeche.fueledFns mode eager env) d (TrS s₀ dom) (TrS s₀ body)
         (TrSL s₀ acc.toList).reverse (TrS s₀ a) (TrSL s₀ rest)) (TrS s' v) ∧
@@ -425,9 +425,9 @@ theorem inferSpinePiI_spec {r : InLean.CoreFnsI} (ih : KnotSpecI mode eager env 
   sym only [conleche_grind, ConLeche.inferSpinePi] =>
     vcgen [inferSpinePiI, instListRevM_specI hs, ih.infer, harg.triple, ihr.triple] <;> finish
 
-theorem inferSpineWhnfI_spec {r : InLean.CoreFnsI} (ih : KnotSpecI mode eager env r)
-    (harg : DefeqArgSpecI mode eager env r) {d : Nat} {rest : List Expr}
-    (ihr : SpineSpecI mode eager env r d rest) {ty : Expr} {acc : Array Expr} {a : Expr}
+theorem inferSpineWhnfI_spec {fe : InLean.FEnv} {lv : Nat} (ih : KnotSpecI mode mi eager env fe lv)
+    (harg : DefeqArgSpecI mode mi eager env fe lv) {d : Nat} {rest : List Expr}
+    (ihr : SpineSpecI mode mi eager env fe lv d rest) {ty : Expr} {acc : Array Expr} {a : Expr}
     {s₀ : InLean.CState} (hs : CSOKI mode eager env s₀) (hty : OkS s₀ ty = true)
     (hacc : OkSL s₀ acc.toList = true)
     (hcacc : AllClosed (TrSL s₀ acc.toList) = true) (ha : OkS s₀ a = true)
@@ -436,7 +436,7 @@ theorem inferSpineWhnfI_spec {r : InLean.CoreFnsI} (ih : KnotSpecI mode eager en
     (hwrest : AllWS d (TrSL s₀ rest))
     (hw : ConLeche.Expr.WScoped d ((TrS s₀ ty).instantiateList (TrSL s₀ acc.toList).reverse))
     (hc : ((TrS s₀ ty).instantiateList (TrSL s₀ acc.toList).reverse).looseBVarsBounded 0 = true) :
-    ⦃fun s => s = s₀⦄ inferSpineWhnfI r d ty acc a rest
+    ⦃fun s => s = s₀⦄ inferSpineWhnfI mi fe eager lv d ty acc a rest
     ⦃fun v s' => CSOKI mode eager env s' ∧ TabLe s₀ s' ∧ OkS s' v = true ∧
       Runs (ConLeche.inferSpineWhnf (ConLeche.fueledFns mode eager env) d (TrS s₀ ty)
         (TrSL s₀ acc.toList).reverse (TrS s₀ a) (TrSL s₀ rest)) (TrS s' v) ∧
@@ -445,15 +445,15 @@ theorem inferSpineWhnfI_spec {r : InLean.CoreFnsI} (ih : KnotSpecI mode eager en
     vcgen [inferSpineWhnfI, instListRevM_specI hs, ih.infer, ih.whnf, harg.triple, ihr.triple] <;> finish
 
 /-- The application-inference spine loop simulates its pure mirror. -/
-theorem inferSpineI_spec {r : InLean.CoreFnsI} (ih : KnotSpecI mode eager env r)
-    (harg : DefeqArgSpecI mode eager env r) {d : Nat} :
-    ∀ args : List Expr, SpineSpecI mode eager env r d args := by
+theorem inferSpineI_spec {fe : InLean.FEnv} {lv : Nat} (ih : KnotSpecI mode mi eager env fe lv)
+    (harg : DefeqArgSpecI mode mi eager env fe lv) {d : Nat} :
+    ∀ args : List Expr, SpineSpecI mode mi eager env fe lv d args := by
   intro args
   induction args with
   | nil =>
     intro _ _ _ hs _ _ _ _ _ _ _ _
     sym only [conleche_grind, ConLeche.inferSpine.eq_1] =>
-      vcgen [InLean.inferSpineI, instListRevM_specI hs] <;> finish
+      vcgen [InLean.inferSpineI.eq_def, instListRevM_specI hs] <;> finish
   | cons _ rest ihr =>
     intro _ _ _ hs _ _ _ _ _ _ _ _
     sym only [conleche_grind, ConLeche.inferSpine_pi, ConLeche.inferSpine_ne_pi] =>
@@ -462,75 +462,53 @@ theorem inferSpineI_spec {r : InLean.CoreFnsI} (ih : KnotSpecI mode eager env r)
 
 /-! ### The io-grade spine loop -/
 
-/-- The io view's whnf slot is the record's. -/
-theorem KnotSpecI.ioWhnf {r : InLean.CoreFnsI} (ih : KnotSpecI mode eager env r)
-    {s₀ : InLean.CState} {d : Nat} {i : Expr} (hs : CSOKI mode eager env s₀)
-    (hok : OkS s₀ i = true) (hw : ConLeche.Expr.WScoped d (TrS s₀ i))
-    (hc : (TrS s₀ i).looseBVarsBounded 0 = true) :
-    ⦃fun s => s = s₀⦄ (CoreFnsI.ioView r).whnf d i
-    ⦃fun v s' => CSOKI mode eager env s' ∧ TabLe s₀ s' ∧ OkS s' v = true ∧
-      Runs ((ConLeche.fueledFns mode eager env).whnf d (TrS s₀ i)) (TrS s' v) ∧
-      ConLeche.Expr.WScoped d (TrS s' v) ∧ (TrS s' v).looseBVarsBounded 0 = true; ⊤⦄ :=
-  ih.whnf hs hok hw hc
-
-/-- The io view's infer slot is the record's io slot. -/
-theorem KnotSpecI.ioInfer {r : InLean.CoreFnsI} (ih : KnotSpecI mode eager env r)
-    {s₀ : InLean.CState} {d : Nat} {i : Expr} (hs : CSOKI mode eager env s₀)
-    (hok : OkS s₀ i = true) (hw : ConLeche.Expr.WScoped d (TrS s₀ i))
-    (hc : (TrS s₀ i).looseBVarsBounded 0 = true) :
-    ⦃fun s => s = s₀⦄ (CoreFnsI.ioView r).infer d i
-    ⦃fun v s' => CSOKI mode eager env s' ∧ TabLe s₀ s' ∧ OkS s' v = true ∧
-      Runs ((ConLeche.fueledFns mode eager env).inferIO d (TrS s₀ i)) (TrS s' v) ∧
-      ConLeche.Expr.WScoped d (TrS s' v) ∧ (TrS s' v).looseBVarsBounded 0 = true; ⊤⦄ :=
-  ih.inferIO hs hok hw hc
-
 /-- The normalize-and-retry arm of `inferSpineIOI`. -/
-@[expose] def inferSpineIOWhnfI (r : InLean.CoreFnsI) (d : Nat) (ty : Expr) (acc : Array Expr)
+@[expose] def inferSpineIOWhnfI (mi : InLean.CheckMode) (fe : InLean.FEnv) (eager : Bool) (lv : Nat) (d : Nat) (ty : Expr) (acc : Array Expr)
     (a : Expr) (rest : List Expr) : InLean.CheckCM Expr := do
   let ty' ← instListRevM ty acc
-  match EO.stripTop (← r.whnf d ty') with
-  | .forallE _ _ body _ => inferSpineIOI r d body #[a] rest
+  match EO.stripTop (← InLean.whnfI mi fe eager lv d ty') with
+  | .forallE _ _ body _ => inferSpineIOI mi fe eager lv d body #[a] rest
   | _ => throw (.invalid "function expected")
 
-theorem inferSpineIOI_cons (r : InLean.CoreFnsI) (d : Nat) (ty : Expr) (acc : Array Expr)
+theorem inferSpineIOI_cons {fe : InLean.FEnv} (lv : Nat) (d : Nat) (ty : Expr) (acc : Array Expr)
     (a : Expr) (rest : List Expr) :
-    inferSpineIOI r d ty acc (a :: rest) =
+    inferSpineIOI mi fe eager lv d ty acc (a :: rest) =
       match EO.stripTop ty with
-      | .forallE _ _ body _ => inferSpineIOI r d body (acc.push a) rest
-      | _ => inferSpineIOWhnfI r d ty acc a rest := by
-  rw [InLean.inferSpineIOI]; rfl
+      | .forallE _ _ body _ => inferSpineIOI mi fe eager lv d body (acc.push a) rest
+      | _ => inferSpineIOWhnfI mi fe eager lv d ty acc a rest := by
+  rw [InLean.inferSpineIOI.eq_def]; rfl
 
 /-- What the io spine loop's spec states, for one argument list. -/
-@[expose] def SpineIOSpecI (mode : ConLeche.CheckMode) (eager : Bool) (env : ConLeche.Env)
-    (r : InLean.CoreFnsI) (d : Nat) (args : List Expr) : Prop :=
+@[expose] def SpineIOSpecI (mode : ConLeche.CheckMode) (mi : InLean.CheckMode) (eager : Bool) (env : ConLeche.Env)
+    (fe : InLean.FEnv) (lv : Nat) (d : Nat) (args : List Expr) : Prop :=
   ∀ {ty : Expr} {acc : Array Expr} {s₀ : InLean.CState},
     CSOKI mode eager env s₀ → OkS s₀ ty = true → OkSL s₀ acc.toList = true →
     AllClosed (TrSL s₀ acc.toList) = true → OkSL s₀ args = true →
     AllClosed (TrSL s₀ args) = true → AllWS d (TrSL s₀ args) →
     ConLeche.Expr.WScoped d ((TrS s₀ ty).instantiateList (TrSL s₀ acc.toList).reverse) →
     ((TrS s₀ ty).instantiateList (TrSL s₀ acc.toList).reverse).looseBVarsBounded 0 = true →
-    ⦃fun s => s = s₀⦄ inferSpineIOI (CoreFnsI.ioView r) d ty acc args
+    ⦃fun s => s = s₀⦄ inferSpineIOI mi fe eager lv d ty acc args
     ⦃fun v s' => CSOKI mode eager env s' ∧ TabLe s₀ s' ∧ OkS s' v = true ∧
       Runs (ConLeche.inferSpineIO (ConLeche.fueledFns mode eager env) d (TrS s₀ ty)
         (TrSL s₀ acc.toList).reverse (TrSL s₀ args)) (TrS s' v) ∧
       ConLeche.Expr.WScoped d (TrS s' v) ∧ (TrS s' v).looseBVarsBounded 0 = true; ⊤⦄
 
-theorem SpineIOSpecI.triple {r : InLean.CoreFnsI} {d : Nat} {args : List Expr}
-    (h : SpineIOSpecI mode eager env r d args) {ty : Expr} {acc : Array Expr} {s₀ : InLean.CState}
+theorem SpineIOSpecI.triple {fe : InLean.FEnv} {lv : Nat} {d : Nat} {args : List Expr}
+    (h : SpineIOSpecI mode mi eager env fe lv d args) {ty : Expr} {acc : Array Expr} {s₀ : InLean.CState}
     (hs : CSOKI mode eager env s₀) (hty : OkS s₀ ty = true) (hacc : OkSL s₀ acc.toList = true)
     (hcacc : AllClosed (TrSL s₀ acc.toList) = true) (hargs : OkSL s₀ args = true)
     (hcargs : AllClosed (TrSL s₀ args) = true) (hwargs : AllWS d (TrSL s₀ args))
     (hw : ConLeche.Expr.WScoped d ((TrS s₀ ty).instantiateList (TrSL s₀ acc.toList).reverse))
     (hc : ((TrS s₀ ty).instantiateList (TrSL s₀ acc.toList).reverse).looseBVarsBounded 0 = true) :
-    ⦃fun s => s = s₀⦄ inferSpineIOI (CoreFnsI.ioView r) d ty acc args
+    ⦃fun s => s = s₀⦄ inferSpineIOI mi fe eager lv d ty acc args
     ⦃fun v s' => CSOKI mode eager env s' ∧ TabLe s₀ s' ∧ OkS s' v = true ∧
       Runs (ConLeche.inferSpineIO (ConLeche.fueledFns mode eager env) d (TrS s₀ ty)
         (TrSL s₀ acc.toList).reverse (TrSL s₀ args)) (TrS s' v) ∧
       ConLeche.Expr.WScoped d (TrS s' v) ∧ (TrS s' v).looseBVarsBounded 0 = true; ⊤⦄ :=
   h hs hty hacc hcacc hargs hcargs hwargs hw hc
 
-theorem inferSpineIOWhnfI_spec {r : InLean.CoreFnsI} (ih : KnotSpecI mode eager env r) {d : Nat}
-    {rest : List Expr} (ihr : SpineIOSpecI mode eager env r d rest) {ty : Expr} {acc : Array Expr}
+theorem inferSpineIOWhnfI_spec {fe : InLean.FEnv} {lv : Nat} (ih : KnotSpecI mode mi eager env fe lv) {d : Nat}
+    {rest : List Expr} (ihr : SpineIOSpecI mode mi eager env fe lv d rest) {ty : Expr} {acc : Array Expr}
     {a : Expr} {s₀ : InLean.CState} (hs : CSOKI mode eager env s₀) (hty : OkS s₀ ty = true)
     (hacc : OkSL s₀ acc.toList = true)
     (hcacc : AllClosed (TrSL s₀ acc.toList) = true) (ha : OkS s₀ a = true)
@@ -539,23 +517,23 @@ theorem inferSpineIOWhnfI_spec {r : InLean.CoreFnsI} (ih : KnotSpecI mode eager 
     (hwrest : AllWS d (TrSL s₀ rest))
     (hw : ConLeche.Expr.WScoped d ((TrS s₀ ty).instantiateList (TrSL s₀ acc.toList).reverse))
     (hc : ((TrS s₀ ty).instantiateList (TrSL s₀ acc.toList).reverse).looseBVarsBounded 0 = true) :
-    ⦃fun s => s = s₀⦄ inferSpineIOWhnfI (CoreFnsI.ioView r) d ty acc a rest
+    ⦃fun s => s = s₀⦄ inferSpineIOWhnfI mi fe eager lv d ty acc a rest
     ⦃fun v s' => CSOKI mode eager env s' ∧ TabLe s₀ s' ∧ OkS s' v = true ∧
       Runs (ConLeche.inferSpineIOWhnf (ConLeche.fueledFns mode eager env) d (TrS s₀ ty)
         (TrSL s₀ acc.toList).reverse (TrS s₀ a) (TrSL s₀ rest)) (TrS s' v) ∧
       ConLeche.Expr.WScoped d (TrS s' v) ∧ (TrS s' v).looseBVarsBounded 0 = true; ⊤⦄ := by
   sym only [conleche_grind, ConLeche.inferSpineIOWhnf] =>
-    vcgen [inferSpineIOWhnfI, instListRevM_specI hs, ih.ioWhnf, ihr.triple] <;> finish
+    vcgen [inferSpineIOWhnfI, instListRevM_specI hs, ih.whnf, ihr.triple] <;> finish
 
 /-- The io-grade spine loop simulates its pure mirror. -/
-theorem inferSpineIOI_spec {r : InLean.CoreFnsI} (ih : KnotSpecI mode eager env r) {d : Nat} :
-    ∀ args : List Expr, SpineIOSpecI mode eager env r d args := by
+theorem inferSpineIOI_spec {fe : InLean.FEnv} {lv : Nat} (ih : KnotSpecI mode mi eager env fe lv) {d : Nat} :
+    ∀ args : List Expr, SpineIOSpecI mode mi eager env fe lv d args := by
   intro args
   induction args with
   | nil =>
     intro _ _ _ hs _ _ _ _ _ _ _ _
     sym only [conleche_grind, ConLeche.inferSpineIO.eq_1] =>
-      vcgen [InLean.inferSpineIOI, instListRevM_specI hs] <;> finish
+      vcgen [InLean.inferSpineIOI.eq_def, instListRevM_specI hs] <;> finish
   | cons _ rest ihr =>
     intro _ _ _ hs _ _ _ _ _ _ _ _
     sym only [conleche_grind, ConLeche.inferSpineIO_pi, ConLeche.inferSpineIO_ne_pi,
@@ -633,11 +611,11 @@ theorem GuardRowsWS.cons_eq (d : Nat) (e : ConLeche.Expr) (rows : List (Nat × C
 attribute [conleche_grind =] GuardRowsWS.cons_eq
 
 /-- The rows of a projection's guard simulate their pure original. -/
-theorem checkGuardRowsI_spec {r : InLean.CoreFnsI} (ih : KnotSpecI mode eager env r)
+theorem checkGuardRowsI_spec {fe : InLean.FEnv} {lv : Nat} (ih : KnotSpecI mode mi eager env fe lv)
     (guardSort : Level) (hg : okL guardSort = true) :
     ∀ {rows : List (Nat × Expr)} {s₀ : InLean.CState}, CSOKI mode eager env s₀ →
       OkRows s₀ rows = true → ConLeche.GuardRowsWS (TrRows s₀ rows) →
-      ⦃fun s => s = s₀⦄ checkGuardRowsI r.inferIO r.whnf guardSort rows
+      ⦃fun s => s = s₀⦄ checkGuardRowsI mi fe eager lv guardSort rows
       ⦃fun v s' => CSOKI mode eager env s' ∧ TabLe s₀ s' ∧
         Runs (ConLeche.checkGuardRows (ConLeche.fueledFns mode eager env).inferIO
           (ConLeche.fueledFns mode eager env).whnf (trL guardSort) (TrRows s₀ rows)) v; ⊤⦄ := by
@@ -646,7 +624,7 @@ theorem checkGuardRowsI_spec {r : InLean.CoreFnsI} (ih : KnotSpecI mode eager en
   | nil =>
     intro _ _ _ _
     sym only [conleche_grind, ConLeche.checkGuardRows] =>
-      vcgen [InLean.checkGuardRowsI] <;> finish
+      vcgen [InLean.checkGuardRowsI.eq_def] <;> finish
   | cons p rest ihr =>
     obtain ⟨d, dom⟩ := p
     intro s₀ hs _ _

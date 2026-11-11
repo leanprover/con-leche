@@ -28,7 +28,7 @@ namespace InLeanProof
 open Lean InLean Std.WP ConLeche.Cached
 open scoped Lean.Order
 
-variable {mode : ConLeche.CheckMode} {eager : Bool} {env : ConLeche.Env}
+variable {mode : ConLeche.CheckMode} {mi : InLean.CheckMode} {eager : Bool} {env : ConLeche.Env}
 
 /-! ## Runs of binds -/
 
@@ -305,14 +305,14 @@ end Views
 
 section FamilySort
 
-variable {r : InLean.CoreFnsI}
+variable {fe : InLean.FEnv} {lv : Nat}
 
 /-- **The walk to a family's sort** (`formerSortLoopC_spec`'s twin): the
 binders are opened at interned free variables, con-leche's `.fvar d dom`. -/
-theorem formerSortLoopI_specI (ih : KnotSpecI mode eager env r) :
+theorem formerSortLoopI_specI (ih : KnotSpecI mode mi eager env fe lv) :
     ∀ {n d : Nat} {e : Expr} {s₀ : InLean.CState}, CSOKI mode eager env s₀ → OkS s₀ e = true →
       ConLeche.Expr.WScoped d (TrS s₀ e) → (TrS s₀ e).looseBVarsBounded 0 = true →
-      ⦃fun s => s = s₀⦄ InLean.formerSortLoopI r.whnf d n e
+      ⦃fun s => s = s₀⦄ InLean.formerSortLoopI mi fe eager lv d n e
       ⦃fun v s' => CSOKI mode eager env s' ∧ TabLe s₀ s' ∧ v.all okLv = true ∧
         Runs (ConLeche.formerSortLoop (ConLeche.fueledFns mode eager env).whnf d n (TrS s₀ e))
           (v.map trL); ⊤⦄ := by
@@ -407,11 +407,11 @@ theorem formerSortLoopI_specI (ih : KnotSpecI mode eager env r) :
 
 /-- **A family's sort at a use** (`formerNeverZeroC_spec`'s twin): the former
 is a stored record, closed. -/
-theorem formerNeverZeroI_specI (ih : KnotSpecI mode eager env r) {cvT : Lean.ConstantVal}
+theorem formerNeverZeroI_specI (ih : KnotSpecI mode mi eager env fe lv) {cvT : Lean.ConstantVal}
     {ccvT : ConLeche.ConstantVal} (hcv : CVRel cvT ccvT) (hcl : ccvT.type.hasFvar = false)
     (hlbb : ccvT.type.looseBVarsBounded 0 = true) (caps : InLean.IndCaps) {us : List Level}
     (hus : us.all okLv = true) {s₀ : InLean.CState} (hs : CSOKI mode eager env s₀) :
-    ⦃fun s => s = s₀⦄ InLean.formerNeverZeroI r.whnf cvT caps us
+    ⦃fun s => s = s₀⦄ InLean.formerNeverZeroI mi fe eager lv cvT caps us
     ⦃fun v s' => CSOKI mode eager env s' ∧ TabLe s₀ s' ∧
       Runs (ConLeche.formerNeverZeroAt (ConLeche.fueledFns mode eager env).whnf ccvT (toCaps caps)
         (us.map trL)) v; ⊤⦄ := by
@@ -470,11 +470,11 @@ theorem ctorFamily_closed (henv : ConLeche.EnvWF env) {ccvj ccvT : ConLeche.Cons
   · exact nomatch h
 
 /-- **The ι case split** (`iotaCase3C_spec`'s twin). -/
-theorem iotaCase3I_specI (ih : KnotSpecI mode eager env r) (henv : ConLeche.EnvWF env)
-    {fe : InLean.FEnv} (hv : EnvViewI fe env) {isK : Bool} {cvj : Lean.ConstantVal}
+theorem iotaCase3I_specI {fe : InLean.FEnv} (ih : KnotSpecI mode mi eager env fe lv) (henv : ConLeche.EnvWF env)
+    (hv : EnvViewI fe env) {isK : Bool} {cvj : Lean.ConstantVal}
     {ccvj : ConLeche.ConstantVal} (hcvj : CVRel cvj ccvj) {us : List Level}
     (hus : us.all okLv = true) {s₀ : InLean.CState} (hs : CSOKI mode eager env s₀) :
-    ⦃fun s => s = s₀⦄ InLean.iotaCase3I r.whnf fe isK cvj us
+    ⦃fun s => s = s₀⦄ InLean.iotaCase3I mi fe eager lv isK cvj us
     ⦃fun v s' => CSOKI mode eager env s' ∧ TabLe s₀ s' ∧
       Runs (ConLeche.iotaCase3At (ConLeche.fueledFns mode eager env).whnf env.find? isK ccvj
         (us.map trL)) v; ⊤⦄ := by
@@ -523,7 +523,7 @@ end FamilySort
 
 section IndexOk
 
-variable {r : InLean.CoreFnsI}
+variable {fe : InLean.FEnv} {lv : Nat}
 
 /-- Bulk instantiation by an array of closed values read at a state
 (`instListM_specI`'s computation). -/
@@ -617,7 +617,7 @@ decreasing_by
     | (apply Prod.Lex.left; simp +arith +decide)
 
 /-- **The canonical-index comparison** (`iotaIndexOkC_spec`'s twin). -/
-theorem iotaIndexOkI_specI (ih : KnotSpecI mode eager env r) {d : Nat} {mI rP cnP : Nat}
+theorem iotaIndexOkI_specI (ih : KnotSpecI mode mi eager env fe lv) {d : Nat} {mI rP cnP : Nat}
     {ty : Expr} {margs idx : List Expr} {s₀ : InLean.CState} (hs : CSOKI mode eager env s₀)
     (hty : OkS s₀ ty = true) (hwty : ConLeche.Expr.WScoped d (TrS s₀ ty))
     (hcty : (TrS s₀ ty).looseBVarsBounded 0 = true)
@@ -625,7 +625,7 @@ theorem iotaIndexOkI_specI (ih : KnotSpecI mode eager env r) {d : Nat} {mI rP cn
     (hcm : AllClosed (TrSL s₀ margs) = true)
     (hi : OkSL s₀ idx = true) (hwi : AllWS d (TrSL s₀ idx))
     (hci : AllClosed (TrSL s₀ idx) = true) :
-    ⦃fun s => s = s₀⦄ InLean.iotaIndexOkI r d mI rP cnP ty margs idx
+    ⦃fun s => s = s₀⦄ InLean.iotaIndexOkI mi fe eager lv d mI rP cnP ty margs idx
     ⦃fun b s' => CSOKI mode eager env s' ∧ TabLe s₀ s' ∧
       Runs (ConLeche.iotaIndexOk (ConLeche.fueledFns mode eager env) env d mI rP cnP (TrS s₀ ty)
         (TrSL s₀ margs) (TrSL s₀ idx)) b; ⊤⦄ := by

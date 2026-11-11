@@ -58,17 +58,17 @@ structure Added where
 section
 variable (mode : CheckMode)
 
-/-- The core's entry points at the plain tower: `coreKnotI` at the recursion
-limit's fuel, which master's cached stages call directly (`opSort` is its
-`opSIxC`). -/
+/-- The core's entry points at the plain tower: the knot at the recursion
+limit's level, which master's cached stages call directly (`opInfer` is
+master's `opI`, `opWhnf` its `opW`, `opSort` its `opSIxC`). -/
 @[inline] def opInfer (fe : FEnv) (d : Nat) (e : Expr) : CheckCM Expr :=
-  (coreKnotI mode false fe (fe.limits.recDepth.getD checkFuel)).infer d e
+  inferI mode fe false (fe.limits.recDepth.getD checkFuel) false d e
 @[inline] def opDefeq (fe : FEnv) (d : Nat) (a b : Expr) : CheckCM Bool :=
-  (coreKnotI mode false fe (fe.limits.recDepth.getD checkFuel)).defeq d a b
+  defeqI mode fe false (fe.limits.recDepth.getD checkFuel) d a b
 @[inline] def opSort (fe : FEnv) (d : Nat) (e : Expr) : CheckCM Level :=
-  ensureSortI (coreKnotI mode false fe (fe.limits.recDepth.getD checkFuel)) d e
+  ensureSortI mode fe false (fe.limits.recDepth.getD checkFuel) d e
 @[inline] def opWhnf (fe : FEnv) (d : Nat) (e : Expr) : CheckCM Expr :=
-  (coreKnotI mode false fe (fe.limits.recDepth.getD checkFuel)).whnf d e
+  whnfI mode fe false (fe.limits.recDepth.getD checkFuel) d e
 
 end
 

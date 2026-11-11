@@ -6,14 +6,14 @@ public import ConLeche.Verify.Cached.KnotC
 /-!
 # The knot assembly: memo wrappers, the eager memos, the knot step (task #451, lane P2-infer)
 
-`KnotC.lean`'s twin.  A memo wrapper at fuel `f + 1` simulates its slot
-from its body's simulation at fuel `f` (`BodySpecI`/`BodySpecBI`): a hit
+`KnotC.lean`'s twin.  An entry point at level `f + 1` simulates its slot
+from its body's simulation at level `f` (`BodySpecI`/`BodySpecBI`): a hit
 answers by the memo's `CSOKI` clause (`UnaryOK`/`BinaryOK` at the query, which
 reads the stored value), a miss runs the body and the insert keeps the
 clause, backed one fuel up at every depth by the pure checker's depth
 invariance.  `withEagerMemos` swaps the eager tower's memos in (the
 invariant at `eager := true`) and out (`ModeMemosOKI`).  `ssimI_succ` ties
-the slots to the bodies, `ssimI` by fuel induction.
+the entry points to the bodies, `ssimI` by induction on the level.
 -/
 
 set_option experimental.vcgen true
@@ -207,12 +207,6 @@ theorem UnaryOK.insert {s : InLean.CState}
 section Infer
 variable {fe : InLean.FEnv} {f : Nat}
 
-theorem coreKnotI_infer_succ (d : Nat) (i : Expr) :
-    (coreKnotI .verified eager fe (f + 1)).infer d i =
-      memoEI (·.inferC) (fun st mp => { st with inferC := mp })
-        (fun d e => pollC fe (.body d) (inferBodyI (coreKnotI .verified eager fe f) fe d e)) d i := by
-  cases eager <;> rfl
-
 /-- An infer memo hit answers the pure infer. -/
 theorem CSOKI.infer_hit (henv : ConLeche.EnvWF env) {s : InLean.CState} {d : Nat} {i r : Expr}
     (hs : CSOKI .verified eager env s) (hl : s.inferC[EKey.mk i]? = some r) (hok : OkS s i = true)
@@ -247,16 +241,16 @@ grind_pattern [conleche_grind] CSOKI.infer_insert =>
 /-- The infer memo wrapper simulates the pure infer at one fuel more than its
 body. -/
 theorem memoEI_infer_specI (henv : ConLeche.EnvWF env)
-    (hbody : BodySpecI .verified eager env (inferBodyI (coreKnotI .verified eager fe f) fe)
+    (hbody : BodySpecI .verified eager env (inferBodyI .verified fe eager f false)
       (ConLeche.inferBody (ConLeche.fueledFns .verified eager env) env))
     {s₀ : InLean.CState} {d : Nat} {i : Expr} (hs : CSOKI .verified eager env s₀) (hok : OkS s₀ i = true)
     (hw : ConLeche.Expr.WScoped d (TrS s₀ i)) (hc : (TrS s₀ i).looseBVarsBounded 0 = true) :
-    ⦃fun s => s = s₀⦄ (coreKnotI .verified eager fe (f + 1)).infer d i
+    ⦃fun s => s = s₀⦄ inferI .verified fe eager (f + 1) false d i
     ⦃fun v s' => CSOKI .verified eager env s' ∧ TabLe s₀ s' ∧ OkS s' v = true ∧
       Runs ((ConLeche.fueledFns .verified eager env).infer d (TrS s₀ i)) (TrS s' v) ∧
       ConLeche.Expr.WScoped d (TrS s' v) ∧ (TrS s' v).looseBVarsBounded 0 = true; ⊤⦄ := by
   sym only [conleche_grind] =>
-    vcgen [coreKnotI_infer_succ, InLean.memoEI, InLean.pollC, hbody.triple] <;> finish
+    vcgen [InLean.inferI.eq_def, InLean.memoEI, InLean.pollC, hbody.triple] <;> finish
 
 end Infer
 
@@ -264,17 +258,6 @@ end Infer
 
 section WhnfCore
 variable {fe : InLean.FEnv} {f : Nat}
-
-theorem coreKnotI_whnfCore_succ (c : Bool) (d : Nat) (i : Expr) :
-    (coreKnotI .verified eager fe (f + 1)).whnfCore c d i =
-      if InLean.whnfCoreEasy i then pure i
-      else if c then
-        memoEI (·.whnfCoreCheapC) (fun st mp => { st with whnfCoreCheapC := mp })
-          (fun d e => pollC fe (.body d) (whnfCoreBodyI .verified (coreKnotI .verified eager fe f) fe true d e)) d i
-      else
-        memoEI (·.whnfCoreC) (fun st mp => { st with whnfCoreC := mp })
-          (fun d e => pollC fe (.body d) (whnfCoreBodyI .verified (coreKnotI .verified eager fe f) fe false d e)) d i := by
-  cases eager <;> cases c <;> rfl
 
 /-- An easy case of InLean's `whnfCore` translates to an easy case of
 con-leche's (a free variable with a reading is con-leche's free variable). -/
@@ -350,19 +333,19 @@ grind_pattern [conleche_grind] CSOKI.whnfCoreCheap_insert =>
 
 /-- The whnfCore memo wrappers simulate the pure whnfCore at one fuel more
 than their bodies. -/
-theorem memoEI_whnfCore_specI (henv : ConLeche.EnvWF env)
+theorem memoRedEI_whnfCore_specI (henv : ConLeche.EnvWF env)
     (hbody : ∀ c, BodySpecI .verified eager env
-      (whnfCoreBodyI .verified (coreKnotI .verified eager fe f) fe c)
+      (whnfCoreBodyI .verified fe eager f c)
       (ConLeche.whnfCoreBody .verified (ConLeche.fueledFns .verified eager env) env c))
     {c : Bool} {s₀ : InLean.CState} {d : Nat} {i : Expr} (hs : CSOKI .verified eager env s₀)
     (hok : OkS s₀ i = true) (hw : ConLeche.Expr.WScoped d (TrS s₀ i))
     (hc : (TrS s₀ i).looseBVarsBounded 0 = true) :
-    ⦃fun s => s = s₀⦄ (coreKnotI .verified eager fe (f + 1)).whnfCore c d i
+    ⦃fun s => s = s₀⦄ whnfCoreI .verified fe eager (f + 1) c d i
     ⦃fun v s' => CSOKI .verified eager env s' ∧ TabLe s₀ s' ∧ OkS s' v = true ∧
       Runs ((ConLeche.fueledFns .verified eager env).whnfCore c d (TrS s₀ i)) (TrS s' v) ∧
       ConLeche.Expr.WScoped d (TrS s' v) ∧ (TrS s' v).looseBVarsBounded 0 = true; ⊤⦄ := by
   sym only [conleche_grind] =>
-    vcgen [coreKnotI_whnfCore_succ, InLean.memoEI, InLean.pollC, BodySpecI.triple (hbody true), BodySpecI.triple (hbody false)] <;>
+    vcgen [InLean.whnfCoreI.eq_def, InLean.memoRedEI, InLean.pollC, BodySpecI.triple (hbody true), BodySpecI.triple (hbody false)] <;>
       finish
 
 end WhnfCore
@@ -371,13 +354,6 @@ end WhnfCore
 
 section Whnf
 variable {fe : InLean.FEnv} {f : Nat}
-
-theorem coreKnotI_whnf_succ (d : Nat) (i : Expr) :
-    (coreKnotI .verified eager fe (f + 1)).whnf d i =
-      if InLean.whnfEasy i then pure i
-      else memoEI (·.whnfC) (fun st mp => { st with whnfC := mp })
-        (fun d e => pollC fe (.body d) (whnfBodyI (coreKnotI .verified eager fe f) fe d e)) d i := by
-  cases eager <;> rfl
 
 /-- An easy case of InLean's `whnf` translates to an easy case of
 con-leche's. -/
@@ -424,17 +400,17 @@ grind_pattern [conleche_grind] CSOKI.whnf_insert =>
 /-- The whnf memo wrapper simulates the pure whnf at one fuel more than its
 body. -/
 theorem memoEI_whnf_specI (henv : ConLeche.EnvWF env)
-    (hbody : BodySpecI .verified eager env (whnfBodyI (coreKnotI .verified eager fe f) fe)
+    (hbody : BodySpecI .verified eager env (whnfBodyI .verified fe eager f)
       (ConLeche.whnfBody (ConLeche.fueledFns .verified eager env) env))
     {s₀ : InLean.CState} {d : Nat} {i : Expr} (hs : CSOKI .verified eager env s₀)
     (hok : OkS s₀ i = true) (hw : ConLeche.Expr.WScoped d (TrS s₀ i))
     (hc : (TrS s₀ i).looseBVarsBounded 0 = true) :
-    ⦃fun s => s = s₀⦄ (coreKnotI .verified eager fe (f + 1)).whnf d i
+    ⦃fun s => s = s₀⦄ whnfI .verified fe eager (f + 1) d i
     ⦃fun v s' => CSOKI .verified eager env s' ∧ TabLe s₀ s' ∧ OkS s' v = true ∧
       Runs ((ConLeche.fueledFns .verified eager env).whnf d (TrS s₀ i)) (TrS s' v) ∧
       ConLeche.Expr.WScoped d (TrS s' v) ∧ (TrS s' v).looseBVarsBounded 0 = true; ⊤⦄ := by
   sym only [conleche_grind] =>
-    vcgen [coreKnotI_whnf_succ, InLean.memoEI, InLean.pollC, hbody.triple] <;> finish
+    vcgen [InLean.whnfI.eq_def, InLean.memoEI, InLean.pollC, hbody.triple] <;> finish
 
 end Whnf
 
@@ -442,12 +418,6 @@ end Whnf
 
 section InferIO
 variable {fe : InLean.FEnv} {f : Nat}
-
-theorem coreKnotI_inferIO_succ (d : Nat) (i : Expr) :
-    (coreKnotI .verified eager fe (f + 1)).inferIO d i =
-      memoEI (·.inferIOC) (fun st mp => { st with inferIOC := mp })
-        (fun d e => pollC fe (.body d) (inferBodyIOI (CoreFnsI.ioView (coreKnotI .verified eager fe f)) fe d e)) d i := by
-  cases eager <;> rfl
 
 theorem CSOKI.inferIO_hit (henv : ConLeche.EnvWF env) {s : InLean.CState} {d : Nat} {i r : Expr}
     (hs : CSOKI .verified eager env s) (hl : s.inferIOC[EKey.mk i]? = some r) (hok : OkS s i = true)
@@ -481,17 +451,17 @@ grind_pattern [conleche_grind] CSOKI.inferIO_insert =>
 body. -/
 theorem memoEI_inferIO_specI (henv : ConLeche.EnvWF env)
     (hbody : BodySpecI .verified eager env
-      (inferBodyIOI (CoreFnsI.ioView (coreKnotI .verified eager fe f)) fe)
+      (inferBodyIOI .verified fe eager f)
       (ConLeche.inferBodyIO (ConLeche.CoreFns.ioView (ConLeche.fueledFns .verified eager env)) env))
     {s₀ : InLean.CState} {d : Nat} {i : Expr} (hs : CSOKI .verified eager env s₀)
     (hok : OkS s₀ i = true) (hw : ConLeche.Expr.WScoped d (TrS s₀ i))
     (hc : (TrS s₀ i).looseBVarsBounded 0 = true) :
-    ⦃fun s => s = s₀⦄ (coreKnotI .verified eager fe (f + 1)).inferIO d i
+    ⦃fun s => s = s₀⦄ inferI .verified fe eager (f + 1) true d i
     ⦃fun v s' => CSOKI .verified eager env s' ∧ TabLe s₀ s' ∧ OkS s' v = true ∧
       Runs ((ConLeche.fueledFns .verified eager env).inferIO d (TrS s₀ i)) (TrS s' v) ∧
       ConLeche.Expr.WScoped d (TrS s' v) ∧ (TrS s' v).looseBVarsBounded 0 = true; ⊤⦄ := by
   sym only [conleche_grind] =>
-    vcgen [coreKnotI_inferIO_succ, InLean.memoEI, InLean.pollC, hbody.triple] <;> finish
+    vcgen [InLean.inferI.eq_def, InLean.memoEI, InLean.pollC, hbody.triple] <;> finish
 
 end InferIO
 
@@ -499,12 +469,6 @@ end InferIO
 
 section Defeq
 variable {fe : InLean.FEnv} {f : Nat}
-
-theorem coreKnotI_defeq_succ (d : Nat) (a b : Expr) :
-    (coreKnotI .verified eager fe (f + 1)).defeq d a b =
-      memoBI (fun d a b => pollC fe (.body d) (defeqBodyI .verified eager (coreKnotI .verified eager fe f) fe d a b))
-        d a b := by
-  cases eager <;> rfl
 
 theorem CSOKI.defeq_hit {s : InLean.CState} {d : Nat} {a b : Expr} {r : Bool}
     (hs : CSOKI .verified eager env s) (hl : s.defeqC[(EKey.mk a, EKey.mk b)]? = some r)
@@ -558,17 +522,17 @@ grind_pattern [conleche_grind] CSOKI.defeq_insert =>
 body. -/
 theorem memoBI_defeq_specI (henv : ConLeche.EnvWF env)
     (hbody : BodySpecBI .verified eager env
-      (defeqBodyI .verified eager (coreKnotI .verified eager fe f) fe)
+      (defeqBodyI .verified fe eager f)
       (ConLeche.defeqBody .verified eager (ConLeche.fueledFns .verified eager env) env))
     {s₀ : InLean.CState} {d : Nat} {a b : Expr} (hs : CSOKI .verified eager env s₀)
     (hoka : OkS s₀ a = true) (hokb : OkS s₀ b = true)
     (hwa : ConLeche.Expr.WScoped d (TrS s₀ a)) (hwb : ConLeche.Expr.WScoped d (TrS s₀ b))
     (hca : (TrS s₀ a).looseBVarsBounded 0 = true) (hcb : (TrS s₀ b).looseBVarsBounded 0 = true) :
-    ⦃fun s => s = s₀⦄ (coreKnotI .verified eager fe (f + 1)).defeq d a b
+    ⦃fun s => s = s₀⦄ defeqI .verified fe eager (f + 1) d a b
     ⦃fun v s' => CSOKI .verified eager env s' ∧ TabLe s₀ s' ∧
       Runs ((ConLeche.fueledFns .verified eager env).defeq d (TrS s₀ a) (TrS s₀ b)) v; ⊤⦄ := by
   sym only [conleche_grind] =>
-    vcgen [coreKnotI_defeq_succ, InLean.memoBI, InLean.pollC, hbody.triple] <;> finish
+    vcgen [InLean.defeqI.eq_def, InLean.memoBI, InLean.pollC, hbody.triple] <;> finish
 
 end Defeq
 
@@ -653,25 +617,25 @@ theorem Runs.defeqE_of_defeq {d : Nat} {a b : ConLeche.Expr} {r : Bool}
   obtain ⟨F, hF⟩ := h
   exact ⟨F, (ConLeche.defeqE_def env F d a b).trans hF⟩
 
-theorem coreKnotI_defeqE_succ {fe : InLean.FEnv} {f : Nat} (d : Nat) (a b : Expr) :
-    (coreKnotI .verified eager fe (f + 1)).defeqE d a b =
-      withEagerMemos eager ((coreKnotI .verified true fe (f + 1)).defeq d a b) := by
-  cases eager <;> rfl
+theorem defeqEI_succ {fe : InLean.FEnv} {f : Nat} (d : Nat) (a b : Expr) :
+    defeqEI .verified fe eager (f + 1) d a b =
+      withEagerMemos eager (defeqI .verified fe true (f + 1) d a b) := by
+  rw [InLean.defeqEI.eq_def, InLean.defeqI.eq_def]
 
 /-- **The eager slot** simulates the pure eager slot: the eager tower's defeq
 memo wrapper, between the swaps. -/
 theorem defeqE_specI {fe : InLean.FEnv} {f : Nat} (henv : ConLeche.EnvWF env)
     (hbody : BodySpecBI .verified true env
-      (defeqBodyI .verified true (coreKnotI .verified true fe f) fe)
+      (defeqBodyI .verified fe true f)
       (ConLeche.defeqBody .verified true (ConLeche.fueledFns .verified true env) env))
     {s₀ : InLean.CState} {d : Nat} {a b : Expr} (hs : CSOKI .verified eager env s₀)
     (hoka : OkS s₀ a = true) (hokb : OkS s₀ b = true)
     (hwa : ConLeche.Expr.WScoped d (TrS s₀ a)) (hwb : ConLeche.Expr.WScoped d (TrS s₀ b))
     (hca : (TrS s₀ a).looseBVarsBounded 0 = true) (hcb : (TrS s₀ b).looseBVarsBounded 0 = true) :
-    ⦃fun s => s = s₀⦄ (coreKnotI .verified eager fe (f + 1)).defeqE d a b
+    ⦃fun s => s = s₀⦄ defeqEI .verified fe eager (f + 1) d a b
     ⦃fun v s' => CSOKI .verified eager env s' ∧ TabLe s₀ s' ∧
       Runs ((ConLeche.fueledFns .verified eager env).defeqE d (TrS s₀ a) (TrS s₀ b)) v; ⊤⦄ := by
-  rw [coreKnotI_defeqE_succ]
+  rw [defeqEI_succ]
   refine tripleI_iff_run.2 fun v s' hr => ?_
   obtain ⟨s₂, hx, rfl⟩ := withEagerMemos_run hr
   have ht₁ := tableOf_enterEager (eager := eager) s₀
@@ -699,28 +663,28 @@ end Eager
 
 /-! ## The knot step and the knot induction (`ssimC`'s twin) -/
 
-/-- The five bodies of the knot at fuel `f` simulate their pure bodies (the
+/-- The five bodies of the knot at level `f` simulate their pure bodies (the
 three body lanes' results, P2-whnf, P2-infer, P2-defeq). -/
 structure BodiesI (eager : Bool) (env : ConLeche.Env) (fe : InLean.FEnv) (f : Nat) : Prop where
   whnfCore : ∀ c, BodySpecI .verified eager env
-    (whnfCoreBodyI .verified (coreKnotI .verified eager fe f) fe c)
+    (whnfCoreBodyI .verified fe eager f c)
     (ConLeche.whnfCoreBody .verified (ConLeche.fueledFns .verified eager env) env c)
-  whnf : BodySpecI .verified eager env (whnfBodyI (coreKnotI .verified eager fe f) fe)
+  whnf : BodySpecI .verified eager env (whnfBodyI .verified fe eager f)
     (ConLeche.whnfBody (ConLeche.fueledFns .verified eager env) env)
-  infer : BodySpecI .verified eager env (inferBodyI (coreKnotI .verified eager fe f) fe)
+  infer : BodySpecI .verified eager env (inferBodyI .verified fe eager f false)
     (ConLeche.inferBody (ConLeche.fueledFns .verified eager env) env)
   inferIO : BodySpecI .verified eager env
-    (inferBodyIOI (CoreFnsI.ioView (coreKnotI .verified eager fe f)) fe)
+    (inferBodyIOI .verified fe eager f)
     (ConLeche.inferBodyIO (ConLeche.CoreFns.ioView (ConLeche.fueledFns .verified eager env)) env)
   defeq : BodySpecBI .verified eager env
-    (defeqBodyI .verified eager (coreKnotI .verified eager fe f) fe)
+    (defeqBodyI .verified fe eager f)
     (ConLeche.defeqBody .verified eager (ConLeche.fueledFns .verified eager env) env)
 
-/-- **The knot step**: from the bodies at fuel `f`, at the knot's flag and at
+/-- **The knot step**: from the bodies at level `f`, at the knot's flag and at
 `eager := true` (the eager slot's tower), the knot at `f + 1` simulates. -/
 theorem ssimI_succ {fe : InLean.FEnv} {f : Nat} (henv : ConLeche.EnvWF env)
     (hb : BodiesI eager env fe f) (hbT : BodiesI true env fe f) : SSimI eager env fe (f + 1) where
-  whnfCore hs hok hw hc := memoEI_whnfCore_specI henv hb.whnfCore hs hok hw hc
+  whnfCore hs hok hw hc := memoRedEI_whnfCore_specI henv hb.whnfCore hs hok hw hc
   whnf hs hok hw hc := memoEI_whnf_specI henv hb.whnf hs hok hw hc
   infer hs hok hw hc := memoEI_infer_specI henv hb.infer hs hok hw hc
   inferIO hs hok hw hc := memoEI_inferIO_specI henv hb.inferIO hs hok hw hc

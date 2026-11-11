@@ -32,7 +32,7 @@ namespace InLeanProof
 open Lean InLean Std.WP
 open scoped Lean.Order
 
-variable {mode : ConLeche.CheckMode} {eager : Bool} {env : ConLeche.Env}
+variable {mode : ConLeche.CheckMode} {mi : InLean.CheckMode} {eager : Bool} {env : ConLeche.Env}
 
 /-! ## A triple is a statement about the successful runs -/
 

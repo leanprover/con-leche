@@ -13,7 +13,6 @@ public import InLeanProof.WalksIota
 public import InLeanProof.WalksWhnfLoop
 public import InLeanProof.WalksInfer
 public import InLeanProof.KnotAssembly
-public import InLeanProof.SquarePilot
 public import InLeanProof.IotaViews
 public import InLeanProof.LeafGuardI
 public import InLeanProof.WalksIotaRec
@@ -323,10 +322,6 @@ info: 'InLeanProof.whnfCoreStepI_spec' depends on axioms: [propext,
 /-- info: 'InLeanProof.ssimI_zero' depends on axioms: [propext, Classical.choice, Quot.sound] -/
 #guard_msgs in
 #print axioms InLeanProof.ssimI_zero
-
-/-- info: 'InLeanProof.ensureSortI_by_square' depends on axioms: [propext, Classical.choice, Quot.sound] -/
-#guard_msgs in
-#print axioms InLeanProof.ensureSortI_by_square
 
 /--
 info: 'InLeanProof.TrS_inst1' depends on axioms: [propext,
@@ -670,6 +665,14 @@ info: 'InLeanProof.whnfAppI_specI' depends on axioms: [propext,
 -/
 #guard_msgs in
 #print axioms InLeanProof.whnfAppI_specI
+
+/-- info: 'InLeanProof.whnfStuckI_mkAppN' depends on axioms: [propext, Classical.choice, Quot.sound] -/
+#guard_msgs in
+#print axioms InLeanProof.whnfStuckI_mkAppN
+
+/-- info: 'InLeanProof.whnfStuckI_specI_of' depends on axioms: [propext, Classical.choice, Quot.sound] -/
+#guard_msgs in
+#print axioms InLeanProof.whnfStuckI_specI_of
 
 /--
 info: 'InLeanProof.reduceProjCoreI_specI' depends on axioms: [propext, Classical.choice, Quot.sound]
@@ -1406,10 +1409,10 @@ info: 'InLeanProof.memoEI_infer_specI' depends on axioms: [propext, Classical.ch
 #print axioms InLeanProof.memoEI_infer_specI
 
 /--
-info: 'InLeanProof.memoEI_whnfCore_specI' depends on axioms: [propext, Classical.choice, Quot.sound]
+info: 'InLeanProof.memoRedEI_whnfCore_specI' depends on axioms: [propext, Classical.choice, Quot.sound]
 -/
 #guard_msgs in
-#print axioms InLeanProof.memoEI_whnfCore_specI
+#print axioms InLeanProof.memoRedEI_whnfCore_specI
 
 /--
 info: 'InLeanProof.memoEI_whnf_specI' depends on axioms: [propext, Classical.choice, Quot.sound]
