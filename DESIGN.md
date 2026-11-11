@@ -119150,6 +119150,115 @@ which lists every `@[csimp]` on a computable definition: the two new pairs repla
   | `cbv_divisors` | 57.10 G | 57.19 G | +0.2 % |
   | `cbv_leroy` | 62.40 G | 62.49 G | +0.15 % |
 
+### Lane sync7: master's #554, #558, #556 and #557, InLean follows (2026-11-11, task #451, agent/451-sync7)
+
+**Merge.**  `master` (bdcd976e5: #554, #549's record, #558, #556) into the lane from
+agent/451-sync6 (f5ad73751), `--no-ff`; master moved meanwhile, and 4ce6cb18e (#557) was merged
+the same way.  Conflicts by hand: DESIGN.md (master's records, then the #451 lane records, as
+before); `tests/plain-reach-allow.txt`'s `Kernel/Expr` comment keeps #547's `natHash` beside
+master's new wording.  The cherry-picks of #547 and #553 stay (master has neither).  **Last
+synced master: 4ce6cb18e** (was c3c892904).
+
+**The checklist** (`scripts/inlean-cached-diff.sh c3c892904 4ce6cb18e` and `git log -p`):
+
+* #558, the knot (`Cached/CoreC`: `CoreFnsI`, `CoreFnsI.ioView`, `knotLevelI`, `knotZeroI`,
+  `knotPlainI`, `knotEagerI`, `coreKnotI` and every helper that took the record or a slot
+  closure) — ported: `InLean/CoreC.lean` is one `mutual` block, master's order and ranks
+  (`termination_by (lv, rank, a, b)`), the five entry points `whnfCoreI`, `whnfI`, `inferI`
+  (with `io`, its own memo each), `defeqI`, `defeqEI` at its end; every function takes the
+  knot's address (`mode`, `fe` as section variables, `eager`, `lv`).  `whnfStepI` is folded
+  into `whnfLoopI`; `whnfCoreStepI` and `defeqArgI` lose `@[inline]`; the io view became the
+  `io` flag of `inferBodyI`, `inferSpineI`, `inferLamsI`, `inferPisI` and their leaves; the
+  unit-like trio takes the loop's fuel (`unitLikeFieldsI` calls `unitLikeLoopI` itself);
+  `formerSortLoopI`, `formerNeverZeroI`, `iotaCase3I`, `checkGuardRowsI`, `projGuardSortI`,
+  `checkProjRowsI`, `checkProjGuardI` take the address for their slot closures.  InLean's own
+  parts stay: every body behind the poll (`pollC`, at the entry points), the level `0` is the
+  recursion limit (`.limit .recDepth`), the level is `Limits.recDepth` or `checkFuel`.
+  Callers: `opInfer`/`opDefeq`/`opSort`/`opWhnf` (`InLean/CheckerC.lean`, master's
+  `opI`/`opB`/`opS`/`opW`) call the entry points; the inductive stages call through them
+  (master's `Cached/Ind*`, `ParsedC` changes are these call sites).
+* #556 P-A, the stuck spine (`isStuckHeadC`, `iotaTargetF`, `whnfStuckI`, `whnfCoreStepI`'s
+  application arm) — ported.  `iotaTargetF` reads `FEnv.recArity?` as `iotaArityOk` does;
+  `whnfStuckI` reports a fired ι to the poll as `whnfAppI` does, and answers the input itself
+  (`.done e`, its `mdata` included: nothing rebuilt).
+* #556 P-A2, `memoRedEI` — ported (Lean's pointer-first `==`, `Expr.beqI`'s `@[csimp]`).
+* #556 P-W, the literal answer (`whnfStep` in `Kernel/Core`, its cached twin in `whnfLoopI`;
+  `Expr.isLit` moved) — ported: `if Expr.isLitI e₂ then pure e₂ else …`.
+* #556 P-N (`Cached/StateC`: `NatBinOp`, `.name`, `.ofName?`, `.result`, `nameIsC`,
+  `natOpRefusal`, `natResultRefused`; `reduceNatI`) — ported to `InLean/CoreDefs.lean`:
+  `nameIsC` compares Lean's cached `Name.hash`, then `lean_name_eq`; the refusals keep the
+  official messages, by operation; `natOpResult` and InLean's `natOpWfNames` are gone with the
+  unreachable branch.
+* #557 (`natOpWfNames` and its branch leave the specification) — followed in the proofs
+  (`NatBinOp.ofName?_noneI` loses its second conjunct).
+* #554 (`Kernel/Expr`: `Expr.decEq`, `decEqPtr`, `beqGoX`, `beqDec`, `ptrDecStruct`/`ptrDec`) —
+  ported to `InLean/ExprEq.lean`: InLean derived `DecidableEq Lean.Expr`; now `Expr.decEqI`
+  (structural, twelve constructors) is the instance, `Expr.decEqPtrI` (read off `Expr.beqMemo`)
+  runs by `@[csimp]`, `beqGoX` decides its six leaf kinds itself and answers the 132 constructor
+  mismatches on the spot, `ptrDecStruct` (inside the equality) and `ptrDec` (the memo walks of
+  `InLean.ExprOps`) are split as master's.  `Name.decEqPtr` (comment only) — nothing to port.
+* `ExprNodes` preamble, `CState.leaveEager`, `declConstantsC`, `natCountTooBig` — comments or
+  hunk attribution only.
+
+**Proofs.**  `KnotSpecI mode mi eager env fe lv` states the entry points at level `lv`; it
+carries InLean's mode `mi` beside con-leche's (InLean's walks are mode-generic where master's
+are, and every entry point now takes a mode).  `SSimI eager env fe f` is it at `.verified` and
+level `f`; `ssimI_zero` unfolds the entry points' `eq_def`; the memo-wrapper triples
+(`KnotAssembly.lean`) pass the entry points' `eq_def` to `vcgen`, the `coreKnotI_*_succ` lemmas
+are gone, `memoRedEI_whnfCore_specI` is `memoEI_whnfCore_specI` renamed (`vcgen` splits the
+no-insert `if`).  The walks take the level (`vcgen [f.eq_def]`, `rfl` restatements now
+`rw [f.eq_def]; rfl`); the `KnotSpecI.ioWhnf`/`ioInfer` aliases are gone, as master's.  New:
+`whnfStuckI_mkAppN` (the stuck arm on the rebuilt spine is the spine loop: `whnfAppI_noIota`,
+`whnfAppI_iota`, `iotaArityOk_eq_target`), `whnfStuckI_relink` (on the input it is that, its
+finished answer the input), `whnfStuckI_done`, and `whnfStuckI_specI_of` (`BodiesI.lean`),
+which discharges the new `WhnfStuckSpecI` premise of `whnfCoreStepI_spec` from the spine
+loop's spec; the `NatBinOp` lemmas (`nameIsC_eqI`, `NatBinOp.ofName?_eqI`, `…_someI`,
+`…_noneI`, `OkS_NatBinOp_result`) replace `natOpResult_TrO`.  Removed:
+`InLeanProof/SquarePilot.lean` (lane P2-0's comparison of the two routes, which reused
+master's cached body theorem over a callback record; master has no record any more, and its
+finding is in that lane's record).  `addDeclSound` unconditional, axioms unchanged
+(`propext`, `Classical.choice`, `Quot.sound`, the three `mkData` stop-gaps); no `sorry`.
+
+**Gates.**  `lake build`, `lake test`, `lake build InLean InLeanProof inlean-replay`
+warning-free; layering, trust-surface (19 escapes, 10 allowlisted files), shake (662/662
+allowlisted, no demotable public import), inlean-sync (23 files), plain-reach (577, all
+allowlisted), overview links, quote gate, whitepaper links; `_tmp/axcheck.lean` as above.  The
+merges touched no fixture.
+
+**Init** (`perf stat -e instructions:u`, one run each, InLean verified).  Replay `--compare`:
+64530 accepted, 0 exact and 0 cosmetic mismatches.  Cost: f5ad73751 433.49 G (sync6), the
+lane's head 375.60 G (−13.4 %); con-leche at master 4ce6cb18e (`--olean --jobs=1`, 63937
+declarations) 350.08 G (−14.2 % from c3c892904's 408.06 G; InLean +7.3 %, was +6.2 %).
+`Init.Data.BitVec.Lemmas`'s replay (the gap lane's `gapbench`, 2092 targets): InLean 45.56 G
+(was 53.66 G, −15.1 %), official 35.49 G (35.50 G); InLean 1.28× official (was 1.51×).
+
+**lean4** (`joachim/inlean-kernel`, remote at cf1c79fa, the local head before).  One commit,
+feb42b1f `perf: InLean's knot as mutually recursive functions, and the official whnf arms` (the
+regeneration: `CoreC.lean`, `CoreDefs.lean`, `ExprEq.lean`, `CheckerC.lean`, `Basic.lean`,
+`Inductives/BlockShape.lean`; and `tests/elab/csimpCore.lean`, which lists the new
+`Expr.decEqI`/`Expr.decEqPtrI` pair); `inlean-sync.py check` OK.  Stage1 rebuilt (the mutual
+block elaborates in 48 s there).
+
+* Stage1 suite (4845 tests): all pass but `async/elab/async_systems_info` (sandbox); every
+  `tests/elab_bench/*.lean` (93 files, `run_bench.sh`, `TEST_BENCH=1`) passes;
+  `deriving_mutual_block`'s `#mutual_block` takes 184.09 M heartbeats (181.79 M before);
+  `leanchecker --fresh Init` passes (448.4 G instructions; sync6 514.9 G, −12.9 %), as does
+  `tests/elab/inleanQuotTwice.lean`; radar's part 2 (`make bench-part2` at stage1, stale
+  measurement files removed first) runs through.  `lean Init/Data/BitVec/Lemmas.lean`
+  (`-Dlinter.all=false`): 113.50 G instructions (the fork before: 115–122.7 G).
+* The radar outliers at `TEST_BENCH=1` (`lean -Dlinter.all=false -DElab.inServer=true`,
+  instructions:u, one run each; sync6's runs at cf1c79fa → the lane):
+
+  | file | cf1c79fa | lane | |
+  |---|---:|---:|---:|
+  | `trailingZeros` | 47.31 G | 38.95 G | −17.7 % |
+  | `bitvec_zero_counts` | 42.58 G | 33.93 G | −20.3 % |
+  | `grind_field_kernel_cancel` | 77.31 G | 67.85 G | −12.2 % |
+  | `cbv_aes` | 34.99 G | 33.48 G | −4.3 % |
+  | `grind_ring_5` | 2.300 G | 2.137 G | −7.1 % |
+  | `cbv_divisors` | 57.19 G | 48.58 G | −15.1 % |
+  | `cbv_leroy` | 62.49 G | 55.24 G | −11.6 % |
+
 ## TASK #547 — a `Nat` literal's hash reads all its bits: lean4#16146 vendored (2026-11-09, agent/547-lit-hash)
 
 The bug (#543): `Literal` derived `Hashable`, so `.natVal n` hashed as `n mod 2^64` and an
