@@ -119259,6 +119259,64 @@ block elaborates in 48 s there).
   | `cbv_divisors` | 57.19 G | 48.58 G | −15.1 % |
   | `cbv_leroy` | 62.49 G | 55.24 G | −11.6 % |
 
+### Lane corec: compiling the fork's `CoreC` — the kernel input shared (2026-11-11, task #451, agent/451-corec)
+
+Radar: compiling `Lean.Kernel.InLean.CoreC` in the fork cost 1,364.8 G instructions at feb42b1f
+(sync7's mutual knot; 11.6 G at cf1c79fa).  `perf stat -e instructions:u`, one run each,
+`-Dprofiler=true`:
+
+| compile | total | elaboration only (`debug.skipKernelTC`) | kernel |
+|---|---:|---:|---:|
+| fork stage1 at feb42b1f (InLean is the kernel) | 1477.0 G | 365.9 G | ≈ 1111 G |
+| con-leche `InLean/CoreC.lean` (v4.35.0, C++ kernel) | 719.7 G | 468.3 G | ≈ 251 G |
+| con-leche master's `Cached/CoreC.lean` | 720.4 G | — | — |
+| fork stage1 with this lane | **724.2 G** | | |
+
+**Two causes.**
+
+* *Elaboration, shared by master.*  The block is one well-founded definition of 69 functions.
+  Before `decreasing_by` runs, Lean cleans each of the ~250 termination goals with `clean_wf`
+  (a `simp only`), and the raw goal carries the whole packed measure (a 69-deep
+  `PSum.casesOn` over each function's `PSigma` telescope), which `simp` visits under its
+  binders: 90–170 ms a goal, 28 s of `simp` in all, growing with the number of functions.  A
+  synthetic block (69 functions, ~5 calls each, bodies trivial) reproduces it: 325 G; 35
+  functions: 77 G.  The kernel then checks the unfolding equation `reduceNatI._mutual.eq_def`,
+  which Lean proves eagerly (`WF.mkUnfoldEq`): 139 G with the C++ kernel, 85 G with
+  con-leche's checker (`--olean --constant`).
+* *InLean as the fork's kernel, on unshared input.*  The elaborator's terms repeat
+  structurally equal subterms as different objects (the in-memory `_mutual.eq_def`: 1.29 M
+  objects, 0.42 M after `ShareCommon.shareCommon'`; an `.olean`'s are shared).  InLean's memo
+  maps and comparisons go pointer first, so each copy is inferred and compared on its own:
+  the profile is `Expr.keyEqMemo`/`keyGoX` (43 % inclusive) on memo lookups.  Re-adding the
+  in-memory equation: 71.7 s unshared, 30.2 s shared; read from the `.olean`, 170 G against the
+  C++ kernel's 139 G.
+
+**The fix (lean4 only).**  `addDeclExport` (`lean_add_decl`, `Core.lean`, the fork's glue with
+no InLean source) checks `ShareCommon.shareCommon' decl`, the identity in the logic.  Kernel
+time on the module 92 s → 29 s (`_mutual.eq_def` 70.9 → 20.7 s, `_mutual` 11.8 → 2.4 s), the
+compile 1477.0 G → 724.2 G (−51 %).  InLean's sources and con-leche are unchanged
+(`inlean-sync.py check` OK); `addDeclSound` is not involved.  Commit 0939d218 `perf: InLean
+checks a declaration with its common subterms shared` on `joachim/inlean-kernel` (not pushed).
+
+* Stage1 suite (4845 tests): all pass but `async/elab/async_systems_info`; every
+  `tests/elab_bench/*.lean` (93) passes at `TEST_BENCH=1`; `inleanQuotTwice` passes;
+  `leanchecker --fresh Init` 448.64 G (448.4 G before: the extra pass is free on `.olean`
+  input); `#mutual_block` 167.44 M heartbeats (191.09 M in sync7's run).  The radar outliers
+  (sync7 → lane): `trailingZeros` 38.95 → 38.96 G, `bitvec_zero_counts` 33.93 → 33.98 G,
+  `grind_field_kernel_cancel` 67.85 → 67.82 G, `cbv_aes` 33.48 → 32.02 G, `grind_ring_5`
+  2.137 → 2.131 G, `cbv_divisors` 48.58 → 48.67 G, `cbv_leroy` 55.24 → 55.90 G.
+
+**For master (proposed, not landed).**  The elaboration half is master's: with
+`set_option debug.rawDecreasingByGoal true in` on the block and on each function
+`decreasing_by all_goals first | exact Prod.Lex.left _ _ (Nat.lt_add_one _) | exact
+Prod.Lex.right _ (Prod.Lex.left _ _ (Nat.le_of_ble_eq_true rfl)) | (clean_wf;
+decreasing_tactic)` (the level step, the rank step, else the default on the loop measures),
+`Cached/CoreC.lean` compiles in 357.4 G (720.4 G, −50 %; `simp` 30 s → 6.3 s), InLean's copy in
+360.5 G.  The option is a debugging option, so the better home is upstream Lean: present the
+termination goal with the measure already applied to the unpacked arguments (cost then
+independent of the block's size).  What stays is the eager `_mutual.eq_def` (139 G C++) and
+the fixpoint itself, which the record-of-closures knot did not pay.
+
 ## TASK #547 — a `Nat` literal's hash reads all its bits: lean4#16146 vendored (2026-11-09, agent/547-lit-hash)
 
 The bug (#543): `Literal` derived `Hashable`, so `.natVal n` hashed as `n mod 2^64` and an
