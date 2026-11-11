@@ -12,7 +12,7 @@ public section
 # The scheduler's pure parts on examples
 
 `surpriseOf` (the planning budget's surprise leaves the worker furthest above its reservation
-out), the fixed queue and its head slot (`nextHead`, `nextFit`, `insertAt`, `victims`) and `parseLog` with `etaMs` on a log mixing the three verdict-line formats (`<verdict>
+out), the windowed peak (`pushMinute`, `windowPeak`), the fixed queue and its head slot (`nextHead`, `nextFit`, `insertAt`, `victims`) and `parseLog` with `etaMs` on a log mixing the three verdict-line formats (`<verdict>
 <module>`, the five fields of the ms/rss/at format, the eleven of the statistics and threads
 format) and `killed` lines.
 -/
@@ -29,6 +29,19 @@ open ConLeche.Driver.Schedule
 #guard surpriseOf [] = 0
 -- two equal giants: the second one counts
 #guard surpriseOf [(20, 5), (20, 5)] = 15
+
+-- the windowed peak (`peakWindow` = 5): a sawtooth worker, 13 GiB in minute 0, 1 GiB in minutes
+-- 1-6; its peak leaves the window in minute 6, a later sample in the same minute keeps the larger
+#guard peakWindow = 5
+#guard windowPeak ((#[] : Array (Nat × Nat)) |> (pushMinute · 0 13) |> (pushMinute · 0 2)) = 13
+#guard windowPeak ((List.range 6).foldl (fun r i => pushMinute r (i + 1) 1) (pushMinute #[] 0 13))
+  = 1
+#guard windowPeak ((List.range 5).foldl (fun r i => pushMinute r (i + 1) 1) (pushMinute #[] 0 13))
+  = 13
+#guard (pushMinute (pushMinute #[(0, 4)] 0 7) 3 1) = #[(0, 7), (3, 1)]
+-- a gap of more than the window drops every older minute
+#guard (pushMinute #[(0, 4), (2, 9)] 9 1) = #[(9, 1)]
+#guard windowPeak #[] = 0
 
 /-- The module `s` of a test log. -/
 def nm (s : String) : ConLeche.Name := (ConLeche.Frontend.Olean.parseModName s).get!
