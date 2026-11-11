@@ -162,7 +162,9 @@ focus `u`. -/
   | .natB k n₁ a b :: fl, u =>
     ERed env (oc b) u ∧ (∃ wa, ERed env (oc a) wa ∧ rawNatLit? wa = some n₁) ∧
       K fl (opTerm P oc k a b)
-  | .succ :: fl, u => ∀ w n, ERed env u w → rawNatLit? w = some n → K fl (.lit (.natVal (n + 1)))
+  -- the frame pops to the neutral on a value of no `Nat` reading
+  | .succ :: fl, u =>
+    K fl bot ∧ ∀ w n, ERed env u w → rawNatLit? w = some n → K fl (.lit (.natVal (n + 1)))
 
 /-- **The claim is closed under erased reduction of the focus.** -/
 theorem K.step : ∀ (fl : List Fr) {u u' : Expr}, K env t₀ P argA oc fl u → ERed env u u' →
@@ -181,7 +183,7 @@ theorem K.step : ∀ (fl : List Fr) {u u' : Expr}, K env t₀ P argA oc fl u →
       · exact h
   | .natA .. :: _, _, _, h, hr => ⟨h.1.trans hr, h.2⟩
   | .natB .. :: _, _, _, h, hr => ⟨h.1.trans hr, h.2⟩
-  | .succ :: _, _, _, h, hr => fun w n hw hn => h w n (hr.trans hw) hn
+  | .succ :: _, _, _, h, hr => ⟨h.1, fun w n hw hn => h.2 w n (hr.trans hw) hn⟩
 
 /-- The site: the claim at an empty stack is the site's reduction. -/
 theorem K.nil {u : Expr} (h : K env t₀ P argA oc [] u) : ERed env t₀ u := h

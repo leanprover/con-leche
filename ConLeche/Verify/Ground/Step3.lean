@@ -216,6 +216,17 @@ theorem EntOK.tag03 {find? : Name → Option ConstantInfo} {P : G4Prog} {k : Nat
   · obtain ⟨-, -, -, -, -, -, h2, -⟩ := h; rcases ht with ht | ht <;> rw [ht] at h2 <;> cases h2
   · rename_i heq; rw [Array.getElem?_eq_getElem hk] at heq; cases heq
 
+/-- An entry tagged `3` is an accelerated operation's: a definition at no
+levels, the `Nat` flag set, its operation index in `kE`. -/
+theorem EntOK.tag3 {find? : Name → Option ConstantInfo} {P : G4Prog} {k : Nat} (h : EntOK find? P k)
+    (hk : k < P.kInfo.size) (ht : P.kTag[k]? = some 3) :
+    ∃ c lps v, P.kInfo[k]? = some (.defn c lps [] v) ∧ P.natOk = true ∧ natBin14 c = true ∧
+      P.kE[k]? = some ((natBin14Names.idxOf? c).getD 0) := by
+  obtain ⟨c, lps, us, v, hi, -, -, h3, -⟩ := h.tag03 hk (.inr ht)
+  rcases h3 with h0 | ⟨-, rfl, hn, hb, he⟩
+  · rw [ht] at h0; cases h0
+  · exact ⟨c, lps, v, hi, hn, hb, he⟩
+
 theorem Approx.Args.refl : ∀ (l : List Expr), Approx.Args l l
   | [] => .nil
   | a :: l => .cons (Approx.refl a) (Approx.Args.refl l)
@@ -530,7 +541,7 @@ theorem step_rec_K (h : MInv env t₀ oc s fl) (hm : s.mode = 3) {mI : Nat}
 /-- **An accelerated operation on two arguments**: the literal frame is
 pushed and the first argument entered (a stutter). -/
 theorem step_natop_push (h : MInv env t₀ oc s fl) (hm : s.mode = 3)
-    (h2 : g4CountArgs s.fs s.fs.size 0 = 2) :
+    (h3 : s.P.kTag[s.x]! = 3) (h2 : g4CountArgs s.fs s.fs.size 0 = 2) :
     ∃ fl', MInv env t₀ oc { s with
       fs := ((((g4PopN s.fs 2).push s.x).push (g4ArgAt s.fs 0)).push (g4ArgAt s.fs 1)).push 5,
       mode := 2, pc := 0, env := 0, x := g4ArgAt s.fs 0 } fl' := by
@@ -548,7 +559,8 @@ theorem step_natop_push (h : MInv env t₀ oc s fl) (hm : s.mode = 3)
       rcases List.mem_cons.mp hf' with rfl | hf'
       · show FrOK s.P s.argA s.N (.natA s.x a b)
         unfold FrOK
-        exact ⟨hk, hN a (by simp), hN b (by simp)⟩
+        exact ⟨hk, hN a (by simp), hN b (by simp),
+          by rw [some_of_lt (by rw [h.store.prog.sizes]; exact hk), h3]⟩
       · exact h.frames f (List.mem_append_right _ hf')
     · exact ⟨hN a (by simp), .refl, hK⟩
 

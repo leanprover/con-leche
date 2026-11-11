@@ -145,9 +145,9 @@ table entry and a projection the program has. -/
   | .iota k start len => k < P.kInfo.size ∧ 0 < len ∧ start + len ≤ argA.size ∧
       P.kTag[k]? = some 2 ∧ P.kArity[k]? = some (len - 1)
   | .proj pi => pi = 0 ∨ pi - 1 < P.projs.size
-  | .natA k a b => k < P.kInfo.size ∧ a < N ∧ b < N
-  | .natB k _ a b => k < P.kInfo.size ∧ a < N ∧ b < N
-  | .succ => True
+  | .natA k a b => k < P.kInfo.size ∧ a < N ∧ b < N ∧ P.kTag[k]? = some 3
+  | .natB k _ a b => k < P.kInfo.size ∧ a < N ∧ b < N ∧ P.kTag[k]? = some 3
+  | .succ => P.natOk = true
 
 @[expose] def FlOK (P : G4Prog) (argA : Array Nat) (N : Nat) (fl : List Fr) : Prop := ∀ f ∈ fl, FrOK P argA N f
 
@@ -183,21 +183,22 @@ theorem K.congr (env : Env) (t₀ : Expr) (P : G4Prog) (argA : Array Nat) {oc oc
       split at h <;> exact K.congr env t₀ P argA hg ha fl hf.2 h
   | .natA k a b :: fl, _, hf, h => by
     rw [FlOK.cons] at hf
-    obtain ⟨-, hal, hbl⟩ := hf.1
+    obtain ⟨-, hal, hbl, -⟩ := hf.1
     simp only [K, opTerm] at h ⊢
     have := K.congr env t₀ P argA hg ha fl hf.2 h.2
     rw [← ha a hal, ← ha b hbl]
     exact ⟨h.1, this⟩
   | .natB k n a b :: fl, _, hf, h => by
     rw [FlOK.cons] at hf
-    obtain ⟨-, hal, hbl⟩ := hf.1
+    obtain ⟨-, hal, hbl, -⟩ := hf.1
     simp only [K, opTerm] at h ⊢
     have := K.congr env t₀ P argA hg ha fl hf.2 h.2.2
     rw [← ha a hal, ← ha b hbl]
     exact ⟨h.1, h.2.1, this⟩
   | .succ :: fl, _, hf, h => by
     rw [FlOK.cons] at hf
-    exact fun w n hw hn => K.congr env t₀ P argA hg ha fl hf.2 (h w n hw hn)
+    exact ⟨K.congr env t₀ P argA hg ha fl hf.2 h.1,
+      fun w n hw hn => K.congr env t₀ P argA hg ha fl hf.2 (h.2 w n hw hn)⟩
 
 /-! ## Growth: the program and the arrays extended -/
 
@@ -215,11 +216,11 @@ theorem FrOK.grow {P P' : G4Prog} {argA argA' : Array Nat} {N N' : Nat} (hx : Ex
       rcases Nat.lt_or_ge (pi - 1) P'.projs.size with h' | h'
       · exact h'
       · rw [Array.getElem?_eq_none h'] at this; simp [Array.getElem?_eq_getElem h] at this
-  | .natA .., ⟨h₁, h₂, h₃⟩ => ⟨Nat.lt_of_lt_of_le h₁ hx.kInfoSize, Nat.lt_of_lt_of_le h₂ hN,
-      Nat.lt_of_lt_of_le h₃ hN⟩
-  | .natB .., ⟨h₁, h₂, h₃⟩ => ⟨Nat.lt_of_lt_of_le h₁ hx.kInfoSize, Nat.lt_of_lt_of_le h₂ hN,
-      Nat.lt_of_lt_of_le h₃ hN⟩
-  | .succ, _ => trivial
+  | .natA .., ⟨h₁, h₂, h₃, h₄⟩ => ⟨Nat.lt_of_lt_of_le h₁ hx.kInfoSize, Nat.lt_of_lt_of_le h₂ hN,
+      Nat.lt_of_lt_of_le h₃ hN, by rw [(entR_eq (hx.ent _ h₁)).1]; exact h₄⟩
+  | .natB .., ⟨h₁, h₂, h₃, h₄⟩ => ⟨Nat.lt_of_lt_of_le h₁ hx.kInfoSize, Nat.lt_of_lt_of_le h₂ hN,
+      Nat.lt_of_lt_of_le h₃ hN, by rw [(entR_eq (hx.ent _ h₁)).1]; exact h₄⟩
+  | .succ, h => by show P'.natOk = true; rw [hx.natOk]; exact h
 
 theorem FlOK.grow {P P' : G4Prog} {argA argA' : Array Nat} {N N' : Nat} (hx : ExtR P P')
     (hp : Pre argA argA') (hN : N ≤ N') {fl : List Fr} (h : FlOK P argA N fl) :
@@ -249,18 +250,18 @@ theorem K.grow (env : Env) (t₀ : Expr) {P P' : G4Prog} {argA argA' : Array Nat
       rw [hx.projs q hq]
       split at h <;> exact K.grow env t₀ oc hx hp fl hf' h
   | .natA k a b :: fl, _, hf, h => by
-    obtain ⟨⟨hk, -, -⟩, hf⟩ := FlOK.cons.mp hf
+    obtain ⟨⟨hk, -, -, -⟩, hf⟩ := FlOK.cons.mp hf
     simp only [K, opTerm] at h ⊢
     have := K.grow env t₀ oc hx hp fl hf h.2
     rw [entryTerm_ext hx hk]
     exact ⟨h.1, this⟩
   | .natB k n a b :: fl, _, hf, h => by
-    obtain ⟨⟨hk, -, -⟩, hf⟩ := FlOK.cons.mp hf
+    obtain ⟨⟨hk, -, -, -⟩, hf⟩ := FlOK.cons.mp hf
     simp only [K, opTerm] at h ⊢
     have := K.grow env t₀ oc hx hp fl hf h.2.2
     rw [entryTerm_ext hx hk]
     exact ⟨h.1, h.2.1, this⟩
-  | .succ :: fl, _, hf, h => fun w n hw hn =>
-    K.grow env t₀ oc hx hp fl (FlOK.cons.mp hf).2 (h w n hw hn)
+  | .succ :: fl, _, hf, h => ⟨K.grow env t₀ oc hx hp fl (FlOK.cons.mp hf).2 h.1, fun w n hw hn =>
+    K.grow env t₀ oc hx hp fl (FlOK.cons.mp hf).2 (h.2 w n hw hn)⟩
 
 end ConLeche.Verify.Ground

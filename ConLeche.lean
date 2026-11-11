@@ -49,6 +49,8 @@ public import ConLeche.Verify.Ground.Refs
 public import ConLeche.Verify.Ground.Run
 public import ConLeche.Verify.Ground.Step0
 public import ConLeche.Verify.Ground.Step1
+public import ConLeche.Verify.Ground.Step1N
+public import ConLeche.Verify.Ground.Step1I
 public import ConLeche.Verify.Ground.Step3
 public import ConLeche.Verify.Ground.Step4
 
