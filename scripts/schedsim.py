@@ -80,8 +80,12 @@ and an overflow kills the youngest non-head workers), the growth gate (`gate`: t
 above its reservation, the same only while the current sets exceed the plan, or none) and the
 drain for the head of the killed modules (`drain`, s); besides the columns above the waits of the
 killed giants (at least 1/8 of the limit) from their kill to their restart.
+`--size-compare` the table of DESIGN #566 (`SIZE_RULES`, `--size-rules`, `--size-cases`; the
+known size after a kill, `size_rule` of `simulate`, under the shipped head slot and fixed queue;
+the mean reservation split into its terms; a CFSG-like data set with `-saw`, e.g. `starve-saw`,
+puts every module on a synthetic sawtooth, `saw_shape`).
 """
-import argparse, bisect, collections, json, os, random
+import argparse, bisect, json, os, random
 
 FNV_OFF, FNV_PRIME = 14695981039346656037, 1099511628211
 
@@ -232,7 +236,7 @@ def quantile(sorted_xs, q):
 
 class W:
     __slots__ = ("mod", "start", "dur", "pk", "hwm", "cur", "threads", "read_end", "resv", "rank",
-                 "rose", "win")
+                 "rose")
 
 
 def simulate(mods, order, budget_kib, jobs, tick=0.1, growth=10, typ_q=0.5,
@@ -242,8 +246,7 @@ def simulate(mods, order, budget_kib, jobs, tick=0.1, growth=10, typ_q=0.5,
              margin_nonzero=True, stagger=0, burst=0, threads_spare=False,
              threads_drain=0, drain_d=0, margin_excl="largest", seed_peaks=None,
              seed_sizes=None, seed_single=(), kill_by="sticky", gate="prot", drain=None,
-             giant_kib=None, front_fifo=False, front_pos=False, size_rule="double",
-             window=0):
+             giant_kib=None, front_fifo=False, front_pos=False, size_rule="double"):
     """Returns the statistics of one replay.  Times in ms internally.  `budget_kib` is the hard
     limit (kills only above it); with `plan` admission plans against `hard - margin` (DESIGN
     #540): margin = max(margin_init x hard, the `margin_stat` of the last `margin_window`
@@ -285,9 +288,7 @@ def simulate(mods, order, budget_kib, jobs, tick=0.1, growth=10, typ_q=0.5,
     `"hwm"` as `"max"`, and a running worker never counts at its known size (only the start
     does).  The `res_*` statistics split the mean reservation into the current sets, the peaks
     above them, the typical peak above the peaks, the known sizes above both, and the part of
-    the latter that only the doubling gives (`res_double_gib`).  `window` (s, 0: the whole run;
-    DESIGN #566's (e)): a running worker counts at the largest set of its last `window` seconds
-    (its current set included) in place of its peak so far."""
+    the latter that only the doubling gives (`res_double_gib`)."""
     dt = int(tick * 1000)
     rank_of = {m: i for i, m in enumerate(order)}
     wait_by = {}
@@ -374,15 +375,12 @@ def simulate(mods, order, budget_kib, jobs, tick=0.1, growth=10, typ_q=0.5,
         s = f if w.mod.shape is None else w.mod.shape.at(f)
         return int(w.pk * min(1.0, max(0.0, s)))
 
-    def peak_of(w):
-        return w.win[0][1] if window and w.win else w.hwm
-
     def eff(w):
         k = sizes.get(w.mod.m, 0)
         if size_rule == "hwm" or (size_rule == "relief" and w.hwm < k
                                   and now - w.start > kill_age.get(w.mod.m, 0)):
             k = 0
-        return max(peak_of(w), typ, k)
+        return max(w.hwm, typ, k)
 
     def kill(v):
         nonlocal threads_used, kill_n, kill_ms, work_ms
@@ -433,14 +431,6 @@ def simulate(mods, order, budget_kib, jobs, tick=0.1, growth=10, typ_q=0.5,
                 w.cur = rss(w, now)
                 if w.cur > w.hwm:
                     w.hwm, w.rose = w.cur, now
-                if window:
-                    # the largest set of the last `window` s: a monotone queue, its head the max
-                    q = w.win
-                    while q and q[-1][1] <= w.cur:
-                        q.pop()
-                    q.append((now, w.cur))
-                    while q[0][0] <= now - window * 1000:
-                        q.popleft()
                 still.append(w)
         running = still
         if prot is not None and not any(w.mod.m == prot for w in running):
@@ -466,11 +456,10 @@ def simulate(mods, order, budget_kib, jobs, tick=0.1, growth=10, typ_q=0.5,
         thr_ms += threads_used * dt
         for w in running:
             e = eff(w)
-            pw = peak_of(w)
-            ht = max(pw, typ)
+            ht = max(w.hwm, typ)
             rs_cur += w.cur * dt
-            rs_hwm += (pw - w.cur) * dt
-            rs_typ += (ht - pw) * dt
+            rs_hwm += (w.hwm - w.cur) * dt
+            rs_typ += (ht - w.hwm) * dt
             rs_known += (e - ht) * dt
             rs_double += max(0, e - max(ht, maxkill.get(w.mod.m, 0))) * dt
         # the overflow
@@ -554,7 +543,6 @@ def simulate(mods, order, budget_kib, jobs, tick=0.1, growth=10, typ_q=0.5,
             w.dur = max(w.dur, 1)
             w.read_end = now + int((mod.ms - mod.busy) * w.dur / max(1, mod.ms))
             w.hwm = w.cur = 0
-            w.win = collections.deque()
             w.resv = 0
             w.rank = rank_of.get(pick, len(rank_of))
             w.rose = now
@@ -912,18 +900,15 @@ def rank_compare(a, log, prof, default, base):
 
 
 # DESIGN #566's known-size rules, all under the head slot with the fixed queue (DESIGN #548)
-SIZE_RULES = [("(a) doubled (#512)", "double", 0), ("(b) largest kill set", "max", 0),
-              ("(c) largest kill set, relief", "relief", 0),
-              ("(d) largest kill set, starts only", "hwm", 0),
-              ("(e5) (b), peak of the last 5 min", "max", 300),
-              ("(e10) (b), peak of the last 10 min", "max", 600),
-              ("(e30) (b), peak of the last 30 min", "max", 1800)]
+SIZE_RULES = [("(a) doubled (#512)", "double"), ("(b) largest kill set", "max"),
+              ("(c) largest kill set, relief", "relief"),
+              ("(d) largest kill set, starts only", "hwm")]
 
 
 def size_compare(a, log, prof, default, base):
     """DESIGN #566's table: each case `data:limit GiB:jobs` (data as in `rank_compare`; a
     CFSG-like set with `-saw` has every module on a sawtooth, `saw_shape`, in place of the ramp)
-    under each known-size and window rule of `SIZE_RULES`, with the shipped head slot and fixed
+    under each known-size rule of `SIZE_RULES`, with the shipped head slot and fixed
     queue."""
     import multiprocessing
     cases = [c.split(":") for c in a.size_cases.split(",")]
@@ -941,10 +926,10 @@ def size_compare(a, log, prof, default, base):
             order = make_order(mods, "shuffled", None)
         _G[name] = (mods, {"shuffled": order}, dict(base, **kw))
     jobs = [(d, float(b), int(j), n, dict(kill_by="head", gate="none", front_pos=True,
-                                          size_rule=r, window=wd, threads_d=a.threads_d,
+                                          size_rule=r, threads_d=a.threads_d,
                                           threads_spare=True,
                                           giant_kib=int(float(b) * 2 ** 20 / 8)))
-            for d, b, j in cases for i, (n, r, wd) in enumerate(SIZE_RULES)
+            for d, b, j in cases for i, (n, r) in enumerate(SIZE_RULES)
             if not a.size_rules or str(i) in a.size_rules.split(",")]
     with multiprocessing.get_context("fork").Pool(a.procs) as pool:
         res = pool.map(_one, jobs, chunksize=1)
@@ -953,13 +938,12 @@ def size_compare(a, log, prof, default, base):
                   open(a.json_out or "/dev/stdout", "w"))
         return
     print("| case | rule | makespan | workers | threads | kills (modules) | lost | "
-          "giant wait max | starved | reserved = cur + peak + typical + known (doubling) |")
-    print("|---|---|---|---|---|---|---|---|---|---|")
+          "giant wait max | reserved = cur + peak + typical + known (doubling) |")
+    print("|---|---|---|---|---|---|---|---|---|")
     for d, b, j, n, r in res:
         print(f"| {d} {b:g}G j{j} | {n} | {hms(r['makespan_s'])} | {r['running']:.2f} | "
               f"{r['threads_running']:.2f} | {r['kills']} ({r['kill_modules']}) | "
               f"{hms(r['lost_s'])} = {r['lost_pct']:.1f} % | {hms(r['giant_wait_max_s'])} | "
-              f"{100 * r['starved_s'] / max(1, r['makespan_s']):.0f} % | "
               f"{r['reserved_gib']:.1f} = {r['res_cur_gib']:.1f} + {r['res_hwm_gib']:.1f} + "
               f"{r['res_typ_gib']:.1f} + {r['res_known_gib']:.1f} ({r['res_double_gib']:.1f}) |")
 

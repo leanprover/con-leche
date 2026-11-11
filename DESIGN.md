@@ -118789,3 +118789,100 @@ fragment, quote gate, no-local-paths, challenge, shake (672/672 allowlisted, non
 plain-reach (589), binary-link, olean gate 333/333, selfcheck (58 849 declarations), axioms
 pinned (71 theorems), arena tutorial 90/92, e2e 600/600, the trusted and `--jobs` sweeps
 without divergence.
+
+## TASK #566 — the doubled known size: simulated, not changed (2026-11-11, agent/566-sizes)
+
+`scripts/schedsim.py` only; `ScheduleIO.lean` unchanged.  Trigger: the maintainer's CFSG run
+(`--jobs=32 --schedule-memory=45G`, head-slot binary) sat for long stretches at 7–12 workers on
+7–12 of 32 threads, 15–20 GiB in use against 45 GiB, e.g.
+`7 wrkr ... RSS 20.5G tot 7.2G biggest ... 189 requeued, 50 waiting for room: reserved 39.0 GiB
+of plan 37.2 GiB`.  The suspicion: #512's doubling of the known size on each further kill
+inflates the reservations of reruns.
+
+**What `reserved` is** (`ScheduleIO.run`, `sample` and `eff1`): the sum over the running
+workers of max(VmRSS, VmHWM, typical peak, known size).  The known size after a kill is
+max(set at the kill, typical peak, 2 × previous known size); a resumed run seeds it with the
+largest logged kill set, at least the typical peak, without doubling (#546), so the doubling only
+acts from the second kill of a module within one run.  The live run's 18.5 GiB of reservation
+above the current sets is therefore some mix of (i) peaks above the current sets (VmHWM − VmRSS),
+(ii) the typical peak above small workers (at most about 7 × 0.6 GiB here) and (iii) known sizes
+above both, the doubling a part of (iii).  The live log was not available to split it.  The
+simulator now splits the time-weighted mean reservation into these terms (`res_*`).  In the
+CFSG-like runs under today's rule (GiB; reserved = current + peak above current + typical above
+peak + known size above both, the doubling's share in brackets):
+
+| case | ramp shapes | sawtooth shapes |
+|---|---|---|
+| cfsg 45G j32 | 34.4 = 22.7 + 0.0 + 1.3 + 10.4 (4.5) | 30.3 = 16.1 + 10.4 + 0.5 + 3.3 (1.1) |
+| starve 45G j32 | 40.6 = 28.8 + 0.0 + 0.6 + 11.2 (3.0) | 36.8 = 19.4 + 14.5 + 0.2 + 2.7 (0.5) |
+| starve 45G j16 | 36.6 = 25.8 + 0.0 + 0.5 + 10.2 (3.6) | 39.1 = 20.9 + 15.2 + 0.3 + 2.8 (1.1) |
+
+The doubling is 1–13 % of the reservation.  With ramps (a worker's set only grows) the known
+sizes are the large excess; with sawtooth workers it is the all-time peak above the current set
+(10–15 GiB), which no known-size rule touches.
+
+**Variants** (`--size-compare`, `SIZE_RULES`, `size_rule` of `simulate`), all under the shipped
+head slot and fixed queue:
+(a) today; (b) the known size is the largest set at any kill, no doubling (admission still takes
+it at least at the typical peak); (c) as (b), and a running worker counts at max(peak so far,
+typical peak), its known size left out, once it has run longer than at the kill that set its
+known size without reaching it; (d) as (b), and the known size counts only for the start: a
+running worker counts at max(peak so far, typical peak).
+
+**Data**: Mathlib (`_tmp/518/mathlib.log`, its profiles, tick 50 ms, `--install-serial 0.56
+--thread-mem 0.01`), `heavy`, `heavy30` as in #540; the maintainer's CFSG log
+(`_tmp/cfsg-log/cfsg-check.log`, 5 copies, tick 100 ms) as `cfsg`, #545's `restart` and #548's
+`starve` (20 synthetic giants, seeds 518 and 7), each once with #545's ramp shapes and once with
+a new synthetic sawtooth (`-saw`, `saw_shape`: 2–6 teeth per run, each rising from 8 % of the
+peak to its level and falling back, one tooth at the peak, the others at 0.5–1.0 of it; after the
+CFSG workers seen going 13.5 → 1.1 → 11.4 GiB).  `_tmp/566/sim/size2.json`, `size7.json`.
+Cells: makespan, mean workers / mean threads in use, kills (modules), worker time lost, the
+longest wait of a killed giant (at least 1/8 of the limit) from its kill to its restart.
+
+| case | (a) doubled (today) | (b) largest kill set | (c) (b) with relief | (d) (b), known size at the start only |
+|---|---|---|---|---|
+| real 1.5G j8 | 34m45, 4.40/5.7, 18 (18), 0.2 % | 34m45, 4.40/5.7, 18 (18), 0.2 % | 34m45, 4.40/5.7, 24 (24), 0.3 % | 34m57, 4.37/5.7, 20 (20), 0.3 % |
+| real 3G j16 | 14m57, 10.36/13.1, 4 (4), 0.1 % | 14m59, 10.35/13.1, 4 (4), 0.1 % | 14m59, 10.35/13.1, 4 (4), 0.1 % | 14m57, 10.36/13.1, 4 (4), 0.1 % |
+| heavy 8G j16 | 54m33, 6.16/8.0, 54 (39), 10.8 %, 6m29 | 57m09, 5.83/7.2, 48 (39), 8.6 %, 7m30 | 57m53, 5.79/7.0, 47 (40), 9.4 %, 5m24 | 47m47, 7.14/9.1, 82 (51), 11.8 %, 2m46 |
+| heavy 16G j32 | 25m20, 12.18/15.1, 19 (16), 2.0 % | 25m04, 12.38/15.1, 23 (18), 2.5 %, 1m29 | 25m34, 12.18/14.9, 25 (20), 2.9 %, 1m29 | 25m40, 11.99/15.0, 18 (17), 1.8 %, 1m02 |
+| heavy30 24G j16 | 53m15, 6.59/7.7, 64 (51), 12.6 %, 6m27 | 49m14, 7.01/8.3, 64 (48), 11.0 %, 3m53 | 58m39, 6.00/6.7, 59 (46), 12.2 %, 5m04 | 55m56, 6.86/7.5, 124 (67), 18.7 %, 8m56 |
+| heavy30 47G j32 | 25m59, 12.22/14.1, 27 (20), 2.9 %, 2m01 | 25m31, 12.54/13.7, 30 (22), 2.9 %, 2m53 | 27m51, 11.47/12.9, 24 (19), 3.2 %, 5m20 | 24m01, 13.61/15.6, 51 (38), 5.4 %, 1m08 |
+| cfsg 45G j32 | 15h36, 9.31/10.3, 83 (50), 20.6 %, 4h41 | 16h32, 9.14/9.9, 79 (46), 22.2 %, 7h31 | 17h07, 8.99/9.9, 76 (48), 23.8 %, 7h45 | 18h02, 9.30/9.8, 117 (64), 26.4 %, 5h08 |
+| restart 45G j32 | 38h53, 5.24/5.7, 69 (52), 22.6 %, 22h09 | 35h14, 5.51/6.0, 69 (54), 19.2 %, 22h26 | 35h14, 5.51/6.0, 66 (51), 19.2 %, 22h26 | 36h45, 6.73/7.1, 183 (71), 35.9 %, 18h35 |
+| restart 45G j16 | 41h51, 5.22/5.3, 63 (50), 22.1 %, 16h51 | 42h03, 5.20/5.3, 65 (48), 22.1 %, 17h27 | 42h52, 5.09/5.2, 72 (49), 21.6 %, 17h27 | 43h31, 5.74/5.9, 158 (65), 32.8 %, 18h59 |
+| starve 45G j32 | 33h59, 6.09/6.6, 94 (71), 21.7 %, 12h53 | 37h12, 6.26/6.6, 116 (79), 30.4 %, 9h16 | 41h51, 5.61/5.9, 94 (63), 29.3 %, 12h08 | 34h38, 6.89/7.2, 132 (79), 30.2 %, 5h53 |
+| starve 45G j16 | 41h23, 5.63/5.8, 103 (60), 27.5 %, 10h06 | 40h44, 5.94/6.1, 118 (71), 31.2 %, 9h12 | 35h34, 6.58/6.8, 114 (76), 28.5 %, 7h38 | 40h41, 6.83/7.0, 191 (86), 38.9 %, 9h50 |
+| cfsg-saw 45G j32 | 16h36, 7.97/9.1, 48 (37), 13.5 %, 7h01 | 16h36, 8.03/9.1, 50 (40), 14.1 %, 7h01 | 13h34, 9.58/10.8, 53 (39), 11.6 %, 5h16 | 13h55, 9.43/10.4, 67 (55), 10.3 %, 4h05 |
+| restart-saw 45G j32 | 43h12, 4.03/4.5, 53 (43), 10.2 %, 27h23 | 40h07, 4.45/4.9, 64 (50), 13.1 %, 24h13 | 40h07, 4.45/4.9, 64 (50), 13.1 %, 24h13 | 39h43, 4.79/5.2, 126 (55), 17.5 %, 21h58 |
+| restart-saw 45G j16 | 43h17, 4.55/4.7, 65 (48), 15.8 %, 18h14 | 41h24, 4.81/4.9, 55 (42), 16.1 %, 18h03 | 41h24, 4.81/4.9, 55 (42), 16.1 %, 18h03 | 41h45, 4.54/4.7, 66 (44), 11.9 %, 18h53 |
+| starve-saw 45G j32 | 41h21, 4.94/5.3, 72 (57), 20.4 %, 9h18 | 38h10, 5.03/5.4, 64 (50), 16.6 %, 8h13 | 37h31, 5.12/5.5, 60 (53), 16.6 %, 6h24 | 38h41, 5.10/5.6, 105 (72), 18.9 %, 8h22 |
+| starve-saw 45G j16 | 37h01, 5.32/5.6, 91 (67), 17.4 %, 6h55 | 38h58, 5.26/5.5, 78 (57), 19.9 %, 7h22 | 40h44, 5.12/5.3, 62 (54), 21.2 %, 7h29 | 38h01, 5.58/5.8, 118 (83), 22.9 %, 8h25 |
+| restart 45G j32, seed 7 | 30h41, 5.75/6.3, 74 (60), 15.7 %, 10h55 | 30h23, 6.26/6.8, 83 (61), 22.9 %, 13h03 | 28h50, 6.45/7.0, 65 (48), 21.4 %, 13h03 | 27h14, 7.74/8.3, 159 (64), 30.8 %, 10h07 |
+| restart 45G j16, seed 7 | 34h14, 5.51/5.6, 63 (54), 16.9 %, 6h46 | 32h01, 6.10/6.3, 66 (57), 21.2 %, 7h29 | 32h01, 6.10/6.3, 66 (57), 21.2 %, 7h29 | 30h57, 7.11/7.3, 132 (67), 29.5 %, 7h48 |
+| starve 45G j32, seed 7 | 33h42, 6.15/6.7, 89 (61), 28.0 %, 9h15 | 30h36, 6.62/7.1, 86 (59), 24.8 %, 8h37 | 27h20, 6.89/7.4, 78 (60), 19.9 %, 6h22 | 29h43, 7.54/8.0, 130 (71), 33.7 %, 7h20 |
+| starve 45G j16, seed 7 | 26h59, 7.45/7.7, 91 (68), 23.4 %, 6h20 | 32h13, 6.93/7.2, 129 (77), 31.5 %, 8h07 | 31h49, 7.06/7.3, 121 (74), 31.6 %, 8h28 | 29h30, 7.75/7.9, 149 (89), 31.3 %, 5h25 |
+| restart-saw 45G j32, seed 7 | 30h21, 5.16/5.8, 52 (44), 7.6 %, 11h50 | 30h21, 5.30/5.8, 59 (50), 10.8 %, 12h39 | 30h21, 5.30/5.8, 59 (50), 10.8 %, 12h39 | 28h09, 5.91/6.6, 109 (52), 14.6 %, 11h00 |
+| restart-saw 45G j16, seed 7 | 37h32, 4.53/4.7, 43 (38), 9.8 %, 11h14 | 32h13, 5.48/5.7, 57 (48), 13.1 %, 7h27 | 32h13, 5.48/5.7, 57 (48), 13.1 %, 7h27 | 32h01, 5.49/5.7, 70 (49), 12.6 %, 8h22 |
+| starve-saw 45G j32, seed 7 | 31h05, 5.84/6.3, 59 (46), 18.9 %, 8h07 | 29h02, 5.77/6.3, 53 (49), 11.4 %, 5h34 | 27h48, 5.96/6.5, 44 (42), 11.0 %, 5h14 | 27h06, 6.45/7.2, 88 (78), 15.7 %, 4h16 |
+| starve-saw 45G j16, seed 7 | 28h24, 6.28/6.5, 39 (34), 13.7 %, 5h12 | 31h42, 6.41/6.6, 88 (65), 23.4 %, 3h41 | 31h42, 6.41/6.6, 88 (65), 23.4 %, 3h41 | 31h52, 5.91/6.2, 75 (56), 20.1 %, 5h32 |
+
+Sums over the nine CFSG-like cases of each shape (makespan, kills, worker time lost):
+
+| | (a) | (b) | (c) | (d) |
+|---|---|---|---|---|
+| ramp | 297.4 h, 729, 399 h | 297.0 h, 811, 472 h | 292.7 h, 752, 446 h | 291.1 h, 1351, 673 h |
+| sawtooth | 308.9 h, 522, 230 h | 298.6 h, 568, 255 h | 295.5 h, 542, 253 h | 291.3 h, 824, 267 h |
+| Mathlib, six cases | 3.5 h, 186, 1.6 h | 3.4 h, 187, 1.4 h | 3.7 h, 183, 1.6 h | 3.4 h, 299, 2.3 h |
+
+**Reading: nothing wins.**  Single cases swing by ±15–20 % between rules in both directions (cfsg
+ramp 15h36 → 17h07 under (c); starve j16 41h23 → 35h34 under (c)), so only the sums say
+anything.  (b) is as fast as (a) on ramps and 3 % faster on sawtooths, at 9–11 % more kills and
+11–18 % more lost time; (c) is 1.6 % and 4.3 % faster at 3–4 % more kills and 10–12 % more lost
+time, and 6 % slower on Mathlib; (d) is 2 % and 6 % faster but kills 58–85 % more.  None is
+clearly shorter without more kills or lost time, so the rule stays as it is: in these data the
+doubling is a small part of the reservation, and dropping it trades its few GiB for more kills.
+
+**Follow-up, not simulated (the maintainer's ruling: one issue at a time):** (e) a running worker
+counted at the largest set of its last W minutes (5, 10, 30) in place of its all-time VmHWM.  The
+sawtooth split above says that, if the real CFSG workers behave so, this is the term that holds
+10–15 GiB of the reservation; the sawtooth shapes stay in the simulator for that.
