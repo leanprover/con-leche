@@ -24,7 +24,7 @@ it plain `IO`:
   (`Schedule.declCount`, `ConLeche/Driver/Schedule.lean`; only where `cap` is above 1).  A free thread goes to a new worker where one can start; where
   memory, not the jobs, keeps workers from starting, it goes to an extra thread of a starting
   module with many declarations: its threads share the worker's context, so a thread costs far
-  less memory than a worker.  Admission counts a worker at its measured peak as before, which
+  less memory than a worker.  Admission counts a worker at its measured (windowed) peak, which
   includes its threads.  A module killed while running with more than one thread runs with one
   from then on (`single`), so a heavy many-declaration module costs at most one kill before it
   runs as before;
@@ -33,7 +33,8 @@ it plain `IO`:
   on a full pipe), stderr passed on for a verdict other than 0 (`WCfg`, `spawnW`);
 * **a memory limit** (`memory`, KiB, 0 for none; `--schedule-memory=47G`): every tick the
   resident sets of the running workers are read (`workerRss`: the scheduler's children in `/proc/self/task/*/children`, each
-  by its last argument, `/proc/<pid>/status`'s `VmRSS` and `VmHWM`, the peak so far).  The limit
+  by its last argument, `/proc/<pid>/status`'s `VmRSS` and `VmHWM`; a worker's sample of a tick is
+  its `VmRSS`, or its `VmHWM` where that rose since the last tick).  The limit
   is **hard**: workers are killed only when their current sets sum to more than it.  Admission
   plans against a lower **planning budget** (`planOf`), so that growth admission could not foresee
   lands in the gap instead of causing a kill.  The gap is learned in the run: a **surprise** is how
@@ -50,8 +51,11 @@ it plain `IO`:
   lower bound only); a module never killed counts as the typical peak.  The typical peak is the
   median of the peaks of the last 200 finished workers, the log's recorded ones included (the limit
   divided by the jobs until 20 are known in total; the median, not a high percentile, so that a few outliers do not make
-  every running and unknown module count as huge and starve the start of workers).  The room is the planning budget minus the running workers' peaks, each counted
-  at least at the typical peak (a young worker has not shown its growth yet).
+  every running and unknown module count as huge and starve the start of workers).  The room is
+  the planning budget minus the running workers' reservations: each worker's **windowed peak**,
+  its largest sample over the last `peakWindow` (5) minutes of its run (`pushMinute`, not its
+  peak so far: a worker that fell back from a peak frees the room; DESIGN #567), at least the
+  typical peak (a young worker has not shown its growth yet) and its known size.
   **The queue is fixed**: every module has its position in the start order for the whole run;
   a killed module is unstarted again at its own position (`insertAt`), before every module after
   it.  **The head slot**: one worker, whenever it has none, runs the unstarted module of the lowest
@@ -118,7 +122,7 @@ it plain `IO`:
   waiting for room: reserved 43.4 GiB of plan 40.5 GiB`: the longest-running worker and how many
   others run; the modules a kill has put back; and the killed modules whose known size does not
   fit the room, with what admission has reserved for the running workers (each at the most of
-  its peak so far, the typical peak and its known size; not their current use) against the
+  its windowed peak, the typical peak and its known size; not their current use) against the
   planning budget it fits them into (`planOf`), the last two parts only where non-zero.  The
   estimate `eta` is `remaining modules × mean module time
   ÷ average running workers`: the mean over all finished modules with a known time (the
@@ -255,6 +259,36 @@ structure Running where
   start : Nat
   /-- the worker's threads (its `--jobs`) -/
   threads : Nat := 1
+  /-- its `VmHWM` at the last tick, KiB -/
+  hwm : Nat := 0
+  /-- its largest sample in each of the last minutes of its run (`pushMinute`): (the minute,
+  counted from its start, the sample in KiB), oldest first -/
+  recent : Array (Nat × Nat) := #[]
+
+/-- **How many minutes a running worker's peak looks back** (DESIGN #567): admission counts a
+running worker at its largest sample of the current minute of its run and the `peakWindow`
+before it, not at its peak so far.  Workers that rise and fall (CFSG's went 13.5 → 1.1 → 11.4
+GiB) held most of the reservation above the current sets with their all-time peaks; with 5
+minutes the simulated CFSG-like runs of sawtooth workers were 8 % shorter, at 24 % more kills and
+5 % more worker time lost (`scripts/schedsim.py --window-compare`). -/
+def peakWindow : Nat := 5
+
+/-- A running worker's per-minute samples (`Running.recent`) after a sample `k` (KiB) in minute
+`mi` of its run: the minute's largest sample, the minutes before `mi - peakWindow` dropped. -/
+def pushMinute (ring : Array (Nat × Nat)) (mi k : Nat) : Array (Nat × Nat) :=
+  let ring := match ring.back? with
+    | some (m, x) => if m == mi then ring.pop.push (m, max x k) else ring.push (mi, k)
+    | none => ring.push (mi, k)
+  ring.filter (fun (m, _) => m + peakWindow ≥ mi)
+
+/-- The windowed peak of a running worker's per-minute samples (0 for none). -/
+def windowPeak (ring : Array (Nat × Nat)) : Nat := ring.foldl (fun a (_, x) => max a x) 0
+
+/-- A running worker after a tick's reading `(k, h)` of its `VmRSS` and `VmHWM` at `now`: the
+sample is `h` where `VmHWM` rose since the last tick (a peak between two ticks), else `k`. -/
+def Running.sampled (r : Running) (now k h : Nat) : Running :=
+  let x := if h > r.hwm then h else k
+  { r with hwm := max r.hwm h, recent := pushMinute r.recent ((now - r.start) / 60000) x }
 
 /-- A worker started: the binary `app` at the arguments, the last of which is `spell m`, with
 `threads` threads; its stdin closed, its stdout and stderr drained. -/
@@ -541,7 +575,7 @@ structure St where
   /-- a worker could not be started: no more start -/
   stopped : Bool := false
   /-- the running workers' resident memory at the last tick, KiB: the total now, the largest
-  now, and the sum of the peaks so far (`none`: `/proc` could not be read) -/
+  now, and the sum of their reservations (`none`: `/proc` could not be read) -/
   mem : Option (Nat × Nat × Nat) := none
   /-- the largest total over the run, KiB -/
   peak : Nat := 0
@@ -556,7 +590,8 @@ structure St where
   /-- the typical peak of a worker, KiB: the median of `peaks`; before `typMin` finishes,
   the limit divided by the jobs -/
   typ : Nat := 0
-  /-- the running workers' peaks each at least `typ`, at the last tick: what admission counts -/
+  /-- the running workers' windowed peaks each at least `typ` and their known sizes, at the last
+  tick: what admission counts -/
   effPk : Nat := 0
   /-- what admission had reserved for each running worker (KiB) when it last started one -/
   resv : Std.HashMap Name Nat := {}
@@ -796,7 +831,7 @@ def run (parse : String → Option Name) (app : System.FilePath) (args : Name �
     | some p => some <$> IO.FS.Handle.mk p .append
     | none => pure none
   let t0 ← IO.monoMsNow
-  -- the room: the planning budget minus the running workers' peaks (no limit: unbounded)
+  -- the room: the planning budget minus the running workers' reservations (no limit: unbounded)
   let planNow (st : St) : Nat := planOf o.memory st.surprises
   let roomOf (st : St) (pk : Nat) : Nat :=
     if o.memory = 0 then 1 <<< 60 else planNow st - min (planNow st) pk
@@ -884,20 +919,25 @@ def run (parse : String → Option Name) (app : System.FilePath) (args : Name �
     let rss ← workerRssOpt
     let look (l : List (String × Nat × Nat)) (r : Running) : Nat × Nat :=
       ((l.find? (·.1 == r.arg)).map (·.2)).getD (0, 0)
+    -- each running worker's windowed peak takes this tick's sample
+    if let some l := rss then
+      st := { st with running := st.running.map fun r => r.sampled now (look l r).1 (look l r).2 }
     let sample (rs : Array Running) : Option (Nat × Nat × Nat) := rss.map fun l =>
       rs.foldl (fun (t, m, pk) r =>
-        let (k, h) := look l r
-        (t + k, max m k, pk + max (max k h) (max st.typ (st.sizes.getD r.m 0)))) (0, 0, 0)
+        let (k, _) := look l r
+        (t + k, max m k, pk + max (max k (windowPeak r.recent))
+          (max st.typ (st.sizes.getD r.m 0)))) (0, 0, 0)
     if let some (t, _, _) := sample st.running then st := { st with peak := max st.peak t }
     -- the largest set seen of each running module, for the typical peak of the finished ones
     st := { st with seen := st.running.foldl (fun m r =>
       let (k, h) := look (rss.getD []) r
       m.insert r.m (max (m.getD r.m 0) (max k h))) st.seen }
-    -- what admission counts per running worker: its peak, at least the typical peak and its
-    -- known size (a worker started in this tick has no sample yet: the latter two)
+    -- what admission counts per running worker: its peak over the last `peakWindow` minutes, at
+    -- least the typical peak and its known size (a worker started in this tick has no sample
+    -- yet: the latter two)
     let eff1 (st : St) (r : Running) : Nat :=
-      let (k, h) := look (rss.getD []) r
-      max (max k h) (max st.typ (st.sizes.getD r.m 0))
+      let (k, _) := look (rss.getD []) r
+      max (max k (windowPeak r.recent)) (max st.typ (st.sizes.getD r.m 0))
     let eff (st : St) (rs : Array Running) : Nat := rs.foldl (fun a r => a + eff1 st r) 0
     let mut still : Array Running := #[]
     let mut ended : Array (Running × String) := #[]
