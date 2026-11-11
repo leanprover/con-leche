@@ -105,7 +105,7 @@ theorem CSOK.whnfCoreCheap_insert (henv : EnvWF env) {s : CState} {d : Nat} {i r
 
 /-- The whnfCore memo wrappers simulate the fueled whnfCore at one fuel
 more than their bodies. -/
-theorem memoEI_whnfCore_spec (henv : EnvWF env)
+theorem memoRedEI_whnfCore_spec (henv : EnvWF env)
     (hbody : ∀ c, BodySpec mode eager env
       (whnfCoreBodyI mode (mkFEnv env) eager f c)
       (whnfCoreBody mode (fueledFns mode eager env) env c))
@@ -115,7 +115,7 @@ theorem memoEI_whnfCore_spec (henv : EnvWF env)
     ⦃fun r s' => CSOK mode eager env s' ∧ Runs ((fueledFns mode eager env).whnfCore c d i) r ∧
       Expr.WScoped d r; ⊤⦄ := by
   sym only [conleche_grind, CSOK.whnfCore_insert henv, CSOK.whnfCoreCheap_insert henv] =>
-    vcgen [whnfCoreI.eq_def, memoEI, BodySpec.triple (hbody true),
+    vcgen [whnfCoreI.eq_def, memoRedEI, BodySpec.triple (hbody true),
       BodySpec.triple (hbody false)] <;> finish
 
 /-! ### The whnf memo, by `vcgen` and `grind`
@@ -336,7 +336,7 @@ private theorem ssimC_all (env : Env) (henv : EnvWF env) :
   | f + 1, eager =>
     { whnfCore := fun hs hden hw => by
         obtain rfl := hden
-        exact SimC.of_triple relEC_diag (memoEI_whnfCore_spec henv
+        exact SimC.of_triple relEC_diag (memoRedEI_whnfCore_spec henv
           (whnfCoreBodyC_spec (ssimC_all env henv f eager) henv)
           hs hw)
       whnf := fun hs hden hw => by

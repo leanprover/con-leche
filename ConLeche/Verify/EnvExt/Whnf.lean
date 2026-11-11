@@ -599,7 +599,11 @@ theorem whnfLoop_rel : ∀ (n : Nat) {e : Expr}, Res env₁ e →
     refine Rel.bind (K.whnfCore false d he) fun e₁ he₁ => ?_
     refine Rel.bind (reduceNat_rel K d hx he₁) fun o ho => ?_
     cases o with
-    | some e₂ => exact whnfLoop_rel n (ho _ rfl)
+    | some e₂ =>
+      dsimp only
+      split
+      · exact Rel.ok (ho _ rfl)
+      · exact whnfLoop_rel n (ho _ rfl)
     | none =>
       dsimp only
       rw [unfoldDefinition_ext hx he₁]

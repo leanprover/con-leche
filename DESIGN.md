@@ -113444,3 +113444,123 @@ binary-link, overview links, quote gate, e2e, trusted and `--jobs` sweeps, self-
 axioms pinned).
 
 Plan: `_tmp/558/PLAN.md`; scripts and logs in `_tmp/558`.
+
+## TASK #556 — the official `whnf` arms: the stuck spine, no memo entry for an unchanged answer, the literal answer, the `Nat` dispatch (2026-11-10, agent/556-official-arms)
+
+The maintainer's ruling on #555's recommendation 2: "work on P-A, P-A2, P-W, P-N, off master,
+and land it unless controversial".  #555 found that con-leche does the official kernel's
+reductions in the official order, and pays more per step; these four remove per-step
+bookkeeping where official has a cheaper arm.  None changes a result or the reduction order.
+
+**What changed** (`ConLeche/Cached/CoreC.lean` unless said otherwise).
+
+* **The stuck spine (P-A).**  `whnfCoreStepI`'s application arm tests the spine head first.  A
+  head that is its own head normal form and not a lambda (`isStuckHeadC`: a sort, a free
+  variable, a Π-type, a constant or a literal) goes to `whnfStuckI`: the ι target is read off
+  the head once (`iotaTargetF`: a stored recursor at its own number of levels answers
+  `mI + 1`), ι is tried at that one prefix if the spine is long enough, and otherwise the
+  answer is the input itself.  Official `whnf_core`'s `f == f0` arm
+  (`type_checker.cpp:525-536`): `reduce_recursor` once, else `return e`.  Before, such a spine
+  went through the `whnfCore` entry point for its head (an easy case since #550), then
+  `whnfAppI`, which rebuilt the spine node by node and looked the head up at every prefix
+  (`iotaArityOk`).  Other heads (a lambda, a projection, a let-expression) take the old path:
+  their head changes, so the spine is rebuilt anyway.  The argument list is built only when ι
+  can fire.  In #558's block `whnfStuckI` has `whnfAppI`'s rank (30): it calls `iotaRecI` and
+  is called by `whnfCoreStepI`.
+* **No memo entry for an unchanged answer (P-A2).**  The two `whnfCore` memos (`whnfCoreI`) go through
+  `memoRedEI`: `memoEI`, except that an answer equal (`==`) to its input is not stored (pointer first;
+  the stuck arms return the input by reference).  Official caches nothing on the stuck arm.
+  Recomputing such an answer repeats a step that changes nothing: the stuck arm (a memoized
+  `whnf` of the major if ι is tried), or a stuck projection (a memoized `whnf` of the
+  scrutinee).  This extends #550's easy-case skip to the stuck cases.
+* **The literal answer (P-W).**  `whnfStep` (the specification, `Kernel/Core.lean`) and its
+  twin, `whnfLoopI`'s step (#558 folded `whnfStepI` into it), return a literal that `reduceNat` computed at once
+  (`if e₂.isLit then pure e₂ else k e₂`), as official `whnf` returns `reduce_nat`'s value
+  (`type_checker.cpp:732-734`).  Before, the loop took one more step on it (`whnfCore`,
+  `reduceNat`, `unfoldDefinition`, all answering at the head).  A `Bool` constructor computed
+  by `Nat.beq`/`Nat.ble` still takes that step: official returns it at once too, but where an
+  environment stores `Bool.true` as a definition the step unfolds it, so returning it would
+  change a result.  `Expr.isLit` moved up in `Core.lean` to precede `whnfStep`.  The
+  specification changes only where a run's last step exhausted the loop's 2^62-step budget.
+* **The `Nat` dispatch (P-N, `Cached/StateC.lean`).**  `NatBinOp` names the fourteen binary
+  operations; `NatBinOp.ofName?` finds the operation of a name by fourteen comparisons of the
+  cached hash (`nameIsC c n := c.hashData == n.hashData && decide (c = n)`: the structural
+  confirmation runs only on a hash match).  `reduceNatI` matches on it once.  The result
+  (`NatBinOp.result`) and the two refusals (`natOpRefusal`, `natResultRefused`) are by
+  operation, not by name.  Before, the operation was found by up to 14 `Name.decEqPtr` calls in
+  `reduceNatI`, then again in `natOpRefusal`, `natOpResult` (`natPredName` first) and
+  `natResultRefused`.  `reduceNatI` also loses the `natOpWfNames` branch: every name there is
+  one of the fourteen, so the branch was never reached.  The specification `reduceNat` keeps
+  it (it is unreachable there too; removing it would move `Deep.lean`'s `reduceNat_shift` and
+  its siblings; a follow-up).
+
+**Proofs.**
+* `Verify/Cached/DiscC4.lean`: `whnfStuckI_mkAppN` / `whnfStuckI_eq` — the stuck arm at a
+  spine's head is `whnfAppI` at that head on the spine's arguments, as an equation of cached
+  computations: away from the ι target the arity pre-check fails (`whnfAppI_noIota`), at it
+  `whnfAppI` tries ι once and then only rebuilds (`whnfAppI_iota`).  `iotaArityOk_eq_target`
+  relates the pre-check to `iotaTargetF`.  `whnfStuckC_spec` turns this into the triple against
+  the mirror's application arm (`Runs.whnfCore_stuckHead`: the head is its own `whnfCore`);
+  `whnfCoreStepC_spec` takes it in its `vcgen` list.  `whnfLoopC_spec` is unchanged: `vcgen`
+  splits the new `if` on both sides.
+* `Verify/Cached/DiscC1.lean`: `nameIsC_eq`, `NatBinOp.ofName?_eq` (the dispatch is the plain
+  chain of name tests), `NatBinOp.ofName?_some` (a found operation is one of the fourteen
+  names and its result is `natOpResult`'s) and `NatBinOp.ofName?_none` (none of the fourteen,
+  nor of `natOpWfNames`), as `conleche_grind` facts.  `reduceNatC_spec` is unchanged.
+* `Verify/Cached/KnotC.lean`: `memoRedEI_whnfCore_spec` (renamed from `memoEI_whnfCore_spec`):
+  the same proof, `vcgen` splits the no-insert `if`.  `KnotCongr.lean`: `iotaTargetF_congr`,
+  `whnfStuckI_congr`.
+* The specification's `whnfStep`: `whnfStep_inv`'s literal disjunct is now "the literal is the
+  answer, or `k` of it"; its consumers (`InferLemmas`, `InferLeaves` ×2, `NfMemberFree`,
+  `RedBridge`), `whnfLoop_rel` (`EnvExt/Whnf.lean`) and `whnfLoop_shift` (`Deep.lean`) take
+  the new arm.  No `Model/*` proof moved.
+* Tests: the refusal `#guard`s take operations; new `#guard`s that `ofName?` finds each of the
+  fourteen names and none of `Nat.succ`, `Nat.pred`, `Nat.addd`.
+
+**Measurements.**  `perf stat -e instructions:u` from round 1 (rounds 2 and 3 agree within
+0.03 %, app-lam's within 0.3 %); `cycles:u` the median of 3 rounds, base and lane interleaved
+per stream.  Each run waited for the session's anonymous memory to be below 20 GiB.  The base is
+master d15d773fc (after #558, which changed the per-step costs), the lane is the lane merged
+with it.  CCK4 and McLEnumA need `--module`, which master lacks: a scratch merge of `modular`
+09b310a1b with master d15d773fc (base; one line of `Driver/Reach.lean`, modular-only, moved to
+#558's `inferI`) and that merge with the lane merged (lane).  ck318 net is the
+`--constant=CFSG.KD.F24S.ck318` run minus the `--constant=CFSG.KD.F24S.CK` run, on master.
+
+| stream | G instructions base | lane | Δ | G cycles base | lane |
+|---|---|---|---|---|---|
+| init-prelude (`--jobs=8`) | 1.311 | 1.282 | −2.20 % | 0.99 | 0.94 |
+| grind-ring-5 | 11.726 | 11.111 | −5.25 % | 8.60 | 8.36 |
+| app-lam | 22.038 | 22.035 | −0.01 % | 12.86 (11.38) | 13.33 (11.44) |
+| let-ladder | 2.583 | 2.585 | +0.08 % | 0.96 (0.748) | 1.04 (0.733) |
+| beta-ladder | 4.844 | 4.828 | −0.35 % | 1.68 (1.523) | 1.78 (1.525) |
+| init-full (`--jobs=8`) | 328.606 | 305.173 | −7.13 % | 221.8 | 187.9 |
+| CFSG CCK4 (`--olean --module --jobs=1`) | 131.991 | 101.684 | −22.96 % | 99.2 | 75.4 |
+| CFSG McLEnumA (same) | 2 678.95 | 2 073.66 | −22.59 % | 1 963 | 1 639 |
+| CFSG ck318 net (master, `--jobs=1`) | 63.268 | 62.583 | −1.08 % | 31.9 | 23.1 |
+
+* No regression above 1 %.  let-ladder's +0.08 % is within its base's spread over the three
+  rounds (2.583–2.586 G); app-lam's rounds spread over 0.3 %.
+* The three small streams' cycles in the main batch were 4–8 % higher on the lane at equal
+  instructions (load average about 80 on 96 cores).  Interleaved runs at `--jobs=1`, five pairs
+  (the numbers in parentheses, medians): app-lam +0.5 %, let-ladder −2.1 %, beta-ladder +0.2 %.
+* Every verdict is unchanged: every run exits 0 with output identical to the base's (CCK4 34
+  and McLEnumA 87 748 declarations accepted).
+* Against #555's figures: CCK4 −30.3 G here; #555's prototypes predicted −33 G for the four
+  on its base (188.8 G); measured on the pre-#558 master (`modular` 09b310a1b ± this lane's
+  first commit) the lane gave 188.8 → 156.1 G (−17.3 %), McLEnumA 3 177 → 2 524 G
+  (−20.6 %), init-full 361.7 → 339.9 G (−6.0 %).  With #558 the same arms save a larger share,
+  as the knot's own cost is gone.
+
+Gates (on the lane merged with master d15d773fc): `lake build`, `lake test` warning-free;
+`tests/arena.sh` in full under the guard; layering, shake and pub-imports, trust surface,
+plain-reach (`natOpResult` and `natOpWfNames` are no longer reached and left the allowlist),
+binary-link, OVERVIEW links (repointed; five that pointed inside a function now point at its
+definition) and quotes, the whitepaper links (moved).
+
+**Merge with #558.**  The lane began on eb2c5939b; #558 (the knot as one `mutual` block)
+landed meanwhile and the lane was merged with it: `whnfStuckI` joined the block at
+`whnfAppI`'s rank, the literal arm went into `whnfLoopI`'s step, `memoRedEI` into
+`whnfCoreI`, and the congruence lemmas into `SlotsEq` form.  No proof needed more than the
+new signatures.
+
+Logs and scripts: `_tmp/556/logs` (`b2/` is the table above), `_tmp/556/*.sh`.

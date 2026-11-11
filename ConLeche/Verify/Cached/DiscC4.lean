@@ -100,6 +100,203 @@ private theorem iotaArityOk_guard {mi : CheckMode} {fe : FEnv} {lv : Nat}
   · rw [ite_eq_left h]
   · rw [ite_eq_right h, iotaRecI_of_arityOk_false (Bool.not_eq_true _ |>.mp h)]
 
+/-! ### The stuck spine
+
+`whnfStuckI` answers a spine whose head is its own head normal form (`isStuckHeadC`) with
+the ι step at the one prefix where it can fire, and otherwise with the input.  The bulk-beta
+loop `whnfAppI`, which the specification mirror follows, tries ι at every prefix and
+rebuilds the spine; `whnfStuckI_eq` identifies the two, prefix by prefix: everywhere but at
+the ι target the arity pre-check fails, and `iotaRecI` answers `none`
+(`iotaRecI_of_arityOk_false`). -/
+
+private theorem iotaNumArgs_add (e : Expr) : ∀ n, iotaNumArgs e n = iotaNumArgs e 0 + n := by
+  induction e with
+  | app g a ihg _ =>
+    intro n
+    rw [iotaNumArgs, iotaNumArgs, ihg (n + 1), ihg 1]
+    omega
+  | _ => intro n; simp [iotaNumArgs]
+
+private theorem iotaNumArgs_mkAppN (v : Expr) :
+    ∀ xs : List Expr, iotaNumArgs (Expr.mkAppN v xs) 0 = iotaNumArgs v 0 + xs.length
+  | [] => rfl
+  | a :: xs => by
+    rw [show Expr.mkAppN v (a :: xs) = Expr.mkAppN (.app v a) xs from rfl,
+      iotaNumArgs_mkAppN (.app v a) xs, iotaNumArgs, iotaNumArgs_add v 1]
+    simp only [List.length_cons]; omega
+
+/-- The arity pre-check is the ι target read off the spine's head. -/
+private theorem iotaArityOk_eq_target (fe : FEnv) (x : Expr) :
+    iotaArityOk fe x = true ↔ iotaTargetF fe x.getAppFn = some (iotaNumArgs x 0) := by
+  unfold iotaArityOk iotaTargetF
+  cases x.getAppFn with
+  | const c us =>
+    dsimp only
+    cases fe.find? c with
+    | none => simp
+    | some ci =>
+      cases ci with
+      | recInfo cv mI _ _ _ =>
+        dsimp only
+        by_cases hl : us.length = cv.levelParams.length
+        · simp only [hl, beq_self_eq_true, Bool.and_true, beq_iff_eq, ite_true,
+            Option.some.injEq]
+          constructor <;> intro h <;> omega
+        · simp [hl]
+      | _ => simp
+  | _ => simp
+
+private theorem iotaTargetF_pos {fe : FEnv} {h : Expr} {k : Nat}
+    (hk : iotaTargetF fe h = some k) : 0 < k := by
+  unfold iotaTargetF at hk
+  split at hk
+  · split at hk
+    · split at hk
+      · cases hk; omega
+      · cases hk
+    · cases hk
+  · cases hk
+
+private theorem isStuckHeadC_getAppFn {h : Expr} (hh : isStuckHeadC h = true) :
+    h.getAppFn = h := by
+  cases h <;> first | rfl | exact nomatch hh
+
+private theorem isStuckHeadC_iotaNumArgs {h : Expr} (hh : isStuckHeadC h = true) :
+    iotaNumArgs h 0 = 0 := by
+  cases h <;> first | rfl | exact nomatch hh
+
+private theorem isStuckHeadC_getAppArgs {h : Expr} (hh : isStuckHeadC h = true) :
+    h.getAppArgs = [] := by
+  cases h <;> first | rfl | exact nomatch hh
+
+/-- `whnfAppI`'s step at a head that is not a lambda. -/
+private theorem whnfAppI_cons_ne_lam {mi : CheckMode} {fe : FEnv} {lv : Nat} {d : Nat}
+    {v : Expr} (hv : ∀ ty b, v ≠ .lam ty b) (a : Expr) (rest : List Expr) :
+    whnfAppI mi fe eager lv d v (a :: rest) =
+      ((if iotaArityOk fe (.app v a) then iotaRecI mi fe eager lv d (.app v a) else pure none) >>=
+        fun o => match o with
+          | some e'' => do
+            let e' ← mkAppNM e'' rest
+            pure (.cont e')
+          | none => whnfAppI mi fe eager lv d (.app v a) rest) := by
+  rw [whnfAppI.eq_def]
+  cases v with
+  | lam ty b => exact absurd rfl (hv ty b)
+  | _ => rfl
+
+private theorem ne_lam_of_getAppFn {v h : Expr} (hv : v.getAppFn = h)
+    (hh : isStuckHeadC h = true) : ∀ ty b, v ≠ .lam ty b := by
+  rintro ty b rfl
+  simp [Expr.getAppFn] at hv
+  subst hv
+  exact nomatch hh
+
+/-- Away from the ι target the spine loop only rebuilds the spine. -/
+private theorem whnfAppI_noIota {mi : CheckMode} {fe : FEnv} {lv : Nat} {d : Nat}
+    {h : Expr} (hh : isStuckHeadC h = true) :
+    ∀ (args : List Expr) (v : Expr), v.getAppFn = h →
+      (∀ k, iotaTargetF fe h = some k →
+        k ≤ iotaNumArgs v 0 ∨ iotaNumArgs v 0 + args.length < k) →
+      whnfAppI mi fe eager lv d v args = pure (.done (Expr.mkAppN v args))
+  | [], v, _, _ => by rw [whnfAppI.eq_def]; rfl
+  | a :: rest, v, hv, hk => by
+    have hoff : iotaArityOk fe (.app v a) = false := by
+      cases ho : iotaArityOk fe (.app v a) with
+      | false => rfl
+      | true =>
+        rw [iotaArityOk_eq_target] at ho
+        rw [show (Expr.app v a).getAppFn = v.getAppFn from rfl, hv, iotaNumArgs,
+          iotaNumArgs_add v 1] at ho
+        rcases hk _ ho with h₁ | h₁ <;> (try simp only [List.length_cons] at h₁) <;> omega
+    rw [whnfAppI_cons_ne_lam (ne_lam_of_getAppFn hv hh), hoff]
+    simp only [Bool.false_eq_true, ite_false, pure_bind]
+    refine whnfAppI_noIota hh rest (.app v a) hv ?_
+    intro k hk'
+    rw [iotaNumArgs, iotaNumArgs_add v 1]
+    rcases hk k hk' with h₁ | h₁
+    · left; omega
+    · right; simp only [List.length_cons] at h₁; omega
+
+/-- Up to the ι target the spine loop tries ι there once, and then only rebuilds. -/
+private theorem whnfAppI_iota {mi : CheckMode} {fe : FEnv} {lv : Nat} {d : Nat}
+    {h : Expr} (hh : isStuckHeadC h = true) {k : Nat} (htk : iotaTargetF fe h = some k) :
+    ∀ (args : List Expr) (v : Expr), v.getAppFn = h →
+      iotaNumArgs v 0 < k → k ≤ iotaNumArgs v 0 + args.length →
+      whnfAppI mi fe eager lv d v args =
+        (iotaRecI mi fe eager lv d (Expr.mkAppN v (args.take (k - iotaNumArgs v 0))) >>=
+          fun o => match o with
+            | some e'' => do
+              let e' ← mkAppNM e'' (args.drop (k - iotaNumArgs v 0))
+              pure (.cont e')
+            | none => pure (.done (Expr.mkAppN v args)))
+  | [], v, _, h₁, h₂ => by simp only [List.length_nil] at h₂; omega
+  | a :: rest, v, hv, h₁, h₂ => by
+    have hnum : iotaNumArgs (.app v a) 0 = iotaNumArgs v 0 + 1 := by
+      rw [iotaNumArgs, iotaNumArgs_add v 1]
+    rw [whnfAppI_cons_ne_lam (ne_lam_of_getAppFn hv hh)]
+    by_cases hat : k = iotaNumArgs v 0 + 1
+    · have hon : iotaArityOk fe (.app v a) = true := by
+        rw [iotaArityOk_eq_target, show (Expr.app v a).getAppFn = v.getAppFn from rfl, hv,
+          hnum, htk, hat]
+      rw [hon, ite_eq_left rfl]
+      have hkm : k - iotaNumArgs v 0 = 1 := by omega
+      rw [hkm]
+      simp only [List.take_succ_cons, List.take_zero, List.drop_succ_cons, List.drop_zero]
+      congr 1
+      funext o
+      cases o with
+      | some e'' => rfl
+      | none =>
+        refine whnfAppI_noIota hh rest (.app v a) hv ?_
+        intro k' hk'
+        rw [htk] at hk'; cases hk'
+        left; omega
+    · have hoff : iotaArityOk fe (.app v a) = false := by
+        cases ho : iotaArityOk fe (.app v a) with
+        | false => rfl
+        | true =>
+          rw [iotaArityOk_eq_target, show (Expr.app v a).getAppFn = v.getAppFn from rfl, hv,
+            hnum, htk] at ho
+          cases ho; omega
+      rw [hoff]
+      simp only [Bool.false_eq_true, ite_false, pure_bind]
+      have hkm : k - iotaNumArgs v 0 = (k - iotaNumArgs (.app v a) 0) + 1 := by
+        rw [hnum]; omega
+      rw [whnfAppI_iota hh htk rest (.app v a) hv (by omega) (by simp only [List.length_cons] at h₂; omega), hkm]
+      rfl
+
+/-- The stuck arm is the spine loop at its own head. -/
+theorem whnfStuckI_mkAppN {mi : CheckMode} {fe : FEnv} {lv : Nat} {d : Nat}
+    {h : Expr} (hh : isStuckHeadC h = true) (args : List Expr) :
+    whnfStuckI mi fe eager lv d h (Expr.mkAppN h args) = whnfAppI mi fe eager lv d h args := by
+  have h0 := isStuckHeadC_iotaNumArgs hh
+  have hfn := isStuckHeadC_getAppFn hh
+  rw [whnfStuckI.eq_def]
+  cases htk : iotaTargetF fe h with
+  | none =>
+    dsimp only
+    refine (whnfAppI_noIota hh args h hfn ?_).symm
+    intro k hk; rw [htk] at hk; cases hk
+  | some k =>
+    dsimp only
+    rw [iotaNumArgs_mkAppN, h0]
+    by_cases hkn : k ≤ 0 + args.length
+    · rw [ite_eq_left hkn, getAppArgsC_spec, Expr.getAppArgs_mkAppN, isStuckHeadC_getAppArgs hh,
+        List.nil_append, whnfAppI_iota hh htk args h hfn (by rw [h0]; exact iotaTargetF_pos htk)
+          (by rw [h0]; exact hkn), h0, Nat.sub_zero]
+      rfl
+    · rw [ite_eq_right hkn]
+      refine (whnfAppI_noIota hh args h hfn ?_).symm
+      intro k' hk'; rw [htk] at hk'; cases hk'
+      right; omega
+
+/-- The stuck arm at a spine's own head is the spine loop on its arguments. -/
+theorem whnfStuckI_eq {mi : CheckMode} {fe : FEnv} {lv : Nat} {d : Nat}
+    {e : Expr} (hh : isStuckHeadC e.getAppFn = true) :
+    whnfStuckI mi fe eager lv d e.getAppFn e = whnfAppI mi fe eager lv d e.getAppFn (Expr.getAppArgsC e) := by
+  have := whnfStuckI_mkAppN (eager := eager) (mi := mi) (fe := fe) (lv := lv) (d := d) hh e.getAppArgs
+  rwa [Expr.mkAppN_getApp, ← getAppArgsC_spec] at this
+
 /-- The projection rule simulates its specification. -/
 theorem reduceProjCoreC_spec (ih : SSimC mode eager env f) {d : Nat} {sn : Name} {ip : Nat}
     {i : Expr} {s₀ : CState} (hs : CSOK mode eager env s₀) (hw : Expr.WScoped d i) :
@@ -175,6 +372,29 @@ theorem whnfAppC_spec (ih : SSimC .verified eager env f)
       vcgen [mkAppNM, iotaRecC_spec ih henv,
         betaPeelC_spec (mode := .verified) f, ihr] <;> finish
 
+/-- A stuck head is its own head normal form. -/
+theorem Runs.whnfCore_stuckHead {c : Bool} {d : Nat} {h : Expr} (hh : isStuckHeadC h = true) :
+    Runs ((fueledFns .verified eager env).whnfCore c d h) h :=
+  ⟨1, by cases h <;> first | rfl | exact nomatch hh⟩
+
+/-- The stuck arm simulates the mirror's application step: the head is its own head
+normal form, and the stuck arm is the spine loop (`whnfStuckI_eq`). -/
+theorem whnfStuckC_spec (ih : SSimC .verified eager env f)
+    (henv : EnvWF env) {c : Bool} {d : Nat} {i : Expr} {s₀ : CState}
+    (hs : CSOK .verified eager env s₀) (hw : Expr.WScoped d i)
+    (hh : isStuckHeadC i.getAppFn = true) :
+    ⦃fun s => s = s₀⦄
+      whnfStuckI .verified (mkFEnv env) eager f d
+        i.getAppFn i
+    ⦃fun v s' => CSOK .verified eager env s' ∧
+      Runs ((fueledFns .verified eager env).whnfCore c d i.getAppFn >>= fun v =>
+        whnfAppW .verified (fueledFns .verified eager env) env d v i.getAppArgs) v ∧
+      StepWS d v; ⊤⦄ := by
+  rw [whnfStuckI_eq hh]
+  sym only [conleche_grind, Runs.whnfCore_stuckHead (eager := eager) (env := env) (c := c)
+      (d := d) hh] =>
+    vcgen [whnfAppC_spec ih henv] <;> finish
+
 /-- One head-normalization step simulates its pure mirror. -/
 theorem whnfCoreStepC_spec (ih : SSimC .verified eager env f)
     (henv : EnvWF env) {c : Bool} {d : Nat} {i : Expr} {s₀ : CState} (hs : CSOK .verified eager env s₀)
@@ -185,7 +405,7 @@ theorem whnfCoreStepC_spec (ih : SSimC .verified eager env f)
       Runs (whnfCoreStepW .verified (fueledFns .verified eager env) env c d i) v ∧ StepWS d v; ⊤⦄ := by
   sym only [conleche_grind, whnfCoreStepW] =>
     vcgen [whnfCoreStepI.eq_def, inst1M_spec hs, ih.whnfCore_spec, ih.whnf_spec,
-      reduceProjCoreC_spec ih, whnfAppC_spec ih henv] <;> finish
+      reduceProjCoreC_spec ih, whnfAppC_spec ih henv, whnfStuckC_spec (c := c) ih henv] <;> finish
 
 /-- The mirror loop's answer is the chained body's
 (`whnfCoreLoop_sound_body`). -/

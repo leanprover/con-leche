@@ -648,14 +648,17 @@ theorem whnfPres_occDeep {env : Env} {names : List Name} (hN : WhnfNamesFree env
           intro d e e' h he
           obtain ⟨e₁, hwc, hcase⟩ := whnfStep_inv h
           have h1 := ihCore hwc he
-          rcases hcase with ⟨e₂, hrn, hcont⟩ | ⟨-, e₂, hu, hcont⟩ | ⟨-, -, rfl⟩
-          · refine ihN hcont ?_
-            rcases reduceNat_inv_bool hrn with ⟨k, rfl⟩ | ⟨bn, rfl, hbn⟩
-            · rfl
-            · obtain ⟨ht, hf⟩ := hN.2.2.2.2.2.2.2
-              rcases hbn with rfl | rfl
-              · exact Expr.occDeep_const ht
-              · exact Expr.occDeep_const hf
+          rcases hcase with ⟨e₂, hrn, hfin⟩ | ⟨-, e₂, hu, hcont⟩ | ⟨-, -, rfl⟩
+          · have h₂ : e₂.occDeep names = false := by
+              rcases reduceNat_inv_bool hrn with ⟨k, rfl⟩ | ⟨bn, rfl, hbn⟩
+              · rfl
+              · obtain ⟨ht, hf⟩ := hN.2.2.2.2.2.2.2
+                rcases hbn with rfl | rfl
+                · exact Expr.occDeep_const ht
+                · exact Expr.occDeep_const hf
+            rcases hfin with ⟨-, rfl⟩ | hcont
+            · exact h₂
+            · exact ihN hcont h₂
           · exact ihN hcont (unfoldDefinition_occDeep hN hu h1)
           · exact h1
       intro d e e' h he

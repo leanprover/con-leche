@@ -175,33 +175,95 @@ def natCountTooBig (op : String) : CheckError :=
   .invalid s!"the kernel refused to evaluate `{op}` because its second argument does not fit \
     in a 32-bit unsigned integer"
 
-/-- **The refusal before computing** `c a b` at the maximum size `maxNatSize`
+/-! ## The binary `Nat` operations
+
+`reduceNatI` finds the operation of `.app (.app (.const c []) a) b` once, by the name's
+cached hash and one structural confirmation (`NatBinOp.ofName?`), and dispatches on it:
+the operation's result and its size refusals.  Official `reduce_nat`
+(`src/kernel/type_checker.cpp`) compares the head with each candidate in turn, pointer
+and hash first. -/
+
+/-- The fourteen binary `Nat` operations the kernel computes on literals, in the order of
+`reduceNat`'s name test. -/
+inductive NatBinOp where
+  | add | sub | mul | pow | beq | ble | div | mod | gcd | land | lor | xor
+  | shiftLeft | shiftRight
+
+/-- The operation's constant. -/
+def NatBinOp.name : NatBinOp → Name
+  | .add => natAddName | .sub => natSubName | .mul => natMulName | .pow => natPowName
+  | .beq => natBeqName | .ble => natBleName | .div => natDivName | .mod => natModName
+  | .gcd => natGcdName | .land => natLandName | .lor => natLorName | .xor => natXorName
+  | .shiftLeft => natShiftLeftName | .shiftRight => natShiftRightName
+
+/-- `c = n`, the cached hashes first: a different hash decides at once, without a call. -/
+@[inline] def nameIsC (c n : Name) : Bool := c.hashData == n.hashData && decide (c = n)
+
+/-- The operation named `c`, if any. -/
+def NatBinOp.ofName? (c : Name) : Option NatBinOp :=
+  if nameIsC c natAddName then some .add
+  else if nameIsC c natSubName then some .sub
+  else if nameIsC c natMulName then some .mul
+  else if nameIsC c natPowName then some .pow
+  else if nameIsC c natBeqName then some .beq
+  else if nameIsC c natBleName then some .ble
+  else if nameIsC c natDivName then some .div
+  else if nameIsC c natModName then some .mod
+  else if nameIsC c natGcdName then some .gcd
+  else if nameIsC c natLandName then some .land
+  else if nameIsC c natLorName then some .lor
+  else if nameIsC c natXorName then some .xor
+  else if nameIsC c natShiftLeftName then some .shiftLeft
+  else if nameIsC c natShiftRightName then some .shiftRight
+  else none
+
+/-- The operation's result on literals, at any size (`natOpResult` of its name). -/
+def NatBinOp.result : NatBinOp → Nat → Nat → Expr
+  | .add, a, b => .lit (.natVal (a + b))
+  | .sub, a, b => .lit (.natVal (a - b))
+  | .mul, a, b => .lit (.natVal (a * b))
+  | .pow, a, b => .lit (.natVal (a ^ b))
+  | .beq, a, b => .const (if a = b then boolTrueName else boolFalseName) []
+  | .ble, a, b => .const (if a <= b then boolTrueName else boolFalseName) []
+  | .div, a, b => .lit (.natVal (a / b))
+  | .mod, a, b => .lit (.natVal (a % b))
+  | .gcd, a, b => .lit (.natVal (Nat.gcd a b))
+  | .land, a, b => .lit (.natVal (Nat.land a b))
+  | .lor, a, b => .lit (.natVal (Nat.lor a b))
+  | .xor, a, b => .lit (.natVal (Nat.xor a b))
+  | .shiftLeft, a, b => .lit (.natVal (Nat.shiftLeft a b))
+  | .shiftRight, a, b => .lit (.natVal (Nat.shiftRight a b))
+
+/-- **The refusal before computing** `op a b` at the maximum size `maxNatSize`
 (official `reduce_pow`, `reduce_shiftLeft`): `none` lets the operation
 compute.  `a ^ b` has at most `natSizeBytes a * b` bytes, and a base
 `≤ 1` gives `0` or `1`; `a <<< b` has about `natSizeBytes a + b / 8`
 bytes, and `0 <<< b = 0`. -/
-def natOpRefusal (maxNatSize : Nat) (c : Name) (a b : Nat) : Option CheckError :=
-  if c = natPowName then
+def natOpRefusal (maxNatSize : Nat) (op : NatBinOp) (a b : Nat) : Option CheckError :=
+  match op with
+  | .pow =>
     if b > natCountMax then some (natCountTooBig "Nat.pow")
     else if a > 1 && b != 0 && natSizeBytes a > maxNatSize / b then
       some (.invalid "the kernel refused to evaluate `Nat.pow` because the result would \
         exceed the maximum numeral size; raise it with --max-nat-size")
     else none
-  else if c = natShiftLeftName then
+  | .shiftLeft =>
     if a = 0 then none
     else if b > natCountMax then some (natCountTooBig "Nat.shiftLeft")
     else if natSizeBytes a + b / 8 + 1 > maxNatSize then some natNumeralTooBig
     else none
-  else none
+  | _ => none
 
 /-- **The refusal after computing** (official `reduce_bin_nat_op`'s
-`check_size`): the result `x` of `c`, a `Nat.add`, `Nat.sub` or
+`check_size`): the result `x` of `op`, a `Nat.add`, `Nat.sub` or
 `Nat.mul`, is a numeral above the maximum size. -/
-def natResultRefused (maxNatSize : Nat) (c : Name) (x : Expr) : Bool :=
-  (c = natAddName || c = natSubName || c = natMulName) &&
+def natResultRefused (maxNatSize : Nat) (op : NatBinOp) (x : Expr) : Bool :=
+  match op with
+  | .add | .sub | .mul =>
     match x with
     | .lit (.natVal n) => natSizeBytes n > maxNatSize
     | _ => false
+  | _ => false
 
 /-- Per-declaration state: the memo caches for the five entry points
 (the plain tower's in their own fields, the eager tower's in

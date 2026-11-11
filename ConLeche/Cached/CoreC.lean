@@ -156,6 +156,25 @@ def iotaArityOk (fe : FEnv) (e : Expr) : Bool :=
     | _ => false
   | _ => false
 
+/-- A spine head that is its own head normal form and not a lambda: the
+heads `whnfCoreEasy` answers with themselves, but a lambda. -/
+def isStuckHeadC : Expr → Bool
+  | .sort _ | .fvar .. | .forallE .. | .const .. | .lit _ => true
+  | _ => false
+
+/-- The ι target of a spine head: the spine length `mI + 1` at which
+`iotaRecI` can fire, where the head is a stored recursor at its own
+number of levels (the arity test of `iotaArityOk`, read off the head
+once). -/
+def iotaTargetF (fe : FEnv) (h : Expr) : Option Nat :=
+  match h with
+  | .const c us =>
+    match fe.find? c with
+    | some (.recInfo cv mI _ _ _) =>
+      if us.length = cv.levelParams.length then some (mI + 1) else none
+    | _ => none
+  | _ => none
+
 /-- Twin of `projCert`, through the index. -/
 def projCertF (fe : FEnv) (c : Name) (args : List Expr) : Bool :=
   match fe.find? c with
@@ -230,6 +249,28 @@ only — the term the proofs unfold is unchanged. -/
         let st := set' st ∅
         set' st (mp.insert e r)
       pure r
+
+/-- `memoEI` for head normalization: an answer that is the input itself
+is not stored (official `whnf_core` caches nothing on its stuck
+`f == f0` arm, `src/kernel/type_checker.cpp:525-536`).  Recomputing it
+is one step that changes nothing (`whnfStuckI`, a stuck projection),
+and a spine that does not reduce stays out of the table.  The test is
+the pointer-first `==`: the stuck arms return the input by reference. -/
+@[inline] def memoRedEI (get' : CState → Std.HashMap Expr Expr)
+    (set' : CState → Std.HashMap Expr Expr → CState)
+    (f : Nat → Expr → CheckCM Expr) : Nat → Expr → CheckCM Expr :=
+  fun d e => do
+    match (get' (← get))[e]? with
+    | some r => pure r
+    | none =>
+      let r ← f d e
+      if r == e then pure r
+      else
+        modify fun st =>
+            let mp := get' st
+          let st := set' st ∅
+          set' st (mp.insert e r)
+        pure r
 
 /-- Memoize the definitional-equality entry point under the
 index pair (`@[inline]` as `memoEI`). -/
@@ -315,12 +356,11 @@ def reduceNatI (eager : Bool) (lv : Nat) (depth : Nat) (e : Expr) :
         match us with
         | _ :: _ => pure none
         | [] => do
-          let cn ← pure c
-          if (cn = natAddName ∨ cn = natSubName ∨ cn = natMulName ∨
-              cn = natPowName ∨ cn = natBeqName ∨ cn = natBleName ∨
-              cn = natDivName ∨ cn = natModName ∨ cn = natGcdName ∨
-              cn = natLandName ∨ cn = natLorName ∨ cn = natXorName ∨
-              cn = natShiftLeftName ∨ cn = natShiftRightName) then do
+          -- the operation found once (`NatBinOp.ofName?`); `reduceNat`'s
+          -- further name test (`natOpWfNames`) names operations of the
+          -- fourteen, so it never answers here
+          match NatBinOp.ofName? c with
+          | some op => do
             -- first argument first; the second only behind a literal
             -- (official `reduce_bin_nat_op`; the spec's D15 note)
             let w₁ ← whnfI eager lv depth a
@@ -333,28 +373,15 @@ def reduceNatI (eager : Bool) (lv : Nat) (depth : Nat) (e : Expr) :
                 -- `reduce_shiftLeft`, `reduce_bin_nat_op`): refused
                 -- before computing, or by the computed result's size
                 let maxNatSize ← maxNatSizeM
-                match natOpRefusal maxNatSize cn n₁ n₂ with
+                match natOpRefusal maxNatSize op n₁ n₂ with
                 | some err => throw err
                 | none =>
-                match natOpResult cn n₁ n₂ with
-                | some x => do
-                  if natResultRefused maxNatSize cn x then throw natNumeralTooBig
-                  let r ← pure x
-                  pure (some r)
-                | none => pure none
+                  let x ← pure (op.result n₁ n₂)
+                  if natResultRefused maxNatSize op x then throw natNumeralTooBig
+                  pure (some x)
               | none => pure none
             | none => pure none
-          else if natOpWfNames.contains cn then do
-            let w₁ ← whnfI eager lv depth a
-            match ← pure (rawNatLitC? w₁) with
-            | some _ => do
-              let w₂ ← whnfI eager lv depth b
-              match ← pure (rawNatLitC? w₂) with
-              | some _ => throw (.notImplemented
-                  s!"native Nat computation on literals ({cn})")
-              | none => pure none
-            | none => pure none
-          else pure none
+          | none => pure none
       | _ => pure none
     | _ => pure none
   | _ => pure none
@@ -1009,6 +1036,26 @@ def whnfAppI (eager : Bool) (lv : Nat) (depth : Nat) :
       | none => whnfAppI eager lv depth fa rest
 termination_by _ args => (lv, 30, args.length, 0)
 
+/-- A spine `e` whose head `h` is its own head normal form and not a
+lambda (official `whnf_core`'s `f == f0` arm,
+`src/kernel/type_checker.cpp:525-536`): the ι step, tried once, at the
+one prefix where it can fire (`iotaTargetF`), and otherwise the input
+itself, with nothing rebuilt. -/
+def whnfStuckI (eager : Bool) (lv : Nat) (depth : Nat) (h e : Expr) :
+    CheckCM WhnfStep := do
+  match iotaTargetF fe h with
+  | some k =>
+    if k ≤ iotaNumArgs e 0 then do
+      let args ← pure (Expr.getAppArgsC e)
+      match ← iotaRecI eager lv depth (Expr.mkAppN h (args.take k)) with
+      | some e'' => do
+        let e' ← mkAppNM e'' (args.drop k)
+        pure (.cont e')
+      | none => pure (.done e)
+    else pure (.done e)
+  | none => pure (.done e)
+termination_by (lv, 30, 0, 0)
+
 /-- One head-normalization step of `whnfCoreBody` (beta, iota,
 projection), returning the head normal form or the term to continue
 with; `cheap` is the official `cheap_proj` flag (see `whnfCoreBody`).
@@ -1023,13 +1070,17 @@ def whnfCoreStepI (eager : Bool) (lv : Nat) (cheap : Bool) (depth : Nat)
     | .sort _ | .fvar .. | .forallE ..
     | .lam .. | .const .. | .lit _ => pure (.done e)
     | .app _ _ => do
-      -- Bulk beta (task #50): normalize the spine head once and run the
-      -- argument loop over the whole spine, batching consecutive
-      -- lambda binders into one substitution.
       let h ← pure (Expr.getAppFn e)
-      let args ← pure (Expr.getAppArgsC e)
-      let v ← whnfCoreI eager lv cheap depth h
-      whnfAppI eager lv depth v args
+      -- a head that is its own head normal form: the spine is stuck but
+      -- for ι, and is answered by itself
+      if isStuckHeadC h then whnfStuckI eager lv depth h e
+      else do
+        -- Bulk beta (task #50): normalize the spine head once and run
+        -- the argument loop over the whole spine, batching consecutive
+        -- lambda binders into one substitution.
+        let args ← pure (Expr.getAppArgsC e)
+        let v ← whnfCoreI eager lv cheap depth h
+        whnfAppI eager lv depth v args
     | .proj sn i pe => do
       -- the scrutinee by `whnf`, or by the cheap `whnfCore` in the
       -- cheap mode; stuck: the input itself, scrutinee as it was (see
@@ -1137,7 +1188,10 @@ def whnfLoopI (eager : Bool) (lv : Nat) (depth : Nat) :
   | n + 1, e => do
     let e₁ ← whnfCoreI eager lv false depth e
     match ← reduceNatI eager lv depth e₁ with
-    | some e₂ => whnfLoopI eager lv depth n e₂
+    -- a computed literal is the answer (official `whnf`: `if (auto v =
+    -- reduce_nat(t)) return *v;`); a `Bool` constructor goes on (see
+    -- `whnfStep`)
+    | some e₂ => if e₂.isLit then pure e₂ else whnfLoopI eager lv depth n e₂
     | none =>
       match ← unfoldDefinitionI fe e₁ with
       | some e₂ => whnfLoopI eager lv depth n e₂
@@ -1747,15 +1801,16 @@ termination_by (lv, 63, 0, 0)
 /-- **The whnfCore entry point** at knot level `lv`.  The easy cases
 (`whnfCoreEasy`) return before the memo, in both modes, as official.
 The two modes of `whnfCore` (official `cheap_proj`) under two memos:
-their results differ on a stuck projection. -/
+their results differ on a stuck projection.  Neither stores an answer that
+is its input (`memoRedEI`). -/
 def whnfCoreI (eager : Bool) : Nat → Bool → Nat → Expr → CheckCM Expr
   | 0, _, _, _ => throw (.internal "fuel exhausted: whnfCore")
   | lv + 1, c, d, e =>
     if whnfCoreEasy e then pure e
     else if c then
-      memoEI (·.whnfCoreCheapC) (fun st mp => { st with whnfCoreCheapC := mp })
+      memoRedEI (·.whnfCoreCheapC) (fun st mp => { st with whnfCoreCheapC := mp })
         (fun d e => whnfCoreBodyI eager lv true d e) d e
-    else memoEI (·.whnfCoreC) (fun st mp => { st with whnfCoreC := mp })
+    else memoRedEI (·.whnfCoreC) (fun st mp => { st with whnfCoreC := mp })
       (fun d e => whnfCoreBodyI eager lv false d e) d e
 termination_by lv _ _ _ => (lv, 0, 0, 0)
 

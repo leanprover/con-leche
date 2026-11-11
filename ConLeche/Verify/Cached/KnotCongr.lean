@@ -192,6 +192,11 @@ theorem iotaArityOk_congr (hfe : fe₁.find? = fe₂.find?) :
     iotaArityOk fe₁ = iotaArityOk fe₂ := by
   funext e; unfold iotaArityOk; simp only [hfe]
 
+/-- `iotaTargetF` reads `fe` only through `find?`. -/
+theorem iotaTargetF_congr (hfe : fe₁.find? = fe₂.find?) :
+    iotaTargetF fe₁ = iotaTargetF fe₂ := by
+  funext h; unfold iotaTargetF; simp only [hfe]
+
 /-- The five entry points of the knot agree at level `lv` on the two
 indices, in both towers. -/
 abbrev SlotsEq (mode : CheckMode) (fe₁ fe₂ : FEnv) (lv : Nat) : Prop :=
@@ -440,12 +445,20 @@ theorem whnfAppI_congr (hfe : fe₁.find? = fe₂.find?)
     cases v <;> simp only [betaPeelI_congr hfe, iotaArityOk_congr hfe,
       iotaRecI_congr hfe htb h, ih]
 
+/-- `whnfStuckI` reads `fe` only through `find?` and `findTable?`. -/
+theorem whnfStuckI_congr (hfe : fe₁.find? = fe₂.find?)
+    (htb : fe₁.findTable? = fe₂.findTable?) (h : SlotsEq mode fe₁ fe₂ lv) :
+    whnfStuckI mode fe₁ eager lv = whnfStuckI mode fe₂ eager lv := by
+  funext depth hd e; rw [whnfStuckI.eq_def, whnfStuckI.eq_def]
+  simp only [iotaTargetF_congr hfe, iotaRecI_congr hfe htb h]
+
 /-- `whnfCoreStepI` reads `fe` only through `find?` and `findTable?`. -/
 theorem whnfCoreStepI_congr (hfe : fe₁.find? = fe₂.find?)
     (htb : fe₁.findTable? = fe₂.findTable?) (h : SlotsEq mode fe₁ fe₂ lv) :
     whnfCoreStepI mode fe₁ eager lv = whnfCoreStepI mode fe₂ eager lv := by
   funext cheap depth e; rw [whnfCoreStepI.eq_def, whnfCoreStepI.eq_def]
-  simp only [whnfAppI_congr hfe htb h, reduceProjCoreI_congr hfe htb h, h]
+  simp only [whnfAppI_congr hfe htb h, whnfStuckI_congr hfe htb h,
+    reduceProjCoreI_congr hfe htb h, h]
 
 /-- `whnfCoreLoopI` reads `fe` only through `find?` and `findTable?`. -/
 theorem whnfCoreLoopI_congr (hfe : fe₁.find? = fe₂.find?)
