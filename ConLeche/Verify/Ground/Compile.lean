@@ -92,9 +92,15 @@ end
 @[expose] def _root_.ConLeche.Cached.G4Prog.prjW (P : G4Prog) (q : Nat) : List (Option Nat) :=
   [P.pNid[q]?, P.pIdx[q]?, P.pNP[q]?, P.pNF[q]?, P.pNl[q]?, P.pAlw[q]?]
 
-/-- The run's flags, basis entries and slot epoch. -/
-@[expose] def _root_.ConLeche.Cached.G4Prog.flags (P : G4Prog) : Bool × Bool × Nat × Nat × Nat × Nat × Nat × Nat :=
-  (P.natOk, P.strOk, P.maxNat, P.kTrue, P.kFalse, P.kZero, P.kSucc, P.epBase)
+/-- The run's flags: what the compiled code's meaning depends on. -/
+@[expose] def _root_.ConLeche.Cached.G4Prog.flags (P : G4Prog) : Bool × Bool × Nat :=
+  (P.natOk, P.strOk, P.maxNat)
+
+/-- The site's words: the four basis entries, the slot epoch and the slot
+array.  Growth (`ExtR`) does not fix them, so the site may set them; the
+compiler (`Ext`) leaves them alone. -/
+@[expose] def _root_.ConLeche.Cached.G4Prog.site (P : G4Prog) : Nat × Nat × Nat × Nat × Nat × Array Nat :=
+  (P.kTrue, P.kFalse, P.kZero, P.kSucc, P.epBase, P.slotA)
 
 theorem size_le_of_get {α : Type} {a b : Array α} (h : ∀ i, i < a.size → b[i]? = a[i]?) :
     a.size ≤ b.size := by
@@ -134,13 +140,14 @@ structure ExtR (P P' : G4Prog) : Prop where
 structure Ext (P P' : G4Prog) : Prop extends ExtR P P' where
   kCode : ∀ k, k < P.kInfo.size → P'.kCode[k]? = P.kCode[k]?
   ruleCode : ∀ r, r < P.rules.size → P'.ruleCode[r]? = P.ruleCode[r]?
+  site : P'.site = P.site
 
 theorem ExtR.refl (P : G4Prog) : ExtR P P :=
   ⟨fun _ _ => rfl, Nat.le_refl _, fun _ _ => rfl, Nat.le_refl _, fun _ _ => rfl, fun _ _ => rfl,
     fun _ _ h => h, fun _ _ => rfl, fun _ _ => rfl, Nat.le_refl _, fun _ _ => rfl, fun _ _ => rfl,
     fun _ _ h => h, rfl⟩
 
-theorem Ext.refl (P : G4Prog) : Ext P P := ⟨ExtR.refl P, fun _ _ => rfl, fun _ _ => rfl⟩
+theorem Ext.refl (P : G4Prog) : Ext P P := ⟨ExtR.refl P, fun _ _ => rfl, fun _ _ => rfl, rfl⟩
 
 theorem get?_size_le {α : Type} {a b : Array α} {i : Nat} (hi : i < a.size) (h : b[i]? = a[i]?) :
     i < b.size := by
@@ -168,7 +175,8 @@ theorem ExtR.trans {P₁ P₂ P₃ : G4Prog} (h₁ : ExtR P₁ P₂) (h₂ : Ext
 theorem Ext.trans {P₁ P₂ P₃ : G4Prog} (h₁ : Ext P₁ P₂) (h₂ : Ext P₂ P₃) : Ext P₁ P₃ :=
   ⟨h₁.toExtR.trans h₂.toExtR,
     fun k hk => (h₂.kCode k (Nat.lt_of_lt_of_le hk h₁.kInfoSize)).trans (h₁.kCode k hk),
-    fun r hr => (h₂.ruleCode r (Nat.lt_of_lt_of_le hr h₁.rulesSize)).trans (h₁.ruleCode r hr)⟩
+    fun r hr => (h₂.ruleCode r (Nat.lt_of_lt_of_le hr h₁.rulesSize)).trans (h₁.ruleCode r hr),
+    h₂.site.trans h₁.site⟩
 
 /-- Growth up to the code columns, then extension. -/
 theorem ExtR.trans_ext {P₁ P₂ P₃ : G4Prog} (h₁ : ExtR P₁ P₂) (h₂ : Ext P₂ P₃) : ExtR P₁ P₃ :=
@@ -344,6 +352,7 @@ theorem Ext.emit (P : G4Prog) (ws : Array Nat) : Ext P (P.emit (· ++ ws)) where
   flags := rfl
   kCode _ _ := rfl
   ruleCode _ _ := rfl
+  site := rfl
 
 /-! ## The program invariant -/
 
@@ -512,8 +521,8 @@ theorem prjW_eq {P P' : G4Prog} {q : Nat} (h : P'.prjW q = P.prjW q) :
 theorem ExtR.natOk {P P' : G4Prog} (hx : ExtR P P') : P'.natOk = P.natOk :=
   congrArg Prod.fst hx.flags
 
-theorem ExtR.epBase {P P' : G4Prog} (hx : ExtR P P') : P'.epBase = P.epBase := by
-  have := hx.flags; simp only [G4Prog.flags, Prod.mk.injEq] at this; exact this.2.2.2.2.2.2.2
+theorem Ext.epBase {P P' : G4Prog} (hx : Ext P P') : P'.epBase = P.epBase := by
+  have := hx.site; simp only [G4Prog.site, Prod.mk.injEq] at this; exact this.2.2.2.2.1
 
 theorem CodeOK.ext {P P' : G4Prog} (hx : ExtR P P') {w : Nat} {t : Expr} :
     CodeOK P w t → CodeOK P' w t
@@ -819,10 +828,11 @@ structure KeyEq (P P' : G4Prog) : Prop where
   sizes : Sizes P → Sizes P'
   nids : ∀ (c : Name) (i : Nat), P.nids[c]? = some i → P'.nids[c]? = some i
   flags : P'.flags = P.flags
+  site : P'.site = P.site
 
 theorem KeyEq.refl (P : G4Prog) : KeyEq P P :=
   ⟨rfl, rfl, rfl, rfl, rfl, rfl, rfl, rfl, rfl, fun _ => rfl, Nat.le_refl _, fun _ _ _ => rfl,
-    fun _ => rfl, id, fun _ _ h => h, rfl⟩
+    fun _ => rfl, id, fun _ _ h => h, rfl, rfl⟩
 
 theorem KeyEq.trans {P₁ P₂ P₃ : G4Prog} (h₁ : KeyEq P₁ P₂) (h₂ : KeyEq P₂ P₃) : KeyEq P₁ P₃ :=
   ⟨h₂.code.trans h₁.code, h₂.kTag.trans h₁.kTag, h₂.kInfo.trans h₁.kInfo, h₂.kMap.trans h₁.kMap,
@@ -832,7 +842,7 @@ theorem KeyEq.trans {P₁ P₂ P₃ : G4Prog} (h₁ : KeyEq P₁ P₂) (h₂ : K
     fun hs r hr => (h₂.row (h₁.sizes hs) r (Nat.lt_of_lt_of_le hr h₁.rulesSize)).trans (h₁.row hs r hr),
     fun q => (h₂.prjW q).trans (h₁.prjW q), fun hs => h₂.sizes (h₁.sizes hs),
     fun c i h => h₂.nids c i (h₁.nids c i h),
-    h₂.flags.trans h₁.flags⟩
+    h₂.flags.trans h₁.flags, h₂.site.trans h₁.site⟩
 
 theorem KeyEq.ext {P P' : G4Prog} (h : KeyEq P P') (hs : Sizes P) : Ext P P' where
   code i _ := by rw [h.code]
@@ -851,6 +861,7 @@ theorem KeyEq.ext {P P' : G4Prog} (h : KeyEq P P') (hs : Sizes P) : Ext P P' whe
   flags := h.flags
   kCode k _ := (entW_eq (h.entW k)).2.1
   ruleCode r hr := (rowW_eq (h.row hs r hr)).2.1
+  site := h.site
 
 theorem KeyEq.inv {P P' : G4Prog} (h : KeyEq P P') (hI : Inv find? findProj? P) (hn : NidOK P') :
     Inv find? findProj? P' :=
@@ -863,7 +874,7 @@ theorem KeyEq.nid (P : G4Prog) (c : Name) : KeyEq P (P.nid c).2 := by
   · exact KeyEq.refl P
   · rename_i hn
     refine ⟨rfl, rfl, rfl, rfl, rfl, rfl, rfl, rfl, rfl, fun _ => rfl, Nat.le_refl _, fun _ _ _ => rfl,
-      fun _ => rfl, id, fun c' i h => ?_, rfl⟩
+      fun _ => rfl, id, fun c' i h => ?_, rfl, rfl⟩
     show (P.nids.insert c P.nids.size)[c']? = some i
     rw [Std.HashMap.getElem?_insert]
     split
@@ -901,7 +912,7 @@ theorem g4RuleRow_spec (isK : Bool) (lps : List Name) (us : List Level) (P : G4P
   rw [nid_eq P rl.ctor] at hk hget hnn ⊢
   refine ⟨⟨hk.code, hk.kTag, hk.kInfo, hk.kMap, hk.closedNode, hk.projs, hk.strs,
     hk.kSlot, hk.nslots, fun _ => rfl, by simp, fun hs r hr => ?_, fun _ => rfl, fun hs => ?_,
-    hk.nids, rfl⟩, by simp, hnn, ?_⟩
+    hk.nids, rfl, rfl⟩, by simp, hnn, ?_⟩
   · obtain ⟨-, ⟨h₁, h₂, h₃, h₄, h₅⟩, -⟩ := hs
     simp only [G4Prog.rowW]
     rw [push_lt hr, push_lt (by omega), push_lt (by omega), push_lt (by omega),
@@ -1033,7 +1044,7 @@ theorem g4Entry_spec (P : G4Prog) (c : Name) (us : List Level) (kfab : Nat) (hI 
           push_lt (by omega), push_lt (by omega)],
       Nat.le_refl _, fun _ _ => rfl, fun _ _ => rfl, fun _ _ h => h, rfl⟩,
       fun i hi => show (P'.kCode.push 0)[i]? = P'.kCode[i]? from push_lt (by omega),
-      fun _ _ => rfl⟩
+      fun _ _ => rfl, rfl⟩
   · obtain ⟨-, hr, hp⟩ := hk.sizes hI.szs
     exact ⟨⟨by simp [e₁], by simp [e₂], by simp [e₃], by simp [e₄], by simp [e₅], by simp [e₆]⟩, hr, hp⟩
   · simp only [Array.size_push, hk.kTag, hk.kInfo, hs]
@@ -1332,6 +1343,7 @@ theorem proj_emit_ok {P P₁ Q : G4Prog} {sn : Name} {i so : Nat} {e se : Expr} 
     (hq : q = P₁.projs.size) (he : ∀ k, Q.entW k = P₁.entW k) (hrow : ∀ r, Q.rowW r = P₁.rowW r)
     (hrs : Q.rules.size = P₁.rules.size) (hprj : ∀ q', q' < P₁.projs.size → Q.prjW q' = P₁.prjW q')
     (hnid : ∀ (c : Name) (i : Nat), P₁.nids[c]? = some i → Q.nids[c]? = some i) (hfl : Q.flags = P₁.flags)
+    (hep : Q.site = P₁.site)
     (hszQ : Sizes Q) (hpq : PrjOK findProj? Q q) (hnQ : NidOK Q) :
     CompOK find? findProj? P (.proj sn i e) (Q.code.size, Q.emit (fun c => ((c.push 7).push (q + 1)).push so)) := by
   rw [emit_append3]
@@ -1339,7 +1351,7 @@ theorem proj_emit_ok {P P₁ Q : G4Prog} {sn : Name} {i so : Nat} {e se : Expr} 
     refine ⟨⟨fun j hj => ?_, ?_, fun j hj => ?_, ?_, fun j hj => ?_, fun j hj => ?_,
       fun a o h => ?_, fun j hj => ?_, fun k _ => entR_of_entW (he k), by rw [← hrs]; exact Nat.le_refl _,
       fun r _ => rowR_of_rowW (hrow r), hprj, hnid, hfl⟩, fun k _ => (entW_eq (he k)).2.1,
-      fun r _ => (rowW_eq (hrow r)).2.1⟩
+      fun r _ => (rowW_eq (hrow r)).2.1, hep⟩
     · show (Q.code ++ _)[j]? = _; rw [hc, rdL _ hj]
     · show P₁.code.size ≤ (Q.code ++ _).size; rw [hc]; simp
     · show Q.kInfo[j]? = _; rw [hi]
@@ -1368,7 +1380,7 @@ theorem g4MaskOf_key (P : G4Prog) (hd : Expr) : KeyEq P (g4MaskOf find? P hd).2 
   · split
     · exact KeyEq.refl P
     · exact ⟨rfl, rfl, rfl, rfl, rfl, rfl, rfl, rfl, rfl, fun _ => rfl, Nat.le_refl _, fun _ _ _ => rfl,
-        fun _ => rfl, id, fun _ _ h => h, rfl⟩
+        fun _ => rfl, id, fun _ _ h => h, rfl, rfl⟩
   · exact KeyEq.refl P
 
 theorem g4MaskOf_nids (P : G4Prog) (hd : Expr) : (g4MaskOf find? P hd).2.nids = P.nids := by
@@ -1492,7 +1504,7 @@ theorem g4CompShared_spec (comp : G4Prog → Expr → Nat × G4Prog)
         refine ⟨⟨fun i hi => rdL _ hi, by simp [G4Prog.emit], fun _ _ => rfl, Nat.le_refl _,
           fun _ _ => rfl, fun _ _ => rfl, fun a' o h => ?_, fun _ _ => rfl, fun _ _ => rfl,
           Nat.le_refl _, fun _ _ => rfl, fun _ _ => rfl, fun _ _ h => h, rfl⟩, fun _ _ => rfl,
-          fun _ _ => rfl⟩
+          fun _ _ => rfl, rfl⟩
         show (P₁.closedNode.insert a P₁.code.size)[a']? = some o
         rw [Std.HashMap.getElem?_insert]
         split
@@ -1579,7 +1591,7 @@ theorem g4Comp_spec : ∀ (f : Nat),
             ⟨⟨(Ext.emit P _).code, (Ext.emit P _).codeSize, fun _ _ => rfl, Nat.le_refl _,
               fun _ _ => rfl, fun i hi => push_lt hi, fun _ _ h => h, fun _ _ => rfl, fun _ _ => rfl,
               Nat.le_refl _, fun _ _ => rfl, fun _ _ => rfl, fun _ _ h => h, rfl⟩, fun _ _ => rfl,
-              fun _ _ => rfl⟩
+              fun _ _ => rfl, rfl⟩
           refine ⟨hI.ext hx hI.sizes hI.kSlotSize rfl rfl rfl rfl hI.szs rfl
               (fun _ hq h => absurd hq (Nat.not_lt.mpr h)) hI.nidOK, hx, _,
             .strLit (si := P.strs.size) ?_ ?_ ?_, Approx.refl _⟩
@@ -1672,7 +1684,7 @@ theorem g4Comp_spec : ∀ (f : Nat),
           dsimp only
           refine proj_emit_ok find? findProj? (pj := ⟨sn, en.ctor, i, en.numParams, en.numFields,
               en.levelParams.length, true, en⟩) (sn := sn) (i := i) hI₁ hx₁ hde hae ?_ ?_ ?_ ?_
-            ?_ ?_ ?_ ?_ ?_ rfl rfl _ ?_ (fun k => hk.entW k) ?_ ?_ ?_ hk.nids ?_ ?_ ?_ ?_
+            ?_ ?_ ?_ ?_ ?_ rfl rfl _ ?_ (fun k => hk.entW k) ?_ ?_ ?_ hk.nids ?_ ?_ ?_ ?_ ?_
           · exact hk.code
           · exact hk.kTag
           · exact hk.kInfo
@@ -1690,6 +1702,7 @@ theorem g4Comp_spec : ∀ (f : Nat),
             rw [hP₂]; simp only [G4Prog.prjW]
             rw [push_lt (by omega), push_lt (by omega), push_lt (by omega), push_lt (by omega),
               push_lt (by omega), push_lt (by omega)]
+          · rw [hP₂]; rfl
           · rw [hP₂]; rfl
           · obtain ⟨a, b, ⟨p₁, p₂, p₃, p₄, p₅, p₆⟩⟩ := hI₁.szs
             rw [hP₂]

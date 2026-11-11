@@ -634,7 +634,7 @@ theorem step_delta_compile (h : MInv env t₀ oc s fl) (hm : s.mode = 3) {c : Na
   have hI2 := hI1.setKCode (hx1.kInfo_some hi') hd ha
   have hx : ExtR s.P { P1 with kCode := P1.kCode.set! s.x (o + 1) } :=
     hx1.toExtR.trans (ExtR.codes P1 _ P1.ruleCode)
-  refine ⟨h.store.grow (s' := { s with P := _ }) hI2 hx hx.epBase (Pre.refl _) h.store.celSz (Pre.refl _)
+  refine ⟨h.store.grow (s' := { s with P := _ }) hI2 hx hx1.epBase (Pre.refl _) h.store.celSz (Pre.refl _)
     h.store.valSz (Pre.refl _) h.store.evSz (Pre.refl _) rfl rfl (Agree.refl _ _) h.store.evRef
     h.store.argRef (fun c h₁ h₂ => absurd h₂ (by simp only [MS.N] at h₁ ⊢; omega)), h.stack,
     h.frames.grow hx (Pre.refl _) (Nat.le_refl _), ?_⟩

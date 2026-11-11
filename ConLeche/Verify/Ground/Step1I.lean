@@ -281,7 +281,7 @@ theorem MInv.enterCompiled (h : MInv env t₀ oc s fl) {fs : Array Nat} {fl' : L
   obtain ⟨hI1, hx1, sb, hd, ha⟩ := hcomp
   dsimp only at hI1 hx1 hd ⊢
   have hx := hx1.toExtR
-  refine ⟨(h.store.grow (s' := { s with P := P1 }) hI1 hx hx.epBase (Pre.refl _) h.store.celSz
+  refine ⟨(h.store.grow (s' := { s with P := P1 }) hI1 hx hx1.epBase (Pre.refl _) h.store.celSz
     (Pre.refl _) h.store.valSz (Pre.refl _) h.store.evSz (Pre.refl _) rfl rfl (Agree.refl _ _)
     h.store.evRef h.store.argRef
     (fun c h₁ h₂ => absurd h₂ (by simp only [MS.N] at h₁ ⊢; omega))).same rfl rfl rfl rfl rfl rfl rfl,
@@ -473,10 +473,10 @@ theorem MInv.iotaFire (hwf : EnvWF env) (h : MInv env t₀ oc s fl) (hm : s.mode
 
 /-- The value in focus under an extended program. -/
 theorem MInv.withProg1 (h : MInv env t₀ oc s fl) (hm : s.mode = 1) {P' : G4Prog}
-    (hI : Inv env.find? env.findProj? P') (hx : ExtR s.P P') :
+    (hI : Inv env.find? env.findProj? P') (hx : ExtR s.P P') (hep : P'.epBase = s.P.epBase) :
     MInv env t₀ oc { s with P := P' } fl := by
   obtain ⟨hxv, t, hv, hK⟩ := h.val1 hm
-  refine ⟨h.store.grow (s' := { s with P := P' }) hI hx hx.epBase (Pre.refl _) h.store.celSz (Pre.refl _)
+  refine ⟨h.store.grow (s' := { s with P := P' }) hI hx hep (Pre.refl _) h.store.celSz (Pre.refl _)
     h.store.valSz (Pre.refl _) h.store.evSz (Pre.refl _) rfl rfl (Agree.refl _ _) h.store.evRef
     h.store.argRef (fun c h₁ h₂ => absurd h₂ (by simp only [MS.N] at h₁ ⊢; omega)), h.stack,
     h.frames.grow hx (Pre.refl _) (Nat.le_refl _), ?_⟩
@@ -518,7 +518,7 @@ theorem step_iota_compile (hwf : EnvWF env) (h : MInv env t₀ oc s fl) (hm : s.
   have hrr : (P1.rules[ri]!) = (s.P.rules[ri]!) := by
     simp only [getElem!_def, (rowR_eq (hx1.toExtR.row ri hrl)).1]
   have hI2 := hI1.setRuleCode (hx1.toExtR.kInfo_some hi) hb₁ hb₂ hd (by rw [hrr]; exact ha)
-  exact h.withProg1 hm hI2 (hx1.toExtR.trans (ExtR.codes P1 P1.kCode _))
+  exact h.withProg1 hm hI2 (hx1.toExtR.trans (ExtR.codes P1 P1.kCode _)) hx1.epBase
 
 /-- **The rule fires, its right-hand side not a λ of the bound arity**: the
 leading arguments and the fields are pushed as argument frames over the

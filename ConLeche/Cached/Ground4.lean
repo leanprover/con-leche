@@ -1056,6 +1056,20 @@ end ConLeche.Cached
 namespace ConLeche.Cached
 open ConLeche
 
+/-- The program a site run starts from: the kept one, or (none kept) a fresh
+one with the four basis entries resolved. -/
+@[inline] def g4Setup (find? : Name → Option ConstantInfo)
+    (findProj? : Name → Nat → Option ProjEntry) (natOk strOk : Bool) (maxNat : Nat) (P₀ : G4Prog) :
+    G4Prog :=
+  if P₀.kTag.size == 0 then
+    let P : G4Prog := { natOk := natOk, strOk := strOk, maxNat := maxNat }
+    let (kT, P) := g4Resolve find? findProj? P boolTrueName []
+    let (kF, P) := g4Resolve find? findProj? P boolFalseName []
+    let (kZ, P) := g4Resolve find? findProj? P natZeroName []
+    let (kS, P) := g4Resolve find? findProj? P natSuccName []
+    { P with kTrue := kT, kFalse := kF, kZero := kZ, kSucc := kS }
+  else P₀
+
 /-- The outcome of a round-3 evaluation at the `Bool.true` comparison,
 as `groundBool`'s.  **The compiled program is kept for the declaration** (task #423
 round 3): `P₀` is the program the declaration's earlier runs compiled
@@ -1065,14 +1079,7 @@ def ground4BoolCoreF (find? : Name → Option ConstantInfo)
     (findProj? : Name → Nat → Option ProjEntry) (natOk strOk : Bool) (maxNat : Nat) (fuel : Nat)
     (P₀ : G4Prog) (e : Expr) :
     (Except G4Stop Bool × (Nat × Nat)) × G4Prog :=
-  let P : G4Prog := if P₀.kTag.size == 0 then
-      let P : G4Prog := { natOk := natOk, strOk := strOk, maxNat := maxNat }
-      let (kT, P) := g4Resolve find? findProj? P boolTrueName []
-      let (kF, P) := g4Resolve find? findProj? P boolFalseName []
-      let (kZ, P) := g4Resolve find? findProj? P natZeroName []
-      let (kS, P) := g4Resolve find? findProj? P natSuccName []
-      { P with kTrue := kT, kFalse := kF, kZero := kZ, kSucc := kS }
-    else P₀
+  let P : G4Prog := g4Setup find? findProj? natOk strOk maxNat P₀
   let (o, P) := g4Comp find? findProj? g4CompFuel P e
   let r : Except G4Stop Bool × (Nat × Nat) × G4Prog :=
     let sl := P.slotA
