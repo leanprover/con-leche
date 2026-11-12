@@ -522,66 +522,110 @@ theorem instantiateListP_cut {vs : Array Expr} {e : Expr} {k d : Nat} (h : e.bva
     instantiateListP vs e k d = e := by
   rw [instantiateListP.eq_def]; simp [h]
 
-/-- (Task #316, the pointer-keyed twin.) The child step of `instantiateListXP` (`k` is the parent's live prefix). -/
-@[inline] def enterListP (vs : @& Array Expr) (e : @& Expr) (k d : Nat)
-    (memo : MemoXP (fun e d => instantiateListP vs e k d))
-    (rec : (hcut : ¬ e.bvarB ≤ d) → Squash (ResXP (fun e d => instantiateListP vs e k d) e d)) :
-    Squash (ResXP (fun e d => instantiateListP vs e k d) e d) :=
-  if hcut : e.bvarB ≤ d then Squash.mk (⟨e, (instantiateListP_cut hcut).symm⟩, memo)
-  else if !isCompound e then rec hcut
-  else withExcl e fun excl =>
-    if excl then rec hcut else memo.shared e d fun _ => rec hcut
+/-- The type of the re-entry of `leafListP` (see `reentListP`): the walk at a
+shorter live prefix `j` under a fresh memo, as a bare term. -/
+abbrev ReentListP (vs : Array Expr) (k d : Nat) : Type :=
+  (j : Nat) → j < k → (w : Expr) → ¬ j = 0 → ¬ w.bvarB ≤ d →
+    { r : Expr // r = instantiateListP vs w j d }
 
-/-- The walk of the bulk instantiation.  The `bvar` arm's re-entry at
-a replacement runs under a FRESH memo: it is the one place the live
-prefix `k` shrinks, and `k` is not part of the key. -/
-def instantiateListXP (vs : @& Array Expr) (k : Nat) (memo : MemoXP (fun e d => instantiateListP vs e k d))
-    (e : @& Expr) (d : Nat) (hk : ¬ k = 0) (hcut : ¬ e.bvarB ≤ d) :
-    Squash (ResXP (fun e d => instantiateListP vs e k d) e d) :=
+/-- The non-compound node of the bulk instantiation, past the
+cutoff: a bare term, the memo is not involved.  Everything but the
+re-entry is a few comparisons and an array read, inlined into the
+walk.  The re-entry — a replacement whose value has loose bound
+variables below the lift — is `reent`: the walk under a FRESH memo (the
+one place the live prefix `k` shrinks, and `k` is not part of the key),
+whose memo is dropped (`reentListP`). -/
+@[inline] def leafListP (vs : @& Array Expr) (k : Nat) (e : @& Expr) (d : Nat) (hk : ¬ k = 0)
+    (reent : ReentListP vs k d)
+    (hcut : ¬ e.bvarB ≤ d) (hc : (!isCompound e) = true) :
+    { r : Expr // r = instantiateListP vs e k d } :=
   match e with
   | .bvar i .. =>
-    if hi : i < d then Squash.mk (⟨.bvar i, by dsimp only; rw [instantiateListP.eq_def]; simp [hk, hcut, hi]⟩, memo)
+    if hi : i < d then ⟨.bvar i, by rw [instantiateListP.eq_def]; simp [hk, hcut, hi]⟩
     else if _h : i - d < k then
       if h : i - d < vs.size then
         let w := vs[i - d]
         if h0 : i - d = 0 || w.bvarB ≤ d then
-          Squash.mk (⟨w, by dsimp only; rw [instantiateListP.eq_def]; simp [hk, hcut, hi, _h, h, w, h0]⟩, memo)
+          ⟨w, by rw [instantiateListP.eq_def]; simp [hk, hcut, hi, _h, h, w, h0]⟩
         else
           have h0' : ¬ i - d = 0 ∧ ¬ w.bvarB ≤ d := by
             simpa only [Bool.or_eq_true, decide_eq_true_eq, not_or] using h0
-          instantiateListXP vs (i - d) none w d h0'.1 h0'.2 |>.lift fun (⟨r, hr⟩, _) =>
-          Squash.mk (⟨r, by dsimp only; rw [instantiateListP.eq_def]; simp [hk, hcut, hi, _h, h, w, h0, hr]⟩, memo)
-      else Squash.mk (⟨.bvar i, by dsimp only; rw [instantiateListP.eq_def]; simp [hk, hcut, hi, _h, h]⟩, memo)
-    else Squash.mk (⟨Expr.mkBvar (i - k), by dsimp only; rw [instantiateListP.eq_def]; simp [hk, hcut, hi, _h]⟩, memo)
-  | .fvar idx ty .. => Squash.mk (⟨.fvar idx ty, by dsimp only; rw [instantiateListP.eq_def]; simp [hk, hcut]⟩, memo)
-  | .sort u .. => Squash.mk (⟨.sort u, by dsimp only; rw [instantiateListP.eq_def]; simp [hk, hcut]⟩, memo)
-  | .const n us .. => Squash.mk (⟨.const n us, by dsimp only; rw [instantiateListP.eq_def]; simp [hk, hcut]⟩, memo)
-  | .lit l .. => Squash.mk (⟨.lit l, by dsimp only; rw [instantiateListP.eq_def]; simp [hk, hcut]⟩, memo)
+          match reent (i - d) _h w h0'.1 h0'.2 with
+          | ⟨r, hr⟩ => ⟨r, by rw [instantiateListP.eq_def]; simp [hk, hcut, hi, _h, h, w, h0, hr]⟩
+      else ⟨.bvar i, by rw [instantiateListP.eq_def]; simp [hk, hcut, hi, _h, h]⟩
+    else ⟨Expr.mkBvar (i - k), by rw [instantiateListP.eq_def]; simp [hk, hcut, hi, _h]⟩
+  | .fvar idx ty .. => ⟨.fvar idx ty, by rw [instantiateListP.eq_def]; simp [hk, hcut]⟩
+  | .sort u .. => ⟨.sort u, by rw [instantiateListP.eq_def]; simp [hk, hcut]⟩
+  | .const n us .. => ⟨.const n us, by rw [instantiateListP.eq_def]; simp [hk, hcut]⟩
+  | .lit l .. => ⟨.lit l, by rw [instantiateListP.eq_def]; simp [hk, hcut]⟩
+  | .app .. | .lam .. | .forallE .. | .letE .. | .proj .. => absurd hc (by simp [isCompound])
+
+/-- The child step of `instantiateListXP` (`k` is the parent's live
+prefix): the cutoff; a non-compound child is `leafListP`, a bare term —
+no `(term, memo)` pair is built for it, and the memo passes on
+untouched; a compound child gets the exclusivity read.  `reent` and
+`rec` are passed as partial applications of the walk's two functions,
+so no closure is built: once this is inlined, each is a direct call. -/
+@[inline] def enterListP (vs : @& Array Expr) (e : @& Expr) (k d : Nat) (hk : ¬ k = 0)
+    (memo : MemoXP (fun e d => instantiateListP vs e k d))
+    (reent : ReentListP vs k d)
+    (rec : (hcut : ¬ e.bvarB ≤ d) → Squash (ResXP (fun e d => instantiateListP vs e k d) e d)) :
+    Squash (ResXP (fun e d => instantiateListP vs e k d) e d) :=
+  if hcut : e.bvarB ≤ d then Squash.mk (⟨e, (instantiateListP_cut hcut).symm⟩, memo)
+  else if hc : !isCompound e then Squash.mk (leafListP vs k e d hk reent hcut hc, memo)
+  else withExcl e fun excl =>
+    if excl then rec hcut else memo.shared e d fun _ => rec hcut
+
+mutual
+
+/-- The re-entry of `leafListP`: the walk at the shorter live prefix `j`
+under a fresh memo, which is dropped. -/
+def reentListP (vs : @& Array Expr) (k d : Nat) (j : Nat) (_hj : j < k) (w : @& Expr)
+    (h0 : ¬ j = 0) (hw : ¬ w.bvarB ≤ d) : { r : Expr // r = instantiateListP vs w j d } :=
+  ⟨resTerm (instantiateListXP vs j none w d h0 hw), resTerm_eq _⟩
+termination_by (j, sizeOf w + 1)
+decreasing_by
+  all_goals (apply Prod.Lex.right; omega)
+
+/-- The walk of the bulk instantiation (the node is past the
+cutoff: the wrapper and `enterListP` test it).  A non-compound node is
+`leafListP`'s. -/
+def instantiateListXP (vs : @& Array Expr) (k : Nat) (memo : MemoXP (fun e d => instantiateListP vs e k d))
+    (e : @& Expr) (d : Nat) (hk : ¬ k = 0) (hcut : ¬ e.bvarB ≤ d) :
+    Squash (ResXP (fun e d => instantiateListP vs e k d) e d) :=
+  match e with
   | .app f a .. =>
-    enterListP vs f k d memo (fun h => instantiateListXP vs k memo f d hk h) |>.lift fun (⟨f', hf⟩, memo) =>
-    enterListP vs a k d memo (fun h => instantiateListXP vs k memo a d hk h) |>.lift fun (⟨a', ha⟩, memo) =>
+    enterListP vs f k d hk memo (reentListP vs k d) (instantiateListXP vs k memo f d hk) |>.lift fun (⟨f', hf⟩, memo) =>
+    enterListP vs a k d hk memo (reentListP vs k d) (instantiateListXP vs k memo a d hk) |>.lift fun (⟨a', ha⟩, memo) =>
     Squash.mk (⟨mkApp f' a', by dsimp only; rw [instantiateListP.eq_def]; simp [hk, hcut, hf, ha, mkApp]⟩, memo)
   | .lam ty body .. =>
-    enterListP vs ty k d memo (fun h => instantiateListXP vs k memo ty d hk h) |>.lift fun (⟨ty', ht⟩, memo) =>
-    enterListP vs body k (d + 1) memo (fun h => instantiateListXP vs k memo body (d + 1) hk h) |>.lift fun (⟨b', hb⟩, memo) =>
+    enterListP vs ty k d hk memo (reentListP vs k d) (instantiateListXP vs k memo ty d hk) |>.lift fun (⟨ty', ht⟩, memo) =>
+    enterListP vs body k (d + 1) hk memo (reentListP vs k (d + 1)) (instantiateListXP vs k memo body (d + 1) hk) |>.lift fun (⟨b', hb⟩, memo) =>
     Squash.mk (⟨mkLam ty' b', by dsimp only; rw [instantiateListP.eq_def]; simp [hk, hcut, ht, hb, mkLam]⟩, memo)
   | .forallE ty body .. =>
-    enterListP vs ty k d memo (fun h => instantiateListXP vs k memo ty d hk h) |>.lift fun (⟨ty', ht⟩, memo) =>
-    enterListP vs body k (d + 1) memo (fun h => instantiateListXP vs k memo body (d + 1) hk h) |>.lift fun (⟨b', hb⟩, memo) =>
+    enterListP vs ty k d hk memo (reentListP vs k d) (instantiateListXP vs k memo ty d hk) |>.lift fun (⟨ty', ht⟩, memo) =>
+    enterListP vs body k (d + 1) hk memo (reentListP vs k (d + 1)) (instantiateListXP vs k memo body (d + 1) hk) |>.lift fun (⟨b', hb⟩, memo) =>
     Squash.mk (⟨mkForallE ty' b', by dsimp only; rw [instantiateListP.eq_def]; simp [hk, hcut, ht, hb, mkForallE]⟩, memo)
   | .letE ty val body .. =>
-    enterListP vs ty k d memo (fun h => instantiateListXP vs k memo ty d hk h) |>.lift fun (⟨ty', ht⟩, memo) =>
-    enterListP vs val k d memo (fun h => instantiateListXP vs k memo val d hk h) |>.lift fun (⟨v', hv⟩, memo) =>
-    enterListP vs body k (d + 1) memo (fun h => instantiateListXP vs k memo body (d + 1) hk h) |>.lift fun (⟨b', hb⟩, memo) =>
+    enterListP vs ty k d hk memo (reentListP vs k d) (instantiateListXP vs k memo ty d hk) |>.lift fun (⟨ty', ht⟩, memo) =>
+    enterListP vs val k d hk memo (reentListP vs k d) (instantiateListXP vs k memo val d hk) |>.lift fun (⟨v', hv⟩, memo) =>
+    enterListP vs body k (d + 1) hk memo (reentListP vs k (d + 1)) (instantiateListXP vs k memo body (d + 1) hk) |>.lift fun (⟨b', hb⟩, memo) =>
     Squash.mk (⟨mkLetE ty' v' b', by dsimp only; rw [instantiateListP.eq_def]; simp [hk, hcut, ht, hv, hb, mkLetE]⟩, memo)
   | .proj sn i sub .. =>
-    enterListP vs sub k d memo (fun h => instantiateListXP vs k memo sub d hk h) |>.lift fun (⟨s', hs⟩, memo) =>
+    enterListP vs sub k d hk memo (reentListP vs k d) (instantiateListXP vs k memo sub d hk) |>.lift fun (⟨s', hs⟩, memo) =>
     Squash.mk (⟨mkProj sn i s', by dsimp only; rw [instantiateListP.eq_def]; simp [hk, hcut, hs, mkProj]⟩, memo)
+  | .bvar i => Squash.mk (leafListP vs k (.bvar i) d hk (reentListP vs k d) hcut rfl, memo)
+  | .fvar idx ty => Squash.mk (leafListP vs k (.fvar idx ty) d hk (reentListP vs k d) hcut rfl, memo)
+  | .sort u => Squash.mk (leafListP vs k (.sort u) d hk (reentListP vs k d) hcut rfl, memo)
+  | .const n us => Squash.mk (leafListP vs k (.const n us) d hk (reentListP vs k d) hcut rfl, memo)
+  | .lit l => Squash.mk (leafListP vs k (.lit l) d hk (reentListP vs k d) hcut rfl, memo)
 termination_by (k, sizeOf e)
 decreasing_by
   all_goals first
     | (apply Prod.Lex.left; omega)
     | (apply Prod.Lex.right; simp +arith +decide)
+
+end
 
 /-- The cached `Expr.instantiateList` (bulk): the cutoff, then the walk. -/
 def instantiateListC (e : @& Expr) (vs : List Expr) (d : Nat := 0) : Expr :=
@@ -626,67 +670,110 @@ theorem instantiateRevP_cut {vs : Array Expr} {e : Expr} {k d : Nat} (h : e.bvar
     instantiateRevP vs e k d = e := by
   rw [instantiateRevP.eq_def]; simp [h]
 
-/-- (Task #316, the pointer-keyed twin.) The child step of `instantiateRevXP` (`k` is the parent's live prefix). -/
-@[inline] def enterRevP (vs : @& Array Expr) (e : @& Expr) (k d : Nat)
-    (memo : MemoXP (fun e d => instantiateRevP vs e k d))
-    (rec : (hcut : ¬ e.bvarB ≤ d) → Squash (ResXP (fun e d => instantiateRevP vs e k d) e d)) :
-    Squash (ResXP (fun e d => instantiateRevP vs e k d) e d) :=
-  if hcut : e.bvarB ≤ d then Squash.mk (⟨e, (instantiateRevP_cut hcut).symm⟩, memo)
-  else if !isCompound e then rec hcut
-  else withExcl e fun excl =>
-    if excl then rec hcut else memo.shared e d fun _ => rec hcut
+/-- The type of the re-entry of `leafRevP` (see `reentRevP`): the walk at a
+shorter live prefix `j` under a fresh memo, as a bare term. -/
+abbrev ReentRevP (vs : Array Expr) (k d : Nat) : Type :=
+  (j : Nat) → j < k → (w : Expr) → ¬ j = 0 → ¬ w.bvarB ≤ d →
+    { r : Expr // r = instantiateRevP vs w j d }
 
-/-- The walk of the bulk instantiation on a reversed accumulator.  The
-`bvar` arm's re-entry at a replacement runs under a FRESH memo: it is
-the one place the live prefix `k` shrinks, and `k` is not part of the
-key. -/
-def instantiateRevXP (vs : @& Array Expr) (k : Nat) (memo : MemoXP (fun e d => instantiateRevP vs e k d))
-    (e : @& Expr) (d : Nat) (hk : ¬ k = 0) (hcut : ¬ e.bvarB ≤ d) :
-    Squash (ResXP (fun e d => instantiateRevP vs e k d) e d) :=
+/-- The non-compound node of the bulk instantiation on a reversed accumulator, past the
+cutoff: a bare term, the memo is not involved.  Everything but the
+re-entry is a few comparisons and an array read, inlined into the
+walk.  The re-entry — a replacement whose value has loose bound
+variables below the lift — is `reent`: the walk under a FRESH memo (the
+one place the live prefix `k` shrinks, and `k` is not part of the key),
+whose memo is dropped (`reentRevP`). -/
+@[inline] def leafRevP (vs : @& Array Expr) (k : Nat) (e : @& Expr) (d : Nat) (hk : ¬ k = 0)
+    (reent : ReentRevP vs k d)
+    (hcut : ¬ e.bvarB ≤ d) (hc : (!isCompound e) = true) :
+    { r : Expr // r = instantiateRevP vs e k d } :=
   match e with
   | .bvar i .. =>
-    if hi : i < d then Squash.mk (⟨.bvar i, by dsimp only; rw [instantiateRevP.eq_def]; simp [hk, hcut, hi]⟩, memo)
+    if hi : i < d then ⟨.bvar i, by rw [instantiateRevP.eq_def]; simp [hk, hcut, hi]⟩
     else if _h : i - d < k then
       if h : i - d < vs.size then
         let w := vs[vs.size - 1 - (i - d)]'(by omega)
         if h0 : i - d = 0 || w.bvarB ≤ d then
-          Squash.mk (⟨w, by dsimp only; rw [instantiateRevP.eq_def]; simp [hk, hcut, hi, _h, h, w, h0]⟩, memo)
+          ⟨w, by rw [instantiateRevP.eq_def]; simp [hk, hcut, hi, _h, h, w, h0]⟩
         else
           have h0' : ¬ i - d = 0 ∧ ¬ w.bvarB ≤ d := by
             simpa only [Bool.or_eq_true, decide_eq_true_eq, not_or] using h0
-          instantiateRevXP vs (i - d) none w d h0'.1 h0'.2 |>.lift fun (⟨r, hr⟩, _) =>
-          Squash.mk (⟨r, by dsimp only; rw [instantiateRevP.eq_def]; simp [hk, hcut, hi, _h, h, w, h0, hr]⟩, memo)
-      else Squash.mk (⟨.bvar i, by dsimp only; rw [instantiateRevP.eq_def]; simp [hk, hcut, hi, _h, h]⟩, memo)
-    else Squash.mk (⟨Expr.mkBvar (i - k), by dsimp only; rw [instantiateRevP.eq_def]; simp [hk, hcut, hi, _h]⟩, memo)
-  | .fvar idx ty .. => Squash.mk (⟨.fvar idx ty, by dsimp only; rw [instantiateRevP.eq_def]; simp [hk, hcut]⟩, memo)
-  | .sort u .. => Squash.mk (⟨.sort u, by dsimp only; rw [instantiateRevP.eq_def]; simp [hk, hcut]⟩, memo)
-  | .const n us .. => Squash.mk (⟨.const n us, by dsimp only; rw [instantiateRevP.eq_def]; simp [hk, hcut]⟩, memo)
-  | .lit l .. => Squash.mk (⟨.lit l, by dsimp only; rw [instantiateRevP.eq_def]; simp [hk, hcut]⟩, memo)
+          match reent (i - d) _h w h0'.1 h0'.2 with
+          | ⟨r, hr⟩ => ⟨r, by rw [instantiateRevP.eq_def]; simp [hk, hcut, hi, _h, h, w, h0, hr]⟩
+      else ⟨.bvar i, by rw [instantiateRevP.eq_def]; simp [hk, hcut, hi, _h, h]⟩
+    else ⟨Expr.mkBvar (i - k), by rw [instantiateRevP.eq_def]; simp [hk, hcut, hi, _h]⟩
+  | .fvar idx ty .. => ⟨.fvar idx ty, by rw [instantiateRevP.eq_def]; simp [hk, hcut]⟩
+  | .sort u .. => ⟨.sort u, by rw [instantiateRevP.eq_def]; simp [hk, hcut]⟩
+  | .const n us .. => ⟨.const n us, by rw [instantiateRevP.eq_def]; simp [hk, hcut]⟩
+  | .lit l .. => ⟨.lit l, by rw [instantiateRevP.eq_def]; simp [hk, hcut]⟩
+  | .app .. | .lam .. | .forallE .. | .letE .. | .proj .. => absurd hc (by simp [isCompound])
+
+/-- The child step of `instantiateRevXP` (`k` is the parent's live
+prefix): the cutoff; a non-compound child is `leafRevP`, a bare term —
+no `(term, memo)` pair is built for it, and the memo passes on
+untouched; a compound child gets the exclusivity read.  `reent` and
+`rec` are passed as partial applications of the walk's two functions,
+so no closure is built: once this is inlined, each is a direct call. -/
+@[inline] def enterRevP (vs : @& Array Expr) (e : @& Expr) (k d : Nat) (hk : ¬ k = 0)
+    (memo : MemoXP (fun e d => instantiateRevP vs e k d))
+    (reent : ReentRevP vs k d)
+    (rec : (hcut : ¬ e.bvarB ≤ d) → Squash (ResXP (fun e d => instantiateRevP vs e k d) e d)) :
+    Squash (ResXP (fun e d => instantiateRevP vs e k d) e d) :=
+  if hcut : e.bvarB ≤ d then Squash.mk (⟨e, (instantiateRevP_cut hcut).symm⟩, memo)
+  else if hc : !isCompound e then Squash.mk (leafRevP vs k e d hk reent hcut hc, memo)
+  else withExcl e fun excl =>
+    if excl then rec hcut else memo.shared e d fun _ => rec hcut
+
+mutual
+
+/-- The re-entry of `leafRevP`: the walk at the shorter live prefix `j`
+under a fresh memo, which is dropped. -/
+def reentRevP (vs : @& Array Expr) (k d : Nat) (j : Nat) (_hj : j < k) (w : @& Expr)
+    (h0 : ¬ j = 0) (hw : ¬ w.bvarB ≤ d) : { r : Expr // r = instantiateRevP vs w j d } :=
+  ⟨resTerm (instantiateRevXP vs j none w d h0 hw), resTerm_eq _⟩
+termination_by (j, sizeOf w + 1)
+decreasing_by
+  all_goals (apply Prod.Lex.right; omega)
+
+/-- The walk of the bulk instantiation on a reversed accumulator (the node is past the
+cutoff: the wrapper and `enterRevP` test it).  A non-compound node is
+`leafRevP`'s. -/
+def instantiateRevXP (vs : @& Array Expr) (k : Nat) (memo : MemoXP (fun e d => instantiateRevP vs e k d))
+    (e : @& Expr) (d : Nat) (hk : ¬ k = 0) (hcut : ¬ e.bvarB ≤ d) :
+    Squash (ResXP (fun e d => instantiateRevP vs e k d) e d) :=
+  match e with
   | .app f a .. =>
-    enterRevP vs f k d memo (fun h => instantiateRevXP vs k memo f d hk h) |>.lift fun (⟨f', hf⟩, memo) =>
-    enterRevP vs a k d memo (fun h => instantiateRevXP vs k memo a d hk h) |>.lift fun (⟨a', ha⟩, memo) =>
+    enterRevP vs f k d hk memo (reentRevP vs k d) (instantiateRevXP vs k memo f d hk) |>.lift fun (⟨f', hf⟩, memo) =>
+    enterRevP vs a k d hk memo (reentRevP vs k d) (instantiateRevXP vs k memo a d hk) |>.lift fun (⟨a', ha⟩, memo) =>
     Squash.mk (⟨mkApp f' a', by dsimp only; rw [instantiateRevP.eq_def]; simp [hk, hcut, hf, ha, mkApp]⟩, memo)
   | .lam ty body .. =>
-    enterRevP vs ty k d memo (fun h => instantiateRevXP vs k memo ty d hk h) |>.lift fun (⟨ty', ht⟩, memo) =>
-    enterRevP vs body k (d + 1) memo (fun h => instantiateRevXP vs k memo body (d + 1) hk h) |>.lift fun (⟨b', hb⟩, memo) =>
+    enterRevP vs ty k d hk memo (reentRevP vs k d) (instantiateRevXP vs k memo ty d hk) |>.lift fun (⟨ty', ht⟩, memo) =>
+    enterRevP vs body k (d + 1) hk memo (reentRevP vs k (d + 1)) (instantiateRevXP vs k memo body (d + 1) hk) |>.lift fun (⟨b', hb⟩, memo) =>
     Squash.mk (⟨mkLam ty' b', by dsimp only; rw [instantiateRevP.eq_def]; simp [hk, hcut, ht, hb, mkLam]⟩, memo)
   | .forallE ty body .. =>
-    enterRevP vs ty k d memo (fun h => instantiateRevXP vs k memo ty d hk h) |>.lift fun (⟨ty', ht⟩, memo) =>
-    enterRevP vs body k (d + 1) memo (fun h => instantiateRevXP vs k memo body (d + 1) hk h) |>.lift fun (⟨b', hb⟩, memo) =>
+    enterRevP vs ty k d hk memo (reentRevP vs k d) (instantiateRevXP vs k memo ty d hk) |>.lift fun (⟨ty', ht⟩, memo) =>
+    enterRevP vs body k (d + 1) hk memo (reentRevP vs k (d + 1)) (instantiateRevXP vs k memo body (d + 1) hk) |>.lift fun (⟨b', hb⟩, memo) =>
     Squash.mk (⟨mkForallE ty' b', by dsimp only; rw [instantiateRevP.eq_def]; simp [hk, hcut, ht, hb, mkForallE]⟩, memo)
   | .letE ty val body .. =>
-    enterRevP vs ty k d memo (fun h => instantiateRevXP vs k memo ty d hk h) |>.lift fun (⟨ty', ht⟩, memo) =>
-    enterRevP vs val k d memo (fun h => instantiateRevXP vs k memo val d hk h) |>.lift fun (⟨v', hv⟩, memo) =>
-    enterRevP vs body k (d + 1) memo (fun h => instantiateRevXP vs k memo body (d + 1) hk h) |>.lift fun (⟨b', hb⟩, memo) =>
+    enterRevP vs ty k d hk memo (reentRevP vs k d) (instantiateRevXP vs k memo ty d hk) |>.lift fun (⟨ty', ht⟩, memo) =>
+    enterRevP vs val k d hk memo (reentRevP vs k d) (instantiateRevXP vs k memo val d hk) |>.lift fun (⟨v', hv⟩, memo) =>
+    enterRevP vs body k (d + 1) hk memo (reentRevP vs k (d + 1)) (instantiateRevXP vs k memo body (d + 1) hk) |>.lift fun (⟨b', hb⟩, memo) =>
     Squash.mk (⟨mkLetE ty' v' b', by dsimp only; rw [instantiateRevP.eq_def]; simp [hk, hcut, ht, hv, hb, mkLetE]⟩, memo)
   | .proj sn i sub .. =>
-    enterRevP vs sub k d memo (fun h => instantiateRevXP vs k memo sub d hk h) |>.lift fun (⟨s', hs⟩, memo) =>
+    enterRevP vs sub k d hk memo (reentRevP vs k d) (instantiateRevXP vs k memo sub d hk) |>.lift fun (⟨s', hs⟩, memo) =>
     Squash.mk (⟨mkProj sn i s', by dsimp only; rw [instantiateRevP.eq_def]; simp [hk, hcut, hs, mkProj]⟩, memo)
+  | .bvar i => Squash.mk (leafRevP vs k (.bvar i) d hk (reentRevP vs k d) hcut rfl, memo)
+  | .fvar idx ty => Squash.mk (leafRevP vs k (.fvar idx ty) d hk (reentRevP vs k d) hcut rfl, memo)
+  | .sort u => Squash.mk (leafRevP vs k (.sort u) d hk (reentRevP vs k d) hcut rfl, memo)
+  | .const n us => Squash.mk (leafRevP vs k (.const n us) d hk (reentRevP vs k d) hcut rfl, memo)
+  | .lit l => Squash.mk (leafRevP vs k (.lit l) d hk (reentRevP vs k d) hcut rfl, memo)
 termination_by (k, sizeOf e)
 decreasing_by
   all_goals first
     | (apply Prod.Lex.left; omega)
     | (apply Prod.Lex.right; simp +arith +decide)
+
+end
 
 /-- Bulk instantiation on a reversed accumulator array: the cutoffs,
 then the walk. -/
