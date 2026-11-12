@@ -184,8 +184,8 @@ through the state's interned table (`FVarTable.trans`). -/
 class holds numbers whose types hash to it, distinct numbers of one class
 have types unequal after `erase` (the interning is by `Expr.clEq`-class),
 every interned type translates at its number (mentioning earlier numbers
-only) and is in range, and the `keyEq` fast path points at a live number of an `erase`-equal
-type.  From it, a translatable free variable's id is determined by its
+only) and is in range, the `keyEq` fast path points at a live number of an `erase`-equal
+type, and the hash memo holds its keys' `EO.clHash`.  From it, a translatable free variable's id is determined by its
 translation (`FVarTable.trans_inj`, `InLeanProof/FVar.lean`), as con-leche's
 `.fvar d ty` is by its depth and type. -/
 structure FVTableOK (s : InLean.CState) : Prop where
@@ -198,6 +198,8 @@ structure FVTableOK (s : InLean.CState) : Prop where
   /-- every interned type is in range (what `mkFVarM`'s callers intern; the
   leaf guard's `EO.fvarIds` reads the cached `hasFVar` of the types) -/
   range : ∀ (n : Nat) (ty : Expr), s.fvTys[n]? = some ty → Expr.RangeOk ty
+  /-- the hash memo's entries are their keys' hashes -/
+  hash : ∀ (e : Expr) (h : UInt64), s.clHashC[e]? = some h → h = EO.clHash e
 
 /-! ## The invariant -/
 

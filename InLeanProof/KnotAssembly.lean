@@ -114,7 +114,7 @@ theorem CSOKIRest.memos {s : InLean.CState} (h : CSOKIRest env s)
       inferIOC := mio
       defeqC := mdq
       eagerMemos := mem } :=
-  ⟨⟨h.fv.cls, h.fv.distinct, h.fv.ty, h.fv.seen, h.fv.range⟩, h.fvClosed, h.constTy, h.constVal, h.ruleRhs,
+  ⟨⟨h.fv.cls, h.fv.distinct, h.fv.ty, h.fv.seen, h.fv.range, h.fv.hash⟩, h.fvClosed, h.constTy, h.constVal, h.ruleRhs,
     h.lsimp, h.eqv, h.instC⟩
 
 /-- The eager tower's clause reads only the table. -/

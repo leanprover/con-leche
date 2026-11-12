@@ -242,13 +242,13 @@ theorem ModeMemosOKI.of_tabLe {s₁ s₂ : InLean.CState} (h : TabLe s₁ s₂) 
 
 /-- **The invariant survives interning**: a state that differs only in the
 free-variable table, a larger one that keeps its own invariant. -/
-theorem CSOKI.of_tabLe {s : InLean.CState} (hs : CSOKI mode eager env s) {seen cls tys}
-    (h : TabLe s { s with fvSeen := seen, fvCls := cls, fvTys := tys })
-    (hfv : FVTableOK { s with fvSeen := seen, fvCls := cls, fvTys := tys })
+theorem CSOKI.of_tabLe {s : InLean.CState} (hs : CSOKI mode eager env s) {seen cls tys hm}
+    (h : TabLe s { s with fvSeen := seen, fvCls := cls, fvTys := tys, clHashC := hm })
+    (hfv : FVTableOK { s with fvSeen := seen, fvCls := cls, fvTys := tys, clHashC := hm })
     (hcl : ∀ (n : Nat) (ty : Expr) (cty : ConLeche.Expr), tys[n]? = some ty →
-      TransS { s with fvSeen := seen, fvCls := cls, fvTys := tys } ty = some cty →
+      TransS { s with fvSeen := seen, fvCls := cls, fvTys := tys, clHashC := hm } ty = some cty →
       cty.looseBVarsBounded 0 = true) :
-    CSOKI mode eager env { s with fvSeen := seen, fvCls := cls, fvTys := tys } where
+    CSOKI mode eager env { s with fvSeen := seen, fvCls := cls, fvTys := tys, clHashC := hm } where
   fv := hfv
   fvClosed := hcl
   whnfCoreC k v hl := (hs.whnfCoreC k v hl).of_tabLe h
@@ -343,12 +343,12 @@ theorem mkFVarM_specI {s₀ : InLean.CState} (hs : CSOKI mode eager env s₀) (d
       TrS s' r = .fvar d (TrS s₀ ty); ⊤⦄ := by
   refine tripleI_iff_run.2 fun r s' hr => ?_
   have htys := mkFVarM_tys hr
-  obtain ⟨hfv, htr, hle, seen, cls, tys, rfl⟩ := mkFVarM_ok hs.fv (TransS_of_ok hty) (RangeOk_of_OkS hty) hr
+  obtain ⟨hfv, htr, hle, seen, cls, tys, hm, rfl⟩ := mkFVarM_ok hs.fv (TransS_of_ok hty) (RangeOk_of_OkS hty) hr
   have hr' : Expr.RangeOk r := rangeOk_of_toExpr_fvar htr
   obtain ⟨hok, htr'⟩ := ok_of_TransS hr' htr
   -- an old number reads its old (closed) type; a new one reads `ty`
   have hold : ∀ (n : Nat) (ty' : Expr) (cty : ConLeche.Expr), s₀.fvTys[n]? = some ty' →
-      TransS { s₀ with fvSeen := seen, fvCls := cls, fvTys := tys } ty' = some cty →
+      TransS { s₀ with fvSeen := seen, fvCls := cls, fvTys := tys, clHashC := hm } ty' = some cty →
       cty.looseBVarsBounded 0 = true := by
     intro n ty' cty hn hc
     obtain ⟨c0, hc0⟩ := hs.fv.ty n ty' hn
@@ -359,7 +359,7 @@ theorem mkFVarM_specI {s₀ : InLean.CState} (hs : CSOKI mode eager env s₀) (d
     obtain rfl := Option.some.inj hc
     exact hs.fvClosed n ty' c0 hn h1
   have hcl : ∀ (n : Nat) (ty' : Expr) (cty : ConLeche.Expr), tys[n]? = some ty' →
-      TransS { s₀ with fvSeen := seen, fvCls := cls, fvTys := tys } ty' = some cty →
+      TransS { s₀ with fvSeen := seen, fvCls := cls, fvTys := tys, clHashC := hm } ty' = some cty →
       cty.looseBVarsBounded 0 = true := by
     intro n ty' cty hn hc
     rcases htys with htys | htys
@@ -502,7 +502,7 @@ theorem CSOKI.setInstC {s : InLean.CState} (hs : CSOKI mode eager env s)
       Expr.RangeOk r ∧ (∀ cv ∈ cvs, cv.looseBVarsBounded 0 = true) ∧
       cr = ck.instantiateList cvs 0) :
     CSOKI mode eager env { s with instC := mp } where
-  fv := ⟨hs.fv.cls, hs.fv.distinct, hs.fv.ty, hs.fv.seen, hs.fv.range⟩
+  fv := ⟨hs.fv.cls, hs.fv.distinct, hs.fv.ty, hs.fv.seen, hs.fv.range, hs.fv.hash⟩
   fvClosed := hs.fvClosed
   whnfCoreC := hs.whnfCoreC
   whnfCoreCheapC := hs.whnfCoreCheapC
@@ -636,7 +636,7 @@ theorem CSOKI.setConstTy {s : InLean.CState} (hs : CSOKI mode eager env s)
       Expr.RangeOk i ∧
       ct = ci.toConstantVal.type.instantiateLevelParams ci.toConstantVal.levelParams cus) :
     CSOKI mode eager env { s with constTyAt := mp } where
-  fv := ⟨hs.fv.cls, hs.fv.distinct, hs.fv.ty, hs.fv.seen, hs.fv.range⟩
+  fv := ⟨hs.fv.cls, hs.fv.distinct, hs.fv.ty, hs.fv.seen, hs.fv.range, hs.fv.hash⟩
   fvClosed := hs.fvClosed
   whnfCoreC := hs.whnfCoreC
   whnfCoreCheapC := hs.whnfCoreCheapC
@@ -660,7 +660,7 @@ theorem CSOKI.setConstVal {s : InLean.CState} (hs : CSOKI mode eager env s)
       toLevels us = some cus ∧ env.find? (toName n) = some (.defnInfo cv v h) ∧
       TransS s i = some cval ∧ Expr.RangeOk i ∧ cval = v.instantiateLevelParams cv.levelParams cus) :
     CSOKI mode eager env { s with constValAt := mp } where
-  fv := ⟨hs.fv.cls, hs.fv.distinct, hs.fv.ty, hs.fv.seen, hs.fv.range⟩
+  fv := ⟨hs.fv.cls, hs.fv.distinct, hs.fv.ty, hs.fv.seen, hs.fv.range, hs.fv.hash⟩
   fvClosed := hs.fvClosed
   whnfCoreC := hs.whnfCoreC
   whnfCoreCheapC := hs.whnfCoreCheapC
@@ -685,7 +685,7 @@ theorem CSOKI.setRuleRhs {s : InLean.CState} (hs : CSOKI mode eager env s)
       rules.find? (fun r' => r'.ctor == toName j) = some rl ∧
       TransS s i = some cr ∧ Expr.RangeOk i ∧ cr = rl.rhs.instantiateLevelParams cv.levelParams cus) :
     CSOKI mode eager env { s with ruleRhsAt := mp } where
-  fv := ⟨hs.fv.cls, hs.fv.distinct, hs.fv.ty, hs.fv.seen, hs.fv.range⟩
+  fv := ⟨hs.fv.cls, hs.fv.distinct, hs.fv.ty, hs.fv.seen, hs.fv.range, hs.fv.hash⟩
   fvClosed := hs.fvClosed
   whnfCoreC := hs.whnfCoreC
   whnfCoreCheapC := hs.whnfCoreCheapC
@@ -1226,7 +1226,7 @@ theorem CSOKI.setLevel {s : InLean.CState} (hs : CSOKI mode eager env s)
     (he : ∀ l r b, ec[(l, r)]? = some b → ∀ cl cr, toLevel l = some cl → toLevel r = some cr →
       ConLeche.Level.isEquiv cl cr = some b) :
     CSOKI mode eager env { s with lsimpC := ls, eqvC := ec } where
-  fv := ⟨hs.fv.cls, hs.fv.distinct, hs.fv.ty, hs.fv.seen, hs.fv.range⟩
+  fv := ⟨hs.fv.cls, hs.fv.distinct, hs.fv.ty, hs.fv.seen, hs.fv.range, hs.fv.hash⟩
   fvClosed := hs.fvClosed
   whnfCoreC := hs.whnfCoreC
   whnfCoreCheapC := hs.whnfCoreCheapC

@@ -589,7 +589,7 @@ theorem mkFVarM_ok {s : InLean.CState} (hs : FVTableOK s) {d : Nat} {ty : Expr}
     (hrun : mkFVarM d ty s = .ok (r, s')) :
     FVTableOK s' ∧ TransS s' r = some (.fvar d cty) ∧
       FvLe (tableOf s).trans (tableOf s').trans ∧
-      ∃ seen cls tys, s' = { s with fvSeen := seen, fvCls := cls, fvTys := tys } := by
+      ∃ seen cls tys hm, s' = { s with fvSeen := seen, fvCls := cls, fvTys := tys, clHashC := hm } := by
   -- the type, read through the whole table, and an `erase`-equal interned type
   have hread : ∀ n tn, s.fvTys[n]? = some tn → erase tn = erase ty →
       toExpr ((tableOf s).inner n) tn = some cty := by
@@ -608,13 +608,23 @@ theorem mkFVarM_ok {s : InLean.CState} (hs : FVTableOK s) {d : Nat} {ty : Expr}
     simp only [Except.ok.injEq, Prod.mk.injEq] at hrun
     obtain ⟨rfl, rfl⟩ := hrun
     obtain ⟨hl, tn, htn, he⟩ := hs.seen d ty n hseen
-    refine ⟨hs, ?_, fun _ _ h => h, s.fvSeen, s.fvCls, s.fvTys, rfl⟩
+    refine ⟨hs, ?_, fun _ _ h => h, s.fvSeen, s.fvCls, s.fvTys, s.clHashC, rfl⟩
     have hr := hread n tn htn he.symm
     simp only [TransS, toExpr, FVarTable.trans, fvParts_fvId, FVarTable.transNum_eq, hl,
       ↓reduceIte]
     simp only [tableOf] at htn hr ⊢
     simp [htn, hr]
   · rename_i hmiss
+    -- the hash, through the declaration's memo, is `EO.clHash`'s
+    have hm0 : HashMemoInv s.clHashC := fun e h he => (hs.hash e h he).trans (clHash_eq e)
+    obtain ⟨hh, hm1⟩ := clHashGo_spec ty s.clHashC hm0
+    rw [← clHash_eq] at hh
+    generalize EO.clHashGo ty s.clHashC = p at hrun hh hm1
+    obtain ⟨h, hmm⟩ := p
+    simp only at hh hm1 hrun
+    subst hh
+    have hmemo : ∀ (e : Expr) (h' : UInt64), hmm[e]? = some h' → h' = EO.clHash e :=
+      fun e h' he => (hm1 e h' he).trans (clHash_eq e).symm
     split at hrun
     · -- a class of the depth holds an `erase`-equal type
       rename_i c hfind
@@ -628,8 +638,9 @@ theorem mkFVarM_ok {s : InLean.CState} (hs : FVTableOK s) {d : Nat} {ty : Expr}
       have hl : (tableOf s).live d c = true := by
         simp only [FVarTable.live, tableOf, htc, hhash]
         exact List.contains_iff_mem.2 hmem
-      refine ⟨?_, ?_, fun _ _ h => h, _, s.fvCls, s.fvTys, rfl⟩
-      · refine { cls := hs.cls, distinct := hs.distinct, ty := hs.ty, range := hs.range, seen := ?_ }
+      refine ⟨?_, ?_, fun _ _ h => h, _, s.fvCls, s.fvTys, hmm, rfl⟩
+      · refine { cls := hs.cls, distinct := hs.distinct, ty := hs.ty, range := hs.range,
+                 hash := hmemo, seen := ?_ }
         intro d' k n hk
         rw [Std.HashMap.getElem?_insert] at hk
         split at hk
@@ -664,7 +675,8 @@ theorem mkFVarM_ok {s : InLean.CState} (hs : FVTableOK s) {d : Nat} {ty : Expr}
               fvSeen := s.fvSeen.insert (d, EKey.mk ty) s.fvTys.size
               fvCls := s.fvCls.insert (d, EO.clHash ty)
                 (s.fvTys.size :: s.fvCls.getD (d, EO.clHash ty) [])
-              fvTys := s.fvTys.push ty } =
+              fvTys := s.fvTys.push ty
+              clHashC := hmm } =
           (tableOf s).push d (EO.clHash ty) ((tableOf s).cls.getD (d, EO.clHash ty) []) ty := rfl
       have hsize : (tableOf s).tys.size = s.fvTys.size := rfl
       -- the new number is live at `d`
@@ -675,8 +687,8 @@ theorem mkFVarM_ok {s : InLean.CState} (hs : FVTableOK s) {d : Nat} {ty : Expr}
           ((tableOf s).cls.getD (d, EO.clHash ty) []) ty).inner s.fvTys.size) ty = some cty := by
         rw [FVarTable.push_inner (Nat.le_of_eq hsize.symm)]
         exact toExpr_mono ((tableOf s).trans_le_inner (Nat.le_of_eq hsize)) ty cty hty
-      refine ⟨?_, ?_, ?_, _, _, _, rfl⟩
-      · refine { cls := ?_, distinct := ?_, ty := ?_, seen := ?_, range := ?_ }
+      refine ⟨?_, ?_, ?_, _, _, _, _, rfl⟩
+      · refine { cls := ?_, distinct := ?_, ty := ?_, seen := ?_, range := ?_, hash := hmemo }
         · intro d' h' m hm
           simp only [Std.HashMap.getD_insert] at hm
           split at hm

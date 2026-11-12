@@ -59,7 +59,7 @@ theorem TrS_flushed (s : InLean.CState) : TrS s.flushed = TrS s := rfl
 theorem OkS_flushed (s : InLean.CState) : OkS s.flushed = OkS s := rfl
 
 theorem FVTableOK.flushed {s : InLean.CState} (h : FVTableOK s) : FVTableOK s.flushed :=
-  ⟨h.cls, h.distinct, h.ty, h.seen, h.range⟩
+  ⟨h.cls, h.distinct, h.ty, h.seen, h.range, h.hash⟩
 
 theorem CSOKIF.flushed {s : InLean.CState} (h : CSOKIF s) : CSOKIF s.flushed :=
   ⟨h.fv.flushed, h.fvClosed, h.lsimp, h.eqv⟩

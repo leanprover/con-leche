@@ -693,7 +693,7 @@ theorem checkDeclKindC_sim_cert {pins : List ConLeche.NatOpPinSet} (hC : CertArm
 /-! ## The entry point -/
 
 theorem CSOKIF_empty : CSOKIF ({} : InLean.CState) where
-  fv := ⟨by simp, by simp, by simp, by simp, by simp⟩
+  fv := ⟨by simp, by simp, by simp, by simp, by simp, by simp⟩
   fvClosed := by simp
   lsimp := by simp
   eqv := by simp
