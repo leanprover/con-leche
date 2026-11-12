@@ -400,7 +400,7 @@ theorem whnfCoreStepC_spec (ih : SSimC .verified eager env f)
     (henv : EnvWF env) {c : Bool} {d : Nat} {i : Expr} {s₀ : CState} (hs : CSOK .verified eager env s₀)
     (hw : Expr.WScoped d i) :
     ⦃fun s => s = s₀⦄
-      whnfCoreStepI .verified (mkFEnv env) eager f c d i
+      whnfCoreStepI .verified (mkFEnv env) eager f c d i.getAppFn i
     ⦃fun v s' => CSOK .verified eager env s' ∧
       Runs (whnfCoreStepW .verified (fueledFns .verified eager env) env c d i) v ∧ StepWS d v; ⊤⦄ := by
   sym only [conleche_grind, whnfCoreStepW] =>
@@ -477,7 +477,7 @@ private theorem whnfCore_cheapHead {c : Bool} {d : Nat} {h : Expr}
 /-- A step the two modes take alike (`whnfCoreCheapSafeC`) is the same step
 in the cheap mode. -/
 theorem whnfCoreStepW_cheap {c : Bool} {d : Nat} {e : Expr}
-    (h : whnfCoreCheapSafeC e = true) :
+    (h : whnfCoreCheapSafeC e.getAppFn e = true) :
     whnfCoreStepW mode (fueledFns mode eager env) env true d e
       = whnfCoreStepW mode (fueledFns mode eager env) env c d e := by
   cases e with
@@ -523,7 +523,7 @@ grind_pattern [conleche_grind] PendOK.cont =>
 
 /-- The cheap-mode keys past a step the two modes take alike. -/
 theorem PendOK.contCheap {c : Bool} {d : Nat} {pend : List Expr} {e e' : Expr}
-    (hp : PendOK mode eager env true d pend e) (hsafe : whnfCoreCheapSafeC e = true)
+    (hp : PendOK mode eager env true d pend e) (hsafe : whnfCoreCheapSafeC e.getAppFn e = true)
     (hs : Runs (whnfCoreStepW mode (fueledFns mode eager env) env c d e) (.cont e')) :
     PendOK mode eager env true d pend e' := by
   rw [← whnfCoreStepW_cheap hsafe] at hs
@@ -535,7 +535,7 @@ grind_pattern [conleche_grind] PendOK.contCheap =>
 
 /-- An answering step the two modes take alike answers the cheap mode too. -/
 theorem Runs.whnfCore_of_doneCheap {c : Bool} {d : Nat} {e v : Expr}
-    (hsafe : whnfCoreCheapSafeC e = true)
+    (hsafe : whnfCoreCheapSafeC e.getAppFn e = true)
     (hs : Runs (whnfCoreStepW mode (fueledFns mode eager env) env c d e) (.done v)) :
     Runs ((fueledFns mode eager env).whnfCore true d e) v := by
   rw [← whnfCoreStepW_cheap hsafe] at hs
@@ -614,7 +614,7 @@ modes take alike, dropped past any other. -/
 theorem PendOK.pushCheap {b : Bool} {c : Bool} {d : Nat} {pend : List Expr}
     {e e' : Expr} (hp : PendOK mode eager env true d pend e) (hw : Expr.WScoped d e)
     (hs : Runs (whnfCoreStepW mode (fueledFns mode eager env) env c d e) (.cont e')) :
-    PendOK mode eager env true d (pushCheapKey b e pend) e' := by
+    PendOK mode eager env true d (pushCheapKey (whnfCoreCheapSafeC e.getAppFn e) b e pend) e' := by
   unfold pushCheapKey pushKey
   split
   · rename_i hsafe
@@ -623,7 +623,7 @@ theorem PendOK.pushCheap {b : Bool} {c : Bool} {d : Nat} {pend : List Expr}
     · exact PendOK.contCheap hp hsafe hs
   · exact PendOK.nil
 grind_pattern [conleche_grind] PendOK.pushCheap =>
-  PendOK mode eager env true d (pushCheapKey b e pend) e',
+  PendOK mode eager env true d (pushCheapKey (whnfCoreCheapSafeC e.getAppFn e) b e pend) e',
   Runs (whnfCoreStepW mode (fueledFns mode eager env) env c d e) (.cont e')
 
 /-- The loop's answering arm in the full mode: the chain's keys, the term
@@ -634,7 +634,7 @@ theorem CSOK.chainStoredDone (henv : EnvWF env) {b c : Bool} {s : CState}
     (hp : PendOK mode eager env c d pend e) (hpc : PendOK mode eager env true d pendC e)
     (hw : Expr.WScoped d e)
     (hst : Runs (whnfCoreStepW mode (fueledFns mode eager env) env c d e) (.done v)) :
-    CSOK mode eager env (storeChain s (pushKey b e pend) (pushCheapKey b e pendC) v) := by
+    CSOK mode eager env (storeChain s (pushKey b e pend) (pushCheapKey (whnfCoreCheapSafeC e.getAppFn e) b e pendC) v) := by
   subst hc
   have hv := Runs.whnfCore_of_done hst
   have hp' : PendOK mode eager env false d (pushKey b e pend) e := by
@@ -653,7 +653,7 @@ theorem CSOK.chainStoredDone (henv : EnvWF env) {b c : Bool} {s : CState}
     · exact hpc
   · exact CSOK.chainStored_nil henv hs hp' hv
 grind_pattern [conleche_grind] CSOK.chainStoredDone =>
-  storeChain s (pushKey b e pend) (pushCheapKey b e pendC) v,
+  storeChain s (pushKey b e pend) (pushCheapKey (whnfCoreCheapSafeC e.getAppFn e) b e pendC) v,
   Runs (whnfCoreStepW mode (fueledFns mode eager env) env c d e) (.done v)
 
 /-- The head-normalization *loop* answers the chained `whnfCore` of its

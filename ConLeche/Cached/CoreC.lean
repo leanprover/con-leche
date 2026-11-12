@@ -228,30 +228,32 @@ and `App` cases, the insert after the `switch`) — a projection, a
 let-expression, or an application whose head is not its own head normal
 form.  An application with a stuck head (`isStuckHeadC`) is official's
 `f == f0` arm, the ι step or the stuck answer, which `return`s before
-the insert: it is never stored, so the loop does not look it up. -/
-@[inline] def whnfCoreKeyC : Expr → Bool
-  | .app f a => !isStuckHeadC (Expr.app f a).getAppFn
+the insert: it is never stored, so the loop does not look it up.  `h`
+is the term's spine head (`Expr.getAppFn`), computed once per step. -/
+@[inline] def whnfCoreKeyC (h : Expr) : Expr → Bool
+  | .app _ _ => !isStuckHeadC h
   | .proj .. | .letE .. => true
   | _ => false
 
 /-- A key whose step ended the chain with `v` is stored, but for an
 application answered by itself: its head normalized to itself (a stuck
 projection), official's `f == f0` arm again.  A stuck
-projection is stored (official's `Proj` case stores `r = e`). -/
-@[inline] def whnfCoreStoresDone (e v : Expr) : Bool :=
+projection is stored (official's `Proj` case stores `r = e`).  `key` is
+`whnfCoreKeyC` of `e`. -/
+@[inline] def whnfCoreStoresDone (key : Bool) (e v : Expr) : Bool :=
   match e with
-  | .app .. => whnfCoreKeyC e && !(v == e)
-  | _ => whnfCoreKeyC e
+  | .app .. => key && !(v == e)
+  | _ => key
 
 /-- **A step the two modes take alike**: a let-expression, or an
 application whose head is a lambda or stuck; neither normalizes a
 projection or a head that could contain one.  A chain of such steps
 answers the same in the cheap mode as in the full one
 (`whnfCoreStepW_cheap`), so the full mode's loop also stores its keys
-in the cheap mode's memo. -/
-@[inline] def whnfCoreCheapSafeC : Expr → Bool
-  | .app f a =>
-    match (Expr.app f a).getAppFn with
+in the cheap mode's memo.  `h` is the term's spine head. -/
+@[inline] def whnfCoreCheapSafeC (h : Expr) : Expr → Bool
+  | .app _ _ =>
+    match h with
     | .lam .. => true
     | h => isStuckHeadC h
   | .letE .. => true
@@ -276,9 +278,9 @@ stored (`b`). -/
 
 /-- The cheap mode's pending keys past a step on `e`: kept, and joined by
 `e` where it is stored (`b`), past a step the two modes take alike
-(`whnfCoreCheapSafeC`); dropped past any other. -/
-@[inline] def pushCheapKey (b : Bool) (e : Expr) (pendC : List Expr) : List Expr :=
-  if whnfCoreCheapSafeC e then pushKey b e pendC else []
+(`safe`, `whnfCoreCheapSafeC`); dropped past any other. -/
+@[inline] def pushCheapKey (safe b : Bool) (e : Expr) (pendC : List Expr) : List Expr :=
+  if safe then pushKey b e pendC else []
 
 /-- Store a finished chain (`storeChain`): the cheap mode stores nothing
 (official stores only when not cheap), and a chain without keys has
@@ -1109,14 +1111,16 @@ Only the spine head's normalization stays a knot call (genuine
 nesting, bounded by the term's depth); every *reduction* step is
 iteration, so a chain does not charge the shared recursion-depth
 budget per step (task #106: a `Nat.brecOn` grind would exhaust `checkFuel`).
-`whnfCoreLoopI` continues with the step's result by a tail call. -/
+`whnfCoreLoopI` continues with the step's result by a tail call; it
+passes the term's spine head `h` (`Expr.getAppFn e`), which it computes
+once per step for its memo policy as well. -/
 def whnfCoreStepI (eager : Bool) (lv : Nat) (cheap : Bool) (depth : Nat)
-    (e : Expr) : CheckCM WhnfStep := do
+    (h e : Expr) : CheckCM WhnfStep := do
     match e with
     | .sort _ | .fvar .. | .forallE ..
     | .lam .. | .const .. | .lit _ => pure (.done e)
     | .app _ _ => do
-      let h ← pure (Expr.getAppFn e)
+      -- `h` is the spine head, computed by the loop
       -- a head that is its own head normal form: the spine is stuck but
       -- for ι, and is answered by itself
       if isStuckHeadC h then whnfStuckI eager lv depth h e
@@ -1173,19 +1177,22 @@ def whnfCoreLoopI (eager : Bool) (lv : Nat) (cheap : Bool) (depth : Nat) :
       storeChainI cheap pend pendC e
       pure e
     else
-      match ← (if whnfCoreKeyC e then whnfCoreLookupI cheap e else pure none) with
+      let h := Expr.getAppFn e
+      let key := whnfCoreKeyC h e
+      match ← (if key then whnfCoreLookupI cheap e else pure none) with
       | some r =>
         storeChainI cheap pend [] r
         pure r
       | none =>
-        match ← whnfCoreStepI eager lv cheap depth e with
+        let safe := whnfCoreCheapSafeC h e
+        match ← whnfCoreStepI eager lv cheap depth h e with
         | .done v =>
-          let st := !cheap && whnfCoreStoresDone e v
-          storeChainI cheap (pushKey st e pend) (pushCheapKey st e pendC) v
+          let st := !cheap && whnfCoreStoresDone key e v
+          storeChainI cheap (pushKey st e pend) (pushCheapKey safe st e pendC) v
           pure v
         | .cont e' =>
-          let st := !cheap && whnfCoreKeyC e
-          whnfCoreLoopI eager lv cheap depth n (pushKey st e pend) (pushCheapKey st e pendC) e'
+          let st := !cheap && key
+          whnfCoreLoopI eager lv cheap depth n (pushKey st e pend) (pushCheapKey safe st e pendC) e'
 termination_by n _ _ _ => (lv, 32, n, 0)
 
 /-- Twin of `whnfCoreBody`: the head-normalization loop at its own step

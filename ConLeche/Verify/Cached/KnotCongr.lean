@@ -456,7 +456,7 @@ theorem whnfStuckI_congr (hfe : fe₁.find? = fe₂.find?)
 theorem whnfCoreStepI_congr (hfe : fe₁.find? = fe₂.find?)
     (htb : fe₁.findTable? = fe₂.findTable?) (h : SlotsEq mode fe₁ fe₂ lv) :
     whnfCoreStepI mode fe₁ eager lv = whnfCoreStepI mode fe₂ eager lv := by
-  funext cheap depth e; rw [whnfCoreStepI.eq_def, whnfCoreStepI.eq_def]
+  funext cheap depth hd e; rw [whnfCoreStepI.eq_def, whnfCoreStepI.eq_def]
   simp only [whnfAppI_congr hfe htb h, whnfStuckI_congr hfe htb h,
     reduceProjCoreI_congr hfe htb h, h]
 
