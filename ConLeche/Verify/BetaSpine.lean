@@ -19,12 +19,12 @@ provides the pure mirrors — the step-returning `whnfAppW`/`betaPeelW`/
 continuation-passing `whnfApp`/`betaPeel`/`whnfCoreStepM` they equal
 followed by `WhnfStep.run` (`whnfApp_run`, …), generic over the core
 record like every helper — and proves the **soundness of the loop
-against the chained spec**: a successful loop run at the pure fueled
-knot is reproduced by the original one-argument-at-a-time
+against the chained spec**: a step at the pure fueled knot, continued
+by `whnfCore`, is reproduced by the original one-argument-at-a-time
 `whnfCoreBody` recursion at some fuel (`whnfApp_sound`,
-`whnfCoreLoop_sound_body`).  The cached walk
-(`ConLeche/Verify/Cached/DiscC4`) composes its simulation against the
-mirror with this theorem, so the `Expr`-level specification — and
+`whnfCore_of_stepW_cont`, `whnfCore_of_stepW_done`).  The cached walk
+(`ConLeche/Verify/Cached/DiscC4`) composes its simulation of each step
+with these theorems, so the `Expr`-level specification — and
 everything above it — is unchanged.
 
 Key steps:
@@ -275,16 +275,16 @@ theorem betaPeelW_ne_lam (r : CoreFns m) (env : Env) (depth : Nat)
   | lam ty body => exact absurd rfl (ht ty body)
   | _ => rw [betaPeelW] <;> exact fun _ _ h => nomatch h
 
-/-! ## The head-normalization loop mirror (task #106)
+/-! ## The head-normalization step mirror (task #106)
 
 The cached `whnfCoreStepI`/`whnfCoreLoopI` run beta, iota and
 projection steps as *iteration* on their own step budget instead of
 chaining them through the knot.  These are the pure `Expr`-level
-mirrors; `ConLeche/Verify/Cached/DiscC4.lean` simulates the cached loop
-against them, and `whnfCoreLoop_sound_body` below reproduces a
-successful mirror run by the chained specification `whnfCoreBody` at
-some knot fuel — so the specification (and everything above it) is
-unchanged. -/
+mirrors of one step; `ConLeche/Verify/Cached/DiscC4.lean` simulates the
+cached step against them, and `whnfCore_of_stepW_cont` /
+`whnfCore_of_stepW_done` below carry a step's outcome to the chained
+specification `whnfCoreBody` at some knot fuel — so the specification
+(and everything above it) is unchanged. -/
 
 /-- Pure mirror of `whnfCoreStepI`: one head-normalization step with
 the loop's continuation `k` abstracted. -/
@@ -327,16 +327,6 @@ returning the head normal form or the term to continue with. -/
     | none => pure (.done (.proj sn i pe))
   | .letE _ v b => pure (.cont (b.instantiate1 v))
   | .bvar _ => throw (.notImplemented "whnf beyond the supported fragment")
-
-/-- Pure mirror of `whnfCoreLoopI`: iterate `whnfCoreStepW` on the
-step budget, continuing with the step's outcome. -/
-@[expose] def whnfCoreLoopM (mode : CheckMode) (r : CoreFns m) (env : Env) (cheap : Bool)
-    (depth : Nat) : Nat → Expr → m Expr
-  | 0, _ => throw (.internal "fuel exhausted: whnfCore loop")
-  | n + 1, e => do
-    match ← whnfCoreStepW mode r env cheap depth e with
-    | .done v => pure v
-    | .cont e' => whnfCoreLoopM mode r env cheap depth n e'
 
 /-! ## `atF` equations and fuel monotonicity for the mirrors -/
 
@@ -466,20 +456,6 @@ theorem whnfCoreStepW_atF (c : Bool) (d : Nat) (F : Nat) (e : Expr) :
     exact whnfAppW_atF d F _ vh
   case proj sn i pe =>
     atF_tac4
-
-theorem whnfCoreLoopM_atF (c : Bool) (d : Nat) :
-    ∀ (n : Nat) (e : Expr) (F : Nat),
-      (whnfCoreLoopM mode (fueledFns mode eager env) env c d n e).val F
-        = whnfCoreLoopM mode (pureFns mode eager env F) env c d n e
-  | 0, _, _ => rfl
-  | n + 1, e, F => by
-    simp only [whnfCoreLoopM]
-    rw [FueledM.atF_bind, whnfCoreStepW_atF]
-    congr 1
-    funext st
-    cases st with
-    | done v => rfl
-    | cont e' => exact whnfCoreLoopM_atF c d n e' F
 
 /-- Fuel monotonicity of the loop (via `whnfApp_atF` and the `FueledM`
 bundle). -/
@@ -798,11 +774,11 @@ theorem whnfApp_sound {d : Nat} (xs : List Expr) (h vh vres : Expr)
     (by rw [hx]; exact H)
   rwa [hx] at this
 
-/-! ### From the loop's continuation to the chained `whnfCore`
+/-! ### From a step's continuation to the chained `whnfCore`
 
-A loop run whose continuation is *sound* (every success it reports is
+A step run whose continuation is *sound* (every success it reports is
 reproduced by the chained `whnfCore` at some fuel) is itself
-reproduced by a loop run whose continuation **is** `whnfCore`; the
+reproduced by a step run whose continuation **is** `whnfCore`; the
 existing `snoc`/`sound` machinery then reduces it to `whnfCoreBody`.
 This is what lets the cached loop (task #106) run its reduction
 chain on its own step budget while the specification stays
@@ -1070,48 +1046,40 @@ theorem whnfCoreStepM_run {d F : Nat} (kF : Expr → CheckM Expr) (e : Expr) :
         | ok o => cases o <;> rfl
   | _ => rfl
 
-/-- `KSound` for the loop mirror itself: by induction on the step
-budget.  This is the bridge the cached walk composes with — a
-successful *loop* run is reproduced by the chained specification at
-some knot fuel, so `whnfCoreBody` (and everything above it) never sees
-the loop. -/
-theorem whnfCoreLoopM_ksound {d : Nat} :
-    ∀ (n : Nat),
-      KSound mode eager env c d (fun e => whnfCoreLoopM mode (fueledFns mode eager env) env c d n e)
-  | 0 => by
-    intro G e v h
-    rw [whnfCoreLoopM_atF c d 0 e G] at h
-    exact absurd h (by simp [whnfCoreLoopM])
-  | n + 1 => by
-    intro G e v h
-    rw [whnfCoreLoopM_atF c d (n + 1) e G] at h
-    have h' : whnfCoreStepM mode (pureFns mode eager env G) env c d
-        (whnfCoreLoopM mode (pureFns mode eager env G) env c d n) e = .ok v := by
-      rw [whnfCoreStepM_run]
-      simp only [whnfCoreLoopM] at h
-      exact h
-    obtain ⟨F', hF'⟩ :=
-      whnfCoreStepM_sound (env := env) (d := d)
-        (fun x => whnfCoreLoopM mode (fueledFns mode eager env) env c d n x)
-        (whnfCoreLoopM_ksound n) (e := e) (res := v) G
-        (by
-          rw [show (fun x => (whnfCoreLoopM mode (fueledFns mode eager env) env c d n x).val G)
-              = whnfCoreLoopM mode (pureFns mode eager env G) env c d n from
-            funext fun x => whnfCoreLoopM_atF c d n x G]
-          exact h')
-    exact ⟨F' + 1, by rw [whnfCore_succ]; exact hF'⟩
+/-- **A step that continues** (the cached loop's `.cont`): the chained
+`whnfCore` of the term answers what it answers on the continuation.  The
+step at the fueled record, followed by `whnfCore` itself (a sound
+continuation), is reproduced by `whnfCoreBody` at some knot fuel
+(`whnfCoreStepM_sound`).  The cached walk composes the steps it takes
+with this, a memo hit included, so the specification never sees the
+loop. -/
+theorem whnfCore_of_stepW_cont {d F G : Nat} {e e' v : Expr}
+    (hs : (whnfCoreStepW mode (fueledFns mode eager env) env c d e).val F = .ok (.cont e'))
+    (hk : ((fueledFns mode eager env).whnfCore c d e').val G = .ok v) :
+    ∃ M, whnfCore mode eager env M d e c = .ok v := by
+  have hs' := (whnfCoreStepW mode (fueledFns mode eager env) env c d e).property
+    (Nat.le_max_left F G) hs
+  have hk' := ((fueledFns mode eager env).whnfCore c d e').property (Nat.le_max_right F G) hk
+  rw [whnfCoreStepW_atF] at hs'
+  have H : whnfCoreStepM mode (pureFns mode eager env (max F G)) env c d
+      (fun x => ((fueledFns mode eager env).whnfCore c d x).val (max F G)) e = .ok v := by
+    rw [whnfCoreStepM_run, hs']; exact hk'
+  obtain ⟨F', hF'⟩ := whnfCoreStepM_sound (env := env) (d := d)
+    (fun x => (fueledFns mode eager env).whnfCore c d x) (fun G _ _ h => ⟨G, h⟩) (max F G) H
+  exact ⟨F' + 1, by rw [whnfCore_succ]; exact hF'⟩
 
-/-- The bridge the cached walk uses: a successful *loop* run at the
-fueled record is reproduced by `whnfCoreBody` on the same node, at
-some knot fuel. -/
-theorem whnfCoreLoop_sound_body (d : Nat) (e vres : Expr) (n F : Nat)
-    (H : (whnfCoreLoopM mode (fueledFns mode eager env) env c d n e).val F = .ok vres) :
-    ∃ F', (whnfCoreBody mode (fueledFns mode eager env) env c d e).val F' = .ok vres := by
-  obtain ⟨M, hM⟩ := whnfCoreLoopM_ksound n F e vres H
-  cases M with
-  | zero => rw [whnfCore_zero] at hM; exact nomatch hM
-  | succ G =>
-    exact ⟨G, by rw [whnfCoreBody_atF, ← whnfCore_succ]; exact hM⟩
+/-- **A step that answers** (the cached loop's `.done`): its answer is the
+chained `whnfCore`'s. -/
+theorem whnfCore_of_stepW_done {d F : Nat} {e v : Expr}
+    (hs : (whnfCoreStepW mode (fueledFns mode eager env) env c d e).val F = .ok (.done v)) :
+    ∃ M, whnfCore mode eager env M d e c = .ok v := by
+  rw [whnfCoreStepW_atF] at hs
+  have H : whnfCoreStepM mode (pureFns mode eager env F) env c d
+      (fun x => ((fueledFns mode eager env).whnfCore c d x).val F) e = .ok v := by
+    rw [whnfCoreStepM_run, hs]; rfl
+  obtain ⟨F', hF'⟩ := whnfCoreStepM_sound (env := env) (d := d)
+    (fun x => (fueledFns mode eager env).whnfCore c d x) (fun G _ _ h => ⟨G, h⟩) F H
+  exact ⟨F' + 1, by rw [whnfCore_succ]; exact hF'⟩
 
 end Sound
 

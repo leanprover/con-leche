@@ -122,7 +122,7 @@ check's. -/
     (posR : ConLeche.NestState) : Prop :=
   ConLeche.PositivityRun (ConLeche.fueledOps .verified F) envI
       envI.find? pp kindsR nfsR posR ∧
-  envC = ConLeche.consBlockCtors pp.nP pp.memberCtors envI ∧
+  envC = ConLeche.consBlockCtors pp.nP pp.ctorGroups envI ∧
   pp.memberCtors.map (·.map (fun ctor => (ctor.1.name, ctor.2)))
     = pp.members.map (fun ms => ms.ctors.map (fun c => (c.1.name, c.2))) ∧
   pp.memberNames.Nodup ∧
@@ -143,8 +143,8 @@ check's. -/
   Nonempty (GenRecRun .verified F (ConLeche.mkFEnv envI) envI (ConLeche.mkFEnv envC) pp
     (ConLeche.blockNestedBit pp kindsR) posR block out) ∧
   -- the block's constructors conclude in its members
-  (∀ c ∈ pp.memberCtors.flatten, envI.find? c.1.name = none ∧
-    ∀ C, (ctorEntry C (.ctorInfo c.1 pp.nP c.2)).isSome = true →
+  (∀ g ∈ pp.ctorGroups, ∀ c ∈ g.2, envI.find? c.1.name = none ∧
+    ∀ C, (ctorEntry C (.ctorInfo c.1 pp.nP c.2 g.1)).isSome = true →
       C ∈ pp.memberNames)
 
 /-- **The induction over the classes' majors, at the GENERATED calls**

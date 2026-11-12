@@ -38,85 +38,24 @@ section Wrappers
 
 variable {env : Env} {f : Nat}
 
-/-! ### The whnfCore memos
+/-! ### The whnfCore entry point
 
-The easy cases return before either memo (`whnfCoreEasy`,
-`Runs.whnfCore_easy`).  The two modes of `whnfCore` (official
-`cheap_proj`) under two memos; one triple covers both (`vcgen` splits the
-knot's `if c`). -/
+The memos are the loop's (`whnfCoreLoopI`, `whnfCoreLoopC_spec`): the
+entry point runs the body one level down, which answers the chained
+`whnfCore` itself (`whnfCoreBodyC_spec`). -/
 
-/-- An easy case is its own whnfCore answer (`whnfCoreBody`'s value arms). -/
-theorem Runs.whnfCore_easy {c : Bool} {d : Nat} {i : Expr} (h : whnfCoreEasy i = true) :
-    Runs ((fueledFns mode eager env).whnfCore c d i) i :=
-  ⟨1, by cases i <;> first | rfl | exact nomatch h⟩
-grind_pattern [conleche_grind] Runs.whnfCore_easy =>
-  Runs ((fueledFns mode eager env).whnfCore c d i) i
-
-/-- A full whnfCore memo hit answers the fueled whnfCore, well scoped. -/
-theorem CSOK.whnfCore_hit (henv : EnvWF env) {s : CState} {d : Nat} {i r : Expr}
-    (hs : CSOK mode eager env s) (hl : s.whnfCoreC[i]? = some r) (hw : Expr.WScoped d i) :
-    Runs ((fueledFns mode eager env).whnfCore false d i) r ∧ Expr.WScoped d r := by
-  obtain ⟨F, hall⟩ := hs.whnfCoreC i r hl
-  have hrun := hall d hw.to_wscopedB
-  exact ⟨⟨F, hrun⟩, whnfCore_WScoped henv F hrun hw⟩
-grind_pattern [conleche_grind] CSOK.whnfCore_hit =>
-  CSOK mode eager env s, s.whnfCoreC[i]?, Runs ((fueledFns mode eager env).whnfCore false d i) r
-
-/-- A cheap whnfCore memo hit answers the fueled cheap whnfCore. -/
-theorem CSOK.whnfCoreCheap_hit (henv : EnvWF env) {s : CState} {d : Nat} {i r : Expr}
-    (hs : CSOK mode eager env s) (hl : s.whnfCoreCheapC[i]? = some r) (hw : Expr.WScoped d i) :
-    Runs ((fueledFns mode eager env).whnfCore true d i) r ∧ Expr.WScoped d r := by
-  obtain ⟨F, hall⟩ := hs.whnfCoreCheapC i r hl
-  have hrun := hall d hw.to_wscopedB
-  exact ⟨⟨F, hrun⟩, whnfCore_WScoped henv F hrun hw⟩
-grind_pattern [conleche_grind] CSOK.whnfCoreCheap_hit =>
-  CSOK mode eager env s, s.whnfCoreCheapC[i]?, Runs ((fueledFns mode eager env).whnfCore true d i) r
-
-/-- A body answer is a whnfCore answer one fuel up. -/
-theorem Runs.whnfCore_of_body {c : Bool} {d : Nat} {i r : Expr}
-    (h : Runs (whnfCoreBody mode (fueledFns mode eager env) env c d i) r) :
-    Runs ((fueledFns mode eager env).whnfCore c d i) r := by
-  obtain ⟨F, hF⟩ := h
-  rw [whnfCoreBody_atF, ← whnfCore_succ] at hF
-  exact ⟨F + 1, hF⟩
-grind_pattern [conleche_grind] Runs.whnfCore_of_body =>
-  Runs (whnfCoreBody mode (fueledFns mode eager env) env c d i) r, (fueledFns mode eager
-      env).whnfCore c d i
-
-theorem CSOK.whnfCore_insert (henv : EnvWF env) {s : CState} {d : Nat} {i r : Expr}
-    (hs : CSOK mode eager env s) (hw : Expr.WScoped d i)
-    (h : Runs (whnfCoreBody mode (fueledFns mode eager env) env false d i) r) :
-    CSOK mode eager env { s with whnfCoreC := s.whnfCoreC.insert i r } := by
-  obtain ⟨F, hF⟩ := h
-  rw [whnfCoreBody_atF, ← whnfCore_succ] at hF
-  exact { hs with
-    whnfCoreC := HashMap.insert_backed hs.whnfCoreC ⟨F + 1, fun d' hd' => by
-      rw [whnfCore_depth_inv henv (F + 1) hd' hw.to_wscopedB]; exact hF⟩ }
-
-theorem CSOK.whnfCoreCheap_insert (henv : EnvWF env) {s : CState} {d : Nat} {i r : Expr}
-    (hs : CSOK mode eager env s) (hw : Expr.WScoped d i)
-    (h : Runs (whnfCoreBody mode (fueledFns mode eager env) env true d i) r) :
-    CSOK mode eager env { s with whnfCoreCheapC := s.whnfCoreCheapC.insert i r } := by
-  obtain ⟨F, hF⟩ := h
-  rw [whnfCoreBody_atF, ← whnfCore_succ] at hF
-  exact { hs with
-    whnfCoreCheapC := HashMap.insert_backed hs.whnfCoreCheapC ⟨F + 1, fun d' hd' => by
-      rw [whnfCore_depth_inv henv (F + 1) hd' hw.to_wscopedB]; exact hF⟩ }
-
-/-- The whnfCore memo wrappers simulate the fueled whnfCore at one fuel
-more than their bodies. -/
-theorem memoRedEI_whnfCore_spec (henv : EnvWF env)
+/-- The whnfCore entry point simulates the fueled whnfCore. -/
+theorem whnfCoreI_spec
     (hbody : ∀ c, BodySpec mode eager env
       (whnfCoreBodyI mode (mkFEnv env) eager f c)
-      (whnfCoreBody mode (fueledFns mode eager env) env c))
+      (fun d i => (fueledFns mode eager env).whnfCore c d i))
     {c : Bool} {s₀ : CState} {d : Nat} {i : Expr} (hs : CSOK mode eager env s₀)
     (hw : Expr.WScoped d i) :
     ⦃fun s => s = s₀⦄ whnfCoreI mode (mkFEnv env) eager (f + 1) c d i
     ⦃fun r s' => CSOK mode eager env s' ∧ Runs ((fueledFns mode eager env).whnfCore c d i) r ∧
       Expr.WScoped d r; ⊤⦄ := by
-  sym only [conleche_grind, CSOK.whnfCore_insert henv, CSOK.whnfCoreCheap_insert henv] =>
-    vcgen [whnfCoreI.eq_def, memoRedEI, BodySpec.triple (hbody true),
-      BodySpec.triple (hbody false)] <;> finish
+  sym only [conleche_grind] =>
+    vcgen [whnfCoreI.eq_def, BodySpec.triple (hbody c)] <;> finish
 
 /-! ### The whnf memo, by `vcgen` and `grind`
 
@@ -336,7 +275,7 @@ private theorem ssimC_all (env : Env) (henv : EnvWF env) :
   | f + 1, eager =>
     { whnfCore := fun hs hden hw => by
         obtain rfl := hden
-        exact SimC.of_triple relEC_diag (memoRedEI_whnfCore_spec henv
+        exact SimC.of_triple relEC_diag (whnfCoreI_spec
           (whnfCoreBodyC_spec (ssimC_all env henv f eager) henv)
           hs hw)
       whnf := fun hs hden hw => by

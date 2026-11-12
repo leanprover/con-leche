@@ -191,12 +191,13 @@ theorem contBlock_facts (mp : EnvModelM V env) {ctx : NestCtx}
       | nil => exact absurd rfl hLne
       | cons => simp
     obtain ⟨-, -, -, ⟨-, hrdC⟩, -⟩ := mp.lfp_ok D hD
-    obtain ⟨cv0, nPc0, nF0, hf0, -, hlpsC, -, _A, -, -, hread0⟩ :=
+    obtain ⟨cv0, nPc0, nF0, iT0, hf0, -, hlpsC, -, _A, -, -, hread0⟩ :=
       hrdC mm hmm 0 (by rw [← hlenL']; exact h0)
-    rw [hfL' 0 h0] at hf0
+    obtain ⟨iTL, hfL0⟩ := hfL' 0 h0
+    rw [hfL0] at hf0
     obtain ⟨rfl, rfl, rfl⟩ : L[0].1 = cv0 ∧ nPc = nPc0 ∧ L[0].2 = nF0 := by
       simp only [Option.some.injEq, ConLeche.ConstantInfo.ctorInfo.injEq] at hf0
-      exact ⟨hf0.1, hf0.2.1, hf0.2.2⟩
+      exact ⟨hf0.1, hf0.2.1, hf0.2.2.1⟩
     have hcvl : cv.levelParams = L[0].1.levelParams := by
       obtain ⟨cvm, capsm, hfm, hlm⟩ := hlpsC mm hmm
       rw [hfc] at hfm
@@ -277,7 +278,8 @@ theorem frame_lps_nodup (mp : EnvModelM V env) {ctx : NestCtx}
       | nil => exact absurd rfl hLne
       | cons => simp
     have hndx := nodup_of_nameNodup (hnodup _ (hsub _ (List.getElem_mem h0)))
-    rw [ctor_lps mp hD hlps hmm (by rw [← hlen₃]; exact h0) (hfL₃ 0 h0)] at hndx
+    obtain ⟨iT₃, hfL₃0⟩ := hfL₃ 0 h0
+    rw [ctor_lps mp hD hlps hmm (by rw [← hlen₃]; exact h0) hfL₃0] at hndx
     exact hndx
   · exact hnd0
 

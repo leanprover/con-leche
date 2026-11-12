@@ -137,23 +137,23 @@ theorem tgtRecCtor_seam_of_find {envC : Env} {mpC : EnvModelM V envC}
     {out : List (ConstantVal × TargetMajor × List Expr)}
     (hfind0 : ∀ (j : Nat) (r : ConstantVal × List Expr × Nat × List (ConstantVal × Nat)),
       (tgtRs out)[j]? = some r → ∀ (i : Nat) (ctor : ConstantVal × Nat), r.2.2.2[i]? = some ctor →
-        envC.find? ctor.1.name
-          = some (.ctorInfo ctor.1 (ConLeche.tgtMajorsOf out j).nPc ctor.2)) :
+        ∃ iT, envC.find? ctor.1.name
+          = some (.ctorInfo ctor.1 (ConLeche.tgtMajorsOf out j).nPc ctor.2 iT)) :
     ∀ (j : Nat) (r : ConstantVal × List Expr × Nat × List (ConstantVal × Nat)),
       (tgtRs out)[j]? = some r → ∀ (i : Nat) (ctor : ConstantVal × Nat), r.2.2.2[i]? = some ctor →
-        envC.find? ctor.1.name = some (.ctorInfo ctor.1 (ConLeche.tgtMajorsOf out j).nPc ctor.2) ∧
+        ∃ iT, envC.find? ctor.1.name = some (.ctorInfo ctor.1 (ConLeche.tgtMajorsOf out j).nPc ctor.2 iT) ∧
         ConstsBound envC ctor.1.type ∧
         ∀ ψ : Name → Nat,
           denote mpC.base2.acval envC ψ 0 ctor.1.type
             = some (blockRecCtorTy mpC.base2.acval envC (tgtRs out) j i ψ) := by
   intro j r hr i ctor hctor
-  have hfind := hfind0 j r hr i ctor hctor
+  obtain ⟨iT, hfind⟩ := hfind0 j r hr i ctor hctor
   have hmem := List.mem_of_find?_eq_some hfind
   have hwfC := mpC.base2.wf.consts _ hmem
   have hrd : (tgtRs out).getD j default = r := by rw [List.getD_eq_getElem?_getD, hr]; rfl
   have hsel : (((tgtRs out).getD j default).2.2.2.getD i default) = ctor := by
     rw [hrd, List.getD_eq_getElem?_getD, hctor]; rfl
-  refine ⟨hfind, constsBound_of_constsResolve _ hwfC.2.2.1, fun ψ => ?_⟩
+  refine ⟨iT, hfind, constsBound_of_constsResolve _ hwfC.2.2.1, fun ψ => ?_⟩
   obtain ⟨ta, hta⟩ := mpC.type_reads _ hmem ψ
   change denote mpC.base2.acval envC ψ 0 ctor.1.type = some ta at hta
   rw [blockRecCtorTy, hsel, hta]

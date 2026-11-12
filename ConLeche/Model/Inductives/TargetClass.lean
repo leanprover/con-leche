@@ -77,7 +77,7 @@ structure TgtOutCls {env : Env} (mp : EnvModelM V env) (M : TargetMajor) (D : Lf
   hkN : D.names.length = D.k
   hlen : M.ctors.length = D.nctors mm
   hctor : ∀ j (hj : j < M.ctors.length),
-    env.find? (D.ctorName mm j) = some (.ctorInfo M.ctors[j].1 M.nPc M.ctors[j].2)
+    ∃ iT, env.find? (D.ctorName mm j) = some (.ctorInfo M.ctors[j].1 M.nPc M.ctors[j].2 iT)
 
 
 /-- An outside class's telescope, as a run reads it. -/
@@ -106,20 +106,20 @@ class's level parameters (every member's). -/
 theorem TgtOutCls.ctor_at {env : Env} {mp : EnvModelM V env} {M : TargetMajor}
     {D : LfpDatum V} {mm : Nat} {cvI : ConstantVal} (hcl : TgtOutCls mp M D mm cvI) {i : Nat}
     {ctor : ConstantVal × Nat} (hctor : M.ctors[i]? = some ctor) :
-    i < D.nctors mm ∧ env.find? (D.ctorName mm i) = some (.ctorInfo ctor.1 M.nPc ctor.2) ∧
+    i < D.nctors mm ∧ (∃ iT, env.find? (D.ctorName mm i) = some (.ctorInfo ctor.1 M.nPc ctor.2 iT)) ∧
     cvI.levelParams = ctor.1.levelParams ∧
     ∀ mm', mm' < D.k → ∃ cv caps, env.find? (D.member mm') = some (.indInfo cv caps) ∧
       cv.levelParams = ctor.1.levelParams := by
   obtain ⟨hiL, hcAi⟩ := List.getElem?_eq_some_iff.mp hctor
   have hiD : i < D.nctors mm := by rw [← hcl.hlen]; exact hiL
-  have hfc0 := hcl.hctor i hiL
+  obtain ⟨iT, hfc0⟩ := hcl.hctor i hiL
   rw [hcAi] at hfc0
   obtain ⟨-, -, -, hcrd, -⟩ := mp.lfp_ok D hcl.hD
-  obtain ⟨cv', nPc', nF', hf', -, hlpsC, -⟩ := hcrd.2 mm hcl.hmm i hiD
+  obtain ⟨cv', nPc', nF', iT', hf', -, hlpsC, -⟩ := hcrd.2 mm hcl.hmm i hiD
   rw [hfc0] at hf'
-  obtain ⟨rfl, rfl, rfl⟩ : ctor.1 = cv' ∧ M.nPc = nPc' ∧ ctor.2 = nF' := by
-    injection hf' with h; injection h with h1 h2 h3; exact ⟨h1, h2, h3⟩
-  refine ⟨hiD, hfc0, ?_, hlpsC⟩
+  obtain ⟨rfl, rfl, rfl, -⟩ : ctor.1 = cv' ∧ M.nPc = nPc' ∧ ctor.2 = nF' ∧ iT = iT' := by
+    injection hf' with h; injection h with h1 h2 h3 h4; exact ⟨h1, h2, h3, h4⟩
+  refine ⟨hiD, ⟨iT, hfc0⟩, ?_, hlpsC⟩
   obtain ⟨caps, hfI⟩ := hcl.hfind
   obtain ⟨cvm, capsm, hfm, hlm⟩ := hlpsC mm hcl.hmm
   rw [hcl.hmem, hfI] at hfm

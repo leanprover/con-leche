@@ -406,7 +406,7 @@ structure NestedPositivity where
 record whose result, past its parameters and fields, is headed by `C`
 (its parameter and field counts); `none` for anything else. -/
 def nestCtorEntry (C : Name) : ConstantInfo → Option (ConstantVal × Nat × Nat)
-  | .ctorInfo cv nPc nF =>
+  | .ctorInfo cv nPc nF _ =>
     match cv.type.stripPis (nPc + nF) with
     | some (_, body) =>
       match body.getAppFn with

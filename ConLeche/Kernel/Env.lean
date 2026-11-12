@@ -218,6 +218,12 @@ structure IndCaps where
   never by a scan of the environment.  `Quot` records none (it is no
   container). -/
   ctors : List Name := []
+  /-- **The family's sort is never zero** (official's `is_never_zero` at
+  every level instantiation): the former's stored type ends in a sort
+  whose zero-ness datum is unsatisfiable (`formerZ`), read off it at its
+  check (`blockCapsAt`).  `false` claims nothing.  The ι step's case split
+  reads it in place of the walk to the family's sort. -/
+  neverZero : Bool := false
   deriving DecidableEq, Repr, Inhabited
 
 /-- **One structure's projection table** (task #175 S1, 2026-09-06):
@@ -286,8 +292,13 @@ inductive ConstantInfo where
   | thmInfo (val : ConstantVal)
   /-- An inductive type former (whnf-stuck) with its capabilities. -/
   | indInfo (val : ConstantVal) (caps : IndCaps)
-  /-- A basis constructor (whnf-stuck; the iota target). -/
-  | ctorInfo (val : ConstantVal) (numParams numFields : Nat)
+  /-- A constructor (whnf-stuck; the iota target), with its family's name
+  (official's `ConstructorVal.induct`): the head constant of its declared
+  type's result, which its install reads off the member it is checked
+  against (an environment invariant, `CtorWF`).  The readers that need the
+  family (the ι case split, the rescues, η) look it up by this name instead
+  of walking the type. -/
+  | ctorInfo (val : ConstantVal) (numParams numFields : Nat) (induct : Name)
   /-- A recursor with its iota rules and the record's K flag (official's
   `recursor_val::is_k`, read off the stream's record; the block's job
   checks it).  Only the two sums the
@@ -408,14 +419,14 @@ def indParamsOk (nP : Nat) (block : List ConstantInfo) : Bool :=
       match cvT.type.piSortTeleLen? with
       | some n => decide (nP ≤ n)
       | none => true
-    | .ctorInfo _ nPc _ => nPc == nP
+    | .ctorInfo _ nPc _ _ => nPc == nP
     | _ => true
 
 namespace ConstantInfo
 
 def toConstantVal : ConstantInfo → ConstantVal
   | .axiomInfo v | .defnInfo v _ _ | .thmInfo v => v
-  | .indInfo v _ | .ctorInfo v _ _ | .recInfo v _ _ _ _ => v
+  | .indInfo v _ | .ctorInfo v _ _ _ | .recInfo v _ _ _ _ => v
 
 def name (c : ConstantInfo) : Name := c.toConstantVal.name
 

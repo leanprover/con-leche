@@ -130,7 +130,7 @@ theorem dmValNames_stored {c : Name} (hc : c ∈ ConLeche.natDivModNames)
   obtain ⟨hs, hdeps, hbool⟩ := ConLeche.natOpGuard_inv hg
   obtain ⟨⟨ciT, hfT, -⟩, ⟨ciF, hfF, -⟩⟩ :=
     hbool (Or.inr (Or.inr (by simpa using hc)))
-  obtain ⟨cvN, caps, cv0, i0, j0, cv1, i1, j1, hfN, hfZ, hfS, -⟩ :=
+  obtain ⟨cvN, caps, cv0, i0, j0, T0, cv1, i1, j1, T1, hfN, hfZ, hfS, -⟩ :=
     ConLeche.natLitSupported_inv hs
   have hble : ConLeche.natBleName ∈ ConLeche.natOpDeps c := by
     rcases (show c = ConLeche.natDivName ∨ c = ConLeche.natModName ∨

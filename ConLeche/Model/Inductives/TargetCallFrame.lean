@@ -193,10 +193,10 @@ theorem dyn_ctorFit {F : Nat} {envI envC : Env} {mk : EnvModelM V envI}
     (H : DynCtx F mk mpC ctx d ns) {u : PosTree} (hu : u ∈ ns) (ψ : Name → Nat)
     {m j : Nat} (hm : m < (lfpSel mpC d.toLfp u.key.cname).k)
     (hj : j < (lfpSel mpC d.toLfp u.key.cname).nctors m) :
-    ∃ (cv : ConstantVal) (nF : Nat) (ctors : List (ConstantVal × Nat)) (crest : Expr)
+    ∃ (cv : ConstantVal) (nF : Nat) (iT : Name) (ctors : List (ConstantVal × Nat)) (crest : Expr)
       (ks : List NestFieldKind) (nds : List Expr) (cur : Expr) (ts' : List PosTree),
       envI.find? ((lfpSel mpC d.toLfp u.key.cname).ctorName m j)
-        = some (.ctorInfo cv u.key.ds.length nF) ∧
+        = some (.ctorInfo cv u.key.ds.length nF iT) ∧
       ConLeche.groupCtors ctx u.key.ds.length (u.grp.map (·.1)) = some ctors ∧ (cv, nF) ∈ ctors ∧
       ConLeche.nestCrest (u.grp.map (·.1)) u.key.lvls u.key.ds
         (grpHoles (ctx.hiAt u.anc.length) u.grp)
@@ -259,7 +259,7 @@ theorem dyn_ctorFit {F : Nat} {envI envC : Env} {mk : EnvModelM V envI}
     rcases hnP'' with h' | h'
     · exact h'
     · rw [h'] at hjL; exact absurd hjL (Nat.not_lt_zero _)
-  have hfc := hfL j hjL
+  obtain ⟨iT, hfc⟩ := hfL j hjL
   rw [hnP'] at hfc
   obtain ⟨crest, ks, nds, cur, ts', ty, sv, hcr, hty, hsort, htele, hsub⟩ := hallc _ hxmem
   obtain ⟨-, crest', ab, hcr', ⟨Tys, hlT, hTys, hEqF⟩, hlen, hrd⟩ :=
@@ -286,7 +286,7 @@ theorem dyn_ctorFit {F : Nat} {envI envC : Env} {mk : EnvModelM V envI}
     simp [grpNews, ConLeche.NestCtx.hiAt]; omega
   obtain ⟨hresB, -, hndC⟩ := posD_tele_closed mk.base2.wf htele hhiP hfr.2.1 hfr.1
   have hnl : nds.length = L[j].2 := (ConLeche.posD_tele_open htele).2.1
-  refine ⟨L[j].1, L[j].2, ctors, crest, ks, nds, cur, ts', hfc, hgc, hxmem, hcr, htele, hsub, hnl,
+  refine ⟨L[j].1, L[j].2, iT, ctors, crest, ks, nds, cur, ts', hfc, hgc, hxmem, hcr, htele, hsub, hnl,
     hfr.2.1, hresB, hndC, fun σ hσ Y hY t fs hf => ?_⟩
   -- the fit at the substituted walk valuation
   have hs := hkfit σ hσ

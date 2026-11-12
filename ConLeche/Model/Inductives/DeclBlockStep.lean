@@ -227,14 +227,27 @@ theorem declBlockAt {F : Nat} {env env₂ : Env}
         (blockDataOf V p₁ pk uOf ppsOf).nP).reverse ρ :=
     fun t ht ψ ρ h => hS.toBlockCtorsStage.paramsOf 0 (by omega) ψ ρ h t ht
   -- ## the constructors, consed
-  have hmemberCtors : ∀ c, c < p₁.memberCtors.length →
+  have hlenGroups : p₁.ctorGroups.length = p₁.k := by
+    simp [ConLeche.BlockShape.ctorGroups, ConLeche.BlockShape.k]
+  have hmemberCtors : ∀ c, c < p₁.ctorGroups.length →
+      p₁.ctorGroups[c]? = some ((blockDataOf V p₁ pk uOf ppsOf).memberName c,
+        (blockDataOf V p₁ pk uOf ppsOf).ctorsM c) := by
+    intro c hc
+    have hc' : c < p₁.members.length := by
+      rw [ConLeche.BlockShape.ctorGroups, List.length_map] at hc; exact hc
+    simp only [ConLeche.BlockShape.ctorGroups, List.getElem?_map, List.getElem?_eq_getElem hc',
+      Option.map_some]
+    show some (_, _) = some (p₁.memberNames.getD c .anonymous, p₁.memberCtors.getD c [])
+    simp [ConLeche.BlockShape.memberNames, ConLeche.BlockShape.memberCtors, List.getD_eq_getElem?_getD,
+      hc']
+  have hmemberCtors₀ : ∀ c, c < p₁.memberCtors.length →
       p₁.memberCtors[c]? = some ((blockDataOf V p₁ pk uOf ppsOf).ctorsM c) := by
     intro c hc
     show p₁.memberCtors[c]? = some (p₁.memberCtors.getD c [])
     rw [List.getD_eq_getElem?_getD, List.getElem?_eq_getElem hc]
     rfl
   obtain ⟨mpC₀', hcoreC', hagC⟩ :=
-    stageBlockCtors hN hN.2.2 hS.toBlockCtorsStage hlenMemberCtors hmemberCtors p₁.memberCtors 0 env₁ mpI
+    stageBlockCtors hN hN.2.2 hS.toBlockCtorsStage hlenGroups hmemberCtors p₁.ctorGroups 0 env₁ mpI
       (fun c => by rw [Nat.zero_add]) (Nat.zero_add _) hcore
       (fun c _ j ctor hj => hfreshC c j ctor hj)
   -- ## coverage across the formers' and the constructors' conses:
@@ -284,22 +297,25 @@ theorem declBlockAt {F : Nat} {env env₂ : Env}
     obtain ⟨cvTb, hb, hn⟩ := hF.ofDcl cvS hS
     rw [hn]; exact hmemCv cvTb hb
   have henv₁ : env₁.consts = newI ++ env.consts := by rw [hcons]; exact hnewI
-  have hnewC : ∀ c ∈ (p₁.memberCtors.flatten.map fun ctor => ConstantInfo.ctorInfo ctor.1 p₁.nP ctor.2).reverse,
-      ∃ m ctor, m < p₁.k ∧ ctor ∈ p₁.memberCtors.getD m [] ∧ c = .ctorInfo ctor.1 p₁.nP ctor.2 := by
+  have hnewC : ∀ c ∈ (p₁.ctorGroups.flatMap fun g => g.2.map fun ctor => ConstantInfo.ctorInfo ctor.1 p₁.nP ctor.2 g.1).reverse,
+      ∃ m ctor, m < p₁.k ∧ ctor ∈ p₁.memberCtors.getD m [] ∧
+        ∃ T, c = .ctorInfo ctor.1 p₁.nP ctor.2 T := by
     intro c hc
-    obtain ⟨ctor, hctor, rfl⟩ := List.mem_map.mp (List.mem_reverse.mp hc)
-    obtain ⟨l, hl, hcAl⟩ := List.mem_flatten.mp hctor
-    obtain ⟨m, hm, rfl⟩ := List.getElem_of_mem hl
-    refine ⟨m, ctor, by rw [← hlenMemberCtors]; exact hm, ?_, rfl⟩
+    obtain ⟨g, hg, hc'⟩ := List.mem_flatMap.mp (List.mem_reverse.mp hc)
+    obtain ⟨ctor, hcAl, rfl⟩ := List.mem_map.mp hc'
+    obtain ⟨m, hmg, rfl⟩ := List.getElem_of_mem hg
+    have hm : m < p₁.memberCtors.length := by
+      simpa [ConLeche.BlockShape.ctorGroups, ConLeche.BlockShape.memberCtors] using hmg
+    refine ⟨m, ctor, by rw [← hlenMemberCtors]; exact hm, ?_, _, rfl⟩
     rw [List.getD_eq_getElem?_getD, List.getElem?_eq_getElem hm]
-    exact hcAl
+    simpa [ConLeche.BlockShape.ctorGroups, ConLeche.BlockShape.memberCtors] using hcAl
   have hfwdE : ∀ n ci, env.find? n = some ci →
-      (ConLeche.consBlockCtors p₁.nP p₁.memberCtors env₁).find? n = some ci := fun n ci hf => by
-    have hfr : ∀ c ∈ (p₁.memberCtors.flatten.map fun ctor => ConstantInfo.ctorInfo ctor.1 p₁.nP ctor.2).reverse
+      (ConLeche.consBlockCtors p₁.nP p₁.ctorGroups env₁).find? n = some ci := fun n ci hf => by
+    have hfr : ∀ c ∈ (p₁.ctorGroups.flatMap fun g => g.2.map fun ctor => ConstantInfo.ctorInfo ctor.1 p₁.nP ctor.2 g.1).reverse
         ++ newI, env.find? c.name = none := by
       intro c hc
       rcases List.mem_append.mp hc with hc | hc
-      · obtain ⟨m, ctor, hm, hctor, rfl⟩ := hnewC c hc
+      · obtain ⟨m, ctor, hm, hctor, _, rfl⟩ := hnewC c hc
         obtain ⟨j, hj⟩ := List.getElem?_of_mem hctor
         exact consBlockInds_find?_none (hcons ▸ hfreshC m j ctor hj)
       · obtain ⟨cv, hcv, j, rfl⟩ := hnewIall c hc
@@ -315,7 +331,7 @@ theorem declBlockAt {F : Nat} {env env₂ : Env}
     exact hagI n fun cvTb hcvTb h => by
       rw [h, hmemCv cvTb hcvTb] at hn; exact nomatch hn
   obtain ⟨mpC₀, hbC, hlC, hcovC⟩ := lfpCover_append (ex := []) (ex' := p₁.formers.map (·.name)) mp mpC₀'
-    (new := (p₁.memberCtors.flatten.map fun ctor => ConstantInfo.ctorInfo ctor.1 p₁.nP ctor.2).reverse ++ newI)
+    (new := (p₁.ctorGroups.flatMap fun g => g.2.map fun ctor => ConstantInfo.ctorInfo ctor.1 p₁.nP ctor.2 g.1).reverse ++ newI)
     (by rw [consBlockCtors_consts, henv₁, List.append_assoc]; rfl)
     (by rw [consBlockCtors_tables, hcons]; exact consBlockInds_tables _ 0 env)
     hfwdE hagE
@@ -325,13 +341,13 @@ theorem declBlockAt {F : Nat} {env env₂ : Env}
       exact Or.inr (hmemCv cvTb hcvTb))
     (fun c hc cv caps h => by
       rcases List.mem_append.mp hc with hc | hc
-      · obtain ⟨m, ctor, -, -, rfl⟩ := hnewC c hc; exact nomatch h
+      · obtain ⟨m, ctor, -, -, _, rfl⟩ := hnewC c hc; exact nomatch h
       · obtain ⟨cv', hcv', j, rfl⟩ := hnewIall c hc
         obtain ⟨cvTb, hb, hn⟩ := hF.ofDcl cv' hcv'
         exact List.mem_map.mpr ⟨cvTb, hb, hn.symm⟩)
     (fun c hc C hC => by
       rcases List.mem_append.mp hc with hc | hc
-      · obtain ⟨m, ctor, hm, hctor, rfl⟩ := hnewC c hc
+      · obtain ⟨m, ctor, hm, hctor, _, rfl⟩ := hnewC c hc
         obtain ⟨bs, body, us, hs, hg⟩ := hheadK m hm ctor hctor
         rw [ctorEntry_head rfl hs hg hC]
         obtain ⟨cvTa, hcv⟩ := hcvOfK m hm
@@ -368,7 +384,7 @@ theorem declBlockAt {F : Nat} {env env₂ : Env}
     (fun ψ ρp hs _ X hX c hc j hj =>
       ((blockHoleGrade_of_run mpI hN (hcore.holeCtx hlpsA hparsT) hPos rfl rfl hread rfl rfl hkD rfl hctorsAt
         hlenMemberCtors hclosedC hnfs ψ hc hj).2 ρp hs X hX.toU).1)
-  have hstC : LfpStored (ConLeche.consBlockCtors p₁.nP p₁.memberCtors env₁)
+  have hstC : LfpStored (ConLeche.consBlockCtors p₁.nP p₁.ctorGroups env₁)
       (blockDataOf V p₁ pk uOf ppsOf).toLfp := by
     refine ⟨fun mm hmm => ?_, fun c hc j hj => ?_⟩
     · obtain ⟨cvTb, hcv⟩ : ∃ cvTb, p₁.formers[mm]? = some cvTb :=
@@ -376,7 +392,7 @@ theorem declBlockAt {F : Nat} {env env₂ : Env}
       have hname := hN.1 mm cvTb hcv
       obtain ⟨⟨cvS, hfS, -⟩, -⟩ := hcoreC.1 mm cvTb hcv
       exact ⟨cvS, _, by
-        show (ConLeche.consBlockCtors p₁.nP p₁.memberCtors env₁).find?
+        show (ConLeche.consBlockCtors p₁.nP p₁.ctorGroups env₁).find?
           ((blockDataOf V p₁ pk uOf ppsOf).memberName mm) = _
         rw [hname]; exact hfS⟩
     · have hck : c < (blockDataOf V p₁ pk uOf ppsOf).k := by
@@ -387,16 +403,18 @@ theorem declBlockAt {F : Nat} {env env₂ : Env}
         List.getElem?_eq_getElem hj
       refine ⟨((blockDataOf V p₁ pk uOf ppsOf).ctorsM c)[j].1,
         (blockDataOf V p₁ pk uOf ppsOf).nP,
-        ((blockDataOf V p₁ pk uOf ppsOf).ctorsM c)[j].2, ?_⟩
-      show (ConLeche.consBlockCtors p₁.nP p₁.memberCtors env₁).find?
+        ((blockDataOf V p₁ pk uOf ppsOf).ctorsM c)[j].2,
+        (blockDataOf V p₁ pk uOf ppsOf).memberName c, ?_⟩
+      show (ConLeche.consBlockCtors p₁.nP p₁.ctorGroups env₁).find?
         (((blockDataOf V p₁ pk uOf ppsOf).ctorsM c).getD j default).1.name
           = some (.ctorInfo ((blockDataOf V p₁ pk uOf ppsOf).ctorsM c)[j].1
               (blockDataOf V p₁ pk uOf ppsOf).nP
-              ((blockDataOf V p₁ pk uOf ppsOf).ctorsM c)[j].2)
+              ((blockDataOf V p₁ pk uOf ppsOf).ctorsM c)[j].2
+              ((blockDataOf V p₁ pk uOf ppsOf).memberName c))
       rw [List.getD_eq_getElem?_getD, hcj, Option.getD_some]
       exact (hcoreC.2.2 c hck j _ hcj).1
   -- each member's stored type reads as its hole telescope
-  have hrdC : LfpReads mpC₀.base2.acval (ConLeche.consBlockCtors p₁.nP p₁.memberCtors env₁)
+  have hrdC : LfpReads mpC₀.base2.acval (ConLeche.consBlockCtors p₁.nP p₁.ctorGroups env₁)
       (blockDataOf V p₁ pk uOf ppsOf).toLfp := by
     intro mm hmm
     obtain ⟨cvTb, hcv⟩ : ∃ cvTb, p₁.formers[mm]? = some cvTb :=
@@ -409,7 +427,7 @@ theorem declBlockAt {F : Nat} {env env₂ : Env}
       show ((blockDataOf V p₁ pk uOf ppsOf).telescope mm).getD cvS = cvTb
       rw [htelescope]; rfl
     refine ⟨cvS, _, by
-      show (ConLeche.consBlockCtors p₁.nP p₁.memberCtors env₁).find?
+      show (ConLeche.consBlockCtors p₁.nP p₁.ctorGroups env₁).find?
         ((blockDataOf V p₁ pk uOf ppsOf).memberName mm) = _
       rw [hname]; exact hfS, ⟨fun hfl => ?_, .inr ⟨cvTb, htelescope, hDS.name.symm, hDS.lps.symm,
         hDS.readFvar, hDS.readBounded, constsBound_of_constsResolve _ hDS.readResolve,
@@ -432,7 +450,7 @@ theorem declBlockAt {F : Nat} {env env₂ : Env}
       = (blockDataOf V p₁ pk uOf ppsOf).memberNames.length := by
     simp [blockDataOf, blockDataPre, BlockData.withPhi, ConLeche.BlockShape.k,
       ConLeche.BlockShape.memberNames]
-  have hcrC : LfpCtorReads mpC₀.base2.acval (ConLeche.consBlockCtors p₁.nP p₁.memberCtors env₁)
+  have hcrC : LfpCtorReads mpC₀.base2.acval (ConLeche.consBlockCtors p₁.nP p₁.ctorGroups env₁)
       (blockDataOf V p₁ pk uOf ppsOf).toLfp :=
     blockCtorReads_of hN hcoreC hkLen hS.toBlockCtorsStage.telescopeAt
       (fun c cvTb hc hcv => hS.toBlockCtorsStage.lpsT c cvTb hc hcv)
@@ -442,12 +460,12 @@ theorem declBlockAt {F : Nat} {env env₂ : Env}
         have hf := (hcoreC.2.2 c hck j ctor hj).1
         exact (mpC₀.base2.wf.consts _ (List.mem_of_find?_eq_some hf)).1)
       (canonOcc_of_positivity (posKs := (kinds, nfs, nodes)) hPos rfl rfl rfl
-        (fun c hc => hmemberCtors c (by rw [hlenMemberCtors]; exact hc)) hlpsA)
+        (fun c hc => hmemberCtors₀ c (by rw [hlenMemberCtors]; exact hc)) hlpsA)
       (fun c hc j ctor hj ψ ρ hsat =>
         ((hS.toBlockCtorsStage.frames c hc j ctor hj).1 ψ ρ).mp
           (hS.toBlockCtorsStage.paramsOf 0 hk0 ψ ρ hsat c hc))
   -- the members' capability records and the constructors' shapes (task #342 L10)
-  have hcapsC : LfpCaps (ConLeche.consBlockCtors p₁.nP p₁.memberCtors env₁)
+  have hcapsC : LfpCaps (ConLeche.consBlockCtors p₁.nP p₁.ctorGroups env₁)
       (blockDataOf V p₁ pk uOf ppsOf).toLfp := by
     refine ⟨fun mm hmm => ?_, fun c hc j hj => ?_⟩
     · obtain ⟨cvTb, hcv⟩ : ∃ cvTb, p₁.formers[mm]? = some cvTb :=
@@ -458,7 +476,7 @@ theorem declBlockAt {F : Nat} {env env₂ : Env}
         show ((blockDataOf V p₁ pk uOf ppsOf).telescope mm).getD cvS = cvTb
         rw [hS.toBlockCtorsStage.telescopeAt mm cvTb hcv]; rfl
       refine ⟨cvS, ConLeche.blockCapsAt p₁ mm isRec, by
-        show (ConLeche.consBlockCtors p₁.nP p₁.memberCtors env₁).find?
+        show (ConLeche.consBlockCtors p₁.nP p₁.ctorGroups env₁).find?
           ((blockDataOf V p₁ pk uOf ppsOf).memberName mm) = _
         rw [hname]; exact hfS, fun ψ hw => ?_, fun ψ => ?_⟩
       · obtain ⟨bs, hst⟩ := hF.stripOf mm cvTb hcv
@@ -484,8 +502,9 @@ theorem declBlockAt {F : Nat} {env env₂ : Env}
       obtain ⟨cbs, es, hres, -⟩ := (hcoreC.2.1 c j _ hcj).2.2.1.resid
       refine ⟨((blockDataOf V p₁ pk uOf ppsOf).ctorsM c)[j].1,
         (blockDataOf V p₁ pk uOf ppsOf).nP,
-        ((blockDataOf V p₁ pk uOf ppsOf).ctorsM c)[j].2, ?_, cbs, es, ?_⟩
-      · show (ConLeche.consBlockCtors p₁.nP p₁.memberCtors env₁).find?
+        ((blockDataOf V p₁ pk uOf ppsOf).ctorsM c)[j].2,
+        (blockDataOf V p₁ pk uOf ppsOf).memberName c, ?_, cbs, es, ?_⟩
+      · show (ConLeche.consBlockCtors p₁.nP p₁.ctorGroups env₁).find?
           (((blockDataOf V p₁ pk uOf ppsOf).ctorsM c).getD j default).1.name = _
         rw [List.getD_eq_getElem?_getD, hcj, Option.getD_some]
         exact hfind
@@ -540,7 +559,7 @@ theorem declBlockAt {F : Nat} {env env₂ : Env}
           show m < (blockDataOf V p₁ pk uOf ppsOf).memberNames.length
           rw [← hkLen]; exact hmk))
   -- ## the block over the input environment
-  have hover : BlockOverEnv (ConLeche.consBlockCtors p₁.nP p₁.memberCtors env₁)
+  have hover : BlockOverEnv (ConLeche.consBlockCtors p₁.nP p₁.ctorGroups env₁)
       p₁.memberNames := by
     show BlockOverEnv _ p₁.memberNames
     refine ⟨env, mp.base2.wf, fun n hn => ?_, fun n ci hf => ?_⟩
@@ -558,29 +577,32 @@ theorem declBlockAt {F : Nat} {env env₂ : Env}
       show env.find? p₁.memberNames[m] = none
       rw [← hget, hname]
       exact hF.freshOf m cvTb hcv
-    · have hcs : (ConLeche.consBlockCtors p₁.nP p₁.memberCtors env₁).consts
-          = (p₁.memberCtors.flatten.map fun c => ConstantInfo.ctorInfo c.1 p₁.nP c.2).reverse
+    · have hcs : (ConLeche.consBlockCtors p₁.nP p₁.ctorGroups env₁).consts
+          = (p₁.ctorGroups.flatMap fun g => g.2.map fun c => ConstantInfo.ctorInfo c.1 p₁.nP c.2 g.1).reverse
             ++ (newI ++ env.consts) := by
         rw [consBlockCtors_consts, henv₁]
       unfold ConLeche.Env.find? at hf
       rw [hcs, List.find?_append, List.find?_append] at hf
       cases h1 : List.find? (fun x => x.name == n)
-          (p₁.memberCtors.flatten.map fun c => ConstantInfo.ctorInfo c.1 p₁.nP c.2).reverse with
+          (p₁.ctorGroups.flatMap fun g => g.2.map fun c => ConstantInfo.ctorInfo c.1 p₁.nP c.2 g.1).reverse with
       | some ci' =>
         rw [h1] at hf
         obtain rfl : ci' = ci := Option.some.inj hf
         have hmem := List.mem_of_find?_eq_some h1
-        rw [List.mem_reverse, List.mem_map] at hmem
-        obtain ⟨ctor, hctor, rfl⟩ := hmem
-        obtain ⟨l, hl, hcAl⟩ := List.mem_flatten.mp hctor
-        obtain ⟨m, hm⟩ := List.getElem?_of_mem hl
+        rw [List.mem_reverse] at hmem
+        obtain ⟨g, hg, hcg⟩ := List.mem_flatMap.mp hmem
+        obtain ⟨ctor, hcAl, rfl⟩ := List.mem_map.mp hcg
+        obtain ⟨m, hm⟩ := List.getElem?_of_mem hg
         have hmk : m < p₁.k := by
           have := (List.getElem?_eq_some_iff.mp hm).1
-          rw [hlenMemberCtors] at this; exact this
-        have hgl : p₁.memberCtors.getD m [] = l := by
-          rw [List.getD_eq_getElem?_getD, hm]; rfl
+          rw [hlenGroups] at this; exact this
+        have hgl : p₁.memberCtors.getD m [] = g.2 := by
+          have hm' := hm
+          simp only [ConLeche.BlockShape.ctorGroups, List.getElem?_map, Option.map_eq_some_iff] at hm'
+          obtain ⟨ms, hms, rfl⟩ := hm'
+          simp [ConLeche.BlockShape.memberCtors, List.getD_eq_getElem?_getD, hms]
         obtain ⟨bs, body, us, hs, hhd⟩ := hheadK m hmk ctor (by rw [hgl]; exact hcAl)
-        refine Or.inr (Or.inr ⟨ctor.1, p₁.nP, ctor.2, bs, body, us, _, rfl, hs, hhd, ?_⟩)
+        refine Or.inr (Or.inr ⟨ctor.1, p₁.nP, ctor.2, g.1, bs, body, us, _, rfl, hs, hhd, ?_⟩)
         exact getD_mem _ (by
           show m < (blockDataOf V p₁ pk uOf ppsOf).memberNames.length
           rw [← hkLen]; exact hmk)
@@ -597,15 +619,15 @@ theorem declBlockAt {F : Nat} {env env₂ : Env}
           exact Or.inl hf
   -- ## the reductions behind the recorded telescopes
   have hfwdC' : ∀ (n : Name) (ci : ConstantInfo), env₁.find? n = some ci →
-      (ConLeche.consBlockCtors p₁.nP p₁.memberCtors env₁).find? n = some ci := by
+      (ConLeche.consBlockCtors p₁.nP p₁.ctorGroups env₁).find? n = some ci := by
     intro n ci hf
-    have hEq : ConLeche.consBlockCtors p₁.nP p₁.memberCtors env₁
-        = ⟨(p₁.memberCtors.flatten.map fun ctor => ConstantInfo.ctorInfo ctor.1 p₁.nP ctor.2).reverse
+    have hEq : ConLeche.consBlockCtors p₁.nP p₁.ctorGroups env₁
+        = ⟨(p₁.ctorGroups.flatMap fun g => g.2.map fun ctor => ConstantInfo.ctorInfo ctor.1 p₁.nP ctor.2 g.1).reverse
             ++ env₁.consts, env₁.tables⟩ := by
       rw [← consBlockCtors_consts, ← consBlockCtors_tables]
     rw [hEq]
     refine find?_append_of_fresh (fun c hc => ?_) hf
-    obtain ⟨m, ctor, -, hctor, rfl⟩ := hnewC c hc
+    obtain ⟨m, ctor, -, hctor, _, rfl⟩ := hnewC c hc
     obtain ⟨j, hj⟩ := List.getElem?_of_mem hctor
     exact hfreshC m j ctor hj
   have hndDcl : ((p₀.members.map (·.declared)).map (·.name)).Nodup := by
@@ -617,7 +639,7 @@ theorem declBlockAt {F : Nat} {env env₂ : Env}
   have hranAll : ∀ {env' : Env},
       (∀ n ci, env.find? n = some ci → env'.find? n = some ci) →
       (∀ T, (env.find? T).isSome = true → env'.findTable? T = env.findTable? T) →
-      (∀ n ci, (ConLeche.consBlockCtors p₁.nP p₁.memberCtors env₁).find? n = some ci →
+      (∀ n ci, (ConLeche.consBlockCtors p₁.nP p₁.ctorGroups env₁).find? n = some ci →
         env'.find? n = some ci) →
       ∀ D ∈ mpC.lfpBlocks, ∀ (mm : Nat) (f : ConstantVal), mm < D.k → D.telescope mm = some f →
         ∀ (cv : ConstantVal) (caps : IndCaps), env'.find? (D.member mm) = some (.indInfo cv caps) →
@@ -656,7 +678,7 @@ theorem declBlockAt {F : Nat} {env env₂ : Env}
       obtain ⟨envB, F', hx, hres, hrun⟩ := hRan D hDm mm f hmm hs cv caps hf₀ hdh
       exact ⟨envB, F', envExt_trans hx hxf hxt, hres, hrun⟩
   have hxtC : ∀ T, (env.find? T).isSome = true →
-      (ConLeche.consBlockCtors p₁.nP p₁.memberCtors env₁).findTable? T = env.findTable? T := by
+      (ConLeche.consBlockCtors p₁.nP p₁.ctorGroups env₁).findTable? T = env.findTable? T := by
     intro T hT
     have hT₁ : (env₁.find? T).isSome = true := by
       cases hc : env.find? T with
@@ -677,23 +699,23 @@ theorem declBlockAt {F : Nat} {env env₂ : Env}
       rw [hbC, hbk]
       exact hagC n hn
     -- the constructors' conses keep every lookup (their names fresh at `env₁`)
-    have hEq : ConLeche.consBlockCtors p₁.nP p₁.memberCtors env₁
-        = ⟨(p₁.memberCtors.flatten.map fun ctor => ConstantInfo.ctorInfo ctor.1 p₁.nP ctor.2).reverse
+    have hEq : ConLeche.consBlockCtors p₁.nP p₁.ctorGroups env₁
+        = ⟨(p₁.ctorGroups.flatMap fun g => g.2.map fun ctor => ConstantInfo.ctorInfo ctor.1 p₁.nP ctor.2 g.1).reverse
             ++ env₁.consts, env₁.tables⟩ := by
       rw [← consBlockCtors_consts, ← consBlockCtors_tables]
-    have hfrC : ∀ c ∈ (p₁.memberCtors.flatten.map fun ctor => ConstantInfo.ctorInfo ctor.1 p₁.nP ctor.2).reverse,
+    have hfrC : ∀ c ∈ (p₁.ctorGroups.flatMap fun g => g.2.map fun ctor => ConstantInfo.ctorInfo ctor.1 p₁.nP ctor.2 g.1).reverse,
         env₁.find? c.name = none := by
       intro c hc
-      obtain ⟨m, ctor, -, hctor, rfl⟩ := hnewC c hc
+      obtain ⟨m, ctor, -, hctor, _, rfl⟩ := hnewC c hc
       obtain ⟨j, hj⟩ := List.getElem?_of_mem hctor
       exact hfreshC m j ctor hj
     have hfwdC : ∀ (n : Name) (ci : ConstantInfo), env₁.find? n = some ci →
-        (ConLeche.consBlockCtors p₁.nP p₁.memberCtors env₁).find? n = some ci := by
+        (ConLeche.consBlockCtors p₁.nP p₁.ctorGroups env₁).find? n = some ci := by
       intro n ci hf
       rw [hEq]
       exact find?_append_of_fresh hfrC hf
     have hprojC := findProj?_mono_of_tables (env₀ := env₁)
-      (env := ConLeche.consBlockCtors p₁.nP p₁.memberCtors env₁) (fun hf => hfwdC _ _ hf)
+      (env := ConLeche.consBlockCtors p₁.nP p₁.ctorGroups env₁) (fun hf => hfwdC _ _ hf)
       (by rw [hEq])
     refine ⟨mk, hck, hRan.read hxI.find hxI.table (fun D hD => by rw [← hlk]; exact hD),
       hRanC.read (fun _ _ h => h) (fun _ _ => rfl) (fun _ h => h), fun D hD => ?_, hagk, fun D hD => ?_, ?_, ?_⟩
@@ -711,12 +733,15 @@ theorem declBlockAt {F : Nat} {env env₂ : Env}
       exact h
   -- ## the recursors' stage, and the tables' invariant across it
   -- the block's constructors' heads, and the stage's run with the pass's classes and walk
-  have hheads : ∀ c ∈ p₁.memberCtors.flatten, env₁.find? c.1.name = none ∧ ∀ C,
-      (ctorEntry C (.ctorInfo c.1 p₁.nP c.2)).isSome = true →
+  have hheads : ∀ g ∈ p₁.ctorGroups, ∀ c ∈ g.2, env₁.find? c.1.name = none ∧ ∀ C,
+      (ctorEntry C (.ctorInfo c.1 p₁.nP c.2 g.1)).isSome = true →
       C ∈ p₁.memberNames := by
-    intro c hc
-    obtain ⟨l, hl, hcl⟩ := List.mem_flatten.mp hc
-    obtain ⟨m, hm, rfl⟩ := List.getElem_of_mem hl
+    intro g hg c hcl
+    obtain ⟨m, hmg, rfl⟩ := List.getElem_of_mem hg
+    have hm : m < p₁.memberCtors.length := by
+      simpa [ConLeche.BlockShape.ctorGroups, ConLeche.BlockShape.memberCtors] using hmg
+    replace hcl : c ∈ p₁.memberCtors[m] := by
+      simpa [ConLeche.BlockShape.ctorGroups, ConLeche.BlockShape.memberCtors] using hcl
     have hmk : m < p₁.k := by rw [← hlenMemberCtors]; exact hm
     refine ⟨?_, fun C hC => ?_⟩
     · obtain ⟨j, hj⟩ := List.getElem?_of_mem hcl
@@ -740,22 +765,23 @@ theorem declBlockAt {F : Nat} {env env₂ : Env}
     have hres := hS.resT t htk
     rw [hN.1 t cvTb ht, ← hn] at hres
     exact nat_names_of_unreserved hres
-  have hxIC : EnvExt env₁ (ConLeche.consBlockCtors p₁.nP p₁.memberCtors env₁) := by
+  have hxIC : EnvExt env₁ (ConLeche.consBlockCtors p₁.nP p₁.ctorGroups env₁) := by
     obtain ⟨mk, hbk, -, -⟩ := hformers
     exact ⟨hfwdC', findTable_of_added (by rw [consBlockCtors_consts]) (consBlockCtors_tables _ _ _),
       mk.storedFacts hNatI⟩
   have hagC : ConLeche.ClassEnvAgree (fueledOps .verified F) p₁
-      (mkFEnv env₁) (mkFEnv (ConLeche.consBlockCtors p₁.nP p₁.memberCtors env₁)) := by
+      (mkFEnv env₁) (mkFEnv (ConLeche.consBlockCtors p₁.nP p₁.ctorGroups env₁)) := by
     unfold ConLeche.ClassEnvAgree
     intro I cv caps hI hf
     rw [ConLeche.mkFEnv_find?] at hf
-    have hne : ∀ ctorList ∈ p₁.memberCtors, I ∉ ctorList.map (·.1.name) := by
-      intro ctorList hctor hmem
+    have hne : ∀ g ∈ p₁.ctorGroups, I ∉ g.2.map (·.1.name) := by
+      intro g hg hmem
       obtain ⟨c, hc, rfl⟩ := List.mem_map.mp hmem
-      have := hfreshCA ctorList hctor c hc
+      obtain ⟨ms, hms, rfl⟩ := List.mem_map.mp hg
+      have := hfreshCA ms.ctors (List.mem_map.mpr ⟨ms, hms, rfl⟩) c hc
       rw [hf] at this
       exact nomatch this
-    have hfC : (ConLeche.consBlockCtors p₁.nP p₁.memberCtors env₁).find? I
+    have hfC : (ConLeche.consBlockCtors p₁.nP p₁.ctorGroups env₁).find? I
         = some (.indInfo cv caps) := by
       rw [ConLeche.Semantics.consBlockCtors_find?_of_ne hne]; exact hf
     refine ⟨by rw [ConLeche.mkFEnv_find?, ConLeche.mkFEnv_find?, hfC, hf], ?_⟩
@@ -771,13 +797,13 @@ theorem declBlockAt {F : Nat} {env env₂ : Env}
   have hG :=
     genRecStage (mpC := mpC) (A := blockLeafH (blockDataOf V p₁ pk uOf ppsOf))
       ⟨hPos, rfl, hnames, hndM, hN, hS.toBlockCtorsStage, hcoreC,
-        fun c hc => hmemberCtors c hc, ⟨pk, uOf, ppsOf, rfl⟩,
+        fun c hc => hmemberCtors₀ c hc, ⟨pk, uOf, ppsOf, rfl⟩,
         EnvModelM.mem_addLfp mpC₀ _ hLC hstC hrdC hcrC hcapsC, hcovMpC, hmkI, hover, hR, hheads⟩
       (by rw [show p₁.recs = p₀.recs by rw [hq]; rfl]; exact hresR)
   -- ## the STORED recursors (task #431): the generated install's stage
   -- carried to the install of the records' types and right-hand sides
   have hRec' : ConLeche.genRecCheck (ConLeche.fueledOps .verified F)
-      (mkFEnv (ConLeche.consBlockCtors p₁.nP p₁.memberCtors env₁)) p₁
+      (mkFEnv (ConLeche.consBlockCtors p₁.nP p₁.ctorGroups env₁)) p₁
       (ConLeche.blockNestedBit p₁ kinds) ctx.params st.ctorNfs.toList
       rd Ms block = .ok outR := hRec
   -- the stream's recursors are well formed (`declBlockRun_recsWF`)
@@ -803,7 +829,7 @@ theorem declBlockAt {F : Nat} {env env₂ : Env}
   -- are stored, every old name keeps its leaf
   obtain ⟨newR, hnewR, hnewRall⟩ := consBlockRecsT_consts
     (q := p₁) 0 (ConLeche.streamRecs p₁.recs outR)
-    (ConLeche.consBlockCtors p₁.nP p₁.memberCtors env₁)
+    (ConLeche.consBlockCtors p₁.nP p₁.ctorGroups env₁)
   obtain ⟨mpR, hbR, hlR, hcovR⟩ := lfpCover_append (ex := []) (ex' := []) mpC mpR₀ hnewR
     (consBlockRecsT_tables 0 _ _) hfindMono
     hag (fun _ h => h) (fun _ h => Or.inl h)
@@ -816,7 +842,7 @@ theorem declBlockAt {F : Nat} {env env₂ : Env}
   suffices hT : CoverTo mpR [] env₂ [] by
     obtain ⟨mpF, rF, hF'⟩ := hT
     refine ⟨mpF, hF' (hcovR hcovMpC), fun D hD mm f hmm hs cv caps hf hdh => ?_⟩
-    have hfw : ∀ n ci, (ConLeche.consBlockCtors p₁.nP p₁.memberCtors env₁).find? n = some ci →
+    have hfw : ∀ n ci, (ConLeche.consBlockCtors p₁.nP p₁.ctorGroups env₁).find? n = some ci →
         env₂.find? n = some ci := fun n ci h => rF.find n ci (hfindMono n ci h)
     rcases rF.blocks D hD with h₀ | h₀
     · have hDC : D ∈ mpC.lfpBlocks := by rw [← hlR]; exact h₀
@@ -824,7 +850,7 @@ theorem declBlockAt {F : Nat} {env env₂ : Env}
     · rw [h₀] at hs; exact nomatch hs
   have hmem₁ : p₁.members = p₀.members := by rw [hq]; rfl
   rw [hfin]
-  refine stageBlockTables (E := ConLeche.consBlockCtors p₁.nP p₁.memberCtors env₁) hN hS rfl rfl
+  refine stageBlockTables (E := ConLeche.consBlockCtors p₁.nP p₁.ctorGroups env₁) hN hS rfl rfl
     p₁.members Q 0 _ mpR ?_ hndM hfindMono hQ ?_ hcoreT
   · intro c e hce
     have hck : c < p₁.k := (List.getElem?_eq_some_iff.mp hce).1

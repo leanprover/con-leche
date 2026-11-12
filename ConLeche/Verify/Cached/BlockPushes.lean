@@ -236,23 +236,24 @@ theorem consBlockInds_consts' (p₁ : BlockShape) (isRec : Bool) :
     rw [consBlockInds_consts' p₁ isRec cvs (i + 1)]
     simp [List.zipIdx_cons]
 
-theorem consSumCtors_eq (nP : Nat) :
+theorem consSumCtors_eq (nP : Nat) (T : Name) :
     ∀ (cs : List (ConstantVal × Nat)) (env : Env),
-      consSumCtors nP cs env =
-        ⟨(cs.map fun c => ConstantInfo.ctorInfo c.1 nP c.2).reverse ++ env.consts, env.tables⟩
+      consSumCtors nP T cs env =
+        ⟨(cs.map fun c => ConstantInfo.ctorInfo c.1 nP c.2 T).reverse ++ env.consts, env.tables⟩
   | [], _ => rfl
   | c :: cs, env => by
-    show consSumCtors nP cs ⟨_ :: env.consts, env.tables⟩ = _
-    rw [consSumCtors_eq nP cs]
+    show consSumCtors nP T cs ⟨_ :: env.consts, env.tables⟩ = _
+    rw [consSumCtors_eq nP T cs]
     simp
 
 theorem consBlockCtors_eq (nP : Nat) :
-    ∀ (L : List (List (ConstantVal × Nat))) (env : Env),
+    ∀ (L : List (Name × List (ConstantVal × Nat))) (env : Env),
       consBlockCtors nP L env =
-        ⟨(L.flatten.map fun c => ConstantInfo.ctorInfo c.1 nP c.2).reverse ++ env.consts, env.tables⟩
+        ⟨(L.flatMap fun g => g.2.map fun c => ConstantInfo.ctorInfo c.1 nP c.2 g.1).reverse ++
+          env.consts, env.tables⟩
   | [], _ => rfl
-  | l :: L, env => by
-    show consBlockCtors nP L (consSumCtors nP l env) = _
+  | (T, l) :: L, env => by
+    show consBlockCtors nP L (consSumCtors nP T l env) = _
     rw [consBlockCtors_eq nP L, consSumCtors_eq]
     simp
 
@@ -277,17 +278,17 @@ theorem blockInstall_of_checks {F : Nat} {env env₁ : Env} {block : List Consta
     (hcls : checkBlockClasses (fueledOps .verified F) (mkFEnv env₁) p₁ params
       = .ok (rd, Ms₀))
     (hRec : genRecCheck (fueledOps .verified F)
-      (mkFEnv (consBlockCtors p₁.nP p₁.memberCtors env₁))
+      (mkFEnv (consBlockCtors p₁.nP p₁.ctorGroups env₁))
       p₁ nestedBit params tbl rd Ms₀ block = .ok out)
     (hK : streamKCheck (m := CheckM) p₁ p₁.recs out = .ok ())
     {fe : FEnv}
     (hS : streamRecsCheck (m := CheckM) (fueledOps .verified F) fe p₁.recs out = .ok ()) :
     env.pushDelta (blockConstants p₀) Q =
       (consBlockRecsT p₁ 0 (streamRecs p₁.recs out)
-        (consBlockCtors p₁.nP p₁.memberCtors env₁)).pushDelta [] Q := by
+        (consBlockCtors p₁.nP p₁.ctorGroups env₁)).pushDelta [] Q := by
   obtain ⟨ms0, rest, cvTa0, s0, cvs, -, hq, hcons, -⟩ := checkBlockInds_shape hInd
   subst hq
-  have hctors : (p₀.withSort s0).memberCtors = p₀.members.map (·.ctors) := rfl
+  have hctors : (p₀.withSort s0).ctorGroups = p₀.ctorGroups := rfl
   obtain ⟨hlenR, hallS⟩ := streamRecsCheck_inv hS
   have hrecsP : (p₀.withSort s0).recs = p₀.recs := rfl
   have hAg : ∀ i rc o, p₀.recs[i]? = some rc → out[i]? = some o →
@@ -307,6 +308,6 @@ theorem blockInstall_of_checks {F : Nat} {env env₁ : Env} {block : List Consta
   rw [hrecsP, consBlockRecsT_eq_infos, consBlockCtors_eq, hcons, consBlockInds_consts']
   unfold Env.pushDelta blockConstants blockFormers blockCtors
   rw [hrecs, hctors]
-  simp [BlockShape.allCtors, hcaps]
+  simp [hcaps]
 
 end ConLeche

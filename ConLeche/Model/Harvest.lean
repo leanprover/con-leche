@@ -53,7 +53,7 @@ at the prefix.  (This kills the routed guard-equality premise: the
 nat half is free, and the str half is never consulted backward.) -/
 theorem natLitSupported_cons_back {env : Env} {c₀ : ConstantInfo}
     (hknd : (∀ cv mI, c₀ ≠ .indInfo cv mI) ∧
-      ∀ cv a b, c₀ ≠ .ctorInfo cv a b)
+      ∀ cv a b iT, c₀ ≠ .ctorInfo cv a b iT)
     (hg : ConLeche.natLitSupported ⟨c₀ :: env.consts, env.tables⟩ = true) :
     ConLeche.natLitSupported env = true := by
   have hfind : ∀ p : Name,
@@ -78,13 +78,13 @@ theorem natLitSupported_cons_back {env : Env} {c₀ : ConstantInfo}
   · revert h2
     split
     · cases c₀ with
-      | ctorInfo cv a b => exact absurd rfl (hknd.2 cv a b)
+      | ctorInfo cv a b T => exact absurd rfl (hknd.2 cv a b T)
       | _ => intro h; simp [natZeroOk] at h
     · exact id
   · revert h3
     split
     · cases c₀ with
-      | ctorInfo cv a b => exact absurd rfl (hknd.2 cv a b)
+      | ctorInfo cv a b T => exact absurd rfl (hknd.2 cv a b T)
       | _ => intro h; simp [natSuccOk] at h
     · exact id
 
@@ -97,7 +97,7 @@ theorem natHeads_cons_fresh (mp : EnvModelM V env)
     {c₀ : ConstantInfo} {A : (Name → Nat) → Term}
     (hfresh : env.find? c₀.name = none)
     (hknd : (∀ cv mI, c₀ ≠ .indInfo cv mI) ∧
-      ∀ cv a b, c₀ ≠ .ctorInfo cv a b)
+      ∀ cv a b iT, c₀ ≠ .ctorInfo cv a b iT)
     (m2 : EnvModel V ⟨c₀ :: env.consts, env.tables⟩)
     (hacval : m2.acval = acvalWith mp.base2.acval c₀.name A)
     (φ : Name → Nat) : NatHeads m2 φ := by
@@ -360,7 +360,7 @@ theorem harvestDefn
     have hgold : ConLeche.natLitSupported env = true :=
       natLitSupported_cons_back
         ⟨(fun _ _ h => ConstantInfo.noConfusion h),
-          (fun _ _ _ h => ConstantInfo.noConfusion h)⟩ hg
+          (fun _ _ _ _ h => ConstantInfo.noConfusion h)⟩ hg
     have hstored : ∀ n0, (env.find? n0).isSome = true →
         n0 ≠ cv.name := by
       intro n0 hs hh
@@ -424,7 +424,7 @@ theorem harvestDefn
       have hsE : ConLeche.natLitSupported env = true :=
         natLitSupported_cons_back
           ⟨(fun _ _ h => ConstantInfo.noConfusion h),
-            (fun _ _ _ h => ConstantInfo.noConfusion h)⟩
+            (fun _ _ _ _ h => ConstantInfo.noConfusion h)⟩
           (ConLeche.natOpGuard_deps hg2).1
       have hTok : ∀ (ψ : Name → Nat) (ρ : Nat → V),
           WellDenoted V ρ (Ta ψ) := fun ψ ρ => by
@@ -702,7 +702,7 @@ theorem harvestThm
     exact fun φ => natHeads_cons_fresh mp
       (c₀ := .thmInfo ⟨cv.name, cv.levelParams, type'⟩) (A := A)
       hfresh ⟨(fun _ _ h => ConstantInfo.noConfusion h),
-          (fun _ _ _ h => ConstantInfo.noConfusion h)⟩
+          (fun _ _ _ _ h => ConstantInfo.noConfusion h)⟩
       _ rfl φ
   · -- `nat_ops` at the extension: a theorem is not a definition
     exact fun φ => natOps_cons_fresh mp (mp.nat_ops φ)
@@ -879,7 +879,7 @@ theorem harvestAxiom
     exact fun φ => natHeads_cons_fresh mp
       (c₀ := .axiomInfo ⟨cv.name, cv.levelParams, type'⟩) (A := A)
       hfresh ⟨(fun _ _ h => ConstantInfo.noConfusion h),
-          (fun _ _ _ h => ConstantInfo.noConfusion h)⟩
+          (fun _ _ _ _ h => ConstantInfo.noConfusion h)⟩
       _ rfl φ
   · -- `nat_ops` at the extension: an axiom is not a definition
     exact fun φ => natOps_cons_fresh mp (mp.nat_ops φ)
@@ -1119,7 +1119,7 @@ theorem harvestOpaque
     exact fun φ => natHeads_cons_fresh mp
       (c₀ := .axiomInfo ⟨cv.name, cv.levelParams, type'⟩) (A := A)
       hfresh ⟨(fun _ _ h => ConstantInfo.noConfusion h),
-          (fun _ _ _ h => ConstantInfo.noConfusion h)⟩
+          (fun _ _ _ _ h => ConstantInfo.noConfusion h)⟩
       _ rfl φ
   · -- `nat_ops` at the extension: an opaque stores an axiom entry
     exact fun φ => natOps_cons_fresh mp (mp.nat_ops φ)

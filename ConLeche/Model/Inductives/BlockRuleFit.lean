@@ -168,10 +168,10 @@ produces it is the MAJOR PREMISE, in four moves:
 
 `hw` is not a convenience: at a `Prop`-valued block step 4 is FALSE
 and so is the conclusion — see §4. -/
-theorem blockRuleDeclaredFit_run (hM : BlockModelAt mpC.base2 names d)
+theorem blockRuleDeclaredFit_run {T : Name} (hM : BlockModelAt mpC.base2 names d)
     {mm j : Nat} {ctor : ConstantVal × Nat}
     (hcj : (d.ctorsM mm)[j]? = some ctor)
-    (hfind : envC.find? ctor.1.name = some (.ctorInfo ctor.1 d.nP ctor.2))
+    (hfind : envC.find? ctor.1.name = some (.ctorInfo ctor.1 d.nP ctor.2 T))
     (hmemk : mm < d.k) {ψ ψj : Name → Nat}
     (hlv : ∀ q ∈ ctor.1.levelParams, ψj q = ψ q) (hw : d.w ψ ≠ 0)
     {ρ : Nat → V} {ps is : List V} {ys : List Term}
@@ -543,10 +543,10 @@ theorem blockRuleDeclaredFit_any (hM : BlockModelAt mpC.base2 names d)
 parameters and fields is the block's injection.  `BlockModelAt.ctor`
 at the constructor's own parameter frame, with the level arguments
 crossed by the leaf's own parameter locality (`acval_params`). -/
-theorem blockCtorMajor_value (hM : BlockModelAt mpC.base2 names d)
+theorem blockCtorMajor_value {T : Name} (hM : BlockModelAt mpC.base2 names d)
     {mm j : Nat} {ctor : ConstantVal × Nat}
     (hcj : (d.ctorsM mm)[j]? = some ctor)
-    (hfind : envC.find? ctor.1.name = some (.ctorInfo ctor.1 d.nP ctor.2))
+    (hfind : envC.find? ctor.1.name = some (.ctorInfo ctor.1 d.nP ctor.2 T))
     (hcN : mm < d.N) {ψ ψj : Name → Nat}
     (hlv : ∀ q ∈ ctor.1.levelParams, ψj q = ψ q)
     {ρ : Nat → V} {ys : List Term}

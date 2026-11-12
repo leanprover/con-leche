@@ -1693,15 +1693,15 @@ theorem dmFrame_of {mp : EnvModelM V env} {c : Name}
     intro n ci hnn hf
     rwa [ConLeche.Env.find?_cons, ite_eq_right (fun hh => hnn hh.symm)] at hf
   -- the numeral heads, at the prefix
-  obtain ⟨cvN, capsN, cv0, i0, j0, cv1, i1, j1, hfN2, hfZ2, hfS2,
+  obtain ⟨cvN, capsN, cv0, i0, j0, T0, cv1, i1, j1, T1, hfN2, hfZ2, hfS2,
     hlpN, hlpZ, hlpS, htyN, htyZ, htyS⟩ :=
     ConLeche.natLitSupported_inv hs
   have hfN : env.find? ConLeche.natName
       = some (.indInfo cvN capsN) := hdown _ _ hnN hfN2
   have hfZ : env.find? ConLeche.natZeroName
-      = some (.ctorInfo cv0 i0 j0) := hdown _ _ hnZ hfZ2
+      = some (.ctorInfo cv0 i0 j0 T0) := hdown _ _ hnZ hfZ2
   have hfS : env.find? ConLeche.natSuccName
-      = some (.ctorInfo cv1 i1 j1) := hdown _ _ hnS hfS2
+      = some (.ctorInfo cv1 i1 j1 T1) := hdown _ _ hnS hfS2
   -- `Nat.ble` is a dependency of every pin-certified operation, and it
   -- is where `Bool` enters
   have hbleDep : ConLeche.natBleName ∈ ConLeche.natOpDeps c := by

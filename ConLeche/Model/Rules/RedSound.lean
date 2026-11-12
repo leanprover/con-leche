@@ -427,13 +427,13 @@ is not the point has a scrutinee that is not (`projS_pt`), whose spine
 the arity-checked walk then fits ("not pt" source (2)). -/
 theorem Red.proj_sound (hin : RulesInputs V m φ) {d : Nat} {sn : Name} {i : Nat}
     {e : Expr} {entry : ProjEntry} {us : List Level} {cvC : ConstantVal}
-    {nP nF : Nat}
+    {nP nF : Nat} {cT : Name}
     (hent : env.findProj? sn i = some entry)
     (hhead : e.getAppFn = .const entry.ctor us)
     (hi : i < entry.numFields)
     (hlen : e.getAppArgs.length = entry.numParams + entry.numFields)
     (hus : us.length = entry.levelParams.length)
-    (hctor : env.find? entry.ctor = some (.ctorInfo cvC nP nF))
+    (hctor : env.find? entry.ctor = some (.ctorInfo cvC nP nF cT))
     (hcerts : TeleAritySem m φ d
       (cvC.type.instantiateLevelParams cvC.levelParams us) e.getAppArgs) :
     RedSem m φ d (.proj sn i e)
@@ -448,7 +448,7 @@ theorem Red.proj_sound (hin : RulesInputs V m φ) {d : Nat} {sn : Name} {i : Nat
   have hCe : CtxOkS m φ d Δa e := hC.of_subset hsube
   obtain ⟨vp, -, hvp, -, rfl⟩ := denote_proj_inv hea
   -- the tower entry's laws
-  obtain ⟨-, -, -, -, cvC₀, hfC, hlpsC, hlaw⟩ := hin.tower_ok.entry sn i entry hent
+  obtain ⟨-, -, -, -, cvC₀, iT, hfC, hlpsC, hlaw⟩ := hin.tower_ok.entry sn i entry hent
   obtain rfl : cvC₀ = cvC := by
     obtain ⟨rfl, -, -⟩ :=
       ConstantInfo.ctorInfo.inj (Option.some.inj (hfC.symm.trans hctor))
@@ -461,7 +461,7 @@ theorem Red.proj_sound (hin : RulesInputs V m φ) {d : Nat} {sn : Name} {i : Nat
   rw [he₃] at hvp'
   obtain ⟨vf, vs, hvf, hspa, hveq⟩ := denote_mkAppN_inv hvp'
   have hlenC : us.length = (ConstantInfo.ctorInfo cvC₀ entry.numParams
-      entry.numFields).toConstantVal.levelParams.length := by
+      entry.numFields iT).toConstantVal.levelParams.length := by
     show us.length = cvC₀.levelParams.length
     rw [hlpsC]; exact hus
   rw [denote_const hfC hlenC] at hvf
@@ -500,7 +500,7 @@ theorem Red.proj_sound (hin : RulesInputs V m φ) {d : Nat} {sn : Name} {i : Nat
     (by show us.length = cvC₀.levelParams.length; rw [hlpsC]; exact hus)
   obtain rfl : TCa = TCa' := Option.some.inj (hTCa.symm.trans hTCa')
   -- the ∀-chain, off the head data's arity pin
-  obtain ⟨cvC'', hfC'', -, hstrip⟩ := (m.proj_ok.towerHead hent).2.2.2.2.2
+  obtain ⟨cvC'', _, hfC'', -, hstrip⟩ := (m.proj_ok.towerHead hent).2.2.2.2.2
   obtain ⟨rfl, -, -⟩ :=
     ConstantInfo.ctorInfo.inj (Option.some.inj (hfC.symm.trans hfC''))
   have hpc : PiChain e.getAppArgs.length TCa := by

@@ -201,14 +201,14 @@ theorem genK53_entry {F : Nat} {envI envC : Env} {pp : BlockShape}
 clause's constructor readings, `LfpCtorReads`). -/
 theorem lfpCtor_fieldsLen {env : Env} {mp : EnvModelM V env}
     {D : LfpDatum V} (hD : D ∈ mp.lfpBlocks) {mm j : Nat} (hmm : mm < D.k)
-    (hj : j < D.nctors mm) {cv : ConstantVal} {nPc nF : Nat}
-    (hf : env.find? (D.ctorName mm j) = some (.ctorInfo cv nPc nF)) (ψ : Name → Nat) :
+    (hj : j < D.nctors mm) {cv : ConstantVal} {nPc nF : Nat} {iT : Name}
+    (hf : env.find? (D.ctorName mm j) = some (.ctorInfo cv nPc nF iT)) (ψ : Name → Nat) :
     (D.fields ψ mm j).length = nF := by
   obtain ⟨-, -, -, hrdC, -⟩ := mp.lfp_ok D hD
-  obtain ⟨cv', nPc', nF', hf', -, -, -, A, -, -, hA⟩ := hrdC.2 mm hmm j hj
+  obtain ⟨cv', nPc', nF', iT', hf', -, -, -, A, -, -, hA⟩ := hrdC.2 mm hmm j hj
   rw [hf] at hf'
   obtain ⟨-, -, rfl⟩ : cv = cv' ∧ nPc = nPc' ∧ nF = nF' := by
-    injection hf' with h; injection h with h1 h2 h3; exact ⟨h1, h2, h3⟩
+    injection hf' with h; injection h with h1 h2 h3 h4; exact ⟨h1, h2, h3⟩
   exact (hA ψ).2.1
 
 /-- **An outside class's constructor has the class's field count** at its
@@ -219,7 +219,7 @@ theorem tgtOutCls_fieldsLen {env : Env} {mp : EnvModelM V env}
     (hctor : M.ctors[j]? = some ctor) (ψ : Name → Nat) : (D.fields ψ mm j).length = ctor.2 := by
   obtain ⟨hjL, hcAj⟩ := List.getElem?_eq_some_iff.mp hctor
   have hjD : j < D.nctors mm := by rw [← hcl.hlen]; exact hjL
-  have hf' := hcl.hctor j hjL
+  obtain ⟨_, hf'⟩ := hcl.hctor j hjL
   rw [hcAj] at hf'
   exact lfpCtor_fieldsLen hcl.hD hcl.hmm hjD hf' ψ
 
@@ -610,7 +610,7 @@ theorem genNodeCalls {F : Nat}
       have hm : mc c < (lfpSel mpC dR.toLfp u.key.cname).k := hDc ▸ hTO.hmm
       have hjn : j < (lfpSel mpC dR.toLfp u.key.cname).nctors (mc c) := by
         have := hHF.1; rwa [hnlDb, hmc] at this
-      obtain ⟨cv, nF, ctors, crest, ks, nds, cur, ts', hcvI, hctors, hxmem, hcr, hd, hts', hndl, hcrC,
+      obtain ⟨cv, nF, iTn, ctors, crest, ks, nds, cur, ts', hcvI, hctors, hxmem, hcr, hd, hts', hndl, hcrC,
         hcurC, hndC, hsemU⟩ := dyn_ctorFit H hu ψ hm hjn
       -- the rule's constructor is the node's
       have hcAM : (tgtMajor out c).ctors[j]? = some ctor := by rw [hMeq]; exact hctor
@@ -619,7 +619,8 @@ theorem genNodeCalls {F : Nat}
         rw [List.getElem?_eq_getElem hjM'] at hcAM; exact Option.some.inj hcAM
       have hcn : (cv, nF).1.name = ctor.1.name := by
         have e1 := ConLeche.Env.find?_name hcvI
-        have e2 := ConLeche.Env.find?_name (hTO.hctor j hjM')
+        obtain ⟨iT₂, he2⟩ := hTO.hctor j hjM'
+        have e2 := ConLeche.Env.find?_name he2
         rw [hDc] at e2
         simp only [ConLeche.ConstantInfo.name] at e1 e2
         rw [hcAj] at e2

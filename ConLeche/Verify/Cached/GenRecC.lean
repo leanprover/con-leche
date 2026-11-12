@@ -1349,7 +1349,7 @@ theorem checkBlockTailS_run
     {kinds : List (List (List NestFieldKind))} {params : List Expr}
     {rd : ClassRead} {Ms₀ : List TargetMajor} {tbl : Array NestCtorNf} {Q : List ProjTable}
     (hT : ∀ cv ∈ p.formers, WScoped 0 cv.type)
-    (henv₂ : EnvWF (consBlockCtors p.nP p.memberCtors env₁))
+    (henv₂ : EnvWF (consBlockCtors p.nP p.ctorGroups env₁))
     (hMs₀ : ∀ M ∈ Ms₀, ClassMajScoped p.nP M) (hpl : params.length = p.nP)
     {s₀ : CState} (hs : CSOK .verified false env₁ s₀) {u : Unit} {s' : CState}
     (h : checkBlockTailS .verified block
@@ -1379,22 +1379,22 @@ theorem checkBlockTailS_run
   have henv₃ := genRecCheck_recsWF henv₂ hF₃ hpl (fun M hM => (hMs₀ M hM).2.1)
   -- the stored recursors' check, at the generated install (an overlay
   -- that answers as the pushed index)
-  have hovl : (mkFEnv (consBlockCtors p.nP p.memberCtors env₁)).ovl = [] := rfl
-  have hf : ((mkFEnv (consBlockCtors p.nP p.memberCtors env₁)).overlay
+  have hovl : (mkFEnv (consBlockCtors p.nP p.ctorGroups env₁)).ovl = [] := rfl
+  have hf : ((mkFEnv (consBlockCtors p.nP p.ctorGroups env₁)).overlay
       (blockRecInfosTF p 0 out).reverse).find?
       = (mkFEnv (consBlockRecsT p 0 out
-          (consBlockCtors p.nP p.memberCtors env₁))).find? := by
+          (consBlockCtors p.nP p.ctorGroups env₁))).find? := by
     rw [find?_overlay_pushAll hovl, pushAll_blockRecInfosTF_mkFEnv]
-  have htb : ((mkFEnv (consBlockCtors p.nP p.memberCtors env₁)).overlay
+  have htb : ((mkFEnv (consBlockCtors p.nP p.ctorGroups env₁)).overlay
       (blockRecInfosTF p 0 out).reverse
       ).findTable?
       = (mkFEnv (consBlockRecsT p 0 out
-          (consBlockCtors p.nP p.memberCtors env₁))).findTable? := by
+          (consBlockCtors p.nP p.ctorGroups env₁))).findTable? := by
     rw [findTable?_overlay_pushAll hovl, pushAll_blockRecInfosTF_mkFEnv]
-  have he : ((mkFEnv (consBlockCtors p.nP p.memberCtors env₁)).overlay
+  have he : ((mkFEnv (consBlockCtors p.nP p.ctorGroups env₁)).overlay
       (blockRecInfosTF p 0 out).reverse).env
       = (mkFEnv (consBlockRecsT p 0 out
-          (consBlockCtors p.nP p.memberCtors env₁))).env := by
+          (consBlockCtors p.nP p.ctorGroups env₁))).env := by
     rw [env_overlay_pushAll _ hovl, pushAll_blockRecInfosTF_mkFEnv]
   rw [sharedOpsC_congr hf htb,
     streamRecsCheck_congr hf he] at h
@@ -1415,7 +1415,7 @@ theorem checkBlockTailS_run
   have hs₄ : CSOKF s₄'.flushed := hs₄'.residue.flushed
   have hF₄' : streamRecsCheck (fueledOps .verified F₄)
       (mkFEnv (consBlockRecsT p 0 out
-        (consBlockCtors p.nP p.memberCtors env₁))) p.recs out = .ok () := by
+        (consBlockCtors p.nP p.ctorGroups env₁))) p.recs out = .ok () := by
     rw [← streamRecsCheck_datF]; cases u4; exact hF₄
   obtain ⟨hs₅, hT₆⟩ := checkBlockTablesS_run _ _ h
   obtain ⟨G, hle₀, hle₃, hle₄⟩ : ∃ G, F₀ ≤ G ∧ F₃ ≤ G ∧ F₄ ≤ G :=
@@ -1423,12 +1423,12 @@ theorem checkBlockTailS_run
   refine ⟨hs₅ ▸ hs₄, G, ?_⟩
   have g₄ : streamRecsCheck (fueledOps .verified G)
       (mkFEnv (consBlockRecsT p 0 out
-        (consBlockCtors p.nP p.memberCtors env₁))) p.recs out = .ok () := by
+        (consBlockCtors p.nP p.ctorGroups env₁))) p.recs out = .ok () := by
     rw [← streamRecsCheck_datF]; exact FueledM.up hle₄ (by rw [streamRecsCheck_datF]; exact hF₄')
   have g₀ : checkBlockIdxSorts (fueledOps .verified G) env₁ p
       p.members = .ok isorts := by
     rw [← checkBlockIdxSorts_datF]; exact FueledM.up hle₀ hF₀
-  have g₃ : checkBlockRec (fueledOps .verified G) (consBlockCtors p.nP p.memberCtors env₁) p
+  have g₃ : checkBlockRec (fueledOps .verified G) (consBlockCtors p.nP p.ctorGroups env₁) p
       (blockNestedBit p kinds) params tbl.toList rd Ms₀ block = .ok out := by
     show genRecCheck (fueledOps .verified G) _ _ _ _ _ _ _ _ = _
     rw [← genRecCheck_datF]
@@ -1458,7 +1458,7 @@ theorem checkBlockPassS_run {env : Env} (henv : EnvWF env)
       (∀ cv ∈ q.p.formers, WScoped 0 cv.type) ∧
       (∀ ctorList ∈ q.p.memberCtors, ∀ c ∈ ctorList, WScoped 0 c.1.type) ∧
       (∀ ctorList ∈ q.p.memberCtors, ∀ c ∈ ctorList, env₁.find? c.1.name = none) ∧
-      EnvWF (consBlockCtors q.p.nP q.p.memberCtors env₁) ∧
+      EnvWF (consBlockCtors q.p.nP q.p.ctorGroups env₁) ∧
       (∀ M ∈ q.cls, ClassMajScoped q.p.nP M) ∧ q.params.length = q.p.nP ∧
       ∃ F, (checkBlockPass (fueledOpsM .verified) env p₀ isRec).val F
         = .ok ⟨env₁, q.p, q.kinds, q.params, q.rd, q.cls, q.tbl⟩ := by

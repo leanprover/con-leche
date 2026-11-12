@@ -107,7 +107,7 @@ theorem blockCtorReads_of {env : Env} {m : EnvModel V env} {d : BlockData V} {lp
   obtain ⟨A', hA', hocc'⟩ := hocc c hc' j ctor hcj
   rw [hAcr] at hA'
   obtain rfl := Option.some.inj hA'
-  refine ⟨ctor.1, d.nP, ctor.2, by rw [hname]; exact hfind, hCf, fun mm hmm => ?_,
+  refine ⟨ctor.1, d.nP, ctor.2, d.memberName c, by rw [hname]; exact hfind, hCf, fun mm hmm => ?_,
     fun ψ dsC bodyC hrd' hle ρ hsat => ?_,
     Acr, by rw [hlpsC]; exact hAcr, hocc', fun ψ => ?_⟩
   · -- the members' formers, at the constructor's levels

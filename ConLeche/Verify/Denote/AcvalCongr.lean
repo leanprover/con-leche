@@ -64,7 +64,7 @@ theorem denote_acval_congr
     rw [denote, denote, ihty, ihv, ihbody]
   | case10 d sn i e ihe => rw [denote, denote, ihe]
   | case11 d n hsup =>
-    obtain ⟨cvN, caps, cv0, i0, j0, cv1, i1, j1, hN, hZ, hS, -⟩ :=
+    obtain ⟨cvN, caps, cv0, i0, j0, T0, cv1, i1, j1, T1, hN, hZ, hS, -⟩ :=
       natLitSupported_inv hsup
     rw [denote, denote, ite_eq_left hsup, ite_eq_left hsup,
       hag natZeroName (by rw [hZ]; rfl),
@@ -75,7 +75,7 @@ theorem denote_acval_congr
     obtain ⟨hnat, ciS, ciO, ciL, ciN, ciC, ciH, ciF, pL, pN, pC,
       hfS, hfO, hfL, hfN, hfC, hfH, hfF, -⟩ :=
       strLitSupported_inv hsup
-    obtain ⟨cvN, caps, cv0, i0, j0, cv1, i1, j1, hN, hZ, hSu, -⟩ :=
+    obtain ⟨cvN, caps, cv0, i0, j0, T0, cv1, i1, j1, T1, hN, hZ, hSu, -⟩ :=
       natLitSupported_inv hnat
     rw [denote, denote, ite_eq_left hsup, ite_eq_left hsup,
       hag stringOfListName (by rw [hfO]; rfl),

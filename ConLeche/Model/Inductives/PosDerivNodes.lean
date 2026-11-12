@@ -316,9 +316,9 @@ theorem frame_nodes (mp : EnvModelM V env)
   rw [hlp₀] at hkey
   refine ih (by simp [grpNews, ConLeche.NestCtx.hiAt]; omega)
     (fun x => ∃ c j, InGrp D (p₀ :: ps₀) c ∧ j < D.nctors c ∧
-      env.find? (D.ctorName c j) = some (.ctorInfo x.1 ds.length x.2))
+      ∃ iT, env.find? (D.ctorName c j) = some (.ctorInfo x.1 ds.length x.2 iT))
     (fun x crest hQx hcr hinf => ?_) ?_
-  · obtain ⟨c, j, ⟨hc, -⟩, hj, hfc⟩ := hQx
+  · obtain ⟨c, j, ⟨hc, -⟩, hj, _, hfc⟩ := hQx
     have hwf := mp.base2.wf.consts _ (ConLeche.Env.find?_mem hfc)
     have hcl : (x.1.type.instantiateLevelParams x.1.levelParams us).hasFvar = false := by
       rw [Expr.hasFvar_instantiateLevelParams]; exact hwf.1

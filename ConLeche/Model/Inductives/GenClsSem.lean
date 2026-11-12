@@ -333,8 +333,8 @@ structure GenClsRd (c : Nat) (cvI : ConstantVal) : Prop where
   /-- the class's constructors are its datum's, stored at its parameter count -/
   hctor : ∀ j ctor, (tgtMajor out c).ctors[j]? = some ctor →
     j < (tgtClsD d Dc out c).nctors (tgtClsM mc pp out c) ∧
-    envC.find? ((tgtClsD d Dc out c).ctorName (tgtClsM mc pp out c) j)
-      = some (.ctorInfo ctor.1 (tgtMajor out c).ds.length ctor.2) ∧
+    (∃ iT, envC.find? ((tgtClsD d Dc out c).ctorName (tgtClsM mc pp out c) j)
+      = some (.ctorInfo ctor.1 (tgtMajor out c).ds.length ctor.2 iT)) ∧
     ctor.1.levelParams = cvI.levelParams ∧
     ∀ mm, mm < (tgtClsD d Dc out c).k → ∃ cv caps,
       envC.find? ((tgtClsD d Dc out c).member mm) = some (.indInfo cv caps) ∧
@@ -698,7 +698,7 @@ theorem genCls_open
       (tgtFieldFvs pp out c j).length = ctor.2 := by
   obtain ⟨cls, ctor, fvs, cb, hgc, hM, hctor, hctO, ⟨CR⟩, hnF, hcrest, htRP, hop, hFF, hCB, -, -⟩ :=
     genRun_frame R hg hc hj
-  obtain ⟨hjD, hfc, hlpC, hlpsR⟩ := Rd.hctor j ctor hctor
+  obtain ⟨hjD, ⟨_, hfc⟩, hlpC, hlpsR⟩ := Rd.hctor j ctor hctor
   have hcrD := CR.hD
   rw [← hM, Rd.hctorAt ctor.1 hlpC] at hcrD
   rw [← hcrest] at hcrD hop
@@ -720,11 +720,11 @@ theorem genCls_open
     rw [tgtFdomsAV, hFF, hrdF]
   have hcbE : tgtCbody pp out c j = cb := hCB
   -- the conclusion's syntax (`LfpOwn.ctorConcl`)
-  obtain ⟨cv₈, nPc₈, nF₈, hf₈, bs, args, hstrip, hlen⟩ :=
+  obtain ⟨cv₈, nPc₈, nF₈, iT₈, hf₈, bs, args, hstrip, hlen⟩ :=
     (hcov.own _ Rd.hD).ctorConcl _ Rd.hmm j hjD
   rw [hfc] at hf₈
   obtain ⟨rfl, rfl, rfl⟩ : ctor.1 = cv₈ ∧ (tgtMajor out c).ds.length = nPc₈ ∧ ctor.2 = nF₈ := by
-    injection hf₈ with h; injection h with h1 h2 h3; exact ⟨h1, h2, h3⟩
+    injection hf₈ with h; injection h with h1 h2 h3 h4; exact ⟨h1, h2, h3⟩
   have hP0 := piConcl_of_stripPis _ hstrip rfl
   have hP1 := piConcl_instantiateLevelParams ctor.1.levelParams (tgtMajor out c).lvls _ _ hP0
   rw [map_param_subst (by rw [hlpC]; exact Rd.hnd) (by rw [hlpC]; exact Rd.hul)] at hP1
@@ -819,7 +819,7 @@ theorem genCls_dec
   have hxlR : as₁.length = tgtRP pp c := by rw [hxl, hlenPd]; rfl
   obtain ⟨ctor, ab, Tys, hctor, hctO, hjD, hlT, hTys, hEq, hlab, hfdoms, hes, hB, hmkE, hFvs, hFl⟩ :=
     genCls_open R hg hcov hc hj Rd hnP ψ
-  obtain ⟨-, hfc, hlpC, hlpsR⟩ := Rd.hctor j ctor hctor
+  obtain ⟨-, ⟨_, hfc⟩, hlpC, hlpsR⟩ := Rd.hctor j ctor hctor
   have hsat := Rd.hsat ψ ρ as₁ hpref
   have hds' : ∀ x ∈ (tgtMajor out c).ds, Expr.WScoped (tgtRP pp c) x ∧
       x.looseBVarsBounded 0 = true :=
@@ -851,7 +851,7 @@ theorem genCls_dec
       = some (mpC.base2.acval ctor.1.name
           (Level.substFn ψ ctor.1.levelParams (tgtMajor out c).lvls)) := by
     rw [hname]
-    exact denote_const (ci := .ctorInfo ctor.1 _ ctor.2) hfc
+    exact denote_const (ci := .ctorInfo ctor.1 _ ctor.2 _) hfc
       (by show _ = ctor.1.levelParams.length; rw [hlpC]; exact Rd.hul)
   have hdsaL : DenoteSpine mpC.base2.acval envC ψ (tgtRP pp c + ctor.2)
       (tgtMajor out c).ds
@@ -1347,7 +1347,7 @@ theorem genClsRd_mem
         show ((d.ctorsM t).getD j default).1.name = _
         rw [List.getD_eq_getElem?_getD, hctor']; rfl
       rw [hname, hdsL, ← hnPq]
-      exact hfc
+      exact ⟨_, hfc⟩
     · have hmm' : mm < d.k := hmm
       obtain ⟨cvTb, hcvTb⟩ : ∃ cvTb, pp.formers[mm]? = some cvTb :=
         ⟨_, List.getElem?_eq_getElem (by omega)⟩

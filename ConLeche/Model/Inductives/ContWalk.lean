@@ -433,7 +433,7 @@ applications of the group's members abstracted to their holes, reads at
 the frame's depth as the recorded Π-tower substituted by the frame's
 variables. -/
 theorem crest_readT {c j : Nat} (hc : c < D.k) (hj : j < D.nctors c) {cv : ConstantVal}
-    {nF : Nat} (hfc : env.find? (D.ctorName c j) = some (.ctorInfo cv ds.length nF)) :
+    {nF : Nat} {iT : Name} (hfc : env.find? (D.ctorName c j) = some (.ctorInfo cv ds.length nF iT)) :
     cv.levelParams = lps ∧ ∃ crest ab,
       ConLeche.nestCrest (grp.map (·.1)) us ds (grpHoles hi grp)
         (cv.type.instantiateLevelParams cv.levelParams us) = some crest ∧
@@ -452,11 +452,11 @@ theorem crest_readT {c j : Nat} (hc : c < D.k) (hj : j < D.nctors c) {cv : Const
               (Term.mkAppN (.bvar (nF + (D.k - 1 - c)))
                 (D.resIdx (Level.substFn φ lps us) c j)) ab.length)) := by
   obtain ⟨-, -, -, ⟨-, hrd⟩, -⟩ := mp.lfp_ok D hD
-  obtain ⟨cv', nPc', nF', hf', hcl, hlpsC, -, A, hA, hocc, hread⟩ := hrd c hc j hj
+  obtain ⟨cv', nPc', nF', iT', hf', hcl, hlpsC, -, A, hA, hocc, hread⟩ := hrd c hc j hj
   rw [hfc] at hf'
   obtain ⟨rfl, rfl, rfl⟩ : cv = cv' ∧ ds.length = nPc' ∧ nF = nF' := by
     simp only [Option.some.injEq, ConLeche.ConstantInfo.ctorInfo.injEq] at hf'
-    exact ⟨hf'.1, hf'.2.1, hf'.2.2⟩
+    exact ⟨hf'.1, hf'.2.1, hf'.2.2.1⟩
   have hlp : cv.levelParams = lps := by
     obtain ⟨cvm, capsm, hfm, hlm⟩ := hlpsC c hc
     obtain ⟨cvm', capsm', hfm', hlm'⟩ := hlps c hc
@@ -607,11 +607,11 @@ members' constructors. -/
 theorem grpCtors_found
     (hcov : ∀ c, c < D.k → ∃ nP' L, ConLeche.nestContainer ctx (D.member c) = some (nP', L) ∧
       L.length = D.nctors c ∧ ∀ j (hj : j < L.length),
-        env.find? (D.ctorName c j) = some (.ctorInfo L[j].1 nP' L[j].2))
+        ∃ iT, env.find? (D.ctorName c j) = some (.ctorInfo L[j].1 nP' L[j].2 iT))
     {ctors : List (ConstantVal × Nat)}
     (hgc : ConLeche.groupCtors ctx ds.length (grp.map (·.1)) = some ctors) :
     ∀ x ∈ ctors, ∃ c j, InGrp D grp c ∧ j < D.nctors c ∧
-      env.find? (D.ctorName c j) = some (.ctorInfo x.1 ds.length x.2) := by
+      ∃ iT, env.find? (D.ctorName c j) = some (.ctorInfo x.1 ds.length x.2 iT) := by
   obtain ⟨hctorsIn, -⟩ := ConLeche.groupCtors_spec hgc
   intro x hx
   obtain ⟨cn, hcn, nP', L, hL, hnP, hxL⟩ := hctorsIn x hx
@@ -634,11 +634,11 @@ omit [SetTheory V] hD hnN hkN hfind hlps hnd hul hds hdsa hlenP hg in
 theorem grpCtor_found
     (hcov : ∀ c, c < D.k → ∃ nP' L, ConLeche.nestContainer ctx (D.member c) = some (nP', L) ∧
       L.length = D.nctors c ∧ ∀ j (hj : j < L.length),
-        env.find? (D.ctorName c j) = some (.ctorInfo L[j].1 nP' L[j].2))
+        ∃ iT, env.find? (D.ctorName c j) = some (.ctorInfo L[j].1 nP' L[j].2 iT))
     {ctors : List (ConstantVal × Nat)}
     (hgc : ConLeche.groupCtors ctx ds.length (grp.map (·.1)) = some ctors)
     {g j : Nat} (hG : InGrp D grp g) (hj : j < D.nctors g) :
-    ∃ x ∈ ctors, env.find? (D.ctorName g j) = some (.ctorInfo x.1 ds.length x.2) := by
+    ∃ x ∈ ctors, ∃ iT, env.find? (D.ctorName g j) = some (.ctorInfo x.1 ds.length x.2 iT) := by
   obtain ⟨-, hctorsAll⟩ := ConLeche.groupCtors_spec hgc
   obtain ⟨nP', L, hL, hlenL, hfL⟩ := hcov g hG.1
   have hjL : j < L.length := by rw [hlenL]; exact hj
@@ -796,7 +796,7 @@ theorem substE_grp (Y ρ : Nat → V) :
 /-- **A frame constructor's type, read** (`crest_readT` at a walked
 group). -/
 theorem crest_read {c j : Nat} (hc : c < D.k) (hj : j < D.nctors c) {cv : ConstantVal}
-    {nF : Nat} (hfc : env.find? (D.ctorName c j) = some (.ctorInfo cv ds.length nF)) :
+    {nF : Nat} {iT : Name} (hfc : env.find? (D.ctorName c j) = some (.ctorInfo cv ds.length nF iT)) :
     cv.levelParams = lps ∧ ∃ crest ab,
       ConLeche.nestCrest (grp.map (·.1)) us ds (grpHoles hi grp)
         (cv.type.instantiateLevelParams cv.levelParams us) = some crest ∧
@@ -839,7 +839,7 @@ premise is the per-constructor transfer at the frame relation. -/
 theorem frameIter (hin : RulesInputs V mp.base2 φ) {F : Nat}
     (hcov : ∀ c, c < D.k → ∃ nP' L, ConLeche.nestContainer ctx (D.member c) = some (nP', L) ∧
       L.length = D.nctors c ∧ ∀ j (hj : j < L.length),
-        env.find? (D.ctorName c j) = some (.ctorInfo L[j].1 nP' L[j].2))
+        ∃ iT, env.find? (D.ctorName c j) = some (.ctorInfo L[j].1 nP' L[j].2 iT))
     {prog : List NestHole} (hhi : ctx.hiAt prog.length = hi) {Δh : List Term}
     {R₀ : FrameRel V} (hR₀ : HoleRel mp.base2 φ ctx prog hi Δh R₀) (hΔ : Δh.length = hi)
     (hCds : ∀ x ∈ ds, CtxOkP mp.base2 φ hi Δh x) (hLds : ∀ x ∈ ds, Expr.LeavesBounded x)
@@ -883,9 +883,9 @@ theorem frameIter (hin : RulesInputs V mp.base2 φ) {F : Nat}
   have hR' := frameRel_holeRel mp hD hnN hkN hfind hlps hnd hul hds hdsa hlenP hg hhi hR₀
   have hw := hwalk hR'
     (fun x => ∃ c j, InGrp D grp c ∧ j < D.nctors c ∧
-      env.find? (D.ctorName c j) = some (.ctorInfo x.1 ds.length x.2))
+      ∃ iT, env.find? (D.ctorName c j) = some (.ctorInfo x.1 ds.length x.2 iT))
     (fun x crest hQx hcr hinf => by
-      obtain ⟨c, j, ⟨hc, -⟩, hj, hfc⟩ := hQx
+      obtain ⟨c, j, ⟨hc, -⟩, hj, _, hfc⟩ := hQx
       have hwf := mp.base2.wf.consts _ (ConLeche.Env.find?_mem hfc)
       have hcl : (x.1.type.instantiateLevelParams x.1.levelParams us).hasFvar = false := by
         rw [Expr.hasFvar_instantiateLevelParams]; exact hwf.1
@@ -914,7 +914,7 @@ theorem frameIter (hin : RulesInputs V mp.base2 φ) {F : Nat}
       have := hR₀.agree ρ ρ' hr; rwa [hhi] at this
     have hj : j < D.nctors g := hf.1
     -- the constructor `(g, j)`
-    obtain ⟨x, hxmem, hfc⟩ := grpCtor_found hcov hgc hG hj
+    obtain ⟨x, hxmem, _, hfc⟩ := grpCtor_found hcov hgc hG hj
     obtain ⟨-, crest, ca, cur, hcr, hca, hres, hidx, hpos⟩ := hw _ hxmem
     obtain ⟨-, crest', ab, hcr', ⟨Tys, hlT, hTys, hEqF⟩, hlen, hrd⟩ :=
       crest_read mp hD hnN hkN hfind hlps hnd hul hds hdsa hlenP hg hG.1 hj hfc
@@ -965,10 +965,10 @@ theorem ctor_lps (mp : EnvModelM V env) {D : LfpDatum V}
     (hD : D ∈ mp.lfpBlocks) {lps : List Name}
     (hlps : ∀ mm, mm < D.k → ∃ cv caps, env.find? (D.member mm) = some (.indInfo cv caps) ∧
       cv.levelParams = lps)
-    {c j : Nat} (hc : c < D.k) (hj : j < D.nctors c) {cv : ConstantVal} {nPc nF : Nat}
-    (hfc : env.find? (D.ctorName c j) = some (.ctorInfo cv nPc nF)) : cv.levelParams = lps := by
+    {c j : Nat} (hc : c < D.k) (hj : j < D.nctors c) {cv : ConstantVal} {nPc nF : Nat} {iT : Name}
+    (hfc : env.find? (D.ctorName c j) = some (.ctorInfo cv nPc nF iT)) : cv.levelParams = lps := by
   obtain ⟨-, -, -, ⟨-, hrd⟩, -⟩ := mp.lfp_ok D hD
-  obtain ⟨cv', nPc', nF', hf', -, hlpsC, -⟩ := hrd c hc j hj
+  obtain ⟨cv', nPc', nF', iT', hf', -, hlpsC, -⟩ := hrd c hc j hj
   rw [hfc] at hf'
   obtain rfl : cv = cv' := by
     simp only [Option.some.injEq, ConLeche.ConstantInfo.ctorInfo.injEq] at hf'

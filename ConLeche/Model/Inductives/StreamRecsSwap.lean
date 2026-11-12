@@ -204,17 +204,17 @@ theorem EnvModelM.swapTyP {env₀ env₃ : Env}
       obtain ⟨hlaw', hcoh⟩ := hetaL cvT' capsT' ((hsame _ _
         (fun _ _ _ _ _ h => ConstantInfo.noConfusion h)).mp hfT') us hus
       exact ⟨hlaw', fun he =>
-        (hcoh he).transport (fun cvC nPc nFc hf₂ => (hsame _ _
+        (hcoh he).transport (fun cvC nPc nFc iT hf₂ => (hsame _ _
           (fun _ _ _ _ _ h => ConstantInfo.noConfusion h)).mp hf₂)
-        (fun cvC nPc nFc TCa _ hTCa => by rw [← hde]; exact hTCa) rfl
+        (fun cvC nPc nFc iT TCa _ hTCa => by rw [← hde]; exact hTCa) rfl
         (fun _ _ _ => rfl)⟩
     have hfP : env₀.findProj? T i = some entry := by
       rw [hcg.projEq]; exact hf
-    obtain ⟨hsn, hidx, hlt, ⟨cvT, capsT, hfT, hlpsT⟩, cvC, hfC, hlpsC,
+    obtain ⟨hsn, hidx, hlt, ⟨cvT, capsT, hfT, hlpsT⟩, cvC, iT, hfC, hlpsC,
       hlaw⟩ := (mp.tower_ok φ).entry T i entry hfP
     refine ⟨hsn, hidx, hlt, ⟨cvT, capsT, (hsame _ _
         (fun _ _ _ _ _ h => ConstantInfo.noConfusion h)).mpr hfT, hlpsT⟩,
-      cvC, (hsame _ _
+      cvC, iT, (hsame _ _
         (fun _ _ _ _ _ h => ConstantInfo.noConfusion h)).mpr hfC, hlpsC,
       fun us hus => ?_⟩
     obtain ⟨⟨Ta, hTa, hA⟩, ⟨TCa, hTCa, hB⟩⟩ := hlaw us hus
@@ -313,17 +313,17 @@ theorem storedSwap_sem {envC : Env}
       (ConLeche.consBlockRecsT q 0 out envC).find? n = some ci →
       (ConLeche.consBlockRecsT q 0 (ConLeche.streamRecs q.recs out) envC).find? n = some ci :=
     fun n ci hnr h => hcg.findUp n ci h hnr
-  have hctor : ∀ (c : Name) (cvj : ConstantVal) (cnP cnF : Nat),
+  have hctor : ∀ (c : Name) (cvj : ConstantVal) (cnP cnF : Nat) (iT : Name),
       (ConLeche.consBlockRecsT q 0 (ConLeche.streamRecs q.recs out) envC).find? c
-        = some (.ctorInfo cvj cnP cnF) →
-      (ConLeche.consBlockRecsT q 0 out envC).find? c = some (.ctorInfo cvj cnP cnF) :=
-    fun c cvj cnP cnF h => hcg.findDown c _ h (fun _ _ _ _ _ h => ConstantInfo.noConfusion h)
+        = some (.ctorInfo cvj cnP cnF iT) →
+      (ConLeche.consBlockRecsT q 0 out envC).find? c = some (.ctorInfo cvj cnP cnF iT) :=
+    fun c cvj cnP cnF iT h => hcg.findDown c _ h (fun _ _ _ _ _ h => ConstantInfo.noConfusion h)
   have hfam : ∀ cvj : ConstantVal,
-      ConLeche.ctorFamily
+      ctorTypeFamily
           (ConLeche.consBlockRecsT q 0 (ConLeche.streamRecs q.recs out) envC).find? cvj
-        = ConLeche.ctorFamily (ConLeche.consBlockRecsT q 0 out envC).find? cvj := by
+        = ctorTypeFamily (ConLeche.consBlockRecsT q 0 out envC).find? cvj := by
     intro cvj
-    unfold ConLeche.ctorFamily
+    unfold ctorTypeFamily ConLeche.ctorFamily
     cases h : cvj.type.piResult.getAppFn with
     | const T _ =>
       dsimp only
@@ -379,16 +379,16 @@ theorem storedSwap_sem {envC : Env}
   · -- `RecCtorsStored`
     intro n cv mI rP isK rules hf r hr
     rcases hC.1 n _ hf with hG | ⟨j, rc, g, hQ, -, hG, hci⟩
-    · obtain ⟨cvj, cnP, cnF, hfc⟩ := mpG.base2.rec_ctors n cv mI rP isK rules hG r hr
-      exact ⟨cvj, cnP, cnF, hkeep _ _ (fun _ _ _ _ _ h => ConstantInfo.noConfusion h) hfc⟩
+    · obtain ⟨cvj, cnP, cnF, iT, hfc⟩ := mpG.base2.rec_ctors n cv mI rP isK rules hG r hr
+      exact ⟨cvj, cnP, cnF, iT, hkeep _ _ (fun _ _ _ _ _ h => ConstantInfo.noConfusion h) hfc⟩
     · obtain ⟨e1, e2, e3, e5, e4⟩ := ConstantInfo.recInfo.inj hci
       subst e1 e2 e3 e5 e4
       obtain ⟨-, hl, -, -⟩ := hposQ hQ
       obtain ⟨i, rG, hrG, -, -, hreq⟩ := ConLeche.streamRule_corr hl hr
-      obtain ⟨cvj, cnP, cnF, hfc⟩ := mpG.base2.rec_ctors n g.1 _ _ _ _ hG rG hrG
+      obtain ⟨cvj, cnP, cnF, iT, hfc⟩ := mpG.base2.rec_ctors n g.1 _ _ _ _ hG rG hrG
       have hc : r.ctor = rG.ctor := by rw [hreq]
       rw [hc]
-      exact ⟨cvj, cnP, cnF, hkeep _ _ (fun _ _ _ _ _ h => ConstantInfo.noConfusion h) hfc⟩
+      exact ⟨cvj, cnP, cnF, iT, hkeep _ _ (fun _ _ _ _ _ h => ConstantInfo.noConfusion h) hfc⟩
   · -- `BasisPinnedTT`: a stored recursor is never reserved
     intro n ci hf hres
     rcases hC.1 n ci hf with hG | ⟨j, rc, g, ⟨-, hg, -⟩, hn, -, -⟩

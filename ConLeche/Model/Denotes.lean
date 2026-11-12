@@ -104,7 +104,7 @@ theorem Denotes_natLitToConstructor {acval : Name → (Name → Nat) → Term}
     ∀ k, Denotes (cvalOf (V := V) acval) env φ ρ (ConLeche.natLitToConstructor k)
       (interp V ρ (natLitT (acval natZeroName (Level.substFn φ [] []))
         (acval natSuccName (Level.substFn φ [] [])) k)) := by
-  obtain ⟨-, -, cv0, i0, j0, cv1, i1, j1, -, hz, hs, -, hz0, hs0, -, -, -⟩ :=
+  obtain ⟨-, -, cv0, i0, j0, T0, cv1, i1, j1, T1, -, hz, hs, -, hz0, hs0, -, -, -⟩ :=
     natLitSupported_inv hsup
   intro k
   induction k with

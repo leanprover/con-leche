@@ -152,7 +152,7 @@ theorem declStep_preserves_of_ind_member_cons (mp : EnvModelM V env)
     (hnres : ConLeche.reservedBasisNames.contains c₀.name = false)
     (hop : natOpName c₀.name = false)
     (hknd : (∃ cv caps, c₀ = .indInfo cv caps) ∨
-      ∃ cv nP nF, c₀ = .ctorInfo cv nP nF)
+      ∃ cv nP nF iT, c₀ = .ctorInfo cv nP nF iT)
     (hh : ConsHead env c₀ A)
     (hAparams : ∀ ψ₁ ψ₂ : Name → Nat,
       (∀ p ∈ c₀.toConstantVal.levelParams, ψ₁ p = ψ₂ p) →
@@ -174,12 +174,12 @@ theorem declStep_preserves_of_ind_member_cons (mp : EnvModelM V env)
       mp'.base2.acval = acvalWith mp.base2.acval c₀.name A := by
   refine declStep_preserves_of_ind_cons mp hfresh hnres hop ?_ ?_ hh
     hAparams hAok htyReads htyOk hmemNew ?_
-  · rcases hknd with ⟨cv, caps, rfl⟩ | ⟨cv, nP, nF, rfl⟩ <;>
+  · rcases hknd with ⟨cv, caps, rfl⟩ | ⟨cv, nP, nF, _, rfl⟩ <;>
       intro _ _ _ h <;> exact nomatch h
-  · rcases hknd with ⟨cv, caps, rfl⟩ | ⟨cv, nP, nF, rfl⟩ <;>
+  · rcases hknd with ⟨cv, caps, rfl⟩ | ⟨cv, nP, nF, _, rfl⟩ <;>
       intro _ h <;> exact nomatch h
   · refine fun m₂ hac φ => recRules_cons_fresh mp hfresh ?_ m₂ hac φ
-    rcases hknd with ⟨cv, caps, rfl⟩ | ⟨cv, nP, nF, rfl⟩ <;>
+    rcases hknd with ⟨cv, caps, rfl⟩ | ⟨cv, nP, nF, _, rfl⟩ <;>
       intro _ _ _ _ _ h <;> exact nomatch h
 
 /-- **The P step at a *recursor* cons** — the block's recursors, stored

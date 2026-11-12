@@ -177,13 +177,13 @@ inductive Red (env : Env) : Nat → Expr → Expr → Prop where
   constructor telescope's syntactic arity (`projCertAt`,
   `teleArityOk`). -/
   | proj {d : Nat} {sn : Name} {i : Nat} {e : Expr} {entry : ProjEntry}
-      {us : List Level} {cvC : ConstantVal} {nP nF : Nat} :
+      {us : List Level} {cvC : ConstantVal} {nP nF : Nat} {induct : Name} :
       env.findProj? sn i = some entry →
       e.getAppFn = .const entry.ctor us →
       i < entry.numFields →
       e.getAppArgs.length = entry.numParams + entry.numFields →
       us.length = entry.levelParams.length →
-      env.find? entry.ctor = some (.ctorInfo cvC nP nF) →
+      env.find? entry.ctor = some (.ctorInfo cvC nP nF induct) →
       (Expr.peelPis e.getAppArgs.length
         (cvC.type.instantiateLevelParams cvC.levelParams us)).isSome = true →
       Red env d (.proj sn i e) (e.getAppArgs.getD (entry.numParams + i) (.bvar 0))
@@ -196,14 +196,14 @@ inductive Red (env : Env) : Nat → Expr → Expr → Prop where
   the constructor's full-grade telescope certificate and the index
   comparison are the checker's, in its order.
 
-  **The ι case split** (task #342 L10, S5c): `IotaCase` at the comparand
-  levels is the checker's test.  A K rule, and a rule whose
+  **The ι case split** (task #342 L10, S5c): `IotaCaseS` at the comparand
+  levels is the checker's test, the stored facts first (task #573).  A K rule, and a rule whose
   constructor's family is never `Prop` at the comparand levels (case 2),
   carry no premise about the constructor application; case 3 carries
   all four. -/
   | iota {d : Nat} {e : Expr} {c : Name} {us : List Level} {cv : ConstantVal}
       {mI rP : Nat} {isK : Bool} {rules : List RecRule} {major : Expr} {cj : Name}
-      {usj : List Level} {cvj : ConstantVal} {cnP cnF : Nat} {rl : RecRule}
+      {usj : List Level} {cvj : ConstantVal} {cnP cnF : Nat} {induct : Name} {rl : RecRule}
       {residual : Expr} {c3 : Bool} :
       e.getAppFn = .const c us →
       env.find? c = some (.recInfo cv mI rP isK rules) →
@@ -211,10 +211,10 @@ inductive Red (env : Env) : Nat → Expr → Expr → Prop where
       us.length = cv.levelParams.length →
       Red env d (e.getAppArgs.getD mI (.bvar 0)) major →
       major.getAppFn = .const cj usj →
-      env.find? cj = some (.ctorInfo cvj cnP cnF) →
+      env.find? cj = some (.ctorInfo cvj cnP cnF induct) →
       rules.find? (fun r' => r'.ctor == cj) = some rl →
       major.getAppArgs.length = cnP + rl.nfields →
-      IotaCase env isK cvj (recFireComparands rl cnP cv.levelParams us cvj.levelParams
+      IotaCaseS env isK induct (recFireComparands rl cnP cv.levelParams us cvj.levelParams
         e.getAppArgs rP).1 c3 →
       (c3 = true →
         Level.isEquivList usj
@@ -250,12 +250,11 @@ inductive Red (env : Env) : Nat → Expr → Expr → Prop where
   reduction claims nothing (task #342 L18). -/
   | rescueK {d : Nat} {major tm tmaj fab tf tp ttp : Expr} {v : Level} {recName : Name}
       {cv : ConstantVal} {mI rP : Nat} {isK : Bool} {rl : RecRule} {cvj : ConstantVal}
-      {cnP cnF : Nat} {T : Name} {tus ust : List Level} {cvT : ConstantVal}
+      {cnP cnF : Nat} {T : Name} {ust : List Level} {cvT : ConstantVal}
       {caps : IndCaps} :
       env.find? recName = some (.recInfo cv mI rP isK [rl]) →
       isK = true →
-      env.find? rl.ctor = some (.ctorInfo cvj cnP cnF) →
-      (cvj.type.piResult).getAppFn = .const T tus →
+      env.find? rl.ctor = some (.ctorInfo cvj cnP cnF T) →
       env.find? T = some (.indInfo cvT caps) →
       Infer env .io d major tm → Red env d tm tmaj →
       tmaj.getAppFn = .const T ust →
@@ -279,11 +278,10 @@ inductive Red (env : Env) : Nat → Expr → Expr → Prop where
   family's projection table's, which the η law is keyed on. -/
   | rescueEta {d : Nat} {major tm tmaj fab : Expr} {recName : Name}
       {cv : ConstantVal} {mI rP : Nat} {isK : Bool} {rl : RecRule} {cvj : ConstantVal}
-      {cnP cnF : Nat} {T : Name} {tus ust : List Level} {cvT : ConstantVal}
+      {cnP cnF : Nat} {T : Name} {ust : List Level} {cvT : ConstantVal}
       {caps : IndCaps} {tbl : ProjTable} :
       env.find? recName = some (.recInfo cv mI rP isK [rl]) →
-      env.find? rl.ctor = some (.ctorInfo cvj cnP cnF) →
-      (cvj.type.piResult).getAppFn = .const T tus →
+      env.find? rl.ctor = some (.ctorInfo cvj cnP cnF T) →
       env.find? T = some (.indInfo cvT caps) →
       etaRescueTable? (env.findTable? T) rl.ctor cvj cvT caps = some tbl →
       Infer env .io d major tm → Red env d tm tmaj →
@@ -302,11 +300,10 @@ inductive Red (env : Env) : Nat → Expr → Expr → Prop where
   major's half of the `proofIrrel` run, as in the K branch. -/
   | rescueAnd {d : Nat} {major tm tmaj fab tf tp ttp : Expr} {v : Level} {recName : Name}
       {cv : ConstantVal} {mI rP : Nat} {isK : Bool} {rl : RecRule} {cvj : ConstantVal}
-      {cnP cnF : Nat} {tus ust : List Level} {cvT : ConstantVal}
+      {cnP cnF : Nat} {ust : List Level} {cvT : ConstantVal}
       {caps : IndCaps} :
       env.find? recName = some (.recInfo cv mI rP isK [rl]) →
-      env.find? rl.ctor = some (.ctorInfo cvj cnP cnF) →
-      (cvj.type.piResult).getAppFn = .const andName tus →
+      env.find? rl.ctor = some (.ctorInfo cvj cnP cnF andName) →
       env.find? andName = some (.indInfo cvT caps) →
       Infer env .io d major tm → Red env d tm tmaj →
       tmaj.getAppFn = .const andName ust →
@@ -456,11 +453,11 @@ inductive DefEq (env : Env) : Nat → Expr → Expr → Prop where
   The type application is not certified: the type is a type, so its
   spine fits the former's telescope (task #342 L11b). -/
   | structEta {d : Nat} {a b tb wtb : Expr} {c : Name} {us : List Level}
-      {cvc : ConstantVal} {cnP cnF : Nat} {T : Name} {us' : List Level}
+      {cvc : ConstantVal} {cnP cnF : Nat} {cT T : Name} {us' : List Level}
       {cvT : ConstantVal} {caps : IndCaps} {tbl : ProjTable} :
       Infer env .io d b tb → Red env d tb wtb →
       a.getAppFn = .const c us →
-      env.find? c = some (.ctorInfo cvc cnP cnF) →
+      env.find? c = some (.ctorInfo cvc cnP cnF cT) →
       a.getAppArgs.length = cnP + cnF →
       wtb.getAppFn = .const T us' →
       env.find? T = some (.indInfo cvT caps) →
@@ -688,22 +685,31 @@ inductive FormerSort (env : Env) : Nat → Nat → Expr → Level → Prop where
 /-- **The ι case split's verdict** (`iotaCase3At`): `true`, the checked case,
 needs no reason; `false` needs a K rule or a family whose sort is never zero at
 `us`, read off its type (`never`) or walked at this environment (`walk`). -/
-inductive IotaCase (env : Env) : Bool → ConstantVal → List Level → Bool → Prop where
-  | three {isK : Bool} {cvj : ConstantVal} {us : List Level} : IotaCase env isK cvj us true
-  | k {cvj : ConstantVal} {us : List Level} : IotaCase env true cvj us false
-  | never {cvj cvT : ConstantVal} {caps : IndCaps} {us : List Level} :
-      ctorFamily env.find? cvj = some (cvT, caps) →
+inductive IotaCase (env : Env) : Bool → Name → List Level → Bool → Prop where
+  | three {isK : Bool} {induct : Name} {us : List Level} : IotaCase env isK induct us true
+  | k {induct : Name} {us : List Level} : IotaCase env true induct us false
+  | never {induct : Name} {cvT : ConstantVal} {caps : IndCaps} {us : List Level} :
+      ctorFamily env.find? induct = some (cvT, caps) →
       cvT.levelParams.length = us.length →
       formerNeverZero cvT us = true →
-      IotaCase env false cvj us false
-  | walk {cvj cvT : ConstantVal} {caps : IndCaps} {us : List Level} {s : Level} :
-      ctorFamily env.find? cvj = some (cvT, caps) →
+      IotaCase env false induct us false
+  | walk {induct : Name} {cvT : ConstantVal} {caps : IndCaps} {us : List Level} {s : Level} :
+      ctorFamily env.find? induct = some (cvT, caps) →
       cvT.levelParams.length = us.length →
       formerResSort cvT.type = none →
       FormerSort env 0 (caps.nparams + caps.nIdx)
         (cvT.type.instantiateLevelParams cvT.levelParams us) s →
       (Level.zeronessOf s).isNever = true →
-      IotaCase env false cvj us false
+      IotaCase env false induct us false
+
+/-- **The ι case split's verdict, at the stored facts first** (`iotaCaseAt`): `false` where
+the records say so (`iotaNoCert`: a K rule, or a constructor's family recorded as never zero at
+the comparand levels' count), or the verdict at the use (`IotaCase`). -/
+inductive IotaCaseS (env : Env) : Bool → Name → List Level → Bool → Prop where
+  | stored {isK : Bool} {induct : Name} {us : List Level} :
+      iotaNoCert env.find? isK induct us.length = true → IotaCaseS env isK induct us false
+  | use {isK : Bool} {induct : Name} {us : List Level} {c3 : Bool} :
+      IotaCase env isK induct us c3 → IotaCaseS env isK induct us c3
 
 /-- **The rows of a projection's guard** (`checkGuardRows`,
 `Kernel/Core.lean`; official `infer_proj`'s `is_prop`): each row's term

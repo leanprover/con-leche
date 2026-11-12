@@ -138,21 +138,21 @@ not a rule of its relations.
 
 #real[
   The checker has the rule as Lean has it,
-  #src("ConLeche/Rules/Rel.lean", 450, 461)[the constructor's fields compared with the projections of the other side],
+  #src("ConLeche/Rules/Rel.lean", 447, 458)[the constructor's fields compared with the projections of the other side],
   with
   #src("ConLeche/Model/Rules/DefEqSound.lean", 571, 573)[its soundness case].
   It uses the same law when it prepares the major premise of a
   recursor on a structure that is never a proposition at the instance.
   The major is taken as found, before any head normalisation, and the
   constructor is applied to its projections, with no further check
-  (#src("ConLeche/Rules/Rel.lean", 271, 280)[the rule],
-  #src("ConLeche/Model/Rules/IotaSound.lean", 704, 705)[its soundness case]).
+  (#src("ConLeche/Rules/Rel.lean", 270, 279)[the rule],
+  #src("ConLeche/Model/Rules/IotaSound.lean", 703, 704)[its soundness case]).
   Only if that does not give a constructor application is the major
   head-normalised, and the same expansion is tried once more on the
   result. Whether a type has the rule at all is decided once, when it
   is installed, from its shape (one constructor, no index, in a block
   where no constructor is recursive), and
-  #src("ConLeche/Kernel/Inductives/BlockInstall.lean", 69, 75)[recorded with the type]\;
+  #src("ConLeche/Kernel/Inductives/BlockInstall.lean", 71, 77)[recorded with the type]\;
   the law itself is established there too, not at the use. It is the
   η law of the structure's _projection table_, the record of its
   fields' types that the checker stores for every one-constructor,

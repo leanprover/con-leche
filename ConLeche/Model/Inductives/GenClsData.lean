@@ -160,8 +160,8 @@ theorem genOutCtorFit
     (ψ : Name → Nat) (ρ : Nat → V) {xs : List V}
     (hpref : SpineFit ρ (blockRulePdomsAV mpC.base2.acval envC pp (tgtRs out) ψ c) xs)
     {ctor : ConstantVal × Nat} (hctor : (tgtMajor out c).ctors[j]? = some ctor) :
-    ∃ (T0 : Term) (pps : List Term) (b0 : Term),
-      ConstantInfo.ctorInfo ctor.1 (tgtMajor out c).ds.length ctor.2 ∈ envC.consts ∧
+    ∃ (T0 : Term) (pps : List Term) (b0 : Term) (iT : Name),
+      ConstantInfo.ctorInfo ctor.1 (tgtMajor out c).ds.length ctor.2 iT ∈ envC.consts ∧
       ctor.1.levelParams = cvI.levelParams ∧
       denote mpC.base2.acval envC (Level.substFn ψ cvI.levelParams (tgtMajor out c).lvls) 0
         ctor.1.type = some T0 ∧
@@ -177,12 +177,12 @@ theorem genOutCtorFit
   have hMe : tgtClsM mc pp out c = mc c := by simp [tgtClsM, hMo]
   have hsatK := Rd.hsat ψ ρ xs hpref
   rw [Rd.hψ] at hsatK
-  obtain ⟨hjD, hfc0, hlpC, -⟩ := Rd.hctor j ctor hctor
+  obtain ⟨hjD, ⟨_, hfc0⟩, hlpC, -⟩ := Rd.hctor j ctor hctor
   obtain ⟨-, -, -, hcrd, -⟩ := mpC.lfp_ok _ Rd.hD
-  obtain ⟨cv', nPc', nF', hf', -, -, hpars, -⟩ := hcrd.2 _ Rd.hmm j hjD
+  obtain ⟨cv', nPc', nF', iT', hf', -, -, hpars, -⟩ := hcrd.2 _ Rd.hmm j hjD
   rw [hfc0] at hf'
   obtain ⟨rfl, rfl, rfl⟩ : ctor.1 = cv' ∧ (tgtMajor out c).ds.length = nPc' ∧ ctor.2 = nF' := by
-    injection hf' with h; injection h with h1 h2 h3; exact ⟨h1, h2, h3⟩
+    injection hf' with h; injection h with h1 h2 h3 h4; exact ⟨h1, h2, h3⟩
   have hcons := List.mem_of_find?_eq_some hfc0
   have hwfC := mpC.base2.wf.consts _ hcons
   have hCf : ctor.1.type.hasFvar = false := hwfC.1
@@ -196,11 +196,11 @@ theorem genOutCtorFit
   have hT0cl : Term.bvarsBelow 0 T0 :=
     bvarsBelow_of_reading (m := mpC.base2) (Expr.WScoped.of_not_hasFvar hCf) hCb hT0
   -- its outer parameter binders
-  obtain ⟨cv8, nPc8, nF8, hf8, bs, args, hstrip, -⟩ :=
+  obtain ⟨cv8, nPc8, nF8, iT8, hf8, bs, args, hstrip, -⟩ :=
     (hcov.own _ Rd.hD).ctorConcl _ Rd.hmm j hjD
   rw [hfc0] at hf8
   obtain ⟨rfl, rfl, rfl⟩ : ctor.1 = cv8 ∧ (tgtMajor out c).ds.length = nPc8 ∧ ctor.2 = nF8 := by
-    injection hf8 with h; injection h with h1 h2 h3; exact ⟨h1, h2, h3⟩
+    injection hf8 with h; injection h with h1 h2 h3 h4; exact ⟨h1, h2, h3⟩
   have hpcT : Rules.PiChain ((tgtMajor out c).ds.length + ctor.2) T0 :=
     Rules.piChain_of_stripPis _ (by rw [hstrip]; rfl) hT0
   obtain ⟨fvsA, oA, hopA⟩ := openPisAtFvars_of_stripPis_isSome
@@ -259,7 +259,7 @@ theorem genOutCtorFit
   have hpe := hTF.peelPis
   rw [← hT0E, hpeel] at hpe
   obtain rfl := Option.some.inj hpe
-  refine ⟨T0, pps, b0, hcons, hlpC, hT0, hT0E, hplen, hT0wd, ?_, hpcT,
+  refine ⟨T0, pps, b0, _, hcons, hlpC, hT0, hT0E, hplen, hT0wd, ?_, hpcT,
     fun C hC => ?_⟩
   · rw [hT0E]; exact hT0cl
   · rw [hrest] at hC
@@ -507,7 +507,7 @@ theorem genCls_openCrest
     genRun_frame R hg hc hj
   have hcc : ctor' = ctor := Option.some.inj (hctor.symm.trans hcA0)
   subst hcc
-  obtain ⟨hjD, hfc, hlpC, hlpsR⟩ := Rd.hctor j ctor' hctor
+  obtain ⟨hjD, ⟨_, hfc⟩, hlpC, hlpsR⟩ := Rd.hctor j ctor' hctor
   have hcrD := CR.hD
   rw [← hM, Rd.hctorAt ctor'.1 hlpC] at hcrD
   rw [← hcrest] at hcrD hop
