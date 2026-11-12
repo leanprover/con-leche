@@ -113910,6 +113910,11 @@ comparisons; the table creation per comparison is what (2) would address.  `beqG
 instructions did not drop (0.49 G → 0.51 G on the whole run): the gain is the allocator and
 reference-count traffic around it.
 
+After merging master d1ded7c27 (task #572's `whnfCore` memo policy), against that master:
+init-full 292.98 → 286.89 G (−2.1 %), grind-ring-5 10.594 → 10.450 G (−1.4 %),
+magma-list-pair-n7 11.202 → 10.984 G (−2.0 %), cbv_aes Nr=10 whole run 10.538 → 10.087 G
+(−4.3 %); verdicts unchanged.
+
 **Why no budget.**  Official has none; a budget makes the work depend on a heuristic count and
 was the kind of cut-off #319 removed.  Verdicts are unchanged on every stream measured and in
 `tests/arena.sh`.
