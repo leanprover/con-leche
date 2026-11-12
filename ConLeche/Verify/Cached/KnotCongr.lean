@@ -456,7 +456,7 @@ theorem whnfStuckI_congr (hfe : fe₁.find? = fe₂.find?)
 theorem whnfCoreStepI_congr (hfe : fe₁.find? = fe₂.find?)
     (htb : fe₁.findTable? = fe₂.findTable?) (h : SlotsEq mode fe₁ fe₂ lv) :
     whnfCoreStepI mode fe₁ eager lv = whnfCoreStepI mode fe₂ eager lv := by
-  funext cheap depth e; rw [whnfCoreStepI.eq_def, whnfCoreStepI.eq_def]
+  funext cheap depth hd e; rw [whnfCoreStepI.eq_def, whnfCoreStepI.eq_def]
   simp only [whnfAppI_congr hfe htb h, whnfStuckI_congr hfe htb h,
     reduceProjCoreI_congr hfe htb h, h]
 
@@ -466,9 +466,9 @@ theorem whnfCoreLoopI_congr (hfe : fe₁.find? = fe₂.find?)
     whnfCoreLoopI mode fe₁ eager lv = whnfCoreLoopI mode fe₂ eager lv := by
   funext cheap depth n
   induction n with
-  | zero => funext e; rw [whnfCoreLoopI.eq_def, whnfCoreLoopI.eq_def]
+  | zero => funext pend pendC e; rw [whnfCoreLoopI.eq_def, whnfCoreLoopI.eq_def]
   | succ n ih =>
-    funext e; rw [whnfCoreLoopI.eq_def, whnfCoreLoopI.eq_def]
+    funext pend pendC e; rw [whnfCoreLoopI.eq_def, whnfCoreLoopI.eq_def]
     simp only [ih, whnfCoreStepI_congr hfe htb h]
 
 /-- `whnfCoreBodyI` reads `fe` only through `find?` and `findTable?`. -/
