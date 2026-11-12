@@ -119985,6 +119985,134 @@ Local backups `joachim/inlean-add-pre-fvhash` (1c929920), `joachim/inlean-kernel
 warning-free; layering, trust-surface, shake, inlean-sync, plain-reach pass; `_tmp/axcheck.lean`
 as above; Init replay as above.  No fixture or master code changed.
 
+### Lane sync8: master's #572, #574, #576, #577, #573 and #575, InLean follows (2026-11-12, task #451, agent/451-sync8)
+
+**Merge.**  `master` (ca6af0990: #575's record, #572, #574, #576, #577, #573) into the lane from
+agent/451-fvhash (2b3e11b14), `--no-ff`, by hand.  Conflicts: DESIGN.md (master's records, then the
+#451 lane records, as before); `tests/plain-reach-allow.txt`'s `Kernel/Expr` block keeps #547's
+`natHash` and `Literal.hash` beside master's `BeqSt.record`/`BeqSt.recordEq`/`probeHit`.  The
+cherry-picks of #547 and #553 stay (master has neither).  **Last synced master: ca6af0990** (was
+4ce6cb18e).
+
+**The checklist** (`scripts/inlean-cached-diff.sh 4ce6cb18e ca6af0990` and `git log -p`):
+
+* #572, the whnfCore memo policy (`Cached/CoreC`: `whnfCoreKeyC`, `whnfCoreStoresDone`,
+  `whnfCoreCheapSafeC`, `storeChain`, `pushKey`, `pushCheapKey`, `storeChainI`, `whnfCoreLookupI`,
+  `whnfCoreLoopI`, `whnfCoreBodyI`, `whnfCoreI`, `whnfCoreStepI`'s head argument; `memoRedEI` gone)
+  — ported, in master's shape: the loop looks every key up, a hit ends the chain, the keys wait in
+  `pend`/`pendC` and are stored at the chain's end; no entry for ι steps or for an application
+  answered by itself; the cheap mode reads `whnfCoreCheapC` and stores nothing, the full mode
+  fills it with the keys whose chain from the key on takes only steps the two modes take alike.
+  InLean's conventions: the classifiers read the term through its top `mdata` (`EO.stripTop`;
+  the spine head is `getAppFnT`), the keys are `EKey`s (`keyEq`).  The entry point keeps
+  InLean's poll: an easy case returns at once, any other term runs the loop behind `pollC`
+  (`Limits.poll`'s docstring says so).  `betaPeelI` substitutes with Lean's `instantiate`
+  (`instI`), no memo, as master's `instantiateListC` (`instListM` stays for its other users).
+* #577, the ι step on array spines (`getAppArgsArrGo`, `getAppArgsArr`, `spineArg`,
+  `mkAppRange`, `iotaRecI h args k`, `betaPeelI`/`whnfAppI` over `args[i:]`, `whnfStuckI`) —
+  ported; `getAppArgsArrGo` reads `mdata` through, as `appArgs`/`iotaNumArgs` do.  The case-3
+  certificates read the lists `args.toList.take k` and `margs.toList`, made only there.
+* #573, the two ι facts (`ctorInfo … induct`, `IndCaps.neverZero`; `ctorFamily` by name,
+  `iotaNoCert`, `recFireLevelCount`, `familyNeverZeroI`, `iotaCase3I`, `majorToCtorI`,
+  `etaCtorPartialC`, `projIndexedStructLike`, `blockCtors`/`consBlockCtors` over `ctorGroups`)
+  — ported.  **Decision**: both facts are read off Lean's entry, no per-declaration store.
+  The family is `ConstructorVal.induct` (`ctorView?` now answers it; `Quot.mk`'s is `Quot`);
+  InLean's own install already sets it to the member's name, as master's `consSumCtors` does.
+  The sort fact is computed in `capsOf` from the former's type (`formerZ … |>.isNever`, the
+  former's `∀`-telescope walked to its sort, as `blockCapsAt` reads the declared former), so a
+  lookup that needs it costs that walk; `piResult`, `formerResSort`, `formerZ` moved to
+  `InLean/FEnv.lean` for it.  `iotaRecI`'s certificate block computes the firing mode once
+  (`recFireAt`) and reads the comparand count off it (`recFireLevelCount`) before the case
+  split; master reads it off the stored rule.  `pinAgrees` compares the constructor's `induct`,
+  as master's `ConstantInfo.beqP` now compares `T`.
+* #574, structural equality as official's `expr_eq_fn` (`BeqSt`, `BeqSt.ok`, `BeqSt.record`,
+  `BeqSt.recordEq`, `BeqOk`, `BeqOutX.yes/no/mk/cast`, `beqIsApp`, `enterBeq`, `beqGoX`,
+  `beqDec`; `probeHit` not inlined, borrowed) — ported to all three of InLean's descents:
+  `beqGoX` (exact), `keyGoX` (`eraseK`, the memo keys) and `clGoX` (`clB`, the checker's `==`),
+  the last two over a generic `ClSt R`/`ClOutX R P` with `clProbeHit`/`ClSt.recordRel` not
+  inlined.  An application compares its last argument first and walks the spine: where both
+  functions are applications the descent continues on them directly.  `clGoX` keeps the test of
+  the data word's `mdata`-invariant part on such a pair (`clStep`'s own test, part of `clB`'s
+  meaning, one word comparison); `beqGoX` and `keyGoX` skip it, as master.
+* #576, the substitution walks' leaf child (`leafListP`, `leafRevP`, `reentListP`,
+  `reentRevP`, `ReentListP`, `ReentRevP`, `enterListP`, `enterRevP`, `instantiateListXP`,
+  `instantiateRevXP`) — not applicable: InLean's substitutions are `EO.instantiateBy` over
+  `EO.mapX`, whose child step `enterMap` (inlined) already answers a callback-decided child (a
+  replacement `bvar`, its lift a separate walk) or a non-compound one as a bare value beside the
+  untouched memo; only a compound child is a call.
+* Pattern-only arity changes (`isCtorAppC`, `etaCtorShapeC`, `projCertF`, `structEtaCertWithI`,
+  `unitLikeShapeF`, the basis pins, `atLps`, `blockLinksOk`, `canon`, `canonEqFast`,
+  `natZeroOk`, `natSuccOk`, `litShapeOk`, `stdAxiomOkF`, `trustCompilerOkF`) — InLean reads
+  Lean's records (`ctorView?` 4-tuple); `checkBlockTailS` (`ctorGroups`): InLean's
+  `consBlockCtorsF` already pushes each member's constructors under its name.
+* `defeqBodyI`, `formerNeverZeroI`, `inferPisOutI`, `iotaNumArgs`, `memoEI`, `prepareMajorI`,
+  `reduceProjCoreI`, `formerNeverZero`, `instantiateListP_cut`, `instantiateRevP_cut` — hunk
+  attribution only.
+
+**Proofs.**  The relation follows master's specification: `EntryRelI` relates a constructor's
+`T` to `toName v.induct` (`Quot.mk`'s to `quotName`), `toCaps` carries `neverZero`
+(`toCaps_capsOf` takes the former's `CVRel`, `formerZ_isNever_CV`), `EnvViewI.ctor` answers the
+family, `ToCL`/`trCI` translate it.  New: `iotaNoCert_CV`, `recFireLevelCount_rel`,
+`familyNeverZeroI_specI`; the loop's twins of master's `PendOK` vocabulary, stated at a state
+(`PendOKI` with `.tab`, `.push`, `.pushCheap`; `CSOKI.chainStored`, `_nil`, `Done`, `Hit`,
+`Easy`; `UnaryOK.foldl_insert`; `whnfCoreCheapSafeC_TrS`, `isStuckHeadC_TrS`), and
+`whnfCoreLoopI_specI` is one `sym … => vcgen … <;> finish` per case; `whnfCoreI_specI` replaces
+`memoRedEI_whnfCore_specI` and the bodies' whnfCore spec is the chained `whnfCore` itself, as
+master's.  The array vocabulary (`getAppArgsArr_toList`, `mkAppRange_eq`, `mkAppRange_rest`,
+`iotaReduct_eq`, `spineArg_eq`, the element lemmas) twins `DiscC3`'s.  `IotaRecSpecI` is
+stated at `(h, args, k)` against the specification's redex `mkAppN h (args.toList.take k)`;
+the stuck arm's spec (`whnfStuckI_specI_of`) reads the spine loop the stuck arm's way through
+master's `whnfAppW_stuck` and `iotaTargetF_TrS`, which replaces the InLean-side identification
+of the stuck arm with the spine loop (`whnfStuckI_mkAppN`, `whnfStuckI_relink`,
+`whnfStuckI_done`, `whnfAppI_noIota`, `whnfAppI_iota` are gone, with `CSOKI.whnfCore_insert`,
+`CSOKI.whnfCoreCheap_insert` and `whnfCoreLoopFuel_eq`).  `addDeclSound` unconditional, axioms
+unchanged (`_tmp/axcheck.lean`: `propext`, `Classical.choice`, `Quot.sound`, the three
+`mkData` stop-gaps); no `sorry`.  `toCaps_capsOf`'s pin now lists `Classical.choice` and
+`Quot.sound` beside `propext` (the `formerZ` translation).
+
+**The ι counts.**  `tests/e2e/src/grind_field_cancel_inv.lean` (diagnostics on, threshold 0)
+compiled by the fork with this InLean and by nightly-2026-10-30: the kernel's unfold lists are
+identical, `Mon.rec` 26 452, `Bool.rec` 20 550 on both (fvhash: InLean 30 739 / 32 710).  The
+two minimal examples (`_tmp/fvhash/mwe/`): `Bool.rec` 2 on each, on both kernels (InLean 3
+before).
+
+**Gates.**  `lake build`, `lake test`, `lake build InLean InLeanProof inlean-replay`
+warning-free; layering, trust-surface, shake, inlean-sync, plain-reach pass; the e2e half of
+`tests/arena.sh` 597/597.
+
+**Init** (`perf stat -e instructions:u`, one run each).  Replay `--compare`: 64530 accepted,
+0 exact and 0 cosmetic mismatches.  InLean `--kernel=inlean`: 350.41 G (fvhash 374.09 G,
+−6.3 %); con-leche at master ca6af0990 (`--olean --jobs=1`, 63937 declarations): 325.13 G
+(InLean +7.8 %; at sync7 +7.3 %).  `Init.Data.BitVec.Lemmas` (the gap lane's `gapbench`, 2092
+targets): InLean 42.68 G (sync7 45.56 G, −6.3 %), official 35.52 G; 1.20× (was 1.28×).  The
+gfkc lane's per-declaration replays (`rpp.sh`) need its probe copy `PInLean`, which is gone;
+the radar files below stand in for them.
+
+**lean4** (`_tmp/lean4`).  lean4#16146 is merged on lean4 master (3564da2e).  `origin/master`
+(4c558d04) merged into `joachim/inlean-add` by hand (5ddefa84): every file #16146 touched is
+master's (`git diff origin/master` on them is empty; the add-only branch's own `Expr.mkData`
+bodies in `src/Lean/Expr.lean` stay), the cherry-picked stage0 checkbox reverted to master's.
+The regenerated InLean (`CoreC`, `CoreDefs`, `ExprEq`, `FEnv`, `Inductives/Basis`,
+`Inductives/Positivity`; `inlean-sync.py check` OK) is 8354eb73 `perf: InLean follows the
+official whnf_core cache policy, reads iota spines as arrays`; the add tip merged into
+`joachim/inlean-kernel` (e9a00774).  No history rewritten: the add branch fast-forwards from
+the pushed 1c929920; the kernel branch still needs the force push the fvhash lane's rebase
+left (remote 409fb814).  Not pushed.
+
+* Add branch, own build (`_tmp/lean4-add`): stage1 suite (4897 tests) all pass but
+  `async/elab/async_systems_info` (sandbox).  Kernel branch: the same; every
+  `tests/elab_bench/*.lean` (94, `run_bench.sh`) passes; `inleanQuotTwice` passes;
+  `leanchecker --fresh Init` 447.23 G (corec lane 448.64 G); `#mutual_block` 174.6 M
+  heartbeats (fvhash 187.2 M).
+* Compiling `Lean.Kernel.InLean.CoreC` (stage1 `lean`, instructions:u): add branch 133.3 G,
+  kernel branch 163.8 G (before: 303.4 G / 446.3 G; lean4 master's #16409, mutual functions
+  packed into a balanced `PSum` tree, is in the merge).
+* `TEST_BENCH=1` radar files (whole file, one run each; before = fvhash lane's; the merge
+  brings lean4 master's own changes too): `trailingZeros` 38.98 → 35.75 G,
+  `bitvec_zero_counts` 34.01 → 31.11 G, `grind_field_kernel_cancel` 67.91 → **56.23 G**,
+  `cbv_aes` 26.18 → 26.36 G, `grind_ring_5` 2.133 → 1.534 G, `cbv_divisors` 48.65 → 48.50 G,
+  `cbv_leroy` 55.28 → 55.99 G.
+
 ## TASK #547 — a `Nat` literal's hash reads all its bits: lean4#16146 vendored (2026-11-09, agent/547-lit-hash)
 
 The bug (#543): `Literal` derived `Hashable`, so `.natVal n` hashed as `n mod 2^64` and an
