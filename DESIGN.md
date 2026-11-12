@@ -119781,3 +119781,25 @@ was kept).
 * **Docs**: the module docstring, the usage text, OVERVIEW (the verdicts, the log's last field,
   `LEAN_STACK_SIZE_KB` for large developments; CFSG's `#text_pieces_d` runs such theorems on 4 GiB
   stacks).
+
+## TASK #571 — the heartbeat names the over-reserved workers, the log keeps `reserve` lines (2026-11-12, agent/571-overres)
+
+(Requested as #570, taken by another fixture.)  Output and log only; admission is unchanged.
+Trigger: the maintainer's live CFSG run (binary 1056b082f, with the #567 window) showed
+`reserved 45.8 GiB of plan 40.5 GiB` with 6 workers at 27.5 GiB, and `49.0 GiB` against 31.8 GiB
+with 4 workers: 15-17 GiB reserved above the current sets.  The suspect is the known size of a
+rerun, held for its whole run.  The heartbeat could not say which workers hold it.
+
+* `ScheduleIO.resTerm k win typ size` names the term that sets one worker's reservation, the
+  most of current set / windowed peak, the typical peak and the known size: `learned` where the
+  known size is strictly above the others, `window peak` where the peak is at least the typical
+  peak, else `typical`.
+* While modules wait for room, the heartbeat gets an indented second line, `over-reserved: M
+  18.0G for 2.1G (learned, 9h49m), ... +N more`: the workers whose reservation exceeds their
+  set by at least 1 GiB, or by 25 % and at least 256 MiB (the latter so that a young small worker
+  at the typical peak is no noise), largest excess first, at most 3 (`overRows`, `overText`).
+* The log gets `reserve\t<module>\t<age ms>\t<rss KiB>\t<reserved KiB>\t<term>` for every running
+  worker, at most once a minute (`St.lastReserve`) and only while modules wait for room.
+  `parseLog` and `scripts/schedsim.py` (`read_log`, `log_peaks`) skip them; old logs stay valid.
+  The simulator calibration can read them to split the real reservation into the terms.
+* `ScheduleTests` pins the term, the rows, the text, the line and the parser's skip.

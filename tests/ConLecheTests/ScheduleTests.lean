@@ -172,4 +172,31 @@ def qsize (m : ConLeche.Name) : Nat := if m == nm "B" then 10 else if m == nm "D
 -- within the limit: nobody
 #guard victims [(nm "C", 5, 5)] none 5 10 = []
 
+
+-- DESIGN #571: the term that sets a reservation, the over-reserved rows, the `reserve` log lines
+#guard resTerm 100 200 50 150 = "window peak"
+#guard resTerm 100 200 50 300 = "learned"
+#guard resTerm 10 20 50 30 = "typical"
+#guard resTerm 10 20 50 0 = "typical"
+#guard resTerm 10 50 50 50 = "window peak"
+def G : Nat := 1048576
+#guard overRows [("a", 0, 2 * G, 2 * G + G * 2 / 5, "typical")] = []
+#guard (overRows [("a", 0, 2 * G, 3 * G, "typical")]).length = 1
+-- 25 % and 256 MiB
+#guard (overRows [("a", 0, G, G + G / 3, "typical")]).length = 1
+#guard overRows [("a", 0, G / 10, G / 10 + 1000, "typical")] = []
+#guard (overRows [("a", 0, G, 2 * G, "x"), ("b", 0, G, 5 * G, "y")]).map (·.1) = ["b", "a"]
+#guard overText [("a", 0, 2 * G, 2 * G, "typical")] = ""
+#guard overText [("Fi24Br.Seed", 35340000, 2202010, 18 * G, "learned")]
+  = "over-reserved: Fi24Br.Seed 18.0G for 2.1G (learned, 9h49m)"
+#guard overText ((List.range 5).map fun i => (s!"m{i}", 1000, G, (i + 2) * G, "learned"))
+  = "over-reserved: m4 6.0G for 1.0G (learned, 1s), m3 5.0G for 1.0G (learned, 1s), \
+     m2 4.0G for 1.0G (learned, 1s) +2 more"
+#guard reserveLine ("A", 5000, 7, 9, "typical") = "reserve\tA\t5000\t7\t9\ttypical"
+-- a `reserve` line is no verdict and no run time
+#guard (parseLog ConLeche.Frontend.Olean.parseModName (mixedLog ++
+  "reserve\t«A»\t5000\t7\t9\ttypical\nreserve\t«Z»\t5000\t7\t9\tlearned\n")).verdicts.size = 5
+#guard (parseLog ConLeche.Frontend.Olean.parseModName (mixedLog ++
+  "reserve\t«Z»\t5000\t7\t9\tlearned\n")).peaks = #[400000, 400000, 400000]
+
 end ConLecheTests.ScheduleTests

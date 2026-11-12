@@ -126,7 +126,14 @@ it plain `IO`:
   others run; the modules a kill has put back; and the killed modules whose known size does not
   fit the room, with what admission has reserved for the running workers (each at the most of
   its windowed peak, the typical peak and its known size; not their current use) against the
-  planning budget it fits them into (`planOf`), the last two parts only where non-zero.  The
+  planning budget it fits them into (`planOf`), the last two parts only where non-zero.  While
+  modules wait for room, a second, indented heartbeat line names the workers whose reservation is
+  above their current set by at least 1 GiB (or 25 % and 256 MiB), largest excess first, at most
+  three and `+N more`: `over-reserved: M 18.0G for 2.1G (learned, 9h49m)`, the reservation, the
+  set, the term that sets the reservation (`learned` the known size, `window peak`, `typical`
+  peak) and the age (`overText`, DESIGN #571).  The log gets, at most once a minute and only while
+  modules wait for room, a line `reserve\t<module>\t<age ms>\t<rss KiB>\t<reserved KiB>\t<term>` for
+  each running worker (no verdict: `parseLog` and `schedsim.py` skip it).  The
   estimate `eta` is `remaining modules × mean module time
   ÷ average running workers`: the mean over all finished modules with a known time (the
   log's verdict lines with the ms field, and this run's), the average this run's time-weighted
@@ -551,7 +558,8 @@ def parseLog (parse : String → Option Name) (s : String) (stackKb : String := 
   let (lg, span, lastAt) := (s.splitOn "\n").foldl (fun (lg, span, lastAt) l =>
     match l.splitOn "\t" with
     | w :: n :: rest =>
-      if w == "killed" then
+      if w == "reserve" then (lg, span, lastAt)  -- a snapshot, no verdict (DESIGN #571)
+      else if w == "killed" then
         match parse n with
         | none => (lg, span, lastAt)
         | some x =>
@@ -667,6 +675,8 @@ structure St where
   resMs : Nat := 0
   /-- could the memory be read at some tick -/
   memSeen : Bool := false
+  /-- the time of the last `reserve` log lines -/
+  lastReserve : Nat := 0
   /-- the head slot's starts of a module that did not fit into the room -/
   headOver : Nat := 0
   /-- kills for memory and the run time of the killed; all worker run time -/
@@ -767,6 +777,50 @@ def victims (ws : List (Name × Nat × Nat)) (head : Option Name) (total limit :
   let cs := (ws.filter fun w => some w.1 != head).reverse.mergeSort fun a b => a.2.1 ≥ b.2.1
   (cs.foldl (fun (left, acc) (m, _, k) =>
     if left > limit then (left - min left k, m :: acc) else (left, acc)) (total, [])).2.reverse
+
+/-- **Which term sets a running worker's reservation** (DESIGN #571): its current set `k` and
+its windowed peak `win` (together the peak), the typical peak `typ`, its known size `size`
+(0: never killed); the reservation is their largest, and the answer names the one that is it:
+`learned` where the known size is strictly above the others, `window peak` where the peak is at
+least the typical peak, else `typical`. -/
+def resTerm (k win typ size : Nat) : String :=
+  let pk := max k win
+  if size > max pk typ then "learned" else if pk ≥ typ then "window peak" else "typical"
+
+/-- A running worker's reservation row: the module, its age (ms), its current set and its
+reservation (KiB), the term that sets it. -/
+abbrev ResRow := String × Nat × Nat × Nat × String
+
+/-- The rows whose reservation is above the current set by a meaningful amount: at least 1 GiB, or
+at least 25 % of the set and 256 MiB; the largest excess first. -/
+def overRows (ws : List ResRow) : List ResRow :=
+  let big := ws.filter fun (_, _, k, r, _) =>
+    r ≥ k + 1048576 || (r ≥ k + 262144 && (r - k) * 4 ≥ k)
+  (big.toArray.qsort fun a b => b.2.2.2.1 - b.2.2.1 < a.2.2.2.1 - a.2.2.1).toList
+
+/-- A size in KiB as `18.0G`, tenths of GiB, `M` below 0.1 GiB. -/
+def gibShort (kib : Nat) : String :=
+  if kib < 104858 then s!"{kib / 1024}M" else
+  let t := kib * 10 / (1024 * 1024)
+  s!"{t / 10}.{t % 10}G"
+
+/-- **The over-reserved explanation**: `over-reserved: M 18.0G for 2.1G (learned, 9h49m), … +N
+more`, the (at most 3) rows of `overRows` as reservation, current set, the term and the age;
+empty where there is none. -/
+def overText (ws : List ResRow) : String :=
+  match overRows ws with
+  | [] => ""
+  | rs =>
+    let items := (rs.take 3).map fun (m, a, k, r, t) =>
+      s!"{m} {gibShort r} for {gibShort k} ({t}, {dur a})"
+    let more := if rs.length > 3 then s!" +{rs.length - 3} more" else ""
+    "over-reserved: " ++ ", ".intercalate items ++ more
+
+/-- A running worker's `reserve` log line, no verdict (`parseLog` skips it): the module, its age
+(ms), its current set and its reservation (KiB), the term. -/
+def reserveLine (r : ResRow) : String :=
+  let (m, a, k, res, t) := r
+  s!"reserve\t{m}\t{a}\t{k}\t{res}\t{t}"
 
 /-- `s` padded with spaces on the left to `w` characters. -/
 def padL (w : Nat) (s : String) : String := "".pushn ' ' (w - s.length) ++ s
@@ -1009,6 +1063,11 @@ def run (parse : String → Option Name) (app : System.FilePath) (args : Name �
       let (k, _) := look (rss.getD []) r
       max (max k (windowPeak r.recent)) (max st.typ (st.sizes.getD r.m 0))
     let eff (st : St) (rs : Array Running) : Nat := rs.foldl (fun a r => a + eff1 st r) 0
+    -- the running workers' reservation rows (DESIGN #571), for the heartbeat and the log
+    let resRows (st : St) (now : Nat) (nm : Name → String) : List ResRow := st.running.toList.map fun r =>
+      let (k, _) := look (rss.getD []) r
+      (nm r.m, now - r.start, k, eff1 st r,
+        resTerm k (windowPeak r.recent) st.typ (st.sizes.getD r.m 0))
     let mut still : Array Running := #[]
     let mut ended : Array (Running × String) := #[]
     for r in st.running do
@@ -1133,6 +1192,12 @@ def run (parse : String → Option Name) (app : System.FilePath) (args : Name �
         let ws := if ws.size > surpriseWindow then ws.extract (ws.size - surpriseWindow) ws.size else ws
         st := { st with surprises := ws, surpriseTop := max st.surpriseTop st.epMax, epMax := 0,
                         resv := st.running.foldl (fun m r => m.insert r.m (eff1 st r)) {} }
+    -- while modules wait for room: the reservations in the log, at most once a minute
+    if o.memory > 0 && rss.isSome && now - st.lastReserve ≥ 60000 && waitingOf st > 0 then
+      if let some h := logH then
+        for row in resRows st now spell do h.putStrLn (reserveLine row)
+        h.flush
+      st := { st with lastReserve := now }
     -- the heartbeat: after `heartbeat` ms without a line, the counts and the longest runs
     if o.heartbeat > 0 && now - st.lastLine ≥ o.heartbeat && !st.running.isEmpty then
       st := { st with mem := sample st.running }
@@ -1151,6 +1216,9 @@ def run (parse : String → Option Name) (app : System.FilePath) (args : Name �
         | some r => s!"waiting: longest {r.m} {dur (now - r.start)}{more}{rq}{room}"
         | none => "waiting"
       err.putStrLn s!"{status st now}  {ls}"
+      -- the workers reserved above their current set (only while modules wait for room)
+      let ov := if wt = 0 || rss.isNone then "" else overText (resRows st now toString)
+      if ov != "" then err.putStrLn s!"    {ov}"
       err.flush
       st := { st with lastLine := now }
     return st

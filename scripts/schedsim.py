@@ -123,6 +123,8 @@ def read_log(path):
         f = line.rstrip("\n").split("\t")
         if len(f) < 2:
             continue
+        if f[0] == "reserve":  # a reservation snapshot (DESIGN #571), no verdict
+            continue
         if f[0] == "killed":
             kills.append((unspell(f[1]), num(f[2]) if len(f) > 2 else None))
             continue
@@ -143,7 +145,7 @@ def log_peaks(path, last=200):
     xs = []
     for line in open(path, encoding="utf-8"):
         f = line.rstrip("\n").split("\t")
-        if len(f) >= 4 and f[0] != "killed" and f[3].isdigit():
+        if len(f) >= 4 and f[0] not in ("killed", "reserve") and f[3].isdigit():
             xs.append(int(f[3]))
     return xs[-last:]
 
