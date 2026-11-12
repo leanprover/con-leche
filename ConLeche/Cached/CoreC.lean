@@ -214,13 +214,83 @@ def inferPisOutI : List Level → Level → CheckCM Level
 
 /-- **`whnfCore`'s easy cases** (official `whnf_core`, "handle easy
 cases"): the kinds that are their own head normal form
-(`whnfCoreStepI`'s `.done e` arm).  The knot returns them before the
-memo: no lookup, no insert.  A free variable is never a let-variable
-here (lets are ζ-reduced by instantiation), so it is easy, as
-official's non-let `FVar`. -/
+(`whnfCoreStepI`'s `.done e` arm).  The loop returns them before the
+memo, at every step: no lookup, no insert.  A free variable is never a
+let-variable here (lets are ζ-reduced by instantiation), so it is easy,
+as official's non-let `FVar`. -/
 @[inline] def whnfCoreEasy : Expr → Bool
   | .sort _ | .fvar .. | .forallE .. | .lam .. | .const .. | .lit _ => true
   | _ => false
+
+/-- **A `whnfCore` memo key**: a term of an arm official `whnf_core`
+stores (`src/kernel/type_checker.cpp`, `whnf_core`: the `Proj`, `Let`
+and `App` cases, the insert after the `switch`) — a projection, a
+let-expression, or an application whose head is not its own head normal
+form.  An application with a stuck head (`isStuckHeadC`) is official's
+`f == f0` arm, the ι step or the stuck answer, which `return`s before
+the insert: it is never stored, so the loop does not look it up. -/
+@[inline] def whnfCoreKeyC : Expr → Bool
+  | .app f a => !isStuckHeadC (Expr.app f a).getAppFn
+  | .proj .. | .letE .. => true
+  | _ => false
+
+/-- A key whose step ended the chain with `v` is stored, but for an
+application answered by itself: its head normalized to itself (a stuck
+projection), official's `f == f0` arm again.  A stuck
+projection is stored (official's `Proj` case stores `r = e`). -/
+@[inline] def whnfCoreStoresDone (e v : Expr) : Bool :=
+  match e with
+  | .app .. => whnfCoreKeyC e && !(v == e)
+  | _ => whnfCoreKeyC e
+
+/-- **A step the two modes take alike**: a let-expression, or an
+application whose head is a lambda or stuck; neither normalizes a
+projection or a head that could contain one.  A chain of such steps
+answers the same in the cheap mode as in the full one
+(`whnfCoreStepW_cheap`), so the full mode's loop also stores its keys
+in the cheap mode's memo. -/
+@[inline] def whnfCoreCheapSafeC : Expr → Bool
+  | .app f a =>
+    match (Expr.app f a).getAppFn with
+    | .lam .. => true
+    | h => isStuckHeadC h
+  | .letE .. => true
+  | _ => false
+
+/-- The cached state after a finished chain: its keys `pend` map to the
+answer `v` in the full mode's memo, and those of them whose chain the
+cheap mode takes alike (`pendC`) in the cheap mode's memo.  Each map is
+taken out of the state before the inserts (`memoEI`'s linearity). -/
+@[inline] def storeChain (st : CState) (pend pendC : List Expr) (v : Expr) : CState :=
+  let mp := st.whnfCoreC
+  let st := { st with whnfCoreC := ∅ }
+  let st := { st with whnfCoreC := pend.foldl (fun m k => m.insert k v) mp }
+  let mc := st.whnfCoreCheapC
+  let st := { st with whnfCoreCheapC := ∅ }
+  { st with whnfCoreCheapC := pendC.foldl (fun m k => m.insert k v) mc }
+
+/-- The pending keys past a step on `e`: `e` joins them where it is
+stored (`b`). -/
+@[inline] def pushKey (b : Bool) (e : Expr) (pend : List Expr) : List Expr :=
+  if b then e :: pend else pend
+
+/-- The cheap mode's pending keys past a step on `e`: kept, and joined by
+`e` where it is stored (`b`), past a step the two modes take alike
+(`whnfCoreCheapSafeC`); dropped past any other. -/
+@[inline] def pushCheapKey (b : Bool) (e : Expr) (pendC : List Expr) : List Expr :=
+  if whnfCoreCheapSafeC e then pushKey b e pendC else []
+
+/-- Store a finished chain (`storeChain`): the cheap mode stores nothing
+(official stores only when not cheap), and a chain without keys has
+nothing to store. -/
+@[inline] def storeChainI (cheap : Bool) (pend pendC : List Expr) (v : Expr) : CheckCM Unit :=
+  if cheap || pend.isEmpty then pure () else modify fun st => storeChain st pend pendC v
+
+/-- The `whnfCore` memo of a mode: the full mode reads `whnfCoreC`, the
+cheap mode `whnfCoreCheapC` (see `whnfCoreLoopI`). -/
+@[inline] def whnfCoreLookupI (cheap : Bool) (e : Expr) : CheckCM (Option Expr) := do
+  let st ← get
+  if cheap then pure st.whnfCoreCheapC[e]? else pure st.whnfCoreC[e]?
 
 /-- **`whnf`'s easy cases** (official `whnf`, "Do not cache easy
 cases"): sorts, free variables, Π-types and literals, which neither
@@ -249,28 +319,6 @@ only — the term the proofs unfold is unchanged. -/
         let st := set' st ∅
         set' st (mp.insert e r)
       pure r
-
-/-- `memoEI` for head normalization: an answer that is the input itself
-is not stored (official `whnf_core` caches nothing on its stuck
-`f == f0` arm, `src/kernel/type_checker.cpp:525-536`).  Recomputing it
-is one step that changes nothing (`whnfStuckI`, a stuck projection),
-and a spine that does not reduce stays out of the table.  The test is
-the pointer-first `==`: the stuck arms return the input by reference. -/
-@[inline] def memoRedEI (get' : CState → Std.HashMap Expr Expr)
-    (set' : CState → Std.HashMap Expr Expr → CState)
-    (f : Nat → Expr → CheckCM Expr) : Nat → Expr → CheckCM Expr :=
-  fun d e => do
-    match (get' (← get))[e]? with
-    | some r => pure r
-    | none =>
-      let r ← f d e
-      if r == e then pure r
-      else
-        modify fun st =>
-            let mp := get' st
-          let st := set' st ∅
-          set' st (mp.insert e r)
-        pure r
 
 /-- Memoize the definitional-equality entry point under the
 index pair (`@[inline]` as `memoEI`). -/
@@ -1095,24 +1143,55 @@ def whnfCoreStepI (eager : Bool) (lv : Nat) (cheap : Bool) (depth : Nat)
       throw (.notImplemented "whnf beyond the supported fragment")
 termination_by (lv, 31, 0, 0)
 
-/-- Iterate `whnfCoreStepI` on its own step budget (pure mirror:
-`whnfCoreLoopM`, `ConLeche/Verify/BetaSpine.lean`).  The continuation
+/-- Iterate `whnfCoreStepI` on its own step budget, with official
+`whnf_core`'s memo policy (`src/kernel/type_checker.cpp`, `whnf_core`).
+Official recurses: every call on a term that is not easy looks the term
+up, and after the recursive call on its reduct returns, stores the
+answer for the β, projection, ζ and head-reduced arms, but not for the
+ι and stuck arms (`f == f0`), and only when not in a cheap mode.  The
+loop follows it iteratively: every step looks its term up
+(`whnfCoreKeyC`: a term no arm stores is not looked up), a hit ends the
+chain, and the keys of the steps taken so far (`pend`) wait for the
+chain's answer, stored at its end (`storeChainI`).  The continuation
 is a self tail call, compiled to a jump (task #342 R2): a reduction
 chain of any length runs in constant native stack, and a
-non-terminating one runs until the external timeout. -/
+non-terminating one runs until the external timeout.
+
+**The cheap mode.**  Official has one memo, read in both modes and
+written only by the full one; a cheap query can so be answered by a
+full answer, which the cheap specification need not compute (a
+projection whose scrutinee needs δ).  Here the cheap mode reads its
+own memo, `whnfCoreCheapC`, and stores nothing, as official; the full
+mode writes there the keys whose chain from the key on takes no step
+the two modes take differently (`whnfCoreCheapSafeC`; `pendC`, emptied
+at any other step and at a hit). -/
 def whnfCoreLoopI (eager : Bool) (lv : Nat) (cheap : Bool) (depth : Nat) :
-    Nat → Expr → CheckCM Expr
-  | 0, _ => throw (.internal "fuel exhausted: whnfCore loop")
-  | n + 1, e => do
-    match ← whnfCoreStepI eager lv cheap depth e with
-    | .done v => pure v
-    | .cont e' => whnfCoreLoopI eager lv cheap depth n e'
-termination_by n _ => (lv, 32, n, 0)
+    Nat → List Expr → List Expr → Expr → CheckCM Expr
+  | 0, _, _, _ => throw (.internal "fuel exhausted: whnfCore loop")
+  | n + 1, pend, pendC, e => do
+    if whnfCoreEasy e then
+      storeChainI cheap pend pendC e
+      pure e
+    else
+      match ← (if whnfCoreKeyC e then whnfCoreLookupI cheap e else pure none) with
+      | some r =>
+        storeChainI cheap pend [] r
+        pure r
+      | none =>
+        match ← whnfCoreStepI eager lv cheap depth e with
+        | .done v =>
+          let st := !cheap && whnfCoreStoresDone e v
+          storeChainI cheap (pushKey st e pend) (pushCheapKey st e pendC) v
+          pure v
+        | .cont e' =>
+          let st := !cheap && whnfCoreKeyC e
+          whnfCoreLoopI eager lv cheap depth n (pushKey st e pend) (pushCheapKey st e pendC) e'
+termination_by n _ _ _ => (lv, 32, n, 0)
 
 /-- Twin of `whnfCoreBody`: the head-normalization loop at its own step
-budget. -/
+budget, with no key pending. -/
 def whnfCoreBodyI (eager : Bool) (lv : Nat) : Bool → Nat → Expr → CheckCM Expr :=
-  fun cheap depth e => whnfCoreLoopI eager lv cheap depth whnfCoreLoopFuel e
+  fun cheap depth e => whnfCoreLoopI eager lv cheap depth whnfCoreLoopFuel [] [] e
 termination_by (lv, 33, 0, 0)
 
 /-- Twin of `defeqArg`: an `eagerReduce _ _` argument's type is
@@ -1796,20 +1875,11 @@ def defeqBodyI (eager : Bool) (lv : Nat) : Nat → Expr → Expr → CheckCM Boo
     else defeqI eager lv depth a₂ b₂
 termination_by (lv, 63, 0, 0)
 
-/-- **The whnfCore entry point** at knot level `lv`.  The easy cases
-(`whnfCoreEasy`) return before the memo, in both modes, as official.
-The two modes of `whnfCore` (official `cheap_proj`) under two memos:
-their results differ on a stuck projection.  Neither stores an answer that
-is its input (`memoRedEI`). -/
+/-- **The whnfCore entry point** at knot level `lv`: the loop, which
+looks its terms up in the mode's memo (`whnfCoreLoopI`). -/
 def whnfCoreI (eager : Bool) : Nat → Bool → Nat → Expr → CheckCM Expr
   | 0, _, _, _ => throw (.internal "fuel exhausted: whnfCore")
-  | lv + 1, c, d, e =>
-    if whnfCoreEasy e then pure e
-    else if c then
-      memoRedEI (·.whnfCoreCheapC) (fun st mp => { st with whnfCoreCheapC := mp })
-        (fun d e => whnfCoreBodyI eager lv true d e) d e
-    else memoRedEI (·.whnfCoreC) (fun st mp => { st with whnfCoreC := mp })
-      (fun d e => whnfCoreBodyI eager lv false d e) d e
+  | lv + 1, c, d, e => whnfCoreBodyI eager lv c d e
 termination_by lv _ _ _ => (lv, 0, 0, 0)
 
 /-- **The whnf entry point**; its easy cases (`whnfEasy`) return before

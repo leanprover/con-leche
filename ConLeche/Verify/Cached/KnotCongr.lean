@@ -466,9 +466,9 @@ theorem whnfCoreLoopI_congr (hfe : fe₁.find? = fe₂.find?)
     whnfCoreLoopI mode fe₁ eager lv = whnfCoreLoopI mode fe₂ eager lv := by
   funext cheap depth n
   induction n with
-  | zero => funext e; rw [whnfCoreLoopI.eq_def, whnfCoreLoopI.eq_def]
+  | zero => funext pend pendC e; rw [whnfCoreLoopI.eq_def, whnfCoreLoopI.eq_def]
   | succ n ih =>
-    funext e; rw [whnfCoreLoopI.eq_def, whnfCoreLoopI.eq_def]
+    funext pend pendC e; rw [whnfCoreLoopI.eq_def, whnfCoreLoopI.eq_def]
     simp only [ih, whnfCoreStepI_congr hfe htb h]
 
 /-- `whnfCoreBodyI` reads `fe` only through `find?` and `findTable?`. -/

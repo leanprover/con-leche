@@ -756,12 +756,21 @@ presentation and matter for the proof:
   cases: `whnfCore` returns a sort, a free variable, a Π-type, a
   lambda-expression, a constant or a literal, and `whnf` a sort, a free
   variable, a Π-type or a literal, before any lookup, so a computed
-  literal never becomes a memo entry. Nor does a `whnfCore` answer that
-  is its input: an application whose head is its own head normal form
-  (a constant, say) is answered by itself, nothing rebuilt, with ι
-  tried once, at the one argument count where it can fire, as in the
-  official kernel's stuck arm; and `whnf` returns a literal that a
-  `Nat` operation computed at once.
+  literal never becomes a memo entry. The `whnfCore` memo is used as
+  in the official kernel: every step of a reduction chain looks its
+  term up, and at the chain's end the terms of its β, projection, ζ
+  and head-normalizing steps are stored with the answer; a step that
+  fires ι or answers a stuck application is not stored. An
+  application whose head is its own head normal form (a constant, say)
+  is answered by itself, nothing rebuilt, with ι tried once, at the one
+  argument count where it can fire, as in the official kernel's stuck
+  arm; and `whnf` returns a literal that a `Nat` operation computed at
+  once. The official kernel's cheap mode (definitional equality's
+  `cheap_proj`) reads the one memo and writes nothing; here it reads a
+  memo of its own, which the full mode fills with the chains the two
+  modes reduce alike (no projection, no head to normalize first), so a
+  cheap query is never answered with a result the cheap mode would not
+  compute.
   Binder names and binder infos are not stored at all; `Expr` carries a
   packed hash and loose-variable bounds as computed fields, which is
   what makes traversals of shared terms (DAGs) cheap. The
