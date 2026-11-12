@@ -16,7 +16,7 @@ and nothing is memoised:
   of the `InductiveVal` (`all`, `numParams`, `numIndices`, `ctors`, and
   official's `is_rec` as `isRec`, which is con-leche's `blockIsRec`) or of
   its one constructor's `ConstructorVal` (`numFields`), but the family's sort
-  fact `neverZero` (task #573), which is read off the former's type as the
+  fact `neverZero`, which is read off the former's type as the
   install reads its declared one (`formerZ`: the `∀`-telescope to its sort,
   a walk of the parameters and indices).  One lookup and a small record per
   use.
@@ -27,7 +27,7 @@ and nothing is memoised:
   premise's domain is headed by a member of the block, else `.nested` at
   that domain's levels and parameters.
 * **A constructor's counts and family** (`ctorView?`): `numParams`, `numFields`,
-  `induct` (the family con-leche's install stores on the record, task #573).
+  `induct` (the family con-leche's install stores on the record).
 * **Projection tables** (`findProj?`, twin of `blockTables` read at a
   field): a table exists for an index-free one-constructor inductive whose
   constructor type binds its parameters and fields; that is a binder count,
@@ -171,7 +171,7 @@ structure IndCaps where
   deriving Inhabited
 
 /-- **Twin of `blockCapsAt`**, read off the `InductiveVal`.  The family's
-sort fact (`neverZero`, task #573) is the former's type read as the install
+sort fact (`neverZero`) is the former's type read as the install
 reads its declared one (`formerZ`): its `∀`-telescope walked to the sort. -/
 def capsOf (v : InductiveVal) : IndCaps :=
   match v.ctors with
