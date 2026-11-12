@@ -6,6 +6,7 @@ import ConLeche.Verify.Ground.Step4
 public import ConLeche.Verify.EnvWF
 import ConLeche.Verify.InferLemmas
 import ConLeche.Verify.Ground.Keys
+import ConLeche.Verify.Ground.Memo
 
 public section
 
@@ -142,43 +143,6 @@ theorem SInv.withValArg {env : Env} {oc : Nat → Expr} {s : MS} (h : SInv env o
     (fun c h₁ h₂ => absurd h₂ (by simp only [MS.N] at h₁ ⊢; omega))
 
 /-! ## The application memo -/
-
-/-- `g4SpanEq` compares a span with the top argument cells. -/
-theorem spanEq_spec (fs argA : Array Nat) (start : Nat) : ∀ (n j : Nat),
-    g4SpanEq fs argA start n j = true → ∀ i, i < n → argA[start + j + i]! = g4ArgAt fs (j + i)
-  | 0, _, _, i, hi => absurd hi (Nat.not_lt_zero _)
-  | n + 1, j, h, i, hi => by
-    simp only [g4SpanEq, Bool.and_eq_true, beq_iff_eq] at h
-    cases i with
-    | zero => simpa using h.1
-    | succ i =>
-      have := spanEq_spec fs argA start n (j + 1) h.2 i (by omega)
-      rw [show start + j + (i + 1) = start + (j + 1) + i by omega, this]; congr 1; omega
-
-/-- **A memo hit** is a record whose key is the entry and the top arguments. -/
-theorem memoFind_spec (mem mT fs argA : Array Nat) (k n : Nat) (hn : 0 < n) :
-    ∀ (f i : Nat), g4MemoFind mem mT fs argA k n f i ≠ 0 →
-      ∃ r, 4 * r + 2 < mem.size ∧ mem[4 * r]! = k ∧ mem[4 * r + 2]! = n ∧
-        g4SpanEq fs argA mem[4 * r + 1]! n 0 = true ∧ g4MemoFind mem mT fs argA k n f i = mem[4 * r + 3]!
-  | 0, _, h => absurd rfl h
-  | f + 1, i, h => by
-    unfold g4MemoFind at h ⊢
-    dsimp only at h ⊢
-    by_cases h0 : (mT[i]! == 0) = true
-    · simp only [h0, ↓reduceIte] at h; exact absurd rfl h
-    · simp only [h0, Bool.false_eq_true, ↓reduceIte] at h ⊢
-      by_cases hc : (mem[g4X4 (mT[i]! - 1)]! == k && mem[g4X4 (mT[i]! - 1) + 2]! == n &&
-          g4SpanEq fs argA mem[g4X4 (mT[i]! - 1) + 1]! n 0) = true
-      · simp only [hc, ↓reduceIte]
-        simp only [Bool.and_eq_true, beq_iff_eq] at hc
-        obtain ⟨⟨h₁, h₂⟩, h₃⟩ := hc
-        rw [g4X4_eq] at h₁ h₂ h₃ ⊢
-        refine ⟨mT[i]! - 1, ?_, h₁, h₂, h₃, rfl⟩
-        rcases Nat.lt_or_ge (4 * (mT[i]! - 1) + 2) mem.size with h' | h'
-        · exact h'
-        · rw [getElem!_neg mem _ (by omega)] at h₂; exact absurd h₂ (by simp; omega)
-      · simp only [hc, Bool.false_eq_true, ↓reduceIte] at h ⊢
-        exact memoFind_spec mem mT fs argA k n hn f _ h
 
 /-- **A new memo record** naming an allocated cell whose origin is its key's
 term; the memo's hash table is free. -/
@@ -347,7 +311,7 @@ theorem step_memo_hit (h : MInv env t₀ oc s fl) (hm : s.mode = 3) {n f i : Nat
     unfold span
     apply List.map_congr_left
     intro j hj
-    have := spanEq_spec s.fs s.argA _ n 0 hsp j (List.mem_range.mp hj)
+    have := (spanEq_iff s.fs s.argA _ n 0).mp hsp j (List.mem_range.mp hj)
     rw [Nat.add_zero, Nat.zero_add] at this; exact this
   refine ⟨(ca.drop n).map Fr.arg ++ fl', h.store.same rfl rfl rfl rfl rfl rfl rfl, ?_,
     fun f hf => h.frames f (by rw [hsplit]; exact List.mem_append_right _ hf), ?_⟩

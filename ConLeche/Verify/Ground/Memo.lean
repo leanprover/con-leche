@@ -253,6 +253,32 @@ theorem spanEq_iff (fs argA : Array Nat) (start : Nat) : ∀ (n j : Nat),
       rwa [show start + j + (i + 1) = start + (j + 1) + i by omega,
         show j + (i + 1) = j + 1 + i by omega] at this
 
+/-- **A nonzero answer** is a record whose key is the entry and the top arguments
+(no invariant needed). -/
+theorem memoFind_spec (mem mT fs argA : Array Nat) (k n : Nat) (hn : 0 < n) :
+    ∀ (f i : Nat), g4MemoFind mem mT fs argA k n f i ≠ 0 →
+      ∃ r, 4 * r + 2 < mem.size ∧ mem[4 * r]! = k ∧ mem[4 * r + 2]! = n ∧
+        g4SpanEq fs argA mem[4 * r + 1]! n 0 = true ∧ g4MemoFind mem mT fs argA k n f i = mem[4 * r + 3]!
+  | 0, _, h => absurd rfl h
+  | f + 1, i, h => by
+    unfold g4MemoFind at h ⊢
+    dsimp only at h ⊢
+    by_cases h0 : (mT[i]! == 0) = true
+    · simp only [h0, ↓reduceIte] at h; exact absurd rfl h
+    · simp only [h0, Bool.false_eq_true, ↓reduceIte] at h ⊢
+      by_cases hc : (mem[g4X4 (mT[i]! - 1)]! == k && mem[g4X4 (mT[i]! - 1) + 2]! == n &&
+          g4SpanEq fs argA mem[g4X4 (mT[i]! - 1) + 1]! n 0) = true
+      · simp only [hc, ↓reduceIte]
+        simp only [Bool.and_eq_true, beq_iff_eq] at hc
+        obtain ⟨⟨h₁, h₂⟩, h₃⟩ := hc
+        rw [g4X4_eq] at h₁ h₂ h₃ ⊢
+        refine ⟨mT[i]! - 1, ?_, h₁, h₂, h₃, rfl⟩
+        rcases Nat.lt_or_ge (4 * (mT[i]! - 1) + 2) mem.size with h' | h'
+        · exact h'
+        · rw [getElem!_neg mem _ (by omega)] at h₂; exact absurd h₂ (by simp; omega)
+      · simp only [hc, Bool.false_eq_true, ↓reduceIte] at h ⊢
+        exact memoFind_spec mem mT fs argA k n hn f _ h
+
 /-- The query's hash is the matching record's. -/
 theorem hash_span (fs argA : Array Nat) (k start : Nat) : ∀ (n j : Nat) (h : UInt64),
     g4SpanEq fs argA start n j = true → g4Hash fs k n j h = g4HashSpan argA start n j h
@@ -369,16 +395,6 @@ theorem memoFind_zero {mem mT fs argA : Array Nat} {k n : Nat} (ht : MemoTab mem
     (h : g4MemoFind mem mT fs argA k n mT.size (g4Slot (g4Hash fs k n 0 (UInt64.ofNat k)) mT.size) = 0) :
     ∀ r, r < mem.size / 4 → ¬RecM mem fs argA k n r :=
   fun r hr hm => ht.cell r hr (by rw [← memoFind_hit ht hr hm]; exact h)
-
-/-- A nonzero answer is a hit. -/
-theorem memoFind_ne {mem mT fs argA : Array Nat} {k n : Nat} (ht : MemoTab mem argA mT)
-    (h : g4MemoFind mem mT fs argA k n mT.size (g4Slot (g4Hash fs k n 0 (UInt64.ofNat k)) mT.size) ≠ 0) :
-    ∃ r, r < mem.size / 4 ∧ RecM mem fs argA k n r ∧
-      g4MemoFind mem mT fs argA k n mT.size (g4Slot (g4Hash fs k n 0 (UInt64.ofNat k)) mT.size) =
-        mem[g4X4 r + 3]! := by
-  apply Classical.byContradiction
-  intro hno
-  refine h (memoFind_miss ht fun r hr hm => hno ⟨r, hr, hm, memoFind_hit ht hr hm⟩)
 
 /-- **Two memos with the same records agree**: the records' spans and cells
 equal, their entries related by `rel` (the kept/fresh or the extension
