@@ -113809,3 +113809,112 @@ Gates (final tree): `lake build`, `lake test` warning-free (axioms pinned); `tes
 in full (layering, shake and pub-imports, trust surface, plain-reach, binary-link, OVERVIEW and
 whitepaper links, quote gate, e2e 595/595, the arena tutorial at its expected 90/92, trusted and `--jobs` sweeps).  OVERVIEW §3's memo
 paragraph states the policy.  Logs: `_tmp/572/wt/_tmp/{logs,perf}`.
+
+## TASK #574 — structural equality in the official kernel's formulation: no per-node result, the spine loop (2026-11-12, agent/574-beq-official)
+
+On lean4's `cbv_aes` (task #571) con-leche's structural equality cost 0.88 G of the theorem's
+5.78 G check against about 0.34 G for official.  A probe of an allocation-free pre-pass with a
+node budget gave −9 %, but the maintainer ruled no budget: official's `expr_eq_fn` has none.
+con-leche already followed official's rules — the cache only for a shared/shared pair
+(`withExcl`, official's `check_cache`: `if (!is_shared(a) || !is_shared(b)) return false;`),
+the table created lazily, no cut-off (removed by #319).  Three differences remained.
+
+**Official's mechanism** (`src/kernel/expr_eq_fn.cpp`, `src/kernel/ptr_pair_set.h`, lean4
+`origin/downstream-green` d6f953da).  `apply(a, b)` tests identity, the hash, the kind, decides
+the leaves, then probes the cache (`check_cache`, not at the root), and returns a `bool`; the
+cache is a member of the function object.  The App case is
+
+```
+if (!apply(app_arg(a), app_arg(b))) return false;
+expr const * curr_a = &app_fn(a); expr const * curr_b = &app_fn(b);
+while (true) {
+    if (!is_app(*curr_a)) break;
+    if (!is_app(*curr_b)) return false;
+    if (!apply(app_arg(*curr_a), app_arg(*curr_b))) return false;
+    curr_a = &app_fn(*curr_a); curr_b = &app_fn(*curr_b);
+}
+return apply(*curr_a, *curr_b);
+```
+
+— the last argument first, then down the spine; a partial application is never passed to
+`apply`, so it is neither identity-tested, hash-tested nor cached.  `ptr_pair_set` is open
+addressing with 16 inline slots (`m_initial`), allocating only on growth.
+
+**What changed** (`ConLeche/Kernel/Expr.lean`, the only executed structural equality; both
+tiers run it through `==`/`DecidableEq`, `beq_eq_beqMemo`/`decEq_eq_decEqPtr`):
+
+1. **No per-node result.**  The descent threads `BeqSt` — `fail | empty | table (m : BeqMap)` —
+   and returns it as `BeqOutX a b := Squash {s : BeqSt // s.ok = true ↔ a = b}`.  Subtype and
+   quotient are erased, `fail`/`empty` are scalars and an equal leaf returns the state it was
+   given, so a node's comparison allocates nothing; a `false` is `fail` and drops the memo
+   (it aborts the comparison).  Before, every node allocated a `BeqResX` (decision, `Option
+   BeqMap`) and a recorded pair a `some` cell besides.  The entry state is a subtype
+   (`BeqOk`), not a `Prop` parameter.
+2. **The spine loop** in official's order: `.app f x, .app g y` compares `x y` through the
+   child step `enterBeq`, then, when `f` and `g` are both applications, continues on them
+   directly (`beqGoX`, no `enterBeq`: no identity, word, exclusivity or memo traffic for a
+   partial application); `f` an application and `g` not is `fail`; otherwise the heads go
+   through `enterBeq`.  The structural recursion is unchanged (`f` is a subterm).
+3. **Linearity, from the generated C.**  With the per-node allocation gone the recursive calls
+   became self tail calls, and the compiler's tail-call preservation (`InferBorrow`,
+   `.tailCallPreservation`, a forced reason that overrides `@&`) made `beqGoX`'s terms owned as
+   soon as a child term was an owned argument anywhere in the body — the `EqPair` constructor
+   of the write-back and `ptrDecStruct`'s structural fallback in the probe.  Owned terms would
+   cost an `inc`/`dec` per node and make every exclusivity read answer "shared".  The write-back
+   is therefore `BeqSt.recordEq` and the probe `probeHit`, both `@[noinline]` with borrowed
+   terms; `beqGoX`'s C now has no `lean_inc`, no `lean_alloc_ctor`, and `lean_dec` only of the
+   state, with the exclusivity reads on borrowed children.
+
+**Point (2), the table.**  Kept as `Std.HashMap`, created at the first recorded pair.
+`BeqSt.table`'s field, `BeqSt.record` and `probeHit` are the only places its type appears.  The
+flat-memo session (task #575) measured an open-addressing table at this seam as a LOSS (cbv_aes
++2.4 %, grind-ring-5 +1.1 %) and a slot-less first stage of ≤ 8 scanned entries as recovering
+0.04 G; a Lean value cannot live in the caller's frame, so official's 16 inline slots have no
+direct twin.  The remaining idea — the first pairs as scalar fields of `BeqSt` itself — is a
+follow-up, not attempted here: it needs a count of the comparisons that create a table, and a
+measurement.
+
+**Proofs.**  Intrinsic, as before: every branch returns its state with the iff for its own pair,
+the child's result is moved to the parent along an erased iff (`BeqOutX.cast`), and
+`beqDec := Squash.lift (beqGoX ⟨.empty, rfl⟩ a b) fun r => decidable_of_iff _ r.2`.
+`beqMemo_iff`, `beqMemo_eq` and the `@[csimp]` theorems are untouched; `beq_eq_beqMemo`'s axioms
+are unchanged (`propext, Classical.choice, Quot.sound`, pinned in `tests/ConLecheTests/Axioms`),
+and so are the capstones'.  No budget, no cap, no `unsafe`/`implemented_by`.
+
+**The probe (c) and the implementation coincide.**  The ruling asked for a scratch probe of (1)
+and (3) first; with the verification intrinsic, the cheapest form of (1)+(3) is already the
+proved code, so it was built uncommitted with the per-job heartbeat probe
+(`_tmp/571-cbv/probe-job-heartbeats.diff`) and measured before anything was committed.
+Numbers (instructions:u, one run, `--verified --jobs=1`, both binaries identically probed;
+data in `_tmp/574/logs/`):
+
+| stream | master | #574 | Δ |
+|---|---:|---:|---:|
+| cbv_aes Nr=10, the theorem's job | 5.635 G | 5.236 G | −7.1 % |
+| cbv_aes Nr=10, the theorem's allocations (heartbeats) | 25.03 M | 20.39 M | −18.5 % |
+| cbv_aes Nr=10, whole run | 10.632 G | 10.147 G | −4.6 % |
+| init-full | 299.26 G | 292.93 G | −2.1 % |
+| init-prelude | 1.203 G | 1.177 G | −2.2 % |
+| grind-ring-5 | 10.845 G | 10.693 G | −1.4 % |
+| magma-list-deep-n36 | 170.57 G | 164.70 G | −3.4 % |
+| magma-list-pair-n21 | 131.51 G | 127.75 G | −2.9 % |
+| magma-list-deep-n21 | 12.745 G | 12.412 G | −2.6 % |
+| magma-list-pair-n7 | 11.429 G | 11.179 G | −2.2 % |
+| church-numerals | 0.205 G | 0.198 G | −3.5 % |
+| app-lam, beta-ladder, let-ladder, the small perf streams | | | −0.4 … +0.01 % |
+
+Against the budgeted pre-pass (−9 % of the theorem's check, 25.0 M → 19.7 M allocations, on
+the #571 tree): this recovers −7.1 % and most of the allocation saving (20.4 M against 19.7 M),
+without a budget and as the only equality.  The pre-pass's further 2 points were the memo-free walk of small
+comparisons; the table creation per comparison is what (2) would address.  `beqGoX`'s own
+instructions did not drop (0.49 G → 0.51 G on the whole run): the gain is the allocator and
+reference-count traffic around it.
+
+After merging master d1ded7c27 (task #572's `whnfCore` memo policy), against that master:
+init-full 292.98 → 286.89 G (−2.1 %), grind-ring-5 10.594 → 10.450 G (−1.4 %),
+magma-list-pair-n7 11.202 → 10.984 G (−2.0 %), cbv_aes Nr=10 whole run 10.538 → 10.087 G
+(−4.3 %); verdicts unchanged.
+
+**Why no budget.**  Official has none; a budget makes the work depend on a heuristic count and
+was the kind of cut-off #319 removed.  Verdicts are unchanged on every stream measured and in
+`tests/arena.sh`.

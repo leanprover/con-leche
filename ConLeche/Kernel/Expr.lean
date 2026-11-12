@@ -791,6 +791,11 @@ majority of the nodes of a real term. -/
   | .fvar .. | .app .. | .lam .. | .forallE .. | .letE .. | .proj .. => true
   | _ => false
 
+/-- Is the expression an application?  The spine test of `beqGoX`. -/
+@[inline] def beqIsApp : Expr → Bool
+  | .app .. => true
+  | _ => false
+
 /-- A memo entry: the pair of objects a completed descent proved
 equal, the addresses the descent saw them at, and the proof.  The
 proof is erased; the addresses are the probe's cheap filter; the
@@ -948,8 +953,11 @@ replace.  Code outside the equality uses `ptrDec`. -/
 addresses are the filter; the stored objects, tested by identity, are
 the verification, and the proof behind a `true` is the entry's own.
 At runtime a passed filter is an identity match, so `ptrDecStruct` decides
-by pointer and never walks. -/
-@[inline] def probeHit (m : BeqMap) (key : Nat) (pa pb : USize) (a b : Expr) :
+by pointer and never walks.  Not inlined, with everything borrowed: the
+structural fallback inside `ptrDecStruct` takes its terms owned, and a
+term that is an owned argument in `beqGoX` would make the descent's own
+parameters owned (see `BeqSt.recordEq`). -/
+@[noinline] def probeHit (m : @& BeqMap) (key : Nat) (pa pb : USize) (a b : @& Expr) :
     { h : Bool // h = true → a = b } :=
   let p := m.getD key EqPair.dflt
   if p.pa == pa && p.pb == pb then
@@ -986,32 +994,95 @@ comparison's own end.  The entries are `EqPair`s (the pair, its two
 addresses, and its proof), the key is the packed address pair
 (`beqKey`), and a hit is validated by identity on BOTH stored objects
 (`probeHit`) — self-proving entries, so there is no table invariant
-and no lemma about the table at all.  Every branch returns
-`Decidable (a = b)` for its own `a`, `b`, and the memo is behind the
-quotient; `beqMemo_eq` is three lines, as it always was. -/
+and no lemma about the table at all.  Every branch returns its state
+(`BeqSt`: `fail`, or the memo) with the proof that it is not `fail`
+exactly when its own `a`, `b` are equal, behind the quotient; the
+per-node result is the state object itself, so the descent allocates
+only the memo's entries, as official's `apply` returning a `bool`
+(task #574).  `beqMemo_eq` is three lines, as it always was.
 
-/-- The raw result of one node's comparison: the decision and the
-memo (absent until the first recorded pair). -/
-structure BeqResX (a b : Expr) where
-  dec : Decidable (a = b)
-  map : Option BeqMap
+The table is `Std.HashMap`, created at the first recorded pair.
+Official's `ptr_pair_set` (`src/kernel/ptr_pair_set.h`) keeps its first
+16 slots inline in the `expr_eq_fn` object and allocates only on growth;
+a Lean value has no caller frame to live in, so its twin would be the
+first pairs as scalar fields of `BeqSt` itself.  `BeqSt.table`'s field,
+`BeqSt.record` and `probeHit` are the only places the table type
+appears (task #574 record, DESIGN.md). -/
 
-/-- The result as the descent returns it: the raw result behind a
-quotient identifying all of them, so that it is a subsingleton — the
-decision is one (`Decidable` is a subsingleton) and the state is
-unobservable.  Erased by the compiler. -/
-abbrev BeqOutX (a b : Expr) := Squash (BeqResX a b)
+/-- The state the descent threads, verdict and memo in one word: `fail`
+once a pair proved unequal (a `false` aborts the whole comparison, so
+the memo is dead from then on), `empty` before the first recorded pair,
+`table m` after it.  `fail` and `empty` are scalars and a pass-through
+returns the state it was given, so a node's comparison allocates
+nothing but the memo's own growth — the official kernel's `apply`
+returns a `bool` beside a member `m_cache` (`src/kernel/expr_eq_fn.cpp`).
+The table type is this constructor's field: a different memo
+representation replaces `BeqMap` here and in `BeqSt.record`/`probeHit`
+and nowhere else. -/
+inductive BeqSt where
+  | fail
+  | empty
+  | table (m : BeqMap)
 
-@[inline] def BeqOutX.mk {a b : Expr} (d : Decidable (a = b)) (map : Option BeqMap) :
-    BeqOutX a b :=
-  Quot.mk _ ⟨d, map⟩
+/-- Is the comparison still going (no unequal pair found)? -/
+@[inline] def BeqSt.ok : BeqSt → Bool
+  | .fail => false
+  | _ => true
 
 /-- The write-back: the entry under its key, in the table or in a
-fresh one. -/
-@[inline] def BeqMap.record (mp : Option BeqMap) (key : Nat) (p : EqPair) : Option BeqMap :=
-  match mp with
-  | none => some (({} : BeqMap).insert key p)
-  | some m => some (m.insert key p)
+fresh one.  Never `fail`: it is applied to a completed `true` only. -/
+@[inline] def BeqSt.record (st : BeqSt) (key : Nat) (p : EqPair) : BeqSt :=
+  match st with
+  | .table m => .table (m.insert key p)
+  | _ => .table (({} : BeqMap).insert key p)
+
+theorem BeqSt.record_ok (st : BeqSt) (key : Nat) (p : EqPair) :
+    (st.record key p).ok = true := by
+  cases st <;> rfl
+
+/-- The write-back of a proved-equal pair at its addresses: the entry
+built here, from BORROWED terms.  Not inlined: in `beqGoX` the child
+terms are also passed on in tail calls, and a term that is a
+constructor argument there is owned, which would make the descent's
+own parameters owned (the compiler keeps a self tail call by owning
+the parameter an owned argument is passed to). -/
+@[noinline] def BeqSt.recordEq (st : BeqSt) (a b : @& Expr) (pa pb : USize) (h : a = b) :
+    BeqSt :=
+  st.record (beqKey pa pb) ⟨a, b, pa, pb, h⟩
+
+/-- A state the descent may enter a node with: one that is not `fail`.
+A subtype, so the proof is erased and the descent's parameter is the
+`BeqSt` itself (an extra `Prop` parameter would make the compiler split
+off a reduced-arity copy, which drops the terms' borrow annotations). -/
+abbrev BeqOk := { s : BeqSt // s.ok = true }
+
+/-- The result as the descent returns it: the state, with the proof
+that it is not `fail` exactly when the pair is equal, behind a quotient
+identifying all of them, so that it is a subsingleton — the decision is
+fixed by the proof and the memo is unobservable.  Subtype and quotient
+are erased by the compiler: at runtime this is the `BeqSt` itself. -/
+abbrev BeqOutX (a b : Expr) := Squash { s : BeqSt // s.ok = true ↔ a = b }
+
+/-- An equal pair: the state passes through. -/
+@[inline] def BeqOutX.yes {a b : Expr} (st : BeqOk) (h : a = b) : BeqOutX a b :=
+  Quot.mk _ ⟨st.1, fun _ => h, fun _ => st.2⟩
+
+/-- An unequal pair: `fail`, and the memo is dropped. -/
+@[inline] def BeqOutX.no {a b : Expr} (h : ¬ a = b) : BeqOutX a b :=
+  Quot.mk _ ⟨.fail, fun e => Bool.noConfusion e, fun e => absurd e h⟩
+
+/-- A node's own decision, the state passing through on `isTrue`. -/
+@[inline] def BeqOutX.mk {a b : Expr} (d : Decidable (a = b)) (st : BeqOk) :
+    BeqOutX a b :=
+  match d with
+  | isTrue h => .yes st h
+  | isFalse h => .no h
+
+/-- A child's result read as the parent's: the same state, the proof
+moved along an equivalence of the two equalities (erased). -/
+@[inline] def BeqOutX.cast {a b c d : Expr} (r : BeqOutX a b) (e : (a = b) ↔ (c = d)) :
+    BeqOutX c d :=
+  Squash.lift r fun r => Quot.mk _ ⟨r.1, r.2.trans e⟩
 
 /-- The child step of `beqGoX`: pointer identity, the computed word,
 the leaf test, then the exclusivity of each side — an exclusive side
@@ -1020,57 +1091,59 @@ untouched; a shared/shared pair is probed, and recorded on a completed
 `true`.  The terms are borrowed, so the counts read are the counts of
 the references inside the terms (the requirement stated in
 `ConLeche/Cached/ExprOpsC.lean`; the check is the IR audit). -/
-@[inline] def enterBeq (map : Option BeqMap) (a b : @& Expr)
-    (rec : Option BeqMap → BeqOutX a b) : BeqOutX a b :=
+@[inline] def enterBeq (st : BeqOk) (a b : @& Expr)
+    (rec : BeqOk → BeqOutX a b) : BeqOutX a b :=
   withAddr a fun pa => withAddr b fun pb =>
-  if pa == pb then .mk (ptrDecStruct a b) map
+  if pa == pb then .mk (ptrDecStruct a b) st
   else if h : a.data != b.data then
-    .mk (isFalse (fun e => by subst e; simp at h)) map
-  else if !beqRecursive a then rec map
+    .no (fun e => by subst e; simp at h)
+  else if !beqRecursive a then rec st
   else withExcl a fun ea =>
-    if ea then rec map
+    if ea then rec st
     else withExcl b fun eb =>
-    if eb then rec map
+    if eb then rec st
     else
       let hit : { h : Bool // h = true → a = b } :=
-        match map with
-        | some m => probeHit m (beqKey pa pb) pa pb a b
-        | none => ⟨false, fun h => Bool.noConfusion h⟩
-      if hh : hit.1 then .mk (isTrue (hit.2 hh)) map
-      else Squash.lift (rec map) fun r =>
-        match r.dec with
-        | isTrue h => .mk (isTrue h) (BeqMap.record r.map (beqKey pa pb) ⟨a, b, pa, pb, h⟩)
-        | d => .mk d r.map
+        match st.1 with
+        | .table m => probeHit m (beqKey pa pb) pa pb a b
+        | _ => ⟨false, fun h => Bool.noConfusion h⟩
+      if hh : hit.1 then .yes st (hit.2 hh)
+      else Squash.lift (rec st) fun r =>
+        if h : r.1.ok then
+          .yes ⟨r.1.recordEq a b pa pb (r.2.mp h), BeqSt.record_ok ..⟩ (r.2.mp h)
+        else Quot.mk _ r
 
-/-- The memoised structural descent: the constructor cases with the
-child step (`enterBeq`) in front of every recursive call — every
-branch returning `Decidable (a = b)` for its own `a`, `b` (the module
-docstring above says why that is the whole proof).  A completed
-`false` aborts the comparison at every level, so no unequal pair is
-ever re-queried and only proved-equal pairs are stored, as in the
-official kernel's `expr_eq_fn`.  The root pair reaches it past
+/-- The memoised structural descent, the official kernel's
+`expr_eq_fn::apply` (`src/kernel/expr_eq_fn.cpp`): the constructor
+cases with the child step (`enterBeq`) in front of every recursive call,
+every branch returning its decision for its own `a`, `b` (the module
+docstring above says why that is the whole proof).  An application
+compares its LAST argument first and then walks down the spine: when
+both functions are applications again the descent continues on them
+directly — a partial application is neither probed nor recorded nor
+word-tested, official's `while (true)` loop over `app_fn` — and the
+heads go through the child step.  A `false` aborts the comparison at
+every level (`fail`), so no unequal pair is ever re-queried and only
+proved-equal pairs are stored.  The root pair reaches it past
 `beqMemo`'s pointer and word tests and is never asked.  The terms are
 borrowed (`@&`): the write-back is the only consumer that stores
 them, and owned terms cost a reference-count pair per node — and the
 exclusivity read would then answer `false` at every node
 (`ConLeche/Kernel/Exclusive.lean`, "The borrowed-parameter
 requirement"). -/
-def beqGoX (map : Option BeqMap) (a b : @& Expr) : BeqOutX a b :=
+def beqGoX (st : BeqOk) (a b : @& Expr) : BeqOutX a b :=
   match a, b with
   | .bvar i, .bvar j =>
     .mk (if h : i = j then isTrue (by subst h; rfl)
-         else isFalse (fun e => h (Expr.bvar.inj e))) map
+         else isFalse (fun e => h (Expr.bvar.inj e))) st
   | .fvar i t, .fvar j u =>
     if h : i = j then
-      Squash.lift (enterBeq map t u fun m => beqGoX m t u) fun r =>
-        .mk (match r.dec with
-          | isTrue h' => isTrue (by subst h; subst h'; rfl)
-          | isFalse h' => isFalse (fun e => h' (Expr.fvar.inj e).2))
-          r.map
-    else .mk (isFalse (fun e => h (Expr.fvar.inj e).1)) map
+      (enterBeq st t u fun s => beqGoX s t u).cast
+        ⟨fun h' => by subst h; subst h'; rfl, fun e => (Expr.fvar.inj e).2⟩
+    else .no (fun e => h (Expr.fvar.inj e).1)
   | .sort u, .sort v =>
     .mk (if h : u == v then isTrue (by rw [beq_iff_eq.mp h])
-         else isFalse (fun e => h (beq_iff_eq.mpr (Expr.sort.inj e)))) map
+         else isFalse (fun e => h (beq_iff_eq.mpr (Expr.sort.inj e)))) st
   | .const n us, .const m vs =>
     .mk (if h : n == m && us == vs then
            isTrue (by
@@ -1079,63 +1152,57 @@ def beqGoX (map : Option BeqMap) (a b : @& Expr) : BeqOutX a b :=
              rw [h1, h2])
          else isFalse (fun e => h (by
            obtain ⟨h1, h2⟩ := Expr.const.inj e
-           subst h1; subst h2; simp))) map
+           subst h1; subst h2; simp))) st
   | .app f x, .app g y =>
-    Squash.lift (enterBeq map f g fun m => beqGoX m f g) fun r₁ =>
-      match r₁.dec with
-      | isFalse h => .mk (isFalse (fun e => h (Expr.app.inj e).1)) r₁.map
-      | isTrue h => Squash.lift (enterBeq r₁.map x y fun m => beqGoX m x y) fun r₂ =>
-        .mk (match r₂.dec with
-          | isTrue h' => isTrue (by subst h; subst h'; rfl)
-          | isFalse h' => isFalse (fun e => h' (Expr.app.inj e).2))
-          r₂.map
+    Squash.lift (enterBeq st x y fun s => beqGoX s x y) fun r₁ =>
+      if h₁ : r₁.1.ok then
+        have hx : x = y := r₁.2.mp h₁
+        let rf : BeqOutX f g :=
+          if hf : f.beqIsApp then
+            if hg : g.beqIsApp then beqGoX ⟨r₁.1, h₁⟩ f g
+            else .no (fun e => by subst e; exact hg hf)
+          else enterBeq ⟨r₁.1, h₁⟩ f g fun s => beqGoX s f g
+        rf.cast ⟨fun h' => by subst hx; subst h'; rfl, fun e => (Expr.app.inj e).1⟩
+      else .no (fun e => h₁ (r₁.2.mpr (Expr.app.inj e).2))
   | .lam t b, .lam t' b' =>
-    Squash.lift (enterBeq map t t' fun mp => beqGoX mp t t') fun r₁ =>
-      match r₁.dec with
-      | isFalse h₁ => .mk (isFalse (fun e => h₁ (Expr.lam.inj e).1)) r₁.map
-      | isTrue h₁ => Squash.lift (enterBeq r₁.map b b' fun mp => beqGoX mp b b') fun r₂ =>
-        .mk (match r₂.dec with
-          | isTrue h₂ => isTrue (by subst h₁; subst h₂; rfl)
-          | isFalse h₂ => isFalse (fun e => h₂ (Expr.lam.inj e).2))
-          r₂.map
+    Squash.lift (enterBeq st t t' fun s => beqGoX s t t') fun r₁ =>
+      if h₁ : r₁.1.ok then
+        have ht : t = t' := r₁.2.mp h₁
+        (enterBeq ⟨r₁.1, h₁⟩ b b' fun s => beqGoX s b b').cast
+          ⟨fun h' => by subst ht; subst h'; rfl, fun e => (Expr.lam.inj e).2⟩
+      else .no (fun e => h₁ (r₁.2.mpr (Expr.lam.inj e).1))
   | .forallE t b, .forallE t' b' =>
-    Squash.lift (enterBeq map t t' fun mp => beqGoX mp t t') fun r₁ =>
-      match r₁.dec with
-      | isFalse h₁ => .mk (isFalse (fun e => h₁ (Expr.forallE.inj e).1)) r₁.map
-      | isTrue h₁ => Squash.lift (enterBeq r₁.map b b' fun mp => beqGoX mp b b') fun r₂ =>
-        .mk (match r₂.dec with
-          | isTrue h₂ => isTrue (by subst h₁; subst h₂; rfl)
-          | isFalse h₂ => isFalse (fun e => h₂ (Expr.forallE.inj e).2))
-          r₂.map
+    Squash.lift (enterBeq st t t' fun s => beqGoX s t t') fun r₁ =>
+      if h₁ : r₁.1.ok then
+        have ht : t = t' := r₁.2.mp h₁
+        (enterBeq ⟨r₁.1, h₁⟩ b b' fun s => beqGoX s b b').cast
+          ⟨fun h' => by subst ht; subst h'; rfl, fun e => (Expr.forallE.inj e).2⟩
+      else .no (fun e => h₁ (r₁.2.mpr (Expr.forallE.inj e).1))
   | .letE t v b, .letE t' v' b' =>
-    Squash.lift (enterBeq map t t' fun mp => beqGoX mp t t') fun r₁ =>
-      match r₁.dec with
-      | isFalse h₁ => .mk (isFalse (fun e => h₁ (Expr.letE.inj e).1)) r₁.map
-      | isTrue h₁ => Squash.lift (enterBeq r₁.map v v' fun mp => beqGoX mp v v') fun r₂ =>
-        match r₂.dec with
-        | isFalse h₂ => .mk (isFalse (fun e => h₂ (Expr.letE.inj e).2.1)) r₂.map
-        | isTrue h₂ => Squash.lift (enterBeq r₂.map b b' fun mp => beqGoX mp b b') fun r₃ =>
-          .mk (match r₃.dec with
-            | isTrue h₃ => isTrue (by subst h₁; subst h₂; subst h₃; rfl)
-            | isFalse h₃ => isFalse (fun e => h₃ (Expr.letE.inj e).2.2))
-            r₃.map
+    Squash.lift (enterBeq st t t' fun s => beqGoX s t t') fun r₁ =>
+      if h₁ : r₁.1.ok then
+        have ht : t = t' := r₁.2.mp h₁
+        Squash.lift (enterBeq ⟨r₁.1, h₁⟩ v v' fun s => beqGoX s v v') fun r₂ =>
+          if h₂ : r₂.1.ok then
+            have hv : v = v' := r₂.2.mp h₂
+            (enterBeq ⟨r₂.1, h₂⟩ b b' fun s => beqGoX s b b').cast
+              ⟨fun h' => by subst ht; subst hv; subst h'; rfl, fun e => (Expr.letE.inj e).2.2⟩
+          else .no (fun e => h₂ (r₂.2.mpr (Expr.letE.inj e).2.1))
+      else .no (fun e => h₁ (r₁.2.mpr (Expr.letE.inj e).1))
   | .lit l, .lit l' =>
     .mk (if h : l = l' then isTrue (by subst h; rfl)
-         else isFalse (fun e => h (Expr.lit.inj e))) map
+         else isFalse (fun e => h (Expr.lit.inj e))) st
   | .proj s i e, .proj s' i' e' =>
     if h : s == s' && i == i' then
-      Squash.lift (enterBeq map e e' fun mp => beqGoX mp e e') fun r =>
-        .mk (match r.dec with
-          | isTrue h' =>
-            isTrue (by
-              have h1 := beq_iff_eq.mp (Bool.and_eq_true_iff.mp h).1
-              have h2 := beq_iff_eq.mp (Bool.and_eq_true_iff.mp h).2
-              rw [h1, h2, h'])
-          | isFalse h' => isFalse (fun e => h' (Expr.proj.inj e).2.2))
-          r.map
-    else .mk (isFalse (fun e => h (by
+      (enterBeq st e e' fun s => beqGoX s e e').cast
+        ⟨fun h' => by
+          have h1 := beq_iff_eq.mp (Bool.and_eq_true_iff.mp h).1
+          have h2 := beq_iff_eq.mp (Bool.and_eq_true_iff.mp h).2
+          rw [h1, h2, h'],
+         fun e => (Expr.proj.inj e).2.2⟩
+    else .no (fun e => h (by
       obtain ⟨h1, h2, _⟩ := Expr.proj.inj e
-      subst h1; subst h2; simp))) map
+      subst h1; subst h2; simp))
   | .bvar .., .fvar .. | .bvar .., .sort .. | .bvar .., .const ..
   | .bvar .., .app .. | .bvar .., .lam .. | .bvar .., .forallE ..
   | .bvar .., .letE .. | .bvar .., .lit .. | .bvar .., .proj ..
@@ -1166,13 +1233,13 @@ def beqGoX (map : Option BeqMap) (a b : @& Expr) : BeqOutX a b :=
   | .proj .., .bvar .. | .proj .., .fvar .. | .proj .., .sort ..
   | .proj .., .const .. | .proj .., .app .. | .proj .., .lam ..
   | .proj .., .forallE .. | .proj .., .letE .. | .proj .., .lit .. =>
-    .mk (isFalse (fun e => Expr.noConfusion e)) map
+    .no (fun e => Expr.noConfusion e)
 termination_by structural a
 
 /-- The descent's decision, from a fresh state (no table: the first
 shared/shared pair proved equal creates it). -/
 def beqDec (a b : Expr) : Decidable (a = b) :=
-  Squash.lift (beqGoX none a b) fun r => r.dec
+  Squash.lift (beqGoX ⟨.empty, rfl⟩ a b) fun r => decidable_of_iff _ r.2
 
 /-- The executed equality: pointer test, computed-word test, then the
 memoised descent.  What both `==` (`beq_eq_beqMemo`) and every
