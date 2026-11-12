@@ -197,7 +197,7 @@ theorem comp2_app {oA oB : Nat} {f x : Expr} (hA : Comp f₁ p₁ PA oA (.app f 
     ∀ j, j < (Expr.app f x).getAppArgs.length → ∃ aA aB, PA.code[oA + 3 + j]? = some aA ∧
       PB.code[oB + 3 + j]? = some aB ∧
       ((PA.code[aA]? = some 8 ∧ PB.code[aB]? = some 8) ∨
-        ∃ a, CompArg f₁ p₁ PA aA a ∧ CompArg f₂ p₂ PB aB a) := by
+        ∃ a, a ∈ (Expr.app f x).getAppArgs ∧ CompArg f₁ p₁ PA aA a ∧ CompArg f₂ p₂ PB aB a) := by
   cases hA with
   | app _ h₁ h₂ hn hh ha =>
     cases hB with
@@ -214,7 +214,7 @@ where
       ∀ (d : Nat), d < xs.length → ∃ aA aB, PA.code[pA + d]? = some aA ∧
         PB.code[pB + d]? = some aB ∧
         ((PA.code[aA]? = some 8 ∧ PB.code[aB]? = some 8) ∨
-          ∃ a, CompArg f₁ p₁ PA aA a ∧ CompArg f₂ p₂ PB aB a)
+          ∃ a, a ∈ xs ∧ CompArg f₁ p₁ PA aA a ∧ CompArg f₂ p₂ PB aB a)
     | _, [], _, _, _, h => absurd h (Nat.not_lt_zero _)
     | i, x :: xs, hA, hB, d, hd => by
       cases hA with
@@ -224,18 +224,24 @@ where
           rcases d with _ | d
           · exact ⟨_, _, h₀, h₀', .inl ⟨h₈, h₈'⟩⟩
           · obtain ⟨aA, aB, e₁, e₂, e₃⟩ := args2 hr hr' d (by simp at hd; omega)
-            exact ⟨aA, aB, by rw [show pA + (d + 1) = pA + 1 + d by omega]; exact e₁,
-              by rw [show pB + (d + 1) = pB + 1 + d by omega]; exact e₂, e₃⟩
+            refine ⟨aA, aB, by rw [show pA + (d + 1) = pA + 1 + d by omega]; exact e₁,
+              by rw [show pB + (d + 1) = pB + 1 + d by omega]; exact e₂, ?_⟩
+            rcases e₃ with e₃ | ⟨a, ha, e₃⟩
+            · exact .inl e₃
+            · exact .inr ⟨a, List.mem_cons_of_mem _ ha, e₃⟩
         | arg _ hm₂ _ _ => rw [hm₁] at hm₂; cases hm₂
       | arg h₀ hm₁ hx hr =>
         cases hB with
         | erased _ hm₂ _ _ => rw [hm₁] at hm₂; cases hm₂
         | arg h₀' _ hx' hr' =>
           rcases d with _ | d
-          · exact ⟨_, _, h₀, h₀', .inr ⟨x, hx, hx'⟩⟩
+          · exact ⟨_, _, h₀, h₀', .inr ⟨x, List.mem_cons_self .., hx, hx'⟩⟩
           · obtain ⟨aA, aB, e₁, e₂, e₃⟩ := args2 hr hr' d (by simp at hd; omega)
-            exact ⟨aA, aB, by rw [show pA + (d + 1) = pA + 1 + d by omega]; exact e₁,
-              by rw [show pB + (d + 1) = pB + 1 + d by omega]; exact e₂, e₃⟩
+            refine ⟨aA, aB, by rw [show pA + (d + 1) = pA + 1 + d by omega]; exact e₁,
+              by rw [show pB + (d + 1) = pB + 1 + d by omega]; exact e₂, ?_⟩
+            rcases e₃ with e₃ | ⟨a, ha, e₃⟩
+            · exact .inl e₃
+            · exact .inr ⟨a, List.mem_cons_of_mem _ ha, e₃⟩
 
 /-- **An argument position**: a shared node on both sides (slots owned by
 the term, the wrapped nodes compiled from it), or a plain node on both. -/

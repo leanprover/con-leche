@@ -62,5 +62,8 @@ public import ConLeche.Verify.Ground.Sim
 public import ConLeche.Verify.Ground.SimFrames
 public import ConLeche.Verify.Ground.SimState
 public import ConLeche.Verify.Ground.SimStep
+public import ConLeche.Verify.Ground.SimBridge
+public import ConLeche.Verify.Ground.SimStep0
+public import ConLeche.Verify.Ground.SimStep4
 
 @[expose] public section
