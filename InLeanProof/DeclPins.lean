@@ -74,7 +74,7 @@ theorem pinFoundInd_tr {fe : InLean.FEnv} {L : ConLeche.Env} (hP : EnvPresI fe L
 /-- A constructor InLean reads, with its counts, is one master reads. -/
 theorem pinFoundCtor_tr {fe : InLean.FEnv} {L : ConLeche.Env} (hP : EnvPresI fe L) {p : InLean.Pin}
     {nP nF : Nat} (hok : okC p.type = true) (h : InLean.pinFoundCtor fe p nP nF = true) :
-    ∃ ccv, L.find? (toName p.name) = some (.ctorInfo ccv nP nF) ∧
+    ∃ ccv T, L.find? (toName p.name) = some (.ctorInfo ccv nP nF T) ∧
       ConLeche.ConstantVal.matchesPin ccv (trPin p) = true := by
   unfold InLean.pinFoundCtor at h
   split at h
@@ -83,9 +83,9 @@ theorem pinFoundCtor_tr {fe : InLean.FEnv} {L : ConLeche.Env} (hP : EnvPresI fe 
     obtain ⟨⟨rfl, rfl⟩, hm⟩ := h
     obtain ⟨cci, hc, hr⟩ := find_rel hP hf
     cases cci with
-    | ctorInfo ccv a b =>
-      obtain ⟨hr, rfl, rfl⟩ := hr
-      exact ⟨ccv, hc, matchesPin_of_cvrel hr hok hm⟩
+    | ctorInfo ccv a b T =>
+      obtain ⟨hr, rfl, rfl, -⟩ := hr
+      exact ⟨ccv, T, hc, matchesPin_of_cvrel hr hok hm⟩
     | _ => simp [EntryRelI] at hr
   · exact nomatch h
 
@@ -158,7 +158,7 @@ theorem stdAxiomOk_tr {fe : InLean.FEnv} {L : ConLeche.Env} (hP : EnvPresI fe L)
     obtain ⟨⟨⟨⟨hEq, hI⟩, hIi⟩, hIr⟩, hm⟩ := h
     have e1 := find_isSome_of_pres hP hEq
     obtain ⟨c2, k2, e2, hm2⟩ := pinFoundInd_tr hP o1 hI
-    obtain ⟨c3, hc3, hm3⟩ := pinFoundCtor_tr hP o2 hIi
+    obtain ⟨c3, T3, hc3, hm3⟩ := pinFoundCtor_tr hP o2 hIi
     obtain ⟨c4, k4, r4, hc4, hm4⟩ := pinFoundRec_tr hP o3 hIr
     have e5 := matchesPin_tr hc o4 hm
     rw [n9] at e1
@@ -178,7 +178,7 @@ theorem stdAxiomOk_tr {fe : InLean.FEnv} {L : ConLeche.Env} (hP : EnvPresI fe L)
       simp only [beq_self_eq_true, ↓reduceIte, Bool.and_eq_true] at h
       obtain ⟨⟨⟨hI, hIi⟩, hIr⟩, hm⟩ := h
       obtain ⟨c2, k2, e2, hm2⟩ := pinFoundInd_tr hP o5 hI
-      obtain ⟨c3, hc3, hm3⟩ := pinFoundCtor_tr hP o6 hIi
+      obtain ⟨c3, T3, hc3, hm3⟩ := pinFoundCtor_tr hP o6 hIi
       obtain ⟨c4, k4, r4, hc4, hm4⟩ := pinFoundRec_tr hP o7 hIr
       have e5 := matchesPin_tr hc o8 hm
       rw [show InLean.nonemptyPin.name = InLean.nonemptyName from rfl, n5] at e2
@@ -253,7 +253,7 @@ theorem trustCompilerOk_tr {fe : InLean.FEnv} {L : ConLeche.Env} (hP : EnvPresI 
   simp only [Bool.and_eq_true] at h
   obtain ⟨⟨hI, hIi⟩, hm⟩ := h
   obtain ⟨c2, k2, e2, hm2⟩ := pinFoundInd_tr hP o1 hI
-  obtain ⟨c3, hc3, hm3⟩ := pinFoundCtor_tr hP o2 hIi
+  obtain ⟨c3, T3, hc3, hm3⟩ := pinFoundCtor_tr hP o2 hIi
   have e5 := matchesPin_tr (toExprC_of_okC hok) o3 hm
   rw [show InLean.truePin.name = InLean.trueName from rfl, n1] at e2
   rw [t1] at hm2

@@ -87,12 +87,13 @@ environment grows. -/
   | .inductInfo v, .indInfo ccv caps =>
     CVRel v.toConstantVal ccv ∧ caps = toCaps (capsOf v) ∧
       (fe.isPending v.name = true ∨ ∀ c ∈ v.ctors, (fe.find? c).isSome)
-  | .ctorInfo v, .ctorInfo ccv nP nF => CVRel v.toConstantVal ccv ∧ nP = v.numParams ∧ nF = v.numFields
+  | .ctorInfo v, .ctorInfo ccv nP nF T =>
+    CVRel v.toConstantVal ccv ∧ nP = v.numParams ∧ nF = v.numFields ∧ T = toName v.induct
   | .recInfo rv, cci => RecRelI rv false cci
   | .quotInfo q, cci =>
     match q.kind with
     | .type => ∃ ccv, cci = .indInfo ccv {} ∧ CVRel q.toConstantVal ccv
-    | .ctor => ∃ ccv, cci = .ctorInfo ccv 2 1 ∧ CVRel q.toConstantVal ccv
+    | .ctor => ∃ ccv, cci = .ctorInfo ccv 2 1 ConLeche.quotName ∧ CVRel q.toConstantVal ccv
     | _ => ∃ rv, quotRecVal q (quotRuleRhs q) = some rv ∧ RecRelI rv true cci
   | _, _ => False
 
@@ -221,10 +222,12 @@ theorem EntryRelI.inv_ind {ccv : ConLeche.ConstantVal} {caps : ConLeche.IndCaps}
   | recInfo rv => obtain ⟨_, _, h1, -⟩ := hr; cases h1
   | _ => simp only [EntryRelI] at hr
 
-theorem EntryRelI.inv_ctor {ccv : ConLeche.ConstantVal} {nP nF : Nat}
-    (hr : EntryRelI fe ci (.ctorInfo ccv nP nF)) :
-    (∃ v, ci = .ctorInfo v ∧ CVRel v.toConstantVal ccv ∧ nP = v.numParams ∧ nF = v.numFields) ∨
-    (∃ q, ci = .quotInfo q ∧ q.kind = .ctor ∧ nP = 2 ∧ nF = 1 ∧ CVRel q.toConstantVal ccv) := by
+theorem EntryRelI.inv_ctor {ccv : ConLeche.ConstantVal} {nP nF : Nat} {T : ConLeche.Name}
+    (hr : EntryRelI fe ci (.ctorInfo ccv nP nF T)) :
+    (∃ v, ci = .ctorInfo v ∧ CVRel v.toConstantVal ccv ∧ nP = v.numParams ∧ nF = v.numFields ∧
+      T = toName v.induct) ∨
+    (∃ q, ci = .quotInfo q ∧ q.kind = .ctor ∧ nP = 2 ∧ nF = 1 ∧ T = ConLeche.quotName ∧
+      CVRel q.toConstantVal ccv) := by
   cases ci with
   | ctorInfo v => exact .inl ⟨v, rfl, hr⟩
   | quotInfo q =>
@@ -234,8 +237,8 @@ theorem EntryRelI.inv_ctor {ccv : ConLeche.ConstantVal} {nP nF : Nat}
     · rename_i hk
       obtain ⟨_, h1, h2⟩ := hr
       simp only [ConLeche.ConstantInfo.ctorInfo.injEq] at h1
-      obtain ⟨rfl, rfl, rfl⟩ := h1
-      exact .inr ⟨q, rfl, hk, rfl, rfl, h2⟩
+      obtain ⟨rfl, rfl, rfl, rfl⟩ := h1
+      exact .inr ⟨q, rfl, hk, rfl, rfl, rfl, h2⟩
     · obtain ⟨_, -, _, _, h1, -⟩ := hr; cases h1
   | recInfo rv => obtain ⟨_, _, h1, -⟩ := hr; cases h1
   | _ => simp only [EntryRelI] at hr
@@ -446,9 +449,9 @@ theorem indView_none (hP : EnvPresI fe L) {n : Name} (h : fe.indView? n = none) 
     · simp (config := { decide := true }) [hk] at h
 
 /-- The constructor view through the relation (`EnvViewI.ctor`). -/
-theorem ctorView_rel (hP : EnvPresI fe L) {n : Name} {cv : ConstantVal} {nP nF : Nat}
-    (h : fe.ctorView? n = some (cv, nP, nF)) :
-    ∃ ccv, CVRel cv ccv ∧ L.find? (toName n) = some (.ctorInfo ccv nP nF) := by
+theorem ctorView_rel (hP : EnvPresI fe L) {n : Name} {cv : ConstantVal} {nP nF : Nat} {T : Name}
+    (h : fe.ctorView? n = some (cv, nP, nF, T)) :
+    ∃ ccv, CVRel cv ccv ∧ L.find? (toName n) = some (.ctorInfo ccv nP nF (toName T)) := by
   unfold InLean.FEnv.ctorView? at h
   cases hf : fe.find? n with
   | none => rw [hf] at h; cases h
@@ -458,21 +461,21 @@ theorem ctorView_rel (hP : EnvPresI fe L) {n : Name} {cv : ConstantVal} {nP nF :
     cases ci with
     | ctorInfo v =>
       simp only [Option.some.injEq, Prod.mk.injEq] at h
-      obtain ⟨rfl, rfl, rfl⟩ := h
+      obtain ⟨rfl, rfl, rfl, rfl⟩ := h
       cases cci <;> simp only [EntryRelI] at hr
-      obtain ⟨h1, rfl, rfl⟩ := hr
+      obtain ⟨h1, rfl, rfl, rfl⟩ := hr
       exact ⟨_, h1, hL⟩
     | quotInfo q =>
       simp only [EntryRelI] at hr
       revert h hr
       cases hk : q.kind <;> simp (config := { decide := true }) [hk]
-      rintro rfl rfl rfl ccv rfl h2
+      rintro rfl rfl rfl rfl ccv rfl h2
       exact ⟨ccv, h2, hL⟩
     | _ => cases h
 
 theorem ctorView_none (hP : EnvPresI fe L) {n : Name} (h : fe.ctorView? n = none) :
-    ∀ ccv nP nF, L.find? (toName n) ≠ some (.ctorInfo ccv nP nF) := by
-  intro ccv nP nF hL
+    ∀ ccv nP nF T, L.find? (toName n) ≠ some (.ctorInfo ccv nP nF T) := by
+  intro ccv nP nF T hL
   unfold InLean.FEnv.ctorView? at h
   cases hf : fe.find? n with
   | none => rw [hP.none n hf] at hL; cases hL
@@ -515,7 +518,7 @@ theorem findProj_of {T c : Name} {v : InductiveVal} {cv : ConstructorVal}
 theorem envViewI_of (hP : EnvPresI fe L) : EnvViewI fe L where
   ind := fun _ _ _ h => indView_rel hP h
   indNone := fun _ h => indView_none hP h
-  ctor := fun _ _ _ _ h => ctorView_rel hP h
+  ctor := fun _ _ _ _ _ h => ctorView_rel hP h
   ctorNone := fun _ h => ctorView_none hP h
   table := by
     intro T t h
@@ -1185,13 +1188,13 @@ theorem ctorRd_of (hP : EnvPresI fe L) (c : Name) :
   unfold ctorRd
   cases hv : fe.ctorView? c with
   | some x =>
-    obtain ⟨cv, nP, nF⟩ := x
+    obtain ⟨cv, nP, nF, T⟩ := x
     obtain ⟨ccv, hcv, hL⟩ := ctorView_rel hP hv
     rw [hL]; simp [ctorGateI, hcv.2.1]
   | none =>
     have hn := ctorView_none hP hv
     split
-    · rename_i h; exact absurd h (hn _ _ _)
+    · rename_i h; exact absurd h (hn _ _ _ _)
     · rfl
 
 theorem indRd_of (hP : EnvPresI fe L) (T : Name) :

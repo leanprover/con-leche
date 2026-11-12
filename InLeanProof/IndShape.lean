@@ -52,7 +52,7 @@ block's terms have none). -/
 total): any other kind reads as an axiom, which no recogniser accepts. -/
 @[expose] def trCI : Lean.ConstantInfo → ConLeche.ConstantInfo
   | .inductInfo v => .indInfo (trCV v.toConstantVal) {}
-  | .ctorInfo v => .ctorInfo (trCV v.toConstantVal) v.numParams v.numFields
+  | .ctorInfo v => .ctorInfo (trCV v.toConstantVal) v.numParams v.numFields (toName v.induct)
   | .recInfo v => .recInfo (trCV v.toConstantVal) (majorIdxOf v) (rulePrefixOf v) v.k
       (v.rules.map trRule)
   | ci => .axiomInfo (trCV ci.toConstantVal)

@@ -154,10 +154,10 @@ theorem pinAgrees_tr {ci pin : Lean.ConstantInfo} (hci : CIOk ci) (hpin : CIOk p
     cases pin with
     | ctorInfo vp =>
       simp only [ciAtLps, InLean.pinAgrees, Bool.and_eq_true, beq_iff_eq] at h
-      obtain ⟨⟨⟨hn, ht⟩, hp⟩, hf⟩ := h
+      obtain ⟨⟨⟨⟨hn, ht⟩, hp⟩, hf⟩, hT⟩ := h
       simp only [trCI, ConLeche.pinAgrees, ConLeche.ConstantInfo.atLps,
         ConLeche.ConstantVal.atLps, ConLeche.ConstantInfo.beqP, Bool.and_eq_true, beq_iff_eq]
-      refine ⟨⟨beqP_of_eq ?_, hp⟩, hf⟩
+      refine ⟨⟨⟨beqP_of_eq ?_, hp⟩, hf⟩, by rw [hT]⟩
       simp only [trCV, ConLeche.ConstantVal.mk.injEq, hn, true_and]
       exact ⟨rfl, trC_of_clEq_inst hci hpin _ _ ht⟩
     | _ => simp [ciAtLps, InLean.pinAgrees] at h
@@ -312,7 +312,7 @@ theorem blockLinksOk_tr {block pins : List Lean.ConstantInfo} {Ps : List ConLech
         | _, _ => true) = true →
       (((bs.map trCI).zip Qs).all fun (cp : ConLeche.ConstantInfo × ConLeche.ConstantInfo) =>
         match cp.1, cp.2 with
-        | .ctorInfo cv _ _, _ => cv.levelParams == F.map toName
+        | .ctorInfo cv _ _ _, _ => cv.levelParams == F.map toName
         | .recInfo cv .., .recInfo cvp _ _ _ rules =>
           rules.all fun rl =>
             match ConLeche.constNamed? (block.map trCI) rl.ctor, ConLeche.constNamed? Ps rl.ctor with

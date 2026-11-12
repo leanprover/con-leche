@@ -295,8 +295,8 @@ theorem nestHoleAt_tr {fe : InLean.FEnv} {L : ConLeche.Env} {s : InLean.CState}
 
 /-! ## The environment's containers -/
 
-theorem nestCtorEntry_tr (C : Lean.Name) (cv : Lean.ConstantVal) (nPc nF : Nat) :
-    ConLeche.nestCtorEntry (toName C) (.ctorInfo (trCV cv) nPc nF) =
+theorem nestCtorEntry_tr (C : Lean.Name) (cv : Lean.ConstantVal) (nPc nF : Nat) (T : ConLeche.Name) :
+    ConLeche.nestCtorEntry (toName C) (.ctorInfo (trCV cv) nPc nF T) =
       (InLean.nestCtorEntry C cv nPc nF).map fun e => (trCV e.1, e.2) := by
   unfold ConLeche.nestCtorEntry InLean.nestCtorEntry
   simp only [trCV_type, stripPis_tr]
@@ -327,15 +327,15 @@ theorem trCtorL_append (a b : List (Lean.ConstantVal × Nat)) :
 theorem ctorEntry_lookup_tr {fe : InLean.FEnv} {L : ConLeche.Env} (hJ : JobEnvI fe L)
     (C n : Lean.Name) :
     (L.find? (toName n)).bind (ConLeche.nestCtorEntry (toName C)) =
-      ((fe.ctorView? n).bind fun (cv, nPc, nF) => InLean.nestCtorEntry C cv nPc nF).map
+      ((fe.ctorView? n).bind fun (cv, nPc, nF, _) => InLean.nestCtorEntry C cv nPc nF).map
         fun e => (trCV e.1, e.2) := by
   cases hv : fe.ctorView? n with
   | some p =>
-    obtain ⟨cv, nP, nF⟩ := p
+    obtain ⟨cv, nP, nF, T⟩ := p
     obtain ⟨ccv, hcv, hL⟩ := ctorView_rel hJ.pres hv
     rw [hL, hcv.eq_trCV]
     simp only [Option.bind_some]
-    exact nestCtorEntry_tr C cv nP nF
+    exact nestCtorEntry_tr C cv nP nF _
   | none =>
     have hn := ctorView_none hJ.pres hv
     simp only [Option.bind_none, Option.map_none]
@@ -343,7 +343,7 @@ theorem ctorEntry_lookup_tr {fe : InLean.FEnv} {L : ConLeche.Env} (hJ : JobEnvI 
     | none => rfl
     | some ci =>
       cases ci with
-      | ctorInfo ccv nP nF => exact (hn ccv nP nF hL).elim
+      | ctorInfo ccv nP nF T => exact (hn ccv nP nF T hL).elim
       | _ => rfl
 
 /-- **A container's constructors** (`nestContainer`), read. -/
@@ -371,7 +371,7 @@ theorem nestContainer_tr {fe : InLean.FEnv} {L : ConLeche.Env} {s : InLean.CStat
     have hcs : (toCaps caps).ctors.filterMap
         (fun n => (L.find? n).bind (ConLeche.nestCtorEntry (toName C))) =
         (caps.ctors.filterMap fun n =>
-          (fe.ctorView? n).bind fun (cv, nPc, nF) => InLean.nestCtorEntry C cv nPc nF).map
+          (fe.ctorView? n).bind fun (cv, nPc, nF, _) => InLean.nestCtorEntry C cv nPc nF).map
             (fun e => (trCV e.1, e.2)) := by
       simp only [toCaps, List.filterMap_map, List.map_filterMap]
       congr 1
@@ -379,7 +379,7 @@ theorem nestContainer_tr {fe : InLean.FEnv} {L : ConLeche.Env} {s : InLean.CStat
       exact ctorEntry_lookup_tr hJ C n
     rw [hcs]
     generalize caps.ctors.filterMap (fun n =>
-      (fe.ctorView? n).bind fun (cv, nPc, nF) => InLean.nestCtorEntry C cv nPc nF) = l
+      (fe.ctorView? n).bind fun (cv, nPc, nF, _) => InLean.nestCtorEntry C cv nPc nF) = l
     cases l with
     | nil => simp [toCaps, trCtorL]
     | cons x l =>

@@ -148,11 +148,11 @@ theorem isCtorAppC_TrS (hv : EnvViewI fe env) (s : InLean.CState) (e : Expr) :
     | none =>
       simp only [Option.isSome_none]
       split
-      · rename_i cv nP nF hf; exact absurd hf (hv.ctorNone cn hcv cv nP nF)
+      · rename_i cv nP nF T hf; exact absurd hf (hv.ctorNone cn hcv cv nP nF T)
       · rfl
     | some p =>
-      obtain ⟨cv, nP, nF⟩ := p
-      obtain ⟨ccv, -, hf⟩ := hv.ctor cn cv nP nF hcv
+      obtain ⟨cv, nP, nF, T⟩ := p
+      obtain ⟨ccv, -, hf⟩ := hv.ctor cn cv nP nF T hcv
       simp [hf]
   · rename_i h
     have hn := TrS_getAppFn_notConst s (fun n us he => h n us he)

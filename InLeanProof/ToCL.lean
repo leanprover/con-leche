@@ -166,7 +166,7 @@ def toRules : List Lean.RecursorRule → Option (List ConLeche.RecRule)
 /-- An inductive block's constant, as the export's record of it. -/
 def toBlockRecord : Lean.ConstantInfo → Option ConLeche.ConstantInfo
   | .inductInfo v => do pure (.indInfo (← toCV v.toConstantVal) {})
-  | .ctorInfo v => do pure (.ctorInfo (← toCV v.toConstantVal) v.numParams v.numFields)
+  | .ctorInfo v => do pure (.ctorInfo (← toCV v.toConstantVal) v.numParams v.numFields (toName v.induct))
   | .recInfo v => do
     pure (.recInfo (← toCV v.toConstantVal)
       (v.numParams + v.numMotives + v.numMinors + v.numIndices)

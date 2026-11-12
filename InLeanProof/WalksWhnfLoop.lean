@@ -1,6 +1,7 @@
 module
 
 public import InLeanProof.WalksIota
+public import InLeanProof.KnotAssembly
 import ConLeche.Verify.Cached.DiscC4
 /- `Lean.QuotKind`'s derived `BEq` is not exposed by `Lean.Declaration`; the
 quotient eliminators' arity read compares kinds. -/
@@ -30,9 +31,6 @@ variable {mode : ConLeche.CheckMode} {mi : InLean.CheckMode} {eager : Bool} {env
 /-! ## Vocabulary -/
 
 theorem whnfLoopFuel_eq : InLean.whnfLoopFuel = ConLeche.whnfLoopFuel := by
-  with_unfolding_all rfl
-
-theorem whnfCoreLoopFuel_eq : InLean.whnfCoreLoopFuel = ConLeche.whnfCoreLoopFuel := by
   with_unfolding_all rfl
 
 /-- A definition's unfolding of a closed term is closed (`EnvWF`'s). -/
@@ -136,69 +134,360 @@ theorem betaPeelW_TrS_cons {m : Type → Type} [Monad m] [MonadExceptOf ConLeche
   | mdata _ y => exact (stripTop_ne_mdata hx).elim
   | _ => rw [ConLeche.betaPeelW.eq_def]; rfl
 
-/-- **The peel loop** (`betaPeelC_spec`'s twin). -/
+/-- The unmemoised substitution of a peeled group, through the translation
+(`TrS_instI`). -/
+@[conleche_grind =] theorem TrS_instI_eq {s : InLean.CState} {e : Expr} {vs : List Expr}
+    (he : OkS s e = true) (hv : OkSL s vs = true) (hcl : AllClosed (TrSL s vs) = true) :
+    TrS s (e.instI vs.toArray) = (TrS s e).instantiateList (TrSL s vs) :=
+  (TrS_instI he hv hcl).2
+
+/-- `TrS_instI_eq` at the array as the program's equations state it. -/
+@[conleche_grind =] theorem TrS_instI_mk {s : InLean.CState} {e : Expr} {vs : List Expr}
+    (he : OkS s e = true) (hv : OkSL s vs = true) (hcl : AllClosed (TrSL s vs) = true) :
+    TrS s (e.instI (Array.mk vs)) = (TrS s e).instantiateList (TrSL s vs) :=
+  (TrS_instI he hv hcl).2
+
+theorem OkS_instI_mk {s : InLean.CState} {e : Expr} {vs : List Expr}
+    (he : OkS s e = true) (hv : OkSL s vs = true) (hcl : AllClosed (TrSL s vs) = true) :
+    OkS s (e.instI (Array.mk vs)) = true :=
+  (TrS_instI he hv hcl).1
+grind_pattern [conleche_grind] OkS_instI_mk => OkS s (e.instI (Array.mk vs))
+
+theorem OkS_instI {s : InLean.CState} {e : Expr} {vs : List Expr}
+    (he : OkS s e = true) (hv : OkSL s vs = true) (hcl : AllClosed (TrSL s vs) = true) :
+    OkS s (e.instI vs.toArray) = true :=
+  (TrS_instI he hv hcl).1
+grind_pattern [conleche_grind] OkS_instI => OkS s (e.instI vs.toArray)
+
+/-- **The peel loop** (`betaPeelC_spec`'s twin), over the spine `args[i:]`,
+by induction on the arguments left. -/
 theorem betaPeelI_specI {d : Nat} :
-    ∀ {args : List Expr} {t : Expr} {acc : List Expr} {s₀ : InLean.CState},
+    ∀ (n : Nat) {args : Array Expr} {i : Nat} {t : Expr} {acc : List Expr} {s₀ : InLean.CState},
+      args.size - i = n →
       CSOKI mode eager env s₀ → OkS s₀ t = true → OkSL s₀ acc = true →
       AllClosed (TrSL s₀ acc) = true →
       ConLeche.Expr.WScoped d ((TrS s₀ t).instantiateList (TrSL s₀ acc)) →
       ((TrS s₀ t).instantiateList (TrSL s₀ acc)).looseBVarsBounded 0 = true →
-      OkSL s₀ args = true → AllWS d (TrSL s₀ args) → AllClosed (TrSL s₀ args) = true →
-      ⦃fun s => s = s₀⦄ InLean.betaPeelI mi fe eager lv d t acc args
+      OkSL s₀ args.toList = true → AllWS d (TrSL s₀ args.toList) →
+      AllClosed (TrSL s₀ args.toList) = true →
+      ⦃fun s => s = s₀⦄ InLean.betaPeelI mi fe eager lv d t acc args i
       ⦃fun w s' => CSOKI mode eager env s' ∧ TabLe s₀ s' ∧ OkStep s' w = true ∧
           Runs (ConLeche.betaPeelW mode (ConLeche.fueledFns mode eager env) env d (TrS s₀ t)
-            (TrSL s₀ acc) (TrSL s₀ args)) (TrStep s' w) ∧
+            (TrSL s₀ acc) (TrSL s₀ (args.toList.drop i))) (TrStep s' w) ∧
           StepWS d (TrStep s' w) ∧ StepClosed (TrStep s' w) = true; ⊤⦄ := by
-  intro args
-  induction args with
-  | nil =>
-    intro _ _ _ hs _ _ _ _ _ _ _ _
-    sym only [conleche_grind, ConLeche.betaPeelW.eq_1] =>
-      vcgen [InLean.betaPeelI.eq_def, instListM_specI hs] <;> finish
-  | cons _ rest ihr =>
-    intro _ _ _ hs ht _ _ _ _ _ _ _
-    sym only [conleche_grind, betaPeelW_TrS_cons _ _ _ ht] =>
-      vcgen [InLean.betaPeelI.eq_def, InLean.mkAppNM, instListM_specI hs, ihr] <;> finish
+  intro n
+  induction n with
+  | zero =>
+    intro args i _ _ _ hn _ _ _ _ _ _ _ _ _
+    sym only [conleche_grind, ConLeche.betaPeelW.eq_1,
+        toList_drop_of_ge (A := args) (i := i) (by omega)] =>
+      vcgen [InLean.betaPeelI.eq_def] <;> finish
+  | succ n ihr =>
+    intro args i _ _ _ hn _ ht _ _ _ _ _ _ _
+    sym only [conleche_grind, toList_drop_of_lt (A := args) (i := i) (by omega),
+        betaPeelW_TrS_cons _ _ _ ht] =>
+      vcgen [InLean.betaPeelI.eq_def, ihr (args := args) (i := i + 1) (by omega)] <;> finish
 
 end Peel
 
-/-! ## The head-normalization loop -/
+/-! ## The head-normalization loop and its memo policy
+
+The twins of `DiscC4.lean`'s loop lemmas.  The loop (`whnfCoreLoopI`) looks
+every key up and stores the keys of a chain at its end; its answer is stated
+against the chained `whnfCore` directly.  The keys waiting for the answer
+satisfy `PendOKI` at the current state: each, read there, answers what the
+current term answers. -/
 
 section CoreLoop
 
 variable {fe : InLean.FEnv} {lv : Nat}
 
+/-- A stuck head translates to a stuck head. -/
+theorem isStuckHeadC_TrS {s : InLean.CState} {h : Expr} (hh : InLean.isStuckHeadC h = true)
+    (hok : OkS s h = true) : ConLeche.Cached.isStuckHeadC (TrS s h) = true := by
+  cases h with
+  | fvar id => rw [TrS_fvar hok]; rfl
+  | _ => first | rfl | simp [InLean.isStuckHeadC] at hh
+
+/-- A step InLean takes alike in the two modes translates to one con-leche
+takes alike (`whnfCoreCheapSafeC`'s twin, read through `mdata`). -/
+theorem whnfCoreCheapSafeC_TrS {s : InLean.CState} {e : Expr} (hok : OkS s e = true)
+    (h : InLean.whnfCoreCheapSafeC (Expr.getAppFnT e) e = true) :
+    ConLeche.Cached.whnfCoreCheapSafeC (TrS s e).getAppFn (TrS s e) = true := by
+  rw [← TrS_getAppFnT]
+  unfold InLean.whnfCoreCheapSafeC at h
+  rw [← TrS_stripTop s e]
+  have hokh : OkS s (Expr.getAppFnT e) = true := OkS_getAppFnT s hok
+  generalize Expr.getAppFnT e = hd at h hokh
+  generalize EO.stripTop e = x at h
+  cases x with
+  | app f a =>
+    simp only [TrS_app, ConLeche.Cached.whnfCoreCheapSafeC]
+    cases hd with
+    | lam => rw [TrS_lam]
+    | fvar id => rw [TrS_fvar hokh]; rfl
+    | _ => first | rfl | simp [InLean.isStuckHeadC] at h
+  | letE => simp only [TrS_letE]; rfl
+  | _ => simp at h
+
+/-- The keys pending in the loop (`PendOK`'s twin), read at the state `s`:
+each, well scoped, answers what `e` answers (in the mode `c`). -/
+@[expose] def PendOKI (eager : Bool) (env : ConLeche.Env) (c : Bool) (d : Nat)
+    (s : InLean.CState) (pend : List Expr) (e : Expr) : Prop :=
+  ∀ k ∈ pend, OkS s k = true ∧ ConLeche.Expr.WScoped d (TrS s k) ∧
+    ∀ v, Runs ((ConLeche.fueledFns .verified eager env).whnfCore c d (TrS s e)) v →
+      Runs ((ConLeche.fueledFns .verified eager env).whnfCore c d (TrS s k)) v
+
+@[conleche_grind] theorem PendOKI.nil {c : Bool} {d : Nat} {s : InLean.CState} {e : Expr} :
+    PendOKI eager env c d s [] e := by
+  intro k hk; exact nomatch hk
+
+/-- The pending keys, read at a later state. -/
+theorem PendOKI.tab {c : Bool} {d : Nat} {s s' : InLean.CState} {pend : List Expr} {e : Expr}
+    (hp : PendOKI eager env c d s pend e) (ht : TabLe s s') (he : OkS s e = true) :
+    PendOKI eager env c d s' pend e := by
+  intro k hk
+  obtain ⟨hok, hw, hr⟩ := hp k hk
+  refine ⟨okS_of_tabLe ht hok, by rw [TrS_of_tabLe ht hok]; exact hw, fun v hv => ?_⟩
+  rw [TrS_of_tabLe ht hok]
+  exact hr v (by rw [← TrS_of_tabLe ht he]; exact hv)
+
+/-- The term itself joins its pending keys. -/
+theorem PendOKI.self {c : Bool} {d : Nat} {s : InLean.CState} {pend : List Expr} {e : Expr}
+    (hp : PendOKI eager env c d s pend e) (hok : OkS s e = true)
+    (hw : ConLeche.Expr.WScoped d (TrS s e)) :
+    PendOKI eager env c d s (e :: pend) e := by
+  intro k hk
+  rcases List.mem_cons.mp hk with rfl | hk
+  · exact ⟨hok, hw, fun _ h => h⟩
+  · exact hp k hk
+
+/-- The keys past a step on `e`, the term joining them where it is stored. -/
+theorem PendOKI.pushSelf {b c : Bool} {d : Nat} {s : InLean.CState} {pend : List Expr} {e : Expr}
+    (hp : PendOKI eager env c d s pend e) (hok : OkS s e = true)
+    (hw : ConLeche.Expr.WScoped d (TrS s e)) :
+    PendOKI eager env c d s (InLean.pushKey b e pend) e := by
+  unfold InLean.pushKey
+  split
+  · exact hp.self hok hw
+  · exact hp
+
+/-- Past a continuing step, the pending keys answer what the continuation
+answers, read at the state after the step. -/
+theorem PendOKI.cont {c : Bool} {d : Nat} {s s' : InLean.CState} {pend : List Expr} {e e' : Expr}
+    (hp : PendOKI eager env c d s pend e) (ht : TabLe s s') (he : OkS s e = true)
+    (hs : Runs (ConLeche.whnfCoreStepW .verified (ConLeche.fueledFns .verified eager env) env c d
+      (TrS s e)) (.cont (TrS s' e'))) :
+    PendOKI eager env c d s' pend e' := by
+  intro k hk
+  obtain ⟨hok, hw, hr⟩ := hp.tab ht he k hk
+  refine ⟨hok, hw, fun v hv => hr v ?_⟩
+  rw [TrS_of_tabLe ht he]
+  exact Runs.whnfCore_of_cont hs hv
+
+/-- The loop's continuing arm: the keys it passes on, the term joining them
+where it is stored. -/
+theorem PendOKI.push {b c : Bool} {d : Nat} {s s' : InLean.CState} {pend : List Expr}
+    {e e' : Expr} (hp : PendOKI eager env c d s pend e) (ht : TabLe s s') (hok : OkS s e = true)
+    (hw : ConLeche.Expr.WScoped d (TrS s e))
+    (hs : Runs (ConLeche.whnfCoreStepW .verified (ConLeche.fueledFns .verified eager env) env c d
+      (TrS s e)) (.cont (TrS s' e'))) :
+    PendOKI eager env c d s' (InLean.pushKey b e pend) e' :=
+  (hp.pushSelf hok hw).cont ht hok hs
+grind_pattern [conleche_grind] PendOKI.push =>
+  PendOKI eager env c d s pend e, TabLe s s',
+  Runs (ConLeche.whnfCoreStepW .verified (ConLeche.fueledFns .verified eager env) env c d
+    (TrS s e)) (.cont (TrS s' e')),
+  InLean.pushKey b e pend
+
+/-- The loop's continuing arm, cheap keys: kept past a step the two modes
+take alike, dropped past any other. -/
+theorem PendOKI.pushCheap {b c : Bool} {d : Nat} {s s' : InLean.CState} {pend : List Expr}
+    {e e' : Expr} (hp : PendOKI eager env true d s pend e) (ht : TabLe s s')
+    (hok : OkS s e = true) (hw : ConLeche.Expr.WScoped d (TrS s e))
+    (hs : Runs (ConLeche.whnfCoreStepW .verified (ConLeche.fueledFns .verified eager env) env c d
+      (TrS s e)) (.cont (TrS s' e'))) :
+    PendOKI eager env true d s'
+      (InLean.pushCheapKey (InLean.whnfCoreCheapSafeC (Expr.getAppFnT e) e) b e pend) e' := by
+  unfold InLean.pushCheapKey
+  split
+  · rename_i hsafe
+    rw [← whnfCoreStepW_cheap (whnfCoreCheapSafeC_TrS hok hsafe)] at hs
+    exact (hp.pushSelf hok hw).cont ht hok hs
+  · exact PendOKI.nil
+grind_pattern [conleche_grind] PendOKI.pushCheap =>
+  PendOKI eager env true d s pend e, TabLe s s',
+  Runs (ConLeche.whnfCoreStepW .verified (ConLeche.fueledFns .verified eager env) env c d
+    (TrS s e)) (.cont (TrS s' e')),
+  InLean.pushCheapKey (InLean.whnfCoreCheapSafeC (Expr.getAppFnT e) e) b e pend
+
+/-- A memo of backed entries stays backed under inserting backed keys, one
+answer for all. -/
+theorem UnaryOK.foldl_insert {s : InLean.CState}
+    {spec : Nat → Nat → ConLeche.Expr → ConLeche.CheckM ConLeche.Expr}
+    (hdi : ∀ F d₁ d₂ e, e.wscopedB d₁ = true → e.wscopedB d₂ = true → spec F d₁ e = spec F d₂ e)
+    {v : Expr} (hv : OkS s v = true) (hc : (TrS s v).looseBVarsBounded 0 = true) {d : Nat} :
+    ∀ {pend : List Expr} {mp : Std.HashMap EKey Expr},
+      (∀ k w, mp[EKey.mk k]? = some w → UnaryOK s spec k w) →
+      (∀ k ∈ pend, OkS s k = true ∧ ConLeche.Expr.WScoped d (TrS s k) ∧
+        ∃ F, spec F d (TrS s k) = .ok (TrS s v)) →
+      ∀ k w, (pend.foldl (fun m k => m.insert (EKey.mk k) v) mp)[EKey.mk k]? = some w →
+        UnaryOK s spec k w
+  | [], _, hm, _ => hm
+  | k :: rest, _, hm, hp => by
+    obtain ⟨hok, hw, F, hF⟩ := hp k (.head _)
+    exact UnaryOK.foldl_insert hdi hv hc (pend := rest)
+      (UnaryOK.insert hdi hm hok hw hv hc hF) (fun k' hk' => hp k' (.tail _ hk'))
+
+/-- A pending key, answered by `v` at `e`, is a backed memo entry. -/
+theorem PendOKI.backed {c : Bool} {d : Nat} {s : InLean.CState} {pend : List Expr} {e v : Expr}
+    (hp : PendOKI eager env c d s pend e)
+    (hv : Runs ((ConLeche.fueledFns .verified eager env).whnfCore c d (TrS s e)) (TrS s v)) :
+    ∀ k ∈ pend, OkS s k = true ∧ ConLeche.Expr.WScoped d (TrS s k) ∧
+      ∃ F, ConLeche.whnfCore .verified eager env F d (TrS s k) c = .ok (TrS s v) := by
+  intro k hk
+  obtain ⟨hok, hw, hr⟩ := hp k hk
+  exact ⟨hok, hw, hr _ hv⟩
+
+@[conleche_grind =] theorem TabLe_storeChain (s₀ s : InLean.CState) (pend pendC : List Expr)
+    (v : Expr) : TabLe s₀ (InLean.storeChain s pend pendC v) = TabLe s₀ s := rfl
+
+@[conleche_grind =] theorem TrS_storeChain (s : InLean.CState) (pend pendC : List Expr)
+    (v e : Expr) : TrS (InLean.storeChain s pend pendC v) e = TrS s e := rfl
+
+@[conleche_grind =] theorem OkS_storeChain (s : InLean.CState) (pend pendC : List Expr)
+    (v e : Expr) : OkS (InLean.storeChain s pend pendC v) e = OkS s e := rfl
+
+/-- A finished chain's store keeps the invariant: its full keys answer `v`
+in the full mode, its cheap keys in the cheap mode (`CSOK.chainStored`'s
+twin). -/
+theorem CSOKI.chainStored (henv : ConLeche.EnvWF env) {s : InLean.CState} {d : Nat}
+    {pend pendC : List Expr} {e v : Expr} (hs : CSOKI .verified eager env s)
+    (hp : PendOKI eager env false d s pend e)
+    (hv : Runs ((ConLeche.fueledFns .verified eager env).whnfCore false d (TrS s e)) (TrS s v))
+    (hpc : PendOKI eager env true d s pendC e)
+    (hvc : Runs ((ConLeche.fueledFns .verified eager env).whnfCore true d (TrS s e)) (TrS s v))
+    (hokv : OkS s v = true) (hcv : (TrS s v).looseBVarsBounded 0 = true) :
+    CSOKI .verified eager env (InLean.storeChain s pend pendC v) :=
+  CSOKI.ofRest (hs.keepMemos.memos _ _ s.whnfC s.inferC s.inferIOC s.defeqC s.eagerMemos)
+    (UnaryOK.foldl_insert (spec := fun F d e => ConLeche.whnfCore .verified eager env F d e)
+      (fun F _ _ _ h₁ h₂ => ConLeche.whnfCore_depth_inv henv F h₁ h₂) hokv hcv
+      hs.whnfCoreC (hp.backed hv))
+    (UnaryOK.foldl_insert (spec := fun F d e => ConLeche.whnfCore .verified eager env F d e true)
+      (fun F _ _ _ h₁ h₂ => ConLeche.whnfCore_depth_inv henv F h₁ h₂) hokv hcv
+      hs.whnfCoreCheapC (hpc.backed hvc))
+    hs.whnfC hs.inferC hs.inferIOC hs.defeqC (hs.eager.sameTab rfl) rfl
+
+/-- A store with no cheap keys (the chain took a step the modes take
+differently, or ended at a hit). -/
+theorem CSOKI.chainStored_nil (henv : ConLeche.EnvWF env) {s : InLean.CState} {d : Nat}
+    {pend : List Expr} {e v : Expr} (hs : CSOKI .verified eager env s)
+    (hp : PendOKI eager env false d s pend e)
+    (hv : Runs ((ConLeche.fueledFns .verified eager env).whnfCore false d (TrS s e)) (TrS s v))
+    (hokv : OkS s v = true) (hcv : (TrS s v).looseBVarsBounded 0 = true) :
+    CSOKI .verified eager env (InLean.storeChain s pend [] v) :=
+  CSOKI.ofRest (hs.keepMemos.memos _ _ s.whnfC s.inferC s.inferIOC s.defeqC s.eagerMemos)
+    (UnaryOK.foldl_insert (spec := fun F d e => ConLeche.whnfCore .verified eager env F d e)
+      (fun F _ _ _ h₁ h₂ => ConLeche.whnfCore_depth_inv henv F h₁ h₂) hokv hcv
+      hs.whnfCoreC (hp.backed hv))
+    hs.whnfCoreCheapC hs.whnfC hs.inferC hs.inferIOC hs.defeqC (hs.eager.sameTab rfl) rfl
+
+/-- The store at a hit, its keys answered by the hit's answer, read at the
+state the keys are pending at. -/
+theorem CSOKI.chainStoredHit (henv : ConLeche.EnvWF env) {s : InLean.CState} {d : Nat}
+    {pend : List Expr} {e r : Expr} (hs : CSOKI .verified eager env s)
+    (hp : PendOKI eager env false d s pend e)
+    (hl : s.whnfCoreC[EKey.mk e]? = some r) (hok : OkS s e = true)
+    (hw : ConLeche.Expr.WScoped d (TrS s e)) :
+    CSOKI .verified eager env (InLean.storeChain s pend [] r) := by
+  obtain ⟨hokr, hrun, -, hcr⟩ := CSOKI.whnfCore_hit henv hs hl hok hw
+  exact CSOKI.chainStored_nil henv hs hp hrun hokr hcr
+grind_pattern [conleche_grind] CSOKI.chainStoredHit =>
+  CSOKI .verified eager env s, PendOKI eager env false d s pend e, s.whnfCoreC[EKey.mk e]?,
+  InLean.storeChain s pend [] r
+
+/-- The store at an easy case: the term is its own answer, in both modes. -/
+theorem CSOKI.chainStoredEasy (henv : ConLeche.EnvWF env) {s : InLean.CState} {d : Nat}
+    {pend pendC : List Expr} {e : Expr} (hs : CSOKI .verified eager env s)
+    (hp : PendOKI eager env false d s pend e) (hpc : PendOKI eager env true d s pendC e)
+    (he : InLean.whnfCoreEasy e = true) (hok : OkS s e = true)
+    (hc : (TrS s e).looseBVarsBounded 0 = true) :
+    CSOKI .verified eager env (InLean.storeChain s pend pendC e) :=
+  CSOKI.chainStored henv hs hp (Runs.whnfCore_easyI he hok) hpc (Runs.whnfCore_easyI he hok) hok hc
+grind_pattern [conleche_grind] CSOKI.chainStoredEasy =>
+  CSOKI .verified eager env s, PendOKI eager env false d s pend e,
+  PendOKI eager env true d s pendC e, InLean.whnfCoreEasy e, InLean.storeChain s pend pendC e
+
+/-- The loop's answering arm in the full mode: the chain's keys, the term
+joining them where it is stored, stored with the answer, read at the state
+after the step (`CSOK.chainStoredDone`'s twin). -/
+theorem CSOKI.chainStoredDone (henv : ConLeche.EnvWF env) {b : Bool} {s₀ s : InLean.CState}
+    {d : Nat} {pend pendC : List Expr} {e v : Expr} (hs : CSOKI .verified eager env s)
+    (ht : TabLe s₀ s)
+    (hp : PendOKI eager env false d s₀ pend e) (hpc : PendOKI eager env true d s₀ pendC e)
+    (hok : OkS s₀ e = true) (hw : ConLeche.Expr.WScoped d (TrS s₀ e))
+    (hst : Runs (ConLeche.whnfCoreStepW .verified (ConLeche.fueledFns .verified eager env) env
+      false d (TrS s₀ e)) (.done (TrS s v)))
+    (hokv : OkS s v = true) (hcv : (TrS s v).looseBVarsBounded 0 = true) :
+    CSOKI .verified eager env (InLean.storeChain s (InLean.pushKey b e pend)
+      (InLean.pushCheapKey (InLean.whnfCoreCheapSafeC (Expr.getAppFnT e) e) b e pendC) v) := by
+  have he : TrS s e = TrS s₀ e := TrS_of_tabLe ht hok
+  have hv : Runs ((ConLeche.fueledFns .verified eager env).whnfCore false d (TrS s e))
+      (TrS s v) := by rw [he]; exact Runs.whnfCore_of_done hst
+  have hp' := (hp.pushSelf (b := b) hok hw).tab ht hok
+  unfold InLean.pushCheapKey
+  split
+  · rename_i hsafe
+    have hvc : Runs ((ConLeche.fueledFns .verified eager env).whnfCore true d (TrS s e))
+        (TrS s v) := by
+      rw [he]; exact Runs.whnfCore_of_doneCheap (whnfCoreCheapSafeC_TrS hok hsafe) hst
+    exact CSOKI.chainStored henv hs hp' hv ((hpc.pushSelf (b := b) hok hw).tab ht hok) hvc hokv hcv
+  · exact CSOKI.chainStored_nil henv hs hp' hv hokv hcv
+grind_pattern [conleche_grind] CSOKI.chainStoredDone =>
+  InLean.storeChain s (InLean.pushKey b e pend)
+    (InLean.pushCheapKey (InLean.whnfCoreCheapSafeC (Expr.getAppFnT e) e) b e pendC) v,
+  Runs (ConLeche.whnfCoreStepW .verified (ConLeche.fueledFns .verified eager env) env
+      false d (TrS s₀ e)) (.done (TrS s v)),
+  TabLe s₀ s
+
 /-- **The head-normalization loop** (`whnfCoreLoopC_spec`'s twin), over the
-step's callee specs. -/
+step's callee specs: it answers the chained `whnfCore` of its term, by
+induction on the shared step budget; the memo is looked up at every key and
+written with the chain's keys at its end. -/
 theorem whnfCoreLoopI_specI (ih : KnotSpecI .verified .verified eager env fe lv)
     (happ : WhnfAppSpecI eager env fe lv) (hstuck : WhnfStuckSpecI eager env fe lv)
-    (hproj : ReduceProjSpecI eager env fe lv) {c : Bool}
+    (hproj : ReduceProjSpecI eager env fe lv) (henv : ConLeche.EnvWF env) {c : Bool}
     {d : Nat} (n : Nat) :
-    ∀ {i : Expr} {s₀ : InLean.CState}, CSOKI .verified eager env s₀ → OkS s₀ i = true →
-      ConLeche.Expr.WScoped d (TrS s₀ i) → (TrS s₀ i).looseBVarsBounded 0 = true →
-      ⦃fun s => s = s₀⦄ InLean.whnfCoreLoopI .verified fe eager lv c d n i
+    ∀ {pend pendC : List Expr} {i : Expr} {s₀ : InLean.CState}, CSOKI .verified eager env s₀ →
+      OkS s₀ i = true → ConLeche.Expr.WScoped d (TrS s₀ i) →
+      (TrS s₀ i).looseBVarsBounded 0 = true →
+      PendOKI eager env c d s₀ pend i → PendOKI eager env true d s₀ pendC i →
+      ⦃fun s => s = s₀⦄ InLean.whnfCoreLoopI .verified fe eager lv c d n pend pendC i
       ⦃fun v s' => CSOKI .verified eager env s' ∧ TabLe s₀ s' ∧ OkS s' v = true ∧
-        Runs (ConLeche.whnfCoreLoopM .verified (ConLeche.fueledFns .verified eager env) env c d n
-          (TrS s₀ i)) (TrS s' v) ∧
+        Runs ((ConLeche.fueledFns .verified eager env).whnfCore c d (TrS s₀ i)) (TrS s' v) ∧
         ConLeche.Expr.WScoped d (TrS s' v) ∧ (TrS s' v).looseBVarsBounded 0 = true; ⊤⦄ := by
   induction n with
   | zero =>
-    intro i s₀ hs hok hw hc
+    intro pend pendC i s₀ hs hok hw hc hp hpc
     sym only [conleche_grind] => vcgen [InLean.whnfCoreLoopI.eq_def] <;> finish
   | succ n ihn =>
-    intro i s₀ hs hok hw hc
-    sym only [conleche_grind, ConLeche.whnfCoreLoopM] =>
-      vcgen [InLean.whnfCoreLoopI.eq_def, whnfCoreStepI_spec ih happ hstuck hproj, ihn] <;> finish
+    intro pend pendC i s₀ hs hok hw hc hp hpc
+    sym only [conleche_grind, CSOKI.chainStored henv, CSOKI.chainStored_nil henv,
+        CSOKI.chainStoredDone henv, CSOKI.chainStoredHit henv, CSOKI.chainStoredEasy henv,
+        CSOKI.whnfCore_hit henv, CSOKI.whnfCoreCheap_hit henv] =>
+      vcgen [InLean.whnfCoreLoopI.eq_def, InLean.storeChainI, InLean.whnfCoreLookupI,
+        whnfCoreStepI_spec ih happ hstuck hproj, ihn] <;> finish
 
-/-- **The head-normalization body** (`whnfCoreBodyC_spec`'s twin). -/
+/-- **The head-normalization body** (`whnfCoreBodyC_spec`'s twin): the loop
+with no key pending. -/
 theorem whnfCoreBodyI_specI (ih : KnotSpecI .verified .verified eager env fe lv)
     (happ : WhnfAppSpecI eager env fe lv) (hstuck : WhnfStuckSpecI eager env fe lv)
-    (hproj : ReduceProjSpecI eager env fe lv) (c : Bool) :
+    (hproj : ReduceProjSpecI eager env fe lv) (henv : ConLeche.EnvWF env) (c : Bool) :
     BodySpecI .verified eager env (InLean.whnfCoreBodyI .verified fe eager lv c)
-      (ConLeche.whnfCoreBody .verified (ConLeche.fueledFns .verified eager env) env c) := by
+      (fun d i => (ConLeche.fueledFns .verified eager env).whnfCore c d i) := by
   intro s₀ d i hs hok hw hc
-  sym only [conleche_grind, whnfCoreLoopFuel_eq] =>
-    vcgen [InLean.whnfCoreBodyI.eq_def, whnfCoreLoopI_specI ih happ hstuck hproj] <;> finish
+  sym only [conleche_grind] =>
+    vcgen [InLean.whnfCoreBodyI.eq_def, whnfCoreLoopI_specI ih happ hstuck hproj henv] <;> finish
 
 end CoreLoop
 
@@ -209,16 +498,19 @@ section AppLoop
 variable {fe : InLean.FEnv} {lv : Nat}
 
 /-- **The ι step's spec** (`iotaRecC_spec`'s twin), this lane's to prove
-(`WalksIota.lean`); the argument loop takes it as a named callee spec. -/
+(`WalksIotaRec.lean`); the argument loop takes it as a named callee spec.  The
+step reads the spine `h args[0:k]` as an array; its specification is the
+ι step at the redex rebuilt as a list. -/
 abbrev IotaRecSpecI (eager : Bool) (env : ConLeche.Env) (fe : InLean.FEnv) (lv : Nat) :
     Prop :=
-  ∀ {d : Nat} {i : Expr} {s₀ : InLean.CState},
-    CSOKI .verified eager env s₀ → OkS s₀ i = true → ConLeche.Expr.WScoped d (TrS s₀ i) →
-    (TrS s₀ i).looseBVarsBounded 0 = true →
-    ⦃fun s => s = s₀⦄ InLean.iotaRecI .verified fe eager lv d i
+  ∀ {d : Nat} {h : Expr} {args : Array Expr} {k : Nat} {s₀ : InLean.CState},
+    CSOKI .verified eager env s₀ → Expr.getAppFnT h = h → k ≤ args.size →
+    OkS s₀ h = true → OkSL s₀ args.toList = true → AllWS d (TrSL s₀ args.toList) →
+    AllClosed (TrSL s₀ args.toList) = true →
+    ⦃fun s => s = s₀⦄ InLean.iotaRecI .verified fe eager lv d h args k
     ⦃fun o s' => CSOKI .verified eager env s' ∧ TabLe s₀ s' ∧ OkO s' o = true ∧
-      Runs (ConLeche.iotaRec .verified (ConLeche.fueledFns .verified eager env) env d (TrS s₀ i))
-        (TrO s' o) ∧
+      Runs (ConLeche.iotaRec .verified (ConLeche.fueledFns .verified eager env) env d
+        (ConLeche.Expr.mkAppN (TrS s₀ h) (TrSL s₀ (args.toList.take k)))) (TrO s' o) ∧
       OptWS d (TrO s' o) ∧ OptClosed (TrO s' o) = true; ⊤⦄
 
 theorem iotaNumArgs_eq : ∀ (e : Expr) (n : Nat), InLean.iotaNumArgs e n = Expr.getAppNumArgsT e + n
@@ -242,10 +534,17 @@ theorem recArity_of_recAt (n : Name) :
       cases hk : q.kind <;> simp [majorIdxOf] <;> decide
     | _ => rfl
 
+theorem getAppFnT_getAppFnT (e : Expr) : Expr.getAppFnT (Expr.getAppFnT e) = Expr.getAppFnT e := by
+  induction e with
+  | app f a ih _ => exact ih
+  | mdata _ x ih => exact ih
+  | _ => rfl
+
 /-- Where the arity pre-check fails, the ι step has nothing to do
 (`iotaRecI_of_arityOk_false`'s twin). -/
 theorem iotaRecI_of_arityOk_false {d : Nat} {e : Expr} (h : InLean.iotaArityOk fe e = false) :
-    InLean.iotaRecI .verified fe eager lv d e = pure none := by
+    InLean.iotaRecI .verified fe eager lv d (Expr.getAppFnT e) (InLean.getAppArgsArr e)
+      (InLean.iotaNumArgs e 0) = pure none := by
   unfold InLean.iotaArityOk at h
   unfold InLean.iotaRecI
   cases hg : Expr.getAppFnT e with
@@ -262,18 +561,18 @@ theorem iotaRecI_of_arityOk_false {d : Nat} {e : Expr} (h : InLean.iotaArityOk f
       simp only
       rw [ite_eq_right_iff.2 (fun hc => absurd hc ?_)]
       intro hc
-      obtain ⟨hlen, hlvl, -⟩ := hc
-      rw [iotaNumArgs_eq] at h
-      have hl : (appArgs e).length = Expr.getAppNumArgsT e := by
-        rw [appArgs, appArgs_go_length]; rfl
-      rw [hl] at hlen
-      exact h.elim (fun h' => h' (by rw [Nat.add_zero, hlen])) (fun h' => h' hlvl)
+      obtain ⟨hlen, -, hlvl, -⟩ := hc
+      exact h.elim (fun h' => h' hlen) (fun h' => h' hlvl)
   | _ => rfl
 
 /-- The pre-check in the spine loop changes no verdict. -/
 theorem iotaArityOk_guardI {d : Nat} {e : Expr} :
-    (if InLean.iotaArityOk fe e then InLean.iotaRecI .verified fe eager lv d e else pure none)
-      = InLean.iotaRecI .verified fe eager lv d e := by
+    (if InLean.iotaArityOk fe e then
+        InLean.iotaRecI .verified fe eager lv d (Expr.getAppFnT e) (InLean.getAppArgsArr e)
+          (InLean.iotaNumArgs e 0)
+      else pure none)
+      = InLean.iotaRecI .verified fe eager lv d (Expr.getAppFnT e) (InLean.getAppArgsArr e)
+          (InLean.iotaNumArgs e 0) := by
   by_cases h : InLean.iotaArityOk fe e = true
   · rw [ite_eq_left_iff.2 (fun hc => absurd h hc)]
   · rw [ite_eq_right_iff.2 (fun hc => absurd hc h), iotaRecI_of_arityOk_false (Bool.not_eq_true _ |>.mp h)]
@@ -300,324 +599,56 @@ theorem whnfAppW_TrS_cons {m : Type → Type} [Monad m] [MonadExceptOf ConLeche.
   | mdata _ y => exact (stripTop_ne_mdata hx).elim
   | _ => rw [ConLeche.whnfAppW.eq_def]; rfl
 
+/-- The peel loop's first binder: a well-scoped lambda opened at a
+well-scoped argument (`wscoped_peel` at an empty accumulator). -/
+theorem wscoped_openI {s : InLean.CState} {d : Nat} {ty : ConLeche.Expr} {body a : Expr}
+    (hl : ConLeche.Expr.WScoped d (.lam ty (TrS s body)))
+    (ha : ConLeche.Expr.WScoped d (TrS s a)) :
+    ConLeche.Expr.WScoped d ((TrS s body).instantiateList (TrSL s [a])) := by
+  rw [TrSL_cons, TrSL_nil, ConLeche.Expr.instantiateList_cons, ConLeche.Expr.instantiateList_nil]
+  rw [ConLeche.Expr.WScoped] at hl
+  exact ConLeche.Expr.WScoped.instantiate1_gen ha 0 hl.2
+grind_pattern [conleche_grind] wscoped_openI =>
+  ConLeche.Expr.WScoped d (.lam ty (TrS s body)), (TrS s body).instantiateList (TrSL s [a])
+
+/-- The spine of one more application: its arguments have readings. -/
+theorem OkSL_appArgs_app {s : InLean.CState} {v a : Expr} (hv : OkS s v = true)
+    (ha : OkS s a = true) : OkSL s (appArgs (.app v a)) = true :=
+  OkSL_appArgs s (by rw [OkS_app, hv, ha]; rfl)
+grind_pattern [conleche_grind] OkSL_appArgs_app => OkS s v, OkS s a, appArgs (.app v a)
+
+/-- The spine of one more application: its arguments are closed. -/
+theorem allClosed_getAppArgs_app {v a : ConLeche.Expr} (hv : v.looseBVarsBounded 0 = true)
+    (ha : a.looseBVarsBounded 0 = true) : AllClosed (ConLeche.Expr.app v a).getAppArgs = true :=
+  allClosed_getAppArgs (by rw [ConLeche.Expr.looseBVarsBounded, hv, ha]; rfl)
+grind_pattern [conleche_grind] allClosed_getAppArgs_app =>
+  v.looseBVarsBounded 0, a.looseBVarsBounded 0, (ConLeche.Expr.app v a).getAppArgs
+
 /-- **The bulk-beta argument loop** (`whnfAppC_spec`'s twin): it discharges
-`WhnfAppSpecI` given the ι step's spec. -/
+`WhnfAppSpecI` given the ι step's spec, by induction on the arguments left. -/
 theorem whnfAppI_specI (hiota : IotaRecSpecI eager env fe lv) : WhnfAppSpecI eager env fe lv := by
-  intro d v args
-  induction args generalizing v with
-  | nil =>
-    intro _ _ _ _ _ _ _
-    sym only [conleche_grind, ConLeche.whnfAppW.eq_1] =>
+  intro d v args i
+  generalize hn : args.size - i = n
+  induction n generalizing v i with
+  | zero =>
+    intro _ _ _ _ _ _ _ _
+    sym only [conleche_grind, ConLeche.whnfAppW.eq_1,
+        toList_drop_of_ge (A := args) (i := i) (by omega)] =>
       vcgen [InLean.whnfAppI.eq_def] <;> finish
-  | cons _ rest ihr =>
+  | succ n ihr =>
     intro _ hs hv _ _ _ _ _
     rw [InLean.whnfAppI.eq_def]; simp only [iotaArityOk_guardI]
-    sym only [conleche_grind, whnfAppW_TrS_cons _ _ _ hv] =>
-      vcgen [InLean.mkAppNM, InLean.pollC, hiota, betaPeelI_specI (lv := lv) (fe := fe), ihr] <;> finish
+    sym only [conleche_grind, toList_drop_of_lt (A := args) (i := i) (by omega),
+        whnfAppW_TrS_cons _ _ _ hv, getAppFnT_getAppFnT, iotaNumArgs_length, List.take_length,
+        ConLeche.Expr.mkAppN_getApp] =>
+      vcgen [InLean.pollC, hiota,
+        betaPeelI_specI (mode := .verified) (lv := lv) (fe := fe) n (args := args) (i := i + 1)
+          (by omega),
+        ihr (i := i + 1) (by omega)] <;> finish
 
 end AppLoop
 
-/-! ### The stuck spine (`DiscC4.lean`'s stuck-spine lemmas' twins)
 
-`whnfStuckI` answers a spine whose head is its own head normal form
-(`isStuckHeadC`) with the ι step at the one prefix where it can fire, and
-otherwise with the input.  The spine loop `whnfAppI`, which the mirror
-follows, tries ι at every prefix and rebuilds the spine; `whnfStuckI_mkAppN`
-identifies the two on the rebuilt spine, prefix by prefix, and
-`whnfStuckI_relink` moves the stuck arm from the rebuilt spine to the input,
-whose `mdata` the translation does not see. -/
-
-section Stuck
-
-variable {fe : InLean.FEnv} {lv : Nat}
-
-/-- The stuck arm's answer, its finished term the input `e`. -/
-@[expose] def doneAs (e : Expr) : InLean.WhnfStep → InLean.WhnfStep
-  | .done _ => .done e
-  | .cont x => .cont x
-
-theorem isStuckHeadC_getAppFnT {h : Expr} (hh : InLean.isStuckHeadC h = true) :
-    Expr.getAppFnT h = h := by
-  cases h <;> first | rfl | simp [InLean.isStuckHeadC] at hh
-
-theorem isStuckHeadC_iotaNumArgs {h : Expr} (hh : InLean.isStuckHeadC h = true) :
-    InLean.iotaNumArgs h 0 = 0 := by
-  cases h <;> first | rfl | simp [InLean.isStuckHeadC] at hh
-
-theorem isStuckHeadC_appArgs_go {h : Expr} (hh : InLean.isStuckHeadC h = true) (acc : List Expr) :
-    appArgs.go h acc = acc := by
-  cases h <;> first | rfl | simp [InLean.isStuckHeadC] at hh
-
-theorem isStuckHeadC_stripTop {h : Expr} (hh : InLean.isStuckHeadC h = true) :
-    EO.stripTop h = h := by
-  cases h <;> first | rfl | simp [InLean.isStuckHeadC] at hh
-
-theorem appArgs_go_mkAppN : ∀ (xs : List Expr) (f : Expr) (acc : List Expr),
-    appArgs.go (mkAppN f xs.toArray) acc = appArgs.go f (xs ++ acc)
-  | [], f, acc => by rw [mkAppN_nil]; rfl
-  | x :: xs, f, acc => by
-    rw [mkAppN_cons, appArgs_go_mkAppN xs (.app f x) acc]
-    rfl
-
-theorem iotaNumArgs_mkAppN : ∀ (xs : List Expr) (f : Expr),
-    InLean.iotaNumArgs (mkAppN f xs.toArray) 0 = InLean.iotaNumArgs f 0 + xs.length
-  | [], f => by rw [mkAppN_nil]; rfl
-  | x :: xs, f => by
-    rw [mkAppN_cons, iotaNumArgs_mkAppN xs (.app f x)]
-    simp only [iotaNumArgs_eq, Expr.getAppNumArgsT, List.length_cons]
-    omega
-
-theorem getAppFnT_mkAppN : ∀ (xs : List Expr) (f : Expr),
-    Expr.getAppFnT (mkAppN f xs.toArray) = Expr.getAppFnT f
-  | [], f => by rw [mkAppN_nil]
-  | x :: xs, f => by rw [mkAppN_cons, getAppFnT_mkAppN xs (.app f x)]; rfl
-
-theorem iotaNumArgs_appArgs (e : Expr) : InLean.iotaNumArgs e 0 = (appArgs e).length := by
-  rw [iotaNumArgs_eq, appArgs, appArgs_go_length]; rfl
-
-theorem appArgs_mkAppN_stuck {h : Expr} (hh : InLean.isStuckHeadC h = true) (xs : List Expr) :
-    appArgs (mkAppN h xs.toArray) = xs := by
-  rw [appArgs, appArgs_go_mkAppN, isStuckHeadC_appArgs_go hh, List.append_nil]
-
-/-- The arity pre-check is the ι target read off the spine's head. -/
-theorem iotaArityOk_eq_target (x : Expr) :
-    InLean.iotaArityOk fe x = true ↔
-      InLean.iotaTargetF fe (Expr.getAppFnT x) = some (InLean.iotaNumArgs x 0) := by
-  unfold InLean.iotaArityOk InLean.iotaTargetF
-  cases Expr.getAppFnT x with
-  | const c us =>
-    dsimp only
-    cases fe.recArity? c with
-    | none => simp
-    | some p =>
-      obtain ⟨mI, nL⟩ := p
-      dsimp only
-      by_cases hl : us.length = nL
-      · simp only [hl, beq_self_eq_true, Bool.and_true, beq_iff_eq, ite_true, Option.some.injEq]
-        constructor <;> intro h <;> omega
-      · simp [hl]
-  | _ => simp
-
-theorem iotaTargetF_pos {h : Expr} {k : Nat} (hk : InLean.iotaTargetF fe h = some k) : 0 < k := by
-  unfold InLean.iotaTargetF at hk
-  split at hk
-  · split at hk
-    · split at hk
-      · cases hk; omega
-      · cases hk
-    · cases hk
-  · cases hk
-
-/-- `whnfAppI`'s step at a head that is not a lambda. -/
-theorem whnfAppI_cons_ne_lam {mi : InLean.CheckMode} {d : Nat} {v : Expr}
-    (hv : ∀ n t b bi, EO.stripTop v ≠ .lam n t b bi) (a : Expr) (rest : List Expr) :
-    InLean.whnfAppI mi fe eager lv d v (a :: rest) =
-      ((if InLean.iotaArityOk fe (.app v a) then InLean.iotaRecI mi fe eager lv d (.app v a)
-          else pure none) >>= fun o => match o with
-        | some e'' => do
-          let e' ← InLean.mkAppNM e'' rest
-          InLean.pollC fe (.unfold (InLean.headConstName (.app v a))) (pure (.cont e'))
-        | none => InLean.whnfAppI mi fe eager lv d (.app v a) rest) := by
-  rw [InLean.whnfAppI.eq_def]
-  dsimp only
-  split
-  · rename_i h; exact absurd h (hv _ _ _ _)
-  · rfl
-
-theorem stuck_ne_lam {v h : Expr} (hv : Expr.getAppFnT v = h) (hh : InLean.isStuckHeadC h = true)
-    (hm : ∀ m x, v ≠ .mdata m x) : ∀ n t b bi, EO.stripTop v ≠ .lam n t b bi := by
-  intro n t b bi hl
-  cases v with
-  | lam => subst hv; simp [Expr.getAppFnT, InLean.isStuckHeadC] at hh
-  | mdata m x => exact hm m x rfl
-  | _ => simp [EO.stripTop] at hl
-
-/-- Away from the ι target the spine loop only rebuilds the spine. -/
-theorem whnfAppI_noIota {mi : InLean.CheckMode} {d : Nat} {h : Expr}
-    (hh : InLean.isStuckHeadC h = true) :
-    ∀ (args : List Expr) (v : Expr), Expr.getAppFnT v = h → (∀ m x, v ≠ .mdata m x) →
-      (∀ k, InLean.iotaTargetF fe h = some k →
-        k ≤ InLean.iotaNumArgs v 0 ∨ InLean.iotaNumArgs v 0 + args.length < k) →
-      InLean.whnfAppI mi fe eager lv d v args = pure (.done (mkAppN v args.toArray))
-  | [], v, _, _, _ => by rw [InLean.whnfAppI.eq_def, mkAppN_nil]
-  | a :: rest, v, hv, hm, hk => by
-    have hoff : InLean.iotaArityOk fe (.app v a) = false := by
-      cases ho : InLean.iotaArityOk fe (.app v a) with
-      | false => rfl
-      | true =>
-        rw [iotaArityOk_eq_target] at ho
-        have hn1 : InLean.iotaNumArgs (.app v a) 0 = InLean.iotaNumArgs v 0 + 1 := by
-          simp only [iotaNumArgs_eq, Expr.getAppNumArgsT]
-        rw [show Expr.getAppFnT (.app v a) = Expr.getAppFnT v from rfl, hv, hn1] at ho
-        rcases hk _ ho with h₁ | h₁ <;> (try simp only [List.length_cons] at h₁) <;> omega
-    rw [whnfAppI_cons_ne_lam (stuck_ne_lam hv hh hm), hoff]
-    simp only [Bool.false_eq_true, ite_false, pure_bind]
-    rw [mkAppN_cons]
-    refine whnfAppI_noIota hh rest (.app v a) hv (fun _ _ h => nomatch h) ?_
-    intro k hk'
-    have hn1 : InLean.iotaNumArgs (.app v a) 0 = InLean.iotaNumArgs v 0 + 1 := by
-      simp only [iotaNumArgs_eq, Expr.getAppNumArgsT]
-    rw [hn1]
-    rcases hk k hk' with h₁ | h₁
-    · left; omega
-    · right; simp only [List.length_cons] at h₁; omega
-
-/-- Up to the ι target the spine loop tries ι there once, and then only
-rebuilds. -/
-theorem whnfAppI_iota {mi : InLean.CheckMode} {d : Nat} {h : Expr}
-    (hh : InLean.isStuckHeadC h = true) {k : Nat} (htk : InLean.iotaTargetF fe h = some k) :
-    ∀ (args : List Expr) (v : Expr), Expr.getAppFnT v = h → (∀ m x, v ≠ .mdata m x) →
-      InLean.iotaNumArgs v 0 < k → k ≤ InLean.iotaNumArgs v 0 + args.length →
-      InLean.whnfAppI mi fe eager lv d v args =
-        (InLean.iotaRecI mi fe eager lv d
-            (mkAppN v (args.take (k - InLean.iotaNumArgs v 0)).toArray) >>=
-          fun o => match o with
-            | some e'' => do
-              let e' ← InLean.mkAppNM e'' (args.drop (k - InLean.iotaNumArgs v 0))
-              InLean.pollC fe (.unfold (InLean.headConstName h)) (pure (.cont e'))
-            | none => pure (.done (mkAppN v args.toArray)))
-  | [], v, _, _, h₁, h₂ => by simp only [List.length_nil] at h₂; omega
-  | a :: rest, v, hv, hm, h₁, h₂ => by
-    have hnum : InLean.iotaNumArgs (.app v a) 0 = InLean.iotaNumArgs v 0 + 1 := by
-      simp only [iotaNumArgs_eq, Expr.getAppNumArgsT]
-    have hhd : InLean.headConstName (.app v a) = InLean.headConstName h := by
-      unfold InLean.headConstName
-      rw [show Expr.getAppFnT (.app v a) = h from hv, isStuckHeadC_getAppFnT hh]
-    rw [whnfAppI_cons_ne_lam (stuck_ne_lam hv hh hm), hhd]
-    by_cases hat : k = InLean.iotaNumArgs v 0 + 1
-    · have hon : InLean.iotaArityOk fe (.app v a) = true := by
-        rw [iotaArityOk_eq_target, show Expr.getAppFnT (.app v a) = Expr.getAppFnT v from rfl, hv,
-          hnum, htk, hat]
-      rw [hon, ite_eq_left rfl]
-      have hkm : k - InLean.iotaNumArgs v 0 = 1 := by omega
-      rw [hkm]
-      simp only [List.take_succ_cons, List.take_zero, List.drop_succ_cons, List.drop_zero]
-      rw [show mkAppN v [a].toArray = .app v a by rw [mkAppN_cons, mkAppN_nil]]
-      congr 1
-      funext o
-      cases o with
-      | some e'' => rfl
-      | none =>
-        rw [mkAppN_cons]
-        refine whnfAppI_noIota hh rest (.app v a) hv (fun _ _ h => nomatch h) ?_
-        intro k' hk'
-        rw [htk] at hk'; cases hk'
-        left; omega
-    · have hoff : InLean.iotaArityOk fe (.app v a) = false := by
-        cases ho : InLean.iotaArityOk fe (.app v a) with
-        | false => rfl
-        | true =>
-          rw [iotaArityOk_eq_target, show Expr.getAppFnT (.app v a) = Expr.getAppFnT v from rfl, hv,
-            hnum, htk] at ho
-          cases ho; omega
-      rw [hoff]
-      simp only [Bool.false_eq_true, ite_false, pure_bind]
-      have hkm : k - InLean.iotaNumArgs v 0 = (k - InLean.iotaNumArgs (.app v a) 0) + 1 := by
-        rw [hnum]; omega
-      rw [whnfAppI_iota hh htk rest (.app v a) hv (fun _ _ h => nomatch h) (by omega)
-        (by simp only [List.length_cons] at h₂; omega), hkm]
-      simp only [List.take_succ_cons, List.drop_succ_cons, mkAppN_cons]
-
-/-- **The stuck arm is the spine loop at its own head**, on the rebuilt
-spine (`whnfStuckI_mkAppN`'s twin). -/
-theorem whnfStuckI_mkAppN {mi : InLean.CheckMode} {d : Nat} {h : Expr}
-    (hh : InLean.isStuckHeadC h = true) (args : List Expr) :
-    InLean.whnfStuckI mi fe eager lv d h (mkAppN h args.toArray) =
-      InLean.whnfAppI mi fe eager lv d h args := by
-  have h0 := isStuckHeadC_iotaNumArgs hh
-  have hfn := isStuckHeadC_getAppFnT hh
-  have hm : ∀ m x, h ≠ .mdata m x := fun m x e => by subst e; simp [InLean.isStuckHeadC] at hh
-  rw [InLean.whnfStuckI.eq_def]
-  cases htk : InLean.iotaTargetF fe h with
-  | none =>
-    dsimp only
-    refine (whnfAppI_noIota hh args h hfn hm ?_).symm
-    intro k hk; rw [htk] at hk; cases hk
-  | some k =>
-    dsimp only
-    rw [iotaNumArgs_mkAppN, h0, appArgs_mkAppN_stuck hh]
-    by_cases hkn : k ≤ 0 + args.length
-    · rw [ite_eq_left hkn, whnfAppI_iota hh htk args h hfn hm (by rw [h0]; exact iotaTargetF_pos htk)
-        (by rw [h0]; exact hkn), h0, Nat.sub_zero]
-      rfl
-    · rw [ite_eq_right hkn]
-      refine (whnfAppI_noIota hh args h hfn hm ?_).symm
-      intro k' hk'; rw [htk] at hk'; cases hk'
-      right; omega
-
-
-/-- A throw is not continued. -/
-theorem throw_bind_I {α β : Type} (x : InLean.CheckError) (f : α → InLean.CheckCM β) :
-    (throw x : InLean.CheckCM α) >>= f = throw x := by
-  funext s₀
-  simp [throw, throwThe, MonadExceptOf.throw, StateT.lift, bind, StateT.bind, Except.bind]
-
-/-- **The stuck arm on the input is the stuck arm on the rebuilt spine**, its
-finished answer the input (whose `mdata` the translation does not see). -/
-theorem whnfStuckI_relink {mi : InLean.CheckMode} {d : Nat} {h : Expr}
-    (hh : InLean.isStuckHeadC h = true) (e : Expr) :
-    InLean.whnfStuckI mi fe eager lv d h e =
-      InLean.whnfStuckI mi fe eager lv d h (mkAppN h (appArgs e).toArray) >>=
-        fun w => pure (doneAs e w) := by
-  rw [InLean.whnfStuckI.eq_def, InLean.whnfStuckI.eq_def, iotaNumArgs_mkAppN,
-    isStuckHeadC_iotaNumArgs hh, Nat.zero_add, appArgs_mkAppN_stuck hh, ← iotaNumArgs_appArgs]
-  cases InLean.iotaTargetF fe h with
-  | none => simp [doneAs]
-  | some k =>
-    dsimp only
-    split
-    · simp only [bind_assoc]
-      congr 1
-      funext o
-      cases o with
-      | none => simp [doneAs]
-      | some e'' =>
-        simp only [InLean.mkAppNM, pure_bind]
-        unfold InLean.pollC
-        split
-        · simp [doneAs]
-        · split
-          · rw [throw_bind_I]
-          · simp [doneAs]
-    · simp [doneAs]
-
-
-/-- A finished stuck arm answers its input. -/
-theorem whnfStuckI_done {mi : InLean.CheckMode} {d : Nat} {h e x : Expr} {s₀ s' : InLean.CState}
-    (hr : InLean.whnfStuckI mi fe eager lv d h e s₀ = .ok (.done x, s')) : x = e := by
-  have hpure : ∀ {y : Expr} {s : InLean.CState},
-      (pure (.done y) : InLean.CheckCM InLean.WhnfStep) s = .ok (.done x, s') → x = y := by
-    intro y s hy
-    simp only [pure, StateT.pure, Except.pure, Except.ok.injEq, Prod.mk.injEq,
-      InLean.WhnfStep.done.injEq] at hy
-    exact hy.1.symm
-  rw [InLean.whnfStuckI.eq_def] at hr
-  cases htk : InLean.iotaTargetF fe h with
-  | none => rw [htk] at hr; exact hpure hr
-  | some k =>
-    rw [htk] at hr
-    dsimp only at hr
-    by_cases hk : k ≤ InLean.iotaNumArgs e 0
-    · rw [ite_eq_left hk] at hr
-      obtain ⟨o, s₁, _, hr⟩ := bind_run hr
-      cases o with
-      | none => exact hpure hr
-      | some e'' =>
-        simp only [InLean.mkAppNM, pure_bind] at hr
-        unfold InLean.pollC at hr
-        cases hp : fe.limits.poll with
-        | none => rw [hp] at hr; simp [pure, StateT.pure, Except.pure] at hr
-        | some p =>
-          rw [hp] at hr
-          dsimp only at hr
-          cases hpe : p (.unfold (InLean.headConstName h)) with
-          | none => rw [hpe] at hr; simp [pure, StateT.pure, Except.pure] at hr
-          | some l =>
-            rw [hpe] at hr
-            simp [throw, throwThe, MonadExceptOf.throw, StateT.lift, bind, Except.bind] at hr
-    · rw [ite_eq_right hk] at hr; exact hpure hr
-
-end Stuck
 
 
 /-! ## The projection rule -/
@@ -647,11 +678,11 @@ theorem projCert_TrS (hv : EnvViewI fe env) (s : InLean.CState) (k : Name) (args
   cases hc : fe.ctorView? k with
   | none =>
     split
-    · rename_i cv nP nF hf; exact absurd hf (hv.ctorNone k hc cv nP nF)
+    · rename_i cv nP nF T hf; exact absurd hf (hv.ctorNone k hc cv nP nF T)
     · rfl
   | some p =>
-    obtain ⟨cv, nP, nF⟩ := p
-    obtain ⟨ccv, hrel, hf⟩ := hv.ctor k cv nP nF hc
+    obtain ⟨cv, nP, nF, T⟩ := p
+    obtain ⟨ccv, hrel, hf⟩ := hv.ctor k cv nP nF T hc
     rw [hf]
     simp only [ConLeche.teleArityOk, InLean.teleArityOk, TrSL, List.length_map]
     rw [← hrel.2.2.trS s, peelPis_TrS]

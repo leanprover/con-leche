@@ -137,15 +137,17 @@ theorem toCaps_capsOf {v : InductiveVal} {p : ConLeche.BlockShape}
     {mi : Nat} {isRec : Bool}
     (hcs : v.ctors.map toName = (p.members.getD mi default).ctors.map (·.1.name))
     (hidx : v.numIndices = (p.members.getD mi default).nIdx) (hnP : v.numParams = p.nP)
-    (hall : v.all.map toName = p.memberNames) (hrec : v.isRec = isRec) :
+    (hall : v.all.map toName = p.memberNames) (hrec : v.isRec = isRec)
+    (hdecl : CVRel v.toConstantVal (p.members.getD mi default).declared) :
     toCaps (capsOf v) = ConLeche.blockCapsAt p mi isRec := by
   unfold ConLeche.blockCapsAt capsOf
-  generalize hms : p.members.getD mi default = ms at hcs hidx
+  generalize hms : p.members.getD mi default = ms at hcs hidx hdecl
+  have hnz := formerZ_isNever_CV hdecl
   cases hv : v.ctors with
   | nil =>
     rw [hv] at hcs
     cases hc : ms.ctors with
-    | nil => simp [toCaps, hall, hidx, hnP]
+    | nil => simp [toCaps, hall, hidx, hnP, hnz]
     | cons _ _ => rw [hc] at hcs; cases hcs
   | cons c rest =>
     rw [hv] at hcs
@@ -158,13 +160,13 @@ theorem toCaps_capsOf {v : InductiveVal} {p : ConLeche.BlockShape}
       | nil =>
         cases rest' with
         | nil =>
-          simp [toCaps, hall, hidx, hnP, hrec, hcs.1]
+          simp [toCaps, hall, hidx, hnP, hrec, hcs.1, hnz]
         | cons _ _ => cases hcs.2
       | cons c2 rest2 =>
         cases rest' with
         | nil => cases hcs.2
         | cons cc2 rest2' =>
-          simp only [toCaps, List.map_cons, hall, hidx, hnP, hcs.1]
+          simp only [toCaps, List.map_cons, hall, hidx, hnP, hcs.1, hnz]
           rw [show rest2.map toName = rest2'.map (·.1.name) from (List.cons.inj hcs.2).2,
             show toName c2 = cc2.1.name from (List.cons.inj hcs.2).1]
 

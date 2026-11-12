@@ -182,7 +182,7 @@ theorem StoredT.trS {t : Expr} {c : ConLeche.Expr} (h : StoredT t c) (s : InLean
 /-- An inductive family's capabilities, as con-leche records them. -/
 @[expose] def toCaps (c : InLean.IndCaps) : ConLeche.IndCaps :=
   { eta := c.eta, all := c.all.map toName,
-    nparams := c.nparams, nIdx := c.nIdx, ctors := c.ctors.map toName }
+    nparams := c.nparams, nIdx := c.nIdx, ctors := c.ctors.map toName, neverZero := c.neverZero }
 
 /-- **The environment's views** (O4 with `EnvRelI`/`EnvDomI`/`EnvDefnI`, P3's):
 InLean's view of an inductive family, a constructor or a projection table
@@ -192,10 +192,10 @@ structure EnvViewI (fe : InLean.FEnv) (env : ConLeche.Env) : Prop where
   ind : ∀ n cv caps, fe.indView? n = some (cv, caps) →
     ∃ ccv, CVRel cv ccv ∧ env.find? (toName n) = some (.indInfo ccv (toCaps caps))
   indNone : ∀ n, fe.indView? n = none → ∀ ccv caps, env.find? (toName n) ≠ some (.indInfo ccv caps)
-  ctor : ∀ n cv nP nF, fe.ctorView? n = some (cv, nP, nF) →
-    ∃ ccv, CVRel cv ccv ∧ env.find? (toName n) = some (.ctorInfo ccv nP nF)
+  ctor : ∀ n cv nP nF T, fe.ctorView? n = some (cv, nP, nF, T) →
+    ∃ ccv, CVRel cv ccv ∧ env.find? (toName n) = some (.ctorInfo ccv nP nF (toName T))
   ctorNone : ∀ n, fe.ctorView? n = none →
-    ∀ ccv nP nF, env.find? (toName n) ≠ some (.ctorInfo ccv nP nF)
+    ∀ ccv nP nF T, env.find? (toName n) ≠ some (.ctorInfo ccv nP nF T)
   table : ∀ T t, fe.findTable? T = some t → ∃ ct, env.findTable? (toName T) = some ct ∧
     ct.ctor = toName t.ctor ∧ ct.numFields = t.numFields ∧ ct.numParams = t.numParams ∧
     ct.levelParams = t.levelParams.map toName
@@ -254,6 +254,18 @@ theorem formerResSort_TrS (s : InLean.CState) (t : Expr) :
     | some c => obtain ⟨d, ty, rfl⟩ := FVarTable.trans_fvarsOnly _ id c hf; rfl
   | _ => rfl
 
+/-- A family's sort fact (`formerZ`'s never-zero test) through the translation. -/
+theorem formerZ_isNever_CV {cv : Lean.ConstantVal} {ccv : ConLeche.ConstantVal} (h : CVRel cv ccv) :
+    (ConLeche.formerZ ccv).isNever = (InLean.formerZ cv).isNever := by
+  have hty : ccv.type = TrS default cv.type := (h.2.2.trS default).symm
+  have hz : ConLeche.formerZ ccv = trPW (InLean.formerZ cv) := by
+    unfold ConLeche.formerZ InLean.formerZ
+    rw [hty, formerResSort_TrS]
+    cases InLean.formerResSort cv.type with
+    | none => rfl
+    | some u => exact (trPW_zeronessOf u).symm
+  rw [hz, trPW_isNever]
+
 theorem formerNeverZero_CV {cv : Lean.ConstantVal} {ccv : ConLeche.ConstantVal} (h : CVRel cv ccv)
     (us : List Level) :
     ConLeche.formerNeverZero ccv (us.map trL) = InLean.formerNeverZero cv us := by
@@ -267,37 +279,39 @@ theorem formerNeverZero_CV {cv : Lean.ConstantVal} {ccv : ConLeche.ConstantVal} 
   unfold ConLeche.formerNeverZero InLean.formerNeverZero
   rw [hz, h.2.1, ← trPW_substPW, trPW_isNever]
 
-/-- The family a constructor's type concludes in, through the views. -/
-theorem ctorFamily_CV {fe : InLean.FEnv} (hv : EnvViewI fe env) {cvj : Lean.ConstantVal}
-    {ccvj : ConLeche.ConstantVal} (h : CVRel cvj ccvj) :
-    match InLean.ctorFamily fe cvj with
+/-- A constructor's family (the family stored at its `induct`), through the
+views. -/
+theorem ctorFamily_CV {fe : InLean.FEnv} (hv : EnvViewI fe env) (induct : Name) :
+    match InLean.ctorFamily fe induct with
     | some (cvT, caps) => ∃ ccvT, CVRel cvT ccvT ∧
-        ConLeche.ctorFamily env.find? ccvj = some (ccvT, toCaps caps)
-    | none => ConLeche.ctorFamily env.find? ccvj = none := by
-  have hty : ccvj.type = TrS default cvj.type := (h.2.2.trS default).symm
+        ConLeche.ctorFamily env.find? (toName induct) = some (ccvT, toCaps caps)
+    | none => ConLeche.ctorFamily env.find? (toName induct) = none := by
   unfold InLean.ctorFamily ConLeche.ctorFamily
-  rw [hty, ← TrS_piResult, ← TrS_getAppFnT, stripTop_getAppFnT]
-  generalize hx : Expr.getAppFnT (InLean.piResult cvj.type) = x
-  cases x with
-  | mdata _ y => exact (getAppFnT_ne_mdata hx).elim
-  | const T us =>
-    simp only [TrS_const]
-    cases hi : fe.indView? T with
-    | none =>
-      simp only
-      split
-      · rename_i cv caps hf; exact absurd hf (hv.indNone T hi cv caps)
-      · rfl
-    | some p =>
-      obtain ⟨cvT, caps⟩ := p
-      obtain ⟨ccvT, hrel, hf⟩ := hv.ind T cvT caps hi
-      exact ⟨ccvT, hrel, by simp [hf]⟩
-  | fvar id =>
-    simp only [TrS, trE]
-    cases hf : FVarTable.trans (tableOf default) id with
-    | none => rfl
-    | some c => obtain ⟨d, ty, rfl⟩ := FVarTable.trans_fvarsOnly _ id c hf; rfl
-  | _ => rfl
+  cases hi : fe.indView? induct with
+  | none =>
+    simp only
+    split
+    · rename_i cv caps hf; exact absurd hf (hv.indNone induct hi cv caps)
+    · rfl
+  | some p =>
+    obtain ⟨cvT, caps⟩ := p
+    obtain ⟨ccvT, hrel, hf⟩ := hv.ind induct cvT caps hi
+    exact ⟨ccvT, hrel, by simp [hf]⟩
+
+/-- The ι case split's stored facts (`iotaNoCert`) through the views. -/
+theorem iotaNoCert_CV {fe : InLean.FEnv} (hv : EnvViewI fe env) (isK : Bool) (induct : Name)
+    (n : Nat) : InLean.iotaNoCert fe isK induct n = ConLeche.iotaNoCert env.find? isK (toName induct) n := by
+  unfold InLean.iotaNoCert ConLeche.iotaNoCert
+  have hfam := ctorFamily_CV hv induct
+  revert hfam
+  cases InLean.ctorFamily fe induct with
+  | none => intro hfam; rw [hfam]
+  | some p =>
+    obtain ⟨cvT, caps⟩ := p
+    intro hfam
+    obtain ⟨ccvT, hrel, hf⟩ := hfam
+    rw [hf]
+    simp only [toCaps, hrel.2.1, List.length_map]
 
 end Views
 
@@ -455,29 +469,53 @@ theorem formerNeverZeroI_specI (ih : KnotSpecI mode mi eager env fe lv) {cvT : L
         simp only [Option.map_some]
         rw [← trPW_zeronessOf, trPW_isNever]; exact Runs.pure _
 
+/-- **The family's sort fact first** (`familyNeverZeroC_spec`'s twin): the
+stored fact (`IndCaps.neverZero`), else the walk. -/
+theorem familyNeverZeroI_specI (ih : KnotSpecI mode mi eager env fe lv) {cvT : Lean.ConstantVal}
+    {ccvT : ConLeche.ConstantVal} (hcv : CVRel cvT ccvT) (hcl : ccvT.type.hasFvar = false)
+    (hlbb : ccvT.type.looseBVarsBounded 0 = true) (caps : InLean.IndCaps) {us : List Level}
+    (hus : us.all okLv = true) {s₀ : InLean.CState} (hs : CSOKI mode eager env s₀) :
+    ⦃fun s => s = s₀⦄ InLean.familyNeverZeroI mi fe eager lv cvT caps us
+    ⦃fun v s' => CSOKI mode eager env s' ∧ TabLe s₀ s' ∧
+      Runs (ConLeche.familyNeverZeroAt (ConLeche.fueledFns mode eager env).whnf ccvT (toCaps caps)
+        (us.map trL)) v; ⊤⦄ := by
+  refine tripleI_iff_run.2 fun v s' hr => ?_
+  unfold InLean.familyNeverZeroI at hr
+  unfold ConLeche.familyNeverZeroAt
+  cases hz : caps.neverZero with
+  | true =>
+    rw [hz] at hr
+    simp only [↓reduceIte] at hr
+    obtain ⟨rfl, rfl⟩ := pure_run hr
+    simp only [toCaps, hz, ↓reduceIte]
+    exact ⟨hs, TabLe.refl _, Runs.pure _⟩
+  | false =>
+    rw [hz] at hr
+    simp only [Bool.false_eq_true, ↓reduceIte] at hr
+    simp only [toCaps, hz, Bool.false_eq_true, ↓reduceIte]
+    exact tripleI_iff_run.1 (formerNeverZeroI_specI ih hcv hcl hlbb caps hus hs) v s' hr
+
 /-- A family a constructor concludes in is a stored record: closed. -/
-theorem ctorFamily_closed (henv : ConLeche.EnvWF env) {ccvj ccvT : ConLeche.ConstantVal}
-    {caps : ConLeche.IndCaps} (h : ConLeche.ctorFamily env.find? ccvj = some (ccvT, caps)) :
+theorem ctorFamily_closed (henv : ConLeche.EnvWF env) {induct : ConLeche.Name}
+    {ccvT : ConLeche.ConstantVal}
+    {caps : ConLeche.IndCaps} (h : ConLeche.ctorFamily env.find? induct = some (ccvT, caps)) :
     ccvT.type.hasFvar = false ∧ ccvT.type.looseBVarsBounded 0 = true := by
   unfold ConLeche.ctorFamily at h
   split at h
-  · split at h
-    · rename_i hf
-      cases Option.some.inj h
-      have hw := henv.consts _ (ConLeche.Env.find?_mem hf)
-      exact ⟨hw.1, hw.2.2.2.1⟩
-    · exact nomatch h
+  · rename_i hf
+    cases Option.some.inj h
+    have hw := henv.consts _ (ConLeche.Env.find?_mem hf)
+    exact ⟨hw.1, hw.2.2.2.1⟩
   · exact nomatch h
 
 /-- **The ι case split** (`iotaCase3C_spec`'s twin). -/
 theorem iotaCase3I_specI {fe : InLean.FEnv} (ih : KnotSpecI mode mi eager env fe lv) (henv : ConLeche.EnvWF env)
-    (hv : EnvViewI fe env) {isK : Bool} {cvj : Lean.ConstantVal}
-    {ccvj : ConLeche.ConstantVal} (hcvj : CVRel cvj ccvj) {us : List Level}
+    (hv : EnvViewI fe env) {isK : Bool} {induct : Name} {us : List Level}
     (hus : us.all okLv = true) {s₀ : InLean.CState} (hs : CSOKI mode eager env s₀) :
-    ⦃fun s => s = s₀⦄ InLean.iotaCase3I mi fe eager lv isK cvj us
+    ⦃fun s => s = s₀⦄ InLean.iotaCase3I mi fe eager lv isK induct us
     ⦃fun v s' => CSOKI mode eager env s' ∧ TabLe s₀ s' ∧
-      Runs (ConLeche.iotaCase3At (ConLeche.fueledFns mode eager env).whnf env.find? isK ccvj
-        (us.map trL)) v; ⊤⦄ := by
+      Runs (ConLeche.iotaCase3At (ConLeche.fueledFns mode eager env).whnf env.find? isK
+        (toName induct) (us.map trL)) v; ⊤⦄ := by
   refine tripleI_iff_run.2 fun v s' hr => ?_
   unfold InLean.iotaCase3I at hr
   unfold ConLeche.iotaCase3At
@@ -488,9 +526,9 @@ theorem iotaCase3I_specI {fe : InLean.FEnv} (ih : KnotSpecI mode mi eager env fe
     exact ⟨hs, TabLe.refl _, Runs.pure _⟩
   | false =>
     simp only [Bool.false_eq_true, ↓reduceIte] at hr ⊢
-    have hfam := ctorFamily_CV hv hcvj
+    have hfam := ctorFamily_CV hv induct
     revert hr hfam
-    cases InLean.ctorFamily fe cvj with
+    cases InLean.ctorFamily fe induct with
     | none =>
       intro hr hfam
       obtain ⟨rfl, rfl⟩ := pure_run hr

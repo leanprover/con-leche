@@ -127,7 +127,7 @@ theorem nestContainer_ctorOk {fe : InLean.FEnv} {L : ConLeche.Env} {s : InLean.C
   split at h
   · rename_i cv caps _
     have hall : ∀ x ∈ caps.ctors.filterMap (fun n =>
-        (fe.ctorView? n).bind fun (cv, nPc, nF) => InLean.nestCtorEntry C cv nPc nF),
+        (fe.ctorView? n).bind fun (cv, nPc, nF, _) => InLean.nestCtorEntry C cv nPc nF),
         CtorOkI (x.1, x.2.2) := by
       intro x hx
       obtain ⟨n, -, hn⟩ := List.mem_filterMap.1 hx

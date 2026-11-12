@@ -205,6 +205,7 @@ theorem presI_consBlockIndsF (hlaws : EnvLaws) {p : InLean.BlockShape} {isRec : 
       · rw [← hv]; rfl
       · rw [← hv, trShape_memberNames]
       · rw [← hv]
+      · rw [hgkC]; exact hcv
     have hstep := presI_marked_former hlaws hP (by rw [hvn]; exact hfr.1) hvis hpend hcv
     rw [hcaps] at hstep
     have hL : ({ consts := .indInfo (trCV ms.declared) (ConLeche.blockCapsAt (trShape p) k isRec)

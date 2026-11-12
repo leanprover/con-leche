@@ -116,14 +116,14 @@ twins). -/
 /-- `whnfAppI`'s spec (`whnfAppC_spec`'s twin), P2-whnf's to prove. -/
 abbrev WhnfAppSpecI (eager : Bool) (env : ConLeche.Env) (fe : InLean.FEnv) (lv : Nat) :
     Prop :=
-  ∀ {d : Nat} {v : Expr} {args : List Expr} {s₀ : InLean.CState},
-    CSOKI .verified eager env s₀ → OkS s₀ v = true → OkSL s₀ args = true →
-    ConLeche.Expr.WScoped d (TrS s₀ v) → AllWS d (TrSL s₀ args) →
-    (TrS s₀ v).looseBVarsBounded 0 = true → AllClosed (TrSL s₀ args) = true →
-    ⦃fun s => s = s₀⦄ whnfAppI .verified fe eager lv d v args
+  ∀ {d : Nat} {v : Expr} {args : Array Expr} {i : Nat} {s₀ : InLean.CState},
+    CSOKI .verified eager env s₀ → OkS s₀ v = true → OkSL s₀ args.toList = true →
+    ConLeche.Expr.WScoped d (TrS s₀ v) → AllWS d (TrSL s₀ args.toList) →
+    (TrS s₀ v).looseBVarsBounded 0 = true → AllClosed (TrSL s₀ args.toList) = true →
+    ⦃fun s => s = s₀⦄ whnfAppI .verified fe eager lv d v args i
     ⦃fun w s' => CSOKI .verified eager env s' ∧ TabLe s₀ s' ∧ OkStep s' w = true ∧
       Runs (ConLeche.whnfAppW .verified (ConLeche.fueledFns .verified eager env) env d (TrS s₀ v)
-        (TrSL s₀ args)) (TrStep s' w) ∧
+        (TrSL s₀ (args.toList.drop i))) (TrStep s' w) ∧
       StepWS d (TrStep s' w) ∧ StepClosed (TrStep s' w) = true; ⊤⦄
 
 /-- `reduceProjCoreI`'s spec (`reduceProjCoreC_spec`'s twin), P2-whnf's to
@@ -162,12 +162,12 @@ theorem whnfCoreStepI_spec {fe : InLean.FEnv} {lv : Nat}
     (hproj : ReduceProjSpecI eager env fe lv) {c : Bool} {d : Nat} {i : Expr}
     {s₀ : InLean.CState} (hs : CSOKI .verified eager env s₀) (hok : OkS s₀ i = true)
     (hw : ConLeche.Expr.WScoped d (TrS s₀ i)) (hc : (TrS s₀ i).looseBVarsBounded 0 = true) :
-    ⦃fun s => s = s₀⦄ whnfCoreStepI .verified fe eager lv c d i
+    ⦃fun s => s = s₀⦄ whnfCoreStepI .verified fe eager lv c d i.getAppFnT i
     ⦃fun v s' => CSOKI .verified eager env s' ∧ TabLe s₀ s' ∧ OkStep s' v = true ∧
       Runs (ConLeche.whnfCoreStepW .verified (ConLeche.fueledFns .verified eager env) env c d
         (TrS s₀ i)) (TrStep s' v) ∧
       StepWS d (TrStep s' v) ∧ StepClosed (TrStep s' v) = true; ⊤⦄ := by
-  sym only [conleche_grind, ConLeche.whnfCoreStepW] =>
+  sym only [conleche_grind, ConLeche.whnfCoreStepW, getAppArgsArr_toList, List.drop_zero] =>
     vcgen [InLean.whnfCoreStepI.eq_def, ih.whnfCore, ih.whnf, hproj, happ, hstuck (c := c)] <;> finish
 
 /-! ## The knot skeleton (`KnotC.lean`'s port)

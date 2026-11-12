@@ -162,7 +162,12 @@ theorem blockFormers_names (p : ConLeche.BlockShape) (isRec : Bool) :
 
 theorem blockCtors_names (p : ConLeche.BlockShape) :
     (ConLeche.blockCtors p).map (·.name) = p.allCtors.map (·.1.name) := by
-  unfold ConLeche.blockCtors; rw [List.map_map]; rfl
+  unfold ConLeche.blockCtors ConLeche.BlockShape.ctorGroups ConLeche.BlockShape.allCtors
+  simp only [List.map_map, List.map_flatten, List.flatMap_def]
+  congr 1
+  refine List.map_congr_left (fun ms _ => ?_)
+  simp only [Function.comp_apply, List.map_map]
+  rfl
 
 theorem blockRecs_names (p : ConLeche.BlockShape) : ∀ (rcs : List ConLeche.RecShape),
     (ConLeche.blockRecs p rcs).map (·.name) = rcs.map (·.cvR.name)
@@ -178,10 +183,12 @@ theorem blockFormers_mem (p : ConLeche.BlockShape) (isRec : Bool) {i : Nat}
   rw [List.mem_zipIdx_iff_getElem?]
   simp [hi]
 
-theorem blockCtors_mem (p : ConLeche.BlockShape) {c : ConLeche.ConstantVal × Nat}
-    (hc : c ∈ p.allCtors) : .ctorInfo c.1 p.nP c.2 ∈ ConLeche.blockCtors p := by
-  unfold ConLeche.blockCtors
-  exact List.mem_map.2 ⟨c, hc, rfl⟩
+theorem blockCtors_mem (p : ConLeche.BlockShape) {ms : ConLeche.MemberShape}
+    (hms : ms ∈ p.members) {c : ConLeche.ConstantVal × Nat}
+    (hc : c ∈ ms.ctors) : .ctorInfo c.1 p.nP c.2 ms.cvT.name ∈ ConLeche.blockCtors p := by
+  unfold ConLeche.blockCtors ConLeche.BlockShape.ctorGroups
+  rw [List.mem_flatMap]
+  exact ⟨(ms.cvT.name, ms.ctors), List.mem_map_of_mem hms, List.mem_map.2 ⟨c, hc, rfl⟩⟩
 
 theorem blockRecs_mem (p : ConLeche.BlockShape) : ∀ {rcs : List ConLeche.RecShape} {rc : ConLeche.RecShape},
     rc ∈ rcs → .recInfo rc.cvR rc.mI rc.rP rc.isK
@@ -391,15 +398,15 @@ theorem RecogCtx.former (C : RecogCtx block p nP cvTs cs rs) {ms : InLean.Member
 theorem RecogCtx.ctorW (C : RecogCtx block p nP cvTs cs rs) {ms : InLean.MemberShape}
     (hms : ms ∈ p.members) {c : ConstantVal × Nat} (hc : c ∈ ms.ctors) :
     ∃ w, Lean.ConstantInfo.ctorInfo w ∈ block ∧ w.toConstantVal = c.1 ∧ w.numParams = p.nP ∧
-      w.numFields = c.2 := by
-  obtain ⟨w, hw, h1, h2, -⟩ := C.ga.ctor ms hms c hc
+      w.numFields = c.2 ∧ w.induct = ms.cvT.name := by
+  obtain ⟨w, hw, h1, h2, hind⟩ := C.ga.ctor ms hms c hc
   obtain ⟨hwb, hwn⟩ := constNamed?_mem hw
   obtain ⟨x, hx, hxc⟩ := List.mem_map.1 (C.ctorMem ms hms c hc)
   obtain ⟨ci, hci, hcicv⟩ := (blockSplit_sub C.split).2 x hx
   have hx1 : x.1 = c.1 := by rw [← hxc]
   have : ci = .ctorInfo w := C.uniq hci hwb (by rw [ci_cv_name, hcicv, hx1]; exact hwn.symm)
   subst this
-  exact ⟨w, hwb, hcicv.trans hx1, h1, h2⟩
+  exact ⟨w, hwb, hcicv.trans hx1, h1, h2, hind⟩
 
 /-- A block former is a member's. -/
 theorem RecogCtx.ofFormer (C : RecogCtx block p nP cvTs cs rs) {v : InductiveVal}
@@ -418,7 +425,7 @@ theorem RecogCtx.ofFormer (C : RecogCtx block p nP cvTs cs rs) {v : InductiveVal
 theorem RecogCtx.ofCtor (C : RecogCtx block p nP cvTs cs rs) {v : ConstructorVal}
     (h : Lean.ConstantInfo.ctorInfo v ∈ block) :
     ∃ ms ∈ p.members, ∃ c ∈ ms.ctors, c.1 = v.toConstantVal ∧ v.numParams = p.nP ∧
-      v.numFields = c.2 := by
+      v.numFields = c.2 ∧ v.induct = ms.cvT.name := by
   rcases blockSplit_mem C.split _ h with ⟨w, hw, _⟩ | ⟨w, hw, hm⟩ | ⟨w, hw, _⟩
   · cases hw
   · cases hw
@@ -427,11 +434,11 @@ theorem RecogCtx.ofCtor (C : RecogCtx block p nP cvTs cs rs) {v : ConstructorVal
     obtain ⟨c, hc, hcn⟩ := List.mem_map.1 hn
     obtain ⟨g, hg, hcg⟩ := List.mem_flatten.1 hc
     obtain ⟨ms, hms, rfl⟩ := List.mem_map.1 hg
-    obtain ⟨w, hwb, h1, h2, h3⟩ := C.ctorW hms hcg
+    obtain ⟨w, hwb, h1, h2, h3, h4⟩ := C.ctorW hms hcg
     have : Lean.ConstantInfo.ctorInfo w = .ctorInfo v :=
       C.uniq hwb h (by show w.name = v.name; rw [← hcn, ← h1])
     cases this
-    exact ⟨ms, hms, c, hcg, h1.symm, h2, h3⟩
+    exact ⟨ms, hms, c, hcg, h1.symm, h2, h3, h4⟩
   · cases hw
 
 /-- A block recursor is a record's. -/
@@ -555,29 +562,31 @@ theorem RecogCtx.entry (C : RecogCtx block p nP cvTs cs rs)
       rw [hdecl]
       refine ⟨CVRel_trCV hokT, ?_, .inr ?_⟩
       · rw [← ConLeche.Cached.blockIsRecC_eq, blockIsRec_tr]
-        refine (toCaps_capsOf (mi := i) ?_ ?_ ?_ ?_ hrec).symm
+        refine (toCaps_capsOf (mi := i) ?_ ?_ ?_ ?_ hrec ?_).symm
         · rw [trShape_members_getD p hi, hctors]
           simp [trMember, trCtor]
         · rw [trShape_members_getD p hi, hidx]; rfl
         · rw [hnP]; rfl
         · rw [trShape_memberNames, hall]
+        · rw [trShape_members_getD p hi, hdecl]; exact CVRel_trCV hokT
       · intro c hc
         rw [hctors] at hc
         obtain ⟨c0, hc0, rfl⟩ := List.mem_map.1 hc
-        obtain ⟨w, hwb, hw1, -, -⟩ := C.ctorW (List.getElem_mem hi) hc0
+        obtain ⟨w, hwb, hw1, -, -, -⟩ := C.ctorW (List.getElem_mem hi) hc0
         have hf := hcv hwb
         rw [show w.name = c0.1.name by rw [← hw1]] at hf
         rw [hf]; rfl
   · -- a constructor
-    obtain ⟨ms, hms, c, hc, hc1, hnP, hnF⟩ := C.ofCtor hci
+    obtain ⟨ms, hms, c, hc, hc1, hnP, hnF, hind⟩ := C.ofCtor hci
     have hokT : okC v.type = true := C.okT _ hci
-    have hmem : trCtor c ∈ (trShape p).allCtors := by
-      simp only [trShape, ConLeche.BlockShape.allCtors, List.map_map, List.mem_flatten, List.mem_map]
-      exact ⟨_, ⟨ms, hms, rfl⟩, by simp only [Function.comp_apply, trMember]; exact List.mem_map_of_mem hc⟩
-    refine ⟨_, List.mem_append_left _ (List.mem_append_right _ (blockCtors_mem _ hmem)), ?_, ?_⟩
+    have hmsT : trMember ms ∈ (trShape p).members := by
+      simp only [trShape]; exact List.mem_map_of_mem hms
+    have hcT : trCtor c ∈ (trMember ms).ctors := by
+      simp only [trMember]; exact List.mem_map_of_mem hc
+    refine ⟨_, List.mem_append_left _ (List.mem_append_right _ (blockCtors_mem _ hmsT hcT)), ?_, ?_⟩
     · simp [trCtor, hc1]; rfl
-    · simp only [EntryRelI, trCtor, hc1]
-      exact ⟨CVRel_trCV hokT, by rw [hnP]; rfl, hnF.symm⟩
+    · simp only [EntryRelI, trCtor, hc1, trMember, hind]
+      exact ⟨CVRel_trCV hokT, by rw [hnP]; rfl, hnF.symm, rfl⟩
   · -- a recursor
     obtain ⟨hrc, hall⟩ := C.ofRec hci
     have hok := C.ok _ hci
@@ -725,7 +734,7 @@ theorem RecogCtx.table (C : RecogCtx block p nP cvTs cs rs) (hpend : fe'.pending
             · rw [h] at hsc
               simp only [↓reduceIte, Option.some.injEq] at hsc
               exact ⟨by rw [hsc], by simpa using h⟩
-      obtain ⟨w, hwb, hw1, hw2, hw3⟩ := C.ctorW hmsm (show c0 ∈ ms.ctors by rw [hc0.1]; simp)
+      obtain ⟨w, hwb, hw1, hw2, hw3, -⟩ := C.ctorW hmsm (show c0 ∈ ms.ctors by rw [hc0.1]; simp)
       have hwname : w.name = c0.1.name := by rw [← hw1]
       have hfw := hfind _ hwb
       rw [show (Lean.ConstantInfo.ctorInfo w).name = c0.1.name from hwname] at hfw

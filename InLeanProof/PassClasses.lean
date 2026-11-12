@@ -1142,8 +1142,8 @@ theorem mapM_classKeyOfI_run {nP : Nat} {params : List Lean.Expr} {s₀ : InLean
 @[expose] def trCE (c : Lean.ConstantVal × Nat × Nat) : ConLeche.ConstantVal × Nat × Nat :=
   (trCV c.1, c.2.1, c.2.2)
 
-theorem nestCtorEntry_trCE (C : Lean.Name) (cv : Lean.ConstantVal) (nPc nF : Nat) :
-    ConLeche.nestCtorEntry (toName C) (.ctorInfo (trCV cv) nPc nF) =
+theorem nestCtorEntry_trCE (C : Lean.Name) (cv : Lean.ConstantVal) (nPc nF : Nat) (T : ConLeche.Name) :
+    ConLeche.nestCtorEntry (toName C) (.ctorInfo (trCV cv) nPc nF T) =
       (InLean.nestCtorEntry C cv nPc nF).map trCE := by
   unfold ConLeche.nestCtorEntry InLean.nestCtorEntry
   simp only
@@ -1168,14 +1168,14 @@ theorem nestCtorEntry_trCE (C : Lean.Name) (cv : Lean.ConstantVal) (nPc nF : Nat
 
 theorem ctorEntry_tr {fe : InLean.FEnv} {L : ConLeche.Env} (hJ : JobEnvI fe L) (C n : Lean.Name) :
     (L.find? (toName n)).bind (ConLeche.nestCtorEntry (toName C)) =
-      ((fe.ctorView? n).bind fun (cv, nPc, nF) => InLean.nestCtorEntry C cv nPc nF).map trCE := by
+      ((fe.ctorView? n).bind fun (cv, nPc, nF, _) => InLean.nestCtorEntry C cv nPc nF).map trCE := by
   cases hv : fe.ctorView? n with
   | some q =>
-    obtain ⟨cv, nPc, nF⟩ := q
+    obtain ⟨cv, nPc, nF, T⟩ := q
     obtain ⟨ccv, hcv, hL⟩ := ctorView_rel hJ.pres hv
     rw [hL, hcv.eq_trCV]
     simp only [Option.bind_some]
-    exact nestCtorEntry_trCE C cv nPc nF
+    exact nestCtorEntry_trCE C cv nPc nF _
   | none =>
     have hn := ctorView_none hJ.pres hv
     simp only [Option.bind_none, Option.map_none]
@@ -1183,7 +1183,7 @@ theorem ctorEntry_tr {fe : InLean.FEnv} {L : ConLeche.Env} (hJ : JobEnvI fe L) (
     | none => rfl
     | some ci =>
       cases ci with
-      | ctorInfo ccv nP nF => exact (hn ccv nP nF hL).elim
+      | ctorInfo ccv nP nF T => exact (hn ccv nP nF T hL).elim
       | _ => rfl
 
 /-- **A stored container's constructors** (`targetCtorsOf`), at master's
@@ -1205,7 +1205,7 @@ theorem targetCtorsOf_tr {fe : InLean.FEnv} {L : ConLeche.Env} (hJ : JobEnvI fe 
     have hcs : (toCaps caps).ctors.filterMap
         (fun n => (L.find? n).bind (ConLeche.nestCtorEntry (toName I))) =
         (caps.ctors.filterMap fun n =>
-          (fe.ctorView? n).bind fun (cv, nPc, nF) => InLean.nestCtorEntry I cv nPc nF).map trCE := by
+          (fe.ctorView? n).bind fun (cv, nPc, nF, _) => InLean.nestCtorEntry I cv nPc nF).map trCE := by
       simp only [toCaps, List.filterMap_map]
       rw [List.map_filterMap]
       congr 1
@@ -1213,7 +1213,7 @@ theorem targetCtorsOf_tr {fe : InLean.FEnv} {L : ConLeche.Env} (hJ : JobEnvI fe 
       exact ctorEntry_tr hJ I n
     rw [hcs]
     generalize (caps.ctors.filterMap fun n =>
-      (fe.ctorView? n).bind fun (cv, nPc, nF) => InLean.nestCtorEntry I cv nPc nF) = cs
+      (fe.ctorView? n).bind fun (cv, nPc, nF, _) => InLean.nestCtorEntry I cv nPc nF) = cs
     cases cs with
     | nil => rfl
     | cons c cs =>

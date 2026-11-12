@@ -128,7 +128,7 @@ theorem checkBlockCtors_lbb {env₀ env : ConLeche.Env} {q : ConLeche.BlockShape
 theorem checkBlockCtors_push {env : ConLeche.Env} (henv : ConLeche.EnvWF env)
     {q : ConLeche.BlockShape} {l : List ConLeche.MemberShape} {nP : Nat}
     (h : Runs (ConLeche.checkBlockCtors (ConLeche.fueledOpsM .verified) env env q l) ()) :
-    ConLeche.EnvWF (ConLeche.consBlockCtors nP (l.map (·.ctors)) env) := by
+    ConLeche.EnvWF (ConLeche.consBlockCtors nP (l.map fun ms => (ms.cvT.name, ms.ctors)) env) := by
   obtain ⟨F, hF⟩ := h
   rw [ConLeche.checkBlockCtors_datF] at hF
   obtain ⟨_, hR⟩ := ConLeche.checkBlockCtors_inv hF
@@ -248,7 +248,7 @@ theorem targetCtorsOf_ctorOk {fe : InLean.FEnv} {L : ConLeche.Env} (hJ : JobEnvI
   split at h
   · rename_i cv caps _
     have hall : ∀ x ∈ caps.ctors.filterMap (fun n =>
-        (fe.ctorView? n).bind fun (cv, nPc, nF) => InLean.nestCtorEntry I cv nPc nF),
+        (fe.ctorView? n).bind fun (cv, nPc, nF, _) => InLean.nestCtorEntry I cv nPc nF),
         CtorOkI (x.1, x.2.2) := by
       intro x hx
       obtain ⟨n, -, hn⟩ := List.mem_filterMap.1 hx
@@ -484,7 +484,7 @@ structure PassDataI (s : InLean.CState) (q : InLean.BlockPass) (cq : ConLeche.Bl
   ctors : ∀ cs ∈ q.p.memberCtors, ∀ c ∈ cs, CtorOkI c
   recs : ∀ rc ∈ q.p.recs, okC rc.cvR.type = true ∧ (trC rc.cvR.type).looseBVarsBounded 0 = true
   ctorsFresh : ∀ ms ∈ q.p.members, ∀ c ∈ ms.ctors, q.env₁.env.find? c.1.name = none
-  ctorsWF : ConLeche.EnvWF (ConLeche.consBlockCtors cq.p.nP cq.p.memberCtors cq.env₁)
+  ctorsWF : ConLeche.EnvWF (ConLeche.consBlockCtors cq.p.nP cq.p.ctorGroups cq.env₁)
   tblCl : ∀ e ∈ q.tbl.toList, (TrS s e.ty).looseBVarsBounded 0 = true
   ctorsNodup : (ctorNamesOf q.p.members).Nodup
   ctorsSorry : ∀ m ∈ q.p.members, ∀ c ∈ m.ctors, c.1.name = InLean.sorryAxName →

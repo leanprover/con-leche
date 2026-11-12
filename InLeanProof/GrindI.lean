@@ -437,6 +437,98 @@ theorem OkSL_appArgs {e : Expr} (h : OkS s e = true) : OkSL s (appArgs e) = true
   OkSL_appArgs_go s h rfl
 grind_pattern [conleche_grind] OkSL_appArgs => OkS s e, appArgs e
 
+/-- A list's reading and translation are stable along the run. -/
+theorem okSL_of_tabLe {s₀ s₁ : InLean.CState} (h : TabLe s₀ s₁) :
+    ∀ {l : List Expr}, OkSL s₀ l = true → OkSL s₁ l = true
+  | [], _ => rfl
+  | a :: l, hl => by
+    simp only [OkSL_cons, Bool.and_eq_true] at hl ⊢
+    exact ⟨okS_of_tabLe h hl.1, okSL_of_tabLe h hl.2⟩
+grind_pattern [conleche_grind] okSL_of_tabLe => TabLe s₀ s₁, OkSL s₁ l
+
+end Spine
+
+/-! ### The argument array (task #577): `getAppArgsArr` is `appArgs` -/
+
+section ArraySpine
+
+theorem iotaNumArgs_add0 (e : Expr) : ∀ n, InLean.iotaNumArgs e n = InLean.iotaNumArgs e 0 + n := by
+  induction e with
+  | app g a ihg _ =>
+    intro n
+    rw [InLean.iotaNumArgs, InLean.iotaNumArgs, ihg (n + 1), ihg 1]
+    omega
+  | mdata _ x ih => intro n; rw [InLean.iotaNumArgs, InLean.iotaNumArgs, ih n]
+  | _ => intro n; simp [InLean.iotaNumArgs]
+
+theorem appArgs_go_append : ∀ (e : Expr) (acc : List Expr),
+    appArgs.go e acc = appArgs.go e [] ++ acc := by
+  intro e
+  induction e with
+  | app f a ihf _ =>
+    intro acc
+    rw [appArgs.go, appArgs.go, ihf (a :: acc), ihf [a]]
+    simp
+  | mdata _ x ih => intro acc; rw [appArgs.go, appArgs.go, ih]
+  | _ => intro acc; simp [appArgs.go]
+
+theorem appArgs_app (g a : Expr) : appArgs (.app g a) = appArgs g ++ [a] := by
+  show appArgs.go (.app g a) [] = appArgs.go g []  ++ [a]
+  simp only [appArgs.go]
+  exact appArgs_go_append g [a]
+
+theorem appArgs_mdata (m : MData) (x : Expr) : appArgs (.mdata m x) = appArgs x := by
+  show appArgs.go (.mdata m x) [] = appArgs.go x []
+  simp only [appArgs.go]
+
+theorem iotaNumArgs_length (e : Expr) : InLean.iotaNumArgs e 0 = (appArgs e).length := by
+  induction e with
+  | app g a ihg _ =>
+    rw [InLean.iotaNumArgs, iotaNumArgs_add0 g 1, ihg, appArgs_app]
+    simp
+  | mdata _ x ih => rw [InLean.iotaNumArgs, ih, appArgs_mdata]
+  | _ => rfl
+
+theorem getAppArgsArrGo_toList : ∀ (e : Expr) (acc : Array Expr),
+    InLean.iotaNumArgs e 0 ≤ acc.size →
+    (InLean.getAppArgsArrGo e (InLean.iotaNumArgs e 0) acc).toList
+      = appArgs e ++ acc.toList.drop (InLean.iotaNumArgs e 0) := by
+  intro e
+  induction e with
+  | app g a ihg _ =>
+    intro acc hle
+    rw [InLean.iotaNumArgs, iotaNumArgs_add0 g 1] at hle ⊢
+    rw [InLean.getAppArgsArrGo, ihg _ (by simp; omega)]
+    simp only [Array.set!, Array.toList_setIfInBounds]
+    rw [appArgs_app, List.append_assoc]
+    congr 1
+    generalize InLean.iotaNumArgs g 0 = n at hle ⊢
+    rw [List.drop_set]
+    have hn : n < acc.toList.length := by simp; omega
+    rw [List.drop_eq_getElem_cons hn]
+    simp
+  | mdata _ x ih =>
+    intro acc hle
+    rw [InLean.iotaNumArgs] at hle ⊢
+    rw [InLean.getAppArgsArrGo, ih acc hle, appArgs_mdata]
+  | _ => intro acc _; simp [InLean.getAppArgsArrGo, InLean.iotaNumArgs, appArgs, appArgs.go]
+
+/-- The argument array is the argument list. -/
+@[conleche_grind =] theorem getAppArgsArr_toList (e : Expr) :
+    (InLean.getAppArgsArr e).toList = appArgs e := by
+  unfold InLean.getAppArgsArr
+  rw [getAppArgsArrGo_toList e _ (by simp)]
+  simp
+
+@[conleche_grind =] theorem getAppArgsArr_size (e : Expr) :
+    (InLean.getAppArgsArr e).size = (appArgs e).length := by
+  rw [← Array.length_toList, getAppArgsArr_toList]
+
+end ArraySpine
+
+section Spine
+variable (s : InLean.CState)
+
 /-- An optional term, translated. -/
 @[expose] def TrO : Option Expr → Option ConLeche.Expr
   | none => none

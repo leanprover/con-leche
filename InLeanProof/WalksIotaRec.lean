@@ -48,46 +48,6 @@ abbrev ProofIrrelSpecI (eager : Bool) (env : ConLeche.Env) (fe : InLean.FEnv) (l
       Runs (ConLeche.proofIrrel (ConLeche.fueledFns .verified eager env) d (TrS s₀ a) (TrS s₀ b))
         v; ⊤⦄
 
-/-! ## Lists through the translation -/
-
-section Lists
-variable (s : InLean.CState)
-
-theorem TrSL_take (l : List Expr) (k : Nat) : TrSL s (l.take k) = (TrSL s l).take k := by
-  simp [TrSL, List.map_take]
-
-theorem TrSL_drop (l : List Expr) (k : Nat) : TrSL s (l.drop k) = (TrSL s l).drop k := by
-  simp [TrSL, List.map_drop]
-
-theorem TrSL_append (l l' : List Expr) : TrSL s (l ++ l') = TrSL s l ++ TrSL s l' := by
-  simp [TrSL]
-
-theorem TrSL_length (l : List Expr) : (TrSL s l).length = l.length := by simp [TrSL]
-
-theorem OkSL_take {l : List Expr} (h : OkSL s l = true) (k : Nat) : OkSL s (l.take k) = true := by
-  simp only [OkSL, List.all_eq_true] at h ⊢; exact fun x hx => h x (List.mem_of_mem_take hx)
-
-theorem OkSL_drop {l : List Expr} (h : OkSL s l = true) (k : Nat) : OkSL s (l.drop k) = true := by
-  simp only [OkSL, List.all_eq_true] at h ⊢; exact fun x hx => h x (List.mem_of_mem_drop hx)
-
-theorem OkSL_append {l l' : List Expr} (h : OkSL s l = true) (h' : OkSL s l' = true) :
-    OkSL s (l ++ l') = true := by
-  simp only [OkSL] at h h' ⊢; rw [List.all_append, h, h']; rfl
-
-end Lists
-
-theorem AllClosed_take {l : List ConLeche.Expr} (h : AllClosed l = true) (k : Nat) :
-    AllClosed (l.take k) = true := by
-  simp only [AllClosed, List.all_eq_true] at h ⊢; exact fun x hx => h x (List.mem_of_mem_take hx)
-
-theorem AllClosed_drop {l : List ConLeche.Expr} (h : AllClosed l = true) (k : Nat) :
-    AllClosed (l.drop k) = true := by
-  simp only [AllClosed, List.all_eq_true] at h ⊢; exact fun x hx => h x (List.mem_of_mem_drop hx)
-
-theorem AllClosed_append {l l' : List ConLeche.Expr} (h : AllClosed l = true)
-    (h' : AllClosed l' = true) : AllClosed (l ++ l') = true := by
-  simp only [AllClosed] at h h' ⊢; rw [List.all_append, h, h']; rfl
-
 /-! ## The rescue's blocks, named -/
 
 section Blocks
@@ -124,7 +84,7 @@ variable (mode : InLean.CheckMode)
     let margs := appArgs tmaj
     if T' == T ∧ margs.length = tbl.numParams ∧
         ust.length = cvT.levelParams.length then do
-      if ← formerNeverZeroI mode fe eager lv cvT caps ust then do
+      if ← familyNeverZeroI mode fe eager lv cvT caps ust then do
         let fab ← mkAppNM (.const tbl.ctor ust)
           (margs ++ projNodesI T major (List.range tbl.numFields))
         if Expr.wscopedBC depth fab && (Expr.closedBV fab) && (← leafGuardM fab major) then
@@ -174,13 +134,10 @@ theorem majorToCtorI_eq (fe : InLean.FEnv) (lv : Nat) (depth : Nat) (isK : Bool)
     match rules with
     | [rl] =>
       match fe.ctorView? rl.ctor with
-      | some (cvj, cnP, _) =>
-        match EO.stripTop ((piResult cvj.type).getAppFnT) with
-        | .const T _ =>
-          match fe.indView? T with
-          | some (cvT, caps) => mtcBodyIL mode fe eager lv depth major isK rl cvj cnP T cvT caps
-          | none => pure major
-        | _ => pure major
+      | some (cvj, cnP, _, T) =>
+        match fe.indView? T with
+        | some (cvT, caps) => mtcBodyIL mode fe eager lv depth major isK rl cvj cnP T cvT caps
+        | none => pure major
       | none => pure major
     | _ => pure major) := by
   rw [InLean.majorToCtorI.eq_def]; rfl
@@ -459,7 +416,7 @@ theorem mtcEtaIL_specI (ih : KnotSpecI .verified .verified eager env fe lv) {d :
       simp only [hcond, hcond', and_self, ↓reduceIte] at hr ⊢
       obtain ⟨nz, s₃, h3, hr⟩ := bind_run hr
       obtain ⟨hs₃, ht₃, hrun₃⟩ := tripleI_iff_run.1
-        (formerNeverZeroI_specI ih hcvT hcl hlbb caps hust hs₂) nz s₃ h3
+        (familyNeverZeroI_specI ih hcvT hcl hlbb caps hust hs₂) nz s₃ h3
       rw [Runs.bind_eq _ hrun₃]
       have ht03 := ht02.trans ht₃
       cases nz with
@@ -703,48 +660,24 @@ theorem majorToCtorI_specI (ih : KnotSpecI .verified .verified eager env fe lv) 
         cases hcv : fe.ctorView? rl.ctor with
         | none =>
           dsimp only
-          exact hpost (mtc_notCtor hct' rfl (fun cvj nP nF h => by
-            rw [hrl.1] at h; exact hv.ctorNone _ hcv _ _ _ h))
+          exact hpost (mtc_notCtor hct' rfl (fun cvj nP nF T h => by
+            rw [hrl.1] at h; exact hv.ctorNone _ hcv _ _ _ _ h))
         | some p =>
-          obtain ⟨cvj, cnP, nF⟩ := p
-          obtain ⟨ccvj, hcvj, hfj⟩ := hv.ctor _ cvj cnP nF hcv
+          obtain ⟨cvj, cnP, nF, T⟩ := p
+          obtain ⟨ccvj, hcvj, hfj⟩ := hv.ctor _ cvj cnP nF T hcv
           rw [← hrl.1] at hfj
           dsimp only
-          have hty : ccvj.type = TrS s₀ cvj.type := (hcvj.2.2.trS s₀).symm
-          have hhead : (ccvj.type.piResult).getAppFn =
-              TrS s₀ (EO.stripTop ((InLean.piResult cvj.type).getAppFnT)) := by
-            rw [stripTop_getAppFnT, TrS_getAppFnT, TrS_piResult, hty]
-          generalize hx : EO.stripTop ((InLean.piResult cvj.type).getAppFnT) = x at hhead
-          cases x with
-          | const T lus =>
+          cases hind : fe.indView? T with
+          | none =>
             dsimp only
-            rw [TrS_const] at hhead
-            cases hind : fe.indView? T with
-            | none =>
-              dsimp only
-              exact hpost (mtc_notInd hct' rfl hfj hhead (fun cvT caps h =>
-                hv.indNone T hind cvT caps h))
-            | some q =>
-              obtain ⟨cvT, caps⟩ := q
-              obtain ⟨ccvT, hcvT, hfT⟩ := hv.ind T cvT caps hind
-              dsimp only
-              rw [mtc_body hct' rfl hfj hhead hfT]
-              exact mtcBodyIL_specI ih hpi henv hv hrl.1 hcvj hcvT hfT hs hok hw hc
-          | fvar id =>
-            have hnc : ∀ T lus, (ccvj.type.piResult).getAppFn ≠ .const T lus := by
-              intro T lus h
-              rw [hhead] at h
-              simp only [TrS, trE] at h
-              cases hf : FVarTable.trans (tableOf s₀) id with
-              | none => simp [hf] at h
-              | some c =>
-                obtain ⟨d', ty, rfl⟩ := FVarTable.trans_fvarsOnly _ id c hf
-                simp [hf] at h
-            exact hpost (mtc_notConst hct' rfl hfj hnc)
-          | mdata _ y => exact (stripTop_ne_mdata hx).elim
-          | _ =>
-            exact hpost (mtc_notConst hct' rfl hfj (fun T lus h => by
-              rw [hhead] at h; simp [TrS, trE] at h))
+            exact hpost (mtc_notInd hct' rfl hfj (fun cvT caps h =>
+              hv.indNone T hind cvT caps h))
+          | some q =>
+            obtain ⟨cvT, caps⟩ := q
+            obtain ⟨ccvT, hcvT, hfT⟩ := hv.ind T cvT caps hind
+            dsimp only
+            rw [mtc_body hct' rfl hfj hfT]
+            exact mtcBodyIL_specI ih hpi henv hv hrl.1 hcvj hcvT hfT hs hok hw hc
 
 /-- A `String` literal through the translation. -/
 theorem isStrLitI_TrS (s : InLean.CState) : ∀ e : Expr,
@@ -884,12 +817,16 @@ theorem prepareMajorI_specI (ih : KnotSpecI .verified .verified eager env fe lv)
     else pure false
   else pure false
 
-/-- The case-3 certificate block of `iotaRecI` (the argument of `certAtI`). -/
+/-- The case-3 certificate block of `iotaRecI` (the argument of `certAtI`):
+the stored facts first (`iotaNoCert`), then the case-3 decision. -/
 @[expose] def iotaCertIL (fe : InLean.FEnv) (eager : Bool) (lv : Nat) (depth : Nat) (rv : RecursorVal)
     (isQuot : Bool) (us : List Level) (args : List Expr) (cj : Name) (usj : List Level)
-    (cvj : Lean.ConstantVal) (cnP : Nat) (margs : List Expr) : InLean.CheckCM Bool := do
+    (cvj : Lean.ConstantVal) (induct : Name) (cnP : Nat) (margs : List Expr) :
+    InLean.CheckCM Bool :=
+  if InLean.iotaNoCert fe rv.k induct (InLean.recFireLevelCount (recFireAt rv isQuot) cvj.levelParams)
+  then pure true else do
   let cmpLvls ← cmpLvlsIL rv us cvj (recFireAt rv isQuot)
-  if ← iotaCase3I .verified fe eager lv rv.k cvj cmpLvls then do
+  if ← iotaCase3I .verified fe eager lv rv.k induct cmpLvls then do
     if ← liftFueled "level comparison" (← isEquivListLM usj cmpLvls) then do
       let cmpArgs ← cmpArgsIL rv us args cnP (recFireAt rv isQuot)
       certRestIL fe eager lv depth rv args cj usj cnP margs cmpArgs
@@ -900,16 +837,19 @@ theorem prepareMajorI_specI (ih : KnotSpecI .verified .verified eager env fe lv)
 inline, which the elaborator splits the continuation over). -/
 @[expose] def iotaCertInline (fe : InLean.FEnv) (eager : Bool) (lv : Nat) (depth : Nat)
     (rv : RecursorVal) (isQuot : Bool) (us : List Level) (args : List Expr) (cj : Name)
-    (usj : List Level) (cvj : Lean.ConstantVal) (cnP : Nat) (margs : List Expr) :
+    (usj : List Level) (cvj : Lean.ConstantVal) (induct : Name) (cnP : Nat) (margs : List Expr) :
     InLean.CheckCM Bool := do
   let fire := recFireAt rv isQuot
+  if InLean.iotaNoCert fe rv.k induct (InLean.recFireLevelCount fire cvj.levelParams) then
+    pure true
+  else do
   let cmpLvls : List Level ←
     match fire with
     | .nested lvls _ => InLean.substLevelTreesM rv.levelParams us lvls
     | .plain =>
       InLean.substLevelTreesM rv.levelParams us (cvj.levelParams.map Level.param)
     | .levels lvls => InLean.substLevelTreesM rv.levelParams us lvls
-  if ← iotaCase3I .verified fe eager lv rv.k cvj cmpLvls then do
+  if ← iotaCase3I .verified fe eager lv rv.k induct cmpLvls then do
     if ← liftFueled "level comparison" (← isEquivListLM usj cmpLvls) then do
       let cmpArgs : List Expr ←
         match fire with
@@ -931,10 +871,13 @@ inline, which the elaborator splits the continuation over). -/
 
 theorem iotaCertInline_eq (fe : InLean.FEnv) (eager : Bool) (lv : Nat) (depth : Nat)
     (rv : RecursorVal) (isQuot : Bool) (us : List Level) (args : List Expr) (cj : Name)
-    (usj : List Level) (cvj : Lean.ConstantVal) (cnP : Nat) (margs : List Expr) :
-    iotaCertInline fe eager lv depth rv isQuot us args cj usj cvj cnP margs =
-      iotaCertIL fe eager lv depth rv isQuot us args cj usj cvj cnP margs := by
+    (usj : List Level) (cvj : Lean.ConstantVal) (induct : Name) (cnP : Nat) (margs : List Expr) :
+    iotaCertInline fe eager lv depth rv isQuot us args cj usj cvj induct cnP margs =
+      iotaCertIL fe eager lv depth rv isQuot us args cj usj cvj induct cnP margs := by
   unfold iotaCertInline iotaCertIL cmpLvlsIL cmpArgsIL certRestIL
+  simp only [pure_bind]
+  split
+  · rfl
   generalize recFireAt rv isQuot = fire
   cases fire with
   | plain => simp only [pure_bind]
@@ -1071,7 +1014,8 @@ theorem cmpArgsIL_run {rv : RecursorVal} {us : List Level} (hus : us.all okLv = 
 theorem certRestIL_run (ih : KnotSpecI .verified .verified eager env fe lv) (henv : ConLeche.EnvWF env)
     (hfe : EnvRelI fe env) {d : Nat} {rv : RecursorVal} {args : List Expr} {cj : Name}
     {usj : List Level} (husj : usj.all okLv = true) {cnP nF : Nat} {ccvj : ConLeche.ConstantVal}
-    (hfj : env.find? (toName cj) = some (.ctorInfo ccvj cnP nF))
+    {cT : ConLeche.Name}
+    (hfj : env.find? (toName cj) = some (.ctorInfo ccvj cnP nF cT))
     {margs cmpArgs : List Expr} {s₀ s₁ : InLean.CState} (hs : CSOKI .verified eager env s₀)
     (hargs : OkSL s₀ args = true) (hwa : AllWS d (TrSL s₀ args))
     (hca : AllClosed (TrSL s₀ args) = true)
@@ -1143,14 +1087,23 @@ theorem certRestIL_run (ih : KnotSpecI .verified .verified eager env fe lv) (hen
       rw [htty₄, htm₄, htidx, hty] at hrun₅
       exact ⟨hs₅, ht04.trans ht₅, hrun₅⟩
 
+/-- The comparand levels' count through the firing modes' relation. -/
+theorem recFireLevelCount_rel {fire : InLean.RecRuleFire} {crl : ConLeche.RecRule}
+    (hfire : FireRel fire crl.fire) (lps : List Name) :
+    InLean.recFireLevelCount fire lps = ConLeche.recFireLevelCount crl (lps.map toName) := by
+  unfold InLean.recFireLevelCount ConLeche.recFireLevelCount
+  revert hfire
+  cases fire <;> cases crl.fire <;> intro hfire <;> simp_all [FireRel]
+
 /-- **The case-3 certificate block** (`iotaCertC_spec`'s twin). -/
 theorem iotaCertIL_specI (ih : KnotSpecI .verified .verified eager env fe lv) (henv : ConLeche.EnvWF env)
     (hv : EnvViewI fe env) (hfe : EnvRelI fe env) {d : Nat} {rv : RecursorVal} {isQuot : Bool}
     {us : List Level} (hus : us.all okLv = true) {args : List Expr} {cj : Name}
     {usj : List Level} (husj : usj.all okLv = true) {cvj : Lean.ConstantVal} {cnP nF : Nat}
+    {induct : Name}
     {ccv ccvj : ConLeche.ConstantVal} {crl : ConLeche.RecRule}
     (hcv : ccv.levelParams = rv.levelParams.map toName) (hcvj : CVRel cvj ccvj)
-    (hfj : env.find? (toName cj) = some (.ctorInfo ccvj cnP nF))
+    (hfj : env.find? (toName cj) = some (.ctorInfo ccvj cnP nF (toName induct)))
     (hfire : FireRel (recFireAt rv isQuot) crl.fire)
     (hpins : ∀ lvls pins, crl.fire = .nested lvls pins →
       ∀ p ∈ pins, p.hasFvar = false ∧ p.looseBVarsBounded (rulePrefixOf rv) = true)
@@ -1160,23 +1113,40 @@ theorem iotaCertIL_specI (ih : KnotSpecI .verified .verified eager env fe lv) (h
     (hca : AllClosed (TrSL s₀ args) = true)
     (hm : OkSL s₀ margs = true) (hwm : AllWS d (TrSL s₀ margs))
     (hcm : AllClosed (TrSL s₀ margs) = true) :
-    ⦃fun s => s = s₀⦄ iotaCertIL fe eager lv d rv isQuot us args cj usj cvj cnP margs
+    ⦃fun s => s = s₀⦄ iotaCertIL fe eager lv d rv isQuot us args cj usj cvj induct cnP margs
     ⦃fun b s' => CSOKI .verified eager env s' ∧ TabLe s₀ s' ∧
       Runs (iotaCertP (ConLeche.fueledFns .verified eager env) env d ccv (majorIdxOf rv)
-        (rulePrefixOf rv) rv.k (us.map trL) (TrSL s₀ args) (usj.map trL) ccvj cnP crl
-        (TrSL s₀ margs)) b; ⊤⦄ := by
+        (rulePrefixOf rv) rv.k (us.map trL) (TrSL s₀ args) (usj.map trL) ccvj (toName induct) cnP
+        crl (TrSL s₀ margs)) b; ⊤⦄ := by
   refine tripleI_iff_run.2 fun b s' hr => ?_
   unfold iotaCertIL at hr
   unfold iotaCertP
+  have hcount := ConLeche.recFireComparands_fst_length crl cnP ccv.levelParams (us.map trL)
+    ccvj.levelParams (TrSL s₀ args) (rulePrefixOf rv)
+  have hnc : InLean.iotaNoCert fe rv.k induct
+      (InLean.recFireLevelCount (recFireAt rv isQuot) cvj.levelParams) =
+      ConLeche.iotaNoCert env.find? rv.k (toName induct)
+        (ConLeche.recFireComparands crl cnP ccv.levelParams (us.map trL) ccvj.levelParams
+          (TrSL s₀ args) (rulePrefixOf rv)).1.length := by
+    rw [hcount, iotaNoCert_CV hv, recFireLevelCount_rel hfire, hcvj.2.1]
+  dsimp only
+  unfold ConLeche.iotaCaseAt
+  rw [← hnc]
+  by_cases hnoc : InLean.iotaNoCert fe rv.k induct
+      (InLean.recFireLevelCount (recFireAt rv isQuot) cvj.levelParams) = true
+  · simp only [hnoc, ↓reduceIte] at hr ⊢
+    obtain ⟨rfl, rfl⟩ := pure_run hr
+    rw [Runs.pure_bind_eq]
+    exact ⟨hs, TabLe.refl _, Runs.pure _⟩
+  simp only [hnoc, Bool.false_eq_true, ↓reduceIte] at hr ⊢
   rw [recFireComparands_eq, hcv]
   obtain ⟨ls, s₁, h1, hr⟩ := bind_run hr
   obtain ⟨hs₁, ht₁, hls, hlsT⟩ := cmpLvlsIL_run (cnP := cnP) (cargs := TrSL s₀ args)
     (rP := rulePrefixOf rv) hcvj hfire hus hs h1
-  dsimp only
   rw [← hlsT]
   obtain ⟨c3, s₂, h2, hr⟩ := bind_run hr
   obtain ⟨hs₂, ht₂, hrun₂⟩ := tripleI_iff_run.1
-    (iotaCase3I_specI ih henv hv (isK := rv.k) hcvj hls hs₁) c3 s₂ h2
+    (iotaCase3I_specI ih henv hv (isK := rv.k) (induct := induct) hls hs₁) c3 s₂ h2
   rw [Runs.bind_eq _ hrun₂]
   cases c3 with
   | false =>
@@ -1258,20 +1228,32 @@ theorem rules_facts (henv : ConLeche.EnvWF env) {n : ConLeche.Name} {ccv : ConLe
   obtain ⟨a, -, -, b⟩ := hpins p hp
   exact ⟨a, b⟩
 
-/-- **The ι step** (`iotaRecC_spec`'s twin): it discharges `IotaRecSpecI`. -/
+/-- **The ι step** (`iotaRecC_spec`'s twin): it discharges `IotaRecSpecI`.  The
+array spine `h args[0:k]` is the specification's redex rebuilt as a list
+(`L`); the reduct's ranges are its lists (`iotaReduct_eq`). -/
 theorem iotaRecI_specI (ih : KnotSpecI .verified .verified eager env fe lv) (hpi : ProofIrrelSpecI eager env fe lv)
     (henv : ConLeche.EnvWF env)
     (hv : EnvViewI fe env) (hrec : EnvRecI fe env) (hfe : EnvRelI fe env)
     (hdom : EnvDomI fe env) : IotaRecSpecI eager env fe lv := by
-  intro d i s₀ hs hok hw hc
+  intro d h args k s₀ hs hh hk hok hargs0 hwa0 hca0
   refine tripleI_iff_run.2 fun o s' hr => ?_
-  unfold InLean.iotaRecI at hr
-  by_cases hconst : ∃ c us, Expr.getAppFnT i = .const c us
-  · obtain ⟨c, us, hfn⟩ := hconst
-    rw [hfn] at hr
+  -- the redex's argument list
+  have hargsOk : OkSL s₀ (args.toList.take k) = true := OkSL_take s₀ hargs0 k
+  have hwa : AllWS d (TrSL s₀ (args.toList.take k)) := by rw [TrSL_take]; exact hwa0.take k
+  have hca : AllClosed (TrSL s₀ (args.toList.take k)) = true := by
+    rw [TrSL_take]; exact AllClosed_take hca0 k
+  have hLlen : (args.toList.take k).length = k := by simp; omega
+  rw [InLean.iotaRecI.eq_def] at hr
+  cases h with
+  | const c us =>
     dsimp only at hr
-    have hhead := TrS_getAppFn_const s₀ hfn
-    have hus := okLv_of_getAppFnT hok hfn
+    have hhead : (ConLeche.Expr.mkAppN (TrS s₀ (.const c us)) (TrSL s₀ (args.toList.take k))).getAppFn
+        = .const (toName c) (us.map trL) := by
+      rw [ConLeche.Expr.getAppFn_mkAppN, TrS_const]; rfl
+    have hargsT : TrSL s₀ (args.toList.take k) =
+        (ConLeche.Expr.mkAppN (TrS s₀ (.const c us)) (TrSL s₀ (args.toList.take k))).getAppArgs := by
+      rw [ConLeche.Expr.getAppArgs_mkAppN, TrS_const]; rfl
+    have hus : us.all okLv = true := by rw [OkS_const] at hok; exact hok
     cases hra : fe.recAt? c with
     | none =>
       rw [hra] at hr
@@ -1284,26 +1266,29 @@ theorem iotaRecI_specI (ih : KnotSpecI .verified .verified eager env fe lv) (hpi
       rw [hra] at hr
       dsimp only at hr
       rw [iotaRec_rec hhead hfc]
-      have hargsOk := OkSL_appArgs s₀ hok
-      have hargsT : TrSL s₀ (appArgs i) = (TrS s₀ i).getAppArgs := TrSL_appArgs s₀ i
-      have hwa : AllWS d (TrSL s₀ (appArgs i)) := by rw [hargsT]; exact allWS_getAppArgs hw
-      have hca : AllClosed (TrSL s₀ (appArgs i)) = true := by
-        rw [hargsT]; exact allClosed_getAppArgs hc
       have hty : ccv.type = TrS s₀ rv.type := (hcv.2.2.trS s₀).symm
-      have hiff : ((appArgs i).length = majorIdxOf rv + 1 ∧ us.length = rv.levelParams.length ∧
+      have hiff : (k = majorIdxOf rv + 1 ∧ k ≤ args.size ∧ us.length = rv.levelParams.length ∧
           (InLean.peelPis (majorIdxOf rv + 1) rv.type).isSome = true) ↔
-          ((TrS s₀ i).getAppArgs.length = majorIdxOf rv + 1 ∧
+          ((ConLeche.Expr.mkAppN (TrS s₀ (.const c us))
+              (TrSL s₀ (args.toList.take k))).getAppArgs.length = majorIdxOf rv + 1 ∧
             (us.map trL).length = ccv.levelParams.length ∧
             (ConLeche.Expr.peelPis (majorIdxOf rv + 1) ccv.type).isSome = true) := by
-        rw [← hargsT, TrSL_length, hty, peelPis_TrS, hcv.2.1, List.length_map, List.length_map]
-      by_cases hcond : (appArgs i).length = majorIdxOf rv + 1 ∧
+        rw [← hargsT, TrSL_length, hLlen, hty, peelPis_TrS, hcv.2.1, List.length_map,
+          List.length_map]
+        constructor
+        · intro h; exact ⟨h.1, h.2.2.1, h.2.2.2⟩
+        · intro h; exact ⟨h.1, hk, h.2.1, h.2.2⟩
+      by_cases hcond : k = majorIdxOf rv + 1 ∧ k ≤ args.size ∧
           us.length = rv.levelParams.length ∧
           (InLean.peelPis (majorIdxOf rv + 1) rv.type).isSome = true
       · have hcond' := hiff.1 hcond
-        simp only [hcond, hcond', and_self, ↓reduceIte] at hr ⊢
+        rw [ite_eq_left hcond] at hr
+        rw [ite_eq_left hcond']
+        have hmk : majorIdxOf rv < k := by rw [hcond.1]; omega
+        rw [spineArg_eq hmk] at hr
         obtain ⟨maj, s₁, h1, hr⟩ := bind_run hr
         obtain ⟨hokA, htrA, hwA, hcA⟩ := getD_facts s₀ (k := majorIdxOf rv)
-          (by rw [hcond.1]; omega) hargsOk hwa hca
+          (by rw [hLlen]; omega) hargsOk hwa hca
         rw [hargsT] at htrA
         obtain ⟨hs₁, ht₁, hok₁, hrun₁, hw₁, hc₁⟩ := tripleI_iff_run.1
           (prepareMajorI_specI (recName := toName c) ih hpi henv hv hdom hrules hs hokA hwA
@@ -1321,10 +1306,10 @@ theorem iotaRecI_specI (ih : KnotSpecI .verified .verified eager env fe lv) (hpi
             rw [hcvw] at hr
             obtain ⟨rfl, rfl⟩ := pure_run hr
             exact none_post hs₁ ht₁ (iotaRecK_notctor hheadj
-              (fun cvj nP nF h => hv.ctorNone cj hcvw cvj nP nF h))
+              (fun cvj nP nF T h => hv.ctorNone cj hcvw cvj nP nF T h))
           | some q =>
-            obtain ⟨cvj, cnP, nF⟩ := q
-            obtain ⟨ccvj, hcvj, hfj⟩ := hv.ctor cj cvj cnP nF hcvw
+            obtain ⟨cvj, cnP, nF, induct⟩ := q
+            obtain ⟨ccvj, hcvj, hfj⟩ := hv.ctor cj cvj cnP nF induct hcvw
             rw [hcvw] at hr
             dsimp only at hr
             have hfr := find_rule_rel hrules cj
@@ -1340,6 +1325,7 @@ theorem iotaRecI_specI (ih : KnotSpecI .verified .verified eager env fe lv) (hpi
               obtain ⟨hrhs1, hrhs2, hpins⟩ := rules_facts henv hfc hcmem
               rw [iotaRecK_ctor hheadj hfj hcfind]
               dsimp only at hr
+              simp only [getAppArgsArr_size] at hr
               have hmargsT : TrSL s₁ (appArgs maj) = (TrS s₁ maj).getAppArgs := TrSL_appArgs s₁ maj
               have hlenm : ((appArgs maj).length = cnP + rl.nfields) ↔
                   ((TrS s₁ maj).getAppArgs.length = cnP + crl.nfields) := by
@@ -1348,16 +1334,17 @@ theorem iotaRecI_specI (ih : KnotSpecI .verified .verified eager env fe lv) (hpi
               · simp only [hml, hlenm.1 hml, ↓reduceIte] at hr ⊢
                 obtain ⟨ok, s₂, h2, hr⟩ := bind_run hr
                 simp only [InLean.certAtI, InLean.CheckMode.verifiedChecks, ↓reduceIte] at h2
-                have h2' : iotaCertIL fe eager lv d rv isQuot us (appArgs i) cj usj cvj cnP (appArgs maj) s₁
-                    = .ok (ok, s₂) := by
-                  rw [← iotaCertInline_eq]; exact h2
+                have h2' : iotaCertIL fe eager lv d rv isQuot us (args.toList.take k) cj usj cvj
+                    induct cnP (appArgs maj) s₁ = .ok (ok, s₂) := by
+                  rw [← iotaCertInline_eq, ← getAppArgsArr_toList]; exact h2
                 have hargs₁ := okSL_of_tabLe ht₁ hargsOk
                 have hta₁ := TrSL_of_tabLe ht₁ hargsOk
                 have hmOk := OkSL_appArgs s₁ hok₁
                 obtain ⟨hs₂, ht₂, hrun₂⟩ := tripleI_iff_run.1
                   (iotaCertIL_specI (lv := lv) ih henv hv hfe (d := d) (rv := rv) (isQuot := isQuot)
-                    hus (args := appArgs i) (cj := cj) husj (cnP := cnP) (nF := nF) hcv.2.1 hcvj
-                    hfj hrl.2.2 hpins (by rw [hcond.1, rulePrefixOf, majorIdxOf]; omega) hs₁
+                    hus (args := args.toList.take k) (cj := cj) husj (cnP := cnP) (nF := nF)
+                    hcv.2.1 hcvj hfj hrl.2.2 hpins
+                    (by rw [hLlen, hcond.1, rulePrefixOf, majorIdxOf]; omega) hs₁
                     hargs₁ (hta₁ ▸ hwa) (hta₁ ▸ hca) hmOk
                     (by rw [hmargsT]; exact allWS_getAppArgs hw₁)
                     (by rw [hmargsT]; exact allClosed_getAppArgs hc₁)) ok s₂ h2'
@@ -1378,30 +1365,32 @@ theorem iotaRecI_specI (ih : KnotSpecI .verified .verified eager env fe lv) (hpi
                   have hrhsT : TrS s₃ rhs =
                       crl.rhs.instantiateLevelParams ccv.levelParams (us.map trL) :=
                     (Option.some.inj hrhs).symm
-                  obtain ⟨red, s₄, h4, hr⟩ := bind_run hr
-                  obtain ⟨rfl, rfl⟩ := pure_run h4
                   obtain ⟨rfl, rfl⟩ := pure_run hr
+                  have hsz : (InLean.getAppArgsArr maj).size = cnP + rl.nfields := by
+                    rw [getAppArgsArr_size, hml]
+                  rw [← hsz, iotaReduct_eq, getAppArgsArr_toList]
                   have ht03 := ht₁.trans (ht₂.trans ht₃)
                   have hargs₃ := okSL_of_tabLe ht03 hargsOk
                   have hta₃ := TrSL_of_tabLe ht03 hargsOk
                   have hm₃ := okSL_of_tabLe (ht₂.trans ht₃) hmOk
                   have htm₃ := TrSL_of_tabLe (ht₂.trans ht₃) hmOk
-                  have hxs : OkSL s₃ ((appArgs i).take (rulePrefixOf rv) ++
+                  have hxs : OkSL s₃ ((args.toList.take k).take (rulePrefixOf rv) ++
                       (appArgs maj).drop cnP) = true :=
                     OkSL_append s₃ (OkSL_take s₃ hargs₃ _) (OkSL_drop s₃ hm₃ _)
-                  have hTx : TrSL s₃ ((appArgs i).take (rulePrefixOf rv) ++ (appArgs maj).drop cnP)
-                      = (TrS s₀ i).getAppArgs.take (rulePrefixOf rv) ++
+                  have hTx : TrSL s₃ ((args.toList.take k).take (rulePrefixOf rv) ++
+                      (appArgs maj).drop cnP)
+                      = (ConLeche.Expr.mkAppN (TrS s₀ (.const c us))
+                          (TrSL s₀ (args.toList.take k))).getAppArgs.take (rulePrefixOf rv) ++
                         (TrS s₁ maj).getAppArgs.drop cnP := by
-                    rw [TrSL_append, TrSL_take, TrSL_drop, hta₃, htm₃, hargsT, hmargsT]
-                  have hwx : AllWS d (TrSL s₃ ((appArgs i).take (rulePrefixOf rv) ++
+                    rw [TrSL_append, TrSL_take, TrSL_drop, hta₃, htm₃, hmargsT, ← hargsT]
+                  have hwx : AllWS d (TrSL s₃ ((args.toList.take k).take (rulePrefixOf rv) ++
                       (appArgs maj).drop cnP)) := by
-                    rw [hTx]
-                    exact AllWS.append ((allWS_getAppArgs hw).take _)
-                      ((allWS_getAppArgs hw₁).drop _)
-                  have hcx : AllClosed (TrSL s₃ ((appArgs i).take (rulePrefixOf rv) ++
+                    rw [hTx, ← hargsT]
+                    exact AllWS.append (hwa.take _) ((allWS_getAppArgs hw₁).drop _)
+                  have hcx : AllClosed (TrSL s₃ ((args.toList.take k).take (rulePrefixOf rv) ++
                       (appArgs maj).drop cnP)) = true := by
-                    rw [hTx]
-                    exact AllClosed_append (AllClosed_take (allClosed_getAppArgs hc) _)
+                    rw [hTx, ← hargsT]
+                    exact AllClosed_append (AllClosed_take hca _)
                       (AllClosed_drop (allClosed_getAppArgs hc₁) _)
                   have hwr : ConLeche.Expr.WScoped d (TrS s₃ rhs) := by
                     rw [hrhsT]; exact ConLeche.Expr.WScoped.of_not_hasFvar
@@ -1432,16 +1421,11 @@ theorem iotaRecI_specI (ih : KnotSpecI .verified .verified eager env fe lv) (hpi
       · simp only [hcond, mt hiff.2 hcond, ↓reduceIte] at hr ⊢
         obtain ⟨rfl, rfl⟩ := pure_run hr
         exact none_post hs (TabLe.refl _) rfl
-  · have hfn : ∀ n us, Expr.getAppFnT i ≠ .const n us := fun n us h => hconst ⟨n, us, h⟩
-    have hn := TrS_getAppFn_notConst s₀ hfn
-    have hr' : (pure none : InLean.CheckCM (Option Expr)) s₀ = .ok (o, s') := by
-      rw [← hr]
-      generalize hx : Expr.getAppFnT i = x at hfn
-      cases x with
-      | const a b => exact absurd rfl (hfn a b)
-      | _ => rfl
-    obtain ⟨rfl, rfl⟩ := pure_run hr'
-    exact none_post hs (TabLe.refl _) (iotaRec_notconst (fun c us h => hn c us h))
+  | _ =>
+    obtain ⟨rfl, rfl⟩ := pure_run hr
+    refine none_post hs (TabLe.refl _) (iotaRec_notconst fun c us he => ?_)
+    rw [ConLeche.Expr.getAppFn_mkAppN] at he
+    exact TrS_getAppFn_notConst s₀ (fun n us' h => by rw [hh] at h; cases h) c us he
 
 end Walks
 

@@ -128,7 +128,8 @@ theorem presI_consSumCtorsF (hlaws : EnvLaws) {T : Name} {nP : Nat} :
       (∀ c ∈ cs, fe.env.find? c.1.name = none) → (cs.map (·.1.name)).Nodup →
       (∀ c ∈ cs, c.1.name = InLean.sorryAxName → fe.coreAxioms = true) →
       (∀ c ∈ cs, okC c.1.type = true) →
-      EnvPresI (InLean.consSumCtorsF T nP i cs fe) (ConLeche.consSumCtors nP (cs.map trCtor) L) ∧
+      EnvPresI (InLean.consSumCtorsF T nP i cs fe)
+        (ConLeche.consSumCtors nP (toName T) (cs.map trCtor) L) ∧
         ProjBodiesInRange (InLean.consSumCtorsF T nP i cs fe) ∧
         (∀ n, n ∉ cs.map (·.1.name) → (InLean.consSumCtorsF T nP i cs fe).env.find? n = fe.env.find? n) ∧
         (InLean.consSumCtorsF T nP i cs fe).coreAxioms = fe.coreAxioms
@@ -142,9 +143,9 @@ theorem presI_consSumCtorsF (hlaws : EnvLaws) {T : Name} {nP : Nat} :
     have hfr0 : fe.env.find? ci.name = none := by rw [hcn]; exact hfr c List.mem_cons_self
     have hsees : fe.sees ci.name ci = true :=
       sees_safe (by rw [← hci]; rfl) (fun h => hso c List.mem_cons_self (hcn ▸ h))
-    have hrel : EntryRelI (fe.push ci) ci (.ctorInfo (trCtor c).1 nP (trCtor c).2) := by
+    have hrel : EntryRelI (fe.push ci) ci (.ctorInfo (trCtor c).1 nP (trCtor c).2 (toName T)) := by
       rw [← hci]
-      exact ⟨CVRel_trCV (hok c List.mem_cons_self), rfl, rfl⟩
+      exact ⟨CVRel_trCV (hok c List.mem_cons_self), rfl, rfl, rfl⟩
     obtain ⟨hP1, hR1⟩ := jobEnvI_push_plain hlaws hP hR hfr0 hsees
       (by rw [hcn]; rfl) hrel (by intro v h; rw [← hci] at h; cases h)
     rw [pushDelta_one] at *
@@ -170,7 +171,7 @@ theorem presI_consBlockCtorsF_go (hlaws : EnvLaws) {nP : Nat} :
       (∀ m ∈ ms, ∀ c ∈ m.ctors, c.1.name = InLean.sorryAxName → fe.coreAxioms = true) →
       (∀ m ∈ ms, ∀ c ∈ m.ctors, okC c.1.type = true) →
       EnvPresI (ms.foldl (fun fe m => InLean.consSumCtorsF m.cvT.name nP 0 m.ctors fe) fe)
-          (ConLeche.consBlockCtors nP (ms.map fun m => m.ctors.map trCtor) L) ∧
+          (ConLeche.consBlockCtors nP (ms.map fun m => (toName m.cvT.name, m.ctors.map trCtor)) L) ∧
         ProjBodiesInRange (ms.foldl (fun fe m => InLean.consSumCtorsF m.cvT.name nP 0 m.ctors fe) fe)
   | [], fe, L, hP, hR, _, _, _, _ => ⟨hP, hR⟩
   | m :: ms, fe, L, hP, hR, hfr, hnd, hso, hok => by
@@ -191,6 +192,10 @@ theorem trShape_memberCtors_trCtor (p : InLean.BlockShape) :
     (trShape p).memberCtors = p.members.map fun m => m.ctors.map trCtor := by
   simp [ConLeche.BlockShape.memberCtors, trShape, trMember]
 
+theorem trShape_ctorGroups_trCtor (p : InLean.BlockShape) :
+    (trShape p).ctorGroups = p.members.map fun m => (toName m.cvT.name, m.ctors.map trCtor) := by
+  simp [ConLeche.BlockShape.ctorGroups, trShape, trMember]
+
 /-- **`JobEnvI` at the constructors' push** (`consBlockCtorsF`, the recursor
 stage's input): the constructors' names fresh and distinct (the
 constructors' stage's `checkConstantValC`), their types with a reading;
@@ -201,10 +206,10 @@ theorem jobEnvI_ctors (hJ : JobEnvI fe L) (p : InLean.BlockShape)
     (hnd : (ctorNamesOf p.members).Nodup)
     (hso : ∀ m ∈ p.members, ∀ c ∈ m.ctors, c.1.name = InLean.sorryAxName → fe.coreAxioms = true)
     (hok : ∀ m ∈ p.members, ∀ c ∈ m.ctors, okC c.1.type = true)
-    (hwf : ConLeche.EnvWF (ConLeche.consBlockCtors (trShape p).nP (trShape p).memberCtors L)) :
+    (hwf : ConLeche.EnvWF (ConLeche.consBlockCtors (trShape p).nP (trShape p).ctorGroups L)) :
     JobEnvI (InLean.consBlockCtorsF p fe)
-      (ConLeche.consBlockCtors (trShape p).nP (trShape p).memberCtors L) := by
-  rw [trShape_memberCtors_trCtor] at hwf ⊢
+      (ConLeche.consBlockCtors (trShape p).nP (trShape p).ctorGroups L) := by
+  rw [trShape_ctorGroups_trCtor] at hwf ⊢
   obtain ⟨hP, hR⟩ := presI_consBlockCtorsF_go hJ.laws (nP := p.nP) p.members hJ.pres hJ.proj hfr hnd
     hso hok
   exact ⟨hJ.laws, hP, hwf, hR⟩

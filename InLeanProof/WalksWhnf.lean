@@ -91,15 +91,6 @@ theorem toName_eagerReduceName : toName InLean.eagerReduceName = ConLeche.eagerR
   | mdata _ x => exact (getAppFnT_ne_mdata hh).elim
   | _ => rfl
 
-/-- A list's reading and translation are stable along the run. -/
-theorem okSL_of_tabLe {s₀ s₁ : InLean.CState} (h : TabLe s₀ s₁) :
-    ∀ {l : List Expr}, OkSL s₀ l = true → OkSL s₁ l = true
-  | [], _ => rfl
-  | a :: l, hl => by
-    simp only [OkSL_cons, Bool.and_eq_true] at hl ⊢
-    exact ⟨okS_of_tabLe h hl.1, okSL_of_tabLe h hl.2⟩
-grind_pattern [conleche_grind] okSL_of_tabLe => TabLe s₀ s₁, OkSL s₁ l
-
 theorem TrSL_of_tabLe {s₀ s₁ : InLean.CState} (h : TabLe s₀ s₁) :
     ∀ {l : List Expr}, OkSL s₀ l = true → TrSL s₁ l = TrSL s₀ l
   | [], _ => rfl
@@ -632,6 +623,129 @@ theorem OkS_mkAppN (s : InLean.CState) : ∀ (args : List Expr) (f : Expr),
     have := OkS_mkAppN s as (.app f a)
     simp only [Lean.mkAppN, List.foldl_toArray', List.foldl_cons, Lean.mkApp] at this ⊢
     rw [this, OkS_app, OkSL_cons, Bool.and_assoc]
+
+/-! ### The array spine (task #577)
+
+The ι step and the argument loop read their spine as an argument array
+(`getAppArgsArr`) and build their reducts from ranges (`mkAppRange`); these
+are the lists the proofs read (`appArgs`, `mkAppN`), the twins of
+`Verify/Cached/DiscC3`'s array vocabulary. -/
+
+/-! ## Lists through the translation -/
+
+section Lists
+variable (s : InLean.CState)
+
+@[conleche_grind =] theorem TrSL_take (l : List Expr) (k : Nat) : TrSL s (l.take k) = (TrSL s l).take k := by
+  simp [TrSL, List.map_take]
+
+@[conleche_grind =] theorem TrSL_drop (l : List Expr) (k : Nat) : TrSL s (l.drop k) = (TrSL s l).drop k := by
+  simp [TrSL, List.map_drop]
+
+@[conleche_grind =] theorem TrSL_append (l l' : List Expr) : TrSL s (l ++ l') = TrSL s l ++ TrSL s l' := by
+  simp [TrSL]
+
+@[conleche_grind =] theorem TrSL_length (l : List Expr) : (TrSL s l).length = l.length := by simp [TrSL]
+
+theorem OkSL_take {l : List Expr} (h : OkSL s l = true) (k : Nat) : OkSL s (l.take k) = true := by
+  simp only [OkSL, List.all_eq_true] at h ⊢; exact fun x hx => h x (List.mem_of_mem_take hx)
+
+theorem OkSL_drop {l : List Expr} (h : OkSL s l = true) (k : Nat) : OkSL s (l.drop k) = true := by
+  simp only [OkSL, List.all_eq_true] at h ⊢; exact fun x hx => h x (List.mem_of_mem_drop hx)
+
+grind_pattern [conleche_grind] OkSL_take => OkSL s l, l.take k
+grind_pattern [conleche_grind] OkSL_drop => OkSL s l, l.drop k
+
+theorem OkSL_append {l l' : List Expr} (h : OkSL s l = true) (h' : OkSL s l' = true) :
+    OkSL s (l ++ l') = true := by
+  simp only [OkSL] at h h' ⊢; rw [List.all_append, h, h']; rfl
+
+end Lists
+
+theorem AllClosed_take {l : List ConLeche.Expr} (h : AllClosed l = true) (k : Nat) :
+    AllClosed (l.take k) = true := by
+  simp only [AllClosed, List.all_eq_true] at h ⊢; exact fun x hx => h x (List.mem_of_mem_take hx)
+
+theorem AllClosed_drop {l : List ConLeche.Expr} (h : AllClosed l = true) (k : Nat) :
+    AllClosed (l.drop k) = true := by
+  simp only [AllClosed, List.all_eq_true] at h ⊢; exact fun x hx => h x (List.mem_of_mem_drop hx)
+
+grind_pattern [conleche_grind] AllClosed_take => AllClosed l, l.take k
+grind_pattern [conleche_grind] AllClosed_drop => AllClosed l, l.drop k
+
+theorem AllClosed_append {l l' : List ConLeche.Expr} (h : AllClosed l = true)
+    (h' : AllClosed l' = true) : AllClosed (l ++ l') = true := by
+  simp only [AllClosed] at h h' ⊢; rw [List.all_append, h, h']; rfl
+
+theorem mkAppN_append (f : Expr) : ∀ (as bs : List Expr),
+    mkAppN f (as ++ bs).toArray = mkAppN (mkAppN f as.toArray) bs.toArray
+  | [], bs => by rw [List.nil_append, mkAppN_nil]
+  | a :: as, bs => by rw [List.cons_append, mkAppN_cons, mkAppN_cons, mkAppN_append _ as bs]
+
+/-- A range application is the application of the range's list. -/
+theorem mkAppRange_eq (f : Expr) (A : Array Expr) (i j : Nat) :
+    InLean.mkAppRange f A i j = mkAppN f ((A.toList.take j).drop i).toArray := by
+  induction f, i using InLean.mkAppRange.induct A j with
+  | case1 f i h ih =>
+    rw [InLean.mkAppRange, dite_eq_left h, ih]
+    have hi : i < (A.toList.take j).length := by simp; omega
+    rw [show List.drop i (List.take j A.toList) = _ :: _ from List.drop_eq_getElem_cons hi,
+      mkAppN_cons]
+    simp
+  | case2 f i h =>
+    rw [InLean.mkAppRange, dite_eq_right h]
+    have : (A.toList.take j).drop i = [] := by
+      apply List.drop_eq_nil_of_le; simp; omega
+    rw [this, mkAppN_nil]
+
+/-- A range from `k` to the end is the suffix past `k`. -/
+@[conleche_grind =] theorem mkAppRange_rest (f : Expr) (A : Array Expr) (k : Nat) :
+    InLean.mkAppRange f A k A.size = mkAppN f (A.toList.drop k).toArray := by
+  rw [mkAppRange_eq, show A.toList.take A.size = A.toList from List.take_of_length_le (by simp)]
+
+/-- The ι reduct's two ranges. -/
+theorem iotaReduct_eq (r : Expr) (A M : Array Expr) (rP k i : Nat) :
+    InLean.mkAppRange (InLean.mkAppRange r A 0 (min rP k)) M i M.size =
+      mkAppN r ((A.toList.take k).take rP ++ M.toList.drop i).toArray := by
+  rw [mkAppRange_rest, mkAppRange_eq, mkAppN_append]
+  simp [List.take_take]
+
+/-- An array element of a list with readings has one. -/
+theorem OkSL_getElem {s : InLean.CState} {A : Array Expr} (h : OkSL s A.toList = true) {i : Nat}
+    (hi : i < A.size) : OkS s A[i] = true := by
+  simp only [OkSL, List.all_eq_true] at h
+  exact h _ (by simp)
+grind_pattern [conleche_grind] OkSL_getElem => OkSL s A.toList, A[i]
+
+theorem AllWS_TrSL_getElem {s : InLean.CState} {d : Nat} {A : Array Expr}
+    (h : AllWS d (TrSL s A.toList)) {i : Nat} (hi : i < A.size) :
+    ConLeche.Expr.WScoped d (TrS s A[i]) :=
+  h _ (List.mem_map_of_mem (by simp))
+grind_pattern [conleche_grind] AllWS_TrSL_getElem => AllWS d (TrSL s A.toList), A[i]
+
+theorem AllClosed_TrSL_getElem {s : InLean.CState} {A : Array Expr}
+    (h : AllClosed (TrSL s A.toList) = true) {i : Nat} (hi : i < A.size) :
+    (TrS s A[i]).looseBVarsBounded 0 = true := by
+  simp only [AllClosed, List.all_eq_true] at h
+  exact h _ (List.mem_map_of_mem (by simp))
+grind_pattern [conleche_grind] AllClosed_TrSL_getElem => AllClosed (TrSL s A.toList), A[i]
+
+theorem toList_drop_of_lt {A : Array Expr} {i : Nat} (h : i < A.size) :
+    A.toList.drop i = A[i] :: A.toList.drop (i + 1) := by
+  rw [List.drop_eq_getElem_cons (by simpa using h)]
+  simp
+
+theorem toList_drop_of_ge {A : Array Expr} {i : Nat} (h : ¬ i < A.size) :
+    A.toList.drop i = [] := by
+  apply List.drop_eq_nil_of_le; simp; omega
+
+/-- The spine argument at a position inside the prefix `k` is the prefix
+list's. -/
+theorem spineArg_eq {A : Array Expr} {k j : Nat} (hj : j < k) :
+    InLean.spineArg A j = (A.toList.take k).getD j (.bvar 0) := by
+  unfold InLean.spineArg
+  simp only [Array.getD_eq_getD_getElem?, List.getD_eq_getElem?_getD, List.getElem?_take,
+    show j < k from hj, ↓reduceIte, Array.getElem?_toList]
 
 /-- **InLean sees a stored definition wherever con-leche does** (O4, P3's;
 the converse direction is `EnvRelI.val`). -/

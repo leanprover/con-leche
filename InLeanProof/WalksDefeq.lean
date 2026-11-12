@@ -690,7 +690,7 @@ parameters and counts. -/
 @[expose] def ctorRd (env : ConLeche.Env) (c : ConLeche.Name) :
     Option (List ConLeche.Name × Nat × Nat) :=
   match env.find? c with
-  | some (.ctorInfo cv nP nF) => some (cv.levelParams, nP, nF)
+  | some (.ctorInfo cv nP nF _) => some (cv.levelParams, nP, nF)
   | _ => none
 
 /-- What a certificate reads of an inductive former's entry. -/
@@ -718,8 +718,8 @@ structure TblGate where
   | none => none
 
 /-- InLean's constructor view, read as `ctorRd`. -/
-@[expose] def ctorGateI (x : ConstantVal × Nat × Nat) : List ConLeche.Name × Nat × Nat :=
-  (x.1.levelParams.map toName, x.2.1, x.2.2)
+@[expose] def ctorGateI (x : ConstantVal × Nat × Nat × Name) : List ConLeche.Name × Nat × Nat :=
+  (x.1.levelParams.map toName, x.2.1, x.2.2.1)
 
 /-- InLean's former view, read as `indRd`. -/
 @[expose] def indGateI (x : ConstantVal × InLean.IndCaps) : IndGate :=
@@ -866,8 +866,8 @@ grind_pattern [conleche_grind] headHint_TrS => DefeqEnvI fe env, OkS s e, headHi
 @[conleche_grind =] theorem tblGateI_numFields (t : InLean.TableView) :
     (tblGateI t).numFields = t.numFields := rfl
 
-@[conleche_grind =] theorem ctorGateI_mk (cv : ConstantVal) (nP nF : Nat) :
-    ctorGateI (cv, nP, nF) = (cv.levelParams.map toName, nP, nF) := rfl
+@[conleche_grind =] theorem ctorGateI_mk (cv : ConstantVal) (nP nF : Nat) (T : Name) :
+    ctorGateI (cv, nP, nF, T) = (cv.levelParams.map toName, nP, nF) := rfl
 
 end EnvReaders2
 
@@ -973,47 +973,37 @@ theorem etaCtorPartial_TrS (hv : EnvViewI fe env) (s : InLean.CState) {a : Expr}
         | none => rfl
         | some ci =>
           cases ci with
-          | ctorInfo ccv nP nF => exact absurd hf (hn ccv nP nF)
+          | ctorInfo ccv nP nF T => exact absurd hf (hn ccv nP nF T)
           | _ => rfl
     | some x =>
-      obtain ⟨cv, nP, nF⟩ := x
-      obtain ⟨ccv, hcvr, hL⟩ := hv.ctor n cv nP nF hcv
+      obtain ⟨cv, nP, nF, T⟩ := x
+      obtain ⟨ccv, hcvr, hL⟩ := hv.ctor n cv nP nF T hcv
       rw [hL]
       simp only
       by_cases hlt : Expr.getAppNumArgsT a < nP + nF
       · simp only [hlt, ↓reduceIte]
-        have hty : ccv.type = TrS s cv.type := (hcvr.2.2.trS s).symm
-        rw [hty, ← TrS_piResult]
-        rcases head_cases s (InLean.piResult cv.type) with ⟨T, us', hx', hc'⟩ | ⟨hx', hc'⟩
-        · rw [hx', hc']
+        cases hiv : fe.indView? T with
+        | none =>
+          have hn := hv.indNone T hiv
           simp only
-          cases hiv : fe.indView? T with
-          | none =>
-            have hn := hv.indNone T hiv
-            simp only
-            all_goals
-              cases hf : env.find? (toName T) with
-              | none => rfl
-              | some ci =>
-                cases ci with
-                | indInfo ccvT caps => exact absurd hf (hn ccvT caps)
-                | _ => rfl
-          | some y =>
-            obtain ⟨cvT, caps⟩ := y
-            obtain ⟨ccvT, -, hLT⟩ := hv.ind T cvT caps hiv
-            rw [hLT]
-            simp only [toCaps]
-            cases ht : fe.findTable? T with
-            | none => rw [hv.tableNone T ht]
-            | some t =>
-              obtain ⟨ct, hct, h1, -⟩ := hv.table T t ht
-              rw [hct]
-              simp only [h1, name_beq_eq_decide, decide_eq_true_eq]
-        · split
-          · rename_i h; exact absurd h (hx' _ _)
-          · split
-            · rename_i h; exact absurd h (hc' _ _)
-            · rfl
+          all_goals
+            cases hf : env.find? (toName T) with
+            | none => rfl
+            | some ci =>
+              cases ci with
+              | indInfo ccvT caps => exact absurd hf (hn ccvT caps)
+              | _ => rfl
+        | some y =>
+          obtain ⟨cvT, caps⟩ := y
+          obtain ⟨ccvT, -, hLT⟩ := hv.ind T cvT caps hiv
+          rw [hLT]
+          simp only [toCaps]
+          cases ht : fe.findTable? T with
+          | none => rw [hv.tableNone T ht]
+          | some t =>
+            obtain ⟨ct, hct, h1, -⟩ := hv.table T t ht
+            rw [hct]
+            simp only [h1, name_beq_eq_decide, decide_eq_true_eq]
       · simp only [hlt, ↓reduceIte]
   · split
     · rename_i h; exact absurd h (hx _ _)
@@ -1073,7 +1063,7 @@ parameters' binders, and the instance's closed arguments fill them. -/
 theorem unitLikeShape_closed (henv : ConLeche.EnvWF env) {w tele : ConLeche.Expr} {n : Nat}
     (hw : w.looseBVarsBounded 0 = true) (h : ConLeche.unitLikeShape env w = some (tele, n)) :
     tele.looseBVarsBounded 0 = true := by
-  obtain ⟨S, us, _, _, tbl, cvC, _, _, -, -, -, -, -, hlen, hfC, -, ht⟩ :=
+  obtain ⟨S, us, _, _, tbl, cvC, _, _, _, -, -, -, -, -, hlen, hfC, -, ht⟩ :=
     ConLeche.unitLikeShape_some h
   rw [ConLeche.unitFieldTele_eq] at ht
   cases hb : ConLeche.Expr.peelPis tbl.numParams
@@ -1709,12 +1699,12 @@ theorem unitLikeShapeM_specI {fe : InLean.FEnv} (hfe : DefeqEnvI fe env) {w : Ex
               | none => rfl
               | some ci =>
                 cases ci with
-                | ctorInfo ccv nP nF => exact absurd hf (hn ccv nP nF)
+                | ctorInfo ccv nP nF T => exact absurd hf (hn ccv nP nF T)
                 | _ => rfl
             | some x =>
-              obtain ⟨cvC, nPc, nFc⟩ := x
+              obtain ⟨cvC, nPc, nFc, TC⟩ := x
               simp only [hcv] at hr
-              obtain ⟨ccvC, hcvC, hLC⟩ := hv.ctor tbl.ctor cvC nPc nFc hcv
+              obtain ⟨ccvC, hcvC, hLC⟩ := hv.ctor tbl.ctor cvC nPc nFc TC hcv
               rw [hLC]
               simp only
               rw [hcvC.2.1]

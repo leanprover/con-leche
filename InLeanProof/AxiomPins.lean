@@ -666,10 +666,6 @@ info: 'InLeanProof.whnfAppI_specI' depends on axioms: [propext,
 #guard_msgs in
 #print axioms InLeanProof.whnfAppI_specI
 
-/-- info: 'InLeanProof.whnfStuckI_mkAppN' depends on axioms: [propext, Classical.choice, Quot.sound] -/
-#guard_msgs in
-#print axioms InLeanProof.whnfStuckI_mkAppN
-
 /-- info: 'InLeanProof.whnfStuckI_specI_of' depends on axioms: [propext, Classical.choice, Quot.sound] -/
 #guard_msgs in
 #print axioms InLeanProof.whnfStuckI_specI_of
@@ -1409,10 +1405,10 @@ info: 'InLeanProof.memoEI_infer_specI' depends on axioms: [propext, Classical.ch
 #print axioms InLeanProof.memoEI_infer_specI
 
 /--
-info: 'InLeanProof.memoRedEI_whnfCore_specI' depends on axioms: [propext, Classical.choice, Quot.sound]
+info: 'InLeanProof.whnfCoreI_specI' depends on axioms: [propext, Classical.choice, Quot.sound]
 -/
 #guard_msgs in
-#print axioms InLeanProof.memoRedEI_whnfCore_specI
+#print axioms InLeanProof.whnfCoreI_specI
 
 /--
 info: 'InLeanProof.memoEI_whnf_specI' depends on axioms: [propext, Classical.choice, Quot.sound]
@@ -1793,7 +1789,9 @@ info: 'InLeanProof.presI_group' depends on axioms: [propext, Classical.choice, Q
 #guard_msgs in
 #print axioms InLeanProof.presI_group
 
-/-- info: 'InLeanProof.toCaps_capsOf' depends on axioms: [propext] -/
+/--
+info: 'InLeanProof.toCaps_capsOf' depends on axioms: [propext, Classical.choice, Quot.sound]
+-/
 #guard_msgs in
 #print axioms InLeanProof.toCaps_capsOf
 
