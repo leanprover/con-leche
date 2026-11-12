@@ -2492,8 +2492,8 @@
    131  /-- Store one more constant. -/
    132  def add (env : Env) (n : Name) (ci : ConstInfo) : Env := ⟨(n, ci) :: env.consts⟩
 
-== ConLeche/Kernel/Env.lean#L451
-   451  structure Env where
+== ConLeche/Kernel/Env.lean#L462
+   462  structure Env where
 
 == whitepaper/Fragment/Env.lean#L66-L107
     66  /-- What kind of constant a name is stored as. -/
@@ -4684,42 +4684,40 @@
    834        WellDenoted m.M φ ρ (Expr.mkAppN f xs) → interp m.M φ ρ (Expr.mkAppN f xs) ≠ pt →
    835        TeleFit m.M φ ρ T xs
 
-== ConLeche/Model/Env/Laws.lean#L439-L473
-   439    · next T us hh => rw [h T us hh]
-   440    · rfl
-   441  
-   442  /-- A constructor's family is a stored inductive. -/
-   443  theorem ctorFamily_find {f : Name → Option ConstantInfo} {cvj cvT : ConstantVal}
-   444      {caps : ConLeche.IndCaps} (h : ConLeche.ctorFamily f cvj = some (cvT, caps)) :
-   445      ∃ T us, cvj.type.piResult.getAppFn = .const T us ∧ f T = some (.indInfo cvT caps) := by
-   446    unfold ConLeche.ctorFamily at h
-   447    split at h
-   448    · next T us hh =>
-   449      split at h
-   450      · next hf =>
-   451        cases Option.some.inj h
-   452        exact ⟨T, us, hh, hf⟩
-   453      · exact nomatch h
-   454    · exact nomatch h
-   455  
-   456  /-- `FamNZ` reads the family's lookup and the reading of its type. -/
-   457  theorem FamNZ.congr {V : Type w} [SetTheory V] {acval acval' : Name → (Name → Nat) → Term}
-   458      {env env' : Env} {φ : Name → Nat} {cvj cvj' : ConstantVal} {us : List Level}
-   459      (hfam : ConLeche.ctorFamily env'.find? cvj' = ConLeche.ctorFamily env.find? cvj)
-   460      (hde : ∀ (cvT : ConstantVal) (caps : ConLeche.IndCaps) (ta : Term),
-   461        ConLeche.ctorFamily env.find? cvj = some (cvT, caps) →
-   462        denote acval env φ 0 (cvT.type.instantiateLevelParams cvT.levelParams us) = some ta →
-   463        denote acval' env' φ 0 (cvT.type.instantiateLevelParams cvT.levelParams us) = some ta)
-   464      (h : FamNZ (V := V) acval' env' φ cvj' us) : FamNZ (V := V) acval env φ cvj us := by
-   465    obtain ⟨cvT, caps, hf, hl, hc⟩ := h
-   466    rw [hfam] at hf
-   467    refine ⟨cvT, caps, hf, hl, hc.imp id fun ⟨hn, w, hw, ht⟩ => ⟨hn, w, hw, fun ta hta ρ => ?_⟩⟩
-   468    exact ht ta (hde cvT caps ta hf hta) ρ
-   469  
-   470  /-- **The ι case split's environment facts, one rule**.
-   471  `RecRuleLaw`'s main clause takes the levels, parameters and index
-   472  comparisons as equations; under the conditional claims the ι step has
-   473  them only where neither side is the point, and at a K rule or a family
+== ConLeche/Model/Env/Laws.lean#L487-L519
+   487  /-- **The ι case split's environment facts, one rule**.
+   488  `RecRuleLaw`'s main clause takes the levels, parameters and index
+   489  comparisons as equations; under the conditional claims the ι step has
+   490  them only where neither side is the point, and at a K rule or a family
+   491  that is never `Prop` at the comparand levels it runs no check of the
+   492  constructor application at all.  What the step consumes instead, at the
+   493  recursor's levels:
+   494  
+   495  * **K** (the recursor's K flag): the rule's law at the recursor's own
+   496    parameters, for any major value in the major's domain (the
+   497    fragment's `RecRuleLawK`: inversion of the family's least
+   498    fixed point) — the reduct, the minor, does not mention the major;
+   499  * **the constructor's arity**: its stored type binds the spine
+   500    syntactically, so a graded application of it that is not the point
+   501    fits its telescope;
+   502  * **(S) case 2**: where the family is never `Prop` at the comparand
+   503    levels (`FamNZ`, what the checker's test establishes), the recursor's
+   504    major domain holds no point;
+   505  * **(T) case 2, the constructor's levels**: there a fired application
+   506    that is not the point, at the constructor's own levels and spine, is
+   507    also an application of the constructor at the comparand levels, to a
+   508    graded spine with the same fields that fits its telescope there —
+   509    the major's membership in the family at the comparands ties the
+   510    injection's fields (the same argument as for the parameters), so the
+   511    main law applies at the comparand levels;
+   512  * **(P) the slot at the point**: where the major domain holds the
+   513    point, every fitting constructor application is the point (the
+   514    family is `Prop` there; the fragment's slot law);
+   515  * **(U) coherence**: at a fired spine where the constructor application
+   516    is the point (case 3, where the step compares the levels and
+   517    parameters with the rule's comparands and the indices), the
+   518    conditional index comparison is an equation (read off the
+   519    parameters' conditional comparison).
 
 == whitepaper/Fragment/EnvModel.lean#L119-L186
    119  /-- **The ι law of one recursor rule** (con-leche's `RecRuleLaw`,
@@ -5708,18 +5706,18 @@
    454      rules.map fun rl => { rl with fire := fire }
    455    | some _ => rules
 
-== ConLeche/Kernel/CoreDefs.lean#L967-L977
-   967  /-- The level and constructor-parameter comparands a firing rule's
-   968  checks compare the major's constructor levels and parameters against:
-   969  for a `.plain` rule the constructor's levels link to the recursor's by
-   970  name and its parameters are the recursor's leading arguments; for a
-   971  `.nested` rule both are the stored instantiations (the class the
-   972  auxiliary recursor's type was generated from, `auxRuleFire`), at the
-   973  recursor's level instantiation and (for the parameters) instantiated at
-   974  the recursor's leading-argument spine (the stored pins live in the
-   975  `rP`-binder prefix context; index arguments never occur in them); a
-   976  `.levels` rule's levels are stored and its parameters a `.plain` rule's. -/
-   977  def recFireComparands (rl : RecRule) (cnP : Nat) (lps : List Name)
+== ConLeche/Kernel/CoreDefs.lean#L950-L960
+   950  /-- The level and constructor-parameter comparands a firing rule's
+   951  checks compare the major's constructor levels and parameters against:
+   952  for a `.plain` rule the constructor's levels link to the recursor's by
+   953  name and its parameters are the recursor's leading arguments; for a
+   954  `.nested` rule both are the stored instantiations (the class the
+   955  auxiliary recursor's type was generated from, `auxRuleFire`), at the
+   956  recursor's level instantiation and (for the parameters) instantiated at
+   957  the recursor's leading-argument spine (the stored pins live in the
+   958  `rP`-binder prefix context; index arguments never occur in them); a
+   959  `.levels` rule's levels are stored and its parameters a `.plain` rule's. -/
+   960  def recFireComparands (rl : RecRule) (cnP : Nat) (lps : List Name)
 
 == ConLeche/Rules/Rel.lean#L217-L228
    217        IotaCaseS env isK induct (recFireComparands rl cnP cv.levelParams us cvj.levelParams
