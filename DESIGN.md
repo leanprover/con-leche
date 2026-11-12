@@ -114493,3 +114493,27 @@ Then (d) (200–400): `g4Setup` on the kept program against on the empty one giv
 **Next lane, in order**: (1) add the agreement hypotheses to `SimAt` and the `TRel` bridge (`TRel` at a node of tag `t ≠ 9`: one term compiled as `Comp` on both sides; tag 9: `comp2_arg`'s shared shape), with `NamesIn` → `MaskAgree`/`ProjAgree`; (2) mode 4 and mode 0 (no compile, the slot lemmas); (3) the memo and compile lemmas, then mode 3; (4) mode 1; (5) `sim_run` by induction, as `run_sound`; then (d).
 
 **Rulings wanted**: none now; the budget asymmetry above is for item 3.
+
+#### S.22 Continuation (2026-11-12, thirteenth lane): the layout bridge, modes 0 and 4, the memo pieces; a stop on the projection
+
+**Done** (no `sorry`, no new axiom; `lake build`, `lake test` warning-free; layering, shake, plain-reach pass; no engine change, so nothing measured):
+* **The layout bridge** (new `SimBridge.lean`, 359 lines): `LookAgree N f₁ p₁ f₂ p₂` (the lookups agree on `N`: constants, projection rows, erasure masks; `LookAgree.refl` for kept/fresh), `NamesIn.projAgree`/`maskAgree`/`appFn`/`appArgs`; `TRel.cases` (a related position is two compiles of one term, or two shared nodes), `TRel.tag` (one tag) and the fields tag by tag: `bvar`, `spine`, `lamTn`, `lamBody` (the known call's body, through `comp2_walk`), `letE`, `const` (`ERel`), `natLit`, `strLit` (`StrRel`), `proj` (`PiRel`), `shared` (slots of one owner); `comp2_spine` (heads related, one count, each argument erased on both sides or related; `comp2_app` in `Sim.lean` now names the argument's term, for `NamesIn`).  The slots: `OwnRel.slot_eqA`/`slot_eqB` (related owners have one slot, from `slotUniq` and `EntRel.iff`), **`SlotRel.set`** (one cell `c ≥ 1` set at related owners), `slotOwn_entry`; `FsRel.pushProj`.
+* **Mode 0** (new `SimStep0.lean`, 185): `sim_mode0`, all ten tags, one B step per A step.  **Mode 4** (new `SimStep4.lean`, 218): `sim_mode4`, the eight argument kinds plus the end of the spine.  Both follow `sim_mode2`; a step that keeps the mode is restated at the mode's value (`MInv.setMode`), because the run's mode argument is the literal after the rewrite.
+* **The memo pieces for mode 3** (new `SimMemo.lean`, 112): `MemRel.push`, `memoFind_rel` (one memo answer on both sides from `MemRel` and `EntRel.iff`, through `memoFind_agree`), `FsRel.pushIota`, `FsRel.pushNatA`.
+
+**Two proof-writing traps** (for the next lane): (1) a structure instance whose first field sits on the `{` line must keep every later field at that column or right of it, or the parser stops at the next field ("expected '}'"); write one field per line under `{ hr with`.  (2) Rewriting a B state field in the goal (`hr.ev`, `he`) is fine only if the B state handed to `ih.app` sets that field to the rewritten value; `MRel.setRegs` keeps `sB.ev`, so with it, prove the equality inside `RegRel` instead.
+
+**The two item-3 checks, done now because they were cheap** (no ruling needed):
+* **Budget exhaustion is one-directional already.** The cached simulation's statement (`SimC`, `Verify/Cached/SimC.lean`; the triples of `Grind.lean` §1) is partial correctness with exception post `⊤`: "if the cached core returns `.ok`, the specification `Runs` to the same answer".  `groundGateM` raises every engine stop, the budget's decline included, as an exception (`throw (groundStopError …)`), so a kept run out of budget is a cached exception and needs nothing.  `OutRel`'s first disjunct is exactly that case.
+* **The step count is consumed by nothing.** `groundShortcut` discards it (`let ((r, _), P) := ground4Bool …`); no other caller reads `ground4BoolCoreF`'s `tr`.  The site lemma compares the answer and `st` only.
+
+**Against the estimates — the stop rule fires.**  Item 2(c) is 2 135 lines now (1 255 at the lane's start).  What is left, with this lane's rates (modes 0 and 4: 19 cases in 403 lines, 21 a case; the bridge 359 against 150–250, because the slot lemmas moved into it):
+* `MRel.ext` on either side, with `SlotRel` across owners one side adds (an owner new on A has an empty slot on A; its related owner on B has an empty slot by `SlotRel`'s third clause and `EntRel.iff`): 80–120.
+* `LookAgree`'s further fields, as mode 3 needs them: `kfabKey` agreement (for `EntRel.recW`), the stored definition values' and rule right-hand sides' names in `N` (for `TRel` of compiled bodies, through `NamesIn` under `instantiateLevelParams`), the `Nat`/`Bool`/`String` basis names: 40–80.
+* Mode 3, ~10 cases, the δ compile in four combinations (both compiled, neither, A only — B takes no step —, B only — B compiles, then A's step at `m - 1`): 350–450.
+* Mode 1, ~25 cases (argument frames for closure, constructor, partial application, literal, neutral; the update frame; the ι frame with the rule compile through `RowOK.rel` and `findRule_rel`, the K and literal majors; the projection frame; the `Nat` frames 5/6/7): 550–750.
+* `sim_run` by induction, as `run_sound`: 50–80.
+
+So 1 070–1 480 lines remain, and 2(c) comes to **3 200–3 600** against the stop line of about 3 000.  The overrun is volume, not a new difficulty: every case seen so far fits the template, and nothing needed a new rule or model work.  The lane stops here as the brief asked.
+
+**Next lane, in order** (if the maintainer continues): (1) `MRel.ext` and `SlotRel.ext`; (2) the `LookAgree` fields; (3) mode 3, starting with the δ compile in its four combinations; (4) mode 1; (5) `sim_run`; then (d).
