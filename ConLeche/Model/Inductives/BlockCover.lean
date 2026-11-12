@@ -130,31 +130,31 @@ theorem lfpCover_append {env env' : Env} {new : List ConstantInfo} (mp : EnvMode
 
 /-! ## The kernel's cons functions, as lists -/
 
-theorem consSumCtors_consts (nP : Nat) :
+theorem consSumCtors_consts (nP : Nat) (T : Name) :
     ∀ (cs : List (ConstantVal × Nat)) (env : Env),
-      (ConLeche.consSumCtors nP cs env).consts
-        = (cs.map fun c => ConstantInfo.ctorInfo c.1 nP c.2).reverse ++ env.consts
+      (ConLeche.consSumCtors nP T cs env).consts
+        = (cs.map fun c => ConstantInfo.ctorInfo c.1 nP c.2 T).reverse ++ env.consts
   | [], _ => rfl
   | c :: cs, env => by
-    rw [show ConLeche.consSumCtors nP (c :: cs) env
-      = ConLeche.consSumCtors nP cs ⟨.ctorInfo c.1 nP c.2 :: env.consts, env.tables⟩ from rfl,
-      consSumCtors_consts nP cs]
+    rw [show ConLeche.consSumCtors nP T (c :: cs) env
+      = ConLeche.consSumCtors nP T cs ⟨.ctorInfo c.1 nP c.2 T :: env.consts, env.tables⟩ from rfl,
+      consSumCtors_consts nP T cs]
     simp
 
 /-- The block's conses leave the tables alone. -/
-theorem consSumCtors_tables (nP : Nat) :
+theorem consSumCtors_tables (nP : Nat) (T : Name) :
     ∀ (L : List (ConstantVal × Nat)) (env : Env),
-      (ConLeche.consSumCtors nP L env).tables = env.tables
+      (ConLeche.consSumCtors nP T L env).tables = env.tables
   | [], _ => rfl
-  | _ :: rest, _ => consSumCtors_tables nP rest _
+  | _ :: rest, _ => consSumCtors_tables nP T rest _
 
 theorem consBlockCtors_tables (nP : Nat) :
-    ∀ (L : List (List (ConstantVal × Nat))) (env : Env),
+    ∀ (L : List (Name × List (ConstantVal × Nat))) (env : Env),
       (ConLeche.consBlockCtors nP L env).tables = env.tables
   | [], _ => rfl
-  | l :: L, env => by
-    rw [show ConLeche.consBlockCtors nP (l :: L) env
-      = ConLeche.consBlockCtors nP L (ConLeche.consSumCtors nP l env) from rfl,
+  | (T, l) :: L, env => by
+    rw [show ConLeche.consBlockCtors nP ((T, l) :: L) env
+      = ConLeche.consBlockCtors nP L (ConLeche.consSumCtors nP T l env) from rfl,
       consBlockCtors_tables nP L, consSumCtors_tables]
 
 theorem consBlockInds_tables {p₁ : BlockShape} {isRec : Bool} :
@@ -170,13 +170,14 @@ theorem consBlockRecsT_tables {q : BlockShape} :
   | m, _ :: rest, _ => consBlockRecsT_tables (q := q) (m + 1) rest _
 
 theorem consBlockCtors_consts (nP : Nat) :
-    ∀ (L : List (List (ConstantVal × Nat))) (env : Env),
+    ∀ (L : List (Name × List (ConstantVal × Nat))) (env : Env),
       (ConLeche.consBlockCtors nP L env).consts
-        = (L.flatten.map fun c => ConstantInfo.ctorInfo c.1 nP c.2).reverse ++ env.consts
+        = (L.flatMap fun g => g.2.map fun c => ConstantInfo.ctorInfo c.1 nP c.2 g.1).reverse ++
+          env.consts
   | [], _ => rfl
-  | l :: L, env => by
-    rw [show ConLeche.consBlockCtors nP (l :: L) env
-      = ConLeche.consBlockCtors nP L (ConLeche.consSumCtors nP l env) from rfl,
+  | (T, l) :: L, env => by
+    rw [show ConLeche.consBlockCtors nP ((T, l) :: L) env
+      = ConLeche.consBlockCtors nP L (ConLeche.consSumCtors nP T l env) from rfl,
       consBlockCtors_consts nP L, consSumCtors_consts]
     simp
 
@@ -289,7 +290,7 @@ theorem blockLfpOwn {envC : Env} {d : BlockData V}
     (hlps : lps.Nodup)
     (hparams : ∀ ψ, (d.params ψ).length = d.nP)
     (hfindC : ∀ c, c < d.k → ∀ (j : Nat) (ctor : ConstantVal × Nat), (d.ctorsM c)[j]? = some ctor →
-      envC.find? ctor.1.name = some (.ctorInfo ctor.1 d.nP ctor.2))
+      envC.find? ctor.1.name = some (.ctorInfo ctor.1 d.nP ctor.2 (d.memberName c)))
     (hshape : ∀ m, m < d.k → ∀ ctor ∈ memberCtors.getD m [], ∃ bs args,
       ctor.1.type.stripPis (d.nP + ctor.2)
         = some (bs, Expr.mkAppN (.const (d.memberName m) (ctor.1.levelParams.map .param)) args) ∧
@@ -350,6 +351,7 @@ theorem blockLfpOwn {envC : Env} {d : BlockData V}
         show _ = (d.ctorsM c).length; rw [hctorsM], fun j hj => ?_⟩
       have hj' : (d.ctorsM c)[j]? = some (memberCtors.getD c [])[j] := by
         rw [hctorsM]; exact List.getElem?_eq_getElem hj
+      refine ⟨d.memberName c, ?_⟩
       show envC.find? ((d.ctorsM c).getD j default).1.name = _
       rw [List.getD_eq_getElem?_getD, hj', Option.getD_some]
       exact hfindC c hc j _ hj'
@@ -373,7 +375,7 @@ theorem blockLfpOwn {envC : Env} {d : BlockData V}
     exact ⟨cv, caps, hf, hl ▸ hlps⟩
   · have hj' : j < (d.ctorsM c).length := hj
     have hget : (d.ctorsM c)[j]? = some (d.ctorsM c)[j] := List.getElem?_eq_getElem hj'
-    refine ⟨(d.ctorsM c)[j].1, d.nP, (d.ctorsM c)[j].2, ?_, ?_⟩
+    refine ⟨(d.ctorsM c)[j].1, d.nP, (d.ctorsM c)[j].2, d.memberName c, ?_, ?_⟩
     · show envC.find? ((d.ctorsM c).getD j default).1.name = _
       rw [List.getD_eq_getElem?_getD, hget, Option.getD_some]
       exact hfindC c hc j _ hget

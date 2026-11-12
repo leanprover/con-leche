@@ -915,23 +915,23 @@ theorem consBlockIndsF_eq_pushAll (p₁ : BlockShape) (isRec : Bool) :
       (fe.push (.indInfo cvTa (blockCapsAt p₁ i isRec)))
     exact ⟨.indInfo cvTa (blockCapsAt p₁ i isRec) :: L, hL _, fun fe' => hL _⟩
 
-theorem consSumCtorsF_eq_pushAll (nP : Nat) :
+theorem consSumCtorsF_eq_pushAll (nP : Nat) (T : Name) :
     ∀ (cs : List (ConstantVal × Nat)),
-      ∃ L, ∀ fe, consSumCtorsF nP cs fe = FEnv.pushAll L fe
+      ∃ L, ∀ fe, consSumCtorsF nP T cs fe = FEnv.pushAll L fe
   | [] => ⟨[], fun _ => rfl⟩
   | c :: cs => by
-    obtain ⟨L, hL⟩ := consSumCtorsF_eq_pushAll nP cs
-    exact ⟨.ctorInfo c.1 nP c.2 :: L, fun fe => hL _⟩
+    obtain ⟨L, hL⟩ := consSumCtorsF_eq_pushAll nP T cs
+    exact ⟨.ctorInfo c.1 nP c.2 T :: L, fun fe => hL _⟩
 
 theorem consBlockCtorsF_eq_pushAll (nP : Nat) :
-    ∀ (css : List (List (ConstantVal × Nat))),
+    ∀ (css : List (Name × List (ConstantVal × Nat))),
       ∃ L, ∀ fe, consBlockCtorsF nP css fe = FEnv.pushAll L fe
   | [] => ⟨[], fun _ => rfl⟩
-  | cs :: css => by
-    obtain ⟨L₁, h₁⟩ := consSumCtorsF_eq_pushAll nP cs
+  | (T, cs) :: css => by
+    obtain ⟨L₁, h₁⟩ := consSumCtorsF_eq_pushAll nP T cs
     obtain ⟨L₂, h₂⟩ := consBlockCtorsF_eq_pushAll nP css
     exact ⟨L₁ ++ L₂, fun fe => by
-      show consBlockCtorsF nP css (consSumCtorsF nP cs fe) = _
+      show consBlockCtorsF nP css (consSumCtorsF nP T cs fe) = _
       rw [h₁, h₂, FEnv.pushAll_append]⟩
 
 /-! ## The rule stage and the recursor stage -/
@@ -1165,7 +1165,7 @@ theorem checkBlockTailS_twin {fe₁ fe₂ : FEnv} (ht : Twin fe₁ fe₂)
   unfold checkBlockTailS
   dsimp only
   simp only [streamRecsCheckC_eq]
-  generalize p.memberCtors = memberCtors
+  generalize p.ctorGroups = memberCtors
   have htL := ht.pushDelta L Q
   obtain ⟨L₂, hL₂⟩ := consBlockCtorsF_eq_pushAll p.nP memberCtors
   have ht₂ : Twin (consBlockCtorsF p.nP memberCtors (FEnv.pushDelta L Q fe₁))

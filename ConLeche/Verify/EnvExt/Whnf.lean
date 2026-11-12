@@ -237,92 +237,89 @@ theorem majorToCtor_rel (mode : CheckMode) (name : Name) (isK : Bool) {rules : L
       | none => exact Rel.ok hm
       | some ci =>
         cases ci with
-        | ctorInfo cvj cnP cnF =>
+        | ctorInfo cvj cnP cnF T =>
           dsimp only
           have hty : Res env₁ cvj.type := hx.facts.type hf
-          cases hft : cvj.type.piResult.getAppFn with
-          | const T us₀ =>
-            dsimp only
-            have hT := res_head (res_piResult hty) hft
-            rw [hx.find_of_isSome hT]
-            cases hfT : env₁.find? T with
-            | none => exact Rel.ok hm
-            | some ci' =>
-              cases ci' with
-              | indInfo cvT caps =>
-                dsimp only
-                have hTy : Res env₁ cvT.type := hx.facts.type hfT
-                refine Rel.ite (fun _ => ?_) fun _ => ?_
-                · -- K
-                  refine Rel.bind (K.inferIO d hm) fun ti hti =>
-                    Rel.bind (K.whnf d hti) fun tmaj htm => ?_
-                  cases hfa : tmaj.getAppFn with
-                  | const T' ust =>
-                    dsimp only
-                    refine Rel.ite (fun _ => Rel.ite (fun _ => ?_) fun _ => Rel.ok hm)
-                      fun _ => Rel.ok hm
-                    have hfab : Res env₁ (Expr.mkAppN (.const rl.ctor ust)
-                        (tmaj.getAppArgs.take cnP)) :=
-                      res_mkAppN (res_const.mpr hs) (res_take (res_getAppArgs htm) _)
-                    refine Rel.ite (fun _ => ?_) fun _ => Rel.ok hm
-                    refine Rel.bind (K.inferIO d hfab) fun tf htf =>
-                      Rel.bind (K.defeq d htm htf) fun v _ => ?_
-                    refine Rel.iteB v (fun _ => ?_) fun _ => Rel.ok hm
-                    refine Rel.bind (Q := TT) (Rel.ite (fun _ => proofIrrel_rel K d hfab hm)
-                      fun _ => Rel.ok trivial) fun v' _ => ?_
-                    exact Rel.iteB v' (fun _ => Rel.ok hfab) fun _ => Rel.ok hm
-                  | _ => exact Rel.ok hm
-                rw [hx.table T hT]
-                cases he : etaRescueTable? (env₁.findTable? T) rl.ctor cvj cvT caps with
-                | some tbl =>
-                  -- η
+          obtain ⟨us₀, hft⟩ := hx.facts.wf.ctorHead hf
+          have hT := res_head (res_piResult hty) hft
+          rw [hx.find_of_isSome hT]
+          cases hfT : env₁.find? T with
+          | none => exact Rel.ok hm
+          | some ci' =>
+            cases ci' with
+            | indInfo cvT caps =>
+              dsimp only
+              have hTy : Res env₁ cvT.type := hx.facts.type hfT
+              refine Rel.ite (fun _ => ?_) fun _ => ?_
+              · -- K
+                refine Rel.bind (K.inferIO d hm) fun ti hti =>
+                  Rel.bind (K.whnf d hti) fun tmaj htm => ?_
+                cases hfa : tmaj.getAppFn with
+                | const T' ust =>
                   dsimp only
-                  obtain ⟨-, -, hec, -⟩ := etaRescueTable?_inv he
-                  refine Rel.bind (K.inferIO d hm) fun ti hti =>
-                    Rel.bind (K.whnf d hti) fun tmaj htm => ?_
-                  cases hfa : tmaj.getAppFn with
-                  | const T' ust =>
-                    dsimp only
-                    refine Rel.ite (fun _ => ?_) fun _ => Rel.ok hm
-                    refine Rel.bind (familyNeverZeroAt_rel K hTy) fun v _ => ?_
-                    refine Rel.iteB v (fun _ => ?_) fun _ => Rel.ok hm
-                    have hfab : Res env₁ (Expr.mkAppN (.const tbl.ctor ust)
-                        (etaFabArgsE T tmaj.getAppArgs major tbl.numFields)) := by
-                      refine res_mkAppN (res_const.mpr (by rw [hec]; exact hs)) fun a ha => ?_
-                      rcases List.mem_append.mp ha with ha | ha
-                      · exact res_getAppArgs htm a ha
-                      · exact res_etaProjs hT hm _ a ha
-                    exact Rel.ite (fun _ => Rel.ok hfab) fun _ => Rel.ok hm
-                  | _ => exact Rel.ok hm
-                | none =>
+                  refine Rel.ite (fun _ => Rel.ite (fun _ => ?_) fun _ => Rel.ok hm)
+                    fun _ => Rel.ok hm
+                  have hfab : Res env₁ (Expr.mkAppN (.const rl.ctor ust)
+                      (tmaj.getAppArgs.take cnP)) :=
+                    res_mkAppN (res_const.mpr hs) (res_take (res_getAppArgs htm) _)
+                  refine Rel.ite (fun _ => ?_) fun _ => Rel.ok hm
+                  refine Rel.bind (K.inferIO d hfab) fun tf htf =>
+                    Rel.bind (K.defeq d htm htf) fun v _ => ?_
+                  refine Rel.iteB v (fun _ => ?_) fun _ => Rel.ok hm
+                  refine Rel.bind (Q := TT) (Rel.ite (fun _ => proofIrrel_rel K d hfab hm)
+                    fun _ => Rel.ok trivial) fun v' _ => ?_
+                  exact Rel.iteB v' (fun _ => Rel.ok hfab) fun _ => Rel.ok hm
+                | _ => exact Rel.ok hm
+              rw [hx.table T hT]
+              cases he : etaRescueTable? (env₁.findTable? T) rl.ctor cvj cvT caps with
+              | some tbl =>
+                -- η
                 dsimp only
-                refine Rel.ite (fun hA => ?_) fun _ => Rel.ok hm
-                · -- `And`
-                  have hAs : (env₁.find? andName).isSome = true := hA ▸ hT
-                  refine Rel.bind (K.inferIO d hm) fun ti hti =>
-                    Rel.bind (K.whnf d hti) fun tmaj htm => ?_
-                  cases hfa : tmaj.getAppFn with
-                  | const T' ust =>
-                    dsimp only
-                    rw [andRescueSlots_ext hx hAs]
-                    refine Rel.ite (fun _ => ?_) fun _ => Rel.ok hm
-                    have hfab : Res env₁ (Expr.mkAppN (.const rl.ctor ust)
-                        (tmaj.getAppArgs ++ [.proj T 0 major, .proj T 1 major])) := by
-                      refine res_mkAppN (res_const.mpr hs) fun a ha => ?_
-                      rcases List.mem_append.mp ha with ha | ha
-                      · exact res_getAppArgs htm a ha
-                      · simp only [List.mem_cons, List.not_mem_nil, or_false] at ha
-                        rcases ha with rfl | rfl <;> exact res_proj.mpr ⟨hT, hm⟩
-                    refine Rel.ite (fun _ => ?_) fun _ => Rel.ok hm
-                    refine Rel.bind (K.inferIO d hfab) fun tf htf =>
-                      Rel.bind (K.defeq d htm htf) fun v _ => ?_
-                    refine Rel.iteB v (fun _ => ?_) fun _ => Rel.ok hm
-                    refine Rel.bind (Q := TT) (Rel.ite (fun _ => proofIrrel_rel K d hfab hm)
-                      fun _ => Rel.ok trivial) fun v' _ => ?_
-                    exact Rel.iteB v' (fun _ => Rel.ok hfab) fun _ => Rel.ok hm
-                  | _ => exact Rel.ok hm
-              | _ => exact Rel.ok hm
-          | _ => exact Rel.ok hm
+                obtain ⟨-, -, hec, -⟩ := etaRescueTable?_inv he
+                refine Rel.bind (K.inferIO d hm) fun ti hti =>
+                  Rel.bind (K.whnf d hti) fun tmaj htm => ?_
+                cases hfa : tmaj.getAppFn with
+                | const T' ust =>
+                  dsimp only
+                  refine Rel.ite (fun _ => ?_) fun _ => Rel.ok hm
+                  refine Rel.bind (familyNeverZeroAt_rel K hTy) fun v _ => ?_
+                  refine Rel.iteB v (fun _ => ?_) fun _ => Rel.ok hm
+                  have hfab : Res env₁ (Expr.mkAppN (.const tbl.ctor ust)
+                      (etaFabArgsE T tmaj.getAppArgs major tbl.numFields)) := by
+                    refine res_mkAppN (res_const.mpr (by rw [hec]; exact hs)) fun a ha => ?_
+                    rcases List.mem_append.mp ha with ha | ha
+                    · exact res_getAppArgs htm a ha
+                    · exact res_etaProjs hT hm _ a ha
+                  exact Rel.ite (fun _ => Rel.ok hfab) fun _ => Rel.ok hm
+                | _ => exact Rel.ok hm
+              | none =>
+              dsimp only
+              refine Rel.ite (fun hA => ?_) fun _ => Rel.ok hm
+              · -- `And`
+                have hAs : (env₁.find? andName).isSome = true := hA ▸ hT
+                refine Rel.bind (K.inferIO d hm) fun ti hti =>
+                  Rel.bind (K.whnf d hti) fun tmaj htm => ?_
+                cases hfa : tmaj.getAppFn with
+                | const T' ust =>
+                  dsimp only
+                  rw [andRescueSlots_ext hx hAs]
+                  refine Rel.ite (fun _ => ?_) fun _ => Rel.ok hm
+                  have hfab : Res env₁ (Expr.mkAppN (.const rl.ctor ust)
+                      (tmaj.getAppArgs ++ [.proj T 0 major, .proj T 1 major])) := by
+                    refine res_mkAppN (res_const.mpr hs) fun a ha => ?_
+                    rcases List.mem_append.mp ha with ha | ha
+                    · exact res_getAppArgs htm a ha
+                    · simp only [List.mem_cons, List.not_mem_nil, or_false] at ha
+                      rcases ha with rfl | rfl <;> exact res_proj.mpr ⟨hT, hm⟩
+                  refine Rel.ite (fun _ => ?_) fun _ => Rel.ok hm
+                  refine Rel.bind (K.inferIO d hfab) fun tf htf =>
+                    Rel.bind (K.defeq d htm htf) fun v _ => ?_
+                  refine Rel.iteB v (fun _ => ?_) fun _ => Rel.ok hm
+                  refine Rel.bind (Q := TT) (Rel.ite (fun _ => proofIrrel_rel K d hfab hm)
+                    fun _ => Rel.ok trivial) fun v' _ => ?_
+                  exact Rel.iteB v' (fun _ => Rel.ok hfab) fun _ => Rel.ok hm
+                | _ => exact Rel.ok hm
+            | _ => exact Rel.ok hm
         | _ => exact Rel.ok hm
 
 theorem litMajorToCtor_rel {e : Expr} (he : Res env₁ e) :
@@ -463,7 +460,7 @@ theorem iotaRec_rel (mode : CheckMode) {e : Expr} (he : Res env₁ e) :
         have hargs := res_getAppArgs he
         refine Rel.ite (fun _ => ?_) fun _ => Rel.ok resO_none
         have hrc : ∀ rl ∈ rules, (env₁.find? rl.ctor).isSome = true := fun rl hrl => by
-          obtain ⟨cvj, cnP, cnF, h⟩ := hx.facts.recCtors c cv mI rP isK rules hfc rl hrl
+          obtain ⟨cvj, cnP, cnF, _, h⟩ := hx.facts.recCtors c cv mI rP isK rules hfc rl hrl
           exact res_of_find h
         refine Rel.bind (prepareMajor_rel K d hx mode c isK hrc
           (res_getD hargs res_bvar)) fun major hmaj => ?_
@@ -475,9 +472,12 @@ theorem iotaRec_rel (mode : CheckMode) {e : Expr} (he : Res env₁ e) :
           | none => exact Rel.ok resO_none
           | some cj' =>
             cases cj' with
-            | ctorInfo cvj cnP cnF =>
+            | ctorInfo cvj cnP cnF induct =>
               dsimp only
               have hty : Res env₁ cvj.type := hx.facts.type hfj
+              have hTs : (env₁.find? induct).isSome = true :=
+                let ⟨_, hh⟩ := hx.facts.wf.ctorHead hfj
+                res_head (res_piResult hty) hh
               cases hrl : rules.find? (fun r' => r'.ctor == cj) with
               | none => exact Rel.ok resO_none
               | some rl =>
@@ -500,7 +500,7 @@ theorem iotaRec_rel (mode : CheckMode) {e : Expr} (he : Res env₁ e) :
                 refine Rel.bind (Q := TT) (Rel.ite (fun _ => ?_) fun _ => Rel.ok trivial) fun v _ =>
                   Rel.iteB v (fun _ => Rel.ok fun x h => (Option.some.inj h) ▸ hres)
                     fun _ => Rel.ok resO_none
-                refine Rel.bind (iotaCaseAt_rel K hx isK hty _) fun c3 _ => ?_
+                refine Rel.bind (iotaCaseAt_rel K hx isK hTs _) fun c3 _ => ?_
                 refine Rel.iteB c3 (fun _ => ?_) fun _ => Rel.ok trivial
                 refine Rel.bind Rel.triv fun v₁ _ => ?_
                 refine Rel.iteB v₁ (fun _ => ?_) fun _ => Rel.ok trivial

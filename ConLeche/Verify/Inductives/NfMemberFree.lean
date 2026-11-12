@@ -215,7 +215,7 @@ about a name the kernel fabricates:
   (∀ n cv mI rP isK rules, env.find? n = some (.recInfo cv mI rP isK rules) → n ∉ names →
     ∀ r ∈ rules, r.rhs.occDeep names = false) ∧
   (∀ T i entry, env.findProj? T i = some entry → entry.body.occDeep names = false) ∧
-  (∀ c cv nP nF, env.find? c = some (.ctorInfo cv nP nF) → c ∉ names) ∧
+  (∀ c cv nP nF iT, env.find? c = some (.ctorInfo cv nP nF iT) → c ∉ names) ∧
   (natLitStored env = true → natName ∉ names ∧ natZeroName ∉ names ∧ natSuccName ∉ names) ∧
   (strLitStored env = true →
     stringName ∉ names ∧ stringOfListName ∉ names ∧ listNilName ∉ names ∧
@@ -423,7 +423,7 @@ theorem unfoldDefinition_occDeep {env : Env} {names : List Name}
   | some (.axiomInfo _) => intro h; exact nomatch h
   | some (.thmInfo _) => intro h; exact nomatch h
   | some (.indInfo _ _) => intro h; exact nomatch h
-  | some (.ctorInfo _ _ _) => intro h; exact nomatch h
+  | some (.ctorInfo _ _ _ _) => intro h; exact nomatch h
   | some (.recInfo _ _ _ _ _) => intro h; exact nomatch h
   | some (.defnInfo cv value hint) => ?_
   intro h
@@ -469,10 +469,10 @@ theorem majorToCtor_occDeep {env : Env} {names : List Name}
     {major major' : Expr}
     (h : majorToCtorFueled mode false env fuel d recName isK rules major = .ok major')
     (hm : major.occDeep names = false) : major'.occDeep names = false := by
-  rcases majorToCtor_inv h with rfl | ⟨-, -, -, rl, cvj, cnP, cnF, tmaj₀, tmaj, T, us₀, ust,
-      cvT, caps, hrules, hfc, hpr, hfT, hinf, hwt, -, hcase⟩
+  rcases majorToCtor_inv h with rfl | ⟨-, -, -, rl, cvj, cnP, cnF, tmaj₀, tmaj, T, ust,
+      cvT, caps, hrules, hfc, hfT, hinf, hwt, -, hcase⟩
   · exact hm
-  have hctor : rl.ctor ∉ names := hN.2.2.2.2.1 _ _ _ _ hfc
+  have hctor : rl.ctor ∉ names := hN.2.2.2.2.1 _ _ _ _ _ hfc
   have htmaj : tmaj.occDeep names = false := hW hwt (hI hinf hm)
   have hargs := Expr.occDeep_getAppArgs htmaj
   rcases hcase with ⟨-, -, -, rfl, -⟩ | ⟨tbl, heta, -, -, rfl⟩ | ⟨rfl, -, -, -, rfl, -⟩
@@ -580,7 +580,7 @@ theorem whnfPres_occDeep {env : Env} {names : List Name} (hN : WhnfNamesFree env
         · simp only [Expr.occDeep, Bool.or_eq_false_iff] at hf'
           exact ihCore hbeta (Expr.occDeep_instantiate1 he.2 body 0 hf'.2)
         · obtain ⟨c, us, cv, mI, rP, isK, rules, major, cj, usj,
-            cvj, cnP, cnF, r, hfn, hfc, hlen, -, hprep,
+            cvj, cnP, cnF, induct, r, hfn, hfc, hlen, -, hprep,
             hmfn, hfj, hrule, hml, hlev, hpeq, hmcerts, -, rfl⟩ :=
             iotaRec_inv hio
           have hc : c ∉ names := Expr.not_mem_of_getAppFn happ hfn
@@ -1333,11 +1333,11 @@ theorem whnfNamesFree_formers {env envI : Env} (hwf : EnvWF env)
       rfl
     exact hres _ (hb i _ hget).2.2.1
   · -- constructors
-    intro c cv nP nF hf
+    intro c cv nP nF T hf
     exact hnotInd c _ hf (fun cv' caps h => nomatch h)
   · -- `Nat`
     intro hs
-    obtain ⟨-, -, cv0, i0, j0, cv1, i1, j1, -, h0, -, -, -, -, -, hty0, -⟩ :=
+    obtain ⟨-, -, cv0, i0, j0, T0, cv1, i1, j1, T1, -, h0, -, -, -, -, -, hty0, -⟩ :=
       natLitSupported_inv (natLitSupported_of_shapes hsh hkI hs)
     rw [hnon _ hz] at h0
     have hr := (hwf.consts _ (Env.find?_mem h0)).2.2.1

@@ -246,14 +246,13 @@ theorem etaCtorPartial_ext {e : Expr} (he : Res env₁ e) :
   | none => rfl
   | some ci =>
     cases ci <;> try rfl
-    rename_i cvc cnP cnF
+    rename_i cvc cnP cnF T
     dsimp only
     have hty : Res env₁ cvc.type :=
       (hx.facts.wf.consts _ (Env.find?_mem hfc)).2.2.1
     split
     case isFalse => rfl
-    cases hft : cvc.type.piResult.getAppFn <;> try rfl
-    dsimp only
+    obtain ⟨_, hft⟩ := hx.facts.wf.ctorHead hfc
     have hT := res_head (res_piResult hty) hft
     rw [hx.find_of_isSome hT, hx.table _ hT]
 
@@ -321,7 +320,7 @@ theorem unitLikeShape_ext {w : Expr} (hw : Res env₁ w) :
 /-- The field telescope of a resolved instance resolves. -/
 theorem res_unitLikeShape {w tele : Expr} {n : Nat} (hw : Res env₁ w)
     (h : unitLikeShape env₁ w = some (tele, n)) : Res env₁ tele := by
-  obtain ⟨S, us, _, _, _, cvC, _, _, -, -, -, -, -, -, hfC, -, ht⟩ := unitLikeShape_some h
+  obtain ⟨S, us, _, _, _, cvC, _, _, _, -, -, -, -, -, -, hfC, -, ht⟩ := unitLikeShape_some h
   have hc : Res env₁ (cvC.type.instantiateLevelParams cvC.levelParams us) :=
     res_inst _ _ (hx.facts.wf.consts _ (Env.find?_mem hfC)).2.2.1
   exact res_unitFieldTele hc (res_getAppArgs hw) ht

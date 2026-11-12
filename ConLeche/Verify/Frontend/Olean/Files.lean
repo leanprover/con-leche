@@ -807,7 +807,7 @@ theorem readOleans_good {sp : SearchPath} {roots : Array Name} {constants : Opti
 
 /-- An inductive record is an `indDecl`. -/
 theorem indBlockOfF_ind {nm : Nat → M Name} {lv : Nat → M Level} {ex : Nat → M Expr}
-    {tys : List IndTypeRec} {cts : List IndCtorRec} {rcs : List IndRecRec} {n : Nat} {d : Declaration}
+    {tys : List IndTypeRec} {cts : List (IndCtorRec × Name)} {rcs : List IndRecRec} {n : Nat} {d : Declaration}
     (h : indBlockOfF nm lv ex tys cts rcs n = .ok d) : ∃ b, d = .indDecl b n := by
   have ebind : ∀ {α β : Type} {x : M α} {f : α → M β} {y : β}, (x >>= f) = .ok y →
       ∃ a, f a = .ok y := by

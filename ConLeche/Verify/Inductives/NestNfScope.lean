@@ -97,7 +97,7 @@ theorem nestContainer_scb (hc : NestCtxOk ctx) (hb : NestCtxB ctx) {C : Name}
     ∀ x ∈ q.2, ScB 0 x.1.type := by
   obtain ⟨nP, L⟩ := q
   intro x hx
-  obtain ⟨n, nPc, hf⟩ := nestContainer_mem h x hx
+  obtain ⟨n, nPc, _, hf⟩ := nestContainer_mem h x hx
   exact ScB.of_closed (hc.1 _ _ hf) (hb _ _ hf) 0
 
 /-- The container's type former at the key (its hole's type) is scoped

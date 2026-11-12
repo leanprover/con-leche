@@ -62,7 +62,7 @@ context reads (`nestContainer_ctx`). -/
 /-- The entry `nestContainer` collects for a stored constant at the
 container name `C` (its `filterMap` function, verbatim). -/
 @[expose] def ctorEntry (C : Name) : ConstantInfo → Option (ConstantVal × Nat × Nat)
-  | .ctorInfo cv nPc nF =>
+  | .ctorInfo cv nPc nF _ =>
     match cv.type.stripPis (nPc + nF) with
     | some (_, body) =>
       match body.getAppFn with
@@ -168,7 +168,7 @@ structure LfpOwn (env : Env) (D : LfpDatum V) : Prop where
   ctors : ∀ c, c < D.k → ∃ nP' L, ConLeche.nestContainer (envCtx env) (D.member c)
       = some (nP', L) ∧
     L.length = D.nctors c ∧ ∀ j (hj : j < L.length),
-      env.find? (D.ctorName c j) = some (.ctorInfo L[j].1 nP' L[j].2)
+      ∃ iT, env.find? (D.ctorName c j) = some (.ctorInfo L[j].1 nP' L[j].2 iT)
   noCtors : ∀ c, c < D.k → ∀ nP',
     ConLeche.nestContainer (envCtx env) (D.member c) = some (nP', []) →
     ∃ cv caps, env.find? (D.member c) = some (.indInfo cv caps) ∧ cv.levelParams.Nodup ∧
@@ -187,8 +187,8 @@ structure LfpOwn (env : Env) (D : LfpDatum V) : Prop where
   arguments — the constructor check (`SumCtorRun`), as
   official's (`check_constructors`, `is_valid_ind_app`: `nparams +
   nindices` arguments, `inductive.cpp`) -/
-  ctorConcl : ∀ c, c < D.k → ∀ j, j < D.nctors c → ∃ cv nPc nF,
-    env.find? (D.ctorName c j) = some (.ctorInfo cv nPc nF) ∧
+  ctorConcl : ∀ c, c < D.k → ∀ j, j < D.nctors c → ∃ cv nPc nF iT,
+    env.find? (D.ctorName c j) = some (.ctorInfo cv nPc nF iT) ∧
     ∃ bs args, cv.type.stripPis (nPc + nF)
         = some (bs, Expr.mkAppN (.const (D.member c) (cv.levelParams.map .param)) args) ∧
       ∀ ψ, args.length = nPc + (D.ids c ψ).length
@@ -204,7 +204,7 @@ theorem LfpOwn.monoOn {env env' : Env} {D : LfpDatum V} (h : LfpOwn env D)
   ctors := fun c hc => by
     obtain ⟨nP', L, hL, hlen, hj⟩ := h.ctors c hc
     exact ⟨nP', L, (hnc c hc).trans hL, hlen, fun j hjl =>
-      (hC c hc j (hlen ▸ hjl)).trans (hj j hjl)⟩
+      let ⟨iT, h⟩ := hj j hjl; ⟨iT, (hC c hc j (hlen ▸ hjl)).trans h⟩⟩
   noCtors := fun c hc nP' hL => by
     obtain ⟨cv, caps, hf, hnd, hlen, hall⟩ := h.noCtors c hc nP' ((hnc c hc).symm.trans hL)
     refine ⟨cv, caps, (hm c hc).trans hf, hnd, hlen, fun mm hmm => ?_⟩
@@ -214,8 +214,8 @@ theorem LfpOwn.monoOn {env env' : Env} {D : LfpDatum V} (h : LfpOwn env D)
     obtain ⟨cv, caps, hf, hnd⟩ := h.lvlNodup c hc
     exact ⟨cv, caps, (hm c hc).trans hf, hnd⟩
   ctorConcl := fun c hc j hj => by
-    obtain ⟨cv, nPc, nF, hf, hsh⟩ := h.ctorConcl c hc j hj
-    exact ⟨cv, nPc, nF, (hC c hc j hj).trans hf, hsh⟩
+    obtain ⟨cv, nPc, nF, iT, hf, hsh⟩ := h.ctorConcl c hc j hj
+    exact ⟨cv, nPc, nF, iT, (hC c hc j hj).trans hf, hsh⟩
 
 omit [SetTheory V] in
 /-- Ownership across an extension that keeps every lookup and every
@@ -226,7 +226,8 @@ theorem LfpOwn.mono {env env' : Env} {D : LfpDatum V} (h : LfpOwn env D)
       = ConLeche.nestContainer (envCtx env) (D.member c)) : LfpOwn env' D where
   ctors := fun c hc => by
     obtain ⟨nP', L, hL, hlen, hj⟩ := h.ctors c hc
-    exact ⟨nP', L, (hnc c hc).trans hL, hlen, fun j hjl => hfwd _ _ (hj j hjl)⟩
+    exact ⟨nP', L, (hnc c hc).trans hL, hlen, fun j hjl =>
+      let ⟨iT, h⟩ := hj j hjl; ⟨iT, hfwd _ _ h⟩⟩
   noCtors := fun c hc nP' hL => by
     obtain ⟨cv, caps, hf, hnd, hlen, hall⟩ := h.noCtors c hc nP' ((hnc c hc).symm.trans hL)
     refine ⟨cv, caps, hfwd _ _ hf, hnd, hlen, fun mm hmm => ?_⟩
@@ -236,23 +237,23 @@ theorem LfpOwn.mono {env env' : Env} {D : LfpDatum V} (h : LfpOwn env D)
     obtain ⟨cv, caps, hf, hnd⟩ := h.lvlNodup c hc
     exact ⟨cv, caps, hfwd _ _ hf, hnd⟩
   ctorConcl := fun c hc j hj => by
-    obtain ⟨cv, nPc, nF, hf, hsh⟩ := h.ctorConcl c hc j hj
-    exact ⟨cv, nPc, nF, hfwd _ _ hf, hsh⟩
+    obtain ⟨cv, nPc, nF, iT, hf, hsh⟩ := h.ctorConcl c hc j hj
+    exact ⟨cv, nPc, nF, iT, hfwd _ _ hf, hsh⟩
 
 /-! ### Constructor entries, computed -/
 
 /-- A constructor's entry at its own head. -/
 theorem ctorEntry_self {c₀ : ConstantInfo} {cv : ConstantVal} {nPc nF : Nat}
-    {bs : List Expr} {body : Expr} {T : Name} {us : List Level}
-    (hc : c₀ = .ctorInfo cv nPc nF) (hs : cv.type.stripPis (nPc + nF) = some (bs, body))
+    {bs : List Expr} {body : Expr} {T iT : Name} {us : List Level}
+    (hc : c₀ = .ctorInfo cv nPc nF iT) (hs : cv.type.stripPis (nPc + nF) = some (bs, body))
     (hg : body.getAppFn = .const T us) : ctorEntry T c₀ = some (cv, nPc, nF) := by
   subst hc
   simp only [ctorEntry, hs, hg, beq_self_eq_true, ite_true]
 
 /-- A constructor has an entry only at its own head. -/
 theorem ctorEntry_head {c₀ : ConstantInfo} {cv : ConstantVal} {nPc nF : Nat}
-    {bs : List Expr} {body : Expr} {T : Name} {us : List Level}
-    (hc : c₀ = .ctorInfo cv nPc nF) (hs : cv.type.stripPis (nPc + nF) = some (bs, body))
+    {bs : List Expr} {body : Expr} {T iT : Name} {us : List Level}
+    (hc : c₀ = .ctorInfo cv nPc nF iT) (hs : cv.type.stripPis (nPc + nF) = some (bs, body))
     (hg : body.getAppFn = .const T us) {C : Name} (h : (ctorEntry C c₀).isSome = true) :
     C = T := by
   subst hc
@@ -264,14 +265,14 @@ theorem ctorEntry_head {c₀ : ConstantInfo} {cv : ConstantVal} {nPc nF : Nat}
 
 /-- The cons premise `hhead` at a constructor whose head is `T`. -/
 theorem hhead_ctor {env : Env} {ex : List Name} {c₀ : ConstantInfo} {cv : ConstantVal}
-    {nPc nF : Nat} {bs : List Expr} {body : Expr} {T : Name}
+    {nPc nF : Nat} {bs : List Expr} {body : Expr} {T iT₀ : Name}
     {us : List Level}
-    (hc : c₀ = .ctorInfo cv nPc nF) (hs : cv.type.stripPis (nPc + nF) = some (bs, body))
+    (hc : c₀ = .ctorInfo cv nPc nF iT₀) (hs : cv.type.stripPis (nPc + nF) = some (bs, body))
     (hg : body.getAppFn = .const T us)
     (hT : T ∈ ex ∨ ∃ cv caps, env.find? T = some (.indInfo cv caps) ∧ caps.all = []) :
-    ∀ cv nPc nF, c₀ = .ctorInfo cv nPc nF → ∀ C, (ctorEntry C c₀).isSome = true →
+    ∀ cv nPc nF iT, c₀ = .ctorInfo cv nPc nF iT → ∀ C, (ctorEntry C c₀).isSome = true →
       C ∈ ex ∨ ∃ cv caps, env.find? C = some (.indInfo cv caps) ∧ caps.all = [] := by
-  intro _ _ _ _ C h
+  intro _ _ _ _ _ C h
   rw [ctorEntry_head hc hs hg h]
   exact hT
 
@@ -283,7 +284,7 @@ theorem lfpOwn_one {env : Env} {D : LfpDatum V} {T : Name} {cv : ConstantVal}
     (hk : D.k = 1) (hm : D.member 0 = T) (hf : env.find? T = some (.indInfo cv caps))
     (hcs : caps.ctors.filterMap (ctorLook env.find? T) = cs)
     (hctors : ∃ nP' L, nestPick caps cs = some (nP', L) ∧ L.length = D.nctors 0 ∧
-      ∀ j (hj : j < L.length), env.find? (D.ctorName 0 j) = some (.ctorInfo L[j].1 nP' L[j].2))
+      ∀ j (hj : j < L.length), ∃ iT, env.find? (D.ctorName 0 j) = some (.ctorInfo L[j].1 nP' L[j].2 iT))
     (hno : ∀ nP', nestPick caps cs = some (nP', []) →
       cv.levelParams.Nodup ∧ ∀ ψ, (D.params ψ).length = nP')
     (hnd : cv.levelParams.Nodup)
@@ -313,7 +314,8 @@ theorem lfpOwn_one {env : Env} {D : LfpDatum V} {T : Name} {cv : ConstantVal}
   · obtain rfl : c = 0 := by omega
     obtain ⟨nP', L, hL, hlen, hfj⟩ := hctors
     have hjL : j < L.length := by rw [hlen]; exact hj
-    refine ⟨L[j].1, nP', L[j].2, hfj j hjL, ?_⟩
+    obtain ⟨iT, hfj'⟩ := hfj j hjL
+    refine ⟨L[j].1, nP', L[j].2, iT, hfj', ?_⟩
     rw [hm]
     exact hconcl nP' L hL j hjL
 
@@ -472,7 +474,7 @@ theorem LfpCover.cons {env : Env} {mp : EnvModelM V env} {c₀ : ConstantInfo}
     (hex : ∀ n ∈ ex, n ∈ ex')
     (hni : ∀ cv caps, c₀ = .indInfo cv caps → c₀.name = ConLeche.quotName ∨ c₀.name ∈ ex')
     (hex' : ∀ n ∈ ex', n ∈ ex ∨ n = c₀.name)
-    (hhead : ∀ cv nPc nF, c₀ = .ctorInfo cv nPc nF → ∀ C, (ctorEntry C c₀).isSome = true →
+    (hhead : ∀ cv nPc nF iT, c₀ = .ctorInfo cv nPc nF iT → ∀ C, (ctorEntry C c₀).isSome = true →
       C ∈ ex ∨ ∃ cv caps, env.find? C = some (.indInfo cv caps) ∧ caps.all = []) :
     LfpCover mp' ex' := by
   refine h.ext hL (fun _ _ hf => findPreserved_cons hfresh hf) ?_ ?_ ?_
@@ -494,11 +496,11 @@ theorem LfpCover.cons {env : Env} {mp : EnvModelM V env} {c₀ : ConstantInfo}
     cases hent : ctorEntry C c₀ with
     | none => rfl
     | some _ =>
-      obtain ⟨cv, nPc, nF, hc0⟩ : ∃ cv nPc nF, c₀ = .ctorInfo cv nPc nF := by
+      obtain ⟨cv, nPc, nF, iT, hc0⟩ : ∃ cv nPc nF iT, c₀ = .ctorInfo cv nPc nF iT := by
         cases c₀ with
-        | ctorInfo cv a b => exact ⟨cv, a, b, rfl⟩
+        | ctorInfo cv a b iT => exact ⟨cv, a, b, iT, rfl⟩
         | _ => simp [ctorEntry] at hent
-      rcases hhead cv nPc nF hc0 C (by rw [hent]; rfl) with h' | ⟨cv, caps, hf, hnil⟩
+      rcases hhead cv nPc nF iT hc0 C (by rw [hent]; rfl) with h' | ⟨cv, caps, hf, hnil⟩
       · exact absurd h' hCex
       · exact absurd hnil (hall cv caps hf)
 
@@ -665,9 +667,9 @@ theorem coverA_cons {env : Env} {mp : EnvModelM V env} {c₀ : ConstantInfo}
     (h : ∃ mp' : EnvModelM V ⟨c₀ :: env.consts, env.tables⟩,
       mp'.base2.acval = acvalWith mp.base2.acval c₀.name A)
     (hex' : ∀ n ∈ ex', n ∈ ex ∨ n = c₀.name := by intro _ h; exact Or.inl h)
-    (hhead : ∀ cv nPc nF, c₀ = .ctorInfo cv nPc nF → ∀ C, (ctorEntry C c₀).isSome = true →
+    (hhead : ∀ cv nPc nF iT, c₀ = .ctorInfo cv nPc nF iT → ∀ C, (ctorEntry C c₀).isSome = true →
       C ∈ ex ∨ ∃ cv caps, env.find? C = some (.indInfo cv caps) ∧ caps.all = [] := by
-      intro _ _ _ h; exact nomatch h) :
+      intro _ _ _ _ h; exact nomatch h) :
     ∃ mp' : EnvModelM V ⟨c₀ :: env.consts, env.tables⟩,
       mp'.base2.acval = acvalWith mp.base2.acval c₀.name A ∧ CoverRel mp mp' ∧
       (LfpCover mp ex → LfpCover mp' ex') := by
@@ -688,9 +690,9 @@ theorem coverTo_cons {env : Env} {mp : EnvModelM V env} {c₀ : ConstantInfo}
     (hni : ∀ cv caps, c₀ = .indInfo cv caps → c₀.name = ConLeche.quotName)
     (h : ∃ mp' : EnvModelM V ⟨c₀ :: env.consts, env.tables⟩,
       mp'.base2.acval = acvalWith mp.base2.acval c₀.name A)
-    (hhead : ∀ cv nPc nF, c₀ = .ctorInfo cv nPc nF → ∀ C, (ctorEntry C c₀).isSome = true →
+    (hhead : ∀ cv nPc nF iT, c₀ = .ctorInfo cv nPc nF iT → ∀ C, (ctorEntry C c₀).isSome = true →
       C ∈ ex ∨ ∃ cv caps, env.find? C = some (.indInfo cv caps) ∧ caps.all = [] := by
-      intro _ _ _ h; exact nomatch h) :
+      intro _ _ _ _ h; exact nomatch h) :
     CoverTo mp ex ⟨c₀ :: env.consts, env.tables⟩ ex :=
   (coverA_cons hfresh (fun _ h => h) (fun cv caps h' => Or.inl (hni cv caps h')) h
     (fun _ h => Or.inl h) hhead).imp
@@ -703,14 +705,14 @@ theorem coverA_pend {env : Env} {mp : EnvModelM V env} {c₀ : ConstantInfo}
     (hfresh : env.find? c₀.name = none)
     (h : ∃ mp' : EnvModelM V ⟨c₀ :: env.consts, env.tables⟩,
       mp'.base2.acval = acvalWith mp.base2.acval c₀.name A)
-    (hnct : ∀ cv nPc nF, c₀ ≠ .ctorInfo cv nPc nF := by intro _ _ _ h; exact nomatch h) :
+    (hnct : ∀ cv nPc nF iT, c₀ ≠ .ctorInfo cv nPc nF iT := by intro _ _ _ _ h; exact nomatch h) :
     ∃ mp' : EnvModelM V ⟨c₀ :: env.consts, env.tables⟩,
       mp'.base2.acval = acvalWith mp.base2.acval c₀.name A ∧ CoverRel mp mp' ∧
       (LfpCover mp ex → LfpCover mp' (c₀.name :: ex)) :=
   coverA_cons hfresh (fun _ h => List.mem_cons_of_mem _ h)
     (fun _ _ _ => Or.inr List.mem_cons_self) h
     (fun _ hn => (List.mem_cons.mp hn).elim Or.inr Or.inl)
-    (fun _ _ _ h => absurd h (hnct _ _ _))
+    (fun _ _ _ _ h => absurd h (hnct _ _ _ _))
 
 /-- **A former's cons**, through the funnel, as a `CoverTo`. -/
 theorem coverTo_pend {env : Env} {mp : EnvModelM V env} {c₀ : ConstantInfo}
@@ -718,7 +720,7 @@ theorem coverTo_pend {env : Env} {mp : EnvModelM V env} {c₀ : ConstantInfo}
     (hfresh : env.find? c₀.name = none)
     (h : ∃ mp' : EnvModelM V ⟨c₀ :: env.consts, env.tables⟩,
       mp'.base2.acval = acvalWith mp.base2.acval c₀.name A)
-    (hnct : ∀ cv nPc nF, c₀ ≠ .ctorInfo cv nPc nF := by intro _ _ _ h; exact nomatch h) :
+    (hnct : ∀ cv nPc nF iT, c₀ ≠ .ctorInfo cv nPc nF iT := by intro _ _ _ _ h; exact nomatch h) :
     CoverTo mp ex ⟨c₀ :: env.consts, env.tables⟩ (c₀.name :: ex) :=
   (coverA_pend hfresh h hnct).imp fun _ h => h.2
 

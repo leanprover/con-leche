@@ -79,7 +79,7 @@ def ConstantInfo.canon (ci : ConstantInfo) : ConstantInfo :=
   | .defnInfo _ v hint => .defnInfo cv (canonExpr m v) hint
   | .thmInfo _ => .thmInfo cv
   | .indInfo _ _ => .indInfo cv {}
-  | .ctorInfo _ nP nF => .ctorInfo cv nP nF
+  | .ctorInfo _ nP nF T => .ctorInfo cv nP nF T
   | .recInfo _ mI rP isK rules => .recInfo cv mI rP
       isK (rules.map fun r => { r with rhs := canonExpr m r.rhs })
 
@@ -234,8 +234,8 @@ def ConstantInfo.canonEqFast : ConstantInfo → ConstantInfo → Bool
           (canonNameMap cv'.levelParams) v v' && h == h'
   | .thmInfo cv, .thmInfo cv' => ConstantVal.canonEqFast cv cv'
   | .indInfo cv _, .indInfo cv' _ => ConstantVal.canonEqFast cv cv'
-  | .ctorInfo cv nP nF, .ctorInfo cv' nP' nF' =>
-      ConstantVal.canonEqFast cv cv' && nP == nP' && nF == nF'
+  | .ctorInfo cv nP nF T, .ctorInfo cv' nP' nF' T' =>
+      ConstantVal.canonEqFast cv cv' && nP == nP' && nF == nF' && T == T'
   | .recInfo cv mI rP isK rules, .recInfo cv' mI' rP' isK' rules' =>
       ConstantVal.canonEqFast cv cv' && mI == mI' && rP == rP' && isK == isK' &&
         canonRulesEqFast (canonNameMap cv.levelParams)
@@ -341,7 +341,7 @@ def ConstantInfo.beqP : ConstantInfo → ConstantInfo → Bool
   | .defnInfo v e h, .defnInfo v' e' h' => v.beqP v' && e == e' && decide (h = h')
   | .thmInfo v, .thmInfo v' => v.beqP v'
   | .indInfo v c, .indInfo v' c' => v.beqP v' && decide (c = c')
-  | .ctorInfo v a b, .ctorInfo v' a' b' => v.beqP v' && a == a' && b == b'
+  | .ctorInfo v a b T, .ctorInfo v' a' b' T' => v.beqP v' && a == a' && b == b' && T == T'
   | .recInfo v a b isK rs, .recInfo v' a' b' isK' rs' =>
     v.beqP v' && a == a' && b == b' && isK == isK' && listBeqBy RecRule.beqP rs rs'
   | _, _ => false
@@ -353,7 +353,7 @@ theorem ConstantInfo.eq_of_beqP {a b : ConstantInfo} (h : a.beqP b = true) : a =
   · obtain ⟨⟨hv, rfl⟩, rfl⟩ := h; rw [ConstantVal.eq_of_beqP hv]
   · rw [ConstantVal.eq_of_beqP h]
   · obtain ⟨hv, rfl⟩ := h; rw [ConstantVal.eq_of_beqP hv]
-  · obtain ⟨⟨hv, rfl⟩, rfl⟩ := h; rw [ConstantVal.eq_of_beqP hv]
+  · obtain ⟨⟨⟨hv, rfl⟩, rfl⟩, rfl⟩ := h; rw [ConstantVal.eq_of_beqP hv]
   · obtain ⟨⟨⟨⟨hv, rfl⟩, rfl⟩, rfl⟩, hr⟩ := h
     rw [ConstantVal.eq_of_beqP hv, eq_of_listBeqBy (fun _ _ => RecRule.eq_of_beqP) hr]
 

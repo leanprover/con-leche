@@ -38,8 +38,8 @@ theorem natLitSupported_of_shapes {env : Env}
   simp (decide := true) only [litShapeOk, Env.find?_name hb, ↓reduceIte] at sb
   simp (decide := true) only [litShapeOk, Env.find?_name hc, ↓reduceIte] at sc
   obtain ⟨cva, capsa, rfl⟩ := hk.1 _ ha
-  obtain ⟨cvb, nPb, nFb, rfl⟩ := hk.2.1 _ hb
-  obtain ⟨cvc, nPc, nFc, rfl⟩ := hk.2.2 _ hc
+  obtain ⟨cvb, nPb, nFb, Tb, rfl⟩ := hk.2.1 _ hb
+  obtain ⟨cvc, nPc, nFc, Tc, rfl⟩ := hk.2.2 _ hc
   simp only [natLitSupported, ha, hb, hc]
   exact Bool.and_eq_true_iff.mpr ⟨Bool.and_eq_true_iff.mpr ⟨sa, sb⟩, sc⟩
 
@@ -81,10 +81,10 @@ theorem strLitSupported_of_stored {env : Env} (henv : EnvWF env) (hk : NatKinds 
 
 /-- Everything `natLitSupported` checked, as separate facts. -/
 theorem natLitSupported_inv {env : Env} (hs : natLitSupported env = true) :
-    ∃ cv caps cv0 i0 j0 cv1 i1 j1,
+    ∃ cv caps cv0 i0 j0 T0 cv1 i1 j1 T1,
       env.find? natName = some (.indInfo cv caps) ∧
-      env.find? natZeroName = some (.ctorInfo cv0 i0 j0) ∧
-      env.find? natSuccName = some (.ctorInfo cv1 i1 j1) ∧
+      env.find? natZeroName = some (.ctorInfo cv0 i0 j0 T0) ∧
+      env.find? natSuccName = some (.ctorInfo cv1 i1 j1 T1) ∧
       cv.levelParams = [] ∧ cv0.levelParams = [] ∧ cv1.levelParams = [] ∧
       cv.type = .sort (.succ .zero) ∧ cv0.type = .const natName [] ∧
       cv1.type = .forallE (.const natName []) (.const natName []) := by
@@ -98,13 +98,13 @@ theorem natLitSupported_inv {env : Env} (hs : natLitSupported env = true) :
     unfold natZeroOk at hz
     split at hz
     case h_2 => simp at hz
-    next cv0 i0 j0 heqZ =>
+    next cv0 i0 j0 T0 heqZ =>
       unfold natSuccOk at hsc
       split at hsc
       case h_2 => simp at hsc
-      next cv1 i1 j1 heqS =>
+      next cv1 i1 j1 T1 heqS =>
         simp only [Bool.and_eq_true, beq_iff_eq, List.isEmpty_iff] at hi hz hsc
-        refine ⟨cv, caps, cv0, i0, j0, cv1, i1, j1, heqN, heqZ, heqS,
+        refine ⟨cv, caps, cv0, i0, j0, T0, cv1, i1, j1, T1, heqN, heqZ, heqS,
           hi.1, hz.1, hsc.1, hi.2, hz.2, ?_⟩
         obtain ⟨-, h6⟩ := hsc
         revert h6

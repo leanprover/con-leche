@@ -853,7 +853,7 @@ stored, at the block's level parameters, and its data. -/
     (dsF : Nat → (Name → Nat) → List Term)
     (esF : Nat → (Name → Nat) → List Term) (srcsF : Nat → List (Option Nat))
     (j : Nat) (ctor : ConstantVal × Nat) : Prop :=
-  env.find? ctor.1.name = some (.ctorInfo ctor.1 nP ctor.2) ∧
+  env.find? ctor.1.name = some (.ctorInfo ctor.1 nP ctor.2 T) ∧
   ctor.1.levelParams = lps ∧
   CtorDataI m T lps ctor.1 nP ctor.2 nIdx resSort isProp large (idxF j) (dsF j) (esF j) (srcsF j)
 
@@ -1060,11 +1060,11 @@ theorem stageCtorGen {T : Name}
       Sat V (((ds ψ).take nP)).reverse ρ →
       ∀ bs : List V, SpineFit ρ (((ds ψ).drop nP)) bs →
         SpineFit ρ (((ppsAll ψ).drop nP)) (idxValsAt ρ (Es ψ) bs)) :
-    ∃ mp' : EnvModelM V ⟨.ctorInfo cvCa nP nF :: env.consts, env.tables⟩,
+    ∃ mp' : EnvModelM V ⟨.ctorInfo cvCa nP nF T :: env.consts, env.tables⟩,
       mp'.base2.acval = acvalWith mp.base2.acval cvCa.name
         (fun ψ => sumMkAV (resSort.eval ψ) j (ds ψ) (((ds ψ).drop nP))
           (uChains (Fss ψ))) := by
-  have hwfC : ConLeche.EnvWF ⟨.ctorInfo cvCa nP nF :: env.consts, env.tables⟩ :=
+  have hwfC : ConLeche.EnvWF ⟨.ctorInfo cvCa nP nF T :: env.consts, env.tables⟩ :=
     hCtor.envWF_cons mp.base2.wf htr
   obtain ⟨⟨hty, hccv⟩, -, -⟩ := hCtor
   have hCname : cvCa.name = cvC.name := by rw [hty]
@@ -1081,16 +1081,16 @@ theorem stageCtorGen {T : Name}
   have hwalks := ctorWalksGen hFD hCD hfold hFsj hEsj hiff hFssOkP hIdx
   have hreadC : ∀ ψ : Name → Nat,
       denote (acvalWith mp.base2.acval cvCa.name A)
-        ⟨.ctorInfo cvCa nP nF :: env.consts, env.tables⟩ ψ 0 cvCa.type
+        ⟨.ctorInfo cvCa nP nF T :: env.consts, env.tables⟩ ψ 0 cvCa.type
         = some (mkPisAV (ds ψ) (ctorBodyAVI mp.base2 T nP nF ψ (Es ψ))) := fun ψ =>
-    denote_cons_mono (c₀ := .ctorInfo cvCa nP nF) hfresh ψ 0 hcb (hCD.read ψ)
+    denote_cons_mono (c₀ := .ctorInfo cvCa nP nF T) hfresh ψ 0 hcb (hCD.read ψ)
   have hnresC : ConLeche.reservedBasisNames.contains
-      (ConstantInfo.ctorInfo cvCa nP nF).name = false := hresC
-  refine declStep_preserves_of_ind_member_cons mp (c₀ := .ctorInfo cvCa nP nF)
+      (ConstantInfo.ctorInfo cvCa nP nF T).name = false := hresC
+  refine declStep_preserves_of_ind_member_cons mp (c₀ := .ctorInfo cvCa nP nF T)
     (A := A) hfresh hnresC (by
       show natOpName cvCa.name = false
       rw [hCname]; exact ConLeche.checkConstantVal_opName_false hccv)
-    (Or.inr ⟨_, _, _, rfl⟩)
+    (Or.inr ⟨_, _, _, _, rfl⟩)
     (ConsHead.ofFresh hwfC (fun ψ => hAbelow ψ) hnresC
       (fun _ _ _ _ _ h => nomatch h))
     ?_ ?_ ?_ ?_ ?_

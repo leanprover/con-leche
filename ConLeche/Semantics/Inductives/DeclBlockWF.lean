@@ -79,7 +79,7 @@ theorem declBlockRun_envWF {F : Nat} {env env₂ : Env} {block : List ConstantIn
   obtain ⟨-, -, -, isRec, env₁, p₁, sortsss, ctx, holes, rd, Ms, kinds, nfs, pos, st, isorts, out,
     Q, hInd, hCtors, hctx, hcls, -, -, -, -, hRec, -, hS, -, hTbl, rfl⟩ := h
   have henv₁ := (ConLeche.direct_block_inds_wf henv hdecl hInd).1
-  have henvC : EnvWF (consBlockCtors p₁.nP p₁.memberCtors env₁) :=
+  have henvC : EnvWF (consBlockCtors p₁.nP p₁.ctorGroups env₁) :=
     ConLeche.direct_block_ctors_wf henv₁ hCtors
   have henvR := declBlockRun_recsWF henvC hctx hcls hRec hS
   -- each table, checked at the constructors' environment, which the recursors' extends

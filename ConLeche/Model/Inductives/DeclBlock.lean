@@ -102,7 +102,7 @@ therefore resolves in `env₀` and names no member. -/
   ∃ env₀ : Env, ConLeche.EnvWF env₀ ∧ (∀ n ∈ names, env₀.find? n = none) ∧
     ∀ n ci, envC.find? n = some ci → env₀.find? n = some ci ∨
       (∃ cv caps, ci = .indInfo cv caps) ∨
-      ∃ cv nP nF bs body us m, ci = .ctorInfo cv nP nF ∧
+      ∃ cv nP nF iT bs body us m, ci = .ctorInfo cv nP nF iT ∧
         cv.type.stripPis (nP + nF) = some (bs, body) ∧ body.getAppFn = .const m us ∧ m ∈ names
 
 /-- **The positivity model at the formers' environment**: a carrier at `envI` covering every recorded block but the
@@ -139,7 +139,7 @@ this (`nodeListFacts_of`, `dynCtx_of`). -/
     (posR : ConLeche.NestState) : Prop :=
   ConLeche.PositivityRun (ConLeche.fueledOps .verified F) envI
       envI.find? pp kindsR nfsR posR ∧
-  envC = ConLeche.consBlockCtors pp.nP pp.memberCtors envI ∧
+  envC = ConLeche.consBlockCtors pp.nP pp.ctorGroups envI ∧
   pp.memberCtors.map (·.map (fun ctor => (ctor.1.name, ctor.2)))
     = pp.members.map (fun ms => ms.ctors.map (fun c => (c.1.name, c.2))) ∧
   pp.memberNames.Nodup ∧
@@ -155,8 +155,8 @@ this (`nodeListFacts_of`, `dynCtx_of`). -/
   FormersModelAt (V := V) envI pp.memberNames mpC dR pp.lps pp.formers
     pp isRecR ∧
   BlockOverEnv envC pp.memberNames ∧
-  (∀ c ∈ pp.memberCtors.flatten, envI.find? c.1.name = none ∧
-    ∀ C, (ctorEntry C (.ctorInfo c.1 pp.nP c.2)).isSome = true →
+  (∀ g ∈ pp.ctorGroups, ∀ c ∈ g.2, envI.find? c.1.name = none ∧
+    ∀ C, (ctorEntry C (.ctorInfo c.1 pp.nP c.2 g.1)).isSome = true →
       C ∈ pp.memberNames)
 
 end ConLeche.Model

@@ -473,13 +473,57 @@ theorem direct_sum_ctor_typeWF {env₀ env : Env} {T : Name} {lps : List Name}
   exact ⟨g1, g2, g3, g4, checkConstantVal_litShapeAt hccv⟩
 
 /-- **One constructor's cons keeps well-formedness**: the stored constructor is a closed,
-resolving constant. -/
-theorem envWF_cons_ctor {env : Env} {cv : ConstantVal} {nP nF : Nat} (henv : EnvWF env)
+resolving constant, stored at the family its type concludes in. -/
+theorem envWF_cons_ctor {env : Env} {cv : ConstantVal} {nP nF : Nat} {T : Name} (henv : EnvWF env)
     (h1 : cv.type.hasFvar = false) (h2 : cv.type.allLevelParamsDefined cv.levelParams = true)
     (h3 : cv.type.constsResolve env = true) (h4 : cv.type.looseBVarsBounded 0 = true)
-    (hs : LitShapeAt cv) : EnvWF ⟨.ctorInfo cv nP nF :: env.consts, env.tables⟩ :=
+    (hs : LitShapeAt cv) (hh : ∃ us, cv.type.piResult.getAppFn = .const T us) :
+    EnvWF ⟨.ctorInfo cv nP nF T :: env.consts, env.tables⟩ :=
   EnvWF.cons (hs _ rfl) henv (structConstWF h1 h2 (Expr.constsResolve_mono h3) h4
     (fun _ _ _ heq => nomatch heq) (fun _ _ _ _ _ heq => nomatch heq))
+    (hk := let ⟨_, h⟩ := hh; CtorWF.of_head h)
+
+/-- An application spine over a head that is not a `∀` is its own `piResult`. -/
+theorem piResult_mkAppN_of_ne : ∀ (args : List Expr) (f : Expr),
+    (∀ b c, f ≠ .forallE b c) → (Expr.mkAppN f args).piResult = Expr.mkAppN f args
+  | [], f, hf => by
+    cases f with
+    | forallE b c => exact absurd rfl (hf b c)
+    | _ => rfl
+  | a :: as, f, _ => piResult_mkAppN_of_ne as (.app f a) (fun _ _ h => nomatch h)
+
+/-- **A syntactic telescope ending in a constant application** has that constant at the head
+of its `piResult`. -/
+theorem piResult_getAppFn_of_stripPis {I : Name} {us : List Level} :
+    ∀ (n : Nat) {e : Expr} {bs : List Expr} {args : List Expr},
+      e.stripPis n = some (bs, Expr.mkAppN (.const I us) args) →
+      (e.piResult).getAppFn = .const I us
+  | 0, e, bs, args, h => by
+    simp only [ConLeche.Expr.stripPis, Option.some.injEq, Prod.mk.injEq] at h
+    rw [h.2, piResult_mkAppN_of_ne args (.const I us) (fun _ _ h => nomatch h),
+      Expr.getAppFn_mkAppN]
+    rfl
+  | n + 1, e, bs, args, h => by
+    match e with
+    | .forallE ty b =>
+      simp only [ConLeche.Expr.stripPis, Option.map_eq_some_iff] at h
+      obtain ⟨⟨bs', r⟩, hr, heq⟩ := h
+      simp only [Prod.mk.injEq] at heq
+      obtain ⟨-, rfl⟩ := heq
+      show b.piResult.getAppFn = _
+      exact piResult_getAppFn_of_stripPis n hr
+    | .bvar _ | .sort _ | .const _ _ | .lit _ | .fvar _ _ | .app _ _ | .lam _ _
+    | .letE _ _ _ | .proj _ _ _ => exact absurd h (by simp [ConLeche.Expr.stripPis])
+
+/-- **A checked constructor's declared type concludes in the family it is checked against**
+(`checkSumCtor`'s result shape): the fact its stored `induct` carries (`CtorWF`). -/
+theorem SumCtorRun.head {env₀ env₁ : Env} {T : Name} {lps : List Name}
+    {nP nIdx : Nat} {resSort : Level} {isProp large : Bool} {cvC cvTa cvCa : ConstantVal}
+    {nF : Nat} {F : Nat} {sorts : List Level}
+    (h : SumCtorRun mode F env₀ env₁ T lps nP nIdx resSort isProp large cvC nF cvTa cvCa sorts) :
+    ∃ us, cvCa.type.piResult.getAppFn = .const T us := by
+  obtain ⟨-, ⟨cbs, es, hst, -⟩, -⟩ := h
+  exact ⟨_, piResult_getAppFn_of_stripPis _ hst⟩
 
 /-- **A checked constructor's cons keeps well-formedness**, at any well-formed environment its
 type resolves at (the constructor stage's step). -/
@@ -488,15 +532,15 @@ theorem SumCtorRun.envWF_cons {env₀ env₁ : Env} {T : Name} {lps : List Name}
     {nF : Nat} {F : Nat} {sorts : List Level}
     (h : SumCtorRun mode F env₀ env₁ T lps nP nIdx resSort isProp large cvC nF cvTa cvCa sorts)
     {env : Env} (henv : EnvWF env) (hres : cvCa.type.constsResolve env = true) :
-    EnvWF ⟨.ctorInfo cvCa nP nF :: env.consts, env.tables⟩ := by
+    EnvWF ⟨.ctorInfo cvCa nP nF T :: env.consts, env.tables⟩ := by
   obtain ⟨g1, g2, -, g4, g5⟩ := direct_sum_ctor_typeWF h
-  exact envWF_cons_ctor henv g1 g2 hres g4 g5
+  exact envWF_cons_ctor henv g1 g2 hres g4 g5 h.head
 
 /-- A name fresh above the constructors' conses is fresh below them
 (#210). -/
-theorem consSumCtors_find?_none {nP : Nat} {n : Name} :
+theorem consSumCtors_find?_none {nP : Nat} {T : Name} {n : Name} :
     ∀ {ctorList : List (ConstantVal × Nat)} {env : Env},
-      (consSumCtors nP ctorList env).find? n = none → env.find? n = none
+      (consSumCtors nP T ctorList env).find? n = none → env.find? n = none
   | [], _, h => h
   | c :: cs, env, h => by
     simp only [consSumCtors] at h
@@ -509,22 +553,23 @@ theorem consSumCtors_find?_none {nP : Nat} {n : Name} :
 /-- The constructors' conses keep well-formedness: every consed
 constructor's type resolves at the environment it is consed onto
 (resolution is monotone along the conses). -/
-theorem envWF_consSumCtors {nP : Nat} :
+theorem envWF_consSumCtors {nP : Nat} {T : Name} :
     ∀ {ctorList : List (ConstantVal × Nat)} {env : Env},
       EnvWF env →
       (∀ c ∈ ctorList, c.1.type.hasFvar = false ∧
         c.1.type.allLevelParamsDefined c.1.levelParams = true ∧
-        c.1.type.constsResolve env = true ∧ c.1.type.looseBVarsBounded 0 = true ∧ LitShapeAt c.1) →
-      EnvWF (consSumCtors nP ctorList env)
+        c.1.type.constsResolve env = true ∧ c.1.type.looseBVarsBounded 0 = true ∧ LitShapeAt c.1 ∧
+        ∃ us, c.1.type.piResult.getAppFn = .const T us) →
+      EnvWF (consSumCtors nP T ctorList env)
   | [], _, henv, _ => henv
   | c :: cs, env, henv, hall => by
     simp only [consSumCtors]
-    obtain ⟨htf, htp, htr, htb, hts⟩ := hall c List.mem_cons_self
+    obtain ⟨htf, htp, htr, htb, hts, hth⟩ := hall c List.mem_cons_self
     refine envWF_consSumCtors ?_ ?_
-    · exact envWF_cons_ctor henv htf htp htr htb hts
+    · exact envWF_cons_ctor henv htf htp htr htb hts hth
     · intro c' hc'
-      obtain ⟨h1, h2, h3, h4, h5⟩ := hall c' (List.mem_cons_of_mem _ hc')
-      exact ⟨h1, h2, Expr.constsResolve_mono h3, h4, h5⟩
+      obtain ⟨h1, h2, h3, h4, h5, h6⟩ := hall c' (List.mem_cons_of_mem _ hc')
+      exact ⟨h1, h2, Expr.constsResolve_mono h3, h4, h5, h6⟩
 
 /-- The stored rules carry the generated right-hand sides and are
 never `.nested`. -/

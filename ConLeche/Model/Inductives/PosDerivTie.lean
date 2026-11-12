@@ -213,54 +213,56 @@ constructors' environments**: the block's constructors conclude in its
 members (`hheads`), so none is a constructor of an inductive `I` that is
 no member, and none is named `I` (stored as an inductive there). -/
 theorem nestContainer_consBlockCtors {envI : Env} {nP : Nat}
-    {memberCtors : List (List (ConstantVal × Nat))} {names : List Name}
-    (hheads : ∀ c ∈ memberCtors.flatten, envI.find? c.1.name = none ∧
-      ∀ C, (ctorEntry C (.ctorInfo c.1 nP c.2)).isSome = true → C ∈ names)
+    {groups : List (Name × List (ConstantVal × Nat))} {names : List Name}
+    (hheads : ∀ g ∈ groups, ∀ c ∈ g.2, envI.find? c.1.name = none ∧
+      ∀ C, (ctorEntry C (.ctorInfo c.1 nP c.2 g.1)).isSome = true → C ∈ names)
     {I : Name} (hI : I ∉ names) {cv : ConstantVal} {caps : ConLeche.IndCaps}
-    (hf : (ConLeche.consBlockCtors nP memberCtors envI).find? I = some (.indInfo cv caps)) :
-    ConLeche.nestContainer (envCtx (ConLeche.consBlockCtors nP memberCtors envI)) I
+    (hf : (ConLeche.consBlockCtors nP groups envI).find? I = some (.indInfo cv caps)) :
+    ConLeche.nestContainer (envCtx (ConLeche.consBlockCtors nP groups envI)) I
       = ConLeche.nestContainer (envCtx envI) I := by
-  have hcs := consBlockCtors_consts nP memberCtors envI
-  have hnew : ∀ c ∈ (memberCtors.flatten.map fun c => ConstantInfo.ctorInfo c.1 nP c.2).reverse,
-      ∃ a ∈ memberCtors.flatten, c = .ctorInfo a.1 nP a.2 := by
+  have hnew : ∀ c ∈ (groups.flatMap fun g => g.2.map fun c =>
+      ConstantInfo.ctorInfo c.1 nP c.2 g.1).reverse,
+      ∃ g ∈ groups, ∃ a ∈ g.2, c = .ctorInfo a.1 nP a.2 g.1 := by
     intro c hc
-    obtain ⟨a, ha, rfl⟩ := List.mem_map.mp (List.mem_reverse.mp hc)
-    exact ⟨a, ha, rfl⟩
-  have hEq : ConLeche.consBlockCtors nP memberCtors envI
-      = ⟨(memberCtors.flatten.map fun c => ConstantInfo.ctorInfo c.1 nP c.2).reverse ++ envI.consts, envI.tables⟩ :=
+    obtain ⟨g, hg, hc'⟩ := List.mem_flatMap.mp (List.mem_reverse.mp hc)
+    obtain ⟨a, ha, rfl⟩ := List.mem_map.mp hc'
+    exact ⟨g, hg, a, ha, rfl⟩
+  have hEq : ConLeche.consBlockCtors nP groups envI
+      = ⟨(groups.flatMap fun g => g.2.map fun c =>
+          ConstantInfo.ctorInfo c.1 nP c.2 g.1).reverse ++ envI.consts, envI.tables⟩ :=
     by rw [← consBlockCtors_consts, ← consBlockCtors_tables]
   -- a lookup above the constructors: a new constructor (fresh below), or the old one
-  have hlook : ∀ n, (ConLeche.consBlockCtors nP memberCtors envI).find? n
-      = ((memberCtors.flatten.map fun c => ConstantInfo.ctorInfo c.1 nP c.2).reverse.find?
-          (·.name == n)).or (envI.find? n) := by
+  have hlook : ∀ n, (ConLeche.consBlockCtors nP groups envI).find? n
+      = ((groups.flatMap fun g => g.2.map fun c =>
+          ConstantInfo.ctorInfo c.1 nP c.2 g.1).reverse.find? (·.name == n)).or (envI.find? n) := by
     intro n; rw [hEq, find?_append]
   have hfind : envI.find? I = some (.indInfo cv caps) := by
     rw [hlook] at hf
-    cases hn : (memberCtors.flatten.map fun c => ConstantInfo.ctorInfo c.1 nP c.2).reverse.find?
-        (·.name == I) with
+    cases hn : (groups.flatMap fun g => g.2.map fun c =>
+        ConstantInfo.ctorInfo c.1 nP c.2 g.1).reverse.find? (·.name == I) with
     | none => rw [hn] at hf; exact hf
     | some c =>
       rw [hn] at hf
-      obtain ⟨a, -, rfl⟩ := hnew c (List.mem_of_find?_eq_some hn)
+      obtain ⟨g, -, a, -, rfl⟩ := hnew c (List.mem_of_find?_eq_some hn)
       exact nomatch hf
   refine nestContainer_congr (by rw [hf, hfind]) fun n => ?_
   simp only [ctorLook]
   rw [hlook]
-  cases hn : (memberCtors.flatten.map fun c => ConstantInfo.ctorInfo c.1 nP c.2).reverse.find?
-      (·.name == n) with
+  cases hn : (groups.flatMap fun g => g.2.map fun c =>
+      ConstantInfo.ctorInfo c.1 nP c.2 g.1).reverse.find? (·.name == n) with
   | none => rfl
   | some c =>
-    obtain ⟨a, ha, rfl⟩ := hnew c (List.mem_of_find?_eq_some hn)
+    obtain ⟨g, hg, a, ha, rfl⟩ := hnew c (List.mem_of_find?_eq_some hn)
     have hname : a.1.name = n := by
       have := List.find?_some hn
       simp only [beq_iff_eq] at this
       exact this
-    have hfr : envI.find? n = none := hname ▸ (hheads a ha).1
+    have hfr : envI.find? n = none := hname ▸ (hheads g hg a ha).1
     rw [hfr]
     simp only [Option.some_or, Option.bind_some, Option.bind_none]
-    cases hent : ctorEntry I (.ctorInfo a.1 nP a.2) with
+    cases hent : ctorEntry I (.ctorInfo a.1 nP a.2 g.1) with
     | none => rfl
-    | some _ => exact absurd ((hheads a ha).2 I (by rw [hent]; rfl)) hI
+    | some _ => exact absurd ((hheads g hg a ha).2 I (by rw [hent]; rfl)) hI
 
 /-! ## THE COVERAGE THEOREM: every outside class is a seed's node -/
 

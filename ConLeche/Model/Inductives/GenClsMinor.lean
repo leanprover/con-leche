@@ -126,7 +126,7 @@ theorem genMinorSetup
     (h : ConLeche.RecStageG .verified F envC pp (tgtRs out))
     (hfind : ∀ (j : Nat) (r : ConstantVal × List Expr × Nat × List (ConstantVal × Nat)),
       (tgtRs out)[j]? = some r → ∀ (i : Nat) (ctor : ConstantVal × Nat), r.2.2.2[i]? = some ctor →
-        envC.find? ctor.1.name = some (.ctorInfo ctor.1 (ConLeche.tgtMajorsOf out j).nPc ctor.2))
+        ∃ iT, envC.find? ctor.1.name = some (.ctorInfo ctor.1 (ConLeche.tgtMajorsOf out j).nPc ctor.2 iT))
     {c j : Nat} (hc : c < (tgtRs out).length) (hj : j < blockRecNCt (tgtRs out) c) :
     ∃ (cls s : Nat) (x : ClassCtor) (T res : Expr) (ws : List Expr)
       (ihs : List Expr),
@@ -202,15 +202,15 @@ theorem genMinorSetup
     obtain ⟨ctor', hctor', ⟨CR'⟩⟩ := genClassCtorAt R hclsM (List.getElem?_eq_getElem hi')
     have hctor'r : ((tgtRs out)[c]'hc).2.2.2[i']? = some ctor' := by
       rw [hctors]; exact hctor'
-    have hf1 := hfind c _ hr i' ctor' hctor'r
-    have hf2 := hfind c _ hr j ctor hctor
+    obtain ⟨_, hf1⟩ := hfind c _ hr i' ctor' hctor'r
+    obtain ⟨_, hf2⟩ := hfind c _ hr j ctor hctor
     have hn1 : ctor'.1.name = ctor.1.name := by
       have h1 := congrArg (fun y => y.cv.name) CR'.hx
       simp only at h1
       rw [← h1, hname, hxcv]
     rw [hn1, hf2] at hf1
     have hinj := Option.some.inj hf1
-    injection hinj with h1 h2 h3
+    injection hinj with h1 h2 h3 h4
     have hcAeq : ctor' = ctor := Prod.ext h1.symm h3.symm
     subst hcAeq
     exact ConLeche.Model.classCtorRun_unique CR' CR
@@ -529,7 +529,7 @@ theorem genCls_minor
     (h : ConLeche.RecStageG .verified F envC pp (tgtRs out)) (mpC : EnvModelM V envC)
     (hfind : ∀ (j : Nat) (r : ConstantVal × List Expr × Nat × List (ConstantVal × Nat)),
       (tgtRs out)[j]? = some r → ∀ (i : Nat) (ctor : ConstantVal × Nat), r.2.2.2[i]? = some ctor →
-        envC.find? ctor.1.name = some (.ctorInfo ctor.1 (ConLeche.tgtMajorsOf out j).nPc ctor.2))
+        ∃ iT, envC.find? ctor.1.name = some (.ctorInfo ctor.1 (ConLeche.tgtMajorsOf out j).nPc ctor.2 iT))
     (ψ : Name → Nat) (ρ : Nat → V) :
     ∀ c, c < (tgtRs out).length → ∀ j, j < blockRecNCt (tgtRs out) c → ∀ xs,
     SpineFit ρ (blockRulePdomsAV mpC.base2.acval envC pp (tgtRs out) ψ c) xs →
@@ -779,7 +779,7 @@ theorem genMinor_pt
     (h : ConLeche.RecStageG .verified F envC pp (tgtRs out)) (mpC : EnvModelM V envC)
     (hfind : ∀ (j : Nat) (r : ConstantVal × List Expr × Nat × List (ConstantVal × Nat)),
       (tgtRs out)[j]? = some r → ∀ (i : Nat) (ctor : ConstantVal × Nat), r.2.2.2[i]? = some ctor →
-        envC.find? ctor.1.name = some (.ctorInfo ctor.1 (ConLeche.tgtMajorsOf out j).nPc ctor.2))
+        ∃ iT, envC.find? ctor.1.name = some (.ctorInfo ctor.1 (ConLeche.tgtMajorsOf out j).nPc ctor.2 iT))
     (ψ : Name → Nat) (ρ : Nat → V)
     (hℓ : Level.eval ψ (ConLeche.structElimLevel pp.elim pp.large) = 0) :
     ∀ c, c < (tgtRs out).length → ∀ j, j < blockRecNCt (tgtRs out) c → ∀ xs,

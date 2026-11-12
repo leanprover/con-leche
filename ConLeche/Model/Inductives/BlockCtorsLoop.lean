@@ -81,7 +81,7 @@ theorem blockCtorsLoop
     (Inv : ∀ {env' : Env}, EnvModel V env' → Prop)
     (hInv : ∀ {env' : Env} (m' : EnvModel V env') (ctor : ConstantVal × Nat)
       (A : (Name → Nat) → Term)
-      (mC : EnvModel V ⟨.ctorInfo ctor.1 nP ctor.2 :: env'.consts, env'.tables⟩),
+      (mC : EnvModel V ⟨.ctorInfo ctor.1 nP ctor.2 T :: env'.consts, env'.tables⟩),
       ctor ∈ ctorList → env'.find? ctor.1.name = none →
       mC.acval = acvalWith m'.acval ctor.1.name A → Inv m' → Inv mC)
     -- the block's capability record and the former's leaf
@@ -107,8 +107,8 @@ theorem blockCtorsLoop
       PendingAt mp.base2 T lps nP nIdx resSort isProp large
         idxF dsF esF srcsF ctorList k →
       Inv mp.base2 →
-      ∃ mp' : EnvModelM V (ConLeche.consSumCtors nP rest env),
-        (ConLeche.consSumCtors nP rest env).find? T
+      ∃ mp' : EnvModelM V (ConLeche.consSumCtors nP T rest env),
+        (ConLeche.consSumCtors nP T rest env).find? T
           = some (.indInfo cvS caps) ∧
         FormerData mp'.base2 cvTa (nP + nIdx) resSort ppsAll ∧
         (∀ ψ, mp'.base2.acval T ψ = leafT ψ) ∧

@@ -306,10 +306,10 @@ def checkBlockIdxSorts (ops : CheckerOps m) (env₁ : Env) (p : BlockShape) :
     checkBlockIdxSorts ops env₁ p rest
 
 /-- The members' constructors consed, member by member, in block
-order. -/
-def consBlockCtors (nP : Nat) : List (List (ConstantVal × Nat)) → Env → Env
+order, each group under its member's name (`BlockShape.ctorGroups`). -/
+def consBlockCtors (nP : Nat) : List (Name × List (ConstantVal × Nat)) → Env → Env
   | [], env => env
-  | ctorList :: rest, env => consBlockCtors nP rest (consSumCtors nP ctorList env)
+  | (T, ctorList) :: rest, env => consBlockCtors nP rest (consSumCtors nP T ctorList env)
 
 /-- The members' recursors consed with their rules, in block order.
 The rule-less stage's K flag (`false`) is all a proof about it reads. -/

@@ -559,7 +559,7 @@ theorem nestFrame_deriv (hctx : NestCtxOk ctx)
   have hcl : ∀ x ∈ ctors, x.1.type.hasFvar = false := by
     intro x hx
     obtain ⟨c, -, nP', L, hL, hxL⟩ := groupCtors_mem hgc' x hx
-    obtain ⟨n, nPc, hmem⟩ := nestContainer_mem hL x hxL
+    obtain ⟨n, nPc, _, hmem⟩ := nestContainer_mem hL x hxL
     exact hctx.1 _ _ hmem
   obtain ⟨hI₂, ts, hw', hn₂, hcr₂, -⟩ := nestCtors_deriv (fun _ => hrec) hhi' hsc'
     (fun x hx => WScoped.mono (by omega) (hds x hx)) hsub (by simp [grpHoles]) ctors st os st₂

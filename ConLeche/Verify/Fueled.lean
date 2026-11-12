@@ -246,9 +246,9 @@ theorem formerNeverZeroAt_atF (cvT : ConstantVal) (caps : IndCaps) (us : List Le
     refine congrArg _ (funext fun o => ?_)
     cases o <;> rfl
 
-theorem iotaCase3At_atF (isK : Bool) (cvj : ConstantVal) (us : List Level) (F : Nat) :
-    (iotaCase3At (fueledFns mode eager env).whnf env.find? isK cvj us).val F =
-      iotaCase3At (pureFns mode eager env F).whnf env.find? isK cvj us := by
+theorem iotaCase3At_atF (isK : Bool) (induct : Name) (us : List Level) (F : Nat) :
+    (iotaCase3At (fueledFns mode eager env).whnf env.find? isK induct us).val F =
+      iotaCase3At (pureFns mode eager env F).whnf env.find? isK induct us := by
   unfold iotaCase3At
   split
   · rfl
@@ -267,13 +267,13 @@ theorem familyNeverZeroAt_atF (cvT : ConstantVal) (caps : IndCaps) (us : List Le
   · rfl
   · exact formerNeverZeroAt_atF cvT caps us F
 
-theorem iotaCaseAt_atF (isK : Bool) (cvj : ConstantVal) (us : List Level) (F : Nat) :
-    (iotaCaseAt (fueledFns mode eager env).whnf env.find? isK cvj us).val F =
-      iotaCaseAt (pureFns mode eager env F).whnf env.find? isK cvj us := by
+theorem iotaCaseAt_atF (isK : Bool) (induct : Name) (us : List Level) (F : Nat) :
+    (iotaCaseAt (fueledFns mode eager env).whnf env.find? isK induct us).val F =
+      iotaCaseAt (pureFns mode eager env F).whnf env.find? isK induct us := by
   unfold iotaCaseAt
   split
   · rfl
-  · exact iotaCase3At_atF isK cvj us F
+  · exact iotaCase3At_atF isK induct us F
 
 theorem projGuardSort_atF (cvT : ConstantVal) (caps : IndCaps) (us : List Level) (F : Nat) :
     (projGuardSort (fueledFns mode eager env).whnf cvT caps us).val F =
@@ -462,10 +462,7 @@ theorem majorToCtor_atF (d : Nat) (c : Name) (isK : Bool) (rules : List RecRule)
     cases hfr : env.find? rl.ctor <;> try rfl
     case some ci =>
     cases ci <;> try rfl
-    case ctorInfo cvj cnP cnF =>
-    dsimp only
-    cases (cvj.type.piResult).getAppFn <;> try rfl
-    case const T us₀ =>
+    case ctorInfo cvj cnP cnF T =>
     dsimp only
     cases env.find? T <;> try rfl
     case some ciT =>

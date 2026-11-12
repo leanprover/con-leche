@@ -340,7 +340,8 @@ theorem envWF_consBlockRecsT {q : BlockShape}
       ((consBlockRecsT q 0 out env).find? n).isSome = true :=
     find?_consBlockRecsT_of_bare (fun _ hn => hn)
   refine ⟨fun c hc => ?_, fun c hc => ?_, fun t ht => TableWF.mono hdomEnv
-    (henv.tables t (by rw [consBlockRecsT_tables] at ht; exact ht)), fun c hc => ?_⟩
+    (henv.tables t (by rw [consBlockRecsT_tables] at ht; exact ht)), fun c hc => ?_,
+    fun c hc => ?_⟩
   rotate_left
   · rcases mem_consBlockRecsT hc with hc' | ⟨i, t, hti, rfl⟩
     · exact henv.shapes c hc'
@@ -348,6 +349,9 @@ theorem envWF_consBlockRecsT {q : BlockShape}
   · rcases mem_consBlockRecsT hc with hc' | ⟨i, t, hti, rfl⟩
     · exact henv.inds c hc'
     · exact IndWF.of_not_ind fun _ _ heq => ConstantInfo.noConfusion heq
+  · rcases mem_consBlockRecsT hc with hc' | ⟨i, t, hti, rfl⟩
+    · exact henv.ctors c hc'
+    · exact CtorWF.of_not_ctor fun _ _ _ _ heq => ConstantInfo.noConfusion heq
   rcases mem_consBlockRecsT hc with hc' | ⟨i, t, hti, rfl⟩
   · exact ConstWF.mono hdomEnv (henv.consts c hc')
   · rw [Nat.zero_add]

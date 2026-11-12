@@ -40,7 +40,7 @@ def quotMkA : ConstantInfo :=
     piI "α" (srt u) <|
     pi "r" quotRel <|
     pi "a" (bv 1) (ap2 (cnst quotName [u]) (bv 2) (bv 1))⟩
-    2 1
+    2 1 quotName
 
 /-- `Quot.lift`'s function slot, in the `α`/`r`/`β` context: `α → β`. -/
 def quotLiftF : Expr := pi "a" (bv 2) (bv 1)

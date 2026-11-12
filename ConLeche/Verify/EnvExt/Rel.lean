@@ -397,40 +397,30 @@ theorem formerNeverZeroAt_rel (K : KR env₁ r₂ r₁) {cvT : ConstantVal} {cap
 
 omit K d in
 theorem iotaCase3At_rel (K : KR env₁ r₂ r₁) (hx : EnvExt env₁ env₂) (isK : Bool)
-    {cvj : ConstantVal} (hty : Res env₁ cvj.type) (us : List Level) :
-    Rel TT (iotaCase3At r₂.whnf env₂.find? isK cvj us)
-      (iotaCase3At r₁.whnf env₁.find? isK cvj us) := by
+    {T : Name} (hT : (env₁.find? T).isSome = true) (us : List Level) :
+    Rel TT (iotaCase3At r₂.whnf env₂.find? isK T us)
+      (iotaCase3At r₁.whnf env₁.find? isK T us) := by
   unfold iotaCase3At
   refine Rel.ite (fun _ => Rel.ok trivial) fun _ => ?_
-  have hfam : ctorFamily env₂.find? cvj = ctorFamily env₁.find? cvj := by
-    unfold ctorFamily
-    cases hfn : cvj.type.piResult.getAppFn with
-    | const T us =>
-      dsimp only
-      rw [hx.find_of_isSome (res_head (res_piResult hty) hfn)]
-    | _ => rfl
+  have hfam : ctorFamily env₂.find? T = ctorFamily env₁.find? T := by
+    unfold ctorFamily; rw [hx.find_of_isSome hT]
   rw [hfam]
-  cases hf : ctorFamily env₁.find? cvj with
+  cases hf : ctorFamily env₁.find? T with
   | none => exact Rel.ok trivial
   | some fam =>
     obtain ⟨cvT, caps⟩ := fam
     have hTy : Res env₁ cvT.type := by
       unfold ctorFamily at hf
-      cases hfn : cvj.type.piResult.getAppFn with
-      | const T us =>
-        rw [hfn] at hf
-        dsimp only at hf
-        cases hfT : env₁.find? T with
-        | none => rw [hfT] at hf; exact nomatch hf
-        | some ci =>
-          rw [hfT] at hf
-          cases ci with
-          | indInfo cv' caps' =>
-            simp only [Option.some.injEq, Prod.mk.injEq] at hf
-            obtain ⟨rfl, -⟩ := hf
-            exact hx.facts.type hfT
-          | _ => exact nomatch hf
-      | _ => rw [hfn] at hf; exact nomatch hf
+      cases hfT : env₁.find? T with
+      | none => rw [hfT] at hf; exact nomatch hf
+      | some ci =>
+        rw [hfT] at hf
+        cases ci with
+        | indInfo cv' caps' =>
+          simp only [Option.some.injEq, Prod.mk.injEq] at hf
+          obtain ⟨rfl, -⟩ := hf
+          exact hx.facts.type hfT
+        | _ => exact nomatch hf
     dsimp only
     refine Rel.ite (fun _ => ?_) fun _ => Rel.ok trivial
     exact Rel.bind (formerNeverZeroAt_rel K hTy) fun _ _ => Rel.ok trivial
@@ -449,21 +439,14 @@ omit K d in
 /-- The ι case split at the stored facts: the constructor's family is read at the extension as
 below it. -/
 theorem iotaCaseAt_rel (K : KR env₁ r₂ r₁) (hx : EnvExt env₁ env₂) (isK : Bool)
-    {cvj : ConstantVal} (hty : Res env₁ cvj.type) (us : List Level) :
-    Rel TT (iotaCaseAt r₂.whnf env₂.find? isK cvj us)
-      (iotaCaseAt r₁.whnf env₁.find? isK cvj us) := by
+    {T : Name} (hT : (env₁.find? T).isSome = true) (us : List Level) :
+    Rel TT (iotaCaseAt r₂.whnf env₂.find? isK T us)
+      (iotaCaseAt r₁.whnf env₁.find? isK T us) := by
   unfold iotaCaseAt
-  have hfam : ctorFamily env₂.find? cvj = ctorFamily env₁.find? cvj := by
-    unfold ctorFamily
-    cases hfn : cvj.type.piResult.getAppFn with
-    | const T us =>
-      dsimp only
-      rw [hx.find_of_isSome (res_head (res_piResult hty) hfn)]
-    | _ => rfl
-  have hnc : iotaNoCert env₂.find? isK cvj us.length = iotaNoCert env₁.find? isK cvj us.length := by
-    unfold iotaNoCert; rw [hfam]
+  have hnc : iotaNoCert env₂.find? isK T us.length = iotaNoCert env₁.find? isK T us.length := by
+    unfold iotaNoCert ctorFamily; rw [hx.find_of_isSome hT]
   rw [hnc]
-  exact Rel.ite (fun _ => Rel.ok trivial) fun _ => iotaCase3At_rel K hx isK hty us
+  exact Rel.ite (fun _ => Rel.ok trivial) fun _ => iotaCase3At_rel K hx isK hT us
 end Bodies
 
 end ConLeche.Verify

@@ -47,7 +47,7 @@ def isCtorAppC (fe : FEnv) (e : Expr) : Bool :=
   match Expr.getAppFn e with
   | .const cn _ .. =>
     match fe.find? cn with
-    | some (.ctorInfo _ _ _) => true
+    | some (.ctorInfo _ _ _ _) => true
     | _ => false
   | _ => false
 
@@ -90,7 +90,7 @@ def etaCtorShapeC (fe : FEnv) (e : Expr) : Bool :=
   match Expr.getAppFn e with
   | .const c _ =>
     match fe.find? c with
-    | some (.ctorInfo _ cnP cnF) => (Expr.getAppArgsC e).length == cnP + cnF
+    | some (.ctorInfo _ cnP cnF _) => (Expr.getAppArgsC e).length == cnP + cnF
     | _ => false
   | _ => false
 
@@ -99,19 +99,16 @@ def etaCtorPartialC (fe : FEnv) (e : Expr) : Option Nat :=
   match Expr.getAppFn e with
   | .const c _ =>
     match fe.find? c with
-    | some (.ctorInfo cvc cnP cnF) =>
+    | some (.ctorInfo _ cnP cnF T) =>
       if (Expr.getAppArgs e).length < cnP + cnF then
-        match cvc.type.piResult.getAppFn with
-        | .const T _ =>
-          match fe.find? T with
-          | some (.indInfo _ caps) =>
-            match fe.findTable? T with
-            | some tbl =>
-              if caps.eta = true ∧ tbl.ctor = c then
-                some (cnP + cnF - (Expr.getAppArgs e).length)
-              else none
-            | none => none
-          | _ => none
+        match fe.find? T with
+        | some (.indInfo _ caps) =>
+          match fe.findTable? T with
+          | some tbl =>
+            if caps.eta = true ∧ tbl.ctor = c then
+              some (cnP + cnF - (Expr.getAppArgs e).length)
+            else none
+          | none => none
         | _ => none
       else none
     | _ => none

@@ -572,12 +572,12 @@ theorem whnf_proj_inv {env : Env} {fuel d : Nat} {sn : Name} {i : Nat} {e e' : E
 stored constructor whose telescope has the spine's syntactic arity. -/
 theorem projCertAt_verified_inv {env : Env} {c : Name} {args : List Expr}
     (h : projCertAt env CheckMode.verified.verifiedChecks c args = true) :
-    ∃ cvC nP nF, env.find? c = some (.ctorInfo cvC nP nF) ∧
+    ∃ cvC nP nF T, env.find? c = some (.ctorInfo cvC nP nF T) ∧
       teleArityOk cvC.type args = true := by
   simp only [projCertAt, CheckMode.verifiedChecks, ↓reduceIte, projCert] at h
   split at h
-  · rename_i cvC nP nF hf
-    exact ⟨cvC, nP, nF, hf, h⟩
+  · rename_i cvC nP nF T hf
+    exact ⟨cvC, nP, nF, T, hf, h⟩
   · exact nomatch h
 
 /-- **The major chain's induction principle.**  `prepareMajor` runs
@@ -688,7 +688,7 @@ theorem iotaRec_arity {env : Env} {fuel d : Nat} {e eout : Expr} {c : Name}
 /-- Inversion of a successful iota step. -/
 theorem iotaRec_inv {env : Env} {fuel d : Nat} {e eout : Expr}
     (h : iotaRecFueled mode eager env fuel d e = .ok (some eout)) :
-    ∃ c us cv mI rP isK rules major cj usj cvj cnP cnF r,
+    ∃ c us cv mI rP isK rules major cj usj cvj cnP cnF induct r,
       e.getAppFn = .const c us ∧
       env.find? c = some (.recInfo cv mI rP isK rules) ∧
       e.getAppArgs.length = mI + 1 ∧
@@ -696,11 +696,11 @@ theorem iotaRec_inv {env : Env} {fuel d : Nat} {e eout : Expr}
       prepareMajorFueled mode eager env fuel d c isK rules (e.getAppArgs.getD mI (.bvar 0)) =
         .ok major ∧
       major.getAppFn = .const cj usj ∧
-      env.find? cj = some (.ctorInfo cvj cnP cnF) ∧
+      env.find? cj = some (.ctorInfo cvj cnP cnF induct) ∧
       rules.find? (fun r' => r'.ctor == cj) = some r ∧
       major.getAppArgs.length = cnP + r.nfields ∧
       (mode.verifiedChecks = true → ∃ c3, iotaCaseAt (pureFns mode eager env fuel).whnf
-          env.find? isK cvj (recFireComparands r cnP cv.levelParams us cvj.levelParams
+          env.find? isK induct (recFireComparands r cnP cv.levelParams us cvj.levelParams
             e.getAppArgs rP).1 = .ok c3 ∧ (c3 = true →
         Level.isEquivList usj
           (recFireComparands r cnP cv.levelParams us cvj.levelParams
@@ -742,7 +742,7 @@ theorem iotaRec_inv {env : Env} {fuel d : Nat} {e eout : Expr}
   | some (.defnInfo _ _ _) => intro h; exact nomatch h
   | some (.thmInfo _) => intro h; exact nomatch h
   | some (.indInfo _ _) => intro h; exact nomatch h
-  | some (.ctorInfo _ _ _) => intro h; exact nomatch h
+  | some (.ctorInfo _ _ _ _) => intro h; exact nomatch h
   | some (.recInfo cv mI rP isK rules) => ?_
   intro h
   dsimp only at h
@@ -779,7 +779,7 @@ theorem iotaRec_inv {env : Env} {fuel d : Nat} {e eout : Expr}
   | some (.thmInfo _) => intro h; exact nomatch h
   | some (.indInfo _ _) => intro h; exact nomatch h
   | some (.recInfo _ _ _ _ _) => intro h; exact nomatch h
-  | some (.ctorInfo cvj cnP cnF) => ?_
+  | some (.ctorInfo cvj cnP cnF induct) => ?_
   intro h
   dsimp only at h
   revert h
@@ -801,12 +801,12 @@ theorem iotaRec_inv {env : Env} {fuel d : Nat} {e eout : Expr}
     simp only [pure, Except.pure, ↓reduceIte, Except.ok.injEq,
       Option.some.injEq] at h
     exact ⟨c, us, cv, mI, rP, isK, rules, major, cj, usj, cvj, cnP,
-      cnF, r, rfl, hfc, hlen.1, hlen.2.1, hprep, hmfn, hfj, hrule,
+      cnF, induct, r, rfl, hfc, hlen.1, hlen.2.1, hprep, hmfn, hfj, hrule,
       hml, fun hμ' => absurd hμ' hμ, h.symm⟩
   rw [ite_eq_left hμ] at h
   generalize hcmp : recFireComparands r cnP cv.levelParams us cvj.levelParams
     e.getAppArgs rP = cmp at h
-  cases hc3 : iotaCaseAt (pureFns mode eager env fuel).whnf env.find? isK cvj cmp.1 with
+  cases hc3 : iotaCaseAt (pureFns mode eager env fuel).whnf env.find? isK induct cmp.1 with
   | error err => rw [hc3] at h; exact nomatch h
   | ok c3 =>
   rw [hc3] at h
@@ -862,14 +862,14 @@ theorem iotaRec_inv {env : Env} {fuel d : Nat} {e eout : Expr}
     simp only [↓reduceIte, pure, Except.pure, Except.ok.injEq,
       Option.some.injEq] at h
     exact ⟨c, us, cv, mI, rP, isK, rules, major, cj, usj, cvj, cnP,
-      cnF, r, rfl, hfc, hlen.1, hlen.2.1, hprep, hmfn, hfj, hrule,
+      cnF, induct, r, rfl, hfc, hlen.1, hlen.2.1, hprep, hmfn, hfj, hrule,
       hml, fun _ => ⟨c3, by rw [hcmp]; exact hc3,
         fun _ => by rw [hcmp]; exact ⟨hlev, hpeq, hmcerts, hidx⟩⟩, h.symm⟩
   · rw [ite_eq_right h3] at h
     simp only [pure, Except.pure, ↓reduceIte, Except.ok.injEq,
       Option.some.injEq] at h
     exact ⟨c, us, cv, mI, rP, isK, rules, major, cj, usj, cvj, cnP,
-      cnF, r, rfl, hfc, hlen.1, hlen.2.1, hprep, hmfn, hfj, hrule,
+      cnF, induct, r, rfl, hfc, hlen.1, hlen.2.1, hprep, hmfn, hfj, hrule,
       hml, fun _ => ⟨c3, by rw [hcmp]; exact hc3, fun h3' => absurd h3' h3⟩, h.symm⟩
 
 /-- Inversion of the canonical-index comparison where the recursor has
@@ -899,10 +899,9 @@ theorem majorToCtor_inv {env : Env} {fuel d : Nat} {recName : Name} {isK : Bool}
     major' = major ∨
     (major'.wscopedB d = true ∧ major'.looseBVarsBounded 0 = true ∧
      major'.fvarLeaves.all (fun l => major.fvarLeaves.contains l) = true ∧
-     ∃ rl cvj cnP cnF tmaj₀ tmaj T us₀ ust cvT caps,
+     ∃ rl cvj cnP cnF tmaj₀ tmaj T ust cvT caps,
        rules = [rl] ∧
-       env.find? rl.ctor = some (.ctorInfo cvj cnP cnF) ∧
-       (cvj.type.piResult).getAppFn = .const T us₀ ∧
+       env.find? rl.ctor = some (.ctorInfo cvj cnP cnF T) ∧
        env.find? T = some (.indInfo cvT caps) ∧
        inferTypeIO mode eager env fuel d major = .ok tmaj₀ ∧
        whnf mode eager env fuel d tmaj₀ = .ok tmaj ∧
@@ -965,17 +964,7 @@ theorem majorToCtor_inv {env : Env} {fuel d : Nat} {recName : Name} {isK : Bool}
     intro h; dsimp only at h
     simp only [pure, Except.pure, Except.ok.injEq] at h
     exact Or.inl h.symm
-  | some (.ctorInfo cvj cnP cnF) =>
-  intro h
-  dsimp only at h
-  revert h
-  match hpr : (cvj.type.piResult).getAppFn with
-  | .bvar _ | .fvar _ _ | .sort _ | .app _ _ | .lam _ _
-  | .forallE _ _ | .letE _ _ _ | .lit _ | .proj _ _ _ =>
-    intro h; dsimp only at h
-    simp only [pure, Except.pure, Except.ok.injEq] at h
-    exact Or.inl h.symm
-  | .const T us₀ =>
+  | some (.ctorInfo cvj cnP cnF T) =>
   intro h
   dsimp only at h
   revert h
@@ -985,7 +974,7 @@ theorem majorToCtor_inv {env : Env} {fuel d : Nat} {recName : Name} {isK : Bool}
     simp only [pure, Except.pure, Except.ok.injEq] at h
     exact Or.inl h.symm
   | some (.axiomInfo _) | some (.defnInfo _ _ _) | some (.thmInfo _)
-  | some (.ctorInfo _ _ _) | some (.recInfo _ _ _ _ _) =>
+  | some (.ctorInfo _ _ _ _) | some (.recInfo _ _ _ _ _) =>
     intro h; dsimp only at h
     simp only [pure, Except.pure, Except.ok.injEq] at h
     exact Or.inl h.symm
@@ -1105,8 +1094,8 @@ theorem majorToCtor_inv {env : Env} {fuel d : Nat} {recName : Name} {isK : Bool}
       subst h
       simp only [Bool.and_eq_true] at hguard
       exact Or.inr ⟨hguard.1.1, hguard.1.2, hguard.2,
-        rl, cvj, cnP, cnF, tmaj₀, tmaj, T', us₀, ust, cvT, caps,
-        rfl, hfj, hpr, hfT, rfl, htw, hth,
+        rl, cvj, cnP, cnF, tmaj₀, tmaj, T', ust, cvT, caps,
+        rfl, hfj, hfT, rfl, htw, hth,
         Or.inl ⟨hK, hlvl, harK1, rfl,
           ⟨tfab, htf, hdeq⟩, fun hμ' => absurd hμ' hμ⟩⟩
     rw [ite_eq_left hμ] at h
@@ -1127,8 +1116,8 @@ theorem majorToCtor_inv {env : Env} {fuel d : Nat} {recName : Name} {isK : Bool}
     subst h
     simp only [Bool.and_eq_true] at hguard
     exact Or.inr ⟨hguard.1.1, hguard.1.2, hguard.2,
-      rl, cvj, cnP, cnF, tmaj₀, tmaj, T', us₀, ust, cvT, caps,
-      rfl, hfj, hpr, hfT, rfl, htw, hth,
+      rl, cvj, cnP, cnF, tmaj₀, tmaj, T', ust, cvT, caps,
+      rfl, hfj, hfT, rfl, htw, hth,
       Or.inl ⟨hK, hlvl, harK1, rfl,
         ⟨tfab, htf, hdeq⟩, fun _ => hpi⟩⟩
   · rw [ite_eq_right hK] at h
@@ -1247,8 +1236,8 @@ theorem majorToCtor_inv {env : Env} {fuel d : Nat} {recName : Name} {isK : Bool}
         subst h
         simp only [Bool.and_eq_true] at hguard
         exact Or.inr ⟨hguard.1.1, hguard.1.2, hguard.2,
-          rl, cvj, cnP, cnF, tmaj₀, tmaj, T', us₀, ust, cvT, caps,
-          rfl, hfj, hpr, hfT, rfl, htw, hth,
+          rl, cvj, cnP, cnF, tmaj₀, tmaj, T', ust, cvT, caps,
+          rfl, hfj, hfT, rfl, htw, hth,
           Or.inr (Or.inr ⟨hA, hplen, hlvl, hslots, rfl,
             ⟨tfab, htf, hdeq⟩, fun hμ' => absurd hμ' hμ⟩)⟩
       rw [ite_eq_left hμ] at h
@@ -1268,8 +1257,8 @@ theorem majorToCtor_inv {env : Env} {fuel d : Nat} {recName : Name} {isK : Bool}
       subst h
       simp only [Bool.and_eq_true] at hguard
       exact Or.inr ⟨hguard.1.1, hguard.1.2, hguard.2,
-        rl, cvj, cnP, cnF, tmaj₀, tmaj, T', us₀, ust, cvT, caps,
-        rfl, hfj, hpr, hfT, rfl, htw, hth,
+        rl, cvj, cnP, cnF, tmaj₀, tmaj, T', ust, cvT, caps,
+        rfl, hfj, hfT, rfl, htw, hth,
         Or.inr (Or.inr ⟨hA, hplen, hlvl, hslots, rfl,
           ⟨tfab, htf, hdeq⟩, fun _ => hpi⟩)⟩
     | some tbl =>
@@ -1367,8 +1356,8 @@ theorem majorToCtor_inv {env : Env} {fuel d : Nat} {recName : Name} {isK : Bool}
     subst h
     simp only [Bool.and_eq_true] at hguard
     exact Or.inr ⟨hguard.1.1, hguard.1.2, hguard.2,
-      rl, cvj, cnP, cnF, tmaj₀, tmaj, T', us₀, ust, cvT, caps,
-      rfl, hfj, hpr, hfT, rfl, htw, hth,
+      rl, cvj, cnP, cnF, tmaj₀, tmaj, T', ust, cvT, caps,
+      rfl, hfj, hfT, rfl, htw, hth,
       Or.inr (Or.inl ⟨tbl, hE, hplen, hlvl, rfl⟩)⟩
 
 /-- Inversion of one pairwise-defeq step. -/
@@ -1667,11 +1656,11 @@ set_option maxHeartbeats 3200000 in
 /-- Inversion of a successful structural eta certification. -/
 theorem structEtaCertWith_inv {env : Env} {fuel d : Nat} {a b wtb : Expr}
     (h : structEtaCertWithFueled mode eager env fuel d a b wtb = .ok true) :
-    ∃ (c : Name) (us : List Level) (cvc : ConstantVal) (cnP cnF : Nat)
+    ∃ (c : Name) (us : List Level) (cvc : ConstantVal) (cnP cnF : Nat) (cT : Name)
       (T : Name) (us' : List Level)
       (cvT : ConstantVal) (caps : IndCaps) (tbl : ProjTable),
       a.getAppFn = .const c us ∧
-      env.find? c = some (.ctorInfo cvc cnP cnF) ∧
+      env.find? c = some (.ctorInfo cvc cnP cnF cT) ∧
       a.getAppArgs.length = cnP + cnF ∧
       wtb.getAppFn = .const T us' ∧
       env.find? T = some (.indInfo cvT caps) ∧
@@ -1710,7 +1699,7 @@ theorem structEtaCertWith_inv {env : Env} {fuel d : Nat} {a b wtb : Expr}
   | some (.thmInfo _) => intro h; exact nomatch h
   | some (.indInfo _ _) => intro h; exact nomatch h
   | some (.recInfo _ _ _ _ _) => intro h; exact nomatch h
-  | some (.ctorInfo cvc cnP cnF) => ?_
+  | some (.ctorInfo cvc cnP cnF cT) => ?_
   intro h
   dsimp only at h
   by_cases hal : a.getAppArgs.length = cnP + cnF
@@ -1736,7 +1725,7 @@ theorem structEtaCertWith_inv {env : Env} {fuel d : Nat} {a b wtb : Expr}
   | some (.axiomInfo _) => intro h; exact nomatch h
   | some (.defnInfo _ _ _) => intro h; exact nomatch h
   | some (.thmInfo _) => intro h; exact nomatch h
-  | some (.ctorInfo _ _ _) => intro h; exact nomatch h
+  | some (.ctorInfo _ _ _ _) => intro h; exact nomatch h
   | some (.recInfo _ _ _ _ _) => intro h; exact nomatch h
   | some (.indInfo cvT caps) => ?_
   intro h
@@ -1775,7 +1764,7 @@ theorem structEtaCertWith_inv {env : Env} {fuel d : Nat} {a b wtb : Expr}
   | false => simp [pure, Except.pure] at h
   | true => ?_
   simp only [↓reduceIte] at h
-  exact ⟨c, us, cvc, cnP, cnF, T, us', cvT, caps, tbl,
+  exact ⟨c, us, cvc, cnP, cnF, cT, T, us', cvT, caps, tbl,
     rfl, hfc, hal, rfl, hfT, htbl, he1, he2, he6, he7, he8, hlev, hd1, h⟩
 
 /-- Inversion of the fully-applied structure-eta certificate through its
@@ -2587,7 +2576,7 @@ theorem unfoldDefinition_WScoped {env : Env} (henv : EnvWF env)
   | some (.axiomInfo _) => intro h; exact nomatch h
   | some (.thmInfo _) => intro h; exact nomatch h
   | some (.indInfo _ _) => intro h; exact nomatch h
-  | some (.ctorInfo _ _ _) => intro h; exact nomatch h
+  | some (.ctorInfo _ _ _ _) => intro h; exact nomatch h
   | some (.recInfo _ _ _ _ _) => intro h; exact nomatch h
   | some (.defnInfo cv value hint) => ?_
   intro h
@@ -2664,7 +2653,7 @@ theorem whnfPres_WScoped {env : Env} (henv : EnvWF env) :
           exact ihCore hbeta (WScoped.instantiate1_gen hw.2 0 hwf'.2)
         · -- iota step
           obtain ⟨c, us, cv, mI, rP, isK, rules, major, cj, usj,
-            cvj, cnP, cnF, r, hfn, hfc, hlen, -, hprep,
+            cvj, cnP, cnF, induct, r, hfn, hfc, hlen, -, hprep,
             hmfn, hfj,
             hrule,
             hml, hlev, hpeq, hmcerts, -, rfl⟩ :=

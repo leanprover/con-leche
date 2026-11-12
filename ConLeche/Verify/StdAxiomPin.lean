@@ -29,7 +29,7 @@ theorem iff_shapes {env : Env} {cv : ConstantVal}
     (∃ cvI caps, env.find? iffName = some (.indInfo cvI caps) ∧
       cvI.levelParams = [] ∧
       cvI.type = iffA.toConstantVal.type) ∧
-    (∃ cvIi, env.find? iffIntroName = some (.ctorInfo cvIi 2 2) ∧
+    (∃ cvIi T, env.find? iffIntroName = some (.ctorInfo cvIi 2 2 T) ∧
       cvIi.levelParams = [] ∧
       cvIi.type = iffIntroA.toConstantVal.type) ∧
     (∃ cvIr mI rP isK rules,
@@ -58,10 +58,10 @@ theorem iff_shapes {env : Env} {cv : ConstantVal}
     | some ci =>
       rw [hf] at hIi
       cases ci with
-      | ctorInfo cvIi nP nF =>
+      | ctorInfo cvIi nP nF T =>
         match nP, nF, hIi with
         | 2, 2, hIi =>
-          refine ⟨cvIi, rfl, (matchesPin_invT hIi).2, ?_⟩
+          refine ⟨cvIi, T, rfl, (matchesPin_invT hIi).2, ?_⟩
           simp only [ConstantVal.matchesPin, Bool.and_eq_true,
             beq_iff_eq] at hIi
           exact hIi.2
@@ -86,7 +86,7 @@ theorem nonempty_shapes {env : Env} {cv : ConstantVal}
     (∃ cvN caps, env.find? nonemptyName = some (.indInfo cvN caps) ∧
       cvN.levelParams = nonemptyA.toConstantVal.levelParams ∧
       cvN.type = nonemptyA.toConstantVal.type) ∧
-    (∃ cvNi, env.find? nonemptyIntroName = some (.ctorInfo cvNi 1 1) ∧
+    (∃ cvNi T, env.find? nonemptyIntroName = some (.ctorInfo cvNi 1 1 T) ∧
       cvNi.levelParams = nonemptyIntroA.toConstantVal.levelParams ∧
       cvNi.type = nonemptyIntroA.toConstantVal.type) ∧
     (∃ cvNr mI rP isK rules,
@@ -114,10 +114,10 @@ theorem nonempty_shapes {env : Env} {cv : ConstantVal}
     | some ci =>
       rw [hf] at hNi
       cases ci with
-      | ctorInfo cvNi nP nF =>
+      | ctorInfo cvNi nP nF T =>
         match nP, nF, hNi with
         | 1, 1, hNi =>
-          refine ⟨cvNi, rfl, (matchesPin_invT hNi).2, ?_⟩
+          refine ⟨cvNi, T, rfl, (matchesPin_invT hNi).2, ?_⟩
           simp only [ConstantVal.matchesPin, Bool.and_eq_true,
             beq_iff_eq] at hNi
           exact hNi.2

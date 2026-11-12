@@ -147,7 +147,7 @@ def trustCompilerOk (env : Env) (cv : ConstantVal) : Bool :=
    | some (.indInfo cvT _) => ConstantVal.matchesPin cvT trueCvA
    | _ => false) &&
   (match env.find? trueIntroName with
-   | some (.ctorInfo cvTi 0 0) => ConstantVal.matchesPin cvTi trueIntroCvA
+   | some (.ctorInfo cvTi 0 0 _) => ConstantVal.matchesPin cvTi trueIntroCvA
    | _ => false) &&
   ConstantVal.matchesPin cv trustCompilerA
 

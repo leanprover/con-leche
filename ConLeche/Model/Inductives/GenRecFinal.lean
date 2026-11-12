@@ -275,7 +275,7 @@ theorem genRecStage {F : Nat}
     intro Rr m₃ hac φ j r hr i ctor rhs hctor hrhs
     have hj : j < (tgtRs out).length := (List.getElem?_eq_some_iff.mp hr).1
     obtain ⟨hnP, -⟩ := hrdAll j hj
-    obtain ⟨-, hctorCB, hctorRd⟩ := hseam j r hr i ctor hctor
+    obtain ⟨-, -, hctorCB, hctorRd⟩ := hseam j r hr i ctor hctor
     cases hmb : (tgtMajor out j).member with
     | none =>
       obtain ⟨-, cvI, Rd⟩ := hrdAll j hj

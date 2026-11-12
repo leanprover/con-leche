@@ -50,7 +50,7 @@ def isCtorApp (env : Env) (e : Expr) : Bool :=
   match e.getAppFn with
   | .const c _ =>
     match env.find? c with
-    | some (.ctorInfo _ _ _) => true
+    | some (.ctorInfo _ _ _ _) => true
     | _ => false
   | _ => false
 
@@ -84,15 +84,13 @@ unsatisfiable exactly where the instantiated sort is never zero. -/
 def formerNeverZero (cvT : ConstantVal) (us : List Level) : Bool :=
   (Level.substPW cvT.levelParams us (formerZ cvT)).isNever
 
-/-- **The family a constructor's type concludes in**: its former and its
-capabilities.  `none` where its type concludes in no stored inductive. -/
-def ctorFamily (find? : Name → Option ConstantInfo) (cvj : ConstantVal) :
+/-- **A constructor's family**: the former and the capabilities stored at
+the constructor's `induct` (the head of its type's result, `CtorWF`).
+`none` where no inductive is stored there. -/
+def ctorFamily (find? : Name → Option ConstantInfo) (induct : Name) :
     Option (ConstantVal × IndCaps) :=
-  match (cvj.type.piResult).getAppFn with
-  | .const T _ =>
-    match find? T with
-    | some (.indInfo cvT caps) => some (cvT, caps)
-    | _ => none
+  match find? induct with
+  | some (.indInfo cvT caps) => some (cvT, caps)
   | _ => none
 
 /-- Unfold the (application of a) definition at the head, one step.
@@ -169,13 +167,13 @@ def natIndOk : Option ConstantInfo → Bool
 
 /-- The stored `Nat.zero` declaration has the expected shape. -/
 def natZeroOk : Option ConstantInfo → Bool
-  | some (.ctorInfo cv _ _) =>
+  | some (.ctorInfo cv _ _ _) =>
     cv.levelParams.isEmpty && cv.type == .const natName []
   | _ => false
 
 /-- The stored `Nat.succ` declaration has the expected shape. -/
 def natSuccOk : Option ConstantInfo → Bool
-  | some (.ctorInfo cv _ _) =>
+  | some (.ctorInfo cv _ _ _) =>
     cv.levelParams.isEmpty &&
     (match cv.type with
      | .forallE (.const c1 []) (.const c2 []) =>
@@ -375,8 +373,8 @@ at the kinds their guards ask for; what they are beyond their types is the pinne
 (`basisNamesOk`). -/
 def litShapeOk (c : ConstantInfo) : Bool :=
   if c.name = natName then natIndOk (some (.indInfo c.toConstantVal {}))
-  else if c.name = natZeroName then natZeroOk (some (.ctorInfo c.toConstantVal 0 0))
-  else if c.name = natSuccName then natSuccOk (some (.ctorInfo c.toConstantVal 0 1))
+  else if c.name = natZeroName then natZeroOk (some (.ctorInfo c.toConstantVal 0 0 natName))
+  else if c.name = natSuccName then natSuccOk (some (.ctorInfo c.toConstantVal 0 1 natName))
   else if c.name = stringName then stringTyOk (some c)
   else if c.name = stringOfListName then stringOfListTyOk (some c)
   else if c.name = listName then listTyOk (some c)
@@ -712,13 +710,13 @@ def etaCtorShape (env : Env) (a : Expr) : Bool :=
   match a.getAppFn with
   | .const c _ =>
     match env.find? c with
-    | some (.ctorInfo _ cnP cnF) => a.getAppArgs.length == cnP + cnF
+    | some (.ctorInfo _ cnP cnF _) => a.getAppArgs.length == cnP + cnF
     | _ => false
   | _ => false
 
 /-- **A partially applied η constructor** (official's `try_eta_struct_core`
 since lean4#15373): the candidate's head is a stored constructor applied
-to fewer than its parameters and fields, and the family its type ends in
+to fewer than its parameters and fields, and its family (the record's `induct`)
 is a stored η family whose projection table's constructor it is.  `some k`, `k > 0`
 the arguments it lacks.  Read off the stored records alone, before any
 inference, as official's `is_non_rec_structure` gate is. -/
@@ -726,19 +724,16 @@ def etaCtorPartial (env : Env) (a : Expr) : Option Nat :=
   match a.getAppFn with
   | .const c _ =>
     match env.find? c with
-    | some (.ctorInfo cvc cnP cnF) =>
+    | some (.ctorInfo _ cnP cnF T) =>
       if a.getAppArgs.length < cnP + cnF then
-        match cvc.type.piResult.getAppFn with
-        | .const T _ =>
-          match env.find? T with
-          | some (.indInfo _ caps) =>
-            match env.findTable? T with
-            | some tbl =>
-              if caps.eta = true ∧ tbl.ctor = c then
-                some (cnP + cnF - a.getAppArgs.length)
-              else none
-            | none => none
-          | _ => none
+        match env.find? T with
+        | some (.indInfo _ caps) =>
+          match env.findTable? T with
+          | some tbl =>
+            if caps.eta = true ∧ tbl.ctor = c then
+              some (cnP + cnF - a.getAppArgs.length)
+            else none
+          | none => none
         | _ => none
       else none
     | _ => none
@@ -771,7 +766,7 @@ def unitLikeShape (env : Env) (w : Expr) : Option (Expr × Nat) :=
         | some tbl =>
           if w.getAppArgs.length = tbl.numParams then
             match env.find? tbl.ctor with
-            | some (.ctorInfo cvC _ _) =>
+            | some (.ctorInfo cvC _ _ _) =>
               (unitFieldTele (cvC.type.instantiateLevelParams cvC.levelParams us)
                 tbl.numParams w.getAppArgs).map fun tele => (tele, tbl.numFields)
             | _ => none
@@ -987,10 +982,10 @@ split's case 2 read off the records, task #573): at a K recursor, or where
 the constructor's family records a sort that is never zero
 (`IndCaps.neverZero`) and has `n` level parameters, the comparand levels'
 count. -/
-def iotaNoCert (find? : Name → Option ConstantInfo) (isK : Bool) (cvj : ConstantVal) (n : Nat) :
+def iotaNoCert (find? : Name → Option ConstantInfo) (isK : Bool) (induct : Name) (n : Nat) :
     Bool :=
   isK ||
-    match ctorFamily find? cvj with
+    match ctorFamily find? induct with
     | some (cvT, caps) => caps.neverZero && cvT.levelParams.length == n
     | none => false
 

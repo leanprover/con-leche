@@ -165,7 +165,7 @@ theorem natOpV_add (m : EnvModel V env) (hops : NatOps m φ)
   obtain ⟨hs, hdeps, -⟩ := ConLeche.natOpGuard_inv hg
   obtain ⟨cvc, vc, hcnt, hfc, hlpc⟩ := hdeps ConLeche.natAddName
     (by decide)
-  obtain ⟨cvN, caps, cv0, i0, j0, cv1, i1, j1, hfN, hfZ, hfS, hlpN,
+  obtain ⟨cvN, caps, cv0, i0, j0, T0, cv1, i1, j1, T1, hfN, hfZ, hfS, hlpN,
     hlpZ, hlpS, -⟩ := ConLeche.natLitSupported_inv hs
   have hKc : ∀ d : Nat, denote m.acval env φ d
       (.const ConLeche.natAddName [])
@@ -177,13 +177,13 @@ theorem natOpV_add (m : EnvModel V env) (hops : NatOps m φ)
       (.const ConLeche.natZeroName [])
       = some (m.acval ConLeche.natZeroName φ) :=
     fun d => denote_levelless_const hfZ
-      (show (ConstantInfo.ctorInfo cv0 i0 j0).toConstantVal.levelParams
+      (show (ConstantInfo.ctorInfo cv0 i0 j0 T0).toConstantVal.levelParams
         = [] from hlpZ)
   have hKs : ∀ d : Nat, denote m.acval env φ d
       (.const ConLeche.natSuccName [])
       = some (m.acval ConLeche.natSuccName φ) :=
     fun d => denote_levelless_const hfS
-      (show (ConstantInfo.ctorInfo cv1 i1 j1).toConstantVal.levelParams
+      (show (ConstantInfo.ctorInfo cv1 i1 j1 T1).toConstantVal.levelParams
         = [] from hlpS)
   have hzm := natLit_mem m hnh hs ρ 0
   -- base clause, read at values
@@ -284,7 +284,7 @@ theorem natOpV_pred (m : EnvModel V env) (hops : NatOps m φ)
   obtain ⟨hg, -⟩ := hops ConLeche.natPredName (by decide) cv v hint hf
   obtain ⟨hs, hdeps, -⟩ := ConLeche.natOpGuard_inv hg
   obtain ⟨cvp, vp, hp, hfp, hlpp⟩ := hdeps ConLeche.natPredName (by decide)
-  obtain ⟨cvN, caps, cv0, i0, j0, cv1, i1, j1, hfN, hfZ, hfS, hlpN,
+  obtain ⟨cvN, caps, cv0, i0, j0, T0, cv1, i1, j1, T1, hfN, hfZ, hfS, hlpN,
     hlpZ, hlpS, -⟩ := ConLeche.natLitSupported_inv hs
   have hKp : ∀ d : Nat, denote m.acval env φ d
       (.const ConLeche.natPredName [])
@@ -296,13 +296,13 @@ theorem natOpV_pred (m : EnvModel V env) (hops : NatOps m φ)
       (.const ConLeche.natZeroName [])
       = some (m.acval ConLeche.natZeroName φ) :=
     fun d => denote_levelless_const hfZ
-      (show (ConstantInfo.ctorInfo cv0 i0 j0).toConstantVal.levelParams
+      (show (ConstantInfo.ctorInfo cv0 i0 j0 T0).toConstantVal.levelParams
         = [] from hlpZ)
   have hKs : ∀ d : Nat, denote m.acval env φ d
       (.const ConLeche.natSuccName [])
       = some (m.acval ConLeche.natSuccName φ) :=
     fun d => denote_levelless_const hfS
-      (show (ConstantInfo.ctorInfo cv1 i1 j1).toConstantVal.levelParams
+      (show (ConstantInfo.ctorInfo cv1 i1 j1 T1).toConstantVal.levelParams
         = [] from hlpS)
   have hzm := natLit_mem m hnh hs ρ 0
   -- base clause, read at values
@@ -375,7 +375,7 @@ theorem natOpV_sub (m : EnvModel V env) (hops : NatOps m φ)
     (by decide)
   obtain ⟨cvp, vp, hpnt, hfp, hlpp⟩ := hdeps ConLeche.natPredName
     (by decide)
-  obtain ⟨cvN, caps, cv0, i0, j0, cv1, i1, j1, hfN, hfZ, hfS, hlpN,
+  obtain ⟨cvN, caps, cv0, i0, j0, T0, cv1, i1, j1, T1, hfN, hfZ, hfS, hlpN,
     hlpZ, hlpS, -⟩ := ConLeche.natLitSupported_inv hs
   have hKc : ∀ d : Nat, denote m.acval env φ d
       (.const ConLeche.natSubName [])
@@ -393,13 +393,13 @@ theorem natOpV_sub (m : EnvModel V env) (hops : NatOps m φ)
       (.const ConLeche.natZeroName [])
       = some (m.acval ConLeche.natZeroName φ) :=
     fun d => denote_levelless_const hfZ
-      (show (ConstantInfo.ctorInfo cv0 i0 j0).toConstantVal.levelParams
+      (show (ConstantInfo.ctorInfo cv0 i0 j0 T0).toConstantVal.levelParams
         = [] from hlpZ)
   have hKs : ∀ d : Nat, denote m.acval env φ d
       (.const ConLeche.natSuccName [])
       = some (m.acval ConLeche.natSuccName φ) :=
     fun d => denote_levelless_const hfS
-      (show (ConstantInfo.ctorInfo cv1 i1 j1).toConstantVal.levelParams
+      (show (ConstantInfo.ctorInfo cv1 i1 j1 T1).toConstantVal.levelParams
         = [] from hlpS)
   have hzm := natLit_mem m hnh hs ρ 0
   have h0 : ∀ x : V,
@@ -496,7 +496,7 @@ theorem natOpV_mul (m : EnvModel V env) (hops : NatOps m φ)
     (by decide)
   obtain ⟨cva, va, hant, hfa, hlpa⟩ := hdeps ConLeche.natAddName
     (by decide)
-  obtain ⟨cvN, caps, cv0, i0, j0, cv1, i1, j1, hfN, hfZ, hfS, hlpN,
+  obtain ⟨cvN, caps, cv0, i0, j0, T0, cv1, i1, j1, T1, hfN, hfZ, hfS, hlpN,
     hlpZ, hlpS, -⟩ := ConLeche.natLitSupported_inv hs
   have hKc : ∀ d : Nat, denote m.acval env φ d
       (.const ConLeche.natMulName [])
@@ -514,13 +514,13 @@ theorem natOpV_mul (m : EnvModel V env) (hops : NatOps m φ)
       (.const ConLeche.natZeroName [])
       = some (m.acval ConLeche.natZeroName φ) :=
     fun d => denote_levelless_const hfZ
-      (show (ConstantInfo.ctorInfo cv0 i0 j0).toConstantVal.levelParams
+      (show (ConstantInfo.ctorInfo cv0 i0 j0 T0).toConstantVal.levelParams
         = [] from hlpZ)
   have hKs : ∀ d : Nat, denote m.acval env φ d
       (.const ConLeche.natSuccName [])
       = some (m.acval ConLeche.natSuccName φ) :=
     fun d => denote_levelless_const hfS
-      (show (ConstantInfo.ctorInfo cv1 i1 j1).toConstantVal.levelParams
+      (show (ConstantInfo.ctorInfo cv1 i1 j1 T1).toConstantVal.levelParams
         = [] from hlpS)
   have hzm := natLit_mem m hnh hs ρ 0
   have h0 : ∀ x : V,
@@ -617,7 +617,7 @@ theorem natOpV_pow (m : EnvModel V env) (hops : NatOps m φ)
     (by decide)
   obtain ⟨cvm, vm, hmnt, hfm, hlpm⟩ := hdeps ConLeche.natMulName
     (by decide)
-  obtain ⟨cvN, caps, cv0, i0, j0, cv1, i1, j1, hfN, hfZ, hfS, hlpN,
+  obtain ⟨cvN, caps, cv0, i0, j0, T0, cv1, i1, j1, T1, hfN, hfZ, hfS, hlpN,
     hlpZ, hlpS, -⟩ := ConLeche.natLitSupported_inv hs
   have hKc : ∀ d : Nat, denote m.acval env φ d
       (.const ConLeche.natPowName [])
@@ -635,13 +635,13 @@ theorem natOpV_pow (m : EnvModel V env) (hops : NatOps m φ)
       (.const ConLeche.natZeroName [])
       = some (m.acval ConLeche.natZeroName φ) :=
     fun d => denote_levelless_const hfZ
-      (show (ConstantInfo.ctorInfo cv0 i0 j0).toConstantVal.levelParams
+      (show (ConstantInfo.ctorInfo cv0 i0 j0 T0).toConstantVal.levelParams
         = [] from hlpZ)
   have hKs : ∀ d : Nat, denote m.acval env φ d
       (.const ConLeche.natSuccName [])
       = some (m.acval ConLeche.natSuccName φ) :=
     fun d => denote_levelless_const hfS
-      (show (ConstantInfo.ctorInfo cv1 i1 j1).toConstantVal.levelParams
+      (show (ConstantInfo.ctorInfo cv1 i1 j1 T1).toConstantVal.levelParams
         = [] from hlpS)
   have hzm := natLit_mem m hnh hs ρ 0
   have h0 : ∀ x : V,
@@ -744,7 +744,7 @@ theorem natOpV_beq (m : EnvModel V env) (hops : NatOps m φ)
   obtain ⟨⟨ciT, hfT, hlpT⟩, ⟨ciF, hfF, hlpF⟩⟩ := hbool (Or.inl rfl)
   obtain ⟨cvc, vc, hcnt, hfc, hlpc⟩ := hdeps ConLeche.natBeqName
     (by decide)
-  obtain ⟨cvN, caps, cv0, i0, j0, cv1, i1, j1, hfN, hfZ, hfS, hlpN,
+  obtain ⟨cvN, caps, cv0, i0, j0, T0, cv1, i1, j1, T1, hfN, hfZ, hfS, hlpN,
     hlpZ, hlpS, -⟩ := ConLeche.natLitSupported_inv hs
   have hKc : ∀ d : Nat, denote m.acval env φ d
       (.const ConLeche.natBeqName [])
@@ -756,13 +756,13 @@ theorem natOpV_beq (m : EnvModel V env) (hops : NatOps m φ)
       (.const ConLeche.natZeroName [])
       = some (m.acval ConLeche.natZeroName φ) :=
     fun d => denote_levelless_const hfZ
-      (show (ConstantInfo.ctorInfo cv0 i0 j0).toConstantVal.levelParams
+      (show (ConstantInfo.ctorInfo cv0 i0 j0 T0).toConstantVal.levelParams
         = [] from hlpZ)
   have hKs : ∀ d : Nat, denote m.acval env φ d
       (.const ConLeche.natSuccName [])
       = some (m.acval ConLeche.natSuccName φ) :=
     fun d => denote_levelless_const hfS
-      (show (ConstantInfo.ctorInfo cv1 i1 j1).toConstantVal.levelParams
+      (show (ConstantInfo.ctorInfo cv1 i1 j1 T1).toConstantVal.levelParams
         = [] from hlpS)
   have hKT : ∀ d : Nat, denote m.acval env φ d
       (.const ConLeche.boolTrueName [])
@@ -939,7 +939,7 @@ theorem natOpV_ble (m : EnvModel V env) (hops : NatOps m φ)
     hbool (Or.inr (Or.inl rfl))
   obtain ⟨cvc, vc, hcnt, hfc, hlpc⟩ := hdeps ConLeche.natBleName
     (by decide)
-  obtain ⟨cvN, caps, cv0, i0, j0, cv1, i1, j1, hfN, hfZ, hfS, hlpN,
+  obtain ⟨cvN, caps, cv0, i0, j0, T0, cv1, i1, j1, T1, hfN, hfZ, hfS, hlpN,
     hlpZ, hlpS, -⟩ := ConLeche.natLitSupported_inv hs
   have hKc : ∀ d : Nat, denote m.acval env φ d
       (.const ConLeche.natBleName [])
@@ -951,13 +951,13 @@ theorem natOpV_ble (m : EnvModel V env) (hops : NatOps m φ)
       (.const ConLeche.natZeroName [])
       = some (m.acval ConLeche.natZeroName φ) :=
     fun d => denote_levelless_const hfZ
-      (show (ConstantInfo.ctorInfo cv0 i0 j0).toConstantVal.levelParams
+      (show (ConstantInfo.ctorInfo cv0 i0 j0 T0).toConstantVal.levelParams
         = [] from hlpZ)
   have hKs : ∀ d : Nat, denote m.acval env φ d
       (.const ConLeche.natSuccName [])
       = some (m.acval ConLeche.natSuccName φ) :=
     fun d => denote_levelless_const hfS
-      (show (ConstantInfo.ctorInfo cv1 i1 j1).toConstantVal.levelParams
+      (show (ConstantInfo.ctorInfo cv1 i1 j1 T1).toConstantVal.levelParams
         = [] from hlpS)
   have hKT : ∀ d : Nat, denote m.acval env φ d
       (.const ConLeche.boolTrueName [])

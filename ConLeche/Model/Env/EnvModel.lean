@@ -94,7 +94,7 @@ theorem EnvModel.acval_closed {env : Env} (m : EnvModel V env)
 [0]` at every name, and every syntactic field is vacuous over `env.consts = []`. -/
 @[expose] def EnvModel.empty : EnvModel V Env.empty where
   wf := ⟨fun c hc => (by cases hc), fun c hc => (by cases hc), fun t ht => (by cases ht),
-    fun c hc => (by cases hc)⟩
+    fun c hc => (by cases hc), fun c hc => (by cases hc)⟩
   acval := fun _ _ => .const .empty [0]
   cval_closed := fun _ _ => trivial
   basis_pinned := BasisPinnedTT.empty _

@@ -138,12 +138,12 @@ theorem EnvModelM.lfp_ok_transport {V : Type w} [SetTheory V] {env : Env} (mp : 
     ⟨fun mm hmm => ?_, fun c hc j hj => ?_⟩⟩
   · obtain ⟨cv, caps, hf⟩ := hst mm hmm
     exact hag _ _ hf fun _ _ _ _ _ h => ConstantInfo.noConfusion h
-  · obtain ⟨cv, a, b, hf⟩ := hstC c hc j hj
+  · obtain ⟨cv, a, b, iT, hf⟩ := hstC c hc j hj
     exact hag _ _ hf fun _ _ _ _ _ h => ConstantInfo.noConfusion h
   · obtain ⟨cv, caps, hf⟩ := hst mm hmm
     exact ⟨cv, caps, hfind _ _ hf fun _ _ _ _ _ h => ConstantInfo.noConfusion h⟩
-  · obtain ⟨cv, a, b, hf⟩ := hstC c hc j hj
-    exact ⟨cv, a, b, hfind _ _ hf fun _ _ _ _ _ h => ConstantInfo.noConfusion h⟩
+  · obtain ⟨cv, a, b, iT, hf⟩ := hstC c hc j hj
+    exact ⟨cv, a, b, iT, hfind _ _ hf fun _ _ _ _ _ h => ConstantInfo.noConfusion h⟩
   · obtain ⟨cv, caps, hf, ⟨hfl, hsh⟩, hab⟩ := hrd mm hmm
     have hcS : ConstsBound env cv.type :=
       (ConLeche.Verify.envWF_constsBound mp.base2.wf _ (ConLeche.Env.find?_mem hf)).1
@@ -163,10 +163,10 @@ theorem EnvModelM.lfp_ok_transport {V : Type w} [SetTheory V] {env : Env} (mp : 
       exact hmem ρ
     · obtain ⟨ab, hta, h1⟩ := hab ψ
       exact ⟨ab, hread ψ _ _ _ hcB hta, h1⟩
-  · obtain ⟨cv, nPc, nF, hf, hcf, hlps, hpars, A, hA, hocc, hrdA⟩ := hrdC c hc j hj
+  · obtain ⟨cv, nPc, nF, iT, hf, hcf, hlps, hpars, A, hA, hocc, hrdA⟩ := hrdC c hc j hj
     have hcB : ConstsBound env cv.type :=
       (ConLeche.Verify.envWF_constsBound mp.base2.wf _ (ConLeche.Env.find?_mem hf)).1
-    refine ⟨cv, nPc, nF, hfind _ _ hf fun _ _ _ _ _ h => ConstantInfo.noConfusion h, hcf,
+    refine ⟨cv, nPc, nF, iT, hfind _ _ hf fun _ _ _ _ _ h => ConstantInfo.noConfusion h, hcf,
       fun mm hmm => ?_, fun ψ dsC bodyC hrd' hle => ?_, A, hA, hocc, fun ψ => ?_⟩
     · obtain ⟨cvm, caps, hfm, hl⟩ := hlps mm hmm
       exact ⟨cvm, caps, hfind _ _ hfm fun _ _ _ _ _ h => ConstantInfo.noConfusion h, hl⟩
@@ -194,8 +194,8 @@ theorem EnvModelM.lfp_ok_transport {V : Type w} [SetTheory V] {env : Env} (mp : 
         hread ψ _ _ _ (canonOf_constsBound hcB (.inr ⟨_, hty⟩)) hr⟩
   · obtain ⟨cv, caps, hf, hz⟩ := hcK mm hmm
     exact ⟨cv, caps, hfind _ _ hf fun _ _ _ _ _ h => ConstantInfo.noConfusion h, hz⟩
-  · obtain ⟨cv, nPc, nF, hf, hsh⟩ := hcC c hc j hj
-    exact ⟨cv, nPc, nF, hfind _ _ hf fun _ _ _ _ _ h => ConstantInfo.noConfusion h, hsh⟩
+  · obtain ⟨cv, nPc, nF, iT, hf, hsh⟩ := hcC c hc j hj
+    exact ⟨cv, nPc, nF, iT, hfind _ _ hf fun _ _ _ _ _ h => ConstantInfo.noConfusion h, hsh⟩
 
 /-- A stored former that shows its telescope is the one read. -/
 theorem EnvModelM.formerAt_flat {V : Type w} [SetTheory V] {env : Env} (mp : EnvModelM V env)

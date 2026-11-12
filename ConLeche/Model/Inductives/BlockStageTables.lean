@@ -110,7 +110,7 @@ not an arbitrary term's. -/
       (∀ ψ, m'.acval cvTb.name ψ = A c ψ) ∧
       FormerData m' cvTb (d.nP + d.nIdxAt c) d.resSort (d.ppsM c)) ∧
   (∀ (c j : Nat) (ctor : ConstantVal × Nat), (d.ctorsM c)[j]? = some ctor →
-      env.find? ctor.1.name = some (.ctorInfo ctor.1 d.nP ctor.2) ∧ ctor.1.levelParams = lps ∧
+      env.find? ctor.1.name = some (.ctorInfo ctor.1 d.nP ctor.2 (d.memberName c)) ∧ ctor.1.levelParams = lps ∧
       ctor.1.type.constsResolve env = true ∧
       (∀ ψ, denote m'.acval env ψ 0 ctor.1.type
         = some (mkPisAV (d.dsF c j ψ)

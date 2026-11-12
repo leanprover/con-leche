@@ -188,8 +188,28 @@ of the walk to the family's sort. -/
 theorem IndWF.of_not_ind {c : ConstantInfo} (h : ∀ cv caps, c ≠ .indInfo cv caps) : IndWF c :=
   fun cv caps heq => absurd heq (h cv caps)
 
+/-- **What a stored constructor's family name says** (task #573): a constructor record's
+`induct` is the head constant of its type's result.  The readers of the family (the ι case
+split, the rescues, η) look it up by this name in place of the walk to the head. -/
+@[expose] def CtorWF (c : ConstantInfo) : Prop :=
+  ∀ cv nP nF T, c = .ctorInfo cv nP nF T → ∃ us, cv.type.piResult.getAppFn = .const T us
+
+/-- A constant that is no constructor has no family name to keep. -/
+theorem CtorWF.of_not_ctor {c : ConstantInfo} (h : ∀ cv nP nF T, c ≠ .ctorInfo cv nP nF T) :
+    CtorWF c :=
+  fun cv nP nF T heq => absurd heq (h cv nP nF T)
+
+/-- **A constructor installed at the family its type concludes in.** -/
+theorem CtorWF.of_head {cv : ConstantVal} {nP nF : Nat} {T : Name} {us : List Level}
+    (h : cv.type.piResult.getAppFn = .const T us) : CtorWF (.ctorInfo cv nP nF T) := by
+  intro cv' nP' nF' T' heq
+  injection heq with h1 _ _ h4
+  subst h1 h4
+  exact ⟨us, h⟩
+
 /-- Every stored constant and every stored table is syntactically
-well-formed, and every stored family's sort fact holds. -/
+well-formed, every stored family's sort fact holds, and every stored constructor's family
+name is its type's. -/
 structure EnvWF (env : Env) : Prop where
   consts : ∀ c ∈ env.consts, ConstWF env c
   /-- a constant at a literal's name has the shape a literal's meaning reads -/
@@ -197,6 +217,8 @@ structure EnvWF (env : Env) : Prop where
   tables : ∀ t ∈ env.tables, TableWF env t
   /-- a stored family's sort fact -/
   inds : ∀ c ∈ env.consts, IndWF c
+  /-- a stored constructor's family name -/
+  ctors : ∀ c ∈ env.consts, CtorWF c
 
 /-- The table of a stored structure, off `EnvWF`. -/
 theorem EnvWF.table {env : Env} (henv : EnvWF env) {T : Name} {tbl : ProjTable}
@@ -210,8 +232,8 @@ declaration's check cannot show (`litShapeOk` reads a type), and the pinned `Nat
 (`basisNamesOk`) does. -/
 @[expose] def NatKinds (env : Env) : Prop :=
   (∀ c, env.find? natName = some c → ∃ cv caps, c = .indInfo cv caps) ∧
-  (∀ c, env.find? natZeroName = some c → ∃ cv nP nF, c = .ctorInfo cv nP nF) ∧
-  (∀ c, env.find? natSuccName = some c → ∃ cv nP nF, c = .ctorInfo cv nP nF)
+  (∀ c, env.find? natZeroName = some c → ∃ cv nP nF T, c = .ctorInfo cv nP nF T) ∧
+  (∀ c, env.find? natSuccName = some c → ∃ cv nP nF T, c = .ctorInfo cv nP nF T)
 
 /-- **A constant value's shape at a literal's name**, whatever kind of constant carries it. -/
 @[expose] def LitShapeAt (cv : ConstantVal) : Prop :=
@@ -463,12 +485,14 @@ theorem TableWF.cons {c : ConstantInfo} {env : Env} {t : ProjTable} (h : TableWF
 theorem EnvWF.cons {c : ConstantInfo} {env : Env} (hs : litShapeOk c = true)
     (henv : EnvWF env)
     (hc : ConstWF ⟨c :: env.consts, env.tables⟩ c)
-    (hi : IndWF c := by exact IndWF.of_not_ind (fun _ _ heq => nomatch heq)) :
+    (hi : IndWF c := by exact IndWF.of_not_ind (fun _ _ heq => nomatch heq))
+    (hk : CtorWF c := by exact CtorWF.of_not_ctor (fun _ _ _ _ heq => nomatch heq)) :
     EnvWF ⟨c :: env.consts, env.tables⟩ := by
   refine ⟨fun c' hc' => ?_,
     fun c' hc' => (List.mem_cons.mp hc').elim (fun e => e ▸ hs) (henv.shapes c'),
     fun t ht => (henv.tables t ht).cons,
-    fun c' hc' => (List.mem_cons.mp hc').elim (fun e => e ▸ hi) (henv.inds c')⟩
+    fun c' hc' => (List.mem_cons.mp hc').elim (fun e => e ▸ hi) (henv.inds c'),
+    fun c' hc' => (List.mem_cons.mp hc').elim (fun e => e ▸ hk) (henv.ctors c')⟩
   rcases List.mem_cons.mp hc' with rfl | hmem
   · exact hc
   · obtain ⟨h1, h2, h3, h4, h5, h6⟩ := henv.consts c' hmem
@@ -544,14 +568,15 @@ theorem EnvWF.pushTable {env : Env} {t : ProjTable} (henv : EnvWF env)
   ⟨fun c hc => (henv.consts c hc).of_find (Env.find?_pushTable env t), henv.shapes, fun t' ht' => by
     rcases List.mem_cons.mp ht' with rfl | hmem
     · exact ht.of_find (Env.find?_pushTable env _)
-    · exact (henv.tables t' hmem).of_find (Env.find?_pushTable env t), henv.inds⟩
+    · exact (henv.tables t' hmem).of_find (Env.find?_pushTable env t), henv.inds, henv.ctors⟩
 
 /-- **Tables pushed onto a well-formed environment, each well formed there, keep it well
 formed**: a table install changes no lookup. -/
 theorem EnvWF.pushTables {env : Env} (henv : EnvWF env) {Q : List ProjTable}
     (hQ : ∀ t ∈ Q, TableWF env t) : EnvWF ⟨env.consts, Q ++ env.tables⟩ := by
   have hf : Env.find? ⟨env.consts, Q ++ env.tables⟩ = env.find? := rfl
-  refine ⟨fun c hc => (henv.consts c hc).of_find hf, henv.shapes, fun t ht => ?_, henv.inds⟩
+  refine ⟨fun c hc => (henv.consts c hc).of_find hf, henv.shapes, fun t ht => ?_, henv.inds,
+    henv.ctors⟩
   rcases List.mem_append.mp ht with ht | ht
   · exact (hQ t ht).of_find hf
   · exact (henv.tables t ht).of_find hf
@@ -579,5 +604,11 @@ theorem Env.find?_mem {env : Env} {n : Name} {ci : ConstantInfo}
     (h : env.find? n = some ci) : ci ∈ env.consts := by
   unfold ConLeche.Env.find? at h
   exact List.mem_of_find?_eq_some h
+
+/-- **A stored constructor's family name is its type's head**, off `EnvWF`. -/
+theorem EnvWF.ctorHead {env : Env} (henv : EnvWF env) {c : Name} {cv : ConstantVal}
+    {nP nF : Nat} {T : Name} (h : env.find? c = some (.ctorInfo cv nP nF T)) :
+    ∃ us, cv.type.piResult.getAppFn = .const T us :=
+  henv.ctors _ (Env.find?_mem h) cv nP nF T rfl
 
 end ConLeche

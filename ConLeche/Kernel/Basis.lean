@@ -71,7 +71,7 @@ def ConstantInfo.atLps (ci : ConstantInfo) (ps : List Name) : ConstantInfo :=
   | .thmInfo cv => .thmInfo (cv.atLps ps)
   | .indInfo cv caps =>
     .indInfo (cv.atLps ps) caps
-  | .ctorInfo cv nP nF => .ctorInfo (cv.atLps ps) nP nF
+  | .ctorInfo cv nP nF T => .ctorInfo (cv.atLps ps) nP nF T
   | .recInfo cv mI rP isK rules =>
     .recInfo (cv.atLps ps) mI rP isK
       (rules.map fun rl => { rl with
@@ -108,7 +108,7 @@ def blockLinksOk (block pins : List ConstantInfo) : Bool :=
   let former := (block.head?.map (·.toConstantVal.levelParams)).getD []
   (List.zip block pins).all fun (c, p) =>
     match c, p with
-    | .ctorInfo cv _ _, _ => cv.levelParams == former
+    | .ctorInfo cv _ _ _, _ => cv.levelParams == former
     | .recInfo cv .., .recInfo cvp _ _ _ rules =>
       rules.all fun rl =>
         match constNamed? block rl.ctor, constNamed? pins rl.ctor with

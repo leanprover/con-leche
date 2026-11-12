@@ -62,7 +62,7 @@ theorem nestContainer_closed {ctx : NestCtx} (hc : NestCtxOk ctx) {C : Name} {n 
     {L : List (ConstantVal × Nat)} (h : nestContainer ctx C = some (n, L)) :
     ListAll CtorClosed L := by
   intro x hx
-  obtain ⟨n, nPc, hf⟩ := nestContainer_mem h x hx
+  obtain ⟨n, nPc, _, hf⟩ := nestContainer_mem h x hx
   exact hc.1 _ _ hf
 
 /-- A term scoped wherever the list `ds` is (an instantiated container

@@ -208,9 +208,9 @@ theorem direct_block_inds_wf {env envI : Env} (henv : EnvWF env)
 /-! ## Stage 1b: the constructors consed, member by member -/
 
 /-- Resolution carries along one member's constructors' conses. -/
-theorem constsResolve_consSumCtors {nP : Nat} {e : Expr} :
+theorem constsResolve_consSumCtors {nP : Nat} {T : Name} {e : Expr} :
     ∀ {ctorList : List (ConstantVal × Nat)} {env : Env},
-      e.constsResolve env = true → e.constsResolve (consSumCtors nP ctorList env) = true
+      e.constsResolve env = true → e.constsResolve (consSumCtors nP T ctorList env) = true
   | [], _, h => h
   | _ :: _, _, h => by
     simp only [consSumCtors]
@@ -219,21 +219,21 @@ theorem constsResolve_consSumCtors {nP : Nat} {e : Expr} :
 /-- **The members' constructors' conses keep well-formedness**
 (`envWF_consSumCtors` at k members). -/
 theorem envWF_consBlockCtors {nP : Nat} :
-    ∀ {memberCtors : List (List (ConstantVal × Nat))} {env : Env},
+    ∀ {groups : List (Name × List (ConstantVal × Nat))} {env : Env},
       EnvWF env →
-      (∀ ctorList ∈ memberCtors, ∀ c ∈ ctorList, c.1.type.hasFvar = false ∧
+      (∀ g ∈ groups, ∀ c ∈ g.2, c.1.type.hasFvar = false ∧
         c.1.type.allLevelParamsDefined c.1.levelParams = true ∧
         c.1.type.constsResolve env = true ∧ c.1.type.looseBVarsBounded 0 = true ∧
-        LitShapeAt c.1) →
-      EnvWF (consBlockCtors nP memberCtors env)
+        LitShapeAt c.1 ∧ ∃ us, c.1.type.piResult.getAppFn = .const g.1 us) →
+      EnvWF (consBlockCtors nP groups env)
   | [], _, henv, _ => henv
-  | ctorList :: rest, env, henv, hall => by
+  | (T, ctorList) :: rest, env, henv, hall => by
     simp only [consBlockCtors]
     refine envWF_consBlockCtors
-      (envWF_consSumCtors henv (hall ctorList List.mem_cons_self)) ?_
-    intro ctorList' hc' c hc
-    obtain ⟨h1, h2, h3, h4, h5⟩ := hall ctorList' (List.mem_cons_of_mem _ hc') c hc
-    exact ⟨h1, h2, constsResolve_consSumCtors h3, h4, h5⟩
+      (envWF_consSumCtors henv (hall (T, ctorList) List.mem_cons_self)) ?_
+    intro g hg c hc
+    obtain ⟨h1, h2, h3, h4, h5, h6⟩ := hall g (List.mem_cons_of_mem _ hg) c hc
+    exact ⟨h1, h2, constsResolve_consSumCtors h3, h4, h5, h6⟩
 
 /-- **Stage 1b at the run level**: the environment holding the k
 formers and all the constructors is well-formed. -/
@@ -241,17 +241,18 @@ theorem direct_block_ctors_wf {env₀ env₁ : Env} (henv : EnvWF env₁)
     {q : BlockShape} {l : List MemberShape} {sortsss : List (List (List Level))}
     {nP F : Nat}
     (h : BlockCtorsRun mode F env₀ env₁ q l sortsss) :
-    EnvWF (consBlockCtors nP (l.map (·.ctors)) env₁) := by
+    EnvWF (consBlockCtors nP (l.map fun ms => (ms.cvT.name, ms.ctors)) env₁) := by
   obtain ⟨hlen, hall⟩ := h
   refine envWF_consBlockCtors henv ?_
-  intro ctorList hctor c hc
+  intro g hctor c hc
   obtain ⟨ms, hms, rfl⟩ := List.mem_map.mp hctor
   obtain ⟨i, hi⟩ := List.getElem?_of_mem hms
   obtain ⟨sortss, -, hcs⟩ := hall i ms hi
   obtain ⟨-, -, hallc⟩ := hcs
   obtain ⟨j, hj⟩ := List.getElem?_of_mem hc
   obtain ⟨-, sorts, -, hctor⟩ := hallc j c c hj hj
-  exact direct_sum_ctor_typeWF hctor
+  obtain ⟨g1, g2, g3, g4, g5⟩ := direct_sum_ctor_typeWF hctor
+  exact ⟨g1, g2, g3, g4, g5, hctor.head⟩
 
 /-- The constructors' stage stores constructors fresh in the
 environment they are checked at (`checkConstantVal` rejects a name
@@ -499,7 +500,8 @@ theorem envWF_consBlockRecsR
       ((consBlockRecsR R q 0 rs env).find? n).isSome = true :=
     find?_consBlockRecsR_of_bare (fun _ hn => hn)
   refine ⟨fun c hc => ?_, fun c hc => ?_, fun t ht => TableWF.mono hdomEnv
-    (henv.tables t (by rw [consBlockRecsR_tables] at ht; exact ht)), fun c hc => ?_⟩
+    (henv.tables t (by rw [consBlockRecsR_tables] at ht; exact ht)), fun c hc => ?_,
+    fun c hc => ?_⟩
   rotate_left
   · rcases mem_consBlockRecsR hc with hc' | ⟨j, r, hr, rfl⟩
     · exact henv.shapes c hc'
@@ -507,6 +509,9 @@ theorem envWF_consBlockRecsR
   · rcases mem_consBlockRecsR hc with hc' | ⟨j, r, hr, rfl⟩
     · exact henv.inds c hc'
     · exact IndWF.of_not_ind fun _ _ heq => ConstantInfo.noConfusion heq
+  · rcases mem_consBlockRecsR hc with hc' | ⟨j, r, hr, rfl⟩
+    · exact henv.ctors c hc'
+    · exact CtorWF.of_not_ctor fun _ _ _ _ heq => ConstantInfo.noConfusion heq
   rcases mem_consBlockRecsR hc with hc' | ⟨j, r, hr, rfl⟩
   · exact ConstWF.mono hdomEnv (henv.consts c hc')
   · rw [Nat.zero_add]

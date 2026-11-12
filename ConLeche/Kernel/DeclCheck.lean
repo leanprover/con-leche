@@ -92,7 +92,7 @@ def stdAxiomOkF (fe : FEnv) (cv : ConstantVal) : Bool :=
      | some (.indInfo cvI _) => ConstantVal.matchesPin cvI iffA.toConstantVal
      | _ => false) &&
     (match fe.find? iffIntroName with
-     | some (.ctorInfo cvIi 2 2) =>
+     | some (.ctorInfo cvIi 2 2 _) =>
        ConstantVal.matchesPin cvIi iffIntroA.toConstantVal
      | _ => false) &&
     (match fe.find? iffRecName with
@@ -106,7 +106,7 @@ def stdAxiomOkF (fe : FEnv) (cv : ConstantVal) : Bool :=
        ConstantVal.matchesPin cvN nonemptyA.toConstantVal
      | _ => false) &&
     (match fe.find? nonemptyIntroName with
-     | some (.ctorInfo cvNi 1 1) =>
+     | some (.ctorInfo cvNi 1 1 _) =>
        ConstantVal.matchesPin cvNi nonemptyIntroA.toConstantVal
      | _ => false) &&
     (match fe.find? nonemptyRecName with
@@ -122,7 +122,7 @@ def trustCompilerOkF (fe : FEnv) (cv : ConstantVal) : Bool :=
    | some (.indInfo cvT _) => ConstantVal.matchesPin cvT trueCvA
    | _ => false) &&
   (match fe.find? trueIntroName with
-   | some (.ctorInfo cvTi 0 0) => ConstantVal.matchesPin cvTi trueIntroCvA
+   | some (.ctorInfo cvTi 0 0 _) => ConstantVal.matchesPin cvTi trueIntroCvA
    | _ => false) &&
   ConstantVal.matchesPin cv trustCompilerA
 

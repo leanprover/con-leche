@@ -123,11 +123,11 @@ is then free: this instantiates at `ψ0 uN = 0`, where `eqv A B ∈ˢ
 univ 0` is `eqv_mem_univ` outright and no `univ_mono` residue
 arises. -/
 theorem iff_forces_eq (mp : EnvModelM V env)
-    {cvI : ConstantVal} {caps : ConLeche.IndCaps} {cvIi cvIr : ConstantVal}
+    {cvI : ConstantVal} {caps : ConLeche.IndCaps} {cvIi cvIr : ConstantVal} {Ti : Name}
     {mI rP : Nat} {isK : Bool} {rules : List ConLeche.RecRule}
     (hfI : env.find? iffName = some (.indInfo cvI caps))
     (hlpI : cvI.levelParams = [])
-    (hfIi : env.find? iffIntroName = some (.ctorInfo cvIi 2 2))
+    (hfIi : env.find? iffIntroName = some (.ctorInfo cvIi 2 2 Ti))
     (hlpIi : cvIi.levelParams = [])
     (hfIr : env.find? iffRecName = some (.recInfo cvIr mI rP isK rules))
     (htyIr : cvIr.type
@@ -156,7 +156,7 @@ theorem iff_forces_eq (mp : EnvModelM V env)
       (.const iffIntroName [])
         = some (mp.base2.acval iffIntroName (fun _ => 0)) :=
     fun d => denote_levelless_const hfIi (by
-      rw [show (ConstantInfo.ctorInfo cvIi 2 2).toConstantVal = cvIi
+      rw [show (ConstantInfo.ctorInfo cvIi 2 2 Ti).toConstantVal = cvIi
         from rfl, hlpIi])
   -- the recursor's stored type, read at the zero assignment
   have hden : denote mp.base2.acval env (fun _ => 0) 0
@@ -266,7 +266,7 @@ theorem propext_mem (mp : EnvModelM V env)
     (hta : denote mp.base2.acval env ψ 0 cv.type = some ta)
     (ρ : Nat → V) :
     interp V ρ (.const .propext []) ∈ˢ interp V ρ ta := by
-  obtain ⟨hEq, ⟨cvI, caps, hfI, hlpI, htyI⟩, ⟨cvIi, hfIi, hlpIi, htyIi⟩,
+  obtain ⟨hEq, ⟨cvI, caps, hfI, hlpI, htyI⟩, ⟨cvIi, _, hfIi, hlpIi, htyIi⟩,
     ⟨cvIr, mI, rP, isK, rules, hfIr, hlpIr, htyIr⟩, hApin⟩ :=
     iff_shapes hok hn
   have hApinT : cv.type
@@ -414,10 +414,10 @@ theorem nonemptyVal_app_mem (mp : EnvModelM V env)
 
 /-- The interpreted `Nonempty.intro A a` inhabits `Nonempty A`. -/
 theorem nonemptyIntroVal_app₂_memP (mp : EnvModelM V env)
-    {cvN : ConstantVal} {capsN : ConLeche.IndCaps} {cvNi : ConstantVal}
+    {cvN : ConstantVal} {capsN : ConLeche.IndCaps} {cvNi : ConstantVal} {Ti : Name}
     (hfN : env.find? nonemptyName = some (.indInfo cvN capsN))
     (hlpN : cvN.levelParams = nonemptyA.toConstantVal.levelParams)
-    (hfNi : env.find? nonemptyIntroName = some (.ctorInfo cvNi 1 1))
+    (hfNi : env.find? nonemptyIntroName = some (.ctorInfo cvNi 1 1 Ti))
     (htyNi : cvNi.type
       = nonemptyIntroA.toConstantVal.type)
     (ψ : Name → Nat) (ρ : Nat → V) {A a : V} (hA : A ∈ˢ univ (ψ uN))
@@ -432,7 +432,7 @@ theorem nonemptyIntroVal_app₂_memP (mp : EnvModelM V env)
     fun e => denote_selfParam_constS hfN (by
       show cvN.levelParams = [uN]; rw [hlpN]; rfl)
   have hden : denote mp.base2.acval env ψ 0
-      (ConstantInfo.ctorInfo cvNi 1 1).toConstantVal.type
+      (ConstantInfo.ctorInfo cvNi 1 1 Ti).toConstantVal.type
       = some (.pi (.sort (ψ uN))
           (.pi (.bvar 0)
             (.app (mp.base2.acval nonemptyName ψ) (.bvar 1)))) := by
@@ -461,11 +461,11 @@ by restructuring, because `Nonempty.rec`'s minor binds a plain element
 of `α`.  The motive's β is `app_lamV`. -/
 theorem nonemptyVal_forces (mp : EnvModelM V env)
     {cvN : ConstantVal} {capsN : ConLeche.IndCaps}
-    {cvNi cvNr : ConstantVal} {mI rP : Nat}
+    {cvNi cvNr : ConstantVal} {Ti : Name} {mI rP : Nat}
     {rulesN : List ConLeche.RecRule}
     (hfN : env.find? nonemptyName = some (.indInfo cvN capsN))
     (hlpN : cvN.levelParams = nonemptyA.toConstantVal.levelParams)
-    (hfNi : env.find? nonemptyIntroName = some (.ctorInfo cvNi 1 1))
+    (hfNi : env.find? nonemptyIntroName = some (.ctorInfo cvNi 1 1 Ti))
     (hlpNi : cvNi.levelParams
       = nonemptyIntroA.toConstantVal.levelParams)
     (hfNr : env.find? nonemptyRecName
@@ -549,13 +549,13 @@ stored `Nonempty A` are propositions with the same inhabitation, hence
 the same set. -/
 theorem dneg_eq_nonempty (mp : EnvModelM V env)
     {cvN : ConstantVal} {capsN : ConLeche.IndCaps}
-    {cvNi cvNr : ConstantVal} {mI rP : Nat}
+    {cvNi cvNr : ConstantVal} {Ti : Name} {mI rP : Nat}
     {rulesN : List ConLeche.RecRule}
     (hfN : env.find? nonemptyName = some (.indInfo cvN capsN))
     (hlpN : cvN.levelParams = nonemptyA.toConstantVal.levelParams)
     (htyN : cvN.type
       = nonemptyA.toConstantVal.type)
-    (hfNi : env.find? nonemptyIntroName = some (.ctorInfo cvNi 1 1))
+    (hfNi : env.find? nonemptyIntroName = some (.ctorInfo cvNi 1 1 Ti))
     (hlpNi : cvNi.levelParams
       = nonemptyIntroA.toConstantVal.levelParams)
     (htyNi : cvNi.type
@@ -604,7 +604,7 @@ theorem choice_mem (mp : EnvModelM V env)
     (hta : denote mp.base2.acval env ψ 0 cv.type = some ta)
     (ρ : Nat → V) :
     interp V ρ (.const .choice [ψ uN]) ∈ˢ interp V ρ ta := by
-  obtain ⟨⟨cvN, capsN, hfN, hlpN, htyN⟩, ⟨cvNi, hfNi, hlpNi, htyNi⟩,
+  obtain ⟨⟨cvN, capsN, hfN, hlpN, htyN⟩, ⟨cvNi, _, hfNi, hlpNi, htyNi⟩,
     ⟨cvNr, mI, rP, isK, rulesN, hfNr, hlpNr, htyNr⟩, hApin⟩ :=
     nonempty_shapes hok hn
   have hApinT : cv.type

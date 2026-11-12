@@ -109,7 +109,7 @@ theorem structEtaCertWith_bridge (hw : WhnfBridge μ eager env fuel)
     (hwtb : whnf μ eager env fuel d tb = .ok wtb)
     (h : structEtaCertWithFueled μ eager env fuel d a b wtb = .ok true) :
     DefEq env d a b := by
-  obtain ⟨c, us, cvc, cnP, cnF, T, us', cvT, caps, tbl,
+  obtain ⟨c, us, cvc, cnP, cnF, cT, T, us', cvT, caps, tbl,
     hfn, hfc, hlen, hwfn, hfT, htbl, heta, hctor, hplen, hulen,
     hlps, hus, hpar, hfields⟩ :=
     structEtaCertWith_inv h

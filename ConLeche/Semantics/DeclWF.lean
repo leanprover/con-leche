@@ -37,11 +37,13 @@ theorem ConstantValRun.envWF_cons {F : Nat} {env : Env} {cv : ConstantVal} {type
     (henv : EnvWF env) (hcv : ConstantValRun F env cv type') {c : ConstantInfo}
     (hc : c.toConstantVal = ⟨cv.name, cv.levelParams, type'⟩)
     (hnd : ∀ cv' v h, c ≠ .defnInfo cv' v h) (hnr : ∀ cv' mI rP isK rules, c ≠ .recInfo cv' mI rP isK rules)
-    (hni : ∀ cv' caps, c ≠ .indInfo cv' caps) :
+    (hni : ∀ cv' caps, c ≠ .indInfo cv' caps)
+    (hnc : ∀ cv' nP nF T, c ≠ .ctorInfo cv' nP nF T) :
     EnvWF ⟨c :: env.consts, env.tables⟩ := by
   obtain ⟨-, -, hlbt, hitf, hann, htp, htr, -, hshape⟩ := hcv
   obtain ⟨htf', hbt'⟩ := stored_syntax hann hitf hlbt
   refine EnvWF.cons (hshape _ (by rw [hc, hann])) henv ?_ (IndWF.of_not_ind hni)
+    (CtorWF.of_not_ctor hnc)
   refine ⟨?_, ?_, ?_, ?_, fun cv' v h heq => absurd heq (hnd cv' v h),
     fun cv' mI rP isK rules heq => absurd heq (hnr cv' mI rP isK rules)⟩ <;> rw [hc]
   · exact htf'
@@ -54,14 +56,14 @@ theorem ConstantValRun.envWF_axiom {F : Nat} {env : Env} {cv : ConstantVal} {typ
     (henv : EnvWF env) (hcv : ConstantValRun F env cv type') :
     EnvWF ⟨.axiomInfo ⟨cv.name, cv.levelParams, type'⟩ :: env.consts, env.tables⟩ :=
   hcv.envWF_cons henv rfl (fun _ _ _ heq => nomatch heq) (fun _ _ _ _ _ heq => nomatch heq)
-    (fun _ _ heq => nomatch heq)
+    (fun _ _ heq => nomatch heq) (fun _ _ _ _ heq => nomatch heq)
 
 /-- **A theorem's record**, stored by its statement. -/
 theorem ConstantValRun.envWF_thm {F : Nat} {env : Env} {cv : ConstantVal} {type' : Expr}
     (henv : EnvWF env) (hcv : ConstantValRun F env cv type') :
     EnvWF ⟨.thmInfo ⟨cv.name, cv.levelParams, type'⟩ :: env.consts, env.tables⟩ :=
   hcv.envWF_cons henv rfl (fun _ _ _ heq => nomatch heq) (fun _ _ _ _ _ heq => nomatch heq)
-    (fun _ _ heq => nomatch heq)
+    (fun _ _ heq => nomatch heq) (fun _ _ _ _ heq => nomatch heq)
 
 /-- **A definition's record**: its type's guards are `ConstantValRun`'s, its value's
 `ValueFrontRun`'s. -/
@@ -217,6 +219,12 @@ theorem declQuotRun_envWF {env env₂ : Env} {k : QuotKind} {cv : ConstantVal}
         quotBasis, quotA, quotMkA, quotLiftA, quotIndA, quotSoundA] at h
       obtain ⟨-, rfl⟩ := h
       exact nomatch hn)
+    (by
+      intro cv' nP nF T h
+      cases k <;> simp [quotAt, quotPin, ConstantInfo.atLps, BasisKind.decls, QuotKind.slot,
+        quotBasis, quotA, quotMkA, quotLiftA, quotIndA, quotSoundA] at h
+      obtain ⟨rfl, -, -, rfl⟩ := h
+      exact ⟨_, rfl⟩)
 
 /-! ## The step and the folds -/
 
@@ -269,7 +277,7 @@ theorem checkDecl_envWF {F : Nat} {env env₂ : Env} {d : Declaration} (henv : E
 /-- The empty environment is well formed. -/
 theorem EnvWF.empty : EnvWF Env.empty :=
   ⟨fun _ hc => (nomatch hc), fun _ hc => (nomatch hc), fun _ ht => (nomatch ht),
-    fun _ hc => (nomatch hc)⟩
+    fun _ hc => (nomatch hc), fun _ hc => (nomatch hc)⟩
 
 /-- **The pure fold keeps the environment well formed**, from any well-formed start. -/
 theorem foldlM_checkDecl_envWF {F : Nat} :

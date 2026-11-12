@@ -656,7 +656,7 @@ private theorem structEtaCertWith_shift (henv : EnvWF env)
   | none => rfl
   | some ci =>
     cases ci <;> try rfl
-    case ctorInfo cvc cnP cnF =>
+    case ctorInfo cvc cnP cnF _ =>
     simp only [getAppArgs_shiftFrom, List.length_map]
     refine ite_congr' (fun _ => ?_) (fun _ => rfl)
     rw [getAppFn_shiftFrom]
@@ -863,7 +863,7 @@ theorem unitLikeShape_shiftFrom (henv : EnvWF env) (p : Nat) (w : Expr) :
         | none => rfl
         | some ci =>
           cases ci <;> try rfl
-          case ctorInfo cvC nPc nFc =>
+          case ctorInfo cvC nPc nFc _ =>
           dsimp only
           have hc : (cvC.type.instantiateLevelParams cvC.levelParams us).hasFvar = false := by
             rw [hasFvar_instantiateLevelParams]
@@ -877,7 +877,7 @@ theorem unitLikeShape_shiftFrom (henv : EnvWF env) (p : Nat) (w : Expr) :
 /-- The field telescope of a well-scoped instance is well-scoped. -/
 theorem unitLikeShape_WScoped (henv : EnvWF env) {d : Nat} {w tele : Expr} {n : Nat}
     (hw : WScoped d w) (h : unitLikeShape env w = some (tele, n)) : WScoped d tele := by
-  obtain ⟨S, us, _, _, _, cvC, _, _, -, -, -, -, -, -, hfC, -, ht⟩ := unitLikeShape_some h
+  obtain ⟨S, us, _, _, _, cvC, _, _, _, -, -, -, -, -, -, hfC, -, ht⟩ := unitLikeShape_some h
   have hc : (cvC.type.instantiateLevelParams cvC.levelParams us).hasFvar = false := by
     rw [hasFvar_instantiateLevelParams]
     exact (henv.consts _ (Env.find?_mem hfC)).1
@@ -1083,10 +1083,7 @@ private theorem majorToCtor_shift (henv : EnvWF env)
       | none => rfl
       | some ci =>
         cases ci <;> try rfl
-        case ctorInfo cvj cnP cnF =>
-        dsimp only
-        cases hpi : (cvj.type.piResult).getAppFn <;> try rfl
-        case const T us₀ =>
+        case ctorInfo cvj cnP cnF T =>
         dsimp only
         cases hfT : env.find? T with
         | none => rfl
@@ -1267,7 +1264,7 @@ theorem iotaRec_WScoped (henv : EnvWF env)
     (h : iotaRec mode (pureFns mode eager env fuel) env d e = .ok (some e''))
     (hw : WScoped d e) : WScoped d e'' := by
   obtain ⟨c, us, cv, mI, rP, isK, rules, major, cj, usj,
-    cvj, cnP, cnF, r, hfn, hfc, hlen, -, hprep,
+    cvj, cnP, cnF, induct, r, hfn, hfc, hlen, -, hprep,
     hmfn, hfj,
     hrule,
     hml, hlev, hpeq, hmcerts, -, rfl⟩ :=
@@ -1538,7 +1535,7 @@ private theorem iotaRec_shift (henv : EnvWF env)
     | none => rfl
     | some cij =>
       cases cij <;> try rfl
-      case ctorInfo cvj cnP cnF =>
+      case ctorInfo cvj cnP cnF _ =>
       dsimp only
       cases hrule : rules.find? (fun r' => r'.ctor == cj) with
       | none => rfl

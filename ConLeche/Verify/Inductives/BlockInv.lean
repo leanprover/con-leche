@@ -608,9 +608,12 @@ theorem blockInstall_reduced {F : Nat} {env : Env} {p₀ : BlockShape} {ms : Lis
   simp only [hrec, hall, hcaps]
   rw [blockRecs_congr (p := ({ p₀ with members := ms } : BlockShape))
     (q := p₀) hlen]
+  have hgr : ({ p₀ with members := ms } : BlockShape).ctorGroups = p₀.ctorGroups := by
+    show ms.map (fun x => (x.cvT.name, x.ctors)) = p₀.members.map (fun x => (x.cvT.name, x.ctors))
+    rw [← List.zip_map', hname, hctors, List.zip_map']
   show ((ms.map (·.declared)).zipIdx.map _) ++ _ ++ _ =
     ((p₀.members.map (·.declared)).zipIdx.map _) ++ _ ++ _
-  rw [hdecl]
+  rw [hdecl, hgr]
 
 /-- **The tail, inverted**: every member's index binders' sorts, the
 constructors consed,
@@ -623,13 +626,13 @@ theorem checkBlockTail_inv {block : List ConstantInfo} {q : BlockPass Env} {Q : 
     ∃ (isorts : List (List Level))
       (out : List (ConstantVal × TargetMajor × List Expr)),
       BlockIdxSortsRun mode F q.env₁ q.p q.p.members isorts ∧
-      checkBlockRec (fueledOps mode F) (consBlockCtors q.p.nP q.p.memberCtors q.env₁)
+      checkBlockRec (fueledOps mode F) (consBlockCtors q.p.nP q.p.ctorGroups q.env₁)
         q.p (blockNestedBit q.p q.kinds) q.params q.tbl.toList q.rd q.cls block = .ok out ∧
       streamKCheck (m := CheckM) q.p q.p.recs out = .ok () ∧
       streamRecsCheck (m := CheckM) (fueledOps mode F)
-        (mkFEnv (consBlockRecsT q.p 0 out (consBlockCtors q.p.nP q.p.memberCtors q.env₁))) q.p.recs out
+        (mkFEnv (consBlockRecsT q.p 0 out (consBlockCtors q.p.nP q.p.ctorGroups q.env₁))) q.p.recs out
         = .ok () ∧
-      checkBlockTables (m := CheckM) (consBlockCtors q.p.nP q.p.memberCtors q.env₁) Q
+      checkBlockTables (m := CheckM) (consBlockCtors q.p.nP q.p.ctorGroups q.env₁) Q
         = .ok () := by
   rw [checkBlockTail] at h
   simp only [bind, Except.bind] at h
@@ -642,7 +645,7 @@ theorem checkBlockTail_inv {block : List ConstantInfo} {q : BlockPass Env} {Q : 
   dsimp only at h
   obtain ⟨isorts, hIs⟩ := checkBlockIdxSorts_inv hsorts
   cases hRec : checkBlockRec (m := CheckM) (fueledOps mode F)
-      (consBlockCtors q.p.nP q.p.memberCtors q.env₁) q.p
+      (consBlockCtors q.p.nP q.p.ctorGroups q.env₁) q.p
       (blockNestedBit q.p q.kinds) q.params q.tbl.toList q.rd q.cls block with
   | error e => rw [hRec] at h; exact nomatch h
   | ok out =>
@@ -655,7 +658,7 @@ theorem checkBlockTail_inv {block : List ConstantInfo} {q : BlockPass Env} {Q : 
   rw [hK] at h
   dsimp only at h
   cases hS : streamRecsCheck (m := CheckM) (fueledOps mode F)
-      (mkFEnv (consBlockRecsT q.p 0 out (consBlockCtors q.p.nP q.p.memberCtors q.env₁))) q.p.recs out with
+      (mkFEnv (consBlockRecsT q.p 0 out (consBlockCtors q.p.nP q.p.ctorGroups q.env₁))) q.p.recs out with
   | error e => rw [hS] at h; exact nomatch h
   | ok u =>
   cases u

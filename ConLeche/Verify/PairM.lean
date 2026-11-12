@@ -380,10 +380,10 @@ theorem formerNeverZeroAt_fst_proj (cvT : ConstantVal) (caps : IndCaps) (us : Li
     refine congrArg _ (funext fun o => ?_)
     cases o <;> rfl
 
-theorem iotaCase3At_fst_proj (find? : Name → Option ConstantInfo) (isK : Bool) (cvj : ConstantVal)
+theorem iotaCase3At_fst_proj (find? : Name → Option ConstantInfo) (isK : Bool) (induct : Name)
     (us : List Level) :
-    (iotaCase3At (pairFns r₁ r₂ h).whnf find? isK cvj us).val.1 =
-      iotaCase3At r₁.whnf find? isK cvj us := by
+    (iotaCase3At (pairFns r₁ r₂ h).whnf find? isK induct us).val.1 =
+      iotaCase3At r₁.whnf find? isK induct us := by
   unfold iotaCase3At
   split
   · rfl
@@ -403,13 +403,13 @@ theorem familyNeverZeroAt_fst_proj (cvT : ConstantVal) (caps : IndCaps) (us : Li
   · exact formerNeverZeroAt_fst_proj cvT caps us
 
 theorem iotaCaseAt_fst_proj (find? : Name → Option ConstantInfo) (isK : Bool)
-    (cvj : ConstantVal) (us : List Level) :
-    (iotaCaseAt (pairFns r₁ r₂ h).whnf find? isK cvj us).val.1 =
-      iotaCaseAt r₁.whnf find? isK cvj us := by
+    (induct : Name) (us : List Level) :
+    (iotaCaseAt (pairFns r₁ r₂ h).whnf find? isK induct us).val.1 =
+      iotaCaseAt r₁.whnf find? isK induct us := by
   unfold iotaCaseAt
   split
   · rfl
-  · exact iotaCase3At_fst_proj find? isK cvj us
+  · exact iotaCase3At_fst_proj find? isK induct us
 
 theorem formerSortLoop_snd {wh : Nat → Expr → PairM rel Expr} {wh' : Nat → Expr → M₂ Expr}
     (hw : ∀ d e, (wh d e).val.2 = wh' d e) :
@@ -437,10 +437,10 @@ theorem formerNeverZeroAt_snd_proj (cvT : ConstantVal) (caps : IndCaps) (us : Li
     refine congrArg _ (funext fun o => ?_)
     cases o <;> rfl
 
-theorem iotaCase3At_snd_proj (find? : Name → Option ConstantInfo) (isK : Bool) (cvj : ConstantVal)
+theorem iotaCase3At_snd_proj (find? : Name → Option ConstantInfo) (isK : Bool) (induct : Name)
     (us : List Level) :
-    (iotaCase3At (pairFns r₁ r₂ h).whnf find? isK cvj us).val.2 =
-      iotaCase3At r₂.whnf find? isK cvj us := by
+    (iotaCase3At (pairFns r₁ r₂ h).whnf find? isK induct us).val.2 =
+      iotaCase3At r₂.whnf find? isK induct us := by
   unfold iotaCase3At
   split
   · rfl
@@ -460,13 +460,13 @@ theorem familyNeverZeroAt_snd_proj (cvT : ConstantVal) (caps : IndCaps) (us : Li
   · exact formerNeverZeroAt_snd_proj cvT caps us
 
 theorem iotaCaseAt_snd_proj (find? : Name → Option ConstantInfo) (isK : Bool)
-    (cvj : ConstantVal) (us : List Level) :
-    (iotaCaseAt (pairFns r₁ r₂ h).whnf find? isK cvj us).val.2 =
-      iotaCaseAt r₂.whnf find? isK cvj us := by
+    (induct : Name) (us : List Level) :
+    (iotaCaseAt (pairFns r₁ r₂ h).whnf find? isK induct us).val.2 =
+      iotaCaseAt r₂.whnf find? isK induct us := by
   unfold iotaCaseAt
   split
   · rfl
-  · exact iotaCase3At_snd_proj find? isK cvj us
+  · exact iotaCase3At_snd_proj find? isK induct us
 
 macro "fst_step" : tactic =>
   `(tactic| repeat (first
@@ -958,10 +958,7 @@ theorem majorToCtor_fst_proj (d : Nat) (c : Name) (isK : Bool) (rules : List Rec
     cases hfr : env.find? rl.ctor <;> try rfl
     case some ci =>
     cases ci <;> try rfl
-    case ctorInfo cvj cnP cnF =>
-    dsimp only
-    cases (cvj.type.piResult).getAppFn <;> try rfl
-    case const T us₀ =>
+    case ctorInfo cvj cnP cnF T =>
     dsimp only
     cases env.find? T <;> try rfl
     case some ciT =>
@@ -999,10 +996,7 @@ theorem majorToCtor_snd_proj (d : Nat) (c : Name) (isK : Bool) (rules : List Rec
     cases hfr : env.find? rl.ctor <;> try rfl
     case some ci =>
     cases ci <;> try rfl
-    case ctorInfo cvj cnP cnF =>
-    dsimp only
-    cases (cvj.type.piResult).getAppFn <;> try rfl
-    case const T us₀ =>
+    case ctorInfo cvj cnP cnF T =>
     dsimp only
     cases env.find? T <;> try rfl
     case some ciT =>
