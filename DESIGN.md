@@ -119317,6 +119317,113 @@ termination goal with the measure already applied to the unpacked arguments (cos
 independent of the block's size).  What stays is the eager `_mutual.eq_def` (139 G C++) and
 the fixpoint itself, which the record-of-closures knot did not pay.
 
+### Lane fvhash: the binder types' hash memo, and InLean's extra ι steps (2026-11-12, task #451, agent/451-fvhash)
+
+**1. `mkFVarM` re-hashed every binder type (InLean only).**  The free-variable table interns a
+binder type by its `Expr.clEq` class (`InLean/StateC.lean`, `mkFVarM`); a miss of the `keyEq`
+fast path computed `EO.clHash ty` with a fresh memo (`freshFor`), so each binder opening cost the
+size of its type, where con-leche's `.fvar d ty` node carries its hash.  On lean4's `cbv_aes`
+(`AESSpecTest.aes_encryption_test`: 8960 binders, binder types of 4.77 M nodes in all) that was
+30–36 % of the kernel time.
+
+* *The memo.*  `CState.clHashC : @Std.HashMap Expr UInt64 instBEqExprExact _`, the walk memo of
+  `EO.clHashGo` (exact keys, `Expr.beqI`, pointer first) kept for the declaration: a miss
+  detaches it with the three table fields, runs `EO.clHashGo ty hm`, and puts it back.  Only
+  `mkFVarM` reads or writes it; `CState.flushed` keeps it, as it keeps the table (its entries do
+  not depend on the environment or the mode).  Per declaration, no cap.
+* *The proof.*  `FVTableOK` (`InLeanProof/Sim.lean`) gains the clause `hash`: every entry of
+  `clHashC` is its key's `EO.clHash`.  `mkFVarM_ok` (`InLeanProof/FVar.lean`) reads it as
+  `HashMemoInv` (through `clHash_eq`), runs `clHashGo_spec` on the miss path (the hash is
+  `EO.clHash ty`, the new memo keeps the invariant), and its state shape gains the memo
+  (`∃ seen cls tys hm, s' = { s with …, clHashC := hm }`); `CSOKI.of_tabLe` takes the memo
+  too.  The anonymous `FVTableOK` constructors (`IndOps`, `KnotAssembly`, `StateOpsI`,
+  `DeclStep`'s empty state) gain the field.  `addDeclSound` unconditional, axioms unchanged
+  (`_tmp/axcheck.lean`: `propext`, `Classical.choice`, `Quot.sound`, the three `mkData`
+  stop-gaps); no `sorry`.
+* *Numbers* (`instructions:u`, one run each).  The fork's 4.37 data through `PInLean` (the
+  probe copy of the fork's InLean), kernel time of the module's declarations:
+  `cbv_aes` 16.02 → 9.65 G (−39.8 %; `aes_encryption_test` 14.56 → 8.20 G, −43.7 %, as probe
+  P1), `grind_field_kernel_cancel` 62.65 → 62.71 G (+0.1 %).  Init replay (`inlean-replay
+  --kernel=inlean`): 374.09 G (sync7 375.60 G, −0.4 %); `--compare`: 64530 accepted, 0 exact
+  and 0 cosmetic mismatches.
+
+**2. InLean's extra ι steps on `grind_field_kernel_cancel`: con-leche's, and a memo policy.**
+
+* *InLean = con-leche.*  The fixture's theorem (`tests/e2e/grind_field_cancel_inv.ndjson`,
+  bc97bdec4: `cancelInv0`, n = 64), compiled with the fork and replayed through `PInLean
+  --counts`, against a scratch con-leche at master 4ce6cb18e tracing each ι step
+  (`dbgTrace` at `whnfAppI`'s and `whnfStuckI`'s fired ι; the stream's other declarations
+  subtracted): the same counts, recursor by recursor — `Bool.rec` 32 710, `Mon.rec` 30 739,
+  `Ordering.rec` 10 334, `Poly.rec` 9 310, `Int.rec` 1 161, `Expr.rec` 264, `List.rec` 4.  The
+  official kernel (nightly-2026-10-30, unfold diagnostics): `Bool.rec` 20 550, `Mon.rec`
+  26 452, the rest equal, the δ steps equal constant by constant.  At n = 4: `Bool.rec` 280
+  against 240, `Mon.rec` 259 against 232.  No twin bug.
+* *Where they diverge: the head-normalization memo.*  At n = 4, con-leche's 280 `Bool.rec` steps
+  fire on 240 distinct redexes (4 twice, 12 four times): the official count is the number of
+  distinct ones.  The repeats are lazily computed values met again: in `Mon.cancelInv_k` the
+  let-bound monomial `m` (a `Mon.mul_k` chain, call by name) is walked by `degreeOf_k` and again
+  by `cancelVar_k`, which hands its tail back as its result (the four redexes met twice); the
+  other twelve are `Mon.revlex_k` steps of the monomial comparisons, met four times each.  The
+  official kernel answers the later walks from its `whnf_core` cache; con-leche recomputes
+  them.  The official `whnf_core`
+  (`src/kernel/type_checker.cpp`, `whnf_core`) is recursive and looks its cache up at EVERY
+  call, so at every continuation of a reduction chain (after a β, ι, projection or ζ step it
+  calls itself on the reduct), in both modes (the lookup precedes the `cheap_proj` test); it
+  stores an entry for the β, projection, ζ and head-reduced arms when not cheap, and nothing for
+  the ι and stuck arms (`f == f0`: they `return` before the insert).  con-leche's `whnfCoreI`
+  (`ConLeche/Cached/CoreC.lean`) looks up and stores only at the entry (`memoRedEI`), any
+  reducing entry, the ι-headed ones included, under a separate memo per mode; the chain itself
+  is `whnfCoreLoopI`'s iteration (task #342 R2), whose continuations meet no memo.  So con-leche
+  stores more at entries and finds nothing inside a chain.
+* *Confirmed by probes in `PInLean`* (`_tmp/fvhash/probes/v3-…`, `v4-…`): `whnfCoreLoopI` looks
+  each continuation up in `whnfCoreC` and stores the chain's entries at its end except the
+  ones with a constant head, and `memoRedEI` stores no constant-headed entry (v3); the cheap
+  mode's continuations look up `whnfCoreC` too (v4).  v4 reproduces the official counts exactly
+  on the fixture's theorem (102 508 unfoldings, `Bool.rec` 20 550, `Mon.rec` 26 452), at n = 4
+  (1 198) and on both examples below; v3 differs only on the cheap example.  Kernel time of the
+  fixture's theorem: InLean 3.73 G, v4 3.52 G (−5.6 %), official 1.55 G.
+* *Minimal example* (`_tmp/fvhash/mwe/`; added by `addDecl`, so no elaboration in between):
+
+  ```
+  S   := (fun x => Bool.rec (motive := fun _ => Bool) false true x) true
+  lhs := Bool.rec (motive := fun _ => Bool) S S S
+  mwe2 : lhs = true := Eq.refl lhs      -- `lhs =?= true`: whnf lhs
+  mwe  : lhs = true := Eq.refl true     -- `true =?= lhs`: lazy δ, cheap whnfCore
+  ```
+
+  The outer `Bool.rec`'s major `S` is normalized (β, then one ι inside); the outer ι continues
+  with its minor, the same `S`.  Official: 2 `Bool.rec` steps on each (the continuation `S` is
+  a cache hit; `S`, a β entry, was stored).  con-leche (stream through the traced build) and
+  InLean: 3 on each.  v3 gives 2 on `mwe2`, 3 on `mwe`; v4 2 on both.
+* *Not fixed here* (a reduction-order change goes through master; standing ruling: match the
+  official order).  For master: the official policy needs the memo consulted between steps of
+  `whnfCoreLoopI` and the chain's β/projection/ζ entries stored with its final answer, which the
+  loop can collect as it goes (v3/v4 carry the list of entries); whether the entry memo should
+  stop storing ι-headed entries, and the cheap mode read the full mode's memo, are part of the
+  same ruling.  The probes are measurements only: no proof was touched.
+
+**lean4** (`_tmp/lean4`).  The regenerated InLean changes only `StateC.lean` (`inlean-sync.py
+check` OK).  New commit 8ec4c84c `perf: InLean memoises its binder types' hashes per
+declaration` on `joachim/inlean-add` (parent 1c929920, the pushed tip); the kernel branch's
+three commits replayed on it unchanged (`git range-diff`: all `=`): f8f47de1, a84150fd,
+6aa8b59e, now `joachim/inlean-kernel`; its tree is 409fb814's plus the `StateC.lean` change.
+Local backups `joachim/inlean-add-pre-fvhash` (1c929920), `joachim/inlean-kernel-pre-fvhash`
+(409fb814).  Not pushed; the kernel branch needs a force push.
+
+* Stage1 rebuilt.  Suite (4845 tests): all pass but `async/elab/async_systems_info`
+  (sandbox); every `tests/elab_bench/*.lean` (93, `run_bench.sh`) passes;
+  `inleanQuotTwice` passes; `#mutual_block` 187.23 M heartbeats (corec's run 167.44 M,
+  sync7's 191.09 M).
+* `TEST_BENCH=1` (`lean -Dlinter.all=false -DElab.inServer=true`, whole file, one run each;
+  before = the corec lane's runs): `cbv_aes` 33.34 → **26.18 G** (−21.5 %),
+  `grind_field_kernel_cancel` 67.87 → 67.91 G (+0.1 %); `trailingZeros` 38.98 G,
+  `bitvec_zero_counts` 34.01 G, `grind_ring_5` 2.133 G, `cbv_divisors` 48.65 G, `cbv_leroy`
+  55.28 G (within 1 % of the corec lane's).
+
+**Gates.**  `lake build`, `lake test`, `lake build InLean InLeanProof inlean-replay`
+warning-free; layering, trust-surface, shake, inlean-sync, plain-reach pass; `_tmp/axcheck.lean`
+as above; Init replay as above.  No fixture or master code changed.
+
 ## TASK #547 — a `Nat` literal's hash reads all its bits: lean4#16146 vendored (2026-11-09, agent/547-lit-hash)
 
 The bug (#543): `Literal` derived `Hashable`, so `.natVal n` hashed as `n mod 2^64` and an
