@@ -113918,3 +113918,89 @@ magma-list-pair-n7 11.202 → 10.984 G (−2.0 %), cbv_aes Nr=10 whole run 10.53
 **Why no budget.**  Official has none; a budget makes the work depend on a heuristic count and
 was the kind of cut-off #319 removed.  Verdicts are unchanged on every stream measured and in
 `tests/arena.sh`.
+
+## TASK #576: substitution walks return no `(term, memo)` pair for a leaf child (2026-11-12)
+
+Question: what does the pair each cached substitution walk step returns
+(`Squash (ResXP s e c)`) cost, and can the parent handle the steps that
+cannot change the memo and get a bare `Expr`?
+
+**What the compiler already did.**  `enterListP` (and its five twins) is
+`@[inline]`; a `Squash.mk (e, memo)` built in the parent's body never
+reaches the heap: the generated C passes `fst`/`snd` to the join point
+as two variables.  So the cutoff step was already pair-free.  The pair
+is allocated where a step is a CALL: the walk's own arms build the
+result, and the caller destructures it (`inc fst; inc snd; dec pair`,
+or reuse into its own result).  The leaves (`sort`/`const`/`lit`/`fvar`)
+never reach a walk (their `bvarB` is 0, the cutoff catches them), nor an
+in-range `bvar` (`i < d`, also cut off).  The only memo-neutral steps
+that are calls are the replacement `bvar`s.
+
+**Counts** (a step counter, since removed; millions; `--verified
+--jobs=1`; cbv = `_tmp/571-cbv` Nr = 10; theorem = full − base stream;
+`alloc` = small allocations inside the walk, nested walks included):
+
+| stream | walk | cutoff | bvar (repl.) | excl. | shared | hit % | compound | alloc |
+|---|---|---:|---:|---:|---:|---:|---:|---:|
+| cbv theorem | list | 0.12 | 0.15 | 0.02 | 0.17 | 6 | 0.23 | 1.1 |
+| | rev | 0.44 | 1.15 | 0.40 | 0.34 | 4 | 1.06 | 4.4 |
+| init-full | list | 44.8 | 46.4 | 32.7 | 45.1 | 5 | 84.7 | 330 |
+| | rev | 14.7 | 17.8 | 6.27 | 20.5 | 18 | 28.1 | 131 |
+| grind-ring-5 | list | 2.05 | 1.58 | 0.82 | 2.32 | 4 | 3.34 | 14.7 |
+| | rev | 0.42 | 0.46 | 0.18 | 0.49 | 16 | 0.73 | 3.3 |
+
+`instantiate1XP`, `instantiateLiftXP` and `liftLooseBVarsXP` stay below
+0.6 M steps on every stream and their replacement steps add nothing
+measurable; `instLevelParamsXP`'s leaves (4.45 M on init-full) go through
+the memo on purpose and are worth at most another 0.2 %.  The walks make
+44 % of init-full's 1 272 M allocations.
+
+**The change** (`instantiateListXP`, `instantiateRevXP`).  `leafListP`/
+`leafRevP` handle the non-compound child in the parent's `enterListP`/
+`enterRevP` as a bare subtype: the cutoff, the `bvar` arms and the
+replacement.  The replacement's re-entry (a replacement with loose bound
+variables below the lift: the walk at a shorter live prefix under a FRESH
+memo, whose memo is dropped) is the argument `reent`, of type
+`ReentListP`/`ReentRevP`.  The proofs are the arms' own, moved.  The
+generated C of the compound arms handles the `bvar` child inline and
+jumps to the join point with `fst`/`snd`: no call, no pair, no closure.
+
+Two facts shape the code.  A definition in a `mutual` block is never
+inlined (LCNF `markRecDecls` marks every block member referenced from the
+block recursive, and `inlineCandidate?` refuses a recursive declaration),
+and `enterListP` cannot name a function of a later `mutual` block.  So
+`enterListP` stays `@[inline]` and OUTSIDE the block and takes the
+re-entry and the descent as arguments, always as partial applications
+(`(reentListP vs k d)`, `(instantiateListXP vs k memo f d hk)`), never
+lambdas: after inlining each is a direct call.  The walk's leaf arms are
+separate arms of its one `match` (an `if !isCompound` in front of the
+match cost a second tag switch per walk call, +0.25 % on init-full).
+
+Two variants were built.  (a) `leafListP` fully mutual with the walk
+(every non-compound child is a call returning the bare term; termination
+`(k, sizeOf e)`, `(k, sizeOf e + 1)`): about 17 instructions per leaf
+step, +0.4 % against (b).  (b), landed: `leafListP` is `@[inline]`
+outside the block, and only `reentListP` — four lines, the walk under a
+fresh memo, its memo dropped — is mutual with the walk (termination
+`(j, sizeOf w + 1)` and `(k, sizeOf e)`); every non-compound child is
+handled inline, only a re-entry is a call.  A removed step saves about
+140 instructions in `instantiateListXP`, 115 in `instantiateRevXP`;
+allocations fall by one per removed step (init-full 1 272.1 → 1 211.2 M).
+
+**Numbers** (`instructions:u`, one run each, `--verified --jobs=1`,
+against master after task #574):
+
+| stream | master | this change |
+|---|---:|---:|
+| cbv theorem (full − base) | 6.224 G | 6.065 G (−2.55 %) |
+| grind-ring-5 | 10.448 G | 10.148 G (−2.87 %) |
+| init-full | 286.93 G | 277.76 G (−3.19 %) |
+
+Verdicts unchanged on every stream and in `tests/arena.sh` (595/595 e2e).
+
+**Not reached**: the pair a compound step returns (128 M on init-full).
+On v4.35.0 an `ST.Ref`-held memo would remove it: `ST σ α` is
+`Void σ → ST.Out σ α` with the state erased, so an `ST`/`BaseIO` function
+returns the bare value, while `EIO`/`IO` allocate one result object per
+call.  The price is two out-of-line runtime calls (`lean_st_ref_take`,
+`lean_st_ref_put`) per memo touch and monadic walks.
