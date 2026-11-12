@@ -130,11 +130,12 @@ like any other block, and its former stores the capabilities the block gives it 
 
 /-- `Nat`'s former as stored. -/
 @[expose] def natI : ConstantInfo :=
-  .indInfo natA.toConstantVal { all := [natName], ctors := [natZeroName, natSuccName] }
+  .indInfo natA.toConstantVal
+    { all := [natName], ctors := [natZeroName, natSuccName], neverZero := true }
 
 /-- `Empty`'s former as stored. -/
 @[expose] def emptyI : ConstantInfo :=
-  .indInfo emptyA.toConstantVal { all := [emptyName] }
+  .indInfo emptyA.toConstantVal { all := [emptyName], neverZero := true }
 
 /-- `False`'s former as stored. -/
 @[expose] def falseI : ConstantInfo :=

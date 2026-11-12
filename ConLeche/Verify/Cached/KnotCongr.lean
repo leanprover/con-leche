@@ -373,6 +373,11 @@ theorem formerNeverZeroI_congr (hfe : fe₁.find? = fe₂.find?) (h : SlotsEq mo
   funext cvT caps us; rw [formerNeverZeroI.eq_def, formerNeverZeroI.eq_def]
   simp only [formerSortLoopI_congr hfe h]
 
+theorem familyNeverZeroI_congr (hfe : fe₁.find? = fe₂.find?) (h : SlotsEq mode fe₁ fe₂ lv) :
+    familyNeverZeroI mode fe₁ eager lv = familyNeverZeroI mode fe₂ eager lv := by
+  funext cvT caps us; rw [familyNeverZeroI.eq_def, familyNeverZeroI.eq_def]
+  simp only [formerNeverZeroI_congr hfe h]
+
 /-- `iotaCase3I` only threads `fe` (the lookups come as an argument). -/
 theorem iotaCase3I_congr (hfe : fe₁.find? = fe₂.find?) (h : SlotsEq mode fe₁ fe₂ lv) :
     iotaCase3I mode fe₁ eager lv = iotaCase3I mode fe₂ eager lv := by
@@ -385,7 +390,7 @@ theorem majorToCtorI_congr (hfe : fe₁.find? = fe₂.find?)
     majorToCtorI mode fe₁ eager lv = majorToCtorI mode fe₂ eager lv := by
   funext depth recName isK rules major; rw [majorToCtorI.eq_def, majorToCtorI.eq_def]
   simp only [isCtorAppC_congr hfe, hfe, htb, andRescueSlotsF_congr hfe htb,
-    formerNeverZeroI_congr hfe h, proofIrrelI_congr hfe h, h]
+    familyNeverZeroI_congr hfe h, proofIrrelI_congr hfe h, h]
 
 /-- `litMajorToCtorI` reads `fe` only through `find?`. -/
 theorem litMajorToCtorI_congr (hfe : fe₁.find? = fe₂.find?) (h : SlotsEq mode fe₁ fe₂ lv) :

@@ -157,6 +157,7 @@ theorem emptyBlock_install {nP : Nat} {block : List ConstantInfo} {p : BlockShap
       subst hp
       refine ⟨?_, rfl⟩
       simp [blockConstants, blockFormers, blockCtors, blockRecs, blockCapsAt, blockIsRec, recFire,
+        formerZ, formerResSort, Expr.piResult, Level.zeronessOf, PropWhen.isNever,
         BlockShape.allCtors, BlockShape.memberNames, BlockShape.k, emptyI, emptyA, emptyRecA,
         ConstantInfo.atLps, ConstantVal.atLps, ConstantInfo.toConstantVal, Expr.instantiateLevelParams,
         BasisDSL.type1, BasisDSL.pi, BasisDSL.cnst, BasisDSL.srt, BasisDSL.bv, BasisDSL.u, Level.subst,
@@ -194,6 +195,7 @@ theorem falseBlock_install {nP : Nat} {block : List ConstantInfo} {p : BlockShap
       subst hp
       refine ⟨?_, rfl⟩
       simp [blockConstants, blockFormers, blockCtors, blockRecs, blockCapsAt, blockIsRec, recFire,
+        formerZ, formerResSort, Expr.piResult, Level.zeronessOf, PropWhen.isNever,
         BlockShape.allCtors, BlockShape.memberNames, BlockShape.k, falseI, falseA, falseRecA,
         ConstantInfo.atLps, ConstantVal.atLps, ConstantInfo.toConstantVal, Expr.instantiateLevelParams,
         BasisDSL.prop, BasisDSL.pi, BasisDSL.cnst, BasisDSL.srt, BasisDSL.bv, BasisDSL.u, Level.subst,
@@ -238,6 +240,7 @@ theorem eqBlock_install {nP : Nat} {block : List ConstantInfo} {p : BlockShape}
           subst hp
           refine ⟨?_, rfl⟩
           simp [blockConstants, blockFormers, blockCtors, blockRecs, blockCapsAt, blockIsRec, recFire,
+        formerZ, formerResSort, Expr.piResult, Level.zeronessOf, PropWhen.isNever,
             BlockShape.allCtors, BlockShape.memberNames, BlockShape.k, eqI, eqA, eqReflA, eqRecA,
             ConstantInfo.atLps, ConstantVal.atLps, ConstantInfo.toConstantVal,
             Expr.instantiateLevelParams, BasisDSL.prop, BasisDSL.pi, BasisDSL.piI, BasisDSL.cnst,
@@ -289,6 +292,7 @@ theorem natBlock_install {nP : Nat} {block : List ConstantInfo} {p : BlockShape}
       subst hp
       refine ⟨?_, rfl⟩
       simp [blockConstants, blockFormers, blockCtors, blockRecs, blockCapsAt, blockIsRec, recFire,
+        formerZ, formerResSort, Expr.piResult, Level.zeronessOf, PropWhen.isNever,
         BlockShape.allCtors, BlockShape.memberNames, BlockShape.k, natI, natA, natZeroA, natSuccA,
         natRecA, ConstantInfo.atLps, ConstantVal.atLps, ConstantInfo.toConstantVal,
         Expr.instantiateLevelParams, BasisDSL.type1, BasisDSL.pi, BasisDSL.piI, BasisDSL.cnst,

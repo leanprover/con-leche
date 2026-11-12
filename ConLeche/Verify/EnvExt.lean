@@ -480,6 +480,10 @@ theorem knot_ext (mode : CheckMode) (hx : EnvExt env₁ env₂) :
       defeq := fun d _ _ ha hb => defeqBody_rel K d mode hx eager ha hb
       defeqE := fun d _ _ ha hb => defeqBody_rel KE d mode hx true ha hb }
 
+-- The kernel's check of this structural recursion unfolds the knot's head
+-- normalization, whose ι case split reads the stored facts first (`iotaCaseAt`,
+-- task #573) and so is one level deeper: the default limit no longer covers it.
+set_option maxHeartbeats 1000000 in
 /-- The telescope walk of a former, at an extension. -/
 theorem whnfTelescope_ext (hx : EnvExt env₁ env₂) (F : Nat) :
     ∀ (n i : Nat) {e : Expr}, Res env₁ e →

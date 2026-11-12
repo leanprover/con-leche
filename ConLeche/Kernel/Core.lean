@@ -582,6 +582,22 @@ def iotaCase3At (wh : Nat → Expr → m Expr) (find? : Name → Option Constant
     else pure true
   | none => pure true
 
+/-- **The ι case split, read off the stored facts first** (task #573): a K
+rule, and a rule whose constructor's family records a sort that is never
+zero (`IndCaps.neverZero`) at the comparand levels' count, need no
+certificate (`iotaNoCert`), and nothing is substituted or walked for them;
+any other rule is decided at the use (`iotaCase3At`). -/
+def iotaCaseAt (wh : Nat → Expr → m Expr) (find? : Name → Option ConstantInfo) (isK : Bool)
+    (cvj : ConstantVal) (us : List Level) : m Bool :=
+  if iotaNoCert find? isK cvj us.length then pure false else iotaCase3At wh find? isK cvj us
+
+/-- **Is a family's sort never zero at the levels `us`**, at its recorded
+fact first (`IndCaps.neverZero`), else where it is asked
+(`formerNeverZeroAt`). -/
+def familyNeverZeroAt (wh : Nat → Expr → m Expr) (cvT : ConstantVal) (caps : IndCaps)
+    (us : List Level) : m Bool :=
+  if caps.neverZero then pure true else formerNeverZeroAt wh cvT caps us
+
 /-- Stuck-major rescue (`to_cnstr_when_K` and `to_cnstr_when_structure`
 in the official kernel): a recursor's major premise that does not whnf
 to a constructor application may still be *replaced* by one.  For a
@@ -671,7 +687,7 @@ def majorToCtor (r : CoreFns m) (env : Env) (depth : Nat)
               -- projection table's, at every field count.
               if T' = T ∧ tmaj.getAppArgs.length = tbl.numParams ∧
                   ust.length = cvT.levelParams.length then
-                if ← formerNeverZeroAt r.whnf cvT caps ust then
+                if ← familyNeverZeroAt r.whnf cvT caps ust then
                   -- no constructor-telescope arity pin, as in the K
                   -- branch, and no level-count pin: the rule's
                   -- constructor carries the former's level parameters
@@ -930,7 +946,7 @@ def iotaRec (r : CoreFns m) (env : Env) (depth : Nat) (e : Expr) :
                 -- cached twin gates the whole case-3 decision through
                 -- `certAtI mode (do ...)` (`ConLeche/Cached/CoreC.lean`)
                 if ← (if mode.verifiedChecks then
-                    (iotaCase3At r.whnf env.find? isK cvj cmp.1 >>= fun c3 => if c3 then do
+                    (iotaCaseAt r.whnf env.find? isK cvj cmp.1 >>= fun c3 => if c3 then do
                       if ← liftFueled "level comparison" (Level.isEquivList usj cmp.1) then
                         if ← defEqList r env depth (margs.take cnP) cmp.2 then
                           if ← iotaCertsFull r env depth

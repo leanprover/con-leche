@@ -785,6 +785,12 @@ def formerNeverZeroI (eager : Bool) (lv : Nat) (cvT : ConstantVal) (caps : IndCa
     | none => pure false
 termination_by (lv, 21, 0, 0)
 
+/-- Twin of `familyNeverZeroAt`. -/
+def familyNeverZeroI (eager : Bool) (lv : Nat) (cvT : ConstantVal) (caps : IndCaps)
+    (us : List Level) : CheckCM Bool :=
+  if caps.neverZero then pure true else formerNeverZeroI eager lv cvT caps us
+termination_by (lv, 21, 1, 0)
+
 /-- Twin of `iotaCase3At`. -/
 def iotaCase3I (eager : Bool) (lv : Nat) (find? : Name → Option ConstantInfo) (isK : Bool)
     (cvj : ConstantVal) (us : List Level) : CheckCM Bool :=
@@ -852,7 +858,7 @@ def majorToCtorI (eager : Bool) (lv : Nat) (depth : Nat)
               -- `majorToCtor` (task #61); the counts are the table's
               if (← pure (T' == T)) ∧ margs.length = tbl.numParams ∧
                   ust.length = cvT.levelParams.length then do
-                if ← formerNeverZeroI eager lv cvT caps ustL then do
+                if ← familyNeverZeroI eager lv cvT caps ustL then do
                   let TI ← pure T
                   let projs ← projNodesI TI major (List.range tbl.numFields)
                   let ctorI ← pure tbl.ctor
@@ -994,6 +1000,10 @@ def iotaRecI (eager : Bool) (lv : Nat) (depth : Nat) (h : Expr) (args : Array Ex
                 -- certificates read lists: they are made only here, at a
                 -- case-3 redex.
                 if ← certAtI mode (do
+                  -- case 2 by the stored facts: no comparand is computed
+                  if iotaNoCert fe.find? isK cvj (recFireLevelCount rl cvj.levelParams) then
+                    pure true
+                  else do
                     let cmpLvls : List Level ←
                       match rl.fire with
                       | .nested lvls _ => substLevelTreesM cv.levelParams us lvls

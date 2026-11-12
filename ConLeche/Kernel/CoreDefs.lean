@@ -968,6 +968,32 @@ def recFireComparands (rl : RecRule) (cnP : Nat) (lps : List Name)
   | .levels lvls =>
     (lvls.map (Level.subst lps us), args.take cnP)
 
+/-- **How many comparand levels a rule has** (`recFireComparands`' first
+component's length, read without substituting). -/
+def recFireLevelCount (rl : RecRule) (cvjLps : List Name) : Nat :=
+  match rl.fire with
+  | .nested lvls _ => lvls.length
+  | .plain => cvjLps.length
+  | .levels lvls => lvls.length
+
+theorem recFireComparands_fst_length (rl : RecRule) (cnP : Nat) (lps : List Name)
+    (us : List Level) (cvjLps : List Name) (args : List Expr) (rP : Nat) :
+    (recFireComparands rl cnP lps us cvjLps args rP).1.length = recFireLevelCount rl cvjLps := by
+  unfold recFireComparands recFireLevelCount
+  cases rl.fire <;> simp
+
+/-- **A rule fires with no certificate, by the stored facts** (the ι case
+split's case 2 read off the records, task #573): at a K recursor, or where
+the constructor's family records a sort that is never zero
+(`IndCaps.neverZero`) and has `n` level parameters, the comparand levels'
+count. -/
+def iotaNoCert (find? : Name → Option ConstantInfo) (isK : Bool) (cvj : ConstantVal) (n : Nat) :
+    Bool :=
+  isK ||
+    match ctorFamily find? cvj with
+    | some (cvT, caps) => caps.neverZero && cvT.levelParams.length == n
+    | none => false
+
 /-- **The type of a `.proj` node at a tower-backed entry** (task #175
 S1): the stored body `F_i[p⃗ ↦ bvars, f_j ↦ .proj T j (bvar 0)]`,
 level-instantiated at the subject type's levels, with the subject

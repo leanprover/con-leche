@@ -196,8 +196,8 @@ inductive Red (env : Env) : Nat → Expr → Expr → Prop where
   the constructor's full-grade telescope certificate and the index
   comparison are the checker's, in its order.
 
-  **The ι case split** (task #342 L10, S5c): `IotaCase` at the comparand
-  levels is the checker's test.  A K rule, and a rule whose
+  **The ι case split** (task #342 L10, S5c): `IotaCaseS` at the comparand
+  levels is the checker's test, the stored facts first (task #573).  A K rule, and a rule whose
   constructor's family is never `Prop` at the comparand levels (case 2),
   carry no premise about the constructor application; case 3 carries
   all four. -/
@@ -214,7 +214,7 @@ inductive Red (env : Env) : Nat → Expr → Expr → Prop where
       env.find? cj = some (.ctorInfo cvj cnP cnF) →
       rules.find? (fun r' => r'.ctor == cj) = some rl →
       major.getAppArgs.length = cnP + rl.nfields →
-      IotaCase env isK cvj (recFireComparands rl cnP cv.levelParams us cvj.levelParams
+      IotaCaseS env isK cvj (recFireComparands rl cnP cv.levelParams us cvj.levelParams
         e.getAppArgs rP).1 c3 →
       (c3 = true →
         Level.isEquivList usj
@@ -704,6 +704,15 @@ inductive IotaCase (env : Env) : Bool → ConstantVal → List Level → Bool �
         (cvT.type.instantiateLevelParams cvT.levelParams us) s →
       (Level.zeronessOf s).isNever = true →
       IotaCase env false cvj us false
+
+/-- **The ι case split's verdict, at the stored facts first** (`iotaCaseAt`): `false` where
+the records say so (`iotaNoCert`: a K rule, or a constructor's family recorded as never zero at
+the comparand levels' count), or the verdict at the use (`IotaCase`). -/
+inductive IotaCaseS (env : Env) : Bool → ConstantVal → List Level → Bool → Prop where
+  | stored {isK : Bool} {cvj : ConstantVal} {us : List Level} :
+      iotaNoCert env.find? isK cvj us.length = true → IotaCaseS env isK cvj us false
+  | use {isK : Bool} {cvj : ConstantVal} {us : List Level} {c3 : Bool} :
+      IotaCase env isK cvj us c3 → IotaCaseS env isK cvj us c3
 
 /-- **The rows of a projection's guard** (`checkGuardRows`,
 `Kernel/Core.lean`; official `infer_proj`'s `is_prop`): each row's term

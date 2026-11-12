@@ -2595,6 +2595,7 @@ theorem declQuotPB {k : ConLeche.QuotKind} (mp : EnvModelM V env)
     have hwf1 : EnvWF ⟨quotA :: env.consts, env.tables⟩ :=
       EnvWF.cons (by decide) mp.base2.wf ⟨rfl, rfl, rfl, rfl,
         (fun _ _ _ heq => nomatch heq), (fun _ _ _ _ _ heq => nomatch heq)⟩
+          (by intro _ _ h hn; cases h; exact nomatch hn)
     exact extendQuot mp hf1 hwf1
   | ctor =>
     obtain ⟨q, hQ⟩ := quotStored_of mp hp
@@ -2727,6 +2728,7 @@ theorem declQuotPB {k : ConLeche.QuotKind} (mp : EnvModelM V env)
         hcons (by decide) hfE0
       refine EnvWF.cons (by decide) mp.base2.wf ⟨rfl, rfl, ?_, rfl,
         (fun _ _ _ heq => nomatch heq), (fun _ _ _ _ _ heq => nomatch heq)⟩
+          (IndWF.of_not_ind (by intro _ _ h; cases h))
       show Expr.constsResolve _ quotSoundA.toConstantVal.type = true
       rw [show quotSoundA.toConstantVal.type
           = Expr.forallE (.sort (.param uN))

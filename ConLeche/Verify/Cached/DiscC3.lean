@@ -247,7 +247,7 @@ theorem proofIrrelGate_of {m : Type → Type} [Monad m] [MonadExceptOf CheckErro
     let ustL ← pure ust
     if (← pure (T' == T)) ∧ margs.length = tbl.numParams ∧
         ust.length = cvT.levelParams.length then do
-      if ← formerNeverZeroI mode fe eager lv cvT caps ustL then do
+      if ← familyNeverZeroI mode fe eager lv cvT caps ustL then do
         let TI ← pure T
         let projs ← projNodesI TI major (List.range tbl.numFields)
         let ctorI ← pure tbl.ctor
@@ -357,7 +357,7 @@ variable {m : Type → Type} [Monad m] [MonadExceptOf CheckError m] {r : CoreFns
   | .const T' ust =>
     if T' = T ∧ tmaj.getAppArgs.length = tbl.numParams ∧
         ust.length = cvT.levelParams.length then
-      formerNeverZeroAt r.whnf cvT caps ust >>= fun nz =>
+      familyNeverZeroAt r.whnf cvT caps ust >>= fun nz =>
       if nz = true then
         if (Expr.mkAppN (.const tbl.ctor ust)
               (etaFabArgsE T tmaj.getAppArgs major tbl.numFields)).wscopedB depth &&
@@ -549,6 +549,16 @@ theorem formerNeverZeroC_spec (ih : SSimC mode eager env f) {cvT : ConstantVal} 
   sym only [conleche_grind, formerNeverZeroAt] =>
     vcgen [formerNeverZeroI.eq_def, instLevelParamsM, formerSortLoopC_spec ih] <;> finish
 
+/-- A family's sort at a use, its recorded fact first, simulates its fueled original. -/
+theorem familyNeverZeroC_spec (ih : SSimC mode eager env f) {cvT : ConstantVal} {caps : IndCaps}
+    {us : List Level} {s₀ : CState} (hcl : cvT.type.hasFvar = false)
+    (hs : CSOK mode eager env s₀) :
+    ⦃fun s => s = s₀⦄ familyNeverZeroI mode (mkFEnv env) eager f cvT caps us
+    ⦃fun v s' => CSOK mode eager env s' ∧
+      Runs (familyNeverZeroAt (fueledFns mode eager env).whnf cvT caps us) v; ⊤⦄ := by
+  sym only [conleche_grind, familyNeverZeroAt] =>
+    vcgen [familyNeverZeroI.eq_def, formerNeverZeroC_spec ih hcl] <;> finish
+
 theorem EnvWF.indTy_closed (henv : EnvWF env) {T : Name} {cvT : ConstantVal} {caps : IndCaps}
     (h : env.find? T = some (.indInfo cvT caps)) : cvT.type.hasFvar = false :=
   (henv.consts _ (Env.find?_mem h)).1
@@ -564,7 +574,7 @@ theorem mtcEtaC_spec (ih : SSimC mode eager env f) {d : Nat} {major : Expr} {T :
         mtcEtaCont (fueledFns mode eager env) d major T cvT caps tbl) v ∧
       Expr.WScoped d v; ⊤⦄ := by
   sym only [conleche_grind, mtcEtaCont, etaFabArgsE] =>
-    vcgen [mtcEtaI, mkAppNM, ih.inferIO_spec, ih.whnf_spec, formerNeverZeroC_spec ih hcl,
+    vcgen [mtcEtaI, mkAppNM, ih.inferIO_spec, ih.whnf_spec, familyNeverZeroC_spec ih hcl,
       projNodesC_spec (mode := mode) (eager := eager) (env := env)] <;> finish
 
 theorem mtcAndC_spec (ih : SSimC .verified eager env f) {d : Nat}
@@ -662,6 +672,12 @@ theorem prepareMajorC_spec (ih : SSimC .verified eager env f) (henv : EnvWF env)
     fireCmp (.levels lvls) n lps us cvjLps args rP =
       (lvls.map (Level.subst lps us), args.take n) := rfl
 
+@[conleche_grind =] theorem fireCmp_fst_length (rl : RecRule) (n : Nat)
+    (lps : List Name) (us : List Level) (cvjLps : List Name) (args : List Expr) (rP : Nat) :
+    (fireCmp rl.fire n lps us cvjLps args rP).1.length = recFireLevelCount rl cvjLps := by
+  unfold fireCmp recFireLevelCount
+  cases rl.fire <;> simp
+
 /-- Every element of the list is free of free variables. -/
 @[expose] def AllClosed (xs : List Expr) : Prop := ∀ x ∈ xs, x.hasFvar = false
 
@@ -753,6 +769,7 @@ major's `margs`, read as lists past the case decision. -/
     (mI rP : Nat) (isK : Bool) (us : List Level) (args : Array Expr) (k : Nat) (cj cjn : Name)
     (usj : List Level) (cvj : ConstantVal) (cnP : Nat) (rl : RecRule) (margs : Array Expr) :
     CheckCM Bool := do
+  if iotaNoCert fe.find? isK cvj (recFireLevelCount rl cvj.levelParams) then pure true else do
   let cmpLvls : List Level ←
     match rl.fire with
     | .nested lvls _ => substLevelTreesM cv.levelParams us lvls
@@ -787,7 +804,7 @@ major's `margs`, read as lists past the case decision. -/
     (us : List Level) (args : List Expr) (usj : List Level) (cvj : ConstantVal) (cnP : Nat)
     (rl : RecRule) (margs : List Expr) : m Bool := do
   let cmp := recFireComparands rl cnP cv.levelParams us cvj.levelParams args rP
-  if ← iotaCase3At r.whnf env.find? isK cvj cmp.1 then do
+  if ← iotaCaseAt r.whnf env.find? isK cvj cmp.1 then do
     if ← liftFueled "level comparison" (Level.isEquivList usj cmp.1) then
       if ← defEqList r env depth (margs.take cnP) cmp.2 then
         if ← iotaCertsFull r env depth
@@ -1063,7 +1080,7 @@ theorem iotaCertC_spec (ih : SSimC mode eager env f) (henv : EnvWF env) {d : Nat
         cnP rl margs.toList) b; ⊤⦄ :=
           by
   obtain ⟨_, nF, hfj⟩ := ctorVal?_some hfj
-  sym only [conleche_grind, iotaCertP, constTyOf, ConstantInfo.toConstantVal,
+  sym only [conleche_grind, iotaCertP, iotaCaseAt, constTyOf, ConstantInfo.toConstantVal,
       Option.isSome_some, EnvWF.ctorTy_closed henv hfj] =>
     vcgen [iotaCertI, liftFueled, substLevelTreesM, iotaCase3C_spec ih henv, isEquivListLM_spec (mode := mode) (eager := eager) (env := env),
       pinArgsC_spec (mode := mode) (eager := eager) (env := env),

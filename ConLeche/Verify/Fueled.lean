@@ -259,6 +259,22 @@ theorem iotaCase3At_atF (isK : Bool) (cvj : ConstantVal) (us : List Level) (F : 
       · rfl
     · rfl
 
+theorem familyNeverZeroAt_atF (cvT : ConstantVal) (caps : IndCaps) (us : List Level) (F : Nat) :
+    (familyNeverZeroAt (fueledFns mode eager env).whnf cvT caps us).val F =
+      familyNeverZeroAt (pureFns mode eager env F).whnf cvT caps us := by
+  unfold familyNeverZeroAt
+  split
+  · rfl
+  · exact formerNeverZeroAt_atF cvT caps us F
+
+theorem iotaCaseAt_atF (isK : Bool) (cvj : ConstantVal) (us : List Level) (F : Nat) :
+    (iotaCaseAt (fueledFns mode eager env).whnf env.find? isK cvj us).val F =
+      iotaCaseAt (pureFns mode eager env F).whnf env.find? isK cvj us := by
+  unfold iotaCaseAt
+  split
+  · rfl
+  · exact iotaCase3At_atF isK cvj us F
+
 theorem projGuardSort_atF (cvT : ConstantVal) (caps : IndCaps) (us : List Level) (F : Nat) :
     (projGuardSort (fueledFns mode eager env).whnf cvT caps us).val F =
       projGuardSort (pureFns mode eager env F).whnf cvT caps us := by
@@ -319,7 +335,9 @@ macro "atF_step2" : tactic =>
     | (rw [reduceNat_atF])
     | (rw [ensureSort_atF])
     | (rw [checkProjGuard_atF])
+    | (rw [iotaCaseAt_atF])
     | (rw [iotaCase3At_atF])
+    | (rw [familyNeverZeroAt_atF])
     | (rw [formerNeverZeroAt_atF])
     | (rw [proofIrrel_atF])
     | (rw [propIrrel_atF])
@@ -509,7 +527,9 @@ macro "atF_core3" x:tactic : tactic =>
     | (rw [reduceNat_atF])
     | (rw [ensureSort_atF])
     | (rw [checkProjGuard_atF])
+    | (rw [iotaCaseAt_atF])
     | (rw [iotaCase3At_atF])
+    | (rw [familyNeverZeroAt_atF])
     | (rw [formerNeverZeroAt_atF])
     | (rw [proofIrrel_atF])
     | (rw [propIrrel_atF])
@@ -653,7 +673,9 @@ macro "atF_core4" x:tactic : tactic =>
     | (rw [reduceNat_atF])
     | (rw [ensureSort_atF])
     | (rw [checkProjGuard_atF])
+    | (rw [iotaCaseAt_atF])
     | (rw [iotaCase3At_atF])
+    | (rw [familyNeverZeroAt_atF])
     | (rw [formerNeverZeroAt_atF])
     | (rw [proofIrrel_atF])
     | (rw [propIrrel_atF])

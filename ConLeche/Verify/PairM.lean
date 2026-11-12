@@ -394,6 +394,23 @@ theorem iotaCase3At_fst_proj (find? : Name → Option ConstantInfo) (isK : Bool)
       · rfl
     · rfl
 
+theorem familyNeverZeroAt_fst_proj (cvT : ConstantVal) (caps : IndCaps) (us : List Level) :
+    (familyNeverZeroAt (pairFns r₁ r₂ h).whnf cvT caps us).val.1 =
+      familyNeverZeroAt r₁.whnf cvT caps us := by
+  unfold familyNeverZeroAt
+  split
+  · rfl
+  · exact formerNeverZeroAt_fst_proj cvT caps us
+
+theorem iotaCaseAt_fst_proj (find? : Name → Option ConstantInfo) (isK : Bool)
+    (cvj : ConstantVal) (us : List Level) :
+    (iotaCaseAt (pairFns r₁ r₂ h).whnf find? isK cvj us).val.1 =
+      iotaCaseAt r₁.whnf find? isK cvj us := by
+  unfold iotaCaseAt
+  split
+  · rfl
+  · exact iotaCase3At_fst_proj find? isK cvj us
+
 theorem formerSortLoop_snd {wh : Nat → Expr → PairM rel Expr} {wh' : Nat → Expr → M₂ Expr}
     (hw : ∀ d e, (wh d e).val.2 = wh' d e) :
     ∀ (d n : Nat) (e : Expr),
@@ -434,11 +451,30 @@ theorem iotaCase3At_snd_proj (find? : Name → Option ConstantInfo) (isK : Bool)
       · rfl
     · rfl
 
+theorem familyNeverZeroAt_snd_proj (cvT : ConstantVal) (caps : IndCaps) (us : List Level) :
+    (familyNeverZeroAt (pairFns r₁ r₂ h).whnf cvT caps us).val.2 =
+      familyNeverZeroAt r₂.whnf cvT caps us := by
+  unfold familyNeverZeroAt
+  split
+  · rfl
+  · exact formerNeverZeroAt_snd_proj cvT caps us
+
+theorem iotaCaseAt_snd_proj (find? : Name → Option ConstantInfo) (isK : Bool)
+    (cvj : ConstantVal) (us : List Level) :
+    (iotaCaseAt (pairFns r₁ r₂ h).whnf find? isK cvj us).val.2 =
+      iotaCaseAt r₂.whnf find? isK cvj us := by
+  unfold iotaCaseAt
+  split
+  · rfl
+  · exact iotaCase3At_snd_proj find? isK cvj us
+
 macro "fst_step" : tactic =>
   `(tactic| repeat (first
     | rfl
     | (rw [liftFueled_fst_proj])
+    | (rw [iotaCaseAt_fst_proj])
     | (rw [iotaCase3At_fst_proj])
+    | (rw [familyNeverZeroAt_fst_proj])
     | (rw [formerNeverZeroAt_fst_proj])
     | (rw [iotaCertsFull_fst])
     | (rw [defeqBinders_fst])
@@ -458,7 +494,9 @@ macro "snd_step" : tactic =>
   `(tactic| repeat (first
     | rfl
     | (rw [liftFueled_snd_proj])
+    | (rw [iotaCaseAt_snd_proj])
     | (rw [iotaCase3At_snd_proj])
+    | (rw [familyNeverZeroAt_snd_proj])
     | (rw [formerNeverZeroAt_snd_proj])
     | (rw [iotaCertsFull_snd])
     | (rw [defeqBinders_snd])
@@ -668,7 +706,9 @@ macro "fst_step2" : tactic =>
   `(tactic| repeat (first
     | rfl
     | (rw [liftFueled_fst_proj])
+    | (rw [iotaCaseAt_fst_proj])
     | (rw [iotaCase3At_fst_proj])
+    | (rw [familyNeverZeroAt_fst_proj])
     | (rw [formerNeverZeroAt_fst_proj])
     | (rw [iotaCertsFull_fst])
     | (rw [defeqBinders_fst])
@@ -694,7 +734,9 @@ macro "snd_step2" : tactic =>
   `(tactic| repeat (first
     | rfl
     | (rw [liftFueled_snd_proj])
+    | (rw [iotaCaseAt_snd_proj])
     | (rw [iotaCase3At_snd_proj])
+    | (rw [familyNeverZeroAt_snd_proj])
     | (rw [formerNeverZeroAt_snd_proj])
     | (rw [iotaCertsFull_snd])
     | (rw [defeqBinders_snd])
@@ -1043,7 +1085,9 @@ macro "fst_core3" x:tactic : tactic =>
     | rfl
     | $x:tactic
     | (rw [liftFueled_fst_proj])
+    | (rw [iotaCaseAt_fst_proj])
     | (rw [iotaCase3At_fst_proj])
+    | (rw [familyNeverZeroAt_fst_proj])
     | (rw [formerNeverZeroAt_fst_proj])
     | (rw [iotaCertsFull_fst])
     | (rw [defeqBinders_fst])
@@ -1077,7 +1121,9 @@ macro "snd_core3" x:tactic : tactic =>
     | rfl
     | $x:tactic
     | (rw [liftFueled_snd_proj])
+    | (rw [iotaCaseAt_snd_proj])
     | (rw [iotaCase3At_snd_proj])
+    | (rw [familyNeverZeroAt_snd_proj])
     | (rw [formerNeverZeroAt_snd_proj])
     | (rw [iotaCertsFull_snd])
     | (rw [defeqBinders_snd])
@@ -1264,7 +1310,9 @@ macro "fst_core4" x:tactic : tactic =>
     | (rw [checkProjGuard_fst_proj])
     | (rw [checkProjGuardI_fst_proj])
     | (rw [liftFueled_fst_proj])
+    | (rw [iotaCaseAt_fst_proj])
     | (rw [iotaCase3At_fst_proj])
+    | (rw [familyNeverZeroAt_fst_proj])
     | (rw [formerNeverZeroAt_fst_proj])
     | (rw [iotaCertsFull_fst])
     | (rw [defeqBinders_fst])
@@ -1324,7 +1372,9 @@ macro "snd_core4" x:tactic : tactic =>
     | (rw [checkProjGuard_snd_proj])
     | (rw [checkProjGuardI_snd_proj])
     | (rw [liftFueled_snd_proj])
+    | (rw [iotaCaseAt_snd_proj])
     | (rw [iotaCase3At_snd_proj])
+    | (rw [familyNeverZeroAt_snd_proj])
     | (rw [formerNeverZeroAt_snd_proj])
     | (rw [iotaCertsFull_snd])
     | (rw [defeqBinders_snd])

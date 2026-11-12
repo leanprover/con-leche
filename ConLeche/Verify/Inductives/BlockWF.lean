@@ -56,10 +56,18 @@ theorem envWF_cons_blockInd {p₁ : BlockShape} {isRec : Bool} {i : Nat} {env : 
     (h1 : cvTa.type.hasFvar = false)
     (h2 : cvTa.type.allLevelParamsDefined cvTa.levelParams = true)
     (h3 : cvTa.type.constsResolve env = true)
-    (h4 : cvTa.type.looseBVarsBounded 0 = true) (hs : LitShapeAt cvTa) :
-    EnvWF ⟨.indInfo cvTa (blockCapsAt p₁ i isRec) :: env.consts, env.tables⟩ := by
-  refine EnvWF.cons (hs _ rfl) henv (structConstWF h1 h2 (Expr.constsResolve_mono h3) h4
+    (h4 : cvTa.type.looseBVarsBounded 0 = true) (hs : LitShapeAt cvTa)
+    (hz : (blockCapsAt p₁ i isRec).neverZero = true → (formerZ cvTa).isNever = true) :
+    EnvWF ⟨.indInfo cvTa (blockCapsAt p₁ i isRec) :: env.consts, env.tables⟩ :=
+  EnvWF.cons (hs _ rfl) henv (structConstWF h1 h2 (Expr.constsResolve_mono h3) h4
     (fun _ _ _ heq => nomatch heq) (fun _ _ _ _ _ heq => nomatch heq))
+    (fun cv caps heq => by cases heq; exact hz)
+
+/-- What a block's capability record says of the family's sort. -/
+theorem blockCapsAt_neverZero (p : BlockShape) (i : Nat) (isRec : Bool) :
+    (blockCapsAt p i isRec).neverZero = (formerZ (p.members.getD i default).declared).isNever := by
+  unfold blockCapsAt
+  split <;> rfl
 
 /-- **The k formers' conses keep well-formedness.** -/
 theorem envWF_consBlockInds {p₁ : BlockShape} {isRec : Bool} :
@@ -69,16 +77,21 @@ theorem envWF_consBlockInds {p₁ : BlockShape} {isRec : Bool} :
         cvTa.type.allLevelParamsDefined cvTa.levelParams = true ∧
         cvTa.type.constsResolve env = true ∧
         cvTa.type.looseBVarsBounded 0 = true ∧ LitShapeAt cvTa) →
+      (∀ j cvTa, formers[j]? = some cvTa →
+        (blockCapsAt p₁ (i + j) isRec).neverZero = true → (formerZ cvTa).isNever = true) →
       EnvWF (consBlockInds p₁ isRec formers i env)
-  | [], _, _, henv, _ => henv
-  | cvTa :: rest, i, env, henv, hall => by
+  | [], _, _, henv, _, _ => henv
+  | cvTa :: rest, i, env, henv, hall, hz => by
     simp only [consBlockInds]
-    refine envWF_consBlockInds ?_ ?_
+    refine envWF_consBlockInds ?_ ?_ ?_
     · obtain ⟨h1, h2, h3, h4, h5⟩ := hall cvTa List.mem_cons_self
-      exact envWF_cons_blockInd henv h1 h2 h3 h4 h5
+      exact envWF_cons_blockInd henv h1 h2 h3 h4 h5 (hz 0 cvTa rfl)
     · intro cvTa' hc'
       obtain ⟨h1, h2, h3, h4, h5⟩ := hall cvTa' (List.mem_cons_of_mem _ hc')
       exact ⟨h1, h2, Expr.constsResolve_mono h3, h4, h5⟩
+    · intro j cv hj
+      rw [show i + 1 + j = i + (j + 1) by omega]
+      exact hz (j + 1) cv hj
 
 /-- A member's declared former is the one its check reads, or checked apart. -/
 @[expose] def MemberDeclaredWF (env : Env) (ms : MemberShape) : Prop :=
@@ -147,6 +160,25 @@ theorem checkBlockInds_declaredFacts {env envI : Env}
     exact key _ (List.mem_map_of_mem hms)
   · exact hw
 
+/-- The formers' stage records each declared former's sort as its block reads it. -/
+theorem blockInds_neverZero {env envI : Env} {p : BlockShape} {isRec : Bool} {p₁ : BlockShape}
+    {F : Nat} (h : checkBlockInds (fueledOps mode F) env p isRec = .ok (envI, p₁))
+    {j : Nat} {cvS : ConstantVal} (hj : (p.members.map (·.declared))[j]? = some cvS) :
+    (blockCapsAt p₁ j isRec).neverZero = true → (formerZ cvS).isNever = true := by
+  obtain ⟨-, -, -, s0, -, -, hp₁, -, -, -, -⟩ := checkBlockInds_shape h
+  subst hp₁
+  rw [blockCapsAt_neverZero]
+  have : (p.members.getD j default).declared = cvS := by
+    rw [List.getElem?_map] at hj
+    cases hm : p.members[j]? with
+    | none => rw [hm] at hj; exact nomatch hj
+    | some ms =>
+      rw [hm] at hj
+      cases hj
+      rw [List.getD_eq_getElem?_getD, hm]; rfl
+  rw [show (BlockShape.withSort p _).members = p.members from rfl, this]
+  exact id
+
 /-- **One former's cons, at the formers' stage**: a declared former the stage checked keeps any
 well-formed environment its type resolves at well formed (the stage's step). -/
 theorem checkBlockInds_cons_envWF {env envI : Env}
@@ -158,7 +190,7 @@ theorem checkBlockInds_cons_envWF {env envI : Env}
     EnvWF ⟨.indInfo cvS (blockCapsAt p₁ j isRec) :: env'.consts, env'.tables⟩ := by
   obtain ⟨h1, h2, -, h4, h5⟩ :=
     (checkBlockInds_declaredFacts hdecl h).1 cvS (List.mem_of_getElem? hj)
-  exact envWF_cons_blockInd henv h1 h2 hres h4 h5
+  exact envWF_cons_blockInd henv h1 h2 hres h4 h5 (blockInds_neverZero h hj)
 
 /-- **Stage 1 at the run level**: the environment holding the k formers
 is well-formed, and every checked former's type is closed. -/
@@ -170,7 +202,8 @@ theorem direct_block_inds_wf {env envI : Env} (henv : EnvWF env)
   obtain ⟨hfacts, hclosed⟩ := checkBlockInds_declaredFacts hdecl h
   obtain ⟨-, -, -, -, -, -, -, hcons, -, -, -⟩ := checkBlockInds_shape h
   rw [hcons]
-  exact ⟨envWF_consBlockInds henv hfacts, hclosed⟩
+  exact ⟨envWF_consBlockInds henv hfacts fun j cv hj => by
+    rw [Nat.zero_add]; exact blockInds_neverZero h hj, hclosed⟩
 
 /-! ## Stage 1b: the constructors consed, member by member -/
 
@@ -466,11 +499,14 @@ theorem envWF_consBlockRecsR
       ((consBlockRecsR R q 0 rs env).find? n).isSome = true :=
     find?_consBlockRecsR_of_bare (fun _ hn => hn)
   refine ⟨fun c hc => ?_, fun c hc => ?_, fun t ht => TableWF.mono hdomEnv
-    (henv.tables t (by rw [consBlockRecsR_tables] at ht; exact ht))⟩
+    (henv.tables t (by rw [consBlockRecsR_tables] at ht; exact ht)), fun c hc => ?_⟩
   rotate_left
   · rcases mem_consBlockRecsR hc with hc' | ⟨j, r, hr, rfl⟩
     · exact henv.shapes c hc'
     · exact hlit r (List.mem_of_getElem? hr) _ rfl
+  · rcases mem_consBlockRecsR hc with hc' | ⟨j, r, hr, rfl⟩
+    · exact henv.inds c hc'
+    · exact IndWF.of_not_ind fun _ _ heq => ConstantInfo.noConfusion heq
   rcases mem_consBlockRecsR hc with hc' | ⟨j, r, hr, rfl⟩
   · exact ConstWF.mono hdomEnv (henv.consts c hc')
   · rw [Nat.zero_add]

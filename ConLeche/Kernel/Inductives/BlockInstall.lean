@@ -62,7 +62,9 @@ fields are (`unitLikeShape`, none at a fieldless one); the recursor's major-prem
 rescue (`Core.lean`, its η arm at a fieldless constructor — arena
 `073_typeSingletonRecReduction`) keys on η as well.  The constructor and
 the counts every η reader works at are the family's projection table's
-(`Env.findTable?`), at every field count: no record repeats them.  (Granting η at a recursive structure-like is sound in the model
+(`Env.findTable?`), at every field count: no record repeats them.  Whether
+the family's sort is never zero is read off the former as stored (its
+declared type, `formerZ`).  (Granting η at a recursive structure-like is sound in the model
 but not in practice: at a reflexive `W1 α = sup (a : α) (f : Nat →
 W1 α)` `isDefEq` spins through η-expansion, `ind_nest_via_refl` —
 official's `!is_rec` is load-bearing.) -/
@@ -73,9 +75,11 @@ def blockCapsAt (p : BlockShape) (mi : Nat) (isRec : Bool) : IndCaps :=
       all := p.memberNames
       nparams := p.nP
       nIdx := nIdx
-      ctors := [c.1.name] }
+      ctors := [c.1.name]
+      neverZero := (formerZ (p.members.getD mi default).declared).isNever }
   | cs, nIdx => { all := p.memberNames, nparams := p.nP, nIdx := nIdx,
-                  ctors := cs.map (·.1.name) }
+                  ctors := cs.map (·.1.name),
+                  neverZero := (formerZ (p.members.getD mi default).declared).isNever }
 
 /-- Does some binder domain of the SYNTACTIC `∀`-telescope of `e`
 mention one of `names`?  No reduction: the walk stops at the first

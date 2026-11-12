@@ -284,7 +284,7 @@ theorem majorToCtor_rel (mode : CheckMode) (name : Name) (isK : Bool) {rules : L
                   | const T' ust =>
                     dsimp only
                     refine Rel.ite (fun _ => ?_) fun _ => Rel.ok hm
-                    refine Rel.bind (formerNeverZeroAt_rel K hTy) fun v _ => ?_
+                    refine Rel.bind (familyNeverZeroAt_rel K hTy) fun v _ => ?_
                     refine Rel.iteB v (fun _ => ?_) fun _ => Rel.ok hm
                     have hfab : Res env₁ (Expr.mkAppN (.const tbl.ctor ust)
                         (etaFabArgsE T tmaj.getAppArgs major tbl.numFields)) := by
@@ -500,7 +500,7 @@ theorem iotaRec_rel (mode : CheckMode) {e : Expr} (he : Res env₁ e) :
                 refine Rel.bind (Q := TT) (Rel.ite (fun _ => ?_) fun _ => Rel.ok trivial) fun v _ =>
                   Rel.iteB v (fun _ => Rel.ok fun x h => (Option.some.inj h) ▸ hres)
                     fun _ => Rel.ok resO_none
-                refine Rel.bind (iotaCase3At_rel K hx isK hty _) fun c3 _ => ?_
+                refine Rel.bind (iotaCaseAt_rel K hx isK hty _) fun c3 _ => ?_
                 refine Rel.iteB c3 (fun _ => ?_) fun _ => Rel.ok trivial
                 refine Rel.bind Rel.triv fun v₁ _ => ?_
                 refine Rel.iteB v₁ (fun _ => ?_) fun _ => Rel.ok trivial

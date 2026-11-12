@@ -699,7 +699,7 @@ theorem iotaRec_inv {env : Env} {fuel d : Nat} {e eout : Expr}
       env.find? cj = some (.ctorInfo cvj cnP cnF) ∧
       rules.find? (fun r' => r'.ctor == cj) = some r ∧
       major.getAppArgs.length = cnP + r.nfields ∧
-      (mode.verifiedChecks = true → ∃ c3, iotaCase3At (pureFns mode eager env fuel).whnf
+      (mode.verifiedChecks = true → ∃ c3, iotaCaseAt (pureFns mode eager env fuel).whnf
           env.find? isK cvj (recFireComparands r cnP cv.levelParams us cvj.levelParams
             e.getAppArgs rP).1 = .ok c3 ∧ (c3 = true →
         Level.isEquivList usj
@@ -806,7 +806,7 @@ theorem iotaRec_inv {env : Env} {fuel d : Nat} {e eout : Expr}
   rw [ite_eq_left hμ] at h
   generalize hcmp : recFireComparands r cnP cv.levelParams us cvj.levelParams
     e.getAppArgs rP = cmp at h
-  cases hc3 : iotaCase3At (pureFns mode eager env fuel).whnf env.find? isK cvj cmp.1 with
+  cases hc3 : iotaCaseAt (pureFns mode eager env fuel).whnf env.find? isK cvj cmp.1 with
   | error err => rw [hc3] at h; exact nomatch h
   | ok c3 =>
   rw [hc3] at h
@@ -1335,7 +1335,7 @@ theorem majorToCtor_inv {env : Env} {fuel d : Nat} {recName : Name} {isK : Bool}
       exact Or.inl h.symm
     rw [ite_eq_left hTl] at h
     obtain ⟨rfl, hplen, hlvl⟩ := hTl
-    cases hnzr : formerNeverZeroAt (pureFns mode eager env fuel).whnf cvT caps ust with
+    cases hnzr : familyNeverZeroAt (pureFns mode eager env fuel).whnf cvT caps ust with
     | error err => rw [hnzr] at h; exact nomatch h
     | ok nz =>
     rw [hnzr] at h

@@ -528,10 +528,11 @@ theorem getD_map_congr {α β : Type} [Inhabited α] {f : α → β} {l l' : Lis
 theorem blockCapsAt_congr {p q : BlockShape} (hnP : p.nP = q.nP)
     (hnm : p.memberNames = q.memberNames)
     (hc : p.members.map (·.ctors) = q.members.map (·.ctors))
-    (hi : p.members.map (·.nIdx) = q.members.map (·.nIdx)) (mi : Nat) (isRec : Bool) :
+    (hi : p.members.map (·.nIdx) = q.members.map (·.nIdx))
+    (hd : p.members.map (·.declared) = q.members.map (·.declared)) (mi : Nat) (isRec : Bool) :
     blockCapsAt p mi isRec = blockCapsAt q mi isRec := by
   unfold blockCapsAt
-  rw [getD_map_congr hc mi, getD_map_congr hi mi, hnP, hnm]
+  rw [getD_map_congr hc mi, getD_map_congr hi mi, getD_map_congr hd mi, hnP, hnm]
 
 theorem blockRecs_congr {p q : BlockShape} (hk : p.k = q.k) :
     ∀ l : List RecShape, blockRecs p l = blockRecs q l
@@ -568,7 +569,7 @@ theorem blockInstall_reduced {F : Nat} {env : Env} {p₀ : BlockShape} {ms : Lis
   have hcaps : ∀ i r, blockCapsAt ({ p₀ with members := ms } : BlockShape) i r
       = blockCapsAt p₀ i r := fun i r =>
     blockCapsAt_congr (p := ({ p₀ with members := ms } : BlockShape))
-      (q := p₀) rfl hnm hctors hidx i r
+      (q := p₀) rfl hnm hctors hidx hdecl i r
   have hlen : ms.length = p₀.members.length := by
     simpa using congrArg List.length hdecl
   have hrec : blockIsRec ({ p₀ with members := ms } : BlockShape) = blockIsRec p₀ := by

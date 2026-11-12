@@ -218,6 +218,12 @@ structure IndCaps where
   never by a scan of the environment.  `Quot` records none (it is no
   container). -/
   ctors : List Name := []
+  /-- **The family's sort is never zero** (official's `is_never_zero` at
+  every level instantiation): the former's stored type ends in a sort
+  whose zero-ness datum is unsatisfiable (`formerZ`), read off it at its
+  check (`blockCapsAt`).  `false` claims nothing.  The ι step's case split
+  reads it in place of the walk to the family's sort. -/
+  neverZero : Bool := false
   deriving DecidableEq, Repr, Inhabited
 
 /-- **One structure's projection table** (task #175 S1, 2026-09-06):

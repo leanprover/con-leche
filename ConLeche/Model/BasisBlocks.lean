@@ -1366,6 +1366,7 @@ theorem declBasisPB_natK {env₁ : Env} (mp : EnvModelM V env)
   have hwf1 : EnvWF ⟨natI :: env.consts, env.tables⟩ :=
     EnvWF.cons (by decide) mp.base2.wf ⟨rfl, rfl, rfl, rfl,
       (fun _ _ _ heq => nomatch heq), (fun _ _ _ _ _ heq => nomatch heq)⟩
+      (by intro _ _ h _; cases h; decide)
   have hf2 : (⟨natI :: env.consts, env.tables⟩ : Env).find? natZeroA.name = none :=
     Option.isNone_iff_eq_none.mp h2
   refine (extendNat mp hf1

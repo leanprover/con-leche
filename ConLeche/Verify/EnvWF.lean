@@ -177,13 +177,26 @@ theorem OpDefn.of_same {env₀ env₃ : Env} (h : OpDefn env₀)
     | defnInfo cv v hh => rw [hd c cv v hh hx]
     | _ => exact nomatch h₀
 
+/-- **What a stored family's recorded sort fact says** (task #573): a family
+recorded as never zero (`IndCaps.neverZero`) has a type ending in a sort
+whose zero-ness datum is `never`.  The ι step's case split reads it in place
+of the walk to the family's sort. -/
+@[expose] def IndWF (c : ConstantInfo) : Prop :=
+  ∀ cv caps, c = .indInfo cv caps → caps.neverZero = true → (formerZ cv).isNever = true
+
+/-- A constant that is no family has no sort fact to keep. -/
+theorem IndWF.of_not_ind {c : ConstantInfo} (h : ∀ cv caps, c ≠ .indInfo cv caps) : IndWF c :=
+  fun cv caps heq => absurd heq (h cv caps)
+
 /-- Every stored constant and every stored table is syntactically
-well-formed. -/
+well-formed, and every stored family's sort fact holds. -/
 structure EnvWF (env : Env) : Prop where
   consts : ∀ c ∈ env.consts, ConstWF env c
   /-- a constant at a literal's name has the shape a literal's meaning reads -/
   shapes : ∀ c ∈ env.consts, litShapeOk c = true
   tables : ∀ t ∈ env.tables, TableWF env t
+  /-- a stored family's sort fact -/
+  inds : ∀ c ∈ env.consts, IndWF c
 
 /-- The table of a stored structure, off `EnvWF`. -/
 theorem EnvWF.table {env : Env} (henv : EnvWF env) {T : Name} {tbl : ProjTable}
@@ -449,11 +462,13 @@ theorem TableWF.cons {c : ConstantInfo} {env : Env} {t : ProjTable} (h : TableWF
 /-- Extending with a fresh, well-formed constant preserves `EnvWF`. -/
 theorem EnvWF.cons {c : ConstantInfo} {env : Env} (hs : litShapeOk c = true)
     (henv : EnvWF env)
-    (hc : ConstWF ⟨c :: env.consts, env.tables⟩ c) :
+    (hc : ConstWF ⟨c :: env.consts, env.tables⟩ c)
+    (hi : IndWF c := by exact IndWF.of_not_ind (fun _ _ heq => nomatch heq)) :
     EnvWF ⟨c :: env.consts, env.tables⟩ := by
   refine ⟨fun c' hc' => ?_,
     fun c' hc' => (List.mem_cons.mp hc').elim (fun e => e ▸ hs) (henv.shapes c'),
-    fun t ht => (henv.tables t ht).cons⟩
+    fun t ht => (henv.tables t ht).cons,
+    fun c' hc' => (List.mem_cons.mp hc').elim (fun e => e ▸ hi) (henv.inds c')⟩
   rcases List.mem_cons.mp hc' with rfl | hmem
   · exact hc
   · obtain ⟨h1, h2, h3, h4, h5, h6⟩ := henv.consts c' hmem
@@ -529,14 +544,14 @@ theorem EnvWF.pushTable {env : Env} {t : ProjTable} (henv : EnvWF env)
   ⟨fun c hc => (henv.consts c hc).of_find (Env.find?_pushTable env t), henv.shapes, fun t' ht' => by
     rcases List.mem_cons.mp ht' with rfl | hmem
     · exact ht.of_find (Env.find?_pushTable env _)
-    · exact (henv.tables t' hmem).of_find (Env.find?_pushTable env t)⟩
+    · exact (henv.tables t' hmem).of_find (Env.find?_pushTable env t), henv.inds⟩
 
 /-- **Tables pushed onto a well-formed environment, each well formed there, keep it well
 formed**: a table install changes no lookup. -/
 theorem EnvWF.pushTables {env : Env} (henv : EnvWF env) {Q : List ProjTable}
     (hQ : ∀ t ∈ Q, TableWF env t) : EnvWF ⟨env.consts, Q ++ env.tables⟩ := by
   have hf : Env.find? ⟨env.consts, Q ++ env.tables⟩ = env.find? := rfl
-  refine ⟨fun c hc => (henv.consts c hc).of_find hf, henv.shapes, fun t ht => ?_⟩
+  refine ⟨fun c hc => (henv.consts c hc).of_find hf, henv.shapes, fun t ht => ?_, henv.inds⟩
   rcases List.mem_append.mp ht with ht | ht
   · exact (hQ t ht).of_find hf
   · exact (henv.tables t ht).of_find hf

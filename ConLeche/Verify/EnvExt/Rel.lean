@@ -435,6 +435,35 @@ theorem iotaCase3At_rel (K : KR env₁ r₂ r₁) (hx : EnvExt env₁ env₂) (i
     refine Rel.ite (fun _ => ?_) fun _ => Rel.ok trivial
     exact Rel.bind (formerNeverZeroAt_rel K hTy) fun _ _ => Rel.ok trivial
 
+
+omit K d in
+theorem familyNeverZeroAt_rel (K : KR env₁ r₂ r₁) {cvT : ConstantVal} {caps : IndCaps}
+    {us : List Level} (hT : Res env₁ cvT.type) :
+    Rel TT (familyNeverZeroAt r₂.whnf cvT caps us) (familyNeverZeroAt r₁.whnf cvT caps us) := by
+  unfold familyNeverZeroAt
+  split
+  · exact Rel.ok trivial
+  · exact formerNeverZeroAt_rel K hT
+
+omit K d in
+/-- The ι case split at the stored facts: the constructor's family is read at the extension as
+below it. -/
+theorem iotaCaseAt_rel (K : KR env₁ r₂ r₁) (hx : EnvExt env₁ env₂) (isK : Bool)
+    {cvj : ConstantVal} (hty : Res env₁ cvj.type) (us : List Level) :
+    Rel TT (iotaCaseAt r₂.whnf env₂.find? isK cvj us)
+      (iotaCaseAt r₁.whnf env₁.find? isK cvj us) := by
+  unfold iotaCaseAt
+  have hfam : ctorFamily env₂.find? cvj = ctorFamily env₁.find? cvj := by
+    unfold ctorFamily
+    cases hfn : cvj.type.piResult.getAppFn with
+    | const T us =>
+      dsimp only
+      rw [hx.find_of_isSome (res_head (res_piResult hty) hfn)]
+    | _ => rfl
+  have hnc : iotaNoCert env₂.find? isK cvj us.length = iotaNoCert env₁.find? isK cvj us.length := by
+    unfold iotaNoCert; rw [hfam]
+  rw [hnc]
+  exact Rel.ite (fun _ => Rel.ok trivial) fun _ => iotaCase3At_rel K hx isK hty us
 end Bodies
 
 end ConLeche.Verify

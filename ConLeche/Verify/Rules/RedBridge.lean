@@ -280,6 +280,18 @@ theorem iotaCase3At_bridge (hw : WhnfBridge .verified eager env fuel)
         · exact nomatch h
       · exact nomatch h
 
+
+/-- The ι case split at the stored facts first is `IotaCaseS`. -/
+theorem iotaCaseAt_bridge (hw : WhnfBridge .verified eager env fuel)
+    {isK : Bool} {cvj : ConstantVal} {us : List Level} {c3 : Bool}
+    (h : iotaCaseAt (pureFns .verified eager env fuel).whnf env.find? isK cvj us = .ok c3) :
+    IotaCaseS env isK cvj us c3 := by
+  unfold iotaCaseAt at h
+  split at h
+  · next hn =>
+    cases Except.ok.inj h
+    exact .stored hn
+  · exact .use (iotaCase3At_bridge hw h)
 /-- `iotaRec` ⇒ `Red.iota` (`iotaRec_inv`, `prepareMajor_bridge`,
 `defEqList_bridge`, the arity-checked recursor spine, and at a case-3 redex
 `iotaCertsFull_bridge` and `iotaIndexOk_inv`). -/
@@ -300,7 +312,7 @@ theorem iotaRec_bridge (hw : WhnfBridge .verified eager env fuel)
     rw [hlen]
     exact peelPis_isSome_instantiateLevelParams _ _ _ (iotaRec_arity h hfn hfc)
   obtain ⟨c3, hrun, h3⟩ := h3 rfl
-  have hcase := iotaCase3At_bridge hw hrun
+  have hcase := iotaCaseAt_bridge hw hrun
   cases c3 with
   | true =>
     obtain ⟨hlev, hpeq, hcerts, hidx⟩ := h3 rfl

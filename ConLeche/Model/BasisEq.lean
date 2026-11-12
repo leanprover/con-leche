@@ -1237,6 +1237,7 @@ theorem declBasisPB_eqK {env₁ : Env} (mp : EnvModelM V env)
   have hwf1 : EnvWF ⟨eqI :: env.consts, env.tables⟩ :=
     EnvWF.cons (by decide) mp.base2.wf ⟨rfl, rfl, rfl, rfl,
       (fun _ _ _ heq => nomatch heq), (fun _ _ _ _ _ heq => nomatch heq)⟩
+      (by intro _ _ h hn; cases h; exact nomatch hn)
   obtain ⟨mp1, hac1, hr1, hc1⟩ := extendEq mp hf1 hwf1
   have hEv1 : ∀ ψ : Name → Nat, mp1.base2.acval eqName ψ
       = eqValT ψ := by
