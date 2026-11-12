@@ -1208,6 +1208,11 @@
 # recursors close long telescopes; a performance fixture for checkers whose
 # abstraction has no free-variable-range cutoff (see its source).
 0 ind_mutual_wide_telescope.ndjson
+# grind_field_cancel_inv.ndjson (task #570): one theorem of lean4's radar
+# benchmark grind_field_kernel_cancel, a field certificate checked by a
+# long whnf of a closed `Bool` term; a performance fixture where con-leche
+# spends 1.66x the official kernel's instructions (see its source).
+0 grind_field_cancel_inv.ndjson
 # --- task #227: mutual and nested blocks whose INDEX DOMAINS' sorts are
 # --- not syntactically readable (`(x : α)` at `α : id Type`, an index at
 # --- a constant whose declared type is that same stuck application, a
