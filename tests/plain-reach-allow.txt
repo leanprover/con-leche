@@ -173,6 +173,7 @@ ConLeche.etaRescueTable?
 ConLeche.formerNeverZero
 ConLeche.formerResSort
 ConLeche.formerZ
+ConLeche.iotaNoCert
 ConLeche.listConsTyOk
 ConLeche.listNilTyOk
 ConLeche.listTyOk
@@ -202,6 +203,7 @@ ConLeche.natSubName
 ConLeche.natSuccOk
 ConLeche.natXorName
 ConLeche.natZeroOk
+ConLeche.recFireLevelCount
 ConLeche.reservedRecName
 ConLeche.strLitToConstructor
 ConLeche.stringOfListTyOk
@@ -438,6 +440,7 @@ ConLeche.blockCapsAt  # ConLeche.Kernel.Inductives.BlockInstall
 ConLeche.nestOutKinds  # ConLeche.Kernel.Inductives.BlockInstall
 ConLeche.blockLargeElimAllowed  # ConLeche.Kernel.Inductives.BlockRec
 ConLeche.BlockShape.allCtors  # ConLeche.Kernel.Inductives.BlockShape
+ConLeche.BlockShape.ctorGroups  # ConLeche.Kernel.Inductives.BlockShape
 ConLeche.BlockShape.formers  # ConLeche.Kernel.Inductives.BlockShape
 ConLeche.BlockShape.k  # ConLeche.Kernel.Inductives.BlockShape
 ConLeche.BlockShape.lps  # ConLeche.Kernel.Inductives.BlockShape
