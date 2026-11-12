@@ -58,5 +58,6 @@ public import ConLeche.Verify.Ground.Site
 public import ConLeche.Verify.Ground.Fuel
 public import ConLeche.Verify.Ground.Keys
 public import ConLeche.Verify.Ground.Memo
+public import ConLeche.Verify.Ground.Sim
 
 @[expose] public section
