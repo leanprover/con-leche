@@ -235,7 +235,7 @@ theorem Approx.bounded {s t : Expr} (h : Approx s t) : ∀ {d : Nat}, t.looseBVa
 theorem Inv.shared_closed {P : G4Prog} {find? : Name → Option ConstantInfo} {findProj? : Name → Nat → Option ProjEntry}
     (hI : Inv find? findProj? P) {a : Expr} {o : Nat} {s : Expr}
     (ho : P.closedNode[a]? = some o) (hd : Den P o s) : s.looseBVarsBounded 0 = true := by
-  obtain ⟨s', -, -, hd', ha, hc⟩ := hI.closed a o ho
+  obtain ⟨s', -, -, hd', ha, hc⟩ := hI.closedDen a o ho
   rw [Den.unique hd hd']; exact ha.bounded hc
 
 /-! ## Node inversions -/
@@ -244,7 +244,7 @@ theorem Den.inv3 {P : G4Prog} {o : Nat} {s : Expr} (h : Den P o s) (h0 : P.code[
     ∃ v b sv sb, P.code[o + 1]? = some v ∧ P.code[o + 2]? = some b ∧ Den P v sv ∧ Den P b sb ∧
       s = .letE bot sv sb := by
   cases h with
-  | letE _ h₁ h₂ _ _ hv hb => exact ⟨_, _, _, _, h₁, h₂, hv, hb, rfl⟩
+  | letE _ h₁ h₂ hv hb => exact ⟨_, _, _, _, h₁, h₂, hv, hb, rfl⟩
   | _ => simp_all
 
 theorem Den.inv5 {P : G4Prog} {o : Nat} {s : Expr} (h : Den P o s) (h0 : P.code[o]? = some 5) :
@@ -263,14 +263,14 @@ theorem Den.inv7 {P : G4Prog} {o : Nat} {s : Expr} (h : Den P o s) (h0 : P.code[
     ∃ q pj e se, P.code[o + 1]? = some (q + 1) ∧ P.projs[q]? = some pj ∧ P.code[o + 2]? = some e ∧
       Den P e se ∧ s = .proj pj.sn pj.idx se := by
   cases h with
-  | proj _ h₁ h₂ h₃ _ he => exact ⟨_, _, _, _, h₁, h₂, h₃, he, rfl⟩
+  | proj _ h₁ h₂ h₃ he => exact ⟨_, _, _, _, h₁, h₂, h₃, he, rfl⟩
   | _ => simp_all
 
 theorem Den.inv9 {P : G4Prog} {o : Nat} {s : Expr} (h : Den P o s) (h0 : P.code[o]? = some 9) :
     ∃ sl a, P.code[o + 1]? = some sl ∧ P.code[o + 2]? = some a ∧ Den P a s ∧
       ∃ a' : Expr, P.closedNode[a']? = some o := by
   cases h with
-  | shared _ h₁ h₂ _ ha hc => exact ⟨_, _, h₁, h₂, ha, hc⟩
+  | shared _ h₁ h₂ ha hc => exact ⟨_, _, h₁, h₂, ha, hc⟩
   | _ => simp_all
 
 /-- A node's tag is one of `g4Comp`'s ten: the run loop's catch-all at mode 0

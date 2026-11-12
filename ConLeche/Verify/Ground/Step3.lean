@@ -5,6 +5,7 @@ import ConLeche.Verify.Ground.Step0
 import ConLeche.Verify.Ground.Step4
 public import ConLeche.Verify.EnvWF
 import ConLeche.Verify.InferLemmas
+import ConLeche.Verify.Ground.Keys
 
 public section
 
@@ -205,9 +206,10 @@ theorem SInv.pushMemo {env : Env} {oc : Nat → Expr} {s : MS} (h : SInv env oc 
     exact ⟨hc, hk, hl, ho⟩
 
 /-- An entry tagged `0` or `3` is a definition's. -/
-theorem EntOK.tag03 {find? : Name → Option ConstantInfo} {P : G4Prog} {k : Nat} (h : EntOK find? P k)
+theorem EntOK.tag03 {find? : Name → Option ConstantInfo} {findProj? : Name → Nat → Option ProjEntry}
+    {P : G4Prog} {k : Nat} (h : EntOK find? findProj? P k)
     (hk : k < P.kInfo.size) (ht : P.kTag[k]? = some 0 ∨ P.kTag[k]? = some 3) :
-    ∃ c lps us v, P.kInfo[k]? = some (.defn c lps us v) ∧ DefnOK find? P k c lps us v := by
+    ∃ c lps us v, P.kInfo[k]? = some (.defn c lps us v) ∧ DefnOK find? findProj? P k c lps us v := by
   unfold EntOK at h
   split at h
   · rcases ht with ht | ht <;> rw [ht] at h <;> cases h
@@ -218,7 +220,8 @@ theorem EntOK.tag03 {find? : Name → Option ConstantInfo} {P : G4Prog} {k : Nat
 
 /-- An entry tagged `3` is an accelerated operation's: a definition at no
 levels, the `Nat` flag set, its operation index in `kE`. -/
-theorem EntOK.tag3 {find? : Name → Option ConstantInfo} {P : G4Prog} {k : Nat} (h : EntOK find? P k)
+theorem EntOK.tag3 {find? : Name → Option ConstantInfo} {findProj? : Name → Nat → Option ProjEntry}
+    {P : G4Prog} {k : Nat} (h : EntOK find? findProj? P k)
     (hk : k < P.kInfo.size) (ht : P.kTag[k]? = some 3) :
     ∃ c lps v, P.kInfo[k]? = some (.defn c lps [] v) ∧ P.natOk = true ∧ natBin14 c = true ∧
       P.kE[k]? = some ((natBin14Names.idxOf? c).getD 0) := by
@@ -573,7 +576,7 @@ theorem delta_red (hwf : EnvWF env) {P : G4Prog} (hI : Inv env.find? env.findPro
       ∀ args : List Expr, ERed env (Expr.mkAppN (entryTerm P k) args) (Expr.mkAppN sb args) := by
   obtain ⟨c, lps, us, v, hinfo, ⟨cv, hh, hfind, rfl⟩, hlen, -, w, hw, hcode⟩ :=
     (hI.ents k hk).tag03 hk ht
-  rcases hcode with rfl | ⟨o, sb, rfl, hd, ha⟩
+  rcases hcode.den with rfl | ⟨o, sb, rfl, hd, ha⟩
   · rw [get!_of_some hw] at hc; exact absurd rfl hc
   rw [get!_of_some hw, Nat.add_sub_cancel]
   have hvc : v.looseBVarsBounded 0 = true :=
@@ -629,9 +632,9 @@ theorem step_delta_compile (h : MInv env t₀ oc s fl) (hm : s.mode = 3) {c : Na
     g4Comp_spec env.find? env.findProj? s.P (v.instantiateLevelParams lps us) h.store.prog
   generalize g4Comp env.find? env.findProj? s.P (v.instantiateLevelParams lps us) = r at hcomp ⊢
   obtain ⟨o, P1⟩ := r
-  obtain ⟨hI1, hx1, sb, hd, ha⟩ := hcomp
-  dsimp only at hI1 hx1 hd ⊢
-  have hI2 := hI1.setKCode (hx1.kInfo_some hi') hd ha
+  obtain ⟨hI1, hx1, hc⟩ := hcomp
+  dsimp only at hI1 hx1 hc ⊢
+  have hI2 := hI1.setKCode (hx1.kInfo_some hi') hc
   have hx : ExtR s.P { P1 with kCode := P1.kCode.set! s.x (o + 1) } :=
     hx1.toExtR.trans (ExtR.codes P1 _ P1.ruleCode)
   refine ⟨h.store.grow (s' := { s with P := _ }) hI2 hx hx1.epBase (Pre.refl _) h.store.celSz (Pre.refl _)

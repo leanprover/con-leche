@@ -92,7 +92,7 @@ pushed: the claim `k` holds of the head on the first `x` arguments. -/
 @[expose] def SpineAt (P : G4Prog) (ev : Array Nat) (oc : Nat → Expr) (pc env x : Nat)
     (k : Expr → Prop) : Prop :=
   ∃ h n sh ss cs, P.code[pc]? = some 1 ∧ P.code[pc + 1]? = some h ∧ P.code[pc + 2]? = some n ∧
-    h < pc ∧ Den P h sh ∧ DenArgs P pc (pc + 3) n ss ∧ EnvL ev env cs ∧
+    Den P h sh ∧ DenArgs P (pc + 3) n ss ∧ EnvL ev env cs ∧
     (Expr.mkAppN sh ss).looseBVarsBounded cs.length = true ∧ x ≤ n ∧
     k ((Expr.mkAppN sh (ss.take x)).instantiateList (cs.map oc))
 
@@ -313,10 +313,10 @@ theorem Den.inv0 {P : G4Prog} {o : Nat} {s : Expr} (h : Den P o s) (h0 : P.code[
   | _ => simp_all
 
 theorem Den.inv1 {P : G4Prog} {o : Nat} {s : Expr} (h : Den P o s) (h0 : P.code[o]? = some 1) :
-    ∃ hd n sh ss, P.code[o + 1]? = some hd ∧ P.code[o + 2]? = some n ∧ hd < o ∧ Den P hd sh ∧
-      DenArgs P o (o + 3) n ss ∧ s = Expr.mkAppN sh ss := by
+    ∃ hd n sh ss, P.code[o + 1]? = some hd ∧ P.code[o + 2]? = some n ∧ Den P hd sh ∧
+      DenArgs P (o + 3) n ss ∧ s = Expr.mkAppN sh ss := by
   cases h with
-  | spine _ h₁ h₂ hlt hh ha => exact ⟨_, _, _, _, h₁, h₂, hlt, hh, ha, rfl⟩
+  | spine _ h₁ h₂ hh ha => exact ⟨_, _, _, _, h₁, h₂, hh, ha, rfl⟩
   | _ => simp_all
 
 theorem Den.inv4 {P : G4Prog} {o : Nat} {s : Expr} (h : Den P o s) (h0 : P.code[o]? = some 4) :
@@ -331,10 +331,10 @@ theorem Den.inv8 {P : G4Prog} {o : Nat} {s : Expr} (h : Den P o s) (h0 : P.code[
   | neutral _ => rfl
   | _ => simp_all
 
-theorem DenArgs.length {P : G4Prog} : ∀ {o p n : Nat} {ss : List Expr}, DenArgs P o p n ss →
+theorem DenArgs.length {P : G4Prog} : ∀ {p n : Nat} {ss : List Expr}, DenArgs P p n ss →
     ss.length = n
-  | _, _, _, _, .nil => rfl
-  | _, _, _, _, .cons _ _ _ hr => by simp [DenArgs.length hr]
+  | _, _, _, .nil => rfl
+  | _, _, _, .cons _ _ hr => by simp [DenArgs.length hr]
 
 theorem infoTerm_closed : ∀ (info : G4Info), (infoTerm info).looseBVarsBounded 0 = true
   | .defn .. | .ctor .. | .recr .. | .neutral .. => by simp [infoTerm, Expr.looseBVarsBounded]
@@ -394,11 +394,11 @@ theorem step_spine (h : MInv env t₀ oc s fl) (hm : s.mode = 0) (ht : s.P.code[
   have hf := h.focus
   simp only [Focus, hm] at hf
   obtain ⟨u, ⟨s0, cs, hd, he, hb, rfl⟩, hK⟩ := hf
-  obtain ⟨hd', n, sh, ss, h₁, h₂, hlt, hh, ha, rfl⟩ := hd.inv1 (by rw [some_of_lt (hd.lt_size), ht])
+  obtain ⟨hd', n, sh, ss, h₁, h₂, hh, ha, rfl⟩ := hd.inv1 (by rw [some_of_lt (hd.lt_size), ht])
   refine ⟨h.store.same rfl rfl rfl rfl rfl rfl rfl, h.stack, h.frames, ?_⟩
   show SpineAt s.P s.ev oc s.pc s.env s.P.code[s.pc + 2]! (K env t₀ s.P s.argA oc fl)
   rw [get!_of_some h₂]
-  refine ⟨hd', n, sh, ss, cs, by rw [some_of_lt (hd.lt_size), ht], h₁, h₂, hlt, hh, ha, he, hb,
+  refine ⟨hd', n, sh, ss, cs, by rw [some_of_lt (hd.lt_size), ht], h₁, h₂, hh, ha, he, hb,
     Nat.le_refl _, ?_⟩
   rw [List.take_of_length_le (by rw [ha.length]; exact Nat.le_refl _)]
   exact hK

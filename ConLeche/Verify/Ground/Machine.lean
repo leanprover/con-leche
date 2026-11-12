@@ -349,7 +349,7 @@ theorem Den.lam_inv {P : G4Prog} {o : Nat} {s : Expr} (h : Den P o s) (h2 : P.co
       ((P.code[b]? = some 2 ∧ P.code[b + 2]? = some (tn - 1) ∧ P.code[b + 3]? = some inner ∧
           tn ≥ 2) ∨ (P.code[b]? ≠ some 2 ∧ tn = 1 ∧ inner = b)) :=
   match h with
-  | .lam _ h₁ h₂ h₃ _ hb htel => ⟨_, _, _, _, h₁, h₂, h₃, hb, rfl, htel⟩
+  | .lam _ h₁ h₂ h₃ hb htel => ⟨_, _, _, _, h₁, h₂, h₃, hb, rfl, htel⟩
   | .bvar h₀ _ | .spine h₀ .. | .letE h₀ .. | .const h₀ .. | .natLit h₀ _ | .strLit h₀ ..
   | .proj h₀ .. | .neutral h₀ | .shared h₀ .. => by rw [h₀] at h2; cases h2
 

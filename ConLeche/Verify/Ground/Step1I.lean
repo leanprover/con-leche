@@ -8,6 +8,7 @@ public import ConLeche.Verify.Ground.Step1N
 import ConLeche.Verify.InferLemmas
 public import ConLeche.Verify.InstSpine
 import ConLeche.Verify.StrLitExpr
+import ConLeche.Verify.Ground.Keys
 
 public section
 
@@ -95,7 +96,7 @@ theorem recEntry {find? : Name → Option ConstantInfo} {findProj? : Name → Na
     {P : G4Prog} (hI : Inv find? findProj? P) {k : Nat} (hk : k < P.kInfo.size)
     (h2 : P.kTag[k]? = some 2) :
     ∃ c lps us mI rP base nr isK isEta, P.kInfo[k]? = some (.recr c lps us mI rP base nr isK isEta) ∧
-      entryTerm P k = .const c us ∧ RecOK find? P k c lps us mI rP base nr isK isEta := by
+      entryTerm P k = .const c us ∧ RecOK find? findProj? P k c lps us mI rP base nr isK isEta := by
   obtain ⟨c, lps, us, mI, rP, base, nr, isK, isEta, hi, hr⟩ := (hI.ents k hk).tag2 hk h2
   exact ⟨c, lps, us, mI, rP, base, nr, isK, isEta, hi, by unfold entryTerm; rw [hi]; rfl, hr⟩
 
@@ -125,9 +126,10 @@ theorem findRule_spec (rNid : Array Nat) (c : Nat) : ∀ (n i : Nat),
 /-- **The rule the engine finds is the rule `Red.iota` selects**: with
 injective name ids, the first row naming the constructor's id is the first
 rule of that constructor. -/
-theorem findRule_find {find? : Name → Option ConstantInfo} {P : G4Prog} {isK : Bool}
+theorem findRule_find {find? : Name → Option ConstantInfo} {findProj? : Name → Nat → Option ProjEntry}
+    {P : G4Prog} {isK : Bool}
     {lps : List Name} {us : List Level} {rules : List RecRule} {base : Nat} (hnid : NidOK P)
-    (hrows : ∀ i (h : i < rules.length), RowOK find? P (base + i) isK lps us rules[i])
+    (hrows : ∀ i (h : i < rules.length), RowOK find? findProj? P (base + i) isK lps us rules[i])
     {cj : Name} {ij : Nat} (hcj : P.nids[cj]? = some ij)
     (hri : g4FindRule P.rNid ij rules.length base ≠ base + rules.length) :
     ∃ j, ∃ hj : j < rules.length, g4FindRule P.rNid ij rules.length base = base + j ∧
@@ -278,8 +280,9 @@ theorem MInv.enterCompiled (h : MInv env t₀ oc s fl) {fs : Array Nat} {fl' : L
   have hcomp := g4Comp_spec env.find? env.findProj? s.P e h.store.prog
   generalize g4Comp env.find? env.findProj? s.P e = r at hcomp ⊢
   obtain ⟨o, P1⟩ := r
-  obtain ⟨hI1, hx1, sb, hd, ha⟩ := hcomp
-  dsimp only at hI1 hx1 hd ⊢
+  obtain ⟨hI1, hx1, hc1⟩ := hcomp
+  dsimp only at hI1 hx1 hc1 ⊢
+  obtain ⟨sb, hd, ha⟩ := hc1.den
   have hx := hx1.toExtR
   refine ⟨(h.store.grow (s' := { s with P := P1 }) hI1 hx hx1.epBase (Pre.refl _) h.store.celSz
     (Pre.refl _) h.store.valSz (Pre.refl _) h.store.evSz (Pre.refl _) rfl rfl (Agree.refl _ _)
@@ -384,7 +387,7 @@ theorem MInv.iotaFire (hwf : EnvWF env) (h : MInv env t₀ oc s fl) (hm : s.mode
       (s.P.rules[ri]!).rhs = rhs ∧ s.P.kB[k]! = rP ∧
       s.fs[s.fs.size - 3]! + rP ≤ s.argA.size ∧
       s.val[g4X4 s.x + 2]! + s.P.rCP[ri]! + s.P.rNF[ri]! ≤ s.argA.size ∧
-      CodeOK s.P s.P.ruleCode[ri]! (rhs.instantiateLevelParams lps us) ∧
+      CodeOK env.find? env.findProj? s.P s.P.ruleCode[ri]! (rhs.instantiateLevelParams lps us) ∧
       (rhs.instantiateLevelParams lps us).looseBVarsBounded 0 = true ∧
       K env t₀ s.P s.argA oc fl' (Expr.mkAppN (rhs.instantiateLevelParams lps us)
         ((span s.argA s.fs[s.fs.size - 3]! rP ++
@@ -511,13 +514,13 @@ theorem step_iota_compile (hwf : EnvWF env) (h : MInv env t₀ oc s fl) (hm : s.
   generalize g4Comp env.find? env.findProj? s.P
     ((s.P.rules[ri]!).rhs.instantiateLevelParams lps₀ us₀) = r at hcomp ⊢
   obtain ⟨o, P1⟩ := r
-  obtain ⟨hI1, hx1, sb, hd, ha⟩ := hcomp
-  dsimp only at hI1 hx1 hd ⊢
+  obtain ⟨hI1, hx1, hc1⟩ := hcomp
+  dsimp only at hI1 hx1 hc1 ⊢
   have hrl : ri < s.P.rules.size := by
     have := h.store.prog.rows_lt (P := s.P) ⟨_, _, _, _, _, _, _, _, _, hi, hb₁, hb₂⟩; omega
   have hrr : (P1.rules[ri]!) = (s.P.rules[ri]!) := by
     simp only [getElem!_def, (rowR_eq (hx1.toExtR.row ri hrl)).1]
-  have hI2 := hI1.setRuleCode (hx1.toExtR.kInfo_some hi) hb₁ hb₂ hd (by rw [hrr]; exact ha)
+  have hI2 := hI1.setRuleCode (hx1.toExtR.kInfo_some hi) hb₁ hb₂ (by rw [hrr]; exact hc1)
   exact h.withProg1 hm hI2 (hx1.toExtR.trans (ExtR.codes P1 P1.kCode _)) hx1.epBase
 
 /-- **The rule fires, its right-hand side not a λ of the bound arity**: the
@@ -537,7 +540,7 @@ theorem step_iota_frames (hwf : EnvWF env) (h : MInv env t₀ oc s fl) (hm : s.m
       mode := 0, pc := s.P.ruleCode[ri]! - 1, env := 0, x := 0 } fl' := by
   obtain ⟨fl', c, lps, us, mI, rP, base, nr, isK, isEta, rhs, -, hfs, hfl, -, -, -, -, hkB, hs₁, hs₂, hcode,
     hcl0, hK⟩ := h.iotaFire hwf hm hn ht h1 hk hkc hri hne hcl hc3
-  rcases hcode with h0 | ⟨o, sb, ho, hd, ha⟩
+  rcases hcode.den with h0 | ⟨o, sb, ho, hd, ha⟩
   · exact absurd h0 hrc
   rw [ho, Nat.add_sub_cancel, hkB]
   generalize s.fs[s.fs.size - 3]! = start at hs₁ hK ⊢
@@ -585,7 +588,7 @@ theorem step_iota_bind (hwf : EnvWF env) (h : MInv env t₀ oc s fl) (hm : s.mod
       x := 0 } fl' := by
   obtain ⟨fl', c, lps, us, mI, rP, base, nr, isK, isEta, rhs, -, hfs, hfl, -, -, -, -, hkB, hs₁, hs₂, hcode,
     hcl0, hK⟩ := h.iotaFire hwf hm hn ht h1 hk hkc hri hne hcl hc3
-  rcases hcode with h0 | ⟨o, sb, ho, hd, ha⟩
+  rcases hcode.den with h0 | ⟨o, sb, ho, hd, ha⟩
   · exact absurd h0 hrc
   rw [ho, Nat.add_sub_cancel] at hl2 htn ⊢
   rw [hkB] at htn ⊢

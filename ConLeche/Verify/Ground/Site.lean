@@ -5,6 +5,7 @@ public import ConLeche.Verify.EnvWF
 import ConLeche.Verify.Ground.Sound
 import ConLeche.Verify.Ground.Step1
 import ConLeche.Verify.Ground.Step1I
+import ConLeche.Verify.Ground.Keys
 
 public section
 
@@ -73,11 +74,17 @@ theorem Inv.setSite {P : G4Prog} (hI : Inv find? findProj? P) (kT kF kZ kS ep : 
   kSlotSize := hI.kSlotSize
   kMap := hI.kMap
   closed a' o h := by
-    obtain ⟨s, sl, h₁, h₂, h₃, h₄⟩ := hI.closed a' o h
-    exact ⟨s, sl, h₁, h₂.ext (ExtR.setSite P kT kF kZ kS ep sa), h₃, h₄⟩
-  slots := by
-    obtain ⟨σ, hσ⟩ := hI.slots
-    exact ⟨σ, fun sl t h => hσ sl t (h.ext (ExtR.setSite_back P kT kF kZ kS ep sa))⟩
+    obtain ⟨sl, e, h₀, h₁, h₂, h₃, h₄⟩ := hI.closed a' o h
+    exact ⟨sl, e, h₀, h₁, h₂, h₃.extR (ExtR.setSite P kT kF kZ kS ep sa), h₄⟩
+  masks := hI.masks
+  kMapAll := hI.kMapAll
+  slotLt := hI.slotLt
+  slotUniq := hI.slotUniq
+  defTag := hI.defTag
+  kfab k c lps us mI rP base nr isK isEta h := by
+    obtain ⟨kf, h₁, h₂⟩ := hI.kfab k c lps us mI rP base nr isK isEta h
+    exact ⟨kf, h₁, h₂.extR (ExtR.setSite P kT kF kZ kS ep sa)⟩
+  ctorAr := hI.ctorAr
   ents k hk := by
     have hx := ExtR.setSite P kT kF kZ kS ep sa
     exact (hI.ents k hk).extR hx hk rfl

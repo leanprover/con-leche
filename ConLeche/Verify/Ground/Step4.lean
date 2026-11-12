@@ -37,10 +37,10 @@ theorem mkAppN_take_succ (f : Expr) (ss : List Expr) {j : Nat} (hj : j < ss.leng
   rw [show ∀ (l : List Expr) (a : Expr), Expr.mkAppN f (l ++ [a]) = .app (Expr.mkAppN f l) a from
     fun l a => by induction l generalizing f <;> simp_all [Expr.mkAppN]]
 
-theorem DenArgs.get {P : G4Prog} : ∀ {o p n : Nat} {ss : List Expr}, DenArgs P o p n ss →
+theorem DenArgs.get {P : G4Prog} : ∀ {p n : Nat} {ss : List Expr}, DenArgs P p n ss →
     ∀ j (hj : j < ss.length), ∃ a, P.code[p + j]? = some a ∧ Den P a ss[j]
-  | _, _, _, _, .cons h₁ _ hd _, 0, _ => ⟨_, by simpa using h₁, hd⟩
-  | _, p, _, _, .cons _ _ _ hr, j + 1, hj => by
+  | _, _, _, .cons h₁ hd _, 0, _ => ⟨_, by simpa using h₁, hd⟩
+  | p, _, _, .cons _ _ hr, j + 1, hj => by
     obtain ⟨a, h₁, hd⟩ := DenArgs.get hr j (by simpa using hj)
     exact ⟨a, by rw [show p + (j + 1) = p + 1 + j by omega]; exact h₁, hd⟩
 
@@ -48,8 +48,8 @@ theorem DenArgs.get {P : G4Prog} : ∀ {o p n : Nat} {ss : List Expr}, DenArgs P
 theorem SpineAt.mono {P : G4Prog} {ev : Array Nat} {oc oc' : Nat → Expr} {N pc env x : Nat}
     {k k' : Expr → Prop} (h : SpineAt P ev oc pc env x k) (hr : EvRef ev N) (ha : Agree oc oc' N)
     (hk : ∀ u, k u → k' u) : SpineAt P ev oc' pc env x k' := by
-  obtain ⟨hd, n, sh, ss, cs, h₀, h₁, h₂, hlt, hh, has, he, hb, hx, hk₀⟩ := h
-  refine ⟨hd, n, sh, ss, cs, h₀, h₁, h₂, hlt, hh, has, he, hb, hx, ?_⟩
+  obtain ⟨hd, n, sh, ss, cs, h₀, h₁, h₂, hh, has, he, hb, hx, hk₀⟩ := h
+  refine ⟨hd, n, sh, ss, cs, h₀, h₁, h₂, hh, has, he, hb, hx, ?_⟩
   rw [← map_agree ha (EnvL.mem_lt hr he)]; exact hk _ hk₀
 
 /-- **The next argument** of a spine: its node, its term, and the claim
@@ -60,11 +60,11 @@ theorem SpineAt.next {env : Env} {t₀ : Expr} {P : G4Prog} {ev argA : Array Nat
     ∃ ao sa cs, P.code[pc + 3 + j]? = some ao ∧ Den P ao sa ∧ EnvL ev e cs ∧
       sa.looseBVarsBounded cs.length = true ∧ ∀ c, oc c = sa.instantiateList (cs.map oc) →
       SpineAt P ev oc pc e j (K env t₀ P argA oc (.arg c :: fl)) := by
-  obtain ⟨hd, n, sh, ss, cs, h₀, h₁, h₂, hlt, hh, has, he, hb, hx, hk⟩ := h
+  obtain ⟨hd, n, sh, ss, cs, h₀, h₁, h₂, hh, has, he, hb, hx, hk⟩ := h
   have hl := has.length
   obtain ⟨ao, hao, hda⟩ := has.get j (by omega)
   refine ⟨ao, _, cs, hao, hda, he, (mkAppN_bounded ss sh).mp hb |>.2 _ (List.getElem_mem _),
-    fun c hc => ⟨hd, n, sh, ss, cs, h₀, h₁, h₂, hlt, hh, has, he, hb, by omega, ?_⟩⟩
+    fun c hc => ⟨hd, n, sh, ss, cs, h₀, h₁, h₂, hh, has, he, hb, by omega, ?_⟩⟩
   show K env t₀ P argA oc fl (.app _ (oc c))
   rw [mkAppN_take_succ sh ss (by omega)] at hk
   rw [hc]; simpa [Expr.instantiateList] using hk
@@ -77,7 +77,7 @@ theorem step_args_done (h : MInv env t₀ oc s fl) (hm : s.mode = 4) (hx : s.x =
     MInv env t₀ oc { s with mode := 0, pc := s.P.code[s.pc + 1]!, x := 0 } fl := by
   have hf := h.focus
   simp only [Focus, hm] at hf
-  obtain ⟨hd, n, sh, ss, cs, h₀, h₁, h₂, hlt, hh, has, he, hb, -, hk⟩ := hf
+  obtain ⟨hd, n, sh, ss, cs, h₀, h₁, h₂, hh, has, he, hb, -, hk⟩ := hf
   rw [hx] at hk
   refine ⟨h.store.same rfl rfl rfl rfl rfl rfl rfl, h.stack, h.frames, ?_⟩
   show ∃ u, NodeTerm s.P s.ev oc _ s.env u ∧ _
