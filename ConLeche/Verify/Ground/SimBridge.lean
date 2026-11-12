@@ -11,7 +11,7 @@ public section
 The words the machine reads at two related code positions (`TRel`), by the
 node's tag: one tag, and the fields either one word or related again.  The
 lookups agree on the names the related terms mention (`Agree`): for the
-kept/fresh instance the lookups are one (`LookAgree.refl`).
+kept/fresh instance the lookups are one (`LookAgree.univ`).
 -/
 
 namespace ConLeche.Verify.Ground
@@ -20,15 +20,36 @@ open ConLeche
 
 /-- **The lookups agree on `N`**: on the constants, the projection rows and
 the erasure masks (a mask reads the constant's type: the agreement there is
-the caller's, where `N` is closed under types). -/
+the caller's, where `N` is closed under types), and on the K constructor a
+recursor names; `N` holds the names of the definition values and of the
+recursor rules the run compiles. -/
 structure LookAgree (N : Name → Prop) (f₁ : Name → Option ConstantInfo) (p₁ : Name → Nat → Option ProjEntry)
     (f₂ : Name → Option ConstantInfo) (p₂ : Name → Nat → Option ProjEntry) : Prop where
   find : ∀ c, N c → f₂ c = f₁ c
   proj : ∀ sn i, N sn → p₂ sn i = p₁ sn i
   mask : ∀ c, N c → maskName f₂ c = maskName f₁ c
+  kfab : ∀ c us, N c → kfabKey f₂ c us = kfabKey f₁ c us
+  defVal : ∀ c cv v hs, N c → f₁ c = some (.defnInfo cv v hs) → NamesIn N v
+  rules : ∀ c cv mI rP isK rules, N c → f₁ c = some (.recInfo cv mI rP isK rules) →
+    ∀ rl ∈ rules, N rl.ctor ∧ NamesIn N rl.rhs
 
-theorem LookAgree.refl (N : Name → Prop) (f : Name → Option ConstantInfo) (p : Name → Nat → Option ProjEntry) :
-    LookAgree N f p f p := ⟨fun _ _ => rfl, fun _ _ _ => rfl, fun _ _ => rfl⟩
+/-- One lookup, every name. -/
+theorem LookAgree.univ (f : Name → Option ConstantInfo) (p : Name → Nat → Option ProjEntry) :
+    LookAgree (fun _ => True) f p f p :=
+  ⟨fun _ _ => rfl, fun _ _ _ => rfl, fun _ _ => rfl, fun _ _ _ => rfl,
+    fun _ _ v _ _ _ => NamesIn.univ v, fun _ _ _ _ _ _ _ _ rl _ => ⟨trivial, NamesIn.univ rl.rhs⟩⟩
+
+/-- Level instantiation keeps a term's names. -/
+theorem NamesIn.instLP {N : Name → Prop} (ks : List Name) (us : List Level) :
+    ∀ {t : Expr}, NamesIn N t → NamesIn N (t.instantiateLevelParams ks us)
+  | .bvar _, h | .sort _, h | .lit _, h | .const _ _, h => h
+  | .fvar _ ty, h => NamesIn.instLP ks us (t := ty) h
+  | .app f x, h | .lam f x, h | .forallE f x, h =>
+    ⟨NamesIn.instLP ks us (t := f) h.1, NamesIn.instLP ks us (t := x) h.2⟩
+  | .letE ty v b, h =>
+    ⟨NamesIn.instLP ks us (t := ty) h.1, NamesIn.instLP ks us (t := v) h.2.1,
+      NamesIn.instLP ks us (t := b) h.2.2⟩
+  | .proj _ _ e, h => ⟨h.1, NamesIn.instLP ks us (t := e) h.2⟩
 
 section
 variable {N : Name → Prop} {f₁ f₂ : Name → Option ConstantInfo} {p₁ p₂ : Name → Nat → Option ProjEntry}
