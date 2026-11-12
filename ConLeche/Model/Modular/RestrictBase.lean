@@ -145,7 +145,7 @@ theorem find_of_mem {c : ConstantInfo} (hc : c ∈ C.consts) : C.find? c.name = 
 
 /-- **The context is well formed.** -/
 theorem wf : EnvWF C := by
-  refine ⟨fun c hc => ?_, fun c hc => ?_, fun t ht => ?_⟩
+  refine ⟨fun c hc => ?_, fun c hc => ?_, fun t ht => ?_, fun c hc => ?_, fun c hc => ?_⟩
   · have hf := S.find_of_mem hc
     obtain ⟨ci', hf', hr, hwf'⟩ := S.srcWF hf
     have hsc := S.scopeR hf
@@ -177,15 +177,24 @@ theorem wf : EnvWF C := by
     obtain ⟨-, -, -, hind, -⟩ := S.scopeR hfT
     exact ⟨a, b', S.resC (resR (((hind cv caps rfl).2 t hft).2 b
       (Array.mem_toList_iff.mpr (Array.mem_of_getElem? hb)))), d⟩
+  · intro cv caps he
+    subst he
+    exact (S.m _).base2.wf.inds _
+      (Env.find?_mem (S.src_eq (S.find_of_mem hc) fun _ h => nomatch h)) cv caps rfl
+  · intro cv nP nF T he
+    subst he
+    exact (S.m _).base2.wf.ctors _
+      (Env.find?_mem (S.src_eq (S.find_of_mem hc) fun _ h => nomatch h)) cv nP nF T rfl
 
 /-- **The basis pins hold in the context.** -/
 theorem basis_pinned : BasisPinnedTT C aC := by
   intro n ci hf hres
   have hE := S.src_reserved hf hres
   obtain ⟨h1, h2, h3⟩ := (S.m n).base2.basis_pinned n ci hE hres
-  refine ⟨h1, fun cv mI rP isK rules hci rl hrl hp cvj cnP cnF hfc us hus => ?_, fun t ψ hp => ?_⟩
+  refine ⟨h1, fun cv mI rP isK rules hci rl hrl hp cvj cnP cnF T hfc us hus => ?_,
+    fun t ψ hp => ?_⟩
   · have hcR := ((S.scopeR hf).2.2.1 cv mI rP isK rules hci rl hrl).2.1
-    exact h2 cv mI rP isK rules hci rl hrl hp cvj cnP cnF
+    exact h2 cv mI rP isK rules hci rl hrl hp cvj cnP cnF T
       (S.findE (isSome_of hf) hcR hfc rfl) us hus
   · rw [S.leafSelf hf]; exact h3 t ψ hp
 
@@ -195,22 +204,22 @@ theorem proj_ok : ProjOkT C := by
   obtain ⟨-, hsn, hT⟩ := Env.findTable?_mem ht
   have hR := S.read.self T hT
   have htE : (E T).findTable? T = some tbl := by rw [← S.table_eq hT hR]; exact ht
-  obtain ⟨r1, r2, r3, ⟨cvT, capsT, hfT, hlpT⟩, ⟨cvC, hfC, hlpC, hstrip⟩⟩ :=
+  obtain ⟨r1, r2, r3, ⟨cvT, capsT, hfT, hlpT⟩, ⟨cvC, iT, hfC, hlpC, hstrip⟩⟩ :=
     (S.m T).base2.proj_ok T tbl htE
   rw [hsn] at hfT
   have hfTC := S.findC hT hR hfT rfl
   obtain ⟨-, -, -, hind, -⟩ := S.scopeR hfTC
   have hcR : ((R T).find? tbl.ctor).isSome = true := ((hind cvT capsT rfl).2 tbl ht).1
   refine ⟨r1, r2, r3, ⟨cvT, capsT, by rw [hsn]; exact hfTC, hlpT⟩,
-    ⟨cvC, S.findC hT hcR hfC rfl, hlpC, hstrip⟩⟩
+    ⟨cvC, iT, S.findC hT hcR hfC rfl, hlpC, hstrip⟩⟩
 
 /-- **The rules' constructors are stored in the context.** -/
 theorem rec_ctors : RecCtorsStored C := by
   intro n cv mI rP isK rules hf r hr
   have hE := S.src_ind hf rfl
-  obtain ⟨cvj, cnP, cnF, hfc⟩ := (S.m n).base2.rec_ctors n cv mI rP isK rules hE r hr
+  obtain ⟨cvj, cnP, cnF, T, hfc⟩ := (S.m n).base2.rec_ctors n cv mI rP isK rules hE r hr
   have hcR := ((S.scopeR hf).2.2.1 cv mI rP isK rules rfl r hr).2.1
-  exact ⟨cvj, cnP, cnF, S.findC (isSome_of hf) hcR hfc rfl⟩
+  exact ⟨cvj, cnP, cnF, T, S.findC (isSome_of hf) hcR hfc rfl⟩
 
 theorem acval_params : ∀ (n : Name) (ci : ConstantInfo), C.find? n = some ci →
     ∀ ψ₁ ψ₂ : Name → Nat, (∀ p ∈ ci.toConstantVal.levelParams, ψ₁ p = ψ₂ p) →
@@ -293,7 +302,7 @@ theorem pin_natSucc (ψ : Name → Nat) :
 
 theorem nat_heads (φ : Name → Nat) : NatHeads S.base φ := by
   intro hs ρ
-  obtain ⟨cvN, capsN, cv0, i0, j0, cv1, i1, j1, hfN, hfZ, hfS, -⟩ := natLitSupported_inv hs
+  obtain ⟨cvN, capsN, cv0, i0, j0, T0, cv1, i1, j1, T1, hfN, hfZ, hfS, -⟩ := natLitSupported_inv hs
   -- the source of `Nat` stores the trio, at their shapes
   have hEN := S.src_reserved hfN (by decide)
   have htrio := (S.nat natName).trio (.inl (by rw [hEN]; rfl))
@@ -382,7 +391,7 @@ theorem natFacts : NatFacts C := by
   have hpin := (S.basis_pinned natName ci hci (by decide)).1.1
   rw [pinnedInfo_nat] at hpin
   have hci' : C.find? natName = some (.indInfo (natA.toConstantVal.atLps ci.toConstantVal.levelParams)
-      { all := [natName], ctors := [natZeroName, natSuccName] }) := by
+      { all := [natName], ctors := [natZeroName, natSuccName], neverZero := true }) := by
     rw [hci, hpin]; rfl
   have hc := S.read.ctors natName natName _ _ hN (S.selfR hci) hci'
   exact ⟨hN, S.storedC (hc _ (by simp)), S.storedC (hc _ (by simp))⟩

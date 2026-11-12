@@ -971,7 +971,7 @@ without a certificate, through the projections of the major.
   at the levels the rule compares with, read off the family's type where
   the question is asked. A K rule and a family that is never
   a proposition fire with no check; every
-  #src("ConLeche/Kernel/CoreDefs.lean", 98, 100)[other rule] is the
+  #src("ConLeche/Kernel/CoreDefs.lean", 96, 98)[other rule] is the
   certified case, as in the fragment.
 ]
 

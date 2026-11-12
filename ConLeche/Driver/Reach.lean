@@ -200,12 +200,20 @@ def ruleOk (lps : List Name) (ty : Expr) (mI rP : Nat) (r : RecRule) : Bool :=
     | .nested lvls pins => nestedOk lps ty mI rP lvls pins
     | _ => true
 
-/-- **A constant's syntactic clauses** (`ConstWF`'s, the names' resolution aside): its type;
-a definition's value; a recursor's rules. -/
+/-- **A constructor's stored family is the one its type concludes in** (`CtorWF`): its type's
+result is headed by `induct`. -/
+def ctorHeadOk (cv : ConstantVal) (induct : Name) : Bool :=
+  match cv.type.piResult.getAppFn with
+  | .const T _ => T == induct
+  | _ => false
+
+/-- **A constant's syntactic clauses** (`ConstWF`'s, the names' resolution aside, and
+`CtorWF`'s): its type; a definition's value; a recursor's rules; a constructor's family. -/
 def constOk : ConstantInfo → Bool
   | .defnInfo cv v _ => exprOk cv.levelParams 0 cv.type && exprOk cv.levelParams 0 v
   | .recInfo cv mI rP _ rules =>
     exprOk cv.levelParams 0 cv.type && rules.all (ruleOk cv.levelParams cv.type mI rP)
+  | .ctorInfo cv _ _ induct => exprOk cv.levelParams 0 cv.type && ctorHeadOk cv induct
   | c => exprOk c.toConstantVal.levelParams 0 c.toConstantVal.type
 
 /-- **A table's syntactic clauses** (`TableWF`'s, its structure's presence aside): one body

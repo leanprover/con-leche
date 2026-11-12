@@ -57,8 +57,8 @@ theorem reverse_drop_eq {α : Type _} (l : List α) {k i : Nat} (hl : l.length =
 
 /-- **The rows of the typing law's premise, from the use's derivations.** -/
 theorem rowsAt_of_rows (hin : RulesInputs V m φ) {entry : ProjEntry} {us : List Level}
-    {rows : List (Nat × Expr)} {cvC : ConstantVal} {nP nF : Nat} {guardSort : Level}
-    (hfC : env.find? entry.ctor = some (.ctorInfo cvC nP nF))
+    {rows : List (Nat × Expr)} {cvC : ConstantVal} {nP nF : Nat} {cT : Name} {guardSort : Level}
+    (hfC : env.find? entry.ctor = some (.ctorInfo cvC nP nF cT))
     (hus : us.length = cvC.levelParams.length)
     (hrows : projGuardRows env.find? entry us = some rows)
     (hg : GuardRowsSem m φ guardSort rows) (hzero : guardSort.eval φ = 0) :

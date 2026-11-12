@@ -613,7 +613,7 @@ theorem eqLfp_caps {env : ConLeche.Env}
     (hf : env.find? nm = some (.indInfo cv caps))
     (hz : ∀ ψ : Name → Nat, (ConLeche.formerZ cv).holds ψ = true)
     (hlen : caps.nparams + caps.nIdx = 3)
-    (hC : ∃ cv' nPc nF, env.find? cn = some (.ctorInfo cv' nPc nF) ∧
+    (hC : ∃ cv' nPc nF iT, env.find? cn = some (.ctorInfo cv' nPc nF iT) ∧
       ∃ (bs : List ConLeche.Expr) (es : List ConLeche.Expr),
         cv'.type.stripPis (nPc + nF)
           = some (bs, ConLeche.Expr.mkAppN (.const nm (cv'.levelParams.map .param))
@@ -628,7 +628,7 @@ theorem eqLfp_caps {env : ConLeche.Env}
 /-- `Eq` is stored at an environment holding its former and constructor. -/
 theorem eqLfp_stored {env : ConLeche.Env}
     (hT : ∃ cv caps, env.find? nm = some (.indInfo cv caps))
-    (hC : ∃ cv nP nF, env.find? cn = some (.ctorInfo cv nP nF)) :
+    (hC : ∃ cv nP nF iT, env.find? cn = some (.ctorInfo cv nP nF iT)) :
     LfpStored env (eqLfp (V := V) nm cn lv) := by
   refine ⟨fun mm hmm => ?_, fun _ _ _ _ => hC⟩
   obtain rfl : mm = 0 := Nat.lt_one_iff.mp hmm
@@ -659,7 +659,7 @@ theorem lfp0_ctorReads {acval : Name → (Name → Nat) → Term} {env : ConLech
     {nm : Name} {w : (Name → Nat) → Nat}
     {F : V → V} {inj : Nat → List V → V} {n : Nat}
     {cn : Nat → Name} {flds : Nat → List Term}
-    (h : ∀ j, j < n → ∃ cv nF, env.find? (cn j) = some (.ctorInfo cv 0 nF) ∧
+    (h : ∀ j, j < n → ∃ cv nF iT, env.find? (cn j) = some (.ctorInfo cv 0 nF iT) ∧
       cv.type.hasFvar = false ∧
       (∃ cvm caps, env.find? nm = some (.indInfo cvm caps) ∧ cvm.levelParams = cv.levelParams) ∧
       ∃ A, ConLeche.nestCanonCrest [nm] (cv.levelParams.map .param) 0 cv.type = some A ∧
@@ -669,8 +669,8 @@ theorem lfp0_ctorReads {acval : Name → (Name → Nat) → Term} {env : ConLech
     LfpCtorReads acval env (lfp0 nm w F inj n cn flds) := by
   refine ⟨rfl, fun c hc j hj => ?_⟩
   obtain rfl : c = 0 := Nat.lt_one_iff.mp hc
-  obtain ⟨cv, nF, hf, hcf, ⟨cvm, caps, hfm, hl⟩, A, hA, hocc, hrd⟩ := h j hj
-  refine ⟨cv, 0, nF, hf, hcf, fun mm hmm => ?_,
+  obtain ⟨cv, nF, iT, hf, hcf, ⟨cvm, caps, hfm, hl⟩, A, hA, hocc, hrd⟩ := h j hj
+  refine ⟨cv, 0, nF, iT, hf, hcf, fun mm hmm => ?_,
     fun _ _ _ _ _ ρ _ => by rw [List.take_zero]; exact Sat_nil V ρ, A, hA, hocc, fun ψ => ?_⟩
   · obtain rfl : mm = 0 := Nat.lt_one_iff.mp hmm
     exact ⟨cvm, caps, hfm, hl⟩
@@ -692,7 +692,7 @@ theorem lfp0_caps {env : ConLeche.Env} {cv : ConLeche.ConstantVal} {caps : ConLe
     (hf : env.find? nm = some (.indInfo cv caps))
     (hz : ∀ ψ : Name → Nat, w ψ = 0 → (ConLeche.formerZ cv).holds ψ = true)
     (hlen : caps.nparams + caps.nIdx = 0)
-    (hC : ∀ j, j < n → ∃ cv' nPc nF, env.find? (cn j) = some (.ctorInfo cv' nPc nF) ∧
+    (hC : ∀ j, j < n → ∃ cv' nPc nF iT, env.find? (cn j) = some (.ctorInfo cv' nPc nF iT) ∧
       ∃ (bs : List ConLeche.Expr) (es : List ConLeche.Expr),
         cv'.type.stripPis (nPc + nF)
           = some (bs, ConLeche.Expr.mkAppN (.const nm (cv'.levelParams.map .param))
@@ -723,7 +723,7 @@ theorem lfp0_stored_of {env : ConLeche.Env} {nm : Name} {w : (Name → Nat) → 
     {inj : Nat → List V → V} {n : Nat} {cn : Nat → Name}
     {flds : Nat → List Term}
     (hT : ∃ cv caps, env.find? nm = some (.indInfo cv caps))
-    (hC : ∀ j, j < n → ∃ cv nP nF, env.find? (cn j) = some (.ctorInfo cv nP nF)) :
+    (hC : ∀ j, j < n → ∃ cv nP nF iT, env.find? (cn j) = some (.ctorInfo cv nP nF iT)) :
     LfpStored env (lfp0 nm w F inj n cn flds) := by
   refine ⟨fun mm hmm => ?_, fun _ _ j hj => hC j hj⟩
   obtain rfl : mm = 0 := Nat.lt_one_iff.mp hmm

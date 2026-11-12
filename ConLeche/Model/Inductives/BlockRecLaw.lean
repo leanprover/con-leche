@@ -91,8 +91,8 @@ theorem ctorFamily_consBlockRecsR_of_isSome {R : Nat → RecDatum → Bool × Li
     {cvj : ConstantVal}
     (hT : ∀ T us, cvj.type.piResult.getAppFn = .const T us →
       (envC.find? T).isSome = true) :
-    ConLeche.ctorFamily (consBlockRecsR R q 0 rs envC).find? cvj
-      = ConLeche.ctorFamily envC.find? cvj := by
+    ctorTypeFamily (consBlockRecsR R q 0 rs envC).find? cvj
+      = ctorTypeFamily envC.find? cvj := by
   refine ctorFamily_congr fun T us hh => ?_
   have hiso := hT T us hh
   obtain ⟨ciT, hciT⟩ : ∃ ciT, envC.find? T = some ciT := by
@@ -166,9 +166,9 @@ theorem recRuleExtra_consBlockRecsR_prefix {R : Nat → RecDatum → Bool × Lis
     have hacvR : m₃.acval n = mpC.base2.acval n := hacvAt n (by rw [hfE]; rfl)
     rw [hacvR]
     exact hRalaw Ra' hRa0' ρ xs a restR hxl hfit
-  · intro cvj cnP cnF hfcj
-    have hfcjE : envC.find? (RecRule.ctor rl) = some (.ctorInfo cvj cnP cnF) := by
-      obtain ⟨cvj', cnP', cnF', h0⟩ :=
+  · intro cvj cnP cnF iT hfcj
+    have hfcjE : envC.find? (RecRule.ctor rl) = some (.ctorInfo cvj cnP cnF iT) := by
+      obtain ⟨cvj', cnP', cnF', iT', h0⟩ :=
         mpC.base2.rec_ctors n cv mI rP isK rules hfE rl hmem
       have heq := Option.some.inj
         ((find?_consBlockRecsR_keep (R := R) (q := q) hfr _ _ h0).symm.trans hfcj)
@@ -176,7 +176,7 @@ theorem recRuleExtra_consBlockRecsR_prefix {R : Nat → RecDatum → Bool × Lis
       exact h0
     have hacvC : m₃.acval (RecRule.ctor rl) = mpC.base2.acval (RecRule.ctor rl) :=
       hacvAt _ (by rw [hfcjE]; rfl)
-    obtain ⟨harity, hnk⟩ := hCtor cvj cnP cnF hfcjE
+    obtain ⟨harity, hnk⟩ := hCtor cvj cnP cnF iT hfcjE
     refine ⟨harity, ?_⟩
     intro hk
     -- a constructor type's reading at the cons is the prefix's
@@ -306,11 +306,11 @@ theorem recRuleLaw_consBlockRecsR_prefix {R : Nat → RecDatum → Bool × List 
       Option.some.inj ((hmono _ 0 _ (constsBound_instType mpC.base2.wf
         (ConLeche.Env.find?_mem hfE) us) hTVa').symm.trans hTVa)
     exact hok ρ zs TVa' restR hzl hzok hTVa' hfit
-  · intro cvj cnP cnF hfcj usj ρ xs ys TVa TVja restR restC hxl hyl hujl
+  · intro cvj cnP cnF iT hfcj usj ρ xs ys TVa TVja restR restC hxl hyl hujl
       hψ hyWD hpin hTVa hTVja hfitR hfitC
     -- the rule's constructor is stored in the constructors' environment
-    have hfcjE : envC.find? (RecRule.ctor rl) = some (.ctorInfo cvj cnP cnF) := by
-      obtain ⟨cvj', cnP', cnF', h0⟩ :=
+    have hfcjE : envC.find? (RecRule.ctor rl) = some (.ctorInfo cvj cnP cnF iT) := by
+      obtain ⟨cvj', cnP', cnF', iT', h0⟩ :=
         mpC.base2.rec_ctors n cv mI rP isK rules hfE rl hmem
       have heq := Option.some.inj
         ((find?_consBlockRecsR_keep (R := R) (q := q) hfr _ _ h0).symm.trans hfcj)
@@ -333,7 +333,7 @@ theorem recRuleLaw_consBlockRecsR_prefix {R : Nat → RecDatum → Bool × List 
         (ConLeche.Env.find?_mem hfcjE) usj) hTVja').symm.trans hTVja)
     rw [hacvC] at hfitR hpin
     rw [hacvR, hacvC]
-    exact hlaw cvj cnP cnF hfcjE usj ρ xs ys _ _ restR restC hxl hyl
+    exact hlaw cvj cnP cnF iT hfcjE usj ρ xs ys _ _ restR restC hxl hyl
       hujl hψ hyWD hpin hTVa' hTVja' hfitR hfitC
 
 /-! ## 2. The split: `RecRules` at the recursors' environment
@@ -647,8 +647,8 @@ verbatim). -/
             TeleFitPA V ρ TVa zs restR →
             WellDenoted V ρ
               (Term.instRevChain zs vpa)) ∧
-      ∀ (cvj : ConstantVal) (cnP cnF : Nat),
-        env.find? (RecRule.ctor rl) = some (.ctorInfo cvj cnP cnF) →
+      ∀ (cvj : ConstantVal) (cnP cnF : Nat) (iT : Name),
+        env.find? (RecRule.ctor rl) = some (.ctorInfo cvj cnP cnF iT) →
       ∀ (usj : List Level) (ρ : Nat → V) (xs ys : List Term)
         (TVa TVja restR restC : Term),
         xs.length = mI →
@@ -704,8 +704,8 @@ arity, and for a rule that is not K the (S), (T), (P), (U) clauses
     ∀ TVa : Term,
       denote m.acval env φ 0
         (cv.type.instantiateLevelParams cv.levelParams us) = some TVa →
-    ∀ (cvj : ConstantVal) (cnP cnF : Nat),
-      env.find? (RecRule.ctor rl) = some (.ctorInfo cvj cnP cnF) →
+    ∀ (cvj : ConstantVal) (cnP cnF : Nat) (iT : Name),
+      env.find? (RecRule.ctor rl) = some (.ctorInfo cvj cnP cnF iT) →
     -- the constructor's arity
     (cvj.type.stripPis (cnP + RecRule.nfields rl)).isSome = true ∧
     (isK = false →
@@ -818,9 +818,9 @@ index pin, both fits — graded where the recursor's arguments are. -/
       denote m.acval env φ 0
         ((RecRule.rhs rl).instantiateLevelParams cv.levelParams us) = some Ra →
       interp V ρ Ra = pt) ∨
-  ∃ (cvj : ConstantVal) (cnP cnF : Nat) (usj : List Level) (ys : List Term)
+  ∃ (cvj : ConstantVal) (cnP cnF : Nat) (iT : Name) (usj : List Level) (ys : List Term)
     (TVja restR' restC : Term),
-    env.find? (RecRule.ctor rl) = some (.ctorInfo cvj cnP cnF) ∧
+    env.find? (RecRule.ctor rl) = some (.ctorInfo cvj cnP cnF iT) ∧
     ys.length = cnP + RecRule.nfields rl ∧
     usj.length = cvj.levelParams.length ∧
     Level.substFn φ cvj.levelParams usj
@@ -858,9 +858,9 @@ theorem recRuleLaw_of_main {env : Env} {m : EnvModel V env} {φ : Name → Nat}
   · have hRpt := hR Ra hRa
     exact ⟨hL.trans (Rules.interp_mkAppN_pt hRpt _).symm, fun hxs =>
       mkAppN_wellDenoted_of_pt (hokRa ρ) hRpt fun x hx => hxs x (List.mem_of_mem_take hx)⟩
-  obtain ⟨cvj, cnP, cnF, usj, ys, TVja, restR', restC, hfj, hyl, husj, hψ, hpin,
+  obtain ⟨cvj, cnP, cnF, iT, usj, ys, TVja, restR', restC, hfj, hyl, husj, hψ, hpin,
     hTVja, hfitR, hfitC, hval, hwd⟩ := hwit
-  obtain ⟨heq, hok⟩ := hsp cvj cnP cnF hfj usj ρ xs ys TVa TVja restR' restC hxl hyl husj hψ
+  obtain ⟨heq, hok⟩ := hsp cvj cnP cnF iT hfj usj ρ xs ys TVa TVja restR' restC hxl hyl husj hψ
     (hwd hxwd) hpin hTVa hTVja hfitR hfitC
   have hdrop : ys.drop cnP = [] := by
     rw [List.drop_eq_nil_iff, hyl, hnf]; omega
@@ -891,8 +891,8 @@ theorem blockRecRuleLaw_gen {env : Env} {m₃ : EnvModel V env} {φ : Name → N
         denote m₃.acval env φ 0
             ((RecRule.rhs rl).instantiateLevelParams cv.levelParams us) = some Ra ∧
         (∀ ρ : Nat → V, WellDenoted V ρ Ra) ∧
-        ∀ (cvj : ConstantVal) (cnP cnF : Nat),
-          env.find? (RecRule.ctor rl) = some (.ctorInfo cvj cnP cnF) →
+        ∀ (cvj : ConstantVal) (cnP cnF : Nat) (iT : Name),
+          env.find? (RecRule.ctor rl) = some (.ctorInfo cvj cnP cnF iT) →
         ∀ (usj : List Level) (ρ : Nat → V) (xs ys : List Term)
           (TVa TVja restR restC : Term),
           xs.length = mI →
@@ -940,9 +940,9 @@ theorem blockRecRuleLaw_gen {env : Env} {m₃ : EnvModel V env} {φ : Name → N
   refine recRuleLaw_of_main hrPle (fun us hus => ?_) hK hNK
   obtain ⟨Ra, hRa, hokRa, hspine⟩ := hrhs us hus
   refine ⟨Ra, hRa, hokRa, hpins us hus, ?_⟩
-  intro cvj cnP cnF hfcj usj ρ xs ys TVa TVja restR restC hxl hyl hujl hψ
+  intro cvj cnP cnF iT hfcj usj ρ xs ys TVa TVja restR restC hxl hyl hujl hψ
     hyWD hidx hTVa hTVja hfitR hfitC
-  obtain ⟨hdata, hok⟩ := hspine cvj cnP cnF hfcj usj ρ xs ys TVa TVja restR restC
+  obtain ⟨hdata, hok⟩ := hspine cvj cnP cnF iT hfcj usj ρ xs ys TVa TVja restR restC
     hxl hyl hujl hψ hyWD hidx hTVa hTVja hfitR hfitC
   refine ⟨?_, hok⟩
   rw [hleaf]

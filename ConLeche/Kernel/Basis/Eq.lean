@@ -31,7 +31,7 @@ def eqReflA : ConstantInfo :=
     piI "α" (srt u) <|
     pi "a" (bv 0) <|
     ap3 (cnst eqName [u]) (bv 1) (bv 0) (bv 0)⟩
-    2 0
+    2 0 eqName
 
 /-- The motive of `Eq.rec`: `∀ (b : α) (t : Eq α a b), Sort u_1`, in
 the `α`/`a` binder context (`α` is `#1`, `a` is `#0` at its head). -/

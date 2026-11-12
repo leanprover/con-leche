@@ -87,28 +87,7 @@ theorem reduceNat_bridge (hw : WhnfBridge μ eager env fuel)
           simp only [pure, Except.pure, Except.ok.injEq, Option.some.injEq] at h
           subst h
           exact .natOp hmem (hw hwa) hra (hw hwb) hrb hres
-    · split at h
-      · cases hwa : whnf μ eager env fuel d a with
-        | error err => rw [hwa] at h; exact nomatch h
-        | ok a0 =>
-        rw [hwa] at h
-        dsimp only at h
-        cases hra : rawNatLit? a0 with
-        | none => rw [hra] at h; simp [pure, Except.pure] at h
-        | some n₁ =>
-        rw [hra] at h
-        dsimp only at h
-        cases hwb : whnf μ eager env fuel d b with
-        | error err => rw [hwb] at h; exact nomatch h
-        | ok b0 =>
-        rw [hwb] at h
-        dsimp only at h
-        cases hrb : rawNatLit? b0 with
-        | none => rw [hrb] at h; simp [pure, Except.pure] at h
-        | some n₂ =>
-          rw [hrb] at h
-          simp [throw, throwThe, MonadExceptOf.throw] at h
-      · simp [pure, Except.pure] at h
+    · simp [pure, Except.pure] at h
   | .bvar _, h | .fvar _ _, h | .sort _, h | .lam _ _, h
   | .forallE _ _, h | .letE _ _ _, h | .lit _, h
   | .proj _ _ _, h | .const _ _, h =>
@@ -171,7 +150,7 @@ theorem majorToCtor_bridge (hw : WhnfBridge .verified eager env fuel)
     Red env d major major' := by
   obtain ⟨cv, mI, rP, hfr⟩ := hrec
   rcases majorToCtor_inv h with rfl | ⟨hsc1, hsc2, hsc3, rl, cvj, cnP, cnF,
-    tmaj₀, tmaj, T, us₀, ust, cvT, caps, rfl, hfj, hpi, hfT, hinf, hwh, hfn, harm⟩
+    tmaj₀, tmaj, T, ust, cvT, caps, rfl, hfj, hfT, hinf, hwh, hfn, harm⟩
   · exact .refl
   rcases harm with ⟨hk, hlps, hle, rfl, ⟨tf, htf, hdq⟩, hpirr⟩ |
     ⟨tbl, heta, hlen, hlps, rfl⟩ |
@@ -179,15 +158,15 @@ theorem majorToCtor_bridge (hw : WhnfBridge .verified eager env fuel)
   · -- the major's half of the `proofIrrel (fab, major)` run: a proof
     obtain ⟨-, -, -, tb, stb, vT, -, -, -, -, htb, hstb, hwstb, hvT⟩ :=
       proofIrrel_inv (hpirr rfl)
-    exact .rescueK hfr hk hfj hpi hfT (inferTypeIO_bridge hio hinf) (hw hwh) hfn
+    exact .rescueK hfr hk hfj hfT (inferTypeIO_bridge hio hinf) (hw hwh) hfn
       hlps hle rfl hsc1 hsc2 hsc3
       (inferTypeIO_bridge hio htf) (hd hdq) (inferTypeIO_bridge hio htb)
       (inferTypeIO_bridge hio hstb) (hw hwstb) hvT
-  · exact .rescueEta hfr hfj hpi hfT heta (inferTypeIO_bridge hio hinf) (hw hwh)
+  · exact .rescueEta hfr hfj hfT heta (inferTypeIO_bridge hio hinf) (hw hwh)
       hfn hlen hlps rfl hsc1 hsc2 hsc3
   · obtain ⟨-, -, -, tb, stb, vT, -, -, -, -, htb, hstb, hwstb, hvT⟩ :=
       proofIrrel_inv (hpirr rfl)
-    exact .rescueAnd hfr hfj hpi hfT (inferTypeIO_bridge hio hinf) (hw hwh) hfn
+    exact .rescueAnd hfr hfj hfT (inferTypeIO_bridge hio hinf) (hw hwh) hfn
       hlen hlps hslots rfl hsc1 hsc2 hsc3
       (inferTypeIO_bridge hio htf) (hd hdq) (inferTypeIO_bridge hio htb)
       (inferTypeIO_bridge hio hstb) (hw hwstb) hvT
@@ -270,9 +249,9 @@ theorem formerNeverZeroAt_bridge (hw : WhnfBridge .verified eager env fuel)
 
 /-- The ι case split's verdict is `IotaCase`. -/
 theorem iotaCase3At_bridge (hw : WhnfBridge .verified eager env fuel)
-    {isK : Bool} {cvj : ConstantVal} {us : List Level} {c3 : Bool}
-    (h : iotaCase3At (pureFns .verified eager env fuel).whnf env.find? isK cvj us = .ok c3) :
-    IotaCase env isK cvj us c3 := by
+    {isK : Bool} {induct : Name} {us : List Level} {c3 : Bool}
+    (h : iotaCase3At (pureFns .verified eager env fuel).whnf env.find? isK induct us = .ok c3) :
+    IotaCase env isK induct us c3 := by
   cases c3 with
   | true => exact .three
   | false =>
@@ -301,6 +280,18 @@ theorem iotaCase3At_bridge (hw : WhnfBridge .verified eager env fuel)
         · exact nomatch h
       · exact nomatch h
 
+
+/-- The ι case split at the stored facts first is `IotaCaseS`. -/
+theorem iotaCaseAt_bridge (hw : WhnfBridge .verified eager env fuel)
+    {isK : Bool} {induct : Name} {us : List Level} {c3 : Bool}
+    (h : iotaCaseAt (pureFns .verified eager env fuel).whnf env.find? isK induct us = .ok c3) :
+    IotaCaseS env isK induct us c3 := by
+  unfold iotaCaseAt at h
+  split at h
+  · next hn =>
+    cases Except.ok.inj h
+    exact .stored hn
+  · exact .use (iotaCase3At_bridge hw h)
 /-- `iotaRec` ⇒ `Red.iota` (`iotaRec_inv`, `prepareMajor_bridge`,
 `defEqList_bridge`, the arity-checked recursor spine, and at a case-3 redex
 `iotaCertsFull_bridge` and `iotaIndexOk_inv`). -/
@@ -310,7 +301,7 @@ theorem iotaRec_bridge (hw : WhnfBridge .verified eager env fuel)
     {d : Nat} {e e'' : Expr}
     (h : iotaRecFueled .verified eager env fuel d e = .ok (some e'')) :
     Red env d e e'' := by
-  obtain ⟨c, us, cv, mI, rP, isK, rules, major, cj, usj, cvj, cnP, cnF, rl,
+  obtain ⟨c, us, cv, mI, rP, isK, rules, major, cj, usj, cvj, cnP, cnF, induct, rl,
     hfn, hfc, hlen, hlvl, hprep, hmfn, hfj, hrule, hml, h3, rfl⟩ := iotaRec_inv h
   have hmaj : Red env d (e.getAppArgs.getD mI (.bvar 0)) major :=
     prepareMajor_bridge hw hd hio ⟨cv, mI, rP, hfc⟩ hprep
@@ -321,7 +312,7 @@ theorem iotaRec_bridge (hw : WhnfBridge .verified eager env fuel)
     rw [hlen]
     exact peelPis_isSome_instantiateLevelParams _ _ _ (iotaRec_arity h hfn hfc)
   obtain ⟨c3, hrun, h3⟩ := h3 rfl
-  have hcase := iotaCase3At_bridge hw hrun
+  have hcase := iotaCaseAt_bridge hw hrun
   cases c3 with
   | true =>
     obtain ⟨hlev, hpeq, hcerts, hidx⟩ := h3 rfl
@@ -352,7 +343,7 @@ theorem reduceProjCore_bridge (hw : WhnfBridge .verified eager env fuel)
     Red env d (.proj sn i c) m := by
   obtain ⟨e₃, us, entry, hlit, hfn, hfp, hi, hlen, hus, rfl, hcert⟩ :=
     reduceProjCore_inv h
-  obtain ⟨cvC, nP, nF, hc, harity⟩ := projCertAt_verified_inv hcert
+  obtain ⟨cvC, nP, nF, _, hc, harity⟩ := projCertAt_verified_inv hcert
   exact .trans (.projArg (projLitToCtor_bridge hw hlit))
     (.proj hfp hfn hi hlen hus hc
       (peelPis_isSome_instantiateLevelParams _ _ _ harity))

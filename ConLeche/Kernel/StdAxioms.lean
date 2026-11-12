@@ -102,7 +102,7 @@ def iffIntroA : ConstantInfo :=
     pi "mp" (piA (bv 1) (bv 1)) <|
     pi "mpr" (piA (bv 1) (bv 3)) <|
     ap2 (cnst iffName) (bv 3) (bv 2)⟩
-    2 2
+    2 2 iffName
 
 /-- `Iff.rec`'s minor premise, in the `a`/`b`/`motive` binder context:
 `∀ (mp : a → b) (mpr : b → a), motive (Iff.intro a b mp mpr)`. -/
@@ -142,7 +142,7 @@ def nonemptyIntroA : ConstantInfo :=
     pi "α" (srt u) <|
     pi "val" (bv 0) <|
     .app (cnst nonemptyName [u]) (bv 1)⟩
-    1 1
+    1 1 nonemptyName
 
 /-- `Nonempty.rec.{u} (α : Sort u) (motive : Nonempty α → Prop)
 (intro : ∀ val, motive (Nonempty.intro α val)) (t : Nonempty α) :
@@ -189,7 +189,7 @@ def stdAxiomOk (env : Env) (cv : ConstantVal) : Bool :=
      | some (.indInfo cvI _) => ConstantVal.matchesPin cvI iffA.toConstantVal
      | _ => false) &&
     (match env.find? iffIntroName with
-     | some (.ctorInfo cvIi 2 2) =>
+     | some (.ctorInfo cvIi 2 2 _) =>
        ConstantVal.matchesPin cvIi iffIntroA.toConstantVal
      | _ => false) &&
     (match env.find? iffRecName with
@@ -203,7 +203,7 @@ def stdAxiomOk (env : Env) (cv : ConstantVal) : Bool :=
        ConstantVal.matchesPin cvN nonemptyA.toConstantVal
      | _ => false) &&
     (match env.find? nonemptyIntroName with
-     | some (.ctorInfo cvNi 1 1) =>
+     | some (.ctorInfo cvNi 1 1 _) =>
        ConstantVal.matchesPin cvNi nonemptyIntroA.toConstantVal
      | _ => false) &&
     (match env.find? nonemptyRecName with

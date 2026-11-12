@@ -38,7 +38,7 @@ open ConLeche
 /-- The block with the rule `U.u ↦ rhs`. -/
 @[expose] def block (rhs : Expr) : List ConstantInfo :=
   [.indInfo ⟨nm "U", [], .sort (.succ .zero)⟩ {},
-   .ctorInfo ⟨nm2 "U" "u", [], cU⟩ 0 0,
+   .ctorInfo ⟨nm2 "U" "u", [], cU⟩ 0 0 (nm "U"),
    .recInfo ⟨nm2 "U" "rec", [nm "v"], recTy⟩ 2 2
      false [{ ctor := nm2 "U" "u", nfields := 0, fire := .plain, rhs := rhs }]]
 

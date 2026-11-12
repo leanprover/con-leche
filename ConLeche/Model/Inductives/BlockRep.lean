@@ -210,7 +210,7 @@ the constructor is stored with the block's level parameters and its
 type reads as the block data says. -/
 @[expose] def BlockCtorFacts {env : Env} (m : EnvModel V env) (d : BlockData V) (lps : List Name)
     (c j : Nat) (ctor : ConstantVal × Nat) : Prop :=
-  env.find? ctor.1.name = some (.ctorInfo ctor.1 d.nP ctor.2) ∧
+  env.find? ctor.1.name = some (.ctorInfo ctor.1 d.nP ctor.2 (d.memberName c)) ∧
   ctor.1.levelParams = lps ∧
   BlockCtorDataI m (d.memberName c) lps ctor.1 d.nP ctor.2 (d.nIdxAt c) d.resSort d.isProp d.large
     (d.idxF c j) (d.dsF c j) (d.esF c j) (d.srcsF c j) (d.fvsPF c j) (d.xFvsF c j) (d.xrestF c j)

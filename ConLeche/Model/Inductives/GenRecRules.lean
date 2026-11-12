@@ -1614,7 +1614,7 @@ theorem genIhFree_run
     (hg : ClassGenScoped R.g)
     (hfind : ∀ (j : Nat) (r : ConstantVal × List Expr × Nat × List (ConstantVal × Nat)),
       (tgtRs out)[j]? = some r → ∀ (i : Nat) (ctor : ConstantVal × Nat), r.2.2.2[i]? = some ctor →
-        envC.find? ctor.1.name = some (.ctorInfo ctor.1 (ConLeche.tgtMajorsOf out j).nPc ctor.2))
+        ∃ iT, envC.find? ctor.1.name = some (.ctorInfo ctor.1 (ConLeche.tgtMajorsOf out j).nPc ctor.2 iT))
     {j : Nat} {r : ConstantVal × List Expr × Nat × List (ConstantVal × Nat)}
     (hr : (tgtRs out)[j]? = some r) {i : Nat} {ctor : ConstantVal × Nat}
     (hctor : r.2.2.2[i]? = some ctor) {rhs : Expr} (hrhs : r.2.1[i]? = some rhs) :
@@ -1676,15 +1676,15 @@ theorem genIhFree_run
     obtain ⟨ctor', hctor', ⟨CR'⟩⟩ := genClassCtorAt R hclsM (List.getElem?_eq_getElem hi')
     have hctor'r : r.2.2.2[i']? = some ctor' := by
       rw [hctors]; exact hctor'
-    have hf1 := hfind j r hr i' ctor' hctor'r
-    have hf2 := hfind j r hr i ctor hctor
+    obtain ⟨_, hf1⟩ := hfind j r hr i' ctor' hctor'r
+    obtain ⟨_, hf2⟩ := hfind j r hr i ctor hctor
     have hn1 : ctor'.1.name = ctor.1.name := by
       have h1 := congrArg (fun y => y.cv.name) CR'.hx
       simp only at h1
       rw [← h1, hname, hxcv]
     rw [hn1, hf2] at hf1
     have hinj := Option.some.inj hf1
-    injection hinj with h1 h2 h3
+    injection hinj with h1 h2 h3 h4
     have hcAeq : ctor' = ctor := Prod.ext h1.symm h3.symm
     subst hcAeq
     exact classCtorRun_unique CR' CR
@@ -1961,7 +1961,7 @@ theorem genRecHdataS
           (fun _ => genRbAV R.g R.rd)) ψ) ρ)
     (hfind : ∀ (j : Nat) (r : ConstantVal × List Expr × Nat × List (ConstantVal × Nat)),
       (tgtRs out)[j]? = some r → ∀ (i : Nat) (ctor : ConstantVal × Nat), r.2.2.2[i]? = some ctor →
-        envC.find? ctor.1.name = some (.ctorInfo ctor.1 (ConLeche.tgtMajorsOf out j).nPc ctor.2))
+        ∃ iT, envC.find? ctor.1.name = some (.ctorInfo ctor.1 (ConLeche.tgtMajorsOf out j).nPc ctor.2 iT))
     (hpref : GenRulePrefRead mpC.base2.acval envC pp out)
     (hfield : GenRuleFieldRead mpC.base2.acval envC pp out)
     (hrow3 : ∀ (φ : Name → Nat) (j : Nat)

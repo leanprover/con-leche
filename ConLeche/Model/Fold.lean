@@ -333,8 +333,8 @@ theorem stmtKind_of_ind {block : List ConstantInfo} {nP : Nat} {ci : ConstantInf
   split at hci
   · next p _ =>
     unfold blockConstants blockFormers blockCtors at hci
-    simp only [List.mem_append, List.mem_map] at hci
-    rcases hci with (⟨_, -, rfl⟩ | ⟨_, -, rfl⟩) | hr
+    simp only [List.mem_append, List.mem_map, List.mem_flatMap] at hci
+    rcases hci with (⟨_, -, rfl⟩ | ⟨_, -, _, -, rfl⟩) | hr
     · rfl
     · rfl
     · have : ∀ rs, ∀ c ∈ blockRecs p rs, c.isStmtKind = false := by

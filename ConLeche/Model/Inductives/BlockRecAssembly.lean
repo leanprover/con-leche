@@ -277,7 +277,7 @@ theorem blockRecStaged_runR {envC : Env}
     (hshape : ConLeche.RecRulesShape R rs fireOf)
     (hnest : NestedFiresOk envC p rs fireOf)
     (hctorsIn : ∀ r ∈ rs, ∀ ctor ∈ r.2.2.2,
-      ∃ cvj cnP cnF, envC.find? ctor.1.name = some (.ctorInfo cvj cnP cnF))
+      ∃ cvj cnP cnF iT, envC.find? ctor.1.name = some (.ctorInfo cvj cnP cnF iT))
     (hleaf : BlockRecLeafOk mpC rs s eqs)
     (hnew : AtStreamRules mpC R p rs s eqs fireOf fun m₃ φ j r _ _ _ rl =>
         RecRuleLaw m₃ φ r.1.name r.1 (p.majorIdxAt j)

@@ -139,6 +139,11 @@ def BlockShape.formers (p : BlockShape) : List ConstantVal := p.members.map (·.
 def BlockShape.memberCtors (p : BlockShape) : List (List (ConstantVal × Nat)) :=
   p.members.map (·.ctors)
 
+/-- The constructors grouped by member, each group under its member's name: what the install
+conses (`consBlockCtors`), the name becoming each constructor's `induct`. -/
+def BlockShape.ctorGroups (p : BlockShape) : List (Name × List (ConstantVal × Nat)) :=
+  p.members.map fun ms => (ms.cvT.name, ms.ctors)
+
 /-- The constructors of a list of members, counted (a recursion, not a
 `foldl`, so that ONE member's count is `n + 0` and reduces). -/
 def numCtorsOf : List MemberShape → Nat
@@ -229,7 +234,7 @@ def blockSplitRecs : List ConstantInfo →
 /-- The constructors, then the recursors. -/
 def blockSplitCtors : List ConstantInfo →
     Option (List (ConstantVal × Nat × Nat) × List (ConstantVal × Nat × Nat × Bool × List RecRule))
-  | .ctorInfo cvC nP nF :: rest =>
+  | .ctorInfo cvC nP nF _ :: rest =>
     (blockSplitCtors rest).map fun q => ((cvC, nP, nF) :: q.1, q.2)
   | rest => (blockSplitRecs rest).map fun rs => ([], rs)
 

@@ -45,6 +45,31 @@ universe w
 variable {V : Type w} [SetTheory V] {env : Env} {m : EnvModel V env}
   {φ : Name → Nat}
 
+/-! ## The stored facts the ι step reads (task #573) -/
+
+/-- **The stored case split, read semantically**: `iotaNoCert`'s verdict is `IotaCase`'s, by the
+family's sort fact (`IndWF`). -/
+theorem iotaNoCert_sem {isK : Bool} {cvj : ConstantVal} {T : Name} {us₀ us : List Level}
+    (hh : cvj.type.piResult.getAppFn = .const T us₀)
+    (hn : ConLeche.iotaNoCert env.find? isK T us.length = true) :
+    IotaCaseSem m φ isK cvj us false := by
+  cases hk : isK with
+  | true => exact IotaCase.k_sound
+  | false =>
+    rw [hk] at hn
+    simp only [ConLeche.iotaNoCert, Bool.false_or] at hn
+    split at hn
+    · next cvT caps hfam =>
+      simp only [Bool.and_eq_true, beq_iff_eq] at hn
+      rw [← ctorTypeFamily_eq hh] at hfam
+      obtain ⟨T, _, -, hT⟩ := ctorFamily_find hfam
+      have hnz := m.wf.inds _ (ConLeche.Env.find?_mem hT) cvT caps rfl hn.1
+      refine IotaCase.never_sound hfam hn.2 ?_
+      unfold ConLeche.formerNeverZero
+      rw [ConLeche.PropWhen.isNever_iff.mp hnz]
+      rfl
+    · exact nomatch hn
+
 /-! ## The conditional induction -/
 
 mutual
@@ -72,25 +97,25 @@ theorem red_sound (hin : RulesInputs V m φ) :
   | _, _, _, .iota hhead hrec hlen hus hmajor hmhead hctor hrule hmlen hcase hlv
       hparams hcertR hcertC hres hidx =>
     Red.iota_sound hin hhead hrec hlen hus (red_sound hin hmajor) hmhead hctor
-      hrule hmlen (iotaCase_sound hin hcase) hlv (fun hc => defEqList_sound hin (hparams hc))
+      hrule hmlen (iotaCaseS_sound hin (m.wf.ctorHead hctor).choose_spec hcase) hlv (fun hc => defEqList_sound hin (hparams hc))
       (teleArity_sound hcertR) (fun h3 => certsF_sound hin (hcertC h3)) hres
       (fun h3 hne => defEqList_sound hin (hidx h3 hne))
-  | _, _, _, .rescueK hrec hk hctor hres hind htm htmaj hthead hlv hnP hfab hws
+  | _, _, _, .rescueK hrec hk hctor hind htm htmaj hthead hlv hnP hfab hws
       hb hlv' _ _ htp http hv hv0 =>
-    Red.rescueK_sound hin hrec hk hctor hres hind (infer_sound hin htm)
+    Red.rescueK_sound hin hrec hk hctor hind (infer_sound hin htm)
       (red_sound hin htmaj) hthead hlv hnP hfab hws hb hlv' (infer_sound hin htp)
       (prop_pt_io hin http rfl (infer_sound hin http) hv (red_sound hin hv)
         (ConLeche.Level.isEquiv_sound hv0 φ))
-  | _, _, _, .rescueAnd hrec hctor hres hind htm htmaj hthead hlen hlv hslots
+  | _, _, _, .rescueAnd hrec hctor hind htm htmaj hthead hlen hlv hslots
       hfab hws hb hlv' _ _ htp http hv hv0 =>
-    Red.rescueAnd_sound hin hrec hctor hres hind (infer_sound hin htm)
+    Red.rescueAnd_sound hin hrec hctor hind (infer_sound hin htm)
       (red_sound hin htmaj) hthead hlen hlv hslots hfab hws hb hlv'
       (infer_sound hin htp)
       (prop_pt_io hin http rfl (infer_sound hin http) hv (red_sound hin hv)
         (ConLeche.Level.isEquiv_sound hv0 φ))
-  | _, _, _, .rescueEta hrec hctor hres hind heta htm htmaj hthead hlen hlv
+  | _, _, _, .rescueEta hrec hctor hind heta htm htmaj hthead hlen hlv
       hfab hws hb hlv' =>
-    Red.rescueEta_sound hin hrec hctor hres hind heta (infer_sound hin htm)
+    Red.rescueEta_sound hin hrec hctor hind heta (infer_sound hin htm)
       (red_sound hin htmaj) htmaj hthead hlen hlv hfab hws hb hlv'
 
 theorem defeq_sound (hin : RulesInputs V m φ) :
@@ -219,24 +244,35 @@ theorem formerSort_sound (hin : RulesInputs V m φ) :
   | _, _, _, _, .sort hr => FormerSort.sort_sound (red_sound hin hr)
   | _, _, _, _, .pi hr hrest => FormerSort.pi_sound (red_sound hin hr) (formerSort_sound hin hrest)
 
-theorem iotaCase_sound (hin : RulesInputs V m φ) :
-    ∀ {isK : Bool} {cvj : ConstantVal} {us : List Level} {c3 : Bool},
-      IotaCase env isK cvj us c3 → IotaCaseSem m φ isK cvj us c3
-  | _, _, _, _, .three => IotaCase.three_sound
-  | _, _, _, _, .k => IotaCase.k_sound
-  | _, _, _, _, .never hfam hlen hnz => IotaCase.never_sound hfam hlen hnz
-  | _, _, _, _, .walk hfam hlen hnone hs hnv =>
-    IotaCase.walk_sound hin hfam hlen hnone (formerSort_sound hin hs) hnv
+/-- The ι case split at the constructor's stored family name `T`, read at the constructor
+whose type concludes in `T`. -/
+theorem iotaCase_sound (hin : RulesInputs V m φ) {cvj : ConstantVal} {T : Name}
+    {us₀ : List Level} (hh : cvj.type.piResult.getAppFn = .const T us₀) :
+    ∀ {isK : Bool} {us : List Level} {c3 : Bool},
+      IotaCase env isK T us c3 → IotaCaseSem m φ isK cvj us c3
+  | _, _, _, .three => IotaCase.three_sound
+  | _, _, _, .k => IotaCase.k_sound
+  | _, _, _, .never hfam hlen hnz => IotaCase.never_sound (by rw [ctorTypeFamily_eq hh]; exact hfam) hlen hnz
+  | _, _, _, .walk hfam hlen hnone hs hnv =>
+    IotaCase.walk_sound hin (by rw [ctorTypeFamily_eq hh]; exact hfam) hlen hnone
+      (formerSort_sound hin hs) hnv
+
+theorem iotaCaseS_sound (hin : RulesInputs V m φ) {cvj : ConstantVal} {T : Name}
+    {us₀ : List Level} (hh : cvj.type.piResult.getAppFn = .const T us₀) :
+    ∀ {isK : Bool} {us : List Level} {c3 : Bool},
+      IotaCaseS env isK T us c3 → IotaCaseSem m φ isK cvj us c3
+  | _, _, _, .stored hn => iotaNoCert_sem hh hn
+  | _, _, _, .use h => iotaCase_sound hin hh h
 
 theorem projGuard_sound (hin : RulesInputs V m φ) :
     ∀ {entry : ProjEntry} {us : List Level}, ProjGuard env entry us → ProjGuardSem m φ entry us
-  | _, _, .notProp hT hs hz => fun _ _ _ _ _ _ => .inl ⟨_, _, _, hT, hs, hz⟩
-  | _, _, .prop _ _ _ hr hg => fun _ _ _ hfC hus _ =>
+  | _, _, .notProp hT hs hz => fun _ _ _ _ _ _ _ => .inl ⟨_, _, _, hT, hs, hz⟩
+  | _, _, .prop _ _ _ hr hg => fun _ _ _ _ hfC hus _ =>
     .inr (.inl (rowsAt_of_rows hin hfC hus hr (guardRows_sound hin hg) rfl))
-  | _, _, .never hT _ hs hnv => fun _ _ _ _ hus hl =>
+  | _, _, .never hT _ hs hnv => fun _ _ _ _ _ hus hl =>
     .inr (.inr ⟨_, _, _, hT, formerSort_tower hin hT (hl _ _ hT) (formerSort_sound hin hs),
       .inl (eval_ne_zero_of_isNever hnv φ)⟩)
-  | _, _, .mayVanish hT _ hs _ hr hg => fun _ _ _ hfC hus hl =>
+  | _, _, .mayVanish hT _ hs _ hr hg => fun _ _ _ _ hfC hus hl =>
     .inr (.inr ⟨_, _, _, hT, formerSort_tower hin hT (hl _ _ hT) (formerSort_sound hin hs),
       if hz : Level.eval φ _ = 0 then
         .inr (by rw [hz]; exact rowsAt_of_rows hin hfC hus hr (guardRows_sound hin hg) hz)

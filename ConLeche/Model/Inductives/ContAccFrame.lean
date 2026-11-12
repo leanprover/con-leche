@@ -486,8 +486,8 @@ theorem frameCtor_acc (hin : RulesInputs V mp.base2 φ) {w : Nat}
     (hLds : ∀ x ∈ ds, Expr.LeavesBounded x)
     (hkf : ∀ ρ ρ', R₀ ρ ρ' → KeyFit D (Level.substFn φ lps us) dsa hi ρ ∧ KeyFit D (Level.substFn φ lps us) dsa hi ρ')
     (hwD : ∀ ρ ρ', R₀ ρ ρ' → D.w (Level.substFn φ lps us) = w)
-    {g j : Nat} (hG : InGrp D grp g) (hj : j < D.nctors g) {cv : ConstantVal} {nF : Nat}
-    (hfc : env.find? (D.ctorName g j) = some (.ctorInfo cv ds.length nF))
+    {g j : Nat} (hG : InGrp D grp g) (hj : j < D.nctors g) {cv : ConstantVal} {nF : Nat} {iT : Name}
+    (hfc : env.find? (D.ctorName g j) = some (.ctorInfo cv ds.length nF iT))
     (hwk : CtorWalkedA mp.base2 φ w ctx ((grpNews us ds hi grp).reverse ++ prog) (hi + grp.length)
       us ds (grp.map (·.1)) (grpHoles hi grp) ((grpTys mp.base2 φ hi grp).reverse ++ Δh)
       (frameRelA R₀ D (Level.substFn φ lps us) grp dsa hi) (cv, nF)) :
@@ -939,7 +939,7 @@ theorem frameIterAcc (hin : RulesInputs V mp.base2 φ) {w : Nat}
     (hwS : ctx.sort.eval φ = w) {F : Nat}
     (hcov : ∀ c, c < D.k → ∃ nP' L, ConLeche.nestContainer ctx (D.member c) = some (nP', L) ∧
       L.length = D.nctors c ∧ ∀ j (hj : j < L.length),
-        env.find? (D.ctorName c j) = some (.ctorInfo L[j].1 nP' L[j].2))
+        ∃ iT, env.find? (D.ctorName c j) = some (.ctorInfo L[j].1 nP' L[j].2 iT))
     {prog : List NestHole} (hhi : ctx.hiAt prog.length = hi) {Δh : List Term}
     {R₀ : FrameRel V} (hR₀ : HoleRelA mp.base2 φ w ctx prog hi Δh R₀) (hΔ : Δh.length = hi)
     (hCds : ∀ x ∈ ds, CtxOkP mp.base2 φ hi Δh x) (hLds : ∀ x ∈ ds, Expr.LeavesBounded x)
@@ -973,9 +973,9 @@ theorem frameIterAcc (hin : RulesInputs V mp.base2 φ) {w : Nat}
     hΔ hCds hLds hkf hwD (grp_arity mp hD hnN hkN hfind hg _)
   have hwalked := hwalk hR'
     (fun x => ∃ c j, InGrp D grp c ∧ j < D.nctors c ∧
-      env.find? (D.ctorName c j) = some (.ctorInfo x.1 ds.length x.2))
+      ∃ iT, env.find? (D.ctorName c j) = some (.ctorInfo x.1 ds.length x.2 iT))
     (fun x crest hQx hcr hinf => by
-      obtain ⟨c, j, hGc, hj, hfc⟩ := hQx
+      obtain ⟨c, j, hGc, hj, _, hfc⟩ := hQx
       have hwf := mp.base2.wf.consts _ (ConLeche.Env.find?_mem hfc)
       have hcl : (x.1.type.instantiateLevelParams x.1.levelParams us).hasFvar = false := by
         rw [Expr.hasFvar_instantiateLevelParams]; exact hwf.1
@@ -992,7 +992,7 @@ theorem frameIterAcc (hin : RulesInputs V mp.base2 φ) {w : Nat}
     hQ
   refine frameAccOut_of mp hD hnN hkN hfind hlps hds hdsa hlenP hg hin hhi hR₁ hΔ hCds hLds
     hkf fun g j hG hj => ?_
-  obtain ⟨x, hxmem, hfc⟩ := grpCtor_found hcov hgc hG hj
+  obtain ⟨x, hxmem, _, hfc⟩ := grpCtor_found hcov hgc hG hj
   exact frameCtor_acc mp hD hnN hkN hfind hlps hnd hul hds hdsa hlenP hg hin hhi hR₁ hΔ hCds hLds
     hkf hwD hG hj hfc (hwalked _ hxmem)
 

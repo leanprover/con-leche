@@ -409,7 +409,7 @@ theorem reduceNat_nested {m : Type → Type} [Monad m] [MonadExceptOf CheckError
 `reduceNatI` finds the operation by `NatBinOp.ofName?`; `reduceNat` tests the fourteen names
 in turn and computes `natOpResult`.  The three facts below identify the two: an operation
 found is one of the names, and its result is `natOpResult`'s; no operation found is none of
-them, nor one of `natOpWfNames` (all fourteen). -/
+them. -/
 
 theorem nameIsC_eq (c n : Name) : nameIsC c n = decide (c = n) := by
   unfold nameIsC
@@ -487,8 +487,7 @@ theorem NatBinOp.ofName?_none {c : Name} (h : NatBinOp.ofName? c = none) :
         c = natPowName ∨ c = natBeqName ∨ c = natBleName ∨
         c = natDivName ∨ c = natModName ∨ c = natGcdName ∨
         c = natLandName ∨ c = natLorName ∨ c = natXorName ∨
-        c = natShiftLeftName ∨ c = natShiftRightName) ∧
-      natOpWfNames.contains c = false := by
+        c = natShiftLeftName ∨ c = natShiftRightName) := by
   rw [NatBinOp.ofName?_eq] at h
   have h1 : ¬c = natAddName := fun e => by rw [ite_eq_left e] at h; cases h
   rw [ite_eq_right h1] at h
@@ -518,8 +517,7 @@ theorem NatBinOp.ofName?_none {c : Name} (h : NatBinOp.ofName? c = none) :
   rw [ite_eq_right h13] at h
   have h14 : ¬c = natShiftRightName := fun e => by rw [ite_eq_left e] at h; cases h
   rw [ite_eq_right h14] at h
-  refine ⟨by simp only [not_or]; exact ⟨h1, h2, h3, h4, h5, h6, h7, h8, h9, h10, h11, h12, h13, h14⟩, ?_⟩
-  simp [natOpWfNames, h7, h8, h9, h10, h11, h12, h13, h14]
+  simp only [not_or]; exact ⟨h1, h2, h3, h4, h5, h6, h7, h8, h9, h10, h11, h12, h13, h14⟩
 grind_pattern [conleche_grind] NatBinOp.ofName?_none => NatBinOp.ofName? c
 
 /-- `reduceNatI` simulates its fueled original. -/
