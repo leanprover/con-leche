@@ -113579,3 +113579,106 @@ shiftLeft, shiftRight), could only fire for a name among those fourteen and so n
   `Verify/InferLemmas`, `Verify/Inductives/NfMemberFree` and `Verify/Rules/RedBridge`.
   `NatBinOp.ofName?_none` (`Verify/Cached/DiscC1`) loses its second conjunct.
 * No behaviour change: the dropped branch was unreachable; verdicts are identical.
+
+## TASK #575: the memos as an open-addressing table — spike, not pursued (2026-11-12, agent/575-flat-memo)
+
+Question: replace the chained `Std.HashMap` memos of `CState` by an insert-only
+open-addressing table (linear probing), to cut the allocation and teardown that #571 measured
+on cbv_aes (memo traffic 1.2 G, teardown 0.3 G).  Phase 1 was a spike on one memo (`inferC`
+and its eager twin), with the go/no-go for converting the rest on its numbers.  **No gain:
+the lane stops after phase 1; nothing lands.**
+
+**The table** (`ConLeche/Cached/FlatMap.lean`, self-contained, on the branch).  Entries in two
+dense arrays (`keys`, `vals`, insertion order, never moved); a slot array of scalar `Nat`s,
+`0` or `(j + 1) * 2^16 + tag` (entry index and sixteen hash bits); start slot from
+`Std.HashMap`'s `scrambleHash`, grown by doubling from 16 slots at `Std.HashMap`'s load
+factor 3/4 (`numBucketsForCapacity`); growth rebuilds only the slot array.  An insert of a
+key `==` to a stored one replaces key and value, as `Std.HashMap.insert` does.  The proofs
+are the two the memo invariant needs, nothing about finding inserted keys:
+`find?_mem` (a hit is the value of an entry whose key is `==` to the query) and `mem_insert`
+(an insert adds only the given entry), with `not_mem_empty`; `CSOK.inferC` became
+`s.inferC.Backed P` (every entry satisfies `P`), and the `KnotC` hit and insert lemmas read
+it through `Backed.find?` / `Backed.insert`.  `lake build` passed warning-free with the
+spike; the other gates were not run.
+
+**Which memos the proofs allow.**  Every `CState` memo's clause is soundness-only (an entry
+is correct; a miss recomputes): the six mode memos and their eager twins (`ModeMemos`, the
+set `withEagerMemos` swaps in), `lsimpC`, `eqvC`, `instC`, and also the stored-constant
+caches `constTyAt`/`constValAt`/`ruleRhsAt` (their hit lemmas read the clause at the entry
+the caller found).  No proof needs a lookup to find an earlier insert.  `lnzC` is never
+written: a dead field.
+
+**Numbers** (instructions:u, one run each, `--verified --jobs=1`; base = master 4ce6cb18e;
+spike = `inferC` on the table; peak RSS from the stats line):
+
+| stream | base | spike | Δ | peak RSS base / spike (GiB) |
+|---|---:|---:|---:|---|
+| init-full | 299.104 G | 303.621 G | +1.51 % | 0.29 / 0.29 |
+| cbv_aes Nr=10 | 10.624 G | 11.201 G | +5.43 % | 0.12 / 0.11 |
+| grind-ring-5 | 10.840 G | 10.980 G | +1.29 % | 0.17 / 0.17 |
+| app-lam | 22.036 G | 22.054 G | +0.08 % | 1.22 / 1.22 |
+| beta-ladder | 4.834 G | 4.823 G | −0.21 % | 0.38 / 0.38 |
+| let-ladder | 2.555 G | 2.561 G | +0.23 % | 0.21 / 0.21 |
+| shift-cascade | 0.050 G | 0.053 G | +6.62 % | 0.02 / 0.02 |
+| unroll-versus-evaluate | 0.026 G | 0.027 G | +3.15 % | 0.02 / 0.02 |
+| the other ten arena perf streams | | | +0.2 … +1.4 % | 0.02–0.03 |
+
+Variants on cbv_aes: tag from the hash's top bits (an `Expr` hash has 32 significant bits,
+so the tag was constant) 11.367 G; the Fibonacci-mixed tag 11.197 G; load factor 1/2
+instead of 3/4 11.118 G; replace-on-equal-key 11.203 G.
+
+**Why it loses.**  The verdicts and the work are the same (315 132 `inferBodyI` calls in
+both).  The table's own operations are not cheaper in instructions than the chained map's:
+the probe loop over boxed-scalar `Nat`s costs 0.20 G for `inferC` alone on cbv_aes, about
+what `Std.HashMap`'s bucket walk costs for all five `Expr` memos together (0.17 G); what it saves in allocation
+(the `AssocList` cells: −0.1 G in `lean_alloc_small_object_core`, −0.07 G in `mi_free`) is
+small.  And it makes more structural key comparisons: `beqDec` runs 2.15 M times against
+1.97 M — 553 k from the probe loop against 367 k from `inferC`'s bucket walk —, and each is a
+memoised descent; `lean_dec_ref_cold` and `lean_free_object` grow by 0.46 G and 0.28 G.  The
+likely reason, not confirmed: a bucket walk meets the most recent of the keys with a
+colliding word first (`Std.HashMap` conses at the front), a probe sequence the oldest
+(replacing an equal key on insert did not change the count).  The memo traffic #571 measured is
+mostly that comparison (the structural equality behind the memo keys, lane #574), not the
+table structure.
+
+**The structural equality's memo (for lane #574).**  `beqGoX`'s memo (`BeqMap`, a
+`Std.HashMap Nat EqPair` made at the first shared/shared pair proved equal) is the case the
+official kernel serves with `ptr_pair_set` (`src/kernel/ptr_pair_set.h`): open addressing
+with its first 16 slots inline in the traversal's frame, growth past load factor 1/2, so a
+comparison that records at most 8 pairs allocates nothing — and most record a few (cbv_aes:
+1.66 M root comparisons, about 4 nodes each).  The table here does not cover that case as it
+stands: a Lean value cannot live in the caller's frame, and the first insert allocates the
+16-slot array and the two entry arrays.  The nearest Lean shape is a slot-less first stage:
+up to 8 entries (official's 16 slots at its 1/2) kept in the entry arrays and scanned
+linearly, the slot array built at the 9th.  Both were measured as probes (one run each,
+cbv_aes Nr=10 / grind-ring-5, against the spike binary, which has `inferC` on the table):
+
+| probe | cbv_aes | grind-ring-5 |
+|---|---:|---:|
+| spike (`BeqMap` = `Std.HashMap`) | 11.201 G | 10.980 G |
+| `BeqMap` on the table | 11.472 G (+2.4 %) | 11.106 G (+1.1 %) |
+| `BeqMap` on the table with the slot-less first stage | 11.432 G | 11.068 G |
+| the first stage, `BeqMap` = `Std.HashMap` | 11.219 G | 10.993 G |
+
+The first stage gains 0.04 G on the equality memo and nothing on `inferC`; the table loses
+to `Std.HashMap` in both places.  What official's design has and a Lean array table lacks is
+the allocation-free first stage: the entry arrays still allocate on the first record (the
+`EqPair` cell too).  An allocation-free first stage would need the first pairs as scalar
+fields of the descent's own result (its `Option BeqMap` slot), which is #574's seam.
+Probe diffs: `_tmp/575/runs/probe-beq-flat.diff`, `probe-small-stage.diff`.
+
+Data and scripts: `_tmp/575/runs` (`base.summary`, `spike4.summary`), `_tmp/575/meas.sh`.
+
+**Decision (maintainer, 2026-11-12): not pursued; the record is kept for future reference.**
+The spike's code stays on branch `agent/575-flat-memo` (8bf47f13a, 0c4c0b962) and is not
+merged.  Two symptoms point the wrong way for open addressing and were not explained; anyone
+returning to this should check them before concluding that the structure itself is slower:
+(1) freeing *grows* (+0.74 G in `lean_dec_ref_cold` / `lean_free_object`), where a flat table
+should free less than a cell per entry — the first suspect is an array copied instead of
+updated in place at an insert (a non-unique `keys`/`vals`/slot array makes `push`/`set`
+copy and bump every element's reference count); count `lean_copy_expand_array` and copying
+pushes in the spike binary; (2) key comparisons *grow* (553 k against 367 k from `inferC`),
+where the 16-bit slot tag should filter most non-matching slots — measure the probe-length
+and tag-hit distribution on cbv_aes (the `Expr` hash's 32 significant bits and the mixing
+of the tag are the candidates).  Side findings: `lnzC` is never written (a dead field);
+an `Expr` hash has 32 significant bits.
