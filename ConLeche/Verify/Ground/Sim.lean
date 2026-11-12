@@ -336,4 +336,199 @@ theorem EntRel.defn {PA PB : G4Prog} (hIA : Inv f₁ p₁ PA) (hIB : Inv f₂ p�
   · have := hIA.ents kA (lt_of_some hi); unfold EntOK at this; rw [hi] at this; exact this
   · have := hIB.ents kB (lt_of_some h₂); unfold EntOK at this; rw [h₂] at this; exact this
 
+/-! ## The words of related entries -/
+
+/-- **Two name ids of one name.** -/
+@[expose] def NidRel (PA PB : G4Prog) (iA iB : Nat) : Prop :=
+  ∃ c : Name, PA.nids[c]? = some iA ∧ PB.nids[c]? = some iB
+
+/-- Name ids are related one to one. -/
+theorem NidRel.iff {PA PB : G4Prog} (hA : NidOK PA) (hB : NidOK PB) {iA iB jA jB : Nat}
+    (h : NidRel PA PB iA iB) (h' : NidRel PA PB jA jB) : iA = jA ↔ iB = jB := by
+  obtain ⟨c, h₁, h₂⟩ := h
+  obtain ⟨c', h₁', h₂'⟩ := h'
+  constructor
+  · rintro rfl; obtain rfl := hA.2 c c' iA h₁ h₁'; rw [h₂] at h₂'; exact Option.some.inj h₂'
+  · rintro rfl; obtain rfl := hB.2 c c' iB h₂ h₂'; rw [h₁] at h₁'; exact Option.some.inj h₁'
+
+/-- Entries are related one to one (each side registers an entry at its key). -/
+theorem EntRel.iff {PA PB : G4Prog} (hA : CompInv f₁ p₁ PA) (hB : CompInv f₂ p₂ PB) {kA kB kA' kB' : Nat}
+    (h : EntRel PA PB kA kB) (h' : EntRel PA PB kA' kB') : kA' = kA ↔ kB' = kB := by
+  obtain ⟨iA, iB, h₁, h₂, h₃⟩ := h
+  obtain ⟨iA', iB', h₁', h₂', h₃'⟩ := h'
+  have eA := hA.kMapAll _ _ h₁; have eA' := hA.kMapAll _ _ h₁'
+  have eB := hB.kMapAll _ _ h₂; have eB' := hB.kMapAll _ _ h₂'
+  constructor
+  · rintro rfl
+    rw [h₁] at h₁'; obtain rfl := Option.some.inj h₁'
+    rw [← h₃', h₃] at eB'; rw [eB] at eB'; exact (Option.some.inj eB').symm
+  · rintro rfl
+    rw [h₂] at h₂'; obtain rfl := Option.some.inj h₂'
+    rw [h₃', ← h₃] at eA'; rw [eA] at eA'; exact (Option.some.inj eA').symm
+
+/-- **A constructor's arity** is one word on both sides of related entries
+(the lookups agreeing on the name). -/
+theorem EntRel.arity_ctor {PA PB : G4Prog} (hIA : Inv f₁ p₁ PA) (hIB : Inv f₂ p₂ PB) {kA kB : Nat}
+    (h : EntRel PA PB kA kB) {cv : ConstantVal} {nP nF : Nat}
+    (hc : ∀ iA, PA.kInfo[kA]? = some iA → f₁ (infoKey iA).1 = some (.ctorInfo cv nP nF) ∧
+      f₂ (infoKey iA).1 = some (.ctorInfo cv nP nF)) :
+    PA.kArity[kA]? = some (g4Pis cv.type 0) ∧ PB.kArity[kB]? = some (g4Pis cv.type 0) := by
+  obtain ⟨iA, iB, h₁, h₂, h₃⟩ := h
+  obtain ⟨c₁, c₂⟩ := hc iA h₁
+  exact ⟨hIA.ctorAr kA iA cv nP nF h₁ c₁, hIB.ctorAr kB iB cv nP nF h₂ (h₃ ▸ c₂)⟩
+
+/-- **Two constructor entries of one key**: one tag, one arity, one level
+count, their name ids related. -/
+theorem EntRel.ctorW {PA PB : G4Prog} (hIA : Inv f₁ p₁ PA) (hIB : Inv f₂ p₂ PB) {kA kB : Nat}
+    (h : EntRel PA PB kA kB) {c : Name} {us : List Level} {nP nF : Nat}
+    (hi : PA.kInfo[kA]? = some (.ctor c us nP nF)) (hf : f₁ c = f₂ c) :
+    PB.kInfo[kB]? = some (.ctor c us nP nF) ∧ PA.kTag[kA]? = some 1 ∧ PB.kTag[kB]? = some 1 ∧
+      PA.kArity[kA]? = PB.kArity[kB]? ∧ PA.kD[kA]? = PB.kD[kB]? ∧
+      ∃ iA iB, PA.kB[kA]? = some iA ∧ PB.kB[kB]? = some iB ∧ NidRel PA PB iA iB := by
+  obtain ⟨hB, ⟨⟨cv, h₁, h₂⟩, h₃, ⟨i, h₄, h₅⟩, h₆⟩, ⟨⟨cv', h₁', h₂'⟩, h₃', ⟨i', h₄', h₅'⟩, h₆'⟩⟩ :=
+    h.ctor hIA hIB hi hf
+  rw [hf, h₁'] at h₁
+  obtain rfl : cv = cv' := by cases h₁; rfl
+  exact ⟨hB, h₃, h₃', by rw [h₂, h₂'], by rw [h₆, h₆'], i, i', h₅, h₅', c, h₄, h₄'⟩
+
+/-- **Two definition entries of one key**: one tag, one operation word for
+an accelerated one, the compiled bodies of one term where both are compiled. -/
+theorem EntRel.defnW {PA PB : G4Prog} (hIA : Inv f₁ p₁ PA) (hIB : Inv f₂ p₂ PB) {kA kB : Nat}
+    (h : EntRel PA PB kA kB) {c : Name} {lps : List Name} {us : List Level} {v : Expr}
+    (hi : PA.kInfo[kA]? = some (.defn c lps us v)) (hf : f₁ c = f₂ c) (hn : PA.natOk = PB.natOk) :
+    PB.kInfo[kB]? = some (.defn c lps us v) ∧ PA.kTag[kA]? = PB.kTag[kB]? ∧
+      (PA.kTag[kA]? = some 3 → PA.kE[kA]? = PB.kE[kB]?) ∧
+      ∃ wA wB, PA.kCode[kA]? = some wA ∧ PB.kCode[kB]? = some wB ∧
+        CodeOK f₁ p₁ PA wA (v.instantiateLevelParams lps us) ∧
+        CodeOK f₂ p₂ PB wB (v.instantiateLevelParams lps us) := by
+  obtain ⟨hB, ⟨-, -, t₁, w, c₁, d₁⟩, ⟨-, -, t₂, w', c₂, d₂⟩⟩ := h.defn hIA hIB hi hf
+  have eT : PA.kTag[kA]? = PB.kTag[kB]? := by
+    rw [hIA.defTag kA _ _ _ _ hi, hIB.defTag kB _ _ _ _ hB, hn]
+  refine ⟨hB, eT, fun h3 => ?_, w, w', c₁, c₂, d₁, d₂⟩
+  rcases t₁ with t₁ | ⟨-, -, -, -, e₁⟩
+  · rw [t₁] at h3; cases h3
+  · rcases t₂ with t₂ | ⟨-, -, -, -, e₂⟩
+    · rw [← eT, h3] at t₂; cases t₂
+    · rw [e₁, e₂]
+
+/-- Related entries name one constant. -/
+theorem EntRel.name {PA PB : G4Prog} {kA kB : Nat} (h : EntRel PA PB kA kB) :
+    PA.entryName kA = PB.entryName kB := by
+  obtain ⟨iA, iB, h₁, h₂, h₃⟩ := h
+  unfold G4Prog.entryName; rw [h₁, h₂]
+  cases iA <;> cases iB <;> simp_all [infoKey]
+
+/-- The K word's entry: none on both sides, or related entries. -/
+@[expose] def KfabRel (PA PB : G4Prog) (fA fB : Nat) : Prop :=
+  (fA = 0 ∧ fB = 0) ∨ ∃ cA cB, fA = cA + 1 ∧ fB = cB + 1 ∧ EntRel PA PB cA cB
+
+theorem KfabKey.rel {PA PB : G4Prog} {c : Name} {us : List Level} {fA fB : Nat}
+    (hA : KfabKey f₁ PA c us fA) (hB : KfabKey f₂ PB c us fB) (hf : f₁ = f₂ ∨ kfabKey f₁ c us = kfabKey f₂ c us) :
+    KfabRel PA PB fA fB := by
+  have e : kfabKey f₁ c us = kfabKey f₂ c us := by rcases hf with rfl | e; rfl; exact e
+  rcases hA with ⟨h₁, rfl⟩ | ⟨key, kc, info, h₁, rfl, h₃, h₄⟩
+  · rcases hB with ⟨-, rfl⟩ | ⟨key', -, -, h₁', -⟩
+    · exact .inl ⟨rfl, rfl⟩
+    · rw [e, h₁'] at h₁; cases h₁
+  · rcases hB with ⟨h₁', -⟩ | ⟨key', kc', info', h₁', rfl, h₃', h₄'⟩
+    · rw [e, h₁'] at h₁; cases h₁
+    · rw [e, h₁'] at h₁; obtain rfl := Option.some.inj h₁
+      exact .inr ⟨kc, kc', rfl, rfl, info, info', h₃, h₃', h₄.trans h₄'.symm⟩
+
+/-- **Two recursor entries of one key**: one tag, arity, prefix, rule count
+and flag word up to the K entry, which is related; the rule bases apart. -/
+theorem EntRel.recW {PA PB : G4Prog} (hIA : Inv f₁ p₁ PA) (hIB : Inv f₂ p₂ PB) {kA kB : Nat}
+    (h : EntRel PA PB kA kB) {c : Name} {lps : List Name} {us : List Level} {mI rP bA nr : Nat}
+    {isK isEta : Bool} (hi : PA.kInfo[kA]? = some (.recr c lps us mI rP bA nr isK isEta))
+    (hf : f₁ c = f₂ c) (hk : kfabKey f₁ c us = kfabKey f₂ c us) :
+    ∃ bB, PB.kInfo[kB]? = some (.recr c lps us mI rP bB nr isK isEta) ∧
+      PA.kTag[kA]? = some 2 ∧ PB.kTag[kB]? = some 2 ∧
+      PA.kArity[kA]? = some mI ∧ PB.kArity[kB]? = some mI ∧
+      PA.kB[kA]? = some rP ∧ PB.kB[kB]? = some rP ∧
+      PA.kC[kA]? = some bA ∧ PB.kC[kB]? = some bB ∧
+      PA.kD[kA]? = some nr ∧ PB.kD[kB]? = some nr ∧
+      ∃ fA fB, PA.kE[kA]? = some ((if isK then 1 else 0) + (if isEta then 2 else 0) + 4 * fA) ∧
+        PB.kE[kB]? = some ((if isK then 1 else 0) + (if isEta then 2 else 0) + 4 * fB) ∧
+        KfabRel PA PB fA fB := by
+  obtain ⟨bB, hB, ⟨cv, rules, -, -, -, -, t₁, a₁, b₁, c₁, d₁, -⟩,
+    ⟨cv', rules', -, -, -, -, t₂, a₂, b₂, c₂, d₂, -⟩⟩ := h.recr hIA hIB hi hf
+  obtain ⟨fA, e₁, k₁⟩ := hIA.kfab kA _ _ _ _ _ _ _ _ _ hi
+  obtain ⟨fB, e₂, k₂⟩ := hIB.kfab kB _ _ _ _ _ _ _ _ _ hB
+  exact ⟨bB, hB, t₁, t₂, a₁, a₂, b₁, b₂, c₁, c₂, d₁, d₂, fA, fB, e₁, e₂, k₁.rel k₂ (.inr hk)⟩
+
+/-- The recursor entry's rules: both sides store rows for one rule list. -/
+theorem EntRel.recRows {PA PB : G4Prog} (hIA : Inv f₁ p₁ PA) (hIB : Inv f₂ p₂ PB) {kA kB : Nat}
+    (h : EntRel PA PB kA kB) {c : Name} {lps : List Name} {us : List Level} {mI rP bA nr : Nat}
+    {isK isEta : Bool} (hi : PA.kInfo[kA]? = some (.recr c lps us mI rP bA nr isK isEta))
+    (hf : f₁ c = f₂ c) :
+    ∃ bB cv rules, PB.kInfo[kB]? = some (.recr c lps us mI rP bB nr isK isEta) ∧
+      f₁ c = some (.recInfo cv mI rP isK rules) ∧ nr = rules.length ∧
+      ∀ i (hr : i < rules.length), RowOK f₁ p₁ PA (bA + i) isK lps us rules[i] ∧
+        RowOK f₂ p₂ PB (bB + i) isK lps us rules[i] := by
+  obtain ⟨bB, hB, ⟨cv, rules, h₁, -, -, -, -, -, -, -, -, hn, -, -, hr⟩,
+    ⟨cv', rules', h₁', -, -, -, -, -, -, -, -, -, -, -, hr'⟩⟩ := h.recr hIA hIB hi hf
+  rw [hf, h₁'] at h₁
+  obtain ⟨rfl, rfl⟩ : cv' = cv ∧ rules' = rules := by cases h₁; exact ⟨rfl, rfl⟩
+  exact ⟨bB, cv', rules', hB, hf ▸ h₁', hn, fun i hi => ⟨hr i hi, hr' i hi⟩⟩
+
+/-! ## Projection rows -/
+
+/-- **Two projection rows with one content.** -/
+@[expose] def PrjRel (PA PB : G4Prog) (qA qB : Nat) : Prop :=
+  ∃ pj, PA.projs[qA]? = some pj ∧ PB.projs[qB]? = some pj
+
+/-- Related projection rows have equal words, their name ids related. -/
+theorem PrjRel.words {PA PB : G4Prog} (hIA : TabInv f₁ p₁ PA) (hIB : TabInv f₂ p₂ PB) {qA qB : Nat}
+    (h : PrjRel PA PB qA qB) :
+    PA.pNP[qA]? = PB.pNP[qB]? ∧ PA.pIdx[qA]? = PB.pIdx[qB]? ∧ PA.pNF[qA]? = PB.pNF[qB]? ∧
+      PA.pNl[qA]? = PB.pNl[qB]? ∧ PA.pAlw[qA]? = PB.pAlw[qB]? ∧
+      ∃ iA iB, PA.pNid[qA]? = some iA ∧ PB.pNid[qB]? = some iB ∧ NidRel PA PB iA iB := by
+  obtain ⟨pj, h₁, h₂⟩ := h
+  obtain ⟨sn, i, en, e₁, -, ⟨ni, n₁, n₂⟩, a₁, a₂, a₃, a₄, a₅⟩ := hIA.prjs qA (lt_of_some h₁)
+  obtain ⟨sn', i', en', e₂, -, ⟨ni', n₁', n₂'⟩, b₁, b₂, b₃, b₄, b₅⟩ := hIB.prjs qB (lt_of_some h₂)
+  rw [h₁] at e₁; rw [h₂, e₁] at e₂
+  simp only [Option.some.injEq, G4Proj.mk.injEq] at e₂
+  obtain ⟨rfl, -, rfl, -, -, -, -, rfl⟩ := e₂
+  exact ⟨by rw [a₂, b₂], by rw [a₁, b₁], by rw [a₃, b₃], by rw [a₄, b₄], by rw [a₅, b₅],
+    ni, ni', n₂, n₂', en.ctor, n₁, n₁'⟩
+
+/-! ## Rule rows -/
+
+/-- **Two rows of one rule** (at one recursor's levels): the stored rule,
+fields, parameters and case flag equal, the name ids related, the compiled
+right-hand sides of one term where both are compiled (the lookups agreeing
+on the constructor and on the case-3 test, which reads its family). -/
+theorem RowOK.rel {PA PB : G4Prog} {rA rB : Nat} {isK : Bool} {lps : List Name} {us : List Level}
+    {rl : RecRule} (hA : RowOK f₁ p₁ PA rA isK lps us rl) (hB : RowOK f₂ p₂ PB rB isK lps us rl)
+    (hf : f₁ rl.ctor = f₂ rl.ctor) (h3 : ruleCase3 f₁ isK lps us rl = ruleCase3 f₂ isK lps us rl) :
+    PA.rules[rA]? = PB.rules[rB]? ∧ PA.rNF[rA]? = PB.rNF[rB]? ∧ PA.rCP[rA]? = PB.rCP[rB]? ∧
+      PA.rC3[rA]? = PB.rC3[rB]? ∧
+      (∃ iA iB, PA.rNid[rA]? = some iA ∧ PB.rNid[rB]? = some iB ∧ NidRel PA PB iA iB) ∧
+      ∃ wA wB, PA.ruleCode[rA]? = some wA ∧ PB.ruleCode[rB]? = some wB ∧
+        CodeOK f₁ p₁ PA wA (rl.rhs.instantiateLevelParams lps us) ∧
+        CodeOK f₂ p₂ PB wB (rl.rhs.instantiateLevelParams lps us) := by
+  obtain ⟨a₁, a₂, a₃, a₄, ⟨i, a₅, a₆⟩, w, a₇, a₈⟩ := hA
+  obtain ⟨b₁, b₂, b₃, b₄, ⟨i', b₅, b₆⟩, w', b₇, b₈⟩ := hB
+  have e₁ : gCtorParams f₁ rl.ctor = gCtorParams f₂ rl.ctor := by unfold gCtorParams; rw [hf]
+  refine ⟨by rw [a₁, b₁, e₁, h3], by rw [a₂, b₂], by rw [a₃, b₃, e₁], by rw [a₄, b₄, h3],
+    ⟨i, i', a₆, b₆, rl.ctor, a₅, b₅⟩, w, w', a₇, b₇, a₈, b₈⟩
+
+/-- **`g4FindRule` answers alike** on two row ranges whose rows match the two
+name ids alike: the same offset. -/
+theorem findRule_rel (rA rB : Array Nat) (cA cB : Nat) :
+    ∀ (n iA iB : Nat), (∀ j, j < n → (rA[iA + j]! = cA ↔ rB[iB + j]! = cB)) →
+      ∃ d, g4FindRule rA cA n iA = iA + d ∧ g4FindRule rB cB n iB = iB + d
+  | 0, iA, iB, _ => ⟨0, rfl, rfl⟩
+  | n + 1, iA, iB, h => by
+    simp only [g4FindRule]
+    by_cases hA : rA[iA]! = cA
+    · have hB : rB[iB]! = cB := (h 0 (by omega)).mp hA
+      simp only [hA, hB, beq_self_eq_true, ↓reduceIte]; exact ⟨0, rfl, rfl⟩
+    · have hB : ¬rB[iB]! = cB := fun e => hA ((h 0 (by omega)).mpr e)
+      simp only [beq_iff_eq, hA, hB, ↓reduceIte]
+      obtain ⟨d, e₁, e₂⟩ := findRule_rel rA rB cA cB n (iA + 1) (iB + 1) fun j hj => by
+        have := h (j + 1) (by omega)
+        rwa [show iA + (j + 1) = iA + 1 + j by omega, show iB + (j + 1) = iB + 1 + j by omega] at this
+      exact ⟨d + 1, by rw [e₁]; omega, by rw [e₂]; omega⟩
+
 end ConLeche.Verify.Ground

@@ -59,5 +59,7 @@ public import ConLeche.Verify.Ground.Fuel
 public import ConLeche.Verify.Ground.Keys
 public import ConLeche.Verify.Ground.Memo
 public import ConLeche.Verify.Ground.Sim
+public import ConLeche.Verify.Ground.SimFrames
+public import ConLeche.Verify.Ground.SimState
 
 @[expose] public section
