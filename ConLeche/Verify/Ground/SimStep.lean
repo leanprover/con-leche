@@ -29,11 +29,12 @@ variable (N : Name → Prop) (env : Env) (f₂ : Name → Option ConstantInfo)
   (p₂ : Name → Nat → Option ProjEntry)
 
 /-- **Two outcomes alike**: the first run out of budget, or one stop, or
-both done, in mode 1 at the empty stack of related states. -/
+both done, in mode 1 at the empty stack of related states, the value
+returned a record of the first. -/
 @[expose] def OutRel (oA oB : G4Out) : Prop :=
   (∃ st, oA = budgetStop st) ∨ (∃ g st, oA = .stop g st ∧ oB = .stop g st) ∨
     ∃ (sA sB : MS) (lA lB : Nat), MRel N env.find? env.findProj? f₂ p₂ sA sB ∧ sA.mode = 1 ∧
-      sA.fs.size = 0 ∧
+      sA.fs.size = 0 ∧ sA.x < sA.val.size / 4 ∧
       oA = .done sA.x sA.val sA.P sA.slots (sA.cel.size >>> 2) sA.st lA ∧
       oB = .done sB.x sB.val sB.P sB.slots (sB.cel.size >>> 2) sB.st lB
 

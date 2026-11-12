@@ -71,7 +71,7 @@ theorem sim_mode1a (ih : SimAt N env f₂ p₂ t₀ n)
   split
   next h0 =>
     have h0' : sA.fs.size = 0 := by simpa using h0
-    exact .inr (.inr ⟨sA, sB, n, m, hr, hm, h0', rfl, by rw [hx]⟩)
+    exact .inr (.inr ⟨sA, sB, n, m, hr, hm, h0', hxl, rfl, by rw [hx]⟩)
   next h0 =>
   have hn : 0 < sA.fs.size := by
     have : sA.fs.size ≠ 0 := by simpa using h0

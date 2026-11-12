@@ -1,10 +1,10 @@
 module
 
-public import ConLeche.Verify.Ground.SimStep1
+public import ConLeche.Verify.Ground.SimStep
+import ConLeche.Verify.Ground.SimStep1
 public import ConLeche.Verify.Ground.SimBridge
 import ConLeche.Verify.Ground.SimMemo
 import ConLeche.Verify.Ground.SimStep3
-import ConLeche.Verify.Ground.SimStep1P
 import ConLeche.Verify.Ground.Step1N
 import ConLeche.Verify.Ground.Step1
 import ConLeche.Verify.Ground.Step3
