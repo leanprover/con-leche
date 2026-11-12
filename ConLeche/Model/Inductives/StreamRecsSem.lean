@@ -387,10 +387,10 @@ theorem recRuleLaw_stored {envG envS : Env} {mG : EnvModel V envG} {mS : EnvMode
     (hac : mS.acval = mG.acval)
     (hde : ∀ (ψ : Name → Nat) (d : Nat) (e : Expr),
       denote mG.acval envS ψ d e = denote mG.acval envG ψ d e)
-    (hctor : ∀ (c : Name) (cvj : ConstantVal) (cnP cnF : Nat),
-      envS.find? c = some (.ctorInfo cvj cnP cnF) → envG.find? c = some (.ctorInfo cvj cnP cnF))
+    (hctor : ∀ (c : Name) (cvj : ConstantVal) (cnP cnF : Nat) (iT : Name),
+      envS.find? c = some (.ctorInfo cvj cnP cnF iT) → envG.find? c = some (.ctorInfo cvj cnP cnF iT))
     (hfam : ∀ cvj : ConstantVal,
-      ConLeche.ctorFamily envS.find? cvj = ConLeche.ctorFamily envG.find? cvj)
+      ctorTypeFamily envS.find? cvj = ctorTypeFamily envG.find? cvj)
     {φ : Name → Nat} {n : Name} {cvG : ConstantVal} {T : Expr} {mI rP : Nat} {rlG : RecRule}
     {e : Expr}
     (hty : ∀ us : List Level, us.length = cvG.levelParams.length → ∀ TS : Term,
@@ -432,11 +432,11 @@ theorem recRuleLaw_stored {envG envS : Env} {mG : EnvModel V envG} {mS : EnvMode
       obtain ⟨TG, hTG, hfitT⟩ := hty us hlen TVa hTVa
       obtain ⟨r', hr'⟩ := hfitT ρ zs restR (by omega) hfit
       exact hok ρ zs TG r' hzl hzw hTG hr'
-    · intro cvj cnP cnF hfc usj ρ xs ys TVa TVja restR restC hxl hyl hujl hψ hyw hpin hTVa
+    · intro cvj cnP cnF iT hfc usj ρ xs ys TVa TVja restR restC hxl hyl hujl hψ hyw hpin hTVa
         hTVja hfitR hfitC
       obtain ⟨TG, hTG, hfitT⟩ := hty us hlen TVa hTVa
       obtain ⟨r', hr'⟩ := hfitT ρ _ restR (by simp [hxl]) hfitR
-      obtain ⟨heq, hwd⟩ := hlaw cvj cnP cnF (hctor _ _ _ _ hfc) usj ρ xs ys TG TVja r' restC
+      obtain ⟨heq, hwd⟩ := hlaw cvj cnP cnF iT (hctor _ _ _ _ _ hfc) usj ρ xs ys TG TVja r' restC
         hxl hyl hujl hψ hyw hpin hTG hTVja hr' hfitC
       exact ⟨heq.trans (interp_mkAppN_head_congr _ (hS ρ).2.symm),
         fun ha hb => wellDenoted_mkAppN_head_congr _ (hS ρ).1 (hS ρ).2.symm (hwd ha hb)⟩
@@ -445,7 +445,7 @@ theorem recRuleLaw_stored {envG envS : Env} {mG : EnvModel V envG} {mS : EnvMode
     have fitN : ∀ {ρ : Nat → V} {xs : List Term} {a restR : Term}, xs.length = mI →
         TeleFitPA V ρ TVa (xs ++ [a]) restR → ∃ r', TeleFitPA V ρ TG (xs ++ [a]) r' :=
       fun hxl hfit => hfitT _ _ _ (by simp [hxl]) hfit
-    refine ⟨fun hk => ?_, fun cvj cnP cnF hfc => ?_⟩
+    refine ⟨fun hk => ?_, fun cvj cnP cnF iT hfc => ?_⟩
     · obtain ⟨hnf, hKl⟩ := hK hk
       refine ⟨hnf, fun Ra hRaS ρ xs a restR hxl hfit hxw => ?_⟩
       obtain ⟨RaG, RaS, hRaG, hRaS', hS⟩ := hRa us hlen
@@ -454,7 +454,7 @@ theorem recRuleLaw_stored {envG envS : Env} {mG : EnvModel V envG} {mS : EnvMode
       obtain ⟨heq, hwd⟩ := hKl RaG hRaG ρ xs a r' hxl hr' hxw
       exact ⟨heq.trans (interp_mkAppN_head_congr _ (hS ρ).2.symm),
         fun hw => wellDenoted_mkAppN_head_congr _ (hS ρ).1 (hS ρ).2.symm (hwd hw)⟩
-    · obtain ⟨har, hrest2⟩ := hrest cvj cnP cnF (hctor _ _ _ _ hfc)
+    · obtain ⟨har, hrest2⟩ := hrest cvj cnP cnF iT (hctor _ _ _ _ _ hfc)
       refine ⟨har, fun hk => ?_⟩
       obtain ⟨hSc, hTc, hPU⟩ := hrest2 hk
       refine ⟨fun hn ρ xs a restR hxl hfit => ?_, fun hn usj hujl TVja hTVja ρ xs ys restR restC

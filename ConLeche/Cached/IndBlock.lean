@@ -35,9 +35,9 @@ variable (mode : CheckMode)
 /-! ## The pushes onto the index -/
 
 /-- `consSumCtors` through the index. -/
-def consSumCtorsF (nP : Nat) : List (ConstantVal × Nat) → FEnv → FEnv
+def consSumCtorsF (nP : Nat) (T : Name) : List (ConstantVal × Nat) → FEnv → FEnv
   | [], fe => fe
-  | c :: cs, fe => consSumCtorsF nP cs (fe.push (.ctorInfo c.1 nP c.2))
+  | c :: cs, fe => consSumCtorsF nP T cs (fe.push (.ctorInfo c.1 nP c.2 T))
 
 /-- `consBlockInds` through the index. -/
 def consBlockIndsF (p₁ : BlockShape) (isRec : Bool) :
@@ -47,9 +47,9 @@ def consBlockIndsF (p₁ : BlockShape) (isRec : Bool) :
     consBlockIndsF p₁ isRec rest (i + 1) (fe.push (.indInfo cvTa (blockCapsAt p₁ i isRec)))
 
 /-- `consBlockCtors` through the index. -/
-def consBlockCtorsF (nP : Nat) : List (List (ConstantVal × Nat)) → FEnv → FEnv
+def consBlockCtorsF (nP : Nat) : List (Name × List (ConstantVal × Nat)) → FEnv → FEnv
   | [], fe => fe
-  | ctorList :: rest, fe => consBlockCtorsF nP rest (consSumCtorsF nP ctorList fe)
+  | (T, ctorList) :: rest, fe => consBlockCtorsF nP rest (consSumCtorsF nP T ctorList fe)
 
 /-! ## Stage 1: the formers -/
 

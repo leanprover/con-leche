@@ -462,7 +462,8 @@ theorem declConstants_ctors {e : Declaration} {cv : ConstantVal} {caps : IndCaps
         obtain ⟨c, hc, rfl⟩ := List.mem_map.mp (hcs x hx)
         exact List.mem_map.mpr ⟨c, hsub _ hm c hc, rfl⟩
       · unfold blockCtors at h
-        obtain ⟨c, -, he⟩ := List.mem_map.mp h
+        obtain ⟨g, -, hg⟩ := List.mem_flatMap.mp h
+        obtain ⟨c, -, he⟩ := List.mem_map.mp hg
         exact nomatch he
       · exact absurd h (blockRecs_not_ind p p.recs)
     · exact absurd h (List.not_mem_nil)

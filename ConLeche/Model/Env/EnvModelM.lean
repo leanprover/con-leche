@@ -65,7 +65,7 @@ clause, whose `leaf` and `ctor` read the leaf valuation at those names
 @[expose] def LfpStored {V : Type w} [SetTheory V] (env : Env) (D : LfpDatum V) : Prop :=
   (∀ mm, mm < D.k → ∃ cv caps, env.find? (D.member mm) = some (.indInfo cv caps)) ∧
   ∀ c, c < D.N → ∀ j, j < D.nctors c →
-    ∃ cv nP nF, env.find? (D.ctorName c j) = some (.ctorInfo cv nP nF)
+    ∃ cv nP nF iT, env.find? (D.ctorName c j) = some (.ctorInfo cv nP nF iT)
 
 /-- **A recorded block's formers have its telescope's value** (M4, by value): member `mm`'s
 stored type reads, at every level assignment, as a type of the value of the Π-tower over its
@@ -132,8 +132,8 @@ parameter binders. -/
 @[expose] def LfpCtorReads {V : Type w} [SetTheory V] (acval : Name → (Name → Nat) → Term)
     (env : Env) (D : LfpDatum V) : Prop :=
   D.names.length = D.k ∧
-  ∀ c, c < D.k → ∀ j, j < D.nctors c → ∃ cv nPc nF,
-    env.find? (D.ctorName c j) = some (.ctorInfo cv nPc nF) ∧
+  ∀ c, c < D.k → ∀ j, j < D.nctors c → ∃ cv nPc nF iT,
+    env.find? (D.ctorName c j) = some (.ctorInfo cv nPc nF iT) ∧
     cv.type.hasFvar = false ∧
     (∀ mm, mm < D.k → ∃ cvm caps, env.find? (D.member mm) = some (.indInfo cvm caps) ∧
       cvm.levelParams = cv.levelParams) ∧
@@ -166,8 +166,8 @@ constructor's residual is the former at the constructor's parameters. -/
   (∀ mm, mm < D.k → ∃ cv caps, env.find? (D.member mm) = some (.indInfo cv caps) ∧
     (∀ ψ : Name → Nat, D.w ψ = 0 → (ConLeche.formerZ cv).holds ψ = true) ∧
     ∀ ψ : Name → Nat, (D.pars mm ψ ++ D.ids mm ψ).length = caps.nparams + caps.nIdx) ∧
-  ∀ c, c < D.k → ∀ j, j < D.nctors c → ∃ cv nPc nF,
-    env.find? (D.ctorName c j) = some (.ctorInfo cv nPc nF) ∧
+  ∀ c, c < D.k → ∀ j, j < D.nctors c → ∃ cv nPc nF iT,
+    env.find? (D.ctorName c j) = some (.ctorInfo cv nPc nF iT) ∧
     ∃ (bs : List Expr) (es : List Expr),
       cv.type.stripPis (nPc + nF)
         = some (bs, Expr.mkAppN (.const (D.member c) (cv.levelParams.map .param))

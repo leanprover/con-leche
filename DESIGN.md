@@ -119803,3 +119803,668 @@ rerun, held for its whole run.  The heartbeat could not say which workers hold i
   `parseLog` and `scripts/schedsim.py` (`read_log`, `log_peaks`) skip them; old logs stay valid.
   The simulator calibration can read them to split the real reservation into the terms.
 * `ScheduleTests` pins the term, the rows, the text, the line and the parser's skip.
+
+## TASK #557: the dead `natOpWfNames` branch leaves the specification
+
+Maintainer's ruling: remove it.  `reduceNat`'s binary arm tested the fourteen official
+operation names first; its second branch, on `natOpWfNames` (div, mod, gcd, land, lor, xor,
+shiftLeft, shiftRight), could only fire for a name among those fourteen and so never did.
+#556 had already removed the matching branch from `reduceNatI`.
+
+* Deleted: the branch (the arm now ends `… else pure none`) and `natOpWfNames` with its
+  docstring (`Kernel/CoreDefs`).
+* Proofs that split on the branch, each one case shorter: `reduceNat_shift` (`Verify/Deep`),
+  `reduceNat_rel` (`Verify/EnvExt/Whnf`), the `reduceNat` inversions in
+  `Verify/InferLemmas`, `Verify/Inductives/NfMemberFree` and `Verify/Rules/RedBridge`.
+  `NatBinOp.ofName?_none` (`Verify/Cached/DiscC1`) loses its second conjunct.
+* No behaviour change: the dropped branch was unreachable; verdicts are identical.
+
+## TASK #575: the memos as an open-addressing table — spike, not pursued (2026-11-12, agent/575-flat-memo)
+
+Question: replace the chained `Std.HashMap` memos of `CState` by an insert-only
+open-addressing table (linear probing), to cut the allocation and teardown that #571 measured
+on cbv_aes (memo traffic 1.2 G, teardown 0.3 G).  Phase 1 was a spike on one memo (`inferC`
+and its eager twin), with the go/no-go for converting the rest on its numbers.  **No gain:
+the lane stops after phase 1; nothing lands.**
+
+**The table** (`ConLeche/Cached/FlatMap.lean`, self-contained, on the branch).  Entries in two
+dense arrays (`keys`, `vals`, insertion order, never moved); a slot array of scalar `Nat`s,
+`0` or `(j + 1) * 2^16 + tag` (entry index and sixteen hash bits); start slot from
+`Std.HashMap`'s `scrambleHash`, grown by doubling from 16 slots at `Std.HashMap`'s load
+factor 3/4 (`numBucketsForCapacity`); growth rebuilds only the slot array.  An insert of a
+key `==` to a stored one replaces key and value, as `Std.HashMap.insert` does.  The proofs
+are the two the memo invariant needs, nothing about finding inserted keys:
+`find?_mem` (a hit is the value of an entry whose key is `==` to the query) and `mem_insert`
+(an insert adds only the given entry), with `not_mem_empty`; `CSOK.inferC` became
+`s.inferC.Backed P` (every entry satisfies `P`), and the `KnotC` hit and insert lemmas read
+it through `Backed.find?` / `Backed.insert`.  `lake build` passed warning-free with the
+spike; the other gates were not run.
+
+**Which memos the proofs allow.**  Every `CState` memo's clause is soundness-only (an entry
+is correct; a miss recomputes): the six mode memos and their eager twins (`ModeMemos`, the
+set `withEagerMemos` swaps in), `lsimpC`, `eqvC`, `instC`, and also the stored-constant
+caches `constTyAt`/`constValAt`/`ruleRhsAt` (their hit lemmas read the clause at the entry
+the caller found).  No proof needs a lookup to find an earlier insert.  `lnzC` is never
+written: a dead field.
+
+**Numbers** (instructions:u, one run each, `--verified --jobs=1`; base = master 4ce6cb18e;
+spike = `inferC` on the table; peak RSS from the stats line):
+
+| stream | base | spike | Δ | peak RSS base / spike (GiB) |
+|---|---:|---:|---:|---|
+| init-full | 299.104 G | 303.621 G | +1.51 % | 0.29 / 0.29 |
+| cbv_aes Nr=10 | 10.624 G | 11.201 G | +5.43 % | 0.12 / 0.11 |
+| grind-ring-5 | 10.840 G | 10.980 G | +1.29 % | 0.17 / 0.17 |
+| app-lam | 22.036 G | 22.054 G | +0.08 % | 1.22 / 1.22 |
+| beta-ladder | 4.834 G | 4.823 G | −0.21 % | 0.38 / 0.38 |
+| let-ladder | 2.555 G | 2.561 G | +0.23 % | 0.21 / 0.21 |
+| shift-cascade | 0.050 G | 0.053 G | +6.62 % | 0.02 / 0.02 |
+| unroll-versus-evaluate | 0.026 G | 0.027 G | +3.15 % | 0.02 / 0.02 |
+| the other ten arena perf streams | | | +0.2 … +1.4 % | 0.02–0.03 |
+
+Variants on cbv_aes: tag from the hash's top bits (an `Expr` hash has 32 significant bits,
+so the tag was constant) 11.367 G; the Fibonacci-mixed tag 11.197 G; load factor 1/2
+instead of 3/4 11.118 G; replace-on-equal-key 11.203 G.
+
+**Why it loses.**  The verdicts and the work are the same (315 132 `inferBodyI` calls in
+both).  The table's own operations are not cheaper in instructions than the chained map's:
+the probe loop over boxed-scalar `Nat`s costs 0.20 G for `inferC` alone on cbv_aes, about
+what `Std.HashMap`'s bucket walk costs for all five `Expr` memos together (0.17 G); what it saves in allocation
+(the `AssocList` cells: −0.1 G in `lean_alloc_small_object_core`, −0.07 G in `mi_free`) is
+small.  And it makes more structural key comparisons: `beqDec` runs 2.15 M times against
+1.97 M — 553 k from the probe loop against 367 k from `inferC`'s bucket walk —, and each is a
+memoised descent; `lean_dec_ref_cold` and `lean_free_object` grow by 0.46 G and 0.28 G.  The
+likely reason, not confirmed: a bucket walk meets the most recent of the keys with a
+colliding word first (`Std.HashMap` conses at the front), a probe sequence the oldest
+(replacing an equal key on insert did not change the count).  The memo traffic #571 measured is
+mostly that comparison (the structural equality behind the memo keys, lane #574), not the
+table structure.
+
+**The structural equality's memo (for lane #574).**  `beqGoX`'s memo (`BeqMap`, a
+`Std.HashMap Nat EqPair` made at the first shared/shared pair proved equal) is the case the
+official kernel serves with `ptr_pair_set` (`src/kernel/ptr_pair_set.h`): open addressing
+with its first 16 slots inline in the traversal's frame, growth past load factor 1/2, so a
+comparison that records at most 8 pairs allocates nothing — and most record a few (cbv_aes:
+1.66 M root comparisons, about 4 nodes each).  The table here does not cover that case as it
+stands: a Lean value cannot live in the caller's frame, and the first insert allocates the
+16-slot array and the two entry arrays.  The nearest Lean shape is a slot-less first stage:
+up to 8 entries (official's 16 slots at its 1/2) kept in the entry arrays and scanned
+linearly, the slot array built at the 9th.  Both were measured as probes (one run each,
+cbv_aes Nr=10 / grind-ring-5, against the spike binary, which has `inferC` on the table):
+
+| probe | cbv_aes | grind-ring-5 |
+|---|---:|---:|
+| spike (`BeqMap` = `Std.HashMap`) | 11.201 G | 10.980 G |
+| `BeqMap` on the table | 11.472 G (+2.4 %) | 11.106 G (+1.1 %) |
+| `BeqMap` on the table with the slot-less first stage | 11.432 G | 11.068 G |
+| the first stage, `BeqMap` = `Std.HashMap` | 11.219 G | 10.993 G |
+
+The first stage gains 0.04 G on the equality memo and nothing on `inferC`; the table loses
+to `Std.HashMap` in both places.  What official's design has and a Lean array table lacks is
+the allocation-free first stage: the entry arrays still allocate on the first record (the
+`EqPair` cell too).  An allocation-free first stage would need the first pairs as scalar
+fields of the descent's own result (its `Option BeqMap` slot), which is #574's seam.
+Probe diffs: `_tmp/575/runs/probe-beq-flat.diff`, `probe-small-stage.diff`.
+
+Data and scripts: `_tmp/575/runs` (`base.summary`, `spike4.summary`), `_tmp/575/meas.sh`.
+
+**Decision (maintainer, 2026-11-12): not pursued; the record is kept for future reference.**
+The spike's code stays on branch `agent/575-flat-memo` (8bf47f13a, 0c4c0b962) and is not
+merged.  Two symptoms point the wrong way for open addressing and were not explained; anyone
+returning to this should check them before concluding that the structure itself is slower:
+(1) freeing *grows* (+0.74 G in `lean_dec_ref_cold` / `lean_free_object`), where a flat table
+should free less than a cell per entry — the first suspect is an array copied instead of
+updated in place at an insert (a non-unique `keys`/`vals`/slot array makes `push`/`set`
+copy and bump every element's reference count); count `lean_copy_expand_array` and copying
+pushes in the spike binary; (2) key comparisons *grow* (553 k against 367 k from `inferC`),
+where the 16-bit slot tag should filter most non-matching slots — measure the probe-length
+and tag-hit distribution on cbv_aes (the `Expr` hash's 32 significant bits and the mixing
+of the tag are the candidates).  Side findings: `lnzC` is never written (a dead field);
+an `Expr` hash has 32 significant bits.
+
+## TASK #572 — the official `whnfCore` memo policy; the β peel without the instantiation memo (2026-11-12, agent/572-whnf-memo)
+
+Found by task #451's lane fvhash: on lean4's `grind_field_kernel_cancel`
+(`tests/e2e/grind_field_cancel_inv`, task #570) con-leche took more ι steps than the
+official kernel (`Bool.rec` 32 710 against 20 550, `Mon.rec` 30 739 against 26 452; δ steps
+identical), because the `whnfCore` memo was used differently.  Maintainer's ruling: match
+the official policy, on master.
+
+**The official policy** (`src/kernel/type_checker.cpp`, `type_checker::whnf_core`, lean4
+master, the same in v4.35.0).  `whnf_core` is recursive.  Every call on a term that is not an
+easy case (the `switch` on `e.kind()`) looks the term up in `m_st->m_whnf_core`; the β, `Proj`
+(fired or stuck), `Let` and head-reduced (`f != f0`) arms set `r` to the recursive call on the
+reduct and fall through to `if (!cheap_rec && !cheap_proj) m_whnf_core.insert(e, r)`; the
+`f == f0` arm (ι by `reduce_recursor`, or the stuck answer) `return`s before the insert.  There
+is ONE cache: both modes read it, only the full mode writes it.
+
+**As implemented** (`ConLeche/Cached/CoreC.lean`).
+* *Loop, not recursion.*  Official's recursion is followed iteratively: `whnfCoreLoopI`
+  carries the keys of the steps taken so far (`pend`) and stores them with the chain's
+  answer at its end (`storeChainI`), which is what the recursion's inserts do as it unwinds
+  (nothing is stored before the answer is known, in either).  The loop keeps #342 R2's
+  constant native stack; the entry point `whnfCoreI` is the loop (`memoRedEI` is gone).
+* *Lookups.*  Every step looks its term up, but a term no arm stores
+  (`whnfCoreKeyC`): an application with a stuck head (official's `f == f0` arm, never
+  stored, so never found).  Not looked up either, as before: the re-built `v·args` after a
+  head normalization (official's call on `mk_rev_app(f, args)`); in the full mode it is
+  never stored (its head is normal), see the cheap mode for the other.
+* *Stores.*  The keys of β, projection (a stuck one too: official stores `r = e`), ζ and
+  head-normalizing steps; not ι steps, not an application answered by itself
+  (`whnfCoreStoresDone`).  A memo hit ends the chain and its keys get the hit's answer.
+  This replaces #556's P-A2 rule (no entry for an unchanged answer), which it subsumes
+  except for the stuck projection, now stored as official does.
+* *The cheap mode — the one place official is not followed exactly.*  Official's cheap mode
+  reads the full mode's entries; a full answer can be more reduced than the cheap one (a
+  projection whose scrutinee needs δ), so a cheap query would return what the specification's
+  cheap `whnfCore` does not compute, and the simulation (`RelC` is equality) would fail.
+  Here the cheap mode stores nothing (as official) and reads `whnfCoreCheapC`, which the
+  full mode fills with the keys whose chain from the key on takes only steps the two modes
+  take alike (`whnfCoreCheapSafeC`: a let-expression, or an application whose head is a
+  lambda or stuck; `pendC`, emptied at any other step and at a hit).  On the two fixtures
+  this reproduces official exactly; it differs from official only where a cheap query meets
+  a full entry whose chain normalized a projection or a projection/let head.  Following
+  official there needs either a relational simulation or a cheap specification that reads
+  a memo — a design choice for the maintainer.
+* *One spine-head computation per step.*  The loop computes `Expr.getAppFn` once and passes
+  it to `whnfCoreStepI` (init-full −0.9 % against computing it in each classifier).
+
+**Step counts** (scratch build with a `dbgTrace` at the two ι fire sites, not committed;
+con-leche has no statistics option for it).  `grind_field_cancel_inv`: `Mon.rec` 30 739 →
+26 452 (official 26 452), `Bool.rec` 32 785 → 20 625 over the whole stream, of which 75 are
+outside the theorem in both builds, so 20 550 on the theorem (official 20 550); `Ordering.rec`
+10 334 and `Poly.rec` 9 310 unchanged.  The minimal example (task #451), now the fixtures
+`whnf_core_memo` (`lhs =?= true`, the full mode) and `whnf_core_memo_cheap` (`true =?= lhs`,
+the cheap mode): 3 → 2 `Bool.rec` steps each (official 2).  `discarded-argument`: 1 204 →
+1 802 ι steps (official, by its unfold diagnostics, 41 403 `N.rec`: con-leche's lazy δ does far
+less here either way).
+
+**Proofs** (`Verify/BetaSpine.lean`, `Verify/Cached/DiscC4.lean`, `KnotC.lean`,
+`KnotCongr.lean`; the specification and the model untouched — the specification has no memo).
+* The loop's triple states the chained `whnfCore` of its term directly:
+  `Runs.whnfCore_of_cont` / `Runs.whnfCore_of_done` (from `whnfCore_of_stepW_cont` /
+  `_done` in `BetaSpine`, by `whnfCoreStepM_sound` with `whnfCore` itself as the
+  continuation) carry a step's outcome, a memo hit is the `CSOK` clause.  The loop mirror
+  `whnfCoreLoopM`, its `atF`, `whnfCoreLoopM_ksound` and `whnfCoreLoop_sound_body` are gone.
+* Pending keys: `PendOK c d pend e` (each key, well scoped, answers what `e` answers), with
+  `PendOK.push` / `pushCheap` for the continuing arm (on the named `pushKey` /
+  `pushCheapKey`), `CSOK.chainStored` / `_nil` / `chainStoredDone` for the stores
+  (`foldl_insert_backed`).  The cheap keys: `whnfCoreStepW_cheap` (a safe step is the same
+  step in the cheap mode).  One `sym … => vcgen … <;> finish` per induction case, no raised
+  limits.  `KnotC`: `whnfCoreI_spec` replaces `memoRedEI_whnfCore_spec`; the hit lemmas moved
+  to `DiscC4`.
+
+**Probe C, the memo half** (scope added by the maintainer: "cheaper ι", probes in
+`_tmp/iota/`).  `betaPeelI` substitutes with `instantiateListC` instead of the
+(body, arguments, depth)-keyed `instListM` memo, which missed and inserted on nearly every
+peel; official's `instantiate` keeps no cache across calls.  The reduct still goes through
+the loop, so the memo policy and the step counts are unchanged.  Proof: `betaPeelC_spec`
+rewrites with `instantiateListC_spec`.  **Not landed, the fire-site half**: β-reducing the ι
+reduct inside the ι step (the reduct's β key is then never looked up or stored).  Measured on
+top of the memo half: init-full 299.65 → 297.57 G, grind-ring-5 10.59 → 10.38 G, the fixture
+2.47 → 2.37 G, but `Mon.rec` 26 452 → 26 516 on the fixture: it gives up the official counts
+this lane establishes.  Landing it means relating a cached step to a mirror step one β later
+(a named step relation in the step triples); left for a ruling.
+
+**Measurements** (`instructions:u`, one run each, under the RSS guard; base = master
+4ce6cb18e; perf streams and the fixture at `--jobs=1`, init-prelude and init-full at
+`--jobs=8`, Init by `--olean --jobs=1 --search-path=<v4.35.0 lib>`).
+
+| stream | base G | policy G | Δ | + β peel without memo G | Δ vs base |
+|---|---|---|---|---|---|
+| init-prelude | 1.282 | 1.286 | +0.29 % | 1.269 | −0.99 % |
+| app-lam | 22.038 | 22.040 | +0.01 % | 22.044 | +0.03 % |
+| args-before-unfold | 0.059 | 0.059 | −0.07 % | 0.056 | −6.49 % |
+| beta-ladder | 4.835 | 4.836 | +0.01 % | 4.918 | +1.71 % |
+| church-numerals | 0.205 | 0.207 | +1.10 % | 0.207 | +0.82 % |
+| discarded-argument-match | 0.163 | 0.184 | +12.86 % | 0.230 | +41.48 % |
+| discarded-argument | 0.062 | 0.071 | +13.89 % | 0.077 | +23.97 % |
+| folded-constant-first | 0.086 | 0.092 | +6.61 % | 0.084 | −3.01 % |
+| folded-constant-last | 0.086 | 0.092 | +6.64 % | 0.084 | −3.05 % |
+| grind-ring-5 | 10.841 | 10.914 | +0.68 % | 10.597 | −2.25 % |
+| identical-nesting | 0.021 | 0.021 | +0.02 % | 0.021 | +0.10 % |
+| irrelevance-before-evaluation | 0.023 | 0.023 | 0.00 % | 0.023 | 0.00 % |
+| let-ladder | 2.557 | 2.557 | 0.00 % | 2.559 | +0.10 % |
+| repeated-subproblem | 0.023 | 0.023 | +0.12 % | 0.023 | +0.43 % |
+| shared-subterm | 0.184 | 0.186 | +0.96 % | 0.169 | −8.36 % |
+| shift-cascade | 0.051 | 0.051 | +0.02 % | 0.051 | +0.02 % |
+| unroll-versus-evaluate | 0.027 | 0.027 | +0.01 % | 0.027 | +0.06 % |
+| grind_field_cancel_inv | 2.703 | 2.621 | −3.04 % | 2.468 | −8.72 % |
+| init-full | 305.267 | 313.470 | +2.69 % | 299.670 | −1.83 % |
+| Init (`--olean`) | 350.075 | 357.841 | +2.22 % | 343.825 | −1.79 % |
+
+* *The policy alone costs* on init-full and Init: more lookups and inserts per chain
+  (`perf record`: the loop's own bucket loads, the chain's inserts), against fewer ι steps.
+  Ablations on the first policy commit (init-full 316.29 G): the cheap mode writing its own
+  chains 313.86, storing ι keys too 315.90, both 313.62 — the policy's step-count side is
+  under 1 %; looking up only at a chain's entry 316.36 (on the head-once commit) — the
+  continuation lookups pay for themselves.
+* *The β peel without memo* is the larger effect; it loses on two small arena streams whose
+  β redexes do repeat (`discarded-argument-match` +0.067 G, `discarded-argument` +0.015 G,
+  `beta-ladder` +0.08 G), where the official kernel has no such memo either.
+* Peak RSS within the noise (init-full 0.47 / 0.36 / 0.47 GiB anon).  Every verdict unchanged.
+
+Gates (final tree): `lake build`, `lake test` warning-free (axioms pinned); `tests/arena.sh`
+in full (layering, shake and pub-imports, trust surface, plain-reach, binary-link, OVERVIEW and
+whitepaper links, quote gate, e2e 595/595, the arena tutorial at its expected 90/92, trusted and `--jobs` sweeps).  OVERVIEW §3's memo
+paragraph states the policy.  Logs: `_tmp/572/wt/_tmp/{logs,perf}`.
+
+## TASK #574 — structural equality in the official kernel's formulation: no per-node result, the spine loop (2026-11-12, agent/574-beq-official)
+
+On lean4's `cbv_aes` (task #571) con-leche's structural equality cost 0.88 G of the theorem's
+5.78 G check against about 0.34 G for official.  A probe of an allocation-free pre-pass with a
+node budget gave −9 %, but the maintainer ruled no budget: official's `expr_eq_fn` has none.
+con-leche already followed official's rules — the cache only for a shared/shared pair
+(`withExcl`, official's `check_cache`: `if (!is_shared(a) || !is_shared(b)) return false;`),
+the table created lazily, no cut-off (removed by #319).  Three differences remained.
+
+**Official's mechanism** (`src/kernel/expr_eq_fn.cpp`, `src/kernel/ptr_pair_set.h`, lean4
+`origin/downstream-green` d6f953da).  `apply(a, b)` tests identity, the hash, the kind, decides
+the leaves, then probes the cache (`check_cache`, not at the root), and returns a `bool`; the
+cache is a member of the function object.  The App case is
+
+```
+if (!apply(app_arg(a), app_arg(b))) return false;
+expr const * curr_a = &app_fn(a); expr const * curr_b = &app_fn(b);
+while (true) {
+    if (!is_app(*curr_a)) break;
+    if (!is_app(*curr_b)) return false;
+    if (!apply(app_arg(*curr_a), app_arg(*curr_b))) return false;
+    curr_a = &app_fn(*curr_a); curr_b = &app_fn(*curr_b);
+}
+return apply(*curr_a, *curr_b);
+```
+
+— the last argument first, then down the spine; a partial application is never passed to
+`apply`, so it is neither identity-tested, hash-tested nor cached.  `ptr_pair_set` is open
+addressing with 16 inline slots (`m_initial`), allocating only on growth.
+
+**What changed** (`ConLeche/Kernel/Expr.lean`, the only executed structural equality; both
+tiers run it through `==`/`DecidableEq`, `beq_eq_beqMemo`/`decEq_eq_decEqPtr`):
+
+1. **No per-node result.**  The descent threads `BeqSt` — `fail | empty | table (m : BeqMap)` —
+   and returns it as `BeqOutX a b := Squash {s : BeqSt // s.ok = true ↔ a = b}`.  Subtype and
+   quotient are erased, `fail`/`empty` are scalars and an equal leaf returns the state it was
+   given, so a node's comparison allocates nothing; a `false` is `fail` and drops the memo
+   (it aborts the comparison).  Before, every node allocated a `BeqResX` (decision, `Option
+   BeqMap`) and a recorded pair a `some` cell besides.  The entry state is a subtype
+   (`BeqOk`), not a `Prop` parameter.
+2. **The spine loop** in official's order: `.app f x, .app g y` compares `x y` through the
+   child step `enterBeq`, then, when `f` and `g` are both applications, continues on them
+   directly (`beqGoX`, no `enterBeq`: no identity, word, exclusivity or memo traffic for a
+   partial application); `f` an application and `g` not is `fail`; otherwise the heads go
+   through `enterBeq`.  The structural recursion is unchanged (`f` is a subterm).
+3. **Linearity, from the generated C.**  With the per-node allocation gone the recursive calls
+   became self tail calls, and the compiler's tail-call preservation (`InferBorrow`,
+   `.tailCallPreservation`, a forced reason that overrides `@&`) made `beqGoX`'s terms owned as
+   soon as a child term was an owned argument anywhere in the body — the `EqPair` constructor
+   of the write-back and `ptrDecStruct`'s structural fallback in the probe.  Owned terms would
+   cost an `inc`/`dec` per node and make every exclusivity read answer "shared".  The write-back
+   is therefore `BeqSt.recordEq` and the probe `probeHit`, both `@[noinline]` with borrowed
+   terms; `beqGoX`'s C now has no `lean_inc`, no `lean_alloc_ctor`, and `lean_dec` only of the
+   state, with the exclusivity reads on borrowed children.
+
+**Point (2), the table.**  Kept as `Std.HashMap`, created at the first recorded pair.
+`BeqSt.table`'s field, `BeqSt.record` and `probeHit` are the only places its type appears.  The
+flat-memo session (task #575) measured an open-addressing table at this seam as a LOSS (cbv_aes
++2.4 %, grind-ring-5 +1.1 %) and a slot-less first stage of ≤ 8 scanned entries as recovering
+0.04 G; a Lean value cannot live in the caller's frame, so official's 16 inline slots have no
+direct twin.  The remaining idea — the first pairs as scalar fields of `BeqSt` itself — is a
+follow-up, not attempted here: it needs a count of the comparisons that create a table, and a
+measurement.
+
+**Proofs.**  Intrinsic, as before: every branch returns its state with the iff for its own pair,
+the child's result is moved to the parent along an erased iff (`BeqOutX.cast`), and
+`beqDec := Squash.lift (beqGoX ⟨.empty, rfl⟩ a b) fun r => decidable_of_iff _ r.2`.
+`beqMemo_iff`, `beqMemo_eq` and the `@[csimp]` theorems are untouched; `beq_eq_beqMemo`'s axioms
+are unchanged (`propext, Classical.choice, Quot.sound`, pinned in `tests/ConLecheTests/Axioms`),
+and so are the capstones'.  No budget, no cap, no `unsafe`/`implemented_by`.
+
+**The probe (c) and the implementation coincide.**  The ruling asked for a scratch probe of (1)
+and (3) first; with the verification intrinsic, the cheapest form of (1)+(3) is already the
+proved code, so it was built uncommitted with the per-job heartbeat probe
+(`_tmp/571-cbv/probe-job-heartbeats.diff`) and measured before anything was committed.
+Numbers (instructions:u, one run, `--verified --jobs=1`, both binaries identically probed;
+data in `_tmp/574/logs/`):
+
+| stream | master | #574 | Δ |
+|---|---:|---:|---:|
+| cbv_aes Nr=10, the theorem's job | 5.635 G | 5.236 G | −7.1 % |
+| cbv_aes Nr=10, the theorem's allocations (heartbeats) | 25.03 M | 20.39 M | −18.5 % |
+| cbv_aes Nr=10, whole run | 10.632 G | 10.147 G | −4.6 % |
+| init-full | 299.26 G | 292.93 G | −2.1 % |
+| init-prelude | 1.203 G | 1.177 G | −2.2 % |
+| grind-ring-5 | 10.845 G | 10.693 G | −1.4 % |
+| magma-list-deep-n36 | 170.57 G | 164.70 G | −3.4 % |
+| magma-list-pair-n21 | 131.51 G | 127.75 G | −2.9 % |
+| magma-list-deep-n21 | 12.745 G | 12.412 G | −2.6 % |
+| magma-list-pair-n7 | 11.429 G | 11.179 G | −2.2 % |
+| church-numerals | 0.205 G | 0.198 G | −3.5 % |
+| app-lam, beta-ladder, let-ladder, the small perf streams | | | −0.4 … +0.01 % |
+
+Against the budgeted pre-pass (−9 % of the theorem's check, 25.0 M → 19.7 M allocations, on
+the #571 tree): this recovers −7.1 % and most of the allocation saving (20.4 M against 19.7 M),
+without a budget and as the only equality.  The pre-pass's further 2 points were the memo-free walk of small
+comparisons; the table creation per comparison is what (2) would address.  `beqGoX`'s own
+instructions did not drop (0.49 G → 0.51 G on the whole run): the gain is the allocator and
+reference-count traffic around it.
+
+After merging master d1ded7c27 (task #572's `whnfCore` memo policy), against that master:
+init-full 292.98 → 286.89 G (−2.1 %), grind-ring-5 10.594 → 10.450 G (−1.4 %),
+magma-list-pair-n7 11.202 → 10.984 G (−2.0 %), cbv_aes Nr=10 whole run 10.538 → 10.087 G
+(−4.3 %); verdicts unchanged.
+
+**Why no budget.**  Official has none; a budget makes the work depend on a heuristic count and
+was the kind of cut-off #319 removed.  Verdicts are unchanged on every stream measured and in
+`tests/arena.sh`.
+
+## TASK #576: substitution walks return no `(term, memo)` pair for a leaf child (2026-11-12)
+
+Question: what does the pair each cached substitution walk step returns
+(`Squash (ResXP s e c)`) cost, and can the parent handle the steps that
+cannot change the memo and get a bare `Expr`?
+
+**What the compiler already did.**  `enterListP` (and its five twins) is
+`@[inline]`; a `Squash.mk (e, memo)` built in the parent's body never
+reaches the heap: the generated C passes `fst`/`snd` to the join point
+as two variables.  So the cutoff step was already pair-free.  The pair
+is allocated where a step is a CALL: the walk's own arms build the
+result, and the caller destructures it (`inc fst; inc snd; dec pair`,
+or reuse into its own result).  The leaves (`sort`/`const`/`lit`/`fvar`)
+never reach a walk (their `bvarB` is 0, the cutoff catches them), nor an
+in-range `bvar` (`i < d`, also cut off).  The only memo-neutral steps
+that are calls are the replacement `bvar`s.
+
+**Counts** (a step counter, since removed; millions; `--verified
+--jobs=1`; cbv = `_tmp/571-cbv` Nr = 10; theorem = full − base stream;
+`alloc` = small allocations inside the walk, nested walks included):
+
+| stream | walk | cutoff | bvar (repl.) | excl. | shared | hit % | compound | alloc |
+|---|---|---:|---:|---:|---:|---:|---:|---:|
+| cbv theorem | list | 0.12 | 0.15 | 0.02 | 0.17 | 6 | 0.23 | 1.1 |
+| | rev | 0.44 | 1.15 | 0.40 | 0.34 | 4 | 1.06 | 4.4 |
+| init-full | list | 44.8 | 46.4 | 32.7 | 45.1 | 5 | 84.7 | 330 |
+| | rev | 14.7 | 17.8 | 6.27 | 20.5 | 18 | 28.1 | 131 |
+| grind-ring-5 | list | 2.05 | 1.58 | 0.82 | 2.32 | 4 | 3.34 | 14.7 |
+| | rev | 0.42 | 0.46 | 0.18 | 0.49 | 16 | 0.73 | 3.3 |
+
+`instantiate1XP`, `instantiateLiftXP` and `liftLooseBVarsXP` stay below
+0.6 M steps on every stream and their replacement steps add nothing
+measurable; `instLevelParamsXP`'s leaves (4.45 M on init-full) go through
+the memo on purpose and are worth at most another 0.2 %.  The walks make
+44 % of init-full's 1 272 M allocations.
+
+**The change** (`instantiateListXP`, `instantiateRevXP`).  `leafListP`/
+`leafRevP` handle the non-compound child in the parent's `enterListP`/
+`enterRevP` as a bare subtype: the cutoff, the `bvar` arms and the
+replacement.  The replacement's re-entry (a replacement with loose bound
+variables below the lift: the walk at a shorter live prefix under a FRESH
+memo, whose memo is dropped) is the argument `reent`, of type
+`ReentListP`/`ReentRevP`.  The proofs are the arms' own, moved.  The
+generated C of the compound arms handles the `bvar` child inline and
+jumps to the join point with `fst`/`snd`: no call, no pair, no closure.
+
+Two facts shape the code.  A definition in a `mutual` block is never
+inlined (LCNF `markRecDecls` marks every block member referenced from the
+block recursive, and `inlineCandidate?` refuses a recursive declaration),
+and `enterListP` cannot name a function of a later `mutual` block.  So
+`enterListP` stays `@[inline]` and OUTSIDE the block and takes the
+re-entry and the descent as arguments, always as partial applications
+(`(reentListP vs k d)`, `(instantiateListXP vs k memo f d hk)`), never
+lambdas: after inlining each is a direct call.  The walk's leaf arms are
+separate arms of its one `match` (an `if !isCompound` in front of the
+match cost a second tag switch per walk call, +0.25 % on init-full).
+
+Two variants were built.  (a) `leafListP` fully mutual with the walk
+(every non-compound child is a call returning the bare term; termination
+`(k, sizeOf e)`, `(k, sizeOf e + 1)`): about 17 instructions per leaf
+step, +0.4 % against (b).  (b), landed: `leafListP` is `@[inline]`
+outside the block, and only `reentListP` — four lines, the walk under a
+fresh memo, its memo dropped — is mutual with the walk (termination
+`(j, sizeOf w + 1)` and `(k, sizeOf e)`); every non-compound child is
+handled inline, only a re-entry is a call.  A removed step saves about
+140 instructions in `instantiateListXP`, 115 in `instantiateRevXP`;
+allocations fall by one per removed step (init-full 1 272.1 → 1 211.2 M).
+
+**Numbers** (`instructions:u`, one run each, `--verified --jobs=1`,
+against master after task #574):
+
+| stream | master | this change |
+|---|---:|---:|
+| cbv theorem (full − base) | 6.224 G | 6.065 G (−2.55 %) |
+| grind-ring-5 | 10.448 G | 10.148 G (−2.87 %) |
+| init-full | 286.93 G | 277.76 G (−3.19 %) |
+
+Verdicts unchanged on every stream and in `tests/arena.sh` (595/595 e2e).
+
+**Not reached**: the pair a compound step returns (128 M on init-full).
+On v4.35.0 an `ST.Ref`-held memo would remove it: `ST σ α` is
+`Void σ → ST.Out σ α` with the state erased, so an `ST`/`BaseIO` function
+returns the bare value, while `EIO`/`IO` allocate one result object per
+call.  The price is two out-of-line runtime calls (`lean_st_ref_take`,
+`lean_st_ref_put`) per memo touch and monadic walks.
+
+## TASK #577 — the ι step on array spines (2026-11-12, agent/577-iota-spine)
+
+Split out of task #573 (its part B, commit 84540e596 on `agent/573-iota-facts`) to be measured
+on its own: a code optimisation of the ι step, with none of #573's stored facts
+(`IndCaps.neverZero`, `IndWF`, `IotaCaseS`).
+
+**The code.** `whnfStuckI`, `whnfAppI`, `betaPeelI` and `iotaRecI` take the spine as an
+argument array: `getAppArgsArr` fills an array of the spine's length from the back along the
+spine (no list), `iotaRecI h args k` fires at the redex `h args[0:k]` and returns its reduct,
+the rule's right-hand side applied to two ranges (`mkAppRange`: the recursor's leading
+arguments `args[0:min rP k]`, the constructor's fields `margs[cnP:]`), and the caller applies
+the reduct to `args[k:]` by a third range.  Nothing of the redex is rebuilt.  The case-3
+certificates read lists, built only past the case decision.  `betaPeelI` walks the same array
+and substitutes with task #572's unmemoised `instantiateListC` (#573's resolution of the merge
+with #572).  Reduction order unchanged, and the same as official's.
+
+**The proofs.** `iotaRecC_spec` is stated at the specification's redex
+`mkAppN h (args.toList.take k)`; the array vocabulary (`getAppArgsArr_toList`,
+`mkAppRange_eq`, `iotaReduct_eq`) is in `Verify/Cached/DiscC3`.  `whnfAppW_stuck`
+(`Verify/Cached/DiscC4`) reads the specification's spine loop at a stuck head the stuck arm's
+way (ι at its target prefix, `none` everywhere else), which replaces the old identification of
+the stuck arm with the cached loop.  Capstone axioms unchanged.
+
+**Numbers** (`instructions:u`, G, `--verified --jobs=1`, one run each; stdout identical on every
+stream; data in `_tmp/577/logs/`):
+
+| stream | master 94566fcb7 | #577 | Δ |
+|---|---:|---:|---:|
+| grind_field_cancel_inv | 2.419 | 2.261 | -6.50 % |
+| init-full | 286.921 | 286.635 | -0.10 % |
+| init-prelude | 1.157 | 1.155 | -0.17 % |
+| app-lam | 22.043 | 22.043 | -0.00 % |
+| args-before-unfold | 0.056 | 0.054 | -3.66 % |
+| beta-ladder | 4.918 | 4.913 | -0.10 % |
+| church-numerals | 0.200 | 0.200 | +0.07 % |
+| discarded-argument-match | 0.220 | 0.216 | -1.57 % |
+| discarded-argument | 0.076 | 0.072 | -5.24 % |
+| folded-constant-first | 0.084 | 0.080 | -4.82 % |
+| folded-constant-last | 0.084 | 0.080 | -4.75 % |
+| fueled-chain | 0.267 | 0.267 | +0.17 % |
+| grind-ring-5 | 10.450 | 10.109 | -3.26 % |
+| identical-nesting | 0.021 | 0.021 | -0.01 % |
+| irrelevance-before-evaluation | 0.023 | 0.023 | +0.01 % |
+| let-ladder | 2.559 | 2.559 | +0.00 % |
+| magma-list-deep-n21 | 11.870 | 11.766 | -0.88 % |
+| magma-list-deep-n36 | 158.079 | 156.895 | -0.75 % |
+| magma-list-pair-n21 | 125.121 | 125.528 | +0.33 % |
+| magma-list-pair-n7 | 10.976 | 10.958 | -0.16 % |
+| repeated-subproblem | 0.023 | 0.023 | -0.41 % |
+| shared-subterm | 0.168 | 0.154 | -7.99 % |
+| shift-cascade | 0.051 | 0.051 | -0.03 % |
+| unroll-versus-evaluate | 0.027 | 0.027 | -0.03 % |
+
+The largest gains are on the fixture (whose check is mostly ι steps), grind-ring-5, the
+`discarded-argument` and `folded-constant` streams and `shared-subterm`; init-full and the
+β-heavy streams (`app-lam`, `beta-ladder`, `let-ladder`) are flat.  Three streams rose, by at most
++0.33 % (magma-list-pair-n21; fueled-chain +0.17 %, church-numerals +0.07 %), not attributed.  For comparison, #573 measured B
+alone, against master before #572, at −7.0 % on the fixture and −3.6 % on grind-ring-5.
+
+## TASK #573 — the ι step's static facts stored at install: the family's sort fact and the constructor's family (2026-11-12, agent/573-iota-facts2)
+
+The investigation of the ι step on `grind_field_cancel_inv` split its per-step cost into static
+work recomputed at every step and dynamic list work.  The dynamic part (array spines) landed on
+its own as task #577; this record is the static part.  Ruling (2026-11-12): installation stays
+purely syntactic; A is exactly two stored facts, both computed at the install from the declared
+records, kept as environment invariants (`EnvWF`), and trusted at the use.  No `cidx` and no
+other field of Lean's records.
+
+**The family's sort fact, `IndCaps.neverZero`.**  Whether the former's stored type ends in a sort
+whose zero-ness datum is `never` (`formerZ`), computed by `blockCapsAt` from the declared former;
+the pinned `Nat` and `Empty` formers set it, every other pin keeps `false`, which claims nothing.
+Invariant: `IndWF` (`EnvWF.inds`), established at every install route (the block formers,
+`envWF_consBlockInds` with `blockInds_neverZero`; the basis blocks; the quotient pins in
+`declQuotRun_envWF`) and kept by every extension.  The ι case split reads it first (`iotaCaseAt`,
+`iotaNoCert`): a K rule, or a rule whose constructor's family records a never-zero sort at the
+comparand levels' count (`recFireLevelCount`, read without substituting), fires with no
+certificate; any other rule is decided at the use as before (`iotaCase3At`).  The structure-η
+rescue's never-zero test reads it the same way (`familyNeverZeroAt`).  Rules tier: `Red.iota`'s
+case premise is `IotaCaseS` (`.stored` / `.use`); the model reads `.stored` through `IndWF`
+(`iotaNoCert_sem`).
+
+**The constructor's family, `ctorInfo … induct`** (Lean's `ConstructorVal.induct`).  A plain
+`Name` on every constructor record.  The install sets it from the block itself: the member the
+constructor is declared under (`consSumCtors nP T`, `consBlockCtors` over
+`BlockShape.ctorGroups`, `blockCtors`; the cached index pushes alike); the pinned constructors
+(`Nat.zero`, `Nat.succ`, `Eq.refl`, `And.intro`, `Iff.intro`, `Nonempty.intro`, `Quot.mk`) carry
+their family as a literal.  The constructor check already establishes that the declared type
+concludes in that member (`SumCtorRun`'s result shape; `SumCtorRun.head` reads it off
+`stripPis`), so the invariant is unconditional and intrinsic to the record: `CtorWF`
+(`EnvWF.ctors`) — every stored `ctorInfo cv nP nF T` has `cv.type.piResult.getAppFn = .const T
+us`.  Being a property of the record alone, it survives every extension with no freshness side
+condition (the obstacle the earlier attempt with `RecRule.induct` hit, whose meaning depended on
+the environment the generated recursors are checked in).  The parse fills the field with the
+type record that lists the constructor (`validateIndF`, which also compares the stream's or the
+`.olean`'s own `induct` claim with it and rejects a mismatch, as before); the install never reads
+it.  Every reader of the family now looks it up by the stored name with no walk and no fallback:
+`ctorFamily find? induct` is one `find?`; the ι case split (`iotaNoCert`, `iotaCase3At`,
+`iotaCaseAt`, cached `iotaCase3I`), the K, structure-η and `And` rescues (`majorToCtor`,
+`majorToCtorI`) and the partial-η gate (`etaCtorPartial`, `etaCtorPartialC`).  The rules tier
+mirrors it: `IotaCase(S)` is indexed by the family name, and the rescue rules' premise is the
+constructor record with its `induct` (the separate head premise is gone; the model never read
+it).  The model keeps its walk-based family `ctorTypeFamily` (the family a constructor's type
+concludes in, what `FamNZ` is stated at) and meets the checker's read through `CtorWF`
+(`ctorTypeFamily_eq`, `EnvWF.ctorHead`).
+
+**Proof churn.**  The `ctorInfo` arity change touched ~140 files; in the model the family name is
+existential (`iT`) wherever it is irrelevant (the lfp/cover/transport predicates) and the
+member's name where a record the install consed is described.  `EnvWF` gained the field `ctors`;
+`EnvWF.cons` takes `CtorWF` with a default for non-constructors.
+
+**Not stored** (measured on the earlier branch): the recursor arity check (`peelPis (mI + 1)` on
+the recursor type per step, −0.7 % on the fixture when dropped; as an invariant it needs the
+generated recursors' arity at their environment), the rescue kind for single-rule recursors,
+and the remaining fields of Lean's records.
+
+**Numbers** (`instructions:u`, G, `--verified --jobs=1`, one run each; stdout identical on every
+stream; master is 8a12163cd, #576 and #577 included; data in `_tmp/573b/logs/`):
+
+| stream | master | #573 | Δ |
+|---|---:|---:|---:|
+| grind_field_cancel_inv | 2.193 | 2.136 | −2.64 % |
+| init-full | 277.368 | 275.490 | −0.68 % |
+| init-prelude | 1.133 | 1.131 | −0.17 % |
+| grind-ring-5 | 9.805 | 9.652 | −1.55 % |
+| shared-subterm | 0.149 | 0.144 | −3.38 % |
+| discarded-argument | 0.070 | 0.069 | −2.13 % |
+| folded-constant-first / -last | 0.077 | 0.076 | −2.15 % |
+| args-before-unfold | 0.053 | 0.052 | −1.57 % |
+| discarded-argument-match | 0.210 | 0.208 | −1.12 % |
+| magma-list-deep-n21 / -n36 | 11.140 / 148.756 | 11.014 / 146.882 | −1.13 / −1.26 % |
+| magma-list-pair-n7 / -n21 | 10.530 / 120.558 | 10.442 / 119.687 | −0.83 / −0.72 % |
+| app-lam, beta-ladder, let-ladder, church-numerals, fueled-chain | | | 0.00 … −0.03 % |
+| identical-nesting, irrelevance-before-evaluation, repeated-subproblem, shift-cascade, unroll-versus-evaluate | | | −0.08 … +0.07 % |
+
+No stream rose by more than +0.07 %.
+
+## modular: master merged (4) (2026-11-12, agent/modular-merge-master-4)
+
+`master` at ca6af0990 merged into `modular` (4a7f40321).  What master brought: #557 (the dead
+`natOpWfNames` branch leaves the specification's `reduceNat`), #570 (the e2e fixture
+`grind_field_cancel_inv`), #572 (the official `whnfCore` memo policy; the β peel substitutes
+without the instantiation memo; fixtures `whnf_core_memo`, `whnf_core_memo_cheap`), #573 (the ι
+step's static facts stored at install: `IndCaps.neverZero` with the invariant `IndWF`, the
+constructor's family on `ctorInfo … induct` with the invariant `CtorWF`; `IotaCaseS`; the model's
+walk-based `ctorTypeFamily`), #574 (structural equality as the official `expr_eq_fn`), #575 (a
+DESIGN record: open-addressing memos, not pursued), #576 (substitution walks return no
+`(term, memo)` pair for a leaf child), #577 (the ι step on array spines).  No task number
+collides: master's new records are #557, #572–#577, `modular` has none of them; `modular`'s new
+records since the last merge (#566–#569, #571) are not on master.  (The known collision is
+`modular`'s #571 against another session's unlanded `agent/571-cbv-aes`.)
+
+**Textual conflicts.**  The model files where #573's arity change met `modular`'s #443 swap
+(`Model/BasisAtBlock.lean`, `BasisLfp.lean`, `Env/CanonCrest.lean`, `Harvest.lean`,
+`NatSem.lean`, `Inductives/ContAccFrame.lean`, `DeclBlockStep.lean`, `GenClsSem.lean`,
+`GenRecClasses.lean`, `GenRecExtra.lean`, `TargetCallFrame.lean`, `TargetNodeDynOf.lean`):
+`modular`'s by-value clauses and premises, with master's existential family name (`iT`) and
+`consBlockCtors … ctorGroups`; the blocks `modular` had removed (`hrdC`'s old place, `hranAll`,
+`FamilyRan`) stay removed.  `Verify/EnvExt/Whnf.lean` (#557's single branch, `modular`'s unused
+binder), `Verify/EnvWF.lean` (master's `IndWF`/`CtorWF`, `modular`'s removal of `OpDefn`),
+`tests/plain-reach-allow.txt` (`modular`'s literal-hash clause, master's `BeqSt` entries),
+DESIGN.md (both sides' records, `modular`'s first), and the documents' line anchors (relocated
+by the cited text, expectations regenerated; two whitepaper anchors re-cited by hand:
+`ConstantInfo` in `Kernel/Env.lean` and the ι case split's environment facts in
+`Model/Env/Laws.lean`, the latter stale on `modular` already).
+
+**Adaptations.**
+* **The context's validation reads the new fields** (`Driver/Reach.lean`,
+  `Verify/Driver/Reach.lean`).  A context record is installed as `streamEnv` installs it, so a
+  former's sort fact is the install's (`blockCapsAt` from the declared former) and holds
+  unconditionally (`declConstants_indWF`, with `quotAt_indWF`).  A constructor's `induct` is the
+  type that lists it; that this is the family its type concludes in is what the constructor
+  check proves of an own record and nothing proves of a record read from another module, so
+  `constOk` gains the clause `ctorHeadOk` (the type's result is headed by `induct`) and
+  `ctx_envWF` proves `CtorWF` from it (`constOk_ctorWF`).  `envWF_prefix`
+  (`Verify/Driver/PropPart.lean`) carries both new fields to a prefix.  `ModularTests` pins the
+  clause (a constructor stored under another family is refused).
+* **The `.olean` group proof carries each constructor's listing type**
+  (`Verify/Frontend/Olean/GroupSame.lean`): `validateIndF_inr` states the builder's list as
+  `ctorsListed` (each constructor record with the type that lists it); `declOfF_ind_same`
+  compares the type names too; `RouteCtx`'s membership reads the pair.
+* **The rules at a refinement** (`Rules/Refine.lean`, #469): `ctorFamily` at the stored name,
+  `EnvRefines.iotaNoCert`, `IotaCaseS.refine` (a fourteenth member of the mutual recursion), the
+  rescues without the head premise.
+* **The modular model's context source** (`Model/Modular/RestrictBase.lean`,
+  `RestrictLfp.lean`, `RestrictRules.lean`, `Valid.lean`, `Proofs.lean`): `CtxSrc.wf` proves the
+  two new `EnvWF` fields from the source's (a former or constructor is never a statement, so it
+  is the source's constant); `RuleAg`, `recRuleLaw_ag`, `ctorFamily_alike`/`_eq` at master's
+  `ctorTypeFamily` and the `iT`-carrying laws; `ctorEntry_some`/`nestContainer_some` existential
+  in the family name; the pinned `Nat` record with `neverZero := true`.
+* `Model/Cover.lean`'s `coverStepLeaf_cons` (`modular`'s leaf-keeping step) and its four
+  callers, `GenClsRhs`'s two `modular`-side `hfind`s, and the three copies of "a block installs
+  no statement" (`Model/Fold.lean`, `Model/Modular/Proofs.lean`, `Verify/Driver/RouteCtx.lean`)
+  read `blockCtors` as master's `flatMap` over `ctorGroups`.
+* Nothing else: #572/#576/#577 change the cached core under `typeIsPropC`, whose proof
+  (`PropPart.lean`) goes through the knot's entry-point spec unchanged; #574's equality and
+  #547's literal hash meet nowhere (the hash is a function of the literal's value, so equal
+  literals hash equally); `Literal.natHash`, the vendored C and the `@[csimp]` route of
+  `Verify/Cached/DeclNames.lean` are unchanged.
+
+**Measurements** (`perf stat -e instructions:u`, one run each, under the guard; streams
+`--jobs=8`, Coxeter `--olean --module --jobs=8`, CCK4 `--olean --module --jobs=1`;
+`_tmp/mmerge4/scripts/measure.sh`):
+
+| run | master ca6af0990 | modular 4a7f40321 | merged | vs modular | vs master |
+|---|---|---|---|---|---|
+| init-prelude | 1.215 G | 1.282 G | 1.215 G | −5.2 % | +0.01 % |
+| grind-ring-5 | 9.911 G | 11.115 G | 9.911 G | −10.8 % | −0.01 % |
+| Coxeter worker | — | 6.311 G | 6.220 G | −1.4 % | |
+| CFSG CCK4 | — | 101.71 G | 98.19 G | −3.5 % | |
+
+Every run accepts the same count (1777, 2185, 159, 34); CCK4's peak anon 1.53 → 1.49 GiB.
+Master has no `--module`.
+
+**Gates.**  `lake build`, `lake test` warning-free; `tests/arena.sh` in full under the guard (exit 0,
+peak 4.5 GB): layering, pindump, trust surface (the build and native surface: `lakefile.lean`,
+`native/nat_hash.c`), overview links (164), whitepaper links (530), fragment, quote gate,
+no-local-paths, challenge, shake (672/672 allowlisted, pub-imports none demotable), plain-reach
+(591, all allowlisted; `ctorHeadOk` reaches only the allowlisted `piResult`/`getAppFn`),
+binary-link, olean gate 339/339 (the scheduler and `StackDeep` cases among them), selfcheck
+(59 498 declarations, olean-compare 0 differences), axioms pinned (72 theorems), arena
+tutorial 90/92, e2e 603/603 (`lit_hash_low_bits` in 0.5 s, 2.10 G instructions, within its
+10 s timeout), the trusted and `--jobs` sweeps without divergence; the whitepaper builds
+(`nix develop ./whitepaper -c whitepaper/build.sh`).  No `sorry`, no new axiom, no new
+`unsafe`, `implemented_by` or C.

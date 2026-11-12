@@ -47,11 +47,11 @@ projections are graded, `b` is the table's constructor at `tsa ++ ps`
 (the coherence law). -/
 theorem etaSide (hin : RulesInputs V m φ) {d : Nat} {Δa : List Term}
     {T : Name} {cvT : ConstantVal} {caps : IndCaps} {us' : List Level}
-    {tbl : ProjTable} {cvC : ConstantVal} {nPc nFc : Nat}
+    {tbl : ProjTable} {cvC : ConstantVal} {nPc nFc : Nat} {cT : Name}
     {targs : List Expr} {b : Expr} {tsa : List Term} {ba : Term}
     (hind : env.find? T = some (.indInfo cvT caps)) (heta : caps.eta = true)
     (htbl : env.findTable? T = some tbl)
-    (hfC : env.find? tbl.ctor = some (.ctorInfo cvC nPc nFc))
+    (hfC : env.find? tbl.ctor = some (.ctorInfo cvC nPc nFc cT))
     (hlv : us'.length = cvT.levelParams.length)
     (htlen : targs.length = tbl.numParams)
     (hfb : Frame d b) (hCb : CtxOkS m φ d Δa b)
@@ -93,7 +93,7 @@ theorem etaSide (hin : RulesInputs V m φ) {d : Nat} {Δa : List Term}
     exact ConstantInfo.indInfo.inj (Option.some.inj hfT')
   obtain ⟨hlaw, hcoh⟩ :=
     hetaL cvT caps hind us' (by rw [← hlpsT']; exact hlv)
-  obtain ⟨TCa, hTCa, hfitC⟩ := hcoh heta cvC nPc nFc hfC
+  obtain ⟨TCa, hTCa, hfitC⟩ := hcoh heta cvC nPc nFc cT hfC
   have hslotE : ∀ j, j < tbl.numFields → ∃ entry : ProjEntry,
       env.findProj? T j = some entry :=
     fun j hj => ⟨_, ConLeche.Env.findProj?_of_table htbl hj⟩
@@ -136,7 +136,7 @@ theorem etaSide (hin : RulesInputs V m φ) {d : Nat} {Δa : List Term}
       exact fun l hl => hLb l (by simpa [Expr.fvarLeaves] using hl)
     · obtain ⟨j, hj, rfl⟩ := List.mem_map.mp hx
       obtain ⟨entry, hfe⟩ := hslotE j (List.mem_range.mp hj)
-      obtain ⟨-, -, -, ⟨cvTj, capsTj, hfTj, hlpsTj⟩, cvCj,
+      obtain ⟨-, -, -, ⟨cvTj, capsTj, hfTj, hlpsTj⟩, cvCj, _,
         -, -, hlawj⟩ := hin.tower_ok.entry T j entry hfe
       rw [hind] at hfTj
       obtain ⟨hcvTj, -⟩ := ConstantInfo.indInfo.inj (Option.some.inj hfTj)

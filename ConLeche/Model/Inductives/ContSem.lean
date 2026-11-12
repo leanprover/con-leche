@@ -50,7 +50,7 @@ structure ContBlockOk (env : Env) (ctx : NestCtx) (D : LfpDatum V) : Prop where
     caps.all = D.names
   ctors : ∀ c, c < D.k → ∃ nP' L, ConLeche.nestContainer ctx (D.member c) = some (nP', L) ∧
     L.length = D.nctors c ∧ ∀ j (hj : j < L.length),
-      env.find? (D.ctorName c j) = some (.ctorInfo L[j].1 nP' L[j].2)
+      ∃ iT, env.find? (D.ctorName c j) = some (.ctorInfo L[j].1 nP' L[j].2 iT)
   /-- a member WITHOUT constructors: the
   parameter count `nestContainer` reads for it (its former's recorded
   `IndCaps.nparams`) is the block's, and its former's level parameters

@@ -296,7 +296,7 @@ theorem unfoldDefinition_fvarLeaves {env : Env} (henv : EnvWF env)
   | some (.axiomInfo _) => intro h; exact nomatch h
   | some (.thmInfo _) => intro h; exact nomatch h
   | some (.indInfo _ _) => intro h; exact nomatch h
-  | some (.ctorInfo _ _ _) => intro h; exact nomatch h
+  | some (.ctorInfo _ _ _ _) => intro h; exact nomatch h
   | some (.recInfo _ _ _ _ _) => intro h; exact nomatch h
   | some (.defnInfo cv value hint) => ?_
   intro h
@@ -336,7 +336,7 @@ theorem unfoldDefinition_looseBVars {env : Env} (henv : EnvWF env)
   | some (.axiomInfo _) => intro h; exact nomatch h
   | some (.thmInfo _) => intro h; exact nomatch h
   | some (.indInfo _ _) => intro h; exact nomatch h
-  | some (.ctorInfo _ _ _) => intro h; exact nomatch h
+  | some (.ctorInfo _ _ _ _) => intro h; exact nomatch h
   | some (.recInfo _ _ _ _ _) => intro h; exact nomatch h
   | some (.defnInfo cv value hint) => ?_
   intro h
@@ -419,7 +419,7 @@ theorem whnfPres_fvarLeaves {env : Env} (henv : EnvWF env) :
           · exact Or.inr hb
         · -- iota step
           obtain ⟨c, us, cv, mI, rP, isK, rules, major, cj, usj,
-            cvj, cnP, cnF, r, hfn, hfc, hlen, -, hprep,
+            cvj, cnP, cnF, induct, r, hfn, hfc, hlen, -, hprep,
             hmfn, hfj,
             hrule,
             hml, hlev, hpeq, hmcerts, -, rfl⟩ :=
@@ -572,7 +572,7 @@ theorem whnfPres_looseBVars {env : Env} (henv : EnvWF env) :
             (looseBVarsBounded_instantiate1_gen hb.2 hbf'.2)
         · -- iota step
           obtain ⟨c, us, cv, mI, rP, isK, rules, major, cj, usj,
-            cvj, cnP, cnF, r, hfn, hfc, hlen, -, hprep,
+            cvj, cnP, cnF, induct, r, hfn, hfc, hlen, -, hprep,
             hmfn, hfj,
             hrule,
             hml, hlev, hpeq, hmcerts, -, rfl⟩ :=

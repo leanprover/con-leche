@@ -109,13 +109,13 @@ theorem canonOf_constsResolve {E : Env} {ty A : Expr} (he : ty.constsResolve E =
 /-! ## A container's constructors -/
 
 theorem ctorEntry_some {T : Name} {ci : ConstantInfo} {t : ConstantVal × Nat × Nat}
-    (h : ctorEntry T ci = some t) : ci = .ctorInfo t.1 t.2.1 t.2.2 := by
+    (h : ctorEntry T ci = some t) : ∃ iT, ci = .ctorInfo t.1 t.2.1 t.2.2 iT := by
   unfold ctorEntry at h
   split at h
   · split at h
     · split at h
       · split at h
-        · obtain rfl := Option.some.inj h; rfl
+        · obtain rfl := Option.some.inj h; exact ⟨_, rfl⟩
         · exact nomatch h
       · exact nomatch h
     · exact nomatch h
@@ -125,7 +125,7 @@ theorem ctorEntry_some {T : Name} {ci : ConstantInfo} {t : ConstantVal × Nat ×
 theorem nestContainer_some {E : Env} {T : Name} {nP' : Nat} {L : List (ConstantVal × Nat)}
     (h : nestContainer (envCtx E) T = some (nP', L)) :
     ∃ cv caps, E.find? T = some (.indInfo cv caps) ∧
-      ∀ e ∈ L, ∃ x ∈ caps.ctors, ∃ nPc, E.find? x = some (.ctorInfo e.1 nPc e.2) := by
+      ∀ e ∈ L, ∃ x ∈ caps.ctors, ∃ nPc iT, E.find? x = some (.ctorInfo e.1 nPc e.2 iT) := by
   rw [nestContainer_eq] at h
   change (match E.find? T with
     | some (.indInfo _ caps) => nestPick caps (caps.ctors.filterMap (ctorLook E.find? T))
@@ -133,8 +133,8 @@ theorem nestContainer_some {E : Env} {T : Name} {nP' : Nat} {L : List (ConstantV
   split at h
   · rename_i cv caps hf
     refine ⟨cv, caps, hf, fun e he => ?_⟩
-    have key : ∀ c ∈ caps.ctors.filterMap (ctorLook E.find? T), ∃ x ∈ caps.ctors,
-        E.find? x = some (.ctorInfo c.1 c.2.1 c.2.2) := by
+    have key : ∀ c ∈ caps.ctors.filterMap (ctorLook E.find? T), ∃ x ∈ caps.ctors, ∃ iT,
+        E.find? x = some (.ctorInfo c.1 c.2.1 c.2.2 iT) := by
       intro c hc
       obtain ⟨x, hx, hl⟩ := List.mem_filterMap.mp hc
       unfold ctorLook at hl
@@ -142,7 +142,8 @@ theorem nestContainer_some {E : Env} {T : Name} {nP' : Nat} {L : List (ConstantV
       | none => rw [hfx] at hl; exact nomatch hl
       | some ci =>
         rw [hfx] at hl
-        exact ⟨x, hx, by rw [hfx, ctorEntry_some hl]⟩
+        obtain ⟨iT, hci⟩ := ctorEntry_some hl
+        exact ⟨x, hx, iT, by rw [hfx, hci]⟩
     revert h
     generalize caps.ctors.filterMap (ctorLook E.find? T) = cs at key
     intro h
@@ -154,8 +155,8 @@ theorem nestContainer_some {E : Env} {T : Name} {nP' : Nat} {L : List (ConstantV
       simp only [nestPick, Option.some.injEq, Prod.mk.injEq] at h
       rw [← h.2] at he
       obtain ⟨c', hc', rfl⟩ := List.mem_map.mp he
-      obtain ⟨x, hx, hfx⟩ := key c' hc'
-      exact ⟨x, hx, c'.2.1, hfx⟩
+      obtain ⟨x, hx, iT, hfx⟩ := key c' hc'
+      exact ⟨x, hx, c'.2.1, iT, hfx⟩
   · exact nomatch h
 
 theorem ctorLook_alike {f g : Option ConstantInfo} (h : LookAlike f g) (T : Name) :
@@ -239,9 +240,9 @@ theorem blockNames {n : Name} {cvn : ConstantVal} {capsn : IndCaps}
   refine ⟨hm, fun c hc j hj => ?_⟩
   obtain ⟨nP', L, hL, hlen, hfj⟩ := (hcov.own D hD).ctors c hc
   have hjL : j < L.length := by rw [hlen]; exact hj
-  have hfx := hfj j hjL
+  obtain ⟨iTx, hfx⟩ := hfj j hjL
   obtain ⟨cvm, capsm, hfm, hents⟩ := nestContainer_some hL
-  obtain ⟨x, hx, nPc, hfxE⟩ := hents L[j] (List.getElem_mem _)
+  obtain ⟨x, hx, nPc, iT, hfxE⟩ := hents L[j] (List.getElem_mem _)
   have hxn : x = D.ctorName c j := by
     rw [← Env.find?_name hfxE, ← Env.find?_name hfx]; rfl
   subst hxn
@@ -275,8 +276,8 @@ theorem lfp_ok : ∀ D ∈ S.lfpList, LfpClause aC D ∧ LfpStored C D ∧ LfpRe
     ⟨fun mm hmm => ?_, fun c hc j hj => ?_⟩⟩
   · obtain ⟨cv, caps, hf⟩ := hst mm hmm
     exact ⟨cv, caps, bfwd (hbm mm hmm) hf⟩
-  · obtain ⟨cv, a, b, hf⟩ := hstC c hc j hj
-    exact ⟨cv, a, b, bfwd (hbc c (hck c hc) j hj) hf⟩
+  · obtain ⟨cv, a, b, iT, hf⟩ := hstC c hc j hj
+    exact ⟨cv, a, b, iT, bfwd (hbc c (hck c hc) j hj) hf⟩
   · obtain ⟨cv, caps, hf, hfl, hval, hw⟩ := hrd mm hmm
     have hty : cv.type.constsResolve (R n) = true := S.btypeR hn (hbm mm hmm) hf rfl
     refine ⟨cv, caps, bfwd (hbm mm hmm) hf, fun hflat ψ => ?_, fun ψ => ?_, hw⟩
@@ -284,11 +285,11 @@ theorem lfp_ok : ∀ D ∈ S.lfpList, LfpClause aC D ∧ LfpStored C D ∧ LfpRe
       exact ⟨ab, u, (S.denote_eq hn ψ 0 _ hty).trans hta, hl⟩
     · obtain ⟨ta, hta, hv⟩ := hval ψ
       exact ⟨ta, (S.denote_eq hn ψ 0 _ hty).trans hta, hv⟩
-  · obtain ⟨cv, nPc, nF, hf, hcf, hlps, hpars, A, hA, hocc, hrdA⟩ := hrdC c hc j hj
+  · obtain ⟨cv, nPc, nF, iT, hf, hcf, hlps, hpars, A, hA, hocc, hrdA⟩ := hrdC c hc j hj
     have hbcj := hbc c hc j hj
     have hty : cv.type.constsResolve (R n) = true := S.btypeR hn hbcj hf rfl
     have hAR := canonOf_constsResolve hty ⟨_, _, _, hA⟩
-    refine ⟨cv, nPc, nF, bfwd hbcj hf, hcf, fun mm hmm => ?_,
+    refine ⟨cv, nPc, nF, iT, bfwd hbcj hf, hcf, fun mm hmm => ?_,
       fun ψ dsC bodyC hrd' hle => ?_, A, hA, hocc, fun ψ => ?_⟩
     · obtain ⟨cvm, caps, hfm, hl⟩ := hlps mm hmm
       exact ⟨cvm, caps, bfwd (hbm mm hmm) hfm, hl⟩
@@ -298,8 +299,8 @@ theorem lfp_ok : ∀ D ∈ S.lfpList, LfpClause aC D ∧ LfpStored C D ∧ LfpRe
       exact ⟨h1, h2, ab, (S.denote_eq hn ψ _ _ hAR).trans hta, hlab, hab⟩
   · obtain ⟨cv, caps, hf, hz⟩ := hcK mm hmm
     exact ⟨cv, caps, bfwd (hbm mm hmm) hf, hz⟩
-  · obtain ⟨cv, nPc, nF, hf, hsh⟩ := hcC c hc j hj
-    exact ⟨cv, nPc, nF, bfwd (hbc c hc j hj) hf, hsh⟩
+  · obtain ⟨cv, nPc, nF, iT, hf, hsh⟩ := hcC c hc j hj
+    exact ⟨cv, nPc, nF, iT, bfwd (hbc c hc j hj) hf, hsh⟩
 
 /-- **The context owns its recorded blocks' constructors**, as the source does. -/
 theorem lfpOwn {D : LfpDatum V} (hDl : D ∈ S.lfpList) : LfpOwn C D := by

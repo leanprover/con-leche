@@ -280,8 +280,9 @@ theorem filterMap_filter_map {α β γ : Type} (p : α → Bool) (g : α → β)
   ((ctorNames.foldl (fun (mi : Std.HashMap Name Nat × Nat) n => (mi.1.insert n mi.2, mi.2 + 1))
     ({}, 0)).1[n]?).bind (cts.toArray[·]?)
 
-theorem ctorFold_spec (f : Name → Option IndCtorRec) : ∀ (ns : List Name) (t : Array IndCtorRec) (j : Nat),
-    (ns.foldl (fun (aj : Array IndCtorRec × Nat) n => (match f n with
+theorem ctorFold_spec (f : Name → Option (IndCtorRec × Name)) :
+    ∀ (ns : List Name) (t : Array (IndCtorRec × Name)) (j : Nat),
+    (ns.foldl (fun (aj : Array (IndCtorRec × Name) × Nat) n => (match f n with
       | some c => aj.1.push c | none => aj.1, aj.2 + 1)) (t, j)).1 = t ++ (ns.filterMap f).toArray
   | [], t, j => by simp
   | n :: ns, t, j => by
@@ -293,26 +294,29 @@ theorem ctorFold_spec (f : Name → Option IndCtorRec) : ∀ (ns : List Name) (t
       rw [ctorFold_spec f ns (t.push c) (j + 1)]
       simp
 
-theorem zipFold_spec (f : Name → Option IndCtorRec) : ∀ (as : List Name) (ls : List (List Name))
-    (t : Array IndCtorRec), as.length = ls.length →
-    ((as.zip ls).foldl (fun t x => t ++ (x.2.filterMap f).toArray) t).toList =
-      t.toList ++ ls.flatten.filterMap f
-  | [], [], t, _ => by simp
-  | a :: as, l :: ls, t, h => by
-    simp only [List.zip_cons_cons, List.foldl_cons, List.flatten_cons, List.filterMap_append]
-    rw [zipFold_spec f as ls _ (by simpa using h)]
+theorem zipFold_spec {α β : Type} (g : α → List β) : ∀ (xs : List α) (t : Array β),
+    (xs.foldl (fun t x => t ++ (g x).toArray) t).toList = t.toList ++ xs.flatMap g
+  | [], t => by simp
+  | x :: xs, t => by
+    simp only [List.foldl_cons, List.flatMap_cons]
+    rw [zipFold_spec g xs _]
     simp
-  | [], _ :: _, _, h => by simp at h
-  | _ :: _, [], _, h => by simp at h
+
+/-- The constructor records a block lists, each with the type that lists it, in the block's
+order. -/
+@[expose] def ctorsListed (ctorNames : List Name) (cts : List IndCtorRec)
+    (tyNames : List Name) (listed : List (List Name)) : List (IndCtorRec × Name) :=
+  (tyNames.zip listed).flatMap fun tn => (tn.2.filterMap (ctorAt ctorNames cts)).map (·, tn.1)
 
 /-- **The builder's verdict on a block that it accepts**: no type unsafe, the parameter count the
 first type's, and the constructor records the ones the types list, looked up by name, in the
-types' order. -/
+types' order, each with the type that lists it. -/
 theorem validateIndF_inr {nm : Nat → M Name} {lv : Nat → M Level} {ex : Nat → M Expr} {tys cts rcs cts1 nPd}
   (h : validateIndF nm lv ex tys cts rcs = .ok (.inr (cts1, nPd))) :
-    tys.any (·.isUnsafe) = false ∧ nPd = (tys.map (·.numParams)).head?.getD 0 ∧ ∃ listed ctorNames,
+    tys.any (·.isUnsafe) = false ∧ nPd = (tys.map (·.numParams)).head?.getD 0 ∧
+      ∃ tyNames listed ctorNames, tys.mapM (fun t => nm t.cv.name) = .ok tyNames ∧
       tys.mapM (fun t => t.ctors.mapM nm) = .ok listed ∧ cts.mapM (fun c => nm c.cv.name) = .ok ctorNames ∧
-      cts1 = listed.flatten.filterMap (ctorAt ctorNames cts) := by
+      cts1 = ctorsListed ctorNames cts tyNames listed := by
   unfold validateIndF at h
   cases hu : tys.any (·.isUnsafe)
   rotate_left
@@ -334,11 +338,13 @@ theorem validateIndF_inr {nm : Nat → M Name} {lv : Nat → M Level} {ex : Nat 
   simp only [hl, ite_true] at h
   obtain ⟨s, hs, h⟩ := bind_ok_inv h
   have hc := forIn_char (fun b => ∃ v, b = Sum.inl v)
-    (fun (tn : Name × List Name) (arr : Array IndCtorRec) => arr ++ (tn.2.filterMap (ctorAt ctorNames cts)).toArray) _ (by
+    (fun (tn : Name × List Name) (arr : Array (IndCtorRec × Name)) =>
+      arr ++ ((tn.2.filterMap (ctorAt ctorNames cts)).map (·, tn.1)).toArray) _ (by
       intro x hx t r hr
       obtain ⟨s', hs', hr⟩ := bind_ok_inv hr
       have hi := forIn_char (fun b => ∃ v, b = Sum.inl v)
-        (fun (n : Name) (aj : Array IndCtorRec × Nat) => (match ctorAt ctorNames cts n with
+        (fun (n : Name) (aj : Array (IndCtorRec × Name) × Nat) =>
+          (match (ctorAt ctorNames cts n).map (·, x.1) with
           | some c => aj.1.push c | none => aj.1, aj.2 + 1)) _ (by
           intro n hn' t r hr
           simp only [bind, Except.bind, pure, Except.pure] at hr
@@ -351,7 +357,7 @@ theorem validateIndF_inr {nm : Nat → M Name} {lv : Nat → M Level} {ex : Nat 
             split at hr
             · rename_i c hc
               have hcc := hg k c hk hc
-              rw [hcc]
+              rw [hcc, Option.map_some]
               repeat' split at hr
               all_goals first
                 | (cases hr; done)
@@ -363,7 +369,9 @@ theorem validateIndF_inr {nm : Nat → M Name} {lv : Nat → M Level} {ex : Nat 
       rcases hi with rfl | ⟨b, t', hb, rfl⟩
       · simp only [pure, Except.pure, Except.ok.injEq] at hr
         subst hr
-        exact .inl (by rw [ctorFold_spec])
+        exact .inl (by
+          rw [List.map_filterMap]
+          rw [ctorFold_spec (fun n => (ctorAt ctorNames cts n).map (·, x.1))])
       · simp only [pure, Except.pure, Except.ok.injEq] at hr
         subst hr
         exact .inr ⟨b, _, hb, rfl⟩) _ _ hs
@@ -397,9 +405,9 @@ theorem validateIndF_inr {nm : Nat → M Name} {lv : Nat → M Level} {ex : Nat 
   · simp only [pure, Except.pure, Except.ok.injEq] at h; cases h
   simp only [pure, Except.pure, Except.ok.injEq, Sum.inr.injEq, Prod.mk.injEq] at h
   obtain ⟨rfl, rfl⟩ := h
-  refine ⟨rfl, rfl, listed, ctorNames, h3, h4, ?_⟩
-  rw [zipFold_spec _ _ _ _ (by rw [mapM_ok_length h1, mapM_ok_length h3])]
-  simp
+  refine ⟨rfl, rfl, tyNames, listed, ctorNames, h1, h3, h4, ?_⟩
+  rw [zipFold_spec]
+  simp [ctorsListed]
 
 /-- A block's record that builds is of no unsafe type. -/
 theorem declOfF_ind_safe {nm : Nat → M Name} {lv : Nat → M Level} {ex : Nat → M Expr}
@@ -461,6 +469,24 @@ theorem filterMap_ctorAt {S : IndCtorRec → IndCtorRec → Prop} (ns : List Nam
       · rw [h1, h2]; exact ih
       · rw [h1, h2]; exact .cons hab ih
 
+theorem forall₂_map_pair {α : Type} {S : IndCtorRec → IndCtorRec → Prop} (T : α) :
+    ∀ {xs ys : List IndCtorRec}, Forall₂ S xs ys →
+      Forall₂ (fun a b => S a.1 b.1 ∧ a.2 = b.2) (xs.map (·, T)) (ys.map (·, T))
+  | _, _, .nil => .nil
+  | _, _, .cons hab t => .cons ⟨hab, rfl⟩ (forall₂_map_pair T t)
+
+theorem ctorsListed_forall₂ {S : IndCtorRec → IndCtorRec → Prop} {cts cts' : List IndCtorRec}
+    (h : Forall₂ S cts cts') : ∀ (tns : List (Name × List Name)),
+    Forall₂ (fun a b => S a.1 b.1 ∧ a.2 = b.2)
+      (tns.flatMap fun tn => (tn.2.filterMap (ctorAt ctorNames cts)).map (·, tn.1))
+      (tns.flatMap fun tn => (tn.2.filterMap (ctorAt ctorNames cts')).map (·, tn.1))
+  | [] => .nil
+  | tn :: tns => by
+    simp only [List.flatMap_cons]
+    exact Forall₂.append
+      (forall₂_map_pair tn.1 (filterMap_ctorAt (ctorNames := ctorNames) tn.2 h))
+      (ctorsListed_forall₂ h tns)
+
 /-- **A block's record is the same on two emitters' tables** where both resolve to the same
 constants, whatever indices each uses: the builder's verdict and record depend only on what the
 indices stand for. -/
@@ -486,8 +512,14 @@ theorem declOfF_ind_same {nm nm' : Nat → M Name} {lv lv' : Nat → M Level} {e
   rcases v' with v' | ⟨cts1', nPd'⟩
   · simp [pure, Except.pure] at hd'
   simp only at hd hd'
-  obtain ⟨-, hP, listed, cn, hl, hcn, rfl⟩ := validateIndF_inr hv
-  obtain ⟨-, hP', listed', cn', hl', hcn', rfl⟩ := validateIndF_inr hv'
+  obtain ⟨-, hP, tyN, listed, cn, htn, hl, hcn, rfl⟩ := validateIndF_inr hv
+  obtain ⟨-, hP', tyN', listed', cn', htn', hl', hcn', rfl⟩ := validateIndF_inr hv'
+  have e0 : tyN = tyN' := by
+    rw [mapM_res (F := fun (t : IndTypeRec) => nm t.cv.name) (G := CEntryF.name)
+      (fun t c (h : TyRes nm ex t c) => h.1.1) ht] at htn
+    rw [mapM_res (F := fun (t : IndTypeRec) => nm' t.cv.name) (G := CEntryF.name)
+      (fun t c (h : TyRes nm' ex' t c) => h.1.1) ht'] at htn'
+    cases htn; cases htn'; rfl
   have kc : ∀ {nm : Nat → M Name} {ex : Nat → M Expr} (t : IndTypeRec) (c : CEntryF Name Expr), TyRes nm ex t c →
       t.ctors.mapM nm = .ok (match c.kind with | .induct _ _ _ cs .. => cs | _ => []) := by
     intro nm ex t c ⟨_, ni, all, cs, nn, ir, irf, hk, hm⟩
@@ -504,12 +536,13 @@ theorem declOfF_ind_same {nm nm' : Nat → M Name} {lv lv' : Nat → M Level} {e
     rw [hP, hP', map_forall₂ (S := fun x y => ∃ c, TyRes nm ex x c ∧ TyRes nm' ex' y c)
       (fun a b ⟨c, ⟨_, ni, all, cs, nn, ir, irf, hk, _⟩, ⟨_, ni', all', cs', nn', ir', irf', hk', _⟩⟩ => by
         rw [hk] at hk'; exact (CKindF.induct.inj hk').1) (forall₂_meet ht ht')]
-  subst e1 e2 e3
-  have hcc := filterMap_ctorAt (ctorNames := cn) listed.flatten (forall₂_meet hc hc')
-  cases hb : indBlockOfF nm lv ex ts (listed.flatten.filterMap (ctorAt cn cts)) rs nPd with
+  subst e0 e1 e2 e3
+  have hcc : Forall₂ _ (ctorsListed cn cts tyN listed) (ctorsListed cn cts' tyN listed) :=
+    ctorsListed_forall₂ (ctorNames := cn) (forall₂_meet hc hc') (tyN.zip listed)
+  cases hb : indBlockOfF nm lv ex ts (ctorsListed cn cts tyN listed) rs nPd with
   | error e => rw [hb] at hd; cases hd
   | ok b =>
-  cases hb' : indBlockOfF nm' lv' ex' ts' (listed.flatten.filterMap (ctorAt cn cts')) rs' nPd with
+  cases hb' : indBlockOfF nm' lv' ex' ts' (ctorsListed cn cts' tyN listed) rs' nPd with
   | error e => rw [hb'] at hd'; cases hd'
   | ok b' =>
   rw [hb] at hd; rw [hb'] at hd'
@@ -519,13 +552,15 @@ theorem declOfF_ind_same {nm nm' : Nat → M Name} {lv lv' : Nat → M Level} {e
   unfold indBlockOfF
   rw [mapM_forall₂ (G := fun t => do pure (ConstantInfo.indInfo (← cvOfF nm' lv' ex' t.cv) {}))
       (fun a b ⟨c, h1, h2⟩ => by rw [cvOfF_res h1.1, cvOfF_res h2.1]) (forall₂_meet ht ht'),
-    mapM_forall₂ (G := fun c => do pure (ConstantInfo.ctorInfo (← cvOfF nm' lv' ex' c.cv) c.numParams c.numFields))
-      (fun a b ⟨c, h1, h2⟩ => by
+    mapM_forall₂ (G := fun (c, T) => do
+        pure (ConstantInfo.ctorInfo (← cvOfF nm' lv' ex' c.cv) c.numParams c.numFields T))
+      (fun ⟨ca, Ta⟩ ⟨cb, Tb⟩ ⟨⟨c, h1, h2⟩, hT⟩ => by
+        dsimp only at hT ⊢
         obtain ⟨g1, ind, cidx, iu, hk⟩ := h1
         obtain ⟨g2, ind', cidx', iu', hk'⟩ := h2
         rw [hk] at hk'
         obtain ⟨-, -, e1, e2, -⟩ := CKindF.ctor.inj hk'
-        rw [cvOfF_res g1, cvOfF_res g2, e1, e2]) hcc,
+        rw [cvOfF_res g1, cvOfF_res g2, e1, e2, hT]) hcc,
     mapM_forall₂ (G := fun r => do
         let rules ← r.rules.mapM (ruleOfF nm' lv' ex')
         pure (ConstantInfo.recInfo (← cvOfF nm' lv' ex' r.cv)

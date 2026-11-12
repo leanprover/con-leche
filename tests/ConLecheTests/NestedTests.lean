@@ -38,11 +38,11 @@ containers with their constructors, the member's former, and `Nat`
 name must exist). -/
 @[expose] def envT : Env := ⟨[
   .indInfo ⟨nm "T", [], ty1⟩ {},
-  .ctorInfo ⟨nm "N.mk", [], pi ty1 (pi (pi (.bvar 0) cNat) (.app cN (.bvar 1)))⟩ 1 1,
+  .ctorInfo ⟨nm "N.mk", [], pi ty1 (pi (pi (.bvar 0) cNat) (.app cN (.bvar 1)))⟩ 1 1 (nm "N"),
   .indInfo ⟨nm "N", [], pi ty1 ty1⟩ { ctors := [nm "N.mk"] },
   .ctorInfo ⟨nm "L.cons", [],
-    pi ty1 (pi (.bvar 0) (pi (.app cL (.bvar 1)) (.app cL (.bvar 2))))⟩ 1 2,
-  .ctorInfo ⟨nm "L.nil", [], pi ty1 (.app cL (.bvar 0))⟩ 1 0,
+    pi ty1 (pi (.bvar 0) (pi (.app cL (.bvar 1)) (.app cL (.bvar 2))))⟩ 1 2 (nm "L"),
+  .ctorInfo ⟨nm "L.nil", [], pi ty1 (.app cL (.bvar 0))⟩ 1 0 (nm "L"),
   .indInfo ⟨nm "L", [], pi ty1 ty1⟩ { ctors := [nm "L.nil", nm "L.cons"] },
   .indInfo ⟨nm "Nat", [], ty1⟩ {}], []⟩
 
@@ -92,7 +92,7 @@ reduces with the kernel's whnf (`(fun _ => T) Nat ⇝ T`). -/
 @[expose] def envF : Env := ⟨[
   .indInfo ⟨nm "T", [], ty1⟩ {},
   .ctorInfo ⟨nm "LF.mk", [], pi (pi ty1 ty1) (pi (.app (.bvar 0) cNat)
-    (.app cLF (.bvar 1)))⟩ 1 1,
+    (.app cLF (.bvar 1)))⟩ 1 1 (nm "LF"),
   .indInfo ⟨nm "LF", [], pi (pi ty1 ty1) ty1⟩ { ctors := [nm "LF.mk"] }] ++ envT.consts, envT.tables⟩
 @[expose] def ctxF : NestCtx :=
   ⟨[nm "T"], [], 0, [0], [], .succ .zero, envF.find?, [⟨nm "T", [], ty1⟩]⟩
@@ -121,8 +121,8 @@ the frame's holes. -/
 @[expose] def cB : Expr := .const (nm "B") []
 @[expose] def envM : Env := ⟨[
   .indInfo ⟨nm "T", [], ty1⟩ {},
-  .ctorInfo ⟨nm "B.mk", [], pi ty1 (pi (.app ctor (.bvar 0)) (.app cB (.bvar 1)))⟩ 1 1,
-  .ctorInfo ⟨nm "A.mk", [], pi ty1 (pi (.app cB (.bvar 0)) (.app ctor (.bvar 1)))⟩ 1 1,
+  .ctorInfo ⟨nm "B.mk", [], pi ty1 (pi (.app ctor (.bvar 0)) (.app cB (.bvar 1)))⟩ 1 1 (nm "B"),
+  .ctorInfo ⟨nm "A.mk", [], pi ty1 (pi (.app cB (.bvar 0)) (.app ctor (.bvar 1)))⟩ 1 1 (nm "A"),
   .indInfo ⟨nm "B", [], pi ty1 ty1⟩ { all := [nm "A", nm "B"], ctors := [nm "B.mk"] },
   .indInfo ⟨nm "A", [], pi ty1 ty1⟩ { all := [nm "A", nm "B"], ctors := [nm "A.mk"] }], []⟩
 @[expose] def ctxM : NestCtx :=
@@ -144,7 +144,7 @@ block member, so it is not a nested occurrence). -/
 @[expose] def cW : Expr := .const (nm "W") []
 @[expose] def envW : Env := ⟨[
   .indInfo ⟨nm "T", [], ty1⟩ {},
-  .ctorInfo ⟨nm "W.mk", [], pi ty1 (pi (.app cW cNat) (.app cW (.bvar 1)))⟩ 1 1,
+  .ctorInfo ⟨nm "W.mk", [], pi ty1 (pi (.app cW cNat) (.app cW (.bvar 1)))⟩ 1 1 (nm "W"),
   .indInfo ⟨nm "W", [], pi ty1 ty1⟩ { ctors := [nm "W.mk"] },
   .indInfo ⟨nm "Nat", [], ty1⟩ {}], []⟩
 @[expose] def ctxW : NestCtx :=
@@ -161,14 +161,14 @@ block member, so it is not a nested occurrence). -/
 @[expose] def cR : Expr := .const (nm "R") []
 @[expose] def envC : Env := ⟨[
   .indInfo ⟨nm "T", [], ty1⟩ {},
-  .ctorInfo ⟨nm "R.mk", [], pi ty1 (pi (.app cP (.bvar 0)) (.app cR (.bvar 1)))⟩ 1 1,
-  .ctorInfo ⟨nm "Q.mk", [], pi ty1 (pi (.app cR (.bvar 0)) (.app cQ (.bvar 1)))⟩ 1 1,
-  .ctorInfo ⟨nm "P.mk", [], pi ty1 (pi (.app cQ (.bvar 0)) (.app cP (.bvar 1)))⟩ 1 1,
+  .ctorInfo ⟨nm "R.mk", [], pi ty1 (pi (.app cP (.bvar 0)) (.app cR (.bvar 1)))⟩ 1 1 (nm "R"),
+  .ctorInfo ⟨nm "Q.mk", [], pi ty1 (pi (.app cR (.bvar 0)) (.app cQ (.bvar 1)))⟩ 1 1 (nm "Q"),
+  .ctorInfo ⟨nm "P.mk", [], pi ty1 (pi (.app cQ (.bvar 0)) (.app cP (.bvar 1)))⟩ 1 1 (nm "P"),
   .indInfo ⟨nm "R", [], pi ty1 ty1⟩ { all := [nm "P", nm "Q", nm "R"], ctors := [nm "R.mk"] },
   .indInfo ⟨nm "Q", [], pi ty1 ty1⟩ { all := [nm "P", nm "Q", nm "R"], ctors := [nm "Q.mk"] },
   .indInfo ⟨nm "P", [], pi ty1 ty1⟩ { all := [nm "P", nm "Q", nm "R"], ctors := [nm "P.mk"] },
-  .ctorInfo ⟨nm "G.mk", [], pi ty1 (pi (.app cF (.bvar 0)) (.app cG (.bvar 1)))⟩ 1 1,
-  .ctorInfo ⟨nm "F.mk", [], pi ty1 (pi (.app cL (.app cG (.bvar 0))) (.app cF (.bvar 1)))⟩ 1 1,
+  .ctorInfo ⟨nm "G.mk", [], pi ty1 (pi (.app cF (.bvar 0)) (.app cG (.bvar 1)))⟩ 1 1 (nm "G"),
+  .ctorInfo ⟨nm "F.mk", [], pi ty1 (pi (.app cL (.app cG (.bvar 0))) (.app cF (.bvar 1)))⟩ 1 1 (nm "F"),
   .indInfo ⟨nm "G", [], pi ty1 ty1⟩ { all := [nm "F", nm "G"], ctors := [nm "G.mk"] },
   .indInfo ⟨nm "F", [], pi ty1 ty1⟩ { all := [nm "F", nm "G"], ctors := [nm "F.mk"] }] ++ envT.consts, envT.tables⟩
 @[expose] def ctxC : NestCtx :=
@@ -188,8 +188,8 @@ CONSTANT while it is in progress, and REJECTS (never on a checked
 environment). -/
 @[expose] def envM0 : Env := ⟨[
   .indInfo ⟨nm "T", [], ty1⟩ {},
-  .ctorInfo ⟨nm "B.mk", [], pi ty1 (pi (.app ctor (.bvar 0)) (.app cB (.bvar 1)))⟩ 1 1,
-  .ctorInfo ⟨nm "A.mk", [], pi ty1 (pi (.app cB (.bvar 0)) (.app ctor (.bvar 1)))⟩ 1 1,
+  .ctorInfo ⟨nm "B.mk", [], pi ty1 (pi (.app ctor (.bvar 0)) (.app cB (.bvar 1)))⟩ 1 1 (nm "B"),
+  .ctorInfo ⟨nm "A.mk", [], pi ty1 (pi (.app cB (.bvar 0)) (.app ctor (.bvar 1)))⟩ 1 1 (nm "A"),
   .indInfo ⟨nm "B", [], pi ty1 ty1⟩ { ctors := [nm "B.mk"] },
   .indInfo ⟨nm "A", [], pi ty1 ty1⟩ { ctors := [nm "A.mk"] }], []⟩
 #guard (nestedBlockPositivity (pureOps .verified) envM0
@@ -213,15 +213,15 @@ construction. -/
 is unreached from the first and negative in its parameter. -/
 @[expose] def envS : Env := ⟨[
   .indInfo ⟨nm "T", [], ty1⟩ {},
-  .ctorInfo ⟨nm "B2.mk", [], pi ty1 (pi (pi (.bvar 0) cNat) (.app cB2 (.bvar 1)))⟩ 1 1,
-  .ctorInfo ⟨nm "A2.mk", [], pi ty1 (pi (.bvar 0) (.app cA2 (.bvar 1)))⟩ 1 1,
+  .ctorInfo ⟨nm "B2.mk", [], pi ty1 (pi (pi (.bvar 0) cNat) (.app cB2 (.bvar 1)))⟩ 1 1 (nm "B2"),
+  .ctorInfo ⟨nm "A2.mk", [], pi ty1 (pi (.bvar 0) (.app cA2 (.bvar 1)))⟩ 1 1 (nm "A2"),
   .indInfo ⟨nm "B2", [], pi ty1 ty1⟩ { all := [nm "A2", nm "B2"], nparams := 1, ctors := [nm "B2.mk"] },
   .indInfo ⟨nm "A2", [], pi ty1 ty1⟩ { all := [nm "A2", nm "B2"], nparams := 1, ctors := [nm "A2.mk"] },
-  .ctorInfo ⟨nm "N.mk", [], pi ty1 (pi (pi (.bvar 0) cNat) (.app cN (.bvar 1)))⟩ 1 1,
+  .ctorInfo ⟨nm "N.mk", [], pi ty1 (pi (pi (.bvar 0) cNat) (.app cN (.bvar 1)))⟩ 1 1 (nm "N"),
   .indInfo ⟨nm "N", [], pi ty1 ty1⟩ { all := [nm "N"], nparams := 1, ctors := [nm "N.mk"] },
   .ctorInfo ⟨nm "L.cons", [],
-    pi ty1 (pi (.bvar 0) (pi (.app cL (.bvar 1)) (.app cL (.bvar 2))))⟩ 1 2,
-  .ctorInfo ⟨nm "L.nil", [], pi ty1 (.app cL (.bvar 0))⟩ 1 0,
+    pi ty1 (pi (.bvar 0) (pi (.app cL (.bvar 1)) (.app cL (.bvar 2))))⟩ 1 2 (nm "L"),
+  .ctorInfo ⟨nm "L.nil", [], pi ty1 (.app cL (.bvar 0))⟩ 1 0 (nm "L"),
   .indInfo ⟨nm "L", [], pi ty1 ty1⟩ { all := [nm "L"], nparams := 1, ctors := [nm "L.nil", nm "L.cons"] },
   .indInfo ⟨nm "Nat", [], ty1⟩ {}], []⟩
 @[expose] def runS (dom : Expr) : Except CheckError NestedPositivity :=
@@ -291,7 +291,7 @@ index mentioning the block — official's "non valid occurrence". -/
 @[expose] def envV : Env := ⟨[
   .indInfo ⟨nm "T", [], ty1⟩ {},
   .axiomInfo ⟨nm "z", [], cNat⟩,
-  .ctorInfo ⟨nm "V.mk", [], pi ty1 (pi cNat (.app (.app cV (.bvar 1)) (.bvar 0)))⟩ 1 1,
+  .ctorInfo ⟨nm "V.mk", [], pi ty1 (pi cNat (.app (.app cV (.bvar 1)) (.bvar 0)))⟩ 1 1 (nm "V"),
   .indInfo ⟨nm "V", [], pi ty1 (pi cNat ty1)⟩ { ctors := [nm "V.mk"] },
   .indInfo ⟨nm "Nat", [], ty1⟩ {}], []⟩
 @[expose] def runV (dom : Expr) : Except CheckError NestedPositivity :=

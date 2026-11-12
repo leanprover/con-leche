@@ -76,20 +76,20 @@ def DeclBlockRun (F : Nat) (env : Env) (block : List ConstantInfo)
     --    stream's family, on the classes and the walk's table (the block's
     --    container bit)
     checkBlockRec (m := ConLeche.CheckM) (fueledOps .verified F)
-      (consBlockCtors p₁.nP p₁.memberCtors env₁) p₁ (blockNestedBit p₁ kinds)
+      (consBlockCtors p₁.nP p₁.ctorGroups env₁) p₁ (blockNestedBit p₁ kinds)
       ctx.params st.ctorNfs.toList rd Ms block = .ok out ∧
     -- 8  the stream's recursors against the generated ones: their K flags, then the
     --    rest at the environment holding the generated ones
     streamKCheck (m := ConLeche.CheckM) p₁ p₁.recs out = .ok () ∧
     streamRecsCheck (m := ConLeche.CheckM) (fueledOps .verified F)
       (mkFEnv (consBlockRecsT p₁ 0 out
-        (consBlockCtors p₁.nP p₁.memberCtors env₁))) p₁.recs out = .ok () ∧
+        (consBlockCtors p₁.nP p₁.ctorGroups env₁))) p₁.recs out = .ok () ∧
     -- 9  the projection tables, read off the block, and their checks
     blockTables p₁ p₁.members = some Q ∧
-    checkBlockTables (m := ConLeche.CheckM) (consBlockCtors p₁.nP p₁.memberCtors env₁) Q = .ok () ∧
+    checkBlockTables (m := ConLeche.CheckM) (consBlockCtors p₁.nP p₁.ctorGroups env₁) Q = .ok () ∧
     -- 10 the install: the formers and constructors above, the stream's recursors, the tables
     env₂ = (consBlockRecsT p₁ 0 (ConLeche.streamRecs p₁.recs out)
-      (consBlockCtors p₁.nP p₁.memberCtors env₁)).pushDelta [] Q
+      (consBlockCtors p₁.nP p₁.ctorGroups env₁)).pushDelta [] Q
 
 /-- **The block's run**: each member at its telescope, then the stages at those members. -/
 def BlockRun (F : Nat) (env : Env) (block : List ConstantInfo)

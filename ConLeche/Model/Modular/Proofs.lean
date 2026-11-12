@@ -202,8 +202,8 @@ theorem stmt_of_record {d : Declaration} {ci : ConstantInfo} (hci : ci ∈ declC
     split at hci
     · next p _ =>
       unfold blockConstants blockFormers blockCtors at hci
-      simp only [List.mem_append, List.mem_map] at hci
-      rcases hci with (⟨_, -, rfl⟩ | ⟨_, -, rfl⟩) | hr
+      simp only [List.mem_append, List.mem_map, List.mem_flatMap] at hci
+      rcases hci with (⟨_, -, rfl⟩ | ⟨_, -, _, -, rfl⟩) | hr
       · exact nomatch hk
       · exact nomatch hk
       · have : ∀ rs, ∀ c ∈ blockRecs p rs, c.isStmtKind = false := by

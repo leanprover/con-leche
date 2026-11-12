@@ -196,6 +196,7 @@ theorem declBasisPB_emptyK {env₂ : Env} (mp : EnvModelM V env)
   have hwf1 : EnvWF ⟨emptyI :: env.consts, env.tables⟩ :=
     EnvWF.cons (by decide) mp.base2.wf ⟨rfl, rfl, rfl, rfl,
       (fun _ _ _ heq => nomatch heq), (fun _ _ _ _ _ heq => nomatch heq)⟩
+      (by intro _ _ h _; cases h; decide)
   refine (extendEmpty mp hf1 hwf1).trans fun mp1 => ?_
   have hE : (⟨emptyI :: env.consts, env.tables⟩ : Env).find? emptyName
       = some emptyI := by

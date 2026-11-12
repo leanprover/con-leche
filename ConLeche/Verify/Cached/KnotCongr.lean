@@ -373,6 +373,11 @@ theorem formerNeverZeroI_congr (hfe : fe₁.find? = fe₂.find?) (h : SlotsEq mo
   funext cvT caps us; rw [formerNeverZeroI.eq_def, formerNeverZeroI.eq_def]
   simp only [formerSortLoopI_congr hfe h]
 
+theorem familyNeverZeroI_congr (hfe : fe₁.find? = fe₂.find?) (h : SlotsEq mode fe₁ fe₂ lv) :
+    familyNeverZeroI mode fe₁ eager lv = familyNeverZeroI mode fe₂ eager lv := by
+  funext cvT caps us; rw [familyNeverZeroI.eq_def, familyNeverZeroI.eq_def]
+  simp only [formerNeverZeroI_congr hfe h]
+
 /-- `iotaCase3I` only threads `fe` (the lookups come as an argument). -/
 theorem iotaCase3I_congr (hfe : fe₁.find? = fe₂.find?) (h : SlotsEq mode fe₁ fe₂ lv) :
     iotaCase3I mode fe₁ eager lv = iotaCase3I mode fe₂ eager lv := by
@@ -385,7 +390,7 @@ theorem majorToCtorI_congr (hfe : fe₁.find? = fe₂.find?)
     majorToCtorI mode fe₁ eager lv = majorToCtorI mode fe₂ eager lv := by
   funext depth recName isK rules major; rw [majorToCtorI.eq_def, majorToCtorI.eq_def]
   simp only [isCtorAppC_congr hfe, hfe, htb, andRescueSlotsF_congr hfe htb,
-    formerNeverZeroI_congr hfe h, proofIrrelI_congr hfe h, h]
+    familyNeverZeroI_congr hfe h, proofIrrelI_congr hfe h, h]
 
 /-- `litMajorToCtorI` reads `fe` only through `find?`. -/
 theorem litMajorToCtorI_congr (hfe : fe₁.find? = fe₂.find?) (h : SlotsEq mode fe₁ fe₂ lv) :
@@ -410,7 +415,7 @@ theorem prepareMajorI_congr (hfe : fe₁.find? = fe₂.find?)
 theorem iotaRecI_congr (hfe : fe₁.find? = fe₂.find?)
     (htb : fe₁.findTable? = fe₂.findTable?) (h : SlotsEq mode fe₁ fe₂ lv) :
     iotaRecI mode fe₁ eager lv = iotaRecI mode fe₂ eager lv := by
-  funext depth e; rw [iotaRecI.eq_def, iotaRecI.eq_def]
+  funext depth hd args k; rw [iotaRecI.eq_def, iotaRecI.eq_def]
   simp only [hfe, prepareMajorI_congr hfe htb h, defEqListI_congr hfe h,
     constTyAtM_congr hfe, iotaCertsFullI_congr hfe h, iotaCase3I_congr hfe h,
     iotaIndexOkI_congr hfe h, ruleRhsAtM_congr hfe]
@@ -425,25 +430,35 @@ theorem reduceProjCoreI_congr (hfe : fe₁.find? = fe₂.find?)
 /-- The peel loop only threads `fe`: it reads none of it. -/
 theorem betaPeelI_congr (_hfe : fe₁.find? = fe₂.find?) (depth : Nat) :
     betaPeelI mode fe₁ eager lv depth = betaPeelI mode fe₂ eager lv depth := by
-  funext t acc args
-  induction args generalizing t acc with
-  | nil => rw [betaPeelI.eq_def, betaPeelI.eq_def]
-  | cons a rest ih =>
+  funext t acc args i
+  obtain ⟨n, hn⟩ : ∃ n, n = args.size - i := ⟨_, rfl⟩
+  induction n generalizing t acc i with
+  | zero =>
+    rw [betaPeelI.eq_def, betaPeelI.eq_def, dite_eq_right (by omega), dite_eq_right (by omega)]
+  | succ n ih =>
     rw [betaPeelI.eq_def, betaPeelI.eq_def]
-    cases t <;> simp only [ih]
+    by_cases hi : i < args.size
+    · rw [dite_eq_left hi, dite_eq_left hi]
+      cases t <;> simp only [ih _ _ (i + 1) (by omega)]
+    · rw [dite_eq_right hi, dite_eq_right hi]
 
 /-- `whnfAppI` reads `fe` only through `find?` and `findTable?`. -/
 theorem whnfAppI_congr (hfe : fe₁.find? = fe₂.find?)
     (htb : fe₁.findTable? = fe₂.findTable?) (h : SlotsEq mode fe₁ fe₂ lv)
     (depth : Nat) :
     whnfAppI mode fe₁ eager lv depth = whnfAppI mode fe₂ eager lv depth := by
-  funext v args
-  induction args generalizing v with
-  | nil => rw [whnfAppI.eq_def, whnfAppI.eq_def]
-  | cons a rest ih =>
+  funext v args i
+  obtain ⟨n, hn⟩ : ∃ n, n = args.size - i := ⟨_, rfl⟩
+  induction n generalizing v i with
+  | zero =>
+    rw [whnfAppI.eq_def, whnfAppI.eq_def, dite_eq_right (by omega), dite_eq_right (by omega)]
+  | succ n ih =>
     rw [whnfAppI.eq_def, whnfAppI.eq_def]
-    cases v <;> simp only [betaPeelI_congr hfe, iotaArityOk_congr hfe,
-      iotaRecI_congr hfe htb h, ih]
+    by_cases hi : i < args.size
+    · rw [dite_eq_left hi, dite_eq_left hi]
+      cases v <;> simp only [betaPeelI_congr hfe, iotaArityOk_congr hfe,
+        iotaRecI_congr hfe htb h, ih _ (i + 1) (by omega)]
+    · rw [dite_eq_right hi, dite_eq_right hi]
 
 /-- `whnfStuckI` reads `fe` only through `find?` and `findTable?`. -/
 theorem whnfStuckI_congr (hfe : fe₁.find? = fe₂.find?)
@@ -456,7 +471,7 @@ theorem whnfStuckI_congr (hfe : fe₁.find? = fe₂.find?)
 theorem whnfCoreStepI_congr (hfe : fe₁.find? = fe₂.find?)
     (htb : fe₁.findTable? = fe₂.findTable?) (h : SlotsEq mode fe₁ fe₂ lv) :
     whnfCoreStepI mode fe₁ eager lv = whnfCoreStepI mode fe₂ eager lv := by
-  funext cheap depth e; rw [whnfCoreStepI.eq_def, whnfCoreStepI.eq_def]
+  funext cheap depth hd e; rw [whnfCoreStepI.eq_def, whnfCoreStepI.eq_def]
   simp only [whnfAppI_congr hfe htb h, whnfStuckI_congr hfe htb h,
     reduceProjCoreI_congr hfe htb h, h]
 
@@ -466,9 +481,9 @@ theorem whnfCoreLoopI_congr (hfe : fe₁.find? = fe₂.find?)
     whnfCoreLoopI mode fe₁ eager lv = whnfCoreLoopI mode fe₂ eager lv := by
   funext cheap depth n
   induction n with
-  | zero => funext e; rw [whnfCoreLoopI.eq_def, whnfCoreLoopI.eq_def]
+  | zero => funext pend pendC e; rw [whnfCoreLoopI.eq_def, whnfCoreLoopI.eq_def]
   | succ n ih =>
-    funext e; rw [whnfCoreLoopI.eq_def, whnfCoreLoopI.eq_def]
+    funext pend pendC e; rw [whnfCoreLoopI.eq_def, whnfCoreLoopI.eq_def]
     simp only [ih, whnfCoreStepI_congr hfe htb h]
 
 /-- `whnfCoreBodyI` reads `fe` only through `find?` and `findTable?`. -/

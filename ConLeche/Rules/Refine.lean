@@ -12,7 +12,7 @@ that name, or the axiom of its constant value (its statement: a definition, theo
 presented without its value), and every table `env₁` stores is `env₂`'s.  `env₂` may store more.
 
 **Every derivation at a refinement is a derivation at the refined environment**
-(`Red.refine` and its twelve siblings, one mutual structural recursion).  Every premise of every
+(`Red.refine` and its thirteen siblings, one mutual structural recursion).  Every premise of every
 rule reads the environment positively: a constant stored as a given kind (a definition to
 unfold, a recursor, a constructor, a family), a constant's stored type (which a statement keeps),
 a table entry, or a literal's constants stored.  A statement answers the kind-reads `none`, so
@@ -171,24 +171,31 @@ theorem andRescueSlots (h : EnvRefines env₁ env₂) {c : Name} {nP : Nat}
   | none => rw [hp] at this; exact nomatch this
   | some e => rw [hp] at this; rw [h.findProj hp]; exact this
 
-theorem ctorFamily (h : EnvRefines env₁ env₂) {cvj : ConstantVal} {p : ConstantVal × IndCaps}
-    (hc : ConLeche.ctorFamily env₁.find? cvj = some p) :
-    ConLeche.ctorFamily env₂.find? cvj = some p := by
+theorem ctorFamily (h : EnvRefines env₁ env₂) {induct : Name} {p : ConstantVal × IndCaps}
+    (hc : ConLeche.ctorFamily env₁.find? induct = some p) :
+    ConLeche.ctorFamily env₂.find? induct = some p := by
   unfold ConLeche.ctorFamily at hc ⊢
-  cases hfn : cvj.type.piResult.getAppFn with
-  | const T us =>
-    rw [hfn] at hc
-    dsimp only at hc ⊢
-    cases hf : env₁.find? T with
+  cases hf : env₁.find? induct with
+  | none => rw [hf] at hc; exact nomatch hc
+  | some ci =>
+    rw [hf] at hc
+    cases ci with
+    | indInfo cvT caps =>
+      rw [h.find.same hf (fun _ h => nomatch h)]
+      exact hc
+    | _ => exact nomatch hc
+
+theorem iotaNoCert (h : EnvRefines env₁ env₂) {isK : Bool} {induct : Name} {n : Nat}
+    (hc : ConLeche.iotaNoCert env₁.find? isK induct n = true) :
+    ConLeche.iotaNoCert env₂.find? isK induct n = true := by
+  unfold ConLeche.iotaNoCert at hc ⊢
+  cases isK with
+  | true => rfl
+  | false =>
+    simp only [Bool.false_or] at hc ⊢
+    cases hf : ConLeche.ctorFamily env₁.find? induct with
     | none => rw [hf] at hc; exact nomatch hc
-    | some ci =>
-      rw [hf] at hc
-      cases ci with
-      | indInfo cvT caps =>
-        rw [h.find.same hf (fun _ h => nomatch h)]
-        exact hc
-      | _ => exact nomatch hc
-  | _ => rw [hfn] at hc; exact nomatch hc
+    | some p => rw [hf] at hc; rw [h.ctorFamily hf]; exact hc
 
 theorem projGuardRows (h : EnvRefines env₁ env₂) {entry : ProjEntry} {us : List Level}
     {rows : List (Nat × Expr)} (hr : ConLeche.projGuardRows env₁.find? entry us = some rows) :
@@ -413,25 +420,25 @@ theorem Red.refine (h : EnvRefines env₁ env₂) :
   | _, _, _, .iota hhead hrec hlen hus hmajor hmhead hctor hrule hmlen hcase hlv
       hparams hcertR hcertC hres hidx =>
     .iota hhead (h.find.same hrec (fun _ h => nomatch h)) hlen hus (Red.refine h hmajor) hmhead
-      (h.find.same hctor (fun _ h => nomatch h)) hrule hmlen (IotaCase.refine h hcase) hlv
+      (h.find.same hctor (fun _ h => nomatch h)) hrule hmlen (IotaCaseS.refine h hcase) hlv
       (fun hc => DefEqList.refine h (hparams hc)) hcertR (fun hc => CertsF.refine h (hcertC hc))
       hres (fun hc hne => DefEqList.refine h (hidx hc hne))
-  | _, _, _, .rescueK hrec hk hctor hres hind htm htmaj hthead hlv hnP hfab hws
+  | _, _, _, .rescueK hrec hk hctor hind htm htmaj hthead hlv hnP hfab hws
       hb hlv' htf hdf htp http hv hv0 =>
     .rescueK (h.find.same hrec (fun _ h => nomatch h)) hk
-      (h.find.same hctor (fun _ h => nomatch h)) hres (h.find.same hind (fun _ h => nomatch h))
+      (h.find.same hctor (fun _ h => nomatch h)) (h.find.same hind (fun _ h => nomatch h))
       (Infer.refine h htm) (Red.refine h htmaj) hthead hlv hnP hfab hws hb hlv'
       (Infer.refine h htf) (DefEq.refine h hdf) (Infer.refine h htp) (Infer.refine h http)
       (Red.refine h hv) hv0
-  | _, _, _, .rescueEta hrec hctor hres hind htbl htm htmaj hthead hlen hlv hfab hws hb hlv' =>
+  | _, _, _, .rescueEta hrec hctor hind htbl htm htmaj hthead hlen hlv hfab hws hb hlv' =>
     .rescueEta (h.find.same hrec (fun _ h => nomatch h))
-      (h.find.same hctor (fun _ h => nomatch h)) hres (h.find.same hind (fun _ h => nomatch h))
+      (h.find.same hctor (fun _ h => nomatch h)) (h.find.same hind (fun _ h => nomatch h))
       (h.etaRescueTable htbl) (Infer.refine h htm) (Red.refine h htmaj) hthead hlen hlv hfab hws
       hb hlv'
-  | _, _, _, .rescueAnd hrec hctor hres hind htm htmaj hthead hlen hlv hslots
+  | _, _, _, .rescueAnd hrec hctor hind htm htmaj hthead hlen hlv hslots
       hfab hws hb hlv' htf hdf htp http hv hv0 =>
     .rescueAnd (h.find.same hrec (fun _ h => nomatch h))
-      (h.find.same hctor (fun _ h => nomatch h)) hres (h.find.same hind (fun _ h => nomatch h))
+      (h.find.same hctor (fun _ h => nomatch h)) (h.find.same hind (fun _ h => nomatch h))
       (Infer.refine h htm) (Red.refine h htmaj) hthead hlen hlv (h.andRescueSlots hslots) hfab
       hws hb hlv' (Infer.refine h htf) (DefEq.refine h hdf) (Infer.refine h htp)
       (Infer.refine h http) (Red.refine h hv) hv0
@@ -527,13 +534,19 @@ theorem FormerSort.refine (h : EnvRefines env₁ env₂) :
   | _, _, _, _, .pi hr hrest => .pi (Red.refine h hr) (FormerSort.refine h hrest)
 
 theorem IotaCase.refine (h : EnvRefines env₁ env₂) :
-    ∀ {isK : Bool} {cvj : ConstantVal} {us : List Level} {c3 : Bool},
-      IotaCase env₁ isK cvj us c3 → IotaCase env₂ isK cvj us c3
+    ∀ {isK : Bool} {induct : Name} {us : List Level} {c3 : Bool},
+      IotaCase env₁ isK induct us c3 → IotaCase env₂ isK induct us c3
   | _, _, _, _, .three => .three
   | _, _, _, _, .k => .k
   | _, _, _, _, .never hfam hlen hnz => .never (h.ctorFamily hfam) hlen hnz
   | _, _, _, _, .walk hfam hlen hnone hs hnv =>
     .walk (h.ctorFamily hfam) hlen hnone (FormerSort.refine h hs) hnv
+
+theorem IotaCaseS.refine (h : EnvRefines env₁ env₂) :
+    ∀ {isK : Bool} {induct : Name} {us : List Level} {c3 : Bool},
+      IotaCaseS env₁ isK induct us c3 → IotaCaseS env₂ isK induct us c3
+  | _, _, _, _, .stored hs => .stored (h.iotaNoCert hs)
+  | _, _, _, _, .use hc => .use (IotaCase.refine h hc)
 
 theorem GuardRows.refine (h : EnvRefines env₁ env₂) :
     ∀ {guardSort : Level} {rows : List (Nat × Expr)}, GuardRows env₁ guardSort rows →

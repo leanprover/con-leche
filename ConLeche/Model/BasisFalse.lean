@@ -203,6 +203,7 @@ theorem declBasisPB_falseK {env₂ : Env} (mp : EnvModelM V env)
   have hwf1 : EnvWF ⟨falseI :: env.consts, env.tables⟩ :=
     EnvWF.cons (by decide) mp.base2.wf ⟨rfl, rfl, rfl, rfl,
       (fun _ _ _ heq => nomatch heq), (fun _ _ _ _ _ heq => nomatch heq)⟩
+      (by intro _ _ h hn; cases h; exact nomatch hn)
   refine (extendFalse mp hf1 hwf1).trans fun mp1 => ?_
   have hE : (⟨falseI :: env.consts, env.tables⟩ : Env).find? falseName
       = some falseI := by

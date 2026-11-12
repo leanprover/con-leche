@@ -66,7 +66,7 @@ stored with their leaves. -/
       BlockAbsRead m' d lps c j ctor) ∧
   -- the members before `nc`: their constructors are stored with their leaves
   (∀ c, c < nc → ∀ (j : Nat) (ctor : ConstantVal × Nat), (d.ctorsM c)[j]? = some ctor →
-      env.find? ctor.1.name = some (.ctorInfo ctor.1 d.nP ctor.2) ∧ ctor.1.levelParams = lps ∧
+      env.find? ctor.1.name = some (.ctorInfo ctor.1 d.nP ctor.2 (d.memberName c)) ∧ ctor.1.levelParams = lps ∧
       ∀ ψ, m'.acval ctor.1.name ψ
         = sumMkAV (d.w ψ) j (d.dsF c j ψ) (((d.dsF c j ψ).drop d.nP))
             (uChains (d.Fss c ψ)))
@@ -81,14 +81,14 @@ and every constructor is a member's. -/
 /-- **The core invariant survives a constructor's cons.**  A stored
 name is not the fresh one, so nothing found before is disturbed; the
 readings cross by `FormerData.cross` and `BlockCtorDataI.cross`. -/
-theorem BlockCtorsCore.cons {env : Env} {m' : EnvModel V env} {d : BlockData V}
+theorem BlockCtorsCore.cons {T : Name} {env : Env} {m' : EnvModel V env} {d : BlockData V}
     {lps : List Name} {formersAll : List ConstantVal} {p₁ : BlockShape} {isRec : Bool}
     {A : Nat → (Name → Nat) → Term} {nc : Nat}
     (hN : BlockNamesOk (V := V) d formersAll)
     (h : BlockCtorsCore m' d lps formersAll p₁ isRec A nc)
     {ctor : ConstantVal × Nat} {B : (Name → Nat) → Term}
     (hfresh : env.find? ctor.1.name = none)
-    (mC : EnvModel V ⟨.ctorInfo ctor.1 d.nP ctor.2 :: env.consts, env.tables⟩)
+    (mC : EnvModel V ⟨.ctorInfo ctor.1 d.nP ctor.2 T :: env.consts, env.tables⟩)
     (hac : mC.acval = acvalWith m'.acval ctor.1.name B) :
     BlockCtorsCore mC d lps formersAll p₁ isRec A nc := by
   obtain ⟨hnameOf, hctorLt, hlenCv⟩ := hN
@@ -105,19 +105,19 @@ theorem BlockCtorsCore.cons {env : Env} {m' : EnvModel V env} {d : BlockData V}
     exact hne _ (by rw [hfS]; rfl)
   refine ⟨fun c cvTb hc => ?_, fun c j cB hj => ?_, fun c hc j cB hj => ?_⟩
   · obtain ⟨hfind, hres, hleaf, hFD⟩ := hform c cvTb hc
-    refine ⟨hfind.cross (c₀ := .ctorInfo ctor.1 d.nP ctor.2) hfresh mC hac,
+    refine ⟨hfind.cross (c₀ := .ctorInfo ctor.1 d.nP ctor.2 T) hfresh mC hac,
       Expr.constsResolve_mono hres, fun ψ => ?_, ?_⟩
     · rw [hac]
       show acvalWith m'.acval ctor.1.name B cvTb.name ψ = _
       rw [acvalWith_ne (hneOf c cvTb hc)]
       exact hleaf ψ
-    · exact hFD.cross (c₀ := .ctorInfo ctor.1 d.nP ctor.2) hfresh
+    · exact hFD.cross (c₀ := .ctorInfo ctor.1 d.nP ctor.2 T) hfresh
         (constsBound_of_constsResolve _ hres) mC hac
   · obtain ⟨hres, hresI, hD, hR⟩ := hdata c j cB hj
     refine ⟨Expr.constsResolve_mono hres, fun e he => Expr.constsResolve_mono (hresI e he), ?_,
-      hR.cross (c₀ := .ctorInfo ctor.1 d.nP ctor.2) hfresh (constsBound_of_constsResolve _ hres)
+      hR.cross (c₀ := .ctorInfo ctor.1 d.nP ctor.2 T) hfresh (constsBound_of_constsResolve _ hres)
         mC hac⟩
-    refine hD.cross (c₀ := .ctorInfo ctor.1 d.nP ctor.2) hfresh ?_
+    refine hD.cross (c₀ := .ctorInfo ctor.1 d.nP ctor.2 T) hfresh ?_
       (constsBound_of_constsResolve _ hres)
       (fun e he => constsBound_of_constsResolve _ (hresI e he)) mC hac
     obtain ⟨cvTb, hcvTb⟩ : ∃ cvTb, formersAll[c]? = some cvTb :=
@@ -247,10 +247,10 @@ theorem stageBlockCtorsAt {F : Nat}
     (hinv : BlockCtorsCore mp.base2 d lps formersAll p₁ isRec A m)
     (hfreshC : ∀ c, m ≤ c → ∀ (j : Nat) (ctor : ConstantVal × Nat), (d.ctorsM c)[j]? = some ctor →
       env.find? ctor.1.name = none) :
-    ∃ mp' : EnvModelM V (ConLeche.consSumCtors d.nP (d.ctorsM m) env),
+    ∃ mp' : EnvModelM V (ConLeche.consSumCtors d.nP (d.memberName m) (d.ctorsM m) env),
       BlockCtorsCore mp'.base2 d lps formersAll p₁ isRec A (m + 1) ∧
       (∀ c, m + 1 ≤ c → ∀ (j : Nat) (ctor : ConstantVal × Nat), (d.ctorsM c)[j]? = some ctor →
-        (ConLeche.consSumCtors d.nP (d.ctorsM m) env).find? ctor.1.name = none) ∧
+        (ConLeche.consSumCtors d.nP (d.memberName m) (d.ctorsM m) env).find? ctor.1.name = none) ∧
       -- every stored name keeps its leaf
       ∀ n : Name, (env.find? n).isSome = true → mp'.base2.acval n = mp.base2.acval n := by
   have hH : BlockHoleFacts mp.base2 d lps := blockHoleFacts_of_stage hN hS hinv (by omega)
@@ -401,13 +401,14 @@ theorem stageBlockCtors {F : Nat}
     {d : BlockData V} {lps : List Name} {formersAll : List ConstantVal} {p₁ : BlockShape}
     {isRec : Bool} {A : Nat → (Name → Nat) → Term}
     {envI : Env}
-    {memberCtors : List (List (ConstantVal × Nat))}
+    {memberCtors : List (Name × List (ConstantVal × Nat))}
     (hN : BlockNamesOk (V := V) d formersAll)
     (hlenCv : formersAll.length = d.k)
     (hS : BlockCtorsStage (V := V) F d lps formersAll p₁ isRec A envI)
     (hk : memberCtors.length = d.k)
-    (hmemberCtors : ∀ c, c < memberCtors.length → memberCtors[c]? = some (d.ctorsM c)) :
-    ∀ (rest : List (List (ConstantVal × Nat))) (i : Nat) (env : Env) (mp : EnvModelM V env),
+    (hmemberCtors : ∀ c, c < memberCtors.length →
+      memberCtors[c]? = some (d.memberName c, d.ctorsM c)) :
+    ∀ (rest : List (Name × List (ConstantVal × Nat))) (i : Nat) (env : Env) (mp : EnvModelM V env),
       (∀ c, rest[c]? = memberCtors[i + c]?) → i + rest.length = memberCtors.length →
       BlockCtorsCore mp.base2 d lps formersAll p₁ isRec A i →
       (∀ c, i ≤ c → ∀ (j : Nat) (ctor : ConstantVal × Nat), (d.ctorsM c)[j]? = some ctor →
@@ -420,13 +421,14 @@ theorem stageBlockCtors {F : Nat}
     simp only [List.length_nil, Nat.add_zero] at hi
     rw [hi, hk] at hinv
     exact ⟨mp, hinv, fun _ _ => rfl⟩
-  | ctorList :: rest, i, env, mp, hrest, hi, hinv, hfresh => by
+  | (T, ctorList) :: rest, i, env, mp, hrest, hi, hinv, hfresh => by
     have hilt : i < memberCtors.length := by simp only [List.length_cons] at hi; omega
-    have hiA : memberCtors[i]? = some ctorList := by
+    have hiA : memberCtors[i]? = some (T, ctorList) := by
       have := hrest 0; simpa using this.symm
     have hik : i < d.k := by rw [← hk]; exact hilt
-    obtain rfl : ctorList = d.ctorsM i :=
-      Option.some.inj ((hiA.symm.trans (hmemberCtors i hilt)))
+    obtain ⟨rfl, rfl⟩ : T = d.memberName i ∧ ctorList = d.ctorsM i := by
+      have := Option.some.inj ((hiA.symm.trans (hmemberCtors i hilt)))
+      exact ⟨(Prod.mk.inj this).1, (Prod.mk.inj this).2⟩
     obtain ⟨cvTa, hcvTa⟩ : ∃ cvTa, formersAll[i]? = some cvTa :=
       ⟨_, List.getElem?_eq_getElem (by rw [hlenCv]; exact hik)⟩
     obtain ⟨mpI, hinv', hfresh', hagI⟩ :=
@@ -439,8 +441,8 @@ theorem stageBlockCtors {F : Nat}
       stageBlockCtors hN hlenCv hS hk hmemberCtors rest (i + 1) _ mpI hrest'
         (by simp only [List.length_cons] at hi; omega) hinv' hfresh'
     refine ⟨mp', hinv'', fun n hn => ?_⟩
-    have hn' : ((ConLeche.consSumCtors d.nP (d.ctorsM i) env).find? n).isSome = true := by
-      cases h : (ConLeche.consSumCtors d.nP (d.ctorsM i) env).find? n with
+    have hn' : ((ConLeche.consSumCtors d.nP (d.memberName i) (d.ctorsM i) env).find? n).isSome = true := by
+      cases h : (ConLeche.consSumCtors d.nP (d.memberName i) (d.ctorsM i) env).find? n with
       | some _ => rfl
       | none => rw [ConLeche.consSumCtors_find?_none h] at hn; exact nomatch hn
     rw [hag' n hn', hagI n hn]

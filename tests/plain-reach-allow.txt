@@ -174,6 +174,7 @@ ConLeche.etaRescueTable?
 ConLeche.formerNeverZero
 ConLeche.formerResSort
 ConLeche.formerZ
+ConLeche.iotaNoCert
 ConLeche.listConsTyOk
 ConLeche.listNilTyOk
 ConLeche.listTyOk
@@ -203,6 +204,7 @@ ConLeche.natSubName
 ConLeche.natSuccOk
 ConLeche.natXorName
 ConLeche.natZeroOk
+ConLeche.recFireLevelCount
 ConLeche.reservedRecName
 ConLeche.strLitToConstructor
 ConLeche.stringOfListTyOk
@@ -239,7 +241,8 @@ ConLeche.instInhabitedConstantVal.default
 ConLeche.instInhabitedDeclaration.default
 
 # ConLeche.Kernel.Expr — the Expr/Level data structure: constructors and computed fields, the executed equality (beqMemo, its pointer and hash guards; Level.decEqPtr and Literal's pointer-first instance at the leaves, the literal hash below 2^64; Expr's instance, which runs decEqPtr; the structural Expr.decEq only as ptrDecStruct's fallback, behind a pointer test that answers true at both its sites)
-ConLeche.Expr.BeqMap.record
+ConLeche.Expr.BeqSt.record
+ConLeche.Expr.BeqSt.recordEq
 ConLeche.Expr.EqPair.dflt
 ConLeche.Expr.app
 ConLeche.Expr.beqDec
@@ -254,6 +257,7 @@ ConLeche.Expr.instDecidableEq
 ConLeche.Expr.lam
 ConLeche.Expr.letE
 ConLeche.Expr.lit
+ConLeche.Expr.probeHit
 ConLeche.Expr.proj
 ConLeche.Expr.sort
 ConLeche.Level.hashData
@@ -446,6 +450,7 @@ ConLeche.blockCapsAt  # ConLeche.Kernel.Inductives.BlockInstall
 ConLeche.nestOutKinds  # ConLeche.Kernel.Inductives.BlockInstall
 ConLeche.blockLargeElimAllowed  # ConLeche.Kernel.Inductives.BlockRec
 ConLeche.BlockShape.allCtors  # ConLeche.Kernel.Inductives.BlockShape
+ConLeche.BlockShape.ctorGroups  # ConLeche.Kernel.Inductives.BlockShape
 ConLeche.BlockShape.formers  # ConLeche.Kernel.Inductives.BlockShape
 ConLeche.BlockShape.k  # ConLeche.Kernel.Inductives.BlockShape
 ConLeche.BlockShape.lps  # ConLeche.Kernel.Inductives.BlockShape

@@ -229,18 +229,18 @@ table). -/
 /-! The pure certificate's arms, one equation each. -/
 
 theorem seta_body {env : Env} {a b wtb : Expr} {c : Name} {us : List Level} {cvc : ConstantVal}
-    {cnP cnF : Nat} {T : Name} {us' : List Level} {cvT : ConstantVal} {caps : IndCaps}
+    {cnP cnF : Nat} {cT : Name} {T : Name} {us' : List Level} {cvT : ConstantVal} {caps : IndCaps}
     {tbl : ProjTable} (h1 : a.getAppFn = .const c us)
-    (h2 : env.find? c = some (.ctorInfo cvc cnP cnF)) (h3 : a.getAppArgs.length = cnP + cnF)
+    (h2 : env.find? c = some (.ctorInfo cvc cnP cnF cT)) (h3 : a.getAppArgs.length = cnP + cnF)
     (h4 : wtb.getAppFn = .const T us') (h5 : env.find? T = some (.indInfo cvT caps))
     (h6 : env.findTable? T = some tbl) :
     structEtaCertWith r env d a b wtb = setaBodyP r env d a b wtb c us cvc T us' cvT caps tbl := by
   rw [structEtaCertWith]; simp only [h1, h2, h3, h4, h5, h6, ↓reduceIte]; rfl
 grind_pattern [conleche_grind] seta_body =>
-    structEtaCertWith r env d a b wtb, Expr.const c us, ConstantInfo.ctorInfo cvc cnP cnF,
+    structEtaCertWith r env d a b wtb, Expr.const c us, ConstantInfo.ctorInfo cvc cnP cnF cT,
       Expr.const T us', ConstantInfo.indInfo cvT caps, Option.some tbl where
   guard a.getAppFn = .const c us
-  guard env.find? c = some (.ctorInfo cvc cnP cnF)
+  guard env.find? c = some (.ctorInfo cvc cnP cnF cT)
   guard wtb.getAppFn = .const T us'
   guard env.find? T = some (.indInfo cvT caps)
   guard env.findTable? T = some tbl
@@ -254,62 +254,62 @@ theorem seta_notConst {env : Env} {a b wtb : Expr}
 
 theorem seta_notCtor {env : Env} {a b wtb : Expr} {c : Name} {us : List Level}
     (h1 : a.getAppFn = .const c us)
-    (h2 : ∀ cvc cnP cnF, env.find? c = some (.ctorInfo cvc cnP cnF) → False) :
+    (h2 : ∀ cvc cnP cnF cT, env.find? c = some (.ctorInfo cvc cnP cnF cT) → False) :
     structEtaCertWith r env d a b wtb = pure false := by
   rw [structEtaCertWith]; simp only [h1]
 grind_pattern [conleche_grind] seta_notCtor => structEtaCertWith r env d a b wtb, Expr.const c us where
   guard a.getAppFn = .const c us
 
 theorem seta_arity {env : Env} {a b wtb : Expr} {c : Name} {us : List Level} {cvc : ConstantVal}
-    {cnP cnF : Nat} (h1 : a.getAppFn = .const c us)
-    (h2 : env.find? c = some (.ctorInfo cvc cnP cnF)) (h3 : ¬a.getAppArgs.length = cnP + cnF) :
+    {cnP cnF : Nat} {cT : Name} (h1 : a.getAppFn = .const c us)
+    (h2 : env.find? c = some (.ctorInfo cvc cnP cnF cT)) (h3 : ¬a.getAppArgs.length = cnP + cnF) :
     structEtaCertWith r env d a b wtb = pure false := by
   rw [structEtaCertWith]; simp only [h1, h2, h3, ↓reduceIte]
 grind_pattern [conleche_grind] seta_arity =>
-    structEtaCertWith r env d a b wtb, Expr.const c us, ConstantInfo.ctorInfo cvc cnP cnF where
+    structEtaCertWith r env d a b wtb, Expr.const c us, ConstantInfo.ctorInfo cvc cnP cnF cT where
   guard a.getAppFn = .const c us
-  guard env.find? c = some (.ctorInfo cvc cnP cnF)
+  guard env.find? c = some (.ctorInfo cvc cnP cnF cT)
 
 theorem seta_notConstT {env : Env} {a b wtb : Expr} {c : Name} {us : List Level}
-    {cvc : ConstantVal} {cnP cnF : Nat} (h1 : a.getAppFn = .const c us)
-    (h2 : env.find? c = some (.ctorInfo cvc cnP cnF)) (h3 : a.getAppArgs.length = cnP + cnF)
+    {cvc : ConstantVal} {cnP cnF : Nat} {cT : Name} (h1 : a.getAppFn = .const c us)
+    (h2 : env.find? c = some (.ctorInfo cvc cnP cnF cT)) (h3 : a.getAppArgs.length = cnP + cnF)
     (h4 : ∀ T us', wtb.getAppFn = .const T us' → False) :
     structEtaCertWith r env d a b wtb = pure false := by
   rw [structEtaCertWith]; simp only [h1, h2, h3, ↓reduceIte]
 grind_pattern [conleche_grind] seta_notConstT =>
-    structEtaCertWith r env d a b wtb, Expr.const c us, ConstantInfo.ctorInfo cvc cnP cnF where
+    structEtaCertWith r env d a b wtb, Expr.const c us, ConstantInfo.ctorInfo cvc cnP cnF cT where
   guard a.getAppFn = .const c us
-  guard env.find? c = some (.ctorInfo cvc cnP cnF)
+  guard env.find? c = some (.ctorInfo cvc cnP cnF cT)
   guard a.getAppArgs.length = cnP + cnF
 
 theorem seta_notInd {env : Env} {a b wtb : Expr} {c : Name} {us : List Level}
-    {cvc : ConstantVal} {cnP cnF : Nat} {T : Name} {us' : List Level}
+    {cvc : ConstantVal} {cnP cnF : Nat} {cT : Name} {T : Name} {us' : List Level}
     (h1 : a.getAppFn = .const c us)
-    (h2 : env.find? c = some (.ctorInfo cvc cnP cnF)) (h3 : a.getAppArgs.length = cnP + cnF)
+    (h2 : env.find? c = some (.ctorInfo cvc cnP cnF cT)) (h3 : a.getAppArgs.length = cnP + cnF)
     (h4 : wtb.getAppFn = .const T us')
     (h5 : ∀ cvT caps, env.find? T = some (.indInfo cvT caps) → False) :
     structEtaCertWith r env d a b wtb = pure false := by
   rw [structEtaCertWith]; simp only [h1, h2, h3, h4, ↓reduceIte]
 grind_pattern [conleche_grind] seta_notInd =>
-    structEtaCertWith r env d a b wtb, Expr.const c us, ConstantInfo.ctorInfo cvc cnP cnF,
+    structEtaCertWith r env d a b wtb, Expr.const c us, ConstantInfo.ctorInfo cvc cnP cnF cT,
       Expr.const T us' where
   guard a.getAppFn = .const c us
-  guard env.find? c = some (.ctorInfo cvc cnP cnF)
+  guard env.find? c = some (.ctorInfo cvc cnP cnF cT)
   guard wtb.getAppFn = .const T us'
 
 theorem seta_noTable {env : Env} {a b wtb : Expr} {c : Name} {us : List Level}
-    {cvc : ConstantVal} {cnP cnF : Nat} {T : Name} {us' : List Level} {cvT : ConstantVal}
+    {cvc : ConstantVal} {cnP cnF : Nat} {cT : Name} {T : Name} {us' : List Level} {cvT : ConstantVal}
     {caps : IndCaps} (h1 : a.getAppFn = .const c us)
-    (h2 : env.find? c = some (.ctorInfo cvc cnP cnF)) (h3 : a.getAppArgs.length = cnP + cnF)
+    (h2 : env.find? c = some (.ctorInfo cvc cnP cnF cT)) (h3 : a.getAppArgs.length = cnP + cnF)
     (h4 : wtb.getAppFn = .const T us') (h5 : env.find? T = some (.indInfo cvT caps))
     (h6 : env.findTable? T = none) :
     structEtaCertWith r env d a b wtb = pure false := by
   rw [structEtaCertWith]; simp only [h1, h2, h3, h4, h5, h6, ↓reduceIte]
 grind_pattern [conleche_grind] seta_noTable =>
-    structEtaCertWith r env d a b wtb, Expr.const c us, ConstantInfo.ctorInfo cvc cnP cnF,
+    structEtaCertWith r env d a b wtb, Expr.const c us, ConstantInfo.ctorInfo cvc cnP cnF cT,
       Expr.const T us', ConstantInfo.indInfo cvT caps where
   guard a.getAppFn = .const c us
-  guard env.find? c = some (.ctorInfo cvc cnP cnF)
+  guard env.find? c = some (.ctorInfo cvc cnP cnF cT)
   guard wtb.getAppFn = .const T us'
   guard env.find? T = some (.indInfo cvT caps)
   guard env.findTable? T = none

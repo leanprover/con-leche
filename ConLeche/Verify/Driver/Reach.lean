@@ -746,11 +746,91 @@ theorem constOk_wf {env : Env} {c : ConstantInfo} (h : constOk c = true)
     have hn := hrule.2
     rw [hf] at hn
     exact nestedOk_read hn (hpins lvls pins hf)
-  | axiomInfo cv | thmInfo cv | indInfo cv _ | ctorInfo cv _ _ =>
+  | ctorInfo cv _ _ _ =>
+    simp only [constOk, Bool.and_eq_true] at h
+    obtain ⟨a, b, c⟩ := exprOk_iff.1 h.1
+    refine ⟨a, b, hr1, c, ?_, ?_⟩
+    · intro _ _ _ e; cases e
+    · intro _ _ _ _ _ e; cases e
+  | axiomInfo cv | thmInfo cv | indInfo cv _ =>
     obtain ⟨a, b, c⟩ := exprOk_iff.1 h
     refine ⟨a, b, hr1, c, ?_, ?_⟩
     · intro _ _ _ e; cases e
     · intro _ _ _ _ _ e; cases e
+
+/-- **A validated constant's family name is its type's** (`CtorWF`). -/
+theorem constOk_ctorWF {c : ConstantInfo} (h : constOk c = true) : CtorWF c := by
+  cases c with
+  | ctorInfo cv nP nF T =>
+    simp only [constOk, Bool.and_eq_true] at h
+    have h2 := h.2
+    unfold ctorHeadOk at h2
+    split at h2
+    · rename_i T' us hT
+      rw [beq_iff_eq] at h2
+      subst h2
+      exact CtorWF.of_head hT
+    · exact nomatch h2
+  | _ => exact CtorWF.of_not_ctor fun _ _ _ _ h => nomatch h
+
+theorem blockRecs_not_ind {p : BlockShape} :
+    ∀ {rs : List RecShape} {cv : ConstantVal} {caps : IndCaps},
+      ConstantInfo.indInfo cv caps ∈ blockRecs p rs → False
+  | [], _, _, h => by simp [blockRecs] at h
+  | _ :: _, _, _, h => by
+    simp only [blockRecs, List.mem_cons] at h
+    rcases h with h | h
+    · exact nomatch h
+    · exact blockRecs_not_ind h
+
+/-- A quotient pin keeps no sort fact. -/
+theorem quotAt_indWF (k : QuotKind) (cv : ConstantVal) : IndWF (quotAt k cv) := by
+  intro cv' caps h hn
+  cases k <;> simp [quotAt, quotPin, ConstantInfo.atLps, BasisKind.decls, QuotKind.slot,
+    quotBasis, quotA, quotMkA, quotLiftA, quotIndA, quotSoundA] at h
+  obtain ⟨-, rfl⟩ := h
+  exact nomatch hn
+
+/-- **Every former a record installs keeps its sort fact** (`IndWF`): the install records a
+family as never zero exactly where its declared type ends in such a sort. -/
+theorem declConstants_indWF {d : Declaration} {c : ConstantInfo} (h : c ∈ declConstants d) :
+    IndWF c := by
+  cases d with
+  | defnDecl | thmDecl | opaqueDecl =>
+    simp only [declConstants, List.mem_singleton] at h
+    subst h; exact IndWF.of_not_ind fun _ _ h => nomatch h
+  | axiomDecl cv =>
+    simp only [declConstants] at h
+    split at h
+    · rw [List.mem_singleton] at h; subst h; exact quotAt_indWF _ _
+    · split at h
+      · simp at h
+      · rw [List.mem_singleton] at h; subst h; exact IndWF.of_not_ind fun _ _ h => nomatch h
+  | quotDecl k cv =>
+    simp only [declConstants, List.mem_singleton] at h
+    subst h; exact quotAt_indWF _ _
+  | indDecl block nP =>
+    simp only [declConstants] at h
+    split at h
+    · rename_i p _
+      intro cv caps hc hnz
+      subst hc
+      simp only [blockConstants, blockFormers, List.mem_append, List.mem_map] at h
+      rcases h with (⟨⟨cv', i⟩, hm, he⟩ | h) | h
+      · simp only [ConstantInfo.indInfo.injEq] at he
+        obtain ⟨rfl, rfl⟩ := he
+        rw [show (blockCapsAt p i (blockIsRec p)).neverZero =
+            (formerZ (p.members.getD i default).declared).isNever by
+          unfold blockCapsAt; split <;> rfl] at hnz
+        rw [List.mem_zipIdx_iff_getElem?, List.getElem?_map] at hm
+        obtain ⟨m, hm, rfl⟩ := Option.map_eq_some_iff.1 hm
+        rw [List.getD_eq_getElem?_getD, hm] at hnz
+        exact hnz
+      · simp only [blockCtors, List.mem_flatMap, List.mem_map] at h
+        obtain ⟨g, -, c, -, hc⟩ := h
+        exact nomatch hc
+      · exact (blockRecs_not_ind h).elim
+    · simp at h
 
 /-- **A validated table is `TableWF`** where its structure is stored and its bodies
 resolve. -/
@@ -777,7 +857,7 @@ theorem ctx_envWF {ds : List Declaration} (hok : ∀ d ∈ ds, recordOk d = true
     have h := hok d hd
     simp only [recordOk, Bool.and_eq_true, List.all_eq_true] at h
     exact ⟨h.1, h.2⟩
-  refine ⟨fun c hc => ?_, fun c hc => ?_, fun t ht => ?_⟩
+  refine ⟨fun c hc => ?_, fun c hc => ?_, fun t ht => ?_, fun c hc => ?_, fun c hc => ?_⟩
   · rcases (mem_streamEnv_consts ds _).1 hc with ⟨d, hd, hcd⟩ | h
     · exact constOk_wf ((hd' d hd).1 c hcd).1 ((hsc d hd).1 c hcd)
     · simp [Env.empty] at h
@@ -787,6 +867,12 @@ theorem ctx_envWF {ds : List Declaration} (hok : ∀ d ∈ ds, recordOk d = true
   · rcases (mem_streamEnv_tables ds _).1 ht with ⟨d, hd, htd⟩ | h
     · exact tableOk_wf ((hd' d hd).2 t htd) (hcl d hd _ (recordReads_table htd))
         ((hsc d hd).2 t htd).2
+    · simp [Env.empty] at h
+  · rcases (mem_streamEnv_consts ds _).1 hc with ⟨d, hd, hcd⟩ | h
+    · exact declConstants_indWF hcd
+    · simp [Env.empty] at h
+  · rcases (mem_streamEnv_consts ds _).1 hc with ⟨d, hd, hcd⟩ | h
+    · exact constOk_ctorWF ((hd' d hd).1 c hcd).1
     · simp [Env.empty] at h
 
 /-- The validation's pass is `recordOk` of every record. -/

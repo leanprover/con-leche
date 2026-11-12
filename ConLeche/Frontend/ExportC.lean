@@ -239,7 +239,7 @@ order with the declared parameter count.  Split from `indBlockOf`
 below at task #290 so that a proof about what the parse does to its
 state need not look here at all. -/
 @[specialize] def validateIndF (nm : Nat → M Name) (_lv : Nat → M Level) (ex : Nat → M Expr) (tys : List IndTypeRec) (cts : List IndCtorRec)
-    (rcs : List IndRecRec) : M (RecordVerdict ⊕ (List IndCtorRec × Nat)) := do
+    (rcs : List IndRecRec) : M (RecordVerdict ⊕ (List (IndCtorRec × Name) × Nat)) := do
   -- TASK #217 (audit follow-up 6): an `unsafe inductive` is DECLINED,
   -- not an error.  The official kernel admits unsafe blocks (it skips
   -- positivity for them); we support no unsafe declaration at all, and
@@ -297,8 +297,10 @@ state need not look here at all. -/
   let ctsA := cts.toArray
   -- the constructors IN THE BLOCK'S OWN ORDER, `types[].ctors` in
   -- type order (issue #5): a record array in another order is the
-  -- same block, and the recursor generated from it is the same one
-  let mut ordered : Array IndCtorRec := #[]
+  -- same block, and the recursor generated from it is the same one; each
+  -- with the type that lists it, its `induct` (the record's own claim, where
+  -- it makes one, is that type)
+  let mut ordered : Array (IndCtorRec × Name) := #[]
   for tn in tyNames.zip listed do
     let (T, ns) := tn
     let mut j := 0
@@ -325,7 +327,7 @@ state need not look here at all. -/
       unless nPd + c.numFields == indPiTeleLen cty do
         return .inl (.invalid s!"constructor {n} declares {c.numFields} fields at \
           {nPd} parameters; its type has {indPiTeleLen cty} binders")
-      ordered := ordered.push c
+      ordered := ordered.push (c, T)
       j := j + 1
   let cts := ordered.toList
   -- The recursor records: the counts and the K flag the GENERATED
@@ -372,12 +374,12 @@ state need not look here at all. -/
 
 /-- **An inductive record, assembled**: the block's constants, as one
 `indDecl`. -/
-@[specialize] def indBlockOfF (nm : Nat → M Name) (lv : Nat → M Level) (ex : Nat → M Expr) (tys : List IndTypeRec) (cts : List IndCtorRec)
+@[specialize] def indBlockOfF (nm : Nat → M Name) (lv : Nat → M Level) (ex : Nat → M Expr) (tys : List IndTypeRec) (cts : List (IndCtorRec × Name))
     (rcs : List IndRecRec) (nPd : Nat) : M Declaration := do
   let types ← tys.mapM fun t => do
     pure (ConstantInfo.indInfo (← cvOfF nm lv ex t.cv) {})
-  let ctors ← cts.mapM fun c => do
-    pure (ConstantInfo.ctorInfo (← cvOfF nm lv ex c.cv) c.numParams c.numFields)
+  let ctors ← cts.mapM fun (c, T) => do
+    pure (ConstantInfo.ctorInfo (← cvOfF nm lv ex c.cv) c.numParams c.numFields T)
   let recs ← rcs.mapM fun r => do
     let rules ← r.rules.mapM (ruleOfF nm lv ex)
     pure (ConstantInfo.recInfo (← cvOfF nm lv ex r.cv)

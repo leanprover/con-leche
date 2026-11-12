@@ -104,7 +104,7 @@ def checkBlockTail (ops : CheckerOps m) (block : List ConstantInfo) (q : BlockPa
     (Q : List ProjTable) : m Unit := do
   let p := q.p
   checkBlockIdxSorts ops q.env₁ p p.members
-  let env₂ := consBlockCtors p.nP p.memberCtors q.env₁
+  let env₂ := consBlockCtors p.nP p.ctorGroups q.env₁
   let out ← checkBlockRec ops env₂ p (blockNestedBit p q.kinds) q.params
     q.tbl.toList q.rd q.cls block
   streamKCheck p p.recs out

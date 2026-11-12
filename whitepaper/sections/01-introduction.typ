@@ -43,8 +43,8 @@ equality. Our proof needs none of it.
 Nor does it have a typing judgement. In its place is a description of
 what the checker _does_: three inductively defined relations, one for
 #src("ConLeche/Rules/Rel.lean", 106)[reduction], one for the verdicts
-of the #src("ConLeche/Rules/Rel.lean", 349)[definitional-equality test]
-and one for #src("ConLeche/Rules/Rel.lean", 590)[type inference] (six
+of the #src("ConLeche/Rules/Rel.lean", 346)[definitional-equality test]
+and one for #src("ConLeche/Rules/Rel.lean", 587)[type inference] (six
 in the real proof, where premises about lists get relations of their
 own; @sec:left-out). Their rules are exactly the moves the checker
 makes, and each rule's premises are what the checker verified at that

@@ -52,7 +52,7 @@ theorem readNames_stored_of_resolve {E : Env} :
 theorem blockConstants_not_stmt (p : BlockShape) {ci : ConstantInfo}
     (h : ci ∈ blockConstants p) : ci.isStmtKind = false := by
   unfold blockConstants blockFormers blockCtors at h
-  simp only [List.mem_append, List.mem_map] at h
+  simp only [List.mem_append, List.mem_map, List.mem_flatMap] at h
   have hR : ∀ l : List RecShape, ci ∈ blockRecs p l → ci.isStmtKind = false := by
     intro l
     induction l with
@@ -62,7 +62,7 @@ theorem blockConstants_not_stmt (p : BlockShape) {ci : ConstantInfo}
       rcases List.mem_cons.1 h with rfl | h
       · rfl
       · exact ih h
-  rcases h with (⟨x, -, rfl⟩ | ⟨x, -, rfl⟩) | h
+  rcases h with (⟨x, -, rfl⟩ | ⟨g, -, x, -, rfl⟩) | h
   · rfl
   · rfl
   · exact hR _ h
@@ -299,11 +299,14 @@ theorem declOfF_ind_names {em : Emit} {ts : List Frontend.IndTypeRec}
   | ok d' =>
   simp only [hb, Except.ok.injEq, Sum.inl.injEq] at h
   subst h
-  obtain ⟨-, -, listed, ctorNames, -, -, hc1⟩ := validateIndF_inr hv
-  have hc1m : ∀ c ∈ c1, c ∈ cts := by
+  obtain ⟨-, -, tyNames, listed, ctorNames, -, -, -, hc1⟩ := validateIndF_inr hv
+  have hc1m : ∀ c ∈ c1, c.1 ∈ cts := by
     intro c hc
     rw [hc1] at hc
-    obtain ⟨n, -, hn⟩ := List.mem_filterMap.1 hc
+    simp only [ctorsListed, List.mem_flatMap, List.mem_map] at hc
+    obtain ⟨tn, -, c', hc', rfl⟩ := hc
+    obtain ⟨n, -, hn⟩ := List.mem_filterMap.1 hc'
+
     simp only [ctorAt] at hn
     obtain ⟨k, -, hk⟩ := Option.bind_eq_some_iff.1 hn
     have := Array.mem_of_getElem? hk
@@ -328,7 +331,7 @@ theorem declOfF_ind_names {em : Emit} {ts : List Frontend.IndTypeRec}
       obtain ⟨cv, hcv, hf⟩ := bind_ok_inv hf
       simp only [pure, Except.pure, Except.ok.injEq] at hf
       subst hf
-      obtain ⟨c, hc, hp⟩ := hcts t (hc1m t ht)
+      obtain ⟨c, hc, hp⟩ := hcts t.1 (hc1m t ht)
       rw [cvOfF_of hc] at hcv; cases hcv; exact hp
     · obtain ⟨t, ht, hf⟩ := except_mapM_mem hrecs b hb
       obtain ⟨rules, -, hf⟩ := bind_ok_inv hf

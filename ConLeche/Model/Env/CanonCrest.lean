@@ -136,12 +136,12 @@ theorem EnvModelM.lfp_ok_transport {V : Type w} [SetTheory V] {env : Env} (mp : 
     ⟨fun mm hmm => ?_, fun c hc j hj => ?_⟩⟩
   · obtain ⟨cv, caps, hf⟩ := hst mm hmm
     exact hag _ _ hf fun _ _ _ _ _ h => ConstantInfo.noConfusion h
-  · obtain ⟨cv, a, b, hf⟩ := hstC c hc j hj
+  · obtain ⟨cv, a, b, iT, hf⟩ := hstC c hc j hj
     exact hag _ _ hf fun _ _ _ _ _ h => ConstantInfo.noConfusion h
   · obtain ⟨cv, caps, hf⟩ := hst mm hmm
     exact ⟨cv, caps, hfind _ _ hf fun _ _ _ _ _ h => ConstantInfo.noConfusion h⟩
-  · obtain ⟨cv, a, b, hf⟩ := hstC c hc j hj
-    exact ⟨cv, a, b, hfind _ _ hf fun _ _ _ _ _ h => ConstantInfo.noConfusion h⟩
+  · obtain ⟨cv, a, b, iT, hf⟩ := hstC c hc j hj
+    exact ⟨cv, a, b, iT, hfind _ _ hf fun _ _ _ _ _ h => ConstantInfo.noConfusion h⟩
   · obtain ⟨cv, caps, hf, hfl, hval, hw⟩ := hrd mm hmm
     have hcS : ConstsBound env cv.type :=
       (ConLeche.Verify.envWF_constsBound mp.base2.wf _ (ConLeche.Env.find?_mem hf)).1
@@ -151,10 +151,10 @@ theorem EnvModelM.lfp_ok_transport {V : Type w} [SetTheory V] {env : Env} (mp : 
       exact ⟨ab, u, hread ψ _ _ _ hcS hta, hl⟩
     · obtain ⟨ta, hta, hv⟩ := hval ψ
       exact ⟨ta, hread ψ _ _ _ hcS hta, hv⟩
-  · obtain ⟨cv, nPc, nF, hf, hcf, hlps, hpars, A, hA, hocc, hrdA⟩ := hrdC c hc j hj
+  · obtain ⟨cv, nPc, nF, iT, hf, hcf, hlps, hpars, A, hA, hocc, hrdA⟩ := hrdC c hc j hj
     have hcB : ConstsBound env cv.type :=
       (ConLeche.Verify.envWF_constsBound mp.base2.wf _ (ConLeche.Env.find?_mem hf)).1
-    refine ⟨cv, nPc, nF, hfind _ _ hf fun _ _ _ _ _ h => ConstantInfo.noConfusion h, hcf,
+    refine ⟨cv, nPc, nF, iT, hfind _ _ hf fun _ _ _ _ _ h => ConstantInfo.noConfusion h, hcf,
       fun mm hmm => ?_, fun ψ dsC bodyC hrd' hle => ?_, A, hA, hocc, fun ψ => ?_⟩
     · obtain ⟨cvm, caps, hfm, hl⟩ := hlps mm hmm
       exact ⟨cvm, caps, hfind _ _ hfm fun _ _ _ _ _ h => ConstantInfo.noConfusion h, hl⟩
@@ -170,8 +170,8 @@ theorem EnvModelM.lfp_ok_transport {V : Type w} [SetTheory V] {env : Env} (mp : 
         hlab, hab⟩
   · obtain ⟨cv, caps, hf, hz⟩ := hcK mm hmm
     exact ⟨cv, caps, hfind _ _ hf fun _ _ _ _ _ h => ConstantInfo.noConfusion h, hz⟩
-  · obtain ⟨cv, nPc, nF, hf, hsh⟩ := hcC c hc j hj
-    exact ⟨cv, nPc, nF, hfind _ _ hf fun _ _ _ _ _ h => ConstantInfo.noConfusion h, hsh⟩
+  · obtain ⟨cv, nPc, nF, iT, hf, hsh⟩ := hcC c hc j hj
+    exact ⟨cv, nPc, nF, iT, hfind _ _ hf fun _ _ _ _ _ h => ConstantInfo.noConfusion h, hsh⟩
 
 open SetTheory ConLeche.Term in
 /-- **A recorded block's formers have its telescope's value** (`LfpReads`). -/

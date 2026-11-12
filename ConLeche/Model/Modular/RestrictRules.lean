@@ -37,8 +37,8 @@ theorem constsResolve_openRev {E : Env} {e : Expr} (h : e.constsResolve E = true
 copies there are alike. -/
 theorem ctorFamily_alike {f g : Name → Option ConstantInfo} {cvj : ConstantVal}
     (h : ∀ T us, cvj.type.piResult.getAppFn = .const T us → LookAlike (f T) (g T)) :
-    ctorFamily f cvj = ctorFamily g cvj := by
-  unfold ctorFamily
+    ctorTypeFamily f cvj = ctorTypeFamily g cvj := by
+  unfold ctorTypeFamily ctorFamily
   split
   · next T us hh =>
     obtain ⟨a, b, e1, e2, hab⟩ := h T us hh
@@ -69,13 +69,13 @@ structure RuleAg (m : EnvModel V env) (m' : EnvModel V env') (φ : Name → Nat)
         (openRev 0 rP ((pins.getD i default).instantiateLevelParams cv.levelParams us))
   hleaf : m'.acval n = m.acval n
   hcleaf : m'.acval (RecRule.ctor rl) = m.acval (RecRule.ctor rl)
-  hctor : ∀ cvj cnP cnF, env'.find? (RecRule.ctor rl) = some (.ctorInfo cvj cnP cnF) →
-    env.find? (RecRule.ctor rl) = some (.ctorInfo cvj cnP cnF)
-  hcty : ∀ cvj cnP cnF, env.find? (RecRule.ctor rl) = some (.ctorInfo cvj cnP cnF) →
+  hctor : ∀ cvj cnP cnF iT, env'.find? (RecRule.ctor rl) = some (.ctorInfo cvj cnP cnF iT) →
+    env.find? (RecRule.ctor rl) = some (.ctorInfo cvj cnP cnF iT)
+  hcty : ∀ cvj cnP cnF iT, env.find? (RecRule.ctor rl) = some (.ctorInfo cvj cnP cnF iT) →
     ∀ usj : List Level,
       denote m'.acval env' φ 0 (cvj.type.instantiateLevelParams cvj.levelParams usj)
         = denote m.acval env φ 0 (cvj.type.instantiateLevelParams cvj.levelParams usj)
-  hfam : ∀ cvj cnP cnF, env.find? (RecRule.ctor rl) = some (.ctorInfo cvj cnP cnF) →
+  hfam : ∀ cvj cnP cnF iT, env.find? (RecRule.ctor rl) = some (.ctorInfo cvj cnP cnF iT) →
     ∀ us : List Level, FamNZ (V := V) m'.acval env' φ cvj us = FamNZ (V := V) m.acval env φ cvj us
 
 theorem recRuleExtra_ag (r : RuleAg m m' φ n cv rP rl)
@@ -83,26 +83,26 @@ theorem recRuleExtra_ag (r : RuleAg m m' φ n cv rP rl)
   intro us hus TVa hTVa
   rw [r.hty us] at hTVa
   obtain ⟨hK, hC⟩ := hX us hus TVa hTVa
-  refine ⟨fun hk => ?_, fun cvj cnP cnF hfc => ?_⟩
+  refine ⟨fun hk => ?_, fun cvj cnP cnF iT hfc => ?_⟩
   · obtain ⟨hnf, hK'⟩ := hK hk
     refine ⟨hnf, fun Ra hRa ρ xs a restR hxs hfit hw => ?_⟩
     rw [r.hrhs us] at hRa
     rw [r.hleaf]
     exact hK' Ra hRa ρ xs a restR hxs hfit hw
-  · have hfcj := r.hctor cvj cnP cnF hfc
-    obtain ⟨har, hrest⟩ := hC cvj cnP cnF hfcj
+  · have hfcj := r.hctor cvj cnP cnF iT hfc
+    obtain ⟨har, hrest⟩ := hC cvj cnP cnF iT hfcj
     refine ⟨har, fun hk => ?_⟩
     obtain ⟨hS, hT, hPU⟩ := hrest hk
-    rw [r.hfam cvj cnP cnF hfcj]
+    rw [r.hfam cvj cnP cnF iT hfcj]
     refine ⟨hS, fun hne usj hlj TVja hTVja ρ xs ys restR restC hxs hys hfR hfC hwx hwy hnept => ?_,
       fun usj hlj hsj TVja hTVja => ?_⟩
-    · rw [r.hcty cvj cnP cnF hfcj usj] at hTVja
+    · rw [r.hcty cvj cnP cnF iT hfcj usj] at hTVja
       rw [r.hcleaf] at hfR hnept ⊢
       obtain ⟨usj₂, ys₂, TVja₂, restC₂, h1, h2, h3, h4, h5, h6, h7, h8⟩ :=
         hT hne usj hlj TVja hTVja ρ xs ys restR restC hxs hys hfR hfC hwx hwy hnept
-      exact ⟨usj₂, ys₂, TVja₂, restC₂, h1, h2, by rw [r.hcty cvj cnP cnF hfcj usj₂]; exact h3,
+      exact ⟨usj₂, ys₂, TVja₂, restC₂, h1, h2, by rw [r.hcty cvj cnP cnF iT hfcj usj₂]; exact h3,
         h4, h5, h6, h7, h8⟩
-    · rw [r.hcty cvj cnP cnF hfcj usj] at hTVja
+    · rw [r.hcty cvj cnP cnF iT hfcj usj] at hTVja
       obtain ⟨hP, hU⟩ := hPU usj hlj hsj TVja hTVja
       rw [r.hcleaf]
       refine ⟨hP, fun ρ xs ys restR restC hxs hys hfR hfC hwx hwy hA hB hD =>
@@ -116,19 +116,19 @@ theorem recRuleLaw_ag (r : RuleAg m m' φ n cv rP rl)
   refine ⟨hle, fun us hus => ?_, recRuleExtra_ag r hX⟩
   obtain ⟨Ra, hRa, hok, hpins, hlaw⟩ := hmain us hus
   refine ⟨Ra, by rw [r.hrhs us]; exact hRa, hok, fun lvls pins hfire i hi => ?_,
-    fun cvj cnP cnF hfc usj ρ xs ys TVa TVja restR restC hxs hys hlj hsj hwy hpt hTVa hTVja
+    fun cvj cnP cnF iT hfc usj ρ xs ys TVa TVja restR restC hxs hys hlj hsj hwy hpt hTVa hTVja
       hfR hfC => ?_⟩
   · obtain ⟨vpa, hvpa, hg⟩ := hpins lvls pins hfire i hi
     refine ⟨vpa, by rw [r.hpins lvls pins hfire i us]; exact hvpa,
       fun ρ zs TVa restR hz hw hTVa hfit => ?_⟩
     rw [r.hty us] at hTVa
     exact hg ρ zs TVa restR hz hw hTVa hfit
-  · have hfcj := r.hctor cvj cnP cnF hfc
+  · have hfcj := r.hctor cvj cnP cnF iT hfc
     rw [r.hty us] at hTVa
-    rw [r.hcty cvj cnP cnF hfcj usj] at hTVja
+    rw [r.hcty cvj cnP cnF iT hfcj usj] at hTVja
     rw [r.hcleaf] at hfR hpt ⊢
     rw [r.hleaf]
-    exact hlaw cvj cnP cnF hfcj usj ρ xs ys TVa TVja restR restC hxs hys hlj hsj hwy hpt hTVa
+    exact hlaw cvj cnP cnF iT hfcj usj ρ xs ys TVa TVja restR restC hxs hys hlj hsj hwy hpt hTVa
       hTVja hfR hfC
 
 end Law
@@ -141,9 +141,9 @@ include S
 
 /-- A constructor read alike: its family is read alike, so the family's lookup is alike. -/
 theorem ctorFamily_eq {n x : Name} (hn : (C.find? n).isSome = true)
-    (hx : ((R n).find? x).isSome = true) {cvj : ConstantVal} {cnP cnF : Nat}
-    (hfc : C.find? x = some (.ctorInfo cvj cnP cnF)) :
-    ctorFamily C.find? cvj = ctorFamily (E n).find? cvj := by
+    (hx : ((R n).find? x).isSome = true) {cvj : ConstantVal} {cnP cnF : Nat} {iT : Name}
+    (hfc : C.find? x = some (.ctorInfo cvj cnP cnF iT)) :
+    ctorTypeFamily C.find? cvj = ctorTypeFamily (E n).find? cvj := by
   have hty := S.deepType hn hx hfc rfl
   exact ctorFamily_alike fun T us hh =>
     S.look hn (Expr.find?_isSome_of_piResult_getAppFn_const hty hh)
@@ -157,12 +157,12 @@ theorem ruleAg {φ : Name → Nat} {n : Name} {cv : ConstantVal} {mI rP : Nat} {
   obtain ⟨hrhsR, hcR, hpinsR⟩ := (S.scopeR hf).2.2.1 cv mI rP isK rules rfl rl hrl
   have htyR := resR (S.scopeR hf).1
   -- the family's reading, where the family is a former the source stores
-  have hcfam : ∀ cvj cnP cnF, (E n).find? (RecRule.ctor rl) = some (.ctorInfo cvj cnP cnF) →
-      ∀ cvT caps, ctorFamily (E n).find? cvj = some (cvT, caps) → ∀ us,
+  have hcfam : ∀ cvj cnP cnF iT, (E n).find? (RecRule.ctor rl) = some (.ctorInfo cvj cnP cnF iT) →
+      ∀ cvT caps, ctorTypeFamily (E n).find? cvj = some (cvT, caps) → ∀ us,
         denote aC C φ 0 (cvT.type.instantiateLevelParams cvT.levelParams us)
           = denote (S.m n).base2.acval (E n) φ 0
               (cvT.type.instantiateLevelParams cvT.levelParams us) := by
-    intro cvj cnP cnF hfc cvT caps hfam us
+    intro cvj cnP cnF iT hfc cvT caps hfam us
     obtain ⟨T, us', hh, hfT⟩ := ctorFamily_find hfam
     have hfcC := S.findC hn hcR hfc rfl
     have hTR : ((R n).find? T).isSome = true :=
@@ -170,9 +170,10 @@ theorem ruleAg {φ : Name → Nat} {n : Name} {cv : ConstantVal} {mI rP : Nat} {
     exact S.denote_inst hn (S.deepType hn hTR (S.findC hn hTR hfT rfl) rfl) φ 0 _ us
   refine ⟨fun us => S.denote_inst hn htyR φ 0 _ us, fun us => S.denote_inst hn (resR hrhsR) φ 0 _ us,
     fun lvls pins hfire i us => ?_, S.leafSelf hf, S.leaf n hn _ hcR,
-    fun cvj cnP cnF hfc => S.findE hn hcR hfc rfl,
-    fun cvj cnP cnF hfc usj => S.denote_inst hn (S.deepType hn hcR (S.findC hn hcR hfc rfl) rfl) φ 0 _ usj,
-    fun cvj cnP cnF hfc us => ?_⟩
+    fun cvj cnP cnF iT hfc => S.findE hn hcR hfc rfl,
+    fun cvj cnP cnF iT hfc usj =>
+      S.denote_inst hn (S.deepType hn hcR (S.findC hn hcR hfc rfl) rfl) φ 0 _ usj,
+    fun cvj cnP cnF iT hfc us => ?_⟩
   · have hpR : (pins.getD i default).constsResolve (R n) = true := by
       by_cases hilt : i < pins.length
       · have he : pins.getD i default = pins[i] := by
@@ -186,8 +187,8 @@ theorem ruleAg {φ : Name → Nat} {n : Name} {cv : ConstantVal} {mI rP : Nat} {
     have hfam := S.ctorFamily_eq hn hcR hfcC
     refine propext ⟨FamNZ.congr hfam (fun cvT caps ta h hta => ?_),
       FamNZ.congr hfam.symm (fun cvT caps ta h hta => ?_)⟩
-    · exact (hcfam cvj cnP cnF hfc cvT caps h us).trans hta
-    · exact (hcfam cvj cnP cnF hfc cvT caps (hfam ▸ h) us).symm.trans hta
+    · exact (hcfam cvj cnP cnF iT hfc cvT caps h us).trans hta
+    · exact (hcfam cvj cnP cnF iT hfc cvT caps (hfam ▸ h) us).symm.trans hta
 
 theorem rec_rules (φ : Name → Nat) : RecRules S.base φ := by
   intro n cv mI rP isK rules hf rl hrl
@@ -213,7 +214,8 @@ theorem tower_ok (φ : Name → Nat) : TowerOk S.base φ := by
     · rw [base_acval, hlT'] at hfit hmem
       rw [base_acval, hlC']
       exact hl1 ρ ts x hlen hfit hmem
-    · refine (hl2 he).transport (fun cvC' nPc nFc h₂ => ?_) (fun cvC' nPc nFc TCa h hTCa => ?_)
+    · refine (hl2 he).transport (fun cvC' nPc nFc iT h₂ => ?_)
+        (fun cvC' nPc nFc iT TCa h hTCa => ?_)
         (by rw [base_acval, hlT']) (fun _ _ _ => rfl)
       · exact S.findE hT hcR h₂ rfl
       · exact (S.denote_inst hT (S.deepType hT hcR (S.findC hT hcR h rfl) rfl) φ 0 _ us).trans hTCa
@@ -222,7 +224,7 @@ theorem tower_ok (φ : Name → Nat) : TowerOk S.base φ := by
     have hR := S.read.self T hT
     have hfPE : (E T).findProj? T i = some (tbl.entry i) := by
       rw [← S.findProj_eq hT hR]; exact hfP
-    obtain ⟨h1, h2, h3, ⟨cvT, capsT, hfT, hlT⟩, cvC, hfC, hlC, hlaw⟩ :=
+    obtain ⟨h1, h2, h3, ⟨cvT, capsT, hfT, hlT⟩, cvC, iTC, hfC, hlC, hlaw⟩ :=
       ((S.m T).tower_ok φ).entry T i _ hfPE
     have hfTC := S.findC hT hR hfT rfl
     obtain ⟨-, -, -, hind, -⟩ := S.scopeR hfTC
@@ -258,7 +260,7 @@ theorem tower_ok (φ : Name → Nat) : TowerOk S.base φ := by
         (fun cv' caps' t h hrd => by
           rw [hsnT] at h; rw [base_acval, hTy cv' caps' h us]; exact hrd)
         (fun t hrd => by rw [base_acval, hCy us]; exact hrd)
-    refine ⟨h1, h2, h3, ⟨cvT, capsT, hfTC, hlT⟩, cvC, by rw [hctor]; exact hfCC, hlC,
+    refine ⟨h1, h2, h3, ⟨cvT, capsT, hfTC, hlT⟩, cvC, iTC, by rw [hctor]; exact hfCC, hlC,
       fun us hus => ?_⟩
     · obtain ⟨⟨Ta, hTa, hA⟩, ⟨TCa, hTCa, hB⟩⟩ := hlaw us hus
       refine ⟨⟨Ta, by rw [base_acval]; exact (hbody us).trans hTa,

@@ -570,12 +570,12 @@ the point, make the spines equal (`teleFit_eq_of_cond`, L11's finding
 2).  The type application's certificate is not read. -/
 theorem DefEq.structEta_sound (hin : RulesInputs V m φ) {d : Nat}
     {a b tb wtb : Expr} {c : Name} {us : List Level} {cvc : ConstantVal}
-    {cnP cnF : Nat} {T : Name} {us' : List Level} {cvT : ConstantVal}
+    {cnP cnF : Nat} {cT T : Name} {us' : List Level} {cvT : ConstantVal}
     {caps : IndCaps} {tbl : ProjTable}
     (htb : InferSemIO m φ d b tb) (hwtb : RedSem m φ d tb wtb)
     (hwtbr : Red env d tb wtb)
     (hhead : a.getAppFn = .const c us)
-    (hctor : env.find? c = some (.ctorInfo cvc cnP cnF))
+    (hctor : env.find? c = some (.ctorInfo cvc cnP cnF cT))
     (_hlen : a.getAppArgs.length = cnP + cnF)
     (hthead : wtb.getAppFn = .const T us')
     (hind : env.find? T = some (.indInfo cvT caps))
