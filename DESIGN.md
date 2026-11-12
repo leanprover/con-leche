@@ -113580,6 +113580,236 @@ shiftLeft, shiftRight), could only fire for a name among those fourteen and so n
   `NatBinOp.ofName?_none` (`Verify/Cached/DiscC1`) loses its second conjunct.
 * No behaviour change: the dropped branch was unreachable; verdicts are identical.
 
+## TASK #575: the memos as an open-addressing table — spike, not pursued (2026-11-12, agent/575-flat-memo)
+
+Question: replace the chained `Std.HashMap` memos of `CState` by an insert-only
+open-addressing table (linear probing), to cut the allocation and teardown that #571 measured
+on cbv_aes (memo traffic 1.2 G, teardown 0.3 G).  Phase 1 was a spike on one memo (`inferC`
+and its eager twin), with the go/no-go for converting the rest on its numbers.  **No gain:
+the lane stops after phase 1; nothing lands.**
+
+**The table** (`ConLeche/Cached/FlatMap.lean`, self-contained, on the branch).  Entries in two
+dense arrays (`keys`, `vals`, insertion order, never moved); a slot array of scalar `Nat`s,
+`0` or `(j + 1) * 2^16 + tag` (entry index and sixteen hash bits); start slot from
+`Std.HashMap`'s `scrambleHash`, grown by doubling from 16 slots at `Std.HashMap`'s load
+factor 3/4 (`numBucketsForCapacity`); growth rebuilds only the slot array.  An insert of a
+key `==` to a stored one replaces key and value, as `Std.HashMap.insert` does.  The proofs
+are the two the memo invariant needs, nothing about finding inserted keys:
+`find?_mem` (a hit is the value of an entry whose key is `==` to the query) and `mem_insert`
+(an insert adds only the given entry), with `not_mem_empty`; `CSOK.inferC` became
+`s.inferC.Backed P` (every entry satisfies `P`), and the `KnotC` hit and insert lemmas read
+it through `Backed.find?` / `Backed.insert`.  `lake build` passed warning-free with the
+spike; the other gates were not run.
+
+**Which memos the proofs allow.**  Every `CState` memo's clause is soundness-only (an entry
+is correct; a miss recomputes): the six mode memos and their eager twins (`ModeMemos`, the
+set `withEagerMemos` swaps in), `lsimpC`, `eqvC`, `instC`, and also the stored-constant
+caches `constTyAt`/`constValAt`/`ruleRhsAt` (their hit lemmas read the clause at the entry
+the caller found).  No proof needs a lookup to find an earlier insert.  `lnzC` is never
+written: a dead field.
+
+**Numbers** (instructions:u, one run each, `--verified --jobs=1`; base = master 4ce6cb18e;
+spike = `inferC` on the table; peak RSS from the stats line):
+
+| stream | base | spike | Δ | peak RSS base / spike (GiB) |
+|---|---:|---:|---:|---|
+| init-full | 299.104 G | 303.621 G | +1.51 % | 0.29 / 0.29 |
+| cbv_aes Nr=10 | 10.624 G | 11.201 G | +5.43 % | 0.12 / 0.11 |
+| grind-ring-5 | 10.840 G | 10.980 G | +1.29 % | 0.17 / 0.17 |
+| app-lam | 22.036 G | 22.054 G | +0.08 % | 1.22 / 1.22 |
+| beta-ladder | 4.834 G | 4.823 G | −0.21 % | 0.38 / 0.38 |
+| let-ladder | 2.555 G | 2.561 G | +0.23 % | 0.21 / 0.21 |
+| shift-cascade | 0.050 G | 0.053 G | +6.62 % | 0.02 / 0.02 |
+| unroll-versus-evaluate | 0.026 G | 0.027 G | +3.15 % | 0.02 / 0.02 |
+| the other ten arena perf streams | | | +0.2 … +1.4 % | 0.02–0.03 |
+
+Variants on cbv_aes: tag from the hash's top bits (an `Expr` hash has 32 significant bits,
+so the tag was constant) 11.367 G; the Fibonacci-mixed tag 11.197 G; load factor 1/2
+instead of 3/4 11.118 G; replace-on-equal-key 11.203 G.
+
+**Why it loses.**  The verdicts and the work are the same (315 132 `inferBodyI` calls in
+both).  The table's own operations are not cheaper in instructions than the chained map's:
+the probe loop over boxed-scalar `Nat`s costs 0.20 G for `inferC` alone on cbv_aes, about
+what `Std.HashMap`'s bucket walk costs for all five `Expr` memos together (0.17 G); what it saves in allocation
+(the `AssocList` cells: −0.1 G in `lean_alloc_small_object_core`, −0.07 G in `mi_free`) is
+small.  And it makes more structural key comparisons: `beqDec` runs 2.15 M times against
+1.97 M — 553 k from the probe loop against 367 k from `inferC`'s bucket walk —, and each is a
+memoised descent; `lean_dec_ref_cold` and `lean_free_object` grow by 0.46 G and 0.28 G.  The
+likely reason, not confirmed: a bucket walk meets the most recent of the keys with a
+colliding word first (`Std.HashMap` conses at the front), a probe sequence the oldest
+(replacing an equal key on insert did not change the count).  The memo traffic #571 measured is
+mostly that comparison (the structural equality behind the memo keys, lane #574), not the
+table structure.
+
+**The structural equality's memo (for lane #574).**  `beqGoX`'s memo (`BeqMap`, a
+`Std.HashMap Nat EqPair` made at the first shared/shared pair proved equal) is the case the
+official kernel serves with `ptr_pair_set` (`src/kernel/ptr_pair_set.h`): open addressing
+with its first 16 slots inline in the traversal's frame, growth past load factor 1/2, so a
+comparison that records at most 8 pairs allocates nothing — and most record a few (cbv_aes:
+1.66 M root comparisons, about 4 nodes each).  The table here does not cover that case as it
+stands: a Lean value cannot live in the caller's frame, and the first insert allocates the
+16-slot array and the two entry arrays.  The nearest Lean shape is a slot-less first stage:
+up to 8 entries (official's 16 slots at its 1/2) kept in the entry arrays and scanned
+linearly, the slot array built at the 9th.  Both were measured as probes (one run each,
+cbv_aes Nr=10 / grind-ring-5, against the spike binary, which has `inferC` on the table):
+
+| probe | cbv_aes | grind-ring-5 |
+|---|---:|---:|
+| spike (`BeqMap` = `Std.HashMap`) | 11.201 G | 10.980 G |
+| `BeqMap` on the table | 11.472 G (+2.4 %) | 11.106 G (+1.1 %) |
+| `BeqMap` on the table with the slot-less first stage | 11.432 G | 11.068 G |
+| the first stage, `BeqMap` = `Std.HashMap` | 11.219 G | 10.993 G |
+
+The first stage gains 0.04 G on the equality memo and nothing on `inferC`; the table loses
+to `Std.HashMap` in both places.  What official's design has and a Lean array table lacks is
+the allocation-free first stage: the entry arrays still allocate on the first record (the
+`EqPair` cell too).  An allocation-free first stage would need the first pairs as scalar
+fields of the descent's own result (its `Option BeqMap` slot), which is #574's seam.
+Probe diffs: `_tmp/575/runs/probe-beq-flat.diff`, `probe-small-stage.diff`.
+
+Data and scripts: `_tmp/575/runs` (`base.summary`, `spike4.summary`), `_tmp/575/meas.sh`.
+
+**Decision (maintainer, 2026-11-12): not pursued; the record is kept for future reference.**
+The spike's code stays on branch `agent/575-flat-memo` (8bf47f13a, 0c4c0b962) and is not
+merged.  Two symptoms point the wrong way for open addressing and were not explained; anyone
+returning to this should check them before concluding that the structure itself is slower:
+(1) freeing *grows* (+0.74 G in `lean_dec_ref_cold` / `lean_free_object`), where a flat table
+should free less than a cell per entry — the first suspect is an array copied instead of
+updated in place at an insert (a non-unique `keys`/`vals`/slot array makes `push`/`set`
+copy and bump every element's reference count); count `lean_copy_expand_array` and copying
+pushes in the spike binary; (2) key comparisons *grow* (553 k against 367 k from `inferC`),
+where the 16-bit slot tag should filter most non-matching slots — measure the probe-length
+and tag-hit distribution on cbv_aes (the `Expr` hash's 32 significant bits and the mixing
+of the tag are the candidates).  Side findings: `lnzC` is never written (a dead field);
+an `Expr` hash has 32 significant bits.
+
+## TASK #572 — the official `whnfCore` memo policy; the β peel without the instantiation memo (2026-11-12, agent/572-whnf-memo)
+
+Found by task #451's lane fvhash: on lean4's `grind_field_kernel_cancel`
+(`tests/e2e/grind_field_cancel_inv`, task #570) con-leche took more ι steps than the
+official kernel (`Bool.rec` 32 710 against 20 550, `Mon.rec` 30 739 against 26 452; δ steps
+identical), because the `whnfCore` memo was used differently.  Maintainer's ruling: match
+the official policy, on master.
+
+**The official policy** (`src/kernel/type_checker.cpp`, `type_checker::whnf_core`, lean4
+master, the same in v4.35.0).  `whnf_core` is recursive.  Every call on a term that is not an
+easy case (the `switch` on `e.kind()`) looks the term up in `m_st->m_whnf_core`; the β, `Proj`
+(fired or stuck), `Let` and head-reduced (`f != f0`) arms set `r` to the recursive call on the
+reduct and fall through to `if (!cheap_rec && !cheap_proj) m_whnf_core.insert(e, r)`; the
+`f == f0` arm (ι by `reduce_recursor`, or the stuck answer) `return`s before the insert.  There
+is ONE cache: both modes read it, only the full mode writes it.
+
+**As implemented** (`ConLeche/Cached/CoreC.lean`).
+* *Loop, not recursion.*  Official's recursion is followed iteratively: `whnfCoreLoopI`
+  carries the keys of the steps taken so far (`pend`) and stores them with the chain's
+  answer at its end (`storeChainI`), which is what the recursion's inserts do as it unwinds
+  (nothing is stored before the answer is known, in either).  The loop keeps #342 R2's
+  constant native stack; the entry point `whnfCoreI` is the loop (`memoRedEI` is gone).
+* *Lookups.*  Every step looks its term up, but a term no arm stores
+  (`whnfCoreKeyC`): an application with a stuck head (official's `f == f0` arm, never
+  stored, so never found).  Not looked up either, as before: the re-built `v·args` after a
+  head normalization (official's call on `mk_rev_app(f, args)`); in the full mode it is
+  never stored (its head is normal), see the cheap mode for the other.
+* *Stores.*  The keys of β, projection (a stuck one too: official stores `r = e`), ζ and
+  head-normalizing steps; not ι steps, not an application answered by itself
+  (`whnfCoreStoresDone`).  A memo hit ends the chain and its keys get the hit's answer.
+  This replaces #556's P-A2 rule (no entry for an unchanged answer), which it subsumes
+  except for the stuck projection, now stored as official does.
+* *The cheap mode — the one place official is not followed exactly.*  Official's cheap mode
+  reads the full mode's entries; a full answer can be more reduced than the cheap one (a
+  projection whose scrutinee needs δ), so a cheap query would return what the specification's
+  cheap `whnfCore` does not compute, and the simulation (`RelC` is equality) would fail.
+  Here the cheap mode stores nothing (as official) and reads `whnfCoreCheapC`, which the
+  full mode fills with the keys whose chain from the key on takes only steps the two modes
+  take alike (`whnfCoreCheapSafeC`: a let-expression, or an application whose head is a
+  lambda or stuck; `pendC`, emptied at any other step and at a hit).  On the two fixtures
+  this reproduces official exactly; it differs from official only where a cheap query meets
+  a full entry whose chain normalized a projection or a projection/let head.  Following
+  official there needs either a relational simulation or a cheap specification that reads
+  a memo — a design choice for the maintainer.
+* *One spine-head computation per step.*  The loop computes `Expr.getAppFn` once and passes
+  it to `whnfCoreStepI` (init-full −0.9 % against computing it in each classifier).
+
+**Step counts** (scratch build with a `dbgTrace` at the two ι fire sites, not committed;
+con-leche has no statistics option for it).  `grind_field_cancel_inv`: `Mon.rec` 30 739 →
+26 452 (official 26 452), `Bool.rec` 32 785 → 20 625 over the whole stream, of which 75 are
+outside the theorem in both builds, so 20 550 on the theorem (official 20 550); `Ordering.rec`
+10 334 and `Poly.rec` 9 310 unchanged.  The minimal example (task #451), now the fixtures
+`whnf_core_memo` (`lhs =?= true`, the full mode) and `whnf_core_memo_cheap` (`true =?= lhs`,
+the cheap mode): 3 → 2 `Bool.rec` steps each (official 2).  `discarded-argument`: 1 204 →
+1 802 ι steps (official, by its unfold diagnostics, 41 403 `N.rec`: con-leche's lazy δ does far
+less here either way).
+
+**Proofs** (`Verify/BetaSpine.lean`, `Verify/Cached/DiscC4.lean`, `KnotC.lean`,
+`KnotCongr.lean`; the specification and the model untouched — the specification has no memo).
+* The loop's triple states the chained `whnfCore` of its term directly:
+  `Runs.whnfCore_of_cont` / `Runs.whnfCore_of_done` (from `whnfCore_of_stepW_cont` /
+  `_done` in `BetaSpine`, by `whnfCoreStepM_sound` with `whnfCore` itself as the
+  continuation) carry a step's outcome, a memo hit is the `CSOK` clause.  The loop mirror
+  `whnfCoreLoopM`, its `atF`, `whnfCoreLoopM_ksound` and `whnfCoreLoop_sound_body` are gone.
+* Pending keys: `PendOK c d pend e` (each key, well scoped, answers what `e` answers), with
+  `PendOK.push` / `pushCheap` for the continuing arm (on the named `pushKey` /
+  `pushCheapKey`), `CSOK.chainStored` / `_nil` / `chainStoredDone` for the stores
+  (`foldl_insert_backed`).  The cheap keys: `whnfCoreStepW_cheap` (a safe step is the same
+  step in the cheap mode).  One `sym … => vcgen … <;> finish` per induction case, no raised
+  limits.  `KnotC`: `whnfCoreI_spec` replaces `memoRedEI_whnfCore_spec`; the hit lemmas moved
+  to `DiscC4`.
+
+**Probe C, the memo half** (scope added by the maintainer: "cheaper ι", probes in
+`_tmp/iota/`).  `betaPeelI` substitutes with `instantiateListC` instead of the
+(body, arguments, depth)-keyed `instListM` memo, which missed and inserted on nearly every
+peel; official's `instantiate` keeps no cache across calls.  The reduct still goes through
+the loop, so the memo policy and the step counts are unchanged.  Proof: `betaPeelC_spec`
+rewrites with `instantiateListC_spec`.  **Not landed, the fire-site half**: β-reducing the ι
+reduct inside the ι step (the reduct's β key is then never looked up or stored).  Measured on
+top of the memo half: init-full 299.65 → 297.57 G, grind-ring-5 10.59 → 10.38 G, the fixture
+2.47 → 2.37 G, but `Mon.rec` 26 452 → 26 516 on the fixture: it gives up the official counts
+this lane establishes.  Landing it means relating a cached step to a mirror step one β later
+(a named step relation in the step triples); left for a ruling.
+
+**Measurements** (`instructions:u`, one run each, under the RSS guard; base = master
+4ce6cb18e; perf streams and the fixture at `--jobs=1`, init-prelude and init-full at
+`--jobs=8`, Init by `--olean --jobs=1 --search-path=<v4.35.0 lib>`).
+
+| stream | base G | policy G | Δ | + β peel without memo G | Δ vs base |
+|---|---|---|---|---|---|
+| init-prelude | 1.282 | 1.286 | +0.29 % | 1.269 | −0.99 % |
+| app-lam | 22.038 | 22.040 | +0.01 % | 22.044 | +0.03 % |
+| args-before-unfold | 0.059 | 0.059 | −0.07 % | 0.056 | −6.49 % |
+| beta-ladder | 4.835 | 4.836 | +0.01 % | 4.918 | +1.71 % |
+| church-numerals | 0.205 | 0.207 | +1.10 % | 0.207 | +0.82 % |
+| discarded-argument-match | 0.163 | 0.184 | +12.86 % | 0.230 | +41.48 % |
+| discarded-argument | 0.062 | 0.071 | +13.89 % | 0.077 | +23.97 % |
+| folded-constant-first | 0.086 | 0.092 | +6.61 % | 0.084 | −3.01 % |
+| folded-constant-last | 0.086 | 0.092 | +6.64 % | 0.084 | −3.05 % |
+| grind-ring-5 | 10.841 | 10.914 | +0.68 % | 10.597 | −2.25 % |
+| identical-nesting | 0.021 | 0.021 | +0.02 % | 0.021 | +0.10 % |
+| irrelevance-before-evaluation | 0.023 | 0.023 | 0.00 % | 0.023 | 0.00 % |
+| let-ladder | 2.557 | 2.557 | 0.00 % | 2.559 | +0.10 % |
+| repeated-subproblem | 0.023 | 0.023 | +0.12 % | 0.023 | +0.43 % |
+| shared-subterm | 0.184 | 0.186 | +0.96 % | 0.169 | −8.36 % |
+| shift-cascade | 0.051 | 0.051 | +0.02 % | 0.051 | +0.02 % |
+| unroll-versus-evaluate | 0.027 | 0.027 | +0.01 % | 0.027 | +0.06 % |
+| grind_field_cancel_inv | 2.703 | 2.621 | −3.04 % | 2.468 | −8.72 % |
+| init-full | 305.267 | 313.470 | +2.69 % | 299.670 | −1.83 % |
+| Init (`--olean`) | 350.075 | 357.841 | +2.22 % | 343.825 | −1.79 % |
+
+* *The policy alone costs* on init-full and Init: more lookups and inserts per chain
+  (`perf record`: the loop's own bucket loads, the chain's inserts), against fewer ι steps.
+  Ablations on the first policy commit (init-full 316.29 G): the cheap mode writing its own
+  chains 313.86, storing ι keys too 315.90, both 313.62 — the policy's step-count side is
+  under 1 %; looking up only at a chain's entry 316.36 (on the head-once commit) — the
+  continuation lookups pay for themselves.
+* *The β peel without memo* is the larger effect; it loses on two small arena streams whose
+  β redexes do repeat (`discarded-argument-match` +0.067 G, `discarded-argument` +0.015 G,
+  `beta-ladder` +0.08 G), where the official kernel has no such memo either.
+* Peak RSS within the noise (init-full 0.47 / 0.36 / 0.47 GiB anon).  Every verdict unchanged.
+
+Gates (final tree): `lake build`, `lake test` warning-free (axioms pinned); `tests/arena.sh`
+in full (layering, shake and pub-imports, trust surface, plain-reach, binary-link, OVERVIEW and
+whitepaper links, quote gate, e2e 595/595, the arena tutorial at its expected 90/92, trusted and `--jobs` sweeps).  OVERVIEW §3's memo
+paragraph states the policy.  Logs: `_tmp/572/wt/_tmp/{logs,perf}`.
+
 ## TASK #574 — structural equality in the official kernel's formulation: no per-node result, the spine loop (2026-11-12, agent/574-beq-official)
 
 On lean4's `cbv_aes` (task #571) con-leche's structural equality cost 0.88 G of the theorem's
