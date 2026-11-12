@@ -120379,3 +120379,92 @@ stream; master is 8a12163cd, #576 and #577 included; data in `_tmp/573b/logs/`):
 | identical-nesting, irrelevance-before-evaluation, repeated-subproblem, shift-cascade, unroll-versus-evaluate | | | −0.08 … +0.07 % |
 
 No stream rose by more than +0.07 %.
+
+## modular: master merged (4) (2026-11-12, agent/modular-merge-master-4)
+
+`master` at ca6af0990 merged into `modular` (4a7f40321).  What master brought: #557 (the dead
+`natOpWfNames` branch leaves the specification's `reduceNat`), #570 (the e2e fixture
+`grind_field_cancel_inv`), #572 (the official `whnfCore` memo policy; the β peel substitutes
+without the instantiation memo; fixtures `whnf_core_memo`, `whnf_core_memo_cheap`), #573 (the ι
+step's static facts stored at install: `IndCaps.neverZero` with the invariant `IndWF`, the
+constructor's family on `ctorInfo … induct` with the invariant `CtorWF`; `IotaCaseS`; the model's
+walk-based `ctorTypeFamily`), #574 (structural equality as the official `expr_eq_fn`), #575 (a
+DESIGN record: open-addressing memos, not pursued), #576 (substitution walks return no
+`(term, memo)` pair for a leaf child), #577 (the ι step on array spines).  No task number
+collides: master's new records are #557, #572–#577, `modular` has none of them; `modular`'s new
+records since the last merge (#566–#569, #571) are not on master.  (The known collision is
+`modular`'s #571 against another session's unlanded `agent/571-cbv-aes`.)
+
+**Textual conflicts.**  The model files where #573's arity change met `modular`'s #443 swap
+(`Model/BasisAtBlock.lean`, `BasisLfp.lean`, `Env/CanonCrest.lean`, `Harvest.lean`,
+`NatSem.lean`, `Inductives/ContAccFrame.lean`, `DeclBlockStep.lean`, `GenClsSem.lean`,
+`GenRecClasses.lean`, `GenRecExtra.lean`, `TargetCallFrame.lean`, `TargetNodeDynOf.lean`):
+`modular`'s by-value clauses and premises, with master's existential family name (`iT`) and
+`consBlockCtors … ctorGroups`; the blocks `modular` had removed (`hrdC`'s old place, `hranAll`,
+`FamilyRan`) stay removed.  `Verify/EnvExt/Whnf.lean` (#557's single branch, `modular`'s unused
+binder), `Verify/EnvWF.lean` (master's `IndWF`/`CtorWF`, `modular`'s removal of `OpDefn`),
+`tests/plain-reach-allow.txt` (`modular`'s literal-hash clause, master's `BeqSt` entries),
+DESIGN.md (both sides' records, `modular`'s first), and the documents' line anchors (relocated
+by the cited text, expectations regenerated; two whitepaper anchors re-cited by hand:
+`ConstantInfo` in `Kernel/Env.lean` and the ι case split's environment facts in
+`Model/Env/Laws.lean`, the latter stale on `modular` already).
+
+**Adaptations.**
+* **The context's validation reads the new fields** (`Driver/Reach.lean`,
+  `Verify/Driver/Reach.lean`).  A context record is installed as `streamEnv` installs it, so a
+  former's sort fact is the install's (`blockCapsAt` from the declared former) and holds
+  unconditionally (`declConstants_indWF`, with `quotAt_indWF`).  A constructor's `induct` is the
+  type that lists it; that this is the family its type concludes in is what the constructor
+  check proves of an own record and nothing proves of a record read from another module, so
+  `constOk` gains the clause `ctorHeadOk` (the type's result is headed by `induct`) and
+  `ctx_envWF` proves `CtorWF` from it (`constOk_ctorWF`).  `envWF_prefix`
+  (`Verify/Driver/PropPart.lean`) carries both new fields to a prefix.  `ModularTests` pins the
+  clause (a constructor stored under another family is refused).
+* **The `.olean` group proof carries each constructor's listing type**
+  (`Verify/Frontend/Olean/GroupSame.lean`): `validateIndF_inr` states the builder's list as
+  `ctorsListed` (each constructor record with the type that lists it); `declOfF_ind_same`
+  compares the type names too; `RouteCtx`'s membership reads the pair.
+* **The rules at a refinement** (`Rules/Refine.lean`, #469): `ctorFamily` at the stored name,
+  `EnvRefines.iotaNoCert`, `IotaCaseS.refine` (a fourteenth member of the mutual recursion), the
+  rescues without the head premise.
+* **The modular model's context source** (`Model/Modular/RestrictBase.lean`,
+  `RestrictLfp.lean`, `RestrictRules.lean`, `Valid.lean`, `Proofs.lean`): `CtxSrc.wf` proves the
+  two new `EnvWF` fields from the source's (a former or constructor is never a statement, so it
+  is the source's constant); `RuleAg`, `recRuleLaw_ag`, `ctorFamily_alike`/`_eq` at master's
+  `ctorTypeFamily` and the `iT`-carrying laws; `ctorEntry_some`/`nestContainer_some` existential
+  in the family name; the pinned `Nat` record with `neverZero := true`.
+* `Model/Cover.lean`'s `coverStepLeaf_cons` (`modular`'s leaf-keeping step) and its four
+  callers, `GenClsRhs`'s two `modular`-side `hfind`s, and the three copies of "a block installs
+  no statement" (`Model/Fold.lean`, `Model/Modular/Proofs.lean`, `Verify/Driver/RouteCtx.lean`)
+  read `blockCtors` as master's `flatMap` over `ctorGroups`.
+* Nothing else: #572/#576/#577 change the cached core under `typeIsPropC`, whose proof
+  (`PropPart.lean`) goes through the knot's entry-point spec unchanged; #574's equality and
+  #547's literal hash meet nowhere (the hash is a function of the literal's value, so equal
+  literals hash equally); `Literal.natHash`, the vendored C and the `@[csimp]` route of
+  `Verify/Cached/DeclNames.lean` are unchanged.
+
+**Measurements** (`perf stat -e instructions:u`, one run each, under the guard; streams
+`--jobs=8`, Coxeter `--olean --module --jobs=8`, CCK4 `--olean --module --jobs=1`;
+`_tmp/mmerge4/scripts/measure.sh`):
+
+| run | master ca6af0990 | modular 4a7f40321 | merged | vs modular | vs master |
+|---|---|---|---|---|---|
+| init-prelude | 1.215 G | 1.282 G | 1.215 G | −5.2 % | +0.01 % |
+| grind-ring-5 | 9.911 G | 11.115 G | 9.911 G | −10.8 % | −0.01 % |
+| Coxeter worker | — | 6.311 G | 6.220 G | −1.4 % | |
+| CFSG CCK4 | — | 101.71 G | 98.19 G | −3.5 % | |
+
+Every run accepts the same count (1777, 2185, 159, 34); CCK4's peak anon 1.53 → 1.49 GiB.
+Master has no `--module`.
+
+**Gates.**  `lake build`, `lake test` warning-free; `tests/arena.sh` in full under the guard (exit 0,
+peak 4.5 GB): layering, pindump, trust surface (the build and native surface: `lakefile.lean`,
+`native/nat_hash.c`), overview links (164), whitepaper links (530), fragment, quote gate,
+no-local-paths, challenge, shake (672/672 allowlisted, pub-imports none demotable), plain-reach
+(591, all allowlisted; `ctorHeadOk` reaches only the allowlisted `piResult`/`getAppFn`),
+binary-link, olean gate 339/339 (the scheduler and `StackDeep` cases among them), selfcheck
+(59 498 declarations, olean-compare 0 differences), axioms pinned (72 theorems), arena
+tutorial 90/92, e2e 603/603 (`lit_hash_low_bits` in 0.5 s, 2.10 G instructions, within its
+10 s timeout), the trusted and `--jobs` sweeps without divergence; the whitepaper builds
+(`nix develop ./whitepaper -c whitepaper/build.sh`).  No `sorry`, no new axiom, no new
+`unsafe`, `implemented_by` or C.
