@@ -344,12 +344,12 @@ theorem betaPeelC_spec (lv : Nat) {d : Nat} :
   induction args with
   | nil =>
     intro _ _ _ hs _ _
-    sym only [conleche_grind, betaPeelW.eq_1] =>
-      vcgen [betaPeelI.eq_def, instListM_spec hs] <;> finish
+    sym only [conleche_grind, betaPeelW.eq_1, Expr.instantiateListC_spec] =>
+      vcgen [betaPeelI.eq_def] <;> finish
   | cons _ rest ihr =>
     intro _ _ _ hs _ _
-    sym only [conleche_grind, betaPeelW.eq_2, betaPeelW.eq_3] =>
-      vcgen [betaPeelI.eq_def, mkAppNM, instListM_spec hs, ihr] <;> finish
+    sym only [conleche_grind, betaPeelW.eq_2, betaPeelW.eq_3, Expr.instantiateListC_spec] =>
+      vcgen [betaPeelI.eq_def, mkAppNM, ihr] <;> finish
 
 /-- The bulk-beta argument loop simulates its pure mirror. -/
 theorem whnfAppC_spec (ih : SSimC .verified eager env f)

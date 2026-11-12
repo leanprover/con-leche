@@ -1037,11 +1037,15 @@ termination_by (lv, 28, 0, 0)
 /-- Peel loop of `whnfAppI`: `t` is the raw (unsubstituted) lambda body
 after the binders consumed so far, `acc` their arguments (innermost
 first).  The body is substituted once, when peeling stops, and handed
-to the loop together with the arguments left over. -/
+to the loop together with the arguments left over.  The substitution is
+not memoised (`instantiateListC`, not `instListM`), as official's
+`instantiate` keeps no cache across calls: a β redex's arguments, an ι
+reduct's above all, rarely repeat, so a memo entry is a miss and an
+insert nearly every time (task #572). -/
 def betaPeelI (eager : Bool) (lv : Nat) (depth : Nat) :
     Expr → List Expr → List Expr → CheckCM WhnfStep
   | t, acc, [] => do
-    let e' ← instListM t acc
+    let e' ← pure (Expr.instantiateListC t acc)
     pure (.cont e')
   | t, acc, a :: rest => do
     match t with
@@ -1049,7 +1053,7 @@ def betaPeelI (eager : Bool) (lv : Nat) (depth : Nat) :
         -- Task #342 S0: uniform β (see `whnfAppI`)
         betaPeelI eager lv depth body (a :: acc) rest
     | _ => do
-      let e' ← instListM t acc
+      let e' ← pure (Expr.instantiateListC t acc)
       let e'' ← mkAppNM e' (a :: rest)
       pure (.cont e'')
 termination_by _ _ args => (lv, 29, args.length, 0)
