@@ -319,17 +319,17 @@ theorem EnvModelM.swapP {env₀ env₃ : Env}
       obtain ⟨hlaw', hcoh⟩ := hetaL cvT' capsT' ((hsame _ _
         (fun _ _ _ _ _ h => ConstantInfo.noConfusion h)).mp hfT') us hus
       exact ⟨hlaw', fun he =>
-        (hcoh he).transport (fun cvC nPc nFc hf₂ => (hsame _ _
+        (hcoh he).transport (fun cvC nPc nFc iT hf₂ => (hsame _ _
           (fun _ _ _ _ _ h => ConstantInfo.noConfusion h)).mp hf₂)
-        (fun cvC nPc nFc TCa _ hTCa => by rw [← hde]; exact hTCa) rfl
+        (fun cvC nPc nFc iT TCa _ hTCa => by rw [← hde]; exact hTCa) rfl
         (fun _ _ _ => rfl)⟩
     have hfP : env₀.findProj? T i = some entry := by
       rw [hcg.projEq]; exact hf
-    obtain ⟨hsn, hidx, hlt, ⟨cvT, capsT, hfT, hlpsT⟩, cvC, hfC, hlpsC,
+    obtain ⟨hsn, hidx, hlt, ⟨cvT, capsT, hfT, hlpsT⟩, cvC, iT, hfC, hlpsC,
       hlaw⟩ := (mp.tower_ok φ).entry T i entry hfP
     refine ⟨hsn, hidx, hlt, ⟨cvT, capsT, (hsame _ _
         (fun _ _ _ _ _ h => ConstantInfo.noConfusion h)).mpr hfT, hlpsT⟩,
-      cvC, (hsame _ _
+      cvC, iT, (hsame _ _
         (fun _ _ _ _ _ h => ConstantInfo.noConfusion h)).mpr hfC, hlpsC,
       fun us hus => ?_⟩
     obtain ⟨⟨Ta, hTa, hA⟩, ⟨TCa, hTCa, hB⟩⟩ := hlaw us hus

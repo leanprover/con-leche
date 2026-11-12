@@ -64,19 +64,19 @@ theorem Red.rigid : ∀ {d : Nat} {e e' : Expr}, Red env d e e' → IsRigid e �
   | _, _, _, .natOp .., hr => hr.elim
   | _, _, _, .proj .., hr => hr.elim
   | _, _, _, .iota hhead .., hr => absurd hhead hr.not_const
-  | _, _, _, .rescueK _ _ _ _ _ htm htmaj hthead .., hr => by
+  | _, _, _, .rescueK _ _ _ _ htm htmaj hthead .., hr => by
     have hrec : IsRigid _ → _ := fun h => Red.rigid htmaj h
     obtain ⟨u, rfl⟩ := Infer.sort_of_rigid htm hr
     have := hrec trivial
     subst this
     exact absurd hthead (IsRigid.not_const (e := .sort u) trivial)
-  | _, _, _, .rescueEta _ _ _ _ _ htm htmaj hthead .., hr => by
+  | _, _, _, .rescueEta _ _ _ _ htm htmaj hthead .., hr => by
     have hrec : IsRigid _ → _ := fun h => Red.rigid htmaj h
     obtain ⟨u, rfl⟩ := Infer.sort_of_rigid htm hr
     have := hrec trivial
     subst this
     exact absurd hthead (IsRigid.not_const (e := .sort u) trivial)
-  | _, _, _, .rescueAnd _ _ _ _ htm htmaj hthead .., hr => by
+  | _, _, _, .rescueAnd _ _ _ htm htmaj hthead .., hr => by
     have hrec : IsRigid _ → _ := fun h => Red.rigid htmaj h
     obtain ⟨u, rfl⟩ := Infer.sort_of_rigid htm hr
     have := hrec trivial

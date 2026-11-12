@@ -12,10 +12,10 @@ architecture differs from the fragment's on the features they share.
 
 #left-out[Projections][Lean's primitive projection `e.i`, the `i`-th
 field of a structure value. For every inductive type with one
-constructor and no index the checker stores #src("ConLeche/Kernel/Install.lean", 67, 74)[a
+constructor and no index the checker stores #src("ConLeche/Kernel/Install.lean", 68, 75)[a
 projection table], the fields' types read off the constructor. The
 real checker #src("ConLeche/Rules/Rel.lean", 174, 189)[reduces a projection of a
-constructor application to that field] and #src("ConLeche/Rules/Rel.lean", 677, 685)[infers its type from
+constructor application to that field] and #src("ConLeche/Rules/Rel.lean", 674, 682)[infers its type from
 the table]\; in the model a structure value is the tagged tuple of
 @sec:ext-eta and a projection reads a component, which
 #src("ConLeche/Model/Inductives/BlockStageTables.lean", 10, 12)[the
@@ -77,14 +77,14 @@ real checker never unfolds a theorem or an opaque: #src("ConLeche/Rules/Rel.lean
 unfolds].]
 
 #left-out[Structure η and unit-likeness][The checker has
-#src("ConLeche/Rules/Rel.lean", 458, 461)[structure η] and
+#src("ConLeche/Rules/Rel.lean", 455, 458)[structure η] and
 #src("ConLeche/Rules/Rel.lean", 522, 522)[unit-likeness] as Lean has them;
 @sec:ext-eta and @sec:ext-unit derive both from extensionality.]
 
 #left-out[Recursors on stuck proofs of `A ∧ B`][The checker never
 unfolds a theorem, while the official kernel does. Some elaborated
 terms rely on that, with a case split on a stuck proof `h` of `A ∧ B`.
-There the recursor #src("ConLeche/Rules/Rel.lean", 298, 323)[fires on `And.intro h.1 h.2`],
+There the recursor #src("ConLeche/Rules/Rel.lean", 296, 320)[fires on `And.intro h.1 h.2`],
 the constructor applied to `h`'s two projections, built from `h`'s
 type.]
 
@@ -108,7 +108,7 @@ context. The real checker keeps no context at all. When it opens a binder it
 substitutes a free variable that carries its own type,
 #src("ConLeche/Kernel/Expr.lean", 400, 402)[`fvar idx type`], identified by the depth at which it was opened\; so a variable is never
 looked up, the relations are indexed by the opening depth in place of a
-context, and two free variables are #src("ConLeche/Rules/Rel.lean", 371, 372)[compared by depth alone]. Stored types are closed
+context, and two free variables are #src("ConLeche/Rules/Rel.lean", 368, 369)[compared by depth alone]. Stored types are closed
 terms, and `Denotes`, the relation the main theorem is stated over
 (below), reads them with de Bruijn indices under binders, with no
 opening at all.
@@ -128,10 +128,10 @@ denotation on the terms themselves.
 
 *Six relations, and a mode index.* Beside reduction,
 definitional equality and inference the real description has three
-more: #src("ConLeche/Rules/Rel.lean", 746, 755)[the certification of an argument spine against
+more: #src("ConLeche/Rules/Rel.lean", 752, 761)[the certification of an argument spine against
 a binder telescope] (the certified case of $iota$),
-#src("ConLeche/Rules/Rel.lean", 757, 762)[pairwise definitional equality], and
-#src("ConLeche/Rules/Rel.lean", 548, 587)[the congruence of two lambda telescopes]
+#src("ConLeche/Rules/Rel.lean", 763, 768)[pairwise definitional equality], and
+#src("ConLeche/Rules/Rel.lean", 545, 584)[the congruence of two lambda telescopes]
 (@sec:tax). A rule with a premise about a list or a telescope needs a
 relation of its own in a mutual block; the paper inlines them into the
 rules that use them. Inference also carries a
@@ -141,7 +141,7 @@ states as a relation of its own.
 *The bridge and the recomposition.* Because the real checker is a
 program, its proof has three parts where the paper has one. #src("ConLeche/Verify/Rules/Bridge.lean", 29, 32)[The bridge] turns an accepting
 run at any fuel into a derivation, by one induction on fuel in which
-each checker site lands on one rule. #src("ConLeche/Model/Rules/Sound.lean", 52, 53)[The soundness] is the paper's
+each checker site lands on one rule. #src("ConLeche/Model/Rules/Sound.lean", 77, 78)[The soundness] is the paper's
 induction: one structural induction over the six relations, each case a
 lemma about one rule, never mentioning the implementation. #src("ConLeche/Model/Rules/Recompose.lean", 50, 55)[The
 recomposition] puts them together, claim by claim. It bridges the run,

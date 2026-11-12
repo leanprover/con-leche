@@ -210,7 +210,7 @@ def checkBlockTailS (block : List ConstantInfo) (q : BlockPass FEnv) (Q : List P
   match q with
   | ⟨env₁, p, kinds, params, rd, cls, tbl⟩ => do
   checkBlockIdxSortsC mode env₁ p p.members
-  let fe₂ := consBlockCtorsF p.nP p.memberCtors env₁
+  let fe₂ := consBlockCtorsF p.nP p.ctorGroups env₁
   flushC
   let out ← genRecCheckC mode fe₂ p (blockNestedBit p kinds) params tbl.toList rd cls block
   -- the stream's recursors against the generated ones, at the generated recursors as an OVERLAY on

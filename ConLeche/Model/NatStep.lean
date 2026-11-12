@@ -40,7 +40,7 @@ theorem denote_rawNatLit (m : EnvModel V env)
     (hs : natLitSupported env = true) {a0 : Expr} {n : Nat}
     (h : ConLeche.rawNatLit? a0 = some n) (d : Nat) :
     denote m.acval env φ d a0 = some (natLit m φ n) := by
-  obtain ⟨cvN, caps, cv0, i0, j0, cv1, i1, j1, hfN, hfZ, hfS, hlpN,
+  obtain ⟨cvN, caps, cv0, i0, j0, T0, cv1, i1, j1, T1, hfN, hfZ, hfS, hlpN,
     hlpZ, hlpS, -⟩ := ConLeche.natLitSupported_inv hs
   match a0, h with
   | .lit (.natVal k), h =>
@@ -54,7 +54,7 @@ theorem denote_rawNatLit (m : EnvModel V env)
       obtain rfl : (0 : Nat) = n := Option.some.inj h
       rw [natLit_zero]
       exact denote_levelless_const hfZ
-        (show (ConstantInfo.ctorInfo cv0 i0 j0).toConstantVal.levelParams
+        (show (ConstantInfo.ctorInfo cv0 i0 j0 T0).toConstantVal.levelParams
           = [] from hlpZ)
     · exact nomatch h
 
@@ -87,12 +87,12 @@ the `Nat.succ` leaf, the argument to the numeral spine, and
 theorem natSuccRow_of (mp : EnvModelM V env) (φ : Name → Nat) :
     Rules.NatSuccRow mp.base2 φ := by
   intro d w n ea hnat hraw hea
-  obtain ⟨cvN, caps, cv0, i0, j0, cv1, i1, j1, hfN, hfZ, hfS, hlpN,
+  obtain ⟨cvN, caps, cv0, i0, j0, T0, cv1, i1, j1, T1, hfN, hfZ, hfS, hlpN,
     hlpZ, hlpS, -⟩ := ConLeche.natLitSupported_inv hnat
   obtain ⟨fa, wa, hfa, hwa, rfl⟩ := denote_app_inv hea
   obtain rfl : fa = mp.base2.acval ConLeche.natSuccName φ :=
     denote_head hfS
-      (show (ConstantInfo.ctorInfo cv1 i1 j1).toConstantVal.levelParams
+      (show (ConstantInfo.ctorInfo cv1 i1 j1 T1).toConstantVal.levelParams
         = [] from hlpS) hfa
   obtain rfl : wa = natLit mp.base2 φ n :=
     Option.some.inj
@@ -274,7 +274,7 @@ theorem natOpHead_of (mp : EnvModelM V env) (φ : Name → Nat) :
     · exact ⟨(mp.div_mod φ c hm cv v hh hf).1, (mp.div_mod φ c hm cv v hh hf).2.1⟩
   obtain ⟨hnat, hdeps, -⟩ := ConLeche.natOpGuard_inv hguard
   refine ⟨hnat, fun {d ca} hca ρ => ?_⟩
-  obtain ⟨cvN, caps, cv0, i0, j0, cv1, i1, j1, hfN, -, -, hlpN, -⟩ :=
+  obtain ⟨cvN, caps, cv0, i0, j0, T0, cv1, i1, j1, T1, hfN, -, -, hlpN, -⟩ :=
     ConLeche.natLitSupported_inv hnat
   obtain ⟨cod, hty, hcodB, hcodN⟩ := natOpTyPinned_shape_bin hnp hpin
   -- the head reads to the operation's leaf

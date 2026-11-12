@@ -182,7 +182,7 @@ variable {env env' : Env} {m : EnvModel V env} {m' : EnvModel V env'} {φ : Name
 /-- `FamNZ` where the family's lookup agrees and the readings do. -/
 theorem famNZ_of_ctorFamily {acval acval' : Name → (Name → Nat) → Term} {env env' : Env}
     {φ : Name → Nat} {cvj : ConstantVal} {us : List Level}
-    (hfam : ConLeche.ctorFamily env'.find? cvj = ConLeche.ctorFamily env.find? cvj)
+    (hfam : ctorTypeFamily env'.find? cvj = ctorTypeFamily env.find? cvj)
     (hde : ∀ (d : Nat) (e : Expr), denote acval' env' φ d e = denote acval env φ d e) :
     FamNZ (V := V) acval' env' φ cvj us = FamNZ (V := V) acval env φ cvj us :=
   propext
@@ -207,8 +207,8 @@ structure RuleRen (m : EnvModel V env) (m' : EnvModel V env') (φ : Name → Nat
   hnest : ∀ lvls pins, RecRule.fire rl = .nested lvls pins → cv' = cv
   hleaf : ∀ us : List Level, us.length = cv.levelParams.length →
     m'.acval n (Level.substFn φ cv'.levelParams us) = m.acval n (Level.substFn φ cv.levelParams us)
-  hcj : ∀ cvj' cnP cnF, env'.find? (RecRule.ctor rl) = some (.ctorInfo cvj' cnP cnF) →
-    ∃ cvj, env.find? (RecRule.ctor rl) = some (.ctorInfo cvj cnP cnF) ∧
+  hcj : ∀ cvj' cnP cnF iT, env'.find? (RecRule.ctor rl) = some (.ctorInfo cvj' cnP cnF iT) →
+    ∃ cvj, env.find? (RecRule.ctor rl) = some (.ctorInfo cvj cnP cnF iT) ∧
       cvj'.levelParams.length = cvj.levelParams.length ∧
       (∀ usj : List Level, usj.length = cvj.levelParams.length →
         cvj'.type.instantiateLevelParams cvj'.levelParams usj
@@ -237,15 +237,15 @@ theorem recRuleExtra_ren (r : RuleRen m m' φ n cv cv' mI rP isK rl rl')
   rw [r.hde, r.hty us hus0] at hTVa
   obtain ⟨hK, hC⟩ := hX us hus0 TVa hTVa
   have hLf := r.hleaf us hus0
-  refine ⟨fun hk => ?_, fun cvj' cnP cnF hfc => ?_⟩
+  refine ⟨fun hk => ?_, fun cvj' cnP cnF iT hfc => ?_⟩
   · obtain ⟨hnf, hK'⟩ := hK hk
     refine ⟨by rw [r.hnf]; exact hnf, fun Ra hRa ρ xs a restR hxs hfit hw => ?_⟩
     rw [r.hde, r.hrhs us hus0] at hRa
     rw [hLf]
     exact hK' Ra hRa ρ xs a restR hxs hfit hw
   · rw [r.hctor] at hfc
-    obtain ⟨cvj, hfcj, hlj, htj, hlfj, hsp, hcmp, hsub, hnp⟩ := r.hcj cvj' cnP cnF hfc
-    obtain ⟨har, hrest⟩ := hC cvj cnP cnF hfcj
+    obtain ⟨cvj, hfcj, hlj, htj, hlfj, hsp, hcmp, hsub, hnp⟩ := r.hcj cvj' cnP cnF iT hfc
+    obtain ⟨har, hrest⟩ := hC cvj cnP cnF iT hfcj
     refine ⟨by rw [r.hnf, hsp]; exact har, fun hk => ?_⟩
     obtain ⟨hS, hT, hPU⟩ := hrest hk
     have hc := hcmp us hus0
@@ -281,7 +281,7 @@ theorem recRuleLaw_ren (r : RuleRen m m' φ n cv cv' mI rP isK rl rl')
   have hus0 : us.length = cv.levelParams.length := hus.trans r.hlen
   obtain ⟨Ra, hRa, hok, hpins, hlaw⟩ := hmain us hus0
   refine ⟨Ra, by rw [r.hde, r.hrhs us hus0]; exact hRa, hok, fun lvls pins hfire i hi => ?_,
-    fun cvj' cnP cnF hfc usj ρ xs ys TVa TVja restR restC hxs hys hlj' hsj hwy hpt hTVa hTVja hfR hfC => ?_⟩
+    fun cvj' cnP cnF iT hfc usj ρ xs ys TVa TVja restR restC hxs hys hlj' hsj hwy hpt hTVa hTVja hfR hfC => ?_⟩
   · replace hfire := (r.hfire lvls pins).mp hfire
     have hcv := r.hnest lvls pins hfire
     subst hcv
@@ -290,7 +290,7 @@ theorem recRuleLaw_ren (r : RuleRen m m' φ n cv cv' mI rP isK rl rl')
     rw [r.hde] at hTVa
     exact hg ρ zs TVa restR hz hw hTVa hfit
   · rw [r.hctor] at hfc
-    obtain ⟨cvj, hfcj, hlj, htj, hlfj, -, hcmp, hsub, -⟩ := r.hcj cvj' cnP cnF hfc
+    obtain ⟨cvj, hfcj, hlj, htj, hlfj, -, hcmp, hsub, -⟩ := r.hcj cvj' cnP cnF iT hfc
     have hlj0 : usj.length = cvj.levelParams.length := hlj'.trans hlj
     rw [r.hde, r.hty us hus0] at hTVa
     rw [r.hde, htj usj hlj0] at hTVja
@@ -298,7 +298,7 @@ theorem recRuleLaw_ren (r : RuleRen m m' φ n cv cv' mI rP isK rl rl')
     rw [r.hnf] at hys
     rw [r.hleaf us hus0]
     have hsj' := (hsub us hus0 usj hlj0).mp (by rw [← hcmp us hus0]; exact hsj)
-    exact hlaw cvj cnP cnF hfcj usj ρ xs ys TVa TVja restR restC hxs hys hlj0 hsj' hwy hpt hTVa hTVja
+    exact hlaw cvj cnP cnF iT hfcj usj ρ xs ys TVa TVja restR restC hxs hys hlj0 hsj' hwy hpt hTVa hTVja
       hfR hfC
 
 end Law
@@ -392,17 +392,17 @@ theorem _root_.ConLeche.Verify.PinCopy.not_defn (h : PinCopy c pin) (hs : pinSha
   | _ => exact nomatch hk
 
 /-- A copy of a constructor's pin is a constructor. -/
-theorem _root_.ConLeche.Verify.PinCopy.ctor {cv : ConstantVal} {nP nF : Nat}
-    (h : PinCopy (.ctorInfo cv nP nF) pin) (h' : PinCopy c' pin) :
-    ∃ cv', c' = .ctorInfo cv' nP nF := by
+theorem _root_.ConLeche.Verify.PinCopy.ctor {cv : ConstantVal} {nP nF : Nat} {T : Name}
+    (h : PinCopy (.ctorInfo cv nP nF T) pin) (h' : PinCopy c' pin) :
+    ∃ cv', c' = .ctorInfo cv' nP nF T := by
   have h1 := h.1
   have h2 := h'.1
   generalize c'.toConstantVal.levelParams = ps' at h2
   cases pin with
-  | ctorInfo cvp a b =>
+  | ctorInfo cvp a b t =>
     simp only [ConstantInfo.atLps] at h1 h2
-    injection h1 with _ e1 e2
-    subst e1; subst e2
+    injection h1 with _ e1 e2 e3
+    subst e1; subst e2; subst e3
     exact ⟨_, h2⟩
   | _ => exact nomatch h.kind
 
@@ -502,8 +502,9 @@ theorem _root_.ConLeche.Verify.ConstRen.inst {c c' : ConstantInfo} (h : ConstRen
   · rfl
   · exact PinCopy.inst h1 h2 (pinnedInfo_wf hr).1 hus
 
-theorem _root_.ConLeche.Verify.ConstRen.ctor {cv : ConstantVal} {nP nF : Nat} {c' : ConstantInfo}
-    (h : ConstRen (.ctorInfo cv nP nF) c') : ∃ cv', c' = .ctorInfo cv' nP nF := by
+theorem _root_.ConLeche.Verify.ConstRen.ctor {cv : ConstantVal} {nP nF : Nat} {T : Name}
+    {c' : ConstantInfo}
+    (h : ConstRen (.ctorInfo cv nP nF T) c') : ∃ cv', c' = .ctorInfo cv' nP nF T := by
   rcases h with rfl | ⟨-, h1, h2⟩
   · exact ⟨_, rfl⟩
   · exact h1.ctor h2
@@ -579,13 +580,13 @@ variable {env env' : Env}
 theorem projOk_ren (m : EnvModel V env) (h : RenEnv env env') : ProjOkT env' := by
   intro T tbl hf
   rw [h.findTable] at hf
-  obtain ⟨h2, h3, h4, ⟨cvT, caps, hT, hlT⟩, ⟨cvC, hC, hlC, hs⟩⟩ := m.proj_ok T tbl hf
+  obtain ⟨h2, h3, h4, ⟨cvT, caps, hT, hlT⟩, ⟨cvC, iT, hC, hlC, hs⟩⟩ := m.proj_ok T tbl hf
   exact ⟨h2, h3, h4, ⟨cvT, caps, (h.find_nonres h2).trans hT, hlT⟩,
-    ⟨cvC, (h.find_nonres h4).trans hC, hlC, hs⟩⟩
+    ⟨cvC, iT, (h.find_nonres h4).trans hC, hlC, hs⟩⟩
 
-theorem find_ctor_ren (h : RenEnv env env') {x : Name} {cvj : ConstantVal} {a b : Nat}
-    (hf : env.find? x = some (.ctorInfo cvj a b)) :
-    ∃ cvj', env'.find? x = some (.ctorInfo cvj' a b) := by
+theorem find_ctor_ren (h : RenEnv env env') {x : Name} {cvj : ConstantVal} {a b : Nat} {T : Name}
+    (hf : env.find? x = some (.ctorInfo cvj a b T)) :
+    ∃ cvj', env'.find? x = some (.ctorInfo cvj' a b T) := by
   rcases h.find x with ⟨h1, -⟩ | ⟨c, c', h1, h2, hr⟩
   · rw [h1] at hf; exact nomatch hf
   · rw [h1] at hf
@@ -600,18 +601,18 @@ theorem recCtors_ren (m : EnvModel V env) (h : RenEnv env env') : RecCtorsStored
   · rw [h2] at hf'
     obtain rfl := Option.some.inj hf'
     rcases hr with rfl | ⟨hrs, h3, h4⟩
-    · obtain ⟨cvj, a, b, hj⟩ := m.rec_ctors n cv' mI rP isK rules' h1 r' hr'
+    · obtain ⟨cvj, a, b, iT, hj⟩ := m.rec_ctors n cv' mI rP isK rules' h1 r' hr'
       obtain ⟨cvj', hj'⟩ := find_ctor_ren h hj
-      exact ⟨cvj', a, b, hj'⟩
+      exact ⟨cvj', a, b, iT, hj'⟩
     · cases c with
       | recInfo cv mI0 rP0 isK0 rules =>
         obtain ⟨cv₂, rules₂, he, hrl⟩ := h3.recr h4 (pinnedInfo_wf hrs).2
         injection he with e0 e1 e2 e3 e4
         subst e0; subst e1; subst e2; subst e3; subst e4
         obtain ⟨rl, hrl0, hct, -⟩ := hrl r' hr'
-        obtain ⟨cvj, a, b, hj⟩ := m.rec_ctors n _ _ _ _ _ h1 rl hrl0
+        obtain ⟨cvj, a, b, iT, hj⟩ := m.rec_ctors n _ _ _ _ _ h1 rl hrl0
         obtain ⟨cvj', hj'⟩ := find_ctor_ren h hj
-        exact ⟨cvj', a, b, by rw [hct]; exact hj'⟩
+        exact ⟨cvj', a, b, iT, by rw [hct]; exact hj'⟩
       | _ => exact nomatch h3.kind.trans h4.kind.symm
 
 theorem acvalParams_ren (m : EnvModel V env) (h : RenEnv env env') :
@@ -722,8 +723,8 @@ theorem EnvModelM.renameCore (mp : EnvModelM V env) (h : RenEnv env env') (hwf :
       env'.find? n = some (.recInfo cv mI rP isK rules) →
       (reservedBasisNames.contains n = false ∨ isK = false) →
       ∀ r ∈ rules, env'.find? (RecRule.ctor r) = env.find? (RecRule.ctor r) ∧
-        ∀ cvj a b, env.find? (RecRule.ctor r) = some (.ctorInfo cvj a b) →
-          ConLeche.ctorFamily env'.find? cvj = ConLeche.ctorFamily env.find? cvj)
+        ∀ cvj a b iT, env.find? (RecRule.ctor r) = some (.ctorInfo cvj a b iT) →
+          ctorTypeFamily env'.find? cvj = ctorTypeFamily env.find? cvj)
     (blocks : List (LfpDatum V))
     (hlfp : ∀ D ∈ blocks, LfpClause (renAcval mp.base2.acval env env') D ∧ LfpStored env' D ∧
       LfpReads (renAcval mp.base2.acval env env') env' D ∧
@@ -805,7 +806,7 @@ theorem EnvModelM.renameCore (mp : EnvModelM V env) (h : RenEnv env env') (hwf :
               · exact ⟨fun _ => h₂, fun _ => h₁⟩
               · rw [h₁, h₂]; exact ⟨fun h => (nomatch h), fun h => (nomatch h)⟩),
             fun lvls pins hn => (hnone _ _ hn).elim,
-            fun us hus => renAcval_inst hparams h1 h2 hrpair φ hus, fun cvj' cnP cnF hfc => ?_⟩
+            fun us hus => renAcval_inst hparams h1 h2 hrpair φ hus, fun cvj' cnP cnF iT hfc => ?_⟩
           · rw [hrhs]
             exact inst_ren hnd' hlen.symm (hus.trans hlen.symm) _ hwfr.2.1
           · rcases h.find (RecRule.ctor rl) with ⟨-, g2⟩ | ⟨cj, cj', g1, g2, hrj⟩
@@ -829,15 +830,15 @@ theorem EnvModelM.renameCore (mp : EnvModelM V env) (h : RenEnv env env') (hwf :
                   · intro hx
                     rw [t1]
                     exact Expr.stripPis_instantiateLevelParams_isSome _ _ _ hx
-              have hnmj : (ConstantInfo.ctorInfo cvj cnP cnF).name = RecRule.ctor rl := by
+              have hnmj : (ConstantInfo.ctorInfo cvj cnP cnF iT).name = RecRule.ctor rl := by
                 simpa using Env.find?_name g1
               refine ⟨cvj, g1, hlj, fun usj hl => hrj.inst hl,
                 fun usj hl => renAcval_inst hparams g1 g2 hrj φ hl, hsp, fun us hus => ?_,
                 fun us _ a ha => ?_, fun hk us => ?_⟩
               · rcases hfr with ⟨hp', hp⟩ | ⟨ls, hp, hp', hdefs, -⟩
-                · have A := hlk' cv' mI rP isK rules' rfl rl' hrl' hp' cvj' cnP cnF (hct ▸ g2) us
+                · have A := hlk' cv' mI rP isK rules' rfl rl' hrl' hp' cvj' cnP cnF iT (hct ▸ g2) us
                     (hus.trans hlen.symm)
-                  have B := hlk cv mI rP isK rules rfl rl hrl0 hp cvj cnP cnF g1 us hus
+                  have B := hlk cv mI rP isK rules rfl rl hrl0 hp cvj cnP cnF iT g1 us hus
                   rw [hct] at A
                   simp only [ConLeche.recFireComparands, hp, hp']
                   exact A.trans B.symm
@@ -867,14 +868,14 @@ theorem EnvModelM.renameCore (mp : EnvModelM V env) (h : RenEnv env env') (hwf :
                     exact substFn_pos nd nd' hlj.symm ha hcL (fun q _ => congrFun hx q)
               · have hst := hstable n cv' mI rP isK rules' h2 (.inr hk) rl' hrl'
                 rw [hct] at hst
-                have heq : some (ConstantInfo.ctorInfo cvj' cnP cnF)
-                    = some (ConstantInfo.ctorInfo cvj cnP cnF) := by
+                have heq : some (ConstantInfo.ctorInfo cvj' cnP cnF iT)
+                    = some (ConstantInfo.ctorInfo cvj cnP cnF iT) := by
                   rw [← g2, ← g1]; exact hst.1
                 have hcvj : cvj' = cvj := by
                   injection heq with heq'
                   injection heq'
                 rw [hcvj]
-                exact famNZ_of_ctorFamily (hst.2 cvj cnP cnF g1) (fun d e => hde φ d e)
+                exact famNZ_of_ctorFamily (hst.2 cvj cnP cnF iT g1) (fun d e => hde φ d e)
         | _ => exact nomatch h3.kind.trans h4.kind.symm
       · have hrsf : reservedBasisNames.contains n = false := by simpa using hrsv
         have he : ConstantInfo.recInfo cv' mI rP isK rules' = c := by
@@ -885,12 +886,12 @@ theorem EnvModelM.renameCore (mp : EnvModelM V env) (h : RenEnv env env') (hwf :
         refine recRuleLaw_ren ?_ (mp.rec_rules φ n cv' mI rP isK rules' h1 rl' hrl')
         have hst := hstable n cv' mI rP isK rules' h2 (.inl hrsf) rl' hrl'
         refine ⟨fun d e => hde φ d e, rfl, fun _ _ => rfl, fun _ _ => rfl, rfl, rfl,
-          fun _ _ => Iff.rfl, Iff.rfl, fun _ _ _ => rfl, fun us _ => ?_, fun cvj' cnP cnF hfc => ?_⟩
+          fun _ _ => Iff.rfl, Iff.rfl, fun _ _ _ => rfl, fun us _ => ?_, fun cvj' cnP cnF iT hfc => ?_⟩
         · exact congrFun (hsame (h2.trans h1.symm)) _
         · have hfc0 := hst.1 ▸ hfc
           exact ⟨cvj', hfc0, rfl, fun _ _ => rfl, fun _ _ => congrFun (hsame hst.1) _, rfl,
             fun _ _ => rfl, fun _ _ _ _ => Iff.rfl,
-            fun _ us => famNZ_of_ctorFamily (hst.2 cvj' cnP cnF hfc0) (fun d e => hde φ d e)⟩
+            fun _ us => famNZ_of_ctorFamily (hst.2 cvj' cnP cnF iT hfc0) (fun d e => hde φ d e)⟩
   have hde' : ∀ (φ : Name → Nat) (d : Nat) (e : Expr),
       denote m'.acval env' φ d e = denote mp.base2.acval env φ d e := hde
   refine ⟨{ base2 := m'
@@ -1010,16 +1011,16 @@ theorem EnvModelM.renameCore (mp : EnvModelM V env) (h : RenEnv env env') (hwf :
       refine ⟨?_, fun he => ?_⟩
       · rw [hnr hTr, hnr hr3]; exact hlaw'
       · exact (hcoh he).transport (m₂ := m')
-          (fun _ _ _ hf₂ => by rw [h.find_nonres hr3] at hf₂; exact hf₂)
-          (fun _ _ _ _ _ hTCa => by rw [hde']; exact hTCa)
+          (fun _ _ _ _ hf₂ => by rw [h.find_nonres hr3] at hf₂; exact hf₂)
+          (fun _ _ _ _ _ _ hTCa => by rw [hde']; exact hTCa)
           (congrFun (hnr hTr) _) (fun _ _ _ => rfl)
     · rw [h.findProj] at hf
       obtain ⟨hr1, -, hr3, -⟩ := mp.base2.proj_ok.towerHead hf
-      obtain ⟨hsn, hidx, hlt, ⟨cvT, capsT, hfT, hlpsT⟩, cvC, hfC, hlpsC, hlaw⟩ :=
+      obtain ⟨hsn, hidx, hlt, ⟨cvT, capsT, hfT, hlpsT⟩, cvC, iT, hfC, hlpsC, hlaw⟩ :=
         (mp.tower_ok φ).entry T i entry hf
       have hTr : reservedBasisNames.contains T = false := hsn ▸ hr1
       refine ⟨hsn, hidx, hlt, ⟨cvT, capsT, (h.find_nonres hTr).trans hfT, hlpsT⟩,
-        cvC, (h.find_nonres hr3).trans hfC, hlpsC, fun us hus => ?_⟩
+        cvC, iT, (h.find_nonres hr3).trans hfC, hlpsC, fun us hus => ?_⟩
       obtain ⟨⟨Ta, hTa, hA⟩, ⟨TCa, hTCa, hB⟩⟩ := hlaw us hus
       refine ⟨⟨Ta, by rw [hde']; exact hTa, ?_⟩, ⟨TCa, by rw [hde']; exact hTCa, ?_⟩⟩
       · rw [hnr hTr]

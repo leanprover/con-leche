@@ -227,8 +227,8 @@ type's reduction to a sort, and that sort's vanishing with `guardSort`. -/
 typing law's premise. -/
 @[expose] def ProjGuardSem {env : Env} (m : EnvModel V env) (φ : Name → Nat)
     (entry : ProjEntry) (us : List Level) : Prop :=
-  ∀ (cvC : ConstantVal) (nP nF : Nat),
-    env.find? entry.ctor = some (.ctorInfo cvC nP nF) → us.length = cvC.levelParams.length →
+  ∀ (cvC : ConstantVal) (nP nF : Nat) (iT : Name),
+    env.find? entry.ctor = some (.ctorInfo cvC nP nF iT) → us.length = cvC.levelParams.length →
     (∀ cvT caps, env.find? entry.structName = some (.indInfo cvT caps) →
       us.length = cvT.levelParams.length) →
     TowerGuardAt m φ entry us cvC

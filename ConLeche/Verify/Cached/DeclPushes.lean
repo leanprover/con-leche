@@ -307,21 +307,11 @@ theorem checkBlockIndsC_fresh (mode : CheckMode) (fe : FEnv) (p : BlockShape)
 
 /-- `consSumCtorsF` is a left fold: over an append it is the two conses
 in turn. -/
-theorem consSumCtorsF_append (nP : Nat) :
+theorem consSumCtorsF_append (nP : Nat) (T : Name) :
     ∀ (a b : List (ConstantVal × Nat)) (fe : FEnv),
-      consSumCtorsF nP (a ++ b) fe = consSumCtorsF nP b (consSumCtorsF nP a fe)
+      consSumCtorsF nP T (a ++ b) fe = consSumCtorsF nP T b (consSumCtorsF nP T a fe)
   | [], _, _ => rfl
-  | _ :: a, b, _ => consSumCtorsF_append nP a b _
-
-/-- The members' constructors, consed member by member, are the
-whole block's constructors consed in block order. -/
-theorem consBlockCtorsF_flatten (nP : Nat) :
-    ∀ (memberCtors : List (List (ConstantVal × Nat))) (fe : FEnv),
-      consBlockCtorsF nP memberCtors fe = consSumCtorsF nP memberCtors.flatten fe
-  | [], _ => rfl
-  | ctorList :: rest, fe => by
-    rw [consBlockCtorsF, List.flatten_cons, consSumCtorsF_append]
-    exact consBlockCtorsF_flatten nP rest _
+  | _ :: a, b, _ => consSumCtorsF_append nP T a b _
 
 /-- The constructors' stage: every declared name fresh at the environment the stage runs at. -/
 theorem checkBlockCtorsC_fresh (mode : CheckMode) (fe₀ fe : FEnv) (p : BlockShape) :

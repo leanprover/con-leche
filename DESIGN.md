@@ -114063,3 +114063,80 @@ The largest gains are on the fixture (whose check is mostly ι steps), grind-rin
 β-heavy streams (`app-lam`, `beta-ladder`, `let-ladder`) are flat.  Three streams rose, by at most
 +0.33 % (magma-list-pair-n21; fueled-chain +0.17 %, church-numerals +0.07 %), not attributed.  For comparison, #573 measured B
 alone, against master before #572, at −7.0 % on the fixture and −3.6 % on grind-ring-5.
+
+## TASK #573 — the ι step's static facts stored at install: the family's sort fact and the constructor's family (2026-11-12, agent/573-iota-facts2)
+
+The investigation of the ι step on `grind_field_cancel_inv` split its per-step cost into static
+work recomputed at every step and dynamic list work.  The dynamic part (array spines) landed on
+its own as task #577; this record is the static part.  Ruling (2026-11-12): installation stays
+purely syntactic; A is exactly two stored facts, both computed at the install from the declared
+records, kept as environment invariants (`EnvWF`), and trusted at the use.  No `cidx` and no
+other field of Lean's records.
+
+**The family's sort fact, `IndCaps.neverZero`.**  Whether the former's stored type ends in a sort
+whose zero-ness datum is `never` (`formerZ`), computed by `blockCapsAt` from the declared former;
+the pinned `Nat` and `Empty` formers set it, every other pin keeps `false`, which claims nothing.
+Invariant: `IndWF` (`EnvWF.inds`), established at every install route (the block formers,
+`envWF_consBlockInds` with `blockInds_neverZero`; the basis blocks; the quotient pins in
+`declQuotRun_envWF`) and kept by every extension.  The ι case split reads it first (`iotaCaseAt`,
+`iotaNoCert`): a K rule, or a rule whose constructor's family records a never-zero sort at the
+comparand levels' count (`recFireLevelCount`, read without substituting), fires with no
+certificate; any other rule is decided at the use as before (`iotaCase3At`).  The structure-η
+rescue's never-zero test reads it the same way (`familyNeverZeroAt`).  Rules tier: `Red.iota`'s
+case premise is `IotaCaseS` (`.stored` / `.use`); the model reads `.stored` through `IndWF`
+(`iotaNoCert_sem`).
+
+**The constructor's family, `ctorInfo … induct`** (Lean's `ConstructorVal.induct`).  A plain
+`Name` on every constructor record.  The install sets it from the block itself: the member the
+constructor is declared under (`consSumCtors nP T`, `consBlockCtors` over
+`BlockShape.ctorGroups`, `blockCtors`; the cached index pushes alike); the pinned constructors
+(`Nat.zero`, `Nat.succ`, `Eq.refl`, `And.intro`, `Iff.intro`, `Nonempty.intro`, `Quot.mk`) carry
+their family as a literal.  The constructor check already establishes that the declared type
+concludes in that member (`SumCtorRun`'s result shape; `SumCtorRun.head` reads it off
+`stripPis`), so the invariant is unconditional and intrinsic to the record: `CtorWF`
+(`EnvWF.ctors`) — every stored `ctorInfo cv nP nF T` has `cv.type.piResult.getAppFn = .const T
+us`.  Being a property of the record alone, it survives every extension with no freshness side
+condition (the obstacle the earlier attempt with `RecRule.induct` hit, whose meaning depended on
+the environment the generated recursors are checked in).  The parse fills the field with the
+type record that lists the constructor (`validateIndF`, which also compares the stream's or the
+`.olean`'s own `induct` claim with it and rejects a mismatch, as before); the install never reads
+it.  Every reader of the family now looks it up by the stored name with no walk and no fallback:
+`ctorFamily find? induct` is one `find?`; the ι case split (`iotaNoCert`, `iotaCase3At`,
+`iotaCaseAt`, cached `iotaCase3I`), the K, structure-η and `And` rescues (`majorToCtor`,
+`majorToCtorI`) and the partial-η gate (`etaCtorPartial`, `etaCtorPartialC`).  The rules tier
+mirrors it: `IotaCase(S)` is indexed by the family name, and the rescue rules' premise is the
+constructor record with its `induct` (the separate head premise is gone; the model never read
+it).  The model keeps its walk-based family `ctorTypeFamily` (the family a constructor's type
+concludes in, what `FamNZ` is stated at) and meets the checker's read through `CtorWF`
+(`ctorTypeFamily_eq`, `EnvWF.ctorHead`).
+
+**Proof churn.**  The `ctorInfo` arity change touched ~140 files; in the model the family name is
+existential (`iT`) wherever it is irrelevant (the lfp/cover/transport predicates) and the
+member's name where a record the install consed is described.  `EnvWF` gained the field `ctors`;
+`EnvWF.cons` takes `CtorWF` with a default for non-constructors.
+
+**Not stored** (measured on the earlier branch): the recursor arity check (`peelPis (mI + 1)` on
+the recursor type per step, −0.7 % on the fixture when dropped; as an invariant it needs the
+generated recursors' arity at their environment), the rescue kind for single-rule recursors,
+and the remaining fields of Lean's records.
+
+**Numbers** (`instructions:u`, G, `--verified --jobs=1`, one run each; stdout identical on every
+stream; master is 8a12163cd, #576 and #577 included; data in `_tmp/573b/logs/`):
+
+| stream | master | #573 | Δ |
+|---|---:|---:|---:|
+| grind_field_cancel_inv | 2.193 | 2.136 | −2.64 % |
+| init-full | 277.368 | 275.490 | −0.68 % |
+| init-prelude | 1.133 | 1.131 | −0.17 % |
+| grind-ring-5 | 9.805 | 9.652 | −1.55 % |
+| shared-subterm | 0.149 | 0.144 | −3.38 % |
+| discarded-argument | 0.070 | 0.069 | −2.13 % |
+| folded-constant-first / -last | 0.077 | 0.076 | −2.15 % |
+| args-before-unfold | 0.053 | 0.052 | −1.57 % |
+| discarded-argument-match | 0.210 | 0.208 | −1.12 % |
+| magma-list-deep-n21 / -n36 | 11.140 / 148.756 | 11.014 / 146.882 | −1.13 / −1.26 % |
+| magma-list-pair-n7 / -n21 | 10.530 / 120.558 | 10.442 / 119.687 | −0.83 / −0.72 % |
+| app-lam, beta-ladder, let-ladder, church-numerals, fueled-chain | | | 0.00 … −0.03 % |
+| identical-nesting, irrelevance-before-evaluation, repeated-subproblem, shift-cascade, unroll-versus-evaluate | | | −0.08 … +0.07 % |
+
+No stream rose by more than +0.07 %.

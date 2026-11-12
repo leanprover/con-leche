@@ -157,13 +157,13 @@ theorem natArg_zero (m : EnvModel V env) {ψ : Name → Nat}
     (hnh : NatHeads m ψ)
     (hs : natLitSupported env = true) :
     NatArg m ψ (.const ConLeche.natZeroName []) := by
-  obtain ⟨cvN, caps, cv0, i0, j0, cv1, i1, j1, hfN, hfZ, hfS, hlpN,
+  obtain ⟨cvN, caps, cv0, i0, j0, T0, cv1, i1, j1, T1, hfN, hfZ, hfS, hlpN,
     hlpZ, hlpS, -⟩ := ConLeche.natLitSupported_inv hs
-  have hlpZ' : (ConLeche.ConstantInfo.ctorInfo cv0 i0 j0).toConstantVal.levelParams
+  have hlpZ' : (ConLeche.ConstantInfo.ctorInfo cv0 i0 j0 T0).toConstantVal.levelParams
       = [] := hlpZ
   have hzl : denote m.acval env ψ 2 (.const ConLeche.natZeroName [])
       = some (m.acval ConLeche.natZeroName (Level.substFn ψ
-          (ConLeche.ConstantInfo.ctorInfo cv0 i0 j0).toConstantVal.levelParams
+          (ConLeche.ConstantInfo.ctorInfo cv0 i0 j0 T0).toConstantVal.levelParams
           [])) :=
     denote_const hfZ (by simp [hlpZ'])
   rw [hlpZ'] at hzl
@@ -181,14 +181,14 @@ theorem natArg_succ (m : EnvModel V env) {ψ : Name → Nat}
     (hs : natLitSupported env = true) {t : Expr}
     (ht : NatArg m ψ t) :
     NatArg m ψ (.app (.const ConLeche.natSuccName []) t) := by
-  obtain ⟨cvN, caps, cv0, i0, j0, cv1, i1, j1, hfN, hfZ, hfS, hlpN,
+  obtain ⟨cvN, caps, cv0, i0, j0, T0, cv1, i1, j1, T1, hfN, hfZ, hfS, hlpN,
     hlpZ, hlpS, -⟩ := ConLeche.natLitSupported_inv hs
   obtain ⟨ta, hta, htg⟩ := ht
-  have hlpS' : (ConLeche.ConstantInfo.ctorInfo cv1 i1 j1).toConstantVal.levelParams
+  have hlpS' : (ConLeche.ConstantInfo.ctorInfo cv1 i1 j1 T1).toConstantVal.levelParams
       = [] := hlpS
   have hsl : denote m.acval env ψ 2 (.const ConLeche.natSuccName [])
       = some (m.acval ConLeche.natSuccName (Level.substFn ψ
-          (ConLeche.ConstantInfo.ctorInfo cv1 i1 j1).toConstantVal.levelParams
+          (ConLeche.ConstantInfo.ctorInfo cv1 i1 j1 T1).toConstantVal.levelParams
           [])) :=
     denote_const hfS (by simp [hlpS'])
   rw [hlpS'] at hsl
@@ -1001,7 +1001,7 @@ theorem natSelfHead_install (mp : EnvModelM V env) {φ : Name → Nat}
     (c = ConLeche.natBeqName ∨ c = ConLeche.natBleName →
       ∃ ciB, env.find? ConLeche.boolName = some ciB ∧
         ciB.toConstantVal.levelParams = []) := by
-  obtain ⟨cvN, caps, cv0, i0, j0, cv1, i1, j1, hfN, hfZ, hfS, hlpN0,
+  obtain ⟨cvN, caps, cv0, i0, j0, T0, cv1, i1, j1, T1, hfN, hfZ, hfS, hlpN0,
     hlpZ, hlpS, -⟩ := ConLeche.natLitSupported_inv hs
   have hlpN : (ConstantInfo.indInfo cvN caps).toConstantVal.levelParams
       = [] := hlpN0
@@ -1167,7 +1167,7 @@ theorem natOps_install (mp : EnvModelM V env) {φ : Name → Nat}
   obtain ⟨hw2, hb2, hL2, hleaf2⟩ :=
     ConLeche.Verify.natFrag_subst_syntax hvf' hbv' hfr2
   have hrun := hruns _ (List.mem_map.mpr ⟨(e1, e2), hq, rfl⟩)
-  obtain ⟨cvN, caps, cv0, i0, j0, cv1, i1, j1, hfN, hfZ, hfS, hlpN0,
+  obtain ⟨cvN, caps, cv0, i0, j0, T0, cv1, i1, j1, T1, hfN, hfZ, hfS, hlpN0,
     hlpZ, hlpS, -⟩ := ConLeche.natLitSupported_inv hs
   have hlpN : (ConstantInfo.indInfo cvN caps).toConstantVal.levelParams
       = [] := hlpN0

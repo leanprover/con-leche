@@ -55,7 +55,7 @@ def andIntroRaw : ConstantInfo :=
     pi "left" (bv 1) <|
     pi "right" (bv 1) <|
     ap2 (cnst andName) (bv 3) (bv 2)⟩
-    2 2
+    2 2 andName
 
 /-- The motive of `And.rec`: `And a b → Sort u`, in the `a`/`b` binder
 context (`a` is `#1`, `b` is `#0`). -/

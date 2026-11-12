@@ -88,7 +88,7 @@ theorem ctorFamily_of_agree {env env' : Env}
     {cvj : ConstantVal}
     (hT : ∀ T us, cvj.type.piResult.getAppFn = .const T us →
       (env.find? T).isSome = true) :
-    ConLeche.ctorFamily env'.find? cvj = ConLeche.ctorFamily env.find? cvj :=
+    ctorTypeFamily env'.find? cvj = ctorTypeFamily env.find? cvj :=
   ctorFamily_congr fun T us hh => hag T (hT T us hh)
 
 /-- **`RecRuleExtra` survives a fresh cons that is not itself a
@@ -113,7 +113,7 @@ theorem recRuleExtra_ext (mp : EnvModelM V env) {env' : Env}
     {rl : RecRule} (hmem : rl ∈ rules) :
     RecRuleExtra m₂ φ n cv mI rP isK rl := by
   obtain ⟨-, hlaw0, hextra⟩ := mp.rec_rules φ n cv mI rP isK rules hfE rl hmem
-  obtain ⟨cvj', cnP', cnF', hst⟩ :=
+  obtain ⟨cvj', cnP', cnF', iT', hst⟩ :=
     mp.base2.rec_ctors n cv mI rP isK rules hfE rl hmem
   have hsC : (env.find? (RecRule.ctor rl)).isSome = true := by rw [hst]; rfl
   obtain ⟨-, -, -, -, -, hrec'⟩ :=
@@ -151,10 +151,10 @@ theorem recRuleExtra_ext (mp : EnvModelM V env) {env' : Env}
           exact hRres)) hRa0').symm
     rw [hx.leafOf hfE]
     exact hRalaw Ra' hRa0' ρ xs a restR hxl hfit
-  · intro cvj cnP cnF hfcj
-    have hfcjE : env.find? (RecRule.ctor rl) = some (.ctorInfo cvj cnP cnF) :=
+  · intro cvj cnP cnF iT hfcj
+    have hfcjE : env.find? (RecRule.ctor rl) = some (.ctorInfo cvj cnP cnF iT) :=
       hx.back hsC hfcj
-    obtain ⟨harity, hnk⟩ := hCtor cvj cnP cnF hfcjE
+    obtain ⟨harity, hnk⟩ := hCtor cvj cnP cnF iT hfcjE
     refine ⟨harity, ?_⟩
     intro hk
     -- a constructor type's reading at the cons is the prefix's
@@ -298,14 +298,14 @@ theorem recRuleLaw_ext (mp : EnvModelM V env) {env' : Env}
           (constsBound_instType mp.base2.wf
             (ConLeche.Env.find?_mem hfE) us) hTVa').symm
       exact hok ρ zs TVa' restR hzl hzok hTVa' hfit
-  · intro cvj cnP cnF hfcj usj ρ xs ys TVa TVja restR restC hxl hyl hujl
+  · intro cvj cnP cnF iT hfcj usj ρ xs ys TVa TVja restR restC hxl hyl hujl
       hψ hyWD hpin hTVa hTVja hfitR hfitC
     -- **the environment invariant, not the check's kind**: the rule's
     -- constructor is stored
-    obtain ⟨cvj', cnP', cnF', hst⟩ :=
+    obtain ⟨cvj', cnP', cnF', iT', hst⟩ :=
       mp.base2.rec_ctors n cv mI rP isK rules hfE rl hmem
     have hfcjE : env.find? (RecRule.ctor rl)
-        = some (.ctorInfo cvj cnP cnF) := hx.back (by rw [hst]; rfl) hfcj
+        = some (.ctorInfo cvj cnP cnF iT) := hx.back (by rw [hst]; rfl) hfcj
     -- the two stored types: produced at the prefix, moved forward,
     -- identified with the given extension readings by determinism
     obtain ⟨TVa', hTVa', -, -⟩ :=
@@ -325,7 +325,7 @@ theorem recRuleLaw_ext (mp : EnvModelM V env) {env' : Env}
     -- the two leaves the conclusion mentions are the prefix's
     rw [hx.leafOf hst] at hfitR hpin
     rw [hx.leafOf hfE, hx.leafOf hst]
-    exact hlaw cvj cnP cnF hfcjE usj ρ xs ys _ _ restR restC hxl hyl
+    exact hlaw cvj cnP cnF iT hfcjE usj ρ xs ys _ _ restR restC hxl hyl
       hujl hψ hyWD hpin hTVa' hTVja' hfitR hfitC
 
 /-- **The fired iota contract survives a fresh cons that is
@@ -406,9 +406,9 @@ theorem towerEntryLaw_ext (mp : EnvModelM V env) {env' : Env}
     (φ : Name → Nat) {T : Name} {i : Nat} {entry : ProjEntry}
     (hfP : env.findProj? T i = some entry) :
     TowerEntryLaw m₂ φ T i entry := by
-  obtain ⟨hsn, hidx, hlt, ⟨cvT, capsT, hfT, hlpsT⟩, cvC, hfC, hlpsC,
+  obtain ⟨hsn, hidx, hlt, ⟨cvT, capsT, hfT, hlpsT⟩, cvC, iT, hfC, hlpsC,
     hlaw⟩ := (mp.tower_ok φ).entry T i entry hfP
-  refine ⟨hsn, hidx, hlt, ⟨cvT, capsT, ?_, hlpsT⟩, cvC, ?_, hlpsC,
+  refine ⟨hsn, hidx, hlt, ⟨cvT, capsT, ?_, hlpsT⟩, cvC, iT, ?_, hlpsC,
     fun us hus => ?_⟩
   · exact hx.find hfT
   · exact hx.find hfC
@@ -448,14 +448,14 @@ theorem towerTableLaw_ext (mp : EnvModelM V env) {env' : Env}
     (hfT0 : env.findTable? T = some tbl) :
     TowerTableLaw m₂ φ T tbl := by
   obtain ⟨⟨cvT, capsT, hfT, hlpsT⟩, hetaL⟩ := (mp.tower_ok φ).table T tbl hfT0
-  obtain ⟨-, -, -, -, cvC, hfC, -⟩ := mp.base2.proj_ok T tbl hfT0
+  obtain ⟨-, -, -, -, cvC, _, hfC, -⟩ := mp.base2.proj_ok T tbl hfT0
   refine ⟨⟨cvT, capsT, hx.find hfT, hlpsT⟩, ?_⟩
   intro cvT' capsT' hfT' us hus
   have hfT'' : env.find? T = some (.indInfo cvT' capsT') := by
     exact hx.back (by rw [hfT]; rfl) hfT'
   obtain ⟨hlaw', hcoh⟩ := hetaL cvT' capsT' hfT'' us hus
   refine ⟨?_, fun he => (hcoh he).transport
-    (fun cvC nPc nFc hf₂ => ?_) (fun cvC nPc nFc TCa hf hTCa => ?_)
+    (fun cvC nPc nFc iT hf₂ => ?_) (fun cvC nPc nFc iT TCa hf hTCa => ?_)
     (by rw [hx.leafOf hfT]) (fun _ _ _ => rfl)⟩
   · intro ρ ts x hlen hfit hmem
     rw [hx.leafOf hfT] at hmem hfit

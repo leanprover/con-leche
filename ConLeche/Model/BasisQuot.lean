@@ -924,11 +924,11 @@ theorem quotIndExtra {m : EnvModel V env}
   have hQ' : (⟨quotIndA :: env.consts, env.tables⟩ : Env).find? quotName
       = some (quotA.atLps [q]) := by
     rw [ConLeche.Env.find?_cons, ite_eq_right (by decide)]; exact hQ
-  refine ⟨fun h => (nomatch h), fun cvj cnP cnF hfj => ?_⟩
+  refine ⟨fun h => (nomatch h), fun cvj cnP cnF iT hfj => ?_⟩
   rw [show RecRule.ctor quotIndRule = quotMkName from rfl, hM'] at hfj
   obtain ⟨rfl, rfl, rfl⟩ :
       cvj = (quotMkA.atLps [x]).toConstantVal ∧ cnP = 2 ∧ cnF = 1 := by
-    injection Option.some.inj hfj with a1 a2 a3
+    injection Option.some.inj hfj with a1 a2 a3 _
     exact ⟨a1.symm, a2.symm, a3.symm⟩
   simp only [show (quotMkA.atLps [x]).toConstantVal.levelParams = [x] from rfl]
   refine ⟨rfl, fun _ => ?_⟩
@@ -1054,7 +1054,7 @@ theorem quotIndLaw {m : EnvModel V env}
   refine ⟨quotIndRa (ψ uN), hRa, fun ρ => quotIndRa_wellDenoted _ ρ, ?_, ?_⟩
   · intro _ _ h
     exact nomatch h
-  intro cvj cnP cnF hfj usj ρ xs ys TVa TVja restR restC hxs hys husj
+  intro cvj cnP cnF iT hfj usj ρ xs ys TVa TVja restR restC hxs hys husj
     hlev _ hpin hTVa hTVja hfitR hfitC
   -- the fired constructor is `Quot.mk`, stored in the prefix
   have hM' : (⟨quotIndA :: env.consts, env.tables⟩ : Env).find? quotMkName
@@ -1063,7 +1063,7 @@ theorem quotIndLaw {m : EnvModel V env}
   rw [show RecRule.ctor quotIndRule = quotMkName from rfl, hM'] at hfj
   obtain ⟨rfl, rfl, rfl⟩ :
       cvj = (quotMkA.atLps [x]).toConstantVal ∧ cnP = 2 ∧ cnF = 1 := by
-    injection Option.some.inj hfj with a1 a2 a3
+    injection Option.some.inj hfj with a1 a2 a3 _
     exact ⟨a1.symm, a2.symm, a3.symm⟩
   obtain ⟨x1, x2, x3, x4, rfl⟩ : ∃ p q r s, xs = [p, q, r, s] := by
     match xs, hxs with
@@ -1145,7 +1145,7 @@ theorem extendQuotInd (mp : EnvModelM V env)
         injection heq with _ _ _ _ h4
         rw [← h4] at hr
         rcases List.mem_cons.mp hr with rfl | hr'
-        · exact ⟨_, _, _, hM, fun h => nomatch h⟩
+        · exact ⟨_, _, _, _, hM, fun h => nomatch h⟩
         · exact nomatch hr'))
     ?_
     (fun _ _ => trivial)
@@ -2203,11 +2203,11 @@ theorem quotLiftExtra {m : EnvModel V env}
   have hQ' : (⟨quotLiftA :: env.consts, env.tables⟩ : Env).find? quotName
       = some (quotA.atLps [q]) := by
     rw [ConLeche.Env.find?_cons, ite_eq_right (by decide)]; exact hQ
-  refine ⟨fun h => (nomatch h), fun cvj cnP cnF hfj => ?_⟩
+  refine ⟨fun h => (nomatch h), fun cvj cnP cnF iT hfj => ?_⟩
   rw [show RecRule.ctor quotLiftRule = quotMkName from rfl, hM'] at hfj
   obtain ⟨rfl, rfl, rfl⟩ :
       cvj = (quotMkA.atLps [x]).toConstantVal ∧ cnP = 2 ∧ cnF = 1 := by
-    injection Option.some.inj hfj with a1 a2 a3
+    injection Option.some.inj hfj with a1 a2 a3 _
     exact ⟨a1.symm, a2.symm, a3.symm⟩
   simp only [show (quotMkA.atLps [x]).toConstantVal.levelParams = [x] from rfl]
   refine ⟨rfl, fun _ => ?_⟩
@@ -2346,7 +2346,7 @@ theorem quotLiftLaw {m : EnvModel V env}
     fun ρ => quotLiftRa_wellDenoted hval0 hgr0 ρ, ?_, ?_⟩
   · intro _ _ h
     exact nomatch h
-  intro cvj cnP cnF hfj usj ρ xs ys TVa TVja restR restC hxs hys husj
+  intro cvj cnP cnF iT hfj usj ρ xs ys TVa TVja restR restC hxs hys husj
     hlev _ hpin hTVa hTVja hfitR hfitC
   have hM' : (⟨quotLiftA :: env.consts, env.tables⟩ : Env).find? quotMkName
       = some (quotMkA.atLps [x]) := by
@@ -2354,7 +2354,7 @@ theorem quotLiftLaw {m : EnvModel V env}
   rw [show RecRule.ctor quotLiftRule = quotMkName from rfl, hM'] at hfj
   obtain ⟨rfl, rfl, rfl⟩ :
       cvj = (quotMkA.atLps [x]).toConstantVal ∧ cnP = 2 ∧ cnF = 1 := by
-    injection Option.some.inj hfj with a1 a2 a3
+    injection Option.some.inj hfj with a1 a2 a3 _
     exact ⟨a1.symm, a2.symm, a3.symm⟩
   simp only [show (quotMkA.atLps [x]).toConstantVal.levelParams = [x] from rfl] at *
   obtain ⟨x1, x2, x3, x4, x5, rfl⟩ :
@@ -2525,7 +2525,7 @@ theorem extendQuotLift (mp : EnvModelM V env)
         injection heq with _ _ _ _ h4
         rw [← h4] at hr
         rcases List.mem_cons.mp hr with rfl | hr'
-        · exact ⟨_, _, _, hM, fun h => nomatch h⟩
+        · exact ⟨_, _, _, _, hM, fun h => nomatch h⟩
         · exact nomatch hr'))
     ?_
     (fun _ _ => trivial)
@@ -2595,6 +2595,7 @@ theorem declQuotPB {k : ConLeche.QuotKind} (mp : EnvModelM V env)
     have hwf1 : EnvWF ⟨quotA :: env.consts, env.tables⟩ :=
       EnvWF.cons (by decide) mp.base2.wf ⟨rfl, rfl, rfl, rfl,
         (fun _ _ _ heq => nomatch heq), (fun _ _ _ _ _ heq => nomatch heq)⟩
+          (by intro _ _ h hn; cases h; exact nomatch hn)
     exact extendQuot mp hf1 hwf1
   | ctor =>
     obtain ⟨q, hQ⟩ := quotStored_of mp hp
@@ -2602,6 +2603,7 @@ theorem declQuotPB {k : ConLeche.QuotKind} (mp : EnvModelM V env)
     have hwf2 : EnvWF ⟨quotMkA :: env.consts, env.tables⟩ := by
       refine EnvWF.cons (by decide) mp.base2.wf ⟨rfl, rfl, ?_, rfl,
         (fun _ _ _ heq => nomatch heq), (fun _ _ _ _ _ heq => nomatch heq)⟩
+        (hk := CtorWF.of_head rfl)
       show Expr.constsResolve _ quotMkA.toConstantVal.type = true
       have hf : (⟨quotMkA :: env.consts, env.tables⟩ : Env).find? quotName = some (quotA.atLps [q]) :=
         hcons (by decide) hQ
@@ -2727,6 +2729,7 @@ theorem declQuotPB {k : ConLeche.QuotKind} (mp : EnvModelM V env)
         hcons (by decide) hfE0
       refine EnvWF.cons (by decide) mp.base2.wf ⟨rfl, rfl, ?_, rfl,
         (fun _ _ _ heq => nomatch heq), (fun _ _ _ _ _ heq => nomatch heq)⟩
+          (IndWF.of_not_ind (by intro _ _ h; cases h))
       show Expr.constsResolve _ quotSoundA.toConstantVal.type = true
       rw [show quotSoundA.toConstantVal.type
           = Expr.forallE (.sort (.param uN))

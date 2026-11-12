@@ -782,7 +782,7 @@ uniqueness the two have one domain, which holds the argument.
   kernel. The law there is proved without the comparisons: when the
   redex is not the point, the major is a tagged tuple, which ties the
   constructor application to the recursor's levels and parameters
-  (#src("ConLeche/Model/Env/Laws.lean", 430, 464)[what the law
+  (#src("ConLeche/Model/Env/Laws.lean", 478, 510)[what the law
   provides instead]).
 ]
 
@@ -971,7 +971,7 @@ without a certificate, through the projections of the major.
   at the levels the rule compares with, read off the family's type where
   the question is asked. A K rule and a family that is never
   a proposition fire with no check; every
-  #src("ConLeche/Kernel/CoreDefs.lean", 98, 100)[other rule] is the
+  #src("ConLeche/Kernel/CoreDefs.lean", 96, 98)[other rule] is the
   certified case, as in the fragment.
 ]
 

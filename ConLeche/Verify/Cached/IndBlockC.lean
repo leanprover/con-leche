@@ -42,19 +42,19 @@ theorem consBlockIndsF_mkFEnv (p₁ : BlockShape) (isRec : Bool) :
     exact consBlockIndsF_mkFEnv p₁ isRec rest (i + 1) _
 
 /-- The constructors' pushes onto `mkFEnv env` are the index of the consed environment. -/
-theorem consSumCtorsF_mkFEnv (nP : Nat) :
+theorem consSumCtorsF_mkFEnv (nP : Nat) (T : Name) :
     ∀ (cs : List (ConstantVal × Nat)) (env : Env),
-      consSumCtorsF nP cs (mkFEnv env) = mkFEnv (consSumCtors nP cs env)
+      consSumCtorsF nP T cs (mkFEnv env) = mkFEnv (consSumCtors nP T cs env)
   | [], _ => rfl
   | c :: cs, env => by
     simp only [consSumCtorsF, consSumCtors, push_mkFEnv,
-      consSumCtorsF_mkFEnv nP cs ⟨.ctorInfo c.1 nP c.2 :: env.consts, env.tables⟩]
+      consSumCtorsF_mkFEnv nP T cs ⟨.ctorInfo c.1 nP c.2 T :: env.consts, env.tables⟩]
 
 theorem consBlockCtorsF_mkFEnv (nP : Nat) :
-    ∀ (memberCtors : List (List (ConstantVal × Nat))) (env : Env),
-      consBlockCtorsF nP memberCtors (mkFEnv env) = mkFEnv (consBlockCtors nP memberCtors env)
+    ∀ (groups : List (Name × List (ConstantVal × Nat))) (env : Env),
+      consBlockCtorsF nP groups (mkFEnv env) = mkFEnv (consBlockCtors nP groups env)
   | [], _ => rfl
-  | ctorList :: rest, env => by
+  | (T, ctorList) :: rest, env => by
     simp only [consBlockCtorsF, consBlockCtors, consSumCtorsF_mkFEnv]
     exact consBlockCtorsF_mkFEnv nP rest _
 

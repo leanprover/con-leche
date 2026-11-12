@@ -774,14 +774,14 @@ theorem isCtorAppC_spec {env : Env} {e : Expr} :
   show (match Expr.getAppFn e with
       | .const cn _ =>
         match (mkFEnv env).find? cn with
-        | some (.ctorInfo _ _ _) => true
+        | some (.ctorInfo _ _ _ _) => true
         | _ => false
       | _ => false) = _
   rw [isCtorApp]
   cases Expr.getAppFn e with
   | const cn us =>
     show (match (mkFEnv env).find? cn with
-        | some (.ctorInfo _ _ _) => true
+        | some (.ctorInfo _ _ _ _) => true
         | _ => false) = _
     rw [mkFEnv_find?]
     rfl

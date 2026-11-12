@@ -389,7 +389,7 @@ private def zRule (c : Name) (rhs : Expr) : RecRule :=
 and the given rule right-hand side. -/
 private def zBlock (T : Name) (rhs : Expr) : List ConstantInfo :=
   [.indInfo ⟨T, [], .sort .zero⟩ {},
-    .ctorInfo ⟨T.str "c", [], .const T []⟩ 0 0,
+    .ctorInfo ⟨T.str "c", [], .const T []⟩ 0 0 T,
     .recInfo ⟨T.str "rec", [], .forallE (.const T []) (.const T [])⟩ 0 0 false
       [zRule (T.str "c") rhs]]
 
@@ -399,7 +399,7 @@ and the classes: the number of recursors it stores. -/
 private def zRecK (block : List ConstantInfo) : Except CheckError Nat := do
   let p₀ ← readBlock 0 block
   let q ← checkBlockPass (pureOps .verified) Env.empty p₀ false
-  let env₂ := consBlockCtors q.p.nP q.p.memberCtors q.env₁
+  let env₂ := consBlockCtors q.p.nP q.p.ctorGroups q.env₁
   let out ← checkBlockRec (pureOps .verified) env₂ q.p false q.params q.tbl.toList q.rd q.cls
     block
   pure out.length
@@ -418,7 +418,7 @@ zero-motive recursor. -/
 private def zMutual (rA rB : Expr) : Declaration :=
   let A := zNm "ZA"; let B := zNm "ZB"
   .indDecl [.indInfo ⟨A, [], .sort .zero⟩ {}, .indInfo ⟨B, [], .sort .zero⟩ {},
-    .ctorInfo ⟨A.str "c", [], .const A []⟩ 0 0, .ctorInfo ⟨B.str "c", [], .const B []⟩ 0 0,
+    .ctorInfo ⟨A.str "c", [], .const A []⟩ 0 0 A, .ctorInfo ⟨B.str "c", [], .const B []⟩ 0 0 B,
     .recInfo ⟨A.str "rec", [], .forallE (.const A []) (.const A [])⟩ 0 0 false
       [zRule (A.str "c") rA],
     .recInfo ⟨B.str "rec", [], .forallE (.const B []) (.const B [])⟩ 0 0 false

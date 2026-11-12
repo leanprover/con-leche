@@ -30,9 +30,9 @@ open ConLeche (Env Expr Name Level CheckMode ConstantVal ConstantInfo
 
 /-- A name none of the consed constructors carries looks up below the
 conses. -/
-theorem consSumCtors_find?_of_not_mem {nP : Nat} {n : Name} :
+theorem consSumCtors_find?_of_not_mem {nP : Nat} {T : Name} {n : Name} :
     ∀ {ctorList : List (ConstantVal × Nat)} {env : Env},
-      n ∉ ctorList.map (·.1.name) → (consSumCtors nP ctorList env).find? n = env.find? n
+      n ∉ ctorList.map (·.1.name) → (consSumCtors nP T ctorList env).find? n = env.find? n
   | [], _, _ => rfl
   | c :: cs, env, hn => by
     simp only [consSumCtors]
@@ -63,20 +63,21 @@ theorem consBlockInds_find?_of_ne {p₁ : BlockShape} {isRec : Bool} {n : Name} 
 /-- A name none of the consed constructors carries reads through the
 constructors' conses unchanged. -/
 theorem consBlockCtors_find?_of_ne {nP : Nat} {n : Name} :
-    ∀ {memberCtors : List (List (ConstantVal × Nat))} {env : Env},
-      (∀ ctorList ∈ memberCtors, n ∉ ctorList.map (·.1.name)) →
-      (consBlockCtors nP memberCtors env).find? n = env.find? n
+    ∀ {groups : List (Name × List (ConstantVal × Nat))} {env : Env},
+      (∀ g ∈ groups, n ∉ g.2.map (·.1.name)) →
+      (consBlockCtors nP groups env).find? n = env.find? n
   | [], _, _ => rfl
-  | ctorList :: rest, env, hne => by
+  | (T, ctorList) :: rest, env, hne => by
     simp only [consBlockCtors]
     rw [consBlockCtors_find?_of_ne (fun c hc => hne c (List.mem_cons_of_mem _ hc)),
-      consSumCtors_find?_of_not_mem (hne ctorList List.mem_cons_self)]
+      consSumCtors_find?_of_not_mem (hne (T, ctorList) List.mem_cons_self)]
 
 /-- The constructors' conses store no former: a `.indInfo` found above
 them was found below them. -/
-theorem consSumCtors_find?_indInfo {nP : Nat} {n : Name} {cv : ConstantVal} {caps : IndCaps} :
+theorem consSumCtors_find?_indInfo {nP : Nat} {T : Name} {n : Name} {cv : ConstantVal}
+    {caps : IndCaps} :
     ∀ {ctorList : List (ConstantVal × Nat)} {env : Env},
-      (consSumCtors nP ctorList env).find? n = some (.indInfo cv caps) →
+      (consSumCtors nP T ctorList env).find? n = some (.indInfo cv caps) →
       env.find? n = some (.indInfo cv caps)
   | [], _, h => h
   | c :: cs, env, h => by
@@ -88,11 +89,11 @@ theorem consSumCtors_find?_indInfo {nP : Nat} {n : Name} {cv : ConstantVal} {cap
     · exact h'
 
 theorem consBlockCtors_find?_indInfo {nP : Nat} {n : Name} {cv : ConstantVal} {caps : IndCaps} :
-    ∀ {memberCtors : List (List (ConstantVal × Nat))} {env : Env},
-      (consBlockCtors nP memberCtors env).find? n = some (.indInfo cv caps) →
+    ∀ {groups : List (Name × List (ConstantVal × Nat))} {env : Env},
+      (consBlockCtors nP groups env).find? n = some (.indInfo cv caps) →
       env.find? n = some (.indInfo cv caps)
   | [], _, h => h
-  | _ :: _, _, h => by
+  | (_, _) :: _, _, h => by
     simp only [consBlockCtors] at h
     exact consSumCtors_find?_indInfo (consBlockCtors_find?_indInfo h)
 

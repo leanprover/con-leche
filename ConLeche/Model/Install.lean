@@ -191,15 +191,15 @@ theorem basisPinnedTT_consFresh {cval cval' : (Name → (Name → Nat) → Term)
   · rw [ConLeche.Env.find?_cons, ite_eq_right hn] at hf
     obtain ⟨hcopy, hlink, hleaf⟩ := h n ci hf hres
     refine ⟨hcopy, ?_, fun t ψ hp => ?_⟩
-    · intro cv mI rP isK rules hci rl hrl hpl cvj cnP cnF hfc us hus
+    · intro cv mI rP isK rules hci rl hrl hpl cvj cnP cnF iT hfc us hus
       rw [ConLeche.Env.find?_cons] at hfc
-      obtain ⟨cvj₀, cnP₀, cnF₀, hstored⟩ := hrc n cv mI rP isK rules (hci ▸ hf) rl hrl
+      obtain ⟨cvj₀, cnP₀, cnF₀, iT₀, hstored⟩ := hrc n cv mI rP isK rules (hci ▸ hf) rl hrl
       have hne : c₀.name ≠ RecRule.ctor rl := by
         intro he
         rw [← he, hfresh] at hstored
         exact nomatch hstored
       rw [ite_eq_right hne] at hfc
-      exact hlink cv mI rP isK rules hci rl hrl hpl cvj cnP cnF hfc us hus
+      exact hlink cv mI rP isK rules hci rl hrl hpl cvj cnP cnF iT hfc us hus
     · rw [← hag n (fun hh => hn hh.symm)]
       exact hleaf t ψ hp
 
@@ -232,9 +232,9 @@ structure ConsHead (env : Env) (c₀ : ConstantInfo)
   bit is the store's own verdict (`RecCtorsStored`'s head) -/
   ctorsHead : ∀ cvR mI rP isK rules, c₀ = .recInfo cvR mI rP isK rules →
     ∀ r ∈ rules,
-      (∃ cvj cnP cnF,
+      (∃ cvj cnP cnF iT,
         env.find? (ConLeche.RecRule.ctor r)
-          = some (.ctorInfo cvj cnP cnF))
+          = some (.ctorInfo cvj cnP cnF iT))
 
 /-- **The head obligations of a basis cons**: the head is the pinned
 declaration, its leaf is the direct pin, and (for a recursor) its rules'
@@ -248,16 +248,16 @@ theorem ConsHead.ofBasis {c₀ : ConstantInfo}
       pinnedStructT c₀.name ψ = some t → (A ψ) = t)
     (hctors : ∀ cvR mI rP isK rules, c₀ = .recInfo cvR mI rP isK rules →
       ∀ r ∈ rules,
-        (∃ cvj cnP cnF,
-          env.find? (ConLeche.RecRule.ctor r) = some (.ctorInfo cvj cnP cnF) ∧
+        (∃ cvj cnP cnF iT,
+          env.find? (ConLeche.RecRule.ctor r) = some (.ctorInfo cvj cnP cnF iT) ∧
           (ConLeche.RecRule.fire r = .plain →
-            .ctorInfo cvj cnP cnF = pinnedInfo (ConLeche.RecRule.ctor r)))) :
+            .ctorInfo cvj cnP cnF iT = pinnedInfo (ConLeche.RecRule.ctor r)))) :
     ConsHead env c₀ A :=
   ⟨hwf, hvclosed, fun hres =>
     have hself := pinCopy_self hres
     ⟨hpinned ▸ hself, by
-      intro cv mI rP isK rules hci rl hrl hpl cvj cnP cnF hfc us _
-      obtain ⟨cvj', cnP', cnF', hf', hp₀⟩ := hctors cv mI rP isK rules hci rl hrl
+      intro cv mI rP isK rules hci rl hrl hpl cvj cnP cnF iT hfc us _
+      obtain ⟨cvj', cnP', cnF', iT', hf', hp₀⟩ := hctors cv mI rP isK rules hci rl hrl
       have hp := hp₀ hpl
       rw [ConLeche.Env.find?_cons] at hfc
       split at hfc
@@ -265,7 +265,7 @@ theorem ConsHead.ofBasis {c₀ : ConstantInfo}
         exact nomatch hfc
       · rw [hf'] at hfc
         injection hfc with hfc
-        injection hfc with h1 _ _
+        injection hfc with h1 _ _ _
         have hl : (pinnedInfo (ConLeche.RecRule.ctor rl)).toConstantVal = cvj' := by
           rw [← hp]; rfl
         have hr : (pinnedInfo c₀.name).toConstantVal = cv := by
@@ -276,8 +276,8 @@ theorem ConsHead.ofBasis {c₀ : ConstantInfo}
       rw [hl, pinVal, Level.substFn_param_self] at hp
       exact hleaf ψ t hp⟩,
     fun cvR mI rP isK rules hc r hr =>
-      let ⟨cvj, cnP, cnF, hf, _⟩ := hctors cvR mI rP isK rules hc r hr
-      ⟨cvj, cnP, cnF, hf⟩⟩
+      let ⟨cvj, cnP, cnF, iT, hf, _⟩ := hctors cvR mI rP isK rules hc r hr
+      ⟨cvj, cnP, cnF, iT, hf⟩⟩
 
 /-- **The head obligations of an ordinary (non-reserved) cons**: the
 pin clause is vacuous. -/
@@ -288,9 +288,9 @@ theorem ConsHead.ofFresh {c₀ : ConstantInfo}
     (hnres : ConLeche.reservedBasisNames.contains c₀.name = false)
     (hctors : ∀ cvR mI rP isK rules, c₀ = .recInfo cvR mI rP isK rules →
       ∀ r ∈ rules,
-        (∃ cvj cnP cnF,
+        (∃ cvj cnP cnF iT,
           env.find? (ConLeche.RecRule.ctor r)
-            = some (.ctorInfo cvj cnP cnF))) :
+            = some (.ctorInfo cvj cnP cnF iT))) :
     ConsHead env c₀ A :=
   ⟨hwf, hvclosed,
     fun hres => absurd hres (by rw [hnres]; exact fun h => nomatch h),

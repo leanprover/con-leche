@@ -112,7 +112,7 @@ def unitLikeShapeF (fe : FEnv) (w : Expr) : Option (Expr × Nat) :=
         | some tbl =>
           if (Expr.getAppArgsC w).length = tbl.numParams then
             match fe.find? tbl.ctor with
-            | some (.ctorInfo cvC _ _) =>
+            | some (.ctorInfo cvC _ _ _) =>
               (Expr.peelPis tbl.numParams (Expr.instLevelParams cvC.levelParams us cvC.type)).map
                 fun body =>
                   (Expr.instantiateListC body (Expr.getAppArgsC w).reverse 0, tbl.numFields)
@@ -199,7 +199,7 @@ def iotaTargetF (fe : FEnv) (h : Expr) : Option Nat :=
 /-- Twin of `projCert`, through the index. -/
 def projCertF (fe : FEnv) (c : Name) (args : List Expr) : Bool :=
   match fe.find? c with
-  | some (.ctorInfo cvC _ _) => teleArityOk cvC.type args
+  | some (.ctorInfo cvC _ _ _) => teleArityOk cvC.type args
   | _ => false
 
 /-- Twin of `projCertAt`. -/
@@ -589,7 +589,7 @@ def structEtaCertWithI (eager : Bool) (lv : Nat) (depth : Nat)
   | .const c us => do
     let cn ← pure c
     match fe.find? cn with
-    | some (.ctorInfo cvc cnP cnF) => do
+    | some (.ctorInfo cvc cnP cnF _) => do
       let aargs ← pure (Expr.getAppArgsC a)
       if aargs.length = cnP + cnF then
         match Expr.getAppFn wtb with
@@ -785,11 +785,17 @@ def formerNeverZeroI (eager : Bool) (lv : Nat) (cvT : ConstantVal) (caps : IndCa
     | none => pure false
 termination_by (lv, 21, 0, 0)
 
+/-- Twin of `familyNeverZeroAt`. -/
+def familyNeverZeroI (eager : Bool) (lv : Nat) (cvT : ConstantVal) (caps : IndCaps)
+    (us : List Level) : CheckCM Bool :=
+  if caps.neverZero then pure true else formerNeverZeroI eager lv cvT caps us
+termination_by (lv, 21, 1, 0)
+
 /-- Twin of `iotaCase3At`. -/
 def iotaCase3I (eager : Bool) (lv : Nat) (find? : Name → Option ConstantInfo) (isK : Bool)
-    (cvj : ConstantVal) (us : List Level) : CheckCM Bool :=
+    (induct : Name) (us : List Level) : CheckCM Bool :=
   if isK then pure false else
-  match ctorFamily find? cvj with
+  match ctorFamily find? induct with
   | some (cvT, caps) =>
     if cvT.levelParams.length == us.length then do
       let nz ← formerNeverZeroI eager lv cvT caps us
@@ -806,97 +812,94 @@ def majorToCtorI (eager : Bool) (lv : Nat) (depth : Nat)
   match rules with
   | [rl] =>
     match fe.find? rl.ctor with
-    | some (.ctorInfo cvj cnP _cnF) =>
-      match (cvj.type.piResult).getAppFn with
-      | .const T _ =>
-        match fe.find? T with
-        | some (.indInfo cvT caps) =>
-          if isK = true then do
-            let tmaj₀ ← inferI eager lv true depth major
-            let tmaj ← whnfI eager lv depth tmaj₀
-            match Expr.getAppFn tmaj with
-            | .const T' ust =>
-              if (← pure (T' == T)) ∧ cvj.levelParams.length = ust.length then do
-                let margs ← pure (Expr.getAppArgsC tmaj)
-                if cnP ≤ margs.length then do
-                  let ctorI ← pure rl.ctor
-                  let h ← pure (Expr.const ctorI ust)
-                  let fab ← mkAppNM h (margs.take cnP)
-                  if ← pure (Expr.wscopedBC depth fab &&
-                      Expr.looseBVarsBounded 0 fab &&
-                      Expr.leafGuard fab major) then do
-                    -- official `to_cnstr_when_K` fabrication type
-                    -- check (arena bad/098_ruleKbad) — runs in both
-                    -- modes; `proofIrrelI`, a certificate family
-                    -- (official stops at the type check), is off at
-                    -- `.trusted`
-                    let tfab ← inferI eager lv true depth fab
-                    if ← defeqI eager lv depth tmaj tfab then
-                      if ← certAtI mode (proofIrrelI eager lv depth fab major) then
-                        pure fab
-                      else pure major
+    | some (.ctorInfo cvj cnP _cnF T) =>
+      match fe.find? T with
+      | some (.indInfo cvT caps) =>
+        if isK = true then do
+          let tmaj₀ ← inferI eager lv true depth major
+          let tmaj ← whnfI eager lv depth tmaj₀
+          match Expr.getAppFn tmaj with
+          | .const T' ust =>
+            if (← pure (T' == T)) ∧ cvj.levelParams.length = ust.length then do
+              let margs ← pure (Expr.getAppArgsC tmaj)
+              if cnP ≤ margs.length then do
+                let ctorI ← pure rl.ctor
+                let h ← pure (Expr.const ctorI ust)
+                let fab ← mkAppNM h (margs.take cnP)
+                if ← pure (Expr.wscopedBC depth fab &&
+                    Expr.looseBVarsBounded 0 fab &&
+                    Expr.leafGuard fab major) then do
+                  -- official `to_cnstr_when_K` fabrication type
+                  -- check (arena bad/098_ruleKbad) — runs in both
+                  -- modes; `proofIrrelI`, a certificate family
+                  -- (official stops at the type check), is off at
+                  -- `.trusted`
+                  let tfab ← inferI eager lv true depth fab
+                  if ← defeqI eager lv depth tmaj tfab then
+                    if ← certAtI mode (proofIrrelI eager lv depth fab major) then
+                      pure fab
                     else pure major
                   else pure major
                 else pure major
               else pure major
-            | _ => pure major
-          else match etaRescueTable? (fe.findTable? T) rl.ctor cvj cvT caps with
-          | some tbl => do
+            else pure major
+          | _ => pure major
+        else match etaRescueTable? (fe.findTable? T) rl.ctor cvj cvT caps with
+        | some tbl => do
+          let tmaj₀ ← inferI eager lv true depth major
+          let tmaj ← whnfI eager lv depth tmaj₀
+          match Expr.getAppFn tmaj with
+          | .const T' ust => do
+            let margs ← pure (Expr.getAppArgsC tmaj)
+            let ustL ← pure ust
+            -- instantiated non-Prop guard, as in the spec body
+            -- `majorToCtor` (task #61); the counts are the table's
+            if (← pure (T' == T)) ∧ margs.length = tbl.numParams ∧
+                ust.length = cvT.levelParams.length then do
+              if ← familyNeverZeroI eager lv cvT caps ustL then do
+                let TI ← pure T
+                let projs ← projNodesI TI major (List.range tbl.numFields)
+                let ctorI ← pure tbl.ctor
+                let h ← pure (Expr.const ctorI ust)
+                let fab ← mkAppNM h (margs ++ projs)
+                -- no certificate on the fabricated spine (task #342 L11b)
+                if ← pure (Expr.wscopedBC depth fab &&
+                    Expr.looseBVarsBounded 0 fab &&
+                    Expr.leafGuard fab major) then
+                  pure fab
+                else pure major
+              else pure major
+            else pure major
+          | _ => pure major
+        | none =>
+          if T = andName then do
+            -- the `And`-only rescue, as in the spec body
             let tmaj₀ ← inferI eager lv true depth major
             let tmaj ← whnfI eager lv depth tmaj₀
             match Expr.getAppFn tmaj with
             | .const T' ust => do
               let margs ← pure (Expr.getAppArgsC tmaj)
-              let ustL ← pure ust
-              -- instantiated non-Prop guard, as in the spec body
-              -- `majorToCtor` (task #61); the counts are the table's
-              if (← pure (T' == T)) ∧ margs.length = tbl.numParams ∧
-                  ust.length = cvT.levelParams.length then do
-                if ← formerNeverZeroI eager lv cvT caps ustL then do
-                  let TI ← pure T
-                  let projs ← projNodesI TI major (List.range tbl.numFields)
-                  let ctorI ← pure tbl.ctor
-                  let h ← pure (Expr.const ctorI ust)
-                  let fab ← mkAppNM h (margs ++ projs)
-                  -- no certificate on the fabricated spine (task #342 L11b)
-                  if ← pure (Expr.wscopedBC depth fab &&
-                      Expr.looseBVarsBounded 0 fab &&
-                      Expr.leafGuard fab major) then
-                    pure fab
+              if (← pure (T' == T)) ∧ margs.length = cnP ∧
+                  cvj.levelParams.length = ust.length ∧
+                  fe.andRescueSlotsF rl.ctor cnP = true then do
+                let TI ← pure T
+                let projs ← projNodesI TI major [0, 1]
+                let ctorI ← pure rl.ctor
+                let h ← pure (Expr.const ctorI ust)
+                let fab ← mkAppNM h (margs ++ projs)
+                if ← pure (Expr.wscopedBC depth fab &&
+                    Expr.looseBVarsBounded 0 fab &&
+                    Expr.leafGuard fab major) then do
+                  let tfab ← inferI eager lv true depth fab
+                  if ← defeqI eager lv depth tmaj tfab then
+                    if ← certAtI mode (proofIrrelI eager lv depth fab major) then
+                      pure fab
+                    else pure major
                   else pure major
                 else pure major
               else pure major
             | _ => pure major
-          | none =>
-            if T = andName then do
-              -- the `And`-only rescue, as in the spec body
-              let tmaj₀ ← inferI eager lv true depth major
-              let tmaj ← whnfI eager lv depth tmaj₀
-              match Expr.getAppFn tmaj with
-              | .const T' ust => do
-                let margs ← pure (Expr.getAppArgsC tmaj)
-                if (← pure (T' == T)) ∧ margs.length = cnP ∧
-                    cvj.levelParams.length = ust.length ∧
-                    fe.andRescueSlotsF rl.ctor cnP = true then do
-                  let TI ← pure T
-                  let projs ← projNodesI TI major [0, 1]
-                  let ctorI ← pure rl.ctor
-                  let h ← pure (Expr.const ctorI ust)
-                  let fab ← mkAppNM h (margs ++ projs)
-                  if ← pure (Expr.wscopedBC depth fab &&
-                      Expr.looseBVarsBounded 0 fab &&
-                      Expr.leafGuard fab major) then do
-                    let tfab ← inferI eager lv true depth fab
-                    if ← defeqI eager lv depth tmaj tfab then
-                      if ← certAtI mode (proofIrrelI eager lv depth fab major) then
-                        pure fab
-                      else pure major
-                    else pure major
-                  else pure major
-                else pure major
-              | _ => pure major
-            else pure major
-        | _ => pure major
+          else pure major
       | _ => pure major
     | _ => pure major
   | _ => pure major
@@ -971,7 +974,7 @@ def iotaRecI (eager : Bool) (lv : Nat) (depth : Nat) (h : Expr) (args : Array Ex
         | .const cj usj => do
           let cjn ← pure cj
           match fe.find? cjn with
-          | some (.ctorInfo cvj cnP _) =>
+          | some (.ctorInfo cvj cnP _ induct) =>
             match rules.find? (fun r' => r'.ctor == cjn) with
             | some rl => do
               let margs ← pure (getAppArgsArr major)
@@ -994,6 +997,10 @@ def iotaRecI (eager : Bool) (lv : Nat) (depth : Nat) (h : Expr) (args : Array Ex
                 -- certificates read lists: they are made only here, at a
                 -- case-3 redex.
                 if ← certAtI mode (do
+                  -- case 2 by the stored facts: no comparand is computed
+                  if iotaNoCert fe.find? isK induct (recFireLevelCount rl cvj.levelParams) then
+                    pure true
+                  else do
                     let cmpLvls : List Level ←
                       match rl.fire with
                       | .nested lvls _ => substLevelTreesM cv.levelParams us lvls
@@ -1001,7 +1008,7 @@ def iotaRecI (eager : Bool) (lv : Nat) (depth : Nat) (h : Expr) (args : Array Ex
                         substLevelTreesM cv.levelParams us
                           (cvj.levelParams.map Level.param)
                       | .levels lvls => substLevelTreesM cv.levelParams us lvls
-                    if ← iotaCase3I eager lv fe.find? isK cvj cmpLvls then do
+                    if ← iotaCase3I eager lv fe.find? isK induct cmpLvls then do
                       let oL ← isEquivListLM usj cmpLvls
                       if ← liftFueled "level comparison" oL then do
                         let argsL ← pure (args.toList.take k)

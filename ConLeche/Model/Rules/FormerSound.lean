@@ -75,7 +75,7 @@ theorem IotaCase.k_sound {cvj : ConstantVal} {us : List Level} :
     IotaCaseSem m φ true cvj us false := fun _ h => nomatch h
 
 theorem IotaCase.never_sound {cvj cvT : ConstantVal} {caps : ConLeche.IndCaps} {us : List Level}
-    (hfam : ConLeche.ctorFamily env.find? cvj = some (cvT, caps))
+    (hfam : ctorTypeFamily env.find? cvj = some (cvT, caps))
     (hlen : cvT.levelParams.length = us.length)
     (hnz : ConLeche.formerNeverZero cvT us = true) :
     IotaCaseSem m φ false cvj us false :=
@@ -110,7 +110,7 @@ theorem formerSort_tower (hin : RulesInputs V m φ) {T : Name} {cvT : ConstantVa
 
 theorem IotaCase.walk_sound (hin : RulesInputs V m φ) {cvj cvT : ConstantVal}
     {caps : ConLeche.IndCaps} {us : List Level} {s : Level}
-    (hfam : ConLeche.ctorFamily env.find? cvj = some (cvT, caps))
+    (hfam : ctorTypeFamily env.find? cvj = some (cvT, caps))
     (hlen : cvT.levelParams.length = us.length)
     (hnone : ConLeche.formerResSort cvT.type = none)
     (hsort : FormerSortSem m φ 0 (caps.nparams + caps.nIdx)

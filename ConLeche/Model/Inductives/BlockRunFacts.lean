@@ -72,11 +72,11 @@ theorem blockRun_fresh {F : Nat} {env env₂ : Env} {block : List ConstantInfo} 
   have hext₁ : ∀ n, env₁.find? n = none → env.find? n = none := fun n hn => by
     rw [hcons, ConLeche.consBlockInds_consts'] at hn
     exact find?_none_of_append rfl hn
-  have hext₂ : ∀ n, (ConLeche.consBlockCtors p₁.nP p₁.memberCtors env₁).find? n = none →
+  have hext₂ : ∀ n, (ConLeche.consBlockCtors p₁.nP p₁.ctorGroups env₁).find? n = none →
       env₁.find? n = none := fun n hn =>
-    find?_none_of_append (consBlockCtors_consts p₁.nP p₁.memberCtors env₁) hn
+    find?_none_of_append (consBlockCtors_consts p₁.nP p₁.ctorGroups env₁) hn
   have hRec' : ConLeche.genRecCheck (ConLeche.fueledOps .verified F)
-      (mkFEnv (ConLeche.consBlockCtors p₁.nP p₁.memberCtors env₁)) p₁
+      (mkFEnv (ConLeche.consBlockCtors p₁.nP p₁.ctorGroups env₁)) p₁
       (ConLeche.blockNestedBit p₁ kinds) ctx.params st.ctorNfs.toList
       rd Ms block = .ok outR := hRec
   intro n hn

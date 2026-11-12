@@ -27,9 +27,10 @@ def Env.pushDelta (env : Env) (L : List ConstantInfo) (Q : List ProjTable) : Env
 def blockFormers (p : BlockShape) (isRec : Bool) : List ConstantInfo :=
   (p.members.map (·.declared)).zipIdx.map fun (cv, i) => .indInfo cv (blockCapsAt p i isRec)
 
-/-- The constructors of every member, as declared, in block order. -/
+/-- The constructors of every member, as declared, in block order, each under its member's
+name (`consBlockCtors`). -/
 def blockCtors (p : BlockShape) : List ConstantInfo :=
-  p.allCtors.map fun c => .ctorInfo c.1 p.nP c.2
+  p.ctorGroups.flatMap fun g => g.2.map fun c => .ctorInfo c.1 p.nP c.2 g.1
 
 /-- `n` variables below a term's own, which do not occur in it, dropped. -/
 def Expr.dropVars : Nat → Expr → Expr

@@ -291,9 +291,9 @@ theorem genOutsideClass_reachedNode {envC envI : Env} (hwf : ConLeche.EnvWF envI
       envI.find? pp kinds nfs pos)
     (R : GenRecRun .verified F (mkFEnv envI) envI (mkFEnv envC) pp nested pos
       block out)
-    (henvC : envC = ConLeche.consBlockCtors pp.nP pp.memberCtors envI)
-    (hheads : ∀ c ∈ pp.memberCtors.flatten, envI.find? c.1.name = none ∧
-      ∀ C, (ctorEntry C (.ctorInfo c.1 pp.nP c.2)).isSome = true →
+    (henvC : envC = ConLeche.consBlockCtors pp.nP pp.ctorGroups envI)
+    (hheads : ∀ g ∈ pp.ctorGroups, ∀ c ∈ g.2, envI.find? c.1.name = none ∧
+      ∀ C, (ctorEntry C (.ctorInfo c.1 pp.nP c.2 g.1)).isSome = true →
         C ∈ pp.memberNames)
     (hread : pp.members.map (·.cvT) = pp.formers) (hT : ∀ cv ∈ pp.formers, cv.type.hasFvar = false)
     (hcl : ∀ (c : Nat) (cs : List (ConstantVal × Nat)), pp.memberCtors[c]? = some cs →

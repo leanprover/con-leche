@@ -407,7 +407,7 @@ theorem UnitLike.struct_sound (hin : RulesInputs V m φ) {d n : Nat} {T w tele :
     UnitLikeSem m φ d T := by
   intro hfT Δa Ta hCT hdT ρ hρ hLT hokT x y hx hy
   obtain ⟨hfW, hCW, hLW, wa, hwa, hokW, heqW⟩ := red_ty_at hr hfT hCT hdT hρ hLT hokT
-  obtain ⟨S, us, cvS, caps, tbl, cvC, nPc, nFc, hfn, hfS, heta, hus, hT, hlen, hfC, rfl,
+  obtain ⟨S, us, cvS, caps, tbl, cvC, nPc, nFc, _, hfn, hfS, heta, hus, hT, hlen, hfC, rfl,
     htele⟩ := ConLeche.unitLikeShape_some hsh
   -- the table's laws, at every field count
   obtain ⟨⟨cvT', capsT', hfT', hlpsT'⟩, hetaL⟩ := hin.tower_ok.table S tbl hT
@@ -415,9 +415,9 @@ theorem UnitLike.struct_sound (hin : RulesInputs V m φ) {d n : Nat} {T w tele :
     rw [hfS] at hfT'
     exact ConstantInfo.indInfo.inj (Option.some.inj hfT')
   obtain ⟨hlaw, hcoh⟩ := hetaL cvS caps hfS us (by rw [← hlpsT']; exact hus)
-  obtain ⟨TCa, hTCa, hfitC⟩ := hcoh heta cvC nPc nFc hfC
+  obtain ⟨TCa, hTCa, hfitC⟩ := hcoh heta cvC nPc nFc _ hfC
   -- the table's constructor is stored at the table's levels
-  obtain ⟨-, -, -, -, cvC', hfC', hlpsC, -⟩ := m.proj_ok S tbl hT
+  obtain ⟨-, -, -, -, cvC', _, hfC', hlpsC, -⟩ := m.proj_ok S tbl hT
   obtain rfl : cvC = cvC' := by
     rw [hfC] at hfC'
     exact (ConstantInfo.ctorInfo.inj (Option.some.inj hfC')).1

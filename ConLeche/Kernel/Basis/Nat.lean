@@ -27,11 +27,11 @@ def natA : ConstantInfo :=
 
 /-- `Nat.zero : Nat`. -/
 def natZeroA : ConstantInfo :=
-  .ctorInfo ⟨natZeroName, [], natT⟩ 0 0
+  .ctorInfo ⟨natZeroName, [], natT⟩ 0 0 natName
 
 /-- `Nat.succ (n : Nat) : Nat`. -/
 def natSuccA : ConstantInfo :=
-  .ctorInfo ⟨natSuccName, [], pi "n" natT natT⟩ 0 1
+  .ctorInfo ⟨natSuccName, [], pi "n" natT natT⟩ 0 1 natName
 
 /-- The motive of `Nat.rec`: `∀ (t : Nat), Sort u`. -/
 def natRecMotive : Expr := pi "t" natT (srt u)

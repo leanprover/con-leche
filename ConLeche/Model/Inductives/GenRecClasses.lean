@@ -183,8 +183,8 @@ theorem genRecCtor_find
     (hcov : LfpCover mpC []) (hrd : ∀ F, FamilyRead mpC F) :
     ∀ (j : Nat) (r : ConstantVal × List Expr × Nat × List (ConstantVal × Nat)),
       (tgtRs out)[j]? = some r → ∀ (i : Nat) (ctor : ConstantVal × Nat), r.2.2.2[i]? = some ctor →
-        envC.find? ctor.1.name
-          = some (.ctorInfo ctor.1 (ConLeche.tgtMajorsOf out j).nPc ctor.2) := by
+        ∃ iT, envC.find? ctor.1.name
+          = some (.ctorInfo ctor.1 (ConLeche.tgtMajorsOf out j).nPc ctor.2 iT) := by
   obtain ⟨pk, uOfD, ppsOf, rfl⟩ := hdR
   intro j r hr i ctor hctor
   obtain ⟨t, ho, rfl, hMj⟩ := tgtRs_getElem? hr
@@ -204,17 +204,17 @@ theorem genRecCtor_find
       rw [← hN.2.2]; exact hN.2.1 _ i ctor hctor
     obtain ⟨hfind, -, -⟩ := hcore.2.2 _ hck i ctor hctor
     rw [hnPc]
-    exact hfind
+    exact ⟨_, hfind⟩
   | none =>
     obtain ⟨D, mm, cvI, hD⟩ := tgtOutCls_ofR hcov hrd Rc.major hm
     have hi : i < M₀.ctors.length := (List.getElem?_eq_some_iff.mp hctor).1
-    have hc := hD.hctor i hi
+    obtain ⟨_, hc⟩ := hD.hctor i hi
     have hctor' : M₀.ctors[i] = ctor := (List.getElem?_eq_some_iff.mp hctor).2
     rw [hctor'] at hc
     have hname := ConLeche.Env.find?_name hc
     simp only [ConstantInfo.name, ConstantInfo.toConstantVal] at hname
     rw [hname]
-    exact hc
+    exact ⟨_, hc⟩
 
 /-- **`ctorsIn` at the generated stage**: every constructor a stored
 recursor carries is stored. -/
@@ -228,11 +228,12 @@ theorem genRecCtor_in
       dR = blockDataOf V pp pk uOfD ppsOf)
     (hcov : LfpCover mpC []) (hrd : ∀ F, FamilyRead mpC F) :
     ∀ r ∈ tgtRs out, ∀ ctor ∈ r.2.2.2,
-      ∃ cvj cnP cnF, envC.find? ctor.1.name = some (.ctorInfo cvj cnP cnF) := by
+      ∃ cvj cnP cnF iT, envC.find? ctor.1.name = some (.ctorInfo cvj cnP cnF iT) := by
   intro r hr ctor hctor
   obtain ⟨j, hj⟩ := List.getElem?_of_mem hr
   obtain ⟨i, hi⟩ := List.getElem?_of_mem hctor
-  exact ⟨_, _, _, genRecCtor_find R hN hcore hmemberCtors hdR hcov hrd j r hj i ctor hi⟩
+  obtain ⟨iT, hf⟩ := genRecCtor_find R hN hcore hmemberCtors hdR hcov hrd j r hj i ctor hi
+  exact ⟨_, _, _, iT, hf⟩
 
 /-- **`hctor` at the generated stage**: the carried constructors, stored
 at the class's parameter count, their types bound and read. -/
@@ -247,7 +248,7 @@ theorem genRecCtor_seam
     (hcov : LfpCover mpC []) (hrd : ∀ F, FamilyRead mpC F) :
     ∀ (j : Nat) (r : ConstantVal × List Expr × Nat × List (ConstantVal × Nat)),
       (tgtRs out)[j]? = some r → ∀ (i : Nat) (ctor : ConstantVal × Nat), r.2.2.2[i]? = some ctor →
-        envC.find? ctor.1.name = some (.ctorInfo ctor.1 (ConLeche.tgtMajorsOf out j).nPc ctor.2) ∧
+        ∃ iT, envC.find? ctor.1.name = some (.ctorInfo ctor.1 (ConLeche.tgtMajorsOf out j).nPc ctor.2 iT) ∧
         ConstsBound envC ctor.1.type ∧
         ∀ ψ : Name → Nat,
           denote mpC.base2.acval envC ψ 0 ctor.1.type

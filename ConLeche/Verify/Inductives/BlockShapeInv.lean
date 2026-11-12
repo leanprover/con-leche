@@ -341,7 +341,7 @@ theorem blockSplitCtors_names :
       {rs : List (ConstantVal × Nat × Nat × Bool × List RecRule)},
       blockSplitCtors block = some (cs, rs) →
       (∀ c ∈ cs, ∃ b ∈ block, b.name = c.1.name) ∧ (∀ r ∈ rs, ∃ b ∈ block, b.name = r.1.name)
-  | .ctorInfo cvC nP nF :: rest, cs, rs, h => by
+  | .ctorInfo cvC nP nF _ :: rest, cs, rs, h => by
     simp only [blockSplitCtors, Option.map_eq_some_iff] at h
     obtain ⟨⟨cs', rs'⟩, h', he⟩ := h
     simp only [Prod.mk.injEq] at he

@@ -88,14 +88,14 @@ step ran give the index pin ((U)), and the law fires. -/
 theorem Red.iota_sound (hin : RulesInputs V m φ) {d : Nat} {e : Expr} {c : Name}
     {us : List Level} {cv : ConstantVal} {mI rP : Nat} {isK : Bool} {rules : List RecRule}
     {major : Expr} {cj : Name} {usj : List Level} {cvj : ConstantVal}
-    {cnP cnF : Nat} {rl : RecRule} {residual : Expr}
+    {cnP cnF : Nat} {cT : Name} {rl : RecRule} {residual : Expr}
     (hhead : e.getAppFn = .const c us)
     (hrec : env.find? c = some (.recInfo cv mI rP isK rules))
     (hlen : e.getAppArgs.length = mI + 1)
     (hus : us.length = cv.levelParams.length)
     (hmajor : RedSem m φ d (e.getAppArgs.getD mI (.bvar 0)) major)
     (hmhead : major.getAppFn = .const cj usj)
-    (hctor : env.find? cj = some (.ctorInfo cvj cnP cnF))
+    (hctor : env.find? cj = some (.ctorInfo cvj cnP cnF cT))
     (hrule : rules.find? (fun r' => r'.ctor == cj) = some rl)
     (hmlen : major.getAppArgs.length = cnP + rl.nfields)
     {c3 : Bool}
@@ -173,7 +173,7 @@ theorem Red.iota_sound (hin : RulesInputs V m φ) {d : Nat} {e : Expr} {c : Name
       hfR hCR (hTVaD d) hfrE hspx
   -- the ι facts at the recursor's levels
   obtain ⟨hK, hext⟩ := hextra us hus TVa (hTVaD 0)
-  obtain ⟨hstrip, hextNK⟩ := hext cvj cnP cnF hctor
+  obtain ⟨hstrip, hextNK⟩ := hext cvj cnP cnF cT hctor
   have hlenYs : ys.length = cnP + rl.nfields := by
     rw [← hspy.length, hmlen]
   have hpcC : PiChain ys.length TVja := by
@@ -267,7 +267,7 @@ theorem Red.iota_sound (hin : RulesInputs V m φ) {d : Nat} {e : Expr} {c : Name
         hfitR' hfitC hoX0 hoY hne
     obtain ⟨restR'', hfitR''⟩ := teleFitPA_snoc_congr (xs.take mI) hfitR' hval'.symm
     -- **fire the law** at the comparand levels
-    obtain ⟨heqLaw, htrans⟩ := hlaw cvj cnP cnF hctor usj' ρ (xs.take mI) ys'
+    obtain ⟨heqLaw, htrans⟩ := hlaw cvj cnP cnF cT hctor usj' ρ (xs.take mI) ys'
       TVa TVja' restR'' restC' hxs0len (by rw [hyl', hlenYs]) hlen' hψ' hoY'
       (fun hpt => absurd (hval' ▸ hpt) hne) (hTVaD 0) hTVja' hfitR'' hfitC'
     rw [List.take_take, Nat.min_eq_left hrPle, hdrop'] at heqLaw htrans
@@ -620,7 +620,7 @@ theorem Red.iota_sound (hin : RulesInputs V m φ) {d : Nat} {e : Expr} {c : Name
     hU ρ (xs.take mI) ys restR' restC hxs0len hlenYs hfitR' hfitC hoX0 hoY
       hplainC hnestedC hpinC
   -- **fire the law**
-  obtain ⟨heqLaw, htrans⟩ := hlaw cvj cnP cnF hctor usj ρ (xs.take mI) ys
+  obtain ⟨heqLaw, htrans⟩ := hlaw cvj cnP cnF cT hctor usj ρ (xs.take mI) ys
     TVa TVja restR' restC hxs0len hlenYs hlenUj hψ hoY hpinU
     (hTVaD 0) (hTVjaD 0) hfitR' hfitC
   rw [List.take_take, Nat.min_eq_left hrPle] at heqLaw htrans
@@ -650,11 +650,10 @@ the spine's values, `IORel`).  Hence the linter option. -/
 theorem Red.rescueK_sound (hin : RulesInputs V m φ) {d : Nat}
     {major tm tmaj fab tp : Expr} {recName : Name} {cv : ConstantVal}
     {mI rP : Nat} {isK : Bool} {rl : RecRule} {cvj : ConstantVal} {cnP cnF : Nat} {T : Name}
-    {tus ust : List Level} {cvT : ConstantVal} {caps : IndCaps}
+    {ust : List Level} {cvT : ConstantVal} {caps : IndCaps}
     (hrec : env.find? recName = some (.recInfo cv mI rP isK [rl]))
     (hk : isK = true)
-    (hctor : env.find? rl.ctor = some (.ctorInfo cvj cnP cnF))
-    (hres : (cvj.type.piResult).getAppFn = .const T tus)
+    (hctor : env.find? rl.ctor = some (.ctorInfo cvj cnP cnF T))
     (hind : env.find? T = some (.indInfo cvT caps))
     (htm : InferSemIO m φ d major tm) (htmaj : RedSem m φ d tm tmaj)
     (hthead : tmaj.getAppFn = .const T ust)
@@ -704,10 +703,9 @@ family's application, no ∀, so its io claim is a membership there
 theorem Red.rescueEta_sound (hin : RulesInputs V m φ) {d : Nat}
     {major tm tmaj fab : Expr} {recName : Name} {cv : ConstantVal}
     {mI rP : Nat} {isK : Bool} {rl : RecRule} {cvj : ConstantVal} {cnP cnF : Nat} {T : Name}
-    {tus ust : List Level} {cvT : ConstantVal} {caps : IndCaps} {tbl : ProjTable}
+    {ust : List Level} {cvT : ConstantVal} {caps : IndCaps} {tbl : ProjTable}
     (_hrec : env.find? recName = some (.recInfo cv mI rP isK [rl]))
-    (hctor : env.find? rl.ctor = some (.ctorInfo cvj cnP cnF))
-    (_hres : (cvj.type.piResult).getAppFn = .const T tus)
+    (hctor : env.find? rl.ctor = some (.ctorInfo cvj cnP cnF T))
     (hind : env.find? T = some (.indInfo cvT caps))
     (heta : ConLeche.etaRescueTable? (env.findTable? T) rl.ctor cvj cvT caps = some tbl)
     (htm : InferSemIO m φ d major tm) (htmaj : RedSem m φ d tm tmaj)
@@ -729,7 +727,7 @@ theorem Red.rescueEta_sound (hin : RulesInputs V m φ) {d : Nat}
   -- the family's table: the rule's constructor IS the table's, and
   -- carries the former's level parameters (`etaRescueTable?`)
   obtain ⟨htbl, hcapseta, hectr, hlpsE⟩ := ConLeche.etaRescueTable?_inv heta
-  have hfC : env.find? tbl.ctor = some (.ctorInfo cvj cnP cnF) := by
+  have hfC : env.find? tbl.ctor = some (.ctorInfo cvj cnP cnF T) := by
     rw [hectr]; exact hctor
   have hlpj : ust.length = cvj.levelParams.length := by
     rw [hlpsE]; exact hlv
@@ -812,10 +810,9 @@ fabrication's reading. -/
 theorem Red.rescueAnd_sound (hin : RulesInputs V m φ) {d : Nat}
     {major tm tmaj fab tp : Expr} {recName : Name} {cv : ConstantVal}
     {mI rP : Nat} {isK : Bool} {rl : RecRule} {cvj : ConstantVal} {cnP cnF : Nat}
-    {tus ust : List Level} {cvT : ConstantVal} {caps : IndCaps}
+    {ust : List Level} {cvT : ConstantVal} {caps : IndCaps}
     (hrec : env.find? recName = some (.recInfo cv mI rP isK [rl]))
-    (hctor : env.find? rl.ctor = some (.ctorInfo cvj cnP cnF))
-    (hres : (cvj.type.piResult).getAppFn = .const andName tus)
+    (hctor : env.find? rl.ctor = some (.ctorInfo cvj cnP cnF andName))
     (hind : env.find? andName = some (.indInfo cvT caps))
     (htm : InferSemIO m φ d major tm) (htmaj : RedSem m φ d tm tmaj)
     (hthead : tmaj.getAppFn = .const andName ust)

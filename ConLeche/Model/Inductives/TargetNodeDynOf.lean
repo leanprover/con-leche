@@ -104,7 +104,7 @@ structure DynCtx (F : Nat) {envI envC : Env} (mk : EnvModelM V envI) (mpC : EnvM
   hsubC : ∀ D ∈ mpC.lfpBlocks, D = d.toLfp ∨ D ∈ mk.lfpBlocks
   htr : ∀ (ψ : Name → Nat) (dd : Nat) (e : Expr) {ea : Term},
     denote mk.base2.acval envI ψ dd e = some ea → denote mpC.base2.acval envC ψ dd e = some ea
-  henvC : ∃ (nP : Nat) (memberCtors : List (List (ConstantVal × Nat))),
+  henvC : ∃ (nP : Nat) (memberCtors : List (Name × List (ConstantVal × Nat))),
     envC = ConLeche.consBlockCtors nP memberCtors envI
   hok : ∀ t ∈ ns, PosNodeOk (fueledOps .verified F) envI ctx t
   hkids : ∀ t ∈ ns, ∀ k ∈ t.kids, k ∈ ns
@@ -1100,7 +1100,7 @@ theorem dynCtx_of {F : Nat}
   obtain ⟨pk, uOfD, ppsOf, rfl⟩ := hdR
   have hkN := lfp_namesLen mpC hlfp
   refine ⟨hcovC, hlfp, contCover_of hmkC (fun _ => rfl) hreads, hmk, hag, hsubC, htr,
-    ⟨pp.nP, pp.memberCtors, henvC⟩, hok, hkids, hpar, hsem, hF, rfl, hparF, hparS, rfl,
+    ⟨pp.nP, pp.ctorGroups, henvC⟩, hok, hkids, hpar, hsem, hF, rfl, hparF, hparS, rfl,
     fun ψ => ?_,
     fun n hn => ?_, ⟨pp.formers, pp, isRecR, hN, hcoreK.1⟩⟩
   · -- the hole context: the parameters, then one hole per member

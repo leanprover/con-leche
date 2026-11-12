@@ -205,20 +205,38 @@ theorem consBlockIndsF_find?_none (p₁ : BlockShape) (isRec : Bool) {n : Name} 
 
 /-- What the constructors' environment does not find, its start does not, and it is no
 constructor. -/
-theorem consSumCtorsF_find?_none (nP : Nat) {n : Name} :
+theorem consSumCtorsF_find?_none (nP : Nat) (T : Name) {n : Name} :
     ∀ {cs : List (ConstantVal × Nat)} {fe : FEnv}, fe = mkFEnv fe.env →
-      (consSumCtorsF nP cs fe).find? n = none →
+      (consSumCtorsF nP T cs fe).find? n = none →
       n ∉ cs.map (·.1.name) ∧ fe.find? n = none
   | [], _, _, h => ⟨by simp, h⟩
   | c :: cs, fe, hc, h => by
-    have hc' : fe.push (.ctorInfo c.1 nP c.2) = mkFEnv (fe.push (.ctorInfo c.1 nP c.2)).env := by
+    have hc' : fe.push (.ctorInfo c.1 nP c.2 T) = mkFEnv (fe.push (.ctorInfo c.1 nP c.2 T)).env := by
       conv => lhs; rw [hc]
       exact push_mkFEnv _ _
-    obtain ⟨h₁, h₂⟩ := consSumCtorsF_find?_none nP (cs := cs) hc' h
+    obtain ⟨h₁, h₂⟩ := consSumCtorsF_find?_none nP T (cs := cs) hc' h
     obtain ⟨hne, hfe⟩ := find?_none_push hc h₂
     refine ⟨?_, hfe⟩
     simp only [List.map_cons, List.mem_cons, not_or]
     exact ⟨fun e => hne e.symm, h₁⟩
+
+/-- What the members' constructors' index does not find, its start does not, and it is no
+constructor of theirs. -/
+theorem consBlockCtorsF_find?_none (nP : Nat) {n : Name} :
+    ∀ {gs : List (Name × List (ConstantVal × Nat))} {fe : FEnv}, fe = mkFEnv fe.env →
+      (consBlockCtorsF nP gs fe).find? n = none →
+      n ∉ (gs.map (·.2)).flatten.map (·.1.name) ∧ fe.find? n = none
+  | [], _, _, h => ⟨by simp, h⟩
+  | (T, cs) :: gs, fe, hc, h => by
+    have hm := consSumCtorsF_mkFEnv nP T cs fe.env
+    rw [← hc] at hm
+    have hc' : consSumCtorsF nP T cs fe = mkFEnv (consSumCtorsF nP T cs fe).env := by
+      rw [hm]; rfl
+    obtain ⟨h₁, h₂⟩ := consBlockCtorsF_find?_none nP (gs := gs) hc' h
+    obtain ⟨h₃, h₄⟩ := consSumCtorsF_find?_none nP T hc h₂
+    refine ⟨?_, h₄⟩
+    simp only [List.map_cons, List.flatten_cons, List.map_append, List.mem_append, not_or]
+    exact ⟨h₃, h₁⟩
 
 /-- One pass at k members: the formers' conses keep the chain, and the
 constructors are the block's by name, fresh at the formers'
@@ -383,8 +401,8 @@ theorem blockConstants_names (p : BlockShape) :
   unfold blockConstants blockFormers blockCtors
   simp only [List.map_append]
   rw [hF _ 0 (fun i => blockCapsAt p i (blockIsRec p)), hR]
-  simp [List.map_map, Function.comp_def, BlockShape.allCtors]
-  rfl
+  simp [List.map_map, Function.comp_def, BlockShape.allCtors, BlockShape.ctorGroups,
+    List.flatMap_def, ConstantInfo.name, ConstantInfo.toConstantVal]
 
 /-- The checks after the pass: the recursors' names are distinct and fresh at the constructors'
 index. -/
@@ -392,7 +410,7 @@ theorem checkBlockTailS_fresh (mode : CheckMode) {block : List ConstantInfo} {q 
     {Q : List ProjTable} :
     Yields (checkBlockTailS mode block q Q) (fun _ =>
       (q.p.recs.map (·.cvR.name)).Nodup ∧
-      ∀ rc ∈ q.p.recs, (consBlockCtorsF q.p.nP q.p.memberCtors q.env₁).find? rc.cvR.name = none) := by
+      ∀ rc ∈ q.p.recs, (consBlockCtorsF q.p.nP q.p.ctorGroups q.env₁).find? rc.cvR.name = none) := by
   obtain ⟨env₁, p, kinds, params, rd, cls, tbl⟩ := q
   unfold checkBlockTailS
   dsimp only
@@ -443,11 +461,13 @@ theorem checkBlockKS_push (mode : CheckMode) {env : Env} {fe : FEnv}
   obtain ⟨hndR, hfrR⟩ := hrs
   have hCan₁ : q.env₁ = mkFEnv q.env₁.env := h₁.canon
   -- what the constructors' index does not find
-  have hC : ∀ n, (consBlockCtorsF q.p.nP q.p.memberCtors q.env₁).find? n = none →
+  have hC : ∀ n, (consBlockCtorsF q.p.nP q.p.ctorGroups q.env₁).find? n = none →
       n ∉ p.allCtors.map (·.1.name) ∧ n ∉ p.members.map (·.cvT.name) ∧ fe.find? n = none := by
     intro n hn
-    rw [consBlockCtorsF_flatten] at hn
-    obtain ⟨h₃, h₄⟩ := consSumCtorsF_find?_none q.p.nP hCan₁ hn
+    obtain ⟨h₃, h₄⟩ := consBlockCtorsF_find?_none q.p.nP hCan₁ hn
+    have hgm : q.p.ctorGroups.map (·.2) = q.p.memberCtors := by
+      simp [BlockShape.ctorGroups, BlockShape.memberCtors, List.map_map, Function.comp_def]
+    rw [hgm] at h₃
     obtain ⟨h₅, h₆⟩ := hmem n h₄
     refine ⟨by rw [← hCt, ← hns]; exact h₃, ?_, h₆⟩
     show n ∉ p.members.map _

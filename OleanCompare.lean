@@ -71,7 +71,7 @@ def infoEq : ConstantInfo → ConstantInfo → Bool
   | .defnInfo v e h, .defnInfo w e' h' => valEq v w && e == e' && decide (h = h')
   | .thmInfo v, .thmInfo w => valEq v w
   | .indInfo v c, .indInfo w c' => valEq v w && decide (c = c')
-  | .ctorInfo v p f, .ctorInfo w p' f' => valEq v w && p == p' && f == f'
+  | .ctorInfo v p f t, .ctorInfo w p' f' t' => valEq v w && p == p' && f == f' && t == t'
   | .recInfo v m r k rs, .recInfo w m' r' k' rs' =>
     valEq v w && m == m' && r == r' && k == k' && listEq ruleEq rs rs'
   | _, _ => false

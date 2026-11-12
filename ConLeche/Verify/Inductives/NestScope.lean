@@ -66,13 +66,13 @@ theorem WScoped.of_fvarsBelow : ∀ {e : Expr} {d d' : Nat}, WScoped d e →
 
 /-- A constructor entry is its constructor record. -/
 theorem nestCtorEntry_some {C : Name} {ci : ConstantInfo} {y : ConstantVal × Nat × Nat}
-    (h : nestCtorEntry C ci = some y) : ci = .ctorInfo y.1 y.2.1 y.2.2 := by
+    (h : nestCtorEntry C ci = some y) : ∃ T, ci = .ctorInfo y.1 y.2.1 y.2.2 T := by
   unfold nestCtorEntry at h
   split at h
   · split at h
     · split at h
       · split at h
-        · simp only [Option.some.injEq] at h; subst h; rfl
+        · simp only [Option.some.injEq] at h; subst h; exact ⟨_, rfl⟩
         · exact nomatch h
       · exact nomatch h
     · exact nomatch h
@@ -82,13 +82,13 @@ theorem nestCtorEntry_some {C : Name} {ci : ConstantInfo} {y : ConstantVal × Na
 the recorded names). -/
 theorem nestContainer_mem {ctx : NestCtx} {C : Name} {nP : Nat} {L : List (ConstantVal × Nat)}
     (h : nestContainer ctx C = some (nP, L)) :
-    ∀ x ∈ L, ∃ n nPc, ctx.find? n = some (.ctorInfo x.1 nPc x.2) := by
+    ∀ x ∈ L, ∃ n nPc T, ctx.find? n = some (.ctorInfo x.1 nPc x.2 T) := by
   unfold nestContainer at h
   split at h
   · rename_i caps _
     dsimp only at h
     generalize hcs : List.filterMap _ caps.ctors = cs at h
-    have hall : ∀ y ∈ cs, ∃ n, ctx.find? n = some (.ctorInfo y.1 y.2.1 y.2.2) := by
+    have hall : ∀ y ∈ cs, ∃ n T, ctx.find? n = some (.ctorInfo y.1 y.2.1 y.2.2 T) := by
       intro y hy
       rw [← hcs] at hy
       obtain ⟨n, -, hn⟩ := List.mem_filterMap.mp hy
@@ -96,7 +96,8 @@ theorem nestContainer_mem {ctx : NestCtx} {C : Name} {nP : Nat} {L : List (Const
       | none => rw [hf] at hn; exact nomatch hn
       | some ci =>
         rw [hf, Option.bind_some] at hn
-        exact ⟨n, by rw [hf, nestCtorEntry_some hn]⟩
+        obtain ⟨T, hT⟩ := nestCtorEntry_some hn
+        exact ⟨n, T, by rw [hf, hT]⟩
     cases cs with
     | nil =>
       simp only [Option.some.injEq, Prod.mk.injEq] at h
@@ -107,8 +108,8 @@ theorem nestContainer_mem {ctx : NestCtx} {C : Name} {nP : Nat} {L : List (Const
       obtain ⟨-, rfl⟩ := h
       intro x hx
       obtain ⟨y, hy, rfl⟩ := List.mem_map.mp hx
-      obtain ⟨n, hn⟩ := hall y hy
-      exact ⟨n, y.2.1, hn⟩
+      obtain ⟨n, T, hn⟩ := hall y hy
+      exact ⟨n, y.2.1, T, hn⟩
   · exact nomatch h
 
 /-- An `Option` `mapM`'s outputs come from its inputs. -/

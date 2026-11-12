@@ -195,7 +195,7 @@ of `D`'s component `c`, at the levels `us` and the parameters `ds`
 substituted by `instTau`; its recorded fields agree with the record's
 under the parameters and the members' canonical hole types. -/
 theorem instCtor_read {c j : Nat} (hc : c < D.k) (hj : j < D.nctors c) {cv : ConstantVal}
-    {nF : Nat} (hfc : env.find? (D.ctorName c j) = some (.ctorInfo cv ds.length nF)) :
+    {nF : Nat} {iT : Name} (hfc : env.find? (D.ctorName c j) = some (.ctorInfo cv ds.length nF iT)) :
     cv.levelParams = lps ∧ ∃ crest ab,
       ConLeche.instPisWith ds (cv.type.instantiateLevelParams cv.levelParams us) = some crest ∧
       (∃ Tys : List Term, Tys.length = D.k ∧
@@ -211,11 +211,11 @@ theorem instCtor_read {c j : Nat} (hc : c < D.k) (hj : j < D.nctors c) {cv : Con
               (Term.mkAppN (.bvar (nF + (D.k - 1 - c)))
                 (D.resIdx (Level.substFn φ lps us) c j)) ab.length)) := by
   obtain ⟨-, -, -, ⟨hk, hrd⟩, -⟩ := mp.lfp_ok D hD
-  obtain ⟨cv', nPc', nF', hf', hcl, hlpsC, -, A, hA, hocc, hread⟩ := hrd c hc j hj
+  obtain ⟨cv', nPc', nF', iT', hf', hcl, hlpsC, -, A, hA, hocc, hread⟩ := hrd c hc j hj
   rw [hfc] at hf'
   obtain ⟨rfl, rfl, rfl⟩ : cv = cv' ∧ ds.length = nPc' ∧ nF = nF' := by
     simp only [Option.some.injEq, ConLeche.ConstantInfo.ctorInfo.injEq] at hf'
-    exact ⟨hf'.1, hf'.2.1, hf'.2.2⟩
+    exact ⟨hf'.1, hf'.2.1, hf'.2.2.1⟩
   have hlp : cv.levelParams = lps := by
     obtain ⟨cvm, capsm, hfm, hlm⟩ := hlpsC c hc
     obtain ⟨cvm', capsm', hfm', hlm'⟩ := hlps c hc

@@ -218,7 +218,7 @@ theorem strLitFacts {m : EnvModel V env} (hct : ConstType m φ)
     hfL, hfN, hfC, hfH, hfF, hlpS, hlpO, hlpL, hlpN, hlpC, hlpH, hlpF,
     hTS, hTH, hTO, hTL, hTN, hTC, hTF⟩ :=
     ConLeche.strLitSupported_inv hg
-  obtain ⟨cvNat, capsNat, cv0, i0, j0, cv1, i1, j1, hfNat, hfZ, hfSc,
+  obtain ⟨cvNat, capsNat, cv0, i0, j0, T0, cv1, i1, j1, T1, hfNat, hfZ, hfSc,
     hlpNat, hlpZ, hlpSc, hTNat, hTZ, hTSc⟩ :=
     ConLeche.natLitSupported_inv hs
   rw [denote, ite_eq_left hg] at hea

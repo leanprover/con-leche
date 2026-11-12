@@ -227,8 +227,8 @@ that has not stored it yet owes nothing. -/
     (m : EnvModel V env) (φ : Name → Nat) (T C : Name) (lps : List Name)
     (us : List Level) (nP : Nat)
     (fab : (Nat → V) → List V → V → List V) : Prop :=
-  ∀ (cvC : ConstantVal) (nPc nFc : Nat),
-    env.find? C = some (.ctorInfo cvC nPc nFc) →
+  ∀ (cvC : ConstantVal) (nPc nFc : Nat) (iT : Name),
+    env.find? C = some (.ctorInfo cvC nPc nFc iT) →
     ∃ TCa : Term,
       denote m.acval env φ 0
         (cvC.type.instantiateLevelParams cvC.levelParams us) = some TCa ∧
@@ -248,10 +248,10 @@ theorem EtaCoherent.transport {env env₂ : Env} {m : EnvModel V env}
     {us : List Level} {nP : Nat}
     {fab fab₂ : (Nat → V) → List V → V → List V}
     (h : EtaCoherent m φ T C lps us nP fab)
-    (hfind : ∀ cvC nPc nFc, env₂.find? C = some (.ctorInfo cvC nPc nFc) →
-      env.find? C = some (.ctorInfo cvC nPc nFc))
-    (hread : ∀ (cvC : ConstantVal) (nPc nFc : Nat) (TCa : Term),
-      env.find? C = some (.ctorInfo cvC nPc nFc) →
+    (hfind : ∀ cvC nPc nFc iT, env₂.find? C = some (.ctorInfo cvC nPc nFc iT) →
+      env.find? C = some (.ctorInfo cvC nPc nFc iT))
+    (hread : ∀ (cvC : ConstantVal) (nPc nFc : Nat) (iT : Name) (TCa : Term),
+      env.find? C = some (.ctorInfo cvC nPc nFc iT) →
       denote m.acval env φ 0
         (cvC.type.instantiateLevelParams cvC.levelParams us) = some TCa →
       denote m₂.acval env₂ φ 0
@@ -259,10 +259,10 @@ theorem EtaCoherent.transport {env env₂ : Env} {m : EnvModel V env}
     (hT : m₂.acval T (Level.substFn φ lps us) = m.acval T (Level.substFn φ lps us))
     (hfab : ∀ ρ ts x, fab₂ ρ ts x = fab ρ ts x) :
     EtaCoherent m₂ φ T C lps us nP fab₂ := by
-  intro cvC nPc nFc hf₂
-  have hf := hfind cvC nPc nFc hf₂
-  obtain ⟨TCa, hTCa, hfit⟩ := h cvC nPc nFc hf
-  refine ⟨TCa, hread cvC nPc nFc TCa hf hTCa, fun ρ ts x hlen hft hmem => ?_⟩
+  intro cvC nPc nFc iT hf₂
+  have hf := hfind cvC nPc nFc iT hf₂
+  obtain ⟨TCa, hTCa, hfit⟩ := h cvC nPc nFc iT hf
+  refine ⟨TCa, hread cvC nPc nFc iT TCa hf hTCa, fun ρ ts x hlen hft hmem => ?_⟩
   rw [hT] at hmem hft
   rw [hfab]
   exact hfit ρ ts x hlen hft hmem
@@ -404,6 +404,23 @@ conditional claims. -/
       interp V ρ (cargsa.getD (cnP + i) default)
         = interp V ρ (xs.getD (rP + i) default)
 
+/-- **The family a constructor's type concludes in**, read off the type (the walk to its
+result's head): what the model's facts about a constructor's family are stated at.  The
+checker reads the family at the constructor record's `induct` instead (`ctorFamily`), which
+is the same by `CtorWF` (`ctorTypeFamily_eq`). -/
+@[expose] def ctorTypeFamily (find? : Name → Option ConstantInfo) (cvj : ConstantVal) :
+    Option (ConstantVal × ConLeche.IndCaps) :=
+  match cvj.type.piResult.getAppFn with
+  | .const T _ => ConLeche.ctorFamily find? T
+  | _ => none
+
+/-- At a constructor whose type concludes in `T`, the family read off the type is the one
+stored at `T`. -/
+theorem ctorTypeFamily_eq {f : Name → Option ConstantInfo} {cvj : ConstantVal} {T : Name}
+    {us : List Level} (h : cvj.type.piResult.getAppFn = .const T us) :
+    ctorTypeFamily f cvj = ConLeche.ctorFamily f T := by
+  unfold ctorTypeFamily; rw [h]
+
 /-- **What the ι case split's `false` establishes** at a constructor and the
 comparand levels, with no K rule: the family a constructor concludes in is never
 `Prop` there.  Its stored type ends in a sort that is never zero, or it reaches
@@ -412,7 +429,7 @@ valuation its reading is a tower of function spaces over a universe above `0`,
 unless a stage is the point. -/
 @[expose] def FamNZ {V : Type w} [SetTheory V] (acval : Name → (Name → Nat) → Term) (env : Env)
     (φ : Name → Nat) (cvj : ConstantVal) (us : List Level) : Prop :=
-  ∃ cvT caps, ConLeche.ctorFamily env.find? cvj = some (cvT, caps) ∧
+  ∃ cvT caps, ctorTypeFamily env.find? cvj = some (cvT, caps) ∧
     cvT.levelParams.length = us.length ∧
     (ConLeche.formerNeverZero cvT us = true ∨
       (ConLeche.formerResSort cvT.type = none ∨
@@ -424,17 +441,17 @@ unless a stage is the point. -/
 /-- A constructor's family reads the lookup at the name its type concludes in. -/
 theorem ctorFamily_congr {f g : Name → Option ConstantInfo} {cvj : ConstantVal}
     (h : ∀ T us, cvj.type.piResult.getAppFn = .const T us → f T = g T) :
-    ConLeche.ctorFamily f cvj = ConLeche.ctorFamily g cvj := by
-  unfold ConLeche.ctorFamily
+    ctorTypeFamily f cvj = ctorTypeFamily g cvj := by
+  unfold ctorTypeFamily ConLeche.ctorFamily
   split
   · next T us hh => rw [h T us hh]
   · rfl
 
 /-- A constructor's family is a stored inductive. -/
 theorem ctorFamily_find {f : Name → Option ConstantInfo} {cvj cvT : ConstantVal}
-    {caps : ConLeche.IndCaps} (h : ConLeche.ctorFamily f cvj = some (cvT, caps)) :
+    {caps : ConLeche.IndCaps} (h : ctorTypeFamily f cvj = some (cvT, caps)) :
     ∃ T us, cvj.type.piResult.getAppFn = .const T us ∧ f T = some (.indInfo cvT caps) := by
-  unfold ConLeche.ctorFamily at h
+  unfold ctorTypeFamily ConLeche.ctorFamily at h
   split at h
   · next T us hh =>
     split at h
@@ -447,9 +464,9 @@ theorem ctorFamily_find {f : Name → Option ConstantInfo} {cvj cvT : ConstantVa
 /-- `FamNZ` reads the family's lookup and the reading of its type. -/
 theorem FamNZ.congr {V : Type w} [SetTheory V] {acval acval' : Name → (Name → Nat) → Term}
     {env env' : Env} {φ : Name → Nat} {cvj cvj' : ConstantVal} {us : List Level}
-    (hfam : ConLeche.ctorFamily env'.find? cvj' = ConLeche.ctorFamily env.find? cvj)
+    (hfam : ctorTypeFamily env'.find? cvj' = ctorTypeFamily env.find? cvj)
     (hde : ∀ (cvT : ConstantVal) (caps : ConLeche.IndCaps) (ta : Term),
-      ConLeche.ctorFamily env.find? cvj = some (cvT, caps) →
+      ctorTypeFamily env.find? cvj = some (cvT, caps) →
       denote acval env φ 0 (cvT.type.instantiateLevelParams cvT.levelParams us) = some ta →
       denote acval' env' φ 0 (cvT.type.instantiateLevelParams cvT.levelParams us) = some ta)
     (h : FamNZ (V := V) acval' env' φ cvj' us) : FamNZ (V := V) acval env φ cvj us := by
@@ -514,8 +531,8 @@ recursor's levels:
           = interp V ρ (Term.mkAppN Ra (xs.take rP)) ∧
         ((∀ x ∈ xs, WellDenoted V ρ x) →
           WellDenoted V ρ (Term.mkAppN Ra (xs.take rP)))) ∧
-    ∀ (cvj : ConstantVal) (cnP cnF : Nat),
-      env.find? (RecRule.ctor rl) = some (.ctorInfo cvj cnP cnF) →
+    ∀ (cvj : ConstantVal) (cnP cnF : Nat) (iT : Name),
+      env.find? (RecRule.ctor rl) = some (.ctorInfo cvj cnP cnF iT) →
     -- the constructor's arity
     (cvj.type.stripPis (cnP + RecRule.nfields rl)).isSome = true ∧
     (isK = false →
@@ -645,8 +662,8 @@ section note). -/
             TeleFitPA V ρ TVa zs restR →
             WellDenoted V ρ
               (Term.instRevChain zs vpa)) ∧
-      ∀ (cvj : ConstantVal) (cnP cnF : Nat),
-        env.find? (RecRule.ctor rl) = some (.ctorInfo cvj cnP cnF) →
+      ∀ (cvj : ConstantVal) (cnP cnF : Nat) (iT : Name),
+        env.find? (RecRule.ctor rl) = some (.ctorInfo cvj cnP cnF iT) →
       ∀ (usj : List Level) (ρ : Nat → V) (xs ys : List Term)
         (TVa TVja restR restC : Term),
         xs.length = mI →
@@ -868,9 +885,9 @@ dummy binders carry the reading only; the law never reads them. -/
   (∃ (cvT : ConstantVal) (capsT : IndCaps),
     env.find? T = some (.indInfo cvT capsT) ∧
     cvT.levelParams = entry.levelParams) ∧
-  ∃ cvC : ConstantVal,
+  ∃ (cvC : ConstantVal) (iT : Name),
     env.find? entry.ctor
-      = some (.ctorInfo cvC entry.numParams entry.numFields) ∧
+      = some (.ctorInfo cvC entry.numParams entry.numFields iT) ∧
     cvC.levelParams = entry.levelParams ∧
     (∀ us : List Level, us.length = entry.levelParams.length →
       -- (A) the typing law

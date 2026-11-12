@@ -73,8 +73,8 @@ does**: what a `.plain` rule reads of the constructor's parameters, by
 name (`recFireComparands`), is the pin's, at every instantiation. -/
 @[expose] def PinLinked (env : Env) (n : Name) (ci : ConstantInfo) : Prop :=
   ∀ cv mI rP isK rules, ci = .recInfo cv mI rP isK rules →
-    ∀ rl ∈ rules, RecRule.fire rl = .plain → ∀ cvj cnP cnF,
-      env.find? (RecRule.ctor rl) = some (.ctorInfo cvj cnP cnF) →
+    ∀ rl ∈ rules, RecRule.fire rl = .plain → ∀ cvj cnP cnF T,
+      env.find? (RecRule.ctor rl) = some (.ctorInfo cvj cnP cnF T) →
       ∀ us : List Level, us.length = cv.levelParams.length →
         cvj.levelParams.map (fun p => Level.subst cv.levelParams us (.param p)) =
           (pinnedInfo (RecRule.ctor rl)).toConstantVal.levelParams.map
@@ -83,11 +83,11 @@ name (`recFireComparands`), is the pin's, at every instantiation. -/
 /-- The link reads constructors only. -/
 theorem PinLinked.mono {env env' : Env} {n : Name} {ci : ConstantInfo}
     (h : PinLinked env n ci)
-    (hc : ∀ x cvj cnP cnF, env'.find? x = some (.ctorInfo cvj cnP cnF) →
-      env.find? x = some (.ctorInfo cvj cnP cnF)) :
+    (hc : ∀ x cvj cnP cnF T, env'.find? x = some (.ctorInfo cvj cnP cnF T) →
+      env.find? x = some (.ctorInfo cvj cnP cnF T)) :
     PinLinked env' n ci :=
-  fun cv mI rP isK rules hci rl hrl hp cvj cnP cnF hf us hus =>
-    h cv mI rP isK rules hci rl hrl hp cvj cnP cnF (hc _ _ _ _ hf) us hus
+  fun cv mI rP isK rules hci rl hrl hp cvj cnP cnF T hf us hus =>
+    h cv mI rP isK rules hci rl hrl hp cvj cnP cnF T (hc _ _ _ _ _ hf) us hus
 
 /-- Every stored reserved-basis constant is a copy of the pinned
 *declaration*, links its constructors as the pin does, and — where the
@@ -115,8 +115,8 @@ theorem BasisPinnedTT.natKinds {env : Env} {cval : Name → (Name → Nat) → T
     (h : BasisPinnedTT env cval) : NatKinds env := by
   refine ⟨fun c hf => ?_, fun c hf => ?_, fun c hf => ?_⟩
   · rw [(h _ c hf (by decide)).1.1]; exact ⟨_, _, rfl⟩
-  · rw [(h _ c hf (by decide)).1.1]; exact ⟨_, _, _, rfl⟩
-  · rw [(h _ c hf (by decide)).1.1]; exact ⟨_, _, _, rfl⟩
+  · rw [(h _ c hf (by decide)).1.1]; exact ⟨_, _, _, _, rfl⟩
+  · rw [(h _ c hf (by decide)).1.1]; exact ⟨_, _, _, _, rfl⟩
 
 /-- The one level parameter the stored `Eq` is at. -/
 @[expose] def eqLp (env : Env) : Name :=

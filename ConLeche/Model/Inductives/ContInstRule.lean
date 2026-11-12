@@ -53,7 +53,7 @@ depth `hi` over its `nF` fields: the fields' domains read as the
 recorded fields substituted by `instTau` (each opener at its own
 depth), and the conclusion reads as the recorded result substituted. -/
 theorem instCtor_open {c j : Nat} (hc : c < D.k) (hj : j < D.nctors c) {cv : ConstantVal}
-    {nF : Nat} (hfc : env.find? (D.ctorName c j) = some (.ctorInfo cv ds.length nF))
+    {nF : Nat} {iT : Name} (hfc : env.find? (D.ctorName c j) = some (.ctorInfo cv ds.length nF iT))
     {crest : Expr}
     (hcr : ConLeche.instPisWith ds (cv.type.instantiateLevelParams cv.levelParams us)
       = some crest)

@@ -873,7 +873,7 @@ theorem eqRecExtra {m : EnvModel V env}
       = some eqReflA := by
     rw [ConLeche.Env.find?_cons, ite_eq_right (by decide)]; exact hR
   refine ⟨fun _ => ⟨rfl, fun Ra hRa' ρ xs a restR hxs hfitR _ => ?_⟩,
-    fun cvj cnP cnF hfj => ?_⟩
+    fun cvj cnP cnF iT hfj => ?_⟩
   · obtain rfl : Ra = _ := (Option.some.inj (hRa'.symm.trans hRa))
     obtain ⟨x1, x2, x3, x4, x5, rfl⟩ :
         ∃ p q r s t, xs = [p, q, r, s, t] := by
@@ -959,7 +959,7 @@ theorem eqRecLaw {m : EnvModel V env}
   refine ⟨_, hRa, fun ρ => (eqRecRa_data ψ ρ).1, ?_, ?_⟩
   · intro _ _ h
     exact nomatch h
-  intro cvj cnP cnF hfj usj ρ xs ys TVa TVja restR restC hxs hys husj
+  intro cvj cnP cnF iT hfj usj ρ xs ys TVa TVja restR restC hxs hys husj
     hlev _ hpin hTVa hTVja hfitR hfitC
   have hR' : (⟨eqRecA :: env.consts, env.tables⟩ : Env).find? eqReflName
       = some eqReflA := by
@@ -967,7 +967,7 @@ theorem eqRecLaw {m : EnvModel V env}
   rw [show RecRule.ctor eqRecRule = eqReflName from rfl, hR'] at hfj
   obtain ⟨rfl, rfl, rfl⟩ :
       cvj = eqReflA.toConstantVal ∧ cnP = 2 ∧ cnF = 0 := by
-    injection Option.some.inj hfj with a1 a2 a3
+    injection Option.some.inj hfj with a1 a2 a3 _
     exact ⟨a1.symm, a2.symm, a3.symm⟩
   obtain ⟨x1, x2, x3, x4, x5, rfl⟩ :
       ∃ p q r s t, xs = [p, q, r, s, t] := by
@@ -1194,7 +1194,7 @@ theorem extendEqRec (mp : EnvModelM V env)
         injection heq with _ _ _ _ h4
         rw [← h4] at hr
         rcases List.mem_cons.mp hr with rfl | hr'
-        · exact ⟨_, _, _, hR, fun _ => rfl⟩
+        · exact ⟨_, _, _, _, hR, fun _ => rfl⟩
         · exact nomatch hr'))
     (fun ψ₁ ψ₂ hp => eqRecValT_congr
       (hp uN (by
@@ -1237,6 +1237,7 @@ theorem declBasisPB_eqK {env₁ : Env} (mp : EnvModelM V env)
   have hwf1 : EnvWF ⟨eqI :: env.consts, env.tables⟩ :=
     EnvWF.cons (by decide) mp.base2.wf ⟨rfl, rfl, rfl, rfl,
       (fun _ _ _ heq => nomatch heq), (fun _ _ _ _ _ heq => nomatch heq)⟩
+      (by intro _ _ h hn; cases h; exact nomatch hn)
   obtain ⟨mp1, hac1, hr1, hc1⟩ := extendEq mp hf1 hwf1
   have hEv1 : ∀ ψ : Name → Nat, mp1.base2.acval eqName ψ
       = eqValT ψ := by
@@ -1249,6 +1250,7 @@ theorem declBasisPB_eqK {env₁ : Env} (mp : EnvModelM V env)
   have hwf2 : EnvWF ⟨eqReflA :: eqI :: env.consts, env.tables⟩ := by
     refine EnvWF.cons (by decide) hwf1 ⟨rfl, rfl, ?_, rfl,
       (fun _ _ _ heq => nomatch heq), (fun _ _ _ _ _ heq => nomatch heq)⟩
+      (hk := CtorWF.of_head rfl)
     show Expr.constsResolve _ eqReflA.toConstantVal.type = true
     have hf : (⟨eqReflA :: eqI :: env.consts, env.tables⟩ : Env).find? eqName
         = some eqI := by
@@ -1282,12 +1284,12 @@ theorem declBasisPB_eqK {env₁ : Env} (mp : EnvModelM V env)
       (fun ψ ρ A a b hA ha hb => by
         rw [hEv2]; exact eqValT_app₃ ψ ρ A a b hA ha hb)
       (fun ψ ρ => by rw [hRv2]; exact eqReflValT_interp ψ ρ))
-    (eqLfp_stored ⟨_, _, hE2⟩ ⟨_, _, _, hR2⟩)
+    (eqLfp_stored ⟨_, _, hE2⟩ ⟨_, _, _, _, hR2⟩)
     (eqLfp_reads hE2 rfl fun ψ => denote_eqA_type ψ)
     ⟨rfl, fun c hc j hj => by
       obtain rfl : c = 0 := Nat.lt_one_iff.mp hc
       obtain rfl : j = 0 := Nat.lt_one_iff.mp hj
-      refine ⟨eqReflA.toConstantVal, 2, 0, hR2, rfl,
+      refine ⟨eqReflA.toConstantVal, 2, 0, eqName, hR2, rfl,
         fun mm hmm => ⟨eqI.toConstantVal, _, by
           obtain rfl : mm = 0 := Nat.lt_one_iff.mp hmm
           exact hE2, rfl⟩,
@@ -1330,7 +1332,7 @@ theorem declBasisPB_eqK {env₁ : Env} (mp : EnvModelM V env)
         show ConLeche.PropWhen.holds ψ (ConLeche.PropWhen.ifAllZero []) = true
         rw [ConLeche.PropWhen.holds_ifAllZero]; rfl)
       rfl
-      ⟨_, _, _, hR2, _, [.bvar 0], rfl⟩)
+      ⟨_, _, _, _, hR2, _, [.bvar 0], rfl⟩)
   have hf3 : (⟨eqReflA :: eqI :: env.consts, env.tables⟩ : Env).find?
       eqRecA.name = none := Option.isNone_iff_eq_none.mp h3
   have hwf3 : EnvWF ⟨eqRecA :: eqReflA :: eqI :: env.consts, env.tables⟩ := by
@@ -1386,7 +1388,7 @@ theorem declBasisPB_eqK {env₁ : Env} (mp : EnvModelM V env)
         rfl)
       ⟨2, [(eqReflA.toConstantVal, 0)], rfl, rfl, fun j hj => by
         obtain rfl : j = 0 := Nat.lt_one_iff.mp hj
-        exact hR2⟩
+        exact ⟨_, hR2⟩⟩
       (fun _ h => by simp [nestPick] at h) (by decide)
       (fun nP' L h j hj => by
         simp only [nestPick, Option.some.injEq, Prod.mk.injEq] at h

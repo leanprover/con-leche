@@ -89,7 +89,7 @@ def projIndexedStructLike (find? : Name → Option ConstantInfo) (T sn : Name)
       | [c] =>
         caps.nparams < nArgs &&
           match find? c with
-          | some (.ctorInfo _ _ nF) => decide (i < nF)
+          | some (.ctorInfo _ _ nF _) => decide (i < nF)
           | _ => false
       | _ => false
     | _ => false
@@ -328,7 +328,7 @@ def structEtaCertWith (r : CoreFns m) (env : Env) (depth : Nat)
   match a.getAppFn with
   | .const c us =>
     match env.find? c with
-    | some (.ctorInfo cvc cnP cnF) =>
+    | some (.ctorInfo cvc cnP cnF _) =>
       if a.getAppArgs.length = cnP + cnF then
         match wtb.getAppFn with
         | .const T us' =>
@@ -573,14 +573,30 @@ injection of fields that fit the family's constructor there.  The ι step asks
 at the rule's comparand levels (`recFireComparands`), not at the constructor's,
 which it does not compare there. -/
 def iotaCase3At (wh : Nat → Expr → m Expr) (find? : Name → Option ConstantInfo) (isK : Bool)
-    (cvj : ConstantVal) (us : List Level) : m Bool :=
+    (induct : Name) (us : List Level) : m Bool :=
   if isK then pure false else
-  match ctorFamily find? cvj with
+  match ctorFamily find? induct with
   | some (cvT, caps) =>
     if cvT.levelParams.length == us.length then do
       pure (!(← formerNeverZeroAt wh cvT caps us))
     else pure true
   | none => pure true
+
+/-- **The ι case split, read off the stored facts first** (task #573): a K
+rule, and a rule whose constructor's family records a sort that is never
+zero (`IndCaps.neverZero`) at the comparand levels' count, need no
+certificate (`iotaNoCert`), and nothing is substituted or walked for them;
+any other rule is decided at the use (`iotaCase3At`). -/
+def iotaCaseAt (wh : Nat → Expr → m Expr) (find? : Name → Option ConstantInfo) (isK : Bool)
+    (induct : Name) (us : List Level) : m Bool :=
+  if iotaNoCert find? isK induct us.length then pure false else iotaCase3At wh find? isK induct us
+
+/-- **Is a family's sort never zero at the levels `us`**, at its recorded
+fact first (`IndCaps.neverZero`), else where it is asked
+(`formerNeverZeroAt`). -/
+def familyNeverZeroAt (wh : Nat → Expr → m Expr) (cvT : ConstantVal) (caps : IndCaps)
+    (us : List Level) : m Bool :=
+  if caps.neverZero then pure true else formerNeverZeroAt wh cvT caps us
 
 /-- Stuck-major rescue (`to_cnstr_when_K` and `to_cnstr_when_structure`
 in the official kernel): a recursor's major premise that does not whnf
@@ -610,135 +626,132 @@ def majorToCtor (r : CoreFns m) (env : Env) (depth : Nat)
   match rules with
   | [rl] =>
     match env.find? rl.ctor with
-    | some (.ctorInfo cvj cnP _cnF) =>
-      match (cvj.type.piResult).getAppFn with
-      | .const T _ =>
-        match env.find? T with
-        | some (.indInfo cvT caps) =>
-          if isK = true then
-            -- task #172 B4: io grade (lean4lean toCtorWhenK inferType)
-            let tmaj ← r.whnf depth (← r.inferIO depth major)
-            match tmaj.getAppFn with
-            | .const T' ust =>
-              if T' = T ∧ cvj.levelParams.length = ust.length then
-                -- no constructor-telescope arity pin: the model proof
-                -- consumes no such fact
-                if cnP ≤ tmaj.getAppArgs.length then
-                  let fab := Expr.mkAppN (.const rl.ctor ust)
-                    (tmaj.getAppArgs.take cnP)
-                  -- scope guard: scoping of
-                  -- the fabricated major is checked syntactically,
-                  -- keeping its verification local
-                  if fab.wscopedB depth && fab.looseBVarsBounded 0 &&
-                      fab.fvarLeaves.all
-                        (fun l => major.fvarLeaves.contains l) then
-                    -- The official `to_cnstr_when_K` type check on the
-                    -- fabrication: the constructor application's type
-                    -- must be defeq to the major's (for `Eq` this is
-                    -- the endpoint condition — `Eq.refl a : Eq a a`
-                    -- against the major's `Eq a b` forces `a ≡ b`;
-                    -- arena bad/098_ruleKbad fires at `Eq.rec.{3,3}`
-                    -- without it).  `proofIrrel` makes the major a
-                    -- proof (in the model both sides are the point).
-                    if ← r.defeq depth tmaj (← r.inferIO depth fab) then
-                      -- Task #342 (r1): the K check's proof-irrelevance half
-                      -- is a certificate family (official stops at the type
-                      -- check above) — gated off at the trusted mode, as
-                      -- `certAtI mode (proofIrrelI ...)` gates its cached twin
-                      -- (`ConLeche/Cached/CoreC.lean`).
-                      if ← (if mode.verifiedChecks then proofIrrel r depth fab major
-                          else pure true) then
-                        pure fab
-                      else pure major
+    | some (.ctorInfo cvj cnP _cnF T) =>
+      match env.find? T with
+      | some (.indInfo cvT caps) =>
+        if isK = true then
+          -- task #172 B4: io grade (lean4lean toCtorWhenK inferType)
+          let tmaj ← r.whnf depth (← r.inferIO depth major)
+          match tmaj.getAppFn with
+          | .const T' ust =>
+            if T' = T ∧ cvj.levelParams.length = ust.length then
+              -- no constructor-telescope arity pin: the model proof
+              -- consumes no such fact
+              if cnP ≤ tmaj.getAppArgs.length then
+                let fab := Expr.mkAppN (.const rl.ctor ust)
+                  (tmaj.getAppArgs.take cnP)
+                -- scope guard: scoping of
+                -- the fabricated major is checked syntactically,
+                -- keeping its verification local
+                if fab.wscopedB depth && fab.looseBVarsBounded 0 &&
+                    fab.fvarLeaves.all
+                      (fun l => major.fvarLeaves.contains l) then
+                  -- The official `to_cnstr_when_K` type check on the
+                  -- fabrication: the constructor application's type
+                  -- must be defeq to the major's (for `Eq` this is
+                  -- the endpoint condition — `Eq.refl a : Eq a a`
+                  -- against the major's `Eq a b` forces `a ≡ b`;
+                  -- arena bad/098_ruleKbad fires at `Eq.rec.{3,3}`
+                  -- without it).  `proofIrrel` makes the major a
+                  -- proof (in the model both sides are the point).
+                  if ← r.defeq depth tmaj (← r.inferIO depth fab) then
+                    -- Task #342 (r1): the K check's proof-irrelevance half
+                    -- is a certificate family (official stops at the type
+                    -- check above) — gated off at the trusted mode, as
+                    -- `certAtI mode (proofIrrelI ...)` gates its cached twin
+                    -- (`ConLeche/Cached/CoreC.lean`).
+                    if ← (if mode.verifiedChecks then proofIrrel r depth fab major
+                        else pure true) then
+                      pure fab
                     else pure major
                   else pure major
                 else pure major
               else pure major
-            | _ => pure major
-          else match etaRescueTable? (env.findTable? T) rl.ctor cvj cvT caps with
-          | some tbl =>
-            let tmaj ← r.whnf depth (← r.inferIO depth major)
-            match tmaj.getAppFn with
-            | .const T' ust =>
-              -- The official kernel does not eta-rescue propositional
-              -- structures (`to_cnstr_when_structure` requires the
-              -- structure's result sort to be provably nonzero).  The
-              -- test is the *instantiated* one (task #61): a static
-              -- test of the declared type's result sort passes a
-              -- parametric `Sort u` that a `Prop` instantiation
-              -- collapses, which is exactly the case the guard exists
-              -- for.  The constructor and the counts are the family's
-              -- projection table's, at every field count.
-              if T' = T ∧ tmaj.getAppArgs.length = tbl.numParams ∧
-                  ust.length = cvT.levelParams.length then
-                if ← formerNeverZeroAt r.whnf cvT caps ust then
-                  -- no constructor-telescope arity pin, as in the K
-                  -- branch, and no level-count pin: the rule's
-                  -- constructor carries the former's level parameters
-                  -- (`etaRescueTable?`), which the fabrication's levels
-                  -- are those of
-                  let fab := Expr.mkAppN (.const tbl.ctor ust)
-                      (etaFabArgsE T tmaj.getAppArgs major tbl.numFields)
-                  -- scope guard, as in the K branch.  No certificate on
-                  -- the fabricated spine: the major is the fabrication by
-                  -- the family's η law, and the fabrication fits the η
-                  -- constructor's telescope by the coherence law (task
-                  -- #342 L11b).
-                  if fab.wscopedB depth && fab.looseBVarsBounded 0 &&
-                      fab.fvarLeaves.all
-                        (fun l => major.fvarLeaves.contains l) then
-                    pure fab
-                  else pure major
-                else pure major
-              else pure major
-            | _ => pure major
-          | none =>
-            if T = andName then
-              -- THE `And`-ONLY η RESCUE (user ruling: `And` and nothing
-              -- else — "this is a hack and we want its blast radius
-              -- limited").  `And.rec F h` at a stuck PROOF `h` (a theorem
-              -- is opaque to reduction) fires through the fabrication
-              -- `And.intro a b (.proj And 0 h) (.proj And 1 h)`,
-              -- certified the K branch's way: the fabrication's type
-              -- against the major's, and proof irrelevance — sound
-              -- because in the model every proof is the point.  Official does not η-rescue a proposition
-              -- (`to_cnstr_when_structure` requires a never-zero sort),
-              -- so this is an accept-superset there, reported per the
-              -- `proofIrrel` ruling; it WORKS AROUND the absence of
-              -- https://github.com/leanprover/lean4/pull/14925 (upstream
-              -- builds `casesOn`/`recOn` of such a proposition from
-              -- projections, so no `And.rec` on a proof is emitted), on
-              -- top of opaque theorems, which ANTICIPATE
-              -- https://github.com/leanprover/lean4/pull/14896.
-              let tmaj ← r.whnf depth (← r.inferIO depth major)
-              match tmaj.getAppFn with
-              | .const T' ust =>
-                if T' = T ∧ tmaj.getAppArgs.length = cnP ∧
-                    cvj.levelParams.length = ust.length ∧
-                    andRescueSlots env rl.ctor cnP = true then
-                  let fab := Expr.mkAppN (.const rl.ctor ust)
-                    (tmaj.getAppArgs ++ [.proj T 0 major, .proj T 1 major])
-                  -- scope guard, as in the K branch
-                  if fab.wscopedB depth && fab.looseBVarsBounded 0 &&
-                      fab.fvarLeaves.all
-                        (fun l => major.fvarLeaves.contains l) then
-                    -- the fabrication's type against the major's, then
-                    -- proof irrelevance, as in the K branch
-                    if ← r.defeq depth tmaj (← r.inferIO depth fab) then
-                      -- Task #342 (r1): proof irrelevance here, as in the K
-                      -- branch, is a certificate family — gated off at the
-                      -- trusted mode (`certAtI mode (proofIrrelI ...)` in the
-                      -- cached twin).
-                      if ← (if mode.verifiedChecks then proofIrrel r depth fab major
-                          else pure true) then
-                        pure fab
-                      else pure major
-                    else pure major
-                  else pure major
-                else pure major
-              | _ => pure major
             else pure major
-        | _ => pure major
+          | _ => pure major
+        else match etaRescueTable? (env.findTable? T) rl.ctor cvj cvT caps with
+        | some tbl =>
+          let tmaj ← r.whnf depth (← r.inferIO depth major)
+          match tmaj.getAppFn with
+          | .const T' ust =>
+            -- The official kernel does not eta-rescue propositional
+            -- structures (`to_cnstr_when_structure` requires the
+            -- structure's result sort to be provably nonzero).  The
+            -- test is the *instantiated* one (task #61): a static
+            -- test of the declared type's result sort passes a
+            -- parametric `Sort u` that a `Prop` instantiation
+            -- collapses, which is exactly the case the guard exists
+            -- for.  The constructor and the counts are the family's
+            -- projection table's, at every field count.
+            if T' = T ∧ tmaj.getAppArgs.length = tbl.numParams ∧
+                ust.length = cvT.levelParams.length then
+              if ← familyNeverZeroAt r.whnf cvT caps ust then
+                -- no constructor-telescope arity pin, as in the K
+                -- branch, and no level-count pin: the rule's
+                -- constructor carries the former's level parameters
+                -- (`etaRescueTable?`), which the fabrication's levels
+                -- are those of
+                let fab := Expr.mkAppN (.const tbl.ctor ust)
+                    (etaFabArgsE T tmaj.getAppArgs major tbl.numFields)
+                -- scope guard, as in the K branch.  No certificate on
+                -- the fabricated spine: the major is the fabrication by
+                -- the family's η law, and the fabrication fits the η
+                -- constructor's telescope by the coherence law (task
+                -- #342 L11b).
+                if fab.wscopedB depth && fab.looseBVarsBounded 0 &&
+                    fab.fvarLeaves.all
+                      (fun l => major.fvarLeaves.contains l) then
+                  pure fab
+                else pure major
+              else pure major
+            else pure major
+          | _ => pure major
+        | none =>
+          if T = andName then
+            -- THE `And`-ONLY η RESCUE (user ruling: `And` and nothing
+            -- else — "this is a hack and we want its blast radius
+            -- limited").  `And.rec F h` at a stuck PROOF `h` (a theorem
+            -- is opaque to reduction) fires through the fabrication
+            -- `And.intro a b (.proj And 0 h) (.proj And 1 h)`,
+            -- certified the K branch's way: the fabrication's type
+            -- against the major's, and proof irrelevance — sound
+            -- because in the model every proof is the point.  Official does not η-rescue a proposition
+            -- (`to_cnstr_when_structure` requires a never-zero sort),
+            -- so this is an accept-superset there, reported per the
+            -- `proofIrrel` ruling; it WORKS AROUND the absence of
+            -- https://github.com/leanprover/lean4/pull/14925 (upstream
+            -- builds `casesOn`/`recOn` of such a proposition from
+            -- projections, so no `And.rec` on a proof is emitted), on
+            -- top of opaque theorems, which ANTICIPATE
+            -- https://github.com/leanprover/lean4/pull/14896.
+            let tmaj ← r.whnf depth (← r.inferIO depth major)
+            match tmaj.getAppFn with
+            | .const T' ust =>
+              if T' = T ∧ tmaj.getAppArgs.length = cnP ∧
+                  cvj.levelParams.length = ust.length ∧
+                  andRescueSlots env rl.ctor cnP = true then
+                let fab := Expr.mkAppN (.const rl.ctor ust)
+                  (tmaj.getAppArgs ++ [.proj T 0 major, .proj T 1 major])
+                -- scope guard, as in the K branch
+                if fab.wscopedB depth && fab.looseBVarsBounded 0 &&
+                    fab.fvarLeaves.all
+                      (fun l => major.fvarLeaves.contains l) then
+                  -- the fabrication's type against the major's, then
+                  -- proof irrelevance, as in the K branch
+                  if ← r.defeq depth tmaj (← r.inferIO depth fab) then
+                    -- Task #342 (r1): proof irrelevance here, as in the K
+                    -- branch, is a certificate family — gated off at the
+                    -- trusted mode (`certAtI mode (proofIrrelI ...)` in the
+                    -- cached twin).
+                    if ← (if mode.verifiedChecks then proofIrrel r depth fab major
+                        else pure true) then
+                      pure fab
+                    else pure major
+                  else pure major
+                else pure major
+              else pure major
+            | _ => pure major
+          else pure major
       | _ => pure major
     | _ => pure major
   | _ => pure major
@@ -899,7 +912,7 @@ def iotaRec (r : CoreFns m) (env : Env) (depth : Nat) (e : Expr) :
         match major.getAppFn with
         | .const cj usj =>
           match env.find? cj with
-          | some (.ctorInfo cvj cnP _) =>
+          | some (.ctorInfo cvj cnP _ induct) =>
             match rules.find? (fun r' => r'.ctor == cj) with
             | some rl =>
               let margs := major.getAppArgs
@@ -930,7 +943,7 @@ def iotaRec (r : CoreFns m) (env : Env) (depth : Nat) (e : Expr) :
                 -- cached twin gates the whole case-3 decision through
                 -- `certAtI mode (do ...)` (`ConLeche/Cached/CoreC.lean`)
                 if ← (if mode.verifiedChecks then
-                    (iotaCase3At r.whnf env.find? isK cvj cmp.1 >>= fun c3 => if c3 then do
+                    (iotaCaseAt r.whnf env.find? isK induct cmp.1 >>= fun c3 => if c3 then do
                       if ← liftFueled "level comparison" (Level.isEquivList usj cmp.1) then
                         if ← defEqList r env depth (margs.take cnP) cmp.2 then
                           if ← iotaCertsFull r env depth
@@ -967,7 +980,7 @@ checks nothing.  (Level instantiation keeps the arity, so the stored
 type is read uninstantiated.) -/
 def projCert (env : Env) (c : Name) (args : List Expr) : Bool :=
   match env.find? c with
-  | some (.ctorInfo cvC _ _) => teleArityOk cvC.type args
+  | some (.ctorInfo cvC _ _ _) => teleArityOk cvC.type args
   | _ => false
 
 /-- **The fire check as the mode runs it** (parity mirrors official,

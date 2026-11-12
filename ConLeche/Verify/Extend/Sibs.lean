@@ -28,8 +28,8 @@ theorem RecCtorsStored.cons {env : Env} {c₀ : ConstantInfo}
     (hold : RecCtorsStored env) (hfresh : env.find? c₀.name = none)
     (hnew : ∀ cvR mI rP isK rules, c₀ = .recInfo cvR mI rP isK rules →
       ∀ r ∈ rules,
-        (∃ cvj cnP cnF,
-          env.find? (RecRule.ctor r) = some (.ctorInfo cvj cnP cnF))) :
+        (∃ cvj cnP cnF T,
+          env.find? (RecRule.ctor r) = some (.ctorInfo cvj cnP cnF T))) :
     RecCtorsStored (⟨c₀ :: env.consts, env.tables⟩ : Env) := by
   have hkeep : ∀ (m : Name) (ci : ConstantInfo),
       (∀ cv mI rP isK rules, ci ≠ .recInfo cv mI rP isK rules) →
@@ -42,12 +42,12 @@ theorem RecCtorsStored.cons {env : Env} {c₀ : ConstantInfo}
   split at hfp
   · next hn =>
     obtain hceq := Option.some.inj hfp
-    obtain ⟨cvj, cnP, cnF, hf⟩ := hnew _ _ _ _ _ hceq r hr
-    exact ⟨cvj, cnP, cnF, hkeep _ _
+    obtain ⟨cvj, cnP, cnF, T, hf⟩ := hnew _ _ _ _ _ hceq r hr
+    exact ⟨cvj, cnP, cnF, T, hkeep _ _
         (fun _ _ _ _ _ hh => ConstantInfo.noConfusion hh) hf⟩
   · next hn =>
-    obtain ⟨cvj, cnP, cnF, hf⟩ := hold n cv mI rP isK rules hfp r hr
-    exact ⟨cvj, cnP, cnF, hkeep _ _
+    obtain ⟨cvj, cnP, cnF, T, hf⟩ := hold n cv mI rP isK rules hfp r hr
+    exact ⟨cvj, cnP, cnF, T, hkeep _ _
         (fun _ _ _ _ _ hh => ConstantInfo.noConfusion hh) hf⟩
 
 end ConLeche

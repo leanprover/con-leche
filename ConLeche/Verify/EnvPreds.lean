@@ -35,8 +35,8 @@ recursor is installed after them). -/
   ∀ n cv mI rP isK rules,
     env.find? n = some (.recInfo cv mI rP isK rules) →
     ∀ r ∈ rules,
-      ∃ cvj cnP cnF,
-        env.find? (RecRule.ctor r) = some (.ctorInfo cvj cnP cnF)
+      ∃ cvj cnP cnF T,
+        env.find? (RecRule.ctor r) = some (.ctorInfo cvj cnP cnF T)
 
 theorem RecCtorsStored.empty : RecCtorsStored Env.empty := by
   intro n cv mI rP isK rules h
@@ -60,8 +60,8 @@ the bodies' scoping is `EnvWF`'s table clause.) -/
   (∃ (cvT : ConstantVal) (caps : IndCaps),
     env.find? entry.structName = some (.indInfo cvT caps) ∧
     cvT.levelParams = entry.levelParams) ∧
-  (∃ cvC : ConstantVal,
-    env.find? entry.ctor = some (.ctorInfo cvC entry.numParams entry.numFields) ∧
+  (∃ (cvC : ConstantVal) (T : Name),
+    env.find? entry.ctor = some (.ctorInfo cvC entry.numParams entry.numFields T) ∧
     cvC.levelParams = entry.levelParams ∧
     (cvC.type.stripPis (entry.numParams + entry.numFields)).isSome = true)
 
@@ -75,8 +75,8 @@ constructor is still read: `unitLikeShape`). -/
   (∃ (cvT : ConstantVal) (caps : IndCaps),
     env.find? tbl.structName = some (.indInfo cvT caps) ∧
     cvT.levelParams = tbl.levelParams) ∧
-  (∃ cvC : ConstantVal,
-    env.find? tbl.ctor = some (.ctorInfo cvC tbl.numParams tbl.numFields) ∧
+  (∃ (cvC : ConstantVal) (T : Name),
+    env.find? tbl.ctor = some (.ctorInfo cvC tbl.numParams tbl.numFields T) ∧
     cvC.levelParams = tbl.levelParams ∧
     (cvC.type.stripPis (tbl.numParams + tbl.numFields)).isSome = true)
 
@@ -92,10 +92,10 @@ theorem TableHead.mono {env env' : Env} {tbl : ProjTable}
       (∀ cv mI rP isK rules, ci ≠ .recInfo cv mI rP isK rules) →
       env.find? n = some ci → env'.find? n = some ci)
     (h : TableHead env tbl) : TableHead env' tbl := by
-  obtain ⟨h2, h3, h4, ⟨cvT, caps, hT, hlT⟩, ⟨cvC, hC, hlC, hstrip⟩⟩ := h
+  obtain ⟨h2, h3, h4, ⟨cvT, caps, hT, hlT⟩, ⟨cvC, T, hC, hlC, hstrip⟩⟩ := h
   exact ⟨h2, h3, h4,
     ⟨cvT, caps, hkeep _ _ (fun _ _ _ _ _ hh => ConstantInfo.noConfusion hh) hT, hlT⟩,
-    ⟨cvC, hkeep _ _ (fun _ _ _ _ _ hh => ConstantInfo.noConfusion hh) hC, hlC, hstrip⟩⟩
+    ⟨cvC, T, hkeep _ _ (fun _ _ _ _ _ hh => ConstantInfo.noConfusion hh) hC, hlC, hstrip⟩⟩
 
 /-- **The projection-table discipline**: every stored table carries
 the syntactic head data (`TableHead`), and so each of its entries
@@ -130,11 +130,12 @@ like any other block, and its former stores the capabilities the block gives it 
 
 /-- `Nat`'s former as stored. -/
 @[expose] def natI : ConstantInfo :=
-  .indInfo natA.toConstantVal { all := [natName], ctors := [natZeroName, natSuccName] }
+  .indInfo natA.toConstantVal
+    { all := [natName], ctors := [natZeroName, natSuccName], neverZero := true }
 
 /-- `Empty`'s former as stored. -/
 @[expose] def emptyI : ConstantInfo :=
-  .indInfo emptyA.toConstantVal { all := [emptyName] }
+  .indInfo emptyA.toConstantVal { all := [emptyName], neverZero := true }
 
 /-- `False`'s former as stored. -/
 @[expose] def falseI : ConstantInfo :=

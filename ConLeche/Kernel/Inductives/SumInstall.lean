@@ -116,10 +116,13 @@ def checkSumCtors (ops : CheckerOps m) (env₀ env : Env) (T : Name)
     checkSumCtor ops env₀ env T lps nP nIdx resSort isProp large c.1 c.2 cvTa
     checkSumCtors ops env₀ env T lps nP nIdx resSort isProp large cvTa cs
 
-/-- The constructors' conses, in order (the first constructor deepest). -/
-def consSumCtors (nP : Nat) : List (ConstantVal × Nat) → Env → Env
+/-- **The constructors' conses**, in order (the first constructor deepest), each with the
+family `T` it is declared under as its `induct` (official's `ConstructorVal.induct`): the
+constructor check (`checkSumCtor`'s result shape) has established that its declared type
+concludes in `T`. -/
+def consSumCtors (nP : Nat) (T : Name) : List (ConstantVal × Nat) → Env → Env
   | [], env => env
-  | c :: cs, env => consSumCtors nP cs ⟨.ctorInfo c.1 nP c.2 :: env.consts, env.tables⟩
+  | c :: cs, env => consSumCtors nP T cs ⟨.ctorInfo c.1 nP c.2 T :: env.consts, env.tables⟩
 
 /-- The stored rules: constructor `j`'s with the generated right-hand
 side `j`, `.plain` (the major is the family at the recursor's
