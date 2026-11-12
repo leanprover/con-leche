@@ -57,5 +57,6 @@ public import ConLeche.Verify.Ground.Sound
 public import ConLeche.Verify.Ground.Site
 public import ConLeche.Verify.Ground.Fuel
 public import ConLeche.Verify.Ground.Keys
+public import ConLeche.Verify.Ground.Memo
 
 @[expose] public section
