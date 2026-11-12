@@ -410,7 +410,7 @@ theorem prepareMajorI_congr (hfe : fe₁.find? = fe₂.find?)
 theorem iotaRecI_congr (hfe : fe₁.find? = fe₂.find?)
     (htb : fe₁.findTable? = fe₂.findTable?) (h : SlotsEq mode fe₁ fe₂ lv) :
     iotaRecI mode fe₁ eager lv = iotaRecI mode fe₂ eager lv := by
-  funext depth e; rw [iotaRecI.eq_def, iotaRecI.eq_def]
+  funext depth hd args k; rw [iotaRecI.eq_def, iotaRecI.eq_def]
   simp only [hfe, prepareMajorI_congr hfe htb h, defEqListI_congr hfe h,
     constTyAtM_congr hfe, iotaCertsFullI_congr hfe h, iotaCase3I_congr hfe h,
     iotaIndexOkI_congr hfe h, ruleRhsAtM_congr hfe]
@@ -425,25 +425,35 @@ theorem reduceProjCoreI_congr (hfe : fe₁.find? = fe₂.find?)
 /-- The peel loop only threads `fe`: it reads none of it. -/
 theorem betaPeelI_congr (_hfe : fe₁.find? = fe₂.find?) (depth : Nat) :
     betaPeelI mode fe₁ eager lv depth = betaPeelI mode fe₂ eager lv depth := by
-  funext t acc args
-  induction args generalizing t acc with
-  | nil => rw [betaPeelI.eq_def, betaPeelI.eq_def]
-  | cons a rest ih =>
+  funext t acc args i
+  obtain ⟨n, hn⟩ : ∃ n, n = args.size - i := ⟨_, rfl⟩
+  induction n generalizing t acc i with
+  | zero =>
+    rw [betaPeelI.eq_def, betaPeelI.eq_def, dite_eq_right (by omega), dite_eq_right (by omega)]
+  | succ n ih =>
     rw [betaPeelI.eq_def, betaPeelI.eq_def]
-    cases t <;> simp only [ih]
+    by_cases hi : i < args.size
+    · rw [dite_eq_left hi, dite_eq_left hi]
+      cases t <;> simp only [ih _ _ (i + 1) (by omega)]
+    · rw [dite_eq_right hi, dite_eq_right hi]
 
 /-- `whnfAppI` reads `fe` only through `find?` and `findTable?`. -/
 theorem whnfAppI_congr (hfe : fe₁.find? = fe₂.find?)
     (htb : fe₁.findTable? = fe₂.findTable?) (h : SlotsEq mode fe₁ fe₂ lv)
     (depth : Nat) :
     whnfAppI mode fe₁ eager lv depth = whnfAppI mode fe₂ eager lv depth := by
-  funext v args
-  induction args generalizing v with
-  | nil => rw [whnfAppI.eq_def, whnfAppI.eq_def]
-  | cons a rest ih =>
+  funext v args i
+  obtain ⟨n, hn⟩ : ∃ n, n = args.size - i := ⟨_, rfl⟩
+  induction n generalizing v i with
+  | zero =>
+    rw [whnfAppI.eq_def, whnfAppI.eq_def, dite_eq_right (by omega), dite_eq_right (by omega)]
+  | succ n ih =>
     rw [whnfAppI.eq_def, whnfAppI.eq_def]
-    cases v <;> simp only [betaPeelI_congr hfe, iotaArityOk_congr hfe,
-      iotaRecI_congr hfe htb h, ih]
+    by_cases hi : i < args.size
+    · rw [dite_eq_left hi, dite_eq_left hi]
+      cases v <;> simp only [betaPeelI_congr hfe, iotaArityOk_congr hfe,
+        iotaRecI_congr hfe htb h, ih _ (i + 1) (by omega)]
+    · rw [dite_eq_right hi, dite_eq_right hi]
 
 /-- `whnfStuckI` reads `fe` only through `find?` and `findTable?`. -/
 theorem whnfStuckI_congr (hfe : fe₁.find? = fe₂.find?)

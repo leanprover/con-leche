@@ -55,6 +55,116 @@ grind_pattern [conleche_grind] wscoped_piResidual => Expr.WScoped d t, piResidua
 
 end Vocabulary
 
+/-! ## The array spine (task #573)
+
+The cached ι step reads its redex as an argument array and builds its reduct from three ranges
+(`getAppArgsArr`, `mkAppRange`); these are the specification's lists. -/
+
+section ArraySpine
+
+theorem iotaNumArgs_add (e : Expr) : ∀ n, iotaNumArgs e n = iotaNumArgs e 0 + n := by
+  induction e with
+  | app g a ihg _ =>
+    intro n
+    rw [iotaNumArgs, iotaNumArgs, ihg (n + 1), ihg 1]
+    omega
+  | _ => intro n; simp [iotaNumArgs]
+
+/-- The spine length the arity pre-check computes is the argument list's. -/
+theorem iotaNumArgs_eq_length (e : Expr) : iotaNumArgs e 0 = e.getAppArgs.length := by
+  induction e with
+  | app g a ihg _ =>
+    rw [iotaNumArgs, iotaNumArgs_add g 1, ihg]; simp [Expr.getAppArgs]
+  | _ => rfl
+
+theorem getAppArgsArrGo_toList : ∀ (e : Expr) (acc : Array Expr),
+    iotaNumArgs e 0 ≤ acc.size →
+    (getAppArgsArrGo e (iotaNumArgs e 0) acc).toList
+      = e.getAppArgs ++ acc.toList.drop (iotaNumArgs e 0) := by
+  intro e
+  induction e with
+  | app g a ihg _ =>
+    intro acc hle
+    rw [iotaNumArgs, iotaNumArgs_add g 1] at hle ⊢
+    rw [getAppArgsArrGo, ihg _ (by simp; omega)]
+    simp only [Array.set!, Array.toList_setIfInBounds, Expr.getAppArgs, List.append_assoc,
+      List.singleton_append]
+    congr 1
+    generalize iotaNumArgs g 0 = n at hle ⊢
+    rw [List.drop_set]
+    have hn : n < acc.toList.length := by simp; omega
+    rw [List.drop_eq_getElem_cons hn]
+    simp
+  | _ => intro acc _; simp [getAppArgsArrGo, iotaNumArgs, Expr.getAppArgs]
+
+/-- The argument array is the argument list. -/
+@[conleche_grind =] theorem getAppArgsArr_toList (e : Expr) :
+    (getAppArgsArr e).toList = e.getAppArgs := by
+  unfold getAppArgsArr
+  rw [getAppArgsArrGo_toList e _ (by simp)]
+  simp
+
+@[conleche_grind =] theorem getAppArgsArr_size (e : Expr) :
+    (getAppArgsArr e).size = e.getAppArgs.length := by
+  rw [← Array.length_toList, getAppArgsArr_toList]
+
+/-- A range application is the application of the range's list. -/
+theorem mkAppRange_eq (f : Expr) (A : Array Expr) (i j : Nat) :
+    mkAppRange f A i j = Expr.mkAppN f ((A.toList.take j).drop i) := by
+  induction f, i using mkAppRange.induct A j with
+  | case1 f i h ih =>
+    rw [mkAppRange, dite_eq_left h, ih]
+    have hi : i < (A.toList.take j).length := by simp; omega
+    rw [show List.drop i (List.take j A.toList) = _ :: _ from List.drop_eq_getElem_cons hi]
+    simp [Expr.mkAppN]
+  | case2 f i h =>
+    rw [mkAppRange, dite_eq_right h]
+    have : (A.toList.take j).drop i = [] := by
+      apply List.drop_eq_nil_of_le; simp; omega
+    rw [this]; rfl
+
+/-- **The ι reduct, from ranges**: the right-hand side applied to the redex's leading arguments
+and the constructor's fields. -/
+@[conleche_grind =] theorem iotaReduct_eq (r : Expr) (A M : Array Expr) (rP k i : Nat) :
+    mkAppRange (mkAppRange r A 0 (min rP k)) M i M.size =
+      Expr.mkAppN r ((A.toList.take k).take rP ++ M.toList.drop i) := by
+  have happ : ∀ (as bs : List Expr) (f : Expr),
+      Expr.mkAppN f (as ++ bs) = Expr.mkAppN (Expr.mkAppN f as) bs := by
+    intro as; induction as with
+    | nil => intro _ _; rfl
+    | cons a as ih => intro bs f; exact ih bs (.app f a)
+  rw [mkAppRange_eq, mkAppRange_eq, happ,
+    show M.toList.take M.size = M.toList from List.take_of_length_le (by simp)]
+  simp [List.take_take]
+
+/-- The redex's major, read off the array at its prefix. -/
+@[conleche_grind =] theorem take_getD_of_lt {A : Array Expr} {i k : Nat} (h : i < k) :
+    (A.toList.take k).getD i (.bvar 0) = spineArg A i := by
+  simp [spineArg, List.getD_eq_getElem?_getD, h, Array.getD_eq_getD_getElem?, Expr.mkBvar_eq]
+
+theorem AllWS.spineArg {d : Nat} {A : Array Expr} (h : AllWS d A.toList) (i : Nat) :
+    Expr.WScoped d (spineArg A i) := by
+  have := AllWS.getD h i
+  simp only [List.getD_eq_getElem?_getD, Array.getElem?_toList] at this
+  show Expr.WScoped d (A.getD i (Expr.mkBvar 0))
+  rw [Array.getD_eq_getD_getElem?, Expr.mkBvar_eq]
+  exact this
+grind_pattern [conleche_grind] AllWS.spineArg => AllWS d A.toList, spineArg A i
+
+theorem length_take_of_le {A : Array Expr} {k : Nat} (h : k ≤ A.size) :
+    (A.toList.take k).length = k := by
+  simp; omega
+
+theorem getAppArgs_const' (c : Name) (us : List Level) : (Expr.const c us).getAppArgs = [] := rfl
+
+/-- A spine head is never an application. -/
+theorem getAppFn_ne_app : ∀ (e f a : Expr), e.getAppFn ≠ .app f a := by
+  intro e; induction e with
+  | app g b ih _ => intro f a; simpa [Expr.getAppFn] using ih f a
+  | _ => intro f a; simp [Expr.getAppFn]
+
+end ArraySpine
+
 section Walks
 
 variable {env : Env} {f : Nat}
@@ -637,10 +747,12 @@ grind_pattern [conleche_grind] ruleRhsOf_some =>
   guard findRule rules j = some rl
 
 /-- The cached ι certificate block (the argument of `certAtI` in
-`iotaRecI`). -/
+`iotaRecI`), over the redex's argument array `args` (its first `k`) and the
+major's `margs`, read as lists past the case decision. -/
 @[expose] def iotaCertI (mode : CheckMode) (fe : FEnv) (eager : Bool) (lv : Nat) (depth : Nat) (cv : ConstantVal)
-    (mI rP : Nat) (isK : Bool) (us : List Level) (args : List Expr) (cj cjn : Name) (usj : List Level)
-    (cvj : ConstantVal) (cnP : Nat) (rl : RecRule) (margs : List Expr) : CheckCM Bool := do
+    (mI rP : Nat) (isK : Bool) (us : List Level) (args : Array Expr) (k : Nat) (cj cjn : Name)
+    (usj : List Level) (cvj : ConstantVal) (cnP : Nat) (rl : RecRule) (margs : Array Expr) :
+    CheckCM Bool := do
   let cmpLvls : List Level ←
     match rl.fire with
     | .nested lvls _ => substLevelTreesM cv.levelParams us lvls
@@ -651,17 +763,19 @@ grind_pattern [conleche_grind] ruleRhsOf_some =>
   if ← iotaCase3I mode fe eager lv fe.find? isK cvj cmpLvls then do
     let oL ← isEquivListLM usj cmpLvls
     if ← liftFueled "level comparison" oL then do
+      let argsL ← pure (args.toList.take k)
+      let margsL ← pure margs.toList
       let cmpArgs : List Expr ←
         match rl.fire with
         | .nested _ pins =>
-          pinArgsI cv.levelParams us (args.take rP) (rP - 1) pins
-        | .plain => pure (args.take cnP)
-        | .levels _ => pure (args.take cnP)
-      if ← defEqListI mode fe eager lv depth (margs.take cnP) cmpArgs then do
+          pinArgsI cv.levelParams us (argsL.take rP) (rP - 1) pins
+        | .plain => pure (argsL.take cnP)
+        | .levels _ => pure (argsL.take cnP)
+      if ← defEqListI mode fe eager lv depth (margsL.take cnP) cmpArgs then do
         let tyCtor ← constTyAtM fe cj cjn usj
-        if ← iotaCertsFullI mode fe eager lv depth tyCtor margs then
+        if ← iotaCertsFullI mode fe eager lv depth tyCtor margsL then
           iotaIndexOkI mode fe eager lv depth mI rP cnP tyCtor
-            margs ((args.take mI).drop rP)
+            margsL ((argsL.take mI).drop rP)
         else pure false
       else pure false
     else pure false
@@ -725,18 +839,16 @@ grind_pattern [conleche_grind] ruleRhsOf_some =>
   | _ => pure none
 
 /-- `iotaRecI` with its certificate block named. -/
-theorem iotaRecI_eq (fe : FEnv) (lv : Nat) (depth : Nat) (e : Expr) :
-    iotaRecI mode fe eager lv depth e =
-    (match Expr.getAppFn e with
+theorem iotaRecI_eq (fe : FEnv) (lv : Nat) (depth : Nat) (h : Expr) (args : Array Expr) (k : Nat) :
+    iotaRecI mode fe eager lv depth h args k =
+    (match h with
     | .const c us => do
       let cn ← pure c
       match fe.find? cn with
       | some (.recInfo cv mI rP isK rules) => do
-        let args ← pure (Expr.getAppArgsC e)
-        if args.length = mI + 1 ∧ us.length = cv.levelParams.length ∧
+        if k = mI + 1 ∧ k ≤ args.size ∧ us.length = cv.levelParams.length ∧
             (Expr.peelPis (mI + 1) cv.type).isSome = true then do
-          let bvar0 ← pure (Expr.mkBvar 0)
-          let major ← prepareMajorI mode fe eager lv depth cn isK rules (args.getD mI bvar0)
+          let major ← prepareMajorI mode fe eager lv depth cn isK rules (spineArg args mI)
           match Expr.getAppFn major with
           | .const cj usj => do
             let cjn ← pure cj
@@ -744,14 +856,14 @@ theorem iotaRecI_eq (fe : FEnv) (lv : Nat) (depth : Nat) (e : Expr) :
             | some (.ctorInfo cvj cnP _) =>
               match findRule rules cjn with
               | some rl => do
-                let margs ← pure (Expr.getAppArgsC major)
-                if margs.length = cnP + rl.nfields then do
+                let margs ← pure (getAppArgsArr major)
+                if margs.size = cnP + rl.nfields then do
                   if ← certAtI mode
-                      (iotaCertI mode fe eager lv depth cv mI rP isK us args cj cjn usj cvj cnP rl margs) then do
+                      (iotaCertI mode fe eager lv depth cv mI rP isK us args k cj cjn usj cvj cnP rl
+                        margs) then do
                     let rhs ← ruleRhsAtM fe c cj cn cjn us
-                    let red ← mkAppNM rhs
-                      (args.take rP ++ margs.drop cnP)
-                    pure (some red)
+                    pure (some (mkAppRange (mkAppRange rhs args 0 (min rP k))
+                      margs cnP margs.size))
                   else pure none
                 else pure none
               | none => pure none
@@ -940,14 +1052,15 @@ theorem iotaCase3C_spec (ih : SSimC mode eager env f) (henv : EnvWF env) {isK : 
 /-- The case-3 certificate block simulates its fueled original. -/
 theorem iotaCertC_spec (ih : SSimC mode eager env f) (henv : EnvWF env) {d : Nat} {s₀ : CState}
     (hs : CSOK mode eager env s₀) (cv : ConstantVal) (mI rP : Nat) (isK : Bool) (us : List Level)
-    {args : List Expr} (hargs : AllWS d args) (cj cjn : Name) (usj : List Level)
-    {cvj : ConstantVal} (hfj : ctorVal? env cjn = some cvj) (cnP : Nat) {rl : RecRule}
-    (hrl : OptRuleOK (some rl)) {margs : List Expr} (hm : AllWS d margs) :
+    {args : Array Expr} {k : Nat} (hargs : AllWS d (args.toList.take k)) (cj cjn : Name)
+    (usj : List Level) {cvj : ConstantVal} (hfj : ctorVal? env cjn = some cvj) (cnP : Nat)
+    {rl : RecRule} (hrl : OptRuleOK (some rl)) {margs : Array Expr} (hm : AllWS d margs.toList) :
     ⦃fun s => s = s₀⦄
-      iotaCertI mode (mkFEnv env) eager f d cv mI rP isK us args cj cjn usj cvj
+      iotaCertI mode (mkFEnv env) eager f d cv mI rP isK us args k cj cjn usj cvj
         cnP rl margs
     ⦃fun b s' => CSOK mode eager env s' ∧
-      Runs (iotaCertP (fueledFns mode eager env) env d cv mI rP isK us args usj cvj cnP rl margs) b; ⊤⦄ :=
+      Runs (iotaCertP (fueledFns mode eager env) env d cv mI rP isK us (args.toList.take k) usj cvj
+        cnP rl margs.toList) b; ⊤⦄ :=
           by
   obtain ⟨_, nF, hfj⟩ := ctorVal?_some hfj
   sym only [conleche_grind, iotaCertP, constTyOf, ConstantInfo.toConstantVal,
@@ -959,14 +1072,19 @@ theorem iotaCertC_spec (ih : SSimC mode eager env f) (henv : EnvWF env) {d : Nat
 
 /-- The ι step simulates its fueled original. -/
 theorem iotaRecC_spec (ih : SSimC .verified eager env f)
-    (henv : EnvWF env) {d : Nat} {i : Expr} {s₀ : CState} (hs : CSOK .verified eager env s₀)
-    (hw : Expr.WScoped d i) :
-    ⦃fun s => s = s₀⦄ iotaRecI .verified (mkFEnv env) eager f d i
-    ⦃fun o s' => CSOK .verified eager env s' ∧ Runs (iotaRec .verified (fueledFns .verified eager env) env d i) o ∧
+    (henv : EnvWF env) {d : Nat} {h : Expr} {args : Array Expr} {k : Nat} {s₀ : CState}
+    (hs : CSOK .verified eager env s₀) (hh : h.getAppFn = h) (hk : k ≤ args.size)
+    (hw : AllWS d args.toList) :
+    ⦃fun s => s = s₀⦄ iotaRecI .verified (mkFEnv env) eager f d h args k
+    ⦃fun o s' => CSOK .verified eager env s' ∧
+      Runs (iotaRec .verified (fueledFns .verified eager env) env d
+        (Expr.mkAppN h (args.toList.take k))) o ∧
       OptWS d o; ⊤⦄ := by
-  sym only [conleche_grind, iotaRec_notconst, iotaRecK_notconst, Option.isSome_some,
+  sym only [conleche_grind, Expr.getAppFn_mkAppN, Expr.getAppArgs_mkAppN,
+      getAppArgs_const', List.nil_append, length_take_of_le hk,
+      iotaRec_notconst, iotaRecK_notconst, Option.isSome_some,
       iotaCertGate_of, CheckMode.verifiedChecks, → EnvWF.rules_ok henv] =>
-    vcgen [iotaRecI_eq, certAtI, mkAppNM, prepareMajorC_spec ih henv,
+    vcgen [iotaRecI_eq, certAtI, prepareMajorC_spec ih henv,
       iotaCertC_spec ih henv (mode := .verified) (eager := eager) (env := env),
       ruleRhsAtM_spec (mode := .verified) (eager := eager) (env := env)] <;> finish
 

@@ -141,6 +141,27 @@ def iotaNumArgs : Expr → Nat → Nat
   | .app f _, n => iotaNumArgs f (n + 1)
   | _, n => n
 
+/-- Fill `acc` from position `i` down with the arguments of the spine `e`,
+innermost first (`getAppArgsArr`). -/
+def getAppArgsArrGo : Expr → Nat → Array Expr → Array Expr
+  | .app f a, i + 1, acc => getAppArgsArrGo f i (acc.set! i a)
+  | _, _, acc => acc
+
+/-- **The arguments of an application spine, as an array** (outermost
+last), written into an array of the spine's length from the back: no
+list is built. -/
+@[inline] def getAppArgsArr (e : Expr) : Array Expr :=
+  getAppArgsArrGo e (iotaNumArgs e 0) (Array.replicate (iotaNumArgs e 0) e)
+
+/-- The spine argument at position `i` (a placeholder past the end). -/
+def spineArg (args : Array Expr) (i : Nat) : Expr := args.getD i (Expr.mkBvar 0)
+
+/-- **`f` applied to the arguments `args[i:j]`**, the range read in
+place. -/
+def mkAppRange (f : Expr) (args : Array Expr) (i j : Nat) : Expr :=
+  if h : i < j ∧ i < args.size then mkAppRange (.app f args[i]) args (i + 1) j else f
+termination_by j - i
+
 /-- The arity pre-check of the ι step: `iotaRecI` returns `none`
 unless the head is a stored recursor applied to exactly `majorIdx + 1`
 arguments with the recursor's own number of levels
@@ -930,21 +951,22 @@ def prepareMajorI (eager : Bool) (lv : Nat) (depth : Nat)
       majorToCtorI eager lv depth recName isK rules major₁
 termination_by (lv, 26, 0, 0)
 
-/-- Twin of `iotaRec`. -/
-def iotaRecI (eager : Bool) (lv : Nat) (depth : Nat) (e : Expr) :
-    CheckCM (Option Expr) := do
-  match Expr.getAppFn e with
+/-- Twin of `iotaRec`, on the array spine `args` of a spine headed by `h`:
+the ι step at the redex `h args[0:k]`.  Nothing of the redex is rebuilt:
+the reduct is the rule's right-hand side applied to two ranges, the
+recursor's leading arguments and the constructor's fields. -/
+def iotaRecI (eager : Bool) (lv : Nat) (depth : Nat) (h : Expr) (args : Array Expr)
+    (k : Nat) : CheckCM (Option Expr) := do
+  match h with
   | .const c us => do
     let cn ← pure c
     match fe.find? cn with
     | some (.recInfo cv mI rP isK rules) => do
-      let args ← pure (Expr.getAppArgsC e)
       -- checker change #9 (twin of `Core.lean`'s `iotaRec`): guard the
       -- recursor's level arity before the rule's RHS is instantiated.
-      if args.length = mI + 1 ∧ us.length = cv.levelParams.length ∧
+      if k = mI + 1 ∧ k ≤ args.size ∧ us.length = cv.levelParams.length ∧
           (Expr.peelPis (mI + 1) cv.type).isSome = true then do
-        let bvar0 ← pure (Expr.mkBvar 0)
-        let major ← prepareMajorI eager lv depth cn isK rules (args.getD mI bvar0)
+        let major ← prepareMajorI eager lv depth cn isK rules (spineArg args mI)
         match Expr.getAppFn major with
         | .const cj usj => do
           let cjn ← pure cj
@@ -952,8 +974,8 @@ def iotaRecI (eager : Bool) (lv : Nat) (depth : Nat) (e : Expr) :
           | some (.ctorInfo cvj cnP _) =>
             match rules.find? (fun r' => r'.ctor == cjn) with
             | some rl => do
-              let margs ← pure (Expr.getAppArgsC major)
-              if margs.length = cnP + rl.nfields then do
+              let margs ← pure (getAppArgsArr major)
+              if margs.size = cnP + rl.nfields then do
                 -- ONE certificate family (task #342 L10, S5c; official's
                 -- `inductive_reduce_rec` checks nothing of the major's
                 -- constructor), so the whole block is what `.trusted`
@@ -968,7 +990,9 @@ def iotaRecI (eager : Bool) (lv : Nat) (depth : Nat) (e : Expr) :
                 -- only where indices do — the spec's `iotaRec`).  The
                 -- recursor's spine is never certified (task #349); the
                 -- types are looked up only where a certificate consumes
-                -- them (DESIGN.md, "CORET RETIRED", inversion 22).
+                -- them (DESIGN.md, "CORET RETIRED", inversion 22).  The
+                -- certificates read lists: they are made only here, at a
+                -- case-3 redex.
                 if ← certAtI mode (do
                     let cmpLvls : List Level ←
                       match rl.fire with
@@ -980,25 +1004,26 @@ def iotaRecI (eager : Bool) (lv : Nat) (depth : Nat) (e : Expr) :
                     if ← iotaCase3I eager lv fe.find? isK cvj cmpLvls then do
                       let oL ← isEquivListLM usj cmpLvls
                       if ← liftFueled "level comparison" oL then do
+                        let argsL ← pure (args.toList.take k)
+                        let margsL ← pure margs.toList
                         let cmpArgs : List Expr ←
                           match rl.fire with
                           | .nested _ pins =>
-                            pinArgsI cv.levelParams us (args.take rP) (rP - 1) pins
-                          | .plain => pure (args.take cnP)
-                          | .levels _ => pure (args.take cnP)
-                        if ← defEqListI eager lv depth (margs.take cnP) cmpArgs then do
+                            pinArgsI cv.levelParams us (argsL.take rP) (rP - 1) pins
+                          | .plain => pure (argsL.take cnP)
+                          | .levels _ => pure (argsL.take cnP)
+                        if ← defEqListI eager lv depth (margsL.take cnP) cmpArgs then do
                           let tyCtor ← constTyAtM fe cj cjn usj
-                          if ← iotaCertsFullI eager lv depth tyCtor margs then
+                          if ← iotaCertsFullI eager lv depth tyCtor margsL then
                             iotaIndexOkI eager lv depth mI rP cnP tyCtor
-                              margs ((args.take mI).drop rP)
+                              margsL ((argsL.take mI).drop rP)
                           else pure false
                         else pure false
                       else pure false
                     else pure true) then do
                   let rhs ← ruleRhsAtM fe c cj cn cjn us
-                  let red ← mkAppNM rhs
-                    (args.take rP ++ margs.drop cnP)
-                  pure (some red)
+                  pure (some (mkAppRange (mkAppRange rhs args 0 (min rP k))
+                    margs cnP margs.size))
                 else pure none
               else pure none
             | none => pure none
@@ -1036,31 +1061,30 @@ termination_by (lv, 28, 0, 0)
 
 /-- Peel loop of `whnfAppI`: `t` is the raw (unsubstituted) lambda body
 after the binders consumed so far, `acc` their arguments (innermost
-first).  The body is substituted once, when peeling stops, and handed
-to the loop together with the arguments left over.  The substitution is
+first), `args[i:]` the spine left.  The body is substituted once, when
+peeling stops, and applied to the arguments left over.  The substitution is
 not memoised (`instantiateListC`, not `instListM`), as official's
 `instantiate` keeps no cache across calls: a β redex's arguments, an ι
 reduct's above all, rarely repeat, so a memo entry is a miss and an
 insert nearly every time (task #572). -/
-def betaPeelI (eager : Bool) (lv : Nat) (depth : Nat) :
-    Expr → List Expr → List Expr → CheckCM WhnfStep
-  | t, acc, [] => do
-    let e' ← pure (Expr.instantiateListC t acc)
-    pure (.cont e')
-  | t, acc, a :: rest => do
+def betaPeelI (eager : Bool) (lv : Nat) (depth : Nat)
+    (t : Expr) (acc : List Expr) (args : Array Expr) (i : Nat) : CheckCM WhnfStep :=
+  if hi : i < args.size then
     match t with
     | .lam _ body =>
         -- Task #342 S0: uniform β (see `whnfAppI`)
-        betaPeelI eager lv depth body (a :: acc) rest
+        betaPeelI eager lv depth body (args[i] :: acc) args (i + 1)
     | _ => do
       let e' ← pure (Expr.instantiateListC t acc)
-      let e'' ← mkAppNM e' (a :: rest)
-      pure (.cont e'')
-termination_by _ _ args => (lv, 29, args.length, 0)
+      pure (.cont (mkAppRange e' args i args.size))
+  else do
+    let e' ← pure (Expr.instantiateListC t acc)
+    pure (.cont e')
+termination_by (lv, 29, args.size - i, 0)
 
-/-- Bulk-beta argument loop (task #50): consume the whole application
-spine against the whnf'd head `v`.  A lambda head enters the peel loop
-(first binder inline, which keeps the argument count decreasing);
+/-- Bulk-beta argument loop (task #50): consume the application spine
+`args[i:]` against the whnf'd head `v`.  A lambda head enters the peel
+loop (first binder inline, which keeps the argument count decreasing);
 other heads try iota with one more argument and otherwise accumulate a
 stuck application — the per-level `whnfCoreBody` app clauses, with the
 chained per-argument `instantiate1` of the beta path replaced by one
@@ -1068,41 +1092,39 @@ bulk substitution per peeled group (`ConLeche/Verify/BetaSpine.lean`
 proves the identification).  A fired ι hands the loop its reduct
 applied to the rest of the spine (`WhnfStep.cont`, task #342 R2): the
 loop, not a nested call, continues with it. -/
-def whnfAppI (eager : Bool) (lv : Nat) (depth : Nat) :
-    Expr → List Expr → CheckCM WhnfStep
-  | v, [] => pure (.done v)
-  | v, a :: rest => do
+def whnfAppI (eager : Bool) (lv : Nat) (depth : Nat)
+    (v : Expr) (args : Array Expr) (i : Nat) : CheckCM WhnfStep :=
+  if hi : i < args.size then
     match v with
     | .lam _ body =>
         -- Task #342 S0: uniform β, no certificate, at every λ
-        betaPeelI eager lv depth body [a] rest
+        betaPeelI eager lv depth body [args[i]] args (i + 1)
     | _ => do
-      let fa ← pure (Expr.app v a)
+      let fa ← pure (Expr.app v args[i])
       -- the ι step is tried only where it could fire; every other
       -- prefix of the spine returns `none` by `iotaRecI`'s own guard
-      match ← (if iotaArityOk fe fa then iotaRecI eager lv depth fa
+      match ← (if iotaArityOk fe fa then
+                 iotaRecI eager lv depth (Expr.getAppFn fa) (getAppArgsArr fa)
+                   (iotaNumArgs fa 0)
                else pure none) with
-      | some e'' => do
-        let e' ← mkAppNM e'' rest
-        pure (.cont e')
-      | none => whnfAppI eager lv depth fa rest
-termination_by _ args => (lv, 30, args.length, 0)
+      | some e'' => pure (.cont (mkAppRange e'' args (i + 1) args.size))
+      | none => whnfAppI eager lv depth fa args (i + 1)
+  else pure (.done v)
+termination_by (lv, 30, args.size - i, 0)
 
 /-- A spine `e` whose head `h` is its own head normal form and not a
 lambda (official `whnf_core`'s `f == f0` arm,
 `src/kernel/type_checker.cpp:525-536`): the ι step, tried once, at the
-one prefix where it can fire (`iotaTargetF`), and otherwise the input
-itself, with nothing rebuilt. -/
+one prefix where it can fire (`iotaTargetF`), on the spine's argument
+array, and otherwise the input itself, with nothing rebuilt. -/
 def whnfStuckI (eager : Bool) (lv : Nat) (depth : Nat) (h e : Expr) :
     CheckCM WhnfStep := do
   match iotaTargetF fe h with
   | some k =>
     if k ≤ iotaNumArgs e 0 then do
-      let args ← pure (Expr.getAppArgsC e)
-      match ← iotaRecI eager lv depth (Expr.mkAppN h (args.take k)) with
-      | some e'' => do
-        let e' ← mkAppNM e'' (args.drop k)
-        pure (.cont e')
+      let args ← pure (getAppArgsArr e)
+      match ← iotaRecI eager lv depth h args k with
+      | some e'' => pure (.cont (mkAppRange e'' args k args.size))
       | none => pure (.done e)
     else pure (.done e)
   | none => pure (.done e)
@@ -1132,9 +1154,9 @@ def whnfCoreStepI (eager : Bool) (lv : Nat) (cheap : Bool) (depth : Nat)
         -- Bulk beta (task #50): normalize the spine head once and run
         -- the argument loop over the whole spine, batching consecutive
         -- lambda binders into one substitution.
-        let args ← pure (Expr.getAppArgsC e)
+        let args ← pure (getAppArgsArr e)
         let v ← whnfCoreI eager lv cheap depth h
-        whnfAppI eager lv depth v args
+        whnfAppI eager lv depth v args 0
     | .proj sn i pe => do
       -- the scrutinee by `whnf`, or by the cheap `whnfCore` in the
       -- cheap mode; stuck: the input itself, scrutinee as it was (see
