@@ -259,4 +259,81 @@ theorem comp2_arg {oA oB : Nat} {a : Expr} (hA : CompArg f₁ p₁ PA oA a) (hB 
 
 end
 
+/-! ## Related entries -/
+
+/-- Two entries of one key have one shape (their information up to the rule
+base), where the lookups agree on the constant. -/
+theorem EntRel.shape {PA PB : G4Prog} (hIA : Inv f₁ p₁ PA) (hIB : Inv f₂ p₂ PB) {kA kB : Nat}
+    (h : EntRel PA PB kA kB) :
+    ∃ iA iB, PA.kInfo[kA]? = some iA ∧ PB.kInfo[kB]? = some iB ∧ infoKey iA = infoKey iB ∧
+      (f₁ (infoKey iA).1 = f₂ (infoKey iA).1 → iA.unbased = iB.unbased) := by
+  obtain ⟨iA, iB, h₁, h₂, h₃⟩ := h
+  refine ⟨iA, iB, h₁, h₂, h₃, fun hf => ?_⟩
+  rw [hIA.kind kA iA h₁, hIB.kind kB iB h₂, ← h₃]
+  unfold keyInfo; rw [hf]
+
+/-- **One tag** for two entries of one key (the lookups agreeing on the
+constant, the `Nat` flags equal). -/
+theorem EntRel.tag {PA PB : G4Prog} (hIA : Inv f₁ p₁ PA) (hIB : Inv f₂ p₂ PB) {kA kB : Nat}
+    (h : EntRel PA PB kA kB) (hn : PA.natOk = PB.natOk)
+    (hf : ∀ iA, PA.kInfo[kA]? = some iA → f₁ (infoKey iA).1 = f₂ (infoKey iA).1) :
+    PA.kTag[kA]? = PB.kTag[kB]? := by
+  obtain ⟨iA, iB, h₁, h₂, h₃, hs⟩ := h.shape hIA hIB
+  have hsh := hs (hf iA h₁)
+  have eA := hIA.ents kA (lt_of_some h₁)
+  have eB := hIB.ents kB (lt_of_some h₂)
+  unfold EntOK at eA eB
+  rw [h₁] at eA; rw [h₂] at eB
+  cases iA <;> cases iB <;> simp only [G4Info.unbased, reduceCtorEq] at hsh
+  · -- definitions
+    simp only [G4Info.defn.injEq] at hsh
+    obtain ⟨rfl, rfl, rfl, rfl⟩ := hsh
+    rw [hIA.defTag kA _ _ _ _ h₁, hIB.defTag kB _ _ _ _ h₂, hn]
+  · obtain ⟨-, h1, -⟩ := eA; obtain ⟨-, h1', -⟩ := eB; rw [h1, h1']
+  · obtain ⟨_, _, -, -, -, -, h1, -⟩ := eA; obtain ⟨_, _, -, -, -, -, h1', -⟩ := eB; rw [h1, h1']
+  · rw [eA, eB]
+
+/-- **Two recursor entries of one key**: one recursor at one level list, the
+rule bases apart. -/
+theorem EntRel.recr {PA PB : G4Prog} (hIA : Inv f₁ p₁ PA) (hIB : Inv f₂ p₂ PB) {kA kB : Nat}
+    (h : EntRel PA PB kA kB) {c : Name} {lps : List Name} {us : List Level} {mI rP bA nr : Nat}
+    {isK isEta : Bool} (hi : PA.kInfo[kA]? = some (.recr c lps us mI rP bA nr isK isEta))
+    (hf : f₁ c = f₂ c) :
+    ∃ bB, PB.kInfo[kB]? = some (.recr c lps us mI rP bB nr isK isEta) ∧
+      RecOK f₁ p₁ PA kA c lps us mI rP bA nr isK isEta ∧ RecOK f₂ p₂ PB kB c lps us mI rP bB nr isK isEta := by
+  obtain ⟨iA, iB, h₁, h₂, -, hs⟩ := h.shape hIA hIB
+  rw [hi] at h₁; obtain rfl := Option.some.inj h₁
+  have hsh := hs hf
+  cases iB <;> simp only [G4Info.unbased] at hsh <;> cases hsh
+  refine ⟨_, h₂, ?_, ?_⟩
+  · have := hIA.ents kA (lt_of_some hi); unfold EntOK at this; rw [hi] at this; exact this
+  · have := hIB.ents kB (lt_of_some h₂); unfold EntOK at this; rw [h₂] at this; exact this
+
+/-- **Two constructor entries of one key.** -/
+theorem EntRel.ctor {PA PB : G4Prog} (hIA : Inv f₁ p₁ PA) (hIB : Inv f₂ p₂ PB) {kA kB : Nat}
+    (h : EntRel PA PB kA kB) {c : Name} {us : List Level} {nP nF : Nat}
+    (hi : PA.kInfo[kA]? = some (.ctor c us nP nF)) (hf : f₁ c = f₂ c) :
+    PB.kInfo[kB]? = some (.ctor c us nP nF) ∧ CtorOK f₁ PA kA c us nP nF ∧ CtorOK f₂ PB kB c us nP nF := by
+  obtain ⟨iA, iB, h₁, h₂, -, hs⟩ := h.shape hIA hIB
+  rw [hi] at h₁; obtain rfl := Option.some.inj h₁
+  have hsh := hs hf
+  cases iB <;> simp only [G4Info.unbased] at hsh <;> cases hsh
+  refine ⟨h₂, ?_, ?_⟩
+  · have := hIA.ents kA (lt_of_some hi); unfold EntOK at this; rw [hi] at this; exact this
+  · have := hIB.ents kB (lt_of_some h₂); unfold EntOK at this; rw [h₂] at this; exact this
+
+/-- **Two definition entries of one key.** -/
+theorem EntRel.defn {PA PB : G4Prog} (hIA : Inv f₁ p₁ PA) (hIB : Inv f₂ p₂ PB) {kA kB : Nat}
+    (h : EntRel PA PB kA kB) {c : Name} {lps : List Name} {us : List Level} {v : Expr}
+    (hi : PA.kInfo[kA]? = some (.defn c lps us v)) (hf : f₁ c = f₂ c) :
+    PB.kInfo[kB]? = some (.defn c lps us v) ∧ DefnOK f₁ p₁ PA kA c lps us v ∧
+      DefnOK f₂ p₂ PB kB c lps us v := by
+  obtain ⟨iA, iB, h₁, h₂, -, hs⟩ := h.shape hIA hIB
+  rw [hi] at h₁; obtain rfl := Option.some.inj h₁
+  have hsh := hs hf
+  cases iB <;> simp only [G4Info.unbased] at hsh <;> cases hsh
+  refine ⟨h₂, ?_, ?_⟩
+  · have := hIA.ents kA (lt_of_some hi); unfold EntOK at this; rw [hi] at this; exact this
+  · have := hIB.ents kB (lt_of_some h₂); unfold EntOK at this; rw [h₂] at this; exact this
+
 end ConLeche.Verify.Ground

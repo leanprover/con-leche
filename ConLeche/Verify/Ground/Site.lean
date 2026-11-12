@@ -85,6 +85,7 @@ theorem Inv.setSite {P : G4Prog} (hI : Inv find? findProj? P) (kT kF kZ kS ep : 
     obtain ⟨kf, h₁, h₂⟩ := hI.kfab k c lps us mI rP base nr isK isEta h
     exact ⟨kf, h₁, h₂.extR (ExtR.setSite P kT kF kZ kS ep sa)⟩
   ctorAr := hI.ctorAr
+  kind := hI.kind
   ents k hk := by
     have hx := ExtR.setSite P kT kF kZ kS ep sa
     exact (hI.ents k hk).extR hx hk rfl

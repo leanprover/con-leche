@@ -998,6 +998,22 @@ the K constructor's entry, when the K step applies. -/
     ∃ key kc info, kfabKey find? c us = some key ∧ kfab = kc + 1 ∧ P.kInfo[kc]? = some info ∧
       infoKey info = key
 
+/-- `g4Entry`'s entry for a key, the rule base left at `0`. -/
+@[expose] def keyInfo (find? : Name → Option ConstantInfo) (c : Name) (us : List Level) : G4Info :=
+  match find? c with
+  | some (.defnInfo cv v _) =>
+    if us.length != cv.levelParams.length then .neutral c us else .defn c cv.levelParams us v
+  | some (.ctorInfo _ nP nF) => .ctor c us nP nF
+  | some (.recInfo cv mI rP isK rules) =>
+    if us.length != cv.levelParams.length || !(Expr.peelPis (mI + 1) cv.type).isSome then .neutral c us
+    else .recr c cv.levelParams us mI rP 0 rules.length isK (match rules with | [_] => !isK | _ => false)
+  | _ => .neutral c us
+
+/-- An entry's information without its rule base. -/
+@[expose] def _root_.ConLeche.G4Info.unbased : G4Info → G4Info
+  | .recr c lps us mI rP _ nr isK isEta => .recr c lps us mI rP 0 nr isK isEta
+  | i => i
+
 /-- **What a program keeps for the keys** (beyond `TabInv`). -/
 structure CompInv (find? : Name → Option ConstantInfo) (findProj? : Name → Nat → Option ProjEntry)
     (P : G4Prog) : Prop where
@@ -1017,6 +1033,8 @@ structure CompInv (find? : Name → Option ConstantInfo) (findProj? : Name → N
         KfabKey find? P c us kfab
   ctorAr : ∀ (k : Nat) (info : G4Info) (cv : ConstantVal) (nP nF : Nat), P.kInfo[k]? = some info →
     find? (infoKey info).1 = some (.ctorInfo cv nP nF) → P.kArity[k]? = some (g4Pis cv.type 0)
+  kind : ∀ (k : Nat) (info : G4Info), P.kInfo[k]? = some info →
+    info.unbased = keyInfo find? (infoKey info).1 (infoKey info).2
 
 theorem kInfo_back {P P' : G4Prog} (hx : ExtR P P') (hkI : P'.kInfo.size = P.kInfo.size) {k : Nat}
     {info : G4Info} (h : P'.kInfo[k]? = some info) : P.kInfo[k]? = some info := by
@@ -1063,6 +1081,7 @@ theorem CompInv.fresh (natOk strOk : Bool) (maxNat : Nat) :
   defTag k c lps us v h := by simp at h
   kfab k c lps us mI rP base nr isK isEta h := by simp at h
   ctorAr k info cv nP nF h := by simp at h
+  kind k info h := by simp at h
 
 section
 variable (find?) (findProj?)
@@ -1096,6 +1115,7 @@ theorem CompInv.ext_gen {P P' : G4Prog} (hC : CompInv find? findProj? P)
     have h' := kInfo_back hx.toExtR hkI h
     rw [(entR_eq (hx.ent k (lt_of_some h'))).2.1]
     exact hC.ctorAr k info cv nP nF h' hf
+  kind k info h := hC.kind k info (kInfo_back hx.toExtR hkI h)
 
 theorem CompInv.ext {P P' : G4Prog} (hC : CompInv find? findProj? P)
     (hx : Ext P P') (hkI : P'.kInfo.size = P.kInfo.size) (hcl : P'.closedNode = P.closedNode)
@@ -1563,7 +1583,7 @@ theorem g4Entry_facts (P : G4Prog) (c : Name) (us : List Level) (kfab : Nat) (hI
         nslots := P'.nslots + 1, kInfo := P'.kInfo.push info,
         kMap := P'.kMap.insert (c, us) P.kTag.size, kB := P'.kB.push b, kC := P'.kC.push c',
         kD := P'.kD.push d, kE := P'.kE.push e' } : G4Prog)) ∧
-      KeyEq P P' ∧ P'.masks = P.masks ∧ infoKey info = (c, us) ∧
+      info.unbased = keyInfo find? c us ∧ KeyEq P P' ∧ P'.masks = P.masks ∧ infoKey info = (c, us) ∧
       (∀ r w, P.rules.size ≤ r → P'.ruleCode[r]? = some w → w = 0) ∧
       (∀ c₁ lps us₁ v, info = .defn c₁ lps us₁ v →
         tag = if us₁.isEmpty && P.natOk && natBin14 c₁ then 3 else 0) ∧
@@ -1576,7 +1596,28 @@ theorem g4Entry_facts (P : G4Prog) (c : Name) (us : List Level) (kfab : Nat) (hI
   unfold g4Entry
   split
   rename_i tag ar b c' d e' info P' hm
-  refine ⟨P', tag, ar, b, c', d, e', info, rfl, ?_⟩
+  have hkind : info.unbased = keyInfo find? c us := by
+    clear h0 hI
+    revert hm
+    unfold keyInfo
+    cases find? c with
+    | none => intro hm; simp only [Prod.mk.injEq] at hm; rw [← hm.2.2.2.2.2.2.1]; rfl
+    | some ci =>
+      cases ci with
+      | defnInfo cv v hh =>
+        dsimp only
+        split <;> (intro hm; simp only [Prod.mk.injEq] at hm; rw [← hm.2.2.2.2.2.2.1]; rfl)
+      | ctorInfo cv nP nF =>
+        intro hm; simp only [Prod.mk.injEq] at hm; rw [← hm.2.2.2.2.2.2.1]; rfl
+      | recInfo cv mI rP isK rules =>
+        dsimp only
+        split
+        · intro hm; simp only [Prod.mk.injEq] at hm; rw [← hm.2.2.2.2.2.2.1]; rfl
+        · intro hm; simp only [Prod.mk.injEq] at hm; rw [← hm.2.2.2.2.2.2.1]
+          simp only [G4Info.unbased]
+          rcases rules with _ | ⟨_, _ | _⟩ <;> rfl
+      | _ => intro hm; simp only [Prod.mk.injEq] at hm; rw [← hm.2.2.2.2.2.2.1]; rfl
+  refine ⟨P', tag, ar, b, c', d, e', info, rfl, hkind, ?_⟩
   revert hm
   cases hf : find? c with
   | none =>
@@ -1629,7 +1670,7 @@ theorem g4Entry_comp (P : G4Prog) (c : Name) (us : List Level) (kfab : Nat) (hI 
       KfabOK P mI isK rules kfab)
     (hkf : KfabKey find? P c us kfab) : CompInv find? findProj? (g4Entry find? P c us kfab).2 := by
   obtain ⟨-, hx, -, -⟩ := g4Entry_tab find? findProj? P c us kfab hI hkf₀
-  obtain ⟨P', tag, ar, b, c', d, e', info, heq, hk, hm, hkey, hrc, hdt, hke, har⟩ :=
+  obtain ⟨P', tag, ar, b, c', d, e', info, heq, hkd, hk, hm, hkey, hrc, hdt, hke, har⟩ :=
     g4Entry_facts find? findProj? P c us kfab hI
   rw [heq] at hx ⊢
   have hs : P.kTag.size = P.kInfo.size := hI.sizes
@@ -1667,7 +1708,7 @@ theorem g4Entry_comp (P : G4Prog) (c : Name) (us : List Level) (kfab : Nat) (hI 
       · rw [hk.kSlot] at h; exact .inl h
   refine ⟨fun a o h => ?_, fun c₁ m h => ?_, fun k i h => ?_, fun sl x h => ?_, fun sl x y h h' => ?_,
     fun k c₁ lps us₁ v h => ?_, fun k c₁ lps us₁ mI rP base nr isK isEta h => ?_,
-    fun k i cv nP nF h hf => ?_⟩
+    fun k i cv nP nF h hf => ?_, fun k i h => ?_⟩
   · change P'.closedNode[a]? = some o at h
     rw [hk.closedNode] at h
     obtain ⟨sl, e, h₀, h₁, h₂, h₃, h₄⟩ := hC.closed a o h
@@ -1711,10 +1752,14 @@ theorem g4Entry_comp (P : G4Prog) (c : Name) (us : List Level) (kfab : Nat) (hI 
     rcases hinfo k _ h with ⟨hlt, h'⟩ | ⟨rfl, rfl⟩
     · rw [push_lt (by omega), (entW_eq (hk.entW k)).2.2.1]; exact hC.ctorAr k i cv nP nF h' hf
     · rw [hkey] at hf; rw [hnew _ _ (by omega), har cv nP nF hf]
+  · change (P'.kInfo.push info)[k]? = some _ at h
+    rcases hinfo k _ h with ⟨hlt, h'⟩ | ⟨rfl, rfl⟩
+    · exact hC.kind k i h'
+    · rw [hkey]; exact hkd
 
 theorem g4Entry_kMap (P : G4Prog) (c : Name) (us : List Level) (kfab : Nat) (hI : TabInv find? findProj? P) :
     (g4Entry find? P c us kfab).2.kMap = P.kMap.insert (c, us) P.kTag.size := by
-  obtain ⟨P', _, _, _, _, _, _, _, heq, hk, -⟩ := g4Entry_facts find? findProj? P c us kfab hI
+  obtain ⟨P', _, _, _, _, _, _, _, heq, -, hk, -⟩ := g4Entry_facts find? findProj? P c us kfab hI
   rw [heq]; show P'.kMap.insert _ _ = _; rw [hk.kMap]
 
 /-- The nested resolution changes the constant map at its own key only. -/
@@ -1856,6 +1901,7 @@ theorem CompInv.codes {P : G4Prog} (hC : CompInv find? findProj? P) (a b : Array
     obtain ⟨kf, h₁, h₂⟩ := hC.kfab k c lps us mI rP base nr isK isEta h
     exact ⟨kf, h₁, h₂.extR (ExtR.codes P a b)⟩
   ctorAr := hC.ctorAr
+  kind := hC.kind
 
 /-- **The invariant after a code store**: every entry is still the
 declaration it names. -/
