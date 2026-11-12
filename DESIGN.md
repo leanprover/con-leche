@@ -113918,3 +113918,62 @@ magma-list-pair-n7 11.202 → 10.984 G (−2.0 %), cbv_aes Nr=10 whole run 10.53
 **Why no budget.**  Official has none; a budget makes the work depend on a heuristic count and
 was the kind of cut-off #319 removed.  Verdicts are unchanged on every stream measured and in
 `tests/arena.sh`.
+
+## TASK #577 — the ι step on array spines (2026-11-12, agent/577-iota-spine)
+
+Split out of task #573 (its part B, commit 84540e596 on `agent/573-iota-facts`) to be measured
+on its own: a code optimisation of the ι step, with none of #573's stored facts
+(`IndCaps.neverZero`, `IndWF`, `IotaCaseS`).
+
+**The code.** `whnfStuckI`, `whnfAppI`, `betaPeelI` and `iotaRecI` take the spine as an
+argument array: `getAppArgsArr` fills an array of the spine's length from the back along the
+spine (no list), `iotaRecI h args k` fires at the redex `h args[0:k]` and returns its reduct,
+the rule's right-hand side applied to two ranges (`mkAppRange`: the recursor's leading
+arguments `args[0:min rP k]`, the constructor's fields `margs[cnP:]`), and the caller applies
+the reduct to `args[k:]` by a third range.  Nothing of the redex is rebuilt.  The case-3
+certificates read lists, built only past the case decision.  `betaPeelI` walks the same array
+and substitutes with task #572's unmemoised `instantiateListC` (#573's resolution of the merge
+with #572).  Reduction order unchanged, and the same as official's.
+
+**The proofs.** `iotaRecC_spec` is stated at the specification's redex
+`mkAppN h (args.toList.take k)`; the array vocabulary (`getAppArgsArr_toList`,
+`mkAppRange_eq`, `iotaReduct_eq`) is in `Verify/Cached/DiscC3`.  `whnfAppW_stuck`
+(`Verify/Cached/DiscC4`) reads the specification's spine loop at a stuck head the stuck arm's
+way (ι at its target prefix, `none` everywhere else), which replaces the old identification of
+the stuck arm with the cached loop.  Capstone axioms unchanged.
+
+**Numbers** (`instructions:u`, G, `--verified --jobs=1`, one run each; stdout identical on every
+stream; data in `_tmp/577/logs/`):
+
+| stream | master 94566fcb7 | #577 | Δ |
+|---|---:|---:|---:|
+| grind_field_cancel_inv | 2.419 | 2.261 | -6.50 % |
+| init-full | 286.921 | 286.635 | -0.10 % |
+| init-prelude | 1.157 | 1.155 | -0.17 % |
+| app-lam | 22.043 | 22.043 | -0.00 % |
+| args-before-unfold | 0.056 | 0.054 | -3.66 % |
+| beta-ladder | 4.918 | 4.913 | -0.10 % |
+| church-numerals | 0.200 | 0.200 | +0.07 % |
+| discarded-argument-match | 0.220 | 0.216 | -1.57 % |
+| discarded-argument | 0.076 | 0.072 | -5.24 % |
+| folded-constant-first | 0.084 | 0.080 | -4.82 % |
+| folded-constant-last | 0.084 | 0.080 | -4.75 % |
+| fueled-chain | 0.267 | 0.267 | +0.17 % |
+| grind-ring-5 | 10.450 | 10.109 | -3.26 % |
+| identical-nesting | 0.021 | 0.021 | -0.01 % |
+| irrelevance-before-evaluation | 0.023 | 0.023 | +0.01 % |
+| let-ladder | 2.559 | 2.559 | +0.00 % |
+| magma-list-deep-n21 | 11.870 | 11.766 | -0.88 % |
+| magma-list-deep-n36 | 158.079 | 156.895 | -0.75 % |
+| magma-list-pair-n21 | 125.121 | 125.528 | +0.33 % |
+| magma-list-pair-n7 | 10.976 | 10.958 | -0.16 % |
+| repeated-subproblem | 0.023 | 0.023 | -0.41 % |
+| shared-subterm | 0.168 | 0.154 | -7.99 % |
+| shift-cascade | 0.051 | 0.051 | -0.03 % |
+| unroll-versus-evaluate | 0.027 | 0.027 | -0.03 % |
+
+The largest gains are on the fixture (whose check is mostly ι steps), grind-ring-5, the
+`discarded-argument` and `folded-constant` streams and `shared-subterm`; init-full and the
+β-heavy streams (`app-lam`, `beta-ladder`, `let-ladder`) are flat.  Three streams rose, by at most
++0.33 % (magma-list-pair-n21; fueled-chain +0.17 %, church-numerals +0.07 %), not attributed.  For comparison, #573 measured B
+alone, against master before #572, at −7.0 % on the fixture and −3.6 % on grind-ring-5.
