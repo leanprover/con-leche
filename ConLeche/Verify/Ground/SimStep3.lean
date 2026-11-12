@@ -235,7 +235,7 @@ theorem sim_mode3n (hag : LookAgree N env.find? env.findProj? f₂ p₂)
         exact e) hc0
     rw [hr.mem.1] at mB
     have hfs := ((hpop _ hle).pushOne (g4Tag (sA.cel.size >>> 2) 2) (.inr (.inl (tag_and _ 2 (by omega))))).pushIota
-      hE.1 sA.argA.size (mI + 1)
+      hE sA.argA.size (mI + 1)
     have hmem := hr.mem.push h.store.memSz hE sA.argA.size (mI + 1) (sA.cel.size >>> 2)
     have hcel := hr.cel.push h.store.celSz 1 0 0 0 0 (fun h => absurd h (by decide))
     rcases hfab with ⟨rfl, rfl⟩ | ⟨cA, cB, rfl, rfl, hcR, har⟩
@@ -334,7 +334,7 @@ theorem sim_mode3n (hag : LookAgree N env.find? env.findProj? f₂ p₂)
           env := 0
           x := g4ArgAt sA.fs 0 }) h' hR ?_ (by omega)
       exact { hr with
-        fs := (hpop 2 (by omega)).pushNatA hE.1 _ _
+        fs := (hpop 2 (by omega)).pushNatA hE _ _
         mode := rfl
         regs := ⟨rfl, rfl, rfl⟩ }
     next hc =>

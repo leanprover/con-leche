@@ -24,7 +24,7 @@ variable {N : Name → Prop} {env : Env} {f₂ : Name → Option ConstantInfo}
 theorem shr2_eq (a : Nat) : a >>> 2 = a / 4 := Nat.shiftRight_eq_div_pow _ _
 
 /-- One frame-stack test on both sides: a known call. -/
-theorem FsRel.callTest {PA PB : G4Prog} {fa fb : Array Nat} (h : FsRel PA PB fa fb) :
+theorem FsRel.callTest {PA PB : G4Prog} {fa fb : Array Nat} (h : FsRel N PA PB fa fb) :
     (fb.size > 0 && fb[fb.size - 1]! &&& 15 == 1) = (fa.size > 0 && fa[fa.size - 1]! &&& 15 == 1) := by
   by_cases hn : 0 < fa.size
   · rw [h.1, h.top hn]

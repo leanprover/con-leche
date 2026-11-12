@@ -59,10 +59,6 @@ the term's names in `N`. -/
   ∃ t, NamesIn N t ∧
     ((Comp f₁ p₁ PA oA t ∧ Comp f₂ p₂ PB oB t) ∨ (CompArg f₁ p₁ PA oA t ∧ CompArg f₂ p₂ PB oB t))
 
-/-- **Two entries of one key**, its constant in `N`. -/
-@[expose] def ERel (PA PB : G4Prog) (kA kB : Nat) : Prop :=
-  EntRel PA PB kA kB ∧ ∀ iA, PA.kInfo[kA]? = some iA → N (infoKey iA).1
-
 /-- Two string indices of one string. -/
 @[expose] def StrRel (PA PB : G4Prog) (a b : Nat) : Prop :=
   ∃ s, PA.strs[a]? = some s ∧ PB.strs[b]? = some s
@@ -143,7 +139,7 @@ structure MRel (sA sB : MS) : Prop where
   val : ValRel N f₁ p₁ f₂ p₂ sA.P sB.P sA.val sB.val
   ev : sB.ev = sA.ev
   argA : sB.argA = sA.argA
-  fs : FsRel sA.P sB.P sA.fs sB.fs
+  fs : FsRel N sA.P sB.P sA.fs sB.fs
   mem : MemRel N sA.P sB.P sA.mem sB.mem
   memoA : MemoTab sA.mem sA.argA sA.mH
   memoB : MemoTab sB.mem sB.argA sB.mH
@@ -165,13 +161,6 @@ theorem TRel.ext (hA : ExtR PA PA') (hB : ExtR PB PB') {oA oB : Nat}
   obtain ⟨t, hn, ⟨h₁, h₂⟩ | ⟨h₁, h₂⟩⟩ := h
   · exact ⟨t, hn, .inl ⟨h₁.extR hA, h₂.extR hB⟩⟩
   · exact ⟨t, hn, .inr ⟨h₁.extR hA, h₂.extR hB⟩⟩
-
-theorem ERel.ext (hA : ExtR PA PA') (hB : ExtR PB PB') {kA kB : Nat} (h : ERel N PA PB kA kB) :
-    ERel N PA' PB' kA kB := by
-  refine ⟨h.1.ext hA hB, fun iA hi => ?_⟩
-  obtain ⟨iA', iB, h₁, -, -⟩ := h.1
-  rw [hA.kInfo_some h₁] at hi; obtain rfl := Option.some.inj hi
-  exact h.2 iA' h₁
 
 theorem StrRel.ext (hA : ExtR PA PA') (hB : ExtR PB PB') {a b : Nat} (h : StrRel PA PB a b) :
     StrRel PA' PB' a b := by

@@ -31,13 +31,29 @@ structure LookAgree (N : Name → Prop) (f₁ : Name → Option ConstantInfo) (p
   kfab : ∀ c us, N c → kfabKey f₂ c us = kfabKey f₁ c us
   defVal : ∀ c cv v hs, N c → f₁ c = some (.defnInfo cv v hs) → NamesIn N v
   rules : ∀ c cv mI rP isK rules, N c → f₁ c = some (.recInfo cv mI rP isK rules) →
-    ∀ rl ∈ rules, N rl.ctor ∧ NamesIn N rl.rhs
+    ∀ rl ∈ rules, N rl.ctor ∧ NamesIn N rl.rhs ∧
+      ∀ cvj nP nF, f₁ rl.ctor = some (.ctorInfo cvj nP nF) →
+        ∀ T ls, cvj.type.piResult.getAppFn = .const T ls → N T
 
 /-- One lookup, every name. -/
 theorem LookAgree.univ (f : Name → Option ConstantInfo) (p : Name → Nat → Option ProjEntry) :
     LookAgree (fun _ => True) f p f p :=
   ⟨fun _ _ => rfl, fun _ _ _ => rfl, fun _ _ => rfl, fun _ _ _ => rfl,
-    fun _ _ v _ _ _ => NamesIn.univ v, fun _ _ _ _ _ _ _ _ rl _ => ⟨trivial, NamesIn.univ rl.rhs⟩⟩
+    fun _ _ v _ _ _ => NamesIn.univ v, fun _ _ _ _ _ _ _ _ rl _ => ⟨trivial, NamesIn.univ rl.rhs, fun _ _ _ _ _ _ _ => trivial⟩⟩
+
+/-- The names a string literal's constructor form mentions. -/
+@[expose] def StrNames (N : Name → Prop) : Prop :=
+  N stringOfListName ∧ N listNilName ∧ N listConsName ∧ N charName ∧ N charOfNatName
+
+/-- A string literal's constructor form has its names in `N`. -/
+theorem NamesIn.strLit {N : Name → Prop} (h : StrNames N) (s : String) :
+    NamesIn N (strLitToConstructor s) := by
+  obtain ⟨h₁, h₂, h₃, h₄, h₅⟩ := h
+  unfold strLitToConstructor
+  refine ⟨h₁, ?_⟩
+  induction s.toList with
+  | nil => exact ⟨h₂, h₄⟩
+  | cons c l ih => exact ⟨⟨⟨h₃, h₄⟩, h₅, trivial⟩, ih⟩
 
 /-- Level instantiation keeps a term's names. -/
 theorem NamesIn.instLP {N : Name → Prop} (ks : List Name) (us : List Level) :
@@ -59,6 +75,26 @@ theorem NamesIn.projAgree (hag : LookAgree N f₁ p₁ f₂ p₂) {t : Expr} (h 
   cases t with
   | proj sn i e => exact (hag.proj sn i h.1).symm
   | _ => trivial
+
+/-- **One case-3 test** for a rule whose constructor and family are in `N`
+(`LookAgree.rules`). -/
+theorem LookAgree.case3 (hag : LookAgree N f₁ p₁ f₂ p₂) {rl : RecRule} (hc : N rl.ctor)
+    (hT : ∀ cvj nP nF, f₁ rl.ctor = some (.ctorInfo cvj nP nF) →
+      ∀ T ls, cvj.type.piResult.getAppFn = .const T ls → N T)
+    (isK : Bool) (lps : List Name) (us : List Level) :
+    ruleCase3 f₁ isK lps us rl = ruleCase3 f₂ isK lps us rl := by
+  unfold ruleCase3
+  rw [hag.find _ hc]
+  split
+  · rename_i cvj nP nF hf
+    have e : ctorFamily f₁ cvj = ctorFamily f₂ cvj := by
+      unfold ctorFamily
+      split
+      · rename_i T ls hT'
+        rw [hag.find T (hT cvj nP nF hf T ls hT')]
+      · rfl
+    simp only [gCase3, e]
+  · rfl
 
 theorem NamesIn.appFn : ∀ {t : Expr}, NamesIn N t → NamesIn N t.getAppFn
   | .app f _, h => by simp only [Expr.getAppFn]; exact NamesIn.appFn h.1
@@ -359,8 +395,8 @@ theorem SlotRel.set (hA : CompInv f₁ p₁ PA) (hB : CompInv f₂ p₂ PB) {sa 
     · rw [ite_eq_right eB] at hne; exact h.2.2 _ hne
 
 /-- **Pushing a projection frame** with related row words. -/
-theorem FsRel.pushProj {fa fb : Array Nat} (h : FsRel PA PB fa fb) {a b : Nat} (hp : PiRel PA PB a b) :
-    FsRel PA PB ((fa.push a).push 4) ((fb.push b).push 4) := by
+theorem FsRel.pushProj {fa fb : Array Nat} (h : FsRel N PA PB fa fb) {a b : Nat} (hp : PiRel PA PB a b) :
+    FsRel N PA PB ((fa.push a).push 4) ((fb.push b).push 4) := by
   refine ⟨by simp [h.1], ?_⟩
   simp only [Array.size_push]
   refine .proj ?_ ?_ ?_ (((h.2.push (Nat.le_refl _) h.1 a b)).push (by simp) (by simp [h.1]) 4 4)

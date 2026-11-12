@@ -69,5 +69,7 @@ public import ConLeche.Verify.Ground.SimMemo
 public import ConLeche.Verify.Ground.SimExt
 public import ConLeche.Verify.Ground.SimStep3
 public import ConLeche.Verify.Ground.SimStep1
+public import ConLeche.Verify.Ground.SimStep1P
+public import ConLeche.Verify.Ground.SimStep1N
 
 @[expose] public section

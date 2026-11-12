@@ -78,15 +78,15 @@ theorem push4_reads (a : Array Nat) (w₀ w₁ w₂ w₃ : Nat) :
   · rw [getElem!_push_lt' (by simp only [Array.size_push]; omega), g _ _ _ (by simp)]
   · rw [g _ _ _ (by simp)]
 
-theorem FS2.push4 {fa fb : Array Nat} {t : Nat} (h : FS2 PA PB fa fb t) (ht : t ≤ fa.size)
+theorem FS2.push4 {fa fb : Array Nat} {t : Nat} (h : FS2 N PA PB fa fb t) (ht : t ≤ fa.size)
     (hs : fb.size = fa.size) (a₀ a₁ a₂ a₃ b₀ b₁ b₂ b₃ : Nat) :
-    FS2 PA PB ((((fa.push a₀).push a₁).push a₂).push a₃) ((((fb.push b₀).push b₁).push b₂).push b₃) t :=
+    FS2 N PA PB ((((fa.push a₀).push a₁).push a₂).push a₃) ((((fb.push b₀).push b₁).push b₂).push b₃) t :=
   h.congr (fun i hi => push4_get (by omega)) (fun i hi => push4_get (by omega))
 
 /-- **Pushing an ι frame** (entry, span start, count, tag `3`) with related entries. -/
-theorem FsRel.pushIota {fa fb : Array Nat} (h : FsRel PA PB fa fb) {kA kB : Nat} (hk : EntRel PA PB kA kB)
+theorem FsRel.pushIota {fa fb : Array Nat} (h : FsRel N PA PB fa fb) {kA kB : Nat} (hk : ERel N PA PB kA kB)
     (s n : Nat) :
-    FsRel PA PB ((((fa.push kA).push s).push n).push 3) ((((fb.push kB).push s).push n).push 3) := by
+    FsRel N PA PB ((((fa.push kA).push s).push n).push 3) ((((fb.push kB).push s).push n).push 3) := by
   refine ⟨by simp [h.1], ?_⟩
   simp only [Array.size_push]
   obtain ⟨a₀, a₁, a₂, a₃⟩ := push4_reads fa kA s n 3
@@ -96,9 +96,9 @@ theorem FsRel.pushIota {fa fb : Array Nat} (h : FsRel PA PB fa fb) {kA kB : Nat}
     (by rw [a₂, b₂]) (h.2.push4 (Nat.le_refl _) h.1 _ _ _ _ _ _ _ _)
 
 /-- **Pushing a literal-operation frame** (entry, two cells, tag `5`) with related entries. -/
-theorem FsRel.pushNatA {fa fb : Array Nat} (h : FsRel PA PB fa fb) {kA kB : Nat} (hk : EntRel PA PB kA kB)
+theorem FsRel.pushNatA {fa fb : Array Nat} (h : FsRel N PA PB fa fb) {kA kB : Nat} (hk : ERel N PA PB kA kB)
     (a b : Nat) :
-    FsRel PA PB ((((fa.push kA).push a).push b).push 5) ((((fb.push kB).push a).push b).push 5) := by
+    FsRel N PA PB ((((fa.push kA).push a).push b).push 5) ((((fb.push kB).push a).push b).push 5) := by
   refine ⟨by simp [h.1], ?_⟩
   simp only [Array.size_push]
   obtain ⟨a₀, a₁, a₂, a₃⟩ := push4_reads fa kA a b 5
