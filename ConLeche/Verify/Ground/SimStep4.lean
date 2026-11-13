@@ -19,7 +19,7 @@ namespace ConLeche.Verify.Ground
 open ConLeche
 
 section
-variable {N : Name → Prop} {env : Env} {f₂ : Name → Option ConstantInfo}
+variable {j : Nat} {N : Name → Prop} {env : Env} {f₂ : Name → Option ConstantInfo}
   {p₂ : Name → Nat → Option ProjEntry} {t₀ : Expr} {n : Nat}
 
 /-- A step that keeps the mode, restated at the mode's value. -/
@@ -29,11 +29,11 @@ theorem MInv.setMode {s : MS} {oc : Nat → Expr} {fl : List Fr} (h : MInv env t
   rw [e]; exact h
 
 /-- **Mode 4**, pushing a spine's arguments. -/
-theorem sim_mode4 (hag : LookAgree N env.find? env.findProj? f₂ p₂) (ih : SimAt N env f₂ p₂ t₀ n)
+theorem sim_mode4 (hag : LookAgree N env.find? env.findProj? f₂ p₂) (ih : SimAt j N env f₂ p₂ t₀ n)
     {sA sB : MS} {oc : Nat → Expr} {fl : List Fr}
-    (h : MInv env t₀ oc sA fl) (hR : RunOK env sA.P) (hr : MRel N env.find? env.findProj? f₂ p₂ sA sB)
-    (hm : sA.mode = 4) {m : Nat} (hmn : 2 * (n + 1) ≤ m) :
-    OutRel N env f₂ p₂ (sA.run env.find? env.findProj? (n + 1)) (sB.run f₂ p₂ m) := by
+    (h : MInv env t₀ oc sA fl) (hR : RunOK env sA.P) (hr : MRel j N env.find? env.findProj? f₂ p₂ sA sB)
+    (hm : sA.mode = 4) {m : Nat} (hmn : (j = 0 ∧ m = n + 1) ∨ (j = 1 ∧ 2 * (n + 1) ≤ m)) :
+    OutRel j N env f₂ p₂ (sA.run env.find? env.findProj? (n + 1)) (sB.run f₂ p₂ m) := by
   obtain ⟨m, rfl⟩ : ∃ m', m = m' + 1 := ⟨m - 1, by omega⟩
   have hmB : sB.mode = 4 := by rw [hr.mode, hm]
   have hg := hr.regs
@@ -99,7 +99,7 @@ theorem sim_mode4 (hag : LookAgree N env.find? env.findProj? f₂ p₂) (ih : Si
   next hc =>
     have hT' := hT (by rw [hc]; decide)
     obtain ⟨oc', h'⟩ := step_arg_nat h hm hxA rfl hc
-    rw [hr.val.1, hr.cel.1, hT'.natLit hc]
+    rw [hr.val.1, hr.cel.1, (hT'.natLit hc).1]
     refine ih.app (sB := { sB with
         cel := (((sB.cel.push ((sA.val.size >>> 2) + 2)).push sB.P.code[sB.pc + 3 + j]!).push 0).push 0
         val := (((sB.val.push 2).push sA.P.code[sA.P.code[sA.pc + 3 + j]! + 1]!).push 0).push 0
@@ -110,7 +110,7 @@ theorem sim_mode4 (hag : LookAgree N env.find? env.findProj? f₂ p₂) (ih : Si
       (MInv.setMode h' hm) hR ?_ (m := m) (by omega)
     exact { hr with
       cel := hr.cel.push hc4 _ 0 0 _ _ (fun e => absurd e (by omega))
-      val := hr.val.push hv4 2 0 0 _ _ rfl
+      val := hr.val.push hv4 2 0 0 _ _ ⟨rfl, (hT'.natLit hc).2⟩
       fs := hr.fs.pushOne _ (.inl (tag_and _ 1 (by omega)))
       mode := rfl
       regs := ⟨rfl, rfl, t, hN, hA, hB⟩ }

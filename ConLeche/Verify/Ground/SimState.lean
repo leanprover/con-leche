@@ -31,8 +31,21 @@ namespace ConLeche.Verify.Ground
 
 open ConLeche
 
-/-- The constants and projection structures of a term are in `N`. -/
+/-- The `Nat` basis is in `N`. -/
+@[expose] def NatN (N : Name → Prop) : Prop :=
+  N natName ∧ N natZeroName ∧ N natSuccName
+
+/-- The names a string literal reads (`strLitStored`'s, which
+`strLitToConstructor` mentions) are in `N`. -/
+@[expose] def StrNames (N : Name → Prop) : Prop :=
+  NatN N ∧ N stringName ∧ N stringOfListName ∧ N listName ∧ N listNilName ∧ N listConsName ∧
+    N charName ∧ N charOfNatName
+
+/-- The constants and projection structures of a term are in `N`, a
+literal's basis included (as `Expr.constsResolve`). -/
 @[expose] def NamesIn (N : Name → Prop) : Expr → Prop
+  | .lit (.natVal _) => NatN N
+  | .lit (.strVal _) => StrNames N
   | .const c _ => N c
   | .app f x => NamesIn N f ∧ NamesIn N x
   | .lam ty b => NamesIn N ty ∧ NamesIn N b
@@ -43,14 +56,32 @@ open ConLeche
   | _ => True
 
 theorem NamesIn.univ : ∀ (t : Expr), NamesIn (fun _ => True) t
-  | .bvar _ | .sort _ | .lit _ | .const _ _ => trivial
+  | .bvar _ | .sort _ | .const _ _ => trivial
+  | .lit (.natVal _) => ⟨trivial, trivial, trivial⟩
+  | .lit (.strVal _) => ⟨⟨trivial, trivial, trivial⟩, trivial, trivial, trivial, trivial, trivial, trivial, trivial⟩
   | .fvar _ ty => NamesIn.univ ty
   | .app f x | .lam f x | .forallE f x => ⟨NamesIn.univ f, NamesIn.univ x⟩
   | .letE ty v b => ⟨NamesIn.univ ty, NamesIn.univ v, NamesIn.univ b⟩
   | .proj _ _ e => ⟨trivial, NamesIn.univ e⟩
 
+/-- **A compiled body's key**: an entry of key `κ` whose body is compiled. -/
+@[expose] def CodeK (P : G4Prog) (κ : Name × List Level) : Prop :=
+  ∃ (k : Nat) (i : G4Info), P.kInfo[k]? = some i ∧ infoKey i = κ ∧ P.kCode[k]! ≠ 0
+
+/-- **A compiled right-hand side's key**: rule `d` of a recursor entry of
+key `κ`. -/
+@[expose] def RuleK (P : G4Prog) (κ : Name × List Level) (d : Nat) : Prop :=
+  ∃ (k : Nat) (c : Name) (lps : List Name) (us : List Level) (mI rP base nr : Nat) (isK isEta : Bool),
+    P.kInfo[k]? = some (G4Info.recr c lps us mI rP base nr isK isEta) ∧
+    (c, us) = κ ∧ d < nr ∧ P.ruleCode[base + d]! ≠ 0
+
+/-- **Lock-step**: two programs that have compiled the same bodies and
+right-hand sides (two fresh runs in step do). -/
+@[expose] def CodeSame (PA PB : G4Prog) : Prop :=
+  (∀ κ, CodeK PB κ ↔ CodeK PA κ) ∧ ∀ κ d, RuleK PB κ d ↔ RuleK PA κ d
+
 section
-variable (N : Name → Prop) (f₁ : Name → Option ConstantInfo) (p₁ : Name → Nat → Option ProjEntry)
+variable (j : Nat) (N : Name → Prop) (f₁ : Name → Option ConstantInfo) (p₁ : Name → Nat → Option ProjEntry)
   (f₂ : Name → Option ConstantInfo) (p₂ : Name → Nat → Option ProjEntry)
 
 /-- **Two code words of one term** (a node, or an argument-position node),
@@ -64,13 +95,15 @@ the term's names in `N`. -/
   ∃ s, PA.strs[a]? = some s ∧ PB.strs[b]? = some s
 
 /-- **A value record's payload word** by the record's tag: a closure's λ
-node, a constructor's or partial application's entry, a string's index;
-otherwise (a literal, the neutral) one word. -/
+node, a constructor's or partial application's entry, a string's index
+(the string basis in `N`), a literal (the `Nat` basis in `N`); otherwise
+(the neutral) one word. -/
 @[expose] def ValW (PA PB : G4Prog) (tag a b : Nat) : Prop :=
   match tag with
   | 0 => TRel N f₁ p₁ f₂ p₂ PA PB a b
   | 1 => ERel N PA PB a b
-  | 3 => StrRel PA PB a b
+  | 2 => b = a ∧ NatN N
+  | 3 => StrRel PA PB a b ∧ StrNames N
   | 4 => ERel N PA PB a b
   | _ => b = a
 
@@ -123,18 +156,25 @@ related entries, modes 1 and 2 one value or cell. -/
     | 4 => sB.x = sA.x ∧ ∃ t, NamesIn N t ∧ Comp f₁ p₁ sA.P sA.pc t ∧ Comp f₂ p₂ sB.P sB.pc t
     | _ => sB.x = sA.x ∧ sB.pc = sA.pc
 
+/-- **A basis entry** (`Bool.true` … `Nat.succ`): one key on both sides, and
+related as an entry where its constant is in `N`. -/
+@[expose] def BasisRel (PA PB : G4Prog) (c : Name) (a b : Nat) : Prop :=
+  EntRel PA PB a b ∧ (N c → ERel N PA PB a b)
+
 /-- **The simulation relation** between a state of the run on `PA` and one
-of the run on `PB`. -/
+of the run on `PB`; at `j = 0` (lock-step) the two programs have compiled
+the same bodies.  The `Nat` and `String` flags agree where their basis is
+in `N` (a literal's value carries that, `ValW`). -/
 structure MRel (sA sB : MS) : Prop where
   invA : Inv f₁ p₁ sA.P
   invB : Inv f₂ p₂ sB.P
-  natOk : sB.P.natOk = sA.P.natOk
-  strOk : sB.P.strOk = sA.P.strOk
+  natOk : NatN N → sB.P.natOk = sA.P.natOk
+  strOk : StrNames N → sB.P.strOk = sA.P.strOk
   maxNat : sB.P.maxNat = sA.P.maxNat
-  kTrue : ERel N sA.P sB.P sA.P.kTrue sB.P.kTrue
-  kFalse : ERel N sA.P sB.P sA.P.kFalse sB.P.kFalse
-  kZero : ERel N sA.P sB.P sA.P.kZero sB.P.kZero
-  kSucc : ERel N sA.P sB.P sA.P.kSucc sB.P.kSucc
+  kTrue : BasisRel N sA.P sB.P boolTrueName sA.P.kTrue sB.P.kTrue
+  kFalse : BasisRel N sA.P sB.P boolFalseName sA.P.kFalse sB.P.kFalse
+  kZero : BasisRel N sA.P sB.P natZeroName sA.P.kZero sB.P.kZero
+  kSucc : BasisRel N sA.P sB.P natSuccName sA.P.kSucc sB.P.kSucc
   cel : CelRel N f₁ p₁ f₂ p₂ sA.P sB.P sA.cel sB.cel
   val : ValRel N f₁ p₁ f₂ p₂ sA.P sB.P sA.val sB.val
   ev : sB.ev = sA.ev
@@ -147,13 +187,14 @@ structure MRel (sA sB : MS) : Prop where
   mode : sB.mode = sA.mode
   st : sB.st = sA.st
   regs : RegRel N f₁ p₁ f₂ p₂ sA sB
+  code : j = 0 → CodeSame sA.P sB.P
 
 end
 
 /-! ## Growth of the programs -/
 
 section
-variable {N : Name → Prop} {f₁ f₂ : Name → Option ConstantInfo} {p₁ p₂ : Name → Nat → Option ProjEntry}
+variable {j : Nat} {N : Name → Prop} {f₁ f₂ : Name → Option ConstantInfo} {p₁ p₂ : Name → Nat → Option ProjEntry}
   {PA PB PA' PB' : G4Prog}
 
 theorem TRel.ext (hA : ExtR PA PA') (hB : ExtR PB PB') {oA oB : Nat}
@@ -173,9 +214,14 @@ theorem ValW.ext (hA : ExtR PA PA') (hB : ExtR PB PB') {t a b : Nat}
   split at h
   · exact h.ext hA hB
   · exact h.ext hA hB
-  · exact h.ext hA hB
+  · exact h
+  · exact ⟨h.1.ext hA hB, h.2⟩
   · exact h.ext hA hB
   · exact h
+
+theorem BasisRel.ext (hA : ExtR PA PA') (hB : ExtR PB PB') {c : Name} {a b : Nat}
+    (h : BasisRel N PA PB c a b) : BasisRel N PA' PB' c a b :=
+  ⟨h.1.ext hA hB, fun hc => (h.2 hc).ext hA hB⟩
 
 theorem ValRel.ext (hA : ExtR PA PA') (hB : ExtR PB PB') {va vb : Array Nat}
     (h : ValRel N f₁ p₁ f₂ p₂ PA PB va vb) : ValRel N f₁ p₁ f₂ p₂ PA' PB' va vb :=

@@ -48,6 +48,40 @@ stored on the row. -/
     (ri : Nat) (t : Expr) : G4Prog :=
   { (g4Comp f p P t).2 with ruleCode := (g4Comp f p P t).2.ruleCode.set! ri ((g4Comp f p P t).1 + 1) }
 
+/-- **The rule compile on both sides keeps lock-step**: both store rule `d`
+of recursors of one key. -/
+theorem CodeSame.iota {fA fB : Name → Option ConstantInfo} {pA pB : Name → Nat → Option ProjEntry}
+    {PA PB : G4Prog} (hcs : CodeSame PA PB) (hIA : Inv fA pA PA) (hIB : Inv fB pB PB) {kA kB : Nat}
+    {c : Name} {lps lps' : List Name} {us : List Level} {mI rP bA nA mI' rP' bB nB : Nat}
+    {isK isEta isK' isEta' : Bool}
+    (hiA : PA.kInfo[kA]? = some (.recr c lps us mI rP bA nA isK isEta))
+    (hiB : PB.kInfo[kB]? = some (.recr c lps' us mI' rP' bB nB isK' isEta')) {d : Nat} (hdA : d < nA)
+    (hdB : d < nB) {riA riB : Nat} (eA : riA = bA + d) (eB : riB = bB + d) (tA tB : Expr) :
+    CodeSame (compRule fA pA PA riA tA) (compRule fB pB PB riB tB) := by
+  subst eA eB
+  have cA := g4Comp_spec fA pA PA tA hIA
+  have cB := g4Comp_spec fB pB PB tB hIB
+  unfold compRule
+  generalize g4Comp fA pA PA tA = rA at cA ⊢
+  generalize g4Comp fB pB PB tB = rB at cB ⊢
+  obtain ⟨oA, QA⟩ := rA
+  obtain ⟨oB, QB⟩ := rB
+  obtain ⟨hIA1, hxA, -⟩ := cA
+  obtain ⟨hIB1, hxB, -⟩ := cB
+  have hq := hcs.ext hIA.toTabInv hIB.toTabInv hxA hxB
+  have qA := hxA.kInfo_some hiA
+  have qB := hxB.kInfo_some hiB
+  have hrA : bA + d < QA.ruleCode.size := by
+    rw [hIA1.szs.2.1.1]
+    exact hIA1.toTabInv.rows_lt ⟨_, _, _, _, _, _, _, _, _, qA, Nat.le_add_right _ _, by omega⟩
+  have hrB : bB + d < QB.ruleCode.size := by
+    rw [hIB1.szs.2.1.1]
+    exact hIB1.toTabInv.rows_lt ⟨_, _, _, _, _, _, _, _, _, qB, Nat.le_add_right _ _, by omega⟩
+  refine ⟨fun κ => hq.1 κ, fun κ d' => ?_⟩
+  dsimp only
+  rw [ruleK_set hIB1.toTabInv qB hdB hrB (Nat.succ_ne_zero _), ruleK_set hIA1.toTabInv qA hdA hrA
+    (Nat.succ_ne_zero _), hq.2 κ d']
+
 /-- **The rule compile's program** keeps the invariant, grows the program,
 keeps the site, and stores the right-hand side. -/
 theorem compRule_spec {f : Name → Option ConstantInfo} {p : Name → Nat → Option ProjEntry} {P : G4Prog}
@@ -110,14 +144,14 @@ theorem run_iota_comp {f : Name → Option ConstantInfo} {p : Name → Nat → O
   rfl
 
 section
-variable {N : Name → Prop} {env : Env} {f₂ : Name → Option ConstantInfo}
+variable {j : Nat} {N : Name → Prop} {env : Env} {f₂ : Name → Option ConstantInfo}
   {p₂ : Name → Nat → Option ProjEntry} {t₀ : Expr} {n : Nat}
 
 /-- **The ι frame's words at a constructor**: related recursor entries of
 one rule list, one offset of the rule found, the rule row's words one, its
 right-hand side's code of one term where compiled. -/
 theorem MRel.iotaW (hag : LookAgree N env.find? env.findProj? f₂ p₂) {sA sB : MS}
-    (hr : MRel N env.find? env.findProj? f₂ p₂ sA sB) {kA kB kcA kcB : Nat}
+    (hr : MRel j N env.find? env.findProj? f₂ p₂ sA sB) {kA kB kcA kcB : Nat}
     (hk : ERel N sA.P sB.P kA kB) (hkc : ERel N sA.P sB.P kcA kcB)
     (h2 : sA.P.kTag[kA]? = some 2) (h1 : sA.P.kTag[kcA]! = 1) :
     ∃ (c : Name) (lps : List Name) (us : List Level) (mI rP bA bB : Nat) (isK isEta : Bool)
@@ -171,13 +205,13 @@ theorem MRel.iotaW (hag : LookAgree N env.find? env.findProj? f₂ p₂) {sA sB 
 /-- **Mode 1 at an ι frame**, where the dispatch stops before the
 right-hand side's test, or both sides have its code. -/
 theorem sim_mode1i' (hwf : EnvWF env) (hag : LookAgree N env.find? env.findProj? f₂ p₂)
-    (hsN : strLitStored env = true → StrNames N) (ih : SimAt N env f₂ p₂ t₀ n)
+    (hsN : strLitStored env = true → StrNames N) (ih : SimAt j N env f₂ p₂ t₀ n)
     {sA sB : MS} {oc : Nat → Expr} {fl : List Fr}
-    (h : MInv env t₀ oc sA fl) (hR : RunOK env sA.P) (hr : MRel N env.find? env.findProj? f₂ p₂ sA sB)
+    (h : MInv env t₀ oc sA fl) (hR : RunOK env sA.P) (hr : MRel j N env.find? env.findProj? f₂ p₂ sA sB)
     (hm : sA.mode = 1) (hn : 0 < sA.fs.size) (ht : sA.fs[sA.fs.size - 1]! &&& 15 = 3)
     (hc : ¬I1 sA ∨ (sA.P.ruleCode[iotaRi sA]! ≠ 0 ∧ sB.P.ruleCode[iotaRi sB]! ≠ 0)) {m : Nat}
-    (hmn : 2 * n + 1 ≤ m) :
-    OutRel N env f₂ p₂ (sA.run env.find? env.findProj? (n + 1)) (sB.run f₂ p₂ m) := by
+    (hmn : (j = 0 ∧ m = n + 1) ∨ (j = 1 ∧ 2 * n + 1 ≤ m)) :
+    OutRel j N env f₂ p₂ (sA.run env.find? env.findProj? (n + 1)) (sB.run f₂ p₂ m) := by
   obtain ⟨m, rfl⟩ : ∃ m', m = m' + 1 := ⟨m - 1, by omega⟩
   have hmB : sB.mode = 1 := by rw [hr.mode, hm]
   have hg := hr.regs
@@ -185,7 +219,7 @@ theorem sim_mode1i' (hwf : EnvWF env) (hag : LookAgree N env.find? env.findProj?
   obtain ⟨he, hx, hpc⟩ := hg
   have hxl := (h.val1 hm).1
   have hv4 : sA.val.size % 4 = 0 := h.store.valSz
-  have hstop : ∀ g, OutRel N env f₂ p₂ (.stop g sA.st) (.stop g sB.st) :=
+  have hstop : ∀ g, OutRel j N env f₂ p₂ (.stop g sA.st) (.stop g sB.st) :=
     fun g => .inr (.inl ⟨_, _, rfl, by rw [hr.st]⟩)
   obtain ⟨fl', hfl, -, -⟩ := FS.top_iota' h.stack hn ht
   obtain ⟨-, -, -, h2k, -⟩ : FrOK sA.P sA.argA sA.N
@@ -195,7 +229,7 @@ theorem sim_mode1i' (hwf : EnvWF env) (hag : LookAgree N env.find? env.findProj?
   obtain ⟨w0, w2, w3, hw⟩ := hr.valW hxl
   have hpop : ∃ fl', MInv env t₀ oc { sA with fs := g4PopN sA.fs 4, mode := 1, pc := 0, env := 0, x := 0 } fl' :=
     step_iota_pop h hm hn ht
-  have hpopR : MRel N env.find? env.findProj? f₂ p₂
+  have hpopR : MRel j N env.find? env.findProj? f₂ p₂
       { sA with fs := g4PopN sA.fs 4, mode := 1, pc := 0, env := 0, x := 0 }
       { sB with fs := g4PopN sB.fs 4, mode := 1, pc := 0, env := 0, x := 0 } :=
     { hr with
@@ -224,8 +258,8 @@ theorem sim_mode1i' (hwf : EnvWF env) (hag : LookAgree N env.find? env.findProj?
   next hv =>
     -- a literal major
     rw [hv] at hw
-    have hw' : sB.val[g4X4 sA.x + 1]! = sA.val[g4X4 sA.x + 1]! := hw
-    rw [hr.natOk, hw']
+    obtain ⟨hw', hNN⟩ : sB.val[g4X4 sA.x + 1]! = sA.val[g4X4 sA.x + 1]! ∧ NatN N := hw
+    rw [hr.natOk hNN, hw']
     split
     next => exact hstop _
     next hok =>
@@ -241,7 +275,7 @@ theorem sim_mode1i' (hwf : EnvWF env) (hag : LookAgree N env.find? env.findProj?
           env := 0
           x := sA.val.size >>> 2 }) h' hR ?_ (m := m) (by omega)
       exact { hr with
-        val := hr.val.push hv4 1 0 0 _ _ hr.kZero
+        val := hr.val.push hv4 1 0 0 _ _ (hr.kZero.2 hNN.2.1)
         mode := rfl
         regs := ⟨rfl, rfl, rfl⟩ }
     next mm hm1 =>
@@ -258,7 +292,8 @@ theorem sim_mode1i' (hwf : EnvWF env) (hag : LookAgree N env.find? env.findProj?
           x := (sA.val.size >>> 2) + 1 }) h' hR ?_ (m := m) (by omega)
       exact { hr with
         cel := hr.cel.push h.store.celSz _ 0 0 0 0 (fun h => absurd h (by omega))
-        val := (hr.val.push hv4 2 0 0 _ _ rfl).push (by simp; omega) 1 sA.argA.size 1 _ _ hr.kSucc
+        val := (hr.val.push hv4 2 0 0 _ _ ⟨rfl, hNN⟩).push (by simp; omega) 1 sA.argA.size 1 _ _
+          (hr.kSucc.2 hNN.2.2)
         argA := rfl
         memoA := hr.memoA.argA (Pre.push _ _)
         memoB := (hr.argA ▸ hr.memoB : MemoTab sB.mem sA.argA sB.mH).argA (Pre.push _ _)
@@ -267,8 +302,9 @@ theorem sim_mode1i' (hwf : EnvWF env) (hag : LookAgree N env.find? env.findProj?
   next hv =>
     -- a string major
     rw [hv] at hw
-    obtain ⟨s, hsA, hsB⟩ := (hw : StrRel sA.P sB.P sA.val[g4X4 sA.x + 1]! sB.val[g4X4 sA.x + 1]!)
-    rw [hr.strOk]
+    obtain ⟨⟨s, hsA, hsB⟩, hsN'⟩ :=
+      (hw : StrRel sA.P sB.P sA.val[g4X4 sA.x + 1]! sB.val[g4X4 sA.x + 1]! ∧ StrNames N)
+    rw [hr.strOk hsN']
     split
     next => exact hstop _
     next hok =>
@@ -335,7 +371,7 @@ theorem sim_mode1i' (hwf : EnvWF env) (hag : LookAgree N env.find? env.findProj?
     · exact absurd h0 hcB
     have hT : TRel N env.find? env.findProj? f₂ p₂ sA.P sB.P oA oB := TRel.ofComp hN compA compB
     rw [eoA, eoB, Nat.add_sub_cancel, Nat.add_sub_cancel, eBA, eBB, hT.tag hag, hr.argA, hr.ev]
-    have hframes : OutRel N env f₂ p₂
+    have hframes : OutRel j N env f₂ p₂
         (g4Run env.find? env.findProj? n sA.P sA.cel sA.val sA.ev
           (g4PushArgs sA.argA sA.fs[sA.fs.size - 3]!
             (g4PushArgs sA.argA (sA.val[g4X4 sA.x + 2]! + sA.P.rCP[bA + d]!) (g4PopN sA.fs 4)
@@ -420,7 +456,7 @@ theorem sim_mode1i' (hwf : EnvWF env) (hag : LookAgree N env.find? env.findProj?
 /-- The ι frame's rule row on the other side: the dispatch reaches the test
 there too, at the related row. -/
 theorem MRel.iotaI1 (hag : LookAgree N env.find? env.findProj? f₂ p₂) {sA sB : MS} {oc : Nat → Expr}
-    {fl : List Fr} (h : MInv env t₀ oc sA fl) (hr : MRel N env.find? env.findProj? f₂ p₂ sA sB)
+    {fl : List Fr} (h : MInv env t₀ oc sA fl) (hr : MRel j N env.find? env.findProj? f₂ p₂ sA sB)
     (hm : sA.mode = 1) (hn : 0 < sA.fs.size) (ht : sA.fs[sA.fs.size - 1]! &&& 15 = 3) (hI : I1 sA) :
     ∃ (c : Name) (lps : List Name) (us : List Level) (mI rP bA bB nr : Nat) (isK isEta : Bool) (d : Nat),
       sA.P.kInfo[sA.fs[sA.fs.size - 4]!]? = some (.recr c lps us mI rP bA nr isK isEta) ∧
@@ -455,12 +491,12 @@ theorem MRel.iotaI1 (hag : LookAgree N env.find? env.findProj? f₂ p₂) {sA sB
 /-- **Mode 1 at an ι frame**: the right-hand side's compile in its four
 combinations, as the δ compile of mode 3. -/
 theorem sim_mode1i (hwf : EnvWF env) (hag : LookAgree N env.find? env.findProj? f₂ p₂)
-    (hsN : strLitStored env = true → StrNames N) (ih : SimAt N env f₂ p₂ t₀ n)
+    (hsN : strLitStored env = true → StrNames N) (ih : SimAt j N env f₂ p₂ t₀ n)
     {sA sB : MS} {oc : Nat → Expr} {fl : List Fr}
-    (h : MInv env t₀ oc sA fl) (hR : RunOK env sA.P) (hr : MRel N env.find? env.findProj? f₂ p₂ sA sB)
+    (h : MInv env t₀ oc sA fl) (hR : RunOK env sA.P) (hr : MRel j N env.find? env.findProj? f₂ p₂ sA sB)
     (hm : sA.mode = 1) (hn : 0 < sA.fs.size) (ht : sA.fs[sA.fs.size - 1]! &&& 15 = 3) {m : Nat}
-    (hmn : 2 * (n + 1) ≤ m) :
-    OutRel N env f₂ p₂ (sA.run env.find? env.findProj? (n + 1)) (sB.run f₂ p₂ m) := by
+    (hmn : (j = 0 ∧ m = n + 1) ∨ (j = 1 ∧ 2 * (n + 1) ≤ m)) :
+    OutRel j N env f₂ p₂ (sA.run env.find? env.findProj? (n + 1)) (sB.run f₂ p₂ m) := by
   by_cases hI : I1 sA
   rotate_left
   · exact sim_mode1i' hwf hag hsN ih h hR hr hm hn ht (.inl hI) (by omega)
@@ -477,17 +513,25 @@ theorem sim_mode1i (hwf : EnvWF env) (hag : LookAgree N env.find? env.findProj? 
     obtain ⟨hIA', hxA, hsA, -⟩ := compRule_spec h.store.prog hiA (ri := iotaRi sA) (by omega) (by omega)
     obtain ⟨hIB', hxB, hsB, -⟩ := compRule_spec hr.invB hiB (ri := iotaRi sB) (by omega) (by omega)
     have h' := step_iota_compile hwf h hm hn ht hv rfl h1 rfl hne hcl hc3 (getElem!_of_getElem? hiA)
-    exact ih _ _ _ _ h' (hR.ext hxA hsA) (hr.ext hxA hxB hIA' hIB' hsA hsB) m (by omega)
-  · -- A compiles a right-hand side B has: B takes no step
+    exact ih _ _ _ _ h' (hR.ext hxA hsA) (hr.ext hxA hxB hIA' hIB' hsA hsB fun h0 =>
+      (hr.code h0).iota h.store.prog hr.invB hiA hiB hdl hdl hriA hriB _ _) m (fuel_t hmn)
+  · -- A compiles a right-hand side B has: B takes no step (not in lock-step)
+    rcases hmn with ⟨rfl, -⟩ | ⟨rfl, hmn⟩
+    · rw [hriA] at hcA; rw [hriB] at hcB
+      exact absurd ((CodeSame.rule_iff (hr.code rfl) hr.invA.toCompInv hr.invB.toCompInv hiA hiB hdl hdl).1 hcA) hcB
     rw [run_iota_comp hm hn ht ⟨hv, h1, hne, hcl, hc3⟩ hcA hiA]
     obtain ⟨hIA', hxA, hsA, -⟩ := compRule_spec h.store.prog hiA (ri := iotaRi sA) (by omega) (by omega)
     have h' := step_iota_compile hwf h hm hn ht hv rfl h1 rfl hne hcl hc3 (getElem!_of_getElem? hiA)
-    exact ih _ sB _ _ h' (hR.ext hxA hsA) (hr.ext hxA (ExtR.refl _) hIA' hr.invB hsA rfl) m (by omega)
-  · -- B compiles a right-hand side A has, then takes A's step
+    exact ih _ sB _ _ h' (hR.ext hxA hsA) (hr.ext hxA (ExtR.refl _) hIA' hr.invB hsA rfl
+      fun h0 => absurd h0 (by decide)) m (.inr ⟨rfl, by omega⟩)
+  · -- B compiles a right-hand side A has, then takes A's step (not in lock-step)
+    rcases hmn with ⟨rfl, -⟩ | ⟨rfl, hmn⟩
+    · rw [hriA] at hcA; rw [hriB] at hcB
+      exact absurd ((CodeSame.rule_iff (hr.code rfl) hr.invA.toCompInv hr.invB.toCompInv hiA hiB hdl hdl).2 hcB) hcA
     obtain ⟨m, rfl⟩ : ∃ m', m = m' + 1 := ⟨m - 1, by omega⟩
     rw [run_iota_comp hmB hnB htB hIB hcB hiB]
     obtain ⟨hIB', hxB, hsB, hcB'⟩ := compRule_spec hr.invB hiB (ri := iotaRi sB) (by omega) (by omega)
-    have hr' := hr.ext (ExtR.refl _) hxB hr.invA hIB' rfl hsB
+    have hr' := hr.ext (ExtR.refl _) hxB hr.invA hIB' rfl hsB fun h0 => absurd h0 (by decide)
     obtain ⟨c', lps', us', mI', rP', bA', bB', nr', isK', isEta', d', hiA', hiB', hriA', hriB', -, -⟩ :=
       hr'.iotaI1 hag h hm hn ht ⟨hv, h1, hne, hcl, hc3⟩
     have e1 : d' = d := by
@@ -495,7 +539,7 @@ theorem sim_mode1i (hwf : EnvWF env) (hag : LookAgree N env.find? env.findProj? 
       have := hriA'.symm.trans hriA; omega
     have e2 : bB' = bB := by
       rw [hxB.kInfo_some hiB] at hiB'; cases hiB'; rfl
-    refine sim_mode1i' hwf hag hsN ih h hR hr' hm hn ht (.inr ⟨hcA, ?_⟩) (by omega)
+    refine sim_mode1i' hwf hag hsN ih h hR hr' hm hn ht (.inr ⟨hcA, ?_⟩) (.inr ⟨rfl, by omega⟩)
     rw [hriB', e1, e2, ← hriB]; exact hcB'
   · exact sim_mode1i' hwf hag hsN ih h hR hr hm hn ht (.inr ⟨hcA, hcB⟩) (by omega)
 

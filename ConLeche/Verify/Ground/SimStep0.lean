@@ -18,7 +18,7 @@ namespace ConLeche.Verify.Ground
 open ConLeche
 
 section
-variable {N : Name → Prop} {env : Env} {f₂ : Name → Option ConstantInfo}
+variable {j : Nat} {N : Name → Prop} {env : Env} {f₂ : Name → Option ConstantInfo}
   {p₂ : Name → Nat → Option ProjEntry} {t₀ : Expr} {n : Nat}
 
 theorem shr2_eq (a : Nat) : a >>> 2 = a / 4 := Nat.shiftRight_eq_div_pow _ _
@@ -31,11 +31,11 @@ theorem FsRel.callTest {PA PB : G4Prog} {fa fb : Array Nat} (h : FsRel N PA PB f
   · simp [h.1, hn]
 
 /-- **Mode 0**, evaluating a node. -/
-theorem sim_mode0 (hag : LookAgree N env.find? env.findProj? f₂ p₂) (ih : SimAt N env f₂ p₂ t₀ n)
+theorem sim_mode0 (hag : LookAgree N env.find? env.findProj? f₂ p₂) (ih : SimAt j N env f₂ p₂ t₀ n)
     {sA sB : MS} {oc : Nat → Expr} {fl : List Fr}
-    (h : MInv env t₀ oc sA fl) (hR : RunOK env sA.P) (hr : MRel N env.find? env.findProj? f₂ p₂ sA sB)
-    (hm : sA.mode = 0) {m : Nat} (hmn : 2 * (n + 1) ≤ m) :
-    OutRel N env f₂ p₂ (sA.run env.find? env.findProj? (n + 1)) (sB.run f₂ p₂ m) := by
+    (h : MInv env t₀ oc sA fl) (hR : RunOK env sA.P) (hr : MRel j N env.find? env.findProj? f₂ p₂ sA sB)
+    (hm : sA.mode = 0) {m : Nat} (hmn : (j = 0 ∧ m = n + 1) ∨ (j = 1 ∧ 2 * (n + 1) ≤ m)) :
+    OutRel j N env f₂ p₂ (sA.run env.find? env.findProj? (n + 1)) (sB.run f₂ p₂ m) := by
   obtain ⟨m, rfl⟩ : ∃ m', m = m' + 1 := ⟨m - 1, by omega⟩
   have hmB : sB.mode = 0 := by rw [hr.mode, hm]
   have hg := hr.regs
@@ -118,13 +118,13 @@ theorem sim_mode0 (hag : LookAgree N env.find? env.findProj? f₂ p₂) (ih : Si
       st := by simp [hr.st]
       regs := ⟨rfl, rfl, hpc.const ht⟩ }
   next ht =>
-    rw [hpc.natLit ht, hr.val.1]
+    rw [(hpc.natLit ht).1, hr.val.1]
     refine ih.app (sB := { sB with
         val := (((sB.val.push 2).push sA.P.code[sA.pc + 1]!).push 0).push 0, mode := 1, pc := 0,
         env := 0, x := sA.val.size >>> 2 })
       (step_natLit h hm ht) hR ?_ (m := m) (by omega)
     exact { hr with
-      val := hr.val.push hv4 2 0 0 _ _ rfl
+      val := hr.val.push hv4 2 0 0 _ _ ⟨rfl, (hpc.natLit ht).2⟩
       mode := rfl
       regs := ⟨rfl, rfl, rfl⟩ }
   next ht =>

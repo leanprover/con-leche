@@ -67,7 +67,7 @@ theorem g4MaskOf_key (P : G4Prog) (hd : Expr) : KeyEq P (g4MaskOf find? P hd).2 
   · split
     · exact KeyEq.refl P
     · exact ⟨rfl, rfl, rfl, rfl, rfl, rfl, rfl, rfl, rfl, fun _ => rfl, Nat.le_refl _, fun _ _ _ => rfl,
-        fun _ => rfl, id, fun _ _ h => h, rfl, rfl⟩
+        fun _ => rfl, id, fun _ _ h => h, rfl, rfl, fun _ _ h h' => absurd h' (Nat.not_lt.mpr h)⟩
   · exact KeyEq.refl P
 
 theorem g4MaskOf_nids (P : G4Prog) (hd : Expr) : (g4MaskOf find? P hd).2.nids = P.nids := by
@@ -154,7 +154,9 @@ theorem g4CompShared_spec (a : Expr) (comp : G4Prog → Nat × G4Prog)
         refine ⟨⟨fun i hi => rdL _ hi, by simp [G4Prog.emit], fun _ _ => rfl, Nat.le_refl _,
           fun _ _ => rfl, fun _ _ => rfl, fun a' o h => ?_, fun _ _ => rfl, fun _ _ => rfl,
           Nat.le_refl _, fun _ _ => rfl, fun _ _ => rfl, fun _ _ h => h, rfl⟩, fun _ _ => rfl,
-          fun _ _ => rfl, rfl⟩
+          fun _ _ => rfl, rfl, fun _ h h' => absurd h' (Nat.not_lt.mpr h),
+          fun _ h h' => absurd h' (Nat.not_lt.mpr h),
+          fun _ hk _ _ _ _ _ _ _ _ _ hi => absurd (lt_of_some hi) (Nat.not_lt.mpr hk)⟩
         show (P₁.closedNode.insert a P₁.code.size)[a']? = some o
         rw [Std.HashMap.getElem?_insert]
         split
@@ -363,7 +365,8 @@ theorem proj_emit_spec {P P₁ Q : G4Prog} {sn : Name} {i so : Nat} {e : Expr} {
     refine ⟨⟨fun j hj => ?_, ?_, fun j hj => ?_, ?_, fun j hj => ?_, fun j hj => ?_,
       fun a o h => ?_, fun j hj => ?_, fun k _ => entR_of_entW (he k), by rw [← hrs]; exact Nat.le_refl _,
       fun r _ => rowR_of_rowW (hrow r), hprj, hnid, hfl⟩, fun k _ => (entW_eq (he k)).2.1,
-      fun r _ => (rowW_eq (hrow r)).2.1, hep⟩
+      fun r _ => (rowW_eq (hrow r)).2.1, hep, fun _ h h' => ?_, fun _ h h' => ?_,
+      fun _ hk _ _ _ _ _ _ _ _ _ hi' => ?_⟩
     · show (Q.code ++ _)[j]? = _; rw [hc, rdL _ hj]
     · show P₁.code.size ≤ (Q.code ++ _).size; rw [hc]; simp
     · show Q.kInfo[j]? = _; rw [hi]
@@ -372,6 +375,10 @@ theorem proj_emit_spec {P P₁ Q : G4Prog} {sn : Name} {i so : Nat} {e : Expr} {
     · show Q.strs[j]? = _; rw [hs]
     · show Q.closedNode[a]? = _; rw [hcl]; exact h
     · show Q.kSlot[j]? = _; rw [hks]
+    · change _ < Q.kInfo.size at h'; rw [hi] at h'; omega
+    · have := hrs; change _ < Q.rules.size at h'; omega
+    · change Q.kInfo[_]? = _ at hi'; rw [hi] at hi'
+      exact absurd (lt_of_some hi') (Nat.not_lt.mpr hk)
   refine ⟨⟨hI₁.toTabInv.ext hx (by show Q.kTag.size = Q.kInfo.size; rw [ht, hi]; exact hI₁.sizes)
       (by show Q.kSlot.size = Q.kInfo.size; rw [hks, hi]; exact hI₁.kSlotSize) hm hszQ
       (by show Q.kInfo.size = _; rw [hi])
@@ -437,7 +444,9 @@ theorem g4Comp_spec_lt : ∀ (n : Nat),
             ⟨⟨(Ext.emit P _).code, (Ext.emit P _).codeSize, fun _ _ => rfl, Nat.le_refl _,
               fun _ _ => rfl, fun i hi => push_lt hi, fun _ _ h => h, fun _ _ => rfl, fun _ _ => rfl,
               Nat.le_refl _, fun _ _ => rfl, fun _ _ => rfl, fun _ _ h => h, rfl⟩, fun _ _ => rfl,
-              fun _ _ => rfl, rfl⟩
+              fun _ _ => rfl, rfl, fun _ h h' => absurd h' (Nat.not_lt.mpr h),
+              fun _ h h' => absurd h' (Nat.not_lt.mpr h),
+              fun _ hk _ _ _ _ _ _ _ _ _ hi => absurd (lt_of_some hi) (Nat.not_lt.mpr hk)⟩
           refine ⟨hI.ext hx hI.sizes hI.kSlotSize rfl rfl rfl rfl rfl hI.szs rfl
               (fun _ hq h => absurd hq (Nat.not_lt.mpr h)) hI.nidOK, hx,
             .strLit (si := P.strs.size) ?_ ?_ ?_⟩

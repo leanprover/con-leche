@@ -18,7 +18,7 @@ namespace ConLeche.Verify.Ground
 open ConLeche
 
 section
-variable {N : Name → Prop} {f₁ f₂ : Name → Option ConstantInfo} {p₁ p₂ : Name → Nat → Option ProjEntry}
+variable {j : Nat} {N : Name → Prop} {f₁ f₂ : Name → Option ConstantInfo} {p₁ p₂ : Name → Nat → Option ProjEntry}
   {PA PB : G4Prog}
 
 /-- **A new memo record** with related entries. -/

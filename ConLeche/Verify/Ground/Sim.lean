@@ -281,7 +281,8 @@ theorem EntRel.shape {PA PB : G4Prog} (hIA : Inv f₁ p₁ PA) (hIB : Inv f₂ p
 /-- **One tag** for two entries of one key (the lookups agreeing on the
 constant, the `Nat` flags equal). -/
 theorem EntRel.tag {PA PB : G4Prog} (hIA : Inv f₁ p₁ PA) (hIB : Inv f₂ p₂ PB) {kA kB : Nat}
-    (h : EntRel PA PB kA kB) (hn : PA.natOk = PB.natOk)
+    (h : EntRel PA PB kA kB)
+    (hn : ∀ c lps us v, PA.kInfo[kA]? = some (.defn c lps us v) → natBin14 c = true → PA.natOk = PB.natOk)
     (hf : ∀ iA, PA.kInfo[kA]? = some iA → f₁ (infoKey iA).1 = f₂ (infoKey iA).1) :
     PA.kTag[kA]? = PB.kTag[kB]? := by
   obtain ⟨iA, iB, h₁, h₂, h₃, hs⟩ := h.shape hIA hIB
@@ -294,7 +295,10 @@ theorem EntRel.tag {PA PB : G4Prog} (hIA : Inv f₁ p₁ PA) (hIB : Inv f₂ p�
   · -- definitions
     simp only [G4Info.defn.injEq] at hsh
     obtain ⟨rfl, rfl, rfl, rfl⟩ := hsh
-    rw [hIA.defTag kA _ _ _ _ h₁, hIB.defTag kB _ _ _ _ h₂, hn]
+    rw [hIA.defTag kA _ _ _ _ h₁, hIB.defTag kB _ _ _ _ h₂]
+    cases hb : natBin14 _
+    · simp
+    · rw [hn _ _ _ _ h₁ hb]
   · obtain ⟨-, h1, -⟩ := eA; obtain ⟨-, h1', -⟩ := eB; rw [h1, h1']
   · obtain ⟨_, _, -, -, -, -, h1, -⟩ := eA; obtain ⟨_, _, -, -, -, -, h1', -⟩ := eB; rw [h1, h1']
   · rw [eA, eB]
@@ -401,7 +405,8 @@ theorem EntRel.ctorW {PA PB : G4Prog} (hIA : Inv f₁ p₁ PA) (hIB : Inv f₂ p
 an accelerated one, the compiled bodies of one term where both are compiled. -/
 theorem EntRel.defnW {PA PB : G4Prog} (hIA : Inv f₁ p₁ PA) (hIB : Inv f₂ p₂ PB) {kA kB : Nat}
     (h : EntRel PA PB kA kB) {c : Name} {lps : List Name} {us : List Level} {v : Expr}
-    (hi : PA.kInfo[kA]? = some (.defn c lps us v)) (hf : f₁ c = f₂ c) (hn : PA.natOk = PB.natOk) :
+    (hi : PA.kInfo[kA]? = some (.defn c lps us v)) (hf : f₁ c = f₂ c)
+    (hn : natBin14 c = true → PA.natOk = PB.natOk) :
     PB.kInfo[kB]? = some (.defn c lps us v) ∧ PA.kTag[kA]? = PB.kTag[kB]? ∧
       (PA.kTag[kA]? = some 3 → PA.kE[kA]? = PB.kE[kB]?) ∧
       ∃ wA wB, PA.kCode[kA]? = some wA ∧ PB.kCode[kB]? = some wB ∧
@@ -409,7 +414,10 @@ theorem EntRel.defnW {PA PB : G4Prog} (hIA : Inv f₁ p₁ PA) (hIB : Inv f₂ p
         CodeOK f₂ p₂ PB wB (v.instantiateLevelParams lps us) := by
   obtain ⟨hB, ⟨-, -, t₁, w, c₁, d₁⟩, ⟨-, -, t₂, w', c₂, d₂⟩⟩ := h.defn hIA hIB hi hf
   have eT : PA.kTag[kA]? = PB.kTag[kB]? := by
-    rw [hIA.defTag kA _ _ _ _ hi, hIB.defTag kB _ _ _ _ hB, hn]
+    rw [hIA.defTag kA _ _ _ _ hi, hIB.defTag kB _ _ _ _ hB]
+    cases hb : natBin14 c
+    · simp
+    · rw [hn hb]
   refine ⟨hB, eT, fun h3 => ?_, w, w', c₁, c₂, d₁, d₂⟩
   rcases t₁ with t₁ | ⟨-, -, -, -, e₁⟩
   · rw [t₁] at h3; cases h3

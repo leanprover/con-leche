@@ -33,24 +33,16 @@ program's slot array set aside. -/
   ⟨{ P with slotA := #[] }, #[2, 0, 0, 0], #[5, 0, 0, 0], #[], #[], #[], P.slotA, #[], Array.replicate 1024 0,
     0, o, 0, 0, 0⟩
 
-/-- An entry read back as a constant is that constant's entry. -/
-theorem ent_key {P : G4Prog} {k : Nat} (hk : k < P.kInfo.size) {c : Name} {us : List Level}
-    (he : entryTerm P k = .const c us) : ∃ i, P.kInfo[k]? = some i ∧ infoKey i = (c, us) := by
-  unfold entryTerm at he
-  rw [Array.getElem?_eq_getElem hk] at he ⊢
-  refine ⟨_, rfl, ?_⟩
-  dsimp only at he
-  rw [infoTerm_key] at he
-  cases he; rfl
-
-/-- Two entries read back as one constant are related. -/
-theorem ent_rel {PA PB : G4Prog} {kA kB : Nat} {c : Name} {us : List Level}
+/-- Two entries read back as one constant are a basis pair, related where
+the constant is in `N`. -/
+theorem ent_rel {N : Name → Prop} {PA PB : G4Prog} {kA kB : Nat} {c : Name} {us : List Level}
     (hA : kA < PA.kInfo.size ∧ entryTerm PA kA = .const c us)
     (hB : kB < PB.kInfo.size ∧ entryTerm PB kB = .const c us) :
-    ERel (fun _ => True) PA PB kA kB := by
+    BasisRel N PA PB c kA kB := by
   obtain ⟨iA, h₁, e₁⟩ := ent_key hA.1 hA.2
   obtain ⟨iB, h₂, e₂⟩ := ent_key hB.1 hB.2
-  exact ⟨⟨iA, iB, h₁, h₂, e₁.trans e₂.symm⟩, fun _ _ => trivial⟩
+  have hE : EntRel PA PB kA kB := ⟨iA, iB, h₁, h₂, e₁.trans e₂.symm⟩
+  exact ⟨hE, fun hN => ⟨hE, fun i hi => by rw [h₁] at hi; cases hi; rw [e₁]; exact hN⟩⟩
 
 /-- **The site set-up's flags** are the call's. -/
 theorem setup_flags (find? : Name → Option ConstantInfo) (findProj? : Name → Nat → Option ProjEntry)
@@ -91,16 +83,20 @@ section
 variable {env : Env}
 
 /-- **The two site pre-states are related**: two programs a run can start
-from, of one set of flags, with the term compiled on each. -/
-theorem siteMS_rel {PA PB : G4Prog} (hKA : KeptOK env PA) (hKB : KeptOK env PB)
-    (hf : PB.flags = PA.flags) (e : Expr) :
-    MRel (fun _ => True) env.find? env.findProj? env.find? env.findProj?
-      (siteMS (g4Comp env.find? env.findProj? PA e).2 (g4Comp env.find? env.findProj? PA e).1)
-      (siteMS (g4Comp env.find? env.findProj? PB e).2 (g4Comp env.find? env.findProj? PB e).1) := by
-  have cA := g4Comp_spec env.find? env.findProj? PA e hKA.inv
-  have cB := g4Comp_spec env.find? env.findProj? PB e hKB.inv
-  generalize g4Comp env.find? env.findProj? PA e = rA at cA ⊢
-  generalize g4Comp env.find? env.findProj? PB e = rB at cB ⊢
+from (on two environments' lookups agreeing on `N`), with the term compiled
+on each; the flags agree where their basis is in `N`, and in lock-step the
+two compiled programs have compiled the same bodies. -/
+theorem siteMS_rel {envA envB : Env} {PA PB : G4Prog} (hKA : KeptOK envA PA) (hKB : KeptOK envB PB)
+    {j : Nat} {N : Name → Prop} (hnat : NatN N → PB.natOk = PA.natOk)
+    (hstr : StrNames N → PB.strOk = PA.strOk) (hmax : PB.maxNat = PA.maxNat) (e : Expr) (hNe : NamesIn N e)
+    (hcode : j = 0 → CodeSame (g4Comp envA.find? envA.findProj? PA e).2 (g4Comp envB.find? envB.findProj? PB e).2) :
+    MRel j N envA.find? envA.findProj? envB.find? envB.findProj?
+      (siteMS (g4Comp envA.find? envA.findProj? PA e).2 (g4Comp envA.find? envA.findProj? PA e).1)
+      (siteMS (g4Comp envB.find? envB.findProj? PB e).2 (g4Comp envB.find? envB.findProj? PB e).1) := by
+  have cA := g4Comp_spec envA.find? envA.findProj? PA e hKA.inv
+  have cB := g4Comp_spec envB.find? envB.findProj? PB e hKB.inv
+  generalize g4Comp envA.find? envA.findProj? PA e = rA at cA hcode ⊢
+  generalize g4Comp envB.find? envB.findProj? PB e = rB at cB hcode ⊢
   obtain ⟨oA, QA⟩ := rA
   obtain ⟨oB, QB⟩ := rB
   obtain ⟨hIA, hxA, hcA⟩ := cA
@@ -110,7 +106,6 @@ theorem siteMS_rel {PA PB : G4Prog} (hKA : KeptOK env PA) (hKB : KeptOK env PB)
   obtain ⟨tB, fB, zB, sB', -, slB⟩ := hxB.site_eqs
   have eA := hxA.toExtR.flagsEq
   have eB := hxB.toExtR.flagsEq
-  simp only [G4Prog.flags, Prod.mk.injEq] at hf
   have yA := ExtR.setSite QA QA.kTrue QA.kFalse QA.kZero QA.kSucc QA.epBase #[]
   have yB := ExtR.setSite QB QB.kTrue QB.kFalse QB.kZero QB.kSucc QB.epBase #[]
   have rA := (hKA.run.ext hxA.toExtR hxA.site).epoch QA.epBase #[]
@@ -122,9 +117,9 @@ theorem siteMS_rel {PA PB : G4Prog} (hKA : KeptOK env PA) (hKB : KeptOK env PB)
   exact {
     invA := hIA.setSite QA.kTrue QA.kFalse QA.kZero QA.kSucc QA.epBase #[]
     invB := hIB.setSite QB.kTrue QB.kFalse QB.kZero QB.kSucc QB.epBase #[]
-    natOk := by show QB.natOk = QA.natOk; rw [eA.1, eB.1, hf.1]
-    strOk := by show QB.strOk = QA.strOk; rw [eA.2.1, eB.2.1, hf.2.1]
-    maxNat := by show QB.maxNat = QA.maxNat; rw [eA.2.2, eB.2.2, hf.2.2]
+    natOk := fun hn => by show QB.natOk = QA.natOk; rw [eA.1, eB.1, hnat hn]
+    strOk := fun hn => by show QB.strOk = QA.strOk; rw [eA.2.1, eB.2.1, hstr hn]
+    maxNat := by show QB.maxNat = QA.maxNat; rw [eA.2.2, eB.2.2, hmax]
     kTrue := ent_rel rA.tru rB.tru
     kFalse := ent_rel rA.fls rB.fls
     kZero := ent_rel rA.zero rB.zero
@@ -144,7 +139,8 @@ theorem siteMS_rel {PA PB : G4Prog} (hKA : KeptOK env PA) (hKB : KeptOK env PB)
     slots := SlotRel.stale hepA hepB
     mode := rfl
     st := rfl
-    regs := ⟨rfl, rfl, TRel.ofComp (NamesIn.univ e) (hcA.extR yA) (hcB.extR yB)⟩ }
+    regs := ⟨rfl, rfl, TRel.ofComp hNe (hcA.extR yA) (hcB.extR yB)⟩
+    code := hcode }
 
 /-- **The site's start has the invariant** (`site_run`'s first steps). -/
 theorem siteMS_minv {P : G4Prog} (hK : KeptOK env P) {e : Expr} (he : e.looseBVarsBounded 0 = true) :
@@ -191,10 +187,14 @@ theorem ground4_fresh (hwf : EnvWF env) {natOk strOk : Bool} {maxNat F : Nat} {P
   generalize g4Setup env.find? env.findProj? natOk strOk maxNat P₀ = PA at hKA hfA hb ⊢
   generalize g4Setup env.find? env.findProj? natOk strOk maxNat {} = PB at hKB hfB ⊢
   dsimp only at hb ⊢
-  have hr := siteMS_rel hKA hKB (hfB.trans hfA.symm) e
+  have hfl := hfB.trans hfA.symm
+  simp only [G4Prog.flags, Prod.mk.injEq] at hfl
+  have hr := siteMS_rel (j := 1) (N := fun _ => True) hKA hKB (fun _ => hfl.1) (fun _ => hfl.2.1) hfl.2.2 e
+    (NamesIn.univ e) (fun h0 => absurd h0 (by decide))
   obtain ⟨h₂, hR₂⟩ := siteMS_minv hKA he
-  have hsim := sim_run hwf (LookAgree.univ _ _) (fun _ => ⟨trivial, trivial, trivial, trivial, trivial⟩) e F
-    _ _ _ _ h₂ hR₂ hr (2 * F + 1) (by omega)
+  have hsim := sim_run hwf (LookAgree.univ _ _)
+    (fun _ => ⟨⟨trivial, trivial, trivial⟩, trivial, trivial, trivial, trivial, trivial, trivial, trivial⟩) e F
+    _ _ _ _ h₂ hR₂ hr (2 * F + 1) (.inr ⟨rfl, by omega⟩)
   generalize g4Comp env.find? env.findProj? PA e = rA at hsim hb ⊢
   generalize g4Comp env.find? env.findProj? PB e = rB at hsim ⊢
   obtain ⟨oA, QA⟩ := rA
@@ -205,7 +205,7 @@ theorem ground4_fresh (hwf : EnvWF env) {natOk strOk : Bool} {maxNat F : Nat} {P
     QA.slotA #[] (Array.replicate 1024 0) 0 oA 0 0 0 = outA at hsim hb ⊢
   generalize g4Run env.find? env.findProj? (2 * F + 1) { QB with slotA := #[] } #[2, 0, 0, 0] #[5, 0, 0, 0]
     #[] #[] #[] QB.slotA #[] (Array.replicate 1024 0) 0 oB 0 0 0 = outB at hsim ⊢
-  rcases hsim with ⟨st, rfl⟩ | ⟨g, st, rfl, rfl⟩ | ⟨sA, sB, lA, lB, hr', hm1, -, hv, rfl, rfl⟩
+  rcases hsim with ⟨st, rfl, -⟩ | ⟨g, st, rfl, rfl⟩ | ⟨sA, sB, lA, lB, hr', hm1, -, hv, rfl, rfl⟩
   · exact absurd rfl hb
   · cases g <;> exact ⟨rfl, rfl⟩
   · dsimp only
@@ -221,7 +221,7 @@ theorem ground4_fresh (hwf : EnvWF env) {natOk strOk : Bool} {maxNat F : Nat} {P
       by_cases h1 : sA.val[g4X4 sA.x]! = 1
       · rw [h1] at hw
         have hk : ERel (fun _ => True) sA.P sB.P sA.val[g4X4 sA.x + 1]! sB.val[g4X4 sA.x + 1]! := hw
-        rw [ent_beq hr'.invA.toCompInv hr'.invB.toCompInv hk hr'.kTrue]
+        rw [ent_beq hr'.invA.toCompInv hr'.invB.toCompInv hk hr'.kTrue.1]
       · have h1' : (sA.val[g4X4 sA.x]! == 1) = false := by simpa using h1
         simp only [h1', Bool.false_and]
     rw [hcond]

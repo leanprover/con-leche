@@ -34,26 +34,46 @@ structure LookAgree (N : Name → Prop) (f₁ : Name → Option ConstantInfo) (p
     ∀ rl ∈ rules, N rl.ctor ∧ NamesIn N rl.rhs ∧
       ∀ cvj nP nF, f₁ rl.ctor = some (.ctorInfo cvj nP nF) →
         ∀ T ls, cvj.type.piResult.getAppFn = .const T ls → N T
+  /-- one of the `Nat` basis in `N` brings the others -/
+  natTrio : N natName ∨ N natZeroName ∨ N natSuccName → NatN N
+  /-- an accelerated operation in `N` brings the `Nat` basis -/
+  natOp : ∀ c, N c → natBin14 c = true → NatN N
+  /-- a `Bool`-valued operation in `N` brings the `Bool` constructors -/
+  boolOp : ∀ c, N c → (c = natBeqName ∨ c = natBleName) → N boolTrueName ∧ N boolFalseName
 
 /-- One lookup, every name. -/
 theorem LookAgree.univ (f : Name → Option ConstantInfo) (p : Name → Nat → Option ProjEntry) :
     LookAgree (fun _ => True) f p f p :=
   ⟨fun _ _ => rfl, fun _ _ _ => rfl, fun _ _ => rfl, fun _ _ _ => rfl,
-    fun _ _ v _ _ _ => NamesIn.univ v, fun _ _ _ _ _ _ _ _ rl _ => ⟨trivial, NamesIn.univ rl.rhs, fun _ _ _ _ _ _ _ => trivial⟩⟩
+    fun _ _ v _ _ _ => NamesIn.univ v, fun _ _ _ _ _ _ _ _ rl _ => ⟨trivial, NamesIn.univ rl.rhs, fun _ _ _ _ _ _ _ => trivial⟩,
+    fun _ => ⟨trivial, trivial, trivial⟩, fun _ _ _ => ⟨trivial, trivial, trivial⟩, fun _ _ _ => ⟨trivial, trivial⟩⟩
 
-/-- The names a string literal's constructor form mentions. -/
-@[expose] def StrNames (N : Name → Prop) : Prop :=
-  N stringOfListName ∧ N listNilName ∧ N listConsName ∧ N charName ∧ N charOfNatName
+/-- An entry read back as a constant is that constant's entry. -/
+theorem ent_key {P : G4Prog} {k : Nat} (hk : k < P.kInfo.size) {c : Name} {us : List Level}
+    (he : entryTerm P k = .const c us) : ∃ i, P.kInfo[k]? = some i ∧ infoKey i = (c, us) := by
+  unfold entryTerm at he
+  rw [Array.getElem?_eq_getElem hk] at he ⊢
+  refine ⟨_, rfl, ?_⟩
+  dsimp only at he
+  rw [infoTerm_key] at he
+  cases he; rfl
+
+/-- An entry related by `ERel` and read back as a constant has its constant in `N`. -/
+theorem ERel.nameN {N : Name → Prop} {PA PB : G4Prog} {kA kB : Nat} (hE : ERel N PA PB kA kB)
+    {c : Name} {us : List Level} (h : kA < PA.kInfo.size ∧ entryTerm PA kA = .const c us) : N c := by
+  obtain ⟨i, hi, hk⟩ := ent_key h.1 h.2
+  have := hE.2 i hi
+  rw [hk] at this; exact this
 
 /-- A string literal's constructor form has its names in `N`. -/
 theorem NamesIn.strLit {N : Name → Prop} (h : StrNames N) (s : String) :
     NamesIn N (strLitToConstructor s) := by
-  obtain ⟨h₁, h₂, h₃, h₄, h₅⟩ := h
+  obtain ⟨hn, -, h₁, -, h₂, h₃, h₄, h₅⟩ := h
   unfold strLitToConstructor
   refine ⟨h₁, ?_⟩
   induction s.toList with
   | nil => exact ⟨h₂, h₄⟩
-  | cons c l ih => exact ⟨⟨⟨h₃, h₄⟩, h₅, trivial⟩, ih⟩
+  | cons c l ih => exact ⟨⟨⟨h₃, h₄⟩, h₅, hn⟩, ih⟩
 
 /-- Level instantiation keeps a term's names. -/
 theorem NamesIn.instLP {N : Name → Prop} (ks : List Name) (us : List Level) :
@@ -68,7 +88,7 @@ theorem NamesIn.instLP {N : Name → Prop} (ks : List Name) (us : List Level) :
   | .proj _ _ e, h => ⟨h.1, NamesIn.instLP ks us (t := e) h.2⟩
 
 section
-variable {N : Name → Prop} {f₁ f₂ : Name → Option ConstantInfo} {p₁ p₂ : Name → Nat → Option ProjEntry}
+variable {j : Nat} {N : Name → Prop} {f₁ f₂ : Name → Option ConstantInfo} {p₁ p₂ : Name → Nat → Option ProjEntry}
 
 theorem NamesIn.projAgree (hag : LookAgree N f₁ p₁ f₂ p₂) {t : Expr} (h : NamesIn N t) :
     ProjAgree p₁ p₂ t := by
@@ -267,22 +287,22 @@ theorem TRel.const (h : TRel N f₁ p₁ f₂ p₂ PA PB oA oB) (ht : PA.code[oA
 
 /-- A numeral: one value. -/
 theorem TRel.natLit (h : TRel N f₁ p₁ f₂ p₂ PA PB oA oB) (ht : PA.code[oA]! = 5) :
-    PB.code[oB + 1]! = PA.code[oA + 1]! := by
-  obtain ⟨t, -, hA, hB⟩ := h.comp (by rw [ht]; decide)
+    PB.code[oB + 1]! = PA.code[oA + 1]! ∧ NatN N := by
+  obtain ⟨t, hN, hA, hB⟩ := h.comp (by rw [ht]; decide)
   have hta := get!_of_some' hA.tag
   cases hA with
   | natLit _ h₁ => cases hB with
-    | natLit _ h₁' => rw [get!_of_some h₁, get!_of_some h₁']
+    | natLit _ h₁' => rw [get!_of_some h₁, get!_of_some h₁']; exact ⟨rfl, hN⟩
   | _ => simp_all
 
 /-- A string literal: one string. -/
 theorem TRel.strLit (h : TRel N f₁ p₁ f₂ p₂ PA PB oA oB) (ht : PA.code[oA]! = 6) :
-    StrRel PA PB PA.code[oA + 1]! PB.code[oB + 1]! := by
-  obtain ⟨t, -, hA, hB⟩ := h.comp (by rw [ht]; decide)
+    StrRel PA PB PA.code[oA + 1]! PB.code[oB + 1]! ∧ StrNames N := by
+  obtain ⟨t, hN, hA, hB⟩ := h.comp (by rw [ht]; decide)
   have hta := get!_of_some' hA.tag
   cases hA with
   | strLit _ h₁ h₂ => cases hB with
-    | strLit _ h₁' h₂' => rw [get!_of_some h₁, get!_of_some h₁']; exact ⟨_, h₂, h₂'⟩
+    | strLit _ h₁' h₂' => rw [get!_of_some h₁, get!_of_some h₁']; exact ⟨⟨_, h₂, h₂'⟩, hN⟩
   | _ => simp_all
 
 /-- A projection: related rows, the projected terms. -/
@@ -412,5 +432,14 @@ theorem FsRel.pushProj {fa fb : Array Nat} (h : FsRel N PA PB fa fb) {a b : Nat}
 end
 
 end
+
+/-- **The `Nat` flag where an accelerated operation's entry is read**: its
+name in `N` brings the `Nat` basis, so the flags agree. -/
+theorem MRel.natOkAt {j : Nat} {N : Name → Prop} {f₁ f₂ : Name → Option ConstantInfo}
+    {p₁ p₂ : Name → Nat → Option ProjEntry} (hag : LookAgree N f₁ p₁ f₂ p₂) {sA sB : MS}
+    (hr : MRel j N f₁ p₁ f₂ p₂ sA sB) {kA kB : Nat} (hE : ERel N sA.P sB.P kA kB) :
+    ∀ c lps us v, sA.P.kInfo[kA]? = some (.defn c lps us v) → natBin14 c = true →
+      sA.P.natOk = sB.P.natOk :=
+  fun c _ _ _ hi hb => (hr.natOk (hag.natOp c (hE.2 _ hi) hb)).symm
 
 end ConLeche.Verify.Ground

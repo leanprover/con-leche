@@ -47,7 +47,7 @@ inductive FS2 (N : Name → Prop) (PA PB : G4Prog) (fa fb : Array Nat) : Nat →
       FS2 N PA PB fa fb t → FS2 N PA PB fa fb (t + 5)
 
 section
-variable {N : Name → Prop} {PA PB : G4Prog}
+variable {j : Nat} {N : Name → Prop} {PA PB : G4Prog}
 
 theorem ERel.ext {PA' PB' : G4Prog} (hA : ExtR PA PA') (hB : ExtR PB PB') {kA kB : Nat}
     (h : ERel N PA PB kA kB) : ERel N PA' PB' kA kB := by

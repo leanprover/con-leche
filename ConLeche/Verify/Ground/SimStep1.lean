@@ -22,7 +22,7 @@ namespace ConLeche.Verify.Ground
 open ConLeche
 
 section
-variable {N : Name → Prop} {env : Env} {f₂ : Name → Option ConstantInfo}
+variable {j : Nat} {N : Name → Prop} {env : Env} {f₂ : Name → Option ConstantInfo}
   {p₂ : Name → Nat → Option ProjEntry} {t₀ : Expr} {n : Nat}
 
 theorem copyFrom_pre (start : Nat) : ∀ (n j : Nat) (argA : Array Nat), Pre argA (g4CopyFrom argA start n j)
@@ -32,14 +32,14 @@ theorem copyFrom_pre (start : Nat) : ∀ (n j : Nat) (argA : Array Nat), Pre arg
 
 /-- One entry test on both sides: related entries are one to one. -/
 theorem ent_beq {PA PB : G4Prog} (hA : CompInv env.find? env.findProj? PA) (hB : CompInv f₂ p₂ PB)
-    {kA kB zA zB : Nat} (hk : ERel N PA PB kA kB) (hz : ERel N PA PB zA zB) : (kB == zB) = (kA == zA) := by
-  have e := EntRel.iff hA hB hz.1 hk.1
+    {kA kB zA zB : Nat} (hk : ERel N PA PB kA kB) (hz : EntRel PA PB zA zB) : (kB == zB) = (kA == zA) := by
+  have e := EntRel.iff hA hB hz hk.1
   by_cases h : kA = zA
   · rw [e.mp h, h, beq_self_eq_true, beq_self_eq_true]
   · rw [beq_false_of_ne h, beq_false_of_ne (fun h' => h (e.mpr h'))]
 
 /-- **The returned value's words** on both sides. -/
-theorem MRel.valW {sA sB : MS} (hr : MRel N env.find? env.findProj? f₂ p₂ sA sB)
+theorem MRel.valW {sA sB : MS} (hr : MRel j N env.find? env.findProj? f₂ p₂ sA sB)
     {x : Nat} (hx : x < sA.val.size / 4) :
     sB.val[g4X4 x]! = sA.val[g4X4 x]! ∧ sB.val[g4X4 x + 2]! = sA.val[g4X4 x + 2]! ∧
       sB.val[g4X4 x + 3]! = sA.val[g4X4 x + 3]! ∧
@@ -47,12 +47,12 @@ theorem MRel.valW {sA sB : MS} (hr : MRel N env.find? env.findProj? f₂ p₂ sA
   rw [g4X4_eq]; exact hr.val.2 x hx
 
 /-- **Mode 1 at the update and argument frames**, and the done state. -/
-theorem sim_mode1a (ih : SimAt N env f₂ p₂ t₀ n)
+theorem sim_mode1a (ih : SimAt j N env f₂ p₂ t₀ n)
     {sA sB : MS} {oc : Nat → Expr} {fl : List Fr}
-    (h : MInv env t₀ oc sA fl) (hR : RunOK env sA.P) (hr : MRel N env.find? env.findProj? f₂ p₂ sA sB)
+    (h : MInv env t₀ oc sA fl) (hR : RunOK env sA.P) (hr : MRel j N env.find? env.findProj? f₂ p₂ sA sB)
     (hm : sA.mode = 1) (ht : sA.fs.size = 0 ∨ sA.fs[sA.fs.size - 1]! &&& 15 = 1 ∨
-      sA.fs[sA.fs.size - 1]! &&& 15 = 2) {m : Nat} (hmn : 2 * n + 1 ≤ m) :
-    OutRel N env f₂ p₂ (sA.run env.find? env.findProj? (n + 1)) (sB.run f₂ p₂ m) := by
+      sA.fs[sA.fs.size - 1]! &&& 15 = 2) {m : Nat} (hmn : (j = 0 ∧ m = n + 1) ∨ (j = 1 ∧ 2 * n + 1 ≤ m)) :
+    OutRel j N env f₂ p₂ (sA.run env.find? env.findProj? (n + 1)) (sB.run f₂ p₂ m) := by
   obtain ⟨m, rfl⟩ : ∃ m', m = m' + 1 := ⟨m - 1, by omega⟩
   have hmB : sB.mode = 1 := by rw [hr.mode, hm]
   have hg := hr.regs
@@ -182,12 +182,12 @@ theorem sim_mode1a (ih : SimAt N env f₂ p₂ t₀ n)
 
 
 /-- **Mode 1 at a `Nat.succ` frame.** -/
-theorem sim_mode1s (ih : SimAt N env f₂ p₂ t₀ n)
+theorem sim_mode1s (hnt : N natName ∨ N natZeroName ∨ N natSuccName → NatN N) (ih : SimAt j N env f₂ p₂ t₀ n)
     {sA sB : MS} {oc : Nat → Expr} {fl : List Fr}
-    (h : MInv env t₀ oc sA fl) (hR : RunOK env sA.P) (hr : MRel N env.find? env.findProj? f₂ p₂ sA sB)
+    (h : MInv env t₀ oc sA fl) (hR : RunOK env sA.P) (hr : MRel j N env.find? env.findProj? f₂ p₂ sA sB)
     (hm : sA.mode = 1) (hn : 0 < sA.fs.size) (ht : sA.fs[sA.fs.size - 1]! &&& 15 = 7) {m : Nat}
-    (hmn : 2 * n + 1 ≤ m) :
-    OutRel N env f₂ p₂ (sA.run env.find? env.findProj? (n + 1)) (sB.run f₂ p₂ m) := by
+    (hmn : (j = 0 ∧ m = n + 1) ∨ (j = 1 ∧ 2 * n + 1 ≤ m)) :
+    OutRel j N env f₂ p₂ (sA.run env.find? env.findProj? (n + 1)) (sB.run f₂ p₂ m) := by
   obtain ⟨m, rfl⟩ : ∃ m', m = m' + 1 := ⟨m - 1, by omega⟩
   have hmB : sB.mode = 1 := by rw [hr.mode, hm]
   have hg := hr.regs
@@ -219,7 +219,7 @@ theorem sim_mode1s (ih : SimAt N env f₂ p₂ t₀ n)
   next hv =>
     obtain ⟨fl', h'⟩ := step_succ_lit h hm hn ht hv
     rw [hv] at hw
-    have hw' : sB.val[g4X4 sA.x + 1]! = sA.val[g4X4 sA.x + 1]! := hw
+    have hw' : sB.val[g4X4 sA.x + 1]! = sA.val[g4X4 sA.x + 1]! := hw.1
     rw [hw', hr.val.1]
     refine ih.app (sB := { sB with
         val := (((sB.val.push 2).push (sA.val[g4X4 sA.x + 1]! + 1)).push 0).push 0
@@ -229,14 +229,14 @@ theorem sim_mode1s (ih : SimAt N env f₂ p₂ t₀ n)
         env := 0
         x := sA.val.size >>> 2 }) h' hR ?_ (m := m) (by omega)
     exact { hr with
-      val := hr.val.push hv4 2 0 0 _ _ rfl
+      val := hr.val.push hv4 2 0 0 _ _ ⟨rfl, hw.2⟩
       fs := hpop
       mode := rfl
       regs := ⟨rfl, rfl, rfl⟩ }
   next hv =>
     rw [hv] at hw
-    rw [w3, ent_beq hr.invA.toCompInv hr.invB.toCompInv hw hr.kZero,
-      ent_beq hr.invA.toCompInv hr.invB.toCompInv hw hr.kSucc]
+    rw [w3, ent_beq hr.invA.toCompInv hr.invB.toCompInv hw hr.kZero.1,
+      ent_beq hr.invA.toCompInv hr.invB.toCompInv hw hr.kSucc.1]
     split
     next hz =>
       simp only [Bool.and_eq_true, beq_iff_eq] at hz
@@ -249,8 +249,10 @@ theorem sim_mode1s (ih : SimAt N env f₂ p₂ t₀ n)
           pc := 0
           env := 0
           x := sA.val.size >>> 2 }) h' hR ?_ (m := m) (by omega)
+      have hz0 : sA.val[g4X4 sA.x + 1]! < sA.P.kInfo.size ∧
+          entryTerm sA.P sA.val[g4X4 sA.x + 1]! = .const natZeroName [] := by rw [hz.1]; exact hR.zero
       exact { hr with
-        val := hr.val.push hv4 2 0 0 _ _ rfl
+        val := hr.val.push hv4 2 0 0 _ _ ⟨rfl, hnt (.inr (.inl ((hw : ERel N _ _ _ _).nameN hz0)))⟩
         fs := hpop
         mode := rfl
         regs := ⟨rfl, rfl, rfl⟩ }

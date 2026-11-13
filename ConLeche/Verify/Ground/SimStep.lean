@@ -25,36 +25,45 @@ namespace ConLeche.Verify.Ground
 open ConLeche
 
 section
-variable (N : Name → Prop) (env : Env) (f₂ : Name → Option ConstantInfo)
+variable (j : Nat) (N : Name → Prop) (env : Env) (f₂ : Name → Option ConstantInfo)
   (p₂ : Name → Nat → Option ProjEntry)
 
-/-- **Two outcomes alike**: the first run out of budget, or one stop, or
-both done, in mode 1 at the empty stack of related states, the value
-returned a record of the first. -/
+/-- **Two outcomes alike**: the first run out of budget (in lock-step,
+`j = 0`, the second too), or one stop, or both done, in mode 1 at the empty
+stack of related states, the value returned a record of the first. -/
 @[expose] def OutRel (oA oB : G4Out) : Prop :=
-  (∃ st, oA = budgetStop st) ∨ (∃ g st, oA = .stop g st ∧ oB = .stop g st) ∨
-    ∃ (sA sB : MS) (lA lB : Nat), MRel N env.find? env.findProj? f₂ p₂ sA sB ∧ sA.mode = 1 ∧
+  (∃ st, oA = budgetStop st ∧ (j = 0 → ∃ st', oB = budgetStop st')) ∨ (∃ g st, oA = .stop g st ∧ oB = .stop g st) ∨
+    ∃ (sA sB : MS) (lA lB : Nat), MRel j N env.find? env.findProj? f₂ p₂ sA sB ∧ sA.mode = 1 ∧
       sA.fs.size = 0 ∧ sA.x < sA.val.size / 4 ∧
       oA = .done sA.x sA.val sA.P sA.slots (sA.cel.size >>> 2) sA.st lA ∧
       oB = .done sB.x sB.val sB.P sB.slots (sB.cel.size >>> 2) sB.st lB
 
-/-- **The simulation at fuel `n`.** -/
+/-- **The simulation at fuel `n`**, the second run `j` extra steps per step
+of the first: `j = 0` lock-step at one fuel, `j = 1` at twice the fuel. -/
 @[expose] def SimAt (t₀ : Expr) (n : Nat) : Prop :=
   ∀ (sA sB : MS) (oc : Nat → Expr) (fl : List Fr), MInv env t₀ oc sA fl → RunOK env sA.P →
-    MRel N env.find? env.findProj? f₂ p₂ sA sB → ∀ m, 2 * n ≤ m →
-      OutRel N env f₂ p₂ (sA.run env.find? env.findProj? n) (sB.run f₂ p₂ m)
+    MRel j N env.find? env.findProj? f₂ p₂ sA sB → ∀ m, (j = 0 ∧ m = n) ∨ (j = 1 ∧ 2 * n ≤ m) →
+      OutRel j N env f₂ p₂ (sA.run env.find? env.findProj? n) (sB.run f₂ p₂ m)
 
 end
 
 section
-variable {N : Name → Prop} {env : Env} {f₂ : Name → Option ConstantInfo}
+variable {j : Nat} {N : Name → Prop} {env : Env} {f₂ : Name → Option ConstantInfo}
   {p₂ : Name → Nat → Option ProjEntry} {t₀ : Expr} {n : Nat}
 
+/-- One step of each run off the fuel bound. -/
+theorem fuel_s {j n m : Nat} (h : (j = 0 ∧ m + 1 = n + 1) ∨ (j = 1 ∧ 2 * n + 1 ≤ m + 1)) :
+    (j = 0 ∧ m = n) ∨ (j = 1 ∧ 2 * n ≤ m) := by omega
+
+/-- One step of each run off the top fuel bound. -/
+theorem fuel_t {j n m : Nat} (h : (j = 0 ∧ m + 1 = n + 1) ∨ (j = 1 ∧ 2 * (n + 1) ≤ m + 1)) :
+    (j = 0 ∧ m = n) ∨ (j = 1 ∧ 2 * n ≤ m) := by omega
+
 /-- The induction hypothesis at states the run's arguments spell out. -/
-theorem SimAt.app (ih : SimAt N env f₂ p₂ t₀ n) {sA sB : MS} {oc : Nat → Expr} {fl : List Fr}
-    (h : MInv env t₀ oc sA fl) (hR : RunOK env sA.P) (hr : MRel N env.find? env.findProj? f₂ p₂ sA sB)
-    {m : Nat} (hm : 2 * n ≤ m) :
-    OutRel N env f₂ p₂
+theorem SimAt.app (ih : SimAt j N env f₂ p₂ t₀ n) {sA sB : MS} {oc : Nat → Expr} {fl : List Fr}
+    (h : MInv env t₀ oc sA fl) (hR : RunOK env sA.P) (hr : MRel j N env.find? env.findProj? f₂ p₂ sA sB)
+    {m : Nat} (hm : (j = 0 ∧ m = n) ∨ (j = 1 ∧ 2 * n ≤ m)) :
+    OutRel j N env f₂ p₂
       (g4Run env.find? env.findProj? n sA.P sA.cel sA.val sA.ev sA.fs sA.argA sA.slots sA.mem sA.mH
         sA.mode sA.pc sA.env sA.x sA.st)
       (g4Run f₂ p₂ m sB.P sB.cel sB.val sB.ev sB.fs sB.argA sB.slots sB.mem sB.mH
@@ -63,18 +72,18 @@ theorem SimAt.app (ih : SimAt N env f₂ p₂ t₀ n) {sA sB : MS} {oc : Nat →
 
 /-- **New registers**, the rest of the state kept. -/
 theorem MRel.setRegs {f₁ : Name → Option ConstantInfo} {p₁ : Name → Nat → Option ProjEntry} {sA sB : MS}
-    (hr : MRel N f₁ p₁ f₂ p₂ sA sB) (md pcA pcB eA xA xB : Nat)
+    (hr : MRel j N f₁ p₁ f₂ p₂ sA sB) (md pcA pcB eA xA xB : Nat)
     (hg : RegRel N f₁ p₁ f₂ p₂ { sA with mode := md, pc := pcA, env := eA, x := xA }
       { sB with mode := md, pc := pcB, env := eA, x := xB }) :
-    MRel N f₁ p₁ f₂ p₂ { sA with mode := md, pc := pcA, env := eA, x := xA }
+    MRel j N f₁ p₁ f₂ p₂ { sA with mode := md, pc := pcA, env := eA, x := xA }
       { sB with mode := md, pc := pcB, env := eA, x := xB } :=
   { hr with mode := rfl, regs := hg }
 
 /-- **Mode 2**, entering a cell. -/
-theorem sim_mode2 (ih : SimAt N env f₂ p₂ t₀ n) {sA sB : MS} {oc : Nat → Expr} {fl : List Fr}
-    (h : MInv env t₀ oc sA fl) (hR : RunOK env sA.P) (hr : MRel N env.find? env.findProj? f₂ p₂ sA sB)
-    (hm : sA.mode = 2) {m : Nat} (hmn : 2 * (n + 1) ≤ m) :
-    OutRel N env f₂ p₂ (sA.run env.find? env.findProj? (n + 1)) (sB.run f₂ p₂ m) := by
+theorem sim_mode2 (ih : SimAt j N env f₂ p₂ t₀ n) {sA sB : MS} {oc : Nat → Expr} {fl : List Fr}
+    (h : MInv env t₀ oc sA fl) (hR : RunOK env sA.P) (hr : MRel j N env.find? env.findProj? f₂ p₂ sA sB)
+    (hm : sA.mode = 2) {m : Nat} (hmn : (j = 0 ∧ m = n + 1) ∨ (j = 1 ∧ 2 * (n + 1) ≤ m)) :
+    OutRel j N env f₂ p₂ (sA.run env.find? env.findProj? (n + 1)) (sB.run f₂ p₂ m) := by
   obtain ⟨m, rfl⟩ : ∃ m', m = m' + 1 := ⟨m - 1, by omega⟩
   have hmB : sB.mode = 2 := by rw [hr.mode, hm]
   have hg := hr.regs

@@ -26,14 +26,14 @@ namespace ConLeche.Verify.Ground
 open ConLeche
 
 section
-variable {N : Name → Prop} {env : Env} {f₂ : Name → Option ConstantInfo}
+variable {j : Nat} {N : Name → Prop} {env : Env} {f₂ : Name → Option ConstantInfo}
   {p₂ : Name → Nat → Option ProjEntry} {t₀ : Expr} {n : Nat}
 
 /-- Related entries have one tag. -/
 theorem MRel.tagEq (hag : LookAgree N env.find? env.findProj? f₂ p₂) {sA sB : MS}
-    (hr : MRel N env.find? env.findProj? f₂ p₂ sA sB) {kA kB : Nat} (hk : ERel N sA.P sB.P kA kB) :
+    (hr : MRel j N env.find? env.findProj? f₂ p₂ sA sB) {kA kB : Nat} (hk : ERel N sA.P sB.P kA kB) :
     sB.P.kTag[kB]! = sA.P.kTag[kA]! :=
-  get!_congr2 (EntRel.tag hr.invA hr.invB hk.1 hr.natOk.symm
+  get!_congr2 (EntRel.tag hr.invA hr.invB hk.1 (hr.natOkAt hag hk)
     (fun iA hi => (hag.find _ (hk.2 iA hi)).symm)).symm
 
 /-- One name-id test on both sides. -/
@@ -47,28 +47,29 @@ theorem nid_beq {PA PB : G4Prog} (hA : NidOK PA) (hB : NidOK PB) {iA iB jA jB : 
 /-- **A string compiled on both sides**: the grown relation, the new nodes
 related. -/
 theorem MRel.compStr (hsN : strLitStored env = true → StrNames N) {sA sB : MS}
-    (hR : RunOK env sA.P) (hr : MRel N env.find? env.findProj? f₂ p₂ sA sB) (hok : sA.P.strOk = true)
+    (hR : RunOK env sA.P) (hr : MRel j N env.find? env.findProj? f₂ p₂ sA sB) (hok : sA.P.strOk = true)
     (s : String) :
     let rA := g4Comp env.find? env.findProj? sA.P (strLitToConstructor s)
     let rB := g4Comp f₂ p₂ sB.P (strLitToConstructor s)
-    MRel N env.find? env.findProj? f₂ p₂ { sA with P := rA.2 } { sB with P := rB.2 } ∧
+    MRel j N env.find? env.findProj? f₂ p₂ { sA with P := rA.2 } { sB with P := rB.2 } ∧
       ExtR sA.P rA.2 ∧ ExtR sB.P rB.2 ∧ RunOK env rA.2 ∧
       TRel N env.find? env.findProj? f₂ p₂ rA.2 rB.2 rA.1 rB.1 := by
   intro rA rB
   have cA := g4Comp_spec env.find? env.findProj? sA.P (strLitToConstructor s) hr.invA
   have cB := g4Comp_spec f₂ p₂ sB.P (strLitToConstructor s) hr.invB
-  exact ⟨hr.ext cA.2.1.toExtR cB.2.1.toExtR cA.1 cB.1 cA.2.1.site cB.2.1.site, cA.2.1.toExtR,
+  exact ⟨hr.ext cA.2.1.toExtR cB.2.1.toExtR cA.1 cB.1 cA.2.1.site cB.2.1.site
+      (fun h0 => (hr.code h0).ext hr.invA.toTabInv hr.invB.toTabInv cA.2.1 cB.2.1), cA.2.1.toExtR,
     cB.2.1.toExtR, hR.ext cA.2.1.toExtR cA.2.1.site,
     TRel.ofComp (NamesIn.strLit (hsN (hR.str hok)) s) cA.2.2 cB.2.2⟩
 
 /-- **Mode 1 at a projection frame.** -/
 theorem sim_mode1p (hag : LookAgree N env.find? env.findProj? f₂ p₂)
-    (hsN : strLitStored env = true → StrNames N) (ih : SimAt N env f₂ p₂ t₀ n)
+    (hsN : strLitStored env = true → StrNames N) (ih : SimAt j N env f₂ p₂ t₀ n)
     {sA sB : MS} {oc : Nat → Expr} {fl : List Fr}
-    (h : MInv env t₀ oc sA fl) (hR : RunOK env sA.P) (hr : MRel N env.find? env.findProj? f₂ p₂ sA sB)
+    (h : MInv env t₀ oc sA fl) (hR : RunOK env sA.P) (hr : MRel j N env.find? env.findProj? f₂ p₂ sA sB)
     (hm : sA.mode = 1) (hn : 0 < sA.fs.size) (ht : sA.fs[sA.fs.size - 1]! &&& 15 = 4) {m : Nat}
-    (hmn : 2 * n + 1 ≤ m) :
-    OutRel N env f₂ p₂ (sA.run env.find? env.findProj? (n + 1)) (sB.run f₂ p₂ m) := by
+    (hmn : (j = 0 ∧ m = n + 1) ∨ (j = 1 ∧ 2 * n + 1 ≤ m)) :
+    OutRel j N env f₂ p₂ (sA.run env.find? env.findProj? (n + 1)) (sB.run f₂ p₂ m) := by
   obtain ⟨m, rfl⟩ : ∃ m', m = m' + 1 := ⟨m - 1, by omega⟩
   have hmB : sB.mode = 1 := by rw [hr.mode, hm]
   have hg := hr.regs
@@ -154,8 +155,9 @@ theorem sim_mode1p (hag : LookAgree N env.find? env.findProj? f₂ p₂)
       exact .inr (.inl ⟨_, _, rfl, by rw [hr.st]⟩)
   next hv =>
     rw [hv] at hw
-    obtain ⟨s, hsA, hsB⟩ := (hw : StrRel sA.P sB.P sA.val[g4X4 sA.x + 1]! sB.val[g4X4 sA.x + 1]!)
-    rw [hr.strOk]
+    obtain ⟨⟨s, hsA, hsB⟩, hsN'⟩ :=
+      (hw : StrRel sA.P sB.P sA.val[g4X4 sA.x + 1]! sB.val[g4X4 sA.x + 1]! ∧ StrNames N)
+    rw [hr.strOk hsN']
     split
     next => exact .inr (.inl ⟨_, _, rfl, by rw [hr.st]⟩)
     next hok =>
