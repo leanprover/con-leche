@@ -114176,3 +114176,68 @@ is inferred.
 lean4's build installs con-leche's own `lean-toolchain` through elan, so master's toolchain never
 compiles it) — bump it to this commit.  con-ron embeds con-leche's `natOpPinSets` and fails
 `pkg/con-ron` the same way; it needs its vendored con-leche bumped and its pins regenerated.
+
+## TASK #579 — the literal flags as fields of the index (2026-11-13, agent/579-litflags)
+
+The cached core asked `natLitStoredF fe` / `strLitStoredF fe` at every literal it met (the
+`Nat`-literal expansion, `Nat.succ` against a literal, the string-literal expansions in `whnf`,
+`defeq` and projection): 3 and 10 `fe.find?` lookups each time.  Ruling: compute the two flags
+once and read them in `O(1)`, as fields of the declaration's own index, never stale.
+
+**The fields.**  `FEnv` carries `natLit strLit : Bool` with their meaning as proof fields:
+`natLit_eq : natLit = natLitStoredBy (findIn idx base ovl)` (and `strLit_eq`), where `findIn` is
+`FEnv.find?` over the components (overlay, index, frozen layer) and `natLitStoredBy` /
+`strLitStoredBy` are `natLitStored` / `strLitStored` read through a lookup function.  An `FEnv`
+whose flags disagree with its lookups cannot be built, so no construction site has an invariant
+to thread and no push can leave a flag stale — including a block that declares `Nat`, `String`,
+`List` or `Char` itself (the prelude, the pinned `Nat` basis block): each push of one of those
+names recomputes the flags at the pushed lookups.  `natLitStoredF`/`strLitStoredF` are gone; the
+core, the error paths (`IndPass`, `ParsedC`) and `DeclCheck`'s mirror read `fe.natLit`/`fe.strLit`.
+
+**Where they are set.**
+* `FEnv.ofParts` (used by `mkFEnv` and `FEnv.overlay`): ten lookups.
+* `FEnv.push`: recomputed only while string literals are not yet expandable and only when the
+  pushed name is one of the ten (`litName`); otherwise kept (`push_flags`: a name the flags do not
+  read changes no lookup they read, `findIn_insert_ne`; once `strLit` holds, both flags hold and a
+  push only adds answers, `findIn_insert_isSome`).  After the string-support constants are in, a
+  push tests one `Bool`.
+* `FEnv.pushTable`: kept (no lookup changes).
+* **A record's view** (`FrozenIndex.view`): the stream's index is frozen once
+  (`StreamIndex.freeze`) with, for each flag, the first counter from which a view holds all of its
+  names (`litFrom`, one past the largest of their entries' counters; proof field `natFrom_eq`).
+  The view sets its flags by one comparison (`fromLe`, `FBase.fromLe_litFrom`).  Computing them by
+  lookups in every view cost ten frozen-layer lookups per record: +0.5 % on `init-prelude`
+  (1777 records) and +0.04 % on `init-full` in the first version.  The thresholds are part of the
+  frozen index, computed with it, not a cache between declarations' checks.
+
+**Proofs.**  The meaning lives in the structure, so the simulation needed no new invariant:
+`mkFEnv_natLit`/`mkFEnv_strLit` (`Verify/EnvBound.lean`: the fields of `mkFEnv env` are
+`natLitStored env`/`strLitStored env`) replace `natLitStoredF_eq`/`strLitStoredF_eq` in the
+`sym`/`vcgen` lists of `DiscC1`/`DiscC4`/`DiscC5`, and `FEnv.natLit_congr`/`strLit_congr` (equal
+`find?`, equal flags) replace the `KnotCongr` congruences.  `push_mkFEnv` is no longer
+definitional; it is `FEnv.ext_parts` (two indices with the same components are equal, the flags
+being their lookups').  `view_eq` restates the view through `ext_parts`.  No new axiom; the
+capstones' axioms are unchanged (`tests/ConLecheTests/Axioms.lean`).
+
+**Numbers** (`instructions:u`, G, `--verified --jobs=1`, one run each; stdout identical on every
+stream; master 6810492c1; data in `_tmp/579/logs/`):
+
+| stream | master | #579 | Δ |
+|---|---:|---:|---:|
+| magma-list-deep-n21 / -n36 | 11.037 / 147.023 | 10.970 / 146.130 | −0.60 / −0.61 % |
+| grind-ring-5 | 9.683 | 9.653 | −0.32 % |
+| init-full | 275.536 | 275.374 | −0.06 % |
+| grind_field_cancel_inv | 2.139 | 2.139 | −0.01 % |
+| init-prelude | 1.145 | 1.146 | +0.06 % |
+| magma-list-pair-n7 / -n21 | 10.446 / 119.644 | 10.455 / 119.715 | +0.09 / +0.06 % |
+| app-lam, beta-ladder, let-ladder | | | −0.01 … +0.00 % |
+| the small perf streams (0.02–0.26 G) | | | +0.03 … +0.28 % (at most 70 k instructions each) |
+
+The literal-heavy streams gain; the small streams' rise is a constant of about 50 k
+instructions (the basis pushes before `String` is in, and code layout), which a symbol-level
+profile of `magma-list-pair-n7` does not place in any function of this change.
+
+**Also in the lane.**  `FEnv.find?` is `findIn` over the components (inlined, so the compiled
+lookup is the one before); `FEnv.lookup` is `lookupIn`.  The pub-import gate's per-file fallback
+gained `BlockOverlay → CheckerC` (measured).  `OVERVIEW.md`'s link to `Name.render` was stale on
+master since task #578 and is repointed with this lane's moved citations.

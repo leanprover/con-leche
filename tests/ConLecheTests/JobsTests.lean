@@ -31,7 +31,7 @@ open ConLeche ConLeche.Cached ConLeche.Frontend
 
 /-- The driver's walk over the jobs: the first failure in position order. -/
 def jobsVerdict (ds : Array Declaration) : Option (CheckError × Nat) :=
-  let I := buildIndex ds
+  let I := (buildIndex ds).freeze
   (List.range ds.size).findSome? fun k =>
     if hk : k < ds.size then
       match recordJob .verified natOpPinSets maxNatSizeDefault I k ds[k] with
@@ -109,7 +109,7 @@ def natopForeignDeclines (path : System.FilePath) : IO Unit := do
   let ds ← prepared path
   let some k := ds.findIdx? (fun d => declCLabel d == "def Nat.gcd")
     | throw <| IO.userError s!"{path}: no record Nat.gcd"
-  match recordJob .verified natOpPinSets maxNatSizeDefault (buildIndex ds) k ds[k]! with
+  match recordJob .verified natOpPinSets maxNatSizeDefault (buildIndex ds).freeze k ds[k]! with
   | .error (.notImplemented m) =>
     unless (m.splitOn "a type pin").length > 1 do
       throw <| IO.userError s!"{path}: another decline: {m}"

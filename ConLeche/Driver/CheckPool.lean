@@ -48,8 +48,8 @@ open ConLeche
 
 /-- The records' frozen index: what the check phase reads. -/
 structure Jobs (ds : Array Declaration) where
-  I : ConLeche.Cached.StreamIndex
-  hI : I = ConLeche.Cached.buildIndex ds
+  I : ConLeche.Cached.FrozenIndex
+  hI : I = (ConLeche.Cached.buildIndex ds).freeze
 
 /-- **The step between the read and the check**: the frozen index of the records, built here, and
 the records and the index marked PERSISTENT.  Both are read-only from here on.  The check phase runs
@@ -65,7 +65,7 @@ on it.  It is unsafe only in that the marked closure is never freed, and the pro
 after. -/
 def Jobs.build (ds : Array Declaration) : IO (Jobs ds) := do
   let _ ← unsafe Runtime.markPersistent ds
-  let J : Jobs ds := ⟨ConLeche.Cached.buildIndex ds, rfl⟩
+  let J : Jobs ds := ⟨(ConLeche.Cached.buildIndex ds).freeze, rfl⟩
   let _ ← unsafe Runtime.markPersistent J
   return J
 

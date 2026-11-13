@@ -92,13 +92,17 @@ theorem natLitSupportedF_eq (env : Env) :
     natLitSupportedF (mkFEnv env) = natLitSupported env := by
   simp only [natLitSupportedF, natLitSupported, mkFEnv_find?]
 
-theorem natLitStoredF_eq (env : Env) :
-    natLitStoredF (mkFEnv env) = natLitStored env := by
-  simp only [natLitStoredF, natLitStored, mkFEnv_find?]
+/-- The index's `Nat`-literal flag is `natLitStored` of its environment. -/
+theorem mkFEnv_natLit (env : Env) : (mkFEnv env).natLit = natLitStored env := by
+  rw [(mkFEnv env).natLit_eq]
+  show natLitStoredBy (mkFEnv env).find? = _
+  simp only [natLitStoredBy, natLitStored, mkFEnv_find?]
 
-theorem strLitStoredF_eq (env : Env) :
-    strLitStoredF (mkFEnv env) = strLitStored env := by
-  simp only [strLitStoredF, strLitStored, mkFEnv_find?, natLitStoredF_eq]
+/-- The index's string-literal flag is `strLitStored` of its environment. -/
+theorem mkFEnv_strLit (env : Env) : (mkFEnv env).strLit = strLitStored env := by
+  rw [(mkFEnv env).strLit_eq]
+  show strLitStoredBy (mkFEnv env).find? = _
+  simp only [strLitStoredBy, natLitStoredBy, strLitStored, natLitStored, mkFEnv_find?]
 
 theorem natOpGuardF_eq (env : Env) (c : Name) :
     natOpGuardF (mkFEnv env) c = natOpGuard env c := by
