@@ -766,8 +766,8 @@ theorem throw_bindI_ok {α β : Type} {e : InLean.CheckError} {f : α → InLean
 
 /-- **What an accepted `checkTermWF` read**: the cached flags, the level
 parameters; no state change. -/
-theorem checkTermWF_run {fe : InLean.FEnv} {what : String} {lps : List Name} {e : Expr}
-    {s s' : InLean.CState} {u : Unit} (h : InLean.checkTermWF fe what lps e s = .ok (u, s')) :
+theorem checkTermWF_run {fe : InLean.FEnv} {pre : String} {n : Name} {lps : List Name} {e : Expr}
+    {s s' : InLean.CState} {u : Unit} (h : InLean.checkTermWF fe pre n lps e s = .ok (u, s')) :
     s' = s ∧ e.hasLooseBVars = false ∧ e.hasFVar = false ∧ e.hasMVar = false ∧
       (e.hasLevelParam = true → (EO.levelParams e).all lps.contains = true) := by
   unfold InLean.checkTermWF at h
@@ -783,7 +783,7 @@ theorem checkTermWF_run {fe : InLean.FEnv} {what : String} {lps : List Name} {e 
   rename_i h3
   have hfin : ∀ {s₁ : InLean.CState},
       (if InLean.constsResolve fe e = true then pure ()
-        else throw (InLean.unresolvedConstsErrorL fe (strLitStoredF fe) what e) : InLean.CheckCM Unit)
+        else throw (InLean.unresolvedConstsErrorL fe (strLitStoredF fe) s!"{pre}{n}" e) : InLean.CheckCM Unit)
         s₁ = .ok (u, s') → s' = s₁ := by
     intro s₁ hh
     split at hh
@@ -808,9 +808,9 @@ theorem lbb_trC_of_range {e : Expr} (hr : Expr.RangeOk e) (hok : okC e = true)
 
 /-- **An accepted term in range**, read as master's guards read its
 translation (resolution aside: `constsResolve_of_infer`). -/
-theorem checkTermWF_ok {fe : InLean.FEnv} {what : String} {lps : List Name} {e : Expr}
+theorem checkTermWF_ok {fe : InLean.FEnv} {pre : String} {n : Name} {lps : List Name} {e : Expr}
     {s s' : InLean.CState} {u : Unit} (hr : Expr.RangeOk e)
-    (h : InLean.checkTermWF fe what lps e s = .ok (u, s')) :
+    (h : InLean.checkTermWF fe pre n lps e s = .ok (u, s')) :
     s' = s ∧ okC e = true ∧ (trC e).looseBVarsBounded 0 = true ∧ (trC e).hasFvar = false ∧
       (trC e).allLevelParamsDefined (lps.map toName) = true := by
   obtain ⟨hs, h1, h2, h3, h4⟩ := checkTermWF_run h
