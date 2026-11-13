@@ -25,7 +25,7 @@ open ConLeche
 /-- **What the knot reads of an environment past the term in hand**, which every declaration
 boundary has: stored terms resolve, `Nat`'s block is stored at once, a recursor's rules and a
 table's entries name stored constructors, and the `Bool` constructors are stored below the
-comparison operations. -/
+comparison operations and the `Nat` basis below the certified operations. -/
 structure StoredFacts (env : Env) : Prop where
   wf : EnvWF env
   natTrio : (env.find? natName).isSome = true ∨ (env.find? natZeroName).isSome = true ∨
@@ -37,6 +37,8 @@ structure StoredFacts (env : Env) : Prop where
   boolCtors : isDefinitionAt env natBeqName = true ∨ isDefinitionAt env natBleName = true →
     (env.find? boolTrueName).isSome = true ∧ (env.find? boolFalseName).isSome = true
   opDefn : OpDefn env
+  /-- a stored certified operation's definition brings the `Nat` basis (its check's guard) -/
+  natOps : ∀ c, natOpName c = true → isDefinitionAt env c = true → natLitStored env = true
 
 /-- An entry's constructor is its table's. -/
 theorem StoredFacts.entryCtors {env : Env} (h : StoredFacts env) {T : Name} {i : Nat}

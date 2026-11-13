@@ -150,6 +150,11 @@ theorem EnvModelM.storedFacts {env : Env} (mp : EnvModelM V env) (hN : NatFacts 
   natTrio := hN.trio
   recCtors := mp.base2.rec_ctors
   opDefn := mp.op_defn
+  natOps := fun c hc hs => by
+    simp only [ConLeche.natOpName, Bool.or_eq_true, List.contains_iff_mem] at hc
+    obtain ⟨hsup, -⟩ := ConLeche.natOpGuard_deps (natOpGuardLaw_of mp c hc hs)
+    obtain ⟨_, _, _, _, _, _, _, _, h₁, h₂, h₃, -⟩ := ConLeche.natLitSupported_inv hsup
+    simp [ConLeche.natLitStored, h₁, h₂, h₃]
   tableCtors := fun _ _ hf => by
     obtain ⟨-, -, -, -, cvC, hc, -⟩ := mp.base2.proj_ok _ _ hf
     rw [hc]; rfl
