@@ -120113,6 +120113,23 @@ left (remote 409fb814).  Not pushed.
   `cbv_aes` 26.18 → 26.36 G, `grind_ring_5` 2.133 → 1.534 G, `cbv_divisors` 48.65 → 48.50 G,
   `cbv_leroy` 55.28 → 55.99 G.
 
+### Lane msgs: context messages only on the error path; a theorem added once (2026-11-13, task #451, agent/451-msgs)
+
+`checkTermWF` took a built string (`s!"type of {cv.name}"`, `s!"value of {n}"`), so every
+declaration paid for `Name.toString` (about 3.5 % of a tiny `def`'s kernel cost).  It now takes the
+prefix (`"type of "`, `"value of "`) and the name, and builds the message inside the `throw`
+alone, as master's `checkDefnValCI` does; `IndGen.checkExprWF` follows.  The messages are the
+same.  Nothing else in `InLean/*` builds a message outside an error constructor except the
+`tried` list of `checkDivModPinLoop`, which master's `checkDivModPinLoopC` builds the same way
+(only on the Nat.div/mod path).  `InLeanProof/DeclGuards` repaired by the new binders alone.
+New entry `InLean.checkDeclOnly` (`checkDecl` without the add), used by lean4's `addDeclExport`
+(core-only glue): a theorem's shared copy is checked, the original is added once
+(`environment::add_theorem`), the unfold counts kept.  Axioms of `addDeclSound` unchanged.
+
+**Numbers** (kernel instructions per declaration, `debug.skipKernelTC` on/off, N = 5000):
+`def` 61k to 56.7k (messages), `theorem : True` 37k to 35.8k (messages) to 30.4k (single add).
+Init `inlean-replay --compare` 0 mismatches; `--kernel=inlean` 349.86 G (was 350.41 G).
+
 ## TASK #547 — a `Nat` literal's hash reads all its bits: lean4#16146 vendored (2026-11-09, agent/547-lit-hash)
 
 The bug (#543): `Literal` derived `Hashable`, so `.natVal n` hashed as `n mod 2^64` and an
