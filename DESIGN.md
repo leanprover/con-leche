@@ -114597,3 +114597,6 @@ Option 1 keeps the engine and the proofs as they are; option 2 keeps the specifi
   - OVERVIEW: the engine as `isDefEq`'s one addition; the bridge needs a well-formed environment; links repointed.
 
 **Against the estimates**: the bound and its instance 105 lines (150–300) plus the mechanical `mx` threading; item 3 about 420 insertions, 115 deletions in `ConLeche/` (the model side, est. 100–200, was 25 lines of lemma plus the `EnvWF` threading).
+* **Item 4**: the full `tests/arena.sh` with the engine on (6510aecf0): e2e 610/610, olean 122/122, selfcheck 57 354 declarations, arena tutorial 90/92 (as before), every other gate as expected except `whitepaper-links` (the bridge citation's `hwf`, and the CoreC/SimC header citations already a line off on this branch), fixed in bf4d5aaac; the whitepaper link gate passes.
+
+**Next**: the lane is complete and gated on `agent/423-sound`, for the maintainer's review before it lands; nothing open on layer (d).
