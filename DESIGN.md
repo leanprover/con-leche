@@ -120231,6 +120231,106 @@ New entry `InLean.checkDeclOnly` (`checkDecl` without the add), used by lean4's 
 `def` 61k to 56.7k (messages), `theorem : True` 37k to 35.8k (messages) to 30.4k (single add).
 Init `inlean-replay --compare` 0 mismatches; `--kernel=inlean` 349.86 G (was 350.41 G).
 
+### Lane sync9: master's #578 and #579, InLean follows (2026-11-13, task #451, agent/451-sync9)
+
+**Merge.**  `master` (d7d2b7c00: #578, #579) into the lane from agent/451-msgs (c83c27d5e),
+`--no-ff`, by hand.  Conflicts: DESIGN.md (master's records, then the #451 lane records, as
+before); `pinners/README.md` and `scripts/pub-import-plan.py` keep the branch's
+`lakefile.lean` pinners (#547's native section) beside master's new pinner.  The new pinner
+(`pinners/leanprover-lean4-pr-releases-pr-release-16441/`) stays a `lakefile.toml`: its
+toolchain ships lean4#16146, whose runtime exports `lean_nat_big_hash`, so
+`ConLeche.Kernel.NatHash` joins its cone and no C is compiled; it regenerates the committed dump
+byte for byte.  The cherry-picks of #547 and #553 stay.  **Last synced master: d7d2b7c00** (was
+ca6af0990).
+
+**The checklist** (`scripts/inlean-cached-diff.sh ca6af0990 d7d2b7c00` and `git log -p`):
+
+* #578, the pin variant for lean4 master after its wf-recursion changes (`#load_natop_pins`,
+  `pins/…pr-release-16441.json`, variants newest first) — ported: InLean's `pinSets` lists the
+  new dump first and the others newest toolchain first; the lean4 copy's `pins/` gains the dump.
+  The lean4 fork is on lean4 master, whose `Init` has the respelled `Nat.bitwise`: its
+  `Nat.land`/`Nat.lor`/`Nat.xor` now match a variant (before, the fork's `uncertifiedNatOps`
+  let them through uncertified).
+* #578, `ConLeche.ptrDecEq` (`Kernel/PtrDecEq.lean`; `Name.decEqPtr`, `Level.decEqPtr`,
+  `Literal.decEqPtr`, `ptrDecStruct`, `ptrDec`) — not applicable: InLean writes its
+  pointer-first tests out (`InLean/ExprEq.lean`), since `withPtrEqDecEq`'s signature differs
+  between Lean versions.
+* #579, the literal flags (`FEnv.natLit`/`strLit` with `natLit_eq`/`strLit_eq`,
+  `FEnv.ofParts`, `natLitStoredBy`, `strLitStoredBy`, `litName`, `FEnv.push`'s recompute rule;
+  `natLitStoredF`/`strLitStoredF` gone; the read sites `litToCtorIfNatI`, `reduceNatI`,
+  `litMajorToCtorI`, `projLitToCtorI`, `inferBodyI`, `defeqStuckI`, `checkConstantValC`,
+  `checkDefnValCI`, `checkThmValCI`, `checkOpaqueValCI`, `checkConstantValF`) — ported in
+  InLean's shape: `FEnv.natLit`/`strLit` are fields whose defaults are `natLitStoredBy`/
+  `strLitStoredBy` of the lookups (`findAt`, `FEnv.find?` over the components), so every
+  `FEnv` built from its components computes them (`checkDecl`, the generator's `Ctx.fe`, the
+  glue's `withLCtx`); `FEnv.withSafety` recomputes them when the safety changes (the four
+  `{ fe with safety }` sites); `FEnv.push` recomputes them only at one of the ten names before
+  string literals are expandable, as master's.  Every former `natLitStoredF`/`strLitStoredF`
+  read (the core, `constsResolve`, `constsResolveF`, `natOpGuard`, the resolution error) reads
+  the field.  **Decision**: the meaning is not a proof field.  Master's push keeps it by
+  `findIn_insert_ne`, a fact of its own index; InLean's push adds to Lean's environment, whose
+  lookups after an add are the environment laws (`EnvLaws`), a premise of the proofs that the
+  code cannot state.  So the meaning is a relation of the proofs, `LitFlagsI` (a field of
+  `JobEnvI`), kept by `LitFlagsI.push` (a fresh push, `EnvLaws`), `withSafety`, `pushAll` and
+  the stage pushes (`litFlagsI_consBlockIndsF`, `litFlagsI_consSumCtorsF`,
+  `litFlagsI_consBlockCtorsF_go`, `litFlagsI_consBlockRecsBareF`), and built by
+  `litFlagsI_mk` (an `FEnv` from its components).  The one `{ fe with env }` left
+  (`checkInductiveC`'s `feN`) reads projection tables only.
+* #579, the record views (`FrozenIndex`, `StreamIndex.freeze`, `litFrom`, `fromLe`,
+  `FrozenIndex.view`, `recordJob`, `Jobs`) — not applicable: InLean has no stream index; its
+  per-declaration `FEnv` is built from Lean's environment (above).
+* #579, `findIn`/`lookupIn`, `FEnv.overlay`, `FEnv.pushTable` — not applicable (InLean has
+  no index, overlay or table store).
+* `FBase.findTable?`, `natLitSupportedF`, the `Kernel/NatOpPins` preamble — hunk attribution
+  only.
+
+**Proofs.**  `EnvDomI` is a structure: the domain and the flags against `natLitStored`/
+`strLitStored` (`EnvDomI.of` from the domain and `LitFlagsI`); `natLit_I`/`strLit_I` replace
+`natLitStoredF_I`/`strLitStoredF_I`; `envDomI_of`, `defeqEnvI_of`, `envHyps_of`,
+`envBodiesI_of`, `ssimI_of_pres` and the resolution lemmas (`constsResolve_of_test`,
+`constsResolveF_tr`, `constsResolve_trE`, `constsResolve_tr`, `constsResolve_trE_conv`,
+`constsResolve_eq`/`_eqC`/`_eqA`, `typePinGuard_eq`, `divModPinGuard_eq`,
+`constsResolve_subst_eq`, `divModCertGuard_eq`, `divModCertsGuard_eq`, `natOpGuard_tr`,
+`divModEnvGuard_tr`, `checkStructProjTableCI_run`, `checkBlockTablesCI_run`, the class-rule
+runs) take `LitFlagsI`.  Where a step's relation was stated at `{ fe with env := … }` and used
+at `fe.push ci` (now a different value: the push's flags), `presI_congr` carries it over
+(`checkDefnC`'s certified arms, `addDeclSound`'s single steps).  `addDeclSound` unconditional,
+axioms unchanged (`_tmp/axcheck.lean`: `propext`, `Classical.choice`, `Quot.sound`, the three
+`mkData` stop-gaps); no `sorry`.
+
+**Gates.**  `lake build`, `lake test`, `lake build InLean InLeanProof inlean-replay`
+warning-free; layering, trust-surface, shake, inlean-sync, plain-reach, overview-links,
+quote-gate pass.  The merge touched no fixture.
+
+**Init** (`perf stat -e instructions:u`, one run each).  Replay `--compare`: 64530 accepted,
+0 exact and 0 cosmetic mismatches.  InLean `--kernel=inlean`: 349.44 G (msgs 349.86 G,
+−0.12 %); con-leche at master d7d2b7c00 (`--olean --jobs=1`, 63937 declarations): 325.19 G
+(InLean +7.5 %).
+
+**lean4** (`_tmp/lean4`).  GitHub had 8354eb73 / e9a00774 (sync8's), the local branches 079babd2 /
+9360ffdc (lane msgs) on top.  The regenerated InLean (`CheckerC`, `CoreC`, `FEnv`,
+`Inductives/BlockShape`, `Inductives/Decl`, `NatOpPins`, `Push`, and the new dump in `pins/`;
+`inlean-sync.py check` OK) is 08bb38d8 `perf: InLean keeps its literal flags in the
+environment, adds the pin variant for lean4 master` on `joachim/inlean-add`, merged into
+`joachim/inlean-kernel` as de56e62c.  Not pushed.  Kernel branch, stage1: the suite (4897
+tests) passes but `async/elab/async_systems_info` (sandbox); every `tests/elab_bench/*.lean`
+(94, `run_bench.sh`) passes; `inleanQuotTwice` passes; `leanchecker --fresh Init` 446.83 G
+(sync8 447.23 G).
+
+**The tiny-declaration microbenchmark** (`_tmp/fixed/mb/`, kernel instructions per declaration,
+`debug.skipKernelTC` on/off, N = 5000): `def … : Nat := k` 56.8k (msgs) to **59.1k** (+4 %),
+`theorem : True` 30.4k to **35.9k** (+18 %).  A probe with both flags' defaults the constant
+`true` (unsound, measured and reverted) gives 52.1k and 29.6k: computing the flags where the
+`FEnv` is built costs 7.0k / 6.3k per declaration, ten lookups in lean4 master's environment
+(an imported name is found through `ConstTrie`, a lookup per name component), and the O(1)
+reads save the `def` 4.7k.  In con-leche's replay (v4.35.0's environment) the construction is
+cheaper and Init gains 0.12 %.  **Open design choice** (for the maintainer): master's shape
+(this lane: computed at construction, every declaration pays ten lookups); the flags computed
+at their first read in a declaration and kept for it (an explicit per-declaration entry in the
+check's state, the reads that are pure today becoming state reads); or a cross-declaration
+store in lean4's environment (an extension, outside InLean and against the per-declaration
+ruling).
+
 ## TASK #547 — a `Nat` literal's hash reads all its bits: lean4#16146 vendored (2026-11-09, agent/547-lit-hash)
 
 The bug (#543): `Literal` derived `Hashable`, so `.natVal n` hashed as `n mod 2^64` and an
