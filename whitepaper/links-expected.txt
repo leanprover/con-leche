@@ -6546,11 +6546,11 @@
    606          (body₂.instantiate1 (.fvar d ty₂)) →
    607        DefEqLams env d (.lam ty₁ body₁) (.lam ty₂ body₂)
 
-== ConLeche/Verify/Rules/Bridge.lean#L29-L32
-    29  theorem bridgeAt (env : Env) :
-    30      ∀ (fuel : Nat) (eager : Bool),
-    31        WhnfCoreBridge .verified eager env fuel ∧ WhnfBridge .verified eager env fuel ∧
-    32          DefEqBridge .verified eager env fuel ∧ InferBridge .verified eager env fuel ∧
+== ConLeche/Verify/Rules/Bridge.lean#L30-L33
+    30  theorem bridgeAt (env : Env) (hwf : EnvWF env) :
+    31      ∀ (fuel : Nat) (eager : Bool),
+    32        WhnfCoreBridge .verified eager env fuel ∧ WhnfBridge .verified eager env fuel ∧
+    33          DefEqBridge .verified eager env fuel ∧ InferBridge .verified eager env fuel ∧
 
 == ConLeche/Model/Rules/Sound.lean#L52-L53
     52  theorem red_sound (hin : RulesInputs V m φ) :
@@ -6602,19 +6602,19 @@
    197        ∀ ρ : Nat → V,
    198          Denotes (cvalOf (V := V) acval) env φ ρ (closeN d e) (interp V ρ ta) := by
 
-== ConLeche/Cached/CoreC.lean#L8-L11
-     8  # The cached checker core
-     9  
-    10  The core over the computed-field representation: `whnfCore`, `whnf`,
-    11  `infer`, `inferIO` and `defeq`, each memoized in `CState`; a
+== ConLeche/Cached/CoreC.lean#L9-L12
+     9  # The cached checker core
+    10  
+    11  The core over the computed-field representation: `whnfCore`, `whnf`,
+    12  `infer`, `inferIO` and `defeq`, each memoized in `CState`; a
 
-== ConLeche/Verify/Cached/SimC.lean#L10-L15
-    10  # The cached-core faithfulness kit (task #163, batch 5)
-    11  
-    12  The relation and combinators for proving that the cached clone core
-    13  (`ConLeche/Cached/CoreC.lean`) simulates the pure fueled families.  The
-    14  cached and pure sides are *the same terms*, so the value relation is
-    15  equality.
+== ConLeche/Verify/Cached/SimC.lean#L11-L16
+    11  # The cached-core faithfulness kit (task #163, batch 5)
+    12  
+    13  The relation and combinators for proving that the cached clone core
+    14  (`ConLeche/Cached/CoreC.lean`) simulates the pure fueled families.  The
+    15  cached and pure sides are *the same terms*, so the value relation is
+    16  equality.
 
 == ConLeche/Verify/Cached/MainC.lean#L32-L35
     32  

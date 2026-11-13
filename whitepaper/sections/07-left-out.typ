@@ -139,8 +139,8 @@ mode index, for `infer_only` (@sec:io), which the fragment
 states as a relation of its own.
 
 *The bridge and the recomposition.* Because the real checker is a
-program, its proof has three parts where the paper has one. #src("ConLeche/Verify/Rules/Bridge.lean", 29, 32)[The bridge] turns an accepting
-run at any fuel into a derivation, by one induction on fuel in which
+program, its proof has three parts where the paper has one. #src("ConLeche/Verify/Rules/Bridge.lean", 30, 33)[The bridge] turns an accepting
+run at any fuel, in a well-formed environment, into a derivation, by one induction on fuel in which
 each checker site lands on one rule. #src("ConLeche/Model/Rules/Sound.lean", 52, 53)[The soundness] is the paper's
 induction: one structural induction over the six relations, each case a
 lemma about one rule, never mentioning the implementation. #src("ConLeche/Model/Rules/Recompose.lean", 50, 55)[The
@@ -154,10 +154,10 @@ connects the two: wherever the reading `denote` exists, its
 interpretation is a `Denotes`-denotation of the term. The paper's theorem is
 the model side directly.
 
-*The cached checker and its simulation.* The core the binary runs is #src("ConLeche/Cached/CoreC.lean", 8, 11)[a
+*The cached checker and its simulation.* The core the binary runs is #src("ConLeche/Cached/CoreC.lean", 9, 12)[a
 clone of the pure one] over a term representation that carries a
 precomputed hash in every node, with memo tables for reduction,
-equality and inference. #src("ConLeche/Verify/Cached/SimC.lean", 10, 15)[A simulation proof] shows
+equality and inference. #src("ConLeche/Verify/Cached/SimC.lean", 11, 16)[A simulation proof] shows
 that every successful run of the cached core is a successful run of the
 pure fuelled core at some fuel, with the memo tables' invariant
 preserved\; the main
