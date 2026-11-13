@@ -27,7 +27,7 @@ open ConLeche
 
 section
 variable {j : Nat} {N : Name → Prop} {env : Env} {f₂ : Name → Option ConstantInfo}
-  {p₂ : Name → Nat → Option ProjEntry} {t₀ : Expr} {n : Nat}
+  {p₂ : Name → Nat → Option ProjEntry} {mx : Option Nat} {t₀ : Expr} {n : Nat}
 
 /-- Related entries have one tag. -/
 theorem MRel.tagEq (hag : LookAgree N env.find? env.findProj? f₂ p₂) {sA sB : MS}
@@ -64,12 +64,12 @@ theorem MRel.compStr (hsN : strLitStored env = true → StrNames N) {sA sB : MS}
 
 /-- **Mode 1 at a projection frame.** -/
 theorem sim_mode1p (hag : LookAgree N env.find? env.findProj? f₂ p₂)
-    (hsN : strLitStored env = true → StrNames N) (ih : SimAt j N env f₂ p₂ t₀ n)
+    (hsN : strLitStored env = true → StrNames N) (ih : SimAt j N env f₂ p₂ mx t₀ n)
     {sA sB : MS} {oc : Nat → Expr} {fl : List Fr}
     (h : MInv env t₀ oc sA fl) (hR : RunOK env sA.P) (hr : MRel j N env.find? env.findProj? f₂ p₂ sA sB)
     (hm : sA.mode = 1) (hn : 0 < sA.fs.size) (ht : sA.fs[sA.fs.size - 1]! &&& 15 = 4) {m : Nat}
     (hmn : (j = 0 ∧ m = n + 1) ∨ (j = 1 ∧ 2 * n + 1 ≤ m)) :
-    OutRel j N env f₂ p₂ (sA.run env.find? env.findProj? (n + 1)) (sB.run f₂ p₂ m) := by
+    OutRel j N env f₂ p₂ (sA.run env.find? env.findProj? mx (n + 1)) (sB.run f₂ p₂ mx m) := by
   obtain ⟨m, rfl⟩ : ∃ m', m = m' + 1 := ⟨m - 1, by omega⟩
   have hmB : sB.mode = 1 := by rw [hr.mode, hm]
   have hg := hr.regs
@@ -77,9 +77,9 @@ theorem sim_mode1p (hag : LookAgree N env.find? env.findProj? f₂ p₂)
   obtain ⟨he, hx, hpc⟩ := hg
   have hxl := (h.val1 hm).1
   unfold MS.run
-  rw [hm, g4Run.eq_7 env.find? env.findProj? sA.P sA.cel sA.val sA.ev sA.fs sA.argA sA.slots sA.mem sA.mH 1
+  rw [hm, g4Run.eq_7 env.find? env.findProj? mx sA.P sA.cel sA.val sA.ev sA.fs sA.argA sA.slots sA.mem sA.mH 1
     sA.pc sA.env sA.x sA.st n (by decide) (by decide) (by decide) (by decide), hmB,
-    g4Run.eq_7 f₂ p₂ sB.P sB.cel sB.val sB.ev sB.fs sB.argA sB.slots sB.mem sB.mH 1
+    g4Run.eq_7 f₂ p₂ mx sB.P sB.cel sB.val sB.ev sB.fs sB.argA sB.slots sB.mem sB.mH 1
     sB.pc sB.env sB.x sB.st m (by decide) (by decide) (by decide) (by decide)]
   rw [hr.fs.1, hx, hr.fs.top hn]
   obtain ⟨w0, w2, w3, hw⟩ := hr.valW hxl

@@ -31,15 +31,15 @@ open ConLeche
 
 section
 variable {j : Nat} {N : Name → Prop} {env : Env} {f₂ : Name → Option ConstantInfo}
-  {p₂ : Name → Nat → Option ProjEntry} {t₀ : Expr} {n : Nat}
+  {p₂ : Name → Nat → Option ProjEntry} {mx : Option Nat} {t₀ : Expr} {n : Nat}
 
 /-- **Mode 1**, by the frame on top. -/
 theorem sim_mode1 (hwf : EnvWF env) (hag : LookAgree N env.find? env.findProj? f₂ p₂)
-    (hsN : strLitStored env = true → StrNames N) (ih : SimAt j N env f₂ p₂ t₀ n)
+    (hsN : strLitStored env = true → StrNames N) (ih : SimAt j N env f₂ p₂ mx t₀ n)
     {sA sB : MS} {oc : Nat → Expr} {fl : List Fr}
     (h : MInv env t₀ oc sA fl) (hR : RunOK env sA.P) (hr : MRel j N env.find? env.findProj? f₂ p₂ sA sB)
     (hm : sA.mode = 1) {m : Nat} (hmn : (j = 0 ∧ m = n + 1) ∨ (j = 1 ∧ 2 * (n + 1) ≤ m)) :
-    OutRel j N env f₂ p₂ (sA.run env.find? env.findProj? (n + 1)) (sB.run f₂ p₂ m) := by
+    OutRel j N env f₂ p₂ (sA.run env.find? env.findProj? mx (n + 1)) (sB.run f₂ p₂ mx m) := by
   rcases Nat.eq_zero_or_pos sA.fs.size with h0 | hn
   · exact sim_mode1a ih h hR hr hm (.inl h0) (by omega)
   by_cases h1 : sA.fs[sA.fs.size - 1]! &&& 15 = 1
@@ -56,7 +56,7 @@ theorem sim_mode1 (hwf : EnvWF env) (hag : LookAgree N env.find? env.findProj? f
 
 /-- **The simulation**, by induction over the first run's fuel. -/
 theorem sim_run (hwf : EnvWF env) (hag : LookAgree N env.find? env.findProj? f₂ p₂)
-    (hsN : strLitStored env = true → StrNames N) (t₀ : Expr) (n : Nat) : SimAt j N env f₂ p₂ t₀ n := by
+    (hsN : strLitStored env = true → StrNames N) (t₀ : Expr) (n : Nat) : SimAt j N env f₂ p₂ mx t₀ n := by
   induction n with
   | zero =>
     intro _ _ _ _ _ _ _ m hm

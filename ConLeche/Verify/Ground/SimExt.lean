@@ -225,8 +225,7 @@ theorem MRel.ext {sA sB : MS} (h : MRel j N f₁ p₁ f₂ p₂ sA sB) (hA : Ext
     invA := hIA
     invB := hIB
     natOk := fun hn => by dsimp only; rw [fA.1, fB.1, h.natOk hn]
-    strOk := fun hn => by dsimp only; rw [fA.2.1, fB.2.1, h.strOk hn]
-    maxNat := by dsimp only; rw [fA.2.2, fB.2.2, h.maxNat]
+    strOk := fun hn => by dsimp only; rw [fA.2, fB.2, h.strOk hn]
     kTrue := by dsimp only; rw [sA'.1, sB'.1]; exact h.kTrue.ext hA hB
     kFalse := by dsimp only; rw [sA'.2.1, sB'.2.1]; exact h.kFalse.ext hA hB
     kZero := by dsimp only; rw [sA'.2.2.1, sB'.2.2.1]; exact h.kZero.ext hA hB

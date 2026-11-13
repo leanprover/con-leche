@@ -29,7 +29,7 @@ open ConLeche
 
 section
 variable {j : Nat} {N : Name → Prop} {env : Env} {f₂ : Name → Option ConstantInfo}
-  {p₂ : Name → Nat → Option ProjEntry} {t₀ : Expr} {n : Nat}
+  {p₂ : Name → Nat → Option ProjEntry} {mx : Option Nat} {t₀ : Expr} {n : Nat}
 
 theorem get!_congr2 {a b : Array Nat} {i j : Nat} (h : a[i]? = b[j]?) : a[i]! = b[j]! := by
   rw [getElem!_def, getElem!_def, h]
@@ -112,16 +112,16 @@ theorem memoTab_miss {mem mH fs argA : Array Nat} {k n c : Nat} (ht : MemoTab me
 
 /-- **Collecting the arguments** into a constructor or partial-application
 value (`w0` = 1 or 4), on both sides. -/
-theorem sim_collect (ih : SimAt j N env f₂ p₂ t₀ n) {sA sB : MS} {oc : Nat → Expr} {fl : List Fr}
+theorem sim_collect (ih : SimAt j N env f₂ p₂ mx t₀ n) {sA sB : MS} {oc : Nat → Expr} {fl : List Fr}
     (h : MInv env t₀ oc sA fl) (hR : RunOK env sA.P) (hr : MRel j N env.find? env.findProj? f₂ p₂ sA sB)
     (hm : sA.mode = 3) (hE : ERel N sA.P sB.P sA.x sB.x) {w0 : Nat} (hw : w0 = 1 ∨ w0 = 4) {m : Nat}
     (hmn : (j = 0 ∧ m = n) ∨ (j = 1 ∧ 2 * n ≤ m)) :
     OutRel j N env f₂ p₂
-      (g4Run env.find? env.findProj? n sA.P sA.cel
+      (g4Run env.find? env.findProj? mx n sA.P sA.cel
         ((((sA.val.push w0).push sA.x).push sA.argA.size).push (g4CountArgs sA.fs sA.fs.size 0)) sA.ev
         (g4PopN sA.fs (g4CountArgs sA.fs sA.fs.size 0)) (g4CopyArgs sA.fs sA.argA (g4CountArgs sA.fs sA.fs.size 0) 0)
         sA.slots sA.mem sA.mH 1 0 0 (sA.val.size >>> 2) sA.st)
-      (g4Run f₂ p₂ m sB.P sB.cel
+      (g4Run f₂ p₂ mx m sB.P sB.cel
         ((((sB.val.push w0).push sB.x).push sB.argA.size).push (g4CountArgs sA.fs sA.fs.size 0)) sB.ev
         (g4PopN sB.fs (g4CountArgs sA.fs sA.fs.size 0)) (g4CopyArgs sB.fs sB.argA (g4CountArgs sA.fs sA.fs.size 0) 0)
         sB.slots sB.mem sB.mH 1 0 0 (sB.val.size >>> 2) sB.st) := by
@@ -153,11 +153,11 @@ arguments. -/
 
 /-- **Mode 3** away from a definition's body. -/
 theorem sim_mode3n (hag : LookAgree N env.find? env.findProj? f₂ p₂)
-    (ih : SimAt j N env f₂ p₂ t₀ n)
+    (ih : SimAt j N env f₂ p₂ mx t₀ n)
     {sA sB : MS} {oc : Nat → Expr} {fl : List Fr}
     (h : MInv env t₀ oc sA fl) (hR : RunOK env sA.P) (hr : MRel j N env.find? env.findProj? f₂ p₂ sA sB)
     (hm : sA.mode = 3) (hD : ¬D3 sA) {m : Nat} (hmn : (j = 0 ∧ m = n + 1) ∨ (j = 1 ∧ 2 * n + 1 ≤ m)) :
-    OutRel j N env f₂ p₂ (sA.run env.find? env.findProj? (n + 1)) (sB.run f₂ p₂ m) := by
+    OutRel j N env f₂ p₂ (sA.run env.find? env.findProj? mx (n + 1)) (sB.run f₂ p₂ mx m) := by
   obtain ⟨m, rfl⟩ : ∃ m', m = m' + 1 := ⟨m - 1, by omega⟩
   have hmB : sB.mode = 3 := by rw [hr.mode, hm]
   obtain ⟨hpc, hE, htg⟩ := hr.dispatch hag hm
@@ -401,8 +401,8 @@ theorem CodeSame.delta {fA fB : Name → Option ConstantInfo} {pA pB : Name → 
 theorem run_D3_comp {f : Name → Option ConstantInfo} {p : Name → Nat → Option ProjEntry} {s : MS}
     (hm : s.mode = 3) (hD : D3 s) (hc : s.P.kCode[s.x]! = 0) {c : Name} {lps : List Name}
     {us : List Level} {v : Expr} (hi : s.P.kInfo[s.x]? = some (.defn c lps us v)) (n : Nat) :
-    s.run f p (n + 1) =
-      ({ s with P := compDef f p s.P s.x (v.instantiateLevelParams lps us) } : MS).run f p n := by
+    s.run f p mx (n + 1) =
+      ({ s with P := compDef f p s.P s.x (v.instantiateLevelParams lps us) } : MS).run f p mx n := by
   obtain ⟨h1, h2, h5, hn2, hl2⟩ := hD
   have hi' : s.P.kInfo[s.x]! = .defn c lps us v := by simp [getElem!_def, hi]
   unfold MS.run
@@ -445,11 +445,11 @@ theorem defn_of_tag03 {f : Name → Option ConstantInfo} {p : Name → Nat → O
 
 /-- **Mode 3 at a body both sides have**: one step each. -/
 theorem sim_mode3b (hwf : EnvWF env) (hag : LookAgree N env.find? env.findProj? f₂ p₂)
-    (ih : SimAt j N env f₂ p₂ t₀ n) {sA sB : MS} {oc : Nat → Expr} {fl : List Fr}
+    (ih : SimAt j N env f₂ p₂ mx t₀ n) {sA sB : MS} {oc : Nat → Expr} {fl : List Fr}
     (h : MInv env t₀ oc sA fl) (hR : RunOK env sA.P) (hr : MRel j N env.find? env.findProj? f₂ p₂ sA sB)
     (hm : sA.mode = 3) (hD : D3 sA) (hcA : sA.P.kCode[sA.x]! ≠ 0) (hcB : sB.P.kCode[sB.x]! ≠ 0) {m : Nat}
     (hmn : (j = 0 ∧ m = n + 1) ∨ (j = 1 ∧ 2 * n + 1 ≤ m)) :
-    OutRel j N env f₂ p₂ (sA.run env.find? env.findProj? (n + 1)) (sB.run f₂ p₂ m) := by
+    OutRel j N env f₂ p₂ (sA.run env.find? env.findProj? mx (n + 1)) (sB.run f₂ p₂ mx m) := by
   obtain ⟨m, rfl⟩ : ∃ m', m = m' + 1 := ⟨m - 1, by omega⟩
   have hmB : sB.mode = 3 := by rw [hr.mode, hm]
   obtain ⟨hpc, hE, htg⟩ := hr.dispatch hag hm
@@ -564,10 +564,10 @@ theorem sim_mode3b (hwf : EnvWF env) (hag : LookAgree N env.find? env.findProj? 
 
 /-- **Mode 3**, dispatching a constant entry. -/
 theorem sim_mode3 (hwf : EnvWF env) (hag : LookAgree N env.find? env.findProj? f₂ p₂)
-    (ih : SimAt j N env f₂ p₂ t₀ n) {sA sB : MS} {oc : Nat → Expr} {fl : List Fr}
+    (ih : SimAt j N env f₂ p₂ mx t₀ n) {sA sB : MS} {oc : Nat → Expr} {fl : List Fr}
     (h : MInv env t₀ oc sA fl) (hR : RunOK env sA.P) (hr : MRel j N env.find? env.findProj? f₂ p₂ sA sB)
     (hm : sA.mode = 3) {m : Nat} (hmn : (j = 0 ∧ m = n + 1) ∨ (j = 1 ∧ 2 * (n + 1) ≤ m)) :
-    OutRel j N env f₂ p₂ (sA.run env.find? env.findProj? (n + 1)) (sB.run f₂ p₂ m) := by
+    OutRel j N env f₂ p₂ (sA.run env.find? env.findProj? mx (n + 1)) (sB.run f₂ p₂ mx m) := by
   rcases Classical.em (D3 sA) with hD | hD
   rotate_left
   · exact sim_mode3n hag ih h hR hr hm hD (by omega)

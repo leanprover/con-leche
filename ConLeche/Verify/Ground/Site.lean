@@ -103,7 +103,7 @@ theorem RunOK.epoch {env : Env} {P : G4Prog} (h : RunOK env P) (ep : Nat) (sa : 
 end
 
 section
-variable {env : Env}
+variable {env : Env} {mx : Option Nat}
 
 /-- The machine before the site term is compiled: the bottom cell and the
 bottom value, no frame, the bottom value returned. -/
@@ -159,7 +159,7 @@ theorem MInv.withProg0 {t₀ : Expr} {oc : Nat → Expr} {s : MS} {fl : List Fr}
 end
 
 section
-variable {env : Env}
+variable {env : Env} {mx : Option Nat}
 
 /-- The compiler keeps the site's words. -/
 theorem Ext.site_eqs {P P' : G4Prog} (hx : Ext P P') :
@@ -173,7 +173,7 @@ and its `Bool.true` answer is a reduction of the term to `Bool.true`. -/
 theorem site_run (hwf : EnvWF env) {P : G4Prog} (hK : KeptOK env P) {e : Expr}
     (he : e.looseBVarsBounded 0 = true) {fuel v : Nat} {val : Array Nat} {P' : G4Prog}
     {sl : Array Nat} {cells st left : Nat}
-    (hrun : g4Run env.find? env.findProj? fuel
+    (hrun : g4Run env.find? env.findProj? mx fuel
       { (g4Comp env.find? env.findProj? P e).2 with slotA := #[] } #[2, 0, 0, 0]
       #[5, 0, 0, 0] #[] #[] #[] (g4Comp env.find? env.findProj? P e).2.slotA #[]
       (Array.replicate 1024 0) 0 (g4Comp env.find? env.findProj? P e).1 0 0 0 =
@@ -222,7 +222,7 @@ theorem site_run (hwf : EnvWF env) {P : G4Prog} (hK : KeptOK env P) {e : Expr}
 end
 
 section
-variable {env : Env}
+variable {env : Env} {mx : Option Nat}
 
 /-- A resolved constant's entry, under growth. -/
 theorem resolved_entry {P P' : G4Prog} (hx : ExtR P P') {k : Nat} {info : G4Info} {c : Name}
@@ -235,16 +235,16 @@ theorem resolved_entry {P P' : G4Prog} (hx : ExtR P P') {k : Nat} {info : G4Info
   cases info <;> exact (Approx.const_inv ha).symm
 
 /-- **The program a run starts from** is one it can start from. -/
-theorem setup_kept {natOk strOk : Bool} {maxNat : Nat} {P₀ : G4Prog}
+theorem setup_kept {natOk strOk : Bool} {P₀ : G4Prog}
     (hnat : natOk = true → natLitStored env = true) (hstr : strOk = true → strLitStored env = true)
     (hP₀ : P₀.kTag.size = 0 ∨ KeptOK env P₀) :
-    KeptOK env (g4Setup env.find? env.findProj? natOk strOk maxNat P₀) := by
+    KeptOK env (g4Setup env.find? env.findProj? natOk strOk P₀) := by
   unfold g4Setup
   split
   · dsimp only
-    have h₀ := Inv.fresh (find? := env.find?) (findProj? := env.findProj?) natOk strOk maxNat
+    have h₀ := Inv.fresh (find? := env.find?) (findProj? := env.findProj?) natOk strOk
     obtain ⟨hI₁, hx₁, -, i₁, hi₁, ha₁⟩ := g4Resolve_spec env.find? env.findProj? _ boolTrueName [] h₀
-    generalize g4Resolve env.find? env.findProj? ({ natOk := natOk, strOk := strOk, maxNat := maxNat } : G4Prog)
+    generalize g4Resolve env.find? env.findProj? ({ natOk := natOk, strOk := strOk } : G4Prog)
       boolTrueName [] = q₁ at hI₁ hx₁ hi₁ ha₁ ⊢
     obtain ⟨kT, P₁⟩ := q₁
     obtain ⟨hI₂, hx₂, -, i₂, hi₂, ha₂⟩ := g4Resolve_spec env.find? env.findProj? P₁ boolFalseName [] hI₁
@@ -260,7 +260,7 @@ theorem setup_kept {natOk strOk : Bool} {maxNat : Nat} {P₀ : G4Prog}
     have hx₁₄ := ((hx₁.trans hx₂).trans hx₃).trans hx₄
     have hx₂₄ := (hx₂.trans hx₃).trans hx₄
     have hx₃₄ := hx₃.trans hx₄
-    obtain ⟨e₁, e₂, -⟩ := hx₁₄.toExtR.flagsEq
+    obtain ⟨e₁, e₂⟩ := hx₁₄.toExtR.flagsEq
     obtain ⟨-, -, -, -, -, hsa⟩ := hx₁₄.site_eqs
     refine ⟨hI₄.setSite kT kF kZ kS P₄.epBase P₄.slotA, ⟨fun h => hnat (e₁.symm.trans h),
       fun h => hstr (e₂.symm.trans h), resolved_entry hx₄.toExtR hi₃ ha₃,
@@ -276,21 +276,21 @@ theorem setup_kept {natOk strOk : Bool} {maxNat : Nat} {P₀ : G4Prog}
 end
 
 section
-variable {env : Env}
+variable {env : Env} {mx : Option Nat}
 
 /-- **The site is sound**: from a kept program the site can use (or none),
 the program it keeps is one the next run can use (or none), and its `true`
 is a reduction of the term to `Bool.true`. -/
-theorem ground4_site (hwf : EnvWF env) {natOk strOk : Bool} {maxNat fuel : Nat} {P₀ : G4Prog}
+theorem ground4_site (hwf : EnvWF env) {natOk strOk : Bool} {mx : Option Nat} {fuel : Nat} {P₀ : G4Prog}
     (hnat : natOk = true → natLitStored env = true) (hstr : strOk = true → strLitStored env = true)
     (hP₀ : P₀.kTag.size = 0 ∨ KeptOK env P₀) {e : Expr} (he : e.looseBVarsBounded 0 = true) :
-    ((ground4BoolCoreF env.find? env.findProj? natOk strOk maxNat fuel P₀ e).2.kTag.size = 0 ∨
-      KeptOK env (ground4BoolCoreF env.find? env.findProj? natOk strOk maxNat fuel P₀ e).2) ∧
-    ((ground4BoolCoreF env.find? env.findProj? natOk strOk maxNat fuel P₀ e).1.1 = .ok true →
+    ((ground4BoolCoreF env.find? env.findProj? natOk strOk mx fuel P₀ e).2.kTag.size = 0 ∨
+      KeptOK env (ground4BoolCoreF env.find? env.findProj? natOk strOk mx fuel P₀ e).2) ∧
+    ((ground4BoolCoreF env.find? env.findProj? natOk strOk mx fuel P₀ e).1.1 = .ok true →
       ∀ d, Red env d e (.const boolTrueName [])) := by
-  have hK := setup_kept (maxNat := maxNat) hnat hstr hP₀
+  have hK := setup_kept hnat hstr hP₀
   unfold ground4BoolCoreF
-  generalize g4Setup env.find? env.findProj? natOk strOk maxNat P₀ = P at hK ⊢
+  generalize g4Setup env.find? env.findProj? natOk strOk P₀ = P at hK ⊢
   dsimp only
   split
   next v val P' sl cells st left hrun =>

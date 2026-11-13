@@ -99,8 +99,8 @@ end
   [P.pNid[q]?, P.pIdx[q]?, P.pNP[q]?, P.pNF[q]?, P.pNl[q]?, P.pAlw[q]?]
 
 /-- The run's flags: what the compiled code's meaning depends on. -/
-@[expose] def _root_.ConLeche.G4Prog.flags (P : G4Prog) : Bool × Bool × Nat :=
-  (P.natOk, P.strOk, P.maxNat)
+@[expose] def _root_.ConLeche.G4Prog.flags (P : G4Prog) : Bool × Bool :=
+  (P.natOk, P.strOk)
 
 /-- The site's words: the four basis entries, the slot epoch and the slot
 array.  Growth (`ExtR`) does not fix them, so the site may set them; the
@@ -985,8 +985,8 @@ theorem TabInv.emit {P : G4Prog} (hI : TabInv find? findProj? P) (ws : Array Nat
 
 /-- A program with empty tables and memos (the engine's fresh program, with
 its flags) satisfies the table invariant. -/
-theorem TabInv.fresh (natOk strOk : Bool) (maxNat : Nat) :
-    TabInv find? findProj? ({ natOk := natOk, strOk := strOk, maxNat := maxNat } : G4Prog) where
+theorem TabInv.fresh (natOk strOk : Bool) :
+    TabInv find? findProj? ({ natOk := natOk, strOk := strOk } : G4Prog) where
   szs := by simp [Sizes]
   sizes := rfl
   kSlotSize := rfl
@@ -1100,8 +1100,8 @@ theorem SlotOwn.back {P P' : G4Prog} (hC : CompInv find? findProj? P) (hx : ExtR
   | inr k => show P.kSlot[k]? = some sl; rw [← hks]; exact h
 
 /-- The empty program keeps the key invariant. -/
-theorem CompInv.fresh (natOk strOk : Bool) (maxNat : Nat) :
-    CompInv find? findProj? ({ natOk := natOk, strOk := strOk, maxNat := maxNat } : G4Prog) where
+theorem CompInv.fresh (natOk strOk : Bool) :
+    CompInv find? findProj? ({ natOk := natOk, strOk := strOk } : G4Prog) where
   closed a o h := by simp at h
   masks c m h := by simp at h
   kMapAll k info h := by simp at h
@@ -1209,9 +1209,9 @@ theorem Inv.emit {P : G4Prog} (hI : Inv find? findProj? P) (ws : Array Nat) :
   ⟨hI.toTabInv.emit ws, hI.toCompInv.emit find? findProj? ws⟩
 
 /-- The engine's fresh program satisfies the invariant. -/
-theorem Inv.fresh (natOk strOk : Bool) (maxNat : Nat) :
-    Inv find? findProj? ({ natOk := natOk, strOk := strOk, maxNat := maxNat } : G4Prog) :=
-  ⟨TabInv.fresh natOk strOk maxNat, CompInv.fresh natOk strOk maxNat⟩
+theorem Inv.fresh (natOk strOk : Bool) :
+    Inv find? findProj? ({ natOk := natOk, strOk := strOk } : G4Prog) :=
+  ⟨TabInv.fresh natOk strOk, CompInv.fresh natOk strOk⟩
 
 
 /-! ## The constant table -/

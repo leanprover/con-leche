@@ -199,8 +199,6 @@ structure G4Prog where
   slotA : Array Nat := #[]
   epBase : Nat := 0
   natOk : Bool := false
-  /-- the maximum `Nat` size (`--max-nat-size`, bytes) -/
-  maxNat : Nat := 0
   strOk : Bool := false
   kTrue : Nat := 0
   kFalse : Nat := 0
@@ -246,21 +244,31 @@ def g4NatVal (op a b : Nat) : Nat :=
 /-- `2^64`, hoisted (a literal above `2^32` is parsed at each evaluation). -/
 @[noinline] def g4Word : Nat := 18446744073709551616
 
-/-- `natSizeBytes n > maxNat`, with the one-word case (`n < 2^64`: eight
-bytes) decided without `Nat.log2`. -/
-@[inline] def g4SizeOver (maxNat n : Nat) : Bool :=
-  if n < g4Word then maxNat < 8 else natSizeBytes n > maxNat
+/-- `natSizeBytes n > M` at the maximum `Nat` size `some M` (`none`: no
+bound, never), with the one-word case (`n < 2^64`: eight bytes) decided
+without `Nat.log2`. -/
+@[inline] def g4SizeOver (maxNat : Option Nat) (n : Nat) : Bool :=
+  match maxNat with
+  | some M => if n < g4Word then M < 8 else natSizeBytes n > M
+  | none => false
 
 /-- **The maximum `Nat` size** (task #423 completeness; official
 `reduce_pow`/`reduce_shiftLeft`/`reduce_bin_nat_op`, the cached core's
 `natOpRefusal`, task #519): does the operation `op` (index of
 `natBin14Names`; `pow` or `shiftLeft`) refuse the literals `a`, `b` before
 computing?  The size of the result of `add`, `sub` and `mul` is tested
-after computing (`g4SizeOver`, `natResultRefused`).  A refusal hands the
-comparison back to the incumbent, which raises the same error. -/
-def g4NatPreRefuses (maxNat op a b : Nat) : Bool :=
-  if op == 3 then b > natCountMax || (a > 1 && b != 0 && natSizeBytes a > maxNat / b)
-  else if op == 12 then a != 0 && (b > natCountMax || natSizeBytes a + b / 8 + 1 > maxNat)
+after computing (`g4SizeOver`, `natResultRefused`).  A refusal is raised
+at the site as the incumbent's own error.  With no maximum (`none`, the
+specification's run) only the count bound `natCountMax` refuses. -/
+def g4NatPreRefuses (maxNat : Option Nat) (op a b : Nat) : Bool :=
+  if op == 3 then
+    b > natCountMax || (a > 1 && b != 0 && match maxNat with
+      | some M => natSizeBytes a > M / b
+      | none => false)
+  else if op == 12 then
+    a != 0 && (b > natCountMax || match maxNat with
+      | some M => natSizeBytes a + b / 8 + 1 > M
+      | none => false)
   else false
 
 /-- Strip the Π-binders of a type. -/
@@ -667,6 +675,7 @@ def g4FindRule (rNid : Array Nat) (c : Nat) : Nat → Nat → Nat
 
 section
 variable (find? : Name → Option ConstantInfo) (findProj? : Name → Nat → Option ProjEntry)
+  (maxNat : Option Nat)
 
 /-- **Why the machine stopped without a value** (task #423 soundness,
 ruling 4: no hand-back to the incumbent). -/
@@ -1087,11 +1096,11 @@ def g4Run : Nat → G4Prog → (cel val ev fs argA slots mem mH : Array Nat) →
             let m₁ := fs[fs.size - 4]!
             let fs := g4PopN fs 5
             let op := P.kE[k]!
-            if (op == 3 || op == 12) && g4NatPreRefuses P.maxNat op m₁ m then .stop (.refuse op m₁ m false) st else
+            if (op == 3 || op == 12) && g4NatPreRefuses maxNat op m₁ m then .stop (.refuse op m₁ m false) st else
             match g4NatKind op with
             | 0 =>
               let r := g4NatVal op m₁ m
-              if op ≤ 2 && g4SizeOver P.maxNat r then .stop (.refuse op m₁ m true) st else
+              if op ≤ 2 && g4SizeOver maxNat r then .stop (.refuse op m₁ m true) st else
               let w := (val.size >>> 2)
               g4Run n P cel ((((val.push 2).push r).push 0).push 0) ev fs argA slots
                 mem mH 1 0 0 w st
@@ -1117,10 +1126,10 @@ end
 /-- The program a site run starts from: the kept one, or (none kept) a fresh
 one with the four basis entries resolved. -/
 @[inline] def g4Setup (find? : Name → Option ConstantInfo)
-    (findProj? : Name → Nat → Option ProjEntry) (natOk strOk : Bool) (maxNat : Nat) (P₀ : G4Prog) :
+    (findProj? : Name → Nat → Option ProjEntry) (natOk strOk : Bool) (P₀ : G4Prog) :
     G4Prog :=
   if P₀.kTag.size == 0 then
-    let P : G4Prog := { natOk := natOk, strOk := strOk, maxNat := maxNat }
+    let P : G4Prog := { natOk := natOk, strOk := strOk }
     let (kT, P) := g4Resolve find? findProj? P boolTrueName []
     let (kF, P) := g4Resolve find? findProj? P boolFalseName []
     let (kZ, P) := g4Resolve find? findProj? P natZeroName []
@@ -1131,17 +1140,19 @@ one with the four basis entries resolved. -/
 /-- The engine's answer at the `Bool.true` comparison: `true`, `false`, or
 a stop.  **The compiled program can be kept for the declaration**: `P₀` is the program the declaration's earlier runs compiled
 (empty at the first; `CState.ground4`, flushed with the other
-environment-dependent memos).  The result carries the program back. -/
+environment-dependent memos).  The result carries the program back.
+`maxNat` is the maximum `Nat` size: `some` the cached core's
+`--max-nat-size`, `none` (the specification's run) no bound. -/
 def ground4BoolCoreF (find? : Name → Option ConstantInfo)
-    (findProj? : Name → Nat → Option ProjEntry) (natOk strOk : Bool) (maxNat : Nat) (fuel : Nat)
+    (findProj? : Name → Nat → Option ProjEntry) (natOk strOk : Bool) (maxNat : Option Nat) (fuel : Nat)
     (P₀ : G4Prog) (e : Expr) :
     (Except G4Stop Bool × (Nat × Nat)) × G4Prog :=
-  let P : G4Prog := g4Setup find? findProj? natOk strOk maxNat P₀
+  let P : G4Prog := g4Setup find? findProj? natOk strOk P₀
   let (o, P) := g4Comp find? findProj? P e
   let r : Except G4Stop Bool × (Nat × Nat) × G4Prog :=
     let sl := P.slotA
     let P := { P with slotA := #[] }
-    match g4Run find? findProj? fuel P #[2, 0, 0, 0] #[5, 0, 0, 0] #[] #[] #[] sl #[]
+    match g4Run find? findProj? maxNat fuel P #[2, 0, 0, 0] #[5, 0, 0, 0] #[] #[] #[] sl #[]
       (Array.replicate 1024 0) 0 o 0 0 0 with
   | .done v val P sl cells st left =>
     -- the next run's epoch is above every slot entry this run wrote
@@ -1162,13 +1173,13 @@ def ground4BoolCoreF (find? : Name → Option ConstantInfo)
 
 /-- `ground4BoolCoreF` at the engine's fuel (`groundFuel`). -/
 def ground4BoolCore (find? : Name → Option ConstantInfo)
-    (findProj? : Name → Nat → Option ProjEntry) (natOk strOk : Bool) (maxNat : Nat) (P₀ : G4Prog)
+    (findProj? : Name → Nat → Option ProjEntry) (natOk strOk : Bool) (maxNat : Option Nat) (P₀ : G4Prog)
     (e : Expr) :
     (Except G4Stop Bool × (Nat × Nat)) × G4Prog :=
   ground4BoolCoreF find? findProj? natOk strOk maxNat groundFuel P₀ e
 
 def ground4Bool (fe : FEnv) (maxNat : Nat) (P₀ : G4Prog) (e : Expr) :
     (Except G4Stop Bool × (Nat × Nat)) × G4Prog :=
-  ground4BoolCore fe.find? fe.findProj? (natLitStoredF fe) (strLitStoredF fe) maxNat P₀ e
+  ground4BoolCore fe.find? fe.findProj? (natLitStoredF fe) (strLitStoredF fe) (some maxNat) P₀ e
 
 end ConLeche

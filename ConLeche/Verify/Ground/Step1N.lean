@@ -39,7 +39,7 @@ structure RunOK (env : Env) (P : G4Prog) : Prop where
   fls : P.kFalse < P.kInfo.size ∧ entryTerm P P.kFalse = .const boolFalseName []
 
 theorem ExtR.flagsEq {P P' : G4Prog} (hx : ExtR P P') :
-    P'.natOk = P.natOk ∧ P'.strOk = P.strOk ∧ P'.maxNat = P.maxNat := by
+    P'.natOk = P.natOk ∧ P'.strOk = P.strOk := by
   have := hx.flags; simp only [G4Prog.flags, Prod.mk.injEq] at this
   exact this
 
@@ -51,7 +51,7 @@ theorem site_eq {P P' : G4Prog} (hs : P'.site = P.site) :
 /-- The flag facts under growth that keeps the site's words. -/
 theorem RunOK.ext {env : Env} {P P' : G4Prog} (h : RunOK env P) (hx : ExtR P P')
     (hs : P'.site = P.site) : RunOK env P' := by
-  obtain ⟨e₁, e₂, -⟩ := hx.flagsEq
+  obtain ⟨e₁, e₂⟩ := hx.flagsEq
   obtain ⟨e₄, e₅, e₆, e₇⟩ := site_eq hs
   refine ⟨fun h' => h.nat (e₁ ▸ h'), fun h' => h.str (e₂ ▸ h'), ?_, ?_, ?_, ?_⟩
   · rw [e₆]; exact ⟨Nat.lt_of_lt_of_le h.zero.1 hx.kInfoSize, by rw [entryTerm_ext hx h.zero.1]; exact h.zero.2⟩

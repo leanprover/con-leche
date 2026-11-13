@@ -42,10 +42,11 @@ structure MS where
 
 section
 variable (find? : Name → Option ConstantInfo) (findProj? : Name → Nat → Option ProjEntry)
+  (mx : Option Nat)
 
 /-- The machine run from a state. -/
 @[expose] def MS.run (n : Nat) (s : MS) : G4Out :=
-  g4Run find? findProj? n s.P s.cel s.val s.ev s.fs s.argA s.slots s.mem s.mH s.mode s.pc s.env s.x
+  g4Run find? findProj? mx n s.P s.cel s.val s.ev s.fs s.argA s.slots s.mem s.mH s.mode s.pc s.env s.x
     s.st
 end
 

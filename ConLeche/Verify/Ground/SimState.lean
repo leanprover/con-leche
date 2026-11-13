@@ -170,7 +170,6 @@ structure MRel (sA sB : MS) : Prop where
   invB : Inv f₂ p₂ sB.P
   natOk : NatN N → sB.P.natOk = sA.P.natOk
   strOk : StrNames N → sB.P.strOk = sA.P.strOk
-  maxNat : sB.P.maxNat = sA.P.maxNat
   kTrue : BasisRel N sA.P sB.P boolTrueName sA.P.kTrue sB.P.kTrue
   kFalse : BasisRel N sA.P sB.P boolFalseName sA.P.kFalse sB.P.kFalse
   kZero : BasisRel N sA.P sB.P natZeroName sA.P.kZero sB.P.kZero

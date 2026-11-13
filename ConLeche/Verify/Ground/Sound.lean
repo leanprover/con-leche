@@ -31,13 +31,13 @@ that finishes leaves a state with the invariant, in mode 1 at the empty
 stack, holding the answer. -/
 @[expose] def RunSound (env : Env) (t₀ : Expr) (n : Nat) : Prop :=
   ∀ (s : MS) (oc : Nat → Expr) (fl : List Fr), MInv env t₀ oc s fl → RunOK env s.P →
-    ∀ {v : Nat} {val : Array Nat} {P' : G4Prog} {sl : Array Nat} {cells st left : Nat},
-      s.run env.find? env.findProj? n = .done v val P' sl cells st left →
+    ∀ {mx : Option Nat} {v : Nat} {val : Array Nat} {P' : G4Prog} {sl : Array Nat} {cells st left : Nat},
+      s.run env.find? env.findProj? mx n = .done v val P' sl cells st left →
       ∃ (s' : MS) (oc' : Nat → Expr), MInv env t₀ oc' s' [] ∧ RunOK env s'.P ∧ s'.mode = 1 ∧
         s'.x = v ∧ s'.val = val ∧ s'.P = P' ∧ s'.slots = sl ∧ s'.cel.size >>> 2 = cells
 
 section
-variable {env : Env} {t₀ : Expr} {oc : Nat → Expr} {s : MS} {fl : List Fr} {n : Nat}
+variable {env : Env} {mx : Option Nat} {t₀ : Expr} {oc : Nat → Expr} {s : MS} {fl : List Fr} {n : Nat}
   {v : Nat} {val : Array Nat} {P' : G4Prog} {sl : Array Nat} {cells st left : Nat}
 
 /-- The modes the invariant admits. -/
@@ -50,7 +50,7 @@ theorem MInv.mode_le (h : MInv env t₀ oc s fl) : s.mode ≤ 4 := by
 as a literal. -/
 theorem RunSound.app (ih : RunSound env t₀ n) {s : MS} {m : Nat} (h : MInv env t₀ oc s fl)
     (hR : RunOK env s.P)
-    (hrun : g4Run env.find? env.findProj? n s.P s.cel s.val s.ev s.fs s.argA s.slots s.mem s.mH m s.pc
+    (hrun : g4Run env.find? env.findProj? mx n s.P s.cel s.val s.ev s.fs s.argA s.slots s.mem s.mH m s.pc
       s.env s.x s.st = .done v val P' sl cells st left)
     (hm : s.mode = m) :
     ∃ (s' : MS) (oc' : Nat → Expr), MInv env t₀ oc' s' [] ∧ RunOK env s'.P ∧ s'.mode = 1 ∧
@@ -67,7 +67,7 @@ theorem Den.code_le {P : G4Prog} {o : Nat} {e : Expr} (h : Den P o e) : P.code[o
 /-- **Mode 0**, evaluating a node. -/
 theorem run_mode0 (ih : RunSound env t₀ n) (hR : RunOK env s.P) (h : MInv env t₀ oc s fl)
     (hm : s.mode = 0)
-    (hrun : s.run env.find? env.findProj? (n + 1) = .done v val P' sl cells st left) :
+    (hrun : s.run env.find? env.findProj? mx (n + 1) = .done v val P' sl cells st left) :
     ∃ (s' : MS) (oc' : Nat → Expr), MInv env t₀ oc' s' [] ∧ RunOK env s'.P ∧ s'.mode = 1 ∧
       s'.x = v ∧ s'.val = val ∧ s'.P = P' ∧ s'.slots = sl ∧ s'.cel.size >>> 2 = cells := by
   unfold MS.run at hrun
@@ -110,7 +110,7 @@ theorem run_mode0 (ih : RunSound env t₀ n) (hR : RunOK env s.P) (h : MInv env 
 /-- **Mode 4**, pushing a spine's arguments. -/
 theorem run_mode4 (ih : RunSound env t₀ n) (hR : RunOK env s.P) (h : MInv env t₀ oc s fl)
     (hm : s.mode = 4)
-    (hrun : s.run env.find? env.findProj? (n + 1) = .done v val P' sl cells st left) :
+    (hrun : s.run env.find? env.findProj? mx (n + 1) = .done v val P' sl cells st left) :
     ∃ (s' : MS) (oc' : Nat → Expr), MInv env t₀ oc' s' [] ∧ RunOK env s'.P ∧ s'.mode = 1 ∧
       s'.x = v ∧ s'.val = val ∧ s'.P = P' ∧ s'.slots = sl ∧ s'.cel.size >>> 2 = cells := by
   unfold MS.run at hrun
@@ -148,7 +148,7 @@ theorem run_mode4 (ih : RunSound env t₀ n) (hR : RunOK env s.P) (h : MInv env 
 /-- **Mode 2**, entering a cell. -/
 theorem run_mode2 (ih : RunSound env t₀ n) (hR : RunOK env s.P) (h : MInv env t₀ oc s fl)
     (hm : s.mode = 2)
-    (hrun : s.run env.find? env.findProj? (n + 1) = .done v val P' sl cells st left) :
+    (hrun : s.run env.find? env.findProj? mx (n + 1) = .done v val P' sl cells st left) :
     ∃ (s' : MS) (oc' : Nat → Expr), MInv env t₀ oc' s' [] ∧ RunOK env s'.P ∧ s'.mode = 1 ∧
       s'.x = v ∧ s'.val = val ∧ s'.P = P' ∧ s'.slots = sl ∧ s'.cel.size >>> 2 = cells := by
   unfold MS.run at hrun
@@ -202,7 +202,7 @@ theorem MInv.tag03 (h : MInv env t₀ oc s fl) (hm : s.mode = 3)
 /-- **Mode 3**, dispatching a constant entry. -/
 theorem run_mode3 (hwf : EnvWF env) (ih : RunSound env t₀ n) (hR : RunOK env s.P)
     (h : MInv env t₀ oc s fl) (hm : s.mode = 3)
-    (hrun : s.run env.find? env.findProj? (n + 1) = .done v val P' sl cells st left) :
+    (hrun : s.run env.find? env.findProj? mx (n + 1) = .done v val P' sl cells st left) :
     ∃ (s' : MS) (oc' : Nat → Expr), MInv env t₀ oc' s' [] ∧ RunOK env s'.P ∧ s'.mode = 1 ∧
       s'.x = v ∧ s'.val = val ∧ s'.P = P' ∧ s'.slots = sl ∧ s'.cel.size >>> 2 = cells := by
   have hk : s.x < s.P.kInfo.size := by
@@ -300,11 +300,11 @@ theorem MInv.setPcEnv (h : MInv env t₀ oc s fl) (hm : s.mode = 1) (p e : Nat) 
 /-- **Mode 1**, returning a value to the frames. -/
 theorem run_mode1 (hwf : EnvWF env) (ih : RunSound env t₀ n) (hR : RunOK env s.P)
     (h : MInv env t₀ oc s fl) (hm : s.mode = 1)
-    (hrun : s.run env.find? env.findProj? (n + 1) = .done v val P' sl cells st left) :
+    (hrun : s.run env.find? env.findProj? mx (n + 1) = .done v val P' sl cells st left) :
     ∃ (s' : MS) (oc' : Nat → Expr), MInv env t₀ oc' s' [] ∧ RunOK env s'.P ∧ s'.mode = 1 ∧
       s'.x = v ∧ s'.val = val ∧ s'.P = P' ∧ s'.slots = sl ∧ s'.cel.size >>> 2 = cells := by
   unfold MS.run at hrun
-  rw [hm, g4Run.eq_7 env.find? env.findProj? s.P s.cel s.val s.ev s.fs s.argA s.slots s.mem s.mH 1 s.pc
+  rw [hm, g4Run.eq_7 env.find? env.findProj? mx s.P s.cel s.val s.ev s.fs s.argA s.slots s.mem s.mH 1 s.pc
     s.env s.x s.st n (by decide) (by decide) (by decide) (by decide)] at hrun
   split at hrun
   next h0 =>
@@ -531,9 +531,9 @@ theorem run_mode1 (hwf : EnvWF env) (ih : RunSound env t₀ n) (hR : RunOK env s
 with the invariant that finishes ends in mode 1 at the empty stack, the
 invariant holding there. -/
 theorem run_sound (hwf : EnvWF env) (t₀ : Expr) : ∀ n, RunSound env t₀ n
-  | 0 => fun s _ _ _ _ _ _ _ _ _ _ _ hrun => by
+  | 0 => fun s _ _ _ _ _ _ _ _ _ _ _ _ hrun => by
     unfold MS.run at hrun; rw [g4Run.eq_1] at hrun; exact nomatch hrun
-  | n + 1 => fun s oc fl h hR _ _ _ _ _ _ _ hrun => by
+  | n + 1 => fun s oc fl h hR _ _ _ _ _ _ _ _ hrun => by
     have ih := run_sound hwf t₀ n
     have hle := h.mode_le
     rcases hm : s.mode with _ | _ | _ | _ | _ | m

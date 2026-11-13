@@ -38,7 +38,7 @@ open ConLeche ConLeche.Cached
 /-- **The engine at the site**: a fresh program (`{}`), fuel `fuel`, and its
 answer (no fallback: a stop is raised at the site). -/
 def siteEval (fe : FEnv) (maxNat fuel : Nat) (t : Expr) : Except G4Stop Bool :=
-  (ground4BoolCoreF fe.find? fe.findProj? (natLitStoredF fe) (strLitStoredF fe) maxNat fuel
+  (ground4BoolCoreF fe.find? fe.findProj? (natLitStoredF fe) (strLitStoredF fe) (some maxNat) fuel
     {} t).1.1
 
 /-- The incumbent's `whnf` of `t` (the cached core's plain tower at fuel
@@ -102,8 +102,8 @@ theorem g4NatBool_natOpResult (op a b : Nat) (hk : op = 4 ∨ op = 5) :
       natShiftRightName, natBeqName, natBleName]
 
 /-- The one-word fast path of the size test is the size test. -/
-theorem g4SizeOver_eq (maxNat n : Nat) : g4SizeOver maxNat n = decide (natSizeBytes n > maxNat) := by
-  unfold g4SizeOver
+theorem g4SizeOver_eq (maxNat n : Nat) : g4SizeOver (some maxNat) n = decide (natSizeBytes n > maxNat) := by
+  simp only [g4SizeOver]
   split
   · rename_i h
     have hlog : n.log2 < 64 := by
@@ -119,7 +119,7 @@ theorem g4SizeOver_eq (maxNat n : Nat) : g4SizeOver maxNat n = decide (natSizeBy
 engine's refusal of `pow` (`3`) and `shiftLeft` (`12`) is the cached
 core's (`natOpRefusal`). -/
 theorem g4NatPreRefuses_iff (maxNat op a b : Nat) (hop : op = 3 ∨ op = 12) :
-    g4NatPreRefuses maxNat op a b = true ↔ (natOpRefusal maxNat (natBin14Names[op]!) a b).isSome := by
+    g4NatPreRefuses (some maxNat) op a b = true ↔ (natOpRefusal maxNat (natBin14Names[op]!) a b).isSome := by
   rcases hop with rfl | rfl
   · by_cases h1 : natCountMax < b <;> by_cases h2 : (1 < a ∧ ¬b = 0) ∧ maxNat / b < natSizeBytes a <;>
       simp_all [g4NatPreRefuses, natOpRefusal, natBin14Names, natAddName, natSubName, natMulName, natPowName, natDivName,
@@ -149,7 +149,7 @@ theorem natOpRefusal_other (maxNat op a b : Nat) (hop : op < 14) (h : op ≠ 3 �
 engine's size test on the result of `add`, `sub`, `mul` is the cached
 core's `natResultRefused`, and no other operation is refused there. -/
 theorem g4SizeOver_natResultRefused (maxNat op a b : Nat) (hop : op < 14) (hk : op ≠ 4 ∧ op ≠ 5) :
-    (op ≤ 2 && g4SizeOver maxNat (g4NatVal op a b)) =
+    (op ≤ 2 && g4SizeOver (some maxNat) (g4NatVal op a b)) =
       natResultRefused maxNat (natBin14Names[op]!) (.lit (.natVal (g4NatVal op a b))) := by
   obtain ⟨h4, h5⟩ := hk
   match op, hop with

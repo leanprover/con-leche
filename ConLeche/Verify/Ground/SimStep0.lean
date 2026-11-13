@@ -19,7 +19,7 @@ open ConLeche
 
 section
 variable {j : Nat} {N : Name → Prop} {env : Env} {f₂ : Name → Option ConstantInfo}
-  {p₂ : Name → Nat → Option ProjEntry} {t₀ : Expr} {n : Nat}
+  {p₂ : Name → Nat → Option ProjEntry} {mx : Option Nat} {t₀ : Expr} {n : Nat}
 
 theorem shr2_eq (a : Nat) : a >>> 2 = a / 4 := Nat.shiftRight_eq_div_pow _ _
 
@@ -31,11 +31,11 @@ theorem FsRel.callTest {PA PB : G4Prog} {fa fb : Array Nat} (h : FsRel N PA PB f
   · simp [h.1, hn]
 
 /-- **Mode 0**, evaluating a node. -/
-theorem sim_mode0 (hag : LookAgree N env.find? env.findProj? f₂ p₂) (ih : SimAt j N env f₂ p₂ t₀ n)
+theorem sim_mode0 (hag : LookAgree N env.find? env.findProj? f₂ p₂) (ih : SimAt j N env f₂ p₂ mx t₀ n)
     {sA sB : MS} {oc : Nat → Expr} {fl : List Fr}
     (h : MInv env t₀ oc sA fl) (hR : RunOK env sA.P) (hr : MRel j N env.find? env.findProj? f₂ p₂ sA sB)
     (hm : sA.mode = 0) {m : Nat} (hmn : (j = 0 ∧ m = n + 1) ∨ (j = 1 ∧ 2 * (n + 1) ≤ m)) :
-    OutRel j N env f₂ p₂ (sA.run env.find? env.findProj? (n + 1)) (sB.run f₂ p₂ m) := by
+    OutRel j N env f₂ p₂ (sA.run env.find? env.findProj? mx (n + 1)) (sB.run f₂ p₂ mx m) := by
   obtain ⟨m, rfl⟩ : ∃ m', m = m' + 1 := ⟨m - 1, by omega⟩
   have hmB : sB.mode = 0 := by rw [hr.mode, hm]
   have hg := hr.regs

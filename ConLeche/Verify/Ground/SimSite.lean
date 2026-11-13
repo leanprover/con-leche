@@ -46,15 +46,15 @@ theorem ent_rel {N : Name → Prop} {PA PB : G4Prog} {kA kB : Nat} {c : Name} {u
 
 /-- **The site set-up's flags** are the call's. -/
 theorem setup_flags (find? : Name → Option ConstantInfo) (findProj? : Name → Nat → Option ProjEntry)
-    {natOk strOk : Bool} {maxNat : Nat} {P₀ : G4Prog}
-    (hP₀ : P₀.kTag.size = 0 ∨ P₀.flags = (natOk, strOk, maxNat)) :
-    (g4Setup find? findProj? natOk strOk maxNat P₀).flags = (natOk, strOk, maxNat) := by
+    {natOk strOk : Bool} {P₀ : G4Prog}
+    (hP₀ : P₀.kTag.size = 0 ∨ P₀.flags = (natOk, strOk)) :
+    (g4Setup find? findProj? natOk strOk P₀).flags = (natOk, strOk) := by
   unfold g4Setup
   split
   · dsimp only
-    have h₀ := Inv.fresh (find? := find?) (findProj? := findProj?) natOk strOk maxNat
+    have h₀ := Inv.fresh (find? := find?) (findProj? := findProj?) natOk strOk
     obtain ⟨hI₁, hx₁, -⟩ := g4Resolve_spec find? findProj? _ boolTrueName [] h₀
-    generalize g4Resolve find? findProj? ({ natOk := natOk, strOk := strOk, maxNat := maxNat } : G4Prog)
+    generalize g4Resolve find? findProj? ({ natOk := natOk, strOk := strOk } : G4Prog)
       boolTrueName [] = q₁ at hI₁ hx₁ ⊢
     obtain ⟨kT, P₁⟩ := q₁
     obtain ⟨hI₂, hx₂, -⟩ := g4Resolve_spec find? findProj? P₁ boolFalseName [] hI₁
@@ -88,7 +88,7 @@ on each; the flags agree where their basis is in `N`, and in lock-step the
 two compiled programs have compiled the same bodies. -/
 theorem siteMS_rel {envA envB : Env} {PA PB : G4Prog} (hKA : KeptOK envA PA) (hKB : KeptOK envB PB)
     {j : Nat} {N : Name → Prop} (hnat : NatN N → PB.natOk = PA.natOk)
-    (hstr : StrNames N → PB.strOk = PA.strOk) (hmax : PB.maxNat = PA.maxNat) (e : Expr) (hNe : NamesIn N e)
+    (hstr : StrNames N → PB.strOk = PA.strOk) (e : Expr) (hNe : NamesIn N e)
     (hcode : j = 0 → CodeSame (g4Comp envA.find? envA.findProj? PA e).2 (g4Comp envB.find? envB.findProj? PB e).2) :
     MRel j N envA.find? envA.findProj? envB.find? envB.findProj?
       (siteMS (g4Comp envA.find? envA.findProj? PA e).2 (g4Comp envA.find? envA.findProj? PA e).1)
@@ -118,8 +118,7 @@ theorem siteMS_rel {envA envB : Env} {PA PB : G4Prog} (hKA : KeptOK envA PA) (hK
     invA := hIA.setSite QA.kTrue QA.kFalse QA.kZero QA.kSucc QA.epBase #[]
     invB := hIB.setSite QB.kTrue QB.kFalse QB.kZero QB.kSucc QB.epBase #[]
     natOk := fun hn => by show QB.natOk = QA.natOk; rw [eA.1, eB.1, hnat hn]
-    strOk := fun hn => by show QB.strOk = QA.strOk; rw [eA.2.1, eB.2.1, hstr hn]
-    maxNat := by show QB.maxNat = QA.maxNat; rw [eA.2.2, eB.2.2, hmax]
+    strOk := fun hn => by show QB.strOk = QA.strOk; rw [eA.2, eB.2, hstr hn]
     kTrue := ent_rel rA.tru rB.tru
     kFalse := ent_rel rA.fls rB.fls
     kZero := ent_rel rA.zero rB.zero
@@ -168,31 +167,30 @@ theorem siteMS_minv {P : G4Prog} (hK : KeptOK env P) {e : Expr} (he : e.looseBVa
 /-- **The kept program against a fresh one** (item 2(d)): unless the kept
 run is out of budget, a site run on the fresh program with `2 n + 1` steps
 for the kept one's `n` gives the same answer and state count. -/
-theorem ground4_fresh (hwf : EnvWF env) {natOk strOk : Bool} {maxNat F : Nat} {P₀ : G4Prog}
+theorem ground4_fresh (hwf : EnvWF env) {natOk strOk : Bool} {mx : Option Nat} {F : Nat} {P₀ : G4Prog}
     (hnat : natOk = true → natLitStored env = true) (hstr : strOk = true → strLitStored env = true)
-    (hP₀ : P₀.kTag.size = 0 ∨ (KeptOK env P₀ ∧ P₀.flags = (natOk, strOk, maxNat))) {e : Expr}
+    (hP₀ : P₀.kTag.size = 0 ∨ (KeptOK env P₀ ∧ P₀.flags = (natOk, strOk))) {e : Expr}
     (he : e.looseBVarsBounded 0 = true)
-    (hb : (ground4BoolCoreF env.find? env.findProj? natOk strOk maxNat F P₀ e).1.1 ≠
+    (hb : (ground4BoolCoreF env.find? env.findProj? natOk strOk mx F P₀ e).1.1 ≠
       .error (.decline "ground evaluation did not finish within its step budget")) :
-    (ground4BoolCoreF env.find? env.findProj? natOk strOk maxNat (2 * F + 1) {} e).1.1 =
-        (ground4BoolCoreF env.find? env.findProj? natOk strOk maxNat F P₀ e).1.1 ∧
-      (ground4BoolCoreF env.find? env.findProj? natOk strOk maxNat (2 * F + 1) {} e).1.2.1 =
-        (ground4BoolCoreF env.find? env.findProj? natOk strOk maxNat F P₀ e).1.2.1 := by
-  have hKA := setup_kept (maxNat := maxNat) hnat hstr (hP₀.imp id (·.1))
-  have hKB := setup_kept (maxNat := maxNat) (P₀ := {}) hnat hstr (.inl rfl)
+    (ground4BoolCoreF env.find? env.findProj? natOk strOk mx (2 * F + 1) {} e).1.1 =
+        (ground4BoolCoreF env.find? env.findProj? natOk strOk mx F P₀ e).1.1 ∧
+      (ground4BoolCoreF env.find? env.findProj? natOk strOk mx (2 * F + 1) {} e).1.2.1 =
+        (ground4BoolCoreF env.find? env.findProj? natOk strOk mx F P₀ e).1.2.1 := by
+  have hKA := setup_kept hnat hstr (hP₀.imp id (·.1))
+  have hKB := setup_kept (P₀ := {}) hnat hstr (.inl rfl)
   have hfA := setup_flags env.find? env.findProj? (hP₀.imp id (·.2))
-  have hfB := setup_flags env.find? env.findProj? (P₀ := {}) (natOk := natOk) (strOk := strOk)
-    (maxNat := maxNat) (.inl rfl)
+  have hfB := setup_flags env.find? env.findProj? (P₀ := {}) (natOk := natOk) (strOk := strOk) (.inl rfl)
   unfold ground4BoolCoreF at hb ⊢
-  generalize g4Setup env.find? env.findProj? natOk strOk maxNat P₀ = PA at hKA hfA hb ⊢
-  generalize g4Setup env.find? env.findProj? natOk strOk maxNat {} = PB at hKB hfB ⊢
+  generalize g4Setup env.find? env.findProj? natOk strOk P₀ = PA at hKA hfA hb ⊢
+  generalize g4Setup env.find? env.findProj? natOk strOk {} = PB at hKB hfB ⊢
   dsimp only at hb ⊢
   have hfl := hfB.trans hfA.symm
   simp only [G4Prog.flags, Prod.mk.injEq] at hfl
-  have hr := siteMS_rel (j := 1) (N := fun _ => True) hKA hKB (fun _ => hfl.1) (fun _ => hfl.2.1) hfl.2.2 e
+  have hr := siteMS_rel (j := 1) (N := fun _ => True) hKA hKB (fun _ => hfl.1) (fun _ => hfl.2) e
     (NamesIn.univ e) (fun h0 => absurd h0 (by decide))
   obtain ⟨h₂, hR₂⟩ := siteMS_minv hKA he
-  have hsim := sim_run hwf (LookAgree.univ _ _)
+  have hsim := sim_run (mx := mx) hwf (LookAgree.univ _ _)
     (fun _ => ⟨⟨trivial, trivial, trivial⟩, trivial, trivial, trivial, trivial, trivial, trivial, trivial⟩) e F
     _ _ _ _ h₂ hR₂ hr (2 * F + 1) (.inr ⟨rfl, by omega⟩)
   generalize g4Comp env.find? env.findProj? PA e = rA at hsim hb ⊢
@@ -201,9 +199,9 @@ theorem ground4_fresh (hwf : EnvWF env) {natOk strOk : Bool} {maxNat F : Nat} {P
   obtain ⟨oB, QB⟩ := rB
   unfold MS.run siteMS at hsim
   dsimp only at hsim hb ⊢
-  generalize g4Run env.find? env.findProj? F { QA with slotA := #[] } #[2, 0, 0, 0] #[5, 0, 0, 0] #[] #[] #[]
+  generalize g4Run env.find? env.findProj? mx F { QA with slotA := #[] } #[2, 0, 0, 0] #[5, 0, 0, 0] #[] #[] #[]
     QA.slotA #[] (Array.replicate 1024 0) 0 oA 0 0 0 = outA at hsim hb ⊢
-  generalize g4Run env.find? env.findProj? (2 * F + 1) { QB with slotA := #[] } #[2, 0, 0, 0] #[5, 0, 0, 0]
+  generalize g4Run env.find? env.findProj? mx (2 * F + 1) { QB with slotA := #[] } #[2, 0, 0, 0] #[5, 0, 0, 0]
     #[] #[] #[] QB.slotA #[] (Array.replicate 1024 0) 0 oB 0 0 0 = outB at hsim ⊢
   rcases hsim with ⟨st, rfl, -⟩ | ⟨g, st, rfl, rfl⟩ | ⟨sA, sB, lA, lB, hr', hm1, -, hv, rfl, rfl⟩
   · exact absurd rfl hb

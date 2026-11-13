@@ -156,16 +156,16 @@ theorem NoCode.same {PA PB : G4Prog} (hA : NoCode PA) (hB : NoCode PB) : CodeSam
 
 /-- **A fresh program with a term compiled** has compiled no body. -/
 theorem noCode_fresh (f : Name → Option ConstantInfo) (p : Name → Nat → Option ProjEntry)
-    (natOk strOk : Bool) (maxNat : Nat) (e : Expr) :
-    NoCode (g4Comp f p (g4Setup f p natOk strOk maxNat {}) e).2 := by
-  have h₀ := Inv.fresh (find? := f) (findProj? := p) natOk strOk maxNat
-  have n₀ : NoCode ({ natOk := natOk, strOk := strOk, maxNat := maxNat } : G4Prog) :=
+    (natOk strOk : Bool) (e : Expr) :
+    NoCode (g4Comp f p (g4Setup f p natOk strOk {}) e).2 := by
+  have h₀ := Inv.fresh (find? := f) (findProj? := p) natOk strOk
+  have n₀ : NoCode ({ natOk := natOk, strOk := strOk } : G4Prog) :=
     ⟨fun _ ⟨_, _, hi, _⟩ => by simp at hi, fun _ _ ⟨_, _, _, _, _, _, _, _, _, _, hi, _⟩ => by simp at hi⟩
-  have hs : NoCode (g4Setup f p natOk strOk maxNat {}) ∧ Inv f p (g4Setup f p natOk strOk maxNat {}) := by
+  have hs : NoCode (g4Setup f p natOk strOk {}) ∧ Inv f p (g4Setup f p natOk strOk {}) := by
     unfold g4Setup
     simp only [show (({} : G4Prog).kTag.size == 0) = true from rfl, ↓reduceIte]
     obtain ⟨hI₁, hx₁, -⟩ := g4Resolve_spec f p _ boolTrueName [] h₀
-    generalize g4Resolve f p ({ natOk := natOk, strOk := strOk, maxNat := maxNat } : G4Prog)
+    generalize g4Resolve f p ({ natOk := natOk, strOk := strOk } : G4Prog)
       boolTrueName [] = q₁ at hI₁ hx₁ ⊢
     obtain ⟨kT, P₁⟩ := q₁
     obtain ⟨hI₂, hx₂, -⟩ := g4Resolve_spec f p P₁ boolFalseName [] hI₁
@@ -188,31 +188,31 @@ theorem noCode_fresh (f : Name → Option ConstantInfo) (p : Name → Nat → Op
 /-- **The engine at an extension** (item 2(e)): on fresh programs at one fuel,
 a closed term resolving in `env₁` gets one answer at `env₂` and at `env₁`,
 every stop and the budget's decline included. -/
-theorem ground4_ext {env₁ env₂ : Env} (hx : EnvExt env₁ env₂) (maxNat F : Nat) {e : Expr}
+theorem ground4_ext {env₁ env₂ : Env} (hx : EnvExt env₁ env₂) (mx : Option Nat) (F : Nat) {e : Expr}
     (he : e.looseBVarsBounded 0 = true) (hres : Res env₁ e) :
-    (ground4BoolCoreF env₂.find? env₂.findProj? (natLitStored env₂) (strLitStored env₂) maxNat F {} e).1.1 =
-      (ground4BoolCoreF env₁.find? env₁.findProj? (natLitStored env₁) (strLitStored env₁) maxNat F {} e).1.1 := by
-  have hKA := setup_kept (env := env₁) (maxNat := maxNat) (P₀ := {}) id id (.inl rfl)
-  have hKB := setup_kept (env := env₂) (maxNat := maxNat) (P₀ := {}) id id (.inl rfl)
+    (ground4BoolCoreF env₂.find? env₂.findProj? (natLitStored env₂) (strLitStored env₂) mx F {} e).1.1 =
+      (ground4BoolCoreF env₁.find? env₁.findProj? (natLitStored env₁) (strLitStored env₁) mx F {} e).1.1 := by
+  have hKA := setup_kept (env := env₁) (P₀ := {}) id id (.inl rfl)
+  have hKB := setup_kept (env := env₂) (P₀ := {}) id id (.inl rfl)
   have hfA := setup_flags env₁.find? env₁.findProj? (P₀ := {}) (natOk := natLitStored env₁)
-    (strOk := strLitStored env₁) (maxNat := maxNat) (.inl rfl)
+    (strOk := strLitStored env₁) (.inl rfl)
   have hfB := setup_flags env₂.find? env₂.findProj? (P₀ := {}) (natOk := natLitStored env₂)
-    (strOk := strLitStored env₂) (maxNat := maxNat) (.inl rfl)
+    (strOk := strLitStored env₂) (.inl rfl)
   have hcode := NoCode.same (noCode_fresh env₁.find? env₁.findProj? (natLitStored env₁) (strLitStored env₁)
-    maxNat e) (noCode_fresh env₂.find? env₂.findProj? (natLitStored env₂) (strLitStored env₂) maxNat e)
+    e) (noCode_fresh env₂.find? env₂.findProj? (natLitStored env₂) (strLitStored env₂) e)
   unfold ground4BoolCoreF
-  generalize g4Setup env₁.find? env₁.findProj? (natLitStored env₁) (strLitStored env₁) maxNat {} = PA
+  generalize g4Setup env₁.find? env₁.findProj? (natLitStored env₁) (strLitStored env₁) {} = PA
     at hKA hfA hcode ⊢
-  generalize g4Setup env₂.find? env₂.findProj? (natLitStored env₂) (strLitStored env₂) maxNat {} = PB
+  generalize g4Setup env₂.find? env₂.findProj? (natLitStored env₂) (strLitStored env₂) {} = PB
     at hKB hfB hcode ⊢
   simp only [G4Prog.flags, Prod.mk.injEq] at hfA hfB
   dsimp only
   have hr := siteMS_rel (j := 0) (N := Stored env₁) hKA hKB
     (fun hn => by rw [hfA.1, hfB.1]; exact natLit_ext hx (.inl hn.1))
-    (fun hs => by rw [hfA.2.1, hfB.2.1]; exact strLit_ext hx hs) (by rw [hfA.2.2, hfB.2.2]) e
+    (fun hs => by rw [hfA.2, hfB.2]; exact strLit_ext hx hs) e
     (namesIn_of_res e hres) (fun _ => hcode)
   obtain ⟨h₂, hR₂⟩ := siteMS_minv hKA he
-  have hsim := sim_run hx.facts.wf (lookAgree_ext hx) (fun hs => by
+  have hsim := sim_run (mx := mx) hx.facts.wf (lookAgree_ext hx) (fun hs => by
       simp only [strLitStored, natLitStored, Bool.and_eq_true] at hs
       obtain ⟨⟨⟨⟨⟨⟨⟨⟨⟨h₁, h₂⟩, h₃⟩, h₄⟩, h₅⟩, h₆⟩, h₇⟩, h₈⟩, h₉⟩, h₁₀⟩ := hs
       exact ⟨⟨h₁, h₂, h₃⟩, h₄, h₅, h₆, h₇, h₈, h₉, h₁₀⟩) e F
@@ -223,9 +223,9 @@ theorem ground4_ext {env₁ env₂ : Env} (hx : EnvExt env₁ env₂) (maxNat F 
   obtain ⟨oB, QB⟩ := rB
   unfold MS.run siteMS at hsim
   dsimp only at hsim ⊢
-  generalize g4Run env₁.find? env₁.findProj? F { QA with slotA := #[] } #[2, 0, 0, 0] #[5, 0, 0, 0] #[] #[] #[]
+  generalize g4Run env₁.find? env₁.findProj? mx F { QA with slotA := #[] } #[2, 0, 0, 0] #[5, 0, 0, 0] #[] #[] #[]
     QA.slotA #[] (Array.replicate 1024 0) 0 oA 0 0 0 = outA at hsim ⊢
-  generalize g4Run env₂.find? env₂.findProj? F { QB with slotA := #[] } #[2, 0, 0, 0] #[5, 0, 0, 0]
+  generalize g4Run env₂.find? env₂.findProj? mx F { QB with slotA := #[] } #[2, 0, 0, 0] #[5, 0, 0, 0]
     #[] #[] #[] QB.slotA #[] (Array.replicate 1024 0) 0 oB 0 0 0 = outB at hsim ⊢
   rcases hsim with ⟨st, rfl, hb⟩ | ⟨g, st, rfl, rfl⟩ | ⟨sA, sB, lA, lB, hr', hm1, -, hv, rfl, rfl⟩
   · obtain ⟨st', rfl⟩ := hb rfl
