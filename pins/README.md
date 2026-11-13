@@ -4,9 +4,10 @@ Committed **generated data**: one pin dump per DISTINCT set of
 pinned definitions (named after the toolchain that first needed it),
 and the built-in prelude of the repository's own toolchain:
 
+    pins/leanprover-lean4-pr-releases-pr-release-16441.json   lean4 master since its wf-recursion changes
     pins/leanprover-lean4-nightly-nightly-2026-09-10.json     the dump matching the repository toolchain (v4.35.0)
-    pins/leanprover-lean4-v4.33.0.json                        further dumps ("pin variants")
-    pins/leanprover-lean4-v4.34.0-rc2.json
+    pins/leanprover-lean4-v4.34.0-rc2.json                    further dumps ("pin variants")
+    pins/leanprover-lean4-v4.33.0.json
     pins/leanprover-lean4-v4.35.0.prelude.ndjson              the built-in prelude
 
 ## The pin dump (`<toolchain>.json`)
@@ -95,10 +96,10 @@ dump, in the order the install gate tries them: each dump becomes a
 the checker takes the FIRST variant whose ground constants the stream
 declares, whose type pins and pin are definitionally equal to the
 stream's stored types and value, and whose certificates check; only when no variant matches does
-the stream decline, naming what each variant failed on.  The dump
-that matches the repository's own toolchain (`lean-toolchain`) is
-listed first, so on its streams the first attempt matches and the loop
-costs nothing; the others follow in the order they were added.
+the stream decline, naming what each variant failed on.  The dumps
+are listed newest toolchain first, oldest last.  A variant that does
+not match a stream is mostly told apart cheaply, by its ground
+constants or its type pins, before any certificate is inferred.
 
 **A new dump is added only when no committed one matches** (task
 #328; the maintainer's ruling: *"if the previous works with the new
@@ -109,17 +110,20 @@ decided by running the checker, not by comparing files:
 `tests/pindump.sh` exports the pinned operations' cone out of the
 repository toolchain's `Init` (`scripts/natop-matrix.sh`) and fails
 unless the binary accepts it.  A toolchain bump therefore usually
-touches nothing here but the order of `#load_natop_pins` (the matching
-dump moves to the front) and the prelude's name.
+touches nothing here but the prelude's name.
 
 So one binary — built on the repository toolchain — accepts the
 exports of every toolchain it carries a variant for (and of the
 toolchains in between whose definitions did not drift: the v4.33.0
 variant accepts v4.29.0 … v4.33.1 exports; v4.34.0-rc2 renamed the
 `if_pos`/`dif_pos`/`Nat.div_eq` family the certificate blobs cite and
-needs its own; the nightly variant covers lean4 master since the
-`Decidable` rewrite, and also v4.35.0, the repository toolchain
-since task #328, which therefore has no dump of its own).
+needs its own; the nightly variant covers lean4 master from the
+`Decidable` rewrite to the wf-recursion changes of 2026-11-12, and also
+v4.35.0, the repository toolchain, which therefore has no dump of its
+own; the pr-release-16441 variant covers lean4 master after those
+changes — `Nat.bitwise` and with it `Nat.land`/`Nat.lor`/`Nat.xor`
+are respelled — and is named after a PR-release toolchain because no
+nightly carried the changes when it was needed).
 
 **The prelude is one file**, the repository toolchain's — unlike the
 dumps it IS renamed and regenerated at a toolchain bump: the root
@@ -170,8 +174,8 @@ over every supported toolchain) for the others.  Only then:
    does not, stop: that is a prelude drift, see above.  Delete the
    regenerated prelude — only the repository toolchain's is committed.
 4. add the new dump to `#load_natop_pins` in
-   `ConLeche/Kernel/NatOpPins.lean` — FIRST if it is the repository
-   toolchain's, otherwise after the existing entries;
+   `ConLeche/Kernel/NatOpPins.lean`, in its place by toolchain age
+   (newest first);
 5. `tests/pindump.sh` (it now reproduces the new dump too), then the
    matrix lane: the new toolchain's export must accept, and every older
    one still.

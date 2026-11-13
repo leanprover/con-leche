@@ -13,6 +13,7 @@ the dump's toolchain.
     pinners/leanprover-lean4-v4.33.0/                    lean-toolchain, lakefile.toml
     pinners/leanprover-lean4-v4.34.0-rc2/                lean-toolchain, lakefile.toml
     pinners/leanprover-lean4-nightly-nightly-2026-09-10/ lean-toolchain, lakefile.toml
+    pinners/leanprover-lean4-pr-releases-pr-release-16441/ lean-toolchain, lakefile.toml, one fork
 
 The directory name is the dump's basename without `.json` — the
 toolchain string with everything outside `[A-Za-z0-9._-]` turned into
@@ -53,14 +54,15 @@ exactly ONE generator — the one the repository's own
     ConLeche.PinGen, .Dump, .Prelude       the generator
     ConLeche.PinGen.Certs                  the certificate theorems
     ConLeche.Kernel.{Name,PropWhen,Expr}   the checker's Expr datatypes
+    ConLeche.Kernel.{PtrDecEq,Exclusive}   and what those import
 
-The last line is why the generator is not free-standing: a dump is an
-encoding of `ConLeche.Expr`, and the splice back into
+The last two lines are why the generator is not free-standing: a dump
+is an encoding of `ConLeche.Expr`, and the splice back into
 `ConLeche/Kernel/NatOpPins.lean` names that type's constructors.  So a
-pinner does build three checker modules — the three that define the
-term representation, none of the checking.
+pinner does build five checker modules — the term representation and
+its imports, none of the checking.
 
-Those eight modules must therefore be written in the subset every
+Those ten modules must therefore be written in the subset every
 supported toolchain accepts.  That is not a hope: it is what the cold
 build in `tests/pindump.sh` and in CI checks, on every toolchain, every
 time.  A cold pinner build is eighteen jobs and a few seconds.
@@ -79,9 +81,13 @@ task #275).  A fork is therefore a narrowing:
    path (say `ConLeche/PinGen/Certs.lean`), and say at its top why it
    is forked and how it differs.
 
-No fork exists today — v4.34.0-rc2 and the nightly build the shared
-sources with deprecation warnings only, and produce byte-identical
-dumps.  (Since task #328 `ConLeche/PinGen/Certs.lean` silences the
+One fork exists: the pr-release-16441 pinner (lean4 master) forks
+`ConLeche/Kernel/PtrDecEq.lean`, the one definition behind the
+pointer-first equalities, because master changed `withPtrEqDecEq`'s
+calling convention and no longer compiles `withPtrEq` at a type
+variable; its copy decides by the pure meaning, without the pointer
+shortcut.  v4.34.0-rc2 and the nightly build the shared sources with
+deprecation warnings only, and produce byte-identical dumps.  (Since task #328 `ConLeche/PinGen/Certs.lean` silences the
 deprecation linter — it keeps the `if_pos`/`dif_pos` spellings every
 toolchain has and the blobs cite — so the repository toolchain,
 v4.35.0, builds the cone warning-free in the root project.)

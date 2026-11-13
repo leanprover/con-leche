@@ -38,17 +38,19 @@ A pin describes one toolchain's definition.  When lean4 master
 rewrote `Decidable` into a structure the v4.33.0 pins stopped
 describing its `Nat.mod`, and a con-leche bundled with a Lean release
 must accept that release's own exports — so the binary now embeds the
-dumps of every supported toolchain and tries them in order.  The
-dump MATCHING the repository's own toolchain (`lean-toolchain`) comes
-FIRST: on its streams the first attempt matches and the loop costs
-nothing extra.
+dumps of every supported toolchain and tries them in order: NEWEST
+toolchain first, oldest last (maintainer's ruling, task #578).  A
+variant that does not match is usually told apart by its type pins or
+its absent ground constants, before any certificate is inferred.
 
 A dump is named after the toolchain that FIRST needed it, not after
 the repository toolchain: a toolchain bump whose Init a committed pin set
 still matches adds nothing (maintainer's ruling, task #328:
 *"if the previous works with the new Init we should not add one"*) —
-it only moves that dump to the front.  Today the repository toolchain
-is v4.35.0 and its dump is the nightly-2026-09-10 one.  "Matches"
+Today the repository toolchain is v4.35.0 and its dump is the
+nightly-2026-09-10 one; lean4 master's wf-recursion changes
+(2026-11-12) needed the newest dump, generated on a PR-release
+toolchain because no nightly carried them yet (task #578).  "Matches"
 is the install gate's own criterion — the stored values definitionally
 equal to a variant's pins, its certificates checking — so it is
 decided by the checker: `tests/pindump.sh` exports the pinned
@@ -73,6 +75,7 @@ set_option maxRecDepth 1000000
 set_option maxHeartbeats 1000000
 
 #load_natop_pins
+  include_str "../../pins/leanprover-lean4-pr-releases-pr-release-16441.json",
   include_str "../../pins/leanprover-lean4-nightly-nightly-2026-09-10.json",
-  include_str "../../pins/leanprover-lean4-v4.33.0.json",
-  include_str "../../pins/leanprover-lean4-v4.34.0-rc2.json"
+  include_str "../../pins/leanprover-lean4-v4.34.0-rc2.json",
+  include_str "../../pins/leanprover-lean4-v4.33.0.json"

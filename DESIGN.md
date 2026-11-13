@@ -114140,3 +114140,39 @@ stream; master is 8a12163cd, #576 and #577 included; data in `_tmp/573b/logs/`):
 | identical-nesting, irrelevance-before-evaluation, repeated-subproblem, shift-cascade, unroll-versus-evaluate | | | −0.08 … +0.07 % |
 
 No stream rose by more than +0.07 %.
+
+## TASK #578 — the lean4-master pin variant after the wf-recursion changes; variants newest first (2026-11-13, agent/578-master-pins)
+
+lean4 master's wf-recursion changes (lean4#16408, `WellFoundedRelation.rel` termination goals, and
+#16409, balanced `PSum` packing; landed 2026-11-12) respell `Nat.bitwise`, and with it `Nat.land`,
+`Nat.lor` and `Nat.xor`: on master's `Init` every committed variant fails its ground guard ("pin or
+certificate ground constants absent") and the stream declines at `Nat.lor`.  lean4's release CI
+runs the bundled con-leche on `Init` (`pkg/con-leche`, `check-paranoid`), so its nightlies failed
+from 2026-11-11 on and no nightly carries the changes.
+
+**The new variant.**  `pins/leanprover-lean4-pr-releases-pr-release-16441.json`, from the pinner of
+the same name: lean4 PR #16441's release toolchain, built on master after both changes (its
+`leanexport` reports `c89e6daf`, which contains them).  Its prelude equals the committed v4.35.0
+one below the meta line, so the prelude is untouched.  Master's full `Init` (370 MB export) is
+accepted, 60940 declarations; v4.35.0's full `Init` still accepts (57919), and `tests/pindump.sh`
+passes with the new pinner reproducing its dump byte-for-byte.  Once a nightly carries the changes
+the pinner may be renamed after it (the dump is the same).
+
+**The fork.**  master changed `withPtrEqDecEq`'s calling convention (the pointer test and its
+equation come first) and refuses `withPtrEq` at a type variable, so the generator cone
+(`Kernel/Name`, `Kernel/Expr`) did not compile there.  The four pointer-first equalities now go
+through one `@[inline]` definition, `ConLeche.ptrDecEq` (`Kernel/PtrDecEq.lean`, the old call on
+the repository toolchain, compiled code unchanged), and the master pinner forks that file alone,
+deciding by `k ()` (the pure meaning; a one-shot generator needs no pointer shortcut).  The
+`@[csimp]` substitutions are `Subsingleton.elim` and do not see the change.
+
+**Order** (maintainer's ruling): `#load_natop_pins` lists the variants newest toolchain first,
+oldest last — pr-release-16441, nightly-2026-09-10, v4.34.0-rc2, v4.33.0 — instead of "the
+repository toolchain's first, the rest as added".  Not measured (ruled: a swift fix); a
+non-matching variant is mostly told apart by its ground guard or type pins before a certificate
+is inferred.
+
+**Follow-ups.**  lean4's `src/CMakeLists.txt` pins con-leche at `b46cb0e6` (v4.33.0 toolchain;
+lean4's build installs con-leche's own `lean-toolchain` through elan, so master's toolchain never
+compiles it) — bump it to this commit.  con-ron embeds con-leche's `natOpPinSets` and fails
+`pkg/con-ron` the same way; it needs its vendored con-leche bumped and its pins regenerated.

@@ -88,7 +88,7 @@ before the structural step, at every node — `level.cpp:125` is `kind` →
 `hash` → `is_eqp` → structural.  The children start over with the
 pointer, the parameter with `Name.decEqPtr`. -/
 def Level.decEqPtr (a b : Level) : Decidable (a = b) :=
-  withPtrEqDecEq a b fun _ =>
+  ConLeche.ptrDecEq a b fun _ =>
     if hh : a.hashData = b.hashData then
       match a, b with
       | .zero, .zero => isTrue rfl
@@ -163,10 +163,10 @@ the literal's hash (`Expr.beqMemo`, `enterBeq`).  A memo hit on a
 literal that was found again in a new node is then one pointer test,
 not a walk over the number's words. -/
 @[inline] def Literal.decEqPtr (a b : Literal) : Decidable (a = b) :=
-  withPtrEqDecEq a b fun _ =>
+  ConLeche.ptrDecEq a b fun _ =>
     match a, b with
     | .natVal n, .natVal m =>
-      match withPtrEqDecEq n m (fun _ => Nat.decEq n m) with
+      match ConLeche.ptrDecEq n m (fun _ => Nat.decEq n m) with
       | isTrue h => isTrue (by rw [h])
       | isFalse h => isFalse (fun e => h (Literal.natVal.inj e))
     | .strVal s, .strVal t =>
@@ -947,7 +947,7 @@ on equal addresses only, where the runtime pointer test answers
 to the structural `decEq`, which `decEqPtr` does not exist yet to
 replace.  Code outside the equality uses `ptrDec`. -/
 @[inline] def ptrDecStruct (a b : Expr) : Decidable (a = b) :=
-  withPtrEqDecEq a b (fun _ => decEq a b)
+  ConLeche.ptrDecEq a b (fun _ => decEq a b)
 
 /-- Does the entry at `key` identify the pair `(a, b)`?  The stored
 addresses are the filter; the stored objects, tested by identity, are
@@ -1277,7 +1277,7 @@ pure model.  The memo tables' hit validation (`Cached/ExprOpsC.lean`);
 a fallback that compiled code would run is `decEqPtr`, never the
 structural walk. -/
 @[inline] def ptrDec (a b : Expr) : Decidable (a = b) :=
-  withPtrEqDecEq a b (fun _ => inferInstance)
+  ConLeche.ptrDecEq a b (fun _ => inferInstance)
 
 /-- The executed equality is the specification. -/
 theorem beqMemo_eq (a b : Expr) : beqMemo a b = decide (a = b) := by
