@@ -1,7 +1,8 @@
 module
 
 public import ConLeche.Cached.ExprOpsC
-public import ConLeche.Kernel.Ground
+import ConLeche.Kernel.Ground
+public import ConLeche.Kernel.FEnv
 
 @[expose] public section
 

@@ -208,7 +208,7 @@ full-grade certificate of the arguments against that telescope
   | _ => False
 
 /-- The arguments against a telescope, as certificates. -/
-theorem checkSpineAt_certs {F d : Nat} :
+theorem checkSpineAt_certs (hwf : EnvWF env) {F d : Nat} :
     ∀ {ds : List Expr} {T : Expr},
       ConLeche.checkSpineAt (ConLeche.fueledOps .verified F) env d T ds = .ok () →
       ConLeche.Rules.CertsF env d T ds
@@ -222,8 +222,8 @@ theorem checkSpineAt_certs {F d : Nat} :
       | false => simp [throw, throwThe, MonadExceptOf.throw, Bind.bind, Except.bind] at h
       | true =>
         simp only [↓reduceIte] at h
-        exact .cert (ConLeche.Rules.inferTypeCore_bridge hta) (ConLeche.Rules.isDefEqCore_bridge hb)
-          (checkSpineAt_certs h)
+        exact .cert (ConLeche.Rules.inferTypeCore_bridge hwf hta)
+          (ConLeche.Rules.isDefEqCore_bridge hwf hb) (checkSpineAt_certs hwf h)
     · simp [throw, throwThe, MonadExceptOf.throw] at h
 
 /-- The arguments checked against a telescope are read. -/

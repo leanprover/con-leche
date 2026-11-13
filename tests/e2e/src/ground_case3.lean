@@ -6,20 +6,15 @@
    * `t_acc`: `Acc.rec` on an explicit `Acc.intro`.
 
    Official (v4.29.1) accepts both: its `inductive_reduce_rec` fires
-   without checks.  Con-leche today: `t_and_ctor` accepted, **`t_acc`
-   rejected**: the elaborator abstracts the closed proof `Acc.intro …`
+   without checks.  Con-leche's incumbent would reject **`t_acc`**: the
+   elaborator abstracts the closed proof `Acc.intro …`
    into the theorem `kAcc._proof_1`, which official's whnf unfolds and
    con-leche never does (proofs are not reduced), so the major is stuck.
-   The file is rejected: today 1, official 0.  With the ground engine on,
-   the engine fires case 3 at `And.intro` without the incumbent's
-   certificates (official's shape) and hands `t_acc` back to the
-   incumbent (a stuck major at a single-rule recursor with no η,
-   "struct-eta major"), which rejects: 1.  Before, it aborted ("case 3",
-   "struct-eta major") to the incumbent.
+   Official 0.
 
-   Task #423 soundness (ruling 4): ι case 3 has no proved rule without
-   the certificates, so with the engine on this is a decline (2), naming
-   `And.rec`. -/
+   The ground engine evaluates the terms, with no hand-back (task #423
+   soundness, ruling 4): ι case 3 has no proved rule without the
+   certificates, so this is a decline (2), naming `And.rec`. -/
 
 noncomputable def kAndC : Bool := And.rec (motive := fun _ => Bool) (fun _ _ => true) (And.intro trivial trivial)
 

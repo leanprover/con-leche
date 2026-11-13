@@ -4,8 +4,8 @@
    it, so official's `reduce_shiftLeft` refuses before computing, rejected
    (official under `LEAN_NAT_MAX_SIZE=16` too).
 
-   Engine on: the engine's refusal before computing raises the cached
-   core's own error (`natOpRefusal`): rejected.  Today 1; target 1.
+   The engine's refusal before computing raises the cached
+   core's own error (`natOpRefusal`): rejected.  Target 1.
    (`subHelper` pulls in `Nat.sub`, which `Nat.shiftLeft`'s pinned
    environment needs, as in `nat_size_limit_shift_big`.) -/
 

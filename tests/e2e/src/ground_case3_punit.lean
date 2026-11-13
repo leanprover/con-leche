@@ -3,7 +3,7 @@
    `PUnit.{0}` (a proposition there), at the ground site, with the
    constructor written in the theorem's type.
 
-   Official accepts.  Con-leche today (engine off) accepts.  Engine on:
+   Official accepts.  Con-leche: the ground engine evaluates the term;
    `PUnit.rec` is not K-flagged (`PUnit` is not always a proposition), so
    at `PUnit.{0}` the rule is case 3 of the ι split: **decline (2)** (no
    proved rule without the constructor certificates).  Target 0; after the

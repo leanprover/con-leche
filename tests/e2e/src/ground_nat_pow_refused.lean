@@ -5,9 +5,9 @@
    is rejected (official too: this source without `debug.skipKernelTC`
    fails in the kernel).
 
-   With the ground engine on, the engine finds the same refusal and
+   The ground engine finds the same refusal and
    hands the comparison back to the incumbent, which raises the error:
-   rejected.  Today 1; target 1.
+   rejected.  Target 1.
 
    `t_pow_refused` is added with `addDecl` under `debug.skipKernelTC`.
 

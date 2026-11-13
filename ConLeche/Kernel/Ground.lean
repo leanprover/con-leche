@@ -1,6 +1,6 @@
 module
 
-public import ConLeche.Kernel.FEnv
+public import ConLeche.Kernel.CoreDefs
 
 @[expose] public section
 
@@ -1178,8 +1178,40 @@ def ground4BoolCore (find? : Name → Option ConstantInfo)
     (Except G4Stop Bool × (Nat × Nat)) × G4Prog :=
   ground4BoolCoreF find? findProj? natOk strOk maxNat groundFuel P₀ e
 
-def ground4Bool (fe : FEnv) (maxNat : Nat) (P₀ : G4Prog) (e : Expr) :
-    (Except G4Stop Bool × (Nat × Nat)) × G4Prog :=
-  ground4BoolCore fe.find? fe.findProj? (natLitStoredF fe) (strLitStoredF fe) (some maxNat) P₀ e
+/-- **The term the ground engine evaluates** at a comparison `a ≟ b`
+(task #423): the other side of a `Bool.true`, under the guard of the
+`Bool.true` shortcut (`defeqBody`: fvar-free or the eager flag), and only
+if that side is closed (no free variable, no loose bound variable: the
+engine evaluates closed terms; both tests read a field of the node). -/
+def groundTarget (eager : Bool) (a b : Expr) : Option Expr :=
+  if Expr.isBoolTrue b && (eager || !(Expr.hasFvar a)) then
+    if Expr.hasFvar a || !(Expr.looseBVarsBounded 0 a) then none else some a
+  else if Expr.isBoolTrue a && (eager || !(Expr.hasFvar b)) then
+    if Expr.hasFvar b || !(Expr.looseBVarsBounded 0 b) then none else some b
+  else none
+
+/-- **A stop of the ground engine as the checker's error** (task #423
+soundness, ruling 4): a decline names the step and the constant; a
+refusal of a `Nat` operation (without a size bound only its count
+argument, `natCountMax`) and a stuck shape raised as a stop are
+errors. -/
+def g4StopError : G4Stop → CheckError
+  | .decline msg => .notImplemented msg
+  | .refuse .. => .invalid "ground evaluation: a `Nat` operation's argument exceeds the kernel's bound"
+  | .internal msg => .internal msg
+  | .stuck why => .internal s!"ground evaluation: a stuck shape raised ({why})"
+
+/-- **The ground engine at `defeqBody`'s site, as the specification runs
+it** (task #423): the term `groundTarget` picks, on a fresh program, at the
+constant fuel `2 * groundFuel + 1`, with no `Nat` size bound.  The cached
+core runs it on the declaration's kept program at `groundFuel` and its
+maximum `Nat` size; where that run answers, this one answers the same
+(`Verify/Ground/SimSite.lean`, `Verify/Ground/Fuel.lean`). -/
+def groundSite (eager : Bool) (env : Env) (a b : Expr) : Option (Except G4Stop Bool) :=
+  match groundTarget eager a b with
+  | none => none
+  | some t =>
+    some (ground4BoolCoreF env.find? env.findProj? (natLitStored env) (strLitStored env) none
+      (2 * groundFuel + 1) {} t).1.1
 
 end ConLeche

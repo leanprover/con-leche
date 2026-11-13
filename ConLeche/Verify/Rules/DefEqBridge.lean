@@ -2,9 +2,11 @@ module
 
 public import ConLeche.Verify.Rules.Defs
 public import ConLeche.Verify.Rules.DefEqStepInv
+public import ConLeche.Verify.EnvWF
 import ConLeche.Verify.Rules.Certs
 import ConLeche.Verify.Rules.RedBridge
 import ConLeche.Rules.Derived
+import ConLeche.Verify.Ground.Site
 
 public section
 
@@ -550,16 +552,33 @@ theorem defeqStuck_bridge (hw : WhnfBridge .verified eager env fuel) (hd :
   | etaL he => exact etaCert_bridge hw hd hi hio he
   | etaR he => exact (etaCert_bridge hw hd hi hio he).symm
 
+/-- **The ground engine's `true`** (task #423, `groundSite`): the closed
+side reduces to `Bool.true` (`ground4_site`), in either orientation. -/
+theorem groundSite_bridge (hwf : EnvWF env) {eager : Bool} {d : Nat} {a b : Expr}
+    (h : groundSite eager env a b = some (.ok true)) : DefEq env d a b := by
+  unfold groundSite at h
+  split at h
+  · exact nomatch h
+  · rename_i t ht
+    simp only [Option.some.injEq] at h
+    obtain ⟨hside, hcl⟩ := Verify.Ground.groundTarget_some ht
+    have hr := (Verify.Ground.ground4_site hwf (natOk := natLitStored env) (strOk := strLitStored env)
+      (P₀ := {}) rfl rfl (.inl rfl) hcl).2 h d
+    rcases hside with ⟨rfl, hb⟩ | ⟨rfl, ha⟩
+    · rw [isBoolTrue_iff.mp hb]; exact .ofRed hr
+    · rw [isBoolTrue_iff.mp ha]; exact (DefEq.ofRed hr).symm
+
 /-- **`isDefEqCore` at `fuel + 1`**: the body, piece by piece. -/
-theorem defeq_bridge_succ (hwc : WhnfCoreBridge .verified eager env fuel)
+theorem defeq_bridge_succ (hwf : EnvWF env) (hwc : WhnfCoreBridge .verified eager env fuel)
     (hw : WhnfBridge .verified eager env fuel)
     (hd : DefEqBridge .verified eager env fuel) (hi : InferBridge .verified eager env fuel) (hio : InferIOBridge .verified
         eager env fuel) :
     DefEqBridge .verified eager env (fuel + 1) := by
   intro d a b h
   rw [isDefEqCore_succ] at h
-  rcases defeqBody_inv h with rfl | ⟨rfl, hsc⟩ | hq₀ | hpi | ⟨a', b', hwa, hwb, hrest⟩
+  rcases defeqBody_inv h with rfl | hg | ⟨rfl, hsc⟩ | hq₀ | hpi | ⟨a', b', hwa, hwb, hrest⟩
   · exact .refl
+  · exact groundSite_bridge hwf hg
   · exact boolTrueShortcut_bridge hw hsc
   · exact quickDefEq_bridge hd hi hq₀
   · exact propIrrel_bridge hw hio hpi

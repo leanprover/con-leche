@@ -5,8 +5,8 @@
    as it does in `ground_case3`).
 
    Official v4.35 accepts; the nightly too (the major is a constructor).
-   Con-leche today (engine off) accepts: case 3 with the certificates.
-   Engine on: **decline (2)**, ι case 3 (`Acc` may be a proposition).
+   Con-leche: the ground engine evaluates the term: **decline (2)**, ι
+   case 3 (`Acc` may be a proposition).
    Target 0; after the renovation `Acc` has no large elimination, so no
    `Bool`-valued `Acc.rec` reaches the site. -/
 

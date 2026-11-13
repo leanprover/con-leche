@@ -31,8 +31,8 @@ open ConLeche ConLeche.Rules
 /-- **The run's flag facts**: what the run's flags and its four named entries
 mean, kept by every program extension (`RunOK.ext`). -/
 structure RunOK (env : Env) (P : G4Prog) : Prop where
-  nat : P.natOk = true → natLitStored env = true
-  str : P.strOk = true → strLitStored env = true
+  nat : P.natOk = natLitStored env
+  str : P.strOk = strLitStored env
   zero : P.kZero < P.kInfo.size ∧ entryTerm P P.kZero = .const natZeroName []
   succ : P.kSucc < P.kInfo.size ∧ entryTerm P P.kSucc = .const natSuccName []
   tru : P.kTrue < P.kInfo.size ∧ entryTerm P P.kTrue = .const boolTrueName []
@@ -53,7 +53,7 @@ theorem RunOK.ext {env : Env} {P P' : G4Prog} (h : RunOK env P) (hx : ExtR P P')
     (hs : P'.site = P.site) : RunOK env P' := by
   obtain ⟨e₁, e₂⟩ := hx.flagsEq
   obtain ⟨e₄, e₅, e₆, e₇⟩ := site_eq hs
-  refine ⟨fun h' => h.nat (e₁ ▸ h'), fun h' => h.str (e₂ ▸ h'), ?_, ?_, ?_, ?_⟩
+  refine ⟨e₁.trans h.nat, e₂.trans h.str, ?_, ?_, ?_, ?_⟩
   · rw [e₆]; exact ⟨Nat.lt_of_lt_of_le h.zero.1 hx.kInfoSize, by rw [entryTerm_ext hx h.zero.1]; exact h.zero.2⟩
   · rw [e₇]; exact ⟨Nat.lt_of_lt_of_le h.succ.1 hx.kInfoSize, by rw [entryTerm_ext hx h.succ.1]; exact h.succ.2⟩
   · rw [e₄]; exact ⟨Nat.lt_of_lt_of_le h.tru.1 hx.kInfoSize, by rw [entryTerm_ext hx h.tru.1]; exact h.tru.2⟩
@@ -354,7 +354,7 @@ theorem step_succ_succ (hR : RunOK env s.P) (h : MInv env t₀ oc s fl) (hm : s.
     rcases List.mem_cons.mp hf with rfl | hf
     · exact hok
     · exact h.frames f hf
-  · exact ⟨h.store.argRef _ (by omega), K.pushSucc (hR.nat hok) hK⟩
+  · exact ⟨h.store.argRef _ (by omega), K.pushSucc (hR.nat.symm.trans hok) hK⟩
 
 /-- **Any other value at the `Nat.succ` frame**: the frame is popped and
 the focus is the neutral. -/
@@ -417,7 +417,7 @@ theorem step_lit_succ (hR : RunOK env s.P) (h : MInv env t₀ oc s fl) (hm : s.m
     rcases List.mem_cons.mp hf with rfl | hf
     · exact hok
     · exact h.frames f hf
-  · exact ⟨by rw [he]; exact h.store.argRef _ hlt, K.pushSucc (hR.nat hok) hK⟩
+  · exact ⟨by rw [he]; exact h.store.argRef _ hlt, K.pushSucc (hR.nat.symm.trans hok) hK⟩
 
 /-- **A literal reading at the first literal frame**: the second frame
 pushed, the second argument entered (a stutter). -/

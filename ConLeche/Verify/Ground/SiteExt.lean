@@ -1,13 +1,13 @@
 module
 
 public import ConLeche.Verify.EnvExt.Reads
-public import ConLeche.Kernel.Ground
+import ConLeche.Kernel.Ground
 import ConLeche.Verify.EnvExt.Whnf
 import ConLeche.Verify.Ground.SimSite
 import ConLeche.Verify.Ground.SimRun
 public import ConLeche.Verify.Ground.SimBridge
-public import ConLeche.Verify.Ground.SimState
-public import ConLeche.Verify.Ground.Compile
+import ConLeche.Verify.Ground.SimState
+import ConLeche.Verify.Ground.Compile
 import ConLeche.Verify.Ground.SimExt
 import ConLeche.Verify.Ground.Site
 import ConLeche.Verify.Ground.Keys
@@ -192,8 +192,8 @@ theorem ground4_ext {env₁ env₂ : Env} (hx : EnvExt env₁ env₂) (mx : Opti
     (he : e.looseBVarsBounded 0 = true) (hres : Res env₁ e) :
     (ground4BoolCoreF env₂.find? env₂.findProj? (natLitStored env₂) (strLitStored env₂) mx F {} e).1.1 =
       (ground4BoolCoreF env₁.find? env₁.findProj? (natLitStored env₁) (strLitStored env₁) mx F {} e).1.1 := by
-  have hKA := setup_kept (env := env₁) (P₀ := {}) id id (.inl rfl)
-  have hKB := setup_kept (env := env₂) (P₀ := {}) id id (.inl rfl)
+  have hKA := setup_kept (env := env₁) (P₀ := {}) rfl rfl (.inl rfl)
+  have hKB := setup_kept (env := env₂) (P₀ := {}) rfl rfl (.inl rfl)
   have hfA := setup_flags env₁.find? env₁.findProj? (P₀ := {}) (natOk := natLitStored env₁)
     (strOk := strLitStored env₁) (.inl rfl)
   have hfB := setup_flags env₂.find? env₂.findProj? (P₀ := {}) (natOk := natLitStored env₂)
@@ -249,5 +249,21 @@ theorem ground4_ext {env₁ env₂ : Env} (hx : EnvExt env₁ env₂) (mx : Opti
         simp only [h1', Bool.false_and]
     rw [hcond]
     split <;> rfl
+
+/-- **The specification's engine call at an extension** (`groundSite`): on
+two sides resolving in `env₁`, one answer at `env₂` and at `env₁`. -/
+theorem groundSite_ext {env₁ env₂ : Env} (hx : EnvExt env₁ env₂) (eager : Bool) {a b : Expr}
+    (ha : Res env₁ a) (hb : Res env₁ b) :
+    groundSite eager env₂ a b = groundSite eager env₁ a b := by
+  unfold groundSite
+  rcases ht : groundTarget eager a b with _ | t
+  · rfl
+  · obtain ⟨hside, hcl⟩ := groundTarget_some ht
+    have hres : Res env₁ t := by
+      rcases hside with ⟨rfl, -⟩ | ⟨rfl, -⟩
+      · exact ha
+      · exact hb
+    dsimp only
+    rw [ground4_ext hx none (2 * groundFuel + 1) hcl hres]
 
 end ConLeche.Verify.Ground

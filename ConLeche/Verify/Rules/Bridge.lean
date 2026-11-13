@@ -1,6 +1,7 @@
 module
 
 public import ConLeche.Verify.Rules.Defs
+public import ConLeche.Verify.EnvWF
 import ConLeche.Verify.Rules.RedBridge
 import ConLeche.Verify.Rules.DefEqBridge
 import ConLeche.Verify.Rules.InferBridge
@@ -26,7 +27,7 @@ of a pure knot that runs the verified checks, on or off the eager
 tower (task #353), at any fuel, yields a derivation.  The induction is
 over both flags at once: the full-grade application rule compares an
 `eagerReduce _ _` argument at `eager := true`. -/
-theorem bridgeAt (env : Env) :
+theorem bridgeAt (env : Env) (hwf : EnvWF env) :
     ∀ (fuel : Nat) (eager : Bool),
       WhnfCoreBridge .verified eager env fuel ∧ WhnfBridge .verified eager env fuel ∧
         DefEqBridge .verified eager env fuel ∧ InferBridge .verified eager env fuel ∧
@@ -42,34 +43,34 @@ theorem bridgeAt (env : Env) :
     obtain ⟨hwc, hw, hd, hi, hio⟩ := ih eager
     have hdE : DefEqBridge .verified true env fuel := (ih true).2.2.1
     exact ⟨whnfCore_bridge_succ hwc hw hd hi hio, whnf_bridge_succ hwc hw,
-      defeq_bridge_succ hwc hw hd hi hio, infer_bridge_succ hw hd hdE hi hio,
+      defeq_bridge_succ hwf hwc hw hd hi hio, infer_bridge_succ hw hd hdE hi hio,
       inferIO_bridge_succ hw hio⟩
 
 /-- The bridge at the `--verified` mode. -/
-theorem bridge (env : Env) (fuel : Nat) :
+theorem bridge (env : Env) (hwf : EnvWF env) (fuel : Nat) :
     WhnfCoreBridge .verified false env fuel ∧ WhnfBridge .verified false env fuel ∧
       DefEqBridge .verified false env fuel ∧ InferBridge .verified false env fuel ∧
         InferIOBridge .verified false env fuel :=
-  bridgeAt env fuel false
+  bridgeAt env hwf fuel false
 
-theorem whnfCore_bridge {fuel d : Nat} {e e' : Expr}
+theorem whnfCore_bridge (hwf : EnvWF env) {fuel d : Nat} {e e' : Expr}
     (h : whnfCore .verified false env fuel d e = .ok e') : Red env d e e' :=
-  (bridge env fuel).1 h
+  (bridge env hwf fuel).1 h
 
-theorem whnf_bridge {fuel d : Nat} {e e' : Expr}
+theorem whnf_bridge (hwf : EnvWF env) {fuel d : Nat} {e e' : Expr}
     (h : whnf .verified false env fuel d e = .ok e') : Red env d e e' :=
-  (bridge env fuel).2.1 h
+  (bridge env hwf fuel).2.1 h
 
-theorem isDefEqCore_bridge {fuel d : Nat} {a b : Expr}
+theorem isDefEqCore_bridge (hwf : EnvWF env) {fuel d : Nat} {a b : Expr}
     (h : isDefEqCore .verified false env fuel d a b = .ok true) : DefEq env d a b :=
-  (bridge env fuel).2.2.1 h
+  (bridge env hwf fuel).2.2.1 h
 
-theorem inferTypeCore_bridge {fuel d : Nat} {e t : Expr}
+theorem inferTypeCore_bridge (hwf : EnvWF env) {fuel d : Nat} {e t : Expr}
     (h : inferTypeCore .verified false env fuel d e = .ok t) : Infer env .full d e t :=
-  (bridge env fuel).2.2.2.1 h
+  (bridge env hwf fuel).2.2.2.1 h
 
-theorem inferTypeCoreIO_bridge {fuel d : Nat} {e t : Expr}
+theorem inferTypeCoreIO_bridge (hwf : EnvWF env) {fuel d : Nat} {e t : Expr}
     (h : inferTypeCoreIO .verified false env fuel d e = .ok t) : Infer env .io d e t :=
-  (bridge env fuel).2.2.2.2 h
+  (bridge env hwf fuel).2.2.2.2 h
 
 end ConLeche.Rules

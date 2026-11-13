@@ -76,10 +76,10 @@ theorem gradedTy_of_sort (hin : RulesInputs V m φ) {F d : Nat} {e ty : Expr} {u
     (hsort : ConLeche.ensureSortCore .verified false env F d ty = .ok u) (hf : Frame d e)
     {Δa : List Term} {ea : Term} (hC : CtxOk m φ d Δa e)
     (hea : denote m.acval env φ d e = some ea) : GradedTy V Δa ea := by
-  have hI : InferSemFull m φ d e ty := infer_sound hin (ConLeche.Rules.inferTypeCore_bridge hty)
+  have hI : InferSemFull m φ d e ty := infer_sound hin (ConLeche.Rules.inferTypeCore_bridge m.wf hty)
   obtain ⟨hft, hsub, ta, hta, hs⟩ := hI hf hC.toS hea
   obtain ⟨-, -, sa, hsa, hrs⟩ := red_sound hin
-    (ConLeche.Rules.whnf_bridge (ConLeche.ensureSortCore_inv hsort)) hft
+    (ConLeche.Rules.whnf_bridge m.wf (ConLeche.ensureSortCore_inv hsort)) hft
     (hC.toS.of_subset hsub) hta
   rw [denote_sort] at hsa
   obtain rfl := Option.some.inj hsa

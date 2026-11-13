@@ -14,7 +14,7 @@
    accepts.  Without that hand-back the engine would answer `false`.
    Target 0.
 
-   Task #423 soundness (no hand-back, ruling 4): with the engine on this
+   Task #423 soundness (no hand-back, ruling 4): this
    is a decline (2), naming `Acc.rec`. -/
 
 def accDef : Acc (fun _ _ : Nat => False) 0 := Acc.intro 0 (fun _ h => h.elim)

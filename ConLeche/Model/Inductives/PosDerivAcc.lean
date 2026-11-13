@@ -160,7 +160,7 @@ theorem acc_of_whnf {mp : EnvModelM V env}
     AccConcl w ctx prog dep e nf R ea ∧ OutOk mp.base2 φ ctx prog dep Δa k nf ea := by
   have hw' : ConLeche.whnf .verified false env F dep e = .ok wt := hw
   obtain ⟨hfrw, hsub, wa, hwa, hgw, heq⟩ :=
-    red_sound_ty hin (ConLeche.Rules.whnf_bridge hw') hfr hC.toCtxOk hea hgr
+    red_sound_ty hin (ConLeche.Rules.whnf_bridge mp.base2.wf hw') hfr hC.toCtxOk hea hgr
   obtain ⟨⟨hTR, ⟨A, hA, hsz, hinv⟩, hout⟩, hok⟩ := kont hfrw (hC.of_subset hsub)
     (ConLeche.whnf_fvarLeaves mp.base2.wf F hw') wa hwa hgw heq
   exact ⟨⟨fun hw => PtOn.of_eqOn (P := Sat V Δa) hdom (fun ρ hρ => heq ρ hρ) (hTR hw),

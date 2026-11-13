@@ -539,7 +539,7 @@ Read from the outside in:
    recursion on a fuel parameter
    ([the entry points in `ConLeche/Kernel/TypeChecker.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/TypeChecker.lean#L29-L54));
    on exhaustion every operation throws
-   ([the fuel recursion's base case in `ConLeche/Kernel/Core.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/Core.lean#L1863-L1868)).
+   ([the fuel recursion's base case in `ConLeche/Kernel/Core.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/Core.lean#L1870-L1875)).
    Its declaration fold is what the model tier proves things about
    ([theorem `no_proof_of_False_pure` in `ConLeche/Model/Fold.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Model/Fold.lean#L421-L428)).
 5. **The model tier** (`ConLeche/Model/*`, the set model of the checker)
@@ -666,7 +666,7 @@ reduced by `whnfCore` itself rather than by `whnf`),
 reduction: its value is never unfolded, so whether a declaration
 type-checks never depends on a theorem's value — and the literal fast
 paths
-([function `whnfBody` in `ConLeche/Kernel/Core.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/Core.lean#L1140)),
+([function `whnfBody` in `ConLeche/Kernel/Core.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/Core.lean#L1138)),
 `inferType` computes a type, and `isDefEq` decides conversion in the
 order of the official `is_def_eq_core` (cheap head normalization, the
 easy cases, the lazy-delta loop — which compares two applications of
@@ -678,7 +678,11 @@ normalization and a restart, then the stuck comparisons) with one
 deliberate exception: the easy cases and proof irrelevance are tried on
 the unreduced pair, before any head normalization, so two proofs are
 compared by their types and never reduced (the official kernel reduces
-them first, and loops on a proof that has no normal form). The checker
+them first, and loops on a proof that has no normal form). One addition
+comes before all of them: a closed term compared with `Bool.true`, on
+either side, is evaluated by the ground engine (`Kernel/Ground.lean`),
+whose answer is the verdict; a step the engine has no proved rule for
+makes the check decline. The checker
 reduces a proof only where a recursor's value depends on it: the major
 premise of a recursor over an inductive proposition, which is
 head-normalized to a constructor unless the K rule (which reads only
@@ -746,7 +750,7 @@ presentation and matter for the proof:
   runtime's 1 GiB stack, a level costs at most about 1.2 KB of it, and
   a recursion of about a million levels or more aborts with a stack
   overflow, an error
-  ([definition `checkFuel` in `ConLeche/Kernel/Core.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/Core.lean#L1910)).
+  ([definition `checkFuel` in `ConLeche/Kernel/Core.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/Core.lean#L1917)).
   Reduction *chains* are not bounded by it: the
   `whnf` loop's δ steps, the `whnfCore` loop's β, ι and projection steps
   and the lazy-delta loop each iterate in constant native stack, a
@@ -870,10 +874,10 @@ premise's subject is a subterm of the conclusion or the product of a
 reduction or an inference
 ([the docstring of `DefEq` in `ConLeche/Rules/Rel.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Rules/Rel.lean#L350-L373)).
 The proof then has three parts. The *bridge*: an accepting run of any
-kernel entry point, at any fuel, yields a derivation — one induction
+kernel entry point, at any fuel, in a well-formed environment, yields a derivation — one induction
 on fuel, over both values of the eager flag at once,
 mechanical, each checker site landing on one rule
-([theorem `bridgeAt` in `ConLeche/Verify/Rules/Bridge.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Verify/Rules/Bridge.lean#L29-L32)).
+([theorem `bridgeAt` in `ConLeche/Verify/Rules/Bridge.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Verify/Rules/Bridge.lean#L30-L33)).
 The *soundness*: a derivation implies the claim's conclusion — one
 structural induction over the relations, every case one lemma
 about one rule, stated over the environment's laws and never over the
@@ -1153,7 +1157,7 @@ own check read: a run does not see an extension of the environment. On a term wh
 constants and literals resolve at the smaller environment, the fuelled knot at the
 two environments is one run, at every entry point and every fuel, and what it returns
 resolves at the smaller one
-([theorem `knot_ext` in `ConLeche/Verify/EnvExt.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Verify/EnvExt.lean#L463-L465)).
+([theorem `knot_ext` in `ConLeche/Verify/EnvExt.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Verify/EnvExt.lean#L469-L471)).
 All the knot reads past the term is what a stored constant's record names, and a
 declaration boundary has it stored
 ([structure `StoredFacts` in `ConLeche/Verify/EnvExt/Reads.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Verify/EnvExt/Reads.lean#L29-L30)).
@@ -1424,7 +1428,7 @@ instead of trusting the operation's name.
   when `a > 0` and the size of `a` plus `b / 8` plus 1 does; both also
   refuse a second argument that does not fit in 32 bits. A refusal
   rejects the declaration
-  ([function `natOpRefusal` in `ConLeche/Cached/StateC.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Cached/StateC.lean#L177-L189)).
+  ([function `natOpRefusal` in `ConLeche/Cached/StateC.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Cached/StateC.lean#L178-L190)).
   Within the maximum size every operation folds, whatever the exponent:
   the specification's reduct is the computation itself
   ([function `natOpResult` in `ConLeche/Kernel/CoreDefs.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/CoreDefs.lean#L585-L605)),

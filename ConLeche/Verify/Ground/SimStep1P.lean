@@ -60,7 +60,7 @@ theorem MRel.compStr (hsN : strLitStored env = true → StrNames N) {sA sB : MS}
   exact ⟨hr.ext cA.2.1.toExtR cB.2.1.toExtR cA.1 cB.1 cA.2.1.site cB.2.1.site
       (fun h0 => (hr.code h0).ext hr.invA.toTabInv hr.invB.toTabInv cA.2.1 cB.2.1), cA.2.1.toExtR,
     cB.2.1.toExtR, hR.ext cA.2.1.toExtR cA.2.1.site,
-    TRel.ofComp (NamesIn.strLit (hsN (hR.str hok)) s) cA.2.2 cB.2.2⟩
+    TRel.ofComp (NamesIn.strLit (hsN (hR.str.symm.trans hok)) s) cA.2.2 cB.2.2⟩
 
 /-- **Mode 1 at a projection frame.** -/
 theorem sim_mode1p (hag : LookAgree N env.find? env.findProj? f₂ p₂)

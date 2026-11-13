@@ -7,16 +7,12 @@
    proposition, so `to_cnstr_when_structure` does not fire) and rejects:
    this source without `debug.skipKernelTC` fails in the kernel.
 
-   Today 0 (con-leche's rescue; official 1).  With the ground engine on,
-   the engine fabricates the same `And.intro` (the parameters from the
-   recursor, the proof fields neutral) and accepts; before, it aborted
-   ("struct-eta major") to the incumbent.
-
    `t_and_thm` is added with `addDecl` under `debug.skipKernelTC`.
 
-   Task #423 soundness (no hand-back, ruling 4): the fabrication has no
-   proved rule without the incumbent's certificates, so with the engine on
-   this is a decline (2), naming `And.rec`. -/
+   The ground engine evaluates the term, with no hand-back to the
+   incumbent (task #423 soundness, ruling 4): the fabrication has no
+   proved rule without the incumbent's certificates, so this is a decline
+   (2), naming `And.rec`. -/
 import Lean
 open Lean Elab Command
 

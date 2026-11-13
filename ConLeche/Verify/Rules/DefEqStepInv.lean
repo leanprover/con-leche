@@ -311,6 +311,7 @@ the comparison of the pair the lazy loop got stuck on can succeed. -/
 theorem defeqBody_inv {d : Nat} {a b : Expr}
     (h : defeqBody μ eager (pureFns μ eager env fuel) env d a b = .ok true) :
     a = b ∨
+    groundSite eager env a b = some (.ok true) ∨
     (b = .const boolTrueName [] ∧
       boolTrueShortcutFueled μ eager env fuel d a = .ok true) ∨
     quickDefEqFueled μ eager env fuel d a b = .ok (some true) ∨
@@ -333,6 +334,19 @@ theorem defeqBody_inv {d : Nat} {a b : Expr}
   by_cases hab : (a == b) = true
   · exact Or.inl (eq_of_beq hab)
   rw [ite_eq_right hab] at h
+  cases hg : groundSite eager env a b with
+  | some o =>
+    rw [hg] at h
+    cases o with
+    | ok v =>
+      simp only [pure, Except.pure, Except.ok.injEq] at h
+      subst h
+      exact Or.inr (Or.inl rfl)
+    | error e => exact nomatch h
+  | none =>
+  rw [hg] at h
+  dsimp only at h
+  refine Or.elim (?_ : a = b ∨ _) Or.inl (fun h => Or.inr (Or.inr h))
   cases hbt : (if b.isBoolTrue && (eager || !a.hasFvar) then
       boolTrueShortcutFueled μ eager env fuel d a else pure false) with
   | error err => rw [hbt] at h; exact nomatch h

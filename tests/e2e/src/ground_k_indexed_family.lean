@@ -8,7 +8,7 @@
      index is a constructor value;
    * `HEq`: the indices are a type and a value of that type.
 
-   All accepted (official too).  With the ground engine on, all three are
+   All accepted (official too).  With the ground engine, all three are
    decided by the engine's K step, which reads neither the major nor the
    indices. -/
 

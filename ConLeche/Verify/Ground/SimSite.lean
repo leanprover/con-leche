@@ -168,8 +168,8 @@ theorem siteMS_minv {P : G4Prog} (hK : KeptOK env P) {e : Expr} (he : e.looseBVa
 run is out of budget, a site run on the fresh program with `2 n + 1` steps
 for the kept one's `n` gives the same answer and state count. -/
 theorem ground4_fresh (hwf : EnvWF env) {natOk strOk : Bool} {mx : Option Nat} {F : Nat} {P₀ : G4Prog}
-    (hnat : natOk = true → natLitStored env = true) (hstr : strOk = true → strLitStored env = true)
-    (hP₀ : P₀.kTag.size = 0 ∨ (KeptOK env P₀ ∧ P₀.flags = (natOk, strOk))) {e : Expr}
+    (hnat : natOk = natLitStored env) (hstr : strOk = strLitStored env)
+    (hP₀ : P₀.kTag.size = 0 ∨ KeptOK env P₀) {e : Expr}
     (he : e.looseBVarsBounded 0 = true)
     (hb : (ground4BoolCoreF env.find? env.findProj? natOk strOk mx F P₀ e).1.1 ≠
       .error (.decline "ground evaluation did not finish within its step budget")) :
@@ -177,9 +177,10 @@ theorem ground4_fresh (hwf : EnvWF env) {natOk strOk : Bool} {mx : Option Nat} {
         (ground4BoolCoreF env.find? env.findProj? natOk strOk mx F P₀ e).1.1 ∧
       (ground4BoolCoreF env.find? env.findProj? natOk strOk mx (2 * F + 1) {} e).1.2.1 =
         (ground4BoolCoreF env.find? env.findProj? natOk strOk mx F P₀ e).1.2.1 := by
-  have hKA := setup_kept hnat hstr (hP₀.imp id (·.1))
+  have hKA := setup_kept hnat hstr hP₀
   have hKB := setup_kept (P₀ := {}) hnat hstr (.inl rfl)
-  have hfA := setup_flags env.find? env.findProj? (hP₀.imp id (·.2))
+  have hfA := setup_flags env.find? env.findProj? (natOk := natOk) (strOk := strOk) (hP₀.imp id fun hK => by
+    simp only [G4Prog.flags, hK.run.nat, hK.run.str, hnat, hstr])
   have hfB := setup_flags env.find? env.findProj? (P₀ := {}) (natOk := natOk) (strOk := strOk) (.inl rfl)
   unfold ground4BoolCoreF at hb ⊢
   generalize g4Setup env.find? env.findProj? natOk strOk P₀ = PA at hKA hfA hb ⊢

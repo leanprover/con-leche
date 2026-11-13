@@ -235,7 +235,7 @@ theorem mono_of_whnf {mp : EnvModelM V env}
     MonoOn R ea := by
   have hw' : ConLeche.whnf .verified false env F dep e = .ok w := hw
   obtain ⟨hfrw, hsub, wa, hwa, hgw, heq⟩ :=
-    red_sound_ty hin (ConLeche.Rules.whnf_bridge hw') hfr hC.toCtxOk hea hgr
+    red_sound_ty hin (ConLeche.Rules.whnf_bridge mp.base2.wf hw') hfr hC.toCtxOk hea hgr
   exact MonoOn.of_eqOn (Q := Sat V Δa) hdom (fun ρ hρ => heq ρ hρ)
     (k hfrw (hC.of_subset hsub) wa hwa hgw)
 

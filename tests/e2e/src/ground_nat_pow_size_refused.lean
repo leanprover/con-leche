@@ -4,8 +4,8 @@
    `--max-nat-size=16` (arena.sh's E2E_FLAGS): `2 ^ 200` would exceed it,
    rejected (official under `LEAN_NAT_MAX_SIZE=16` too).
 
-   Engine on: the engine's refusal before computing raises the cached
-   core's own error (`natOpRefusal`): rejected.  Today 1; target 1. -/
+   The engine's refusal before computing raises the cached
+   core's own error (`natOpRefusal`): rejected.  Target 1. -/
 
 --#export t_pow_size_refused
 

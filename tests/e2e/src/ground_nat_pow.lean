@@ -8,7 +8,7 @@
    Accepted.  The v4.29.1 kernel rejects this source without
    `debug.skipKernelTC` ("deep recursion": its bound was an exponent of
    2^24, beyond which it unfolds `Nat.pow`); the maximum-size bound is
-   lean4#14849's, which con-leche follows (task #519).  With the ground engine on, the engine mirrors
+   lean4#14849's, which con-leche follows (task #519).  The ground engine mirrors
    that bound; before, it aborted above an exponent of 2^24 ("nat pow
    bound") and the incumbent computed.
 

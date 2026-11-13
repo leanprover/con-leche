@@ -366,7 +366,7 @@ theorem step_proj_str (hR : RunOK env s.P) (h : MInv env t₀ oc s fl) (hm : s.m
   obtain ⟨fl', rfl, -, hfs⟩ := FS.top_proj' h.stack hn ht
   refine ⟨_, h.enterCompiled (FS.pushProj hfs.pop2 _) (fun f hf => h.frames f hf)
     (strLitToConstructor_looseBVars str 0) ?_⟩
-  exact K.step env t₀ s.P s.argA oc _ hK (.strLit (hR.str hok))
+  exact K.step env t₀ s.P s.argA oc _ hK (.strLit (hR.str.symm.trans hok))
 
 /-! ## The ι frame at a constructor -/
 
@@ -659,7 +659,7 @@ theorem step_iota_str (hR : RunOK env s.P) (h : MInv env t₀ oc s fl) (hm : s.m
   obtain ⟨str, hstr, rfl⟩ := hv.inv3 h3
   rw [getElem!_of_getElem? hstr]
   exact h.enterCompiled h.stack h.frames (strLitToConstructor_looseBVars str 0)
-    (K.step env t₀ s.P s.argA oc fl hK (.strLit (hR.str hok)))
+    (K.step env t₀ s.P s.argA oc fl hK (.strLit (hR.str.symm.trans hok)))
 
 /-- **The literal `0` as a major**: `Nat.zero` (`ERed.natLit`). -/
 theorem step_iota_zero (hR : RunOK env s.P) (h : MInv env t₀ oc s fl) (hm : s.mode = 1)
@@ -672,7 +672,7 @@ theorem step_iota_zero (hR : RunOK env s.P) (h : MInv env t₀ oc s fl) (hm : s.
   obtain rfl := hv.inv2 h2
   rw [h0] at hK
   have := h.pushCtor0 h.stack h.frames hR.zero.1 (by
-    rw [hR.zero.2]; exact K.step env t₀ s.P s.argA oc fl hK (.natLit (n := 0) (hR.nat hok)))
+    rw [hR.zero.2]; exact K.step env t₀ s.P s.argA oc fl hK (.natLit (n := 0) (hR.nat.symm.trans hok)))
   exact this
 
 /-- **The literal `m + 1` as a major**: `Nat.succ` on a new value cell
@@ -688,7 +688,7 @@ theorem step_iota_succ (hR : RunOK env s.P) (h : MInv env t₀ oc s fl) (hm : s.
   obtain ⟨-, t, hv, hK⟩ := h.val1 hm
   obtain rfl := hv.inv2 h2
   rw [hm1] at hK
-  have hK' := K.step env t₀ s.P s.argA oc fl hK (.natLit (n := m + 1) (hR.nat hok))
+  have hK' := K.step env t₀ s.P s.argA oc fl hK (.natLit (n := m + 1) (hR.nat.symm.trans hok))
   have hshr : s.val.size >>> 2 = s.val.size / 4 := Nat.shiftRight_eq_div_pow _ _
   have hshc : s.cel.size >>> 2 = s.N := Nat.shiftRight_eq_div_pow _ _
   rw [hshr, hshc]

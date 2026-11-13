@@ -1,6 +1,7 @@
 module
 
-public import ConLeche.Kernel.Ground
+import ConLeche.Kernel.Ground
+public import ConLeche.Kernel.FEnv
 
 @[expose] public section
 
@@ -15,6 +16,12 @@ namespace ConLeche.Cached
 
 open ConLeche
 
+/-- The engine on the declaration's kept program `P₀`, at the engine's fuel
+and the maximum `Nat` size `maxNat`. -/
+def ground4Bool (fe : FEnv) (maxNat : Nat) (P₀ : G4Prog) (e : Expr) :
+    (Except G4Stop Bool × (Nat × Nat)) × G4Prog :=
+  ground4BoolCore fe.find? fe.findProj? (natLitStoredF fe) (strLitStoredF fe) (some maxNat) P₀ e
+
 /-- **The ground shortcut** (task #423): a comparison with `Bool.true` on
 either side whose other side is closed evaluates that side on the ground
 engine, with no fallback (task #423 soundness, ruling 4): `true` or
@@ -23,14 +30,9 @@ refusal, an internal error).  Read by `groundGateM`
 (`ConLeche/Cached/CoreC.lean`). -/
 def groundShortcut (eager : Bool) (fe : FEnv) (maxNat : Nat) (P : G4Prog) (a b : Expr) :
     Option (Except G4Stop Bool) × G4Prog :=
-  let t? : Option Expr :=
-    if Expr.isBoolTrue b && (eager || !(Expr.hasFvar a)) then some a
-    else if Expr.isBoolTrue a && (eager || !(Expr.hasFvar b)) then some b
-    else none
-  match t? with
+  match groundTarget eager a b with
   | none => (none, P)
   | some t =>
-    if Expr.hasFvar t then (none, P) else
     let ((r, _), P) := ground4Bool fe maxNat P t
     (some r, P)
 

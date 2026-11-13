@@ -5,9 +5,9 @@
    and the declaration is rejected (official under `LEAN_NAT_MAX_SIZE=16`
    too).  The comparison is with `Bool.true`, so the engine sees it.
 
-   Engine on: the engine computes the product, finds its size over the
+   The engine computes the product, finds its size over the
    bound and raises the cached core's own error (`natNumeralTooBig`):
-   rejected.  Today 1 (the incumbent's refusal); target 1. -/
+   rejected.  Target 1. -/
 
 --#export t_mul_refused
 

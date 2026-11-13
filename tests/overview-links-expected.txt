@@ -315,13 +315,13 @@
     53  def ensureSortCore (env : Env) (fuel depth : Nat) (e : Expr) : CheckM Level :=
     54    ensureSort (pureFns mode eager env fuel) env depth e
 
-== ConLeche/Kernel/Core.lean#L1863-L1868
-  1863        whnf := fun _ _ => throw (.internal "fuel exhausted: whnf")
-  1864        infer := fun _ _ => throw (.internal "fuel exhausted: infer")
-  1865        defeq := fun _ _ _ => throw (.internal "fuel exhausted: defeq")
-  1866        defeqE := fun _ _ _ => throw (.internal "fuel exhausted: defeq")
-  1867        inferIO := fun _ _ => throw (.internal "fuel exhausted: infer") }
-  1868    | fuel + 1 =>
+== ConLeche/Kernel/Core.lean#L1870-L1875
+  1870        whnf := fun _ _ => throw (.internal "fuel exhausted: whnf")
+  1871        infer := fun _ _ => throw (.internal "fuel exhausted: infer")
+  1872        defeq := fun _ _ _ => throw (.internal "fuel exhausted: defeq")
+  1873        defeqE := fun _ _ _ => throw (.internal "fuel exhausted: defeq")
+  1874        inferIO := fun _ _ => throw (.internal "fuel exhausted: infer") }
+  1875    | fuel + 1 =>
 
 == ConLeche/Model/Fold.lean#L421-L428
    421  theorem no_proof_of_False_pure (V : Type w) [SetTheory V]
@@ -364,8 +364,8 @@
 == ConLeche/Kernel/Env.lean#L55
     55  inductive CheckMode where
 
-== ConLeche/Kernel/Core.lean#L1140
-  1140  
+== ConLeche/Kernel/Core.lean#L1138
+  1138  def whnfBody (r : CoreFns m) (env : Env) : Nat → Expr → m Expr :=
 
 == ConLeche/Kernel/Core.lean#L1429
   1429    match a.getAppFn with
@@ -379,8 +379,8 @@
 == ConLeche/Verify/Cached/BridgeC.lean#L284
    284  theorem checkDeclStepC_run {env : Env} (henv : EnvWF env) {pd : Declaration}
 
-== ConLeche/Kernel/Core.lean#L1910
-  1910  end ConLeche
+== ConLeche/Kernel/Core.lean#L1917
+  1917  end ConLeche
 
 == ConLeche/Kernel/Exclusive.lean#L6-L42
      6  # `withExclusive`: the reference-count read behind the walk memo
@@ -833,11 +833,11 @@
    372    below. -/
    373    | refl {d : Nat} {a : Expr} : DefEq env d a a
 
-== ConLeche/Verify/Rules/Bridge.lean#L29-L32
-    29  theorem bridgeAt (env : Env) :
-    30      ∀ (fuel : Nat) (eager : Bool),
-    31        WhnfCoreBridge .verified eager env fuel ∧ WhnfBridge .verified eager env fuel ∧
-    32          DefEqBridge .verified eager env fuel ∧ InferBridge .verified eager env fuel ∧
+== ConLeche/Verify/Rules/Bridge.lean#L30-L33
+    30  theorem bridgeAt (env : Env) (hwf : EnvWF env) :
+    31      ∀ (fuel : Nat) (eager : Bool),
+    32        WhnfCoreBridge .verified eager env fuel ∧ WhnfBridge .verified eager env fuel ∧
+    33          DefEqBridge .verified eager env fuel ∧ InferBridge .verified eager env fuel ∧
 
 == ConLeche/Model/Rules/Sound.lean#L50-L53
     50  mutual
@@ -946,10 +946,10 @@
 == ConLeche/Kernel/Inductives/Positivity.lean#L99
     99  def familyTelescope (ops : CheckerOps m) (env : Env) (cv : ConstantVal) (caps : IndCaps) : m Expr :=
 
-== ConLeche/Verify/EnvExt.lean#L463-L465
-   463  theorem knot_ext (mode : CheckMode) (hx : EnvExt env₁ env₂) :
-   464      ∀ (fuel : Nat) (eager : Bool),
-   465        KR env₁ (pureFns mode eager env₂ fuel) (pureFns mode eager env₁ fuel)
+== ConLeche/Verify/EnvExt.lean#L469-L471
+   469  theorem knot_ext (mode : CheckMode) (hx : EnvExt env₁ env₂) :
+   470      ∀ (fuel : Nat) (eager : Bool),
+   471        KR env₁ (pureFns mode eager env₂ fuel) (pureFns mode eager env₁ fuel)
 
 == ConLeche/Verify/EnvExt/Reads.lean#L29-L30
     29  structure StoredFacts (env : Env) : Prop where
@@ -1094,20 +1094,20 @@
 == ConLeche/Model/DivModCert.lean#L1978
   1978  theorem divMod_install {F : Nat} (mp : EnvModelM V env)
 
-== ConLeche/Cached/StateC.lean#L177-L189
-   177  def natOpRefusal (maxNatSize : Nat) (c : Name) (a b : Nat) : Option CheckError :=
-   178    if c = natPowName then
-   179      if b > natCountMax then some (natCountTooBig "Nat.pow")
-   180      else if a > 1 && b != 0 && natSizeBytes a > maxNatSize / b then
-   181        some (.invalid "the kernel refused to evaluate `Nat.pow` because the result would \
-   182          exceed the maximum numeral size; raise it with --max-nat-size")
-   183      else none
-   184    else if c = natShiftLeftName then
-   185      if a = 0 then none
-   186      else if b > natCountMax then some (natCountTooBig "Nat.shiftLeft")
-   187      else if natSizeBytes a + b / 8 + 1 > maxNatSize then some natNumeralTooBig
-   188      else none
-   189    else none
+== ConLeche/Cached/StateC.lean#L178-L190
+   178  def natOpRefusal (maxNatSize : Nat) (c : Name) (a b : Nat) : Option CheckError :=
+   179    if c = natPowName then
+   180      if b > natCountMax then some (natCountTooBig "Nat.pow")
+   181      else if a > 1 && b != 0 && natSizeBytes a > maxNatSize / b then
+   182        some (.invalid "the kernel refused to evaluate `Nat.pow` because the result would \
+   183          exceed the maximum numeral size; raise it with --max-nat-size")
+   184      else none
+   185    else if c = natShiftLeftName then
+   186      if a = 0 then none
+   187      else if b > natCountMax then some (natCountTooBig "Nat.shiftLeft")
+   188      else if natSizeBytes a + b / 8 + 1 > maxNatSize then some natNumeralTooBig
+   189      else none
+   190    else none
 
 == ConLeche/Kernel/CoreDefs.lean#L585-L605
    585  def natOpResult (c : Name) (a b : Nat) : Option Expr :=

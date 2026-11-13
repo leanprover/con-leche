@@ -392,22 +392,22 @@ theorem param_read_eq
   have hAL := habsL a haB
   have hBL := habsL b hbB
   have hWS0 := hW0.2.2.2.2.1
-  have hAb := ConLeche.infer_full_bvarClosed (Rules.inferTypeCore_bridge hta)
-  have hBb := ConLeche.infer_full_bvarClosed (Rules.inferTypeCore_bridge htb)
+  have hAb := ConLeche.infer_full_bvarClosed (Rules.inferTypeCore_bridge mT.wf hta)
+  have hBb := ConLeche.infer_full_bvarClosed (Rules.inferTypeCore_bridge mT.wf htb)
   obtain ⟨aa, haa⟩ := acceptedReads_of mT φ hta (wscoped_of_leaves_mem hL0 _ hAL) hAb
     (fun l hl => hWS0 _ (hAL l hl))
   obtain ⟨ba, hba⟩ := acceptedReads_of mT φ htb (wscoped_of_leaves_mem hL0 _ hBL) hBb
     (fun l hl => hWS0 _ (hBL l hl))
   obtain ⟨hFrA, hCA, hGA⟩ := WalkCtx.subjOkL hacl1 hin hL0 hW0 hAL hAb haa
-    ⟨_, Rules.inferTypeCore_bridge hta⟩
+    ⟨_, Rules.inferTypeCore_bridge mT.wf hta⟩
   obtain ⟨hFrB, hCB, hGB⟩ := WalkCtx.subjOkL hacl1 hin hL0 hW0 hBL hBb hba
-    ⟨_, Rules.inferTypeCore_bridge htb⟩
+    ⟨_, Rules.inferTypeCore_bridge mT.wf htb⟩
   rw [← hA, haa, Option.map_some, Option.some.injEq] at hx
   rw [← hB, hba, Option.map_some, Option.some.injEq] at hy
   subst hx hy
   -- the conditional claim: equal where neither reading is the point
   have hS := hW0.2.1
-  exact Rules.defeq_sound hin (Rules.isDefEqCore_bridge hd) hFrA hFrB hCA.toS hCB.toS haa hba _
+  exact Rules.defeq_sound hin (Rules.isDefEqCore_bridge mT.wf hd) hFrA hFrB hCA.toS hCB.toS haa hba _
     hS (hCA.leavesGr hS) (hCB.leavesGr hS) (hGA _ hS) (hGB _ hS) hxn hyn
 
 end Walk

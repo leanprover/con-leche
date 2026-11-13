@@ -3,6 +3,7 @@ module
 public import ConLeche.Cached.StateC
 public import ConLeche.Verify.Cached.OpsC
 public import ConLeche.Verify.Fueled
+public import ConLeche.Verify.Ground.Site
 
 public section
 
@@ -286,6 +287,9 @@ structure CSOK (mode : CheckMode) (eager : Bool) (env : Env) (s : CState) : Prop
   /-- The eager tower's stored memos (task #361) are backed by runs at
   `eager := true`, the flag the `defeqE` slot runs them at. -/
   eager : ModeMemosOK mode true env s.eagerMemos
+  /-- The ground engine's kept program (`CState.ground4`, task #423): none
+  yet, or a program a site run at `env` can start from. -/
+  ground4 : s.ground4.kTag.size = 0 ∨ Verify.Ground.KeptOK env s.ground4
 
 /-- The environment-free residue: exactly the clauses `flushC`
 preserves — the level-operation memos. -/
@@ -316,7 +320,7 @@ are vacuous. -/
 theorem flushC_csok {env' : Env} {s : CState} (hs : CSOKF s) :
     CSOK mode eager env' s.flushed := by
   refine ⟨?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, hs.lsimp, hs.lnz, hs.eqv,
-    ?_, ModeMemosOK.empty⟩ <;> (intros; simp_all [CState.flushed])
+    ?_, ModeMemosOK.empty, .inl rfl⟩ <;> (intros; simp_all [CState.flushed])
 
 /-- Flushing preserves the residue (it touches none of its
 components). -/
@@ -361,7 +365,7 @@ theorem CSOK.enterEager {s : CState} (hs : CSOK mode eager env s) :
   | false =>
     exact ⟨hs.constTy, hs.constVal, hs.ruleRhs, hs.eager.whnfCoreC, hs.eager.whnfCoreCheapC,
       hs.eager.whnfC, hs.eager.inferC, hs.eager.inferIOC, hs.eager.defeqC, hs.lsimp, hs.lnz,
-      hs.eqv, hs.instC, ModeMemosOK.empty⟩
+      hs.eqv, hs.instC, ModeMemosOK.empty, hs.ground4⟩
 
 /-- The left state: the caller's plain memos, the run's six fields as
 the eager set, the run's mode-free caches (with the flag already set,
@@ -374,7 +378,7 @@ theorem CSOK.leaveEager {s₀ s₂ : CState} (hs₀ : CSOK mode eager env s₀)
   | false =>
     exact ⟨hs₂.constTy, hs₂.constVal, hs₂.ruleRhs, hs₀.whnfCoreC, hs₀.whnfCoreCheapC,
       hs₀.whnfC, hs₀.inferC, hs₀.inferIOC, hs₀.defeqC, hs₂.lsimp, hs₂.lnz, hs₂.eqv, hs₂.instC,
-      hs₂.modeMemos⟩
+      hs₂.modeMemos, hs₂.ground4⟩
 
 /-- **A run on the eager tower's memos** simulates what the run
 simulates at `eager := true`, from the caller's invariant at `eager`. -/

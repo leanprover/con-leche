@@ -237,7 +237,7 @@ theorem whnf_facts {mp : EnvModelM V env}
       ∃ wa, denote mp.base2.acval env φ dep w = some wa ∧ GradedTy V Δa wa := by
   have hw' : ConLeche.whnf .verified false env F dep e = .ok w := hw
   obtain ⟨hfrw, hsub, wa, hwa, hgw, -⟩ :=
-    red_sound_ty hin (ConLeche.Rules.whnf_bridge hw') hfr hC.toCtxOk hea hgr
+    red_sound_ty hin (ConLeche.Rules.whnf_bridge mp.base2.wf hw') hfr hC.toCtxOk hea hgr
   exact ⟨hfrw, hC.of_subset hsub, wa, hwa, hgw⟩
 
 /-- The context seen at a shallower frame stack. -/

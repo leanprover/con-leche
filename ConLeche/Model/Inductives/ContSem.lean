@@ -100,7 +100,7 @@ theorem ContCover.keyCerts {mp : EnvModelM V env} {ctx : NestCtx} (hcov : ContCo
       ((D.formerAt mm cv).type.instantiateLevelParams cv.levelParams us) ds := by
   obtain ⟨tyC, hl, hfam, hsp⟩ := familyKeyCheck_inv (by rw [hcov.find]; exact hf) h
   rw [hcov.reads F D hD mm cv caps tyC hmm hf hfam] at hsp
-  exact ⟨hl, checkSpineAt_certs hsp⟩
+  exact ⟨hl, checkSpineAt_certs mp.base2.wf hsp⟩
 
 /-! ## Pieces -/
 

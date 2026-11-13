@@ -6,9 +6,9 @@
    (official too: this source without `debug.skipKernelTC` fails in the
    kernel).
 
-   With the ground engine on and no fallback (`groundMode = 10`), the
-   engine's stuck value is the comparison's answer, `false`: rejected,
-   without the incumbent.  Today 1; target 1.
+   The ground engine, with no fallback, evaluates the term; its stuck
+   value is the comparison's answer, `false`: rejected (1), without the
+   incumbent.  Target 1.
 
    `t_stuck` is added with `addDecl` under `debug.skipKernelTC`. -/
 import Lean

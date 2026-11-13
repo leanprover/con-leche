@@ -354,7 +354,7 @@ theorem storedMajorSub_graded (mpC : EnvModelM V envC)
   obtain ⟨wa, hwa⟩ := acceptedReads_of mpC.base2 ψ htx hfr.1 hfr.2.1 hfr.2.2
   obtain ⟨-, -, -, -, hgr, -⟩ :=
     Rules.InferSemFull.global
-      (Rules.infer_sound (Rules.RulesInputs.ofSem mpC ψ) (Rules.inferTypeCore_bridge htx))
+      (Rules.infer_sound (Rules.RulesInputs.ofSem mpC ψ) (Rules.inferTypeCore_bridge mpC.base2.wf htx))
       hfr hCE hwa
   exact ⟨wa, hwa, fun σ hσ => hgr σ hσ⟩
 

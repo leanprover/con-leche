@@ -2,7 +2,7 @@ module
 
 import ConLeche.Kernel.Level
 import ConLeche.Kernel.ExprOps
-public import ConLeche.Kernel.CoreDefs
+public import ConLeche.Kernel.Ground
 
 @[expose] public section
 
@@ -1788,8 +1788,11 @@ def defeqStuck (r : CoreFns m) (env : Env) (depth : Nat) (a b : Expr) :
   | e₁, e₂ => stuckIrrel r env depth e₁ e₂
 
 /-- **The definitional-equality body** (the official kernel's
-`is_def_eq_core`, clause for clause except one deliberate reordering):
-the syntactic fast path; the `Bool.true` shortcut (E2,
+`is_def_eq_core`, clause for clause except one deliberate reordering
+and one addition): the syntactic fast path; the addition, the ground
+engine (`groundSite`, task #423: a closed side compared with `Bool.true`,
+in either orientation, is evaluated by `Kernel/Ground.lean`'s engine, and
+its answer is the verdict, its stop an error); the `Bool.true` shortcut (E2,
 `boolTrueShortcut`: right side `Bool.true`, left side fvar-free or the
 eager flag set — official's `(!has_fvar(t) || m_eager_reduce) &&
 is_constant(s, Bool.true)`, the flag being `eager`, task #353);
@@ -1820,6 +1823,10 @@ long chains — the unfoldings — are iterations of the lazy loops. -/
 def defeqBody (eager : Bool) (r : CoreFns m) (env : Env) : Nat → Expr → Expr → m Bool :=
   fun depth a b => do
     if a == b then pure true else
+    match groundSite eager env a b with
+    | some (.ok v) => pure v
+    | some (.error e) => throw (g4StopError e)
+    | none =>
     if ← (if b.isBoolTrue && (eager || !a.hasFvar) then
         boolTrueShortcut r depth a else pure false) then pure true else
     match ← quickDefEq mode r depth a b with

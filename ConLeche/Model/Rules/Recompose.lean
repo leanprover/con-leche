@@ -57,25 +57,25 @@ theorem checkSoundAtP5
   refine ⟨?_, ?_, ?_, ?_, ?_⟩
   · intro d e e' Δa hrun hws hb hLb ea ea' hC hea hea' hok
     obtain ⟨-, -, ea'', hea'', hs⟩ :=
-      red_sound hin (whnfCore_bridge hrun) ⟨hws, hb, hLb⟩ hC.toS hea
+      red_sound hin (whnfCore_bridge m.wf hrun) ⟨hws, hb, hLb⟩ hC.toS hea
     rw [hea''] at hea'
     cases hea'
     exact ⟨fun ρ hρ hne => (hs ρ hρ (hC.leavesGr hρ) (hok ρ hρ) hne).1,
       fun ρ hρ hne => (hs ρ hρ (hC.leavesGr hρ) (hok ρ hρ) hne).2⟩
   · intro d e e' Δa hrun hws hb hLb ea ea' hC hea hea' hok
     obtain ⟨-, -, ea'', hea'', hs⟩ :=
-      red_sound hin (whnf_bridge hrun) ⟨hws, hb, hLb⟩ hC.toS hea
+      red_sound hin (whnf_bridge m.wf hrun) ⟨hws, hb, hLb⟩ hC.toS hea
     rw [hea''] at hea'
     cases hea'
     exact ⟨fun ρ hρ hne => (hs ρ hρ (hC.leavesGr hρ) (hok ρ hρ) hne).1,
       fun ρ hρ hne => (hs ρ hρ (hC.leavesGr hρ) (hok ρ hρ) hne).2⟩
   · intro d a b Δa hrun hwa hba hLa hwb hbb hLb aa ba hCa hCb haa hba' hga hgb ρ hρ
-    exact defeq_sound hin (isDefEqCore_bridge hrun) ⟨hwa, hba, hLa⟩
+    exact defeq_sound hin (isDefEqCore_bridge m.wf hrun) ⟨hwa, hba, hLa⟩
       ⟨hwb, hbb, hLb⟩ hCa.toS hCb.toS haa hba' ρ hρ (hCa.leavesGr hρ)
       (hCb.leavesGr hρ) (hga ρ hρ) (hgb ρ hρ)
   · intro d e t Δa hrun hws hb hLb ea ta hC hea hta
     obtain ⟨-, -, ta', hta', hs⟩ :=
-      infer_sound hin (inferTypeCore_bridge hrun) ⟨hws, hb, hLb⟩ hC.toS hea
+      infer_sound hin (inferTypeCore_bridge m.wf hrun) ⟨hws, hb, hLb⟩ hC.toS hea
     rw [hta'] at hta
     cases hta
     exact ⟨fun ρ hρ => (hs ρ hρ (hC.leavesGr hρ)).1,
@@ -83,7 +83,7 @@ theorem checkSoundAtP5
       fun ρ hρ => (hs ρ hρ (hC.leavesGr hρ)).2.2⟩
   · intro d e t Δa hrun hws hb hLb ea ta hC hea hta hok
     obtain ⟨-, -, ta', hta', hs⟩ :=
-      infer_sound hin (inferTypeCoreIO_bridge hrun) ⟨hws, hb, hLb⟩ hC.toS hea
+      infer_sound hin (inferTypeCoreIO_bridge m.wf hrun) ⟨hws, hb, hLb⟩ hC.toS hea
     rw [hta'] at hta
     cases hta
     exact fun ρ hρ => (hs ρ hρ (hC.leavesGr hρ) (hok ρ hρ)).1

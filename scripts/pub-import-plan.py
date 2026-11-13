@@ -54,6 +54,11 @@ DIR   = os.environ.get('PUBPLAN_DIR', '_tmp/m3')
 # a tree whose `rfl`s stop closing, so they stay public and the gate must not
 # ask for them again.
 FALLBACK = {
+    # task #423 soundness: the bridge's `defeq_bridge_succ` takes `EnvWF env`
+    # (the ground engine's site needs it), which the census attributes
+    # elsewhere.  Measured by demoting it (unknown identifier `EnvWF`,
+    # `DefEqBridge.lean:557`).
+    ('ConLeche.Verify.Rules.DefEqBridge', 'ConLeche.Verify.EnvWF'),
     # task #423 soundness: binding under environments states `Expr`, `ERed` and
     # `Env`, which the census attributes elsewhere.  Measured by demoting it
     # (unknown identifier `Expr`, `Bind.lean:30`).

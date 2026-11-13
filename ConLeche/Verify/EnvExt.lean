@@ -2,6 +2,7 @@ module
 
 public import ConLeche.Verify.EnvExt.Whnf
 public import ConLeche.Kernel.Inductives.BlockTail
+import ConLeche.Verify.Ground.SiteExt
 
 /-!
 # A run does not see an extension of the environment (task #480)
@@ -425,6 +426,11 @@ theorem defeqBody_rel (eager : Bool) {a b : Expr} (ha : Res env₁ a) (hb : Res 
     Rel TT (defeqBody mode eager r₂ env₂ d a b) (defeqBody mode eager r₁ env₁ d a b) := by
   unfold defeqBody
   refine Rel.ite (fun _ => Rel.ok trivial) fun _ => ?_
+  rw [Ground.groundSite_ext hx eager ha hb]
+  cases groundSite eager env₁ a b with
+  | some o => cases o <;> exact ⟨rfl, fun _ _ => trivial⟩
+  | none =>
+  dsimp only
   refine Rel.bind (Q := TT) (Rel.ite (fun _ => ?_) fun _ => Rel.ok trivial) fun v _ => ?_
   · exact Rel.bind (K.whnf d ha) fun _ _ => Rel.ok trivial
   refine Rel.iteB v (fun _ => Rel.ok trivial) fun _ => ?_

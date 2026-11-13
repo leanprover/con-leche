@@ -236,7 +236,7 @@ theorem resolved_entry {P P' : G4Prog} (hx : ExtR P P') {k : Nat} {info : G4Info
 
 /-- **The program a run starts from** is one it can start from. -/
 theorem setup_kept {natOk strOk : Bool} {P₀ : G4Prog}
-    (hnat : natOk = true → natLitStored env = true) (hstr : strOk = true → strLitStored env = true)
+    (hnat : natOk = natLitStored env) (hstr : strOk = strLitStored env)
     (hP₀ : P₀.kTag.size = 0 ∨ KeptOK env P₀) :
     KeptOK env (g4Setup env.find? env.findProj? natOk strOk P₀) := by
   unfold g4Setup
@@ -262,8 +262,8 @@ theorem setup_kept {natOk strOk : Bool} {P₀ : G4Prog}
     have hx₃₄ := hx₃.trans hx₄
     obtain ⟨e₁, e₂⟩ := hx₁₄.toExtR.flagsEq
     obtain ⟨-, -, -, -, -, hsa⟩ := hx₁₄.site_eqs
-    refine ⟨hI₄.setSite kT kF kZ kS P₄.epBase P₄.slotA, ⟨fun h => hnat (e₁.symm.trans h),
-      fun h => hstr (e₂.symm.trans h), resolved_entry hx₄.toExtR hi₃ ha₃,
+    refine ⟨hI₄.setSite kT kF kZ kS P₄.epBase P₄.slotA, ⟨e₁.trans hnat,
+      e₂.trans hstr, resolved_entry hx₄.toExtR hi₃ ha₃,
       resolved_entry (ExtR.refl _) hi₄ ha₄, resolved_entry hx₂₄.toExtR hi₁ ha₁,
       resolved_entry hx₃₄.toExtR hi₂ ha₂⟩, fun i hi => ?_⟩
     simp only [hsa] at hi
@@ -282,7 +282,7 @@ variable {env : Env} {mx : Option Nat}
 the program it keeps is one the next run can use (or none), and its `true`
 is a reduction of the term to `Bool.true`. -/
 theorem ground4_site (hwf : EnvWF env) {natOk strOk : Bool} {mx : Option Nat} {fuel : Nat} {P₀ : G4Prog}
-    (hnat : natOk = true → natLitStored env = true) (hstr : strOk = true → strLitStored env = true)
+    (hnat : natOk = natLitStored env) (hstr : strOk = strLitStored env)
     (hP₀ : P₀.kTag.size = 0 ∨ KeptOK env P₀) {e : Expr} (he : e.looseBVarsBounded 0 = true) :
     ((ground4BoolCoreF env.find? env.findProj? natOk strOk mx fuel P₀ e).2.kTag.size = 0 ∨
       KeptOK env (ground4BoolCoreF env.find? env.findProj? natOk strOk mx fuel P₀ e).2) ∧
@@ -302,5 +302,31 @@ theorem ground4_site (hwf : EnvWF env) {natOk strOk : Bool} {mx : Option Nat} {f
   next => exact ⟨.inl rfl, fun h => by cases h⟩
 
 end
+
+/-- **The engine's term at a comparison** (`groundTarget`) is one side,
+closed, the other side `Bool.true`. -/
+theorem groundTarget_some {eager : Bool} {a b t : Expr} (h : groundTarget eager a b = some t) :
+    ((t = a ∧ b.isBoolTrue = true) ∨ (t = b ∧ a.isBoolTrue = true)) ∧
+      t.looseBVarsBounded 0 = true := by
+  unfold groundTarget at h
+  split at h
+  · rename_i h₁
+    split at h
+    · exact nomatch h
+    · rename_i h₂
+      cases h
+      simp only [Bool.and_eq_true] at h₁
+      simp only [Bool.or_eq_true, Bool.not_eq_true', not_or, Bool.not_eq_false] at h₂
+      exact ⟨.inl ⟨rfl, h₁.1⟩, by simpa using h₂.2⟩
+  · split at h
+    · rename_i h₁
+      split at h
+      · exact nomatch h
+      · rename_i h₂
+        cases h
+        simp only [Bool.and_eq_true] at h₁
+        simp only [Bool.or_eq_true, Bool.not_eq_true', not_or, Bool.not_eq_false] at h₂
+        exact ⟨.inr ⟨rfl, h₁.1⟩, by simpa using h₂.2⟩
+    · exact nomatch h
 
 end ConLeche.Verify.Ground

@@ -4,7 +4,7 @@
    `rfl`; the K rule's index check compares two lambdas of different code.
 
    Accepted (official too: its index check compares the two lambdas by
-   defeq).  With the ground engine on, the engine's K step does not look
+   defeq).  The ground engine's K step does not look
    at the indices and accepts. -/
 
 theorem fun_eq : (fun x : Nat => x + 0) = (fun x => x) := rfl

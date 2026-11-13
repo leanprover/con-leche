@@ -3394,79 +3394,71 @@
 0 lit_hash_low_bits.ndjson
 # -- task #423 K, the ground engine's K step at the `t =?= Bool.true` site: a
 # K-like recursor reduces to its minor premise without reading the major
-# (`Red.iotaK`).  The verdicts are the default build's (engine off: the
-# incumbent's K rescue with official's index check); official the same.
+# (`Red.iotaK`).  Official's verdicts in the comments.
 # ground_k_theorem_major: Eq.rec on a theorem, on a theorem application passed
 # through a definition's proof argument, and Quot.recOnSubsingleton's
-# Eq.ndrecOn (Quot.liftIndepPr1 …) (CFSG's Multiset shape).  Accepted; engine
-# on: accepted by the K step.  Target 0.
+# Eq.ndrecOn (Quot.liftIndepPr1 …) (CFSG's Multiset shape).  Accepted by the
+# K step (official too).
 0 ground_k_theorem_major.ndjson
 # ground_k_indexed_family: IsDouble n (n + n), PairSwap p (p.2, p.1), HEq.
-# Accepted; engine on: accepted by the K step.  Target 0.
+# Accepted by the K step (official too).
 0 ground_k_indexed_family.ndjson
-# ground_k_closure_index: (fun x => x + 0) = (fun x => x).  Accepted; engine
-# on: accepted by the K step.  Target 0.
+# ground_k_closure_index: (fun x => x + 0) = (fun x => x).  Accepted by the
+# K step (official too).
 0 ground_k_closure_index.ndjson
 # ground_k_index_differ: Eq.rec on a theorem Quot.mk r 1 = Quot.mk r 2:
-# official's index check fails, the redex is stuck, rejected (engine off, as
-# official).  Engine on: ACCEPTED, beyond official (the K step skips the index
-# check).  Target 1 engine off.
-1 ground_k_index_differ.ndjson
+# ACCEPTED, beyond official: the K step skips official's index check, which
+# fails there, so official's redex is stuck and official rejects.
+0 ground_k_index_differ.ndjson
 # -- task #423 completeness and soundness: the ground engine at the
-# `t =?= Bool.true` site, with no fallback (groundMode 10) and, by the
-# soundness ruling, a DECLINE (exit 2) at every step it has no proved rule
-# for.  Verdicts at the default build (engine off); the comment gives the
-# engine-on verdict, official's (v4.35 / nightly-2026-10-30 kernels on the
-# export), and the target.
+# `t =?= Bool.true` site, with no fallback and, by the soundness ruling, a
+# DECLINE (exit 2) at every step it has no proved rule for.  The comment
+# gives official's verdict (v4.35 / nightly-2026-10-30 kernels on the
+# export) and the target.
 # ground_eta_neutral: structure η at a closed neutral (Classical.choice)
-# major.  Accepted (official 0/0).  Engine on: 2 (structure η needs the
-# major's type).  Target 0.
-0 ground_eta_neutral.ndjson
-# ground_and_rescue: And.rec on a theorem (the incumbent's And rescue).
-# Accepted (official 0/0).  Engine on: 2 (the And rescue needs the major's
-# type).  Target 0.
-0 ground_and_rescue.ndjson
+# major: 2, structure η needs the major's type (official 0/0).  Target 0.
+2 ground_eta_neutral.ndjson
+# ground_and_rescue: And.rec on a theorem: 2, the And rescue needs the
+# major's type (official 0/0).  Target 0.
+2 ground_and_rescue.ndjson
 # ground_case3: And.rec on And.intro (case 3) and Acc.rec on the
-# elaborator's abstracted proof kAcc._proof_1 (a theorem, never unfolded:
-# stuck, rejected).  Official v4.35 0 (unfolds the theorem), nightly 1.
-# Engine on: 2 (ι case 3 at And.rec).  Target 1 (con-leche does not reduce
-# proofs).
-1 ground_case3.ndjson
+# elaborator's abstracted proof kAcc._proof_1 (a theorem, never unfolded):
+# 2, ι case 3 at And.rec.  Official v4.35 0 (unfolds the theorem), nightly
+# 1.  Target 1 (con-leche does not reduce proofs).
+2 ground_case3.ndjson
 # ground_case3_quot: Quot.lift on Quot.mk at Quot.{0} (a quotient of a
-# proposition), the constructor in the theorem's type.  Accepted (official
-# 0/0).  Engine on: 2 (ι case 3).  Target 0.
-0 ground_case3_quot.ndjson
+# proposition), the constructor in the theorem's type: 2, ι case 3
+# (official 0/0).  Target 0.
+2 ground_case3_quot.ndjson
 # ground_case3_punit: PUnit.rec on PUnit.unit at PUnit.{0} (not K-flagged:
-# case 3 there).  Accepted (official 0/0).  Engine on: 2 (ι case 3).
-# Target 0.
-0 ground_case3_punit.ndjson
+# case 3 there): 2, ι case 3 (official 0/0).  Target 0.
+2 ground_case3_punit.ndjson
 # ground_case3_acc_ctor: Acc.rec on an explicit Acc.intro in the theorem's
-# type.  Accepted (official 0/0).  Engine on: 2 (ι case 3).  Target 0.
-0 ground_case3_acc_ctor.ndjson
+# type: 2, ι case 3 (official 0/0).  Target 0.
+2 ground_case3_acc_ctor.ndjson
 # ground_nat_pow: Nat.pow 1 / 0 at exponent 2^25 (the maximum-size bound,
 # lean4#14849, task #519; the v4.29.1 kernel rejects by its old 2^24 bound).
-# Accepted (official 0/0).  Engine on: 0, computed.  Target 0.
+# Accepted, computed by the engine (official 0/0).
 0 ground_nat_pow.ndjson
 # ground_nat_pow_refused: Nat.pow 2 (2^32): the exponent does not fit in 32
-# bits, refused, rejected (official 1/1).  Engine on: 1, the engine raises
-# the incumbent's own refusal.  Target 1.
+# bits, refused, rejected: the engine raises the incumbent's own refusal
+# (official 1/1).
 1 ground_nat_pow_refused.ndjson
 # ground_nat_mul_refused, ground_nat_shl_refused, ground_nat_pow_size_refused
 # (at --max-nat-size=16, arena.sh's E2E_FLAGS): a product over the bound
-# after computing, a shift and a power over it before computing.  Rejected
-# (official 1/1 at LEAN_NAT_MAX_SIZE=16).  Engine on: 1, the engine raises
-# the incumbent's own refusal.  Target 1.
+# after computing, a shift and a power over it before computing.  Rejected:
+# the engine raises the incumbent's own refusal (official 1/1 at
+# LEAN_NAT_MAX_SIZE=16).
 1 ground_nat_mul_refused.ndjson
 1 ground_nat_shl_refused.ndjson
 1 ground_nat_pow_size_refused.ndjson
-# ground_stuck_bool: Classical.choice ⟨true⟩ = true: stuck, rejected
-# (official 1/1).  Engine on: 1, the stuck value answers false.  Target 1.
+# ground_stuck_bool: Classical.choice ⟨true⟩ = true: stuck, the stuck value
+# answers false, rejected (official 1/1).
 1 ground_stuck_bool.ndjson
 # ground_acc_def: Acc.rec on a proof argument a definition reduces to
-# Acc.intro: the incumbent fires case 3 and accepts (official v4.35 0,
-# nightly 1).  Engine on: 2 (the erased major is a neutral at a
-# single-constructor recursor).  Target 0.
-0 ground_acc_def.ndjson
+# Acc.intro: 2, the erased major is a neutral at a single-constructor
+# recursor (official v4.35 0, nightly 1).  Target 0.
+2 ground_acc_def.ndjson
 # The wider unit-like η (task #515; official's `is_unit_like` since
 # lean4#15372, ported from lean4's `tests/elab/2258.lean`): ∀s with a
 # unit-like codomain and non-recursive structures whose fields are

@@ -122,7 +122,7 @@ theorem genOut_keyFit {F : Nat} {envC envI : Env} {pp : BlockShape} {mpC : EnvMo
   -- the key's certificates, at the telescope the block read
   obtain ⟨tyC, -, hfam, hsp⟩ := familyKeyCheck_inv hfE hkey'
   rw [hreads F D hDm mm cvI caps tyC hcl.hmm (by rw [hcl.hmem]; exact hfE) hfam] at hsp
-  have hcerts := checkSpineAt_certs hsp
+  have hcerts := checkSpineAt_certs mk.base2.wf hsp
   -- the block's parameters, opened at the formers' model
   obtain ⟨cvT0, rest, h0, hop, -, -⟩ := ConLeche.genRun_ctx R
   have h0' : pp.formers[0]? = some cvT0 := by rwa [List.head?_eq_getElem?] at h0

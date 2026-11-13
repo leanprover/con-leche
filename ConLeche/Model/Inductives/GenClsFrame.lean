@@ -153,7 +153,7 @@ theorem graded_of_infer_openers {envC : Env}
   obtain ⟨wa, hwa⟩ := acceptedReads_of mpC.base2 ψ hinf hwsE hbE hLX
   obtain ⟨-, -, -, -, hgr, -⟩ :=
     Rules.InferSemFull.global
-      (Rules.infer_sound (Rules.RulesInputs.ofSem mpC ψ) (Rules.inferTypeCore_bridge hinf))
+      (Rules.infer_sound (Rules.RulesInputs.ofSem mpC ψ) (Rules.inferTypeCore_bridge mpC.base2.wf hinf))
       ⟨hwsE, hbE, hLX⟩ hCE hwa
   have hsat : ∀ (σ : Nat → V) (ys : List V), SpineFit σ doms ys →
       Sat V doms.reverse (consList ys σ) := fun σ ys hys => by

@@ -2167,6 +2167,22 @@ private theorem isBoolTrue_shiftFrom {p : Nat} {e : Expr} :
     | rfl
     | (simp only [shiftFrom]; split <;> rfl)
 
+/-- The ground engine's term (task #423) is shift-invariant: the guard
+reads the sides' heads, fvar ranges and loose bound variables, and the
+term it picks has no free variable. -/
+private theorem groundTarget_shift {p : Nat} (eager : Bool) (a b : Expr) :
+    groundTarget eager (shiftFrom p a) (shiftFrom p b) = groundTarget eager a b := by
+  unfold groundTarget
+  rw [isBoolTrue_shiftFrom, isBoolTrue_shiftFrom, hasFvar_shiftFrom, hasFvar_shiftFrom,
+    looseBVarsBounded_shiftFrom, looseBVarsBounded_shiftFrom]
+  cases ha : a.hasFvar <;> cases hb : b.hasFvar <;>
+    simp [ha, hb, shiftFrom_eq_self_of_not_hasFvar]
+
+private theorem groundSite_shift {p : Nat} (eager : Bool) (env : Env) (a b : Expr) :
+    groundSite eager env (shiftFrom p a) (shiftFrom p b) = groundSite eager env a b := by
+  unfold groundSite
+  rw [groundTarget_shift]
+
 /-- The eq-true shortcut (the audit's E2) is shift-invariant: one `whnf`
 and a head test that ignores the shift. -/
 private theorem boolTrueShortcut_shift (_henv : EnvWF env)
@@ -2894,6 +2910,13 @@ private theorem defeq_step (henv : EnvWF env)
   simp only [defeqBody]
   rw [shiftFrom_beq]
   refine ite_congr' (fun _ => rfl) (fun _ => ?_)
+  -- the ground engine (task #423): its term is a closed side, which the
+  -- shift leaves alone
+  rw [groundSite_shift]
+  cases groundSite eager env a b with
+  | some o => cases o <;> rfl
+  | none =>
+  dsimp only
   -- the eq-true shortcut (E2): its guard reads the shifted sides' head
   -- and fvar range, both shift-invariant
   rw [isBoolTrue_shiftFrom, hasFvar_shiftFrom]

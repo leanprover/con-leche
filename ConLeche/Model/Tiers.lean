@@ -77,7 +77,7 @@ theorem inferReads_of
     InferReads m φ fuel := by
   intro d e t Δa ea hrun hws hb hLb hC hea
   obtain ⟨-, -, ta, hta, -⟩ :=
-    Rules.infer_sound hin (Rules.inferTypeCore_bridge hrun)
+    Rules.infer_sound hin (Rules.inferTypeCore_bridge m.wf hrun)
       ⟨hws, hb, hLb⟩ hC.toS hea
   exact ⟨ta, hta⟩
 

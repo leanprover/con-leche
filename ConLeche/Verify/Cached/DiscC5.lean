@@ -1,6 +1,7 @@
 module
 
 public import ConLeche.Verify.Cached.DiscC4
+public import ConLeche.Verify.Cached.GroundC
 
 public section
 
@@ -655,14 +656,29 @@ would reach `grind` as a lambda it compares by splitting). -/
   | some v => pure v
   | none => bodyPIP r env depth mode eager a b
 
+/-- Past the ground engine: the `Bool.true` shortcut and `quickDefEq`. -/
+@[expose] def bodyBTP (mode : CheckMode) (eager : Bool) (a b : Expr) : m Bool := do
+  if ← (if b.isBoolTrue && (eager || !a.hasFvar) then
+      boolTrueShortcut r depth a else pure false) then pure true else
+  quickDefEq mode r depth a b >>= bodyQ1P r env depth mode eager a b
+
+/-- The ground engine's answer (task #423). -/
+@[expose] def bodyGP (mode : CheckMode) (eager : Bool) (a b : Expr) :
+    Option (Except G4Stop Bool) → m Bool
+  | some (.ok v) => pure v
+  | some (.error e) => throw (g4StopError e)
+  | none => bodyBTP r env depth mode eager a b
+
 /-- `defeqBody` with its continuations named. -/
 theorem defeqBody_eq (mode : CheckMode) (a b : Expr) :
     defeqBody mode eager r env depth a b =
-      (if a == b then pure true else do
-        if ← (if b.isBoolTrue && (eager || !a.hasFvar) then
-            boolTrueShortcut r depth a else pure false) then pure true else
-        quickDefEq mode r depth a b >>= bodyQ1P r env depth mode eager a b : m Bool) := by
-  rw [defeqBody.eq_1]; rfl
+      (if a == b then pure true else
+        bodyGP r env depth mode eager a b (groundSite eager env a b) : m Bool) := by
+  rw [defeqBody.eq_1]
+  refine ite_congr rfl (fun _ => rfl) (fun _ => ?_)
+  cases groundSite eager env a b with
+  | none => rfl
+  | some o => cases o <;> rfl
 
 end PureBody
 
@@ -707,15 +723,30 @@ block its own triple. -/
   | some v => pure v
   | none => bodyPII mode eager r fe depth a b
 
+/-- Past the ground gate: the `Bool.true` shortcut and `quickDefEq` (cached). -/
+@[expose] def bodyBTI (mode : CheckMode) (eager : Bool) (r : CoreFnsI) (fe : FEnv) (depth : Nat)
+    (a b : Expr) : CheckCM Bool := do
+  let bt ← pure (Expr.isBoolTrue b)
+  let af ← pure (Expr.hasFvar a)
+  if ← (if bt && (eager || !af) then boolTrueShortcutI r depth a
+      else pure false) then pure true else
+  quickDefEqI mode r depth a b >>= bodyQ1I mode eager r fe depth a b
+
+/-- The ground gate's answer (cached). -/
+@[expose] def bodyGI (mode : CheckMode) (eager : Bool) (r : CoreFnsI) (fe : FEnv) (depth : Nat)
+    (a b : Expr) : Option Bool → CheckCM Bool
+  | some v => pure v
+  | none => bodyBTI mode eager r fe depth a b
+
 /-- `defeqBodyI` with its continuations named. -/
 theorem defeqBodyI_eq (r : CoreFnsI) (fe : FEnv) (depth : Nat) (a b : Expr) :
     defeqBodyI mode eager r fe depth a b =
-      (if a == b then pure true else do
-        let bt ← pure (Expr.isBoolTrue b)
-        let af ← pure (Expr.hasFvar a)
-        if ← (if bt && (eager || !af) then boolTrueShortcutI r depth a
-            else pure false) then pure true else
-        quickDefEqI mode r depth a b >>= bodyQ1I mode eager r fe depth a b : CheckCM Bool) := rfl
+      (if a == b then pure true else
+        groundGateM eager fe a b >>= bodyGI mode eager r fe depth a b : CheckCM Bool) := by
+  unfold defeqBodyI
+  refine ite_congr rfl (fun _ => rfl) (fun _ => ?_)
+  refine congrArg (groundGateM eager fe a b >>= ·) (funext fun g => ?_)
+  cases g <;> rfl
 
 theorem bodyTailC_spec (ih : SSimC mode eager env f) (henv : EnvWF env) {d : Nat} {a b : Expr}
     {s₀ : CState} (hs : CSOK mode eager env s₀) (hwa : Expr.WScoped d a) (hwb : Expr.WScoped d b) :
@@ -761,6 +792,25 @@ theorem bodyQ1C_spec (ih : SSimC mode eager env f) (henv : EnvWF env) {d : Nat} 
   sym only [conleche_grind, bodyQ1P] =>
     vcgen [bodyQ1I, bodyPIC_spec ih henv] <;> finish
 
+theorem bodyBTC_spec (ih : SSimC mode eager env f) (henv : EnvWF env) {d : Nat} {a b : Expr}
+    {s₀ : CState} (hs : CSOK mode eager env s₀) (hwa : Expr.WScoped d a) (hwb : Expr.WScoped d b) :
+    ⦃fun s => s = s₀⦄ bodyBTI mode eager (coreKnotI mode eager (mkFEnv env) f) (mkFEnv env) d a b
+    ⦃fun v s' => CSOK mode eager env s' ∧
+      Runs (bodyBTP (fueledFns mode eager env) env d mode eager a b) v; ⊤⦄ := by
+  sym only [conleche_grind, bodyBTP] =>
+    vcgen [bodyBTI, boolTrueShortcutC_spec ih, quickDefEqC_spec ih,
+      bodyQ1C_spec ih henv] <;> finish
+
+theorem bodyGC_spec (ih : SSimC mode eager env f) (henv : EnvWF env) {d : Nat} {a b : Expr}
+    {s₀ : CState} (hs : CSOK mode eager env s₀) (hwa : Expr.WScoped d a) (hwb : Expr.WScoped d b)
+    (g : Option Bool) (hg : GateRes eager env a b g) :
+    ⦃fun s => s = s₀⦄ bodyGI mode eager (coreKnotI mode eager (mkFEnv env) f) (mkFEnv env) d a b g
+    ⦃fun v s' => CSOK mode eager env s' ∧
+      Runs (bodyGP (fueledFns mode eager env) env d mode eager a b (groundSite eager env a b)) v;
+        ⊤⦄ := by
+  sym only [conleche_grind, bodyGP] =>
+    vcgen [bodyGI, bodyBTC_spec ih henv] <;> finish
+
 /-- The definitional-equality body simulates its specification. -/
 theorem defeqBodyC_spec (ih : SSimC mode eager env f) (henv : EnvWF env) {s₀ : CState} {d : Nat}
     {a b : Expr} (hs : CSOK mode eager env s₀) (hwa : Expr.WScoped d a) (hwb : Expr.WScoped d b) :
@@ -768,8 +818,8 @@ theorem defeqBodyC_spec (ih : SSimC mode eager env f) (henv : EnvWF env) {s₀ :
     ⦃fun v s' => CSOK mode eager env s' ∧ Runs (defeqBody mode eager (fueledFns mode eager env) env
         d a b) v; ⊤⦄ := by
   sym only [conleche_grind, defeqBody_eq] =>
-    vcgen [defeqBodyI_eq, boolTrueShortcutC_spec ih, quickDefEqC_spec ih,
-      bodyQ1C_spec ih henv] <;> finish
+    vcgen [defeqBodyI_eq, groundGateC_spec (mode := mode) henv eager,
+      bodyGC_spec ih henv] <;> finish
 
 end Walks
 

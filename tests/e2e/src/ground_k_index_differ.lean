@@ -7,10 +7,9 @@
    rejected (official too: this source without `debug.skipKernelTC`
    fails with the kernel's type mismatch).
 
-   Engine off: rejected, as official.  **Engine on: ACCEPTED, beyond
-   official**: the engine's K step (`groundMode = 10`, task #423) reduces
-   `Eq.rec` to its minor premise without the index check (`Red.iotaK`,
-   task #552), so `kBad` evaluates to `true`.  The claim holds in the
+   **ACCEPTED, beyond official**: the ground engine's K step (task #423)
+   reduces `Eq.rec` to its minor premise without the index check
+   (`Red.iotaK`, task #552), so `kBad` evaluates to `true`.  The claim holds in the
    model (the major is a proof of an equation between equal values of the
    quotient); it is not a definitional equality official accepts.
 

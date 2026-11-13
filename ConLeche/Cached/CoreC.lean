@@ -1594,35 +1594,27 @@ def defeqStuckI (r : CoreFnsI) (fe : FEnv) (depth : Nat) (a b : Expr) :
   | _, _ => stuckIrrelI r fe depth a b
 
 /-- The ground engine's stop, raised (task #423 soundness, ruling 4): a
-decline names the step and the constant; the maximum `Nat` size raises
-the cached core's own refusal (`natOpRefusal`, `natResultRefused`). -/
+maximum `Nat` size raises the cached core's own refusal (`natOpRefusal`,
+`natResultRefused`); every other stop as the specification raises it
+(`g4StopError`). -/
 def groundStopError (maxNat : Nat) : G4Stop → CheckError
-  | .decline msg => .notImplemented msg
   | .refuse op a b post =>
     if post then natNumeralTooBig
     else (natOpRefusal maxNat (natBin14Names.getD op .anonymous) a b).getD natNumeralTooBig
-  | .internal msg => .internal msg
-  | .stuck why => .internal s!"ground evaluation: a stuck shape raised ({why})"
-
-/-- **Interim** (task #423 soundness): the cached gate stays off until the
-specification's `defeqBody` calls the engine too (layer (d), item 3), so
-that `defeqBodyI_eq` holds without the engine; item 3 removes this
-constant and the gate always runs. -/
-@[noinline] def groundGateOn : Bool := false
+  | e => g4StopError e
 
 /-- The ground shortcut (task #423), on the declaration's kept program
 (`CState.ground4`).  An engine stop is raised here, so the comparison is
 never handed to the incumbent. -/
-@[inline] def groundGateM (eager : Bool) (fe : FEnv) (a b : Expr) : CheckCM (Option Bool) :=
-  if !groundGateOn then pure none else do
-    let maxNat ← maxNatSizeM
-    let P ← modifyGet fun s => (s.ground4, { s with ground4 := {} })
-    let (r, P) := groundShortcut eager fe maxNat P a b
-    modify fun s => { s with ground4 := P }
-    match r with
-    | none => pure none
-    | some (.ok v) => pure (some v)
-    | some (.error e) => throw (groundStopError maxNat e)
+@[inline] def groundGateM (eager : Bool) (fe : FEnv) (a b : Expr) : CheckCM (Option Bool) := do
+  let maxNat ← maxNatSizeM
+  let P ← modifyGet fun s => (s.ground4, { s with ground4 := {} })
+  let (r, P) := groundShortcut eager fe maxNat P a b
+  modify fun s => { s with ground4 := P }
+  match r with
+  | none => pure none
+  | some (.ok v) => pure (some v)
+  | some (.error e) => throw (groundStopError maxNat e)
 
 /-- The gate reads `fe` only through `find?` and `findTable?` (for
 `ConLeche/Verify/Cached/KnotCongr.lean`). -/
