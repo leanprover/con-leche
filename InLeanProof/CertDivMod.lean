@@ -31,8 +31,8 @@ open Lean InLean Std.WP ConLeche.Cached
 @[expose] def unresI (fe : InLean.FEnv) : Expr → Bool
   | .const c _ => (fe.find? c).isNone
   | .proj s _ _ => (fe.find? s).isNone
-  | .lit (.natVal _) => !natLitStoredF fe
-  | .lit (.strVal _) => !strLitStoredF fe
+  | .lit (.natVal _) => !fe.natLit
+  | .lit (.strVal _) => !fe.strLit
   | _ => false
 
 
@@ -51,12 +51,13 @@ theorem strLit_cr {L : ConLeche.Env} (h : ConLeche.strLitStored L = true) (s : S
 
 /-- **Resolution on the reading**, generic in the free variables' reading. -/
 theorem constsResolve_trE {fe : InLean.FEnv} {L : ConLeche.Env} (hP : EnvPresI fe L)
+    (hl : LitFlagsI fe)
     (fv : FVarId → Option ConLeche.Expr)
     (hfv : ∀ id, okE fv (.fvar id) = true → (trE fv (.fvar id)).constsResolve L = true) :
     ∀ (e : Expr) (k : Nat), okE fv e = true →
       anySpec (fun x _ => if unresI fe x then some true else none) e k = false →
       (trE fv e).constsResolve L = true := by
-  have hdom := envDomI_of hP
+  have hdom := envDomI_of hP hl
   intro e
   induction e with
   | bvar => intro _ _ _; rfl
@@ -73,13 +74,13 @@ theorem constsResolve_trE {fe : InLean.FEnv} {L : ConLeche.Env} (hP : EnvPresI f
     intro k _ ha
     cases l with
     | natVal m =>
-      cases hn : natLitStoredF fe
+      cases hn : fe.natLit
       · simp [anySpec, unresI, hn] at ha
-      · exact natLit_cr (by rw [← natLitStoredF_I hdom]; exact hn) m
+      · exact natLit_cr (by rw [← natLit_I hdom]; exact hn) m
     | strVal m =>
-      cases hn : strLitStoredF fe
+      cases hn : fe.strLit
       · simp [anySpec, unresI, hn] at ha
-      · exact strLit_cr (by rw [← strLitStoredF_I hdom]; exact hn) m
+      · exact strLit_cr (by rw [← strLit_I hdom]; exact hn) m
   | app f a ihf iha =>
     intro k hok ha
     simp only [okE, Bool.and_eq_true] at hok
@@ -131,6 +132,7 @@ theorem constsResolve_trE {fe : InLean.FEnv} {L : ConLeche.Env} (hP : EnvPresI f
 /-- **InLean's resolution is master's** on a reading with free variables
 resolving. -/
 theorem constsResolve_tr {fe : InLean.FEnv} {L : ConLeche.Env} (hP : EnvPresI fe L)
+    (hl : LitFlagsI fe)
     (fv : FVarId → Option ConLeche.Expr)
     (hfv : ∀ id, okE fv (.fvar id) = true → (trE fv (.fvar id)).constsResolve L = true)
     {e : Expr} (hok : okE fv e = true) (h : InLean.constsResolve fe e = true) :
@@ -138,21 +140,22 @@ theorem constsResolve_tr {fe : InLean.FEnv} {L : ConLeche.Env} (hP : EnvPresI fe
   unfold InLean.constsResolve at h
   simp only [Bool.not_eq_true'] at h
   rw [any_eq_anySpec] at h
-  refine constsResolve_trE hP fv hfv e 0 hok ?_
+  refine constsResolve_trE hP hl fv hfv e 0 hok ?_
   have : (fun x (_ : Nat) => if (match x with
       | .const c _ => (fe.find? c).isNone
       | .proj s _ _ => (fe.find? s).isNone
-      | .lit (.natVal _) => !natLitStoredF fe
-      | .lit (.strVal _) => !strLitStoredF fe
+      | .lit (.natVal _) => !fe.natLit
+      | .lit (.strVal _) => !fe.strLit
       | _ => false) = true then some true else none) =
       (fun x _ => if unresI fe x then some true else none) := by
     funext x k; cases x <;> rfl
   rw [← this]; exact h
 
 /-- Closed terms. -/
-theorem constsResolve_trC {fe : InLean.FEnv} {L : ConLeche.Env} (hP : EnvPresI fe L) {e : Expr}
+theorem constsResolve_trC {fe : InLean.FEnv} {L : ConLeche.Env} (hP : EnvPresI fe L)
+    (hl : LitFlagsI fe) {e : Expr}
     (hok : okC e = true) (h : InLean.constsResolve fe e = true) : (trC e).constsResolve L = true :=
-  constsResolve_tr hP _ (fun _ h => by simp [okE] at h) hok h
+  constsResolve_tr hP hl _ (fun _ h => by simp [okE] at h) hok h
 
 /-! ## The decoded pin entries are in range -/
 

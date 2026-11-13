@@ -20,7 +20,7 @@ against master's `.defnDecl` arm of `checkDeclKind`
 * **The guards at the pushed environment**: `natOpStoredOk_tr`,
   `natOpGuard_tr`, `divModEnvGuard_tr` (`EO.stripMData` keeps the reading,
   `erase_stripMData`).  InLean's `natOpGuard` reads the `Nat` names stored
-  (`natLitStoredF`), master's their kinds and shapes (`natLitSupported`): the
+  (`FEnv.natLit`), master's their kinds and shapes (`natLitSupported`): the
   shapes are `EnvWF.shapes`', the kinds are `NatKinds`, which no premise of
   the declaration step gives (master's model reads it off `BasisPinnedTT`), so
   it is a premise here.
@@ -323,7 +323,7 @@ theorem trC_boolConst : trC (.const InLean.boolName []) = .const ConLeche.boolNa
 
 /-- **InLean's operation guard is master's**, where the `Nat` names hold
 master's kinds and shapes (`natLitSupported`; InLean reads them stored). -/
-theorem natOpGuard_tr {fe : InLean.FEnv} {L : ConLeche.Env} (hP : EnvPresI fe L)
+theorem natOpGuard_tr {fe : InLean.FEnv} {L : ConLeche.Env} (hP : EnvPresI fe L) (hl : LitFlagsI fe)
     (hsh : ∀ n c, L.find? n = some c → ConLeche.litShapeOk c = true) (hk : ConLeche.NatKinds L)
     {c : Name} (h : InLean.natOpGuard fe c = true) : ConLeche.natOpGuard L (toName c) = true := by
   have t : ∀ {X : Name}, c ≠ X → toName c ≠ toName X := fun h e => h (toName_inj e)
@@ -332,7 +332,7 @@ theorem natOpGuard_tr {fe : InLean.FEnv} {L : ConLeche.Env} (hP : EnvPresI fe L)
   simp only [Bool.and_eq_true] at h
   obtain ⟨⟨h1, h2⟩, h3⟩ := h
   have g1 : ConLeche.natLitSupported L = true :=
-    ConLeche.natLitSupported_of_shapes hsh hk (by rw [← natLitStoredF_I (envDomI_of hP)]; exact h1)
+    ConLeche.natLitSupported_of_shapes hsh hk (by rw [← natLit_I (envDomI_of hP hl)]; exact h1)
   have g2 : (ConLeche.natOpDeps (toName c)).all (fun n => match L.find? n with
       | some (.defnInfo cv _ _) => cv.levelParams.isEmpty
       | _ => false) = true := by
@@ -639,9 +639,10 @@ theorem checkDefnC_struct_sim {fe : InLean.FEnv} {L : ConLeche.Env} (hJ : JobEnv
   have hd : toDecl [.defnInfo v] = some (.defnDecl (trCVn v.name v.levelParams v.type)
       (trC v.value) (toHint v.hints)) := by
     simp [toDecl, toCV_of_okC (v := v.toConstantVal) hok, toExprC_of_okC hokv]
-  have hP2 := presI_defn hJ.laws hJ.pres hd hfresh hr hrv hsafe (fun h => (hso h).elim)
-  have hfe2 : fe.push (.defnInfo v) = { fe with env := InLean.addConst fe.env (.defnInfo v) } := rfl
-  rw [← hfe2] at hP2
+  have hP2 := presI_congr (fe' := fe.push (.defnInfo v))
+    (presI_defn hJ.laws hJ.pres hd hfresh hr hrv hsafe (fun h => (hso h).elim)) rfl rfl rfl
+    (fun _ => rfl)
+  have hl2 : LitFlagsI (fe.push (.defnInfo v)) := hJ.lits.push hJ.laws hfresh
   simp only [ConLeche.declConstants, ConLeche.declTables, ConLeche.Env.pushDelta, List.reverse_cons,
     List.reverse_nil, List.nil_append, List.singleton_append] at hP2
   have hsh2 : ∀ n c, ConLeche.Env.find? ⟨.defnInfo (trCVn v.name v.levelParams v.type)
@@ -657,7 +658,7 @@ theorem checkDefnC_struct_sim {fe : InLean.FEnv} {L : ConLeche.Env} (hJ : JobEnv
     refine ⟨fun c hc => hk.1 c ?_, fun c hc => hk.2.1 c ?_, fun c hc => hk.2.2 c ?_⟩ <;>
       rw [env_find_cons] at hc <;>
       simpa [ConLeche.ConstantInfo.name, ConLeche.ConstantInfo.toConstantVal, trCVn, hN0, hN1, hN2] using hc
-  have g1 := natOpGuard_tr hP2 hsh2 hk2 hg.1
+  have g1 := natOpGuard_tr hP2 hl2 hsh2 hk2 hg.1
   have g2 : (ConLeche.natOpDeps (toName v.name)).all (ConLeche.natOpStoredOk
       ⟨.defnInfo (trCVn v.name v.levelParams v.type) (trC v.value) (toHint v.hints) :: L.consts,
         L.tables⟩) = true := by
@@ -701,6 +702,7 @@ theorem find_type_tr {fe : InLean.FEnv} {L : ConLeche.Env} (hP : EnvPresI fe L) 
 /-- **InLean's WF operations' environment guard is master's** (at the pushed
 environment), where the `Nat` names hold master's kinds and shapes. -/
 theorem divModEnvGuard_tr {fe : InLean.FEnv} {L : ConLeche.Env} (hP : EnvPresI fe L)
+    (hl : LitFlagsI fe)
     (hsh : ∀ n c, L.find? n = some c → ConLeche.litShapeOk c = true) (hk : ConLeche.NatKinds L)
     {c : Name} (h : InLean.divModEnvGuard fe c = true) :
     ConLeche.divModEnvGuard L (toName c) = true := by
@@ -708,7 +710,7 @@ theorem divModEnvGuard_tr {fe : InLean.FEnv} {L : ConLeche.Env} (hP : EnvPresI f
   unfold ConLeche.divModEnvGuard
   simp only [Bool.and_eq_true] at h
   obtain ⟨⟨⟨⟨h1, h2⟩, h3⟩, h4⟩, h5⟩ := h
-  have e1 := natOpGuard_tr hP hsh hk h1
+  have e1 := natOpGuard_tr hP hl hsh hk h1
   have e2 : (ConLeche.natOpDeps (toName c)).all (ConLeche.natOpStoredOk L) = true := by
     rw [natDeps_tr, List.all_map]
     rw [List.all_eq_true] at h2 ⊢

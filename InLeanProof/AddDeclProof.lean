@@ -364,7 +364,7 @@ theorem jobEnvI_of {V : Type w} [ConLeche.SetTheory V] (hlaws : EnvLaws) {E : Ke
     {L : ConLeche.Env} (hR : EnvRel E L) (hM : ConLeche.Model.EnvModelOk V L) :
     JobEnvI { env := E, coreAxioms := false, limits := lim } L :=
   ⟨hlaws, hR.presL, envWF_of_modelOk hM,
-    hR.projL⟩
+    hR.projL, litFlagsI_mk E .safe false [] lim⟩
 
 /-- **A declaration adding one constant** (every kind but the quotient package
 and an inductive block). -/
@@ -692,30 +692,32 @@ theorem addDeclSound (V : Type w) [ConLeche.SetTheory V] :
     refine single_step hlaws hd hdr (fun _ _ _ _ h => by cases h) ha rfl hfresh
       (fun _ h => by cases h) hR hM fun d' hd' => ?_
     by_cases hqs : v.name = InLean.quotSoundName
-    · exact presI_quotSound hlaws hR.pres hd' hfresh hdr hd.1
-        (checkAxiomC_quotSound (fe := { env := E, coreAxioms := false, limits := lim }) hK hqs).2.1
-    · exact presI_axiom hlaws hR.pres hd' hfresh hdr hqs hd.1 fun _ => rfl
+    · exact presI_congr (presI_quotSound hlaws hR.pres hd' hfresh hdr hd.1
+        (checkAxiomC_quotSound (fe := { env := E, coreAxioms := false, limits := lim }) hK hqs).2.1)
+        rfl rfl rfl fun _ => rfl
+    · exact presI_congr (presI_axiom hlaws hR.pres hd' hfresh hdr hqs hd.1 fun _ => rfl)
+        rfl rfl rfl fun _ => rfl
   | defnDecl v =>
     obtain ⟨rfl, hfresh⟩ := defn_shape (fe := { env := E, coreAxioms := false, limits := lim }) hd hK
     refine concl_congr (fun n => by rw [hq, foldl_single]) ?_
     exact single_step hlaws hd hdr (fun _ _ _ _ h => by cases h) ha rfl hfresh
       (fun _ h => by cases h) hR hM fun d' hd' =>
-        presI_defn hlaws hR.pres hd' hfresh hdr.1 hdr.2 hd fun hn =>
-          (hns (.defnInfo v) (fun _ h => by cases h) (by simp) hn).elim
+        presI_congr (presI_defn hlaws hR.pres hd' hfresh hdr.1 hdr.2 hd fun hn =>
+          (hns (.defnInfo v) (fun _ h => by cases h) (by simp) hn).elim) rfl rfl rfl fun _ => rfl
   | thmDecl v =>
     obtain ⟨rfl, hfresh⟩ := thm_shape (fe := { env := E, coreAxioms := false, limits := lim }) hK
     refine concl_congr (fun n => by rw [hq, foldl_single]) ?_
     exact single_step hlaws hd hdr (fun _ _ _ _ h => by cases h) ha rfl hfresh
       (fun _ h => by cases h) hR hM fun d' hd' =>
-        presI_thm hlaws hR.pres hd' hfresh hdr.1 fun hn =>
-          (hns (.thmInfo v) (fun _ h => by cases h) (by simp) hn).elim
+        presI_congr (presI_thm hlaws hR.pres hd' hfresh hdr.1 fun hn =>
+          (hns (.thmInfo v) (fun _ h => by cases h) (by simp) hn).elim) rfl rfl rfl fun _ => rfl
   | opaqueDecl v =>
     obtain ⟨rfl, hfresh⟩ := opaque_shape (fe := { env := E, coreAxioms := false, limits := lim }) hK
     refine concl_congr (fun n => by rw [hq, foldl_single]) ?_
     exact single_step hlaws hd hdr (fun _ _ _ _ h => by cases h) ha rfl hfresh
       (fun _ h => by cases h) hR hM fun d' hd' =>
-        presI_opaque hlaws hR.pres hd' hfresh hdr.1 hd fun hn =>
-          (hns (.opaqueInfo v) (fun _ h => by cases h) (by simp) hn).elim
+        presI_congr (presI_opaque hlaws hR.pres hd' hfresh hdr.1 hd fun hn =>
+          (hns (.opaqueInfo v) (fun _ h => by cases h) (by simp) hn).elim) rfl rfl rfl fun _ => rfl
   | mutualDefnDecl vs => exact hd.elim
   | quotDecl =>
     obtain ⟨hqt, hc⟩ := quot_step hlaws ha hR hM

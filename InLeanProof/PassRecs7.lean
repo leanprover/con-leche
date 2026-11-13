@@ -283,7 +283,7 @@ theorem genRecCheckI_run (hC : CheckConstantValCSimI) (hRF : ReducedFormerSimI)
     have hl := CtorLbb.mono ht' (hxss xs hxs x hx).1 (hxss xs hxs x hx).2
     exact ⟨(OkCC.mono ht' (hxss xs hxs x hx).1).1, hl.1, hl.2⟩
   unfold InLean.classFeROvl at h9
-  obtain ⟨hs₉, ht₉, hout, hR9⟩ := classRecsRulesOkI_run (feT := fe) hJ.pres hJR
+  obtain ⟨hs₉, ht₉, hout, hR9⟩ := classRecsRulesOkI_run (feT := fe) hJ.pres hJ.lits hJR
     (recOfM := ConLeche.classRecOf rd.recCls (cvGs.map trCV)) (fun t => classRecOf_tr _ _ t) hpl
     cvGs rd.recCls (fun m e L' => flushI_csoki hs₇.residue m e L') hg8 hct8 h9
   have ht₉' := ht₉.trans (TabLe.flushed (s := s₉))

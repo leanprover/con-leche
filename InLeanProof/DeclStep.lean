@@ -444,7 +444,7 @@ theorem checkAxiomC_sorry_sim {fe : InLean.FEnv} {L : ConLeche.Env} (hJ : JobEnv
   have nt : InLean.sorryAxName ≠ InLean.trustCompilerName := ne_of_toName (by rw [c1, c5]; decide)
   have no1 : InLean.sorryAxName ≠ InLean.ofReduceNatName := ne_of_toName (by rw [c1, c6]; decide)
   have no2 : InLean.sorryAxName ≠ InLean.ofReduceBoolName := ne_of_toName (by rw [c1, c7]; decide)
-  have hfe : ({ fe with safety := .safe } : InLean.FEnv) = fe := by cases fe; simp_all
+  have hfe : fe.withSafety .safe = fe := FEnv.withSafety_of_eq (by assumption)
   have bq : (InLean.sorryAxName == InLean.quotSoundName) = false := by simpa using nq
   have bp : (InLean.sorryAxName == InLean.propextName) = false := by simpa using np
   have bc : (InLean.sorryAxName == InLean.choiceName) = false := by simpa using nc

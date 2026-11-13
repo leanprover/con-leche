@@ -159,6 +159,30 @@ theorem presI_consSumCtorsF (hlaws : EnvLaws) {T : Name} {nP : Nat} :
     simp only [List.mem_cons, not_or] at hn
     rw [hold n hn.2, push_env_find hlaws hfr0 (by rw [hcn]; exact hn.1)]
 
+/-- **A member's constructors pushed** keep the literal flags' meaning; the
+other names' entries unchanged. -/
+theorem litFlagsI_consSumCtorsF (hlaws : EnvLaws) {T : Name} {nP : Nat} :
+    ∀ (cs : List (Lean.ConstantVal × Nat)) (i : Nat) {fe : InLean.FEnv}, LitFlagsI fe →
+      (∀ c ∈ cs, fe.env.find? c.1.name = none) → (cs.map (·.1.name)).Nodup →
+      LitFlagsI (InLean.consSumCtorsF T nP i cs fe) ∧
+        ∀ n, n ∉ cs.map (·.1.name) → (InLean.consSumCtorsF T nP i cs fe).env.find? n = fe.env.find? n
+  | [], _, _, hl, _, _ => ⟨hl, fun _ _ => rfl⟩
+  | c :: cs, i, fe, hl, hfr, hnd => by
+    simp only [List.map_cons, List.nodup_cons, List.mem_map] at hnd
+    simp only [InLean.consSumCtorsF]
+    generalize hci : Lean.ConstantInfo.ctorInfo
+      { toConstantVal := c.1, induct := T, cidx := i, numParams := nP, numFields := c.2, isUnsafe := false } = ci
+    have hcn : ci.name = c.1.name := by rw [← hci]; rfl
+    have hfr0 : fe.env.find? ci.name = none := by rw [hcn]; exact hfr c List.mem_cons_self
+    obtain ⟨hl1, hold1⟩ := hl.push_fresh hlaws hfr0
+    obtain ⟨hl2, hold2⟩ := litFlagsI_consSumCtorsF hlaws cs (i + 1) hl1
+      (fun d hd => by
+        rw [hold1 _ (by rw [hcn]; exact fun h => hnd.1 ⟨d, hd, h⟩)]
+        exact hfr d (List.mem_cons_of_mem _ hd)) hnd.2
+    refine ⟨hl2, fun n hn => ?_⟩
+    simp only [List.map_cons, List.mem_cons, not_or] at hn
+    rw [hold2 n hn.2, hold1 n (by rw [hcn]; exact hn.1)]
+
 /-- The block's constructor names, member by member. -/
 @[expose] def ctorNamesOf (ms : List InLean.MemberShape) : List Name :=
   ms.flatMap fun m => m.ctors.map (·.1.name)
@@ -182,6 +206,24 @@ theorem presI_consBlockCtorsF_go (hlaws : EnvLaws) {nP : Nat} :
     refine presI_consBlockCtorsF_go hlaws ms hP1 hR1 (fun m' hm' c hc => ?_) hnd.2.1
       (fun m' hm' c hc h => by rw [hcore]; exact hso m' (List.mem_cons_of_mem _ hm') c hc h)
       (fun m' hm' c hc => hok m' (List.mem_cons_of_mem _ hm') c hc)
+    have hnot : c.1.name ∉ m.ctors.map (·.1.name) := by
+      intro hin
+      exact hnd.2.2 _ hin _ (List.mem_flatMap.2 ⟨m', hm', List.mem_map_of_mem hc⟩) rfl
+    rw [hold _ hnot]
+    exact hfr m' (List.mem_cons_of_mem _ hm') c hc
+
+/-- **All members' constructors pushed** keep the literal flags' meaning. -/
+theorem litFlagsI_consBlockCtorsF_go (hlaws : EnvLaws) {nP : Nat} :
+    ∀ (ms : List InLean.MemberShape) {fe : InLean.FEnv}, LitFlagsI fe →
+      (∀ m ∈ ms, ∀ c ∈ m.ctors, fe.env.find? c.1.name = none) → (ctorNamesOf ms).Nodup →
+      LitFlagsI (ms.foldl (fun fe m => InLean.consSumCtorsF m.cvT.name nP 0 m.ctors fe) fe)
+  | [], _, hl, _, _ => hl
+  | m :: ms, fe, hl, hfr, hnd => by
+    simp only [ctorNamesOf, List.flatMap_cons, List.nodup_append] at hnd
+    simp only [List.foldl_cons]
+    obtain ⟨hl1, hold⟩ := litFlagsI_consSumCtorsF hlaws (T := m.cvT.name) (nP := nP) m.ctors 0
+      hl (hfr m List.mem_cons_self) hnd.1
+    refine litFlagsI_consBlockCtorsF_go hlaws ms hl1 (fun m' hm' c hc => ?_) hnd.2.1
     have hnot : c.1.name ∉ m.ctors.map (·.1.name) := by
       intro hin
       exact hnd.2.2 _ hin _ (List.mem_flatMap.2 ⟨m', hm', List.mem_map_of_mem hc⟩) rfl
@@ -212,7 +254,7 @@ theorem jobEnvI_ctors (hJ : JobEnvI fe L) (p : InLean.BlockShape)
   rw [trShape_ctorGroups_trCtor] at hwf ⊢
   obtain ⟨hP, hR⟩ := presI_consBlockCtorsF_go hJ.laws (nP := p.nP) p.members hJ.pres hJ.proj hfr hnd
     hso hok
-  exact ⟨hJ.laws, hP, hwf, hR⟩
+  exact ⟨hJ.laws, hP, hwf, hR, litFlagsI_consBlockCtorsF_go hJ.laws p.members hJ.lits hfr hnd⟩
 
 /-! ## The rule-less recursors -/
 
@@ -283,6 +325,24 @@ theorem presI_consBlockRecsBareF (hlaws : EnvLaws) {p : InLean.BlockShape}
         exact hfr d (List.mem_cons_of_mem _ hd))
       hnd.2 (fun d hd => hso d (List.mem_cons_of_mem _ hd)) (fun d hd => hok d (List.mem_cons_of_mem _ hd))
 
+/-- **The rule-less recursors pushed** keep the literal flags' meaning. -/
+theorem litFlagsI_consBlockRecsBareF (hlaws : EnvLaws) {p : InLean.BlockShape} :
+    ∀ (l : List (Lean.ConstantVal × Nat)) (m : Nat) {fe : InLean.FEnv}, LitFlagsI fe →
+      (∀ x ∈ l, fe.env.find? x.1.name = none) → (l.map (·.1.name)).Nodup →
+      LitFlagsI (InLean.consBlockRecsBareF p m l fe)
+  | [], _, _, hl, _, _ => hl
+  | (cv, n) :: l, m, fe, hl, hfr, hnd => by
+    simp only [List.map_cons, List.nodup_cons, List.mem_map] at hnd
+    simp only [InLean.consBlockRecsBareF]
+    generalize hci : InLean.recEntry p cv (p.majorIdxAt m) (p.rulePrefixAt m) false [] = ci
+    have hcn : ci.name = cv.name := by rw [← hci]; rfl
+    have hfr0 : fe.env.find? ci.name = none := by rw [hcn]; exact hfr _ List.mem_cons_self
+    obtain ⟨hl1, hold⟩ := hl.push_fresh hlaws hfr0
+    exact litFlagsI_consBlockRecsBareF hlaws l (m + 1) hl1
+      (fun d hd => by
+        rw [hold _ (by rw [hcn]; exact fun h => hnd.1 ⟨d, hd, h⟩)]
+        exact hfr d (List.mem_cons_of_mem _ hd)) hnd.2
+
 theorem zip_fst_sublist {α β : Type} : ∀ (l₁ : List α) (l₂ : List β),
     ((l₁.zip l₂).map Prod.fst).Sublist l₁
   | [], _ => by simp
@@ -326,7 +386,8 @@ theorem jobEnvI_ruleEnv (hJ : JobEnvI fe L) {p : InLean.BlockShape} {Ms : List I
     rfl
   obtain ⟨hP, hR⟩ := presI_consBlockRecsBareF hJ.laws hle _ _ 0 hl hJ.pres hJ.proj
     (fun x hx => hfr _ (hmem x hx)) hnd' (fun x hx => hso _ (hmem x hx)) (fun x hx => hok _ (hmem x hx))
-  exact ⟨hJ.laws, hP, ConLeche.Cached.envWF_ruleEnv hJ.wf hT _ _, hR⟩
+  exact ⟨hJ.laws, hP, ConLeche.Cached.envWF_ruleEnv hJ.wf hT _ _, hR,
+    litFlagsI_consBlockRecsBareF hJ.laws _ 0 hJ.lits (fun x hx => hfr _ (hmem x hx)) hnd'⟩
 
 
 /-! ## The stage's guards, translated -/

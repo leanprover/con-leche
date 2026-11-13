@@ -59,7 +59,7 @@ theorem ruleAgreeI_run {fe : InLean.FEnv} {L : ConLeche.Env} (hJ : JobEnvI fe L)
   have hc' : InLean.constsResolveF fe sr s₀ = .ok (c, s₁) := hc
   rw [constsResolveF_state hc'] at h
   cases c <;> simp only [Bool.false_eq_true, ↓reduceIte] at h <;> try exact absurd h hth
-  have gR := constsResolveF_tr hJ.pres hokS hc'
+  have gR := constsResolveF_tr hJ.pres hJ.lits hokS hc'
   -- the two inferences
   obtain ⟨ts, s₂, hI1, h⟩ := bindI_ok h
   obtain ⟨hs₂, ht₂, hok₂, hR2, hw₂, hl₂⟩ := tripleI_iff_run.1 (hJ.ops.infer (s₀ := s₀) (d := 0)
@@ -295,7 +295,7 @@ theorem recTyCheckI_run {fe : InLean.FEnv} {L : ConLeche.Env} (hJ : JobEnvI fe L
   have hc' : InLean.constsResolveF fe sT s₀ = .ok (c, s₁) := hc
   rw [constsResolveF_state hc'] at h
   cases c <;> simp only [Bool.false_eq_true, ↓reduceIte] at h <;> try exact absurd h hth
-  have gR := constsResolveF_tr hJ.pres hokS hc'
+  have gR := constsResolveF_tr hJ.pres hJ.lits hokS hc'
   -- the stored type is a type
   obtain ⟨st, s₂, hI1, h⟩ := bindI_ok h
   obtain ⟨hs₂, ht₂, hok₂, hR2, hw₂, hl₂⟩ := tripleI_iff_run.1 (hJ.ops.infer (s₀ := s₀) (d := 0)

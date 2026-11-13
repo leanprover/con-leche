@@ -783,7 +783,7 @@ theorem checkTermWF_run {fe : InLean.FEnv} {pre : String} {n : Name} {lps : List
   rename_i h3
   have hfin : ∀ {s₁ : InLean.CState},
       (if InLean.constsResolve fe e = true then pure ()
-        else throw (InLean.unresolvedConstsErrorL fe (strLitStoredF fe) s!"{pre}{n}" e) : InLean.CheckCM Unit)
+        else throw (InLean.unresolvedConstsErrorL fe (fe.strLit) s!"{pre}{n}" e) : InLean.CheckCM Unit)
         s₁ = .ok (u, s') → s' = s₁ := by
     intro s₁ hh
     split at hh

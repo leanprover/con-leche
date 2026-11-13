@@ -388,6 +388,14 @@ theorem genEntryOk_of_run {L : ConLeche.Env} {p : InLean.BlockShape} {s : InLean
   obtain ⟨-, rfl, -⟩ := hs'
   exact hargs
 
+/-- The generated family's names are the outputs'. -/
+theorem blockRecInfosTF_names (p : InLean.BlockShape) :
+    ∀ (out : List (Lean.ConstantVal × InLean.TargetMajor × List Lean.Expr)) (m : Nat),
+      (InLean.blockRecInfosTF p m out).map (·.name) = out.map (·.1.name)
+  | [], _ => rfl
+  | (cv, M, rhss) :: out, m => by
+    simp only [InLean.blockRecInfosTF, List.map_cons, blockRecInfosTF_names p out (m + 1)]; rfl
+
 /-- **`JobEnvI` at the generated recursors' environment**
 (`fe₂.pushAll (blockRecInfosTF p 0 out)`, where the stored recursors are
 checked) against master's `consBlockRecsT`: well-formedness is master's
@@ -403,7 +411,12 @@ theorem jobEnvI_genRecs {fe : InLean.FEnv} {L : ConLeche.Env} (hJ : JobEnvI fe L
       (ConLeche.consBlockRecsT (trShape p) 0 (out.map (trOut s)) L) := by
   obtain ⟨hP, hR⟩ := presI_blockRecInfosTF hJ.laws p s out 0 hJ.pres hJ.proj hfr hnd hso
     (fun i o h => by rw [Nat.zero_add]; exact hok i o h)
-  exact ⟨hJ.laws, hP, hwf, hR⟩
+  refine ⟨hJ.laws, hP, hwf, hR, LitFlagsI.pushAll hJ.laws _ hJ.lits (fun ci hci => ?_)
+    (by rw [blockRecInfosTF_names]; exact hnd)⟩
+  have hin : ci.name ∈ out.map (·.1.name) := by
+    rw [← blockRecInfosTF_names p out 0]; exact List.mem_map_of_mem hci
+  obtain ⟨o, ho, he⟩ := List.mem_map.1 hin
+  rw [← he]; exact hfr o ho
 
 /-- **The generated recursors are at the stream's recursors' names**
 (master's `genRecCheck_outCv` on the readings), so they are distinct
@@ -700,7 +713,7 @@ taken" guard, which InLean does not test: a table at `T` in `L` would be one
 InLean reads off a former at `T` not pending (`ProjTableRelI`'s environment
 clause), and every former at `T` is pending. -/
 theorem checkStructProjTableCI_run {fe : InLean.FEnv} {L : ConLeche.Env} (hP : EnvPresI fe L)
-    {t : InLean.ProjTable} {ct : ConLeche.ProjTable} (hrel : ProjTableRelI t ct)
+    (hlf : LitFlagsI fe) {t : InLean.ProjTable} {ct : ConLeche.ProjTable} (hrel : ProjTableRelI t ct)
     (hpend : ∀ v, fe.find? t.structName = some (.inductInfo v) → fe.isPending v.name = true)
     {s₀ s' : InLean.CState}
     (h : InLean.checkStructProjTableC t fe s₀ = .ok ((), s')) :
@@ -747,7 +760,7 @@ theorem checkStructProjTableCI_run {fe : InLean.FEnv} {L : ConLeche.Env} (hP : E
     obtain ⟨rfl, hlp⟩ := allLevelParamsDefined_noFVar hnfv ha2
     obtain ⟨_, ha3, ha4⟩ := andM_true hbt
     obtain ⟨ha4, -⟩ := pureI_ok ha4
-    have hres := constsResolveF_tr hP hokb ha3
+    have hres := constsResolveF_tr hP hlf hokb ha3
     have hlpC := allLevelParamsDefined_of_guard (lps := t.levelParams) hr fun hh => by
       simpa [hh] using hlp.symm
     have hbnd : (trC b).looseBVarsBounded (t.numParams + 1) = true := by
@@ -781,7 +794,8 @@ theorem checkStructProjTableCI_run {fe : InLean.FEnv} {L : ConLeche.Env} (hP : E
 /-- **The block's projection tables** (`checkBlockTablesC`): InLean's check
 passing on its tables means master's `checkBlockTables` passes on the related
 ones, table by table (`checkStructProjTableCI_run`); the state is unchanged. -/
-theorem checkBlockTablesCI_run {fe : InLean.FEnv} {L : ConLeche.Env} (hP : EnvPresI fe L) :
+theorem checkBlockTablesCI_run {fe : InLean.FEnv} {L : ConLeche.Env} (hP : EnvPresI fe L)
+    (hlf : LitFlagsI fe) :
     ∀ {Q : List InLean.ProjTable} {cQ : List ConLeche.ProjTable} {s₀ s' : InLean.CState},
       ProjTablesRelI Q cQ →
       (∀ t ∈ Q, ∀ v, fe.find? t.structName = some (.inductInfo v) → fe.isPending v.name = true) →
@@ -794,8 +808,8 @@ theorem checkBlockTablesCI_run {fe : InLean.FEnv} {L : ConLeche.Env} (hP : EnvPr
   | t :: Q, ct :: cQ, s₀, s', ProjTablesRelI.cons hr hrs, hpend, h => by
     unfold InLean.checkBlockTablesC at h
     obtain ⟨u, s₁, h1, h2⟩ := bindI_ok h
-    obtain ⟨rfl, hR1⟩ := checkStructProjTableCI_run hP hr (hpend t List.mem_cons_self) h1
-    obtain ⟨rfl, hR⟩ := checkBlockTablesCI_run hP hrs
+    obtain ⟨rfl, hR1⟩ := checkStructProjTableCI_run hP hlf hr (hpend t List.mem_cons_self) h1
+    obtain ⟨rfl, hR⟩ := checkBlockTablesCI_run hP hlf hrs
       (fun t' ht' => hpend t' (List.mem_cons_of_mem _ ht')) h2
     refine ⟨rfl, ?_⟩
     unfold ConLeche.checkBlockTables

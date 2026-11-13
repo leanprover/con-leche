@@ -759,7 +759,7 @@ structure DefeqEnvI (fe : InLean.FEnv) (env : ConLeche.Env) : Prop where
   unfoldable : ∀ s e, OkS s e = true →
     unfoldableHeadC fe e = ConLeche.unfoldableHead env (TrS s e)
   headHint : ∀ s e, OkS s e = true → trHint (headHintC fe e) = ConLeche.headHint env (TrS s e)
-  strLit : strLitStoredF fe = ConLeche.strLitStored env
+  strLit : fe.strLit = ConLeche.strLitStored env
   ctor : ∀ c, ctorRd env (toName c) = (fe.ctorView? c).map ctorGateI
   ind : ∀ T, indRd env (toName T) = (fe.indView? T).map indGateI
   /-- the views (the tables, the unit-like shape and the partial-constructor
@@ -842,9 +842,9 @@ theorem etaShape_TrS (hfe : DefeqEnvI fe env) {s : InLean.CState} {a : Expr}
   hfe.etaShape s a h
 grind_pattern [conleche_grind] etaShape_TrS => DefeqEnvI fe env, OkS s a, etaCtorShapeC fe a
 
-theorem strLit_eq (hfe : DefeqEnvI fe env) : strLitStoredF fe = ConLeche.strLitStored env :=
+theorem strLit_eq (hfe : DefeqEnvI fe env) : fe.strLit = ConLeche.strLitStored env :=
   hfe.strLit
-grind_pattern [conleche_grind] strLit_eq => DefeqEnvI fe env, strLitStoredF fe
+grind_pattern [conleche_grind] strLit_eq => DefeqEnvI fe env, fe.strLit
 
 theorem unfoldable_TrS (hfe : DefeqEnvI fe env) {s : InLean.CState} {e : Expr}
     (h : OkS s e = true) : unfoldableHeadC fe e = ConLeche.unfoldableHead env (TrS s e) :=

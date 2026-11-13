@@ -330,8 +330,8 @@ theorem usedConstants_complete {e : Lean.Expr} {n : Lean.Name}
 /-- The nodes InLean's resolution test refuses. -/
 @[expose] def crBad (fe : InLean.FEnv) : Lean.Expr → Bool
   | .proj s _ _ => (fe.find? s).isNone
-  | .lit (.natVal _) => !natLitStoredF fe
-  | .lit (.strVal _) => !strLitStoredF fe
+  | .lit (.natVal _) => !fe.natLit
+  | .lit (.strVal _) => !fe.strLit
   | _ => false
 
 theorem find_isSome_tr {fe : InLean.FEnv} {L : ConLeche.Env} (hP : EnvPresI fe L) {n : Lean.Name}
@@ -341,7 +341,8 @@ theorem find_isSome_tr {fe : InLean.FEnv} {L : ConLeche.Env} (hP : EnvPresI fe L
   rw [hL]; rfl
 
 /-- **InLean's resolution test is master's**, on a closed reading. -/
-theorem constsResolve_of_test {fe : InLean.FEnv} {L : ConLeche.Env} (hP : EnvPresI fe L) :
+theorem constsResolve_of_test {fe : InLean.FEnv} {L : ConLeche.Env} (hP : EnvPresI fe L)
+    (hl : LitFlagsI fe) :
     ∀ {e : Lean.Expr}, okC e = true →
       (∀ n, OccS (fun _ => false) ucPick n e → (fe.find? n).isSome = true) →
       ∀ k, anySpec (fun x _ => if crBad fe x then some true else none) e k = false →
@@ -360,18 +361,21 @@ theorem constsResolve_of_test {fe : InLean.FEnv} {L : ConLeche.Env} (hP : EnvPre
     cases l with
     | natVal =>
       simp only [anySpec, crBad] at ha
-      cases hs : natLitStoredF fe
+      cases hs : fe.natLit
       · simp [hs] at ha
-      simp only [natLitStoredF, Bool.and_eq_true] at hs
+      rw [hl.nat] at hs
+      simp only [InLean.natLitStoredBy, Bool.and_eq_true] at hs
       obtain ⟨⟨h1, h2⟩, h3⟩ := hs
       simp only [trC, trE, toLit, ConLeche.Expr.constsResolve, ← c1, ← c2, ← c3,
         find_isSome_tr hP h1, find_isSome_tr hP h2, find_isSome_tr hP h3, Bool.and_self]
     | strVal =>
       simp only [anySpec, crBad] at ha
-      cases hs : strLitStoredF fe
+      cases hs : fe.strLit
       · simp [hs] at ha
-      simp only [strLitStoredF, natLitStoredF, Bool.and_eq_true] at hs
-      obtain ⟨⟨⟨⟨⟨⟨⟨⟨⟨h1, h2⟩, h3⟩, h4⟩, h5⟩, h6⟩, h7⟩, h8⟩, h9⟩, h10⟩ := hs
+      rw [hl.str] at hs
+      simp only [InLean.strLitStoredBy, InLean.strSupportBy, InLean.natLitStoredBy,
+        Bool.and_eq_true] at hs
+      obtain ⟨⟨⟨h1, h2⟩, h3⟩, ⟨⟨⟨⟨⟨⟨h4, h5⟩, h6⟩, h7⟩, h8⟩, h9⟩, h10⟩⟩ := hs
       simp only [trC, trE, toLit, ConLeche.Expr.constsResolve, ← c1, ← c2, ← c3, ← c4, ← c5,
         ← c6, ← c7, ← c8, ← c9, ← c10, find_isSome_tr hP h1, find_isSome_tr hP h2,
         find_isSome_tr hP h3, find_isSome_tr hP h4, find_isSome_tr hP h5, find_isSome_tr hP h6,
@@ -430,7 +434,7 @@ theorem constsResolve_of_test {fe : InLean.FEnv} {L : ConLeche.Env} (hP : EnvPre
 `resolve`, `constsResolveF`): accepted, master's resolution holds of the
 closed reading at a related environment. -/
 theorem constsResolveF_tr {fe : InLean.FEnv} {L : ConLeche.Env} (hP : EnvPresI fe L)
-    {e : Lean.Expr} (hok : okC e = true) {s s' : InLean.CState}
+    (hl : LitFlagsI fe) {e : Lean.Expr} (hok : okC e = true) {s s' : InLean.CState}
     (h : InLean.constsResolveF fe e s = .ok (true, s')) : (trC e).constsResolve L = true := by
   have hf : e.hasFVar = false := by
     rw [Expr.hasFVar_eq (RangeOk_of_okE hok)]; exact fvarS_of_okC hok
@@ -440,7 +444,7 @@ theorem constsResolveF_tr {fe : InLean.FEnv} {L : ConLeche.Env} (hP : EnvPresI f
   cases h1
   obtain ⟨hb, -⟩ := pureI_ok h2
   simp only [List.all_cons, List.all_nil, Bool.and_true, Bool.and_eq_true, Bool.not_eq_true'] at hb
-  refine constsResolve_of_test hP hok (fun n hn => ?_) 0 ?_
+  refine constsResolve_of_test hP hl hok (fun n hn => ?_) 0 ?_
   · exact Array.all_eq_true_iff_forall_mem.1 hb.1 n (usedConstants_complete hn)
   · have := hb.2
     simp only [EO.any, anyNode_spec] at this
@@ -521,7 +525,7 @@ twin): from a flushed state, the rule with a reading, typed at the rule-less
 recursors' environment (`JobEnvI feR LR`), its domains resolved at the
 constructors' (`EnvPresI feT LT`). -/
 theorem classRuleCheckI_run {feT feR : InLean.FEnv} {LT LR : ConLeche.Env}
-    (hPT : EnvPresI feT LT) (hJR : JobEnvI feR LR) {cvR : Lean.ConstantVal} {n : Nat}
+    (hPT : EnvPresI feT LT) (hlT : LitFlagsI feT) (hJR : JobEnvI feR LR) {cvR : Lean.ConstantVal} {n : Nat}
     {gen : Lean.Expr} {s₀ s' : InLean.CState} (hs : CSOKIF s₀) (hok : OkS s₀ gen = true)
     (h : InLean.classRuleCheck .verified feT feR cvR n gen s₀ =
       .ok ((), s')) :
@@ -581,7 +585,7 @@ theorem classRuleCheckI_run {feT feR : InLean.FEnv} {LT LR : ConLeche.Env}
   have gT : ∀ b ∈ rbs.map trC, b.constsResolve LT = true := by
     intro b hb
     obtain ⟨b', hb', rfl⟩ := List.mem_map.1 hb
-    exact constsResolveF_tr hPT (hrbs b' hb') (hall b' hb')
+    exact constsResolveF_tr hPT hlT (hrbs b' hb') (hall b' hb')
   unfold ConLeche.classRuleCheck
   simp only [ConLeche.mkFEnv_env, ConLeche.constsResolveF_eq, hlbb,
     trC_hasFvar, trCV, hlp, gR, hsl, Bool.not_false, Bool.and_self, ↓reduceIte]
@@ -608,7 +612,7 @@ theorem all_okLv_param (lps : List Lean.Name) : (lps.map Lean.Level.param).all o
 (`classGenRuleI_run`), read where its check found it marker-free, and checked
 (`classRuleCheckI_run`). -/
 theorem classRulesOkI_run {feT feR : InLean.FEnv} {LT LR : ConLeche.Env}
-    (hPT : EnvPresI feT LT) (hJR : JobEnvI feR LR) {g : InLean.ClassGen}
+    (hPT : EnvPresI feT LT) (hlT : LitFlagsI feT) (hJR : JobEnvI feR LR) {g : InLean.ClassGen}
     {recOf : Nat → Option Lean.Name} {recOfM : Nat → Option ConLeche.Name}
     (hrec : ∀ t, recOfM t = (recOf t).map toName) (hpl : g.params.length = g.nP)
     {cvR : Lean.ConstantVal} {c : Nat} :
@@ -639,10 +643,10 @@ theorem classRulesOkI_run {feT feR : InLean.FEnv} {LT LR : ConLeche.Env}
     obtain ⟨_, s₄, h4, h5⟩ := bindI_ok h3
     obtain ⟨rfl, rfl⟩ := pureI_ok h5
     obtain ⟨hok, hmas⟩ := hgen gen hr (classRuleCheck_emvar h4)
-    obtain ⟨hs₄, ht₄, hokc, hlbb, hR4⟩ := classRuleCheckI_run hPT hJR hs₁.residue hok h4
+    obtain ⟨hs₄, ht₄, hokc, hlbb, hR4⟩ := classRuleCheckI_run hPT hlT hJR hs₁.residue hok h4
     obtain ⟨hg₄, htr⟩ := CGOk.mono (ht₁.trans ht₄) hg
     obtain ⟨rs, s₅, h6, hD⟩ := bindI_ok hC
-    obtain ⟨hs₅, ht₅, hrs, hR6⟩ := classRulesOkI_run hPT hJR hrec hpl xs hs₄ hg₄
+    obtain ⟨hs₅, ht₅, hrs, hR6⟩ := classRulesOkI_run hPT hlT hJR hrec hpl xs hs₄ hg₄
       (fun y hy => (RuleCtorOk.mono (ht₁.trans ht₄) (hxs y (List.mem_cons_of_mem _ hy))).1) h6
     obtain ⟨rfl, rfl⟩ := pureI_ok hD
     refine ⟨hs₅, (ht₁.trans ht₄).trans ht₅, fun y hy => ?_, ?_⟩
@@ -677,7 +681,7 @@ theorem getD_ctors_mem {xss : List (List InLean.ClassCtor)} {c : Nat} {x : InLea
 
 /-- **Every recursor's generated rules** (`classRecsRulesOk`), each with its class. -/
 theorem classRecsRulesOkI_run {feT feR : InLean.FEnv} {LT LR : ConLeche.Env}
-    (hPT : EnvPresI feT LT) (hJR : JobEnvI feR LR) {g : InLean.ClassGen}
+    (hPT : EnvPresI feT LT) (hlT : LitFlagsI feT) (hJR : JobEnvI feR LR) {g : InLean.ClassGen}
     {recOf : Nat → Option Lean.Name} {recOfM : Nat → Option ConLeche.Name}
     (hrec : ∀ t, recOfM t = (recOf t).map toName) (hpl : g.params.length = g.nP) :
     ∀ (cvs : List Lean.ConstantVal) (cs : List Nat) {s₀ s' : InLean.CState}
@@ -693,11 +697,11 @@ theorem classRecsRulesOkI_run {feT feR : InLean.FEnv} {LT LR : ConLeche.Env}
   | cvG :: cvs, c :: cs, s₀, s', v, hs, hg, hct, h => by
     unfold InLean.classRecsRulesOk at h
     obtain ⟨rhss, s₁, h1, hA⟩ := bindI_ok h
-    obtain ⟨hs₁, ht₁, hrh, hR1⟩ := classRulesOkI_run hPT hJR hrec hpl (g.ctors.getD c []) hs hg
+    obtain ⟨hs₁, ht₁, hrh, hR1⟩ := classRulesOkI_run hPT hlT hJR hrec hpl (g.ctors.getD c []) hs hg
       (fun x hx => by obtain ⟨xs, hxs, hx⟩ := getD_ctors_mem hx; exact hct xs hxs x hx) h1
     obtain ⟨hg₁, htr⟩ := CGOk.mono ht₁ hg
     obtain ⟨xs, s₂, h2, hB⟩ := bindI_ok hA
-    obtain ⟨hs₂, ht₂, hxs, hR2⟩ := classRecsRulesOkI_run hPT hJR hrec hpl cvs cs hs₁ hg₁
+    obtain ⟨hs₂, ht₂, hxs, hR2⟩ := classRecsRulesOkI_run hPT hlT hJR hrec hpl cvs cs hs₁ hg₁
       (fun ys hys y hy => (RuleCtorOk.mono ht₁ (hct ys hys y hy)).1) h2
     obtain ⟨rfl, rfl⟩ := pureI_ok hB
     refine ⟨hs₂, ht₁.trans ht₂, fun o ho => ?_, ?_⟩

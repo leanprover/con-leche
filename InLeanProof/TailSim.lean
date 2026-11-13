@@ -257,7 +257,7 @@ theorem tailSimI (hC : CheckConstantValCSimI) (hRF : ReducedFormerSimI) :
     unfold InLean.FEnv.isPending
     rw [consBlockCtorsF_pending, hpend, hn, List.contains_append, Bool.or_eq_true]
     exact Or.inl (by simpa [InLean.blockMarks] using ⟨ms, hms, rfl⟩)
-  obtain ⟨rfl, hRT⟩ := checkBlockTablesCI_run hJ₂.pres hrelQ hTpend hD'
+  obtain ⟨rfl, hRT⟩ := checkBlockTablesCI_run hJ₂.pres hJ₂.lits hrelQ hTpend hD'
   refine ⟨hs₅.residue.flushed, ?_⟩
   have hcQ' : ConLeche.blockTables (trShape p) (trShape p).members = some cQ := hcQ
   -- master's tail

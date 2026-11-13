@@ -414,6 +414,26 @@ theorem markedExt_consBlockIndsF (hlaws : EnvLaws) {p : InLean.BlockShape} {isRe
       exact fun h => hnd.1 ⟨c, hc, h⟩)]
     exact hfr c (List.mem_cons_of_mem _ hc)
 
+/-- **The formers pushed** keep the literal flags' meaning. -/
+theorem litFlagsI_consBlockIndsF (hlaws : EnvLaws) {p : InLean.BlockShape} {isRec : Bool} :
+    ∀ (l : List Lean.ConstantVal) (k : Nat) {fe : InLean.FEnv}, LitFlagsI fe →
+      (∀ cv ∈ l, fe.env.find? cv.name = none) → (l.map (·.name)).Nodup →
+      LitFlagsI (InLean.consBlockIndsF p isRec l k fe)
+  | [], _, _, hl, _, _ => hl
+  | cv :: rest, k, fe, hl, hfr, hnd => by
+    simp only [List.map_cons, List.nodup_cons, List.mem_map] at hnd
+    simp only [InLean.consBlockIndsF]
+    generalize hv : InductiveVal.mk cv p.nP (p.members.getD k default).nIdx p.memberNames
+      ((p.members.getD k default).ctors.map (·.1.name)) 0 isRec false false = v
+    have hvn : (ConstantInfo.inductInfo v).name = cv.name := by rw [← hv]; rfl
+    have hfr0 : fe.env.find? (ConstantInfo.inductInfo v).name = none := by
+      rw [hvn]; exact hfr cv List.mem_cons_self
+    obtain ⟨hl1, hold⟩ := hl.push_fresh hlaws hfr0
+    exact litFlagsI_consBlockIndsF hlaws rest (k + 1) hl1
+      (fun c hc => by
+        rw [hold _ (by rw [hvn]; exact fun h => hnd.1 ⟨c, hc, h⟩)]
+        exact hfr c (List.mem_cons_of_mem _ hc)) hnd.2
+
 /-! ## The job's premises at the formers' environment -/
 
 /-- **`JobEnvI` at the formers' push** (finding 1 of lane O7-stages): from
@@ -451,6 +471,11 @@ theorem jobEnvI_formers (hJ : JobEnvI fe L) {p : InLean.BlockShape} {isRec : Boo
         obtain ⟨m, hm, rfl⟩ := List.mem_map.1 hcv
         exact isPending_marks (p.withSort s0) (by simpa [InLean.BlockShape.withSort] using hm)))
   have hproj := hE.projBodies hJ.proj
-  exact ⟨hJ.laws, hpres, hwf, hproj⟩
+  exact ⟨hJ.laws, hpres, hwf, hproj,
+    litFlagsI_consBlockIndsF hJ.laws _ 0 (hJ.lits.congr (fun _ => rfl) rfl rfl)
+      (fun cv hcv => by
+        obtain ⟨m, hm, rfl⟩ := List.mem_map.1 hcv
+        exact hfr' m hm)
+      (by rw [List.map_map]; exact hpre.nodup)⟩
 
 end InLeanProof

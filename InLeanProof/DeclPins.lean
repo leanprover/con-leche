@@ -383,7 +383,7 @@ theorem checkAxiomC_pinned_sim {fe : InLean.FEnv} {L : ConLeche.Env} (hJ : JobEn
     CSOKI .verified false L s' ∧ TabLe s₀ s' ∧ a.consts = #[.axiomInfo v] ∧ a.quot = false ∧
       ∃ d, toDecl [.axiomInfo v] = some d ∧ KindRuns pins L d := by
   obtain ⟨c1, c2, -, -, c5, c6, c7, -, -, -⟩ := cl_axNames
-  have hfe : ({ fe with safety := .safe } : InLean.FEnv) = fe := by cases fe; simp_all
+  have hfe : fe.withSafety .safe = fe := FEnv.withSafety_of_eq (by assumption)
   have bq : (v.name == InLean.quotSoundName) = false := by simpa using hq
   have bs : (v.name == InLean.sorryAxName) = false := by simpa using hso
   unfold InLean.checkAxiomC at h
@@ -606,10 +606,9 @@ theorem checkOpaqueC_reduce_sim {fe : InLean.FEnv} {L : ConLeche.Env} (hJ : JobE
     have hf : (InLean.addConst fe.env (.opaqueInfo v)).find? v.name = some (.opaqueInfo v) := by
       rw [hJ.laws.1 fe.env (.opaqueInfo v) v.name hfresh]; exact ite_eq_left rfl
     unfold InLean.reduceStoredOk InLean.FEnv.find? at hst
-    simp only [InLean.FEnv.push, hf] at hst
+    simp only [InLean.FEnv.push, InLean.FEnv.sees, hf] at hst
     have hm : (InLean.reduceOpPin v.name).matchesExact (.opaqueInfo v) = true := by
-      by_cases hsee : InLean.FEnv.sees { fe with env := InLean.addConst fe.env (.opaqueInfo v) } v.name
-          (.opaqueInfo v) = true
+      by_cases hsee : InLean.seesAt fe.safety fe.coreAxioms v.name (.opaqueInfo v) = true
       · simpa only [hsee, ↓reduceIte] using hst
       · simp only [hsee, Bool.false_eq_true, ↓reduceIte] at hst
     unfold ConLeche.reduceStoredOk

@@ -88,10 +88,10 @@ theorem flags_trC {e : Expr} (h : okC e = true) :
 /-- **Master's resolution gives InLean's** on a reading (free variables are
 not InLean's concern). -/
 theorem constsResolve_trE_conv {fe : InLean.FEnv} {L : ConLeche.Env} (hP : EnvPresI fe L)
-    (fv : FVarId → Option ConLeche.Expr) :
+    (hl : LitFlagsI fe) (fv : FVarId → Option ConLeche.Expr) :
     ∀ (e : Expr) (k : Nat), okE fv e = true → (trE fv e).constsResolve L = true →
       anySpec (fun x _ => if unresI fe x then some true else none) e k = false := by
-  have hdom := envDomI_of hP
+  have hdom := envDomI_of hP hl
   have hnone : ∀ n, (L.find? (toName n)).isSome = true → (fe.find? n).isNone = false := by
     intro n h
     cases hf : fe.find? n
@@ -109,14 +109,14 @@ theorem constsResolve_trE_conv {fe : InLean.FEnv} {L : ConLeche.Env} (hP : EnvPr
     intro k _ ha
     cases l with
     | natVal m =>
-      have : natLitStoredF fe = true := by
-        rw [natLitStoredF_I hdom]
+      have : fe.natLit = true := by
+        rw [natLit_I hdom]
         simpa [trE, toLit, ConLeche.Expr.constsResolve, ConLeche.natLitStored, Bool.and_assoc]
           using ha
       simp [anySpec, unresI, this]
     | strVal m =>
-      have : strLitStoredF fe = true := by
-        rw [strLitStoredF_I hdom]
+      have : fe.strLit = true := by
+        rw [strLit_I hdom]
         simpa [trE, toLit, ConLeche.Expr.constsResolve, ConLeche.strLitStored,
           ConLeche.natLitStored, Bool.and_assoc] using ha
       simp [anySpec, unresI, this]
@@ -160,6 +160,7 @@ theorem constsResolve_anySpec (fe : InLean.FEnv) (e : Expr) :
 /-- **InLean's resolution is master's**, both ways, on a reading whose free
 variables resolve at master's. -/
 theorem constsResolve_eq {fe : InLean.FEnv} {L : ConLeche.Env} (hP : EnvPresI fe L)
+    (hl : LitFlagsI fe)
     (fv : FVarId → Option ConLeche.Expr)
     (hfv : ∀ id, okE fv (.fvar id) = true → (trE fv (.fvar id)).constsResolve L = true)
     {e : Expr} (hok : okE fv e = true) :
@@ -167,14 +168,15 @@ theorem constsResolve_eq {fe : InLean.FEnv} {L : ConLeche.Env} (hP : EnvPresI fe
   cases h : InLean.constsResolve fe e
   · cases h' : (trE fv e).constsResolve L
     · rfl
-    · have ha := constsResolve_trE_conv hP fv e 0 hok h'
+    · have ha := constsResolve_trE_conv hP hl fv e 0 hok h'
       rw [constsResolve_anySpec, ha] at h
       exact absurd h (by decide)
-  · exact constsResolve_tr hP fv hfv hok h
+  · exact constsResolve_tr hP hl fv hfv hok h
 
-theorem constsResolve_eqC {fe : InLean.FEnv} {L : ConLeche.Env} (hP : EnvPresI fe L) {e : Expr}
+theorem constsResolve_eqC {fe : InLean.FEnv} {L : ConLeche.Env} (hP : EnvPresI fe L)
+    (hl : LitFlagsI fe) {e : Expr}
     (hok : okC e = true) : (trC e).constsResolve L = InLean.constsResolve fe e :=
-  constsResolve_eq hP _ (fun _ h => by simp [okE] at h) hok
+  constsResolve_eq hP hl _ (fun _ h => by simp [okE] at h) hok
 
 /-- A stored constant's type is a closed reading. -/
 theorem find_storedT {fe : InLean.FEnv} {L : ConLeche.Env} (hP : EnvPresI fe L) {n : Name}
@@ -404,13 +406,14 @@ theorem trE_fvR (fv : FVarId → Option ConLeche.Expr) (P : FVarId → Prop) :
 /-- **Resolution, both ways**, where the term's own free variables resolve at
 master's. -/
 theorem constsResolve_eqA {fe : InLean.FEnv} {L : ConLeche.Env} (hP : EnvPresI fe L)
+    (hl : LitFlagsI fe)
     (fv : FVarId → Option ConLeche.Expr) {e : Expr}
     (hA : AllFv (fun id => (trE fv (.fvar id)).constsResolve L = true) e)
     (hok : okE fv e = true) :
     (trE fv e).constsResolve L = InLean.constsResolve fe e := by
   obtain ⟨o, t⟩ := trE_fvR fv _ e hA
   rw [← t]
-  refine constsResolve_eq hP _ ?_ (by rw [o]; exact hok)
+  refine constsResolve_eq hP hl _ ?_ (by rw [o]; exact hok)
   intro id h
   simp only [okE, fvR] at h
   split at h
@@ -635,7 +638,8 @@ theorem typePinStored_tr {fe : InLean.FEnv} {L : ConLeche.Env} (hP : EnvPresI fe
     rw [hc]; exact ⟨t.symm, o⟩
 
 /-- One type pin's guard. -/
-theorem typePinGuard_eq {fe : InLean.FEnv} {L : ConLeche.Env} (hP : EnvPresI fe L) (n : Name)
+theorem typePinGuard_eq {fe : InLean.FEnv} {L : ConLeche.Env} (hP : EnvPresI fe L)
+    (hl : LitFlagsI fe) (n : Name)
     {ty : Expr} (hty : okC ty = true) :
     ((L.find? (toName n)).isSome && !(ConLeche.typePinStored L (toName n)).hasFvar &&
       (trC ty).looseBVarsBounded 0 && !(trC ty).hasFvar && (trC ty).constsResolve L) =
@@ -649,10 +653,11 @@ theorem typePinGuard_eq {fe : InLean.FEnv} {L : ConLeche.Env} (hP : EnvPresI fe 
     obtain ⟨cci, hc, hST⟩ := find_storedT hP hf
     have hfv : ci.type.hasFVar = false := by rw [Expr.hasFVar_eq hST.2.1]; exact hST.1
     unfold ConLeche.typePinStored
-    simp [hc, ← hST.okC.2, trC_hasFvar, f1, f2, hfv, constsResolve_eqC hP hty]
+    simp [hc, ← hST.okC.2, trC_hasFvar, f1, f2, hfv, constsResolve_eqC hP hl hty]
 
 /-- **The variant's pin guard is master's**, where the variant holds the operation. -/
 theorem divModPinGuard_eq {fe : InLean.FEnv} {L : ConLeche.Env} (hP : EnvPresI fe L)
+    (hl : LitFlagsI fe)
     {ps : InLean.PinSet} {op : InLean.PinOp} {c : Name}
     (hc : InLean.natDivModNames.contains c = true) (hop : opOf ps c = some op)
     (hpin : okC op.pin = true) (htp : ∀ t ∈ op.typePins, okC t.2 = true) :
@@ -663,12 +668,12 @@ theorem divModPinGuard_eq {fe : InLean.FEnv} {L : ConLeche.Env} (hP : EnvPresI f
     simp [trOpTypePins, hop]
   obtain ⟨f1, f2, f3⟩ := flags_trC hpin
   unfold ConLeche.divModPinGuard InLean.divModPinGuard
-  rw [e1, e3, hp1, hp3, f1, f3, trC_hasFvar, f2, constsResolve_eqC hP hpin, List.all_map,
+  rw [e1, e3, hp1, hp3, f1, f3, trC_hasFvar, f2, constsResolve_eqC hP hl hpin, List.all_map,
     ← Array.all_toList]
   congr 1
   refine list_all_congr fun t ht => ?_
   obtain ⟨n, ty⟩ := t
-  exact typePinGuard_eq hP n (htp _ (Array.mem_toList_iff.1 ht))
+  exact typePinGuard_eq hP hl n (htp _ (Array.mem_toList_iff.1 ht))
 
 /-- Where the variant lacks the operation, master's guard refuses it. -/
 theorem divModPinGuard_none {L : ConLeche.Env} {ps : InLean.PinSet} {c : Name}
@@ -705,15 +710,17 @@ theorem stmtOk_all {s : InLean.CState} {L : ConLeche.Env} {x y : Expr}
   · exact ⟨spineF_of_fvar hy, hoky, allFv_of_trE_fvar hy (by simpa [ConLeche.Expr.constsResolve] using hN)⟩
 
 theorem constsResolve_subst_eq {fe : InLean.FEnv} {L : ConLeche.Env} (hP : EnvPresI fe L)
+    (hl : LitFlagsI fe)
     {s : InLean.CState} {c : Name} {annVal h : Expr} (hv : okC annVal = true) (hh : StmtOk s L h) :
     (ConLeche.Expr.substConst0 (toName c) (trC annVal) (TrS s h)).constsResolve L =
       InLean.constsResolve fe (InLean.substConst0 c annVal h) := by
   rw [← TrS_of_okC s hv, ← TrS_substConst0 c annVal hh.1]
-  exact constsResolve_eqA hP _ (allFv_substConst0 (allFv_of_okC _ hv) hh.2.2)
+  exact constsResolve_eqA hP hl _ (allFv_substConst0 (allFv_of_okC _ hv) hh.2.2)
     (OkS_substConst0 (OkS_of_okC s hv) _ hh.2.1)
 
 /-- **One certificate's guard is master's.** -/
 theorem divModCertGuard_eq {fe : InLean.FEnv} {L : ConLeche.Env} (hP : EnvPresI fe L)
+    (hl : LitFlagsI fe)
     {s : InLean.CState} {c : Name} {annVal proof eqE : Expr} {hyps : List Expr}
     (hv : okC annVal = true) (hp : okC proof = true) (hh : ∀ h ∈ hyps, StmtOk s L h)
     (he : StmtOk s L eqE) :
@@ -722,14 +729,15 @@ theorem divModCertGuard_eq {fe : InLean.FEnv} {L : ConLeche.Env} (hP : EnvPresI 
   obtain ⟨o, t⟩ := substConstAll_trC (n := c) hv hp
   obtain ⟨f1, f2, f3⟩ := flags_trC o
   unfold ConLeche.divModCertGuard InLean.divModCertGuard
-  rw [← t, f1, f3, trC_hasFvar, f2, constsResolve_eqC hP o, constsResolve_subst_eq hP hv he,
+  rw [← t, f1, f3, trC_hasFvar, f2, constsResolve_eqC hP hl o, constsResolve_subst_eq hP hl hv he,
     List.map_map, List.all_map, List.all_map]
   congr 2
-  exact list_all_congr fun h hm => constsResolve_subst_eq hP hv (hh h hm)
+  exact list_all_congr fun h hm => constsResolve_subst_eq hP hl hv (hh h hm)
 
 /-- **The variant's certificates' guards are master's**, where the variant
 holds the operation. -/
 theorem divModCertsGuard_eq {fe : InLean.FEnv} {L : ConLeche.Env} (hP : EnvPresI fe L)
+    (hl : LitFlagsI fe)
     {s : InLean.CState} {x y : Expr} (hokx : OkS s x = true) (hoky : OkS s y = true)
     (hx : TrS s x = .fvar 0 (.const ConLeche.natName []))
     (hy : TrS s y = .fvar 1 (.const ConLeche.natName []))
@@ -749,7 +757,7 @@ theorem divModCertsGuard_eq {fe : InLean.FEnv} {L : ConLeche.Env} (hP : EnvPresI
   obtain ⟨⟨hyps, eqE⟩, proof⟩ := p
   have hm1 := List.of_mem_zip hp
   obtain ⟨hh, he⟩ := stmtOk_all hokx hoky hx hy hN c _ hm1.1
-  exact divModCertGuard_eq hP hv (hpr _ (Array.mem_toList_iff.1 hm1.2)) hh he
+  exact divModCertGuard_eq hP hl hv (hpr _ (Array.mem_toList_iff.1 hm1.2)) hh he
 
 /-! ## The attempt -/
 
@@ -952,7 +960,7 @@ theorem checkDivModCerts_sim {fe : InLean.FEnv} {L : ConLeche.Env} (hJ : JobEnvI
       obtain ⟨hhO, heO⟩ := stmtOk_all (L := L) hox hoy hx hy hN c _ hpS
       obtain ⟨hhW, heW⟩ := stmtScope_all hx hy c _ hpS
       have hpr := hPm proof (List.mem_cons_self ..)
-      have hG := divModCertGuard_eq (c := c) hJ.pres hv hpr hhO heO
+      have hG := divModCertGuard_eq (c := c) hJ.pres hJ.lits hv hpr hhO heO
       have hSrest : ∀ p ∈ srest, p ∈ InLean.divModCertStmts x y c :=
         fun p hp => hSm p (List.mem_cons_of_mem _ hp)
       have hSrO : ∀ p ∈ srest, (∀ h ∈ p.1, StmtOk s₀ L h) ∧ StmtOk s₀ L p.2 :=
@@ -1172,8 +1180,8 @@ theorem checkDivModPinLoop_sim {fe : InLean.FEnv} {L : ConLeche.Env} (hJ : JobEn
       have hop : opOf ps c = some op := by simp [opOf, hdec]
       have hDo : OpOk op := op?_okC hdec
       obtain ⟨hox, hoy, hx, hy⟩ := hV
-      rw [divModPinGuard_eq hJ.pres hc hop hDo.1 hDo.2.2,
-        divModCertsGuard_eq hJ.pres hox hoy hx hy hN hc hop hv hDo.2.1]
+      rw [divModPinGuard_eq hJ.pres hJ.lits hc hop hDo.1 hDo.2.2,
+        divModCertsGuard_eq hJ.pres hJ.lits hox hoy hx hy hN hc hop hv hDo.2.1]
       split at h
       · rename_i hg
         simp only [hg, ↓reduceIte]
@@ -1255,9 +1263,10 @@ theorem checkDefnC_divMod_sim {fe : InLean.FEnv} {L : ConLeche.Env} (hJ : JobEnv
   have hd : toDecl [.defnInfo v] = some (.defnDecl (trCVn v.name v.levelParams v.type)
       (trC v.value) (toHint v.hints)) := by
     simp [toDecl, toCV_of_okC (v := v.toConstantVal) hok, toExprC_of_okC hokv]
-  have hP2 := presI_defn hJ.laws hJ.pres hd hfresh hr hrv hsafe (fun h => (hso h).elim)
-  have hfe2 : fe.push (.defnInfo v) = { fe with env := InLean.addConst fe.env (.defnInfo v) } := rfl
-  rw [← hfe2] at hP2
+  have hP2 := presI_congr (fe' := fe.push (.defnInfo v))
+    (presI_defn hJ.laws hJ.pres hd hfresh hr hrv hsafe (fun h => (hso h).elim)) rfl rfl rfl
+    (fun _ => rfl)
+  have hl2 : LitFlagsI (fe.push (.defnInfo v)) := hJ.lits.push hJ.laws hfresh
   simp only [ConLeche.declConstants, ConLeche.declTables, ConLeche.Env.pushDelta, List.reverse_cons,
     List.reverse_nil, List.nil_append, List.singleton_append] at hP2
   have hsh2 : ∀ n c, ConLeche.Env.find? ⟨.defnInfo (trCVn v.name v.levelParams v.type)
@@ -1273,7 +1282,7 @@ theorem checkDefnC_divMod_sim {fe : InLean.FEnv} {L : ConLeche.Env} (hJ : JobEnv
     refine ⟨fun c hc => hk.1 c ?_, fun c hc => hk.2.1 c ?_, fun c hc => hk.2.2 c ?_⟩ <;>
       rw [env_find_cons] at hc <;>
       simpa [ConLeche.ConstantInfo.name, ConLeche.ConstantInfo.toConstantVal, trCVn, hN0, hN1, hN2] using hc
-  have g1 := divModEnvGuard_tr hP2 hsh2 hk2 hg
+  have g1 := divModEnvGuard_tr hP2 hl2 hsh2 hk2 hg
   have hself : ConLeche.Env.find? ⟨.defnInfo (trCVn v.name v.levelParams v.type) (trC v.value)
       (toHint v.hints) :: L.consts, L.tables⟩ (toName v.name) =
       some (.defnInfo (trCVn v.name v.levelParams v.type) (trC v.value) (toHint v.hints)) := by
@@ -1283,7 +1292,7 @@ theorem checkDefnC_divMod_sim {fe : InLean.FEnv} {L : ConLeche.Env} (hJ : JobEnv
     unfold InLean.divModEnvGuard InLean.natOpGuard at hg
     simp only [Bool.and_eq_true] at hg
     have h1 := hg.1.1.1.1.1.1
-    rw [natLitStoredF_I (envDomI_of hP2)] at h1
+    rw [natLit_I (envDomI_of hP2 hl2)] at h1
     simp only [ConLeche.natLitStored, Bool.and_eq_true] at h1
     have h2 := h1.1.1
     rw [env_find_cons] at h2

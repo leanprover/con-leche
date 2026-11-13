@@ -448,7 +448,7 @@ theorem inferBodyI_leaf {R : ConLeche.CoreFns ConLeche.FueledM} {io : Bool}
       vcgen [fvarTypeM_specI hs hO] <;> finish
   | lit l =>
     cases l <;>
-    sym only [conleche_grind, ConLeche.inferBody, natLitStoredF_I hdom, strLitStoredF_I hdom,
+    sym only [conleche_grind, ConLeche.inferBody, natLit_I hdom, strLit_I hdom,
         List.all_nil, List.map_nil, toName_natName, toName_stringName] =>
       vcgen <;> finish
   | bvar _ => sym only [conleche_grind] => vcgen <;> finish
@@ -458,7 +458,7 @@ theorem inferBodyI_leaf {R : ConLeche.CoreFns ConLeche.FueledM} {io : Bool}
     cases hf : fe.find? n with
     | none =>
       have hn : env.find? (toName n) = none := by
-        have := hdom n; rw [hf] at this; simpa using this
+        have := hdom.dom n; rw [hf] at this; simpa using this
       sym only [conleche_grind, ConLeche.inferBody, List.all_nil] => vcgen <;> finish
     | some ci =>
       obtain ⟨cci, cty, hcf, -, -, hlp, -, -⟩ := hfe.ty n ci hf

@@ -5,6 +5,8 @@ import ConLeche.Verify.Cached.DiscC1
 /- `Lean.mkAppN`'s body is not exposed by `Lean.Expr`; the application
 spine's translation unfolds it. -/
 import all Lean.Expr
+/- `DefinitionSafety`'s `BEq` is not exposed by `Lean.Declaration`; `FEnv.withSafety` reads it. -/
+import all Lean.Declaration
 
 /-!
 # InLean's body walks, part 1: list helpers and small twins (task #451, lane P2-whnf)
@@ -116,21 +118,100 @@ end Vocab
 
 section Lits
 
+/-- **The literal flags' meaning** (`InLean.FEnv.natLit`, `strLit`, twins of
+master's proof fields `FEnv.natLit_eq`/`strLit_eq`): the lookups'
+`natLitStoredBy`/`strLitStoredBy`.  A relation here, not a proof field of
+InLean's `FEnv`: a push keeps the flags by the environment laws (`EnvLaws`),
+which only the proofs have (`LitFlagsI.push`). -/
+structure LitFlagsI (fe : InLean.FEnv) : Prop where
+  nat : fe.natLit = InLean.natLitStoredBy fe.find?
+  str : fe.strLit = InLean.strLitStoredBy fe.find?
+
+/-- `FEnv.find?` over the components, as the flags' defaults read it. -/
+theorem FEnv.find?_eq_findAt (fe : InLean.FEnv) :
+    fe.find? = InLean.findAt fe.env fe.safety fe.coreAxioms := rfl
+
+/-- **An `FEnv` built from its components** has its flags' meaning: they are
+the defaults. -/
+theorem litFlagsI_mk (E : Kernel.Environment) (sf : DefinitionSafety) (c : Bool)
+    (p : List Name) (l : InLean.Limits) :
+    LitFlagsI { env := E, safety := sf, coreAxioms := c, pending := p, limits := l } :=
+  ⟨rfl, rfl⟩
+
+/-- A change of safety keeps the flags' meaning. -/
+theorem LitFlagsI.withSafety {fe : InLean.FEnv} (hl : LitFlagsI fe) (sf : DefinitionSafety) :
+    LitFlagsI (fe.withSafety sf) := by
+  unfold InLean.FEnv.withSafety
+  by_cases h : (fe.safety == sf) = true
+  · have he : fe.safety = sf := by
+      revert h; generalize fe.safety = a
+      cases a <;> cases sf <;> intro h <;> first | rfl | exact absurd h (by decide)
+    subst he
+    simp only [h, ↓reduceIte]
+    exact ⟨hl.nat, hl.str⟩
+  · simp only [h, Bool.false_eq_true, ↓reduceIte]
+    exact ⟨rfl, rfl⟩
+
+/-- At its own safety, `withSafety` is the identity. -/
+theorem FEnv.withSafety_of_eq {fe : InLean.FEnv} {sf : DefinitionSafety} (h : fe.safety = sf) :
+    fe.withSafety sf = fe := by
+  subst h
+  have hb : (fe.safety == fe.safety) = true := by
+    generalize fe.safety = a; cases a <;> rfl
+  unfold InLean.FEnv.withSafety
+  simp only [hb, ↓reduceIte]
+
+/-- Indices with the same lookups and flags: the meaning carries over. -/
+theorem LitFlagsI.congr {fe fe' : InLean.FEnv} (hl : LitFlagsI fe)
+    (hf : ∀ n, fe'.find? n = fe.find? n) (hn : fe'.natLit = fe.natLit)
+    (hs : fe'.strLit = fe.strLit) : LitFlagsI fe' := by
+  have : fe'.find? = fe.find? := funext hf
+  exact ⟨by rw [hn, hl.nat, this], by rw [hs, hl.str, this]⟩
+
+/-- The flags read only the ten names (`InLean.litName`). -/
+theorem natLitStoredBy_congr {f g : Name → Option Lean.ConstantInfo}
+    (h : ∀ n, InLean.litName n = true → f n = g n) :
+    InLean.natLitStoredBy f = InLean.natLitStoredBy g := by
+  unfold InLean.natLitStoredBy
+  rw [h InLean.natName (by simp [InLean.litName]), h InLean.natZeroName (by simp [InLean.litName]),
+    h InLean.natSuccName (by simp [InLean.litName])]
+
+theorem strLitStoredBy_congr {f g : Name → Option Lean.ConstantInfo}
+    (h : ∀ n, InLean.litName n = true → f n = g n) :
+    InLean.strLitStoredBy f = InLean.strLitStoredBy g := by
+  unfold InLean.strLitStoredBy InLean.strSupportBy
+  rw [natLitStoredBy_congr h, h InLean.stringName (by simp [InLean.litName]),
+    h InLean.stringOfListName (by simp [InLean.litName]), h InLean.listName (by simp [InLean.litName]),
+    h InLean.listNilName (by simp [InLean.litName]), h InLean.listConsName (by simp [InLean.litName]),
+    h InLean.charName (by simp [InLean.litName]), h InLean.charOfNatName (by simp [InLean.litName])]
+
 /-- **The environment's domain** (O4 with `EnvRelI`, P3's): InLean finds a
-name exactly where con-leche finds its translation. -/
-@[expose] def EnvDomI (fe : InLean.FEnv) (env : ConLeche.Env) : Prop :=
-  ∀ n, (fe.find? n).isSome = (env.find? (toName n)).isSome
+name exactly where con-leche finds its translation, and its literal flags
+are con-leche's. -/
+structure EnvDomI (fe : InLean.FEnv) (env : ConLeche.Env) : Prop where
+  dom : ∀ n, (fe.find? n).isSome = (env.find? (toName n)).isSome
+  natLit : fe.natLit = ConLeche.natLitStored env
+  strLit : fe.strLit = ConLeche.strLitStored env
 
-theorem natLitStoredF_I {fe : InLean.FEnv} (h : EnvDomI fe env) :
-    InLean.natLitStoredF fe = ConLeche.natLitStored env := by
-  simp only [InLean.natLitStoredF, ConLeche.natLitStored, h InLean.natName, h InLean.natZeroName,
-    h InLean.natSuccName]; rfl
+/-- `EnvDomI` from the domain and the flags' meaning. -/
+theorem EnvDomI.of {fe : InLean.FEnv} {env : ConLeche.Env}
+    (h : ∀ n, (fe.find? n).isSome = (env.find? (toName n)).isSome) (hl : LitFlagsI fe) :
+    EnvDomI fe env := by
+  have hn : fe.natLit = ConLeche.natLitStored env := by
+    rw [hl.nat]
+    simp only [InLean.natLitStoredBy, ConLeche.natLitStored, h InLean.natName,
+      h InLean.natZeroName, h InLean.natSuccName]; rfl
+  refine ⟨h, hn, ?_⟩
+  rw [hl.str]
+  simp only [InLean.strLitStoredBy, InLean.strSupportBy, ConLeche.strLitStored, ← hl.nat, hn,
+    h InLean.stringName, h InLean.stringOfListName, h InLean.listName, h InLean.listNilName,
+    h InLean.listConsName, h InLean.charName, h InLean.charOfNatName, Bool.and_assoc]; rfl
 
-theorem strLitStoredF_I {fe : InLean.FEnv} (h : EnvDomI fe env) :
-    InLean.strLitStoredF fe = ConLeche.strLitStored env := by
-  simp only [InLean.strLitStoredF, ConLeche.strLitStored, natLitStoredF_I h, h InLean.stringName,
-    h InLean.stringOfListName, h InLean.listName, h InLean.listNilName, h InLean.listConsName,
-    h InLean.charName, h InLean.charOfNatName]; rfl
+theorem natLit_I {fe : InLean.FEnv} (h : EnvDomI fe env) :
+    fe.natLit = ConLeche.natLitStored env := h.natLit
+
+theorem strLit_I {fe : InLean.FEnv} (h : EnvDomI fe env) :
+    fe.strLit = ConLeche.strLitStored env := h.strLit
 
 variable (s : InLean.CState)
 
@@ -203,19 +284,19 @@ theorem litToCtorIfNatI_specI {fe : InLean.FEnv} (hdom : EnvDomI fe env) {s₀ :
   by_cases hn : ∃ n, EO.stripTop e = .lit (.natVal n)
   · obtain ⟨n, hn⟩ := hn
     have hT : TrS s₀ e = .lit (.natVal n) := by rw [← TrS_stripTop, hn]; rfl
-    by_cases hst : InLean.natLitStoredF fe = true
+    by_cases hst : fe.natLit = true
     · simp only [InLean.litToCtorIfNatI, hn, hst, ↓reduceIte, pure, StateT.pure, Except.pure,
         Except.ok.injEq, Prod.mk.injEq] at hr
       obtain ⟨rfl, rfl⟩ := hr
       refine ⟨hs, TabLe.refl _, OkS_natLitToConstructor _ _, ?_⟩
       rw [hT, TrS_natLitToConstructor]
-      simp [ConLeche.litToCtorIfNat, ← natLitStoredF_I hdom, hst]
+      simp [ConLeche.litToCtorIfNat, ← natLit_I hdom, hst]
     · simp only [InLean.litToCtorIfNatI, hn, hst, Bool.false_eq_true, ↓reduceIte, pure,
         StateT.pure, Except.pure, Except.ok.injEq, Prod.mk.injEq] at hr
       obtain ⟨rfl, rfl⟩ := hr
       refine ⟨hs, TabLe.refl _, he, ?_⟩
       rw [hT]
-      simp [ConLeche.litToCtorIfNat, ← natLitStoredF_I hdom, hst]
+      simp [ConLeche.litToCtorIfNat, ← natLit_I hdom, hst]
   · have hn' : ∀ n, EO.stripTop e ≠ .lit (.natVal n) := fun n h => hn ⟨n, h⟩
     have hr' : InLean.litToCtorIfNatI fe e s₀ = .ok (e, s₀) := by
       unfold InLean.litToCtorIfNatI
@@ -297,17 +378,17 @@ theorem projLitToCtorI_specI {fe : InLean.FEnv} {lv : Nat} (ih : KnotSpecI mode 
   · obtain ⟨t, hn⟩ := hn
     have hT : TrS s₀ e = .lit (.strVal t) := by rw [← TrS_stripTop, hn]; rfl
     rw [hT]
-    by_cases hst : InLean.strLitStoredF fe = true
+    by_cases hst : fe.strLit = true
     · simp only [InLean.projLitToCtorI, hn, hst, ↓reduceIte] at hr
       obtain ⟨h1, h2, h3, h4, h5, h6⟩ := strLit_whnf_run ih hs hr
       refine ⟨h1, h2, h3, ?_, h5, h6⟩
-      simp only [ConLeche.projLitToCtor, ← strLitStoredF_I hdom, hst, ↓reduceIte]
+      simp only [ConLeche.projLitToCtor, ← strLit_I hdom, hst, ↓reduceIte]
       exact h4
     · simp only [InLean.projLitToCtorI, hn, hst, Bool.false_eq_true, ↓reduceIte, pure,
         StateT.pure, Except.pure, Except.ok.injEq, Prod.mk.injEq] at hr
       obtain ⟨rfl, rfl⟩ := hr
       refine ⟨hs, TabLe.refl _, he, ?_, hw, hc⟩
-      simp only [ConLeche.projLitToCtor, ← strLitStoredF_I hdom, hst, Bool.false_eq_true,
+      simp only [ConLeche.projLitToCtor, ← strLit_I hdom, hst, Bool.false_eq_true,
         ↓reduceIte, hT]
       exact Runs.pure _
   · have hn' : ∀ t, EO.stripTop e ≠ .lit (.strVal t) := fun t h => hn ⟨t, h⟩
@@ -340,17 +421,17 @@ theorem litMajorToCtorI_specI {fe : InLean.FEnv} {lv : Nat} (ih : KnotSpecI mode
   · obtain ⟨t, hn⟩ := hn
     have hT : TrS s₀ e = .lit (.strVal t) := by rw [← TrS_stripTop, hn]; rfl
     rw [hT]
-    by_cases hst : InLean.strLitStoredF fe = true
+    by_cases hst : fe.strLit = true
     · simp only [InLean.litMajorToCtorI, hn, hst, ↓reduceIte] at hr
       obtain ⟨h1, h2, h3, h4, h5, h6⟩ := strLit_whnf_run ih hs hr
       refine ⟨h1, h2, h3, ?_, h5, h6⟩
-      simp only [ConLeche.litMajorToCtor, ← strLitStoredF_I hdom, hst, ↓reduceIte]
+      simp only [ConLeche.litMajorToCtor, ← strLit_I hdom, hst, ↓reduceIte]
       exact h4
     · simp only [InLean.litMajorToCtorI, hn, hst, Bool.false_eq_true, ↓reduceIte, pure,
         StateT.pure, Except.pure, Except.ok.injEq, Prod.mk.injEq] at hr
       obtain ⟨rfl, rfl⟩ := hr
       refine ⟨hs, TabLe.refl _, he, ?_, hw, hc⟩
-      simp only [ConLeche.litMajorToCtor, ← strLitStoredF_I hdom, hst, Bool.false_eq_true,
+      simp only [ConLeche.litMajorToCtor, ← strLit_I hdom, hst, Bool.false_eq_true,
         ↓reduceIte, hT]
       exact Runs.pure _
   · have hn' : ∀ t, EO.stripTop e ≠ .lit (.strVal t) := fun t h => hn ⟨t, h⟩
@@ -1283,7 +1364,7 @@ theorem reduceNatI_specI (ih : KnotSpecI mode mi eager env fe lv)
       Runs (ConLeche.reduceNat (ConLeche.fueledFns mode eager env) env d (TrS s₀ e)) (TrO s' o) ∧
       OptWS d (TrO s' o) ∧ OptClosed (TrO s' o) = true; ⊤⦄ := by
   sym only [conleche_grind, reduceNat_TrS (env := env) (ConLeche.fueledFns mode eager env) d s₀ he, ConLeche.reduceNat.eq_1,
-      ConLeche.reduceNat.eq_2, natLitStoredF_I hdom, cl_natSuccName, cl_natAddName, cl_natSubName,
+      ConLeche.reduceNat.eq_2, natLit_I hdom, cl_natSuccName, cl_natAddName, cl_natSubName,
       cl_natMulName, cl_natPowName, cl_natBeqName, cl_natBleName, cl_natDivName, cl_natModName,
       cl_natGcdName, cl_natLandName, cl_natLorName, cl_natXorName, cl_natShiftLeftName,
       cl_natShiftRightName, toName_eq_iff] =>

@@ -70,17 +70,18 @@ theorem envProjI_of (hP : EnvPresI fe L) (hR : ProjBodiesInRange fe) : EnvProjI 
       · cases h
 
 /-- **What the knot's bodies read of the environment**, from the relation,
-con-leche's well-formedness and the projection bodies' range. -/
-theorem envBodiesI_of (hP : EnvPresI fe L) (hwf : ConLeche.EnvWF L) (hR : ProjBodiesInRange fe) :
-    EnvBodiesI fe L :=
-  ⟨hwf, envRelI_of hP, envDomI_of hP, envDefnI_of hP, envViewI_of hP, envRecI_of hP,
-    defeqEnvI_of hP, envProjI_of hP hR⟩
+con-leche's well-formedness, the projection bodies' range and the literal
+flags' meaning. -/
+theorem envBodiesI_of (hP : EnvPresI fe L) (hwf : ConLeche.EnvWF L) (hR : ProjBodiesInRange fe)
+    (hl : LitFlagsI fe) : EnvBodiesI fe L :=
+  ⟨hwf, envRelI_of hP, envDomI_of hP hl, envDefnI_of hP, envViewI_of hP, envRecI_of hP,
+    defeqEnvI_of hP hl, envProjI_of hP hR⟩
 
 /-- **The knot simulates at every fuel** from the relation, con-leche's
-well-formedness and the projection bodies' range. -/
+well-formedness, the projection bodies' range and the literal flags' meaning. -/
 theorem ssimI_of_pres (hP : EnvPresI fe L) (hwf : ConLeche.EnvWF L) (hR : ProjBodiesInRange fe)
-    {eager : Bool} (f : Nat) : SSimI eager L fe f :=
-  ssimI_of_env (envBodiesI_of hP hwf hR) f
+    (hl : LitFlagsI fe) {eager : Bool} (f : Nat) : SSimI eager L fe f :=
+  ssimI_of_env (envBodiesI_of hP hwf hR hl) f
 
 universe w
 

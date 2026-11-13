@@ -6,6 +6,8 @@ public import InLeanProof.Statement
 /- `ConstantInfo.type`/`levelParams` and the derived `BEq` of `QuotKind` are not exposed: the
 proof reads them as projections of `toConstantVal`. -/
 import all Lean.Declaration
+/- `FEnv.push` (not exposed in `InLean/Push.lean`): its flags (`LitFlagsI.push`). -/
+import all InLean.Push
 
 /-!
 # O4: InLean's at-use readers against con-leche's install (task #451, lane P3a)
@@ -140,7 +142,7 @@ theorem FEnv.find?_congr {fe fe' : InLean.FEnv} (hc : fe'.coreAxioms = fe.coreAx
     (hs : fe'.safety = fe.safety) {n : Name} (h : fe'.env.find? n = fe.env.find? n) :
     fe'.find? n = fe.find? n := by
   have he : fe'.sees n = fe.sees n := by
-    funext ci; simp only [InLean.FEnv.sees, hc, hs]
+    funext ci; simp only [InLean.FEnv.sees, InLean.seesAt, hc, hs]
   simp only [FEnv.find?_eq_filter, h, he]
 
 theorem toName_fromName : ∀ n : ConLeche.Name, toName (fromName n) = n
@@ -269,8 +271,8 @@ section Six
 variable {fe : InLean.FEnv} {L : ConLeche.Env}
 
 /-- **`EnvDomI`** from the relation. -/
-theorem envDomI_of (hP : EnvPresI fe L) : EnvDomI fe L := by
-  intro n
+theorem envDomI_of (hP : EnvPresI fe L) (hl : LitFlagsI fe) : EnvDomI fe L := by
+  refine EnvDomI.of (fun n => ?_) hl
   cases hf : fe.find? n with
   | none => rw [hP.none n hf]; rfl
   | some ci => obtain ⟨cci, hL, -⟩ := hP.entry n ci hf; rw [hL]; rfl
@@ -1218,7 +1220,7 @@ theorem proofPW_state (hP : EnvPresI fe L) (s : InLean.CState) {a : Expr} (ha : 
   proofPW_tr hP (FVarTable.trans_fvarsOnly _) (fvTyRel_state s) a _ (TransS_of_ok ha)
 
 /-- **`DefeqEnvI`** from the relation. -/
-theorem defeqEnvI_of (hP : EnvPresI fe L) : DefeqEnvI fe L where
+theorem defeqEnvI_of (hP : EnvPresI fe L) (hl : LitFlagsI fe) : DefeqEnvI fe L where
   notProof := by
     intro s a _ ha
     have h := proofPW_state hP s ha
@@ -1234,15 +1236,17 @@ theorem defeqEnvI_of (hP : EnvPresI fe L) : DefeqEnvI fe L where
   etaShape := etaShape_of hP
   unfoldable := fun s e _ => unfoldable_of hP s e
   headHint := fun s e _ => headHint_of hP s e
-  strLit := strLitStoredF_I (envDomI_of hP)
+  strLit := strLit_I (envDomI_of hP hl)
   ctor := ctorRd_of hP
   ind := indRd_of hP
   view := envViewI_of hP
 
-/-- **All six** environment hypotheses of the core walks, from the relation. -/
-theorem envHyps_of (hP : EnvPresI fe L) :
+/-- **All six** environment hypotheses of the core walks, from the relation and
+the literal flags' meaning. -/
+theorem envHyps_of (hP : EnvPresI fe L) (hl : LitFlagsI fe) :
     EnvRelI fe L ∧ EnvDomI fe L ∧ EnvDefnI fe L ∧ EnvViewI fe L ∧ EnvRecI fe L ∧ DefeqEnvI fe L :=
-  ⟨envRelI_of hP, envDomI_of hP, envDefnI_of hP, envViewI_of hP, envRecI_of hP, defeqEnvI_of hP⟩
+  ⟨envRelI_of hP, envDomI_of hP hl, envDefnI_of hP, envViewI_of hP, envRecI_of hP,
+    defeqEnvI_of hP hl⟩
 
 end Six
 
@@ -1454,6 +1458,82 @@ theorem find_addConst (hlaws : EnvLaws) {E : Kernel.Environment} {ci : Lean.Cons
     (InLean.addConst E ci).find? n = if n = ci.name then some ci else E.find? n :=
   hlaws.1 E ci n hfresh
 
+/-- **A push of a fresh name keeps the literal flags' meaning** (twin of
+master's `FEnv.push_flags`): before string literals are expandable a push of
+one of the ten names recomputes them; any other push leaves them, since a
+fresh name is not one of the ten once they are all seen, and the other
+names' lookups are unchanged (`EnvLaws`). -/
+theorem LitFlagsI.push (hlaws : EnvLaws) {fe : InLean.FEnv} (hl : LitFlagsI fe)
+    {ci : Lean.ConstantInfo} (hfresh : fe.env.find? ci.name = none) :
+    LitFlagsI (fe.push ci) := by
+  have hfind : ∀ n, n ≠ ci.name → (fe.push ci).find? n = fe.find? n := by
+    intro n hn
+    show InLean.findAt (InLean.addConst fe.env ci) fe.safety fe.coreAxioms n =
+      InLean.findAt fe.env fe.safety fe.coreAxioms n
+    unfold InLean.findAt
+    rw [find_addConst hlaws hfresh n, ite_eq_right hn]
+  have hlit : InLean.litName ci.name = true → fe.strLit = false := by
+    intro hn
+    cases hs : fe.strLit
+    · rfl
+    exfalso
+    have h : InLean.strLitStoredBy fe.find? = true := hl.str ▸ hs
+    have hnone : fe.find? ci.name = none := by
+      unfold InLean.FEnv.find?; rw [hfresh]
+    simp only [InLean.litName, Bool.or_eq_true, beq_iff_eq] at hn
+    simp only [InLean.strLitStoredBy, InLean.strSupportBy, InLean.natLitStoredBy,
+      Bool.and_eq_true] at h
+    rcases hn with ((((((((h1 | h1) | h1) | h1) | h1) | h1) | h1) | h1) | h1) | h1 <;>
+      rw [h1] at hnone <;> simp_all
+  have hkeep : (!fe.strLit && InLean.litName ci.name) = false →
+      ∀ n, InLean.litName n = true → (fe.push ci).find? n = fe.find? n := by
+    intro hu n hn
+    have hc : InLean.litName ci.name = false := by
+      cases h : InLean.litName ci.name
+      · rfl
+      · rw [h, hlit h] at hu; cases hu
+    exact hfind n fun he => by rw [he, hc] at hn; cases hn
+  constructor
+  · show (if (!fe.strLit && InLean.litName ci.name) = true then
+        InLean.natLitStoredBy (InLean.findAt (InLean.addConst fe.env ci) fe.safety fe.coreAxioms)
+      else fe.natLit) = _
+    split
+    · rfl
+    · rename_i hu
+      rw [hl.nat]
+      exact natLitStoredBy_congr fun n hn => (hkeep (Bool.eq_false_iff.2 hu) n hn).symm
+  · show (if (!fe.strLit && InLean.litName ci.name) = true then
+        InLean.strLitStoredBy (InLean.findAt (InLean.addConst fe.env ci) fe.safety fe.coreAxioms)
+      else fe.strLit) = _
+    split
+    · rfl
+    · rename_i hu
+      rw [hl.str]
+      exact strLitStoredBy_congr fun n hn => (hkeep (Bool.eq_false_iff.2 hu) n hn).symm
+
+/-- **A fresh push**: the flags' meaning kept, every other name's entry
+unchanged (the step of the stage lemmas `litFlagsI_consSumCtorsF`, …). -/
+theorem LitFlagsI.push_fresh (hlaws : EnvLaws) {fe : InLean.FEnv} (hl : LitFlagsI fe)
+    {ci : Lean.ConstantInfo} (hfresh : fe.env.find? ci.name = none) :
+    LitFlagsI (fe.push ci) ∧ ∀ n, n ≠ ci.name → (fe.push ci).env.find? n = fe.env.find? n :=
+  ⟨hl.push hlaws hfresh, fun n hn => by
+    show (InLean.addConst fe.env ci).find? n = _
+    rw [find_addConst hlaws hfresh n, ite_eq_right hn]⟩
+
+/-- **Fresh distinct pushes** keep the flags' meaning (`FEnv.pushAll`). -/
+theorem LitFlagsI.pushAll (hlaws : EnvLaws) :
+    ∀ (cs : List Lean.ConstantInfo) {fe : InLean.FEnv}, LitFlagsI fe →
+      (∀ ci ∈ cs, fe.env.find? ci.name = none) → (cs.map (·.name)).Nodup →
+      LitFlagsI (fe.pushAll cs)
+  | [], _, hl, _, _ => hl
+  | ci :: cs, fe, hl, hfr, hnd => by
+    simp only [List.map_cons, List.nodup_cons, List.mem_map] at hnd
+    obtain ⟨hl1, hold⟩ := hl.push_fresh hlaws (hfr ci List.mem_cons_self)
+    exact LitFlagsI.pushAll hlaws cs hl1
+      (fun d hd => by
+        rw [hold _ fun h => hnd.1 ⟨d, hd, h⟩]; exact hfr d (List.mem_cons_of_mem _ hd))
+      hnd.2
+
 /-- No table for a fresh name: every stored table belongs to a stored constant. -/
 theorem findTable_fresh (hP : EnvPresI fe L) {n : Name} (hn : fe.find? n = none)
     (news : List ConLeche.ConstantInfo) :
@@ -1533,7 +1613,7 @@ theorem presI_one (hlaws : EnvLaws) (hP : EnvPresI fe L) {ci : Lean.ConstantInfo
 theorem sees_safe {fe : InLean.FEnv} {n : Name} {ci : Lean.ConstantInfo}
     (hs : InLean.safeConst ci = true) (hn : n = InLean.sorryAxName → fe.coreAxioms = true) :
     fe.sees n ci = true := by
-  unfold InLean.FEnv.sees
+  unfold InLean.FEnv.sees InLean.seesAt
   by_cases h : n = InLean.sorryAxName
   · rw [hn h]; cases fe.safety <;> simp [hs]
   · cases fe.safety <;> simp [h, hs]
@@ -1563,7 +1643,7 @@ theorem presI_axiom (hlaws : EnvLaws) (hP : EnvPresI fe L) {v : AxiomVal}
     simp only [hs', ↓reduceIte]
     exact presI_one (ci := .axiomInfo v) hlaws hP hfresh (fun _ h => by cases h)
       (.inl ⟨rfl, by
-        simp [InLean.FEnv.sees, show (Lean.ConstantInfo.axiomInfo v).name = v.name from rfl, hs,
+        simp [InLean.FEnv.sees, InLean.seesAt, show (Lean.ConstantInfo.axiomInfo v).name = v.name from rfl, hs,
           hsorry hs]⟩)
   · have hs' : cv.name ≠ ConLeche.sorryAxName := by
       rw [hname, ← toName_sorryAxName]; exact fun h => hs (toName_inj h)

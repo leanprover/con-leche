@@ -124,14 +124,16 @@ theorem opsSimI_of {fe : InLean.FEnv} {L : ConLeche.Env}
 
 /-- **The job's environment premises** at `fe` against `L`: core's
 environment laws (`EnvLaws`, what a push reads), the relation,
-con-leche's well-formedness and the projection bodies' range (P3b's three). -/
+con-leche's well-formedness, the projection bodies' range (P3b's three) and
+the literal flags' meaning (`LitFlagsI`). -/
 structure JobEnvI (fe : InLean.FEnv) (L : ConLeche.Env) : Prop where
   laws : EnvLaws
   pres : EnvPresI fe L
   wf : ConLeche.EnvWF L
   proj : ProjBodiesInRange fe
+  lits : LitFlagsI fe
 
 theorem JobEnvI.ops {fe : InLean.FEnv} {L : ConLeche.Env} (h : JobEnvI fe L) : OpsSimI fe L :=
-  opsSimI_of (ssimI_of_pres h.pres h.wf h.proj _)
+  opsSimI_of (ssimI_of_pres h.pres h.wf h.proj h.lits _)
 
 end InLeanProof
