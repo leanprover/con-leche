@@ -133,7 +133,7 @@ covered exactly as a run without it, and so is a run on the pool.
 
 Every name and raw string these messages print comes from the input,
 so it is printed through one rendering
-([`Name.render` in `ConLeche/Kernel/Name.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/Name.lean#L235)).
+([`Name.render` in `ConLeche/Kernel/Name.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/Name.lean#L236)).
 A name component that is an identifier prints bare, as in Lean
 (`Nat.add_comm`, `α₁.ℕ`); any other is wrapped in `«…»` (`x.«3»`,
 `«a.b»`), with `\` doubled and with `»` and every control, format and
@@ -455,7 +455,7 @@ Read from the outside in:
    records, nothing generated
    ([function `declConstants` in `ConLeche/Kernel/Install.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/Install.lean#L84-L96)).
    What a check pushes is what its record says, at any index and any mode
-   ([theorem `checkDeclC_pushes` in `ConLeche/Verify/Cached/DeclPushes.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Verify/Cached/DeclPushes.lean#L693-L694)).
+   ([theorem `checkDeclC_pushes` in `ConLeche/Verify/Cached/DeclPushes.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Verify/Cached/DeclPushes.lean#L694-L695)).
 
    The driver runs those checks in any order. Before any of them it builds
    one index of the whole stream from the records alone
@@ -463,7 +463,7 @@ Read from the outside in:
    a name's first entry with its counter, a table with its record's
    position. A record's *job* is its check at the index's view of its
    position
-   ([function `recordJob` in `ConLeche/Cached/StreamIndex.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Cached/StreamIndex.lean#L75-L76)):
+   ([function `recordJob` in `ConLeche/Cached/StreamIndex.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Cached/StreamIndex.lean#L96-L97)):
    an empty index over that frozen layer, whose lookups hide everything
    from the record on. A name declared twice keeps its first entry, so the
    later record's job finds it and fails with `duplicate declaration`, at
@@ -474,7 +474,7 @@ Read from the outside in:
    The view of a position answers as the fold's index there as long as the
    names so far are distinct, which every passing job before it ensures,
    so every job passing is an accept of the fold
-   ([theorem `checkDecls_of_jobs` in `ConLeche/Verify/Cached/StreamIndex.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Verify/Cached/StreamIndex.lean#L491-L493)).
+   ([theorem `checkDecls_of_jobs` in `ConLeche/Verify/Cached/StreamIndex.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Verify/Cached/StreamIndex.lean#L496-L498)).
    A later job may read an earlier constant before that constant's job has
    run: a declaration may read a pinned operation, and fire its literal
    fast path, before the operation's certificates have been checked. The
@@ -530,7 +530,7 @@ Read from the outside in:
    ([theorem `checkDecls_envWF` in `ConLeche/Semantics/DeclWF.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Semantics/DeclWF.lean#L318-L319)).
    A job's check at a view is the fold's step because the cached core
    reads its environment through the lookups alone
-   ([theorem `knotI_congr` in `ConLeche/Verify/Cached/KnotCongr.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Verify/Cached/KnotCongr.lean#L705-L708)).
+   ([theorem `knotI_congr` in `ConLeche/Verify/Cached/KnotCongr.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Verify/Cached/KnotCongr.lean#L695-L698)).
 4. **The pure checker** (`ConLeche/Kernel/*`) is a fueled, memo-free
    presentation of the same algorithm: `whnfCore`, `whnf`, `inferType`,
    `isDefEq` (and inference at the infer-only grade) are defined by one mutual
@@ -1619,7 +1619,7 @@ listed here carries meaning**.
 |---|---|
 | `C` | the *cached* checker's twin of a pure definition (`checkDeclC`, `CoreC`, `Expr.instantiate1C`, `SimC`) — the implementation that ships; there is one `Expr` type and one `Declaration` type, so the marker is on the function, never on the type |
 | `I` | the variant that also handles an inductive family's index arguments (`checkStructFieldSortsI`) |
-| `F` | stated over `FEnv`, the environment together with its lookup index (`natLitStoredF`) |
+| `F` | stated over `FEnv`, the environment together with its lookup index (`natLitSupportedF`) |
 | `D` | the direct parse and the functions over its output (`parseExportD`) |
 | `AV` | a `Term` spelled by the semantic and model tiers (`sumTyAV`, `mkPisAV`) |
 | `WF` | well-formedness (`EnvWF`, `BlockWF`) |
@@ -1760,8 +1760,9 @@ at the use here too
 from the stored constructor type at the environment of the use; nothing
 about it is stored.
 
-**Not counted.** The `FEnv` lookup indexes are a performance device over
-the same data. The pinned basis blocks and the Nat-op pins are expected
+**Not counted.** The `FEnv` lookup indexes, with the two literal flags
+they carry (whether `Nat` and string literals can be expanded), are a
+performance device over the same data. The pinned basis blocks and the Nat-op pins are expected
 shapes, compared against the input, so they are code. Some things are
 stored with less than Lean keeps: a theorem without its value, an opaque
 constant as an axiom.

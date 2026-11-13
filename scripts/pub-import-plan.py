@@ -79,6 +79,11 @@ FALLBACK = {
     # field `replaceFVars`, `IndWalksC.lean:32`).
     ('ConLeche.Verify.Cached.IndWalksC', 'ConLeche.Cached.ExprOpsC'),
     ('ConLeche.Verify.Cached.IndWalksC', 'ConLeche.Kernel.Inductives.GenRec'),
+    # task #579: the overlay lemmas' public statements name `FEnv`, `ConstantInfo`,
+    # `BlockShape`; once the file reads the lookup through `lookupIn` (`Kernel/FEnv`) the
+    # census attributes them to the private `KnotCongr` import.  Measured: demoting the
+    # edge breaks the file (unknown identifier `FEnv`, `BlockOverlay.lean:99`).
+    ('ConLeche.Verify.Cached.BlockOverlay', 'ConLeche.Cached.CheckerC'),
     # task #498 L2: the positivity twins' equations name `Name`, `Expr`, `sharedOpsC`
     # (`IndPositivityC.lean:33`, unknown identifier); `DiscC4`'s guard lemmas after the
     # openers moved out (`DiscC4.lean:455`, the kernel no longer finds `projRowsC_spec`).

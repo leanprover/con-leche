@@ -13,8 +13,8 @@
 == ConLeche/Driver/CheckMain.lean#L37
     37    | .notImplemented _ => 2
 
-== ConLeche/Kernel/Name.lean#L235
-   235  def render (n : Name) : String :=
+== ConLeche/Kernel/Name.lean#L236
+   236  def render (n : Name) : String :=
 
 == ConLeche/MainTheorem.lean#L102-L105
    102  theorem model_exists (V : Type w) [SetTheory V]
@@ -205,16 +205,16 @@
     95      | .ok p => blockConstants p
     96      | .error _ => []
 
-== ConLeche/Verify/Cached/DeclPushes.lean#L693-L694
-   693  theorem checkDeclC_pushes (mode : CheckMode) (fe : FEnv) (pd : Declaration) :
-   694      Yields (checkDeclC mode pins fe pd) (· = FEnv.pushDelta (declConstants pd) (declTables pd) fe) := by
+== ConLeche/Verify/Cached/DeclPushes.lean#L694-L695
+   694  theorem checkDeclC_pushes (mode : CheckMode) (fe : FEnv) (pd : Declaration) :
+   695      Yields (checkDeclC mode pins fe pd) (· = FEnv.pushDelta (declConstants pd) (declTables pd) fe) := by
 
 == ConLeche/Cached/StreamIndex.lean#L65
     65  def buildIndex (ds : Array Declaration) : StreamIndex :=
 
-== ConLeche/Cached/StreamIndex.lean#L75-L76
-    75  def recordJob (mode : CheckMode) (pins : List NatOpPinSet) (maxNatSize : Nat) (I : StreamIndex) (k : Nat)
-    76      (pd : Declaration) : Except CheckError Unit :=
+== ConLeche/Cached/StreamIndex.lean#L96-L97
+    96  def recordJob (mode : CheckMode) (pins : List NatOpPinSet) (maxNatSize : Nat) (F : FrozenIndex)
+    97      (k : Nat) (pd : Declaration) : Except CheckError Unit :=
 
 == ConLeche/Verify/Cached/ViewCongr.lean#L1330-L1334
   1330  theorem checkDeclStepC_twin (pins : List NatOpPinSet) {fe₁ fe₂ : FEnv} (ht : Twin fe₁ fe₂)
@@ -223,10 +223,10 @@
   1333      RelRun (PushedFrom fe₁ fe₂) (checkDeclStepC mode pins fe₁ pd)
   1334        (checkDeclStepC mode pins fe₂ pd) := by
 
-== ConLeche/Verify/Cached/StreamIndex.lean#L491-L493
-   491  theorem checkDecls_of_jobs {ds : Array Declaration}
-   492      (h : ∀ k (hk : k < ds.size), recordJob mode pins maxNatSize (buildIndex ds) k ds[k] = .ok ()) :
-   493      checkDecls mode pins maxNatSize ds = .ok (streamEnv ds.toList) := by
+== ConLeche/Verify/Cached/StreamIndex.lean#L496-L498
+   496  theorem checkDecls_of_jobs {ds : Array Declaration}
+   497      (h : ∀ k (hk : k < ds.size), recordJob mode pins maxNatSize (buildIndex ds).freeze k ds[k] = .ok ()) :
+   498      checkDecls mode pins maxNatSize ds = .ok (streamEnv ds.toList) := by
 
 == ConLeche/Driver/CheckPool.lean#L66
     66  def Jobs.build (ds : Array Declaration) : IO (Jobs ds) := do
@@ -282,11 +282,11 @@
    318  theorem checkDecls_envWF {maxNatSize : Nat} {ds : Array Declaration} {env' : Env}
    319      (h : checkDecls .verified pins maxNatSize ds = .ok env') : EnvWF env' := by
 
-== ConLeche/Verify/Cached/KnotCongr.lean#L705-L708
-   705  theorem knotI_congr (hfe : fe₁.find? = fe₂.find?) (htb : fe₁.findTable? = fe₂.findTable?) :
-   706      whnfCoreI mode fe₁ = whnfCoreI mode fe₂ ∧ whnfI mode fe₁ = whnfI mode fe₂ ∧
-   707        inferI mode fe₁ = inferI mode fe₂ ∧ defeqI mode fe₁ = defeqI mode fe₂ ∧
-   708        defeqEI mode fe₁ = defeqEI mode fe₂ ∧ ensureSortI mode fe₁ = ensureSortI mode fe₂ := by
+== ConLeche/Verify/Cached/KnotCongr.lean#L695-L698
+   695  theorem knotI_congr (hfe : fe₁.find? = fe₂.find?) (htb : fe₁.findTable? = fe₂.findTable?) :
+   696      whnfCoreI mode fe₁ = whnfCoreI mode fe₂ ∧ whnfI mode fe₁ = whnfI mode fe₂ ∧
+   697        inferI mode fe₁ = inferI mode fe₂ ∧ defeqI mode fe₁ = defeqI mode fe₂ ∧
+   698        defeqEI mode fe₁ = defeqEI mode fe₂ ∧ ensureSortI mode fe₁ = ensureSortI mode fe₂ := by
 
 == ConLeche/Kernel/TypeChecker.lean#L29-L54
     29  def whnfCore (env : Env) (fuel depth : Nat) (e : Expr) (cheap : Bool := false) :

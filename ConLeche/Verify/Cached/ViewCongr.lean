@@ -14,7 +14,7 @@ import ConLeche.Verify.Cached.IndRecC
 /-!
 # A record's check reads its index only through `find?`
 
-A record's job runs at a view of the stream's index (`StreamIndex.view`,
+A record's job runs at a view of the stream's index (`FrozenIndex.view`,
 `ConLeche/Cached/StreamIndex.lean`): an index with no constants of its own, answering from the frozen
 base layer.  For the job's verdict to be the fold's step, the check at the view must BE the check at
 the fold's index, push for push.  This file proves it: `checkDeclStepC_twin`: from two indices that
@@ -65,7 +65,7 @@ theorem sharedOpsRuleR_envFree (mode : CheckMode) (fe : FEnv) :
 theorem find?_push {fe : FEnv} (h : fe.ovl = []) (ci : ConstantInfo) (n : Name) :
     (fe.push ci).find? n = if ci.name = n then some ci else fe.find? n := by
   have hov : (fe.push ci).ovl = [] := h
-  simp only [FEnv.find?, hov, h, FEnv.lookup_eq]
+  simp only [FEnv.find?, hov, h, findIn, lookupIn_eq]
   simp only [FEnv.push, Std.HashMap.getElem?_insert, beq_iff_eq]
   by_cases hn : ci.name = n
   · simp [hn]
@@ -199,7 +199,7 @@ theorem checkConstantValF_congr (h : EnvFree ops) {fe₁ fe₂ : FEnv}
   unfold checkConstantValF
   simp only [h.inferType fe₁.env, h.inferType fe₂.env,
     h.ensureSort fe₁.env, h.ensureSort fe₂.env, hfe, constsResolveF_congr hfe,
-    strLitStoredF_congr hfe]
+    FEnv.strLit_congr hfe]
 
 omit [MonadExceptOf CheckError m] in
 theorem checkDivModCertsF_congr (h : EnvFree ops) {fe₁ fe₂ : FEnv}
@@ -382,7 +382,7 @@ theorem checkConstantValC_congr {fe₁ fe₂ : FEnv} (hfe : fe₁.find? = fe₂.
     (cv : ConstantVal) {a : Bool} : checkConstantValC mode fe₁ cv a = checkConstantValC mode fe₂ cv a := by
   unfold checkConstantValC
   simp only [knotI_congr hfe htb, constsResolveFC_congr hfe, opSIxC_congr hfe htb, hfe,
-    strLitStoredF_congr hfe]
+    FEnv.strLit_congr hfe]
 
 /-- A definition's value check reads its index only through `find?`. -/
 theorem checkDefnValCI_congr {fe₁ fe₂ : FEnv} (hfe : fe₁.find? = fe₂.find?)
@@ -390,7 +390,7 @@ theorem checkDefnValCI_congr {fe₁ fe₂ : FEnv} (hfe : fe₁.find? = fe₂.fin
     (value : Expr) (hint : ReducibilityHint) :
     checkDefnValCI mode fe₁ cv value hint = checkDefnValCI mode fe₂ cv value hint := by
   unfold checkDefnValCI
-  simp only [knotI_congr hfe htb, constsResolveFC_congr hfe, strLitStoredF_congr hfe]
+  simp only [knotI_congr hfe htb, constsResolveFC_congr hfe, FEnv.strLit_congr hfe]
 
 /-- A theorem's value check reads its index only through `find?`. -/
 theorem checkThmValCI_congr {fe₁ fe₂ : FEnv} (hfe : fe₁.find? = fe₂.find?)
@@ -399,7 +399,7 @@ theorem checkThmValCI_congr {fe₁ fe₂ : FEnv} (hfe : fe₁.find? = fe₂.find
     checkThmValCI mode fe₁ cv value = checkThmValCI mode fe₂ cv value := by
   unfold checkThmValCI
   simp only [knotI_congr hfe htb, opSIxC_congr hfe htb, constsResolveFC_congr hfe,
-    strLitStoredF_congr hfe]
+    FEnv.strLit_congr hfe]
 
 /-- An opaque's value check reads its index only through `find?`. -/
 theorem checkOpaqueValCI_congr {fe₁ fe₂ : FEnv} (hfe : fe₁.find? = fe₂.find?)
@@ -407,7 +407,7 @@ theorem checkOpaqueValCI_congr {fe₁ fe₂ : FEnv} (hfe : fe₁.find? = fe₂.f
     (value : Expr) :
     checkOpaqueValCI mode fe₁ cv value = checkOpaqueValCI mode fe₂ cv value := by
   unfold checkOpaqueValCI
-  simp only [knotI_congr hfe htb, constsResolveFC_congr hfe, strLitStoredF_congr hfe]
+  simp only [knotI_congr hfe htb, constsResolveFC_congr hfe, FEnv.strLit_congr hfe]
 
 theorem installBasisDeclF_twin {fe₁ fe₂ : FEnv} (hfe : fe₁.find? = fe₂.find?)
     (ci : ConstantInfo) :

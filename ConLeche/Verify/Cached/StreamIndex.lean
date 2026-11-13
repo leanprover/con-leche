@@ -367,15 +367,19 @@ theorem view_counter {pre rest : List Declaration} {I : StreamIndex}
 
 theorem view_eq {pre rest : List Declaration} {I : StreamIndex}
     (hI : IndexSpec (pre ++ rest) I) :
-    I.view pre.length = ⟨⟨[], []⟩, {},
-      { I.base with below := (recsConsts pre).length, belowRec := pre.length }, [], {}⟩ := by
-  simp only [StreamIndex.view, view_counter hI]
+    I.freeze.view pre.length = FEnv.ofParts ⟨[], []⟩ {}
+      { I.base with below := (recsConsts pre).length, belowRec := pre.length } [] {} := by
+  refine FEnv.ext_parts rfl rfl ?_ rfl rfl
+  show { I.base with below := I.firsts.getD pre.length I.next, belowRec := pre.length } = _
+  rw [view_counter hI]
+  rfl
 
 theorem view_find {pre rest : List Declaration} {I : StreamIndex}
     (hI : IndexSpec (pre ++ rest) I) (n : Name) :
-    (I.view pre.length).find? n = (firstOcc n 0 (recsConsts pre)).map (·.2) := by
+    (I.freeze.view pre.length).find? n = (firstOcc n 0 (recsConsts pre)).map (·.2) := by
   rw [view_eq hI]
-  simp only [FEnv.find?, FEnv.lookup_eq, Std.HashMap.getElem?_empty, FBase.find?]
+  dsimp only [FEnv.find?, FEnv.ofParts_idx, FEnv.ofParts_base, FEnv.ofParts_ovl]
+  simp only [findIn, lookupIn_eq, Std.HashMap.getElem?_empty, FBase.find?]
   rw [hI.idx n]
   have hsplit : recsConsts (pre ++ rest) = recsConsts pre ++ recsConsts rest := by
     simp [recsConsts]
@@ -398,9 +402,10 @@ theorem view_find {pre rest : List Declaration} {I : StreamIndex}
 
 theorem view_rawTable {pre rest : List Declaration} {I : StreamIndex}
     (hI : IndexSpec (pre ++ rest) I) (T : Name) :
-    (I.view pre.length).rawTable? T = (firstTbl T (recsTables 0 pre)).map (·.2) := by
+    (I.freeze.view pre.length).rawTable? T = (firstTbl T (recsTables 0 pre)).map (·.2) := by
   rw [view_eq hI]
-  simp only [FEnv.rawTable?, Std.HashMap.getElem?_empty, FBase.findTable?]
+  dsimp only [FEnv.rawTable?, FEnv.ofParts_tbls, FEnv.ofParts_base]
+  simp only [Std.HashMap.getElem?_empty, FBase.findTable?]
   rw [hI.tbls T, recsTables_append, firstTbl_append, Nat.zero_add]
   cases hp : firstTbl T (recsTables 0 pre) with
   | some e =>
@@ -422,7 +427,7 @@ theorem view_rawTable {pre rest : List Declaration} {I : StreamIndex}
 distinct. -/
 theorem viewTwin {pre rest : List Declaration} {I : StreamIndex} (hI : IndexSpec (pre ++ rest) I)
     {fe : FEnv} (hfe : fe = mkFEnv (streamEnv pre))
-    (hnd : ((recsConsts pre).map (·.name)).Nodup) : Twin fe (I.view pre.length) := by
+    (hnd : ((recsConsts pre).map (·.name)).Nodup) : Twin fe (I.freeze.view pre.length) := by
   have hcons : (streamEnv pre).consts = (recsConsts pre).reverse := by
     simpa [Env.empty] using streamEnv_consts pre Env.empty
   have htabs : (streamEnv pre).tables = (pre.flatMap declTables).reverse := by
@@ -442,7 +447,7 @@ theorem viewTwin {pre rest : List Declaration} {I : StreamIndex} (hI : IndexSpec
 
 /-- **Every job passing is an accepting run**, position by position. -/
 theorem jobs_run {ds : Array Declaration}
-    (h : ∀ k (hk : k < ds.size), recordJob mode pins maxNatSize (buildIndex ds) k ds[k] = .ok ()) :
+    (h : ∀ k (hk : k < ds.size), recordJob mode pins maxNatSize (buildIndex ds).freeze k ds[k] = .ok ()) :
     ∀ k, k ≤ ds.size → ∃ fe,
       DeclsRun mode pins maxNatSize (ds.toList.take k) (0, mkFEnv Env.empty) (k, fe) ∧
       PushChain Env.empty fe ∧ fe = mkFEnv (streamEnv (ds.toList.take k))
@@ -463,7 +468,7 @@ theorem jobs_run {ds : Array Declaration}
       unfold NodupNames at hN
       rw [hc, List.map_reverse] at hN
       exact (List.reverse_perm _).nodup_iff.mp hN
-    have ht : Twin fe ((buildIndex ds).view k) := hkl ▸ viewTwin hI hfe hnd
+    have ht : Twin fe ((buildIndex ds).freeze.view k) := hkl ▸ viewTwin hI hfe hnd
     have hjob := h k hk'
     unfold recordJob at hjob
     split at hjob
@@ -489,7 +494,7 @@ theorem jobs_run {ds : Array Declaration}
 
 /-- **Every job passing is an accept of the fold**, at the environment the records denote. -/
 theorem checkDecls_of_jobs {ds : Array Declaration}
-    (h : ∀ k (hk : k < ds.size), recordJob mode pins maxNatSize (buildIndex ds) k ds[k] = .ok ()) :
+    (h : ∀ k (hk : k < ds.size), recordJob mode pins maxNatSize (buildIndex ds).freeze k ds[k] = .ok ()) :
     checkDecls mode pins maxNatSize ds = .ok (streamEnv ds.toList) := by
   obtain ⟨fe, hrun, -, hfe⟩ := jobs_run h ds.size (Nat.le_refl _)
   rw [List.take_of_length_le (by simp)] at hrun hfe
