@@ -79,6 +79,11 @@ FALLBACK = {
     # field `replaceFVars`, `IndWalksC.lean:32`).
     ('ConLeche.Verify.Cached.IndWalksC', 'ConLeche.Cached.ExprOpsC'),
     ('ConLeche.Verify.Cached.IndWalksC', 'ConLeche.Kernel.Inductives.GenRec'),
+    # task #579: the overlay lemmas' public statements name `FEnv`, `ConstantInfo`,
+    # `BlockShape`; once the file reads the lookup through `lookupIn` (`Kernel/FEnv`) the
+    # census attributes them to the private `KnotCongr` import.  Measured: demoting the
+    # edge breaks the file (unknown identifier `FEnv`, `BlockOverlay.lean:99`).
+    ('ConLeche.Verify.Cached.BlockOverlay', 'ConLeche.Cached.CheckerC'),
     # task #498 L2: the positivity twins' equations name `Name`, `Expr`, `sharedOpsC`
     # (`IndPositivityC.lean:33`, unknown identifier); `DiscC4`'s guard lemmas after the
     # openers moved out (`DiscC4.lean:455`, the kernel no longer finds `projRowsC_spec`).
@@ -882,7 +887,9 @@ FALLBACK = {
 # (task #451: `InLean/*`, `InLeanProof/*`, `InLeanReplay.lean`), its own
 # lake libraries, not default targets; InLean imports nothing from
 # `ConLeche.*`.  `lakefile.lean` is the package's build script, not a
-# module, and so are the pinners' (`pinners/*/lakefile.lean`).
+# module, and so are the pinners' (`pinners/*/lakefile.lean`); a
+# pinner's forked sources (`pinners/*/`, task #578) are built only by
+# that pinner, on its own toolchain.
 files=[f for f in subprocess.check_output(['git','ls-files','*.lean']).decode().split()
        if not f.startswith(('tests/e2e/src/','tests/trust-surface/','bridge/','scripts/',
                             'whitepaper/','InLean','pinners/')) and f != 'lakefile.lean']

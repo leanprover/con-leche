@@ -292,20 +292,24 @@ ConLeche.Expr.mkAppN
 ConLeche.Expr.piResult
 ConLeche.Expr.stripPis
 
-# ConLeche.Kernel.FEnv — the index: hash-map lookups and pushes
+# ConLeche.Kernel.FEnv — the index: hash-map lookups and pushes, and its literal flags (set where the index is built, kept by pushes)
 ConLeche.FBase.find?
 ConLeche.FBase.findTable?
 ConLeche.FEnv.andRescueSlotsF
 ConLeche.FEnv.find?
 ConLeche.FEnv.findProj?
 ConLeche.FEnv.findTable?
+ConLeche.FEnv.ofParts
 ConLeche.FEnv.overlay
 ConLeche.FEnv.push
 ConLeche.FEnv.rawTable?
-ConLeche.natLitStoredF
+ConLeche.fromLe
+ConLeche.litFrom
+ConLeche.litName
+ConLeche.natLitNames
 ConLeche.natLitSupportedF
 ConLeche.natOpGuardF
-ConLeche.strLitStoredF
+ConLeche.strLitNames
 
 # ConLeche.Kernel.Level — the level algorithms (levels are small trees; the cached tier memoises them by level, the official kernel runs the same walks)
 ConLeche.Expr.instantiateLevelParams

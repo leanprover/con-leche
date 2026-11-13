@@ -48,7 +48,7 @@ def checkDefnValCI (fe : FEnv) (cv : ConstantVal)
   unless Expr.allLevelParamsDefinedC cv.levelParams jv do
     throw (.invalid s!"undeclared universe parameter in value of {cv.name}")
   unless constsResolveFC fe jv do
-    throw (unresolvedConstsErrorLC (strLitStoredF fe) s!"value of {cv.name}" jv)
+    throw (unresolvedConstsErrorLC (fe.strLit) s!"value of {cv.name}" jv)
   let jvt ← inferI mode fe false checkFuel false 0 jv
   unless ← defeqI mode fe false checkFuel 0 jvt cv.type do
     throw (.invalid s!"type mismatch in definition {cv.name}")
@@ -70,7 +70,7 @@ def checkThmValCI (fe : FEnv) (cv : ConstantVal) (value : Expr) : CheckCM Consta
   unless Expr.allLevelParamsDefinedC cv.levelParams jv do
     throw (.invalid s!"undeclared universe parameter in value of {cv.name}")
   unless constsResolveFC fe jv do
-    throw (unresolvedConstsErrorLC (strLitStoredF fe) s!"value of {cv.name}" jv)
+    throw (unresolvedConstsErrorLC (fe.strLit) s!"value of {cv.name}" jv)
   let jvt ← inferI mode fe false checkFuel false 0 jv
   unless ← defeqI mode fe false checkFuel 0 jvt cv.type do
     throw (.invalid s!"type mismatch in theorem {cv.name}")
@@ -88,7 +88,7 @@ def checkOpaqueValCI (fe : FEnv) (cv : ConstantVal)
   unless Expr.allLevelParamsDefinedC cv.levelParams jv do
     throw (.invalid s!"undeclared universe parameter in value of {cv.name}")
   unless constsResolveFC fe jv do
-    throw (unresolvedConstsErrorLC (strLitStoredF fe) s!"value of {cv.name}" jv)
+    throw (unresolvedConstsErrorLC (fe.strLit) s!"value of {cv.name}" jv)
   let jvt ← inferI mode fe false checkFuel false 0 jv
   unless ← defeqI mode fe false checkFuel 0 jvt cv.type do
     throw (.invalid s!"type mismatch in opaque {cv.name}")
