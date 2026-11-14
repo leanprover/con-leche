@@ -120468,3 +120468,154 @@ tutorial 90/92, e2e 603/603 (`lit_hash_low_bits` in 0.5 s, 2.10 G instructions, 
 10 s timeout), the trusted and `--jobs` sweeps without divergence; the whitepaper builds
 (`nix develop ./whitepaper -c whitepaper/build.sh`).  No `sorry`, no new axiom, no new
 `unsafe`, `implemented_by` or C.
+
+## TASK #580 — CFSG `Fi24Br.Seed`: a `Nat.succ` major left unreduced, and the hash cycle of a `succ` tower (2026-11-14, agent/580-seed)
+
+Investigation; nothing changed but this record.  Question (maintainer): the CFSG module
+`Certificates.Kernel.Sporadic.Fi24Br.Seed` makes a `--olean --module --jobs=1` worker run for
+days (killed three times at about 4 GiB after up to 24 h; then 42 h at 4.7 GiB without
+finishing).  Does the official kernel take this long too?
+
+**Answer.**  No.  The official kernel checks the module in 175 s.  con-leche takes days because
+it differs from the official ι step in one case: a major premise that is already a `Nat.succ x`
+application is used as it stands, where the official kernel takes its whnf, which is a literal.
+A strict counter loop then builds the index as a unary tower `Nat.succ (Nat.succ (… 0))` that
+grows by one level per step.  The 32-bit hash of such a tower runs into a cycle (period 93 220),
+so memo keys whose towers differ by a multiple of the period have the same hash at every level, and
+each memo probe compares them by a structural walk that is as deep as the tower.  The check is
+quadratic or worse.  With the major reduced as the official kernel does (a probe, below) the
+module checks in 130 s.
+
+**Data.**  CFSG at 69cb972f5, toolchain `v4.35.0-rc3`.  The closure (23 CFSG modules, no Mathlib)
+fetched with #561's `closure.py`/`fetch.py` into `_tmp/580/root` (59 MB).  "base" is modular
+6ba028f00; Lean is #561's `replay1.lean` under rc3's `lean --run`, which replays the named
+constants (or all of a module) into the environment of its imports.
+
+**What the module computes.**  `Seed.lean` has 10 declarations.  `#str_chunks` turns the
+string literals `seedA`/`seedB` (`include_str` of `CFSG/Blueprint/Data/F24G1-f3r781B0.m1`/`.m2`,
+617 792 ASCII bytes each, a 781×781 matrix over GF(3) in text form) into one chunk each (`SA.c0`,
+a `List Char` of 617 792 cells; `SA.chars`; `SA.n`) and the theorem `SA.eq : seedA = String.ofList
+SA.chars` (likewise `SB.*`).  The two expensive ones are
+
+```lean
+theorem seed1_run : CFSG.KS.Bytes.runF P1 256 617792 SA.chars 0 = true := by quickRfl
+```
+
+and `seed2_run` (`P2`, `SB.chars`), with `quickRfl` the term `Lean.reflBoolTrue`.  `P1`/`P2`
+(`#kc_ktree`, `Fi24Br/Data.lean`) are the same bytes as 2 414 literals of 256 bytes behind a
+4-ary `Bool.rec` dispatch tree on the bits of the leaf index.  `runF`
+(`Certificates/Data/Kernel/Spor/BytesF.lean`) is a `List.rec` over the characters that, for
+character number `i`, checks `c < 128`, `i < len` and `c = (F (i / 256) >>> 8·(i % 256)) &&& 255`,
+and then goes on with `CFSG.KC.M1F2.strictB (Nat.succ i) ih`, where
+
+```lean
+def strictB (y : Nat) (k : Nat → Bool) : Bool :=
+  Nat.rec (motive := fun _ => Bool) (k (nat_lit 0)) (fun n _ => k (Nat.succ n)) y
+```
+
+is a strictness combinator: the `Nat.rec` forces `Nat.succ i` to a numeral before the next step.
+So each theorem is 617 792 steps of `Nat`/`Bool` ground reduction by the kernel, written for the
+official kernel's `Nat` literal fast paths.  The initial index is the numeral `0` of the
+statement, `OfNat.ofNat Nat 0 (instOfNatNat 0)`.
+
+**Measurements** (`perf stat -e instructions:u,cycles:u`, one run each, under the guard and
+`timeout`, `--jobs=1`; peak = the guard's peak anonymous RSS):
+
+| run | instructions | cycles | time | peak |
+|---|---|---|---|---|
+| Lean, whole module | 658.5 G | 558.0 G | 175 s | 7.7 GiB |
+| Lean, `SA.c0`, `SA.n`, `SA.chars` | 5.5 G | 3.5 G | 1 s | 0.8 GiB |
+| Lean, the same and `SA.eq` | 7.5 G | 4.2 G | 1 s | 0.8 GiB |
+| Lean, the same three and `seed1_run` | 328.4 G | 241.5 G | 63 s | 7.7 GiB |
+| con-leche base, whole module | stopped by me after 21 min CPU in `seed2_run`, at character 141 163 of 617 792 | | | 1.9 GiB |
+| con-leche probe, whole module | 743.3 G | 517.3 G | 130 s (`seed2_run` 65.1 s, `seed1_run` 63.2 s, `SA.eq` 0.1 s) | 7.2 GiB |
+
+Every run that finished accepts all 10 declarations.  The base run had checked `SB.c0`, `SB.chars`,
+`SB.eq` and `SA.c0` in 2.7 s; then `seed2_run` did not finish.  Its progress was read with gdb (see
+below): the index tower had 139 715 levels after 19.7 min CPU and 141 163 after 21.1 min,
+about 1 000 characters a minute, and it slows down further (below).  The probe (the change
+below, with the two broken proof steps in `Verify/Deep.lean` replaced by `sorry`, never to land)
+brings the module to the official kernel's cost: 1.13× its instructions, 0.93× its cycles.
+
+**Diagnosis.**  A flat profile of the running base worker (`perf record`): 99.4 % in
+`Expr.beqGoX`.  gdb backtraces of the check thread: `checkThmValCI` → `defeqI` (the statement
+against `true = true`) → `defEqListI` → lazy delta → `whnfCoreI` → `iotaRecI` (a `Bool.rec` of the
+dispatch tree) → `prepareMajorI` → `whnfI` → `reduceNatI` (`Nat.beq`, `Nat.land`, `Nat.shiftRight`,
+the leaf) → … → `whnfI` → the whnf memo's `HashMap.insert` → `AssocList.contains` → `beqDec` →
+2 000 to 37 000 nested `beqGoX` frames.  A small gdb script (`_tmp/580/gdb/dec.py`, which decodes
+`Expr` objects from the callee-saved registers of each frame) shows what the walk compares: two
+pointer-distinct towers `Nat.succ (Nat.succ (… (OfNat.ofNat Nat 0 _)))`, at one sample of 134 251
+and 41 031 levels, over the same bottom object; the key being inserted is
+`Nat.beq (Nat.land (Nat.div <tower> 256) 2^p) 0`, a node of the dispatch tree for the current
+character.
+
+*Why there is a tower.*  `prepareMajorI` (and its twin `Kernel/Core.lean`'s `prepareMajor`), in
+the non-K case, returns the major unchanged if it is already headed by a constructor
+(`if isCtorAppC fe majorE then pure majorE`).  The official kernel at v4.35.0
+(`src/kernel/inductive.h`, `inductive_reduce_rec`) always runs `major = whnf(major)` (after the K
+rescue only), and its `whnf` reduces `Nat.succ x` to a literal (`type_checker::reduce_nat`, the
+one-argument case: `whnf(app_arg(e))`, then `v + 1`).  So in `strictB (Nat.succ i) ih` the official
+kernel turns the major into the literal `i + 1`, converts it to `Nat.succ (lit i)`, and the
+next index is `Nat.succ (lit i)`, one level over a literal.  con-leche takes the field of
+`Nat.succ i` as it stands: `n := i`, the next index is `Nat.succ i`, and after k characters the
+index is a tower of k `Nat.succ` over the statement's `0`.  Each use of the index (`Nat.blt i len`,
+`Nat.div i 256`, `Nat.mod i 256`) still reduces in O(1) through the whnf memo (the tower's
+predecessor was reduced one step before).  The divergence is therefore harmless until the hash
+cycle below.  The shortcut came with task #342 R2 (the structure rescues on the raw major, after
+lean4#15351, a PR that was closed unmerged): for every other constructor application, whnf is the
+identity, so `Nat.succ` is the only head for which the two orders differ.
+
+*Why the tower costs O(k) per memo probe.*  The hash word of `.app f a` is
+`hash32 (mixHash 17 (mixHash (hash f) (hash a)))` (`Kernel/Expr.lean`), a function of the
+argument's 32-bit hash alone when `f` is fixed.  On a `succ` tower the hash is therefore an
+iterated pseudo-random map on 2³² values, and such an orbit runs into a cycle after about √2³²
+steps.  Computed with con-leche's own `Expr.hash` (`_tmp/580/hashsim/Rho.lean`):
+`Nat.succ^k (OfNat.ofNat Nat 0 (instOfNatNat 0))` has the same hash as `Nat.succ^(k+93 220)` of
+it for every k ≥ 7 207 (tail 7 207, cycle 93 220).  The sampled pair above differs by exactly
+93 220 levels.  So from character 100 427 on, every memo key that holds the index (a dozen per
+character: the dispatch tree's `Nat.beq` nodes, the `Nat` operations) shares its bucket with the
+key of the character 93 220 earlier (two keys from 193 647 on, and so on).  The data words agree
+at every level down to the tail, so `beqGoX` (whose per-node pointer and data-word tests stop only
+at a difference) descends about k − 7 207 levels before the towers differ.  Both the lookup and
+`insert`'s `contains` pay that.  The cost per character grows like k times the number of earlier
+cycles, about k² / 93 220.  Extrapolated from the measured rate (about 1 000 characters a minute
+at k ≈ 140 000, with one colliding key per bucket), one theorem takes on the order of 100 h.
+This is an estimate, but it agrees with the maintainer's runs.  The memory stays small (1.9 GiB at
+21 min): the towers share their tails, and the cost is time, not space.
+
+The official kernel uses the same kind of 32-bit structural hash, so it would show the same
+cycle on a deep unary tower.  It never builds this tower, because it reduces the major.  The hash
+cycle is a property of any 32-bit iterated hash and is not a bug in itself; the bug is the tower.
+
+**Fix proposal (not implemented; the maintainer decides).**  Match the official order for this
+one case: in `prepareMajor` (`Kernel/Core.lean`) and `prepareMajorI` (`Cached/CoreC.lean`), keep
+the constructor shortcut but not for a `Nat.succ` application, which goes through the whnf, the
+literal conversion and the second rescue like any other major:
+
+```lean
+if isCtorAppC fe majorE && !majorE.isNatSuccApp then pure majorE
+```
+
+(the probe; `Expr.isNatSuccApp : .app (.const c []) _ => c == natSuccName`, in `CoreDefs.lean`).
+For the probe, the build broke in two places only: two `by_cases` in `Verify/InferLemmas.lean`
+(`prepareMajor`'s preservation; repaired by case-splitting on the new condition) and the shift
+lemma in `Verify/Deep.lean` (`tail`'s statement and its two uses; it needs
+`isNatSuccApp (shiftFrom p e) = isNatSuccApp e`, which should be immediate because `shiftFrom`
+leaves a `.const` head unchanged).  This is what `lake build con-leche` (the binary's import
+closure) reported; I did not build the whole library or `lake test`.  An
+alternative is to drop the shortcut entirely (always whnf after a rescue that did not apply, as
+official does).  That is equivalent for every other head and costs one whnf-memo probe per ι step.
+The targeted condition keeps #342 R2's rescue order exactly, so I recommend it.  The change needs
+an e2e fixture: a `strictB`-style counter over a few hundred thousand steps (above the cycle's
+tail plus one period), which accepts quickly with the fix.  Without the fix it times out, so the
+fixture's timeout states the target.
+
+The hash cycle could also bite a development that builds deep unary towers itself (with no
+literal to fold them into); the official kernel would then pay the same.  This is not addressed
+here.  Mixing the depth into the hash word would break the cycle, but it changes the hash of every
+term; I do not propose it.
+
+Data removed at the end of the lane: `_tmp/580/root` (the fetched closure), the probe worktree,
+the perf data.  Kept in `_tmp/580`: the scripts (`bin/measure.sh`, `gdb/dec.py`,
+`hashsim/Rho.lean`, `scripts/`), the probe as a patch (`probe.diff`) and the run logs
+(`runs/*.err`, `runs/perf-*.txt`).
