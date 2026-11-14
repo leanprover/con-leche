@@ -322,6 +322,9 @@ arena_half() {
 # milliseconds, and a regression (a stuck projection's struct replaced by
 # its WHNF) is exponential in time AND memory (~8 GB at 60 s), so it
 # fails fast here instead.
+# strict_succ_counter: BELOW the default — checks in about 2 s, and a
+# `Nat.succ` major taken as it stands (DESIGN #580, #582) builds a unary
+# index tower whose hash cycle makes it quadratic, minutes.
 # omega_kloop, omega_demo2: BELOW the default, likewise — both check in
 # milliseconds, and a regression (proof irrelevance moved back behind
 # the head normalization) does not terminate.
@@ -336,6 +339,7 @@ declare -A E2E_TIMEOUT=(
   [whnf_core_loop.ndjson]=5
   [complete_c05b_nest30_pi1000.ndjson]=600
   [proj_stuck_struct.ndjson]=10
+  [strict_succ_counter.ndjson]=10
   [omega_kloop.ndjson]=10
   [omega_demo2.ndjson]=10
   [k_rescue_stuck.ndjson]=10

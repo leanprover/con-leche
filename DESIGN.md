@@ -114241,3 +114241,93 @@ profile of `magma-list-pair-n7` does not place in any function of this change.
 lookup is the one before); `FEnv.lookup` is `lookupIn`.  The pub-import gate's per-file fallback
 gained `BlockOverlay → CheckerC` (measured).  `OVERVIEW.md`'s link to `Name.render` was stale on
 master since task #578 and is repointed with this lane's moved citations.
+
+## TASK #582 — a `Nat.succ` major goes to whnf before the ι step (2026-11-14, agent/582-major-succ-master)
+
+The fix found by investigation #580 on the `modular` branch, landed there as #582 and here as the
+same three commits (cherry-picked; master's `prepareMajor`/`prepareMajorI` and the proofs about
+them are the same as `modular`'s, so nothing needed adapting).  This record summarizes both
+records; it does not rely on `modular`'s other records.
+
+**The bug** (#580).  The CFSG module `Certificates.Kernel.Sporadic.Fi24Br.Seed` ran for days in
+con-leche (killed after up to 42 h); the official kernel checks it in 175 s.  Its two expensive
+theorems are `runF … = true` by `Lean.reflBoolTrue`: 617 792 steps of `Nat`/`Bool` ground
+reduction, each going on with CFSG's strictness combinator
+
+```lean
+def strictB (y : Nat) (k : Nat → Bool) : Bool :=
+  Nat.rec (motive := fun _ => Bool) (k (nat_lit 0)) (fun n _ => k (Nat.succ n)) y
+```
+
+applied to `Nat.succ i`.  `prepareMajor` (`Kernel/Core.lean`) and `prepareMajorI`
+(`Cached/CoreC.lean`), in the non-K case, returned a major that is already a constructor
+application unchanged (task #342 R2).  So the field of `Nat.succ i` was `i` itself, the next index
+was `Nat.succ i`, and after k steps the index was a unary tower of k `Nat.succ` over the
+statement's `0`.  Each use of the index stayed O(1) through the whnf memo, until the tower's 32-bit
+hash ran into a cycle: the hash word of `.app f a` depends on `a` only through `a`'s hash, so along
+a tower it is an iterated map on 2³² values (for `Nat.succ` over `OfNat.ofNat Nat 0 _`: tail
+7 207, period 93 220).  From then on, memo keys holding towers whose depths differ by a multiple of
+the period share a bucket, and each probe compares them by a structural walk as deep as the
+tower (`Expr.beqGoX`, 99.4 % of a profile of the stuck worker).  The cost per step grows with k,
+and one theorem took on the order of 100 h.
+
+**The official order** (v4.35.0 `inductive.h`, `inductive_reduce_rec`; `type_checker.cpp`,
+`whnf_core`, `reduce_nat`).  Official runs `major = whnf(major)` unconditionally (after the K
+rescue).  On a constructor application `whnf_core` does nothing, `unfold_definition` does
+nothing, and `reduce_nat` fires only on `Nat.succ` with one argument (the level-free constant)
+and on the binary `Nat` operations, which are not constructors.  So `Nat.succ x` is the only
+constructor application whose whnf is not itself: official folds it to the literal `i + 1`, and
+its counter's index is `Nat.succ` over a literal, never a tower.
+
+**The change.**  In both functions the constructor shortcut now excludes `Nat.succ`:
+
+```lean
+if isCtorApp env majorE && !majorE.isNatSuccApp then pure majorE
+```
+
+with `Expr.isNatSuccApp` (`Kernel/CoreDefs.lean`) `.app (.const c []) _ => c == natSuccName`.  A
+`Nat.succ x` major goes through whnf, the literal conversion and the rescue like a stuck one.
+Both orders now agree on every constructor application, the ruled deviations aside (the rescue on
+the raw major first, #342 R2; no whnf after a failed K rescue, #334, and a K major is never
+`Nat.succ`).  If `x` does not reduce to a literal, whnf leaves `Nat.succ x` as it is, in both
+kernels, and the `succ` rule fires on it unchanged.
+
+**Proofs** (no sorry, no new axiom).  `prepareMajorFueled_ind` (`Verify/InferLemmas.lean`): its two
+`by_cases` split on the new condition.  `prepareTail_rel` (`Verify/EnvExt/Whnf.lean`): the new
+guard in the statement.  `prepareMajor_shift` (`Verify/Deep.lean`): the tail's statement, with the
+new `isNatSuccApp_shiftFrom`.  The cached simulation (`Verify/Cached/DiscC3.lean`) is unchanged.
+`tests/plain-reach-allow.txt` lists `Expr.isNatSuccApp` (a match on two constructors).  The new
+docstring lines moved the OVERVIEW and whitepaper anchors into `Core.lean` (+5) and `CoreDefs.lean`
+(+10); the cited text is unchanged.
+
+**Fixture** `strict_succ_counter` (`tests/e2e/src/`): `count n n 0 = true` at `n = 200 000`, a
+`Nat.rec` whose step tests `Nat.blt i len` and goes on with `strictB (Nat.succ i) ih`, past the
+cycle's tail plus one period.  On master (`perf stat -e instructions:u`, one run each, under the
+guard and `timeout`): fixed 17.95 G, master d7d2b7c00 2 341.4 G (several minutes; it still
+accepts).  `tests/arena.sh` runs it under a 10 s timeout, so the old order fails the gate.  The
+official kernel (`leanchecker` v4.35.0, measured on `modular`) takes 21.8 G, 1.5 G of it the
+empty-module baseline.
+
+**Measurements** on master (`perf stat -e instructions:u`, one run each, under the guard and
+`timeout`; base = master d7d2b7c00):
+
+| stream | base | fixed | Δ |
+|---|---|---|---|
+| init-prelude (`--jobs=8`) | 1.2298 G | 1.2311 G | +0.10 % |
+| grind-ring-5 | 9.911 G | 9.921 G | +0.10 % |
+| app-lam | 22.007 G | 22.002 G | −0.02 % |
+| let-ladder | 2.5862 G | 2.5831 G | −0.12 % |
+| beta-ladder | 4.9876 G | 4.9865 G | −0.02 % |
+| init-full (`--jobs=1`) | 275.52 G | 275.56 G | +0.01 % |
+
+No stream moves by more than 0.12 %.  CFSG `Fi24Br.Seed` was measured on `modular` (with
+`--olean --module`, the modular checking that master does not have): days before, 743.5 G
+and a 121 s check after (7.2 GiB), all 10 declarations accepted, 1.13× the official kernel's
+658.5 G.
+
+**Not addressed: the hash cycle itself.**  A development that builds deep unary `Nat.succ` towers
+on its own would meet the same cycle, in the official kernel too (same kind of 32-bit hash).
+Mixing the depth into the hash word would break it but changes the hash of every term; not
+proposed.  This task removes the tower the checker built where official builds none.
+
+Data: `_tmp/582m` (worktrees, binaries, logs) removed at the end of the lane.
