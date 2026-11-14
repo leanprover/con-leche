@@ -115,7 +115,7 @@ def unitLikeShapeF (fe : FEnv) (w : Expr) : Option (Expr × Nat) :=
             | some (.ctorInfo cvC _ _ _) =>
               (Expr.peelPis tbl.numParams (Expr.instLevelParams cvC.levelParams us cvC.type)).map
                 fun body =>
-                  (Expr.instantiateListC body (Expr.getAppArgsC w).reverse 0, tbl.numFields)
+                  (Expr.instantiateRev body (Expr.getAppArgsC w).toArray 0, tbl.numFields)
             | _ => none
           else none
         | none => none
@@ -1067,25 +1067,28 @@ def reduceProjCoreI (eager : Bool) (lv : Nat) (depth : Nat) (sn : Name)
 termination_by (lv, 28, 0, 0)
 
 /-- Peel loop of `whnfAppI`: `t` is the raw (unsubstituted) lambda body
-after the binders consumed so far, `acc` their arguments (innermost
-first), `args[i:]` the spine left.  The body is substituted once, when
-peeling stops, and applied to the arguments left over.  The substitution is
-not memoised (`instantiateListC`, not `instListM`), as official's
-`instantiate` keeps no cache across calls: a β redex's arguments, an ι
-reduct's above all, rarely repeat, so a memo entry is a miss and an
-insert nearly every time (task #572). -/
+after the binders consumed so far, their arguments the spine range
+`args[s:i]` (innermost last), `args[i:]` the spine left.  The body is
+substituted once, when peeling stops, straight from the spine
+(`instantiateRevRange`: bound variable `j` is `args[i - 1 - j]`, official
+`whnf_core`'s `instantiate(binding_body(f), m, args.data() + (num_args -
+m))`), and applied to the arguments left over.  The substitution is
+not memoised across calls (`instantiateRevRange`, not `instListM`), as
+official's `instantiate` keeps no cache across calls: a β redex's
+arguments, an ι reduct's above all, rarely repeat, so a memo entry is a
+miss and an insert nearly every time (task #572). -/
 def betaPeelI (eager : Bool) (lv : Nat) (depth : Nat)
-    (t : Expr) (acc : List Expr) (args : Array Expr) (i : Nat) : CheckCM WhnfStep :=
-  if hi : i < args.size then
+    (t : Expr) (s : Nat) (args : @& Array Expr) (i : Nat) : CheckCM WhnfStep :=
+  if _hi : i < args.size then
     match t with
     | .lam _ body =>
         -- Task #342 S0: uniform β (see `whnfAppI`)
-        betaPeelI eager lv depth body (args[i] :: acc) args (i + 1)
+        betaPeelI eager lv depth body s args (i + 1)
     | _ => do
-      let e' ← pure (Expr.instantiateListC t acc)
+      let e' ← pure (Expr.instantiateRevRange t args s i)
       pure (.cont (mkAppRange e' args i args.size))
   else do
-    let e' ← pure (Expr.instantiateListC t acc)
+    let e' ← pure (Expr.instantiateRevRange t args s i)
     pure (.cont e')
 termination_by (lv, 29, args.size - i, 0)
 
@@ -1105,7 +1108,7 @@ def whnfAppI (eager : Bool) (lv : Nat) (depth : Nat)
     match v with
     | .lam _ body =>
         -- Task #342 S0: uniform β, no certificate, at every λ
-        betaPeelI eager lv depth body [args[i]] args (i + 1)
+        betaPeelI eager lv depth body i args (i + 1)
     | _ => do
       let fa ← pure (Expr.app v args[i])
       -- the ι step is tried only where it could fire; every other

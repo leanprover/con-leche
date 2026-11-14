@@ -636,9 +636,9 @@ def instantiateListC (e : @& Expr) (vs : List Expr) (d : Nat := 0) : Expr :=
     if hcut : e.bvarB ≤ d then e
     else resTerm (instantiateListXP a a.size none e d (by simp [a]) hcut)
 
-/-- The plain descent of `instantiateRev` (as `instantiateListP` on
-the reversed array): the reference of `instantiateRevXP`. -/
-def instantiateRevP (vs : Array Expr) (e : Expr) (k : Nat) (d : Nat) : Expr :=
+/-- The plain descent of `instantiateRevRange` (as `instantiateListP`
+on the reversed prefix `vs[:n]`): the reference of `instantiateRevXP`. -/
+def instantiateRevP (vs : Array Expr) (n : Nat) (e : Expr) (k : Nat) (d : Nat) : Expr :=
   if k = 0 then e
   else if e.bvarB ≤ d then e
   else
@@ -646,35 +646,35 @@ def instantiateRevP (vs : Array Expr) (e : Expr) (k : Nat) (d : Nat) : Expr :=
     | .bvar i .. =>
       if i < d then e
       else if _h : i - d < k then
-        if h : i - d < vs.size then
-          let w := vs[vs.size - 1 - (i - d)]'(by omega)
+        if h : i - d < n ∧ n ≤ vs.size then
+          let w := vs[n - 1 - (i - d)]'(by omega)
           if i - d = 0 || w.bvarB ≤ d then w
-          else instantiateRevP vs w (i - d) d
+          else instantiateRevP vs n w (i - d) d
         else e
       else Expr.mkBvar (i - k)
     | .fvar .. | .sort .. | .const .. | .lit .. => e
-    | .app f a .. => mkApp (instantiateRevP vs f k d) (instantiateRevP vs a k d)
-    | .lam ty body .. => mkLam (instantiateRevP vs ty k d) (instantiateRevP vs body k (d + 1))
+    | .app f a .. => mkApp (instantiateRevP vs n f k d) (instantiateRevP vs n a k d)
+    | .lam ty body .. => mkLam (instantiateRevP vs n ty k d) (instantiateRevP vs n body k (d + 1))
     | .forallE ty body .. =>
-      mkForallE (instantiateRevP vs ty k d) (instantiateRevP vs body k (d + 1))
+      mkForallE (instantiateRevP vs n ty k d) (instantiateRevP vs n body k (d + 1))
     | .letE ty val body .. =>
-      mkLetE (instantiateRevP vs ty k d) (instantiateRevP vs val k d) (instantiateRevP vs body k (d + 1))
-    | .proj sn i sub .. => mkProj sn i (instantiateRevP vs sub k d)
+      mkLetE (instantiateRevP vs n ty k d) (instantiateRevP vs n val k d) (instantiateRevP vs n body k (d + 1))
+    | .proj sn i sub .. => mkProj sn i (instantiateRevP vs n sub k d)
 termination_by (k, sizeOf e)
 decreasing_by
   all_goals first
     | (apply Prod.Lex.left; omega)
     | (apply Prod.Lex.right; simp +arith +decide)
 
-theorem instantiateRevP_cut {vs : Array Expr} {e : Expr} {k d : Nat} (h : e.bvarB ≤ d) :
-    instantiateRevP vs e k d = e := by
+theorem instantiateRevP_cut {vs : Array Expr} {n : Nat} {e : Expr} {k d : Nat} (h : e.bvarB ≤ d) :
+    instantiateRevP vs n e k d = e := by
   rw [instantiateRevP.eq_def]; simp [h]
 
 /-- The type of the re-entry of `leafRevP` (see `reentRevP`): the walk at a
 shorter live prefix `j` under a fresh memo, as a bare term. -/
-abbrev ReentRevP (vs : Array Expr) (k d : Nat) : Type :=
+abbrev ReentRevP (vs : Array Expr) (n k d : Nat) : Type :=
   (j : Nat) → j < k → (w : Expr) → ¬ j = 0 → ¬ w.bvarB ≤ d →
-    { r : Expr // r = instantiateRevP vs w j d }
+    { r : Expr // r = instantiateRevP vs n w j d }
 
 /-- The non-compound node of the bulk instantiation on a reversed accumulator, past the
 cutoff: a bare term, the memo is not involved.  Everything but the
@@ -683,28 +683,29 @@ walk.  The re-entry — a replacement whose value has loose bound
 variables below the lift — is `reent`: the walk under a FRESH memo (the
 one place the live prefix `k` shrinks, and `k` is not part of the key),
 whose memo is dropped (`reentRevP`). -/
-@[inline] def leafRevP (vs : @& Array Expr) (k : Nat) (e : @& Expr) (d : Nat) (hk : ¬ k = 0)
-    (reent : ReentRevP vs k d)
+@[inline] def leafRevP (vs : @& Array Expr) (n k : Nat) (e : @& Expr) (d : Nat) (hk : ¬ k = 0)
+    (hn : n ≤ vs.size)
+    (reent : ReentRevP vs n k d)
     (hcut : ¬ e.bvarB ≤ d) (hc : (!isCompound e) = true) :
-    { r : Expr // r = instantiateRevP vs e k d } :=
+    { r : Expr // r = instantiateRevP vs n e k d } :=
   match e with
   | .bvar i .. =>
     if hi : i < d then ⟨.bvar i, by rw [instantiateRevP.eq_def]; simp [hk, hcut, hi]⟩
     else if _h : i - d < k then
-      if h : i - d < vs.size then
-        let w := vs[vs.size - 1 - (i - d)]'(by omega)
+      if h : i - d < n then
+        let w := vs[n - 1 - (i - d)]'(by omega)
         if h0 : i - d = 0 || w.bvarB ≤ d then
-          ⟨w, by rw [instantiateRevP.eq_def]; simp [hk, hcut, hi, _h, h, w, h0]⟩
+          ⟨w, by rw [instantiateRevP.eq_def]; simp [hk, hcut, hi, _h, h, hn, w, h0]⟩
         else
           have h0' : ¬ i - d = 0 ∧ ¬ w.bvarB ≤ d := by
             simpa only [Bool.or_eq_true, decide_eq_true_eq, not_or] using h0
           match reent (i - d) _h w h0'.1 h0'.2 with
-          | ⟨r, hr⟩ => ⟨r, by rw [instantiateRevP.eq_def]; simp [hk, hcut, hi, _h, h, w, h0, hr]⟩
+          | ⟨r, hr⟩ => ⟨r, by rw [instantiateRevP.eq_def]; simp [hk, hcut, hi, _h, h, hn, w, h0, hr]⟩
       else ⟨.bvar i, by rw [instantiateRevP.eq_def]; simp [hk, hcut, hi, _h, h]⟩
     else ⟨Expr.mkBvar (i - k), by rw [instantiateRevP.eq_def]; simp [hk, hcut, hi, _h]⟩
   | .fvar idx ty .. => ⟨.fvar idx ty, by rw [instantiateRevP.eq_def]; simp [hk, hcut]⟩
   | .sort u .. => ⟨.sort u, by rw [instantiateRevP.eq_def]; simp [hk, hcut]⟩
-  | .const n us .. => ⟨.const n us, by rw [instantiateRevP.eq_def]; simp [hk, hcut]⟩
+  | .const c us .. => ⟨.const c us, by rw [instantiateRevP.eq_def]; simp [hk, hcut]⟩
   | .lit l .. => ⟨.lit l, by rw [instantiateRevP.eq_def]; simp [hk, hcut]⟩
   | .app .. | .lam .. | .forallE .. | .letE .. | .proj .. => absurd hc (by simp [isCompound])
 
@@ -714,13 +715,14 @@ no `(term, memo)` pair is built for it, and the memo passes on
 untouched; a compound child gets the exclusivity read.  `reent` and
 `rec` are passed as partial applications of the walk's two functions,
 so no closure is built: once this is inlined, each is a direct call. -/
-@[inline] def enterRevP (vs : @& Array Expr) (e : @& Expr) (k d : Nat) (hk : ¬ k = 0)
-    (memo : MemoXP (fun e d => instantiateRevP vs e k d))
-    (reent : ReentRevP vs k d)
-    (rec : (hcut : ¬ e.bvarB ≤ d) → Squash (ResXP (fun e d => instantiateRevP vs e k d) e d)) :
-    Squash (ResXP (fun e d => instantiateRevP vs e k d) e d) :=
+@[inline] def enterRevP (vs : @& Array Expr) (n : Nat) (e : @& Expr) (k d : Nat) (hk : ¬ k = 0)
+    (hn : n ≤ vs.size)
+    (memo : MemoXP (fun e d => instantiateRevP vs n e k d))
+    (reent : ReentRevP vs n k d)
+    (rec : (hcut : ¬ e.bvarB ≤ d) → Squash (ResXP (fun e d => instantiateRevP vs n e k d) e d)) :
+    Squash (ResXP (fun e d => instantiateRevP vs n e k d) e d) :=
   if hcut : e.bvarB ≤ d then Squash.mk (⟨e, (instantiateRevP_cut hcut).symm⟩, memo)
-  else if hc : !isCompound e then Squash.mk (leafRevP vs k e d hk reent hcut hc, memo)
+  else if hc : !isCompound e then Squash.mk (leafRevP vs n k e d hk hn reent hcut hc, memo)
   else withExcl e fun excl =>
     if excl then rec hcut else memo.shared e d fun _ => rec hcut
 
@@ -728,9 +730,9 @@ mutual
 
 /-- The re-entry of `leafRevP`: the walk at the shorter live prefix `j`
 under a fresh memo, which is dropped. -/
-def reentRevP (vs : @& Array Expr) (k d : Nat) (j : Nat) (_hj : j < k) (w : @& Expr)
-    (h0 : ¬ j = 0) (hw : ¬ w.bvarB ≤ d) : { r : Expr // r = instantiateRevP vs w j d } :=
-  ⟨resTerm (instantiateRevXP vs j none w d h0 hw), resTerm_eq _⟩
+def reentRevP (vs : @& Array Expr) (n k d : Nat) (hn : n ≤ vs.size) (j : Nat) (_hj : j < k) (w : @& Expr)
+    (h0 : ¬ j = 0) (hw : ¬ w.bvarB ≤ d) : { r : Expr // r = instantiateRevP vs n w j d } :=
+  ⟨resTerm (instantiateRevXP vs n j none w d h0 hn hw), resTerm_eq _⟩
 termination_by (j, sizeOf w + 1)
 decreasing_by
   all_goals (apply Prod.Lex.right; omega)
@@ -738,35 +740,35 @@ decreasing_by
 /-- The walk of the bulk instantiation on a reversed accumulator (the node is past the
 cutoff: the wrapper and `enterRevP` test it).  A non-compound node is
 `leafRevP`'s. -/
-def instantiateRevXP (vs : @& Array Expr) (k : Nat) (memo : MemoXP (fun e d => instantiateRevP vs e k d))
-    (e : @& Expr) (d : Nat) (hk : ¬ k = 0) (hcut : ¬ e.bvarB ≤ d) :
-    Squash (ResXP (fun e d => instantiateRevP vs e k d) e d) :=
+def instantiateRevXP (vs : @& Array Expr) (n k : Nat) (memo : MemoXP (fun e d => instantiateRevP vs n e k d))
+    (e : @& Expr) (d : Nat) (hk : ¬ k = 0) (hn : n ≤ vs.size) (hcut : ¬ e.bvarB ≤ d) :
+    Squash (ResXP (fun e d => instantiateRevP vs n e k d) e d) :=
   match e with
   | .app f a .. =>
-    enterRevP vs f k d hk memo (reentRevP vs k d) (instantiateRevXP vs k memo f d hk) |>.lift fun (⟨f', hf⟩, memo) =>
-    enterRevP vs a k d hk memo (reentRevP vs k d) (instantiateRevXP vs k memo a d hk) |>.lift fun (⟨a', ha⟩, memo) =>
+    enterRevP vs n f k d hk hn memo (reentRevP vs n k d hn) (instantiateRevXP vs n k memo f d hk hn) |>.lift fun (⟨f', hf⟩, memo) =>
+    enterRevP vs n a k d hk hn memo (reentRevP vs n k d hn) (instantiateRevXP vs n k memo a d hk hn) |>.lift fun (⟨a', ha⟩, memo) =>
     Squash.mk (⟨mkApp f' a', by dsimp only; rw [instantiateRevP.eq_def]; simp [hk, hcut, hf, ha, mkApp]⟩, memo)
   | .lam ty body .. =>
-    enterRevP vs ty k d hk memo (reentRevP vs k d) (instantiateRevXP vs k memo ty d hk) |>.lift fun (⟨ty', ht⟩, memo) =>
-    enterRevP vs body k (d + 1) hk memo (reentRevP vs k (d + 1)) (instantiateRevXP vs k memo body (d + 1) hk) |>.lift fun (⟨b', hb⟩, memo) =>
+    enterRevP vs n ty k d hk hn memo (reentRevP vs n k d hn) (instantiateRevXP vs n k memo ty d hk hn) |>.lift fun (⟨ty', ht⟩, memo) =>
+    enterRevP vs n body k (d + 1) hk hn memo (reentRevP vs n k (d + 1) hn) (instantiateRevXP vs n k memo body (d + 1) hk hn) |>.lift fun (⟨b', hb⟩, memo) =>
     Squash.mk (⟨mkLam ty' b', by dsimp only; rw [instantiateRevP.eq_def]; simp [hk, hcut, ht, hb, mkLam]⟩, memo)
   | .forallE ty body .. =>
-    enterRevP vs ty k d hk memo (reentRevP vs k d) (instantiateRevXP vs k memo ty d hk) |>.lift fun (⟨ty', ht⟩, memo) =>
-    enterRevP vs body k (d + 1) hk memo (reentRevP vs k (d + 1)) (instantiateRevXP vs k memo body (d + 1) hk) |>.lift fun (⟨b', hb⟩, memo) =>
+    enterRevP vs n ty k d hk hn memo (reentRevP vs n k d hn) (instantiateRevXP vs n k memo ty d hk hn) |>.lift fun (⟨ty', ht⟩, memo) =>
+    enterRevP vs n body k (d + 1) hk hn memo (reentRevP vs n k (d + 1) hn) (instantiateRevXP vs n k memo body (d + 1) hk hn) |>.lift fun (⟨b', hb⟩, memo) =>
     Squash.mk (⟨mkForallE ty' b', by dsimp only; rw [instantiateRevP.eq_def]; simp [hk, hcut, ht, hb, mkForallE]⟩, memo)
   | .letE ty val body .. =>
-    enterRevP vs ty k d hk memo (reentRevP vs k d) (instantiateRevXP vs k memo ty d hk) |>.lift fun (⟨ty', ht⟩, memo) =>
-    enterRevP vs val k d hk memo (reentRevP vs k d) (instantiateRevXP vs k memo val d hk) |>.lift fun (⟨v', hv⟩, memo) =>
-    enterRevP vs body k (d + 1) hk memo (reentRevP vs k (d + 1)) (instantiateRevXP vs k memo body (d + 1) hk) |>.lift fun (⟨b', hb⟩, memo) =>
+    enterRevP vs n ty k d hk hn memo (reentRevP vs n k d hn) (instantiateRevXP vs n k memo ty d hk hn) |>.lift fun (⟨ty', ht⟩, memo) =>
+    enterRevP vs n val k d hk hn memo (reentRevP vs n k d hn) (instantiateRevXP vs n k memo val d hk hn) |>.lift fun (⟨v', hv⟩, memo) =>
+    enterRevP vs n body k (d + 1) hk hn memo (reentRevP vs n k (d + 1) hn) (instantiateRevXP vs n k memo body (d + 1) hk hn) |>.lift fun (⟨b', hb⟩, memo) =>
     Squash.mk (⟨mkLetE ty' v' b', by dsimp only; rw [instantiateRevP.eq_def]; simp [hk, hcut, ht, hv, hb, mkLetE]⟩, memo)
   | .proj sn i sub .. =>
-    enterRevP vs sub k d hk memo (reentRevP vs k d) (instantiateRevXP vs k memo sub d hk) |>.lift fun (⟨s', hs⟩, memo) =>
+    enterRevP vs n sub k d hk hn memo (reentRevP vs n k d hn) (instantiateRevXP vs n k memo sub d hk hn) |>.lift fun (⟨s', hs⟩, memo) =>
     Squash.mk (⟨mkProj sn i s', by dsimp only; rw [instantiateRevP.eq_def]; simp [hk, hcut, hs, mkProj]⟩, memo)
-  | .bvar i => Squash.mk (leafRevP vs k (.bvar i) d hk (reentRevP vs k d) hcut rfl, memo)
-  | .fvar idx ty => Squash.mk (leafRevP vs k (.fvar idx ty) d hk (reentRevP vs k d) hcut rfl, memo)
-  | .sort u => Squash.mk (leafRevP vs k (.sort u) d hk (reentRevP vs k d) hcut rfl, memo)
-  | .const n us => Squash.mk (leafRevP vs k (.const n us) d hk (reentRevP vs k d) hcut rfl, memo)
-  | .lit l => Squash.mk (leafRevP vs k (.lit l) d hk (reentRevP vs k d) hcut rfl, memo)
+  | .bvar i => Squash.mk (leafRevP vs n k (.bvar i) d hk hn (reentRevP vs n k d hn) hcut rfl, memo)
+  | .fvar idx ty => Squash.mk (leafRevP vs n k (.fvar idx ty) d hk hn (reentRevP vs n k d hn) hcut rfl, memo)
+  | .sort u => Squash.mk (leafRevP vs n k (.sort u) d hk hn (reentRevP vs n k d hn) hcut rfl, memo)
+  | .const c us => Squash.mk (leafRevP vs n k (.const c us) d hk hn (reentRevP vs n k d hn) hcut rfl, memo)
+  | .lit l => Squash.mk (leafRevP vs n k (.lit l) d hk hn (reentRevP vs n k d hn) hcut rfl, memo)
 termination_by (k, sizeOf e)
 decreasing_by
   all_goals first
@@ -775,12 +777,22 @@ decreasing_by
 
 end
 
-/-- Bulk instantiation on a reversed accumulator array: the cutoffs,
-then the walk. -/
-def instantiateRev (e : @& Expr) (vs : Array Expr) (d : Nat := 0) : Expr :=
-  if hk : vs.size = 0 then e
+/-- Bulk instantiation from the range `vs[s:n]` of an array, read from
+its end: bound variable `j` below `n - s` becomes `vs[n - 1 - j]`, as in
+official's `instantiate(e, n - s, vs.data() + s)`.  The β peel
+substitutes straight from its application spine this way (`betaPeelI`).
+`n` is clamped to the array, so the equation (`instantiateRevRange_spec`)
+needs no hypothesis.  The cutoffs, then the walk. -/
+def instantiateRevRange (e : @& Expr) (vs : @& Array Expr) (s n : Nat) (d : Nat := 0) : Expr :=
+  let n := min n vs.size
+  if hk : n - s = 0 then e
   else if hcut : e.bvarB ≤ d then e
-  else resTerm (instantiateRevXP vs vs.size none e d hk hcut)
+  else resTerm (instantiateRevXP vs n (n - s) none e d hk (Nat.min_le_right ..) hcut)
+
+/-- Bulk instantiation on a reversed accumulator array: the whole
+array's range. -/
+@[inline] def instantiateRev (e : @& Expr) (vs : @& Array Expr) (d : Nat := 0) : Expr :=
+  instantiateRevRange e vs 0 vs.size d
 
 /-! ## Abstraction -/
 
@@ -1228,7 +1240,7 @@ def substConstAllC (n : Name) (r : Expr) (e : @& Expr) : Expr :=
 
 /-- The cached `ProjEntry.typeAt`: the same two instantiations through
 the memoized, **sharing-preserving** `instLevelParams` and
-`instantiateListC` (`ProjEntry.typeAtI_eq`, `ConLeche/Verify/Cached/
+`instantiateRev` (`ProjEntry.typeAtI_eq`, `ConLeche/Verify/Cached/
 OpsC.lean`, is the equation).
 
 The executable `.proj` inference clause used to call the spec's
@@ -1244,8 +1256,8 @@ the copies nest, and at `AlgebraicGeometry.isAffine_of_isAffineOpen_basicOpen`
 the out-of-memory — DESIGN.md "The affine frontier". -/
 def _root_.ConLeche.ProjEntry.typeAtI (entry : ProjEntry) (us : List Level)
     (targs : List Expr) (pe : Expr) : Expr :=
-  instantiateListC (instLevelParams entry.levelParams us entry.body)
-    (pe :: targs.reverse)
+  instantiateRev (instLevelParams entry.levelParams us entry.body)
+    (targs.toArray.push pe)
 
 /-! ## The `Bool`-valued walks
 
@@ -2123,7 +2135,7 @@ def instSpineChainC : List Expr → Nat → Expr → Expr
 /-- The cached `Expr.instSpine` (bulk when the spine spans the
 telescope context, the chain otherwise). -/
 def instSpineC (args : List Expr) (t : Nat) (e : Expr) : Expr :=
-  if args.length = t + 1 then instantiateListC e args.reverse 0
+  if args.length = t + 1 then instantiateRev e args.toArray 0
   else instSpineChainC args t e
 
 /-- Core of `piResidual` (bulk form, task #50).

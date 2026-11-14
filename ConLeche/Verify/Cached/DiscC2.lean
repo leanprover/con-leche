@@ -133,7 +133,7 @@ theorem unitLikeShapeF_mkFEnv (env : Env) (w : Expr) :
     unitLikeShapeF (mkFEnv env) w = unitLikeShape env w := by
   unfold unitLikeShapeF unitLikeShape unitFieldTele
   simp only [mkFEnv_find?, mkFEnv_findTable?, Expr.getAppArgsC_spec,
-    Expr.instLevelParams_spec, Expr.instantiateListC_spec, Option.map_map]
+    Expr.instLevelParams_spec, Expr.instantiateRev_spec, Option.map_map]
   rfl
 
 /-- The structure arm of the unit-like test simulates its fueled
