@@ -626,7 +626,7 @@ theorem prepareMajorFueled_ind {env : Env} {fuel d : Nat} {recName : Name} {isK 
       simp only [pure, Except.pure] at h
       have hE : P a := ha
       generalize a = mE at h hE
-      by_cases hca : isCtorApp env mE = true
+      by_cases hca : (isCtorApp env mE && !mE.isNatSuccApp) = true
       · rw [ite_eq_left hca] at h
         simp only [pure, Except.pure, Except.ok.injEq] at h
         exact h ▸ hE
@@ -649,7 +649,7 @@ theorem prepareMajorFueled_ind {env : Env} {fuel d : Nat} {recName : Name} {isK 
       rw [h₀] at h
       dsimp only at h
       have hE : P mE := hmaj h₀ ha
-      by_cases hca : isCtorApp env mE = true
+      by_cases hca : (isCtorApp env mE && !mE.isNatSuccApp) = true
       · rw [ite_eq_left hca] at h
         simp only [pure, Except.pure, Except.ok.injEq] at h
         exact h ▸ hE
