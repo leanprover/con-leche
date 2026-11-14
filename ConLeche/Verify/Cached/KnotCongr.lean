@@ -420,16 +420,16 @@ theorem reduceProjCoreI_congr (hfe : fe₁.find? = fe₂.find?)
 /-- The peel loop only threads `fe`: it reads none of it. -/
 theorem betaPeelI_congr (_hfe : fe₁.find? = fe₂.find?) (depth : Nat) :
     betaPeelI mode fe₁ eager lv depth = betaPeelI mode fe₂ eager lv depth := by
-  funext t acc args i
+  funext t s args i
   obtain ⟨n, hn⟩ : ∃ n, n = args.size - i := ⟨_, rfl⟩
-  induction n generalizing t acc i with
+  induction n generalizing t i with
   | zero =>
     rw [betaPeelI.eq_def, betaPeelI.eq_def, dite_eq_right (by omega), dite_eq_right (by omega)]
   | succ n ih =>
     rw [betaPeelI.eq_def, betaPeelI.eq_def]
     by_cases hi : i < args.size
     · rw [dite_eq_left hi, dite_eq_left hi]
-      cases t <;> simp only [ih _ _ (i + 1) (by omega)]
+      cases t <;> simp only [ih _ (i + 1) (by omega)]
     · rw [dite_eq_right hi, dite_eq_right hi]
 
 /-- `whnfAppI` reads `fe` only through `find?` and `findTable?`. -/

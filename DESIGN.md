@@ -114241,3 +114241,70 @@ profile of `magma-list-pair-n7` does not place in any function of this change.
 lookup is the one before); `FEnv.lookup` is `lookupIn`.  The pub-import gate's per-file fallback
 gained `BlockOverlay → CheckerC` (measured).  `OVERVIEW.md`'s link to `Name.render` was stale on
 master since task #578 and is repointed with this lane's moved citations.
+
+## TASK #583 — the β peel substitutes from the spine array (2026-11-14, agent/583-peel-range)
+
+**Why.**  `betaPeelI` collected the peeled arguments into a reversed `List` (`args[i] :: acc`)
+and `instantiateListC` turned that list straight back into an array (`(v :: vs').toArray`).  On
+lean4's `grind_field_kernel_cancel` (`tests/e2e/grind_field_cancel_inv.ndjson`, 120 k peels per
+theorem) `lean_list_to_array`, `List.lengthTR` and building and freeing the list were about 3 %
+of the run.  Ruling: no list-array conversion.
+
+**The change.**  The peeled arguments are the spine range `args[s:i]`; the peel loop carries the
+start `s` instead of a list, and substitutes from the spine in place, as official's `whnf_core`
+does (`instantiate(binding_body(f), m, args.data() + (num_args - m))`): bound variable `j` below
+`i - s` is `args[i - 1 - j]`.
+* `Expr.instantiateRevRange e vs s n d` (`Cached/ExprOpsC.lean`) is the entry: the reversed walk
+  `instantiateRevXP` (and its reference `instantiateRevP`, `leafRevP`, `enterRevP`, `reentRevP`)
+  takes the range end `n` in place of `vs.size`, with `n ≤ vs.size` as an erased argument, so the
+  leaf's array read has no extra runtime check.  The entry clamps `n` to the array once, which
+  makes the equation hypothesis-free.  `instantiateRev` (the whole array) is the range
+  `0 … vs.size`.  No near-duplicate walk; the per-walk memo policy (`withExcl`, `memo.shared`) is
+  unchanged.
+* `betaPeelI eager lv depth t s args i`: `args` is `@&` (the generated C passes the spine, `t` and
+  `s` borrowed; the loop's only increment is `i`'s for `mkAppRange`).  `whnfAppI` starts it with
+  `s = i`.
+* Three callers that built a reversed list only for the conversion now pass an array to
+  `instantiateRev`: `unitLikeShapeF` (`(getAppArgsC w).toArray`), `ProjEntry.typeAtI`
+  (`targs.toArray.push pe`) and `instSpineC` (`args.toArray`).  `instantiateListC` keeps the
+  callers whose algorithm accumulates a list (`instListM`'s memo key, `piResidualAcc`,
+  `openPisRawGoC`/`openPisAtFvarsGoC`, `projGuardRowsC`).
+
+**Proofs.**  `instantiateRevP_eq` is restated for the prefix `vs[:n]` (`n ≤ vs.size`: the
+reversed descent is the forward one on `(vs.extract 0 n).reverse`); the new
+`instantiateRevRange_spec` is `instantiateList e (vs.extract s n).toList.reverse d`, and
+`instantiateRev_spec` follows from it.  `betaPeelC_spec` (`Verify/Cached/DiscC4.lean`) states the
+loop at a range start `j ≤ i`, the mirror `betaPeelW` (still list-based: it is the specification)
+at the accumulator `(args.extract j i).toList.reverse`; its two arms are the same one-line
+`sym`/`vcgen`/`finish` with `instantiateRevRange_spec` for `instantiateListC_spec` and the new
+`extract_rev_succ` (one more peeled argument) in the `sym` list.  `whnfAppC_spec` adds
+`extract_rev_single`.  `typeAtI_eq`, `instSpineC_spec`, `unitLikeShapeF_mkFEnv` and
+`betaPeelI_congr` needed only the new lemma names.  No new axiom.
+
+**Numbers** (`instructions:u`, G, `--verified`, `--jobs=1` except `init-full` at `--jobs=8`, one
+run each, stdout identical on every stream; master d7d2b7c00):
+
+| stream | master | #583 | Δ |
+|---|---:|---:|---:|
+| grind_field_cancel_inv | 2.137 | 2.072 | −3.04 % |
+| init-full | 282.171 | 276.582 | −1.98 % |
+| init-prelude | 1.146 | 1.143 | −0.22 % |
+| grind-ring-5 | 9.651 | 9.418 | −2.42 % |
+| shared-subterm | 0.146 | 0.140 | −3.63 % |
+| folded-constant-first / -last | 0.077 / 0.077 | 0.074 / 0.074 | −3.08 / −3.08 % |
+| discarded-argument-match | 0.209 | 0.204 | −2.65 % |
+| discarded-argument | 0.070 | 0.069 | −2.05 % |
+| args-before-unfold | 0.053 | 0.052 | −1.82 % |
+| repeated-subproblem | 0.023 | 0.023 | −0.16 % |
+| let-ladder, identical-nesting, irrelevance-before-evaluation | | | +0.01 … +0.07 % |
+| unroll-versus-evaluate, church-numerals, shift-cascade | | | +0.17 … +0.29 % |
+| app-lam | 22.010 | 22.082 | +0.33 % |
+| beta-ladder | 4.905 | 4.928 | +0.47 % |
+
+The two rises are not the peel.  `beta-ladder`'s walks (`instantiateListXP` and
+`instantiateRevXP` on master, `instantiateRevXP` alone now) cost 0.659 + 0.755 G on master and
+1.401 G now; the rise is in `lean_dec_ref_cold`, `mi_free_block_mt` and the page reclaim, i.e. the
+allocator seeing a different object mix (no list cells, no small arrays).  `app-lam` substitutes
+through `instListRevM` (the whole array), whose walk now carries the range end `n` as one more
+argument: its `instantiateRevXP` share is 4.257 G on master and 4.346 G now (+2 % of that walk,
++0.4 % of the run).

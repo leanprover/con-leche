@@ -258,6 +258,22 @@ theorem toList_drop_of_ge {A : Array Expr} {i : Nat} (h : ¬ i < A.size) :
     A.toList.drop i = [] := by
   apply List.drop_eq_nil_of_le; simp; omega
 
+/-- The peeled range `A[s:i+1]`, innermost first: one more argument in
+front of `A[s:i]`. -/
+theorem extract_rev_succ {A : Array Expr} {s i : Nat} (hs : s ≤ i) (h : i < A.size) :
+    (A.extract s (i + 1)).toList.reverse = A[i] :: (A.extract s i).toList.reverse := by
+  rw [← List.reverse_concat, Array.toList_extract, Array.toList_extract]
+  congr 1
+  simp only [List.extract_eq_take_drop]
+  rw [show i + 1 - s = (i - s) + 1 by omega, List.take_add_one]
+  simp [List.getElem?_drop, show s + (i - s) = i by omega, h]
+
+/-- The one-argument range `A[i:i+1]`. -/
+theorem extract_rev_single {A : Array Expr} {i : Nat} (h : i < A.size) :
+    (A.extract i (i + 1)).toList.reverse = [A[i]] := by
+  rw [extract_rev_succ (Nat.le_refl i) h]
+  simp
+
 theorem allWS_getAppArgs_app {d : Nat} {v a : Expr} (hv : Expr.WScoped d v)
     (ha : Expr.WScoped d a) : AllWS d (Expr.app v a).getAppArgs :=
   allWS_getAppArgs (by rw [wscoped_app_eq]; exact ⟨hv, ha⟩)
@@ -305,27 +321,32 @@ theorem wscoped_peel {d : Nat} {ty body a : Expr} {acc : List Expr}
 grind_pattern [conleche_grind] wscoped_peel =>
   Expr.WScoped d ((Expr.lam ty body).instantiateList acc), body.instantiateList (a :: acc)
 
-/-- The peel loop simulates its pure mirror. -/
+/-- The peel loop simulates its pure mirror: the peeled range
+`args[j:i]` is the mirror's accumulator, innermost first. -/
 theorem betaPeelC_spec (lv : Nat) {d : Nat} :
-    ∀ (n : Nat) {args : Array Expr} {i : Nat} {t : Expr} {acc : List Expr} {s₀ : CState},
-      args.size - i = n → CSOK mode eager env s₀ →
-      Expr.WScoped d (t.instantiateList acc) → AllWS d args.toList →
-      ⦃fun s => s = s₀⦄ betaPeelI mode (mkFEnv env) eager lv d t acc args i
+    ∀ (n : Nat) {args : Array Expr} {j i : Nat} {t : Expr} {s₀ : CState},
+      args.size - i = n → j ≤ i → CSOK mode eager env s₀ →
+      Expr.WScoped d (t.instantiateList (args.extract j i).toList.reverse) →
+      AllWS d args.toList →
+      ⦃fun s => s = s₀⦄ betaPeelI mode (mkFEnv env) eager lv d t j args i
       ⦃fun v s' => CSOK mode eager env s' ∧
-          Runs (betaPeelW mode (fueledFns mode eager env) env d t acc (args.toList.drop i)) v ∧
+          Runs (betaPeelW mode (fueledFns mode eager env) env d t
+            (args.extract j i).toList.reverse (args.toList.drop i)) v ∧
           StepWS d v; ⊤⦄ := by
   intro n
   induction n with
   | zero =>
-    intro args i t acc s₀ hn hs _ _
-    sym only [conleche_grind, betaPeelW.eq_1, Expr.instantiateListC_spec,
+    intro args j i t s₀ hn _ hs _ _
+    sym only [conleche_grind, betaPeelW.eq_1, Expr.instantiateRevRange_spec,
         toList_drop_of_ge (A := args) (i := i) (by omega)] =>
       vcgen [betaPeelI.eq_def] <;> finish
   | succ n ihr =>
-    intro args i t acc s₀ hn hs _ _
-    sym only [conleche_grind, betaPeelW.eq_2, betaPeelW.eq_3, Expr.instantiateListC_spec,
-        toList_drop_of_lt (A := args) (i := i) (by omega)] =>
-      vcgen [betaPeelI.eq_def, ihr (args := args) (i := i + 1) (by omega)] <;> finish
+    intro args j i t s₀ hn hj hs _ _
+    sym only [conleche_grind, betaPeelW.eq_2, betaPeelW.eq_3, Expr.instantiateRevRange_spec,
+        toList_drop_of_lt (A := args) (i := i) (by omega),
+        extract_rev_succ (A := args) (s := j) (i := i) hj (by omega)] =>
+      vcgen [betaPeelI.eq_def, ihr (args := args) (j := j) (i := i + 1) (by omega) (by omega)] <;>
+        finish
 
 /-- The bulk-beta argument loop simulates its pure mirror. -/
 theorem whnfAppC_spec (ih : SSimC .verified eager env f)
@@ -349,9 +370,10 @@ theorem whnfAppC_spec (ih : SSimC .verified eager env f)
     sym only [conleche_grind, whnfAppW.eq_2, whnfAppW.eq_3,
         toList_drop_of_lt (A := args) (i := i) (by omega),
         getAppFn_getAppFn', iotaNumArgs_eq_length, List.take_length,
-        Expr.mkAppN_getApp] =>
+        Expr.mkAppN_getApp, extract_rev_single (A := args) (i := i) (by omega)] =>
       vcgen [iotaRecC_spec ih henv,
-        betaPeelC_spec (mode := .verified) f n (args := args) (i := i + 1) (by omega),
+        betaPeelC_spec (mode := .verified) f n (args := args) (j := i) (i := i + 1) (by omega)
+          (by omega),
         ihr (args := args) (i := i + 1) (by omega)] <;> finish
 
 /-- A stuck head is its own head normal form. -/
