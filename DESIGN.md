@@ -114600,3 +114600,151 @@ Option 1 keeps the engine and the proofs as they are; option 2 keeps the specifi
 * **Item 4**: the full `tests/arena.sh` with the engine on (6510aecf0): e2e 610/610, olean 122/122, selfcheck 57 354 declarations, arena tutorial 90/92 (as before), every other gate as expected except `whitepaper-links` (the bridge citation's `hwf`, and the CoreC/SimC header citations already a line off on this branch), fixed in bf4d5aaac; the whitepaper link gate passes.
 
 **Next**: the lane is complete and gated on `agent/423-sound`, for the maintainer's review before it lands; nothing open on layer (d).
+
+### #423 parked (2026-11-14): what was achieved, why it is parked, what to know when resuming
+
+**Status.** Parked by the maintainer on 2026-11-14 as a draft PR. Nothing is on
+master. The final state is `agent/423-sound`: the ground engine is always on and
+fully proved. The capstones and `Axioms.lean` are unchanged, with no `sorry` and
+no new axiom. The full `tests/arena.sh` passed at e6b3b94f5 (e2e 610/610,
+olean 122/122, selfcheck 57 354 declarations, tutorial 90/92).
+
+**What the feature is.**
+- **The site.** The comparison `t =?= Bool.true` (either orientation) with `t`
+  closed and free of loose bound variables. `decide`, `rfl` and grind
+  certificates end up there.
+- **What runs there.** Instead of lazy delta, the comparison runs a separate
+  evaluator, `ConLeche/Kernel/Ground.lean`. The cached core reaches it through
+  `Cached/GroundGate.lean`, and the specification through `groundSite` in
+  `defeqBody`.
+- **The engine.** It is a call-by-need abstract machine.
+  - **The program (`G4Prog`).** Every definition body and rule right-hand
+    side that is reached is compiled once into a code array. Constants become
+    table entries. Type, motive and proof arguments are erased by a per-constant
+    mask. Each distinct closed argument term gets one node with a sharing slot.
+  - **The heap.** Per run there are flat `Array Nat` arrays (cells, values,
+    environments, frames, argument spans), updated in place, and an
+    open-addressing application memo keyed by (entry, argument cells).
+- **Lifetimes.** The program is kept for the whole declaration
+  (`CState.ground4`, flushed in `CState.flushed` with the other memos). The heap
+  and the memo live for one run only.
+- **Steps.** β, ζ, δ, ι on constructor majors, `Nat` and `String` literal
+  steps with the 14 certified `Nat` operations, projections, `Quot`, and the K
+  step WITHOUT the index check (`Red.iotaK`).
+- **Unsupported steps** are declined (exit 2) and never handed back to the
+  incumbent. They are case-3 ι, structure-η or the `And` rescue on a stuck
+  major, and the `Acc`-like erased major.
+
+**What it achieved** (instructions:u; "own" = the benchmark's declarations without their prefix).
+
+| input | incumbent | engine | official | note |
+|---|---|---|---|---|
+| grind_field_kernel_cancel own (nightly) | 58.25 G | 15.73 G | 28.02 G | round 4; native code 0.31 G |
+| groebner_hard / groebner own | 12.40 / 2.06 G | 4.39 / 0.76 G | 4.79 / 0.94 G | round 4 |
+| lia_oss_verify_1–4 own | 2.6–4.9 G | 2.33–4.53 G | 2.36–4.09 G | about parity |
+| CFSG SpanChk / CCK4 / McLEnumA, expensive theorems, hash fix (#547) | 113 / 22.6 / 608 s | 18.8 / 4.7 / 122 s | 87 / 11.3 / 267 s | 4.8–6× incumbent, 2–4.6× official |
+| CFSG Adj56 (K skip) | 643 G | 293 G | 311 G | |
+| zeta's kernel-tuned `_k` checker (task #578), 10⁶–10⁸ per zero | 3.3–33 G | 6.0–70 G | 1.9–21 G | engine 1.8–2.1× WORSE than the incumbent |
+
+- **The hash bug.** Without the lean4#15686 fix, the CFSG figures looked like
+  158× on CCK4 and 15× on McLEnumA. That gain was the incumbent's literal-hash
+  bug, not the engine.
+- **C20.** Fi24Seven.C20 was never measured: the engine went over 30 GB within
+  40 s. Its heap only grows within a run, and §S records a likely missed sharing
+  of `Nat.succ ⟨lit⟩` values.
+
+**Why it is parked.**
+1. **Cost per step.** About 300 instructions per transition is the floor of
+   this design in Lean: rounds 2–4, `Array Nat` state, no unboxed word arrays.
+   The packed state is bounded at −20–25 % (round 4). That is the per-step
+   cost of Rocq's lazy machine, not of `vm_compute` (10–30).
+2. **Sharing.** Values are shared only within one run: the memo and the heap
+   are per run. The kernels' term caches live for the whole declaration. On
+   literal-heavy, kernel-tuned code that recomputes across many sites, the
+   kernels share and the engine does not. That is the zeta result.
+3. **Where it pays.** It pays only on code that is NOT tuned for the kernel:
+   `OfNat` towers, lazily built tables, unshared recomputation, Mathlib-style
+   `decide`. On tuned `_k` code it is at parity at best. That is not the value
+   the maintainer was after.
+4. **A more promising line.** The kernel-VM direction, with fixed-width
+   bytecode and unboxed words, measured 1.13× compiled Lean on zeta's main loop
+   (branch `joachim/kernel-vm-zeta`, see task #578).
+5. **The proof's size.** It is 14.4k lines in `Verify/Ground` (estimated
+   4.7–7.1k). Most of the overrun comes from keeping the program per
+   declaration (the two-run independence simulation, about 4.3k) and from
+   environment extension (`knot_ext`).
+
+**The proof, and what can be reused.** `Verify/Ground/*` and `Verify/Cached/GroundC.lean`:
+- **`Erased`: `Approx`/`ERed`/`ERed.lift`.** An erased reduction to `Bool.true`
+  lifts to `Red`. This is reusable for any erasing evaluator; it is the
+  analogue of Felicissimo et al. 2026 §6.
+- **`Compile`/`Keys`: one exact reading of the compiler (`Comp`).** `Den` is
+  derived from it. The compiler recurses on `sizeOf`; there is no compile fuel.
+- **The machine invariant and transition soundness.** `Machine`, `Refs`, `Run`,
+  `Step0/1/1N/1I/3/4`, `Sound` (`run_sound`), `Site` (`ground4_site`).
+- **Independence of the kept program.**
+  - `Memo` (`memoFind_agree`), `Sim*` (`MRel`/`SimAt` with an extra-step count
+    `j`, `sim_run`), `SimSite` (`ground4_fresh`) and `SiteExt` (`ground4_ext`,
+    lock-step at `j = 0`).
+  - `Fuel` (`g4Run_fuel_mono`, `g4Run_unbounded`).
+- **Kernel-side changes on the branch, independent of the engine:**
+  - `Red.iotaK` (ported from #552; master kept the index check);
+  - `ConstWF` records `rP ≤ mI`;
+  - `StoredFacts.natOps`;
+  - the bridge takes `EnvWF`.
+
+**Behaviour of the branch against master:**
+- `ground_k_index_differ` is accepted (K without the index check, beyond
+  official).
+- The unsupported-step fixtures decline (exit 2): `ground_eta_neutral`,
+  `ground_and_rescue`, `ground_case3_quot`, `ground_case3_punit`,
+  `ground_case3_acc_ctor`, `ground_acc_def`, `ground_case3`.
+
+**Rulings that hold only "while this is on a branch":**
+- The engine is always on.
+- K without the index check.
+- Decline instead of hand-back.
+- The specification calls the engine fresh, with no `Nat` size bound, at the
+  constant fuel `2 * groundFuel + 1`.
+- Environment extension by lock-step.
+
+**Rulings that hold regardless:**
+- Keep the program per declaration and prove its independence; it was
+  measured that compiling fresh per call costs +0.8 % on init-full.
+- Implementation not proof-guided (the memo hash stays).
+- Prove, don't check.
+
+**Open items when resuming:**
+1. **Memory.** The #578 measurement saw peak RSS grow across two batch
+   theorems (1.8×). `CState.ground4` is flushed with the other memos, so this
+   is most likely the two declarations being checked by parallel workers.
+   Re-check with `--jobs=1` before treating it as a bug.
+2. **C20's memory.** The heap is never collected within a run, and
+   `Nat.succ ⟨lit⟩` values are re-packed without being written back (§S, the
+   C20 note). The latter is a candidate obvious fix.
+3. **Benchmark set.** The original 20 nightly grind streams (`_tmp/422-bench`)
+   were deleted from disk. Regenerate them from the lean4 sources
+   (`tests/elab_bench`, `tests/ring_perf`, `tests/bench`) at
+   nightly-2026-10-30, with lean4export, renaming `example`s to theorems.
+   `_tmp/423-sound/fresh/` holds proxies.
+4. **Performance against current master** has not been re-measured since the
+   proof changed the engine. Folding the probe switches cost +0.30 % on SpanChk
+   (code layout, unexplained).
+5. **Gates to revisit:**
+   - `Step1I`'s public import of `InstSpine` (a suspected census mistake in
+     `scripts/pub-import-plan.py`);
+   - one shake-allowlist line for the `conleche_grind` attribute import;
+   - one pub-import fallback (`DefEqBridge` → `EnvWF`).
+6. **Whitepaper.** `whitepaper/sections/07-left-out.typ` now says the bridge
+   holds "in a well-formed environment". It needs the whitepaper campaign's
+   review.
+7. **Merging master.** The branch is 90 commits past its last master merge;
+   master has moved since. Expect conflicts in the cached core and the bridge.
+8. **Ideas not tried:**
+   - an interprocedural strictness pass (one pass in dependency order; no
+     fixpoint is needed because definitions are not recursive);
+   - sharing values across calls within a declaration, so the memo outlives
+     one run;
+   - η via projections as a rule (it removes the structure-η declines);
+   - after Lean's kernel renovation (lean4#14977, #15023, #15371), case 3 and
+     the `Acc` decline disappear (#350).
