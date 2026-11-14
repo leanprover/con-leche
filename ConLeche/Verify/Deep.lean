@@ -170,6 +170,19 @@ private theorem isCtorApp_shiftFrom {env : Env} (p : Nat) (e : Expr) :
   cases f <;> try rfl
   case fvar => rw [shiftFrom_fvar]
 
+/-- `isNatSuccApp` only reads the head constant, which shifting preserves. -/
+private theorem isNatSuccApp_shiftFrom (p : Nat) (e : Expr) :
+    (shiftFrom p e).isNatSuccApp = e.isNatSuccApp := by
+  cases e with
+  | app f a =>
+    rw [shiftFrom_app]
+    cases f with
+    | const n us => cases us <;> rfl
+    | fvar => rw [shiftFrom_fvar]; rfl
+    | _ => rfl
+  | fvar => rw [shiftFrom_fvar]; rfl
+  | _ => rfl
+
 /-- `rawNatLit?` only reads literal and constant heads, which shifting
 preserves. -/
 private theorem rawNatLit?_shiftFrom (p : Nat) (e : Expr) :
@@ -1464,19 +1477,20 @@ private theorem prepareMajor_shift (henv : EnvWF env)
     -- the chain after the first rescue attempt (task #342 R2), at any
     -- scoped intermediate major
     have tail : ∀ {mE : Expr}, WScoped d mE →
-        (if isCtorApp env (shiftFrom p mE) = true then pure (shiftFrom p mE)
+        (if (isCtorApp env (shiftFrom p mE) && !(shiftFrom p mE).isNatSuccApp) = true then
+            pure (shiftFrom p mE)
           else do
             let major₀ ← (pureFns mode eager env fuel).whnf (d + 1) (shiftFrom p mE)
             let major₁ ← litMajorToCtor (pureFns mode eager env fuel) env (d + 1) major₀
             majorToCtor mode (pureFns mode eager env fuel) env (d + 1) recName isK rules major₁) =
-          (if isCtorApp env mE = true then pure mE
+          (if (isCtorApp env mE && !mE.isNatSuccApp) = true then pure mE
             else do
               let major₀ ← (pureFns mode eager env fuel).whnf d mE
               let major₁ ← litMajorToCtor (pureFns mode eager env fuel) env d major₀
               majorToCtor mode (pureFns mode eager env fuel) env d recName isK rules major₁).map
             (shiftFrom p) := by
       intro mE hwE
-      rw [isCtorApp_shiftFrom]
+      rw [isCtorApp_shiftFrom, isNatSuccApp_shiftFrom]
       refine ite_rel _ (fun _ => rfl) (fun _ => ?_)
       refine bind_rel _ _ (ih.whnf hpd hwE) ?_
       intro m₀ hm₀

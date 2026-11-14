@@ -800,7 +800,12 @@ also the `And` rescue) run on the major **as found**, before any head
 normalization; only if they do not produce a constructor is the major
 head-normalized, its literal converted, and the rescue tried once more
 on the reduct.  A `String` literal skips the first attempt (lean4#15351
-leaves it to the literal conversion).
+leaves it to the literal conversion).  A `Nat.succ x` major, though a
+constructor application, is head-normalized too (task #582): the
+official kernel's whnf folds it to a literal (`reduce_nat`), and every
+other constructor application is its own whnf there.  Left as it is, a
+counter that forces its index through `Nat.succ` (`Nat.rec … (Nat.succ
+i)`) carried a unary tower that grew by one level per step.
 
 Why the rescue comes first (task #342 R2, the arena's
 `corner-cases/eta-struct-major-no-whnf` and
@@ -861,7 +866,7 @@ def prepareMajor (r : CoreFns m) (env : Env) (depth : Nat)
   else
     let majorE ← if major.isStrLit then pure major
       else majorToCtor mode r env depth recName isK rules major
-    if isCtorApp env majorE then
+    if isCtorApp env majorE && !majorE.isNatSuccApp then
       pure majorE
     else
       let major₀ ← r.whnf depth majorE

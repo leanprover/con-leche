@@ -967,11 +967,11 @@ without a certificate, through the projections of the major.
 #real[
   The checker decides the case with one level test per redex: whether
   the constructor's family is
-  #src("ConLeche/Kernel/CoreDefs.lean", 81, 89)[never a proposition]
+  #src("ConLeche/Kernel/CoreDefs.lean", 91, 99)[never a proposition]
   at the levels the rule compares with, read off the family's type where
   the question is asked. A K rule and a family that is never
   a proposition fire with no check; every
-  #src("ConLeche/Kernel/CoreDefs.lean", 96, 98)[other rule] is the
+  #src("ConLeche/Kernel/CoreDefs.lean", 106, 108)[other rule] is the
   certified case, as in the fragment.
 ]
 
