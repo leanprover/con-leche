@@ -162,6 +162,7 @@ ConLeche.whnfLoopFuel
 # ConLeche.Kernel.CoreDefs — O(1)/O(spine) readers, Nat-op tables and guards over environment lookups
 ConLeche.Expr.ioNeutral
 ConLeche.Expr.isBoolTrue
+ConLeche.Expr.isNatSuccApp
 ConLeche.andRescueSlotsOf
 ConLeche.boolFalseName
 ConLeche.boolName

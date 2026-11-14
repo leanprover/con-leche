@@ -354,11 +354,11 @@ theorem prepareTail_rel (mode : CheckMode) (name : Name) (isK : Bool) {rules : L
     {mE : Expr} (hrc : ∀ rl ∈ rules, (env₁.find? rl.ctor).isSome = true)
     (hmE : Res env₁ mE) :
     Rel (Res env₁)
-      (if isCtorApp env₂ mE = true then pure mE else do
+      (if (isCtorApp env₂ mE && !mE.isNatSuccApp) = true then pure mE else do
         let major₀ ← r₂.whnf d mE
         let major₁ ← litMajorToCtor r₂ env₂ d major₀
         majorToCtor mode r₂ env₂ d name isK rules major₁)
-      (if isCtorApp env₁ mE = true then pure mE else do
+      (if (isCtorApp env₁ mE && !mE.isNatSuccApp) = true then pure mE else do
         let major₀ ← r₁.whnf d mE
         let major₁ ← litMajorToCtor r₁ env₁ d major₀
         majorToCtor mode r₁ env₁ d name isK rules major₁) := by
