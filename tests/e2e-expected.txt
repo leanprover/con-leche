@@ -3451,3 +3451,11 @@
 # sources carry the recipe).
 0 unitlike_lean4_13371.ndjson
 0 unitlike_lean4_match4.ndjson
+# strict_succ_counter.ndjson (DESIGN #580, #582): a strict counter of 200 000
+# steps in the shape of CFSG's `strictB`/`runF`, each step forcing its index
+# with a `Nat.rec` on `Nat.succ i`.  Accepted in about 2 s with the whnf of a
+# `Nat.succ` major, as the official kernel takes it; taken as it stands, the
+# index is a unary tower whose 32-bit hash cycles (period 93 220), and the
+# check takes minutes, which the 10 s timeout in tests/arena.sh turns into a
+# failure (exit 124).
+0 strict_succ_counter.ndjson
