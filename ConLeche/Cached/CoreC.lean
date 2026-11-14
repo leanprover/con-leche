@@ -934,7 +934,7 @@ raw major; task #334 — no `whnf` either way after it: if it produced a
 constructor, only the literal conversion follows; if it failed, the
 major is left exactly as it is; elsewhere the structure rescues on the
 raw major first (lean4#15351, task #342 R2), and only if they produce
-no constructor whnf, literal, rescue).  The K flag is the single rule's
+no constructor, or `Nat.succ x` (task #582), whnf, literal, rescue).  The K flag is the single rule's
 record's flag, as in the spec. -/
 def prepareMajorI (eager : Bool) (lv : Nat) (depth : Nat)
     (recName : Name) (isK : Bool) (rules : List RecRule) (major : Expr) :
@@ -947,7 +947,7 @@ def prepareMajorI (eager : Bool) (lv : Nat) (depth : Nat)
   else do
     let majorE ← if major.isStrLit then pure major
       else majorToCtorI eager lv depth recName isK rules major
-    if isCtorAppC fe majorE then pure majorE
+    if isCtorAppC fe majorE && !majorE.isNatSuccApp then pure majorE
     else do
       let major₀ ← whnfI eager lv depth majorE
       let major₁ ← litMajorToCtorI eager lv depth major₀

@@ -45,6 +45,16 @@ def Expr.ioNeutral (e : Expr) : Bool :=
   | _ => true
 
 
+/-- **Is the expression `Nat.succ x`?**  The one constructor application
+whose whnf is not itself: the official kernel's whnf folds it to a
+literal (`reduce_nat`'s one-argument case) when `x` reduces to one.  The
+ι step's major takes that whnf (`prepareMajor`), so a counter that forces
+its index through `Nat.succ` holds a literal, not a unary tower (task
+#582). -/
+def Expr.isNatSuccApp : Expr → Bool
+  | .app (.const c []) _ => c == natSuccName
+  | _ => false
+
 /-- Is the expression headed by a stored constructor? -/
 def isCtorApp (env : Env) (e : Expr) : Bool :=
   match e.getAppFn with
