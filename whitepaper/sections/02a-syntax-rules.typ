@@ -308,8 +308,8 @@ itself in place of the variable.
 
 #real[
   The checker substitutes the value in the same way, both when it
-  #src("ConLeche/Kernel/Core.lean", 1070, 1072)[reduces] and when it
-  #src("ConLeche/Kernel/Core.lean", 1314, 1319)[infers]\; it keeps no
+  #src("ConLeche/Kernel/Core.lean", 1075, 1077)[reduces] and when it
+  #src("ConLeche/Kernel/Core.lean", 1319, 1324)[infers]\; it keeps no
   variables bound to values.
   The official kernel opens the body at such a variable instead, which
   avoids copying the value when the body uses it many times; for
