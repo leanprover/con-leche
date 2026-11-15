@@ -176,39 +176,39 @@ order: the last field is substituted for `bvar 0`). -/
   pushRange (pushRange (Array.emptyWithCapacity (p + (margs.size - q))) args 0 p)
     margs q margs.size
 
-/-- The arity pre-check of the ι step: `iotaRecI` returns `none`
-unless the head is a stored recursor applied to exactly `majorIdx + 1`
-arguments with the recursor's own number of levels
-(`iotaRecI_of_arityOk_false`).  The whnf spine loop asks this before
-every ι attempt, which is allocation-free where the ι step's own guard
-would first materialise the argument list. -/
-def iotaArityOk (fe : FEnv) (e : Expr) : Bool :=
-  match Expr.getAppFn e with
-  | .const c us =>
-    match fe.find? c with
-    | some (.recInfo cv mI _ _ _) =>
-      iotaNumArgs e 0 == mI + 1 && us.length == cv.levelParams.length
-    | _ => false
-  | _ => false
-
 /-- A spine head that is its own head normal form and not a lambda: the
 heads `whnfCoreEasy` answers with themselves, but a lambda. -/
 def isStuckHeadC : Expr → Bool
   | .sort _ | .fvar .. | .forallE .. | .const .. | .lit _ => true
   | _ => false
 
-/-- The ι target of a spine head: the spine length `mI + 1` at which
-`iotaRecI` can fire, where the head is a stored recursor at its own
-number of levels (the arity test of `iotaArityOk`, read off the head
-once). -/
-def iotaTargetF (fe : FEnv) (h : Expr) : Option Nat :=
-  match h with
-  | .const c us =>
-    match fe.find? c with
-    | some (.recInfo cv mI _ _ _) =>
-      if us.length = cv.levelParams.length then some (mI + 1) else none
-    | _ => none
-  | _ => none
+/-- **A major premise as the ι step reads it**: a spine headed by a
+stored constructor, with the constructor's name, levels and record
+(found once, where the major is classified, and handed down to the rule's
+firing), or any other term. -/
+inductive MajorView where
+  | ctor (e : Expr) (cj : Name) (usj : List Level) (cvj : ConstantVal) (nP nF : Nat)
+      (induct : Name)
+  | stuck (e : Expr)
+
+/-- The classified term. -/
+def MajorView.expr : MajorView → Expr
+  | .ctor e .. => e
+  | .stuck e => e
+
+/-- Is the term headed by a stored constructor? -/
+def MajorView.isCtor : MajorView → Bool
+  | .ctor .. => true
+  | .stuck _ => false
+
+/-- `isCtorApp` through the index, keeping what the lookup found. -/
+def ctorViewC (fe : FEnv) (e : Expr) : MajorView :=
+  match Expr.getAppFn e with
+  | .const cj usj =>
+    match fe.find? cj with
+    | some (.ctorInfo cvj nP nF induct) => .ctor e cj usj cvj nP nF induct
+    | _ => .stuck e
+  | _ => .stuck e
 
 /-- Twin of `projCert`, through the index. -/
 def projCertF (fe : FEnv) (c : Name) (args : List Expr) : Bool :=
@@ -818,11 +818,15 @@ def iotaCase3I (eager : Bool) (lv : Nat) (find? : Name → Option ConstantInfo) 
   | none => pure true
 termination_by (lv, 22, 0, 0)
 
-/-- Twin of `majorToCtor`. -/
+/-- Twin of `majorToCtor`, answering with the result classified
+(`MajorView`): the major's own classification where it is a constructor
+application, the fabricated spine's where a rescue fires, and `.stuck
+major` where none does. -/
 def majorToCtorI (eager : Bool) (lv : Nat) (depth : Nat)
     (_recName : Name) (isK : Bool) (rules : List RecRule) (major : Expr) :
-    CheckCM Expr := do
-  if ← pure (isCtorAppC fe major) then pure major else
+    CheckCM MajorView := do
+  let v ← pure (ctorViewC fe major)
+  if v.isCtor then pure v else
   match rules with
   | [rl] =>
     match fe.find? rl.ctor with
@@ -851,13 +855,13 @@ def majorToCtorI (eager : Bool) (lv : Nat) (depth : Nat)
                   let tfab ← inferI eager lv true depth fab
                   if ← defeqI eager lv depth tmaj tfab then
                     if ← certAtI mode (proofIrrelI eager lv depth fab major) then
-                      pure fab
-                    else pure major
-                  else pure major
-                else pure major
-              else pure major
-            else pure major
-          | _ => pure major
+                      pure (ctorViewC fe fab)
+                    else pure (.stuck major)
+                  else pure (.stuck major)
+                else pure (.stuck major)
+              else pure (.stuck major)
+            else pure (.stuck major)
+          | _ => pure (.stuck major)
         else match etaRescueTable? (fe.findTable? T) rl.ctor cvj cvT caps with
         | some tbl => do
           let tmaj₀ ← inferI eager lv true depth major
@@ -880,11 +884,11 @@ def majorToCtorI (eager : Bool) (lv : Nat) (depth : Nat)
                 if ← pure (Expr.wscopedBC depth fab &&
                     Expr.looseBVarsBounded 0 fab &&
                     Expr.leafGuard fab major) then
-                  pure fab
-                else pure major
-              else pure major
-            else pure major
-          | _ => pure major
+                  pure (ctorViewC fe fab)
+                else pure (.stuck major)
+              else pure (.stuck major)
+            else pure (.stuck major)
+          | _ => pure (.stuck major)
         | none =>
           if T = andName then do
             -- the `And`-only rescue, as in the spec body
@@ -907,16 +911,16 @@ def majorToCtorI (eager : Bool) (lv : Nat) (depth : Nat)
                   let tfab ← inferI eager lv true depth fab
                   if ← defeqI eager lv depth tmaj tfab then
                     if ← certAtI mode (proofIrrelI eager lv depth fab major) then
-                      pure fab
-                    else pure major
-                  else pure major
-                else pure major
-              else pure major
-            | _ => pure major
-          else pure major
-      | _ => pure major
-    | _ => pure major
-  | _ => pure major
+                      pure (ctorViewC fe fab)
+                    else pure (.stuck major)
+                  else pure (.stuck major)
+                else pure (.stuck major)
+              else pure (.stuck major)
+            | _ => pure (.stuck major)
+          else pure (.stuck major)
+      | _ => pure (.stuck major)
+    | _ => pure (.stuck major)
+  | _ => pure (.stuck major)
 termination_by (lv, 23, 0, 0)
 
 /-- Twin of `litMajorToCtor`. -/
@@ -952,109 +956,98 @@ no constructor, or `Nat.succ x` (task #582), whnf, literal, rescue).  The K flag
 record's flag, as in the spec. -/
 def prepareMajorI (eager : Bool) (lv : Nat) (depth : Nat)
     (recName : Name) (isK : Bool) (rules : List RecRule) (major : Expr) :
-    CheckCM Expr := do
-  if isK then do
-    let majorK ← majorToCtorI eager lv depth recName isK rules major
-    if isCtorAppC fe majorK then
-      litMajorToCtorI eager lv depth majorK
-    else pure majorK
+    CheckCM MajorView := do
+  -- on the K side the spec's literal conversion of a constructor
+  -- application is the identity
+  if isK then majorToCtorI eager lv depth recName isK rules major
   else do
-    let majorE ← if major.isStrLit then pure major
+    let vE ← if major.isStrLit then pure (.stuck major)
       else majorToCtorI eager lv depth recName isK rules major
-    if isCtorAppC fe majorE && !majorE.isNatSuccApp then pure majorE
+    if vE.isCtor && !vE.expr.isNatSuccApp then pure vE
     else do
-      let major₀ ← whnfI eager lv depth majorE
+      let major₀ ← whnfI eager lv depth vE.expr
       let major₁ ← litMajorToCtorI eager lv depth major₀
       majorToCtorI eager lv depth recName isK rules major₁
 termination_by (lv, 26, 0, 0)
 
-/-- Twin of `iotaRec`, on the array spine `args` of a spine headed by `h`:
-the ι step at the redex `h args[0:k]`.  Nothing of the redex is rebuilt:
-the reduct is the rule's right-hand side applied to two ranges, the
-recursor's leading arguments and the constructor's fields. -/
-def iotaRecI (eager : Bool) (lv : Nat) (depth : Nat) (h : Expr) (args : Array Expr)
-    (k : Nat) : CheckCM (Option Expr) := do
-  match h with
-  | .const c us => do
-    let cn ← pure c
-    match fe.find? cn with
-    | some (.recInfo cv mI rP isK rules) => do
-      -- checker change #9 (twin of `Core.lean`'s `iotaRec`): guard the
-      -- recursor's level arity before the rule's RHS is instantiated.
-      if k = mI + 1 ∧ k ≤ args.size ∧ us.length = cv.levelParams.length ∧
-          (Expr.peelPis (mI + 1) cv.type).isSome = true then do
-        let major ← prepareMajorI eager lv depth cn isK rules (spineArg args mI)
-        match Expr.getAppFn major with
-        | .const cj usj => do
-          let cjn ← pure cj
-          match fe.find? cjn with
-          | some (.ctorInfo cvj cnP _ induct) =>
-            match rules.find? (fun r' => r'.ctor == cjn) with
-            | some rl => do
-              let margs ← pure (getAppArgsArr major)
-              if margs.size = cnP + rl.nfields then do
-                -- ONE certificate family (task #342 L10, S5c; official's
-                -- `inductive_reduce_rec` checks nothing of the major's
-                -- constructor), so the whole block is what `.trusted`
-                -- omits: at a case-3 redex — not K, the constructor's
-                -- family may be `Prop` at the comparand levels (plain: the
-                -- recursor's levels; nested: the stored major-domain
-                -- instantiation) — the constructor's levels and parameters
-                -- against the comparands (the parameter comparands, plain:
-                -- the recursor's leading arguments; nested: the stored
-                -- pins at them), the constructor telescope at the FULL
-                -- grade and the canonical-index comparison (which exists
-                -- only where indices do — the spec's `iotaRec`).  The
-                -- recursor's spine is never certified (task #349); the
-                -- types are looked up only where a certificate consumes
-                -- them (DESIGN.md, "CORET RETIRED", inversion 22).  The
-                -- certificates read lists: they are made only here, at a
-                -- case-3 redex.
-                if ← certAtI mode (do
-                  -- case 2 by the stored facts: no comparand is computed
-                  if iotaNoCert fe.find? isK induct (recFireLevelCount rl cvj.levelParams) then
-                    pure true
-                  else do
-                    let cmpLvls : List Level ←
-                      match rl.fire with
-                      | .nested lvls _ => substLevelTreesM cv.levelParams us lvls
-                      | .plain =>
-                        substLevelTreesM cv.levelParams us
-                          (cvj.levelParams.map Level.param)
-                      | .levels lvls => substLevelTreesM cv.levelParams us lvls
-                    if ← iotaCase3I eager lv fe.find? isK induct cmpLvls then do
-                      let oL ← isEquivListLM usj cmpLvls
-                      if ← liftFueled "level comparison" oL then do
-                        let argsL ← pure (args.toList.take k)
-                        let margsL ← pure margs.toList
-                        let cmpArgs : List Expr ←
-                          match rl.fire with
-                          | .nested _ pins =>
-                            pinArgsI cv.levelParams us (argsL.take rP) (rP - 1) pins
-                          | .plain => pure (argsL.take cnP)
-                          | .levels _ => pure (argsL.take cnP)
-                        if ← defEqListI eager lv depth (margsL.take cnP) cmpArgs then do
-                          let tyCtor ← constTyAtM fe cj cjn usj
-                          if ← iotaCertsFullI eager lv depth tyCtor margsL then
-                            iotaIndexOkI eager lv depth mI rP cnP tyCtor
-                              margsL ((argsL.take mI).drop rP)
-                          else pure false
-                        else pure false
-                      else pure false
-                    else pure true) then do
-                  -- lean4 PR #10565's ι step: the rule's body under its
-                  -- binders (the per-declaration memo), one substitution
-                  -- from the spine, no β-redex
-                  let body ← ruleBodyAtM fe c cj cn cjn us
-                  pure (some (Expr.instantiateRev body (iotaVals args (min rP k) margs cnP)))
-                else pure none
-              else pure none
-            | none => pure none
-          | _ => pure none
-        | _ => pure none
-      else pure none
-    | _ => pure none
-  | _ => pure none
+/-- Twin of `iotaRec`, at the stored recursor `c` (its record `cv mI rP isK
+rules`, found by the caller, at the levels `us`, which the caller has
+checked against the record) on the array spine `args`, at least `mI + 1`
+long: the ι step at the redex `c.{us} args[0:mI+1]`.  Nothing of the
+redex is rebuilt: the reduct is the rule's right-hand side applied to two
+ranges, the recursor's leading arguments and the constructor's fields. -/
+def iotaRecI (eager : Bool) (lv : Nat) (depth : Nat) (c : Name) (us : List Level)
+    (cv : ConstantVal) (mI rP : Nat) (isK : Bool) (rules : List RecRule) (args : Array Expr) :
+    CheckCM (Option Expr) := do
+  -- checker change #9 (twin of `Core.lean`'s `iotaRec`): the recursor's
+  -- level arity is guarded (by the caller) before the rule's RHS is
+  -- instantiated
+  if (Expr.peelPis (mI + 1) cv.type).isSome = true then do
+    match ← prepareMajorI eager lv depth c isK rules (spineArg args mI) with
+    | .ctor major cj usj cvj cnP _ induct =>
+      match rules.find? (fun r' => r'.ctor == cj) with
+      | some rl => do
+        let margs ← pure (getAppArgsArr major)
+        if margs.size = cnP + rl.nfields then do
+          -- ONE certificate family (task #342 L10, S5c; official's
+          -- `inductive_reduce_rec` checks nothing of the major's
+          -- constructor), so the whole block is what `.trusted`
+          -- omits: at a case-3 redex — not K, the constructor's
+          -- family may be `Prop` at the comparand levels (plain: the
+          -- recursor's levels; nested: the stored major-domain
+          -- instantiation) — the constructor's levels and parameters
+          -- against the comparands (the parameter comparands, plain:
+          -- the recursor's leading arguments; nested: the stored
+          -- pins at them), the constructor telescope at the FULL
+          -- grade and the canonical-index comparison (which exists
+          -- only where indices do — the spec's `iotaRec`).  The
+          -- recursor's spine is never certified (task #349); the
+          -- types are looked up only where a certificate consumes
+          -- them (DESIGN.md, "CORET RETIRED", inversion 22).  The
+          -- certificates read lists: they are made only here, at a
+          -- case-3 redex.
+          if ← certAtI mode (do
+            -- case 2 by the stored facts: no comparand is computed
+            if iotaNoCert fe.find? isK induct (recFireLevelCount rl cvj.levelParams) then
+              pure true
+            else do
+              let cmpLvls : List Level ←
+                match rl.fire with
+                | .nested lvls _ => substLevelTreesM cv.levelParams us lvls
+                | .plain =>
+                  substLevelTreesM cv.levelParams us
+                    (cvj.levelParams.map Level.param)
+                | .levels lvls => substLevelTreesM cv.levelParams us lvls
+              if ← iotaCase3I eager lv fe.find? isK induct cmpLvls then do
+                let oL ← isEquivListLM usj cmpLvls
+                if ← liftFueled "level comparison" oL then do
+                  let argsL ← pure (args.toList.take (mI + 1))
+                  let margsL ← pure margs.toList
+                  let cmpArgs : List Expr ←
+                    match rl.fire with
+                    | .nested _ pins =>
+                      pinArgsI cv.levelParams us (argsL.take rP) (rP - 1) pins
+                    | .plain => pure (argsL.take cnP)
+                    | .levels _ => pure (argsL.take cnP)
+                  if ← defEqListI eager lv depth (margsL.take cnP) cmpArgs then do
+                    let tyCtor ← constTyAtM fe cj cj usj
+                    if ← iotaCertsFullI eager lv depth tyCtor margsL then
+                      iotaIndexOkI eager lv depth mI rP cnP tyCtor
+                        margsL ((argsL.take mI).drop rP)
+                    else pure false
+                  else pure false
+                else pure false
+              else pure true) then do
+            -- lean4 PR #10565's ι step: the rule's body under its
+            -- binders (the per-declaration memo), one substitution
+            -- from the spine, no β-redex
+            let body ← ruleBodyAtM fe c cj c cj us
+            pure (some (Expr.instantiateRev body (iotaVals args (min rP (mI + 1)) margs cnP)))
+          else pure none
+        else pure none
+      | none => pure none
+    | .stuck _ => pure none
+  else pure none
 termination_by (lv, 27, 0, 0)
 
 /-- Twin of `reduceProjCore`. -/
@@ -1127,33 +1120,44 @@ def whnfAppI (eager : Bool) (lv : Nat) (depth : Nat)
         betaPeelI eager lv depth body i args (i + 1)
     | _ => do
       let fa ← pure (Expr.app v args[i])
-      -- the ι step is tried only where it could fire; every other
-      -- prefix of the spine returns `none` by `iotaRecI`'s own guard
-      match ← (if iotaArityOk fe fa then
-                 iotaRecI eager lv depth (Expr.getAppFn fa) (getAppArgsArr fa)
-                   (iotaNumArgs fa 0)
-               else pure none) with
-      | some e'' => pure (.cont (mkAppRange e'' args (i + 1) args.size))
-      | none => whnfAppI eager lv depth fa args (i + 1)
+      -- the ι step is tried only where it can fire: a stored recursor
+      -- at its own number of levels, applied to exactly `mI + 1`
+      -- arguments
+      match Expr.getAppFn fa with
+      | .const c us =>
+        match fe.find? c with
+        | some (.recInfo cv mI rP isK rules) =>
+          if iotaNumArgs fa 0 = mI + 1 ∧ us.length = cv.levelParams.length then do
+            match ← iotaRecI eager lv depth c us cv mI rP isK rules (getAppArgsArr fa) with
+            | some e'' => pure (.cont (mkAppRange e'' args (i + 1) args.size))
+            | none => whnfAppI eager lv depth fa args (i + 1)
+          else whnfAppI eager lv depth fa args (i + 1)
+        | _ => whnfAppI eager lv depth fa args (i + 1)
+      | _ => whnfAppI eager lv depth fa args (i + 1)
   else pure (.done v)
 termination_by (lv, 30, args.size - i, 0)
 
 /-- A spine `e` whose head `h` is its own head normal form and not a
 lambda (official `whnf_core`'s `f == f0` arm,
 `src/kernel/type_checker.cpp:525-536`): the ι step, tried once, at the
-one prefix where it can fire (`iotaTargetF`), on the spine's argument
-array, and otherwise the input itself, with nothing rebuilt. -/
+one prefix where it can fire (a stored recursor at its own number of
+levels: the prefix of `mI + 1` arguments), on the spine's argument array,
+and otherwise the input itself, with nothing rebuilt.  The recursor's
+record is looked up here, once, and handed to the ι step. -/
 def whnfStuckI (eager : Bool) (lv : Nat) (depth : Nat) (h e : Expr) :
     CheckCM WhnfStep := do
-  match iotaTargetF fe h with
-  | some k =>
-    if k ≤ iotaNumArgs e 0 then do
-      let args ← pure (getAppArgsArr e)
-      match ← iotaRecI eager lv depth h args k with
-      | some e'' => pure (.cont (mkAppRange e'' args k args.size))
-      | none => pure (.done e)
-    else pure (.done e)
-  | none => pure (.done e)
+  match h with
+  | .const c us =>
+    match fe.find? c with
+    | some (.recInfo cv mI rP isK rules) =>
+      if us.length = cv.levelParams.length ∧ mI + 1 ≤ iotaNumArgs e 0 then do
+        let args ← pure (getAppArgsArr e)
+        match ← iotaRecI eager lv depth c us cv mI rP isK rules args with
+        | some e'' => pure (.cont (mkAppRange e'' args (mI + 1) args.size))
+        | none => pure (.done e)
+      else pure (.done e)
+    | _ => pure (.done e)
+  | _ => pure (.done e)
 termination_by (lv, 30, 0, 0)
 
 /-- One head-normalization step of `whnfCoreBody` (beta, iota,
