@@ -115273,3 +115273,23 @@ stream's stdout and exit code identical):
 **Gates.**  `lake build` and `lake test` warning-free; `tests/arena.sh` green (e2e 609/609);
 the link gates re-pointed (`OVERVIEW.md`, the whitepaper's two citations that moved); the
 plain-reach allowlist loses `Expr.isBoolTrue`.
+
+## TASK #593 — OVERVIEW §14: an index of the departures from the official kernel (2026-11-15, agent/593-departures)
+
+OVERVIEW described each deliberate departure from the official kernel where its mechanism is,
+and §9 listed only the four that accept more.  §14 now indexes all of them in groups: what
+accepts more, what rejects or declines more, what reaches the same verdict by another route (the
+constructor shortcut of task #592, the certified `Nat` fast path, nested blocks without an
+auxiliary block, the stream's recursors installed after comparison) and the checks only the proof
+needs, with a fifth group first: what the checker already has of the official kernel's logic
+renovation (lean4#14977) — proofs compared before reduction (lean4#15103), opaque theorems, the
+recursor-major rescue order (lean4#15371), the wider unit-like η and the partial-constructor η
+(lean4#15372/#15373), semantic level comparison, large elimination of sort-polymorphic
+single-constructor blocks — and one line on what it does not follow yet (`Acc` large elimination
+lean4#13851, `Quot` in `Type` lean4#15023, lean4#15374, explicit feature flags).  The merged
+renovation PRs are on lean4 master and in no release (checked against v4.36.0-rc2,
+2026-11-15).  §3 cited the closed lean4#15351 for the rescue order; it now cites lean4#15371,
+the merged change.  Each line points to the section that explains it; §14 adds no facts of its
+own.  It is
+appended rather than inserted so the section numbers cited elsewhere (§11, §12 in CLAUDE.md)
+stay.  A new departure gets a line there.

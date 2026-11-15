@@ -693,7 +693,7 @@ the major's type) applies — and if the K rule's rescue *fails*, the
 major is left exactly as it is, never head-normalized, so a K-like
 recursor never reduces a proof. A structure major is likewise rescued
 from its type before it is reduced, in the order the official kernel
-adopts with its logic renovation (lean4#15351): the constructor of the
+adopts with its logic renovation (lean4#15371): the constructor of the
 major's projections is built from the major as found, and only if no
 rescue applies is the major head-normalized, so a major with no normal
 form does not stop the recursor. This too deviates from the official
@@ -1620,6 +1620,7 @@ declare it.)
   official kernel generates only the small one, this checker takes the
   subsingleton case under a per-field criterion; and the
   `And` rescue of §3. All four are covered by the soundness proof.
+  §14 lists every deliberate departure from the official kernel.
 
 ## 10. Naming conventions
 
@@ -1783,3 +1784,78 @@ performance device over the same data. The pinned basis blocks and the Nat-op pi
 shapes, compared against the input, so they are code. Some things are
 stored with less than Lean keeps: a theorem without its value, an opaque
 constant as an axiom.
+
+## 14. Where the checker departs from the official kernel
+
+The checker follows the official kernel's algorithm and order (§3,
+§5). This section lists the deliberate departures from the current
+release; each is described where its mechanism is.
+
+**Ahead of the kernel logic renovation.** The official kernel's logic
+renovation (lean4#14977) aims for a decidable definitional equality,
+proofs that never have to be reduced, and complete level comparison.
+Some of its changes are on lean4 master but in no release yet; others
+are still planned. The checker already has these:
+* Two proofs are compared by their types before either is reduced, so
+  a proof without a normal form does not stop a comparison on which
+  the released kernel loops (§3; lean4#15103, on master).
+* A theorem's value is never unfolded, so no proof is reduced to
+  decide a conversion (§3).
+* A recursor's major premise is rescued from its type before it is
+  reduced, and a K-like major whose rescue fails is not reduced at all
+  (§3; the order of lean4#15371, on master, which also covers more
+  structures than the checker does).
+* The wider unit-like η (a Π-type into a unit-like type, a structure of
+  propositions and unit-like fields) and the η of a partially applied
+  constructor (§3, §13; lean4#15372 and lean4#15373, on master).
+* Universe levels are compared semantically (§9; the planned complete
+  level comparison).
+* A single-constructor block whose result sort can be zero gets the
+  large eliminator under a per-field criterion, where the released
+  kernel generates only the small one (§9; the planned large
+  elimination of sort-polymorphic structures).
+
+Not yet followed: `Acc` and the other recursive predicates keep their
+large eliminator (lean4#13851), `Quot` of a proposition stays a
+proposition (lean4#15023), partial recursor applications are not
+η-expanded (lean4#15374), and the inductive types' features are read
+off their declarations rather than from explicit flags.
+
+**It accepts more**, beyond the renovation. The soundness proof covers
+each of these.
+* Proof irrelevance falls through (§9).
+* A major premise of `And.rec` is rescued from its type, since a
+  theorem's value, being opaque, cannot be reduced to `And.intro` (§3).
+
+**It rejects or declines more.**
+* An axiom other than the standard ones declines, with the exceptions
+  §8 names, and so does a proof by `native_decide` or `bv_decide` (§8).
+* The well-founded `Nat` operations are accelerated only for a
+  definition that matches a pin; a stream matching none of them
+  declines (§6). The official kernel accelerates by name.
+* The names the checker gives a meaning (the pinned basis types and
+  `And`, the names a literal's meaning reads, `Bool`) must have the
+  expected shape (§5).
+* A block without recursor records is invalid input; the official
+  kernel generates the recursors itself (§5).
+* Where the opaque theorems and the rescue order of the renovation
+  leave a conversion incomplete, the checker rejects what the released
+  kernel accepts by reducing a proof (§3).
+
+**The verdict is the same, the route differs.**
+* When one side of a comparison is a closed, fully applied constructor
+  application of a type that is never a proposition, has no η law and
+  is not `Nat`, the other side is head-normalized at once. The official
+  kernel does this only for `Bool.true` (§3).
+* The structural `Nat` operations' fast path is certified at install
+  rather than trusted by name (§6).
+* A nested block is checked through its containers at their concrete
+  instantiations, with no auxiliary mutual block (§5).
+* The stream's recursors are installed once they agree with the
+  generated ones; the official kernel installs its own (§5).
+
+**Checks that only the proof needs.**
+* In verified mode: the full-grade types of the opened bodies at a
+  λ/λ comparison and at η, and proof irrelevance between the K and
+  `And` rescues' constructor applications and the major (§3).
+* Three checks in the inductive installer (§5).
