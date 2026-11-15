@@ -114965,6 +114965,45 @@ without one.
 
 **Outcome** (2026-11-15): the maintainer chose the peel, without the key and with the rule's closed right-hand side kept (task #585, landed).  The prototypes' branches are deleted; this record was copied to master so the comparison can be found.
 
+## TASK #587 — erasing proof arguments from stored values: measured, not pursued (2026-11-15, agent/587-proof-erasure)
+
+**The question** (the maintainer): since proofs are never reduced, could a
+definition's stored value carry an untyped marker in place of each proof
+argument?  The marker would take its type from the function's domain where
+one is needed, and substitution would no longer copy proofs.
+
+**The probe** (branch `agent/587-proof-erasure`, commit `baa6a3dcb`;
+unproved, two `sorry`s, not for landing).  It counts the nodes every
+substitution walk allocates.  After each definition is checked, it replaces
+the proof arguments in the stored value with a marker.  Variant 1 erases
+values only; variant 2 also erases stored types.  Then it checks the stream
+a second time against the erased values.
+
+**Numbers** (`instructions:u`, all inside the probe binary):
+* Proof nodes are about **0.4 %** of what substitution allocates on
+  `init-full` (608 796 of 140.8 M), `grind-ring-5` and
+  `grind_field_cancel_inv`, and 2.4 % on `init-prelude`.  A static census
+  of `Init` had 5.4 % of data-definition value nodes inside proofs, so the
+  proof-carrying bodies are substituted rarely.  The synthetic perf streams
+  have no proof arguments.
+* The second check is 0.6 % (variant 1) to 1.7 % (variant 2) cheaper on
+  `init-full`, 0.6–0.7 % on `grind-ring-5`, about 1.7 % on `init-prelude`.
+  That is the ceiling.  The probe's erasure pass re-infers arguments after
+  the check and costs +6.5 % (variant 1) or +68 % (variant 2) of a run.  An
+  erasure built into the value check would cost less, but the ceiling stays.
+* A marker carrying its type (`@trustMe P`) is worse still: in `Init` the
+  proofs' types are 3.2 times the size of the proofs.
+
+**Why the expected type does not suffice.**  It works for proof irrelevance
+inside a spine and for the K rule: the probe builds the K constructor from
+the recursor's major domain.  It does not work where the proof itself is
+needed.  The marker reached three such places: the major premise of a
+non-K recursor (`Acc.rec` in `WellFounded.fixF_eq`), a projection out of a
+proof, and a proof applied as a function (`fun h => h x`).  9 `Init`
+theorems no longer check with variant 1, and 28 with variant 2.  At erasure
+time it is not known whether a proof will reach one of these places.
+
+**Decision**: not pursued.
 
 ## TASK #591 — the ι step looks each record up once (2026-11-15, agent/591-iota-lookups)
 
